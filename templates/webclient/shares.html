@@ -21,29 +21,28 @@
 
 <div class="card shadow mb-4">
     <div class="card-header py-3">
-        <h6 class="m-0 font-weight-bold text-primary">View and manage folders</h6>
+        <h6 class="m-0 font-weight-bold text-primary">View and manage shares</h6>
     </div>
     <div class="card-body">
         <div class="table-responsive">
             <table class="table table-hover nowrap" id="dataTable" width="100%" cellspacing="0">
                 <thead>
                     <tr>
+                        <th>ID</th>
                         <th>Name</th>
-                        <th>Storage</th>
-                        <th>Quota</th>
-                        <th>Used by</th>
+                        <th>Scope</th>
+                        <th>Info</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {{range .Folders}}
+                    {{range .Shares}}
                     <tr>
+                        <td>{{.ShareID}}</td>
                         <td>{{.Name}}</td>
-                        <td>{{.GetStorageDescrition}}</td>
-                        <td>{{.GetQuotaSummary}}</td>
-                        <td>{{.GetUsersAsString}}</td>
+                        <td>{{.GetScopeAsString}}</td>
+                        <td>{{.GetInfoString}}</td>
                     </tr>
                     {{end}}
-
                 </tbody>
             </table>
         </div>
@@ -64,7 +63,7 @@
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
-            <div class="modal-body">Do you want to delete the selected virtual folder and any users mapping?</div>
+            <div class="modal-body">Do you want to delete the selected share?</div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" type="button" data-dismiss="modal">
                     Cancel
@@ -72,6 +71,37 @@
                 <a class="btn btn-warning" href="#" onclick="deleteAction()">
                     Delete
                 </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="linkModal" tabindex="-1" role="dialog" aria-labelledby="linkModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="linkModalLabel">
+                    Share access link
+                </h5>
+                <button class="close" type="button" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="readShare">
+                    You can download the shared contents, as single zip file, using this <a id="readLink" href="#" target="_blank">link</a>
+                </div>
+                <div id="writeShare">
+                    <p>You can upload one or more files to the shared directory by sending a multipart/form-data request to this <a id="writeLink" href="#" target="_blank">link</a>. The form field name for the file(s) is <b><code>filenames</code></b>.</p>
+                    <p>For example:</p>
+                    <p><code>curl -F filenames=@file1.txt -F filenames=@file2.txt "share link"</code></p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" type="button" data-dismiss="modal">
+                    OK
+                </button>
             </div>
         </div>
     </div>
@@ -87,14 +117,13 @@
 <script src="{{.StaticURL}}/vendor/datatables/dataTables.responsive.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/responsive.bootstrap4.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/dataTables.select.min.js"></script>
-<script src="{{.StaticURL}}/vendor/datatables/ellipsis.js"></script>
 <script type="text/javascript">
 
-function deleteAction() {
+    function deleteAction() {
         var table = $('#dataTable').DataTable();
         table.button('delete:name').enable(false);
-        var folderName = table.row({ selected: true }).data()[0];
-        var path = '{{.FolderURL}}' + "/" + fixedEncodeURIComponent(folderName);
+        var shareID = table.row({ selected: true }).data()[0];
+        var path = '{{.ShareURL}}' + "/" + fixedEncodeURIComponent(shareID);
         $('#deleteModal').modal('hide');
         $.ajax({
             url: path,
@@ -103,10 +132,10 @@ function deleteAction() {
             headers: {'X-CSRF-TOKEN' : '{{.CSRFToken}}'},
             timeout: 15000,
             success: function (result) {
-                window.location.href = '{{.FoldersURL}}';
+                window.location.href = '{{.SharesURL}}';
             },
             error: function ($xhr, textStatus, errorThrown) {
-                var txt = "Unable to delete the selected folder";
+                var txt = "Unable to delete the selected share";
                 if ($xhr) {
                     var json = $xhr.responseJSON;
                     if (json) {
@@ -132,7 +161,7 @@ function deleteAction() {
             name: 'add',
             titleAttr: "Add",
             action: function (e, dt, node, config) {
-                window.location.href = '{{.FolderURL}}';
+                window.location.href = '{{.ShareURL}}';
             }
         };
 
@@ -141,26 +170,11 @@ function deleteAction() {
             name: 'edit',
             titleAttr: "Edit",
             action: function (e, dt, node, config) {
-                var folderName = table.row({ selected: true }).data()[0];
-                var path = '{{.FolderURL}}' + "/" + fixedEncodeURIComponent(folderName);
+                var shareID = dt.row({ selected: true }).data()[0];
+                var path = '{{.ShareURL}}' + "/" + fixedEncodeURIComponent(shareID);
                 window.location.href = path;
             },
             enabled: false
-        };
-
-        $.fn.dataTable.ext.buttons.template = {
-            text: 'Template',
-            name: 'template',
-            action: function (e, dt, node, config) {
-                var selectedRows = table.rows({ selected: true }).count();
-                if (selectedRows == 1){
-                    var folderName = table.row({ selected: true }).data()[0];
-                    var path = '{{.FolderTemplateURL}}' + "?from=" + fixedEncodeURIComponent(folderName);
-                    window.location.href = path;
-                } else {
-                    window.location.href = '{{.FolderTemplateURL}}';
-                }
-            }
         };
 
         $.fn.dataTable.ext.buttons.delete = {
@@ -173,46 +187,27 @@ function deleteAction() {
             enabled: false
         };
 
-        $.fn.dataTable.ext.buttons.quota_scan = {
-            text: 'Quota scan',
-            name: 'quota_scan',
+        $.fn.dataTable.ext.buttons.link = {
+            text: '<i class="fas fa-link"></i>',
+            name: 'link',
+            titleAttr: "Link",
             action: function (e, dt, node, config) {
-                dt.button('quota_scan:name').enable(false);
-                var folderName = dt.row({ selected: true }).data()[0];
-                var path = '{{.FolderQuotaScanURL}}'+ "/" + fixedEncodeURIComponent(folderName);
-                $.ajax({
-                    url: path,
-                    type: 'POST',
-                    headers: {'X-CSRF-TOKEN' : '{{.CSRFToken}}'},
-                    timeout: 15000,
-                    success: function (result) {
-                        dt.button('quota_scan:name').enable(true);
-                        $('#successTxt').text("Quota scan started for the selected folder. Please reload the folders page to check when the scan ends");
-                        $('#successMsg').show();
-                        setTimeout(function () {
-                            $('#successMsg').hide();
-                        }, 5000);
-                    },
-                    error: function ($xhr, textStatus, errorThrown) {
-                        dt.button('quota_scan:name').enable(true);
-                        var txt = "Unable to update quota for the selected folder";
-                        if ($xhr) {
-                            var json = $xhr.responseJSON;
-                            if (json) {
-                                if (json.message) {
-                                    txt += ": " + json.message;
-                                } else if (json.error) {
-                                    txt += ": " + json.error;
-                                }
-                            }
-                        }
-                        $('#errorTxt').text(txt);
-                        $('#errorMsg').show();
-                        setTimeout(function () {
-                            $('#errorMsg').hide();
-                        }, 5000);
-                    }
-                });
+                var shareData = dt.row({ selected: true }).data();
+                var shareID = shareData[0];
+                var shareScope = shareData[2];
+                var shareURL = '{{.BasePublicSharesURL}}' + "/" + fixedEncodeURIComponent(shareID);
+                if (shareScope == 'Read'){
+                    $('#writeShare').hide();
+                    $('#readShare').show();
+                    $('#readLink').attr("href", shareURL);
+                    $('#readLink').attr("title", shareURL);
+                } else {
+                    $('#writeShare').show();
+                    $('#readShare').hide();
+                    $('#writeLink').attr("href", shareURL);
+                    $('#writeLink').attr("title", shareURL);
+                }
+                $('#linkModal').modal('show');
             },
             enabled: false
         };
@@ -227,65 +222,36 @@ function deleteAction() {
             "buttons": [],
             "columnDefs": [
                 {
-                    "targets": [1],
-                    "render": $.fn.dataTable.render.ellipsis(50, true),
-                },
-                {
-                    "targets": [2],
-                    "render": $.fn.dataTable.render.ellipsis(50, true),
-                },
-                {
-                    "targets": [3],
-                    "render": $.fn.dataTable.render.ellipsis(40, true),
+                    "targets": [0],
+                    "visible": false,
+                    "searchable": false
                 }
             ],
             "scrollX": false,
             "scrollY": false,
             "responsive": true,
             "language": {
-                "emptyTable": "No folder defined"
+                "emptyTable": "No share defined"
             },
-            "order": [[0, 'asc']]
+            "order": [[1, 'asc']]
         });
 
         new $.fn.dataTable.FixedHeader( table );
 
-        {{if .LoggedAdmin.HasPermission "quota_scans"}}
-        table.button().add(0,'quota_scan');
-        {{end}}
-
-        {{if .LoggedAdmin.HasPermission "manage_system"}}
-        table.button().add(0,'template');
-        {{end}}
-
-        {{if .LoggedAdmin.HasPermission "del_users"}}
+        table.button().add(0,'link');
         table.button().add(0,'delete');
-        {{end}}
-
-        {{if .LoggedAdmin.HasPermission "edit_users"}}
         table.button().add(0,'edit');
-        {{end}}
-
-        {{if .LoggedAdmin.HasPermission "add_users"}}
         table.button().add(0,'add');
-        {{end}}
 
         table.buttons().container().appendTo('.col-md-6:eq(0)', table.table().container());
 
         table.on('select deselect', function () {
             var selectedRows = table.rows({ selected: true }).count();
-            {{if .LoggedAdmin.HasPermission "del_users"}}
-            table.button('delete:name').enable(selectedRows == 1);
-            {{end}}
-            {{if .LoggedAdmin.HasPermission "edit_users"}}
             table.button('edit:name').enable(selectedRows == 1);
-            {{end}}
-            {{if .LoggedAdmin.HasPermission "quota_scans"}}
-            table.button('quota_scan:name').enable(selectedRows == 1);
-            {{end}}
+            table.button('clone:name').enable(selectedRows == 1);
+            table.button('delete:name').enable(selectedRows == 1);
+            table.button('link:name').enable(selectedRows == 1);
         });
-
     });
-
 </script>
 {{end}}

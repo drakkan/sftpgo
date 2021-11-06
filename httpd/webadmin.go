@@ -510,11 +510,13 @@ func renderAdminSetupPage(w http.ResponseWriter, r *http.Request, username, erro
 func renderAddUpdateAdminPage(w http.ResponseWriter, r *http.Request, admin *dataprovider.Admin,
 	error string, isAdd bool) {
 	currentURL := webAdminPath
+	title := "Add a new admin"
 	if !isAdd {
 		currentURL = fmt.Sprintf("%v/%v", webAdminPath, url.PathEscape(admin.Username))
+		title = "Update admin"
 	}
 	data := adminPage{
-		basePage: getBasePageData("Add a new user", currentURL, r),
+		basePage: getBasePageData(title, currentURL, r),
 		Admin:    admin,
 		Error:    error,
 		IsAdd:    isAdd,
@@ -1093,7 +1095,7 @@ func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 	}
 	expirationDateMillis := int64(0)
 	expirationDateString := r.Form.Get("expiration_date")
-	if len(strings.TrimSpace(expirationDateString)) > 0 {
+	if strings.TrimSpace(expirationDateString) != "" {
 		expirationDate, err := time.Parse(webDateTimeFormat, expirationDateString)
 		if err != nil {
 			return user, err

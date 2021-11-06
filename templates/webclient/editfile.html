@@ -132,7 +132,7 @@
         var path = '{{.FilesURL}}?path={{.CurrentDir}}';
         var data = new FormData();
         var blob = new Blob([cm.getValue()]);
-        data.append("filename", new File([blob], "{{.Name}}"));
+        data.append("filenames", new File([blob], "{{.Name}}"));
 
         $.ajax({
                 url: path,

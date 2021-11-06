@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/go-chi/render"
-	"github.com/lithammer/shortuuid/v3"
 
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/kms"
@@ -198,7 +197,7 @@ func generateRecoveryCodes(w http.ResponseWriter, r *http.Request) {
 }
 
 func getNewRecoveryCode() string {
-	return fmt.Sprintf("RC-%v", strings.ToUpper(shortuuid.New()))
+	return fmt.Sprintf("RC-%v", strings.ToUpper(util.GenerateUniqueID()))
 }
 
 func saveUserTOTPConfig(username string, r *http.Request, recoveryCodes []sdk.RecoveryCode) error {

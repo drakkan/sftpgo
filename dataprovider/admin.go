@@ -131,7 +131,7 @@ func (a *Admin) CountUnusedRecoveryCodes() int {
 	return unused
 }
 
-func (a *Admin) checkPassword() error {
+func (a *Admin) hashPassword() error {
 	if a.Password != "" && !util.IsStringPrefixInSlice(a.Password, internalHashPwdPrefixes) {
 		if config.PasswordValidation.Admins.MinEntropy > 0 {
 			if err := passwordvalidator.Validate(a.Password, config.PasswordValidation.Admins.MinEntropy); err != nil {
@@ -211,7 +211,7 @@ func (a *Admin) validate() error {
 	if !config.SkipNaturalKeysValidation && !usernameRegex.MatchString(a.Username) {
 		return util.NewValidationError(fmt.Sprintf("username %#v is not valid, the following characters are allowed: a-zA-Z0-9-_.~", a.Username))
 	}
-	if err := a.checkPassword(); err != nil {
+	if err := a.hashPassword(); err != nil {
 		return err
 	}
 	if err := a.validatePermissions(); err != nil {
@@ -238,7 +238,11 @@ func (a *Admin) CheckPassword(password string) (bool, error) {
 		}
 		return true, nil
 	}
-	return argon2id.ComparePasswordAndHash(password, a.Password)
+	match, err := argon2id.ComparePasswordAndHash(password, a.Password)
+	if !match || err != nil {
+		return false, ErrInvalidCredentials
+	}
+	return match, err
 }
 
 // CanLoginFromIP returns true if login from the given IP is allowed
@@ -361,14 +365,14 @@ func (a *Admin) GetValidPerms() []string {
 
 // GetInfoString returns admin's info as string.
 func (a *Admin) GetInfoString() string {
-	var result string
+	var result strings.Builder
 	if a.Email != "" {
-		result = fmt.Sprintf("Email: %v. ", a.Email)
+		result.WriteString(fmt.Sprintf("Email: %v. ", a.Email))
 	}
 	if len(a.Filters.AllowList) > 0 {
-		result += fmt.Sprintf("Allowed IP/Mask: %v. ", len(a.Filters.AllowList))
+		result.WriteString(fmt.Sprintf("Allowed IP/Mask: %v. ", len(a.Filters.AllowList)))
 	}
-	return result
+	return result.String()
 }
 
 // CanManageMFA returns true if the admin can add a multi-factor authentication configuration

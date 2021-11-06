@@ -727,6 +727,11 @@ func (u *User) CanManageMFA() bool {
 	return len(mfa.GetAvailableTOTPConfigs()) > 0
 }
 
+// CanManageShares returns true if the user can add, update and list shares
+func (u *User) CanManageShares() bool {
+	return !util.IsStringInSlice(sdk.WebClientSharesDisabled, u.Filters.WebClient)
+}
+
 // CanChangePassword returns true if this user is allowed to change its password
 func (u *User) CanChangePassword() bool {
 	return !util.IsStringInSlice(sdk.WebClientPasswordChangeDisabled, u.Filters.WebClient)
@@ -943,33 +948,33 @@ func (u *User) GetBandwidthAsString() string {
 // Storage provider, number of public keys, max sessions, uid,
 // gid, denied and allowed IP/Mask are returned
 func (u *User) GetInfoString() string {
-	var result string
+	var result strings.Builder
 	if u.LastLogin > 0 {
 		t := util.GetTimeFromMsecSinceEpoch(u.LastLogin)
-		result += fmt.Sprintf("Last login: %v ", t.Format("2006-01-02 15:04")) // YYYY-MM-DD HH:MM
+		result.WriteString(fmt.Sprintf("Last login: %v. ", t.Format("2006-01-02 15:04"))) // YYYY-MM-DD HH:MM
 	}
 	if u.FsConfig.Provider != sdk.LocalFilesystemProvider {
-		result += fmt.Sprintf("Storage: %s ", u.FsConfig.Provider.ShortInfo())
+		result.WriteString(fmt.Sprintf("Storage: %s. ", u.FsConfig.Provider.ShortInfo()))
 	}
 	if len(u.PublicKeys) > 0 {
-		result += fmt.Sprintf("Public keys: %v ", len(u.PublicKeys))
+		result.WriteString(fmt.Sprintf("Public keys: %v. ", len(u.PublicKeys)))
 	}
 	if u.MaxSessions > 0 {
-		result += fmt.Sprintf("Max sessions: %v ", u.MaxSessions)
+		result.WriteString(fmt.Sprintf("Max sessions: %v. ", u.MaxSessions))
 	}
 	if u.UID > 0 {
-		result += fmt.Sprintf("UID: %v ", u.UID)
+		result.WriteString(fmt.Sprintf("UID: %v. ", u.UID))
 	}
 	if u.GID > 0 {
-		result += fmt.Sprintf("GID: %v ", u.GID)
+		result.WriteString(fmt.Sprintf("GID: %v. ", u.GID))
 	}
 	if len(u.Filters.DeniedIP) > 0 {
-		result += fmt.Sprintf("Denied IP/Mask: %v ", len(u.Filters.DeniedIP))
+		result.WriteString(fmt.Sprintf("Denied IP/Mask: %v. ", len(u.Filters.DeniedIP)))
 	}
 	if len(u.Filters.AllowedIP) > 0 {
-		result += fmt.Sprintf("Allowed IP/Mask: %v ", len(u.Filters.AllowedIP))
+		result.WriteString(fmt.Sprintf("Allowed IP/Mask: %v", len(u.Filters.AllowedIP)))
 	}
-	return result
+	return result.String()
 }
 
 // GetStatusAsString returns the user status as a string

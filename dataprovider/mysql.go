@@ -66,6 +66,15 @@ const (
 
 	mysqlV13SQL     = "ALTER TABLE `{{users}}` ADD COLUMN `email` varchar(255) NULL;"
 	mysqlV13DownSQL = "ALTER TABLE `{{users}}` DROP COLUMN `email`;"
+	mysqlV14SQL     = "CREATE TABLE `{{shares}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, " +
+		"`share_id` varchar(60) NOT NULL UNIQUE, `name` varchar(255) NOT NULL, `description` varchar(512) NULL, " +
+		"`scope` integer NOT NULL, `paths` longtext NOT NULL, `created_at` bigint NOT NULL, " +
+		"`updated_at` bigint NOT NULL, `last_use_at` bigint NOT NULL, `expires_at` bigint NOT NULL, " +
+		"`password` longtext NULL, `max_tokens` integer NOT NULL, `used_tokens` integer NOT NULL, " +
+		"`allow_from` longtext NULL, `user_id` integer NOT NULL);" +
+		"ALTER TABLE `{{shares}}` ADD CONSTRAINT `{{prefix}}shares_user_id_fk_users_id` " +
+		"FOREIGN KEY (`user_id`) REFERENCES `{{users}}` (`id`) ON DELETE CASCADE;"
+	mysqlV14DownSQL = "DROP TABLE `{{shares}}` CASCADE;"
 )
 
 // MySQLProvider auth provider for MySQL/MariaDB database
@@ -251,7 +260,7 @@ func (p *MySQLProvider) updateAPIKey(apiKey *APIKey) error {
 	return sqlCommonUpdateAPIKey(apiKey, p.dbHandle)
 }
 
-func (p *MySQLProvider) deleteAPIKeys(apiKey *APIKey) error {
+func (p *MySQLProvider) deleteAPIKey(apiKey *APIKey) error {
 	return sqlCommonDeleteAPIKey(apiKey, p.dbHandle)
 }
 
@@ -265,6 +274,34 @@ func (p *MySQLProvider) dumpAPIKeys() ([]APIKey, error) {
 
 func (p *MySQLProvider) updateAPIKeyLastUse(keyID string) error {
 	return sqlCommonUpdateAPIKeyLastUse(keyID, p.dbHandle)
+}
+
+func (p *MySQLProvider) shareExists(shareID, username string) (Share, error) {
+	return sqlCommonGetShareByID(shareID, username, p.dbHandle)
+}
+
+func (p *MySQLProvider) addShare(share *Share) error {
+	return sqlCommonAddShare(share, p.dbHandle)
+}
+
+func (p *MySQLProvider) updateShare(share *Share) error {
+	return sqlCommonUpdateShare(share, p.dbHandle)
+}
+
+func (p *MySQLProvider) deleteShare(share *Share) error {
+	return sqlCommonDeleteShare(share, p.dbHandle)
+}
+
+func (p *MySQLProvider) getShares(limit int, offset int, order, username string) ([]Share, error) {
+	return sqlCommonGetShares(limit, offset, order, username, p.dbHandle)
+}
+
+func (p *MySQLProvider) dumpShares() ([]Share, error) {
+	return sqlCommonDumpShares(p.dbHandle)
+}
+
+func (p *MySQLProvider) updateShareLastUse(shareID string, numTokens int) error {
+	return sqlCommonUpdateShareLastUse(shareID, numTokens, p.dbHandle)
 }
 
 func (p *MySQLProvider) close() error {
@@ -291,6 +328,7 @@ func (p *MySQLProvider) initializeDatabase() error {
 	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, strings.Split(initialSQL, ";"), 10)
 }
 
+//nolint:dupl
 func (p *MySQLProvider) migrateDatabase() error {
 	dbVersion, err := sqlCommonGetDatabaseVersion(p.dbHandle, true)
 	if err != nil {
@@ -312,6 +350,8 @@ func (p *MySQLProvider) migrateDatabase() error {
 		return updateMySQLDatabaseFromV11(p.dbHandle)
 	case version == 12:
 		return updateMySQLDatabaseFromV12(p.dbHandle)
+	case version == 13:
+		return updateMySQLDatabaseFromV13(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelWarn, "database version %v is newer than the supported one: %v", version,
@@ -334,6 +374,8 @@ func (p *MySQLProvider) revertDatabase(targetVersion int) error {
 	}
 
 	switch dbVersion.Version {
+	case 14:
+		return downgradeMySQLDatabaseFromV14(p.dbHandle)
 	case 13:
 		return downgradeMySQLDatabaseFromV13(p.dbHandle)
 	case 12:
@@ -360,7 +402,21 @@ func updateMySQLDatabaseFromV11(dbHandle *sql.DB) error {
 }
 
 func updateMySQLDatabaseFromV12(dbHandle *sql.DB) error {
-	return updateMySQLDatabaseFrom12To13(dbHandle)
+	if err := updateMySQLDatabaseFrom12To13(dbHandle); err != nil {
+		return err
+	}
+	return updateMySQLDatabaseFromV13(dbHandle)
+}
+
+func updateMySQLDatabaseFromV13(dbHandle *sql.DB) error {
+	return updateMySQLDatabaseFrom13To14(dbHandle)
+}
+
+func downgradeMySQLDatabaseFromV14(dbHandle *sql.DB) error {
+	if err := downgradeMySQLDatabaseFrom14To13(dbHandle); err != nil {
+		return err
+	}
+	return downgradeMySQLDatabaseFromV13(dbHandle)
 }
 
 func downgradeMySQLDatabaseFromV13(dbHandle *sql.DB) error {
@@ -379,6 +435,22 @@ func downgradeMySQLDatabaseFromV12(dbHandle *sql.DB) error {
 
 func downgradeMySQLDatabaseFromV11(dbHandle *sql.DB) error {
 	return downgradeMySQLDatabaseFrom11To10(dbHandle)
+}
+
+func updateMySQLDatabaseFrom13To14(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 13 -> 14")
+	providerLog(logger.LevelInfo, "updating database version: 13 -> 14")
+	sql := strings.ReplaceAll(mysqlV14SQL, "{{shares}}", sqlTableShares)
+	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 14)
+}
+
+func downgradeMySQLDatabaseFrom14To13(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 14 -> 13")
+	providerLog(logger.LevelInfo, "downgrading database version: 14 -> 13")
+	sql := strings.ReplaceAll(mysqlV14DownSQL, "{{shares}}", sqlTableShares)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 13)
 }
 
 func updateMySQLDatabaseFrom12To13(dbHandle *sql.DB) error {

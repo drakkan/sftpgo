@@ -182,6 +182,10 @@ func restoreBackup(content []byte, inputFile string, scanQuota, mode int, execut
 		return err
 	}
 
+	if err = RestoreShares(dump.Shares, inputFile, mode, executor, ipAddress); err != nil {
+		return err
+	}
+
 	logger.Debug(logSender, "", "backup restored, users: %v, folders: %v, admins: %vs",
 		len(dump.Users), len(dump.Folders), len(dump.Admins))
 
@@ -239,6 +243,34 @@ func RestoreFolders(folders []vfs.BaseVirtualFolder, inputFile string, mode, sca
 				logger.Debug(logSender, "", "starting quota scan for restored folder: %#v", folder.Name)
 				go doFolderQuotaScan(folder) //nolint:errcheck
 			}
+		}
+	}
+	return nil
+}
+
+// RestoreShares restores the specified shares
+func RestoreShares(shares []dataprovider.Share, inputFile string, mode int, executor,
+	ipAddress string,
+) error {
+	for _, share := range shares {
+		share := share // pin
+		s, err := dataprovider.ShareExists(share.ShareID, "")
+		if err == nil {
+			if mode == 1 {
+				logger.Debug(logSender, "", "loaddata mode 1, existing share %#v not updated", share.ShareID)
+				continue
+			}
+			share.ID = s.ID
+			err = dataprovider.UpdateShare(&share, executor, ipAddress)
+			share.Password = redactedSecret
+			logger.Debug(logSender, "", "restoring existing share: %+v, dump file: %#v, error: %v", share, inputFile, err)
+		} else {
+			err = dataprovider.AddShare(&share, executor, ipAddress)
+			share.Password = redactedSecret
+			logger.Debug(logSender, "", "adding new share: %+v, dump file: %#v, error: %v", share, inputFile, err)
+		}
+		if err != nil {
+			return fmt.Errorf("unable to restore share %#v: %w", share.ShareID, err)
 		}
 	}
 	return nil

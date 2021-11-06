@@ -168,7 +168,9 @@ func getSearchFilters(w http.ResponseWriter, r *http.Request) (int, int, string,
 	return limit, offset, order, err
 }
 
-func renderCompressedFiles(w http.ResponseWriter, conn *Connection, baseDir string, files []string) {
+func renderCompressedFiles(w http.ResponseWriter, conn *Connection, baseDir string, files []string,
+	share *dataprovider.Share,
+) {
 	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("Accept-Ranges", "none")
 	w.Header().Set("Content-Transfer-Encoding", "binary")
@@ -179,11 +181,17 @@ func renderCompressedFiles(w http.ResponseWriter, conn *Connection, baseDir stri
 	for _, file := range files {
 		fullPath := path.Join(baseDir, file)
 		if err := addZipEntry(wr, conn, fullPath, baseDir); err != nil {
+			if share != nil {
+				dataprovider.UpdateShareLastUse(share, -1) //nolint:errcheck
+			}
 			panic(http.ErrAbortHandler)
 		}
 	}
 	if err := wr.Close(); err != nil {
 		conn.Log(logger.LevelWarn, "unable to close zip file: %v", err)
+		if share != nil {
+			dataprovider.UpdateShareLastUse(share, -1) //nolint:errcheck
+		}
 		panic(http.ErrAbortHandler)
 	}
 }

@@ -78,6 +78,17 @@ ALTER TABLE "{{admins}}" DROP COLUMN "last_login" CASCADE;
 `
 	pgsqlV13SQL     = `ALTER TABLE "{{users}}" ADD COLUMN "email" varchar(255) NULL;`
 	pgsqlV13DownSQL = `ALTER TABLE "{{users}}" DROP COLUMN "email" CASCADE;`
+	pgsqlV14SQL     = `CREATE TABLE "{{shares}}" ("id" serial NOT NULL PRIMARY KEY,
+"share_id" varchar(60) NOT NULL UNIQUE, "name" varchar(255) NOT NULL, "description" varchar(512) NULL,
+"scope" integer NOT NULL, "paths" text NOT NULL, "created_at" bigint NOT NULL, "updated_at" bigint NOT NULL,
+"last_use_at" bigint NOT NULL, "expires_at" bigint NOT NULL, "password" text NULL,
+"max_tokens" integer NOT NULL, "used_tokens" integer NOT NULL, "allow_from" text NULL,
+"user_id" integer NOT NULL);
+ALTER TABLE "{{shares}}" ADD CONSTRAINT "{{prefix}}shares_user_id_fk_users_id" FOREIGN KEY ("user_id")
+REFERENCES "{{users}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE;
+CREATE INDEX "{{prefix}}shares_user_id_idx" ON "{{shares}}" ("user_id");
+`
+	pgsqlV14DownSQL = `DROP TABLE "{{shares}}" CASCADE;`
 )
 
 // PGSQLProvider auth provider for PostgreSQL database
@@ -263,7 +274,7 @@ func (p *PGSQLProvider) updateAPIKey(apiKey *APIKey) error {
 	return sqlCommonUpdateAPIKey(apiKey, p.dbHandle)
 }
 
-func (p *PGSQLProvider) deleteAPIKeys(apiKey *APIKey) error {
+func (p *PGSQLProvider) deleteAPIKey(apiKey *APIKey) error {
 	return sqlCommonDeleteAPIKey(apiKey, p.dbHandle)
 }
 
@@ -277,6 +288,34 @@ func (p *PGSQLProvider) dumpAPIKeys() ([]APIKey, error) {
 
 func (p *PGSQLProvider) updateAPIKeyLastUse(keyID string) error {
 	return sqlCommonUpdateAPIKeyLastUse(keyID, p.dbHandle)
+}
+
+func (p *PGSQLProvider) shareExists(shareID, username string) (Share, error) {
+	return sqlCommonGetShareByID(shareID, username, p.dbHandle)
+}
+
+func (p *PGSQLProvider) addShare(share *Share) error {
+	return sqlCommonAddShare(share, p.dbHandle)
+}
+
+func (p *PGSQLProvider) updateShare(share *Share) error {
+	return sqlCommonUpdateShare(share, p.dbHandle)
+}
+
+func (p *PGSQLProvider) deleteShare(share *Share) error {
+	return sqlCommonDeleteShare(share, p.dbHandle)
+}
+
+func (p *PGSQLProvider) getShares(limit int, offset int, order, username string) ([]Share, error) {
+	return sqlCommonGetShares(limit, offset, order, username, p.dbHandle)
+}
+
+func (p *PGSQLProvider) dumpShares() ([]Share, error) {
+	return sqlCommonDumpShares(p.dbHandle)
+}
+
+func (p *PGSQLProvider) updateShareLastUse(shareID string, numTokens int) error {
+	return sqlCommonUpdateShareLastUse(shareID, numTokens, p.dbHandle)
 }
 
 func (p *PGSQLProvider) close() error {
@@ -309,6 +348,7 @@ func (p *PGSQLProvider) initializeDatabase() error {
 	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{initialSQL}, 10)
 }
 
+//nolint:dupl
 func (p *PGSQLProvider) migrateDatabase() error {
 	dbVersion, err := sqlCommonGetDatabaseVersion(p.dbHandle, true)
 	if err != nil {
@@ -330,6 +370,8 @@ func (p *PGSQLProvider) migrateDatabase() error {
 		return updatePGSQLDatabaseFromV11(p.dbHandle)
 	case version == 12:
 		return updatePGSQLDatabaseFromV12(p.dbHandle)
+	case version == 13:
+		return updatePGSQLDatabaseFromV13(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelWarn, "database version %v is newer than the supported one: %v", version,
@@ -352,6 +394,8 @@ func (p *PGSQLProvider) revertDatabase(targetVersion int) error {
 	}
 
 	switch dbVersion.Version {
+	case 14:
+		return downgradePGSQLDatabaseFromV14(p.dbHandle)
 	case 13:
 		return downgradePGSQLDatabaseFromV13(p.dbHandle)
 	case 12:
@@ -378,7 +422,21 @@ func updatePGSQLDatabaseFromV11(dbHandle *sql.DB) error {
 }
 
 func updatePGSQLDatabaseFromV12(dbHandle *sql.DB) error {
-	return updatePGSQLDatabaseFrom12To13(dbHandle)
+	if err := updatePGSQLDatabaseFrom12To13(dbHandle); err != nil {
+		return err
+	}
+	return updatePGSQLDatabaseFromV13(dbHandle)
+}
+
+func updatePGSQLDatabaseFromV13(dbHandle *sql.DB) error {
+	return updatePGSQLDatabaseFrom13To14(dbHandle)
+}
+
+func downgradePGSQLDatabaseFromV14(dbHandle *sql.DB) error {
+	if err := downgradePGSQLDatabaseFrom14To13(dbHandle); err != nil {
+		return err
+	}
+	return downgradePGSQLDatabaseFromV13(dbHandle)
 }
 
 func downgradePGSQLDatabaseFromV13(dbHandle *sql.DB) error {
@@ -397,6 +455,22 @@ func downgradePGSQLDatabaseFromV12(dbHandle *sql.DB) error {
 
 func downgradePGSQLDatabaseFromV11(dbHandle *sql.DB) error {
 	return downgradePGSQLDatabaseFrom11To10(dbHandle)
+}
+
+func updatePGSQLDatabaseFrom13To14(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 13 -> 14")
+	providerLog(logger.LevelInfo, "updating database version: 13 -> 14")
+	sql := strings.ReplaceAll(pgsqlV14SQL, "{{shares}}", sqlTableShares)
+	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 14)
+}
+
+func downgradePGSQLDatabaseFrom14To13(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 14 -> 13")
+	providerLog(logger.LevelInfo, "downgrading database version: 14 -> 13")
+	sql := strings.ReplaceAll(pgsqlV14DownSQL, "{{shares}}", sqlTableShares)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 13)
 }
 
 func updatePGSQLDatabaseFrom12To13(dbHandle *sql.DB) error {

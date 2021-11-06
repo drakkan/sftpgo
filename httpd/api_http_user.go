@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path"
@@ -187,17 +188,23 @@ func uploadUserFiles(w http.ResponseWriter, r *http.Request) {
 	defer r.MultipartForm.RemoveAll() //nolint:errcheck
 
 	parentDir := util.CleanPath(r.URL.Query().Get("path"))
-	files := r.MultipartForm.File["filename"]
+	files := r.MultipartForm.File["filenames"]
 	if len(files) == 0 {
-		sendAPIResponse(w, r, err, "No files uploaded!", http.StatusBadRequest)
+		sendAPIResponse(w, r, nil, "No files uploaded!", http.StatusBadRequest)
 		return
 	}
+	doUploadFiles(w, r, connection, parentDir, files)
+}
 
+func doUploadFiles(w http.ResponseWriter, r *http.Request, connection *Connection, parentDir string,
+	files []*multipart.FileHeader,
+) int {
+	uploaded := 0
 	for _, f := range files {
 		file, err := f.Open()
 		if err != nil {
 			sendAPIResponse(w, r, err, fmt.Sprintf("Unable to read uploaded file %#v", f.Filename), getMappedStatusCode(err))
-			return
+			return uploaded
 		}
 		defer file.Close()
 
@@ -205,21 +212,23 @@ func uploadUserFiles(w http.ResponseWriter, r *http.Request) {
 		writer, err := connection.getFileWriter(filePath)
 		if err != nil {
 			sendAPIResponse(w, r, err, fmt.Sprintf("Unable to write file %#v", f.Filename), getMappedStatusCode(err))
-			return
+			return uploaded
 		}
 		_, err = io.Copy(writer, file)
 		if err != nil {
 			writer.Close() //nolint:errcheck
 			sendAPIResponse(w, r, err, fmt.Sprintf("Error saving file %#v", f.Filename), getMappedStatusCode(err))
-			return
+			return uploaded
 		}
 		err = writer.Close()
 		if err != nil {
 			sendAPIResponse(w, r, err, fmt.Sprintf("Error closing file %#v", f.Filename), getMappedStatusCode(err))
-			return
+			return uploaded
 		}
+		uploaded++
 	}
 	sendAPIResponse(w, r, nil, "Upload completed", http.StatusCreated)
+	return uploaded
 }
 
 func renameUserFile(w http.ResponseWriter, r *http.Request) {
@@ -300,8 +309,10 @@ func getUserFilesAsZipStream(w http.ResponseWriter, r *http.Request) {
 		filesList[idx] = util.CleanPath(filesList[idx])
 	}
 
+	filesList = util.RemoveDuplicates(filesList)
+
 	w.Header().Set("Content-Disposition", "attachment; filename=\"sftpgo-download.zip\"")
-	renderCompressedFiles(w, connection, baseDir, filesList)
+	renderCompressedFiles(w, connection, baseDir, filesList, nil)
 }
 
 func getUserPublicKeys(w http.ResponseWriter, r *http.Request) {

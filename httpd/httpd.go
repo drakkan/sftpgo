@@ -74,10 +74,12 @@ const (
 	userTOTPSavePath                      = "/api/v2/user/totp/save"
 	user2FARecoveryCodesPath              = "/api/v2/user/2fa/recoverycodes"
 	userProfilePath                       = "/api/v2/user/profile"
+	userSharesPath                        = "/api/v2/user/shares"
 	retentionBasePath                     = "/api/v2/retention/users"
 	retentionChecksPath                   = "/api/v2/retention/users/checks"
 	fsEventsPath                          = "/api/v2/events/fs"
 	providerEventsPath                    = "/api/v2/events/provider"
+	sharesPath                            = "/api/v2/shares"
 	healthzPath                           = "/healthz"
 	webRootPathDefault                    = "/"
 	webBasePathDefault                    = "/web"
@@ -116,6 +118,8 @@ const (
 	webClientTwoFactorPathDefault         = "/web/client/twofactor"
 	webClientTwoFactorRecoveryPathDefault = "/web/client/twofactor-recovery"
 	webClientFilesPathDefault             = "/web/client/files"
+	webClientSharesPathDefault            = "/web/client/shares"
+	webClientSharePathDefault             = "/web/client/share"
 	webClientEditFilePathDefault          = "/web/client/editfile"
 	webClientDirsPathDefault              = "/web/client/dirs"
 	webClientDownloadZipPathDefault       = "/web/client/downloadzip"
@@ -127,6 +131,7 @@ const (
 	webClientRecoveryCodesPathDefault     = "/web/client/recoverycodes"
 	webChangeClientPwdPathDefault         = "/web/client/changepwd"
 	webClientLogoutPathDefault            = "/web/client/logout"
+	webClientPubSharesPathDefault         = "/web/client/pubshares"
 	webStaticFilesPathDefault             = "/static"
 	// MaxRestoreSize defines the max size for the loaddata input file
 	MaxRestoreSize       = 10485760 // 10 MB
@@ -182,6 +187,8 @@ var (
 	webClientTwoFactorPath         string
 	webClientTwoFactorRecoveryPath string
 	webClientFilesPath             string
+	webClientSharesPath            string
+	webClientSharePath             string
 	webClientEditFilePath          string
 	webClientDirsPath              string
 	webClientDownloadZipPath       string
@@ -192,6 +199,7 @@ var (
 	webClientTOTPValidatePath      string
 	webClientTOTPSavePath          string
 	webClientRecoveryCodesPath     string
+	webClientPubSharesPath         string
 	webClientLogoutPath            string
 	webStaticFilesPath             string
 	// max upload size for http clients, 1GB by default
@@ -517,6 +525,9 @@ func updateWebClientURLs(baseURL string) {
 	webClientTwoFactorPath = path.Join(baseURL, webClientTwoFactorPathDefault)
 	webClientTwoFactorRecoveryPath = path.Join(baseURL, webClientTwoFactorRecoveryPathDefault)
 	webClientFilesPath = path.Join(baseURL, webClientFilesPathDefault)
+	webClientSharesPath = path.Join(baseURL, webClientSharesPathDefault)
+	webClientPubSharesPath = path.Join(baseURL, webClientPubSharesPathDefault)
+	webClientSharePath = path.Join(baseURL, webClientSharePathDefault)
 	webClientEditFilePath = path.Join(baseURL, webClientEditFilePathDefault)
 	webClientDirsPath = path.Join(baseURL, webClientDirsPathDefault)
 	webClientDownloadZipPath = path.Join(baseURL, webClientDownloadZipPathDefault)

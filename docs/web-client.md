@@ -1,6 +1,8 @@
 # Web Client
 
-SFTPGo provides a basic front-end web interface for your users. It allows end-users to browse and download their files and change their credentials.
+SFTPGo provides a basic front-end web interface for your users. It allows end-users to browse and manage their files and change their credentials.
+
+Each user can create HTTP/S links to externally share files and folders securely, by setting limits to the number of downloads/uploads, protecting the share with a password, limiting access by source IP address, setting an automatic expiration date.
 
 The web client user interface also allows you to edit plain text files up to 512KB in size.
 

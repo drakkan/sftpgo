@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	boltDatabaseVersion = 13
+	boltDatabaseVersion = 14
 )
 
 var (
@@ -28,8 +28,11 @@ var (
 	foldersBucket   = []byte("folders")
 	adminsBucket    = []byte("admins")
 	apiKeysBucket   = []byte("api_keys")
+	sharesBucket    = []byte("shares")
 	dbVersionBucket = []byte("db_version")
 	dbVersionKey    = []byte("version")
+	boltBuckets     = [][]byte{usersBucket, foldersBucket, adminsBucket, apiKeysBucket,
+		sharesBucket, dbVersionBucket}
 )
 
 // BoltProvider auth provider for bolt key/value store
@@ -57,50 +60,16 @@ func initializeBoltProvider(basePath string) error {
 		Timeout:      5 * time.Second})
 	if err == nil {
 		providerLog(logger.LevelDebug, "bolt key store handle created")
-		err = dbHandle.Update(func(tx *bolt.Tx) error {
-			_, e := tx.CreateBucketIfNotExists(usersBucket)
-			return e
-		})
-		if err != nil {
-			providerLog(logger.LevelWarn, "error creating users bucket: %v", err)
-			return err
+
+		for _, bucket := range boltBuckets {
+			if err := dbHandle.Update(func(tx *bolt.Tx) error {
+				_, e := tx.CreateBucketIfNotExists(bucket)
+				return e
+			}); err != nil {
+				providerLog(logger.LevelWarn, "error creating bucket %#v: %v", string(bucket), err)
+			}
 		}
-		if err != nil {
-			providerLog(logger.LevelWarn, "error creating username idx bucket: %v", err)
-			return err
-		}
-		err = dbHandle.Update(func(tx *bolt.Tx) error {
-			_, e := tx.CreateBucketIfNotExists(foldersBucket)
-			return e
-		})
-		if err != nil {
-			providerLog(logger.LevelWarn, "error creating folders bucket: %v", err)
-			return err
-		}
-		err = dbHandle.Update(func(tx *bolt.Tx) error {
-			_, e := tx.CreateBucketIfNotExists(adminsBucket)
-			return e
-		})
-		if err != nil {
-			providerLog(logger.LevelWarn, "error creating admins bucket: %v", err)
-			return err
-		}
-		err = dbHandle.Update(func(tx *bolt.Tx) error {
-			_, e := tx.CreateBucketIfNotExists(apiKeysBucket)
-			return e
-		})
-		if err != nil {
-			providerLog(logger.LevelWarn, "error creating api keys bucket: %v", err)
-			return err
-		}
-		err = dbHandle.Update(func(tx *bolt.Tx) error {
-			_, e := tx.CreateBucketIfNotExists(dbVersionBucket)
-			return e
-		})
-		if err != nil {
-			providerLog(logger.LevelWarn, "error creating database version bucket: %v", err)
-			return err
-		}
+
 		provider = &BoltProvider{dbHandle: dbHandle}
 	} else {
 		providerLog(logger.LevelWarn, "error creating bolt key/value store handler: %v", err)
@@ -638,6 +607,9 @@ func (p *BoltProvider) deleteUser(user *User) error {
 		if err := deleteRelatedAPIKey(tx, user.Username, APIKeyScopeUser); err != nil {
 			return err
 		}
+		if err := deleteRelatedShares(tx, user.Username); err != nil {
+			return err
+		}
 		return bucket.Delete([]byte(user.Username))
 	})
 }
@@ -995,6 +967,16 @@ func (p *BoltProvider) addAPIKey(apiKey *APIKey) error {
 		apiKey.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 		apiKey.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 		apiKey.LastUseAt = 0
+		if apiKey.User != "" {
+			if err := p.userExistsInternal(tx, apiKey.User); err != nil {
+				return util.NewValidationError(fmt.Sprintf("related user %#v does not exists", apiKey.User))
+			}
+		}
+		if apiKey.Admin != "" {
+			if err := p.adminExistsInternal(tx, apiKey.Admin); err != nil {
+				return util.NewValidationError(fmt.Sprintf("related admin %#v does not exists", apiKey.User))
+			}
+		}
 		buf, err := json.Marshal(apiKey)
 		if err != nil {
 			return err
@@ -1030,6 +1012,16 @@ func (p *BoltProvider) updateAPIKey(apiKey *APIKey) error {
 		apiKey.CreatedAt = oldAPIKey.CreatedAt
 		apiKey.LastUseAt = oldAPIKey.LastUseAt
 		apiKey.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+		if apiKey.User != "" {
+			if err := p.userExistsInternal(tx, apiKey.User); err != nil {
+				return util.NewValidationError(fmt.Sprintf("related user %#v does not exists", apiKey.User))
+			}
+		}
+		if apiKey.Admin != "" {
+			if err := p.adminExistsInternal(tx, apiKey.Admin); err != nil {
+				return util.NewValidationError(fmt.Sprintf("related admin %#v does not exists", apiKey.User))
+			}
+		}
 		buf, err := json.Marshal(apiKey)
 		if err != nil {
 			return err
@@ -1038,7 +1030,7 @@ func (p *BoltProvider) updateAPIKey(apiKey *APIKey) error {
 	})
 }
 
-func (p *BoltProvider) deleteAPIKeys(apiKey *APIKey) error {
+func (p *BoltProvider) deleteAPIKey(apiKey *APIKey) error {
 	return p.dbHandle.Update(func(tx *bolt.Tx) error {
 		bucket, err := getAPIKeysBucket(tx)
 		if err != nil {
@@ -1127,6 +1119,224 @@ func (p *BoltProvider) dumpAPIKeys() ([]APIKey, error) {
 	return apiKeys, err
 }
 
+func (p *BoltProvider) shareExists(shareID, username string) (Share, error) {
+	var share Share
+	err := p.dbHandle.View(func(tx *bolt.Tx) error {
+		bucket, err := getSharesBucket(tx)
+		if err != nil {
+			return err
+		}
+
+		s := bucket.Get([]byte(shareID))
+		if s == nil {
+			return util.NewRecordNotFoundError(fmt.Sprintf("Share %v does not exist", shareID))
+		}
+		if err := json.Unmarshal(s, &share); err != nil {
+			return err
+		}
+		if username != "" && share.Username != username {
+			return util.NewRecordNotFoundError(fmt.Sprintf("Share %v does not exist", shareID))
+		}
+		return nil
+	})
+	return share, err
+}
+
+func (p *BoltProvider) addShare(share *Share) error {
+	err := share.validate()
+	if err != nil {
+		return err
+	}
+	return p.dbHandle.Update(func(tx *bolt.Tx) error {
+		bucket, err := getSharesBucket(tx)
+		if err != nil {
+			return err
+		}
+		if a := bucket.Get([]byte(share.ShareID)); a != nil {
+			return fmt.Errorf("share %v already exists", share.ShareID)
+		}
+		id, err := bucket.NextSequence()
+		if err != nil {
+			return err
+		}
+		share.ID = int64(id)
+		share.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+		share.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+		share.LastUseAt = 0
+		share.UsedTokens = 0
+		if err := p.userExistsInternal(tx, share.Username); err != nil {
+			return util.NewValidationError(fmt.Sprintf("related user %#v does not exists", share.Username))
+		}
+		buf, err := json.Marshal(share)
+		if err != nil {
+			return err
+		}
+		return bucket.Put([]byte(share.ShareID), buf)
+	})
+}
+
+func (p *BoltProvider) updateShare(share *Share) error {
+	if err := share.validate(); err != nil {
+		return err
+	}
+
+	return p.dbHandle.Update(func(tx *bolt.Tx) error {
+		bucket, err := getSharesBucket(tx)
+		if err != nil {
+			return err
+		}
+		var a []byte
+
+		if a = bucket.Get([]byte(share.ShareID)); a == nil {
+			return util.NewRecordNotFoundError(fmt.Sprintf("Share %v does not exist", share.ShareID))
+		}
+		var oldObject Share
+		if err = json.Unmarshal(a, &oldObject); err != nil {
+			return err
+		}
+
+		share.ID = oldObject.ID
+		share.ShareID = oldObject.ShareID
+		share.UsedTokens = oldObject.UsedTokens
+		share.CreatedAt = oldObject.CreatedAt
+		share.LastUseAt = oldObject.LastUseAt
+		share.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+		if err := p.userExistsInternal(tx, share.Username); err != nil {
+			return util.NewValidationError(fmt.Sprintf("related user %#v does not exists", share.Username))
+		}
+		buf, err := json.Marshal(share)
+		if err != nil {
+			return err
+		}
+		return bucket.Put([]byte(share.ShareID), buf)
+	})
+}
+
+func (p *BoltProvider) deleteShare(share *Share) error {
+	return p.dbHandle.Update(func(tx *bolt.Tx) error {
+		bucket, err := getSharesBucket(tx)
+		if err != nil {
+			return err
+		}
+
+		if bucket.Get([]byte(share.ShareID)) == nil {
+			return util.NewRecordNotFoundError(fmt.Sprintf("Share %v does not exist", share.ShareID))
+		}
+
+		return bucket.Delete([]byte(share.ShareID))
+	})
+}
+
+func (p *BoltProvider) getShares(limit int, offset int, order, username string) ([]Share, error) {
+	shares := make([]Share, 0, limit)
+
+	err := p.dbHandle.View(func(tx *bolt.Tx) error {
+		bucket, err := getSharesBucket(tx)
+		if err != nil {
+			return err
+		}
+		cursor := bucket.Cursor()
+		itNum := 0
+		if order == OrderASC {
+			for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
+				var share Share
+				if err := json.Unmarshal(v, &share); err != nil {
+					return err
+				}
+				if share.Username != username {
+					continue
+				}
+				itNum++
+				if itNum <= offset {
+					continue
+				}
+				share.HideConfidentialData()
+				shares = append(shares, share)
+				if len(shares) >= limit {
+					break
+				}
+			}
+			return nil
+		}
+		for k, v := cursor.Last(); k != nil; k, v = cursor.Prev() {
+			var share Share
+			err = json.Unmarshal(v, &share)
+			if err != nil {
+				return err
+			}
+			if share.Username != username {
+				continue
+			}
+			itNum++
+			if itNum <= offset {
+				continue
+			}
+			share.HideConfidentialData()
+			shares = append(shares, share)
+			if len(shares) >= limit {
+				break
+			}
+		}
+		return nil
+	})
+
+	return shares, err
+}
+
+func (p *BoltProvider) dumpShares() ([]Share, error) {
+	shares := make([]Share, 0, 30)
+	err := p.dbHandle.View(func(tx *bolt.Tx) error {
+		bucket, err := getSharesBucket(tx)
+		if err != nil {
+			return err
+		}
+
+		cursor := bucket.Cursor()
+		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
+			var share Share
+			err = json.Unmarshal(v, &share)
+			if err != nil {
+				return err
+			}
+			shares = append(shares, share)
+		}
+		return err
+	})
+
+	return shares, err
+}
+
+func (p *BoltProvider) updateShareLastUse(shareID string, numTokens int) error {
+	return p.dbHandle.Update(func(tx *bolt.Tx) error {
+		bucket, err := getSharesBucket(tx)
+		if err != nil {
+			return err
+		}
+		var u []byte
+		if u = bucket.Get([]byte(shareID)); u == nil {
+			return util.NewRecordNotFoundError(fmt.Sprintf("share %#v does not exist, unable to update last use", shareID))
+		}
+		var share Share
+		err = json.Unmarshal(u, &share)
+		if err != nil {
+			return err
+		}
+		share.LastUseAt = util.GetTimeAsMsSinceEpoch(time.Now())
+		share.UsedTokens += numTokens
+		buf, err := json.Marshal(share)
+		if err != nil {
+			return err
+		}
+		err = bucket.Put([]byte(shareID), buf)
+		if err != nil {
+			providerLog(logger.LevelWarn, "error updating last use for share %#v: %v", shareID, err)
+			return err
+		}
+		providerLog(logger.LevelDebug, "last use updated for share %#v", shareID)
+		return nil
+	})
+}
+
 func (p *BoltProvider) close() error {
 	return p.dbHandle.Close()
 }
@@ -1155,11 +1365,13 @@ func (p *BoltProvider) migrateDatabase() error {
 		logger.ErrorToConsole("%v", err)
 		return err
 	case version == 10:
-		return updateBoltDatabaseVersion(p.dbHandle, 13)
+		return updateBoltDatabaseVersion(p.dbHandle, 14)
 	case version == 11:
-		return updateBoltDatabaseVersion(p.dbHandle, 13)
+		return updateBoltDatabaseVersion(p.dbHandle, 14)
 	case version == 12:
-		return updateBoltDatabaseVersion(p.dbHandle, 13)
+		return updateBoltDatabaseVersion(p.dbHandle, 14)
+	case version == 13:
+		return updateBoltDatabaseVersion(p.dbHandle, 14)
 	default:
 		if version > boltDatabaseVersion {
 			providerLog(logger.LevelWarn, "database version %v is newer than the supported one: %v", version,
@@ -1181,6 +1393,8 @@ func (p *BoltProvider) revertDatabase(targetVersion int) error {
 		return errors.New("current version match target version, nothing to do")
 	}
 	switch dbVersion.Version {
+	case 14:
+		return updateBoltDatabaseVersion(p.dbHandle, 10)
 	case 13:
 		return updateBoltDatabaseVersion(p.dbHandle, 10)
 	case 12:
@@ -1297,6 +1511,57 @@ func removeUserFromFolderMapping(folder *vfs.VirtualFolder, user *User, bucket *
 	return err
 }
 
+func (p *BoltProvider) adminExistsInternal(tx *bolt.Tx, username string) error {
+	bucket, err := getAdminsBucket(tx)
+	if err != nil {
+		return err
+	}
+	a := bucket.Get([]byte(username))
+	if a == nil {
+		return util.NewRecordNotFoundError(fmt.Sprintf("admin %v does not exist", username))
+	}
+	return nil
+}
+
+func (p *BoltProvider) userExistsInternal(tx *bolt.Tx, username string) error {
+	bucket, err := getUsersBucket(tx)
+	if err != nil {
+		return err
+	}
+	u := bucket.Get([]byte(username))
+	if u == nil {
+		return util.NewRecordNotFoundError(fmt.Sprintf("username %#v does not exist", username))
+	}
+	return nil
+}
+
+func deleteRelatedShares(tx *bolt.Tx, username string) error {
+	bucket, err := getSharesBucket(tx)
+	if err != nil {
+		return err
+	}
+	var toRemove []string
+	cursor := bucket.Cursor()
+	for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
+		var share Share
+		err = json.Unmarshal(v, &share)
+		if err != nil {
+			return err
+		}
+		if share.Username == username {
+			toRemove = append(toRemove, share.ShareID)
+		}
+	}
+
+	for _, k := range toRemove {
+		if err := bucket.Delete([]byte(k)); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func deleteRelatedAPIKey(tx *bolt.Tx, username string, scope APIKeyScope) error {
 	bucket, err := getAPIKeysBucket(tx)
 	if err != nil {
@@ -1328,6 +1593,16 @@ func deleteRelatedAPIKey(tx *bolt.Tx, username string, scope APIKeyScope) error 
 	}
 
 	return nil
+}
+
+func getSharesBucket(tx *bolt.Tx) (*bolt.Bucket, error) {
+	var err error
+
+	bucket := tx.Bucket(sharesBucket)
+	if bucket == nil {
+		err = errors.New("unable to find shares bucket, bolt database structure not correcly defined")
+	}
+	return bucket, err
 }
 
 func getAPIKeysBucket(tx *bolt.Tx) (*bolt.Bucket, error) {

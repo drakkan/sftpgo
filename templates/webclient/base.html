@@ -78,6 +78,13 @@
                     <span>{{.FilesTitle}}</span>
                 </a>
             </li>
+            {{if .LoggedUser.CanManageShares}}
+            <li class="nav-item {{if eq .CurrentURL .SharesURL}}active{{end}}">
+                <a class="nav-link" href="{{.SharesURL}}">
+                    <i class="fas fa-share-alt"></i>
+                    <span>{{.SharesTitle}}</span></a>
+            </li>
+            {{end}}
 
             <li class="nav-item {{if eq .CurrentURL .ProfileURL}}active{{end}}">
                 <a class="nav-link" href="{{.ProfileURL}}">

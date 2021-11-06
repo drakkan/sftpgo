@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -39,7 +40,10 @@ const (
 	templateClientTwoFactorRecovery = "twofactor-recovery.html"
 	templateClientMFA               = "mfa.html"
 	templateClientEditFile          = "editfile.html"
+	templateClientShare             = "share.html"
+	templateClientShares            = "shares.html"
 	pageClientFilesTitle            = "My Files"
+	pageClientSharesTitle           = "Shares"
 	pageClientProfileTitle          = "My Profile"
 	pageClientChangePwdTitle        = "Change password"
 	pageClient2FATitle              = "Two-factor auth"
@@ -70,6 +74,8 @@ type baseClientPage struct {
 	Title        string
 	CurrentURL   string
 	FilesURL     string
+	SharesURL    string
+	ShareURL     string
 	ProfileURL   string
 	ChangePwdURL string
 	StaticURL    string
@@ -77,6 +83,7 @@ type baseClientPage struct {
 	MFAURL       string
 	MFATitle     string
 	FilesTitle   string
+	SharesTitle  string
 	ProfileTitle string
 	Version      string
 	CSRFToken    string
@@ -106,6 +113,7 @@ type filesPage struct {
 	CanRename     bool
 	CanDelete     bool
 	CanDownload   bool
+	CanShare      bool
 	Error         string
 	Paths         []dirMapping
 }
@@ -142,6 +150,19 @@ type clientMFAPage struct {
 	Protocols       []string
 }
 
+type clientSharesPage struct {
+	baseClientPage
+	Shares              []dataprovider.Share
+	BasePublicSharesURL string
+}
+
+type clientSharePage struct {
+	baseClientPage
+	Share *dataprovider.Share
+	Error string
+	IsAdd bool
+}
+
 func getFileObjectURL(baseDir, name string) string {
 	return fmt.Sprintf("%v?path=%v&_=%v", webClientFilesPath, url.QueryEscape(path.Join(baseDir, name)), time.Now().UTC().Unix())
 }
@@ -161,6 +182,14 @@ func loadClientTemplates(templatesPath string) {
 	editFilePath := []string{
 		filepath.Join(templatesPath, templateClientDir, templateClientBase),
 		filepath.Join(templatesPath, templateClientDir, templateClientEditFile),
+	}
+	sharesPaths := []string{
+		filepath.Join(templatesPath, templateClientDir, templateClientBase),
+		filepath.Join(templatesPath, templateClientDir, templateClientShares),
+	}
+	sharePaths := []string{
+		filepath.Join(templatesPath, templateClientDir, templateClientBase),
+		filepath.Join(templatesPath, templateClientDir, templateClientShare),
 	}
 	profilePaths := []string{
 		filepath.Join(templatesPath, templateClientDir, templateClientBase),
@@ -200,6 +229,8 @@ func loadClientTemplates(templatesPath string) {
 	twoFactorTmpl := util.LoadTemplate(nil, twoFactorPath...)
 	twoFactorRecoveryTmpl := util.LoadTemplate(nil, twoFactorRecoveryPath...)
 	editFileTmpl := util.LoadTemplate(nil, editFilePath...)
+	sharesTmpl := util.LoadTemplate(nil, sharesPaths...)
+	shareTmpl := util.LoadTemplate(nil, sharePaths...)
 
 	clientTemplates[templateClientFiles] = filesTmpl
 	clientTemplates[templateClientProfile] = profileTmpl
@@ -210,6 +241,8 @@ func loadClientTemplates(templatesPath string) {
 	clientTemplates[templateClientTwoFactor] = twoFactorTmpl
 	clientTemplates[templateClientTwoFactorRecovery] = twoFactorRecoveryTmpl
 	clientTemplates[templateClientEditFile] = editFileTmpl
+	clientTemplates[templateClientShares] = sharesTmpl
+	clientTemplates[templateClientShare] = shareTmpl
 }
 
 func getBaseClientPageData(title, currentURL string, r *http.Request) baseClientPage {
@@ -223,6 +256,8 @@ func getBaseClientPageData(title, currentURL string, r *http.Request) baseClient
 		Title:        title,
 		CurrentURL:   currentURL,
 		FilesURL:     webClientFilesPath,
+		SharesURL:    webClientSharesPath,
+		ShareURL:     webClientSharePath,
 		ProfileURL:   webClientProfilePath,
 		ChangePwdURL: webChangeClientPwdPath,
 		StaticURL:    webStaticFilesPath,
@@ -230,6 +265,7 @@ func getBaseClientPageData(title, currentURL string, r *http.Request) baseClient
 		MFAURL:       webClientMFAPath,
 		MFATitle:     pageClient2FATitle,
 		FilesTitle:   pageClientFilesTitle,
+		SharesTitle:  pageClientSharesTitle,
 		ProfileTitle: pageClientProfileTitle,
 		Version:      fmt.Sprintf("%v-%v", v.Version, v.CommitHash),
 		CSRFToken:    csrfToken,
@@ -331,6 +367,24 @@ func renderEditFilePage(w http.ResponseWriter, r *http.Request, fileName, fileDa
 	renderClientTemplate(w, templateClientEditFile, data)
 }
 
+func renderAddUpdateSharePage(w http.ResponseWriter, r *http.Request, share *dataprovider.Share,
+	error string, isAdd bool) {
+	currentURL := webClientSharePath
+	title := "Add a new share"
+	if !isAdd {
+		currentURL = fmt.Sprintf("%v/%v", webClientSharePath, url.PathEscape(share.ShareID))
+		title = "Update share"
+	}
+	data := clientSharePage{
+		baseClientPage: getBaseClientPageData(title, currentURL, r),
+		Share:          share,
+		Error:          error,
+		IsAdd:          isAdd,
+	}
+
+	renderClientTemplate(w, templateClientShare, data)
+}
+
 func renderFilesPage(w http.ResponseWriter, r *http.Request, dirName, error string, user dataprovider.User) {
 	data := filesPage{
 		baseClientPage: getBaseClientPageData(pageClientFilesTitle, webClientFilesPath, r),
@@ -343,6 +397,7 @@ func renderFilesPage(w http.ResponseWriter, r *http.Request, dirName, error stri
 		CanRename:      user.CanRenameFromWeb(dirName, dirName),
 		CanDelete:      user.CanDeleteFromWeb(dirName),
 		CanDownload:    user.HasPerm(dataprovider.PermDownload, dirName),
+		CanShare:       user.CanManageShares(),
 	}
 	paths := []dirMapping{}
 	if dirName != "/" {
@@ -442,7 +497,7 @@ func handleWebClientDownloadZip(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Disposition", "attachment; filename=\"sftpgo-download.zip\"")
-	renderCompressedFiles(w, connection, name, filesList)
+	renderCompressedFiles(w, connection, name, filesList, nil)
 }
 
 func handleClientGetDirContents(w http.ResponseWriter, r *http.Request) {
@@ -635,6 +690,152 @@ func handleClientEditFile(w http.ResponseWriter, r *http.Request) {
 	renderEditFilePage(w, r, name, b.String())
 }
 
+func handleClientAddShareGet(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	share := &dataprovider.Share{Scope: dataprovider.ShareScopeRead}
+	dirName := "/"
+	if _, ok := r.URL.Query()["path"]; ok {
+		dirName = util.CleanPath(r.URL.Query().Get("path"))
+	}
+
+	if _, ok := r.URL.Query()["files"]; ok {
+		files := r.URL.Query().Get("files")
+		var filesList []string
+		err := json.Unmarshal([]byte(files), &filesList)
+		if err != nil {
+			renderClientMessagePage(w, r, "Invalid share list", "", http.StatusBadRequest, err, "")
+			return
+		}
+		for _, f := range filesList {
+			if f != "" {
+				share.Paths = append(share.Paths, path.Join(dirName, f))
+			}
+		}
+	}
+
+	renderAddUpdateSharePage(w, r, share, "", true)
+}
+
+func handleClientUpdateShareGet(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		renderClientForbiddenPage(w, r, "Invalid token claims")
+		return
+	}
+	shareID := getURLParam(r, "id")
+	share, err := dataprovider.ShareExists(shareID, claims.Username)
+	if err == nil {
+		share.HideConfidentialData()
+		renderAddUpdateSharePage(w, r, &share, "", false)
+	} else if _, ok := err.(*util.RecordNotFoundError); ok {
+		renderClientNotFoundPage(w, r, err)
+	} else {
+		renderClientInternalServerErrorPage(w, r, err)
+	}
+}
+
+func handleClientAddSharePost(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		renderClientForbiddenPage(w, r, "Invalid token claims")
+		return
+	}
+	share, err := getShareFromPostFields(r)
+	if err != nil {
+		renderAddUpdateSharePage(w, r, share, err.Error(), true)
+		return
+	}
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
+		renderClientForbiddenPage(w, r, err.Error())
+		return
+	}
+	share.ID = 0
+	share.ShareID = util.GenerateUniqueID()
+	share.LastUseAt = 0
+	share.Username = claims.Username
+	err = dataprovider.AddShare(share, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	if err == nil {
+		http.Redirect(w, r, webClientSharesPath, http.StatusSeeOther)
+	} else {
+		renderAddUpdateSharePage(w, r, share, err.Error(), true)
+	}
+}
+
+func handleClientUpdateSharePost(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		renderClientForbiddenPage(w, r, "Invalid token claims")
+		return
+	}
+	shareID := getURLParam(r, "id")
+	share, err := dataprovider.ShareExists(shareID, claims.Username)
+	if _, ok := err.(*util.RecordNotFoundError); ok {
+		renderClientNotFoundPage(w, r, err)
+		return
+	} else if err != nil {
+		renderClientInternalServerErrorPage(w, r, err)
+		return
+	}
+	updatedShare, err := getShareFromPostFields(r)
+	if err != nil {
+		renderAddUpdateSharePage(w, r, updatedShare, err.Error(), false)
+		return
+	}
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
+		renderClientForbiddenPage(w, r, err.Error())
+		return
+	}
+	updatedShare.ShareID = shareID
+	updatedShare.Username = claims.Username
+	if updatedShare.Password == redactedSecret {
+		updatedShare.Password = share.Password
+	}
+	err = dataprovider.UpdateShare(updatedShare, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	if err == nil {
+		http.Redirect(w, r, webClientSharesPath, http.StatusSeeOther)
+	} else {
+		renderAddUpdateSharePage(w, r, updatedShare, err.Error(), false)
+	}
+}
+
+func handleClientGetShares(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		renderClientForbiddenPage(w, r, "Invalid token claims")
+		return
+	}
+	limit := defaultQueryLimit
+	if _, ok := r.URL.Query()["qlimit"]; ok {
+		var err error
+		limit, err = strconv.Atoi(r.URL.Query().Get("qlimit"))
+		if err != nil {
+			limit = defaultQueryLimit
+		}
+	}
+	shares := make([]dataprovider.Share, 0, limit)
+	for {
+		s, err := dataprovider.GetShares(limit, len(shares), dataprovider.OrderASC, claims.Username)
+		if err != nil {
+			renderInternalServerErrorPage(w, r, err)
+			return
+		}
+		shares = append(shares, s...)
+		if len(s) < limit {
+			break
+		}
+	}
+	data := clientSharesPage{
+		baseClientPage:      getBaseClientPageData(pageClientSharesTitle, webClientSharesPath, r),
+		Shares:              shares,
+		BasePublicSharesURL: webClientPubSharesPath,
+	}
+	renderClientTemplate(w, templateClientShares, data)
+}
+
 func handleClientGetProfile(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	renderClientProfilePage(w, r, "")
@@ -678,7 +879,7 @@ func handleWebClientProfilePost(w http.ResponseWriter, r *http.Request) {
 	}
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		renderClientProfilePage(w, r, "Invalid token claims")
+		renderClientForbiddenPage(w, r, "Invalid token claims")
 		return
 	}
 	user, err := dataprovider.UserExists(claims.Username)
@@ -722,4 +923,37 @@ func handleWebClientTwoFactor(w http.ResponseWriter, r *http.Request) {
 func handleWebClientTwoFactorRecovery(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	renderClientTwoFactorRecoveryPage(w, "")
+}
+
+func getShareFromPostFields(r *http.Request) (*dataprovider.Share, error) {
+	share := &dataprovider.Share{}
+	if err := r.ParseForm(); err != nil {
+		return share, err
+	}
+	share.Name = r.Form.Get("name")
+	share.Description = r.Form.Get("description")
+	share.Paths = r.Form["paths"]
+	share.Password = r.Form.Get("password")
+	share.AllowFrom = getSliceFromDelimitedValues(r.Form.Get("allowed_ip"), ",")
+	scope, err := strconv.Atoi(r.Form.Get("scope"))
+	if err != nil {
+		return share, err
+	}
+	share.Scope = dataprovider.ShareScope(scope)
+	maxTokens, err := strconv.Atoi(r.Form.Get("max_tokens"))
+	if err != nil {
+		return share, err
+	}
+	share.MaxTokens = maxTokens
+	expirationDateMillis := int64(0)
+	expirationDateString := r.Form.Get("expiration_date")
+	if strings.TrimSpace(expirationDateString) != "" {
+		expirationDate, err := time.Parse(webDateTimeFormat, expirationDateString)
+		if err != nil {
+			return share, err
+		}
+		expirationDateMillis = util.GetTimeAsMsSinceEpoch(expirationDate)
+	}
+	share.ExpiresAt = expirationDateMillis
+	return share, nil
 }

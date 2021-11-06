@@ -384,6 +384,31 @@ func TestInvalidToken(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "Invalid token claims")
 
 	rr = httptest.NewRecorder()
+	getShares(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	getShareByID(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	addShare(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	updateShare(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	deleteShare(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
 	getUserPublicKeys(rr, req)
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), "Invalid token claims")
@@ -770,6 +795,13 @@ func TestCreateTokenError(t *testing.T) {
 	server.handleWebClientTwoFactorRecoveryPost(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
 	assert.Contains(t, rr.Body.String(), "invalid URL escape")
+
+	req, _ = http.NewRequest(http.MethodPost, webChangeClientPwdPath+"?a=a%K3%AO%GA", bytes.NewBuffer([]byte(form.Encode())))
+
+	_, err = getShareFromPostFields(req)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "invalid URL escape")
+	}
 
 	username := "webclientuser"
 	user = dataprovider.User{
@@ -1471,7 +1503,8 @@ func TestCompressorAbortHandler(t *testing.T) {
 		BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, "", "", dataprovider.User{}),
 		request:        nil,
 	}
-	renderCompressedFiles(&failingWriter{}, connection, "", nil)
+	share := &dataprovider.Share{}
+	renderCompressedFiles(&failingWriter{}, connection, "", nil, share)
 }
 
 func TestZipErrors(t *testing.T) {
@@ -1811,7 +1844,7 @@ func TestChangeUserPwd(t *testing.T) {
 	}
 }
 
-func TestGetFilesInvalidClaims(t *testing.T) {
+func TestWebUserInvalidClaims(t *testing.T) {
 	server := httpdServer{}
 	server.initializeRouter()
 
@@ -1856,6 +1889,34 @@ func TestGetFilesInvalidClaims(t *testing.T) {
 	handleClientEditFile(rr, req)
 	assert.Equal(t, http.StatusForbidden, rr.Code)
 	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	req, _ = http.NewRequest(http.MethodGet, webClientSharePath, nil)
+	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", token["access_token"]))
+	handleClientUpdateShareGet(rr, req)
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	req, _ = http.NewRequest(http.MethodPost, webClientSharePath, nil)
+	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", token["access_token"]))
+	handleClientAddSharePost(rr, req)
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	req, _ = http.NewRequest(http.MethodPost, webClientSharePath+"/id", nil)
+	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", token["access_token"]))
+	handleClientUpdateSharePost(rr, req)
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	req, _ = http.NewRequest(http.MethodGet, webClientSharesPath, nil)
+	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", token["access_token"]))
+	handleClientGetShares(rr, req)
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
 }
 
 func TestInvalidClaims(t *testing.T) {
@@ -1883,7 +1944,7 @@ func TestInvalidClaims(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", token["access_token"]))
 	handleWebClientProfilePost(rr, req)
-	assert.Equal(t, http.StatusInternalServerError, rr.Code)
+	assert.Equal(t, http.StatusForbidden, rr.Code)
 
 	admin := dataprovider.Admin{
 		Username: "",
@@ -1903,7 +1964,7 @@ func TestInvalidClaims(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", token["access_token"]))
 	handleWebAdminProfilePost(rr, req)
-	assert.Equal(t, http.StatusInternalServerError, rr.Code)
+	assert.Equal(t, http.StatusForbidden, rr.Code)
 }
 
 func TestTLSReq(t *testing.T) {

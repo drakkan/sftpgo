@@ -92,7 +92,7 @@
             </div>
             <form id="upload_files_form" action="" method="POST" enctype="multipart/form-data">
                 <div class="modal-body">
-                    <input type="file" class="form-control-file" id="files_name" name="filename" required multiple>
+                    <input type="file" class="form-control-file" id="files_name" name="filenames" required multiple>
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary" type="button" data-dismiss="modal">Cancel</button>
@@ -523,6 +523,25 @@
             enabled: false
         };
 
+        $.fn.dataTable.ext.buttons.share = {
+            text: '<i class="fas fa-share-alt"></i>',
+            name: 'share',
+            titleAttr: "Share",
+            action: function (e, dt, node, config) {
+                var filesArray = [];
+                var selected = dt.column(0).checkboxes.selected();
+                for (i = 0; i < selected.length; i++) {
+                    filesArray.push(getNameFromMeta(selected[i]));
+                }
+                var files = fixedEncodeURIComponent(JSON.stringify(filesArray));
+                var shareURL = '{{.ShareURL}}';
+                var currentDir = '{{.CurrentDir}}';
+                var ts = new Date().getTime().toString();
+                window.location = `${shareURL}?path=${currentDir}&files=${files}&_=${ts}`;
+            },
+            enabled: false
+        };
+
         var table = $('#dataTable').DataTable({
             "ajax": {
                 "url": "{{.DirsURL}}?path={{.CurrentDir}}",
@@ -601,12 +620,17 @@
                             } else if (selectedItems > 1) {
                                 selectedText = `${selectedItems} items selected`;
                             }
+                            {{if .CanDownload}}
                             table.button('download:name').enable(selectedItems > 0);
+                            {{end}}
                             {{if .CanRename}}
                             table.button('rename:name').enable(selectedItems == 1);
                             {{end}}
                             {{if .CanDelete}}
                             table.button('delete:name').enable(selectedItems == 1);
+                            {{end}}
+                            {{if .CanShare}}
+                            table.button('share:name').enable(selectedItems > 0);
                             {{end}}
                             $('#dataTable_info').find('span').remove();
                             $("#dataTable_info").append('<span class="selected-info"><span class="selected-item">' + selectedText + '</span></span>');
@@ -641,6 +665,9 @@
             "initComplete": function (settings, json) {
                 table.button().add(0, 'refresh');
                 table.button().add(0, 'pageLength');
+                {{if .CanShare}}
+                table.button().add(0, 'share');
+                {{end}}
                 {{if .CanDownload}}
                 table.button().add(0, 'download');
                 {{end}}

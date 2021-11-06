@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/alexedwards/argon2id"
-	"github.com/lithammer/shortuuid/v3"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/drakkan/sftpgo/v2/logger"
@@ -93,12 +92,12 @@ func (k *APIKey) RenderAsJSON(reload bool) ([]byte, error) {
 	return json.Marshal(k)
 }
 
-// HideConfidentialData hides admin confidential data
+// HideConfidentialData hides API key confidential data
 func (k *APIKey) HideConfidentialData() {
 	k.Key = ""
 }
 
-func (k *APIKey) checkKey() error {
+func (k *APIKey) hashKey() error {
 	if k.Key != "" && !util.IsStringPrefixInSlice(k.Key, internalHashPwdPrefixes) {
 		if config.PasswordHashing.Algo == HashingAlgoBcrypt {
 			hashed, err := bcrypt.GenerateFromPassword([]byte(k.Key), config.PasswordHashing.BcryptOptions.Cost)
@@ -121,8 +120,8 @@ func (k *APIKey) generateKey() {
 	if k.KeyID != "" || k.Key != "" {
 		return
 	}
-	k.KeyID = shortuuid.New()
-	k.Key = shortuuid.New()
+	k.KeyID = util.GenerateUniqueID()
+	k.Key = util.GenerateUniqueID()
 	k.plainKey = k.Key
 }
 
@@ -139,7 +138,7 @@ func (k *APIKey) validate() error {
 		return util.NewValidationError(fmt.Sprintf("invalid scope: %v", k.Scope))
 	}
 	k.generateKey()
-	if err := k.checkKey(); err != nil {
+	if err := k.hashKey(); err != nil {
 		return err
 	}
 	if k.User != "" && k.Admin != "" {

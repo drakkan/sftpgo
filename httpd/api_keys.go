@@ -55,6 +55,7 @@ func addAPIKey(w http.ResponseWriter, r *http.Request) {
 	apiKey.ID = 0
 	apiKey.KeyID = ""
 	apiKey.Key = ""
+	apiKey.LastUseAt = 0
 	err = dataprovider.AddAPIKey(&apiKey, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))

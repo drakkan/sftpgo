@@ -69,6 +69,15 @@ ALTER TABLE "{{admins}}" DROP COLUMN "last_login";
 `
 	sqliteV13SQL     = `ALTER TABLE "{{users}}" ADD COLUMN "email" varchar(255) NULL;`
 	sqliteV13DownSQL = `ALTER TABLE "{{users}}" DROP COLUMN "email";`
+	sqliteV14SQL     = `CREATE TABLE "{{shares}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+"share_id" varchar(60) NOT NULL UNIQUE, "name" varchar(255) NOT NULL, "description" varchar(512) NULL,
+"scope" integer NOT NULL, "paths" text NOT NULL, "created_at" bigint NOT NULL, "updated_at" bigint NOT NULL,
+"last_use_at" bigint NOT NULL, "expires_at" bigint NOT NULL, "password" text NULL, "max_tokens" integer NOT NULL,
+"used_tokens" integer NOT NULL, "allow_from" text NULL,
+"user_id" integer NOT NULL REFERENCES "{{users}}" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED);
+CREATE INDEX "{{prefix}}shares_user_id_idx" ON "{{shares}}" ("user_id");
+`
+	sqliteV14DownSQL = `DROP TABLE "{{shares}}";`
 )
 
 // SQLiteProvider auth provider for SQLite database
@@ -247,7 +256,7 @@ func (p *SQLiteProvider) updateAPIKey(apiKey *APIKey) error {
 	return sqlCommonUpdateAPIKey(apiKey, p.dbHandle)
 }
 
-func (p *SQLiteProvider) deleteAPIKeys(apiKey *APIKey) error {
+func (p *SQLiteProvider) deleteAPIKey(apiKey *APIKey) error {
 	return sqlCommonDeleteAPIKey(apiKey, p.dbHandle)
 }
 
@@ -261,6 +270,34 @@ func (p *SQLiteProvider) dumpAPIKeys() ([]APIKey, error) {
 
 func (p *SQLiteProvider) updateAPIKeyLastUse(keyID string) error {
 	return sqlCommonUpdateAPIKeyLastUse(keyID, p.dbHandle)
+}
+
+func (p *SQLiteProvider) shareExists(shareID, username string) (Share, error) {
+	return sqlCommonGetShareByID(shareID, username, p.dbHandle)
+}
+
+func (p *SQLiteProvider) addShare(share *Share) error {
+	return sqlCommonAddShare(share, p.dbHandle)
+}
+
+func (p *SQLiteProvider) updateShare(share *Share) error {
+	return sqlCommonUpdateShare(share, p.dbHandle)
+}
+
+func (p *SQLiteProvider) deleteShare(share *Share) error {
+	return sqlCommonDeleteShare(share, p.dbHandle)
+}
+
+func (p *SQLiteProvider) getShares(limit int, offset int, order, username string) ([]Share, error) {
+	return sqlCommonGetShares(limit, offset, order, username, p.dbHandle)
+}
+
+func (p *SQLiteProvider) dumpShares() ([]Share, error) {
+	return sqlCommonDumpShares(p.dbHandle)
+}
+
+func (p *SQLiteProvider) updateShareLastUse(shareID string, numTokens int) error {
+	return sqlCommonUpdateShareLastUse(shareID, numTokens, p.dbHandle)
 }
 
 func (p *SQLiteProvider) close() error {
@@ -287,6 +324,7 @@ func (p *SQLiteProvider) initializeDatabase() error {
 	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{initialSQL}, 10)
 }
 
+//nolint:dupl
 func (p *SQLiteProvider) migrateDatabase() error {
 	dbVersion, err := sqlCommonGetDatabaseVersion(p.dbHandle, true)
 	if err != nil {
@@ -308,6 +346,8 @@ func (p *SQLiteProvider) migrateDatabase() error {
 		return updateSQLiteDatabaseFromV11(p.dbHandle)
 	case version == 12:
 		return updateSQLiteDatabaseFromV12(p.dbHandle)
+	case version == 13:
+		return updateSQLiteDatabaseFromV13(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelWarn, "database version %v is newer than the supported one: %v", version,
@@ -330,6 +370,8 @@ func (p *SQLiteProvider) revertDatabase(targetVersion int) error {
 	}
 
 	switch dbVersion.Version {
+	case 14:
+		return downgradeSQLiteDatabaseFromV14(p.dbHandle)
 	case 13:
 		return downgradeSQLiteDatabaseFromV13(p.dbHandle)
 	case 12:
@@ -356,7 +398,21 @@ func updateSQLiteDatabaseFromV11(dbHandle *sql.DB) error {
 }
 
 func updateSQLiteDatabaseFromV12(dbHandle *sql.DB) error {
-	return updateSQLiteDatabaseFrom12To13(dbHandle)
+	if err := updateSQLiteDatabaseFrom12To13(dbHandle); err != nil {
+		return err
+	}
+	return updateSQLiteDatabaseFromV13(dbHandle)
+}
+
+func updateSQLiteDatabaseFromV13(dbHandle *sql.DB) error {
+	return updateSQLiteDatabaseFrom13To14(dbHandle)
+}
+
+func downgradeSQLiteDatabaseFromV14(dbHandle *sql.DB) error {
+	if err := downgradeSQLiteDatabaseFrom14To13(dbHandle); err != nil {
+		return err
+	}
+	return downgradeSQLiteDatabaseFromV13(dbHandle)
 }
 
 func downgradeSQLiteDatabaseFromV13(dbHandle *sql.DB) error {
@@ -375,6 +431,22 @@ func downgradeSQLiteDatabaseFromV12(dbHandle *sql.DB) error {
 
 func downgradeSQLiteDatabaseFromV11(dbHandle *sql.DB) error {
 	return downgradeSQLiteDatabaseFrom11To10(dbHandle)
+}
+
+func updateSQLiteDatabaseFrom13To14(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 13 -> 14")
+	providerLog(logger.LevelInfo, "updating database version: 13 -> 14")
+	sql := strings.ReplaceAll(sqliteV14SQL, "{{shares}}", sqlTableShares)
+	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 14)
+}
+
+func downgradeSQLiteDatabaseFrom14To13(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 14 -> 13")
+	providerLog(logger.LevelInfo, "downgrading database version: 14 -> 13")
+	sql := strings.ReplaceAll(sqliteV14DownSQL, "{{shares}}", sqlTableShares)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 13)
 }
 
 func updateSQLiteDatabaseFrom12To13(dbHandle *sql.DB) error {

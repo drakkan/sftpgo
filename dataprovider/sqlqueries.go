@@ -15,6 +15,8 @@ const (
 	selectFolderFields = "id,path,used_quota_size,used_quota_files,last_quota_update,name,description,filesystem"
 	selectAdminFields  = "id,username,password,status,email,permissions,filters,additional_info,description,created_at,updated_at,last_login"
 	selectAPIKeyFields = "key_id,name,api_key,scope,created_at,updated_at,last_use_at,expires_at,description,user_id,admin_id"
+	selectShareFields  = "s.share_id,s.name,s.description,s.scope,s.paths,u.username,s.created_at,s.updated_at,s.last_use_at," +
+		"s.expires_at,s.password,s.max_tokens,s.used_tokens,s.allow_from"
 )
 
 func getSQLPlaceholders() []string {
@@ -57,6 +59,46 @@ func getUpdateAdminQuery() string {
 
 func getDeleteAdminQuery() string {
 	return fmt.Sprintf(`DELETE FROM %v WHERE username = %v`, sqlTableAdmins, sqlPlaceholders[0])
+}
+
+func getShareByIDQuery(filterUser bool) string {
+	if filterUser {
+		return fmt.Sprintf(`SELECT %v FROM %v s INNER JOIN %v u ON s.user_id = u.id WHERE s.share_id = %v AND u.username = %v`,
+			selectShareFields, sqlTableShares, sqlTableUsers, sqlPlaceholders[0], sqlPlaceholders[1])
+	}
+	return fmt.Sprintf(`SELECT %v FROM %v s INNER JOIN %v u ON s.user_id = u.id WHERE s.share_id = %v`,
+		selectShareFields, sqlTableShares, sqlTableUsers, sqlPlaceholders[0])
+}
+
+func getSharesQuery(order string) string {
+	return fmt.Sprintf(`SELECT %v FROM %v s INNER JOIN %v u ON s.user_id = u.id WHERE u.username = %v ORDER BY s.share_id %v LIMIT %v OFFSET %v`,
+		selectShareFields, sqlTableShares, sqlTableUsers, sqlPlaceholders[0], order, sqlPlaceholders[1], sqlPlaceholders[2])
+}
+
+func getDumpSharesQuery() string {
+	return fmt.Sprintf(`SELECT %v FROM %v s INNER JOIN %v u ON s.user_id = u.id`,
+		selectShareFields, sqlTableShares, sqlTableUsers)
+}
+
+func getAddShareQuery() string {
+	return fmt.Sprintf(`INSERT INTO %v (share_id,name,description,scope,paths,created_at,updated_at,last_use_at,
+		expires_at,password,max_tokens,used_tokens,allow_from,user_id) VALUES (%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,0,%v,%v)`,
+		sqlTableShares, sqlPlaceholders[0], sqlPlaceholders[1],
+		sqlPlaceholders[2], sqlPlaceholders[3], sqlPlaceholders[4], sqlPlaceholders[5], sqlPlaceholders[6],
+		sqlPlaceholders[7], sqlPlaceholders[8], sqlPlaceholders[9], sqlPlaceholders[10], sqlPlaceholders[11],
+		sqlPlaceholders[12])
+}
+
+func getUpdateShareQuery() string {
+	return fmt.Sprintf(`UPDATE %v SET name=%v,description=%v,scope=%v,paths=%v,updated_at=%v,expires_at=%v,
+		password=%v,max_tokens=%v,allow_from=%v,user_id=%v WHERE share_id = %v`, sqlTableShares,
+		sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3], sqlPlaceholders[4],
+		sqlPlaceholders[5], sqlPlaceholders[6], sqlPlaceholders[7], sqlPlaceholders[8], sqlPlaceholders[9],
+		sqlPlaceholders[10])
+}
+
+func getDeleteShareQuery() string {
+	return fmt.Sprintf(`DELETE FROM %v WHERE share_id = %v`, sqlTableShares, sqlPlaceholders[0])
 }
 
 func getAPIKeyByIDQuery() string {
@@ -175,6 +217,11 @@ func getUpdateAdminLastLoginQuery() string {
 
 func getUpdateAPIKeyLastUseQuery() string {
 	return fmt.Sprintf(`UPDATE %v SET last_use_at = %v WHERE key_id = %v`, sqlTableAPIKeys, sqlPlaceholders[0], sqlPlaceholders[1])
+}
+
+func getUpdateShareLastUseQuery() string {
+	return fmt.Sprintf(`UPDATE %v SET last_use_at = %v, used_tokens = used_tokens +%v WHERE share_id = %v`,
+		sqlTableShares, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2])
 }
 
 func getQuotaQuery() string {

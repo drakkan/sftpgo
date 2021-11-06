@@ -70,7 +70,7 @@ const (
 	CockroachDataProviderName = "cockroachdb"
 	// DumpVersion defines the version for the dump.
 	// For restore/load we support the current version and the previous one
-	DumpVersion = 9
+	DumpVersion = 10
 
 	argonPwdPrefix            = "$argon2id$"
 	bcryptPwdPrefix           = "$2a$"
@@ -131,14 +131,15 @@ var (
 	// ErrNoInitRequired defines the error returned by InitProvider if no inizialization/update is required
 	ErrNoInitRequired = errors.New("the data provider is up to date")
 	// ErrInvalidCredentials defines the error to return if the supplied credentials are invalid
-	ErrInvalidCredentials   = errors.New("invalid credentials")
-	isAdminCreated          = int32(0)
-	validTLSUsernames       = []string{string(sdk.TLSUsernameNone), string(sdk.TLSUsernameCN)}
-	config                  Config
-	provider                Provider
-	sqlPlaceholders         []string
-	internalHashPwdPrefixes = []string{argonPwdPrefix, bcryptPwdPrefix}
-	hashPwdPrefixes         = []string{argonPwdPrefix, bcryptPwdPrefix, pbkdf2SHA1Prefix, pbkdf2SHA256Prefix,
+	ErrInvalidCredentials    = errors.New("invalid credentials")
+	ErrLoginNotAllowedFromIP = errors.New("login is not allowed from this IP")
+	isAdminCreated           = int32(0)
+	validTLSUsernames        = []string{string(sdk.TLSUsernameNone), string(sdk.TLSUsernameCN)}
+	config                   Config
+	provider                 Provider
+	sqlPlaceholders          []string
+	internalHashPwdPrefixes  = []string{argonPwdPrefix, bcryptPwdPrefix}
+	hashPwdPrefixes          = []string{argonPwdPrefix, bcryptPwdPrefix, pbkdf2SHA1Prefix, pbkdf2SHA256Prefix,
 		pbkdf2SHA512Prefix, pbkdf2SHA256B64SaltPrefix, md5cryptPwdPrefix, md5cryptApr1PwdPrefix, sha512cryptPwdPrefix}
 	pbkdfPwdPrefixes        = []string{pbkdf2SHA1Prefix, pbkdf2SHA256Prefix, pbkdf2SHA512Prefix, pbkdf2SHA256B64SaltPrefix}
 	pbkdfPwdB64SaltPrefixes = []string{pbkdf2SHA256B64SaltPrefix}
@@ -156,6 +157,7 @@ var (
 	sqlTableFoldersMapping  = "folders_mapping"
 	sqlTableAdmins          = "admins"
 	sqlTableAPIKeys         = "api_keys"
+	sqlTableShares          = "shares"
 	sqlTableSchemaVersion   = "schema_version"
 	argon2Params            *argon2id.Params
 	lastLoginMinDelay       = 10 * time.Minute
@@ -368,6 +370,7 @@ type BackupData struct {
 	Folders []vfs.BaseVirtualFolder `json:"folders"`
 	Admins  []Admin                 `json:"admins"`
 	APIKeys []APIKey                `json:"api_keys"`
+	Shares  []Share                 `json:"shares"`
 	Version int                     `json:"version"`
 }
 
@@ -436,10 +439,17 @@ type Provider interface {
 	apiKeyExists(keyID string) (APIKey, error)
 	addAPIKey(apiKey *APIKey) error
 	updateAPIKey(apiKey *APIKey) error
-	deleteAPIKeys(apiKey *APIKey) error
+	deleteAPIKey(apiKey *APIKey) error
 	getAPIKeys(limit int, offset int, order string) ([]APIKey, error)
 	dumpAPIKeys() ([]APIKey, error)
 	updateAPIKeyLastUse(keyID string) error
+	shareExists(shareID, username string) (Share, error)
+	addShare(share *Share) error
+	updateShare(share *Share) error
+	deleteShare(share *Share) error
+	getShares(limit int, offset int, order, username string) ([]Share, error)
+	dumpShares() ([]Share, error)
+	updateShareLastUse(shareID string, numTokens int) error
 	checkAvailability() error
 	close() error
 	reloadConfig() error
@@ -574,10 +584,11 @@ func validateSQLTablesPrefix() error {
 		sqlTableFoldersMapping = config.SQLTablesPrefix + sqlTableFoldersMapping
 		sqlTableAdmins = config.SQLTablesPrefix + sqlTableAdmins
 		sqlTableAPIKeys = config.SQLTablesPrefix + sqlTableAPIKeys
+		sqlTableShares = config.SQLTablesPrefix + sqlTableShares
 		sqlTableSchemaVersion = config.SQLTablesPrefix + sqlTableSchemaVersion
 		providerLog(logger.LevelDebug, "sql table for users %#v, folders %#v folders mapping %#v admins %#v "+
-			"api keys %#v schema version %#v", sqlTableUsers, sqlTableFolders, sqlTableFoldersMapping, sqlTableAdmins,
-			sqlTableAPIKeys, sqlTableSchemaVersion)
+			"api keys %#v shares %#v schema version %#v", sqlTableUsers, sqlTableFolders, sqlTableFoldersMapping,
+			sqlTableAdmins, sqlTableAPIKeys, sqlTableShares, sqlTableSchemaVersion)
 	}
 	return nil
 }
@@ -831,6 +842,11 @@ func CheckKeyboardInteractiveAuth(username, authHook string, client ssh.Keyboard
 	return doKeyboardInteractiveAuth(&user, authHook, client, ip, protocol)
 }
 
+// UpdateShareLastUse updates the LastUseAt and UsedTokens for the given share
+func UpdateShareLastUse(share *Share, numTokens int) error {
+	return provider.updateShareLastUse(share.ShareID, numTokens)
+}
+
 // UpdateAPIKeyLastUse updates the LastUseAt field for the given API key
 func UpdateAPIKeyLastUse(apiKey *APIKey) error {
 	lastUse := util.GetTimeFromMsecSinceEpoch(apiKey.LastUseAt)
@@ -928,6 +944,45 @@ func GetUsedVirtualFolderQuota(name string) (int, int64, error) {
 	return files + delayedFiles, size + delayedSize, err
 }
 
+// AddShare adds a new share
+func AddShare(share *Share, executor, ipAddress string) error {
+	err := provider.addShare(share)
+	if err == nil {
+		executeAction(operationAdd, executor, ipAddress, actionObjectShare, share.ShareID, share)
+	}
+	return err
+}
+
+// UpdateShare updates an existing share
+func UpdateShare(share *Share, executor, ipAddress string) error {
+	err := provider.updateShare(share)
+	if err == nil {
+		executeAction(operationUpdate, executor, ipAddress, actionObjectShare, share.ShareID, share)
+	}
+	return err
+}
+
+// DeleteShare deletes an existing share
+func DeleteShare(shareID string, executor, ipAddress string) error {
+	share, err := provider.shareExists(shareID, executor)
+	if err != nil {
+		return err
+	}
+	err = provider.deleteShare(&share)
+	if err == nil {
+		executeAction(operationDelete, executor, ipAddress, actionObjectShare, shareID, &share)
+	}
+	return err
+}
+
+// ShareExists returns the share with the given ID if it exists
+func ShareExists(shareID, username string) (Share, error) {
+	if shareID == "" {
+		return Share{}, util.NewRecordNotFoundError(fmt.Sprintf("Share %#v does not exist", shareID))
+	}
+	return provider.shareExists(shareID, username)
+}
+
 // AddAPIKey adds a new API key
 func AddAPIKey(apiKey *APIKey, executor, ipAddress string) error {
 	err := provider.addAPIKey(apiKey)
@@ -952,7 +1007,7 @@ func DeleteAPIKey(keyID string, executor, ipAddress string) error {
 	if err != nil {
 		return err
 	}
-	err = provider.deleteAPIKeys(&apiKey)
+	err = provider.deleteAPIKey(&apiKey)
 	if err == nil {
 		executeAction(operationDelete, executor, ipAddress, actionObjectAPIKey, apiKey.KeyID, &apiKey)
 	}
@@ -1066,6 +1121,11 @@ func ReloadConfig() error {
 	return provider.reloadConfig()
 }
 
+// GetShares returns an array of shares respecting limit and offset
+func GetShares(limit, offset int, order, username string) ([]Share, error) {
+	return provider.getShares(limit, offset, order, username)
+}
+
 // GetAPIKeys returns an array of API keys respecting limit and offset
 func GetAPIKeys(limit, offset int, order string) ([]APIKey, error) {
 	return provider.getAPIKeys(limit, offset, order)
@@ -1154,10 +1214,15 @@ func DumpData() (BackupData, error) {
 	if err != nil {
 		return data, err
 	}
+	shares, err := provider.dumpShares()
+	if err != nil {
+		return data, err
+	}
 	data.Users = users
 	data.Folders = folders
 	data.Admins = admins
 	data.APIKeys = apiKeys
+	data.Shares = shares
 	data.Version = DumpVersion
 	return data, err
 }

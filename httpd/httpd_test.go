@@ -26,7 +26,6 @@ import (
 	"github.com/go-chi/render"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
-	"github.com/lithammer/shortuuid/v3"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
@@ -100,9 +99,11 @@ const (
 	userTOTPSavePath                = "/api/v2/user/totp/save"
 	user2FARecoveryCodesPath        = "/api/v2/user/2fa/recoverycodes"
 	userProfilePath                 = "/api/v2/user/profile"
+	userSharesPath                  = "/api/v2/user/shares"
 	retentionBasePath               = "/api/v2/retention/users"
 	fsEventsPath                    = "/api/v2/events/fs"
 	providerEventsPath              = "/api/v2/events/provider"
+	sharesPath                      = "/api/v2/shares"
 	healthzPath                     = "/healthz"
 	webBasePath                     = "/web"
 	webBasePathAdmin                = "/web/admin"
@@ -141,6 +142,9 @@ const (
 	webClientLogoutPath             = "/web/client/logout"
 	webClientMFAPath                = "/web/client/mfa"
 	webClientTOTPSavePath           = "/web/client/totp/save"
+	webClientSharesPath             = "/web/client/shares"
+	webClientSharePath              = "/web/client/share"
+	webClientPubSharesPath          = "/web/client/pubshares"
 	httpBaseURL                     = "http://127.0.0.1:8081"
 	sftpServerAddr                  = "127.0.0.1:8022"
 	configDir                       = ".."
@@ -379,7 +383,7 @@ func TestMain(m *testing.M) {
 	defer testServer.Close()
 
 	exitCode := m.Run()
-	os.Remove(logfilePath)
+	//os.Remove(logfilePath)
 	os.RemoveAll(backupsPath)
 	os.RemoveAll(credentialsPath)
 	os.Remove(certPath)
@@ -749,7 +753,7 @@ func TestPermMFADisabled(t *testing.T) {
 
 	user.Filters.RecoveryCodes = []sdk.RecoveryCode{
 		{
-			Secret: kms.NewPlainSecret(shortuuid.New()),
+			Secret: kms.NewPlainSecret(util.GenerateUniqueID()),
 		},
 	}
 	user, resp, err = httpdtest.UpdateUser(user, http.StatusOK, "")
@@ -3742,6 +3746,14 @@ func TestQuotaTrackingDisabled(t *testing.T) {
 }
 
 func TestProviderErrors(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	userAPIToken, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+	userWebToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
 	token, _, err := httpdtest.GetToken(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
 	testServerToken, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
@@ -3757,6 +3769,30 @@ func TestProviderErrors(t *testing.T) {
 	assert.NoError(t, err)
 	_, _, err = httpdtest.GetAPIKeys(1, 0, http.StatusInternalServerError)
 	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodGet, userSharesPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, userAPIToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+
+	req, err = http.NewRequest(http.MethodGet, webClientSharesPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, userWebToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+
+	req, err = http.NewRequest(http.MethodGet, webClientSharePath+"/shareID", nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, userWebToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+
+	req, err = http.NewRequest(http.MethodPost, webClientSharePath+"/shareID", nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, userWebToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+
 	_, _, err = httpdtest.UpdateUser(dataprovider.User{BaseUser: sdk.BaseUser{Username: "auser"}}, http.StatusInternalServerError, "")
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(dataprovider.User{BaseUser: sdk.BaseUser{Username: "auser"}}, http.StatusInternalServerError)
@@ -3771,7 +3807,7 @@ func TestProviderErrors(t *testing.T) {
 	assert.NoError(t, err)
 	_, _, err = httpdtest.GetFolders(0, 0, http.StatusInternalServerError)
 	assert.NoError(t, err)
-	user := getTestUser()
+	user = getTestUser()
 	user.ID = 1
 	backupData := dataprovider.BackupData{}
 	backupData.Users = append(backupData.Users, user)
@@ -3803,9 +3839,23 @@ func TestProviderErrors(t *testing.T) {
 	backupData.Admins = nil
 	backupData.APIKeys = append(backupData.APIKeys, dataprovider.APIKey{
 		Name:  "name",
-		KeyID: shortuuid.New(),
-		Key:   fmt.Sprintf("%v.%v", shortuuid.New(), shortuuid.New()),
+		KeyID: util.GenerateUniqueID(),
+		Key:   fmt.Sprintf("%v.%v", util.GenerateUniqueID(), util.GenerateUniqueID()),
 		Scope: dataprovider.APIKeyScopeUser,
+	})
+	backupContent, err = json.Marshal(backupData)
+	assert.NoError(t, err)
+	err = os.WriteFile(backupFilePath, backupContent, os.ModePerm)
+	assert.NoError(t, err)
+	_, _, err = httpdtest.Loaddata(backupFilePath, "", "", http.StatusInternalServerError)
+	assert.NoError(t, err)
+	backupData.APIKeys = nil
+	backupData.Shares = append(backupData.Shares, dataprovider.Share{
+		Name:     util.GenerateUniqueID(),
+		ShareID:  util.GenerateUniqueID(),
+		Scope:    dataprovider.ShareScopeRead,
+		Paths:    []string{"/"},
+		Username: defaultUsername,
 	})
 	backupContent, err = json.Marshal(backupData)
 	assert.NoError(t, err)
@@ -3815,10 +3865,10 @@ func TestProviderErrors(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.Remove(backupFilePath)
 	assert.NoError(t, err)
-	req, err := http.NewRequest(http.MethodGet, webUserPath, nil)
+	req, err = http.NewRequest(http.MethodGet, webUserPath, nil)
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, testServerToken)
-	rr := executeRequest(req)
+	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusInternalServerError, rr)
 	req, err = http.NewRequest(http.MethodGet, webUserPath+"?clone-from=user", nil)
 	assert.NoError(t, err)
@@ -3970,6 +4020,10 @@ func TestDumpdata(t *testing.T) {
 	_, ok = response["users"]
 	assert.True(t, ok)
 	_, ok = response["folders"]
+	assert.True(t, ok)
+	_, ok = response["api_keys"]
+	assert.True(t, ok)
+	_, ok = response["shares"]
 	assert.True(t, ok)
 	_, ok = response["version"]
 	assert.True(t, ok)
@@ -4147,6 +4201,7 @@ func TestLoaddataFromPostBody(t *testing.T) {
 		},
 	}
 	backupData.APIKeys = append(backupData.APIKeys, dataprovider.APIKey{})
+	backupData.Shares = append(backupData.Shares, dataprovider.Share{})
 	backupContent, err := json.Marshal(backupData)
 	assert.NoError(t, err)
 	_, _, err = httpdtest.LoaddataFromPostBody(nil, "0", "0", http.StatusBadRequest)
@@ -4158,13 +4213,22 @@ func TestLoaddataFromPostBody(t *testing.T) {
 	_, _, err = httpdtest.LoaddataFromPostBody(backupContent, "0", "0", http.StatusInternalServerError)
 	assert.NoError(t, err)
 
-	keyID := shortuuid.New()
+	keyID := util.GenerateUniqueID()
 	backupData.APIKeys = []dataprovider.APIKey{
 		{
 			Name:  "test key",
 			Scope: dataprovider.APIKeyScopeAdmin,
 			KeyID: keyID,
-			Key:   fmt.Sprintf("%v.%v", shortuuid.New(), shortuuid.New()),
+			Key:   fmt.Sprintf("%v.%v", util.GenerateUniqueID(), util.GenerateUniqueID()),
+		},
+	}
+	backupData.Shares = []dataprovider.Share{
+		{
+			ShareID:  keyID,
+			Name:     keyID,
+			Scope:    dataprovider.ShareScopeWrite,
+			Paths:    []string{"/"},
+			Username: user.Username,
 		},
 	}
 	backupContent, err = json.Marshal(backupData)
@@ -4172,6 +4236,8 @@ func TestLoaddataFromPostBody(t *testing.T) {
 	_, _, err = httpdtest.LoaddataFromPostBody(backupContent, "0", "0", http.StatusOK)
 	assert.NoError(t, err)
 	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = dataprovider.ShareExists(keyID, user.Username)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -4207,10 +4273,17 @@ func TestLoaddata(t *testing.T) {
 	admin.ID = 1
 	admin.Username = "test_admin_restore"
 	apiKey := dataprovider.APIKey{
-		Name:  shortuuid.New(),
+		Name:  util.GenerateUniqueID(),
 		Scope: dataprovider.APIKeyScopeAdmin,
-		KeyID: shortuuid.New(),
-		Key:   fmt.Sprintf("%v.%v", shortuuid.New(), shortuuid.New()),
+		KeyID: util.GenerateUniqueID(),
+		Key:   fmt.Sprintf("%v.%v", util.GenerateUniqueID(), util.GenerateUniqueID()),
+	}
+	share := dataprovider.Share{
+		ShareID:  util.GenerateUniqueID(),
+		Name:     util.GenerateUniqueID(),
+		Scope:    dataprovider.ShareScopeRead,
+		Paths:    []string{"/"},
+		Username: user.Username,
 	}
 	backupData := dataprovider.BackupData{}
 	backupData.Users = append(backupData.Users, user)
@@ -4231,6 +4304,7 @@ func TestLoaddata(t *testing.T) {
 		},
 	}
 	backupData.APIKeys = append(backupData.APIKeys, apiKey)
+	backupData.Shares = append(backupData.Shares, share)
 	backupContent, err := json.Marshal(backupData)
 	assert.NoError(t, err)
 	backupFilePath := filepath.Join(backupsPath, "backup.json")
@@ -4252,13 +4326,15 @@ func TestLoaddata(t *testing.T) {
 		err = os.Chmod(backupFilePath, 0644)
 		assert.NoError(t, err)
 	}
-	// add user, folder, admin, API key from backup
+	// add user, folder, admin, API key, share from backup
 	_, _, err = httpdtest.Loaddata(backupFilePath, "1", "", http.StatusOK)
 	assert.NoError(t, err)
 	// update from backup
 	_, _, err = httpdtest.Loaddata(backupFilePath, "2", "", http.StatusOK)
 	assert.NoError(t, err)
 	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = dataprovider.ShareExists(share.ShareID, user.Username)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -4309,11 +4385,18 @@ func TestLoaddataMode(t *testing.T) {
 	admin.ID = 1
 	admin.Username = "test_admin_restore"
 	apiKey := dataprovider.APIKey{
-		Name:        shortuuid.New(),
+		Name:        util.GenerateUniqueID(),
 		Scope:       dataprovider.APIKeyScopeAdmin,
-		KeyID:       shortuuid.New(),
-		Key:         fmt.Sprintf("%v.%v", shortuuid.New(), shortuuid.New()),
+		KeyID:       util.GenerateUniqueID(),
+		Key:         fmt.Sprintf("%v.%v", util.GenerateUniqueID(), util.GenerateUniqueID()),
 		Description: "desc",
+	}
+	share := dataprovider.Share{
+		ShareID:  util.GenerateUniqueID(),
+		Name:     util.GenerateUniqueID(),
+		Scope:    dataprovider.ShareScopeRead,
+		Paths:    []string{"/"},
+		Username: user.Username,
 	}
 	backupData := dataprovider.BackupData{}
 	backupData.Users = append(backupData.Users, user)
@@ -4333,6 +4416,7 @@ func TestLoaddataMode(t *testing.T) {
 		},
 	}
 	backupData.APIKeys = append(backupData.APIKeys, apiKey)
+	backupData.Shares = append(backupData.Shares, share)
 	backupContent, _ := json.Marshal(backupData)
 	backupFilePath := filepath.Join(backupsPath, "backup.json")
 	err := os.WriteFile(backupFilePath, backupContent, os.ModePerm)
@@ -4366,6 +4450,9 @@ func TestLoaddataMode(t *testing.T) {
 	apiKey.ExpiresAt = util.GetTimeAsMsSinceEpoch(time.Now())
 	apiKey.Description = "new desc"
 	apiKey, _, err = httpdtest.UpdateAPIKey(apiKey, http.StatusOK)
+	assert.NoError(t, err)
+	share.Description = "test desc"
+	err = dataprovider.UpdateShare(&share, "", "")
 	assert.NoError(t, err)
 
 	backupData.Folders = []vfs.BaseVirtualFolder{
@@ -4402,6 +4489,10 @@ func TestLoaddataMode(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotEqual(t, int64(0), apiKey.ExpiresAt)
 	assert.NotEqual(t, oldAPIKeyDesc, apiKey.Description)
+
+	share, err = dataprovider.ShareExists(share.ShareID, user.Username)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, share.Description)
 
 	_, _, err = httpdtest.Loaddata(backupFilePath, "0", "2", http.StatusOK)
 	assert.NoError(t, err)
@@ -5065,7 +5156,7 @@ func TestAdminTOTP(t *testing.T) {
 	assert.Equal(t, kms.SecretStatusSecretBox, admin.Filters.TOTPConfig.Secret.GetStatus())
 	admin.Filters.TOTPConfig = dataprovider.TOTPConfig{
 		Enabled:    false,
-		ConfigName: shortuuid.New(),
+		ConfigName: util.GenerateUniqueID(),
 		Secret:     kms.NewEmptySecret(),
 	}
 	admin.Filters.RecoveryCodes = []sdk.RecoveryCode{
@@ -6544,13 +6635,15 @@ func TestAdminLastLoginWithAPIKey(t *testing.T) {
 	assert.Equal(t, int64(0), admin.LastLogin)
 
 	apiKey := dataprovider.APIKey{
-		Name:  "admin API key",
-		Scope: dataprovider.APIKeyScopeAdmin,
-		Admin: altAdminUsername,
+		Name:      "admin API key",
+		Scope:     dataprovider.APIKeyScopeAdmin,
+		Admin:     altAdminUsername,
+		LastUseAt: 123,
 	}
 
 	apiKey, resp, err = httpdtest.AddAPIKey(apiKey, http.StatusCreated)
 	assert.NoError(t, err, string(resp))
+	assert.Equal(t, int64(0), apiKey.LastUseAt)
 
 	req, err := http.NewRequest(http.MethodGet, versionPath, nil)
 	assert.NoError(t, err)
@@ -8293,7 +8386,7 @@ func TestPreUploadHook(t *testing.T) {
 
 	body := new(bytes.Buffer)
 	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormFile("filename", "filepre")
+	part, err := writer.CreateFormFile("filenames", "filepre")
 	assert.NoError(t, err)
 	_, err = part.Write([]byte("file content"))
 	assert.NoError(t, err)
@@ -8329,6 +8422,573 @@ func TestPreUploadHook(t *testing.T) {
 	common.Config.Actions.Hook = oldHook
 }
 
+func TestShareUsage(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+
+	testFileName := "testfile.dat"
+	testFileSize := int64(65536)
+	testFilePath := filepath.Join(user.GetHomeDir(), testFileName)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+
+	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	share := dataprovider.Share{
+		Name:      "test share",
+		Scope:     dataprovider.ShareScopeRead,
+		Paths:     []string{"/"},
+		Password:  defaultPassword,
+		MaxTokens: 2,
+		ExpiresAt: util.GetTimeAsMsSinceEpoch(time.Now().Add(1 * time.Second)),
+	}
+	asJSON, err := json.Marshal(share)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	objectID := rr.Header().Get("X-Object-ID")
+	assert.NotEmpty(t, objectID)
+
+	req, err = http.NewRequest(http.MethodGet, sharesPath+"/unknownid", nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodGet, sharesPath+"/"+objectID, nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusUnauthorized, rr)
+
+	req.SetBasicAuth(defaultUsername, "wrong password")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusUnauthorized, rr)
+
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	time.Sleep(2 * time.Second)
+
+	req, err = http.NewRequest(http.MethodGet, webClientPubSharesPath+"/"+objectID, nil)
+	assert.NoError(t, err)
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	share.ExpiresAt = 0
+	jsonReq := make(map[string]interface{})
+	jsonReq["name"] = share.Name
+	jsonReq["scope"] = share.Scope
+	jsonReq["paths"] = share.Paths
+	jsonReq["password"] = share.Password
+	jsonReq["max_tokens"] = share.MaxTokens
+	jsonReq["expires_at"] = share.ExpiresAt
+	asJSON, err = json.Marshal(jsonReq)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPut, userSharesPath+"/"+objectID, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodGet, webClientPubSharesPath+"/"+objectID, nil)
+	assert.NoError(t, err)
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodPost, sharesPath+"/"+objectID, nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "Invalid share scope")
+
+	share.MaxTokens = 3
+	share.Scope = dataprovider.ShareScopeWrite
+	asJSON, err = json.Marshal(share)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPut, userSharesPath+"/"+objectID, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	body := new(bytes.Buffer)
+	writer := multipart.NewWriter(body)
+	part1, err := writer.CreateFormFile("filenames", "file1.txt")
+	assert.NoError(t, err)
+	_, err = part1.Write([]byte("file1 content"))
+	assert.NoError(t, err)
+	part2, err := writer.CreateFormFile("filenames", "file2.txt")
+	assert.NoError(t, err)
+	_, err = part2.Write([]byte("file2 content"))
+	assert.NoError(t, err)
+	err = writer.Close()
+	assert.NoError(t, err)
+	reader := bytes.NewReader(body.Bytes())
+
+	req, err = http.NewRequest(http.MethodPost, sharesPath+"/"+objectID, reader)
+	assert.NoError(t, err)
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "Unable to parse multipart form")
+
+	_, err = reader.Seek(0, io.SeekStart)
+	assert.NoError(t, err)
+	// set the proper content type
+	req, err = http.NewRequest(http.MethodPost, sharesPath+"/"+objectID, reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "Allowed usage exceeded")
+
+	share.MaxTokens = 6
+	share.Scope = dataprovider.ShareScopeWrite
+	asJSON, err = json.Marshal(share)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPut, userSharesPath+"/"+objectID, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	_, err = reader.Seek(0, io.SeekStart)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, sharesPath+"/"+objectID, reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+
+	_, err = reader.Seek(0, io.SeekStart)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, webClientPubSharesPath+"/"+objectID, reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+
+	share, err = dataprovider.ShareExists(objectID, user.Username)
+	assert.NoError(t, err)
+	assert.Equal(t, 6, share.UsedTokens)
+
+	_, err = reader.Seek(0, io.SeekStart)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, sharesPath+"/"+objectID, reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	share.MaxTokens = 0
+	err = dataprovider.UpdateShare(&share, user.Username, "")
+	assert.NoError(t, err)
+
+	user.Permissions["/"] = []string{dataprovider.PermListItems, dataprovider.PermDownload}
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+
+	_, err = reader.Seek(0, io.SeekStart)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, sharesPath+"/"+objectID, reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+	assert.Contains(t, rr.Body.String(), "permission denied")
+
+	body = new(bytes.Buffer)
+	writer = multipart.NewWriter(body)
+	part, err := writer.CreateFormFile("filename", "file1.txt")
+	assert.NoError(t, err)
+	_, err = part.Write([]byte("file content"))
+	assert.NoError(t, err)
+	err = writer.Close()
+	assert.NoError(t, err)
+	reader = bytes.NewReader(body.Bytes())
+
+	req, err = http.NewRequest(http.MethodPost, sharesPath+"/"+objectID, reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "No files uploaded!")
+
+	share.Scope = dataprovider.ShareScopeRead
+	share.Paths = []string{"/missing"}
+	err = dataprovider.UpdateShare(&share, user.Username, "")
+	assert.NoError(t, err)
+
+	defer func() {
+		rcv := recover()
+		assert.Equal(t, http.ErrAbortHandler, rcv)
+
+		share, err = dataprovider.ShareExists(objectID, user.Username)
+		assert.NoError(t, err)
+		assert.Equal(t, 6, share.UsedTokens)
+
+		_, err = httpdtest.RemoveUser(user, http.StatusOK)
+		assert.NoError(t, err)
+		err = os.RemoveAll(user.GetHomeDir())
+		assert.NoError(t, err)
+	}()
+
+	req, err = http.NewRequest(http.MethodGet, sharesPath+"/"+objectID, nil)
+	assert.NoError(t, err)
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	executeRequest(req)
+}
+
+func TestUserAPIShareErrors(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	share := dataprovider.Share{
+		Scope: 1000,
+	}
+	asJSON, err := json.Marshal(share)
+	assert.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "invalid scope")
+	// invalid json
+	req, err = http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer([]byte("{")))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	share.Scope = dataprovider.ShareScopeWrite
+	asJSON, err = json.Marshal(share)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "at least a shared path is required")
+
+	share.Paths = []string{"path1", "../path1", "/path2"}
+	asJSON, err = json.Marshal(share)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "the write share scope requires exactly one path")
+
+	share.Paths = []string{"", ""}
+	asJSON, err = json.Marshal(share)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "at least a shared path is required")
+
+	share.Paths = []string{"path1", "../path1", "/path1"}
+	share.Password = redactedSecret
+	asJSON, err = json.Marshal(share)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "cannot save a share with a redacted password")
+
+	share.Password = "newpass"
+	share.AllowFrom = []string{"not valid"}
+	asJSON, err = json.Marshal(share)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "could not parse allow from entry")
+
+	share.AllowFrom = []string{"127.0.0.1/8"}
+	share.ExpiresAt = util.GetTimeAsMsSinceEpoch(time.Now().Add(-12 * time.Hour))
+	asJSON, err = json.Marshal(share)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "expiration must be in the future")
+
+	share.ExpiresAt = util.GetTimeAsMsSinceEpoch(time.Now().Add(12 * time.Hour))
+	asJSON, err = json.Marshal(share)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	location := rr.Header().Get("Location")
+
+	asJSON, err = json.Marshal(share)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPut, location, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "name is mandatory")
+	// invalid json
+	req, err = http.NewRequest(http.MethodPut, location, bytes.NewBuffer([]byte("}")))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	req, err = http.NewRequest(http.MethodGet, userSharesPath+"?limit=a", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestUserAPIShares(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	u := getTestUser()
+	u.Username = altAdminUsername
+	user1, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	token1, err := getJWTAPIUserTokenFromTestServer(user1.Username, defaultPassword)
+	assert.NoError(t, err)
+
+	// the share username will be set from
+	share := dataprovider.Share{
+		Name:        "share1",
+		Description: "description1",
+		Scope:       dataprovider.ShareScopeRead,
+		Paths:       []string{"/"},
+		CreatedAt:   1,
+		UpdatedAt:   2,
+		LastUseAt:   3,
+		ExpiresAt:   util.GetTimeAsMsSinceEpoch(time.Now().Add(2 * time.Hour)),
+		Password:    defaultPassword,
+		MaxTokens:   10,
+		UsedTokens:  2,
+		AllowFrom:   []string{"192.168.1.0/24"},
+	}
+	asJSON, err := json.Marshal(share)
+	assert.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	location := rr.Header().Get("Location")
+	assert.NotEmpty(t, location)
+	objectID := rr.Header().Get("X-Object-ID")
+	assert.NotEmpty(t, objectID)
+	assert.Equal(t, fmt.Sprintf("%v/%v", userSharesPath, objectID), location)
+
+	req, err = http.NewRequest(http.MethodGet, location, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	var shareGet dataprovider.Share
+	err = json.Unmarshal(rr.Body.Bytes(), &shareGet)
+	assert.NoError(t, err)
+	assert.Equal(t, objectID, shareGet.ShareID)
+	assert.Equal(t, share.Name, shareGet.Name)
+	assert.Equal(t, share.Description, shareGet.Description)
+	assert.Equal(t, share.Scope, shareGet.Scope)
+	assert.Equal(t, share.Paths, shareGet.Paths)
+	assert.Equal(t, int64(0), shareGet.LastUseAt)
+	assert.Greater(t, shareGet.CreatedAt, share.CreatedAt)
+	assert.Greater(t, shareGet.UpdatedAt, share.UpdatedAt)
+	assert.Equal(t, share.ExpiresAt, shareGet.ExpiresAt)
+	assert.Equal(t, share.MaxTokens, shareGet.MaxTokens)
+	assert.Equal(t, 0, shareGet.UsedTokens)
+	assert.Equal(t, share.Paths, shareGet.Paths)
+	assert.Equal(t, redactedSecret, shareGet.Password)
+
+	req, err = http.NewRequest(http.MethodGet, location, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token1)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	s, err := dataprovider.ShareExists(objectID, defaultUsername)
+	assert.NoError(t, err)
+	match, err := s.CheckPassword(defaultPassword)
+	assert.True(t, match)
+	assert.NoError(t, err)
+	match, err = s.CheckPassword(defaultPassword + "mod")
+	assert.False(t, match)
+	assert.Error(t, err)
+
+	shareGet.ExpiresAt = util.GetTimeAsMsSinceEpoch(time.Now().Add(3 * time.Hour))
+	asJSON, err = json.Marshal(shareGet)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPut, location, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	s, err = dataprovider.ShareExists(objectID, defaultUsername)
+	assert.NoError(t, err)
+	match, err = s.CheckPassword(defaultPassword)
+	assert.True(t, match)
+	assert.NoError(t, err)
+	match, err = s.CheckPassword(defaultPassword + "mod")
+	assert.False(t, match)
+	assert.Error(t, err)
+
+	req, err = http.NewRequest(http.MethodGet, location, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	var shareGetNew dataprovider.Share
+	err = json.Unmarshal(rr.Body.Bytes(), &shareGetNew)
+	assert.NoError(t, err)
+	assert.NotEqual(t, shareGet.UpdatedAt, shareGetNew.UpdatedAt)
+	shareGet.UpdatedAt = shareGetNew.UpdatedAt
+	assert.Equal(t, shareGet, shareGetNew)
+
+	req, err = http.NewRequest(http.MethodGet, userSharesPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	var shares []dataprovider.Share
+	err = json.Unmarshal(rr.Body.Bytes(), &shares)
+	assert.NoError(t, err)
+	if assert.Len(t, shares, 1) {
+		assert.Equal(t, shareGetNew, shares[0])
+	}
+
+	err = dataprovider.UpdateShareLastUse(&shareGetNew, 2)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodGet, location, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	shareGetNew = dataprovider.Share{}
+	err = json.Unmarshal(rr.Body.Bytes(), &shareGetNew)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, shareGetNew.UsedTokens, "share: %v", shareGetNew)
+	assert.Greater(t, shareGetNew.LastUseAt, int64(0), "share: %v", shareGetNew)
+
+	req, err = http.NewRequest(http.MethodGet, userSharesPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token1)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	shares = nil
+	err = json.Unmarshal(rr.Body.Bytes(), &shares)
+	assert.NoError(t, err)
+	assert.Len(t, shares, 0)
+
+	// set an empty password
+	shareGet.Password = ""
+	asJSON, err = json.Marshal(shareGet)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPut, location, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodGet, location, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	shareGetNew = dataprovider.Share{}
+	err = json.Unmarshal(rr.Body.Bytes(), &shareGetNew)
+	assert.NoError(t, err)
+	assert.Empty(t, shareGetNew.Password)
+
+	req, err = http.NewRequest(http.MethodDelete, location, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	share.Name = ""
+	asJSON, err = json.Marshal(share)
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	location = rr.Header().Get("Location")
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	// the share should be deleted with the associated user
+	req, err = http.NewRequest(http.MethodGet, location, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodPut, location, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodDelete, location, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	_, err = httpdtest.RemoveUser(user1, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user1.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestUserAPIKey(t *testing.T) {
 	u := getTestUser()
 	u.Filters.AllowAPIKeyAuth = true
@@ -8336,15 +8996,18 @@ func TestUserAPIKey(t *testing.T) {
 	assert.NoError(t, err)
 	apiKey := dataprovider.APIKey{
 		Name:  "testkey",
-		User:  user.Username,
+		User:  user.Username + "1",
 		Scope: dataprovider.APIKeyScopeUser,
 	}
+	_, _, err = httpdtest.AddAPIKey(apiKey, http.StatusBadRequest)
+	assert.NoError(t, err)
+	apiKey.User = user.Username
 	apiKey, _, err = httpdtest.AddAPIKey(apiKey, http.StatusCreated)
 	assert.NoError(t, err)
 
 	body := new(bytes.Buffer)
 	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormFile("filename", "filenametest")
+	part, err := writer.CreateFormFile("filenames", "filenametest")
 	assert.NoError(t, err)
 	_, err = part.Write([]byte("test file content"))
 	assert.NoError(t, err)
@@ -8918,11 +9581,11 @@ func TestWebFilesAPI(t *testing.T) {
 
 	body := new(bytes.Buffer)
 	writer := multipart.NewWriter(body)
-	part1, err := writer.CreateFormFile("filename", "file1.txt")
+	part1, err := writer.CreateFormFile("filenames", "file1.txt")
 	assert.NoError(t, err)
 	_, err = part1.Write([]byte("file1 content"))
 	assert.NoError(t, err)
-	part2, err := writer.CreateFormFile("filename", "file2.txt")
+	part2, err := writer.CreateFormFile("filenames", "file2.txt")
 	assert.NoError(t, err)
 	_, err = part2.Write([]byte("file2 content"))
 	assert.NoError(t, err)
@@ -9117,7 +9780,7 @@ func TestWebUploadErrors(t *testing.T) {
 
 	body := new(bytes.Buffer)
 	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormFile("filename", "file.zip")
+	part, err := writer.CreateFormFile("filenames", "file.zip")
 	assert.NoError(t, err)
 	_, err = part.Write([]byte("file content"))
 	assert.NoError(t, err)
@@ -9279,7 +9942,7 @@ func TestWebAPIVFolder(t *testing.T) {
 
 	body := new(bytes.Buffer)
 	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormFile("filename", "file.txt")
+	part, err := writer.CreateFormFile("filenames", "file.txt")
 	assert.NoError(t, err)
 	_, err = part.Write(fileContents)
 	assert.NoError(t, err)
@@ -9339,7 +10002,7 @@ func TestWebAPIWritePermission(t *testing.T) {
 
 	body := new(bytes.Buffer)
 	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormFile("filename", "file.txt")
+	part, err := writer.CreateFormFile("filenames", "file.txt")
 	assert.NoError(t, err)
 	_, err = part.Write([]byte(""))
 	assert.NoError(t, err)
@@ -9421,7 +10084,7 @@ func TestWebAPICryptFs(t *testing.T) {
 
 	body := new(bytes.Buffer)
 	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormFile("filename", "file.txt")
+	part, err := writer.CreateFormFile("filenames", "file.txt")
 	assert.NoError(t, err)
 	_, err = part.Write([]byte("content"))
 	assert.NoError(t, err)
@@ -9467,7 +10130,7 @@ func TestWebUploadSFTP(t *testing.T) {
 
 	body := new(bytes.Buffer)
 	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormFile("filename", "file.txt")
+	part, err := writer.CreateFormFile("filenames", "file.txt")
 	assert.NoError(t, err)
 	_, err = part.Write([]byte("test file content"))
 	assert.NoError(t, err)
@@ -9541,7 +10204,7 @@ func TestWebUploadMultipartFormReadError(t *testing.T) {
 	mpartForm := &multipart.Form{
 		File: make(map[string][]*multipart.FileHeader),
 	}
-	mpartForm.File["filename"] = append(mpartForm.File["filename"], &multipart.FileHeader{Filename: "missing"})
+	mpartForm.File["filenames"] = append(mpartForm.File["filenames"], &multipart.FileHeader{Filename: "missing"})
 	req.MultipartForm = mpartForm
 	req.Header.Add("Content-Type", "multipart/form-data")
 	setBearerForReq(req, webAPIToken)
@@ -9708,7 +10371,7 @@ func TestClientUserClose(t *testing.T) {
 		defer wg.Done()
 		body := new(bytes.Buffer)
 		writer := multipart.NewWriter(body)
-		part, err := writer.CreateFormFile("filename", "upload.dat")
+		part, err := writer.CreateFormFile("filenames", "upload.dat")
 		assert.NoError(t, err)
 		n, err := part.Write(uploadContent)
 		assert.NoError(t, err)
@@ -9994,6 +10657,225 @@ func TestAdminNoToken(t *testing.T) {
 	req, _ = http.NewRequest(http.MethodGet, activeConnectionsPath, nil)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusUnauthorized, rr)
+}
+
+func TestWebUserShare(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+
+	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
+	assert.NoError(t, err)
+	token, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+	userAPItoken, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	share := dataprovider.Share{
+		Name:        "test share",
+		Description: "test share desc",
+		Scope:       dataprovider.ShareScopeRead,
+		Paths:       []string{"/"},
+		ExpiresAt:   util.GetTimeAsMsSinceEpoch(time.Now().Add(24 * time.Hour)),
+		MaxTokens:   100,
+		AllowFrom:   []string{"127.0.0.0/8", "172.16.0.0/16"},
+		Password:    defaultPassword,
+	}
+	form := make(url.Values)
+	form.Set("name", share.Name)
+	form.Set("scope", strconv.Itoa(int(share.Scope)))
+	form.Set("paths", "/")
+	form.Set("max_tokens", strconv.Itoa(share.MaxTokens))
+	form.Set("allowed_ip", strings.Join(share.AllowFrom, ","))
+	form.Set("description", share.Description)
+	form.Set("password", share.Password)
+	form.Set("expiration_date", "123")
+	// invalid expiration date
+	req, err := http.NewRequest(http.MethodPost, webClientSharePath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "cannot parse")
+	form.Set("expiration_date", util.GetTimeFromMsecSinceEpoch(share.ExpiresAt).UTC().Format("2006-01-02 15:04:05"))
+	form.Set("scope", "")
+	// invalid scope
+	req, err = http.NewRequest(http.MethodPost, webClientSharePath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "invalid syntax")
+	form.Set("scope", strconv.Itoa(int(share.Scope)))
+	// invalid max tokens
+	form.Set("max_tokens", "t")
+	req, err = http.NewRequest(http.MethodPost, webClientSharePath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "invalid syntax")
+	form.Set("max_tokens", strconv.Itoa(share.MaxTokens))
+	// no csrf token
+	req, err = http.NewRequest(http.MethodPost, webClientSharePath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "unable to verify form token")
+
+	form.Set(csrfFormToken, csrfToken)
+	form.Set("scope", "100")
+	req, err = http.NewRequest(http.MethodPost, webClientSharePath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "Validation error: invalid scope")
+
+	form.Set("scope", strconv.Itoa(int(share.Scope)))
+	req, err = http.NewRequest(http.MethodPost, webClientSharePath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+
+	req, err = http.NewRequest(http.MethodGet, userSharesPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, userAPItoken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	var shares []dataprovider.Share
+	err = json.Unmarshal(rr.Body.Bytes(), &shares)
+	assert.NoError(t, err)
+	if assert.Len(t, shares, 1) {
+		s := shares[0]
+		assert.Equal(t, share.Name, s.Name)
+		assert.Equal(t, share.Description, s.Description)
+		assert.Equal(t, share.Scope, s.Scope)
+		assert.Equal(t, share.Paths, s.Paths)
+		assert.InDelta(t, share.ExpiresAt, s.ExpiresAt, 999)
+		assert.Equal(t, share.MaxTokens, s.MaxTokens)
+		assert.Equal(t, share.AllowFrom, s.AllowFrom)
+		assert.Equal(t, redactedSecret, s.Password)
+		share.ShareID = s.ShareID
+	}
+	form.Set("password", redactedSecret)
+	form.Set("expiration_date", "123")
+	req, err = http.NewRequest(http.MethodPost, webClientSharePath+"/unknowid", bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodPost, webClientSharePath+"/"+share.ShareID, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "cannot parse")
+
+	form.Set("expiration_date", "")
+	form.Set(csrfFormToken, "")
+	req, err = http.NewRequest(http.MethodPost, webClientSharePath+"/"+share.ShareID, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "unable to verify form token")
+
+	form.Set(csrfFormToken, csrfToken)
+	form.Set("allowed_ip", "1.1.1")
+	req, err = http.NewRequest(http.MethodPost, webClientSharePath+"/"+share.ShareID, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "Validation error: could not parse allow from entry")
+
+	form.Set("allowed_ip", "")
+	req, err = http.NewRequest(http.MethodPost, webClientSharePath+"/"+share.ShareID, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+
+	req, err = http.NewRequest(http.MethodGet, userSharesPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, userAPItoken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	shares = nil
+	err = json.Unmarshal(rr.Body.Bytes(), &shares)
+	assert.NoError(t, err)
+	if assert.Len(t, shares, 1) {
+		s := shares[0]
+		assert.Equal(t, share.Name, s.Name)
+		assert.Equal(t, share.Description, s.Description)
+		assert.Equal(t, share.Scope, s.Scope)
+		assert.Equal(t, share.Paths, s.Paths)
+		assert.Equal(t, int64(0), s.ExpiresAt)
+		assert.Equal(t, share.MaxTokens, s.MaxTokens)
+		assert.Empty(t, s.AllowFrom)
+	}
+	// check the password
+	s, err := dataprovider.ShareExists(share.ShareID, user.Username)
+	assert.NoError(t, err)
+	match, err := s.CheckPassword(defaultPassword)
+	assert.NoError(t, err)
+	assert.True(t, match)
+
+	req, err = http.NewRequest(http.MethodGet, webClientSharePath+"?path=%2F&files=a", nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "Invalid share list")
+
+	req, err = http.NewRequest(http.MethodGet, webClientSharePath+"?path=%2F&files=%5B\"adir\"%5D", nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodGet, webClientSharePath+"/unknown", nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodGet, webClientSharePath+"/"+share.ShareID, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodGet, webClientSharesPath+"?qlimit=a", nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodGet, webClientSharesPath+"?qlimit=1", nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
 }
 
 func TestWebUserProfile(t *testing.T) {
@@ -11137,8 +12019,8 @@ func TestWebMaintenanceMock(t *testing.T) {
 
 	apiKey := dataprovider.APIKey{
 		Name:  "key name",
-		KeyID: shortuuid.New(),
-		Key:   fmt.Sprintf("%v.%v", shortuuid.New(), shortuuid.New()),
+		KeyID: util.GenerateUniqueID(),
+		Key:   fmt.Sprintf("%v.%v", util.GenerateUniqueID(), util.GenerateUniqueID()),
 		Scope: dataprovider.APIKeyScopeAdmin,
 	}
 	backupData := dataprovider.BackupData{}

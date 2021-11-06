@@ -38,8 +38,8 @@ var (
 	tokenDuration = 20 * time.Minute
 	// csrf token duration is greater than normal token duration to reduce issues
 	// with the login form
-	csrfTokenDuration = 6 * time.Hour
-	tokenRefreshMin   = 10 * time.Minute
+	csrfTokenDuration     = 6 * time.Hour
+	tokenRefreshThreshold = 10 * time.Minute
 )
 
 type jwtTokenClaims struct {

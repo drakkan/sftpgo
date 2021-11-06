@@ -5,6 +5,7 @@ import (
 	"os/signal"
 
 	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/sdk/plugin"
 )
 
 func registerSignals() {
@@ -13,6 +14,7 @@ func registerSignals() {
 	go func() {
 		for range c {
 			logger.Debug(logSender, "", "Received interrupt request")
+			plugin.Handler.Cleanup()
 			os.Exit(0)
 		}
 	}()

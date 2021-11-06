@@ -40,6 +40,10 @@ type memoryProviderHandle struct {
 	apiKeys map[string]APIKey
 	// slice with ordered API keys KeyID
 	apiKeysIDs []string
+	// map for shares, shareID is the key
+	shares map[string]Share
+	// slice with ordered shares shareID
+	sharesIDs []string
 }
 
 // MemoryProvider auth provider for a memory store
@@ -66,6 +70,8 @@ func initializeMemoryProvider(basePath string) {
 			adminsUsernames: []string{},
 			apiKeys:         make(map[string]APIKey),
 			apiKeysIDs:      []string{},
+			shares:          make(map[string]Share),
+			sharesIDs:       []string{},
 			configFile:      configFile,
 		},
 	}
@@ -328,6 +334,7 @@ func (p *MemoryProvider) deleteUser(user *User) error {
 	}
 	sort.Strings(p.dbHandle.usernames)
 	p.deleteAPIKeysWithUser(user.Username)
+	p.deleteSharesWithUser(user.Username)
 	return nil
 }
 
@@ -869,6 +876,16 @@ func (p *MemoryProvider) addAPIKey(apiKey *APIKey) error {
 	if err == nil {
 		return fmt.Errorf("API key %#v already exists", apiKey.KeyID)
 	}
+	if apiKey.User != "" {
+		if _, err := p.userExistsInternal(apiKey.User); err != nil {
+			return util.NewValidationError(fmt.Sprintf("related user %#v does not exists", apiKey.User))
+		}
+	}
+	if apiKey.Admin != "" {
+		if _, err := p.adminExistsInternal(apiKey.Admin); err != nil {
+			return util.NewValidationError(fmt.Sprintf("related admin %#v does not exists", apiKey.User))
+		}
+	}
 	apiKey.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 	apiKey.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 	apiKey.LastUseAt = 0
@@ -893,6 +910,16 @@ func (p *MemoryProvider) updateAPIKey(apiKey *APIKey) error {
 	if err != nil {
 		return err
 	}
+	if apiKey.User != "" {
+		if _, err := p.userExistsInternal(apiKey.User); err != nil {
+			return util.NewValidationError(fmt.Sprintf("related user %#v does not exists", apiKey.User))
+		}
+	}
+	if apiKey.Admin != "" {
+		if _, err := p.adminExistsInternal(apiKey.Admin); err != nil {
+			return util.NewValidationError(fmt.Sprintf("related admin %#v does not exists", apiKey.User))
+		}
+	}
 	apiKey.ID = k.ID
 	apiKey.KeyID = k.KeyID
 	apiKey.Key = k.Key
@@ -903,7 +930,7 @@ func (p *MemoryProvider) updateAPIKey(apiKey *APIKey) error {
 	return nil
 }
 
-func (p *MemoryProvider) deleteAPIKeys(apiKey *APIKey) error {
+func (p *MemoryProvider) deleteAPIKey(apiKey *APIKey) error {
 	p.dbHandle.Lock()
 	defer p.dbHandle.Unlock()
 	if p.dbHandle.isClosed {
@@ -915,12 +942,8 @@ func (p *MemoryProvider) deleteAPIKeys(apiKey *APIKey) error {
 	}
 
 	delete(p.dbHandle.apiKeys, apiKey.KeyID)
-	// this could be more efficient
-	p.dbHandle.apiKeysIDs = make([]string, 0, len(p.dbHandle.apiKeys))
-	for keyID := range p.dbHandle.apiKeys {
-		p.dbHandle.apiKeysIDs = append(p.dbHandle.apiKeysIDs, keyID)
-	}
-	sort.Strings(p.dbHandle.apiKeysIDs)
+	p.updateAPIKeysOrdering()
+
 	return nil
 }
 
@@ -986,19 +1009,235 @@ func (p *MemoryProvider) dumpAPIKeys() ([]APIKey, error) {
 }
 
 func (p *MemoryProvider) deleteAPIKeysWithUser(username string) {
+	found := false
 	for k, v := range p.dbHandle.apiKeys {
 		if v.User == username {
 			delete(p.dbHandle.apiKeys, k)
+			found = true
 		}
+	}
+	if found {
+		p.updateAPIKeysOrdering()
 	}
 }
 
 func (p *MemoryProvider) deleteAPIKeysWithAdmin(username string) {
+	found := false
 	for k, v := range p.dbHandle.apiKeys {
 		if v.Admin == username {
 			delete(p.dbHandle.apiKeys, k)
+			found = true
 		}
 	}
+	if found {
+		p.updateAPIKeysOrdering()
+	}
+}
+
+func (p *MemoryProvider) deleteSharesWithUser(username string) {
+	found := false
+	for k, v := range p.dbHandle.shares {
+		if v.Username == username {
+			delete(p.dbHandle.shares, k)
+			found = true
+		}
+	}
+	if found {
+		p.updateSharesOrdering()
+	}
+}
+
+func (p *MemoryProvider) updateAPIKeysOrdering() {
+	// this could be more efficient
+	p.dbHandle.apiKeysIDs = make([]string, 0, len(p.dbHandle.apiKeys))
+	for keyID := range p.dbHandle.apiKeys {
+		p.dbHandle.apiKeysIDs = append(p.dbHandle.apiKeysIDs, keyID)
+	}
+	sort.Strings(p.dbHandle.apiKeysIDs)
+}
+
+func (p *MemoryProvider) updateSharesOrdering() {
+	// this could be more efficient
+	p.dbHandle.sharesIDs = make([]string, 0, len(p.dbHandle.shares))
+	for shareID := range p.dbHandle.shares {
+		p.dbHandle.sharesIDs = append(p.dbHandle.sharesIDs, shareID)
+	}
+	sort.Strings(p.dbHandle.sharesIDs)
+}
+
+func (p *MemoryProvider) shareExistsInternal(shareID, username string) (Share, error) {
+	if val, ok := p.dbHandle.shares[shareID]; ok {
+		if username != "" && val.Username != username {
+			return Share{}, util.NewRecordNotFoundError(fmt.Sprintf("Share %#v does not exist", shareID))
+		}
+		return val.getACopy(), nil
+	}
+	return Share{}, util.NewRecordNotFoundError(fmt.Sprintf("Share %#v does not exist", shareID))
+}
+
+func (p *MemoryProvider) shareExists(shareID, username string) (Share, error) {
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return Share{}, errMemoryProviderClosed
+	}
+	return p.shareExistsInternal(shareID, username)
+}
+
+func (p *MemoryProvider) addShare(share *Share) error {
+	err := share.validate()
+	if err != nil {
+		return err
+	}
+
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return errMemoryProviderClosed
+	}
+
+	_, err = p.shareExistsInternal(share.ShareID, share.Username)
+	if err == nil {
+		return fmt.Errorf("share %#v already exists", share.ShareID)
+	}
+	if _, err := p.userExistsInternal(share.Username); err != nil {
+		return util.NewValidationError(fmt.Sprintf("related user %#v does not exists", share.Username))
+	}
+	share.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+	share.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+	share.LastUseAt = 0
+	share.UsedTokens = 0
+	p.dbHandle.shares[share.ShareID] = share.getACopy()
+	p.dbHandle.sharesIDs = append(p.dbHandle.sharesIDs, share.ShareID)
+	sort.Strings(p.dbHandle.sharesIDs)
+	return nil
+}
+
+func (p *MemoryProvider) updateShare(share *Share) error {
+	err := share.validate()
+	if err != nil {
+		return err
+	}
+
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return errMemoryProviderClosed
+	}
+	s, err := p.shareExistsInternal(share.ShareID, share.Username)
+	if err != nil {
+		return err
+	}
+	if _, err := p.userExistsInternal(share.Username); err != nil {
+		return util.NewValidationError(fmt.Sprintf("related user %#v does not exists", share.Username))
+	}
+	share.ID = s.ID
+	share.ShareID = s.ShareID
+	share.UsedTokens = s.UsedTokens
+	share.CreatedAt = s.CreatedAt
+	share.LastUseAt = s.LastUseAt
+	share.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+	p.dbHandle.shares[share.ShareID] = share.getACopy()
+	return nil
+}
+
+func (p *MemoryProvider) deleteShare(share *Share) error {
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return errMemoryProviderClosed
+	}
+	_, err := p.shareExistsInternal(share.ShareID, share.Username)
+	if err != nil {
+		return err
+	}
+
+	delete(p.dbHandle.shares, share.ShareID)
+	p.updateSharesOrdering()
+
+	return nil
+}
+
+func (p *MemoryProvider) getShares(limit int, offset int, order, username string) ([]Share, error) {
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+
+	if p.dbHandle.isClosed {
+		return []Share{}, errMemoryProviderClosed
+	}
+	if limit <= 0 {
+		return []Share{}, nil
+	}
+	shares := make([]Share, 0, limit)
+	itNum := 0
+	if order == OrderDESC {
+		for i := len(p.dbHandle.sharesIDs) - 1; i >= 0; i-- {
+			shareID := p.dbHandle.sharesIDs[i]
+			s := p.dbHandle.shares[shareID]
+			if s.Username != username {
+				continue
+			}
+			itNum++
+			if itNum <= offset {
+				continue
+			}
+			share := s.getACopy()
+			share.HideConfidentialData()
+			shares = append(shares, share)
+			if len(shares) >= limit {
+				break
+			}
+		}
+	} else {
+		for _, shareID := range p.dbHandle.sharesIDs {
+			s := p.dbHandle.shares[shareID]
+			if s.Username != username {
+				continue
+			}
+			itNum++
+			if itNum <= offset {
+				continue
+			}
+			share := s.getACopy()
+			share.HideConfidentialData()
+			shares = append(shares, share)
+			if len(shares) >= limit {
+				break
+			}
+		}
+	}
+
+	return shares, nil
+}
+
+func (p *MemoryProvider) dumpShares() ([]Share, error) {
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+
+	shares := make([]Share, 0, len(p.dbHandle.shares))
+	if p.dbHandle.isClosed {
+		return shares, errMemoryProviderClosed
+	}
+	for _, s := range p.dbHandle.shares {
+		shares = append(shares, s)
+	}
+	return shares, nil
+}
+
+func (p *MemoryProvider) updateShareLastUse(shareID string, numTokens int) error {
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return errMemoryProviderClosed
+	}
+	share, err := p.shareExistsInternal(shareID, "")
+	if err != nil {
+		return err
+	}
+	share.LastUseAt = util.GetTimeAsMsSinceEpoch(time.Now())
+	share.UsedTokens += numTokens
+	p.dbHandle.shares[share.ShareID] = share
+	return nil
 }
 
 func (p *MemoryProvider) getNextID() int64 {
@@ -1040,6 +1279,10 @@ func (p *MemoryProvider) clear() {
 	p.dbHandle.vfolders = make(map[string]vfs.BaseVirtualFolder)
 	p.dbHandle.admins = make(map[string]Admin)
 	p.dbHandle.adminsUsernames = []string{}
+	p.dbHandle.apiKeys = make(map[string]APIKey)
+	p.dbHandle.apiKeysIDs = []string{}
+	p.dbHandle.shares = make(map[string]Share)
+	p.dbHandle.sharesIDs = []string{}
 }
 
 func (p *MemoryProvider) reloadConfig() error {
@@ -1091,13 +1334,39 @@ func (p *MemoryProvider) reloadConfig() error {
 		return err
 	}
 
+	if err := p.restoreShares(&dump); err != nil {
+		return err
+	}
+
 	providerLog(logger.LevelDebug, "config loaded from file: %#v", p.dbHandle.configFile)
+	return nil
+}
+
+func (p *MemoryProvider) restoreShares(dump *BackupData) error {
+	for _, share := range dump.Shares {
+		s, err := p.shareExists(share.ShareID, "")
+		share := share // pin
+		if err == nil {
+			share.ID = s.ID
+			err = UpdateShare(&share, ActionExecutorSystem, "")
+			if err != nil {
+				providerLog(logger.LevelWarn, "error updating share %#v: %v", share.ShareID, err)
+				return err
+			}
+		} else {
+			err = AddShare(&share, ActionExecutorSystem, "")
+			if err != nil {
+				providerLog(logger.LevelWarn, "error adding share %#v: %v", share.ShareID, err)
+				return err
+			}
+		}
+	}
 	return nil
 }
 
 func (p *MemoryProvider) restoreAPIKeys(dump *BackupData) error {
 	for _, apiKey := range dump.APIKeys {
-		if apiKey.KeyID == "" {
+		if apiKey.Key == "" {
 			return fmt.Errorf("cannot restore an empty API key: %+v", apiKey)
 		}
 		k, err := p.apiKeyExists(apiKey.KeyID)

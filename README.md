@@ -6,7 +6,7 @@
 [![Docker Pulls](https://img.shields.io/docker/pulls/drakkan/sftpgo)](https://hub.docker.com/r/drakkan/sftpgo)
 [![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg)](https://github.com/avelino/awesome-go)
 
-Fully featured and highly configurable SFTP server with optional FTP/S and WebDAV support, written in Go.
+Fully featured and highly configurable SFTP server with optional HTTP, FTP/S and WebDAV support, written in Go.
 Several storage backends are supported: local filesystem, encrypted local filesystem, S3 (compatible) Object Storage, Google Cloud Storage, Azure Blob Storage, SFTP.
 
 ## Features
@@ -20,7 +20,7 @@ Several storage backends are supported: local filesystem, encrypted local filesy
 - Per user and per directory virtual permissions, for each exposed path you can allow or deny: directory listing, upload, overwrite, download, delete, rename, create directories, create symlinks, change owner/group/file mode.
 - [REST API](./docs/rest-api.md) for users and folders management, data retention, backup, restore and real time reports of the active connections with possibility of forcibly closing a connection.
 - [Web based administration interface](./docs/web-admin.md) to easily manage users, folders and connections.
-- [Web client interface](./docs/web-client.md) so that end users can change their credentials and browse their files.
+- [Web client interface](./docs/web-client.md) so that end users can change their credentials, manage and share their files.
 - Public key and password authentication. Multiple public keys per user are supported.
 - SSH user [certificate authentication](https://cvsweb.openbsd.org/src/usr.bin/ssh/PROTOCOL.certkeys?rev=1.8).
 - Keyboard interactive authentication. You can easily setup a customizable multi-factor authentication.

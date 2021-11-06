@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	sqlDatabaseVersion     = 13
+	sqlDatabaseVersion     = 14
 	defaultSQLQueryTimeout = 10 * time.Second
 	longSQLQueryTimeout    = 60 * time.Second
 )
@@ -34,10 +34,189 @@ type sqlScanner interface {
 	Scan(dest ...interface{}) error
 }
 
+func sqlCommonGetShareByID(shareID, username string, dbHandle sqlQuerier) (Share, error) {
+	var share Share
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+
+	filterUser := username != ""
+	q := getShareByIDQuery(filterUser)
+	stmt, err := dbHandle.PrepareContext(ctx, q)
+	if err != nil {
+		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		return share, err
+	}
+	defer stmt.Close()
+	var row *sql.Row
+	if filterUser {
+		row = stmt.QueryRowContext(ctx, shareID, username)
+	} else {
+		row = stmt.QueryRowContext(ctx, shareID)
+	}
+
+	return getShareFromDbRow(row)
+}
+
+func sqlCommonAddShare(share *Share, dbHandle *sql.DB) error {
+	err := share.validate()
+	if err != nil {
+		return err
+	}
+
+	user, err := provider.userExists(share.Username)
+	if err != nil {
+		return util.NewValidationError(fmt.Sprintf("unable to validate user %#v", share.Username))
+	}
+
+	paths, err := json.Marshal(share.Paths)
+	if err != nil {
+		return err
+	}
+	allowFrom := ""
+	if len(share.AllowFrom) > 0 {
+		res, err := json.Marshal(share.AllowFrom)
+		if err == nil {
+			allowFrom = string(res)
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+	q := getAddShareQuery()
+	stmt, err := dbHandle.PrepareContext(ctx, q)
+	if err != nil {
+		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		return err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.ExecContext(ctx, share.ShareID, share.Name, share.Description, share.Scope,
+		string(paths), util.GetTimeAsMsSinceEpoch(time.Now()), util.GetTimeAsMsSinceEpoch(time.Now()),
+		share.LastUseAt, share.ExpiresAt, share.Password, share.MaxTokens, allowFrom, user.ID)
+	return err
+}
+
+func sqlCommonUpdateShare(share *Share, dbHandle *sql.DB) error {
+	err := share.validate()
+	if err != nil {
+		return err
+	}
+
+	paths, err := json.Marshal(share.Paths)
+	if err != nil {
+		return err
+	}
+
+	allowFrom := ""
+	if len(share.AllowFrom) > 0 {
+		res, err := json.Marshal(share.AllowFrom)
+		if err == nil {
+			allowFrom = string(res)
+		}
+	}
+
+	user, err := provider.userExists(share.Username)
+	if err != nil {
+		return util.NewValidationError(fmt.Sprintf("unable to validate user %#v", share.Username))
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+	q := getUpdateShareQuery()
+	stmt, err := dbHandle.PrepareContext(ctx, q)
+	if err != nil {
+		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		return err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.ExecContext(ctx, share.Name, share.Description, share.Scope, string(paths),
+		util.GetTimeAsMsSinceEpoch(time.Now()), share.ExpiresAt, share.Password, share.MaxTokens,
+		allowFrom, user.ID, share.ShareID)
+	return err
+}
+
+func sqlCommonDeleteShare(share *Share, dbHandle *sql.DB) error {
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+
+	q := getDeleteShareQuery()
+	stmt, err := dbHandle.PrepareContext(ctx, q)
+	if err != nil {
+		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		return err
+	}
+	defer stmt.Close()
+	_, err = stmt.ExecContext(ctx, share.ShareID)
+	return err
+}
+
+func sqlCommonGetShares(limit, offset int, order, username string, dbHandle sqlQuerier) ([]Share, error) {
+	shares := make([]Share, 0, limit)
+
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+	q := getSharesQuery(order)
+	stmt, err := dbHandle.PrepareContext(ctx, q)
+	if err != nil {
+		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		return nil, err
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.QueryContext(ctx, username, limit, offset)
+	if err != nil {
+		return shares, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		s, err := getShareFromDbRow(rows)
+		if err != nil {
+			return shares, err
+		}
+		s.HideConfidentialData()
+		shares = append(shares, s)
+	}
+
+	return shares, rows.Err()
+}
+
+func sqlCommonDumpShares(dbHandle sqlQuerier) ([]Share, error) {
+	shares := make([]Share, 0, 30)
+
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+	q := getDumpSharesQuery()
+	stmt, err := dbHandle.PrepareContext(ctx, q)
+	if err != nil {
+		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		return nil, err
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.QueryContext(ctx)
+	if err != nil {
+		return shares, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		s, err := getShareFromDbRow(rows)
+		if err != nil {
+			return shares, err
+		}
+		shares = append(shares, s)
+	}
+
+	return shares, rows.Err()
+}
+
 func sqlCommonGetAPIKeyByID(keyID string, dbHandle sqlQuerier) (APIKey, error) {
 	var apiKey APIKey
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
+
 	q := getAPIKeyByIDQuery()
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
@@ -468,6 +647,25 @@ func sqlCommonGetUsedQuota(username string, dbHandle *sql.DB) (int, int64, error
 	return usedFiles, usedSize, err
 }
 
+func sqlCommonUpdateShareLastUse(shareID string, numTokens int, dbHandle *sql.DB) error {
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+	q := getUpdateShareLastUseQuery()
+	stmt, err := dbHandle.PrepareContext(ctx, q)
+	if err != nil {
+		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		return err
+	}
+	defer stmt.Close()
+	_, err = stmt.ExecContext(ctx, util.GetTimeAsMsSinceEpoch(time.Now()), numTokens, shareID)
+	if err == nil {
+		providerLog(logger.LevelDebug, "last use updated for shared object %#v", shareID)
+	} else {
+		providerLog(logger.LevelWarn, "error updating last use for shared object %#v: %v", shareID, err)
+	}
+	return err
+}
+
 func sqlCommonUpdateAPIKeyLastUse(keyID string, dbHandle *sql.DB) error {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
@@ -737,6 +935,46 @@ func sqlCommonGetUsers(limit int, offset int, order string, dbHandle sqlQuerier)
 		return users, err
 	}
 	return getUsersWithVirtualFolders(ctx, users, dbHandle)
+}
+
+func getShareFromDbRow(row sqlScanner) (Share, error) {
+	var share Share
+	var description, password, allowFrom, paths sql.NullString
+
+	err := row.Scan(&share.ShareID, &share.Name, &description, &share.Scope,
+		&paths, &share.Username, &share.CreatedAt, &share.UpdatedAt,
+		&share.LastUseAt, &share.ExpiresAt, &password, &share.MaxTokens,
+		&share.UsedTokens, &allowFrom)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return share, util.NewRecordNotFoundError(err.Error())
+		}
+		return share, err
+	}
+	if paths.Valid {
+		var list []string
+		err = json.Unmarshal([]byte(paths.String), &list)
+		if err != nil {
+			return share, err
+		}
+		share.Paths = list
+	} else {
+		return share, errors.New("unable to decode shared paths")
+	}
+	if description.Valid {
+		share.Description = description.String
+	}
+	if password.Valid {
+		share.Password = password.String
+	}
+	if allowFrom.Valid {
+		var list []string
+		err = json.Unmarshal([]byte(allowFrom.String), &list)
+		if err == nil {
+			share.AllowFrom = list
+		}
+	}
+	return share, nil
 }
 
 func getAPIKeyFromDbRow(row sqlScanner) (APIKey, error) {

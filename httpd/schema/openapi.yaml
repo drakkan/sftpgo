@@ -12,14 +12,16 @@ tags:
   - name: users
   - name: data retention
   - name: events
-  - name: users API
+  - name: user APIs
+  - name: public shares
 info:
   title: SFTPGo
   description: |
-    SFTPGo allows to securely share your files over SFTP and optionally FTP/S and WebDAV as well.
+    SFTPGo allows to securely share your files over SFTP, HTTP and optionally FTP/S and WebDAV as well.
     Several storage backends are supported and they are configurable per user, so you can serve a local directory for a user and an S3 bucket (or part of it) for another one.
     SFTPGo also supports virtual folders, a virtual folder can use any of the supported storage backends. So you can have, for example, an S3 user that exposes a GCS bucket (or part of it) on a specified path and an encrypted local filesystem on another one.
     Virtual folders can be private or shared among multiple users, for shared virtual folders you can define different quota limits for each user.
+    SFTPGo allows to create HTTP/S links to externally share files and folders securely, by setting limits to the number of downloads/uploads, protecting the share with a password, limiting access by source IP address, setting an automatic expiration date.
   version: 2.1.2-dev
   contact:
     name: API support
@@ -51,6 +53,81 @@ paths:
               schema:
                 type: string
                 example: ok
+  /shares/{id}:
+    parameters:
+      - name: id
+        in: path
+        description: the share id
+        required: true
+        schema:
+          type: string
+    get:
+      security:
+        - BasicAuth: []
+      tags:
+        - public shares
+      summary: Download shared files and folders as a single zip file
+      description: A zip file, containing the shared files and folders, will be generated on the fly and returned as response body. Only folders and regular files will be included in the zip. The share must be defined with the read scope and the associated user must have list and download permissions
+      operationId: get_share
+      responses:
+        '200':
+          description: successful operation
+          content:
+            'application/zip':
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+    post:
+      security:
+        - BasicAuth: []
+      tags:
+        - public shares
+      summary: Upload one or more files to the shared path
+      description: The share must be defined with the read scope and the associated user must have the upload permission
+      operationId: upload_to_share
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                filenames:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  minItems: 1
+                  uniqueItems: true
+        required: true
+      responses:
+        '201':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
   /token:
     get:
       security:
@@ -2555,7 +2632,7 @@ paths:
       security:
         - BearerAuth: []
       tags:
-        - users API
+        - user APIs
       summary: Change user password
       description: Changes the password for the logged in user
       operationId: change_user_password
@@ -2585,7 +2662,7 @@ paths:
       security:
         - BearerAuth: []
       tags:
-        - users API
+        - user APIs
       deprecated: true
       summary: Get the user's public keys
       description: 'Returns the public keys for the logged in user. Deprecated please use "/user/profile" instead'
@@ -2613,7 +2690,7 @@ paths:
       security:
         - BearerAuth: []
       tags:
-        - users API
+        - user APIs
       deprecated: true
       summary: Set the user's public keys
       description: 'Sets the public keys for the logged in user. Public keys must be in OpenSSH format. Deprecated please use "/user/profile" instead'
@@ -2650,7 +2727,7 @@ paths:
       security:
         - BearerAuth: []
       tags:
-        - users API
+        - user APIs
       summary: Get user profile
       description: 'Returns the profile for the logged in user'
       operationId: get_user_profile
@@ -2673,7 +2750,7 @@ paths:
       security:
         - BearerAuth: []
       tags:
-        - users API
+        - user APIs
       summary: Update user profile
       description: 'Allows to update the profile for the logged in user'
       operationId: update_user_profile
@@ -2705,7 +2782,7 @@ paths:
       security:
         - BearerAuth: []
       tags:
-        - users API
+        - user APIs
       summary: Get recovery codes
       description: 'Returns the recovery codes for the logged in user. Recovery codes can be used if the user loses access to their second factor auth device. Recovery codes are returned unencrypted'
       operationId: get_user_recovery_codes
@@ -2730,7 +2807,7 @@ paths:
       security:
         - BearerAuth: []
       tags:
-        - users API
+        - user APIs
       summary: Generate recovery codes
       description: 'Generates new recovery codes for the logged in user. Generating new recovery codes you automatically invalidate old ones'
       operationId: generate_user_recovery_codes
@@ -2758,7 +2835,7 @@ paths:
       security:
         - BearerAuth: []
       tags:
-        - users API
+        - user APIs
       summary: Get available TOTP configuration
       description: Returns the available TOTP configurations for the logged in user
       operationId: get_user_totp_configs
@@ -2784,7 +2861,7 @@ paths:
       security:
         - BearerAuth: []
       tags:
-        - users API
+        - user APIs
       summary: Generate a new TOTP secret
       description: 'Generates a new TOTP secret, including the QR code as png, using the specified configuration for the logged in user'
       operationId: generate_user_totp_secret
@@ -2831,7 +2908,7 @@ paths:
       security:
         - BearerAuth: []
       tags:
-        - users API
+        - user APIs
       summary: Validate a one time authentication code
       description: 'Checks if the given authentication code can be validated using the specified secret and config name'
       operationId: validate_user_totp_secret
@@ -2875,7 +2952,7 @@ paths:
       security:
         - BearerAuth: []
       tags:
-        - users API
+        - user APIs
       summary: Save a TOTP config
       description: 'Saves the specified TOTP config for the logged in user'
       operationId: save_user_totp_config
@@ -2904,10 +2981,194 @@ paths:
           $ref: '#/components/responses/InternalServerError'
         default:
           $ref: '#/components/responses/DefaultResponse'
+  /user/shares:
+    get:
+      tags:
+        - user APIs
+      summary: List user shares
+      description: Returns the share for the logged in user
+      operationId: get_user_shares
+      parameters:
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          required: false
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
+          required: false
+          description: 'The maximum number of items to return. Max value is 500, default is 100'
+        - in: query
+          name: order
+          required: false
+          description: Ordering shares by ID. Default ASC
+          schema:
+            type: string
+            enum:
+              - ASC
+              - DESC
+            example: ASC
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Share'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+    post:
+      tags:
+        - user APIs
+      summary: Add a share
+      operationId: add_share
+      description: 'Adds a new share. The share id will be auto-generated'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Share'
+      responses:
+        '201':
+          description: successful operation
+          headers:
+            X-Object-ID:
+              schema:
+                type: string
+              description: ID for the new created share
+            Location:
+              schema:
+                type: string
+              description: URL to retrieve the details for the new created share
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  '/user/shares/{id}':
+    parameters:
+      - name: id
+        in: path
+        description: the share id
+        required: true
+        schema:
+          type: string
+    get:
+      tags:
+        - user APIs
+      summary: Get share by id
+      description: Returns a share by id for the logged in user
+      operationId: get_user_share_by_id
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Share'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+    put:
+      tags:
+        - user APIs
+      summary: Update share
+      description: 'Updates an existing share belonging to the logged in user'
+      operationId: update_user_share
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Share'
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                message: Share updated
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+    delete:
+      tags:
+        - user APIs
+      summary: Delete share
+      description: 'Deletes an existing share belonging to the logged in user'
+      operationId: delete_user_share
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                message: Share deleted
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
   /user/folder:
     get:
       tags:
-        - users API
+        - user APIs
       summary: Read folders contents
       description: Returns the contents of the specified folder for the logged in user. Please use '/user/dirs' instead
       operationId: get_user_folder_contents
@@ -2940,7 +3201,7 @@ paths:
   /user/dirs:
     get:
       tags:
-        - users API
+        - user APIs
       summary: Read directory contents
       description: Returns the contents of the specified directory for the logged in user
       operationId: get_user_dir_contents
@@ -2971,7 +3232,7 @@ paths:
           $ref: '#/components/responses/DefaultResponse'
     post:
       tags:
-        - users API
+        - user APIs
       summary: Create a directory
       description: Create a directory for the logged in user
       operationId: create_user_dir
@@ -3003,7 +3264,7 @@ paths:
           $ref: '#/components/responses/DefaultResponse'
     patch:
       tags:
-        - users API
+        - user APIs
       summary: Rename a directory
       description: Rename a directory for the logged in user. The rename is allowed for empty directory or for non empty, local directories, with no virtual folders inside
       operationId: rename_user_dir
@@ -3041,7 +3302,7 @@ paths:
           $ref: '#/components/responses/DefaultResponse'
     delete:
       tags:
-        - users API
+        - user APIs
       summary: Delete a directory
       description: Delete a directory for the logged in user. Only empty directories can be deleted
       operationId: delete_user_dir
@@ -3074,7 +3335,7 @@ paths:
   /user/file:
     get:
       tags:
-        - users API
+        - user APIs
       summary: Download a single file
       description: Returns the file contents as response body. Please use '/user/files' instead
       operationId: get_user_file
@@ -3114,7 +3375,7 @@ paths:
   /user/files:
     get:
       tags:
-        - users API
+        - user APIs
       summary: Download a single file
       description: Returns the file contents as response body
       operationId: download_user_file
@@ -3152,7 +3413,7 @@ paths:
           $ref: '#/components/responses/DefaultResponse'
     post:
       tags:
-        - users API
+        - user APIs
       summary: Upload files
       description: Upload one or more files for the logged in user
       operationId: create_user_files
@@ -3168,7 +3429,7 @@ paths:
             schema:
               type: object
               properties:
-                filename:
+                filenames:
                   type: array
                   items:
                     type: string
@@ -3197,7 +3458,7 @@ paths:
           $ref: '#/components/responses/DefaultResponse'
     patch:
       tags:
-        - users API
+        - user APIs
       summary: Rename a file
       description: Rename a file for the logged in user
       operationId: rename_user_file
@@ -3235,7 +3496,7 @@ paths:
           $ref: '#/components/responses/DefaultResponse'
     delete:
       tags:
-        - users API
+        - user APIs
       summary: Delete a file
       description: Delete a file for the logged in user.
       operationId: delete_user_file
@@ -3268,7 +3529,7 @@ paths:
   /user/streamzip:
     post:
       tags:
-        - users API
+        - user APIs
       summary: Download multiple files and folders as a single zip file
       description: A zip file, containing the specified files and folders, will be generated on the fly and returned as response body. Only folders and regular files will be included in the zip
       operationId: streamzip
@@ -3489,6 +3750,7 @@ components:
         - password-change-disabled
         - api-key-auth-change-disabled
         - info-change-disabled
+        - shares-disabled
       description: |
         Options:
           * `publickey-change-disabled` - changing SSH public keys is not allowed
@@ -3497,6 +3759,7 @@ components:
           * `password-change-disabled` - changing password is not allowed
           * `api-key-auth-change-disabled` - enabling/disabling API key authentication is not allowed
           * `info-change-disabled` - changing info such as email and description is not allowed
+          * `shares-disabled` - sharing files and directories with external users is disabled
     RetentionCheckNotification:
       type: string
       enum:
@@ -3515,6 +3778,15 @@ components:
         Options:
           * `1` - admin scope. The API key will be used to impersonate an SFTPGo admin
           * `2` - user scope. The API key will be used to impersonate an SFTPGo user
+    ShareScope:
+      type: integer
+      enum:
+        - 1
+        - 2
+      description: |
+        Options:
+          * `1` - read scope
+          * `2` - write scope
     TOTPHMacAlgo:
       type: string
       enum:
@@ -3562,6 +3834,7 @@ components:
         - user
         - admin
         - api_key
+        - share
     TOTPConfig:
       type: object
       properties:
@@ -4506,6 +4779,62 @@ components:
         score:
           type: integer
           description: if 0 the host is not listed
+    Share:
+      type: object
+      properties:
+        id:
+          type: string
+          description: auto-generated unique share identifier
+        name:
+          type: string
+        description:
+          type: string
+          description: optional description
+        scope:
+          $ref: '#/components/schemas/ShareScope'
+        paths:
+          type: array
+          items:
+            type: string
+          description: 'paths to files or directories, for share scope write this array must contain exactly one directory. Paths will not be validated on save so you can also create them after creating the share'
+          example:
+            - '/dir1'
+            - '/dir2/file.txt'
+            - '/dir3/subdir'
+        username:
+          type: string
+        created_at:
+          type: integer
+          format: int64
+          description: 'creation time as unix timestamp in milliseconds'
+        updated_at:
+          type: integer
+          format: int64
+          description: 'last update time as unix timestamp in milliseconds'
+        last_use_at:
+          type: integer
+          format: int64
+          description: last use time as unix timestamp in milliseconds
+        expires_at:
+          type: integer
+          format: int64
+          description: 'optional share expiration, as unix timestamp in milliseconds. 0 means no expiration'
+        password:
+          type: string
+          description: 'optional password to protect the share. The special value "[**redacted**]" means that a password has been set, you can use this value if you want to preserve the current password when you update a share'
+        max_tokens:
+          type: integer
+          description: 'maximum allowed access tokens. 0 means no limit'
+        used_tokens:
+          type: integer
+        allow_from:
+          type: array
+          items:
+            type: string
+          description: 'Limit the share availability to these IP/Mask. IP/Mask must be in CIDR notation as defined in RFC 4632 and RFC 4291, for example "192.0.2.0/24" or "2001:db8::/32". An empty list means no restrictions'
+          example:
+            - 192.0.2.0/24
+            - '2001:db8::/32'
     BackupData:
       type: object
       properties:
@@ -4522,7 +4851,13 @@ components:
           items:
             $ref: '#/components/schemas/Admin'
         api_keys:
-          $ref: '#/components/schemas/APIKey'
+          type: array
+          items:
+            $ref: '#/components/schemas/APIKey'
+        shares:
+          type: array
+          items:
+            $ref: '#/components/schemas/Share'
         version:
           type: integer
     PwdChange:

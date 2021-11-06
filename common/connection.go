@@ -226,7 +226,7 @@ func (c *BaseConnection) ListDir(virtualPath string) ([]os.FileInfo, error) {
 	}
 	files, err := fs.ReadDir(fsPath)
 	if err != nil {
-		c.Log(logger.LevelWarn, "error listing directory: %+v", err)
+		c.Log(logger.LevelDebug, "error listing directory: %+v", err)
 		return nil, c.GetFsError(fs, err)
 	}
 	return c.User.AddVirtualDirs(files, virtualPath), nil
@@ -494,6 +494,7 @@ func (c *BaseConnection) DoStat(virtualPath string, mode int) (os.FileInfo, erro
 		info, err = fs.Stat(c.getRealFsPath(fsPath))
 	}
 	if err != nil {
+		c.Log(logger.LevelDebug, "stat error for path %#v: %+v", virtualPath, err)
 		return info, c.GetFsError(fs, err)
 	}
 	if vfs.IsCryptOsFs(fs) {

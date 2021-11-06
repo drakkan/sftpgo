@@ -93,6 +93,7 @@ type Manager struct {
 
 // Initialize initializes the configured plugins
 func Initialize(configs []Config, logVerbose bool) error {
+	logger.Debug(logSender, "", "initialize")
 	Handler = Manager{
 		Configs:    configs,
 		done:       make(chan bool),
@@ -495,6 +496,7 @@ func (m *Manager) restartSearcherPlugin(config Config) {
 
 // Cleanup releases all the active plugins
 func (m *Manager) Cleanup() {
+	logger.Debug(logSender, "", "cleanup")
 	atomic.StoreInt32(&m.closed, 1)
 	close(m.done)
 	m.notifLock.Lock()

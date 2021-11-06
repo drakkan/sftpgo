@@ -113,6 +113,7 @@ loop:
 			changes <- svc.Status{State: svc.StopPending}
 			wasStopped <- true
 			s.Service.Stop()
+			plugin.Handler.Cleanup()
 			break loop
 		case svc.ParamChange:
 			logger.Debug(logSender, "", "Received reload request")
@@ -331,7 +332,6 @@ func (s *WindowsService) Stop() error {
 			return fmt.Errorf("could not retrieve service status: %v", err)
 		}
 	}
-	plugin.Handler.Cleanup()
 	return nil
 }
 

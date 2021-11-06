@@ -29,6 +29,7 @@ const (
 	actionObjectUser   = "user"
 	actionObjectAdmin  = "admin"
 	actionObjectAPIKey = "api_key"
+	actionObjectShare  = "share"
 )
 
 func executeAction(operation, executor, ip, objectType, objectName string, object plugin.Renderer) {

@@ -721,7 +721,7 @@ func (s *httpdServer) checkCookieExpiration(w http.ResponseWriter, r *http.Reque
 	if tokenClaims.Username == "" || tokenClaims.Signature == "" {
 		return
 	}
-	if time.Until(token.Expiration()) > tokenRefreshMin {
+	if time.Until(token.Expiration()) > tokenRefreshThreshold {
 		return
 	}
 	if util.IsStringInSlice(tokenAudienceWebClient, token.Audience()) {
@@ -896,6 +896,10 @@ func (s *httpdServer) initializeRouter() {
 		render.PlainText(w, r, "ok")
 	})
 
+	// share API exposed to external users
+	s.router.Get(sharesPath+"/{id}", downloadFromShare)
+	s.router.Post(sharesPath+"/{id}", uploadToShare)
+
 	s.router.Get(tokenPath, s.getToken)
 
 	s.router.Group(func(router chi.Router) {
@@ -1036,6 +1040,11 @@ func (s *httpdServer) initializeRouter() {
 		router.With(checkHTTPUserPerm(sdk.WebClientWriteDisabled)).Patch(userFilesPath, renameUserFile)
 		router.With(checkHTTPUserPerm(sdk.WebClientWriteDisabled)).Delete(userFilesPath, deleteUserFile)
 		router.Post(userStreamZipPath, getUserFilesAsZipStream)
+		router.With(checkHTTPUserPerm(sdk.WebClientSharesDisabled)).Get(userSharesPath, getShares)
+		router.With(checkHTTPUserPerm(sdk.WebClientSharesDisabled)).Post(userSharesPath, addShare)
+		router.With(checkHTTPUserPerm(sdk.WebClientSharesDisabled)).Get(userSharesPath+"/{id}", getShareByID)
+		router.With(checkHTTPUserPerm(sdk.WebClientSharesDisabled)).Put(userSharesPath+"/{id}", updateShare)
+		router.With(checkHTTPUserPerm(sdk.WebClientSharesDisabled)).Delete(userSharesPath+"/{id}", deleteShare)
 	})
 
 	if s.enableWebAdmin || s.enableWebClient {
@@ -1083,6 +1092,9 @@ func (s *httpdServer) initializeRouter() {
 		s.router.With(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromCookie),
 			jwtAuthenticatorPartial(tokenAudienceWebClientPartial)).
 			Post(webClientTwoFactorRecoveryPath, s.handleWebClientTwoFactorRecoveryPost)
+		// share API exposed to external users
+		s.router.Get(webClientPubSharesPath+"/{id}", downloadFromShare)
+		s.router.Post(webClientPubSharesPath+"/{id}", uploadToShare)
 
 		s.router.Group(func(router chi.Router) {
 			router.Use(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromCookie))
@@ -1124,6 +1136,18 @@ func (s *httpdServer) initializeRouter() {
 				Get(webClientRecoveryCodesPath, getRecoveryCodes)
 			router.With(checkHTTPUserPerm(sdk.WebClientMFADisabled), verifyCSRFHeader).
 				Post(webClientRecoveryCodesPath, generateRecoveryCodes)
+			router.With(checkHTTPUserPerm(sdk.WebClientSharesDisabled), s.refreshCookie).
+				Get(webClientSharesPath, handleClientGetShares)
+			router.With(checkHTTPUserPerm(sdk.WebClientSharesDisabled), s.refreshCookie).
+				Get(webClientSharePath, handleClientAddShareGet)
+			router.With(checkHTTPUserPerm(sdk.WebClientSharesDisabled)).Post(webClientSharePath,
+				handleClientAddSharePost)
+			router.With(checkHTTPUserPerm(sdk.WebClientSharesDisabled), s.refreshCookie).
+				Get(webClientSharePath+"/{id}", handleClientUpdateShareGet)
+			router.With(checkHTTPUserPerm(sdk.WebClientSharesDisabled)).
+				Post(webClientSharePath+"/{id}", handleClientUpdateSharePost)
+			router.With(checkHTTPUserPerm(sdk.WebClientSharesDisabled), verifyCSRFHeader).
+				Delete(webClientSharePath+"/{id}", deleteShare)
 		})
 	}
 

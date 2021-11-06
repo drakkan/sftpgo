@@ -28,6 +28,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/lithammer/shortuuid/v3"
 	"github.com/rs/xid"
 	"golang.org/x/crypto/ssh"
 
@@ -429,6 +431,15 @@ func GenerateRandomBytes(length int) []byte {
 	}
 
 	return b[:length]
+}
+
+// GenerateUniqueID retuens an unique ID
+func GenerateUniqueID() string {
+	u, err := uuid.NewRandom()
+	if err != nil {
+		return xid.New().String()
+	}
+	return shortuuid.DefaultEncoder.Encode(u)
 }
 
 // HTTPListenAndServe is a wrapper for ListenAndServe that support both tcp
