@@ -1185,14 +1185,17 @@ func (p *BoltProvider) updateShare(share *Share) error {
 		if err != nil {
 			return err
 		}
-		var a []byte
+		var s []byte
 
-		if a = bucket.Get([]byte(share.ShareID)); a == nil {
+		if s = bucket.Get([]byte(share.ShareID)); s == nil {
 			return util.NewRecordNotFoundError(fmt.Sprintf("Share %v does not exist", share.ShareID))
 		}
 		var oldObject Share
-		if err = json.Unmarshal(a, &oldObject); err != nil {
+		if err = json.Unmarshal(s, &oldObject); err != nil {
 			return err
+		}
+		if oldObject.Username != share.Username {
+			return util.NewRecordNotFoundError(fmt.Sprintf("Share %v does not exist", share.ShareID))
 		}
 
 		share.ID = oldObject.ID
@@ -1219,7 +1222,16 @@ func (p *BoltProvider) deleteShare(share *Share) error {
 			return err
 		}
 
-		if bucket.Get([]byte(share.ShareID)) == nil {
+		var s []byte
+
+		if s = bucket.Get([]byte(share.ShareID)); s == nil {
+			return util.NewRecordNotFoundError(fmt.Sprintf("Share %v does not exist", share.ShareID))
+		}
+		var oldObject Share
+		if err = json.Unmarshal(s, &oldObject); err != nil {
+			return err
+		}
+		if oldObject.Username != share.Username {
 			return util.NewRecordNotFoundError(fmt.Sprintf("Share %v does not exist", share.ShareID))
 		}
 

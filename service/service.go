@@ -39,6 +39,7 @@ type Service struct {
 	PortableUser      dataprovider.User
 	LogCompress       bool
 	LogVerbose        bool
+	LogUTCTime        bool
 	LoadDataClean     bool
 	LoadDataFrom      string
 	LoadDataMode      int
@@ -55,7 +56,7 @@ func (s *Service) initLogger() {
 	if !filepath.IsAbs(s.LogFilePath) && util.IsFileInputValid(s.LogFilePath) {
 		s.LogFilePath = filepath.Join(s.ConfigDir, s.LogFilePath)
 	}
-	logger.InitLogger(s.LogFilePath, s.LogMaxSize, s.LogMaxBackups, s.LogMaxAge, s.LogCompress, logLevel)
+	logger.InitLogger(s.LogFilePath, s.LogMaxSize, s.LogMaxBackups, s.LogMaxAge, s.LogCompress, s.LogUTCTime, logLevel)
 	if s.PortableMode == 1 {
 		logger.EnableConsoleLogger(logLevel)
 		if s.LogFilePath == "" {

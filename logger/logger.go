@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"time"
 
 	ftpserverlog "github.com/fclairamb/go-log"
 	"github.com/rs/zerolog"
@@ -136,9 +137,21 @@ func GetLogger() *zerolog.Logger {
 	return &logger
 }
 
-// InitLogger configures the logger using the given parameters
-func InitLogger(logFilePath string, logMaxSize int, logMaxBackups int, logMaxAge int, logCompress bool, level zerolog.Level) {
+// SetLogTime sets logging time related setting
+func SetLogTime(utc bool) {
 	zerolog.TimeFieldFormat = dateFormat
+	if utc {
+		zerolog.TimestampFunc = time.Now().UTC
+	} else {
+		zerolog.TimestampFunc = time.Now
+	}
+}
+
+// InitLogger configures the logger using the given parameters
+func InitLogger(logFilePath string, logMaxSize int, logMaxBackups int, logMaxAge int, logCompress, logUTCTime bool,
+	level zerolog.Level,
+) {
+	SetLogTime(logUTCTime)
 	if isLogFilePathValid(logFilePath) {
 		logDir := filepath.Dir(logFilePath)
 		if _, err := os.Stat(logDir); os.IsNotExist(err) {
@@ -153,6 +166,7 @@ func InitLogger(logFilePath string, logMaxSize int, logMaxBackups int, logMaxAge
 			MaxBackups: logMaxBackups,
 			MaxAge:     logMaxAge,
 			Compress:   logCompress,
+			LocalTime:  !logUTCTime,
 		}
 		logger = zerolog.New(rollingLogger)
 		EnableConsoleLogger(level)

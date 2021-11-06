@@ -44,6 +44,7 @@ Command-line flags should be specified in the Subsystem declaration.
 			if !logVerbose {
 				logLevel = zerolog.InfoLevel
 			}
+			logger.SetLogTime(logUTCTime)
 			if logJournalD {
 				logger.InitJournalDLogger(logLevel)
 			} else {
@@ -179,6 +180,14 @@ error`)
 using SFTPGO_LOG_VERBOSE env var too.
 `)
 	viper.BindPFlag(logVerboseKey, subsystemCmd.Flags().Lookup(logVerboseFlag)) //nolint:errcheck
+
+	viper.SetDefault(logUTCTimeKey, defaultLogUTCTime)
+	viper.BindEnv(logUTCTimeKey, "SFTPGO_LOG_UTC_TIME") //nolint:errcheck
+	subsystemCmd.Flags().BoolVar(&logUTCTime, logUTCTimeFlag, viper.GetBool(logUTCTimeKey),
+		`Use UTC time for logging. This flag can be set
+using SFTPGO_LOG_UTC_TIME env var too.
+`)
+	viper.BindPFlag(logUTCTimeKey, subsystemCmd.Flags().Lookup(logUTCTimeFlag)) //nolint:errcheck
 
 	rootCmd.AddCommand(subsystemCmd)
 }

@@ -247,7 +247,7 @@ func TestMain(m *testing.M) {
 	logFilePath = filepath.Join(configDir, "sftpgo_ftpd_test.log")
 	bannerFileName := "banner_file"
 	bannerFile := filepath.Join(configDir, bannerFileName)
-	logger.InitLogger(logFilePath, 5, 1, 28, false, zerolog.DebugLevel)
+	logger.InitLogger(logFilePath, 5, 1, 28, false, false, zerolog.DebugLevel)
 	err := os.WriteFile(bannerFile, []byte("SFTPGo test ready\nsimple banner line\n"), os.ModePerm)
 	if err != nil {
 		logger.ErrorToConsole("error creating banner file: %v", err)

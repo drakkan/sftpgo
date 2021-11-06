@@ -245,7 +245,7 @@ type recoveryCode struct {
 func TestMain(m *testing.M) {
 	homeBasePath = os.TempDir()
 	logfilePath := filepath.Join(configDir, "sftpgo_api_test.log")
-	logger.InitLogger(logfilePath, 5, 1, 28, false, zerolog.DebugLevel)
+	logger.InitLogger(logfilePath, 5, 1, 28, false, false, zerolog.DebugLevel)
 	os.Setenv("SFTPGO_COMMON__UPLOAD_MODE", "2")
 	os.Setenv("SFTPGO_DATA_PROVIDER__CREATE_DEFAULT_ADMIN", "1")
 	os.Setenv("SFTPGO_DEFAULT_ADMIN_USERNAME", "admin")
