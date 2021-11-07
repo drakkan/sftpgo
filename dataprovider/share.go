@@ -74,8 +74,14 @@ func (s *Share) GetInfoString() string {
 		t := util.GetTimeFromMsecSinceEpoch(s.ExpiresAt)
 		result.WriteString(fmt.Sprintf("Expiration: %v. ", t.Format("2006-01-02 15:04"))) // YYYY-MM-DD HH:MM
 	}
+	if s.LastUseAt > 0 {
+		t := util.GetTimeFromMsecSinceEpoch(s.LastUseAt)
+		result.WriteString(fmt.Sprintf("Last use: %v. ", t.Format("2006-01-02 15:04")))
+	}
 	if s.MaxTokens > 0 {
 		result.WriteString(fmt.Sprintf("Usage: %v/%v. ", s.UsedTokens, s.MaxTokens))
+	} else {
+		result.WriteString(fmt.Sprintf("Used tokens: %v. ", s.UsedTokens))
 	}
 	if len(s.AllowFrom) > 0 {
 		result.WriteString(fmt.Sprintf("Allowed IP/Mask: %v. ", len(s.AllowFrom)))

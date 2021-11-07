@@ -53,7 +53,7 @@ require (
 	gocloud.dev v0.24.0
 	golang.org/x/crypto v0.0.0-20210915214749-c084706c2272
 	golang.org/x/net v0.0.0-20211105192438-b53810dc28af
-	golang.org/x/sys v0.0.0-20211105183446-c75c47738b0c
+	golang.org/x/sys v0.0.0-20211106132015-ebca88c72f68
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
 	google.golang.org/api v0.60.0
 	google.golang.org/grpc v1.42.0
