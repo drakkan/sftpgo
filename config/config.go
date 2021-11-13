@@ -195,7 +195,7 @@ func Init() {
 			CertificateKeyFile: "",
 			CACertificates:     []string{},
 			CARevocationLists:  []string{},
-			Cors: webdavd.Cors{
+			Cors: webdavd.CorsConfig{
 				Enabled:          false,
 				AllowedOrigins:   []string{},
 				AllowedMethods:   []string{},
@@ -280,6 +280,15 @@ func Init() {
 			CARevocationLists:  nil,
 			SigningPassphrase:  "",
 			MaxUploadFileSize:  1048576000,
+			Cors: httpd.CorsConfig{
+				Enabled:          false,
+				AllowedOrigins:   []string{},
+				AllowedMethods:   []string{},
+				AllowedHeaders:   []string{},
+				ExposedHeaders:   []string{},
+				AllowCredentials: false,
+				MaxAge:           0,
+			},
 		},
 		HTTPConfig: httpclient.Config{
 			Timeout:        20,
@@ -1217,6 +1226,13 @@ func setViperDefaults() {
 	viper.SetDefault("httpd.ca_revocation_lists", globalConf.HTTPDConfig.CARevocationLists)
 	viper.SetDefault("httpd.signing_passphrase", globalConf.HTTPDConfig.SigningPassphrase)
 	viper.SetDefault("httpd.max_upload_file_size", globalConf.HTTPDConfig.MaxUploadFileSize)
+	viper.SetDefault("httpd.cors.enabled", globalConf.HTTPDConfig.Cors.Enabled)
+	viper.SetDefault("httpd.cors.allowed_origins", globalConf.HTTPDConfig.Cors.AllowedOrigins)
+	viper.SetDefault("httpd.cors.allowed_methods", globalConf.HTTPDConfig.Cors.AllowedMethods)
+	viper.SetDefault("httpd.cors.allowed_headers", globalConf.HTTPDConfig.Cors.AllowedHeaders)
+	viper.SetDefault("httpd.cors.exposed_headers", globalConf.HTTPDConfig.Cors.ExposedHeaders)
+	viper.SetDefault("httpd.cors.allow_credentials", globalConf.HTTPDConfig.Cors.AllowCredentials)
+	viper.SetDefault("httpd.cors.max_age", globalConf.HTTPDConfig.Cors.MaxAge)
 	viper.SetDefault("http.timeout", globalConf.HTTPConfig.Timeout)
 	viper.SetDefault("http.retry_wait_min", globalConf.HTTPConfig.RetryWaitMin)
 	viper.SetDefault("http.retry_wait_max", globalConf.HTTPConfig.RetryWaitMax)

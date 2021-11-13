@@ -232,6 +232,14 @@ The configuration file contains the following sections:
   - `ca_revocation_lists`, list of strings. Set a revocation lists, one for each root CA, to be used to check if a client certificate has been revoked. The revocation lists can be reloaded on demand sending a `SIGHUP` signal on Unix based systems and a `paramchange` request to the running service on Windows.
   - `signing_passphrase`, string. Passphrase to use to derive the signing key for JWT and CSRF tokens. If empty a random signing key will be generated each time SFTPGo starts. If you set a signing passphrase you should consider rotating it periodically for added security.
   - `max_upload_file_size`, integer. Defines the maximum request body size, in bytes, for Web Client/API HTTP upload requests. 0 means no limit. Default: 1048576000.
+  - `cors` struct containing CORS configuration. SFTPGo uses [Go CORS handler](https://github.com/rs/cors), please refer to upstream documentation for fields meaning and their default values.
+    - `enabled`, boolean, set to true to enable CORS.
+    - `allowed_origins`, list of strings.
+    - `allowed_methods`, list of strings.
+    - `allowed_headers`, list of strings.
+    - `exposed_headers`, list of strings.
+    - `allow_credentials` boolean.
+    - `max_age`, integer.
 - **"telemetry"**, the configuration for the telemetry server, more details [below](#telemetry-server)
   - `bind_port`, integer. The port used for serving HTTP requests. Set to 0 to disable HTTP server. Default: 10000
   - `bind_address`, string. Leave blank to listen on all available network interfaces. On \*NIX you can specify an absolute path to listen on a Unix-domain socket. Default: "127.0.0.1"

@@ -37,8 +37,8 @@ type ServiceStatus struct {
 	Bindings []Binding `json:"bindings"`
 }
 
-// Cors configuration
-type Cors struct {
+// CorsConfig defines the CORS configuration
+type CorsConfig struct {
 	AllowedOrigins   []string `json:"allowed_origins" mapstructure:"allowed_origins"`
 	AllowedMethods   []string `json:"allowed_methods" mapstructure:"allowed_methods"`
 	AllowedHeaders   []string `json:"allowed_headers" mapstructure:"allowed_headers"`
@@ -135,7 +135,7 @@ type Configuration struct {
 	// if a client certificate has been revoked
 	CARevocationLists []string `json:"ca_revocation_lists" mapstructure:"ca_revocation_lists"`
 	// CORS configuration
-	Cors Cors `json:"cors" mapstructure:"cors"`
+	Cors CorsConfig `json:"cors" mapstructure:"cors"`
 	// Cache configuration
 	Cache Cache `json:"cache" mapstructure:"cache"`
 }

@@ -1406,7 +1406,7 @@ func TestProxyHeaders(t *testing.T) {
 	}
 	err = b.parseAllowedProxy()
 	assert.NoError(t, err)
-	server := newHttpdServer(b, "", "")
+	server := newHttpdServer(b, "", "", CorsConfig{Enabled: true})
 	server.initializeRouter()
 	testServer := httptest.NewServer(server.router)
 	defer testServer.Close()
@@ -1492,7 +1492,7 @@ func TestRecoverer(t *testing.T) {
 		EnableWebAdmin:  true,
 		EnableWebClient: false,
 	}
-	server := newHttpdServer(b, "../static", "")
+	server := newHttpdServer(b, "../static", "", CorsConfig{})
 	server.initializeRouter()
 	server.router.Get(recoveryPath, func(w http.ResponseWriter, r *http.Request) {
 		panic("panic")
@@ -1607,7 +1607,7 @@ func TestWebAdminRedirect(t *testing.T) {
 		EnableWebAdmin:  true,
 		EnableWebClient: false,
 	}
-	server := newHttpdServer(b, "../static", "")
+	server := newHttpdServer(b, "../static", "", CorsConfig{})
 	server.initializeRouter()
 	testServer := httptest.NewServer(server.router)
 	defer testServer.Close()

@@ -16,6 +16,7 @@ import (
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/go-chi/render"
 	"github.com/lestrrat-go/jwx/jwa"
+	"github.com/rs/cors"
 	"github.com/rs/xid"
 
 	"github.com/drakkan/sftpgo/v2/common"
@@ -41,15 +42,17 @@ type httpdServer struct {
 	router            *chi.Mux
 	tokenAuth         *jwtauth.JWTAuth
 	signingPassphrase string
+	cors              CorsConfig
 }
 
-func newHttpdServer(b Binding, staticFilesPath, signingPassphrase string) *httpdServer {
+func newHttpdServer(b Binding, staticFilesPath, signingPassphrase string, cors CorsConfig) *httpdServer {
 	return &httpdServer{
 		binding:           b,
 		staticFilesPath:   staticFilesPath,
 		enableWebAdmin:    b.EnableWebAdmin,
 		enableWebClient:   b.EnableWebClient,
 		signingPassphrase: signingPassphrase,
+		cors:              cors,
 	}
 }
 
@@ -943,6 +946,17 @@ func (s *httpdServer) initializeRouter() {
 	s.router.Use(s.checkConnection)
 	s.router.Use(logger.NewStructuredLogger(logger.GetLogger()))
 	s.router.Use(recoverer)
+	if s.cors.Enabled {
+		c := cors.New(cors.Options{
+			AllowedOrigins:   s.cors.AllowedOrigins,
+			AllowedMethods:   s.cors.AllowedMethods,
+			AllowedHeaders:   s.cors.AllowedHeaders,
+			ExposedHeaders:   s.cors.ExposedHeaders,
+			MaxAge:           s.cors.MaxAge,
+			AllowCredentials: s.cors.AllowCredentials,
+		})
+		s.router.Use(c.Handler)
+	}
 	s.router.Use(middleware.GetHead)
 	s.router.Use(middleware.StripSlashes)
 

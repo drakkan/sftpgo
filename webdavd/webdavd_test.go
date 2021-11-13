@@ -347,7 +347,7 @@ func TestMain(m *testing.M) {
 			ClientAuthType: 2,
 		},
 	}
-	webDavConf.Cors = webdavd.Cors{
+	webDavConf.Cors = webdavd.CorsConfig{
 		Enabled:        true,
 		AllowedOrigins: []string{"*"},
 		AllowedMethods: []string{

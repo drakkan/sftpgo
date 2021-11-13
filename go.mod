@@ -8,7 +8,7 @@ require (
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/alexedwards/argon2id v0.0.0-20210511081203-7d35d68092b8
 	github.com/aws/aws-sdk-go v1.42.4
-	github.com/cockroachdb/cockroach-go/v2 v2.2.1
+	github.com/cockroachdb/cockroach-go/v2 v2.2.3
 	github.com/eikenb/pipeat v0.0.0-20210603033007-44fc3ffce52b
 	github.com/fclairamb/ftpserverlib v0.16.0
 	github.com/fclairamb/go-log v0.1.0
@@ -25,7 +25,7 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.7.0
 	github.com/jlaffaye/ftp v0.0.0-20201112195030-9aae4d151126
 	github.com/klauspost/compress v1.13.6
-	github.com/lestrrat-go/jwx v1.2.10
+	github.com/lestrrat-go/jwx v1.2.11
 	github.com/lib/pq v1.10.4
 	github.com/lithammer/shortuuid/v3 v3.0.7
 	github.com/mattn/go-sqlite3 v1.14.9

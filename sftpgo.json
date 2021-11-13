@@ -221,7 +221,16 @@
     "ca_certificates": [],
     "ca_revocation_lists": [],
     "signing_passphrase": "",
-    "max_upload_file_size": 1048576000
+    "max_upload_file_size": 1048576000,
+    "cors": {
+      "enabled": false,
+      "allowed_origins": [],
+      "allowed_methods": [],
+      "allowed_headers": [],
+      "exposed_headers": [],
+      "allow_credentials": false,
+      "max_age": 0
+    }
   },
   "telemetry": {
     "bind_port": 10000,

@@ -319,6 +319,17 @@ type ServicesStatus struct {
 	MFA          mfa.ServiceStatus           `json:"mfa"`
 }
 
+// CorsConfig defines the CORS configuration
+type CorsConfig struct {
+	AllowedOrigins   []string `json:"allowed_origins" mapstructure:"allowed_origins"`
+	AllowedMethods   []string `json:"allowed_methods" mapstructure:"allowed_methods"`
+	AllowedHeaders   []string `json:"allowed_headers" mapstructure:"allowed_headers"`
+	ExposedHeaders   []string `json:"exposed_headers" mapstructure:"exposed_headers"`
+	AllowCredentials bool     `json:"allow_credentials" mapstructure:"allow_credentials"`
+	Enabled          bool     `json:"enabled" mapstructure:"enabled"`
+	MaxAge           int      `json:"max_age" mapstructure:"max_age"`
+}
+
 // Conf httpd daemon configuration
 type Conf struct {
 	// Addresses and ports to bind to
@@ -351,6 +362,8 @@ type Conf struct {
 	// MaxUploadFileSize Defines the maximum request body size, in bytes, for Web Client/API HTTP upload requests.
 	// 0 means no limit
 	MaxUploadFileSize int64 `json:"max_upload_file_size" mapstructure:"max_upload_file_size"`
+	// CORS configuration
+	Cors CorsConfig `json:"cors" mapstructure:"cors"`
 }
 
 type apiResponse struct {
@@ -456,7 +469,7 @@ func (c *Conf) Initialize(configDir string) error {
 		}
 
 		go func(b Binding) {
-			server := newHttpdServer(b, staticFilesPath, c.SigningPassphrase)
+			server := newHttpdServer(b, staticFilesPath, c.SigningPassphrase, c.Cors)
 
 			exitChannel <- server.listenAndServe()
 		}(binding)
@@ -600,7 +613,7 @@ func GetHTTPRouter() http.Handler {
 		EnableWebAdmin:  true,
 		EnableWebClient: true,
 	}
-	server := newHttpdServer(b, "../static", "")
+	server := newHttpdServer(b, "../static", "", CorsConfig{})
 	server.initializeRouter()
 	return server.router
 }
