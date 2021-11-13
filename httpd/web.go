@@ -16,17 +16,21 @@ const (
 	redactedSecret            = "[**redacted**]"
 	csrfFormToken             = "_form_token"
 	csrfHeaderToken           = "X-CSRF-TOKEN"
+	templateCommonDir         = "common"
 	templateTwoFactor         = "twofactor.html"
 	templateTwoFactorRecovery = "twofactor-recovery.html"
+	templateForgotPassword    = "forgot-password.html"
+	templateResetPassword     = "reset-password.html"
 )
 
 type loginPage struct {
-	CurrentURL  string
-	Version     string
-	Error       string
-	CSRFToken   string
-	StaticURL   string
-	AltLoginURL string
+	CurrentURL   string
+	Version      string
+	Error        string
+	CSRFToken    string
+	StaticURL    string
+	AltLoginURL  string
+	ForgotPwdURL string
 }
 
 type twoFactorPage struct {
@@ -36,6 +40,22 @@ type twoFactorPage struct {
 	CSRFToken   string
 	StaticURL   string
 	RecoveryURL string
+}
+
+type forgotPwdPage struct {
+	CurrentURL string
+	Error      string
+	CSRFToken  string
+	StaticURL  string
+	Title      string
+}
+
+type resetPwdPage struct {
+	CurrentURL string
+	Error      string
+	CSRFToken  string
+	StaticURL  string
+	Title      string
 }
 
 func getSliceFromDelimitedValues(values, delimiter string) []string {

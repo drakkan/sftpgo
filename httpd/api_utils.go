@@ -1,6 +1,7 @@
 package httpd
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -15,6 +16,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
 	"github.com/klauspost/compress/zip"
 
@@ -23,12 +25,18 @@ import (
 	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/metric"
 	"github.com/drakkan/sftpgo/v2/sdk/plugin"
+	"github.com/drakkan/sftpgo/v2/smtp"
 	"github.com/drakkan/sftpgo/v2/util"
 )
 
 type pwdChange struct {
 	CurrentPassword string `json:"current_password"`
 	NewPassword     string `json:"new_password"`
+}
+
+type pwdReset struct {
+	Code     string `json:"code"`
+	Password string `json:"password"`
 }
 
 type baseProfile struct {
@@ -454,4 +462,125 @@ func checkHTTPClientUser(user *dataprovider.User, r *http.Request, connectionID 
 		return fmt.Errorf("login for user %#v is not allowed from this address: %v", user.Username, r.RemoteAddr)
 	}
 	return nil
+}
+
+func handleForgotPassword(r *http.Request, username string, isAdmin bool) error {
+	var email, subject string
+	var err error
+	var admin dataprovider.Admin
+	var user dataprovider.User
+
+	if username == "" {
+		return util.NewValidationError("Username is mandatory")
+	}
+	if isAdmin {
+		admin, err = dataprovider.AdminExists(username)
+		email = admin.Email
+		subject = fmt.Sprintf("Email Verification Code for admin %#v", username)
+	} else {
+		user, err = dataprovider.UserExists(username)
+		email = user.Email
+		subject = fmt.Sprintf("Email Verification Code for user %#v", username)
+		if err == nil {
+			if !isUserAllowedToResetPassword(r, &user) {
+				return util.NewValidationError("You are not allowed to reset your password")
+			}
+		}
+	}
+	if err != nil {
+		if _, ok := err.(*util.RecordNotFoundError); ok {
+			logger.Debug(logSender, middleware.GetReqID(r.Context()), "username %#v does not exists, reset password request silently ignored, is admin? %v",
+				username, isAdmin)
+			return nil
+		}
+		return util.NewGenericError("Error retrieving your account, please try again later")
+	}
+	if email == "" {
+		return util.NewValidationError("Your account does not have an email address, it is not possible to reset your password by sending an email verification code")
+	}
+	c := newResetCode(username, isAdmin)
+	body := new(bytes.Buffer)
+	data := make(map[string]string)
+	data["Code"] = c.Code
+	if err := smtp.RenderPasswordResetTemplate(body, data); err != nil {
+		logger.Warn(logSender, middleware.GetReqID(r.Context()), "unable to render password reset template: %v", err)
+		return util.NewGenericError("Unable to render password reset template")
+	}
+	startTime := time.Now()
+	if err := smtp.SendEmail(email, subject, body.String(), smtp.EmailContentTypeTextHTML); err != nil {
+		logger.Warn(logSender, middleware.GetReqID(r.Context()), "unable to send password reset code via email: %v, elapsed: %v",
+			err, time.Since(startTime))
+		return util.NewGenericError(fmt.Sprintf("Unable to send confirmation code via email: %v", err))
+	}
+	logger.Debug(logSender, middleware.GetReqID(r.Context()), "reset code sent via email to %#v, email: %#v, is admin? %v, elapsed: %v",
+		username, email, isAdmin, time.Since(startTime))
+	resetCodes.Store(c.Code, c)
+	return nil
+}
+
+func handleResetPassword(r *http.Request, code, newPassword string, isAdmin bool) (
+	*dataprovider.Admin, *dataprovider.User, error,
+) {
+	var admin dataprovider.Admin
+	var user dataprovider.User
+	var err error
+
+	if newPassword == "" {
+		return &admin, &user, util.NewValidationError("Please set a password")
+	}
+	if code == "" {
+		return &admin, &user, util.NewValidationError("Please set a confirmation code")
+	}
+	c, ok := resetCodes.Load(code)
+	if !ok {
+		return &admin, &user, util.NewValidationError("Confirmation code not found")
+	}
+	resetCode := c.(*resetCode)
+	if resetCode.IsAdmin != isAdmin {
+		return &admin, &user, util.NewValidationError("Invalid confirmation code")
+	}
+	if isAdmin {
+		admin, err = dataprovider.AdminExists(resetCode.Username)
+		if err != nil {
+			return &admin, &user, util.NewValidationError("Unable to associate the confirmation code with an existing admin")
+		}
+		admin.Password = newPassword
+		err = dataprovider.UpdateAdmin(&admin, admin.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
+		if err != nil {
+			return &admin, &user, util.NewGenericError(fmt.Sprintf("Unable to set the new password: %v", err))
+		}
+	} else {
+		user, err = dataprovider.UserExists(resetCode.Username)
+		if err != nil {
+			return &admin, &user, util.NewValidationError("Unable to associate the confirmation code with an existing user")
+		}
+		if err == nil {
+			if !isUserAllowedToResetPassword(r, &user) {
+				return &admin, &user, util.NewValidationError("You are not allowed to reset your password")
+			}
+		}
+		user.Password = newPassword
+		err = dataprovider.UpdateUser(&user, user.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
+		if err != nil {
+			return &admin, &user, util.NewGenericError(fmt.Sprintf("Unable to set the new password: %v", err))
+		}
+	}
+	resetCodes.Delete(code)
+	return &admin, &user, nil
+}
+
+func isUserAllowedToResetPassword(r *http.Request, user *dataprovider.User) bool {
+	if !user.CanResetPassword() {
+		return false
+	}
+	if util.IsStringInSlice(common.ProtocolHTTP, user.Filters.DeniedProtocols) {
+		return false
+	}
+	if !user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, nil) {
+		return false
+	}
+	if !user.IsLoginFromAddrAllowed(r.RemoteAddr) {
+		return false
+	}
+	return true
 }

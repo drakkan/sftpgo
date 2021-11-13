@@ -2235,6 +2235,85 @@ paths:
           $ref: '#/components/responses/InternalServerError'
         default:
           $ref: '#/components/responses/DefaultResponse'
+  '/admins/{username}/forgot-password':
+    parameters:
+      - name: username
+        in: path
+        description: the admin username
+        required: true
+        schema:
+          type: string
+    post:
+      security: []
+      tags:
+        - admins
+      summary: Send a password reset code by email
+      description: 'You must set up an SMTP server and the account must have a valid email address, in which case SFTPGo will send a code via email to reset the password. If the specified admin does not exist, the request will be silently ignored (a success response will be returned) to avoid disclosing existing admins'
+      operationId: admin_forgot_password
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  '/admins/{username}/reset-password':
+    parameters:
+      - name: username
+        in: path
+        description: the admin username
+        required: true
+        schema:
+          type: string
+    post:
+      security: []
+      tags:
+        - admins
+      summary: Reset the password
+      description: 'Set a new password using the code received via email'
+      operationId: admin_reset_password
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code:
+                  type: string
+                password:
+                  type: string
+        required: true
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
   /users:
     get:
       tags:
@@ -2445,6 +2524,85 @@ paths:
                 $ref: '#/components/schemas/ApiResponse'
               example:
                 message: 2FA disabled
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  '/users/{username}/forgot-password':
+    parameters:
+      - name: username
+        in: path
+        description: the username
+        required: true
+        schema:
+          type: string
+    post:
+      security: []
+      tags:
+        - users
+      summary: Send a password reset code by email
+      description: 'You must configure an SMTP server, the account must have a valid email address and must not have the "reset-password-disabled" restriction, in which case SFTPGo will send a code via email to reset the password. If the specified user does not exist, the request will be silently ignored (a success response will be returned) to avoid disclosing existing users'
+      operationId: user_forgot_password
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  '/users/{username}/reset-password':
+    parameters:
+      - name: username
+        in: path
+        description: the username
+        required: true
+        schema:
+          type: string
+    post:
+      security: []
+      tags:
+        - users
+      summary: Reset the password
+      description: 'Set a new password using the code received via email'
+      operationId: user_reset_password
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code:
+                  type: string
+                password:
+                  type: string
+        required: true
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -3751,6 +3909,7 @@ components:
         - api-key-auth-change-disabled
         - info-change-disabled
         - shares-disabled
+        - password-reset-disabled
       description: |
         Options:
           * `publickey-change-disabled` - changing SSH public keys is not allowed
@@ -3760,6 +3919,7 @@ components:
           * `api-key-auth-change-disabled` - enabling/disabling API key authentication is not allowed
           * `info-change-disabled` - changing info such as email and description is not allowed
           * `shares-disabled` - sharing files and directories with external users is disabled
+          * `password-reset-disabled` - resetting the password is disabled
     RetentionCheckNotification:
       type: string
       enum:

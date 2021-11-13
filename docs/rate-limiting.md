@@ -63,6 +63,7 @@ You can defines how many rate limiters as you want, but keep in mind that if you
       "protocols": [
         "FTP"
       ],
+      "allow_list": [],
       "generate_defender_events": true,
       "entries_soft_limit": 100,
       "entries_hard_limit": 150

@@ -19,6 +19,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/mfa"
 	"github.com/drakkan/sftpgo/v2/sdk"
+	"github.com/drakkan/sftpgo/v2/smtp"
 	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/version"
 	"github.com/drakkan/sftpgo/v2/vfs"
@@ -70,6 +71,8 @@ const (
 	pageChangePwdTitle   = "Change password"
 	pageMaintenanceTitle = "Maintenance"
 	pageDefenderTitle    = "Defender"
+	pageForgotPwdTitle   = "SFTPGo Admin - Forgot password"
+	pageResetPwdTitle    = "SFTPGo Admin - Reset password"
 	pageSetupTitle       = "Create first admin user"
 	defaultQueryLimit    = 500
 )
@@ -250,50 +253,56 @@ func loadAdminTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateConnections),
 	}
-	messagePath := []string{
+	messagePaths := []string{
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateMessage),
 	}
-	foldersPath := []string{
+	foldersPaths := []string{
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateFolders),
 	}
-	folderPath := []string{
+	folderPaths := []string{
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateFsConfig),
 		filepath.Join(templatesPath, templateAdminDir, templateFolder),
 	}
-	statusPath := []string{
+	statusPaths := []string{
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateStatus),
 	}
-	loginPath := []string{
+	loginPaths := []string{
 		filepath.Join(templatesPath, templateAdminDir, templateBaseLogin),
 		filepath.Join(templatesPath, templateAdminDir, templateLogin),
 	}
-	maintenancePath := []string{
+	maintenancePaths := []string{
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateMaintenance),
 	}
-	defenderPath := []string{
+	defenderPaths := []string{
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateDefender),
 	}
-	mfaPath := []string{
+	mfaPaths := []string{
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateMFA),
 	}
-	twoFactorPath := []string{
+	twoFactorPaths := []string{
 		filepath.Join(templatesPath, templateAdminDir, templateBaseLogin),
 		filepath.Join(templatesPath, templateAdminDir, templateTwoFactor),
 	}
-	twoFactorRecoveryPath := []string{
+	twoFactorRecoveryPaths := []string{
 		filepath.Join(templatesPath, templateAdminDir, templateBaseLogin),
 		filepath.Join(templatesPath, templateAdminDir, templateTwoFactorRecovery),
 	}
-	setupPath := []string{
+	setupPaths := []string{
 		filepath.Join(templatesPath, templateAdminDir, templateBaseLogin),
 		filepath.Join(templatesPath, templateAdminDir, templateSetup),
+	}
+	forgotPwdPaths := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateForgotPassword),
+	}
+	resetPwdPaths := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateResetPassword),
 	}
 
 	fsBaseTpl := template.New("fsBaseTemplate").Funcs(template.FuncMap{
@@ -304,19 +313,21 @@ func loadAdminTemplates(templatesPath string) {
 	adminsTmpl := util.LoadTemplate(nil, adminsPaths...)
 	adminTmpl := util.LoadTemplate(nil, adminPaths...)
 	connectionsTmpl := util.LoadTemplate(nil, connectionsPaths...)
-	messageTmpl := util.LoadTemplate(nil, messagePath...)
-	foldersTmpl := util.LoadTemplate(nil, foldersPath...)
-	folderTmpl := util.LoadTemplate(fsBaseTpl, folderPath...)
-	statusTmpl := util.LoadTemplate(nil, statusPath...)
-	loginTmpl := util.LoadTemplate(nil, loginPath...)
+	messageTmpl := util.LoadTemplate(nil, messagePaths...)
+	foldersTmpl := util.LoadTemplate(nil, foldersPaths...)
+	folderTmpl := util.LoadTemplate(fsBaseTpl, folderPaths...)
+	statusTmpl := util.LoadTemplate(nil, statusPaths...)
+	loginTmpl := util.LoadTemplate(nil, loginPaths...)
 	profileTmpl := util.LoadTemplate(nil, profilePaths...)
 	changePwdTmpl := util.LoadTemplate(nil, changePwdPaths...)
-	maintenanceTmpl := util.LoadTemplate(nil, maintenancePath...)
-	defenderTmpl := util.LoadTemplate(nil, defenderPath...)
-	mfaTmpl := util.LoadTemplate(nil, mfaPath...)
-	twoFactorTmpl := util.LoadTemplate(nil, twoFactorPath...)
-	twoFactorRecoveryTmpl := util.LoadTemplate(nil, twoFactorRecoveryPath...)
-	setupTmpl := util.LoadTemplate(nil, setupPath...)
+	maintenanceTmpl := util.LoadTemplate(nil, maintenancePaths...)
+	defenderTmpl := util.LoadTemplate(nil, defenderPaths...)
+	mfaTmpl := util.LoadTemplate(nil, mfaPaths...)
+	twoFactorTmpl := util.LoadTemplate(nil, twoFactorPaths...)
+	twoFactorRecoveryTmpl := util.LoadTemplate(nil, twoFactorRecoveryPaths...)
+	setupTmpl := util.LoadTemplate(nil, setupPaths...)
+	forgotPwdTmpl := util.LoadTemplate(nil, forgotPwdPaths...)
+	resetPwdTmpl := util.LoadTemplate(nil, resetPwdPaths...)
 
 	adminTemplates[templateUsers] = usersTmpl
 	adminTemplates[templateUser] = userTmpl
@@ -336,6 +347,8 @@ func loadAdminTemplates(templatesPath string) {
 	adminTemplates[templateTwoFactor] = twoFactorTmpl
 	adminTemplates[templateTwoFactorRecovery] = twoFactorRecoveryTmpl
 	adminTemplates[templateSetup] = setupTmpl
+	adminTemplates[templateForgotPassword] = forgotPwdTmpl
+	adminTemplates[templateResetPassword] = resetPwdTmpl
 }
 
 func getBasePageData(title, currentURL string, r *http.Request) basePage {
@@ -417,6 +430,28 @@ func renderForbiddenPage(w http.ResponseWriter, r *http.Request, body string) {
 
 func renderNotFoundPage(w http.ResponseWriter, r *http.Request, err error) {
 	renderMessagePage(w, r, page404Title, page404Body, http.StatusNotFound, err, "")
+}
+
+func renderForgotPwdPage(w http.ResponseWriter, error string) {
+	data := forgotPwdPage{
+		CurrentURL: webAdminForgotPwdPath,
+		Error:      error,
+		CSRFToken:  createCSRFToken(),
+		StaticURL:  webStaticFilesPath,
+		Title:      pageForgotPwdTitle,
+	}
+	renderAdminTemplate(w, templateForgotPassword, data)
+}
+
+func renderResetPwdPage(w http.ResponseWriter, error string) {
+	data := resetPwdPage{
+		CurrentURL: webAdminResetPwdPath,
+		Error:      error,
+		CSRFToken:  createCSRFToken(),
+		StaticURL:  webStaticFilesPath,
+		Title:      pageResetPwdTitle,
+	}
+	renderAdminTemplate(w, templateResetPassword, data)
 }
 
 func renderTwoFactorPage(w http.ResponseWriter, error string) {
@@ -1133,6 +1168,48 @@ func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 	maxFileSize, err := strconv.ParseInt(r.Form.Get("max_upload_file_size"), 10, 64)
 	user.Filters.MaxUploadFileSize = maxFileSize
 	return user, err
+}
+
+func handleWebAdminForgotPwd(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	if !smtp.IsEnabled() {
+		renderNotFoundPage(w, r, errors.New("this page does not exist"))
+		return
+	}
+	renderForgotPwdPage(w, "")
+}
+
+func handleWebAdminForgotPwdPost(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	err := r.ParseForm()
+	if err != nil {
+		renderForgotPwdPage(w, err.Error())
+		return
+	}
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
+		renderForbiddenPage(w, r, err.Error())
+		return
+	}
+	username := r.Form.Get("username")
+	err = handleForgotPassword(r, username, true)
+	if err != nil {
+		if e, ok := err.(*util.ValidationError); ok {
+			renderForgotPwdPage(w, e.GetErrorString())
+			return
+		}
+		renderForgotPwdPage(w, err.Error())
+		return
+	}
+	http.Redirect(w, r, webAdminResetPwdPath, http.StatusFound)
+}
+
+func handleWebAdminPasswordReset(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
+	if !smtp.IsEnabled() {
+		renderNotFoundPage(w, r, errors.New("this page does not exist"))
+		return
+	}
+	renderResetPwdPage(w, "")
 }
 
 func handleWebAdminTwoFactor(w http.ResponseWriter, r *http.Request) {

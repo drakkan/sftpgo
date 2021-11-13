@@ -23,6 +23,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/mfa"
 	"github.com/drakkan/sftpgo/v2/sdk"
+	"github.com/drakkan/sftpgo/v2/smtp"
 	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/version"
 )
@@ -128,6 +129,9 @@ func (s *httpdServer) renderClientLoginPage(w http.ResponseWriter, error string)
 	if s.binding.showAdminLoginURL() {
 		data.AltLoginURL = webLoginPath
 	}
+	if smtp.IsEnabled() {
+		data.ForgotPwdURL = webClientForgotPwdPath
+	}
 	renderClientTemplate(w, templateClientLogin, data)
 }
 
@@ -188,6 +192,43 @@ func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Re
 		return
 	}
 	s.loginUser(w, r, &user, connectionID, ipAddr, false, s.renderClientLoginPage)
+}
+
+func (s *httpdServer) handleWebClientPasswordResetPost(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
+	err := r.ParseForm()
+	if err != nil {
+		renderClientResetPwdPage(w, err.Error())
+		return
+	}
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
+		renderClientForbiddenPage(w, r, err.Error())
+		return
+	}
+	_, user, err := handleResetPassword(r, r.Form.Get("code"), r.Form.Get("password"), false)
+	if err != nil {
+		if e, ok := err.(*util.ValidationError); ok {
+			renderClientResetPwdPage(w, e.GetErrorString())
+			return
+		}
+		renderClientResetPwdPage(w, err.Error())
+		return
+	}
+	connectionID := fmt.Sprintf("%v_%v", common.ProtocolHTTP, xid.New().String())
+	if err := checkHTTPClientUser(user, r, connectionID); err != nil {
+		renderClientResetPwdPage(w, fmt.Sprintf("Password reset successfully but unable to login: %v", err.Error()))
+		return
+	}
+
+	defer user.CloseFs() //nolint:errcheck
+	err = user.CheckFsRoot(connectionID)
+	if err != nil {
+		logger.Warn(logSender, connectionID, "unable to check fs root: %v", err)
+		renderClientResetPwdPage(w, fmt.Sprintf("Password reset successfully but unable to login: %v", err.Error()))
+		return
+	}
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	s.loginUser(w, r, user, connectionID, ipAddr, false, renderClientResetPwdPage)
 }
 
 func (s *httpdServer) handleWebClientTwoFactorRecoveryPost(w http.ResponseWriter, r *http.Request) {
@@ -424,6 +465,9 @@ func (s *httpdServer) renderAdminLoginPage(w http.ResponseWriter, error string) 
 	if s.binding.showClientLoginURL() {
 		data.AltLoginURL = webClientLoginPath
 	}
+	if smtp.IsEnabled() {
+		data.ForgotPwdURL = webAdminForgotPwdPath
+	}
 	renderAdminTemplate(w, templateLogin, data)
 }
 
@@ -434,6 +478,30 @@ func (s *httpdServer) handleWebAdminLogin(w http.ResponseWriter, r *http.Request
 		return
 	}
 	s.renderAdminLoginPage(w, "")
+}
+
+func (s *httpdServer) handleWebAdminPasswordResetPost(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
+	err := r.ParseForm()
+	if err != nil {
+		renderResetPwdPage(w, err.Error())
+		return
+	}
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
+		renderForbiddenPage(w, r, err.Error())
+		return
+	}
+	admin, _, err := handleResetPassword(r, r.Form.Get("code"), r.Form.Get("password"), true)
+	if err != nil {
+		if e, ok := err.(*util.ValidationError); ok {
+			renderResetPwdPage(w, e.GetErrorString())
+			return
+		}
+		renderResetPwdPage(w, err.Error())
+		return
+	}
+
+	s.loginAdmin(w, r, admin, false, renderResetPwdPage)
 }
 
 func (s *httpdServer) handleWebAdminSetupPost(w http.ResponseWriter, r *http.Request) {
@@ -901,6 +969,10 @@ func (s *httpdServer) initializeRouter() {
 	s.router.Post(sharesPath+"/{id}", uploadToShare)
 
 	s.router.Get(tokenPath, s.getToken)
+	s.router.Post(adminPath+"/{username}/forgot-password", forgotAdminPassword)
+	s.router.Post(adminPath+"/{username}/reset-password", resetAdminPassword)
+	s.router.Post(userPath+"/{username}/forgot-password", forgotUserPassword)
+	s.router.Post(userPath+"/{username}/reset-password", resetUserPassword)
 
 	s.router.Group(func(router chi.Router) {
 		router.Use(checkAPIKeyAuth(s.tokenAuth, dataprovider.APIKeyScopeAdmin))
@@ -1080,6 +1152,10 @@ func (s *httpdServer) initializeRouter() {
 		})
 		s.router.Get(webClientLoginPath, s.handleClientWebLogin)
 		s.router.Post(webClientLoginPath, s.handleWebClientLoginPost)
+		s.router.Get(webClientForgotPwdPath, handleWebClientForgotPwd)
+		s.router.Post(webClientForgotPwdPath, handleWebClientForgotPwdPost)
+		s.router.Get(webClientResetPwdPath, handleWebClientPasswordReset)
+		s.router.Post(webClientResetPwdPath, s.handleWebClientPasswordResetPost)
 		s.router.With(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromCookie),
 			jwtAuthenticatorPartial(tokenAudienceWebClientPartial)).
 			Get(webClientTwoFactorPath, handleWebClientTwoFactor)
@@ -1160,6 +1236,10 @@ func (s *httpdServer) initializeRouter() {
 		s.router.Post(webLoginPath, s.handleWebAdminLoginPost)
 		s.router.Get(webAdminSetupPath, handleWebAdminSetupGet)
 		s.router.Post(webAdminSetupPath, s.handleWebAdminSetupPost)
+		s.router.Get(webAdminForgotPwdPath, handleWebAdminForgotPwd)
+		s.router.Post(webAdminForgotPwdPath, handleWebAdminForgotPwdPost)
+		s.router.Get(webAdminResetPwdPath, handleWebAdminPasswordReset)
+		s.router.Post(webAdminResetPwdPath, s.handleWebAdminPasswordResetPost)
 		s.router.With(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromCookie),
 			jwtAuthenticatorPartial(tokenAudienceWebAdminPartial)).
 			Get(webAdminTwoFactorPath, handleWebAdminTwoFactor)

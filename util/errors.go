@@ -12,6 +12,11 @@ func (e *ValidationError) Error() string {
 	return fmt.Sprintf("Validation error: %s", e.err)
 }
 
+// GetErrorString returns the unmodified error string
+func (e *ValidationError) GetErrorString() string {
+	return e.err
+}
+
 // NewValidationError returns a validation errors
 func NewValidationError(error string) *ValidationError {
 	return &ValidationError{
@@ -19,7 +24,7 @@ func NewValidationError(error string) *ValidationError {
 	}
 }
 
-// RecordNotFoundError raised if a requested user is not found
+// RecordNotFoundError raised if a requested object is not found
 type RecordNotFoundError struct {
 	err string
 }
@@ -50,6 +55,22 @@ func (e *MethodDisabledError) Error() string {
 // NewMethodDisabledError returns a method disabled error
 func NewMethodDisabledError(error string) *MethodDisabledError {
 	return &MethodDisabledError{
+		err: error,
+	}
+}
+
+// GenericError raised for not well categorized error
+type GenericError struct {
+	err string
+}
+
+func (e *GenericError) Error() string {
+	return e.err
+}
+
+// NewGenericError returns a generic error
+func NewGenericError(error string) *GenericError {
+	return &GenericError{
 		err: error,
 	}
 }

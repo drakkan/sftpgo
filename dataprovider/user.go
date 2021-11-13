@@ -732,6 +732,11 @@ func (u *User) CanManageShares() bool {
 	return !util.IsStringInSlice(sdk.WebClientSharesDisabled, u.Filters.WebClient)
 }
 
+// CanResetPassword returns true if this user is allowed to reset its password
+func (u *User) CanResetPassword() bool {
+	return !util.IsStringInSlice(sdk.WebClientPasswordResetDisabled, u.Filters.WebClient)
+}
+
 // CanChangePassword returns true if this user is allowed to change its password
 func (u *User) CanChangePassword() bool {
 	return !util.IsStringInSlice(sdk.WebClientPasswordChangeDisabled, u.Filters.WebClient)

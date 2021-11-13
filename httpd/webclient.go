@@ -3,6 +3,7 @@ package httpd
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"io"
@@ -22,6 +23,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/mfa"
 	"github.com/drakkan/sftpgo/v2/sdk"
+	"github.com/drakkan/sftpgo/v2/smtp"
 	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/version"
 	"github.com/drakkan/sftpgo/v2/vfs"
@@ -48,6 +50,8 @@ const (
 	pageClientChangePwdTitle        = "Change password"
 	pageClient2FATitle              = "Two-factor auth"
 	pageClientEditFileTitle         = "Edit file"
+	pageClientForgotPwdTitle        = "SFTPGo WebClient - Forgot password"
+	pageClientResetPwdTitle         = "SFTPGo WebClient - Reset password"
 )
 
 // condResult is the result of an HTTP request precondition check.
@@ -219,6 +223,12 @@ func loadClientTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateClientDir, templateClientBaseLogin),
 		filepath.Join(templatesPath, templateClientDir, templateClientTwoFactorRecovery),
 	}
+	forgotPwdPaths := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateForgotPassword),
+	}
+	resetPwdPaths := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateResetPassword),
+	}
 
 	filesTmpl := util.LoadTemplate(nil, filesPaths...)
 	profileTmpl := util.LoadTemplate(nil, profilePaths...)
@@ -231,6 +241,8 @@ func loadClientTemplates(templatesPath string) {
 	editFileTmpl := util.LoadTemplate(nil, editFilePath...)
 	sharesTmpl := util.LoadTemplate(nil, sharesPaths...)
 	shareTmpl := util.LoadTemplate(nil, sharePaths...)
+	forgotPwdTmpl := util.LoadTemplate(nil, forgotPwdPaths...)
+	resetPwdTmpl := util.LoadTemplate(nil, resetPwdPaths...)
 
 	clientTemplates[templateClientFiles] = filesTmpl
 	clientTemplates[templateClientProfile] = profileTmpl
@@ -243,6 +255,8 @@ func loadClientTemplates(templatesPath string) {
 	clientTemplates[templateClientEditFile] = editFileTmpl
 	clientTemplates[templateClientShares] = sharesTmpl
 	clientTemplates[templateClientShare] = shareTmpl
+	clientTemplates[templateForgotPassword] = forgotPwdTmpl
+	clientTemplates[templateResetPassword] = resetPwdTmpl
 }
 
 func getBaseClientPageData(title, currentURL string, r *http.Request) baseClientPage {
@@ -271,6 +285,28 @@ func getBaseClientPageData(title, currentURL string, r *http.Request) baseClient
 		CSRFToken:    csrfToken,
 		LoggedUser:   getUserFromToken(r),
 	}
+}
+
+func renderClientForgotPwdPage(w http.ResponseWriter, error string) {
+	data := forgotPwdPage{
+		CurrentURL: webClientForgotPwdPath,
+		Error:      error,
+		CSRFToken:  createCSRFToken(),
+		StaticURL:  webStaticFilesPath,
+		Title:      pageClientForgotPwdTitle,
+	}
+	renderClientTemplate(w, templateForgotPassword, data)
+}
+
+func renderClientResetPwdPage(w http.ResponseWriter, error string) {
+	data := resetPwdPage{
+		CurrentURL: webClientResetPwdPath,
+		Error:      error,
+		CSRFToken:  createCSRFToken(),
+		StaticURL:  webStaticFilesPath,
+		Title:      pageClientResetPwdTitle,
+	}
+	renderClientTemplate(w, templateResetPassword, data)
 }
 
 func renderClientTemplate(w http.ResponseWriter, tmplName string, data interface{}) {
@@ -956,4 +992,46 @@ func getShareFromPostFields(r *http.Request) (*dataprovider.Share, error) {
 	}
 	share.ExpiresAt = expirationDateMillis
 	return share, nil
+}
+
+func handleWebClientForgotPwd(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	if !smtp.IsEnabled() {
+		renderClientNotFoundPage(w, r, errors.New("this page does not exist"))
+		return
+	}
+	renderClientForgotPwdPage(w, "")
+}
+
+func handleWebClientForgotPwdPost(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	err := r.ParseForm()
+	if err != nil {
+		renderClientForgotPwdPage(w, err.Error())
+		return
+	}
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
+		renderClientForbiddenPage(w, r, err.Error())
+		return
+	}
+	username := r.Form.Get("username")
+	err = handleForgotPassword(r, username, false)
+	if err != nil {
+		if e, ok := err.(*util.ValidationError); ok {
+			renderClientForgotPwdPage(w, e.GetErrorString())
+			return
+		}
+		renderClientForgotPwdPage(w, err.Error())
+		return
+	}
+	http.Redirect(w, r, webClientResetPwdPath, http.StatusFound)
+}
+
+func handleWebClientPasswordReset(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
+	if !smtp.IsEnabled() {
+		renderClientNotFoundPage(w, r, errors.New("this page does not exist"))
+		return
+	}
+	renderClientResetPwdPage(w, "")
 }

@@ -89,6 +89,7 @@ On Windows you can use:
 
 - The Windows installer to install and run SFTPGo as a Windows service.
 - The portable package to start SFTPGo on demand.
+- The [Chocolatey package](https://community.chocolatey.org/packages/sftpgo) to install and run SFTPGo as a Windows service.
 
 You can easily test new features selecting a commit from the [Actions](https://github.com/drakkan/sftpgo/actions) page and downloading the matching build artifacts for Linux, macOS or Windows. GitHub stores artifacts for 90 days.
 

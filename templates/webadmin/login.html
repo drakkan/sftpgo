@@ -20,6 +20,11 @@
                                         <div class="form-group">
                                             <input type="password" class="form-control form-control-user-custom"
                                                 id="inputPassword" name="password" placeholder="Password" required>
+                                            {{if .ForgotPwdURL}}
+                                            <div class="text-right">
+                                                <a class="small" href="{{.ForgotPwdURL}}">Forgot password?</a>
+                                            </div>
+                                            {{end}}
                                         </div>
                                         <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
                                         <button type="submit" class="btn btn-primary btn-user-custom btn-block">

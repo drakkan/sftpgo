@@ -31,6 +31,7 @@ const (
 const (
 	templateEmailDir             = "email"
 	templateRetentionCheckResult = "retention-check-report.html"
+	templatePasswordReset        = "reset-password.html"
 )
 
 var (
@@ -146,7 +147,12 @@ func loadTemplates(templatesPath string) {
 	logger.Debug(logSender, "", "loading templates from %#v", templatesPath)
 	retentionCheckPath := filepath.Join(templatesPath, templateRetentionCheckResult)
 	retentionTmpl := util.LoadTemplate(nil, retentionCheckPath)
+
+	passwordResetPath := filepath.Join(templatesPath, templatePasswordReset)
+	pwdResetTmpl := util.LoadTemplate(nil, passwordResetPath)
+
 	emailTemplates[templateRetentionCheckResult] = retentionTmpl
+	emailTemplates[templatePasswordReset] = pwdResetTmpl
 }
 
 // RenderRetentionReportTemplate executes the retention report template
@@ -155,6 +161,13 @@ func RenderRetentionReportTemplate(buf *bytes.Buffer, data interface{}) error {
 		return errors.New("smtp: not configured")
 	}
 	return emailTemplates[templateRetentionCheckResult].Execute(buf, data)
+}
+
+func RenderPasswordResetTemplate(buf *bytes.Buffer, data interface{}) error {
+	if smtpServer == nil {
+		return errors.New("smtp: not configured")
+	}
+	return emailTemplates[templatePasswordReset].Execute(buf, data)
 }
 
 // SendEmail tries to send an email using the specified parameters.

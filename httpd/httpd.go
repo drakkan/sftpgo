@@ -104,6 +104,8 @@ const (
 	webScanVFolderPathDefault             = "/web/admin/quotas/scanfolder"
 	webQuotaScanPathDefault               = "/web/admin/quotas/scanuser"
 	webChangeAdminPwdPathDefault          = "/web/admin/changepwd"
+	webAdminForgotPwdPathDefault          = "/web/admin/forgot-password"
+	webAdminResetPwdPathDefault           = "/web/admin/reset-password"
 	webAdminProfilePathDefault            = "/web/admin/profile"
 	webAdminMFAPathDefault                = "/web/admin/mfa"
 	webAdminTOTPGeneratePathDefault       = "/web/admin/totp/generate"
@@ -132,6 +134,8 @@ const (
 	webChangeClientPwdPathDefault         = "/web/client/changepwd"
 	webClientLogoutPathDefault            = "/web/client/logout"
 	webClientPubSharesPathDefault         = "/web/client/pubshares"
+	webClientForgotPwdPathDefault         = "/web/client/forgot-password"
+	webClientResetPwdPathDefault          = "/web/client/reset-password"
 	webStaticFilesPathDefault             = "/static"
 	// MaxRestoreSize defines the max size for the loaddata input file
 	MaxRestoreSize       = 10485760 // 10 MB
@@ -179,6 +183,8 @@ var (
 	webAdminTOTPSavePath           string
 	webAdminRecoveryCodesPath      string
 	webChangeAdminPwdPath          string
+	webAdminForgotPwdPath          string
+	webAdminResetPwdPath           string
 	webTemplateUser                string
 	webTemplateFolder              string
 	webDefenderPath                string
@@ -201,6 +207,8 @@ var (
 	webClientRecoveryCodesPath     string
 	webClientPubSharesPath         string
 	webClientLogoutPath            string
+	webClientForgotPwdPath         string
+	webClientResetPwdPath          string
 	webStaticFilesPath             string
 	// max upload size for http clients, 1GB by default
 	maxUploadFileSize = int64(1048576000)
@@ -455,7 +463,7 @@ func (c *Conf) Initialize(configDir string) error {
 	}
 
 	maxUploadFileSize = c.MaxUploadFileSize
-	startCleanupTicker(tokenDuration)
+	startCleanupTicker(tokenDuration / 2)
 	return <-exitChannel
 }
 
@@ -539,6 +547,8 @@ func updateWebClientURLs(baseURL string) {
 	webClientTOTPValidatePath = path.Join(baseURL, webClientTOTPValidatePathDefault)
 	webClientTOTPSavePath = path.Join(baseURL, webClientTOTPSavePathDefault)
 	webClientRecoveryCodesPath = path.Join(baseURL, webClientRecoveryCodesPathDefault)
+	webClientForgotPwdPath = path.Join(baseURL, webClientForgotPwdPathDefault)
+	webClientResetPwdPath = path.Join(baseURL, webClientResetPwdPathDefault)
 }
 
 func updateWebAdminURLs(baseURL string) {
@@ -567,6 +577,8 @@ func updateWebAdminURLs(baseURL string) {
 	webScanVFolderPath = path.Join(baseURL, webScanVFolderPathDefault)
 	webQuotaScanPath = path.Join(baseURL, webQuotaScanPathDefault)
 	webChangeAdminPwdPath = path.Join(baseURL, webChangeAdminPwdPathDefault)
+	webAdminForgotPwdPath = path.Join(baseURL, webAdminForgotPwdPathDefault)
+	webAdminResetPwdPath = path.Join(baseURL, webAdminResetPwdPathDefault)
 	webAdminProfilePath = path.Join(baseURL, webAdminProfilePathDefault)
 	webAdminMFAPath = path.Join(baseURL, webAdminMFAPathDefault)
 	webAdminTOTPGeneratePath = path.Join(baseURL, webAdminTOTPGeneratePathDefault)
@@ -606,6 +618,7 @@ func startCleanupTicker(duration time.Duration) {
 				return
 			case <-cleanupTicker.C:
 				cleanupExpiredJWTTokens()
+				cleanupExpiredResetCodes()
 			}
 		}
 	}()

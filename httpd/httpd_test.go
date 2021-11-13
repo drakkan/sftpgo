@@ -16,6 +16,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -27,12 +28,14 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/mhale/smtpd"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 	"github.com/rs/xid"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/net/html"
 
 	"github.com/drakkan/sftpgo/v2/common"
@@ -47,6 +50,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/sdk"
 	"github.com/drakkan/sftpgo/v2/sdk/plugin"
 	"github.com/drakkan/sftpgo/v2/sftpd"
+	"github.com/drakkan/sftpgo/v2/smtp"
 	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
@@ -129,6 +133,8 @@ const (
 	webAdminTwoFactorRecoveryPath   = "/web/admin/twofactor-recovery"
 	webAdminMFAPath                 = "/web/admin/mfa"
 	webAdminTOTPSavePath            = "/web/admin/totp/save"
+	webAdminForgotPwdPath           = "/web/admin/forgot-password"
+	webAdminResetPwdPath            = "/web/admin/reset-password"
 	webBasePathClient               = "/web/client"
 	webClientLoginPath              = "/web/client/login"
 	webClientFilesPath              = "/web/client/files"
@@ -145,8 +151,11 @@ const (
 	webClientSharesPath             = "/web/client/shares"
 	webClientSharePath              = "/web/client/share"
 	webClientPubSharesPath          = "/web/client/pubshares"
+	webClientForgotPwdPath          = "/web/client/forgot-password"
+	webClientResetPwdPath           = "/web/client/reset-password"
 	httpBaseURL                     = "http://127.0.0.1:8081"
 	sftpServerAddr                  = "127.0.0.1:8022"
+	smtpServerAddr                  = "127.0.0.1:3525"
 	configDir                       = ".."
 	httpsCert                       = `-----BEGIN CERTIFICATE-----
 MIICHTCCAaKgAwIBAgIUHnqw7QnB1Bj9oUsNpdb+ZkFPOxMwCgYIKoZIzj0EAwIw
@@ -192,6 +201,7 @@ var (
 	providerDriverName string
 	postConnectPath    string
 	preActionPath      string
+	lastResetCode      string
 )
 
 type fakeConnection struct {
@@ -348,6 +358,8 @@ func TestMain(m *testing.M) {
 		}
 	}()
 
+	startSMTPServer()
+
 	waitTCPListening(httpdConf.Bindings[0].GetAddress())
 	waitTCPListening(sftpdConf.Bindings[0].GetAddress())
 	httpd.ReloadCertificateMgr() //nolint:errcheck
@@ -383,7 +395,7 @@ func TestMain(m *testing.M) {
 	defer testServer.Close()
 
 	exitCode := m.Run()
-	//os.Remove(logfilePath)
+	os.Remove(logfilePath)
 	os.RemoveAll(backupsPath)
 	os.RemoveAll(credentialsPath)
 	os.Remove(certPath)
@@ -3393,7 +3405,14 @@ func TestCloseConnectionAfterUserUpdateDelete(t *testing.T) {
 }
 
 func TestSkipNaturalKeysValidation(t *testing.T) {
-	err := dataprovider.Close()
+	smtpCfg := smtp.Config{
+		Host:          "127.0.0.1",
+		Port:          3525,
+		TemplatesPath: "templates",
+	}
+	err := smtpCfg.Initialize("..")
+	require.NoError(t, err)
+	err = dataprovider.Close()
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
@@ -3404,6 +3423,7 @@ func TestSkipNaturalKeysValidation(t *testing.T) {
 
 	u := getTestUser()
 	u.Username = "user@user.me"
+	u.Email = u.Username
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	user.AdditionalInfo = "info"
@@ -3463,6 +3483,27 @@ func TestSkipNaturalKeysValidation(t *testing.T) {
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Contains(t, rr.Body.String(), "the following characters are allowed")
+	// test user reset password
+	form = make(url.Values)
+	form.Set("username", user.Username)
+	form.Set(csrfFormToken, csrfToken)
+	lastResetCode = ""
+	req, err = http.NewRequest(http.MethodPost, webClientForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Greater(t, len(lastResetCode), 20)
+	form = make(url.Values)
+	form.Set(csrfFormToken, csrfToken)
+	form.Set("code", lastResetCode)
+	form.Set("password", defaultPassword)
+	req, err = http.NewRequest(http.MethodPost, webClientResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Unable to set the new password")
 
 	adminAPIToken, err := getJWTAPITokenFromTestServer(admin.Username, defaultTokenAuthPass)
 	assert.NoError(t, err)
@@ -3535,9 +3576,34 @@ func TestSkipNaturalKeysValidation(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	assert.Contains(t, rr.Body.String(), "the following characters are allowed")
+	// test admin reset password
+	form = make(url.Values)
+	form.Set("username", admin.Username)
+	form.Set(csrfFormToken, csrfToken)
+	lastResetCode = ""
+	req, err = http.NewRequest(http.MethodPost, webAdminForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Greater(t, len(lastResetCode), 20)
+	form = make(url.Values)
+	form.Set(csrfFormToken, csrfToken)
+	form.Set("code", lastResetCode)
+	form.Set("password", defaultPassword)
+	req, err = http.NewRequest(http.MethodPost, webAdminResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Unable to set the new password")
 
 	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
 	assert.NoError(t, err)
+
+	smtpCfg = smtp.Config{}
+	err = smtpCfg.Initialize("..")
+	require.NoError(t, err)
 }
 
 func TestSaveErrors(t *testing.T) {
@@ -3774,6 +3840,19 @@ func TestProviderErrors(t *testing.T) {
 	setBearerForReq(req, userAPIToken)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusInternalServerError, rr)
+
+	// password reset errors
+	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	assert.NoError(t, err)
+	form := make(url.Values)
+	form.Set("username", "username")
+	form.Set(csrfFormToken, csrfToken)
+	req, err = http.NewRequest(http.MethodPost, webClientForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Error retrieving your account, please try again later")
 
 	req, err = http.NewRequest(http.MethodGet, webClientSharesPath, nil)
 	assert.NoError(t, err)
@@ -8078,6 +8157,7 @@ func TestPostConnectHook(t *testing.T) {
 func TestMaxSessions(t *testing.T) {
 	u := getTestUser()
 	u.MaxSessions = 1
+	u.Email = "user@session.com"
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	_, err = getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
@@ -8094,12 +8174,125 @@ func TestMaxSessions(t *testing.T) {
 	assert.Error(t, err)
 	_, err = getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.Error(t, err)
+	// test reset password
+	smtpCfg := smtp.Config{
+		Host:          "127.0.0.1",
+		Port:          3525,
+		TemplatesPath: "templates",
+	}
+	err = smtpCfg.Initialize("..")
+	assert.NoError(t, err)
+
+	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	assert.NoError(t, err)
+	form := make(url.Values)
+	form.Set(csrfFormToken, csrfToken)
+	form.Set("username", user.Username)
+	lastResetCode = ""
+	req, err := http.NewRequest(http.MethodPost, webClientForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := executeRequest(req)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Greater(t, len(lastResetCode), 20)
+	form = make(url.Values)
+	form.Set(csrfFormToken, csrfToken)
+	form.Set("password", defaultPassword)
+	form.Set("code", lastResetCode)
+	req, err = http.NewRequest(http.MethodPost, webClientResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Password reset successfully but unable to login")
+
+	smtpCfg = smtp.Config{}
+	err = smtpCfg.Initialize("..")
+	require.NoError(t, err)
+
 	common.Connections.Remove(connection.GetID())
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 	assert.Len(t, common.Connections.GetStats(), 0)
+}
+
+func TestSFTPLoopError(t *testing.T) {
+	user1 := getTestUser()
+	user2 := getTestUser()
+	user1.Username += "1"
+	user1.Email = "user1@test.com"
+	user2.Username += "2"
+	user1.FsConfig = vfs.Filesystem{
+		Provider: sdk.SFTPFilesystemProvider,
+		SFTPConfig: vfs.SFTPFsConfig{
+			SFTPFsConfig: sdk.SFTPFsConfig{
+				Endpoint: sftpServerAddr,
+				Username: user2.Username,
+				Password: kms.NewPlainSecret(defaultPassword),
+			},
+		},
+	}
+
+	user2.FsConfig.Provider = sdk.SFTPFilesystemProvider
+	user2.FsConfig.SFTPConfig = vfs.SFTPFsConfig{
+		SFTPFsConfig: sdk.SFTPFsConfig{
+			Endpoint: sftpServerAddr,
+			Username: user1.Username,
+			Password: kms.NewPlainSecret(defaultPassword),
+		},
+	}
+
+	user1, resp, err := httpdtest.AddUser(user1, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	user2, resp, err = httpdtest.AddUser(user2, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+
+	// test reset password
+	smtpCfg := smtp.Config{
+		Host:          "127.0.0.1",
+		Port:          3525,
+		TemplatesPath: "templates",
+	}
+	err = smtpCfg.Initialize("..")
+	assert.NoError(t, err)
+
+	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	assert.NoError(t, err)
+	form := make(url.Values)
+	form.Set(csrfFormToken, csrfToken)
+	form.Set("username", user1.Username)
+	lastResetCode = ""
+	req, err := http.NewRequest(http.MethodPost, webClientForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := executeRequest(req)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Greater(t, len(lastResetCode), 20)
+	form = make(url.Values)
+	form.Set(csrfFormToken, csrfToken)
+	form.Set("password", defaultPassword)
+	form.Set("code", lastResetCode)
+	req, err = http.NewRequest(http.MethodPost, webClientResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Password reset successfully but unable to login")
+
+	smtpCfg = smtp.Config{}
+	err = smtpCfg.Initialize("..")
+	require.NoError(t, err)
+
+	_, err = httpdtest.RemoveUser(user1, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user1.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user2, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user2.GetHomeDir())
+	assert.NoError(t, err)
 }
 
 func TestLoginInvalidFs(t *testing.T) {
@@ -14050,6 +14243,475 @@ func TestWebFoldersMock(t *testing.T) {
 	}
 }
 
+func TestAdminForgotPassword(t *testing.T) {
+	smtpCfg := smtp.Config{
+		Host:          "127.0.0.1",
+		Port:          3525,
+		TemplatesPath: "templates",
+	}
+	err := smtpCfg.Initialize("..")
+	require.NoError(t, err)
+
+	a := getTestAdmin()
+	a.Username = altAdminUsername
+	a.Password = altAdminPassword
+	admin, _, err := httpdtest.AddAdmin(a, http.StatusCreated)
+	assert.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodGet, webAdminForgotPwdPath, nil)
+	assert.NoError(t, err)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodGet, webAdminResetPwdPath, nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodGet, webLoginPath, nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	assert.NoError(t, err)
+
+	form := make(url.Values)
+	form.Set("username", "")
+	// no csrf token
+	req, err = http.NewRequest(http.MethodPost, webAdminForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	// empty username
+	form.Set(csrfFormToken, csrfToken)
+	req, err = http.NewRequest(http.MethodPost, webAdminForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Username is mandatory")
+
+	lastResetCode = ""
+	form.Set("username", altAdminUsername)
+	req, err = http.NewRequest(http.MethodPost, webAdminForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Greater(t, len(lastResetCode), 20)
+
+	form = make(url.Values)
+	req, err = http.NewRequest(http.MethodPost, webAdminResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	// no password
+	form.Set(csrfFormToken, csrfToken)
+	req, err = http.NewRequest(http.MethodPost, webAdminResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Please set a password")
+	// no code
+	form.Set("password", defaultPassword)
+	req, err = http.NewRequest(http.MethodPost, webAdminResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Please set a confirmation code")
+	// ok
+	form.Set("code", lastResetCode)
+	req, err = http.NewRequest(http.MethodPost, webAdminResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusFound, rr.Code)
+
+	form.Set("username", altAdminUsername)
+	req, err = http.NewRequest(http.MethodPost, webAdminForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Greater(t, len(lastResetCode), 20)
+
+	// not working smtp server
+	smtpCfg = smtp.Config{
+		Host:          "127.0.0.1",
+		Port:          3526,
+		TemplatesPath: "templates",
+	}
+	err = smtpCfg.Initialize("..")
+	require.NoError(t, err)
+
+	form = make(url.Values)
+	form.Set("username", altAdminUsername)
+	form.Set(csrfFormToken, csrfToken)
+	req, err = http.NewRequest(http.MethodPost, webAdminForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Unable to send confirmation code via email")
+
+	smtpCfg = smtp.Config{}
+	err = smtpCfg.Initialize("..")
+	require.NoError(t, err)
+
+	form.Set("username", altAdminUsername)
+	form.Set(csrfFormToken, csrfToken)
+	req, err = http.NewRequest(http.MethodPost, webAdminForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Unable to render password reset template")
+
+	req, err = http.NewRequest(http.MethodGet, webAdminForgotPwdPath, nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodGet, webAdminResetPwdPath, nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+}
+
+func TestUserForgotPassword(t *testing.T) {
+	smtpCfg := smtp.Config{
+		Host:          "127.0.0.1",
+		Port:          3525,
+		TemplatesPath: "templates",
+	}
+	err := smtpCfg.Initialize("..")
+	require.NoError(t, err)
+
+	u := getTestUser()
+	u.Email = "user@test.com"
+	u.Filters.WebClient = []string{sdk.WebClientPasswordResetDisabled}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodGet, webClientForgotPwdPath, nil)
+	assert.NoError(t, err)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodGet, webClientResetPwdPath, nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodGet, webClientLoginPath, nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	form := make(url.Values)
+	form.Set("username", "")
+	// no csrf token
+	req, err = http.NewRequest(http.MethodPost, webClientForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	// empty username
+	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	assert.NoError(t, err)
+	form.Set(csrfFormToken, csrfToken)
+	req, err = http.NewRequest(http.MethodPost, webClientForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Username is mandatory")
+	// user cannot reset the password
+	form.Set("username", user.Username)
+	req, err = http.NewRequest(http.MethodPost, webClientForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "You are not allowed to reset your password")
+	user.Filters.WebClient = []string{sdk.WebClientAPIKeyAuthChangeDisabled}
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+
+	lastResetCode = ""
+	req, err = http.NewRequest(http.MethodPost, webClientForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Greater(t, len(lastResetCode), 20)
+	// no csrf token
+	form = make(url.Values)
+	req, err = http.NewRequest(http.MethodPost, webClientResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	// no password
+	form.Set(csrfFormToken, csrfToken)
+	req, err = http.NewRequest(http.MethodPost, webClientResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Please set a password")
+	// no code
+	form.Set("password", altAdminPassword)
+	req, err = http.NewRequest(http.MethodPost, webClientResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Please set a confirmation code")
+	// ok
+	form.Set("code", lastResetCode)
+	req, err = http.NewRequest(http.MethodPost, webClientResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusFound, rr.Code)
+
+	form = make(url.Values)
+	form.Set(csrfFormToken, csrfToken)
+	form.Set("username", user.Username)
+	lastResetCode = ""
+	req, err = http.NewRequest(http.MethodPost, webClientForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Greater(t, len(lastResetCode), 20)
+
+	smtpCfg = smtp.Config{}
+	err = smtpCfg.Initialize("..")
+	require.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodGet, webClientForgotPwdPath, nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodGet, webClientResetPwdPath, nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	// user does not exist anymore
+	form = make(url.Values)
+	form.Set(csrfFormToken, csrfToken)
+	form.Set("code", lastResetCode)
+	form.Set("password", "pwd")
+	req, err = http.NewRequest(http.MethodPost, webClientResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Unable to associate the confirmation code with an existing user")
+}
+
+func TestAPIForgotPassword(t *testing.T) {
+	smtpCfg := smtp.Config{
+		Host:          "127.0.0.1",
+		Port:          3525,
+		TemplatesPath: "templates",
+	}
+	err := smtpCfg.Initialize("..")
+	require.NoError(t, err)
+
+	a := getTestAdmin()
+	a.Username = altAdminUsername
+	a.Password = altAdminPassword
+	a.Email = ""
+	admin, _, err := httpdtest.AddAdmin(a, http.StatusCreated)
+	assert.NoError(t, err)
+	// no email, forgot pwd will not work
+	lastResetCode = ""
+	req, err := http.NewRequest(http.MethodPost, path.Join(adminPath, altAdminUsername, "/forgot-password"), nil)
+	assert.NoError(t, err)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "Your account does not have an email address")
+
+	admin.Email = "admin@test.com"
+	admin, _, err = httpdtest.UpdateAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodPost, path.Join(adminPath, altAdminUsername, "/forgot-password"), nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Greater(t, len(lastResetCode), 20)
+
+	// invalid JSON
+	req, err = http.NewRequest(http.MethodPost, path.Join(adminPath, altAdminUsername, "/reset-password"), bytes.NewBuffer([]byte(`{`)))
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	resetReq := make(map[string]string)
+	resetReq["code"] = lastResetCode
+	resetReq["password"] = defaultPassword
+	asJSON, err := json.Marshal(resetReq)
+	assert.NoError(t, err)
+
+	// a user cannot use an admin code
+	req, err = http.NewRequest(http.MethodPost, path.Join(userPath, defaultUsername, "/reset-password"), bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "Invalid confirmation code")
+
+	req, err = http.NewRequest(http.MethodPost, path.Join(adminPath, altAdminUsername, "/reset-password"), bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	// the same code cannot be reused
+	req, err = http.NewRequest(http.MethodPost, path.Join(adminPath, altAdminUsername, "/reset-password"), bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "Confirmation code not found")
+
+	admin, err = dataprovider.AdminExists(altAdminUsername)
+	assert.NoError(t, err)
+
+	match, err := admin.CheckPassword(defaultPassword)
+	assert.NoError(t, err)
+	assert.True(t, match)
+	lastResetCode = ""
+	// now the same for a user
+	u := getTestUser()
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, path.Join(userPath, defaultUsername, "/forgot-password"), nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "Your account does not have an email address")
+
+	user.Email = "user@test.com"
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, path.Join(userPath, defaultUsername, "/forgot-password"), nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Greater(t, len(lastResetCode), 20)
+
+	// invalid JSON
+	req, err = http.NewRequest(http.MethodPost, path.Join(userPath, defaultUsername, "/reset-password"), bytes.NewBuffer([]byte(`{`)))
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	// remove the reset password permission
+	user.Filters.WebClient = []string{sdk.WebClientPasswordResetDisabled}
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+
+	resetReq["code"] = lastResetCode
+	resetReq["password"] = altAdminPassword
+	asJSON, err = json.Marshal(resetReq)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, path.Join(userPath, defaultUsername, "/reset-password"), bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "You are not allowed to reset your password")
+
+	user.Filters.WebClient = []string{sdk.WebClientSharesDisabled}
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, path.Join(userPath, defaultUsername, "/reset-password"), bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// the same code cannot be reused
+	req, err = http.NewRequest(http.MethodPost, path.Join(userPath, defaultUsername, "/reset-password"), bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "Confirmation code not found")
+
+	user, err = dataprovider.UserExists(defaultUsername)
+	assert.NoError(t, err)
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(altAdminPassword))
+	assert.NoError(t, err)
+
+	lastResetCode = ""
+	// a request for a missing admin/user will be silently ignored
+	req, err = http.NewRequest(http.MethodPost, path.Join(adminPath, "missing-admin", "/forgot-password"), nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Empty(t, lastResetCode)
+
+	req, err = http.NewRequest(http.MethodPost, path.Join(userPath, "missing-user", "/forgot-password"), nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Empty(t, lastResetCode)
+
+	lastResetCode = ""
+	req, err = http.NewRequest(http.MethodPost, path.Join(adminPath, altAdminUsername, "/forgot-password"), nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Greater(t, len(lastResetCode), 20)
+
+	smtpCfg = smtp.Config{}
+	err = smtpCfg.Initialize("..")
+	require.NoError(t, err)
+
+	// without an smtp configuration reset password is not available
+	req, err = http.NewRequest(http.MethodPost, path.Join(adminPath, altAdminUsername, "/forgot-password"), nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "No SMTP configuration")
+
+	req, err = http.NewRequest(http.MethodPost, path.Join(userPath, defaultUsername, "/forgot-password"), nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "No SMTP configuration")
+
+	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+	// the admin does not exist anymore
+	resetReq["code"] = lastResetCode
+	resetReq["password"] = altAdminPassword
+	asJSON, err = json.Marshal(resetReq)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, path.Join(adminPath, altAdminUsername, "/reset-password"), bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "Unable to associate the confirmation code with an existing admin")
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestProviderClosedMock(t *testing.T) {
 	token, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
@@ -14204,6 +14866,21 @@ func waitTCPListening(address string) {
 		conn.Close()
 		break
 	}
+}
+
+func startSMTPServer() {
+	go func() {
+		if err := smtpd.ListenAndServe(smtpServerAddr, func(remoteAddr net.Addr, from string, to []string, data []byte) error {
+			re := regexp.MustCompile(`code is ".*?"`)
+			code := strings.TrimPrefix(string(re.Find(data)), "code is ")
+			lastResetCode = strings.ReplaceAll(code, "\"", "")
+			return nil
+		}, "SFTPGo test", "localhost"); err != nil {
+			logger.ErrorToConsole("could not start SMTP server: %v", err)
+			os.Exit(1)
+		}
+	}()
+	waitTCPListening(smtpServerAddr)
 }
 
 func getTestAdmin() dataprovider.Admin {

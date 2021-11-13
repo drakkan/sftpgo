@@ -796,6 +796,34 @@ func TestCreateTokenError(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
 	assert.Contains(t, rr.Body.String(), "invalid URL escape")
 
+	req, _ = http.NewRequest(http.MethodPost, webAdminForgotPwdPath+"?a=a%C3%A1%GD", bytes.NewBuffer([]byte(form.Encode())))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = httptest.NewRecorder()
+	handleWebAdminForgotPwdPost(rr, req)
+	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
+	assert.Contains(t, rr.Body.String(), "invalid URL escape")
+
+	req, _ = http.NewRequest(http.MethodPost, webClientForgotPwdPath+"?a=a%C2%A1%GD", bytes.NewBuffer([]byte(form.Encode())))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = httptest.NewRecorder()
+	handleWebClientForgotPwdPost(rr, req)
+	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
+	assert.Contains(t, rr.Body.String(), "invalid URL escape")
+
+	req, _ = http.NewRequest(http.MethodPost, webAdminResetPwdPath+"?a=a%C3%AO%JD", bytes.NewBuffer([]byte(form.Encode())))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = httptest.NewRecorder()
+	server.handleWebAdminPasswordResetPost(rr, req)
+	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
+	assert.Contains(t, rr.Body.String(), "invalid URL escape")
+
+	req, _ = http.NewRequest(http.MethodPost, webClientResetPwdPath+"?a=a%C3%AO%JD", bytes.NewBuffer([]byte(form.Encode())))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = httptest.NewRecorder()
+	server.handleWebClientPasswordResetPost(rr, req)
+	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
+	assert.Contains(t, rr.Body.String(), "invalid URL escape")
+
 	req, _ = http.NewRequest(http.MethodPost, webChangeClientPwdPath+"?a=a%K3%AO%GA", bytes.NewBuffer([]byte(form.Encode())))
 
 	_, err = getShareFromPostFields(req)
@@ -2039,4 +2067,33 @@ func TestLoginLinks(t *testing.T) {
 	b.HideLoginURL = 2
 	assert.False(t, b.showAdminLoginURL())
 	assert.True(t, b.showClientLoginURL())
+}
+
+func TestResetCodesCleanup(t *testing.T) {
+	resetCode := newResetCode(util.GenerateUniqueID(), false)
+	resetCode.ExpiresAt = time.Now().Add(-1 * time.Minute).UTC()
+	resetCodes.Store(resetCode.Code, resetCode)
+	cleanupExpiredResetCodes()
+	_, ok := resetCodes.Load(resetCode.Code)
+	assert.False(t, ok)
+}
+
+func TestUserCanResetPassword(t *testing.T) {
+	req, err := http.NewRequest(http.MethodGet, webClientLoginPath, nil)
+	assert.NoError(t, err)
+	req.RemoteAddr = "172.16.9.2:55080"
+
+	u := dataprovider.User{}
+	assert.True(t, isUserAllowedToResetPassword(req, &u))
+	u.Filters.DeniedProtocols = []string{common.ProtocolHTTP}
+	assert.False(t, isUserAllowedToResetPassword(req, &u))
+	u.Filters.DeniedProtocols = nil
+	u.Filters.WebClient = []string{sdk.WebClientPasswordResetDisabled}
+	assert.False(t, isUserAllowedToResetPassword(req, &u))
+	u.Filters.WebClient = nil
+	u.Filters.DeniedLoginMethods = []string{dataprovider.LoginMethodPassword}
+	assert.False(t, isUserAllowedToResetPassword(req, &u))
+	u.Filters.DeniedLoginMethods = nil
+	u.Filters.AllowedIP = []string{"127.0.0.1/8"}
+	assert.False(t, isUserAllowedToResetPassword(req, &u))
 }

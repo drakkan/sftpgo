@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/render"
 
 	"github.com/drakkan/sftpgo/v2/dataprovider"
+	"github.com/drakkan/sftpgo/v2/smtp"
 	"github.com/drakkan/sftpgo/v2/util"
 )
 
@@ -212,6 +213,39 @@ func updateAdminProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sendAPIResponse(w, r, err, "Profile updated", http.StatusOK)
+}
+
+func forgotAdminPassword(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	if !smtp.IsEnabled() {
+		sendAPIResponse(w, r, nil, "No SMTP configuration", http.StatusBadRequest)
+		return
+	}
+
+	err := handleForgotPassword(r, getURLParam(r, "username"), true)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
+	}
+
+	sendAPIResponse(w, r, err, "Check your email for the confirmation code", http.StatusOK)
+}
+
+func resetAdminPassword(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+
+	var req pwdReset
+	err := render.DecodeJSON(r.Body, &req)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
+		return
+	}
+	_, _, err = handleResetPassword(r, req.Code, req.Password, true)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
+	}
+	sendAPIResponse(w, r, err, "Password reset successful", http.StatusOK)
 }
 
 func changeAdminPassword(w http.ResponseWriter, r *http.Request) {
