@@ -81,6 +81,7 @@ Flags:
   -k, --public-key strings
       --s3-access-key string
       --s3-access-secret string
+      --s3-acl string
       --s3-bucket string
       --s3-endpoint string
       --s3-key-prefix string            Allows to restrict access to the

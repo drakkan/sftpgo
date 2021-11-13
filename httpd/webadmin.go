@@ -830,6 +830,7 @@ func getS3Config(r *http.Request) (vfs.S3FsConfig, error) {
 	config.AccessSecret = getSecretFromFormField(r, "s3_access_secret")
 	config.Endpoint = r.Form.Get("s3_endpoint")
 	config.StorageClass = r.Form.Get("s3_storage_class")
+	config.ACL = r.Form.Get("s3_acl")
 	config.KeyPrefix = r.Form.Get("s3_key_prefix")
 	config.UploadPartSize, err = strconv.ParseInt(r.Form.Get("s3_upload_part_size"), 10, 64)
 	if err != nil {

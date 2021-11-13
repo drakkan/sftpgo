@@ -1245,7 +1245,7 @@ func compareFsConfig(expected *vfs.Filesystem, actual *vfs.Filesystem) error {
 	return compareSFTPFsConfig(expected, actual)
 }
 
-func compareS3Config(expected *vfs.Filesystem, actual *vfs.Filesystem) error {
+func compareS3Config(expected *vfs.Filesystem, actual *vfs.Filesystem) error { //nolint:gocyclo
 	if expected.S3Config.Bucket != actual.S3Config.Bucket {
 		return errors.New("fs S3 bucket mismatch")
 	}
@@ -1263,6 +1263,9 @@ func compareS3Config(expected *vfs.Filesystem, actual *vfs.Filesystem) error {
 	}
 	if expected.S3Config.StorageClass != actual.S3Config.StorageClass {
 		return errors.New("fs S3 storage class mismatch")
+	}
+	if expected.S3Config.ACL != actual.S3Config.ACL {
+		return errors.New("fs S3 ACL mismatch")
 	}
 	if expected.S3Config.UploadPartSize != actual.S3Config.UploadPartSize {
 		return errors.New("fs S3 upload part size mismatch")

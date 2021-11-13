@@ -169,6 +169,9 @@ func (c *S3FsConfig) isEqual(other *S3FsConfig) bool {
 	if c.StorageClass != other.StorageClass {
 		return false
 	}
+	if c.ACL != other.ACL {
+		return false
+	}
 	if c.UploadPartSize != other.UploadPartSize {
 		return false
 	}
@@ -187,6 +190,10 @@ func (c *S3FsConfig) isEqual(other *S3FsConfig) bool {
 	if c.ForcePathStyle != other.ForcePathStyle {
 		return false
 	}
+	return c.isSecretEqual(other)
+}
+
+func (c *S3FsConfig) isSecretEqual(other *S3FsConfig) bool {
 	if c.AccessSecret == nil {
 		c.AccessSecret = kms.NewEmptySecret()
 	}
@@ -263,6 +270,8 @@ func (c *S3FsConfig) Validate() error {
 			c.KeyPrefix += "/"
 		}
 	}
+	c.StorageClass = strings.TrimSpace(c.StorageClass)
+	c.ACL = strings.TrimSpace(c.ACL)
 	return c.checkPartSizeAndConcurrency()
 }
 
@@ -329,6 +338,7 @@ func (c *GCSFsConfig) Validate(credentialsFilePath string) error {
 			return errors.New("credentials cannot be empty")
 		}
 	}
+	c.StorageClass = strings.TrimSpace(c.StorageClass)
 	return nil
 }
 

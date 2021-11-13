@@ -44,6 +44,7 @@ var (
 	portableS3AccessSecret             string
 	portableS3Endpoint                 string
 	portableS3StorageClass             string
+	portableS3ACL                      string
 	portableS3KeyPrefix                string
 	portableS3ULPartSize               int
 	portableS3ULConcurrency            int
@@ -169,6 +170,7 @@ Please take a look at the usage below to customize the serving parameters`,
 								AccessSecret:      kms.NewPlainSecret(portableS3AccessSecret),
 								Endpoint:          portableS3Endpoint,
 								StorageClass:      portableS3StorageClass,
+								ACL:               portableS3ACL,
 								KeyPrefix:         portableS3KeyPrefix,
 								UploadPartSize:    int64(portableS3ULPartSize),
 								UploadConcurrency: portableS3ULConcurrency,
@@ -288,6 +290,7 @@ sftpfs => SFTP (legacy: 5)`)
 	portableCmd.Flags().StringVar(&portableS3AccessSecret, "s3-access-secret", "", "")
 	portableCmd.Flags().StringVar(&portableS3Endpoint, "s3-endpoint", "", "")
 	portableCmd.Flags().StringVar(&portableS3StorageClass, "s3-storage-class", "", "")
+	portableCmd.Flags().StringVar(&portableS3ACL, "s3-acl", "", "")
 	portableCmd.Flags().StringVar(&portableS3KeyPrefix, "s3-key-prefix", "", `Allows to restrict access to the
 virtual folder identified by this
 prefix and its contents`)

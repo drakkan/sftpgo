@@ -1543,6 +1543,7 @@ func TestUserRedactedPassword(t *testing.T) {
 	u.FsConfig.S3Config.AccessSecret = kms.NewSecret(kms.SecretStatusRedacted, "access-secret", "", "")
 	u.FsConfig.S3Config.Endpoint = "http://127.0.0.1:9000/path?k=m"
 	u.FsConfig.S3Config.StorageClass = "Standard"
+	u.FsConfig.S3Config.ACL = "bucket-owner-full-control"
 	_, resp, err := httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err, string(resp))
 	assert.Contains(t, string(resp), "cannot save a user with a redacted secret")
@@ -13181,6 +13182,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	user.FsConfig.S3Config.DownloadPartSize = 6
 	user.FsConfig.S3Config.DownloadConcurrency = 3
 	user.FsConfig.S3Config.ForcePathStyle = true
+	user.FsConfig.S3Config.ACL = "public-read"
 	user.Description = "s3 tèst user"
 	form := make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
@@ -13205,6 +13207,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	form.Set("s3_access_key", user.FsConfig.S3Config.AccessKey)
 	form.Set("s3_access_secret", user.FsConfig.S3Config.AccessSecret.GetPayload())
 	form.Set("s3_storage_class", user.FsConfig.S3Config.StorageClass)
+	form.Set("s3_acl", user.FsConfig.S3Config.ACL)
 	form.Set("s3_endpoint", user.FsConfig.S3Config.Endpoint)
 	form.Set("s3_key_prefix", user.FsConfig.S3Config.KeyPrefix)
 	form.Set("pattern_path0", "/dir1")
@@ -13282,6 +13285,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	assert.Equal(t, updateUser.FsConfig.S3Config.Region, user.FsConfig.S3Config.Region)
 	assert.Equal(t, updateUser.FsConfig.S3Config.AccessKey, user.FsConfig.S3Config.AccessKey)
 	assert.Equal(t, updateUser.FsConfig.S3Config.StorageClass, user.FsConfig.S3Config.StorageClass)
+	assert.Equal(t, updateUser.FsConfig.S3Config.ACL, user.FsConfig.S3Config.ACL)
 	assert.Equal(t, updateUser.FsConfig.S3Config.Endpoint, user.FsConfig.S3Config.Endpoint)
 	assert.Equal(t, updateUser.FsConfig.S3Config.KeyPrefix, user.FsConfig.S3Config.KeyPrefix)
 	assert.Equal(t, updateUser.FsConfig.S3Config.UploadPartSize, user.FsConfig.S3Config.UploadPartSize)
@@ -13931,6 +13935,7 @@ func TestS3WebFolderMock(t *testing.T) {
 	S3AccessSecret := kms.NewPlainSecret("folder-access-secret")
 	S3Endpoint := "http://127.0.0.1:9000/path?b=c"
 	S3StorageClass := "Standard"
+	S3ACL := "public-read-write"
 	S3KeyPrefix := "somedir/subdir/"
 	S3UploadPartSize := 5
 	S3UploadConcurrency := 4
@@ -13947,6 +13952,7 @@ func TestS3WebFolderMock(t *testing.T) {
 	form.Set("s3_access_key", S3AccessKey)
 	form.Set("s3_access_secret", S3AccessSecret.GetPayload())
 	form.Set("s3_storage_class", S3StorageClass)
+	form.Set("s3_acl", S3ACL)
 	form.Set("s3_endpoint", S3Endpoint)
 	form.Set("s3_key_prefix", S3KeyPrefix)
 	form.Set("s3_upload_part_size", strconv.Itoa(S3UploadPartSize))
@@ -13991,6 +13997,7 @@ func TestS3WebFolderMock(t *testing.T) {
 	assert.NotEmpty(t, folder.FsConfig.S3Config.AccessSecret.GetPayload())
 	assert.Equal(t, S3Endpoint, folder.FsConfig.S3Config.Endpoint)
 	assert.Equal(t, S3StorageClass, folder.FsConfig.S3Config.StorageClass)
+	assert.Equal(t, S3ACL, folder.FsConfig.S3Config.ACL)
 	assert.Equal(t, S3KeyPrefix, folder.FsConfig.S3Config.KeyPrefix)
 	assert.Equal(t, S3UploadConcurrency, folder.FsConfig.S3Config.UploadConcurrency)
 	assert.Equal(t, int64(S3UploadPartSize), folder.FsConfig.S3Config.UploadPartSize)

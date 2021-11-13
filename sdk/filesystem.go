@@ -99,6 +99,10 @@ type S3FsConfig struct {
 	AccessSecret *kms.Secret `json:"access_secret,omitempty"`
 	Endpoint     string      `json:"endpoint,omitempty"`
 	StorageClass string      `json:"storage_class,omitempty"`
+	// The canned ACL to apply to uploaded objects. Leave empty to use the default ACL.
+	// For more information and available ACLs, see here:
+	// https://docs.aws.amazon.com/AmazonS3/latest/userguide/acl-overview.html#canned-acl
+	ACL string `json:"acl,omitempty"`
 	// The buffer size (in MB) to use for multipart uploads. The minimum allowed part size is 5MB,
 	// and if this value is set to zero, the default value (5MB) for the AWS SDK will be used.
 	// The minimum allowed value is 5.

@@ -244,6 +244,7 @@ func (fs *S3Fs) Create(name string, flag int) (File, *PipeWriter, func(), error)
 			Bucket:       aws.String(fs.config.Bucket),
 			Key:          aws.String(key),
 			Body:         r,
+			ACL:          util.NilIfEmpty(fs.config.ACL),
 			StorageClass: util.NilIfEmpty(fs.config.StorageClass),
 			ContentType:  util.NilIfEmpty(contentType),
 		}, func(u *s3manager.Uploader) {
@@ -252,8 +253,8 @@ func (fs *S3Fs) Create(name string, flag int) (File, *PipeWriter, func(), error)
 		})
 		r.CloseWithError(err) //nolint:errcheck
 		p.Done(err)
-		fsLog(fs, logger.LevelDebug, "upload completed, path: %#v, response: %v, readed bytes: %v, err: %+v",
-			name, response, r.GetReadedBytes(), err)
+		fsLog(fs, logger.LevelDebug, "upload completed, path: %#v, acl: %#v, response: %v, readed bytes: %v, err: %+v",
+			name, fs.config.ACL, response, r.GetReadedBytes(), err)
 		metric.S3TransferCompleted(r.GetReadedBytes(), 0, err)
 	}()
 	return nil, p, cancelFn, nil
@@ -306,6 +307,7 @@ func (fs *S3Fs) Rename(source, target string) error {
 		CopySource:   aws.String(pathEscape(copySource)),
 		Key:          aws.String(target),
 		StorageClass: util.NilIfEmpty(fs.config.StorageClass),
+		ACL:          util.NilIfEmpty(fs.config.ACL),
 		ContentType:  util.NilIfEmpty(contentType),
 	})
 	if err != nil {

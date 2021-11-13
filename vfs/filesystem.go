@@ -235,6 +235,7 @@ func (f *Filesystem) GetACopy() Filesystem {
 				AccessSecret:        f.S3Config.AccessSecret.Clone(),
 				Endpoint:            f.S3Config.Endpoint,
 				StorageClass:        f.S3Config.StorageClass,
+				ACL:                 f.S3Config.ACL,
 				KeyPrefix:           f.S3Config.KeyPrefix,
 				UploadPartSize:      f.S3Config.UploadPartSize,
 				UploadConcurrency:   f.S3Config.UploadConcurrency,
