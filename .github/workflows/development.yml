@@ -280,7 +280,7 @@ jobs:
           - arch: armv7
             distro: ubuntu18.04
             go: latest
-            go-arch: arm
+            go-arch: arm7
     steps:
       - uses: actions/checkout@v2
         with:

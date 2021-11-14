@@ -114,8 +114,9 @@ var (
 	SupportedProviders = []string{SQLiteDataProviderName, PGSQLDataProviderName, MySQLDataProviderName,
 		BoltDataProviderName, MemoryDataProviderName, CockroachDataProviderName}
 	// ValidPerms defines all the valid permissions for a user
-	ValidPerms = []string{PermAny, PermListItems, PermDownload, PermUpload, PermOverwrite, PermRename, PermDelete,
-		PermCreateDirs, PermCreateSymlinks, PermChmod, PermChown, PermChtimes}
+	ValidPerms = []string{PermAny, PermListItems, PermDownload, PermUpload, PermOverwrite, PermCreateDirs, PermRename,
+		PermRenameFiles, PermRenameDirs, PermDelete, PermDeleteFiles, PermDeleteDirs, PermCreateSymlinks, PermChmod,
+		PermChown, PermChtimes}
 	// ValidLoginMethods defines all the valid login methods
 	ValidLoginMethods = []string{SSHLoginMethodPublicKey, LoginMethodPassword, SSHLoginMethodKeyboardInteractive,
 		SSHLoginMethodKeyAndPassword, SSHLoginMethodKeyAndKeyboardInt, LoginMethodTLSCertificate,

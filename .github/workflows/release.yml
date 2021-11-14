@@ -213,9 +213,9 @@ jobs:
             tar-arch: ppc64le
           - arch: armv7
             distro: ubuntu18.04
-            go-arch: arm
+            go-arch: arm7
             deb-arch: armhf
-            rpm-arch: arm
+            rpm-arch: armv7hl
             tar-arch: armv7
 
     steps:

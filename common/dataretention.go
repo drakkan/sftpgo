@@ -236,13 +236,13 @@ func (c *RetentionCheck) removeFile(virtualPath string, info os.FileInfo) error 
 }
 
 func (c *RetentionCheck) cleanupFolder(folderPath string) error {
-	cleanupPerms := []string{dataprovider.PermListItems, dataprovider.PermDelete}
+	deleteFilesPerms := []string{dataprovider.PermDelete, dataprovider.PermDeleteFiles}
 	startTime := time.Now()
 	result := &folderRetentionCheckResult{
 		Path: folderPath,
 	}
 	c.results = append(c.results, result)
-	if !c.conn.User.HasPerms(cleanupPerms, folderPath) {
+	if !c.conn.User.HasPerm(dataprovider.PermListItems, folderPath) || !c.conn.User.HasAnyPerm(deleteFilesPerms, folderPath) {
 		result.Elapsed = time.Since(startTime)
 		result.Info = "data retention check skipped: no permissions"
 		c.conn.Log(logger.LevelInfo, "user %#v does not have permissions to check retention on %#v, retention check skipped",
@@ -316,7 +316,11 @@ func (c *RetentionCheck) cleanupFolder(folderPath string) error {
 }
 
 func (c *RetentionCheck) checkEmptyDirRemoval(folderPath string) {
-	if folderPath != "/" && c.conn.User.HasPerm(dataprovider.PermDelete, path.Dir(folderPath)) {
+	if folderPath != "/" && c.conn.User.HasAnyPerm([]string{
+		dataprovider.PermDelete,
+		dataprovider.PermDeleteDirs,
+	}, path.Dir(folderPath),
+	) {
 		files, err := c.conn.ListDir(folderPath)
 		if err == nil && len(files) == 0 {
 			err = c.conn.RemoveDir(folderPath)

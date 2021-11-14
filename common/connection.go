@@ -259,7 +259,7 @@ func (c *BaseConnection) CreateDir(virtualPath string) error {
 
 // IsRemoveFileAllowed returns an error if removing this file is not allowed
 func (c *BaseConnection) IsRemoveFileAllowed(virtualPath string) error {
-	if !c.User.HasPerm(dataprovider.PermDelete, path.Dir(virtualPath)) {
+	if !c.User.HasAnyPerm([]string{dataprovider.PermDeleteFiles, dataprovider.PermDelete}, path.Dir(virtualPath)) {
 		return c.GetPermissionDeniedError()
 	}
 	if !c.User.IsFileAllowed(virtualPath) {
@@ -323,7 +323,7 @@ func (c *BaseConnection) IsRemoveDirAllowed(fs vfs.Fs, fsPath, virtualPath strin
 		c.Log(logger.LevelWarn, "removing a directory mapped as virtual folder is not allowed: %#v", fsPath)
 		return c.GetPermissionDeniedError()
 	}
-	if !c.User.HasPerm(dataprovider.PermDelete, path.Dir(virtualPath)) {
+	if !c.User.HasAnyPerm([]string{dataprovider.PermDeleteDirs, dataprovider.PermDelete}, path.Dir(virtualPath)) {
 		return c.GetPermissionDeniedError()
 	}
 	return nil
@@ -650,11 +650,11 @@ func (c *BaseConnection) checkRecursiveRenameDirPermissions(fsSrc, fsDst vfs.Fs,
 		// inside the parent path was checked. If the current dir has no subdirs with defined permissions inside it
 		// and it has all the possible permissions we can stop scanning
 		if !c.User.HasPermissionsInside(path.Dir(virtualSrcPath)) && !c.User.HasPermissionsInside(path.Dir(virtualDstPath)) {
-			if c.User.HasPerm(dataprovider.PermRename, path.Dir(virtualSrcPath)) &&
-				c.User.HasPerm(dataprovider.PermRename, path.Dir(virtualDstPath)) {
+			if c.User.HasPermsRenameAll(path.Dir(virtualSrcPath)) &&
+				c.User.HasPermsRenameAll(path.Dir(virtualDstPath)) {
 				return ErrSkipPermissionsCheck
 			}
-			if c.User.HasPerm(dataprovider.PermDelete, path.Dir(virtualSrcPath)) &&
+			if c.User.HasPermsDeleteAll(path.Dir(virtualSrcPath)) &&
 				c.User.HasPerms(dstPerms, path.Dir(virtualDstPath)) {
 				return ErrSkipPermissionsCheck
 			}
@@ -673,19 +673,42 @@ func (c *BaseConnection) checkRecursiveRenameDirPermissions(fsSrc, fsDst vfs.Fs,
 }
 
 func (c *BaseConnection) hasRenamePerms(virtualSourcePath, virtualTargetPath string, fi os.FileInfo) bool {
-	if c.User.HasPerm(dataprovider.PermRename, path.Dir(virtualSourcePath)) &&
-		c.User.HasPerm(dataprovider.PermRename, path.Dir(virtualTargetPath)) {
+	if c.User.HasPermsRenameAll(path.Dir(virtualSourcePath)) &&
+		c.User.HasPermsRenameAll(path.Dir(virtualTargetPath)) {
 		return true
 	}
-	if !c.User.HasPerm(dataprovider.PermDelete, path.Dir(virtualSourcePath)) {
+	if fi == nil {
+		// we don't know if this is a file or a directory we have to check all the required permissions
+		if !c.User.HasPermsDeleteAll(path.Dir(virtualSourcePath)) {
+			return false
+		}
+		dstPerms := []string{
+			dataprovider.PermCreateDirs,
+			dataprovider.PermUpload,
+			dataprovider.PermCreateSymlinks,
+		}
+		return c.User.HasPerms(dstPerms, path.Dir(virtualTargetPath))
+	}
+	if fi.IsDir() {
+		if c.User.HasPerm(dataprovider.PermRenameDirs, path.Dir(virtualSourcePath)) &&
+			c.User.HasPerm(dataprovider.PermRenameDirs, path.Dir(virtualTargetPath)) {
+			return true
+		}
+		if !c.User.HasAnyPerm([]string{dataprovider.PermDeleteDirs, dataprovider.PermDelete}, path.Dir(virtualSourcePath)) {
+			return false
+		}
+		return c.User.HasPerm(dataprovider.PermCreateDirs, path.Dir(virtualTargetPath))
+	}
+	// file or symlink
+	if c.User.HasPerm(dataprovider.PermRenameFiles, path.Dir(virtualSourcePath)) &&
+		c.User.HasPerm(dataprovider.PermRenameFiles, path.Dir(virtualTargetPath)) {
+		return true
+	}
+	if !c.User.HasAnyPerm([]string{dataprovider.PermDeleteFiles, dataprovider.PermDelete}, path.Dir(virtualSourcePath)) {
 		return false
 	}
-	if fi != nil {
-		if fi.IsDir() {
-			return c.User.HasPerm(dataprovider.PermCreateDirs, path.Dir(virtualTargetPath))
-		} else if fi.Mode()&os.ModeSymlink != 0 {
-			return c.User.HasPerm(dataprovider.PermCreateSymlinks, path.Dir(virtualTargetPath))
-		}
+	if fi.Mode()&os.ModeSymlink != 0 {
+		return c.User.HasPerm(dataprovider.PermCreateSymlinks, path.Dir(virtualTargetPath))
 	}
 	return c.User.HasPerm(dataprovider.PermUpload, path.Dir(virtualTargetPath))
 }

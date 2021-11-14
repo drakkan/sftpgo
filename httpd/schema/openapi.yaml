@@ -3424,7 +3424,7 @@ paths:
       tags:
         - user APIs
       summary: Rename a directory
-      description: Rename a directory for the logged in user. The rename is allowed for empty directory or for non empty, local directories, with no virtual folders inside
+      description: Rename a directory for the logged in user. The rename is allowed for empty directory or for non empty local directories, with no virtual folders inside
       operationId: rename_user_dir
       parameters:
         - in: query
@@ -3772,7 +3772,11 @@ components:
         - upload
         - overwrite
         - delete
+        - delete_files
+        - delete_dirs
         - rename
+        - rename_files
+        - rename_dirs
         - create_dirs
         - create_symlinks
         - chmod
@@ -3786,7 +3790,11 @@ components:
           * `upload` - upload files is allowed
           * `overwrite` - overwrite an existing file, while uploading, is allowed. upload permission is required to allow file overwrite
           * `delete` - delete files or directories is allowed
+          * `delete_files` - delete files is allowed
+          * `delete_dirs` - delete directories is allowed
           * `rename` - rename files or directories is allowed
+          * `rename_files` - rename files is allowed
+          * `rename_dirs` - rename directories is allowed
           * `create_dirs` - create directories is allowed
           * `create_symlinks` - create links is allowed
           * `chmod` changing file or directory permissions is allowed

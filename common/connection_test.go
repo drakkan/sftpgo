@@ -148,6 +148,31 @@ func TestRenameVirtualFolders(t *testing.T) {
 	assert.False(t, res)
 }
 
+func TestRenamePerms(t *testing.T) {
+	src := "source"
+	target := "target"
+	u := dataprovider.User{}
+	u.Permissions = map[string][]string{}
+	u.Permissions["/"] = []string{dataprovider.PermCreateDirs, dataprovider.PermUpload, dataprovider.PermCreateSymlinks,
+		dataprovider.PermDeleteFiles}
+	conn := NewBaseConnection("", ProtocolSFTP, "", "", u)
+	assert.False(t, conn.hasRenamePerms(src, target, nil))
+	u.Permissions["/"] = []string{dataprovider.PermCreateDirs, dataprovider.PermUpload, dataprovider.PermCreateSymlinks,
+		dataprovider.PermDeleteFiles, dataprovider.PermDeleteDirs}
+	assert.True(t, conn.hasRenamePerms(src, target, nil))
+	u.Permissions["/"] = []string{dataprovider.PermCreateDirs, dataprovider.PermUpload, dataprovider.PermDeleteFiles,
+		dataprovider.PermDeleteDirs}
+	assert.False(t, conn.hasRenamePerms(src, target, nil))
+
+	info := vfs.NewFileInfo(src, true, 0, time.Now(), false)
+	u.Permissions["/"] = []string{dataprovider.PermCreateDirs, dataprovider.PermUpload, dataprovider.PermDeleteFiles}
+	assert.False(t, conn.hasRenamePerms(src, target, info))
+	u.Permissions["/"] = []string{dataprovider.PermCreateDirs, dataprovider.PermUpload, dataprovider.PermDeleteDirs}
+	assert.True(t, conn.hasRenamePerms(src, target, info))
+	u.Permissions["/"] = []string{dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermDeleteDirs}
+	assert.False(t, conn.hasRenamePerms(src, target, info))
+}
+
 func TestUpdateQuotaAfterRename(t *testing.T) {
 	user := dataprovider.User{
 		BaseUser: sdk.BaseUser{

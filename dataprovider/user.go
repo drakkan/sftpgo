@@ -38,8 +38,16 @@ const (
 	PermOverwrite = "overwrite"
 	// delete files or directories is allowed
 	PermDelete = "delete"
+	// delete files is allowed
+	PermDeleteFiles = "delete_files"
+	// delete directories is allowed
+	PermDeleteDirs = "delete_dirs"
 	// rename files or directories is allowed
 	PermRename = "rename"
+	// rename files is allowed
+	PermRenameFiles = "rename_files"
+	// rename directories is allowed
+	PermRenameDirs = "rename_dirs"
 	// create directories is allowed
 	PermCreateDirs = "create_dirs"
 	// create symbolic links is allowed
@@ -66,6 +74,9 @@ const (
 
 var (
 	errNoMatchingVirtualFolder = errors.New("no matching virtual folder found")
+	permsRenameAny             = []string{PermRename, PermRenameDirs, PermRenameFiles}
+	permsDeleteAny             = []string{PermDelete, PermDeleteDirs, PermDeleteFiles}
+	permsCreateAny             = []string{PermUpload, PermCreateDirs}
 )
 
 // User defines a SFTPGo user
@@ -564,7 +575,21 @@ func (u *User) HasPerm(permission, path string) bool {
 	return util.IsStringInSlice(permission, perms)
 }
 
-// HasPerms return true if the user has all the given permissions
+// HasAnyPerm returns true if the user has at least one of the given permissions
+func (u *User) HasAnyPerm(permissions []string, path string) bool {
+	perms := u.GetPermissionsForPath(path)
+	if util.IsStringInSlice(PermAny, perms) {
+		return true
+	}
+	for _, permission := range permissions {
+		if util.IsStringInSlice(permission, perms) {
+			return true
+		}
+	}
+	return false
+}
+
+// HasPerms returns true if the user has all the given permissions
 func (u *User) HasPerms(permissions []string, path string) bool {
 	perms := u.GetPermissionsForPath(path)
 	if util.IsStringInSlice(PermAny, perms) {
@@ -576,6 +601,46 @@ func (u *User) HasPerms(permissions []string, path string) bool {
 		}
 	}
 	return true
+}
+
+// HasPermsDeleteAll returns true if the user can delete both files and directories
+// for the given path
+func (u *User) HasPermsDeleteAll(path string) bool {
+	perms := u.GetPermissionsForPath(path)
+	canDeleteFiles := false
+	canDeleteDirs := false
+	for _, permission := range perms {
+		if permission == PermAny || permission == PermDelete {
+			return true
+		}
+		if permission == PermDeleteFiles {
+			canDeleteFiles = true
+		}
+		if permission == PermDeleteDirs {
+			canDeleteDirs = true
+		}
+	}
+	return canDeleteFiles && canDeleteDirs
+}
+
+// HasPermsRenameAll returns true if the user can rename both files and directories
+// for the given path
+func (u *User) HasPermsRenameAll(path string) bool {
+	perms := u.GetPermissionsForPath(path)
+	canRenameFiles := false
+	canRenameDirs := false
+	for _, permission := range perms {
+		if permission == PermAny || permission == PermRename {
+			return true
+		}
+		if permission == PermRenameFiles {
+			canRenameFiles = true
+		}
+		if permission == PermRenameDirs {
+			canRenameDirs = true
+		}
+	}
+	return canRenameFiles && canRenameDirs
 }
 
 // HasNoQuotaRestrictions returns true if no quota restrictions need to be applyed
@@ -782,13 +847,13 @@ func (u *User) CanRenameFromWeb(src, dest string) bool {
 	if util.IsStringInSlice(sdk.WebClientWriteDisabled, u.Filters.WebClient) {
 		return false
 	}
-	if u.HasPerm(PermRename, src) && u.HasPerm(PermRename, dest) {
+	if u.HasAnyPerm(permsRenameAny, src) && u.HasAnyPerm(permsRenameAny, dest) {
 		return true
 	}
-	if !u.HasPerm(PermDelete, src) {
+	if !u.HasAnyPerm(permsDeleteAny, src) {
 		return false
 	}
-	return u.HasPerm(PermUpload, dest) || u.HasPerm(PermCreateDirs, dest)
+	return u.HasAnyPerm(permsCreateAny, dest)
 }
 
 // CanDeleteFromWeb returns true if the client can delete objects from the web UI.
@@ -797,7 +862,7 @@ func (u *User) CanDeleteFromWeb(target string) bool {
 	if util.IsStringInSlice(sdk.WebClientWriteDisabled, u.Filters.WebClient) {
 		return false
 	}
-	return u.HasPerm(PermDelete, target)
+	return u.HasAnyPerm(permsDeleteAny, target)
 }
 
 // GetSignature returns a signature for this admin.

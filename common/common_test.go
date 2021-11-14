@@ -822,6 +822,23 @@ func TestHideConfidentialData(t *testing.T) {
 	a.HideConfidentialData()
 }
 
+func TestUserPerms(t *testing.T) {
+	u := dataprovider.User{}
+	u.Permissions = make(map[string][]string)
+	u.Permissions["/"] = []string{dataprovider.PermUpload, dataprovider.PermDelete}
+	assert.True(t, u.HasAnyPerm([]string{dataprovider.PermRename, dataprovider.PermDelete}, "/"))
+	assert.False(t, u.HasAnyPerm([]string{dataprovider.PermRename, dataprovider.PermCreateDirs}, "/"))
+	u.Permissions["/"] = []string{dataprovider.PermDelete, dataprovider.PermCreateDirs}
+	assert.True(t, u.HasPermsDeleteAll("/"))
+	assert.False(t, u.HasPermsRenameAll("/"))
+	u.Permissions["/"] = []string{dataprovider.PermDeleteDirs, dataprovider.PermDeleteFiles, dataprovider.PermRenameDirs}
+	assert.True(t, u.HasPermsDeleteAll("/"))
+	assert.False(t, u.HasPermsRenameAll("/"))
+	u.Permissions["/"] = []string{dataprovider.PermDeleteDirs, dataprovider.PermRenameFiles, dataprovider.PermRenameDirs}
+	assert.False(t, u.HasPermsDeleteAll("/"))
+	assert.True(t, u.HasPermsRenameAll("/"))
+}
+
 func BenchmarkBcryptHashing(b *testing.B) {
 	bcryptPassword := "bcryptpassword"
 	for i := 0; i < b.N; i++ {

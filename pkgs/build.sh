@@ -1,12 +1,11 @@
 #!/bin/bash
 
-NFPM_VERSION=2.8.0
+NFPM_VERSION=2.9.2
 NFPM_ARCH=${NFPM_ARCH:-amd64}
 if [ -z ${SFTPGO_VERSION} ]
 then
   LATEST_TAG=$(git describe --tags $(git rev-list --tags --max-count=1))
   NUM_COMMITS_FROM_TAG=$(git rev-list ${LATEST_TAG}.. --count)
-  #COMMIT_HASH=$(git rev-parse --short HEAD)
   VERSION=$(echo "${LATEST_TAG}" | awk -F. -v OFS=. '{$NF++;print}')-dev.${NUM_COMMITS_FROM_TAG}
 else
   VERSION=${SFTPGO_VERSION}
@@ -87,10 +86,11 @@ contents:
     dst: "/etc/sftpgo/sftpgo.json"
     type: "config|noreplace"
 
+  - dst: "/srv/sftpgo"
+    type: dir
 
-empty_folders:
-  - /var/lib/sftpgo
-  - /srv/sftpgo
+  - dst: "/var/lib/sftpgo"
+    type: dir
 
 overrides:
   deb:
