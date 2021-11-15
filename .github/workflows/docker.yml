@@ -144,7 +144,7 @@ jobs:
           context: .
           builder: ${{ steps.builder.outputs.name }}
           file: ./${{ steps.info.outputs.dockerfile }}
-          platforms: linux/amd64,linux/arm64,linux/ppc64le
+          platforms: linux/amd64,linux/arm64,linux/ppc64le,linux/arm/v7
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.info.outputs.tags }}
           build-args: |
