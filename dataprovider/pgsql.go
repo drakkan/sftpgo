@@ -21,6 +21,14 @@ import (
 )
 
 const (
+	pgsqlResetSQL = `DROP TABLE IF EXISTS "{{api_keys}}" CASCADE;
+DROP TABLE IF EXISTS "{{folders_mapping}}" CASCADE;
+DROP TABLE IF EXISTS "{{admins}}" CASCADE;
+DROP TABLE IF EXISTS "{{folders}}" CASCADE;
+DROP TABLE IF EXISTS "{{shares}}" CASCADE;
+DROP TABLE IF EXISTS "{{users}}" CASCADE;
+DROP TABLE IF EXISTS "{{schema_version}}" CASCADE;
+`
 	pgsqlInitial = `CREATE TABLE "{{schema_version}}" ("id" serial NOT NULL PRIMARY KEY, "version" integer NOT NULL);
 	CREATE TABLE "{{admins}}" ("id" serial NOT NULL PRIMARY KEY, "username" varchar(255) NOT NULL UNIQUE,
 "description" varchar(512) NULL, "password" varchar(255) NOT NULL, "email" varchar(255) NULL, "status" integer NOT NULL,
@@ -332,6 +340,9 @@ func (p *PGSQLProvider) initializeDatabase() error {
 	if err == nil && dbVersion.Version > 0 {
 		return ErrNoInitRequired
 	}
+	if errors.Is(err, sql.ErrNoRows) {
+		return errSchemaVersionEmpty
+	}
 	initialSQL := strings.ReplaceAll(pgsqlInitial, "{{schema_version}}", sqlTableSchemaVersion)
 	initialSQL = strings.ReplaceAll(initialSQL, "{{admins}}", sqlTableAdmins)
 	initialSQL = strings.ReplaceAll(initialSQL, "{{folders}}", sqlTableFolders)
@@ -405,6 +416,17 @@ func (p *PGSQLProvider) revertDatabase(targetVersion int) error {
 	default:
 		return fmt.Errorf("database version not handled: %v", dbVersion.Version)
 	}
+}
+
+func (p *PGSQLProvider) resetDatabase() error {
+	sql := strings.ReplaceAll(pgsqlResetSQL, "{{schema_version}}", sqlTableSchemaVersion)
+	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
+	sql = strings.ReplaceAll(sql, "{{folders}}", sqlTableFolders)
+	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{folders_mapping}}", sqlTableFoldersMapping)
+	sql = strings.ReplaceAll(sql, "{{api_keys}}", sqlTableAPIKeys)
+	sql = strings.ReplaceAll(sql, "{{shares}}", sqlTableShares)
+	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{sql}, 0)
 }
 
 func updatePGSQLDatabaseFromV10(dbHandle *sql.DB) error {

@@ -457,6 +457,7 @@ type Provider interface {
 	initializeDatabase() error
 	migrateDatabase() error
 	revertDatabase(targetVersion int) error
+	resetDatabase() error
 }
 
 // SetTempPath sets the path for temporary files
@@ -651,6 +652,22 @@ func RevertDatabase(cnf Config, basePath string, targetVersion int) error {
 		return err
 	}
 	return provider.revertDatabase(targetVersion)
+}
+
+// ResetDatabase restores schema and/or data to a previous version
+func ResetDatabase(cnf Config, basePath string) error {
+	config = cnf
+
+	if filepath.IsAbs(config.CredentialsPath) {
+		credentialsDirPath = config.CredentialsPath
+	} else {
+		credentialsDirPath = filepath.Join(basePath, config.CredentialsPath)
+	}
+
+	if err := createProvider(basePath); err != nil {
+		return err
+	}
+	return provider.resetDatabase()
 }
 
 // CheckAdminAndPass validates the given admin and password connecting from ip

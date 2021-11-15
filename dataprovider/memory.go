@@ -1468,3 +1468,7 @@ func (p *MemoryProvider) migrateDatabase() error {
 func (p *MemoryProvider) revertDatabase(targetVersion int) error {
 	return errors.New("memory provider does not store data, revert not possible")
 }
+
+func (p *MemoryProvider) resetDatabase() error {
+	return errors.New("memory provider does not store data, reset not possible")
+}

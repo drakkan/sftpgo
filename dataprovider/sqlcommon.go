@@ -24,7 +24,10 @@ const (
 	longSQLQueryTimeout    = 60 * time.Second
 )
 
-var errSQLFoldersAssosaction = errors.New("unable to associate virtual folders to user")
+var (
+	errSQLFoldersAssosaction = errors.New("unable to associate virtual folders to user")
+	errSchemaVersionEmpty    = errors.New("we can't determine schema version because the schema_migration table is empty. The SFTPGo database might be corrupted. Consider using the \"resetprovider\" sub-command")
+)
 
 type sqlQuerier interface {
 	PrepareContext(ctx context.Context, query string) (*sql.Stmt, error)
@@ -946,7 +949,7 @@ func getShareFromDbRow(row sqlScanner) (Share, error) {
 		&share.LastUseAt, &share.ExpiresAt, &password, &share.MaxTokens,
 		&share.UsedTokens, &allowFrom)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return share, util.NewRecordNotFoundError(err.Error())
 		}
 		return share, err
@@ -986,7 +989,7 @@ func getAPIKeyFromDbRow(row sqlScanner) (APIKey, error) {
 		&apiKey.LastUseAt, &apiKey.ExpiresAt, &description, &userID, &adminID)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return apiKey, util.NewRecordNotFoundError(err.Error())
 		}
 		return apiKey, err
@@ -1013,7 +1016,7 @@ func getAdminFromDbRow(row sqlScanner) (Admin, error) {
 		&filters, &additionalInfo, &description, &admin.CreatedAt, &admin.UpdatedAt, &admin.LastLogin)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return admin, util.NewRecordNotFoundError(err.Error())
 		}
 		return admin, err
@@ -1063,7 +1066,7 @@ func getUserFromDbRow(row sqlScanner) (User, error) {
 		&user.UploadBandwidth, &user.DownloadBandwidth, &user.ExpirationDate, &user.LastLogin, &user.Status, &filters, &fsConfig,
 		&additionalInfo, &description, &email, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return user, util.NewRecordNotFoundError(err.Error())
 		}
 		return user, err
@@ -1143,8 +1146,11 @@ func sqlCommonGetFolder(ctx context.Context, name string, dbHandle sqlQuerier) (
 	var mappedPath, description, fsConfig sql.NullString
 	err = row.Scan(&folder.ID, &mappedPath, &folder.UsedQuotaSize, &folder.UsedQuotaFiles, &folder.LastQuotaUpdate,
 		&folder.Name, &description, &fsConfig)
-	if err == sql.ErrNoRows {
-		return folder, util.NewRecordNotFoundError(err.Error())
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return folder, util.NewRecordNotFoundError(err.Error())
+		}
+		return folder, err
 	}
 	if mappedPath.Valid {
 		folder.MappedPath = mappedPath.String
@@ -1687,6 +1693,9 @@ func sqlCommonExecSQLAndUpdateDBVersion(dbHandle *sql.DB, sqlQueries []string, n
 			if err != nil {
 				return err
 			}
+		}
+		if newVersion == 0 {
+			return nil
 		}
 		return sqlCommonUpdateDatabaseVersion(ctx, tx, newVersion)
 	})

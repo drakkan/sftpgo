@@ -1418,6 +1418,18 @@ func (p *BoltProvider) revertDatabase(targetVersion int) error {
 	}
 }
 
+func (p *BoltProvider) resetDatabase() error {
+	return p.dbHandle.Update(func(tx *bolt.Tx) error {
+		for _, bucketName := range boltBuckets {
+			err := tx.DeleteBucket(bucketName)
+			if err != nil && !errors.Is(err, bolt.ErrBucketNotFound) {
+				return fmt.Errorf("unable to remove bucket %v: %w", bucketName, err)
+			}
+		}
+		return nil
+	})
+}
+
 func joinUserAndFolders(u []byte, foldersBucket *bolt.Bucket) (User, error) {
 	var user User
 	err := json.Unmarshal(u, &user)

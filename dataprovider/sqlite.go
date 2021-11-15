@@ -22,6 +22,14 @@ import (
 )
 
 const (
+	sqliteResetSQL = `DROP TABLE IF EXISTS "{{api_keys}}";
+DROP TABLE IF EXISTS "{{folders_mapping}}";
+DROP TABLE IF EXISTS "{{admins}}";
+DROP TABLE IF EXISTS "{{folders}}";
+DROP TABLE IF EXISTS "{{shares}}";
+DROP TABLE IF EXISTS "{{users}}";
+DROP TABLE IF EXISTS "{{schema_version}}";
+`
 	sqliteInitialSQL = `CREATE TABLE "{{schema_version}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "version" integer NOT NULL);
 CREATE TABLE "{{admins}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "username" varchar(255) NOT NULL UNIQUE,
 "description" varchar(512) NULL, "password" varchar(255) NOT NULL, "email" varchar(255) NULL, "status" integer NOT NULL,
@@ -314,6 +322,9 @@ func (p *SQLiteProvider) initializeDatabase() error {
 	if err == nil && dbVersion.Version > 0 {
 		return ErrNoInitRequired
 	}
+	if errors.Is(err, sql.ErrNoRows) {
+		return errSchemaVersionEmpty
+	}
 	initialSQL := strings.ReplaceAll(sqliteInitialSQL, "{{schema_version}}", sqlTableSchemaVersion)
 	initialSQL = strings.ReplaceAll(initialSQL, "{{admins}}", sqlTableAdmins)
 	initialSQL = strings.ReplaceAll(initialSQL, "{{folders}}", sqlTableFolders)
@@ -381,6 +392,17 @@ func (p *SQLiteProvider) revertDatabase(targetVersion int) error {
 	default:
 		return fmt.Errorf("database version not handled: %v", dbVersion.Version)
 	}
+}
+
+func (p *SQLiteProvider) resetDatabase() error {
+	sql := strings.ReplaceAll(sqliteResetSQL, "{{schema_version}}", sqlTableSchemaVersion)
+	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
+	sql = strings.ReplaceAll(sql, "{{folders}}", sqlTableFolders)
+	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{folders_mapping}}", sqlTableFoldersMapping)
+	sql = strings.ReplaceAll(sql, "{{api_keys}}", sqlTableAPIKeys)
+	sql = strings.ReplaceAll(sql, "{{shares}}", sqlTableShares)
+	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{sql}, 0)
 }
 
 func updateSQLiteDatabaseFromV10(dbHandle *sql.DB) error {

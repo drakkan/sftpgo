@@ -135,13 +135,19 @@ sftpgo initprovider --help
 
 You can disable automatic data provider checks/updates at startup by setting the `update_mode` configuration key to `1`.
 
+You can also reset your provider by using the `resetprovider` sub-command. Take a look at the CLI usage for more details:
+
+```bash
+sftpgo resetprovider --help
+```
+
 ## Create the first admin
 
 To start using SFTPGo you need to create an admin user, you can do it in several ways:
 
 - by using the web admin interface. The default URL is [http://127.0.0.1:8080/web/admin](http://127.0.0.1:8080/web/admin)
 - by loading initial data
-- by enabling `create_default_admin` in your configuration file. In this case the credentials are `admin`/`password`
+- by enabling `create_default_admin` in your configuration file and setting the environment variables `SFTPGO_DEFAULT_ADMIN_USERNAME` and `SFTPGO_DEFAULT_ADMIN_PASSWORD`
 
 ## Upgrading
 

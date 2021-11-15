@@ -21,6 +21,13 @@ import (
 )
 
 const (
+	mysqlResetSQL = "DROP TABLE IF EXISTS `{{api_keys}}` CASCADE;" +
+		"DROP TABLE IF EXISTS `{{folders_mapping}}` CASCADE;" +
+		"DROP TABLE IF EXISTS `{{admins}}` CASCADE;" +
+		"DROP TABLE IF EXISTS `{{folders}}` CASCADE;" +
+		"DROP TABLE IF EXISTS `{{shares}}` CASCADE;" +
+		"DROP TABLE IF EXISTS `{{users}}` CASCADE;" +
+		"DROP TABLE IF EXISTS `{{schema_version}}` CASCADE;"
 	mysqlInitialSQL = "CREATE TABLE `{{schema_version}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `version` integer NOT NULL);" +
 		"CREATE TABLE `{{admins}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `username` varchar(255) NOT NULL UNIQUE, " +
 		"`description` varchar(512) NULL, `password` varchar(255) NOT NULL, `email` varchar(255) NULL, `status` integer NOT NULL, " +
@@ -318,6 +325,9 @@ func (p *MySQLProvider) initializeDatabase() error {
 	if err == nil && dbVersion.Version > 0 {
 		return ErrNoInitRequired
 	}
+	if errors.Is(err, sql.ErrNoRows) {
+		return errSchemaVersionEmpty
+	}
 	initialSQL := strings.ReplaceAll(mysqlInitialSQL, "{{schema_version}}", sqlTableSchemaVersion)
 	initialSQL = strings.ReplaceAll(initialSQL, "{{admins}}", sqlTableAdmins)
 	initialSQL = strings.ReplaceAll(initialSQL, "{{folders}}", sqlTableFolders)
@@ -385,6 +395,17 @@ func (p *MySQLProvider) revertDatabase(targetVersion int) error {
 	default:
 		return fmt.Errorf("database version not handled: %v", dbVersion.Version)
 	}
+}
+
+func (p *MySQLProvider) resetDatabase() error {
+	sql := strings.ReplaceAll(mysqlResetSQL, "{{schema_version}}", sqlTableSchemaVersion)
+	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
+	sql = strings.ReplaceAll(sql, "{{folders}}", sqlTableFolders)
+	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{folders_mapping}}", sqlTableFoldersMapping)
+	sql = strings.ReplaceAll(sql, "{{api_keys}}", sqlTableAPIKeys)
+	sql = strings.ReplaceAll(sql, "{{shares}}", sqlTableShares)
+	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, strings.Split(sql, ";"), 0)
 }
 
 func updateMySQLDatabaseFromV10(dbHandle *sql.DB) error {

@@ -683,8 +683,10 @@ func (conns *ActiveConnections) Swap(c ActiveConnection) error {
 
 	for idx, conn := range conns.connections {
 		if conn.GetID() == c.GetID() {
-			conn = nil
+			err := conn.CloseFS()
 			conns.connections[idx] = c
+			logger.Debug(logSender, c.GetID(), "connection swapped, close fs error: %v", err)
+			conn = nil
 			return nil
 		}
 	}
