@@ -300,6 +300,9 @@ func (c *GCSFsConfig) isEqual(other *GCSFsConfig) bool {
 	if c.StorageClass != other.StorageClass {
 		return false
 	}
+	if c.ACL != other.ACL {
+		return false
+	}
 	if c.Credentials == nil {
 		c.Credentials = kms.NewEmptySecret()
 	}
@@ -339,6 +342,7 @@ func (c *GCSFsConfig) Validate(credentialsFilePath string) error {
 		}
 	}
 	c.StorageClass = strings.TrimSpace(c.StorageClass)
+	c.ACL = strings.TrimSpace(c.ACL)
 	return nil
 }
 

@@ -2637,6 +2637,7 @@ func TestUserHiddenFields(t *testing.T) {
 	u2.FsConfig.Provider = sdk.GCSFilesystemProvider
 	u2.FsConfig.GCSConfig.Bucket = "test"
 	u2.FsConfig.GCSConfig.Credentials = kms.NewPlainSecret("fake credentials")
+	u2.FsConfig.GCSConfig.ACL = "bucketOwnerRead"
 	user2, _, err := httpdtest.AddUser(u2, http.StatusCreated)
 	assert.NoError(t, err)
 
@@ -2804,6 +2805,7 @@ func TestUserHiddenFields(t *testing.T) {
 
 	// update the GCS user and check that the credentials are preserved
 	user2.FsConfig.GCSConfig.Credentials = kms.NewEmptySecret()
+	user2.FsConfig.GCSConfig.ACL = "private"
 	_, _, err = httpdtest.UpdateUser(user2, http.StatusOK, "")
 	assert.NoError(t, err)
 
@@ -13385,6 +13387,7 @@ func TestWebUserGCSMock(t *testing.T) {
 	user.FsConfig.GCSConfig.Bucket = "test"
 	user.FsConfig.GCSConfig.KeyPrefix = "somedir/subdir/"
 	user.FsConfig.GCSConfig.StorageClass = "standard"
+	user.FsConfig.GCSConfig.ACL = "publicReadWrite"
 	form := make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("username", user.Username)
@@ -13405,6 +13408,7 @@ func TestWebUserGCSMock(t *testing.T) {
 	form.Set("fs_provider", "2")
 	form.Set("gcs_bucket", user.FsConfig.GCSConfig.Bucket)
 	form.Set("gcs_storage_class", user.FsConfig.GCSConfig.StorageClass)
+	form.Set("gcs_acl", user.FsConfig.GCSConfig.ACL)
 	form.Set("gcs_key_prefix", user.FsConfig.GCSConfig.KeyPrefix)
 	form.Set("pattern_path0", "/dir1")
 	form.Set("patterns0", "*.jpg,*.png")
@@ -13441,6 +13445,7 @@ func TestWebUserGCSMock(t *testing.T) {
 	assert.Equal(t, user.FsConfig.Provider, updateUser.FsConfig.Provider)
 	assert.Equal(t, user.FsConfig.GCSConfig.Bucket, updateUser.FsConfig.GCSConfig.Bucket)
 	assert.Equal(t, user.FsConfig.GCSConfig.StorageClass, updateUser.FsConfig.GCSConfig.StorageClass)
+	assert.Equal(t, user.FsConfig.GCSConfig.ACL, updateUser.FsConfig.GCSConfig.ACL)
 	assert.Equal(t, user.FsConfig.GCSConfig.KeyPrefix, updateUser.FsConfig.GCSConfig.KeyPrefix)
 	if assert.Len(t, updateUser.Filters.FilePatterns, 1) {
 		assert.Equal(t, "/dir1", updateUser.Filters.FilePatterns[0].Path)

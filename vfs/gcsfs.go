@@ -185,6 +185,9 @@ func (fs *GCSFs) Create(name string, flag int) (File, *PipeWriter, func(), error
 	if fs.config.StorageClass != "" {
 		objectWriter.ObjectAttrs.StorageClass = fs.config.StorageClass
 	}
+	if fs.config.ACL != "" {
+		objectWriter.PredefinedACL = fs.config.ACL
+	}
 	go func() {
 		defer cancelFn()
 
@@ -195,7 +198,8 @@ func (fs *GCSFs) Create(name string, flag int) (File, *PipeWriter, func(), error
 		}
 		r.CloseWithError(err) //nolint:errcheck
 		p.Done(err)
-		fsLog(fs, logger.LevelDebug, "upload completed, path: %#v, readed bytes: %v, err: %v", name, n, err)
+		fsLog(fs, logger.LevelDebug, "upload completed, path: %#v, acl: %#v, readed bytes: %v, err: %v",
+			name, fs.config.ACL, n, err)
 		metric.GCSTransferCompleted(n, 0, err)
 	}()
 	return nil, p, cancelFn, nil
@@ -233,6 +237,9 @@ func (fs *GCSFs) Rename(source, target string) error {
 	copier := dst.CopierFrom(src)
 	if fs.config.StorageClass != "" {
 		copier.StorageClass = fs.config.StorageClass
+	}
+	if fs.config.ACL != "" {
+		copier.PredefinedACL = fs.config.ACL
 	}
 	var contentType string
 	if fi.IsDir() {

@@ -144,6 +144,10 @@ type GCSFsConfig struct {
 	// 0 explicit, 1 automatic
 	AutomaticCredentials int    `json:"automatic_credentials,omitempty"`
 	StorageClass         string `json:"storage_class,omitempty"`
+	// The ACL to apply to uploaded objects. Leave empty to use the default ACL.
+	// For more information and available ACLs, refer to the JSON API here:
+	// https://cloud.google.com/storage/docs/access-control/lists#predefined-acl
+	ACL string `json:"acl,omitempty"`
 }
 
 // AzBlobFsConfig defines the configuration for Azure Blob Storage based filesystem

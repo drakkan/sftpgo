@@ -252,6 +252,7 @@ func (f *Filesystem) GetACopy() Filesystem {
 				Credentials:          f.GCSConfig.Credentials.Clone(),
 				AutomaticCredentials: f.GCSConfig.AutomaticCredentials,
 				StorageClass:         f.GCSConfig.StorageClass,
+				ACL:                  f.GCSConfig.ACL,
 				KeyPrefix:            f.GCSConfig.KeyPrefix,
 			},
 		},

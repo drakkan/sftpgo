@@ -859,6 +859,7 @@ func getGCSConfig(r *http.Request) (vfs.GCSFsConfig, error) {
 
 	config.Bucket = r.Form.Get("gcs_bucket")
 	config.StorageClass = r.Form.Get("gcs_storage_class")
+	config.ACL = r.Form.Get("gcs_acl")
 	config.KeyPrefix = r.Form.Get("gcs_key_prefix")
 	autoCredentials := r.Form.Get("gcs_auto_credentials")
 	if autoCredentials != "" {

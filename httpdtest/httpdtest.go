@@ -1299,6 +1299,9 @@ func compareGCSConfig(expected *vfs.Filesystem, actual *vfs.Filesystem) error {
 	if expected.GCSConfig.StorageClass != actual.GCSConfig.StorageClass {
 		return errors.New("GCS storage class mismatch")
 	}
+	if expected.GCSConfig.ACL != actual.GCSConfig.ACL {
+		return errors.New("GCS ACL mismatch")
+	}
 	if expected.GCSConfig.KeyPrefix != actual.GCSConfig.KeyPrefix &&
 		expected.GCSConfig.KeyPrefix+"/" != actual.GCSConfig.KeyPrefix {
 		return errors.New("GCS key prefix mismatch")

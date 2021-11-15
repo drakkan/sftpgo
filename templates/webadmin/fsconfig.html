@@ -109,7 +109,7 @@
                 </small>
             </div>
             <div class="col-sm-2"></div>
-            <label for="idS3KeyPrefix" class="col-sm-2 col-form-label">ACL</label>
+            <label for="idS3ACL" class="col-sm-2 col-form-label">ACL</label>
             <div class="col-sm-3">
                 <input type="text" class="form-control" id="idS3ACL" name="s3_acl" placeholder=""
                     value="{{.S3Config.ACL}}" maxlength="255" aria-describedby="S3ACLHelpBlock">
@@ -174,11 +174,20 @@
 
         <div class="form-group row fsconfig fsconfig-gcsfs">
             <label for="idGCSKeyPrefix" class="col-sm-2 col-form-label">Key Prefix</label>
-            <div class="col-sm-10">
+            <div class="col-sm-3">
                 <input type="text" class="form-control" id="idGCSKeyPrefix" name="gcs_key_prefix" placeholder=""
                     value="{{.GCSConfig.KeyPrefix}}" maxlength="255" aria-describedby="GCSKeyPrefixHelpBlock">
                 <small id="GCSKeyPrefixHelpBlock" class="form-text text-muted">
                     Similar to a chroot for local filesystem. Cannot start with "/". Example: "somedir/subdir/".
+                </small>
+            </div>
+            <div class="col-sm-2"></div>
+            <label for="idGCSACL" class="col-sm-2 col-form-label">ACL</label>
+            <div class="col-sm-3">
+                <input type="text" class="form-control" id="idGCSACL" name="gcs_acl" placeholder=""
+                    value="{{.GCSConfig.ACL}}" maxlength="255" aria-describedby="GCSACLHelpBlock">
+                <small id="GCSACLHelpBlock" class="form-text text-muted">
+                    ACL for uploaded objects. For more info refer to the JSON API <a href="https://cloud.google.com/storage/docs/access-control/lists#predefined-acl" target="_blank">here</a>
                 </small>
             </div>
         </div>
