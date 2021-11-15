@@ -245,7 +245,9 @@ func updateEncryptedSecrets(fsConfig *vfs.Filesystem, currentS3AccessSecret, cur
 			fsConfig.AzBlobConfig.SASURL = currentAzSASUrl
 		}
 	case sdk.GCSFilesystemProvider:
-		if fsConfig.GCSConfig.Credentials.IsNotPlainAndNotEmpty() {
+		// for GCS credentials will be cleared if we enable automatic credentials
+		// so keep the old credentials here if no new credentials are provided
+		if !fsConfig.GCSConfig.Credentials.IsPlain() {
 			fsConfig.GCSConfig.Credentials = currentGCSCredentials
 		}
 	case sdk.CryptedFilesystemProvider:

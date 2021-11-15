@@ -311,7 +311,7 @@ func (c *GCSFsConfig) isEqual(other *GCSFsConfig) bool {
 
 // Validate returns an error if the configuration is not valid
 func (c *GCSFsConfig) Validate(credentialsFilePath string) error {
-	if c.Credentials == nil {
+	if c.Credentials == nil || c.AutomaticCredentials == 1 {
 		c.Credentials = kms.NewEmptySecret()
 	}
 	if c.Bucket == "" {
@@ -329,7 +329,7 @@ func (c *GCSFsConfig) Validate(credentialsFilePath string) error {
 	if c.Credentials.IsEncrypted() && !c.Credentials.IsValid() {
 		return errors.New("invalid encrypted credentials")
 	}
-	if !c.Credentials.IsValidInput() && c.AutomaticCredentials == 0 {
+	if c.AutomaticCredentials == 0 && !c.Credentials.IsValidInput() {
 		fi, err := os.Stat(credentialsFilePath)
 		if err != nil {
 			return fmt.Errorf("invalid credentials %v", err)

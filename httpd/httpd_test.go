@@ -2802,6 +2802,19 @@ func TestUserHiddenFields(t *testing.T) {
 	assert.Empty(t, user5.FsConfig.SFTPConfig.PrivateKey.GetKey())
 	assert.Empty(t, user5.FsConfig.SFTPConfig.PrivateKey.GetAdditionalData())
 
+	// update the GCS user and check that the credentials are preserved
+	user2.FsConfig.GCSConfig.Credentials = kms.NewEmptySecret()
+	_, _, err = httpdtest.UpdateUser(user2, http.StatusOK, "")
+	assert.NoError(t, err)
+
+	user2, _, err = httpdtest.GetUserByUsername(user2.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Empty(t, user2.Password)
+	assert.Empty(t, user2.FsConfig.GCSConfig.Credentials.GetKey())
+	assert.Empty(t, user2.FsConfig.GCSConfig.Credentials.GetAdditionalData())
+	assert.NotEmpty(t, user2.FsConfig.GCSConfig.Credentials.GetStatus())
+	assert.NotEmpty(t, user2.FsConfig.GCSConfig.Credentials.GetPayload())
+
 	_, err = httpdtest.RemoveUser(user1, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user2, http.StatusOK)
