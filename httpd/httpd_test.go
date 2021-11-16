@@ -3509,7 +3509,7 @@ func TestSkipNaturalKeysValidation(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
-	assert.Greater(t, len(lastResetCode), 20)
+	assert.GreaterOrEqual(t, len(lastResetCode), 20)
 	form = make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("code", lastResetCode)
@@ -3602,7 +3602,7 @@ func TestSkipNaturalKeysValidation(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
-	assert.Greater(t, len(lastResetCode), 20)
+	assert.GreaterOrEqual(t, len(lastResetCode), 20)
 	form = make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("code", lastResetCode)
@@ -8210,7 +8210,7 @@ func TestMaxSessions(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr := executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
-	assert.Greater(t, len(lastResetCode), 20)
+	assert.GreaterOrEqual(t, len(lastResetCode), 20)
 	form = make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("password", defaultPassword)
@@ -8285,7 +8285,7 @@ func TestSFTPLoopError(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr := executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
-	assert.Greater(t, len(lastResetCode), 20)
+	assert.GreaterOrEqual(t, len(lastResetCode), 20)
 	form = make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("password", defaultPassword)
@@ -14325,7 +14325,7 @@ func TestAdminForgotPassword(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
-	assert.Greater(t, len(lastResetCode), 20)
+	assert.GreaterOrEqual(t, len(lastResetCode), 20)
 
 	form = make(url.Values)
 	req, err = http.NewRequest(http.MethodPost, webAdminResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
@@ -14363,7 +14363,7 @@ func TestAdminForgotPassword(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
-	assert.Greater(t, len(lastResetCode), 20)
+	assert.GreaterOrEqual(t, len(lastResetCode), 20)
 
 	// not working smtp server
 	smtpCfg = smtp.Config{
@@ -14477,7 +14477,7 @@ func TestUserForgotPassword(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
-	assert.Greater(t, len(lastResetCode), 20)
+	assert.GreaterOrEqual(t, len(lastResetCode), 20)
 	// no csrf token
 	form = make(url.Values)
 	req, err = http.NewRequest(http.MethodPost, webClientResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
@@ -14518,7 +14518,7 @@ func TestUserForgotPassword(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
-	assert.Greater(t, len(lastResetCode), 20)
+	assert.GreaterOrEqual(t, len(lastResetCode), 20)
 
 	smtpCfg = smtp.Config{}
 	err = smtpCfg.Initialize("..")
@@ -14582,7 +14582,7 @@ func TestAPIForgotPassword(t *testing.T) {
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Greater(t, len(lastResetCode), 20)
+	assert.GreaterOrEqual(t, len(lastResetCode), 20)
 
 	// invalid JSON
 	req, err = http.NewRequest(http.MethodPost, path.Join(adminPath, altAdminUsername, "/reset-password"), bytes.NewBuffer([]byte(`{`)))
@@ -14639,7 +14639,7 @@ func TestAPIForgotPassword(t *testing.T) {
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Greater(t, len(lastResetCode), 20)
+	assert.GreaterOrEqual(t, len(lastResetCode), 20)
 
 	// invalid JSON
 	req, err = http.NewRequest(http.MethodPost, path.Join(userPath, defaultUsername, "/reset-password"), bytes.NewBuffer([]byte(`{`)))
@@ -14699,7 +14699,7 @@ func TestAPIForgotPassword(t *testing.T) {
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Greater(t, len(lastResetCode), 20)
+	assert.GreaterOrEqual(t, len(lastResetCode), 20)
 
 	smtpCfg = smtp.Config{}
 	err = smtpCfg.Initialize("..")
