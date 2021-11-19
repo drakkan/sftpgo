@@ -554,10 +554,10 @@ func GetSSHPublicKeyAsString(pubKey []byte) (string, error) {
 func GetRealIP(r *http.Request) string {
 	var ip string
 
-	if xrip := r.Header.Get(xRealIP); xrip != "" {
-		ip = xrip
-	} else if clientIP := r.Header.Get(trueClientIP); clientIP != "" {
+	if clientIP := r.Header.Get(trueClientIP); clientIP != "" {
 		ip = clientIP
+	} else if xrip := r.Header.Get(xRealIP); xrip != "" {
+		ip = xrip
 	} else if clientIP := r.Header.Get(cfConnectingIP); clientIP != "" {
 		ip = clientIP
 	} else if xff := r.Header.Get(xForwardedFor); xff != "" {

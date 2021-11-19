@@ -39,12 +39,14 @@ ArchitecturesAllowed=x64
 MinVersion=6.1sp1
 VersionInfoVersion={#MyVersionInfo}
 VersionInfoCopyright=AGPL-3.0
+SignTool=signtool
+SignedUninstaller=yes
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
-Source: "{#MyAppDir}\sftpgo.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#MyAppDir}\sftpgo.exe"; DestDir: "{app}"; Flags: ignoreversion signonce
 Source: "{#MyAppDir}\sftpgo.db"; DestDir: "{commonappdata}\{#MyAppName}"; Flags: onlyifdoesntexist uninsneveruninstall
 Source: "{#MyAppDir}\LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#MyAppDir}\sftpgo.json"; DestDir: "{commonappdata}\{#MyAppName}"; Flags: onlyifdoesntexist uninsneveruninstall

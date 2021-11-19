@@ -123,7 +123,7 @@ jobs:
           path: output
 
       - name: Prepare Windows installer
-        if: startsWith(matrix.os, 'windows-')
+        if: ${{ startsWith(matrix.os, 'windows-') && github.event_name != 'pull_request' }}
         run: |
           Remove-Item -LiteralPath "output" -Force -Recurse -ErrorAction Ignore
           mkdir output
@@ -139,10 +139,19 @@ jobs:
           $REV_LIST=$LATEST_TAG+"..HEAD"
           $COMMITS_FROM_TAG= ((git rev-list $REV_LIST --count) | Out-String).Trim()
           $Env:SFTPGO_ISS_DEV_VERSION = $LATEST_TAG  + "." + $COMMITS_FROM_TAG
-          iscc windows-installer\sftpgo.iss
+          $CERT_PATH=(Get-Location -PSProvider FileSystem).ProviderPath + "\cert.pfx"
+          [IO.File]::WriteAllBytes($CERT_PATH,[System.Convert]::FromBase64String($Env:CERT_DATA))
+          certutil -f -p "$Env:CERT_PASS" -importpfx MY "$CERT_PATH"
+          rm "$CERT_PATH"
+          $INNO_S='/Ssigntool=$qC:/Program Files (x86)/Windows Kits/10/bin/10.0.17763.0/x86/signtool.exe$q sign /sm /tr http://timestamp.sectigo.com /td sha256 /fd sha256 /n $qNicola Murino$q /d $qSFTPGo$q $f'
+          iscc "$INNO_S" windows-installer\sftpgo.iss
+          certutil -delstore MY "Nicola Murino"
+        env:
+          CERT_DATA: ${{ secrets.CERT_DATA }}
+          CERT_PASS: ${{ secrets.CERT_PASS }}
 
       - name: Upload Windows installer artifact
-        if: startsWith(matrix.os, 'windows-')
+        if: ${{ startsWith(matrix.os, 'windows-') && github.event_name != 'pull_request' }}
         uses: actions/upload-artifact@v2
         with:
           name: sftpgo_windows_installer_x86_64
