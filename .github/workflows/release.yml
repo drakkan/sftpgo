@@ -56,6 +56,19 @@ jobs:
         run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
         shell: bash
 
+      - name: Get OS name
+        id: get_os_name
+        run: |
+          if [[ $MATRIX_OS =~ ^macos.* ]]
+          then
+            echo ::set-output name=OS::macOS
+          else
+            echo ::set-output name=OS::windows
+          fi
+        shell: bash
+        env:
+          MATRIX_OS: ${{ matrix.os }}
+
       - name: Build for macOS x86_64
         if: startsWith(matrix.os, 'windows-') != true
         run: go build -trimpath -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/version.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/v2/version.date=`date -u +%FT%TZ`" -o sftpgo
@@ -79,19 +92,6 @@ jobs:
       - name: Initialize data provider
         run: ./sftpgo initprovider
         shell: bash
-
-      - name: Get OS name
-        id: get_os_name
-        run: |
-          if [[ $MATRIX_OS =~ ^macos.* ]]
-          then
-            echo ::set-output name=OS::macOS
-          else
-            echo ::set-output name=OS::windows
-          fi
-        shell: bash
-        env:
-          MATRIX_OS: ${{ matrix.os }}
 
       - name: Prepare Release for macOS
         if: startsWith(matrix.os, 'macos-')
@@ -152,8 +152,6 @@ jobs:
           xcopy .\static .\win-portable\static\ /E
           & 'C:/Program Files (x86)/Windows Kits/10/bin/10.0.17763.0/x86/signtool.exe' sign /sm /tr http://timestamp.sectigo.com /td sha256 /fd sha256 /n "Nicola Murino" /d "SFTPGo" .\win-portable\sftpgo.exe
           Compress-Archive .\win-portable\* sftpgo_portable_x86_64.zip
-          & 'C:/Program Files (x86)/Windows Kits/10/bin/10.0.17763.0/x86/signtool.exe' sign /sm /tr http://timestamp.sectigo.com /td sha256 /fd sha256 /n "Nicola Murino" /d "SFTPGo Portable" sftpgo_portable_x86_64.zip
-
           certutil -delstore MY "Nicola Murino"
         env:
           SFTPGO_ISS_VERSION: ${{ steps.get_version.outputs.VERSION }}
@@ -479,7 +477,7 @@ jobs:
       - name: Download RPM armv7 artifact
         uses: actions/download-artifact@v2
         with:
-          name: sftpgo-${{ steps.get_version.outputs.PKG_VERSION }}-1.arm.rpm
+          name: sftpgo-${{ steps.get_version.outputs.PKG_VERSION }}-1.armv7hl.rpm
 
       - name: Download macOS x86_64 artifact
         uses: actions/download-artifact@v2

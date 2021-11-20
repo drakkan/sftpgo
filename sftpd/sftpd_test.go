@@ -260,26 +260,6 @@ func TestMain(m *testing.M) {
 
 	waitTCPListening(sftpdConf.Bindings[0].GetAddress())
 
-	sftpdConf.Bindings = []sftpd.Binding{
-		{
-			Port:             2224,
-			ApplyProxyConfig: true,
-		},
-	}
-	sftpdConf.PasswordAuthentication = true
-	common.Config.ProxyProtocol = 2
-	go func() {
-		logger.Debug(logSender, "", "initializing SFTP server with config %+v and proxy protocol %v",
-			sftpdConf, common.Config.ProxyProtocol)
-		if err := sftpdConf.Initialize(configDir); err != nil {
-			logger.ErrorToConsole("could not start SFTP server with proxy protocol 2: %v", err)
-			os.Exit(1)
-		}
-	}()
-
-	waitTCPListening(sftpdConf.Bindings[0].GetAddress())
-	getHostKeysFingerprints(sftpdConf.HostKeys)
-
 	prefixedConf := sftpdConf
 	prefixedConf.Bindings = []sftpd.Binding{
 		{
@@ -299,6 +279,26 @@ func TestMain(m *testing.M) {
 	}()
 
 	waitTCPListening(prefixedConf.Bindings[0].GetAddress())
+
+	sftpdConf.Bindings = []sftpd.Binding{
+		{
+			Port:             2224,
+			ApplyProxyConfig: true,
+		},
+	}
+	sftpdConf.PasswordAuthentication = true
+	common.Config.ProxyProtocol = 2
+	go func() {
+		logger.Debug(logSender, "", "initializing SFTP server with config %+v and proxy protocol %v",
+			sftpdConf, common.Config.ProxyProtocol)
+		if err := sftpdConf.Initialize(configDir); err != nil {
+			logger.ErrorToConsole("could not start SFTP server with proxy protocol 2: %v", err)
+			os.Exit(1)
+		}
+	}()
+
+	waitTCPListening(sftpdConf.Bindings[0].GetAddress())
+	getHostKeysFingerprints(sftpdConf.HostKeys)
 
 	exitCode := m.Run()
 	os.Remove(logFilePath)

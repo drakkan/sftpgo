@@ -816,6 +816,7 @@ func (s *httpdServer) refreshClientToken(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
+	tokenClaims.Permissions = user.Filters.WebClient
 	logger.Debug(logSender, "", "cookie refreshed for user %#v", user.Username)
 	tokenClaims.createAndSetCookie(w, r, s.tokenAuth, tokenAudienceWebClient) //nolint:errcheck
 }
@@ -837,6 +838,7 @@ func (s *httpdServer) refreshAdminToken(w http.ResponseWriter, r *http.Request, 
 		logger.Debug(logSender, "", "admin %#v cannot login from %v, unable to refresh cookie", admin.Username, r.RemoteAddr)
 		return
 	}
+	tokenClaims.Permissions = admin.Permissions
 	logger.Debug(logSender, "", "cookie refreshed for admin %#v", admin.Username)
 	tokenClaims.createAndSetCookie(w, r, s.tokenAuth, tokenAudienceWebAdmin) //nolint:errcheck
 }
