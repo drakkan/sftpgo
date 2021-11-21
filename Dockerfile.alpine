@@ -47,6 +47,7 @@ RUN addgroup -g 1000 -S sftpgo && \
 COPY --from=builder /workspace/sftpgo.json /etc/sftpgo/sftpgo.json
 COPY --from=builder /workspace/templates /usr/share/sftpgo/templates
 COPY --from=builder /workspace/static /usr/share/sftpgo/static
+COPY --from=builder /workspace/openapi /usr/share/sftpgo/openapi
 COPY --from=builder /workspace/sftpgo /usr/local/bin/
 
 # Log to the stdout so the logs will be available using docker logs
@@ -55,6 +56,7 @@ ENV SFTPGO_LOG_FILE_PATH=""
 ENV SFTPGO_HTTPD__TEMPLATES_PATH=/usr/share/sftpgo/templates
 ENV SFTPGO_SMTP__TEMPLATES_PATH=/usr/share/sftpgo/templates
 ENV SFTPGO_HTTPD__STATIC_FILES_PATH=/usr/share/sftpgo/static
+ENV SFTPGO_HTTPD__OPENAPI_PATH=/usr/share/sftpgo/openapi
 
 # Modify the default configuration file
 RUN sed -i "s|\"users_base_dir\": \"\",|\"users_base_dir\": \"/srv/sftpgo/data\",|" /etc/sftpgo/sftpgo.json && \

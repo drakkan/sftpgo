@@ -20,7 +20,7 @@ The program must finish within 20 seconds.
 If the hook is an HTTP URL then it will be invoked as HTTP POST. The login method, the used protocol, the ip address and the status of the user are added to the query string, for example `<http_url>?login_method=password&ip=1.2.3.4&protocol=SSH&status=1`.
 The request body will contain the user serialized as JSON.
 
-The structure for SFTPGo users can be found within the [OpenAPI schema](../httpd/schema/openapi.yaml).
+The structure for SFTPGo users can be found within the [OpenAPI schema](../openapi/openapi.yaml).
 
 The HTTP hook will use the global configuration for HTTP clients and will respect the retry configurations.
 

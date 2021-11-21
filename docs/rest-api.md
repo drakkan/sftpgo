@@ -94,8 +94,8 @@ You can find an example script that shows how to manage data retention [here](..
 
 :warning: Deleting files is an irreversible action, please make sure you fully understand what you are doing before using this feature, you may have users with overlapping home directories or virtual folders shared between multiple users, it is relatively easy to inadvertently delete files you need.
 
-The OpenAPI 3 schema for the exposed API can be found inside the source tree: [openapi.yaml](../httpd/schema/openapi.yaml "OpenAPI 3 specs"). If you want to render the schema without importing it manually, you can explore it on [Stoplight](https://sftpgo.stoplight.io/docs/sftpgo/openapi.yaml).
+The OpenAPI 3 schema for the exposed API can be found inside the source tree: [openapi.yaml](../openapi/openapi.yaml "OpenAPI 3 specs"). You can render the schema and try the API using the `/openapi` endpoint. SFTPGo uses by default [Swagger UI](https://github.com/swagger-api/swagger-ui), you can use another renderer just by copying it to the defined OpenAPI path.
 
-You can generate your own REST client in your preferred programming language, or even bash scripts, using an OpenAPI generator such as [swagger-codegen](https://github.com/swagger-api/swagger-codegen) or [OpenAPI Generator](https://openapi-generator.tech/).
+You can also explore the schema on [Stoplight](https://sftpgo.stoplight.io/docs/sftpgo/openapi.yaml).
 
-You can also use [Swagger UI](https://github.com/swagger-api/swagger-ui).
+You can generate your own REST API client in your preferred programming language, or even bash scripts, using an OpenAPI generator such as [swagger-codegen](https://github.com/swagger-api/swagger-codegen) or [OpenAPI Generator](https://openapi-generator.tech/).

@@ -69,17 +69,21 @@ Open the SFTPGo configuration file, search for the `httpd` section and change it
         "enable_https": true,
         "client_auth_type": 0,
         "tls_cipher_suites": [],
-        "proxy_allowed": []
+        "proxy_allowed": [],
+        "hide_login_url": 0,
+        "render_openapi": true
       }
     ],
     "templates_path": "/usr/share/sftpgo/templates",
     "static_files_path": "/usr/share/sftpgo/static",
     "backups_path": "/srv/sftpgo/backups",
+    "openapi_path": "/srv/sftpgo/openapi",
     "web_root": "",
     "certificate_file": "/etc/sftpgo/certs/sftpgo.com.crt",
     "certificate_key_file": "/etc/sftpgo/certs/sftpgo.com.key",
     "ca_certificates": [],
-    "ca_revocation_lists": []
+    "ca_revocation_lists": [],
+    ....
   }
 ```
 

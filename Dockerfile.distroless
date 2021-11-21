@@ -40,6 +40,7 @@ COPY --from=builder --chown=1000:1000 /var/lib/sftpgo /var/lib/sftpgo
 COPY --from=builder --chown=1000:1000 /workspace/sftpgo.json /etc/sftpgo/sftpgo.json
 COPY --from=builder /workspace/templates /usr/share/sftpgo/templates
 COPY --from=builder /workspace/static /usr/share/sftpgo/static
+COPY --from=builder /workspace/openapi /usr/share/sftpgo/openapi
 COPY --from=builder /workspace/sftpgo /usr/local/bin/
 COPY --from=builder /etc/mime.types /etc/mime.types
 
@@ -49,6 +50,7 @@ ENV SFTPGO_LOG_FILE_PATH=""
 ENV SFTPGO_HTTPD__TEMPLATES_PATH=/usr/share/sftpgo/templates
 ENV SFTPGO_SMTP__TEMPLATES_PATH=/usr/share/sftpgo/templates
 ENV SFTPGO_HTTPD__STATIC_FILES_PATH=/usr/share/sftpgo/static
+ENV SFTPGO_HTTPD__OPENAPI_PATH=/usr/share/sftpgo/openapi
 # These env vars are required to avoid the following error when calling user.Current():
 # unable to get the current user: user: Current requires cgo or $USER set in environment
 ENV USER=sftpgo

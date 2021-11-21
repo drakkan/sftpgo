@@ -66,7 +66,7 @@ else
 fi
 ```
 
-The structure for SFTPGo users can be found within the [OpenAPI schema](../httpd/schema/openapi.yaml).
+The structure for SFTPGo users can be found within the [OpenAPI schema](../openapi/openapi.yaml).
 
 You can disable the hook on a per-user basis so that you can mix external and internal users.
 

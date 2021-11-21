@@ -42,6 +42,7 @@ sed -i "s|\"users_base_dir\": \"\",|\"users_base_dir\": \"/srv/sftpgo/data\",|" 
 sed -i "s|\"templates\"|\"/usr/share/sftpgo/templates\"|" sftpgo.json
 sed -i "s|\"static\"|\"/usr/share/sftpgo/static\"|" sftpgo.json
 sed -i "s|\"backups\"|\"/srv/sftpgo/backups\"|" sftpgo.json
+sed -i "s|\"openapi\"|\"/usr/share/sftpgo/openapi\"|" sftpgo.json
 sed -i "s|\"credentials\"|\"/var/lib/sftpgo/credentials\"|" sftpgo.json
 
 cat >nfpm.yaml <<EOF
@@ -81,6 +82,9 @@ contents:
 
   - src: "${BASE_DIR}/static/*"
     dst: "/usr/share/sftpgo/static/"
+
+  - src: "${BASE_DIR}/openapi/*"
+    dst: "/usr/share/sftpgo/openapi/"
 
   - src: "./sftpgo.json"
     dst: "/etc/sftpgo/sftpgo.json"

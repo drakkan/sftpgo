@@ -1,6 +1,6 @@
 # Account's configuration properties
 
-Please take a look at the [OpenAPI schema](../httpd/schema/openapi.yaml) for the exact definitions of user, folder and admin fields.
+Please take a look at the [OpenAPI schema](../openapi/openapi.yaml) for the exact definitions of user, folder and admin fields.
 If you need an example you can export a dump using the Web Admin or by invoking the `dumpdata` endpoint directly, you need to obtain an access token first, for example:
 
 ```shell

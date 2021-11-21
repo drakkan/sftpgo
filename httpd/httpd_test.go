@@ -14837,8 +14837,36 @@ func TestGetWebStatusMock(t *testing.T) {
 }
 
 func TestStaticFilesMock(t *testing.T) {
-	req, _ := http.NewRequest(http.MethodGet, "/static/favicon.ico", nil)
+	req, err := http.NewRequest(http.MethodGet, "/static/favicon.ico", nil)
+	assert.NoError(t, err)
 	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodGet, "/openapi/openapi.yaml", nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodGet, "/static", nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusMovedPermanently, rr)
+	location := rr.Header().Get("Location")
+	assert.Equal(t, "/static/", location)
+	req, err = http.NewRequest(http.MethodGet, location, nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodGet, "/openapi", nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusMovedPermanently, rr)
+	location = rr.Header().Get("Location")
+	assert.Equal(t, "/openapi/", location)
+	req, err = http.NewRequest(http.MethodGet, location, nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 }
 

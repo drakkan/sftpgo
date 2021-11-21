@@ -98,29 +98,12 @@ jobs:
           cp sftpgo.json output/
           cp -r templates output/
           cp -r static output/
+          cp -r openapi output/
           cp init/com.github.drakkan.sftpgo.plist output/init/
           ./sftpgo gen completion bash > output/bash_completion/sftpgo
           ./sftpgo gen completion zsh > output/zsh_completion/_sftpgo
           ./sftpgo gen man -d output/man/man1
           gzip output/man/man1/*
-
-      - name: Prepare build artifact for Windows
-        if: startsWith(matrix.os, 'windows-')
-        run: |
-          mkdir output
-          copy .\sftpgo.exe .\output
-          copy .\sftpgo.json .\output
-          mkdir output\templates
-          xcopy .\templates .\output\templates\ /E
-          mkdir output\static
-          xcopy .\static .\output\static\ /E
-
-      - name: Upload build artifact
-        if: startsWith(matrix.os, 'ubuntu-') != true
-        uses: actions/upload-artifact@v2
-        with:
-          name: sftpgo-${{ matrix.os }}-go-${{ matrix.go }}
-          path: output
 
       - name: Prepare Windows installer
         if: ${{ startsWith(matrix.os, 'windows-') && github.event_name != 'pull_request' }}
@@ -135,6 +118,8 @@ jobs:
           xcopy .\templates .\output\templates\ /E
           mkdir output\static
           xcopy .\static .\output\static\ /E
+          mkdir output\openapi
+          xcopy .\openapi .\output\openapi\ /E
           $LATEST_TAG = ((git describe --tags $(git rev-list --tags --max-count=1)) | Out-String).Trim()
           $REV_LIST=$LATEST_TAG+"..HEAD"
           $COMMITS_FROM_TAG= ((git rev-list $REV_LIST --count) | Out-String).Trim()
@@ -143,8 +128,9 @@ jobs:
           [IO.File]::WriteAllBytes($CERT_PATH,[System.Convert]::FromBase64String($Env:CERT_DATA))
           certutil -f -p "$Env:CERT_PASS" -importpfx MY "$CERT_PATH"
           rm "$CERT_PATH"
+          & 'C:/Program Files (x86)/Windows Kits/10/bin/10.0.17763.0/x86/signtool.exe' sign /sm /tr http://timestamp.sectigo.com /td sha256 /fd sha256 /n "Nicola Murino" /d "SFTPGo" .\sftpgo.exe
           $INNO_S='/Ssigntool=$qC:/Program Files (x86)/Windows Kits/10/bin/10.0.17763.0/x86/signtool.exe$q sign /sm /tr http://timestamp.sectigo.com /td sha256 /fd sha256 /n $qNicola Murino$q /d $qSFTPGo$q $f'
-          iscc "$INNO_S" windows-installer\sftpgo.iss
+          iscc "$INNO_S" .\windows-installer\sftpgo.iss
           certutil -delstore MY "Nicola Murino"
         env:
           CERT_DATA: ${{ secrets.CERT_DATA }}
@@ -156,6 +142,27 @@ jobs:
         with:
           name: sftpgo_windows_installer_x86_64
           path: ./sftpgo_windows_x86_64.exe
+
+      - name: Prepare build artifact for Windows
+        if: startsWith(matrix.os, 'windows-')
+        run: |
+          Remove-Item -LiteralPath "output" -Force -Recurse -ErrorAction Ignore
+          mkdir output
+          copy .\sftpgo.exe .\output
+          copy .\sftpgo.json .\output
+          mkdir output\templates
+          xcopy .\templates .\output\templates\ /E
+          mkdir output\static
+          xcopy .\static .\output\static\ /E
+          mkdir output\openapi
+          xcopy .\openapi .\output\openapi\ /E
+
+      - name: Upload build artifact
+        if: startsWith(matrix.os, 'ubuntu-') != true
+        uses: actions/upload-artifact@v2
+        with:
+          name: sftpgo-${{ matrix.os }}-go-${{ matrix.go }}
+          path: output
 
   test-goarch-386:
     name: Run test cases on 32-bit arch
@@ -308,6 +315,7 @@ jobs:
           cp sftpgo.json output/
           cp -r templates output/
           cp -r static output/
+          cp -r openapi output/
           cp init/sftpgo.service output/init/
           ./sftpgo gen completion bash > output/bash_completion/sftpgo
           ./sftpgo gen completion zsh > output/zsh_completion/_sftpgo
@@ -354,6 +362,7 @@ jobs:
             cp sftpgo.json output/
             cp -r templates output/
             cp -r static output/
+            cp -r openapi output/
             cp init/sftpgo.service output/init/
             ./sftpgo gen completion bash > output/bash_completion/sftpgo
             ./sftpgo gen completion zsh > output/zsh_completion/_sftpgo

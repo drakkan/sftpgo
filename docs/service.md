@@ -38,6 +38,7 @@ sudo install -Dm644 sftpgo.json /etc/sftpgo/
 # override some configuration keys using environment variables
 sudo sh -c 'echo "SFTPGO_HTTPD__TEMPLATES_PATH=/usr/share/sftpgo/templates" > /etc/sftpgo/sftpgo.env'
 sudo sh -c 'echo "SFTPGO_HTTPD__STATIC_FILES_PATH=/usr/share/sftpgo/static" >> /etc/sftpgo/sftpgo.env'
+sudo sh -c 'echo "SFTPGO_HTTPD__OPENAPI_PATH=/usr/share/sftpgo/openapi" >> /etc/sftpgo/sftpgo.env'
 sudo sh -c 'echo "SFTPGO_HTTPD__BACKUPS_PATH=/var/lib/sftpgo/backups" >> /etc/sftpgo/sftpgo.env'
 sudo sh -c 'echo "SFTPGO_DATA_PROVIDER__CREDENTIALS_PATH=/var/lib/sftpgo/credentials" >> /etc/sftpgo/sftpgo.env'
 # if you use a file based data provider such as sqlite or bolt consider to set the database path too, for example:

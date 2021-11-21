@@ -78,6 +78,7 @@ var (
 		TLSCipherSuites: nil,
 		ProxyAllowed:    nil,
 		HideLoginURL:    0,
+		RenderOpenAPI:   true,
 	}
 	defaultRateLimiter = common.RateLimiterConfig{
 		Average:                0,
@@ -273,6 +274,7 @@ func Init() {
 			TemplatesPath:      "templates",
 			StaticFilesPath:    "static",
 			BackupsPath:        "backups",
+			OpenAPIPath:        "openapi",
 			WebRoot:            "",
 			CertificateFile:    "",
 			CertificateKeyFile: "",
@@ -992,6 +994,7 @@ func getHTTPDBindingFromEnv(idx int) {
 	binding := httpd.Binding{
 		EnableWebAdmin:  true,
 		EnableWebClient: true,
+		RenderOpenAPI:   true,
 	}
 	if len(globalConf.HTTPDConfig.Bindings) > idx {
 		binding = globalConf.HTTPDConfig.Bindings[idx]
@@ -1020,6 +1023,12 @@ func getHTTPDBindingFromEnv(idx int) {
 	enableWebClient, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__ENABLE_WEB_CLIENT", idx))
 	if ok {
 		binding.EnableWebClient = enableWebClient
+		isSet = true
+	}
+
+	renderOpenAPI, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__RENDER_OPENAPI", idx))
+	if ok {
+		binding.RenderOpenAPI = renderOpenAPI
 		isSet = true
 	}
 
@@ -1219,6 +1228,7 @@ func setViperDefaults() {
 	viper.SetDefault("httpd.templates_path", globalConf.HTTPDConfig.TemplatesPath)
 	viper.SetDefault("httpd.static_files_path", globalConf.HTTPDConfig.StaticFilesPath)
 	viper.SetDefault("httpd.backups_path", globalConf.HTTPDConfig.BackupsPath)
+	viper.SetDefault("httpd.openapi_path", globalConf.HTTPDConfig.OpenAPIPath)
 	viper.SetDefault("httpd.web_root", globalConf.HTTPDConfig.WebRoot)
 	viper.SetDefault("httpd.certificate_file", globalConf.HTTPDConfig.CertificateFile)
 	viper.SetDefault("httpd.certificate_key_file", globalConf.HTTPDConfig.CertificateKeyFile)

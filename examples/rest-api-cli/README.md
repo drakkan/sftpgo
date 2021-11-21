@@ -1,6 +1,6 @@
 # REST API CLI client
 
-:warning: This sample client is deprecated and it will work only with API V1 (SFTPGo <= 1.2.2). You can easily build your own client from the [OpenAPI](../../httpd/schema/openapi.yaml) schema or use [Swagger UI](https://github.com/swagger-api/swagger-ui).
+:warning: This sample client is deprecated and it will work only with API V1 (SFTPGo <= 1.2.2). You can easily build your own client from the [OpenAPI](../../openapi/openapi.yaml) schema or use [Swagger UI](https://github.com/swagger-api/swagger-ui).
 
 `sftpgo_api_cli` is a very simple command line client for `SFTPGo` REST API written in python.
 

@@ -209,12 +209,14 @@
         "client_auth_type": 0,
         "tls_cipher_suites": [],
         "proxy_allowed": [],
-        "hide_login_url": 0
+        "hide_login_url": 0,
+        "render_openapi": true
       }
     ],
     "templates_path": "templates",
     "static_files_path": "static",
     "backups_path": "backups",
+    "openapi_path": "openapi",
     "web_root": "",
     "certificate_file": "",
     "certificate_key_file": "",

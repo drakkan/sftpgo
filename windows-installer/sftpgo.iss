@@ -52,6 +52,7 @@ Source: "{#MyAppDir}\LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#MyAppDir}\sftpgo.json"; DestDir: "{commonappdata}\{#MyAppName}"; Flags: onlyifdoesntexist uninsneveruninstall
 Source: "{#MyAppDir}\templates\*"; DestDir: "{commonappdata}\{#MyAppName}\templates"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#MyAppDir}\static\*"; DestDir: "{commonappdata}\{#MyAppName}\static"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#MyAppDir}\openapi\*"; DestDir: "{commonappdata}\{#MyAppName}\openapi"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Dirs]
 Name: "{commonappdata}\{#MyAppName}\logs"; Permissions: everyone-full
@@ -61,6 +62,7 @@ Name: "{commonappdata}\{#MyAppName}\credentials"; Permissions: everyone-full
 [Icons]
 Name: "{group}\Web Admin"; Filename: "http://127.0.0.1:8080/web/admin";
 Name: "{group}\Web Client"; Filename: "http://127.0.0.1:8080/web/client";
+Name: "{group}\OpenAPI"; Filename: "http://127.0.0.1:8080/openapi";
 Name: "{group}\Service Control";  WorkingDir: "{app}"; Filename: "powershell.exe"; Parameters: "-Command ""Start-Process cmd \""/k cd {app} & {#MyAppExeName} service --help\"" -Verb RunAs"; Comment: "Manage SFTPGo Service"
 Name: "{group}\Documentation"; Filename: "{#DocURL}";
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
