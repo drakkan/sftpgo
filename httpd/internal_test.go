@@ -317,6 +317,9 @@ func TestMappedStatusCode(t *testing.T) {
 	err = os.ErrNotExist
 	code = getMappedStatusCode(err)
 	assert.Equal(t, http.StatusNotFound, code)
+	err = common.ErrQuotaExceeded
+	code = getMappedStatusCode(err)
+	assert.Equal(t, http.StatusRequestEntityTooLarge, code)
 	err = os.ErrClosed
 	code = getMappedStatusCode(err)
 	assert.Equal(t, http.StatusInternalServerError, code)

@@ -10372,7 +10372,7 @@ func TestWebUploadSFTP(t *testing.T) {
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusInternalServerError, rr)
+	checkResponseCode(t, http.StatusRequestEntityTooLarge, rr)
 	assert.Contains(t, rr.Body.String(), "denying write due to space limit")
 	// delete the file
 	req, err = http.NewRequest(http.MethodDelete, userFilesPath+"?path=file.txt", nil)
@@ -10388,7 +10388,7 @@ func TestWebUploadSFTP(t *testing.T) {
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusInternalServerError, rr)
+	checkResponseCode(t, http.StatusRequestEntityTooLarge, rr)
 	assert.Contains(t, rr.Body.String(), "denying write due to space limit")
 
 	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)

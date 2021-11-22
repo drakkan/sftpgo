@@ -98,6 +98,8 @@ func getMappedStatusCode(err error) int {
 		statusCode = http.StatusForbidden
 	case os.ErrNotExist:
 		statusCode = http.StatusNotFound
+	case common.ErrQuotaExceeded:
+		statusCode = http.StatusRequestEntityTooLarge
 	default:
 		statusCode = http.StatusInternalServerError
 	}

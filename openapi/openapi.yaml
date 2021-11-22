@@ -124,6 +124,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '413':
+          $ref: '#/components/responses/RequestEntityTooLarge'
         '500':
           $ref: '#/components/responses/InternalServerError'
         default:
@@ -3610,6 +3612,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '413':
+          $ref: '#/components/responses/RequestEntityTooLarge'
         '500':
           $ref: '#/components/responses/InternalServerError'
         default:
@@ -3746,6 +3750,12 @@ components:
             $ref: '#/components/schemas/ApiResponse'
     Conflict:
       description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiResponse'
+    RequestEntityTooLarge:
+      description: Request Entity Too Large, max allowed size exceeded
       content:
         application/json:
           schema:

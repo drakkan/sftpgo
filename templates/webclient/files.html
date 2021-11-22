@@ -84,15 +84,15 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="uploadFilesModalLabel">
-                    Upload one or more files
+                    Upload a file
                 </h5>
                 <button class="close" type="button" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
-            <form id="upload_files_form" action="" method="POST" enctype="multipart/form-data">
-                <div class="modal-body">
-                    <input type="file" class="form-control-file" id="files_name" name="filenames" required multiple>
+            <form id="upload_files_form" action="{{.FilesURL}}?path={{.CurrentDir}}" method="POST" enctype="multipart/form-data">
+                 <div class="modal-body">
+                    <input type="file" class="form-control-file" id="files_name" name="filenames" required>
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary" type="button" data-dismiss="modal">Cancel</button>
@@ -157,6 +157,13 @@
                 </a>
             </div>
         </div>
+    </div>
+</div>
+
+<div class="modal fade" id="spinnerModal" tabindex="-1" role="dialog" data-keyboard="false" data-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered justify-content-center" role="document">
+        <span style="color: #333333;" class="fa fa-spinner fa-spin fa-3x"></span>
+        <!-- <span id="uploadProgress" style="color: #3A3B3C;" class="mx-3"></span> -->
     </div>
 </div>
 {{end}}
@@ -329,6 +336,13 @@
         });
     }
 
+    function keepAlive() {
+        $.ajax({
+            url: '{{.ProfileURL}}',
+            timeout: 15000
+        });
+    }
+
     $(document).ready(function () {
         $("#create_dir_form").submit(function (event) {
             event.preventDefault();
@@ -368,7 +382,7 @@
 
         $("#upload_files_form").submit(function (event){
             event.preventDefault();
-            $('uploadFilesModal').modal('hide');
+            var keepAliveTimer = setInterval(keepAlive, 90000);
             var path = '{{.FilesURL}}?path={{.CurrentDir}}';
             $.ajax({
                 url: path,
@@ -377,11 +391,18 @@
                 processData: false,
                 contentType: false,
                 headers: { 'X-CSRF-TOKEN': '{{.CSRFToken}}' },
-                timeout: 15000,
+                timeout: 0,
+                beforeSend: function () {
+                    $('#uploadFilesModal').modal('hide');
+                    $('#spinnerModal').modal('show');
+                },
                 success: function (result) {
+                    clearInterval(keepAliveTimer);
                     location.reload();
                 },
                 error: function ($xhr, textStatus, errorThrown) {
+                    clearInterval(keepAliveTimer);
+                    $('#spinnerModal').modal('hide');
                     var txt = "Error uploading files";
                     if ($xhr) {
                         var json = $xhr.responseJSON;
