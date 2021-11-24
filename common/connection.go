@@ -573,16 +573,22 @@ func (c *BaseConnection) SetStat(virtualPath string, attributes *StatAttributes)
 	}
 	pathForPerms := c.getPathForSetStatPerms(fs, fsPath, virtualPath)
 
+	if attributes.Flags&StatAttrTimes != 0 {
+		if err = c.handleChtimes(fs, fsPath, pathForPerms, attributes); err != nil {
+			return err
+		}
+	}
+
 	if attributes.Flags&StatAttrPerms != 0 {
-		return c.handleChmod(fs, fsPath, pathForPerms, attributes)
+		if err = c.handleChmod(fs, fsPath, pathForPerms, attributes); err != nil {
+			return err
+		}
 	}
 
 	if attributes.Flags&StatAttrUIDGID != 0 {
-		return c.handleChown(fs, fsPath, pathForPerms, attributes)
-	}
-
-	if attributes.Flags&StatAttrTimes != 0 {
-		return c.handleChtimes(fs, fsPath, pathForPerms, attributes)
+		if err = c.handleChown(fs, fsPath, pathForPerms, attributes); err != nil {
+			return err
+		}
 	}
 
 	if attributes.Flags&StatAttrSize != 0 {
@@ -590,7 +596,7 @@ func (c *BaseConnection) SetStat(virtualPath string, attributes *StatAttributes)
 			return c.GetPermissionDeniedError()
 		}
 
-		if err := c.truncateFile(fs, fsPath, virtualPath, attributes.Size); err != nil {
+		if err = c.truncateFile(fs, fsPath, virtualPath, attributes.Size); err != nil {
 			c.Log(logger.LevelWarn, "failed to truncate path %#v, size: %v, err: %+v", fsPath, attributes.Size, err)
 			return c.GetFsError(fs, err)
 		}
