@@ -340,7 +340,7 @@ jobs:
             apt-get install -q -y curl gcc git
             if [ ${{ matrix.go }} == 'latest' ]
             then
-              GO_VERSION=$(curl https://golang.org/VERSION?m=text)
+              GO_VERSION=$(curl -L https://go.dev/VERSION?m=text)
             else
               GO_VERSION=${{ matrix.go }}
             fi
@@ -349,7 +349,7 @@ jobs:
             then
               GO_DOWNLOAD_ARCH=armv6l
             fi
-            curl --retry 5 --retry-delay 2 --connect-timeout 10 -o go.tar.gz -L https://golang.org/dl/${GO_VERSION}.linux-${GO_DOWNLOAD_ARCH}.tar.gz
+            curl --retry 5 --retry-delay 2 --connect-timeout 10 -o go.tar.gz -L https://go.dev/dl/${GO_VERSION}.linux-${GO_DOWNLOAD_ARCH}.tar.gz
             tar -C /usr/local -xzf go.tar.gz
           run: |
             export PATH=$PATH:/usr/local/go/bin

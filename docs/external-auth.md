@@ -39,6 +39,8 @@ If authentication succeeds the HTTP response code must be 200 and the response b
 
 If the authentication fails the HTTP response code must be != 200 or the returned SFTPGo user must have an empty username.
 
+If the hook returns a user who is only allowed to authenticate using public key + password (multi step authentication), your hook will be invoked for each authentication step, so it must validate the public key and password separately. SFTPGo will take care that the client uses the allowed sequence.
+
 Actions defined for users added/updated will not be executed in this case and an already logged in user with the same username will not be disconnected.
 
 The program hook must finish within 30 seconds, the HTTP hook timeout will use the global configuration for HTTP clients.

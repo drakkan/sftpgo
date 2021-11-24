@@ -293,7 +293,7 @@ jobs:
             then
               GO_DOWNLOAD_ARCH=armv6l
             fi
-            curl --retry 5 --retry-delay 2 --connect-timeout 10 -o go.tar.gz -L https://golang.org/dl/go${{ steps.get_version.outputs.GO_VERSION }}.linux-${GO_DOWNLOAD_ARCH}.tar.gz
+            curl --retry 5 --retry-delay 2 --connect-timeout 10 -o go.tar.gz -L https://go.dev/dl/go${{ steps.get_version.outputs.GO_VERSION }}.linux-${GO_DOWNLOAD_ARCH}.tar.gz
             tar -C /usr/local -xzf go.tar.gz
           run: |
             export PATH=$PATH:/usr/local/go/bin

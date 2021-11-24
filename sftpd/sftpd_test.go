@@ -2802,6 +2802,74 @@ func TestLoginExternalAuthPwdAndPubKey(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestExternalAuthMultiStepLoginKeyAndPwd(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("this test is not available on Windows")
+	}
+	u := getTestUser(true)
+	u.Password = defaultPassword
+	u.Filters.DeniedLoginMethods = append(u.Filters.DeniedLoginMethods, []string{
+		dataprovider.SSHLoginMethodKeyAndKeyboardInt,
+		dataprovider.SSHLoginMethodPublicKey,
+		dataprovider.LoginMethodPassword,
+		dataprovider.SSHLoginMethodKeyboardInteractive,
+	}...)
+
+	err := dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf := config.GetProviderConf()
+	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u, false, false, ""), os.ModePerm)
+	assert.NoError(t, err)
+	providerConf.ExternalAuthHook = extAuthPath
+	providerConf.ExternalAuthScope = 0
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+
+	signer, err := ssh.ParsePrivateKey([]byte(testPrivateKey))
+	assert.NoError(t, err)
+	authMethods := []ssh.AuthMethod{
+		ssh.PublicKeys(signer),
+		ssh.Password(defaultPassword),
+	}
+	conn, client, err := getCustomAuthSftpClient(u, authMethods, "")
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		assert.NoError(t, checkBasicSFTP(client))
+	}
+	// wrong sequence should fail
+	authMethods = []ssh.AuthMethod{
+		ssh.Password(defaultPassword),
+		ssh.PublicKeys(signer),
+	}
+	_, _, err = getCustomAuthSftpClient(u, authMethods, "")
+	assert.Error(t, err)
+
+	// public key only auth must fail
+	_, _, err = getSftpClient(u, true)
+	assert.Error(t, err)
+	// password only auth must fail
+	_, _, err = getSftpClient(u, false)
+	assert.Error(t, err)
+
+	_, err = httpdtest.RemoveUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(u.GetHomeDir())
+	assert.NoError(t, err)
+
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf = config.GetProviderConf()
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+	err = os.Remove(extAuthPath)
+	assert.NoError(t, err)
+}
+
 func TestExternalAuthEmptyResponse(t *testing.T) {
 	if runtime.GOOS == osWindows {
 		t.Skip("this test is not available on Windows")
