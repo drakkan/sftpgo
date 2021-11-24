@@ -48,6 +48,7 @@ var (
 	portableS3KeyPrefix                string
 	portableS3ULPartSize               int
 	portableS3ULConcurrency            int
+	portableS3ForcePathStyle           bool
 	portableGCSBucket                  string
 	portableGCSCredentialsFile         string
 	portableGCSAutoCredentials         int
@@ -174,6 +175,7 @@ Please take a look at the usage below to customize the serving parameters`,
 								KeyPrefix:         portableS3KeyPrefix,
 								UploadPartSize:    int64(portableS3ULPartSize),
 								UploadConcurrency: portableS3ULConcurrency,
+								ForcePathStyle:    portableS3ForcePathStyle,
 							},
 						},
 						GCSConfig: vfs.GCSFsConfig{
@@ -298,6 +300,7 @@ prefix and its contents`)
 (MB)`)
 	portableCmd.Flags().IntVar(&portableS3ULConcurrency, "s3-upload-concurrency", 2, `How many parts are uploaded in
 parallel`)
+	portableCmd.Flags().BoolVar(&portableS3ForcePathStyle, "s3-force-path-style", false, `Force path style bucket URL`)
 	portableCmd.Flags().StringVar(&portableGCSBucket, "gcs-bucket", "", "")
 	portableCmd.Flags().StringVar(&portableGCSStorageClass, "gcs-storage-class", "", "")
 	portableCmd.Flags().StringVar(&portableGCSKeyPrefix, "gcs-key-prefix", "", `Allows to restrict access to the
