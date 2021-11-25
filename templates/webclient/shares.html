@@ -32,6 +32,7 @@
                         <th>Name</th>
                         <th>Scope</th>
                         <th>Info</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -41,6 +42,7 @@
                         <td>{{.Name}}</td>
                         <td>{{.GetScopeAsString}}</td>
                         <td>{{.GetInfoString}}</td>
+                        <td>{{if .IsExpired}}1{{else}}0{{end}}</td>
                     </tr>
                     {{end}}
                 </tbody>
@@ -96,6 +98,9 @@
                     <p>You can upload one or more files to the shared directory by sending a multipart/form-data request to this <a id="writeLink" href="#" target="_blank">link</a>. The form field name for the file(s) is <b><code>filenames</code></b>.</p>
                     <p>For example:</p>
                     <p><code>curl -F filenames=@file1.txt -F filenames=@file2.txt "share link"</code></p>
+                </div>
+                <div id="expiredShare">
+                    This share is no longer accessible because it has expired
                 </div>
             </div>
             <div class="modal-footer">
@@ -195,17 +200,26 @@
                 var shareData = dt.row({ selected: true }).data();
                 var shareID = shareData[0];
                 var shareScope = shareData[2];
-                var shareURL = '{{.BasePublicSharesURL}}' + "/" + fixedEncodeURIComponent(shareID);
-                if (shareScope == 'Read'){
+                var isExpired = shareData[4];
+                if (isExpired == "1"){
+                    $('#expiredShare').show();
                     $('#writeShare').hide();
-                    $('#readShare').show();
-                    $('#readLink').attr("href", shareURL);
-                    $('#readLink').attr("title", shareURL);
-                } else {
-                    $('#writeShare').show();
                     $('#readShare').hide();
-                    $('#writeLink').attr("href", shareURL);
-                    $('#writeLink').attr("title", shareURL);
+                } else {
+                    var shareURL = '{{.BasePublicSharesURL}}' + "/" + fixedEncodeURIComponent(shareID);
+                    if (shareScope == 'Read'){
+                        $('#expiredShare').hide();
+                        $('#writeShare').hide();
+                        $('#readShare').show();
+                        $('#readLink').attr("href", shareURL);
+                        $('#readLink').attr("title", shareURL);
+                    } else {
+                        $('#expiredShare').hide();
+                        $('#writeShare').show();
+                        $('#readShare').hide();
+                        $('#writeLink').attr("href", shareURL);
+                        $('#writeLink').attr("title", shareURL);
+                    }
                 }
                 $('#linkModal').modal('show');
             },
@@ -222,7 +236,7 @@
             "buttons": [],
             "columnDefs": [
                 {
-                    "targets": [0],
+                    "targets": [0, 4],
                     "visible": false,
                     "searchable": false
                 }

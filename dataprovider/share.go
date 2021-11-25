@@ -67,6 +67,14 @@ func (s *Share) GetScopeAsString() string {
 	}
 }
 
+// IsExpired returns true if the share is expired
+func (s *Share) IsExpired() bool {
+	if s.ExpiresAt > 0 {
+		return s.ExpiresAt < util.GetTimeAsMsSinceEpoch(time.Now())
+	}
+	return false
+}
+
 // GetInfoString returns share's info as string.
 func (s *Share) GetInfoString() string {
 	var result strings.Builder
@@ -220,6 +228,7 @@ func (s *Share) validate() error {
 	if err := s.hashPassword(); err != nil {
 		return err
 	}
+	s.AllowFrom = util.RemoveDuplicates(s.AllowFrom)
 	for _, IPMask := range s.AllowFrom {
 		_, _, err := net.ParseCIDR(IPMask)
 		if err != nil {

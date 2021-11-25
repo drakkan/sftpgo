@@ -220,6 +220,7 @@ func (a *Admin) validate() error {
 	if a.Email != "" && !emailRegex.MatchString(a.Email) {
 		return util.NewValidationError(fmt.Sprintf("email %#v is not valid", a.Email))
 	}
+	a.Filters.AllowList = util.RemoveDuplicates(a.Filters.AllowList)
 	for _, IPMask := range a.Filters.AllowList {
 		_, _, err := net.ParseCIDR(IPMask)
 		if err != nil {

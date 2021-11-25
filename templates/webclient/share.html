@@ -118,8 +118,8 @@
             <div class="form-group row">
                 <label for="idAllowedIP" class="col-sm-2 col-form-label">Allowed IP/Mask</label>
                 <div class="col-sm-10">
-                    <input type="text" class="form-control" id="idAllowedIP" name="allowed_ip" placeholder=""
-                        value="{{.Share.GetAllowedFromAsString}}" maxlength="255" aria-describedby="allowedIPHelpBlock">
+                    <textarea class="form-control" id="idAllowedIP" name="allowed_ip" rows="3" placeholder=""
+                        aria-describedby="allowedIPHelpBlock">{{.Share.GetAllowedFromAsString}}</textarea>
                     <small id="allowedIPHelpBlock" class="form-text text-muted">
                         Comma separated IP/Mask in CIDR format, for example "192.168.1.0/24,10.8.0.100/32"
                     </small>
