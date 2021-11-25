@@ -254,6 +254,8 @@ xr5cb9VBRBtB9aOKVfuRhpatAfS2Pzm2Htae9lFn7slGPUmu2hkjDw==
 
 type mockFTPClientContext struct {
 	lastDataChannel ftpserver.DataChannel
+	remoteIP        string
+	localIP         string
 }
 
 func (cc mockFTPClientContext) Path() string {
@@ -271,11 +273,19 @@ func (cc mockFTPClientContext) ID() uint32 {
 }
 
 func (cc mockFTPClientContext) RemoteAddr() net.Addr {
-	return &net.IPAddr{IP: []byte("127.0.0.1")}
+	ip := "127.0.0.1"
+	if cc.remoteIP != "" {
+		ip = cc.remoteIP
+	}
+	return &net.IPAddr{IP: net.ParseIP(ip)}
 }
 
 func (cc mockFTPClientContext) LocalAddr() net.Addr {
-	return &net.IPAddr{IP: []byte("127.0.0.1")}
+	ip := "127.0.0.1"
+	if cc.localIP != "" {
+		ip = cc.localIP
+	}
+	return &net.IPAddr{IP: net.ParseIP(ip)}
 }
 
 func (cc mockFTPClientContext) GetClientVersion() string {
@@ -923,4 +933,70 @@ func TestCiphers(t *testing.T) {
 	b.setCiphers()
 	require.Len(t, b.ciphers, 2)
 	require.Equal(t, []uint16{tls.TLS_AES_128_GCM_SHA256, tls.TLS_AES_256_GCM_SHA384}, b.ciphers)
+}
+
+func TestPassiveIPResolver(t *testing.T) {
+	b := Binding{
+		PassiveIPOverrides: []PassiveIPOverride{
+			{},
+		},
+	}
+	err := b.checkPassiveIP()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "passive IP networks override cannot be empty")
+	b = Binding{
+		PassiveIPOverrides: []PassiveIPOverride{
+			{
+				IP: "invalid ip",
+			},
+		},
+	}
+	err = b.checkPassiveIP()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "is not valid")
+
+	b = Binding{
+		PassiveIPOverrides: []PassiveIPOverride{
+			{
+				IP:       "192.168.1.1",
+				Networks: []string{"192.168.1.0/24", "invalid cidr"},
+			},
+		},
+	}
+	err = b.checkPassiveIP()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid passive IP networks override")
+	b = Binding{
+		ForcePassiveIP: "192.168.2.1",
+		PassiveIPOverrides: []PassiveIPOverride{
+			{
+				IP:       "::ffff:192.168.1.1",
+				Networks: []string{"192.168.1.0/24"},
+			},
+		},
+	}
+	err = b.checkPassiveIP()
+	assert.NoError(t, err)
+	assert.Equal(t, "192.168.1.1", b.PassiveIPOverrides[0].IP)
+	require.Len(t, b.PassiveIPOverrides[0].parsedNetworks, 1)
+	ip := net.ParseIP("192.168.1.2")
+	assert.True(t, b.PassiveIPOverrides[0].parsedNetworks[0](ip))
+	ip = net.ParseIP("192.168.0.2")
+	assert.False(t, b.PassiveIPOverrides[0].parsedNetworks[0](ip))
+
+	mockCC := mockFTPClientContext{
+		remoteIP: "192.168.1.10",
+		localIP:  "192.168.1.3",
+	}
+	passiveIP, err := b.passiveIPResolver(mockCC)
+	assert.NoError(t, err)
+	assert.Equal(t, "192.168.1.1", passiveIP)
+	b.PassiveIPOverrides[0].IP = ""
+	passiveIP, err = b.passiveIPResolver(mockCC)
+	assert.NoError(t, err)
+	assert.Equal(t, "192.168.1.3", passiveIP)
+	mockCC.remoteIP = "172.16.2.3"
+	passiveIP, err = b.passiveIPResolver(mockCC)
+	assert.NoError(t, err)
+	assert.Equal(t, b.ForcePassiveIP, passiveIP)
 }

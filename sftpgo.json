@@ -86,6 +86,7 @@
         "apply_proxy_config": true,
         "tls_mode": 0,
         "force_passive_ip": "",
+        "passive_ip_overrides": [],
         "client_auth_type": 0,
         "tls_cipher_suites": [],
         "passive_connections_security": 0,

@@ -53,6 +53,7 @@ var (
 		ApplyProxyConfig:           true,
 		TLSMode:                    0,
 		ForcePassiveIP:             "",
+		PassiveIPOverrides:         nil,
 		ClientAuthType:             0,
 		TLSCipherSuites:            nil,
 		PassiveConnectionsSecurity: 0,
@@ -852,6 +853,31 @@ func getSFTPDBindindFromEnv(idx int) {
 	}
 }
 
+func getFTPDPassiveIPOverridesFromEnv(idx int) []ftpd.PassiveIPOverride {
+	var overrides []ftpd.PassiveIPOverride
+
+	for subIdx := 0; subIdx < 10; subIdx++ {
+		var override ftpd.PassiveIPOverride
+
+		ip, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__PASSIVE_IP_OVERRIDES__%v__IP", idx, subIdx))
+		if ok {
+			override.IP = ip
+		}
+
+		networks, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__PASSIVE_IP_OVERRIDES__%v__NETWORKS",
+			idx, subIdx))
+		if ok {
+			override.Networks = networks
+		}
+
+		if len(override.Networks) > 0 {
+			overrides = append(overrides, override)
+		}
+	}
+
+	return overrides
+}
+
 func getFTPDBindingFromEnv(idx int) {
 	binding := ftpd.Binding{
 		ApplyProxyConfig: true,
@@ -889,6 +915,12 @@ func getFTPDBindingFromEnv(idx int) {
 	passiveIP, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__FORCE_PASSIVE_IP", idx))
 	if ok {
 		binding.ForcePassiveIP = passiveIP
+		isSet = true
+	}
+
+	passiveIPOverrides := getFTPDPassiveIPOverridesFromEnv(idx)
+	if len(passiveIPOverrides) > 0 {
+		binding.PassiveIPOverrides = passiveIPOverrides
 		isSet = true
 	}
 

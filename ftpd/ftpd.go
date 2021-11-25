@@ -2,9 +2,11 @@
 package ftpd
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"path/filepath"
+	"strings"
 
 	ftpserver "github.com/fclairamb/ftpserverlib"
 
@@ -22,6 +24,14 @@ var (
 	serviceStatus ServiceStatus
 )
 
+// PassiveIPOverride defines an exception for the configured passive IP
+type PassiveIPOverride struct {
+	Networks []string `json:"networks" mapstructure:"networks"`
+	// if empty the local address will be returned
+	IP             string `json:"ip" mapstructure:"ip"`
+	parsedNetworks []func(net.IP) bool
+}
+
 // Binding defines the configuration for a network listener
 type Binding struct {
 	// The address to listen on. A blank value means listen on all available network interfaces.
@@ -35,6 +45,9 @@ type Binding struct {
 	TLSMode int `json:"tls_mode" mapstructure:"tls_mode"`
 	// External IP address to expose for passive connections.
 	ForcePassiveIP string `json:"force_passive_ip" mapstructure:"force_passive_ip"`
+	// PassiveIPOverrides allows to define different IP addresses to expose for passive connections
+	// based on the client IP address
+	PassiveIPOverrides []PassiveIPOverride `json:"passive_ip_overrides" mapstructure:"passive_ip_overrides"`
 	// Set to 1 to require client certificate authentication.
 	// Set to 2 to require a client certificate and verfify it if given. In this mode
 	// the client is allowed not to send a certificate.
@@ -99,17 +112,59 @@ func (b *Binding) checkSecuritySettings() error {
 
 func (b *Binding) checkPassiveIP() error {
 	if b.ForcePassiveIP != "" {
-		ip := net.ParseIP(b.ForcePassiveIP)
-		if ip == nil {
-			return fmt.Errorf("the provided passive IP %#v is not valid", b.ForcePassiveIP)
+		ip, err := parsePassiveIP(b.ForcePassiveIP)
+		if err != nil {
+			return err
 		}
-		ip = ip.To4()
-		if ip == nil {
-			return fmt.Errorf("the provided passive IP %#v is not a valid IPv4 address", b.ForcePassiveIP)
+		b.ForcePassiveIP = ip
+	}
+	for idx, passiveOverride := range b.PassiveIPOverrides {
+		var ip string
+
+		if passiveOverride.IP != "" {
+			var err error
+			ip, err = parsePassiveIP(passiveOverride.IP)
+			if err != nil {
+				return err
+			}
 		}
-		b.ForcePassiveIP = ip.String()
+		if len(passiveOverride.Networks) == 0 {
+			return errors.New("passive IP networks override cannot be empty")
+		}
+		checkFuncs, err := util.ParseAllowedIPAndRanges(passiveOverride.Networks)
+		if err != nil {
+			return fmt.Errorf("invalid passive IP networks override %+v: %w", passiveOverride.Networks, err)
+		}
+		b.PassiveIPOverrides[idx].IP = ip
+		b.PassiveIPOverrides[idx].parsedNetworks = checkFuncs
 	}
 	return nil
+}
+
+func (b *Binding) getPassiveIP(cc ftpserver.ClientContext) string {
+	if b.ForcePassiveIP != "" {
+		return b.ForcePassiveIP
+	}
+	return strings.Split(cc.LocalAddr().String(), ":")[0]
+}
+
+func (b *Binding) passiveIPResolver(cc ftpserver.ClientContext) (string, error) {
+	if len(b.PassiveIPOverrides) > 0 {
+		clientIP := net.ParseIP(util.GetIPFromRemoteAddress(cc.RemoteAddr().String()))
+		if clientIP != nil {
+			for _, override := range b.PassiveIPOverrides {
+				for _, fn := range override.parsedNetworks {
+					if fn(clientIP) {
+						if override.IP == "" {
+							return strings.Split(cc.LocalAddr().String(), ":")[0], nil
+						}
+						return override.IP, nil
+					}
+				}
+			}
+		}
+	}
+	return b.getPassiveIP(cc), nil
 }
 
 // HasProxy returns true if the proxy protocol is active for this binding
@@ -266,6 +321,18 @@ func ReloadCertificateMgr() error {
 // GetStatus returns the server status
 func GetStatus() ServiceStatus {
 	return serviceStatus
+}
+
+func parsePassiveIP(passiveIP string) (string, error) {
+	ip := net.ParseIP(passiveIP)
+	if ip == nil {
+		return "", fmt.Errorf("the provided passive IP %#v is not valid", passiveIP)
+	}
+	ip = ip.To4()
+	if ip == nil {
+		return "", fmt.Errorf("the provided passive IP %#v is not a valid IPv4 address", passiveIP)
+	}
+	return ip.String(), nil
 }
 
 func getConfigPath(name, configDir string) string {

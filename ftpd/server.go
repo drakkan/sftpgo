@@ -124,7 +124,7 @@ func (s *Server) GetSettings() (*ftpserver.Settings, error) {
 	return &ftpserver.Settings{
 		Listener:                 ftpListener,
 		ListenAddr:               s.binding.GetAddress(),
-		PublicHost:               s.binding.ForcePassiveIP,
+		PublicIPResolver:         s.binding.passiveIPResolver,
 		PassiveTransferPortRange: portRange,
 		ActiveTransferPortNon20:  s.config.ActiveTransfersPortNon20,
 		IdleTimeout:              -1,
