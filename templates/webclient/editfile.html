@@ -36,7 +36,9 @@
             <span class="font-weight-bold text-primary">Edit file "{{.Path}}"</span>
             <span class="btn-toolbar">
                 <a id="idBack" class="btn btn-secondary mx-1 my-1" href='{{.FilesURL}}?path={{.CurrentDir}}' role="button">Back</a>
+                {{if not .ReadOnly}}
                 <a id="idSave" class="btn btn-primary mx-1 my-1" href="#" onclick="saveFile()" role="button">Save</a>
+                {{end}}
             </span>
         </h6>
     </div>
@@ -107,6 +109,9 @@
             lineNumbers: true,
             styleActiveLine: true,
             extraKeys: {"Alt-F": "findPersistent"},
+            {{if .ReadOnly}}
+            readOnly: true,
+            {{end}}
             autofocus: true
         });
         var filename = "{{.Path}}";
@@ -126,6 +131,7 @@
         });
     }
 
+    {{if not .ReadOnly}}
     function saveFile() {
         $('#idSave').addClass("disabled");
         cm =  document.querySelector('.CodeMirror').CodeMirror;
@@ -167,5 +173,6 @@
                 }
             });
     }
+    {{end}}
 </script>
 {{end}}

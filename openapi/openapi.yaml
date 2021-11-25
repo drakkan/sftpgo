@@ -3546,6 +3546,12 @@ paths:
           description: Path to the file to download. It must be URL encoded, for example the path "my dir/àdir/file.txt" must be sent as "my%20dir%2F%C3%A0dir%2Ffile.txt"
           schema:
             type: string
+        - in: query
+          name: inline
+          required: false
+          description: 'If set, the response will not have the Content-Disposition header set to `attachment`'
+          schema:
+            type: string
       responses:
         '200':
           description: successful operation

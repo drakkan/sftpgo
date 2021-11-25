@@ -1223,10 +1223,10 @@ func (s *httpdServer) initializeRouter() {
 
 			router.Get(webClientLogoutPath, handleWebClientLogout)
 			router.With(s.refreshCookie).Get(webClientFilesPath, handleClientGetFiles)
+			router.With(s.refreshCookie).Get(webClientViewPDFPath, handleClientViewPDF)
 			router.With(checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
 				Post(webClientFilesPath, uploadUserFiles)
-			router.With(checkHTTPUserPerm(sdk.WebClientWriteDisabled), s.refreshCookie).
-				Get(webClientEditFilePath, handleClientEditFile)
+			router.With(s.refreshCookie).Get(webClientEditFilePath, handleClientEditFile)
 			router.With(checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
 				Patch(webClientFilesPath, renameUserFile)
 			router.With(checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).

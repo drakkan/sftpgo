@@ -153,6 +153,7 @@ const (
 	webClientPubSharesPath          = "/web/client/pubshares"
 	webClientForgotPwdPath          = "/web/client/forgot-password"
 	webClientResetPwdPath           = "/web/client/reset-password"
+	webClientViewPDFPath            = "/web/client/viewpdf"
 	httpBaseURL                     = "http://127.0.0.1:8081"
 	sftpServerAddr                  = "127.0.0.1:8022"
 	smtpServerAddr                  = "127.0.0.1:3525"
@@ -9320,13 +9321,38 @@ func TestUserAPIKey(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestWebClientViewPDF(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+
+	webToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodGet, webClientViewPDFPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	req, err = http.NewRequest(http.MethodGet, webClientViewPDFPath+"?path=test.pdf", nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestWebEditFile(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
 	testFile1 := "testfile1.txt"
 	testFile2 := "testfile2"
 	file1Size := int64(65536)
-	file2Size := int64(655360)
+	file2Size := int64(1048576 * 2)
 	err = createTestFile(filepath.Join(user.GetHomeDir(), testFile1), file1Size)
 	assert.NoError(t, err)
 	err = createTestFile(filepath.Join(user.GetHomeDir(), testFile2), file2Size)

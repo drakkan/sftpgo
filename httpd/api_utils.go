@@ -257,7 +257,9 @@ func getZipEntryName(entryPath, baseDir string) string {
 	return strings.TrimPrefix(entryPath, "/")
 }
 
-func downloadFile(w http.ResponseWriter, r *http.Request, connection *Connection, name string, info os.FileInfo) (int, error) {
+func downloadFile(w http.ResponseWriter, r *http.Request, connection *Connection, name string,
+	info os.FileInfo, inline bool,
+) (int, error) {
 	var err error
 	rangeHeader := r.Header.Get("Range")
 	if rangeHeader != "" && checkIfRange(r, info.ModTime()) == condFalse {
@@ -295,7 +297,9 @@ func downloadFile(w http.ResponseWriter, r *http.Request, connection *Connection
 	}
 	w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
 	w.Header().Set("Content-Type", ctype)
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%#v", path.Base(name)))
+	if !inline {
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%#v", path.Base(name)))
+	}
 	w.Header().Set("Accept-Ranges", "bytes")
 	w.WriteHeader(responseStatus)
 	if r.Method != http.MethodHead {

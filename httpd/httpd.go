@@ -136,13 +136,14 @@ const (
 	webClientPubSharesPathDefault         = "/web/client/pubshares"
 	webClientForgotPwdPathDefault         = "/web/client/forgot-password"
 	webClientResetPwdPathDefault          = "/web/client/reset-password"
+	webClientViewPDFPathDefault           = "/web/client/viewpdf"
 	webStaticFilesPathDefault             = "/static"
 	webOpenAPIPathDefault                 = "/openapi"
 	// MaxRestoreSize defines the max size for the loaddata input file
 	MaxRestoreSize       = 10485760 // 10 MB
 	maxRequestSize       = 1048576  // 1MB
 	maxLoginBodySize     = 262144   // 256 KB
-	httpdMaxEditFileSize = 524288   // 512 KB
+	httpdMaxEditFileSize = 1048576  // 1 MB
 	maxMultipartMem      = 8388608  // 8MB
 	osWindows            = "windows"
 	otpHeaderCode        = "X-SFTPGO-OTP"
@@ -210,6 +211,7 @@ var (
 	webClientLogoutPath            string
 	webClientForgotPwdPath         string
 	webClientResetPwdPath          string
+	webClientViewPDFPath           string
 	webStaticFilesPath             string
 	webOpenAPIPath                 string
 	// max upload size for http clients, 1GB by default
@@ -570,6 +572,7 @@ func updateWebClientURLs(baseURL string) {
 	webClientRecoveryCodesPath = path.Join(baseURL, webClientRecoveryCodesPathDefault)
 	webClientForgotPwdPath = path.Join(baseURL, webClientForgotPwdPathDefault)
 	webClientResetPwdPath = path.Join(baseURL, webClientResetPwdPathDefault)
+	webClientViewPDFPath = path.Join(baseURL, webClientViewPDFPathDefault)
 }
 
 func updateWebAdminURLs(baseURL string) {

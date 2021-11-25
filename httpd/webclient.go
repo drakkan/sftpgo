@@ -44,6 +44,7 @@ const (
 	templateClientEditFile          = "editfile.html"
 	templateClientShare             = "share.html"
 	templateClientShares            = "shares.html"
+	templateClientViewPDF           = "viewpdf.html"
 	pageClientFilesTitle            = "My Files"
 	pageClientSharesTitle           = "Shares"
 	pageClientProfileTitle          = "My Profile"
@@ -99,11 +100,18 @@ type dirMapping struct {
 	Href    string
 }
 
+type viewPDFPage struct {
+	Title     string
+	URL       string
+	StaticURL string
+}
+
 type editFilePage struct {
 	baseClientPage
 	CurrentDir string
 	Path       string
 	Name       string
+	ReadOnly   bool
 	Data       string
 }
 
@@ -112,6 +120,7 @@ type filesPage struct {
 	CurrentDir    string
 	DirsURL       string
 	DownloadURL   string
+	ViewPDFURL    string
 	CanAddFiles   bool
 	CanCreateDirs bool
 	CanRename     bool
@@ -229,6 +238,9 @@ func loadClientTemplates(templatesPath string) {
 	resetPwdPaths := []string{
 		filepath.Join(templatesPath, templateCommonDir, templateResetPassword),
 	}
+	viewPDFPaths := []string{
+		filepath.Join(templatesPath, templateClientDir, templateClientViewPDF),
+	}
 
 	filesTmpl := util.LoadTemplate(nil, filesPaths...)
 	profileTmpl := util.LoadTemplate(nil, profilePaths...)
@@ -243,6 +255,7 @@ func loadClientTemplates(templatesPath string) {
 	shareTmpl := util.LoadTemplate(nil, sharePaths...)
 	forgotPwdTmpl := util.LoadTemplate(nil, forgotPwdPaths...)
 	resetPwdTmpl := util.LoadTemplate(nil, resetPwdPaths...)
+	viewPDFTmpl := util.LoadTemplate(nil, viewPDFPaths...)
 
 	clientTemplates[templateClientFiles] = filesTmpl
 	clientTemplates[templateClientProfile] = profileTmpl
@@ -257,6 +270,7 @@ func loadClientTemplates(templatesPath string) {
 	clientTemplates[templateClientShare] = shareTmpl
 	clientTemplates[templateForgotPassword] = forgotPwdTmpl
 	clientTemplates[templateResetPassword] = resetPwdTmpl
+	clientTemplates[templateClientViewPDF] = viewPDFTmpl
 }
 
 func getBaseClientPageData(title, currentURL string, r *http.Request) baseClientPage {
@@ -391,12 +405,13 @@ func renderClientMFAPage(w http.ResponseWriter, r *http.Request) {
 	renderClientTemplate(w, templateClientMFA, data)
 }
 
-func renderEditFilePage(w http.ResponseWriter, r *http.Request, fileName, fileData string) {
+func renderEditFilePage(w http.ResponseWriter, r *http.Request, fileName, fileData string, readOnly bool) {
 	data := editFilePage{
 		baseClientPage: getBaseClientPageData(pageClientEditFileTitle, webClientEditFilePath, r),
 		Path:           fileName,
 		Name:           path.Base(fileName),
 		CurrentDir:     path.Dir(fileName),
+		ReadOnly:       readOnly,
 		Data:           fileData,
 	}
 
@@ -427,6 +442,7 @@ func renderFilesPage(w http.ResponseWriter, r *http.Request, dirName, error stri
 		Error:          error,
 		CurrentDir:     url.QueryEscape(dirName),
 		DownloadURL:    webClientDownloadZipPath,
+		ViewPDFURL:     webClientViewPDFPath,
 		DirsURL:        webClientDirsPath,
 		CanAddFiles:    user.CanAddFilesFromWeb(dirName),
 		CanCreateDirs:  user.CanAddDirsFromWeb(dirName),
@@ -650,7 +666,8 @@ func handleClientGetFiles(w http.ResponseWriter, r *http.Request) {
 		renderFilesPage(w, r, name, "", user)
 		return
 	}
-	if status, err := downloadFile(w, r, connection, name, info); err != nil && status != 0 {
+	inline := r.URL.Query().Get("inline") != ""
+	if status, err := downloadFile(w, r, connection, name, info, inline); err != nil && status != 0 {
 		if status > 0 {
 			if status == http.StatusRequestedRangeNotSatisfiable {
 				renderClientMessagePage(w, r, http.StatusText(status), "", status, err, "")
@@ -723,7 +740,7 @@ func handleClientEditFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	renderEditFilePage(w, r, name, b.String())
+	renderEditFilePage(w, r, name, b.String(), util.IsStringInSlice(sdk.WebClientWriteDisabled, user.Filters.WebClient))
 }
 
 func handleClientAddShareGet(w http.ResponseWriter, r *http.Request) {
@@ -1034,4 +1051,20 @@ func handleWebClientPasswordReset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	renderClientResetPwdPage(w, "")
+}
+
+func handleClientViewPDF(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
+	name := r.URL.Query().Get("path")
+	if name == "" {
+		renderClientBadRequestPage(w, r, errors.New("no file specified"))
+		return
+	}
+	name = util.CleanPath(name)
+	data := viewPDFPage{
+		Title:     path.Base(name),
+		URL:       fmt.Sprintf("%v?path=%v&inline=1", webClientFilesPath, url.QueryEscape(name)),
+		StaticURL: webStaticFilesPath,
+	}
+	renderClientTemplate(w, templateClientViewPDF, data)
 }

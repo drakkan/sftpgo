@@ -8,6 +8,7 @@
 <link href="{{.StaticURL}}/vendor/datatables/fixedHeader.bootstrap4.min.css" rel="stylesheet">
 <link href="{{.StaticURL}}/vendor/datatables/responsive.bootstrap4.min.css" rel="stylesheet">
 <link href="{{.StaticURL}}/vendor/datatables/dataTables.checkboxes.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/lightbox2/css/lightbox.min.css" rel="stylesheet">
 <style>
     div.dataTables_wrapper span.selected-info,
     div.dataTables_wrapper span.selected-item {
@@ -177,10 +178,10 @@
 <script src="{{.StaticURL}}/vendor/datatables/dataTables.responsive.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/responsive.bootstrap4.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/dataTables.checkboxes.min.js"></script>
-{{if .CanAddFiles}}
+<script src="{{.StaticURL}}/vendor/lightbox2/js/lightbox.min.js"></script>
+<script src="{{.StaticURL}}/vendor/pdfobject/pdfobject.min.js"></script>
 <script src="{{.StaticURL}}/vendor/codemirror/codemirror.js"></script>
 <script src="{{.StaticURL}}/vendor/codemirror/meta.js"></script>
-{{end}}
 <script type="text/javascript">
 
     function getIconForFile(filename) {
@@ -613,15 +614,37 @@
                 { "data": "edit_url",
                     "render": function (data, type, row) {
                         if (type === 'display') {
-                            {{if .CanAddFiles}}
+                            var filename = row["name"];
+                            var extension = filename.slice((filename.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase();
                             if (data != ""){
-                                var filename = row["name"];
-                                var extension = filename.slice((filename.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase();
                                 if (extension == "csv" || extension == "bat" || CodeMirror.findModeByExtension(extension) != null){
+                                    {{if .CanAddFiles}}
                                     return `<a href="${data}"><i class="fas fa-edit"></i></a>`;
+                                    {{else}}
+                                    return `<a href="${data}"><i class="fas fa-eye"></i></a>`;
+                                    {{end}}
                                 }
                             }
-                            {{end}}
+                            if (row["type"] == "2") {
+                                switch (extension) {
+                                    case "jpeg":
+                                    case "jpg":
+                                    case "png":
+                                    case "gif":
+                                    case "webp":
+                                    case "bmp":
+                                    case "svg":
+                                    case "ico":
+                                        var view_url = row['url']+"&inline=1";
+                                        return `<a href="${view_url}" data-lightbox="${filename}" data-title="${filename}"><i class="fas fa-eye"></i></a>`;
+                                    case "pdf":
+                                        if (PDFObject.supportsPDFs){
+                                            var view_url = row['url'];
+                                            view_url = view_url.replace('{{.FilesURL}}','{{.ViewPDFURL}}');
+                                            return `<a href="${view_url}" target="_blank"><i class="fas fa-eye"></i></a>`;
+                                        }
+                                }
+                            }
                         }
                         return "";
                     }
