@@ -299,6 +299,8 @@ I'd like to make SFTPGo into a sustainable long term project and your [sponsorsh
 
 Thank you to our sponsors!
 
+[<img src="https://www.7digital.com/wp-content/themes/sevendigital/images/top_logo.png" alt="7digital logo">](https://www.7digital.com/)
+
 ## License
 
 GNU AGPLv3
