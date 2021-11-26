@@ -321,6 +321,58 @@ func TestSetStat(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestChtimesOpenHandle(t *testing.T) {
+	localUser, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	sftpUser, _, err := httpdtest.AddUser(getTestSFTPUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	u := getCryptFsUser()
+	u.Username += "_crypt"
+	cryptFsUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	for _, user := range []dataprovider.User{localUser, sftpUser, cryptFsUser} {
+		conn, client, err := getSftpClient(user)
+		if assert.NoError(t, err) {
+			defer conn.Close()
+			defer client.Close()
+
+			f, err := client.Create(testFileName)
+			assert.NoError(t, err, "user %v", user.Username)
+			f1, err := client.Create(testFileName + "1")
+			assert.NoError(t, err, "user %v", user.Username)
+			acmodTime := time.Now().Add(36 * time.Hour)
+			err = client.Chtimes(testFileName, acmodTime, acmodTime)
+			assert.NoError(t, err, "user %v", user.Username)
+			_, err = f.Write(testFileContent)
+			assert.NoError(t, err, "user %v", user.Username)
+			err = f.Close()
+			assert.NoError(t, err, "user %v", user.Username)
+			err = f1.Close()
+			assert.NoError(t, err, "user %v", user.Username)
+			info, err := client.Lstat(testFileName)
+			assert.NoError(t, err, "user %v", user.Username)
+			diff := math.Abs(info.ModTime().Sub(acmodTime).Seconds())
+			assert.LessOrEqual(t, diff, float64(1), "user %v", user.Username)
+			info1, err := client.Lstat(testFileName + "1")
+			assert.NoError(t, err, "user %v", user.Username)
+			diff = math.Abs(info1.ModTime().Sub(acmodTime).Seconds())
+			assert.Greater(t, diff, float64(86400), "user %v", user.Username)
+		}
+	}
+
+	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(localUser.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(cryptFsUser, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(cryptFsUser.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestPermissionErrors(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)

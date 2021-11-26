@@ -38,6 +38,8 @@ type BaseTransfer struct { //nolint:maligned
 	isNewFile       bool
 	transferType    int
 	AbortTransfer   int32
+	aTime           time.Time
+	mTime           time.Time
 	sync.Mutex
 	ErrTransfer error
 }
@@ -113,6 +115,15 @@ func (t *BaseTransfer) GetVirtualPath() string {
 // GetFsPath returns the transfer filesystem path
 func (t *BaseTransfer) GetFsPath() string {
 	return t.fsPath
+}
+
+func (t *BaseTransfer) SetTimes(fsPath string, atime time.Time, mtime time.Time) bool {
+	if fsPath == t.GetFsPath() {
+		t.aTime = atime
+		t.mTime = mtime
+		return true
+	}
+	return false
 }
 
 // GetRealFsPath returns the real transfer filesystem path.
@@ -252,6 +263,7 @@ func (t *BaseTransfer) Close() error {
 		}
 		t.Connection.Log(logger.LevelDebug, "uploaded file size %v", fileSize)
 		t.updateQuota(numFiles, fileSize)
+		t.updateTimes()
 		logger.TransferLog(uploadLogSender, t.fsPath, elapsed, atomic.LoadInt64(&t.BytesReceived), t.Connection.User.Username,
 			t.Connection.ID, t.Connection.protocol, t.Connection.localAddr, t.Connection.remoteAddr, t.ftpMode)
 		ExecuteActionNotification(&t.Connection.User, operationUpload, t.fsPath, t.requestPath, "", "", "", t.Connection.protocol,
@@ -264,6 +276,14 @@ func (t *BaseTransfer) Close() error {
 		}
 	}
 	return err
+}
+
+func (t *BaseTransfer) updateTimes() {
+	if !t.aTime.IsZero() && !t.mTime.IsZero() {
+		err := t.Fs.Chtimes(t.fsPath, t.aTime, t.mTime)
+		t.Connection.Log(logger.LevelDebug, "set times for file %#v, atime: %v, mtime: %v, err: %v",
+			t.fsPath, t.aTime, t.mTime, err)
+	}
 }
 
 func (t *BaseTransfer) updateQuota(numFiles int, fileSize int64) bool {

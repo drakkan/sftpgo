@@ -201,6 +201,17 @@ func (c *BaseConnection) getRealFsPath(fsPath string) string {
 	return fsPath
 }
 
+func (c *BaseConnection) setTimes(fsPath string, atime time.Time, mtime time.Time) {
+	c.RLock()
+	defer c.RUnlock()
+
+	for _, t := range c.activeTransfers {
+		if t.SetTimes(fsPath, atime, mtime) {
+			return
+		}
+	}
+}
+
 func (c *BaseConnection) truncateOpenHandle(fsPath string, size int64) (int64, error) {
 	c.RLock()
 	defer c.RUnlock()
@@ -558,6 +569,7 @@ func (c *BaseConnection) handleChtimes(fs vfs.Fs, fsPath, pathForPerms string, a
 			fsPath, attributes.Atime, attributes.Mtime, err)
 		return c.GetFsError(fs, err)
 	}
+	c.setTimes(fsPath, attributes.Atime, attributes.Mtime)
 	accessTimeString := attributes.Atime.Format(chtimesFormat)
 	modificationTimeString := attributes.Mtime.Format(chtimesFormat)
 	logger.CommandLog(chtimesLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1,

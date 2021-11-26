@@ -84,6 +84,7 @@ Flags:
       --s3-acl string
       --s3-bucket string
       --s3-endpoint string
+      --s3-force-path-style             Force path style bucket URL
       --s3-key-prefix string            Allows to restrict access to the
                                         virtual folder identified by this
                                         prefix and its contents
