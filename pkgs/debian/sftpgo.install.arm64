@@ -5,3 +5,4 @@ bash_completion/sftpgo usr/share/bash-completion/completions
 man/man1/* usr/share/man/man1
 templates usr/share/sftpgo
 static usr/share/sftpgo
+openapi usr/share/sftpgo
