@@ -27,6 +27,7 @@ import (
 	"github.com/go-chi/render"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
+	"github.com/lithammer/shortuuid/v3"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/mhale/smtpd"
 	"github.com/pquerna/otp"
@@ -4268,6 +4269,54 @@ func TestDefenderAPIErrors(t *testing.T) {
 
 	err = httpdtest.UnbanIP("", http.StatusBadRequest)
 	require.NoError(t, err)
+}
+
+func TestRestoreShares(t *testing.T) {
+	// shares should be restored preserving the UsedTokens, CreatedAt, LastUseAt, UpdatedAt,
+	// and ExpiresAt, so an expired share can be restored while we cannot create an already
+	// expired share
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	share := dataprovider.Share{
+		ShareID:     shortuuid.New(),
+		Name:        "share name",
+		Description: "share description",
+		Scope:       dataprovider.ShareScopeRead,
+		Paths:       []string{"/"},
+		Username:    user.Username,
+		CreatedAt:   util.GetTimeAsMsSinceEpoch(time.Now().Add(-144 * time.Hour)),
+		UpdatedAt:   util.GetTimeAsMsSinceEpoch(time.Now().Add(-96 * time.Hour)),
+		LastUseAt:   util.GetTimeAsMsSinceEpoch(time.Now().Add(-64 * time.Hour)),
+		ExpiresAt:   util.GetTimeAsMsSinceEpoch(time.Now().Add(-48 * time.Hour)),
+		MaxTokens:   10,
+		UsedTokens:  8,
+		AllowFrom:   []string{"127.0.0.0/8"},
+	}
+	backupData := dataprovider.BackupData{}
+	backupData.Shares = append(backupData.Shares, share)
+	backupContent, err := json.Marshal(backupData)
+	assert.NoError(t, err)
+	_, _, err = httpdtest.LoaddataFromPostBody(backupContent, "0", "0", http.StatusOK)
+	assert.NoError(t, err)
+	shareGet, err := dataprovider.ShareExists(share.ShareID, user.Username)
+	assert.NoError(t, err)
+	assert.Equal(t, share, shareGet)
+
+	share.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now().Add(-142 * time.Hour))
+	share.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now().Add(-92 * time.Hour))
+	share.LastUseAt = util.GetTimeAsMsSinceEpoch(time.Now().Add(-62 * time.Hour))
+	share.UsedTokens = 6
+	backupData.Shares = []dataprovider.Share{share}
+	backupContent, err = json.Marshal(backupData)
+	assert.NoError(t, err)
+	_, _, err = httpdtest.LoaddataFromPostBody(backupContent, "0", "0", http.StatusOK)
+	assert.NoError(t, err)
+	shareGet, err = dataprovider.ShareExists(share.ShareID, user.Username)
+	assert.NoError(t, err)
+	assert.Equal(t, share, shareGet)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
 }
 
 func TestLoaddataFromPostBody(t *testing.T) {

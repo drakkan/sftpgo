@@ -93,9 +93,23 @@ func sqlCommonAddShare(share *Share, dbHandle *sql.DB) error {
 	}
 	defer stmt.Close()
 
+	usedTokens := 0
+	createdAt := util.GetTimeAsMsSinceEpoch(time.Now())
+	updatedAt := createdAt
+	lastUseAt := int64(0)
+	if share.IsRestore {
+		usedTokens = share.UsedTokens
+		if share.CreatedAt > 0 {
+			createdAt = share.CreatedAt
+		}
+		if share.UpdatedAt > 0 {
+			updatedAt = share.UpdatedAt
+		}
+		lastUseAt = share.LastUseAt
+	}
 	_, err = stmt.ExecContext(ctx, share.ShareID, share.Name, share.Description, share.Scope,
-		string(paths), util.GetTimeAsMsSinceEpoch(time.Now()), util.GetTimeAsMsSinceEpoch(time.Now()),
-		share.LastUseAt, share.ExpiresAt, share.Password, share.MaxTokens, allowFrom, user.ID)
+		string(paths), createdAt, updatedAt, lastUseAt, share.ExpiresAt, share.Password,
+		share.MaxTokens, usedTokens, allowFrom, user.ID)
 	return err
 }
 
@@ -125,7 +139,12 @@ func sqlCommonUpdateShare(share *Share, dbHandle *sql.DB) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
-	q := getUpdateShareQuery()
+	var q string
+	if share.IsRestore {
+		q = getUpdateShareRestoreQuery()
+	} else {
+		q = getUpdateShareQuery()
+	}
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
 		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
@@ -133,9 +152,21 @@ func sqlCommonUpdateShare(share *Share, dbHandle *sql.DB) error {
 	}
 	defer stmt.Close()
 
-	_, err = stmt.ExecContext(ctx, share.Name, share.Description, share.Scope, string(paths),
-		util.GetTimeAsMsSinceEpoch(time.Now()), share.ExpiresAt, share.Password, share.MaxTokens,
-		allowFrom, user.ID, share.ShareID)
+	if share.IsRestore {
+		if share.CreatedAt == 0 {
+			share.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+		}
+		if share.UpdatedAt == 0 {
+			share.UpdatedAt = share.CreatedAt
+		}
+		_, err = stmt.ExecContext(ctx, share.Name, share.Description, share.Scope, string(paths),
+			share.CreatedAt, share.UpdatedAt, share.LastUseAt, share.ExpiresAt, share.Password, share.MaxTokens,
+			share.UsedTokens, allowFrom, user.ID, share.ShareID)
+	} else {
+		_, err = stmt.ExecContext(ctx, share.Name, share.Description, share.Scope, string(paths),
+			util.GetTimeAsMsSinceEpoch(time.Now()), share.ExpiresAt, share.Password, share.MaxTokens,
+			allowFrom, user.ID, share.ShareID)
+	}
 	return err
 }
 

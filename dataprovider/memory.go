@@ -1103,10 +1103,18 @@ func (p *MemoryProvider) addShare(share *Share) error {
 	if _, err := p.userExistsInternal(share.Username); err != nil {
 		return util.NewValidationError(fmt.Sprintf("related user %#v does not exists", share.Username))
 	}
-	share.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
-	share.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
-	share.LastUseAt = 0
-	share.UsedTokens = 0
+	if !share.IsRestore {
+		share.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+		share.UpdatedAt = share.CreatedAt
+		share.LastUseAt = 0
+		share.UsedTokens = 0
+	}
+	if share.CreatedAt == 0 {
+		share.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+	}
+	if share.UpdatedAt == 0 {
+		share.UpdatedAt = share.CreatedAt
+	}
 	p.dbHandle.shares[share.ShareID] = share.getACopy()
 	p.dbHandle.sharesIDs = append(p.dbHandle.sharesIDs, share.ShareID)
 	sort.Strings(p.dbHandle.sharesIDs)
@@ -1133,10 +1141,18 @@ func (p *MemoryProvider) updateShare(share *Share) error {
 	}
 	share.ID = s.ID
 	share.ShareID = s.ShareID
-	share.UsedTokens = s.UsedTokens
-	share.CreatedAt = s.CreatedAt
-	share.LastUseAt = s.LastUseAt
-	share.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+	if !share.IsRestore {
+		share.UsedTokens = s.UsedTokens
+		share.CreatedAt = s.CreatedAt
+		share.LastUseAt = s.LastUseAt
+		share.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+	}
+	if share.CreatedAt == 0 {
+		share.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+	}
+	if share.UpdatedAt == 0 {
+		share.UpdatedAt = share.CreatedAt
+	}
 	p.dbHandle.shares[share.ShareID] = share.getACopy()
 	return nil
 }
@@ -1346,6 +1362,7 @@ func (p *MemoryProvider) restoreShares(dump *BackupData) error {
 	for _, share := range dump.Shares {
 		s, err := p.shareExists(share.ShareID, "")
 		share := share // pin
+		share.IsRestore = true
 		if err == nil {
 			share.ID = s.ID
 			err = UpdateShare(&share, ActionExecutorSystem, "")

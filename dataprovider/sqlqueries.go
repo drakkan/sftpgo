@@ -82,11 +82,19 @@ func getDumpSharesQuery() string {
 
 func getAddShareQuery() string {
 	return fmt.Sprintf(`INSERT INTO %v (share_id,name,description,scope,paths,created_at,updated_at,last_use_at,
-		expires_at,password,max_tokens,used_tokens,allow_from,user_id) VALUES (%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,0,%v,%v)`,
+		expires_at,password,max_tokens,used_tokens,allow_from,user_id) VALUES (%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v)`,
 		sqlTableShares, sqlPlaceholders[0], sqlPlaceholders[1],
 		sqlPlaceholders[2], sqlPlaceholders[3], sqlPlaceholders[4], sqlPlaceholders[5], sqlPlaceholders[6],
 		sqlPlaceholders[7], sqlPlaceholders[8], sqlPlaceholders[9], sqlPlaceholders[10], sqlPlaceholders[11],
-		sqlPlaceholders[12])
+		sqlPlaceholders[12], sqlPlaceholders[13])
+}
+
+func getUpdateShareRestoreQuery() string {
+	return fmt.Sprintf(`UPDATE %v SET name=%v,description=%v,scope=%v,paths=%v,created_at=%v,updated_at=%v,
+		last_use_at=%v,expires_at=%v,password=%v,max_tokens=%v,used_tokens=%v,allow_from=%v,user_id=%v WHERE share_id = %v`, sqlTableShares,
+		sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3], sqlPlaceholders[4],
+		sqlPlaceholders[5], sqlPlaceholders[6], sqlPlaceholders[7], sqlPlaceholders[8], sqlPlaceholders[9],
+		sqlPlaceholders[10], sqlPlaceholders[11], sqlPlaceholders[12], sqlPlaceholders[13])
 }
 
 func getUpdateShareQuery() string {

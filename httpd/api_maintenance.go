@@ -254,6 +254,7 @@ func RestoreShares(shares []dataprovider.Share, inputFile string, mode int, exec
 ) error {
 	for _, share := range shares {
 		share := share // pin
+		share.IsRestore = true
 		s, err := dataprovider.ShareExists(share.ShareID, "")
 		if err == nil {
 			if mode == 1 {

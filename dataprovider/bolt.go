@@ -1160,10 +1160,18 @@ func (p *BoltProvider) addShare(share *Share) error {
 			return err
 		}
 		share.ID = int64(id)
-		share.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
-		share.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
-		share.LastUseAt = 0
-		share.UsedTokens = 0
+		if !share.IsRestore {
+			share.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+			share.UpdatedAt = share.CreatedAt
+			share.LastUseAt = 0
+			share.UsedTokens = 0
+		}
+		if share.CreatedAt == 0 {
+			share.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+		}
+		if share.UpdatedAt == 0 {
+			share.UpdatedAt = share.CreatedAt
+		}
 		if err := p.userExistsInternal(tx, share.Username); err != nil {
 			return util.NewValidationError(fmt.Sprintf("related user %#v does not exists", share.Username))
 		}
@@ -1200,10 +1208,18 @@ func (p *BoltProvider) updateShare(share *Share) error {
 
 		share.ID = oldObject.ID
 		share.ShareID = oldObject.ShareID
-		share.UsedTokens = oldObject.UsedTokens
-		share.CreatedAt = oldObject.CreatedAt
-		share.LastUseAt = oldObject.LastUseAt
-		share.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+		if !share.IsRestore {
+			share.UsedTokens = oldObject.UsedTokens
+			share.CreatedAt = oldObject.CreatedAt
+			share.LastUseAt = oldObject.LastUseAt
+			share.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+		}
+		if share.CreatedAt == 0 {
+			share.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+		}
+		if share.UpdatedAt == 0 {
+			share.UpdatedAt = share.CreatedAt
+		}
 		if err := p.userExistsInternal(tx, share.Username); err != nil {
 			return util.NewValidationError(fmt.Sprintf("related user %#v does not exists", share.Username))
 		}

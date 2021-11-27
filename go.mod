@@ -7,7 +7,7 @@ require (
 	github.com/Azure/azure-storage-blob-go v0.14.0
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/alexedwards/argon2id v0.0.0-20210511081203-7d35d68092b8
-	github.com/aws/aws-sdk-go v1.42.12
+	github.com/aws/aws-sdk-go v1.42.13
 	github.com/cockroachdb/cockroach-go/v2 v2.2.4
 	github.com/eikenb/pipeat v0.0.0-20210603033007-44fc3ffce52b
 	github.com/fclairamb/ftpserverlib v0.16.0

@@ -2721,14 +2721,14 @@ paths:
             - 2
         description: |
           Mode:
-            * `0` New users/admins/API keys are added, existing ones are updated. This is the default
-            * `1` New users/admins/API keys are added, existing ones are not modified
-            * `2` New users/admins/API keys are added, existing ones are updated and connected users are disconnected and so forced to use the new configuration
+            * `0` New objects are added, existing ones are updated. This is the default
+            * `1` New objects are added, existing ones are not modified
+            * `2` New objects are added, existing ones are updated and connected users are disconnected and so forced to use the new configuration
     get:
       tags:
         - maintenance
       summary: Load data from path
-      description: 'Restores SFTPGo data from a JSON backup file on the server. Users, folders and admins will be restored one by one and the restore is stopped if a user/folder/admin cannot be added or updated, so it could happen a partial restore'
+      description: 'Restores SFTPGo data from a JSON backup file on the server. Objects will be restored one by one and the restore is stopped if a object cannot be added or updated, so it could happen a partial restore'
       operationId: loaddata_from_file
       parameters:
         - in: query
@@ -2760,7 +2760,7 @@ paths:
       tags:
         - maintenance
       summary: Load data
-      description: 'Restores SFTPGo data from a JSON backup. Users, folders and admins will be restored one by one and the restore is stopped if a user/folder/admin cannot be added or updated, so it could happen a partial restore'
+      description: 'Restores SFTPGo data from a JSON backup. Objects will be restored one by one and the restore is stopped if a object cannot be added or updated, so it could happen a partial restore'
       operationId: loaddata_from_request_body
       requestBody:
         required: true
