@@ -1,7 +1,7 @@
 //go:build !nometrics
 // +build !nometrics
 
-// Package metrics provides Prometheus metrics support
+// Package metric provides Prometheus metrics support
 package metric
 
 import (

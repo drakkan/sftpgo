@@ -10,34 +10,42 @@ type BaseSecret struct {
 	Mode int `json:"mode,omitempty"`
 }
 
+// GetStatus returns the secret's status
 func (s *BaseSecret) GetStatus() SecretStatus {
 	return s.Status
 }
 
+// GetPayload returns the secret's payload
 func (s *BaseSecret) GetPayload() string {
 	return s.Payload
 }
 
+// GetKey returns the secret's key
 func (s *BaseSecret) GetKey() string {
 	return s.Key
 }
 
+// GetMode returns the encryption mode
 func (s *BaseSecret) GetMode() int {
 	return s.Mode
 }
 
+// GetAdditionalData returns the secret's additional data
 func (s *BaseSecret) GetAdditionalData() string {
 	return s.AdditionalData
 }
 
+// SetKey sets the secret's key
 func (s *BaseSecret) SetKey(value string) {
 	s.Key = value
 }
 
+// SetAdditionalData sets the secret's additional data
 func (s *BaseSecret) SetAdditionalData(value string) {
 	s.AdditionalData = value
 }
 
+// SetStatus sets the secret's status
 func (s *BaseSecret) SetStatus(value SecretStatus) {
 	s.Status = value
 }

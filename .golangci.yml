@@ -25,6 +25,14 @@ linters-settings:
     #enable:
     #  - fieldalignment
 
+issues:
+  include:
+    - EXC0002
+    - EXC0012
+    - EXC0013
+    - EXC0014
+    - EXC0015
+
 linters:
   enable:
     - goconst

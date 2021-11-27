@@ -163,6 +163,7 @@ func RenderRetentionReportTemplate(buf *bytes.Buffer, data interface{}) error {
 	return emailTemplates[templateRetentionCheckResult].Execute(buf, data)
 }
 
+// RenderPasswordResetTemplate executes the password reset template
 func RenderPasswordResetTemplate(buf *bytes.Buffer, data interface{}) error {
 	if smtpServer == nil {
 		return errors.New("smtp: not configured")

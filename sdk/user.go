@@ -175,6 +175,7 @@ type UserFilters struct {
 	UserType string `json:"user_type,omitempty"`
 }
 
+// BaseUser defines the shared user fields
 type BaseUser struct {
 	// Data provider unique identifier
 	ID int64 `json:"id"`

@@ -132,7 +132,8 @@ var (
 	// ErrNoInitRequired defines the error returned by InitProvider if no inizialization/update is required
 	ErrNoInitRequired = errors.New("the data provider is up to date")
 	// ErrInvalidCredentials defines the error to return if the supplied credentials are invalid
-	ErrInvalidCredentials    = errors.New("invalid credentials")
+	ErrInvalidCredentials = errors.New("invalid credentials")
+	// ErrLoginNotAllowedFromIP defines the error to return if login is denied from the current IP
 	ErrLoginNotAllowedFromIP = errors.New("login is not allowed from this IP")
 	isAdminCreated           = int32(0)
 	validTLSUsernames        = []string{string(sdk.TLSUsernameNone), string(sdk.TLSUsernameCN)}

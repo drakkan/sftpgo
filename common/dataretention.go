@@ -25,6 +25,7 @@ import (
 // RetentionCheckNotification defines the supported notification methods for a retention check result
 type RetentionCheckNotification = string
 
+// Supported notification methods
 const (
 	// notify results using the defined "data_retention_hook"
 	RetentionCheckNotificationHook = "Hook"

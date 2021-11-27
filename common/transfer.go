@@ -117,6 +117,7 @@ func (t *BaseTransfer) GetFsPath() string {
 	return t.fsPath
 }
 
+// SetTimes stores access and modification times if fsPath matches the current file
 func (t *BaseTransfer) SetTimes(fsPath string, atime time.Time, mtime time.Time) bool {
 	if fsPath == t.GetFsPath() {
 		t.aTime = atime
