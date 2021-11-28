@@ -7,8 +7,14 @@
 #if GetEnv("SFTPGO_ISS_ARCH") != ""
     #define MyAppArch GetEnv("SFTPGO_ISS_ARCH")
     #define MySetupName "sftpgo_windows_" + MyAppArch
+    #if MyAppArch == "x86"
+        #define MyAppArch64 ""
+    #else
+        #define MyAppArch64 GetEnv("SFTPGO_ISS_ARCH")
+    #endif
 #else
     #define MyAppArch "x64"
+    #define MyAppArch64 "x64"
     #define MySetupName "sftpgo_windows_x86_64"
 #endif
 #define MyAppURL "https://github.com/drakkan/sftpgo"
@@ -41,7 +47,7 @@ SetupIconFile=icon.ico
 SolidCompression=yes
 UninstallDisplayIcon={app}\sftpgo.exe
 WizardStyle=modern
-ArchitecturesInstallIn64BitMode={#MyAppArch}
+ArchitecturesInstallIn64BitMode={#MyAppArch64}
 PrivilegesRequired=admin
 ArchitecturesAllowed={#MyAppArch}
 MinVersion=6.1sp1
