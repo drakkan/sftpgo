@@ -58,6 +58,15 @@ jobs:
           go mod tidy
           go build -trimpath -ldflags "-s -w" -o eventsearcher.exe
           cd ../..
+          mkdir arm64
+          $Env:CGO_ENABLED='0'
+          $Env:GOOS='windows'
+          $Env:GOARCH='arm64'
+          go-winres simply --arch arm64 --product-version $LATEST_TAG-dev-$GIT_COMMIT --file-version $FILE_VERSION --file-description "SFTPGo server" --product-name SFTPGo --copyright "AGPL-3.0" --original-filename sftpgo.exe --icon  .\windows-installer\icon.ico
+          go build -trimpath -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/version.commit=$GIT_COMMIT -X github.com/drakkan/sftpgo/v2/version.date=$DATE_TIME" -o .\arm64\sftpgo.exe
+          Remove-Item Env:\CGO_ENABLED
+          Remove-Item Env:\GOOS
+          Remove-Item Env:\GOARCH
 
       - name: Run test cases using SQLite provider
         run: go test -v -p 1 -timeout 15m ./... -coverprofile=coverage.txt -covermode=atomic
@@ -129,19 +138,39 @@ jobs:
           certutil -f -p "$Env:CERT_PASS" -importpfx MY "$CERT_PATH"
           rm "$CERT_PATH"
           & 'C:/Program Files (x86)/Windows Kits/10/bin/10.0.17763.0/x86/signtool.exe' sign /sm /tr http://timestamp.sectigo.com /td sha256 /fd sha256 /n "Nicola Murino" /d "SFTPGo" .\sftpgo.exe
+          & 'C:/Program Files (x86)/Windows Kits/10/bin/10.0.17763.0/x86/signtool.exe' sign /sm /tr http://timestamp.sectigo.com /td sha256 /fd sha256 /n "Nicola Murino" /d "SFTPGo" .\arm64\sftpgo.exe
           $INNO_S='/Ssigntool=$qC:/Program Files (x86)/Windows Kits/10/bin/10.0.17763.0/x86/signtool.exe$q sign /sm /tr http://timestamp.sectigo.com /td sha256 /fd sha256 /n $qNicola Murino$q /d $qSFTPGo$q $f'
+          iscc "$INNO_S" .\windows-installer\sftpgo.iss
+
+          rm .\output\sftpgo.exe
+          rm .\output\sftpgo.db
+          copy .\arm64\sftpgo.exe .\output
+          (Get-Content .\output\sftpgo.json).replace('"sqlite"', '"bolt"') | Set-Content .\output\sftpgo.json
+          $Env:SFTPGO_DATA_PROVIDER__DRIVER='bolt'
+          $Env:SFTPGO_DATA_PROVIDER__NAME='.\output\sftpgo.db'
+          .\sftpgo.exe initprovider
+          Remove-Item Env:\SFTPGO_DATA_PROVIDER__DRIVER
+          Remove-Item Env:\SFTPGO_DATA_PROVIDER__NAME
+          $Env:SFTPGO_ISS_ARCH='arm64'
           iscc "$INNO_S" .\windows-installer\sftpgo.iss
           certutil -delstore MY "Nicola Murino"
         env:
           CERT_DATA: ${{ secrets.CERT_DATA }}
           CERT_PASS: ${{ secrets.CERT_PASS }}
 
-      - name: Upload Windows installer artifact
+      - name: Upload Windows installer x86_64 artifact
         if: ${{ startsWith(matrix.os, 'windows-') && github.event_name != 'pull_request' }}
         uses: actions/upload-artifact@v2
         with:
           name: sftpgo_windows_installer_x86_64
           path: ./sftpgo_windows_x86_64.exe
+
+      - name: Upload Windows installer arm64 artifact
+        if: ${{ startsWith(matrix.os, 'windows-') && github.event_name != 'pull_request' }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: sftpgo_windows_installer_arm64
+          path: ./sftpgo_windows_arm64.exe
 
       - name: Prepare build artifact for Windows
         if: startsWith(matrix.os, 'windows-')
@@ -149,7 +178,10 @@ jobs:
           Remove-Item -LiteralPath "output" -Force -Recurse -ErrorAction Ignore
           mkdir output
           copy .\sftpgo.exe .\output
+          mkdir output\arm64
+          copy .\arm64\sftpgo.exe .\output\arm64
           copy .\sftpgo.json .\output
+          (Get-Content .\output\sftpgo.json).replace('"sqlite"', '"bolt"') | Set-Content .\output\sftpgo.json
           mkdir output\templates
           xcopy .\templates .\output\templates\ /E
           mkdir output\static

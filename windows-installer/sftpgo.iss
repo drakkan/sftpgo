@@ -4,6 +4,13 @@
 #else
     #define MyAppVersion GetEnv("SFTPGO_ISS_DEV_VERSION")
 #endif
+#if GetEnv("SFTPGO_ISS_ARCH") != ""
+    #define MyAppArch GetEnv("SFTPGO_ISS_ARCH")
+    #define MySetupName "sftpgo_windows_" + MyAppArch
+#else
+    #define MyAppArch "x64"
+    #define MySetupName "sftpgo_windows_x86_64"
+#endif
 #define MyAppURL "https://github.com/drakkan/sftpgo"
 #define MyVersionInfo StringChange(MyAppVersion,"v","")
 #if GetEnv("SFTPGO_ISS_DOC_URL") != ""
@@ -20,6 +27,7 @@ AppId={{1FB9D57F-00DD-4B1B-8798-1138E5CE995D}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppVerName={#MyAppName} {#MyAppVersion}
+AppPublisher=Nicola Murino
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
@@ -28,14 +36,14 @@ DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 LicenseFile={#MyAppDir}\LICENSE.txt
 OutputDir={#MyOutputDir}
-OutputBaseFilename=sftpgo_windows_x86_64
+OutputBaseFilename={#MySetupName}
 SetupIconFile=icon.ico
 SolidCompression=yes
 UninstallDisplayIcon={app}\sftpgo.exe
 WizardStyle=modern
-ArchitecturesInstallIn64BitMode=x64
+ArchitecturesInstallIn64BitMode={#MyAppArch}
 PrivilegesRequired=admin
-ArchitecturesAllowed=x64
+ArchitecturesAllowed={#MyAppArch}
 MinVersion=6.1sp1
 VersionInfoVersion={#MyVersionInfo}
 VersionInfoCopyright=AGPL-3.0
