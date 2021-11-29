@@ -201,8 +201,7 @@ func (s *Server) AuthUser(cc ftpserver.ClientContext, username, password string)
 	if err != nil {
 		return nil, err
 	}
-	connection.Log(logger.LevelInfo, "User id: %d, logged in with FTP, username: %#v, home_dir: %#v remote addr: %#v",
-		user.ID, user.Username, user.HomeDir, ipAddr)
+	connection.Log(logger.LevelInfo, "User %#v logged in with %#v from ip %#v", user.Username, loginMethod, ipAddr)
 	dataprovider.UpdateLastLogin(&user)
 	return connection, nil
 }
