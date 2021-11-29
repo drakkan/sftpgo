@@ -26,7 +26,7 @@ RUN set -xe && \
     go build $(if [ -n "${FEATURES}" ]; then echo "-tags ${FEATURES}"; fi) -trimpath -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/version.commit=${COMMIT_SHA} -X github.com/drakkan/sftpgo/v2/version.date=`date -u +%FT%TZ`" -v -o sftpgo
 
 
-FROM alpine:3.14
+FROM alpine:3.15.0
 
 # Set to "true" to install the optional git dependency
 ARG INSTALL_OPTIONAL_PACKAGES=false
