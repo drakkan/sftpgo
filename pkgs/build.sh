@@ -56,7 +56,7 @@ priority: "optional"
 maintainer: "Nicola Murino <nicola.murino@gmail.com>"
 description: |
   Fully featured and highly configurable SFTP server
-  SFTPGo has optional FTP/S and WebDAV support.
+  SFTPGo has optional HTTP, FTP/S and WebDAV support.
   It can serve local filesystem, S3 (Compatible) Object Storage,
   Google Cloud Storage, Azure Blob Storage, SFTP.
 vendor: "SFTPGo"

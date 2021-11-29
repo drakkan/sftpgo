@@ -47,7 +47,7 @@ From the `Status` page you see the active services.
 
 ![Status](./img/status.png)
 
-The default configuration enables the SFTP service on port `2022` and uses `SQLite` as data provider.
+The default configuration enables the SFTP service on port `2022` and uses an embedded data provider (`SQLite` or `bolt` based on the target OS and architecture).
 
 ## Creating users
 

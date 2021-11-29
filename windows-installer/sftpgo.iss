@@ -67,6 +67,7 @@ Source: "{#MyAppDir}\sftpgo.json"; DestDir: "{commonappdata}\{#MyAppName}"; Flag
 Source: "{#MyAppDir}\templates\*"; DestDir: "{commonappdata}\{#MyAppName}\templates"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#MyAppDir}\static\*"; DestDir: "{commonappdata}\{#MyAppName}\static"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#MyAppDir}\openapi\*"; DestDir: "{commonappdata}\{#MyAppName}\openapi"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "README.txt"; DestDir: "{app}"; Flags: ignoreversion isreadme
 
 [Dirs]
 Name: "{commonappdata}\{#MyAppName}\logs"; Permissions: everyone-full
@@ -74,9 +75,9 @@ Name: "{commonappdata}\{#MyAppName}\backups"; Permissions: everyone-full
 Name: "{commonappdata}\{#MyAppName}\credentials"; Permissions: everyone-full
 
 [Icons]
-Name: "{group}\Web Admin"; Filename: "http://127.0.0.1:8080/web/admin";
-Name: "{group}\Web Client"; Filename: "http://127.0.0.1:8080/web/client";
-Name: "{group}\OpenAPI"; Filename: "http://127.0.0.1:8080/openapi";
+Name: "{group}\Web Admin"; Filename: "http://localhost:8080/web/admin";
+Name: "{group}\Web Client"; Filename: "http://localhost:8080/web/client";
+Name: "{group}\OpenAPI"; Filename: "http://localhost:8080/openapi";
 Name: "{group}\Service Control";  WorkingDir: "{app}"; Filename: "powershell.exe"; Parameters: "-Command ""Start-Process cmd \""/k cd {app} & {#MyAppExeName} service --help\"" -Verb RunAs"; Comment: "Manage SFTPGo Service"
 Name: "{group}\Documentation"; Filename: "{#DocURL}";
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
@@ -93,3 +94,6 @@ Filename: "{app}\{#MyAppExeName}"; Parameters: "service start";  Description: "S
 Filename: "{app}\{#MyAppExeName}"; Parameters: "service stop"; Flags: runhidden; RunOnceId: "Stop SFTPGo service"
 Filename: "{app}\{#MyAppExeName}"; Parameters: "service uninstall"; Flags: runhidden; RunOnceId: "Uninstall SFTPGo service"
 Filename: "netsh"; Parameters: "advfirewall firewall delete rule name=""SFTPGo Service"""; Flags: runhidden; RunOnceId: "Remove SFTPGo firewall rule"
+
+[Messages]
+FinishedLabel=Setup has finished installing SFTPGo on your computer. SFTPGo should already be running as a Windows service, it uses TCP port 8080 for HTTP service and TCP port 2022 for SFTP service by default, make sure the configured ports are not used by other services or edit the configuration according to your needs.

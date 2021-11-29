@@ -1,0 +1,34 @@
+SFTPGo allows to securely share your files over SFTP, HTTP and optionally FTP/S and WebDAV as well.
+Several storage backends are supported: local filesystem, encrypted local filesystem, S3 (compatible) Object Storage, Google Cloud Storage, Azure Blob Storage, other SFTP servers.
+
+If this is your first installation please open the web administration panel:
+
+http://localhost:8080/web/admin
+
+and complete the initial setup.
+
+The SFTP service is available, by default, on port 2022.
+
+Default data location:
+
+C:\ProgramData\SFTPGo
+
+Default configuration file location:
+
+C:\ProgramData\SFTPGo\sftpgo.json
+
+Getting started guide:
+
+https://github.com/drakkan/sftpgo/blob/main/docs/howto/getting-started.md
+
+Source code and documentation:
+
+https://github.com/drakkan/sftpgo
+
+If you find a bug please open an issue:
+
+https://github.com/drakkan/sftpgo/issues
+
+If you want to suggest a new feature or have a question, please start a new discussion:
+
+https://github.com/drakkan/sftpgo/discussions

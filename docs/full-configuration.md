@@ -246,7 +246,7 @@ The configuration file contains the following sections:
     - `allow_credentials` boolean.
     - `max_age`, integer.
 - **"telemetry"**, the configuration for the telemetry server, more details [below](#telemetry-server)
-  - `bind_port`, integer. The port used for serving HTTP requests. Set to 0 to disable HTTP server. Default: 10000
+  - `bind_port`, integer. The port used for serving HTTP requests. Set to 0 to disable HTTP server. Default: 0
   - `bind_address`, string. Leave blank to listen on all available network interfaces. On \*NIX you can specify an absolute path to listen on a Unix-domain socket. Default: "127.0.0.1"
   - `enable_profiler`, boolean. Enable the built-in profiler. Default `false`
   - `auth_user_file`, string. Path to a file used to store usernames and passwords for basic authentication. This can be an absolute path or a path relative to the config dir. We support HTTP basic authentication, and the file format must conform to the one generated using the Apache `htpasswd` tool. The supported password formats are bcrypt (`$2y$` prefix) and md5 crypt (`$apr1$` prefix). If empty, HTTP authentication is disabled. Authentication will be always disabled for the `/healthz` endpoint.

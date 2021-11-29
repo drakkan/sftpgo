@@ -236,7 +236,7 @@
     }
   },
   "telemetry": {
-    "bind_port": 10000,
+    "bind_port": 0,
     "bind_address": "127.0.0.1",
     "enable_profiler": false,
     "auth_user_file": "",
