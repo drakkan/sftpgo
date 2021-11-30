@@ -92,7 +92,8 @@
             </div>
             <div class="modal-body">
                 <div id="readShare">
-                    You can download the shared contents, as single zip file, using this <a id="readLink" href="#" target="_blank">link</a>
+                    <p>You can download the shared contents, as single zip file, using this <a id="readLink" href="#" target="_blank">link</a>.</p>
+                    <p>If the share consists of a single file you can download it uncompressed using this <a id="readUncompressedLink" href="#" target="_blank">link</a></p>
                 </div>
                 <div id="writeShare">
                     <p>You can upload one or more files to the shared directory by sending a multipart/form-data request to this <a id="writeLink" href="#" target="_blank">link</a>. The form field name for the file(s) is <b><code>filenames</code></b>.</p>
@@ -213,6 +214,8 @@
                         $('#readShare').show();
                         $('#readLink').attr("href", shareURL);
                         $('#readLink').attr("title", shareURL);
+                        $('#readUncompressedLink').attr("href", shareURL+"?compress=false");
+                        $('#readUncompressedLink').attr("title", shareURL+"?compress=false");
                     } else {
                         $('#expiredShare').hide();
                         $('#writeShare').show();

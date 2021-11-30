@@ -1,9 +1,11 @@
 package httpd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 
 	"github.com/go-chi/render"
 	"github.com/rs/xid"
@@ -141,9 +143,37 @@ func downloadFromShare(w http.ResponseWriter, r *http.Request) {
 	common.Connections.Add(connection)
 	defer common.Connections.Remove(connection.GetID())
 
+	compress := true
+	var info os.FileInfo
+	if len(share.Paths) > 0 && r.URL.Query().Get("compress") == "false" {
+		info, err = connection.Stat(share.Paths[0], 0)
+		if err != nil {
+			sendAPIResponse(w, r, err, "", getRespStatus(err))
+			return
+		}
+		if !info.IsDir() {
+			compress = false
+		}
+	}
+
 	dataprovider.UpdateShareLastUse(&share, 1) //nolint:errcheck
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"share-%v.zip\"", share.ShareID))
-	renderCompressedFiles(w, connection, "/", share.Paths, &share)
+	if compress {
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"share-%v.zip\"", share.ShareID))
+		renderCompressedFiles(w, connection, "/", share.Paths, &share)
+		return
+	}
+	if status, err := downloadFile(w, r, connection, share.Paths[0], info, false); err != nil {
+		dataprovider.UpdateShareLastUse(&share, -1) //nolint:errcheck
+		resp := apiResponse{
+			Error:   err.Error(),
+			Message: http.StatusText(status),
+		}
+		ctx := r.Context()
+		if status != 0 {
+			ctx = context.WithValue(ctx, render.StatusCtxKey, status)
+		}
+		render.JSON(w, r.WithContext(ctx), resp)
+	}
 }
 
 func uploadToShare(w http.ResponseWriter, r *http.Request) {

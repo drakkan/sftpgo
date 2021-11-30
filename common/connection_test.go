@@ -256,7 +256,8 @@ func TestErrorsMapping(t *testing.T) {
 		err := conn.GetFsError(fs, os.ErrNotExist)
 		if protocol == ProtocolSFTP {
 			assert.ErrorIs(t, err, sftp.ErrSSHFxNoSuchFile)
-		} else if protocol == ProtocolWebDAV || protocol == ProtocolFTP || protocol == ProtocolHTTP {
+		} else if protocol == ProtocolWebDAV || protocol == ProtocolFTP || protocol == ProtocolHTTP ||
+			protocol == ProtocolHTTPShare || protocol == ProtocolDataRetention {
 			assert.EqualError(t, err, os.ErrNotExist.Error())
 		} else {
 			assert.EqualError(t, err, ErrNotExist.Error())
