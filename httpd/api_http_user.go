@@ -181,11 +181,15 @@ func uploadUserFiles(w http.ResponseWriter, r *http.Request) {
 	common.Connections.Add(connection)
 	defer common.Connections.Remove(connection.GetID())
 
+	t := newThrottledReader(r.Body, connection.User.UploadBandwidth, connection)
+	r.Body = t
 	err = r.ParseMultipartForm(maxMultipartMem)
 	if err != nil {
+		connection.RemoveTransfer(t)
 		sendAPIResponse(w, r, err, "Unable to parse multipart form", http.StatusBadRequest)
 		return
 	}
+	connection.RemoveTransfer(t)
 	defer r.MultipartForm.RemoveAll() //nolint:errcheck
 
 	parentDir := util.CleanPath(r.URL.Query().Get("path"))
@@ -201,6 +205,7 @@ func doUploadFiles(w http.ResponseWriter, r *http.Request, connection *Connectio
 	files []*multipart.FileHeader,
 ) int {
 	uploaded := 0
+	connection.User.UploadBandwidth = 0
 	for _, f := range files {
 		file, err := f.Open()
 		if err != nil {

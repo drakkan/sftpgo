@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -1810,6 +1811,18 @@ func TestGetFileWriterErrors(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestThrottledHandler(t *testing.T) {
+	tr := &throttledReader{
+		r: io.NopCloser(bytes.NewBuffer(nil)),
+	}
+	err := tr.Close()
+	assert.NoError(t, err)
+	assert.Empty(t, tr.GetRealFsPath("real path"))
+	assert.False(t, tr.SetTimes("p", time.Now(), time.Now()))
+	_, err = tr.Truncate("", 0)
+	assert.ErrorIs(t, err, vfs.ErrVfsUnsupported)
+}
+
 func TestHTTPDFile(t *testing.T) {
 	user := dataprovider.User{
 		BaseUser: sdk.BaseUser{
@@ -1857,6 +1870,9 @@ func TestHTTPDFile(t *testing.T) {
 	assert.Error(t, err)
 	assert.Error(t, httpdFile.ErrTransfer)
 	assert.Equal(t, err, httpdFile.ErrTransfer)
+	httpdFile.SignalClose()
+	_, err = httpdFile.Write(nil)
+	assert.ErrorIs(t, err, errTransferAborted)
 }
 
 func TestChangeUserPwd(t *testing.T) {

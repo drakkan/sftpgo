@@ -158,11 +158,15 @@ func uploadToShare(w http.ResponseWriter, r *http.Request) {
 	common.Connections.Add(connection)
 	defer common.Connections.Remove(connection.GetID())
 
+	t := newThrottledReader(r.Body, connection.User.UploadBandwidth, connection)
+	r.Body = t
 	err = r.ParseMultipartForm(maxMultipartMem)
 	if err != nil {
+		connection.RemoveTransfer(t)
 		sendAPIResponse(w, r, err, "Unable to parse multipart form", http.StatusBadRequest)
 		return
 	}
+	connection.RemoveTransfer(t)
 	defer r.MultipartForm.RemoveAll() //nolint:errcheck
 
 	files := r.MultipartForm.File["filenames"]

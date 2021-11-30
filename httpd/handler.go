@@ -6,6 +6,8 @@ import (
 	"os"
 	"path"
 	"strings"
+	"sync/atomic"
+	"time"
 
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
@@ -213,4 +215,88 @@ func (c *Connection) handleUploadFile(fs vfs.Fs, resolvedPath, filePath, request
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, filePath, requestPath,
 		common.TransferUpload, 0, initialSize, maxWriteSize, isNewFile, fs)
 	return newHTTPDFile(baseTransfer, w, nil), nil
+}
+
+func newThrottledReader(r io.ReadCloser, limit int64, conn *Connection) *throttledReader {
+	t := &throttledReader{
+		bytesRead:     0,
+		id:            conn.GetTransferID(),
+		limit:         limit,
+		r:             r,
+		abortTransfer: 0,
+		start:         time.Now(),
+		conn:          conn,
+	}
+	conn.AddTransfer(t)
+	return t
+}
+
+type throttledReader struct {
+	bytesRead     int64
+	id            uint64
+	limit         int64
+	r             io.ReadCloser
+	abortTransfer int32
+	start         time.Time
+	conn          *Connection
+}
+
+func (t *throttledReader) GetID() uint64 {
+	return t.id
+}
+
+func (t *throttledReader) GetType() int {
+	return common.TransferUpload
+}
+
+func (t *throttledReader) GetSize() int64 {
+	return atomic.LoadInt64(&t.bytesRead)
+}
+
+func (t *throttledReader) GetVirtualPath() string {
+	return "**reading request body**"
+}
+
+func (t *throttledReader) GetStartTime() time.Time {
+	return t.start
+}
+
+func (t *throttledReader) SignalClose() {
+	atomic.StoreInt32(&(t.abortTransfer), 1)
+}
+
+func (t *throttledReader) Truncate(fsPath string, size int64) (int64, error) {
+	return 0, vfs.ErrVfsUnsupported
+}
+
+func (t *throttledReader) GetRealFsPath(fsPath string) string {
+	return ""
+}
+
+func (t *throttledReader) SetTimes(fsPath string, atime time.Time, mtime time.Time) bool {
+	return false
+}
+
+func (t *throttledReader) Read(p []byte) (n int, err error) {
+	if atomic.LoadInt32(&t.abortTransfer) == 1 {
+		return 0, errTransferAborted
+	}
+
+	t.conn.UpdateLastActivity()
+	n, err = t.r.Read(p)
+	if t.limit > 0 {
+		atomic.AddInt64(&t.bytesRead, int64(n))
+		trasferredBytes := atomic.LoadInt64(&t.bytesRead)
+		elapsed := time.Since(t.start).Nanoseconds() / 1000000
+		wantedElapsed := 1000 * (trasferredBytes / 1024) / t.limit
+		if wantedElapsed > elapsed {
+			toSleep := time.Duration(wantedElapsed - elapsed)
+			time.Sleep(toSleep * time.Millisecond)
+		}
+	}
+	return
+}
+
+func (t *throttledReader) Close() error {
+	return t.r.Close()
 }

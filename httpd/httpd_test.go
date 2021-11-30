@@ -10668,7 +10668,7 @@ func TestClientUserClose(t *testing.T) {
 		req.Header.Add("Content-Type", writer.FormDataContentType())
 		setBearerForReq(req, webAPIToken)
 		rr := executeRequest(req)
-		checkResponseCode(t, http.StatusInternalServerError, rr)
+		checkResponseCode(t, http.StatusBadRequest, rr)
 		assert.Contains(t, rr.Body.String(), "transfer aborted")
 	}()
 	// wait for the transfers
