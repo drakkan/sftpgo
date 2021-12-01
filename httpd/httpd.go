@@ -144,7 +144,7 @@ const (
 	maxRequestSize       = 1048576  // 1MB
 	maxLoginBodySize     = 262144   // 256 KB
 	httpdMaxEditFileSize = 1048576  // 1 MB
-	maxMultipartMem      = 8388608  // 8MB
+	maxMultipartMem      = 10485760 // 10 MB
 	osWindows            = "windows"
 	otpHeaderCode        = "X-SFTPGO-OTP"
 )

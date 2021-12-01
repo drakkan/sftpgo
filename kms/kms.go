@@ -125,15 +125,6 @@ func NewPlainSecret(payload string) *Secret {
 	return NewSecret(SecretStatusPlain, payload, "", "")
 }
 
-// GetSecretFromCompatString returns a secret from the previous format
-func GetSecretFromCompatString(secret string) (*Secret, error) {
-	plain, err := util.DecryptData(secret)
-	if err != nil {
-		return &Secret{}, errMalformedCiphertext
-	}
-	return NewSecret(SecretStatusPlain, plain, "", ""), nil
-}
-
 // Initialize configures the KMS support
 func (c *Configuration) Initialize() error {
 	if c.Secrets.MasterKeyString != "" {

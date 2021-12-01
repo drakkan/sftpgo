@@ -19,7 +19,7 @@ We first generate a random key, then the per-object encryption key is derived fr
 1. a master key is provided: the encryption key is derived using the HMAC-based Extract-and-Expand Key Derivation Function (HKDF) as defined in [RFC 5869](http://tools.ietf.org/html/rfc5869)
 2. no master key is provided: the encryption key is derived as simple hash of the random key. This is the default configuration.
 
-For compatibility with SFTPGo versions 1.2.x and before we also support encryption based on `AES-256-GCM`. The data encrypted with this algorithm will never use the master key to keep backward compatibility.
+For compatibility with SFTPGo versions 1.2.x and before we also support encryption based on `AES-256-GCM`. The data encrypted with this algorithm will never use the master key to keep backward compatibility. You can activate it using `builtin://` as `url` but this is not recommended.
 
 ### Cloud providers
 

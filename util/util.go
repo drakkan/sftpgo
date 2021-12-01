@@ -3,8 +3,6 @@ package util
 
 import (
 	"bytes"
-	"crypto/aes"
-	"crypto/cipher"
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/elliptic"
@@ -12,7 +10,6 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/hex"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -152,72 +149,6 @@ func NilIfEmpty(s string) *string {
 		return nil
 	}
 	return &s
-}
-
-// EncryptData encrypts data using the given key
-func EncryptData(data string) (string, error) {
-	var result string
-	key := make([]byte, 16)
-	if _, err := io.ReadFull(rand.Reader, key); err != nil {
-		return result, err
-	}
-	keyHex := hex.EncodeToString(key)
-	block, err := aes.NewCipher([]byte(keyHex))
-	if err != nil {
-		return result, err
-	}
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return result, err
-	}
-	nonce := make([]byte, gcm.NonceSize())
-	if _, err = io.ReadFull(rand.Reader, nonce); err != nil {
-		return result, err
-	}
-	ciphertext := gcm.Seal(nonce, nonce, []byte(data), nil)
-	result = fmt.Sprintf("$aes$%s$%x", keyHex, ciphertext)
-	return result, err
-}
-
-// RemoveDecryptionKey returns encrypted data without the decryption key
-func RemoveDecryptionKey(encryptData string) string {
-	vals := strings.Split(encryptData, "$")
-	if len(vals) == 4 {
-		return fmt.Sprintf("$%v$%v", vals[1], vals[3])
-	}
-	return encryptData
-}
-
-// DecryptData decrypts data encrypted using EncryptData
-func DecryptData(data string) (string, error) {
-	var result string
-	vals := strings.Split(data, "$")
-	if len(vals) != 4 {
-		return "", errors.New("data to decrypt is not in the correct format")
-	}
-	key := vals[2]
-	encrypted, err := hex.DecodeString(vals[3])
-	if err != nil {
-		return result, err
-	}
-	block, err := aes.NewCipher([]byte(key))
-	if err != nil {
-		return result, err
-	}
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return result, err
-	}
-	nonceSize := gcm.NonceSize()
-	if len(encrypted) < nonceSize {
-		return result, errors.New("malformed ciphertext")
-	}
-	nonce, ciphertext := encrypted[:nonceSize], encrypted[nonceSize:]
-	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
-	if err != nil {
-		return result, err
-	}
-	return string(plaintext), nil
 }
 
 // GenerateRSAKeys generate rsa private and public keys and write the

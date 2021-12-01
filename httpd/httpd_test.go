@@ -2857,14 +2857,6 @@ func TestSecretObject(t *testing.T) {
 	require.Equal(t, kms.SecretStatusPlain, s.GetStatus())
 	require.Equal(t, "test data", s.GetPayload())
 	require.Empty(t, s.GetKey())
-
-	oldFormat := "$aes$5b97e3a3324a2f53e2357483383367c0$0ed3132b584742ab217866219da633266782b69b13e50ebc6ddfb7c4fbf2f2a414c6d5f813"
-	s, err = kms.GetSecretFromCompatString(oldFormat)
-	require.NoError(t, err)
-	require.True(t, s.IsValid())
-	require.Equal(t, kms.SecretStatusPlain, s.GetStatus())
-	require.Equal(t, "test data", s.GetPayload())
-	require.Empty(t, s.GetKey())
 }
 
 func TestSecretObjectCompatibility(t *testing.T) {
@@ -8988,6 +8980,10 @@ func TestShareUncompressed(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Equal(t, "application/octet-stream", rr.Header().Get("Content-Type"))
 
+	share, err = dataprovider.ShareExists(objectID, user.Username)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, share.UsedTokens)
+
 	user.Permissions["/"] = []string{dataprovider.PermListItems, dataprovider.PermUpload}
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
@@ -8997,6 +8993,10 @@ func TestShareUncompressed(t *testing.T) {
 	req.SetBasicAuth(defaultUsername, defaultPassword)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
+
+	share, err = dataprovider.ShareExists(objectID, user.Username)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, share.UsedTokens)
 
 	user.Permissions["/"] = []string{dataprovider.PermAny}
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
