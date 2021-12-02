@@ -302,23 +302,25 @@ func (s *webDavServer) validateUser(user *dataprovider.User, r *http.Request, lo
 		return connID, fmt.Errorf("cannot login user with invalid home dir: %#v", user.HomeDir)
 	}
 	if util.IsStringInSlice(common.ProtocolWebDAV, user.Filters.DeniedProtocols) {
-		logger.Debug(logSender, connectionID, "cannot login user %#v, protocol DAV is not allowed", user.Username)
+		logger.Info(logSender, connectionID, "cannot login user %#v, protocol DAV is not allowed", user.Username)
 		return connID, fmt.Errorf("protocol DAV is not allowed for user %#v", user.Username)
 	}
 	if !user.IsLoginMethodAllowed(loginMethod, nil) {
-		logger.Debug(logSender, connectionID, "cannot login user %#v, %v login method is not allowed", user.Username, loginMethod)
+		logger.Info(logSender, connectionID, "cannot login user %#v, %v login method is not allowed",
+			user.Username, loginMethod)
 		return connID, fmt.Errorf("login method %v is not allowed for user %#v", loginMethod, user.Username)
 	}
 	if user.MaxSessions > 0 {
 		activeSessions := common.Connections.GetActiveSessions(user.Username)
 		if activeSessions >= user.MaxSessions {
-			logger.Debug(logSender, connID, "authentication refused for user: %#v, too many open sessions: %v/%v", user.Username,
-				activeSessions, user.MaxSessions)
+			logger.Info(logSender, connID, "authentication refused for user: %#v, too many open sessions: %v/%v",
+				user.Username, activeSessions, user.MaxSessions)
 			return connID, fmt.Errorf("too many open sessions: %v", activeSessions)
 		}
 	}
 	if !user.IsLoginFromAddrAllowed(r.RemoteAddr) {
-		logger.Debug(logSender, connectionID, "cannot login user %#v, remote address is not allowed: %v", user.Username, r.RemoteAddr)
+		logger.Info(logSender, connectionID, "cannot login user %#v, remote address is not allowed: %v",
+			user.Username, r.RemoteAddr)
 		return connID, fmt.Errorf("login for user %#v is not allowed from this address: %v", user.Username, r.RemoteAddr)
 	}
 	return connID, nil

@@ -325,24 +325,26 @@ func (s *Server) validateUser(user dataprovider.User, cc ftpserver.ClientContext
 		return nil, fmt.Errorf("cannot login user with invalid home dir: %#v", user.HomeDir)
 	}
 	if util.IsStringInSlice(common.ProtocolFTP, user.Filters.DeniedProtocols) {
-		logger.Debug(logSender, connectionID, "cannot login user %#v, protocol FTP is not allowed", user.Username)
+		logger.Info(logSender, connectionID, "cannot login user %#v, protocol FTP is not allowed", user.Username)
 		return nil, fmt.Errorf("protocol FTP is not allowed for user %#v", user.Username)
 	}
 	if !user.IsLoginMethodAllowed(loginMethod, nil) {
-		logger.Debug(logSender, connectionID, "cannot login user %#v, %v login method is not allowed", user.Username, loginMethod)
+		logger.Info(logSender, connectionID, "cannot login user %#v, %v login method is not allowed",
+			user.Username, loginMethod)
 		return nil, fmt.Errorf("login method %v is not allowed for user %#v", loginMethod, user.Username)
 	}
 	if user.MaxSessions > 0 {
 		activeSessions := common.Connections.GetActiveSessions(user.Username)
 		if activeSessions >= user.MaxSessions {
-			logger.Debug(logSender, connectionID, "authentication refused for user: %#v, too many open sessions: %v/%v", user.Username,
-				activeSessions, user.MaxSessions)
+			logger.Info(logSender, connectionID, "authentication refused for user: %#v, too many open sessions: %v/%v",
+				user.Username, activeSessions, user.MaxSessions)
 			return nil, fmt.Errorf("too many open sessions: %v", activeSessions)
 		}
 	}
 	remoteAddr := cc.RemoteAddr().String()
 	if !user.IsLoginFromAddrAllowed(remoteAddr) {
-		logger.Debug(logSender, connectionID, "cannot login user %#v, remote address is not allowed: %v", user.Username, remoteAddr)
+		logger.Info(logSender, connectionID, "cannot login user %#v, remote address is not allowed: %v",
+			user.Username, remoteAddr)
 		return nil, fmt.Errorf("login for user %#v is not allowed from this address: %v", user.Username, remoteAddr)
 	}
 	err := user.CheckFsRoot(connectionID)

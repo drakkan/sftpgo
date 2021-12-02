@@ -448,23 +448,23 @@ func updateLoginMetrics(user *dataprovider.User, ip string, err error) {
 
 func checkHTTPClientUser(user *dataprovider.User, r *http.Request, connectionID string) error {
 	if util.IsStringInSlice(common.ProtocolHTTP, user.Filters.DeniedProtocols) {
-		logger.Debug(logSender, connectionID, "cannot login user %#v, protocol HTTP is not allowed", user.Username)
+		logger.Info(logSender, connectionID, "cannot login user %#v, protocol HTTP is not allowed", user.Username)
 		return fmt.Errorf("protocol HTTP is not allowed for user %#v", user.Username)
 	}
 	if !user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, nil) {
-		logger.Debug(logSender, connectionID, "cannot login user %#v, password login method is not allowed", user.Username)
+		logger.Info(logSender, connectionID, "cannot login user %#v, password login method is not allowed", user.Username)
 		return fmt.Errorf("login method password is not allowed for user %#v", user.Username)
 	}
 	if user.MaxSessions > 0 {
 		activeSessions := common.Connections.GetActiveSessions(user.Username)
 		if activeSessions >= user.MaxSessions {
-			logger.Debug(logSender, connectionID, "authentication refused for user: %#v, too many open sessions: %v/%v", user.Username,
+			logger.Info(logSender, connectionID, "authentication refused for user: %#v, too many open sessions: %v/%v", user.Username,
 				activeSessions, user.MaxSessions)
 			return fmt.Errorf("too many open sessions: %v", activeSessions)
 		}
 	}
 	if !user.IsLoginFromAddrAllowed(r.RemoteAddr) {
-		logger.Debug(logSender, connectionID, "cannot login user %#v, remote address is not allowed: %v", user.Username, r.RemoteAddr)
+		logger.Info(logSender, connectionID, "cannot login user %#v, remote address is not allowed: %v", user.Username, r.RemoteAddr)
 		return fmt.Errorf("login for user %#v is not allowed from this address: %v", user.Username, r.RemoteAddr)
 	}
 	return nil

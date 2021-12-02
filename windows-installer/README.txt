@@ -9,6 +9,8 @@ and complete the initial setup.
 
 The SFTP service is available, by default, on port 2022.
 
+If SFTPGo does not start, make sure that TCP ports 2022 and 8080 are not used by other services or change the SFTPGo configuration to suit your needs.
+
 Default data location:
 
 C:\ProgramData\SFTPGo

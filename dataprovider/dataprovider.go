@@ -2143,7 +2143,7 @@ func startUpdateCachesTimer() {
 	}
 	lastCachesUpdate = util.GetTimeAsMsSinceEpoch(time.Now())
 	providerLog(logger.LevelDebug, "update caches check started for provider %v", config.Driver)
-	updateCachesTicker = time.NewTicker(1 * time.Minute)
+	updateCachesTicker = time.NewTicker(10 * time.Minute)
 	updateCachesTickerDone = make(chan bool)
 
 	go func() {

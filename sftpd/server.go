@@ -494,10 +494,9 @@ func (c *Configuration) handleSftpConnection(channel ssh.Channel, connection *Co
 
 	defer server.Close()
 	if err := server.Serve(); err == io.EOF {
-		connection.Log(logger.LevelDebug, "connection closed, sending exit status")
 		exitStatus := sshSubsystemExitStatus{Status: uint32(0)}
 		_, err = channel.SendRequest("exit-status", false, ssh.Marshal(&exitStatus))
-		connection.Log(logger.LevelDebug, "sent exit status %+v error: %v", exitStatus, err)
+		connection.Log(logger.LevelInfo, "connection closed, sent exit status %+v error: %v", exitStatus, err)
 	} else if err != nil {
 		connection.Log(logger.LevelWarn, "connection closed with error: %v", err)
 	}
@@ -558,24 +557,26 @@ func loginUser(user *dataprovider.User, loginMethod, publicKey string, conn ssh.
 		return nil, fmt.Errorf("cannot login user with invalid home dir: %#v", user.HomeDir)
 	}
 	if util.IsStringInSlice(common.ProtocolSSH, user.Filters.DeniedProtocols) {
-		logger.Debug(logSender, connectionID, "cannot login user %#v, protocol SSH is not allowed", user.Username)
+		logger.Info(logSender, connectionID, "cannot login user %#v, protocol SSH is not allowed", user.Username)
 		return nil, fmt.Errorf("protocol SSH is not allowed for user %#v", user.Username)
 	}
 	if user.MaxSessions > 0 {
 		activeSessions := common.Connections.GetActiveSessions(user.Username)
 		if activeSessions >= user.MaxSessions {
-			logger.Debug(logSender, "", "authentication refused for user: %#v, too many open sessions: %v/%v", user.Username,
+			logger.Info(logSender, "", "authentication refused for user: %#v, too many open sessions: %v/%v", user.Username,
 				activeSessions, user.MaxSessions)
 			return nil, fmt.Errorf("too many open sessions: %v", activeSessions)
 		}
 	}
 	if !user.IsLoginMethodAllowed(loginMethod, conn.PartialSuccessMethods()) {
-		logger.Debug(logSender, connectionID, "cannot login user %#v, login method %#v is not allowed", user.Username, loginMethod)
+		logger.Info(logSender, connectionID, "cannot login user %#v, login method %#v is not allowed",
+			user.Username, loginMethod)
 		return nil, fmt.Errorf("login method %#v is not allowed for user %#v", loginMethod, user.Username)
 	}
 	remoteAddr := conn.RemoteAddr().String()
 	if !user.IsLoginFromAddrAllowed(remoteAddr) {
-		logger.Debug(logSender, connectionID, "cannot login user %#v, remote address is not allowed: %v", user.Username, remoteAddr)
+		logger.Info(logSender, connectionID, "cannot login user %#v, remote address is not allowed: %v",
+			user.Username, remoteAddr)
 		return nil, fmt.Errorf("login for user %#v is not allowed from this address: %v", user.Username, remoteAddr)
 	}
 
