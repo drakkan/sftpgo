@@ -42,6 +42,7 @@
                         <th>Size</th>
                         <th>Last modified</th>
                         <th></th>
+                        <th></th>
                     </tr>
                 </thead>
             </table>
@@ -183,6 +184,145 @@
 <script src="{{.StaticURL}}/vendor/pdfobject/pdfobject.min.js"></script>
 <script src="{{.StaticURL}}/vendor/codemirror/codemirror.js"></script>
 <script src="{{.StaticURL}}/vendor/codemirror/meta.js"></script>
+{{if .HasIntegrations}}
+<script type="text/javascript">
+    var childReference = null;
+    var checkerStarted = false;
+    const childProps = new Map();
+
+    function openExternalURL(url, fileLink, fileName){
+        if (childReference == null || childReference.closed) {
+            childProps.set('link', fileLink);
+            childProps.set('url', url);
+            childProps.set('file_name', fileName);
+            childReference = window.open(url, '_blank');
+            if (!checkerStarted){
+                keepAlive();
+                setInterval(checkExternalWindow, 180000);
+                checkerStarted = true;
+            }
+        } else {
+            $('#errorTxt').text('An external window is already open, please close it before trying to open a new one');
+            $('#errorMsg').show();
+            setTimeout(function () {
+                $('#errorMsg').hide();
+            }, 8000);
+        }
+    }
+
+    function notifySave(status, message){
+        if (childReference == null || childReference.closed) {
+            console.log("external windows null or closed, cannot notify save");
+            return;
+        }
+
+        childReference.postMessage({
+            type: 'blobSaveResult',
+            status: status,
+            message: message
+        }, childProps.get('url'));
+    }
+
+    window.addEventListener('message', (event) => {
+        var url = childProps.get('url');
+        if (!url || !url.startsWith(event.origin)){
+            console.log("origin: "+event.origin+" does not match the expected one: "+url+" refusing message");
+            return;
+        }
+        if (childReference == null || childReference.closed) {
+            console.log("external windows null or closed, refusing message");
+            return;
+        }
+        switch (event.data.type){
+            case 'ready':
+                // the child is ready send some details
+                childReference.postMessage({
+                    type: 'readyResponse',
+                    user: '{{.LoggedUser.Username}}',
+                    file_name: childProps.get('file_name')
+                }, childProps.get('url'));
+                break;
+            case 'sendBlob':
+                // we have to download the blob, this can require some time so
+                // we first send a blobDownloadStart message so the child can
+                // show a spinner or something similar
+                childReference.postMessage({
+                    type: 'blobDownloadStart'
+                }, childProps.get('url'));
+                // download the file and send as blob to the child window
+                fetch(childProps.get('link'))
+                    .then(response => response.blob())
+                    .then(function(responseBlob){
+                        let fileBlob = new File([responseBlob], childProps.get('file_name'), {type: responseBlob.type, lastModified: ""});
+                        childReference.postMessage({
+                            type: 'blob',
+                            file: fileBlob
+                        }, childProps.get('url'));
+                    });
+                break;
+            case 'saveBlob':
+                // get the blob from the message and save it
+                var path = '{{.FilesURL}}?path={{.CurrentDir}}';
+                spinnerDone = false;
+                var file = new File([event.data.file], childProps.get('file_name'));
+                var data = new FormData();
+                data.append('filenames', file);
+
+                $.ajax({
+                    url: path,
+                    type: 'POST',
+                    data: data,
+                    processData: false,
+                    contentType: false,
+                    headers: { 'X-CSRF-TOKEN': '{{.CSRFToken}}' },
+                    timeout: 0,
+                    beforeSend: function () {
+                        $('#spinnerModal').modal('show');
+                    },
+                    success: function (result) {
+                        $('#spinnerModal').modal('hide');
+                        notifySave("OK", "");
+                        setTimeout(function () {
+                            location.reload();
+                        }, 2000);
+                    },
+                    error: function ($xhr, textStatus, errorThrown) {
+                        $('#spinnerModal').modal('hide');
+                        var txt = "Error saving external file";
+                        if ($xhr) {
+                            var json = $xhr.responseJSON;
+                            if (json) {
+                                if (json.message) {
+                                    txt = json.message;
+                                }
+                                if (json.error) {
+                                    txt += ": " + json.error;
+                                }
+                            }
+                        }
+                        notifySave("KO", txt);
+                        $('#errorTxt').text(txt);
+                        $('#errorMsg').show();
+                        setTimeout(function () {
+                            $('#errorMsg').hide();
+                        }, 5000);
+                    }
+                });
+
+                break;
+            default:
+                console.log("Unsupported message: "+JSON.stringify(event.data));
+        }
+    });
+
+    function checkExternalWindow() {
+        if (childReference == null || childReference.closed) {
+            return;
+        }
+        keepAlive();
+    }
+</script>
+{{end}}
 <script type="text/javascript">
     var spinnerDone = false;
 
@@ -420,7 +560,8 @@
 
         $("#upload_files_form").submit(function (event){
             event.preventDefault();
-            var keepAliveTimer = setInterval(keepAlive, 90000);
+            keepAlive();
+            var keepAliveTimer = setInterval(keepAlive, 180000);
             var path = '{{.FilesURL}}?path={{.CurrentDir}}';
 
             var files = $("#files_name")[0].files;
@@ -683,7 +824,7 @@
                         if (type === 'display') {
                             var filename = row["name"];
                             var extension = filename.slice((filename.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase();
-                            if (data != ""){
+                            if (data){
                                 if (extension == "csv" || extension == "bat" || CodeMirror.findModeByExtension(extension) != null){
                                     {{if .CanAddFiles}}
                                     return `<a href="${data}"><i class="fas fa-edit"></i></a>`;
@@ -713,6 +854,18 @@
                                 }
                             }
                         }
+                        return "";
+                    }
+                },
+                { "data": "ext_url",
+                    "render": function (data, type, row) {
+                        {{if .HasIntegrations}}
+                        if (type === 'display') {
+                            if (data){
+                                return `<a href="#" onclick="openExternalURL('${data}', '${row["url"]}', '${row["name"]}');"><i class="fas fa-external-link-alt"></i></a>`;
+                            }
+                        }
+                        {{end}}
                         return "";
                     }
                 }
@@ -760,7 +913,7 @@
                     "searchable": false
                 },
                 {
-                    "targets": [5],
+                    "targets": [5, 6],
                     "orderable": false,
                     "searchable": false
                 }

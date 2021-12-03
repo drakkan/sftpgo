@@ -223,6 +223,14 @@ func init() {
 	updateWebClientURLs("")
 }
 
+// WebClientIntegration defines the configuration for an external Web Client integration
+type WebClientIntegration struct {
+	// Files with these extensions can be sent to the configured URL
+	FileExtensions []string `json:"file_extensions" mapstructure:"file_extensions"`
+	// URL that will receive the files
+	URL string `json:"url" mapstructure:"url"`
+}
+
 // Binding defines the configuration for a network listener
 type Binding struct {
 	// The address to listen on. A blank value means listen on all available network interfaces.
@@ -262,8 +270,21 @@ type Binding struct {
 	// The flags can be combined, for example 3 will disable both login links.
 	HideLoginURL int `json:"hide_login_url" mapstructure:"hide_login_url"`
 	// Enable the built-in OpenAPI renderer
-	RenderOpenAPI    bool `json:"render_openapi" mapstructure:"render_openapi"`
-	allowHeadersFrom []func(net.IP) bool
+	RenderOpenAPI bool `json:"render_openapi" mapstructure:"render_openapi"`
+	// Enabling web client integrations you can render or modify the files with the specified
+	// extensions using an external tool.
+	WebClientIntegrations []WebClientIntegration `json:"web_client_integrations" mapstructure:"web_client_integrations"`
+	allowHeadersFrom      []func(net.IP) bool
+}
+
+func (b *Binding) checkWebClientIntegrations() {
+	var integrations []WebClientIntegration
+	for _, integration := range b.WebClientIntegrations {
+		if integration.URL != "" && len(integration.FileExtensions) > 0 {
+			integrations = append(integrations, integration)
+		}
+	}
+	b.WebClientIntegrations = integrations
 }
 
 func (b *Binding) parseAllowedProxy() error {
@@ -477,6 +498,7 @@ func (c *Conf) Initialize(configDir string) error {
 		if err := binding.parseAllowedProxy(); err != nil {
 			return err
 		}
+		binding.checkWebClientIntegrations()
 
 		go func(b Binding) {
 			server := newHttpdServer(b, staticFilesPath, c.SigningPassphrase, c.Cors, openAPIPath)
@@ -618,14 +640,7 @@ func updateWebAdminURLs(baseURL string) {
 }
 
 // GetHTTPRouter returns an HTTP handler suitable to use for test cases
-func GetHTTPRouter() http.Handler {
-	b := Binding{
-		Address:         "",
-		Port:            8080,
-		EnableWebAdmin:  true,
-		EnableWebClient: true,
-		RenderOpenAPI:   true,
-	}
+func GetHTTPRouter(b Binding) http.Handler {
 	server := newHttpdServer(b, "../static", "", CorsConfig{}, "../openapi")
 	server.initializeRouter()
 	return server.router

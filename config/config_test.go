@@ -770,6 +770,10 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__TLS_CIPHER_SUITES", " TLS_AES_256_GCM_SHA384 , TLS_CHACHA20_POLY1305_SHA256")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__PROXY_ALLOWED", " 192.168.9.1 , 172.16.25.0/24")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__HIDE_LOGIN_URL", "3")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__WEB_CLIENT_INTEGRATIONS__1__URL", "http://127.0.0.1/")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__WEB_CLIENT_INTEGRATIONS__1__FILE_EXTENSIONS", ".pdf, .txt")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__WEB_CLIENT_INTEGRATIONS__2__URL", "http://127.0.1.1/")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__WEB_CLIENT_INTEGRATIONS__3__FILE_EXTENSIONS", ".jpg, .txt")
 	t.Cleanup(func() {
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__0__ADDRESS")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__0__PORT")
@@ -788,6 +792,10 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__TLS_CIPHER_SUITES")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__PROXY_ALLOWED")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__HIDE_LOGIN_URL")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__WEB_CLIENT_INTEGRATIONS__1__URL")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__WEB_CLIENT_INTEGRATIONS__1__FILE_EXTENSIONS")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__WEB_CLIENT_INTEGRATIONS__2__URL")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__WEB_CLIENT_INTEGRATIONS__3__FILE_EXTENSIONS")
 	})
 
 	configDir := ".."
@@ -827,6 +835,9 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 	require.Equal(t, "192.168.9.1", bindings[2].ProxyAllowed[0])
 	require.Equal(t, "172.16.25.0/24", bindings[2].ProxyAllowed[1])
 	require.Equal(t, 3, bindings[2].HideLoginURL)
+	require.Len(t, bindings[2].WebClientIntegrations, 1)
+	require.Equal(t, "http://127.0.0.1/", bindings[2].WebClientIntegrations[0].URL)
+	require.Equal(t, []string{".pdf", ".txt"}, bindings[2].WebClientIntegrations[0].FileExtensions)
 }
 
 func TestHTTPClientCertificatesFromEnv(t *testing.T) {

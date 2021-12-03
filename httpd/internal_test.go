@@ -664,7 +664,13 @@ func TestCSRFToken(t *testing.T) {
 		assert.Contains(t, err.Error(), "form token is not valid")
 	}
 
-	r := GetHTTPRouter()
+	r := GetHTTPRouter(Binding{
+		Address:         "",
+		Port:            8080,
+		EnableWebAdmin:  true,
+		EnableWebClient: true,
+		RenderOpenAPI:   true,
+	})
 	fn := verifyCSRFHeader(r)
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest(http.MethodDelete, path.Join(userPath, "username"), nil)
@@ -883,7 +889,13 @@ func TestCreateTokenError(t *testing.T) {
 }
 
 func TestAPIKeyAuthForbidden(t *testing.T) {
-	r := GetHTTPRouter()
+	r := GetHTTPRouter(Binding{
+		Address:         "",
+		Port:            8080,
+		EnableWebAdmin:  true,
+		EnableWebClient: true,
+		RenderOpenAPI:   true,
+	})
 	fn := forbidAPIKeyAuthentication(r)
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest(http.MethodGet, versionPath, nil)
@@ -900,7 +912,13 @@ func TestJWTTokenValidation(t *testing.T) {
 	token, _, err := tokenAuth.Encode(claims)
 	assert.NoError(t, err)
 
-	r := GetHTTPRouter()
+	r := GetHTTPRouter(Binding{
+		Address:         "",
+		Port:            8080,
+		EnableWebAdmin:  true,
+		EnableWebClient: true,
+		RenderOpenAPI:   true,
+	})
 	fn := jwtAuthenticatorAPI(r)
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest(http.MethodGet, userPath, nil)
@@ -1912,14 +1930,14 @@ func TestWebUserInvalidClaims(t *testing.T) {
 
 	req, _ := http.NewRequest(http.MethodGet, webClientFilesPath, nil)
 	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", token["access_token"]))
-	handleClientGetFiles(rr, req)
+	server.handleClientGetFiles(rr, req)
 	assert.Equal(t, http.StatusForbidden, rr.Code)
 	assert.Contains(t, rr.Body.String(), "Invalid token claims")
 
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest(http.MethodGet, webClientDirsPath, nil)
 	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", token["access_token"]))
-	handleClientGetDirContents(rr, req)
+	server.handleClientGetDirContents(rr, req)
 	assert.Equal(t, http.StatusForbidden, rr.Code)
 	assert.Contains(t, rr.Body.String(), "invalid token claims")
 

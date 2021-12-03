@@ -1222,7 +1222,7 @@ func (s *httpdServer) initializeRouter() {
 			router.Use(jwtAuthenticatorWebClient)
 
 			router.Get(webClientLogoutPath, handleWebClientLogout)
-			router.With(s.refreshCookie).Get(webClientFilesPath, handleClientGetFiles)
+			router.With(s.refreshCookie).Get(webClientFilesPath, s.handleClientGetFiles)
 			router.With(s.refreshCookie).Get(webClientViewPDFPath, handleClientViewPDF)
 			router.With(checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
 				Post(webClientFilesPath, uploadUserFiles)
@@ -1231,7 +1231,7 @@ func (s *httpdServer) initializeRouter() {
 				Patch(webClientFilesPath, renameUserFile)
 			router.With(checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
 				Delete(webClientFilesPath, deleteUserFile)
-			router.With(compressor.Handler, s.refreshCookie).Get(webClientDirsPath, handleClientGetDirContents)
+			router.With(compressor.Handler, s.refreshCookie).Get(webClientDirsPath, s.handleClientGetDirContents)
 			router.With(checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
 				Post(webClientDirsPath, createUserDir)
 			router.With(checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).

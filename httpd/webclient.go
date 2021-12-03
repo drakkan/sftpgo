@@ -117,18 +117,19 @@ type editFilePage struct {
 
 type filesPage struct {
 	baseClientPage
-	CurrentDir    string
-	DirsURL       string
-	DownloadURL   string
-	ViewPDFURL    string
-	CanAddFiles   bool
-	CanCreateDirs bool
-	CanRename     bool
-	CanDelete     bool
-	CanDownload   bool
-	CanShare      bool
-	Error         string
-	Paths         []dirMapping
+	CurrentDir      string
+	DirsURL         string
+	DownloadURL     string
+	ViewPDFURL      string
+	CanAddFiles     bool
+	CanCreateDirs   bool
+	CanRename       bool
+	CanDelete       bool
+	CanDownload     bool
+	CanShare        bool
+	Error           string
+	Paths           []dirMapping
+	HasIntegrations bool
 }
 
 type clientMessagePage struct {
@@ -436,20 +437,23 @@ func renderAddUpdateSharePage(w http.ResponseWriter, r *http.Request, share *dat
 	renderClientTemplate(w, templateClientShare, data)
 }
 
-func renderFilesPage(w http.ResponseWriter, r *http.Request, dirName, error string, user dataprovider.User) {
+func renderFilesPage(w http.ResponseWriter, r *http.Request, dirName, error string, user dataprovider.User,
+	hasIntegrations bool,
+) {
 	data := filesPage{
-		baseClientPage: getBaseClientPageData(pageClientFilesTitle, webClientFilesPath, r),
-		Error:          error,
-		CurrentDir:     url.QueryEscape(dirName),
-		DownloadURL:    webClientDownloadZipPath,
-		ViewPDFURL:     webClientViewPDFPath,
-		DirsURL:        webClientDirsPath,
-		CanAddFiles:    user.CanAddFilesFromWeb(dirName),
-		CanCreateDirs:  user.CanAddDirsFromWeb(dirName),
-		CanRename:      user.CanRenameFromWeb(dirName, dirName),
-		CanDelete:      user.CanDeleteFromWeb(dirName),
-		CanDownload:    user.HasPerm(dataprovider.PermDownload, dirName),
-		CanShare:       user.CanManageShares(),
+		baseClientPage:  getBaseClientPageData(pageClientFilesTitle, webClientFilesPath, r),
+		Error:           error,
+		CurrentDir:      url.QueryEscape(dirName),
+		DownloadURL:     webClientDownloadZipPath,
+		ViewPDFURL:      webClientViewPDFPath,
+		DirsURL:         webClientDirsPath,
+		CanAddFiles:     user.CanAddFilesFromWeb(dirName),
+		CanCreateDirs:   user.CanAddDirsFromWeb(dirName),
+		CanRename:       user.CanRenameFromWeb(dirName, dirName),
+		CanDelete:       user.CanDeleteFromWeb(dirName),
+		CanDownload:     user.HasPerm(dataprovider.PermDownload, dirName),
+		CanShare:        user.CanManageShares(),
+		HasIntegrations: hasIntegrations,
 	}
 	paths := []dirMapping{}
 	if dirName != "/" {
@@ -552,7 +556,7 @@ func handleWebClientDownloadZip(w http.ResponseWriter, r *http.Request) {
 	renderCompressedFiles(w, connection, name, filesList, nil)
 }
 
-func handleClientGetDirContents(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleClientGetDirContents(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
@@ -595,7 +599,6 @@ func handleClientGetDirContents(w http.ResponseWriter, r *http.Request) {
 	for _, info := range contents {
 		res := make(map[string]string)
 		res["url"] = getFileObjectURL(name, info.Name())
-		editURL := ""
 		if info.IsDir() {
 			res["type"] = "1"
 			res["size"] = ""
@@ -606,21 +609,29 @@ func handleClientGetDirContents(w http.ResponseWriter, r *http.Request) {
 			} else {
 				res["size"] = util.ByteCountIEC(info.Size())
 				if info.Size() < httpdMaxEditFileSize {
-					editURL = strings.Replace(res["url"], webClientFilesPath, webClientEditFilePath, 1)
+					res["edit_url"] = strings.Replace(res["url"], webClientFilesPath, webClientEditFilePath, 1)
+				}
+				if len(s.binding.WebClientIntegrations) > 0 {
+					extension := path.Ext(info.Name())
+					for idx := range s.binding.WebClientIntegrations {
+						if util.IsStringInSlice(extension, s.binding.WebClientIntegrations[idx].FileExtensions) {
+							res["ext_url"] = s.binding.WebClientIntegrations[idx].URL
+							break
+						}
+					}
 				}
 			}
 		}
 		res["meta"] = fmt.Sprintf("%v_%v", res["type"], info.Name())
 		res["name"] = info.Name()
 		res["last_modified"] = getFileObjectModTime(info.ModTime())
-		res["edit_url"] = editURL
 		results = append(results, res)
 	}
 
 	render.JSON(w, r, results)
 }
 
-func handleClientGetFiles(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleClientGetFiles(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
@@ -659,11 +670,12 @@ func handleClientGetFiles(w http.ResponseWriter, r *http.Request) {
 		info, err = connection.Stat(name, 0)
 	}
 	if err != nil {
-		renderFilesPage(w, r, path.Dir(name), fmt.Sprintf("unable to stat file %#v: %v", name, err), user)
+		renderFilesPage(w, r, path.Dir(name), fmt.Sprintf("unable to stat file %#v: %v", name, err),
+			user, len(s.binding.WebClientIntegrations) > 0)
 		return
 	}
 	if info.IsDir() {
-		renderFilesPage(w, r, name, "", user)
+		renderFilesPage(w, r, name, "", user, len(s.binding.WebClientIntegrations) > 0)
 		return
 	}
 	inline := r.URL.Query().Get("inline") != ""
@@ -673,7 +685,7 @@ func handleClientGetFiles(w http.ResponseWriter, r *http.Request) {
 				renderClientMessagePage(w, r, http.StatusText(status), "", status, err, "")
 				return
 			}
-			renderFilesPage(w, r, path.Dir(name), err.Error(), user)
+			renderFilesPage(w, r, path.Dir(name), err.Error(), user, len(s.binding.WebClientIntegrations) > 0)
 		}
 	}
 }

@@ -262,6 +262,8 @@ func TestMain(m *testing.M) {
 	os.Setenv("SFTPGO_DATA_PROVIDER__CREATE_DEFAULT_ADMIN", "1")
 	os.Setenv("SFTPGO_DEFAULT_ADMIN_USERNAME", "admin")
 	os.Setenv("SFTPGO_DEFAULT_ADMIN_PASSWORD", "password")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__0__WEB_CLIENT_INTEGRATIONS__0__URL", "http://127.0.0.1/test.html")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__0__WEB_CLIENT_INTEGRATIONS__0__FILE_EXTENSIONS", ".pdf,.txt")
 	err := config.LoadConfig(configDir, "")
 	if err != nil {
 		logger.WarnToConsole("error loading configuration: %v", err)
@@ -393,7 +395,7 @@ func TestMain(m *testing.M) {
 	waitTCPListening(httpdConf.Bindings[0].GetAddress())
 	httpd.ReloadCertificateMgr() //nolint:errcheck
 
-	testServer = httptest.NewServer(httpd.GetHTTPRouter())
+	testServer = httptest.NewServer(httpd.GetHTTPRouter(httpdConf.Bindings[0]))
 	defer testServer.Close()
 
 	exitCode := m.Run()

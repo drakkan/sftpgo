@@ -70,16 +70,17 @@ var (
 		ProxyAllowed:    nil,
 	}
 	defaultHTTPDBinding = httpd.Binding{
-		Address:         "127.0.0.1",
-		Port:            8080,
-		EnableWebAdmin:  true,
-		EnableWebClient: true,
-		EnableHTTPS:     false,
-		ClientAuthType:  0,
-		TLSCipherSuites: nil,
-		ProxyAllowed:    nil,
-		HideLoginURL:    0,
-		RenderOpenAPI:   true,
+		Address:               "127.0.0.1",
+		Port:                  8080,
+		EnableWebAdmin:        true,
+		EnableWebClient:       true,
+		EnableHTTPS:           false,
+		ClientAuthType:        0,
+		TLSCipherSuites:       nil,
+		ProxyAllowed:          nil,
+		HideLoginURL:          0,
+		RenderOpenAPI:         true,
+		WebClientIntegrations: nil,
 	}
 	defaultRateLimiter = common.RateLimiterConfig{
 		Average:                0,
@@ -1022,6 +1023,31 @@ func getWebDAVDBindingFromEnv(idx int) {
 	}
 }
 
+func getHTTPDWebClientIntegrationsFromEnv(idx int) []httpd.WebClientIntegration {
+	var integrations []httpd.WebClientIntegration
+
+	for subIdx := 0; subIdx < 10; subIdx++ {
+		var integration httpd.WebClientIntegration
+
+		url, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__WEB_CLIENT_INTEGRATIONS__%v__URL", idx, subIdx))
+		if ok {
+			integration.URL = url
+		}
+
+		extensions, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__WEB_CLIENT_INTEGRATIONS__%v__FILE_EXTENSIONS",
+			idx, subIdx))
+		if ok {
+			integration.FileExtensions = extensions
+		}
+
+		if url != "" && len(extensions) > 0 {
+			integrations = append(integrations, integration)
+		}
+	}
+
+	return integrations
+}
+
 func getHTTPDBindingFromEnv(idx int) {
 	binding := httpd.Binding{
 		EnableWebAdmin:  true,
@@ -1061,6 +1087,12 @@ func getHTTPDBindingFromEnv(idx int) {
 	renderOpenAPI, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__RENDER_OPENAPI", idx))
 	if ok {
 		binding.RenderOpenAPI = renderOpenAPI
+		isSet = true
+	}
+
+	webClientIntegrations := getHTTPDWebClientIntegrationsFromEnv(idx)
+	if len(webClientIntegrations) > 0 {
+		binding.WebClientIntegrations = webClientIntegrations
 		isSet = true
 	}
 
