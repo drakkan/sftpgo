@@ -26,6 +26,7 @@ type fsEvent struct {
 	Status            int    `json:"status"`
 	Protocol          string `json:"protocol"`
 	IP                string `json:"ip,omitempty"`
+	SessionID         string `json:"session_id"`
 	InstanceID        string `json:"instance_id,omitempty"`
 }
 
@@ -65,6 +66,7 @@ func (s *Searcher) SearchFsEvents(startTimestamp, endTimestamp int64, username, 
 			Status:            1,
 			Protocol:          "SFTP",
 			IP:                "::1",
+			SessionID:         "1234",
 			InstanceID:        "instance1",
 		},
 	}

@@ -5774,6 +5774,17 @@ func TestSearchEvents(t *testing.T) {
 	setBearerForReq(req, token)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
+	events := make([]map[string]interface{}, 0)
+	err = json.Unmarshal(rr.Body.Bytes(), &events)
+	assert.NoError(t, err)
+	if assert.Len(t, events, 1) {
+		ev := events[0]
+		for _, field := range []string{"id", "timestamp", "action", "username", "fs_path", "status", "protocol",
+			"ip", "session_id", "instance_id"} {
+			_, ok := ev[field]
+			assert.True(t, ok, field)
+		}
+	}
 
 	// the test eventsearcher plugin returns error if start_timestamp < 0
 	req, err = http.NewRequest(http.MethodGet, fsEventsPath+"?start_timestamp=-1&end_timestamp=123456&statuses=1,2", nil)
@@ -5793,6 +5804,17 @@ func TestSearchEvents(t *testing.T) {
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
+	events = make([]map[string]interface{}, 0)
+	err = json.Unmarshal(rr.Body.Bytes(), &events)
+	assert.NoError(t, err)
+	if assert.Len(t, events, 1) {
+		ev := events[0]
+		for _, field := range []string{"id", "timestamp", "action", "username", "object_type", "object_name",
+			"object_data", "instance_id"} {
+			_, ok := ev[field]
+			assert.True(t, ok, field)
+		}
+	}
 
 	// the test eventsearcher plugin returns error if start_timestamp < 0
 	req, err = http.NewRequest(http.MethodGet, providerEventsPath+"?start_timestamp=-1", nil)
