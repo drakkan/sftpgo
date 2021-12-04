@@ -798,6 +798,18 @@
             },
             "deferRender": true,
             "processing": true,
+            "lengthMenu": [ 10, 25, 50, 100, 250, 500 ],
+            "stateSave": true,
+            "stateDuration": 0,
+            "stateSaveParams": function (settings, data) {
+                data.sftpgo_dir = '{{.CurrentDir}}';
+            },
+            "stateLoadParams": function (settings, data) {
+                if (!data.sftpgo_dir || data.sftpgo_dir != '{{.CurrentDir}}'){
+                    data.start = 0;
+                    data.search.search = "";
+                }
+            },
             "columns": [
                 { "data": "meta" },
                 { "data": "type" },
