@@ -198,7 +198,7 @@
             childReference = window.open(url, '_blank');
             if (!checkerStarted){
                 keepAlive();
-                setInterval(checkExternalWindow, 180000);
+                setInterval(checkExternalWindow, 300000);
                 checkerStarted = true;
             }
         } else {
@@ -212,7 +212,7 @@
 
     function notifySave(status, message){
         if (childReference == null || childReference.closed) {
-            console.log("external windows null or closed, cannot notify save");
+            console.log("external window null or closed, cannot notify save");
             return;
         }
 
@@ -230,7 +230,7 @@
             return;
         }
         if (childReference == null || childReference.closed) {
-            console.log("external windows null or closed, refusing message");
+            console.log("external window null or closed, refusing message");
             return;
         }
         switch (event.data.type){
@@ -561,7 +561,7 @@
         $("#upload_files_form").submit(function (event){
             event.preventDefault();
             keepAlive();
-            var keepAliveTimer = setInterval(keepAlive, 180000);
+            var keepAliveTimer = setInterval(keepAlive, 300000);
             var path = '{{.FilesURL}}?path={{.CurrentDir}}';
 
             var files = $("#files_name")[0].files;

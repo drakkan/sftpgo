@@ -24,7 +24,7 @@
         // in real world usage set the origin when you call postMessage, we use `*` for testing purpose here
         $(document).ready(function () {
             if (window.opener == null || window.opener.closed) {
-                console.log("windows opener gone!");
+                console.log("window opener gone!");
                 return;
             }
             // notify SFTPGo that the page is ready to receive the file
@@ -33,7 +33,7 @@
 
         window.addEventListener('message', (event) => {
             if (window.opener == null || window.opener.closed) {
-                console.log("windows opener gone!");
+                console.log("window opener gone!");
                 return;
             }
             // you should check the origin before continuing
@@ -76,6 +76,10 @@
         });
 
         function saveBlob(binary){
+            if (window.opener == null || window.opener.closed) {
+                console.log("window opener gone!");
+                return;
+            }
             // if we have modified the file we can send it back to SFTPGo as a blob for saving
             console.log("save blob, binary? "+binary);
             if (binary){

@@ -2348,11 +2348,32 @@ func getKeyboardInteractiveAnswers(client ssh.KeyboardInteractiveChallenge, resp
 		return answers, err
 	}
 	if len(answers) == 1 && response.CheckPwd > 0 {
-		_, err = checkUserAndPass(user, answers[0], ip, protocol)
-		providerLog(logger.LevelInfo, "interactive auth hook requested password validation for user %#v, validation error: %v",
-			user.Username, err)
-		if err != nil {
-			return answers, err
+		if response.CheckPwd == 2 {
+			if !user.Filters.TOTPConfig.Enabled || !util.IsStringInSlice(protocolSSH, user.Filters.TOTPConfig.Protocols) {
+				providerLog(logger.LevelInfo, "keyboard interactive auth error: unable to check TOTP passcode, TOTP is not enabled for user %#v",
+					user.Username)
+				return answers, errors.New("TOTP not enabled for SSH protocol")
+			}
+			err := user.Filters.TOTPConfig.Secret.TryDecrypt()
+			if err != nil {
+				providerLog(logger.LevelWarn, "unable to decrypt TOTP secret for user %#v, protocol %v, err: %v",
+					user.Username, protocol, err)
+				return answers, fmt.Errorf("unable to decrypt TOTP secret: %w", err)
+			}
+			match, err := mfa.ValidateTOTPPasscode(user.Filters.TOTPConfig.ConfigName, answers[0],
+				user.Filters.TOTPConfig.Secret.GetPayload())
+			if !match || err != nil {
+				providerLog(logger.LevelInfo, "keyboard interactive auth error: unable to validate passcode for user %#v, match? %v, err: %v",
+					user.Username, match, err)
+				return answers, errors.New("unable to validate TOTP passcode")
+			}
+		} else {
+			_, err = checkUserAndPass(user, answers[0], ip, protocol)
+			providerLog(logger.LevelInfo, "interactive auth hook requested password validation for user %#v, validation error: %v",
+				user.Username, err)
+			if err != nil {
+				return answers, err
+			}
 		}
 		answers[0] = "OK"
 	}

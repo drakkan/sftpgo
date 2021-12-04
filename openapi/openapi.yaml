@@ -4871,7 +4871,10 @@ components:
             - 1
             - 2
           description: |
-            * `0` - clear or explicit TLS * `1` - explicit TLS required * `2` - implicit TLS
+            TLS mode:
+              * `0` - clear or explicit TLS
+              * `1` - explicit TLS required
+              * `2` - implicit TLS
         force_passive_ip:
           type: string
           description: External IP address to expose for passive connections

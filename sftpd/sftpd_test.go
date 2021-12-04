@@ -30,6 +30,8 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/pquerna/otp"
+	"github.com/pquerna/otp/totp"
 
 	"github.com/pkg/sftp"
 	"github.com/rs/zerolog"
@@ -42,6 +44,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/httpdtest"
 	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/mfa"
 	"github.com/drakkan/sftpgo/v2/sdk"
 	"github.com/drakkan/sftpgo/v2/sftpd"
 	"github.com/drakkan/sftpgo/v2/util"
@@ -193,6 +196,12 @@ func TestMain(m *testing.M) {
 		logger.ErrorToConsole("error initializing kms: %v", err)
 		os.Exit(1)
 	}
+	mfaConfig := config.GetMFAConfig()
+	err = mfaConfig.Initialize()
+	if err != nil {
+		logger.ErrorToConsole("error initializing MFA: %v", err)
+		os.Exit(1)
+	}
 
 	sftpdConf := config.GetSFTPDConfig()
 	httpdConf := config.GetHTTPDConfig()
@@ -312,7 +321,7 @@ func TestMain(m *testing.M) {
 	os.Remove(postConnectPath)
 	os.Remove(preDownloadPath)
 	os.Remove(preUploadPath)
-	os.Remove(keyIntAuthPath)
+	//os.Remove(keyIntAuthPath)
 	os.Remove(checkPwdPath)
 	os.Exit(exitCode)
 }
@@ -2240,6 +2249,127 @@ func TestLoginKeyboardInteractiveAuth(t *testing.T) {
 		client.Close()
 		conn.Close()
 	}
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestInteractiveLoginWithPasscode(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("this test is not available on Windows")
+	}
+	user, _, err := httpdtest.AddUser(getTestUser(false), http.StatusCreated)
+	assert.NoError(t, err)
+	// test password check
+	err = os.WriteFile(keyIntAuthPath, getKeyboardInteractiveScriptForBuiltinChecks(false, 1), os.ModePerm)
+	assert.NoError(t, err)
+	conn, client, err := getKeyboardInteractiveSftpClient(user, []string{defaultPassword})
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		assert.NoError(t, checkBasicSFTP(client))
+	}
+	// wrong password
+	_, _, err = getKeyboardInteractiveSftpClient(user, []string{"wrong_password"})
+	assert.Error(t, err)
+	// correct password but the script returns an error
+	err = os.WriteFile(keyIntAuthPath, getKeyboardInteractiveScriptForBuiltinChecks(false, 0), os.ModePerm)
+	assert.NoError(t, err)
+	_, _, err = getKeyboardInteractiveSftpClient(user, []string{"wrong_password"})
+	assert.Error(t, err)
+	// add multi-factor authentication
+	configName, _, secret, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
+	assert.NoError(t, err)
+	user.Password = defaultPassword
+	user.Filters.TOTPConfig = sdk.TOTPConfig{
+		Enabled:    true,
+		ConfigName: configName,
+		Secret:     kms.NewPlainSecret(secret),
+		Protocols:  []string{common.ProtocolSSH},
+	}
+	err = dataprovider.UpdateUser(&user, "", "")
+	assert.NoError(t, err)
+
+	passcode, err := totp.GenerateCodeCustom(secret, time.Now(), totp.ValidateOpts{
+		Period:    30,
+		Skew:      1,
+		Digits:    otp.DigitsSix,
+		Algorithm: otp.AlgorithmSHA1,
+	})
+	assert.NoError(t, err)
+	err = os.WriteFile(keyIntAuthPath, getKeyboardInteractiveScriptForBuiltinChecks(true, 1), os.ModePerm)
+	assert.NoError(t, err)
+
+	passwordAsked := false
+	passcodeAsked := false
+	authMethods := []ssh.AuthMethod{
+		ssh.KeyboardInteractive(func(user, instruction string, questions []string, echos []bool) ([]string, error) {
+			var answers []string
+			if strings.HasPrefix(questions[0], "Password") {
+				answers = append(answers, defaultPassword)
+				passwordAsked = true
+			} else {
+				answers = append(answers, passcode)
+				passcodeAsked = true
+			}
+			return answers, nil
+		}),
+	}
+	conn, client, err = getCustomAuthSftpClient(user, authMethods, "")
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		assert.NoError(t, checkBasicSFTP(client))
+	}
+	assert.True(t, passwordAsked)
+	assert.True(t, passcodeAsked)
+	// the same passcode cannot be reused
+	_, _, err = getCustomAuthSftpClient(user, authMethods, "")
+	assert.Error(t, err)
+	// correct passcode but the script returns an error
+	configName, _, secret, _, err = mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
+	assert.NoError(t, err)
+	user.Password = defaultPassword
+	user.Filters.TOTPConfig = sdk.TOTPConfig{
+		Enabled:    true,
+		ConfigName: configName,
+		Secret:     kms.NewPlainSecret(secret),
+		Protocols:  []string{common.ProtocolSSH},
+	}
+	err = dataprovider.UpdateUser(&user, "", "")
+	assert.NoError(t, err)
+	passcode, err = totp.GenerateCodeCustom(secret, time.Now(), totp.ValidateOpts{
+		Period:    30,
+		Skew:      1,
+		Digits:    otp.DigitsSix,
+		Algorithm: otp.AlgorithmSHA1,
+	})
+	assert.NoError(t, err)
+	err = os.WriteFile(keyIntAuthPath, getKeyboardInteractiveScriptForBuiltinChecks(true, 0), os.ModePerm)
+	assert.NoError(t, err)
+	passwordAsked = false
+	passcodeAsked = false
+	_, _, err = getCustomAuthSftpClient(user, authMethods, "")
+	assert.Error(t, err)
+	authMethods = []ssh.AuthMethod{
+		ssh.KeyboardInteractive(func(user, instruction string, questions []string, echos []bool) ([]string, error) {
+			var answers []string
+			if strings.HasPrefix(questions[0], "Password") {
+				answers = append(answers, defaultPassword)
+				passwordAsked = true
+			} else {
+				answers = append(answers, passcode)
+				passcodeAsked = true
+			}
+			return answers, nil
+		}),
+	}
+	_, _, err = getCustomAuthSftpClient(user, authMethods, "")
+	assert.Error(t, err)
+	assert.True(t, passwordAsked)
+	assert.True(t, passcodeAsked)
+
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
@@ -9907,6 +10037,28 @@ func addFileToGitRepo(repoPath string, fileSize int64) ([]byte, error) {
 	cmd = exec.Command(gitPath, "commit", "-am", "test")
 	cmd.Dir = repoPath
 	return cmd.CombinedOutput()
+}
+
+func getKeyboardInteractiveScriptForBuiltinChecks(addPasscode bool, result int) []byte {
+	content := []byte("#!/bin/sh\n\n")
+	echos := []bool{false}
+	q, _ := json.Marshal([]string{"Password: "})
+	e, _ := json.Marshal(echos)
+	content = append(content, []byte(fmt.Sprintf("echo '{\"questions\":%v,\"echos\":%v,\"check_password\":1}'\n", string(q), string(e)))...)
+	content = append(content, []byte("read ANSWER\n\n")...)
+	content = append(content, []byte("if test \"$ANSWER\" != \"OK\"; then\n")...)
+	content = append(content, []byte("exit 1\n")...)
+	content = append(content, []byte("fi\n\n")...)
+	if addPasscode {
+		q, _ := json.Marshal([]string{"Passcode: "})
+		content = append(content, []byte(fmt.Sprintf("echo '{\"questions\":%v,\"echos\":%v,\"check_password\":2}'\n", string(q), string(e)))...)
+		content = append(content, []byte("read ANSWER\n\n")...)
+		content = append(content, []byte("if test \"$ANSWER\" != \"OK\"; then\n")...)
+		content = append(content, []byte("exit 1\n")...)
+		content = append(content, []byte("fi\n\n")...)
+	}
+	content = append(content, []byte(fmt.Sprintf("echo '{\"auth_result\":%v}'\n", result))...)
+	return content
 }
 
 func getKeyboardInteractiveScriptContent(questions []string, sleepTime int, nonJSONResponse bool, result int) []byte {
