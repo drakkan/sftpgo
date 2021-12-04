@@ -5120,6 +5120,8 @@ components:
           $ref: '#/components/schemas/EventProtocols'
         ip:
           type: string
+        session_id:
+          type: string
         instance_id:
           type: string
     ProviderEvent:
