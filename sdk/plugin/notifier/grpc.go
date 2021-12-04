@@ -20,7 +20,7 @@ type GRPCClient struct {
 
 // NotifyFsEvent implements the Notifier interface
 func (c *GRPCClient) NotifyFsEvent(timestamp int64, action, username, fsPath, fsTargetPath, sshCmd, protocol, ip,
-	virtualPath, virtualTargetPath string, fileSize int64, status int,
+	virtualPath, virtualTargetPath, sessionID string, fileSize int64, status int,
 ) error {
 	ctx, cancel := context.WithTimeout(context.Background(), rpcTimeout)
 	defer cancel()
@@ -38,6 +38,7 @@ func (c *GRPCClient) NotifyFsEvent(timestamp int64, action, username, fsPath, fs
 		Status:            int32(status),
 		VirtualPath:       virtualPath,
 		VirtualTargetPath: virtualTargetPath,
+		SessionId:         sessionID,
 	})
 
 	return err
@@ -69,7 +70,7 @@ type GRPCServer struct {
 // SendFsEvent implements the serve side fs notify method
 func (s *GRPCServer) SendFsEvent(ctx context.Context, req *proto.FsEvent) (*emptypb.Empty, error) {
 	err := s.Impl.NotifyFsEvent(req.Timestamp, req.Action, req.Username, req.FsPath, req.FsTargetPath, req.SshCmd,
-		req.Protocol, req.Ip, req.VirtualPath, req.VirtualTargetPath, req.FileSize, int(req.Status))
+		req.Protocol, req.Ip, req.VirtualPath, req.VirtualTargetPath, req.SessionId, req.FileSize, int(req.Status))
 	return &emptypb.Empty{}, err
 }
 

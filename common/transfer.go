@@ -255,8 +255,8 @@ func (t *BaseTransfer) Close() error {
 	if t.transferType == TransferDownload {
 		logger.TransferLog(downloadLogSender, t.fsPath, elapsed, atomic.LoadInt64(&t.BytesSent), t.Connection.User.Username,
 			t.Connection.ID, t.Connection.protocol, t.Connection.localAddr, t.Connection.remoteAddr, t.ftpMode)
-		ExecuteActionNotification(&t.Connection.User, operationDownload, t.fsPath, t.requestPath, "", "", "", t.Connection.protocol,
-			t.Connection.GetRemoteIP(), atomic.LoadInt64(&t.BytesSent), t.ErrTransfer)
+		ExecuteActionNotification(t.Connection, operationDownload, t.fsPath, t.requestPath, "", "", "",
+			atomic.LoadInt64(&t.BytesSent), t.ErrTransfer)
 	} else {
 		fileSize := atomic.LoadInt64(&t.BytesReceived) + t.MinWriteOffset
 		if statSize, err := t.getUploadFileSize(); err == nil {
@@ -267,8 +267,7 @@ func (t *BaseTransfer) Close() error {
 		t.updateTimes()
 		logger.TransferLog(uploadLogSender, t.fsPath, elapsed, atomic.LoadInt64(&t.BytesReceived), t.Connection.User.Username,
 			t.Connection.ID, t.Connection.protocol, t.Connection.localAddr, t.Connection.remoteAddr, t.ftpMode)
-		ExecuteActionNotification(&t.Connection.User, operationUpload, t.fsPath, t.requestPath, "", "", "", t.Connection.protocol,
-			t.Connection.GetRemoteIP(), fileSize, t.ErrTransfer)
+		ExecuteActionNotification(t.Connection, operationUpload, t.fsPath, t.requestPath, "", "", "", fileSize, t.ErrTransfer)
 	}
 	if t.ErrTransfer != nil {
 		t.Connection.Log(logger.LevelWarn, "transfer error: %v, path: %#v", t.ErrTransfer, t.fsPath)

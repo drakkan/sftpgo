@@ -264,7 +264,7 @@ func (c *BaseConnection) CreateDir(virtualPath string) error {
 
 	logger.CommandLog(mkdirLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", -1,
 		c.localAddr, c.remoteAddr)
-	ExecuteActionNotification(&c.User, operationMkdir, fsPath, virtualPath, "", "", "", c.protocol, c.GetRemoteIP(), 0, nil)
+	ExecuteActionNotification(c, operationMkdir, fsPath, virtualPath, "", "", "", 0, nil)
 	return nil
 }
 
@@ -287,7 +287,7 @@ func (c *BaseConnection) RemoveFile(fs vfs.Fs, fsPath, virtualPath string, info 
 	}
 
 	size := info.Size()
-	actionErr := ExecutePreAction(&c.User, operationPreDelete, fsPath, virtualPath, c.protocol, c.GetRemoteIP(), size, 0)
+	actionErr := ExecutePreAction(c, operationPreDelete, fsPath, virtualPath, size, 0)
 	if actionErr == nil {
 		c.Log(logger.LevelDebug, "remove for path %#v handled by pre-delete action", fsPath)
 	} else {
@@ -311,7 +311,7 @@ func (c *BaseConnection) RemoveFile(fs vfs.Fs, fsPath, virtualPath string, info 
 		}
 	}
 	if actionErr != nil {
-		ExecuteActionNotification(&c.User, operationDelete, fsPath, virtualPath, "", "", "", c.protocol, c.GetRemoteIP(), size, nil)
+		ExecuteActionNotification(c, operationDelete, fsPath, virtualPath, "", "", "", size, nil)
 	}
 	return nil
 }
@@ -371,7 +371,7 @@ func (c *BaseConnection) RemoveDir(virtualPath string) error {
 
 	logger.CommandLog(rmdirLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", -1,
 		c.localAddr, c.remoteAddr)
-	ExecuteActionNotification(&c.User, operationRmdir, fsPath, virtualPath, "", "", "", c.protocol, c.GetRemoteIP(), 0, nil)
+	ExecuteActionNotification(c, operationRmdir, fsPath, virtualPath, "", "", "", 0, nil)
 	return nil
 }
 
@@ -432,8 +432,8 @@ func (c *BaseConnection) Rename(virtualSourcePath, virtualTargetPath string) err
 	c.updateQuotaAfterRename(fsDst, virtualSourcePath, virtualTargetPath, fsTargetPath, initialSize) //nolint:errcheck
 	logger.CommandLog(renameLogSender, fsSourcePath, fsTargetPath, c.User.Username, "", c.ID, c.protocol, -1, -1,
 		"", "", "", -1, c.localAddr, c.remoteAddr)
-	ExecuteActionNotification(&c.User, operationRename, fsSourcePath, virtualSourcePath, fsTargetPath, virtualTargetPath, "",
-		c.protocol, c.GetRemoteIP(), 0, nil)
+	ExecuteActionNotification(c, operationRename, fsSourcePath, virtualSourcePath, fsTargetPath, virtualTargetPath,
+		"", 0, nil)
 
 	return nil
 }

@@ -101,7 +101,7 @@ func (c *Connection) getFileReader(name string, offset int64, method string) (io
 	}
 
 	if method != http.MethodHead {
-		if err := common.ExecutePreAction(&c.User, common.OperationPreDownload, p, name, c.GetProtocol(), c.GetRemoteIP(), 0, 0); err != nil {
+		if err := common.ExecutePreAction(c.BaseConnection, common.OperationPreDownload, p, name, 0, 0); err != nil {
 			c.Log(logger.LevelDebug, "download for file %#v denied by pre action: %v", name, err)
 			return nil, c.GetPermissionDeniedError()
 		}
@@ -176,7 +176,7 @@ func (c *Connection) handleUploadFile(fs vfs.Fs, resolvedPath, filePath, request
 		c.Log(logger.LevelInfo, "denying file write due to quota limits")
 		return nil, common.ErrQuotaExceeded
 	}
-	err := common.ExecutePreAction(&c.User, common.OperationPreUpload, resolvedPath, requestPath, c.GetProtocol(), c.GetRemoteIP(), fileSize, os.O_TRUNC)
+	err := common.ExecutePreAction(c.BaseConnection, common.OperationPreUpload, resolvedPath, requestPath, fileSize, os.O_TRUNC)
 	if err != nil {
 		c.Log(logger.LevelDebug, "upload for file %#v denied by pre action: %v", requestPath, err)
 		return nil, c.GetPermissionDeniedError()

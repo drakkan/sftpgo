@@ -203,7 +203,7 @@ func (p *notifierPlugin) canQueueEvent(timestamp int64) bool {
 }
 
 func (p *notifierPlugin) notifyFsAction(timestamp int64, action, username, fsPath, fsTargetPath, sshCmd,
-	protocol, ip, virtualPath, virtualTargetPath string, fileSize int64, errAction error) {
+	protocol, ip, virtualPath, virtualTargetPath, sessionID string, fileSize int64, errAction error) {
 	if !util.IsStringInSlice(action, p.config.NotifierOptions.FsEvents) {
 		return
 	}
@@ -214,7 +214,7 @@ func (p *notifierPlugin) notifyFsAction(timestamp int64, action, username, fsPat
 			status = 0
 		}
 		p.sendFsEvent(timestamp, action, username, fsPath, fsTargetPath, sshCmd, protocol, ip, virtualPath, virtualTargetPath,
-			fileSize, status)
+			sessionID, fileSize, status)
 	}()
 }
 
@@ -237,9 +237,9 @@ func (p *notifierPlugin) notifyProviderAction(timestamp int64, action, username,
 }
 
 func (p *notifierPlugin) sendFsEvent(timestamp int64, action, username, fsPath, fsTargetPath, sshCmd,
-	protocol, ip, virtualPath, virtualTargetPath string, fileSize int64, status int) {
+	protocol, ip, virtualPath, virtualTargetPath, sessionID string, fileSize int64, status int) {
 	if err := p.notifier.NotifyFsEvent(timestamp, action, username, fsPath, fsTargetPath, sshCmd, protocol, ip,
-		virtualPath, virtualTargetPath, fileSize, status); err != nil {
+		virtualPath, virtualTargetPath, sessionID, fileSize, status); err != nil {
 		logger.Warn(logSender, "", "unable to send fs action notification to plugin %v: %v", p.config.Cmd, err)
 		if p.canQueueEvent(timestamp) {
 			p.queue.addFsEvent(timestamp, action, username, fsPath, fsTargetPath, sshCmd, protocol, ip, fileSize, status)
@@ -267,7 +267,8 @@ func (p *notifierPlugin) sendQueuedEvents() {
 	fsEv := p.queue.popFsEvent()
 	for fsEv != nil {
 		go p.sendFsEvent(fsEv.Timestamp, fsEv.Action, fsEv.Username, fsEv.FsPath, fsEv.FsTargetPath,
-			fsEv.SshCmd, fsEv.Protocol, fsEv.Ip, fsEv.VirtualPath, fsEv.VirtualTargetPath, fsEv.FileSize, int(fsEv.Status))
+			fsEv.SshCmd, fsEv.Protocol, fsEv.Ip, fsEv.VirtualPath, fsEv.VirtualTargetPath, fsEv.SessionId,
+			fsEv.FileSize, int(fsEv.Status))
 		fsEv = p.queue.popFsEvent()
 	}
 

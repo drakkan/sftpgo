@@ -51,10 +51,10 @@ func InitializeActionHandler(handler ActionHandler) {
 }
 
 // ExecutePreAction executes a pre-* action and returns the result
-func ExecutePreAction(user *dataprovider.User, operation, filePath, virtualPath, protocol, ip string, fileSize int64,
-	openFlags int,
-) error {
-	plugin.Handler.NotifyFsEvent(time.Now().UnixNano(), operation, user.Username, filePath, "", "", protocol, ip, virtualPath, "", fileSize, nil)
+func ExecutePreAction(conn *BaseConnection, operation, filePath, virtualPath string, fileSize int64, openFlags int) error {
+	remoteIP := conn.GetRemoteIP()
+	plugin.Handler.NotifyFsEvent(time.Now().UnixNano(), operation, conn.User.Username, filePath, "", "", conn.protocol,
+		remoteIP, virtualPath, "", conn.ID, fileSize, nil)
 	if !util.IsStringInSlice(operation, Config.Actions.ExecuteOn) {
 		// for pre-delete we execute the internal handling on error, so we must return errUnconfiguredAction.
 		// Other pre action will deny the operation on error so if we have no configuration we must return
@@ -64,19 +64,20 @@ func ExecutePreAction(user *dataprovider.User, operation, filePath, virtualPath,
 		}
 		return nil
 	}
-	notification := newActionNotification(user, operation, filePath, virtualPath, "", "", "", protocol, ip, fileSize,
-		openFlags, nil)
+	notification := newActionNotification(&conn.User, operation, filePath, virtualPath, "", "", "",
+		conn.protocol, remoteIP, conn.ID, fileSize, openFlags, nil)
 	return actionHandler.Handle(notification)
 }
 
 // ExecuteActionNotification executes the defined hook, if any, for the specified action
-func ExecuteActionNotification(user *dataprovider.User, operation, filePath, virtualPath, target, virtualTarget, sshCmd,
-	protocol, ip string, fileSize int64, err error,
+func ExecuteActionNotification(conn *BaseConnection, operation, filePath, virtualPath, target, virtualTarget, sshCmd string,
+	fileSize int64, err error,
 ) {
-	plugin.Handler.NotifyFsEvent(time.Now().UnixNano(), operation, user.Username, filePath, target, sshCmd, protocol, ip, virtualPath,
-		virtualTarget, fileSize, err)
-	notification := newActionNotification(user, operation, filePath, virtualPath, target, virtualTarget, sshCmd, protocol,
-		ip, fileSize, 0, err)
+	remoteIP := conn.GetRemoteIP()
+	plugin.Handler.NotifyFsEvent(time.Now().UnixNano(), operation, conn.User.Username, filePath, target, sshCmd, conn.protocol,
+		remoteIP, virtualPath, virtualTarget, conn.ID, fileSize, err)
+	notification := newActionNotification(&conn.User, operation, filePath, virtualPath, target, virtualTarget, sshCmd,
+		conn.protocol, remoteIP, conn.ID, fileSize, 0, err)
 
 	if util.IsStringInSlice(operation, Config.Actions.ExecuteSync) {
 		actionHandler.Handle(notification) //nolint:errcheck
@@ -107,13 +108,14 @@ type ActionNotification struct {
 	Status            int    `json:"status"`
 	Protocol          string `json:"protocol"`
 	IP                string `json:"ip"`
+	SessionID         string `json:"session_id"`
 	Timestamp         int64  `json:"timestamp"`
 	OpenFlags         int    `json:"open_flags,omitempty"`
 }
 
 func newActionNotification(
 	user *dataprovider.User,
-	operation, filePath, virtualPath, target, virtualTarget, sshCmd, protocol, ip string,
+	operation, filePath, virtualPath, target, virtualTarget, sshCmd, protocol, ip, sessionID string,
 	fileSize int64,
 	openFlags int,
 	err error,
@@ -159,6 +161,7 @@ func newActionNotification(
 		Status:            status,
 		Protocol:          protocol,
 		IP:                ip,
+		SessionID:         sessionID,
 		OpenFlags:         openFlags,
 		Timestamp:         time.Now().UnixNano(),
 	}
@@ -252,6 +255,7 @@ func notificationAsEnvVars(notification *ActionNotification) []string {
 		fmt.Sprintf("SFTPGO_ACTION_STATUS=%v", notification.Status),
 		fmt.Sprintf("SFTPGO_ACTION_PROTOCOL=%v", notification.Protocol),
 		fmt.Sprintf("SFTPGO_ACTION_IP=%v", notification.IP),
+		fmt.Sprintf("SFTPGO_ACTION_SESSION_ID=%v", notification.SessionID),
 		fmt.Sprintf("SFTPGO_ACTION_OPEN_FLAGS=%v", notification.OpenFlags),
 		fmt.Sprintf("SFTPGO_ACTION_TIMESTAMP=%v", notification.Timestamp),
 	}

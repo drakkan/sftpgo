@@ -147,8 +147,7 @@ func (f *webDavFile) Read(p []byte) (n int, err error) {
 			f.Connection.Log(logger.LevelWarn, "reading file %#v is not allowed", f.GetVirtualPath())
 			return 0, f.Connection.GetPermissionDeniedError()
 		}
-		err := common.ExecutePreAction(&f.Connection.User, common.OperationPreDownload, f.GetFsPath(), f.GetVirtualPath(),
-			f.Connection.GetProtocol(), f.Connection.GetRemoteIP(), 0, 0)
+		err := common.ExecutePreAction(f.Connection, common.OperationPreDownload, f.GetFsPath(), f.GetVirtualPath(), 0, 0)
 		if err != nil {
 			f.Connection.Log(logger.LevelDebug, "download for file %#v denied by pre action: %v", f.GetVirtualPath(), err)
 			return 0, f.Connection.GetPermissionDeniedError()

@@ -187,14 +187,14 @@ func (m *Manager) validateConfigs() error {
 
 // NotifyFsEvent sends the fs event notifications using any defined notifier plugins
 func (m *Manager) NotifyFsEvent(timestamp int64, action, username, fsPath, fsTargetPath, sshCmd, protocol, ip,
-	virtualPath, virtualTargetPath string, fileSize int64, err error,
+	virtualPath, virtualTargetPath, sessionID string, fileSize int64, err error,
 ) {
 	m.notifLock.RLock()
 	defer m.notifLock.RUnlock()
 
 	for _, n := range m.notifiers {
-		n.notifyFsAction(timestamp, action, username, fsPath, fsTargetPath, sshCmd, protocol, ip, virtualPath, virtualTargetPath,
-			fileSize, err)
+		n.notifyFsAction(timestamp, action, username, fsPath, fsTargetPath, sshCmd, protocol, ip, virtualPath,
+			virtualTargetPath, sessionID, fileSize, err)
 	}
 }
 

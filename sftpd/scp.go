@@ -219,8 +219,8 @@ func (c *scpCommand) handleUploadFile(fs vfs.Fs, resolvedPath, filePath string, 
 		c.sendErrorMessage(fs, err)
 		return err
 	}
-	err := common.ExecutePreAction(&c.connection.User, common.OperationPreUpload, resolvedPath, requestPath,
-		c.connection.GetProtocol(), c.connection.GetRemoteIP(), fileSize, os.O_TRUNC)
+	err := common.ExecutePreAction(c.connection.BaseConnection, common.OperationPreUpload, resolvedPath, requestPath,
+		fileSize, os.O_TRUNC)
 	if err != nil {
 		c.connection.Log(logger.LevelDebug, "upload for file %#v denied by pre action: %v", requestPath, err)
 		err = c.connection.GetPermissionDeniedError()
@@ -515,7 +515,7 @@ func (c *scpCommand) handleDownload(filePath string) error {
 		return common.ErrPermissionDenied
 	}
 
-	if err := common.ExecutePreAction(&c.connection.User, common.OperationPreDownload, p, filePath, c.connection.GetProtocol(), c.connection.GetRemoteIP(), 0, 0); err != nil {
+	if err := common.ExecutePreAction(c.connection.BaseConnection, common.OperationPreDownload, p, filePath, 0, 0); err != nil {
 		c.connection.Log(logger.LevelDebug, "download for file %#v denied by pre action: %v", filePath, err)
 		c.sendErrorMessage(fs, common.ErrPermissionDenied)
 		return common.ErrPermissionDenied

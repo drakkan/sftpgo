@@ -18,6 +18,7 @@ message FsEvent {
     string ip = 10;
     string virtual_path = 11;
     string virtual_target_path = 12;
+    string session_id = 13;
 }
 
 message ProviderEvent {

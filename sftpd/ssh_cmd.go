@@ -751,8 +751,8 @@ func (c *sshCommand) sendExitStatus(err error) {
 				targetPath = p
 			}
 		}
-		common.ExecuteActionNotification(&c.connection.User, common.OperationSSHCmd, cmdPath, vCmdPath, targetPath,
-			vTargetPath, c.command, common.ProtocolSSH, c.connection.GetRemoteIP(), 0, err)
+		common.ExecuteActionNotification(c.connection.BaseConnection, common.OperationSSHCmd, cmdPath, vCmdPath, targetPath,
+			vTargetPath, c.command, 0, err)
 		if err == nil {
 			logger.CommandLog(sshCommandLogSender, cmdPath, targetPath, c.connection.User.Username, "", c.connection.ID,
 				common.ProtocolSSH, -1, -1, "", "", c.connection.command, -1, c.connection.GetLocalAddress(),
