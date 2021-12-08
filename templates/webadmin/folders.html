@@ -155,7 +155,7 @@ function deleteAction() {
                 var selectedRows = table.rows({ selected: true }).count();
                 if (selectedRows == 1){
                     var folderName = table.row({ selected: true }).data()[0];
-                    var path = '{{.FolderTemplateURL}}' + "?from=" + fixedEncodeURIComponent(folderName);
+                    var path = '{{.FolderTemplateURL}}' + "?from=" + encodeURIComponent(folderName);
                     window.location.href = path;
                 } else {
                     window.location.href = '{{.FolderTemplateURL}}';

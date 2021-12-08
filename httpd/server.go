@@ -81,6 +81,7 @@ func (s *httpdServer) listenAndServe() error {
 		config := &tls.Config{
 			GetCertificate:           certMgr.GetCertificateFunc(),
 			MinVersion:               tls.VersionTLS12,
+			NextProtos:               []string{"http/1.1", "h2"},
 			CipherSuites:             util.GetTLSCiphersFromNames(s.binding.TLSCipherSuites),
 			PreferServerCipherSuites: true,
 		}
@@ -1004,7 +1005,8 @@ func (s *httpdServer) initializeRouter() {
 
 	// share API exposed to external users
 	s.router.Get(sharesPath+"/{id}", downloadFromShare)
-	s.router.Post(sharesPath+"/{id}", uploadToShare)
+	s.router.Post(sharesPath+"/{id}", uploadFilesToShare)
+	s.router.Post(sharesPath+"/{id}/{name}", uploadFileToShare)
 
 	s.router.Get(tokenPath, s.getToken)
 	s.router.Post(adminPath+"/{username}/forgot-password", forgotAdminPassword)
@@ -1155,6 +1157,8 @@ func (s *httpdServer) initializeRouter() {
 		router.With(checkHTTPUserPerm(sdk.WebClientSharesDisabled)).Get(userSharesPath+"/{id}", getShareByID)
 		router.With(checkHTTPUserPerm(sdk.WebClientSharesDisabled)).Put(userSharesPath+"/{id}", updateShare)
 		router.With(checkHTTPUserPerm(sdk.WebClientSharesDisabled)).Delete(userSharesPath+"/{id}", deleteShare)
+		router.With(checkHTTPUserPerm(sdk.WebClientWriteDisabled)).Post(userUploadFilePath, uploadUserFile)
+		router.With(checkHTTPUserPerm(sdk.WebClientWriteDisabled)).Patch(userFilesDirsMetadataPath, setFileDirMetadata)
 	})
 
 	if s.renderOpenAPI {
@@ -1215,7 +1219,8 @@ func (s *httpdServer) initializeRouter() {
 			Post(webClientTwoFactorRecoveryPath, s.handleWebClientTwoFactorRecoveryPost)
 		// share API exposed to external users
 		s.router.Get(webClientPubSharesPath+"/{id}", downloadFromShare)
-		s.router.Post(webClientPubSharesPath+"/{id}", uploadToShare)
+		s.router.Post(webClientPubSharesPath+"/{id}", uploadFilesToShare)
+		s.router.Post(webClientPubSharesPath+"/{id}/{name}", uploadFileToShare)
 
 		s.router.Group(func(router chi.Router) {
 			router.Use(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromCookie))
@@ -1224,8 +1229,9 @@ func (s *httpdServer) initializeRouter() {
 			router.Get(webClientLogoutPath, handleWebClientLogout)
 			router.With(s.refreshCookie).Get(webClientFilesPath, s.handleClientGetFiles)
 			router.With(s.refreshCookie).Get(webClientViewPDFPath, handleClientViewPDF)
+			router.With(s.refreshCookie, verifyCSRFHeader).Get(webClientFilePath, getUserFile)
 			router.With(checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
-				Post(webClientFilesPath, uploadUserFiles)
+				Post(webClientFilePath, uploadUserFile)
 			router.With(s.refreshCookie).Get(webClientEditFilePath, handleClientEditFile)
 			router.With(checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
 				Patch(webClientFilesPath, renameUserFile)

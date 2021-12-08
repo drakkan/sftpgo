@@ -100,7 +100,7 @@ paths:
       tags:
         - public shares
       summary: Upload one or more files to the shared path
-      description: The share must be defined with the read scope and the associated user must have the upload permission
+      description: The share must be defined with the write scope and the associated user must have the upload permission
       operationId: upload_to_share
       requestBody:
         content:
@@ -115,6 +115,77 @@ paths:
                     format: binary
                   minItems: 1
                   uniqueItems: true
+        required: true
+      responses:
+        '201':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '413':
+          $ref: '#/components/responses/RequestEntityTooLarge'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /shares/{id}/{fileName}:
+    parameters:
+      - name: id
+        in: path
+        description: the share id
+        required: true
+        schema:
+          type: string
+      - name: fileName
+        in: path
+        description: the name of the new file. It must be path encoded. Sub directories are not accepted
+        required: true
+        schema:
+          type: string
+      - name: X-SFTPGO-MTIME
+        in: header
+        schema:
+          type: integer
+        description: File modification time as unix timestamp in milliseconds
+    post:
+      security:
+        - BasicAuth: []
+      tags:
+        - public shares
+      summary: Upload a single file to the shared path
+      description: The share must be defined with the write scope and the associated user must have the upload/overwrite permissions
+      operationId: upload_single_to_share
+      requestBody:
+        content:
+          application/*:
+            schema:
+              type: string
+              format: binary
+          text/*:
+            schema:
+              type: string
+              format: binary
+          image/*:
+            schema:
+              type: string
+              format: binary
+          audio/*:
+            schema:
+              type: string
+              format: binary
+          video/*:
+            schema:
+              type: string
+              format: binary
         required: true
       responses:
         '201':
@@ -3697,6 +3768,114 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /user/files/upload:
+    post:
+      tags:
+        - user APIs
+      summary: Upload a single file
+      description: 'Upload a single file for the logged in user to an existing directory. This API does not use multipart/form-data and so no temporary files are created server side but only a single file can be uploaded as POST body'
+      operationId: create_user_file
+      parameters:
+        - in: query
+          name: path
+          description: Full file path. It must be path encoded, for example the path "my dir/àdir/file.txt" must be sent as "my%20dir%2F%C3%A0dir%2Ffile.txt". The parent directory must exist. If a file with the same name already exists, it will be overwritten
+          schema:
+            type: string
+          required: true
+        - in: header
+          name: X-SFTPGO-MTIME
+          schema:
+            type: integer
+          description: File modification time as unix timestamp in milliseconds
+      requestBody:
+        content:
+          application/*:
+            schema:
+              type: string
+              format: binary
+          text/*:
+            schema:
+              type: string
+              format: binary
+          image/*:
+            schema:
+              type: string
+              format: binary
+          audio/*:
+            schema:
+              type: string
+              format: binary
+          video/*:
+            schema:
+              type: string
+              format: binary
+        required: true
+      responses:
+        '201':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '413':
+          $ref: '#/components/responses/RequestEntityTooLarge'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /user/files/metadata:
+    patch:
+      tags:
+        - user APIs
+      summary: Set metadata for a file/directory
+      description: 'Set supported metadata attributes for the specified file or directory'
+      operationId: setprops_user_file
+      parameters:
+        - in: query
+          name: path
+          description: Full file/directory path. It must be URL encoded, for example the path "my dir/àdir/file.txt" must be sent as "my%20dir%2F%C3%A0dir%2Ffile.txt"
+          schema:
+            type: string
+          required: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                modification_time:
+                  type: integer
+                  description: File modification time as unix timestamp in milliseconds
+        required: true
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '413':
+          $ref: '#/components/responses/RequestEntityTooLarge'
         '500':
           $ref: '#/components/responses/InternalServerError'
         default:

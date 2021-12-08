@@ -288,7 +288,7 @@ func (t *BaseTransfer) updateTimes() {
 
 func (t *BaseTransfer) updateQuota(numFiles int, fileSize int64) bool {
 	// S3 uploads are atomic, if there is an error nothing is uploaded
-	if t.File == nil && t.ErrTransfer != nil {
+	if t.File == nil && t.ErrTransfer != nil && !t.Connection.User.HasBufferedSFTP(t.GetVirtualPath()) {
 		return false
 	}
 	sizeDiff := fileSize - t.InitialSize

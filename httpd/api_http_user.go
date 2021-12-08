@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/render"
@@ -167,6 +168,85 @@ func getUserFile(w http.ResponseWriter, r *http.Request) {
 		}
 		render.JSON(w, r.WithContext(ctx), resp)
 	}
+}
+
+func setFileDirMetadata(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+
+	metadata := make(map[string]int64)
+	err := render.DecodeJSON(r.Body, &metadata)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
+		return
+	}
+	mTime, ok := metadata["modification_time"]
+	if !ok || !r.URL.Query().Has("path") {
+		sendAPIResponse(w, r, errors.New("please set a modification_time and a path"), "", http.StatusBadRequest)
+		return
+	}
+
+	connection, err := getUserConnection(w, r)
+	if err != nil {
+		return
+	}
+	common.Connections.Add(connection)
+	defer common.Connections.Remove(connection.GetID())
+
+	name := util.CleanPath(r.URL.Query().Get("path"))
+	attrs := common.StatAttributes{
+		Flags: common.StatAttrTimes,
+		Atime: util.GetTimeFromMsecSinceEpoch(mTime),
+		Mtime: util.GetTimeFromMsecSinceEpoch(mTime),
+	}
+	err = connection.SetStat(name, &attrs)
+	if err != nil {
+		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to set metadata for path %#v", name), getMappedStatusCode(err))
+		return
+	}
+	sendAPIResponse(w, r, nil, "OK", http.StatusOK)
+}
+
+func uploadUserFile(w http.ResponseWriter, r *http.Request) {
+	if maxUploadFileSize > 0 {
+		r.Body = http.MaxBytesReader(w, r.Body, maxUploadFileSize)
+	}
+
+	if !r.URL.Query().Has("path") {
+		sendAPIResponse(w, r, errors.New("please set a file path"), "", http.StatusBadRequest)
+		return
+	}
+
+	connection, err := getUserConnection(w, r)
+	if err != nil {
+		return
+	}
+	common.Connections.Add(connection)
+	defer common.Connections.Remove(connection.GetID())
+
+	filePath := util.CleanPath(r.URL.Query().Get("path"))
+	doUploadFile(w, r, connection, filePath) //nolint:errcheck
+}
+
+func doUploadFile(w http.ResponseWriter, r *http.Request, connection *Connection, filePath string) error {
+	writer, err := connection.getFileWriter(filePath)
+	if err != nil {
+		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to write file %#v", filePath), getMappedStatusCode(err))
+		return err
+	}
+	_, err = io.Copy(writer, r.Body)
+	if err != nil {
+		writer.Close() //nolint:errcheck
+		sendAPIResponse(w, r, err, fmt.Sprintf("Error saving file %#v", filePath), getMappedStatusCode(err))
+		return err
+	}
+	err = writer.Close()
+	if err != nil {
+		sendAPIResponse(w, r, err, fmt.Sprintf("Error closing file %#v", filePath), getMappedStatusCode(err))
+		return err
+	}
+	setModificationTimeFromHeader(r, connection, filePath)
+	sendAPIResponse(w, r, nil, "Upload completed", http.StatusCreated)
+	return nil
 }
 
 func uploadUserFiles(w http.ResponseWriter, r *http.Request) {
@@ -467,4 +547,24 @@ func doChangeUserPassword(r *http.Request, currentPassword, newPassword, confirm
 	user.Password = newPassword
 
 	return dataprovider.UpdateUser(&user, dataprovider.ActionExecutorSelf, util.GetIPFromRemoteAddress(r.RemoteAddr))
+}
+
+func setModificationTimeFromHeader(r *http.Request, c *Connection, filePath string) {
+	mTimeString := r.Header.Get(mTimeHeader)
+	if mTimeString != "" {
+		// we don't return an error here if we fail to set the modification time
+		mTime, err := strconv.ParseInt(mTimeString, 10, 64)
+		if err == nil {
+			attrs := common.StatAttributes{
+				Flags: common.StatAttrTimes,
+				Atime: util.GetTimeFromMsecSinceEpoch(mTime),
+				Mtime: util.GetTimeFromMsecSinceEpoch(mTime),
+			}
+			err = c.SetStat(filePath, &attrs)
+			c.Log(logger.LevelDebug, "requested modification time %v for file %#v, error: %v",
+				attrs.Mtime, filePath, err)
+		} else {
+			c.Log(logger.LevelInfo, "invalid modification time header was ignored: %v", mTimeString)
+		}
+	}
 }

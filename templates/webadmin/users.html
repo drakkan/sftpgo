@@ -159,7 +159,7 @@
             titleAttr: "Clone",
             action: function (e, dt, node, config) {
                 var username = dt.row({ selected: true }).data()[1];
-                var path = '{{.UserURL}}' + "?clone-from=" + fixedEncodeURIComponent(username);
+                var path = '{{.UserURL}}' + "?clone-from=" + encodeURIComponent(username);
                 window.location.href = path;
             },
             enabled: false
@@ -172,7 +172,7 @@
                 var selectedRows = table.rows({ selected: true }).count();
                 if (selectedRows == 1){
                     var username = dt.row({ selected: true }).data()[1];
-                    var path = '{{.UserTemplateURL}}' + "?from=" + fixedEncodeURIComponent(username);
+                    var path = '{{.UserTemplateURL}}' + "?from=" + encodeURIComponent(username);
                     window.location.href = path;
                 } else {
                     window.location.href = '{{.UserTemplateURL}}';

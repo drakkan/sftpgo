@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path"
 
 	"github.com/go-chi/render"
 	"github.com/rs/xid"
@@ -176,7 +177,30 @@ func downloadFromShare(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func uploadToShare(w http.ResponseWriter, r *http.Request) {
+func uploadFileToShare(w http.ResponseWriter, r *http.Request) {
+	if maxUploadFileSize > 0 {
+		r.Body = http.MaxBytesReader(w, r.Body, maxUploadFileSize)
+	}
+	name := getURLParam(r, "name")
+	share, connection, err := checkPublicShare(w, r, dataprovider.ShareScopeWrite)
+	if err != nil {
+		return
+	}
+	filePath := path.Join(share.Paths[0], name)
+	if path.Dir(filePath) != share.Paths[0] {
+		sendAPIResponse(w, r, err, "Uploading outside the share is not allowed", http.StatusForbidden)
+		return
+	}
+	dataprovider.UpdateShareLastUse(&share, 1) //nolint:errcheck
+
+	common.Connections.Add(connection)
+	defer common.Connections.Remove(connection.GetID())
+	if err := doUploadFile(w, r, connection, filePath); err != nil {
+		dataprovider.UpdateShareLastUse(&share, -1) //nolint:errcheck
+	}
+}
+
+func uploadFilesToShare(w http.ResponseWriter, r *http.Request) {
 	if maxUploadFileSize > 0 {
 		r.Body = http.MaxBytesReader(w, r.Body, maxUploadFileSize)
 	}

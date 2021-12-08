@@ -59,6 +59,7 @@ func (s *webDavServer) listenAndServe(compressor *middleware.Compressor) error {
 		httpServer.TLSConfig = &tls.Config{
 			GetCertificate:           certMgr.GetCertificateFunc(),
 			MinVersion:               tls.VersionTLS12,
+			NextProtos:               []string{"http/1.1", "h2"},
 			CipherSuites:             util.GetTLSCiphersFromNames(s.binding.TLSCipherSuites),
 			PreferServerCipherSuites: true,
 		}

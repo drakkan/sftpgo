@@ -91,6 +91,8 @@ const (
 	userDirsPath                    = "/api/v2/user/dirs"
 	userFilesPath                   = "/api/v2/user/files"
 	userStreamZipPath               = "/api/v2/user/streamzip"
+	userUploadFilePath              = "/api/v2/user/files/upload"
+	userFilesDirsMetadataPath       = "/api/v2/user/files/metadata"
 	apiKeysPath                     = "/api/v2/apikeys"
 	adminTOTPConfigsPath            = "/api/v2/admin/totp/configs"
 	adminTOTPGeneratePath           = "/api/v2/admin/totp/generate"
@@ -8677,11 +8679,27 @@ func TestPreUploadHook(t *testing.T) {
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusCreated, rr)
 
+	req, err = http.NewRequest(http.MethodPost, userUploadFilePath+"?path=filepre",
+		bytes.NewBuffer([]byte("single upload content")))
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+
 	err = os.WriteFile(preActionPath, getExitCodeScriptContent(1), os.ModePerm)
 	assert.NoError(t, err)
 	_, err = reader.Seek(0, io.SeekStart)
 	assert.NoError(t, err)
 	req, err = http.NewRequest(http.MethodPost, userFilesPath, reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+
+	req, err = http.NewRequest(http.MethodPost, userUploadFilePath+"?path=filepre",
+		bytes.NewBuffer([]byte("single upload content")))
 	assert.NoError(t, err)
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	setBearerForReq(req, webAPIToken)
@@ -8927,6 +8945,94 @@ func TestShareUsage(t *testing.T) {
 	assert.NoError(t, err)
 	req.SetBasicAuth(defaultUsername, defaultPassword)
 	executeRequest(req)
+}
+
+func TestShareUploadSingle(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	share := dataprovider.Share{
+		Name:      "test share",
+		Scope:     dataprovider.ShareScopeWrite,
+		Paths:     []string{"/"},
+		Password:  defaultPassword,
+		MaxTokens: 0,
+	}
+	asJSON, err := json.Marshal(share)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	objectID := rr.Header().Get("X-Object-ID")
+	assert.NotEmpty(t, objectID)
+
+	content := []byte("shared file content")
+	modTime := time.Now().Add(-12 * time.Hour)
+	req, err = http.NewRequest(http.MethodPost, path.Join(sharesPath, objectID, "file.txt"), bytes.NewBuffer(content))
+	assert.NoError(t, err)
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	req.Header.Set("X-SFTPGO-MTIME", strconv.FormatInt(util.GetTimeAsMsSinceEpoch(modTime), 10))
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	info, err := os.Stat(filepath.Join(user.GetHomeDir(), "file.txt"))
+	if assert.NoError(t, err) {
+		assert.InDelta(t, util.GetTimeAsMsSinceEpoch(modTime), util.GetTimeAsMsSinceEpoch(info.ModTime()), float64(1000))
+	}
+	req, err = http.NewRequest(http.MethodPost, path.Join(webClientPubSharesPath, objectID, "file.txt"), bytes.NewBuffer(content))
+	assert.NoError(t, err)
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	info, err = os.Stat(filepath.Join(user.GetHomeDir(), "file.txt"))
+	if assert.NoError(t, err) {
+		assert.InDelta(t, util.GetTimeAsMsSinceEpoch(time.Now()), util.GetTimeAsMsSinceEpoch(info.ModTime()), float64(3000))
+	}
+	// we don't allow to create the file in subdirectories
+	req, err = http.NewRequest(http.MethodPost, path.Join(sharesPath, objectID, "%2Fdir%2Ffile1.txt"), bytes.NewBuffer(content))
+	assert.NoError(t, err)
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+
+	req, err = http.NewRequest(http.MethodPost, path.Join(sharesPath, objectID, "dir", "file.dat"), bytes.NewBuffer(content))
+	assert.NoError(t, err)
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodPost, path.Join(sharesPath, objectID, "%2F"), bytes.NewBuffer(content))
+	assert.NoError(t, err)
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	err = os.MkdirAll(filepath.Join(user.GetHomeDir(), "dir"), os.ModePerm)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, path.Join(sharesPath, objectID, "dir"), bytes.NewBuffer(content))
+	assert.NoError(t, err)
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+	assert.Contains(t, rr.Body.String(), "operation unsupported")
+
+	share, err = dataprovider.ShareExists(objectID, user.Username)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, share.UsedTokens)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodPost, path.Join(sharesPath, objectID, "file1.txt"), bytes.NewBuffer(content))
+	assert.NoError(t, err)
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
 }
 
 func TestShareUncompressed(t *testing.T) {
@@ -9985,6 +10091,119 @@ func TestWebDirsAPI(t *testing.T) {
 	checkResponseCode(t, http.StatusNotFound, rr)
 }
 
+func TestWebUploadSingleFile(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	webAPIToken, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	content := []byte("test content")
+
+	req, err := http.NewRequest(http.MethodPost, userUploadFilePath, bytes.NewBuffer(content))
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "please set a file path")
+
+	modTime := time.Now().Add(-24 * time.Hour)
+	req, err = http.NewRequest(http.MethodPost, userUploadFilePath+"?path=file.txt", bytes.NewBuffer(content))
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	req.Header.Set("X-SFTPGO-MTIME", strconv.FormatInt(util.GetTimeAsMsSinceEpoch(modTime), 10))
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+
+	info, err := os.Stat(filepath.Join(user.GetHomeDir(), "file.txt"))
+	if assert.NoError(t, err) {
+		assert.InDelta(t, util.GetTimeAsMsSinceEpoch(modTime), util.GetTimeAsMsSinceEpoch(info.ModTime()), float64(1000))
+	}
+	// invalid modification time will be ignored
+	req, err = http.NewRequest(http.MethodPost, userUploadFilePath+"?path=file.txt", bytes.NewBuffer(content))
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	req.Header.Set("X-SFTPGO-MTIME", "123abc")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	info, err = os.Stat(filepath.Join(user.GetHomeDir(), "file.txt"))
+	if assert.NoError(t, err) {
+		assert.InDelta(t, util.GetTimeAsMsSinceEpoch(time.Now()), util.GetTimeAsMsSinceEpoch(info.ModTime()), float64(3000))
+	}
+
+	metadataReq := make(map[string]int64)
+	metadataReq["modification_time"] = util.GetTimeAsMsSinceEpoch(modTime)
+	asJSON, err := json.Marshal(metadataReq)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPatch, userFilesDirsMetadataPath+"?path=file.txt", bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	info, err = os.Stat(filepath.Join(user.GetHomeDir(), "file.txt"))
+	if assert.NoError(t, err) {
+		assert.InDelta(t, util.GetTimeAsMsSinceEpoch(modTime), util.GetTimeAsMsSinceEpoch(info.ModTime()), float64(1000))
+	}
+	// missing file
+	req, err = http.NewRequest(http.MethodPatch, userFilesDirsMetadataPath+"?path=file2.txt", bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+	assert.Contains(t, rr.Body.String(), "Unable to set metadata for path")
+	// invalid JSON
+	req, err = http.NewRequest(http.MethodPatch, userFilesDirsMetadataPath+"?path=file.txt", bytes.NewBuffer(content))
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	// missing mandatory parameter
+	req, err = http.NewRequest(http.MethodPatch, userFilesDirsMetadataPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "please set a modification_time and a path")
+
+	metadataReq = make(map[string]int64)
+	asJSON, err = json.Marshal(metadataReq)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPatch, userFilesDirsMetadataPath+"?path=file.txt", bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "please set a modification_time and a path")
+
+	req, err = http.NewRequest(http.MethodPost, userUploadFilePath+"?path=%2Fdir%2Ffile.txt", bytes.NewBuffer(content))
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+	assert.Contains(t, rr.Body.String(), "Unable to write file")
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodPost, userUploadFilePath+"?path=file.txt", bytes.NewBuffer(content))
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+	assert.Contains(t, rr.Body.String(), "Unable to retrieve your user")
+
+	metadataReq["modification_time"] = util.GetTimeAsMsSinceEpoch(modTime)
+	asJSON, err = json.Marshal(metadataReq)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPatch, userFilesDirsMetadataPath+"?path=file.txt", bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+	assert.Contains(t, rr.Body.String(), "Unable to retrieve your user")
+}
+
 func TestWebFilesAPI(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
@@ -10281,7 +10500,7 @@ func TestWebUploadErrors(t *testing.T) {
 	checkResponseCode(t, http.StatusNotFound, rr)
 
 	if runtime.GOOS != osWindows {
-		req, err = http.NewRequest(http.MethodDelete, userFilesPath+"?path=file.zip", reader)
+		req, err = http.NewRequest(http.MethodDelete, userFilesPath+"?path=file.zip", nil)
 		assert.NoError(t, err)
 		setBearerForReq(req, webAPIToken)
 		rr = executeRequest(req)
@@ -10296,6 +10515,13 @@ func TestWebUploadErrors(t *testing.T) {
 		req, err = http.NewRequest(http.MethodPost, userFilesPath, reader)
 		assert.NoError(t, err)
 		req.Header.Add("Content-Type", writer.FormDataContentType())
+		setBearerForReq(req, webAPIToken)
+		rr = executeRequest(req)
+		checkResponseCode(t, http.StatusForbidden, rr)
+		assert.Contains(t, rr.Body.String(), "Error closing file")
+
+		req, err = http.NewRequest(http.MethodPost, userUploadFilePath+"?path=file.zip", bytes.NewBuffer(nil))
+		assert.NoError(t, err)
 		setBearerForReq(req, webAPIToken)
 		rr = executeRequest(req)
 		checkResponseCode(t, http.StatusForbidden, rr)
@@ -10577,6 +10803,30 @@ func TestWebUploadSFTP(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusRequestEntityTooLarge, rr)
 	assert.Contains(t, rr.Body.String(), "denying write due to space limit")
+	assert.Contains(t, rr.Body.String(), "Unable to write file")
+
+	// delete the file
+	req, err = http.NewRequest(http.MethodDelete, userFilesPath+"?path=file.txt", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	user, _, err = httpdtest.GetUserByUsername(sftpUser.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, user.UsedQuotaFiles)
+	assert.Equal(t, int64(0), user.UsedQuotaSize)
+
+	req, err = http.NewRequest(http.MethodPost, userUploadFilePath+"?path=file.txt",
+		bytes.NewBuffer([]byte("test upload single file content")))
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusRequestEntityTooLarge, rr)
+	assert.Contains(t, rr.Body.String(), "denying write due to space limit")
+	assert.Contains(t, rr.Body.String(), "Error saving file")
+
 	// delete the file
 	req, err = http.NewRequest(http.MethodDelete, userFilesPath+"?path=file.txt", nil)
 	assert.NoError(t, err)
@@ -10593,6 +10843,19 @@ func TestWebUploadSFTP(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusRequestEntityTooLarge, rr)
 	assert.Contains(t, rr.Body.String(), "denying write due to space limit")
+	assert.Contains(t, rr.Body.String(), "Error saving file")
+
+	// delete the file
+	req, err = http.NewRequest(http.MethodDelete, userFilesPath+"?path=file.txt", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	user, _, err = httpdtest.GetUserByUsername(sftpUser.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, user.UsedQuotaFiles)
+	assert.Equal(t, int64(0), user.UsedQuotaSize)
 
 	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
 	assert.NoError(t, err)

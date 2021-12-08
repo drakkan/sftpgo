@@ -105,6 +105,7 @@ func (c Conf) Initialize(configDir string) error {
 		config := &tls.Config{
 			GetCertificate:           certMgr.GetCertificateFunc(),
 			MinVersion:               tls.VersionTLS12,
+			NextProtos:               []string{"http/1.1", "h2"},
 			CipherSuites:             util.GetTLSCiphersFromNames(c.TLSCipherSuites),
 			PreferServerCipherSuites: true,
 		}

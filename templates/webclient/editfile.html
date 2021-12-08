@@ -134,44 +134,53 @@
     {{if not .ReadOnly}}
     function saveFile() {
         $('#idSave').addClass("disabled");
-        cm =  document.querySelector('.CodeMirror').CodeMirror;
-        var path = '{{.FilesURL}}?path={{.CurrentDir}}';
-        var data = new FormData();
-        var blob = new Blob([cm.getValue()]);
-        data.append("filenames", new File([blob], "{{.Name}}"));
 
-        $.ajax({
-                url: path,
-                type: 'POST',
-                data: data,
-                processData: false,
-                contentType: false,
-                headers: { 'X-CSRF-TOKEN': '{{.CSRFToken}}' },
-                timeout: 15000,
-                success: function (result) {
-                    window.location.href = '{{.FilesURL}}?path={{.CurrentDir}}';
-                },
-                error: function ($xhr, textStatus, errorThrown) {
-                    $('#idSave').removeClass("disabled");
-                    var txt = "Error saving file";
-                    if ($xhr) {
-                        var json = $xhr.responseJSON;
-                        if (json) {
-                            if (json.message) {
-                                txt = json.message;
-                            }
-                            if (json.error) {
-                                txt += ": " + json.error;
-                            }
-                        }
+        async function uploadFile() {
+            var errorMessage = "Error saving file";
+            let response;
+            try {
+                var uploadPath = '{{.FileURL}}?path='+encodeURIComponent('{{.CurrentDir}}/{{.Name}}');
+                var cm = document.querySelector('.CodeMirror').CodeMirror;
+                var blob = new Blob([cm.getValue()]);
+                response = await fetch(uploadPath, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{.CSRFToken}}'
+                    },
+                    credentials: 'same-origin',
+                    redirect: 'error',
+                    body: blob
+                });
+                if (response.status == 201){
+                    window.location.href = '{{.FilesURL}}?path='+encodeURIComponent('{{.CurrentDir}}');
+                } else {
+                    let jsonResponse;
+                    try {
+                        jsonResponse = await response.json();
+                    } catch(e){
+                        throw Error(errorMessage);
                     }
-                    $('#errorTxt').text(txt);
-                    $('#errorMsg').show();
-                    setTimeout(function () {
-                        $('#errorMsg').hide();
-                    }, 5000);
+                    if (jsonResponse.message) {
+                        errorMessage = jsonResponse.message;
+                    }
+                    if (jsonResponse.error) {
+                        errorMessage += ": " + jsonResponse.error;
+                    }
+                    throw Error(errorMessage);
                 }
-            });
+            } catch (e){
+                throw Error(errorMessage+": " +e.message);
+            }
+        }
+
+        uploadFile().catch(function(error){
+            $('#idSave').removeClass("disabled");
+            $('#errorTxt').text(error.message);
+            $('#errorMsg').show();
+            setTimeout(function () {
+                $('#errorMsg').hide();
+            }, 5000);
+        });
     }
     {{end}}
 </script>

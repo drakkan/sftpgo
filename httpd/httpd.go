@@ -62,6 +62,8 @@ const (
 	userFilePath                          = "/api/v2/user/file"
 	userFilesPath                         = "/api/v2/user/files"
 	userStreamZipPath                     = "/api/v2/user/streamzip"
+	userUploadFilePath                    = "/api/v2/user/files/upload"
+	userFilesDirsMetadataPath             = "/api/v2/user/files/metadata"
 	apiKeysPath                           = "/api/v2/apikeys"
 	adminTOTPConfigsPath                  = "/api/v2/admin/totp/configs"
 	adminTOTPGeneratePath                 = "/api/v2/admin/totp/generate"
@@ -120,6 +122,7 @@ const (
 	webClientTwoFactorPathDefault         = "/web/client/twofactor"
 	webClientTwoFactorRecoveryPathDefault = "/web/client/twofactor-recovery"
 	webClientFilesPathDefault             = "/web/client/files"
+	webClientFilePathDefault              = "/web/client/file"
 	webClientSharesPathDefault            = "/web/client/shares"
 	webClientSharePathDefault             = "/web/client/share"
 	webClientEditFilePathDefault          = "/web/client/editfile"
@@ -147,6 +150,7 @@ const (
 	maxMultipartMem      = 10485760 // 10 MB
 	osWindows            = "windows"
 	otpHeaderCode        = "X-SFTPGO-OTP"
+	mTimeHeader          = "X-SFTPGO-MTIME"
 )
 
 var (
@@ -195,6 +199,7 @@ var (
 	webClientTwoFactorPath         string
 	webClientTwoFactorRecoveryPath string
 	webClientFilesPath             string
+	webClientFilePath              string
 	webClientSharesPath            string
 	webClientSharePath             string
 	webClientEditFilePath          string
@@ -578,6 +583,7 @@ func updateWebClientURLs(baseURL string) {
 	webClientTwoFactorPath = path.Join(baseURL, webClientTwoFactorPathDefault)
 	webClientTwoFactorRecoveryPath = path.Join(baseURL, webClientTwoFactorRecoveryPathDefault)
 	webClientFilesPath = path.Join(baseURL, webClientFilesPathDefault)
+	webClientFilePath = path.Join(baseURL, webClientFilePathDefault)
 	webClientSharesPath = path.Join(baseURL, webClientSharesPathDefault)
 	webClientPubSharesPath = path.Join(baseURL, webClientPubSharesPathDefault)
 	webClientSharePath = path.Join(baseURL, webClientSharePathDefault)

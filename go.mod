@@ -7,7 +7,7 @@ require (
 	github.com/Azure/azure-storage-blob-go v0.14.0
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/alexedwards/argon2id v0.0.0-20211130144151-3585854a6387
-	github.com/aws/aws-sdk-go v1.42.19
+	github.com/aws/aws-sdk-go v1.42.20
 	github.com/cockroachdb/cockroach-go/v2 v2.2.4
 	github.com/eikenb/pipeat v0.0.0-20210603033007-44fc3ffce52b
 	github.com/fclairamb/ftpserverlib v0.16.0
@@ -25,7 +25,7 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.7.0
 	github.com/jlaffaye/ftp v0.0.0-20201112195030-9aae4d151126
 	github.com/klauspost/compress v1.13.6
-	github.com/lestrrat-go/jwx v1.2.12
+	github.com/lestrrat-go/jwx v1.2.13
 	github.com/lib/pq v1.10.4
 	github.com/lithammer/shortuuid/v3 v3.0.7
 	github.com/mattn/go-sqlite3 v1.14.9
@@ -53,7 +53,7 @@ require (
 	gocloud.dev v0.24.0
 	golang.org/x/crypto v0.0.0-20211202192323-5770296d904e
 	golang.org/x/net v0.0.0-20211201190559-0a0e4e1bb54c
-	golang.org/x/sys v0.0.0-20211204120058-94396e421777
+	golang.org/x/sys v0.0.0-20211205182925-97ca703d548d
 	golang.org/x/time v0.0.0-20211116232009-f0f3c7e86c11
 	google.golang.org/api v0.61.0
 	google.golang.org/grpc v1.42.0
@@ -62,7 +62,7 @@ require (
 )
 
 require (
-	cloud.google.com/go v0.98.0 // indirect
+	cloud.google.com/go v0.99.0 // indirect
 	github.com/Azure/azure-pipeline-go v0.2.3 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/boombuler/barcode v1.0.1 // indirect
@@ -129,7 +129,7 @@ require (
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20211203200212-54befc351ae9 // indirect
+	google.golang.org/genproto v0.0.0-20211207154714-918901c715cf // indirect
 	gopkg.in/ini.v1 v1.66.2 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect

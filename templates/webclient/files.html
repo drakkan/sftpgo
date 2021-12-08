@@ -210,7 +210,19 @@
         }
     }
 
-    function notifySave(status, message){
+    function notifyBlobDownloadError(message) {
+        if (childReference == null || childReference.closed) {
+            console.log("external window null or closed, cannot notify download error");
+            return;
+        }
+
+        childReference.postMessage({
+            type: 'blobDownloadError',
+            message: message
+        }, childProps.get('url'));
+    }
+
+    function notifySave(status, message) {
         if (childReference == null || childReference.closed) {
             console.log("external window null or closed, cannot notify save");
             return;
@@ -243,70 +255,118 @@
                 }, childProps.get('url'));
                 break;
             case 'sendBlob':
-                // we have to download the blob, this can require some time so
+                // we have to download the blob, this could require some time so
                 // we first send a blobDownloadStart message so the child can
                 // show a spinner or something similar
+                var errorMessage = "Error downloading file";
                 childReference.postMessage({
                     type: 'blobDownloadStart'
                 }, childProps.get('url'));
-                // download the file and send as blob to the child window
-                fetch(childProps.get('link'))
-                    .then(response => response.blob())
-                    .then(function(responseBlob){
+                // download the file and send it as blob to the child window
+                async function downloadFileAsBlob(){
+                    var errorMessage = "Error downloading file";
+                    let response;
+                    try {
+                        response = await fetch(childProps.get('link'),{
+                            headers: {
+                                'X-CSRF-TOKEN': '{{.CSRFToken}}'
+                            },
+                            credentials: 'same-origin',
+                            redirect: 'error'
+                        });
+                    } catch (e){
+                        throw Error(errorMessage+": " +e.message);
+                    }
+                    if (response.status == 200){
+                        let responseBlob;
+                        try {
+                            responseBlob = await response.blob();
+                        } catch (e){
+                            throw Error(errorMessage+" as blob: " +e.message);
+                        }
                         let fileBlob = new File([responseBlob], childProps.get('file_name'), {type: responseBlob.type, lastModified: ""});
                         childReference.postMessage({
                             type: 'blob',
                             file: fileBlob
                         }, childProps.get('url'));
-                    });
+                    } else {
+                        let jsonResponse;
+                        try {
+                            jsonResponse = await response.json();
+                        } catch(e){
+                            throw Error(errorMessage);
+                        }
+                        if (jsonResponse.message) {
+                            errorMessage = jsonResponse.message;
+                        }
+                        if (jsonResponse.error) {
+                            errorMessage += ": " + jsonResponse.error;
+                        }
+                        throw Error(errorMessage);
+                    }
+                }
+
+                downloadFileAsBlob().catch(function(error){
+                    notifyBlobDownloadError(error.message);
+                        $('#errorTxt').text(error.message);
+                        $('#errorMsg').show();
+                        setTimeout(function () {
+                            $('#errorMsg').hide();
+                        }, 5000);
+                });
                 break;
             case 'saveBlob':
-                // get the blob from the message and save it
-                var path = '{{.FilesURL}}?path={{.CurrentDir}}';
                 spinnerDone = false;
-                var file = new File([event.data.file], childProps.get('file_name'));
-                var data = new FormData();
-                data.append('filenames', file);
+                $('#spinnerModal').modal('show');
 
-                $.ajax({
-                    url: path,
-                    type: 'POST',
-                    data: data,
-                    processData: false,
-                    contentType: false,
-                    headers: { 'X-CSRF-TOKEN': '{{.CSRFToken}}' },
-                    timeout: 0,
-                    beforeSend: function () {
-                        $('#spinnerModal').modal('show');
-                    },
-                    success: function (result) {
+                async function saveBlob() {
+                    var errorMessage = "Error saving external file";
+                    var uploadPath = '{{.FileURL}}?path={{.CurrentDir}}'+encodeURIComponent("/"+childProps.get('file_name'));
+                    let response;
+                    try {
+                        response = await fetch(uploadPath, {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRF-TOKEN': '{{.CSRFToken}}'
+                            },
+                            credentials: 'same-origin',
+                            redirect: 'error',
+                            body: event.data.file
+                        });
+                    } catch (e){
+                        throw Error(errorMessage+": " +e.message);
+                    }
+                    if (response.status == 201){
                         $('#spinnerModal').modal('hide');
                         notifySave("OK", "");
                         setTimeout(function () {
                             location.reload();
                         }, 2000);
-                    },
-                    error: function ($xhr, textStatus, errorThrown) {
-                        $('#spinnerModal').modal('hide');
-                        var txt = "Error saving external file";
-                        if ($xhr) {
-                            var json = $xhr.responseJSON;
-                            if (json) {
-                                if (json.message) {
-                                    txt = json.message;
-                                }
-                                if (json.error) {
-                                    txt += ": " + json.error;
-                                }
-                            }
+                    } else {
+                        let jsonResponse;
+                        try {
+                            jsonResponse = await response.json();
+                        } catch(e){
+                            throw Error(errorMessage);
                         }
-                        notifySave("KO", txt);
-                        $('#errorTxt').text(txt);
-                        $('#errorMsg').show();
-                        setTimeout(function () {
-                            $('#errorMsg').hide();
-                        }, 5000);
+                        if (jsonResponse.message) {
+                            errorMessage = jsonResponse.message;
+                        }
+                        if (jsonResponse.error) {
+                            errorMessage += ": " + jsonResponse.error;
+                        }
+                        throw Error(errorMessage);
                     }
+                }
+
+                saveBlob().catch(function(error){
+                    $('#spinnerModal').modal('hide');
+                    notifySave("KO", error.message);
+                    $('#errorTxt').text(error.message);
+                    $('#errorMsg').show();
+                    setTimeout(function () {
+                        $('#errorMsg').hide();
+                    }, 5000);
                 });
 
                 break;
@@ -465,7 +525,7 @@
             } else {
                 path = '{{.FilesURL}}';
             }
-            path+='?path={{.CurrentDir}}'+fixedEncodeURIComponent("/"+itemName);
+            path+='?path={{.CurrentDir}}'+encodeURIComponent("/"+itemName);
 
             $.ajax({
                 url: path,
@@ -526,7 +586,7 @@
             event.preventDefault();
             $('#createDirModal').modal('hide');
             var dirName = replaceSlash($("#directory_name").val());
-            var path = '{{.DirsURL}}?path={{.CurrentDir}}' + fixedEncodeURIComponent("/"+dirName);
+            var path = '{{.DirsURL}}?path={{.CurrentDir}}' + encodeURIComponent("/"+dirName);
             $.ajax({
                 url: path,
                 type: 'POST',
@@ -562,7 +622,6 @@
             event.preventDefault();
             keepAlive();
             var keepAliveTimer = setInterval(keepAlive, 300000);
-            var path = '{{.FilesURL}}?path={{.CurrentDir}}';
 
             var files = $("#files_name")[0].files;
             var has_errors = false;
@@ -584,48 +643,57 @@
                     }
                     return;
                 }
-                //console.log("upload file, index: "+index);
-                var data = new FormData();
-                data.append('filenames', files[index]);
 
-                $.ajax({
-                    url: path,
-                    type: 'POST',
-                    data: data,
-                    processData: false,
-                    contentType: false,
-                    headers: { 'X-CSRF-TOKEN': '{{.CSRFToken}}' },
-                    timeout: 0,
-                    success: function (result) {
+                async function saveFile() {
+                    //console.log("save file, index: "+index);
+                    var errorMessage = "Error uploading files";
+                    let response;
+                    try {
+                        var f = files[index];
+                        var uploadPath = '{{.FileURL}}?path={{.CurrentDir}}'+encodeURIComponent("/"+f.name);
+                        response = await fetch(uploadPath, {
+                            method: 'POST',
+                            headers: {
+                                'X-SFTPGO-MTIME': f.lastModified,
+                                'X-CSRF-TOKEN': '{{.CSRFToken}}'
+                            },
+                            credentials: 'same-origin',
+                            redirect: 'error',
+                            body: f
+                        });
+                    } catch (e){
+                        throw Error(errorMessage+": " +e.message);
+                    }
+                    if (response.status == 201){
                         index++;
                         success++;
                         uploadFile();
-                    },
-                    error: function ($xhr, textStatus, errorThrown) {
-                        index++;
-                        has_errors = true;
-                        var txt = "Error uploading files";
-                        if (success > 0){
-                            txt = "Not all files have been uploaded, please reload the page";
+                    } else {
+                        let jsonResponse;
+                        try {
+                            jsonResponse = await response.json();
+                        } catch(e){
+                            throw Error(errorMessage);
                         }
-                        if ($xhr) {
-                            var json = $xhr.responseJSON;
-                            if (json) {
-                                if (json.message) {
-                                    txt = json.message;
-                                }
-                                if (json.error) {
-                                    txt += ": " + json.error;
-                                }
-                            }
+                        if (jsonResponse.message) {
+                            errorMessage = jsonResponse.message;
                         }
-                        $('#errorTxt').text(txt);
-                        $('#errorMsg').show();
-                        setTimeout(function () {
-                            $('#errorMsg').hide();
-                        }, 10000);
-                        uploadFile();
+                        if (jsonResponse.error) {
+                            errorMessage += ": " + jsonResponse.error;
+                        }
+                        throw Error(errorMessage);
                     }
+                }
+
+                saveFile().catch(function(error){
+                    index++;
+                    has_errors = true;
+                    $('#errorTxt').text(error.message);
+                    $('#errorMsg').show();
+                    setTimeout(function () {
+                        $('#errorMsg').hide();
+                    }, 10000);
+                    uploadFile();
                 });
             }
 
@@ -646,7 +714,7 @@
             } else {
                 path = '{{.FilesURL}}';
             }
-            path+='?path={{.CurrentDir}}'+fixedEncodeURIComponent("/"+itemName)+'&target={{.CurrentDir}}'+fixedEncodeURIComponent("/"+targetName);
+            path+='?path={{.CurrentDir}}'+encodeURIComponent("/"+itemName)+'&target={{.CurrentDir}}'+encodeURIComponent("/"+targetName);
             $('renameModal').modal('hide');
             $.ajax({
                 url: path,
@@ -698,7 +766,7 @@
                 for (i = 0; i < selected.length; i++) {
                     filesArray.push(getNameFromMeta(selected[i]));
                 }
-                var files = fixedEncodeURIComponent(JSON.stringify(filesArray));
+                var files = encodeURIComponent(JSON.stringify(filesArray));
                 var downloadURL = '{{.DownloadURL}}';
                 var currentDir = '{{.CurrentDir}}';
                 var ts = new Date().getTime().toString();
@@ -763,7 +831,7 @@
                 for (i = 0; i < selected.length; i++) {
                     filesArray.push(getNameFromMeta(selected[i]));
                 }
-                var files = fixedEncodeURIComponent(JSON.stringify(filesArray));
+                var files = encodeURIComponent(JSON.stringify(filesArray));
                 var shareURL = '{{.ShareURL}}';
                 var currentDir = '{{.CurrentDir}}';
                 var ts = new Date().getTime().toString();
@@ -808,6 +876,7 @@
                 if (!data.sftpgo_dir || data.sftpgo_dir != '{{.CurrentDir}}'){
                     data.start = 0;
                     data.search.search = "";
+                    data.checkboxes = [];
                 }
             },
             "columns": [
@@ -874,7 +943,7 @@
                         {{if .HasIntegrations}}
                         if (type === 'display') {
                             if (data){
-                                return `<a href="#" onclick="openExternalURL('${data}', '${row["url"]}', '${row["name"]}');"><i class="fas fa-external-link-alt"></i></a>`;
+                                return `<a href="#" onclick="openExternalURL('${data}', '${row["ext_link"]}', '${row["name"]}');"><i class="fas fa-external-link-alt"></i></a>`;
                             }
                         }
                         {{end}}

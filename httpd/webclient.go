@@ -109,6 +109,7 @@ type viewPDFPage struct {
 type editFilePage struct {
 	baseClientPage
 	CurrentDir string
+	FileURL    string
 	Path       string
 	Name       string
 	ReadOnly   bool
@@ -121,6 +122,7 @@ type filesPage struct {
 	DirsURL         string
 	DownloadURL     string
 	ViewPDFURL      string
+	FileURL         string
 	CanAddFiles     bool
 	CanCreateDirs   bool
 	CanRename       bool
@@ -412,6 +414,7 @@ func renderEditFilePage(w http.ResponseWriter, r *http.Request, fileName, fileDa
 		Path:           fileName,
 		Name:           path.Base(fileName),
 		CurrentDir:     path.Dir(fileName),
+		FileURL:        webClientFilePath,
 		ReadOnly:       readOnly,
 		Data:           fileData,
 	}
@@ -447,6 +450,7 @@ func renderFilesPage(w http.ResponseWriter, r *http.Request, dirName, error stri
 		DownloadURL:     webClientDownloadZipPath,
 		ViewPDFURL:      webClientViewPDFPath,
 		DirsURL:         webClientDirsPath,
+		FileURL:         webClientFilePath,
 		CanAddFiles:     user.CanAddFilesFromWeb(dirName),
 		CanCreateDirs:   user.CanAddDirsFromWeb(dirName),
 		CanRename:       user.CanRenameFromWeb(dirName, dirName),
@@ -616,6 +620,8 @@ func (s *httpdServer) handleClientGetDirContents(w http.ResponseWriter, r *http.
 					for idx := range s.binding.WebClientIntegrations {
 						if util.IsStringInSlice(extension, s.binding.WebClientIntegrations[idx].FileExtensions) {
 							res["ext_url"] = s.binding.WebClientIntegrations[idx].URL
+							res["ext_link"] = fmt.Sprintf("%v?path=%v&_=%v", webClientFilePath,
+								url.QueryEscape(path.Join(name, info.Name())), time.Now().UTC().Unix())
 							break
 						}
 					}
