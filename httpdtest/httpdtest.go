@@ -1492,6 +1492,9 @@ func compareUserFilters(expected *dataprovider.User, actual *dataprovider.User) 
 	if err := compareUserFilterSubStructs(expected, actual); err != nil {
 		return err
 	}
+	if err := compareUserBandwidthLimitFilters(expected, actual); err != nil {
+		return err
+	}
 	return compareUserFilePatternsFilters(expected, actual)
 }
 
@@ -1505,6 +1508,31 @@ func checkFilterMatch(expected []string, actual []string) bool {
 		}
 	}
 	return true
+}
+
+func compareUserBandwidthLimitFilters(expected *dataprovider.User, actual *dataprovider.User) error {
+	if len(expected.Filters.BandwidthLimits) != len(actual.Filters.BandwidthLimits) {
+		return errors.New("bandwidth filters mismatch")
+	}
+
+	for idx, l := range expected.Filters.BandwidthLimits {
+		if actual.Filters.BandwidthLimits[idx].UploadBandwidth != l.UploadBandwidth {
+			return errors.New("bandwidth filters upload_bandwidth mismatch")
+		}
+		if actual.Filters.BandwidthLimits[idx].DownloadBandwidth != l.DownloadBandwidth {
+			return errors.New("bandwidth filters download_bandwidth mismatch")
+		}
+		if len(actual.Filters.BandwidthLimits[idx].Sources) != len(l.Sources) {
+			return errors.New("bandwidth filters sources mismatch")
+		}
+		for _, source := range actual.Filters.BandwidthLimits[idx].Sources {
+			if !util.IsStringInSlice(source, l.Sources) {
+				return errors.New("bandwidth filters source mismatch")
+			}
+		}
+	}
+
+	return nil
 }
 
 func compareUserFilePatternsFilters(expected *dataprovider.User, actual *dataprovider.User) error {

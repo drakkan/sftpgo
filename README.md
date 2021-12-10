@@ -31,7 +31,7 @@ Several storage backends are supported: local filesystem, encrypted local filesy
 - [Data At Rest Encryption](./docs/dare.md).
 - Dynamic user modification before login via external programs/HTTP API.
 - Quota support: accounts can have individual quota expressed as max total size and/or max number of files.
-- Bandwidth throttling, with distinct settings for upload and download.
+- Bandwidth throttling, with distinct settings for upload and download and overrides based on the client IP address.
 - Per-protocol [rate limiting](./docs/rate-limiting.md) is supported and can be optionally connected to the built-in defender to automatically block hosts that repeatedly exceed the configured limit.
 - Per user maximum concurrent sessions.
 - Per user and global IP filters: login can be restricted to specific ranges of IP addresses or to a specific IP address.

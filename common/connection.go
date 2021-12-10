@@ -47,6 +47,7 @@ func NewBaseConnection(id, protocol, localAddr, remoteAddr string, user dataprov
 	if util.IsStringInSlice(protocol, supportedProtocols) {
 		connID = fmt.Sprintf("%v_%v", protocol, id)
 	}
+	user.UploadBandwidth, user.DownloadBandwidth = user.GetBandwidthForIP(util.GetIPFromRemoteAddress(remoteAddr), connID)
 	return &BaseConnection{
 		ID:           connID,
 		User:         user,

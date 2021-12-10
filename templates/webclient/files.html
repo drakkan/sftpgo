@@ -386,6 +386,27 @@
 <script type="text/javascript">
     var spinnerDone = false;
 
+    var escapeHTML = function ( t ) {
+		return t
+			.replace( /&/g, '&amp;' )
+			.replace( /</g, '&lt;' )
+			.replace( />/g, '&gt;' )
+			.replace( /"/g, '&quot;' );
+	};
+
+    function shortenData(d, cutoff) {
+        if ( typeof d !== 'string' ) {
+			return d;
+		}
+
+		if ( d.length <= cutoff ) {
+			return d;
+		}
+
+        var shortened = d.substr(0, cutoff-1);
+        return shortened+'&#8230;';
+    }
+
     function getIconForFile(filename) {
         var extension = filename.slice((filename.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase();
         switch (extension) {
@@ -651,10 +672,17 @@
                     try {
                         var f = files[index];
                         var uploadPath = '{{.FileURL}}?path={{.CurrentDir}}'+encodeURIComponent("/"+f.name);
+                        var lastModified;
+                        try {
+                            lastModified = f.lastModified;
+                        } catch (e) {
+                            console.log("unable to get last modified time from file: "+e.message);
+                            lastModified = "";
+                        }
                         response = await fetch(uploadPath, {
                             method: 'POST',
                             headers: {
-                                'X-SFTPGO-MTIME': f.lastModified,
+                                'X-SFTPGO-MTIME': lastModified,
                                 'X-CSRF-TOKEN': '{{.CSRFToken}}'
                             },
                             credentials: 'same-origin',
@@ -886,14 +914,22 @@
                     "data": "name",
                     "render": function (data, type, row) {
                         if (type === 'display') {
+                            var title = "";
+                            var cssClass = "";
+                            var shortened = shortenData(data, 70);
+                            if (shortened != data){
+                                title = escapeHTML(data);
+                                cssClass = "ellipsis";
+                            }
+
                             if (row["type"] == "1") {
-                                return `<i class="fas fa-folder"></i>&nbsp;<a href="${row['url']}">${data}</a>`;
+                                return `<i class="fas fa-folder"></i>&nbsp;<a class="${cssClass}" href="${row['url']}" title="${title}">${shortened}</a>`;
                             }
                             if (row["size"] == "") {
-                                return `<i class="fas fa-external-link-alt"></i>&nbsp;<a href="${row['url']}">${data}</a>`;
+                                return `<i class="fas fa-external-link-alt"></i>&nbsp;<a class="${cssClass}" href="${row['url']}" title="${title}">${shortened}</a>`;
                             }
                             var icon = getIconForFile(data);
-                            return `<i class="${icon}"></i>&nbsp;<a href="${row['url']}">${data}</a>`;
+                            return `<i class="${icon}"></i>&nbsp;<a class="${cssClass}" href="${row['url']}" title="${title}">${shortened}</a>`;
                         }
                         return data;
                     }

@@ -4282,6 +4282,22 @@ components:
           example: false
           description: If true, the check password hook, if defined, will not be executed
       description: User specific hook overrides
+    BandwidthLimit:
+      type: object
+      properties:
+        sources:
+          type: array
+          items:
+            type: string
+          description: 'Source networks in CIDR notation as defined in RFC 4632 and RFC 4291 for example `192.0.2.0/24` or `2001:db8::/32`. The limit applies if the defined networks contain the client IP'
+        upload_bandwidth:
+          type: integer
+          format: int32
+          description: 'Maximum upload bandwidth as KB/s, 0 means unlimited'
+        download_bandwidth:
+          type: integer
+          format: int32
+          description: 'Maximum download bandwidth as KB/s, 0 means unlimited'
     UserFilters:
       type: object
       properties:
@@ -4347,6 +4363,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/RecoveryCode'
+        bandwidth_limits:
+          type: array
+          items:
+            $ref: '#/components/schemas/BandwidthLimit'
       description: Additional user options
     Secret:
       type: object

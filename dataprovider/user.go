@@ -883,6 +883,28 @@ func (u *User) GetSignature() string {
 	return base64.StdEncoding.EncodeToString(signature[:])
 }
 
+// GetBandwidthForIP returns the upload and download bandwidth for the specified IP
+func (u *User) GetBandwidthForIP(clientIP, connectionID string) (int64, int64) {
+	if len(u.Filters.BandwidthLimits) > 0 {
+		ip := net.ParseIP(clientIP)
+		if ip != nil {
+			for _, bwLimit := range u.Filters.BandwidthLimits {
+				for _, source := range bwLimit.Sources {
+					_, ipNet, err := net.ParseCIDR(source)
+					if err == nil {
+						if ipNet.Contains(ip) {
+							logger.Debug(logSender, connectionID, "override bandwidth limit for ip %#v, upload limit: %v KB/s, download limit: %v KB/s",
+								clientIP, bwLimit.UploadBandwidth, bwLimit.DownloadBandwidth)
+							return bwLimit.UploadBandwidth, bwLimit.DownloadBandwidth
+						}
+					}
+				}
+			}
+		}
+	}
+	return u.UploadBandwidth, u.DownloadBandwidth
+}
+
 // IsLoginFromAddrAllowed returns true if the login is allowed from the specified remoteAddr.
 // If AllowedIP is defined only the specified IP/Mask can login.
 // If DeniedIP is defined the specified IP/Mask cannot login.
@@ -1150,7 +1172,7 @@ func (u *User) getACopy() User {
 	filters.AllowAPIKeyAuth = u.Filters.AllowAPIKeyAuth
 	filters.WebClient = make([]string, len(u.Filters.WebClient))
 	copy(filters.WebClient, u.Filters.WebClient)
-	filters.RecoveryCodes = make([]sdk.RecoveryCode, 0)
+	filters.RecoveryCodes = make([]sdk.RecoveryCode, 0, len(u.Filters.RecoveryCodes))
 	for _, code := range u.Filters.RecoveryCodes {
 		if code.Secret == nil {
 			code.Secret = kms.NewEmptySecret()
@@ -1159,6 +1181,17 @@ func (u *User) getACopy() User {
 			Secret: code.Secret.Clone(),
 			Used:   code.Used,
 		})
+	}
+	filters.BandwidthLimits = make([]sdk.BandwidthLimit, 0, len(u.Filters.BandwidthLimits))
+	for _, limit := range u.Filters.BandwidthLimits {
+		bwLimit := sdk.BandwidthLimit{
+			UploadBandwidth:   limit.UploadBandwidth,
+			DownloadBandwidth: limit.DownloadBandwidth,
+			Sources:           make([]string, 0, len(limit.Sources)),
+		}
+		bwLimit.Sources = make([]string, len(limit.Sources))
+		copy(bwLimit.Sources, limit.Sources)
+		filters.BandwidthLimits = append(filters.BandwidthLimits, bwLimit)
 	}
 
 	return User{

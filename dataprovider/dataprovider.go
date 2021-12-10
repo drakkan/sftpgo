@@ -1619,21 +1619,47 @@ func checkEmptyFiltersStruct(user *User) {
 	}
 }
 
-func validateFilters(user *User) error {
-	checkEmptyFiltersStruct(user)
+func validateIPFilters(user *User) error {
 	user.Filters.DeniedIP = util.RemoveDuplicates(user.Filters.DeniedIP)
 	for _, IPMask := range user.Filters.DeniedIP {
 		_, _, err := net.ParseCIDR(IPMask)
 		if err != nil {
-			return util.NewValidationError(fmt.Sprintf("could not parse denied IP/Mask %#v : %v", IPMask, err))
+			return util.NewValidationError(fmt.Sprintf("could not parse denied IP/Mask %#v: %v", IPMask, err))
 		}
 	}
 	user.Filters.AllowedIP = util.RemoveDuplicates(user.Filters.AllowedIP)
 	for _, IPMask := range user.Filters.AllowedIP {
 		_, _, err := net.ParseCIDR(IPMask)
 		if err != nil {
-			return util.NewValidationError(fmt.Sprintf("could not parse allowed IP/Mask %#v : %v", IPMask, err))
+			return util.NewValidationError(fmt.Sprintf("could not parse allowed IP/Mask %#v: %v", IPMask, err))
 		}
+	}
+	return nil
+}
+
+func validateBandwidthLimitFilters(user *User) error {
+	for idx, bandwidthLimit := range user.Filters.BandwidthLimits {
+		user.Filters.BandwidthLimits[idx].Sources = util.RemoveDuplicates(bandwidthLimit.Sources)
+		if err := bandwidthLimit.Validate(); err != nil {
+			return err
+		}
+		if bandwidthLimit.DownloadBandwidth < 0 {
+			user.Filters.BandwidthLimits[idx].DownloadBandwidth = 0
+		}
+		if bandwidthLimit.UploadBandwidth < 0 {
+			user.Filters.BandwidthLimits[idx].UploadBandwidth = 0
+		}
+	}
+	return nil
+}
+
+func validateFilters(user *User) error {
+	checkEmptyFiltersStruct(user)
+	if err := validateIPFilters(user); err != nil {
+		return err
+	}
+	if err := validateBandwidthLimitFilters(user); err != nil {
+		return err
 	}
 	user.Filters.DeniedLoginMethods = util.RemoveDuplicates(user.Filters.DeniedLoginMethods)
 	if len(user.Filters.DeniedLoginMethods) >= len(ValidLoginMethods) {
@@ -1664,6 +1690,7 @@ func validateFilters(user *User) error {
 			return util.NewValidationError(fmt.Sprintf("invalid web client options %#v", opts))
 		}
 	}
+
 	return validateFiltersPatternExtensions(user)
 }
 
@@ -1727,6 +1754,12 @@ func validateBaseParams(user *User) error {
 	}
 	if !filepath.IsAbs(user.HomeDir) {
 		return util.NewValidationError(fmt.Sprintf("home_dir must be an absolute path, actual value: %v", user.HomeDir))
+	}
+	if user.DownloadBandwidth < 0 {
+		user.DownloadBandwidth = 0
+	}
+	if user.UploadBandwidth < 0 {
+		user.UploadBandwidth = 0
 	}
 	return nil
 }

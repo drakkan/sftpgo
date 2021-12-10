@@ -1,6 +1,8 @@
 package sdk
 
 import (
+	"fmt"
+	"net"
 	"strings"
 
 	"github.com/drakkan/sftpgo/v2/kms"
@@ -125,6 +127,34 @@ type TOTPConfig struct {
 	Protocols []string `json:"protocols,omitempty"`
 }
 
+// BandwidthLimit defines a per-source bandwidth limit
+type BandwidthLimit struct {
+	// Source networks in CIDR notation as defined in RFC 4632 and RFC 4291
+	// for example "192.0.2.0/24" or "2001:db8::/32". The limit applies if the
+	// defined networks contain the client IP
+	Sources []string `json:"sources"`
+	// Maximum upload bandwidth as KB/s
+	UploadBandwidth int64 `json:"upload_bandwidth,omitempty"`
+	// Maximum download bandwidth as KB/s
+	DownloadBandwidth int64 `json:"download_bandwidth,omitempty"`
+}
+
+// Validate returns an error if the bandwidth limit is not valid
+func (l *BandwidthLimit) Validate() error {
+	for _, source := range l.Sources {
+		_, _, err := net.ParseCIDR(source)
+		if err != nil {
+			return util.NewValidationError(fmt.Sprintf("could not parse bandwidth limit source %#v: %v", source, err))
+		}
+	}
+	return nil
+}
+
+// GetSourcesAsString returns the sources as comma separated string
+func (l *BandwidthLimit) GetSourcesAsString() string {
+	return strings.Join(l.Sources, ",")
+}
+
 // UserFilters defines additional restrictions for a user
 // TODO: rename to UserOptions in v3
 type UserFilters struct {
@@ -173,6 +203,8 @@ type UserFilters struct {
 	// UserType is an hint for authentication plugins.
 	// It is ignored when using SFTPGo internal authentication
 	UserType string `json:"user_type,omitempty"`
+	// Per-source bandwidth limits
+	BandwidthLimits []BandwidthLimit `json:"bandwidth_limits,omitempty"`
 }
 
 // BaseUser defines the shared user fields
@@ -209,17 +241,19 @@ type BaseUser struct {
 	// List of the granted permissions
 	Permissions map[string][]string `json:"permissions"`
 	// Used quota as bytes
-	UsedQuotaSize int64 `json:"used_quota_size"`
+	UsedQuotaSize int64 `json:"used_quota_size,omitempty"`
 	// Used quota as number of files
-	UsedQuotaFiles int `json:"used_quota_files"`
+	UsedQuotaFiles int `json:"used_quota_files,omitempty"`
 	// Last quota update as unix timestamp in milliseconds
-	LastQuotaUpdate int64 `json:"last_quota_update"`
-	// Maximum upload bandwidth as KB/s, 0 means unlimited
-	UploadBandwidth int64 `json:"upload_bandwidth"`
-	// Maximum download bandwidth as KB/s, 0 means unlimited
-	DownloadBandwidth int64 `json:"download_bandwidth"`
+	LastQuotaUpdate int64 `json:"last_quota_update,omitempty"`
+	// Maximum upload bandwidth as KB/s, 0 means unlimited.
+	// This is the default if no per-source limit match
+	UploadBandwidth int64 `json:"upload_bandwidth,omitempty"`
+	// Maximum download bandwidth as KB/s, 0 means unlimited.
+	// This is the default if no per-source limit match
+	DownloadBandwidth int64 `json:"download_bandwidth,omitempty"`
 	// Last login as unix timestamp in milliseconds
-	LastLogin int64 `json:"last_login"`
+	LastLogin int64 `json:"last_login,omitempty"`
 	// Creation time as unix timestamp in milliseconds. It will be 0 for admins created before v2.2.0
 	CreatedAt int64 `json:"created_at"`
 	// last update time as unix timestamp in milliseconds

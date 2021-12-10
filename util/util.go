@@ -492,7 +492,7 @@ func GetRealIP(r *http.Request) string {
 	} else if clientIP := r.Header.Get(cfConnectingIP); clientIP != "" {
 		ip = clientIP
 	} else if xff := r.Header.Get(xForwardedFor); xff != "" {
-		i := strings.Index(xff, ", ")
+		i := strings.Index(xff, ",")
 		if i == -1 {
 			i = len(xff)
 		}

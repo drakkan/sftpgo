@@ -502,6 +502,101 @@ func TestBasicUserHandling(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestUserBandwidthLimit(t *testing.T) {
+	u := getTestUser()
+	u.UploadBandwidth = 128
+	u.DownloadBandwidth = 96
+	u.Filters.BandwidthLimits = []sdk.BandwidthLimit{
+		{
+			Sources: []string{"1"},
+		},
+	}
+	_, resp, err := httpdtest.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err, string(resp))
+	assert.Contains(t, string(resp), "Validation error: could not parse bandwidth limit source")
+	u.Filters.BandwidthLimits = []sdk.BandwidthLimit{
+		{
+			Sources:         []string{"127.0.0.0/8", "::1/128"},
+			UploadBandwidth: 256,
+		},
+		{
+			Sources:           []string{"10.0.0.0/8"},
+			UploadBandwidth:   512,
+			DownloadBandwidth: 256,
+		},
+	}
+	user, resp, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	assert.Len(t, user.Filters.BandwidthLimits, 2)
+	assert.Equal(t, u.Filters.BandwidthLimits, user.Filters.BandwidthLimits)
+
+	connID := xid.New().String()
+	localAddr := "127.0.0.1"
+	up, down := user.GetBandwidthForIP("127.0.1.1", connID)
+	assert.Equal(t, int64(256), up)
+	assert.Equal(t, int64(0), down)
+	conn := common.NewBaseConnection(connID, common.ProtocolHTTP, localAddr, "127.0.1.1", user)
+	assert.Equal(t, int64(256), conn.User.UploadBandwidth)
+	assert.Equal(t, int64(0), conn.User.DownloadBandwidth)
+	up, down = user.GetBandwidthForIP("10.1.2.3", connID)
+	assert.Equal(t, int64(512), up)
+	assert.Equal(t, int64(256), down)
+	conn = common.NewBaseConnection(connID, common.ProtocolHTTP, localAddr, "10.2.1.4:1234", user)
+	assert.Equal(t, int64(512), conn.User.UploadBandwidth)
+	assert.Equal(t, int64(256), conn.User.DownloadBandwidth)
+	up, down = user.GetBandwidthForIP("192.168.1.2", connID)
+	assert.Equal(t, int64(128), up)
+	assert.Equal(t, int64(96), down)
+	conn = common.NewBaseConnection(connID, common.ProtocolHTTP, localAddr, "172.16.0.1", user)
+	assert.Equal(t, int64(128), conn.User.UploadBandwidth)
+	assert.Equal(t, int64(96), conn.User.DownloadBandwidth)
+	up, down = user.GetBandwidthForIP("invalid", connID)
+	assert.Equal(t, int64(128), up)
+	assert.Equal(t, int64(96), down)
+	conn = common.NewBaseConnection(connID, common.ProtocolHTTP, localAddr, "172.16.0", user)
+	assert.Equal(t, int64(128), conn.User.UploadBandwidth)
+	assert.Equal(t, int64(96), conn.User.DownloadBandwidth)
+
+	user.Filters.BandwidthLimits = []sdk.BandwidthLimit{
+		{
+			Sources:           []string{"10.0.0.0/24"},
+			UploadBandwidth:   256,
+			DownloadBandwidth: 512,
+		},
+	}
+	user, resp, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err, string(resp))
+	if assert.Len(t, user.Filters.BandwidthLimits, 1) {
+		bwLimit := user.Filters.BandwidthLimits[0]
+		assert.Equal(t, []string{"10.0.0.0/24"}, bwLimit.Sources)
+		assert.Equal(t, int64(256), bwLimit.UploadBandwidth)
+		assert.Equal(t, int64(512), bwLimit.DownloadBandwidth)
+	}
+	up, down = user.GetBandwidthForIP("10.1.2.3", connID)
+	assert.Equal(t, int64(128), up)
+	assert.Equal(t, int64(96), down)
+	conn = common.NewBaseConnection(connID, common.ProtocolHTTP, localAddr, "172.16.0.2", user)
+	assert.Equal(t, int64(128), conn.User.UploadBandwidth)
+	assert.Equal(t, int64(96), conn.User.DownloadBandwidth)
+	up, down = user.GetBandwidthForIP("10.0.0.26", connID)
+	assert.Equal(t, int64(256), up)
+	assert.Equal(t, int64(512), down)
+	conn = common.NewBaseConnection(connID, common.ProtocolHTTP, localAddr, "10.0.0.28", user)
+	assert.Equal(t, int64(256), conn.User.UploadBandwidth)
+	assert.Equal(t, int64(512), conn.User.DownloadBandwidth)
+
+	// this works if we remove the omitempty tag from BandwidthLimits
+	/*user.Filters.BandwidthLimits = nil
+	user, resp, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err, string(resp))
+	assert.Len(t, user.Filters.BandwidthLimits, 0)*/
+
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+}
+
 func TestUserTimestamps(t *testing.T) {
 	user, resp, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err, string(resp))
@@ -12915,6 +13010,39 @@ func TestWebUserAddMock(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Contains(t, rr.Body.String(), "Validation error: invalid TLS username")
 	form.Set("tls_username", string(sdk.TLSUsernameNone))
+	// invalid upload_bandwidth_source0
+	form.Set("bandwidth_limit_sources0", "192.168.1.0/24, 192.168.2.0/25")
+	form.Set("upload_bandwidth_source0", "a")
+	form.Set("download_bandwidth_source0", "0")
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "invalid upload_bandwidth_source")
+	// invalid download_bandwidth_source0
+	form.Set("upload_bandwidth_source0", "256")
+	form.Set("download_bandwidth_source0", "a")
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "invalid download_bandwidth_source")
+	form.Set("download_bandwidth_source0", "512")
+	form.Set("download_bandwidth_source1", "1024")
+	form.Set("bandwidth_limit_sources1", "1.1.1")
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "Validation error: could not parse bandwidth limit source")
+	form.Set("bandwidth_limit_sources1", "127.0.0.1/32")
+	form.Set("upload_bandwidth_source1", "-1")
 	form.Set(csrfFormToken, "invalid form token")
 	b, contentType, _ = getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
@@ -12999,6 +13127,21 @@ func TestWebUserAddMock(t *testing.T) {
 			assert.True(t, util.IsStringInSlice("*.rar", filter.DeniedPatterns))
 		}
 	}
+	if assert.Len(t, newUser.Filters.BandwidthLimits, 2) {
+		for _, bwLimit := range newUser.Filters.BandwidthLimits {
+			if len(bwLimit.Sources) == 2 {
+				assert.Equal(t, "192.168.1.0/24", bwLimit.Sources[0])
+				assert.Equal(t, "192.168.2.0/25", bwLimit.Sources[1])
+				assert.Equal(t, int64(256), bwLimit.UploadBandwidth)
+				assert.Equal(t, int64(512), bwLimit.DownloadBandwidth)
+			} else {
+				assert.Equal(t, []string{"127.0.0.1/32"}, bwLimit.Sources)
+				assert.Equal(t, int64(0), bwLimit.UploadBandwidth)
+				assert.Equal(t, int64(1024), bwLimit.DownloadBandwidth)
+			}
+		}
+	}
+
 	assert.Equal(t, sdk.TLSUsernameNone, newUser.Filters.TLSUsername)
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(userPath, newUser.Username), nil)
 	setBearerForReq(req, apiToken)
@@ -13018,6 +13161,13 @@ func TestWebUserUpdateMock(t *testing.T) {
 	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
 	assert.NoError(t, err)
 	user := getTestUser()
+	user.Filters.BandwidthLimits = []sdk.BandwidthLimit{
+		{
+			Sources:           []string{"10.8.0.0/16", "192.168.1.0/25"},
+			UploadBandwidth:   256,
+			DownloadBandwidth: 512,
+		},
+	}
 	userAsJSON := getUserAsJSON(t, user)
 	req, _ := http.NewRequest(http.MethodPost, userPath, bytes.NewBuffer(userAsJSON))
 	setBearerForReq(req, apiToken)
@@ -13053,6 +13203,14 @@ func TestWebUserUpdateMock(t *testing.T) {
 	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 	assert.NoError(t, err)
 	assert.True(t, user.Filters.TOTPConfig.Enabled)
+	if assert.Len(t, user.Filters.BandwidthLimits, 1) {
+		if assert.Len(t, user.Filters.BandwidthLimits[0].Sources, 2) {
+			assert.Equal(t, "10.8.0.0/16", user.Filters.BandwidthLimits[0].Sources[0])
+			assert.Equal(t, "192.168.1.0/25", user.Filters.BandwidthLimits[0].Sources[1])
+		}
+		assert.Equal(t, int64(256), user.Filters.BandwidthLimits[0].UploadBandwidth)
+		assert.Equal(t, int64(512), user.Filters.BandwidthLimits[0].DownloadBandwidth)
+	}
 
 	dbUser, err := dataprovider.UserExists(user.Username)
 	assert.NoError(t, err)
@@ -13178,6 +13336,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	assert.True(t, util.IsStringInSlice(dataprovider.SSHLoginMethodKeyboardInteractive, updateUser.Filters.DeniedLoginMethods))
 	assert.True(t, util.IsStringInSlice(common.ProtocolFTP, updateUser.Filters.DeniedProtocols))
 	assert.True(t, util.IsStringInSlice("*.zip", updateUser.Filters.FilePatterns[0].DeniedPatterns))
+	assert.Len(t, updateUser.Filters.BandwidthLimits, 0)
 	req, err = http.NewRequest(http.MethodDelete, path.Join(userPath, user.Username), nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, apiToken)

@@ -460,7 +460,7 @@ func TestRemoteAddress(t *testing.T) {
 	assert.Equal(t, remoteAddr2, ip)
 
 	req.RemoteAddr = remoteAddr2
-	req.Header.Set("X-Forwarded-For", fmt.Sprintf("%v, %v", "12.34.56.78", "172.16.2.4"))
+	req.Header.Set("X-Forwarded-For", fmt.Sprintf("%v,%v", "12.34.56.78", "172.16.2.4"))
 	ip = server.checkRemoteAddress(req)
 	assert.Equal(t, "12.34.56.78", ip)
 	assert.Equal(t, ip, req.RemoteAddr)

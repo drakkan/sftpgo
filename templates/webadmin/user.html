@@ -365,6 +365,20 @@
             </div>
 
             <div class="form-group row">
+                <label for="idUID" class="col-sm-2 col-form-label">UID</label>
+                <div class="col-sm-3">
+                    <input type="number" class="form-control" id="idUID" name="uid" placeholder="" value="{{.User.UID}}"
+                        min="0" max="2147483647">
+                </div>
+                <div class="col-sm-2"></div>
+                <label for="idGID" class="col-sm-2 col-form-label">GID</label>
+                <div class="col-sm-3">
+                    <input type="number" class="form-control" id="idGID" name="gid" placeholder="" value="{{.User.GID}}"
+                        min="0" max="2147483647">
+                </div>
+            </div>
+
+            <div class="form-group row">
                 <label for="idQuotaSize" class="col-sm-2 col-form-label">Quota size (bytes)</label>
                 <div class="col-sm-3">
                     <input type="number" class="form-control" id="idQuotaSize" name="quota_size" placeholder=""
@@ -425,17 +439,85 @@
                 </div>
             </div>
 
-            <div class="form-group row">
-                <label for="idUID" class="col-sm-2 col-form-label">UID</label>
-                <div class="col-sm-3">
-                    <input type="number" class="form-control" id="idUID" name="uid" placeholder="" value="{{.User.UID}}"
-                        min="0" max="2147483647">
+            <div class="card bg-light mb-3">
+                <div class="card-header">
+                    Per-source bandwidth limits
                 </div>
-                <div class="col-sm-2"></div>
-                <label for="idGID" class="col-sm-2 col-form-label">GID</label>
-                <div class="col-sm-3">
-                    <input type="number" class="form-control" id="idGID" name="gid" placeholder="" value="{{.User.GID}}"
-                        min="0" max="2147483647">
+                <div class="card-body">
+                    <div class="form-group row">
+                        <div class="col-md-12 form_field_bwlimits_outer">
+                            {{range $idx, $bwLimit := .User.Filters.BandwidthLimits -}}
+                            <div class="row form_field_bwlimits_outer_row">
+                                <div class="form-group col-md-8">
+                                    <textarea class="form-control" id="idBandwidthLimitSources{{$idx}}" name="bandwidth_limit_sources{{$idx}}" rows="4" placeholder=""
+                                            aria-describedby="bwLimitSourcesHelpBlock{{$idx}}">{{$bwLimit.GetSourcesAsString}}</textarea>
+                                    <small id="bwLimitSourcesHelpBlock{{$idx}}" class="form-text text-muted">
+                                        Comma separated IP/Mask in CIDR format, for example "192.168.1.0/24,10.8.0.100/32"
+                                    </small>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <input type="number" class="form-control" id="idUploadBandwidthSource{{$idx}}" name="upload_bandwidth_source{{$idx}}"
+                                            placeholder="" value="{{$bwLimit.UploadBandwidth}}" min="0" aria-describedby="ulHelpBlock{{$idx}}">
+                                        <small id="ulHelpBlock{{$idx}}" class="form-text text-muted">
+                                            UL (KB/s). 0 means no limit
+                                        </small>
+                                    </div>
+                                    <div class="form-group">
+                                        <input type="number" class="form-control" id="idDownloadBandwidthSource{{$idx}}" name="download_bandwidth_source{{$idx}}"
+                                            placeholder="" value="{{$bwLimit.DownloadBandwidth}}" min="0" aria-describedby="dlHelpBlock{{$idx}}">
+                                        <small id="dlHelpBlock{{$idx}}" class="form-text text-muted">
+                                            DL (KB/s). 0 means no limit
+                                        </small>
+                                    </div>
+                                </div>
+
+                                <div class="form-group col-md-1">
+                                    <button class="btn btn-circle btn-danger remove_bwlimit_btn_frm_field">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {{else}}
+                            <div class="row form_field_bwlimits_outer_row">
+                                <div class="form-group col-md-8">
+                                    <textarea class="form-control" id="idBandwidthLimitSources0" name="bandwidth_limit_sources0" rows="4" placeholder=""
+                                            aria-describedby="bwLimitSourcesHelpBlock0"></textarea>
+                                    <small id="bwLimitSourcesHelpBlock0" class="form-text text-muted">
+                                        Comma separated IP/Mask in CIDR format, for example "192.168.1.0/24,10.8.0.100/32"
+                                    </small>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <input type="number" class="form-control" id="idUploadBandwidthSource0" name="upload_bandwidth_source0"
+                                            placeholder="" value="" min="0" aria-describedby="ulHelpBlock0">
+                                        <small id="ulHelpBlock0" class="form-text text-muted">
+                                            UL (KB/s). 0 means no limit
+                                        </small>
+                                    </div>
+                                    <div class="form-group">
+                                        <input type="number" class="form-control" id="idDownloadBandwidthSource0" name="download_bandwidth_source0"
+                                            placeholder="" value="" min="0" aria-describedby="dlHelpBlock0">
+                                        <small id="dlHelpBlock0" class="form-text text-muted">
+                                            DL (KB/s). 0 means no limit
+                                        </small>
+                                    </div>
+                                </div>
+                                <div class="form-group col-md-1">
+                                    <button class="btn btn-circle btn-danger remove_bwlimit_btn_frm_field">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {{end}}
+                        </div>
+                    </div>
+
+                    <div class="row mx-1">
+                        <button type="button" class="btn btn-secondary add_new_bwlimit_field_btn">
+                            <i class="fas fa-plus"></i> Add new bandwidth limit
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -755,6 +837,49 @@
 
         $("body").on("click", ".remove_vfolder_btn_frm_field", function () {
             $(this).closest(".form_field_vfolder_outer_row").remove();
+        });
+
+        $("body").on("click", ".add_new_bwlimit_field_btn", function () {
+            var index = $(".form_field_bwlimits_outer").find(".form_field_bwlimits_outer_row").length;
+            while (document.getElementById("idBandwidthLimitSources"+index) != null){
+                index++;
+            }
+            $(".form_field_bwlimits_outer").append(`
+                    <div class="row form_field_bwlimits_outer_row">
+                        <div class="form-group col-md-8">
+                            <textarea class="form-control" id="idBandwidthLimitSources0" name="bandwidth_limit_sources${index}" rows="4" placeholder=""
+                                aria-describedby="bwLimitSourcesHelpBlock${index}"></textarea>
+                            <small id="bwLimitSourcesHelpBlock${index}" class="form-text text-muted">
+                                Comma separated IP/Mask in CIDR format, for example "192.168.1.0/24,10.8.0.100/32"
+                            </small>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <input type="number" class="form-control" id="idUploadBandwidthSource${index}" name="upload_bandwidth_source${index}"
+                                    placeholder="" value="" min="0" aria-describedby="ulHelpBlock${index}">
+                                <small id="ulHelpBlock${index}" class="form-text text-muted">
+                                    UL (KB/s). 0 means no limit
+                                </small>
+                            </div>
+                            <div class="form-group">
+                                <input type="number" class="form-control" id="idDownloadBandwidthSource${index}" name="download_bandwidth_source${index}"
+                                    placeholder="" value="" min="0" aria-describedby="dlHelpBlock${index}">
+                                <small id="dlHelpBlock${index}" class="form-text text-muted">
+                                    DL (KB/s). 0 means no limit
+                                </small>
+                            </div>
+                        </div>
+                        <div class="form-group col-md-1">
+                            <button class="btn btn-circle btn-danger remove_bwlimit_btn_frm_field">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `);
+        });
+
+        $("body").on("click", ".remove_bwlimit_btn_frm_field", function () {
+            $(this).closest(".form_field_bwlimits_outer_row").remove();
         });
 
         $("body").on("click", ".add_new_pattern_field_btn", function () {
