@@ -2665,6 +2665,8 @@ func executePreLoginHook(username, loginMethod, ip, protocol string) (User, erro
 	userLastQuotaUpdate := u.LastQuotaUpdate
 	userLastLogin := u.LastLogin
 	userCreatedAt := u.CreatedAt
+	totpConfig := u.Filters.TOTPConfig
+	recoveryCodes := u.Filters.RecoveryCodes
 	err = json.Unmarshal(out, &u)
 	if err != nil {
 		return u, fmt.Errorf("invalid pre-login hook response %#v, error: %v", string(out), err)
@@ -2679,6 +2681,9 @@ func executePreLoginHook(username, loginMethod, ip, protocol string) (User, erro
 		err = provider.addUser(&u)
 	} else {
 		u.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+		// preserve TOTP config and recovery codes
+		u.Filters.TOTPConfig = totpConfig
+		u.Filters.RecoveryCodes = recoveryCodes
 		err = provider.updateUser(&u)
 		if err == nil {
 			webDAVUsersCache.swap(&u)
@@ -2881,6 +2886,9 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 		user.LastLogin = u.LastLogin
 		user.CreatedAt = u.CreatedAt
 		user.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+		// preserve TOTP config and recovery codes
+		user.Filters.TOTPConfig = u.Filters.TOTPConfig
+		user.Filters.RecoveryCodes = u.Filters.RecoveryCodes
 		err = provider.updateUser(&user)
 		if err == nil {
 			webDAVUsersCache.swap(&user)
@@ -2942,6 +2950,9 @@ func doPluginAuth(username, password string, pubKey []byte, ip, protocol string,
 		user.UsedQuotaFiles = u.UsedQuotaFiles
 		user.LastQuotaUpdate = u.LastQuotaUpdate
 		user.LastLogin = u.LastLogin
+		// preserve TOTP config and recovery codes
+		user.Filters.TOTPConfig = u.Filters.TOTPConfig
+		user.Filters.RecoveryCodes = u.Filters.RecoveryCodes
 		err = provider.updateUser(&user)
 		if err == nil {
 			webDAVUsersCache.swap(&user)
