@@ -19,6 +19,8 @@ import (
 	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/sdk"
+	"github.com/drakkan/sftpgo/v2/sdk/plugin"
+	"github.com/drakkan/sftpgo/v2/sdk/plugin/metadata"
 	"github.com/drakkan/sftpgo/v2/util"
 )
 
@@ -75,7 +77,7 @@ type Fs interface {
 	Symlink(source, target string) error
 	Chown(name string, uid int, gid int) error
 	Chmod(name string, mode os.FileMode) error
-	Chtimes(name string, atime, mtime time.Time) error
+	Chtimes(name string, atime, mtime time.Time, isUploading bool) error
 	Truncate(name string, size int64) error
 	ReadDir(dirname string) ([]os.FileInfo, error)
 	Readlink(name string) (string, error)
@@ -95,7 +97,15 @@ type Fs interface {
 	HasVirtualFolders() bool
 	GetMimeType(name string) (string, error)
 	GetAvailableDiskSize(dirName string) (*sftp.StatVFS, error)
+	CheckMetadata() error
 	Close() error
+}
+
+// fsMetadataChecker is a Fs that implements the getFileNamesInPrefix method.
+// This interface is used to abstract metadata consistency checks
+type fsMetadataChecker interface {
+	Fs
+	getFileNamesInPrefix(fsPrefix string) (map[string]bool, error)
 }
 
 // File defines an interface representing a SFTPGo file
@@ -642,6 +652,102 @@ func SetPathPermissions(fs Fs, path string, uid int, gid int) {
 	}
 	if err := fs.Chown(path, uid, gid); err != nil {
 		fsLog(fs, logger.LevelWarn, "error chowning path %v: %v", path, err)
+	}
+}
+
+func updateFileInfoModTime(storageID, objectPath string, info *FileInfo) (*FileInfo, error) {
+	if !plugin.Handler.HasMetadater() {
+		return info, nil
+	}
+	if info.IsDir() {
+		return info, nil
+	}
+	mTime, err := plugin.Handler.GetModificationTime(storageID, ensureAbsPath(objectPath), info.IsDir())
+	if errors.Is(err, metadata.ErrNoSuchObject) {
+		return info, nil
+	}
+	if err != nil {
+		return info, err
+	}
+	info.modTime = util.GetTimeFromMsecSinceEpoch(mTime)
+	return info, nil
+}
+
+func getFolderModTimes(storageID, dirName string) (map[string]int64, error) {
+	var err error
+	modTimes := make(map[string]int64)
+	if plugin.Handler.HasMetadater() {
+		modTimes, err = plugin.Handler.GetModificationTimes(storageID, ensureAbsPath(dirName))
+		if err != nil && !errors.Is(err, metadata.ErrNoSuchObject) {
+			return modTimes, err
+		}
+	}
+	return modTimes, nil
+}
+
+func ensureAbsPath(name string) string {
+	if path.IsAbs(name) {
+		return name
+	}
+	return path.Join("/", name)
+}
+
+func fsMetadataCheck(fs fsMetadataChecker, storageID, keyPrefix string) error {
+	if !plugin.Handler.HasMetadater() {
+		return nil
+	}
+	limit := 100
+	from := ""
+	for {
+		metadataFolders, err := plugin.Handler.GetMetadataFolders(storageID, from, limit)
+		if err != nil {
+			fsLog(fs, logger.LevelError, "unable to get folders: %v", err)
+			return err
+		}
+		for _, folder := range metadataFolders {
+			from = folder
+			fsPrefix := folder
+			if !strings.HasSuffix(folder, "/") {
+				fsPrefix += "/"
+			}
+			if keyPrefix != "" {
+				if !strings.HasPrefix(fsPrefix, "/"+keyPrefix) {
+					fsLog(fs, logger.LevelDebug, "skip metadata check for folder %#v outside prefix %#v",
+						folder, keyPrefix)
+					continue
+				}
+			}
+			fsLog(fs, logger.LevelDebug, "check metadata for folder %#v", folder)
+			metadataValues, err := plugin.Handler.GetModificationTimes(storageID, folder)
+			if err != nil {
+				fsLog(fs, logger.LevelError, "unable to get modification times for folder %#v: %v", folder, err)
+				return err
+			}
+			if len(metadataValues) == 0 {
+				fsLog(fs, logger.LevelDebug, "no metadata for folder %#v", folder)
+				continue
+			}
+			fileNames, err := fs.getFileNamesInPrefix(fsPrefix)
+			if err != nil {
+				fsLog(fs, logger.LevelError, "unable to get content for prefix %#v: %v", fsPrefix, err)
+				return err
+			}
+			// now check if we have metadata for a missing object
+			for k := range metadataValues {
+				if _, ok := fileNames[k]; !ok {
+					filePath := ensureAbsPath(path.Join(folder, k))
+					if err = plugin.Handler.RemoveMetadata(storageID, filePath); err != nil {
+						fsLog(fs, logger.LevelError, "unable to remove metadata for missing file %#v: %v", filePath, err)
+					} else {
+						fsLog(fs, logger.LevelDebug, "metadata removed for missing file %#v", filePath)
+					}
+				}
+			}
+		}
+
+		if len(metadataFolders) < limit {
+			return nil
+		}
 	}
 }
 

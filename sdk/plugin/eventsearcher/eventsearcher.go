@@ -36,7 +36,7 @@ type Searcher interface {
 		limit, order int, actions, objectTypes, instanceIDs, excludeIDs []string) ([]byte, []string, []string, error)
 }
 
-// Plugin defines the implementation to serve/connect to a notifier plugin
+// Plugin defines the implementation to serve/connect to a event search plugin
 type Plugin struct {
 	plugin.Plugin
 	Impl Searcher

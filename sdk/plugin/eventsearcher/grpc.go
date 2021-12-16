@@ -76,7 +76,7 @@ type GRPCServer struct {
 	Impl Searcher
 }
 
-// SearchFsEvents implement the server side fs events search method
+// SearchFsEvents implements the server side fs events search method
 func (s *GRPCServer) SearchFsEvents(ctx context.Context, req *proto.FsEventsFilter) (*proto.SearchResponse, error) {
 	responseData, sameTsAtStart, sameTsAtEnd, err := s.Impl.SearchFsEvents(req.StartTimestamp,
 		req.EndTimestamp, req.Username, req.Ip, req.SshCmd, req.Actions, req.Protocols, req.InstanceIds,

@@ -106,7 +106,7 @@ func (c *Connection) RemoveAll(ctx context.Context, name string) error {
 
 	var fi os.FileInfo
 	if fi, err = fs.Lstat(p); err != nil {
-		c.Log(logger.LevelDebug, "failed to remove a file %#v: stat error: %+v", p, err)
+		c.Log(logger.LevelDebug, "failed to remove file %#v: stat error: %+v", p, err)
 		return c.GetFsError(fs, err)
 	}
 

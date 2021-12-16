@@ -384,7 +384,7 @@ func (fs *SFTPFs) Chmod(name string, mode os.FileMode) error {
 }
 
 // Chtimes changes the access and modification times of the named file.
-func (fs *SFTPFs) Chtimes(name string, atime, mtime time.Time) error {
+func (fs *SFTPFs) Chtimes(name string, atime, mtime time.Time, isUploading bool) error {
 	if err := fs.checkConnection(); err != nil {
 		return err
 	}
@@ -462,6 +462,11 @@ func (fs *SFTPFs) CheckRootPath(username string, uid int, gid int) bool {
 // their size
 func (fs *SFTPFs) ScanRootDirContents() (int, int64, error) {
 	return fs.GetDirSize(fs.config.Prefix)
+}
+
+// CheckMetadata checks the metadata consistency
+func (*SFTPFs) CheckMetadata() error {
+	return nil
 }
 
 // GetAtomicUploadPath returns the path to use for an atomic upload

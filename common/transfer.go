@@ -280,7 +280,7 @@ func (t *BaseTransfer) Close() error {
 
 func (t *BaseTransfer) updateTimes() {
 	if !t.aTime.IsZero() && !t.mTime.IsZero() {
-		err := t.Fs.Chtimes(t.fsPath, t.aTime, t.mTime)
+		err := t.Fs.Chtimes(t.fsPath, t.aTime, t.mTime, true)
 		t.Connection.Log(logger.LevelDebug, "set times for file %#v, atime: %v, mtime: %v, err: %v",
 			t.fsPath, t.aTime, t.mTime, err)
 	}

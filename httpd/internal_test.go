@@ -2134,3 +2134,42 @@ func TestUserCanResetPassword(t *testing.T) {
 	u.Filters.AllowedIP = []string{"127.0.0.1/8"}
 	assert.False(t, isUserAllowedToResetPassword(req, &u))
 }
+
+func TestMetadataAPI(t *testing.T) {
+	username := "metadatauser"
+	assert.False(t, activeMetadataChecks.remove(username))
+
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username: username,
+			Password: "metadata_pwd",
+			HomeDir:  filepath.Join(os.TempDir(), username),
+			Status:   1,
+		},
+	}
+	user.Permissions = make(map[string][]string)
+	user.Permissions["/"] = []string{dataprovider.PermAny}
+	err := dataprovider.AddUser(&user, "", "")
+	assert.NoError(t, err)
+
+	assert.True(t, activeMetadataChecks.add(username))
+
+	req, err := http.NewRequest(http.MethodPost, path.Join(metadataBasePath, username, "check"), nil)
+	assert.NoError(t, err)
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("username", username)
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+	rr := httptest.NewRecorder()
+	startMetadataCheck(rr, req)
+	assert.Equal(t, http.StatusConflict, rr.Code)
+
+	assert.True(t, activeMetadataChecks.remove(username))
+	assert.Len(t, activeMetadataChecks.get(), 0)
+	err = dataprovider.DeleteUser(username, "", "")
+	assert.NoError(t, err)
+
+	user.FsConfig.Provider = sdk.AzureBlobFilesystemProvider
+	err = doMetadataCheck(user)
+	assert.Error(t, err)
+}

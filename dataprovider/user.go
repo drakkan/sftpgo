@@ -447,6 +447,27 @@ func (u *User) GetVirtualFolderForPath(virtualPath string) (vfs.VirtualFolder, e
 	return folder, errNoMatchingVirtualFolder
 }
 
+// CheckMetadataConsistency checks the consistency between the metadata stored
+// in the configured metadata plugin and the filesystem
+func (u *User) CheckMetadataConsistency() error {
+	fs, err := u.getRootFs("")
+	if err != nil {
+		return err
+	}
+	defer fs.Close()
+
+	if err = fs.CheckMetadata(); err != nil {
+		return err
+	}
+	for idx := range u.VirtualFolders {
+		v := &u.VirtualFolders[idx]
+		if err = v.CheckMetadataConsistency(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // ScanQuota scans the user home dir and virtual folders, included in its quota,
 // and returns the number of files and their size
 func (u *User) ScanQuota() (int, int64, error) {
@@ -455,6 +476,7 @@ func (u *User) ScanQuota() (int, int64, error) {
 		return 0, 0, err
 	}
 	defer fs.Close()
+
 	numFiles, size, err := fs.ScanRootDirContents()
 	if err != nil {
 		return numFiles, size, err

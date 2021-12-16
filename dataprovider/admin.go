@@ -39,6 +39,7 @@ const (
 	PermAdminManageDefender   = "manage_defender"
 	PermAdminViewDefender     = "view_defender"
 	PermAdminRetentionChecks  = "retention_checks"
+	PermAdminMetadataChecks   = "metadata_checks"
 	PermAdminViewEvents       = "view_events"
 )
 
@@ -47,7 +48,8 @@ var (
 	validAdminPerms = []string{PermAdminAny, PermAdminAddUsers, PermAdminChangeUsers, PermAdminDeleteUsers,
 		PermAdminViewUsers, PermAdminViewConnections, PermAdminCloseConnections, PermAdminViewServerStatus,
 		PermAdminManageAdmins, PermAdminManageAPIKeys, PermAdminQuotaScans, PermAdminManageSystem,
-		PermAdminManageDefender, PermAdminViewDefender, PermAdminRetentionChecks, PermAdminViewEvents}
+		PermAdminManageDefender, PermAdminViewDefender, PermAdminRetentionChecks, PermAdminMetadataChecks,
+		PermAdminViewEvents}
 )
 
 // TOTPConfig defines the time-based one time password configuration

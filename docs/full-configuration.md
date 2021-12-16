@@ -58,7 +58,7 @@ The configuration file contains the following sections:
     - `execute_on`, list of strings. Valid values are `pre-download`, `download`, `pre-upload`, `upload`, `pre-delete`, `delete`, `rename`, `ssh_cmd`. Leave empty to disable actions.
     - `execute_sync`, list of strings. Actions to be performed synchronously. The `pre-delete` action is always executed synchronously while the other ones are asynchronous. Executing an action synchronously means that SFTPGo will not return a result code to the client (which is waiting for it) until your hook have completed its execution. Leave empty to execute only the `pre-delete` hook synchronously
     - `hook`, string. Absolute path to the command to execute or HTTP URL to notify.
-  - `setstat_mode`, integer. 0 means "normal mode": requests for changing permissions, owner/group and access/modification times are executed. 1 means "ignore mode": requests for changing permissions, owner/group and access/modification times are silently ignored. 2 means "ignore mode for cloud based filesystems": requests for changing permissions, owner/group and access/modification times are silently ignored for cloud filesystems and executed for local filesystem.
+  - `setstat_mode`, integer. 0 means "normal mode": requests for changing permissions, owner/group and access/modification times are executed. 1 means "ignore mode": requests for changing permissions, owner/group and access/modification times are silently ignored. 2 means "ignore mode if not supported": requests for changing permissions and owner/group are silently ignored for cloud filesystems and executed for local/SFTP filesystem. Requests for changing modification times are always executed for local/SFTP filesystems and are executed for cloud based filesystems if the target is a file and there is a metadata plugin available. A metadata plugin can be found [here](https://github.com/sftpgo/sftpgo-plugin-metadata).
   - `temp_path`, string. Defines the path for temporary files such as those used for atomic uploads or file pipes. If you set this option you must make sure that the defined path exists, is accessible for writing by the user running SFTPGo, and is on the same filesystem as the users home directories otherwise the renaming for atomic uploads will become a copy and therefore may take a long time. The temporary files are not namespaced. The default is generally fine. Leave empty for the default.
   - `proxy_protocol`, integer. Support for [HAProxy PROXY protocol](https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt). If you are running SFTPGo behind a proxy server such as HAProxy, AWS ELB or NGNIX, you can enable the proxy protocol. It provides a convenient way to safely transport connection information such as a client's address across multiple layers of NAT or TCP proxies to get the real client IP address instead of the proxy IP. Both protocol versions 1 and 2 are supported. If the proxy protocol is enabled in SFTPGo then you have to enable the protocol in your proxy configuration too. For example, for HAProxy, add `send-proxy` or `send-proxy-v2` to each server configuration line. The following modes are supported:
     - 0, disabled
@@ -291,7 +291,7 @@ The configuration file contains the following sections:
   - `domain`, string. Domain to use for `HELO` command, if empty `localhost` will be used. Default: empty.
   - `templates_path`, string. Path to the email templates. This can be an absolute path or a path relative to the config dir. Templates are searched within a subdirectory named "email" in the specified path. You can customize the email templates by simply specifying an alternate path and putting your custom templates there.
 - **plugins**, list of external plugins. Each plugin is configured using a struct with the following fields:
-  - `type`, string. Defines the plugin type. Supported types: `notifier`, `kms`, `auth`.
+  - `type`, string. Defines the plugin type. Supported types: `notifier`, `kms`, `auth`, `metadata`.
   - `notifier_options`, struct. Defines the options for notifier plugins.
     - `fs_events`, list of strings. Defines the filesystem events that will be notified to this plugin.
     - `provider_events`, list of strings. Defines the provider events that will be notified to this plugin.
@@ -308,7 +308,7 @@ The configuration file contains the following sections:
   - `sha256sum`, string. SHA256 checksum for the plugin executable. If not empty it will be used to verify the integrity of the executable.
   - `auto_mtls`, boolean. If enabled the client and the server automatically negotiate mutual TLS for transport authentication. This ensures that only the original client will be allowed to connect to the server, and all other connections will be rejected. The client will also refuse to connect to any server that isn't the original instance started by the client.
 
-Please note that the plugin system is experimental, the exposed configuration parameters and interfaces may change in a backward incompatible way in future.
+:warning: Please note that the plugin system is experimental, the exposed configuration parameters and interfaces may change in a backward incompatible way in future.
 
 A full example showing the default config (in JSON format) can be found [here](../sftpgo.json).
 

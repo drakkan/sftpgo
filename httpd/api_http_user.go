@@ -355,7 +355,7 @@ func deleteUserFile(w http.ResponseWriter, r *http.Request) {
 
 	var fi os.FileInfo
 	if fi, err = fs.Lstat(p); err != nil {
-		connection.Log(logger.LevelWarn, "failed to remove a file %#v: stat error: %+v", p, err)
+		connection.Log(logger.LevelWarn, "failed to remove file %#v: stat error: %+v", p, err)
 		err = connection.GetFsError(fs, err)
 		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to delete file %#v", name), getMappedStatusCode(err))
 		return

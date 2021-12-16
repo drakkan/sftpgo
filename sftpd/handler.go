@@ -331,7 +331,7 @@ func (c *Connection) handleSFTPRemove(request *sftp.Request) error {
 
 	var fi os.FileInfo
 	if fi, err = fs.Lstat(fsPath); err != nil {
-		c.Log(logger.LevelDebug, "failed to remove a file %#v: stat error: %+v", fsPath, err)
+		c.Log(logger.LevelDebug, "failed to remove file %#v: stat error: %+v", fsPath, err)
 		return c.GetFsError(fs, err)
 	}
 	if fi.IsDir() && fi.Mode()&os.ModeSymlink == 0 {

@@ -113,7 +113,7 @@ func (c *Connection) Remove(name string) error {
 
 	var fi os.FileInfo
 	if fi, err = fs.Lstat(p); err != nil {
-		c.Log(logger.LevelWarn, "failed to remove a file %#v: stat error: %+v", p, err)
+		c.Log(logger.LevelWarn, "failed to remove file %#v: stat error: %+v", p, err)
 		return c.GetFsError(fs, err)
 	}
 

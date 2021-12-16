@@ -1,0 +1,54 @@
+syntax = "proto3";
+package proto;
+
+import "google/protobuf/empty.proto";
+
+option go_package = "sdk/plugin/metadata/proto";
+
+message SetModificationTimeRequest {
+    string storage_id = 1;
+    string object_path = 2;
+    int64 modification_time = 3;
+}
+
+message GetModificationTimeRequest {
+    string storage_id = 1;
+    string object_path = 2;
+}
+
+message GetModificationTimeResponse {
+    int64 modification_time = 1;
+}
+
+message GetModificationTimesRequest {
+    string storage_id = 1;
+    string folder_path = 2;
+}
+
+message GetModificationTimesResponse {
+    // the file name (not the full path) is the map key and the modification time is the map value
+    map<string,int64> pairs = 1;
+}
+
+message RemoveMetadataRequest {
+    string storage_id = 1;
+    string object_path = 2;
+}
+
+message GetFoldersRequest {
+    string storage_id = 1;
+    int32 limit = 2;
+    string from = 3;
+}
+
+message GetFoldersResponse {
+    repeated string folders = 1;
+}
+
+service Metadata {
+    rpc SetModificationTime(SetModificationTimeRequest) returns (google.protobuf.Empty);
+    rpc GetModificationTime(GetModificationTimeRequest) returns (GetModificationTimeResponse);
+    rpc GetModificationTimes(GetModificationTimesRequest) returns (GetModificationTimesResponse);
+    rpc RemoveMetadata(RemoveMetadataRequest) returns (google.protobuf.Empty);
+    rpc GetFolders(GetFoldersRequest) returns (GetFoldersResponse);
+}

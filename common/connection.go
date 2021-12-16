@@ -202,15 +202,16 @@ func (c *BaseConnection) getRealFsPath(fsPath string) string {
 	return fsPath
 }
 
-func (c *BaseConnection) setTimes(fsPath string, atime time.Time, mtime time.Time) {
+func (c *BaseConnection) setTimes(fsPath string, atime time.Time, mtime time.Time) bool {
 	c.RLock()
 	defer c.RUnlock()
 
 	for _, t := range c.activeTransfers {
 		if t.SetTimes(fsPath, atime, mtime) {
-			return
+			return true
 		}
 	}
+	return false
 }
 
 func (c *BaseConnection) truncateOpenHandle(fsPath string, size int64) (int64, error) {
@@ -293,7 +294,7 @@ func (c *BaseConnection) RemoveFile(fs vfs.Fs, fsPath, virtualPath string, info 
 		c.Log(logger.LevelDebug, "remove for path %#v handled by pre-delete action", fsPath)
 	} else {
 		if err := fs.Remove(fsPath, false); err != nil {
-			c.Log(logger.LevelWarn, "failed to remove a file/symlink %#v: %+v", fsPath, err)
+			c.Log(logger.LevelWarn, "failed to remove file/symlink %#v: %+v", fsPath, err)
 			return c.GetFsError(fs, err)
 		}
 	}
@@ -562,15 +563,19 @@ func (c *BaseConnection) handleChtimes(fs vfs.Fs, fsPath, pathForPerms string, a
 	if !c.User.HasPerm(dataprovider.PermChtimes, pathForPerms) {
 		return c.GetPermissionDeniedError()
 	}
-	if c.ignoreSetStat(fs) {
+	if Config.SetstatMode == 1 {
 		return nil
 	}
-	if err := fs.Chtimes(c.getRealFsPath(fsPath), attributes.Atime, attributes.Mtime); err != nil {
+	isUploading := c.setTimes(fsPath, attributes.Atime, attributes.Mtime)
+	if err := fs.Chtimes(c.getRealFsPath(fsPath), attributes.Atime, attributes.Mtime, isUploading); err != nil {
+		c.setTimes(fsPath, time.Time{}, time.Time{})
+		if errors.Is(err, vfs.ErrVfsUnsupported) && Config.SetstatMode == 2 {
+			return nil
+		}
 		c.Log(logger.LevelWarn, "failed to chtimes for path %#v, access time: %v, modification time: %v, err: %+v",
 			fsPath, attributes.Atime, attributes.Mtime, err)
 		return c.GetFsError(fs, err)
 	}
-	c.setTimes(fsPath, attributes.Atime, attributes.Mtime)
 	accessTimeString := attributes.Atime.Format(chtimesFormat)
 	modificationTimeString := attributes.Mtime.Format(chtimesFormat)
 	logger.CommandLog(chtimesLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1,

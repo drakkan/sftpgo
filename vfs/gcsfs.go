@@ -26,6 +26,8 @@ import (
 	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/metric"
+	"github.com/drakkan/sftpgo/v2/sdk/plugin"
+	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/version"
 )
 
@@ -117,10 +119,10 @@ func (fs *GCSFs) Stat(name string) (os.FileInfo, error) {
 		if err != nil {
 			return nil, err
 		}
-		return NewFileInfo(name, true, 0, time.Now(), false), nil
+		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, 0, time.Now(), false))
 	}
 	if fs.config.KeyPrefix == name+"/" {
-		return NewFileInfo(name, true, 0, time.Now(), false), nil
+		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, 0, time.Now(), false))
 	}
 	_, info, err := fs.getObjectStat(name)
 	return info, err
@@ -255,6 +257,16 @@ func (fs *GCSFs) Rename(source, target string) error {
 	if err != nil {
 		return err
 	}
+	if plugin.Handler.HasMetadater() {
+		if !fi.IsDir() {
+			err = plugin.Handler.SetModificationTime(fs.getStorageID(), ensureAbsPath(target),
+				util.GetTimeAsMsSinceEpoch(fi.ModTime()))
+			if err != nil {
+				fsLog(fs, logger.LevelWarn, "unable to preserve modification time after renaming %#v -> %#v: %v",
+					source, target, err)
+			}
+		}
+	}
 	return fs.Remove(source, fi.IsDir())
 }
 
@@ -281,6 +293,11 @@ func (fs *GCSFs) Remove(name string, isDir bool) error {
 		err = fs.svc.Bucket(fs.config.Bucket).Object(strings.TrimSuffix(name, "/")).Delete(ctx)
 	}
 	metric.GCSDeleteObjectCompleted(err)
+	if plugin.Handler.HasMetadater() && err == nil && !isDir {
+		if errMetadata := plugin.Handler.RemoveMetadata(fs.getStorageID(), ensureAbsPath(name)); errMetadata != nil {
+			fsLog(fs, logger.LevelWarn, "unable to remove metadata for path %#v: %v", name, errMetadata)
+		}
+	}
 	return err
 }
 
@@ -326,8 +343,22 @@ func (*GCSFs) Chmod(name string, mode os.FileMode) error {
 }
 
 // Chtimes changes the access and modification times of the named file.
-func (*GCSFs) Chtimes(name string, atime, mtime time.Time) error {
-	return ErrVfsUnsupported
+func (fs *GCSFs) Chtimes(name string, atime, mtime time.Time, isUploading bool) error {
+	if !plugin.Handler.HasMetadater() {
+		return ErrVfsUnsupported
+	}
+	if !isUploading {
+		info, err := fs.Stat(name)
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return ErrVfsUnsupported
+		}
+	}
+
+	return plugin.Handler.SetModificationTime(fs.getStorageID(), ensureAbsPath(name),
+		util.GetTimeAsMsSinceEpoch(mtime))
 }
 
 // Truncate changes the size of the named file.
@@ -348,6 +379,11 @@ func (fs *GCSFs) ReadDir(dirname string) ([]os.FileInfo, error) {
 	err := query.SetAttrSelection(gcsDefaultFieldsSelection)
 	if err != nil {
 		return nil, err
+	}
+
+	modTimes, err := getFolderModTimes(fs.getStorageID(), dirname)
+	if err != nil {
+		return result, err
 	}
 
 	prefixes := make(map[string]bool)
@@ -393,8 +429,11 @@ func (fs *GCSFs) ReadDir(dirname string) ([]os.FileInfo, error) {
 				}
 				prefixes[name] = true
 			}
-			fi := NewFileInfo(name, isDir, attrs.Size, attrs.Updated, false)
-			result = append(result, fi)
+			modTime := attrs.Updated
+			if t, ok := modTimes[name]; ok {
+				modTime = util.GetTimeFromMsecSinceEpoch(t)
+			}
+			result = append(result, NewFileInfo(name, isDir, attrs.Size, modTime, false))
 		}
 	}
 	metric.GCSListObjectsCompleted(nil)
@@ -495,6 +534,58 @@ func (fs *GCSFs) ScanRootDirContents() (int, int64, error) {
 	}
 	metric.GCSListObjectsCompleted(nil)
 	return numFiles, size, err
+}
+
+func (fs *GCSFs) getFileNamesInPrefix(fsPrefix string) (map[string]bool, error) {
+	fileNames := make(map[string]bool)
+	prefix := ""
+	if fsPrefix != "/" {
+		prefix = strings.TrimPrefix(fsPrefix, "/")
+	}
+
+	query := &storage.Query{
+		Prefix:    prefix,
+		Delimiter: "/",
+	}
+	err := query.SetAttrSelection(gcsDefaultFieldsSelection)
+	if err != nil {
+		return fileNames, err
+	}
+	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
+	defer cancelFn()
+
+	bkt := fs.svc.Bucket(fs.config.Bucket)
+	it := bkt.Objects(ctx, query)
+	for {
+		attrs, err := it.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			metric.GCSListObjectsCompleted(err)
+			return fileNames, err
+		}
+		if !attrs.Deleted.IsZero() {
+			continue
+		}
+		if attrs.Prefix == "" {
+			name, isDir := fs.resolve(attrs.Name, prefix)
+			if name == "" {
+				continue
+			}
+			if isDir || attrs.ContentType == dirMimeType {
+				continue
+			}
+			fileNames[name] = true
+		}
+	}
+	metric.GCSListObjectsCompleted(nil)
+	return fileNames, nil
+}
+
+// CheckMetadata checks the metadata consistency
+func (fs *GCSFs) CheckMetadata() error {
+	return fsMetadataCheck(fs, fs.getStorageID(), fs.config.KeyPrefix)
 }
 
 // GetDirSize returns the number of files and the size for a folder
@@ -617,11 +708,13 @@ func (fs *GCSFs) resolve(name string, prefix string) (string, bool) {
 // getObjectStat returns the stat result and the real object name as first value
 func (fs *GCSFs) getObjectStat(name string) (string, os.FileInfo, error) {
 	attrs, err := fs.headObject(name)
+	var info os.FileInfo
 	if err == nil {
 		objSize := attrs.Size
 		objectModTime := attrs.Updated
 		isDir := attrs.ContentType == dirMimeType || strings.HasSuffix(attrs.Name, "/")
-		return name, NewFileInfo(name, isDir, objSize, objectModTime, false), nil
+		info, err = updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, isDir, objSize, objectModTime, false))
+		return name, info, err
 	}
 	if !fs.IsNotExist(err) {
 		return "", nil, err
@@ -632,16 +725,16 @@ func (fs *GCSFs) getObjectStat(name string) (string, os.FileInfo, error) {
 		return "", nil, err
 	}
 	if hasContents {
-		return name, NewFileInfo(name, true, 0, time.Now(), false), nil
+		info, err = updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, 0, time.Now(), false))
+		return name, info, err
 	}
 	// finally check if this is an object with a trailing /
 	attrs, err = fs.headObject(name + "/")
 	if err != nil {
 		return "", nil, err
 	}
-	objSize := attrs.Size
-	objectModTime := attrs.Updated
-	return name + "/", NewFileInfo(name, true, objSize, objectModTime, false), nil
+	info, err = updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, attrs.Size, attrs.Updated, false))
+	return name + "/", info, err
 }
 
 func (fs *GCSFs) checkIfBucketExists() error {
@@ -734,4 +827,8 @@ func (fs *GCSFs) Close() error {
 // GetAvailableDiskSize return the available size for the specified path
 func (*GCSFs) GetAvailableDiskSize(dirName string) (*sftp.StatVFS, error) {
 	return nil, ErrStorageSizeUnavailable
+}
+
+func (fs *GCSFs) getStorageID() string {
+	return fmt.Sprintf("gs://%v", fs.config.Bucket)
 }

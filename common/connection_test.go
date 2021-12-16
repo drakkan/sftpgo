@@ -23,17 +23,21 @@ type MockOsFs struct {
 }
 
 // Name returns the name for the Fs implementation
-func (fs MockOsFs) Name() string {
+func (fs *MockOsFs) Name() string {
 	return "mockOsFs"
 }
 
 // HasVirtualFolders returns true if folders are emulated
-func (fs MockOsFs) HasVirtualFolders() bool {
+func (fs *MockOsFs) HasVirtualFolders() bool {
 	return fs.hasVirtualFolders
 }
 
-func (fs MockOsFs) IsUploadResumeSupported() bool {
+func (fs *MockOsFs) IsUploadResumeSupported() bool {
 	return !fs.hasVirtualFolders
+}
+
+func (fs *MockOsFs) Chtimes(name string, atime, mtime time.Time, isUploading bool) error {
+	return vfs.ErrVfsUnsupported
 }
 
 func newMockOsFs(hasVirtualFolders bool, connectionID, rootDir string) vfs.Fs {
@@ -98,6 +102,11 @@ func TestSetStatMode(t *testing.T) {
 
 	Config.SetstatMode = 2
 	err = conn.handleChmod(fs, fakePath, fakePath, nil)
+	assert.NoError(t, err)
+	err = conn.handleChtimes(fs, fakePath, fakePath, &StatAttributes{
+		Atime: time.Now(),
+		Mtime: time.Now(),
+	})
 	assert.NoError(t, err)
 
 	Config.SetstatMode = oldSetStatMode

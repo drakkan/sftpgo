@@ -10,11 +10,14 @@ For added security you can enable the automatic TLS. In this way, the client and
 
 The following plugin types are supported:
 
-- `auth`, allows to authenticate users
+- `auth`, allows to authenticate users.
 - `notifier`, allows to receive notifications for supported filesystem events such as file uploads, downloads etc. and provider events such as objects add, update, delete.
 - `kms`, allows to support additional KMS providers.
+- `metadata`, allows to store metadata, such as the last modification time, for storage backends that does not support them (S3, Google Cloud Storage, Azure Blob).
 
-Full configuration details can be found [here](./full-configuration.md)
+Full configuration details can be found [here](./full-configuration.md).
+
+:warning: Please note that the plugin system is experimental, the exposed configuration parameters and interfaces may change in a backward incompatible way in future.
 
 ## Available plugins
 

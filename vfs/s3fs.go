@@ -26,6 +26,7 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/metric"
+	"github.com/drakkan/sftpgo/v2/sdk/plugin"
 	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/version"
 )
@@ -136,7 +137,7 @@ func (fs *S3Fs) Stat(name string) (os.FileInfo, error) {
 		if err != nil {
 			return result, err
 		}
-		return NewFileInfo(name, true, 0, time.Now(), false), nil
+		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, 0, time.Now(), false))
 	}
 	if "/"+fs.config.KeyPrefix == name+"/" {
 		return NewFileInfo(name, true, 0, time.Now(), false), nil
@@ -146,7 +147,7 @@ func (fs *S3Fs) Stat(name string) (os.FileInfo, error) {
 		// a "dir" has a trailing "/" so we cannot have a directory here
 		objSize := *obj.ContentLength
 		objectModTime := *obj.LastModified
-		return NewFileInfo(name, false, objSize, objectModTime, false), nil
+		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, false, objSize, objectModTime, false))
 	}
 	if !fs.IsNotExist(err) {
 		return result, err
@@ -154,7 +155,7 @@ func (fs *S3Fs) Stat(name string) (os.FileInfo, error) {
 	// now check if this is a prefix (virtual directory)
 	hasContents, err := fs.hasContents(name)
 	if err == nil && hasContents {
-		return NewFileInfo(name, true, 0, time.Now(), false), nil
+		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, 0, time.Now(), false))
 	} else if err != nil {
 		return nil, err
 	}
@@ -173,7 +174,7 @@ func (fs *S3Fs) getStatForDir(name string) (os.FileInfo, error) {
 	}
 	objSize := *obj.ContentLength
 	objectModTime := *obj.LastModified
-	return NewFileInfo(name, true, objSize, objectModTime, false), nil
+	return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, objSize, objectModTime, false))
 }
 
 // Lstat returns a FileInfo describing the named file
@@ -322,6 +323,16 @@ func (fs *S3Fs) Rename(source, target string) error {
 	if err != nil {
 		return err
 	}
+	if plugin.Handler.HasMetadater() {
+		if !fi.IsDir() {
+			err = plugin.Handler.SetModificationTime(fs.getStorageID(), ensureAbsPath(target),
+				util.GetTimeAsMsSinceEpoch(fi.ModTime()))
+			if err != nil {
+				fsLog(fs, logger.LevelWarn, "unable to preserve modification time after renaming %#v -> %#v: %v",
+					source, target, err)
+			}
+		}
+	}
 	return fs.Remove(source, fi.IsDir())
 }
 
@@ -346,6 +357,11 @@ func (fs *S3Fs) Remove(name string, isDir bool) error {
 		Key:    aws.String(name),
 	})
 	metric.S3DeleteObjectCompleted(err)
+	if plugin.Handler.HasMetadater() && err == nil && !isDir {
+		if errMetadata := plugin.Handler.RemoveMetadata(fs.getStorageID(), ensureAbsPath(name)); errMetadata != nil {
+			fsLog(fs, logger.LevelWarn, "unable to remove metadata for path %#v: %v", name, errMetadata)
+		}
+	}
 	return err
 }
 
@@ -391,8 +407,21 @@ func (*S3Fs) Chmod(name string, mode os.FileMode) error {
 }
 
 // Chtimes changes the access and modification times of the named file.
-func (*S3Fs) Chtimes(name string, atime, mtime time.Time) error {
-	return ErrVfsUnsupported
+func (fs *S3Fs) Chtimes(name string, atime, mtime time.Time, isUploading bool) error {
+	if !plugin.Handler.HasMetadater() {
+		return ErrVfsUnsupported
+	}
+	if !isUploading {
+		info, err := fs.Stat(name)
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return ErrVfsUnsupported
+		}
+	}
+	return plugin.Handler.SetModificationTime(fs.getStorageID(), ensureAbsPath(name),
+		util.GetTimeAsMsSinceEpoch(mtime))
 }
 
 // Truncate changes the size of the named file.
@@ -415,11 +444,15 @@ func (fs *S3Fs) ReadDir(dirname string) ([]os.FileInfo, error) {
 		}
 	}
 
+	modTimes, err := getFolderModTimes(fs.getStorageID(), dirname)
+	if err != nil {
+		return result, err
+	}
 	prefixes := make(map[string]bool)
 
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
 	defer cancelFn()
-	err := fs.svc.ListObjectsV2PagesWithContext(ctx, &s3.ListObjectsV2Input{
+	err = fs.svc.ListObjectsV2PagesWithContext(ctx, &s3.ListObjectsV2Input{
 		Bucket:    aws.String(fs.config.Bucket),
 		Prefix:    aws.String(prefix),
 		Delimiter: aws.String("/"),
@@ -448,6 +481,9 @@ func (fs *S3Fs) ReadDir(dirname string) ([]os.FileInfo, error) {
 					continue
 				}
 				prefixes[name] = true
+			}
+			if t, ok := modTimes[name]; ok {
+				objectModTime = util.GetTimeFromMsecSinceEpoch(t)
 			}
 			result = append(result, NewFileInfo(name, (isDir && objectSize == 0), objectSize, objectModTime, false))
 		}
@@ -542,6 +578,41 @@ func (fs *S3Fs) ScanRootDirContents() (int, int64, error) {
 	})
 	metric.S3ListObjectsCompleted(err)
 	return numFiles, size, err
+}
+
+func (fs *S3Fs) getFileNamesInPrefix(fsPrefix string) (map[string]bool, error) {
+	fileNames := make(map[string]bool)
+	prefix := ""
+	if fsPrefix != "/" {
+		prefix = strings.TrimPrefix(fsPrefix, "/")
+	}
+	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
+	defer cancelFn()
+
+	err := fs.svc.ListObjectsV2PagesWithContext(ctx, &s3.ListObjectsV2Input{
+		Bucket:    aws.String(fs.config.Bucket),
+		Prefix:    aws.String(prefix),
+		Delimiter: aws.String("/"),
+	}, func(page *s3.ListObjectsV2Output, lastPage bool) bool {
+		for _, fileObject := range page.Contents {
+			name, isDir := fs.resolve(fileObject.Key, prefix)
+			if name != "" && !isDir {
+				fileNames[name] = true
+			}
+		}
+		return true
+	})
+	metric.S3ListObjectsCompleted(err)
+	if err != nil {
+		fsLog(fs, logger.LevelWarn, "unable to get content for prefix %#v: %v", prefix, err)
+		return nil, err
+	}
+	return fileNames, err
+}
+
+// CheckMetadata checks the metadata consistency
+func (fs *S3Fs) CheckMetadata() error {
+	return fsMetadataCheck(fs, fs.getStorageID(), fs.config.KeyPrefix)
 }
 
 // GetDirSize returns the number of files and the size for a folder
@@ -720,6 +791,16 @@ func (*S3Fs) Close() error {
 // GetAvailableDiskSize return the available size for the specified path
 func (*S3Fs) GetAvailableDiskSize(dirName string) (*sftp.StatVFS, error) {
 	return nil, ErrStorageSizeUnavailable
+}
+
+func (fs *S3Fs) getStorageID() string {
+	if fs.config.Endpoint != "" {
+		if !strings.HasSuffix(fs.config.Endpoint, "/") {
+			return fmt.Sprintf("s3://%v/%v", fs.config.Endpoint, fs.config.Bucket)
+		}
+		return fmt.Sprintf("s3://%v%v", fs.config.Endpoint, fs.config.Bucket)
+	}
+	return fmt.Sprintf("s3://%v", fs.config.Bucket)
 }
 
 // ideally we should simply use url.PathEscape:

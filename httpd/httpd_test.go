@@ -108,6 +108,7 @@ const (
 	userProfilePath                 = "/api/v2/user/profile"
 	userSharesPath                  = "/api/v2/user/shares"
 	retentionBasePath               = "/api/v2/retention/users"
+	metadataBasePath                = "/api/v2/metadata/users"
 	fsEventsPath                    = "/api/v2/events/fs"
 	providerEventsPath              = "/api/v2/events/provider"
 	sharesPath                      = "/api/v2/shares"
@@ -1697,6 +1698,52 @@ func TestUserType(t *testing.T) {
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
+}
+
+func TestMetadataAPI(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+
+	token, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodGet, path.Join(metadataBasePath, "/checks"), nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	var resp []interface{}
+	err = json.Unmarshal(rr.Body.Bytes(), &resp)
+	assert.NoError(t, err)
+	assert.Len(t, resp, 0)
+
+	req, err = http.NewRequest(http.MethodPost, path.Join(metadataBasePath, user.Username, "/check"), nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusAccepted, rr)
+
+	assert.Eventually(t, func() bool {
+		req, err := http.NewRequest(http.MethodGet, path.Join(metadataBasePath, "/checks"), nil)
+		assert.NoError(t, err)
+		setBearerForReq(req, token)
+		rr := executeRequest(req)
+		checkResponseCode(t, http.StatusOK, rr)
+		var resp []interface{}
+		err = json.Unmarshal(rr.Body.Bytes(), &resp)
+		assert.NoError(t, err)
+		return len(resp) == 0
+	}, 1000*time.Millisecond, 50*time.Millisecond)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodPost, path.Join(metadataBasePath, user.Username, "/check"), nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
 }
 
 func TestRetentionAPI(t *testing.T) {

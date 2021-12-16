@@ -192,6 +192,18 @@ func (v *VirtualFolder) GetFilesystem(connectionID string, forbiddenSelfUsers []
 	}
 }
 
+// CheckMetadataConsistency checks the consistency between the metadata stored
+// in the configured metadata plugin and the filesystem
+func (v *VirtualFolder) CheckMetadataConsistency() error {
+	fs, err := v.GetFilesystem("", nil)
+	if err != nil {
+		return err
+	}
+	defer fs.Close()
+
+	return fs.CheckMetadata()
+}
+
 // ScanQuota scans the folder and returns the number of files and their size
 func (v *VirtualFolder) ScanQuota() (int, int64, error) {
 	fs, err := v.GetFilesystem("", nil)

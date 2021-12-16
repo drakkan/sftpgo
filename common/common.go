@@ -369,8 +369,9 @@ type Configuration struct {
 	Actions ProtocolActions `json:"actions" mapstructure:"actions"`
 	// SetstatMode 0 means "normal mode": requests for changing permissions and owner/group are executed.
 	// 1 means "ignore mode": requests for changing permissions and owner/group are silently ignored.
-	// 2 means "ignore mode for cloud fs": requests for changing permissions and owner/group/time are
-	// silently ignored for cloud based filesystem such as S3, GCS, Azure Blob
+	// 2 means "ignore mode for cloud fs": requests for changing permissions and owner/group are
+	// silently ignored for cloud based filesystem such as S3, GCS, Azure Blob. Requests  for changing
+	// modification times are ignored for cloud based filesystem if they are not supported.
 	SetstatMode int `json:"setstat_mode" mapstructure:"setstat_mode"`
 	// TempPath defines the path for temporary files such as those used for atomic uploads or file pipes.
 	// If you set this option you must make sure that the defined path exists, is accessible for writing

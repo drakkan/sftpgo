@@ -12,6 +12,7 @@ tags:
   - name: users
   - name: data retention
   - name: events
+  - name: metadata
   - name: user APIs
   - name: public shares
 info:
@@ -894,6 +895,67 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /metadata/users/checks:
+    get:
+      tags:
+        - metadata
+      summary: Get metadata checks
+      description: Returns the active metadata checks
+      operationId: get_users_metadata_checks
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MetadataCheck'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /metadata/users/{username}/check:
+    parameters:
+      - name: username
+        in: path
+        description: the username
+        required: true
+        schema:
+          type: string
+    post:
+      tags:
+        - metadata
+      summary: Start a metadata check
+      description: 'Starts a new metadata check for the given user. A metadata check requires a metadata plugin and removes the metadata associated to missing items (for example objects deleted outside SFTPGo). If a metadata check for this user is already active a 409 status code is returned. Metadata are stored for cloud storage backends. This API does nothing for other backends or if no metadata plugin is configured'
+      operationId: start_user_metadata_check
+      responses:
+        '202':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                message: Check started
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalServerError'
         default:
@@ -4029,6 +4091,7 @@ components:
         - manage_defender
         - view_defender
         - retention_checks
+        - metadata_checks
         - view_events
       description: |
         Admin permissions:
@@ -4047,6 +4110,7 @@ components:
           * `manage_defender` - remove ip from the dynamic blocklist is allowed
           * `view_defender` - list the dynamic blocklist is allowed
           * `retention_checks` - view and start retention checks is allowed
+          * `metadata_checks` - view and start metadata checks is allowed
           * `view_events` - view and search filesystem and provider events is allowed
     LoginMethods:
       type: string
@@ -4984,6 +5048,16 @@ components:
           type: string
           format: email
           description: 'if the notification method is set to "Email", this is the e-mail address that receives the retention check report. This field is automatically set to the email address associated with the administrator starting the check'
+    MetadataCheck:
+      type: object
+      properties:
+        username:
+          type: string
+          description: username to which the check refers
+        start_time:
+          type: integer
+          format: int64
+          description: check start time as unix timestamp in milliseconds
     QuotaScan:
       type: object
       properties:

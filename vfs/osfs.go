@@ -161,7 +161,7 @@ func (*OsFs) Chmod(name string, mode os.FileMode) error {
 }
 
 // Chtimes changes the access and modification times of the named file
-func (*OsFs) Chtimes(name string, atime, mtime time.Time) error {
+func (*OsFs) Chtimes(name string, atime, mtime time.Time, isUploading bool) error {
 	return os.Chtimes(name, atime, mtime)
 }
 
@@ -237,6 +237,11 @@ func (fs *OsFs) CheckRootPath(username string, uid int, gid int) bool {
 // directory and their size
 func (fs *OsFs) ScanRootDirContents() (int, int64, error) {
 	return fs.GetDirSize(fs.rootDir)
+}
+
+// CheckMetadata checks the metadata consistency
+func (*OsFs) CheckMetadata() error {
+	return nil
 }
 
 // GetAtomicUploadPath returns the path to use for an atomic upload
