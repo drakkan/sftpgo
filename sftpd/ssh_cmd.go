@@ -85,7 +85,7 @@ func processSSHCommand(payload []byte, connection *Connection, enabledSSHCommand
 		}
 	}
 	err := connection.CloseFS()
-	connection.Log(logger.LevelWarn, "unable to unmarshal ssh command, close fs, err: %v", err)
+	connection.Log(logger.LevelError, "unable to unmarshal ssh command, close fs, err: %v", err)
 	return false
 }
 
@@ -727,7 +727,7 @@ func (c *sshCommand) sendExitStatus(err error) {
 	}
 	if err != nil {
 		status = uint32(1)
-		c.connection.Log(logger.LevelWarn, "command failed: %#v args: %v user: %v err: %v",
+		c.connection.Log(logger.LevelError, "command failed: %#v args: %v user: %v err: %v",
 			c.command, c.args, c.connection.User.Username, err)
 	}
 	exitStatus := sshSubsystemExitStatus{

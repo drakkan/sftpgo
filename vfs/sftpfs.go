@@ -547,7 +547,7 @@ func (fs *SFTPFs) ResolvePath(virtualPath string) (string, error) {
 		var err error
 		validatedPath, err = fs.getRealPath(fsPath)
 		if err != nil && !os.IsNotExist(err) {
-			fsLog(fs, logger.LevelWarn, "Invalid path resolution, original path %v resolved %#v err: %v",
+			fsLog(fs, logger.LevelError, "Invalid path resolution, original path %v resolved %#v err: %v",
 				virtualPath, fsPath, err)
 			return "", err
 		} else if os.IsNotExist(err) {
@@ -560,13 +560,13 @@ func (fs *SFTPFs) ResolvePath(virtualPath string) (string, error) {
 				validatedPath, err = fs.getRealPath(validatedPath)
 			}
 			if err != nil {
-				fsLog(fs, logger.LevelWarn, "Invalid path resolution, dir %#v original path %#v resolved %#v err: %v",
+				fsLog(fs, logger.LevelError, "Invalid path resolution, dir %#v original path %#v resolved %#v err: %v",
 					validatedPath, virtualPath, fsPath, err)
 				return "", err
 			}
 		}
 		if err := fs.isSubDir(validatedPath); err != nil {
-			fsLog(fs, logger.LevelWarn, "Invalid path resolution, dir %#v original path %#v resolved %#v err: %v",
+			fsLog(fs, logger.LevelError, "Invalid path resolution, dir %#v original path %#v resolved %#v err: %v",
 				validatedPath, virtualPath, fsPath, err)
 			return "", err
 		}
@@ -727,7 +727,7 @@ func (fs *SFTPFs) createConnection() error {
 			fp := ssh.FingerprintSHA256(key)
 			if util.IsStringInSlice(fp, sftpFingerprints) {
 				if util.IsStringInSlice(fs.config.Username, fs.config.forbiddenSelfUsernames) {
-					fsLog(fs, logger.LevelWarn, "SFTP loop or nested local SFTP folders detected, mount path %#v, username %#v, forbidden usernames: %+v",
+					fsLog(fs, logger.LevelError, "SFTP loop or nested local SFTP folders detected, mount path %#v, username %#v, forbidden usernames: %+v",
 						fs.mountPath, fs.config.Username, fs.config.forbiddenSelfUsernames)
 					return ErrSFTPLoop
 				}

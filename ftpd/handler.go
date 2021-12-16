@@ -113,12 +113,12 @@ func (c *Connection) Remove(name string) error {
 
 	var fi os.FileInfo
 	if fi, err = fs.Lstat(p); err != nil {
-		c.Log(logger.LevelWarn, "failed to remove file %#v: stat error: %+v", p, err)
+		c.Log(logger.LevelError, "failed to remove file %#v: stat error: %+v", p, err)
 		return c.GetFsError(fs, err)
 	}
 
 	if fi.IsDir() && fi.Mode()&os.ModeSymlink == 0 {
-		c.Log(logger.LevelDebug, "cannot remove %#v is not a file/symlink", p)
+		c.Log(logger.LevelError, "cannot remove %#v is not a file/symlink", p)
 		return c.GetGenericError(nil)
 	}
 	return c.RemoveFile(fs, p, name, fi)
@@ -332,7 +332,7 @@ func (c *Connection) downloadFile(fs vfs.Fs, fsPath, ftpPath string, offset int6
 
 	file, r, cancelFn, err := fs.Open(fsPath, offset)
 	if err != nil {
-		c.Log(logger.LevelWarn, "could not open file %#v for reading: %+v", fsPath, err)
+		c.Log(logger.LevelError, "could not open file %#v for reading: %+v", fsPath, err)
 		return nil, c.GetFsError(fs, err)
 	}
 
@@ -370,7 +370,7 @@ func (c *Connection) uploadFile(fs vfs.Fs, fsPath, ftpPath string, flags int) (f
 
 	// This happen if we upload a file that has the same name of an existing directory
 	if stat.IsDir() {
-		c.Log(logger.LevelWarn, "attempted to open a directory for writing to: %#v", fsPath)
+		c.Log(logger.LevelError, "attempted to open a directory for writing to: %#v", fsPath)
 		return nil, c.GetOpUnsupportedError()
 	}
 
@@ -393,7 +393,7 @@ func (c *Connection) handleFTPUploadToNewFile(fs vfs.Fs, resolvedPath, filePath,
 	}
 	file, w, cancelFn, err := fs.Create(filePath, 0)
 	if err != nil {
-		c.Log(logger.LevelWarn, "error creating file %#v: %+v", resolvedPath, err)
+		c.Log(logger.LevelError, "error creating file %#v: %+v", resolvedPath, err)
 		return nil, c.GetFsError(fs, err)
 	}
 
@@ -440,7 +440,7 @@ func (c *Connection) handleFTPUploadToExistingFile(fs vfs.Fs, flags int, resolve
 	if common.Config.IsAtomicUploadEnabled() && fs.IsAtomicUploadSupported() {
 		err = fs.Rename(resolvedPath, filePath)
 		if err != nil {
-			c.Log(logger.LevelWarn, "error renaming existing file for atomic upload, source: %#v, dest: %#v, err: %+v",
+			c.Log(logger.LevelError, "error renaming existing file for atomic upload, source: %#v, dest: %#v, err: %+v",
 				resolvedPath, filePath, err)
 			return nil, c.GetFsError(fs, err)
 		}
@@ -448,7 +448,7 @@ func (c *Connection) handleFTPUploadToExistingFile(fs vfs.Fs, flags int, resolve
 
 	file, w, cancelFn, err := fs.Create(filePath, flags)
 	if err != nil {
-		c.Log(logger.LevelWarn, "error opening existing file, flags: %v, source: %#v, err: %+v", flags, filePath, err)
+		c.Log(logger.LevelError, "error opening existing file, flags: %v, source: %#v, err: %+v", flags, filePath, err)
 		return nil, c.GetFsError(fs, err)
 	}
 

@@ -78,7 +78,7 @@ func (c *scpCommand) handleRecursiveUpload() error {
 	for {
 		fs, err := c.connection.User.GetFilesystemForPath(destPath, c.connection.ID)
 		if err != nil {
-			c.connection.Log(logger.LevelWarn, "error uploading file %#v: %+v", destPath, err)
+			c.connection.Log(logger.LevelError, "error uploading file %#v: %+v", destPath, err)
 			c.sendErrorMessage(nil, fmt.Errorf("unable to get fs for path %#v", destPath))
 			return err
 		}
@@ -110,7 +110,7 @@ func (c *scpCommand) handleRecursiveUpload() error {
 				destPath = path.Join(destPath, name)
 				fs, err = c.connection.User.GetFilesystemForPath(destPath, c.connection.ID)
 				if err != nil {
-					c.connection.Log(logger.LevelWarn, "error uploading file %#v: %+v", destPath, err)
+					c.connection.Log(logger.LevelError, "error uploading file %#v: %+v", destPath, err)
 					c.sendErrorMessage(nil, fmt.Errorf("unable to get fs for path %#v", destPath))
 					return err
 				}
@@ -138,12 +138,12 @@ func (c *scpCommand) handleCreateDir(fs vfs.Fs, dirPath string) error {
 
 	p, err := fs.ResolvePath(dirPath)
 	if err != nil {
-		c.connection.Log(logger.LevelWarn, "error creating dir: %#v, invalid file path, err: %v", dirPath, err)
+		c.connection.Log(logger.LevelError, "error creating dir: %#v, invalid file path, err: %v", dirPath, err)
 		c.sendErrorMessage(fs, err)
 		return err
 	}
 	if !c.connection.User.HasPerm(dataprovider.PermCreateDirs, path.Dir(dirPath)) {
-		c.connection.Log(logger.LevelWarn, "error creating dir: %#v, permission denied", dirPath)
+		c.connection.Log(logger.LevelError, "error creating dir: %#v, permission denied", dirPath)
 		c.sendErrorMessage(fs, common.ErrPermissionDenied)
 		return common.ErrPermissionDenied
 	}
@@ -215,7 +215,7 @@ func (c *scpCommand) handleUploadFile(fs vfs.Fs, resolvedPath, filePath string, 
 	quotaResult := c.connection.HasSpace(isNewFile, false, requestPath)
 	if !quotaResult.HasSpace {
 		err := fmt.Errorf("denying file write due to quota limits")
-		c.connection.Log(logger.LevelWarn, "error uploading file: %#v, err: %v", filePath, err)
+		c.connection.Log(logger.LevelError, "error uploading file: %#v, err: %v", filePath, err)
 		c.sendErrorMessage(fs, err)
 		return err
 	}
@@ -271,7 +271,7 @@ func (c *scpCommand) handleUpload(uploadFilePath string, sizeToRead int64) error
 
 	fs, p, err := c.connection.GetFsAndResolvedPath(uploadFilePath)
 	if err != nil {
-		c.connection.Log(logger.LevelWarn, "error uploading file: %#v, err: %v", uploadFilePath, err)
+		c.connection.Log(logger.LevelError, "error uploading file: %#v, err: %v", uploadFilePath, err)
 		c.sendErrorMessage(nil, err)
 		return err
 	}
@@ -303,7 +303,7 @@ func (c *scpCommand) handleUpload(uploadFilePath string, sizeToRead int64) error
 	}
 
 	if stat.IsDir() {
-		c.connection.Log(logger.LevelWarn, "attempted to open a directory for writing to: %#v", p)
+		c.connection.Log(logger.LevelError, "attempted to open a directory for writing to: %#v", p)
 		err = fmt.Errorf("attempted to open a directory for writing: %#v", p)
 		c.sendErrorMessage(fs, err)
 		return err
@@ -473,7 +473,7 @@ func (c *scpCommand) handleDownload(filePath string) error {
 
 	fs, err := c.connection.User.GetFilesystemForPath(filePath, c.connection.ID)
 	if err != nil {
-		c.connection.Log(logger.LevelWarn, "error downloading file %#v: %+v", filePath, err)
+		c.connection.Log(logger.LevelError, "error downloading file %#v: %+v", filePath, err)
 		c.sendErrorMessage(nil, fmt.Errorf("unable to get fs for path %#v", filePath))
 		return err
 	}
@@ -481,14 +481,14 @@ func (c *scpCommand) handleDownload(filePath string) error {
 	p, err := fs.ResolvePath(filePath)
 	if err != nil {
 		err := fmt.Errorf("invalid file path %#v", filePath)
-		c.connection.Log(logger.LevelWarn, "error downloading file: %#v, invalid file path", filePath)
+		c.connection.Log(logger.LevelError, "error downloading file: %#v, invalid file path", filePath)
 		c.sendErrorMessage(fs, err)
 		return err
 	}
 
 	var stat os.FileInfo
 	if stat, err = fs.Stat(p); err != nil {
-		c.connection.Log(logger.LevelWarn, "error downloading file: %#v->%#v, err: %v", filePath, p, err)
+		c.connection.Log(logger.LevelError, "error downloading file: %#v->%#v, err: %v", filePath, p, err)
 		c.sendErrorMessage(fs, err)
 		return err
 	}
@@ -636,7 +636,7 @@ func (c *scpCommand) sendConfirmationMessage() error {
 func (c *scpCommand) sendProtocolMessage(message string) error {
 	_, err := c.connection.channel.Write([]byte(message))
 	if err != nil {
-		c.connection.Log(logger.LevelWarn, "error sending protocol message: %v, err: %v", message, err)
+		c.connection.Log(logger.LevelError, "error sending protocol message: %v, err: %v", message, err)
 		c.connection.channel.Close()
 	}
 	return err
@@ -686,7 +686,7 @@ func (c *scpCommand) parseUploadMessage(fs vfs.Fs, command string) (int64, strin
 	if !strings.HasPrefix(command, "C") && !strings.HasPrefix(command, "D") {
 		err = fmt.Errorf("unknown or invalid upload message: %v args: %v user: %v",
 			command, c.args, c.connection.User.Username)
-		c.connection.Log(logger.LevelWarn, "error: %v", err)
+		c.connection.Log(logger.LevelError, "error: %v", err)
 		c.sendErrorMessage(fs, err)
 		return size, name, err
 	}
@@ -694,20 +694,20 @@ func (c *scpCommand) parseUploadMessage(fs vfs.Fs, command string) (int64, strin
 	if len(parts) == 3 {
 		size, err = strconv.ParseInt(parts[1], 10, 64)
 		if err != nil {
-			c.connection.Log(logger.LevelWarn, "error getting size from upload message: %v", err)
+			c.connection.Log(logger.LevelError, "error getting size from upload message: %v", err)
 			c.sendErrorMessage(fs, err)
 			return size, name, err
 		}
 		name = parts[2]
 		if name == "" {
 			err = fmt.Errorf("error getting name from upload message, cannot be empty")
-			c.connection.Log(logger.LevelWarn, "error: %v", err)
+			c.connection.Log(logger.LevelError, "error: %v", err)
 			c.sendErrorMessage(fs, err)
 			return size, name, err
 		}
 	} else {
 		err = fmt.Errorf("unable to split upload message: %#v", command)
-		c.connection.Log(logger.LevelWarn, "error: %v", err)
+		c.connection.Log(logger.LevelError, "error: %v", err)
 		c.sendErrorMessage(fs, err)
 		return size, name, err
 	}

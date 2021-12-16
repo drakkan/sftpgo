@@ -198,7 +198,7 @@ func renderCompressedFiles(w http.ResponseWriter, conn *Connection, baseDir stri
 		}
 	}
 	if err := wr.Close(); err != nil {
-		conn.Log(logger.LevelWarn, "unable to close zip file: %v", err)
+		conn.Log(logger.LevelError, "unable to close zip file: %v", err)
 		if share != nil {
 			dataprovider.UpdateShareLastUse(share, -1) //nolint:errcheck
 		}

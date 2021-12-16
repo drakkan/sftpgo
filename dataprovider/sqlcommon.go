@@ -46,7 +46,7 @@ func sqlCommonGetShareByID(shareID, username string, dbHandle sqlQuerier) (Share
 	q := getShareByIDQuery(filterUser)
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return share, err
 	}
 	defer stmt.Close()
@@ -88,7 +88,7 @@ func sqlCommonAddShare(share *Share, dbHandle *sql.DB) error {
 	q := getAddShareQuery()
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return err
 	}
 	defer stmt.Close()
@@ -147,7 +147,7 @@ func sqlCommonUpdateShare(share *Share, dbHandle *sql.DB) error {
 	}
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return err
 	}
 	defer stmt.Close()
@@ -177,7 +177,7 @@ func sqlCommonDeleteShare(share *Share, dbHandle *sql.DB) error {
 	q := getDeleteShareQuery()
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return err
 	}
 	defer stmt.Close()
@@ -193,7 +193,7 @@ func sqlCommonGetShares(limit, offset int, order, username string, dbHandle sqlQ
 	q := getSharesQuery(order)
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return nil, err
 	}
 	defer stmt.Close()
@@ -224,7 +224,7 @@ func sqlCommonDumpShares(dbHandle sqlQuerier) ([]Share, error) {
 	q := getDumpSharesQuery()
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return nil, err
 	}
 	defer stmt.Close()
@@ -254,7 +254,7 @@ func sqlCommonGetAPIKeyByID(keyID string, dbHandle sqlQuerier) (APIKey, error) {
 	q := getAPIKeyByIDQuery()
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return apiKey, err
 	}
 	defer stmt.Close()
@@ -283,7 +283,7 @@ func sqlCommonAddAPIKey(apiKey *APIKey, dbHandle *sql.DB) error {
 	q := getAddAPIKeyQuery()
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return err
 	}
 	defer stmt.Close()
@@ -310,7 +310,7 @@ func sqlCommonUpdateAPIKey(apiKey *APIKey, dbHandle *sql.DB) error {
 	q := getUpdateAPIKeyQuery()
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return err
 	}
 	defer stmt.Close()
@@ -326,7 +326,7 @@ func sqlCommonDeleteAPIKey(apiKey *APIKey, dbHandle *sql.DB) error {
 	q := getDeleteAPIKeyQuery()
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return err
 	}
 	defer stmt.Close()
@@ -342,7 +342,7 @@ func sqlCommonGetAPIKeys(limit, offset int, order string, dbHandle sqlQuerier) (
 	q := getAPIKeysQuery(order)
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return nil, err
 	}
 	defer stmt.Close()
@@ -381,7 +381,7 @@ func sqlCommonDumpAPIKeys(dbHandle sqlQuerier) ([]APIKey, error) {
 	q := getDumpAPIKeysQuery()
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return nil, err
 	}
 	defer stmt.Close()
@@ -418,7 +418,7 @@ func sqlCommonGetAdminByUsername(username string, dbHandle sqlQuerier) (Admin, e
 	q := getAdminByUsernameQuery()
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return admin, err
 	}
 	defer stmt.Close()
@@ -448,7 +448,7 @@ func sqlCommonAddAdmin(admin *Admin, dbHandle *sql.DB) error {
 	q := getAddAdminQuery()
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return err
 	}
 	defer stmt.Close()
@@ -480,7 +480,7 @@ func sqlCommonUpdateAdmin(admin *Admin, dbHandle *sql.DB) error {
 	q := getUpdateAdminQuery()
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return err
 	}
 	defer stmt.Close()
@@ -506,7 +506,7 @@ func sqlCommonDeleteAdmin(admin *Admin, dbHandle *sql.DB) error {
 	q := getDeleteAdminQuery()
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return err
 	}
 	defer stmt.Close()
@@ -522,7 +522,7 @@ func sqlCommonGetAdmins(limit, offset int, order string, dbHandle sqlQuerier) ([
 	q := getAdminsQuery(order)
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return nil, err
 	}
 	defer stmt.Close()
@@ -553,7 +553,7 @@ func sqlCommonDumpAdmins(dbHandle sqlQuerier) ([]Admin, error) {
 	q := getDumpAdminsQuery()
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return nil, err
 	}
 	defer stmt.Close()
@@ -582,7 +582,7 @@ func sqlCommonGetUserByUsername(username string, dbHandle sqlQuerier) (User, err
 	q := getUserByUsernameQuery()
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return user, err
 	}
 	defer stmt.Close()
@@ -646,7 +646,7 @@ func sqlCommonUpdateQuota(username string, filesAdd int, sizeAdd int64, reset bo
 	q := getUpdateQuotaQuery(reset)
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return err
 	}
 	defer stmt.Close()
@@ -655,7 +655,7 @@ func sqlCommonUpdateQuota(username string, filesAdd int, sizeAdd int64, reset bo
 		providerLog(logger.LevelDebug, "quota updated for user %#v, files increment: %v size increment: %v is reset? %v",
 			username, filesAdd, sizeAdd, reset)
 	} else {
-		providerLog(logger.LevelWarn, "error updating quota for user %#v: %v", username, err)
+		providerLog(logger.LevelError, "error updating quota for user %#v: %v", username, err)
 	}
 	return err
 }
@@ -666,7 +666,7 @@ func sqlCommonGetUsedQuota(username string, dbHandle *sql.DB) (int, int64, error
 	q := getQuotaQuery()
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return 0, 0, err
 	}
 	defer stmt.Close()
@@ -675,7 +675,7 @@ func sqlCommonGetUsedQuota(username string, dbHandle *sql.DB) (int, int64, error
 	var usedSize int64
 	err = stmt.QueryRowContext(ctx, username).Scan(&usedSize, &usedFiles)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error getting quota for user: %v, error: %v", username, err)
+		providerLog(logger.LevelError, "error getting quota for user: %v, error: %v", username, err)
 		return 0, 0, err
 	}
 	return usedFiles, usedSize, err
@@ -687,7 +687,7 @@ func sqlCommonUpdateShareLastUse(shareID string, numTokens int, dbHandle *sql.DB
 	q := getUpdateShareLastUseQuery()
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return err
 	}
 	defer stmt.Close()
@@ -706,7 +706,7 @@ func sqlCommonUpdateAPIKeyLastUse(keyID string, dbHandle *sql.DB) error {
 	q := getUpdateAPIKeyLastUseQuery()
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return err
 	}
 	defer stmt.Close()
@@ -725,7 +725,7 @@ func sqlCommonUpdateAdminLastLogin(username string, dbHandle *sql.DB) error {
 	q := getUpdateAdminLastLoginQuery()
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return err
 	}
 	defer stmt.Close()
@@ -744,7 +744,7 @@ func sqlCommonSetUpdatedAt(username string, dbHandle *sql.DB) {
 	q := getSetUpdateAtQuery()
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return
 	}
 	defer stmt.Close()
@@ -762,7 +762,7 @@ func sqlCommonUpdateLastLogin(username string, dbHandle *sql.DB) error {
 	q := getUpdateLastLoginQuery()
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return err
 	}
 	defer stmt.Close()
@@ -787,7 +787,7 @@ func sqlCommonAddUser(user *User, dbHandle *sql.DB) error {
 		q := getAddUserQuery()
 		stmt, err := tx.PrepareContext(ctx, q)
 		if err != nil {
-			providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+			providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 			return err
 		}
 		defer stmt.Close()
@@ -830,7 +830,7 @@ func sqlCommonUpdateUser(user *User, dbHandle *sql.DB) error {
 		q := getUpdateUserQuery()
 		stmt, err := tx.PrepareContext(ctx, q)
 		if err != nil {
-			providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+			providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 			return err
 		}
 		defer stmt.Close()
@@ -867,7 +867,7 @@ func sqlCommonDeleteUser(user *User, dbHandle *sql.DB) error {
 	q := getDeleteUserQuery()
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return err
 	}
 	defer stmt.Close()
@@ -882,7 +882,7 @@ func sqlCommonDumpUsers(dbHandle sqlQuerier) ([]User, error) {
 	q := getDumpUsersQuery()
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return nil, err
 	}
 	defer stmt.Close()
@@ -917,7 +917,7 @@ func sqlCommonGetRecentlyUpdatedUsers(after int64, dbHandle sqlQuerier) ([]User,
 	q := getRecentlyUpdatedUsersQuery()
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return nil, err
 	}
 	defer stmt.Close()
@@ -947,7 +947,7 @@ func sqlCommonGetUsers(limit int, offset int, order string, dbHandle sqlQuerier)
 	q := getUsersQuery(order)
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return nil, err
 	}
 	defer stmt.Close()
@@ -1119,7 +1119,7 @@ func getUserFromDbRow(row sqlScanner) (User, error) {
 		perms := make(map[string][]string)
 		err = json.Unmarshal([]byte(permissions.String), &perms)
 		if err != nil {
-			providerLog(logger.LevelWarn, "unable to deserialize permissions for user %#v: %v", user.Username, err)
+			providerLog(logger.LevelError, "unable to deserialize permissions for user %#v: %v", user.Username, err)
 			return user, fmt.Errorf("unable to deserialize permissions for user %#v: %v", user.Username, err)
 		}
 		user.Permissions = perms
@@ -1156,7 +1156,7 @@ func sqlCommonCheckFolderExists(ctx context.Context, name string, dbHandle sqlQu
 	q := checkFolderNameQuery()
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return err
 	}
 	defer stmt.Close()
@@ -1169,7 +1169,7 @@ func sqlCommonGetFolder(ctx context.Context, name string, dbHandle sqlQuerier) (
 	q := getFolderByNameQuery()
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return folder, err
 	}
 	defer stmt.Close()
@@ -1254,7 +1254,7 @@ func sqlCommonAddFolder(folder *vfs.BaseVirtualFolder, dbHandle sqlQuerier) erro
 	q := getAddFolderQuery()
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return err
 	}
 	defer stmt.Close()
@@ -1277,7 +1277,7 @@ func sqlCommonUpdateFolder(folder *vfs.BaseVirtualFolder, dbHandle sqlQuerier) e
 	q := getUpdateFolderQuery()
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return err
 	}
 	defer stmt.Close()
@@ -1291,7 +1291,7 @@ func sqlCommonDeleteFolder(folder *vfs.BaseVirtualFolder, dbHandle sqlQuerier) e
 	q := getDeleteFolderQuery()
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return err
 	}
 	defer stmt.Close()
@@ -1306,7 +1306,7 @@ func sqlCommonDumpFolders(dbHandle sqlQuerier) ([]vfs.BaseVirtualFolder, error) 
 	q := getDumpFoldersQuery()
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return nil, err
 	}
 	defer stmt.Close()
@@ -1352,7 +1352,7 @@ func sqlCommonGetFolders(limit, offset int, order string, dbHandle sqlQuerier) (
 	q := getFoldersQuery(order)
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return nil, err
 	}
 	defer stmt.Close()
@@ -1398,7 +1398,7 @@ func sqlCommonClearFolderMapping(ctx context.Context, user *User, dbHandle sqlQu
 	q := getClearFolderMappingQuery()
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return err
 	}
 	defer stmt.Close()
@@ -1410,7 +1410,7 @@ func sqlCommonAddFolderMapping(ctx context.Context, user *User, folder *vfs.Virt
 	q := getAddFolderMappingQuery()
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return err
 	}
 	defer stmt.Close()
@@ -1459,7 +1459,7 @@ func getUsersWithVirtualFolders(ctx context.Context, users []User, dbHandle sqlQ
 	q := getRelatedFoldersForUsersQuery(users)
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return nil, err
 	}
 	defer stmt.Close()
@@ -1519,7 +1519,7 @@ func getVirtualFoldersWithUsers(folders []vfs.BaseVirtualFolder, dbHandle sqlQue
 	q := getRelatedUsersForFoldersQuery(folders)
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return nil, err
 	}
 	defer stmt.Close()
@@ -1557,7 +1557,7 @@ func sqlCommonUpdateFolderQuota(name string, filesAdd int, sizeAdd int64, reset 
 	q := getUpdateFolderQuotaQuery(reset)
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return err
 	}
 	defer stmt.Close()
@@ -1577,7 +1577,7 @@ func sqlCommonGetFolderUsedQuota(mappedPath string, dbHandle *sql.DB) (int, int6
 	q := getQuotaFolderQuery()
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return 0, 0, err
 	}
 	defer stmt.Close()
@@ -1586,7 +1586,7 @@ func sqlCommonGetFolderUsedQuota(mappedPath string, dbHandle *sql.DB) (int, int6
 	var usedSize int64
 	err = stmt.QueryRowContext(ctx, mappedPath).Scan(&usedSize, &usedFiles)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error getting quota for folder: %v, error: %v", mappedPath, err)
+		providerLog(logger.LevelError, "error getting quota for folder: %v, error: %v", mappedPath, err)
 		return 0, 0, err
 	}
 	return usedFiles, usedSize, err
@@ -1623,7 +1623,7 @@ func getRelatedValuesForAPIKeys(ctx context.Context, apiKeys []APIKey, dbHandle 
 	}
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return nil, err
 	}
 	defer stmt.Close()
@@ -1687,7 +1687,7 @@ func sqlCommonGetDatabaseVersion(dbHandle *sql.DB, showInitWarn bool) (schemaVer
 	q := getDatabaseVersionQuery()
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		if showInitWarn && strings.Contains(err.Error(), sqlTableSchemaVersion) {
 			logger.WarnToConsole("database query error, did you forgot to run the \"initprovider\" command?")
 		}
@@ -1703,7 +1703,7 @@ func sqlCommonUpdateDatabaseVersion(ctx context.Context, dbHandle sqlQuerier, ve
 	q := getUpdateDBVersionQuery()
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
 		return err
 	}
 	defer stmt.Close()

@@ -498,7 +498,7 @@ func (c *Configuration) handleSftpConnection(channel ssh.Channel, connection *Co
 		_, err = channel.SendRequest("exit-status", false, ssh.Marshal(&exitStatus))
 		connection.Log(logger.LevelInfo, "connection closed, sent exit status %+v error: %v", exitStatus, err)
 	} else if err != nil {
-		connection.Log(logger.LevelWarn, "connection closed with error: %v", err)
+		connection.Log(logger.LevelError, "connection closed with error: %v", err)
 	}
 }
 

@@ -45,14 +45,15 @@ func executeAction(operation, executor, ip, objectType, objectName string, objec
 	go func() {
 		dataAsJSON, err := object.RenderAsJSON(operation != operationDelete)
 		if err != nil {
-			providerLog(logger.LevelWarn, "unable to serialize user as JSON for operation %#v: %v", operation, err)
+			providerLog(logger.LevelError, "unable to serialize user as JSON for operation %#v: %v", operation, err)
 			return
 		}
 		if strings.HasPrefix(config.Actions.Hook, "http") {
 			var url *url.URL
 			url, err := url.Parse(config.Actions.Hook)
 			if err != nil {
-				providerLog(logger.LevelWarn, "Invalid http_notification_url %#v for operation %#v: %v", config.Actions.Hook, operation, err)
+				providerLog(logger.LevelError, "Invalid http_notification_url %#v for operation %#v: %v",
+					config.Actions.Hook, operation, err)
 				return
 			}
 			q := url.Query()

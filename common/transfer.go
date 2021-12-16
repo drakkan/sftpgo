@@ -191,7 +191,7 @@ func (t *BaseTransfer) TransferError(err error) {
 		t.cancelFn()
 	}
 	elapsed := time.Since(t.start).Nanoseconds() / 1000000
-	t.Connection.Log(logger.LevelWarn, "Unexpected error for transfer, path: %#v, error: \"%v\" bytes sent: %v, "+
+	t.Connection.Log(logger.LevelError, "Unexpected error for transfer, path: %#v, error: \"%v\" bytes sent: %v, "+
 		"bytes received: %v transfer running since %v ms", t.fsPath, t.ErrTransfer, atomic.LoadInt64(&t.BytesSent),
 		atomic.LoadInt64(&t.BytesReceived), elapsed)
 }
@@ -270,7 +270,7 @@ func (t *BaseTransfer) Close() error {
 		ExecuteActionNotification(t.Connection, operationUpload, t.fsPath, t.requestPath, "", "", "", fileSize, t.ErrTransfer)
 	}
 	if t.ErrTransfer != nil {
-		t.Connection.Log(logger.LevelWarn, "transfer error: %v, path: %#v", t.ErrTransfer, t.fsPath)
+		t.Connection.Log(logger.LevelError, "transfer error: %v, path: %#v", t.ErrTransfer, t.fsPath)
 		if err == nil {
 			err = t.ErrTransfer
 		}

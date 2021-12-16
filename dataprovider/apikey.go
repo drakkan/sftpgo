@@ -82,7 +82,7 @@ func (k *APIKey) RenderAsJSON(reload bool) ([]byte, error) {
 	if reload {
 		apiKey, err := provider.apiKeyExists(k.KeyID)
 		if err != nil {
-			providerLog(logger.LevelWarn, "unable to reload api key before rendering as json: %v", err)
+			providerLog(logger.LevelError, "unable to reload api key before rendering as json: %v", err)
 			return nil, err
 		}
 		apiKey.HideConfidentialData()

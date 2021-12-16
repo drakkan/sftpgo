@@ -276,7 +276,7 @@ func (c *RetentionCheck) cleanupFolder(folderPath string) error {
 			return nil
 		}
 		result.Error = fmt.Sprintf("unable to list directory %#v", folderPath)
-		c.conn.Log(logger.LevelWarn, result.Error)
+		c.conn.Log(logger.LevelError, result.Error)
 		return err
 	}
 	for _, info := range files {
@@ -285,7 +285,7 @@ func (c *RetentionCheck) cleanupFolder(folderPath string) error {
 			if err := c.cleanupFolder(virtualPath); err != nil {
 				result.Elapsed = time.Since(startTime)
 				result.Error = fmt.Sprintf("unable to check folder: %v", err)
-				c.conn.Log(logger.LevelWarn, "unable to cleanup folder %#v: %v", virtualPath, err)
+				c.conn.Log(logger.LevelError, "unable to cleanup folder %#v: %v", virtualPath, err)
 				return err
 			}
 		} else {
@@ -294,7 +294,7 @@ func (c *RetentionCheck) cleanupFolder(folderPath string) error {
 				if err := c.removeFile(virtualPath, info); err != nil {
 					result.Elapsed = time.Since(startTime)
 					result.Error = fmt.Sprintf("unable to remove file %#v: %v", virtualPath, err)
-					c.conn.Log(logger.LevelWarn, "unable to remove file %#v, retention %v: %v",
+					c.conn.Log(logger.LevelError, "unable to remove file %#v, retention %v: %v",
 						virtualPath, retentionTime, err)
 					return err
 				}
@@ -340,7 +340,7 @@ func (c *RetentionCheck) Start() {
 	for _, folder := range c.Folders {
 		if folder.Retention > 0 {
 			if err := c.cleanupFolder(folder.Path); err != nil {
-				c.conn.Log(logger.LevelWarn, "retention check failed, unable to cleanup folder %#v", folder.Path)
+				c.conn.Log(logger.LevelError, "retention check failed, unable to cleanup folder %#v", folder.Path)
 				c.sendNotifications(time.Since(startTime), err)
 				return
 			}
@@ -384,13 +384,13 @@ func (c *RetentionCheck) sendEmailNotification(elapsed time.Duration, errCheck e
 		data["Status"] = "Failed"
 	}
 	if err := smtp.RenderRetentionReportTemplate(body, data); err != nil {
-		c.conn.Log(logger.LevelWarn, "unable to render retention check template: %v", err)
+		c.conn.Log(logger.LevelError, "unable to render retention check template: %v", err)
 		return err
 	}
 	startTime := time.Now()
 	subject := fmt.Sprintf("Retention check completed for user %#v", c.conn.User.Username)
 	if err := smtp.SendEmail(c.Email, subject, body.String(), smtp.EmailContentTypeTextHTML); err != nil {
-		c.conn.Log(logger.LevelWarn, "unable to notify retention check result via email: %v, elapsed: %v", err,
+		c.conn.Log(logger.LevelError, "unable to notify retention check result via email: %v, elapsed: %v", err,
 			time.Since(startTime))
 		return err
 	}
@@ -425,7 +425,7 @@ func (c *RetentionCheck) sendHookNotification(elapsed time.Duration, errCheck er
 		var url *url.URL
 		url, err := url.Parse(Config.DataRetentionHook)
 		if err != nil {
-			c.conn.Log(logger.LevelWarn, "invalid data retention hook %#v: %v", Config.DataRetentionHook, err)
+			c.conn.Log(logger.LevelError, "invalid data retention hook %#v: %v", Config.DataRetentionHook, err)
 			return err
 		}
 		respCode := 0
@@ -447,7 +447,7 @@ func (c *RetentionCheck) sendHookNotification(elapsed time.Duration, errCheck er
 	}
 	if !filepath.IsAbs(Config.DataRetentionHook) {
 		err := fmt.Errorf("invalid data retention hook %#v", Config.DataRetentionHook)
-		c.conn.Log(logger.LevelWarn, "%v", err)
+		c.conn.Log(logger.LevelError, "%v", err)
 		return err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)

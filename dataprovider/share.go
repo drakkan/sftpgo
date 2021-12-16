@@ -137,7 +137,7 @@ func (s *Share) RenderAsJSON(reload bool) ([]byte, error) {
 	if reload {
 		share, err := provider.shareExists(s.ShareID, s.Username)
 		if err != nil {
-			providerLog(logger.LevelWarn, "unable to reload share before rendering as json: %v", err)
+			providerLog(logger.LevelError, "unable to reload share before rendering as json: %v", err)
 			return nil, err
 		}
 		share.HideConfidentialData()

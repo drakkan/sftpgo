@@ -494,7 +494,7 @@ func Initialize(cnf Config, basePath string, checkAdmins bool) error {
 		err = provider.initializeDatabase()
 		if err != nil && err != ErrNoInitRequired {
 			logger.WarnToConsole("Unable to initialize data provider: %v", err)
-			providerLog(logger.LevelWarn, "Unable to initialize data provider: %v", err)
+			providerLog(logger.LevelError, "Unable to initialize data provider: %v", err)
 			return err
 		}
 		if err == nil {
@@ -502,13 +502,13 @@ func Initialize(cnf Config, basePath string, checkAdmins bool) error {
 		}
 		err = provider.migrateDatabase()
 		if err != nil && err != ErrNoInitRequired {
-			providerLog(logger.LevelWarn, "database migration error: %v", err)
+			providerLog(logger.LevelError, "database migration error: %v", err)
 			return err
 		}
 		if checkAdmins && cnf.CreateDefaultAdmin {
 			err = checkDefaultAdmin()
 			if err != nil {
-				providerLog(logger.LevelWarn, "check default admin error: %v", err)
+				providerLog(logger.LevelError, "erro checking the default admin: %v", err)
 				return err
 			}
 		}
@@ -547,7 +547,7 @@ func validateHooks() error {
 		}
 		_, err := os.Stat(hook)
 		if err != nil {
-			providerLog(logger.LevelWarn, "invalid hook: %v", err)
+			providerLog(logger.LevelError, "invalid hook: %v", err)
 			return err
 		}
 	}
@@ -568,7 +568,7 @@ func initializeHashingAlgo(cnf *Config) error {
 		if config.PasswordHashing.BcryptOptions.Cost > bcrypt.MaxCost {
 			err := fmt.Errorf("invalid bcrypt cost %v, max allowed %v", config.PasswordHashing.BcryptOptions.Cost, bcrypt.MaxCost)
 			logger.WarnToConsole("Unable to initialize data provider: %v", err)
-			providerLog(logger.LevelWarn, "Unable to initialize data provider: %v", err)
+			providerLog(logger.LevelError, "Unable to initialize data provider: %v", err)
 			return err
 		}
 	}
@@ -1878,7 +1878,7 @@ func isPasswordOK(user *User, password string) (bool, error) {
 	} else if strings.HasPrefix(user.Password, argonPwdPrefix) {
 		match, err = argon2id.ComparePasswordAndHash(password, user.Password)
 		if err != nil {
-			providerLog(logger.LevelWarn, "error comparing password with argon hash: %v", err)
+			providerLog(logger.LevelError, "error comparing password with argon hash: %v", err)
 			return match, err
 		}
 	} else if util.IsStringPrefixInSlice(user.Password, pbkdfPwdPrefixes) {
@@ -1975,7 +1975,7 @@ func checkUserPasscode(user *User, password, protocol string) (string, error) {
 				}
 				err := user.Filters.TOTPConfig.Secret.TryDecrypt()
 				if err != nil {
-					providerLog(logger.LevelWarn, "unable to decrypt TOTP secret for user %#v, protocol %v, err: %v",
+					providerLog(logger.LevelError, "unable to decrypt TOTP secret for user %#v, protocol %v, err: %v",
 						user.Username, protocol, err)
 					return "", err
 				}
@@ -2006,7 +2006,7 @@ func checkUserAndPubKey(user *User, pubKey []byte) (User, string, error) {
 	for i, k := range user.PublicKeys {
 		storedPubKey, comment, _, _, err := ssh.ParseAuthorizedKey([]byte(k))
 		if err != nil {
-			providerLog(logger.LevelWarn, "error parsing stored public key %d for user %v: %v", i, user.Username, err)
+			providerLog(logger.LevelError, "error parsing stored public key %d for user %v: %v", i, user.Username, err)
 			return *user, "", err
 		}
 		if bytes.Equal(storedPubKey.Marshal(), pubKey) {
@@ -2153,7 +2153,7 @@ func checkCacheUpdates() {
 	checkTime := util.GetTimeAsMsSinceEpoch(time.Now())
 	users, err := provider.getRecentlyUpdatedUsers(lastCachesUpdate)
 	if err != nil {
-		providerLog(logger.LevelWarn, "unable to get recently updated users: %v", err)
+		providerLog(logger.LevelError, "unable to get recently updated users: %v", err)
 		return
 	}
 	for _, user := range users {
@@ -2171,7 +2171,7 @@ func startUpdateCachesTimer() {
 		return
 	}
 	if !util.IsStringInSlice(config.Driver, sharedProviders) {
-		providerLog(logger.LevelWarn, "update caches not supported for provider %v", config.Driver)
+		providerLog(logger.LevelError, "update caches not supported for provider %v", config.Driver)
 		return
 	}
 	lastCachesUpdate = util.GetTimeAsMsSinceEpoch(time.Now())
@@ -2210,7 +2210,7 @@ func startAvailabilityTimer() {
 func checkDataprovider() {
 	err := provider.checkAvailability()
 	if err != nil {
-		providerLog(logger.LevelWarn, "check availability error: %v", err)
+		providerLog(logger.LevelError, "check availability error: %v", err)
 	}
 	metric.UpdateDataProviderAvailability(err)
 }
@@ -2229,12 +2229,12 @@ func terminateInteractiveAuthProgram(cmd *exec.Cmd, isFinished bool) {
 func sendKeyboardAuthHTTPReq(url string, request *plugin.KeyboardAuthRequest) (*plugin.KeyboardAuthResponse, error) {
 	reqAsJSON, err := json.Marshal(request)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error serializing keyboard interactive auth request: %v", err)
+		providerLog(logger.LevelError, "error serializing keyboard interactive auth request: %v", err)
 		return nil, err
 	}
 	resp, err := httpclient.Post(url, "application/json", bytes.NewBuffer(reqAsJSON))
 	if err != nil {
-		providerLog(logger.LevelWarn, "error getting keyboard interactive auth hook HTTP response: %v", err)
+		providerLog(logger.LevelError, "error getting keyboard interactive auth hook HTTP response: %v", err)
 		return nil, err
 	}
 	defer resp.Body.Close()
@@ -2263,7 +2263,7 @@ func doBuiltinKeyboardInteractiveAuth(user *User, client ssh.KeyboardInteractive
 	}
 	err = user.Filters.TOTPConfig.Secret.TryDecrypt()
 	if err != nil {
-		providerLog(logger.LevelWarn, "unable to decrypt TOTP secret for user %#v, protocol %v, err: %v",
+		providerLog(logger.LevelError, "unable to decrypt TOTP secret for user %#v, protocol %v, err: %v",
 			user.Username, protocol, err)
 		return 0, err
 	}
@@ -2389,7 +2389,7 @@ func getKeyboardInteractiveAnswers(client ssh.KeyboardInteractiveChallenge, resp
 			}
 			err := user.Filters.TOTPConfig.Secret.TryDecrypt()
 			if err != nil {
-				providerLog(logger.LevelWarn, "unable to decrypt TOTP secret for user %#v, protocol %v, err: %v",
+				providerLog(logger.LevelError, "unable to decrypt TOTP secret for user %#v, protocol %v, err: %v",
 					user.Username, protocol, err)
 				return answers, fmt.Errorf("unable to decrypt TOTP secret: %w", err)
 			}
@@ -2554,7 +2554,7 @@ func getPasswordHookResponse(username, password, ip, protocol string) ([]byte, e
 		}
 		resp, err := httpclient.Post(config.CheckPasswordHook, "application/json", bytes.NewBuffer(reqAsJSON))
 		if err != nil {
-			providerLog(logger.LevelWarn, "error getting check password hook response: %v", err)
+			providerLog(logger.LevelError, "error getting check password hook response: %v", err)
 			return result, err
 		}
 		defer resp.Body.Close()
@@ -2599,7 +2599,7 @@ func getPreLoginHookResponse(loginMethod, ip, protocol string, userAsJSON []byte
 		var result []byte
 		url, err := url.Parse(config.PreLoginHook)
 		if err != nil {
-			providerLog(logger.LevelWarn, "invalid url for pre-login hook %#v, error: %v", config.PreLoginHook, err)
+			providerLog(logger.LevelError, "invalid url for pre-login hook %#v, error: %v", config.PreLoginHook, err)
 			return result, err
 		}
 		q := url.Query()
@@ -2723,7 +2723,7 @@ func ExecutePostLoginHook(user *User, loginMethod, ip, protocol string, err erro
 		user.PrepareForRendering()
 		userAsJSON, err := json.Marshal(user)
 		if err != nil {
-			providerLog(logger.LevelWarn, "error serializing user in post login hook: %v", err)
+			providerLog(logger.LevelError, "error serializing user in post login hook: %v", err)
 			return
 		}
 		if strings.HasPrefix(config.PostLoginHook, "http") {
@@ -2791,7 +2791,7 @@ func getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, 
 		}
 		authRequestAsJSON, err := json.Marshal(authRequest)
 		if err != nil {
-			providerLog(logger.LevelWarn, "error serializing external auth request: %v", err)
+			providerLog(logger.LevelError, "error serializing external auth request: %v", err)
 			return result, err
 		}
 		resp, err := httpclient.Post(config.ExternalAuthHook, "application/json", bytes.NewBuffer(authRequestAsJSON))

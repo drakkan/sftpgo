@@ -259,7 +259,7 @@ func (c *BaseConnection) CreateDir(virtualPath string) error {
 		return err
 	}
 	if err := fs.Mkdir(fsPath); err != nil {
-		c.Log(logger.LevelWarn, "error creating dir: %#v error: %+v", fsPath, err)
+		c.Log(logger.LevelError, "error creating dir: %#v error: %+v", fsPath, err)
 		return c.GetFsError(fs, err)
 	}
 	vfs.SetPathPermissions(fs, fsPath, c.User.GetUID(), c.User.GetGID())
@@ -294,7 +294,7 @@ func (c *BaseConnection) RemoveFile(fs vfs.Fs, fsPath, virtualPath string, info 
 		c.Log(logger.LevelDebug, "remove for path %#v handled by pre-delete action", fsPath)
 	} else {
 		if err := fs.Remove(fsPath, false); err != nil {
-			c.Log(logger.LevelWarn, "failed to remove file/symlink %#v: %+v", fsPath, err)
+			c.Log(logger.LevelError, "failed to remove file/symlink %#v: %+v", fsPath, err)
 			return c.GetFsError(fs, err)
 		}
 	}
@@ -358,16 +358,16 @@ func (c *BaseConnection) RemoveDir(virtualPath string) error {
 		if fs.IsNotExist(err) && fs.HasVirtualFolders() {
 			return nil
 		}
-		c.Log(logger.LevelWarn, "failed to remove a dir %#v: stat error: %+v", fsPath, err)
+		c.Log(logger.LevelError, "failed to remove a dir %#v: stat error: %+v", fsPath, err)
 		return c.GetFsError(fs, err)
 	}
 	if !fi.IsDir() || fi.Mode()&os.ModeSymlink != 0 {
-		c.Log(logger.LevelDebug, "cannot remove %#v is not a directory", fsPath)
+		c.Log(logger.LevelError, "cannot remove %#v is not a directory", fsPath)
 		return c.GetGenericError(nil)
 	}
 
 	if err := fs.Remove(fsPath, true); err != nil {
-		c.Log(logger.LevelWarn, "failed to remove directory %#v: %+v", fsPath, err)
+		c.Log(logger.LevelError, "failed to remove directory %#v: %+v", fsPath, err)
 		return c.GetFsError(fs, err)
 	}
 
@@ -427,7 +427,7 @@ func (c *BaseConnection) Rename(virtualSourcePath, virtualTargetPath string) err
 		return c.GetGenericError(ErrQuotaExceeded)
 	}
 	if err := fsSrc.Rename(fsSourcePath, fsTargetPath); err != nil {
-		c.Log(logger.LevelWarn, "failed to rename %#v -> %#v: %+v", fsSourcePath, fsTargetPath, err)
+		c.Log(logger.LevelError, "failed to rename %#v -> %#v: %+v", fsSourcePath, fsTargetPath, err)
 		return c.GetFsError(fsSrc, err)
 	}
 	vfs.SetPathPermissions(fsDst, fsTargetPath, c.User.GetUID(), c.User.GetGID())
@@ -467,7 +467,7 @@ func (c *BaseConnection) CreateSymlink(virtualSourcePath, virtualTargetPath stri
 		return c.GetPermissionDeniedError()
 	}
 	if err := fs.Symlink(fsSourcePath, fsTargetPath); err != nil {
-		c.Log(logger.LevelWarn, "failed to create symlink %#v -> %#v: %+v", fsSourcePath, fsTargetPath, err)
+		c.Log(logger.LevelError, "failed to create symlink %#v -> %#v: %+v", fsSourcePath, fsTargetPath, err)
 		return c.GetFsError(fs, err)
 	}
 	logger.CommandLog(symlinkLogSender, fsSourcePath, fsTargetPath, c.User.Username, "", c.ID, c.protocol, -1, -1, "",
@@ -534,7 +534,7 @@ func (c *BaseConnection) handleChmod(fs vfs.Fs, fsPath, pathForPerms string, att
 		return nil
 	}
 	if err := fs.Chmod(c.getRealFsPath(fsPath), attributes.Mode); err != nil {
-		c.Log(logger.LevelWarn, "failed to chmod path %#v, mode: %v, err: %+v", fsPath, attributes.Mode.String(), err)
+		c.Log(logger.LevelError, "failed to chmod path %#v, mode: %v, err: %+v", fsPath, attributes.Mode.String(), err)
 		return c.GetFsError(fs, err)
 	}
 	logger.CommandLog(chmodLogSender, fsPath, "", c.User.Username, attributes.Mode.String(), c.ID, c.protocol,
@@ -550,7 +550,7 @@ func (c *BaseConnection) handleChown(fs vfs.Fs, fsPath, pathForPerms string, att
 		return nil
 	}
 	if err := fs.Chown(c.getRealFsPath(fsPath), attributes.UID, attributes.GID); err != nil {
-		c.Log(logger.LevelWarn, "failed to chown path %#v, uid: %v, gid: %v, err: %+v", fsPath, attributes.UID,
+		c.Log(logger.LevelError, "failed to chown path %#v, uid: %v, gid: %v, err: %+v", fsPath, attributes.UID,
 			attributes.GID, err)
 		return c.GetFsError(fs, err)
 	}
@@ -572,7 +572,7 @@ func (c *BaseConnection) handleChtimes(fs vfs.Fs, fsPath, pathForPerms string, a
 		if errors.Is(err, vfs.ErrVfsUnsupported) && Config.SetstatMode == 2 {
 			return nil
 		}
-		c.Log(logger.LevelWarn, "failed to chtimes for path %#v, access time: %v, modification time: %v, err: %+v",
+		c.Log(logger.LevelError, "failed to chtimes for path %#v, access time: %v, modification time: %v, err: %+v",
 			fsPath, attributes.Atime, attributes.Mtime, err)
 		return c.GetFsError(fs, err)
 	}
@@ -615,7 +615,7 @@ func (c *BaseConnection) SetStat(virtualPath string, attributes *StatAttributes)
 		}
 
 		if err = c.truncateFile(fs, fsPath, virtualPath, attributes.Size); err != nil {
-			c.Log(logger.LevelWarn, "failed to truncate path %#v, size: %v, err: %+v", fsPath, attributes.Size, err)
+			c.Log(logger.LevelError, "failed to truncate path %#v, size: %v, err: %+v", fsPath, attributes.Size, err)
 			return c.GetFsError(fs, err)
 		}
 		logger.CommandLog(truncateLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "",
@@ -803,7 +803,7 @@ func (c *BaseConnection) hasSpaceForCrossRename(fs vfs.Fs, quotaResult vfs.Quota
 	}
 	fi, err := fs.Lstat(sourcePath)
 	if err != nil {
-		c.Log(logger.LevelWarn, "cross rename denied, stat error for path %#v: %v", sourcePath, err)
+		c.Log(logger.LevelError, "cross rename denied, stat error for path %#v: %v", sourcePath, err)
 		return false
 	}
 	var sizeDiff int64
@@ -818,7 +818,7 @@ func (c *BaseConnection) hasSpaceForCrossRename(fs vfs.Fs, quotaResult vfs.Quota
 	} else if fi.IsDir() {
 		filesDiff, sizeDiff, err = fs.GetDirSize(sourcePath)
 		if err != nil {
-			c.Log(logger.LevelWarn, "cross rename denied, error getting size for directory %#v: %v", sourcePath, err)
+			c.Log(logger.LevelError, "cross rename denied, error getting size for directory %#v: %v", sourcePath, err)
 			return false
 		}
 	}
@@ -915,7 +915,7 @@ func (c *BaseConnection) HasSpace(checkFiles, getUsage bool, requestPath string)
 		result.UsedFiles, result.UsedSize, err = dataprovider.GetUsedQuota(c.User.Username)
 	}
 	if err != nil {
-		c.Log(logger.LevelWarn, "error getting used quota for %#v request path %#v: %v", c.User.Username, requestPath, err)
+		c.Log(logger.LevelError, "error getting used quota for %#v request path %#v: %v", c.User.Username, requestPath, err)
 		result.HasSpace = false
 		return result
 	}
@@ -1066,7 +1066,7 @@ func (c *BaseConnection) updateQuotaAfterRename(fs vfs.Fs, virtualSourcePath, vi
 		if fi.Mode().IsDir() {
 			numFiles, filesSize, err = fs.GetDirSize(targetPath)
 			if err != nil {
-				c.Log(logger.LevelWarn, "failed to update quota after rename, error scanning moved folder %#v: %v",
+				c.Log(logger.LevelError, "failed to update quota after rename, error scanning moved folder %#v: %v",
 					targetPath, err)
 				return err
 			}
@@ -1074,7 +1074,7 @@ func (c *BaseConnection) updateQuotaAfterRename(fs vfs.Fs, virtualSourcePath, vi
 			filesSize = fi.Size()
 		}
 	} else {
-		c.Log(logger.LevelWarn, "failed to update quota after rename, file %#v stat error: %+v", targetPath, err)
+		c.Log(logger.LevelError, "failed to update quota after rename, file %#v stat error: %+v", targetPath, err)
 		return err
 	}
 	if errSrc == nil && errDst == nil {

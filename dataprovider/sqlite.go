@@ -119,7 +119,7 @@ func initializeSQLiteProvider(basePath string) error {
 		dbHandle.SetMaxOpenConns(1)
 		provider = &SQLiteProvider{dbHandle: dbHandle}
 	} else {
-		providerLog(logger.LevelWarn, "error creating sqlite database handler, connection string: %#v, error: %v",
+		providerLog(logger.LevelError, "error creating sqlite database handler, connection string: %#v, error: %v",
 			connectionString, err)
 	}
 	return err
@@ -361,7 +361,7 @@ func (p *SQLiteProvider) migrateDatabase() error {
 		return updateSQLiteDatabaseFromV13(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
-			providerLog(logger.LevelWarn, "database version %v is newer than the supported one: %v", version,
+			providerLog(logger.LevelError, "database version %v is newer than the supported one: %v", version,
 				sqlDatabaseVersion)
 			logger.WarnToConsole("database version %v is newer than the supported one: %v", version,
 				sqlDatabaseVersion)

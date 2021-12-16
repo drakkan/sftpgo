@@ -604,7 +604,7 @@ func (fs *S3Fs) getFileNamesInPrefix(fsPrefix string) (map[string]bool, error) {
 	})
 	metric.S3ListObjectsCompleted(err)
 	if err != nil {
-		fsLog(fs, logger.LevelWarn, "unable to get content for prefix %#v: %v", prefix, err)
+		fsLog(fs, logger.LevelError, "unable to get content for prefix %#v: %v", prefix, err)
 		return nil, err
 	}
 	return fileNames, err

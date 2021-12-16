@@ -123,7 +123,7 @@ func initializePGSQLProvider() error {
 		dbHandle.SetConnMaxLifetime(240 * time.Second)
 		provider = &PGSQLProvider{dbHandle: dbHandle}
 	} else {
-		providerLog(logger.LevelWarn, "error creating postgres database handler, connection string: %#v, error: %v",
+		providerLog(logger.LevelError, "error creating postgres database handler, connection string: %#v, error: %v",
 			getPGSQLConnectionString(true), err)
 	}
 	return err
@@ -385,7 +385,7 @@ func (p *PGSQLProvider) migrateDatabase() error {
 		return updatePGSQLDatabaseFromV13(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
-			providerLog(logger.LevelWarn, "database version %v is newer than the supported one: %v", version,
+			providerLog(logger.LevelError, "database version %v is newer than the supported one: %v", version,
 				sqlDatabaseVersion)
 			logger.WarnToConsole("database version %v is newer than the supported one: %v", version,
 				sqlDatabaseVersion)

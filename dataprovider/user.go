@@ -238,7 +238,7 @@ func (u *User) RenderAsJSON(reload bool) ([]byte, error) {
 	if reload {
 		user, err := provider.userExists(u.Username)
 		if err != nil {
-			providerLog(logger.LevelWarn, "unable to reload user before rendering as json: %v", err)
+			providerLog(logger.LevelError, "unable to reload user before rendering as json: %v", err)
 			return nil, err
 		}
 		user.PrepareForRendering()

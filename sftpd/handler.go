@@ -80,7 +80,7 @@ func (c *Connection) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 
 	file, r, cancelFn, err := fs.Open(p, 0)
 	if err != nil {
-		c.Log(logger.LevelWarn, "could not open file %#v for reading: %+v", p, err)
+		c.Log(logger.LevelError, "could not open file %#v for reading: %+v", p, err)
 		return nil, c.GetFsError(fs, err)
 	}
 
@@ -146,7 +146,7 @@ func (c *Connection) handleFilewrite(request *sftp.Request) (sftp.WriterAtReader
 
 	// This happen if we upload a file that has the same name of an existing directory
 	if stat.IsDir() {
-		c.Log(logger.LevelWarn, "attempted to open a directory for writing to: %#v", p)
+		c.Log(logger.LevelError, "attempted to open a directory for writing to: %#v", p)
 		return nil, sftp.ErrSSHFxOpUnsupported
 	}
 
@@ -356,7 +356,7 @@ func (c *Connection) handleSFTPUploadToNewFile(fs vfs.Fs, resolvedPath, filePath
 
 	file, w, cancelFn, err := fs.Create(filePath, 0)
 	if err != nil {
-		c.Log(logger.LevelWarn, "error creating file %#v: %+v", resolvedPath, err)
+		c.Log(logger.LevelError, "error creating file %#v: %+v", resolvedPath, err)
 		return nil, c.GetFsError(fs, err)
 	}
 
@@ -404,7 +404,7 @@ func (c *Connection) handleSFTPUploadToExistingFile(fs vfs.Fs, pflags sftp.FileO
 	if common.Config.IsAtomicUploadEnabled() && fs.IsAtomicUploadSupported() {
 		err = fs.Rename(resolvedPath, filePath)
 		if err != nil {
-			c.Log(logger.LevelWarn, "error renaming existing file for atomic upload, source: %#v, dest: %#v, err: %+v",
+			c.Log(logger.LevelError, "error renaming existing file for atomic upload, source: %#v, dest: %#v, err: %+v",
 				resolvedPath, filePath, err)
 			return nil, c.GetFsError(fs, err)
 		}
@@ -412,7 +412,7 @@ func (c *Connection) handleSFTPUploadToExistingFile(fs vfs.Fs, pflags sftp.FileO
 
 	file, w, cancelFn, err := fs.Create(filePath, osFlags)
 	if err != nil {
-		c.Log(logger.LevelWarn, "error opening existing file, flags: %v, source: %#v, err: %+v", pflags, filePath, err)
+		c.Log(logger.LevelError, "error opening existing file, flags: %v, source: %#v, err: %+v", pflags, filePath, err)
 		return nil, c.GetFsError(fs, err)
 	}
 

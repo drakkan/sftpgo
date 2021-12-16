@@ -145,7 +145,7 @@ func (c *Connection) getFile(fs vfs.Fs, fsPath, virtualPath string) (webdav.File
 	if vfs.IsLocalOrUnbufferedSFTPFs(fs) {
 		file, r, cancelFn, err = fs.Open(fsPath, 0)
 		if err != nil {
-			c.Log(logger.LevelWarn, "could not open file %#v for reading: %+v", fsPath, err)
+			c.Log(logger.LevelError, "could not open file %#v for reading: %+v", fsPath, err)
 			return nil, c.GetFsError(fs, err)
 		}
 	}
@@ -182,7 +182,7 @@ func (c *Connection) putFile(fs vfs.Fs, fsPath, virtualPath string) (webdav.File
 
 	// This happen if we upload a file that has the same name of an existing directory
 	if stat.IsDir() {
-		c.Log(logger.LevelWarn, "attempted to open a directory for writing to: %#v", fsPath)
+		c.Log(logger.LevelError, "attempted to open a directory for writing to: %#v", fsPath)
 		return nil, c.GetOpUnsupportedError()
 	}
 
@@ -205,7 +205,7 @@ func (c *Connection) handleUploadToNewFile(fs vfs.Fs, resolvedPath, filePath, re
 	}
 	file, w, cancelFn, err := fs.Create(filePath, 0)
 	if err != nil {
-		c.Log(logger.LevelWarn, "error creating file %#v: %+v", resolvedPath, err)
+		c.Log(logger.LevelError, "error creating file %#v: %+v", resolvedPath, err)
 		return nil, c.GetFsError(fs, err)
 	}
 
@@ -241,7 +241,7 @@ func (c *Connection) handleUploadToExistingFile(fs vfs.Fs, resolvedPath, filePat
 	if common.Config.IsAtomicUploadEnabled() && fs.IsAtomicUploadSupported() {
 		err = fs.Rename(resolvedPath, filePath)
 		if err != nil {
-			c.Log(logger.LevelWarn, "error renaming existing file for atomic upload, source: %#v, dest: %#v, err: %+v",
+			c.Log(logger.LevelError, "error renaming existing file for atomic upload, source: %#v, dest: %#v, err: %+v",
 				resolvedPath, filePath, err)
 			return nil, c.GetFsError(fs, err)
 		}
@@ -249,7 +249,7 @@ func (c *Connection) handleUploadToExistingFile(fs vfs.Fs, resolvedPath, filePat
 
 	file, w, cancelFn, err := fs.Create(filePath, 0)
 	if err != nil {
-		c.Log(logger.LevelWarn, "error creating file %#v: %+v", resolvedPath, err)
+		c.Log(logger.LevelError, "error creating file %#v: %+v", resolvedPath, err)
 		return nil, c.GetFsError(fs, err)
 	}
 	initialSize := int64(0)
@@ -320,7 +320,7 @@ func (c *Connection) removeDirTree(fs vfs.Fs, fsPath, virtualPath string) error 
 		return nil
 	})
 	if err != nil {
-		c.Log(logger.LevelWarn, "failed to remove dir tree %#v->%#v: error: %+v", virtualPath, fsPath, err)
+		c.Log(logger.LevelError, "failed to remove dir tree %#v->%#v: error: %+v", virtualPath, fsPath, err)
 		return err
 	}
 

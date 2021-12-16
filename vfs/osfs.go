@@ -102,7 +102,7 @@ func (*OsFs) Create(name string, flag int) (File, *PipeWriter, func(), error) {
 func (fs *OsFs) Rename(source, target string) error {
 	err := os.Rename(source, target)
 	if err != nil && isCrossDeviceError(err) {
-		fsLog(fs, logger.LevelWarn, "cross device error detected while renaming %#v -> %#v. Trying a copy and remove, this could take a long time",
+		fsLog(fs, logger.LevelError, "cross device error detected while renaming %#v -> %#v. Trying a copy and remove, this could take a long time",
 			source, target)
 		err = fscopy.Copy(source, target, fscopy.Options{
 			OnSymlink: func(src string) fscopy.SymlinkAction {
@@ -110,7 +110,7 @@ func (fs *OsFs) Rename(source, target string) error {
 			},
 		})
 		if err != nil {
-			fsLog(fs, logger.LevelDebug, "cross device copy error: %v", err)
+			fsLog(fs, logger.LevelError, "cross device copy error: %v", err)
 			return err
 		}
 		return os.RemoveAll(source)
@@ -299,14 +299,14 @@ func (fs *OsFs) ResolvePath(virtualPath string) (string, error) {
 		// path chain until we hit a directory that _does_ exist and can be validated.
 		_, err = fs.findFirstExistingDir(r)
 		if err != nil {
-			fsLog(fs, logger.LevelWarn, "error resolving non-existent path %#v", err)
+			fsLog(fs, logger.LevelError, "error resolving non-existent path %#v", err)
 		}
 		return r, err
 	}
 
 	err = fs.isSubDir(p)
 	if err != nil {
-		fsLog(fs, logger.LevelWarn, "Invalid path resolution, dir %#v original path %#v resolved %#v err: %v",
+		fsLog(fs, logger.LevelError, "Invalid path resolution, dir %#v original path %#v resolved %#v err: %v",
 			p, virtualPath, r, err)
 	}
 	return r, err
@@ -358,7 +358,7 @@ func (fs *OsFs) findNonexistentDirs(filePath string) ([]string, error) {
 	}
 	err = fs.isSubDir(p)
 	if err != nil {
-		fsLog(fs, logger.LevelWarn, "error finding non existing dir: %v", err)
+		fsLog(fs, logger.LevelError, "error finding non existing dir: %v", err)
 	}
 	return results, err
 }
@@ -366,7 +366,7 @@ func (fs *OsFs) findNonexistentDirs(filePath string) ([]string, error) {
 func (fs *OsFs) findFirstExistingDir(path string) (string, error) {
 	results, err := fs.findNonexistentDirs(path)
 	if err != nil {
-		fsLog(fs, logger.LevelWarn, "unable to find non existent dirs: %v", err)
+		fsLog(fs, logger.LevelError, "unable to find non existent dirs: %v", err)
 		return "", err
 	}
 	var parent string
@@ -395,7 +395,7 @@ func (fs *OsFs) isSubDir(sub string) error {
 	// fs.rootDir must exist and it is already a validated absolute path
 	parent, err := filepath.EvalSymlinks(fs.rootDir)
 	if err != nil {
-		fsLog(fs, logger.LevelWarn, "invalid root path %#v: %v", fs.rootDir, err)
+		fsLog(fs, logger.LevelError, "invalid root path %#v: %v", fs.rootDir, err)
 		return err
 	}
 	if parent == sub {

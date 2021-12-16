@@ -66,13 +66,13 @@ func initializeBoltProvider(basePath string) error {
 				_, e := tx.CreateBucketIfNotExists(bucket)
 				return e
 			}); err != nil {
-				providerLog(logger.LevelWarn, "error creating bucket %#v: %v", string(bucket), err)
+				providerLog(logger.LevelError, "error creating bucket %#v: %v", string(bucket), err)
 			}
 		}
 
 		provider = &BoltProvider{dbHandle: dbHandle}
 	} else {
-		providerLog(logger.LevelWarn, "error creating bolt key/value store handler: %v", err)
+		providerLog(logger.LevelError, "error creating bolt key/value store handler: %v", err)
 	}
 	return err
 }
@@ -288,7 +288,7 @@ func (p *BoltProvider) updateQuota(username string, filesAdd int, sizeAdd int64,
 func (p *BoltProvider) getUsedQuota(username string) (int, int64, error) {
 	user, err := p.userExists(username)
 	if err != nil {
-		providerLog(logger.LevelWarn, "unable to get quota for user %v error: %v", username, err)
+		providerLog(logger.LevelError, "unable to get quota for user %v error: %v", username, err)
 		return 0, 0, err
 	}
 	return user.UsedQuotaFiles, user.UsedQuotaSize, err
@@ -923,7 +923,7 @@ func (p *BoltProvider) updateFolderQuota(name string, filesAdd int, sizeAdd int6
 func (p *BoltProvider) getUsedFolderQuota(name string) (int, int64, error) {
 	folder, err := p.getFolderByName(name)
 	if err != nil {
-		providerLog(logger.LevelWarn, "unable to get quota for folder %#v error: %v", name, err)
+		providerLog(logger.LevelError, "unable to get quota for folder %#v error: %v", name, err)
 		return 0, 0, err
 	}
 	return folder.UsedQuotaFiles, folder.UsedQuotaSize, err
@@ -1402,7 +1402,7 @@ func (p *BoltProvider) migrateDatabase() error {
 		return updateBoltDatabaseVersion(p.dbHandle, 14)
 	default:
 		if version > boltDatabaseVersion {
-			providerLog(logger.LevelWarn, "database version %v is newer than the supported one: %v", version,
+			providerLog(logger.LevelError, "database version %v is newer than the supported one: %v", version,
 				boltDatabaseVersion)
 			logger.WarnToConsole("database version %v is newer than the supported one: %v", version,
 				boltDatabaseVersion)

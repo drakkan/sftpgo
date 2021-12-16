@@ -109,7 +109,7 @@ func (c *Connection) getFileReader(name string, offset int64, method string) (io
 
 	file, r, cancelFn, err := fs.Open(p, offset)
 	if err != nil {
-		c.Log(logger.LevelWarn, "could not open file %#v for reading: %+v", p, err)
+		c.Log(logger.LevelError, "could not open file %#v for reading: %+v", p, err)
 		return nil, c.GetFsError(fs, err)
 	}
 
@@ -150,7 +150,7 @@ func (c *Connection) getFileWriter(name string) (io.WriteCloser, error) {
 
 	// This happen if we upload a file that has the same name of an existing directory
 	if stat.IsDir() {
-		c.Log(logger.LevelWarn, "attempted to open a directory for writing to: %#v", p)
+		c.Log(logger.LevelError, "attempted to open a directory for writing to: %#v", p)
 		return nil, c.GetOpUnsupportedError()
 	}
 
@@ -161,7 +161,7 @@ func (c *Connection) getFileWriter(name string) (io.WriteCloser, error) {
 	if common.Config.IsAtomicUploadEnabled() && fs.IsAtomicUploadSupported() {
 		err = fs.Rename(p, filePath)
 		if err != nil {
-			c.Log(logger.LevelWarn, "error renaming existing file for atomic upload, source: %#v, dest: %#v, err: %+v",
+			c.Log(logger.LevelError, "error renaming existing file for atomic upload, source: %#v, dest: %#v, err: %+v",
 				p, filePath, err)
 			return nil, c.GetFsError(fs, err)
 		}
@@ -186,7 +186,7 @@ func (c *Connection) handleUploadFile(fs vfs.Fs, resolvedPath, filePath, request
 
 	file, w, cancelFn, err := fs.Create(filePath, 0)
 	if err != nil {
-		c.Log(logger.LevelWarn, "error opening existing file, source: %#v, err: %+v", filePath, err)
+		c.Log(logger.LevelError, "error opening existing file, source: %#v, err: %+v", filePath, err)
 		return nil, c.GetFsError(fs, err)
 	}
 

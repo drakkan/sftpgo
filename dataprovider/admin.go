@@ -303,7 +303,7 @@ func (a *Admin) RenderAsJSON(reload bool) ([]byte, error) {
 	if reload {
 		admin, err := provider.adminExists(a.Username)
 		if err != nil {
-			providerLog(logger.LevelWarn, "unable to reload admin before rendering as json: %v", err)
+			providerLog(logger.LevelError, "unable to reload admin before rendering as json: %v", err)
 			return nil, err
 		}
 		admin.HideConfidentialData()

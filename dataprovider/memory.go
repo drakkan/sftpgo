@@ -216,7 +216,7 @@ func (p *MemoryProvider) updateQuota(username string, filesAdd int, sizeAdd int6
 	}
 	user, err := p.userExistsInternal(username)
 	if err != nil {
-		providerLog(logger.LevelWarn, "unable to update quota for user %#v error: %v", username, err)
+		providerLog(logger.LevelError, "unable to update quota for user %#v error: %v", username, err)
 		return err
 	}
 	if reset {
@@ -241,7 +241,7 @@ func (p *MemoryProvider) getUsedQuota(username string) (int, int64, error) {
 	}
 	user, err := p.userExistsInternal(username)
 	if err != nil {
-		providerLog(logger.LevelWarn, "unable to get quota for user %#v error: %v", username, err)
+		providerLog(logger.LevelError, "unable to get quota for user %#v error: %v", username, err)
 		return 0, 0, err
 	}
 	return user.UsedQuotaFiles, user.UsedQuotaSize, err
@@ -590,7 +590,7 @@ func (p *MemoryProvider) updateFolderQuota(name string, filesAdd int, sizeAdd in
 	}
 	folder, err := p.folderExistsInternal(name)
 	if err != nil {
-		providerLog(logger.LevelWarn, "unable to update quota for folder %#v error: %v", name, err)
+		providerLog(logger.LevelError, "unable to update quota for folder %#v error: %v", name, err)
 		return err
 	}
 	if reset {
@@ -613,7 +613,7 @@ func (p *MemoryProvider) getUsedFolderQuota(name string) (int, int64, error) {
 	}
 	folder, err := p.folderExistsInternal(name)
 	if err != nil {
-		providerLog(logger.LevelWarn, "unable to get quota for folder %#v error: %v", name, err)
+		providerLog(logger.LevelError, "unable to get quota for folder %#v error: %v", name, err)
 		return 0, 0, err
 	}
 	return folder.UsedQuotaFiles, folder.UsedQuotaSize, err
@@ -1309,27 +1309,27 @@ func (p *MemoryProvider) reloadConfig() error {
 	providerLog(logger.LevelDebug, "loading dump from file: %#v", p.dbHandle.configFile)
 	fi, err := os.Stat(p.dbHandle.configFile)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error loading dump: %v", err)
+		providerLog(logger.LevelError, "error loading dump: %v", err)
 		return err
 	}
 	if fi.Size() == 0 {
 		err = errors.New("dump configuration file is invalid, its size must be > 0")
-		providerLog(logger.LevelWarn, "error loading dump: %v", err)
+		providerLog(logger.LevelError, "error loading dump: %v", err)
 		return err
 	}
 	if fi.Size() > 10485760 {
 		err = errors.New("dump configuration file is invalid, its size must be <= 10485760 bytes")
-		providerLog(logger.LevelWarn, "error loading dump: %v", err)
+		providerLog(logger.LevelError, "error loading dump: %v", err)
 		return err
 	}
 	content, err := os.ReadFile(p.dbHandle.configFile)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error loading dump: %v", err)
+		providerLog(logger.LevelError, "error loading dump: %v", err)
 		return err
 	}
 	dump, err := ParseDumpData(content)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error loading dump: %v", err)
+		providerLog(logger.LevelError, "error loading dump: %v", err)
 		return err
 	}
 	p.clear()
@@ -1367,13 +1367,13 @@ func (p *MemoryProvider) restoreShares(dump *BackupData) error {
 			share.ID = s.ID
 			err = UpdateShare(&share, ActionExecutorSystem, "")
 			if err != nil {
-				providerLog(logger.LevelWarn, "error updating share %#v: %v", share.ShareID, err)
+				providerLog(logger.LevelError, "error updating share %#v: %v", share.ShareID, err)
 				return err
 			}
 		} else {
 			err = AddShare(&share, ActionExecutorSystem, "")
 			if err != nil {
-				providerLog(logger.LevelWarn, "error adding share %#v: %v", share.ShareID, err)
+				providerLog(logger.LevelError, "error adding share %#v: %v", share.ShareID, err)
 				return err
 			}
 		}
@@ -1392,13 +1392,13 @@ func (p *MemoryProvider) restoreAPIKeys(dump *BackupData) error {
 			apiKey.ID = k.ID
 			err = UpdateAPIKey(&apiKey, ActionExecutorSystem, "")
 			if err != nil {
-				providerLog(logger.LevelWarn, "error updating API key %#v: %v", apiKey.KeyID, err)
+				providerLog(logger.LevelError, "error updating API key %#v: %v", apiKey.KeyID, err)
 				return err
 			}
 		} else {
 			err = AddAPIKey(&apiKey, ActionExecutorSystem, "")
 			if err != nil {
-				providerLog(logger.LevelWarn, "error adding API key %#v: %v", apiKey.KeyID, err)
+				providerLog(logger.LevelError, "error adding API key %#v: %v", apiKey.KeyID, err)
 				return err
 			}
 		}
@@ -1414,13 +1414,13 @@ func (p *MemoryProvider) restoreAdmins(dump *BackupData) error {
 			admin.ID = a.ID
 			err = UpdateAdmin(&admin, ActionExecutorSystem, "")
 			if err != nil {
-				providerLog(logger.LevelWarn, "error updating admin %#v: %v", admin.Username, err)
+				providerLog(logger.LevelError, "error updating admin %#v: %v", admin.Username, err)
 				return err
 			}
 		} else {
 			err = AddAdmin(&admin, ActionExecutorSystem, "")
 			if err != nil {
-				providerLog(logger.LevelWarn, "error adding admin %#v: %v", admin.Username, err)
+				providerLog(logger.LevelError, "error adding admin %#v: %v", admin.Username, err)
 				return err
 			}
 		}
@@ -1436,14 +1436,14 @@ func (p *MemoryProvider) restoreFolders(dump *BackupData) error {
 			folder.ID = f.ID
 			err = UpdateFolder(&folder, f.Users, ActionExecutorSystem, "")
 			if err != nil {
-				providerLog(logger.LevelWarn, "error updating folder %#v: %v", folder.Name, err)
+				providerLog(logger.LevelError, "error updating folder %#v: %v", folder.Name, err)
 				return err
 			}
 		} else {
 			folder.Users = nil
 			err = AddFolder(&folder)
 			if err != nil {
-				providerLog(logger.LevelWarn, "error adding folder %#v: %v", folder.Name, err)
+				providerLog(logger.LevelError, "error adding folder %#v: %v", folder.Name, err)
 				return err
 			}
 		}
@@ -1459,13 +1459,13 @@ func (p *MemoryProvider) restoreUsers(dump *BackupData) error {
 			user.ID = u.ID
 			err = UpdateUser(&user, ActionExecutorSystem, "")
 			if err != nil {
-				providerLog(logger.LevelWarn, "error updating user %#v: %v", user.Username, err)
+				providerLog(logger.LevelError, "error updating user %#v: %v", user.Username, err)
 				return err
 			}
 		} else {
 			err = AddUser(&user, ActionExecutorSystem, "")
 			if err != nil {
-				providerLog(logger.LevelWarn, "error adding user %#v: %v", user.Username, err)
+				providerLog(logger.LevelError, "error adding user %#v: %v", user.Username, err)
 				return err
 			}
 		}

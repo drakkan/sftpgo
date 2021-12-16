@@ -109,7 +109,7 @@ func initializeMySQLProvider() error {
 		dbHandle.SetConnMaxLifetime(240 * time.Second)
 		provider = &MySQLProvider{dbHandle: dbHandle}
 	} else {
-		providerLog(logger.LevelWarn, "error creating mysql database handler, connection string: %#v, error: %v",
+		providerLog(logger.LevelError, "error creating mysql database handler, connection string: %#v, error: %v",
 			getMySQLConnectionString(true), err)
 	}
 	return err
@@ -364,7 +364,7 @@ func (p *MySQLProvider) migrateDatabase() error {
 		return updateMySQLDatabaseFromV13(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
-			providerLog(logger.LevelWarn, "database version %v is newer than the supported one: %v", version,
+			providerLog(logger.LevelError, "database version %v is newer than the supported one: %v", version,
 				sqlDatabaseVersion)
 			logger.WarnToConsole("database version %v is newer than the supported one: %v", version,
 				sqlDatabaseVersion)
