@@ -26,7 +26,7 @@ Several storage backends are supported: local filesystem, encrypted local filesy
 - Keyboard interactive authentication. You can easily setup a customizable multi-factor authentication.
 - Partial authentication. You can configure multi-step authentication requiring, for example, the user password after successful public key authentication.
 - Per user authentication methods.
-- Two-factor authentication based on time-based one time passwords (RFC 6238) which works with Authy, Google Authenticator and other compatible apps.
+- [Two-factor authentication](./docs/howto/two-factor-authentication.md) based on time-based one time passwords (RFC 6238) which works with Authy, Google Authenticator and other compatible apps.
 - Custom authentication via external programs/HTTP API.
 - [Data At Rest Encryption](./docs/dare.md).
 - Dynamic user modification before login via external programs/HTTP API.
