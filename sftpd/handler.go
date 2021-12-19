@@ -216,7 +216,6 @@ func (c *Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 
 		s, err := c.DoStat(request.Filepath, 0)
 		if err != nil {
-			c.Log(logger.LevelDebug, "error running stat on path %#v: %+v", request.Filepath, err)
 			return nil, err
 		}
 
@@ -258,7 +257,6 @@ func (c *Connection) Lstat(request *sftp.Request) (sftp.ListerAt, error) {
 
 	s, err := c.DoStat(request.Filepath, 1)
 	if err != nil {
-		c.Log(logger.LevelDebug, "error running lstat on path %#v: %+v", request.Filepath, err)
 		return nil, err
 	}
 

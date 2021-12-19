@@ -9,9 +9,11 @@ import (
 	"time"
 
 	"github.com/pkg/sftp"
+	"github.com/rs/xid"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/drakkan/sftpgo/v2/dataprovider"
+	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/sdk"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
@@ -306,6 +308,8 @@ func TestErrorsMapping(t *testing.T) {
 		}
 		err = conn.GetQuotaExceededError()
 		assert.True(t, conn.IsQuotaExceededError(err))
+		err = conn.GetNotExistError()
+		assert.True(t, conn.IsNotExistError(err))
 		err = conn.GetFsError(fs, nil)
 		assert.NoError(t, err)
 		err = conn.GetOpUnsupportedError()
@@ -367,4 +371,77 @@ func TestMaxWriteSize(t *testing.T) {
 	size, err = conn.GetMaxWriteSize(quotaResult, true, 100, fs.IsUploadResumeSupported())
 	assert.EqualError(t, err, ErrOpUnsupported.Error())
 	assert.Equal(t, int64(0), size)
+}
+
+func TestCheckParentDirsErrors(t *testing.T) {
+	permissions := make(map[string][]string)
+	permissions["/"] = []string{dataprovider.PermAny}
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username:    userTestUsername,
+			Permissions: permissions,
+			HomeDir:     filepath.Clean(os.TempDir()),
+		},
+		FsConfig: vfs.Filesystem{
+			Provider: sdk.CryptedFilesystemProvider,
+		},
+	}
+	c := NewBaseConnection(xid.New().String(), ProtocolSFTP, "", "", user)
+	err := c.CheckParentDirs("/a/dir")
+	assert.Error(t, err)
+
+	user.FsConfig.Provider = sdk.LocalFilesystemProvider
+	user.VirtualFolders = nil
+	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			FsConfig: vfs.Filesystem{
+				Provider: sdk.CryptedFilesystemProvider,
+			},
+		},
+		VirtualPath: "/vdir",
+	})
+	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: filepath.Clean(os.TempDir()),
+		},
+		VirtualPath: "/vdir/sub",
+	})
+	c = NewBaseConnection(xid.New().String(), ProtocolSFTP, "", "", user)
+	err = c.CheckParentDirs("/vdir/sub/dir")
+	assert.Error(t, err)
+
+	user = dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username:    userTestUsername,
+			Permissions: permissions,
+			HomeDir:     filepath.Clean(os.TempDir()),
+		},
+		FsConfig: vfs.Filesystem{
+			Provider: sdk.S3FilesystemProvider,
+			S3Config: vfs.S3FsConfig{
+				S3FsConfig: sdk.S3FsConfig{
+					Bucket:       "buck",
+					Region:       "us-east-1",
+					AccessKey:    "key",
+					AccessSecret: kms.NewPlainSecret("s3secret"),
+				},
+			},
+		},
+	}
+	c = NewBaseConnection(xid.New().String(), ProtocolSFTP, "", "", user)
+	err = c.CheckParentDirs("/a/dir")
+	assert.NoError(t, err)
+
+	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			MappedPath: filepath.Clean(os.TempDir()),
+		},
+		VirtualPath: "/local/dir",
+	})
+
+	c = NewBaseConnection(xid.New().String(), ProtocolSFTP, "", "", user)
+	err = c.CheckParentDirs("/local/dir/sub-dir")
+	assert.NoError(t, err)
+	err = os.RemoveAll(filepath.Join(os.TempDir(), "sub-dir"))
+	assert.NoError(t, err)
 }

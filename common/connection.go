@@ -245,6 +245,35 @@ func (c *BaseConnection) ListDir(virtualPath string) ([]os.FileInfo, error) {
 	return c.User.AddVirtualDirs(files, virtualPath), nil
 }
 
+// CheckParentDirs tries to create the specified directory and any missing parent dirs
+func (c *BaseConnection) CheckParentDirs(virtualPath string) error {
+	fs, err := c.User.GetFilesystemForPath(virtualPath, "")
+	if err != nil {
+		return err
+	}
+	if fs.HasVirtualFolders() {
+		return nil
+	}
+	if _, err := c.DoStat(virtualPath, 0); !c.IsNotExistError(err) {
+		return err
+	}
+	dirs := util.GetDirsForVirtualPath(virtualPath)
+	for idx := len(dirs) - 1; idx >= 0; idx-- {
+		fs, err = c.User.GetFilesystemForPath(dirs[idx], "")
+		if err != nil {
+			return err
+		}
+		if fs.HasVirtualFolders() {
+			continue
+		}
+		if err = c.createDirIfMissing(dirs[idx]); err != nil {
+			return fmt.Errorf("unable to check/create missing parent dir %#v for virtual path %#v: %w",
+				dirs[idx], virtualPath, err)
+		}
+	}
+	return nil
+}
+
 // CreateDir creates a new directory at the specified fsPath
 func (c *BaseConnection) CreateDir(virtualPath string) error {
 	if !c.User.HasPerm(dataprovider.PermCreateDirs, path.Dir(virtualPath)) {
@@ -507,13 +536,21 @@ func (c *BaseConnection) DoStat(virtualPath string, mode int) (os.FileInfo, erro
 		info, err = fs.Stat(c.getRealFsPath(fsPath))
 	}
 	if err != nil {
-		c.Log(logger.LevelDebug, "stat error for path %#v: %+v", virtualPath, err)
+		c.Log(logger.LevelError, "stat error for path %#v: %+v", virtualPath, err)
 		return info, c.GetFsError(fs, err)
 	}
 	if vfs.IsCryptOsFs(fs) {
 		info = fs.(*vfs.CryptFs).ConvertFileInfo(info)
 	}
 	return info, nil
+}
+
+func (c *BaseConnection) createDirIfMissing(name string) error {
+	_, err := c.DoStat(name, 0)
+	if c.IsNotExistError(err) {
+		return c.CreateDir(name)
+	}
+	return err
 }
 
 func (c *BaseConnection) ignoreSetStat(fs vfs.Fs) bool {
@@ -1087,6 +1124,18 @@ func (c *BaseConnection) updateQuotaAfterRename(fs vfs.Fs, virtualSourcePath, vi
 		c.updateQuotaMoveToVFolder(&dstFolder, initialSize, filesSize, numFiles)
 	}
 	return nil
+}
+
+// IsNotExistError returns true if the specified fs error is not exist for the connection protocol
+func (c *BaseConnection) IsNotExistError(err error) bool {
+	switch c.protocol {
+	case ProtocolSFTP:
+		return errors.Is(err, sftp.ErrSSHFxNoSuchFile)
+	case ProtocolWebDAV, ProtocolFTP, ProtocolHTTP, ProtocolHTTPShare, ProtocolDataRetention:
+		return errors.Is(err, os.ErrNotExist)
+	default:
+		return errors.Is(err, ErrNotExist)
+	}
 }
 
 // GetPermissionDeniedError returns an appropriate permission denied error for the connection protocol

@@ -23,6 +23,7 @@ import (
 	"github.com/pkg/sftp"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
+	"github.com/rs/xid"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -370,6 +371,51 @@ func TestChtimesOpenHandle(t *testing.T) {
 	_, err = httpdtest.RemoveUser(cryptFsUser, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(cryptFsUser.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestCheckParentDirs(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+
+	testDir := "/path/to/sub/dir"
+	conn, client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		_, err = client.Stat(testDir)
+		assert.ErrorIs(t, err, os.ErrNotExist)
+		c := common.NewBaseConnection(xid.New().String(), common.ProtocolSFTP, "", "", user)
+		err = c.CheckParentDirs(testDir)
+		assert.NoError(t, err)
+		_, err = client.Stat(testDir)
+		assert.NoError(t, err)
+		err = c.CheckParentDirs(testDir)
+		assert.NoError(t, err)
+	}
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	u := getTestUser()
+	u.Permissions["/"] = []string{dataprovider.PermUpload, dataprovider.PermListItems, dataprovider.PermDownload}
+	user, _, err = httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	conn, client, err = getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		c := common.NewBaseConnection(xid.New().String(), common.ProtocolSFTP, "", "", user)
+		err = c.CheckParentDirs(testDir)
+		assert.ErrorIs(t, err, sftp.ErrSSHFxPermissionDenied)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
 

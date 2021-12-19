@@ -147,7 +147,6 @@ func (c *Connection) Stat(name string) (os.FileInfo, error) {
 
 	fi, err := c.DoStat(name, 0)
 	if err != nil {
-		c.Log(logger.LevelDebug, "error running stat on path %#v: %+v", name, err)
 		return nil, err
 	}
 	return fi, nil

@@ -91,14 +91,15 @@ func getRespStatus(err error) int {
 	return http.StatusInternalServerError
 }
 
+// mappig between fs errors for HTTP protocol and HTTP response status codes
 func getMappedStatusCode(err error) int {
 	var statusCode int
-	switch err {
-	case os.ErrPermission:
+	switch {
+	case errors.Is(err, os.ErrPermission):
 		statusCode = http.StatusForbidden
-	case os.ErrNotExist:
+	case errors.Is(err, os.ErrNotExist):
 		statusCode = http.StatusNotFound
-	case common.ErrQuotaExceeded:
+	case errors.Is(err, common.ErrQuotaExceeded):
 		statusCode = http.StatusRequestEntityTooLarge
 	default:
 		statusCode = http.StatusInternalServerError
@@ -126,6 +127,10 @@ func getCommaSeparatedQueryParam(r *http.Request, key string) []string {
 	}
 
 	return util.RemoveDuplicates(result)
+}
+
+func getBoolQueryParam(r *http.Request, param string) bool {
+	return r.URL.Query().Get(param) == "true"
 }
 
 func handleCloseConnection(w http.ResponseWriter, r *http.Request) {

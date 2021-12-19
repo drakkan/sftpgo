@@ -3543,6 +3543,12 @@ paths:
           schema:
             type: string
           required: true
+        - in: query
+          name: mkdir_parents
+          description: Create parent directories if they do not exist?
+          schema:
+            type: boolean
+          required: false
       responses:
         '201':
           description: successful operation
@@ -3729,6 +3735,12 @@ paths:
           description: Parent directory for the uploaded files. It must be URL encoded, for example the path "my dir/àdir" must be sent as "my%20dir%2F%C3%A0dir". If empty or missing the root path is assumed. If a file with the same name already exists, it will be overwritten
           schema:
             type: string
+        - in: query
+          name: mkdir_parents
+          description: Create parent directories if they do not exist?
+          schema:
+            type: boolean
+          required: false
       requestBody:
         content:
           multipart/form-data:
@@ -3848,6 +3860,12 @@ paths:
           schema:
             type: string
           required: true
+        - in: query
+          name: mkdir_parents
+          description: Create parent directories if they do not exist?
+          schema:
+            type: boolean
+          required: false
         - in: header
           name: X-SFTPGO-MTIME
           schema:

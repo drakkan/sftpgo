@@ -10179,6 +10179,18 @@ func TestWebDirsAPI(t *testing.T) {
 	if assert.Len(t, contents, 1) {
 		assert.Equal(t, testDir, contents[0]["name"])
 	}
+	// create a dir with missing parents
+	req, err = http.NewRequest(http.MethodPost, userDirsPath+"?path="+url.QueryEscape(path.Join("/sub/dir", testDir)), nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+	// setting the mkdir_parents param will work
+	req, err = http.NewRequest(http.MethodPost, userDirsPath+"?mkdir_parents=true&path="+url.QueryEscape(path.Join("/sub/dir", testDir)), nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
 	// rename the dir
 	req, err = http.NewRequest(http.MethodPatch, userDirsPath+"?path="+testDir+"&target="+testDir+"new", nil)
 	assert.NoError(t, err)
@@ -10271,6 +10283,17 @@ func TestWebUploadSingleFile(t *testing.T) {
 	if assert.NoError(t, err) {
 		assert.InDelta(t, util.GetTimeAsMsSinceEpoch(time.Now()), util.GetTimeAsMsSinceEpoch(info.ModTime()), float64(3000))
 	}
+	// upload to a missing dir will fail without the mkdir_parents param
+	req, err = http.NewRequest(http.MethodPost, userUploadFilePath+"?path="+url.QueryEscape("/subdir/file.txt"), bytes.NewBuffer(content))
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+	req, err = http.NewRequest(http.MethodPost, userUploadFilePath+"?mkdir_parents=true&path="+url.QueryEscape("/subdir/file.txt"), bytes.NewBuffer(content))
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
 
 	metadataReq := make(map[string]int64)
 	metadataReq["modification_time"] = util.GetTimeAsMsSinceEpoch(modTime)
@@ -10424,6 +10447,24 @@ func TestWebFilesAPI(t *testing.T) {
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusCreated, rr)
+	// upload to a missing subdir will fail without the mkdir_parents param
+	_, err = reader.Seek(0, io.SeekStart)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userFilesPath+"?path="+url.QueryEscape("/sub/"+testDir), reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+	_, err = reader.Seek(0, io.SeekStart)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userFilesPath+"?mkdir_parents=true&path="+url.QueryEscape("/sub/"+testDir), reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+
 	req, err = http.NewRequest(http.MethodGet, userDirsPath, nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
@@ -10432,7 +10473,7 @@ func TestWebFilesAPI(t *testing.T) {
 	contents = nil
 	err = json.NewDecoder(rr.Body).Decode(&contents)
 	assert.NoError(t, err)
-	assert.Len(t, contents, 3)
+	assert.Len(t, contents, 4)
 	req, err = http.NewRequest(http.MethodGet, userDirsPath+"?path="+testDir, nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
@@ -10579,7 +10620,28 @@ func TestWebUploadErrors(t *testing.T) {
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
-
+	// we cannot create dirs in sub2
+	_, err = reader.Seek(0, io.SeekStart)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userFilesPath+"?mkdir_parents=true&path="+url.QueryEscape("/sub2/dir"), reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "unable to check/create missing parent dir")
+	req, err = http.NewRequest(http.MethodPost, userDirsPath+"?mkdir_parents=true&path="+url.QueryEscape("/sub2/dir/test"), nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "Error checking parent directories")
+	req, err = http.NewRequest(http.MethodPost, userUploadFilePath+"?mkdir_parents=true&path="+url.QueryEscape("/sub2/dir1/file.txt"), bytes.NewBuffer([]byte("")))
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "Error checking parent directories")
 	// create a dir and try to overwrite it with a file
 	req, err = http.NewRequest(http.MethodPost, userDirsPath+"?path=file.zip", nil)
 	assert.NoError(t, err)
@@ -11026,7 +11088,7 @@ func TestWebUploadMultipartFormReadError(t *testing.T) {
 	req.Header.Add("Content-Type", "multipart/form-data")
 	setBearerForReq(req, webAPIToken)
 	rr := executeRequest(req)
-	checkResponseCode(t, http.StatusInternalServerError, rr)
+	checkResponseCode(t, http.StatusNotFound, rr)
 	assert.Contains(t, rr.Body.String(), "Unable to read uploaded file")
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)

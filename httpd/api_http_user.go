@@ -86,6 +86,12 @@ func createUserDir(w http.ResponseWriter, r *http.Request) {
 	defer common.Connections.Remove(connection.GetID())
 
 	name := util.CleanPath(r.URL.Query().Get("path"))
+	if getBoolQueryParam(r, "mkdir_parents") {
+		if err = connection.CheckParentDirs(path.Dir(name)); err != nil {
+			sendAPIResponse(w, r, err, "Error checking parent directories", getMappedStatusCode(err))
+			return
+		}
+	}
 	err = connection.CreateDir(name)
 	if err != nil {
 		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to create directory %#v", name), getMappedStatusCode(err))
@@ -224,6 +230,12 @@ func uploadUserFile(w http.ResponseWriter, r *http.Request) {
 	defer common.Connections.Remove(connection.GetID())
 
 	filePath := util.CleanPath(r.URL.Query().Get("path"))
+	if getBoolQueryParam(r, "mkdir_parents") {
+		if err = connection.CheckParentDirs(path.Dir(filePath)); err != nil {
+			sendAPIResponse(w, r, err, "Error checking parent directories", getMappedStatusCode(err))
+			return
+		}
+	}
 	doUploadFile(w, r, connection, filePath) //nolint:errcheck
 }
 
@@ -277,6 +289,12 @@ func uploadUserFiles(w http.ResponseWriter, r *http.Request) {
 	if len(files) == 0 {
 		sendAPIResponse(w, r, nil, "No files uploaded!", http.StatusBadRequest)
 		return
+	}
+	if getBoolQueryParam(r, "mkdir_parents") {
+		if err = connection.CheckParentDirs(parentDir); err != nil {
+			sendAPIResponse(w, r, err, "Error checking parent directories", getMappedStatusCode(err))
+			return
+		}
 	}
 	doUploadFiles(w, r, connection, parentDir, files)
 }

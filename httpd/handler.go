@@ -68,7 +68,6 @@ func (c *Connection) Stat(name string, mode int) (os.FileInfo, error) {
 
 	fi, err := c.DoStat(name, mode)
 	if err != nil {
-		c.Log(logger.LevelDebug, "error running stat on path %#v: %+v", name, err)
 		return nil, err
 	}
 	return fi, err
