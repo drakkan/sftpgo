@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"time"
 
 	ftpserverlog "github.com/fclairamb/go-log"
@@ -199,7 +198,6 @@ func EnableConsoleLogger(level zerolog.Level) {
 	consoleOutput := zerolog.ConsoleWriter{
 		Out:        os.Stdout,
 		TimeFormat: dateFormat,
-		NoColor:    runtime.GOOS == "windows",
 	}
 	consoleLogger = zerolog.New(consoleOutput).With().Timestamp().Logger().Level(level)
 }

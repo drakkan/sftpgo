@@ -38,7 +38,7 @@ require (
 	github.com/prometheus/client_golang v1.11.0
 	github.com/rs/cors v1.8.0
 	github.com/rs/xid v1.3.0
-	github.com/rs/zerolog v1.26.2-0.20211217020337-0c8d3c0b10c3
+	github.com/rs/zerolog v1.26.2-0.20211219225053-665519c4da50
 	github.com/shirou/gopsutil/v3 v3.21.11
 	github.com/spf13/afero v1.6.0
 	github.com/spf13/cobra v1.3.0
