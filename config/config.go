@@ -144,6 +144,7 @@ func Init() {
 			MaxPerHostConnections: 20,
 			DefenderConfig: common.DefenderConfig{
 				Enabled:            false,
+				Driver:             common.DefenderDriverMemory,
 				BanTime:            30,
 				BanTimeIncrement:   50,
 				Threshold:          15,
@@ -530,6 +531,12 @@ func LoadConfig(configDir, configFile string) error {
 	}
 	// viper only supports slice of strings from env vars, so we use our custom method
 	loadBindingsFromEnv()
+	resetInvalidConfigs()
+	logger.Debug(logSender, "", "config file used: '%#v', config loaded: %+v", viper.ConfigFileUsed(), getRedactedGlobalConf())
+	return nil
+}
+
+func resetInvalidConfigs() {
 	if strings.TrimSpace(globalConf.SFTPD.Banner) == "" {
 		globalConf.SFTPD.Banner = defaultSFTPDBanner
 	}
@@ -537,39 +544,48 @@ func LoadConfig(configDir, configFile string) error {
 		globalConf.FTPD.Banner = defaultFTPDBanner
 	}
 	if globalConf.ProviderConf.UsersBaseDir != "" && !util.IsFileInputValid(globalConf.ProviderConf.UsersBaseDir) {
-		err = fmt.Errorf("invalid users base dir %#v will be ignored", globalConf.ProviderConf.UsersBaseDir)
+		warn := fmt.Sprintf("invalid users base dir %#v will be ignored", globalConf.ProviderConf.UsersBaseDir)
 		globalConf.ProviderConf.UsersBaseDir = ""
-		logger.Warn(logSender, "", "Configuration error: %v", err)
-		logger.WarnToConsole("Configuration error: %v", err)
+		logger.Warn(logSender, "", "Non-fatal configuration error: %v", warn)
+		logger.WarnToConsole("Non-fatal configuration error: %v", warn)
 	}
 	if globalConf.Common.UploadMode < 0 || globalConf.Common.UploadMode > 2 {
 		warn := fmt.Sprintf("invalid upload_mode 0, 1 and 2 are supported, configured: %v reset upload_mode to 0",
 			globalConf.Common.UploadMode)
 		globalConf.Common.UploadMode = 0
-		logger.Warn(logSender, "", "Configuration error: %v", warn)
-		logger.WarnToConsole("Configuration error: %v", warn)
+		logger.Warn(logSender, "", "Non-fatal configuration error: %v", warn)
+		logger.WarnToConsole("Non-fatal configuration error: %v", warn)
 	}
 	if globalConf.Common.ProxyProtocol < 0 || globalConf.Common.ProxyProtocol > 2 {
 		warn := fmt.Sprintf("invalid proxy_protocol 0, 1 and 2 are supported, configured: %v reset proxy_protocol to 0",
 			globalConf.Common.ProxyProtocol)
 		globalConf.Common.ProxyProtocol = 0
-		logger.Warn(logSender, "", "Configuration error: %v", warn)
-		logger.WarnToConsole("Configuration error: %v", warn)
+		logger.Warn(logSender, "", "Non-fatal configuration error: %v", warn)
+		logger.WarnToConsole("Non-fatal configuration error: %v", warn)
 	}
 	if globalConf.ProviderConf.ExternalAuthScope < 0 || globalConf.ProviderConf.ExternalAuthScope > 15 {
 		warn := fmt.Sprintf("invalid external_auth_scope: %v reset to 0", globalConf.ProviderConf.ExternalAuthScope)
 		globalConf.ProviderConf.ExternalAuthScope = 0
-		logger.Warn(logSender, "", "Configuration error: %v", warn)
-		logger.WarnToConsole("Configuration error: %v", warn)
+		logger.Warn(logSender, "", "Non-fatal configuration error: %v", warn)
+		logger.WarnToConsole("Non-fatal configuration error: %v", warn)
 	}
 	if globalConf.ProviderConf.CredentialsPath == "" {
 		warn := "invalid credentials path, reset to \"credentials\""
 		globalConf.ProviderConf.CredentialsPath = "credentials"
-		logger.Warn(logSender, "", "Configuration error: %v", warn)
-		logger.WarnToConsole("Configuration error: %v", warn)
+		logger.Warn(logSender, "", "Non-fatal configuration error: %v", warn)
+		logger.WarnToConsole("Non-fatal configuration error: %v", warn)
 	}
-	logger.Debug(logSender, "", "config file used: '%#v', config loaded: %+v", viper.ConfigFileUsed(), getRedactedGlobalConf())
-	return nil
+	if globalConf.Common.DefenderConfig.Enabled && globalConf.Common.DefenderConfig.Driver == common.DefenderDriverProvider {
+		if !globalConf.ProviderConf.IsDefenderSupported() {
+			warn := fmt.Sprintf("provider based defender is not supported with data provider %#v, "+
+				"the memory defender implementation will be used. If you want to use the provider defender "+
+				"implementation please switch to a shared/distributed data provider",
+				globalConf.ProviderConf.Driver)
+			globalConf.Common.DefenderConfig.Driver = common.DefenderDriverMemory
+			logger.Warn(logSender, "", "Non-fatal configuration error: %v", warn)
+			logger.WarnToConsole("Non-fatal configuration error: %v", warn)
+		}
+	}
 }
 
 func loadBindingsFromEnv() {
@@ -1200,6 +1216,7 @@ func setViperDefaults() {
 	viper.SetDefault("common.max_total_connections", globalConf.Common.MaxTotalConnections)
 	viper.SetDefault("common.max_per_host_connections", globalConf.Common.MaxPerHostConnections)
 	viper.SetDefault("common.defender.enabled", globalConf.Common.DefenderConfig.Enabled)
+	viper.SetDefault("common.defender.driver", globalConf.Common.DefenderConfig.Driver)
 	viper.SetDefault("common.defender.ban_time", globalConf.Common.DefenderConfig.BanTime)
 	viper.SetDefault("common.defender.ban_time_increment", globalConf.Common.DefenderConfig.BanTimeIncrement)
 	viper.SetDefault("common.defender.threshold", globalConf.Common.DefenderConfig.Threshold)

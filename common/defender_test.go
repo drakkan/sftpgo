@@ -73,7 +73,9 @@ func TestBasicDefender(t *testing.T) {
 	assert.False(t, defender.IsBanned("invalid ip"))
 	assert.Equal(t, 0, defender.countBanned())
 	assert.Equal(t, 0, defender.countHosts())
-	assert.Len(t, defender.GetHosts(), 0)
+	hosts, err := defender.GetHosts()
+	assert.NoError(t, err)
+	assert.Len(t, hosts, 0)
 	_, err = defender.GetHost("10.8.0.4")
 	assert.Error(t, err)
 
@@ -86,35 +88,53 @@ func TestBasicDefender(t *testing.T) {
 	defender.AddEvent(testIP, HostEventLoginFailed)
 	assert.Equal(t, 1, defender.countHosts())
 	assert.Equal(t, 0, defender.countBanned())
-	assert.Equal(t, 1, defender.GetScore(testIP))
-	if assert.Len(t, defender.GetHosts(), 1) {
-		assert.Equal(t, 1, defender.GetHosts()[0].Score)
-		assert.True(t, defender.GetHosts()[0].BanTime.IsZero())
-		assert.Empty(t, defender.GetHosts()[0].GetBanTime())
+	score, err := defender.GetScore(testIP)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, score)
+	hosts, err = defender.GetHosts()
+	assert.NoError(t, err)
+	if assert.Len(t, hosts, 1) {
+		assert.Equal(t, 1, hosts[0].Score)
+		assert.True(t, hosts[0].BanTime.IsZero())
+		assert.Empty(t, hosts[0].GetBanTime())
 	}
 	host, err := defender.GetHost(testIP)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, host.Score)
 	assert.Empty(t, host.GetBanTime())
-	assert.Nil(t, defender.GetBanTime(testIP))
+	banTime, err := defender.GetBanTime(testIP)
+	assert.NoError(t, err)
+	assert.Nil(t, banTime)
 	defender.AddEvent(testIP, HostEventLimitExceeded)
 	assert.Equal(t, 1, defender.countHosts())
 	assert.Equal(t, 0, defender.countBanned())
-	assert.Equal(t, 4, defender.GetScore(testIP))
-	if assert.Len(t, defender.GetHosts(), 1) {
-		assert.Equal(t, 4, defender.GetHosts()[0].Score)
+	score, err = defender.GetScore(testIP)
+	assert.NoError(t, err)
+	assert.Equal(t, 4, score)
+	hosts, err = defender.GetHosts()
+	assert.NoError(t, err)
+	if assert.Len(t, hosts, 1) {
+		assert.Equal(t, 4, hosts[0].Score)
+		assert.True(t, hosts[0].BanTime.IsZero())
+		assert.Empty(t, hosts[0].GetBanTime())
 	}
 	defender.AddEvent(testIP, HostEventNoLoginTried)
 	defender.AddEvent(testIP, HostEventNoLoginTried)
 	assert.Equal(t, 0, defender.countHosts())
 	assert.Equal(t, 1, defender.countBanned())
-	assert.Equal(t, 0, defender.GetScore(testIP))
-	assert.NotNil(t, defender.GetBanTime(testIP))
-	if assert.Len(t, defender.GetHosts(), 1) {
-		assert.Equal(t, 0, defender.GetHosts()[0].Score)
-		assert.False(t, defender.GetHosts()[0].BanTime.IsZero())
-		assert.NotEmpty(t, defender.GetHosts()[0].GetBanTime())
-		assert.Equal(t, hex.EncodeToString([]byte(testIP)), defender.GetHosts()[0].GetID())
+	score, err = defender.GetScore(testIP)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, score)
+	banTime, err = defender.GetBanTime(testIP)
+	assert.NoError(t, err)
+	assert.NotNil(t, banTime)
+	hosts, err = defender.GetHosts()
+	assert.NoError(t, err)
+	if assert.Len(t, hosts, 1) {
+		assert.Equal(t, 0, hosts[0].Score)
+		assert.False(t, hosts[0].BanTime.IsZero())
+		assert.NotEmpty(t, hosts[0].GetBanTime())
+		assert.Equal(t, hex.EncodeToString([]byte(testIP)), hosts[0].GetID())
 	}
 	host, err = defender.GetHost(testIP)
 	assert.NoError(t, err)
@@ -134,14 +154,22 @@ func TestBasicDefender(t *testing.T) {
 	assert.Equal(t, defender.config.EntriesSoftLimit, defender.countHosts())
 	// testIP1 and testIP2 should be removed
 	assert.Equal(t, defender.config.EntriesSoftLimit, defender.countHosts())
-	assert.Equal(t, 0, defender.GetScore(testIP1))
-	assert.Equal(t, 0, defender.GetScore(testIP2))
-	assert.Equal(t, 2, defender.GetScore(testIP3))
+	score, err = defender.GetScore(testIP1)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, score)
+	score, err = defender.GetScore(testIP2)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, score)
+	score, err = defender.GetScore(testIP3)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, score)
 
 	defender.AddEvent(testIP3, HostEventNoLoginTried)
 	defender.AddEvent(testIP3, HostEventNoLoginTried)
 	// IP3 is now banned
-	assert.NotNil(t, defender.GetBanTime(testIP3))
+	banTime, err = defender.GetBanTime(testIP3)
+	assert.NoError(t, err)
+	assert.NotNil(t, banTime)
 	assert.Equal(t, 0, defender.countHosts())
 
 	time.Sleep(20 * time.Millisecond)
@@ -150,9 +178,15 @@ func TestBasicDefender(t *testing.T) {
 	}
 	assert.Equal(t, 0, defender.countHosts())
 	assert.Equal(t, config.EntriesSoftLimit, defender.countBanned())
-	assert.Nil(t, defender.GetBanTime(testIP))
-	assert.Nil(t, defender.GetBanTime(testIP3))
-	assert.NotNil(t, defender.GetBanTime(testIP1))
+	banTime, err = defender.GetBanTime(testIP)
+	assert.NoError(t, err)
+	assert.Nil(t, banTime)
+	banTime, err = defender.GetBanTime(testIP3)
+	assert.NoError(t, err)
+	assert.Nil(t, banTime)
+	banTime, err = defender.GetBanTime(testIP1)
+	assert.NoError(t, err)
+	assert.NotNil(t, banTime)
 
 	for i := 0; i < 3; i++ {
 		defender.AddEvent(testIP, HostEventNoLoginTried)
@@ -162,11 +196,13 @@ func TestBasicDefender(t *testing.T) {
 	assert.Equal(t, 0, defender.countHosts())
 	assert.Equal(t, defender.config.EntriesSoftLimit, defender.countBanned())
 
-	banTime := defender.GetBanTime(testIP3)
+	banTime, err = defender.GetBanTime(testIP3)
+	assert.NoError(t, err)
 	if assert.NotNil(t, banTime) {
 		assert.True(t, defender.IsBanned(testIP3))
 		// ban time should increase
-		newBanTime := defender.GetBanTime(testIP3)
+		newBanTime, err := defender.GetBanTime(testIP3)
+		assert.NoError(t, err)
 		assert.True(t, newBanTime.After(*banTime))
 	}
 
@@ -202,7 +238,8 @@ func TestExpiredHostBans(t *testing.T) {
 	defender.banned[testIP] = time.Now().Add(-24 * time.Hour)
 
 	// the ban is expired testIP should not be listed
-	res := defender.GetHosts()
+	res, err := defender.GetHosts()
+	assert.NoError(t, err)
 	assert.Len(t, res, 0)
 
 	assert.False(t, defender.IsBanned(testIP))
@@ -219,7 +256,8 @@ func TestExpiredHostBans(t *testing.T) {
 	assert.Empty(t, entry.GetBanTime())
 	assert.Equal(t, 1, entry.Score)
 
-	res = defender.GetHosts()
+	res, err = defender.GetHosts()
+	assert.NoError(t, err)
 	if assert.Len(t, res, 1) {
 		assert.Equal(t, testIP, res[0].IP)
 		assert.Empty(t, res[0].GetBanTime())
@@ -244,7 +282,8 @@ func TestExpiredHostBans(t *testing.T) {
 
 	defender.hosts[testIP] = hs
 	// the recorded scored are too old
-	res = defender.GetHosts()
+	res, err = defender.GetHosts()
+	assert.NoError(t, err)
 	assert.Len(t, res, 0)
 	_, err = defender.GetHost(testIP)
 	assert.Error(t, err)
@@ -327,13 +366,15 @@ func TestLoadHostListFromFile(t *testing.T) {
 
 func TestDefenderCleanup(t *testing.T) {
 	d := memoryDefender{
+		baseDefender: baseDefender{
+			config: &DefenderConfig{
+				ObservationTime:  1,
+				EntriesSoftLimit: 2,
+				EntriesHardLimit: 3,
+			},
+		},
 		banned: make(map[string]time.Time),
 		hosts:  make(map[string]hostScore),
-		config: &DefenderConfig{
-			ObservationTime:  1,
-			EntriesSoftLimit: 2,
-			EntriesHardLimit: 3,
-		},
 	}
 
 	d.banned["1.1.1.1"] = time.Now().Add(-24 * time.Hour)
@@ -351,7 +392,9 @@ func TestDefenderCleanup(t *testing.T) {
 
 	d.cleanupBanned()
 	assert.Equal(t, d.config.EntriesSoftLimit, d.countBanned())
-	assert.Nil(t, d.GetBanTime("2.2.2.3"))
+	banTime, err := d.GetBanTime("2.2.2.3")
+	assert.NoError(t, err)
+	assert.Nil(t, banTime)
 
 	d.hosts["3.3.3.3"] = hostScore{
 		TotalScore: 0,
@@ -398,11 +441,15 @@ func TestDefenderCleanup(t *testing.T) {
 		},
 	}
 
-	assert.Equal(t, 1, d.GetScore("3.3.3.3"))
+	score, err := d.GetScore("3.3.3.3")
+	assert.NoError(t, err)
+	assert.Equal(t, 1, score)
 
 	d.cleanupHosts()
 	assert.Equal(t, d.config.EntriesSoftLimit, d.countHosts())
-	assert.Equal(t, 0, d.GetScore("3.3.3.4"))
+	score, err = d.GetScore("3.3.3.4")
+	assert.NoError(t, err)
+	assert.Equal(t, 0, score)
 }
 
 func TestDefenderConfig(t *testing.T) {
@@ -613,7 +660,9 @@ func getDefenderForBench() *memoryDefender {
 		EntriesHardLimit: 100,
 	}
 	return &memoryDefender{
-		config: config,
+		baseDefender: baseDefender{
+			config: config,
+		},
 		hosts:  make(map[string]hostScore),
 		banned: make(map[string]time.Time),
 	}

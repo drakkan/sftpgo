@@ -134,15 +134,22 @@ func TestDefenderIntegration(t *testing.T) {
 	AddDefenderEvent(ip, HostEventNoLoginTried)
 	assert.False(t, IsBanned(ip))
 
-	assert.Nil(t, GetDefenderBanTime(ip))
+	banTime, err := GetDefenderBanTime(ip)
+	assert.NoError(t, err)
+	assert.Nil(t, banTime)
 	assert.False(t, DeleteDefenderHost(ip))
-	assert.Equal(t, 0, GetDefenderScore(ip))
-	_, err := GetDefenderHost(ip)
+	score, err := GetDefenderScore(ip)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, score)
+	_, err = GetDefenderHost(ip)
 	assert.Error(t, err)
-	assert.Nil(t, GetDefenderHosts())
+	hosts, err := GetDefenderHosts()
+	assert.NoError(t, err)
+	assert.Nil(t, hosts)
 
 	Config.DefenderConfig = DefenderConfig{
 		Enabled:          true,
+		Driver:           DefenderDriverProvider,
 		BanTime:          10,
 		BanTimeIncrement: 50,
 		Threshold:        0,
@@ -153,6 +160,16 @@ func TestDefenderIntegration(t *testing.T) {
 		EntriesHardLimit: 150,
 	}
 	err = Initialize(Config)
+	// ScoreInvalid cannot be greater than threshold
+	assert.Error(t, err)
+	Config.DefenderConfig.Driver = "unsupported"
+	err = Initialize(Config)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "unsupported defender driver")
+	}
+	Config.DefenderConfig.Driver = DefenderDriverMemory
+	err = Initialize(Config)
+	// ScoreInvalid cannot be greater than threshold
 	assert.Error(t, err)
 	Config.DefenderConfig.Threshold = 3
 	err = Initialize(Config)
@@ -161,27 +178,41 @@ func TestDefenderIntegration(t *testing.T) {
 
 	AddDefenderEvent(ip, HostEventNoLoginTried)
 	assert.False(t, IsBanned(ip))
-	assert.Equal(t, 2, GetDefenderScore(ip))
+	score, err = GetDefenderScore(ip)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, score)
 	entry, err := GetDefenderHost(ip)
 	assert.NoError(t, err)
 	asJSON, err := json.Marshal(&entry)
 	assert.NoError(t, err)
 	assert.Equal(t, `{"id":"3132372e312e312e31","ip":"127.1.1.1","score":2}`, string(asJSON), "entry %v", entry)
 	assert.True(t, DeleteDefenderHost(ip))
-	assert.Nil(t, GetDefenderBanTime(ip))
+	banTime, err = GetDefenderBanTime(ip)
+	assert.NoError(t, err)
+	assert.Nil(t, banTime)
 
 	AddDefenderEvent(ip, HostEventLoginFailed)
 	AddDefenderEvent(ip, HostEventNoLoginTried)
 	assert.True(t, IsBanned(ip))
-	assert.Equal(t, 0, GetDefenderScore(ip))
-	assert.NotNil(t, GetDefenderBanTime(ip))
-	assert.Len(t, GetDefenderHosts(), 1)
+	score, err = GetDefenderScore(ip)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, score)
+	banTime, err = GetDefenderBanTime(ip)
+	assert.NoError(t, err)
+	assert.NotNil(t, banTime)
+	hosts, err = GetDefenderHosts()
+	assert.NoError(t, err)
+	assert.Len(t, hosts, 1)
 	entry, err = GetDefenderHost(ip)
 	assert.NoError(t, err)
 	assert.False(t, entry.BanTime.IsZero())
 	assert.True(t, DeleteDefenderHost(ip))
-	assert.Len(t, GetDefenderHosts(), 0)
-	assert.Nil(t, GetDefenderBanTime(ip))
+	hosts, err = GetDefenderHosts()
+	assert.NoError(t, err)
+	assert.Len(t, hosts, 0)
+	banTime, err = GetDefenderBanTime(ip)
+	assert.NoError(t, err)
+	assert.Nil(t, banTime)
 	assert.False(t, DeleteDefenderHost(ip))
 
 	Config = configCopy

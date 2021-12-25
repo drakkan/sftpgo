@@ -250,6 +250,35 @@ func TestInvalidUsersBaseDir(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestDefenderProviderDriver(t *testing.T) {
+	if config.GetProviderConf().Driver != dataprovider.SQLiteDataProviderName {
+		t.Skip("this test is not supported with the current database provider")
+	}
+	reset()
+
+	configDir := ".."
+	confName := tempConfigName + ".json"
+	configFilePath := filepath.Join(configDir, confName)
+	providerConf := config.GetProviderConf()
+	providerConf.Driver = dataprovider.BoltDataProviderName
+	commonConfig := config.GetCommonConfig()
+	commonConfig.DefenderConfig.Enabled = true
+	commonConfig.DefenderConfig.Driver = common.DefenderDriverProvider
+	c := make(map[string]interface{})
+	c["common"] = commonConfig
+	c["data_provider"] = providerConf
+	jsonConf, err := json.Marshal(c)
+	assert.NoError(t, err)
+	err = os.WriteFile(configFilePath, jsonConf, os.ModePerm)
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, confName)
+	assert.NoError(t, err)
+	assert.Equal(t, dataprovider.BoltDataProviderName, config.GetProviderConf().Driver)
+	assert.Equal(t, common.DefenderDriverMemory, config.GetCommonConfig().DefenderConfig.Driver)
+	err = os.Remove(configFilePath)
+	assert.NoError(t, err)
+}
+
 func TestSetGetConfig(t *testing.T) {
 	reset()
 

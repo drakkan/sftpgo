@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	boltDatabaseVersion = 14
+	boltDatabaseVersion = 15
 )
 
 var (
@@ -1365,6 +1365,38 @@ func (p *BoltProvider) updateShareLastUse(shareID string, numTokens int) error {
 	})
 }
 
+func (p *BoltProvider) getDefenderHosts(from int64, limit int) ([]*DefenderEntry, error) {
+	return nil, ErrNotImplemented
+}
+
+func (p *BoltProvider) getDefenderHostByIP(ip string, from int64) (*DefenderEntry, error) {
+	return nil, ErrNotImplemented
+}
+
+func (p *BoltProvider) isDefenderHostBanned(ip string) (*DefenderEntry, error) {
+	return nil, ErrNotImplemented
+}
+
+func (p *BoltProvider) updateDefenderBanTime(ip string, minutes int) error {
+	return ErrNotImplemented
+}
+
+func (p *BoltProvider) deleteDefenderHost(ip string) error {
+	return ErrNotImplemented
+}
+
+func (p *BoltProvider) addDefenderEvent(ip string, score int) error {
+	return ErrNotImplemented
+}
+
+func (p *BoltProvider) setDefenderBanTime(ip string, banTime int64) error {
+	return ErrNotImplemented
+}
+
+func (p *BoltProvider) cleanupDefender(from int64) error {
+	return ErrNotImplemented
+}
+
 func (p *BoltProvider) close() error {
 	return p.dbHandle.Close()
 }
@@ -1393,13 +1425,15 @@ func (p *BoltProvider) migrateDatabase() error {
 		logger.ErrorToConsole("%v", err)
 		return err
 	case version == 10:
-		return updateBoltDatabaseVersion(p.dbHandle, 14)
+		return updateBoltDatabaseVersion(p.dbHandle, 15)
 	case version == 11:
-		return updateBoltDatabaseVersion(p.dbHandle, 14)
+		return updateBoltDatabaseVersion(p.dbHandle, 15)
 	case version == 12:
-		return updateBoltDatabaseVersion(p.dbHandle, 14)
+		return updateBoltDatabaseVersion(p.dbHandle, 15)
 	case version == 13:
-		return updateBoltDatabaseVersion(p.dbHandle, 14)
+		return updateBoltDatabaseVersion(p.dbHandle, 15)
+	case version == 14:
+		return updateBoltDatabaseVersion(p.dbHandle, 15)
 	default:
 		if version > boltDatabaseVersion {
 			providerLog(logger.LevelError, "database version %v is newer than the supported one: %v", version,
@@ -1421,13 +1455,7 @@ func (p *BoltProvider) revertDatabase(targetVersion int) error {
 		return errors.New("current version match target version, nothing to do")
 	}
 	switch dbVersion.Version {
-	case 14:
-		return updateBoltDatabaseVersion(p.dbHandle, 10)
-	case 13:
-		return updateBoltDatabaseVersion(p.dbHandle, 10)
-	case 12:
-		return updateBoltDatabaseVersion(p.dbHandle, 10)
-	case 11:
+	case 15, 14, 13, 12, 11:
 		return updateBoltDatabaseVersion(p.dbHandle, 10)
 	default:
 		return fmt.Errorf("database version not handled: %v", dbVersion.Version)

@@ -83,7 +83,9 @@ const (
 	updateUsedQuotaCompatPath       = "/api/v2/quota-update"
 	updateFolderUsedQuotaCompatPath = "/api/v2/folder-quota-update"
 	defenderHosts                   = "/api/v2/defender/hosts"
+	defenderBanTime                 = "/api/v2/defender/bantime"
 	defenderUnban                   = "/api/v2/defender/unban"
+	defenderScore                   = "/api/v2/defender/score"
 	versionPath                     = "/api/v2/version"
 	logoutPath                      = "/api/v2/logout"
 	userPwdPath                     = "/api/v2/user/changepwd"
@@ -4292,106 +4294,118 @@ func TestDumpdata(t *testing.T) {
 func TestDefenderAPI(t *testing.T) {
 	oldConfig := config.GetCommonConfig()
 
-	cfg := config.GetCommonConfig()
-	cfg.DefenderConfig.Enabled = true
-	cfg.DefenderConfig.Threshold = 3
-	cfg.DefenderConfig.ScoreLimitExceeded = 2
+	drivers := []string{common.DefenderDriverMemory}
+	if isDbDefenderSupported() {
+		drivers = append(drivers, common.DefenderDriverProvider)
+	}
 
-	err := common.Initialize(cfg)
-	require.NoError(t, err)
+	for _, driver := range drivers {
+		cfg := config.GetCommonConfig()
+		cfg.DefenderConfig.Enabled = true
+		cfg.DefenderConfig.Driver = driver
+		cfg.DefenderConfig.Threshold = 3
+		cfg.DefenderConfig.ScoreLimitExceeded = 2
 
-	ip := "::1"
+		err := common.Initialize(cfg)
+		assert.NoError(t, err)
 
-	response, _, err := httpdtest.GetBanTime(ip, http.StatusOK)
-	require.NoError(t, err)
-	banTime, ok := response["date_time"]
-	require.True(t, ok)
-	assert.Nil(t, banTime)
+		ip := "::1"
 
-	hosts, _, err := httpdtest.GetDefenderHosts(http.StatusOK)
-	require.NoError(t, err)
-	assert.Len(t, hosts, 0)
+		response, _, err := httpdtest.GetBanTime(ip, http.StatusOK)
+		assert.NoError(t, err)
+		banTime, ok := response["date_time"]
+		assert.True(t, ok)
+		assert.Nil(t, banTime)
 
-	response, _, err = httpdtest.GetScore(ip, http.StatusOK)
-	require.NoError(t, err)
-	score, ok := response["score"]
-	require.True(t, ok)
-	assert.Equal(t, float64(0), score)
+		hosts, _, err := httpdtest.GetDefenderHosts(http.StatusOK)
+		assert.NoError(t, err)
+		assert.Len(t, hosts, 0)
 
-	err = httpdtest.UnbanIP(ip, http.StatusNotFound)
-	require.NoError(t, err)
+		response, _, err = httpdtest.GetScore(ip, http.StatusOK)
+		assert.NoError(t, err)
+		score, ok := response["score"]
+		assert.True(t, ok)
+		assert.Equal(t, float64(0), score)
 
-	_, err = httpdtest.RemoveDefenderHostByIP(ip, http.StatusNotFound)
-	require.NoError(t, err)
+		err = httpdtest.UnbanIP(ip, http.StatusNotFound)
+		assert.NoError(t, err)
 
-	common.AddDefenderEvent(ip, common.HostEventNoLoginTried)
-	response, _, err = httpdtest.GetScore(ip, http.StatusOK)
-	require.NoError(t, err)
-	score, ok = response["score"]
-	require.True(t, ok)
-	assert.Equal(t, float64(2), score)
+		_, err = httpdtest.RemoveDefenderHostByIP(ip, http.StatusNotFound)
+		assert.NoError(t, err)
 
-	hosts, _, err = httpdtest.GetDefenderHosts(http.StatusOK)
-	require.NoError(t, err)
-	if assert.Len(t, hosts, 1) {
-		host := hosts[0]
+		common.AddDefenderEvent(ip, common.HostEventNoLoginTried)
+		response, _, err = httpdtest.GetScore(ip, http.StatusOK)
+		assert.NoError(t, err)
+		score, ok = response["score"]
+		assert.True(t, ok)
+		assert.Equal(t, float64(2), score)
+
+		hosts, _, err = httpdtest.GetDefenderHosts(http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, hosts, 1) {
+			host := hosts[0]
+			assert.Empty(t, host.GetBanTime())
+			assert.Equal(t, 2, host.Score)
+			assert.Equal(t, ip, host.IP)
+		}
+		host, _, err := httpdtest.GetDefenderHostByIP(ip, http.StatusOK)
+		assert.NoError(t, err)
 		assert.Empty(t, host.GetBanTime())
 		assert.Equal(t, 2, host.Score)
-		assert.Equal(t, ip, host.IP)
-	}
-	host, _, err := httpdtest.GetDefenderHostByIP(ip, http.StatusOK)
-	assert.NoError(t, err)
-	assert.Empty(t, host.GetBanTime())
-	assert.Equal(t, 2, host.Score)
 
-	common.AddDefenderEvent(ip, common.HostEventNoLoginTried)
-	response, _, err = httpdtest.GetBanTime(ip, http.StatusOK)
-	require.NoError(t, err)
-	banTime, ok = response["date_time"]
-	require.True(t, ok)
-	assert.NotNil(t, banTime)
-	hosts, _, err = httpdtest.GetDefenderHosts(http.StatusOK)
-	require.NoError(t, err)
-	if assert.Len(t, hosts, 1) {
-		host := hosts[0]
+		common.AddDefenderEvent(ip, common.HostEventNoLoginTried)
+		response, _, err = httpdtest.GetBanTime(ip, http.StatusOK)
+		assert.NoError(t, err)
+		banTime, ok = response["date_time"]
+		assert.True(t, ok)
+		assert.NotNil(t, banTime)
+		hosts, _, err = httpdtest.GetDefenderHosts(http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, hosts, 1) {
+			host := hosts[0]
+			assert.NotEmpty(t, host.GetBanTime())
+			assert.Equal(t, 0, host.Score)
+			assert.Equal(t, ip, host.IP)
+		}
+		host, _, err = httpdtest.GetDefenderHostByIP(ip, http.StatusOK)
+		assert.NoError(t, err)
 		assert.NotEmpty(t, host.GetBanTime())
 		assert.Equal(t, 0, host.Score)
-		assert.Equal(t, ip, host.IP)
+
+		err = httpdtest.UnbanIP(ip, http.StatusOK)
+		assert.NoError(t, err)
+
+		err = httpdtest.UnbanIP(ip, http.StatusNotFound)
+		assert.NoError(t, err)
+
+		host, _, err = httpdtest.GetDefenderHostByIP(ip, http.StatusNotFound)
+		assert.NoError(t, err)
+
+		common.AddDefenderEvent(ip, common.HostEventNoLoginTried)
+		common.AddDefenderEvent(ip, common.HostEventNoLoginTried)
+		hosts, _, err = httpdtest.GetDefenderHosts(http.StatusOK)
+		assert.NoError(t, err)
+		assert.Len(t, hosts, 1)
+
+		_, err = httpdtest.RemoveDefenderHostByIP(ip, http.StatusOK)
+		assert.NoError(t, err)
+
+		host, _, err = httpdtest.GetDefenderHostByIP(ip, http.StatusNotFound)
+		assert.NoError(t, err)
+		_, err = httpdtest.RemoveDefenderHostByIP(ip, http.StatusNotFound)
+		assert.NoError(t, err)
+
+		host, _, err = httpdtest.GetDefenderHostByIP("invalid_ip", http.StatusBadRequest)
+		assert.NoError(t, err)
+		_, err = httpdtest.RemoveDefenderHostByIP("invalid_ip", http.StatusBadRequest)
+		assert.NoError(t, err)
+		if driver == common.DefenderDriverProvider {
+			err = dataprovider.CleanupDefender(util.GetTimeAsMsSinceEpoch(time.Now().Add(1 * time.Hour)))
+			assert.NoError(t, err)
+		}
 	}
-	host, _, err = httpdtest.GetDefenderHostByIP(ip, http.StatusOK)
-	assert.NoError(t, err)
-	assert.NotEmpty(t, host.GetBanTime())
-	assert.Equal(t, 0, host.Score)
 
-	err = httpdtest.UnbanIP(ip, http.StatusOK)
-	require.NoError(t, err)
-
-	err = httpdtest.UnbanIP(ip, http.StatusNotFound)
-	require.NoError(t, err)
-
-	host, _, err = httpdtest.GetDefenderHostByIP(ip, http.StatusNotFound)
-	assert.NoError(t, err)
-
-	common.AddDefenderEvent(ip, common.HostEventNoLoginTried)
-	common.AddDefenderEvent(ip, common.HostEventNoLoginTried)
-	hosts, _, err = httpdtest.GetDefenderHosts(http.StatusOK)
-	require.NoError(t, err)
-	assert.Len(t, hosts, 1)
-
-	_, err = httpdtest.RemoveDefenderHostByIP(ip, http.StatusOK)
-	assert.NoError(t, err)
-
-	host, _, err = httpdtest.GetDefenderHostByIP(ip, http.StatusNotFound)
-	assert.NoError(t, err)
-	_, err = httpdtest.RemoveDefenderHostByIP(ip, http.StatusNotFound)
-	assert.NoError(t, err)
-
-	host, _, err = httpdtest.GetDefenderHostByIP("invalid_ip", http.StatusBadRequest)
-	assert.NoError(t, err)
-	_, err = httpdtest.RemoveDefenderHostByIP("invalid_ip", http.StatusBadRequest)
-	assert.NoError(t, err)
-
-	err = common.Initialize(oldConfig)
+	err := common.Initialize(oldConfig)
 	require.NoError(t, err)
 }
 
@@ -4407,6 +4421,53 @@ func TestDefenderAPIErrors(t *testing.T) {
 
 	err = httpdtest.UnbanIP("", http.StatusBadRequest)
 	require.NoError(t, err)
+	if isDbDefenderSupported() {
+		oldConfig := config.GetCommonConfig()
+
+		cfg := config.GetCommonConfig()
+		cfg.DefenderConfig.Enabled = true
+		cfg.DefenderConfig.Driver = common.DefenderDriverProvider
+		err := common.Initialize(cfg)
+		require.NoError(t, err)
+
+		token, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+		assert.NoError(t, err)
+
+		err = dataprovider.Close()
+		assert.NoError(t, err)
+
+		ip := "127.1.1.2"
+
+		req, err := http.NewRequest(http.MethodGet, defenderHosts, nil)
+		assert.NoError(t, err)
+		setBearerForReq(req, token)
+		rr := executeRequest(req)
+		checkResponseCode(t, http.StatusInternalServerError, rr)
+
+		req, err = http.NewRequest(http.MethodGet, defenderBanTime+"?ip="+ip, nil)
+		assert.NoError(t, err)
+		setBearerForReq(req, token)
+		rr = executeRequest(req)
+		checkResponseCode(t, http.StatusInternalServerError, rr)
+
+		req, err = http.NewRequest(http.MethodGet, defenderScore+"?ip="+ip, nil)
+		assert.NoError(t, err)
+		setBearerForReq(req, token)
+		rr = executeRequest(req)
+		checkResponseCode(t, http.StatusInternalServerError, rr)
+
+		err = config.LoadConfig(configDir, "")
+		assert.NoError(t, err)
+		providerConf := config.GetProviderConf()
+		providerConf.CredentialsPath = credentialsPath
+		err = os.RemoveAll(credentialsPath)
+		assert.NoError(t, err)
+		err = dataprovider.Initialize(providerConf, configDir, true)
+		assert.NoError(t, err)
+
+		err = common.Initialize(oldConfig)
+		require.NoError(t, err)
+	}
 }
 
 func TestRestoreShares(t *testing.T) {
@@ -15959,6 +16020,18 @@ func generateTOTPPasscode(secret string) (string, error) {
 		Digits:    otp.DigitsSix,
 		Algorithm: otp.AlgorithmSHA1,
 	})
+}
+
+func isDbDefenderSupported() bool {
+	// SQLite shares the implementation with other SQL-based provider but it makes no sense
+	// to use it outside test cases
+	switch dataprovider.GetProviderStatus().Driver {
+	case dataprovider.MySQLDataProviderName, dataprovider.PGSQLDataProviderName,
+		dataprovider.CockroachDataProviderName, dataprovider.SQLiteDataProviderName:
+		return true
+	default:
+		return false
+	}
 }
 
 func BenchmarkSecretDecryption(b *testing.B) {

@@ -799,8 +799,8 @@ func GetStatus(expectedStatusCode int) (httpd.ServicesStatus, []byte, error) {
 }
 
 // GetDefenderHosts returns hosts that are banned or for which some violations have been detected
-func GetDefenderHosts(expectedStatusCode int) ([]common.DefenderEntry, []byte, error) {
-	var response []common.DefenderEntry
+func GetDefenderHosts(expectedStatusCode int) ([]dataprovider.DefenderEntry, []byte, error) {
+	var response []dataprovider.DefenderEntry
 	var body []byte
 	url, err := url.Parse(buildURLRelativeToBase(defenderHosts))
 	if err != nil {
@@ -821,8 +821,8 @@ func GetDefenderHosts(expectedStatusCode int) ([]common.DefenderEntry, []byte, e
 }
 
 // GetDefenderHostByIP returns the host with the given IP, if it exists
-func GetDefenderHostByIP(ip string, expectedStatusCode int) (common.DefenderEntry, []byte, error) {
-	var host common.DefenderEntry
+func GetDefenderHostByIP(ip string, expectedStatusCode int) (dataprovider.DefenderEntry, []byte, error) {
+	var host dataprovider.DefenderEntry
 	var body []byte
 	id := hex.EncodeToString([]byte(ip))
 	resp, err := sendHTTPRequest(http.MethodGet, buildURLRelativeToBase(defenderHosts, id),

@@ -3,6 +3,4 @@
 
 package config
 
-func setViperAdditionalConfigPaths() {
-
-}
+func setViperAdditionalConfigPaths() {}

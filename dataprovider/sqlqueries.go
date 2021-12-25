@@ -31,6 +31,79 @@ func getSQLPlaceholders() []string {
 	return placeholders
 }
 
+func getAddDefenderHostQuery() string {
+	if config.Driver == MySQLDataProviderName {
+		return fmt.Sprintf("INSERT INTO %v (`ip`,`updated_at`,`ban_time`) VALUES (%v,%v,0) ON DUPLICATE KEY UPDATE `updated_at`=VALUES(`updated_at`)",
+			sqlTableDefenderHosts, sqlPlaceholders[0], sqlPlaceholders[1])
+	}
+	return fmt.Sprintf(`INSERT INTO %v (ip,updated_at,ban_time) VALUES (%v,%v,0) ON CONFLICT (ip) DO UPDATE SET updated_at = EXCLUDED.updated_at RETURNING id`,
+		sqlTableDefenderHosts, sqlPlaceholders[0], sqlPlaceholders[1])
+}
+
+func getAddDefenderEventQuery() string {
+	return fmt.Sprintf(`INSERT INTO %v (date_time,score,host_id) VALUES (%v,%v,(SELECT id from %v WHERE ip = %v))`,
+		sqlTableDefenderEvents, sqlPlaceholders[0], sqlPlaceholders[1], sqlTableDefenderHosts, sqlPlaceholders[2])
+}
+
+func getDefenderHostsQuery() string {
+	return fmt.Sprintf(`SELECT id,ip,ban_time FROM %v WHERE updated_at >= %v ORDER BY updated_at DESC LIMIT %v`,
+		sqlTableDefenderHosts, sqlPlaceholders[0], sqlPlaceholders[1])
+}
+
+func getDefenderHostQuery() string {
+	return fmt.Sprintf(`SELECT id,ip,ban_time FROM %v WHERE ip = %v AND updated_at >= %v`,
+		sqlTableDefenderHosts, sqlPlaceholders[0], sqlPlaceholders[1])
+}
+
+func getDefenderEventsQuery(hostIDS []int64) string {
+	var sb strings.Builder
+	for _, hID := range hostIDS {
+		if sb.Len() == 0 {
+			sb.WriteString("(")
+		} else {
+			sb.WriteString(",")
+		}
+		sb.WriteString(strconv.FormatInt(hID, 10))
+	}
+	if sb.Len() > 0 {
+		sb.WriteString(")")
+	} else {
+		sb.WriteString("(0)")
+	}
+	return fmt.Sprintf(`SELECT host_id,SUM(score) FROM %v WHERE date_time >= %v AND host_id IN %v GROUP BY host_id`,
+		sqlTableDefenderEvents, sqlPlaceholders[0], sb.String())
+}
+
+func getDefenderIsHostBannedQuery() string {
+	return fmt.Sprintf(`SELECT id FROM %v WHERE ip = %v AND ban_time >= %v`,
+		sqlTableDefenderHosts, sqlPlaceholders[0], sqlPlaceholders[1])
+}
+
+func getDefenderIncrementBanTimeQuery() string {
+	return fmt.Sprintf(`UPDATE %v SET ban_time = ban_time + %v WHERE ip = %v`,
+		sqlTableDefenderHosts, sqlPlaceholders[0], sqlPlaceholders[1])
+}
+
+func getDefenderSetBanTimeQuery() string {
+	return fmt.Sprintf(`UPDATE %v SET ban_time = %v WHERE ip = %v`,
+		sqlTableDefenderHosts, sqlPlaceholders[0], sqlPlaceholders[1])
+}
+
+func getDeleteDefenderHostQuery() string {
+	return fmt.Sprintf(`DELETE FROM %v WHERE ip = %v`, sqlTableDefenderHosts, sqlPlaceholders[0])
+}
+
+func getDefenderHostsCleanupQuery() string {
+	return fmt.Sprintf(`DELETE FROM %v WHERE ban_time < %v AND NOT EXISTS (
+		SELECT id FROM %v WHERE %v.host_id = %v.id AND %v.date_time > %v)`,
+		sqlTableDefenderHosts, sqlPlaceholders[0], sqlTableDefenderEvents, sqlTableDefenderEvents, sqlTableDefenderHosts,
+		sqlTableDefenderEvents, sqlPlaceholders[1])
+}
+
+func getDefenderEventsCleanupQuery() string {
+	return fmt.Sprintf(`DELETE FROM %v WHERE date_time < %v`, sqlTableDefenderEvents, sqlPlaceholders[0])
+}
+
 func getAdminByUsernameQuery() string {
 	return fmt.Sprintf(`SELECT %v FROM %v WHERE username = %v`, selectAdminFields, sqlTableAdmins, sqlPlaceholders[0])
 }

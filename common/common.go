@@ -139,14 +139,6 @@ func Initialize(c Configuration) error {
 		startIdleTimeoutTicker(idleTimeoutCheckInterval)
 	}
 	Config.defender = nil
-	if c.DefenderConfig.Enabled {
-		defender, err := newInMemoryDefender(&c.DefenderConfig)
-		if err != nil {
-			return fmt.Errorf("defender initialization error: %v", err)
-		}
-		logger.Info(logSender, "", "defender initialized with config %+v", c.DefenderConfig)
-		Config.defender = defender
-	}
 	rateLimiters = make(map[string][]*rateLimiter)
 	for _, rlCfg := range c.RateLimitersConfig {
 		if rlCfg.isEnabled() {
@@ -163,6 +155,24 @@ func Initialize(c Configuration) error {
 				rateLimiters[protocol] = append(rateLimiters[protocol], rateLimiter)
 			}
 		}
+	}
+	if c.DefenderConfig.Enabled {
+		if !util.IsStringInSlice(c.DefenderConfig.Driver, supportedDefenderDrivers) {
+			return fmt.Errorf("unsupported defender driver %#v", c.DefenderConfig.Driver)
+		}
+		var defender Defender
+		var err error
+		switch c.DefenderConfig.Driver {
+		case DefenderDriverProvider:
+			defender, err = newDBDefender(&c.DefenderConfig)
+		default:
+			defender, err = newInMemoryDefender(&c.DefenderConfig)
+		}
+		if err != nil {
+			return fmt.Errorf("defender initialization error: %v", err)
+		}
+		logger.Info(logSender, "", "defender initialized with config %+v", c.DefenderConfig)
+		Config.defender = defender
 	}
 	vfs.SetTempPath(c.TempPath)
 	dataprovider.SetTempPath(c.TempPath)
@@ -203,25 +213,25 @@ func IsBanned(ip string) bool {
 
 // GetDefenderBanTime returns the ban time for the given IP
 // or nil if the IP is not banned or the defender is disabled
-func GetDefenderBanTime(ip string) *time.Time {
+func GetDefenderBanTime(ip string) (*time.Time, error) {
 	if Config.defender == nil {
-		return nil
+		return nil, nil
 	}
 
 	return Config.defender.GetBanTime(ip)
 }
 
 // GetDefenderHosts returns hosts that are banned or for which some violations have been detected
-func GetDefenderHosts() []*DefenderEntry {
+func GetDefenderHosts() ([]*dataprovider.DefenderEntry, error) {
 	if Config.defender == nil {
-		return nil
+		return nil, nil
 	}
 
 	return Config.defender.GetHosts()
 }
 
 // GetDefenderHost returns a defender host by ip, if any
-func GetDefenderHost(ip string) (*DefenderEntry, error) {
+func GetDefenderHost(ip string) (*dataprovider.DefenderEntry, error) {
 	if Config.defender == nil {
 		return nil, errors.New("defender is disabled")
 	}
@@ -239,9 +249,9 @@ func DeleteDefenderHost(ip string) bool {
 }
 
 // GetDefenderScore returns the score for the given IP
-func GetDefenderScore(ip string) int {
+func GetDefenderScore(ip string) (int, error) {
 	if Config.defender == nil {
-		return 0
+		return 0, nil
 	}
 
 	return Config.defender.GetScore(ip)

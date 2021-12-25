@@ -1,6 +1,8 @@
 package util
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // ValidationError raised if input data is not valid
 type ValidationError struct {

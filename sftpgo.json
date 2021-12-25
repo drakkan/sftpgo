@@ -19,6 +19,7 @@
     "max_per_host_connections": 20,
     "defender": {
       "enabled": false,
+      "driver": "memory",
       "ban_time": 30,
       "ban_time_increment": 50,
       "threshold": 15,

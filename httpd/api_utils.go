@@ -85,7 +85,7 @@ func getRespStatus(err error) int {
 	if os.IsPermission(err) {
 		return http.StatusForbidden
 	}
-	if errors.Is(err, plugin.ErrNoSearcher) {
+	if errors.Is(err, plugin.ErrNoSearcher) || errors.Is(err, dataprovider.ErrNotImplemented) {
 		return http.StatusNotImplemented
 	}
 	return http.StatusInternalServerError

@@ -1256,6 +1256,38 @@ func (p *MemoryProvider) updateShareLastUse(shareID string, numTokens int) error
 	return nil
 }
 
+func (p *MemoryProvider) getDefenderHosts(from int64, limit int) ([]*DefenderEntry, error) {
+	return nil, ErrNotImplemented
+}
+
+func (p *MemoryProvider) getDefenderHostByIP(ip string, from int64) (*DefenderEntry, error) {
+	return nil, ErrNotImplemented
+}
+
+func (p *MemoryProvider) isDefenderHostBanned(ip string) (*DefenderEntry, error) {
+	return nil, ErrNotImplemented
+}
+
+func (p *MemoryProvider) updateDefenderBanTime(ip string, minutes int) error {
+	return ErrNotImplemented
+}
+
+func (p *MemoryProvider) deleteDefenderHost(ip string) error {
+	return ErrNotImplemented
+}
+
+func (p *MemoryProvider) addDefenderEvent(ip string, score int) error {
+	return ErrNotImplemented
+}
+
+func (p *MemoryProvider) setDefenderBanTime(ip string, banTime int64) error {
+	return ErrNotImplemented
+}
+
+func (p *MemoryProvider) cleanupDefender(from int64) error {
+	return ErrNotImplemented
+}
+
 func (p *MemoryProvider) getNextID() int64 {
 	nextID := int64(1)
 	for _, v := range p.dbHandle.users {

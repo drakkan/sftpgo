@@ -38,6 +38,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/mfa"
 	"github.com/drakkan/sftpgo/v2/sdk"
+	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
@@ -2161,6 +2162,58 @@ func TestUserPasswordHashing(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestDbDefenderErrors(t *testing.T) {
+	if !isDbDefenderSupported() {
+		t.Skip("this test is not supported with the current database provider")
+	}
+	configCopy := common.Config
+	common.Config.DefenderConfig.Enabled = true
+	common.Config.DefenderConfig.Driver = common.DefenderDriverProvider
+	err := common.Initialize(common.Config)
+	assert.NoError(t, err)
+
+	testIP := "127.1.1.1"
+	hosts, err := common.GetDefenderHosts()
+	assert.NoError(t, err)
+	assert.Len(t, hosts, 0)
+	common.AddDefenderEvent(testIP, common.HostEventLimitExceeded)
+	hosts, err = common.GetDefenderHosts()
+	assert.NoError(t, err)
+	assert.Len(t, hosts, 1)
+	score, err := common.GetDefenderScore(testIP)
+	assert.NoError(t, err)
+	assert.Equal(t, 3, score)
+	banTime, err := common.GetDefenderBanTime(testIP)
+	assert.NoError(t, err)
+	assert.Nil(t, banTime)
+
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+
+	common.AddDefenderEvent(testIP, common.HostEventLimitExceeded)
+	_, err = common.GetDefenderHosts()
+	assert.Error(t, err)
+	_, err = common.GetDefenderHost(testIP)
+	assert.Error(t, err)
+	_, err = common.GetDefenderBanTime(testIP)
+	assert.Error(t, err)
+	_, err = common.GetDefenderScore(testIP)
+	assert.Error(t, err)
+
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf := config.GetProviderConf()
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+
+	err = dataprovider.CleanupDefender(util.GetTimeAsMsSinceEpoch(time.Now().Add(1 * time.Hour)))
+	assert.NoError(t, err)
+
+	common.Config = configCopy
+	err = common.Initialize(common.Config)
+	assert.NoError(t, err)
+}
+
 func TestDelayedQuotaUpdater(t *testing.T) {
 	err := dataprovider.Close()
 	assert.NoError(t, err)
@@ -3301,4 +3354,16 @@ func generateTOTPPasscode(secret string, algo otp.Algorithm) (string, error) {
 		Digits:    otp.DigitsSix,
 		Algorithm: algo,
 	})
+}
+
+func isDbDefenderSupported() bool {
+	// SQLite shares the implementation with other SQL-based provider but it makes no sense
+	// to use it outside test cases
+	switch dataprovider.GetProviderStatus().Driver {
+	case dataprovider.MySQLDataProviderName, dataprovider.PGSQLDataProviderName,
+		dataprovider.CockroachDataProviderName, dataprovider.SQLiteDataProviderName:
+		return true
+	default:
+		return false
+	}
 }

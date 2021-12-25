@@ -11,13 +11,19 @@ import (
 	"github.com/go-chi/render"
 
 	"github.com/drakkan/sftpgo/v2/common"
+	"github.com/drakkan/sftpgo/v2/dataprovider"
+	"github.com/drakkan/sftpgo/v2/util"
 )
 
 func getDefenderHosts(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	hosts := common.GetDefenderHosts()
+	hosts, err := common.GetDefenderHosts()
+	if err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
+	}
 	if hosts == nil {
-		render.JSON(w, r, make([]common.DefenderEntry, 0))
+		render.JSON(w, r, make([]dataprovider.DefenderEntry, 0))
 		return
 	}
 	render.JSON(w, r, hosts)
@@ -64,7 +70,15 @@ func getBanTime(w http.ResponseWriter, r *http.Request) {
 
 	banStatus := make(map[string]*string)
 
-	banTime := common.GetDefenderBanTime(ip)
+	banTime, err := common.GetDefenderBanTime(ip)
+	if err != nil {
+		if _, ok := err.(*util.RecordNotFoundError); ok {
+			banTime = nil
+		} else {
+			sendAPIResponse(w, r, err, "", getRespStatus(err))
+			return
+		}
+	}
 	var banTimeString *string
 	if banTime != nil {
 		rfc3339String := banTime.UTC().Format(time.RFC3339)
@@ -84,8 +98,18 @@ func getScore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	score, err := common.GetDefenderScore(ip)
+	if err != nil {
+		if _, ok := err.(*util.RecordNotFoundError); ok {
+			score = 0
+		} else {
+			sendAPIResponse(w, r, err, "", getRespStatus(err))
+			return
+		}
+	}
+
 	scoreStatus := make(map[string]int)
-	scoreStatus["score"] = common.GetDefenderScore(ip)
+	scoreStatus["score"] = score
 
 	render.JSON(w, r, scoreStatus)
 }

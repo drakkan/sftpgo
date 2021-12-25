@@ -12,6 +12,7 @@ import (
 	"crypto/subtle"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -125,6 +126,8 @@ var (
 	SSHMultiStepsLoginMethods = []string{SSHLoginMethodKeyAndPassword, SSHLoginMethodKeyAndKeyboardInt}
 	// ErrNoAuthTryed defines the error for connection closed before authentication
 	ErrNoAuthTryed = errors.New("no auth tryed")
+	// ErrNotImplemented defines the error for features not supported for a particular data provider
+	ErrNotImplemented = errors.New("feature not supported with the configured data provider")
 	// ValidProtocols defines all the valid protcols
 	ValidProtocols = []string{protocolSSH, protocolFTP, protocolWebDAV, protocolHTTP}
 	// MFAProtocols defines the supported protocols for multi-factor authentication
@@ -160,6 +163,8 @@ var (
 	sqlTableAdmins          = "admins"
 	sqlTableAPIKeys         = "api_keys"
 	sqlTableShares          = "shares"
+	sqlTableDefenderHosts   = "defender_hosts"
+	sqlTableDefenderEvents  = "defender_events"
 	sqlTableSchemaVersion   = "schema_version"
 	argon2Params            *argon2id.Params
 	lastLoginMinDelay       = 10 * time.Minute
@@ -366,6 +371,52 @@ type Config struct {
 	IsShared int `json:"is_shared" mapstructure:"is_shared"`
 }
 
+// IsDefenderSupported returns true if the configured provider supports the defender
+func (c *Config) IsDefenderSupported() bool {
+	switch c.Driver {
+	case MySQLDataProviderName, PGSQLDataProviderName, CockroachDataProviderName:
+		return true
+	default:
+		return false
+	}
+}
+
+// DefenderEntry defines a defender entry
+type DefenderEntry struct {
+	ID      int64     `json:"-"`
+	IP      string    `json:"ip"`
+	Score   int       `json:"score,omitempty"`
+	BanTime time.Time `json:"ban_time,omitempty"`
+}
+
+// GetID returns an unique ID for a defender entry
+func (d *DefenderEntry) GetID() string {
+	return hex.EncodeToString([]byte(d.IP))
+}
+
+// GetBanTime returns the ban time for a defender entry as string
+func (d *DefenderEntry) GetBanTime() string {
+	if d.BanTime.IsZero() {
+		return ""
+	}
+	return d.BanTime.UTC().Format(time.RFC3339)
+}
+
+// MarshalJSON returns the JSON encoding of a DefenderEntry.
+func (d *DefenderEntry) MarshalJSON() ([]byte, error) {
+	return json.Marshal(&struct {
+		ID      string `json:"id"`
+		IP      string `json:"ip"`
+		Score   int    `json:"score,omitempty"`
+		BanTime string `json:"ban_time,omitempty"`
+	}{
+		ID:      d.GetID(),
+		IP:      d.IP,
+		Score:   d.Score,
+		BanTime: d.GetBanTime(),
+	})
+}
+
 // BackupData defines the structure for the backup/restore files
 type BackupData struct {
 	Users   []User                  `json:"users"`
@@ -452,6 +503,14 @@ type Provider interface {
 	getShares(limit int, offset int, order, username string) ([]Share, error)
 	dumpShares() ([]Share, error)
 	updateShareLastUse(shareID string, numTokens int) error
+	getDefenderHosts(from int64, limit int) ([]*DefenderEntry, error)
+	getDefenderHostByIP(ip string, from int64) (*DefenderEntry, error)
+	isDefenderHostBanned(ip string) (*DefenderEntry, error)
+	updateDefenderBanTime(ip string, minutes int) error
+	deleteDefenderHost(ip string) error
+	addDefenderEvent(ip string, score int) error
+	setDefenderBanTime(ip string, banTime int64) error
+	cleanupDefender(from int64) error
 	checkAvailability() error
 	close() error
 	reloadConfig() error
@@ -861,6 +920,50 @@ func CheckKeyboardInteractiveAuth(username, authHook string, client ssh.Keyboard
 	return doKeyboardInteractiveAuth(&user, authHook, client, ip, protocol)
 }
 
+// GetDefenderHosts returns hosts that are banned or for which some violations have been detected
+func GetDefenderHosts(from int64, limit int) ([]*DefenderEntry, error) {
+	return provider.getDefenderHosts(from, limit)
+}
+
+// GetDefenderHostByIP returns a defender host by ip, if any
+func GetDefenderHostByIP(ip string, from int64) (*DefenderEntry, error) {
+	return provider.getDefenderHostByIP(ip, from)
+}
+
+// IsDefenderHostBanned returns a defender entry and no error if the specified host is banned
+func IsDefenderHostBanned(ip string) (*DefenderEntry, error) {
+	return provider.isDefenderHostBanned(ip)
+}
+
+// UpdateDefenderBanTime increments ban time for the specified ip
+func UpdateDefenderBanTime(ip string, minutes int) error {
+	return provider.updateDefenderBanTime(ip, minutes)
+}
+
+// DeleteDefenderHost removes the specified IP from the defender lists
+func DeleteDefenderHost(ip string) error {
+	return provider.deleteDefenderHost(ip)
+}
+
+// AddDefenderEvent adds an event for the given IP with the given score
+// and returns the host with the updated score
+func AddDefenderEvent(ip string, score int, from int64) (*DefenderEntry, error) {
+	if err := provider.addDefenderEvent(ip, score); err != nil {
+		return nil, err
+	}
+	return provider.getDefenderHostByIP(ip, from)
+}
+
+// SetDefenderBanTime sets the ban time for the specified IP
+func SetDefenderBanTime(ip string, banTime int64) error {
+	return provider.setDefenderBanTime(ip, banTime)
+}
+
+// CleanupDefender removes events and hosts older than "from" from the data provider
+func CleanupDefender(from int64) error {
+	return provider.cleanupDefender(from)
+}
+
 // UpdateShareLastUse updates the LastUseAt and UsedTokens for the given share
 func UpdateShareLastUse(share *Share, numTokens int) error {
 	return provider.updateShareLastUse(share.ShareID, numTokens)
@@ -1251,6 +1354,11 @@ func ParseDumpData(data []byte) (BackupData, error) {
 	var dump BackupData
 	err := json.Unmarshal(data, &dump)
 	return dump, err
+}
+
+// GetProviderConfig returns the current provider configuration
+func GetProviderConfig() Config {
+	return config
 }
 
 // GetProviderStatus returns an error if the provider is not available

@@ -27,6 +27,8 @@ DROP TABLE IF EXISTS "{{admins}}" CASCADE;
 DROP TABLE IF EXISTS "{{folders}}" CASCADE;
 DROP TABLE IF EXISTS "{{shares}}" CASCADE;
 DROP TABLE IF EXISTS "{{users}}" CASCADE;
+DROP TABLE IF EXISTS "{{defender_events}}" CASCADE;
+DROP TABLE IF EXISTS "{{defender_hosts}}" CASCADE;
 DROP TABLE IF EXISTS "{{schema_version}}" CASCADE;
 `
 	pgsqlInitial = `CREATE TABLE "{{schema_version}}" ("id" serial NOT NULL PRIMARY KEY, "version" integer NOT NULL);
@@ -97,6 +99,20 @@ REFERENCES "{{users}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE
 CREATE INDEX "{{prefix}}shares_user_id_idx" ON "{{shares}}" ("user_id");
 `
 	pgsqlV14DownSQL = `DROP TABLE "{{shares}}" CASCADE;`
+	pgsqlV15SQL     = `CREATE TABLE "{{defender_hosts}}" ("id" bigserial NOT NULL PRIMARY KEY, "ip" varchar(50) NOT NULL UNIQUE,
+"ban_time" bigint NOT NULL, "updated_at" bigint NOT NULL);
+CREATE TABLE "{{defender_events}}" ("id" bigserial NOT NULL PRIMARY KEY, "date_time" bigint NOT NULL, "score" integer NOT NULL,
+"host_id" bigint NOT NULL);
+ALTER TABLE "{{defender_events}}" ADD CONSTRAINT "{{prefix}}defender_events_host_id_fk_defender_hosts_id" FOREIGN KEY
+("host_id") REFERENCES "{{defender_hosts}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE;
+CREATE INDEX "{{prefix}}defender_hosts_updated_at_idx" ON "{{defender_hosts}}" ("updated_at");
+CREATE INDEX "{{prefix}}defender_hosts_ban_time_idx" ON "{{defender_hosts}}" ("ban_time");
+CREATE INDEX "{{prefix}}defender_events_date_time_idx" ON "{{defender_events}}" ("date_time");
+CREATE INDEX "{{prefix}}defender_events_host_id_idx" ON "{{defender_events}}" ("host_id");
+`
+	pgsqlV15DownSQL = `DROP TABLE "{{defender_events}}" CASCADE;
+DROP TABLE "{{defender_hosts}}" CASCADE;
+`
 )
 
 // PGSQLProvider auth provider for PostgreSQL database
@@ -326,6 +342,38 @@ func (p *PGSQLProvider) updateShareLastUse(shareID string, numTokens int) error 
 	return sqlCommonUpdateShareLastUse(shareID, numTokens, p.dbHandle)
 }
 
+func (p *PGSQLProvider) getDefenderHosts(from int64, limit int) ([]*DefenderEntry, error) {
+	return sqlCommonGetDefenderHosts(from, limit, p.dbHandle)
+}
+
+func (p *PGSQLProvider) getDefenderHostByIP(ip string, from int64) (*DefenderEntry, error) {
+	return sqlCommonGetDefenderHostByIP(ip, from, p.dbHandle)
+}
+
+func (p *PGSQLProvider) isDefenderHostBanned(ip string) (*DefenderEntry, error) {
+	return sqlCommonIsDefenderHostBanned(ip, p.dbHandle)
+}
+
+func (p *PGSQLProvider) updateDefenderBanTime(ip string, minutes int) error {
+	return sqlCommonDefenderIncrementBanTime(ip, minutes, p.dbHandle)
+}
+
+func (p *PGSQLProvider) deleteDefenderHost(ip string) error {
+	return sqlCommonDeleteDefenderHost(ip, p.dbHandle)
+}
+
+func (p *PGSQLProvider) addDefenderEvent(ip string, score int) error {
+	return sqlCommonAddDefenderHostAndEvent(ip, score, p.dbHandle)
+}
+
+func (p *PGSQLProvider) setDefenderBanTime(ip string, banTime int64) error {
+	return sqlCommonSetDefenderBanTime(ip, banTime, p.dbHandle)
+}
+
+func (p *PGSQLProvider) cleanupDefender(from int64) error {
+	return sqlCommonDefenderCleanup(from, p.dbHandle)
+}
+
 func (p *PGSQLProvider) close() error {
 	return p.dbHandle.Close()
 }
@@ -383,6 +431,8 @@ func (p *PGSQLProvider) migrateDatabase() error {
 		return updatePGSQLDatabaseFromV12(p.dbHandle)
 	case version == 13:
 		return updatePGSQLDatabaseFromV13(p.dbHandle)
+	case version == 14:
+		return updatePGSQLDatabaseFromV14(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database version %v is newer than the supported one: %v", version,
@@ -405,6 +455,8 @@ func (p *PGSQLProvider) revertDatabase(targetVersion int) error {
 	}
 
 	switch dbVersion.Version {
+	case 15:
+		return downgradePGSQLDatabaseFromV15(p.dbHandle)
 	case 14:
 		return downgradePGSQLDatabaseFromV14(p.dbHandle)
 	case 13:
@@ -426,6 +478,8 @@ func (p *PGSQLProvider) resetDatabase() error {
 	sql = strings.ReplaceAll(sql, "{{folders_mapping}}", sqlTableFoldersMapping)
 	sql = strings.ReplaceAll(sql, "{{api_keys}}", sqlTableAPIKeys)
 	sql = strings.ReplaceAll(sql, "{{shares}}", sqlTableShares)
+	sql = strings.ReplaceAll(sql, "{{defender_events}}", sqlTableDefenderEvents)
+	sql = strings.ReplaceAll(sql, "{{defender_hosts}}", sqlTableDefenderHosts)
 	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{sql}, 0)
 }
 
@@ -451,7 +505,21 @@ func updatePGSQLDatabaseFromV12(dbHandle *sql.DB) error {
 }
 
 func updatePGSQLDatabaseFromV13(dbHandle *sql.DB) error {
-	return updatePGSQLDatabaseFrom13To14(dbHandle)
+	if err := updatePGSQLDatabaseFrom13To14(dbHandle); err != nil {
+		return err
+	}
+	return updatePGSQLDatabaseFromV14(dbHandle)
+}
+
+func updatePGSQLDatabaseFromV14(dbHandle *sql.DB) error {
+	return updatePGSQLDatabaseFrom14To15(dbHandle)
+}
+
+func downgradePGSQLDatabaseFromV15(dbHandle *sql.DB) error {
+	if err := downgradePGSQLDatabaseFrom15To14(dbHandle); err != nil {
+		return err
+	}
+	return downgradePGSQLDatabaseFromV14(dbHandle)
 }
 
 func downgradePGSQLDatabaseFromV14(dbHandle *sql.DB) error {
@@ -485,6 +553,23 @@ func updatePGSQLDatabaseFrom13To14(dbHandle *sql.DB) error {
 	sql := strings.ReplaceAll(pgsqlV14SQL, "{{shares}}", sqlTableShares)
 	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
 	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 14)
+}
+
+func updatePGSQLDatabaseFrom14To15(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 14 -> 15")
+	providerLog(logger.LevelInfo, "updating database version: 14 -> 15")
+	sql := strings.ReplaceAll(pgsqlV15SQL, "{{defender_events}}", sqlTableDefenderEvents)
+	sql = strings.ReplaceAll(sql, "{{defender_hosts}}", sqlTableDefenderHosts)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 15)
+}
+
+func downgradePGSQLDatabaseFrom15To14(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 15 -> 14")
+	providerLog(logger.LevelInfo, "downgrading database version: 15 -> 14")
+	sql := strings.ReplaceAll(pgsqlV15DownSQL, "{{defender_events}}", sqlTableDefenderEvents)
+	sql = strings.ReplaceAll(sql, "{{defender_hosts}}", sqlTableDefenderHosts)
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 14)
 }
 

@@ -28,6 +28,8 @@ DROP TABLE IF EXISTS "{{admins}}";
 DROP TABLE IF EXISTS "{{folders}}";
 DROP TABLE IF EXISTS "{{shares}}";
 DROP TABLE IF EXISTS "{{users}}";
+DROP TABLE IF EXISTS "{{defender_events}}";
+DROP TABLE IF EXISTS "{{defender_hosts}}";
 DROP TABLE IF EXISTS "{{schema_version}}";
 `
 	sqliteInitialSQL = `CREATE TABLE "{{schema_version}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "version" integer NOT NULL);
@@ -86,6 +88,19 @@ ALTER TABLE "{{admins}}" DROP COLUMN "last_login";
 CREATE INDEX "{{prefix}}shares_user_id_idx" ON "{{shares}}" ("user_id");
 `
 	sqliteV14DownSQL = `DROP TABLE "{{shares}}";`
+	sqliteV15SQL     = `CREATE TABLE "{{defender_hosts}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+"ip" varchar(50) NOT NULL UNIQUE, "ban_time" bigint NOT NULL, "updated_at" bigint NOT NULL);
+CREATE TABLE "{{defender_events}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "date_time" bigint NOT NULL,
+"score" integer NOT NULL, "host_id" integer NOT NULL REFERENCES "{{defender_hosts}}" ("id") ON DELETE CASCADE
+DEFERRABLE INITIALLY DEFERRED);
+CREATE INDEX "{{prefix}}defender_hosts_updated_at_idx" ON "{{defender_hosts}}" ("updated_at");
+CREATE INDEX "{{prefix}}defender_hosts_ban_time_idx" ON "{{defender_hosts}}" ("ban_time");
+CREATE INDEX "{{prefix}}defender_events_date_time_idx" ON "{{defender_events}}" ("date_time");
+CREATE INDEX "{{prefix}}defender_events_host_id_idx" ON "{{defender_events}}" ("host_id");
+`
+	sqliteV15DownSQL = `DROP TABLE "{{defender_events}}";
+DROP TABLE "{{defender_hosts}}";
+`
 )
 
 // SQLiteProvider auth provider for SQLite database
@@ -308,6 +323,38 @@ func (p *SQLiteProvider) updateShareLastUse(shareID string, numTokens int) error
 	return sqlCommonUpdateShareLastUse(shareID, numTokens, p.dbHandle)
 }
 
+func (p *SQLiteProvider) getDefenderHosts(from int64, limit int) ([]*DefenderEntry, error) {
+	return sqlCommonGetDefenderHosts(from, limit, p.dbHandle)
+}
+
+func (p *SQLiteProvider) getDefenderHostByIP(ip string, from int64) (*DefenderEntry, error) {
+	return sqlCommonGetDefenderHostByIP(ip, from, p.dbHandle)
+}
+
+func (p *SQLiteProvider) isDefenderHostBanned(ip string) (*DefenderEntry, error) {
+	return sqlCommonIsDefenderHostBanned(ip, p.dbHandle)
+}
+
+func (p *SQLiteProvider) updateDefenderBanTime(ip string, minutes int) error {
+	return sqlCommonDefenderIncrementBanTime(ip, minutes, p.dbHandle)
+}
+
+func (p *SQLiteProvider) deleteDefenderHost(ip string) error {
+	return sqlCommonDeleteDefenderHost(ip, p.dbHandle)
+}
+
+func (p *SQLiteProvider) addDefenderEvent(ip string, score int) error {
+	return sqlCommonAddDefenderHostAndEvent(ip, score, p.dbHandle)
+}
+
+func (p *SQLiteProvider) setDefenderBanTime(ip string, banTime int64) error {
+	return sqlCommonSetDefenderBanTime(ip, banTime, p.dbHandle)
+}
+
+func (p *SQLiteProvider) cleanupDefender(from int64) error {
+	return sqlCommonDefenderCleanup(from, p.dbHandle)
+}
+
 func (p *SQLiteProvider) close() error {
 	return p.dbHandle.Close()
 }
@@ -359,6 +406,8 @@ func (p *SQLiteProvider) migrateDatabase() error {
 		return updateSQLiteDatabaseFromV12(p.dbHandle)
 	case version == 13:
 		return updateSQLiteDatabaseFromV13(p.dbHandle)
+	case version == 14:
+		return updateSQLiteDatabaseFromV14(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database version %v is newer than the supported one: %v", version,
@@ -381,6 +430,8 @@ func (p *SQLiteProvider) revertDatabase(targetVersion int) error {
 	}
 
 	switch dbVersion.Version {
+	case 15:
+		return downgradeSQLiteDatabaseFromV15(p.dbHandle)
 	case 14:
 		return downgradeSQLiteDatabaseFromV14(p.dbHandle)
 	case 13:
@@ -402,6 +453,8 @@ func (p *SQLiteProvider) resetDatabase() error {
 	sql = strings.ReplaceAll(sql, "{{folders_mapping}}", sqlTableFoldersMapping)
 	sql = strings.ReplaceAll(sql, "{{api_keys}}", sqlTableAPIKeys)
 	sql = strings.ReplaceAll(sql, "{{shares}}", sqlTableShares)
+	sql = strings.ReplaceAll(sql, "{{defender_events}}", sqlTableDefenderEvents)
+	sql = strings.ReplaceAll(sql, "{{defender_hosts}}", sqlTableDefenderHosts)
 	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{sql}, 0)
 }
 
@@ -427,7 +480,21 @@ func updateSQLiteDatabaseFromV12(dbHandle *sql.DB) error {
 }
 
 func updateSQLiteDatabaseFromV13(dbHandle *sql.DB) error {
-	return updateSQLiteDatabaseFrom13To14(dbHandle)
+	if err := updateSQLiteDatabaseFrom13To14(dbHandle); err != nil {
+		return err
+	}
+	return updateSQLiteDatabaseFromV14(dbHandle)
+}
+
+func updateSQLiteDatabaseFromV14(dbHandle *sql.DB) error {
+	return updateSQLiteDatabaseFrom14To15(dbHandle)
+}
+
+func downgradeSQLiteDatabaseFromV15(dbHandle *sql.DB) error {
+	if err := downgradeSQLiteDatabaseFrom15To14(dbHandle); err != nil {
+		return err
+	}
+	return downgradeSQLiteDatabaseFromV14(dbHandle)
 }
 
 func downgradeSQLiteDatabaseFromV14(dbHandle *sql.DB) error {
@@ -461,6 +528,23 @@ func updateSQLiteDatabaseFrom13To14(dbHandle *sql.DB) error {
 	sql := strings.ReplaceAll(sqliteV14SQL, "{{shares}}", sqlTableShares)
 	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
 	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 14)
+}
+
+func updateSQLiteDatabaseFrom14To15(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 14 -> 15")
+	providerLog(logger.LevelInfo, "updating database version: 14 -> 15")
+	sql := strings.ReplaceAll(sqliteV15SQL, "{{defender_events}}", sqlTableDefenderEvents)
+	sql = strings.ReplaceAll(sql, "{{defender_hosts}}", sqlTableDefenderHosts)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 15)
+}
+
+func downgradeSQLiteDatabaseFrom15To14(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 15 -> 14")
+	providerLog(logger.LevelInfo, "downgrading database version: 15 -> 14")
+	sql := strings.ReplaceAll(sqliteV15DownSQL, "{{defender_events}}", sqlTableDefenderEvents)
+	sql = strings.ReplaceAll(sql, "{{defender_hosts}}", sqlTableDefenderHosts)
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 14)
 }
 
