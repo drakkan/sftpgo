@@ -125,6 +125,13 @@
                         <input type="text" class="form-control" id="rename_old_name" readonly>
                     </div>
                     <div class="form-group">
+                        <label for="rename_new_dir" class="col-form-label">New base dir</label>
+                        <input type="text" class="form-control" id="rename_new_dir" required aria-describedby="renameNewDirHelpBlock">
+                        <small id="renameNewDirHelpBlock" class="form-text text-muted">
+                            Setting a directory other than the current one will move the item there. This directory must exists
+                        </small>
+                    </div>
+                    <div class="form-group">
                         <label for="rename_new_name" class="col-form-label">New name</label>
                         <input type="text" class="form-control" id="rename_new_name" required>
                     </div>
@@ -736,14 +743,23 @@
             var itemType = getTypeFromMeta(selected);
             var itemName = getNameFromMeta(selected);
             var targetName = replaceSlash($("#rename_new_name").val());
+            var targetDir = $("#rename_new_dir").val();
+            if (targetDir != "/") {
+                targetDir = targetDir.endsWith('/') ? targetDir.slice(0, -1) : targetDir;
+            }
+            if (targetDir.trim() == ""){
+                targetDir = "{{.CurrentDir}}";
+            } else {
+                targetDir = encodeURIComponent(targetDir);
+            }
             var path;
             if (itemType == "1"){
                 path = '{{.DirsURL}}';
             } else {
                 path = '{{.FilesURL}}';
             }
-            path+='?path={{.CurrentDir}}'+encodeURIComponent("/"+itemName)+'&target={{.CurrentDir}}'+encodeURIComponent("/"+targetName);
-            $('renameModal').modal('hide');
+            path+='?path={{.CurrentDir}}'+encodeURIComponent("/"+itemName)+'&target='+targetDir+encodeURIComponent("/"+targetName);
+            $('#renameModal').modal('hide');
             $.ajax({
                 url: path,
                 type: 'PATCH',
@@ -833,6 +849,7 @@
                 var selected = table.column(0).checkboxes.selected()[0];
                 var itemName = getNameFromMeta(selected);
                 $("#rename_old_name").val(itemName);
+                $("#rename_new_dir").val(decodeURIComponent("{{.CurrentDir}}".replace(/\+/g, '%20')));
                 $("#rename_new_name").val("");
                 $('#renameModal').modal('show');
             },
