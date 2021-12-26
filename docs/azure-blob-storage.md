@@ -17,4 +17,4 @@ For multipart uploads you can customize the parts size and the upload concurrenc
 
 The configured container must exist.
 
-This backend is very similar to the [S3](./s3.md) backend, and it has the same limitations.
+This backend is very similar to the [S3](./s3.md) backend, and it has the same limitations. As with S3 `chtime` will fail with the default configuration, you can install the [metadata plugin](https://github.com/sftpgo/sftpgo-plugin-metadata) to make it work and thus be able to preserve/change file modification times.

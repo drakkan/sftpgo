@@ -10,7 +10,7 @@ $ curl "http://admin:password@127.0.0.1:8080/api/v2/token"
 curl -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOlsiQVBJIl0sImV4cCI6MTYxMzMzNTI2MSwianRpIjoiYzBrb2gxZmNkcnBjaHNzMGZwZmciLCJuYmYiOjE2MTMzMzQ2MzEsInBlcm1pc3Npb25zIjpbIioiXSwic3ViIjoiYUJ0SHUwMHNBUmxzZ29yeEtLQ1pZZWVqSTRKVTlXbThHSGNiVWtWVmc1TT0iLCJ1c2VybmFtZSI6ImFkbWluIn0.WiyqvUF-92zCr--y4Q_sxn-tPnISFzGZd_exsG-K7ME" "http://127.0.0.1:8080/api/v2/dumpdata?output-data=1"
 ```
 
-the dump is a JSON with users, folder and admins.
+the dump is a JSON with all SFTPGo data including users, folders, admins.
 
 These properties are stored inside the configured data provider.
 

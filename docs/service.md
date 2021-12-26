@@ -46,7 +46,7 @@ sudo sh -c 'echo "SFTPGO_DATA_PROVIDER__CREDENTIALS_PATH=/var/lib/sftpgo/credent
 # also set the provider's PATH as env var to get initprovider to work with SQLite provider:
 #export SFTPGO_DATA_PROVIDER__NAME=/var/lib/sftpgo/sftpgo.db
 # install static files and templates for the web UI
-sudo cp -r static templates /usr/share/sftpgo/
+sudo cp -r static templates openapi /usr/share/sftpgo/
 # set files and directory permissions
 sudo chown -R sftpgo:sftpgo /etc/sftpgo /var/lib/sftpgo
 sudo chmod 750 /etc/sftpgo /var/lib/sftpgo
@@ -91,7 +91,7 @@ sudo chown root:wheel /usr/local/opt/sftpgo/init/com.github.drakkan.sftpgo.plist
 # install the default configuration file, edit it if required
 sudo cp sftpgo.json /usr/local/opt/sftpgo/etc/
 # install static files and templates for the web UI
-sudo cp -r static templates /usr/local/opt/sftpgo/usr/share/
+sudo cp -r static templates openapi /usr/local/opt/sftpgo/usr/share/
 # initialize the configured data provider
 # if you want to use MySQL or PostgreSQL you need to create the configured database before running the initprovider command
 sudo /usr/local/opt/sftpgo/bin/sftpgo initprovider -c /usr/local/opt/sftpgo/etc/
