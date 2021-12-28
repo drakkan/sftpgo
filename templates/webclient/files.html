@@ -541,6 +541,8 @@
                 spinnerDone = true;
                 if (!has_errors){
                     location.reload();
+                } else {
+                    table.button('delete:name').enable(true);
                 }
                 return;
             }
@@ -786,7 +788,9 @@
                     $('#errorMsg').show();
                     setTimeout(function () {
                         $('#errorMsg').hide();
-                    }, 5000);
+                    }, 8000);
+                    var selectedItems = table.column(0).checkboxes.selected().length;
+                    table.button('rename:name').enable(selectedItems == 1);
                 }
             });
         });

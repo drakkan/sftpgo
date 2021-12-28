@@ -209,6 +209,10 @@ func TestBaseConnection(t *testing.T) {
 		if assert.NoError(t, err) {
 			assert.True(t, info.IsDir())
 		}
+		err = client.Rename(testDir, testDir)
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), "the rename source and target cannot be the same")
+		}
 		err = client.RemoveDirectory(testDir)
 		assert.NoError(t, err)
 		err = client.Remove(testFileName)
@@ -220,6 +224,10 @@ func TestBaseConnection(t *testing.T) {
 		err = f.Close()
 		assert.NoError(t, err)
 		linkName := testFileName + ".link"
+		err = client.Rename(testFileName, testFileName)
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), "the rename source and target cannot be the same")
+		}
 		err = client.Symlink(testFileName, linkName)
 		assert.NoError(t, err)
 		err = client.Symlink(testFileName, testFileName)

@@ -227,8 +227,8 @@ github.com/drakkan/crypto v0.0.0-20211216170250-0a05a5747f0f h1:12WWFMrTzDfKo/7s
 github.com/drakkan/crypto v0.0.0-20211216170250-0a05a5747f0f/go.mod h1:SiM6ypd8Xu1xldObYtbDztuUU7xUzMnUULfphXFZmro=
 github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9 h1:LPH1dEblAOO/LoG7yHPMtBLXhQmjaga91/DDjWk9jWA=
 github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9/go.mod h1:2lmrmq866uF2tnje75wQHzmPXhmSWUt7Gyx2vgK1RCU=
-github.com/drakkan/ftpserverlib v0.0.0-20211107071448-34ff70e85dfb h1:cT/w4XStm7m022JgVqmrXZLcZ4UjoUER1VW5/5gd6ec=
-github.com/drakkan/ftpserverlib v0.0.0-20211107071448-34ff70e85dfb/go.mod h1:fBiQ19WDhtvKArMu0Pifg71k+0xqRYn+F0d9AsjkZw8=
+github.com/drakkan/ftpserverlib v0.0.0-20211227100741-2a2e613fb19d h1:md7VSy/KrGNBEy376AhmJJ7YzZ+f35Y7mZFMcM2qGmg=
+github.com/drakkan/ftpserverlib v0.0.0-20211227100741-2a2e613fb19d/go.mod h1:fBiQ19WDhtvKArMu0Pifg71k+0xqRYn+F0d9AsjkZw8=
 github.com/drakkan/net v0.0.0-20211210172952-3f0f9446f73f h1:8XuTk84FMb6DGc5MxmPkswjO5m4XFqGoZomO/Q8CUwQ=
 github.com/drakkan/net v0.0.0-20211210172952-3f0f9446f73f/go.mod h1:9nx3DQGgdP8bBQD5qxJ1jj9UTztislL4KSBs9R2vV5Y=
 github.com/drakkan/pipeat v0.0.0-20210805162858-70e57fa8a639 h1:8tfGdb4kg/YCvAbIrsMazgoNtnqdOqQVDKW12uUCuuU=

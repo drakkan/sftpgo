@@ -140,7 +140,7 @@ require (
 
 replace (
 	github.com/eikenb/pipeat => github.com/drakkan/pipeat v0.0.0-20210805162858-70e57fa8a639
-	github.com/fclairamb/ftpserverlib => github.com/drakkan/ftpserverlib v0.0.0-20211107071448-34ff70e85dfb
+	github.com/fclairamb/ftpserverlib => github.com/drakkan/ftpserverlib v0.0.0-20211227100741-2a2e613fb19d
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
 	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20211216170250-0a05a5747f0f
 	golang.org/x/net => github.com/drakkan/net v0.0.0-20211210172952-3f0f9446f73f

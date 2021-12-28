@@ -408,6 +408,9 @@ func (c *BaseConnection) RemoveDir(virtualPath string) error {
 
 // Rename renames (moves) virtualSourcePath to virtualTargetPath
 func (c *BaseConnection) Rename(virtualSourcePath, virtualTargetPath string) error {
+	if virtualSourcePath == virtualTargetPath {
+		return fmt.Errorf("the rename source and target cannot be the same: %w", c.GetOpUnsupportedError())
+	}
 	fsSrc, fsSourcePath, err := c.GetFsAndResolvedPath(virtualSourcePath)
 	if err != nil {
 		return err

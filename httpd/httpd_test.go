@@ -9219,7 +9219,7 @@ func TestShareUploadSingle(t *testing.T) {
 	assert.NoError(t, err)
 	req.SetBasicAuth(defaultUsername, defaultPassword)
 	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusInternalServerError, rr)
+	checkResponseCode(t, http.StatusBadRequest, rr)
 	assert.Contains(t, rr.Body.String(), "operation unsupported")
 
 	share, err = dataprovider.ShareExists(objectID, user.Username)
@@ -10240,6 +10240,19 @@ func TestWebDirsAPI(t *testing.T) {
 	if assert.Len(t, contents, 1) {
 		assert.Equal(t, testDir, contents[0]["name"])
 	}
+	// rename a dir with the same source and target name
+	req, err = http.NewRequest(http.MethodPatch, userDirsPath+"?path="+testDir+"&target="+testDir, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "operation unsupported")
+	req, err = http.NewRequest(http.MethodPatch, userDirsPath+"?path="+testDir+"&target=%2F"+testDir+"%2F", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "operation unsupported")
 	// create a dir with missing parents
 	req, err = http.NewRequest(http.MethodPost, userDirsPath+"?path="+url.QueryEscape(path.Join("/sub/dir", testDir)), nil)
 	assert.NoError(t, err)
@@ -10556,6 +10569,13 @@ func TestWebFilesAPI(t *testing.T) {
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
+	// rename a file with target name equal to source name
+	req, err = http.NewRequest(http.MethodPatch, userFilesPath+"?path=file1.txt&target=file1.txt", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "operation unsupported")
 	// delete a file
 	req, err = http.NewRequest(http.MethodDelete, userFilesPath+"?path=file2.txt", nil)
 	assert.NoError(t, err)
@@ -10717,7 +10737,7 @@ func TestWebUploadErrors(t *testing.T) {
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusInternalServerError, rr)
+	checkResponseCode(t, http.StatusBadRequest, rr)
 	assert.Contains(t, rr.Body.String(), "operation unsupported")
 	// try to upload to a missing parent directory
 	_, err = reader.Seek(0, io.SeekStart)
