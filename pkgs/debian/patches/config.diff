@@ -2,7 +2,7 @@ Index: sftpgo/sftpgo.json
 ===================================================================
 --- sftpgo.orig/sftpgo.json
 +++ sftpgo/sftpgo.json
-@@ -148,7 +148,7 @@
+@@ -149,7 +149,7 @@
    },
    "data_provider": {
      "driver": "sqlite",
@@ -11,7 +11,7 @@ Index: sftpgo/sftpgo.json
      "host": "",
      "port": 0,
      "username": "",
-@@ -159,7 +159,7 @@
+@@ -160,7 +160,7 @@
      "track_quota": 2,
      "delayed_quota_update": 0,
      "pool_size": 0,
@@ -20,7 +20,7 @@ Index: sftpgo/sftpgo.json
      "actions": {
        "execute_on": [],
        "execute_for": [],
-@@ -167,7 +167,7 @@
+@@ -168,7 +168,7 @@
      },
      "external_auth_hook": "",
      "external_auth_scope": 0,
@@ -29,8 +29,8 @@ Index: sftpgo/sftpgo.json
      "prefer_database_credentials": false,
      "pre_login_hook": "",
      "post_login_hook": "",
-@@ -214,10 +214,10 @@
-         "render_openapi": true
+@@ -216,10 +216,10 @@
+         "web_client_integrations": []
        }
      ],
 -    "templates_path": "templates",
@@ -44,7 +44,7 @@ Index: sftpgo/sftpgo.json
      "web_root": "",
      "certificate_file": "",
      "certificate_key_file": "",
-@@ -279,7 +279,7 @@
+@@ -281,7 +281,7 @@
      "auth_type": 0,
      "encryption": 0,
      "domain": "",
