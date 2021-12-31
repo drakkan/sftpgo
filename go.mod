@@ -47,7 +47,7 @@ require (
 	github.com/studio-b12/gowebdav v0.0.0-20211106090535-29e74efa701f
 	github.com/wagslane/go-password-validator v0.3.0
 	github.com/xhit/go-simple-mail/v2 v2.10.0
-	github.com/yl2chen/cidranger v1.0.2
+	github.com/yl2chen/cidranger v1.0.3-0.20210928021809-d1cb2c52f37a
 	go.etcd.io/bbolt v1.3.6
 	go.uber.org/automaxprocs v1.4.0
 	gocloud.dev v0.24.0
