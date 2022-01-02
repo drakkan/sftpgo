@@ -171,7 +171,8 @@ func TestMain(m *testing.M) {
 	if runtime.GOOS == osWindows {
 		scriptArgs = "%*"
 	} else {
-		commonConf.Actions.ExecuteOn = []string{"download", "upload", "rename", "delete", "ssh_cmd"}
+		commonConf.Actions.ExecuteOn = []string{"download", "upload", "rename", "delete", "ssh_cmd",
+			"pre-download", "pre-upload"}
 		commonConf.Actions.Hook = hookCmdPath
 		scriptArgs = "$@"
 	}

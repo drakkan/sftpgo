@@ -95,6 +95,7 @@ type Manager struct {
 	authScopes    int
 	hasSearcher   bool
 	hasMetadater  bool
+	hasNotifiers  bool
 }
 
 // Initialize initializes the configured plugins
@@ -172,6 +173,7 @@ func (m *Manager) validateConfigs() error {
 	kmsEncryptions := make(map[string]bool)
 	m.hasSearcher = false
 	m.hasMetadater = false
+	m.hasNotifiers = false
 
 	for _, config := range m.Configs {
 		if config.Type == kmsplugin.PluginName {
@@ -196,32 +198,35 @@ func (m *Manager) validateConfigs() error {
 			}
 			m.hasMetadater = true
 		}
+		if config.Type == notifier.PluginName {
+			m.hasNotifiers = true
+		}
 	}
 	return nil
 }
 
+// HasNotifiers returns true if there is at least a notifier plugin
+func (m *Manager) HasNotifiers() bool {
+	return m.hasNotifiers
+}
+
 // NotifyFsEvent sends the fs event notifications using any defined notifier plugins
-func (m *Manager) NotifyFsEvent(timestamp int64, action, username, fsPath, fsTargetPath, sshCmd, protocol, ip,
-	virtualPath, virtualTargetPath, sessionID string, fileSize int64, err error,
-) {
+func (m *Manager) NotifyFsEvent(event *notifier.FsEvent) {
 	m.notifLock.RLock()
 	defer m.notifLock.RUnlock()
 
 	for _, n := range m.notifiers {
-		n.notifyFsAction(timestamp, action, username, fsPath, fsTargetPath, sshCmd, protocol, ip, virtualPath,
-			virtualTargetPath, sessionID, fileSize, err)
+		n.notifyFsAction(event)
 	}
 }
 
 // NotifyProviderEvent sends the provider event notifications using any defined notifier plugins
-func (m *Manager) NotifyProviderEvent(timestamp int64, action, username, objectType, objectName, ip string,
-	object Renderer,
-) {
+func (m *Manager) NotifyProviderEvent(event *notifier.ProviderEvent, object Renderer) {
 	m.notifLock.RLock()
 	defer m.notifLock.RUnlock()
 
 	for _, n := range m.notifiers {
-		n.notifyProviderAction(timestamp, action, username, objectType, objectName, ip, object)
+		n.notifyProviderAction(event, object)
 	}
 }
 

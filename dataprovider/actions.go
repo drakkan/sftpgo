@@ -14,6 +14,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/httpclient"
 	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/sdk/plugin"
+	"github.com/drakkan/sftpgo/v2/sdk/plugin/notifier"
 	"github.com/drakkan/sftpgo/v2/util"
 )
 
@@ -33,7 +34,16 @@ const (
 )
 
 func executeAction(operation, executor, ip, objectType, objectName string, object plugin.Renderer) {
-	plugin.Handler.NotifyProviderEvent(time.Now().UnixNano(), operation, executor, objectType, objectName, ip, object)
+	if plugin.Handler.HasNotifiers() {
+		plugin.Handler.NotifyProviderEvent(&notifier.ProviderEvent{
+			Action:     operation,
+			Username:   executor,
+			ObjectType: objectType,
+			ObjectName: objectName,
+			IP:         ip,
+			Timestamp:  time.Now().UnixNano(),
+		}, object)
+	}
 	if config.Actions.Hook == "" {
 		return
 	}

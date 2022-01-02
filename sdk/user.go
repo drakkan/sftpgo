@@ -1,8 +1,6 @@
 package sdk
 
 import (
-	"fmt"
-	"net"
 	"strings"
 
 	"github.com/drakkan/sftpgo/v2/kms"
@@ -137,17 +135,6 @@ type BandwidthLimit struct {
 	UploadBandwidth int64 `json:"upload_bandwidth,omitempty"`
 	// Maximum download bandwidth as KB/s
 	DownloadBandwidth int64 `json:"download_bandwidth,omitempty"`
-}
-
-// Validate returns an error if the bandwidth limit is not valid
-func (l *BandwidthLimit) Validate() error {
-	for _, source := range l.Sources {
-		_, _, err := net.ParseCIDR(source)
-		if err != nil {
-			return util.NewValidationError(fmt.Sprintf("could not parse bandwidth limit source %#v: %v", source, err))
-		}
-	}
-	return nil
 }
 
 // GetSourcesAsString returns the sources as comma separated string

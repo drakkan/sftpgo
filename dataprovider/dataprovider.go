@@ -1745,10 +1745,20 @@ func validateIPFilters(user *User) error {
 	return nil
 }
 
+func validateBandwidthLimit(bl sdk.BandwidthLimit) error {
+	for _, source := range bl.Sources {
+		_, _, err := net.ParseCIDR(source)
+		if err != nil {
+			return util.NewValidationError(fmt.Sprintf("could not parse bandwidth limit source %#v: %v", source, err))
+		}
+	}
+	return nil
+}
+
 func validateBandwidthLimitFilters(user *User) error {
 	for idx, bandwidthLimit := range user.Filters.BandwidthLimits {
 		user.Filters.BandwidthLimits[idx].Sources = util.RemoveDuplicates(bandwidthLimit.Sources)
-		if err := bandwidthLimit.Validate(); err != nil {
+		if err := validateBandwidthLimit(bandwidthLimit); err != nil {
 			return err
 		}
 		if bandwidthLimit.DownloadBandwidth < 0 {
