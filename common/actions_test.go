@@ -15,6 +15,8 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/sdk"
+	"github.com/drakkan/sftpgo/v2/sdk/plugin"
+	"github.com/drakkan/sftpgo/v2/sdk/plugin/notifier"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
@@ -146,6 +148,8 @@ func TestActionCMD(t *testing.T) {
 	c := NewBaseConnection("id", ProtocolSFTP, "", "", *user)
 	ExecuteActionNotification(c, OperationSSHCmd, "path", "vpath", "target", "vtarget", "sha1sum", 0, nil)
 
+	ExecuteActionNotification(c, operationDownload, "path", "vpath", "", "", "", 0, nil)
+
 	Config.Actions = actionsCopy
 }
 
@@ -235,11 +239,42 @@ func TestPreDeleteAction(t *testing.T) {
 	Config.Actions = actionsCopy
 }
 
+func TestUnconfiguredHook(t *testing.T) {
+	actionsCopy := Config.Actions
+
+	Config.Actions = ProtocolActions{
+		ExecuteOn: []string{operationDownload},
+		Hook:      "",
+	}
+	pluginsConfig := []plugin.Config{
+		{
+			Type: "notifier",
+		},
+	}
+	err := plugin.Initialize(pluginsConfig, true)
+	assert.Error(t, err)
+	assert.True(t, plugin.Handler.HasNotifiers())
+
+	c := NewBaseConnection("id", ProtocolSFTP, "", "", dataprovider.User{})
+	err = ExecutePreAction(c, OperationPreDownload, "", "", 0, 0)
+	assert.NoError(t, err)
+	err = ExecutePreAction(c, operationPreDelete, "", "", 0, 0)
+	assert.ErrorIs(t, err, errUnconfiguredAction)
+
+	ExecuteActionNotification(c, operationDownload, "", "", "", "", "", 0, nil)
+
+	err = plugin.Initialize(nil, true)
+	assert.NoError(t, err)
+	assert.False(t, plugin.Handler.HasNotifiers())
+
+	Config.Actions = actionsCopy
+}
+
 type actionHandlerStub struct {
 	called bool
 }
 
-func (h *actionHandlerStub) Handle(notification *ActionNotification) error {
+func (h *actionHandlerStub) Handle(event *notifier.FsEvent) error {
 	h.called = true
 
 	return nil
@@ -253,7 +288,7 @@ func TestInitializeActionHandler(t *testing.T) {
 		InitializeActionHandler(&defaultActionHandler{})
 	})
 
-	err := actionHandler.Handle(&ActionNotification{})
+	err := actionHandler.Handle(&notifier.FsEvent{})
 
 	assert.NoError(t, err)
 	assert.True(t, handler.called)

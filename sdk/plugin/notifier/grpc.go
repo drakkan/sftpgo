@@ -69,14 +69,35 @@ type GRPCServer struct {
 
 // SendFsEvent implements the serve side fs notify method
 func (s *GRPCServer) SendFsEvent(ctx context.Context, req *proto.FsEvent) (*emptypb.Empty, error) {
-	err := s.Impl.NotifyFsEvent(req.Timestamp, req.Action, req.Username, req.FsPath, req.FsTargetPath, req.SshCmd,
-		req.Protocol, req.Ip, req.VirtualPath, req.VirtualTargetPath, req.SessionId, req.FileSize, int(req.Status))
+	event := &FsEvent{
+		Action:      req.Action,
+		Username:    req.Username,
+		Path:        req.FsPath,
+		TargetPath:  req.FsTargetPath,
+		VirtualPath: req.VirtualPath,
+		SSHCmd:      req.SshCmd,
+		FileSize:    req.FileSize,
+		Status:      int(req.Status),
+		Protocol:    req.Protocol,
+		IP:          req.Ip,
+		SessionID:   req.SessionId,
+		Timestamp:   req.Timestamp,
+	}
+	err := s.Impl.NotifyFsEvent(event)
 	return &emptypb.Empty{}, err
 }
 
 // SendProviderEvent implements the serve side provider event notify method
 func (s *GRPCServer) SendProviderEvent(ctx context.Context, req *proto.ProviderEvent) (*emptypb.Empty, error) {
-	err := s.Impl.NotifyProviderEvent(req.Timestamp, req.Action, req.Username, req.ObjectType, req.ObjectName,
-		req.Ip, req.ObjectData)
+	event := &ProviderEvent{
+		Action:     req.Action,
+		Username:   req.Username,
+		ObjectType: req.ObjectType,
+		ObjectName: req.ObjectName,
+		IP:         req.Ip,
+		ObjectData: req.ObjectData,
+		Timestamp:  req.Timestamp,
+	}
+	err := s.Impl.NotifyProviderEvent(event)
 	return &emptypb.Empty{}, err
 }

@@ -30,11 +30,42 @@ var PluginMap = map[string]plugin.Plugin{
 	PluginName: &Plugin{},
 }
 
+// FsEvent defines a file system event
+type FsEvent struct {
+	Action            string `json:"action"`
+	Username          string `json:"username"`
+	Path              string `json:"path"`
+	TargetPath        string `json:"target_path,omitempty"`
+	VirtualPath       string `json:"virtual_path"`
+	VirtualTargetPath string `json:"virtual_target_path,omitempty"`
+	SSHCmd            string `json:"ssh_cmd,omitempty"`
+	FileSize          int64  `json:"file_size,omitempty"`
+	FsProvider        int    `json:"fs_provider"`
+	Bucket            string `json:"bucket,omitempty"`
+	Endpoint          string `json:"endpoint,omitempty"`
+	Status            int    `json:"status"`
+	Protocol          string `json:"protocol"`
+	IP                string `json:"ip"`
+	SessionID         string `json:"session_id"`
+	Timestamp         int64  `json:"timestamp"`
+	OpenFlags         int    `json:"open_flags,omitempty"`
+}
+
+// ProviderEvent defines a provider event
+type ProviderEvent struct {
+	Action     string
+	Username   string
+	ObjectType string
+	ObjectName string
+	IP         string
+	ObjectData []byte
+	Timestamp  int64
+}
+
 // Notifier defines the interface for notifiers plugins
 type Notifier interface {
-	NotifyFsEvent(timestamp int64, action, username, fsPath, fsTargetPath, sshCmd, protocol, ip,
-		virtualPath, virtualTargetPath, sessionID string, fileSize int64, status int) error
-	NotifyProviderEvent(timestamp int64, action, username, objectType, objectName, ip string, object []byte) error
+	NotifyFsEvent(event *FsEvent) error
+	NotifyProviderEvent(event *ProviderEvent) error
 }
 
 // Plugin defines the implementation to serve/connect to a notifier plugin

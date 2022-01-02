@@ -12,7 +12,6 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/sdk/plugin/notifier"
-	"github.com/drakkan/sftpgo/v2/sdk/plugin/notifier/proto"
 	"github.com/drakkan/sftpgo/v2/util"
 )
 
@@ -37,48 +36,25 @@ func (c *NotifierConfig) hasActions() bool {
 
 type eventsQueue struct {
 	sync.RWMutex
-	fsEvents       []*proto.FsEvent
-	providerEvents []*proto.ProviderEvent
+	fsEvents       []*notifier.FsEvent
+	providerEvents []*notifier.ProviderEvent
 }
 
-func (q *eventsQueue) addFsEvent(timestamp int64, action, username, fsPath, fsTargetPath, sshCmd, protocol, ip string,
-	fileSize int64, status int,
-) {
+func (q *eventsQueue) addFsEvent(event *notifier.FsEvent) {
 	q.Lock()
 	defer q.Unlock()
 
-	q.fsEvents = append(q.fsEvents, &proto.FsEvent{
-		Timestamp:    timestamp,
-		Action:       action,
-		Username:     username,
-		FsPath:       fsPath,
-		FsTargetPath: fsTargetPath,
-		SshCmd:       sshCmd,
-		FileSize:     fileSize,
-		Protocol:     protocol,
-		Ip:           ip,
-		Status:       int32(status),
-	})
+	q.fsEvents = append(q.fsEvents, event)
 }
 
-func (q *eventsQueue) addProviderEvent(timestamp int64, action, username, objectType, objectName, ip string,
-	objectAsJSON []byte,
-) {
+func (q *eventsQueue) addProviderEvent(event *notifier.ProviderEvent) {
 	q.Lock()
 	defer q.Unlock()
 
-	q.providerEvents = append(q.providerEvents, &proto.ProviderEvent{
-		Timestamp:  timestamp,
-		Action:     action,
-		ObjectType: objectType,
-		Username:   username,
-		Ip:         ip,
-		ObjectName: objectName,
-		ObjectData: objectAsJSON,
-	})
+	q.providerEvents = append(q.providerEvents, event)
 }
 
-func (q *eventsQueue) popFsEvent() *proto.FsEvent {
+func (q *eventsQueue) popFsEvent() *notifier.FsEvent {
 	q.Lock()
 	defer q.Unlock()
 
@@ -93,7 +69,7 @@ func (q *eventsQueue) popFsEvent() *proto.FsEvent {
 	return ev
 }
 
-func (q *eventsQueue) popProviderEvent() *proto.ProviderEvent {
+func (q *eventsQueue) popProviderEvent() *notifier.ProviderEvent {
 	q.Lock()
 	defer q.Unlock()
 
@@ -193,7 +169,7 @@ func (p *notifierPlugin) canQueueEvent(timestamp int64) bool {
 	if p.config.NotifierOptions.RetryMaxTime == 0 {
 		return false
 	}
-	if time.Now().After(util.GetTimeFromMsecSinceEpoch(timestamp).Add(time.Duration(p.config.NotifierOptions.RetryMaxTime) * time.Second)) {
+	if time.Now().After(time.Unix(0, timestamp).Add(time.Duration(p.config.NotifierOptions.RetryMaxTime) * time.Second)) {
 		return false
 	}
 	if p.config.NotifierOptions.RetryQueueMaxSize > 0 {
@@ -202,58 +178,47 @@ func (p *notifierPlugin) canQueueEvent(timestamp int64) bool {
 	return true
 }
 
-func (p *notifierPlugin) notifyFsAction(timestamp int64, action, username, fsPath, fsTargetPath, sshCmd,
-	protocol, ip, virtualPath, virtualTargetPath, sessionID string, fileSize int64, errAction error) {
-	if !util.IsStringInSlice(action, p.config.NotifierOptions.FsEvents) {
+func (p *notifierPlugin) notifyFsAction(event *notifier.FsEvent) {
+	if !util.IsStringInSlice(event.Action, p.config.NotifierOptions.FsEvents) {
 		return
 	}
 
 	go func() {
-		status := 1
-		if errAction != nil {
-			status = 0
-		}
-		p.sendFsEvent(timestamp, action, username, fsPath, fsTargetPath, sshCmd, protocol, ip, virtualPath, virtualTargetPath,
-			sessionID, fileSize, status)
+		p.sendFsEvent(event)
 	}()
 }
 
-func (p *notifierPlugin) notifyProviderAction(timestamp int64, action, username, objectType, objectName, ip string,
-	object Renderer,
-) {
-	if !util.IsStringInSlice(action, p.config.NotifierOptions.ProviderEvents) ||
-		!util.IsStringInSlice(objectType, p.config.NotifierOptions.ProviderObjects) {
+func (p *notifierPlugin) notifyProviderAction(event *notifier.ProviderEvent, object Renderer) {
+	if !util.IsStringInSlice(event.Action, p.config.NotifierOptions.ProviderEvents) ||
+		!util.IsStringInSlice(event.ObjectType, p.config.NotifierOptions.ProviderObjects) {
 		return
 	}
 
 	go func() {
-		objectAsJSON, err := object.RenderAsJSON(action != "delete")
+		objectAsJSON, err := object.RenderAsJSON(event.Action != "delete")
 		if err != nil {
-			logger.Warn(logSender, "", "unable to render user as json for action %v: %v", action, err)
+			logger.Warn(logSender, "", "unable to render user as json for action %v: %v", event.Action, err)
 			return
 		}
-		p.sendProviderEvent(timestamp, action, username, objectType, objectName, ip, objectAsJSON)
+		event.ObjectData = objectAsJSON
+		p.sendProviderEvent(event)
 	}()
 }
 
-func (p *notifierPlugin) sendFsEvent(timestamp int64, action, username, fsPath, fsTargetPath, sshCmd,
-	protocol, ip, virtualPath, virtualTargetPath, sessionID string, fileSize int64, status int) {
-	if err := p.notifier.NotifyFsEvent(timestamp, action, username, fsPath, fsTargetPath, sshCmd, protocol, ip,
-		virtualPath, virtualTargetPath, sessionID, fileSize, status); err != nil {
+func (p *notifierPlugin) sendFsEvent(event *notifier.FsEvent) {
+	if err := p.notifier.NotifyFsEvent(event); err != nil {
 		logger.Warn(logSender, "", "unable to send fs action notification to plugin %v: %v", p.config.Cmd, err)
-		if p.canQueueEvent(timestamp) {
-			p.queue.addFsEvent(timestamp, action, username, fsPath, fsTargetPath, sshCmd, protocol, ip, fileSize, status)
+		if p.canQueueEvent(event.Timestamp) {
+			p.queue.addFsEvent(event)
 		}
 	}
 }
 
-func (p *notifierPlugin) sendProviderEvent(timestamp int64, action, username, objectType, objectName, ip string,
-	objectAsJSON []byte,
-) {
-	if err := p.notifier.NotifyProviderEvent(timestamp, action, username, objectType, objectName, ip, objectAsJSON); err != nil {
+func (p *notifierPlugin) sendProviderEvent(event *notifier.ProviderEvent) {
+	if err := p.notifier.NotifyProviderEvent(event); err != nil {
 		logger.Warn(logSender, "", "unable to send user action notification to plugin %v: %v", p.config.Cmd, err)
-		if p.canQueueEvent(timestamp) {
-			p.queue.addProviderEvent(timestamp, action, username, objectType, objectName, ip, objectAsJSON)
+		if p.canQueueEvent(event.Timestamp) {
+			p.queue.addProviderEvent(event)
 		}
 	}
 }
@@ -266,16 +231,17 @@ func (p *notifierPlugin) sendQueuedEvents() {
 	logger.Debug(logSender, "", "check queued events for notifier %#v, events size: %v", p.config.Cmd, queueSize)
 	fsEv := p.queue.popFsEvent()
 	for fsEv != nil {
-		go p.sendFsEvent(fsEv.Timestamp, fsEv.Action, fsEv.Username, fsEv.FsPath, fsEv.FsTargetPath,
-			fsEv.SshCmd, fsEv.Protocol, fsEv.Ip, fsEv.VirtualPath, fsEv.VirtualTargetPath, fsEv.SessionId,
-			fsEv.FileSize, int(fsEv.Status))
+		go func(ev *notifier.FsEvent) {
+			p.sendFsEvent(ev)
+		}(fsEv)
 		fsEv = p.queue.popFsEvent()
 	}
 
 	providerEv := p.queue.popProviderEvent()
 	for providerEv != nil {
-		go p.sendProviderEvent(providerEv.Timestamp, providerEv.Action, providerEv.Username, providerEv.ObjectType,
-			providerEv.ObjectName, providerEv.Ip, providerEv.ObjectData)
+		go func(ev *notifier.ProviderEvent) {
+			p.sendProviderEvent(ev)
+		}(providerEv)
 		providerEv = p.queue.popProviderEvent()
 	}
 	logger.Debug(logSender, "", "queued events sent for notifier %#v, new events size: %v", p.config.Cmd, p.queue.getSize())
