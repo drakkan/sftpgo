@@ -39,7 +39,7 @@ require (
 	github.com/rs/cors v1.8.2
 	github.com/rs/xid v1.3.0
 	github.com/rs/zerolog v1.26.2-0.20211219225053-665519c4da50
-	github.com/shirou/gopsutil/v3 v3.21.12
+	github.com/shirou/gopsutil/v3 v3.21.11
 	github.com/spf13/afero v1.7.1
 	github.com/spf13/cobra v1.3.0
 	github.com/spf13/viper v1.10.1

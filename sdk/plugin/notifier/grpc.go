@@ -19,44 +19,45 @@ type GRPCClient struct {
 }
 
 // NotifyFsEvent implements the Notifier interface
-func (c *GRPCClient) NotifyFsEvent(timestamp int64, action, username, fsPath, fsTargetPath, sshCmd, protocol, ip,
-	virtualPath, virtualTargetPath, sessionID string, fileSize int64, status int,
-) error {
+func (c *GRPCClient) NotifyFsEvent(event *FsEvent) error {
 	ctx, cancel := context.WithTimeout(context.Background(), rpcTimeout)
 	defer cancel()
 
 	_, err := c.client.SendFsEvent(ctx, &proto.FsEvent{
-		Timestamp:         timestamp,
-		Action:            action,
-		Username:          username,
-		FsPath:            fsPath,
-		FsTargetPath:      fsTargetPath,
-		SshCmd:            sshCmd,
-		FileSize:          fileSize,
-		Protocol:          protocol,
-		Ip:                ip,
-		Status:            int32(status),
-		VirtualPath:       virtualPath,
-		VirtualTargetPath: virtualTargetPath,
-		SessionId:         sessionID,
+		Timestamp:         event.Timestamp,
+		Action:            event.Action,
+		Username:          event.Username,
+		FsPath:            event.Path,
+		FsTargetPath:      event.TargetPath,
+		SshCmd:            event.SSHCmd,
+		FileSize:          event.FileSize,
+		Protocol:          event.Protocol,
+		Ip:                event.IP,
+		Status:            int32(event.Status),
+		VirtualPath:       event.VirtualPath,
+		VirtualTargetPath: event.VirtualTargetPath,
+		SessionId:         event.SessionID,
+		FsProvider:        int32(event.FsProvider),
+		Bucket:            event.Bucket,
+		Endpoint:          event.Endpoint,
 	})
 
 	return err
 }
 
 // NotifyProviderEvent implements the Notifier interface
-func (c *GRPCClient) NotifyProviderEvent(timestamp int64, action, username, objectType, objectName, ip string, object []byte) error {
+func (c *GRPCClient) NotifyProviderEvent(event *ProviderEvent) error {
 	ctx, cancel := context.WithTimeout(context.Background(), rpcTimeout)
 	defer cancel()
 
 	_, err := c.client.SendProviderEvent(ctx, &proto.ProviderEvent{
-		Timestamp:  timestamp,
-		Action:     action,
-		ObjectType: objectType,
-		Username:   username,
-		Ip:         ip,
-		ObjectName: objectName,
-		ObjectData: object,
+		Timestamp:  event.Timestamp,
+		Action:     event.Action,
+		ObjectType: event.ObjectType,
+		Username:   event.Username,
+		Ip:         event.IP,
+		ObjectName: event.ObjectName,
+		ObjectData: event.ObjectData,
 	})
 
 	return err
@@ -82,6 +83,9 @@ func (s *GRPCServer) SendFsEvent(ctx context.Context, req *proto.FsEvent) (*empt
 		IP:          req.Ip,
 		SessionID:   req.SessionId,
 		Timestamp:   req.Timestamp,
+		FsProvider:  int(req.FsProvider),
+		Bucket:      req.Bucket,
+		Endpoint:    req.Endpoint,
 	}
 	err := s.Impl.NotifyFsEvent(event)
 	return &emptypb.Empty{}, err

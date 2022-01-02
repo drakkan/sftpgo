@@ -170,6 +170,8 @@ func (p *notifierPlugin) canQueueEvent(timestamp int64) bool {
 		return false
 	}
 	if time.Now().After(time.Unix(0, timestamp).Add(time.Duration(p.config.NotifierOptions.RetryMaxTime) * time.Second)) {
+		logger.Warn(logSender, "", "dropping too late event for plugin %v, event timestamp: %v",
+			p.config.Cmd, time.Unix(0, timestamp))
 		return false
 	}
 	if p.config.NotifierOptions.RetryQueueMaxSize > 0 {

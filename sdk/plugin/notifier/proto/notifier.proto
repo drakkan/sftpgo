@@ -19,6 +19,9 @@ message FsEvent {
     string virtual_path = 11;
     string virtual_target_path = 12;
     string session_id = 13;
+    int32 fs_provider = 14;
+    string bucket = 15;
+    string endpoint = 16;
 }
 
 message ProviderEvent {
