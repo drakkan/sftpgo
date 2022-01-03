@@ -40,6 +40,7 @@ func (c *GRPCClient) NotifyFsEvent(event *FsEvent) error {
 		FsProvider:        int32(event.FsProvider),
 		Bucket:            event.Bucket,
 		Endpoint:          event.Endpoint,
+		OpenFlags:         int32(event.OpenFlags),
 	})
 
 	return err
@@ -86,6 +87,7 @@ func (s *GRPCServer) SendFsEvent(ctx context.Context, req *proto.FsEvent) (*empt
 		FsProvider:  int(req.FsProvider),
 		Bucket:      req.Bucket,
 		Endpoint:    req.Endpoint,
+		OpenFlags:   int(req.OpenFlags),
 	}
 	err := s.Impl.NotifyFsEvent(event)
 	return &emptypb.Empty{}, err

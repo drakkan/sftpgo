@@ -22,6 +22,7 @@ message FsEvent {
     int32 fs_provider = 14;
     string bucket = 15;
     string endpoint = 16;
+    int32 open_flags = 17;
 }
 
 message ProviderEvent {

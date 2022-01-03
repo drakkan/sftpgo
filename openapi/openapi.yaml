@@ -1759,6 +1759,24 @@ paths:
           description: 'the event SSH command must be the same as the one specified. Empty or missing means omit this filter'
           required: false
         - in: query
+          name: fs_provider
+          schema:
+            type: integer
+          description: 'the event filesystem provider must be the same as the one specified. Empty or missing means omit this filter'
+          required: false
+        - in: query
+          name: bucket
+          schema:
+            type: string
+          description: 'the bucket must be the same as the one specified. Empty or missing means omit this filter'
+          required: false
+        - in: query
+          name: endpoint
+          schema:
+            type: string
+          description: 'the endpoint must be the same as the one specified. Empty or missing means omit this filter'
+          required: false
+        - in: query
           name: protocols
           schema:
             type: array
@@ -4130,6 +4148,23 @@ components:
           * `retention_checks` - view and start retention checks is allowed
           * `metadata_checks` - view and start metadata checks is allowed
           * `view_events` - view and search filesystem and provider events is allowed
+    FsProviders:
+      type: integer
+      enum:
+        - 0
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+      description: |
+        Filesystem providers:
+          * `0` - Local filesystem
+          * `1` - S3 Compatible Object Storage
+          * `2` - Google Cloud Storage
+          * `3` - Azure Blob Storage
+          * `4` - Local filesystem encrypted
+          * `5` - SFTP
     LoginMethods:
       type: string
       enum:
@@ -4268,6 +4303,7 @@ components:
       type: string
       enum:
         - download
+        - pre-upload
         - upload
         - delete
         - rename
@@ -4621,22 +4657,7 @@ components:
       type: object
       properties:
         provider:
-          type: integer
-          enum:
-            - 0
-            - 1
-            - 2
-            - 3
-            - 4
-            - 5
-          description: |
-            Providers:
-              * `0` - Local filesystem
-              * `1` - S3 Compatible Object Storage
-              * `2` - Google Cloud Storage
-              * `3` - Azure Blob Storage
-              * `4` - Local filesystem encrypted
-              * `5` - SFTP
+          $ref: '#/components/schemas/FsProviders'
         s3config:
           $ref: '#/components/schemas/S3Config'
         gcsconfig:
@@ -5412,6 +5433,14 @@ components:
         ip:
           type: string
         session_id:
+          type: string
+        fs_provider:
+          $ref: '#/components/schemas/FsProviders'
+        bucket:
+          type: string
+        endpoint:
+          type: string
+        open_flags:
           type: string
         instance_id:
           type: string
