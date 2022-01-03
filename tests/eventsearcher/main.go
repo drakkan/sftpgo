@@ -27,6 +27,10 @@ type fsEvent struct {
 	Protocol          string `json:"protocol"`
 	IP                string `json:"ip,omitempty"`
 	SessionID         string `json:"session_id"`
+	FsProvider        int    `json:"fs_provider"`
+	Bucket            string `json:"bucket,omitempty"`
+	Endpoint          string `json:"endpoint,omitempty"`
+	OpenFlags         int    `json:"open_flags,omitempty"`
 	InstanceID        string `json:"instance_id,omitempty"`
 }
 
@@ -44,10 +48,8 @@ type providerEvent struct {
 
 type Searcher struct{}
 
-func (s *Searcher) SearchFsEvents(startTimestamp, endTimestamp int64, username, ip, sshCmd string, actions,
-	protocols, instanceIDs, excludeIDs []string, statuses []int32, limit, order int,
-) ([]byte, []string, []string, error) {
-	if startTimestamp < 0 {
+func (s *Searcher) SearchFsEvents(filters *eventsearcher.FsEventSearch) ([]byte, []string, []string, error) {
+	if filters.StartTimestamp < 0 {
 		return nil, nil, nil, errNotSupported
 	}
 
@@ -68,6 +70,10 @@ func (s *Searcher) SearchFsEvents(startTimestamp, endTimestamp int64, username, 
 			IP:                "::1",
 			SessionID:         "1234",
 			InstanceID:        "instance1",
+			FsProvider:        0,
+			Bucket:            "bucket",
+			Endpoint:          "endpoint",
+			OpenFlags:         512,
 		},
 	}
 
@@ -79,10 +85,8 @@ func (s *Searcher) SearchFsEvents(startTimestamp, endTimestamp int64, username, 
 	return data, nil, nil, nil
 }
 
-func (s *Searcher) SearchProviderEvents(startTimestamp, endTimestamp int64, username, ip, objectName string,
-	limit, order int, actions, objectTypes, instanceIDs, excludeIDs []string,
-) ([]byte, []string, []string, error) {
-	if startTimestamp < 0 {
+func (s *Searcher) SearchProviderEvents(filters *eventsearcher.ProviderEventSearch) ([]byte, []string, []string, error) {
+	if filters.StartTimestamp < 0 {
 		return nil, nil, nil, errNotSupported
 	}
 

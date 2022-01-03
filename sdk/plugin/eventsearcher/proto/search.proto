@@ -15,11 +15,14 @@ message FsEventsFilter {
     repeated string instance_ids = 9;
     int32 limit = 10;
     repeated string exclude_ids = 11;
+    int32 fs_provider = 12;
+    string bucket = 13;
+    string endpoint = 14;
     enum Order {
         DESC = 0;
         ASC = 1;
     }
-    Order order = 12;
+    Order order = 15;
 }
 
 message ProviderEventsFilter {
@@ -32,12 +35,12 @@ message ProviderEventsFilter {
     string object_name = 7;
     repeated string instance_ids = 8;
     int32 limit = 9;
+    repeated string exclude_ids = 10;
     enum Order {
         DESC = 0;
         ASC = 1;
     }
-    Order order = 10;
-    repeated string exclude_ids = 11;
+    Order order = 11;
 }
 
 message SearchResponse {

@@ -230,11 +230,8 @@ func (m *Manager) NotifyProviderEvent(event *notifier.ProviderEvent, object Rend
 	}
 }
 
-// SearchFsEvents returns the filesystem events matching the specified filter and a continuation token
-// to use for cursor based pagination
-func (m *Manager) SearchFsEvents(startTimestamp, endTimestamp int64, username, ip, sshCmd string, actions,
-	protocols, instanceIDs, excludeIDs []string, statuses []int32, limit, order int,
-) ([]byte, []string, []string, error) {
+// SearchFsEvents returns the filesystem events matching the specified filters
+func (m *Manager) SearchFsEvents(searchFilters *eventsearcher.FsEventSearch) ([]byte, []string, []string, error) {
 	if !m.hasSearcher {
 		return nil, nil, nil, ErrNoSearcher
 	}
@@ -242,15 +239,11 @@ func (m *Manager) SearchFsEvents(startTimestamp, endTimestamp int64, username, i
 	plugin := m.searcher
 	m.searcherLock.RUnlock()
 
-	return plugin.searchear.SearchFsEvents(startTimestamp, endTimestamp, username, ip, sshCmd, actions, protocols,
-		instanceIDs, excludeIDs, statuses, limit, order)
+	return plugin.searchear.SearchFsEvents(searchFilters)
 }
 
-// SearchProviderEvents returns the provider events matching the specified filter and a continuation token
-// to use for cursor based pagination
-func (m *Manager) SearchProviderEvents(startTimestamp, endTimestamp int64, username, ip, objectName string,
-	limit, order int, actions, objectTypes, instanceIDs, excludeIDs []string,
-) ([]byte, []string, []string, error) {
+// SearchProviderEvents returns the provider events matching the specified filters
+func (m *Manager) SearchProviderEvents(searchFilters *eventsearcher.ProviderEventSearch) ([]byte, []string, []string, error) {
 	if !m.hasSearcher {
 		return nil, nil, nil, ErrNoSearcher
 	}
@@ -258,8 +251,7 @@ func (m *Manager) SearchProviderEvents(startTimestamp, endTimestamp int64, usern
 	plugin := m.searcher
 	m.searcherLock.RUnlock()
 
-	return plugin.searchear.SearchProviderEvents(startTimestamp, endTimestamp, username, ip, objectName, limit,
-		order, actions, objectTypes, instanceIDs, excludeIDs)
+	return plugin.searchear.SearchProviderEvents(searchFilters)
 }
 
 // HasMetadater returns true if a metadata plugin is defined

@@ -5974,7 +5974,7 @@ func TestSearchEvents(t *testing.T) {
 	token, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
 
-	req, err := http.NewRequest(http.MethodGet, fsEventsPath+"?limit=10&order=ASC", nil)
+	req, err := http.NewRequest(http.MethodGet, fsEventsPath+"?limit=10&order=ASC&fs_provider=0", nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, token)
 	rr := executeRequest(req)
@@ -5985,7 +5985,7 @@ func TestSearchEvents(t *testing.T) {
 	if assert.Len(t, events, 1) {
 		ev := events[0]
 		for _, field := range []string{"id", "timestamp", "action", "username", "fs_path", "status", "protocol",
-			"ip", "session_id", "instance_id"} {
+			"ip", "session_id", "fs_provider", "bucket", "endpoint", "open_flags", "instance_id"} {
 			_, ok := ev[field]
 			assert.True(t, ok, field)
 		}
@@ -6053,6 +6053,12 @@ func TestSearchEvents(t *testing.T) {
 	checkResponseCode(t, http.StatusBadRequest, rr)
 
 	req, err = http.NewRequest(http.MethodGet, fsEventsPath+"?statuses=a,b", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	req, err = http.NewRequest(http.MethodGet, fsEventsPath+"?fs_provider=a", nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, token)
 	rr = executeRequest(req)

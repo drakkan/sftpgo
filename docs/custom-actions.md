@@ -41,7 +41,7 @@ If the `hook` defines a path to an external program, then this program can read 
 - `SFTPGO_ACTION_FILE_SIZE`, non-zero for `pre-upload`,`upload`, `download` and `delete` actions if the file size is greater than `0`
 - `SFTPGO_ACTION_FS_PROVIDER`, `0` for local filesystem, `1` for S3 backend, `2` for Google Cloud Storage (GCS) backend, `3` for Azure Blob Storage backend, `4` for local encrypted backend, `5` for SFTP backend
 - `SFTPGO_ACTION_BUCKET`, non-empty for S3, GCS and Azure backends
-- `SFTPGO_ACTION_ENDPOINT`, non-empty for S3, SFTP and Azure backend if configured. For Azure this is the endpoint, if configured
+- `SFTPGO_ACTION_ENDPOINT`, non-empty for S3, SFTP and Azure backend if configured
 - `SFTPGO_ACTION_STATUS`, integer. Status for `upload`, `download` and `ssh_cmd` actions. 1 means no error, 2 means a generic error occurred, 3 means quota exceeded error
 - `SFTPGO_ACTION_PROTOCOL`, string. Possible values are `SSH`, `SFTP`, `SCP`, `FTP`, `DAV`, `HTTP`, `HTTPShare`, `DataRetention`
 - `SFTPGO_ACTION_IP`, the action was executed from this IP address
