@@ -19,8 +19,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/drakkan/sftpgo/v2/dataprovider"
-	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/sdk"
+	"github.com/drakkan/sftpgo/v2/sdk/kms"
 	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )

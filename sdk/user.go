@@ -3,7 +3,7 @@ package sdk
 import (
 	"strings"
 
-	"github.com/drakkan/sftpgo/v2/kms"
+	"github.com/drakkan/sftpgo/v2/sdk/kms"
 	"github.com/drakkan/sftpgo/v2/util"
 )
 
