@@ -8,8 +8,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
-
-	sdkkms "github.com/drakkan/sftpgo/v2/sdk/kms"
 )
 
 var (
@@ -17,14 +15,14 @@ var (
 )
 
 type builtinSecret struct {
-	sdkkms.BaseSecret
+	BaseSecret
 }
 
 func init() {
-	sdkkms.RegisterSecretProvider(sdkkms.SchemeBuiltin, sdkkms.SecretStatusAES256GCM, newBuiltinSecret)
+	RegisterSecretProvider(SchemeBuiltin, SecretStatusAES256GCM, newBuiltinSecret)
 }
 
-func newBuiltinSecret(base sdkkms.BaseSecret, url, masterKey string) sdkkms.SecretProvider {
+func newBuiltinSecret(base BaseSecret, url, masterKey string) SecretProvider {
 	return &builtinSecret{
 		BaseSecret: base,
 	}
@@ -35,7 +33,7 @@ func (s *builtinSecret) Name() string {
 }
 
 func (s *builtinSecret) IsEncrypted() bool {
-	return s.Status == sdkkms.SecretStatusAES256GCM
+	return s.Status == SecretStatusAES256GCM
 }
 
 func (s *builtinSecret) deriveKey(key []byte) []byte {
@@ -51,10 +49,10 @@ func (s *builtinSecret) deriveKey(key []byte) []byte {
 
 func (s *builtinSecret) Encrypt() error {
 	if s.Payload == "" {
-		return sdkkms.ErrInvalidSecret
+		return ErrInvalidSecret
 	}
 	switch s.Status {
-	case sdkkms.SecretStatusPlain:
+	case SecretStatusPlain:
 		key := make([]byte, 32)
 		if _, err := io.ReadFull(rand.Reader, key); err != nil {
 			return err
@@ -78,16 +76,16 @@ func (s *builtinSecret) Encrypt() error {
 		ciphertext := gcm.Seal(nonce, nonce, []byte(s.Payload), aad)
 		s.Key = hex.EncodeToString(key)
 		s.Payload = hex.EncodeToString(ciphertext)
-		s.Status = sdkkms.SecretStatusAES256GCM
+		s.Status = SecretStatusAES256GCM
 		return nil
 	default:
-		return sdkkms.ErrWrongSecretStatus
+		return ErrWrongSecretStatus
 	}
 }
 
 func (s *builtinSecret) Decrypt() error {
 	switch s.Status {
-	case sdkkms.SecretStatusAES256GCM:
+	case SecretStatusAES256GCM:
 		encrypted, err := hex.DecodeString(s.Payload)
 		if err != nil {
 			return err
@@ -117,18 +115,18 @@ func (s *builtinSecret) Decrypt() error {
 		if err != nil {
 			return err
 		}
-		s.Status = sdkkms.SecretStatusPlain
+		s.Status = SecretStatusPlain
 		s.Payload = string(plaintext)
 		s.Key = ""
 		s.AdditionalData = ""
 		return nil
 	default:
-		return sdkkms.ErrWrongSecretStatus
+		return ErrWrongSecretStatus
 	}
 }
 
-func (s *builtinSecret) Clone() sdkkms.SecretProvider {
-	baseSecret := sdkkms.BaseSecret{
+func (s *builtinSecret) Clone() SecretProvider {
+	baseSecret := BaseSecret{
 		Status:         s.Status,
 		Payload:        s.Payload,
 		Key:            s.Key,

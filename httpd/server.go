@@ -25,6 +25,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/mfa"
 	"github.com/drakkan/sftpgo/v2/sdk"
+	sdklogger "github.com/drakkan/sftpgo/v2/sdk/logger"
 	"github.com/drakkan/sftpgo/v2/smtp"
 	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/version"
@@ -75,7 +76,7 @@ func (s *httpdServer) listenAndServe() error {
 		WriteTimeout:      60 * time.Second,
 		IdleTimeout:       60 * time.Second,
 		MaxHeaderBytes:    1 << 16, // 64KB
-		ErrorLog:          log.New(&logger.StdLoggerWrapper{Sender: logSender}, "", 0),
+		ErrorLog:          log.New(&sdklogger.StdLoggerWrapper{Sender: logSender}, "", 0),
 	}
 	if certMgr != nil && s.binding.EnableHTTPS {
 		config := &tls.Config{

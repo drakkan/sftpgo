@@ -8,8 +8,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/util"
+	"github.com/drakkan/sftpgo/v2/sdk/logger"
+	"github.com/drakkan/sftpgo/v2/sdk/util"
 )
 
 // SecretProvider defines the interface for a KMS secrets provider
@@ -141,7 +141,7 @@ func (c *Configuration) Initialize() error {
 		config.Secrets.URL = SchemeLocal + "://"
 	}
 	for k, v := range secretProviders {
-		logger.Debug(logSender, "", "secret provider registered for scheme: %#v, encrypted status: %#v",
+		logger.Debug(logSender, "secret provider registered for scheme: %#v, encrypted status: %#v",
 			k, v.encryptedStatus)
 	}
 	return nil
@@ -166,8 +166,8 @@ func (c *Configuration) getSecretProvider(base BaseSecret) SecretProvider {
 		}
 	}
 	// we assume that SchemeLocal is always registered
-	logger.Warn(logSender, "", "no secret provider registered for URL %v, fallback to local provider", c.Secrets.URL)
-	return secretProviders[SchemeLocal].newFn(base, c.Secrets.URL, c.Secrets.masterKey)
+	logger.Warn(logSender, "no secret provider registered for URL %v, fallback to local provider", c.Secrets.URL)
+	return NewLocalSecret(base, c.Secrets.URL, c.Secrets.masterKey)
 }
 
 // Secret defines the struct used to store confidential data
@@ -217,7 +217,7 @@ func (s *Secret) UnmarshalJSON(data []byte) error {
 			return nil
 		}
 	}
-	logger.Debug(logSender, "", "no provider registered for status %#v", baseSecret.Status)
+	logger.Debug(logSender, "no provider registered for status %#v", baseSecret.Status)
 
 	return ErrInvalidSecret
 }
