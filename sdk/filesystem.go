@@ -1,6 +1,6 @@
 package sdk
 
-import "github.com/drakkan/sftpgo/v2/kms"
+import "github.com/drakkan/sftpgo/v2/sdk/kms"
 
 // FilesystemProvider defines the supported storage filesystems
 type FilesystemProvider int

@@ -11,8 +11,8 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 
-	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/sdk/kms"
 	"github.com/drakkan/sftpgo/v2/sdk/plugin/auth"
 	"github.com/drakkan/sftpgo/v2/sdk/plugin/eventsearcher"
 	kmsplugin "github.com/drakkan/sftpgo/v2/sdk/plugin/kms"
