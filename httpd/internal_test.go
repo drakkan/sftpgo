@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/klauspost/compress/zip"
 	"github.com/lestrrat-go/jwx/jwa"
@@ -1529,7 +1530,7 @@ func TestRecoverer(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, rr.Code, rr.Body.String())
 
 	server.router = chi.NewRouter()
-	server.router.Use(recoverer)
+	server.router.Use(middleware.Recoverer)
 	server.router.Get(recoveryPath, func(w http.ResponseWriter, r *http.Request) {
 		panic("panic")
 	})
