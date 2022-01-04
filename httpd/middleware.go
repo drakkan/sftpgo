@@ -4,11 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"runtime/debug"
 	"strings"
 	"time"
 
-	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/lestrrat-go/jwx/jwt"
 	"github.com/rs/xid"
@@ -330,31 +328,6 @@ func forbidAPIKeyAuthentication(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
-}
-
-func recoverer(next http.Handler) http.Handler {
-	fn := func(w http.ResponseWriter, r *http.Request) {
-		defer func() {
-			if rvr := recover(); rvr != nil {
-				if rvr == http.ErrAbortHandler {
-					panic(rvr)
-				}
-
-				logEntry := middleware.GetLogEntry(r)
-				if logEntry != nil {
-					logEntry.Panic(rvr, debug.Stack())
-				} else {
-					middleware.PrintPrettyStack(rvr)
-				}
-
-				w.WriteHeader(http.StatusInternalServerError)
-			}
-		}()
-
-		next.ServeHTTP(w, r)
-	}
-
-	return http.HandlerFunc(fn)
 }
 
 func authenticateAdminWithAPIKey(username, keyID string, tokenAuth *jwtauth.JWTAuth, r *http.Request) error {

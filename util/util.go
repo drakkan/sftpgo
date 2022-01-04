@@ -498,7 +498,7 @@ func GetRealIP(r *http.Request) string {
 		}
 		ip = strings.TrimSpace(xff[:i])
 	}
-	if net.ParseIP(ip) == nil {
+	if ip == "" || net.ParseIP(ip) == nil {
 		return ""
 	}
 

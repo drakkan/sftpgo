@@ -969,7 +969,7 @@ func (s *httpdServer) initializeRouter() {
 	s.router.Use(middleware.RequestID)
 	s.router.Use(s.checkConnection)
 	s.router.Use(logger.NewStructuredLogger(logger.GetLogger()))
-	s.router.Use(recoverer)
+	s.router.Use(middleware.Recoverer)
 	if s.cors.Enabled {
 		c := cors.New(cors.Options{
 			AllowedOrigins:   s.cors.AllowedOrigins,
