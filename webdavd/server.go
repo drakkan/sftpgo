@@ -23,6 +23,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/metric"
+	sdklogger "github.com/drakkan/sftpgo/v2/sdk/logger"
 	"github.com/drakkan/sftpgo/v2/util"
 )
 
@@ -39,7 +40,7 @@ func (s *webDavServer) listenAndServe(compressor *middleware.Compressor) error {
 		WriteTimeout:      60 * time.Second,
 		IdleTimeout:       60 * time.Second,
 		MaxHeaderBytes:    1 << 16, // 64KB
-		ErrorLog:          log.New(&logger.StdLoggerWrapper{Sender: logSender}, "", 0),
+		ErrorLog:          log.New(&sdklogger.StdLoggerWrapper{Sender: logSender}, "", 0),
 	}
 	if s.config.Cors.Enabled {
 		c := cors.New(cors.Options{

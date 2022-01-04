@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/drakkan/sftpgo/v2/sdk/kms"
-	"github.com/drakkan/sftpgo/v2/util"
+	"github.com/drakkan/sftpgo/v2/sdk/util"
 )
 
 // Web Client/user REST API restrictions

@@ -11,14 +11,14 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 
-	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/sdk/kms"
+	"github.com/drakkan/sftpgo/v2/sdk/logger"
 	"github.com/drakkan/sftpgo/v2/sdk/plugin/auth"
 	"github.com/drakkan/sftpgo/v2/sdk/plugin/eventsearcher"
 	kmsplugin "github.com/drakkan/sftpgo/v2/sdk/plugin/kms"
 	"github.com/drakkan/sftpgo/v2/sdk/plugin/metadata"
 	"github.com/drakkan/sftpgo/v2/sdk/plugin/notifier"
-	"github.com/drakkan/sftpgo/v2/util"
+	"github.com/drakkan/sftpgo/v2/sdk/util"
 )
 
 const (
@@ -100,7 +100,7 @@ type Manager struct {
 
 // Initialize initializes the configured plugins
 func Initialize(configs []Config, logVerbose bool) error {
-	logger.Debug(logSender, "", "initialize")
+	logger.Debug(logSender, "initialize")
 	Handler = Manager{
 		Configs:    configs,
 		done:       make(chan bool),
@@ -135,7 +135,7 @@ func Initialize(configs []Config, logVerbose bool) error {
 			kmsID++
 			kms.RegisterSecretProvider(config.KMSOptions.Scheme, config.KMSOptions.EncryptedStatus,
 				Handler.Configs[idx].newKMSPluginSecretProvider)
-			logger.Debug(logSender, "", "registered secret provider for scheme: %v, encrypted status: %v",
+			logger.Debug(logSender, "registered secret provider for scheme: %v, encrypted status: %v",
 				config.KMSOptions.Scheme, config.KMSOptions.EncryptedStatus)
 		case auth.PluginName:
 			plugin, err := newAuthPlugin(config)
@@ -357,7 +357,7 @@ func (m *Manager) Authenticate(username, password, ip, protocol string, pkey str
 	case AuthScopeTLSCertificate:
 		cert, err := util.EncodeTLSCertToPem(tlsCert)
 		if err != nil {
-			logger.Warn(logSender, "", "unable to encode tls certificate to pem: %v", err)
+			logger.Error(logSender, "unable to encode tls certificate to pem: %v", err)
 			return nil, fmt.Errorf("unable to encode tls cert to pem: %w", err)
 		}
 		return m.checkUserAndTLSCert(username, cert, ip, protocol, userAsJSON)
@@ -520,10 +520,10 @@ func (m *Manager) restartNotifierPlugin(config Config, idx int) {
 	if atomic.LoadInt32(&m.closed) == 1 {
 		return
 	}
-	logger.Info(logSender, "", "try to restart crashed notifier plugin %#v, idx: %v", config.Cmd, idx)
+	logger.Info(logSender, "try to restart crashed notifier plugin %#v, idx: %v", config.Cmd, idx)
 	plugin, err := newNotifierPlugin(config)
 	if err != nil {
-		logger.Warn(logSender, "", "unable to restart notifier plugin %#v, err: %v", config.Cmd, err)
+		logger.Error(logSender, "unable to restart notifier plugin %#v, err: %v", config.Cmd, err)
 		return
 	}
 
@@ -538,10 +538,10 @@ func (m *Manager) restartKMSPlugin(config Config, idx int) {
 	if atomic.LoadInt32(&m.closed) == 1 {
 		return
 	}
-	logger.Info(logSender, "", "try to restart crashed kms plugin %#v, idx: %v", config.Cmd, idx)
+	logger.Info(logSender, "try to restart crashed kms plugin %#v, idx: %v", config.Cmd, idx)
 	plugin, err := newKMSPlugin(config)
 	if err != nil {
-		logger.Warn(logSender, "", "unable to restart kms plugin %#v, err: %v", config.Cmd, err)
+		logger.Error(logSender, "unable to restart kms plugin %#v, err: %v", config.Cmd, err)
 		return
 	}
 
@@ -554,10 +554,10 @@ func (m *Manager) restartAuthPlugin(config Config, idx int) {
 	if atomic.LoadInt32(&m.closed) == 1 {
 		return
 	}
-	logger.Info(logSender, "", "try to restart crashed auth plugin %#v, idx: %v", config.Cmd, idx)
+	logger.Info(logSender, "try to restart crashed auth plugin %#v, idx: %v", config.Cmd, idx)
 	plugin, err := newAuthPlugin(config)
 	if err != nil {
-		logger.Warn(logSender, "", "unable to restart auth plugin %#v, err: %v", config.Cmd, err)
+		logger.Error(logSender, "unable to restart auth plugin %#v, err: %v", config.Cmd, err)
 		return
 	}
 
@@ -570,10 +570,10 @@ func (m *Manager) restartSearcherPlugin(config Config) {
 	if atomic.LoadInt32(&m.closed) == 1 {
 		return
 	}
-	logger.Info(logSender, "", "try to restart crashed searcher plugin %#v", config.Cmd)
+	logger.Info(logSender, "try to restart crashed searcher plugin %#v", config.Cmd)
 	plugin, err := newSearcherPlugin(config)
 	if err != nil {
-		logger.Warn(logSender, "", "unable to restart searcher plugin %#v, err: %v", config.Cmd, err)
+		logger.Error(logSender, "unable to restart searcher plugin %#v, err: %v", config.Cmd, err)
 		return
 	}
 
@@ -586,10 +586,10 @@ func (m *Manager) restartMetadaterPlugin(config Config) {
 	if atomic.LoadInt32(&m.closed) == 1 {
 		return
 	}
-	logger.Info(logSender, "", "try to restart crashed metadater plugin %#v", config.Cmd)
+	logger.Info(logSender, "try to restart crashed metadater plugin %#v", config.Cmd)
 	plugin, err := newMetadaterPlugin(config)
 	if err != nil {
-		logger.Warn(logSender, "", "unable to restart metadater plugin %#v, err: %v", config.Cmd, err)
+		logger.Error(logSender, "unable to restart metadater plugin %#v, err: %v", config.Cmd, err)
 		return
 	}
 
@@ -600,40 +600,40 @@ func (m *Manager) restartMetadaterPlugin(config Config) {
 
 // Cleanup releases all the active plugins
 func (m *Manager) Cleanup() {
-	logger.Debug(logSender, "", "cleanup")
+	logger.Debug(logSender, "cleanup")
 	atomic.StoreInt32(&m.closed, 1)
 	close(m.done)
 	m.notifLock.Lock()
 	for _, n := range m.notifiers {
-		logger.Debug(logSender, "", "cleanup notifier plugin %v", n.config.Cmd)
+		logger.Debug(logSender, "cleanup notifier plugin %v", n.config.Cmd)
 		n.cleanup()
 	}
 	m.notifLock.Unlock()
 
 	m.kmsLock.Lock()
 	for _, k := range m.kms {
-		logger.Debug(logSender, "", "cleanup kms plugin %v", k.config.Cmd)
+		logger.Debug(logSender, "cleanup kms plugin %v", k.config.Cmd)
 		k.cleanup()
 	}
 	m.kmsLock.Unlock()
 
 	m.authLock.Lock()
 	for _, a := range m.auths {
-		logger.Debug(logSender, "", "cleanup auth plugin %v", a.config.Cmd)
+		logger.Debug(logSender, "cleanup auth plugin %v", a.config.Cmd)
 		a.cleanup()
 	}
 	m.authLock.Unlock()
 
 	if m.hasSearcher {
 		m.searcherLock.Lock()
-		logger.Debug(logSender, "", "cleanup searcher plugin %v", m.searcher.config.Cmd)
+		logger.Debug(logSender, "cleanup searcher plugin %v", m.searcher.config.Cmd)
 		m.searcher.cleanup()
 		m.searcherLock.Unlock()
 	}
 
 	if m.hasMetadater {
 		m.metadaterLock.Lock()
-		logger.Debug(logSender, "", "cleanup metadater plugin %v", m.metadater.config.Cmd)
+		logger.Debug(logSender, "cleanup metadater plugin %v", m.metadater.config.Cmd)
 		m.metadater.cleanup()
 		m.metadaterLock.Unlock()
 	}
@@ -648,14 +648,14 @@ func setLogLevel(logVerbose bool) {
 }
 
 func startCheckTicker() {
-	logger.Debug(logSender, "", "start plugins checker")
+	logger.Debug(logSender, "start plugins checker")
 	checker := time.NewTicker(30 * time.Second)
 
 	go func() {
 		for {
 			select {
 			case <-Handler.done:
-				logger.Debug(logSender, "", "handler done, stop plugins checker")
+				logger.Debug(logSender, "handler done, stop plugins checker")
 				checker.Stop()
 				return
 			case <-checker.C:

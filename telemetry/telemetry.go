@@ -16,6 +16,7 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/logger"
+	sdklogger "github.com/drakkan/sftpgo/v2/sdk/logger"
 	"github.com/drakkan/sftpgo/v2/util"
 )
 
@@ -95,7 +96,7 @@ func (c Conf) Initialize(configDir string) error {
 		WriteTimeout:      60 * time.Second,
 		IdleTimeout:       60 * time.Second,
 		MaxHeaderBytes:    1 << 14, // 16KB
-		ErrorLog:          log.New(&logger.StdLoggerWrapper{Sender: logSender}, "", 0),
+		ErrorLog:          log.New(&sdklogger.StdLoggerWrapper{Sender: logSender}, "", 0),
 	}
 	if certificateFile != "" && certificateKeyFile != "" {
 		certMgr, err = common.NewCertManager(certificateFile, certificateKeyFile, configDir, logSender)

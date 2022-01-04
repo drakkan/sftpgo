@@ -3,7 +3,7 @@ package plugin
 import (
 	"github.com/shirou/gopsutil/v3/process"
 
-	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/sdk/logger"
 )
 
 func killProcess(processPath string) {
@@ -16,10 +16,10 @@ func killProcess(processPath string) {
 		if err == nil {
 			if cmdLine == processPath {
 				err = p.Kill()
-				logger.Debug(logSender, "", "killed process %v, pid %v, err %v", cmdLine, p.Pid, err)
+				logger.Debug(logSender, "killed process %v, pid %v, err %v", cmdLine, p.Pid, err)
 				return
 			}
 		}
 	}
-	logger.Debug(logSender, "", "no match for plugin process %v", processPath)
+	logger.Debug(logSender, "no match for plugin process %v", processPath)
 }

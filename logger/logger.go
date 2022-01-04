@@ -16,8 +16,11 @@ import (
 	"time"
 
 	ftpserverlog "github.com/fclairamb/go-log"
+	"github.com/hashicorp/go-hclog"
 	"github.com/rs/zerolog"
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
+
+	sdklogger "github.com/drakkan/sftpgo/v2/sdk/logger"
 )
 
 const (
@@ -41,22 +44,25 @@ var (
 	rollingLogger *lumberjack.Logger
 )
 
-// StdLoggerWrapper is a wrapper for standard logger compatibility
-type StdLoggerWrapper struct {
-	Sender string
+type logWrapper struct{}
+
+// LogWithKeyVals logs at the specified level for the specified sender adding the specified key vals
+func (l *logWrapper) LogWithKeyVals(level hclog.Level, sender, msg string, args ...interface{}) {
+	LogWithKeyVals(level, sender, msg, args...)
 }
 
-// Write implements the io.Writer interface. This is useful to set as a writer
-// for the standard library log.
-func (l *StdLoggerWrapper) Write(p []byte) (n int, err error) {
-	n = len(p)
-	if n > 0 && p[n-1] == '\n' {
-		// Trim CR added by stdlog.
-		p = p[0 : n-1]
+// Log logs at the specified level for the specified sender
+func (l *logWrapper) Log(level hclog.Level, sender, format string, v ...interface{}) {
+	switch level {
+	case hclog.Info:
+		Log(LevelInfo, sender, "", format, v...)
+	case hclog.Warn:
+		Log(LevelWarn, sender, "", format, v...)
+	case hclog.Error:
+		Log(LevelError, sender, "", format, v...)
+	default:
+		Log(LevelDebug, sender, "", format, v...)
 	}
-
-	Log(LevelError, l.Sender, "", string(p))
-	return
 }
 
 // LeveledLogger is a logger that accepts a message string and a variadic number of key-value pairs
@@ -176,6 +182,7 @@ func InitLogger(logFilePath string, logMaxSize int, logMaxBackups int, logMaxAge
 		consoleLogger = zerolog.Nop()
 	}
 	logger = logger.Level(level)
+	sdklogger.SetLogger(&logWrapper{})
 }
 
 // InitStdErrLogger configures the logger to write to stderr
@@ -184,6 +191,7 @@ func InitStdErrLogger(level zerolog.Level) {
 		output: os.Stderr,
 	}).Level(level)
 	consoleLogger = zerolog.Nop()
+	sdklogger.SetLogger(&logWrapper{})
 }
 
 // DisableLogger disable the main logger.
@@ -191,6 +199,7 @@ func InitStdErrLogger(level zerolog.Level) {
 func DisableLogger() {
 	logger = zerolog.Nop()
 	rollingLogger = nil
+	sdklogger.DisableLogger()
 }
 
 // EnableConsoleLogger enables the console logger
@@ -208,6 +217,24 @@ func RotateLogFile() error {
 		return rollingLogger.Rotate()
 	}
 	return errors.New("logging to file is disabled")
+}
+
+// LogWithKeyVals logs at the specified level for the specified sender adding the specified key vals
+func LogWithKeyVals(level hclog.Level, sender, msg string, args ...interface{}) {
+	var ev *zerolog.Event
+	switch level {
+	case hclog.Info:
+		ev = logger.Info()
+	case hclog.Warn:
+		ev = logger.Warn()
+	case hclog.Error:
+		ev = logger.Error()
+	default:
+		ev = logger.Debug()
+	}
+	ev.Timestamp().Str("sender", sender)
+	addKeysAndValues(ev, args...)
+	ev.Msg(msg)
 }
 
 // Log logs at the specified level for the specified sender
@@ -231,22 +258,22 @@ func Log(level LogLevel, sender string, connectionID string, format string, v ..
 }
 
 // Debug logs at debug level for the specified sender
-func Debug(sender string, connectionID string, format string, v ...interface{}) {
+func Debug(sender, connectionID, format string, v ...interface{}) {
 	Log(LevelDebug, sender, connectionID, format, v...)
 }
 
 // Info logs at info level for the specified sender
-func Info(sender string, connectionID string, format string, v ...interface{}) {
+func Info(sender, connectionID, format string, v ...interface{}) {
 	Log(LevelInfo, sender, connectionID, format, v...)
 }
 
 // Warn logs at warn level for the specified sender
-func Warn(sender string, connectionID string, format string, v ...interface{}) {
+func Warn(sender, connectionID, format string, v ...interface{}) {
 	Log(LevelWarn, sender, connectionID, format, v...)
 }
 
 // Error logs at error level for the specified sender
-func Error(sender string, connectionID string, format string, v ...interface{}) {
+func Error(sender, connectionID, format string, v ...interface{}) {
 	Log(LevelError, sender, connectionID, format, v...)
 }
 

@@ -9,21 +9,19 @@ import (
 
 	"gocloud.dev/secrets/localsecrets"
 	"golang.org/x/crypto/hkdf"
-
-	sdkkms "github.com/drakkan/sftpgo/v2/sdk/kms"
 )
 
 func init() {
-	sdkkms.RegisterSecretProvider(sdkkms.SchemeLocal, sdkkms.SecretStatusSecretBox, NewLocalSecret)
+	RegisterSecretProvider(SchemeLocal, SecretStatusSecretBox, NewLocalSecret)
 }
 
 type localSecret struct {
-	sdkkms.BaseSecret
+	BaseSecret
 	masterKey string
 }
 
 // NewLocalSecret returns a SecretProvider that use a locally provided symmetric key
-func NewLocalSecret(base sdkkms.BaseSecret, url, masterKey string) sdkkms.SecretProvider {
+func NewLocalSecret(base BaseSecret, url, masterKey string) SecretProvider {
 	return &localSecret{
 		BaseSecret: base,
 		masterKey:  masterKey,
@@ -35,15 +33,15 @@ func (s *localSecret) Name() string {
 }
 
 func (s *localSecret) IsEncrypted() bool {
-	return s.Status == sdkkms.SecretStatusSecretBox
+	return s.Status == SecretStatusSecretBox
 }
 
 func (s *localSecret) Encrypt() error {
-	if s.Status != sdkkms.SecretStatusPlain {
-		return sdkkms.ErrWrongSecretStatus
+	if s.Status != SecretStatusPlain {
+		return ErrWrongSecretStatus
 	}
 	if s.Payload == "" {
-		return sdkkms.ErrInvalidSecret
+		return ErrInvalidSecret
 	}
 	secretKey, err := localsecrets.NewRandomKey()
 	if err != nil {
@@ -62,14 +60,14 @@ func (s *localSecret) Encrypt() error {
 	}
 	s.Key = hex.EncodeToString(secretKey[:])
 	s.Payload = base64.StdEncoding.EncodeToString(ciphertext)
-	s.Status = sdkkms.SecretStatusSecretBox
+	s.Status = SecretStatusSecretBox
 	s.Mode = s.getEncryptionMode()
 	return nil
 }
 
 func (s *localSecret) Decrypt() error {
 	if !s.IsEncrypted() {
-		return sdkkms.ErrWrongSecretStatus
+		return ErrWrongSecretStatus
 	}
 	encrypted, err := base64.StdEncoding.DecodeString(s.Payload)
 	if err != nil {
@@ -90,7 +88,7 @@ func (s *localSecret) Decrypt() error {
 	if err != nil {
 		return err
 	}
-	s.Status = sdkkms.SecretStatusPlain
+	s.Status = SecretStatusPlain
 	s.Payload = string(plaintext)
 	s.Key = ""
 	s.AdditionalData = ""
@@ -131,8 +129,8 @@ func (s *localSecret) getEncryptionMode() int {
 	return 1
 }
 
-func (s *localSecret) Clone() sdkkms.SecretProvider {
-	baseSecret := sdkkms.BaseSecret{
+func (s *localSecret) Clone() SecretProvider {
+	baseSecret := BaseSecret{
 		Status:         s.Status,
 		Payload:        s.Payload,
 		Key:            s.Key,
