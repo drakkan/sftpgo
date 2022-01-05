@@ -16,7 +16,6 @@ import (
 	"time"
 
 	ftpserverlog "github.com/fclairamb/go-log"
-	"github.com/hashicorp/go-hclog"
 	"github.com/rs/zerolog"
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 
@@ -46,23 +45,36 @@ var (
 
 type logWrapper struct{}
 
-// LogWithKeyVals logs at the specified level for the specified sender adding the specified key vals
-func (l *logWrapper) LogWithKeyVals(level hclog.Level, sender, msg string, args ...interface{}) {
-	LogWithKeyVals(level, sender, msg, args...)
-}
-
 // Log logs at the specified level for the specified sender
-func (l *logWrapper) Log(level hclog.Level, sender, format string, v ...interface{}) {
+func (l *logWrapper) Log(level int, sender, format string, v ...interface{}) {
 	switch level {
-	case hclog.Info:
+	case 1:
 		Log(LevelInfo, sender, "", format, v...)
-	case hclog.Warn:
+	case 2:
 		Log(LevelWarn, sender, "", format, v...)
-	case hclog.Error:
+	case 3:
 		Log(LevelError, sender, "", format, v...)
 	default:
 		Log(LevelDebug, sender, "", format, v...)
 	}
+}
+
+// StdLoggerWrapper is a wrapper for standard logger compatibility
+type StdLoggerWrapper struct {
+	Sender string
+}
+
+// Write implements the io.Writer interface. This is useful to set as a writer
+// for the standard library log.
+func (l *StdLoggerWrapper) Write(p []byte) (n int, err error) {
+	n = len(p)
+	if n > 0 && p[n-1] == '\n' {
+		// Trim CR added by stdlog.
+		p = p[0 : n-1]
+	}
+
+	Log(LevelError, l.Sender, "", string(p))
+	return
 }
 
 // LeveledLogger is a logger that accepts a message string and a variadic number of key-value pairs
@@ -217,24 +229,6 @@ func RotateLogFile() error {
 		return rollingLogger.Rotate()
 	}
 	return errors.New("logging to file is disabled")
-}
-
-// LogWithKeyVals logs at the specified level for the specified sender adding the specified key vals
-func LogWithKeyVals(level hclog.Level, sender, msg string, args ...interface{}) {
-	var ev *zerolog.Event
-	switch level {
-	case hclog.Info:
-		ev = logger.Info()
-	case hclog.Warn:
-		ev = logger.Warn()
-	case hclog.Error:
-		ev = logger.Error()
-	default:
-		ev = logger.Debug()
-	}
-	ev.Timestamp().Str("sender", sender)
-	addKeysAndValues(ev, args...)
-	ev.Msg(msg)
 }
 
 // Log logs at the specified level for the specified sender

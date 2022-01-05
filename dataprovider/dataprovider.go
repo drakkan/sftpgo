@@ -49,10 +49,9 @@ import (
 	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/metric"
 	"github.com/drakkan/sftpgo/v2/mfa"
+	"github.com/drakkan/sftpgo/v2/plugin"
 	"github.com/drakkan/sftpgo/v2/sdk"
 	"github.com/drakkan/sftpgo/v2/sdk/kms"
-	"github.com/drakkan/sftpgo/v2/sdk/plugin"
-	sdkutil "github.com/drakkan/sftpgo/v2/sdk/util"
 	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
@@ -2890,7 +2889,7 @@ func getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, 
 	var tlsCert string
 	if cert != nil {
 		var err error
-		tlsCert, err = sdkutil.EncodeTLSCertToPem(cert)
+		tlsCert, err = util.EncodeTLSCertToPem(cert)
 		if err != nil {
 			return nil, err
 		}

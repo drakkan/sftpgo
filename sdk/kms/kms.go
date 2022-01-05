@@ -9,7 +9,6 @@ import (
 	"sync"
 
 	"github.com/drakkan/sftpgo/v2/sdk/logger"
-	"github.com/drakkan/sftpgo/v2/sdk/util"
 )
 
 // SecretProvider defines the interface for a KMS secrets provider
@@ -141,7 +140,7 @@ func (c *Configuration) Initialize() error {
 		config.Secrets.URL = SchemeLocal + "://"
 	}
 	for k, v := range secretProviders {
-		logger.Debug(logSender, "secret provider registered for scheme: %#v, encrypted status: %#v",
+		logger.Info(logSender, "secret provider registered for scheme: %#v, encrypted status: %#v",
 			k, v.encryptedStatus)
 	}
 	return nil
@@ -217,8 +216,7 @@ func (s *Secret) UnmarshalJSON(data []byte) error {
 			return nil
 		}
 	}
-	logger.Debug(logSender, "no provider registered for status %#v", baseSecret.Status)
-
+	logger.Error(logSender, "no provider registered for status %#v", baseSecret.Status)
 	return ErrInvalidSecret
 }
 
@@ -399,7 +397,7 @@ func (s *Secret) IsValidInput() bool {
 	s.RLock()
 	defer s.RUnlock()
 
-	if !util.IsStringInSlice(s.provider.GetStatus(), validSecretStatuses) {
+	if !isSecretStatusValid(s.provider.GetStatus()) {
 		return false
 	}
 	if s.provider.GetPayload() == "" {
@@ -443,4 +441,13 @@ func (s *Secret) TryDecrypt() error {
 		return s.provider.Decrypt()
 	}
 	return nil
+}
+
+func isSecretStatusValid(status string) bool {
+	for i := 0; i < len(validSecretStatuses); i++ {
+		if validSecretStatuses[i] == status {
+			return true
+		}
+	}
+	return false
 }

@@ -15,7 +15,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/config"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/sdk/plugin"
+	"github.com/drakkan/sftpgo/v2/plugin"
 	"github.com/drakkan/sftpgo/v2/sftpd"
 	"github.com/drakkan/sftpgo/v2/version"
 )

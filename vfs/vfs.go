@@ -17,9 +17,9 @@ import (
 	"github.com/pkg/sftp"
 
 	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/plugin"
 	"github.com/drakkan/sftpgo/v2/sdk"
 	"github.com/drakkan/sftpgo/v2/sdk/kms"
-	"github.com/drakkan/sftpgo/v2/sdk/plugin"
 	"github.com/drakkan/sftpgo/v2/sdk/plugin/metadata"
 	"github.com/drakkan/sftpgo/v2/util"
 )
