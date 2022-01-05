@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	"github.com/drakkan/sftpgo/v2/sdk/kms"
-	"github.com/drakkan/sftpgo/v2/sdk/util"
 )
 
 // Web Client/user REST API restrictions
@@ -51,11 +50,6 @@ const (
 type DirectoryPermissions struct {
 	Path        string
 	Permissions []string
-}
-
-// HasPerm returns true if the directory has the specified permissions
-func (d *DirectoryPermissions) HasPerm(perm string) bool {
-	return util.IsStringInSlice(perm, d.Permissions)
 }
 
 // PatternsFilter defines filters based on shell like patterns.

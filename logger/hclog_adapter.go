@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/hashicorp/go-hclog"
+	"github.com/rs/zerolog"
 )
 
 // HCLogAdapter is an adapter for hclog.Logger
@@ -14,7 +15,20 @@ type HCLogAdapter struct {
 
 // Log emits a message and key/value pairs at a provided log level
 func (l *HCLogAdapter) Log(level hclog.Level, msg string, args ...interface{}) {
-	logger.LogWithKeyVals(level, l.Name(), msg, args...)
+	var ev *zerolog.Event
+	switch level {
+	case hclog.Info:
+		ev = logger.Info()
+	case hclog.Warn:
+		ev = logger.Warn()
+	case hclog.Error:
+		ev = logger.Error()
+	default:
+		ev = logger.Debug()
+	}
+	ev.Timestamp().Str("sender", l.Name())
+	addKeysAndValues(ev, args...)
+	ev.Msg(msg)
 }
 
 // Trace emits a message and key/value pairs at the TRACE level
@@ -60,22 +74,4 @@ func (l *HCLogAdapter) StandardLogger(opts *hclog.StandardLoggerOptions) *log.Lo
 // StandardWriter returns a value that conforms to io.Writer, which can be passed into log.SetOutput()
 func (l *HCLogAdapter) StandardWriter(opts *hclog.StandardLoggerOptions) io.Writer {
 	return &StdLoggerWrapper{Sender: l.Name()}
-}
-
-// StdLoggerWrapper is a wrapper for standard logger compatibility
-type StdLoggerWrapper struct {
-	Sender string
-}
-
-// Write implements the io.Writer interface. This is useful to set as a writer
-// for the standard library log.
-func (l *StdLoggerWrapper) Write(p []byte) (n int, err error) {
-	n = len(p)
-	if n > 0 && p[n-1] == '\n' {
-		// Trim CR added by stdlog.
-		p = p[0 : n-1]
-	}
-
-	logger.Log(hclog.Error, l.Sender, "", string(p))
-	return
 }

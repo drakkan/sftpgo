@@ -10,9 +10,9 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
 
-	"github.com/drakkan/sftpgo/v2/sdk/logger"
+	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/sdk/plugin/notifier"
-	"github.com/drakkan/sftpgo/v2/sdk/util"
+	"github.com/drakkan/sftpgo/v2/util"
 )
 
 // NotifierConfig defines configuration parameters for notifiers plugins
