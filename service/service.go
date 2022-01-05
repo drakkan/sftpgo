@@ -168,7 +168,7 @@ func (s *Service) startServices() {
 		go func() {
 			redactedConf := sftpdConf
 			redactedConf.KeyboardInteractiveHook = util.GetRedactedURL(sftpdConf.KeyboardInteractiveHook)
-			logger.Debug(logSender, "", "initializing SFTP server with config %+v", redactedConf)
+			logger.Info(logSender, "", "initializing SFTP server with config %+v", redactedConf)
 			if err := sftpdConf.Initialize(s.ConfigDir); err != nil {
 				logger.Error(logSender, "", "could not start SFTP server: %v", err)
 				logger.ErrorToConsole("could not start SFTP server: %v", err)
@@ -177,7 +177,7 @@ func (s *Service) startServices() {
 			s.Shutdown <- true
 		}()
 	} else {
-		logger.Debug(logSender, "", "SFTP server not started, disabled in config file")
+		logger.Info(logSender, "", "SFTP server not started, disabled in config file")
 	}
 
 	if httpdConf.ShouldBind() {
@@ -190,9 +190,9 @@ func (s *Service) startServices() {
 			s.Shutdown <- true
 		}()
 	} else {
-		logger.Debug(logSender, "", "HTTP server not started, disabled in config file")
+		logger.Info(logSender, "", "HTTP server not started, disabled in config file")
 		if s.PortableMode != 1 {
-			logger.DebugToConsole("HTTP server not started, disabled in config file")
+			logger.InfoToConsole("HTTP server not started, disabled in config file")
 		}
 	}
 	if ftpdConf.ShouldBind() {
@@ -205,7 +205,7 @@ func (s *Service) startServices() {
 			s.Shutdown <- true
 		}()
 	} else {
-		logger.Debug(logSender, "", "FTP server not started, disabled in config file")
+		logger.Info(logSender, "", "FTP server not started, disabled in config file")
 	}
 	if webDavDConf.ShouldBind() {
 		go func() {
@@ -217,7 +217,7 @@ func (s *Service) startServices() {
 			s.Shutdown <- true
 		}()
 	} else {
-		logger.Debug(logSender, "", "WebDAV server not started, disabled in config file")
+		logger.Info(logSender, "", "WebDAV server not started, disabled in config file")
 	}
 	if telemetryConf.ShouldBind() {
 		go func() {
@@ -229,9 +229,9 @@ func (s *Service) startServices() {
 			s.Shutdown <- true
 		}()
 	} else {
-		logger.Debug(logSender, "", "telemetry server not started, disabled in config file")
+		logger.Info(logSender, "", "telemetry server not started, disabled in config file")
 		if s.PortableMode != 1 {
-			logger.DebugToConsole("telemetry server not started, disabled in config file")
+			logger.InfoToConsole("telemetry server not started, disabled in config file")
 		}
 	}
 }

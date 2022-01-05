@@ -158,7 +158,7 @@ func (c *Configuration) ShouldBind() bool {
 
 // Initialize configures and starts the WebDAV server
 func (c *Configuration) Initialize(configDir string) error {
-	logger.Debug(logSender, "", "initializing WebDAV server with config %+v", *c)
+	logger.Info(logSender, "", "initializing WebDAV server with config %+v", *c)
 	mimeTypeCache = mimeCache{
 		maxSize:   c.Cache.MimeTypes.MaxSize,
 		mimeTypes: make(map[string]string),

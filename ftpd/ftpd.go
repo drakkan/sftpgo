@@ -257,7 +257,7 @@ func (c *Configuration) ShouldBind() bool {
 
 // Initialize configures and starts the FTP server
 func (c *Configuration) Initialize(configDir string) error {
-	logger.Debug(logSender, "", "initializing FTP server with config %+v", *c)
+	logger.Info(logSender, "", "initializing FTP server with config %+v", *c)
 	if !c.ShouldBind() {
 		return common.ErrNoBinding
 	}
