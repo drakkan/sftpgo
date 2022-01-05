@@ -444,8 +444,8 @@ func (s *Secret) TryDecrypt() error {
 }
 
 func isSecretStatusValid(status string) bool {
-	for i := 0; i < len(validSecretStatuses); i++ {
-		if validSecretStatuses[i] == status {
+	for idx := range validSecretStatuses {
+		if validSecretStatuses[idx] == status {
 			return true
 		}
 	}

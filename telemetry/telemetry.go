@@ -79,7 +79,7 @@ func (c Conf) ShouldBind() bool {
 // Initialize configures and starts the telemetry server.
 func (c Conf) Initialize(configDir string) error {
 	var err error
-	logger.Debug(logSender, "", "initializing telemetry server with config %+v", c)
+	logger.Info(logSender, "", "initializing telemetry server with config %+v", c)
 	authUserFile := getConfigPath(c.AuthUserFile, configDir)
 	httpAuth, err = common.NewBasicAuthProvider(authUserFile)
 	if err != nil {
