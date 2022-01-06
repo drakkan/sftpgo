@@ -45,11 +45,12 @@ import (
 	"github.com/drakkan/sftpgo/v2/httpclient"
 	"github.com/drakkan/sftpgo/v2/httpd"
 	"github.com/drakkan/sftpgo/v2/httpdtest"
+	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/mfa"
 	"github.com/drakkan/sftpgo/v2/plugin"
 	"github.com/drakkan/sftpgo/v2/sdk"
-	"github.com/drakkan/sftpgo/v2/sdk/kms"
+	sdkkms "github.com/drakkan/sftpgo/v2/sdk/kms"
 	"github.com/drakkan/sftpgo/v2/sftpd"
 	"github.com/drakkan/sftpgo/v2/smtp"
 	"github.com/drakkan/sftpgo/v2/util"
@@ -826,7 +827,7 @@ func TestPermMFADisabled(t *testing.T) {
 	assert.NoError(t, err)
 	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
-	userTOTPConfig := sdk.TOTPConfig{
+	userTOTPConfig := dataprovider.UserTOTPConfig{
 		Enabled:    true,
 		ConfigName: configName,
 		Secret:     kms.NewPlainSecret(secret),
@@ -867,7 +868,7 @@ func TestPermMFADisabled(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 
-	user.Filters.RecoveryCodes = []sdk.RecoveryCode{
+	user.Filters.RecoveryCodes = []dataprovider.RecoveryCode{
 		{
 			Secret: kms.NewPlainSecret(util.GenerateUniqueID()),
 		},
@@ -901,7 +902,7 @@ func TestLoginUserAPITOTP(t *testing.T) {
 	assert.NoError(t, err)
 	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
-	userTOTPConfig := sdk.TOTPConfig{
+	userTOTPConfig := dataprovider.UserTOTPConfig{
 		Enabled:    true,
 		ConfigName: configName,
 		Secret:     kms.NewPlainSecret(secret),
@@ -968,7 +969,7 @@ func TestLoginAdminAPITOTP(t *testing.T) {
 	assert.NoError(t, err)
 	altToken, err := getJWTAPITokenFromTestServer(altAdminUsername, altAdminPassword)
 	assert.NoError(t, err)
-	adminTOTPConfig := dataprovider.TOTPConfig{
+	adminTOTPConfig := dataprovider.AdminTOTPConfig{
 		Enabled:    true,
 		ConfigName: configName,
 		Secret:     kms.NewPlainSecret(secret),
@@ -1510,13 +1511,13 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	u.FsConfig.S3Config.Bucket = "testbucket"
 	u.FsConfig.S3Config.Region = "eu-west-1"     //nolint:goconst
 	u.FsConfig.S3Config.AccessKey = "access-key" //nolint:goconst
-	u.FsConfig.S3Config.AccessSecret = kms.NewSecret(kms.SecretStatusRedacted, "access-secret", "", "")
+	u.FsConfig.S3Config.AccessSecret = kms.NewSecret(sdkkms.SecretStatusRedacted, "access-secret", "", "")
 	u.FsConfig.S3Config.Endpoint = "http://127.0.0.1:9000/path?a=b"
 	u.FsConfig.S3Config.StorageClass = "Standard" //nolint:goconst
 	u.FsConfig.S3Config.KeyPrefix = "/adir/subdir/"
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
-	u.FsConfig.S3Config.AccessSecret.SetStatus(kms.SecretStatusPlain)
+	u.FsConfig.S3Config.AccessSecret.SetStatus(sdkkms.SecretStatusPlain)
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 	u.FsConfig.S3Config.KeyPrefix = ""
@@ -1560,10 +1561,10 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	u.FsConfig.GCSConfig.Bucket = "abucket"
 	u.FsConfig.GCSConfig.StorageClass = "Standard"
 	u.FsConfig.GCSConfig.KeyPrefix = "/somedir/subdir/"
-	u.FsConfig.GCSConfig.Credentials = kms.NewSecret(kms.SecretStatusRedacted, "test", "", "") //nolint:goconst
+	u.FsConfig.GCSConfig.Credentials = kms.NewSecret(sdkkms.SecretStatusRedacted, "test", "", "") //nolint:goconst
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
-	u.FsConfig.GCSConfig.Credentials.SetStatus(kms.SecretStatusPlain)
+	u.FsConfig.GCSConfig.Credentials.SetStatus(sdkkms.SecretStatusPlain)
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 	u.FsConfig.GCSConfig.KeyPrefix = "somedir/subdir/" //nolint:goconst
@@ -1571,7 +1572,7 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	u.FsConfig.GCSConfig.AutomaticCredentials = 0
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
-	u.FsConfig.GCSConfig.Credentials = kms.NewSecret(kms.SecretStatusSecretBox, "invalid", "", "")
+	u.FsConfig.GCSConfig.Credentials = kms.NewSecret(sdkkms.SecretStatusSecretBox, "invalid", "", "")
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 
@@ -1580,7 +1581,7 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	u.FsConfig.AzBlobConfig.SASURL = kms.NewPlainSecret("http://foo\x7f.com/")
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
-	u.FsConfig.AzBlobConfig.SASURL = kms.NewSecret(kms.SecretStatusRedacted, "key", "", "")
+	u.FsConfig.AzBlobConfig.SASURL = kms.NewSecret(sdkkms.SecretStatusRedacted, "key", "", "")
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 	u.FsConfig.AzBlobConfig.SASURL = kms.NewEmptySecret()
@@ -1590,11 +1591,11 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	u.FsConfig.AzBlobConfig.Container = "container"
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
-	u.FsConfig.AzBlobConfig.AccountKey = kms.NewSecret(kms.SecretStatusRedacted, "key", "", "")
+	u.FsConfig.AzBlobConfig.AccountKey = kms.NewSecret(sdkkms.SecretStatusRedacted, "key", "", "")
 	u.FsConfig.AzBlobConfig.KeyPrefix = "/amedir/subdir/"
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
-	u.FsConfig.AzBlobConfig.AccountKey.SetStatus(kms.SecretStatusPlain)
+	u.FsConfig.AzBlobConfig.AccountKey.SetStatus(sdkkms.SecretStatusPlain)
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 	u.FsConfig.AzBlobConfig.KeyPrefix = "amedir/subdir/"
@@ -1609,18 +1610,18 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	u.FsConfig.Provider = sdk.CryptedFilesystemProvider
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
-	u.FsConfig.CryptConfig.Passphrase = kms.NewSecret(kms.SecretStatusRedacted, "akey", "", "")
+	u.FsConfig.CryptConfig.Passphrase = kms.NewSecret(sdkkms.SecretStatusRedacted, "akey", "", "")
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 	u = getTestUser()
 	u.FsConfig.Provider = sdk.SFTPFilesystemProvider
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
-	u.FsConfig.SFTPConfig.Password = kms.NewSecret(kms.SecretStatusRedacted, "randompkey", "", "")
+	u.FsConfig.SFTPConfig.Password = kms.NewSecret(sdkkms.SecretStatusRedacted, "randompkey", "", "")
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 	u.FsConfig.SFTPConfig.Password = kms.NewEmptySecret()
-	u.FsConfig.SFTPConfig.PrivateKey = kms.NewSecret(kms.SecretStatusRedacted, "keyforpkey", "", "")
+	u.FsConfig.SFTPConfig.PrivateKey = kms.NewSecret(sdkkms.SecretStatusRedacted, "keyforpkey", "", "")
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 	u.FsConfig.SFTPConfig.PrivateKey = kms.NewPlainSecret("pk")
@@ -1644,7 +1645,7 @@ func TestUserRedactedPassword(t *testing.T) {
 	u.FsConfig.S3Config.Bucket = "b"
 	u.FsConfig.S3Config.Region = "eu-west-1"
 	u.FsConfig.S3Config.AccessKey = "access-key"
-	u.FsConfig.S3Config.AccessSecret = kms.NewSecret(kms.SecretStatusRedacted, "access-secret", "", "")
+	u.FsConfig.S3Config.AccessSecret = kms.NewSecret(sdkkms.SecretStatusRedacted, "access-secret", "", "")
 	u.FsConfig.S3Config.Endpoint = "http://127.0.0.1:9000/path?k=m"
 	u.FsConfig.S3Config.StorageClass = "Standard"
 	u.FsConfig.S3Config.ACL = "bucket-owner-full-control"
@@ -1667,9 +1668,7 @@ func TestUserRedactedPassword(t *testing.T) {
 			FsConfig: vfs.Filesystem{
 				Provider: sdk.CryptedFilesystemProvider,
 				CryptConfig: vfs.CryptFsConfig{
-					CryptFsConfig: sdk.CryptFsConfig{
-						Passphrase: kms.NewSecret(kms.SecretStatusRedacted, "crypted-secret", "", ""),
-					},
+					Passphrase: kms.NewSecret(sdkkms.SecretStatusRedacted, "crypted-secret", "", ""),
 				},
 			},
 		},
@@ -2356,9 +2355,7 @@ func TestUserS3Config(t *testing.T) {
 			FsConfig: vfs.Filesystem{
 				Provider: sdk.CryptedFilesystemProvider,
 				CryptConfig: vfs.CryptFsConfig{
-					CryptFsConfig: sdk.CryptFsConfig{
-						Passphrase: kms.NewPlainSecret("Crypted-Secret"),
-					},
+					Passphrase: kms.NewPlainSecret("Crypted-Secret"),
 				},
 			},
 		},
@@ -2366,14 +2363,14 @@ func TestUserS3Config(t *testing.T) {
 	})
 	user, body, err := httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err, string(body))
-	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.S3Config.AccessSecret.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, user.FsConfig.S3Config.AccessSecret.GetStatus())
 	assert.NotEmpty(t, user.FsConfig.S3Config.AccessSecret.GetPayload())
 	assert.Empty(t, user.FsConfig.S3Config.AccessSecret.GetAdditionalData())
 	assert.Empty(t, user.FsConfig.S3Config.AccessSecret.GetKey())
 	assert.Equal(t, 60, user.FsConfig.S3Config.DownloadPartMaxTime)
 	if assert.Len(t, user.VirtualFolders, 1) {
 		folder := user.VirtualFolders[0]
-		assert.Equal(t, kms.SecretStatusSecretBox, folder.FsConfig.CryptConfig.Passphrase.GetStatus())
+		assert.Equal(t, sdkkms.SecretStatusSecretBox, folder.FsConfig.CryptConfig.Passphrase.GetStatus())
 		assert.NotEmpty(t, folder.FsConfig.CryptConfig.Passphrase.GetPayload())
 		assert.Empty(t, folder.FsConfig.CryptConfig.Passphrase.GetAdditionalData())
 		assert.Empty(t, folder.FsConfig.CryptConfig.Passphrase.GetKey())
@@ -2382,7 +2379,7 @@ func TestUserS3Config(t *testing.T) {
 	assert.NoError(t, err)
 	folder, _, err := httpdtest.GetFolderByName(folderName, http.StatusOK)
 	assert.NoError(t, err)
-	assert.Equal(t, kms.SecretStatusSecretBox, folder.FsConfig.CryptConfig.Passphrase.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, folder.FsConfig.CryptConfig.Passphrase.GetStatus())
 	assert.NotEmpty(t, folder.FsConfig.CryptConfig.Passphrase.GetPayload())
 	assert.Empty(t, folder.FsConfig.CryptConfig.Passphrase.GetAdditionalData())
 	assert.Empty(t, folder.FsConfig.CryptConfig.Passphrase.GetKey())
@@ -2392,15 +2389,15 @@ func TestUserS3Config(t *testing.T) {
 	user.ID = 0
 	user.CreatedAt = 0
 	user.VirtualFolders = nil
-	secret := kms.NewSecret(kms.SecretStatusSecretBox, "Server-Access-Secret", "", "")
+	secret := kms.NewSecret(sdkkms.SecretStatusSecretBox, "Server-Access-Secret", "", "")
 	user.FsConfig.S3Config.AccessSecret = secret
 	_, _, err = httpdtest.AddUser(user, http.StatusCreated)
 	assert.Error(t, err)
-	user.FsConfig.S3Config.AccessSecret.SetStatus(kms.SecretStatusPlain)
+	user.FsConfig.S3Config.AccessSecret.SetStatus(sdkkms.SecretStatusPlain)
 	user, _, err = httpdtest.AddUser(user, http.StatusCreated)
 	assert.NoError(t, err)
 	initialSecretPayload := user.FsConfig.S3Config.AccessSecret.GetPayload()
-	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.S3Config.AccessSecret.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, user.FsConfig.S3Config.AccessSecret.GetStatus())
 	assert.NotEmpty(t, initialSecretPayload)
 	assert.Empty(t, user.FsConfig.S3Config.AccessSecret.GetAdditionalData())
 	assert.Empty(t, user.FsConfig.S3Config.AccessSecret.GetKey())
@@ -2414,7 +2411,7 @@ func TestUserS3Config(t *testing.T) {
 	user.FsConfig.S3Config.DownloadConcurrency = 4
 	user, bb, err := httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err, string(bb))
-	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.S3Config.AccessSecret.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, user.FsConfig.S3Config.AccessSecret.GetStatus())
 	assert.Equal(t, initialSecretPayload, user.FsConfig.S3Config.AccessSecret.GetPayload())
 	assert.Empty(t, user.FsConfig.S3Config.AccessSecret.GetAdditionalData())
 	assert.Empty(t, user.FsConfig.S3Config.AccessSecret.GetKey())
@@ -2466,7 +2463,7 @@ func TestUserGCSConfig(t *testing.T) {
 	err = secret.Decrypt()
 	assert.NoError(t, err)
 	assert.Equal(t, "fake credentials", secret.GetPayload())
-	user.FsConfig.GCSConfig.Credentials = kms.NewSecret(kms.SecretStatusSecretBox, "fake encrypted credentials", "", "")
+	user.FsConfig.GCSConfig.Credentials = kms.NewSecret(sdkkms.SecretStatusSecretBox, "fake encrypted credentials", "", "")
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	assert.FileExists(t, credentialFile)
@@ -2483,10 +2480,10 @@ func TestUserGCSConfig(t *testing.T) {
 	user.Password = defaultPassword
 	user.ID = 0
 	user.CreatedAt = 0
-	user.FsConfig.GCSConfig.Credentials = kms.NewSecret(kms.SecretStatusSecretBox, "fake credentials", "", "")
+	user.FsConfig.GCSConfig.Credentials = kms.NewSecret(sdkkms.SecretStatusSecretBox, "fake credentials", "", "")
 	_, _, err = httpdtest.AddUser(user, http.StatusCreated)
 	assert.Error(t, err)
-	user.FsConfig.GCSConfig.Credentials.SetStatus(kms.SecretStatusPlain)
+	user.FsConfig.GCSConfig.Credentials.SetStatus(sdkkms.SecretStatusPlain)
 	user, body, err := httpdtest.AddUser(user, http.StatusCreated)
 	assert.NoError(t, err, string(body))
 	err = os.RemoveAll(credentialsPath)
@@ -2531,16 +2528,16 @@ func TestUserAzureBlobConfig(t *testing.T) {
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	initialPayload := user.FsConfig.AzBlobConfig.AccountKey.GetPayload()
-	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.AzBlobConfig.AccountKey.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, user.FsConfig.AzBlobConfig.AccountKey.GetStatus())
 	assert.NotEmpty(t, initialPayload)
 	assert.Empty(t, user.FsConfig.AzBlobConfig.AccountKey.GetAdditionalData())
 	assert.Empty(t, user.FsConfig.AzBlobConfig.AccountKey.GetKey())
-	user.FsConfig.AzBlobConfig.AccountKey.SetStatus(kms.SecretStatusSecretBox)
+	user.FsConfig.AzBlobConfig.AccountKey.SetStatus(sdkkms.SecretStatusSecretBox)
 	user.FsConfig.AzBlobConfig.AccountKey.SetAdditionalData("data")
 	user.FsConfig.AzBlobConfig.AccountKey.SetKey("fake key")
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
-	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.AzBlobConfig.AccountKey.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, user.FsConfig.AzBlobConfig.AccountKey.GetStatus())
 	assert.Equal(t, initialPayload, user.FsConfig.AzBlobConfig.AccountKey.GetPayload())
 	assert.Empty(t, user.FsConfig.AzBlobConfig.AccountKey.GetAdditionalData())
 	assert.Empty(t, user.FsConfig.AzBlobConfig.AccountKey.GetKey())
@@ -2550,7 +2547,7 @@ func TestUserAzureBlobConfig(t *testing.T) {
 	user.Password = defaultPassword
 	user.ID = 0
 	user.CreatedAt = 0
-	secret := kms.NewSecret(kms.SecretStatusSecretBox, "Server-Account-Key", "", "")
+	secret := kms.NewSecret(sdkkms.SecretStatusSecretBox, "Server-Account-Key", "", "")
 	user.FsConfig.AzBlobConfig.AccountKey = secret
 	_, _, err = httpdtest.AddUser(user, http.StatusCreated)
 	assert.Error(t, err)
@@ -2558,7 +2555,7 @@ func TestUserAzureBlobConfig(t *testing.T) {
 	user, _, err = httpdtest.AddUser(user, http.StatusCreated)
 	assert.NoError(t, err)
 	initialPayload = user.FsConfig.AzBlobConfig.AccountKey.GetPayload()
-	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.AzBlobConfig.AccountKey.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, user.FsConfig.AzBlobConfig.AccountKey.GetStatus())
 	assert.NotEmpty(t, initialPayload)
 	assert.Empty(t, user.FsConfig.AzBlobConfig.AccountKey.GetAdditionalData())
 	assert.Empty(t, user.FsConfig.AzBlobConfig.AccountKey.GetKey())
@@ -2569,7 +2566,7 @@ func TestUserAzureBlobConfig(t *testing.T) {
 	user.FsConfig.AzBlobConfig.UploadConcurrency = 5
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
-	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.AzBlobConfig.AccountKey.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, user.FsConfig.AzBlobConfig.AccountKey.GetStatus())
 	assert.NotEmpty(t, initialPayload)
 	assert.Equal(t, initialPayload, user.FsConfig.AzBlobConfig.AccountKey.GetPayload())
 	assert.Empty(t, user.FsConfig.AzBlobConfig.AccountKey.GetAdditionalData())
@@ -2593,25 +2590,25 @@ func TestUserAzureBlobConfig(t *testing.T) {
 	user.CreatedAt = 0
 	// sas test for add instead of update
 	user.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{
-		AzBlobFsConfig: sdk.AzBlobFsConfig{
+		BaseAzBlobFsConfig: sdk.BaseAzBlobFsConfig{
 			Container: user.FsConfig.AzBlobConfig.Container,
-			SASURL:    kms.NewPlainSecret("http://127.0.0.1/fake/sass/url"),
 		},
+		SASURL: kms.NewPlainSecret("http://127.0.0.1/fake/sass/url"),
 	}
 	user, _, err = httpdtest.AddUser(user, http.StatusCreated)
 	assert.NoError(t, err)
 	assert.Nil(t, user.FsConfig.AzBlobConfig.AccountKey)
 	initialPayload = user.FsConfig.AzBlobConfig.SASURL.GetPayload()
-	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.AzBlobConfig.SASURL.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, user.FsConfig.AzBlobConfig.SASURL.GetStatus())
 	assert.NotEmpty(t, initialPayload)
 	assert.Empty(t, user.FsConfig.AzBlobConfig.SASURL.GetAdditionalData())
 	assert.Empty(t, user.FsConfig.AzBlobConfig.SASURL.GetKey())
-	user.FsConfig.AzBlobConfig.SASURL.SetStatus(kms.SecretStatusSecretBox)
+	user.FsConfig.AzBlobConfig.SASURL.SetStatus(sdkkms.SecretStatusSecretBox)
 	user.FsConfig.AzBlobConfig.SASURL.SetAdditionalData("data")
 	user.FsConfig.AzBlobConfig.SASURL.SetKey("fake key")
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
-	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.AzBlobConfig.SASURL.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, user.FsConfig.AzBlobConfig.SASURL.GetStatus())
 	assert.Equal(t, initialPayload, user.FsConfig.AzBlobConfig.SASURL.GetPayload())
 	assert.Empty(t, user.FsConfig.AzBlobConfig.SASURL.GetAdditionalData())
 	assert.Empty(t, user.FsConfig.AzBlobConfig.SASURL.GetKey())
@@ -2628,16 +2625,16 @@ func TestUserCryptFs(t *testing.T) {
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	initialPayload := user.FsConfig.CryptConfig.Passphrase.GetPayload()
-	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.CryptConfig.Passphrase.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, user.FsConfig.CryptConfig.Passphrase.GetStatus())
 	assert.NotEmpty(t, initialPayload)
 	assert.Empty(t, user.FsConfig.CryptConfig.Passphrase.GetAdditionalData())
 	assert.Empty(t, user.FsConfig.CryptConfig.Passphrase.GetKey())
-	user.FsConfig.CryptConfig.Passphrase.SetStatus(kms.SecretStatusSecretBox)
+	user.FsConfig.CryptConfig.Passphrase.SetStatus(sdkkms.SecretStatusSecretBox)
 	user.FsConfig.CryptConfig.Passphrase.SetAdditionalData("data")
 	user.FsConfig.CryptConfig.Passphrase.SetKey("fake pass key")
 	user, bb, err := httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err, string(bb))
-	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.CryptConfig.Passphrase.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, user.FsConfig.CryptConfig.Passphrase.GetStatus())
 	assert.Equal(t, initialPayload, user.FsConfig.CryptConfig.Passphrase.GetPayload())
 	assert.Empty(t, user.FsConfig.CryptConfig.Passphrase.GetAdditionalData())
 	assert.Empty(t, user.FsConfig.CryptConfig.Passphrase.GetKey())
@@ -2647,7 +2644,7 @@ func TestUserCryptFs(t *testing.T) {
 	user.Password = defaultPassword
 	user.ID = 0
 	user.CreatedAt = 0
-	secret := kms.NewSecret(kms.SecretStatusSecretBox, "invalid encrypted payload", "", "")
+	secret := kms.NewSecret(sdkkms.SecretStatusSecretBox, "invalid encrypted payload", "", "")
 	user.FsConfig.CryptConfig.Passphrase = secret
 	_, _, err = httpdtest.AddUser(user, http.StatusCreated)
 	assert.Error(t, err)
@@ -2655,7 +2652,7 @@ func TestUserCryptFs(t *testing.T) {
 	user, _, err = httpdtest.AddUser(user, http.StatusCreated)
 	assert.NoError(t, err)
 	initialPayload = user.FsConfig.CryptConfig.Passphrase.GetPayload()
-	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.CryptConfig.Passphrase.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, user.FsConfig.CryptConfig.Passphrase.GetStatus())
 	assert.NotEmpty(t, initialPayload)
 	assert.Empty(t, user.FsConfig.CryptConfig.Passphrase.GetAdditionalData())
 	assert.Empty(t, user.FsConfig.CryptConfig.Passphrase.GetKey())
@@ -2663,7 +2660,7 @@ func TestUserCryptFs(t *testing.T) {
 	user.FsConfig.CryptConfig.Passphrase.SetKey("pass")
 	user, bb, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err, string(bb))
-	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.CryptConfig.Passphrase.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, user.FsConfig.CryptConfig.Passphrase.GetStatus())
 	assert.NotEmpty(t, initialPayload)
 	assert.Equal(t, initialPayload, user.FsConfig.CryptConfig.Passphrase.GetPayload())
 	assert.Empty(t, user.FsConfig.CryptConfig.Passphrase.GetAdditionalData())
@@ -2696,28 +2693,28 @@ func TestUserSFTPFs(t *testing.T) {
 	assert.Equal(t, int64(2), user.FsConfig.SFTPConfig.BufferSize)
 	initialPwdPayload := user.FsConfig.SFTPConfig.Password.GetPayload()
 	initialPkeyPayload := user.FsConfig.SFTPConfig.PrivateKey.GetPayload()
-	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.SFTPConfig.Password.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, user.FsConfig.SFTPConfig.Password.GetStatus())
 	assert.NotEmpty(t, initialPwdPayload)
 	assert.Empty(t, user.FsConfig.SFTPConfig.Password.GetAdditionalData())
 	assert.Empty(t, user.FsConfig.SFTPConfig.Password.GetKey())
-	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.SFTPConfig.PrivateKey.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, user.FsConfig.SFTPConfig.PrivateKey.GetStatus())
 	assert.NotEmpty(t, initialPkeyPayload)
 	assert.Empty(t, user.FsConfig.SFTPConfig.PrivateKey.GetAdditionalData())
 	assert.Empty(t, user.FsConfig.SFTPConfig.PrivateKey.GetKey())
-	user.FsConfig.SFTPConfig.Password.SetStatus(kms.SecretStatusSecretBox)
+	user.FsConfig.SFTPConfig.Password.SetStatus(sdkkms.SecretStatusSecretBox)
 	user.FsConfig.SFTPConfig.Password.SetAdditionalData("adata")
 	user.FsConfig.SFTPConfig.Password.SetKey("fake pwd key")
-	user.FsConfig.SFTPConfig.PrivateKey.SetStatus(kms.SecretStatusSecretBox)
+	user.FsConfig.SFTPConfig.PrivateKey.SetStatus(sdkkms.SecretStatusSecretBox)
 	user.FsConfig.SFTPConfig.PrivateKey.SetAdditionalData("adata")
 	user.FsConfig.SFTPConfig.PrivateKey.SetKey("fake key")
 	user.FsConfig.SFTPConfig.DisableCouncurrentReads = false
 	user, bb, err := httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err, string(bb))
-	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.SFTPConfig.Password.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, user.FsConfig.SFTPConfig.Password.GetStatus())
 	assert.Equal(t, initialPwdPayload, user.FsConfig.SFTPConfig.Password.GetPayload())
 	assert.Empty(t, user.FsConfig.SFTPConfig.Password.GetAdditionalData())
 	assert.Empty(t, user.FsConfig.SFTPConfig.Password.GetKey())
-	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.SFTPConfig.PrivateKey.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, user.FsConfig.SFTPConfig.PrivateKey.GetStatus())
 	assert.Equal(t, initialPkeyPayload, user.FsConfig.SFTPConfig.PrivateKey.GetPayload())
 	assert.Empty(t, user.FsConfig.SFTPConfig.PrivateKey.GetAdditionalData())
 	assert.Empty(t, user.FsConfig.SFTPConfig.PrivateKey.GetKey())
@@ -2728,7 +2725,7 @@ func TestUserSFTPFs(t *testing.T) {
 	user.Password = defaultPassword
 	user.ID = 0
 	user.CreatedAt = 0
-	secret := kms.NewSecret(kms.SecretStatusSecretBox, "invalid encrypted payload", "", "")
+	secret := kms.NewSecret(sdkkms.SecretStatusSecretBox, "invalid encrypted payload", "", "")
 	user.FsConfig.SFTPConfig.Password = secret
 	_, _, err = httpdtest.AddUser(user, http.StatusCreated)
 	assert.Error(t, err)
@@ -2742,7 +2739,7 @@ func TestUserSFTPFs(t *testing.T) {
 	assert.NoError(t, err)
 	initialPkeyPayload = user.FsConfig.SFTPConfig.PrivateKey.GetPayload()
 	assert.Nil(t, user.FsConfig.SFTPConfig.Password)
-	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.SFTPConfig.PrivateKey.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, user.FsConfig.SFTPConfig.PrivateKey.GetStatus())
 	assert.NotEmpty(t, initialPkeyPayload)
 	assert.Empty(t, user.FsConfig.SFTPConfig.PrivateKey.GetAdditionalData())
 	assert.Empty(t, user.FsConfig.SFTPConfig.PrivateKey.GetKey())
@@ -2750,7 +2747,7 @@ func TestUserSFTPFs(t *testing.T) {
 	user.FsConfig.SFTPConfig.PrivateKey.SetKey("k")
 	user, bb, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err, string(bb))
-	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.SFTPConfig.PrivateKey.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, user.FsConfig.SFTPConfig.PrivateKey.GetStatus())
 	assert.NotEmpty(t, initialPkeyPayload)
 	assert.Equal(t, initialPkeyPayload, user.FsConfig.SFTPConfig.PrivateKey.GetPayload())
 	assert.Empty(t, user.FsConfig.SFTPConfig.PrivateKey.GetAdditionalData())
@@ -2882,7 +2879,7 @@ func TestUserHiddenFields(t *testing.T) {
 	assert.NotEmpty(t, user1.FsConfig.S3Config.AccessSecret.GetPayload())
 	err = user1.FsConfig.S3Config.AccessSecret.Decrypt()
 	assert.NoError(t, err)
-	assert.Equal(t, kms.SecretStatusPlain, user1.FsConfig.S3Config.AccessSecret.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusPlain, user1.FsConfig.S3Config.AccessSecret.GetStatus())
 	assert.Equal(t, u1.FsConfig.S3Config.AccessSecret.GetPayload(), user1.FsConfig.S3Config.AccessSecret.GetPayload())
 	assert.Empty(t, user1.FsConfig.S3Config.AccessSecret.GetKey())
 	assert.Empty(t, user1.FsConfig.S3Config.AccessSecret.GetAdditionalData())
@@ -2896,7 +2893,7 @@ func TestUserHiddenFields(t *testing.T) {
 	assert.NotEmpty(t, user2.FsConfig.GCSConfig.Credentials.GetPayload())
 	err = user2.FsConfig.GCSConfig.Credentials.Decrypt()
 	assert.NoError(t, err)
-	assert.Equal(t, kms.SecretStatusPlain, user2.FsConfig.GCSConfig.Credentials.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusPlain, user2.FsConfig.GCSConfig.Credentials.GetStatus())
 	assert.Equal(t, u2.FsConfig.GCSConfig.Credentials.GetPayload(), user2.FsConfig.GCSConfig.Credentials.GetPayload())
 	assert.Empty(t, user2.FsConfig.GCSConfig.Credentials.GetKey())
 	assert.Empty(t, user2.FsConfig.GCSConfig.Credentials.GetAdditionalData())
@@ -2910,7 +2907,7 @@ func TestUserHiddenFields(t *testing.T) {
 	assert.NotEmpty(t, user3.FsConfig.AzBlobConfig.AccountKey.GetPayload())
 	err = user3.FsConfig.AzBlobConfig.AccountKey.Decrypt()
 	assert.NoError(t, err)
-	assert.Equal(t, kms.SecretStatusPlain, user3.FsConfig.AzBlobConfig.AccountKey.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusPlain, user3.FsConfig.AzBlobConfig.AccountKey.GetStatus())
 	assert.Equal(t, u3.FsConfig.AzBlobConfig.AccountKey.GetPayload(), user3.FsConfig.AzBlobConfig.AccountKey.GetPayload())
 	assert.Empty(t, user3.FsConfig.AzBlobConfig.AccountKey.GetKey())
 	assert.Empty(t, user3.FsConfig.AzBlobConfig.AccountKey.GetAdditionalData())
@@ -2924,7 +2921,7 @@ func TestUserHiddenFields(t *testing.T) {
 	assert.NotEmpty(t, user4.FsConfig.CryptConfig.Passphrase.GetPayload())
 	err = user4.FsConfig.CryptConfig.Passphrase.Decrypt()
 	assert.NoError(t, err)
-	assert.Equal(t, kms.SecretStatusPlain, user4.FsConfig.CryptConfig.Passphrase.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusPlain, user4.FsConfig.CryptConfig.Passphrase.GetStatus())
 	assert.Equal(t, u4.FsConfig.CryptConfig.Passphrase.GetPayload(), user4.FsConfig.CryptConfig.Passphrase.GetPayload())
 	assert.Empty(t, user4.FsConfig.CryptConfig.Passphrase.GetKey())
 	assert.Empty(t, user4.FsConfig.CryptConfig.Passphrase.GetAdditionalData())
@@ -2938,7 +2935,7 @@ func TestUserHiddenFields(t *testing.T) {
 	assert.NotEmpty(t, user5.FsConfig.SFTPConfig.Password.GetPayload())
 	err = user5.FsConfig.SFTPConfig.Password.Decrypt()
 	assert.NoError(t, err)
-	assert.Equal(t, kms.SecretStatusPlain, user5.FsConfig.SFTPConfig.Password.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusPlain, user5.FsConfig.SFTPConfig.Password.GetStatus())
 	assert.Equal(t, u5.FsConfig.SFTPConfig.Password.GetPayload(), user5.FsConfig.SFTPConfig.Password.GetPayload())
 	assert.Empty(t, user5.FsConfig.SFTPConfig.Password.GetKey())
 	assert.Empty(t, user5.FsConfig.SFTPConfig.Password.GetAdditionalData())
@@ -2948,7 +2945,7 @@ func TestUserHiddenFields(t *testing.T) {
 	assert.NotEmpty(t, user5.FsConfig.SFTPConfig.PrivateKey.GetPayload())
 	err = user5.FsConfig.SFTPConfig.PrivateKey.Decrypt()
 	assert.NoError(t, err)
-	assert.Equal(t, kms.SecretStatusPlain, user5.FsConfig.SFTPConfig.PrivateKey.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusPlain, user5.FsConfig.SFTPConfig.PrivateKey.GetStatus())
 	assert.Equal(t, u5.FsConfig.SFTPConfig.PrivateKey.GetPayload(), user5.FsConfig.SFTPConfig.PrivateKey.GetPayload())
 	assert.Empty(t, user5.FsConfig.SFTPConfig.PrivateKey.GetKey())
 	assert.Empty(t, user5.FsConfig.SFTPConfig.PrivateKey.GetAdditionalData())
@@ -2996,13 +2993,13 @@ func TestSecretObject(t *testing.T) {
 	require.True(t, s.IsValid())
 	err := s.Encrypt()
 	require.NoError(t, err)
-	require.Equal(t, kms.SecretStatusSecretBox, s.GetStatus())
+	require.Equal(t, sdkkms.SecretStatusSecretBox, s.GetStatus())
 	require.NotEmpty(t, s.GetPayload())
 	require.NotEmpty(t, s.GetKey())
 	require.True(t, s.IsValid())
 	err = s.Decrypt()
 	require.NoError(t, err)
-	require.Equal(t, kms.SecretStatusPlain, s.GetStatus())
+	require.Equal(t, sdkkms.SecretStatusPlain, s.GetStatus())
 	require.Equal(t, "test data", s.GetPayload())
 	require.Empty(t, s.GetKey())
 }
@@ -3017,10 +3014,10 @@ func TestSecretObjectCompatibility(t *testing.T) {
 	localAsJSON, err := json.Marshal(s)
 	assert.NoError(t, err)
 
-	for _, secretStatus := range []string{kms.SecretStatusSecretBox} {
+	for _, secretStatus := range []string{sdkkms.SecretStatusSecretBox} {
 		kmsConfig := config.GetKMSConfig()
 		assert.Empty(t, kmsConfig.Secrets.MasterKeyPath)
-		if secretStatus == kms.SecretStatusVaultTransit {
+		if secretStatus == sdkkms.SecretStatusVaultTransit {
 			os.Setenv("VAULT_SERVER_URL", "http://127.0.0.1:8200")
 			os.Setenv("VAULT_SERVER_TOKEN", "s.9lYGq83MbgG5KR5kfebXVyhJ")
 			kmsConfig.Secrets.URL = "hashivault://mykey"
@@ -3037,20 +3034,20 @@ func TestSecretObjectCompatibility(t *testing.T) {
 		err = secretClone.Decrypt()
 		assert.NoError(t, err)
 		assert.Equal(t, testPayload, secretClone.GetPayload())
-		if secretStatus == kms.SecretStatusVaultTransit {
+		if secretStatus == sdkkms.SecretStatusVaultTransit {
 			// decrypt the local secret now that the provider is vault
 			secretLocal := kms.NewEmptySecret()
 			err = json.Unmarshal(localAsJSON, secretLocal)
 			assert.NoError(t, err)
-			assert.Equal(t, kms.SecretStatusSecretBox, secretLocal.GetStatus())
+			assert.Equal(t, sdkkms.SecretStatusSecretBox, secretLocal.GetStatus())
 			assert.Equal(t, 0, secretLocal.GetMode())
 			err = secretLocal.Decrypt()
 			assert.NoError(t, err)
 			assert.Equal(t, testPayload, secretLocal.GetPayload())
-			assert.Equal(t, kms.SecretStatusPlain, secretLocal.GetStatus())
+			assert.Equal(t, sdkkms.SecretStatusPlain, secretLocal.GetStatus())
 			err = secretLocal.Encrypt()
 			assert.NoError(t, err)
-			assert.Equal(t, kms.SecretStatusSecretBox, secretLocal.GetStatus())
+			assert.Equal(t, sdkkms.SecretStatusSecretBox, secretLocal.GetStatus())
 			assert.Equal(t, 0, secretLocal.GetMode())
 		}
 
@@ -3065,7 +3062,7 @@ func TestSecretObjectCompatibility(t *testing.T) {
 				MasterKeyPath: masterKeyPath,
 			},
 		}
-		if secretStatus == kms.SecretStatusVaultTransit {
+		if secretStatus == sdkkms.SecretStatusVaultTransit {
 			config.Secrets.URL = "hashivault://mykey"
 		}
 		err = config.Initialize()
@@ -3085,22 +3082,22 @@ func TestSecretObjectCompatibility(t *testing.T) {
 		err = secret.Decrypt()
 		assert.NoError(t, err)
 		assert.Equal(t, testPayload, secret.GetPayload())
-		if secretStatus == kms.SecretStatusVaultTransit {
+		if secretStatus == sdkkms.SecretStatusVaultTransit {
 			// decrypt the local secret encryped without a master key now that
 			// the provider is vault and a master key is set.
 			// The provider will not change, the master key will be used
 			secretLocal := kms.NewEmptySecret()
 			err = json.Unmarshal(localAsJSON, secretLocal)
 			assert.NoError(t, err)
-			assert.Equal(t, kms.SecretStatusSecretBox, secretLocal.GetStatus())
+			assert.Equal(t, sdkkms.SecretStatusSecretBox, secretLocal.GetStatus())
 			assert.Equal(t, 0, secretLocal.GetMode())
 			err = secretLocal.Decrypt()
 			assert.NoError(t, err)
 			assert.Equal(t, testPayload, secretLocal.GetPayload())
-			assert.Equal(t, kms.SecretStatusPlain, secretLocal.GetStatus())
+			assert.Equal(t, sdkkms.SecretStatusPlain, secretLocal.GetStatus())
 			err = secretLocal.Encrypt()
 			assert.NoError(t, err)
-			assert.Equal(t, kms.SecretStatusSecretBox, secretLocal.GetStatus())
+			assert.Equal(t, sdkkms.SecretStatusSecretBox, secretLocal.GetStatus())
 			assert.Equal(t, 1, secretLocal.GetMode())
 		}
 
@@ -3108,7 +3105,7 @@ func TestSecretObjectCompatibility(t *testing.T) {
 		assert.NoError(t, err)
 		err = os.Remove(masterKeyPath)
 		assert.NoError(t, err)
-		if secretStatus == kms.SecretStatusVaultTransit {
+		if secretStatus == sdkkms.SecretStatusVaultTransit {
 			os.Unsetenv("VAULT_SERVER_URL")
 			os.Unsetenv("VAULT_SERVER_TOKEN")
 		}
@@ -3373,13 +3370,13 @@ func TestEmbeddedFoldersUpdate(t *testing.T) {
 				FsConfig: vfs.Filesystem{
 					Provider: sdk.S3FilesystemProvider,
 					S3Config: vfs.S3FsConfig{
-						S3FsConfig: sdk.S3FsConfig{
-							Bucket:       "test",
-							Region:       "us-east-1",
-							AccessKey:    "akey",
-							AccessSecret: kms.NewPlainSecret("asecret"),
-							Endpoint:     "http://127.0.1.1:9090",
+						BaseS3FsConfig: sdk.BaseS3FsConfig{
+							Bucket:    "test",
+							Region:    "us-east-1",
+							AccessKey: "akey",
+							Endpoint:  "http://127.0.1.1:9090",
 						},
+						AccessSecret: kms.NewPlainSecret("asecret"),
 					},
 				},
 			},
@@ -3399,7 +3396,7 @@ func TestEmbeddedFoldersUpdate(t *testing.T) {
 	assert.Equal(t, "test", userFolder.FsConfig.S3Config.Bucket)
 	assert.Equal(t, "us-east-1", userFolder.FsConfig.S3Config.Region)
 	assert.Equal(t, "http://127.0.1.1:9090", userFolder.FsConfig.S3Config.Endpoint)
-	assert.Equal(t, kms.SecretStatusSecretBox, userFolder.FsConfig.S3Config.AccessSecret.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, userFolder.FsConfig.S3Config.AccessSecret.GetStatus())
 	assert.NotEmpty(t, userFolder.FsConfig.S3Config.AccessSecret.GetPayload())
 	assert.Empty(t, userFolder.FsConfig.S3Config.AccessSecret.GetKey())
 	assert.Empty(t, userFolder.FsConfig.S3Config.AccessSecret.GetAdditionalData())
@@ -3414,7 +3411,7 @@ func TestEmbeddedFoldersUpdate(t *testing.T) {
 	assert.Equal(t, "test", folder.FsConfig.S3Config.Bucket)
 	assert.Equal(t, "us-east-1", folder.FsConfig.S3Config.Region)
 	assert.Equal(t, "http://127.0.1.1:9090", folder.FsConfig.S3Config.Endpoint)
-	assert.Equal(t, kms.SecretStatusSecretBox, folder.FsConfig.S3Config.AccessSecret.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, folder.FsConfig.S3Config.AccessSecret.GetStatus())
 	assert.NotEmpty(t, folder.FsConfig.S3Config.AccessSecret.GetPayload())
 	assert.Empty(t, folder.FsConfig.S3Config.AccessSecret.GetKey())
 	assert.Empty(t, folder.FsConfig.S3Config.AccessSecret.GetAdditionalData())
@@ -3432,7 +3429,7 @@ func TestEmbeddedFoldersUpdate(t *testing.T) {
 	assert.Equal(t, "test", folder.FsConfig.S3Config.Bucket)
 	assert.Equal(t, "us-east-1", folder.FsConfig.S3Config.Region)
 	assert.Equal(t, "http://127.0.1.1:9090", folder.FsConfig.S3Config.Endpoint)
-	assert.Equal(t, kms.SecretStatusSecretBox, folder.FsConfig.S3Config.AccessSecret.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, folder.FsConfig.S3Config.AccessSecret.GetStatus())
 	assert.NotEmpty(t, folder.FsConfig.S3Config.AccessSecret.GetPayload())
 	assert.Empty(t, folder.FsConfig.S3Config.AccessSecret.GetKey())
 	assert.Empty(t, folder.FsConfig.S3Config.AccessSecret.GetAdditionalData())
@@ -3449,7 +3446,7 @@ func TestEmbeddedFoldersUpdate(t *testing.T) {
 	assert.Equal(t, "test", userFolder.FsConfig.S3Config.Bucket)
 	assert.Equal(t, "us-east-1", userFolder.FsConfig.S3Config.Region)
 	assert.Equal(t, "http://127.0.1.1:9090", userFolder.FsConfig.S3Config.Endpoint)
-	assert.Equal(t, kms.SecretStatusSecretBox, userFolder.FsConfig.S3Config.AccessSecret.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, userFolder.FsConfig.S3Config.AccessSecret.GetStatus())
 	assert.NotEmpty(t, userFolder.FsConfig.S3Config.AccessSecret.GetPayload())
 	assert.Empty(t, userFolder.FsConfig.S3Config.AccessSecret.GetKey())
 	assert.Empty(t, userFolder.FsConfig.S3Config.AccessSecret.GetAdditionalData())
@@ -3775,7 +3772,7 @@ func TestSaveErrors(t *testing.T) {
 	assert.NoError(t, err)
 
 	recCode := "recovery code"
-	recoveryCodes := []sdk.RecoveryCode{
+	recoveryCodes := []dataprovider.RecoveryCode{
 		{
 			Secret: kms.NewPlainSecret(recCode),
 			Used:   false,
@@ -3791,7 +3788,7 @@ func TestSaveErrors(t *testing.T) {
 	configName, _, secret, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
 	assert.NoError(t, err)
 	user.Password = u.Password
-	user.Filters.TOTPConfig = sdk.TOTPConfig{
+	user.Filters.TOTPConfig = dataprovider.UserTOTPConfig{
 		Enabled:    true,
 		ConfigName: configName,
 		Secret:     kms.NewPlainSecret(secret),
@@ -3813,7 +3810,7 @@ func TestSaveErrors(t *testing.T) {
 	admin, _, err = httpdtest.UpdateAdmin(admin, http.StatusOK)
 	assert.NoError(t, err)
 	admin.Password = a.Password
-	admin.Filters.TOTPConfig = dataprovider.TOTPConfig{
+	admin.Filters.TOTPConfig = dataprovider.AdminTOTPConfig{
 		Enabled:    true,
 		ConfigName: configName,
 		Secret:     kms.NewPlainSecret(secret),
@@ -4141,9 +4138,7 @@ func TestFolders(t *testing.T) {
 		FsConfig: vfs.Filesystem{
 			Provider: sdk.CryptedFilesystemProvider,
 			CryptConfig: vfs.CryptFsConfig{
-				CryptFsConfig: sdk.CryptFsConfig{
-					Passphrase: kms.NewPlainSecret("asecret"),
-				},
+				Passphrase: kms.NewPlainSecret("asecret"),
 			},
 		},
 	}
@@ -4157,7 +4152,7 @@ func TestFolders(t *testing.T) {
 	assert.Equal(t, 0, folder1.UsedQuotaFiles)
 	assert.Equal(t, int64(0), folder1.UsedQuotaSize)
 	assert.Equal(t, int64(0), folder1.LastQuotaUpdate)
-	assert.Equal(t, kms.SecretStatusSecretBox, folder1.FsConfig.CryptConfig.Passphrase.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, folder1.FsConfig.CryptConfig.Passphrase.GetStatus())
 	assert.NotEmpty(t, folder1.FsConfig.CryptConfig.Passphrase.GetPayload())
 	assert.Empty(t, folder1.FsConfig.CryptConfig.Passphrase.GetAdditionalData())
 	assert.Empty(t, folder1.FsConfig.CryptConfig.Passphrase.GetKey())
@@ -4185,7 +4180,7 @@ func TestFolders(t *testing.T) {
 		if f.Name == folder1.Name {
 			found = true
 			assert.Equal(t, folder1.MappedPath, f.MappedPath)
-			assert.Equal(t, kms.SecretStatusSecretBox, f.FsConfig.CryptConfig.Passphrase.GetStatus())
+			assert.Equal(t, sdkkms.SecretStatusSecretBox, f.FsConfig.CryptConfig.Passphrase.GetStatus())
 			assert.NotEmpty(t, f.FsConfig.CryptConfig.Passphrase.GetPayload())
 			assert.Empty(t, f.FsConfig.CryptConfig.Passphrase.GetAdditionalData())
 			assert.Empty(t, f.FsConfig.CryptConfig.Passphrase.GetKey())
@@ -4203,7 +4198,7 @@ func TestFolders(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, folder1.Name, f.Name)
 	assert.Equal(t, folder1.MappedPath, f.MappedPath)
-	assert.Equal(t, kms.SecretStatusSecretBox, f.FsConfig.CryptConfig.Passphrase.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, f.FsConfig.CryptConfig.Passphrase.GetStatus())
 	assert.NotEmpty(t, f.FsConfig.CryptConfig.Passphrase.GetPayload())
 	assert.Empty(t, f.FsConfig.CryptConfig.Passphrase.GetAdditionalData())
 	assert.Empty(t, f.FsConfig.CryptConfig.Passphrase.GetKey())
@@ -5086,7 +5081,7 @@ func TestAdminTwoFactorLogin(t *testing.T) {
 	assert.NoError(t, err)
 	altToken, err := getJWTAPITokenFromTestServer(altAdminUsername, altAdminPassword)
 	assert.NoError(t, err)
-	adminTOTPConfig := dataprovider.TOTPConfig{
+	adminTOTPConfig := dataprovider.AdminTOTPConfig{
 		Enabled:    true,
 		ConfigName: configName,
 		Secret:     kms.NewPlainSecret(secret),
@@ -5118,7 +5113,7 @@ func TestAdminTwoFactorLogin(t *testing.T) {
 	for _, c := range admin.Filters.RecoveryCodes {
 		assert.Empty(t, c.Secret.GetAdditionalData())
 		assert.Empty(t, c.Secret.GetKey())
-		assert.Equal(t, kms.SecretStatusSecretBox, c.Secret.GetStatus())
+		assert.Equal(t, sdkkms.SecretStatusSecretBox, c.Secret.GetStatus())
 		assert.NotEmpty(t, c.Secret.GetPayload())
 	}
 
@@ -5409,7 +5404,7 @@ func TestAdminTOTP(t *testing.T) {
 	admin.Username = altAdminUsername
 	admin.Password = altAdminPassword
 	// TOTPConfig will be ignored on add
-	admin.Filters.TOTPConfig = dataprovider.TOTPConfig{
+	admin.Filters.TOTPConfig = dataprovider.AdminTOTPConfig{
 		Enabled:    true,
 		ConfigName: "config",
 		Secret:     kms.NewEmptySecret(),
@@ -5478,7 +5473,7 @@ func TestAdminTOTP(t *testing.T) {
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	assert.Contains(t, rr.Body.String(), "this passcode was already used")
 
-	adminTOTPConfig := dataprovider.TOTPConfig{
+	adminTOTPConfig := dataprovider.AdminTOTPConfig{
 		Enabled:    true,
 		ConfigName: totpGenResp.ConfigName,
 		Secret:     kms.NewPlainSecret(totpGenResp.Secret),
@@ -5497,13 +5492,13 @@ func TestAdminTOTP(t *testing.T) {
 	assert.Empty(t, admin.Filters.TOTPConfig.Secret.GetKey())
 	assert.Empty(t, admin.Filters.TOTPConfig.Secret.GetAdditionalData())
 	assert.NotEmpty(t, admin.Filters.TOTPConfig.Secret.GetPayload())
-	assert.Equal(t, kms.SecretStatusSecretBox, admin.Filters.TOTPConfig.Secret.GetStatus())
-	admin.Filters.TOTPConfig = dataprovider.TOTPConfig{
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, admin.Filters.TOTPConfig.Secret.GetStatus())
+	admin.Filters.TOTPConfig = dataprovider.AdminTOTPConfig{
 		Enabled:    false,
 		ConfigName: util.GenerateUniqueID(),
 		Secret:     kms.NewEmptySecret(),
 	}
-	admin.Filters.RecoveryCodes = []sdk.RecoveryCode{
+	admin.Filters.RecoveryCodes = []dataprovider.RecoveryCode{
 		{
 			Secret: kms.NewEmptySecret(),
 		},
@@ -5655,7 +5650,7 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	webToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
 
-	userTOTPConfig := sdk.TOTPConfig{
+	userTOTPConfig := dataprovider.UserTOTPConfig{
 		Enabled:    true,
 		ConfigName: configName,
 		Secret:     kms.NewPlainSecret(secret),
@@ -5685,7 +5680,7 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	for _, c := range user.Filters.RecoveryCodes {
 		assert.Empty(t, c.Secret.GetAdditionalData())
 		assert.Empty(t, c.Secret.GetKey())
-		assert.Equal(t, kms.SecretStatusSecretBox, c.Secret.GetStatus())
+		assert.Equal(t, sdkkms.SecretStatusSecretBox, c.Secret.GetStatus())
 		assert.NotEmpty(t, c.Secret.GetPayload())
 	}
 
@@ -6111,7 +6106,7 @@ func TestMFAErrors(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	// invalid TOTP config name
-	userTOTPConfig := sdk.TOTPConfig{
+	userTOTPConfig := dataprovider.UserTOTPConfig{
 		Enabled:    true,
 		ConfigName: "missing name",
 		Secret:     kms.NewPlainSecret(xid.New().String()),
@@ -6126,7 +6121,7 @@ func TestMFAErrors(t *testing.T) {
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	assert.Contains(t, rr.Body.String(), "totp: config name")
 	// invalid TOTP secret
-	userTOTPConfig = sdk.TOTPConfig{
+	userTOTPConfig = dataprovider.UserTOTPConfig{
 		Enabled:    true,
 		ConfigName: mfa.GetAvailableTOTPConfigNames()[0],
 		Secret:     nil,
@@ -6141,7 +6136,7 @@ func TestMFAErrors(t *testing.T) {
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	assert.Contains(t, rr.Body.String(), "totp: secret is mandatory")
 	// no protocol
-	userTOTPConfig = sdk.TOTPConfig{
+	userTOTPConfig = dataprovider.UserTOTPConfig{
 		Enabled:    true,
 		ConfigName: mfa.GetAvailableTOTPConfigNames()[0],
 		Secret:     kms.NewPlainSecret(xid.New().String()),
@@ -6156,7 +6151,7 @@ func TestMFAErrors(t *testing.T) {
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	assert.Contains(t, rr.Body.String(), "totp: specify at least one protocol")
 	// invalid protocol
-	userTOTPConfig = sdk.TOTPConfig{
+	userTOTPConfig = dataprovider.UserTOTPConfig{
 		Enabled:    true,
 		ConfigName: mfa.GetAvailableTOTPConfigNames()[0],
 		Secret:     kms.NewPlainSecret(xid.New().String()),
@@ -6171,7 +6166,7 @@ func TestMFAErrors(t *testing.T) {
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	assert.Contains(t, rr.Body.String(), "totp: invalid protocol")
 
-	adminTOTPConfig := dataprovider.TOTPConfig{
+	adminTOTPConfig := dataprovider.AdminTOTPConfig{
 		Enabled:    true,
 		ConfigName: "",
 		Secret:     kms.NewPlainSecret("secret"),
@@ -6185,7 +6180,7 @@ func TestMFAErrors(t *testing.T) {
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	assert.Contains(t, rr.Body.String(), "totp: config name is mandatory")
 
-	adminTOTPConfig = dataprovider.TOTPConfig{
+	adminTOTPConfig = dataprovider.AdminTOTPConfig{
 		Enabled:    true,
 		ConfigName: mfa.GetAvailableTOTPConfigNames()[0],
 		Secret:     nil,
@@ -6200,10 +6195,10 @@ func TestMFAErrors(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "totp: secret is mandatory")
 
 	// invalid TOTP secret status
-	userTOTPConfig = sdk.TOTPConfig{
+	userTOTPConfig = dataprovider.UserTOTPConfig{
 		Enabled:    true,
 		ConfigName: mfa.GetAvailableTOTPConfigNames()[0],
-		Secret:     kms.NewSecret(kms.SecretStatusRedacted, "", "", ""),
+		Secret:     kms.NewSecret(sdkkms.SecretStatusRedacted, "", "", ""),
 		Protocols:  []string{common.ProtocolSSH},
 	}
 	asJSON, err = json.Marshal(userTOTPConfig)
@@ -6237,15 +6232,15 @@ func TestMFAInvalidSecret(t *testing.T) {
 	assert.NoError(t, err)
 
 	user.Password = defaultPassword
-	user.Filters.TOTPConfig = sdk.TOTPConfig{
+	user.Filters.TOTPConfig = dataprovider.UserTOTPConfig{
 		Enabled:    true,
 		ConfigName: mfa.GetAvailableTOTPConfigNames()[0],
-		Secret:     kms.NewSecret(kms.SecretStatusSecretBox, "payload", "key", user.Username),
+		Secret:     kms.NewSecret(sdkkms.SecretStatusSecretBox, "payload", "key", user.Username),
 		Protocols:  []string{common.ProtocolSSH, common.ProtocolHTTP},
 	}
-	user.Filters.RecoveryCodes = append(user.Filters.RecoveryCodes, sdk.RecoveryCode{
+	user.Filters.RecoveryCodes = append(user.Filters.RecoveryCodes, dataprovider.RecoveryCode{
 		Used:   false,
-		Secret: kms.NewSecret(kms.SecretStatusSecretBox, "payload", "key", user.Username),
+		Secret: kms.NewSecret(sdkkms.SecretStatusSecretBox, "payload", "key", user.Username),
 	})
 	err = dataprovider.UpdateUser(&user, "", "")
 	assert.NoError(t, err)
@@ -6310,14 +6305,14 @@ func TestMFAInvalidSecret(t *testing.T) {
 	assert.NoError(t, err)
 
 	admin.Password = altAdminPassword
-	admin.Filters.TOTPConfig = dataprovider.TOTPConfig{
+	admin.Filters.TOTPConfig = dataprovider.AdminTOTPConfig{
 		Enabled:    true,
 		ConfigName: mfa.GetAvailableTOTPConfigNames()[0],
-		Secret:     kms.NewSecret(kms.SecretStatusSecretBox, "payload", "key", user.Username),
+		Secret:     kms.NewSecret(sdkkms.SecretStatusSecretBox, "payload", "key", user.Username),
 	}
-	admin.Filters.RecoveryCodes = append(user.Filters.RecoveryCodes, sdk.RecoveryCode{
+	admin.Filters.RecoveryCodes = append(user.Filters.RecoveryCodes, dataprovider.RecoveryCode{
 		Used:   false,
-		Secret: kms.NewSecret(kms.SecretStatusSecretBox, "payload", "key", user.Username),
+		Secret: kms.NewSecret(sdkkms.SecretStatusSecretBox, "payload", "key", user.Username),
 	})
 	err = dataprovider.UpdateAdmin(&admin, "", "")
 	assert.NoError(t, err)
@@ -6370,7 +6365,7 @@ func TestMFAInvalidSecret(t *testing.T) {
 func TestWebUserTOTP(t *testing.T) {
 	u := getTestUser()
 	// TOTPConfig will be ignored on add
-	u.Filters.TOTPConfig = sdk.TOTPConfig{
+	u.Filters.TOTPConfig = dataprovider.UserTOTPConfig{
 		Enabled:    true,
 		ConfigName: "",
 		Secret:     kms.NewEmptySecret(),
@@ -6430,7 +6425,7 @@ func TestWebUserTOTP(t *testing.T) {
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	assert.Contains(t, rr.Body.String(), "this passcode was already used")
 
-	userTOTPConfig := sdk.TOTPConfig{
+	userTOTPConfig := dataprovider.UserTOTPConfig{
 		Enabled:    true,
 		ConfigName: totpGenResp.ConfigName,
 		Secret:     kms.NewPlainSecret(totpGenResp.Secret),
@@ -6453,11 +6448,11 @@ func TestWebUserTOTP(t *testing.T) {
 	assert.Empty(t, totpCfg.Secret.GetKey())
 	assert.Empty(t, totpCfg.Secret.GetAdditionalData())
 	assert.NotEmpty(t, secretPayload)
-	assert.Equal(t, kms.SecretStatusSecretBox, totpCfg.Secret.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, totpCfg.Secret.GetStatus())
 	assert.Len(t, totpCfg.Protocols, 1)
 	assert.Contains(t, totpCfg.Protocols, common.ProtocolSSH)
 	// update protocols only
-	userTOTPConfig = sdk.TOTPConfig{
+	userTOTPConfig = dataprovider.UserTOTPConfig{
 		Protocols: []string{common.ProtocolSSH, common.ProtocolFTP},
 		Secret:    kms.NewEmptySecret(),
 	}
@@ -6470,7 +6465,7 @@ func TestWebUserTOTP(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 
 	// update the user, TOTP should not be affected
-	user.Filters.TOTPConfig = sdk.TOTPConfig{
+	user.Filters.TOTPConfig = dataprovider.UserTOTPConfig{
 		Enabled: false,
 		Secret:  kms.NewEmptySecret(),
 	}
@@ -6484,7 +6479,7 @@ func TestWebUserTOTP(t *testing.T) {
 	assert.Empty(t, user.Filters.TOTPConfig.Secret.GetKey())
 	assert.Empty(t, user.Filters.TOTPConfig.Secret.GetAdditionalData())
 	assert.Equal(t, secretPayload, user.Filters.TOTPConfig.Secret.GetPayload())
-	assert.Equal(t, kms.SecretStatusSecretBox, user.Filters.TOTPConfig.Secret.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, user.Filters.TOTPConfig.Secret.GetStatus())
 	assert.Len(t, user.Filters.TOTPConfig.Protocols, 2)
 	assert.Contains(t, user.Filters.TOTPConfig.Protocols, common.ProtocolSSH)
 	assert.Contains(t, user.Filters.TOTPConfig.Protocols, common.ProtocolFTP)
@@ -8520,21 +8515,21 @@ func TestSFTPLoopError(t *testing.T) {
 	user1.FsConfig = vfs.Filesystem{
 		Provider: sdk.SFTPFilesystemProvider,
 		SFTPConfig: vfs.SFTPFsConfig{
-			SFTPFsConfig: sdk.SFTPFsConfig{
+			BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
 				Endpoint: sftpServerAddr,
 				Username: user2.Username,
-				Password: kms.NewPlainSecret(defaultPassword),
 			},
+			Password: kms.NewPlainSecret(defaultPassword),
 		},
 	}
 
 	user2.FsConfig.Provider = sdk.SFTPFilesystemProvider
 	user2.FsConfig.SFTPConfig = vfs.SFTPFsConfig{
-		SFTPFsConfig: sdk.SFTPFsConfig{
+		BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
 			Endpoint: sftpServerAddr,
 			Username: user1.Username,
-			Password: kms.NewPlainSecret(defaultPassword),
 		},
+		Password: kms.NewPlainSecret(defaultPassword),
 	}
 
 	user1, resp, err := httpdtest.AddUser(user1, http.StatusCreated)
@@ -12644,7 +12639,7 @@ func TestWebAdminBasicMock(t *testing.T) {
 	assert.NoError(t, err)
 	altToken, err := getJWTWebTokenFromTestServer(altAdminUsername, altAdminPassword)
 	assert.NoError(t, err)
-	adminTOTPConfig := dataprovider.TOTPConfig{
+	adminTOTPConfig := dataprovider.AdminTOTPConfig{
 		Enabled:    true,
 		ConfigName: configName,
 		Secret:     kms.NewPlainSecret(secret),
@@ -12672,7 +12667,7 @@ func TestWebAdminBasicMock(t *testing.T) {
 	secretPayload := admin.Filters.TOTPConfig.Secret.GetPayload()
 	assert.NotEmpty(t, secretPayload)
 
-	adminTOTPConfig = dataprovider.TOTPConfig{
+	adminTOTPConfig = dataprovider.AdminTOTPConfig{
 		Enabled:    true,
 		ConfigName: configName,
 		Secret:     kms.NewEmptySecret(),
@@ -12691,7 +12686,7 @@ func TestWebAdminBasicMock(t *testing.T) {
 	assert.True(t, admin.Filters.TOTPConfig.Enabled)
 	assert.Equal(t, secretPayload, admin.Filters.TOTPConfig.Secret.GetPayload())
 
-	adminTOTPConfig = dataprovider.TOTPConfig{
+	adminTOTPConfig = dataprovider.AdminTOTPConfig{
 		Enabled:    true,
 		ConfigName: configName,
 		Secret:     nil,
@@ -13374,7 +13369,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	assert.NoError(t, err)
 	userToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
-	userTOTPConfig := sdk.TOTPConfig{
+	userTOTPConfig := dataprovider.UserTOTPConfig{
 		Enabled:    true,
 		ConfigName: configName,
 		Secret:     kms.NewPlainSecret(secret),
@@ -14131,7 +14126,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	assert.Equal(t, updateUser.FsConfig.S3Config.DownloadConcurrency, user.FsConfig.S3Config.DownloadConcurrency)
 	assert.True(t, updateUser.FsConfig.S3Config.ForcePathStyle)
 	assert.Equal(t, 2, len(updateUser.Filters.FilePatterns))
-	assert.Equal(t, kms.SecretStatusSecretBox, updateUser.FsConfig.S3Config.AccessSecret.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, updateUser.FsConfig.S3Config.AccessSecret.GetStatus())
 	assert.NotEmpty(t, updateUser.FsConfig.S3Config.AccessSecret.GetPayload())
 	assert.Empty(t, updateUser.FsConfig.S3Config.AccessSecret.GetKey())
 	assert.Empty(t, updateUser.FsConfig.S3Config.AccessSecret.GetAdditionalData())
@@ -14157,7 +14152,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	var lastUpdatedUser dataprovider.User
 	err = render.DecodeJSON(rr.Body, &lastUpdatedUser)
 	assert.NoError(t, err)
-	assert.Equal(t, kms.SecretStatusSecretBox, lastUpdatedUser.FsConfig.S3Config.AccessSecret.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, lastUpdatedUser.FsConfig.S3Config.AccessSecret.GetStatus())
 	assert.Equal(t, updateUser.FsConfig.S3Config.AccessSecret.GetPayload(), lastUpdatedUser.FsConfig.S3Config.AccessSecret.GetPayload())
 	assert.Empty(t, lastUpdatedUser.FsConfig.S3Config.AccessSecret.GetKey())
 	assert.Empty(t, lastUpdatedUser.FsConfig.S3Config.AccessSecret.GetAdditionalData())
@@ -14392,7 +14387,7 @@ func TestWebUserAzureBlobMock(t *testing.T) {
 	assert.Equal(t, updateUser.FsConfig.AzBlobConfig.UploadPartSize, user.FsConfig.AzBlobConfig.UploadPartSize)
 	assert.Equal(t, updateUser.FsConfig.AzBlobConfig.UploadConcurrency, user.FsConfig.AzBlobConfig.UploadConcurrency)
 	assert.Equal(t, 2, len(updateUser.Filters.FilePatterns))
-	assert.Equal(t, kms.SecretStatusSecretBox, updateUser.FsConfig.AzBlobConfig.AccountKey.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, updateUser.FsConfig.AzBlobConfig.AccountKey.GetStatus())
 	assert.NotEmpty(t, updateUser.FsConfig.AzBlobConfig.AccountKey.GetPayload())
 	assert.Empty(t, updateUser.FsConfig.AzBlobConfig.AccountKey.GetKey())
 	assert.Empty(t, updateUser.FsConfig.AzBlobConfig.AccountKey.GetAdditionalData())
@@ -14411,7 +14406,7 @@ func TestWebUserAzureBlobMock(t *testing.T) {
 	var lastUpdatedUser dataprovider.User
 	err = render.DecodeJSON(rr.Body, &lastUpdatedUser)
 	assert.NoError(t, err)
-	assert.Equal(t, kms.SecretStatusSecretBox, lastUpdatedUser.FsConfig.AzBlobConfig.AccountKey.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, lastUpdatedUser.FsConfig.AzBlobConfig.AccountKey.GetStatus())
 	assert.Equal(t, updateUser.FsConfig.AzBlobConfig.AccountKey.GetPayload(), lastUpdatedUser.FsConfig.AzBlobConfig.AccountKey.GetPayload())
 	assert.Empty(t, lastUpdatedUser.FsConfig.AzBlobConfig.AccountKey.GetKey())
 	assert.Empty(t, lastUpdatedUser.FsConfig.AzBlobConfig.AccountKey.GetAdditionalData())
@@ -14434,7 +14429,7 @@ func TestWebUserAzureBlobMock(t *testing.T) {
 	updateUser = dataprovider.User{}
 	err = render.DecodeJSON(rr.Body, &updateUser)
 	assert.NoError(t, err)
-	assert.Equal(t, kms.SecretStatusSecretBox, updateUser.FsConfig.AzBlobConfig.SASURL.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, updateUser.FsConfig.AzBlobConfig.SASURL.GetStatus())
 	assert.NotEmpty(t, updateUser.FsConfig.AzBlobConfig.SASURL.GetPayload())
 	assert.Empty(t, updateUser.FsConfig.AzBlobConfig.SASURL.GetKey())
 	assert.Empty(t, updateUser.FsConfig.AzBlobConfig.SASURL.GetAdditionalData())
@@ -14453,7 +14448,7 @@ func TestWebUserAzureBlobMock(t *testing.T) {
 	lastUpdatedUser = dataprovider.User{}
 	err = render.DecodeJSON(rr.Body, &lastUpdatedUser)
 	assert.NoError(t, err)
-	assert.Equal(t, kms.SecretStatusSecretBox, lastUpdatedUser.FsConfig.AzBlobConfig.SASURL.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, lastUpdatedUser.FsConfig.AzBlobConfig.SASURL.GetStatus())
 	assert.Equal(t, updateUser.FsConfig.AzBlobConfig.SASURL.GetPayload(), lastUpdatedUser.FsConfig.AzBlobConfig.SASURL.GetPayload())
 	assert.Empty(t, lastUpdatedUser.FsConfig.AzBlobConfig.SASURL.GetKey())
 	assert.Empty(t, lastUpdatedUser.FsConfig.AzBlobConfig.SASURL.GetAdditionalData())
@@ -14530,7 +14525,7 @@ func TestWebUserCryptMock(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, int64(1577836800000), updateUser.ExpirationDate)
 	assert.Equal(t, 2, len(updateUser.Filters.FilePatterns))
-	assert.Equal(t, kms.SecretStatusSecretBox, updateUser.FsConfig.CryptConfig.Passphrase.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, updateUser.FsConfig.CryptConfig.Passphrase.GetStatus())
 	assert.NotEmpty(t, updateUser.FsConfig.CryptConfig.Passphrase.GetPayload())
 	assert.Empty(t, updateUser.FsConfig.CryptConfig.Passphrase.GetKey())
 	assert.Empty(t, updateUser.FsConfig.CryptConfig.Passphrase.GetAdditionalData())
@@ -14549,7 +14544,7 @@ func TestWebUserCryptMock(t *testing.T) {
 	var lastUpdatedUser dataprovider.User
 	err = render.DecodeJSON(rr.Body, &lastUpdatedUser)
 	assert.NoError(t, err)
-	assert.Equal(t, kms.SecretStatusSecretBox, lastUpdatedUser.FsConfig.CryptConfig.Passphrase.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, lastUpdatedUser.FsConfig.CryptConfig.Passphrase.GetStatus())
 	assert.Equal(t, updateUser.FsConfig.CryptConfig.Passphrase.GetPayload(), lastUpdatedUser.FsConfig.CryptConfig.Passphrase.GetPayload())
 	assert.Empty(t, lastUpdatedUser.FsConfig.CryptConfig.Passphrase.GetKey())
 	assert.Empty(t, lastUpdatedUser.FsConfig.CryptConfig.Passphrase.GetAdditionalData())
@@ -14639,11 +14634,11 @@ func TestWebUserSFTPFsMock(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, int64(1577836800000), updateUser.ExpirationDate)
 	assert.Equal(t, 2, len(updateUser.Filters.FilePatterns))
-	assert.Equal(t, kms.SecretStatusSecretBox, updateUser.FsConfig.SFTPConfig.Password.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, updateUser.FsConfig.SFTPConfig.Password.GetStatus())
 	assert.NotEmpty(t, updateUser.FsConfig.SFTPConfig.Password.GetPayload())
 	assert.Empty(t, updateUser.FsConfig.SFTPConfig.Password.GetKey())
 	assert.Empty(t, updateUser.FsConfig.SFTPConfig.Password.GetAdditionalData())
-	assert.Equal(t, kms.SecretStatusSecretBox, updateUser.FsConfig.SFTPConfig.PrivateKey.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, updateUser.FsConfig.SFTPConfig.PrivateKey.GetStatus())
 	assert.NotEmpty(t, updateUser.FsConfig.SFTPConfig.PrivateKey.GetPayload())
 	assert.Empty(t, updateUser.FsConfig.SFTPConfig.PrivateKey.GetKey())
 	assert.Empty(t, updateUser.FsConfig.SFTPConfig.PrivateKey.GetAdditionalData())
@@ -14670,11 +14665,11 @@ func TestWebUserSFTPFsMock(t *testing.T) {
 	var lastUpdatedUser dataprovider.User
 	err = render.DecodeJSON(rr.Body, &lastUpdatedUser)
 	assert.NoError(t, err)
-	assert.Equal(t, kms.SecretStatusSecretBox, lastUpdatedUser.FsConfig.SFTPConfig.Password.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, lastUpdatedUser.FsConfig.SFTPConfig.Password.GetStatus())
 	assert.Equal(t, updateUser.FsConfig.SFTPConfig.Password.GetPayload(), lastUpdatedUser.FsConfig.SFTPConfig.Password.GetPayload())
 	assert.Empty(t, lastUpdatedUser.FsConfig.SFTPConfig.Password.GetKey())
 	assert.Empty(t, lastUpdatedUser.FsConfig.SFTPConfig.Password.GetAdditionalData())
-	assert.Equal(t, kms.SecretStatusSecretBox, lastUpdatedUser.FsConfig.SFTPConfig.PrivateKey.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, lastUpdatedUser.FsConfig.SFTPConfig.PrivateKey.GetStatus())
 	assert.Equal(t, updateUser.FsConfig.SFTPConfig.PrivateKey.GetPayload(), lastUpdatedUser.FsConfig.SFTPConfig.PrivateKey.GetPayload())
 	assert.Empty(t, lastUpdatedUser.FsConfig.SFTPConfig.PrivateKey.GetKey())
 	assert.Empty(t, lastUpdatedUser.FsConfig.SFTPConfig.PrivateKey.GetAdditionalData())

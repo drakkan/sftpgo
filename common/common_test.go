@@ -19,8 +19,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/drakkan/sftpgo/v2/dataprovider"
+	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/sdk"
-	"github.com/drakkan/sftpgo/v2/sdk/kms"
 	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
@@ -731,9 +731,7 @@ func TestPostConnectHook(t *testing.T) {
 func TestCryptoConvertFileInfo(t *testing.T) {
 	name := "name"
 	fs, err := vfs.NewCryptFs("connID1", os.TempDir(), "", vfs.CryptFsConfig{
-		CryptFsConfig: sdk.CryptFsConfig{
-			Passphrase: kms.NewPlainSecret("secret"),
-		},
+		Passphrase: kms.NewPlainSecret("secret"),
 	})
 	require.NoError(t, err)
 	cryptFs := fs.(*vfs.CryptFs)
@@ -772,9 +770,7 @@ func TestFolderCopy(t *testing.T) {
 
 	folder.FsConfig = vfs.Filesystem{
 		CryptConfig: vfs.CryptFsConfig{
-			CryptFsConfig: sdk.CryptFsConfig{
-				Passphrase: kms.NewPlainSecret("crypto secret"),
-			},
+			Passphrase: kms.NewPlainSecret("crypto secret"),
 		},
 	}
 	folderCopy = folder.GetACopy()

@@ -8,6 +8,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
+
+	sdkkms "github.com/drakkan/sftpgo/v2/sdk/kms"
 )
 
 var (
@@ -19,7 +21,7 @@ type builtinSecret struct {
 }
 
 func init() {
-	RegisterSecretProvider(SchemeBuiltin, SecretStatusAES256GCM, newBuiltinSecret)
+	RegisterSecretProvider(sdkkms.SchemeBuiltin, sdkkms.SecretStatusAES256GCM, newBuiltinSecret)
 }
 
 func newBuiltinSecret(base BaseSecret, url, masterKey string) SecretProvider {
@@ -33,7 +35,7 @@ func (s *builtinSecret) Name() string {
 }
 
 func (s *builtinSecret) IsEncrypted() bool {
-	return s.Status == SecretStatusAES256GCM
+	return s.Status == sdkkms.SecretStatusAES256GCM
 }
 
 func (s *builtinSecret) deriveKey(key []byte) []byte {
@@ -52,7 +54,7 @@ func (s *builtinSecret) Encrypt() error {
 		return ErrInvalidSecret
 	}
 	switch s.Status {
-	case SecretStatusPlain:
+	case sdkkms.SecretStatusPlain:
 		key := make([]byte, 32)
 		if _, err := io.ReadFull(rand.Reader, key); err != nil {
 			return err
@@ -76,7 +78,7 @@ func (s *builtinSecret) Encrypt() error {
 		ciphertext := gcm.Seal(nonce, nonce, []byte(s.Payload), aad)
 		s.Key = hex.EncodeToString(key)
 		s.Payload = hex.EncodeToString(ciphertext)
-		s.Status = SecretStatusAES256GCM
+		s.Status = sdkkms.SecretStatusAES256GCM
 		return nil
 	default:
 		return ErrWrongSecretStatus
@@ -85,7 +87,7 @@ func (s *builtinSecret) Encrypt() error {
 
 func (s *builtinSecret) Decrypt() error {
 	switch s.Status {
-	case SecretStatusAES256GCM:
+	case sdkkms.SecretStatusAES256GCM:
 		encrypted, err := hex.DecodeString(s.Payload)
 		if err != nil {
 			return err
@@ -115,7 +117,7 @@ func (s *builtinSecret) Decrypt() error {
 		if err != nil {
 			return err
 		}
-		s.Status = SecretStatusPlain
+		s.Status = sdkkms.SecretStatusPlain
 		s.Payload = string(plaintext)
 		s.Key = ""
 		s.AdditionalData = ""

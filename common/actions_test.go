@@ -28,24 +28,24 @@ func TestNewActionNotification(t *testing.T) {
 	}
 	user.FsConfig.Provider = sdk.LocalFilesystemProvider
 	user.FsConfig.S3Config = vfs.S3FsConfig{
-		S3FsConfig: sdk.S3FsConfig{
+		BaseS3FsConfig: sdk.BaseS3FsConfig{
 			Bucket:   "s3bucket",
 			Endpoint: "endpoint",
 		},
 	}
 	user.FsConfig.GCSConfig = vfs.GCSFsConfig{
-		GCSFsConfig: sdk.GCSFsConfig{
+		BaseGCSFsConfig: sdk.BaseGCSFsConfig{
 			Bucket: "gcsbucket",
 		},
 	}
 	user.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{
-		AzBlobFsConfig: sdk.AzBlobFsConfig{
+		BaseAzBlobFsConfig: sdk.BaseAzBlobFsConfig{
 			Container: "azcontainer",
 			Endpoint:  "azendpoint",
 		},
 	}
 	user.FsConfig.SFTPConfig = vfs.SFTPFsConfig{
-		SFTPFsConfig: sdk.SFTPFsConfig{
+		BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
 			Endpoint: "sftpendpoint",
 		},
 	}

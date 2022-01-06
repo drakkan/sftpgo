@@ -158,7 +158,7 @@ type changeClientPasswordPage struct {
 type clientMFAPage struct {
 	baseClientPage
 	TOTPConfigs     []string
-	TOTPConfig      sdk.TOTPConfig
+	TOTPConfig      dataprovider.UserTOTPConfig
 	GenerateTOTPURL string
 	ValidateTOTPURL string
 	SaveTOTPURL     string

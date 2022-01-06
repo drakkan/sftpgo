@@ -20,8 +20,8 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
+	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/sdk"
-	"github.com/drakkan/sftpgo/v2/sdk/kms"
 	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
@@ -667,7 +667,7 @@ func TestSSHCommandsRemoteFs(t *testing.T) {
 	user.FsConfig = vfs.Filesystem{
 		Provider: sdk.S3FilesystemProvider,
 		S3Config: vfs.S3FsConfig{
-			S3FsConfig: sdk.S3FsConfig{
+			BaseS3FsConfig: sdk.BaseS3FsConfig{
 				Bucket:   "s3bucket",
 				Endpoint: "endpoint",
 				Region:   "eu-west-1",
@@ -1753,9 +1753,7 @@ func TestTransferFailingReader(t *testing.T) {
 		FsConfig: vfs.Filesystem{
 			Provider: sdk.CryptedFilesystemProvider,
 			CryptConfig: vfs.CryptFsConfig{
-				CryptFsConfig: sdk.CryptFsConfig{
-					Passphrase: kms.NewPlainSecret("crypt secret"),
-				},
+				Passphrase: kms.NewPlainSecret("crypt secret"),
 			},
 		},
 	}

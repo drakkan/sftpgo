@@ -15,10 +15,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/mfa"
 	"github.com/drakkan/sftpgo/v2/sdk"
-	"github.com/drakkan/sftpgo/v2/sdk/kms"
 	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
@@ -79,9 +79,44 @@ var (
 	permsCreateAny             = []string{PermUpload, PermCreateDirs}
 )
 
+// RecoveryCode defines a 2FA recovery code
+type RecoveryCode struct {
+	Secret *kms.Secret `json:"secret"`
+	Used   bool        `json:"used,omitempty"`
+}
+
+// UserTOTPConfig defines the time-based one time password configuration
+type UserTOTPConfig struct {
+	Enabled    bool        `json:"enabled,omitempty"`
+	ConfigName string      `json:"config_name,omitempty"`
+	Secret     *kms.Secret `json:"secret,omitempty"`
+	// TOTP will be required for the specified protocols.
+	// SSH protocol (SFTP/SCP/SSH commands) will ask for the TOTP passcode if the client uses keyboard interactive
+	// authentication.
+	// FTP have no standard way to support two factor authentication, if you
+	// enable the support for this protocol you have to add the TOTP passcode after the password.
+	// For example if your password is "password" and your one time passcode is
+	// "123456" you have to use "password123456" as password.
+	Protocols []string `json:"protocols,omitempty"`
+}
+
+// UserFilters defines additional restrictions for a user
+// TODO: rename to UserOptions in v3
+type UserFilters struct {
+	sdk.BaseUserFilters
+	// Time-based one time passwords configuration
+	TOTPConfig UserTOTPConfig `json:"totp_config,omitempty"`
+	// Recovery codes to use if the user loses access to their second factor auth device.
+	// Each code can only be used once, you should use these codes to login and disable or
+	// reset 2FA for your account
+	RecoveryCodes []RecoveryCode `json:"recovery_codes,omitempty"`
+}
+
 // User defines a SFTPGo user
 type User struct {
 	sdk.BaseUser
+	// Additional restrictions
+	Filters UserFilters `json:"filters"`
 	// Mapping between virtual paths and virtual folders
 	VirtualFolders []vfs.VirtualFolder `json:"virtual_folders,omitempty"`
 	// Filesystem configuration details
@@ -1168,7 +1203,7 @@ func (u *User) getACopy() User {
 		copy(perms, v)
 		permissions[k] = perms
 	}
-	filters := sdk.UserFilters{}
+	filters := UserFilters{}
 	filters.MaxUploadFileSize = u.Filters.MaxUploadFileSize
 	filters.TLSUsername = u.Filters.TLSUsername
 	filters.UserType = u.Filters.UserType
@@ -1194,12 +1229,12 @@ func (u *User) getACopy() User {
 	filters.AllowAPIKeyAuth = u.Filters.AllowAPIKeyAuth
 	filters.WebClient = make([]string, len(u.Filters.WebClient))
 	copy(filters.WebClient, u.Filters.WebClient)
-	filters.RecoveryCodes = make([]sdk.RecoveryCode, 0, len(u.Filters.RecoveryCodes))
+	filters.RecoveryCodes = make([]RecoveryCode, 0, len(u.Filters.RecoveryCodes))
 	for _, code := range u.Filters.RecoveryCodes {
 		if code.Secret == nil {
 			code.Secret = kms.NewEmptySecret()
 		}
-		filters.RecoveryCodes = append(filters.RecoveryCodes, sdk.RecoveryCode{
+		filters.RecoveryCodes = append(filters.RecoveryCodes, RecoveryCode{
 			Secret: code.Secret.Clone(),
 			Used:   code.Used,
 		})
@@ -1238,12 +1273,12 @@ func (u *User) getACopy() User {
 			Status:            u.Status,
 			ExpirationDate:    u.ExpirationDate,
 			LastLogin:         u.LastLogin,
-			Filters:           filters,
 			AdditionalInfo:    u.AdditionalInfo,
 			Description:       u.Description,
 			CreatedAt:         u.CreatedAt,
 			UpdatedAt:         u.UpdatedAt,
 		},
+		Filters:        filters,
 		VirtualFolders: virtualFolders,
 		FsConfig:       u.FsConfig.GetACopy(),
 	}

@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/drakkan/sftpgo/v2/dataprovider"
+	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/sdk"
-	"github.com/drakkan/sftpgo/v2/sdk/kms"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
@@ -419,12 +419,12 @@ func TestCheckParentDirsErrors(t *testing.T) {
 		FsConfig: vfs.Filesystem{
 			Provider: sdk.S3FilesystemProvider,
 			S3Config: vfs.S3FsConfig{
-				S3FsConfig: sdk.S3FsConfig{
-					Bucket:       "buck",
-					Region:       "us-east-1",
-					AccessKey:    "key",
-					AccessSecret: kms.NewPlainSecret("s3secret"),
+				BaseS3FsConfig: sdk.BaseS3FsConfig{
+					Bucket:    "buck",
+					Region:    "us-east-1",
+					AccessKey: "key",
 				},
+				AccessSecret: kms.NewPlainSecret("s3secret"),
 			},
 		},
 	}

@@ -19,9 +19,9 @@ import (
 	"github.com/rs/xid"
 	"golang.org/x/crypto/ssh"
 
+	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/sdk"
-	"github.com/drakkan/sftpgo/v2/sdk/kms"
 	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/version"
 )
@@ -36,8 +36,10 @@ var ErrSFTPLoop = errors.New("SFTP loop or nested local SFTP folders detected")
 
 // SFTPFsConfig defines the configuration for SFTP based filesystem
 type SFTPFsConfig struct {
-	sdk.SFTPFsConfig
-	forbiddenSelfUsernames []string `json:"-"`
+	sdk.BaseSFTPFsConfig
+	Password               *kms.Secret `json:"password,omitempty"`
+	PrivateKey             *kms.Secret `json:"private_key,omitempty"`
+	forbiddenSelfUsernames []string    `json:"-"`
 }
 
 // HideConfidentialData hides confidential data

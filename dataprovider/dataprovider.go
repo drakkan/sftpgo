@@ -46,12 +46,12 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"github.com/drakkan/sftpgo/v2/httpclient"
+	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/metric"
 	"github.com/drakkan/sftpgo/v2/mfa"
 	"github.com/drakkan/sftpgo/v2/plugin"
 	"github.com/drakkan/sftpgo/v2/sdk"
-	"github.com/drakkan/sftpgo/v2/sdk/kms"
 	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
@@ -1153,7 +1153,7 @@ func HasAdmin() bool {
 // AddAdmin adds a new SFTPGo admin
 func AddAdmin(admin *Admin, executor, ipAddress string) error {
 	admin.Filters.RecoveryCodes = nil
-	admin.Filters.TOTPConfig = TOTPConfig{
+	admin.Filters.TOTPConfig = AdminTOTPConfig{
 		Enabled: false,
 	}
 	err := provider.addAdmin(admin)
@@ -1199,7 +1199,7 @@ func UserExists(username string) (User, error) {
 // AddUser adds a new SFTPGo user.
 func AddUser(user *User, executor, ipAddress string) error {
 	user.Filters.RecoveryCodes = nil
-	user.Filters.TOTPConfig = sdk.TOTPConfig{
+	user.Filters.TOTPConfig = UserTOTPConfig{
 		Enabled: false,
 	}
 	err := provider.addUser(user)
@@ -1559,7 +1559,7 @@ func validateUserVirtualFolders(user *User) error {
 	return nil
 }
 
-func validateUserTOTPConfig(c *sdk.TOTPConfig, username string) error {
+func validateUserTOTPConfig(c *UserTOTPConfig, username string) error {
 	if !c.Enabled {
 		c.ConfigName = ""
 		c.Secret = kms.NewEmptySecret()

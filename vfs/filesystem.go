@@ -3,8 +3,8 @@ package vfs
 import (
 	"fmt"
 
+	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/sdk"
-	"github.com/drakkan/sftpgo/v2/sdk/kms"
 	"github.com/drakkan/sftpgo/v2/util"
 )
 
@@ -228,11 +228,10 @@ func (f *Filesystem) GetACopy() Filesystem {
 	fs := Filesystem{
 		Provider: f.Provider,
 		S3Config: S3FsConfig{
-			S3FsConfig: sdk.S3FsConfig{
+			BaseS3FsConfig: sdk.BaseS3FsConfig{
 				Bucket:              f.S3Config.Bucket,
 				Region:              f.S3Config.Region,
 				AccessKey:           f.S3Config.AccessKey,
-				AccessSecret:        f.S3Config.AccessSecret.Clone(),
 				Endpoint:            f.S3Config.Endpoint,
 				StorageClass:        f.S3Config.StorageClass,
 				ACL:                 f.S3Config.ACL,
@@ -244,47 +243,46 @@ func (f *Filesystem) GetACopy() Filesystem {
 				DownloadPartMaxTime: f.S3Config.DownloadPartMaxTime,
 				ForcePathStyle:      f.S3Config.ForcePathStyle,
 			},
+			AccessSecret: f.S3Config.AccessSecret.Clone(),
 		},
 		GCSConfig: GCSFsConfig{
-			GCSFsConfig: sdk.GCSFsConfig{
+			BaseGCSFsConfig: sdk.BaseGCSFsConfig{
 				Bucket:               f.GCSConfig.Bucket,
 				CredentialFile:       f.GCSConfig.CredentialFile,
-				Credentials:          f.GCSConfig.Credentials.Clone(),
 				AutomaticCredentials: f.GCSConfig.AutomaticCredentials,
 				StorageClass:         f.GCSConfig.StorageClass,
 				ACL:                  f.GCSConfig.ACL,
 				KeyPrefix:            f.GCSConfig.KeyPrefix,
 			},
+			Credentials: f.GCSConfig.Credentials.Clone(),
 		},
 		AzBlobConfig: AzBlobFsConfig{
-			AzBlobFsConfig: sdk.AzBlobFsConfig{
+			BaseAzBlobFsConfig: sdk.BaseAzBlobFsConfig{
 				Container:         f.AzBlobConfig.Container,
 				AccountName:       f.AzBlobConfig.AccountName,
-				AccountKey:        f.AzBlobConfig.AccountKey.Clone(),
 				Endpoint:          f.AzBlobConfig.Endpoint,
-				SASURL:            f.AzBlobConfig.SASURL.Clone(),
 				KeyPrefix:         f.AzBlobConfig.KeyPrefix,
 				UploadPartSize:    f.AzBlobConfig.UploadPartSize,
 				UploadConcurrency: f.AzBlobConfig.UploadConcurrency,
 				UseEmulator:       f.AzBlobConfig.UseEmulator,
 				AccessTier:        f.AzBlobConfig.AccessTier,
 			},
+			AccountKey: f.AzBlobConfig.AccountKey.Clone(),
+			SASURL:     f.AzBlobConfig.SASURL.Clone(),
 		},
 		CryptConfig: CryptFsConfig{
-			CryptFsConfig: sdk.CryptFsConfig{
-				Passphrase: f.CryptConfig.Passphrase.Clone(),
-			},
+			Passphrase: f.CryptConfig.Passphrase.Clone(),
 		},
 		SFTPConfig: SFTPFsConfig{
-			SFTPFsConfig: sdk.SFTPFsConfig{
+			BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
 				Endpoint:                f.SFTPConfig.Endpoint,
 				Username:                f.SFTPConfig.Username,
-				Password:                f.SFTPConfig.Password.Clone(),
-				PrivateKey:              f.SFTPConfig.PrivateKey.Clone(),
 				Prefix:                  f.SFTPConfig.Prefix,
 				DisableCouncurrentReads: f.SFTPConfig.DisableCouncurrentReads,
 				BufferSize:              f.SFTPConfig.BufferSize,
 			},
+			Password:   f.SFTPConfig.Password.Clone(),
+			PrivateKey: f.SFTPConfig.PrivateKey.Clone(),
 		},
 	}
 	if len(f.SFTPConfig.Fingerprints) > 0 {

@@ -15,10 +15,9 @@ import (
 	passwordvalidator "github.com/wagslane/go-password-validator"
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/mfa"
-	"github.com/drakkan/sftpgo/v2/sdk"
-	"github.com/drakkan/sftpgo/v2/sdk/kms"
 	"github.com/drakkan/sftpgo/v2/util"
 )
 
@@ -52,14 +51,14 @@ var (
 		PermAdminViewEvents}
 )
 
-// TOTPConfig defines the time-based one time password configuration
-type TOTPConfig struct {
+// AdminTOTPConfig defines the time-based one time password configuration
+type AdminTOTPConfig struct {
 	Enabled    bool        `json:"enabled,omitempty"`
 	ConfigName string      `json:"config_name,omitempty"`
 	Secret     *kms.Secret `json:"secret,omitempty"`
 }
 
-func (c *TOTPConfig) validate(username string) error {
+func (c *AdminTOTPConfig) validate(username string) error {
 	if !c.Enabled {
 		c.ConfigName = ""
 		c.Secret = kms.NewEmptySecret()
@@ -93,11 +92,11 @@ type AdminFilters struct {
 	// API key auth allows to impersonate this administrator with an API key
 	AllowAPIKeyAuth bool `json:"allow_api_key_auth,omitempty"`
 	// Time-based one time passwords configuration
-	TOTPConfig TOTPConfig `json:"totp_config,omitempty"`
+	TOTPConfig AdminTOTPConfig `json:"totp_config,omitempty"`
 	// Recovery codes to use if the user loses access to their second factor auth device.
 	// Each code can only be used once, you should use these codes to login and disable or
 	// reset 2FA for your account
-	RecoveryCodes []sdk.RecoveryCode `json:"recovery_codes,omitempty"`
+	RecoveryCodes []RecoveryCode `json:"recovery_codes,omitempty"`
 }
 
 // Admin defines a SFTPGo admin
@@ -403,12 +402,12 @@ func (a *Admin) getACopy() Admin {
 	filters.TOTPConfig.ConfigName = a.Filters.TOTPConfig.ConfigName
 	filters.TOTPConfig.Secret = a.Filters.TOTPConfig.Secret.Clone()
 	copy(filters.AllowList, a.Filters.AllowList)
-	filters.RecoveryCodes = make([]sdk.RecoveryCode, 0)
+	filters.RecoveryCodes = make([]RecoveryCode, 0)
 	for _, code := range a.Filters.RecoveryCodes {
 		if code.Secret == nil {
 			code.Secret = kms.NewEmptySecret()
 		}
-		filters.RecoveryCodes = append(filters.RecoveryCodes, sdk.RecoveryCode{
+		filters.RecoveryCodes = append(filters.RecoveryCodes, RecoveryCode{
 			Secret: code.Secret.Clone(),
 			Used:   code.Used,
 		})

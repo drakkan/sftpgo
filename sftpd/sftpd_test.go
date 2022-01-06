@@ -42,10 +42,11 @@ import (
 	"github.com/drakkan/sftpgo/v2/config"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/httpdtest"
+	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/mfa"
 	"github.com/drakkan/sftpgo/v2/sdk"
-	"github.com/drakkan/sftpgo/v2/sdk/kms"
+	sdkkms "github.com/drakkan/sftpgo/v2/sdk/kms"
 	"github.com/drakkan/sftpgo/v2/sftpd"
 	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
@@ -1999,7 +2000,7 @@ func TestLoginWithDatabaseCredentials(t *testing.T) {
 
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
-	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.GCSConfig.Credentials.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, user.FsConfig.GCSConfig.Credentials.GetStatus())
 	assert.NotEmpty(t, user.FsConfig.GCSConfig.Credentials.GetPayload())
 	assert.Empty(t, user.FsConfig.GCSConfig.Credentials.GetAdditionalData())
 	assert.Empty(t, user.FsConfig.GCSConfig.Credentials.GetKey())
@@ -2283,7 +2284,7 @@ func TestInteractiveLoginWithPasscode(t *testing.T) {
 	configName, _, secret, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
 	assert.NoError(t, err)
 	user.Password = defaultPassword
-	user.Filters.TOTPConfig = sdk.TOTPConfig{
+	user.Filters.TOTPConfig = dataprovider.UserTOTPConfig{
 		Enabled:    true,
 		ConfigName: configName,
 		Secret:     kms.NewPlainSecret(secret),
@@ -2332,7 +2333,7 @@ func TestInteractiveLoginWithPasscode(t *testing.T) {
 	configName, _, secret, _, err = mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
 	assert.NoError(t, err)
 	user.Password = defaultPassword
-	user.Filters.TOTPConfig = sdk.TOTPConfig{
+	user.Filters.TOTPConfig = dataprovider.UserTOTPConfig{
 		Enabled:    true,
 		ConfigName: configName,
 		Secret:     kms.NewPlainSecret(secret),
@@ -2521,14 +2522,14 @@ func TestPreLoginHookPreserveMFAConfig(t *testing.T) {
 	configName, _, secret, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
 	assert.NoError(t, err)
 	user.Password = defaultPassword
-	user.Filters.TOTPConfig = sdk.TOTPConfig{
+	user.Filters.TOTPConfig = dataprovider.UserTOTPConfig{
 		Enabled:    true,
 		ConfigName: configName,
 		Secret:     kms.NewPlainSecret(secret),
 		Protocols:  []string{common.ProtocolSSH},
 	}
 	for i := 0; i < 12; i++ {
-		user.Filters.RecoveryCodes = append(user.Filters.RecoveryCodes, sdk.RecoveryCode{
+		user.Filters.RecoveryCodes = append(user.Filters.RecoveryCodes, dataprovider.RecoveryCode{
 			Secret: kms.NewPlainSecret(fmt.Sprintf("RC-%v", strings.ToUpper(util.GenerateUniqueID()))),
 		})
 	}
@@ -2548,7 +2549,7 @@ func TestPreLoginHookPreserveMFAConfig(t *testing.T) {
 	assert.True(t, user.Filters.TOTPConfig.Enabled)
 	assert.Equal(t, configName, user.Filters.TOTPConfig.ConfigName)
 	assert.Equal(t, []string{common.ProtocolSSH}, user.Filters.TOTPConfig.Protocols)
-	assert.Equal(t, kms.SecretStatusSecretBox, user.Filters.TOTPConfig.Secret.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, user.Filters.TOTPConfig.Secret.GetStatus())
 
 	err = os.WriteFile(extAuthPath, getExitCodeScriptContent(0), os.ModePerm)
 	assert.NoError(t, err)
@@ -2566,7 +2567,7 @@ func TestPreLoginHookPreserveMFAConfig(t *testing.T) {
 	assert.True(t, user.Filters.TOTPConfig.Enabled)
 	assert.Equal(t, configName, user.Filters.TOTPConfig.ConfigName)
 	assert.Equal(t, []string{common.ProtocolSSH}, user.Filters.TOTPConfig.Protocols)
-	assert.Equal(t, kms.SecretStatusSecretBox, user.Filters.TOTPConfig.Secret.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, user.Filters.TOTPConfig.Secret.GetStatus())
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -3463,14 +3464,14 @@ func TestExternalAuthPreserveMFAConfig(t *testing.T) {
 	configName, _, secret, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
 	assert.NoError(t, err)
 	user.Password = defaultPassword
-	user.Filters.TOTPConfig = sdk.TOTPConfig{
+	user.Filters.TOTPConfig = dataprovider.UserTOTPConfig{
 		Enabled:    true,
 		ConfigName: configName,
 		Secret:     kms.NewPlainSecret(secret),
 		Protocols:  []string{common.ProtocolSSH},
 	}
 	for i := 0; i < 12; i++ {
-		user.Filters.RecoveryCodes = append(user.Filters.RecoveryCodes, sdk.RecoveryCode{
+		user.Filters.RecoveryCodes = append(user.Filters.RecoveryCodes, dataprovider.RecoveryCode{
 			Secret: kms.NewPlainSecret(fmt.Sprintf("RC-%v", strings.ToUpper(util.GenerateUniqueID()))),
 		})
 	}
@@ -3490,7 +3491,7 @@ func TestExternalAuthPreserveMFAConfig(t *testing.T) {
 	assert.True(t, user.Filters.TOTPConfig.Enabled)
 	assert.Equal(t, configName, user.Filters.TOTPConfig.ConfigName)
 	assert.Equal(t, []string{common.ProtocolSSH}, user.Filters.TOTPConfig.Protocols)
-	assert.Equal(t, kms.SecretStatusSecretBox, user.Filters.TOTPConfig.Secret.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, user.Filters.TOTPConfig.Secret.GetStatus())
 
 	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u, false, true, ""), os.ModePerm)
 	assert.NoError(t, err)
@@ -3508,7 +3509,7 @@ func TestExternalAuthPreserveMFAConfig(t *testing.T) {
 	assert.True(t, user.Filters.TOTPConfig.Enabled)
 	assert.Equal(t, configName, user.Filters.TOTPConfig.ConfigName)
 	assert.Equal(t, []string{common.ProtocolSSH}, user.Filters.TOTPConfig.Protocols)
-	assert.Equal(t, kms.SecretStatusSecretBox, user.Filters.TOTPConfig.Secret.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, user.Filters.TOTPConfig.Secret.GetStatus())
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -4428,18 +4429,18 @@ func TestSFTPLoopSimple(t *testing.T) {
 	user1.FsConfig.Provider = sdk.SFTPFilesystemProvider
 	user2.FsConfig.Provider = sdk.SFTPFilesystemProvider
 	user1.FsConfig.SFTPConfig = vfs.SFTPFsConfig{
-		SFTPFsConfig: sdk.SFTPFsConfig{
+		BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
 			Endpoint: sftpServerAddr,
 			Username: user2.Username,
-			Password: kms.NewPlainSecret(defaultPassword),
 		},
+		Password: kms.NewPlainSecret(defaultPassword),
 	}
 	user2.FsConfig.SFTPConfig = vfs.SFTPFsConfig{
-		SFTPFsConfig: sdk.SFTPFsConfig{
+		BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
 			Endpoint: sftpServerAddr,
 			Username: user1.Username,
-			Password: kms.NewPlainSecret(defaultPassword),
 		},
+		Password: kms.NewPlainSecret(defaultPassword),
 	}
 	user1, resp, err := httpdtest.AddUser(user1, http.StatusCreated)
 	assert.NoError(t, err, string(resp))
@@ -4487,11 +4488,11 @@ func TestSFTPLoopVirtualFolders(t *testing.T) {
 			FsConfig: vfs.Filesystem{
 				Provider: sdk.SFTPFilesystemProvider,
 				SFTPConfig: vfs.SFTPFsConfig{
-					SFTPFsConfig: sdk.SFTPFsConfig{
+					BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
 						Endpoint: sftpServerAddr,
 						Username: user2.Username,
-						Password: kms.NewPlainSecret(defaultPassword),
 					},
+					Password: kms.NewPlainSecret(defaultPassword),
 				},
 			},
 		},
@@ -4500,19 +4501,19 @@ func TestSFTPLoopVirtualFolders(t *testing.T) {
 
 	user2.FsConfig.Provider = sdk.SFTPFilesystemProvider
 	user2.FsConfig.SFTPConfig = vfs.SFTPFsConfig{
-		SFTPFsConfig: sdk.SFTPFsConfig{
+		BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
 			Endpoint: sftpServerAddr,
 			Username: user1.Username,
-			Password: kms.NewPlainSecret(defaultPassword),
 		},
+		Password: kms.NewPlainSecret(defaultPassword),
 	}
 	user3.FsConfig.Provider = sdk.SFTPFilesystemProvider
 	user3.FsConfig.SFTPConfig = vfs.SFTPFsConfig{
-		SFTPFsConfig: sdk.SFTPFsConfig{
+		BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
 			Endpoint: sftpServerAddr,
 			Username: user1.Username,
-			Password: kms.NewPlainSecret(defaultPassword),
 		},
+		Password: kms.NewPlainSecret(defaultPassword),
 	}
 
 	user1, resp, err := httpdtest.AddUser(user1, http.StatusCreated)
@@ -4546,11 +4547,11 @@ func TestSFTPLoopVirtualFolders(t *testing.T) {
 			FsConfig: vfs.Filesystem{
 				Provider: sdk.SFTPFilesystemProvider,
 				SFTPConfig: vfs.SFTPFsConfig{
-					SFTPFsConfig: sdk.SFTPFsConfig{
+					BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
 						Endpoint: sftpServerAddr,
 						Username: user3.Username,
-						Password: kms.NewPlainSecret(defaultPassword),
 					},
+					Password: kms.NewPlainSecret(defaultPassword),
 				},
 			},
 		},
@@ -4602,9 +4603,7 @@ func TestNestedVirtualFolders(t *testing.T) {
 			FsConfig: vfs.Filesystem{
 				Provider: sdk.CryptedFilesystemProvider,
 				CryptConfig: vfs.CryptFsConfig{
-					CryptFsConfig: sdk.CryptFsConfig{
-						Passphrase: kms.NewPlainSecret(defaultPassword),
-					},
+					Passphrase: kms.NewPlainSecret(defaultPassword),
 				},
 			},
 			MappedPath: mappedPathCrypt,
@@ -7222,24 +7221,24 @@ func TestRelativePaths(t *testing.T) {
 	filesystems := []vfs.Fs{vfs.NewOsFs("", user.GetHomeDir(), "")}
 	keyPrefix := strings.TrimPrefix(user.GetHomeDir(), "/") + "/"
 	s3config := vfs.S3FsConfig{
-		S3FsConfig: sdk.S3FsConfig{
+		BaseS3FsConfig: sdk.BaseS3FsConfig{
 			KeyPrefix: keyPrefix,
 		},
 	}
 	s3fs, _ := vfs.NewS3Fs("", user.GetHomeDir(), "", s3config)
 	gcsConfig := vfs.GCSFsConfig{
-		GCSFsConfig: sdk.GCSFsConfig{
+		BaseGCSFsConfig: sdk.BaseGCSFsConfig{
 			KeyPrefix: keyPrefix,
 		},
 	}
 	gcsfs, _ := vfs.NewGCSFs("", user.GetHomeDir(), "", gcsConfig)
 	sftpconfig := vfs.SFTPFsConfig{
-		SFTPFsConfig: sdk.SFTPFsConfig{
+		BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
 			Endpoint: sftpServerAddr,
 			Username: defaultUsername,
-			Password: kms.NewPlainSecret(defaultPassword),
 			Prefix:   keyPrefix,
 		},
+		Password: kms.NewPlainSecret(defaultPassword),
 	}
 	sftpfs, _ := vfs.NewSFTPFs("", "", os.TempDir(), []string{user.Username}, sftpconfig)
 	if runtime.GOOS != osWindows {
@@ -7287,7 +7286,7 @@ func TestResolvePaths(t *testing.T) {
 	filesystems := []vfs.Fs{vfs.NewOsFs("", user.GetHomeDir(), "")}
 	keyPrefix := strings.TrimPrefix(user.GetHomeDir(), "/") + "/"
 	s3config := vfs.S3FsConfig{
-		S3FsConfig: sdk.S3FsConfig{
+		BaseS3FsConfig: sdk.BaseS3FsConfig{
 			KeyPrefix: keyPrefix,
 			Bucket:    "bucket",
 			Region:    "us-east-1",
@@ -7298,7 +7297,7 @@ func TestResolvePaths(t *testing.T) {
 	s3fs, err := vfs.NewS3Fs("", user.GetHomeDir(), "", s3config)
 	assert.NoError(t, err)
 	gcsConfig := vfs.GCSFsConfig{
-		GCSFsConfig: sdk.GCSFsConfig{
+		BaseGCSFsConfig: sdk.BaseGCSFsConfig{
 			KeyPrefix: keyPrefix,
 		},
 	}
@@ -7401,8 +7400,10 @@ func TestFilterFilePatterns(t *testing.T) {
 		AllowedPatterns: []string{"*.jpg", "*.png"},
 		DeniedPatterns:  []string{"*.pdf"},
 	}
-	filters := sdk.UserFilters{
-		FilePatterns: []sdk.PatternsFilter{pattern},
+	filters := dataprovider.UserFilters{
+		BaseUserFilters: sdk.BaseUserFilters{
+			FilePatterns: []sdk.PatternsFilter{pattern},
+		},
 	}
 	user.Filters = filters
 	assert.True(t, user.IsFileAllowed("/test/test.jPg"))
@@ -8482,9 +8483,7 @@ func TestSSHRemoveCryptFs(t *testing.T) {
 			FsConfig: vfs.Filesystem{
 				Provider: sdk.CryptedFilesystemProvider,
 				CryptConfig: vfs.CryptFsConfig{
-					CryptFsConfig: sdk.CryptFsConfig{
-						Passphrase: kms.NewPlainSecret(defaultPassword),
-					},
+					Passphrase: kms.NewPlainSecret(defaultPassword),
 				},
 			},
 		},
@@ -9070,11 +9069,11 @@ func TestSCPNestedFolders(t *testing.T) {
 			FsConfig: vfs.Filesystem{
 				Provider: sdk.SFTPFilesystemProvider,
 				SFTPConfig: vfs.SFTPFsConfig{
-					SFTPFsConfig: sdk.SFTPFsConfig{
+					BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
 						Endpoint: sftpServerAddr,
 						Username: baseUser.Username,
-						Password: kms.NewPlainSecret(defaultPassword),
 					},
+					Password: kms.NewPlainSecret(defaultPassword),
 				},
 			},
 		},
@@ -9089,9 +9088,7 @@ func TestSCPNestedFolders(t *testing.T) {
 			FsConfig: vfs.Filesystem{
 				Provider: sdk.CryptedFilesystemProvider,
 				CryptConfig: vfs.CryptFsConfig{
-					CryptFsConfig: sdk.CryptFsConfig{
-						Passphrase: kms.NewPlainSecret(defaultPassword),
-					},
+					Passphrase: kms.NewPlainSecret(defaultPassword),
 				},
 			},
 			MappedPath: mappedPathCrypt,

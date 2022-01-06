@@ -19,7 +19,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/httpd"
 	"github.com/drakkan/sftpgo/v2/mfa"
 	"github.com/drakkan/sftpgo/v2/plugin"
-	"github.com/drakkan/sftpgo/v2/sdk/kms"
+	sdkkms "github.com/drakkan/sftpgo/v2/sdk/kms"
 	"github.com/drakkan/sftpgo/v2/sftpd"
 	"github.com/drakkan/sftpgo/v2/smtp"
 	"github.com/drakkan/sftpgo/v2/util"
@@ -467,8 +467,8 @@ func TestPluginsFromEnv(t *testing.T) {
 	os.Setenv("SFTPGO_PLUGINS__0__ARGS", "arg1,arg2")
 	os.Setenv("SFTPGO_PLUGINS__0__SHA256SUM", "0a71ded61fccd59c4f3695b51c1b3d180da8d2d77ea09ccee20dac242675c193")
 	os.Setenv("SFTPGO_PLUGINS__0__AUTO_MTLS", "1")
-	os.Setenv("SFTPGO_PLUGINS__0__KMS_OPTIONS__SCHEME", kms.SchemeAWS)
-	os.Setenv("SFTPGO_PLUGINS__0__KMS_OPTIONS__ENCRYPTED_STATUS", kms.SecretStatusAWS)
+	os.Setenv("SFTPGO_PLUGINS__0__KMS_OPTIONS__SCHEME", sdkkms.SchemeAWS)
+	os.Setenv("SFTPGO_PLUGINS__0__KMS_OPTIONS__ENCRYPTED_STATUS", sdkkms.SecretStatusAWS)
 	os.Setenv("SFTPGO_PLUGINS__0__AUTH_OPTIONS__SCOPE", "14")
 	t.Cleanup(func() {
 		os.Unsetenv("SFTPGO_PLUGINS__0__TYPE")
@@ -510,8 +510,8 @@ func TestPluginsFromEnv(t *testing.T) {
 	require.Equal(t, "arg2", pluginConf.Args[1])
 	require.Equal(t, "0a71ded61fccd59c4f3695b51c1b3d180da8d2d77ea09ccee20dac242675c193", pluginConf.SHA256Sum)
 	require.True(t, pluginConf.AutoMTLS)
-	require.Equal(t, kms.SchemeAWS, pluginConf.KMSOptions.Scheme)
-	require.Equal(t, kms.SecretStatusAWS, pluginConf.KMSOptions.EncryptedStatus)
+	require.Equal(t, sdkkms.SchemeAWS, pluginConf.KMSOptions.Scheme)
+	require.Equal(t, sdkkms.SecretStatusAWS, pluginConf.KMSOptions.EncryptedStatus)
 	require.Equal(t, 14, pluginConf.AuthOptions.Scope)
 
 	configAsJSON, err := json.Marshal(pluginsConf)
@@ -524,8 +524,8 @@ func TestPluginsFromEnv(t *testing.T) {
 	os.Setenv("SFTPGO_PLUGINS__0__CMD", "plugin_start_cmd1")
 	os.Setenv("SFTPGO_PLUGINS__0__ARGS", "")
 	os.Setenv("SFTPGO_PLUGINS__0__AUTO_MTLS", "0")
-	os.Setenv("SFTPGO_PLUGINS__0__KMS_OPTIONS__SCHEME", kms.SchemeVaultTransit)
-	os.Setenv("SFTPGO_PLUGINS__0__KMS_OPTIONS__ENCRYPTED_STATUS", kms.SecretStatusVaultTransit)
+	os.Setenv("SFTPGO_PLUGINS__0__KMS_OPTIONS__SCHEME", sdkkms.SchemeVaultTransit)
+	os.Setenv("SFTPGO_PLUGINS__0__KMS_OPTIONS__ENCRYPTED_STATUS", sdkkms.SecretStatusVaultTransit)
 	err = config.LoadConfig(configDir, confName)
 	assert.NoError(t, err)
 	pluginsConf = config.GetPluginsConfig()
@@ -547,8 +547,8 @@ func TestPluginsFromEnv(t *testing.T) {
 	require.Len(t, pluginConf.Args, 0)
 	require.Equal(t, "0a71ded61fccd59c4f3695b51c1b3d180da8d2d77ea09ccee20dac242675c193", pluginConf.SHA256Sum)
 	require.False(t, pluginConf.AutoMTLS)
-	require.Equal(t, kms.SchemeVaultTransit, pluginConf.KMSOptions.Scheme)
-	require.Equal(t, kms.SecretStatusVaultTransit, pluginConf.KMSOptions.EncryptedStatus)
+	require.Equal(t, sdkkms.SchemeVaultTransit, pluginConf.KMSOptions.Scheme)
+	require.Equal(t, sdkkms.SecretStatusVaultTransit, pluginConf.KMSOptions.EncryptedStatus)
 	require.Equal(t, 14, pluginConf.AuthOptions.Scope)
 
 	err = os.Remove(configFilePath)

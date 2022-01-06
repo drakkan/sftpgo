@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/drakkan/sftpgo/v2/dataprovider"
+	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/sdk"
-	"github.com/drakkan/sftpgo/v2/sdk/kms"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
@@ -264,7 +264,7 @@ func TestTransferErrors(t *testing.T) {
 
 func TestRemovePartialCryptoFile(t *testing.T) {
 	testFile := filepath.Join(os.TempDir(), "transfer_test_file")
-	fs, err := vfs.NewCryptFs("id", os.TempDir(), "", vfs.CryptFsConfig{CryptFsConfig: sdk.CryptFsConfig{Passphrase: kms.NewPlainSecret("secret")}})
+	fs, err := vfs.NewCryptFs("id", os.TempDir(), "", vfs.CryptFsConfig{Passphrase: kms.NewPlainSecret("secret")})
 	require.NoError(t, err)
 	u := dataprovider.User{
 		BaseUser: sdk.BaseUser{

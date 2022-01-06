@@ -20,7 +20,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/httpclient"
 	"github.com/drakkan/sftpgo/v2/httpd"
-	"github.com/drakkan/sftpgo/v2/sdk/kms"
+	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/version"
 	"github.com/drakkan/sftpgo/v2/vfs"

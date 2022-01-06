@@ -32,10 +32,11 @@ import (
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/ftpd"
 	"github.com/drakkan/sftpgo/v2/httpdtest"
+	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/mfa"
 	"github.com/drakkan/sftpgo/v2/sdk"
-	"github.com/drakkan/sftpgo/v2/sdk/kms"
+	sdkkms "github.com/drakkan/sftpgo/v2/sdk/kms"
 	"github.com/drakkan/sftpgo/v2/sftpd"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
@@ -604,7 +605,7 @@ func TestMultiFactorAuth(t *testing.T) {
 	configName, _, secret, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
 	assert.NoError(t, err)
 	user.Password = defaultPassword
-	user.Filters.TOTPConfig = sdk.TOTPConfig{
+	user.Filters.TOTPConfig = dataprovider.UserTOTPConfig{
 		Enabled:    true,
 		ConfigName: configName,
 		Secret:     kms.NewPlainSecret(secret),
@@ -1686,7 +1687,7 @@ func TestLoginWithDatabaseCredentials(t *testing.T) {
 
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
-	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.GCSConfig.Credentials.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, user.FsConfig.GCSConfig.Credentials.GetStatus())
 	assert.NotEmpty(t, user.FsConfig.GCSConfig.Credentials.GetPayload())
 	assert.Empty(t, user.FsConfig.GCSConfig.Credentials.GetAdditionalData())
 	assert.Empty(t, user.FsConfig.GCSConfig.Credentials.GetKey())
@@ -2808,9 +2809,7 @@ func TestNestedVirtualFolders(t *testing.T) {
 			FsConfig: vfs.Filesystem{
 				Provider: sdk.CryptedFilesystemProvider,
 				CryptConfig: vfs.CryptFsConfig{
-					CryptFsConfig: sdk.CryptFsConfig{
-						Passphrase: kms.NewPlainSecret(defaultPassword),
-					},
+					Passphrase: kms.NewPlainSecret(defaultPassword),
 				},
 			},
 			MappedPath: mappedPathCrypt,

@@ -9,16 +9,17 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
 
+	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/sdk/kms"
+	sdkkms "github.com/drakkan/sftpgo/v2/sdk/kms"
 	kmsplugin "github.com/drakkan/sftpgo/v2/sdk/plugin/kms"
 	"github.com/drakkan/sftpgo/v2/util"
 )
 
 var (
-	validKMSSchemes           = []string{kms.SchemeAWS, kms.SchemeGCP, kms.SchemeVaultTransit, kms.SchemeAzureKeyVault}
-	validKMSEncryptedStatuses = []string{kms.SecretStatusVaultTransit, kms.SecretStatusAWS, kms.SecretStatusGCP,
-		kms.SecretStatusAzureKeyVault}
+	validKMSSchemes           = []string{sdkkms.SchemeAWS, sdkkms.SchemeGCP, sdkkms.SchemeVaultTransit, sdkkms.SchemeAzureKeyVault}
+	validKMSEncryptedStatuses = []string{sdkkms.SecretStatusVaultTransit, sdkkms.SecretStatusAWS, sdkkms.SecretStatusGCP,
+		sdkkms.SecretStatusAzureKeyVault}
 )
 
 // KMSConfig defines configuration parameters for kms plugins
@@ -133,7 +134,7 @@ func (s *kmsPluginSecretProvider) IsEncrypted() bool {
 }
 
 func (s *kmsPluginSecretProvider) Encrypt() error {
-	if s.Status != kms.SecretStatusPlain {
+	if s.Status != sdkkms.SecretStatusPlain {
 		return kms.ErrWrongSecretStatus
 	}
 	if s.Payload == "" {
@@ -160,7 +161,7 @@ func (s *kmsPluginSecretProvider) Decrypt() error {
 	if err != nil {
 		return err
 	}
-	s.Status = kms.SecretStatusPlain
+	s.Status = sdkkms.SecretStatusPlain
 	s.Payload = payload
 	s.Key = ""
 	s.AdditionalData = ""

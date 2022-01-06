@@ -14,8 +14,8 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
+	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/sdk"
-	"github.com/drakkan/sftpgo/v2/sdk/kms"
 	"github.com/drakkan/sftpgo/v2/service"
 	"github.com/drakkan/sftpgo/v2/sftpd"
 	"github.com/drakkan/sftpgo/v2/version"
@@ -157,18 +157,19 @@ Please take a look at the usage below to customize the serving parameters`,
 						Permissions: permissions,
 						HomeDir:     portableDir,
 						Status:      1,
-						Filters: sdk.UserFilters{
+					},
+					Filters: dataprovider.UserFilters{
+						BaseUserFilters: sdk.BaseUserFilters{
 							FilePatterns: parsePatternsFilesFilters(),
 						},
 					},
 					FsConfig: vfs.Filesystem{
 						Provider: sdk.GetProviderByName(portableFsProvider),
 						S3Config: vfs.S3FsConfig{
-							S3FsConfig: sdk.S3FsConfig{
+							BaseS3FsConfig: sdk.BaseS3FsConfig{
 								Bucket:            portableS3Bucket,
 								Region:            portableS3Region,
 								AccessKey:         portableS3AccessKey,
-								AccessSecret:      kms.NewPlainSecret(portableS3AccessSecret),
 								Endpoint:          portableS3Endpoint,
 								StorageClass:      portableS3StorageClass,
 								ACL:               portableS3ACL,
@@ -177,46 +178,45 @@ Please take a look at the usage below to customize the serving parameters`,
 								UploadConcurrency: portableS3ULConcurrency,
 								ForcePathStyle:    portableS3ForcePathStyle,
 							},
+							AccessSecret: kms.NewPlainSecret(portableS3AccessSecret),
 						},
 						GCSConfig: vfs.GCSFsConfig{
-							GCSFsConfig: sdk.GCSFsConfig{
+							BaseGCSFsConfig: sdk.BaseGCSFsConfig{
 								Bucket:               portableGCSBucket,
-								Credentials:          kms.NewPlainSecret(portableGCSCredentials),
 								AutomaticCredentials: portableGCSAutoCredentials,
 								StorageClass:         portableGCSStorageClass,
 								KeyPrefix:            portableGCSKeyPrefix,
 							},
+							Credentials: kms.NewPlainSecret(portableGCSCredentials),
 						},
 						AzBlobConfig: vfs.AzBlobFsConfig{
-							AzBlobFsConfig: sdk.AzBlobFsConfig{
+							BaseAzBlobFsConfig: sdk.BaseAzBlobFsConfig{
 								Container:         portableAzContainer,
 								AccountName:       portableAzAccountName,
-								AccountKey:        kms.NewPlainSecret(portableAzAccountKey),
 								Endpoint:          portableAzEndpoint,
 								AccessTier:        portableAzAccessTier,
-								SASURL:            kms.NewPlainSecret(portableAzSASURL),
 								KeyPrefix:         portableAzKeyPrefix,
 								UseEmulator:       portableAzUseEmulator,
 								UploadPartSize:    int64(portableAzULPartSize),
 								UploadConcurrency: portableAzULConcurrency,
 							},
+							AccountKey: kms.NewPlainSecret(portableAzAccountKey),
+							SASURL:     kms.NewPlainSecret(portableAzSASURL),
 						},
 						CryptConfig: vfs.CryptFsConfig{
-							CryptFsConfig: sdk.CryptFsConfig{
-								Passphrase: kms.NewPlainSecret(portableCryptPassphrase),
-							},
+							Passphrase: kms.NewPlainSecret(portableCryptPassphrase),
 						},
 						SFTPConfig: vfs.SFTPFsConfig{
-							SFTPFsConfig: sdk.SFTPFsConfig{
+							BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
 								Endpoint:                portableSFTPEndpoint,
 								Username:                portableSFTPUsername,
-								Password:                kms.NewPlainSecret(portableSFTPPassword),
-								PrivateKey:              kms.NewPlainSecret(portableSFTPPrivateKey),
 								Fingerprints:            portableSFTPFingerprints,
 								Prefix:                  portableSFTPPrefix,
 								DisableCouncurrentReads: portableSFTPDisableConcurrentReads,
 								BufferSize:              portableSFTPDBufferSize,
 							},
+							Password:   kms.NewPlainSecret(portableSFTPPassword),
+							PrivateKey: kms.NewPlainSecret(portableSFTPPrivateKey),
 						},
 					},
 				},

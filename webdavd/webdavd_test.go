@@ -31,9 +31,10 @@ import (
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/httpclient"
 	"github.com/drakkan/sftpgo/v2/httpdtest"
+	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/sdk"
-	"github.com/drakkan/sftpgo/v2/sdk/kms"
+	sdkkms "github.com/drakkan/sftpgo/v2/sdk/kms"
 	"github.com/drakkan/sftpgo/v2/sftpd"
 	"github.com/drakkan/sftpgo/v2/vfs"
 	"github.com/drakkan/sftpgo/v2/webdavd"
@@ -1621,7 +1622,7 @@ func TestLoginWithDatabaseCredentials(t *testing.T) {
 
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
-	assert.Equal(t, kms.SecretStatusSecretBox, user.FsConfig.GCSConfig.Credentials.GetStatus())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, user.FsConfig.GCSConfig.Credentials.GetStatus())
 	assert.NotEmpty(t, user.FsConfig.GCSConfig.Credentials.GetPayload())
 	assert.Empty(t, user.FsConfig.GCSConfig.Credentials.GetAdditionalData())
 	assert.Empty(t, user.FsConfig.GCSConfig.Credentials.GetKey())
@@ -2443,11 +2444,11 @@ func TestSFTPLoopVirtualFolders(t *testing.T) {
 			FsConfig: vfs.Filesystem{
 				Provider: sdk.SFTPFilesystemProvider,
 				SFTPConfig: vfs.SFTPFsConfig{
-					SFTPFsConfig: sdk.SFTPFsConfig{
+					BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
 						Endpoint: sftpServerAddr,
 						Username: user2.Username,
-						Password: kms.NewPlainSecret(defaultPassword),
 					},
+					Password: kms.NewPlainSecret(defaultPassword),
 				},
 			},
 		},
@@ -2455,11 +2456,11 @@ func TestSFTPLoopVirtualFolders(t *testing.T) {
 	})
 	user2.FsConfig.Provider = sdk.SFTPFilesystemProvider
 	user2.FsConfig.SFTPConfig = vfs.SFTPFsConfig{
-		SFTPFsConfig: sdk.SFTPFsConfig{
+		BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
 			Endpoint: sftpServerAddr,
 			Username: user1.Username,
-			Password: kms.NewPlainSecret(defaultPassword),
 		},
+		Password: kms.NewPlainSecret(defaultPassword),
 	}
 
 	user1, resp, err := httpdtest.AddUser(user1, http.StatusCreated)
@@ -2506,9 +2507,7 @@ func TestNestedVirtualFolders(t *testing.T) {
 			FsConfig: vfs.Filesystem{
 				Provider: sdk.CryptedFilesystemProvider,
 				CryptConfig: vfs.CryptFsConfig{
-					CryptFsConfig: sdk.CryptFsConfig{
-						Passphrase: kms.NewPlainSecret(defaultPassword),
-					},
+					Passphrase: kms.NewPlainSecret(defaultPassword),
 				},
 			},
 			MappedPath: mappedPathCrypt,

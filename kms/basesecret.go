@@ -1,17 +1,21 @@
 package kms
 
+import (
+	sdkkms "github.com/drakkan/sftpgo/v2/sdk/kms"
+)
+
 // BaseSecret defines the base struct shared among all the secret providers
 type BaseSecret struct {
-	Status         SecretStatus `json:"status,omitempty"`
-	Payload        string       `json:"payload,omitempty"`
-	Key            string       `json:"key,omitempty"`
-	AdditionalData string       `json:"additional_data,omitempty"`
+	Status         sdkkms.SecretStatus `json:"status,omitempty"`
+	Payload        string              `json:"payload,omitempty"`
+	Key            string              `json:"key,omitempty"`
+	AdditionalData string              `json:"additional_data,omitempty"`
 	// 1 means encrypted using a master key
 	Mode int `json:"mode,omitempty"`
 }
 
 // GetStatus returns the secret's status
-func (s *BaseSecret) GetStatus() SecretStatus {
+func (s *BaseSecret) GetStatus() sdkkms.SecretStatus {
 	return s.Status
 }
 
@@ -46,7 +50,7 @@ func (s *BaseSecret) SetAdditionalData(value string) {
 }
 
 // SetStatus sets the secret's status
-func (s *BaseSecret) SetStatus(value SecretStatus) {
+func (s *BaseSecret) SetStatus(value sdkkms.SecretStatus) {
 	s.Status = value
 }
 

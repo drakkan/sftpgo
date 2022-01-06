@@ -8,9 +8,8 @@ import (
 	"github.com/go-chi/render"
 
 	"github.com/drakkan/sftpgo/v2/dataprovider"
+	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/mfa"
-	"github.com/drakkan/sftpgo/v2/sdk"
-	"github.com/drakkan/sftpgo/v2/sdk/kms"
 	"github.com/drakkan/sftpgo/v2/util"
 )
 
@@ -81,10 +80,10 @@ func saveTOTPConfig(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
 	}
-	recoveryCodes := make([]sdk.RecoveryCode, 0, 12)
+	recoveryCodes := make([]dataprovider.RecoveryCode, 0, 12)
 	for i := 0; i < 12; i++ {
 		code := getNewRecoveryCode()
-		recoveryCodes = append(recoveryCodes, sdk.RecoveryCode{Secret: kms.NewPlainSecret(code)})
+		recoveryCodes = append(recoveryCodes, dataprovider.RecoveryCode{Secret: kms.NewPlainSecret(code)})
 	}
 	if claims.hasUserAudience() {
 		if err := saveUserTOTPConfig(claims.Username, r, recoveryCodes); err != nil {
@@ -125,7 +124,7 @@ func getRecoveryCodes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	recoveryCodes := make([]recoveryCode, 0, 12)
-	var accountRecoveryCodes []sdk.RecoveryCode
+	var accountRecoveryCodes []dataprovider.RecoveryCode
 	if claims.hasUserAudience() {
 		user, err := dataprovider.UserExists(claims.Username)
 		if err != nil {
@@ -163,11 +162,11 @@ func generateRecoveryCodes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	recoveryCodes := make([]string, 0, 12)
-	accountRecoveryCodes := make([]sdk.RecoveryCode, 0, 12)
+	accountRecoveryCodes := make([]dataprovider.RecoveryCode, 0, 12)
 	for i := 0; i < 12; i++ {
 		code := getNewRecoveryCode()
 		recoveryCodes = append(recoveryCodes, code)
-		accountRecoveryCodes = append(accountRecoveryCodes, sdk.RecoveryCode{Secret: kms.NewPlainSecret(code)})
+		accountRecoveryCodes = append(accountRecoveryCodes, dataprovider.RecoveryCode{Secret: kms.NewPlainSecret(code)})
 	}
 	if claims.hasUserAudience() {
 		user, err := dataprovider.UserExists(claims.Username)
@@ -200,7 +199,7 @@ func getNewRecoveryCode() string {
 	return fmt.Sprintf("RC-%v", strings.ToUpper(util.GenerateUniqueID()))
 }
 
-func saveUserTOTPConfig(username string, r *http.Request, recoveryCodes []sdk.RecoveryCode) error {
+func saveUserTOTPConfig(username string, r *http.Request, recoveryCodes []dataprovider.RecoveryCode) error {
 	user, err := dataprovider.UserExists(username)
 	if err != nil {
 		return err
@@ -220,7 +219,7 @@ func saveUserTOTPConfig(username string, r *http.Request, recoveryCodes []sdk.Re
 	return dataprovider.UpdateUser(&user, dataprovider.ActionExecutorSelf, util.GetIPFromRemoteAddress(r.RemoteAddr))
 }
 
-func saveAdminTOTPConfig(username string, r *http.Request, recoveryCodes []sdk.RecoveryCode) error {
+func saveAdminTOTPConfig(username string, r *http.Request, recoveryCodes []dataprovider.RecoveryCode) error {
 	admin, err := dataprovider.AdminExists(username)
 	if err != nil {
 		return err
