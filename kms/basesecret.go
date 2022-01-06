@@ -1,7 +1,7 @@
 package kms
 
 import (
-	sdkkms "github.com/drakkan/sftpgo/v2/sdk/kms"
+	sdkkms "github.com/sftpgo/sdk/kms"
 )
 
 // BaseSecret defines the base struct shared among all the secret providers

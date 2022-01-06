@@ -33,6 +33,6 @@ In theory, because the plugin interface is HTTP, you could even develop a plugin
 
 Developing a plugin is simple. The only knowledge necessary to write a plugin is basic command-line skills and basic knowledge of the [Go programming language](http://golang.org/).
 
-Your plugin implementation needs to satisfy the interface for the plugin type you want to build. You can find these definitions in the [docs](https://pkg.go.dev/github.com/drakkan/sftpgo/v2/sdk/plugin#section-directories).
+Your plugin implementation needs to satisfy the interface for the plugin type you want to build. You can find these definitions in the [docs](https://pkg.go.dev/github.com/sftpgo/sdk/plugin#section-directories).
 
 The SFTPGo plugin system uses the HashiCorp [go-plugin](https://github.com/hashicorp/go-plugin) library. Please refer to its documentation for more in-depth information on writing plugins.

@@ -11,12 +11,12 @@ import (
 	"time"
 
 	"github.com/minio/sio"
+	"github.com/sftpgo/sdk"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/httpdtest"
 	"github.com/drakkan/sftpgo/v2/kms"
-	"github.com/drakkan/sftpgo/v2/sdk"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
 

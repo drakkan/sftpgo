@@ -9,7 +9,7 @@ import (
 	"errors"
 	"io"
 
-	sdkkms "github.com/drakkan/sftpgo/v2/sdk/kms"
+	sdkkms "github.com/sftpgo/sdk/kms"
 )
 
 var (

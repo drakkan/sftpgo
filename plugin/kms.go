@@ -8,11 +8,11 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
+	sdkkms "github.com/sftpgo/sdk/kms"
+	kmsplugin "github.com/sftpgo/sdk/plugin/kms"
 
 	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
-	sdkkms "github.com/drakkan/sftpgo/v2/sdk/kms"
-	kmsplugin "github.com/drakkan/sftpgo/v2/sdk/plugin/kms"
 	"github.com/drakkan/sftpgo/v2/util"
 )
 

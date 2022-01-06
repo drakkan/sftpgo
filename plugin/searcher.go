@@ -7,9 +7,9 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
+	"github.com/sftpgo/sdk/plugin/eventsearcher"
 
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/sdk/plugin/eventsearcher"
 )
 
 type searcherPlugin struct {

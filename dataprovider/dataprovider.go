@@ -40,6 +40,7 @@ import (
 	"github.com/alexedwards/argon2id"
 	"github.com/go-chi/render"
 	"github.com/rs/xid"
+	"github.com/sftpgo/sdk"
 	passwordvalidator "github.com/wagslane/go-password-validator"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/pbkdf2"
@@ -51,7 +52,6 @@ import (
 	"github.com/drakkan/sftpgo/v2/metric"
 	"github.com/drakkan/sftpgo/v2/mfa"
 	"github.com/drakkan/sftpgo/v2/plugin"
-	"github.com/drakkan/sftpgo/v2/sdk"
 	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
