@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/drakkan/sftpgo/v2/sdk/plugin/eventsearcher"
 	"github.com/hashicorp/go-plugin"
+	"github.com/sftpgo/sdk/plugin/eventsearcher"
 )
 
 var (

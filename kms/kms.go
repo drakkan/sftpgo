@@ -8,8 +8,9 @@ import (
 	"strings"
 	"sync"
 
+	sdkkms "github.com/sftpgo/sdk/kms"
+
 	"github.com/drakkan/sftpgo/v2/logger"
-	sdkkms "github.com/drakkan/sftpgo/v2/sdk/kms"
 )
 
 // SecretProvider defines the interface for a KMS secrets provider

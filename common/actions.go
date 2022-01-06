@@ -14,12 +14,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sftpgo/sdk"
+	"github.com/sftpgo/sdk/plugin/notifier"
+
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/httpclient"
 	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/plugin"
-	"github.com/drakkan/sftpgo/v2/sdk"
-	"github.com/drakkan/sftpgo/v2/sdk/plugin/notifier"
 	"github.com/drakkan/sftpgo/v2/util"
 )
 

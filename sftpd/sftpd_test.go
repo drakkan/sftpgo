@@ -35,6 +35,8 @@ import (
 
 	"github.com/pkg/sftp"
 	"github.com/rs/zerolog"
+	"github.com/sftpgo/sdk"
+	sdkkms "github.com/sftpgo/sdk/kms"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/ssh"
 
@@ -45,8 +47,6 @@ import (
 	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/mfa"
-	"github.com/drakkan/sftpgo/v2/sdk"
-	sdkkms "github.com/drakkan/sftpgo/v2/sdk/kms"
 	"github.com/drakkan/sftpgo/v2/sftpd"
 	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"

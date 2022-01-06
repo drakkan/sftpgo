@@ -5,9 +5,10 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/sftpgo/sdk/plugin/eventsearcher"
+
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/plugin"
-	"github.com/drakkan/sftpgo/v2/sdk/plugin/eventsearcher"
 	"github.com/drakkan/sftpgo/v2/util"
 )
 

@@ -7,10 +7,9 @@ import (
 	"encoding/hex"
 	"io"
 
+	sdkkms "github.com/sftpgo/sdk/kms"
 	"gocloud.dev/secrets/localsecrets"
 	"golang.org/x/crypto/hkdf"
-
-	sdkkms "github.com/drakkan/sftpgo/v2/sdk/kms"
 )
 
 func init() {

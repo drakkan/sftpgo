@@ -18,13 +18,13 @@ import (
 
 	"github.com/google/shlex"
 	fscopy "github.com/otiai10/copy"
+	"github.com/sftpgo/sdk"
 	"golang.org/x/crypto/ssh"
 
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/metric"
-	"github.com/drakkan/sftpgo/v2/sdk"
 	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )

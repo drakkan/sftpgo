@@ -10,14 +10,14 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-hclog"
+	"github.com/sftpgo/sdk/plugin/auth"
+	"github.com/sftpgo/sdk/plugin/eventsearcher"
+	kmsplugin "github.com/sftpgo/sdk/plugin/kms"
+	"github.com/sftpgo/sdk/plugin/metadata"
+	"github.com/sftpgo/sdk/plugin/notifier"
 
 	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/sdk/plugin/auth"
-	"github.com/drakkan/sftpgo/v2/sdk/plugin/eventsearcher"
-	kmsplugin "github.com/drakkan/sftpgo/v2/sdk/plugin/kms"
-	"github.com/drakkan/sftpgo/v2/sdk/plugin/metadata"
-	"github.com/drakkan/sftpgo/v2/sdk/plugin/notifier"
 	"github.com/drakkan/sftpgo/v2/util"
 )
 

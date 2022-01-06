@@ -6,7 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/drakkan/sftpgo/v2/sdk"
+	"github.com/sftpgo/sdk"
+
 	"github.com/drakkan/sftpgo/v2/util"
 )
 

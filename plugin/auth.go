@@ -8,9 +8,9 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
+	"github.com/sftpgo/sdk/plugin/auth"
 
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/sdk/plugin/auth"
 )
 
 // Supported auth scopes

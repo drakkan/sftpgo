@@ -17,11 +17,11 @@ import (
 	"github.com/eikenb/pipeat"
 	"github.com/pkg/sftp"
 	"github.com/rs/xid"
+	"github.com/sftpgo/sdk"
 	"golang.org/x/crypto/ssh"
 
 	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/sdk"
 	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/version"
 )
