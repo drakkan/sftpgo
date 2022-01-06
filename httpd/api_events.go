@@ -65,6 +65,7 @@ func getFsSearchParamsFromRequest(r *http.Request) (eventsearcher.FsEventSearch,
 	if err != nil {
 		return s, err
 	}
+	s.FsProvider = -1
 	if _, ok := r.URL.Query()["fs_provider"]; ok {
 		provider := r.URL.Query().Get("fs_provider")
 		val, err := strconv.Atoi(provider)

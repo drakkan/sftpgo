@@ -34,7 +34,6 @@ jobs:
         run: |
           go build -trimpath -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/version.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/v2/version.date=`date -u +%FT%TZ`" -o sftpgo
           cd tests/eventsearcher
-          go mod tidy
           go build -trimpath -ldflags "-s -w" -o eventsearcher
           cd -
 
@@ -55,7 +54,6 @@ jobs:
           go-winres simply --arch amd64 --product-version $LATEST_TAG-dev-$GIT_COMMIT --file-version $FILE_VERSION --file-description "SFTPGo server" --product-name SFTPGo --copyright "AGPL-3.0" --original-filename sftpgo.exe --icon  .\windows-installer\icon.ico
           go build -trimpath -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/version.commit=$GIT_COMMIT -X github.com/drakkan/sftpgo/v2/version.date=$DATE_TIME" -o sftpgo.exe
           cd tests/eventsearcher
-          go mod tidy
           go build -trimpath -ldflags "-s -w" -o eventsearcher.exe
           cd ../..
           mkdir arm64
@@ -230,7 +228,6 @@ jobs:
       - name: Build
         run: |
           cd tests/eventsearcher
-          go mod tidy
           go build -trimpath -ldflags "-s -w" -o eventsearcher
           cd -
         env:
@@ -287,7 +284,6 @@ jobs:
       - name: Build
         run: |
           cd tests/eventsearcher
-          go mod tidy
           go build -trimpath -ldflags "-s -w" -o eventsearcher
           cd -
 
