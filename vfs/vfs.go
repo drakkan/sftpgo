@@ -16,10 +16,10 @@ import (
 	"github.com/eikenb/pipeat"
 	"github.com/pkg/sftp"
 
+	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/plugin"
 	"github.com/drakkan/sftpgo/v2/sdk"
-	"github.com/drakkan/sftpgo/v2/sdk/kms"
 	"github.com/drakkan/sftpgo/v2/sdk/plugin/metadata"
 	"github.com/drakkan/sftpgo/v2/util"
 )
@@ -150,7 +150,8 @@ func (q *QuotaCheckResult) GetRemainingFiles() int {
 
 // S3FsConfig defines the configuration for S3 based filesystem
 type S3FsConfig struct {
-	sdk.S3FsConfig
+	sdk.BaseS3FsConfig
+	AccessSecret *kms.Secret `json:"access_secret,omitempty"`
 }
 
 // HideConfidentialData hides confidential data
@@ -287,7 +288,8 @@ func (c *S3FsConfig) Validate() error {
 
 // GCSFsConfig defines the configuration for Google Cloud Storage based filesystem
 type GCSFsConfig struct {
-	sdk.GCSFsConfig
+	sdk.BaseGCSFsConfig
+	Credentials *kms.Secret `json:"credentials,omitempty"`
 }
 
 // HideConfidentialData hides confidential data
@@ -358,7 +360,12 @@ func (c *GCSFsConfig) Validate(credentialsFilePath string) error {
 
 // AzBlobFsConfig defines the configuration for Azure Blob Storage based filesystem
 type AzBlobFsConfig struct {
-	sdk.AzBlobFsConfig
+	sdk.BaseAzBlobFsConfig
+	// Storage Account Key leave blank to use SAS URL.
+	// The access key is stored encrypted based on the kms configuration
+	AccountKey *kms.Secret `json:"account_key,omitempty"`
+	// Shared access signature URL, leave blank if using account/key
+	SASURL *kms.Secret `json:"sas_url,omitempty"`
 }
 
 // HideConfidentialData hides confidential data
@@ -489,7 +496,7 @@ func (c *AzBlobFsConfig) Validate() error {
 
 // CryptFsConfig defines the configuration to store local files as encrypted
 type CryptFsConfig struct {
-	sdk.CryptFsConfig
+	Passphrase *kms.Secret `json:"passphrase,omitempty"`
 }
 
 // HideConfidentialData hides confidential data

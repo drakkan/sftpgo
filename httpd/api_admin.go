@@ -83,7 +83,7 @@ func disableAdmin2FA(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	admin.Filters.RecoveryCodes = nil
-	admin.Filters.TOTPConfig = dataprovider.TOTPConfig{
+	admin.Filters.TOTPConfig = dataprovider.AdminTOTPConfig{
 		Enabled: false,
 	}
 	if err := dataprovider.UpdateAdmin(&admin, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr)); err != nil {
@@ -105,7 +105,7 @@ func updateAdmin(w http.ResponseWriter, r *http.Request) {
 	adminID := admin.ID
 	totpConfig := admin.Filters.TOTPConfig
 	recoveryCodes := admin.Filters.RecoveryCodes
-	admin.Filters.TOTPConfig = dataprovider.TOTPConfig{}
+	admin.Filters.TOTPConfig = dataprovider.AdminTOTPConfig{}
 	admin.Filters.RecoveryCodes = nil
 	err = render.DecodeJSON(r.Body, &admin)
 	if err != nil {

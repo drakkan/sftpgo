@@ -33,9 +33,9 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
+	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/plugin"
 	"github.com/drakkan/sftpgo/v2/sdk"
-	"github.com/drakkan/sftpgo/v2/sdk/kms"
 	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
@@ -1773,10 +1773,10 @@ func TestConnection(t *testing.T) {
 		FsConfig: vfs.Filesystem{
 			Provider: sdk.GCSFilesystemProvider,
 			GCSConfig: vfs.GCSFsConfig{
-				GCSFsConfig: sdk.GCSFsConfig{
-					Bucket:      "test_bucket_name",
-					Credentials: kms.NewPlainSecret("invalid JSON payload"),
+				BaseGCSFsConfig: sdk.BaseGCSFsConfig{
+					Bucket: "test_bucket_name",
 				},
+				Credentials: kms.NewPlainSecret("invalid JSON payload"),
 			},
 		},
 	}
@@ -1815,12 +1815,12 @@ func TestGetFileWriterErrors(t *testing.T) {
 
 	user.FsConfig.Provider = sdk.S3FilesystemProvider
 	user.FsConfig.S3Config = vfs.S3FsConfig{
-		S3FsConfig: sdk.S3FsConfig{
-			Bucket:       "b",
-			Region:       "us-west-1",
-			AccessKey:    "key",
-			AccessSecret: kms.NewPlainSecret("secret"),
+		BaseS3FsConfig: sdk.BaseS3FsConfig{
+			Bucket:    "b",
+			Region:    "us-west-1",
+			AccessKey: "key",
 		},
+		AccessSecret: kms.NewPlainSecret("secret"),
 	}
 	connection = &Connection{
 		BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolHTTP, "", "", user),

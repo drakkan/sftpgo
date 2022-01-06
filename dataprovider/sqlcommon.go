@@ -13,7 +13,6 @@ import (
 	"github.com/cockroachdb/cockroach-go/v2/crdb"
 
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/sdk"
 	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
@@ -1386,7 +1385,7 @@ func getUserFromDbRow(row sqlScanner) (User, error) {
 		user.Permissions = perms
 	}
 	if filters.Valid {
-		var userFilters sdk.UserFilters
+		var userFilters UserFilters
 		err = json.Unmarshal([]byte(filters.String), &userFilters)
 		if err == nil {
 			user.Filters = userFilters

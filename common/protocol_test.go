@@ -34,10 +34,10 @@ import (
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/httpclient"
 	"github.com/drakkan/sftpgo/v2/httpdtest"
+	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/mfa"
 	"github.com/drakkan/sftpgo/v2/sdk"
-	"github.com/drakkan/sftpgo/v2/sdk/kms"
 	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
@@ -2758,7 +2758,7 @@ func TestBuiltinKeyboardInteractiveAuthentication(t *testing.T) {
 	configName, _, secret, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
 	assert.NoError(t, err)
 	user.Password = defaultPassword
-	user.Filters.TOTPConfig = sdk.TOTPConfig{
+	user.Filters.TOTPConfig = dataprovider.UserTOTPConfig{
 		Enabled:    true,
 		ConfigName: configName,
 		Secret:     kms.NewPlainSecret(secret),
@@ -2926,11 +2926,11 @@ func TestSFTPLoopError(t *testing.T) {
 			FsConfig: vfs.Filesystem{
 				Provider: sdk.SFTPFilesystemProvider,
 				SFTPConfig: vfs.SFTPFsConfig{
-					SFTPFsConfig: sdk.SFTPFsConfig{
+					BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
 						Endpoint: sftpServerAddr,
 						Username: user2.Username,
-						Password: kms.NewPlainSecret(defaultPassword),
 					},
+					Password: kms.NewPlainSecret(defaultPassword),
 				},
 			},
 		},
@@ -2939,11 +2939,11 @@ func TestSFTPLoopError(t *testing.T) {
 
 	user2.FsConfig.Provider = sdk.SFTPFilesystemProvider
 	user2.FsConfig.SFTPConfig = vfs.SFTPFsConfig{
-		SFTPFsConfig: sdk.SFTPFsConfig{
+		BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
 			Endpoint: sftpServerAddr,
 			Username: user1.Username,
-			Password: kms.NewPlainSecret(defaultPassword),
 		},
+		Password: kms.NewPlainSecret(defaultPassword),
 	}
 
 	user1, resp, err := httpdtest.AddUser(user1, http.StatusCreated)
@@ -2995,11 +2995,11 @@ func TestNonLocalCrossRename(t *testing.T) {
 			FsConfig: vfs.Filesystem{
 				Provider: sdk.SFTPFilesystemProvider,
 				SFTPConfig: vfs.SFTPFsConfig{
-					SFTPFsConfig: sdk.SFTPFsConfig{
+					BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
 						Endpoint: sftpServerAddr,
 						Username: baseUser.Username,
-						Password: kms.NewPlainSecret(defaultPassword),
 					},
+					Password: kms.NewPlainSecret(defaultPassword),
 				},
 			},
 		},
@@ -3014,9 +3014,7 @@ func TestNonLocalCrossRename(t *testing.T) {
 			FsConfig: vfs.Filesystem{
 				Provider: sdk.CryptedFilesystemProvider,
 				CryptConfig: vfs.CryptFsConfig{
-					CryptFsConfig: sdk.CryptFsConfig{
-						Passphrase: kms.NewPlainSecret(defaultPassword),
-					},
+					Passphrase: kms.NewPlainSecret(defaultPassword),
 				},
 			},
 			MappedPath: mappedPathCrypt,
@@ -3117,9 +3115,7 @@ func TestNonLocalCrossRenameNonLocalBaseUser(t *testing.T) {
 			FsConfig: vfs.Filesystem{
 				Provider: sdk.CryptedFilesystemProvider,
 				CryptConfig: vfs.CryptFsConfig{
-					CryptFsConfig: sdk.CryptFsConfig{
-						Passphrase: kms.NewPlainSecret(defaultPassword),
-					},
+					Passphrase: kms.NewPlainSecret(defaultPassword),
 				},
 			},
 			MappedPath: mappedPathCrypt,

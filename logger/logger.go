@@ -18,8 +18,6 @@ import (
 	ftpserverlog "github.com/fclairamb/go-log"
 	"github.com/rs/zerolog"
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
-
-	sdklogger "github.com/drakkan/sftpgo/v2/sdk/logger"
 )
 
 const (
@@ -42,22 +40,6 @@ var (
 	consoleLogger zerolog.Logger
 	rollingLogger *lumberjack.Logger
 )
-
-type logWrapper struct{}
-
-// Log logs at the specified level for the specified sender
-func (l *logWrapper) Log(level int, sender, format string, v ...interface{}) {
-	switch level {
-	case 1:
-		Log(LevelInfo, sender, "", format, v...)
-	case 2:
-		Log(LevelWarn, sender, "", format, v...)
-	case 3:
-		Log(LevelError, sender, "", format, v...)
-	default:
-		Log(LevelDebug, sender, "", format, v...)
-	}
-}
 
 // StdLoggerWrapper is a wrapper for standard logger compatibility
 type StdLoggerWrapper struct {
@@ -194,7 +176,6 @@ func InitLogger(logFilePath string, logMaxSize int, logMaxBackups int, logMaxAge
 		consoleLogger = zerolog.Nop()
 	}
 	logger = logger.Level(level)
-	sdklogger.SetLogger(&logWrapper{})
 }
 
 // InitStdErrLogger configures the logger to write to stderr
@@ -203,7 +184,6 @@ func InitStdErrLogger(level zerolog.Level) {
 		output: os.Stderr,
 	}).Level(level)
 	consoleLogger = zerolog.Nop()
-	sdklogger.SetLogger(&logWrapper{})
 }
 
 // DisableLogger disable the main logger.
@@ -211,7 +191,6 @@ func InitStdErrLogger(level zerolog.Level) {
 func DisableLogger() {
 	logger = zerolog.Nop()
 	rollingLogger = nil
-	sdklogger.DisableLogger()
 }
 
 // EnableConsoleLogger enables the console logger

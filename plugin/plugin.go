@@ -11,8 +11,8 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 
+	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/sdk/kms"
 	"github.com/drakkan/sftpgo/v2/sdk/plugin/auth"
 	"github.com/drakkan/sftpgo/v2/sdk/plugin/eventsearcher"
 	kmsplugin "github.com/drakkan/sftpgo/v2/sdk/plugin/kms"
@@ -135,7 +135,7 @@ func Initialize(configs []Config, logVerbose bool) error {
 			kmsID++
 			kms.RegisterSecretProvider(config.KMSOptions.Scheme, config.KMSOptions.EncryptedStatus,
 				Handler.Configs[idx].newKMSPluginSecretProvider)
-			logger.Debug(logSender, "", "registered secret provider for scheme: %v, encrypted status: %v",
+			logger.Info(logSender, "", "registered secret provider for scheme: %v, encrypted status: %v",
 				config.KMSOptions.Scheme, config.KMSOptions.EncryptedStatus)
 		case auth.PluginName:
 			plugin, err := newAuthPlugin(config)

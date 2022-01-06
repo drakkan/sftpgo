@@ -100,15 +100,15 @@ type HooksFilter struct {
 
 // RecoveryCode defines a 2FA recovery code
 type RecoveryCode struct {
-	Secret *kms.Secret `json:"secret"`
-	Used   bool        `json:"used,omitempty"`
+	Secret kms.BaseSecret `json:"secret"`
+	Used   bool           `json:"used,omitempty"`
 }
 
 // TOTPConfig defines the time-based one time password configuration
 type TOTPConfig struct {
-	Enabled    bool        `json:"enabled,omitempty"`
-	ConfigName string      `json:"config_name,omitempty"`
-	Secret     *kms.Secret `json:"secret,omitempty"`
+	Enabled    bool           `json:"enabled,omitempty"`
+	ConfigName string         `json:"config_name,omitempty"`
+	Secret     kms.BaseSecret `json:"secret,omitempty"`
 	// TOTP will be required for the specified protocols.
 	// SSH protocol (SFTP/SCP/SSH commands) will ask for the TOTP passcode if the client uses keyboard interactive
 	// authentication.
@@ -136,9 +136,8 @@ func (l *BandwidthLimit) GetSourcesAsString() string {
 	return strings.Join(l.Sources, ",")
 }
 
-// UserFilters defines additional restrictions for a user
-// TODO: rename to UserOptions in v3
-type UserFilters struct {
+// BaseUserFilters defines additional restrictions for a user
+type BaseUserFilters struct {
 	// only clients connecting from these IP/Mask are allowed.
 	// IP/Mask must be in CIDR notation as defined in RFC 4632 and RFC 4291
 	// for example "192.0.2.0/24" or "2001:db8::/32"
@@ -175,17 +174,23 @@ type UserFilters struct {
 	WebClient []string `json:"web_client,omitempty"`
 	// API key auth allows to impersonate this user with an API key
 	AllowAPIKeyAuth bool `json:"allow_api_key_auth,omitempty"`
+	// UserType is an hint for authentication plugins.
+	// It is ignored when using SFTPGo internal authentication
+	UserType string `json:"user_type,omitempty"`
+	// Per-source bandwidth limits
+	BandwidthLimits []BandwidthLimit `json:"bandwidth_limits,omitempty"`
+}
+
+// UserFilters defines additional restrictions for a user
+// TODO: rename to UserOptions in v3
+type UserFilters struct {
+	BaseUserFilters
 	// Time-based one time passwords configuration
 	TOTPConfig TOTPConfig `json:"totp_config,omitempty"`
 	// Recovery codes to use if the user loses access to their second factor auth device.
 	// Each code can only be used once, you should use these codes to login and disable or
 	// reset 2FA for your account
 	RecoveryCodes []RecoveryCode `json:"recovery_codes,omitempty"`
-	// UserType is an hint for authentication plugins.
-	// It is ignored when using SFTPGo internal authentication
-	UserType string `json:"user_type,omitempty"`
-	// Per-source bandwidth limits
-	BandwidthLimits []BandwidthLimit `json:"bandwidth_limits,omitempty"`
 }
 
 // BaseUser defines the shared user fields
@@ -239,8 +244,6 @@ type BaseUser struct {
 	CreatedAt int64 `json:"created_at"`
 	// last update time as unix timestamp in milliseconds
 	UpdatedAt int64 `json:"updated_at"`
-	// Additional restrictions
-	Filters UserFilters `json:"filters"`
 	// optional description, for example full name
 	Description string `json:"description,omitempty"`
 	// free form text field for external systems
@@ -250,6 +253,8 @@ type BaseUser struct {
 // User defines a SFTPGo user
 type User struct {
 	BaseUser
+	// Additional restrictions
+	Filters UserFilters `json:"filters"`
 	// Mapping between virtual paths and virtual folders
 	VirtualFolders []VirtualFolder `json:"virtual_folders,omitempty"`
 	// Filesystem configuration details

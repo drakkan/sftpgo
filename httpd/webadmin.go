@@ -16,9 +16,10 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
+	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/mfa"
 	"github.com/drakkan/sftpgo/v2/sdk"
-	"github.com/drakkan/sftpgo/v2/sdk/kms"
+	sdkkms "github.com/drakkan/sftpgo/v2/sdk/kms"
 	"github.com/drakkan/sftpgo/v2/smtp"
 	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/version"
@@ -179,7 +180,7 @@ type changePasswordPage struct {
 type mfaPage struct {
 	basePage
 	TOTPConfigs     []string
-	TOTPConfig      dataprovider.TOTPConfig
+	TOTPConfig      dataprovider.AdminTOTPConfig
 	GenerateTOTPURL string
 	ValidateTOTPURL string
 	SaveTOTPURL     string
@@ -821,8 +822,8 @@ func getFilePatternsFromPostField(r *http.Request) []sdk.PatternsFilter {
 	return result
 }
 
-func getFiltersFromUserPostFields(r *http.Request) (sdk.UserFilters, error) {
-	var filters sdk.UserFilters
+func getFiltersFromUserPostFields(r *http.Request) (sdk.BaseUserFilters, error) {
+	var filters sdk.BaseUserFilters
 	bwLimits, err := getBandwidthLimitsFromPostFields(r)
 	if err != nil {
 		return filters, err
@@ -853,7 +854,7 @@ func getFiltersFromUserPostFields(r *http.Request) (sdk.UserFilters, error) {
 func getSecretFromFormField(r *http.Request, field string) *kms.Secret {
 	secret := kms.NewPlainSecret(r.Form.Get(field))
 	if strings.TrimSpace(secret.GetPayload()) == redactedSecret {
-		secret.SetStatus(kms.SecretStatusRedacted)
+		secret.SetStatus(sdkkms.SecretStatusRedacted)
 	}
 	if strings.TrimSpace(secret.GetPayload()) == "" {
 		secret.SetStatus("")
@@ -1204,9 +1205,11 @@ func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 			DownloadBandwidth: bandwidthDL,
 			Status:            status,
 			ExpirationDate:    expirationDateMillis,
-			Filters:           filters,
 			AdditionalInfo:    r.Form.Get("additional_info"),
 			Description:       r.Form.Get("description"),
+		},
+		Filters: dataprovider.UserFilters{
+			BaseUserFilters: filters,
 		},
 		VirtualFolders: getVirtualFoldersFromPostFields(r),
 		FsConfig:       fsConfig,

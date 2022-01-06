@@ -84,8 +84,8 @@ func ListProviders() []FilesystemProvider {
 	}
 }
 
-// S3FsConfig defines the configuration for S3 based filesystem
-type S3FsConfig struct {
+// BaseS3FsConfig defines the base configuration for S3 based filesystems
+type BaseS3FsConfig struct {
 	Bucket string `json:"bucket,omitempty"`
 	// KeyPrefix is similar to a chroot directory for local filesystem.
 	// If specified then the SFTP user will only see objects that starts
@@ -93,12 +93,11 @@ type S3FsConfig struct {
 	// folder. The prefix, if not empty, must not start with "/" and must
 	// end with "/".
 	// If empty the whole bucket contents will be available
-	KeyPrefix    string      `json:"key_prefix,omitempty"`
-	Region       string      `json:"region,omitempty"`
-	AccessKey    string      `json:"access_key,omitempty"`
-	AccessSecret *kms.Secret `json:"access_secret,omitempty"`
-	Endpoint     string      `json:"endpoint,omitempty"`
-	StorageClass string      `json:"storage_class,omitempty"`
+	KeyPrefix    string `json:"key_prefix,omitempty"`
+	Region       string `json:"region,omitempty"`
+	AccessKey    string `json:"access_key,omitempty"`
+	Endpoint     string `json:"endpoint,omitempty"`
+	StorageClass string `json:"storage_class,omitempty"`
 	// The canned ACL to apply to uploaded objects. Leave empty to use the default ACL.
 	// For more information and available ACLs, see here:
 	// https://docs.aws.amazon.com/AmazonS3/latest/userguide/acl-overview.html#canned-acl
@@ -129,8 +128,14 @@ type S3FsConfig struct {
 	ForcePathStyle bool `json:"force_path_style,omitempty"`
 }
 
-// GCSFsConfig defines the configuration for Google Cloud Storage based filesystem
-type GCSFsConfig struct {
+// S3FsConfig defines the base configuration for S3 based filesystems
+type S3FsConfig struct {
+	BaseS3FsConfig
+	AccessSecret kms.BaseSecret `json:"access_secret,omitempty"`
+}
+
+// BaseGCSFsConfig defines the base configuration for Google Cloud Storage based filesystems
+type BaseGCSFsConfig struct {
 	Bucket string `json:"bucket,omitempty"`
 	// KeyPrefix is similar to a chroot directory for local filesystem.
 	// If specified then the SFTP user will only see objects that starts
@@ -138,9 +143,8 @@ type GCSFsConfig struct {
 	// folder. The prefix, if not empty, must not start with "/" and must
 	// end with "/".
 	// If empty the whole bucket contents will be available
-	KeyPrefix      string      `json:"key_prefix,omitempty"`
-	CredentialFile string      `json:"-"`
-	Credentials    *kms.Secret `json:"credentials,omitempty"`
+	KeyPrefix      string `json:"key_prefix,omitempty"`
+	CredentialFile string `json:"-"`
 	// 0 explicit, 1 automatic
 	AutomaticCredentials int    `json:"automatic_credentials,omitempty"`
 	StorageClass         string `json:"storage_class,omitempty"`
@@ -150,20 +154,21 @@ type GCSFsConfig struct {
 	ACL string `json:"acl,omitempty"`
 }
 
-// AzBlobFsConfig defines the configuration for Azure Blob Storage based filesystem
-type AzBlobFsConfig struct {
+// GCSFsConfig defines the configuration for Google Cloud Storage based filesystems
+type GCSFsConfig struct {
+	BaseGCSFsConfig
+	Credentials kms.BaseSecret `json:"credentials,omitempty"`
+}
+
+// BaseAzBlobFsConfig defines the base configuration for Azure Blob Storage based filesystem
+type BaseAzBlobFsConfig struct {
 	Container string `json:"container,omitempty"`
 	// Storage Account Name, leave blank to use SAS URL
 	AccountName string `json:"account_name,omitempty"`
-	// Storage Account Key leave blank to use SAS URL.
-	// The access key is stored encrypted based on the kms configuration
-	AccountKey *kms.Secret `json:"account_key,omitempty"`
 	// Optional endpoint. Default is "blob.core.windows.net".
 	// If you use the emulator the endpoint must include the protocol,
 	// for example "http://127.0.0.1:10000"
 	Endpoint string `json:"endpoint,omitempty"`
-	// Shared access signature URL, leave blank if using account/key
-	SASURL *kms.Secret `json:"sas_url,omitempty"`
 	// KeyPrefix is similar to a chroot directory for local filesystem.
 	// If specified then the SFTPGo user will only see objects that starts
 	// with this prefix and so you can restrict access to a specific
@@ -187,18 +192,26 @@ type AzBlobFsConfig struct {
 	AccessTier string `json:"access_tier,omitempty"`
 }
 
-// CryptFsConfig defines the configuration to store local files as encrypted
-type CryptFsConfig struct {
-	Passphrase *kms.Secret `json:"passphrase,omitempty"`
+// AzBlobFsConfig defines the configuration for Azure Blob Storage based filesystem
+type AzBlobFsConfig struct {
+	BaseAzBlobFsConfig
+	// Storage Account Key leave blank to use SAS URL.
+	// The access key is stored encrypted based on the kms configuration
+	AccountKey kms.BaseSecret `json:"account_key,omitempty"`
+	// Shared access signature URL, leave blank if using account/key
+	SASURL kms.BaseSecret `json:"sas_url,omitempty"`
 }
 
-// SFTPFsConfig defines the configuration for SFTP based filesystem
-type SFTPFsConfig struct {
-	Endpoint     string      `json:"endpoint,omitempty"`
-	Username     string      `json:"username,omitempty"`
-	Password     *kms.Secret `json:"password,omitempty"`
-	PrivateKey   *kms.Secret `json:"private_key,omitempty"`
-	Fingerprints []string    `json:"fingerprints,omitempty"`
+// CryptFsConfig defines the configuration to store local files as encrypted
+type CryptFsConfig struct {
+	Passphrase kms.BaseSecret `json:"passphrase,omitempty"`
+}
+
+// BaseSFTPFsConfig defines the base configuration for SFTP based filesystem
+type BaseSFTPFsConfig struct {
+	Endpoint     string   `json:"endpoint,omitempty"`
+	Username     string   `json:"username,omitempty"`
+	Fingerprints []string `json:"fingerprints,omitempty"`
 	// Prefix is the path prefix to strip from SFTP resource paths.
 	Prefix string `json:"prefix,omitempty"`
 	// Concurrent reads are safe to use and disabling them will degrade performance.
@@ -211,6 +224,13 @@ type SFTPFsConfig struct {
 	// cannot be opened for both reading and writing at the same time
 	// 0 means disabled.
 	BufferSize int64 `json:"buffer_size,omitempty"`
+}
+
+// SFTPFsConfig defines the configuration for SFTP based filesystem
+type SFTPFsConfig struct {
+	BaseSFTPFsConfig
+	Password   kms.BaseSecret `json:"password,omitempty"`
+	PrivateKey kms.BaseSecret `json:"private_key,omitempty"`
 }
 
 // Filesystem defines filesystem details

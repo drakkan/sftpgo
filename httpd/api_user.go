@@ -10,8 +10,8 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
+	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/sdk"
-	"github.com/drakkan/sftpgo/v2/sdk/kms"
 	"github.com/drakkan/sftpgo/v2/smtp"
 	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
@@ -89,7 +89,7 @@ func disableUser2FA(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user.Filters.RecoveryCodes = nil
-	user.Filters.TOTPConfig = sdk.TOTPConfig{
+	user.Filters.TOTPConfig = dataprovider.UserTOTPConfig{
 		Enabled: false,
 	}
 	if err := dataprovider.UpdateUser(&user, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr)); err != nil {
@@ -140,7 +140,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	user.FsConfig.GCSConfig = vfs.GCSFsConfig{}
 	user.FsConfig.CryptConfig = vfs.CryptFsConfig{}
 	user.FsConfig.SFTPConfig = vfs.SFTPFsConfig{}
-	user.Filters.TOTPConfig = sdk.TOTPConfig{}
+	user.Filters.TOTPConfig = dataprovider.UserTOTPConfig{}
 	user.Filters.RecoveryCodes = nil
 	user.VirtualFolders = nil
 	err = render.DecodeJSON(r.Body, &user)
