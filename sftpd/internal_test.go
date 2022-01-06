@@ -1839,6 +1839,23 @@ func TestConnectionStatusStruct(t *testing.T) {
 	assert.NotEqual(t, 0, len(connInfo))
 }
 
+func TestSupportedSecurityOptions(t *testing.T) {
+	c := Configuration{
+		KexAlgorithms: supportedKexAlgos,
+		MACs:          supportedMACs,
+		Ciphers:       supportedCiphers,
+	}
+	serverConfig := &ssh.ServerConfig{}
+	err := c.configureSecurityOptions(serverConfig)
+	assert.NoError(t, err)
+	assert.Equal(t, supportedCiphers, serverConfig.Ciphers)
+	assert.Equal(t, supportedMACs, serverConfig.MACs)
+	assert.Equal(t, supportedKexAlgos, serverConfig.KeyExchanges)
+	c.KexAlgorithms = append(c.KexAlgorithms, "not a kex")
+	err = c.configureSecurityOptions(serverConfig)
+	assert.Error(t, err)
+}
+
 func TestLoadHostKeys(t *testing.T) {
 	configDir := ".."
 	serverConfig := &ssh.ServerConfig{}

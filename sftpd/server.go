@@ -33,7 +33,25 @@ const (
 )
 
 var (
-	sftpExtensions = []string{"statvfs@openssh.com"}
+	sftpExtensions    = []string{"statvfs@openssh.com"}
+	supportedKexAlgos = []string{
+		"curve25519-sha256@libssh.org",
+		"ecdh-sha2-nistp256", "ecdh-sha2-nistp384", "ecdh-sha2-nistp521",
+		"diffie-hellman-group14-sha1", "diffie-hellman-group1-sha1",
+	}
+	supportedCiphers = []string{
+		"aes128-gcm@openssh.com", "aes256-gcm@openssh.com",
+		"chacha20-poly1305@openssh.com",
+		"aes128-ctr", "aes192-ctr", "aes256-ctr",
+		"aes128-cbc", "aes192-cbc", "aes256-cbc",
+		"3des-cbc",
+		"arcfour", "arcfour128", "arcfour256",
+	}
+	supportedMACs = []string{
+		"hmac-sha2-256-etm@openssh.com", "hmac-sha2-256",
+		"hmac-sha2-512-etm@openssh.com", "hmac-sha2-512",
+		"hmac-sha1", "hmac-sha1-96",
+	}
 )
 
 // Binding defines the configuration for a network listener
@@ -152,8 +170,7 @@ func (c *Configuration) ShouldBind() bool {
 	return false
 }
 
-// Initialize the SFTP server and add a persistent listener to handle inbound SFTP connections.
-func (c *Configuration) Initialize(configDir string) error {
+func (c *Configuration) getServerConfig() *ssh.ServerConfig {
 	serverConfig := &ssh.ServerConfig{
 		NoClientAuth: false,
 		MaxAuthTries: c.MaxAuthTries,
@@ -190,6 +207,13 @@ func (c *Configuration) Initialize(configDir string) error {
 		}
 	}
 
+	return serverConfig
+}
+
+// Initialize the SFTP server and add a persistent listener to handle inbound SFTP connections.
+func (c *Configuration) Initialize(configDir string) error {
+	serverConfig := c.getServerConfig()
+
 	if !c.ShouldBind() {
 		return common.ErrNoBinding
 	}
@@ -205,7 +229,9 @@ func (c *Configuration) Initialize(configDir string) error {
 
 	sftp.SetSFTPExtensions(sftpExtensions...) //nolint:errcheck // we configure valid SFTP Extensions so we cannot get an error
 
-	c.configureSecurityOptions(serverConfig)
+	if err := c.configureSecurityOptions(serverConfig); err != nil {
+		return err
+	}
 	c.configureKeyboardInteractiveAuth(serverConfig)
 	c.configureLoginBanner(serverConfig, configDir)
 	c.checkSSHCommands()
@@ -278,16 +304,35 @@ func (c *Configuration) serve(listener net.Listener, serverConfig *ssh.ServerCon
 	}
 }
 
-func (c *Configuration) configureSecurityOptions(serverConfig *ssh.ServerConfig) {
+func (c *Configuration) configureSecurityOptions(serverConfig *ssh.ServerConfig) error {
 	if len(c.KexAlgorithms) > 0 {
+		c.KexAlgorithms = util.RemoveDuplicates(c.KexAlgorithms)
+		for _, kex := range c.KexAlgorithms {
+			if !util.IsStringInSlice(kex, supportedKexAlgos) {
+				return fmt.Errorf("unsupported key-exchange algorithm %#v", kex)
+			}
+		}
 		serverConfig.KeyExchanges = c.KexAlgorithms
 	}
 	if len(c.Ciphers) > 0 {
+		c.Ciphers = util.RemoveDuplicates(c.Ciphers)
+		for _, cipher := range c.Ciphers {
+			if !util.IsStringInSlice(cipher, supportedCiphers) {
+				return fmt.Errorf("unsupported cipher %#v", cipher)
+			}
+		}
 		serverConfig.Ciphers = c.Ciphers
 	}
 	if len(c.MACs) > 0 {
+		c.MACs = util.RemoveDuplicates(c.MACs)
+		for _, mac := range c.MACs {
+			if !util.IsStringInSlice(mac, supportedMACs) {
+				return fmt.Errorf("unsupported MAC algorithm %#v", mac)
+			}
+		}
 		serverConfig.MACs = c.MACs
 	}
+	return nil
 }
 
 func (c *Configuration) configureLoginBanner(serverConfig *ssh.ServerConfig, configDir string) {

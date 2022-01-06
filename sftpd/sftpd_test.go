@@ -373,6 +373,23 @@ func TestInitialization(t *testing.T) {
 	sftpdConf.Bindings = nil
 	err = sftpdConf.Initialize(configDir)
 	assert.EqualError(t, err, common.ErrNoBinding.Error())
+	sftpdConf = config.GetSFTPDConfig()
+	sftpdConf.Ciphers = []string{"not a cipher"}
+	err = sftpdConf.Initialize(configDir)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "unsupported cipher")
+	}
+	sftpdConf.Ciphers = nil
+	sftpdConf.MACs = []string{"not a MAC"}
+	err = sftpdConf.Initialize(configDir)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "unsupported MAC algorithm")
+	}
+	sftpdConf.KexAlgorithms = []string{"not a KEX"}
+	err = sftpdConf.Initialize(configDir)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "unsupported key-exchange algorithm")
+	}
 }
 
 func TestBasicSFTPHandling(t *testing.T) {
