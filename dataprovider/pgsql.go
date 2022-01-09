@@ -32,63 +32,34 @@ DROP TABLE IF EXISTS "{{defender_hosts}}" CASCADE;
 DROP TABLE IF EXISTS "{{schema_version}}" CASCADE;
 `
 	pgsqlInitial = `CREATE TABLE "{{schema_version}}" ("id" serial NOT NULL PRIMARY KEY, "version" integer NOT NULL);
-	CREATE TABLE "{{admins}}" ("id" serial NOT NULL PRIMARY KEY, "username" varchar(255) NOT NULL UNIQUE,
+CREATE TABLE "{{admins}}" ("id" serial NOT NULL PRIMARY KEY, "username" varchar(255) NOT NULL UNIQUE,
 "description" varchar(512) NULL, "password" varchar(255) NOT NULL, "email" varchar(255) NULL, "status" integer NOT NULL,
-"permissions" text NOT NULL, "filters" text NULL, "additional_info" text NULL);
+"permissions" text NOT NULL, "filters" text NULL, "additional_info" text NULL, "last_login" bigint NOT NULL,
+"created_at" bigint NOT NULL, "updated_at" bigint NOT NULL);
+CREATE TABLE "{{defender_hosts}}" ("id" bigserial NOT NULL PRIMARY KEY, "ip" varchar(50) NOT NULL UNIQUE,
+"ban_time" bigint NOT NULL, "updated_at" bigint NOT NULL);
+CREATE TABLE "{{defender_events}}" ("id" bigserial NOT NULL PRIMARY KEY, "date_time" bigint NOT NULL, "score" integer NOT NULL,
+"host_id" bigint NOT NULL);
+ALTER TABLE "{{defender_events}}" ADD CONSTRAINT "{{prefix}}defender_events_host_id_fk_defender_hosts_id" FOREIGN KEY
+("host_id") REFERENCES "{{defender_hosts}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE;
 CREATE TABLE "{{folders}}" ("id" serial NOT NULL PRIMARY KEY, "name" varchar(255) NOT NULL UNIQUE, "description" varchar(512) NULL,
-"path" varchar(512) NULL, "used_quota_size" bigint NOT NULL, "used_quota_files" integer NOT NULL, "last_quota_update" bigint NOT NULL,
+"path" text NULL, "used_quota_size" bigint NOT NULL, "used_quota_files" integer NOT NULL, "last_quota_update" bigint NOT NULL,
 "filesystem" text NULL);
 CREATE TABLE "{{users}}" ("id" serial NOT NULL PRIMARY KEY, "username" varchar(255) NOT NULL UNIQUE, "status" integer NOT NULL,
 "expiration_date" bigint NOT NULL, "description" varchar(512) NULL, "password" text NULL, "public_keys" text NULL,
-"home_dir" varchar(512) NOT NULL, "uid" integer NOT NULL, "gid" integer NOT NULL, "max_sessions" integer NOT NULL,
+"home_dir" text NOT NULL, "uid" integer NOT NULL, "gid" integer NOT NULL, "max_sessions" integer NOT NULL,
 "quota_size" bigint NOT NULL, "quota_files" integer NOT NULL, "permissions" text NOT NULL, "used_quota_size" bigint NOT NULL,
 "used_quota_files" integer NOT NULL, "last_quota_update" bigint NOT NULL, "upload_bandwidth" integer NOT NULL,
 "download_bandwidth" integer NOT NULL, "last_login" bigint NOT NULL, "filters" text NULL, "filesystem" text NULL,
-"additional_info" text NULL);
-CREATE TABLE "{{folders_mapping}}" ("id" serial NOT NULL PRIMARY KEY, "virtual_path" varchar(512) NOT NULL,
+"additional_info" text NULL, "created_at" bigint NOT NULL, "updated_at" bigint NOT NULL, "email" varchar(255) NULL);
+CREATE TABLE "{{folders_mapping}}" ("id" serial NOT NULL PRIMARY KEY, "virtual_path" text NOT NULL,
 "quota_size" bigint NOT NULL, "quota_files" integer NOT NULL, "folder_id" integer NOT NULL, "user_id" integer NOT NULL);
 ALTER TABLE "{{folders_mapping}}" ADD CONSTRAINT "{{prefix}}unique_mapping" UNIQUE ("user_id", "folder_id");
 ALTER TABLE "{{folders_mapping}}" ADD CONSTRAINT "{{prefix}}folders_mapping_folder_id_fk_folders_id"
-FOREIGN KEY ("folder_id") REFERENCES "{{folders}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED;
+FOREIGN KEY ("folder_id") REFERENCES "{{folders}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE;
 ALTER TABLE "{{folders_mapping}}" ADD CONSTRAINT "{{prefix}}folders_mapping_user_id_fk_users_id"
-FOREIGN KEY ("user_id") REFERENCES "{{users}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED;
-CREATE INDEX "{{prefix}}folders_mapping_folder_id_idx" ON "{{folders_mapping}}" ("folder_id");
-CREATE INDEX "{{prefix}}folders_mapping_user_id_idx" ON "{{folders_mapping}}" ("user_id");
-INSERT INTO {{schema_version}} (version) VALUES (10);
-`
-	pgsqlV11SQL = `CREATE TABLE "{{api_keys}}" ("id" serial NOT NULL PRIMARY KEY, "name" varchar(255) NOT NULL,
-"key_id" varchar(50) NOT NULL UNIQUE, "api_key" varchar(255) NOT NULL UNIQUE, "scope" integer NOT NULL,
-"created_at" bigint NOT NULL, "updated_at" bigint NOT NULL, "last_use_at" bigint NOT NULL,"expires_at" bigint NOT NULL,
-"description" text NULL, "admin_id" integer NULL, "user_id" integer NULL);
-ALTER TABLE "{{api_keys}}" ADD CONSTRAINT "{{prefix}}api_keys_admin_id_fk_admins_id" FOREIGN KEY ("admin_id")
-REFERENCES "{{admins}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE;
-ALTER TABLE "{{api_keys}}" ADD CONSTRAINT "{{prefix}}api_keys_user_id_fk_users_id" FOREIGN KEY ("user_id")
-REFERENCES "{{users}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE;
-CREATE INDEX "{{prefix}}api_keys_admin_id_idx" ON "{{api_keys}}" ("admin_id");
-CREATE INDEX "{{prefix}}api_keys_user_id_idx" ON "{{api_keys}}" ("user_id");
-`
-	pgsqlV11DownSQL = `DROP TABLE "{{api_keys}}" CASCADE;`
-	pgsqlV12SQL     = `ALTER TABLE "{{admins}}" ADD COLUMN "created_at" bigint DEFAULT 0 NOT NULL;
-ALTER TABLE "{{admins}}" ALTER COLUMN "created_at" DROP DEFAULT;
-ALTER TABLE "{{admins}}" ADD COLUMN "updated_at" bigint DEFAULT 0 NOT NULL;
-ALTER TABLE "{{admins}}" ALTER COLUMN "updated_at" DROP DEFAULT;
-ALTER TABLE "{{admins}}" ADD COLUMN "last_login" bigint DEFAULT 0 NOT NULL;
-ALTER TABLE "{{admins}}" ALTER COLUMN "last_login" DROP DEFAULT;
-ALTER TABLE "{{users}}" ADD COLUMN "created_at" bigint DEFAULT 0 NOT NULL;
-ALTER TABLE "{{users}}" ALTER COLUMN "created_at" DROP DEFAULT;
-ALTER TABLE "{{users}}" ADD COLUMN "updated_at" bigint DEFAULT 0 NOT NULL;
-ALTER TABLE "{{users}}" ALTER COLUMN "updated_at" DROP DEFAULT;
-CREATE INDEX "{{prefix}}users_updated_at_idx" ON "{{users}}" ("updated_at");
-`
-	pgsqlV12DownSQL = `ALTER TABLE "{{users}}" DROP COLUMN "updated_at" CASCADE;
-ALTER TABLE "{{users}}" DROP COLUMN "created_at" CASCADE;
-ALTER TABLE "{{admins}}" DROP COLUMN "created_at" CASCADE;
-ALTER TABLE "{{admins}}" DROP COLUMN "updated_at" CASCADE;
-ALTER TABLE "{{admins}}" DROP COLUMN "last_login" CASCADE;
-`
-	pgsqlV13SQL     = `ALTER TABLE "{{users}}" ADD COLUMN "email" varchar(255) NULL;`
-	pgsqlV13DownSQL = `ALTER TABLE "{{users}}" DROP COLUMN "email" CASCADE;`
-	pgsqlV14SQL     = `CREATE TABLE "{{shares}}" ("id" serial NOT NULL PRIMARY KEY,
+FOREIGN KEY ("user_id") REFERENCES "{{users}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE;
+CREATE TABLE "{{shares}}" ("id" serial NOT NULL PRIMARY KEY,
 "share_id" varchar(60) NOT NULL UNIQUE, "name" varchar(255) NOT NULL, "description" varchar(512) NULL,
 "scope" integer NOT NULL, "paths" text NOT NULL, "created_at" bigint NOT NULL, "updated_at" bigint NOT NULL,
 "last_use_at" bigint NOT NULL, "expires_at" bigint NOT NULL, "password" text NULL,
@@ -96,26 +67,29 @@ ALTER TABLE "{{admins}}" DROP COLUMN "last_login" CASCADE;
 "user_id" integer NOT NULL);
 ALTER TABLE "{{shares}}" ADD CONSTRAINT "{{prefix}}shares_user_id_fk_users_id" FOREIGN KEY ("user_id")
 REFERENCES "{{users}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE;
+CREATE TABLE "{{api_keys}}" ("id" serial NOT NULL PRIMARY KEY, "name" varchar(255) NOT NULL,
+"key_id" varchar(50) NOT NULL UNIQUE, "api_key" varchar(255) NOT NULL UNIQUE, "scope" integer NOT NULL,
+"created_at" bigint NOT NULL, "updated_at" bigint NOT NULL, "last_use_at" bigint NOT NULL,"expires_at" bigint NOT NULL,
+"description" text NULL, "admin_id" integer NULL, "user_id" integer NULL);
+ALTER TABLE "{{api_keys}}" ADD CONSTRAINT "{{prefix}}api_keys_admin_id_fk_admins_id" FOREIGN KEY ("admin_id")
+REFERENCES "{{admins}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE;
+ALTER TABLE "{{api_keys}}" ADD CONSTRAINT "{{prefix}}api_keys_user_id_fk_users_id" FOREIGN KEY ("user_id")
+REFERENCES "{{users}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE;
+CREATE INDEX "{{prefix}}folders_mapping_folder_id_idx" ON "{{folders_mapping}}" ("folder_id");
+CREATE INDEX "{{prefix}}folders_mapping_user_id_idx" ON "{{folders_mapping}}" ("user_id");
+CREATE INDEX "{{prefix}}api_keys_admin_id_idx" ON "{{api_keys}}" ("admin_id");
+CREATE INDEX "{{prefix}}api_keys_user_id_idx" ON "{{api_keys}}" ("user_id");
+CREATE INDEX "{{prefix}}users_updated_at_idx" ON "{{users}}" ("updated_at");
 CREATE INDEX "{{prefix}}shares_user_id_idx" ON "{{shares}}" ("user_id");
-`
-	pgsqlV14DownSQL = `DROP TABLE "{{shares}}" CASCADE;`
-	pgsqlV15SQL     = `CREATE TABLE "{{defender_hosts}}" ("id" bigserial NOT NULL PRIMARY KEY, "ip" varchar(50) NOT NULL UNIQUE,
-"ban_time" bigint NOT NULL, "updated_at" bigint NOT NULL);
-CREATE TABLE "{{defender_events}}" ("id" bigserial NOT NULL PRIMARY KEY, "date_time" bigint NOT NULL, "score" integer NOT NULL,
-"host_id" bigint NOT NULL);
-ALTER TABLE "{{defender_events}}" ADD CONSTRAINT "{{prefix}}defender_events_host_id_fk_defender_hosts_id" FOREIGN KEY
-("host_id") REFERENCES "{{defender_hosts}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE;
 CREATE INDEX "{{prefix}}defender_hosts_updated_at_idx" ON "{{defender_hosts}}" ("updated_at");
 CREATE INDEX "{{prefix}}defender_hosts_ban_time_idx" ON "{{defender_hosts}}" ("ban_time");
 CREATE INDEX "{{prefix}}defender_events_date_time_idx" ON "{{defender_events}}" ("date_time");
 CREATE INDEX "{{prefix}}defender_events_host_id_idx" ON "{{defender_events}}" ("host_id");
-`
-	pgsqlV15DownSQL = `DROP TABLE "{{defender_events}}" CASCADE;
-DROP TABLE "{{defender_hosts}}" CASCADE;
+INSERT INTO {{schema_version}} (version) VALUES (15);
 `
 )
 
-// PGSQLProvider auth provider for PostgreSQL database
+// PGSQLProvider defines the auth provider for PostgreSQL database
 type PGSQLProvider struct {
 	dbHandle *sql.DB
 }
@@ -391,11 +365,17 @@ func (p *PGSQLProvider) initializeDatabase() error {
 	if errors.Is(err, sql.ErrNoRows) {
 		return errSchemaVersionEmpty
 	}
+	logger.InfoToConsole("creating initial database schema, version 15")
+	providerLog(logger.LevelInfo, "creating initial database schema, version 15")
 	initialSQL := strings.ReplaceAll(pgsqlInitial, "{{schema_version}}", sqlTableSchemaVersion)
 	initialSQL = strings.ReplaceAll(initialSQL, "{{admins}}", sqlTableAdmins)
 	initialSQL = strings.ReplaceAll(initialSQL, "{{folders}}", sqlTableFolders)
 	initialSQL = strings.ReplaceAll(initialSQL, "{{users}}", sqlTableUsers)
 	initialSQL = strings.ReplaceAll(initialSQL, "{{folders_mapping}}", sqlTableFoldersMapping)
+	initialSQL = strings.ReplaceAll(initialSQL, "{{api_keys}}", sqlTableAPIKeys)
+	initialSQL = strings.ReplaceAll(initialSQL, "{{shares}}", sqlTableShares)
+	initialSQL = strings.ReplaceAll(initialSQL, "{{defender_events}}", sqlTableDefenderEvents)
+	initialSQL = strings.ReplaceAll(initialSQL, "{{defender_hosts}}", sqlTableDefenderHosts)
 	initialSQL = strings.ReplaceAll(initialSQL, "{{prefix}}", config.SQLTablesPrefix)
 	if config.Driver == CockroachDataProviderName {
 		// Cockroach does not support deferrable constraint validation, we don't need them,
@@ -404,10 +384,9 @@ func (p *PGSQLProvider) initializeDatabase() error {
 		initialSQL = strings.ReplaceAll(initialSQL, "DEFERRABLE INITIALLY DEFERRED", "")
 	}
 
-	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{initialSQL}, 10)
+	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{initialSQL}, 15)
 }
 
-//nolint:dupl
 func (p *PGSQLProvider) migrateDatabase() error {
 	dbVersion, err := sqlCommonGetDatabaseVersion(p.dbHandle, true)
 	if err != nil {
@@ -418,21 +397,11 @@ func (p *PGSQLProvider) migrateDatabase() error {
 	case version == sqlDatabaseVersion:
 		providerLog(logger.LevelDebug, "sql database is up to date, current version: %v", version)
 		return ErrNoInitRequired
-	case version < 10:
+	case version < 15:
 		err = fmt.Errorf("database version %v is too old, please see the upgrading docs", version)
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
-	case version == 10:
-		return updatePGSQLDatabaseFromV10(p.dbHandle)
-	case version == 11:
-		return updatePGSQLDatabaseFromV11(p.dbHandle)
-	case version == 12:
-		return updatePGSQLDatabaseFromV12(p.dbHandle)
-	case version == 13:
-		return updatePGSQLDatabaseFromV13(p.dbHandle)
-	case version == 14:
-		return updatePGSQLDatabaseFromV14(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database version %v is newer than the supported one: %v", version,
@@ -455,16 +424,6 @@ func (p *PGSQLProvider) revertDatabase(targetVersion int) error {
 	}
 
 	switch dbVersion.Version {
-	case 15:
-		return downgradePGSQLDatabaseFromV15(p.dbHandle)
-	case 14:
-		return downgradePGSQLDatabaseFromV14(p.dbHandle)
-	case 13:
-		return downgradePGSQLDatabaseFromV13(p.dbHandle)
-	case 12:
-		return downgradePGSQLDatabaseFromV12(p.dbHandle)
-	case 11:
-		return downgradePGSQLDatabaseFromV11(p.dbHandle)
 	default:
 		return fmt.Errorf("database version not handled: %v", dbVersion.Version)
 	}
@@ -481,150 +440,4 @@ func (p *PGSQLProvider) resetDatabase() error {
 	sql = strings.ReplaceAll(sql, "{{defender_events}}", sqlTableDefenderEvents)
 	sql = strings.ReplaceAll(sql, "{{defender_hosts}}", sqlTableDefenderHosts)
 	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{sql}, 0)
-}
-
-func updatePGSQLDatabaseFromV10(dbHandle *sql.DB) error {
-	if err := updatePGSQLDatabaseFrom10To11(dbHandle); err != nil {
-		return err
-	}
-	return updatePGSQLDatabaseFromV11(dbHandle)
-}
-
-func updatePGSQLDatabaseFromV11(dbHandle *sql.DB) error {
-	if err := updatePGSQLDatabaseFrom11To12(dbHandle); err != nil {
-		return err
-	}
-	return updatePGSQLDatabaseFromV12(dbHandle)
-}
-
-func updatePGSQLDatabaseFromV12(dbHandle *sql.DB) error {
-	if err := updatePGSQLDatabaseFrom12To13(dbHandle); err != nil {
-		return err
-	}
-	return updatePGSQLDatabaseFromV13(dbHandle)
-}
-
-func updatePGSQLDatabaseFromV13(dbHandle *sql.DB) error {
-	if err := updatePGSQLDatabaseFrom13To14(dbHandle); err != nil {
-		return err
-	}
-	return updatePGSQLDatabaseFromV14(dbHandle)
-}
-
-func updatePGSQLDatabaseFromV14(dbHandle *sql.DB) error {
-	return updatePGSQLDatabaseFrom14To15(dbHandle)
-}
-
-func downgradePGSQLDatabaseFromV15(dbHandle *sql.DB) error {
-	if err := downgradePGSQLDatabaseFrom15To14(dbHandle); err != nil {
-		return err
-	}
-	return downgradePGSQLDatabaseFromV14(dbHandle)
-}
-
-func downgradePGSQLDatabaseFromV14(dbHandle *sql.DB) error {
-	if err := downgradePGSQLDatabaseFrom14To13(dbHandle); err != nil {
-		return err
-	}
-	return downgradePGSQLDatabaseFromV13(dbHandle)
-}
-
-func downgradePGSQLDatabaseFromV13(dbHandle *sql.DB) error {
-	if err := downgradePGSQLDatabaseFrom13To12(dbHandle); err != nil {
-		return err
-	}
-	return downgradePGSQLDatabaseFromV12(dbHandle)
-}
-
-func downgradePGSQLDatabaseFromV12(dbHandle *sql.DB) error {
-	if err := downgradePGSQLDatabaseFrom12To11(dbHandle); err != nil {
-		return err
-	}
-	return downgradePGSQLDatabaseFromV11(dbHandle)
-}
-
-func downgradePGSQLDatabaseFromV11(dbHandle *sql.DB) error {
-	return downgradePGSQLDatabaseFrom11To10(dbHandle)
-}
-
-func updatePGSQLDatabaseFrom13To14(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database version: 13 -> 14")
-	providerLog(logger.LevelInfo, "updating database version: 13 -> 14")
-	sql := strings.ReplaceAll(pgsqlV14SQL, "{{shares}}", sqlTableShares)
-	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
-	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 14)
-}
-
-func updatePGSQLDatabaseFrom14To15(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database version: 14 -> 15")
-	providerLog(logger.LevelInfo, "updating database version: 14 -> 15")
-	sql := strings.ReplaceAll(pgsqlV15SQL, "{{defender_events}}", sqlTableDefenderEvents)
-	sql = strings.ReplaceAll(sql, "{{defender_hosts}}", sqlTableDefenderHosts)
-	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 15)
-}
-
-func downgradePGSQLDatabaseFrom15To14(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database version: 15 -> 14")
-	providerLog(logger.LevelInfo, "downgrading database version: 15 -> 14")
-	sql := strings.ReplaceAll(pgsqlV15DownSQL, "{{defender_events}}", sqlTableDefenderEvents)
-	sql = strings.ReplaceAll(sql, "{{defender_hosts}}", sqlTableDefenderHosts)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 14)
-}
-
-func downgradePGSQLDatabaseFrom14To13(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database version: 14 -> 13")
-	providerLog(logger.LevelInfo, "downgrading database version: 14 -> 13")
-	sql := strings.ReplaceAll(pgsqlV14DownSQL, "{{shares}}", sqlTableShares)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 13)
-}
-
-func updatePGSQLDatabaseFrom12To13(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database version: 12 -> 13")
-	providerLog(logger.LevelInfo, "updating database version: 12 -> 13")
-	sql := strings.ReplaceAll(pgsqlV13SQL, "{{users}}", sqlTableUsers)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 13)
-}
-
-func downgradePGSQLDatabaseFrom13To12(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database version: 13 -> 12")
-	providerLog(logger.LevelInfo, "downgrading database version: 13 -> 12")
-	sql := strings.ReplaceAll(pgsqlV13DownSQL, "{{users}}", sqlTableUsers)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 12)
-}
-
-func updatePGSQLDatabaseFrom11To12(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database version: 11 -> 12")
-	providerLog(logger.LevelInfo, "updating database version: 11 -> 12")
-	sql := strings.ReplaceAll(pgsqlV12SQL, "{{users}}", sqlTableUsers)
-	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
-	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 12)
-}
-
-func downgradePGSQLDatabaseFrom12To11(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database version: 12 -> 11")
-	providerLog(logger.LevelInfo, "downgrading database version: 12 -> 11")
-	sql := strings.ReplaceAll(pgsqlV12DownSQL, "{{users}}", sqlTableUsers)
-	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
-	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 11)
-}
-
-func updatePGSQLDatabaseFrom10To11(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database version: 10 -> 11")
-	providerLog(logger.LevelInfo, "updating database version: 10 -> 11")
-	sql := strings.ReplaceAll(pgsqlV11SQL, "{{users}}", sqlTableUsers)
-	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
-	sql = strings.ReplaceAll(sql, "{{api_keys}}", sqlTableAPIKeys)
-	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 11)
-}
-
-func downgradePGSQLDatabaseFrom11To10(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database version: 11 -> 10")
-	providerLog(logger.LevelInfo, "downgrading database version: 11 -> 10")
-	sql := strings.ReplaceAll(pgsqlV11DownSQL, "{{api_keys}}", sqlTableAPIKeys)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 10)
 }

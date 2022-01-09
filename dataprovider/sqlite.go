@@ -35,75 +35,53 @@ DROP TABLE IF EXISTS "{{schema_version}}";
 	sqliteInitialSQL = `CREATE TABLE "{{schema_version}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "version" integer NOT NULL);
 CREATE TABLE "{{admins}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "username" varchar(255) NOT NULL UNIQUE,
 "description" varchar(512) NULL, "password" varchar(255) NOT NULL, "email" varchar(255) NULL, "status" integer NOT NULL,
-"permissions" text NOT NULL, "filters" text NULL, "additional_info" text NULL);
-CREATE TABLE "{{folders}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "name" varchar(255) NOT NULL UNIQUE,
-"description" varchar(512) NULL, "path" varchar(512) NULL, "used_quota_size" bigint NOT NULL, "used_quota_files" integer NOT NULL,
-"last_quota_update" bigint NOT NULL, "filesystem" text NULL);
-CREATE TABLE "{{users}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "username" varchar(255) NOT NULL UNIQUE,
-"status" integer NOT NULL, "expiration_date" bigint NOT NULL, "description" varchar(512) NULL, "password" text NULL,
-"public_keys" text NULL, "home_dir" varchar(512) NOT NULL, "uid" integer NOT NULL, "gid" integer NOT NULL,
-"max_sessions" integer NOT NULL, "quota_size" bigint NOT NULL, "quota_files" integer NOT NULL, "permissions" text NOT NULL,
-"used_quota_size" bigint NOT NULL, "used_quota_files" integer NOT NULL, "last_quota_update" bigint NOT NULL,
-"upload_bandwidth" integer NOT NULL, "download_bandwidth" integer NOT NULL, "last_login" bigint NOT NULL, "filters" text NULL,
-"filesystem" text NULL, "additional_info" text NULL);
-CREATE TABLE "{{folders_mapping}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "virtual_path" varchar(512) NOT NULL,
-"quota_size" bigint NOT NULL, "quota_files" integer NOT NULL, "folder_id" integer NOT NULL REFERENCES "{{folders}}" ("id")
-ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED, "user_id" integer NOT NULL REFERENCES "{{users}}" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
-CONSTRAINT "{{prefix}}unique_mapping" UNIQUE ("user_id", "folder_id"));
-CREATE INDEX "{{prefix}}folders_mapping_folder_id_idx" ON "{{folders_mapping}}" ("folder_id");
-CREATE INDEX "{{prefix}}folders_mapping_user_id_idx" ON "{{folders_mapping}}" ("user_id");
-INSERT INTO {{schema_version}} (version) VALUES (10);
-`
-	sqliteV11SQL = `CREATE TABLE "{{api_keys}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "name" varchar(255) NOT NULL,
-"key_id" varchar(50) NOT NULL UNIQUE, "api_key" varchar(255) NOT NULL UNIQUE, "scope" integer NOT NULL, "created_at" bigint NOT NULL,
-"updated_at" bigint NOT NULL, "last_use_at" bigint NOT NULL, "expires_at" bigint NOT NULL, "description" text NULL,
-"admin_id" integer NULL REFERENCES "{{admins}}" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
-"user_id" integer NULL REFERENCES "{{users}}" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED);
-CREATE INDEX "{{prefix}}api_keys_admin_id_idx" ON "api_keys" ("admin_id");
-CREATE INDEX "{{prefix}}api_keys_user_id_idx" ON "api_keys" ("user_id");
-`
-	sqliteV11DownSQL = `DROP TABLE "{{api_keys}}";`
-	sqliteV12SQL     = `ALTER TABLE "{{admins}}" ADD COLUMN "created_at" bigint DEFAULT 0 NOT NULL;
-ALTER TABLE "{{admins}}" ADD COLUMN "updated_at" bigint DEFAULT 0 NOT NULL;
-ALTER TABLE "{{admins}}" ADD COLUMN "last_login" bigint DEFAULT 0 NOT NULL;
-ALTER TABLE "{{users}}" ADD COLUMN "created_at" bigint DEFAULT 0 NOT NULL;
-ALTER TABLE "{{users}}" ADD COLUMN "updated_at" bigint DEFAULT 0 NOT NULL;
-CREATE INDEX "{{prefix}}users_updated_at_idx" ON "{{users}}" ("updated_at");
-`
-	sqliteV12DownSQL = `DROP INDEX "{{prefix}}users_updated_at_idx";
-ALTER TABLE "{{users}}" DROP COLUMN "updated_at";
-ALTER TABLE "{{users}}" DROP COLUMN "created_at";
-ALTER TABLE "{{admins}}" DROP COLUMN "created_at";
-ALTER TABLE "{{admins}}" DROP COLUMN "updated_at";
-ALTER TABLE "{{admins}}" DROP COLUMN "last_login";
-`
-	sqliteV13SQL     = `ALTER TABLE "{{users}}" ADD COLUMN "email" varchar(255) NULL;`
-	sqliteV13DownSQL = `ALTER TABLE "{{users}}" DROP COLUMN "email";`
-	sqliteV14SQL     = `CREATE TABLE "{{shares}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
-"share_id" varchar(60) NOT NULL UNIQUE, "name" varchar(255) NOT NULL, "description" varchar(512) NULL,
-"scope" integer NOT NULL, "paths" text NOT NULL, "created_at" bigint NOT NULL, "updated_at" bigint NOT NULL,
-"last_use_at" bigint NOT NULL, "expires_at" bigint NOT NULL, "password" text NULL, "max_tokens" integer NOT NULL,
-"used_tokens" integer NOT NULL, "allow_from" text NULL,
-"user_id" integer NOT NULL REFERENCES "{{users}}" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED);
-CREATE INDEX "{{prefix}}shares_user_id_idx" ON "{{shares}}" ("user_id");
-`
-	sqliteV14DownSQL = `DROP TABLE "{{shares}}";`
-	sqliteV15SQL     = `CREATE TABLE "{{defender_hosts}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
-"ip" varchar(50) NOT NULL UNIQUE, "ban_time" bigint NOT NULL, "updated_at" bigint NOT NULL);
+"permissions" text NOT NULL, "filters" text NULL, "additional_info" text NULL, "last_login" bigint NOT NULL,
+"created_at" bigint NOT NULL, "updated_at" bigint NOT NULL);
+CREATE TABLE "{{defender_hosts}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "ip" varchar(50) NOT NULL UNIQUE,
+"ban_time" bigint NOT NULL, "updated_at" bigint NOT NULL);
 CREATE TABLE "{{defender_events}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "date_time" bigint NOT NULL,
 "score" integer NOT NULL, "host_id" integer NOT NULL REFERENCES "{{defender_hosts}}" ("id") ON DELETE CASCADE
 DEFERRABLE INITIALLY DEFERRED);
+CREATE TABLE "{{folders}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "name" varchar(255) NOT NULL UNIQUE,
+"description" varchar(512) NULL, "path" text NULL, "used_quota_size" bigint NOT NULL, "used_quota_files" integer NOT NULL,
+"last_quota_update" bigint NOT NULL, "filesystem" text NULL);
+CREATE TABLE "{{users}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "username" varchar(255) NOT NULL UNIQUE,
+"status" integer NOT NULL, "expiration_date" bigint NOT NULL, "description" varchar(512) NULL, "password" text NULL,
+"public_keys" text NULL, "home_dir" text NOT NULL, "uid" integer NOT NULL, "gid" integer NOT NULL,
+"max_sessions" integer NOT NULL, "quota_size" bigint NOT NULL, "quota_files" integer NOT NULL, "permissions" text NOT NULL,
+"used_quota_size" bigint NOT NULL, "used_quota_files" integer NOT NULL, "last_quota_update" bigint NOT NULL,
+"upload_bandwidth" integer NOT NULL, "download_bandwidth" integer NOT NULL, "last_login" bigint NOT NULL, "filters" text NULL,
+"filesystem" text NULL, "additional_info" text NULL, "created_at" bigint NOT NULL, "updated_at" bigint NOT NULL,
+"email" varchar(255) NULL);
+CREATE TABLE "{{folders_mapping}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "virtual_path" text NOT NULL,
+"quota_size" bigint NOT NULL, "quota_files" integer NOT NULL, "folder_id" integer NOT NULL REFERENCES "{{folders}}" ("id")
+ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED, "user_id" integer NOT NULL REFERENCES "{{users}}" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
+CONSTRAINT "{{prefix}}unique_mapping" UNIQUE ("user_id", "folder_id"));
+CREATE TABLE "{{shares}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "share_id" varchar(60) NOT NULL UNIQUE,
+"name" varchar(255) NOT NULL, "description" varchar(512) NULL, "scope" integer NOT NULL, "paths" text NOT NULL,
+"created_at" bigint NOT NULL, "updated_at" bigint NOT NULL, "last_use_at" bigint NOT NULL, "expires_at" bigint NOT NULL,
+"password" text NULL, "max_tokens" integer NOT NULL, "used_tokens" integer NOT NULL, "allow_from" text NULL,
+"user_id" integer NOT NULL REFERENCES "{{users}}" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED);
+CREATE TABLE "{{api_keys}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "name" varchar(255) NOT NULL,
+"key_id" varchar(50) NOT NULL UNIQUE, "api_key" varchar(255) NOT NULL UNIQUE, "scope" integer NOT NULL,
+"created_at" bigint NOT NULL, "updated_at" bigint NOT NULL, "last_use_at" bigint NOT NULL, "expires_at" bigint NOT NULL,
+"description" text NULL, "admin_id" integer NULL REFERENCES "{{admins}}" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
+"user_id" integer NULL REFERENCES "{{users}}" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED);
+CREATE INDEX "{{prefix}}folders_mapping_folder_id_idx" ON "{{folders_mapping}}" ("folder_id");
+CREATE INDEX "{{prefix}}folders_mapping_user_id_idx" ON "{{folders_mapping}}" ("user_id");
+CREATE INDEX "{{prefix}}api_keys_admin_id_idx" ON "{{api_keys}}" ("admin_id");
+CREATE INDEX "{{prefix}}api_keys_user_id_idx" ON "{{api_keys}}" ("user_id");
+CREATE INDEX "{{prefix}}users_updated_at_idx" ON "{{users}}" ("updated_at");
+CREATE INDEX "{{prefix}}shares_user_id_idx" ON "{{shares}}" ("user_id");
 CREATE INDEX "{{prefix}}defender_hosts_updated_at_idx" ON "{{defender_hosts}}" ("updated_at");
 CREATE INDEX "{{prefix}}defender_hosts_ban_time_idx" ON "{{defender_hosts}}" ("ban_time");
 CREATE INDEX "{{prefix}}defender_events_date_time_idx" ON "{{defender_events}}" ("date_time");
 CREATE INDEX "{{prefix}}defender_events_host_id_idx" ON "{{defender_events}}" ("host_id");
-`
-	sqliteV15DownSQL = `DROP TABLE "{{defender_events}}";
-DROP TABLE "{{defender_hosts}}";
+INSERT INTO {{schema_version}} (version) VALUES (15);
 `
 )
 
-// SQLiteProvider auth provider for SQLite database
+// SQLiteProvider defines the auth provider for SQLite database
 type SQLiteProvider struct {
 	dbHandle *sql.DB
 }
@@ -372,17 +350,22 @@ func (p *SQLiteProvider) initializeDatabase() error {
 	if errors.Is(err, sql.ErrNoRows) {
 		return errSchemaVersionEmpty
 	}
+	logger.InfoToConsole("creating initial database schema, version 15")
+	providerLog(logger.LevelInfo, "creating initial database schema, version 15")
 	initialSQL := strings.ReplaceAll(sqliteInitialSQL, "{{schema_version}}", sqlTableSchemaVersion)
 	initialSQL = strings.ReplaceAll(initialSQL, "{{admins}}", sqlTableAdmins)
 	initialSQL = strings.ReplaceAll(initialSQL, "{{folders}}", sqlTableFolders)
 	initialSQL = strings.ReplaceAll(initialSQL, "{{users}}", sqlTableUsers)
 	initialSQL = strings.ReplaceAll(initialSQL, "{{folders_mapping}}", sqlTableFoldersMapping)
+	initialSQL = strings.ReplaceAll(initialSQL, "{{api_keys}}", sqlTableAPIKeys)
+	initialSQL = strings.ReplaceAll(initialSQL, "{{shares}}", sqlTableShares)
+	initialSQL = strings.ReplaceAll(initialSQL, "{{defender_events}}", sqlTableDefenderEvents)
+	initialSQL = strings.ReplaceAll(initialSQL, "{{defender_hosts}}", sqlTableDefenderHosts)
 	initialSQL = strings.ReplaceAll(initialSQL, "{{prefix}}", config.SQLTablesPrefix)
 
-	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{initialSQL}, 10)
+	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{initialSQL}, 15)
 }
 
-//nolint:dupl
 func (p *SQLiteProvider) migrateDatabase() error {
 	dbVersion, err := sqlCommonGetDatabaseVersion(p.dbHandle, true)
 	if err != nil {
@@ -393,21 +376,11 @@ func (p *SQLiteProvider) migrateDatabase() error {
 	case version == sqlDatabaseVersion:
 		providerLog(logger.LevelDebug, "sql database is up to date, current version: %v", version)
 		return ErrNoInitRequired
-	case version < 10:
+	case version < 15:
 		err = fmt.Errorf("database version %v is too old, please see the upgrading docs", version)
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
-	case version == 10:
-		return updateSQLiteDatabaseFromV10(p.dbHandle)
-	case version == 11:
-		return updateSQLiteDatabaseFromV11(p.dbHandle)
-	case version == 12:
-		return updateSQLiteDatabaseFromV12(p.dbHandle)
-	case version == 13:
-		return updateSQLiteDatabaseFromV13(p.dbHandle)
-	case version == 14:
-		return updateSQLiteDatabaseFromV14(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database version %v is newer than the supported one: %v", version,
@@ -430,16 +403,6 @@ func (p *SQLiteProvider) revertDatabase(targetVersion int) error {
 	}
 
 	switch dbVersion.Version {
-	case 15:
-		return downgradeSQLiteDatabaseFromV15(p.dbHandle)
-	case 14:
-		return downgradeSQLiteDatabaseFromV14(p.dbHandle)
-	case 13:
-		return downgradeSQLiteDatabaseFromV13(p.dbHandle)
-	case 12:
-		return downgradeSQLiteDatabaseFromV12(p.dbHandle)
-	case 11:
-		return downgradeSQLiteDatabaseFromV11(p.dbHandle)
 	default:
 		return fmt.Errorf("database version not handled: %v", dbVersion.Version)
 	}
@@ -456,152 +419,6 @@ func (p *SQLiteProvider) resetDatabase() error {
 	sql = strings.ReplaceAll(sql, "{{defender_events}}", sqlTableDefenderEvents)
 	sql = strings.ReplaceAll(sql, "{{defender_hosts}}", sqlTableDefenderHosts)
 	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{sql}, 0)
-}
-
-func updateSQLiteDatabaseFromV10(dbHandle *sql.DB) error {
-	if err := updateSQLiteDatabaseFrom10To11(dbHandle); err != nil {
-		return err
-	}
-	return updateSQLiteDatabaseFromV11(dbHandle)
-}
-
-func updateSQLiteDatabaseFromV11(dbHandle *sql.DB) error {
-	if err := updateSQLiteDatabaseFrom11To12(dbHandle); err != nil {
-		return err
-	}
-	return updateSQLiteDatabaseFromV12(dbHandle)
-}
-
-func updateSQLiteDatabaseFromV12(dbHandle *sql.DB) error {
-	if err := updateSQLiteDatabaseFrom12To13(dbHandle); err != nil {
-		return err
-	}
-	return updateSQLiteDatabaseFromV13(dbHandle)
-}
-
-func updateSQLiteDatabaseFromV13(dbHandle *sql.DB) error {
-	if err := updateSQLiteDatabaseFrom13To14(dbHandle); err != nil {
-		return err
-	}
-	return updateSQLiteDatabaseFromV14(dbHandle)
-}
-
-func updateSQLiteDatabaseFromV14(dbHandle *sql.DB) error {
-	return updateSQLiteDatabaseFrom14To15(dbHandle)
-}
-
-func downgradeSQLiteDatabaseFromV15(dbHandle *sql.DB) error {
-	if err := downgradeSQLiteDatabaseFrom15To14(dbHandle); err != nil {
-		return err
-	}
-	return downgradeSQLiteDatabaseFromV14(dbHandle)
-}
-
-func downgradeSQLiteDatabaseFromV14(dbHandle *sql.DB) error {
-	if err := downgradeSQLiteDatabaseFrom14To13(dbHandle); err != nil {
-		return err
-	}
-	return downgradeSQLiteDatabaseFromV13(dbHandle)
-}
-
-func downgradeSQLiteDatabaseFromV13(dbHandle *sql.DB) error {
-	if err := downgradeSQLiteDatabaseFrom13To12(dbHandle); err != nil {
-		return err
-	}
-	return downgradeSQLiteDatabaseFromV12(dbHandle)
-}
-
-func downgradeSQLiteDatabaseFromV12(dbHandle *sql.DB) error {
-	if err := downgradeSQLiteDatabaseFrom12To11(dbHandle); err != nil {
-		return err
-	}
-	return downgradeSQLiteDatabaseFromV11(dbHandle)
-}
-
-func downgradeSQLiteDatabaseFromV11(dbHandle *sql.DB) error {
-	return downgradeSQLiteDatabaseFrom11To10(dbHandle)
-}
-
-func updateSQLiteDatabaseFrom13To14(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database version: 13 -> 14")
-	providerLog(logger.LevelInfo, "updating database version: 13 -> 14")
-	sql := strings.ReplaceAll(sqliteV14SQL, "{{shares}}", sqlTableShares)
-	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
-	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 14)
-}
-
-func updateSQLiteDatabaseFrom14To15(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database version: 14 -> 15")
-	providerLog(logger.LevelInfo, "updating database version: 14 -> 15")
-	sql := strings.ReplaceAll(sqliteV15SQL, "{{defender_events}}", sqlTableDefenderEvents)
-	sql = strings.ReplaceAll(sql, "{{defender_hosts}}", sqlTableDefenderHosts)
-	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 15)
-}
-
-func downgradeSQLiteDatabaseFrom15To14(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database version: 15 -> 14")
-	providerLog(logger.LevelInfo, "downgrading database version: 15 -> 14")
-	sql := strings.ReplaceAll(sqliteV15DownSQL, "{{defender_events}}", sqlTableDefenderEvents)
-	sql = strings.ReplaceAll(sql, "{{defender_hosts}}", sqlTableDefenderHosts)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 14)
-}
-
-func downgradeSQLiteDatabaseFrom14To13(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database version: 14 -> 13")
-	providerLog(logger.LevelInfo, "downgrading database version: 14 -> 13")
-	sql := strings.ReplaceAll(sqliteV14DownSQL, "{{shares}}", sqlTableShares)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 13)
-}
-
-func updateSQLiteDatabaseFrom12To13(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database version: 12 -> 13")
-	providerLog(logger.LevelInfo, "updating database version: 12 -> 13")
-	sql := strings.ReplaceAll(sqliteV13SQL, "{{users}}", sqlTableUsers)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 13)
-}
-
-func downgradeSQLiteDatabaseFrom13To12(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database version: 13 -> 12")
-	providerLog(logger.LevelInfo, "downgrading database version: 13 -> 12")
-	sql := strings.ReplaceAll(sqliteV13DownSQL, "{{users}}", sqlTableUsers)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 12)
-}
-
-func updateSQLiteDatabaseFrom11To12(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database version: 11 -> 12")
-	providerLog(logger.LevelInfo, "updating database version: 11 -> 12")
-	sql := strings.ReplaceAll(sqliteV12SQL, "{{users}}", sqlTableUsers)
-	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
-	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 12)
-}
-
-func downgradeSQLiteDatabaseFrom12To11(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database version: 12 -> 11")
-	providerLog(logger.LevelInfo, "downgrading database version: 12 -> 11")
-	sql := strings.ReplaceAll(sqliteV12DownSQL, "{{users}}", sqlTableUsers)
-	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
-	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 11)
-}
-
-func updateSQLiteDatabaseFrom10To11(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database version: 10 -> 11")
-	providerLog(logger.LevelInfo, "updating database version: 10 -> 11")
-	sql := strings.ReplaceAll(sqliteV11SQL, "{{users}}", sqlTableUsers)
-	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
-	sql = strings.ReplaceAll(sql, "{{api_keys}}", sqlTableAPIKeys)
-	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 11)
-}
-
-func downgradeSQLiteDatabaseFrom11To10(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database version: 11 -> 10")
-	providerLog(logger.LevelInfo, "downgrading database version: 11 -> 10")
-	sql := strings.ReplaceAll(sqliteV11DownSQL, "{{api_keys}}", sqlTableAPIKeys)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 10)
 }
 
 /*func setPragmaFK(dbHandle *sql.DB, value string) error {

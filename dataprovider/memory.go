@@ -46,7 +46,7 @@ type memoryProviderHandle struct {
 	sharesIDs []string
 }
 
-// MemoryProvider auth provider for a memory store
+// MemoryProvider defines the auth provider for a memory store
 type MemoryProvider struct {
 	dbHandle *memoryProviderHandle
 }
