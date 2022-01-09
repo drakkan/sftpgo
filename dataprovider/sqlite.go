@@ -59,8 +59,8 @@ INSERT INTO {{schema_version}} (version) VALUES (10);
 "updated_at" bigint NOT NULL, "last_use_at" bigint NOT NULL, "expires_at" bigint NOT NULL, "description" text NULL,
 "admin_id" integer NULL REFERENCES "{{admins}}" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
 "user_id" integer NULL REFERENCES "{{users}}" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED);
-CREATE INDEX "{{prefix}}api_keys_admin_id_idx" ON "api_keys" ("admin_id");
-CREATE INDEX "{{prefix}}api_keys_user_id_idx" ON "api_keys" ("user_id");
+CREATE INDEX "{{prefix}}api_keys_admin_id_idx" ON "{{api_keys}}" ("admin_id");
+CREATE INDEX "{{prefix}}api_keys_user_id_idx" ON "{{api_keys}}" ("user_id");
 `
 	sqliteV11DownSQL = `DROP TABLE "{{api_keys}}";`
 	sqliteV12SQL     = `ALTER TABLE "{{admins}}" ADD COLUMN "created_at" bigint DEFAULT 0 NOT NULL;
