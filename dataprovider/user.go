@@ -561,19 +561,25 @@ func (u *User) AddVirtualDirs(list []os.FileInfo, virtualPath string) []os.FileI
 		return list
 	}
 
+	vdirs := make(map[string]bool)
 	for dir := range u.GetVirtualFoldersInPath(virtualPath) {
-		fi := vfs.NewFileInfo(dir, true, 0, time.Now(), false)
-		found := false
-		for index := range list {
-			if list[index].Name() == fi.Name() {
-				list[index] = fi
-				found = true
-				break
+		vdirs[path.Base(dir)] = true
+	}
+	if len(vdirs) == 0 {
+		return list
+	}
+
+	for index := range list {
+		for dir := range vdirs {
+			if list[index].Name() == dir {
+				delete(vdirs, dir)
 			}
 		}
-		if !found {
-			list = append(list, fi)
-		}
+	}
+
+	for dir := range vdirs {
+		fi := vfs.NewFileInfo(dir, true, 0, time.Now(), false)
+		list = append(list, fi)
 	}
 	return list
 }

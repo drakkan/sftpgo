@@ -831,7 +831,10 @@ func TestParseAllowedIPAndRanges(t *testing.T) {
 }
 
 func TestHideConfidentialData(t *testing.T) {
-	for _, provider := range sdk.ListProviders() {
+	for _, provider := range []sdk.FilesystemProvider{sdk.LocalFilesystemProvider,
+		sdk.CryptedFilesystemProvider, sdk.S3FilesystemProvider, sdk.GCSFilesystemProvider,
+		sdk.AzureBlobFilesystemProvider, sdk.SFTPFilesystemProvider,
+	} {
 		u := dataprovider.User{
 			FsConfig: vfs.Filesystem{
 				Provider: provider,

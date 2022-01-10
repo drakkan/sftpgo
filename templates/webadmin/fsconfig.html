@@ -1,5 +1,8 @@
 {{define "fshtml"}}
 <div class="card bg-light mb-3">
+    <div class="card-header">
+        <b>Filesystem</b>
+    </div>
     <div class="card-body pb-1">
         <div class="form-group row">
             <label for="idFilesystem" class="col-sm-2 col-form-label">Storage</label>
@@ -12,7 +15,29 @@
                 </select>
             </div>
         </div>
-
+        {{if .IsUserPage}}
+        <div class="form-group row">
+            <label for="idHomeDir" class="col-sm-2 col-form-label">Home Dir</label>
+            <div class="col-sm-10">
+                <input type="text" class="form-control" id="idHomeDir" name="home_dir" placeholder="Absolute path to a local directory"
+                    value="{{.DirPath}}" aria-describedby="homeDirHelpBlock">
+                <small id="homeDirHelpBlock" class="form-text text-muted">
+                    {{if not .DirPath}}{{if .HasUsersBaseDir}}Leave blank for an appropriate default{{else}}Required for local storage providers. For non-local filesystems it will store temporary files, you can leave blank for an appropriate default{{end}}{{end}}
+                </small>
+            </div>
+        </div>
+        {{else}}
+        <div class="form-group row">
+            <label for="idMappedPath" class="col-sm-2 col-form-label">Home Dir</label>
+            <div class="col-sm-10">
+                <input type="text" class="form-control" id="idMappedPath" name="mapped_path" placeholder="Absolute path to a local directory"
+                    value="{{.DirPath}}" aria-describedby="mappedPathHelpBlock">
+                <small id="mappedPathHelpBlock" class="form-text text-muted">
+                    Required for local storage providers. For non-local filesystems it will store temporary files, you can leave blank for an appropriate default
+                </small>
+            </div>
+        </div>
+        {{end}}
         <div class="form-group row fsconfig fsconfig-s3fs">
             <label for="idS3Bucket" class="col-sm-2 col-form-label">Bucket</label>
             <div class="col-sm-3">
@@ -123,7 +148,7 @@
             <label for="idS3KeyPrefix" class="col-sm-2 col-form-label">Key Prefix</label>
             <div class="col-sm-10">
                 <input type="text" class="form-control" id="idS3KeyPrefix" name="s3_key_prefix" placeholder=""
-                    value="{{.S3Config.KeyPrefix}}" maxlength="255" aria-describedby="S3KeyPrefixHelpBlock">
+                    value="{{.S3Config.KeyPrefix}}" aria-describedby="S3KeyPrefixHelpBlock">
                 <small id="S3KeyPrefixHelpBlock" class="form-text text-muted">
                     Similar to a chroot for local filesystem. Cannot start with "/". Example: "somedir/subdir/".
                 </small>
@@ -176,7 +201,7 @@
             <label for="idGCSKeyPrefix" class="col-sm-2 col-form-label">Key Prefix</label>
             <div class="col-sm-3">
                 <input type="text" class="form-control" id="idGCSKeyPrefix" name="gcs_key_prefix" placeholder=""
-                    value="{{.GCSConfig.KeyPrefix}}" maxlength="255" aria-describedby="GCSKeyPrefixHelpBlock">
+                    value="{{.GCSConfig.KeyPrefix}}" aria-describedby="GCSKeyPrefixHelpBlock">
                 <small id="GCSKeyPrefixHelpBlock" class="form-text text-muted">
                     Similar to a chroot for local filesystem. Cannot start with "/". Example: "somedir/subdir/".
                 </small>
@@ -268,7 +293,7 @@
             <label for="idAzKeyPrefix" class="col-sm-2 col-form-label">Key Prefix</label>
             <div class="col-sm-10">
                 <input type="text" class="form-control" id="idAzKeyPrefix" name="az_key_prefix" placeholder=""
-                    value="{{.AzBlobConfig.KeyPrefix}}" maxlength="255" aria-describedby="AzKeyPrefixHelpBlock">
+                    value="{{.AzBlobConfig.KeyPrefix}}" aria-describedby="AzKeyPrefixHelpBlock">
                 <small id="AzKeyPrefixHelpBlock" class="form-text text-muted">
                     Similar to a chroot for local filesystem. Cannot start with "/". Example: "somedir/subdir/".
                 </small>
@@ -352,7 +377,7 @@
             <label for="idSFTPPrefix" class="col-sm-2 col-form-label">Prefix</label>
             <div class="col-sm-10">
                 <input type="text" class="form-control" id="idSFTPPrefix" name="sftp_prefix" placeholder=""
-                    value="{{.SFTPConfig.Prefix}}" maxlength="255" aria-describedby="SFTPPrefixHelpBlock">
+                    value="{{.SFTPConfig.Prefix}}" aria-describedby="SFTPPrefixHelpBlock">
                 <small id="SFTPPrefixHelpBlock" class="form-text text-muted">
                     Similar to a chroot for local filesystem. Example: "/somedir/subdir".
                 </small>
