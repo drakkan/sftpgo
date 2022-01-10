@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -142,6 +143,13 @@ type statusPage struct {
 	Status ServicesStatus
 }
 
+type fsWrapper struct {
+	vfs.Filesystem
+	IsUserPage      bool
+	HasUsersBaseDir bool
+	DirPath         string
+}
+
 type userPage struct {
 	basePage
 	User              *dataprovider.User
@@ -155,6 +163,8 @@ type userPage struct {
 	RedactedSecret    string
 	Mode              userPageMode
 	VirtualFolders    []vfs.BaseVirtualFolder
+	CanImpersonate    bool
+	FsWrapper         fsWrapper
 }
 
 type adminPage struct {
@@ -207,9 +217,10 @@ type setupPage struct {
 
 type folderPage struct {
 	basePage
-	Folder vfs.BaseVirtualFolder
-	Error  string
-	Mode   folderPageMode
+	Folder    vfs.BaseVirtualFolder
+	Error     string
+	Mode      folderPageMode
+	FsWrapper fsWrapper
 }
 
 type messagePage struct {
@@ -307,7 +318,12 @@ func loadAdminTemplates(templatesPath string) {
 	}
 
 	fsBaseTpl := template.New("fsBaseTemplate").Funcs(template.FuncMap{
-		"ListFSProviders": sdk.ListProviders,
+		"ListFSProviders": func() []sdk.FilesystemProvider {
+			return []sdk.FilesystemProvider{sdk.LocalFilesystemProvider, sdk.CryptedFilesystemProvider,
+				sdk.S3FilesystemProvider, sdk.GCSFilesystemProvider,
+				sdk.AzureBlobFilesystemProvider, sdk.SFTPFilesystemProvider,
+			}
+		},
 	})
 	usersTmpl := util.LoadTemplate(nil, usersPaths...)
 	userTmpl := util.LoadTemplate(fsBaseTpl, userPaths...)
@@ -594,6 +610,13 @@ func renderUserPage(w http.ResponseWriter, r *http.Request, user *dataprovider.U
 		WebClientOptions:  sdk.WebClientOptions,
 		RootDirPerms:      user.GetPermissionsForPath("/"),
 		VirtualFolders:    folders,
+		CanImpersonate:    os.Getuid() == 0,
+		FsWrapper: fsWrapper{
+			Filesystem:      user.FsConfig,
+			IsUserPage:      true,
+			HasUsersBaseDir: dataprovider.HasUsersBaseDir(),
+			DirPath:         user.HomeDir,
+		},
 	}
 	renderAdminTemplate(w, templateUser, data)
 }
@@ -619,6 +642,12 @@ func renderFolderPage(w http.ResponseWriter, r *http.Request, folder vfs.BaseVir
 		Error:    error,
 		Folder:   folder,
 		Mode:     mode,
+		FsWrapper: fsWrapper{
+			Filesystem:      folder.FsConfig,
+			IsUserPage:      false,
+			HasUsersBaseDir: false,
+			DirPath:         folder.MappedPath,
+		},
 	}
 	renderAdminTemplate(w, templateFolder, data)
 }
@@ -1708,6 +1737,7 @@ func handleWebAddUserGet(w http.ResponseWriter, r *http.Request) {
 			user.ID = 0
 			user.Username = ""
 			user.Password = ""
+			user.PublicKeys = nil
 			user.SetEmptySecrets()
 			renderUserPage(w, r, &user, userPageModeAdd, "")
 		} else if _, ok := err.(*util.RecordNotFoundError); ok {
@@ -1716,7 +1746,12 @@ func handleWebAddUserGet(w http.ResponseWriter, r *http.Request) {
 			renderInternalServerErrorPage(w, r, err)
 		}
 	} else {
-		user := dataprovider.User{BaseUser: sdk.BaseUser{Status: 1}}
+		user := dataprovider.User{BaseUser: sdk.BaseUser{
+			Status: 1,
+			Permissions: map[string][]string{
+				"/": {dataprovider.PermAny},
+			},
+		}}
 		renderUserPage(w, r, &user, userPageModeAdd, "")
 	}
 }

@@ -86,45 +86,6 @@
             </div>
             {{end}}
 
-            <div class="form-group row">
-                <label for="idEmail" class="col-sm-2 col-form-label">Email</label>
-                <div class="col-sm-10">
-                    <input type="text" class="form-control" id="idEmail" name="email" placeholder=""
-                        value="{{.User.Email}}" maxlength="255" autocomplete="nope">
-                </div>
-            </div>
-
-            <div class="form-group row">
-                <label for="idDescription" class="col-sm-2 col-form-label">Description</label>
-                <div class="col-sm-10">
-                    <input type="text" class="form-control" id="idDescription" name="description" placeholder=""
-                        value="{{.User.Description}}" maxlength="255" aria-describedby="descriptionHelpBlock">
-                    <small id="descriptionHelpBlock" class="form-text text-muted">
-                        Optional description, for example the user full name
-                    </small>
-                </div>
-            </div>
-
-            <div class="form-group row">
-                <label for="idStatus" class="col-sm-2 col-form-label">Status</label>
-                <div class="col-sm-10">
-                    <select class="form-control" id="idStatus" name="status">
-                        <option value="1" {{if eq .User.Status 1 }}selected{{end}}>Active</option>
-                        <option value="0" {{if eq .User.Status 0 }}selected{{end}}>Inactive</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="form-group row">
-                <label for="idExpirationDate" class="col-sm-2 col-form-label">Expiration Date</label>
-                <div class="col-sm-10 input-group date" id="expirationDatePicker" data-target-input="nearest">
-                    <input type="text" class="form-control datetimepicker-input" id="idExpirationDate"
-                        data-target="#expirationDatePicker">
-                    <div class="input-group-append" data-target="#expirationDatePicker" data-toggle="datetimepicker">
-                        <div class="input-group-text"><i class="fas fa-calendar"></i></div>
-                    </div>
-                </div>
-            </div>
             {{if ne .Mode 3}}
             <div class="form-group row">
                 <label for="idPassword" class="col-sm-2 col-form-label">Password</label>
@@ -135,7 +96,7 @@
 
             <div class="card bg-light mb-3">
                 <div class="card-header">
-                    Public keys
+                    <b>Public keys</b>
                 </div>
                 <div class="card-body">
                     <div class="form-group row">
@@ -177,43 +138,11 @@
             </div>
             {{end}}
 
-            <div class="form-group row">
-                <label for="idTLSUsername" class="col-sm-2 col-form-label">TLS username</label>
-                <div class="col-sm-10">
-                    <select class="form-control" id="idTLSUsername" name="tls_username" aria-describedby="tlsUsernameHelpBlock">
-                        <option value="None" {{if eq .User.Filters.TLSUsername "None" }}selected{{end}}>None</option>
-                        <option value="CommonName" {{if eq .User.Filters.TLSUsername "CommonName" }}selected{{end}}>Common Name</option>
-                    </select>
-                    <small id="tlsUsernameHelpBlock" class="form-text text-muted">
-                        Defines the TLS certificate field to use as username. Ignored if mutual TLS is disabled
-                    </small>
-                </div>
-            </div>
-
-            <div class="form-group row">
-                <label for="idHomeDir" class="col-sm-2 col-form-label">Home Dir</label>
-                <div class="col-sm-10">
-                    <input type="text" class="form-control" id="idHomeDir" name="home_dir" placeholder=""
-                        value="{{.User.HomeDir}}" maxlength="255">
-                </div>
-            </div>
-
-            <div class="form-group row">
-                <label for="idPermissions" class="col-sm-2 col-form-label">Permissions</label>
-                <div class="col-sm-10">
-                    <select class="form-control" id="idPermissions" name="permissions" required multiple>
-                        {{range $validPerm := .ValidPerms}}
-                        <option value="{{$validPerm}}" {{range $perm :=$.RootDirPerms }}{{if eq $perm $validPerm}}selected{{end}}{{end}}>{{$validPerm}}</option>
-                        {{end}}
-                    </select>
-                </div>
-            </div>
-
-            {{template "fshtml" .User.FsConfig}}
+            {{template "fshtml" .FsWrapper}}
             {{if .VirtualFolders}}
             <div class="card bg-light mb-3">
                 <div class="card-header">
-                    Virtual folders
+                    <b>Virtual folders</b>
                 </div>
                 <div class="card-body">
                     <h6 class="card-title mb-4">Quota -1 means included within user quota, 0 unlimited. Don't set -1 for shared folders</h6>
@@ -298,385 +227,516 @@
             </div>
             {{end}}
 
-            <div class="card bg-light mb-3">
-                <div class="card-header">
-                    Per-directory permissions
-                </div>
-                <div class="card-body">
-                    <div class="form-group row">
-                        <div class="col-md-12 form_field_dirperms_outer">
-                            {{range $idx, $dirPerms := .User.GetSubDirPermissions -}}
-                            <div class="row form_field_dirperms_outer_row">
-                                <div class="form-group col-md-8">
-                                    <input type="text" class="form-control" id="idSubDirPermsPath{{$idx}}" name="sub_perm_path{{$idx}}" placeholder="directory path, i.e. /dir" value="{{$dirPerms.Path}}" maxlength="255">
-                                </div>
-                                <div class="form-group col-md-3">
-                                    <select class="form-control" id="idSubDirPermissions{{$idx}}" name="sub_perm_permissions{{$idx}}" multiple>
-                                        {{range $validPerm := $.ValidPerms}}
-                                        <option value="{{$validPerm}}" {{range $perm := $dirPerms.Permissions }}{{if eq $perm $validPerm}}selected{{end}}{{end}}>{{$validPerm}}</option>
-                                        {{end}}
+            <div class="accordion" id="accordionUser">
+                <div class="card">
+                    <div class="card-header" id="headingProfile">
+                        <h2 class="mb-0">
+                            <button class="btn btn-link btn-block text-left" type="button" data-toggle="collapse"
+                                data-target="#collapseProfile" aria-expanded="true" aria-controls="collapseProfile">
+                                <h6 class="m-0 font-weight-bold text-primary">Profile</h6>
+                            </button>
+                        </h2>
+                    </div>
+
+                    <div id="collapseProfile" class="collapse" aria-labelledby="headingProfile" data-parent="#accordionUser">
+                        <div class="card-body">
+                            <div class="form-group row">
+                                <label for="idStatus" class="col-sm-2 col-form-label">Status</label>
+                                <div class="col-sm-10">
+                                    <select class="form-control" id="idStatus" name="status">
+                                        <option value="1" {{if eq .User.Status 1 }}selected{{end}}>Active</option>
+                                        <option value="0" {{if eq .User.Status 0 }}selected{{end}}>Inactive</option>
                                     </select>
                                 </div>
-                                <div class="form-group col-md-1">
-                                    <button class="btn btn-circle btn-danger remove_dirperms_btn_frm_field">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="idExpirationDate" class="col-sm-2 col-form-label">Expiration Date</label>
+                                <div class="col-sm-10 input-group date" id="expirationDatePicker" data-target-input="nearest">
+                                    <input type="text" class="form-control datetimepicker-input" id="idExpirationDate"
+                                        data-target="#expirationDatePicker">
+                                    <div class="input-group-append" data-target="#expirationDatePicker" data-toggle="datetimepicker">
+                                        <div class="input-group-text"><i class="fas fa-calendar"></i></div>
+                                    </div>
                                 </div>
                             </div>
-                            {{else}}
-                            <div class="row form_field_dirperms_outer_row">
-                                <div class="form-group col-md-8">
-                                    <input type="text" class="form-control" id="idSubDirPermsPath0" name="sub_perm_path0" placeholder="directory path, i.e. /dir" value="" maxlength="255">
+
+                            <div class="form-group row">
+                                <label for="idEmail" class="col-sm-2 col-form-label">Email</label>
+                                <div class="col-sm-10">
+                                    <input type="text" class="form-control" id="idEmail" name="email" placeholder=""
+                                        value="{{.User.Email}}" maxlength="255" autocomplete="nope">
                                 </div>
-                                <div class="form-group col-md-3">
-                                    <select class="form-control" id="idSubDirPermissions0" name="sub_perm_permissions0" multiple>
+                            </div>
+
+                            <div class="form-group">
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" id="idAllowAPIKeyAuth" name="allow_api_key_auth"
+                                    {{if .User.Filters.AllowAPIKeyAuth}}checked{{end}} aria-describedby="allowAPIKeyAuthHelpBlock">
+                                    <label for="idAllowAPIKeyAuth" class="form-check-label">Allow API key authentication</label>
+                                    <small id="allowAPIKeyAuthHelpBlock" class="form-text text-muted">
+                                        Allow to impersonate this user, in REST API, with an API key
+                                    </small>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="idDescription" class="col-sm-2 col-form-label">Description</label>
+                                <div class="col-sm-10">
+                                    <input type="text" class="form-control" id="idDescription" name="description" placeholder=""
+                                        value="{{.User.Description}}" maxlength="255" aria-describedby="descriptionHelpBlock">
+                                    <small id="descriptionHelpBlock" class="form-text text-muted">
+                                        Optional description, for example the user full name
+                                    </small>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="idAdditionalInfo" class="col-sm-2 col-form-label">Additional info</label>
+                                <div class="col-sm-10">
+                                    <textarea class="form-control" id="idAdditionalInfo" name="additional_info" rows="3"
+                                        aria-describedby="additionalInfoHelpBlock">{{.User.AdditionalInfo}}</textarea>
+                                    <small id="additionalInfoHelpBlock" class="form-text text-muted">
+                                        Free form text field
+                                    </small>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header" id="headingPermissions">
+                        <h2 class="mb-0">
+                            <button class="btn btn-link btn-block text-left" type="button" data-toggle="collapse"
+                                data-target="#collapsePermissions" aria-expanded="true" aria-controls="collapsePermissions">
+                                <h6 class="m-0 font-weight-bold text-primary">ACLs</h6>
+                            </button>
+                        </h2>
+                    </div>
+
+                    <div id="collapsePermissions" class="collapse" aria-labelledby="headingPermissions" data-parent="#accordionUser">
+                        <div class="card-body">
+                            <div class="form-group row">
+                                <label for="idPermissions" class="col-sm-2 col-form-label">Permissions</label>
+                                <div class="col-sm-10">
+                                    <select class="form-control" id="idPermissions" name="permissions" required multiple>
                                         {{range $validPerm := .ValidPerms}}
-                                        <option value="{{$validPerm}}">{{$validPerm}}</option>
+                                        <option value="{{$validPerm}}" {{range $perm :=$.RootDirPerms }}{{if eq $perm $validPerm}}selected{{end}}{{end}}>{{$validPerm}}</option>
                                         {{end}}
                                     </select>
                                 </div>
-                                <div class="form-group col-md-1">
-                                    <button class="btn btn-circle btn-danger remove_dirperms_btn_frm_field">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
+                            </div>
+
+                            <div class="card bg-light mb-3">
+                                <div class="card-header">
+                                    <b>Per-directory permissions</b>
+                                </div>
+                                <div class="card-body">
+                                    <div class="form-group row">
+                                        <div class="col-md-12 form_field_dirperms_outer">
+                                            {{range $idx, $dirPerms := .User.GetSubDirPermissions -}}
+                                            <div class="row form_field_dirperms_outer_row">
+                                                <div class="form-group col-md-8">
+                                                    <input type="text" class="form-control" id="idSubDirPermsPath{{$idx}}" name="sub_perm_path{{$idx}}" placeholder="directory path, i.e. /dir" value="{{$dirPerms.Path}}" maxlength="255">
+                                                </div>
+                                                <div class="form-group col-md-3">
+                                                    <select class="form-control" id="idSubDirPermissions{{$idx}}" name="sub_perm_permissions{{$idx}}" multiple>
+                                                        {{range $validPerm := $.ValidPerms}}
+                                                        <option value="{{$validPerm}}" {{range $perm := $dirPerms.Permissions }}{{if eq $perm $validPerm}}selected{{end}}{{end}}>{{$validPerm}}</option>
+                                                        {{end}}
+                                                    </select>
+                                                </div>
+                                                <div class="form-group col-md-1">
+                                                    <button class="btn btn-circle btn-danger remove_dirperms_btn_frm_field">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            {{else}}
+                                            <div class="row form_field_dirperms_outer_row">
+                                                <div class="form-group col-md-8">
+                                                    <input type="text" class="form-control" id="idSubDirPermsPath0" name="sub_perm_path0" placeholder="directory path, i.e. /dir" value="" maxlength="255">
+                                                </div>
+                                                <div class="form-group col-md-3">
+                                                    <select class="form-control" id="idSubDirPermissions0" name="sub_perm_permissions0" multiple>
+                                                        {{range $validPerm := .ValidPerms}}
+                                                        <option value="{{$validPerm}}">{{$validPerm}}</option>
+                                                        {{end}}
+                                                    </select>
+                                                </div>
+                                                <div class="form-group col-md-1">
+                                                    <button class="btn btn-circle btn-danger remove_dirperms_btn_frm_field">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            {{end}}
+                                        </div>
+                                    </div>
+
+                                    <div class="row mx-1">
+                                        <button type="button" class="btn btn-secondary add_new_dirperms_field_btn">
+                                            <i class="fas fa-plus"></i> Add new directory permissions
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
-                            {{end}}
-                        </div>
-                    </div>
 
-                    <div class="row mx-1">
-                        <button type="button" class="btn btn-secondary add_new_dirperms_field_btn">
-                            <i class="fas fa-plus"></i> Add new directory permissions
-                        </button>
-                    </div>
-                </div>
-            </div>
+                            <div class="card bg-light mb-3">
+                                <div class="card-header">
+                                    <b>Per-directory file patterns</b>
+                                </div>
+                                <div class="card-body">
+                                    <h6 class="card-title mb-4">Comma separated denied or allowed files, based on shell patterns</h6>
+                                    <div class="form-group row">
+                                        <div class="col-md-12 form_field_patterns_outer">
+                                            {{range $idx, $pattern := .User.GetFlatFilePatterns -}}
+                                            <div class="row form_field_patterns_outer_row">
+                                                <div class="form-group col-md-4">
+                                                    <input type="text" class="form-control" id="idPatternPath{{$idx}}" name="pattern_path{{$idx}}" placeholder="directory path, i.e. /dir" value="{{$pattern.Path}}" maxlength="255">
+                                                </div>
+                                                <div class="form-group col-md-5">
+                                                    <input type="text" class="form-control" id="idPatterns{{$idx}}" name="patterns{{$idx}}" placeholder="*.zip,?.txt" value="{{$pattern.GetCommaSeparatedPatterns}}" maxlength="255">
+                                                </div>
+                                                <div class="form-group col-md-2">
+                                                    <select class="form-control" id="idPatternType{{$idx}}" name="pattern_type{{$idx}}">
+                                                        <option value="denied" {{if $pattern.IsDenied}}selected{{end}}>Denied</option>
+                                                        <option value="allowed" {{if $pattern.IsAllowed}}selected{{end}}>Allowed</option>
+                                                    </select>
+                                                </div>
+                                                <div class="form-group col-md-1">
+                                                    <button class="btn btn-circle btn-danger remove_pattern_btn_frm_field">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            {{else}}
+                                            <div class="row form_field_patterns_outer_row">
+                                                <div class="form-group col-md-4">
+                                                    <input type="text" class="form-control" id="idPatternPath0" name="pattern_path0" placeholder="directory path, i.e. /dir" value="" maxlength="255">
+                                                </div>
+                                                <div class="form-group col-md-5">
+                                                    <input type="text" class="form-control" id="idPatterns0" name="patterns0" placeholder="*.zip,?.txt" value="" maxlength="255">
+                                                </div>
+                                                <div class="form-group col-md-2">
+                                                    <select class="form-control" id="idPatternType0" name="pattern_type0">
+                                                        <option value="denied">Denied</option>
+                                                        <option value="allowed">Allowed</option>
+                                                    </select>
+                                                </div>
+                                                <div class="form-group col-md-1">
+                                                    <button class="btn btn-circle btn-danger remove_pattern_btn_frm_field">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            {{end}}
+                                        </div>
+                                    </div>
 
-            <div class="form-group">
-                <div class="form-check">
-                    <input type="checkbox" class="form-check-input" id="idDisableFsChecks" name="disable_fs_checks"
-                    {{if .User.Filters.DisableFsChecks}}checked{{end}} aria-describedby="disableFsChecksHelpBlock">
-                    <label for="idDisableFsChecks" class="form-check-label">Disable filesystem checks</label>
-                    <small id="disableFsChecksHelpBlock" class="form-text text-muted">
-                        Disable checks for existence and automatic creation of home directory and virtual folders
-                    </small>
-                </div>
-            </div>
+                                    <div class="row mx-1">
+                                        <button type="button" class="btn btn-secondary add_new_pattern_field_btn">
+                                            <i class="fas fa-plus"></i> Add new file pattern
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
 
-            <div class="form-group row">
-                <label for="idUID" class="col-sm-2 col-form-label">UID</label>
-                <div class="col-sm-3">
-                    <input type="number" class="form-control" id="idUID" name="uid" placeholder="" value="{{.User.UID}}"
-                        min="0" max="2147483647">
-                </div>
-                <div class="col-sm-2"></div>
-                <label for="idGID" class="col-sm-2 col-form-label">GID</label>
-                <div class="col-sm-3">
-                    <input type="number" class="form-control" id="idGID" name="gid" placeholder="" value="{{.User.GID}}"
-                        min="0" max="2147483647">
-                </div>
-            </div>
+                            <div class="form-group row">
+                                <label for="idMaxSessions" class="col-sm-2 col-form-label">Max sessions</label>
+                                <div class="col-sm-10">
+                                    <input type="number" class="form-control" id="idMaxSessions" name="max_sessions" placeholder=""
+                                        value="{{.User.MaxSessions}}" min="0" aria-describedby="sessionsHelpBlock">
+                                    <small id="sessionsHelpBlock" class="form-text text-muted">
+                                        Maximun number of concurrent sessions. 0 means no limit
+                                    </small>
+                                </div>
+                            </div>
 
-            <div class="form-group row">
-                <label for="idQuotaSize" class="col-sm-2 col-form-label">Quota size (bytes)</label>
-                <div class="col-sm-3">
-                    <input type="number" class="form-control" id="idQuotaSize" name="quota_size" placeholder=""
-                        value="{{.User.QuotaSize}}" min="0" aria-describedby="qsHelpBlock">
-                    <small id="qsHelpBlock" class="form-text text-muted">
-                        0 means no limit
-                    </small>
-                </div>
-                <div class="col-sm-2"></div>
-                <label for="idQuotaFiles" class="col-sm-2 col-form-label">Quota files</label>
-                <div class="col-sm-3">
-                    <input type="number" class="form-control" id="idQuotaFiles" name="quota_files" placeholder=""
-                        value="{{.User.QuotaFiles}}" min="0" aria-describedby="qfHelpBlock">
-                    <small id="qfHelpBlock" class="form-text text-muted">
-                        0 means no limit
-                    </small>
-                </div>
-            </div>
+                            <div class="form-group row">
+                                <label for="idProtocols" class="col-sm-2 col-form-label">Denied protocols</label>
+                                <div class="col-sm-10">
+                                    <select class="form-control" id="idProtocols" name="denied_protocols" multiple>
+                                        {{range $protocol := .ValidProtocols}}
+                                        <option value="{{$protocol}}" {{range $p :=$.User.Filters.DeniedProtocols }}{{if eq $p $protocol}}selected{{end}}{{end}}>{{$protocol}}
+                                        </option>
+                                        {{end}}
+                                    </select>
+                                </div>
+                            </div>
 
-            <div class="form-group row">
-                <label for="idMaxUploadSize" class="col-sm-2 col-form-label">Max file upload size (bytes)</label>
-                <div class="col-sm-3">
-                    <input type="number" class="form-control" id="idMaxUploadSize" name="max_upload_file_size"
-                        placeholder="" value="{{.User.Filters.MaxUploadFileSize}}" min="0"
-                        aria-describedby="fqsHelpBlock">
-                    <small id="fqsHelpBlock" class="form-text text-muted">
-                        0 means no limit
-                    </small>
-                </div>
-                <div class="col-sm-2"></div>
-                <label for="idMaxSessions" class="col-sm-2 col-form-label">Max sessions</label>
-                <div class="col-sm-3">
-                    <input type="number" class="form-control" id="idMaxSessions" name="max_sessions" placeholder=""
-                        value="{{.User.MaxSessions}}" min="0" aria-describedby="sessionsHelpBlock">
-                    <small id="sessionsHelpBlock" class="form-text text-muted">
-                        0 means no limit
-                    </small>
-                </div>
-            </div>
+                            <div class="form-group row">
+                                <label for="idLoginMethods" class="col-sm-2 col-form-label">Denied login methods</label>
+                                <div class="col-sm-10">
+                                    <select class="form-control" id="idLoginMethods" name="ssh_login_methods" multiple>
+                                        {{range $method := .ValidLoginMethods}}
+                                        <option value="{{$method}}" {{range $m :=$.User.Filters.DeniedLoginMethods }}{{if eq $m $method}}selected{{end}}{{end}}>{{$method}}
+                                        </option>
+                                        {{end}}
+                                    </select>
+                                </div>
+                            </div>
 
-            <div class="form-group row">
-                <label for="idUploadBandwidth" class="col-sm-2 col-form-label">Bandwidth UL (KB/s)</label>
-                <div class="col-sm-3">
-                    <input type="number" class="form-control" id="idUploadBandwidth" name="upload_bandwidth"
-                        placeholder="" value="{{.User.UploadBandwidth}}" min="0" aria-describedby="ulHelpBlock">
-                    <small id="ulHelpBlock" class="form-text text-muted">
-                        0 means no limit
-                    </small>
-                </div>
-                <div class="col-sm-2"></div>
-                <label for="idDownloadBandwidth" class="col-sm-2 col-form-label">Bandwidth DL (KB/s)</label>
-                <div class="col-sm-3">
-                    <input type="number" class="form-control" id="idDownloadBandwidth" name="download_bandwidth"
-                        placeholder="" value="{{.User.DownloadBandwidth}}" min="0" aria-describedby="dlHelpBlock">
-                    <small id="dlHelpBlock" class="form-text text-muted">
-                        0 means no limit
-                    </small>
-                </div>
-            </div>
+                            <div class="form-group row">
+                                <label for="idWebClient" class="col-sm-2 col-form-label">Web client/REST API</label>
+                                <div class="col-sm-10">
+                                    <select class="form-control" id="idWebClient" name="web_client_options" multiple>
+                                        {{range $option := .WebClientOptions}}
+                                        <option value="{{$option}}" {{range $p :=$.User.Filters.WebClient }}{{if eq $p $option}}selected{{end}}{{end}}>{{$option}}
+                                        </option>
+                                        {{end}}
+                                    </select>
+                                </div>
+                            </div>
 
-            <div class="card bg-light mb-3">
-                <div class="card-header">
-                    Per-source bandwidth limits
-                </div>
-                <div class="card-body">
-                    <div class="form-group row">
-                        <div class="col-md-12 form_field_bwlimits_outer">
-                            {{range $idx, $bwLimit := .User.Filters.BandwidthLimits -}}
-                            <div class="row form_field_bwlimits_outer_row">
-                                <div class="form-group col-md-8">
-                                    <textarea class="form-control" id="idBandwidthLimitSources{{$idx}}" name="bandwidth_limit_sources{{$idx}}" rows="4" placeholder=""
-                                            aria-describedby="bwLimitSourcesHelpBlock{{$idx}}">{{$bwLimit.GetSourcesAsString}}</textarea>
-                                    <small id="bwLimitSourcesHelpBlock{{$idx}}" class="form-text text-muted">
+                            <div class="form-group row">
+                                <label for="idDeniedIP" class="col-sm-2 col-form-label">Denied IP/Mask</label>
+                                <div class="col-sm-10">
+                                    <textarea class="form-control" id="idDeniedIP" name="denied_ip" rows="3" placeholder=""
+                                        aria-describedby="deniedIPHelpBlock">{{.User.GetDeniedIPAsString}}</textarea>
+                                    <small id="deniedIPHelpBlock" class="form-text text-muted">
                                         Comma separated IP/Mask in CIDR format, for example "192.168.1.0/24,10.8.0.100/32"
                                     </small>
                                 </div>
-                                <div class="col-md-3">
-                                    <div class="form-group">
-                                        <input type="number" class="form-control" id="idUploadBandwidthSource{{$idx}}" name="upload_bandwidth_source{{$idx}}"
-                                            placeholder="" value="{{$bwLimit.UploadBandwidth}}" min="0" aria-describedby="ulHelpBlock{{$idx}}">
-                                        <small id="ulHelpBlock{{$idx}}" class="form-text text-muted">
-                                            UL (KB/s). 0 means no limit
-                                        </small>
-                                    </div>
-                                    <div class="form-group">
-                                        <input type="number" class="form-control" id="idDownloadBandwidthSource{{$idx}}" name="download_bandwidth_source{{$idx}}"
-                                            placeholder="" value="{{$bwLimit.DownloadBandwidth}}" min="0" aria-describedby="dlHelpBlock{{$idx}}">
-                                        <small id="dlHelpBlock{{$idx}}" class="form-text text-muted">
-                                            DL (KB/s). 0 means no limit
-                                        </small>
-                                    </div>
-                                </div>
-
-                                <div class="form-group col-md-1">
-                                    <button class="btn btn-circle btn-danger remove_bwlimit_btn_frm_field">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </div>
                             </div>
-                            {{else}}
-                            <div class="row form_field_bwlimits_outer_row">
-                                <div class="form-group col-md-8">
-                                    <textarea class="form-control" id="idBandwidthLimitSources0" name="bandwidth_limit_sources0" rows="4" placeholder=""
-                                            aria-describedby="bwLimitSourcesHelpBlock0"></textarea>
-                                    <small id="bwLimitSourcesHelpBlock0" class="form-text text-muted">
+
+                            <div class="form-group row">
+                                <label for="idAllowedIP" class="col-sm-2 col-form-label">Allowed IP/Mask</label>
+                                <div class="col-sm-10">
+                                    <textarea class="form-control" id="idAllowedIP" name="allowed_ip" rows="3" placeholder=""
+                                        aria-describedby="allowedIPHelpBlock">{{.User.GetAllowedIPAsString}}</textarea>
+                                    <small id="allowedIPHelpBlock" class="form-text text-muted">
                                         Comma separated IP/Mask in CIDR format, for example "192.168.1.0/24,10.8.0.100/32"
                                     </small>
                                 </div>
-                                <div class="col-md-3">
-                                    <div class="form-group">
-                                        <input type="number" class="form-control" id="idUploadBandwidthSource0" name="upload_bandwidth_source0"
-                                            placeholder="" value="" min="0" aria-describedby="ulHelpBlock0">
-                                        <small id="ulHelpBlock0" class="form-text text-muted">
-                                            UL (KB/s). 0 means no limit
-                                        </small>
-                                    </div>
-                                    <div class="form-group">
-                                        <input type="number" class="form-control" id="idDownloadBandwidthSource0" name="download_bandwidth_source0"
-                                            placeholder="" value="" min="0" aria-describedby="dlHelpBlock0">
-                                        <small id="dlHelpBlock0" class="form-text text-muted">
-                                            DL (KB/s). 0 means no limit
-                                        </small>
-                                    </div>
-                                </div>
-                                <div class="form-group col-md-1">
-                                    <button class="btn btn-circle btn-danger remove_bwlimit_btn_frm_field">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </div>
                             </div>
-                            {{end}}
+
                         </div>
                     </div>
-
-                    <div class="row mx-1">
-                        <button type="button" class="btn btn-secondary add_new_bwlimit_field_btn">
-                            <i class="fas fa-plus"></i> Add new bandwidth limit
-                        </button>
+                </div>
+                <div class="card">
+                    <div class="card-header" id="headingQuota">
+                        <h2 class="mb-0">
+                            <button class="btn btn-link btn-block text-left collapsed" type="button" data-toggle="collapse"
+                                data-target="#collapseQuota" aria-expanded="false" aria-controls="collapseQuota">
+                                <h6 class="m-0 font-weight-bold text-primary">Disk quota and bandwidth limits</h6>
+                            </button>
+                        </h2>
                     </div>
-                </div>
-            </div>
+                    <div id="collapseQuota" class="collapse" aria-labelledby="headingTwo" data-parent="#accordionUser">
+                        <div class="card-body">
 
-            <div class="form-group row">
-                <label for="idProtocols" class="col-sm-2 col-form-label">Denied protocols</label>
-                <div class="col-sm-10">
-                    <select class="form-control" id="idProtocols" name="denied_protocols" multiple>
-                        {{range $protocol := .ValidProtocols}}
-                        <option value="{{$protocol}}" {{range $p :=$.User.Filters.DeniedProtocols }}{{if eq $p $protocol}}selected{{end}}{{end}}>{{$protocol}}
-                        </option>
-                        {{end}}
-                    </select>
-                </div>
-            </div>
-
-            <div class="form-group row">
-                <label for="idLoginMethods" class="col-sm-2 col-form-label">Denied login methods</label>
-                <div class="col-sm-10">
-                    <select class="form-control" id="idLoginMethods" name="ssh_login_methods" multiple>
-                        {{range $method := .ValidLoginMethods}}
-                        <option value="{{$method}}" {{range $m :=$.User.Filters.DeniedLoginMethods }}{{if eq $m $method}}selected{{end}}{{end}}>{{$method}}
-                        </option>
-                        {{end}}
-                    </select>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <div class="form-check">
-                    <input type="checkbox" class="form-check-input" id="idAllowAPIKeyAuth" name="allow_api_key_auth"
-                    {{if .User.Filters.AllowAPIKeyAuth}}checked{{end}} aria-describedby="allowAPIKeyAuthHelpBlock">
-                    <label for="idAllowAPIKeyAuth" class="form-check-label">Allow API key authentication</label>
-                    <small id="allowAPIKeyAuthHelpBlock" class="form-text text-muted">
-                        Allow to impersonate this user, in REST API, with an API key
-                    </small>
-                </div>
-            </div>
-
-            <div class="form-group row">
-                <label for="idDeniedIP" class="col-sm-2 col-form-label">Denied IP/Mask</label>
-                <div class="col-sm-10">
-                    <textarea class="form-control" id="idDeniedIP" name="denied_ip" rows="3" placeholder=""
-                        aria-describedby="deniedIPHelpBlock">{{.User.GetDeniedIPAsString}}</textarea>
-                    <small id="deniedIPHelpBlock" class="form-text text-muted">
-                        Comma separated IP/Mask in CIDR format, for example "192.168.1.0/24,10.8.0.100/32"
-                    </small>
-                </div>
-            </div>
-
-            <div class="form-group row">
-                <label for="idAllowedIP" class="col-sm-2 col-form-label">Allowed IP/Mask</label>
-                <div class="col-sm-10">
-                    <textarea class="form-control" id="idAllowedIP" name="allowed_ip" rows="3" placeholder=""
-                        aria-describedby="allowedIPHelpBlock">{{.User.GetAllowedIPAsString}}</textarea>
-                    <small id="allowedIPHelpBlock" class="form-text text-muted">
-                        Comma separated IP/Mask in CIDR format, for example "192.168.1.0/24,10.8.0.100/32"
-                    </small>
-                </div>
-            </div>
-
-            <div class="card bg-light mb-3">
-                <div class="card-header">
-                    Per-directory file patterns
-                </div>
-                <div class="card-body">
-                    <h6 class="card-title mb-4">Comma separated denied or allowed files, based on shell patterns</h6>
-                    <div class="form-group row">
-                        <div class="col-md-12 form_field_patterns_outer">
-                            {{range $idx, $pattern := .User.GetFlatFilePatterns -}}
-                            <div class="row form_field_patterns_outer_row">
-                                <div class="form-group col-md-4">
-                                    <input type="text" class="form-control" id="idPatternPath{{$idx}}" name="pattern_path{{$idx}}" placeholder="directory path, i.e. /dir" value="{{$pattern.Path}}" maxlength="255">
+                            <div class="form-group row">
+                                <label for="idQuotaSize" class="col-sm-2 col-form-label">Quota size (bytes)</label>
+                                <div class="col-sm-3">
+                                    <input type="number" class="form-control" id="idQuotaSize" name="quota_size" placeholder=""
+                                        value="{{.User.QuotaSize}}" min="0" aria-describedby="qsHelpBlock">
+                                    <small id="qsHelpBlock" class="form-text text-muted">
+                                        0 means no limit
+                                    </small>
                                 </div>
-                                <div class="form-group col-md-5">
-                                    <input type="text" class="form-control" id="idPatterns{{$idx}}" name="patterns{{$idx}}" placeholder="*.zip,?.txt" value="{{$pattern.GetCommaSeparatedPatterns}}" maxlength="255">
-                                </div>
-                                <div class="form-group col-md-2">
-                                    <select class="form-control" id="idPatternType{{$idx}}" name="pattern_type{{$idx}}">
-                                        <option value="denied" {{if $pattern.IsDenied}}selected{{end}}>Denied</option>
-                                        <option value="allowed" {{if $pattern.IsAllowed}}selected{{end}}>Allowed</option>
-                                    </select>
-                                </div>
-                                <div class="form-group col-md-1">
-                                    <button class="btn btn-circle btn-danger remove_pattern_btn_frm_field">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
+                                <div class="col-sm-2"></div>
+                                <label for="idQuotaFiles" class="col-sm-2 col-form-label">Quota files</label>
+                                <div class="col-sm-3">
+                                    <input type="number" class="form-control" id="idQuotaFiles" name="quota_files" placeholder=""
+                                        value="{{.User.QuotaFiles}}" min="0" aria-describedby="qfHelpBlock">
+                                    <small id="qfHelpBlock" class="form-text text-muted">
+                                        0 means no limit
+                                    </small>
                                 </div>
                             </div>
-                            {{else}}
-                            <div class="row form_field_patterns_outer_row">
-                                <div class="form-group col-md-4">
-                                    <input type="text" class="form-control" id="idPatternPath0" name="pattern_path0" placeholder="directory path, i.e. /dir" value="" maxlength="255">
-                                </div>
-                                <div class="form-group col-md-5">
-                                    <input type="text" class="form-control" id="idPatterns0" name="patterns0" placeholder="*.zip,?.txt" value="" maxlength="255">
-                                </div>
-                                <div class="form-group col-md-2">
-                                    <select class="form-control" id="idPatternType0" name="pattern_type0">
-                                        <option value="denied">Denied</option>
-                                        <option value="allowed">Allowed</option>
-                                    </select>
-                                </div>
-                                <div class="form-group col-md-1">
-                                    <button class="btn btn-circle btn-danger remove_pattern_btn_frm_field">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
+
+                            <div class="form-group row">
+                                <label for="idMaxUploadSize" class="col-sm-2 col-form-label">Max file upload size (bytes)</label>
+                                <div class="col-sm-10">
+                                    <input type="number" class="form-control" id="idMaxUploadSize" name="max_upload_file_size"
+                                        placeholder="" value="{{.User.Filters.MaxUploadFileSize}}" min="0"
+                                        aria-describedby="fqsHelpBlock">
+                                    <small id="fqsHelpBlock" class="form-text text-muted">
+                                        Maximum upload size for a single file. 0 means no limit
+                                    </small>
                                 </div>
                             </div>
-                            {{end}}
+
+                            <div class="form-group row">
+                                <label for="idUploadBandwidth" class="col-sm-2 col-form-label">Bandwidth UL (KB/s)</label>
+                                <div class="col-sm-3">
+                                    <input type="number" class="form-control" id="idUploadBandwidth" name="upload_bandwidth"
+                                        placeholder="" value="{{.User.UploadBandwidth}}" min="0" aria-describedby="ulHelpBlock">
+                                    <small id="ulHelpBlock" class="form-text text-muted">
+                                        0 means no limit
+                                    </small>
+                                </div>
+                                <div class="col-sm-2"></div>
+                                <label for="idDownloadBandwidth" class="col-sm-2 col-form-label">Bandwidth DL (KB/s)</label>
+                                <div class="col-sm-3">
+                                    <input type="number" class="form-control" id="idDownloadBandwidth" name="download_bandwidth"
+                                        placeholder="" value="{{.User.DownloadBandwidth}}" min="0" aria-describedby="dlHelpBlock">
+                                    <small id="dlHelpBlock" class="form-text text-muted">
+                                        0 means no limit
+                                    </small>
+                                </div>
+                            </div>
+
+                            <div class="card bg-light mb-3">
+                                <div class="card-header">
+                                    <b>Per-source bandwidth limits</b>
+                                </div>
+                                <div class="card-body">
+                                    <div class="form-group row">
+                                        <div class="col-md-12 form_field_bwlimits_outer">
+                                            {{range $idx, $bwLimit := .User.Filters.BandwidthLimits -}}
+                                            <div class="row form_field_bwlimits_outer_row">
+                                                <div class="form-group col-md-8">
+                                                    <textarea class="form-control" id="idBandwidthLimitSources{{$idx}}" name="bandwidth_limit_sources{{$idx}}" rows="4" placeholder=""
+                                                            aria-describedby="bwLimitSourcesHelpBlock{{$idx}}">{{$bwLimit.GetSourcesAsString}}</textarea>
+                                                    <small id="bwLimitSourcesHelpBlock{{$idx}}" class="form-text text-muted">
+                                                        Comma separated IP/Mask in CIDR format, for example "192.168.1.0/24,10.8.0.100/32"
+                                                    </small>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <div class="form-group">
+                                                        <input type="number" class="form-control" id="idUploadBandwidthSource{{$idx}}" name="upload_bandwidth_source{{$idx}}"
+                                                            placeholder="" value="{{$bwLimit.UploadBandwidth}}" min="0" aria-describedby="ulHelpBlock{{$idx}}">
+                                                        <small id="ulHelpBlock{{$idx}}" class="form-text text-muted">
+                                                            UL (KB/s). 0 means no limit
+                                                        </small>
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <input type="number" class="form-control" id="idDownloadBandwidthSource{{$idx}}" name="download_bandwidth_source{{$idx}}"
+                                                            placeholder="" value="{{$bwLimit.DownloadBandwidth}}" min="0" aria-describedby="dlHelpBlock{{$idx}}">
+                                                        <small id="dlHelpBlock{{$idx}}" class="form-text text-muted">
+                                                            DL (KB/s). 0 means no limit
+                                                        </small>
+                                                    </div>
+                                                </div>
+
+                                                <div class="form-group col-md-1">
+                                                    <button class="btn btn-circle btn-danger remove_bwlimit_btn_frm_field">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            {{else}}
+                                            <div class="row form_field_bwlimits_outer_row">
+                                                <div class="form-group col-md-8">
+                                                    <textarea class="form-control" id="idBandwidthLimitSources0" name="bandwidth_limit_sources0" rows="4" placeholder=""
+                                                            aria-describedby="bwLimitSourcesHelpBlock0"></textarea>
+                                                    <small id="bwLimitSourcesHelpBlock0" class="form-text text-muted">
+                                                        Comma separated IP/Mask in CIDR format, for example "192.168.1.0/24,10.8.0.100/32"
+                                                    </small>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <div class="form-group">
+                                                        <input type="number" class="form-control" id="idUploadBandwidthSource0" name="upload_bandwidth_source0"
+                                                            placeholder="" value="" min="0" aria-describedby="ulHelpBlock0">
+                                                        <small id="ulHelpBlock0" class="form-text text-muted">
+                                                            UL (KB/s). 0 means no limit
+                                                        </small>
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <input type="number" class="form-control" id="idDownloadBandwidthSource0" name="download_bandwidth_source0"
+                                                            placeholder="" value="" min="0" aria-describedby="dlHelpBlock0">
+                                                        <small id="dlHelpBlock0" class="form-text text-muted">
+                                                            DL (KB/s). 0 means no limit
+                                                        </small>
+                                                    </div>
+                                                </div>
+                                                <div class="form-group col-md-1">
+                                                    <button class="btn btn-circle btn-danger remove_bwlimit_btn_frm_field">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            {{end}}
+                                        </div>
+                                    </div>
+
+                                    <div class="row mx-1">
+                                        <button type="button" class="btn btn-secondary add_new_bwlimit_field_btn">
+                                            <i class="fas fa-plus"></i> Add new bandwidth limit
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
                         </div>
                     </div>
+                </div>
 
-                    <div class="row mx-1">
-                        <button type="button" class="btn btn-secondary add_new_pattern_field_btn">
-                            <i class="fas fa-plus"></i> Add new file pattern
-                        </button>
+                <div class="card">
+                    <div class="card-header" id="headingAdvanced">
+                        <h2 class="mb-0">
+                            <button class="btn btn-link btn-block text-left collapsed" type="button" data-toggle="collapse"
+                                data-target="#collapseAdvanced" aria-expanded="false" aria-controls="collapseAdvanced">
+                                <h6 class="m-0 font-weight-bold text-primary">More</h6>
+                            </button>
+                        </h2>
+                    </div>
+                    <div id="collapseAdvanced" class="collapse" aria-labelledby="headingTwo" data-parent="#accordionUser">
+                        <div class="card-body">
+
+                            <div class="form-group row">
+                                <label for="idTLSUsername" class="col-sm-2 col-form-label">TLS username</label>
+                                <div class="col-sm-10">
+                                    <select class="form-control" id="idTLSUsername" name="tls_username" aria-describedby="tlsUsernameHelpBlock">
+                                        <option value="None" {{if eq .User.Filters.TLSUsername "None" }}selected{{end}}>None</option>
+                                        <option value="CommonName" {{if eq .User.Filters.TLSUsername "CommonName" }}selected{{end}}>Common Name</option>
+                                    </select>
+                                    <small id="tlsUsernameHelpBlock" class="form-text text-muted">
+                                        Defines the TLS certificate field to use as username. Ignored if mutual TLS is disabled
+                                    </small>
+                                </div>
+                            </div>
+
+                            <div class="form-group row {{if not .CanImpersonate}}d-none{{end}}">
+                                <label for="idUID" class="col-sm-2 col-form-label">UID</label>
+                                <div class="col-sm-3">
+                                    <input type="number" class="form-control" id="idUID" name="uid" placeholder="" value="{{.User.UID}}"
+                                        min="0" max="2147483647">
+                                </div>
+                                <div class="col-sm-2"></div>
+                                <label for="idGID" class="col-sm-2 col-form-label">GID</label>
+                                <div class="col-sm-3">
+                                    <input type="number" class="form-control" id="idGID" name="gid" placeholder="" value="{{.User.GID}}"
+                                        min="0" max="2147483647">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" id="idDisableFsChecks" name="disable_fs_checks"
+                                    {{if .User.Filters.DisableFsChecks}}checked{{end}} aria-describedby="disableFsChecksHelpBlock">
+                                    <label for="idDisableFsChecks" class="form-check-label">Disable filesystem checks</label>
+                                    <small id="disableFsChecksHelpBlock" class="form-text text-muted">
+                                        Disable checks for existence and automatic creation of home directory and virtual folders
+                                    </small>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="idHooks" class="col-sm-2 col-form-label">Hooks</label>
+                                <div class="col-sm-10">
+                                    <select class="form-control" id="idHooks" name="hooks" multiple>
+                                        <option value="external_auth_disabled" {{if .User.Filters.Hooks.ExternalAuthDisabled}}selected{{end}}>
+                                            External auth disabled
+                                        </option>
+                                        <option value="pre_login_disabled" {{if .User.Filters.Hooks.PreLoginDisabled}}selected{{end}}>
+                                            Pre-login disabled
+                                        </option>
+                                        <option value="check_password_disabled" {{if .User.Filters.Hooks.CheckPasswordDisabled}}selected{{end}}>
+                                            Check password disabled
+                                        </option>
+                                    </select>
+                                </div>
+                            </div>
+
+                        </div>
                     </div>
                 </div>
             </div>
-
-            <div class="form-group row">
-                <label for="idWebClient" class="col-sm-2 col-form-label">Web client/REST API</label>
-                <div class="col-sm-10">
-                    <select class="form-control" id="idWebClient" name="web_client_options" multiple>
-                        {{range $option := .WebClientOptions}}
-                        <option value="{{$option}}" {{range $p :=$.User.Filters.WebClient }}{{if eq $p $option}}selected{{end}}{{end}}>{{$option}}
-                        </option>
-                        {{end}}
-                    </select>
-                </div>
-            </div>
-
-            <div class="form-group row">
-                <label for="idHooks" class="col-sm-2 col-form-label">Hooks</label>
-                <div class="col-sm-10">
-                    <select class="form-control" id="idHooks" name="hooks" multiple>
-                        <option value="external_auth_disabled" {{if .User.Filters.Hooks.ExternalAuthDisabled}}selected{{end}}>
-                            External auth disabled
-                        </option>
-                        <option value="pre_login_disabled" {{if .User.Filters.Hooks.PreLoginDisabled}}selected{{end}}>
-                            Pre-login disabled
-                        </option>
-                        <option value="check_password_disabled" {{if .User.Filters.Hooks.CheckPasswordDisabled}}selected{{end}}>
-                            Check password disabled
-                        </option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="form-group row">
-                <label for="idAdditionalInfo" class="col-sm-2 col-form-label">Additional info</label>
-                <div class="col-sm-10">
-                    <textarea class="form-control" id="idAdditionalInfo" name="additional_info" rows="3"
-                        aria-describedby="additionalInfoHelpBlock">{{.User.AdditionalInfo}}</textarea>
-                    <small id="additionalInfoHelpBlock" class="form-text text-muted">
-                        Free form text field
-                    </small>
-                </div>
-            </div>
+            <br>
 
             {{if eq .Mode 2}}
             <div class="form-group">
@@ -704,7 +764,9 @@
 <script src="{{.StaticURL}}/vendor/tempusdominus/js/tempusdominus-bootstrap-4.min.js"></script>
 <script type="text/javascript">
     $(document).ready(function () {
-
+        {{if .Error}}
+        $('#accordionUser .collapse').removeAttr("data-parent").collapse('show');
+        {{end}}
         $('#expirationDatePicker').datetimepicker({
             format: 'YYYY-MM-DD',
             buttons: {
