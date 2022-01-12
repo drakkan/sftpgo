@@ -153,21 +153,10 @@
             enabled: false
         };
 
-        $.fn.dataTable.ext.buttons.clone = {
-            text: '<i class="fas fa-clone"></i>',
-            name: 'clone',
-            titleAttr: "Clone",
-            action: function (e, dt, node, config) {
-                var username = dt.row({ selected: true }).data()[1];
-                var path = '{{.UserURL}}' + "?clone-from=" + encodeURIComponent(username);
-                window.location.href = path;
-            },
-            enabled: false
-        };
-
         $.fn.dataTable.ext.buttons.template = {
-            text: 'Template',
+            text: '<i class="fas fa-clone"></i>',
             name: 'template',
+            titleAttr: "Template",
             action: function (e, dt, node, config) {
                 var selectedRows = table.rows({ selected: true }).count();
                 if (selectedRows == 1){
@@ -277,16 +266,12 @@
         table.button().add(0,'quota_scan');
         {{end}}
 
-        {{if .LoggedAdmin.HasPermission "manage_system"}}
-        table.button().add(0,'template');
-        {{end}}
-
         {{if .LoggedAdmin.HasPermission "del_users"}}
         table.button().add(0,'delete');
         {{end}}
 
         {{if .LoggedAdmin.HasPermission "add_users"}}
-        table.button().add(0,'clone');
+        table.button().add(0,'template');
         {{end}}
 
         {{if .LoggedAdmin.HasPermission "edit_users"}}
@@ -303,9 +288,6 @@
             var selectedRows = table.rows({ selected: true }).count();
             {{if .LoggedAdmin.HasPermission "edit_users"}}
             table.button('edit:name').enable(selectedRows == 1);
-            {{end}}
-            {{if .LoggedAdmin.HasPermission "add_users"}}
-            table.button('clone:name').enable(selectedRows == 1);
             {{end}}
             {{if .LoggedAdmin.HasPermission "del_users"}}
             table.button('delete:name').enable(selectedRows == 1);

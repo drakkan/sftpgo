@@ -27,6 +27,17 @@ type Filesystem struct {
 	SFTPConfig     SFTPFsConfig           `json:"sftpconfig,omitempty"`
 }
 
+// SetEmptySecrets sets the secrets to empty
+func (f *Filesystem) SetEmptySecrets() {
+	f.S3Config.AccessSecret = kms.NewEmptySecret()
+	f.GCSConfig.Credentials = kms.NewEmptySecret()
+	f.AzBlobConfig.AccountKey = kms.NewEmptySecret()
+	f.AzBlobConfig.SASURL = kms.NewEmptySecret()
+	f.CryptConfig.Passphrase = kms.NewEmptySecret()
+	f.SFTPConfig.Password = kms.NewEmptySecret()
+	f.SFTPConfig.PrivateKey = kms.NewEmptySecret()
+}
+
 // SetEmptySecretsIfNil sets the secrets to empty if nil
 func (f *Filesystem) SetEmptySecretsIfNil() {
 	if f.S3Config.AccessSecret == nil {
