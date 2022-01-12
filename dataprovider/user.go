@@ -344,16 +344,10 @@ func (u *User) IsTLSUsernameVerificationEnabled() bool {
 
 // SetEmptySecrets sets to empty any user secret
 func (u *User) SetEmptySecrets() {
-	u.FsConfig.S3Config.AccessSecret = kms.NewEmptySecret()
-	u.FsConfig.GCSConfig.Credentials = kms.NewEmptySecret()
-	u.FsConfig.AzBlobConfig.AccountKey = kms.NewEmptySecret()
-	u.FsConfig.AzBlobConfig.SASURL = kms.NewEmptySecret()
-	u.FsConfig.CryptConfig.Passphrase = kms.NewEmptySecret()
-	u.FsConfig.SFTPConfig.Password = kms.NewEmptySecret()
-	u.FsConfig.SFTPConfig.PrivateKey = kms.NewEmptySecret()
+	u.FsConfig.SetEmptySecrets()
 	for idx := range u.VirtualFolders {
 		folder := &u.VirtualFolders[idx]
-		folder.FsConfig.SetEmptySecretsIfNil()
+		folder.FsConfig.SetEmptySecrets()
 	}
 	u.Filters.TOTPConfig.Secret = kms.NewEmptySecret()
 }
@@ -572,6 +566,9 @@ func (u *User) AddVirtualDirs(list []os.FileInfo, virtualPath string) []os.FileI
 	for index := range list {
 		for dir := range vdirs {
 			if list[index].Name() == dir {
+				if !list[index].IsDir() {
+					list[index] = vfs.NewFileInfo(dir, true, 0, time.Now(), false)
+				}
 				delete(vdirs, dir)
 			}
 		}

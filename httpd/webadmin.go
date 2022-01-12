@@ -1544,7 +1544,7 @@ func handleWebUpdateAdminPost(w http.ResponseWriter, r *http.Request) {
 	updatedAdmin.Filters.RecoveryCodes = admin.Filters.RecoveryCodes
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		renderAddUpdateAdminPage(w, r, &updatedAdmin, fmt.Sprintf("Invalid token claims: %v", err), false)
+		renderAddUpdateAdminPage(w, r, &updatedAdmin, "Invalid token claims", false)
 		return
 	}
 	if username == claims.Username {
@@ -1610,6 +1610,7 @@ func handleWebTemplateFolderGet(w http.ResponseWriter, r *http.Request) {
 		name := r.URL.Query().Get("from")
 		folder, err := dataprovider.GetFolderByName(name)
 		if err == nil {
+			folder.FsConfig.SetEmptySecrets()
 			renderFolderPage(w, r, folder, folderPageModeTemplate, "")
 		} else if _, ok := err.(*util.RecordNotFoundError); ok {
 			renderNotFoundPage(w, r, err)
@@ -1624,8 +1625,13 @@ func handleWebTemplateFolderGet(w http.ResponseWriter, r *http.Request) {
 
 func handleWebTemplateFolderPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		return
+	}
 	templateFolder := vfs.BaseVirtualFolder{}
-	err := r.ParseMultipartForm(maxRequestSize)
+	err = r.ParseMultipartForm(maxRequestSize)
 	if err != nil {
 		renderMessagePage(w, r, "Error parsing folders fields", "", http.StatusBadRequest, err, "")
 		return
@@ -1653,19 +1659,30 @@ func handleWebTemplateFolderPost(w http.ResponseWriter, r *http.Request) {
 	for _, tmpl := range foldersFields {
 		f := getFolderFromTemplate(templateFolder, tmpl)
 		if err := dataprovider.ValidateFolder(&f); err != nil {
-			renderMessagePage(w, r, fmt.Sprintf("Error validating folder %#v", f.Name), "", http.StatusBadRequest, err, "")
+			renderMessagePage(w, r, "Folder validation error", fmt.Sprintf("Error validating folder %#v", f.Name),
+				http.StatusBadRequest, err, "")
 			return
 		}
 		dump.Folders = append(dump.Folders, f)
 	}
 
 	if len(dump.Folders) == 0 {
-		renderMessagePage(w, r, "No folders to export", "No valid folders found, export is not possible", http.StatusBadRequest, nil, "")
+		renderMessagePage(w, r, "No folders defined", "No valid folders defined, unable to complete the requested action",
+			http.StatusBadRequest, nil, "")
 		return
 	}
-
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"sftpgo-%v-folders-from-template.json\"", len(dump.Folders)))
-	render.JSON(w, r, dump)
+	if r.Form.Get("form_action") == "export_from_template" {
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"sftpgo-%v-folders-from-template.json\"",
+			len(dump.Folders)))
+		render.JSON(w, r, dump)
+		return
+	}
+	if err = RestoreFolders(dump.Folders, "", 1, 0, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr)); err != nil {
+		renderMessagePage(w, r, "Unable to save folders", "Cannot save the defined folders:",
+			getRespStatus(err), err, "")
+		return
+	}
+	http.Redirect(w, r, webFoldersPath, http.StatusSeeOther)
 }
 
 func handleWebTemplateUserGet(w http.ResponseWriter, r *http.Request) {
@@ -1675,6 +1692,7 @@ func handleWebTemplateUserGet(w http.ResponseWriter, r *http.Request) {
 		user, err := dataprovider.UserExists(username)
 		if err == nil {
 			user.SetEmptySecrets()
+			user.PublicKeys = nil
 			user.Email = ""
 			user.Description = ""
 			renderUserPage(w, r, &user, userPageModeTemplate, "")
@@ -1684,13 +1702,23 @@ func handleWebTemplateUserGet(w http.ResponseWriter, r *http.Request) {
 			renderInternalServerErrorPage(w, r, err)
 		}
 	} else {
-		user := dataprovider.User{BaseUser: sdk.BaseUser{Status: 1}}
+		user := dataprovider.User{BaseUser: sdk.BaseUser{
+			Status: 1,
+			Permissions: map[string][]string{
+				"/": {dataprovider.PermAny},
+			},
+		}}
 		renderUserPage(w, r, &user, userPageModeTemplate, "")
 	}
 }
 
 func handleWebTemplateUserPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		return
+	}
 	templateUser, err := getUserFromPostFields(r)
 	if err != nil {
 		renderMessagePage(w, r, "Error parsing user fields", "", http.StatusBadRequest, err, "")
@@ -1708,7 +1736,8 @@ func handleWebTemplateUserPost(w http.ResponseWriter, r *http.Request) {
 	for _, tmpl := range userTmplFields {
 		u := getUserFromTemplate(templateUser, tmpl)
 		if err := dataprovider.ValidateUser(&u); err != nil {
-			renderMessagePage(w, r, fmt.Sprintf("Error validating user %#v", u.Username), "", http.StatusBadRequest, err, "")
+			renderMessagePage(w, r, "User validation error", fmt.Sprintf("Error validating user %#v", u.Username),
+				http.StatusBadRequest, err, "")
 			return
 		}
 		dump.Users = append(dump.Users, u)
@@ -1720,40 +1749,33 @@ func handleWebTemplateUserPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(dump.Users) == 0 {
-		renderMessagePage(w, r, "No users to export", "No valid users found, export is not possible", http.StatusBadRequest, nil, "")
+		renderMessagePage(w, r, "No users defined", "No valid users defined, unable to complete the requested action",
+			http.StatusBadRequest, nil, "")
 		return
 	}
-
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"sftpgo-%v-users-from-template.json\"", len(dump.Users)))
-	render.JSON(w, r, dump)
+	if r.Form.Get("form_action") == "export_from_template" {
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"sftpgo-%v-users-from-template.json\"",
+			len(dump.Users)))
+		render.JSON(w, r, dump)
+		return
+	}
+	if err = RestoreUsers(dump.Users, "", 1, 0, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr)); err != nil {
+		renderMessagePage(w, r, "Unable to save users", "Cannot save the defined users:",
+			getRespStatus(err), err, "")
+		return
+	}
+	http.Redirect(w, r, webUsersPath, http.StatusSeeOther)
 }
 
 func handleWebAddUserGet(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	if r.URL.Query().Get("clone-from") != "" {
-		username := r.URL.Query().Get("clone-from")
-		user, err := dataprovider.UserExists(username)
-		if err == nil {
-			user.ID = 0
-			user.Username = ""
-			user.Password = ""
-			user.PublicKeys = nil
-			user.SetEmptySecrets()
-			renderUserPage(w, r, &user, userPageModeAdd, "")
-		} else if _, ok := err.(*util.RecordNotFoundError); ok {
-			renderNotFoundPage(w, r, err)
-		} else {
-			renderInternalServerErrorPage(w, r, err)
-		}
-	} else {
-		user := dataprovider.User{BaseUser: sdk.BaseUser{
-			Status: 1,
-			Permissions: map[string][]string{
-				"/": {dataprovider.PermAny},
-			},
-		}}
-		renderUserPage(w, r, &user, userPageModeAdd, "")
-	}
+	user := dataprovider.User{BaseUser: sdk.BaseUser{
+		Status: 1,
+		Permissions: map[string][]string{
+			"/": {dataprovider.PermAny},
+		},
+	}}
+	renderUserPage(w, r, &user, userPageModeAdd, "")
 }
 
 func handleWebUpdateUserGet(w http.ResponseWriter, r *http.Request) {

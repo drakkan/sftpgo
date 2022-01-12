@@ -16,7 +16,7 @@
         {{if eq .Mode 3}}
         <div class="card mb-4 border-left-info">
             <div class="card-body">
-                Generate a data provider independent JSON file to create new folders or update existing ones.
+                Create and save one or more new folders or generate a data provider independent JSON file to import.
                 <br>
                 The following placeholder is supported:
                 <br><br>
@@ -31,7 +31,7 @@
             {{if eq .Mode 3}}
             <div class="card bg-light mb-3">
                 <div class="card-header">
-                   Folders
+                   <b>Folders</b>
                 </div>
                 <div class="card-body">
                     <div class="form-group row">
@@ -80,7 +80,12 @@
             {{template "fshtml" .FsWrapper}}
 
             <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
-            <button type="submit" class="btn btn-primary float-right mt-3 px-5 px-3">{{if eq .Mode 3}}Generate and export folders{{else}}Submit{{end}}</button>
+            <div class="col-sm-12 text-right px-0">
+                {{if eq .Mode 3}}
+                <button type="submit" class="btn btn-secondary mt-3 px-5" name="form_action" value="export_from_template">Generate and export folders</button>
+                {{end}}
+                <button type="submit" class="btn btn-primary mt-3 ml-3 px-5" name="form_action" value="submit">{{if eq .Mode 3}}Generate and save new folders{{else}}Submit{{end}}</button>
+            </div>
         </form>
     </div>
 </div>
