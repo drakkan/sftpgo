@@ -193,7 +193,7 @@ func (p *notifierPlugin) canQueueEvent(timestamp int64) bool {
 	if p.config.NotifierOptions.RetryMaxTime == 0 {
 		return false
 	}
-	if time.Now().After(time.Unix(0, timestamp).Add(time.Duration(p.config.NotifierOptions.RetryMaxTime) * time.Second)) {
+	if time.Now().After(util.GetTimeFromMsecSinceEpoch(timestamp).Add(time.Duration(p.config.NotifierOptions.RetryMaxTime) * time.Second)) {
 		return false
 	}
 	if p.config.NotifierOptions.RetryQueueMaxSize > 0 {
