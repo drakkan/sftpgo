@@ -39,7 +39,7 @@ After creating the admin account you will be automatically logged in.
 
 ![Users list](./img/initial-screen.png)
 
-The the web admin is now available at the following URL:
+The web admin is now available at the following URL:
 
 [http://127.0.0.1:8080/web/admin](http://127.0.0.1:8080/web/admin)
 
