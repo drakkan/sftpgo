@@ -17,6 +17,11 @@ KillMode=mixed
 PrivateTmp=true
 Restart=always
 RestartSec=10s
+NoNewPrivileges=yes
+PrivateDevices=yes
+DevicePolicy=closed
+ProtectSystem=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 
 [Install]
 WantedBy=multi-user.target
