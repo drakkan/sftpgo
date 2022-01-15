@@ -854,10 +854,32 @@ func (u *User) getPatternsFilterForPath(virtualPath string) sdk.PatternsFilter {
 	return filter
 }
 
+func (u *User) isDirHidden(virtualPath string) bool {
+	if len(u.Filters.FilePatterns) == 0 {
+		return false
+	}
+	for _, dirPath := range util.GetDirsForVirtualPath(virtualPath) {
+		if dirPath == "/" {
+			return false
+		}
+		filter := u.getPatternsFilterForPath(dirPath)
+		if filter.DenyPolicy == sdk.DenyPolicyHide {
+			if !filter.CheckAllowed(path.Base(dirPath)) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // IsFileAllowed returns true if the specified file is allowed by the file restrictions filters.
 // The second parameter returned is the deny policy
 func (u *User) IsFileAllowed(virtualPath string) (bool, int) {
-	filter := u.getPatternsFilterForPath(path.Dir(virtualPath))
+	dirPath := path.Dir(virtualPath)
+	if u.isDirHidden(dirPath) {
+		return false, sdk.DenyPolicyHide
+	}
+	filter := u.getPatternsFilterForPath(dirPath)
 	return filter.CheckAllowed(path.Base(virtualPath)), filter.DenyPolicy
 }
 

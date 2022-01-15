@@ -496,15 +496,19 @@ func TestHiddenPatternFilter(t *testing.T) {
 	assert.NoError(t, err)
 
 	dirName := "beta"
+	subDirName := "testDir"
 	testFile := filepath.Join(u.GetHomeDir(), deniedDir, "file.txt")
 	testFile1 := filepath.Join(u.GetHomeDir(), deniedDir, "beta.txt")
+	testHiddenFile := filepath.Join(u.GetHomeDir(), deniedDir, dirName, subDirName, "hidden.jpg")
 	err = os.MkdirAll(filepath.Join(u.GetHomeDir(), deniedDir), os.ModePerm)
 	assert.NoError(t, err)
 	err = os.WriteFile(testFile, testFileContent, os.ModePerm)
 	assert.NoError(t, err)
 	err = os.WriteFile(testFile1, testFileContent, os.ModePerm)
 	assert.NoError(t, err)
-	err = os.MkdirAll(filepath.Join(u.GetHomeDir(), deniedDir, dirName), os.ModePerm)
+	err = os.MkdirAll(filepath.Join(u.GetHomeDir(), deniedDir, dirName, subDirName), os.ModePerm)
+	assert.NoError(t, err)
+	err = os.WriteFile(testHiddenFile, testFileContent, os.ModePerm)
 	assert.NoError(t, err)
 
 	conn, client, err := getSftpClient(user)
@@ -529,6 +533,10 @@ func TestHiddenPatternFilter(t *testing.T) {
 		assert.ErrorIs(t, err, os.ErrPermission)
 		err = writeSFTPFile(path.Join(deniedDir, "afile.txt"), 1024, client)
 		assert.ErrorIs(t, err, os.ErrPermission)
+		err = writeSFTPFile(path.Join(deniedDir, dirName, subDirName, "afile.jpg"), 1024, client)
+		assert.ErrorIs(t, err, os.ErrPermission)
+		_, err = client.Open(path.Join(deniedDir, dirName, subDirName, filepath.Base(testHiddenFile)))
+		assert.ErrorIs(t, err, os.ErrNotExist)
 		err = client.Symlink(path.Join(deniedDir, dirName), dirName)
 		assert.ErrorIs(t, err, os.ErrNotExist)
 		err = writeSFTPFile(path.Join(deniedDir, testFileName), 1024, client)
@@ -568,6 +576,12 @@ func TestHiddenPatternFilter(t *testing.T) {
 		assert.ErrorIs(t, err, os.ErrPermission)
 		err = client.Symlink(path.Join(deniedDir, testFileName), path.Join(deniedDir, "link.txt"))
 		assert.ErrorIs(t, err, os.ErrPermission)
+		err = writeSFTPFile(path.Join(deniedDir, dirName, subDirName, "afile.jpg"), 1024, client)
+		assert.NoError(t, err)
+		f, err := client.Open(path.Join(deniedDir, dirName, subDirName, filepath.Base(testHiddenFile)))
+		assert.NoError(t, err)
+		err = f.Close()
+		assert.NoError(t, err)
 	}
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
