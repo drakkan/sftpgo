@@ -385,24 +385,31 @@
 
                             <div class="card bg-light mb-3">
                                 <div class="card-header">
-                                    <b>Per-directory file patterns</b>
+                                    <b>Per-directory pattern restrictions</b>
                                 </div>
                                 <div class="card-body">
-                                    <h6 class="card-title mb-4">Comma separated denied or allowed files, based on shell patterns</h6>
+                                    <h6 class="card-title mb-4">Comma separated denied or allowed files/directories, based on shell patterns.</h6>
+                                    <p class="card-text">Denied entries are visible in directory listing by default, you can hide them by setting the "Hidden" policy, but please be aware that this may cause performance issues for large directories</p>
                                     <div class="form-group row">
                                         <div class="col-md-12 form_field_patterns_outer">
                                             {{range $idx, $pattern := .User.GetFlatFilePatterns -}}
                                             <div class="row form_field_patterns_outer_row">
-                                                <div class="form-group col-md-4">
+                                                <div class="form-group col-md-3">
                                                     <input type="text" class="form-control" id="idPatternPath{{$idx}}" name="pattern_path{{$idx}}" placeholder="directory path, i.e. /dir" value="{{$pattern.Path}}" maxlength="255">
                                                 </div>
-                                                <div class="form-group col-md-5">
+                                                <div class="form-group col-md-4">
                                                     <input type="text" class="form-control" id="idPatterns{{$idx}}" name="patterns{{$idx}}" placeholder="*.zip,?.txt" value="{{$pattern.GetCommaSeparatedPatterns}}" maxlength="255">
                                                 </div>
                                                 <div class="form-group col-md-2">
                                                     <select class="form-control" id="idPatternType{{$idx}}" name="pattern_type{{$idx}}">
                                                         <option value="denied" {{if $pattern.IsDenied}}selected{{end}}>Denied</option>
                                                         <option value="allowed" {{if $pattern.IsAllowed}}selected{{end}}>Allowed</option>
+                                                    </select>
+                                                </div>
+                                                <div class="form-group col-md-2">
+                                                    <select class="form-control" id="idPatternPolicy{{$idx}}" name="pattern_policy{{$idx}}">
+                                                        <option value="0" {{if eq $pattern.DenyPolicy 0}}selected{{end}}>Visible</option>
+                                                        <option value="1" {{if eq $pattern.DenyPolicy 1}}selected{{end}}>Hidden</option>
                                                     </select>
                                                 </div>
                                                 <div class="form-group col-md-1">
@@ -413,16 +420,22 @@
                                             </div>
                                             {{else}}
                                             <div class="row form_field_patterns_outer_row">
-                                                <div class="form-group col-md-4">
+                                                <div class="form-group col-md-3">
                                                     <input type="text" class="form-control" id="idPatternPath0" name="pattern_path0" placeholder="directory path, i.e. /dir" value="" maxlength="255">
                                                 </div>
-                                                <div class="form-group col-md-5">
+                                                <div class="form-group col-md-4">
                                                     <input type="text" class="form-control" id="idPatterns0" name="patterns0" placeholder="*.zip,?.txt" value="" maxlength="255">
                                                 </div>
                                                 <div class="form-group col-md-2">
                                                     <select class="form-control" id="idPatternType0" name="pattern_type0">
                                                         <option value="denied">Denied</option>
                                                         <option value="allowed">Allowed</option>
+                                                    </select>
+                                                </div>
+                                                <div class="form-group col-md-2">
+                                                    <select class="form-control" id="idPatternPolicy0" name="pattern_policy0">
+                                                        <option value="0">Visible</option>
+                                                        <option value="1">Hidden</option>
                                                     </select>
                                                 </div>
                                                 <div class="form-group col-md-1">
@@ -956,16 +969,22 @@
             }
             $(".form_field_patterns_outer").append(`
                     <div class="row form_field_patterns_outer_row">
-                        <div class="form-group col-md-4">
+                        <div class="form-group col-md-3">
                             <input type="text" class="form-control" id="idPatternPath${index}" name="pattern_path${index}" placeholder="directory path, i.e. /dir" value="" maxlength="255">
                         </div>
-                        <div class="form-group col-md-5">
+                        <div class="form-group col-md-4">
                             <input type="text" class="form-control" id="idPatterns${index}" name="patterns${index}" placeholder="*.zip,?.txt" value="" maxlength="255">
                         </div>
                         <div class="form-group col-md-2">
                             <select class="form-control" id="idPatternType${index}" name="pattern_type${index}">
                                 <option value="denied">Denied</option>
                                 <option value="allowed">Allowed</option>
+                            </select>
+                        </div>
+                        <div class="form-group col-md-2">
+                            <select class="form-control" id="idPatternPolicy${index}" name="pattern_policy${index}">
+                                <option value="0">Visible</option>
+                                <option value="1">Hidden</option>
                             </select>
                         </div>
                         <div class="form-group col-md-1">

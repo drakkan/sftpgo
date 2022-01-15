@@ -549,36 +549,55 @@ func (u *User) GetVirtualFoldersInPath(virtualPath string) map[string]bool {
 	return result
 }
 
-// AddVirtualDirs adds virtual folders, if defined, to the given files list
-func (u *User) AddVirtualDirs(list []os.FileInfo, virtualPath string) []os.FileInfo {
-	if len(u.VirtualFolders) == 0 {
-		return list
+// FilterListDir adds virtual folders and remove hidden items from the given files list
+func (u *User) FilterListDir(dirContents []os.FileInfo, virtualPath string) []os.FileInfo {
+	filter := u.getPatternsFilterForPath(virtualPath)
+	if len(u.VirtualFolders) == 0 && filter.DenyPolicy != sdk.DenyPolicyHide {
+		return dirContents
 	}
 
 	vdirs := make(map[string]bool)
 	for dir := range u.GetVirtualFoldersInPath(virtualPath) {
-		vdirs[path.Base(dir)] = true
-	}
-	if len(vdirs) == 0 {
-		return list
+		dirName := path.Base(dir)
+		if filter.DenyPolicy == sdk.DenyPolicyHide {
+			if !filter.CheckAllowed(dirName) {
+				continue
+			}
+		}
+		vdirs[dirName] = true
 	}
 
-	for index := range list {
+	validIdx := 0
+	for index, fi := range dirContents {
 		for dir := range vdirs {
-			if list[index].Name() == dir {
-				if !list[index].IsDir() {
-					list[index] = vfs.NewFileInfo(dir, true, 0, time.Now(), false)
+			if fi.Name() == dir {
+				if !fi.IsDir() {
+					fi = vfs.NewFileInfo(dir, true, 0, time.Now(), false)
+					dirContents[index] = fi
 				}
 				delete(vdirs, dir)
 			}
 		}
+		if filter.DenyPolicy == sdk.DenyPolicyHide {
+			if filter.CheckAllowed(fi.Name()) {
+				dirContents[validIdx] = fi
+				validIdx++
+			}
+		}
+	}
+
+	if filter.DenyPolicy == sdk.DenyPolicyHide {
+		for idx := validIdx; idx < len(dirContents); idx++ {
+			dirContents[idx] = nil
+		}
+		dirContents = dirContents[:validIdx]
 	}
 
 	for dir := range vdirs {
 		fi := vfs.NewFileInfo(dir, true, 0, time.Now(), false)
-		list = append(list, fi)
+		dirContents = append(dirContents, fi)
 	}
-	return list
+	return dirContents
 }
 
 // IsMappedPath returns true if the specified filesystem path has a virtual folder mapping.
@@ -801,29 +820,26 @@ func (u *User) GetFlatFilePatterns() []sdk.PatternsFilter {
 			result = append(result, sdk.PatternsFilter{
 				Path:            pattern.Path,
 				AllowedPatterns: pattern.AllowedPatterns,
+				DenyPolicy:      pattern.DenyPolicy,
 			})
 		}
 		if len(pattern.DeniedPatterns) > 0 {
 			result = append(result, sdk.PatternsFilter{
 				Path:           pattern.Path,
 				DeniedPatterns: pattern.DeniedPatterns,
+				DenyPolicy:     pattern.DenyPolicy,
 			})
 		}
 	}
 	return result
 }
 
-// IsFileAllowed returns true if the specified file is allowed by the file restrictions filters
-func (u *User) IsFileAllowed(virtualPath string) bool {
-	return u.isFilePatternAllowed(virtualPath)
-}
-
-func (u *User) isFilePatternAllowed(virtualPath string) bool {
-	if len(u.Filters.FilePatterns) == 0 {
-		return true
-	}
-	dirsForPath := util.GetDirsForVirtualPath(path.Dir(virtualPath))
+func (u *User) getPatternsFilterForPath(virtualPath string) sdk.PatternsFilter {
 	var filter sdk.PatternsFilter
+	if len(u.Filters.FilePatterns) == 0 {
+		return filter
+	}
+	dirsForPath := util.GetDirsForVirtualPath(virtualPath)
 	for _, dir := range dirsForPath {
 		for _, f := range u.Filters.FilePatterns {
 			if f.Path == dir {
@@ -835,23 +851,14 @@ func (u *User) isFilePatternAllowed(virtualPath string) bool {
 			break
 		}
 	}
-	if filter.Path != "" {
-		toMatch := strings.ToLower(path.Base(virtualPath))
-		for _, denied := range filter.DeniedPatterns {
-			matched, err := path.Match(denied, toMatch)
-			if err != nil || matched {
-				return false
-			}
-		}
-		for _, allowed := range filter.AllowedPatterns {
-			matched, err := path.Match(allowed, toMatch)
-			if err == nil && matched {
-				return true
-			}
-		}
-		return len(filter.AllowedPatterns) == 0
-	}
-	return true
+	return filter
+}
+
+// IsFileAllowed returns true if the specified file is allowed by the file restrictions filters.
+// The second parameter returned is the deny policy
+func (u *User) IsFileAllowed(virtualPath string) (bool, int) {
+	filter := u.getPatternsFilterForPath(path.Dir(virtualPath))
+	return filter.CheckAllowed(path.Base(virtualPath)), filter.DenyPolicy
 }
 
 // CanManageMFA returns true if the user can add a multi-factor authentication configuration

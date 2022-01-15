@@ -62,7 +62,7 @@ func (c *Connection) Mkdir(ctx context.Context, name string, perm os.FileMode) e
 	c.UpdateLastActivity()
 
 	name = util.CleanPath(name)
-	return c.CreateDir(name)
+	return c.CreateDir(name, true)
 }
 
 // Rename renames a file or a directory
@@ -85,7 +85,7 @@ func (c *Connection) Stat(ctx context.Context, name string) (os.FileInfo, error)
 		return nil, c.GetPermissionDeniedError()
 	}
 
-	fi, err := c.DoStat(name, 0)
+	fi, err := c.DoStat(name, 0, true)
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +156,7 @@ func (c *Connection) getFile(fs vfs.Fs, fsPath, virtualPath string) (webdav.File
 }
 
 func (c *Connection) putFile(fs vfs.Fs, fsPath, virtualPath string) (webdav.File, error) {
-	if !c.User.IsFileAllowed(virtualPath) {
+	if ok, _ := c.User.IsFileAllowed(virtualPath); !ok {
 		c.Log(logger.LevelWarn, "writing file %#v is not allowed", virtualPath)
 		return nil, c.GetPermissionDeniedError()
 	}

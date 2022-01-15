@@ -66,7 +66,7 @@ func (c *Connection) Stat(name string, mode int) (os.FileInfo, error) {
 		return nil, c.GetPermissionDeniedError()
 	}
 
-	fi, err := c.DoStat(name, mode)
+	fi, err := c.DoStat(name, mode, true)
 	if err != nil {
 		return nil, err
 	}
@@ -89,9 +89,9 @@ func (c *Connection) getFileReader(name string, offset int64, method string) (io
 		return nil, c.GetPermissionDeniedError()
 	}
 
-	if !c.User.IsFileAllowed(name) {
+	if ok, policy := c.User.IsFileAllowed(name); !ok {
 		c.Log(logger.LevelWarn, "reading file %#v is not allowed", name)
-		return nil, c.GetPermissionDeniedError()
+		return nil, c.GetErrorForDeniedFile(policy)
 	}
 
 	fs, p, err := c.GetFsAndResolvedPath(name)
@@ -120,7 +120,7 @@ func (c *Connection) getFileReader(name string, offset int64, method string) (io
 func (c *Connection) getFileWriter(name string) (io.WriteCloser, error) {
 	c.UpdateLastActivity()
 
-	if !c.User.IsFileAllowed(name) {
+	if ok, _ := c.User.IsFileAllowed(name); !ok {
 		c.Log(logger.LevelWarn, "writing file %#v is not allowed", name)
 		return nil, c.GetPermissionDeniedError()
 	}

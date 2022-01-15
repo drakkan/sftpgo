@@ -148,7 +148,7 @@ func (c *scpCommand) handleCreateDir(fs vfs.Fs, dirPath string) error {
 		return common.ErrPermissionDenied
 	}
 
-	info, err := c.connection.DoStat(dirPath, 1)
+	info, err := c.connection.DoStat(dirPath, 1, true)
 	if err == nil && info.IsDir() {
 		return nil
 	}
@@ -276,9 +276,9 @@ func (c *scpCommand) handleUpload(uploadFilePath string, sizeToRead int64) error
 		return err
 	}
 
-	if !c.connection.User.IsFileAllowed(uploadFilePath) {
+	if ok, _ := c.connection.User.IsFileAllowed(uploadFilePath); !ok {
 		c.connection.Log(logger.LevelWarn, "writing file %#v is not allowed", uploadFilePath)
-		c.sendErrorMessage(fs, common.ErrPermissionDenied)
+		c.sendErrorMessage(fs, c.connection.GetPermissionDeniedError())
 		return common.ErrPermissionDenied
 	}
 
@@ -372,7 +372,7 @@ func (c *scpCommand) handleRecursiveDownload(fs vfs.Fs, dirPath, virtualPath str
 			c.sendErrorMessage(fs, err)
 			return err
 		}
-		files = c.connection.User.AddVirtualDirs(files, fs.GetRelativePath(dirPath))
+		files = c.connection.User.FilterListDir(files, fs.GetRelativePath(dirPath))
 		var dirs []string
 		for _, file := range files {
 			filePath := fs.GetRelativePath(fs.Join(dirPath, file.Name()))
@@ -509,9 +509,9 @@ func (c *scpCommand) handleDownload(filePath string) error {
 		return common.ErrPermissionDenied
 	}
 
-	if !c.connection.User.IsFileAllowed(filePath) {
+	if ok, policy := c.connection.User.IsFileAllowed(filePath); !ok {
 		c.connection.Log(logger.LevelWarn, "reading file %#v is not allowed", filePath)
-		c.sendErrorMessage(fs, common.ErrPermissionDenied)
+		c.sendErrorMessage(fs, c.connection.GetErrorForDeniedFile(policy))
 		return common.ErrPermissionDenied
 	}
 

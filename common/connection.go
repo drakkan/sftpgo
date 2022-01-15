@@ -242,7 +242,7 @@ func (c *BaseConnection) ListDir(virtualPath string) ([]os.FileInfo, error) {
 		c.Log(logger.LevelDebug, "error listing directory: %+v", err)
 		return nil, c.GetFsError(fs, err)
 	}
-	return c.User.AddVirtualDirs(files, virtualPath), nil
+	return c.User.FilterListDir(files, virtualPath), nil
 }
 
 // CheckParentDirs tries to create the specified directory and any missing parent dirs
@@ -254,7 +254,7 @@ func (c *BaseConnection) CheckParentDirs(virtualPath string) error {
 	if fs.HasVirtualFolders() {
 		return nil
 	}
-	if _, err := c.DoStat(virtualPath, 0); !c.IsNotExistError(err) {
+	if _, err := c.DoStat(virtualPath, 0, false); !c.IsNotExistError(err) {
 		return err
 	}
 	dirs := util.GetDirsForVirtualPath(virtualPath)
@@ -275,9 +275,14 @@ func (c *BaseConnection) CheckParentDirs(virtualPath string) error {
 }
 
 // CreateDir creates a new directory at the specified fsPath
-func (c *BaseConnection) CreateDir(virtualPath string) error {
+func (c *BaseConnection) CreateDir(virtualPath string, checkFilePatterns bool) error {
 	if !c.User.HasPerm(dataprovider.PermCreateDirs, path.Dir(virtualPath)) {
 		return c.GetPermissionDeniedError()
+	}
+	if checkFilePatterns {
+		if ok, _ := c.User.IsFileAllowed(virtualPath); !ok {
+			return c.GetPermissionDeniedError()
+		}
 	}
 	if c.User.IsVirtualFolder(virtualPath) {
 		c.Log(logger.LevelWarn, "mkdir not allowed %#v is a virtual folder", virtualPath)
@@ -304,9 +309,9 @@ func (c *BaseConnection) IsRemoveFileAllowed(virtualPath string) error {
 	if !c.User.HasAnyPerm([]string{dataprovider.PermDeleteFiles, dataprovider.PermDelete}, path.Dir(virtualPath)) {
 		return c.GetPermissionDeniedError()
 	}
-	if !c.User.IsFileAllowed(virtualPath) {
+	if ok, policy := c.User.IsFileAllowed(virtualPath); !ok {
 		c.Log(logger.LevelDebug, "removing file %#v is not allowed", virtualPath)
-		return c.GetPermissionDeniedError()
+		return c.GetErrorForDeniedFile(policy)
 	}
 	return nil
 }
@@ -367,6 +372,10 @@ func (c *BaseConnection) IsRemoveDirAllowed(fs vfs.Fs, fsPath, virtualPath strin
 	}
 	if !c.User.HasAnyPerm([]string{dataprovider.PermDeleteDirs, dataprovider.PermDelete}, path.Dir(virtualPath)) {
 		return c.GetPermissionDeniedError()
+	}
+	if ok, policy := c.User.IsFileAllowed(virtualPath); !ok {
+		c.Log(logger.LevelDebug, "removing directory %#v is not allowed", virtualPath)
+		return c.GetErrorForDeniedFile(policy)
 	}
 	return nil
 }
@@ -488,14 +497,23 @@ func (c *BaseConnection) CreateSymlink(virtualSourcePath, virtualTargetPath stri
 		return c.GetFsError(fs, err)
 	}
 	if fs.GetRelativePath(fsSourcePath) == "/" {
-		c.Log(logger.LevelWarn, "symlinking root dir is not allowed")
+		c.Log(logger.LevelError, "symlinking root dir is not allowed")
 		return c.GetPermissionDeniedError()
 	}
 	if fs.GetRelativePath(fsTargetPath) == "/" {
-		c.Log(logger.LevelWarn, "symlinking to root dir is not allowed")
+		c.Log(logger.LevelError, "symlinking to root dir is not allowed")
 		return c.GetPermissionDeniedError()
 	}
 	if !c.User.HasPerm(dataprovider.PermCreateSymlinks, path.Dir(virtualTargetPath)) {
+		return c.GetPermissionDeniedError()
+	}
+	ok, policy := c.User.IsFileAllowed(virtualSourcePath)
+	if !ok && policy == sdk.DenyPolicyHide {
+		c.Log(logger.LevelError, "symlink source path %#v is not allowed", virtualSourcePath)
+		return c.GetNotExistError()
+	}
+	if ok, _ = c.User.IsFileAllowed(virtualTargetPath); !ok {
+		c.Log(logger.LevelError, "symlink target path %#v is not allowed", virtualTargetPath)
 		return c.GetPermissionDeniedError()
 	}
 	if err := fs.Symlink(fsSourcePath, fsTargetPath); err != nil {
@@ -518,12 +536,18 @@ func (c *BaseConnection) getPathForSetStatPerms(fs vfs.Fs, fsPath, virtualPath s
 }
 
 // DoStat execute a Stat if mode = 0, Lstat if mode = 1
-func (c *BaseConnection) DoStat(virtualPath string, mode int) (os.FileInfo, error) {
+func (c *BaseConnection) DoStat(virtualPath string, mode int, checkFilePatterns bool) (os.FileInfo, error) {
 	// for some vfs we don't create intermediary folders so we cannot simply check
 	// if virtualPath is a virtual folder
 	vfolders := c.User.GetVirtualFoldersInPath(path.Dir(virtualPath))
 	if _, ok := vfolders[virtualPath]; ok {
 		return vfs.NewFileInfo(virtualPath, true, 0, time.Now(), false), nil
+	}
+	if checkFilePatterns {
+		ok, policy := c.User.IsFileAllowed(virtualPath)
+		if !ok && policy == sdk.DenyPolicyHide {
+			return nil, c.GetNotExistError()
+		}
 	}
 
 	var info os.FileInfo
@@ -549,9 +573,9 @@ func (c *BaseConnection) DoStat(virtualPath string, mode int) (os.FileInfo, erro
 }
 
 func (c *BaseConnection) createDirIfMissing(name string) error {
-	_, err := c.DoStat(name, 0)
+	_, err := c.DoStat(name, 0, false)
 	if c.IsNotExistError(err) {
-		return c.CreateDir(name)
+		return c.CreateDir(name, false)
 	}
 	return err
 }
@@ -625,6 +649,9 @@ func (c *BaseConnection) handleChtimes(fs vfs.Fs, fsPath, pathForPerms string, a
 
 // SetStat set StatAttributes for the specified fsPath
 func (c *BaseConnection) SetStat(virtualPath string, attributes *StatAttributes) error {
+	if ok, policy := c.User.IsFileAllowed(virtualPath); !ok {
+		return c.GetErrorForDeniedFile(policy)
+	}
 	fs, fsPath, err := c.GetFsAndResolvedPath(virtualPath)
 	if err != nil {
 		return err
@@ -799,12 +826,12 @@ func (c *BaseConnection) isRenamePermitted(fsSrc, fsDst vfs.Fs, fsSourcePath, fs
 		c.Log(logger.LevelWarn, "renaming a virtual folder is not allowed")
 		return false
 	}
-	if !c.User.IsFileAllowed(virtualSourcePath) || !c.User.IsFileAllowed(virtualTargetPath) {
-		if fi != nil && fi.Mode().IsRegular() {
-			c.Log(logger.LevelDebug, "renaming file is not allowed, source: %#v target: %#v",
-				virtualSourcePath, virtualTargetPath)
-			return false
-		}
+	isSrcAllowed, _ := c.User.IsFileAllowed(virtualSourcePath)
+	isDstAllowed, _ := c.User.IsFileAllowed(virtualTargetPath)
+	if !isSrcAllowed || !isDstAllowed {
+		c.Log(logger.LevelDebug, "renaming source: %#v to target: %#v not allowed", virtualSourcePath,
+			virtualTargetPath)
+		return false
 	}
 	return c.hasRenamePerms(virtualSourcePath, virtualTargetPath, fi)
 }
@@ -1138,6 +1165,16 @@ func (c *BaseConnection) IsNotExistError(err error) bool {
 		return errors.Is(err, os.ErrNotExist)
 	default:
 		return errors.Is(err, ErrNotExist)
+	}
+}
+
+// GetErrorForDeniedFile return permission denied or not exist error based on the specified policy
+func (c *BaseConnection) GetErrorForDeniedFile(policy int) error {
+	switch policy {
+	case sdk.DenyPolicyHide:
+		return c.GetNotExistError()
+	default:
+		return c.GetPermissionDeniedError()
 	}
 }
 

@@ -161,7 +161,7 @@ func (c *sshCommand) handleSFTPGoCopy() error {
 			return c.sendErrorResponse(err)
 		}
 	} else if fi.Mode().IsRegular() {
-		if !c.connection.User.IsFileAllowed(sshDestPath) {
+		if ok, _ := c.connection.User.IsFileAllowed(sshDestPath); !ok {
 			err := errors.New("unsupported copy destination: this file is not allowed")
 			return c.sendErrorResponse(err)
 		}
@@ -282,9 +282,9 @@ func (c *sshCommand) handleHashCommands() error {
 		response = fmt.Sprintf("%x  -\n", h.Sum(nil))
 	} else {
 		sshPath := c.getDestPath()
-		if !c.connection.User.IsFileAllowed(sshPath) {
+		if ok, policy := c.connection.User.IsFileAllowed(sshPath); !ok {
 			c.connection.Log(logger.LevelInfo, "hash not allowed for file %#v", sshPath)
-			return c.sendErrorResponse(c.connection.GetPermissionDeniedError())
+			return c.sendErrorResponse(c.connection.GetErrorForDeniedFile(policy))
 		}
 		fs, fsPath, err := c.connection.GetFsAndResolvedPath(sshPath)
 		if err != nil {

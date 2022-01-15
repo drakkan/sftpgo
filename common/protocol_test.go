@@ -482,6 +482,100 @@ func TestPermissionErrors(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestHiddenPatternFilter(t *testing.T) {
+	deniedDir := "/denied_hidden"
+	u := getTestUser()
+	u.Filters.FilePatterns = []sdk.PatternsFilter{
+		{
+			Path:           deniedDir,
+			DeniedPatterns: []string{"*.txt", "beta*"},
+			DenyPolicy:     sdk.DenyPolicyHide,
+		},
+	}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	dirName := "beta"
+	testFile := filepath.Join(u.GetHomeDir(), deniedDir, "file.txt")
+	testFile1 := filepath.Join(u.GetHomeDir(), deniedDir, "beta.txt")
+	err = os.MkdirAll(filepath.Join(u.GetHomeDir(), deniedDir), os.ModePerm)
+	assert.NoError(t, err)
+	err = os.WriteFile(testFile, testFileContent, os.ModePerm)
+	assert.NoError(t, err)
+	err = os.WriteFile(testFile1, testFileContent, os.ModePerm)
+	assert.NoError(t, err)
+	err = os.MkdirAll(filepath.Join(u.GetHomeDir(), deniedDir, dirName), os.ModePerm)
+	assert.NoError(t, err)
+
+	conn, client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		files, err := client.ReadDir(deniedDir)
+		assert.NoError(t, err)
+		assert.Len(t, files, 0)
+		err = client.Remove(path.Join(deniedDir, filepath.Base(testFile)))
+		assert.ErrorIs(t, err, os.ErrNotExist)
+		err = client.Chtimes(path.Join(deniedDir, filepath.Base(testFile)), time.Now(), time.Now())
+		assert.ErrorIs(t, err, os.ErrNotExist)
+		_, err = client.Stat(path.Join(deniedDir, filepath.Base(testFile1)))
+		assert.ErrorIs(t, err, os.ErrNotExist)
+		err = client.RemoveDirectory(path.Join(deniedDir, dirName))
+		assert.ErrorIs(t, err, os.ErrNotExist)
+		err = client.Rename(path.Join(deniedDir, dirName), path.Join(deniedDir, "newname"))
+		assert.ErrorIs(t, err, os.ErrPermission)
+		err = client.Mkdir(path.Join(deniedDir, "beta1"))
+		assert.ErrorIs(t, err, os.ErrPermission)
+		err = writeSFTPFile(path.Join(deniedDir, "afile.txt"), 1024, client)
+		assert.ErrorIs(t, err, os.ErrPermission)
+		err = client.Symlink(path.Join(deniedDir, dirName), dirName)
+		assert.ErrorIs(t, err, os.ErrNotExist)
+		err = writeSFTPFile(path.Join(deniedDir, testFileName), 1024, client)
+		assert.NoError(t, err)
+		err = client.Symlink(path.Join(deniedDir, testFileName), path.Join(deniedDir, "symlink.txt"))
+		assert.ErrorIs(t, err, os.ErrPermission)
+		files, err = client.ReadDir(deniedDir)
+		assert.NoError(t, err)
+		assert.Len(t, files, 1)
+	}
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	u.Filters.FilePatterns = []sdk.PatternsFilter{
+		{
+			Path:           deniedDir,
+			DeniedPatterns: []string{"*.txt", "beta*"},
+			DenyPolicy:     sdk.DenyPolicyDefault,
+		},
+	}
+	user, _, err = httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	conn, client, err = getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		files, err := client.ReadDir(deniedDir)
+		assert.NoError(t, err)
+		assert.Len(t, files, 4)
+		_, err = client.Stat(path.Join(deniedDir, filepath.Base(testFile)))
+		assert.NoError(t, err)
+		err = client.Chtimes(path.Join(deniedDir, filepath.Base(testFile)), time.Now(), time.Now())
+		assert.ErrorIs(t, err, os.ErrPermission)
+		err = client.Mkdir(path.Join(deniedDir, "beta2"))
+		assert.ErrorIs(t, err, os.ErrPermission)
+		err = writeSFTPFile(path.Join(deniedDir, "afile2.txt"), 1024, client)
+		assert.ErrorIs(t, err, os.ErrPermission)
+		err = client.Symlink(path.Join(deniedDir, testFileName), path.Join(deniedDir, "link.txt"))
+		assert.ErrorIs(t, err, os.ErrPermission)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestFileNotAllowedErrors(t *testing.T) {
 	deniedDir := "/denied"
 	u := getTestUser()
@@ -503,9 +597,7 @@ func TestFileNotAllowedErrors(t *testing.T) {
 		err = os.WriteFile(testFile, testFileContent, os.ModePerm)
 		assert.NoError(t, err)
 		err = client.Remove(path.Join(deniedDir, "file.txt"))
-		// the sftp client will try to remove the path as directory after receiving
-		// a permission denied error, so we get a generic failure here
-		assert.Error(t, err)
+		assert.ErrorIs(t, err, os.ErrPermission)
 		err = client.Rename(path.Join(deniedDir, "file.txt"), path.Join(deniedDir, "file1.txt"))
 		assert.ErrorIs(t, err, os.ErrPermission)
 	}
@@ -1946,8 +2038,9 @@ func TestDirs(t *testing.T) {
 		defer client.Close()
 		info, err := client.ReadDir("/")
 		if assert.NoError(t, err) {
-			assert.Len(t, info, 1)
-			assert.Equal(t, "path", info[0].Name())
+			if assert.Len(t, info, 1) {
+				assert.Equal(t, "path", info[0].Name())
+			}
 		}
 		fi, err := client.Stat(path.Dir(vdirPath))
 		if assert.NoError(t, err) {
@@ -2061,7 +2154,7 @@ func TestResolvePathError(t *testing.T) {
 	testPath := "apath"
 	_, err := conn.ListDir(testPath)
 	assert.Error(t, err)
-	err = conn.CreateDir(testPath)
+	err = conn.CreateDir(testPath, true)
 	assert.Error(t, err)
 	err = conn.RemoveDir(testPath)
 	assert.Error(t, err)
@@ -2069,7 +2162,7 @@ func TestResolvePathError(t *testing.T) {
 	assert.Error(t, err)
 	err = conn.CreateSymlink(testPath, testPath+".sym")
 	assert.Error(t, err)
-	_, err = conn.DoStat(testPath, 0)
+	_, err = conn.DoStat(testPath, 0, false)
 	assert.Error(t, err)
 	err = conn.SetStat(testPath, &common.StatAttributes{
 		Atime: time.Now(),

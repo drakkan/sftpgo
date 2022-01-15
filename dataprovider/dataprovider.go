@@ -1691,6 +1691,9 @@ func validateFiltersPatternExtensions(user *User) error {
 		if len(f.AllowedPatterns) == 0 && len(f.DeniedPatterns) == 0 {
 			return util.NewValidationError(fmt.Sprintf("empty file patterns filter for path %#v", f.Path))
 		}
+		if f.DenyPolicy < sdk.DenyPolicyDefault || f.DenyPolicy > sdk.DenyPolicyHide {
+			return util.NewValidationError(fmt.Sprintf("invalid deny policy %v for path %#v", f.DenyPolicy, f.Path))
+		}
 		f.Path = cleanedPath
 		allowed := make([]string, 0, len(f.AllowedPatterns))
 		denied := make([]string, 0, len(f.DeniedPatterns))
@@ -1708,8 +1711,8 @@ func validateFiltersPatternExtensions(user *User) error {
 			}
 			denied = append(denied, strings.ToLower(pattern))
 		}
-		f.AllowedPatterns = allowed
-		f.DeniedPatterns = denied
+		f.AllowedPatterns = util.RemoveDuplicates(allowed)
+		f.DeniedPatterns = util.RemoveDuplicates(denied)
 		filters = append(filters, f)
 		filteredPaths = append(filteredPaths, cleanedPath)
 	}

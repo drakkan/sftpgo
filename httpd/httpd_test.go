@@ -1482,6 +1482,15 @@ func TestAddUserInvalidFilters(t *testing.T) {
 	}
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
+	u.Filters.FilePatterns = []sdk.PatternsFilter{
+		{
+			Path:            "/subdir",
+			AllowedPatterns: []string{"*.*"},
+			DenyPolicy:      100,
+		},
+	}
+	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err)
 	u.Filters.DeniedProtocols = []string{"invalid"}
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
@@ -2087,6 +2096,7 @@ func TestUpdateUser(t *testing.T) {
 		Path:            "/subdir",
 		AllowedPatterns: []string{"*.zip", "*.rar"},
 		DeniedPatterns:  []string{"*.jpg", "*.png"},
+		DenyPolicy:      sdk.DenyPolicyHide,
 	})
 	user.Filters.MaxUploadFileSize = 4096
 	user.UploadBandwidth = 1024
@@ -13061,6 +13071,7 @@ func TestWebUserAddMock(t *testing.T) {
 	form.Set("pattern_path0", "/dir2")
 	form.Set("patterns0", "*.jpg,*.png")
 	form.Set("pattern_type0", "allowed")
+	form.Set("pattern_policy0", "1")
 	form.Set("pattern_path1", "/dir1")
 	form.Set("patterns1", "*.png")
 	form.Set("pattern_type1", "allowed")
@@ -13294,23 +13305,25 @@ func TestWebUserAddMock(t *testing.T) {
 	}
 	assert.Len(t, newUser.Filters.FilePatterns, 3)
 	for _, filter := range newUser.Filters.FilePatterns {
-		if filter.Path == "/dir1" {
+		switch filter.Path {
+		case "/dir1":
 			assert.Len(t, filter.DeniedPatterns, 1)
 			assert.Len(t, filter.AllowedPatterns, 1)
 			assert.True(t, util.IsStringInSlice("*.png", filter.AllowedPatterns))
 			assert.True(t, util.IsStringInSlice("*.zip", filter.DeniedPatterns))
-		}
-		if filter.Path == "/dir2" {
+			assert.Equal(t, sdk.DenyPolicyDefault, filter.DenyPolicy)
+		case "/dir2":
 			assert.Len(t, filter.DeniedPatterns, 1)
 			assert.Len(t, filter.AllowedPatterns, 2)
 			assert.True(t, util.IsStringInSlice("*.jpg", filter.AllowedPatterns))
 			assert.True(t, util.IsStringInSlice("*.png", filter.AllowedPatterns))
 			assert.True(t, util.IsStringInSlice("*.mkv", filter.DeniedPatterns))
-		}
-		if filter.Path == "/dir3" {
+			assert.Equal(t, sdk.DenyPolicyHide, filter.DenyPolicy)
+		case "/dir3":
 			assert.Len(t, filter.DeniedPatterns, 1)
 			assert.Len(t, filter.AllowedPatterns, 0)
 			assert.True(t, util.IsStringInSlice("*.rar", filter.DeniedPatterns))
+			assert.Equal(t, sdk.DenyPolicyDefault, filter.DenyPolicy)
 		}
 	}
 	if assert.Len(t, newUser.Filters.BandwidthLimits, 2) {
@@ -14140,9 +14153,11 @@ func TestWebUserS3Mock(t *testing.T) {
 	form.Set("pattern_path0", "/dir1")
 	form.Set("patterns0", "*.jpg,*.png")
 	form.Set("pattern_type0", "allowed")
+	form.Set("pattern_policy0", "0")
 	form.Set("pattern_path1", "/dir2")
 	form.Set("patterns1", "*.zip")
 	form.Set("pattern_type1", "denied")
+	form.Set("pattern_policy1", "1")
 	form.Set("max_upload_file_size", "0")
 	form.Set("s3_force_path_style", "checked")
 	form.Set("description", user.Description)
@@ -14221,7 +14236,16 @@ func TestWebUserS3Mock(t *testing.T) {
 	assert.Equal(t, updateUser.FsConfig.S3Config.DownloadPartSize, user.FsConfig.S3Config.DownloadPartSize)
 	assert.Equal(t, updateUser.FsConfig.S3Config.DownloadConcurrency, user.FsConfig.S3Config.DownloadConcurrency)
 	assert.True(t, updateUser.FsConfig.S3Config.ForcePathStyle)
-	assert.Equal(t, 2, len(updateUser.Filters.FilePatterns))
+	if assert.Equal(t, 2, len(updateUser.Filters.FilePatterns)) {
+		for _, filter := range updateUser.Filters.FilePatterns {
+			switch filter.Path {
+			case "/dir1":
+				assert.Equal(t, sdk.DenyPolicyDefault, filter.DenyPolicy)
+			case "/dir2":
+				assert.Equal(t, sdk.DenyPolicyHide, filter.DenyPolicy)
+			}
+		}
+	}
 	assert.Equal(t, sdkkms.SecretStatusSecretBox, updateUser.FsConfig.S3Config.AccessSecret.GetStatus())
 	assert.NotEmpty(t, updateUser.FsConfig.S3Config.AccessSecret.GetPayload())
 	assert.Empty(t, updateUser.FsConfig.S3Config.AccessSecret.GetKey())

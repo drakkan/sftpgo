@@ -63,9 +63,9 @@ func (c *Connection) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 		return nil, sftp.ErrSSHFxPermissionDenied
 	}
 
-	if !c.User.IsFileAllowed(request.Filepath) {
+	if ok, policy := c.User.IsFileAllowed(request.Filepath); !ok {
 		c.Log(logger.LevelWarn, "reading file %#v is not allowed", request.Filepath)
-		return nil, sftp.ErrSSHFxPermissionDenied
+		return nil, c.GetErrorForDeniedFile(policy)
 	}
 
 	fs, p, err := c.GetFsAndResolvedPath(request.Filepath)
@@ -104,9 +104,9 @@ func (c *Connection) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 func (c *Connection) handleFilewrite(request *sftp.Request) (sftp.WriterAtReaderAt, error) {
 	c.UpdateLastActivity()
 
-	if !c.User.IsFileAllowed(request.Filepath) {
+	if ok, _ := c.User.IsFileAllowed(request.Filepath); !ok {
 		c.Log(logger.LevelWarn, "writing file %#v is not allowed", request.Filepath)
-		return nil, sftp.ErrSSHFxPermissionDenied
+		return nil, c.GetPermissionDeniedError()
 	}
 
 	fs, p, err := c.GetFsAndResolvedPath(request.Filepath)
@@ -175,7 +175,7 @@ func (c *Connection) Filecmd(request *sftp.Request) error {
 	case "Rmdir":
 		return c.RemoveDir(request.Filepath)
 	case "Mkdir":
-		err := c.CreateDir(request.Filepath)
+		err := c.CreateDir(request.Filepath, true)
 		if err != nil {
 			return err
 		}
@@ -214,7 +214,7 @@ func (c *Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 			return nil, sftp.ErrSSHFxPermissionDenied
 		}
 
-		s, err := c.DoStat(request.Filepath, 0)
+		s, err := c.DoStat(request.Filepath, 0, true)
 		if err != nil {
 			return nil, err
 		}
@@ -255,7 +255,7 @@ func (c *Connection) Lstat(request *sftp.Request) (sftp.ListerAt, error) {
 		return nil, sftp.ErrSSHFxPermissionDenied
 	}
 
-	s, err := c.DoStat(request.Filepath, 1)
+	s, err := c.DoStat(request.Filepath, 1, true)
 	if err != nil {
 		return nil, err
 	}

@@ -797,11 +797,20 @@ func getBandwidthLimitsFromPostFields(r *http.Request) ([]sdk.BandwidthLimit, er
 	return result, nil
 }
 
+func getPatterDenyPolicyFromString(policy string) int {
+	denyPolicy := sdk.DenyPolicyDefault
+	if policy == "1" {
+		denyPolicy = sdk.DenyPolicyHide
+	}
+	return denyPolicy
+}
+
 func getFilePatternsFromPostField(r *http.Request) []sdk.PatternsFilter {
 	var result []sdk.PatternsFilter
 
 	allowedPatterns := make(map[string][]string)
 	deniedPatterns := make(map[string][]string)
+	patternPolicies := make(map[string]string)
 
 	for k := range r.Form {
 		if strings.HasPrefix(k, "pattern_path") {
@@ -810,11 +819,15 @@ func getFilePatternsFromPostField(r *http.Request) []sdk.PatternsFilter {
 			filters := strings.TrimSpace(r.Form.Get(fmt.Sprintf("patterns%v", idx)))
 			filters = strings.ReplaceAll(filters, " ", "")
 			patternType := r.Form.Get(fmt.Sprintf("pattern_type%v", idx))
+			patternPolicy := r.Form.Get(fmt.Sprintf("pattern_policy%v", idx))
 			if p != "" && filters != "" {
 				if patternType == "allowed" {
 					allowedPatterns[p] = append(allowedPatterns[p], strings.Split(filters, ",")...)
 				} else {
 					deniedPatterns[p] = append(deniedPatterns[p], strings.Split(filters, ",")...)
+				}
+				if patternPolicy != "" && patternPolicy != "0" {
+					patternPolicies[p] = patternPolicy
 				}
 			}
 		}
@@ -823,11 +836,12 @@ func getFilePatternsFromPostField(r *http.Request) []sdk.PatternsFilter {
 	for dirAllowed, allowPatterns := range allowedPatterns {
 		filter := sdk.PatternsFilter{
 			Path:            dirAllowed,
-			AllowedPatterns: util.RemoveDuplicates(allowPatterns),
+			AllowedPatterns: allowPatterns,
+			DenyPolicy:      getPatterDenyPolicyFromString(patternPolicies[dirAllowed]),
 		}
 		for dirDenied, denPatterns := range deniedPatterns {
 			if dirAllowed == dirDenied {
-				filter.DeniedPatterns = util.RemoveDuplicates(denPatterns)
+				filter.DeniedPatterns = denPatterns
 				break
 			}
 		}
@@ -845,6 +859,7 @@ func getFilePatternsFromPostField(r *http.Request) []sdk.PatternsFilter {
 			result = append(result, sdk.PatternsFilter{
 				Path:           dirDenied,
 				DeniedPatterns: denPatterns,
+				DenyPolicy:     getPatterDenyPolicyFromString(patternPolicies[dirDenied]),
 			})
 		}
 	}

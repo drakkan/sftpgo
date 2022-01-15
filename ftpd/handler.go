@@ -83,7 +83,7 @@ func (c *Connection) Create(name string) (afero.File, error) {
 func (c *Connection) Mkdir(name string, perm os.FileMode) error {
 	c.UpdateLastActivity()
 
-	return c.CreateDir(name)
+	return c.CreateDir(name, true)
 }
 
 // MkdirAll is not implemented, we don't need it
@@ -145,7 +145,7 @@ func (c *Connection) Stat(name string) (os.FileInfo, error) {
 		return nil, c.GetPermissionDeniedError()
 	}
 
-	fi, err := c.DoStat(name, 0)
+	fi, err := c.DoStat(name, 0, true)
 	if err != nil {
 		return nil, err
 	}
@@ -319,9 +319,9 @@ func (c *Connection) downloadFile(fs vfs.Fs, fsPath, ftpPath string, offset int6
 		return nil, c.GetPermissionDeniedError()
 	}
 
-	if !c.User.IsFileAllowed(ftpPath) {
+	if ok, policy := c.User.IsFileAllowed(ftpPath); !ok {
 		c.Log(logger.LevelWarn, "reading file %#v is not allowed", ftpPath)
-		return nil, c.GetPermissionDeniedError()
+		return nil, c.GetErrorForDeniedFile(policy)
 	}
 
 	if err := common.ExecutePreAction(c.BaseConnection, common.OperationPreDownload, fsPath, ftpPath, 0, 0); err != nil {
@@ -344,7 +344,7 @@ func (c *Connection) downloadFile(fs vfs.Fs, fsPath, ftpPath string, offset int6
 }
 
 func (c *Connection) uploadFile(fs vfs.Fs, fsPath, ftpPath string, flags int) (ftpserver.FileTransfer, error) {
-	if !c.User.IsFileAllowed(ftpPath) {
+	if ok, _ := c.User.IsFileAllowed(ftpPath); !ok {
 		c.Log(logger.LevelWarn, "writing file %#v is not allowed", ftpPath)
 		return nil, ftpserver.ErrFileNameNotAllowed
 	}

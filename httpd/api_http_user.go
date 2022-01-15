@@ -92,7 +92,7 @@ func createUserDir(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	err = connection.CreateDir(name)
+	err = connection.CreateDir(name, true)
 	if err != nil {
 		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to create directory %#v", name), getMappedStatusCode(err))
 		return

@@ -143,9 +143,9 @@ func (f *webDavFile) Read(p []byte) (n int, err error) {
 			return 0, f.Connection.GetPermissionDeniedError()
 		}
 
-		if !f.Connection.User.IsFileAllowed(f.GetVirtualPath()) {
+		if ok, policy := f.Connection.User.IsFileAllowed(f.GetVirtualPath()); !ok {
 			f.Connection.Log(logger.LevelWarn, "reading file %#v is not allowed", f.GetVirtualPath())
-			return 0, f.Connection.GetPermissionDeniedError()
+			return 0, f.Connection.GetErrorForDeniedFile(policy)
 		}
 		err := common.ExecutePreAction(f.Connection, common.OperationPreDownload, f.GetFsPath(), f.GetVirtualPath(), 0, 0)
 		if err != nil {

@@ -4373,7 +4373,7 @@ components:
           type: array
           items:
             type: string
-          description: 'list of, case insensitive, allowed shell like file patterns.'
+          description: 'list of, case insensitive, allowed shell like patterns.'
           example:
             - '*.jpg'
             - a*b?.png
@@ -4381,9 +4381,18 @@ components:
           type: array
           items:
             type: string
-          description: 'list of, case insensitive, denied shell like file patterns. Denied patterns are evaluated before the allowed ones'
+          description: 'list of, case insensitive, denied shell like patterns. Denied patterns are evaluated before the allowed ones'
           example:
             - '*.zip'
+        deny_policy:
+          type: integer
+          enum:
+            - 0
+            - 1
+          description: |
+            Deny policies
+              * `0` - default policy. Denied files/directories matching the filters are visible in directory listing but cannot be uploaded/downloaded/overwritten/renamed
+              * `1` - deny policy hide. This policy applies the same restrictions as the default one and denied files/directories matching the filters will also be hidden in directory listing. This mode may cause performance issues for large directories
     HooksFilter:
       type: object
       properties:

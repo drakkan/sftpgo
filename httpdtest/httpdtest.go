@@ -1542,7 +1542,7 @@ func compareUserFilePatternsFilters(expected *dataprovider.User, actual *datapro
 	for _, f := range expected.Filters.FilePatterns {
 		found := false
 		for _, f1 := range actual.Filters.FilePatterns {
-			if path.Clean(f.Path) == path.Clean(f1.Path) {
+			if path.Clean(f.Path) == path.Clean(f1.Path) && f.DenyPolicy == f1.DenyPolicy {
 				if !checkFilterMatch(f.AllowedPatterns, f1.AllowedPatterns) ||
 					!checkFilterMatch(f.DeniedPatterns, f1.DeniedPatterns) {
 					return errors.New("file patterns contents mismatch")

@@ -7423,9 +7423,12 @@ func TestFilterFilePatterns(t *testing.T) {
 		},
 	}
 	user.Filters = filters
-	assert.True(t, user.IsFileAllowed("/test/test.jPg"))
-	assert.False(t, user.IsFileAllowed("/test/test.pdf"))
-	assert.True(t, user.IsFileAllowed("/test.pDf"))
+	ok, _ := user.IsFileAllowed("/test/test.jPg")
+	assert.True(t, ok)
+	ok, _ = user.IsFileAllowed("/test/test.pdf")
+	assert.False(t, ok)
+	ok, _ = user.IsFileAllowed("/test.pDf")
+	assert.True(t, ok)
 
 	filters.FilePatterns = append(filters.FilePatterns, sdk.PatternsFilter{
 		Path:            "/",
@@ -7433,19 +7436,26 @@ func TestFilterFilePatterns(t *testing.T) {
 		DeniedPatterns:  []string{"*.gz"},
 	})
 	user.Filters = filters
-	assert.False(t, user.IsFileAllowed("/test1/test.gz"))
-	assert.True(t, user.IsFileAllowed("/test1/test.zip"))
-	assert.False(t, user.IsFileAllowed("/test/sub/test.pdf"))
-	assert.False(t, user.IsFileAllowed("/test1/test.png"))
+	ok, _ = user.IsFileAllowed("/test1/test.gz")
+	assert.False(t, ok)
+	ok, _ = user.IsFileAllowed("/test1/test.zip")
+	assert.True(t, ok)
+	ok, _ = user.IsFileAllowed("/test/sub/test.pdf")
+	assert.False(t, ok)
+	ok, _ = user.IsFileAllowed("/test1/test.png")
+	assert.False(t, ok)
 
 	filters.FilePatterns = append(filters.FilePatterns, sdk.PatternsFilter{
 		Path:           "/test/sub",
 		DeniedPatterns: []string{"*.tar"},
 	})
 	user.Filters = filters
-	assert.False(t, user.IsFileAllowed("/test/sub/sub/test.tar"))
-	assert.True(t, user.IsFileAllowed("/test/sub/test.gz"))
-	assert.False(t, user.IsFileAllowed("/test/test.zip"))
+	ok, _ = user.IsFileAllowed("/test/sub/sub/test.tar")
+	assert.False(t, ok)
+	ok, _ = user.IsFileAllowed("/test/sub/test.gz")
+	assert.True(t, ok)
+	ok, _ = user.IsFileAllowed("/test/test.zip")
+	assert.False(t, ok)
 }
 
 func TestUserAllowedLoginMethods(t *testing.T) {
