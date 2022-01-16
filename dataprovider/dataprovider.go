@@ -508,9 +508,9 @@ type Provider interface {
 	getShares(limit int, offset int, order, username string) ([]Share, error)
 	dumpShares() ([]Share, error)
 	updateShareLastUse(shareID string, numTokens int) error
-	getDefenderHosts(from int64, limit int) ([]*DefenderEntry, error)
-	getDefenderHostByIP(ip string, from int64) (*DefenderEntry, error)
-	isDefenderHostBanned(ip string) (*DefenderEntry, error)
+	getDefenderHosts(from int64, limit int) ([]DefenderEntry, error)
+	getDefenderHostByIP(ip string, from int64) (DefenderEntry, error)
+	isDefenderHostBanned(ip string) (DefenderEntry, error)
 	updateDefenderBanTime(ip string, minutes int) error
 	deleteDefenderHost(ip string) error
 	addDefenderEvent(ip string, score int) error
@@ -926,17 +926,17 @@ func CheckKeyboardInteractiveAuth(username, authHook string, client ssh.Keyboard
 }
 
 // GetDefenderHosts returns hosts that are banned or for which some violations have been detected
-func GetDefenderHosts(from int64, limit int) ([]*DefenderEntry, error) {
+func GetDefenderHosts(from int64, limit int) ([]DefenderEntry, error) {
 	return provider.getDefenderHosts(from, limit)
 }
 
 // GetDefenderHostByIP returns a defender host by ip, if any
-func GetDefenderHostByIP(ip string, from int64) (*DefenderEntry, error) {
+func GetDefenderHostByIP(ip string, from int64) (DefenderEntry, error) {
 	return provider.getDefenderHostByIP(ip, from)
 }
 
 // IsDefenderHostBanned returns a defender entry and no error if the specified host is banned
-func IsDefenderHostBanned(ip string) (*DefenderEntry, error) {
+func IsDefenderHostBanned(ip string) (DefenderEntry, error) {
 	return provider.isDefenderHostBanned(ip)
 }
 
@@ -952,9 +952,9 @@ func DeleteDefenderHost(ip string) error {
 
 // AddDefenderEvent adds an event for the given IP with the given score
 // and returns the host with the updated score
-func AddDefenderEvent(ip string, score int, from int64) (*DefenderEntry, error) {
+func AddDefenderEvent(ip string, score int, from int64) (DefenderEntry, error) {
 	if err := provider.addDefenderEvent(ip, score); err != nil {
-		return nil, err
+		return DefenderEntry{}, err
 	}
 	return provider.getDefenderHostByIP(ip, from)
 }

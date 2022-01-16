@@ -33,12 +33,12 @@ func newDBDefender(config *DefenderConfig) (Defender, error) {
 }
 
 // GetHosts returns hosts that are banned or for which some violations have been detected
-func (d *dbDefender) GetHosts() ([]*dataprovider.DefenderEntry, error) {
+func (d *dbDefender) GetHosts() ([]dataprovider.DefenderEntry, error) {
 	return dataprovider.GetDefenderHosts(d.getStartObservationTime(), d.config.EntriesHardLimit)
 }
 
 // GetHost returns a defender host by ip, if any
-func (d *dbDefender) GetHost(ip string) (*dataprovider.DefenderEntry, error) {
+func (d *dbDefender) GetHost(ip string) (dataprovider.DefenderEntry, error) {
 	return dataprovider.GetDefenderHostByIP(ip, d.getStartObservationTime())
 }
 

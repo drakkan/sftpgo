@@ -1365,16 +1365,16 @@ func (p *BoltProvider) updateShareLastUse(shareID string, numTokens int) error {
 	})
 }
 
-func (p *BoltProvider) getDefenderHosts(from int64, limit int) ([]*DefenderEntry, error) {
+func (p *BoltProvider) getDefenderHosts(from int64, limit int) ([]DefenderEntry, error) {
 	return nil, ErrNotImplemented
 }
 
-func (p *BoltProvider) getDefenderHostByIP(ip string, from int64) (*DefenderEntry, error) {
-	return nil, ErrNotImplemented
+func (p *BoltProvider) getDefenderHostByIP(ip string, from int64) (DefenderEntry, error) {
+	return DefenderEntry{}, ErrNotImplemented
 }
 
-func (p *BoltProvider) isDefenderHostBanned(ip string) (*DefenderEntry, error) {
-	return nil, ErrNotImplemented
+func (p *BoltProvider) isDefenderHostBanned(ip string) (DefenderEntry, error) {
+	return DefenderEntry{}, ErrNotImplemented
 }
 
 func (p *BoltProvider) updateDefenderBanTime(ip string, minutes int) error {

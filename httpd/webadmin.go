@@ -135,7 +135,7 @@ type foldersPage struct {
 
 type connectionsPage struct {
 	basePage
-	Connections []*common.ConnectionStatus
+	Connections []common.ConnectionStatus
 }
 
 type statusPage struct {

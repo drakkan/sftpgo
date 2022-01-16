@@ -39,14 +39,14 @@ func newInMemoryDefender(config *DefenderConfig) (Defender, error) {
 }
 
 // GetHosts returns hosts that are banned or for which some violations have been detected
-func (d *memoryDefender) GetHosts() ([]*dataprovider.DefenderEntry, error) {
+func (d *memoryDefender) GetHosts() ([]dataprovider.DefenderEntry, error) {
 	d.RLock()
 	defer d.RUnlock()
 
-	var result []*dataprovider.DefenderEntry
+	var result []dataprovider.DefenderEntry
 	for k, v := range d.banned {
 		if v.After(time.Now()) {
-			result = append(result, &dataprovider.DefenderEntry{
+			result = append(result, dataprovider.DefenderEntry{
 				IP:      k,
 				BanTime: v,
 			})
@@ -60,7 +60,7 @@ func (d *memoryDefender) GetHosts() ([]*dataprovider.DefenderEntry, error) {
 			}
 		}
 		if score > 0 {
-			result = append(result, &dataprovider.DefenderEntry{
+			result = append(result, dataprovider.DefenderEntry{
 				IP:    k,
 				Score: score,
 			})
@@ -71,13 +71,13 @@ func (d *memoryDefender) GetHosts() ([]*dataprovider.DefenderEntry, error) {
 }
 
 // GetHost returns a defender host by ip, if any
-func (d *memoryDefender) GetHost(ip string) (*dataprovider.DefenderEntry, error) {
+func (d *memoryDefender) GetHost(ip string) (dataprovider.DefenderEntry, error) {
 	d.RLock()
 	defer d.RUnlock()
 
 	if banTime, ok := d.banned[ip]; ok {
 		if banTime.After(time.Now()) {
-			return &dataprovider.DefenderEntry{
+			return dataprovider.DefenderEntry{
 				IP:      ip,
 				BanTime: banTime,
 			}, nil
@@ -92,14 +92,14 @@ func (d *memoryDefender) GetHost(ip string) (*dataprovider.DefenderEntry, error)
 			}
 		}
 		if score > 0 {
-			return &dataprovider.DefenderEntry{
+			return dataprovider.DefenderEntry{
 				IP:    ip,
 				Score: score,
 			}, nil
 		}
 	}
 
-	return nil, util.NewRecordNotFoundError("host not found")
+	return dataprovider.DefenderEntry{}, util.NewRecordNotFoundError("host not found")
 }
 
 // IsBanned returns true if the specified IP is banned

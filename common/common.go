@@ -222,7 +222,7 @@ func GetDefenderBanTime(ip string) (*time.Time, error) {
 }
 
 // GetDefenderHosts returns hosts that are banned or for which some violations have been detected
-func GetDefenderHosts() ([]*dataprovider.DefenderEntry, error) {
+func GetDefenderHosts() ([]dataprovider.DefenderEntry, error) {
 	if Config.defender == nil {
 		return nil, nil
 	}
@@ -231,9 +231,9 @@ func GetDefenderHosts() ([]*dataprovider.DefenderEntry, error) {
 }
 
 // GetDefenderHost returns a defender host by ip, if any
-func GetDefenderHost(ip string) (*dataprovider.DefenderEntry, error) {
+func GetDefenderHost(ip string) (dataprovider.DefenderEntry, error) {
 	if Config.defender == nil {
-		return nil, errors.New("defender is disabled")
+		return dataprovider.DefenderEntry{}, errors.New("defender is disabled")
 	}
 
 	return Config.defender.GetHost(ip)
@@ -873,13 +873,13 @@ func (conns *ActiveConnections) IsNewConnectionAllowed(ipAddr string) bool {
 }
 
 // GetStats returns stats for active connections
-func (conns *ActiveConnections) GetStats() []*ConnectionStatus {
+func (conns *ActiveConnections) GetStats() []ConnectionStatus {
 	conns.RLock()
 	defer conns.RUnlock()
 
-	stats := make([]*ConnectionStatus, 0, len(conns.connections))
+	stats := make([]ConnectionStatus, 0, len(conns.connections))
 	for _, c := range conns.connections {
-		stat := &ConnectionStatus{
+		stat := ConnectionStatus{
 			Username:       c.GetUsername(),
 			ConnectionID:   c.GetID(),
 			ClientVersion:  c.GetClientVersion(),

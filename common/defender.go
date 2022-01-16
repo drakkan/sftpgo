@@ -38,8 +38,8 @@ var (
 
 // Defender defines the interface that a defender must implements
 type Defender interface {
-	GetHosts() ([]*dataprovider.DefenderEntry, error)
-	GetHost(ip string) (*dataprovider.DefenderEntry, error)
+	GetHosts() ([]dataprovider.DefenderEntry, error)
+	GetHost(ip string) (dataprovider.DefenderEntry, error)
 	AddEvent(ip string, event HostEvent)
 	IsBanned(ip string) bool
 	GetBanTime(ip string) (*time.Time, error)

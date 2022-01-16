@@ -304,15 +304,15 @@ func (p *MySQLProvider) updateShareLastUse(shareID string, numTokens int) error 
 	return sqlCommonUpdateShareLastUse(shareID, numTokens, p.dbHandle)
 }
 
-func (p *MySQLProvider) getDefenderHosts(from int64, limit int) ([]*DefenderEntry, error) {
+func (p *MySQLProvider) getDefenderHosts(from int64, limit int) ([]DefenderEntry, error) {
 	return sqlCommonGetDefenderHosts(from, limit, p.dbHandle)
 }
 
-func (p *MySQLProvider) getDefenderHostByIP(ip string, from int64) (*DefenderEntry, error) {
+func (p *MySQLProvider) getDefenderHostByIP(ip string, from int64) (DefenderEntry, error) {
 	return sqlCommonGetDefenderHostByIP(ip, from, p.dbHandle)
 }
 
-func (p *MySQLProvider) isDefenderHostBanned(ip string) (*DefenderEntry, error) {
+func (p *MySQLProvider) isDefenderHostBanned(ip string) (DefenderEntry, error) {
 	return sqlCommonIsDefenderHostBanned(ip, p.dbHandle)
 }
 

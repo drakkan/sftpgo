@@ -316,15 +316,15 @@ func (p *PGSQLProvider) updateShareLastUse(shareID string, numTokens int) error 
 	return sqlCommonUpdateShareLastUse(shareID, numTokens, p.dbHandle)
 }
 
-func (p *PGSQLProvider) getDefenderHosts(from int64, limit int) ([]*DefenderEntry, error) {
+func (p *PGSQLProvider) getDefenderHosts(from int64, limit int) ([]DefenderEntry, error) {
 	return sqlCommonGetDefenderHosts(from, limit, p.dbHandle)
 }
 
-func (p *PGSQLProvider) getDefenderHostByIP(ip string, from int64) (*DefenderEntry, error) {
+func (p *PGSQLProvider) getDefenderHostByIP(ip string, from int64) (DefenderEntry, error) {
 	return sqlCommonGetDefenderHostByIP(ip, from, p.dbHandle)
 }
 
-func (p *PGSQLProvider) isDefenderHostBanned(ip string) (*DefenderEntry, error) {
+func (p *PGSQLProvider) isDefenderHostBanned(ip string) (DefenderEntry, error) {
 	return sqlCommonIsDefenderHostBanned(ip, p.dbHandle)
 }
 

@@ -1256,16 +1256,16 @@ func (p *MemoryProvider) updateShareLastUse(shareID string, numTokens int) error
 	return nil
 }
 
-func (p *MemoryProvider) getDefenderHosts(from int64, limit int) ([]*DefenderEntry, error) {
+func (p *MemoryProvider) getDefenderHosts(from int64, limit int) ([]DefenderEntry, error) {
 	return nil, ErrNotImplemented
 }
 
-func (p *MemoryProvider) getDefenderHostByIP(ip string, from int64) (*DefenderEntry, error) {
-	return nil, ErrNotImplemented
+func (p *MemoryProvider) getDefenderHostByIP(ip string, from int64) (DefenderEntry, error) {
+	return DefenderEntry{}, ErrNotImplemented
 }
 
-func (p *MemoryProvider) isDefenderHostBanned(ip string) (*DefenderEntry, error) {
-	return nil, ErrNotImplemented
+func (p *MemoryProvider) isDefenderHostBanned(ip string) (DefenderEntry, error) {
+	return DefenderEntry{}, ErrNotImplemented
 }
 
 func (p *MemoryProvider) updateDefenderBanTime(ip string, minutes int) error {

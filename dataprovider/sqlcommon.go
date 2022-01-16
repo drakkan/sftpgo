@@ -970,8 +970,8 @@ func sqlCommonGetUsers(limit int, offset int, order string, dbHandle sqlQuerier)
 	return getUsersWithVirtualFolders(ctx, users, dbHandle)
 }
 
-func sqlCommonGetDefenderHosts(from int64, limit int, dbHandle sqlQuerier) ([]*DefenderEntry, error) {
-	hosts := make([]*DefenderEntry, 0, 100)
+func sqlCommonGetDefenderHosts(from int64, limit int, dbHandle sqlQuerier) ([]DefenderEntry, error) {
+	hosts := make([]DefenderEntry, 0, 100)
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
@@ -1009,7 +1009,7 @@ func sqlCommonGetDefenderHosts(from int64, limit int, dbHandle sqlQuerier) ([]*D
 		} else {
 			host.BanTime = hostBanTime
 		}
-		hosts = append(hosts, &host)
+		hosts = append(hosts, host)
 	}
 	err = rows.Err()
 	if err != nil {
@@ -1020,7 +1020,7 @@ func sqlCommonGetDefenderHosts(from int64, limit int, dbHandle sqlQuerier) ([]*D
 	return getDefenderHostsWithScores(ctx, hosts, from, idForScores, dbHandle)
 }
 
-func sqlCommonIsDefenderHostBanned(ip string, dbHandle sqlQuerier) (*DefenderEntry, error) {
+func sqlCommonIsDefenderHostBanned(ip string, dbHandle sqlQuerier) (DefenderEntry, error) {
 	var host DefenderEntry
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
@@ -1030,7 +1030,7 @@ func sqlCommonIsDefenderHostBanned(ip string, dbHandle sqlQuerier) (*DefenderEnt
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
 		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return nil, err
+		return host, err
 	}
 	defer stmt.Close()
 
@@ -1038,16 +1038,16 @@ func sqlCommonIsDefenderHostBanned(ip string, dbHandle sqlQuerier) (*DefenderEnt
 	err = row.Scan(&host.ID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, util.NewRecordNotFoundError("host not found")
+			return host, util.NewRecordNotFoundError("host not found")
 		}
 		providerLog(logger.LevelError, "unable to check ban status for host %#v: %v", ip, err)
-		return nil, err
+		return host, err
 	}
 
-	return &host, nil
+	return host, nil
 }
 
-func sqlCommonGetDefenderHostByIP(ip string, from int64, dbHandle sqlQuerier) (*DefenderEntry, error) {
+func sqlCommonGetDefenderHostByIP(ip string, from int64, dbHandle sqlQuerier) (DefenderEntry, error) {
 	var host DefenderEntry
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
@@ -1057,7 +1057,7 @@ func sqlCommonGetDefenderHostByIP(ip string, from int64, dbHandle sqlQuerier) (*
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
 		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return nil, err
+		return host, err
 	}
 	defer stmt.Close()
 
@@ -1066,25 +1066,25 @@ func sqlCommonGetDefenderHostByIP(ip string, from int64, dbHandle sqlQuerier) (*
 	err = row.Scan(&host.ID, &host.IP, &banTime)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, util.NewRecordNotFoundError("host not found")
+			return host, util.NewRecordNotFoundError("host not found")
 		}
 		providerLog(logger.LevelError, "unable to get host for ip %#v: %v", ip, err)
-		return nil, err
+		return host, err
 	}
 	if banTime.Valid && banTime.Int64 > 0 {
 		hostBanTime := util.GetTimeFromMsecSinceEpoch(banTime.Int64)
 		if !hostBanTime.IsZero() && hostBanTime.After(time.Now()) {
 			host.BanTime = hostBanTime
-			return &host, nil
+			return host, nil
 		}
 	}
 
-	hosts, err := getDefenderHostsWithScores(ctx, []*DefenderEntry{&host}, from, []int64{host.ID}, dbHandle)
+	hosts, err := getDefenderHostsWithScores(ctx, []DefenderEntry{host}, from, []int64{host.ID}, dbHandle)
 	if err != nil {
-		return nil, err
+		return host, err
 	}
 	if len(hosts) == 0 {
-		return nil, util.NewRecordNotFoundError("host not found")
+		return host, util.NewRecordNotFoundError("host not found")
 	}
 
 	return hosts[0], nil
@@ -1709,9 +1709,9 @@ func getUserWithVirtualFolders(ctx context.Context, user User, dbHandle sqlQueri
 	return users[0], err
 }
 
-func getDefenderHostsWithScores(ctx context.Context, hosts []*DefenderEntry, from int64, idForScores []int64,
+func getDefenderHostsWithScores(ctx context.Context, hosts []DefenderEntry, from int64, idForScores []int64,
 	dbHandle sqlQuerier) (
-	[]*DefenderEntry,
+	[]DefenderEntry,
 	error,
 ) {
 	if len(idForScores) == 0 {
@@ -1752,7 +1752,7 @@ func getDefenderHostsWithScores(ctx context.Context, hosts []*DefenderEntry, fro
 		return hosts, err
 	}
 
-	result := make([]*DefenderEntry, 0, len(hosts))
+	result := make([]DefenderEntry, 0, len(hosts))
 
 	for idx := range hosts {
 		hosts[idx].Score = hostsWithScores[hosts[idx].ID]
