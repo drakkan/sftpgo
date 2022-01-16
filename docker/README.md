@@ -100,8 +100,8 @@ Important note: There are several ways to store data used by applications that r
 
 The Docker documentation is a good starting point for understanding the different storage options and variations, and there are multiple blogs and forum postings that discuss and give advice in this area. We will simply show the basic procedure here for the latter option above:
 
-1. Create a data directory on a suitable volume on your host system, e.g. `/my/own/sftpgodata`.
-2. Create a home directory for the sftpgo container user on your host system e.g. `/my/own/sftpgohome`.
+1. Create a data directory on a suitable volume on your host system, e.g. `/my/own/sftpgodata`. The user with ID `1000` must be able to write to this directory. Please note that you don't need an actual user with ID `1000` on your host system: `chown -R 1000:1000 /my/own/sftpgodata` is enough even if there is no user/group with UID/GID `1000`.
+2. Create a home directory for the sftpgo container user on your host system e.g. `/my/own/sftpgohome`. As with the data directory above, make sure that the user with ID `1000` can write to this directory: `chown -R 1000:1000 /my/own/sftpgohome`
 3. Start your SFTPGo container like this:
 
 ```shell

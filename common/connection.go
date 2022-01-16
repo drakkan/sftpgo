@@ -132,21 +132,17 @@ func (c *BaseConnection) RemoveTransfer(t ActiveTransfer) {
 	c.Lock()
 	defer c.Unlock()
 
-	indexToRemove := -1
-	for i, v := range c.activeTransfers {
-		if v.GetID() == t.GetID() {
-			indexToRemove = i
-			break
+	for idx, transfer := range c.activeTransfers {
+		if transfer.GetID() == t.GetID() {
+			lastIdx := len(c.activeTransfers) - 1
+			c.activeTransfers[idx] = c.activeTransfers[lastIdx]
+			c.activeTransfers[lastIdx] = nil
+			c.activeTransfers = c.activeTransfers[:lastIdx]
+			c.Log(logger.LevelDebug, "transfer removed, id: %v active transfers: %v", t.GetID(), len(c.activeTransfers))
+			return
 		}
 	}
-	if indexToRemove >= 0 {
-		c.activeTransfers[indexToRemove] = c.activeTransfers[len(c.activeTransfers)-1]
-		c.activeTransfers[len(c.activeTransfers)-1] = nil
-		c.activeTransfers = c.activeTransfers[:len(c.activeTransfers)-1]
-		c.Log(logger.LevelDebug, "transfer removed, id: %v active transfers: %v", t.GetID(), len(c.activeTransfers))
-	} else {
-		c.Log(logger.LevelWarn, "transfer to remove not found!")
-	}
+	c.Log(logger.LevelWarn, "transfer to remove with id %v not found!", t.GetID())
 }
 
 // GetTransfers returns the active transfers

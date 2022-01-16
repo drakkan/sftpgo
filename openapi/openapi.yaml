@@ -1761,7 +1761,7 @@ paths:
         - in: query
           name: fs_provider
           schema:
-            type: integer
+            $ref: '#/components/schemas/FsProviders'
           description: 'the event filesystem provider must be the same as the one specified. Empty or missing means omit this filter'
           required: false
         - in: query
