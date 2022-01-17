@@ -28,7 +28,7 @@ require (
 	github.com/lestrrat-go/jwx v1.2.17
 	github.com/lib/pq v1.10.4
 	github.com/lithammer/shortuuid/v3 v3.0.7
-	github.com/mattn/go-sqlite3 v1.14.10
+	github.com/mattn/go-sqlite3 v2.0.3+incompatible
 	github.com/mhale/smtpd v0.8.0
 	github.com/minio/sio v0.3.0
 	github.com/otiai10/copy v1.7.0
