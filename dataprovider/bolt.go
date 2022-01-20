@@ -647,6 +647,53 @@ func (p *BoltProvider) getRecentlyUpdatedUsers(after int64) ([]User, error) {
 	return nil, nil
 }
 
+func (p *BoltProvider) getUsersForQuotaCheck(toFetch map[string]bool) ([]User, error) {
+	users := make([]User, 0, 30)
+
+	err := p.dbHandle.View(func(tx *bolt.Tx) error {
+		bucket, err := getUsersBucket(tx)
+		if err != nil {
+			return err
+		}
+		foldersBucket, err := getFoldersBucket(tx)
+		if err != nil {
+			return err
+		}
+		cursor := bucket.Cursor()
+		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
+			var user User
+			err := json.Unmarshal(v, &user)
+			if err != nil {
+				return err
+			}
+			needFolders, ok := toFetch[user.Username]
+			if !ok {
+				continue
+			}
+			if needFolders && len(user.VirtualFolders) > 0 {
+				var folders []vfs.VirtualFolder
+				for idx := range user.VirtualFolders {
+					folder := &user.VirtualFolders[idx]
+					baseFolder, err := folderExistsInternal(folder.Name, foldersBucket)
+					if err != nil {
+						continue
+					}
+					folder.BaseVirtualFolder = baseFolder
+					folders = append(folders, *folder)
+				}
+				user.VirtualFolders = folders
+			}
+
+			user.SetEmptySecretsIfNil()
+			user.PrepareForRendering()
+			users = append(users, user)
+		}
+		return nil
+	})
+
+	return users, err
+}
+
 func (p *BoltProvider) getUsers(limit int, offset int, order string) ([]User, error) {
 	users := make([]User, 0, limit)
 	var err error

@@ -183,6 +183,10 @@ func (p *SQLiteProvider) getUsers(limit int, offset int, order string) ([]User, 
 	return sqlCommonGetUsers(limit, offset, order, p.dbHandle)
 }
 
+func (p *SQLiteProvider) getUsersForQuotaCheck(toFetch map[string]bool) ([]User, error) {
+	return sqlCommonGetUsersForQuotaCheck(toFetch, p.dbHandle)
+}
+
 func (p *SQLiteProvider) dumpFolders() ([]vfs.BaseVirtualFolder, error) {
 	return sqlCommonDumpFolders(p.dbHandle)
 }

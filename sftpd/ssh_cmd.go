@@ -356,7 +356,7 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 	go func() {
 		defer stdin.Close()
 		baseTransfer := common.NewBaseTransfer(nil, c.connection.BaseConnection, nil, command.fsPath, command.fsPath, sshDestPath,
-			common.TransferUpload, 0, 0, remainingQuotaSize, false, command.fs)
+			common.TransferUpload, 0, 0, remainingQuotaSize, 0, false, command.fs)
 		transfer := newTransfer(baseTransfer, nil, nil, nil)
 
 		w, e := transfer.copyFromReaderToWriter(stdin, c.connection.channel)
@@ -369,7 +369,7 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 
 	go func() {
 		baseTransfer := common.NewBaseTransfer(nil, c.connection.BaseConnection, nil, command.fsPath, command.fsPath, sshDestPath,
-			common.TransferDownload, 0, 0, 0, false, command.fs)
+			common.TransferDownload, 0, 0, 0, 0, false, command.fs)
 		transfer := newTransfer(baseTransfer, nil, nil, nil)
 
 		w, e := transfer.copyFromReaderToWriter(c.connection.channel, stdout)
@@ -383,7 +383,7 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 
 	go func() {
 		baseTransfer := common.NewBaseTransfer(nil, c.connection.BaseConnection, nil, command.fsPath, command.fsPath, sshDestPath,
-			common.TransferDownload, 0, 0, 0, false, command.fs)
+			common.TransferDownload, 0, 0, 0, 0, false, command.fs)
 		transfer := newTransfer(baseTransfer, nil, nil, nil)
 
 		w, e := transfer.copyFromReaderToWriter(c.connection.channel.(ssh.Channel).Stderr(), stderr)

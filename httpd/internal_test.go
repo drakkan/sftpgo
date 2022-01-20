@@ -1844,12 +1844,15 @@ func TestThrottledHandler(t *testing.T) {
 	tr := &throttledReader{
 		r: io.NopCloser(bytes.NewBuffer(nil)),
 	}
+	assert.Equal(t, int64(0), tr.GetTruncatedSize())
 	err := tr.Close()
 	assert.NoError(t, err)
 	assert.Empty(t, tr.GetRealFsPath("real path"))
 	assert.False(t, tr.SetTimes("p", time.Now(), time.Now()))
 	_, err = tr.Truncate("", 0)
 	assert.ErrorIs(t, err, vfs.ErrVfsUnsupported)
+	err = tr.GetAbortError()
+	assert.ErrorIs(t, err, common.ErrTransferAborted)
 }
 
 func TestHTTPDFile(t *testing.T) {
@@ -1879,7 +1882,7 @@ func TestHTTPDFile(t *testing.T) {
 	assert.NoError(t, err)
 
 	baseTransfer := common.NewBaseTransfer(file, connection.BaseConnection, nil, p, p, name, common.TransferDownload,
-		0, 0, 0, false, fs)
+		0, 0, 0, 0, false, fs)
 	httpdFile := newHTTPDFile(baseTransfer, nil, nil)
 	// the file is closed, read should fail
 	buf := make([]byte, 100)
@@ -1899,9 +1902,9 @@ func TestHTTPDFile(t *testing.T) {
 	assert.Error(t, err)
 	assert.Error(t, httpdFile.ErrTransfer)
 	assert.Equal(t, err, httpdFile.ErrTransfer)
-	httpdFile.SignalClose()
+	httpdFile.SignalClose(nil)
 	_, err = httpdFile.Write(nil)
-	assert.ErrorIs(t, err, errTransferAborted)
+	assert.ErrorIs(t, err, common.ErrQuotaExceeded)
 }
 
 func TestChangeUserPwd(t *testing.T) {

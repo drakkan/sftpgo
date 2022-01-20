@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -113,7 +114,7 @@ func (c *Connection) getFileReader(name string, offset int64, method string) (io
 	}
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, p, p, name, common.TransferDownload,
-		0, 0, 0, false, fs)
+		0, 0, 0, 0, false, fs)
 	return newHTTPDFile(baseTransfer, nil, r), nil
 }
 
@@ -190,6 +191,7 @@ func (c *Connection) handleUploadFile(fs vfs.Fs, resolvedPath, filePath, request
 	}
 
 	initialSize := int64(0)
+	truncatedSize := int64(0) // bytes truncated and not included in quota
 	if !isNewFile {
 		if vfs.IsLocalOrSFTPFs(fs) {
 			vfolder, err := c.User.GetVirtualFolderForPath(path.Dir(requestPath))
@@ -203,6 +205,7 @@ func (c *Connection) handleUploadFile(fs vfs.Fs, resolvedPath, filePath, request
 			}
 		} else {
 			initialSize = fileSize
+			truncatedSize = fileSize
 		}
 		if maxWriteSize > 0 {
 			maxWriteSize += fileSize
@@ -212,7 +215,7 @@ func (c *Connection) handleUploadFile(fs vfs.Fs, resolvedPath, filePath, request
 	vfs.SetPathPermissions(fs, filePath, c.User.GetUID(), c.User.GetGID())
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, filePath, requestPath,
-		common.TransferUpload, 0, initialSize, maxWriteSize, isNewFile, fs)
+		common.TransferUpload, 0, initialSize, maxWriteSize, truncatedSize, isNewFile, fs)
 	return newHTTPDFile(baseTransfer, w, nil), nil
 }
 
@@ -232,15 +235,17 @@ func newThrottledReader(r io.ReadCloser, limit int64, conn *Connection) *throttl
 
 type throttledReader struct {
 	bytesRead     int64
-	id            uint64
+	id            int64
 	limit         int64
 	r             io.ReadCloser
 	abortTransfer int32
 	start         time.Time
 	conn          *Connection
+	mu            sync.Mutex
+	errAbort      error
 }
 
-func (t *throttledReader) GetID() uint64 {
+func (t *throttledReader) GetID() int64 {
 	return t.id
 }
 
@@ -252,6 +257,14 @@ func (t *throttledReader) GetSize() int64 {
 	return atomic.LoadInt64(&t.bytesRead)
 }
 
+func (t *throttledReader) GetDownloadedSize() int64 {
+	return 0
+}
+
+func (t *throttledReader) GetUploadedSize() int64 {
+	return atomic.LoadInt64(&t.bytesRead)
+}
+
 func (t *throttledReader) GetVirtualPath() string {
 	return "**reading request body**"
 }
@@ -260,8 +273,29 @@ func (t *throttledReader) GetStartTime() time.Time {
 	return t.start
 }
 
-func (t *throttledReader) SignalClose() {
+func (t *throttledReader) GetAbortError() error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	if t.errAbort != nil {
+		return t.errAbort
+	}
+	return common.ErrTransferAborted
+}
+
+func (t *throttledReader) SignalClose(err error) {
+	t.mu.Lock()
+	t.errAbort = err
+	t.mu.Unlock()
 	atomic.StoreInt32(&(t.abortTransfer), 1)
+}
+
+func (t *throttledReader) GetTruncatedSize() int64 {
+	return 0
+}
+
+func (t *throttledReader) GetMaxAllowedSize() int64 {
+	return 0
 }
 
 func (t *throttledReader) Truncate(fsPath string, size int64) (int64, error) {
@@ -278,7 +312,7 @@ func (t *throttledReader) SetTimes(fsPath string, atime time.Time, mtime time.Ti
 
 func (t *throttledReader) Read(p []byte) (n int, err error) {
 	if atomic.LoadInt32(&t.abortTransfer) == 1 {
-		return 0, errTransferAborted
+		return 0, t.GetAbortError()
 	}
 
 	t.conn.UpdateLastActivity()

@@ -198,6 +198,10 @@ func (p *PGSQLProvider) getUsers(limit int, offset int, order string) ([]User, e
 	return sqlCommonGetUsers(limit, offset, order, p.dbHandle)
 }
 
+func (p *PGSQLProvider) getUsersForQuotaCheck(toFetch map[string]bool) ([]User, error) {
+	return sqlCommonGetUsersForQuotaCheck(toFetch, p.dbHandle)
+}
+
 func (p *PGSQLProvider) dumpFolders() ([]vfs.BaseVirtualFolder, error) {
 	return sqlCommonDumpFolders(p.dbHandle)
 }

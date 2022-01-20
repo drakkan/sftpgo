@@ -27,7 +27,7 @@ type BaseConnection struct {
 	lastActivity int64
 	// unique ID for a transfer.
 	// This field is accessed atomically so we put it at the beginning of the struct to achieve 64 bit alignment
-	transferID uint64
+	transferID int64
 	// Unique identifier for the connection
 	ID string
 	// user associated with this connection if any
@@ -66,8 +66,8 @@ func (c *BaseConnection) Log(level logger.LogLevel, format string, v ...interfac
 }
 
 // GetTransferID returns an unique transfer ID for this connection
-func (c *BaseConnection) GetTransferID() uint64 {
-	return atomic.AddUint64(&c.transferID, 1)
+func (c *BaseConnection) GetTransferID() int64 {
+	return atomic.AddInt64(&c.transferID, 1)
 }
 
 // GetID returns the connection ID
@@ -125,12 +125,37 @@ func (c *BaseConnection) AddTransfer(t ActiveTransfer) {
 
 	c.activeTransfers = append(c.activeTransfers, t)
 	c.Log(logger.LevelDebug, "transfer added, id: %v, active transfers: %v", t.GetID(), len(c.activeTransfers))
+	if t.GetMaxAllowedSize() > 0 {
+		folderName := ""
+		if t.GetType() == TransferUpload {
+			vfolder, err := c.User.GetVirtualFolderForPath(path.Dir(t.GetVirtualPath()))
+			if err == nil {
+				if !vfolder.IsIncludedInUserQuota() {
+					folderName = vfolder.Name
+				}
+			}
+		}
+		go transfersChecker.AddTransfer(dataprovider.ActiveTransfer{
+			ID:            t.GetID(),
+			Type:          t.GetType(),
+			ConnID:        c.ID,
+			Username:      c.GetUsername(),
+			FolderName:    folderName,
+			TruncatedSize: t.GetTruncatedSize(),
+			CreatedAt:     util.GetTimeAsMsSinceEpoch(time.Now()),
+			UpdatedAt:     util.GetTimeAsMsSinceEpoch(time.Now()),
+		})
+	}
 }
 
 // RemoveTransfer removes the specified transfer from the active ones
 func (c *BaseConnection) RemoveTransfer(t ActiveTransfer) {
 	c.Lock()
 	defer c.Unlock()
+
+	if t.GetMaxAllowedSize() > 0 {
+		go transfersChecker.RemoveTransfer(t.GetID(), c.ID)
+	}
 
 	for idx, transfer := range c.activeTransfers {
 		if transfer.GetID() == t.GetID() {
@@ -143,6 +168,20 @@ func (c *BaseConnection) RemoveTransfer(t ActiveTransfer) {
 		}
 	}
 	c.Log(logger.LevelWarn, "transfer to remove with id %v not found!", t.GetID())
+}
+
+// SignalTransferClose makes the transfer fail on the next read/write with the
+// specified error
+func (c *BaseConnection) SignalTransferClose(transferID int64, err error) {
+	c.RLock()
+	defer c.RUnlock()
+
+	for _, t := range c.activeTransfers {
+		if t.GetID() == transferID {
+			c.Log(logger.LevelInfo, "signal transfer close for transfer id %v", transferID)
+			t.SignalClose(err)
+		}
+	}
 }
 
 // GetTransfers returns the active transfers
@@ -160,11 +199,14 @@ func (c *BaseConnection) GetTransfers() []ConnectionTransfer {
 			operationType = operationUpload
 		}
 		transfers = append(transfers, ConnectionTransfer{
-			ID:            t.GetID(),
-			OperationType: operationType,
-			StartTime:     util.GetTimeAsMsSinceEpoch(t.GetStartTime()),
-			Size:          t.GetSize(),
-			VirtualPath:   t.GetVirtualPath(),
+			ID:             t.GetID(),
+			OperationType:  operationType,
+			StartTime:      util.GetTimeAsMsSinceEpoch(t.GetStartTime()),
+			Size:           t.GetSize(),
+			VirtualPath:    t.GetVirtualPath(),
+			MaxAllowedSize: t.GetMaxAllowedSize(),
+			ULSize:         t.GetUploadedSize(),
+			DLSize:         t.GetDownloadedSize(),
 		})
 	}
 
@@ -181,7 +223,7 @@ func (c *BaseConnection) SignalTransfersAbort() error {
 	}
 
 	for _, t := range c.activeTransfers {
-		t.SignalClose()
+		t.SignalClose(ErrTransferAborted)
 	}
 	return nil
 }
@@ -1208,9 +1250,8 @@ func (c *BaseConnection) GetOpUnsupportedError() error {
 	}
 }
 
-// GetQuotaExceededError returns an appropriate storage limit exceeded error for the connection protocol
-func (c *BaseConnection) GetQuotaExceededError() error {
-	switch c.protocol {
+func getQuotaExceededError(protocol string) error {
+	switch protocol {
 	case ProtocolSFTP:
 		return fmt.Errorf("%w: %v", sftp.ErrSSHFxFailure, ErrQuotaExceeded.Error())
 	case ProtocolFTP:
@@ -1218,6 +1259,11 @@ func (c *BaseConnection) GetQuotaExceededError() error {
 	default:
 		return ErrQuotaExceeded
 	}
+}
+
+// GetQuotaExceededError returns an appropriate storage limit exceeded error for the connection protocol
+func (c *BaseConnection) GetQuotaExceededError() error {
+	return getQuotaExceededError(c.protocol)
 }
 
 // IsQuotaExceededError returns true if the given error is a quota exceeded error

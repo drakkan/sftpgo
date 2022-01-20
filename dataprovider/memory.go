@@ -349,6 +349,7 @@ func (p *MemoryProvider) dumpUsers() ([]User, error) {
 	for _, username := range p.dbHandle.usernames {
 		u := p.dbHandle.users[username]
 		user := u.getACopy()
+		p.addVirtualFoldersToUser(&user)
 		err = addCredentialsToUser(&user)
 		if err != nil {
 			return users, err
@@ -376,6 +377,28 @@ func (p *MemoryProvider) getRecentlyUpdatedUsers(after int64) ([]User, error) {
 	return nil, nil
 }
 
+func (p *MemoryProvider) getUsersForQuotaCheck(toFetch map[string]bool) ([]User, error) {
+	users := make([]User, 0, 30)
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return users, errMemoryProviderClosed
+	}
+	for _, username := range p.dbHandle.usernames {
+		if val, ok := toFetch[username]; ok {
+			u := p.dbHandle.users[username]
+			user := u.getACopy()
+			if val {
+				p.addVirtualFoldersToUser(&user)
+			}
+			user.PrepareForRendering()
+			users = append(users, user)
+		}
+	}
+
+	return users, nil
+}
+
 func (p *MemoryProvider) getUsers(limit int, offset int, order string) ([]User, error) {
 	users := make([]User, 0, limit)
 	var err error
@@ -396,6 +419,7 @@ func (p *MemoryProvider) getUsers(limit int, offset int, order string) ([]User, 
 			}
 			u := p.dbHandle.users[username]
 			user := u.getACopy()
+			p.addVirtualFoldersToUser(&user)
 			user.PrepareForRendering()
 			users = append(users, user)
 			if len(users) >= limit {
@@ -411,6 +435,7 @@ func (p *MemoryProvider) getUsers(limit int, offset int, order string) ([]User, 
 			username := p.dbHandle.usernames[i]
 			u := p.dbHandle.users[username]
 			user := u.getACopy()
+			p.addVirtualFoldersToUser(&user)
 			user.PrepareForRendering()
 			users = append(users, user)
 			if len(users) >= limit {
@@ -427,7 +452,12 @@ func (p *MemoryProvider) userExists(username string) (User, error) {
 	if p.dbHandle.isClosed {
 		return User{}, errMemoryProviderClosed
 	}
-	return p.userExistsInternal(username)
+	user, err := p.userExistsInternal(username)
+	if err != nil {
+		return user, err
+	}
+	p.addVirtualFoldersToUser(&user)
+	return user, nil
 }
 
 func (p *MemoryProvider) userExistsInternal(username string) (User, error) {
@@ -632,6 +662,22 @@ func (p *MemoryProvider) joinVirtualFoldersFields(user *User) []vfs.VirtualFolde
 	return folders
 }
 
+func (p *MemoryProvider) addVirtualFoldersToUser(user *User) {
+	if len(user.VirtualFolders) > 0 {
+		var folders []vfs.VirtualFolder
+		for idx := range user.VirtualFolders {
+			folder := &user.VirtualFolders[idx]
+			baseFolder, err := p.folderExistsInternal(folder.Name)
+			if err != nil {
+				continue
+			}
+			folder.BaseVirtualFolder = baseFolder.GetACopy()
+			folders = append(folders, *folder)
+		}
+		user.VirtualFolders = folders
+	}
+}
+
 func (p *MemoryProvider) removeUserFromFolderMapping(folderName, username string) {
 	folder, err := p.folderExistsInternal(folderName)
 	if err == nil {
@@ -655,7 +701,8 @@ func (p *MemoryProvider) updateFoldersMappingInternal(folder vfs.BaseVirtualFold
 }
 
 func (p *MemoryProvider) addOrUpdateFolderInternal(baseFolder *vfs.BaseVirtualFolder, username string, usedQuotaSize int64,
-	usedQuotaFiles int, lastQuotaUpdate int64) (vfs.BaseVirtualFolder, error) {
+	usedQuotaFiles int, lastQuotaUpdate int64) (vfs.BaseVirtualFolder, error,
+) {
 	folder, err := p.folderExistsInternal(baseFolder.Name)
 	if err == nil {
 		// exists

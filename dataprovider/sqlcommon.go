@@ -939,6 +939,90 @@ func sqlCommonGetRecentlyUpdatedUsers(after int64, dbHandle sqlQuerier) ([]User,
 	return getUsersWithVirtualFolders(ctx, users, dbHandle)
 }
 
+func sqlCommonGetUsersForQuotaCheck(toFetch map[string]bool, dbHandle sqlQuerier) ([]User, error) {
+	users := make([]User, 0, 30)
+
+	usernames := make([]string, 0, len(toFetch))
+	for k := range toFetch {
+		usernames = append(usernames, k)
+	}
+
+	maxUsers := 30
+	for len(usernames) > 0 {
+		if maxUsers > len(usernames) {
+			maxUsers = len(usernames)
+		}
+		usersRange, err := sqlCommonGetUsersRangeForQuotaCheck(usernames[:maxUsers], dbHandle)
+		if err != nil {
+			return users, err
+		}
+		users = append(users, usersRange...)
+		usernames = usernames[maxUsers:]
+	}
+
+	var usersWithFolders []User
+
+	validIdx := 0
+	for _, user := range users {
+		if toFetch[user.Username] {
+			usersWithFolders = append(usersWithFolders, user)
+		} else {
+			users[validIdx] = user
+			validIdx++
+		}
+	}
+	users = users[:validIdx]
+	if len(usersWithFolders) == 0 {
+		return users, nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+
+	usersWithFolders, err := getUsersWithVirtualFolders(ctx, usersWithFolders, dbHandle)
+	if err != nil {
+		return users, err
+	}
+	users = append(users, usersWithFolders...)
+	return users, nil
+}
+
+func sqlCommonGetUsersRangeForQuotaCheck(usernames []string, dbHandle sqlQuerier) ([]User, error) {
+	users := make([]User, 0, len(usernames))
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+
+	q := getUsersForQuotaCheckQuery(len(usernames))
+	stmt, err := dbHandle.PrepareContext(ctx, q)
+	if err != nil {
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
+		return users, err
+	}
+	defer stmt.Close()
+
+	queryArgs := make([]interface{}, 0, len(usernames))
+	for idx := range usernames {
+		queryArgs = append(queryArgs, usernames[idx])
+	}
+
+	rows, err := stmt.QueryContext(ctx, queryArgs...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var user User
+		err = rows.Scan(&user.ID, &user.Username, &user.QuotaSize, &user.UsedQuotaSize)
+		if err != nil {
+			return users, err
+		}
+		users = append(users, user)
+	}
+
+	return users, rows.Err()
+}
+
 func sqlCommonGetUsers(limit int, offset int, order string, dbHandle sqlQuerier) ([]User, error) {
 	users := make([]User, 0, limit)
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)

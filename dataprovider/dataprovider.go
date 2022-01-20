@@ -381,6 +381,26 @@ func (c *Config) IsDefenderSupported() bool {
 	}
 }
 
+// ActiveTransfer defines an active protocol transfer
+type ActiveTransfer struct {
+	ID            int64
+	Type          int
+	ConnID        string
+	Username      string
+	FolderName    string
+	TruncatedSize int64
+	CurrentULSize int64
+	CurrentDLSize int64
+	CreatedAt     int64
+	UpdatedAt     int64
+}
+
+// GetKey returns an aggregation key.
+// The same key will be returned for similar transfers
+func (t *ActiveTransfer) GetKey() string {
+	return fmt.Sprintf("%v%v%v", t.Username, t.FolderName, t.Type)
+}
+
 // DefenderEntry defines a defender entry
 type DefenderEntry struct {
 	ID      int64     `json:"-"`
@@ -476,6 +496,7 @@ type Provider interface {
 	getUsers(limit int, offset int, order string) ([]User, error)
 	dumpUsers() ([]User, error)
 	getRecentlyUpdatedUsers(after int64) ([]User, error)
+	getUsersForQuotaCheck(toFetch map[string]bool) ([]User, error)
 	updateLastLogin(username string) error
 	updateAdminLastLogin(username string) error
 	setUpdatedAt(username string)
@@ -1266,6 +1287,11 @@ func GetAdmins(limit, offset int, order string) ([]Admin, error) {
 // GetUsers returns an array of users respecting limit and offset and filtered by username exact match if not empty
 func GetUsers(limit, offset int, order string) ([]User, error) {
 	return provider.getUsers(limit, offset, order)
+}
+
+// GetUsersForQuotaCheck returns the users with the fields required for a quota check
+func GetUsersForQuotaCheck(toFetch map[string]bool) ([]User, error) {
+	return provider.getUsersForQuotaCheck(toFetch)
 }
 
 // AddFolder adds a new virtual folder.

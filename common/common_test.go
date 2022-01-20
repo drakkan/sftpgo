@@ -408,19 +408,19 @@ func TestIdleConnections(t *testing.T) {
 	assert.Len(t, Connections.sshConnections, 2)
 	Connections.RUnlock()
 
-	startIdleTimeoutTicker(100 * time.Millisecond)
+	startPeriodicTimeoutTicker(100 * time.Millisecond)
 	assert.Eventually(t, func() bool { return Connections.GetActiveSessions(username) == 1 }, 1*time.Second, 200*time.Millisecond)
 	assert.Eventually(t, func() bool {
 		Connections.RLock()
 		defer Connections.RUnlock()
 		return len(Connections.sshConnections) == 1
 	}, 1*time.Second, 200*time.Millisecond)
-	stopIdleTimeoutTicker()
+	stopPeriodicTimeoutTicker()
 	assert.Len(t, Connections.GetStats(), 2)
 	c.lastActivity = time.Now().Add(-24 * time.Hour).UnixNano()
 	cFTP.lastActivity = time.Now().Add(-24 * time.Hour).UnixNano()
 	sshConn2.lastActivity = c.lastActivity
-	startIdleTimeoutTicker(100 * time.Millisecond)
+	startPeriodicTimeoutTicker(100 * time.Millisecond)
 	assert.Eventually(t, func() bool { return len(Connections.GetStats()) == 0 }, 1*time.Second, 200*time.Millisecond)
 	assert.Eventually(t, func() bool {
 		Connections.RLock()
@@ -428,7 +428,7 @@ func TestIdleConnections(t *testing.T) {
 		return len(Connections.sshConnections) == 0
 	}, 1*time.Second, 200*time.Millisecond)
 	assert.Equal(t, int32(0), Connections.GetClientConnections())
-	stopIdleTimeoutTicker()
+	stopPeriodicTimeoutTicker()
 	assert.True(t, customConn1.isClosed)
 	assert.True(t, customConn2.isClosed)
 
@@ -505,9 +505,9 @@ func TestConnectionStatus(t *testing.T) {
 	fakeConn1 := &fakeConnection{
 		BaseConnection: c1,
 	}
-	t1 := NewBaseTransfer(nil, c1, nil, "/p1", "/p1", "/r1", TransferUpload, 0, 0, 0, true, fs)
+	t1 := NewBaseTransfer(nil, c1, nil, "/p1", "/p1", "/r1", TransferUpload, 0, 0, 0, 0, true, fs)
 	t1.BytesReceived = 123
-	t2 := NewBaseTransfer(nil, c1, nil, "/p2", "/p2", "/r2", TransferDownload, 0, 0, 0, true, fs)
+	t2 := NewBaseTransfer(nil, c1, nil, "/p2", "/p2", "/r2", TransferDownload, 0, 0, 0, 0, true, fs)
 	t2.BytesSent = 456
 	c2 := NewBaseConnection("id2", ProtocolSSH, "", "", user)
 	fakeConn2 := &fakeConnection{
@@ -519,7 +519,7 @@ func TestConnectionStatus(t *testing.T) {
 		BaseConnection: c3,
 		command:        "PROPFIND",
 	}
-	t3 := NewBaseTransfer(nil, c3, nil, "/p2", "/p2", "/r2", TransferDownload, 0, 0, 0, true, fs)
+	t3 := NewBaseTransfer(nil, c3, nil, "/p2", "/p2", "/r2", TransferDownload, 0, 0, 0, 0, true, fs)
 	Connections.Add(fakeConn1)
 	Connections.Add(fakeConn2)
 	Connections.Add(fakeConn3)

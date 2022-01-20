@@ -21,7 +21,7 @@ const (
 
 func getSQLPlaceholders() []string {
 	var placeholders []string
-	for i := 1; i <= 30; i++ {
+	for i := 1; i <= 50; i++ {
 		if config.Driver == PGSQLDataProviderName || config.Driver == CockroachDataProviderName {
 			placeholders = append(placeholders, fmt.Sprintf("$%v", i))
 		} else {
@@ -261,6 +261,23 @@ func getUserByUsernameQuery() string {
 func getUsersQuery(order string) string {
 	return fmt.Sprintf(`SELECT %v FROM %v ORDER BY username %v LIMIT %v OFFSET %v`, selectUserFields, sqlTableUsers,
 		order, sqlPlaceholders[0], sqlPlaceholders[1])
+}
+
+func getUsersForQuotaCheckQuery(numArgs int) string {
+	var sb strings.Builder
+	for idx := 0; idx < numArgs; idx++ {
+		if sb.Len() == 0 {
+			sb.WriteString("(")
+		} else {
+			sb.WriteString(",")
+		}
+		sb.WriteString(sqlPlaceholders[idx])
+	}
+	if sb.Len() > 0 {
+		sb.WriteString(")")
+	}
+	return fmt.Sprintf(`SELECT id,username,quota_size,used_quota_size FROM %v WHERE username IN %v`,
+		sqlTableUsers, sb.String())
 }
 
 func getRecentlyUpdatedUsersQuery() string {

@@ -20,7 +20,7 @@ var (
 
 // BaseTransfer contains protocols common transfer details for an upload or a download.
 type BaseTransfer struct { //nolint:maligned
-	ID              uint64
+	ID              int64
 	BytesSent       int64
 	BytesReceived   int64
 	Fs              vfs.Fs
@@ -35,18 +35,21 @@ type BaseTransfer struct { //nolint:maligned
 	MaxWriteSize    int64
 	MinWriteOffset  int64
 	InitialSize     int64
+	truncatedSize   int64
 	isNewFile       bool
 	transferType    int
 	AbortTransfer   int32
 	aTime           time.Time
 	mTime           time.Time
 	sync.Mutex
+	errAbort    error
 	ErrTransfer error
 }
 
 // NewBaseTransfer returns a new BaseTransfer and adds it to the given connection
 func NewBaseTransfer(file vfs.File, conn *BaseConnection, cancelFn func(), fsPath, effectiveFsPath, requestPath string,
-	transferType int, minWriteOffset, initialSize, maxWriteSize int64, isNewFile bool, fs vfs.Fs) *BaseTransfer {
+	transferType int, minWriteOffset, initialSize, maxWriteSize, truncatedSize int64, isNewFile bool, fs vfs.Fs,
+) *BaseTransfer {
 	t := &BaseTransfer{
 		ID:              conn.GetTransferID(),
 		File:            file,
@@ -64,6 +67,7 @@ func NewBaseTransfer(file vfs.File, conn *BaseConnection, cancelFn func(), fsPat
 		BytesReceived:   0,
 		MaxWriteSize:    maxWriteSize,
 		AbortTransfer:   0,
+		truncatedSize:   truncatedSize,
 		Fs:              fs,
 	}
 
@@ -77,7 +81,7 @@ func (t *BaseTransfer) SetFtpMode(mode string) {
 }
 
 // GetID returns the transfer ID
-func (t *BaseTransfer) GetID() uint64 {
+func (t *BaseTransfer) GetID() int64 {
 	return t.ID
 }
 
@@ -94,17 +98,51 @@ func (t *BaseTransfer) GetSize() int64 {
 	return atomic.LoadInt64(&t.BytesReceived)
 }
 
+// GetDownloadedSize returns the transferred size
+func (t *BaseTransfer) GetDownloadedSize() int64 {
+	return atomic.LoadInt64(&t.BytesSent)
+}
+
+// GetUploadedSize returns the transferred size
+func (t *BaseTransfer) GetUploadedSize() int64 {
+	return atomic.LoadInt64(&t.BytesReceived)
+}
+
 // GetStartTime returns the start time
 func (t *BaseTransfer) GetStartTime() time.Time {
 	return t.start
 }
 
-// SignalClose signals that the transfer should be closed.
-// For same protocols, for example WebDAV, we have no
-// access to the network connection, so we use this method
-// to make the next read or write to fail
-func (t *BaseTransfer) SignalClose() {
+// GetAbortError returns the error to send to the client if the transfer was aborted
+func (t *BaseTransfer) GetAbortError() error {
+	t.Lock()
+	defer t.Unlock()
+
+	if t.errAbort != nil {
+		return t.errAbort
+	}
+	return getQuotaExceededError(t.Connection.protocol)
+}
+
+// SignalClose signals that the transfer should be closed after the next read/write.
+// The optional error argument allow to send a specific error, otherwise a generic
+// transfer aborted error is sent
+func (t *BaseTransfer) SignalClose(err error) {
+	t.Lock()
+	t.errAbort = err
+	t.Unlock()
 	atomic.StoreInt32(&(t.AbortTransfer), 1)
+}
+
+// GetTruncatedSize returns the truncated sized if this is an upload overwriting
+// an existing file
+func (t *BaseTransfer) GetTruncatedSize() int64 {
+	return t.truncatedSize
+}
+
+// GetMaxAllowedSize returns the max allowed size
+func (t *BaseTransfer) GetMaxAllowedSize() int64 {
+	return t.MaxWriteSize
 }
 
 // GetVirtualPath returns the transfer virtual path

@@ -85,7 +85,7 @@ func (c *Connection) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 	}
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, p, p, request.Filepath, common.TransferDownload,
-		0, 0, 0, false, fs)
+		0, 0, 0, 0, false, fs)
 	t := newTransfer(baseTransfer, nil, r, nil)
 
 	return t, nil
@@ -364,7 +364,7 @@ func (c *Connection) handleSFTPUploadToNewFile(fs vfs.Fs, resolvedPath, filePath
 	maxWriteSize, _ := c.GetMaxWriteSize(quotaResult, false, 0, fs.IsUploadResumeSupported())
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, filePath, requestPath,
-		common.TransferUpload, 0, 0, maxWriteSize, true, fs)
+		common.TransferUpload, 0, 0, maxWriteSize, 0, true, fs)
 	t := newTransfer(baseTransfer, w, nil, errForRead)
 
 	return t, nil
@@ -415,6 +415,7 @@ func (c *Connection) handleSFTPUploadToExistingFile(fs vfs.Fs, pflags sftp.FileO
 	}
 
 	initialSize := int64(0)
+	truncatedSize := int64(0) // bytes truncated and not included in quota
 	if isResume {
 		c.Log(logger.LevelDebug, "resuming upload requested, file path %#v initial size: %v has append flag %v",
 			filePath, fileSize, pflags.Append)
@@ -436,13 +437,14 @@ func (c *Connection) handleSFTPUploadToExistingFile(fs vfs.Fs, pflags sftp.FileO
 			}
 		} else {
 			initialSize = fileSize
+			truncatedSize = fileSize
 		}
 	}
 
 	vfs.SetPathPermissions(fs, filePath, c.User.GetUID(), c.User.GetGID())
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, filePath, requestPath,
-		common.TransferUpload, minWriteOffset, initialSize, maxWriteSize, false, fs)
+		common.TransferUpload, minWriteOffset, initialSize, maxWriteSize, truncatedSize, false, fs)
 	t := newTransfer(baseTransfer, w, nil, errForRead)
 
 	return t, nil

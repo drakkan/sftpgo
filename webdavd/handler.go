@@ -149,8 +149,8 @@ func (c *Connection) getFile(fs vfs.Fs, fsPath, virtualPath string) (webdav.File
 		}
 	}
 
-	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, fsPath, fsPath, virtualPath, common.TransferDownload,
-		0, 0, 0, false, fs)
+	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, fsPath, fsPath, virtualPath,
+		common.TransferDownload, 0, 0, 0, 0, false, fs)
 
 	return newWebDavFile(baseTransfer, nil, r), nil
 }
@@ -214,7 +214,7 @@ func (c *Connection) handleUploadToNewFile(fs vfs.Fs, resolvedPath, filePath, re
 	maxWriteSize, _ := c.GetMaxWriteSize(quotaResult, false, 0, fs.IsUploadResumeSupported())
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, filePath, requestPath,
-		common.TransferUpload, 0, 0, maxWriteSize, true, fs)
+		common.TransferUpload, 0, 0, maxWriteSize, 0, true, fs)
 
 	return newWebDavFile(baseTransfer, w, nil), nil
 }
@@ -252,6 +252,7 @@ func (c *Connection) handleUploadToExistingFile(fs vfs.Fs, resolvedPath, filePat
 		return nil, c.GetFsError(fs, err)
 	}
 	initialSize := int64(0)
+	truncatedSize := int64(0) // bytes truncated and not included in quota
 	if vfs.IsLocalOrSFTPFs(fs) {
 		vfolder, err := c.User.GetVirtualFolderForPath(path.Dir(requestPath))
 		if err == nil {
@@ -264,12 +265,13 @@ func (c *Connection) handleUploadToExistingFile(fs vfs.Fs, resolvedPath, filePat
 		}
 	} else {
 		initialSize = fileSize
+		truncatedSize = fileSize
 	}
 
 	vfs.SetPathPermissions(fs, filePath, c.User.GetUID(), c.User.GetGID())
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, filePath, requestPath,
-		common.TransferUpload, 0, initialSize, maxWriteSize, false, fs)
+		common.TransferUpload, 0, initialSize, maxWriteSize, truncatedSize, false, fs)
 
 	return newWebDavFile(baseTransfer, w, nil), nil
 }

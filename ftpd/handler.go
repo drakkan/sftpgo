@@ -335,8 +335,8 @@ func (c *Connection) downloadFile(fs vfs.Fs, fsPath, ftpPath string, offset int6
 		return nil, c.GetFsError(fs, err)
 	}
 
-	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, fsPath, fsPath, ftpPath, common.TransferDownload,
-		0, 0, 0, false, fs)
+	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, fsPath, fsPath, ftpPath,
+		common.TransferDownload, 0, 0, 0, 0, false, fs)
 	baseTransfer.SetFtpMode(c.getFTPMode())
 	t := newTransfer(baseTransfer, nil, r, offset)
 
@@ -402,7 +402,7 @@ func (c *Connection) handleFTPUploadToNewFile(fs vfs.Fs, resolvedPath, filePath,
 	maxWriteSize, _ := c.GetMaxWriteSize(quotaResult, false, 0, fs.IsUploadResumeSupported())
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, filePath, requestPath,
-		common.TransferUpload, 0, 0, maxWriteSize, true, fs)
+		common.TransferUpload, 0, 0, maxWriteSize, 0, true, fs)
 	baseTransfer.SetFtpMode(c.getFTPMode())
 	t := newTransfer(baseTransfer, w, nil, 0)
 
@@ -452,6 +452,7 @@ func (c *Connection) handleFTPUploadToExistingFile(fs vfs.Fs, flags int, resolve
 	}
 
 	initialSize := int64(0)
+	truncatedSize := int64(0) // bytes truncated and not included in quota
 	if isResume {
 		c.Log(logger.LevelDebug, "resuming upload requested, file path: %#v initial size: %v", filePath, fileSize)
 		minWriteOffset = fileSize
@@ -473,13 +474,14 @@ func (c *Connection) handleFTPUploadToExistingFile(fs vfs.Fs, flags int, resolve
 			}
 		} else {
 			initialSize = fileSize
+			truncatedSize = fileSize
 		}
 	}
 
 	vfs.SetPathPermissions(fs, filePath, c.User.GetUID(), c.User.GetGID())
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, filePath, requestPath,
-		common.TransferUpload, minWriteOffset, initialSize, maxWriteSize, false, fs)
+		common.TransferUpload, minWriteOffset, initialSize, maxWriteSize, truncatedSize, false, fs)
 	baseTransfer.SetFtpMode(c.getFTPMode())
 	t := newTransfer(baseTransfer, w, nil, 0)
 

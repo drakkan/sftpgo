@@ -808,7 +808,7 @@ func TestTransferErrors(t *testing.T) {
 		clientContext:  mockCC,
 	}
 	baseTransfer := common.NewBaseTransfer(file, connection.BaseConnection, nil, file.Name(), file.Name(), testfile,
-		common.TransferDownload, 0, 0, 0, false, fs)
+		common.TransferDownload, 0, 0, 0, 0, false, fs)
 	tr := newTransfer(baseTransfer, nil, nil, 0)
 	err = tr.Close()
 	assert.NoError(t, err)
@@ -826,7 +826,7 @@ func TestTransferErrors(t *testing.T) {
 	r, _, err := pipeat.Pipe()
 	assert.NoError(t, err)
 	baseTransfer = common.NewBaseTransfer(nil, connection.BaseConnection, nil, testfile, testfile, testfile,
-		common.TransferUpload, 0, 0, 0, false, fs)
+		common.TransferUpload, 0, 0, 0, 0, false, fs)
 	tr = newTransfer(baseTransfer, nil, r, 10)
 	pos, err := tr.Seek(10, 0)
 	assert.NoError(t, err)
@@ -838,7 +838,7 @@ func TestTransferErrors(t *testing.T) {
 	assert.NoError(t, err)
 	pipeWriter := vfs.NewPipeWriter(w)
 	baseTransfer = common.NewBaseTransfer(nil, connection.BaseConnection, nil, testfile, testfile, testfile,
-		common.TransferUpload, 0, 0, 0, false, fs)
+		common.TransferUpload, 0, 0, 0, 0, false, fs)
 	tr = newTransfer(baseTransfer, pipeWriter, nil, 0)
 
 	err = r.Close()

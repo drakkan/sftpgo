@@ -238,6 +238,7 @@ func (c *scpCommand) handleUploadFile(fs vfs.Fs, resolvedPath, filePath string, 
 	}
 
 	initialSize := int64(0)
+	truncatedSize := int64(0) // bytes truncated and not included in quota
 	if !isNewFile {
 		if vfs.IsLocalOrSFTPFs(fs) {
 			vfolder, err := c.connection.User.GetVirtualFolderForPath(path.Dir(requestPath))
@@ -251,6 +252,7 @@ func (c *scpCommand) handleUploadFile(fs vfs.Fs, resolvedPath, filePath string, 
 			}
 		} else {
 			initialSize = fileSize
+			truncatedSize = initialSize
 		}
 		if maxWriteSize > 0 {
 			maxWriteSize += fileSize
@@ -260,7 +262,7 @@ func (c *scpCommand) handleUploadFile(fs vfs.Fs, resolvedPath, filePath string, 
 	vfs.SetPathPermissions(fs, filePath, c.connection.User.GetUID(), c.connection.User.GetGID())
 
 	baseTransfer := common.NewBaseTransfer(file, c.connection.BaseConnection, cancelFn, resolvedPath, filePath, requestPath,
-		common.TransferUpload, 0, initialSize, maxWriteSize, isNewFile, fs)
+		common.TransferUpload, 0, initialSize, maxWriteSize, truncatedSize, isNewFile, fs)
 	t := newTransfer(baseTransfer, w, nil, nil)
 
 	return c.getUploadFileData(sizeToRead, t)
@@ -529,7 +531,7 @@ func (c *scpCommand) handleDownload(filePath string) error {
 	}
 
 	baseTransfer := common.NewBaseTransfer(file, c.connection.BaseConnection, cancelFn, p, p, filePath,
-		common.TransferDownload, 0, 0, 0, false, fs)
+		common.TransferDownload, 0, 0, 0, 0, false, fs)
 	t := newTransfer(baseTransfer, nil, r, nil)
 
 	err = c.sendDownloadFileData(fs, p, stat, t)

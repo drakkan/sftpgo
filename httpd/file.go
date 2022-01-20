@@ -1,7 +1,6 @@
 package httpd
 
 import (
-	"errors"
 	"io"
 	"sync/atomic"
 
@@ -10,8 +9,6 @@ import (
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
-
-var errTransferAborted = errors.New("transfer aborted")
 
 type httpdFile struct {
 	*common.BaseTransfer
@@ -42,7 +39,9 @@ func newHTTPDFile(baseTransfer *common.BaseTransfer, pipeWriter *vfs.PipeWriter,
 // Read reads the contents to downloads.
 func (f *httpdFile) Read(p []byte) (n int, err error) {
 	if atomic.LoadInt32(&f.AbortTransfer) == 1 {
-		return 0, errTransferAborted
+		err := f.GetAbortError()
+		f.TransferError(err)
+		return 0, err
 	}
 
 	f.Connection.UpdateLastActivity()
@@ -61,7 +60,9 @@ func (f *httpdFile) Read(p []byte) (n int, err error) {
 // Write writes the contents to upload
 func (f *httpdFile) Write(p []byte) (n int, err error) {
 	if atomic.LoadInt32(&f.AbortTransfer) == 1 {
-		return 0, errTransferAborted
+		err := f.GetAbortError()
+		f.TransferError(err)
+		return 0, err
 	}
 
 	f.Connection.UpdateLastActivity()
