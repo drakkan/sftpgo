@@ -7968,19 +7968,19 @@ func TestHealthCheck(t *testing.T) {
 func TestGetWebRootMock(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodGet, "/", nil)
 	rr := executeRequest(req)
-	checkResponseCode(t, http.StatusMovedPermanently, rr)
+	checkResponseCode(t, http.StatusFound, rr)
 	assert.Equal(t, webClientLoginPath, rr.Header().Get("Location"))
 	req, _ = http.NewRequest(http.MethodGet, webBasePath, nil)
 	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusMovedPermanently, rr)
+	checkResponseCode(t, http.StatusFound, rr)
 	assert.Equal(t, webClientLoginPath, rr.Header().Get("Location"))
 	req, _ = http.NewRequest(http.MethodGet, webBasePathAdmin, nil)
 	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusMovedPermanently, rr)
+	checkResponseCode(t, http.StatusFound, rr)
 	assert.Equal(t, webLoginPath, rr.Header().Get("Location"))
 	req, _ = http.NewRequest(http.MethodGet, webBasePathClient, nil)
 	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusMovedPermanently, rr)
+	checkResponseCode(t, http.StatusFound, rr)
 	assert.Equal(t, webClientLoginPath, rr.Header().Get("Location"))
 }
 

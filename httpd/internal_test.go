@@ -1649,14 +1649,14 @@ func TestWebAdminRedirect(t *testing.T) {
 	assert.NoError(t, err)
 	rr := httptest.NewRecorder()
 	testServer.Config.Handler.ServeHTTP(rr, req)
-	assert.Equal(t, http.StatusMovedPermanently, rr.Code, rr.Body.String())
+	assert.Equal(t, http.StatusFound, rr.Code, rr.Body.String())
 	assert.Equal(t, webLoginPath, rr.Header().Get("Location"))
 
 	req, err = http.NewRequest(http.MethodGet, webBasePath, nil)
 	assert.NoError(t, err)
 	rr = httptest.NewRecorder()
 	testServer.Config.Handler.ServeHTTP(rr, req)
-	assert.Equal(t, http.StatusMovedPermanently, rr.Code, rr.Body.String())
+	assert.Equal(t, http.StatusFound, rr.Code, rr.Body.String())
 	assert.Equal(t, webLoginPath, rr.Header().Get("Location"))
 }
 
