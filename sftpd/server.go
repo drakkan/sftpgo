@@ -89,8 +89,6 @@ type Configuration struct {
 	// If set to a negative number, the number of attempts is unlimited.
 	// If set to zero, the number of attempts are limited to 6.
 	MaxAuthTries int `json:"max_auth_tries" mapstructure:"max_auth_tries"`
-	// Actions to execute on file operations and SSH commands
-	Actions common.ProtocolActions `json:"actions" mapstructure:"actions"`
 	// HostKeys define the daemon's private host keys.
 	// Each host key can be defined as a path relative to the configuration directory or an absolute one.
 	// If empty or missing, the daemon will search or try to generate "id_rsa" and "id_ecdsa" host keys

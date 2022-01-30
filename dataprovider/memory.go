@@ -208,6 +208,31 @@ func (p *MemoryProvider) updateAdminLastLogin(username string) error {
 	return nil
 }
 
+func (p *MemoryProvider) updateTransferQuota(username string, uploadSize, downloadSize int64, reset bool) error {
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return errMemoryProviderClosed
+	}
+	user, err := p.userExistsInternal(username)
+	if err != nil {
+		providerLog(logger.LevelError, "unable to update transfer quota for user %#v error: %v", username, err)
+		return err
+	}
+	if reset {
+		user.UsedUploadDataTransfer = uploadSize
+		user.UsedDownloadDataTransfer = downloadSize
+	} else {
+		user.UsedUploadDataTransfer += uploadSize
+		user.UsedDownloadDataTransfer += downloadSize
+	}
+	user.LastQuotaUpdate = util.GetTimeAsMsSinceEpoch(time.Now())
+	providerLog(logger.LevelDebug, "transfer quota updated for user %#v, ul increment: %v dl increment: %v is reset? %v",
+		username, uploadSize, downloadSize, reset)
+	p.dbHandle.users[user.Username] = user
+	return nil
+}
+
 func (p *MemoryProvider) updateQuota(username string, filesAdd int, sizeAdd int64, reset bool) error {
 	p.dbHandle.Lock()
 	defer p.dbHandle.Unlock()
@@ -233,18 +258,18 @@ func (p *MemoryProvider) updateQuota(username string, filesAdd int, sizeAdd int6
 	return nil
 }
 
-func (p *MemoryProvider) getUsedQuota(username string) (int, int64, error) {
+func (p *MemoryProvider) getUsedQuota(username string) (int, int64, int64, int64, error) {
 	p.dbHandle.Lock()
 	defer p.dbHandle.Unlock()
 	if p.dbHandle.isClosed {
-		return 0, 0, errMemoryProviderClosed
+		return 0, 0, 0, 0, errMemoryProviderClosed
 	}
 	user, err := p.userExistsInternal(username)
 	if err != nil {
 		providerLog(logger.LevelError, "unable to get quota for user %#v error: %v", username, err)
-		return 0, 0, err
+		return 0, 0, 0, 0, err
 	}
-	return user.UsedQuotaFiles, user.UsedQuotaSize, err
+	return user.UsedQuotaFiles, user.UsedQuotaSize, user.UsedUploadDataTransfer, user.UsedDownloadDataTransfer, err
 }
 
 func (p *MemoryProvider) addUser(user *User) error {
@@ -269,6 +294,8 @@ func (p *MemoryProvider) addUser(user *User) error {
 	user.LastQuotaUpdate = 0
 	user.UsedQuotaSize = 0
 	user.UsedQuotaFiles = 0
+	user.UsedUploadDataTransfer = 0
+	user.UsedDownloadDataTransfer = 0
 	user.LastLogin = 0
 	user.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 	user.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
@@ -304,6 +331,8 @@ func (p *MemoryProvider) updateUser(user *User) error {
 	user.LastQuotaUpdate = u.LastQuotaUpdate
 	user.UsedQuotaSize = u.UsedQuotaSize
 	user.UsedQuotaFiles = u.UsedQuotaFiles
+	user.UsedUploadDataTransfer = u.UsedUploadDataTransfer
+	user.UsedDownloadDataTransfer = u.UsedDownloadDataTransfer
 	user.LastLogin = u.LastLogin
 	user.CreatedAt = u.CreatedAt
 	user.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
@@ -1333,6 +1362,26 @@ func (p *MemoryProvider) setDefenderBanTime(ip string, banTime int64) error {
 
 func (p *MemoryProvider) cleanupDefender(from int64) error {
 	return ErrNotImplemented
+}
+
+func (p *MemoryProvider) addActiveTransfer(transfer ActiveTransfer) error {
+	return ErrNotImplemented
+}
+
+func (p *MemoryProvider) updateActiveTransferSizes(ulSize, dlSize, transferID int64, connectionID string) error {
+	return ErrNotImplemented
+}
+
+func (p *MemoryProvider) removeActiveTransfer(transferID int64, connectionID string) error {
+	return ErrNotImplemented
+}
+
+func (p *MemoryProvider) cleanupActiveTransfers(before time.Time) error {
+	return ErrNotImplemented
+}
+
+func (p *MemoryProvider) getActiveTransfers(from time.Time) ([]ActiveTransfer, error) {
+	return nil, ErrNotImplemented
 }
 
 func (p *MemoryProvider) getNextID() int64 {

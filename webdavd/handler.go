@@ -150,7 +150,7 @@ func (c *Connection) getFile(fs vfs.Fs, fsPath, virtualPath string) (webdav.File
 	}
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, fsPath, fsPath, virtualPath,
-		common.TransferDownload, 0, 0, 0, 0, false, fs)
+		common.TransferDownload, 0, 0, 0, 0, false, fs, c.GetTransferQuota())
 
 	return newWebDavFile(baseTransfer, nil, r), nil
 }
@@ -193,8 +193,8 @@ func (c *Connection) putFile(fs vfs.Fs, fsPath, virtualPath string) (webdav.File
 }
 
 func (c *Connection) handleUploadToNewFile(fs vfs.Fs, resolvedPath, filePath, requestPath string) (webdav.File, error) {
-	quotaResult := c.HasSpace(true, false, requestPath)
-	if !quotaResult.HasSpace {
+	diskQuota, transferQuota := c.HasSpace(true, false, requestPath)
+	if !diskQuota.HasSpace || !transferQuota.HasUploadSpace() {
 		c.Log(logger.LevelInfo, "denying file write due to quota limits")
 		return nil, common.ErrQuotaExceeded
 	}
@@ -211,19 +211,20 @@ func (c *Connection) handleUploadToNewFile(fs vfs.Fs, resolvedPath, filePath, re
 	vfs.SetPathPermissions(fs, filePath, c.User.GetUID(), c.User.GetGID())
 
 	// we can get an error only for resume
-	maxWriteSize, _ := c.GetMaxWriteSize(quotaResult, false, 0, fs.IsUploadResumeSupported())
+	maxWriteSize, _ := c.GetMaxWriteSize(diskQuota, false, 0, fs.IsUploadResumeSupported())
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, filePath, requestPath,
-		common.TransferUpload, 0, 0, maxWriteSize, 0, true, fs)
+		common.TransferUpload, 0, 0, maxWriteSize, 0, true, fs, transferQuota)
 
 	return newWebDavFile(baseTransfer, w, nil), nil
 }
 
 func (c *Connection) handleUploadToExistingFile(fs vfs.Fs, resolvedPath, filePath string, fileSize int64,
-	requestPath string) (webdav.File, error) {
+	requestPath string,
+) (webdav.File, error) {
 	var err error
-	quotaResult := c.HasSpace(false, false, requestPath)
-	if !quotaResult.HasSpace {
+	diskQuota, transferQuota := c.HasSpace(false, false, requestPath)
+	if !diskQuota.HasSpace || !transferQuota.HasUploadSpace() {
 		c.Log(logger.LevelInfo, "denying file write due to quota limits")
 		return nil, common.ErrQuotaExceeded
 	}
@@ -235,7 +236,7 @@ func (c *Connection) handleUploadToExistingFile(fs vfs.Fs, resolvedPath, filePat
 
 	// if there is a size limit remaining size cannot be 0 here, since quotaResult.HasSpace
 	// will return false in this case and we deny the upload before
-	maxWriteSize, _ := c.GetMaxWriteSize(quotaResult, false, fileSize, fs.IsUploadResumeSupported())
+	maxWriteSize, _ := c.GetMaxWriteSize(diskQuota, false, fileSize, fs.IsUploadResumeSupported())
 
 	if common.Config.IsAtomicUploadEnabled() && fs.IsAtomicUploadSupported() {
 		err = fs.Rename(resolvedPath, filePath)
@@ -271,7 +272,7 @@ func (c *Connection) handleUploadToExistingFile(fs vfs.Fs, resolvedPath, filePat
 	vfs.SetPathPermissions(fs, filePath, c.User.GetUID(), c.User.GetGID())
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, filePath, requestPath,
-		common.TransferUpload, 0, initialSize, maxWriteSize, truncatedSize, false, fs)
+		common.TransferUpload, 0, initialSize, maxWriteSize, truncatedSize, false, fs, transferQuota)
 
 	return newWebDavFile(baseTransfer, w, nil), nil
 }

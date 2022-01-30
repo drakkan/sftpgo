@@ -11,7 +11,8 @@ import (
 const (
 	selectUserFields = "id,username,password,public_keys,home_dir,uid,gid,max_sessions,quota_size,quota_files,permissions,used_quota_size," +
 		"used_quota_files,last_quota_update,upload_bandwidth,download_bandwidth,expiration_date,last_login,status,filters,filesystem," +
-		"additional_info,description,email,created_at,updated_at"
+		"additional_info,description,email,created_at,updated_at,upload_data_transfer,download_data_transfer,total_data_transfer," +
+		"used_upload_data_transfer,used_download_data_transfer"
 	selectFolderFields = "id,path,used_quota_size,used_quota_files,last_quota_update,name,description,filesystem"
 	selectAdminFields  = "id,username,password,status,email,permissions,filters,additional_info,description,created_at,updated_at,last_login"
 	selectAPIKeyFields = "key_id,name,api_key,scope,created_at,updated_at,last_use_at,expires_at,description,user_id,admin_id"
@@ -276,7 +277,8 @@ func getUsersForQuotaCheckQuery(numArgs int) string {
 	if sb.Len() > 0 {
 		sb.WriteString(")")
 	}
-	return fmt.Sprintf(`SELECT id,username,quota_size,used_quota_size FROM %v WHERE username IN %v`,
+	return fmt.Sprintf(`SELECT id,username,quota_size,used_quota_size,total_data_transfer,upload_data_transfer,
+		download_data_transfer,used_upload_data_transfer,used_download_data_transfer,filters FROM %v WHERE username IN %v`,
 		sqlTableUsers, sb.String())
 }
 
@@ -290,6 +292,16 @@ func getDumpUsersQuery() string {
 
 func getDumpFoldersQuery() string {
 	return fmt.Sprintf(`SELECT %v FROM %v`, selectFolderFields, sqlTableFolders)
+}
+
+func getUpdateTransferQuotaQuery(reset bool) string {
+	if reset {
+		return fmt.Sprintf(`UPDATE %v SET used_upload_data_transfer = %v,used_download_data_transfer = %v,last_quota_update = %v
+			WHERE username = %v`, sqlTableUsers, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3])
+	}
+	return fmt.Sprintf(`UPDATE %v SET used_upload_data_transfer = used_upload_data_transfer + %v,
+		used_download_data_transfer = used_download_data_transfer + %v,last_quota_update = %v
+		WHERE username = %v`, sqlTableUsers, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3])
 }
 
 func getUpdateQuotaQuery(reset bool) string {
@@ -323,28 +335,34 @@ func getUpdateShareLastUseQuery() string {
 }
 
 func getQuotaQuery() string {
-	return fmt.Sprintf(`SELECT used_quota_size,used_quota_files FROM %v WHERE username = %v`, sqlTableUsers,
-		sqlPlaceholders[0])
+	return fmt.Sprintf(`SELECT used_quota_size,used_quota_files,used_upload_data_transfer,
+		used_download_data_transfer FROM %v WHERE username = %v`,
+		sqlTableUsers, sqlPlaceholders[0])
 }
 
 func getAddUserQuery() string {
 	return fmt.Sprintf(`INSERT INTO %v (username,password,public_keys,home_dir,uid,gid,max_sessions,quota_size,quota_files,permissions,
 		used_quota_size,used_quota_files,last_quota_update,upload_bandwidth,download_bandwidth,status,last_login,expiration_date,filters,
-		filesystem,additional_info,description,email,created_at,updated_at)
-		VALUES (%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,0,0,0,%v,%v,%v,0,%v,%v,%v,%v,%v,%v,%v,%v)`, sqlTableUsers, sqlPlaceholders[0], sqlPlaceholders[1],
-		sqlPlaceholders[2], sqlPlaceholders[3], sqlPlaceholders[4], sqlPlaceholders[5], sqlPlaceholders[6], sqlPlaceholders[7],
-		sqlPlaceholders[8], sqlPlaceholders[9], sqlPlaceholders[10], sqlPlaceholders[11], sqlPlaceholders[12], sqlPlaceholders[13],
-		sqlPlaceholders[14], sqlPlaceholders[15], sqlPlaceholders[16], sqlPlaceholders[17], sqlPlaceholders[18], sqlPlaceholders[19],
-		sqlPlaceholders[20])
+		filesystem,additional_info,description,email,created_at,updated_at,upload_data_transfer,download_data_transfer,total_data_transfer,
+		used_upload_data_transfer,used_download_data_transfer)
+		VALUES (%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,0,0,0,%v,%v,%v,0,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,0,0)`,
+		sqlTableUsers, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3], sqlPlaceholders[4],
+		sqlPlaceholders[5], sqlPlaceholders[6], sqlPlaceholders[7], sqlPlaceholders[8], sqlPlaceholders[9],
+		sqlPlaceholders[10], sqlPlaceholders[11], sqlPlaceholders[12], sqlPlaceholders[13], sqlPlaceholders[14],
+		sqlPlaceholders[15], sqlPlaceholders[16], sqlPlaceholders[17], sqlPlaceholders[18], sqlPlaceholders[19],
+		sqlPlaceholders[20], sqlPlaceholders[21], sqlPlaceholders[22], sqlPlaceholders[23])
 }
 
 func getUpdateUserQuery() string {
 	return fmt.Sprintf(`UPDATE %v SET password=%v,public_keys=%v,home_dir=%v,uid=%v,gid=%v,max_sessions=%v,quota_size=%v,
 		quota_files=%v,permissions=%v,upload_bandwidth=%v,download_bandwidth=%v,status=%v,expiration_date=%v,filters=%v,filesystem=%v,
-		additional_info=%v,description=%v,email=%v,updated_at=%v WHERE id = %v`, sqlTableUsers, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3],
-		sqlPlaceholders[4], sqlPlaceholders[5], sqlPlaceholders[6], sqlPlaceholders[7], sqlPlaceholders[8], sqlPlaceholders[9],
-		sqlPlaceholders[10], sqlPlaceholders[11], sqlPlaceholders[12], sqlPlaceholders[13], sqlPlaceholders[14], sqlPlaceholders[15],
-		sqlPlaceholders[16], sqlPlaceholders[17], sqlPlaceholders[18], sqlPlaceholders[19])
+		additional_info=%v,description=%v,email=%v,updated_at=%v,upload_data_transfer=%v,download_data_transfer=%v,
+		total_data_transfer=%v WHERE id = %v`,
+		sqlTableUsers, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3], sqlPlaceholders[4],
+		sqlPlaceholders[5], sqlPlaceholders[6], sqlPlaceholders[7], sqlPlaceholders[8], sqlPlaceholders[9],
+		sqlPlaceholders[10], sqlPlaceholders[11], sqlPlaceholders[12], sqlPlaceholders[13], sqlPlaceholders[14],
+		sqlPlaceholders[15], sqlPlaceholders[16], sqlPlaceholders[17], sqlPlaceholders[18], sqlPlaceholders[19],
+		sqlPlaceholders[20], sqlPlaceholders[21], sqlPlaceholders[22])
 }
 
 func getDeleteUserQuery() string {
@@ -437,6 +455,34 @@ func getRelatedUsersForFoldersQuery(folders []vfs.BaseVirtualFolder) string {
 	}
 	return fmt.Sprintf(`SELECT fm.folder_id,u.username FROM %v fm INNER JOIN %v u ON fm.user_id = u.id
 		WHERE fm.folder_id IN %v ORDER BY fm.folder_id`, sqlTableFoldersMapping, sqlTableUsers, sb.String())
+}
+
+func getActiveTransfersQuery() string {
+	return fmt.Sprintf(`SELECT transfer_id,connection_id,transfer_type,username,folder_name,ip,truncated_size,
+		current_ul_size,current_dl_size,created_at,updated_at FROM %v WHERE updated_at > %v`,
+		sqlTableActiveTransfers, sqlPlaceholders[0])
+}
+
+func getAddActiveTransferQuery() string {
+	return fmt.Sprintf(`INSERT INTO %v (transfer_id,connection_id,transfer_type,username,folder_name,ip,truncated_size,
+		current_ul_size,current_dl_size,created_at,updated_at) VALUES (%v,%v,%v,%v,%v,%v,%v,%v,%v,%v,%v)`,
+		sqlTableActiveTransfers, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3],
+		sqlPlaceholders[4], sqlPlaceholders[5], sqlPlaceholders[6], sqlPlaceholders[7], sqlPlaceholders[8],
+		sqlPlaceholders[9], sqlPlaceholders[10])
+}
+
+func getUpdateActiveTransferSizesQuery() string {
+	return fmt.Sprintf(`UPDATE %v SET current_ul_size=%v,current_dl_size=%v,updated_at=%v WHERE connection_id = %v AND transfer_id = %v`,
+		sqlTableActiveTransfers, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3], sqlPlaceholders[4])
+}
+
+func getRemoveActiveTransferQuery() string {
+	return fmt.Sprintf(`DELETE FROM %v WHERE connection_id = %v AND transfer_id = %v`,
+		sqlTableActiveTransfers, sqlPlaceholders[0], sqlPlaceholders[1])
+}
+
+func getCleanupActiveTransfersQuery() string {
+	return fmt.Sprintf(`DELETE FROM %v WHERE updated_at < %v`, sqlTableActiveTransfers, sqlPlaceholders[0])
 }
 
 func getDatabaseVersionQuery() string {

@@ -62,6 +62,11 @@ func (c *Connection) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 	if !c.User.HasPerm(dataprovider.PermDownload, path.Dir(request.Filepath)) {
 		return nil, sftp.ErrSSHFxPermissionDenied
 	}
+	transferQuota := c.GetTransferQuota()
+	if !transferQuota.HasDownloadSpace() {
+		c.Log(logger.LevelInfo, "denying file read due to quota limits")
+		return nil, c.GetReadQuotaExceededError()
+	}
 
 	if ok, policy := c.User.IsFileAllowed(request.Filepath); !ok {
 		c.Log(logger.LevelWarn, "reading file %#v is not allowed", request.Filepath)
@@ -85,7 +90,7 @@ func (c *Connection) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 	}
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, p, p, request.Filepath, common.TransferDownload,
-		0, 0, 0, 0, false, fs)
+		0, 0, 0, 0, false, fs, transferQuota)
 	t := newTransfer(baseTransfer, nil, r, nil)
 
 	return t, nil
@@ -271,7 +276,7 @@ func (c *Connection) StatVFS(r *sftp.Request) (*sftp.StatVFS, error) {
 	// not produce any side effect here.
 	// we don't consider c.User.Filters.MaxUploadFileSize, we return disk stats here
 	// not the limit for a single file upload
-	quotaResult := c.HasSpace(true, true, path.Join(r.Filepath, "fakefile.txt"))
+	quotaResult, _ := c.HasSpace(true, true, path.Join(r.Filepath, "fakefile.txt"))
 
 	fs, p, err := c.GetFsAndResolvedPath(r.Filepath)
 	if err != nil {
@@ -341,8 +346,8 @@ func (c *Connection) handleSFTPRemove(request *sftp.Request) error {
 }
 
 func (c *Connection) handleSFTPUploadToNewFile(fs vfs.Fs, resolvedPath, filePath, requestPath string, errForRead error) (sftp.WriterAtReaderAt, error) {
-	quotaResult := c.HasSpace(true, false, requestPath)
-	if !quotaResult.HasSpace {
+	diskQuota, transferQuota := c.HasSpace(true, false, requestPath)
+	if !diskQuota.HasSpace || !transferQuota.HasUploadSpace() {
 		c.Log(logger.LevelInfo, "denying file write due to quota limits")
 		return nil, c.GetQuotaExceededError()
 	}
@@ -361,10 +366,10 @@ func (c *Connection) handleSFTPUploadToNewFile(fs vfs.Fs, resolvedPath, filePath
 	vfs.SetPathPermissions(fs, filePath, c.User.GetUID(), c.User.GetGID())
 
 	// we can get an error only for resume
-	maxWriteSize, _ := c.GetMaxWriteSize(quotaResult, false, 0, fs.IsUploadResumeSupported())
+	maxWriteSize, _ := c.GetMaxWriteSize(diskQuota, false, 0, fs.IsUploadResumeSupported())
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, filePath, requestPath,
-		common.TransferUpload, 0, 0, maxWriteSize, 0, true, fs)
+		common.TransferUpload, 0, 0, maxWriteSize, 0, true, fs, transferQuota)
 	t := newTransfer(baseTransfer, w, nil, errForRead)
 
 	return t, nil
@@ -373,8 +378,8 @@ func (c *Connection) handleSFTPUploadToNewFile(fs vfs.Fs, resolvedPath, filePath
 func (c *Connection) handleSFTPUploadToExistingFile(fs vfs.Fs, pflags sftp.FileOpenFlags, resolvedPath, filePath string,
 	fileSize int64, requestPath string, errForRead error) (sftp.WriterAtReaderAt, error) {
 	var err error
-	quotaResult := c.HasSpace(false, false, requestPath)
-	if !quotaResult.HasSpace {
+	diskQuota, transferQuota := c.HasSpace(false, false, requestPath)
+	if !diskQuota.HasSpace || !transferQuota.HasUploadSpace() {
 		c.Log(logger.LevelInfo, "denying file write due to quota limits")
 		return nil, c.GetQuotaExceededError()
 	}
@@ -388,7 +393,7 @@ func (c *Connection) handleSFTPUploadToExistingFile(fs vfs.Fs, pflags sftp.FileO
 	// if there is a size limit the remaining size cannot be 0 here, since quotaResult.HasSpace
 	// will return false in this case and we deny the upload before.
 	// For Cloud FS GetMaxWriteSize will return unsupported operation
-	maxWriteSize, err := c.GetMaxWriteSize(quotaResult, isResume, fileSize, fs.IsUploadResumeSupported())
+	maxWriteSize, err := c.GetMaxWriteSize(diskQuota, isResume, fileSize, fs.IsUploadResumeSupported())
 	if err != nil {
 		c.Log(logger.LevelDebug, "unable to get max write size: %v", err)
 		return nil, err
@@ -444,7 +449,7 @@ func (c *Connection) handleSFTPUploadToExistingFile(fs vfs.Fs, pflags sftp.FileO
 	vfs.SetPathPermissions(fs, filePath, c.User.GetUID(), c.User.GetGID())
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, filePath, requestPath,
-		common.TransferUpload, minWriteOffset, initialSize, maxWriteSize, truncatedSize, false, fs)
+		common.TransferUpload, minWriteOffset, initialSize, maxWriteSize, truncatedSize, false, fs, transferQuota)
 	t := newTransfer(baseTransfer, w, nil, errForRead)
 
 	return t, nil

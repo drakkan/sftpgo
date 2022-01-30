@@ -18,18 +18,25 @@ type quotaObject struct {
 	files int
 }
 
+type transferQuotaObject struct {
+	ulSize int64
+	dlSize int64
+}
+
 type quotaUpdater struct {
 	paramsMutex sync.RWMutex
 	waitTime    time.Duration
 	sync.RWMutex
-	pendingUserQuotaUpdates   map[string]quotaObject
-	pendingFolderQuotaUpdates map[string]quotaObject
+	pendingUserQuotaUpdates     map[string]quotaObject
+	pendingFolderQuotaUpdates   map[string]quotaObject
+	pendingTransferQuotaUpdates map[string]transferQuotaObject
 }
 
 func newQuotaUpdater() quotaUpdater {
 	return quotaUpdater{
-		pendingUserQuotaUpdates:   make(map[string]quotaObject),
-		pendingFolderQuotaUpdates: make(map[string]quotaObject),
+		pendingUserQuotaUpdates:     make(map[string]quotaObject),
+		pendingFolderQuotaUpdates:   make(map[string]quotaObject),
+		pendingTransferQuotaUpdates: make(map[string]transferQuotaObject),
 	}
 }
 
@@ -50,6 +57,7 @@ func (q *quotaUpdater) loop() {
 		providerLog(logger.LevelDebug, "delayed quota update check start")
 		q.storeUsersQuota()
 		q.storeFoldersQuota()
+		q.storeUsersTransferQuota()
 		providerLog(logger.LevelDebug, "delayed quota update check end")
 		waitTime = q.getWaitTime()
 	}
@@ -130,6 +138,36 @@ func (q *quotaUpdater) getFolderPendingQuota(name string) (int, int64) {
 	return obj.files, obj.size
 }
 
+func (q *quotaUpdater) resetUserTransferQuota(username string) {
+	q.Lock()
+	defer q.Unlock()
+
+	delete(q.pendingTransferQuotaUpdates, username)
+}
+
+func (q *quotaUpdater) updateUserTransferQuota(username string, ulSize, dlSize int64) {
+	q.Lock()
+	defer q.Unlock()
+
+	obj := q.pendingTransferQuotaUpdates[username]
+	obj.ulSize += ulSize
+	obj.dlSize += dlSize
+	if obj.ulSize == 0 && obj.dlSize == 0 {
+		delete(q.pendingTransferQuotaUpdates, username)
+		return
+	}
+	q.pendingTransferQuotaUpdates[username] = obj
+}
+
+func (q *quotaUpdater) getUserPendingTransferQuota(username string) (int64, int64) {
+	q.RLock()
+	defer q.RUnlock()
+
+	obj := q.pendingTransferQuotaUpdates[username]
+
+	return obj.ulSize, obj.dlSize
+}
+
 func (q *quotaUpdater) getUsernames() []string {
 	q.RLock()
 	defer q.RUnlock()
@@ -149,6 +187,18 @@ func (q *quotaUpdater) getFoldernames() []string {
 	result := make([]string, 0, len(q.pendingFolderQuotaUpdates))
 	for name := range q.pendingFolderQuotaUpdates {
 		result = append(result, name)
+	}
+
+	return result
+}
+
+func (q *quotaUpdater) getTransferQuotaUsernames() []string {
+	q.RLock()
+	defer q.RUnlock()
+
+	result := make([]string, 0, len(q.pendingTransferQuotaUpdates))
+	for username := range q.pendingTransferQuotaUpdates {
+		result = append(result, username)
 	}
 
 	return result
@@ -178,6 +228,20 @@ func (q *quotaUpdater) storeFoldersQuota() {
 				continue
 			}
 			q.updateFolderQuota(name, -files, -size)
+		}
+	}
+}
+
+func (q *quotaUpdater) storeUsersTransferQuota() {
+	for _, username := range q.getTransferQuotaUsernames() {
+		ulSize, dlSize := q.getUserPendingTransferQuota(username)
+		if ulSize != 0 || dlSize != 0 {
+			err := provider.updateTransferQuota(username, ulSize, dlSize, false)
+			if err != nil {
+				providerLog(logger.LevelWarn, "unable to update transfer quota delayed for user %#v: %v", username, err)
+				continue
+			}
+			q.updateUserTransferQuota(username, -ulSize, -dlSize)
 		}
 	}
 }

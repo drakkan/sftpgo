@@ -51,6 +51,25 @@ type systemCommand struct {
 	fs             vfs.Fs
 }
 
+func (c *systemCommand) GetSTDs() (io.WriteCloser, io.ReadCloser, io.ReadCloser, error) {
+	stdin, err := c.cmd.StdinPipe()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	stdout, err := c.cmd.StdoutPipe()
+	if err != nil {
+		stdin.Close()
+		return nil, nil, nil, err
+	}
+	stderr, err := c.cmd.StderrPipe()
+	if err != nil {
+		stdin.Close()
+		stdout.Close()
+		return nil, nil, nil, err
+	}
+	return stdin, stdout, stderr, nil
+}
+
 func processSSHCommand(payload []byte, connection *Connection, enabledSSHCommands []string) bool {
 	var msg sshSubsystemExecMsg
 	if err := ssh.Unmarshal(payload, &msg); err == nil {
@@ -309,8 +328,8 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 	if !c.isLocalPath(sshDestPath) {
 		return c.sendErrorResponse(errUnsupportedConfig)
 	}
-	quotaResult := c.connection.HasSpace(true, false, command.quotaCheckPath)
-	if !quotaResult.HasSpace {
+	diskQuota, transferQuota := c.connection.HasSpace(true, false, command.quotaCheckPath)
+	if !diskQuota.HasSpace || !transferQuota.HasUploadSpace() || !transferQuota.HasDownloadSpace() {
 		return c.sendErrorResponse(common.ErrQuotaExceeded)
 	}
 	perms := []string{dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermCreateDirs, dataprovider.PermListItems,
@@ -324,15 +343,7 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 		return c.sendErrorResponse(err)
 	}
 
-	stdin, err := command.cmd.StdinPipe()
-	if err != nil {
-		return c.sendErrorResponse(err)
-	}
-	stdout, err := command.cmd.StdoutPipe()
-	if err != nil {
-		return c.sendErrorResponse(err)
-	}
-	stderr, err := command.cmd.StderrPipe()
+	stdin, stdout, stderr, err := command.GetSTDs()
 	if err != nil {
 		return c.sendErrorResponse(err)
 	}
@@ -351,12 +362,12 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 	var once sync.Once
 	commandResponse := make(chan bool)
 
-	remainingQuotaSize := quotaResult.GetRemainingSize()
+	remainingQuotaSize := diskQuota.GetRemainingSize()
 
 	go func() {
 		defer stdin.Close()
 		baseTransfer := common.NewBaseTransfer(nil, c.connection.BaseConnection, nil, command.fsPath, command.fsPath, sshDestPath,
-			common.TransferUpload, 0, 0, remainingQuotaSize, 0, false, command.fs)
+			common.TransferUpload, 0, 0, remainingQuotaSize, 0, false, command.fs, transferQuota)
 		transfer := newTransfer(baseTransfer, nil, nil, nil)
 
 		w, e := transfer.copyFromReaderToWriter(stdin, c.connection.channel)
@@ -369,7 +380,7 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 
 	go func() {
 		baseTransfer := common.NewBaseTransfer(nil, c.connection.BaseConnection, nil, command.fsPath, command.fsPath, sshDestPath,
-			common.TransferDownload, 0, 0, 0, 0, false, command.fs)
+			common.TransferDownload, 0, 0, 0, 0, false, command.fs, transferQuota)
 		transfer := newTransfer(baseTransfer, nil, nil, nil)
 
 		w, e := transfer.copyFromReaderToWriter(c.connection.channel, stdout)
@@ -383,7 +394,7 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 
 	go func() {
 		baseTransfer := common.NewBaseTransfer(nil, c.connection.BaseConnection, nil, command.fsPath, command.fsPath, sshDestPath,
-			common.TransferDownload, 0, 0, 0, 0, false, command.fs)
+			common.TransferDownload, 0, 0, 0, 0, false, command.fs, transferQuota)
 		transfer := newTransfer(baseTransfer, nil, nil, nil)
 
 		w, e := transfer.copyFromReaderToWriter(c.connection.channel.(ssh.Channel).Stderr(), stderr)
@@ -662,7 +673,7 @@ func (c *sshCommand) checkCopyDestination(fs vfs.Fs, fsDestPath string) error {
 }
 
 func (c *sshCommand) checkCopyQuota(numFiles int, filesSize int64, requestPath string) error {
-	quotaResult := c.connection.HasSpace(true, false, requestPath)
+	quotaResult, _ := c.connection.HasSpace(true, false, requestPath)
 	if !quotaResult.HasSpace {
 		return common.ErrQuotaExceeded
 	}

@@ -125,7 +125,7 @@ func (c *BaseConnection) AddTransfer(t ActiveTransfer) {
 
 	c.activeTransfers = append(c.activeTransfers, t)
 	c.Log(logger.LevelDebug, "transfer added, id: %v, active transfers: %v", t.GetID(), len(c.activeTransfers))
-	if t.GetMaxAllowedSize() > 0 {
+	if t.HasSizeLimit() {
 		folderName := ""
 		if t.GetType() == TransferUpload {
 			vfolder, err := c.User.GetVirtualFolderForPath(path.Dir(t.GetVirtualPath()))
@@ -141,6 +141,7 @@ func (c *BaseConnection) AddTransfer(t ActiveTransfer) {
 			ConnID:        c.ID,
 			Username:      c.GetUsername(),
 			FolderName:    folderName,
+			IP:            c.GetRemoteIP(),
 			TruncatedSize: t.GetTruncatedSize(),
 			CreatedAt:     util.GetTimeAsMsSinceEpoch(time.Now()),
 			UpdatedAt:     util.GetTimeAsMsSinceEpoch(time.Now()),
@@ -153,7 +154,7 @@ func (c *BaseConnection) RemoveTransfer(t ActiveTransfer) {
 	c.Lock()
 	defer c.Unlock()
 
-	if t.GetMaxAllowedSize() > 0 {
+	if t.HasSizeLimit() {
 		go transfersChecker.RemoveTransfer(t.GetID(), c.ID)
 	}
 
@@ -199,14 +200,14 @@ func (c *BaseConnection) GetTransfers() []ConnectionTransfer {
 			operationType = operationUpload
 		}
 		transfers = append(transfers, ConnectionTransfer{
-			ID:             t.GetID(),
-			OperationType:  operationType,
-			StartTime:      util.GetTimeAsMsSinceEpoch(t.GetStartTime()),
-			Size:           t.GetSize(),
-			VirtualPath:    t.GetVirtualPath(),
-			MaxAllowedSize: t.GetMaxAllowedSize(),
-			ULSize:         t.GetUploadedSize(),
-			DLSize:         t.GetDownloadedSize(),
+			ID:            t.GetID(),
+			OperationType: operationType,
+			StartTime:     util.GetTimeAsMsSinceEpoch(t.GetStartTime()),
+			Size:          t.GetSize(),
+			VirtualPath:   t.GetVirtualPath(),
+			HasSizeLimit:  t.HasSizeLimit(),
+			ULSize:        t.GetUploadedSize(),
+			DLSize:        t.GetDownloadedSize(),
 		})
 	}
 
@@ -896,7 +897,7 @@ func (c *BaseConnection) hasSpaceForRename(fs vfs.Fs, virtualSourcePath, virtual
 		// rename between user root dir and a virtual folder included in user quota
 		return true
 	}
-	quotaResult := c.HasSpace(true, false, virtualTargetPath)
+	quotaResult, _ := c.HasSpace(true, false, virtualTargetPath)
 	return c.hasSpaceForCrossRename(fs, quotaResult, initialSize, fsSourcePath)
 }
 
@@ -958,7 +959,9 @@ func (c *BaseConnection) hasSpaceForCrossRename(fs vfs.Fs, quotaResult vfs.Quota
 
 // GetMaxWriteSize returns the allowed size for an upload or an error
 // if no enough size is available for a resume/append
-func (c *BaseConnection) GetMaxWriteSize(quotaResult vfs.QuotaCheckResult, isResume bool, fileSize int64, isUploadResumeSupported bool) (int64, error) {
+func (c *BaseConnection) GetMaxWriteSize(quotaResult vfs.QuotaCheckResult, isResume bool, fileSize int64,
+	isUploadResumeSupported bool,
+) (int64, error) {
 	maxWriteSize := quotaResult.GetRemainingSize()
 
 	if isResume {
@@ -986,8 +989,49 @@ func (c *BaseConnection) GetMaxWriteSize(quotaResult vfs.QuotaCheckResult, isRes
 	return maxWriteSize, nil
 }
 
+// GetTransferQuota returns the data transfers quota
+func (c *BaseConnection) GetTransferQuota() dataprovider.TransferQuota {
+	result, _, _ := c.checkUserQuota()
+	return result
+}
+
+func (c *BaseConnection) checkUserQuota() (dataprovider.TransferQuota, int, int64) {
+	clientIP := c.GetRemoteIP()
+	ul, dl, total := c.User.GetDataTransferLimits(clientIP)
+	result := dataprovider.TransferQuota{
+		ULSize:           ul,
+		DLSize:           dl,
+		TotalSize:        total,
+		AllowedULSize:    0,
+		AllowedDLSize:    0,
+		AllowedTotalSize: 0,
+	}
+	if !c.User.HasTransferQuotaRestrictions() {
+		return result, -1, -1
+	}
+	usedFiles, usedSize, usedULSize, usedDLSize, err := dataprovider.GetUsedQuota(c.User.Username)
+	if err != nil {
+		c.Log(logger.LevelError, "error getting used quota for %#v: %v", c.User.Username, err)
+		result.AllowedTotalSize = -1
+		return result, -1, -1
+	}
+	if result.TotalSize > 0 {
+		result.AllowedTotalSize = result.TotalSize - (usedULSize + usedDLSize)
+	}
+	if result.ULSize > 0 {
+		result.AllowedULSize = result.ULSize - usedULSize
+	}
+	if result.DLSize > 0 {
+		result.AllowedDLSize = result.DLSize - usedDLSize
+	}
+
+	return result, usedFiles, usedSize
+}
+
 // HasSpace checks user's quota usage
-func (c *BaseConnection) HasSpace(checkFiles, getUsage bool, requestPath string) vfs.QuotaCheckResult {
+func (c *BaseConnection) HasSpace(checkFiles, getUsage bool, requestPath string) (vfs.QuotaCheckResult,
+	dataprovider.TransferQuota,
+) {
 	result := vfs.QuotaCheckResult{
 		HasSpace:     true,
 		AllowedSize:  0,
@@ -997,32 +1041,39 @@ func (c *BaseConnection) HasSpace(checkFiles, getUsage bool, requestPath string)
 		QuotaSize:    0,
 		QuotaFiles:   0,
 	}
-
 	if dataprovider.GetQuotaTracking() == 0 {
-		return result
+		return result, dataprovider.TransferQuota{}
 	}
+	transferQuota, usedFiles, usedSize := c.checkUserQuota()
+
 	var err error
 	var vfolder vfs.VirtualFolder
 	vfolder, err = c.User.GetVirtualFolderForPath(path.Dir(requestPath))
 	if err == nil && !vfolder.IsIncludedInUserQuota() {
 		if vfolder.HasNoQuotaRestrictions(checkFiles) && !getUsage {
-			return result
+			return result, transferQuota
 		}
 		result.QuotaSize = vfolder.QuotaSize
 		result.QuotaFiles = vfolder.QuotaFiles
 		result.UsedFiles, result.UsedSize, err = dataprovider.GetUsedVirtualFolderQuota(vfolder.Name)
 	} else {
 		if c.User.HasNoQuotaRestrictions(checkFiles) && !getUsage {
-			return result
+			return result, transferQuota
 		}
 		result.QuotaSize = c.User.QuotaSize
 		result.QuotaFiles = c.User.QuotaFiles
-		result.UsedFiles, result.UsedSize, err = dataprovider.GetUsedQuota(c.User.Username)
+		if usedSize == -1 {
+			result.UsedFiles, result.UsedSize, _, _, err = dataprovider.GetUsedQuota(c.User.Username)
+		} else {
+			err = nil
+			result.UsedFiles = usedFiles
+			result.UsedSize = usedSize
+		}
 	}
 	if err != nil {
 		c.Log(logger.LevelError, "error getting used quota for %#v request path %#v: %v", c.User.Username, requestPath, err)
 		result.HasSpace = false
-		return result
+		return result, transferQuota
 	}
 	result.AllowedFiles = result.QuotaFiles - result.UsedFiles
 	result.AllowedSize = result.QuotaSize - result.UsedSize
@@ -1031,9 +1082,9 @@ func (c *BaseConnection) HasSpace(checkFiles, getUsage bool, requestPath string)
 		c.Log(logger.LevelDebug, "quota exceed for user %#v, request path %#v, num files: %v/%v, size: %v/%v check files: %v",
 			c.User.Username, requestPath, result.UsedFiles, result.QuotaFiles, result.UsedSize, result.QuotaSize, checkFiles)
 		result.HasSpace = false
-		return result
+		return result, transferQuota
 	}
-	return result
+	return result, transferQuota
 }
 
 // returns true if this is a rename on the same fs or local virtual folders
@@ -1261,9 +1312,23 @@ func getQuotaExceededError(protocol string) error {
 	}
 }
 
+func getReadQuotaExceededError(protocol string) error {
+	switch protocol {
+	case ProtocolSFTP:
+		return fmt.Errorf("%w: %v", sftp.ErrSSHFxFailure, ErrReadQuotaExceeded.Error())
+	default:
+		return ErrReadQuotaExceeded
+	}
+}
+
 // GetQuotaExceededError returns an appropriate storage limit exceeded error for the connection protocol
 func (c *BaseConnection) GetQuotaExceededError() error {
 	return getQuotaExceededError(c.protocol)
+}
+
+// GetReadQuotaExceededError returns an appropriate read quota limit exceeded error for the connection protocol
+func (c *BaseConnection) GetReadQuotaExceededError() error {
+	return getReadQuotaExceededError(c.protocol)
 }
 
 // IsQuotaExceededError returns true if the given error is a quota exceeded error

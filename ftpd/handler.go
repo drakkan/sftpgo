@@ -202,12 +202,12 @@ func (c *Connection) Chtimes(name string, atime time.Time, mtime time.Time) erro
 func (c *Connection) GetAvailableSpace(dirName string) (int64, error) {
 	c.UpdateLastActivity()
 
-	quotaResult := c.HasSpace(false, false, path.Join(dirName, "fakefile.txt"))
-	if !quotaResult.HasSpace {
+	diskQuota, transferQuota := c.HasSpace(false, false, path.Join(dirName, "fakefile.txt"))
+	if !diskQuota.HasSpace || !transferQuota.HasUploadSpace() {
 		return 0, nil
 	}
 
-	if quotaResult.AllowedSize == 0 {
+	if diskQuota.AllowedSize == 0 && transferQuota.AllowedULSize == 0 && transferQuota.AllowedTotalSize == 0 {
 		// no quota restrictions
 		if c.User.Filters.MaxUploadFileSize > 0 {
 			return c.User.Filters.MaxUploadFileSize, nil
@@ -225,45 +225,35 @@ func (c *Connection) GetAvailableSpace(dirName string) (int64, error) {
 		return int64(statVFS.FreeSpace()), nil
 	}
 
+	allowedDiskSize := diskQuota.AllowedSize
+	allowedUploadSize := transferQuota.AllowedULSize
+	if transferQuota.AllowedTotalSize > 0 {
+		allowedUploadSize = transferQuota.AllowedTotalSize
+	}
+	allowedSize := allowedDiskSize
+	if allowedSize == 0 {
+		allowedSize = allowedUploadSize
+	} else {
+		if allowedUploadSize > 0 && allowedUploadSize < allowedSize {
+			allowedSize = allowedUploadSize
+		}
+	}
 	// the available space is the minimum between MaxUploadFileSize, if setted,
 	// and quota allowed size
 	if c.User.Filters.MaxUploadFileSize > 0 {
-		if c.User.Filters.MaxUploadFileSize < quotaResult.AllowedSize {
+		if c.User.Filters.MaxUploadFileSize < allowedSize {
 			return c.User.Filters.MaxUploadFileSize, nil
 		}
 	}
 
-	return quotaResult.AllowedSize, nil
+	return allowedSize, nil
 }
 
 // AllocateSpace implements ClientDriverExtensionAllocate interface
 func (c *Connection) AllocateSpace(size int) error {
 	c.UpdateLastActivity()
-	// check the max allowed file size first
-	if c.User.Filters.MaxUploadFileSize > 0 && int64(size) > c.User.Filters.MaxUploadFileSize {
-		return c.GetQuotaExceededError()
-	}
-
-	// we don't have a path here so we check home dir and any virtual folders
-	// we return no error if there is space in any folder
-	folders := []string{"/"}
-	for _, v := range c.User.VirtualFolders {
-		// the space is checked for the parent folder
-		folders = append(folders, path.Join(v.VirtualPath, "fakefile.txt"))
-	}
-	for _, f := range folders {
-		quotaResult := c.HasSpace(false, false, f)
-		if quotaResult.HasSpace {
-			if quotaResult.QuotaSize == 0 {
-				// unlimited size is allowed
-				return nil
-			}
-			if quotaResult.GetRemainingSize() > int64(size) {
-				return nil
-			}
-		}
-	}
-	return c.GetQuotaExceededError()
+	// we treat ALLO as NOOP see RFC 959
+	return nil
 }
 
 // RemoveDir implements ClientDriverExtensionRemoveDir
@@ -318,6 +308,11 @@ func (c *Connection) downloadFile(fs vfs.Fs, fsPath, ftpPath string, offset int6
 	if !c.User.HasPerm(dataprovider.PermDownload, path.Dir(ftpPath)) {
 		return nil, c.GetPermissionDeniedError()
 	}
+	transferQuota := c.GetTransferQuota()
+	if !transferQuota.HasDownloadSpace() {
+		c.Log(logger.LevelInfo, "denying file read due to quota limits")
+		return nil, c.GetReadQuotaExceededError()
+	}
 
 	if ok, policy := c.User.IsFileAllowed(ftpPath); !ok {
 		c.Log(logger.LevelWarn, "reading file %#v is not allowed", ftpPath)
@@ -336,7 +331,7 @@ func (c *Connection) downloadFile(fs vfs.Fs, fsPath, ftpPath string, offset int6
 	}
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, fsPath, fsPath, ftpPath,
-		common.TransferDownload, 0, 0, 0, 0, false, fs)
+		common.TransferDownload, 0, 0, 0, 0, false, fs, transferQuota)
 	baseTransfer.SetFtpMode(c.getFTPMode())
 	t := newTransfer(baseTransfer, nil, r, offset)
 
@@ -381,8 +376,8 @@ func (c *Connection) uploadFile(fs vfs.Fs, fsPath, ftpPath string, flags int) (f
 }
 
 func (c *Connection) handleFTPUploadToNewFile(fs vfs.Fs, resolvedPath, filePath, requestPath string) (ftpserver.FileTransfer, error) {
-	quotaResult := c.HasSpace(true, false, requestPath)
-	if !quotaResult.HasSpace {
+	diskQuota, transferQuota := c.HasSpace(true, false, requestPath)
+	if !diskQuota.HasSpace || !transferQuota.HasUploadSpace() {
 		c.Log(logger.LevelInfo, "denying file write due to quota limits")
 		return nil, ftpserver.ErrStorageExceeded
 	}
@@ -399,10 +394,10 @@ func (c *Connection) handleFTPUploadToNewFile(fs vfs.Fs, resolvedPath, filePath,
 	vfs.SetPathPermissions(fs, filePath, c.User.GetUID(), c.User.GetGID())
 
 	// we can get an error only for resume
-	maxWriteSize, _ := c.GetMaxWriteSize(quotaResult, false, 0, fs.IsUploadResumeSupported())
+	maxWriteSize, _ := c.GetMaxWriteSize(diskQuota, false, 0, fs.IsUploadResumeSupported())
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, filePath, requestPath,
-		common.TransferUpload, 0, 0, maxWriteSize, 0, true, fs)
+		common.TransferUpload, 0, 0, maxWriteSize, 0, true, fs, transferQuota)
 	baseTransfer.SetFtpMode(c.getFTPMode())
 	t := newTransfer(baseTransfer, w, nil, 0)
 
@@ -412,8 +407,8 @@ func (c *Connection) handleFTPUploadToNewFile(fs vfs.Fs, resolvedPath, filePath,
 func (c *Connection) handleFTPUploadToExistingFile(fs vfs.Fs, flags int, resolvedPath, filePath string, fileSize int64,
 	requestPath string) (ftpserver.FileTransfer, error) {
 	var err error
-	quotaResult := c.HasSpace(false, false, requestPath)
-	if !quotaResult.HasSpace {
+	diskQuota, transferQuota := c.HasSpace(false, false, requestPath)
+	if !diskQuota.HasSpace || !transferQuota.HasUploadSpace() {
 		c.Log(logger.LevelInfo, "denying file write due to quota limits")
 		return nil, ftpserver.ErrStorageExceeded
 	}
@@ -426,7 +421,7 @@ func (c *Connection) handleFTPUploadToExistingFile(fs vfs.Fs, flags int, resolve
 	isResume := flags&os.O_TRUNC == 0
 	// if there is a size limit remaining size cannot be 0 here, since quotaResult.HasSpace
 	// will return false in this case and we deny the upload before
-	maxWriteSize, err := c.GetMaxWriteSize(quotaResult, isResume, fileSize, fs.IsUploadResumeSupported())
+	maxWriteSize, err := c.GetMaxWriteSize(diskQuota, isResume, fileSize, fs.IsUploadResumeSupported())
 	if err != nil {
 		c.Log(logger.LevelDebug, "unable to get max write size: %v", err)
 		return nil, err
@@ -481,7 +476,7 @@ func (c *Connection) handleFTPUploadToExistingFile(fs vfs.Fs, flags int, resolve
 	vfs.SetPathPermissions(fs, filePath, c.User.GetUID(), c.User.GetGID())
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, filePath, requestPath,
-		common.TransferUpload, minWriteOffset, initialSize, maxWriteSize, truncatedSize, false, fs)
+		common.TransferUpload, minWriteOffset, initialSize, maxWriteSize, truncatedSize, false, fs, transferQuota)
 	baseTransfer.SetFtpMode(c.getFTPMode())
 	t := newTransfer(baseTransfer, w, nil, 0)
 

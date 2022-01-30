@@ -251,6 +251,41 @@ func (p *BoltProvider) updateAdminLastLogin(username string) error {
 	})
 }
 
+func (p *BoltProvider) updateTransferQuota(username string, uploadSize, downloadSize int64, reset bool) error {
+	return p.dbHandle.Update(func(tx *bolt.Tx) error {
+		bucket, err := getUsersBucket(tx)
+		if err != nil {
+			return err
+		}
+		var u []byte
+		if u = bucket.Get([]byte(username)); u == nil {
+			return util.NewRecordNotFoundError(fmt.Sprintf("username %#v does not exist, unable to update transfer quota",
+				username))
+		}
+		var user User
+		err = json.Unmarshal(u, &user)
+		if err != nil {
+			return err
+		}
+		if !reset {
+			user.UsedUploadDataTransfer += uploadSize
+			user.UsedDownloadDataTransfer += downloadSize
+		} else {
+			user.UsedUploadDataTransfer = uploadSize
+			user.UsedDownloadDataTransfer = downloadSize
+		}
+		user.LastQuotaUpdate = util.GetTimeAsMsSinceEpoch(time.Now())
+		buf, err := json.Marshal(user)
+		if err != nil {
+			return err
+		}
+		err = bucket.Put([]byte(username), buf)
+		providerLog(logger.LevelDebug, "transfer quota updated for user %#v, ul increment: %v dl increment: %v is reset? %v",
+			username, uploadSize, downloadSize, reset)
+		return err
+	})
+}
+
 func (p *BoltProvider) updateQuota(username string, filesAdd int, sizeAdd int64, reset bool) error {
 	return p.dbHandle.Update(func(tx *bolt.Tx) error {
 		bucket, err := getUsersBucket(tx)
@@ -285,13 +320,13 @@ func (p *BoltProvider) updateQuota(username string, filesAdd int, sizeAdd int64,
 	})
 }
 
-func (p *BoltProvider) getUsedQuota(username string) (int, int64, error) {
+func (p *BoltProvider) getUsedQuota(username string) (int, int64, int64, int64, error) {
 	user, err := p.userExists(username)
 	if err != nil {
 		providerLog(logger.LevelError, "unable to get quota for user %v error: %v", username, err)
-		return 0, 0, err
+		return 0, 0, 0, 0, err
 	}
-	return user.UsedQuotaFiles, user.UsedQuotaSize, err
+	return user.UsedQuotaFiles, user.UsedQuotaSize, user.UsedUploadDataTransfer, user.UsedDownloadDataTransfer, err
 }
 
 func (p *BoltProvider) adminExists(username string) (Admin, error) {
@@ -513,6 +548,8 @@ func (p *BoltProvider) addUser(user *User) error {
 		user.LastQuotaUpdate = 0
 		user.UsedQuotaSize = 0
 		user.UsedQuotaFiles = 0
+		user.UsedUploadDataTransfer = 0
+		user.UsedDownloadDataTransfer = 0
 		user.LastLogin = 0
 		user.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 		user.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
@@ -569,6 +606,8 @@ func (p *BoltProvider) updateUser(user *User) error {
 		user.LastQuotaUpdate = oldUser.LastQuotaUpdate
 		user.UsedQuotaSize = oldUser.UsedQuotaSize
 		user.UsedQuotaFiles = oldUser.UsedQuotaFiles
+		user.UsedUploadDataTransfer = oldUser.UsedUploadDataTransfer
+		user.UsedDownloadDataTransfer = oldUser.UsedDownloadDataTransfer
 		user.LastLogin = oldUser.LastLogin
 		user.CreatedAt = oldUser.CreatedAt
 		user.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
@@ -1444,6 +1483,26 @@ func (p *BoltProvider) cleanupDefender(from int64) error {
 	return ErrNotImplemented
 }
 
+func (p *BoltProvider) addActiveTransfer(transfer ActiveTransfer) error {
+	return ErrNotImplemented
+}
+
+func (p *BoltProvider) updateActiveTransferSizes(ulSize, dlSize, transferID int64, connectionID string) error {
+	return ErrNotImplemented
+}
+
+func (p *BoltProvider) removeActiveTransfer(transferID int64, connectionID string) error {
+	return ErrNotImplemented
+}
+
+func (p *BoltProvider) cleanupActiveTransfers(before time.Time) error {
+	return ErrNotImplemented
+}
+
+func (p *BoltProvider) getActiveTransfers(from time.Time) ([]ActiveTransfer, error) {
+	return nil, ErrNotImplemented
+}
+
 func (p *BoltProvider) close() error {
 	return p.dbHandle.Close()
 }
@@ -1471,6 +1530,8 @@ func (p *BoltProvider) migrateDatabase() error {
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
+	case version == 15:
+		return updateBoltDatabaseVersion(p.dbHandle, 16)
 	default:
 		if version > boltDatabaseVersion {
 			providerLog(logger.LevelError, "database version %v is newer than the supported one: %v", version,
@@ -1492,6 +1553,8 @@ func (p *BoltProvider) revertDatabase(targetVersion int) error {
 		return errors.New("current version match target version, nothing to do")
 	}
 	switch dbVersion.Version {
+	case 16:
+		return updateBoltDatabaseVersion(p.dbHandle, 15)
 	default:
 		return fmt.Errorf("database version not handled: %v", dbVersion.Version)
 	}
@@ -1765,7 +1828,7 @@ func getBoltDatabaseVersion(dbHandle *bolt.DB) (schemaVersion, error) {
 	return dbVersion, err
 }
 
-/*func updateBoltDatabaseVersion(dbHandle *bolt.DB, version int) error {
+func updateBoltDatabaseVersion(dbHandle *bolt.DB, version int) error {
 	err := dbHandle.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(dbVersionBucket)
 		if bucket == nil {
@@ -1781,4 +1844,4 @@ func getBoltDatabaseVersion(dbHandle *bolt.DB) (schemaVersion, error) {
 		return bucket.Put(dbVersionKey, buf)
 	})
 	return err
-}*/
+}

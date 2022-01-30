@@ -298,7 +298,7 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	err = common.Initialize(commonConf)
+	err = common.Initialize(commonConf, 0)
 	if err != nil {
 		logger.WarnToConsole("error initializing common: %v", err)
 		os.Exit(1)
@@ -509,11 +509,17 @@ func TestBasicHandling(t *testing.T) {
 		expectedQuotaFiles := 1
 		err = createTestFile(testFilePath, testFileSize)
 		assert.NoError(t, err)
-		err = uploadFile(testFilePath, testFileName, testFileSize, client)
+		err = uploadFileWithRawClient(testFilePath, testFileName, user.Username, defaultPassword,
+			true, testFileSize, client)
 		assert.NoError(t, err)
 		// overwrite an existing file
-		err = uploadFile(testFilePath, testFileName, testFileSize, client)
+		err = uploadFileWithRawClient(testFilePath, testFileName, user.Username, defaultPassword,
+			true, testFileSize, client)
 		assert.NoError(t, err)
+		// wrong password
+		err = uploadFileWithRawClient(testFilePath, testFileName, user.Username, defaultPassword+"1",
+			true, testFileSize, client)
+		assert.Error(t, err)
 		localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
 		err = downloadFile(testFileName, localDownloadPath, testFileSize, client)
 		assert.NoError(t, err)
@@ -549,9 +555,11 @@ func TestBasicHandling(t *testing.T) {
 		assert.NoError(t, err)
 		err = client.MkdirAll(path.Join(testDir, "sub2", "sub2"), os.ModePerm)
 		assert.NoError(t, err)
-		err = uploadFile(testFilePath, path.Join(testDir, testFileName+".txt"), testFileSize, client)
+		err = uploadFileWithRawClient(testFilePath, path.Join(testDir, testFileName+".txt"),
+			user.Username, defaultPassword, true, testFileSize, client)
 		assert.NoError(t, err)
-		err = uploadFile(testFilePath, path.Join(testDir, testFileName), testFileSize, client)
+		err = uploadFileWithRawClient(testFilePath, path.Join(testDir, testFileName),
+			user.Username, defaultPassword, true, testFileSize, client)
 		assert.NoError(t, err)
 		files, err := client.ReadDir(testDir)
 		assert.NoError(t, err)
@@ -597,10 +605,12 @@ func TestBasicHandlingCryptFs(t *testing.T) {
 	expectedQuotaFiles := user.UsedQuotaFiles + 1
 	err = createTestFile(testFilePath, testFileSize)
 	assert.NoError(t, err)
-	err = uploadFile(testFilePath, testFileName, testFileSize, client)
+	err = uploadFileWithRawClient(testFilePath, testFileName,
+		user.Username, defaultPassword, false, testFileSize, client)
 	assert.NoError(t, err)
 	// overwrite an existing file
-	err = uploadFile(testFilePath, testFileName, testFileSize, client)
+	err = uploadFileWithRawClient(testFilePath, testFileName,
+		user.Username, defaultPassword, false, testFileSize, client)
 	assert.NoError(t, err)
 	localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
 	err = downloadFile(testFileName, localDownloadPath, testFileSize, client)
@@ -631,9 +641,11 @@ func TestBasicHandlingCryptFs(t *testing.T) {
 	assert.NoError(t, err)
 	err = client.MkdirAll(path.Join(testDir, "sub2", "sub2"), os.ModePerm)
 	assert.NoError(t, err)
-	err = uploadFile(testFilePath, path.Join(testDir, testFileName+".txt"), testFileSize, client)
+	err = uploadFileWithRawClient(testFilePath, path.Join(testDir, testFileName+".txt"),
+		user.Username, defaultPassword, false, testFileSize, client)
 	assert.NoError(t, err)
-	err = uploadFile(testFilePath, path.Join(testDir, testFileName), testFileSize, client)
+	err = uploadFileWithRawClient(testFilePath, path.Join(testDir, testFileName),
+		user.Username, defaultPassword, false, testFileSize, client)
 	assert.NoError(t, err)
 	files, err = client.ReadDir(testDir)
 	assert.NoError(t, err)
@@ -667,7 +679,8 @@ func TestLockAfterDelete(t *testing.T) {
 	testFileSize := int64(65535)
 	err = createTestFile(testFilePath, testFileSize)
 	assert.NoError(t, err)
-	err = uploadFile(testFilePath, testFileName, testFileSize, client)
+	err = uploadFileWithRawClient(testFilePath, testFileName, user.Username, defaultPassword,
+		false, testFileSize, client)
 	assert.NoError(t, err)
 	lockBody := `<?xml version="1.0" encoding="utf-8" ?><d:lockinfo xmlns:d="DAV:"><d:lockscope><d:exclusive/></d:lockscope><d:locktype><d:write/></d:locktype></d:lockinfo>`
 	req, err := http.NewRequest("LOCK", fmt.Sprintf("http://%v/%v", webDavServerAddr, testFileName), bytes.NewReader([]byte(lockBody)))
@@ -723,7 +736,8 @@ func TestRenameWithLock(t *testing.T) {
 	testFileSize := int64(65535)
 	err = createTestFile(testFilePath, testFileSize)
 	assert.NoError(t, err)
-	err = uploadFile(testFilePath, testFileName, testFileSize, client)
+	err = uploadFileWithRawClient(testFilePath, testFileName, user.Username, defaultPassword,
+		false, testFileSize, client)
 	assert.NoError(t, err)
 
 	lockBody := `<?xml version="1.0" encoding="utf-8" ?><d:lockinfo xmlns:d="DAV:"><d:lockscope><d:exclusive/></d:lockscope><d:locktype><d:write/></d:locktype></d:lockinfo>`
@@ -779,7 +793,8 @@ func TestPropPatch(t *testing.T) {
 		testFileSize := int64(65535)
 		err = createTestFile(testFilePath, testFileSize)
 		assert.NoError(t, err)
-		err = uploadFile(testFilePath, testFileName, testFileSize, client)
+		err = uploadFileWithRawClient(testFilePath, testFileName, user.Username, defaultPassword,
+			false, testFileSize, client)
 		assert.NoError(t, err)
 		httpClient := httpclient.GetHTTPClient()
 		propatchBody := `<?xml version="1.0" encoding="utf-8" ?><D:propertyupdate xmlns:D="DAV:" xmlns:Z="urn:schemas-microsoft-com:"><D:set><D:prop><Z:Win32CreationTime>Wed, 04 Nov 2020 13:25:51 GMT</Z:Win32CreationTime><Z:Win32LastAccessTime>Sat, 05 Dec 2020 21:16:12 GMT</Z:Win32LastAccessTime><Z:Win32LastModifiedTime>Wed, 04 Nov 2020 13:25:51 GMT</Z:Win32LastModifiedTime><Z:Win32FileAttributes>00000000</Z:Win32FileAttributes></D:prop></D:set></D:propertyupdate>`
@@ -842,7 +857,7 @@ func TestRateLimiter(t *testing.T) {
 		},
 	}
 
-	err := common.Initialize(cfg)
+	err := common.Initialize(cfg, 0)
 	assert.NoError(t, err)
 
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
@@ -860,7 +875,7 @@ func TestRateLimiter(t *testing.T) {
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 
-	err = common.Initialize(oldConfig)
+	err = common.Initialize(oldConfig, 0)
 	assert.NoError(t, err)
 }
 
@@ -872,7 +887,7 @@ func TestDefender(t *testing.T) {
 	cfg.DefenderConfig.Threshold = 3
 	cfg.DefenderConfig.ScoreLimitExceeded = 2
 
-	err := common.Initialize(cfg)
+	err := common.Initialize(cfg, 0)
 	assert.NoError(t, err)
 
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
@@ -898,7 +913,7 @@ func TestDefender(t *testing.T) {
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 
-	err = common.Initialize(oldConfig)
+	err = common.Initialize(oldConfig, 0)
 	assert.NoError(t, err)
 }
 
@@ -1022,7 +1037,8 @@ func TestPreDownloadHook(t *testing.T) {
 	testFileSize := int64(65535)
 	err = createTestFile(testFilePath, testFileSize)
 	assert.NoError(t, err)
-	err = uploadFile(testFilePath, testFileName, testFileSize, client)
+	err = uploadFileWithRawClient(testFilePath, testFileName, user.Username, defaultPassword,
+		true, testFileSize, client)
 	assert.NoError(t, err)
 	localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
 	err = downloadFile(testFileName, localDownloadPath, testFileSize, client)
@@ -1071,16 +1087,19 @@ func TestPreUploadHook(t *testing.T) {
 	testFileSize := int64(65535)
 	err = createTestFile(testFilePath, testFileSize)
 	assert.NoError(t, err)
-	err = uploadFile(testFilePath, testFileName, testFileSize, client)
+	err = uploadFileWithRawClient(testFilePath, testFileName, user.Username, defaultPassword,
+		true, testFileSize, client)
 	assert.NoError(t, err)
 
 	err = os.WriteFile(preUploadPath, getExitCodeScriptContent(1), os.ModePerm)
 	assert.NoError(t, err)
 
-	err = uploadFile(testFilePath, testFileName, testFileSize, client)
+	err = uploadFileWithRawClient(testFilePath, testFileName, user.Username, defaultPassword,
+		true, testFileSize, client)
 	assert.Error(t, err)
 
-	err = uploadFile(testFilePath, testFileName+"1", testFileSize, client)
+	err = uploadFileWithRawClient(testFilePath, testFileName+"1", user.Username, defaultPassword,
+		false, testFileSize, client)
 	assert.Error(t, err)
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
@@ -1298,26 +1317,35 @@ func TestUploadErrors(t *testing.T) {
 	assert.NoError(t, err)
 	err = client.Mkdir(subDir2, os.ModePerm)
 	assert.NoError(t, err)
-	err = uploadFile(testFilePath, path.Join(subDir1, testFileName), testFileSize, client)
+	err = uploadFileWithRawClient(testFilePath, path.Join(subDir1, testFileName), user.Username,
+		defaultPassword, true, testFileSize, client)
 	assert.Error(t, err)
-	err = uploadFile(testFilePath, path.Join(subDir2, testFileName+".zip"), testFileSize, client)
+	err = uploadFileWithRawClient(testFilePath, path.Join(subDir2, testFileName+".zip"), user.Username,
+		defaultPassword, true, testFileSize, client)
+
 	assert.Error(t, err)
-	err = uploadFile(testFilePath, path.Join(subDir2, testFileName), testFileSize, client)
+	err = uploadFileWithRawClient(testFilePath, path.Join(subDir2, testFileName), user.Username,
+		defaultPassword, true, testFileSize, client)
 	assert.NoError(t, err)
 	err = client.Rename(path.Join(subDir2, testFileName), path.Join(subDir1, testFileName), false)
 	assert.Error(t, err)
-	err = uploadFile(testFilePath, path.Join(subDir2, testFileName), testFileSize, client)
+	err = uploadFileWithRawClient(testFilePath, path.Join(subDir2, testFileName), user.Username,
+		defaultPassword, true, testFileSize, client)
 	assert.Error(t, err)
-	err = uploadFile(testFilePath, subDir1, testFileSize, client)
+	err = uploadFileWithRawClient(testFilePath, subDir1, user.Username,
+		defaultPassword, true, testFileSize, client)
 	assert.Error(t, err)
 	// overquota
-	err = uploadFile(testFilePath, testFileName, testFileSize, client)
+	err = uploadFileWithRawClient(testFilePath, testFileName, user.Username, defaultPassword,
+		true, testFileSize, client)
 	assert.Error(t, err)
 	err = client.Remove(path.Join(subDir2, testFileName))
 	assert.NoError(t, err)
-	err = uploadFile(testFilePath, testFileName, testFileSize, client)
+	err = uploadFileWithRawClient(testFilePath, testFileName, user.Username, defaultPassword,
+		true, testFileSize, client)
 	assert.NoError(t, err)
-	err = uploadFile(testFilePath, testFileName, testFileSize, client)
+	err = uploadFileWithRawClient(testFilePath, testFileName, user.Username, defaultPassword,
+		true, testFileSize, client)
 	assert.Error(t, err)
 
 	err = os.Remove(testFilePath)
@@ -1394,7 +1422,8 @@ func TestQuotaLimits(t *testing.T) {
 		assert.NoError(t, err)
 		client := getWebDavClient(user, false, nil)
 		// test quota files
-		err = uploadFile(testFilePath, testFileName+".quota", testFileSize, client)
+		err = uploadFileWithRawClient(testFilePath, testFileName+".quota", user.Username, defaultPassword, false,
+			testFileSize, client)
 		if !assert.NoError(t, err, "username: %v", user.Username) {
 			info, err := os.Stat(testFilePath)
 			if assert.NoError(t, err) {
@@ -1402,7 +1431,8 @@ func TestQuotaLimits(t *testing.T) {
 			}
 			printLatestLogs(20)
 		}
-		err = uploadFile(testFilePath, testFileName+".quota1", testFileSize, client)
+		err = uploadFileWithRawClient(testFilePath, testFileName+".quota1", user.Username, defaultPassword,
+			false, testFileSize, client)
 		assert.Error(t, err, "username: %v", user.Username)
 		err = client.Rename(testFileName+".quota", testFileName, false)
 		assert.NoError(t, err)
@@ -1414,7 +1444,8 @@ func TestQuotaLimits(t *testing.T) {
 		user.QuotaFiles = 0
 		user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 		assert.NoError(t, err)
-		err = uploadFile(testFilePath, testFileName+".quota", testFileSize, client)
+		err = uploadFileWithRawClient(testFilePath, testFileName+".quota", user.Username, defaultPassword,
+			false, testFileSize, client)
 		assert.Error(t, err)
 		err = client.Rename(testFileName, testFileName+".quota", false)
 		assert.NoError(t, err)
@@ -1423,20 +1454,25 @@ func TestQuotaLimits(t *testing.T) {
 		user.QuotaFiles = 0
 		user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 		assert.NoError(t, err)
-		err = uploadFile(testFilePath1, testFileName1, testFileSize1, client)
+		err = uploadFileWithRawClient(testFilePath1, testFileName1, user.Username, defaultPassword,
+			false, testFileSize1, client)
 		assert.Error(t, err)
 		_, err = client.Stat(testFileName1)
 		assert.Error(t, err)
 		err = client.Rename(testFileName+".quota", testFileName, false)
 		assert.NoError(t, err)
 		// overwriting an existing file will work if the resulting size is lesser or equal than the current one
-		err = uploadFile(testFilePath, testFileName, testFileSize, client)
+		err = uploadFileWithRawClient(testFilePath, testFileName, user.Username, defaultPassword,
+			false, testFileSize, client)
 		assert.NoError(t, err)
-		err = uploadFile(testFilePath2, testFileName, testFileSize2, client)
+		err = uploadFileWithRawClient(testFilePath2, testFileName, user.Username, defaultPassword,
+			false, testFileSize2, client)
 		assert.NoError(t, err)
-		err = uploadFile(testFilePath1, testFileName, testFileSize1, client)
+		err = uploadFileWithRawClient(testFilePath1, testFileName, user.Username, defaultPassword,
+			false, testFileSize1, client)
 		assert.Error(t, err)
-		err = uploadFile(testFilePath2, testFileName, testFileSize2, client)
+		err = uploadFileWithRawClient(testFilePath2, testFileName, user.Username, defaultPassword,
+			false, testFileSize2, client)
 		assert.NoError(t, err)
 
 		err = os.Remove(testFilePath)
@@ -1462,6 +1498,49 @@ func TestQuotaLimits(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestTransferQuotaLimits(t *testing.T) {
+	u := getTestUser()
+	u.DownloadDataTransfer = 1
+	u.UploadDataTransfer = 1
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	testFileSize := int64(550000)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+
+	client := getWebDavClient(user, false, nil)
+	err = uploadFileWithRawClient(testFilePath, testFileName, user.Username, defaultPassword,
+		false, testFileSize, client)
+	assert.NoError(t, err)
+	err = downloadFile(testFileName, localDownloadPath, testFileSize, client)
+	assert.NoError(t, err)
+	// error while download is active
+	err = downloadFile(testFileName, localDownloadPath, testFileSize, client)
+	assert.Error(t, err)
+	// error before starting the download
+	err = downloadFile(testFileName, localDownloadPath, testFileSize, client)
+	assert.Error(t, err)
+	// error while upload is active
+	err = uploadFileWithRawClient(testFilePath, testFileName, user.Username, defaultPassword,
+		false, testFileSize, client)
+	assert.Error(t, err)
+	// error before starting the upload
+	err = uploadFileWithRawClient(testFilePath, testFileName, user.Username, defaultPassword,
+		false, testFileSize, client)
+	assert.Error(t, err)
+
+	err = os.Remove(localDownloadPath)
+	assert.NoError(t, err)
+	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestUploadMaxSize(t *testing.T) {
 	testFileSize := int64(65535)
 	u := getTestUser()
@@ -1482,14 +1561,17 @@ func TestUploadMaxSize(t *testing.T) {
 		err = createTestFile(testFilePath1, testFileSize1)
 		assert.NoError(t, err)
 		client := getWebDavClient(user, false, nil)
-		err = uploadFile(testFilePath1, testFileName1, testFileSize1, client)
+		err = uploadFileWithRawClient(testFilePath1, testFileName1, user.Username, defaultPassword,
+			false, testFileSize1, client)
 		assert.Error(t, err)
-		err = uploadFile(testFilePath, testFileName, testFileSize, client)
+		err = uploadFileWithRawClient(testFilePath, testFileName, user.Username, defaultPassword,
+			false, testFileSize, client)
 		assert.NoError(t, err)
 		// now test overwrite an existing file with a size bigger than the allowed one
 		err = createTestFile(filepath.Join(user.GetHomeDir(), testFileName1), testFileSize1)
 		assert.NoError(t, err)
-		err = uploadFile(testFilePath1, testFileName1, testFileSize1, client)
+		err = uploadFileWithRawClient(testFilePath1, testFileName1, user.Username, defaultPassword,
+			false, testFileSize1, client)
 		assert.Error(t, err)
 
 		err = os.Remove(testFilePath)
@@ -1534,7 +1616,8 @@ func TestClientClose(t *testing.T) {
 		var wg sync.WaitGroup
 		wg.Add(1)
 		go func() {
-			err = uploadFile(testFilePath, testFileName, testFileSize, client)
+			err = uploadFileWithRawClient(testFilePath, testFileName, user.Username, defaultPassword,
+				true, testFileSize, client)
 			assert.Error(t, err)
 			wg.Done()
 		}()
@@ -1691,10 +1774,12 @@ func TestSFTPBuffered(t *testing.T) {
 	expectedQuotaFiles := 1
 	err = createTestFile(testFilePath, testFileSize)
 	assert.NoError(t, err)
-	err = uploadFile(testFilePath, testFileName, testFileSize, client)
+	err = uploadFileWithRawClient(testFilePath, testFileName, sftpUser.Username, defaultPassword,
+		true, testFileSize, client)
 	assert.NoError(t, err)
 	// overwrite an existing file
-	err = uploadFile(testFilePath, testFileName, testFileSize, client)
+	err = uploadFileWithRawClient(testFilePath, testFileName, sftpUser.Username, defaultPassword,
+		true, testFileSize, client)
 	assert.NoError(t, err)
 	localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
 	err = downloadFile(testFileName, localDownloadPath, testFileSize, client)
@@ -1708,7 +1793,8 @@ func TestSFTPBuffered(t *testing.T) {
 	fileContent := []byte("test file contents")
 	err = os.WriteFile(testFilePath, fileContent, os.ModePerm)
 	assert.NoError(t, err)
-	err = uploadFile(testFilePath, testFileName, int64(len(fileContent)), client)
+	err = uploadFileWithRawClient(testFilePath, testFileName, sftpUser.Username, defaultPassword,
+		true, int64(len(fileContent)), client)
 	assert.NoError(t, err)
 	remotePath := fmt.Sprintf("http://%v/%v", webDavServerAddr, testFileName)
 	req, err := http.NewRequest(http.MethodGet, remotePath, nil)
@@ -1763,7 +1849,8 @@ func TestBytesRangeRequests(t *testing.T) {
 		err = os.WriteFile(testFilePath, fileContent, os.ModePerm)
 		assert.NoError(t, err)
 		client := getWebDavClient(user, true, nil)
-		err = uploadFile(testFilePath, testFileName, int64(len(fileContent)), client)
+		err = uploadFileWithRawClient(testFilePath, testFileName, user.Username, defaultPassword,
+			true, int64(len(fileContent)), client)
 		assert.NoError(t, err)
 		remotePath := fmt.Sprintf("http://%v/%v", webDavServerAddr, testFileName)
 		req, err := http.NewRequest(http.MethodGet, remotePath, nil)
@@ -1902,9 +1989,11 @@ func TestStat(t *testing.T) {
 	assert.NoError(t, err)
 	err = client.Mkdir(subDir, os.ModePerm)
 	assert.NoError(t, err)
-	err = uploadFile(testFilePath, testFileName, testFileSize, client)
+	err = uploadFileWithRawClient(testFilePath, testFileName, user.Username, defaultPassword,
+		true, testFileSize, client)
 	assert.NoError(t, err)
-	err = uploadFile(testFilePath, path.Join("/", subDir, testFileName), testFileSize, client)
+	err = uploadFileWithRawClient(testFilePath, path.Join("/", subDir, testFileName), user.Username,
+		defaultPassword, true, testFileSize, client)
 	assert.NoError(t, err)
 	user.Permissions["/subdir"] = []string{dataprovider.PermUpload, dataprovider.PermDownload}
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
@@ -1960,13 +2049,15 @@ func TestUploadOverwriteVfolder(t *testing.T) {
 	testFileSize := int64(65535)
 	err = createTestFile(testFilePath, testFileSize)
 	assert.NoError(t, err)
-	err = uploadFile(testFilePath, path.Join(vdir, testFileName), testFileSize, client)
+	err = uploadFileWithRawClient(testFilePath, path.Join(vdir, testFileName), user.Username,
+		defaultPassword, true, testFileSize, client)
 	assert.NoError(t, err)
 	folder, _, err := httpdtest.GetFolderByName(folderName, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Equal(t, testFileSize, folder.UsedQuotaSize)
 	assert.Equal(t, 1, folder.UsedQuotaFiles)
-	err = uploadFile(testFilePath, path.Join(vdir, testFileName), testFileSize, client)
+	err = uploadFileWithRawClient(testFilePath, path.Join(vdir, testFileName), user.Username,
+		defaultPassword, true, testFileSize, client)
 	assert.NoError(t, err)
 	folder, _, err = httpdtest.GetFolderByName(folderName, http.StatusOK)
 	assert.NoError(t, err)
@@ -2059,11 +2150,14 @@ func TestMiscCommands(t *testing.T) {
 		testFileSize := int64(65535)
 		err = createTestFile(testFilePath, testFileSize)
 		assert.NoError(t, err)
-		err = uploadFile(testFilePath, path.Join(dir, testFileName), testFileSize, client)
+		err = uploadFileWithRawClient(testFilePath, path.Join(dir, testFileName), user.Username,
+			defaultPassword, true, testFileSize, client)
 		assert.NoError(t, err)
-		err = uploadFile(testFilePath, path.Join(dir, "sub1", testFileName), testFileSize, client)
+		err = uploadFileWithRawClient(testFilePath, path.Join(dir, "sub1", testFileName), user.Username,
+			defaultPassword, true, testFileSize, client)
 		assert.NoError(t, err)
-		err = uploadFile(testFilePath, path.Join(dir, "sub1", "sub2", testFileName), testFileSize, client)
+		err = uploadFileWithRawClient(testFilePath, path.Join(dir, "sub1", "sub2", testFileName), user.Username,
+			defaultPassword, true, testFileSize, client)
 		assert.NoError(t, err)
 		err = client.Copy(dir, dir+"_copy", false)
 		assert.NoError(t, err)
@@ -2547,23 +2641,28 @@ func TestNestedVirtualFolders(t *testing.T) {
 	err = createTestFile(testFilePath, testFileSize)
 	assert.NoError(t, err)
 
-	err = uploadFile(testFilePath, testFileName, testFileSize, client)
+	err = uploadFileWithRawClient(testFilePath, testFileName, sftpUser.Username,
+		defaultPassword, true, testFileSize, client)
 	assert.NoError(t, err)
 	err = downloadFile(testFileName, localDownloadPath, testFileSize, client)
 	assert.NoError(t, err)
-	err = uploadFile(testFilePath, path.Join("/vdir", testFileName), testFileSize, client)
+	err = uploadFileWithRawClient(testFilePath, path.Join("/vdir", testFileName), sftpUser.Username,
+		defaultPassword, true, testFileSize, client)
 	assert.NoError(t, err)
 	err = downloadFile(path.Join("/vdir", testFileName), localDownloadPath, testFileSize, client)
 	assert.NoError(t, err)
-	err = uploadFile(testFilePath, path.Join(vdirPath, testFileName), testFileSize, client)
+	err = uploadFileWithRawClient(testFilePath, path.Join(vdirPath, testFileName), sftpUser.Username,
+		defaultPassword, true, testFileSize, client)
 	assert.NoError(t, err)
 	err = downloadFile(path.Join(vdirPath, testFileName), localDownloadPath, testFileSize, client)
 	assert.NoError(t, err)
-	err = uploadFile(testFilePath, path.Join(vdirCryptPath, testFileName), testFileSize, client)
+	err = uploadFileWithRawClient(testFilePath, path.Join(vdirCryptPath, testFileName), sftpUser.Username,
+		defaultPassword, true, testFileSize, client)
 	assert.NoError(t, err)
 	err = downloadFile(path.Join(vdirCryptPath, testFileName), localDownloadPath, testFileSize, client)
 	assert.NoError(t, err)
-	err = uploadFile(testFilePath, path.Join(vdirNestedPath, testFileName), testFileSize, client)
+	err = uploadFileWithRawClient(testFilePath, path.Join(vdirNestedPath, testFileName), sftpUser.Username,
+		defaultPassword, true, testFileSize, client)
 	assert.NoError(t, err)
 	err = downloadFile(path.Join(vdirNestedPath, testFileName), localDownloadPath, testFileSize, client)
 	assert.NoError(t, err)
@@ -2613,7 +2712,54 @@ func checkFileSize(remoteDestPath string, expectedSize int64, client *gowebdav.C
 	return nil
 }
 
-func uploadFile(localSourcePath string, remoteDestPath string, expectedSize int64, client *gowebdav.Client) error {
+func uploadFileWithRawClient(localSourcePath string, remoteDestPath string, username, password string,
+	useTLS bool, expectedSize int64, client *gowebdav.Client,
+) error {
+	srcFile, err := os.Open(localSourcePath)
+	if err != nil {
+		return err
+	}
+	defer srcFile.Close()
+
+	var tlsConfig *tls.Config
+	rootPath := fmt.Sprintf("http://%v/", webDavServerAddr)
+	if useTLS {
+		rootPath = fmt.Sprintf("https://%v/", webDavTLSServerAddr)
+		tlsConfig = &tls.Config{
+			ServerName:         "localhost",
+			InsecureSkipVerify: true, // use this for tests only
+			MinVersion:         tls.VersionTLS12,
+		}
+	}
+	req, err := http.NewRequest(http.MethodPut, fmt.Sprintf("%v%v", rootPath, remoteDestPath), srcFile)
+	if err != nil {
+		return err
+	}
+	req.SetBasicAuth(username, password)
+	httpClient := &http.Client{Timeout: 10 * time.Second}
+	if tlsConfig != nil {
+		customTransport := http.DefaultTransport.(*http.Transport).Clone()
+		customTransport.TLSClientConfig = tlsConfig
+		httpClient.Transport = customTransport
+	}
+	defer httpClient.CloseIdleConnections()
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusCreated {
+		return fmt.Errorf("unexpected status code: %v", resp.StatusCode)
+	}
+	if expectedSize > 0 {
+		return checkFileSize(remoteDestPath, expectedSize, client)
+	}
+	return nil
+}
+
+// This method is buggy. I have to find time to better investigate and eventually report the issue upstream.
+// For now we upload using the uploadFileWithRawClient method
+/*func uploadFile(localSourcePath string, remoteDestPath string, expectedSize int64, client *gowebdav.Client) error {
 	srcFile, err := os.Open(localSourcePath)
 	if err != nil {
 		return err
@@ -2625,13 +2771,9 @@ func uploadFile(localSourcePath string, remoteDestPath string, expectedSize int6
 	}
 	if expectedSize > 0 {
 		return checkFileSize(remoteDestPath, expectedSize, client)
-		/*if err != nil {
-			time.Sleep(1 * time.Second)
-			return checkFileSize(remoteDestPath, expectedSize, client)
-		}*/
 	}
 	return nil
-}
+}*/
 
 func downloadFile(remoteSourcePath string, localDestPath string, expectedSize int64, client *gowebdav.Client) error {
 	downloadDest, err := os.Create(localDestPath)
@@ -2797,7 +2939,18 @@ func createTestFile(path string, size int64) error {
 		return err
 	}
 
-	return os.WriteFile(path, content, os.ModePerm)
+	err = os.WriteFile(path, content, os.ModePerm)
+	if err != nil {
+		return err
+	}
+	fi, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+	if fi.Size() != size {
+		return fmt.Errorf("unexpected size %v, expected %v", fi.Size(), size)
+	}
+	return nil
 }
 
 func printLatestLogs(maxNumberOfLines int) {

@@ -105,6 +105,7 @@ var (
 	ErrOpUnsupported        = errors.New("operation unsupported")
 	ErrGenericFailure       = errors.New("failure")
 	ErrQuotaExceeded        = errors.New("denying write due to space limit")
+	ErrReadQuotaExceeded    = errors.New("denying read due to quota limit")
 	ErrSkipPermissionsCheck = errors.New("permission check skipped")
 	ErrConnectionDenied     = errors.New("you are not allowed to connect")
 	ErrNoBinding            = errors.New("no binding configured")
@@ -134,7 +135,7 @@ var (
 )
 
 // Initialize sets the common configuration
-func Initialize(c Configuration) error {
+func Initialize(c Configuration, isShared int) error {
 	Config = c
 	Config.idleLoginTimeout = 2 * time.Minute
 	Config.idleTimeoutAsDuration = time.Duration(Config.IdleTimeout) * time.Minute
@@ -177,7 +178,7 @@ func Initialize(c Configuration) error {
 	}
 	vfs.SetTempPath(c.TempPath)
 	dataprovider.SetTempPath(c.TempPath)
-	transfersChecker = getTransfersChecker()
+	transfersChecker = getTransfersChecker(isShared)
 	return nil
 }
 
@@ -314,7 +315,7 @@ type ActiveTransfer interface {
 	GetRealFsPath(fsPath string) string
 	SetTimes(fsPath string, atime time.Time, mtime time.Time) bool
 	GetTruncatedSize() int64
-	GetMaxAllowedSize() int64
+	HasSizeLimit() bool
 }
 
 // ActiveConnection defines the interface for the current active connections
@@ -349,14 +350,14 @@ type StatAttributes struct {
 
 // ConnectionTransfer defines the trasfer details to expose
 type ConnectionTransfer struct {
-	ID             int64  `json:"-"`
-	OperationType  string `json:"operation_type"`
-	StartTime      int64  `json:"start_time"`
-	Size           int64  `json:"size"`
-	VirtualPath    string `json:"path"`
-	MaxAllowedSize int64  `json:"-"`
-	ULSize         int64  `json:"-"`
-	DLSize         int64  `json:"-"`
+	ID            int64  `json:"-"`
+	OperationType string `json:"operation_type"`
+	StartTime     int64  `json:"start_time"`
+	Size          int64  `json:"size"`
+	VirtualPath   string `json:"path"`
+	HasSizeLimit  bool   `json:"-"`
+	ULSize        int64  `json:"-"`
+	DLSize        int64  `json:"-"`
 }
 
 func (t *ConnectionTransfer) getConnectionTransferAsString() string {
@@ -851,20 +852,24 @@ func (conns *ActiveConnections) checkTransfers() {
 	atomic.StoreInt32(&conns.transfersCheckStatus, 1)
 	defer atomic.StoreInt32(&conns.transfersCheckStatus, 0)
 
-	var wg sync.WaitGroup
-
-	logger.Debug(logSender, "", "start concurrent transfers check")
 	conns.RLock()
+
+	if len(conns.connections) < 2 {
+		conns.RUnlock()
+		return
+	}
+	var wg sync.WaitGroup
+	logger.Debug(logSender, "", "start concurrent transfers check")
 
 	// update the current size for transfers to monitors
 	for _, c := range conns.connections {
 		for _, t := range c.GetTransfers() {
-			if t.MaxAllowedSize > 0 {
+			if t.HasSizeLimit {
 				wg.Add(1)
 
 				go func(transfer ConnectionTransfer, connID string) {
 					defer wg.Done()
-					transfersChecker.UpdateTransferCurrentSize(transfer.ULSize, transfer.DLSize, transfer.ID, connID)
+					transfersChecker.UpdateTransferCurrentSizes(transfer.ULSize, transfer.DLSize, transfer.ID, connID)
 				}(t, c.GetID())
 			}
 		}
@@ -887,9 +892,15 @@ func (conns *ActiveConnections) checkTransfers() {
 	for _, c := range conns.connections {
 		for _, overquotaTransfer := range overquotaTransfers {
 			if c.GetID() == overquotaTransfer.ConnID {
-				logger.Info(logSender, c.GetID(), "user %#v is overquota, try to close transfer id %v ",
+				logger.Info(logSender, c.GetID(), "user %#v is overquota, try to close transfer id %v",
 					c.GetUsername(), overquotaTransfer.TransferID)
-				c.SignalTransferClose(overquotaTransfer.TransferID, getQuotaExceededError(c.GetProtocol()))
+				var err error
+				if overquotaTransfer.TransferType == TransferDownload {
+					err = getReadQuotaExceededError(c.GetProtocol())
+				} else {
+					err = getQuotaExceededError(c.GetProtocol())
+				}
+				c.SignalTransferClose(overquotaTransfer.TransferID, err)
 			}
 		}
 	}

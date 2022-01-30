@@ -95,6 +95,9 @@ func (t *transfer) ReadAt(p []byte, off int64) (n int, err error) {
 	n, err = t.readerAt.ReadAt(p, off)
 	atomic.AddInt64(&t.BytesSent, int64(n))
 
+	if err == nil {
+		err = t.CheckRead()
+	}
 	if err != nil && err != io.EOF {
 		if t.GetType() == common.TransferDownload {
 			t.TransferError(err)
@@ -118,8 +121,8 @@ func (t *transfer) WriteAt(p []byte, off int64) (n int, err error) {
 	n, err = t.writerAt.WriteAt(p, off)
 	atomic.AddInt64(&t.BytesReceived, int64(n))
 
-	if t.MaxWriteSize > 0 && err == nil && atomic.LoadInt64(&t.BytesReceived) > t.MaxWriteSize {
-		err = common.ErrQuotaExceeded
+	if err == nil {
+		err = t.CheckWrite()
 	}
 	if err != nil {
 		t.TransferError(err)
@@ -197,12 +200,16 @@ func (t *transfer) copyFromReaderToWriter(dst io.Writer, src io.Reader) (int64, 
 				written += int64(nw)
 				if isDownload {
 					atomic.StoreInt64(&t.BytesSent, written)
+					if errCheck := t.CheckRead(); errCheck != nil {
+						err = errCheck
+						break
+					}
 				} else {
 					atomic.StoreInt64(&t.BytesReceived, written)
-				}
-				if t.MaxWriteSize > 0 && written > t.MaxWriteSize {
-					err = common.ErrQuotaExceeded
-					break
+					if errCheck := t.CheckWrite(); errCheck != nil {
+						err = errCheck
+						break
+					}
 				}
 			}
 			if ew != nil {

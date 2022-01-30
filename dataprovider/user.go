@@ -462,7 +462,7 @@ func (u *User) GetFilesystemForPath(virtualPath, connectionID string) (vfs.Fs, e
 // If the path is not inside a virtual folder an error is returned
 func (u *User) GetVirtualFolderForPath(virtualPath string) (vfs.VirtualFolder, error) {
 	var folder vfs.VirtualFolder
-	if len(u.VirtualFolders) == 0 {
+	if virtualPath == "/" || len(u.VirtualFolders) == 0 {
 		return folder, errNoMatchingVirtualFolder
 	}
 	dirsForPath := util.GetDirsForVirtualPath(virtualPath)
@@ -1071,9 +1071,56 @@ func (u *User) GetHomeDir() string {
 	return filepath.Clean(u.HomeDir)
 }
 
-// HasQuotaRestrictions returns true if there is a quota restriction on number of files or size or both
+// HasQuotaRestrictions returns true if there are any disk quota restrictions
 func (u *User) HasQuotaRestrictions() bool {
 	return u.QuotaFiles > 0 || u.QuotaSize > 0
+}
+
+// HasTransferQuotaRestrictions returns true if there are any data transfer restrictions
+func (u *User) HasTransferQuotaRestrictions() bool {
+	if len(u.Filters.DataTransferLimits) > 0 {
+		return true
+	}
+	return u.UploadDataTransfer > 0 || u.TotalDataTransfer > 0 || u.DownloadDataTransfer > 0
+}
+
+// GetDataTransferLimits returns upload, download and total data transfer limits
+func (u *User) GetDataTransferLimits(clientIP string) (int64, int64, int64) {
+	var total, ul, dl int64
+	if len(u.Filters.DataTransferLimits) > 0 {
+		ip := net.ParseIP(clientIP)
+		if ip != nil {
+			for _, limit := range u.Filters.DataTransferLimits {
+				for _, source := range limit.Sources {
+					_, ipNet, err := net.ParseCIDR(source)
+					if err == nil {
+						if ipNet.Contains(ip) {
+							if limit.TotalDataTransfer > 0 {
+								total = limit.TotalDataTransfer * 1048576
+							}
+							if limit.DownloadDataTransfer > 0 {
+								dl = limit.DownloadDataTransfer * 1048576
+							}
+							if limit.UploadDataTransfer > 0 {
+								ul = limit.UploadDataTransfer * 1048576
+							}
+							return ul, dl, total
+						}
+					}
+				}
+			}
+		}
+	}
+	if u.TotalDataTransfer > 0 {
+		total = u.TotalDataTransfer * 1048576
+	}
+	if u.DownloadDataTransfer > 0 {
+		dl = u.DownloadDataTransfer * 1048576
+	}
+	if u.UploadDataTransfer > 0 {
+		ul = u.UploadDataTransfer * 1048576
+	}
+	return ul, dl, total
 }
 
 // GetQuotaSummary returns used quota and limits if defined
@@ -1283,33 +1330,50 @@ func (u *User) getACopy() User {
 		copy(bwLimit.Sources, limit.Sources)
 		filters.BandwidthLimits = append(filters.BandwidthLimits, bwLimit)
 	}
+	filters.DataTransferLimits = make([]sdk.DataTransferLimit, 0, len(u.Filters.DataTransferLimits))
+	for _, limit := range u.Filters.DataTransferLimits {
+		dtLimit := sdk.DataTransferLimit{
+			UploadDataTransfer:   limit.UploadDataTransfer,
+			DownloadDataTransfer: limit.DownloadDataTransfer,
+			TotalDataTransfer:    limit.TotalDataTransfer,
+			Sources:              make([]string, 0, len(limit.Sources)),
+		}
+		dtLimit.Sources = make([]string, len(limit.Sources))
+		copy(dtLimit.Sources, limit.Sources)
+		filters.DataTransferLimits = append(filters.DataTransferLimits, dtLimit)
+	}
 
 	return User{
 		BaseUser: sdk.BaseUser{
-			ID:                u.ID,
-			Username:          u.Username,
-			Email:             u.Email,
-			Password:          u.Password,
-			PublicKeys:        pubKeys,
-			HomeDir:           u.HomeDir,
-			UID:               u.UID,
-			GID:               u.GID,
-			MaxSessions:       u.MaxSessions,
-			QuotaSize:         u.QuotaSize,
-			QuotaFiles:        u.QuotaFiles,
-			Permissions:       permissions,
-			UsedQuotaSize:     u.UsedQuotaSize,
-			UsedQuotaFiles:    u.UsedQuotaFiles,
-			LastQuotaUpdate:   u.LastQuotaUpdate,
-			UploadBandwidth:   u.UploadBandwidth,
-			DownloadBandwidth: u.DownloadBandwidth,
-			Status:            u.Status,
-			ExpirationDate:    u.ExpirationDate,
-			LastLogin:         u.LastLogin,
-			AdditionalInfo:    u.AdditionalInfo,
-			Description:       u.Description,
-			CreatedAt:         u.CreatedAt,
-			UpdatedAt:         u.UpdatedAt,
+			ID:                       u.ID,
+			Username:                 u.Username,
+			Email:                    u.Email,
+			Password:                 u.Password,
+			PublicKeys:               pubKeys,
+			HomeDir:                  u.HomeDir,
+			UID:                      u.UID,
+			GID:                      u.GID,
+			MaxSessions:              u.MaxSessions,
+			QuotaSize:                u.QuotaSize,
+			QuotaFiles:               u.QuotaFiles,
+			Permissions:              permissions,
+			UsedQuotaSize:            u.UsedQuotaSize,
+			UsedQuotaFiles:           u.UsedQuotaFiles,
+			LastQuotaUpdate:          u.LastQuotaUpdate,
+			UploadBandwidth:          u.UploadBandwidth,
+			DownloadBandwidth:        u.DownloadBandwidth,
+			UploadDataTransfer:       u.UploadDataTransfer,
+			DownloadDataTransfer:     u.DownloadDataTransfer,
+			TotalDataTransfer:        u.TotalDataTransfer,
+			UsedUploadDataTransfer:   u.UsedUploadDataTransfer,
+			UsedDownloadDataTransfer: u.UsedDownloadDataTransfer,
+			Status:                   u.Status,
+			ExpirationDate:           u.ExpirationDate,
+			LastLogin:                u.LastLogin,
+			AdditionalInfo:           u.AdditionalInfo,
+			Description:              u.Description,
+			CreatedAt:                u.CreatedAt,
+			UpdatedAt:                u.UpdatedAt,
 		},
 		Filters:        filters,
 		VirtualFolders: virtualFolders,

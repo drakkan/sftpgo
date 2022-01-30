@@ -521,11 +521,31 @@ func StartQuotaScan(user dataprovider.User, expectedStatusCode int) ([]byte, err
 	return body, checkResponse(resp.StatusCode, expectedStatusCode)
 }
 
-// UpdateQuotaUsage updates the user used quota limits and checks the received HTTP Status code against expectedStatusCode.
+// UpdateQuotaUsage updates the user used quota limits and checks the received
+// HTTP Status code against expectedStatusCode.
 func UpdateQuotaUsage(user dataprovider.User, mode string, expectedStatusCode int) ([]byte, error) {
 	var body []byte
 	userAsJSON, _ := json.Marshal(user)
 	url, err := addModeQueryParam(buildURLRelativeToBase(quotasBasePath, "users", user.Username, "usage"), mode)
+	if err != nil {
+		return body, err
+	}
+	resp, err := sendHTTPRequest(http.MethodPut, url.String(), bytes.NewBuffer(userAsJSON), "application/json",
+		getDefaultToken())
+	if err != nil {
+		return body, err
+	}
+	defer resp.Body.Close()
+	body, _ = getResponseBody(resp)
+	return body, checkResponse(resp.StatusCode, expectedStatusCode)
+}
+
+// UpdateTransferQuotaUsage updates the user used transfer quota limits and checks the received
+// HTTP Status code against expectedStatusCode.
+func UpdateTransferQuotaUsage(user dataprovider.User, mode string, expectedStatusCode int) ([]byte, error) {
+	var body []byte
+	userAsJSON, _ := json.Marshal(user)
+	url, err := addModeQueryParam(buildURLRelativeToBase(quotasBasePath, "users", user.Username, "transfer-usage"), mode)
 	if err != nil {
 		return body, err
 	}
@@ -1495,6 +1515,9 @@ func compareUserFilters(expected *dataprovider.User, actual *dataprovider.User) 
 	if err := compareUserBandwidthLimitFilters(expected, actual); err != nil {
 		return err
 	}
+	if err := compareUserDataTransferLimitFilters(expected, actual); err != nil {
+		return err
+	}
 	return compareUserFilePatternsFilters(expected, actual)
 }
 
@@ -1510,9 +1533,33 @@ func checkFilterMatch(expected []string, actual []string) bool {
 	return true
 }
 
+func compareUserDataTransferLimitFilters(expected *dataprovider.User, actual *dataprovider.User) error {
+	if len(expected.Filters.DataTransferLimits) != len(actual.Filters.DataTransferLimits) {
+		return errors.New("data transfer limits filters mismatch")
+	}
+	for idx, l := range expected.Filters.DataTransferLimits {
+		if actual.Filters.DataTransferLimits[idx].UploadDataTransfer != l.UploadDataTransfer {
+			return errors.New("data transfer limit upload_data_transfer mismatch")
+		}
+		if actual.Filters.DataTransferLimits[idx].DownloadDataTransfer != l.DownloadDataTransfer {
+			return errors.New("data transfer limit download_data_transfer mismatch")
+		}
+		if actual.Filters.DataTransferLimits[idx].TotalDataTransfer != l.TotalDataTransfer {
+			return errors.New("data transfer limit total_data_transfer mismatch")
+		}
+		for _, source := range actual.Filters.DataTransferLimits[idx].Sources {
+			if !util.IsStringInSlice(source, l.Sources) {
+				return errors.New("data transfer limit source mismatch")
+			}
+		}
+	}
+
+	return nil
+}
+
 func compareUserBandwidthLimitFilters(expected *dataprovider.User, actual *dataprovider.User) error {
 	if len(expected.Filters.BandwidthLimits) != len(actual.Filters.BandwidthLimits) {
-		return errors.New("bandwidth filters mismatch")
+		return errors.New("bandwidth limits filters mismatch")
 	}
 
 	for idx, l := range expected.Filters.BandwidthLimits {
@@ -1573,12 +1620,6 @@ func compareEqualsUserFields(expected *dataprovider.User, actual *dataprovider.U
 	if expected.MaxSessions != actual.MaxSessions {
 		return errors.New("MaxSessions mismatch")
 	}
-	if expected.QuotaSize != actual.QuotaSize {
-		return errors.New("QuotaSize mismatch")
-	}
-	if expected.QuotaFiles != actual.QuotaFiles {
-		return errors.New("QuotaFiles mismatch")
-	}
 	if len(expected.Permissions) != len(actual.Permissions) {
 		return errors.New("permissions mismatch")
 	}
@@ -1599,6 +1640,25 @@ func compareEqualsUserFields(expected *dataprovider.User, actual *dataprovider.U
 	}
 	if expected.Description != actual.Description {
 		return errors.New("description mismatch")
+	}
+	return compareQuotaUserFields(expected, actual)
+}
+
+func compareQuotaUserFields(expected *dataprovider.User, actual *dataprovider.User) error {
+	if expected.QuotaSize != actual.QuotaSize {
+		return errors.New("QuotaSize mismatch")
+	}
+	if expected.QuotaFiles != actual.QuotaFiles {
+		return errors.New("QuotaFiles mismatch")
+	}
+	if expected.UploadDataTransfer != actual.UploadDataTransfer {
+		return errors.New("upload_data_transfer mismatch")
+	}
+	if expected.DownloadDataTransfer != actual.DownloadDataTransfer {
+		return errors.New("download_data_transfer mismatch")
+	}
+	if expected.TotalDataTransfer != actual.TotalDataTransfer {
+		return errors.New("total_data_transfer mismatch")
 	}
 	return nil
 }

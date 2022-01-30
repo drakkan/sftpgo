@@ -178,7 +178,7 @@ func TestMain(m *testing.M) {
 		scriptArgs = "$@"
 	}
 
-	err = common.Initialize(commonConf)
+	err = common.Initialize(commonConf, 0)
 	if err != nil {
 		logger.WarnToConsole("error initializing common: %v", err)
 		os.Exit(1)
@@ -323,7 +323,7 @@ func TestMain(m *testing.M) {
 	os.Remove(postConnectPath)
 	os.Remove(preDownloadPath)
 	os.Remove(preUploadPath)
-	//os.Remove(keyIntAuthPath)
+	os.Remove(keyIntAuthPath)
 	os.Remove(checkPwdPath)
 	os.Exit(exitCode)
 }
@@ -434,6 +434,9 @@ func TestBasicSFTPHandling(t *testing.T) {
 		err = os.Remove(localDownloadPath)
 		assert.NoError(t, err)
 	}
+	u.Username = "missing user"
+	_, _, err = getSftpClient(u, false)
+	assert.Error(t, err)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
@@ -604,7 +607,7 @@ func TestRateLimiter(t *testing.T) {
 		},
 	}
 
-	err := common.Initialize(cfg)
+	err := common.Initialize(cfg, 0)
 	assert.NoError(t, err)
 
 	usePubKey := false
@@ -625,7 +628,7 @@ func TestRateLimiter(t *testing.T) {
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 
-	err = common.Initialize(oldConfig)
+	err = common.Initialize(oldConfig, 0)
 	assert.NoError(t, err)
 }
 
@@ -637,7 +640,7 @@ func TestDefender(t *testing.T) {
 	cfg.DefenderConfig.Threshold = 3
 	cfg.DefenderConfig.ScoreLimitExceeded = 2
 
-	err := common.Initialize(cfg)
+	err := common.Initialize(cfg, 0)
 	assert.NoError(t, err)
 
 	usePubKey := false
@@ -666,7 +669,7 @@ func TestDefender(t *testing.T) {
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 
-	err = common.Initialize(oldConfig)
+	err = common.Initialize(oldConfig, 0)
 	assert.NoError(t, err)
 }
 
@@ -4049,6 +4052,65 @@ func TestQuotaLimits(t *testing.T) {
 	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(localUser.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestTransferQuotaLimits(t *testing.T) {
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	u.DownloadDataTransfer = 1
+	u.UploadDataTransfer = 1
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	testFileSize := int64(550000)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+
+	conn, client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.NoError(t, err)
+		err = sftpDownloadFile(testFileName, localDownloadPath, testFileSize, client)
+		assert.NoError(t, err)
+		// error while download is active
+		err = sftpDownloadFile(testFileName, localDownloadPath, testFileSize, client)
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), common.ErrReadQuotaExceeded.Error())
+		}
+		// error before starting the download
+		err = sftpDownloadFile(testFileName, localDownloadPath, testFileSize, client)
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), common.ErrReadQuotaExceeded.Error())
+		}
+		// error while upload is active
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), common.ErrQuotaExceeded.Error())
+		}
+		// error before starting the upload
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), common.ErrQuotaExceeded.Error())
+		}
+	}
+
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Greater(t, user.UsedDownloadDataTransfer, int64(1024*1024))
+	assert.Greater(t, user.UsedUploadDataTransfer, int64(1024*1024))
+
+	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+	err = os.Remove(localDownloadPath)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
 
@@ -8991,6 +9053,53 @@ func TestSCPPatternsFilter(t *testing.T) {
 		err = os.Remove(localPath)
 		assert.NoError(t, err)
 	}
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestSCPTransferQuotaLimits(t *testing.T) {
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	u.DownloadDataTransfer = 1
+	u.UploadDataTransfer = 1
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	testFileSize := int64(550000)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+
+	remoteUpPath := fmt.Sprintf("%v@127.0.0.1:%v", user.Username, "/")
+	remoteDownPath := fmt.Sprintf("%v@127.0.0.1:%v", user.Username, path.Join("/", testFileName))
+	err = scpUpload(testFilePath, remoteUpPath, false, false)
+	assert.NoError(t, err)
+	err = scpDownload(localDownloadPath, remoteDownPath, false, false)
+	assert.NoError(t, err)
+	// error while download is active
+	err = scpDownload(localDownloadPath, remoteDownPath, false, false)
+	assert.Error(t, err)
+	// error before starting the download
+	err = scpDownload(localDownloadPath, remoteDownPath, false, false)
+	assert.Error(t, err)
+	// error while upload is active
+	err = scpUpload(testFilePath, remoteUpPath, false, false)
+	assert.Error(t, err)
+	// error before starting the upload
+	err = scpUpload(testFilePath, remoteUpPath, false, false)
+	assert.Error(t, err)
+
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Greater(t, user.UsedDownloadDataTransfer, int64(1024*1024))
+	assert.Greater(t, user.UsedUploadDataTransfer, int64(1024*1024))
+
+	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+	err = os.Remove(localDownloadPath)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }

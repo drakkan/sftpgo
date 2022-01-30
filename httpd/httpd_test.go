@@ -297,7 +297,7 @@ func TestMain(m *testing.M) {
 	os.RemoveAll(credentialsPath) //nolint:errcheck
 	logger.InfoToConsole("Starting HTTPD tests, provider: %v", providerConf.Driver)
 
-	err = common.Initialize(config.GetCommonConfig())
+	err = common.Initialize(config.GetCommonConfig(), 0)
 	if err != nil {
 		logger.WarnToConsole("error initializing common: %v", err)
 		os.Exit(1)
@@ -506,7 +506,104 @@ func TestBasicUserHandling(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestUserBandwidthLimit(t *testing.T) {
+func TestUserTransferLimits(t *testing.T) {
+	u := getTestUser()
+	u.TotalDataTransfer = 100
+	u.Filters.DataTransferLimits = []sdk.DataTransferLimit{
+		{
+			Sources: nil,
+		},
+	}
+	_, resp, err := httpdtest.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err, string(resp))
+	assert.Contains(t, string(resp), "Validation error: no data transfer limit source specified")
+	u.Filters.DataTransferLimits = []sdk.DataTransferLimit{
+		{
+			Sources: []string{"a"},
+		},
+	}
+	_, resp, err = httpdtest.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err, string(resp))
+	assert.Contains(t, string(resp), "Validation error: could not parse data transfer limit source")
+	u.Filters.DataTransferLimits = []sdk.DataTransferLimit{
+		{
+			Sources:              []string{"127.0.0.1/32"},
+			UploadDataTransfer:   120,
+			DownloadDataTransfer: 140,
+		},
+		{
+			Sources:           []string{"192.168.0.0/24", "192.168.1.0/24"},
+			TotalDataTransfer: 400,
+		},
+		{
+			Sources: []string{"10.0.0.0/8"},
+		},
+	}
+	user, resp, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	assert.Len(t, user.Filters.DataTransferLimits, 3)
+	assert.Equal(t, u.Filters.DataTransferLimits, user.Filters.DataTransferLimits)
+	up, down, total := user.GetDataTransferLimits("1.1.1.1")
+	assert.Equal(t, user.TotalDataTransfer*1024*1024, total)
+	assert.Equal(t, user.UploadDataTransfer*1024*1024, up)
+	assert.Equal(t, user.DownloadDataTransfer*1024*1024, down)
+	up, down, total = user.GetDataTransferLimits("127.0.0.1")
+	assert.Equal(t, user.Filters.DataTransferLimits[0].TotalDataTransfer*1024*1024, total)
+	assert.Equal(t, user.Filters.DataTransferLimits[0].UploadDataTransfer*1024*1024, up)
+	assert.Equal(t, user.Filters.DataTransferLimits[0].DownloadDataTransfer*1024*1024, down)
+	up, down, total = user.GetDataTransferLimits("192.168.1.6")
+	assert.Equal(t, user.Filters.DataTransferLimits[1].TotalDataTransfer*1024*1024, total)
+	assert.Equal(t, user.Filters.DataTransferLimits[1].UploadDataTransfer*1024*1024, up)
+	assert.Equal(t, user.Filters.DataTransferLimits[1].DownloadDataTransfer*1024*1024, down)
+	up, down, total = user.GetDataTransferLimits("10.1.2.3")
+	assert.Equal(t, user.Filters.DataTransferLimits[2].TotalDataTransfer*1024*1024, total)
+	assert.Equal(t, user.Filters.DataTransferLimits[2].UploadDataTransfer*1024*1024, up)
+	assert.Equal(t, user.Filters.DataTransferLimits[2].DownloadDataTransfer*1024*1024, down)
+
+	connID := xid.New().String()
+	localAddr := "::1"
+	conn := common.NewBaseConnection(connID, common.ProtocolHTTP, localAddr, "1.1.1.2", user)
+	transferQuota := conn.GetTransferQuota()
+	assert.Equal(t, user.TotalDataTransfer*1024*1024, transferQuota.AllowedTotalSize)
+	assert.Equal(t, user.UploadDataTransfer*1024*1024, transferQuota.AllowedULSize)
+	assert.Equal(t, user.DownloadDataTransfer*1024*1024, transferQuota.AllowedDLSize)
+
+	conn = common.NewBaseConnection(connID, common.ProtocolHTTP, localAddr, "127.0.0.1", user)
+	transferQuota = conn.GetTransferQuota()
+	assert.Equal(t, user.Filters.DataTransferLimits[0].TotalDataTransfer*1024*1024, transferQuota.AllowedTotalSize)
+	assert.Equal(t, user.Filters.DataTransferLimits[0].UploadDataTransfer*1024*1024, transferQuota.AllowedULSize)
+	assert.Equal(t, user.Filters.DataTransferLimits[0].DownloadDataTransfer*1024*1024, transferQuota.AllowedDLSize)
+
+	conn = common.NewBaseConnection(connID, common.ProtocolHTTP, localAddr, "192.168.1.5", user)
+	transferQuota = conn.GetTransferQuota()
+	assert.Equal(t, user.Filters.DataTransferLimits[1].TotalDataTransfer*1024*1024, transferQuota.AllowedTotalSize)
+	assert.Equal(t, user.Filters.DataTransferLimits[1].UploadDataTransfer*1024*1024, transferQuota.AllowedULSize)
+	assert.Equal(t, user.Filters.DataTransferLimits[1].DownloadDataTransfer*1024*1024, transferQuota.AllowedDLSize)
+
+	u.UsedDownloadDataTransfer = 10 * 1024 * 1024
+	u.UsedUploadDataTransfer = 5 * 1024 * 1024
+	_, err = httpdtest.UpdateTransferQuotaUsage(u, "", http.StatusOK)
+	assert.NoError(t, err)
+
+	conn = common.NewBaseConnection(connID, common.ProtocolHTTP, localAddr, "192.168.1.6", user)
+	transferQuota = conn.GetTransferQuota()
+	assert.Equal(t, (user.Filters.DataTransferLimits[1].TotalDataTransfer-15)*1024*1024, transferQuota.AllowedTotalSize)
+	assert.Equal(t, user.Filters.DataTransferLimits[1].UploadDataTransfer*1024*1024, transferQuota.AllowedULSize)
+	assert.Equal(t, user.Filters.DataTransferLimits[1].DownloadDataTransfer*1024*1024, transferQuota.AllowedDLSize)
+
+	conn = common.NewBaseConnection(connID, common.ProtocolHTTP, localAddr, "10.8.3.4", user)
+	transferQuota = conn.GetTransferQuota()
+	assert.Equal(t, int64(0), transferQuota.AllowedTotalSize)
+	assert.Equal(t, int64(0), transferQuota.AllowedULSize)
+	assert.Equal(t, int64(0), transferQuota.AllowedDLSize)
+
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+}
+
+func TestUserBandwidthLimits(t *testing.T) {
 	u := getTestUser()
 	u.UploadBandwidth = 128
 	u.DownloadBandwidth = 96
@@ -518,6 +615,14 @@ func TestUserBandwidthLimit(t *testing.T) {
 	_, resp, err := httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err, string(resp))
 	assert.Contains(t, string(resp), "Validation error: could not parse bandwidth limit source")
+	u.Filters.BandwidthLimits = []sdk.BandwidthLimit{
+		{
+			Sources: nil,
+		},
+	}
+	_, resp, err = httpdtest.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err, string(resp))
+	assert.Contains(t, string(resp), "Validation error: no bandwidth limit source specified")
 	u.Filters.BandwidthLimits = []sdk.BandwidthLimit{
 		{
 			Sources:         []string{"127.0.0.0/8", "::1/128"},
@@ -2163,6 +2268,81 @@ func TestUpdateUser(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestUpdateUserTransferQuotaUsage(t *testing.T) {
+	u := getTestUser()
+	usedDownloadDataTransfer := int64(2 * 1024 * 1024)
+	usedUploadDataTransfer := int64(1024 * 1024)
+	u.UsedDownloadDataTransfer = usedDownloadDataTransfer
+	u.UsedUploadDataTransfer = usedUploadDataTransfer
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(0), user.UsedUploadDataTransfer)
+	assert.Equal(t, int64(0), user.UsedDownloadDataTransfer)
+	_, err = httpdtest.UpdateTransferQuotaUsage(u, "invalid_mode", http.StatusBadRequest)
+	assert.NoError(t, err)
+	_, err = httpdtest.UpdateTransferQuotaUsage(u, "", http.StatusOK)
+	assert.NoError(t, err)
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, usedUploadDataTransfer, user.UsedUploadDataTransfer)
+	assert.Equal(t, usedDownloadDataTransfer, user.UsedDownloadDataTransfer)
+	_, err = httpdtest.UpdateTransferQuotaUsage(u, "add", http.StatusBadRequest)
+	assert.NoError(t, err, "user has no transfer quota restrictions add mode should fail")
+	user.TotalDataTransfer = 100
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	_, err = httpdtest.UpdateTransferQuotaUsage(u, "add", http.StatusOK)
+	assert.NoError(t, err)
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, 2*usedUploadDataTransfer, user.UsedUploadDataTransfer)
+	assert.Equal(t, 2*usedDownloadDataTransfer, user.UsedDownloadDataTransfer)
+	u.UsedDownloadDataTransfer = -1
+	_, err = httpdtest.UpdateTransferQuotaUsage(u, "add", http.StatusBadRequest)
+	assert.NoError(t, err)
+	u.UsedDownloadDataTransfer = usedDownloadDataTransfer
+	u.Username += "1"
+	_, err = httpdtest.UpdateTransferQuotaUsage(u, "", http.StatusNotFound)
+	assert.NoError(t, err)
+	u.Username = defaultUsername
+	_, err = httpdtest.UpdateTransferQuotaUsage(u, "", http.StatusOK)
+	assert.NoError(t, err)
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, usedUploadDataTransfer, user.UsedUploadDataTransfer)
+	assert.Equal(t, usedDownloadDataTransfer, user.UsedDownloadDataTransfer)
+	u.UsedDownloadDataTransfer = 0
+	u.UsedUploadDataTransfer = 1
+	_, err = httpdtest.UpdateTransferQuotaUsage(u, "add", http.StatusOK)
+	assert.NoError(t, err)
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, usedUploadDataTransfer+1, user.UsedUploadDataTransfer)
+	assert.Equal(t, usedDownloadDataTransfer, user.UsedDownloadDataTransfer)
+	u.UsedDownloadDataTransfer = 1
+	u.UsedUploadDataTransfer = 0
+	_, err = httpdtest.UpdateTransferQuotaUsage(u, "add", http.StatusOK)
+	assert.NoError(t, err)
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, usedUploadDataTransfer+1, user.UsedUploadDataTransfer)
+	assert.Equal(t, usedDownloadDataTransfer+1, user.UsedDownloadDataTransfer)
+
+	token, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPut, path.Join(quotasBasePath, "users", u.Username, "transfer-usage"),
+		bytes.NewBuffer([]byte(`not a json`)))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+}
+
 func TestUpdateUserQuotaUsage(t *testing.T) {
 	u := getTestUser()
 	usedQuotaFiles := 1
@@ -2171,6 +2351,10 @@ func TestUpdateUserQuotaUsage(t *testing.T) {
 	u.UsedQuotaSize = usedQuotaSize
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, user.UsedQuotaFiles)
+	assert.Equal(t, int64(0), user.UsedQuotaSize)
 	_, err = httpdtest.UpdateQuotaUsage(u, "invalid_mode", http.StatusBadRequest)
 	assert.NoError(t, err)
 	_, err = httpdtest.UpdateQuotaUsage(u, "", http.StatusOK)
@@ -3948,6 +4132,8 @@ func TestQuotaTrackingDisabled(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = httpdtest.UpdateQuotaUsage(user, "", http.StatusForbidden)
 	assert.NoError(t, err)
+	_, err = httpdtest.UpdateTransferQuotaUsage(user, "", http.StatusForbidden)
+	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	// folder quota scan must fail
@@ -4306,7 +4492,7 @@ func TestDefenderAPI(t *testing.T) {
 		cfg.DefenderConfig.Threshold = 3
 		cfg.DefenderConfig.ScoreLimitExceeded = 2
 
-		err := common.Initialize(cfg)
+		err := common.Initialize(cfg, 0)
 		assert.NoError(t, err)
 
 		ip := "::1"
@@ -4405,7 +4591,7 @@ func TestDefenderAPI(t *testing.T) {
 		}
 	}
 
-	err := common.Initialize(oldConfig)
+	err := common.Initialize(oldConfig, 0)
 	require.NoError(t, err)
 }
 
@@ -4427,7 +4613,7 @@ func TestDefenderAPIErrors(t *testing.T) {
 		cfg := config.GetCommonConfig()
 		cfg.DefenderConfig.Enabled = true
 		cfg.DefenderConfig.Driver = common.DefenderDriverProvider
-		err := common.Initialize(cfg)
+		err := common.Initialize(cfg, 0)
 		require.NoError(t, err)
 
 		token, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
@@ -4465,7 +4651,7 @@ func TestDefenderAPIErrors(t *testing.T) {
 		err = dataprovider.Initialize(providerConf, configDir, true)
 		assert.NoError(t, err)
 
-		err = common.Initialize(oldConfig)
+		err = common.Initialize(oldConfig, 0)
 		require.NoError(t, err)
 	}
 }
@@ -4851,6 +5037,8 @@ func TestLoaddataMode(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveFolder(folder, http.StatusOK)
 	assert.NoError(t, err)
+	_, err = httpdtest.RemoveAPIKey(apiKey, http.StatusOK)
+	assert.NoError(t, err)
 	err = os.Remove(backupFilePath)
 	assert.NoError(t, err)
 }
@@ -4869,7 +5057,7 @@ func TestRateLimiter(t *testing.T) {
 		},
 	}
 
-	err := common.Initialize(cfg)
+	err := common.Initialize(cfg, 0)
 	assert.NoError(t, err)
 
 	client := &http.Client{
@@ -4905,7 +5093,7 @@ func TestRateLimiter(t *testing.T) {
 	err = resp.Body.Close()
 	assert.NoError(t, err)
 
-	err = common.Initialize(oldConfig)
+	err = common.Initialize(oldConfig, 0)
 	assert.NoError(t, err)
 }
 
@@ -8333,7 +8521,7 @@ func TestDefender(t *testing.T) {
 	cfg.DefenderConfig.Threshold = 3
 	cfg.DefenderConfig.ScoreLimitExceeded = 2
 
-	err := common.Initialize(cfg)
+	err := common.Initialize(cfg, 0)
 	assert.NoError(t, err)
 
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
@@ -8389,7 +8577,7 @@ func TestDefender(t *testing.T) {
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 
-	err = common.Initialize(oldConfig)
+	err = common.Initialize(oldConfig, 0)
 	assert.NoError(t, err)
 }
 
@@ -10659,6 +10847,132 @@ func TestWebFilesAPI(t *testing.T) {
 	checkResponseCode(t, http.StatusNotFound, rr)
 }
 
+func TestWebFilesTransferQuotaLimits(t *testing.T) {
+	u := getTestUser()
+	u.UploadDataTransfer = 1
+	u.DownloadDataTransfer = 1
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	webAPIToken, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	testFileName := "file.data"
+	testFileSize := 550000
+	testFileContents := make([]byte, testFileSize)
+	n, err := io.ReadFull(rand.Reader, testFileContents)
+	assert.NoError(t, err)
+	assert.Equal(t, testFileSize, n)
+	body := new(bytes.Buffer)
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile("filenames", testFileName)
+	assert.NoError(t, err)
+	_, err = part.Write(testFileContents)
+	assert.NoError(t, err)
+	err = writer.Close()
+	assert.NoError(t, err)
+	reader := bytes.NewReader(body.Bytes())
+	req, err := http.NewRequest(http.MethodPost, userFilesPath, reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	setBearerForReq(req, webAPIToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+
+	req, err = http.NewRequest(http.MethodGet, userFilesPath+"?path="+testFileName, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Equal(t, testFileContents, rr.Body.Bytes())
+	// error while download is active
+	downloadFunc := func() {
+		defer func() {
+			rcv := recover()
+			assert.Equal(t, http.ErrAbortHandler, rcv)
+		}()
+
+		req, err = http.NewRequest(http.MethodGet, userFilesPath+"?path="+testFileName, nil)
+		assert.NoError(t, err)
+		setBearerForReq(req, webAPIToken)
+		rr = executeRequest(req)
+		checkResponseCode(t, http.StatusOK, rr)
+	}
+	downloadFunc()
+	// error before starting the download
+	req, err = http.NewRequest(http.MethodGet, userFilesPath+"?path="+testFileName, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	// error while upload is active
+	_, err = reader.Seek(0, io.SeekStart)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userFilesPath, reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusRequestEntityTooLarge, rr)
+	// error before starting the upload
+	_, err = reader.Seek(0, io.SeekStart)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userFilesPath, reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusRequestEntityTooLarge, rr)
+	// now test upload/download to/from shares
+	share1 := dataprovider.Share{
+		Name:  "share1",
+		Scope: dataprovider.ShareScopeRead,
+		Paths: []string{"/"},
+	}
+	asJSON, err := json.Marshal(share1)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	objectID := rr.Header().Get("X-Object-ID")
+	assert.NotEmpty(t, objectID)
+
+	req, err = http.NewRequest(http.MethodGet, sharesPath+"/"+objectID, nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+
+	share2 := dataprovider.Share{
+		Name:  "share2",
+		Scope: dataprovider.ShareScopeWrite,
+		Paths: []string{"/"},
+	}
+	asJSON, err = json.Marshal(share2)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	objectID = rr.Header().Get("X-Object-ID")
+	assert.NotEmpty(t, objectID)
+
+	_, err = reader.Seek(0, io.SeekStart)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, sharesPath+"/"+objectID, reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusRequestEntityTooLarge, rr)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestWebUploadErrors(t *testing.T) {
 	u := getTestUser()
 	u.QuotaSize = 65535
@@ -11318,6 +11632,10 @@ func TestClientUserClose(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		defer func() {
+			rcv := recover()
+			assert.Equal(t, http.ErrAbortHandler, rcv)
+		}()
 		req, _ := http.NewRequest(http.MethodGet, webClientFilesPath+"?path="+testFileName, nil)
 		setJWTCookieForReq(req, webToken)
 		rr := executeRequest(req)
@@ -13035,6 +13353,8 @@ func TestWebUserAddMock(t *testing.T) {
 	user := getTestUser()
 	user.UploadBandwidth = 32
 	user.DownloadBandwidth = 64
+	user.UploadDataTransfer = 1000
+	user.DownloadDataTransfer = 2000
 	user.UID = 1000
 	user.AdditionalInfo = "info"
 	user.Description = "user dsc"
@@ -13088,6 +13408,7 @@ func TestWebUserAddMock(t *testing.T) {
 	form.Set("description", user.Description)
 	form.Add("hooks", "external_auth_disabled")
 	form.Set("disable_fs_checks", "checked")
+	form.Set("total_data_transfer", "0")
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	// test invalid url escape
 	req, _ = http.NewRequest(http.MethodPost, webUserPath+"?a=%2", &b)
@@ -13152,6 +13473,33 @@ func TestWebUserAddMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	form.Set("download_bandwidth", strconv.FormatInt(user.DownloadBandwidth, 10))
+	form.Set("upload_data_transfer", "a")
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	// test invalid upload data transfer
+	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	form.Set("upload_data_transfer", strconv.FormatInt(user.UploadDataTransfer, 10))
+	form.Set("download_data_transfer", "a")
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	// test invalid download data transfer
+	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	form.Set("download_data_transfer", strconv.FormatInt(user.DownloadDataTransfer, 10))
+	form.Set("total_data_transfer", "a")
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	// test invalid total data transfer
+	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	form.Set("total_data_transfer", strconv.FormatInt(user.TotalDataTransfer, 10))
 	form.Set("status", "a")
 	b, contentType, _ = getMultipartFormData(form, "", "")
 	// test invalid status
@@ -13240,6 +13588,49 @@ func TestWebUserAddMock(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "Validation error: could not parse bandwidth limit source")
 	form.Set("bandwidth_limit_sources1", "127.0.0.1/32")
 	form.Set("upload_bandwidth_source1", "-1")
+	form.Set("data_transfer_limit_sources0", "127.0.1.1")
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "could not parse data transfer limit source")
+	form.Set("data_transfer_limit_sources0", "127.0.1.1/32")
+	form.Set("upload_data_transfer_source0", "a")
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "invalid upload_data_transfer_source")
+	form.Set("upload_data_transfer_source0", "0")
+	form.Set("download_data_transfer_source0", "a")
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "invalid download_data_transfer_source")
+	form.Set("download_data_transfer_source0", "0")
+	form.Set("total_data_transfer_source0", "a")
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "invalid total_data_transfer_source")
+	form.Set("total_data_transfer_source0", "0")
+	form.Set("data_transfer_limit_sources10", "192.168.5.0/24, 10.8.0.0/16")
+	form.Set("download_data_transfer_source10", "100")
+	form.Set("upload_data_transfer_source10", "120")
+	form.Set("data_transfer_limit_sources12", "192.168.3.0/24, 10.8.2.0/24,::1/64")
+	form.Set("download_data_transfer_source12", "100")
+	form.Set("upload_data_transfer_source12", "120")
+	form.Set("total_data_transfer_source12", "200")
 	form.Set(csrfFormToken, "invalid form token")
 	b, contentType, _ = getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
@@ -13278,6 +13669,9 @@ func TestWebUserAddMock(t *testing.T) {
 	assert.Equal(t, user.UID, newUser.UID)
 	assert.Equal(t, user.UploadBandwidth, newUser.UploadBandwidth)
 	assert.Equal(t, user.DownloadBandwidth, newUser.DownloadBandwidth)
+	assert.Equal(t, user.UploadDataTransfer, newUser.UploadDataTransfer)
+	assert.Equal(t, user.DownloadDataTransfer, newUser.DownloadDataTransfer)
+	assert.Equal(t, user.TotalDataTransfer, newUser.TotalDataTransfer)
 	assert.Equal(t, int64(1000), newUser.Filters.MaxUploadFileSize)
 	assert.Equal(t, user.AdditionalInfo, newUser.AdditionalInfo)
 	assert.Equal(t, user.Description, newUser.Description)
@@ -13340,6 +13734,30 @@ func TestWebUserAddMock(t *testing.T) {
 			}
 		}
 	}
+	if assert.Len(t, newUser.Filters.DataTransferLimits, 3) {
+		for _, dtLimit := range newUser.Filters.DataTransferLimits {
+			switch len(dtLimit.Sources) {
+			case 3:
+				assert.Equal(t, "192.168.3.0/24", dtLimit.Sources[0])
+				assert.Equal(t, "10.8.2.0/24", dtLimit.Sources[1])
+				assert.Equal(t, "::1/64", dtLimit.Sources[2])
+				assert.Equal(t, int64(0), dtLimit.UploadDataTransfer)
+				assert.Equal(t, int64(0), dtLimit.DownloadDataTransfer)
+				assert.Equal(t, int64(200), dtLimit.TotalDataTransfer)
+			case 2:
+				assert.Equal(t, "192.168.5.0/24", dtLimit.Sources[0])
+				assert.Equal(t, "10.8.0.0/16", dtLimit.Sources[1])
+				assert.Equal(t, int64(120), dtLimit.UploadDataTransfer)
+				assert.Equal(t, int64(100), dtLimit.DownloadDataTransfer)
+				assert.Equal(t, int64(0), dtLimit.TotalDataTransfer)
+			case 1:
+				assert.Equal(t, "127.0.1.1/32", dtLimit.Sources[0])
+				assert.Equal(t, int64(0), dtLimit.UploadDataTransfer)
+				assert.Equal(t, int64(0), dtLimit.DownloadDataTransfer)
+				assert.Equal(t, int64(0), dtLimit.TotalDataTransfer)
+			}
+		}
+	}
 
 	assert.Equal(t, sdk.TLSUsernameNone, newUser.Filters.TLSUsername)
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(userPath, newUser.Username), nil)
@@ -13367,6 +13785,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 			DownloadBandwidth: 512,
 		},
 	}
+	user.TotalDataTransfer = 4000
 	userAsJSON := getUserAsJSON(t, user)
 	req, _ := http.NewRequest(http.MethodPost, userPath, bytes.NewBuffer(userAsJSON))
 	setBearerForReq(req, apiToken)
@@ -13402,6 +13821,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 	assert.NoError(t, err)
 	assert.True(t, user.Filters.TOTPConfig.Enabled)
+	assert.Equal(t, int64(4000), user.TotalDataTransfer)
 	if assert.Len(t, user.Filters.BandwidthLimits, 1) {
 		if assert.Len(t, user.Filters.BandwidthLimits[0].Sources, 2) {
 			assert.Equal(t, "10.8.0.0/16", user.Filters.BandwidthLimits[0].Sources[0])
@@ -13437,6 +13857,9 @@ func TestWebUserUpdateMock(t *testing.T) {
 	form.Set("quota_files", strconv.FormatInt(int64(user.QuotaFiles), 10))
 	form.Set("upload_bandwidth", "0")
 	form.Set("download_bandwidth", "0")
+	form.Set("upload_data_transfer", "0")
+	form.Set("download_data_transfer", "0")
+	form.Set("total_data_transfer", "0")
 	form.Set("permissions", "*")
 	form.Set("sub_perm_path0", "/otherdir")
 	form.Set("sub_perm_permissions0", "list")
@@ -13523,7 +13946,9 @@ func TestWebUserUpdateMock(t *testing.T) {
 	assert.Equal(t, sdk.TLSUsernameCN, updateUser.Filters.TLSUsername)
 	assert.True(t, updateUser.Filters.AllowAPIKeyAuth)
 	assert.True(t, updateUser.Filters.TOTPConfig.Enabled)
-
+	assert.Equal(t, int64(0), updateUser.TotalDataTransfer)
+	assert.Equal(t, int64(0), updateUser.DownloadDataTransfer)
+	assert.Equal(t, int64(0), updateUser.UploadDataTransfer)
 	if val, ok := updateUser.Permissions["/otherdir"]; ok {
 		assert.True(t, util.IsStringInSlice(dataprovider.PermListItems, val))
 		assert.True(t, util.IsStringInSlice(dataprovider.PermUpload, val))
@@ -13626,6 +14051,9 @@ func TestUserTemplateWithFoldersMock(t *testing.T) {
 	form.Set("quota_files", strconv.FormatInt(int64(user.QuotaFiles), 10))
 	form.Set("upload_bandwidth", "0")
 	form.Set("download_bandwidth", "0")
+	form.Set("upload_data_transfer", "0")
+	form.Set("download_data_transfer", "0")
+	form.Set("total_data_transfer", "0")
 	form.Set("permissions", "*")
 	form.Set("status", strconv.Itoa(user.Status))
 	form.Set("expiration_date", "2020-01-01 00:00:00")
@@ -13713,6 +14141,9 @@ func TestUserSaveFromTemplateMock(t *testing.T) {
 	form.Set("home_dir", filepath.Join(os.TempDir(), "%username%"))
 	form.Set("upload_bandwidth", "0")
 	form.Set("download_bandwidth", "0")
+	form.Set("upload_data_transfer", "0")
+	form.Set("download_data_transfer", "0")
+	form.Set("total_data_transfer", "0")
 	form.Set("uid", "0")
 	form.Set("gid", "0")
 	form.Set("max_sessions", "0")
@@ -13794,6 +14225,9 @@ func TestUserTemplateMock(t *testing.T) {
 	form.Set("quota_files", strconv.FormatInt(int64(user.QuotaFiles), 10))
 	form.Set("upload_bandwidth", "0")
 	form.Set("download_bandwidth", "0")
+	form.Set("upload_data_transfer", "0")
+	form.Set("download_data_transfer", "0")
+	form.Set("total_data_transfer", "0")
 	form.Set("permissions", "*")
 	form.Set("status", strconv.Itoa(user.Status))
 	form.Set("expiration_date", "2020-01-01 00:00:00")
@@ -14136,6 +14570,9 @@ func TestWebUserS3Mock(t *testing.T) {
 	form.Set("quota_files", strconv.FormatInt(int64(user.QuotaFiles), 10))
 	form.Set("upload_bandwidth", "0")
 	form.Set("download_bandwidth", "0")
+	form.Set("upload_data_transfer", "0")
+	form.Set("download_data_transfer", "0")
+	form.Set("total_data_transfer", "0")
 	form.Set("permissions", "*")
 	form.Set("status", strconv.Itoa(user.Status))
 	form.Set("expiration_date", "2020-01-01 00:00:00")
@@ -14336,6 +14773,9 @@ func TestWebUserGCSMock(t *testing.T) {
 	form.Set("quota_files", strconv.FormatInt(int64(user.QuotaFiles), 10))
 	form.Set("upload_bandwidth", "0")
 	form.Set("download_bandwidth", "0")
+	form.Set("upload_data_transfer", "0")
+	form.Set("download_data_transfer", "0")
+	form.Set("total_data_transfer", "0")
 	form.Set("permissions", "*")
 	form.Set("status", strconv.Itoa(user.Status))
 	form.Set("expiration_date", "2020-01-01 00:00:00")
@@ -14448,6 +14888,9 @@ func TestWebUserAzureBlobMock(t *testing.T) {
 	form.Set("quota_files", strconv.FormatInt(int64(user.QuotaFiles), 10))
 	form.Set("upload_bandwidth", "0")
 	form.Set("download_bandwidth", "0")
+	form.Set("upload_data_transfer", "0")
+	form.Set("download_data_transfer", "0")
+	form.Set("total_data_transfer", "0")
 	form.Set("permissions", "*")
 	form.Set("status", strconv.Itoa(user.Status))
 	form.Set("expiration_date", "2020-01-01 00:00:00")
@@ -14608,6 +15051,9 @@ func TestWebUserCryptMock(t *testing.T) {
 	form.Set("quota_files", strconv.FormatInt(int64(user.QuotaFiles), 10))
 	form.Set("upload_bandwidth", "0")
 	form.Set("download_bandwidth", "0")
+	form.Set("upload_data_transfer", "0")
+	form.Set("download_data_transfer", "0")
+	form.Set("total_data_transfer", "0")
 	form.Set("permissions", "*")
 	form.Set("status", strconv.Itoa(user.Status))
 	form.Set("expiration_date", "2020-01-01 00:00:00")
@@ -14710,6 +15156,9 @@ func TestWebUserSFTPFsMock(t *testing.T) {
 	form.Set("quota_files", strconv.FormatInt(int64(user.QuotaFiles), 10))
 	form.Set("upload_bandwidth", "0")
 	form.Set("download_bandwidth", "0")
+	form.Set("upload_data_transfer", "0")
+	form.Set("download_data_transfer", "0")
+	form.Set("total_data_transfer", "0")
 	form.Set("permissions", "*")
 	form.Set("status", strconv.Itoa(user.Status))
 	form.Set("expiration_date", "2020-01-01 00:00:00")

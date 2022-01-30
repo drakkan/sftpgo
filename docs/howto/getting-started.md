@@ -342,7 +342,7 @@ Restart SFTPGo to apply the changes.
 
 ### Use CockroachDB data provider
 
-We suppose you have installed CocroackDB this way:
+We suppose you have installed CockroachDB this way:
 
 ```shell
 sudo su

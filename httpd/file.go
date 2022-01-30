@@ -49,6 +49,9 @@ func (f *httpdFile) Read(p []byte) (n int, err error) {
 	n, err = f.reader.Read(p)
 	atomic.AddInt64(&f.BytesSent, int64(n))
 
+	if err == nil {
+		err = f.CheckRead()
+	}
 	if err != nil && err != io.EOF {
 		f.TransferError(err)
 		return
@@ -70,8 +73,8 @@ func (f *httpdFile) Write(p []byte) (n int, err error) {
 	n, err = f.writer.Write(p)
 	atomic.AddInt64(&f.BytesReceived, int64(n))
 
-	if f.MaxWriteSize > 0 && err == nil && atomic.LoadInt64(&f.BytesReceived) > f.MaxWriteSize {
-		err = common.ErrQuotaExceeded
+	if err == nil {
+		err = f.CheckWrite()
 	}
 	if err != nil {
 		f.TransferError(err)

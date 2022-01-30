@@ -159,20 +159,20 @@ func TestDefenderIntegration(t *testing.T) {
 		EntriesSoftLimit: 100,
 		EntriesHardLimit: 150,
 	}
-	err = Initialize(Config)
+	err = Initialize(Config, 0)
 	// ScoreInvalid cannot be greater than threshold
 	assert.Error(t, err)
 	Config.DefenderConfig.Driver = "unsupported"
-	err = Initialize(Config)
+	err = Initialize(Config, 0)
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "unsupported defender driver")
 	}
 	Config.DefenderConfig.Driver = DefenderDriverMemory
-	err = Initialize(Config)
+	err = Initialize(Config, 0)
 	// ScoreInvalid cannot be greater than threshold
 	assert.Error(t, err)
 	Config.DefenderConfig.Threshold = 3
-	err = Initialize(Config)
+	err = Initialize(Config, 0)
 	assert.NoError(t, err)
 	assert.Nil(t, ReloadDefender())
 
@@ -241,18 +241,18 @@ func TestRateLimitersIntegration(t *testing.T) {
 			EntriesHardLimit:       150,
 		},
 	}
-	err := Initialize(Config)
+	err := Initialize(Config, 0)
 	assert.Error(t, err)
 	Config.RateLimitersConfig[0].Period = 1000
 	Config.RateLimitersConfig[0].AllowList = []string{"1.1.1", "1.1.1.2"}
-	err = Initialize(Config)
+	err = Initialize(Config, 0)
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "unable to parse rate limiter allow list")
 	}
 	Config.RateLimitersConfig[0].AllowList = []string{"172.16.24.7"}
 	Config.RateLimitersConfig[1].AllowList = []string{"172.16.0.0/16"}
 
-	err = Initialize(Config)
+	err = Initialize(Config, 0)
 	assert.NoError(t, err)
 
 	assert.Len(t, rateLimiters, 4)
@@ -355,7 +355,7 @@ func TestIdleConnections(t *testing.T) {
 	configCopy := Config
 
 	Config.IdleTimeout = 1
-	err := Initialize(Config)
+	err := Initialize(Config, 0)
 	assert.NoError(t, err)
 
 	conn1, conn2 := net.Pipe()
@@ -505,9 +505,9 @@ func TestConnectionStatus(t *testing.T) {
 	fakeConn1 := &fakeConnection{
 		BaseConnection: c1,
 	}
-	t1 := NewBaseTransfer(nil, c1, nil, "/p1", "/p1", "/r1", TransferUpload, 0, 0, 0, 0, true, fs)
+	t1 := NewBaseTransfer(nil, c1, nil, "/p1", "/p1", "/r1", TransferUpload, 0, 0, 0, 0, true, fs, dataprovider.TransferQuota{})
 	t1.BytesReceived = 123
-	t2 := NewBaseTransfer(nil, c1, nil, "/p2", "/p2", "/r2", TransferDownload, 0, 0, 0, 0, true, fs)
+	t2 := NewBaseTransfer(nil, c1, nil, "/p2", "/p2", "/r2", TransferDownload, 0, 0, 0, 0, true, fs, dataprovider.TransferQuota{})
 	t2.BytesSent = 456
 	c2 := NewBaseConnection("id2", ProtocolSSH, "", "", user)
 	fakeConn2 := &fakeConnection{
@@ -519,7 +519,7 @@ func TestConnectionStatus(t *testing.T) {
 		BaseConnection: c3,
 		command:        "PROPFIND",
 	}
-	t3 := NewBaseTransfer(nil, c3, nil, "/p2", "/p2", "/r2", TransferDownload, 0, 0, 0, 0, true, fs)
+	t3 := NewBaseTransfer(nil, c3, nil, "/p2", "/p2", "/r2", TransferDownload, 0, 0, 0, 0, true, fs, dataprovider.TransferQuota{})
 	Connections.Add(fakeConn1)
 	Connections.Add(fakeConn2)
 	Connections.Add(fakeConn3)

@@ -41,6 +41,7 @@ type BaseTransfer struct { //nolint:maligned
 	AbortTransfer   int32
 	aTime           time.Time
 	mTime           time.Time
+	transferQuota   dataprovider.TransferQuota
 	sync.Mutex
 	errAbort    error
 	ErrTransfer error
@@ -49,6 +50,7 @@ type BaseTransfer struct { //nolint:maligned
 // NewBaseTransfer returns a new BaseTransfer and adds it to the given connection
 func NewBaseTransfer(file vfs.File, conn *BaseConnection, cancelFn func(), fsPath, effectiveFsPath, requestPath string,
 	transferType int, minWriteOffset, initialSize, maxWriteSize, truncatedSize int64, isNewFile bool, fs vfs.Fs,
+	transferQuota dataprovider.TransferQuota,
 ) *BaseTransfer {
 	t := &BaseTransfer{
 		ID:              conn.GetTransferID(),
@@ -68,11 +70,17 @@ func NewBaseTransfer(file vfs.File, conn *BaseConnection, cancelFn func(), fsPat
 		MaxWriteSize:    maxWriteSize,
 		AbortTransfer:   0,
 		truncatedSize:   truncatedSize,
+		transferQuota:   transferQuota,
 		Fs:              fs,
 	}
 
 	conn.AddTransfer(t)
 	return t
+}
+
+// GetTransferQuota returns data transfer quota limits
+func (t *BaseTransfer) GetTransferQuota() dataprovider.TransferQuota {
+	return t.transferQuota
 }
 
 // SetFtpMode sets the FTP mode for the current transfer
@@ -140,9 +148,17 @@ func (t *BaseTransfer) GetTruncatedSize() int64 {
 	return t.truncatedSize
 }
 
-// GetMaxAllowedSize returns the max allowed size
-func (t *BaseTransfer) GetMaxAllowedSize() int64 {
-	return t.MaxWriteSize
+// HasSizeLimit returns true if there is an upload or download size limit
+func (t *BaseTransfer) HasSizeLimit() bool {
+	if t.MaxWriteSize > 0 {
+		return true
+	}
+	if t.transferQuota.AllowedDLSize > 0 || t.transferQuota.AllowedULSize > 0 ||
+		t.transferQuota.AllowedTotalSize > 0 {
+		return true
+	}
+
+	return false
 }
 
 // GetVirtualPath returns the transfer virtual path
@@ -182,6 +198,43 @@ func (t *BaseTransfer) SetCancelFn(cancelFn func()) {
 	t.cancelFn = cancelFn
 }
 
+// CheckRead returns an error if read if not allowed
+func (t *BaseTransfer) CheckRead() error {
+	if t.transferQuota.AllowedDLSize == 0 && t.transferQuota.AllowedTotalSize == 0 {
+		return nil
+	}
+	if t.transferQuota.AllowedTotalSize > 0 {
+		if atomic.LoadInt64(&t.BytesSent)+atomic.LoadInt64(&t.BytesReceived) > t.transferQuota.AllowedTotalSize {
+			return t.Connection.GetReadQuotaExceededError()
+		}
+	} else if t.transferQuota.AllowedDLSize > 0 {
+		if atomic.LoadInt64(&t.BytesSent) > t.transferQuota.AllowedDLSize {
+			return t.Connection.GetReadQuotaExceededError()
+		}
+	}
+	return nil
+}
+
+// CheckWrite returns an error if write if not allowed
+func (t *BaseTransfer) CheckWrite() error {
+	if t.MaxWriteSize > 0 && atomic.LoadInt64(&t.BytesReceived) > t.MaxWriteSize {
+		return t.Connection.GetQuotaExceededError()
+	}
+	if t.transferQuota.AllowedULSize == 0 && t.transferQuota.AllowedTotalSize == 0 {
+		return nil
+	}
+	if t.transferQuota.AllowedTotalSize > 0 {
+		if atomic.LoadInt64(&t.BytesSent)+atomic.LoadInt64(&t.BytesReceived) > t.transferQuota.AllowedTotalSize {
+			return t.Connection.GetQuotaExceededError()
+		}
+	} else if t.transferQuota.AllowedULSize > 0 {
+		if atomic.LoadInt64(&t.BytesReceived) > t.transferQuota.AllowedULSize {
+			return t.Connection.GetQuotaExceededError()
+		}
+	}
+	return nil
+}
+
 // Truncate changes the size of the opened file.
 // Supported for local fs only
 func (t *BaseTransfer) Truncate(fsPath string, size int64) (int64, error) {
@@ -196,6 +249,10 @@ func (t *BaseTransfer) Truncate(fsPath string, size int64) (int64, error) {
 					sizeDiff := initialSize - size
 					t.MaxWriteSize += sizeDiff
 					metric.TransferCompleted(atomic.LoadInt64(&t.BytesSent), atomic.LoadInt64(&t.BytesReceived), t.transferType, t.ErrTransfer)
+					go func(ulSize, dlSize int64, user dataprovider.User) {
+						dataprovider.UpdateUserTransferQuota(&user, ulSize, dlSize, false) //nolint:errcheck
+					}(atomic.LoadInt64(&t.BytesReceived), atomic.LoadInt64(&t.BytesSent), t.Connection.User)
+
 					atomic.StoreInt64(&t.BytesReceived, 0)
 				}
 				t.Unlock()
@@ -262,7 +319,10 @@ func (t *BaseTransfer) Close() error {
 	if t.isNewFile {
 		numFiles = 1
 	}
-	metric.TransferCompleted(atomic.LoadInt64(&t.BytesSent), atomic.LoadInt64(&t.BytesReceived), t.transferType, t.ErrTransfer)
+	metric.TransferCompleted(atomic.LoadInt64(&t.BytesSent), atomic.LoadInt64(&t.BytesReceived),
+		t.transferType, t.ErrTransfer)
+	dataprovider.UpdateUserTransferQuota(&t.Connection.User, atomic.LoadInt64(&t.BytesReceived), //nolint:errcheck
+		atomic.LoadInt64(&t.BytesSent), false)
 	if t.File != nil && t.Connection.IsQuotaExceededError(t.ErrTransfer) {
 		// if quota is exceeded we try to remove the partial file for uploads to local filesystem
 		err = t.Fs.Remove(t.File.Name(), false)

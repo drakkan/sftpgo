@@ -212,11 +212,11 @@ func (c *scpCommand) getUploadFileData(sizeToRead int64, transfer *transfer) err
 }
 
 func (c *scpCommand) handleUploadFile(fs vfs.Fs, resolvedPath, filePath string, sizeToRead int64, isNewFile bool, fileSize int64, requestPath string) error {
-	quotaResult := c.connection.HasSpace(isNewFile, false, requestPath)
-	if !quotaResult.HasSpace {
+	diskQuota, transferQuota := c.connection.HasSpace(isNewFile, false, requestPath)
+	if !diskQuota.HasSpace || !transferQuota.HasUploadSpace() {
 		err := fmt.Errorf("denying file write due to quota limits")
 		c.connection.Log(logger.LevelError, "error uploading file: %#v, err: %v", filePath, err)
-		c.sendErrorMessage(fs, err)
+		c.sendErrorMessage(nil, err)
 		return err
 	}
 	err := common.ExecutePreAction(c.connection.BaseConnection, common.OperationPreUpload, resolvedPath, requestPath,
@@ -228,7 +228,7 @@ func (c *scpCommand) handleUploadFile(fs vfs.Fs, resolvedPath, filePath string, 
 		return err
 	}
 
-	maxWriteSize, _ := c.connection.GetMaxWriteSize(quotaResult, false, fileSize, fs.IsUploadResumeSupported())
+	maxWriteSize, _ := c.connection.GetMaxWriteSize(diskQuota, false, fileSize, fs.IsUploadResumeSupported())
 
 	file, w, cancelFn, err := fs.Create(filePath, 0)
 	if err != nil {
@@ -262,7 +262,7 @@ func (c *scpCommand) handleUploadFile(fs vfs.Fs, resolvedPath, filePath string, 
 	vfs.SetPathPermissions(fs, filePath, c.connection.User.GetUID(), c.connection.User.GetGID())
 
 	baseTransfer := common.NewBaseTransfer(file, c.connection.BaseConnection, cancelFn, resolvedPath, filePath, requestPath,
-		common.TransferUpload, 0, initialSize, maxWriteSize, truncatedSize, isNewFile, fs)
+		common.TransferUpload, 0, initialSize, maxWriteSize, truncatedSize, isNewFile, fs, transferQuota)
 	t := newTransfer(baseTransfer, w, nil, nil)
 
 	return c.getUploadFileData(sizeToRead, t)
@@ -471,6 +471,12 @@ func (c *scpCommand) sendDownloadFileData(fs vfs.Fs, filePath string, stat os.Fi
 
 func (c *scpCommand) handleDownload(filePath string) error {
 	c.connection.UpdateLastActivity()
+	transferQuota := c.connection.GetTransferQuota()
+	if !transferQuota.HasDownloadSpace() {
+		c.connection.Log(logger.LevelInfo, "denying file read due to quota limits")
+		c.sendErrorMessage(nil, c.connection.GetReadQuotaExceededError())
+		return c.connection.GetReadQuotaExceededError()
+	}
 	var err error
 
 	fs, err := c.connection.User.GetFilesystemForPath(filePath, c.connection.ID)
@@ -531,7 +537,7 @@ func (c *scpCommand) handleDownload(filePath string) error {
 	}
 
 	baseTransfer := common.NewBaseTransfer(file, c.connection.BaseConnection, cancelFn, p, p, filePath,
-		common.TransferDownload, 0, 0, 0, 0, false, fs)
+		common.TransferDownload, 0, 0, 0, 0, false, fs, transferQuota)
 	t := newTransfer(baseTransfer, nil, r, nil)
 
 	err = c.sendDownloadFileData(fs, p, stat, t)

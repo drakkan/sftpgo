@@ -71,7 +71,7 @@ const (
 	CockroachDataProviderName = "cockroachdb"
 	// DumpVersion defines the version for the dump.
 	// For restore/load we support the current version and the previous one
-	DumpVersion = 10
+	DumpVersion = 11
 
 	argonPwdPrefix            = "$argon2id$"
 	bcryptPwdPrefix           = "$2a$"
@@ -165,6 +165,7 @@ var (
 	sqlTableShares          = "shares"
 	sqlTableDefenderHosts   = "defender_hosts"
 	sqlTableDefenderEvents  = "defender_events"
+	sqlTableActiveTransfers = "active_transfers"
 	sqlTableSchemaVersion   = "schema_version"
 	argon2Params            *argon2id.Params
 	lastLoginMinDelay       = 10 * time.Minute
@@ -367,8 +368,18 @@ type Config struct {
 	// MySQL, PostgreSQL and CockroachDB can be shared, this setting is ignored for other data
 	// providers. For shared data providers, SFTPGo periodically reloads the latest updated users,
 	// based on the "updated_at" field, and updates its internal caches if users are updated from
-	// a different instance. This check, if enabled, is executed every 10 minutes
+	// a different instance. This check, if enabled, is executed every 10 minutes.
+	// For shared data providers, active transfers are persisted in the database and thus
+	// quota checks between ongoing transfers will work cross multiple instances
 	IsShared int `json:"is_shared" mapstructure:"is_shared"`
+}
+
+// GetShared returns the provider share mode
+func (c *Config) GetShared() int {
+	if !util.IsStringInSlice(c.Driver, sharedProviders) {
+		return 0
+	}
+	return c.IsShared
 }
 
 // IsDefenderSupported returns true if the configured provider supports the defender
@@ -388,6 +399,7 @@ type ActiveTransfer struct {
 	ConnID        string
 	Username      string
 	FolderName    string
+	IP            string
 	TruncatedSize int64
 	CurrentULSize int64
 	CurrentDLSize int64
@@ -395,10 +407,36 @@ type ActiveTransfer struct {
 	UpdatedAt     int64
 }
 
-// GetKey returns an aggregation key.
-// The same key will be returned for similar transfers
-func (t *ActiveTransfer) GetKey() string {
-	return fmt.Sprintf("%v%v%v", t.Username, t.FolderName, t.Type)
+// TransferQuota stores the allowed transfer quota fields
+type TransferQuota struct {
+	ULSize           int64
+	DLSize           int64
+	TotalSize        int64
+	AllowedULSize    int64
+	AllowedDLSize    int64
+	AllowedTotalSize int64
+}
+
+// HasUploadSpace returns true if there is transfer upload space available
+func (q *TransferQuota) HasUploadSpace() bool {
+	if q.TotalSize <= 0 && q.ULSize <= 0 {
+		return true
+	}
+	if q.TotalSize > 0 {
+		return q.AllowedTotalSize > 0
+	}
+	return q.AllowedULSize > 0
+}
+
+// HasDownloadSpace returns true if there is transfer download space available
+func (q *TransferQuota) HasDownloadSpace() bool {
+	if q.TotalSize <= 0 && q.DLSize <= 0 {
+		return true
+	}
+	if q.TotalSize > 0 {
+		return q.AllowedTotalSize > 0
+	}
+	return q.AllowedDLSize > 0
 }
 
 // DefenderEntry defines a defender entry
@@ -488,7 +526,8 @@ type Provider interface {
 	validateUserAndPubKey(username string, pubKey []byte) (User, string, error)
 	validateUserAndTLSCert(username, protocol string, tlsCert *x509.Certificate) (User, error)
 	updateQuota(username string, filesAdd int, sizeAdd int64, reset bool) error
-	getUsedQuota(username string) (int, int64, error)
+	updateTransferQuota(username string, uploadSize, downloadSize int64, reset bool) error
+	getUsedQuota(username string) (int, int64, int64, int64, error)
 	userExists(username string) (User, error)
 	addUser(user *User) error
 	updateUser(user *User) error
@@ -537,6 +576,11 @@ type Provider interface {
 	addDefenderEvent(ip string, score int) error
 	setDefenderBanTime(ip string, banTime int64) error
 	cleanupDefender(from int64) error
+	addActiveTransfer(transfer ActiveTransfer) error
+	updateActiveTransferSizes(ulSize, dlSize, transferID int64, connectionID string) error
+	removeActiveTransfer(transferID int64, connectionID string) error
+	cleanupActiveTransfers(before time.Time) error
+	getActiveTransfers(from time.Time) ([]ActiveTransfer, error)
 	checkAvailability() error
 	close() error
 	reloadConfig() error
@@ -673,10 +717,14 @@ func validateSQLTablesPrefix() error {
 		sqlTableAdmins = config.SQLTablesPrefix + sqlTableAdmins
 		sqlTableAPIKeys = config.SQLTablesPrefix + sqlTableAPIKeys
 		sqlTableShares = config.SQLTablesPrefix + sqlTableShares
+		sqlTableDefenderEvents = config.SQLTablesPrefix + sqlTableDefenderEvents
+		sqlTableDefenderHosts = config.SQLTablesPrefix + sqlTableDefenderHosts
+		sqlTableActiveTransfers = config.SQLTablesPrefix + sqlTableActiveTransfers
 		sqlTableSchemaVersion = config.SQLTablesPrefix + sqlTableSchemaVersion
 		providerLog(logger.LevelDebug, "sql table for users %#v, folders %#v folders mapping %#v admins %#v "+
-			"api keys %#v shares %#v schema version %#v", sqlTableUsers, sqlTableFolders, sqlTableFoldersMapping,
-			sqlTableAdmins, sqlTableAPIKeys, sqlTableShares, sqlTableSchemaVersion)
+			"api keys %#v shares %#v defender hosts %#v defender events %#v transfers %#v schema version %#v",
+			sqlTableUsers, sqlTableFolders, sqlTableFoldersMapping, sqlTableAdmins, sqlTableAPIKeys,
+			sqlTableShares, sqlTableDefenderHosts, sqlTableDefenderEvents, sqlTableActiveTransfers, sqlTableSchemaVersion)
 	}
 	return nil
 }
@@ -1026,7 +1074,7 @@ func UpdateAdminLastLogin(admin *Admin) {
 	}
 }
 
-// UpdateUserQuota updates the quota for the given SFTP user adding filesAdd and sizeAdd.
+// UpdateUserQuota updates the quota for the given SFTPGo user adding filesAdd and sizeAdd.
 // If reset is true filesAdd and sizeAdd indicates the total files and the total size instead of the difference.
 func UpdateUserQuota(user *User, filesAdd int, sizeAdd int64, reset bool) error {
 	if config.TrackQuota == 0 {
@@ -1066,17 +1114,41 @@ func UpdateVirtualFolderQuota(vfolder *vfs.BaseVirtualFolder, filesAdd int, size
 	return nil
 }
 
-// GetUsedQuota returns the used quota for the given SFTP user.
-func GetUsedQuota(username string) (int, int64, error) {
+// UpdateUserTransferQuota updates the transfer quota for the given SFTPGo user.
+// If reset is true uploadSize and downloadSize indicates the actual sizes instead of the difference.
+func UpdateUserTransferQuota(user *User, uploadSize, downloadSize int64, reset bool) error {
 	if config.TrackQuota == 0 {
-		return 0, 0, util.NewMethodDisabledError(trackQuotaDisabledError)
+		return util.NewMethodDisabledError(trackQuotaDisabledError)
+	} else if config.TrackQuota == 2 && !reset && !user.HasTransferQuotaRestrictions() {
+		return nil
 	}
-	files, size, err := provider.getUsedQuota(username)
+	if downloadSize == 0 && uploadSize == 0 && !reset {
+		return nil
+	}
+	if config.DelayedQuotaUpdate == 0 || reset {
+		if reset {
+			delayedQuotaUpdater.resetUserTransferQuota(user.Username)
+		}
+		return provider.updateTransferQuota(user.Username, uploadSize, downloadSize, reset)
+	}
+	delayedQuotaUpdater.updateUserTransferQuota(user.Username, uploadSize, downloadSize)
+	return nil
+}
+
+// GetUsedQuota returns the used quota for the given SFTPGo user.
+func GetUsedQuota(username string) (int, int64, int64, int64, error) {
+	if config.TrackQuota == 0 {
+		return 0, 0, 0, 0, util.NewMethodDisabledError(trackQuotaDisabledError)
+	}
+	files, size, ulTransferSize, dlTransferSize, err := provider.getUsedQuota(username)
 	if err != nil {
-		return files, size, err
+		return files, size, ulTransferSize, dlTransferSize, err
 	}
 	delayedFiles, delayedSize := delayedQuotaUpdater.getUserPendingQuota(username)
-	return files + delayedFiles, size + delayedSize, err
+	delayedUlTransferSize, delayedDLTransferSize := delayedQuotaUpdater.getUserPendingTransferQuota(username)
+
+	return files + delayedFiles, size + delayedSize, ulTransferSize + delayedUlTransferSize,
+		dlTransferSize + delayedDLTransferSize, err
 }
 
 // GetUsedVirtualFolderQuota returns the used quota for the given virtual folder.
@@ -1260,6 +1332,46 @@ func DeleteUser(username, executor, ipAddress string) error {
 		executeAction(operationDelete, executor, ipAddress, actionObjectUser, user.Username, &user)
 	}
 	return err
+}
+
+// AddActiveTransfer stores the specified transfer
+func AddActiveTransfer(transfer ActiveTransfer) {
+	if err := provider.addActiveTransfer(transfer); err != nil {
+		providerLog(logger.LevelError, "unable to add transfer id %v, connection id %v: %v",
+			transfer.ID, transfer.ConnID, err)
+	}
+}
+
+// UpdateActiveTransferSizes updates the current upload and download sizes for the specified transfer
+func UpdateActiveTransferSizes(ulSize, dlSize, transferID int64, connectionID string) {
+	if err := provider.updateActiveTransferSizes(ulSize, dlSize, transferID, connectionID); err != nil {
+		providerLog(logger.LevelError, "unable to update sizes for transfer id %v, connection id %v: %v",
+			transferID, connectionID, err)
+	}
+}
+
+// RemoveActiveTransfer removes the specified transfer
+func RemoveActiveTransfer(transferID int64, connectionID string) {
+	if err := provider.removeActiveTransfer(transferID, connectionID); err != nil {
+		providerLog(logger.LevelError, "unable to delete transfer id %v, connection id %v: %v",
+			transferID, connectionID, err)
+	}
+}
+
+// CleanupActiveTransfers removes the transfer before the specified time
+func CleanupActiveTransfers(before time.Time) error {
+	err := provider.cleanupActiveTransfers(before)
+	if err == nil {
+		providerLog(logger.LevelDebug, "deleted active transfers updated before: %v", before)
+	} else {
+		providerLog(logger.LevelError, "error deleting active transfers updated before %v: %v", before, err)
+	}
+	return err
+}
+
+// GetActiveTransfers retrieves the active transfers with an update time after the specified value
+func GetActiveTransfers(from time.Time) ([]ActiveTransfer, error) {
+	return provider.getActiveTransfers(from)
 }
 
 // ReloadConfig reloads provider configuration.
@@ -1780,6 +1892,9 @@ func validateIPFilters(user *User) error {
 }
 
 func validateBandwidthLimit(bl sdk.BandwidthLimit) error {
+	if len(bl.Sources) == 0 {
+		return util.NewValidationError("no bandwidth limit source specified")
+	}
 	for _, source := range bl.Sources {
 		_, _, err := net.ParseCIDR(source)
 		if err != nil {
@@ -1789,7 +1904,7 @@ func validateBandwidthLimit(bl sdk.BandwidthLimit) error {
 	return nil
 }
 
-func validateBandwidthLimitFilters(user *User) error {
+func validateBandwidthLimitsFilter(user *User) error {
 	for idx, bandwidthLimit := range user.Filters.BandwidthLimits {
 		user.Filters.BandwidthLimits[idx].Sources = util.RemoveDuplicates(bandwidthLimit.Sources)
 		if err := validateBandwidthLimit(bandwidthLimit); err != nil {
@@ -1805,12 +1920,35 @@ func validateBandwidthLimitFilters(user *User) error {
 	return nil
 }
 
+func validateTransferLimitsFilter(user *User) error {
+	for idx, limit := range user.Filters.DataTransferLimits {
+		user.Filters.DataTransferLimits[idx].Sources = util.RemoveDuplicates(limit.Sources)
+		if len(limit.Sources) == 0 {
+			return util.NewValidationError("no data transfer limit source specified")
+		}
+		for _, source := range limit.Sources {
+			_, _, err := net.ParseCIDR(source)
+			if err != nil {
+				return util.NewValidationError(fmt.Sprintf("could not parse data transfer limit source %#v: %v", source, err))
+			}
+		}
+		if limit.TotalDataTransfer > 0 {
+			user.Filters.DataTransferLimits[idx].UploadDataTransfer = 0
+			user.Filters.DataTransferLimits[idx].DownloadDataTransfer = 0
+		}
+	}
+	return nil
+}
+
 func validateFilters(user *User) error {
 	checkEmptyFiltersStruct(user)
 	if err := validateIPFilters(user); err != nil {
 		return err
 	}
-	if err := validateBandwidthLimitFilters(user); err != nil {
+	if err := validateBandwidthLimitsFilter(user); err != nil {
+		return err
+	}
+	if err := validateTransferLimitsFilter(user); err != nil {
 		return err
 	}
 	user.Filters.DeniedLoginMethods = util.RemoveDuplicates(user.Filters.DeniedLoginMethods)
@@ -1912,6 +2050,11 @@ func validateBaseParams(user *User) error {
 	}
 	if user.UploadBandwidth < 0 {
 		user.UploadBandwidth = 0
+	}
+	if user.TotalDataTransfer > 0 {
+		// if a total data transfer is defined we reset the separate upload and download limits
+		user.UploadDataTransfer = 0
+		user.DownloadDataTransfer = 0
 	}
 	return nil
 }
@@ -2814,6 +2957,8 @@ func executePreLoginHook(username, loginMethod, ip, protocol string) (User, erro
 	userPwd := u.Password
 	userUsedQuotaSize := u.UsedQuotaSize
 	userUsedQuotaFiles := u.UsedQuotaFiles
+	userUsedDownloadTransfer := u.UsedDownloadDataTransfer
+	userUsedUploadTransfer := u.UsedUploadDataTransfer
 	userLastQuotaUpdate := u.LastQuotaUpdate
 	userLastLogin := u.LastLogin
 	userCreatedAt := u.CreatedAt
@@ -2826,6 +2971,8 @@ func executePreLoginHook(username, loginMethod, ip, protocol string) (User, erro
 	u.ID = userID
 	u.UsedQuotaSize = userUsedQuotaSize
 	u.UsedQuotaFiles = userUsedQuotaFiles
+	u.UsedUploadDataTransfer = userUsedUploadTransfer
+	u.UsedDownloadDataTransfer = userUsedDownloadTransfer
 	u.LastQuotaUpdate = userLastQuotaUpdate
 	u.LastLogin = userLastLogin
 	u.CreatedAt = userCreatedAt
@@ -3034,6 +3181,8 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 		user.ID = u.ID
 		user.UsedQuotaSize = u.UsedQuotaSize
 		user.UsedQuotaFiles = u.UsedQuotaFiles
+		user.UsedUploadDataTransfer = u.UsedUploadDataTransfer
+		user.UsedDownloadDataTransfer = u.UsedDownloadDataTransfer
 		user.LastQuotaUpdate = u.LastQuotaUpdate
 		user.LastLogin = u.LastLogin
 		user.CreatedAt = u.CreatedAt
@@ -3100,6 +3249,8 @@ func doPluginAuth(username, password string, pubKey []byte, ip, protocol string,
 		user.ID = u.ID
 		user.UsedQuotaSize = u.UsedQuotaSize
 		user.UsedQuotaFiles = u.UsedQuotaFiles
+		user.UsedUploadDataTransfer = u.UsedUploadDataTransfer
+		user.UsedDownloadDataTransfer = u.UsedDownloadDataTransfer
 		user.LastQuotaUpdate = u.LastQuotaUpdate
 		user.LastLogin = u.LastLogin
 		// preserve TOTP config and recovery codes

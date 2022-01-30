@@ -78,7 +78,7 @@ func TestMain(m *testing.M) {
 	providerConf := config.GetProviderConf()
 	logger.InfoToConsole("Starting COMMON tests, provider: %v", providerConf.Driver)
 
-	err = common.Initialize(config.GetCommonConfig())
+	err = common.Initialize(config.GetCommonConfig(), 0)
 	if err != nil {
 		logger.WarnToConsole("error initializing common: %v", err)
 		os.Exit(1)
@@ -625,6 +625,8 @@ func TestFileNotAllowedErrors(t *testing.T) {
 func TestTruncateQuotaLimits(t *testing.T) {
 	u := getTestUser()
 	u.QuotaSize = 20
+	u.UploadDataTransfer = 1000
+	u.DownloadDataTransfer = 5000
 	mappedPath1 := filepath.Join(os.TempDir(), "mapped1")
 	folderName1 := filepath.Base(mappedPath1)
 	vdirPath1 := "/vmapped1"
@@ -912,6 +914,13 @@ func TestVirtualFoldersQuotaRenameOverwrite(t *testing.T) {
 		defer client.Close()
 		err = writeSFTPFile(path.Join(vdirPath1, testFileName), testFileSize, client)
 		assert.NoError(t, err)
+		f, err := client.Open(path.Join(vdirPath1, testFileName))
+		assert.NoError(t, err)
+		contents, err := io.ReadAll(f)
+		assert.NoError(t, err)
+		err = f.Close()
+		assert.NoError(t, err)
+		assert.Len(t, contents, int(testFileSize))
 		err = writeSFTPFile(path.Join(vdirPath2, testFileName), testFileSize, client)
 		assert.NoError(t, err)
 		err = writeSFTPFile(path.Join(vdirPath1, testFileName1), testFileSize1, client)
@@ -1914,6 +1923,84 @@ func TestQuotaRenameToVirtualFolder(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestTransferQuotaLimits(t *testing.T) {
+	u := getTestUser()
+	u.TotalDataTransfer = 1
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	conn, client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		testFileSize := int64(524288)
+		err = writeSFTPFile(testFileName, testFileSize, client)
+		assert.NoError(t, err)
+		f, err := client.Open(testFileName)
+		assert.NoError(t, err)
+		contents := make([]byte, testFileSize)
+		n, err := io.ReadFull(f, contents)
+		assert.NoError(t, err)
+		assert.Equal(t, int(testFileSize), n)
+		assert.Len(t, contents, int(testFileSize))
+		err = f.Close()
+		assert.NoError(t, err)
+		_, err = client.Open(testFileName)
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), "SSH_FX_FAILURE")
+			assert.Contains(t, err.Error(), common.ErrReadQuotaExceeded.Error())
+		}
+		err = writeSFTPFile(testFileName, testFileSize, client)
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), "SSH_FX_FAILURE")
+			assert.Contains(t, err.Error(), common.ErrQuotaExceeded.Error())
+		}
+	}
+	// test the limit while uploading/downloading
+	user.TotalDataTransfer = 0
+	user.UploadDataTransfer = 1
+	user.DownloadDataTransfer = 1
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	conn, client, err = getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		testFileSize := int64(450000)
+		err = writeSFTPFile(testFileName, testFileSize, client)
+		assert.NoError(t, err)
+		f, err := client.Open(testFileName)
+		if assert.NoError(t, err) {
+			_, err = io.ReadAll(f)
+			assert.NoError(t, err)
+			err = f.Close()
+			assert.NoError(t, err)
+		}
+		f, err = client.Open(testFileName)
+		if assert.NoError(t, err) {
+			_, err = io.ReadAll(f)
+			if assert.Error(t, err) {
+				assert.Contains(t, err.Error(), "SSH_FX_FAILURE")
+				assert.Contains(t, err.Error(), common.ErrReadQuotaExceeded.Error())
+			}
+			err = f.Close()
+			assert.Error(t, err)
+		}
+
+		err = writeSFTPFile(testFileName, testFileSize, client)
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), "SSH_FX_FAILURE")
+			assert.Contains(t, err.Error(), common.ErrQuotaExceeded.Error())
+		}
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestVirtualFoldersLink(t *testing.T) {
 	u := getTestUser()
 	mappedPath1 := filepath.Join(os.TempDir(), "vdir1")
@@ -2284,7 +2371,7 @@ func TestDbDefenderErrors(t *testing.T) {
 	configCopy := common.Config
 	common.Config.DefenderConfig.Enabled = true
 	common.Config.DefenderConfig.Driver = common.DefenderDriverProvider
-	err := common.Initialize(common.Config)
+	err := common.Initialize(common.Config, 0)
 	assert.NoError(t, err)
 
 	testIP := "127.1.1.1"
@@ -2325,7 +2412,7 @@ func TestDbDefenderErrors(t *testing.T) {
 	assert.NoError(t, err)
 
 	common.Config = configCopy
-	err = common.Initialize(common.Config)
+	err = common.Initialize(common.Config, 0)
 	assert.NoError(t, err)
 }
 
@@ -2341,32 +2428,45 @@ func TestDelayedQuotaUpdater(t *testing.T) {
 
 	u := getTestUser()
 	u.QuotaFiles = 100
+	u.TotalDataTransfer = 2000
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 
 	err = dataprovider.UpdateUserQuota(&user, 10, 6000, false)
 	assert.NoError(t, err)
-	files, size, err := dataprovider.GetUsedQuota(user.Username)
+	err = dataprovider.UpdateUserTransferQuota(&user, 100, 200, false)
+	assert.NoError(t, err)
+	files, size, ulSize, dlSize, err := dataprovider.GetUsedQuota(user.Username)
 	assert.NoError(t, err)
 	assert.Equal(t, 10, files)
 	assert.Equal(t, int64(6000), size)
+	assert.Equal(t, int64(100), ulSize)
+	assert.Equal(t, int64(200), dlSize)
 
 	userGet, err := dataprovider.UserExists(user.Username)
 	assert.NoError(t, err)
 	assert.Equal(t, 0, userGet.UsedQuotaFiles)
 	assert.Equal(t, int64(0), userGet.UsedQuotaSize)
+	assert.Equal(t, int64(0), userGet.UsedUploadDataTransfer)
+	assert.Equal(t, int64(0), userGet.UsedDownloadDataTransfer)
 
 	err = dataprovider.UpdateUserQuota(&user, 10, 6000, true)
 	assert.NoError(t, err)
-	files, size, err = dataprovider.GetUsedQuota(user.Username)
+	err = dataprovider.UpdateUserTransferQuota(&user, 100, 200, true)
+	assert.NoError(t, err)
+	files, size, ulSize, dlSize, err = dataprovider.GetUsedQuota(user.Username)
 	assert.NoError(t, err)
 	assert.Equal(t, 10, files)
 	assert.Equal(t, int64(6000), size)
+	assert.Equal(t, int64(100), ulSize)
+	assert.Equal(t, int64(200), dlSize)
 
 	userGet, err = dataprovider.UserExists(user.Username)
 	assert.NoError(t, err)
 	assert.Equal(t, 10, userGet.UsedQuotaFiles)
 	assert.Equal(t, int64(6000), userGet.UsedQuotaSize)
+	assert.Equal(t, int64(100), userGet.UsedUploadDataTransfer)
+	assert.Equal(t, int64(200), userGet.UsedDownloadDataTransfer)
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -2559,6 +2659,7 @@ func TestGetQuotaError(t *testing.T) {
 		t.Skip("this test is not available with the memory provider")
 	}
 	u := getTestUser()
+	u.TotalDataTransfer = 2000
 	mappedPath := filepath.Join(os.TempDir(), "vdir")
 	folderName := filepath.Base(mappedPath)
 	vdirPath := "/vpath"

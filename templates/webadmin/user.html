@@ -509,7 +509,7 @@
                                     <textarea class="form-control" id="idDeniedIP" name="denied_ip" rows="3" placeholder=""
                                         aria-describedby="deniedIPHelpBlock">{{.User.GetDeniedIPAsString}}</textarea>
                                     <small id="deniedIPHelpBlock" class="form-text text-muted">
-                                        Comma separated IP/Mask in CIDR format, for example "192.168.1.0/24,10.8.0.100/32"
+                                        Comma separated IP/Mask in CIDR format, example: "192.168.1.0/24,10.8.0.100/32"
                                     </small>
                                 </div>
                             </div>
@@ -520,7 +520,7 @@
                                     <textarea class="form-control" id="idAllowedIP" name="allowed_ip" rows="3" placeholder=""
                                         aria-describedby="allowedIPHelpBlock">{{.User.GetAllowedIPAsString}}</textarea>
                                     <small id="allowedIPHelpBlock" class="form-text text-muted">
-                                        Comma separated IP/Mask in CIDR format, for example "192.168.1.0/24,10.8.0.100/32"
+                                        Comma separated IP/Mask in CIDR format, example: "192.168.1.0/24,10.8.0.100/32"
                                     </small>
                                 </div>
                             </div>
@@ -594,7 +594,7 @@
 
                             <div class="card bg-light mb-3">
                                 <div class="card-header">
-                                    <b>Per-source bandwidth limits</b>
+                                    <b>Per-source bandwidth speed limits</b>
                                 </div>
                                 <div class="card-body">
                                     <div class="form-group row">
@@ -605,7 +605,7 @@
                                                     <textarea class="form-control" id="idBandwidthLimitSources{{$idx}}" name="bandwidth_limit_sources{{$idx}}" rows="4" placeholder=""
                                                             aria-describedby="bwLimitSourcesHelpBlock{{$idx}}">{{$bwLimit.GetSourcesAsString}}</textarea>
                                                     <small id="bwLimitSourcesHelpBlock{{$idx}}" class="form-text text-muted">
-                                                        Comma separated IP/Mask in CIDR format, for example "192.168.1.0/24,10.8.0.100/32"
+                                                        Comma separated IP/Mask in CIDR format, example: "192.168.1.0/24,10.8.0.100/32"
                                                     </small>
                                                 </div>
                                                 <div class="col-md-3">
@@ -637,7 +637,7 @@
                                                     <textarea class="form-control" id="idBandwidthLimitSources0" name="bandwidth_limit_sources0" rows="4" placeholder=""
                                                             aria-describedby="bwLimitSourcesHelpBlock0"></textarea>
                                                     <small id="bwLimitSourcesHelpBlock0" class="form-text text-muted">
-                                                        Comma separated IP/Mask in CIDR format, for example "192.168.1.0/24,10.8.0.100/32"
+                                                        Comma separated IP/Mask in CIDR format, example: "192.168.1.0/24,10.8.0.100/32"
                                                     </small>
                                                 </div>
                                                 <div class="col-md-3">
@@ -668,7 +668,138 @@
 
                                     <div class="row mx-1">
                                         <button type="button" class="btn btn-secondary add_new_bwlimit_field_btn">
-                                            <i class="fas fa-plus"></i> Add new bandwidth limit
+                                            <i class="fas fa-plus"></i> Add new speed limit
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="idTransferUL" class="col-sm-2 col-form-label">Upload data transfer (MB)</label>
+                                <div class="col-sm-3">
+                                    <input type="number" class="form-control" id="idTransferUL" name="upload_data_transfer" placeholder=""
+                                        value="{{.User.UploadDataTransfer}}" min="0" aria-describedby="ulTransferHelpBlock">
+                                    <small id="ulTransferHelpBlock" class="form-text text-muted">
+                                        Maximum data transfer allowed for uploads. 0 means no limit
+                                    </small>
+                                </div>
+                                <div class="col-sm-2"></div>
+                                <label for="idTransferDL" class="col-sm-2 col-form-label">Download data transfer (MB)</label>
+                                <div class="col-sm-3">
+                                    <input type="number" class="form-control" id="idTransferDL" name="download_data_transfer" placeholder=""
+                                        value="{{.User.DownloadDataTransfer}}" min="0" aria-describedby="dlTransferHelpBlock">
+                                    <small id="dlTransferHelpBlock" class="form-text text-muted">
+                                        Maximum data transfer allowed for downloads. 0 means no limit
+                                    </small>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="idTransferTotal" class="col-sm-2 col-form-label">Total data transfer (MB)</label>
+                                <div class="col-sm-10">
+                                    <input type="number" class="form-control" id="idTransferTotal" name="total_data_transfer"
+                                        placeholder="" value="{{.User.TotalDataTransfer}}" min="0"
+                                        aria-describedby="totalTransferHelpBlock">
+                                    <small id="totalTransferHelpBlock" class="form-text text-muted">
+                                        Maximum data transfer allowed for uploads + downloads. Replace the individual limits. 0 means no limit
+                                    </small>
+                                </div>
+                            </div>
+
+                            <div class="card bg-light mb-3">
+                                <div class="card-header">
+                                    <b>Per-source data transfer limits</b>
+                                </div>
+                                <div class="card-body">
+                                    <div class="form-group row">
+                                        <div class="col-md-12 form_field_dtlimits_outer">
+                                            {{range $idx, $dtLimit := .User.Filters.DataTransferLimits -}}
+                                            <div class="row form_field_dtlimits_outer_row">
+                                                <div class="form-group col-md-5">
+                                                    <textarea class="form-control" id="idDataTransferLimitSources{{$idx}}" name="data_transfer_limit_sources{{$idx}}" rows="4" placeholder=""
+                                                            aria-describedby="dtLimitSourcesHelpBlock{{$idx}}">{{$dtLimit.GetSourcesAsString}}</textarea>
+                                                    <small id="dtLimitSourcesHelpBlock{{$idx}}" class="form-text text-muted">
+                                                        Comma separated IP/Mask in CIDR format, example: "192.168.1.0/24,10.8.0.100/32"
+                                                    </small>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <div class="form-group">
+                                                        <input type="number" class="form-control" id="idUploadTransferSource{{$idx}}" name="upload_data_transfer_source{{$idx}}"
+                                                            placeholder="" value="{{$dtLimit.UploadDataTransfer}}" min="0" aria-describedby="ulDtHelpBlock{{$idx}}">
+                                                        <small id="ulDtHelpBlock{{$idx}}" class="form-text text-muted">
+                                                            UL (MB). 0 means no limit
+                                                        </small>
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <input type="number" class="form-control" id="idDownloadTransferSource{{$idx}}" name="download_data_transfer_source{{$idx}}"
+                                                            placeholder="" value="{{$dtLimit.DownloadDataTransfer}}" min="0" aria-describedby="dlDtHelpBlock{{$idx}}">
+                                                        <small id="dlDtHelpBlock{{$idx}}" class="form-text text-muted">
+                                                            DL (MB). 0 means no limit
+                                                        </small>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <div class="form-group">
+                                                        <input type="number" class="form-control" id="idTotalTransferSource{{$idx}}" name="total_data_transfer_source{{$idx}}"
+                                                            placeholder="" value="{{$dtLimit.TotalDataTransfer}}" min="0" aria-describedby="totalDtHelpBlock{{$idx}}">
+                                                        <small id="totalDtHelpBlock{{$idx}}" class="form-text text-muted">
+                                                            Total (MB). 0 means no limit
+                                                        </small>
+                                                    </div>
+                                                </div>
+                                                <div class="form-group col-md-1">
+                                                    <button class="btn btn-circle btn-danger remove_dtlimit_btn_frm_field">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            {{else}}
+                                            <div class="row form_field_dtlimits_outer_row">
+                                                <div class="form-group col-md-5">
+                                                    <textarea class="form-control" id="idDataTransferLimitSources0" name="data_transfer_limit_sources0" rows="4" placeholder=""
+                                                            aria-describedby="dtLimitSourcesHelpBlock0"></textarea>
+                                                    <small id="dtLimitSourcesHelpBlock0" class="form-text text-muted">
+                                                        Comma separated IP/Mask in CIDR format, example: "192.168.1.0/24,10.8.0.100/32"
+                                                    </small>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <div class="form-group">
+                                                        <input type="number" class="form-control" id="idUploadTransferSource0" name="upload_data_transfer_source0"
+                                                            placeholder="" value="" min="0" aria-describedby="ulDtHelpBlock0">
+                                                        <small id="ulDtHelpBlock0" class="form-text text-muted">
+                                                            UL (MB). 0 means no limit
+                                                        </small>
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <input type="number" class="form-control" id="idDownloadTransferSource0" name="download_data_transfer_source0"
+                                                            placeholder="" value="" min="0" aria-describedby="dlDtHelpBlock0">
+                                                        <small id="dlDtHelpBlock0" class="form-text text-muted">
+                                                            DL (MB). 0 means no limit
+                                                        </small>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <div class="form-group">
+                                                        <input type="number" class="form-control" id="idTotalTransferSource0" name="total_data_transfer_source0"
+                                                            placeholder="" value="" min="0" aria-describedby="totalDtHelpBlock0">
+                                                        <small id="totalDtHelpBlock0" class="form-text text-muted">
+                                                            Total (MB). 0 means no limit
+                                                        </small>
+                                                    </div>
+                                                </div>
+                                                <div class="form-group col-md-1">
+                                                    <button class="btn btn-circle btn-danger remove_dtlimit_btn_frm_field">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            {{end}}
+                                        </div>
+                                    </div>
+
+                                    <div class="row mx-1">
+                                        <button type="button" class="btn btn-secondary add_new_dtlimit_field_btn">
+                                            <i class="fas fa-plus"></i> Add new data transfer limit
                                         </button>
                                     </div>
                                 </div>
@@ -930,7 +1061,7 @@
                             <textarea class="form-control" id="idBandwidthLimitSources0" name="bandwidth_limit_sources${index}" rows="4" placeholder=""
                                 aria-describedby="bwLimitSourcesHelpBlock${index}"></textarea>
                             <small id="bwLimitSourcesHelpBlock${index}" class="form-text text-muted">
-                                Comma separated IP/Mask in CIDR format, for example "192.168.1.0/24,10.8.0.100/32"
+                                Comma separated IP/Mask in CIDR format, example: "192.168.1.0/24,10.8.0.100/32"
                             </small>
                         </div>
                         <div class="col-md-3">
@@ -960,6 +1091,58 @@
 
         $("body").on("click", ".remove_bwlimit_btn_frm_field", function () {
             $(this).closest(".form_field_bwlimits_outer_row").remove();
+        });
+
+        $("body").on("click", ".add_new_dtlimit_field_btn", function () {
+            var index = $(".form_field_dtlimits_outer").find(".form_field_dtlimits_outer_row").length;
+            while (document.getElementById("idDataTransferLimitSources"+index) != null){
+                index++;
+            }
+            $(".form_field_dtlimits_outer").append(`
+                    <div class="row form_field_dtlimits_outer_row">
+                        <div class="form-group col-md-5">
+                            <textarea class="form-control" id="idDataTransferLimitSources${index}" name="data_transfer_limit_sources${index}" rows="4" placeholder=""
+                                aria-describedby="dtLimitSourcesHelpBlock${index}"></textarea>
+                            <small id="dtLimitSourcesHelpBlock${index}" class="form-text text-muted">
+                                Comma separated IP/Mask in CIDR format, example: "192.168.1.0/24,10.8.0.100/32"
+                            </small>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <input type="number" class="form-control" id="idUploadTransferSource${index}" name="upload_data_transfer_source${index}"
+                                    placeholder="" value="" min="0" aria-describedby="ulDtHelpBlock${index}">
+                                <small id="ulDtHelpBlock${index}" class="form-text text-muted">
+                                    UL (MB). 0 means no limit
+                                </small>
+                            </div>
+                            <div class="form-group">
+                                <input type="number" class="form-control" id="idDownloadTransferSource${index}" name="download_data_transfer_source${index}"
+                                    placeholder="" value="" min="0" aria-describedby="dlDtHelpBlock${index}">
+                                <small id="dlDtHelpBlock${index}" class="form-text text-muted">
+                                    DL (MB). 0 means no limit
+                                </small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <input type="number" class="form-control" id="idTotalTransferSource${index}" name="total_data_transfer_source${index}"
+                                    placeholder="" value="" min="0" aria-describedby="totalDtHelpBlock${index}">
+                                <small id="totalDtHelpBlock${index}" class="form-text text-muted">
+                                    Total (MB). 0 means no limit
+                                </small>
+                            </div>
+                        </div>
+                        <div class="form-group col-md-1">
+                            <button class="btn btn-circle btn-danger remove_dtlimit_btn_frm_field">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `);
+        });
+
+        $("body").on("click", ".remove_dtlimit_btn_frm_field", function () {
+            $(this).closest(".form_field_dtlimits_outer_row").remove();
         });
 
         $("body").on("click", ".add_new_pattern_field_btn", function () {

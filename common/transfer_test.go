@@ -65,7 +65,7 @@ func TestTransferThrottling(t *testing.T) {
 	wantedUploadElapsed -= wantedDownloadElapsed / 10
 	wantedDownloadElapsed -= wantedDownloadElapsed / 10
 	conn := NewBaseConnection("id", ProtocolSCP, "", "", u)
-	transfer := NewBaseTransfer(nil, conn, nil, "", "", "", TransferUpload, 0, 0, 0, 0, true, fs)
+	transfer := NewBaseTransfer(nil, conn, nil, "", "", "", TransferUpload, 0, 0, 0, 0, true, fs, dataprovider.TransferQuota{})
 	transfer.BytesReceived = testFileSize
 	transfer.Connection.UpdateLastActivity()
 	startTime := transfer.Connection.GetLastActivity()
@@ -75,7 +75,7 @@ func TestTransferThrottling(t *testing.T) {
 	err := transfer.Close()
 	assert.NoError(t, err)
 
-	transfer = NewBaseTransfer(nil, conn, nil, "", "", "", TransferDownload, 0, 0, 0, 0, true, fs)
+	transfer = NewBaseTransfer(nil, conn, nil, "", "", "", TransferDownload, 0, 0, 0, 0, true, fs, dataprovider.TransferQuota{})
 	transfer.BytesSent = testFileSize
 	transfer.Connection.UpdateLastActivity()
 	startTime = transfer.Connection.GetLastActivity()
@@ -102,7 +102,7 @@ func TestRealPath(t *testing.T) {
 	require.NoError(t, err)
 	conn := NewBaseConnection(fs.ConnectionID(), ProtocolSFTP, "", "", u)
 	transfer := NewBaseTransfer(file, conn, nil, testFile, testFile, "/transfer_test_file",
-		TransferUpload, 0, 0, 0, 0, true, fs)
+		TransferUpload, 0, 0, 0, 0, true, fs, dataprovider.TransferQuota{})
 	rPath := transfer.GetRealFsPath(testFile)
 	assert.Equal(t, testFile, rPath)
 	rPath = conn.getRealFsPath(testFile)
@@ -140,7 +140,7 @@ func TestTruncate(t *testing.T) {
 	assert.NoError(t, err)
 	conn := NewBaseConnection(fs.ConnectionID(), ProtocolSFTP, "", "", u)
 	transfer := NewBaseTransfer(file, conn, nil, testFile, testFile, "/transfer_test_file", TransferUpload, 0, 5,
-		100, 0, false, fs)
+		100, 0, false, fs, dataprovider.TransferQuota{})
 
 	err = conn.SetStat("/transfer_test_file", &StatAttributes{
 		Size:  2,
@@ -158,7 +158,7 @@ func TestTruncate(t *testing.T) {
 	}
 
 	transfer = NewBaseTransfer(file, conn, nil, testFile, testFile, "/transfer_test_file", TransferUpload, 0, 0,
-		100, 0, true, fs)
+		100, 0, true, fs, dataprovider.TransferQuota{})
 	// file.Stat will fail on a closed file
 	err = conn.SetStat("/transfer_test_file", &StatAttributes{
 		Size:  2,
@@ -168,7 +168,8 @@ func TestTruncate(t *testing.T) {
 	err = transfer.Close()
 	assert.NoError(t, err)
 
-	transfer = NewBaseTransfer(nil, conn, nil, testFile, testFile, "", TransferUpload, 0, 0, 0, 0, true, fs)
+	transfer = NewBaseTransfer(nil, conn, nil, testFile, testFile, "", TransferUpload, 0, 0, 0, 0, true,
+		fs, dataprovider.TransferQuota{})
 	_, err = transfer.Truncate("mismatch", 0)
 	assert.EqualError(t, err, errTransferMismatch.Error())
 	_, err = transfer.Truncate(testFile, 0)
@@ -206,7 +207,7 @@ func TestTransferErrors(t *testing.T) {
 	}
 	conn := NewBaseConnection("id", ProtocolSFTP, "", "", u)
 	transfer := NewBaseTransfer(file, conn, nil, testFile, testFile, "/transfer_test_file", TransferUpload,
-		0, 0, 0, 0, true, fs)
+		0, 0, 0, 0, true, fs, dataprovider.TransferQuota{})
 	assert.Nil(t, transfer.cancelFn)
 	assert.Equal(t, testFile, transfer.GetFsPath())
 	transfer.SetCancelFn(cancelFn)
@@ -232,7 +233,8 @@ func TestTransferErrors(t *testing.T) {
 		assert.FailNow(t, "unable to open test file")
 	}
 	fsPath := filepath.Join(os.TempDir(), "test_file")
-	transfer = NewBaseTransfer(file, conn, nil, fsPath, file.Name(), "/test_file", TransferUpload, 0, 0, 0, 0, true, fs)
+	transfer = NewBaseTransfer(file, conn, nil, fsPath, file.Name(), "/test_file", TransferUpload, 0, 0, 0, 0, true,
+		fs, dataprovider.TransferQuota{})
 	transfer.BytesReceived = 9
 	transfer.TransferError(errFake)
 	assert.Error(t, transfer.ErrTransfer, errFake.Error())
@@ -251,7 +253,8 @@ func TestTransferErrors(t *testing.T) {
 	if !assert.NoError(t, err) {
 		assert.FailNow(t, "unable to open test file")
 	}
-	transfer = NewBaseTransfer(file, conn, nil, fsPath, file.Name(), "/test_file", TransferUpload, 0, 0, 0, 0, true, fs)
+	transfer = NewBaseTransfer(file, conn, nil, fsPath, file.Name(), "/test_file", TransferUpload, 0, 0, 0, 0, true,
+		fs, dataprovider.TransferQuota{})
 	transfer.BytesReceived = 9
 	// the file is closed from the embedding struct before to call close
 	err = file.Close()
@@ -278,7 +281,7 @@ func TestRemovePartialCryptoFile(t *testing.T) {
 	}
 	conn := NewBaseConnection(fs.ConnectionID(), ProtocolSFTP, "", "", u)
 	transfer := NewBaseTransfer(nil, conn, nil, testFile, testFile, "/transfer_test_file", TransferUpload,
-		0, 0, 0, 0, true, fs)
+		0, 0, 0, 0, true, fs, dataprovider.TransferQuota{})
 	transfer.ErrTransfer = errors.New("test error")
 	_, err = transfer.getUploadFileSize()
 	assert.Error(t, err)
@@ -301,4 +304,121 @@ func TestFTPMode(t *testing.T) {
 	assert.Empty(t, transfer.ftpMode)
 	transfer.SetFtpMode("active")
 	assert.Equal(t, "active", transfer.ftpMode)
+}
+
+func TestTransferQuota(t *testing.T) {
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			TotalDataTransfer:    -1,
+			UploadDataTransfer:   -1,
+			DownloadDataTransfer: -1,
+		},
+	}
+	user.Filters.DataTransferLimits = []sdk.DataTransferLimit{
+		{
+			Sources:              []string{"127.0.0.1/32", "192.168.1.0/24"},
+			TotalDataTransfer:    100,
+			UploadDataTransfer:   0,
+			DownloadDataTransfer: 0,
+		},
+		{
+			Sources:              []string{"172.16.0.0/24"},
+			TotalDataTransfer:    0,
+			UploadDataTransfer:   120,
+			DownloadDataTransfer: 150,
+		},
+	}
+	ul, dl, total := user.GetDataTransferLimits("127.0.1.1")
+	assert.Equal(t, int64(0), ul)
+	assert.Equal(t, int64(0), dl)
+	assert.Equal(t, int64(0), total)
+	ul, dl, total = user.GetDataTransferLimits("127.0.0.1")
+	assert.Equal(t, int64(0), ul)
+	assert.Equal(t, int64(0), dl)
+	assert.Equal(t, int64(100*1048576), total)
+	ul, dl, total = user.GetDataTransferLimits("192.168.1.4")
+	assert.Equal(t, int64(0), ul)
+	assert.Equal(t, int64(0), dl)
+	assert.Equal(t, int64(100*1048576), total)
+	ul, dl, total = user.GetDataTransferLimits("172.16.0.2")
+	assert.Equal(t, int64(120*1048576), ul)
+	assert.Equal(t, int64(150*1048576), dl)
+	assert.Equal(t, int64(0), total)
+	transferQuota := dataprovider.TransferQuota{}
+	assert.True(t, transferQuota.HasDownloadSpace())
+	assert.True(t, transferQuota.HasUploadSpace())
+	transferQuota.TotalSize = -1
+	transferQuota.ULSize = -1
+	transferQuota.DLSize = -1
+	assert.True(t, transferQuota.HasDownloadSpace())
+	assert.True(t, transferQuota.HasUploadSpace())
+	transferQuota.TotalSize = 100
+	transferQuota.AllowedTotalSize = 10
+	assert.True(t, transferQuota.HasDownloadSpace())
+	assert.True(t, transferQuota.HasUploadSpace())
+	transferQuota.AllowedTotalSize = 0
+	assert.False(t, transferQuota.HasDownloadSpace())
+	assert.False(t, transferQuota.HasUploadSpace())
+	transferQuota.TotalSize = 0
+	transferQuota.DLSize = 100
+	transferQuota.ULSize = 50
+	transferQuota.AllowedTotalSize = 0
+	assert.False(t, transferQuota.HasDownloadSpace())
+	assert.False(t, transferQuota.HasUploadSpace())
+	transferQuota.AllowedDLSize = 1
+	transferQuota.AllowedULSize = 1
+	assert.True(t, transferQuota.HasDownloadSpace())
+	assert.True(t, transferQuota.HasUploadSpace())
+	transferQuota.AllowedDLSize = -10
+	transferQuota.AllowedULSize = -1
+	assert.False(t, transferQuota.HasDownloadSpace())
+	assert.False(t, transferQuota.HasUploadSpace())
+
+	conn := NewBaseConnection("", ProtocolSFTP, "", "", user)
+	transfer := NewBaseTransfer(nil, conn, nil, "file.txt", "file.txt", "/transfer_test_file", TransferUpload,
+		0, 0, 0, 0, true, vfs.NewOsFs("", os.TempDir(), ""), dataprovider.TransferQuota{})
+	err := transfer.CheckRead()
+	assert.NoError(t, err)
+	err = transfer.CheckWrite()
+	assert.NoError(t, err)
+
+	transfer.transferQuota = dataprovider.TransferQuota{
+		AllowedTotalSize: 10,
+	}
+	transfer.BytesReceived = 5
+	transfer.BytesSent = 4
+	err = transfer.CheckRead()
+	assert.NoError(t, err)
+	err = transfer.CheckWrite()
+	assert.NoError(t, err)
+
+	transfer.BytesSent = 6
+	err = transfer.CheckRead()
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), ErrReadQuotaExceeded.Error())
+	}
+	err = transfer.CheckWrite()
+	assert.True(t, conn.IsQuotaExceededError(err))
+
+	transferQuota = dataprovider.TransferQuota{
+		AllowedTotalSize: 0,
+		AllowedULSize:    10,
+		AllowedDLSize:    5,
+	}
+	transfer.transferQuota = transferQuota
+	assert.Equal(t, transferQuota, transfer.GetTransferQuota())
+	err = transfer.CheckRead()
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), ErrReadQuotaExceeded.Error())
+	}
+	err = transfer.CheckWrite()
+	assert.NoError(t, err)
+
+	transfer.BytesReceived = 11
+	err = transfer.CheckRead()
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), ErrReadQuotaExceeded.Error())
+	}
+	err = transfer.CheckWrite()
+	assert.True(t, conn.IsQuotaExceededError(err))
 }

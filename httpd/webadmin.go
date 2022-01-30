@@ -762,6 +762,50 @@ func getUserPermissionsFromPostFields(r *http.Request) map[string][]string {
 	return permissions
 }
 
+func getDataTransferLimitsFromPostFields(r *http.Request) ([]sdk.DataTransferLimit, error) {
+	var result []sdk.DataTransferLimit
+
+	for k := range r.Form {
+		if strings.HasPrefix(k, "data_transfer_limit_sources") {
+			sources := getSliceFromDelimitedValues(r.Form.Get(k), ",")
+			if len(sources) > 0 {
+				dtLimit := sdk.DataTransferLimit{
+					Sources: sources,
+				}
+				idx := strings.TrimPrefix(k, "data_transfer_limit_sources")
+				ul := r.Form.Get(fmt.Sprintf("upload_data_transfer_source%v", idx))
+				dl := r.Form.Get(fmt.Sprintf("download_data_transfer_source%v", idx))
+				total := r.Form.Get(fmt.Sprintf("total_data_transfer_source%v", idx))
+				if ul != "" {
+					dataUL, err := strconv.ParseInt(ul, 10, 64)
+					if err != nil {
+						return result, fmt.Errorf("invalid upload_data_transfer_source%v %#v: %w", idx, ul, err)
+					}
+					dtLimit.UploadDataTransfer = dataUL
+				}
+				if dl != "" {
+					dataDL, err := strconv.ParseInt(dl, 10, 64)
+					if err != nil {
+						return result, fmt.Errorf("invalid download_data_transfer_source%v %#v: %w", idx, dl, err)
+					}
+					dtLimit.DownloadDataTransfer = dataDL
+				}
+				if total != "" {
+					dataTotal, err := strconv.ParseInt(total, 10, 64)
+					if err != nil {
+						return result, fmt.Errorf("invalid total_data_transfer_source%v %#v: %w", idx, total, err)
+					}
+					dtLimit.TotalDataTransfer = dataTotal
+				}
+
+				result = append(result, dtLimit)
+			}
+		}
+	}
+
+	return result, nil
+}
+
 func getBandwidthLimitsFromPostFields(r *http.Request) ([]sdk.BandwidthLimit, error) {
 	var result []sdk.BandwidthLimit
 
@@ -872,7 +916,12 @@ func getFiltersFromUserPostFields(r *http.Request) (sdk.BaseUserFilters, error) 
 	if err != nil {
 		return filters, err
 	}
+	dtLimits, err := getDataTransferLimitsFromPostFields(r)
+	if err != nil {
+		return filters, err
+	}
 	filters.BandwidthLimits = bwLimits
+	filters.DataTransferLimits = dtLimits
 	filters.AllowedIP = getSliceFromDelimitedValues(r.Form.Get("allowed_ip"), ",")
 	filters.DeniedIP = getSliceFromDelimitedValues(r.Form.Get("denied_ip"), ",")
 	filters.DeniedLoginMethods = r.Form["ssh_login_methods"]
@@ -1176,6 +1225,22 @@ func getUserFromTemplate(user dataprovider.User, template userTemplateFields) da
 	return user
 }
 
+func getTransferLimits(r *http.Request) (int64, int64, int64, error) {
+	dataTransferUL, err := strconv.ParseInt(r.Form.Get("upload_data_transfer"), 10, 64)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	dataTransferDL, err := strconv.ParseInt(r.Form.Get("download_data_transfer"), 10, 64)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	dataTransferTotal, err := strconv.ParseInt(r.Form.Get("total_data_transfer"), 10, 64)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	return dataTransferUL, dataTransferDL, dataTransferTotal, nil
+}
+
 func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 	var user dataprovider.User
 	err := r.ParseMultipartForm(maxRequestSize)
@@ -1211,6 +1276,10 @@ func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 	if err != nil {
 		return user, err
 	}
+	dataTransferUL, dataTransferDL, dataTransferTotal, err := getTransferLimits(r)
+	if err != nil {
+		return user, err
+	}
 	status, err := strconv.Atoi(r.Form.Get("status"))
 	if err != nil {
 		return user, err
@@ -1234,23 +1303,26 @@ func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 	}
 	user = dataprovider.User{
 		BaseUser: sdk.BaseUser{
-			Username:          r.Form.Get("username"),
-			Email:             r.Form.Get("email"),
-			Password:          r.Form.Get("password"),
-			PublicKeys:        r.Form["public_keys"],
-			HomeDir:           r.Form.Get("home_dir"),
-			UID:               uid,
-			GID:               gid,
-			Permissions:       getUserPermissionsFromPostFields(r),
-			MaxSessions:       maxSessions,
-			QuotaSize:         quotaSize,
-			QuotaFiles:        quotaFiles,
-			UploadBandwidth:   bandwidthUL,
-			DownloadBandwidth: bandwidthDL,
-			Status:            status,
-			ExpirationDate:    expirationDateMillis,
-			AdditionalInfo:    r.Form.Get("additional_info"),
-			Description:       r.Form.Get("description"),
+			Username:             r.Form.Get("username"),
+			Email:                r.Form.Get("email"),
+			Password:             r.Form.Get("password"),
+			PublicKeys:           r.Form["public_keys"],
+			HomeDir:              r.Form.Get("home_dir"),
+			UID:                  uid,
+			GID:                  gid,
+			Permissions:          getUserPermissionsFromPostFields(r),
+			MaxSessions:          maxSessions,
+			QuotaSize:            quotaSize,
+			QuotaFiles:           quotaFiles,
+			UploadBandwidth:      bandwidthUL,
+			DownloadBandwidth:    bandwidthDL,
+			UploadDataTransfer:   dataTransferUL,
+			DownloadDataTransfer: dataTransferDL,
+			TotalDataTransfer:    dataTransferTotal,
+			Status:               status,
+			ExpirationDate:       expirationDateMillis,
+			AdditionalInfo:       r.Form.Get("additional_info"),
+			Description:          r.Form.Get("description"),
 		},
 		Filters: dataprovider.UserFilters{
 			BaseUserFilters: filters,

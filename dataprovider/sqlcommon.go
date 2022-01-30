@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	sqlDatabaseVersion     = 15
+	sqlDatabaseVersion     = 16
 	defaultSQLQueryTimeout = 10 * time.Second
 	longSQLQueryTimeout    = 60 * time.Second
 )
@@ -639,6 +639,26 @@ func sqlCommonCheckAvailability(dbHandle *sql.DB) error {
 	return dbHandle.PingContext(ctx)
 }
 
+func sqlCommonUpdateTransferQuota(username string, uploadSize, downloadSize int64, reset bool, dbHandle *sql.DB) error {
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+	q := getUpdateTransferQuotaQuery(reset)
+	stmt, err := dbHandle.PrepareContext(ctx, q)
+	if err != nil {
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
+		return err
+	}
+	defer stmt.Close()
+	_, err = stmt.ExecContext(ctx, uploadSize, downloadSize, util.GetTimeAsMsSinceEpoch(time.Now()), username)
+	if err == nil {
+		providerLog(logger.LevelDebug, "transfer quota updated for user %#v, ul increment: %v dl increment: %v is reset? %v",
+			username, uploadSize, downloadSize, reset)
+	} else {
+		providerLog(logger.LevelError, "error updating quota for user %#v: %v", username, err)
+	}
+	return err
+}
+
 func sqlCommonUpdateQuota(username string, filesAdd int, sizeAdd int64, reset bool, dbHandle *sql.DB) error {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
@@ -659,25 +679,25 @@ func sqlCommonUpdateQuota(username string, filesAdd int, sizeAdd int64, reset bo
 	return err
 }
 
-func sqlCommonGetUsedQuota(username string, dbHandle *sql.DB) (int, int64, error) {
+func sqlCommonGetUsedQuota(username string, dbHandle *sql.DB) (int, int64, int64, int64, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
 	q := getQuotaQuery()
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
 		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return 0, 0, err
+		return 0, 0, 0, 0, err
 	}
 	defer stmt.Close()
 
 	var usedFiles int
-	var usedSize int64
-	err = stmt.QueryRowContext(ctx, username).Scan(&usedSize, &usedFiles)
+	var usedSize, usedUploadSize, usedDownloadSize int64
+	err = stmt.QueryRowContext(ctx, username).Scan(&usedSize, &usedFiles, &usedUploadSize, &usedDownloadSize)
 	if err != nil {
 		providerLog(logger.LevelError, "error getting quota for user: %v, error: %v", username, err)
-		return 0, 0, err
+		return 0, 0, 0, 0, err
 	}
-	return usedFiles, usedSize, err
+	return usedFiles, usedSize, usedUploadSize, usedDownloadSize, err
 }
 
 func sqlCommonUpdateShareLastUse(shareID string, numTokens int, dbHandle *sql.DB) error {
@@ -806,10 +826,11 @@ func sqlCommonAddUser(user *User, dbHandle *sql.DB) error {
 		if err != nil {
 			return err
 		}
-		_, err = stmt.ExecContext(ctx, user.Username, user.Password, string(publicKeys), user.HomeDir, user.UID, user.GID, user.MaxSessions, user.QuotaSize,
-			user.QuotaFiles, string(permissions), user.UploadBandwidth, user.DownloadBandwidth, user.Status, user.ExpirationDate, string(filters),
-			string(fsConfig), user.AdditionalInfo, user.Description, user.Email, util.GetTimeAsMsSinceEpoch(time.Now()),
-			util.GetTimeAsMsSinceEpoch(time.Now()))
+		_, err = stmt.ExecContext(ctx, user.Username, user.Password, string(publicKeys), user.HomeDir, user.UID, user.GID,
+			user.MaxSessions, user.QuotaSize, user.QuotaFiles, string(permissions), user.UploadBandwidth,
+			user.DownloadBandwidth, user.Status, user.ExpirationDate, string(filters), string(fsConfig), user.AdditionalInfo,
+			user.Description, user.Email, util.GetTimeAsMsSinceEpoch(time.Now()), util.GetTimeAsMsSinceEpoch(time.Now()),
+			user.UploadDataTransfer, user.DownloadDataTransfer, user.TotalDataTransfer)
 		if err != nil {
 			return err
 		}
@@ -849,9 +870,10 @@ func sqlCommonUpdateUser(user *User, dbHandle *sql.DB) error {
 		if err != nil {
 			return err
 		}
-		_, err = stmt.ExecContext(ctx, user.Password, string(publicKeys), user.HomeDir, user.UID, user.GID, user.MaxSessions, user.QuotaSize,
-			user.QuotaFiles, string(permissions), user.UploadBandwidth, user.DownloadBandwidth, user.Status, user.ExpirationDate,
-			string(filters), string(fsConfig), user.AdditionalInfo, user.Description, user.Email, util.GetTimeAsMsSinceEpoch(time.Now()),
+		_, err = stmt.ExecContext(ctx, user.Password, string(publicKeys), user.HomeDir, user.UID, user.GID, user.MaxSessions,
+			user.QuotaSize, user.QuotaFiles, string(permissions), user.UploadBandwidth, user.DownloadBandwidth, user.Status,
+			user.ExpirationDate, string(filters), string(fsConfig), user.AdditionalInfo, user.Description, user.Email,
+			util.GetTimeAsMsSinceEpoch(time.Now()), user.UploadDataTransfer, user.DownloadDataTransfer, user.TotalDataTransfer,
 			user.ID)
 		if err != nil {
 			return err
@@ -1013,14 +1035,122 @@ func sqlCommonGetUsersRangeForQuotaCheck(usernames []string, dbHandle sqlQuerier
 
 	for rows.Next() {
 		var user User
-		err = rows.Scan(&user.ID, &user.Username, &user.QuotaSize, &user.UsedQuotaSize)
+		var filters sql.NullString
+		err = rows.Scan(&user.ID, &user.Username, &user.QuotaSize, &user.UsedQuotaSize, &user.TotalDataTransfer,
+			&user.UploadDataTransfer, &user.DownloadDataTransfer, &user.UsedUploadDataTransfer,
+			&user.UsedDownloadDataTransfer, &filters)
 		if err != nil {
 			return users, err
+		}
+		if filters.Valid {
+			var userFilters UserFilters
+			err = json.Unmarshal([]byte(filters.String), &userFilters)
+			if err == nil {
+				user.Filters = userFilters
+			}
 		}
 		users = append(users, user)
 	}
 
 	return users, rows.Err()
+}
+
+func sqlCommonAddActiveTransfer(transfer ActiveTransfer, dbHandle *sql.DB) error {
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+	q := getAddActiveTransferQuery()
+	stmt, err := dbHandle.PrepareContext(ctx, q)
+	if err != nil {
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
+		return err
+	}
+	defer stmt.Close()
+	now := util.GetTimeAsMsSinceEpoch(time.Now())
+	_, err = stmt.ExecContext(ctx, transfer.ID, transfer.ConnID, transfer.Type, transfer.Username,
+		transfer.FolderName, transfer.IP, transfer.TruncatedSize, transfer.CurrentULSize, transfer.CurrentDLSize,
+		now, now)
+	return err
+}
+
+func sqlCommonUpdateActiveTransferSizes(ulSize, dlSize, transferID int64, connectionID string, dbHandle *sql.DB) error {
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+	q := getUpdateActiveTransferSizesQuery()
+	stmt, err := dbHandle.PrepareContext(ctx, q)
+	if err != nil {
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
+		return err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.ExecContext(ctx, ulSize, dlSize, util.GetTimeAsMsSinceEpoch(time.Now()), connectionID, transferID)
+	return err
+}
+
+func sqlCommonRemoveActiveTransfer(transferID int64, connectionID string, dbHandle *sql.DB) error {
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+	q := getRemoveActiveTransferQuery()
+	stmt, err := dbHandle.PrepareContext(ctx, q)
+	if err != nil {
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
+		return err
+	}
+	defer stmt.Close()
+	_, err = stmt.ExecContext(ctx, connectionID, transferID)
+	return err
+}
+
+func sqlCommonCleanupActiveTransfers(before time.Time, dbHandle *sql.DB) error {
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+
+	q := getCleanupActiveTransfersQuery()
+	stmt, err := dbHandle.PrepareContext(ctx, q)
+	if err != nil {
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
+		return err
+	}
+	defer stmt.Close()
+	_, err = stmt.ExecContext(ctx, util.GetTimeAsMsSinceEpoch(before))
+	return err
+}
+
+func sqlCommonGetActiveTransfers(from time.Time, dbHandle sqlQuerier) ([]ActiveTransfer, error) {
+	transfers := make([]ActiveTransfer, 0, 30)
+	ctx, cancel := context.WithTimeout(context.Background(), longSQLQueryTimeout)
+	defer cancel()
+
+	q := getActiveTransfersQuery()
+	stmt, err := dbHandle.PrepareContext(ctx, q)
+	if err != nil {
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
+		return nil, err
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.QueryContext(ctx, util.GetTimeAsMsSinceEpoch(from))
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+	for rows.Next() {
+		var transfer ActiveTransfer
+		var folderName sql.NullString
+		err = rows.Scan(&transfer.ID, &transfer.ConnID, &transfer.Type, &transfer.Username, &folderName, &transfer.IP,
+			&transfer.TruncatedSize, &transfer.CurrentULSize, &transfer.CurrentDLSize, &transfer.CreatedAt,
+			&transfer.UpdatedAt)
+		if err != nil {
+			return transfers, err
+		}
+		if folderName.Valid {
+			transfer.FolderName = folderName.String
+		}
+		transfers = append(transfers, transfer)
+	}
+
+	return transfers, rows.Err()
 }
 
 func sqlCommonGetUsers(limit int, offset int, order string, dbHandle sqlQuerier) ([]User, error) {
@@ -1439,7 +1569,8 @@ func getUserFromDbRow(row sqlScanner) (User, error) {
 	err := row.Scan(&user.ID, &user.Username, &password, &publicKey, &user.HomeDir, &user.UID, &user.GID, &user.MaxSessions,
 		&user.QuotaSize, &user.QuotaFiles, &permissions, &user.UsedQuotaSize, &user.UsedQuotaFiles, &user.LastQuotaUpdate,
 		&user.UploadBandwidth, &user.DownloadBandwidth, &user.ExpirationDate, &user.LastLogin, &user.Status, &filters, &fsConfig,
-		&additionalInfo, &description, &email, &user.CreatedAt, &user.UpdatedAt)
+		&additionalInfo, &description, &email, &user.CreatedAt, &user.UpdatedAt, &user.UploadDataTransfer, &user.DownloadDataTransfer,
+		&user.TotalDataTransfer, &user.UsedUploadDataTransfer, &user.UsedDownloadDataTransfer)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return user, util.NewRecordNotFoundError(err.Error())

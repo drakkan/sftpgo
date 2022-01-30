@@ -289,7 +289,7 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	err = common.Initialize(commonConf)
+	err = common.Initialize(commonConf, 0)
 	if err != nil {
 		logger.WarnToConsole("error initializing common: %v", err)
 		os.Exit(1)
@@ -1042,7 +1042,7 @@ func TestRateLimiter(t *testing.T) {
 		},
 	}
 
-	err := common.Initialize(cfg)
+	err := common.Initialize(cfg, 0)
 	assert.NoError(t, err)
 
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
@@ -1076,7 +1076,7 @@ func TestRateLimiter(t *testing.T) {
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 
-	err = common.Initialize(oldConfig)
+	err = common.Initialize(oldConfig, 0)
 	assert.NoError(t, err)
 }
 
@@ -1088,7 +1088,7 @@ func TestDefender(t *testing.T) {
 	cfg.DefenderConfig.Threshold = 3
 	cfg.DefenderConfig.ScoreLimitExceeded = 2
 
-	err := common.Initialize(cfg)
+	err := common.Initialize(cfg, 0)
 	assert.NoError(t, err)
 
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
@@ -1118,7 +1118,7 @@ func TestDefender(t *testing.T) {
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 
-	err = common.Initialize(oldConfig)
+	err = common.Initialize(oldConfig, 0)
 	assert.NoError(t, err)
 }
 
@@ -1998,6 +1998,71 @@ func TestUploadOverwriteVfolder(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestTransferQuotaLimits(t *testing.T) {
+	u := getTestUser()
+	u.DownloadDataTransfer = 1
+	u.UploadDataTransfer = 1
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	testFileSize := int64(524288)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+	client, err := getFTPClient(user, false, nil)
+	if assert.NoError(t, err) {
+		err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
+		assert.NoError(t, err)
+		err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
+		assert.NoError(t, err)
+		err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), ftpserver.ErrStorageExceeded.Error())
+		}
+		err = ftpDownloadFile(testFileName, localDownloadPath, testFileSize, client, 0)
+		assert.NoError(t, err)
+		err = ftpDownloadFile(testFileName, localDownloadPath, testFileSize, client, 0)
+		assert.NoError(t, err)
+		err = ftpDownloadFile(testFileName, localDownloadPath, testFileSize, client, 0)
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), common.ErrReadQuotaExceeded.Error())
+		}
+		err = client.Quit()
+		assert.NoError(t, err)
+	}
+
+	testFileSize = int64(600000)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+	user.DownloadDataTransfer = 2
+	user.UploadDataTransfer = 2
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	client, err = getFTPClient(user, false, nil)
+	if assert.NoError(t, err) {
+		err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
+		assert.NoError(t, err)
+		err = ftpDownloadFile(testFileName, localDownloadPath, testFileSize, client, 0)
+		assert.NoError(t, err)
+		err = ftpDownloadFile(testFileName, localDownloadPath, testFileSize, client, 0)
+		assert.Error(t, err)
+		err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
+		assert.Error(t, err)
+
+		err = client.Quit()
+		assert.NoError(t, err)
+	}
+
+	err = os.Remove(localDownloadPath)
+	assert.NoError(t, err)
+	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestAllocateAvailable(t *testing.T) {
 	u := getTestUser()
 	mappedPath := filepath.Join(os.TempDir(), "vdir")
@@ -2042,18 +2107,10 @@ func TestAllocateAvailable(t *testing.T) {
 		testFileSize := user.QuotaSize - 1
 		err = createTestFile(testFilePath, testFileSize)
 		assert.NoError(t, err)
-		code, response, err := client.SendCustomCommand("allo 99")
+		code, response, err := client.SendCustomCommand("allo 1000")
 		assert.NoError(t, err)
 		assert.Equal(t, ftp.StatusCommandOK, code)
 		assert.Equal(t, "Done !", response)
-		code, response, err = client.SendCustomCommand("allo 100")
-		assert.NoError(t, err)
-		assert.Equal(t, ftp.StatusCommandOK, code)
-		assert.Equal(t, "Done !", response)
-		code, response, err = client.SendCustomCommand("allo 150")
-		assert.NoError(t, err)
-		assert.Equal(t, ftp.StatusFileUnavailable, code)
-		assert.Contains(t, response, ftpserver.ErrStorageExceeded.Error())
 
 		err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
 		assert.NoError(t, err)
@@ -2063,38 +2120,69 @@ func TestAllocateAvailable(t *testing.T) {
 		assert.Equal(t, ftp.StatusFile, code)
 		assert.Equal(t, "1", response)
 
-		// we still have space in vdir
-		code, response, err = client.SendCustomCommand("allo 50")
-		assert.NoError(t, err)
-		assert.Equal(t, ftp.StatusCommandOK, code)
-		assert.Equal(t, "Done !", response)
-		err = ftpUploadFile(testFilePath, path.Join("/vdir", testFileName), testFileSize, client, 0)
-		assert.NoError(t, err)
-		code, response, err = client.SendCustomCommand("allo 50")
-		assert.NoError(t, err)
-		assert.Equal(t, ftp.StatusFileUnavailable, code)
-		assert.Contains(t, response, ftpserver.ErrStorageExceeded.Error())
-
 		err = client.Quit()
 		assert.NoError(t, err)
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 	}
+	user.TotalDataTransfer = 1
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	client, err = getFTPClient(user, false, nil)
+	if assert.NoError(t, err) {
+		code, response, err := client.SendCustomCommand("AVBL")
+		assert.NoError(t, err)
+		assert.Equal(t, ftp.StatusFile, code)
+		assert.Equal(t, "1", response)
 
-	user.Filters.MaxUploadFileSize = 100
+		err = client.Quit()
+		assert.NoError(t, err)
+	}
+
+	user.TotalDataTransfer = 0
+	user.UploadDataTransfer = 5
+	user.QuotaSize = 6 * 1024 * 1024
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	client, err = getFTPClient(user, false, nil)
+	if assert.NoError(t, err) {
+		code, response, err := client.SendCustomCommand("AVBL")
+		assert.NoError(t, err)
+		assert.Equal(t, ftp.StatusFile, code)
+		assert.Equal(t, "5242880", response)
+
+		err = client.Quit()
+		assert.NoError(t, err)
+	}
+
+	user.TotalDataTransfer = 0
+	user.UploadDataTransfer = 5
 	user.QuotaSize = 0
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	client, err = getFTPClient(user, false, nil)
 	if assert.NoError(t, err) {
-		code, response, err := client.SendCustomCommand("allo 99")
+		code, response, err := client.SendCustomCommand("AVBL")
+		assert.NoError(t, err)
+		assert.Equal(t, ftp.StatusFile, code)
+		assert.Equal(t, "5242880", response)
+
+		err = client.Quit()
+		assert.NoError(t, err)
+	}
+
+	user.Filters.MaxUploadFileSize = 100
+	user.QuotaSize = 0
+	user.TotalDataTransfer = 0
+	user.UploadDataTransfer = 0
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	client, err = getFTPClient(user, false, nil)
+	if assert.NoError(t, err) {
+		code, response, err := client.SendCustomCommand("allo 10000")
 		assert.NoError(t, err)
 		assert.Equal(t, ftp.StatusCommandOK, code)
 		assert.Equal(t, "Done !", response)
-		code, response, err = client.SendCustomCommand("allo 150")
-		assert.NoError(t, err)
-		assert.Equal(t, ftp.StatusFileUnavailable, code)
-		assert.Contains(t, response, ftpserver.ErrStorageExceeded.Error())
 
 		code, response, err = client.SendCustomCommand("AVBL")
 		assert.NoError(t, err)

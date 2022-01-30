@@ -308,6 +308,13 @@ func TestErrorsMapping(t *testing.T) {
 		}
 		err = conn.GetQuotaExceededError()
 		assert.True(t, conn.IsQuotaExceededError(err))
+		err = conn.GetReadQuotaExceededError()
+		if protocol == ProtocolSFTP {
+			assert.ErrorIs(t, err, sftp.ErrSSHFxFailure)
+			assert.Contains(t, err.Error(), ErrReadQuotaExceeded.Error())
+		} else {
+			assert.ErrorIs(t, err, ErrReadQuotaExceeded)
+		}
 		err = conn.GetNotExistError()
 		assert.True(t, conn.IsNotExistError(err))
 		err = conn.GetFsError(fs, nil)

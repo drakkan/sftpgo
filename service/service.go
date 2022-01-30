@@ -86,7 +86,8 @@ func (s *Service) Start() error {
 		return errors.New(infoString)
 	}
 
-	err := common.Initialize(config.GetCommonConfig())
+	providerConf := config.GetProviderConf()
+	err := common.Initialize(config.GetCommonConfig(), providerConf.GetShared())
 	if err != nil {
 		logger.Error(logSender, "", "%v", err)
 		logger.ErrorToConsole("%v", err)
@@ -118,9 +119,6 @@ func (s *Service) Start() error {
 		logger.ErrorToConsole("unable to initialize SMTP configuration: %v", err)
 		os.Exit(1)
 	}
-
-	providerConf := config.GetProviderConf()
-
 	err = dataprovider.Initialize(providerConf, s.ConfigDir, s.PortableMode == 0)
 	if err != nil {
 		logger.Error(logSender, "", "error initializing data provider: %v", err)

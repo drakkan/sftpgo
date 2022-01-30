@@ -1124,24 +1124,9 @@ paths:
     put:
       tags:
         - quota
-      summary: Update quota usage limits
+      summary: Update disk quota usage limits
       description: Sets the current used quota limits for the given user
       operationId: user_quota_update_usage
-      parameters:
-        - in: query
-          name: mode
-          required: false
-          description: the update mode specifies if the given quota usage values should be added or replace the current ones
-          schema:
-            type: string
-            enum:
-              - add
-              - reset
-            description: |
-              Update type:
-                * `add` - add the specified quota limits to the current used ones
-                * `reset` - reset the values to the specified ones. This is the default
-            example: reset
       requestBody:
         required: true
         description: 'If used_quota_size and used_quota_files are missing they will default to 0, this means that if mode is "add" the current value, for the missing field, will remain unchanged, if mode is "reset" the missing field is set to 0'
@@ -1149,6 +1134,64 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/QuotaUsage'
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                message: Quota updated
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /quotas/users/{username}/transfer-usage:
+    parameters:
+      - name: username
+        in: path
+        description: the username
+        required: true
+        schema:
+          type: string
+      - in: query
+        name: mode
+        required: false
+        description: the update mode specifies if the given quota usage values should be added or replace the current ones
+        schema:
+          type: string
+          enum:
+            - add
+            - reset
+          description: |
+            Update type:
+                * `add` - add the specified quota limits to the current used ones
+                * `reset` - reset the values to the specified ones. This is the default
+          example: reset
+    put:
+      tags:
+        - quota
+      summary: Update transfer quota usage limits
+      description: Sets the current used transfer quota limits for the given user
+      operationId: user_transfer_quota_update_usage
+      requestBody:
+        required: true
+        description: 'If used_upload_data_transfer and used_download_data_transfer are missing they will default to 0, this means that if mode is "add" the current value, for the missing field, will remain unchanged, if mode is "reset" the missing field is set to 0'
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransferQuotaUsage'
       responses:
         '200':
           description: successful operation
@@ -4425,6 +4468,23 @@ components:
           type: integer
           format: int32
           description: 'Maximum download bandwidth as KB/s, 0 means unlimited'
+    DataTransferLimit:
+      type: object
+      properties:
+        sources:
+          type: array
+          items:
+            type: string
+          description: 'Source networks in CIDR notation as defined in RFC 4632 and RFC 4291 for example `192.0.2.0/24` or `2001:db8::/32`. The limit applies if the defined networks contain the client IP'
+        upload_data_transfer:
+          type: integer
+          description: 'Maximum data transfer allowed for uploads as MB. 0 means no limit'
+        download_data_transfer:
+          type: integer
+          description: 'Maximum data transfer allowed for downloads as MB. 0 means no limit'
+        total_data_transfer:
+          type: integer
+          description: 'Maximum total data transfer as MB. 0 means unlimited. You can set a total data transfer instead of the individual values for uploads and downloads'
     UserFilters:
       type: object
       properties:
@@ -4494,6 +4554,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/BandwidthLimit'
+        data_transfer_limits:
+          type: array
+          items:
+            $ref: '#/components/schemas/DataTransferLimit'
       description: Additional user options
     Secret:
       type: object
@@ -4824,12 +4888,25 @@ components:
           description: Last quota update as unix timestamp in milliseconds
         upload_bandwidth:
           type: integer
-          format: int32
           description: 'Maximum upload bandwidth as KB/s, 0 means unlimited'
         download_bandwidth:
           type: integer
-          format: int32
           description: 'Maximum download bandwidth as KB/s, 0 means unlimited'
+        upload_data_transfer:
+          type: integer
+          description: 'Maximum data transfer allowed for uploads as MB. 0 means no limit'
+        download_data_transfer:
+          type: integer
+          description: 'Maximum data transfer allowed for downloads as MB. 0 means no limit'
+        total_data_transfer:
+          type: integer
+          description: 'Maximum total data transfer as MB. 0 means unlimited. You can set a total data transfer instead of the individual values for uploads and downloads'
+        used_upload_data_transfer:
+          type: integer
+          description: 'Uploaded size, as bytes, since the last reset'
+        used_download_data_transfer:
+          type: integer
+          description: 'Downloaded size, as bytes, since the last reset'
         created_at:
           type: integer
           format: int64
@@ -4996,6 +5073,17 @@ components:
         used_quota_files:
           type: integer
           format: int32
+    TransferQuotaUsage:
+      type: object
+      properties:
+        used_upload_data_transfer:
+          type: integer
+          format: int64
+          description: 'The value must be specified as bytes'
+        used_download_data_transfer:
+          type: integer
+          format: int64
+          description: 'The value must be specified as bytes'
     Transfer:
       type: object
       properties:

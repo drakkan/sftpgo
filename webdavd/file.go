@@ -142,6 +142,11 @@ func (f *webDavFile) Read(p []byte) (n int, err error) {
 		if !f.Connection.User.HasPerm(dataprovider.PermDownload, path.Dir(f.GetVirtualPath())) {
 			return 0, f.Connection.GetPermissionDeniedError()
 		}
+		transferQuota := f.BaseTransfer.GetTransferQuota()
+		if !transferQuota.HasDownloadSpace() {
+			f.Connection.Log(logger.LevelInfo, "denying file read due to quota limits")
+			return 0, f.Connection.GetReadQuotaExceededError()
+		}
 
 		if ok, policy := f.Connection.User.IsFileAllowed(f.GetVirtualPath()); !ok {
 			f.Connection.Log(logger.LevelWarn, "reading file %#v is not allowed", f.GetVirtualPath())
@@ -180,7 +185,9 @@ func (f *webDavFile) Read(p []byte) (n int, err error) {
 
 	n, err = f.reader.Read(p)
 	atomic.AddInt64(&f.BytesSent, int64(n))
-
+	if err == nil {
+		err = f.CheckRead()
+	}
 	if err != nil && err != io.EOF {
 		f.TransferError(err)
 		return
@@ -200,8 +207,8 @@ func (f *webDavFile) Write(p []byte) (n int, err error) {
 	n, err = f.writer.Write(p)
 	atomic.AddInt64(&f.BytesReceived, int64(n))
 
-	if f.MaxWriteSize > 0 && err == nil && atomic.LoadInt64(&f.BytesReceived) > f.MaxWriteSize {
-		err = common.ErrQuotaExceeded
+	if err == nil {
+		err = f.CheckWrite()
 	}
 	if err != nil {
 		f.TransferError(err)
@@ -260,6 +267,9 @@ func (f *webDavFile) Seek(offset int64, whence int) (int64, error) {
 		startByte := int64(0)
 		atomic.StoreInt64(&f.BytesReceived, 0)
 		atomic.StoreInt64(&f.BytesSent, 0)
+		go func(ulSize, dlSize int64, user dataprovider.User) {
+			dataprovider.UpdateUserTransferQuota(&user, ulSize, dlSize, false) //nolint:errcheck
+		}(atomic.LoadInt64(&f.BytesReceived), atomic.LoadInt64(&f.BytesSent), f.Connection.User)
 
 		switch whence {
 		case io.SeekStart:

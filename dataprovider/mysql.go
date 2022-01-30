@@ -29,6 +29,7 @@ const (
 		"DROP TABLE IF EXISTS `{{users}}` CASCADE;" +
 		"DROP TABLE IF EXISTS `{{defender_events}}` CASCADE;" +
 		"DROP TABLE IF EXISTS `{{defender_hosts}}` CASCADE;" +
+		"DROP TABLE IF EXISTS `{{active_transfers}}` CASCADE;" +
 		"DROP TABLE IF EXISTS `{{schema_version}}` CASCADE;"
 	mysqlInitialSQL = "CREATE TABLE `{{schema_version}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `version` integer NOT NULL);" +
 		"CREATE TABLE `{{admins}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `username` varchar(255) NOT NULL UNIQUE, " +
@@ -75,6 +76,30 @@ const (
 		"CREATE INDEX `{{prefix}}defender_hosts_ban_time_idx` ON `{{defender_hosts}}` (`ban_time`);" +
 		"CREATE INDEX `{{prefix}}defender_events_date_time_idx` ON `{{defender_events}}` (`date_time`);" +
 		"INSERT INTO {{schema_version}} (version) VALUES (15);"
+	mysqlV16SQL = "ALTER TABLE `{{users}}` ADD COLUMN `download_data_transfer` integer DEFAULT 0 NOT NULL;" +
+		"ALTER TABLE `{{users}}` ALTER COLUMN `download_data_transfer` DROP DEFAULT;" +
+		"ALTER TABLE `{{users}}` ADD COLUMN `total_data_transfer` integer DEFAULT 0 NOT NULL;" +
+		"ALTER TABLE `{{users}}` ALTER COLUMN `total_data_transfer` DROP DEFAULT;" +
+		"ALTER TABLE `{{users}}` ADD COLUMN `upload_data_transfer` integer DEFAULT 0 NOT NULL;" +
+		"ALTER TABLE `{{users}}` ALTER COLUMN `upload_data_transfer` DROP DEFAULT;" +
+		"ALTER TABLE `{{users}}` ADD COLUMN `used_download_data_transfer` integer DEFAULT 0 NOT NULL;" +
+		"ALTER TABLE `{{users}}` ALTER COLUMN `used_download_data_transfer` DROP DEFAULT;" +
+		"ALTER TABLE `{{users}}` ADD COLUMN `used_upload_data_transfer` integer DEFAULT 0 NOT NULL;" +
+		"ALTER TABLE `{{users}}` ALTER COLUMN `used_upload_data_transfer` DROP DEFAULT;" +
+		"CREATE TABLE `{{active_transfers}}` (`id` bigint AUTO_INCREMENT NOT NULL PRIMARY KEY, " +
+		"`connection_id` varchar(100) NOT NULL, `transfer_id` bigint NOT NULL, `transfer_type` integer NOT NULL, " +
+		"`username` varchar(255) NOT NULL, `folder_name` varchar(255) NULL, `ip` varchar(50) NOT NULL, " +
+		"`truncated_size` bigint NOT NULL, `current_ul_size` bigint NOT NULL, `current_dl_size` bigint NOT NULL, " +
+		"`created_at` bigint NOT NULL, `updated_at` bigint NOT NULL);" +
+		"CREATE INDEX `{{prefix}}active_transfers_connection_id_idx` ON `{{active_transfers}}` (`connection_id`);" +
+		"CREATE INDEX `{{prefix}}active_transfers_transfer_id_idx` ON `{{active_transfers}}` (`transfer_id`);" +
+		"CREATE INDEX `{{prefix}}active_transfers_updated_at_idx` ON `{{active_transfers}}` (`updated_at`);"
+	mysqlV16DownSQL = "ALTER TABLE `{{users}}` DROP COLUMN `used_upload_data_transfer`;" +
+		"ALTER TABLE `{{users}}` DROP COLUMN `used_download_data_transfer`;" +
+		"ALTER TABLE `{{users}}` DROP COLUMN `upload_data_transfer`;" +
+		"ALTER TABLE `{{users}}` DROP COLUMN `total_data_transfer`;" +
+		"ALTER TABLE `{{users}}` DROP COLUMN `download_data_transfer`;" +
+		"DROP TABLE `{{active_transfers}}` CASCADE;"
 )
 
 // MySQLProvider defines the auth provider for MySQL/MariaDB database
@@ -138,11 +163,15 @@ func (p *MySQLProvider) validateUserAndPubKey(username string, publicKey []byte)
 	return sqlCommonValidateUserAndPubKey(username, publicKey, p.dbHandle)
 }
 
+func (p *MySQLProvider) updateTransferQuota(username string, uploadSize, downloadSize int64, reset bool) error {
+	return sqlCommonUpdateTransferQuota(username, uploadSize, downloadSize, reset, p.dbHandle)
+}
+
 func (p *MySQLProvider) updateQuota(username string, filesAdd int, sizeAdd int64, reset bool) error {
 	return sqlCommonUpdateQuota(username, filesAdd, sizeAdd, reset, p.dbHandle)
 }
 
-func (p *MySQLProvider) getUsedQuota(username string) (int, int64, error) {
+func (p *MySQLProvider) getUsedQuota(username string) (int, int64, int64, int64, error) {
 	return sqlCommonGetUsedQuota(username, p.dbHandle)
 }
 
@@ -340,6 +369,26 @@ func (p *MySQLProvider) cleanupDefender(from int64) error {
 	return sqlCommonDefenderCleanup(from, p.dbHandle)
 }
 
+func (p *MySQLProvider) addActiveTransfer(transfer ActiveTransfer) error {
+	return sqlCommonAddActiveTransfer(transfer, p.dbHandle)
+}
+
+func (p *MySQLProvider) updateActiveTransferSizes(ulSize, dlSize, transferID int64, connectionID string) error {
+	return sqlCommonUpdateActiveTransferSizes(ulSize, dlSize, transferID, connectionID, p.dbHandle)
+}
+
+func (p *MySQLProvider) removeActiveTransfer(transferID int64, connectionID string) error {
+	return sqlCommonRemoveActiveTransfer(transferID, connectionID, p.dbHandle)
+}
+
+func (p *MySQLProvider) cleanupActiveTransfers(before time.Time) error {
+	return sqlCommonCleanupActiveTransfers(before, p.dbHandle)
+}
+
+func (p *MySQLProvider) getActiveTransfers(from time.Time) ([]ActiveTransfer, error) {
+	return sqlCommonGetActiveTransfers(from, p.dbHandle)
+}
+
 func (p *MySQLProvider) close() error {
 	return p.dbHandle.Close()
 }
@@ -388,6 +437,8 @@ func (p *MySQLProvider) migrateDatabase() error {
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
+	case version == 15:
+		return updateMySQLDatabaseFromV15(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database version %v is newer than the supported one: %v", version,
@@ -410,6 +461,8 @@ func (p *MySQLProvider) revertDatabase(targetVersion int) error {
 	}
 
 	switch dbVersion.Version {
+	case 16:
+		return downgradeMySQLDatabaseFromV16(p.dbHandle)
 	default:
 		return fmt.Errorf("database version not handled: %v", dbVersion.Version)
 	}
@@ -425,5 +478,31 @@ func (p *MySQLProvider) resetDatabase() error {
 	sql = strings.ReplaceAll(sql, "{{shares}}", sqlTableShares)
 	sql = strings.ReplaceAll(sql, "{{defender_events}}", sqlTableDefenderEvents)
 	sql = strings.ReplaceAll(sql, "{{defender_hosts}}", sqlTableDefenderHosts)
+	sql = strings.ReplaceAll(sql, "{{active_transfers}}", sqlTableActiveTransfers)
 	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, strings.Split(sql, ";"), 0)
+}
+
+func updateMySQLDatabaseFromV15(dbHandle *sql.DB) error {
+	return updateMySQLDatabaseFrom15To16(dbHandle)
+}
+
+func downgradeMySQLDatabaseFromV16(dbHandle *sql.DB) error {
+	return downgradeMySQLDatabaseFrom16To15(dbHandle)
+}
+
+func updateMySQLDatabaseFrom15To16(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 15 -> 16")
+	providerLog(logger.LevelInfo, "updating database version: 15 -> 16")
+	sql := strings.ReplaceAll(mysqlV16SQL, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{active_transfers}}", sqlTableActiveTransfers)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 16)
+}
+
+func downgradeMySQLDatabaseFrom16To15(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 16 -> 15")
+	providerLog(logger.LevelInfo, "downgrading database version: 16 -> 15")
+	sql := strings.ReplaceAll(mysqlV16DownSQL, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{active_transfers}}", sqlTableActiveTransfers)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 15)
 }

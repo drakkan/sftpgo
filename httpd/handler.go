@@ -85,6 +85,12 @@ func (c *Connection) ReadDir(name string) ([]os.FileInfo, error) {
 func (c *Connection) getFileReader(name string, offset int64, method string) (io.ReadCloser, error) {
 	c.UpdateLastActivity()
 
+	transferQuota := c.GetTransferQuota()
+	if !transferQuota.HasDownloadSpace() {
+		c.Log(logger.LevelInfo, "denying file read due to quota limits")
+		return nil, c.GetReadQuotaExceededError()
+	}
+
 	name = util.CleanPath(name)
 	if !c.User.HasPerm(dataprovider.PermDownload, path.Dir(name)) {
 		return nil, c.GetPermissionDeniedError()
@@ -114,7 +120,7 @@ func (c *Connection) getFileReader(name string, offset int64, method string) (io
 	}
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, p, p, name, common.TransferDownload,
-		0, 0, 0, 0, false, fs)
+		0, 0, 0, 0, false, fs, transferQuota)
 	return newHTTPDFile(baseTransfer, nil, r), nil
 }
 
@@ -171,8 +177,8 @@ func (c *Connection) getFileWriter(name string) (io.WriteCloser, error) {
 }
 
 func (c *Connection) handleUploadFile(fs vfs.Fs, resolvedPath, filePath, requestPath string, isNewFile bool, fileSize int64) (io.WriteCloser, error) {
-	quotaResult := c.HasSpace(isNewFile, false, requestPath)
-	if !quotaResult.HasSpace {
+	diskQuota, transferQuota := c.HasSpace(isNewFile, false, requestPath)
+	if !diskQuota.HasSpace || !transferQuota.HasUploadSpace() {
 		c.Log(logger.LevelInfo, "denying file write due to quota limits")
 		return nil, common.ErrQuotaExceeded
 	}
@@ -182,7 +188,7 @@ func (c *Connection) handleUploadFile(fs vfs.Fs, resolvedPath, filePath, request
 		return nil, c.GetPermissionDeniedError()
 	}
 
-	maxWriteSize, _ := c.GetMaxWriteSize(quotaResult, false, fileSize, fs.IsUploadResumeSupported())
+	maxWriteSize, _ := c.GetMaxWriteSize(diskQuota, false, fileSize, fs.IsUploadResumeSupported())
 
 	file, w, cancelFn, err := fs.Create(filePath, 0)
 	if err != nil {
@@ -215,7 +221,7 @@ func (c *Connection) handleUploadFile(fs vfs.Fs, resolvedPath, filePath, request
 	vfs.SetPathPermissions(fs, filePath, c.User.GetUID(), c.User.GetGID())
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, filePath, requestPath,
-		common.TransferUpload, 0, initialSize, maxWriteSize, truncatedSize, isNewFile, fs)
+		common.TransferUpload, 0, initialSize, maxWriteSize, truncatedSize, isNewFile, fs, transferQuota)
 	return newHTTPDFile(baseTransfer, w, nil), nil
 }
 
@@ -294,8 +300,8 @@ func (t *throttledReader) GetTruncatedSize() int64 {
 	return 0
 }
 
-func (t *throttledReader) GetMaxAllowedSize() int64 {
-	return 0
+func (t *throttledReader) HasSizeLimit() bool {
+	return false
 }
 
 func (t *throttledReader) Truncate(fsPath string, size int64) (int64, error) {

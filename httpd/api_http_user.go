@@ -270,6 +270,13 @@ func uploadUserFiles(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
+	transferQuota := connection.GetTransferQuota()
+	if !transferQuota.HasUploadSpace() {
+		connection.Log(logger.LevelInfo, "denying file write due to transfer quota limits")
+		sendAPIResponse(w, r, common.ErrQuotaExceeded, "Denying file write due to transfer quota limits",
+			http.StatusRequestEntityTooLarge)
+		return
+	}
 	common.Connections.Add(connection)
 	defer common.Connections.Remove(connection.GetID())
 

@@ -29,6 +29,7 @@ DROP TABLE IF EXISTS "{{shares}}" CASCADE;
 DROP TABLE IF EXISTS "{{users}}" CASCADE;
 DROP TABLE IF EXISTS "{{defender_events}}" CASCADE;
 DROP TABLE IF EXISTS "{{defender_hosts}}" CASCADE;
+DROP TABLE IF EXISTS "{{active_transfers}}" CASCADE;
 DROP TABLE IF EXISTS "{{schema_version}}" CASCADE;
 `
 	pgsqlInitial = `CREATE TABLE "{{schema_version}}" ("id" serial NOT NULL PRIMARY KEY, "version" integer NOT NULL);
@@ -86,6 +87,32 @@ CREATE INDEX "{{prefix}}defender_hosts_ban_time_idx" ON "{{defender_hosts}}" ("b
 CREATE INDEX "{{prefix}}defender_events_date_time_idx" ON "{{defender_events}}" ("date_time");
 CREATE INDEX "{{prefix}}defender_events_host_id_idx" ON "{{defender_events}}" ("host_id");
 INSERT INTO {{schema_version}} (version) VALUES (15);
+`
+	pgsqlV16SQL = `ALTER TABLE "{{users}}" ADD COLUMN "download_data_transfer" integer DEFAULT 0 NOT NULL;
+ALTER TABLE "{{users}}" ALTER COLUMN "download_data_transfer" DROP DEFAULT;
+ALTER TABLE "{{users}}" ADD COLUMN "total_data_transfer" integer DEFAULT 0 NOT NULL;
+ALTER TABLE "{{users}}" ALTER COLUMN "total_data_transfer" DROP DEFAULT;
+ALTER TABLE "{{users}}" ADD COLUMN "upload_data_transfer" integer DEFAULT 0 NOT NULL;
+ALTER TABLE "{{users}}" ALTER COLUMN "upload_data_transfer" DROP DEFAULT;
+ALTER TABLE "{{users}}" ADD COLUMN "used_download_data_transfer" integer DEFAULT 0 NOT NULL;
+ALTER TABLE "{{users}}" ALTER COLUMN "used_download_data_transfer" DROP DEFAULT;
+ALTER TABLE "{{users}}" ADD COLUMN "used_upload_data_transfer" integer DEFAULT 0 NOT NULL;
+ALTER TABLE "{{users}}" ALTER COLUMN "used_upload_data_transfer" DROP DEFAULT;
+CREATE TABLE "{{active_transfers}}" ("id" bigserial NOT NULL PRIMARY KEY, "connection_id" varchar(100) NOT NULL,
+"transfer_id" bigint NOT NULL, "transfer_type" integer NOT NULL, "username" varchar(255) NOT NULL,
+"folder_name" varchar(255) NULL, "ip" varchar(50) NOT NULL, "truncated_size" bigint NOT NULL,
+"current_ul_size" bigint NOT NULL, "current_dl_size" bigint NOT NULL, "created_at" bigint NOT NULL,
+"updated_at" bigint NOT NULL);
+CREATE INDEX "{{prefix}}active_transfers_connection_id_idx" ON "{{active_transfers}}" ("connection_id");
+CREATE INDEX "{{prefix}}active_transfers_transfer_id_idx" ON "{{active_transfers}}" ("transfer_id");
+CREATE INDEX "{{prefix}}active_transfers_updated_at_idx" ON "{{active_transfers}}" ("updated_at");
+`
+	pgsqlV16DownSQL = `ALTER TABLE "{{users}}" DROP COLUMN "used_upload_data_transfer" CASCADE;
+ALTER TABLE "{{users}}" DROP COLUMN "used_download_data_transfer" CASCADE;
+ALTER TABLE "{{users}}" DROP COLUMN "upload_data_transfer" CASCADE;
+ALTER TABLE "{{users}}" DROP COLUMN "total_data_transfer" CASCADE;
+ALTER TABLE "{{users}}" DROP COLUMN "download_data_transfer" CASCADE;
+DROP TABLE "{{active_transfers}}" CASCADE;
 `
 )
 
@@ -150,11 +177,15 @@ func (p *PGSQLProvider) validateUserAndPubKey(username string, publicKey []byte)
 	return sqlCommonValidateUserAndPubKey(username, publicKey, p.dbHandle)
 }
 
+func (p *PGSQLProvider) updateTransferQuota(username string, uploadSize, downloadSize int64, reset bool) error {
+	return sqlCommonUpdateTransferQuota(username, uploadSize, downloadSize, reset, p.dbHandle)
+}
+
 func (p *PGSQLProvider) updateQuota(username string, filesAdd int, sizeAdd int64, reset bool) error {
 	return sqlCommonUpdateQuota(username, filesAdd, sizeAdd, reset, p.dbHandle)
 }
 
-func (p *PGSQLProvider) getUsedQuota(username string) (int, int64, error) {
+func (p *PGSQLProvider) getUsedQuota(username string) (int, int64, int64, int64, error) {
 	return sqlCommonGetUsedQuota(username, p.dbHandle)
 }
 
@@ -352,6 +383,26 @@ func (p *PGSQLProvider) cleanupDefender(from int64) error {
 	return sqlCommonDefenderCleanup(from, p.dbHandle)
 }
 
+func (p *PGSQLProvider) addActiveTransfer(transfer ActiveTransfer) error {
+	return sqlCommonAddActiveTransfer(transfer, p.dbHandle)
+}
+
+func (p *PGSQLProvider) updateActiveTransferSizes(ulSize, dlSize, transferID int64, connectionID string) error {
+	return sqlCommonUpdateActiveTransferSizes(ulSize, dlSize, transferID, connectionID, p.dbHandle)
+}
+
+func (p *PGSQLProvider) removeActiveTransfer(transferID int64, connectionID string) error {
+	return sqlCommonRemoveActiveTransfer(transferID, connectionID, p.dbHandle)
+}
+
+func (p *PGSQLProvider) cleanupActiveTransfers(before time.Time) error {
+	return sqlCommonCleanupActiveTransfers(before, p.dbHandle)
+}
+
+func (p *PGSQLProvider) getActiveTransfers(from time.Time) ([]ActiveTransfer, error) {
+	return sqlCommonGetActiveTransfers(from, p.dbHandle)
+}
+
 func (p *PGSQLProvider) close() error {
 	return p.dbHandle.Close()
 }
@@ -406,6 +457,8 @@ func (p *PGSQLProvider) migrateDatabase() error {
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
+	case version == 15:
+		return updatePGSQLDatabaseFromV15(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database version %v is newer than the supported one: %v", version,
@@ -428,6 +481,8 @@ func (p *PGSQLProvider) revertDatabase(targetVersion int) error {
 	}
 
 	switch dbVersion.Version {
+	case 16:
+		return downgradePGSQLDatabaseFromV16(p.dbHandle)
 	default:
 		return fmt.Errorf("database version not handled: %v", dbVersion.Version)
 	}
@@ -443,5 +498,31 @@ func (p *PGSQLProvider) resetDatabase() error {
 	sql = strings.ReplaceAll(sql, "{{shares}}", sqlTableShares)
 	sql = strings.ReplaceAll(sql, "{{defender_events}}", sqlTableDefenderEvents)
 	sql = strings.ReplaceAll(sql, "{{defender_hosts}}", sqlTableDefenderHosts)
+	sql = strings.ReplaceAll(sql, "{{active_transfers}}", sqlTableActiveTransfers)
 	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{sql}, 0)
+}
+
+func updatePGSQLDatabaseFromV15(dbHandle *sql.DB) error {
+	return updatePGSQLDatabaseFrom15To16(dbHandle)
+}
+
+func downgradePGSQLDatabaseFromV16(dbHandle *sql.DB) error {
+	return downgradePGSQLDatabaseFrom16To15(dbHandle)
+}
+
+func updatePGSQLDatabaseFrom15To16(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 15 -> 16")
+	providerLog(logger.LevelInfo, "updating database version: 15 -> 16")
+	sql := strings.ReplaceAll(pgsqlV16SQL, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{active_transfers}}", sqlTableActiveTransfers)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 16)
+}
+
+func downgradePGSQLDatabaseFrom16To15(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 16 -> 15")
+	providerLog(logger.LevelInfo, "downgrading database version: 16 -> 15")
+	sql := strings.ReplaceAll(pgsqlV16DownSQL, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{active_transfers}}", sqlTableActiveTransfers)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 15)
 }

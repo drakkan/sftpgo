@@ -13,6 +13,7 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
+	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/util"
 )
 
@@ -159,6 +160,12 @@ func downloadFromShare(w http.ResponseWriter, r *http.Request) {
 
 	dataprovider.UpdateShareLastUse(&share, 1) //nolint:errcheck
 	if compress {
+		transferQuota := connection.GetTransferQuota()
+		if !transferQuota.HasDownloadSpace() {
+			err = connection.GetReadQuotaExceededError()
+			connection.Log(logger.LevelInfo, "denying share read due to quota limits")
+			sendAPIResponse(w, r, err, "", getMappedStatusCode(err))
+		}
 		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"share-%v.zip\"", share.ShareID))
 		renderCompressedFiles(w, connection, "/", share.Paths, &share)
 		return
@@ -206,6 +213,14 @@ func uploadFilesToShare(w http.ResponseWriter, r *http.Request) {
 	}
 	share, connection, err := checkPublicShare(w, r, dataprovider.ShareScopeWrite)
 	if err != nil {
+		return
+	}
+
+	transferQuota := connection.GetTransferQuota()
+	if !transferQuota.HasUploadSpace() {
+		connection.Log(logger.LevelInfo, "denying file write due to transfer quota limits")
+		sendAPIResponse(w, r, common.ErrQuotaExceeded, "Denying file write due to transfer quota limits",
+			http.StatusRequestEntityTooLarge)
 		return
 	}
 

@@ -64,11 +64,12 @@ Command-line flags should be specified in the Subsystem declaration.
 				logger.Error(logSender, connectionID, "unable to load configuration: %v", err)
 				os.Exit(1)
 			}
+			dataProviderConf := config.GetProviderConf()
 			commonConfig := config.GetCommonConfig()
 			// idle connection are managed externally
 			commonConfig.IdleTimeout = 0
 			config.SetCommonConfig(commonConfig)
-			if err := common.Initialize(config.GetCommonConfig()); err != nil {
+			if err := common.Initialize(config.GetCommonConfig(), dataProviderConf.GetShared()); err != nil {
 				logger.Error(logSender, connectionID, "%v", err)
 				os.Exit(1)
 			}
@@ -93,7 +94,6 @@ Command-line flags should be specified in the Subsystem declaration.
 				logger.Error(logSender, connectionID, "unable to initialize SMTP configuration: %v", err)
 				os.Exit(1)
 			}
-			dataProviderConf := config.GetProviderConf()
 			if dataProviderConf.Driver == dataprovider.SQLiteDataProviderName || dataProviderConf.Driver == dataprovider.BoltDataProviderName {
 				logger.Debug(logSender, connectionID, "data provider %#v not supported in subsystem mode, using %#v provider",
 					dataProviderConf.Driver, dataprovider.MemoryDataProviderName)

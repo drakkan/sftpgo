@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 
 	// we import go-sqlite3 here to be able to disable SQLite support using a build tag
 	_ "github.com/mattn/go-sqlite3"
@@ -30,6 +31,7 @@ DROP TABLE IF EXISTS "{{shares}}";
 DROP TABLE IF EXISTS "{{users}}";
 DROP TABLE IF EXISTS "{{defender_events}}";
 DROP TABLE IF EXISTS "{{defender_hosts}}";
+DROP TABLE IF EXISTS "{{active_transfers}}";
 DROP TABLE IF EXISTS "{{schema_version}}";
 `
 	sqliteInitialSQL = `CREATE TABLE "{{schema_version}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "version" integer NOT NULL);
@@ -78,6 +80,27 @@ CREATE INDEX "{{prefix}}defender_hosts_ban_time_idx" ON "{{defender_hosts}}" ("b
 CREATE INDEX "{{prefix}}defender_events_date_time_idx" ON "{{defender_events}}" ("date_time");
 CREATE INDEX "{{prefix}}defender_events_host_id_idx" ON "{{defender_events}}" ("host_id");
 INSERT INTO {{schema_version}} (version) VALUES (15);
+`
+	sqliteV16SQL = `ALTER TABLE "{{users}}" ADD COLUMN "download_data_transfer" integer DEFAULT 0 NOT NULL;
+ALTER TABLE "{{users}}" ADD COLUMN "total_data_transfer" integer DEFAULT 0 NOT NULL;
+ALTER TABLE "{{users}}" ADD COLUMN "upload_data_transfer" integer DEFAULT 0 NOT NULL;
+ALTER TABLE "{{users}}" ADD COLUMN "used_download_data_transfer" integer DEFAULT 0 NOT NULL;
+ALTER TABLE "{{users}}" ADD COLUMN "used_upload_data_transfer" integer DEFAULT 0 NOT NULL;
+CREATE TABLE "{{active_transfers}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "connection_id" varchar(100) NOT NULL,
+"transfer_id" bigint NOT NULL, "transfer_type" integer NOT NULL, "username" varchar(255) NOT NULL,
+"folder_name" varchar(255) NULL, "ip" varchar(50) NOT NULL, "truncated_size" bigint NOT NULL,
+"current_ul_size" bigint NOT NULL, "current_dl_size" bigint NOT NULL, "created_at" bigint NOT NULL,
+"updated_at" bigint NOT NULL);
+CREATE INDEX "{{prefix}}active_transfers_connection_id_idx" ON "{{active_transfers}}" ("connection_id");
+CREATE INDEX "{{prefix}}active_transfers_transfer_id_idx" ON "{{active_transfers}}" ("transfer_id");
+CREATE INDEX "{{prefix}}active_transfers_updated_at_idx" ON "{{active_transfers}}" ("updated_at");
+`
+	sqliteV16DownSQL = `ALTER TABLE "{{users}}" DROP COLUMN "used_upload_data_transfer";
+ALTER TABLE "{{users}}" DROP COLUMN "used_download_data_transfer";
+ALTER TABLE "{{users}}" DROP COLUMN "upload_data_transfer";
+ALTER TABLE "{{users}}" DROP COLUMN "total_data_transfer";
+ALTER TABLE "{{users}}" DROP COLUMN "download_data_transfer";
+DROP TABLE "{{active_transfers}}";
 `
 )
 
@@ -134,11 +157,15 @@ func (p *SQLiteProvider) validateUserAndPubKey(username string, publicKey []byte
 	return sqlCommonValidateUserAndPubKey(username, publicKey, p.dbHandle)
 }
 
+func (p *SQLiteProvider) updateTransferQuota(username string, uploadSize, downloadSize int64, reset bool) error {
+	return sqlCommonUpdateTransferQuota(username, uploadSize, downloadSize, reset, p.dbHandle)
+}
+
 func (p *SQLiteProvider) updateQuota(username string, filesAdd int, sizeAdd int64, reset bool) error {
 	return sqlCommonUpdateQuota(username, filesAdd, sizeAdd, reset, p.dbHandle)
 }
 
-func (p *SQLiteProvider) getUsedQuota(username string) (int, int64, error) {
+func (p *SQLiteProvider) getUsedQuota(username string) (int, int64, int64, int64, error) {
 	return sqlCommonGetUsedQuota(username, p.dbHandle)
 }
 
@@ -337,6 +364,26 @@ func (p *SQLiteProvider) cleanupDefender(from int64) error {
 	return sqlCommonDefenderCleanup(from, p.dbHandle)
 }
 
+func (p *SQLiteProvider) addActiveTransfer(transfer ActiveTransfer) error {
+	return sqlCommonAddActiveTransfer(transfer, p.dbHandle)
+}
+
+func (p *SQLiteProvider) updateActiveTransferSizes(ulSize, dlSize, transferID int64, connectionID string) error {
+	return sqlCommonUpdateActiveTransferSizes(ulSize, dlSize, transferID, connectionID, p.dbHandle)
+}
+
+func (p *SQLiteProvider) removeActiveTransfer(transferID int64, connectionID string) error {
+	return sqlCommonRemoveActiveTransfer(transferID, connectionID, p.dbHandle)
+}
+
+func (p *SQLiteProvider) cleanupActiveTransfers(before time.Time) error {
+	return sqlCommonCleanupActiveTransfers(before, p.dbHandle)
+}
+
+func (p *SQLiteProvider) getActiveTransfers(from time.Time) ([]ActiveTransfer, error) {
+	return sqlCommonGetActiveTransfers(from, p.dbHandle)
+}
+
 func (p *SQLiteProvider) close() error {
 	return p.dbHandle.Close()
 }
@@ -385,6 +432,8 @@ func (p *SQLiteProvider) migrateDatabase() error {
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
+	case version == 15:
+		return updateSQLiteDatabaseFromV15(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database version %v is newer than the supported one: %v", version,
@@ -407,6 +456,8 @@ func (p *SQLiteProvider) revertDatabase(targetVersion int) error {
 	}
 
 	switch dbVersion.Version {
+	case 16:
+		return downgradeSQLiteDatabaseFromV16(p.dbHandle)
 	default:
 		return fmt.Errorf("database version not handled: %v", dbVersion.Version)
 	}
@@ -422,7 +473,33 @@ func (p *SQLiteProvider) resetDatabase() error {
 	sql = strings.ReplaceAll(sql, "{{shares}}", sqlTableShares)
 	sql = strings.ReplaceAll(sql, "{{defender_events}}", sqlTableDefenderEvents)
 	sql = strings.ReplaceAll(sql, "{{defender_hosts}}", sqlTableDefenderHosts)
+	sql = strings.ReplaceAll(sql, "{{active_transfers}}", sqlTableActiveTransfers)
 	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{sql}, 0)
+}
+
+func updateSQLiteDatabaseFromV15(dbHandle *sql.DB) error {
+	return updateSQLiteDatabaseFrom15To16(dbHandle)
+}
+
+func downgradeSQLiteDatabaseFromV16(dbHandle *sql.DB) error {
+	return downgradeSQLiteDatabaseFrom16To15(dbHandle)
+}
+
+func updateSQLiteDatabaseFrom15To16(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 15 -> 16")
+	providerLog(logger.LevelInfo, "updating database version: 15 -> 16")
+	sql := strings.ReplaceAll(sqliteV16SQL, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{active_transfers}}", sqlTableActiveTransfers)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 16)
+}
+
+func downgradeSQLiteDatabaseFrom16To15(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 16 -> 15")
+	providerLog(logger.LevelInfo, "downgrading database version: 16 -> 15")
+	sql := strings.ReplaceAll(sqliteV16DownSQL, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{active_transfers}}", sqlTableActiveTransfers)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 15)
 }
 
 /*func setPragmaFK(dbHandle *sql.DB, value string) error {

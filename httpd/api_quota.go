@@ -23,6 +23,11 @@ type quotaUsage struct {
 	UsedQuotaFiles int   `json:"used_quota_files"`
 }
 
+type transferQuotaUsage struct {
+	UsedUploadDataTransfer   int64 `json:"used_upload_data_transfer"`
+	UsedDownloadDataTransfer int64 `json:"used_download_data_transfer"`
+}
+
 func getUsersQuotaScans(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	render.JSON(w, r, common.QuotaScans.GetUsersQuotaScans())
@@ -118,6 +123,43 @@ func startFolderQuotaScanCompat(w http.ResponseWriter, r *http.Request) {
 	doStartFolderQuotaScan(w, r, f.Name)
 }
 
+func updateUserTransferQuotaUsage(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	var usage transferQuotaUsage
+	err := render.DecodeJSON(r.Body, &usage)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
+		return
+	}
+	if usage.UsedUploadDataTransfer < 0 || usage.UsedDownloadDataTransfer < 0 {
+		sendAPIResponse(w, r, errors.New("invalid used transfer quota parameters, negative values are not allowed"),
+			"", http.StatusBadRequest)
+		return
+	}
+	mode, err := getQuotaUpdateMode(r)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
+		return
+	}
+	user, err := dataprovider.UserExists(getURLParam(r, "username"))
+	if err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
+	}
+	if mode == quotaUpdateModeAdd && !user.HasTransferQuotaRestrictions() && dataprovider.GetQuotaTracking() == 2 {
+		sendAPIResponse(w, r, errors.New("this user has no transfer quota restrictions, only reset mode is supported"),
+			"", http.StatusBadRequest)
+		return
+	}
+	err = dataprovider.UpdateUserTransferQuota(&user, usage.UsedUploadDataTransfer, usage.UsedDownloadDataTransfer,
+		mode == quotaUpdateModeReset)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
+	}
+	sendAPIResponse(w, r, err, "Quota updated", http.StatusOK)
+}
+
 func doUpdateUserQuotaUsage(w http.ResponseWriter, r *http.Request, username string, usage quotaUsage) {
 	if usage.UsedQuotaFiles < 0 || usage.UsedQuotaSize < 0 {
 		sendAPIResponse(w, r, errors.New("invalid used quota parameters, negative values are not allowed"),
@@ -147,9 +189,9 @@ func doUpdateUserQuotaUsage(w http.ResponseWriter, r *http.Request, username str
 	err = dataprovider.UpdateUserQuota(&user, usage.UsedQuotaFiles, usage.UsedQuotaSize, mode == quotaUpdateModeReset)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
-	} else {
-		sendAPIResponse(w, r, err, "Quota updated", http.StatusOK)
+		return
 	}
+	sendAPIResponse(w, r, err, "Quota updated", http.StatusOK)
 }
 
 func doUpdateFolderQuotaUsage(w http.ResponseWriter, r *http.Request, name string, usage quotaUsage) {

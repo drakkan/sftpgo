@@ -49,6 +49,9 @@ func (t *transfer) Read(p []byte) (n int, err error) {
 	n, err = t.reader.Read(p)
 	atomic.AddInt64(&t.BytesSent, int64(n))
 
+	if err == nil {
+		err = t.CheckRead()
+	}
 	if err != nil && err != io.EOF {
 		t.TransferError(err)
 		return
@@ -64,8 +67,8 @@ func (t *transfer) Write(p []byte) (n int, err error) {
 	n, err = t.writer.Write(p)
 	atomic.AddInt64(&t.BytesReceived, int64(n))
 
-	if t.MaxWriteSize > 0 && err == nil && atomic.LoadInt64(&t.BytesReceived) > t.MaxWriteSize {
-		err = t.Connection.GetQuotaExceededError()
+	if err == nil {
+		err = t.CheckWrite()
 	}
 	if err != nil {
 		t.TransferError(err)

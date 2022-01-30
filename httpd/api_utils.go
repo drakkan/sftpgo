@@ -97,6 +97,8 @@ func getMappedStatusCode(err error) int {
 	switch {
 	case errors.Is(err, os.ErrPermission):
 		statusCode = http.StatusForbidden
+	case errors.Is(err, common.ErrReadQuotaExceeded):
+		statusCode = http.StatusForbidden
 	case errors.Is(err, os.ErrNotExist):
 		statusCode = http.StatusNotFound
 	case errors.Is(err, common.ErrQuotaExceeded):
@@ -310,7 +312,11 @@ func downloadFile(w http.ResponseWriter, r *http.Request, connection *Connection
 	w.Header().Set("Accept-Ranges", "bytes")
 	w.WriteHeader(responseStatus)
 	if r.Method != http.MethodHead {
-		io.CopyN(w, reader, size) //nolint:errcheck
+		_, err = io.CopyN(w, reader, size)
+		if err != nil {
+			connection.Log(logger.LevelDebug, "error reading file to download: %v", err)
+			panic(http.ErrAbortHandler)
+		}
 	}
 	return http.StatusOK, nil
 }
