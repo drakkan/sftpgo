@@ -652,10 +652,13 @@ func validateSQLTablesPrefix() error {
 		sqlTableAdmins = config.SQLTablesPrefix + sqlTableAdmins
 		sqlTableAPIKeys = config.SQLTablesPrefix + sqlTableAPIKeys
 		sqlTableShares = config.SQLTablesPrefix + sqlTableShares
+		sqlTableDefenderEvents = config.SQLTablesPrefix + sqlTableDefenderEvents
+		sqlTableDefenderHosts = config.SQLTablesPrefix + sqlTableDefenderHosts
 		sqlTableSchemaVersion = config.SQLTablesPrefix + sqlTableSchemaVersion
 		providerLog(logger.LevelDebug, "sql table for users %#v, folders %#v folders mapping %#v admins %#v "+
-			"api keys %#v shares %#v schema version %#v", sqlTableUsers, sqlTableFolders, sqlTableFoldersMapping,
-			sqlTableAdmins, sqlTableAPIKeys, sqlTableShares, sqlTableSchemaVersion)
+			"api keys %#v shares %#v defender hosts %#v defender events %#v schema version %#v",
+			sqlTableUsers, sqlTableFolders, sqlTableFoldersMapping, sqlTableAdmins, sqlTableAPIKeys,
+			sqlTableShares, sqlTableDefenderHosts, sqlTableDefenderEvents, sqlTableSchemaVersion)
 	}
 	return nil
 }
