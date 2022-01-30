@@ -155,6 +155,12 @@ func getPGSQLConnectionString(redactedPwd bool) string {
 		}
 		connectionString = fmt.Sprintf("host='%v' port=%v dbname='%v' user='%v' password='%v' sslmode=%v connect_timeout=10",
 			config.Host, config.Port, config.Name, config.Username, password, getSSLMode())
+		if config.RootCert != "" {
+			connectionString += fmt.Sprintf(" sslrootcert='%v'", config.RootCert)
+		}
+		if config.ClientCert != "" && config.ClientKey != "" {
+			connectionString += fmt.Sprintf(" sslcert='%v' sslkey='%v'", config.ClientCert, config.ClientKey)
+		}
 	} else {
 		connectionString = config.ConnectionString
 	}

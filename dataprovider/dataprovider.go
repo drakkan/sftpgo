@@ -252,6 +252,12 @@ type Config struct {
 	// 2 set ssl mode to verify-ca for driver postgresql and skip-verify for driver mysql.
 	// 3 set ssl mode to verify-full for driver postgresql and preferred for driver mysql.
 	SSLMode int `json:"sslmode" mapstructure:"sslmode"`
+	// Path to the root certificate authority used to verify that the server certificate was signed by a trusted CA
+	RootCert string `json:"root_cert" mapstructure:"root_cert"`
+	// Path to the client certificate for two-way TLS authentication
+	ClientCert string `json:"client_cert" mapstructure:"client_cert"`
+	// Path to the client key for two-way TLS authentication
+	ClientKey string `json:"client_key" mapstructure:"client_key"`
 	// Custom database connection string.
 	// If not empty this connection string will be used instead of build one using the previous parameters
 	ConnectionString string `json:"connection_string" mapstructure:"connection_string"`
@@ -390,6 +396,17 @@ func (c *Config) IsDefenderSupported() bool {
 	default:
 		return false
 	}
+}
+
+func (c *Config) requireCustomTLSForMySQL() bool {
+	if config.RootCert != "" && util.IsFileInputValid(config.RootCert) {
+		return config.SSLMode != 0
+	}
+	if config.ClientCert != "" && config.ClientKey != "" && util.IsFileInputValid(config.ClientCert) &&
+		util.IsFileInputValid(config.ClientKey) {
+		return config.SSLMode != 0
+	}
+	return false
 }
 
 // ActiveTransfer defines an active protocol transfer
@@ -2420,23 +2437,28 @@ func addFolderCredentialsToUser(user *User) error {
 
 func getSSLMode() string {
 	if config.Driver == PGSQLDataProviderName || config.Driver == CockroachDataProviderName {
-		if config.SSLMode == 0 {
+		switch config.SSLMode {
+		case 0:
 			return "disable"
-		} else if config.SSLMode == 1 {
+		case 1:
 			return "require"
-		} else if config.SSLMode == 2 {
+		case 2:
 			return "verify-ca"
-		} else if config.SSLMode == 3 {
+		case 3:
 			return "verify-full"
 		}
 	} else if config.Driver == MySQLDataProviderName {
-		if config.SSLMode == 0 {
+		if config.requireCustomTLSForMySQL() {
+			return "custom"
+		}
+		switch config.SSLMode {
+		case 0:
 			return "false"
-		} else if config.SSLMode == 1 {
+		case 1:
 			return "true"
-		} else if config.SSLMode == 2 {
+		case 2:
 			return "skip-verify"
-		} else if config.SSLMode == 3 {
+		case 3:
 			return "preferred"
 		}
 	}

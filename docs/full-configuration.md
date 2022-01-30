@@ -174,7 +174,10 @@ The configuration file contains the following sections:
   - `port`, integer. Database port. Leave empty for drivers `sqlite`, `bolt` and `memory`
   - `username`, string. Database user. Leave empty for drivers `sqlite`, `bolt` and `memory`
   - `password`, string. Database password. Leave empty for drivers `sqlite`, `bolt` and `memory`
-  - `sslmode`, integer. Used for drivers `mysql` and `postgresql`. 0 disable SSL/TLS connections, 1 require ssl, 2 set ssl mode to `verify-ca` for driver `postgresql` and `skip-verify` for driver `mysql`, 3 set ssl mode to `verify-full` for driver `postgresql` and `preferred` for driver `mysql`
+  - `sslmode`, integer. Used for drivers `mysql` and `postgresql`. 0 disable TLS connections, 1 require TLS, 2 set TLS mode to `verify-ca` for driver `postgresql` and `skip-verify` for driver `mysql`, 3 set TLS mode to `verify-full` for driver `postgresql` and `preferred` for driver `mysql`
+  - `root_cert`, string. Path to the root certificate authority used to verify that the server certificate was signed by a trusted CA
+  - `client_cert`, string. Path to the client certificate for two-way TLS authentication
+  - `client_key`,string. Path to the client key for two-way TLS authentication
   - `connection_string`, string. Provide a custom database connection string. If not empty, this connection string will be used instead of building one using the previous parameters. Leave empty for drivers `bolt` and `memory`
   - `sql_tables_prefix`, string. Prefix for SQL tables
   - `track_quota`, integer. Set the preferred mode to track users quota between the following choices:

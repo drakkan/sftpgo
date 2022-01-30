@@ -229,6 +229,9 @@ func Init() {
 			ConnectionString: "",
 			SQLTablesPrefix:  "",
 			SSLMode:          0,
+			RootCert:         "",
+			ClientCert:       "",
+			ClientKey:        "",
 			TrackQuota:       1,
 			PoolSize:         0,
 			UsersBaseDir:     "",
@@ -1276,6 +1279,9 @@ func setViperDefaults() {
 	viper.SetDefault("data_provider.username", globalConf.ProviderConf.Username)
 	viper.SetDefault("data_provider.password", globalConf.ProviderConf.Password)
 	viper.SetDefault("data_provider.sslmode", globalConf.ProviderConf.SSLMode)
+	viper.SetDefault("data_provider.root_cert", globalConf.ProviderConf.RootCert)
+	viper.SetDefault("data_provider.client_cert", globalConf.ProviderConf.ClientCert)
+	viper.SetDefault("data_provider.client_key", globalConf.ProviderConf.ClientKey)
 	viper.SetDefault("data_provider.connection_string", globalConf.ProviderConf.ConnectionString)
 	viper.SetDefault("data_provider.sql_tables_prefix", globalConf.ProviderConf.SQLTablesPrefix)
 	viper.SetDefault("data_provider.track_quota", globalConf.ProviderConf.TrackQuota)
