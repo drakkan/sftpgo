@@ -461,6 +461,11 @@ type TransferQuota struct {
 	AllowedTotalSize int64
 }
 
+// HasSizeLimits returns true if any size limit is set
+func (q *TransferQuota) HasSizeLimits() bool {
+	return q.AllowedDLSize > 0 || q.AllowedULSize > 0 || q.AllowedTotalSize > 0
+}
+
 // HasUploadSpace returns true if there is transfer upload space available
 func (q *TransferQuota) HasUploadSpace() bool {
 	if q.TotalSize <= 0 && q.ULSize <= 0 {

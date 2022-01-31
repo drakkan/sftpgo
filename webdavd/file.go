@@ -233,6 +233,15 @@ func (f *webDavFile) updateStatInfo() error {
 	return nil
 }
 
+func (f *webDavFile) updateTransferQuotaOnSeek() {
+	transferQuota := f.GetTransferQuota()
+	if transferQuota.HasSizeLimits() {
+		go func(ulSize, dlSize int64, user dataprovider.User) {
+			dataprovider.UpdateUserTransferQuota(&user, ulSize, dlSize, false) //nolint:errcheck
+		}(atomic.LoadInt64(&f.BytesReceived), atomic.LoadInt64(&f.BytesSent), f.Connection.User)
+	}
+}
+
 // Seek sets the offset for the next Read or Write on the writer to offset,
 // interpreted according to whence: 0 means relative to the origin of the file,
 // 1 means relative to the current offset, and 2 means relative to the end.
@@ -267,9 +276,7 @@ func (f *webDavFile) Seek(offset int64, whence int) (int64, error) {
 		startByte := int64(0)
 		atomic.StoreInt64(&f.BytesReceived, 0)
 		atomic.StoreInt64(&f.BytesSent, 0)
-		go func(ulSize, dlSize int64, user dataprovider.User) {
-			dataprovider.UpdateUserTransferQuota(&user, ulSize, dlSize, false) //nolint:errcheck
-		}(atomic.LoadInt64(&f.BytesReceived), atomic.LoadInt64(&f.BytesSent), f.Connection.User)
+		f.updateTransferQuotaOnSeek()
 
 		switch whence {
 		case io.SeekStart:

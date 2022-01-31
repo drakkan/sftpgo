@@ -1002,6 +1002,12 @@ func TestVirtualFoldersQuotaRenameOverwrite(t *testing.T) {
 func TestQuotaRenameOverwrite(t *testing.T) {
 	u := getTestUser()
 	u.QuotaFiles = 100
+	u.Filters.DataTransferLimits = []sdk.DataTransferLimit{
+		{
+			Sources:           []string{"10.8.0.0/8"},
+			TotalDataTransfer: 1,
+		},
+	}
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	conn, client, err := getSftpClient(user)
@@ -1013,16 +1019,28 @@ func TestQuotaRenameOverwrite(t *testing.T) {
 		testFileName1 := "test_file1.dat"
 		err = writeSFTPFile(testFileName, testFileSize, client)
 		assert.NoError(t, err)
+		f, err := client.Open(testFileName)
+		assert.NoError(t, err)
+		contents := make([]byte, testFileSize)
+		n, err := io.ReadFull(f, contents)
+		assert.NoError(t, err)
+		assert.Equal(t, int(testFileSize), n)
+		err = f.Close()
+		assert.NoError(t, err)
 		err = writeSFTPFile(testFileName1, testFileSize1, client)
 		assert.NoError(t, err)
 		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
+		assert.Equal(t, int64(0), user.UsedDownloadDataTransfer)
+		assert.Equal(t, int64(0), user.UsedUploadDataTransfer)
 		assert.Equal(t, 2, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize+testFileSize1, user.UsedQuotaSize)
 		err = client.Rename(testFileName, testFileName1)
 		assert.NoError(t, err)
 		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
+		assert.Equal(t, int64(0), user.UsedDownloadDataTransfer)
+		assert.Equal(t, int64(0), user.UsedUploadDataTransfer)
 		assert.Equal(t, 1, user.UsedQuotaFiles)
 		assert.Equal(t, testFileSize, user.UsedQuotaSize)
 		err = client.Remove(testFileName1)

@@ -153,8 +153,7 @@ func (t *BaseTransfer) HasSizeLimit() bool {
 	if t.MaxWriteSize > 0 {
 		return true
 	}
-	if t.transferQuota.AllowedDLSize > 0 || t.transferQuota.AllowedULSize > 0 ||
-		t.transferQuota.AllowedTotalSize > 0 {
+	if t.transferQuota.HasSizeLimits() {
 		return true
 	}
 
@@ -249,10 +248,11 @@ func (t *BaseTransfer) Truncate(fsPath string, size int64) (int64, error) {
 					sizeDiff := initialSize - size
 					t.MaxWriteSize += sizeDiff
 					metric.TransferCompleted(atomic.LoadInt64(&t.BytesSent), atomic.LoadInt64(&t.BytesReceived), t.transferType, t.ErrTransfer)
-					go func(ulSize, dlSize int64, user dataprovider.User) {
-						dataprovider.UpdateUserTransferQuota(&user, ulSize, dlSize, false) //nolint:errcheck
-					}(atomic.LoadInt64(&t.BytesReceived), atomic.LoadInt64(&t.BytesSent), t.Connection.User)
-
+					if t.transferQuota.HasSizeLimits() {
+						go func(ulSize, dlSize int64, user dataprovider.User) {
+							dataprovider.UpdateUserTransferQuota(&user, ulSize, dlSize, false) //nolint:errcheck
+						}(atomic.LoadInt64(&t.BytesReceived), atomic.LoadInt64(&t.BytesSent), t.Connection.User)
+					}
 					atomic.StoreInt64(&t.BytesReceived, 0)
 				}
 				t.Unlock()
@@ -321,8 +321,10 @@ func (t *BaseTransfer) Close() error {
 	}
 	metric.TransferCompleted(atomic.LoadInt64(&t.BytesSent), atomic.LoadInt64(&t.BytesReceived),
 		t.transferType, t.ErrTransfer)
-	dataprovider.UpdateUserTransferQuota(&t.Connection.User, atomic.LoadInt64(&t.BytesReceived), //nolint:errcheck
-		atomic.LoadInt64(&t.BytesSent), false)
+	if t.transferQuota.HasSizeLimits() {
+		dataprovider.UpdateUserTransferQuota(&t.Connection.User, atomic.LoadInt64(&t.BytesReceived), //nolint:errcheck
+			atomic.LoadInt64(&t.BytesSent), false)
+	}
 	if t.File != nil && t.Connection.IsQuotaExceededError(t.ErrTransfer) {
 		// if quota is exceeded we try to remove the partial file for uploads to local filesystem
 		err = t.Fs.Remove(t.File.Name(), false)

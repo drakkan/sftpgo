@@ -841,7 +841,7 @@ func TestTransferSeek(t *testing.T) {
 	testFilePath := filepath.Join(user.HomeDir, testFile)
 	testFileContents := []byte("content")
 	baseTransfer := common.NewBaseTransfer(nil, connection.BaseConnection, nil, testFilePath, testFilePath, testFile,
-		common.TransferUpload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{})
+		common.TransferUpload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{AllowedTotalSize: 100})
 	davFile := newWebDavFile(baseTransfer, nil, nil)
 	_, err := davFile.Seek(0, io.SeekStart)
 	assert.EqualError(t, err, common.ErrOpUnsupported.Error())
@@ -849,7 +849,7 @@ func TestTransferSeek(t *testing.T) {
 	assert.NoError(t, err)
 
 	baseTransfer = common.NewBaseTransfer(nil, connection.BaseConnection, nil, testFilePath, testFilePath, testFile,
-		common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{})
+		common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{AllowedTotalSize: 100})
 	davFile = newWebDavFile(baseTransfer, nil, nil)
 	_, err = davFile.Seek(0, io.SeekCurrent)
 	assert.True(t, os.IsNotExist(err))
@@ -863,14 +863,14 @@ func TestTransferSeek(t *testing.T) {
 		assert.NoError(t, err)
 	}
 	baseTransfer = common.NewBaseTransfer(f, connection.BaseConnection, nil, testFilePath, testFilePath, testFile,
-		common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{})
+		common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{AllowedTotalSize: 100})
 	davFile = newWebDavFile(baseTransfer, nil, nil)
 	_, err = davFile.Seek(0, io.SeekStart)
 	assert.Error(t, err)
 	davFile.Connection.RemoveTransfer(davFile.BaseTransfer)
 
 	baseTransfer = common.NewBaseTransfer(nil, connection.BaseConnection, nil, testFilePath, testFilePath, testFile,
-		common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{})
+		common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{AllowedTotalSize: 100})
 	davFile = newWebDavFile(baseTransfer, nil, nil)
 	res, err := davFile.Seek(0, io.SeekStart)
 	assert.NoError(t, err)
@@ -885,14 +885,14 @@ func TestTransferSeek(t *testing.T) {
 	assert.Nil(t, err)
 
 	baseTransfer = common.NewBaseTransfer(nil, connection.BaseConnection, nil, testFilePath+"1", testFilePath+"1", testFile,
-		common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{})
+		common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{AllowedTotalSize: 100})
 	davFile = newWebDavFile(baseTransfer, nil, nil)
 	_, err = davFile.Seek(0, io.SeekEnd)
 	assert.True(t, os.IsNotExist(err))
 	davFile.Connection.RemoveTransfer(davFile.BaseTransfer)
 
 	baseTransfer = common.NewBaseTransfer(nil, connection.BaseConnection, nil, testFilePath, testFilePath, testFile,
-		common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{})
+		common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{AllowedTotalSize: 100})
 	davFile = newWebDavFile(baseTransfer, nil, nil)
 	davFile.reader = f
 	davFile.Fs = newMockOsFs(nil, true, fs.ConnectionID(), user.GetHomeDir(), nil)
@@ -907,7 +907,7 @@ func TestTransferSeek(t *testing.T) {
 	assert.Equal(t, int64(5), res)
 
 	baseTransfer = common.NewBaseTransfer(nil, connection.BaseConnection, nil, testFilePath+"1", testFilePath+"1", testFile,
-		common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{})
+		common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{AllowedTotalSize: 100})
 
 	davFile = newWebDavFile(baseTransfer, nil, nil)
 	davFile.Fs = newMockOsFs(nil, true, fs.ConnectionID(), user.GetHomeDir(), nil)
