@@ -1,5 +1,5 @@
-//go:build linux
-// +build linux
+//go:build linux && !nojournald
+// +build linux,!nojournald
 
 package logger
 

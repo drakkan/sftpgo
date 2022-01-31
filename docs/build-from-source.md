@@ -8,6 +8,7 @@ The following build tags are available:
 - `nos3`, disable S3 Compabible Object Storage backends, default enabled
 - `noazblob`, disable Azure Blob Storage backend, default enabled
 - `nobolt`, disable Bolt data provider, default enabled
+- `nojournald`, disable journald logger, default enabled
 - `nomysql`, disable MySQL data provider, default enabled
 - `nopgsql`, disable PostgreSQL data provider, default enabled
 - `nosqlite`, disable SQLite data provider, default enabled
