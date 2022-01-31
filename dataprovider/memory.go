@@ -1536,8 +1536,9 @@ func (p *MemoryProvider) restoreAPIKeys(dump *BackupData) error {
 
 func (p *MemoryProvider) restoreAdmins(dump *BackupData) error {
 	for _, admin := range dump.Admins {
-		a, err := p.adminExists(admin.Username)
 		admin := admin // pin
+		admin.Username = config.convertName(admin.Username)
+		a, err := p.adminExists(admin.Username)
 		if err == nil {
 			admin.ID = a.ID
 			err = UpdateAdmin(&admin, ActionExecutorSystem, "")
@@ -1559,6 +1560,7 @@ func (p *MemoryProvider) restoreAdmins(dump *BackupData) error {
 func (p *MemoryProvider) restoreFolders(dump *BackupData) error {
 	for _, folder := range dump.Folders {
 		folder := folder // pin
+		folder.Name = config.convertName(folder.Name)
 		f, err := p.getFolderByName(folder.Name)
 		if err == nil {
 			folder.ID = f.ID
@@ -1582,6 +1584,7 @@ func (p *MemoryProvider) restoreFolders(dump *BackupData) error {
 func (p *MemoryProvider) restoreUsers(dump *BackupData) error {
 	for _, user := range dump.Users {
 		user := user // pin
+		user.Username = config.convertName(user.Username)
 		u, err := p.userExists(user.Username)
 		if err == nil {
 			user.ID = u.ID

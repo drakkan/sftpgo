@@ -349,10 +349,6 @@ type Config struct {
 	// Cloud Storage) should be stored in the database instead of in the directory specified by
 	// CredentialsPath.
 	PreferDatabaseCredentials bool `json:"prefer_database_credentials" mapstructure:"prefer_database_credentials"`
-	// SkipNaturalKeysValidation allows to use any UTF-8 character for natural keys as username, admin name,
-	// folder name. These keys are used in URIs for REST API and Web admin. By default only unreserved URI
-	// characters are allowed: ALPHA / DIGIT / "-" / "." / "_" / "~".
-	SkipNaturalKeysValidation bool `json:"skip_natural_keys_validation" mapstructure:"skip_natural_keys_validation"`
 	// PasswordValidation defines the password validation rules
 	PasswordValidation PasswordValidation `json:"password_validation" mapstructure:"password_validation"`
 	// Verifying argon2 passwords has a high memory and computational cost,
@@ -370,6 +366,18 @@ type Config struct {
 	// on first start.
 	// You can also create the first admin user by using the web interface or by loading initial data.
 	CreateDefaultAdmin bool `json:"create_default_admin" mapstructure:"create_default_admin"`
+	// Rules for usernames and folder names:
+	// - 0 means no rules
+	// - 1 means you can use any UTF-8 character. The names are used in URIs for REST API and Web admin.
+	//     By default only unreserved URI characters are allowed: ALPHA / DIGIT / "-" / "." / "_" / "~".
+	// - 2 means names are converted to lowercase before saving/matching and so case
+	//     insensitive matching is possible
+	// - 4 means trimming trailing and leading white spaces before saving/matching
+	// Rules can be combined, for example 3 means both converting to lowercase and allowing any UTF-8 character.
+	// Enabling these options for existing installations could be backward incompatible, some users
+	// could be unable to login, for example existing users with mixed cases in their usernames.
+	// You have to ensure that all existing users respect the defined rules.
+	NamingRules int `json:"naming_rules" mapstructure:"naming_rules"`
 	// If the data provider is shared across multiple SFTPGo instances, set this parameter to 1.
 	// MySQL, PostgreSQL and CockroachDB can be shared, this setting is ignored for other data
 	// providers. For shared data providers, SFTPGo periodically reloads the latest updated users,
@@ -386,6 +394,20 @@ func (c *Config) GetShared() int {
 		return 0
 	}
 	return c.IsShared
+}
+
+func (c *Config) convertName(name string) string {
+	if c.NamingRules == 0 {
+		return name
+	}
+	if c.NamingRules&2 != 0 {
+		name = strings.ToLower(name)
+	}
+	if c.NamingRules&4 != 0 {
+		name = strings.TrimSpace(name)
+	}
+
+	return name
 }
 
 // IsDefenderSupported returns true if the configured provider supports the defender
@@ -407,6 +429,11 @@ func (c *Config) requireCustomTLSForMySQL() bool {
 		return config.SSLMode != 0
 	}
 	return false
+}
+
+// ConvertName converts the given name based on the configured rules
+func ConvertName(name string) string {
+	return config.convertName(name)
 }
 
 // ActiveTransfer defines an active protocol transfer
@@ -823,6 +850,7 @@ func ResetDatabase(cnf Config, basePath string) error {
 
 // CheckAdminAndPass validates the given admin and password connecting from ip
 func CheckAdminAndPass(username, password, ip string) (Admin, error) {
+	username = config.convertName(username)
 	return provider.validateAdminAndPass(username, password, ip)
 }
 
@@ -861,6 +889,7 @@ func CheckCachedUserCredentials(user *CachedUser, password, loginMethod, protoco
 // CheckCompositeCredentials checks multiple credentials.
 // WebDAV users can send both a password and a TLS certificate within the same request
 func CheckCompositeCredentials(username, password, ip, loginMethod, protocol string, tlsCert *x509.Certificate) (User, string, error) {
+	username = config.convertName(username)
 	if loginMethod == LoginMethodPassword {
 		user, err := CheckUserAndPass(username, password, ip, protocol)
 		return user, loginMethod, err
@@ -900,6 +929,7 @@ func CheckCompositeCredentials(username, password, ip, loginMethod, protocol str
 
 // CheckUserBeforeTLSAuth checks if a user exits before trying mutual TLS
 func CheckUserBeforeTLSAuth(username, ip, protocol string, tlsCert *x509.Certificate) (User, error) {
+	username = config.convertName(username)
 	if plugin.Handler.HasAuthScope(plugin.AuthScopeTLSCertificate) {
 		return doPluginAuth(username, "", nil, ip, protocol, tlsCert, plugin.AuthScopeTLSCertificate)
 	}
@@ -915,6 +945,7 @@ func CheckUserBeforeTLSAuth(username, ip, protocol string, tlsCert *x509.Certifi
 // CheckUserAndTLSCert returns the SFTPGo user with the given username and check if the
 // given TLS certificate allow authentication without password
 func CheckUserAndTLSCert(username, ip, protocol string, tlsCert *x509.Certificate) (User, error) {
+	username = config.convertName(username)
 	if plugin.Handler.HasAuthScope(plugin.AuthScopeTLSCertificate) {
 		user, err := doPluginAuth(username, "", nil, ip, protocol, tlsCert, plugin.AuthScopeTLSCertificate)
 		if err != nil {
@@ -941,6 +972,7 @@ func CheckUserAndTLSCert(username, ip, protocol string, tlsCert *x509.Certificat
 
 // CheckUserAndPass retrieves the SFTPGo user with the given username and password if a match is found or an error
 func CheckUserAndPass(username, password, ip, protocol string) (User, error) {
+	username = config.convertName(username)
 	if plugin.Handler.HasAuthScope(plugin.AuthScopePassword) {
 		user, err := doPluginAuth(username, password, nil, ip, protocol, nil, plugin.AuthScopePassword)
 		if err != nil {
@@ -967,6 +999,7 @@ func CheckUserAndPass(username, password, ip, protocol string) (User, error) {
 
 // CheckUserAndPubKey retrieves the SFTP user with the given username and public key if a match is found or an error
 func CheckUserAndPubKey(username string, pubKey []byte, ip, protocol string) (User, string, error) {
+	username = config.convertName(username)
 	if plugin.Handler.HasAuthScope(plugin.AuthScopePublicKey) {
 		user, err := doPluginAuth(username, "", pubKey, ip, protocol, nil, plugin.AuthScopePublicKey)
 		if err != nil {
@@ -996,6 +1029,7 @@ func CheckUserAndPubKey(username string, pubKey []byte, ip, protocol string) (Us
 func CheckKeyboardInteractiveAuth(username, authHook string, client ssh.KeyboardInteractiveChallenge, ip, protocol string) (User, error) {
 	var user User
 	var err error
+	username = config.convertName(username)
 	if plugin.Handler.HasAuthScope(plugin.AuthScopeKeyboardInteractive) {
 		user, err = doPluginAuth(username, "", nil, ip, protocol, nil, plugin.AuthScopeKeyboardInteractive)
 	} else if config.ExternalAuthHook != "" && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&4 != 0) {
@@ -1271,6 +1305,7 @@ func AddAdmin(admin *Admin, executor, ipAddress string) error {
 	admin.Filters.TOTPConfig = AdminTOTPConfig{
 		Enabled: false,
 	}
+	admin.Username = config.convertName(admin.Username)
 	err := provider.addAdmin(admin)
 	if err == nil {
 		atomic.StoreInt32(&isAdminCreated, 1)
@@ -1290,6 +1325,7 @@ func UpdateAdmin(admin *Admin, executor, ipAddress string) error {
 
 // DeleteAdmin deletes an existing SFTPGo admin
 func DeleteAdmin(username, executor, ipAddress string) error {
+	username = config.convertName(username)
 	admin, err := provider.adminExists(username)
 	if err != nil {
 		return err
@@ -1303,11 +1339,13 @@ func DeleteAdmin(username, executor, ipAddress string) error {
 
 // AdminExists returns the admin with the given username if it exists
 func AdminExists(username string) (Admin, error) {
+	username = config.convertName(username)
 	return provider.adminExists(username)
 }
 
 // UserExists checks if the given SFTPGo username exists, returns an error if no match is found
 func UserExists(username string) (User, error) {
+	username = config.convertName(username)
 	return provider.userExists(username)
 }
 
@@ -1317,6 +1355,7 @@ func AddUser(user *User, executor, ipAddress string) error {
 	user.Filters.TOTPConfig = UserTOTPConfig{
 		Enabled: false,
 	}
+	user.Username = config.convertName(user.Username)
 	err := provider.addUser(user)
 	if err == nil {
 		executeAction(operationAdd, executor, ipAddress, actionObjectUser, user.Username, user)
@@ -1337,6 +1376,7 @@ func UpdateUser(user *User, executor, ipAddress string) error {
 
 // DeleteUser deletes an existing SFTPGo user.
 func DeleteUser(username, executor, ipAddress string) error {
+	username = config.convertName(username)
 	user, err := provider.userExists(username)
 	if err != nil {
 		return err
@@ -1425,6 +1465,7 @@ func GetUsersForQuotaCheck(toFetch map[string]bool) ([]User, error) {
 
 // AddFolder adds a new virtual folder.
 func AddFolder(folder *vfs.BaseVirtualFolder) error {
+	folder.Name = config.convertName(folder.Name)
 	return provider.addFolder(folder)
 }
 
@@ -1448,6 +1489,7 @@ func UpdateFolder(folder *vfs.BaseVirtualFolder, users []string, executor, ipAdd
 
 // DeleteFolder deletes an existing folder.
 func DeleteFolder(folderName, executor, ipAddress string) error {
+	folderName = config.convertName(folderName)
 	folder, err := provider.getFolderByName(folderName)
 	if err != nil {
 		return err
@@ -1469,6 +1511,7 @@ func DeleteFolder(folderName, executor, ipAddress string) error {
 
 // GetFolderByName returns the folder with the specified name if any
 func GetFolderByName(name string) (vfs.BaseVirtualFolder, error) {
+	name = config.convertName(name)
 	return provider.getFolderByName(name)
 }
 
@@ -2049,7 +2092,7 @@ func validateBaseParams(user *User) error {
 	if user.Email != "" && !emailRegex.MatchString(user.Email) {
 		return util.NewValidationError(fmt.Sprintf("email %#v is not valid", user.Email))
 	}
-	if !config.SkipNaturalKeysValidation && !usernameRegex.MatchString(user.Username) {
+	if config.NamingRules&1 == 0 && !usernameRegex.MatchString(user.Username) {
 		return util.NewValidationError(fmt.Sprintf("username %#v is not valid, the following characters are allowed: a-zA-Z0-9-_.~",
 			user.Username))
 	}
@@ -2107,7 +2150,7 @@ func ValidateFolder(folder *vfs.BaseVirtualFolder) error {
 	if folder.Name == "" {
 		return util.NewValidationError("folder name is mandatory")
 	}
-	if !config.SkipNaturalKeysValidation && !usernameRegex.MatchString(folder.Name) {
+	if config.NamingRules&1 == 0 && !usernameRegex.MatchString(folder.Name) {
 		return util.NewValidationError(fmt.Sprintf("folder name %#v is not valid, the following characters are allowed: a-zA-Z0-9-_.~",
 			folder.Name))
 	}

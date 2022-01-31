@@ -123,6 +123,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	userID := user.ID
+	username = user.Username
 	totpConfig := user.Filters.TOTPConfig
 	recoveryCodes := user.Filters.RecoveryCodes
 	currentPermissions := user.Permissions
@@ -184,7 +185,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sendAPIResponse(w, r, err, "User deleted", http.StatusOK)
-	disconnectUser(username)
+	disconnectUser(dataprovider.ConvertName(username))
 }
 
 func forgotUserPassword(w http.ResponseWriter, r *http.Request) {

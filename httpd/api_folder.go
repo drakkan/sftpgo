@@ -58,6 +58,7 @@ func updateFolder(w http.ResponseWriter, r *http.Request) {
 	}
 	users := folder.Users
 	folderID := folder.ID
+	name = folder.Name
 	currentS3AccessSecret := folder.FsConfig.S3Config.AccessSecret
 	currentAzAccountKey := folder.FsConfig.AzBlobConfig.AccountKey
 	currentAzSASUrl := folder.FsConfig.AzBlobConfig.SASURL

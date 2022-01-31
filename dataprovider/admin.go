@@ -209,7 +209,7 @@ func (a *Admin) validate() error {
 	if err := a.validateRecoveryCodes(); err != nil {
 		return err
 	}
-	if !config.SkipNaturalKeysValidation && !usernameRegex.MatchString(a.Username) {
+	if config.NamingRules&1 == 0 && !usernameRegex.MatchString(a.Username) {
 		return util.NewValidationError(fmt.Sprintf("username %#v is not valid, the following characters are allowed: a-zA-Z0-9-_.~", a.Username))
 	}
 	if err := a.hashPassword(); err != nil {

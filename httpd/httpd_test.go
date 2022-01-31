@@ -3753,7 +3753,7 @@ func TestCloseConnectionAfterUserUpdateDelete(t *testing.T) {
 	assert.Len(t, common.Connections.GetStats(), 0)
 }
 
-func TestSkipNaturalKeysValidation(t *testing.T) {
+func TestNamingRules(t *testing.T) {
 	smtpCfg := smtp.Config{
 		Host:          "127.0.0.1",
 		Port:          3525,
@@ -3766,44 +3766,56 @@ func TestSkipNaturalKeysValidation(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
-	providerConf.SkipNaturalKeysValidation = true
+	providerConf.NamingRules = 7
 	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
 
 	u := getTestUser()
-	u.Username = "user@user.me"
-	u.Email = u.Username
+	u.Username = " uSeR@user.me "
+	u.Email = dataprovider.ConvertName(u.Username)
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
+	assert.Equal(t, "user@user.me", user.Username)
+	user.Username = u.Username
 	user.AdditionalInfo = "info"
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
-	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	user, _, err = httpdtest.GetUserByUsername(u.Username, http.StatusOK)
 	assert.NoError(t, err)
 
 	a := getTestAdmin()
-	a.Username = "admin@example.com"
+	a.Username = "admiN@example.com "
 	admin, _, err := httpdtest.AddAdmin(a, http.StatusCreated)
 	assert.NoError(t, err)
-	admin.Email = admin.Username
+	assert.Equal(t, "admin@example.com", admin.Username)
+	admin.Email = dataprovider.ConvertName(a.Username)
+	admin.Username = a.Username
 	admin, _, err = httpdtest.UpdateAdmin(admin, http.StatusOK)
 	assert.NoError(t, err)
-	admin, _, err = httpdtest.GetAdminByUsername(admin.Username, http.StatusOK)
+	admin, _, err = httpdtest.GetAdminByUsername(a.Username, http.StatusOK)
 	assert.NoError(t, err)
 
 	f := vfs.BaseVirtualFolder{
-		Name:       "文件夹",
+		Name:       "文件夹AB",
 		MappedPath: filepath.Clean(os.TempDir()),
 	}
 	folder, resp, err := httpdtest.AddFolder(f, http.StatusCreated)
 	assert.NoError(t, err, string(resp))
+	assert.Equal(t, "文件夹ab", folder.Name)
+	folder.Name = f.Name
 	folder.Description = folder.Name
 	folder, resp, err = httpdtest.UpdateFolder(folder, http.StatusOK)
 	assert.NoError(t, err, string(resp))
-	folder, resp, err = httpdtest.GetFolderByName(folder.Name, http.StatusOK)
+	folder, resp, err = httpdtest.GetFolderByName(f.Name, http.StatusOK)
 	assert.NoError(t, err, string(resp))
-	_, err = httpdtest.RemoveFolder(folder, http.StatusOK)
+	_, err = httpdtest.RemoveFolder(f, http.StatusOK)
 	assert.NoError(t, err)
+	token, err := getJWTWebClientTokenFromTestServer(u.Username, defaultPassword)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, token)
+	adminAPIToken, err := getJWTAPITokenFromTestServer(a.Username, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, adminAPIToken)
 
 	err = dataprovider.Close()
 	assert.NoError(t, err)
@@ -3821,7 +3833,7 @@ func TestSkipNaturalKeysValidation(t *testing.T) {
 
 	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
 	assert.NoError(t, err)
-	token, err := getJWTWebClientTokenFromTestServer(user.Username, defaultPassword)
+	token, err = getJWTWebClientTokenFromTestServer(user.Username, defaultPassword)
 	assert.NoError(t, err)
 	form := make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
@@ -3854,7 +3866,7 @@ func TestSkipNaturalKeysValidation(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), "Unable to set the new password")
 
-	adminAPIToken, err := getJWTAPITokenFromTestServer(admin.Username, defaultTokenAuthPass)
+	adminAPIToken, err = getJWTAPITokenFromTestServer(admin.Username, defaultTokenAuthPass)
 	assert.NoError(t, err)
 	userAPIToken, err := getJWTAPIUserTokenFromTestServer(user.Username, defaultPassword)
 	assert.NoError(t, err)
@@ -3961,7 +3973,7 @@ func TestSaveErrors(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
-	providerConf.SkipNaturalKeysValidation = true
+	providerConf.NamingRules = 1
 	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
 

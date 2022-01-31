@@ -1053,7 +1053,7 @@ func checkFolder(expected *vfs.BaseVirtualFolder, actual *vfs.BaseVirtualFolder)
 			return errors.New("folder ID mismatch")
 		}
 	}
-	if expected.Name != actual.Name {
+	if dataprovider.ConvertName(expected.Name) != actual.Name {
 		return errors.New("name mismatch")
 	}
 	if expected.MappedPath != actual.MappedPath {
@@ -1145,7 +1145,7 @@ func checkAdmin(expected, actual *dataprovider.Admin) error {
 }
 
 func compareAdminEqualFields(expected *dataprovider.Admin, actual *dataprovider.Admin) error {
-	if expected.Username != actual.Username {
+	if dataprovider.ConvertName(expected.Username) != actual.Username {
 		return errors.New("sername mismatch")
 	}
 	if expected.Email != actual.Email {
@@ -1605,7 +1605,7 @@ func compareUserFilePatternsFilters(expected *dataprovider.User, actual *datapro
 }
 
 func compareEqualsUserFields(expected *dataprovider.User, actual *dataprovider.User) error {
-	if expected.Username != actual.Username {
+	if dataprovider.ConvertName(expected.Username) != actual.Username {
 		return errors.New("username mismatch")
 	}
 	if expected.HomeDir != actual.HomeDir {

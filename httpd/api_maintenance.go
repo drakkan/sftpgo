@@ -228,6 +228,7 @@ func RestoreFolders(folders []vfs.BaseVirtualFolder, inputFile string, mode, sca
 				continue
 			}
 			folder.ID = f.ID
+			folder.Name = f.Name
 			err = dataprovider.UpdateFolder(&folder, f.Users, executor, ipAddress)
 			logger.Debug(logSender, "", "restoring existing folder: %+v, dump file: %#v, error: %v", folder, inputFile, err)
 		} else {
@@ -318,6 +319,7 @@ func RestoreAdmins(admins []dataprovider.Admin, inputFile string, mode int, exec
 				continue
 			}
 			admin.ID = a.ID
+			admin.Username = a.Username
 			err = dataprovider.UpdateAdmin(&admin, executor, ipAddress)
 			admin.Password = redactedSecret
 			logger.Debug(logSender, "", "restoring existing admin: %+v, dump file: %#v, error: %v", admin, inputFile, err)
@@ -345,6 +347,7 @@ func RestoreUsers(users []dataprovider.User, inputFile string, mode, scanQuota i
 				continue
 			}
 			user.ID = u.ID
+			user.Username = u.Username
 			err = dataprovider.UpdateUser(&user, executor, ipAddress)
 			user.Password = redactedSecret
 			logger.Debug(logSender, "", "restoring existing user: %+v, dump file: %#v, error: %v", user, inputFile, err)

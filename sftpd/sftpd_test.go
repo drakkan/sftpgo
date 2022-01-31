@@ -2398,6 +2398,49 @@ func TestInteractiveLoginWithPasscode(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestNamingRules(t *testing.T) {
+	err := dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf := config.GetProviderConf()
+	providerConf.NamingRules = 7
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	u.Username = "useR@user.com "
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	assert.Equal(t, "user@user.com", user.Username)
+	conn, client, err := getSftpClient(u, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		assert.NoError(t, checkBasicSFTP(client))
+	}
+	u.Password = defaultPassword
+	_, _, err = httpdtest.UpdateUser(u, http.StatusOK, "")
+	assert.NoError(t, err)
+	conn, client, err = getSftpClient(u, false)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		assert.NoError(t, checkBasicSFTP(client))
+	}
+	_, err = httpdtest.RemoveUser(u, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(u.GetHomeDir())
+	assert.NoError(t, err)
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf = config.GetProviderConf()
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+}
+
 func TestPreLoginScript(t *testing.T) {
 	if runtime.GOOS == osWindows {
 		t.Skip("this test is not available on Windows")

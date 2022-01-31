@@ -270,9 +270,9 @@ func Init() {
 			PasswordCaching:           true,
 			UpdateMode:                0,
 			PreferDatabaseCredentials: false,
-			SkipNaturalKeysValidation: false,
 			DelayedQuotaUpdate:        0,
 			CreateDefaultAdmin:        false,
+			NamingRules:               0,
 			IsShared:                  0,
 		},
 		HTTPDConfig: httpd.Conf{
@@ -1308,9 +1308,9 @@ func setViperDefaults() {
 	viper.SetDefault("data_provider.password_validation.users.min_entropy", globalConf.ProviderConf.PasswordValidation.Users.MinEntropy)
 	viper.SetDefault("data_provider.password_caching", globalConf.ProviderConf.PasswordCaching)
 	viper.SetDefault("data_provider.update_mode", globalConf.ProviderConf.UpdateMode)
-	viper.SetDefault("data_provider.skip_natural_keys_validation", globalConf.ProviderConf.SkipNaturalKeysValidation)
 	viper.SetDefault("data_provider.delayed_quota_update", globalConf.ProviderConf.DelayedQuotaUpdate)
 	viper.SetDefault("data_provider.create_default_admin", globalConf.ProviderConf.CreateDefaultAdmin)
+	viper.SetDefault("data_provider.naming_rules", globalConf.ProviderConf.NamingRules)
 	viper.SetDefault("data_provider.is_shared", globalConf.ProviderConf.IsShared)
 	viper.SetDefault("httpd.templates_path", globalConf.HTTPDConfig.TemplatesPath)
 	viper.SetDefault("httpd.static_files_path", globalConf.HTTPDConfig.StaticFilesPath)

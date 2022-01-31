@@ -199,8 +199,8 @@
     },
     "password_caching": true,
     "update_mode": 0,
-    "skip_natural_keys_validation": false,
     "create_default_admin": false,
+    "naming_rules": 0,
     "is_shared": 0
   },
   "httpd": {

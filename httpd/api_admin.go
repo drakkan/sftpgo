@@ -103,6 +103,7 @@ func updateAdmin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	adminID := admin.ID
+	username = admin.Username
 	totpConfig := admin.Filters.TOTPConfig
 	recoveryCodes := admin.Filters.RecoveryCodes
 	admin.Filters.TOTPConfig = dataprovider.AdminTOTPConfig{}
