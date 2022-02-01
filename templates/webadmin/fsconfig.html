@@ -123,6 +123,16 @@
         </div>
 
         <div class="form-group row fsconfig fsconfig-s3fs">
+            <label for="idS3UploadTimeout" class="col-sm-2 col-form-label">UL Part Timeout (secs)</label>
+            <div class="col-sm-3">
+                <input type="number" class="form-control" id="idS3UploadTimeout" name="s3_upload_part_max_time"
+                    placeholder="" value="{{.S3Config.UploadPartMaxTime}}" min="0"
+                    aria-describedby="S3UploadTimeoutHelpBlock">
+                <small id="S3UploadTimeoutHelpBlock" class="form-text text-muted">
+                    Max time limit, in seconds, to upload a single part. 0 means no limit
+                </small>
+            </div>
+            <div class="col-sm-2"></div>
             <label for="idS3DownloadTimeout" class="col-sm-2 col-form-label">DL Part Timeout (secs)</label>
             <div class="col-sm-3">
                 <input type="number" class="form-control" id="idS3DownloadTimeout" name="s3_download_part_max_time"
@@ -132,9 +142,11 @@
                     Max time limit, in seconds, to download a single part. 0 means no limit
                 </small>
             </div>
-            <div class="col-sm-2"></div>
+        </div>
+
+        <div class="form-group row fsconfig fsconfig-s3fs">
             <label for="idS3ACL" class="col-sm-2 col-form-label">ACL</label>
-            <div class="col-sm-3">
+            <div class="col-sm-10">
                 <input type="text" class="form-control" id="idS3ACL" name="s3_acl" placeholder=""
                     value="{{.S3Config.ACL}}" maxlength="255" aria-describedby="S3ACLHelpBlock">
                 <small id="S3ACLHelpBlock" class="form-text text-muted">

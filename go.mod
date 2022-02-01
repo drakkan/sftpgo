@@ -39,7 +39,7 @@ require (
 	github.com/rs/cors v1.8.2
 	github.com/rs/xid v1.3.0
 	github.com/rs/zerolog v1.26.2-0.20211219225053-665519c4da50
-	github.com/sftpgo/sdk v0.0.0-20220130093602-2e82a333cdec
+	github.com/sftpgo/sdk v0.0.0-20220201111021-563c373f8012
 	github.com/shirou/gopsutil/v3 v3.21.13-0.20220106132423-a3ae4bc40d26
 	github.com/spf13/afero v1.8.0
 	github.com/spf13/cobra v1.3.0
@@ -86,7 +86,7 @@ require (
 	github.com/hashicorp/yamux v0.0.0-20211028200310-0bc27b27de87 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
-	github.com/klauspost/cpuid/v2 v2.0.9 // indirect
+	github.com/klauspost/cpuid/v2 v2.0.10 // indirect
 	github.com/kr/fs v0.1.0 // indirect
 	github.com/lestrrat-go/backoff/v2 v2.0.8 // indirect
 	github.com/lestrrat-go/blackmagic v1.0.0 // indirect
@@ -96,7 +96,7 @@ require (
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/magiconair/properties v1.8.5 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
-	github.com/mattn/go-ieproxy v0.0.3-0.20220115171849-ffa2c199638b // indirect
+	github.com/mattn/go-ieproxy v0.0.3 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
 	github.com/miekg/dns v1.1.45 // indirect

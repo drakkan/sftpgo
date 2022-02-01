@@ -198,6 +198,9 @@ func (c *S3FsConfig) isEqual(other *S3FsConfig) bool {
 	if c.DownloadPartMaxTime != other.DownloadPartMaxTime {
 		return false
 	}
+	if c.UploadPartMaxTime != other.UploadPartMaxTime {
+		return false
+	}
 	if c.ForcePathStyle != other.ForcePathStyle {
 		return false
 	}

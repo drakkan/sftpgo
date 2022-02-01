@@ -1305,6 +1305,9 @@ func compareS3Config(expected *vfs.Filesystem, actual *vfs.Filesystem) error { /
 	if expected.S3Config.DownloadPartMaxTime != actual.S3Config.DownloadPartMaxTime {
 		return errors.New("fs S3 download part max time mismatch")
 	}
+	if expected.S3Config.UploadPartMaxTime != actual.S3Config.UploadPartMaxTime {
+		return errors.New("fs S3 upload part max time mismatch")
+	}
 	if expected.S3Config.KeyPrefix != actual.S3Config.KeyPrefix &&
 		expected.S3Config.KeyPrefix+"/" != actual.S3Config.KeyPrefix {
 		return errors.New("fs S3 key prefix mismatch")

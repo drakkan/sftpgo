@@ -232,6 +232,17 @@ func (fs *S3Fs) Create(name string, flag int) (File, *PipeWriter, func(), error)
 	p := NewPipeWriter(w)
 	ctx, cancelFn := context.WithCancel(context.Background())
 	uploader := s3manager.NewUploaderWithClient(fs.svc)
+	if fs.config.UploadPartMaxTime > 0 {
+		uploader.RequestOptions = append(uploader.RequestOptions, func(r *request.Request) {
+			chunkCtx, cancel := context.WithTimeout(r.Context(), time.Duration(fs.config.UploadPartMaxTime)*time.Second)
+			r.SetContext(chunkCtx)
+
+			go func() {
+				<-ctx.Done()
+				cancel()
+			}()
+		})
+	}
 	go func() {
 		defer cancelFn()
 		key := name
