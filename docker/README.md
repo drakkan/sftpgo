@@ -192,7 +192,7 @@ This image is based on the popular [Distroless project](https://github.com/Googl
 
 Distroless variant contains only a statically linked sftpgo binary and its minimal runtime dependencies and so it doesn't allow shell access (no shell is installed).
 SQLite support is disabled since it requires CGO and so a C runtime which is not installed.
-The default data provider is `bolt`, all the supported data providers expect `sqlite` work.
+The default data provider is `bolt`, all the supported data providers except `sqlite` work.
 We only provide the slim variant and so the optional `git` dependency is not available.
 
 ### `sftpgo:<suite>-slim`
