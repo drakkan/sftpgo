@@ -10,7 +10,6 @@ import (
 	"os"
 	"path"
 	"strconv"
-	"time"
 
 	"github.com/go-chi/render"
 	"github.com/rs/xid"
@@ -61,19 +60,7 @@ func readUserFolder(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "Unable to get directory contents", getMappedStatusCode(err))
 		return
 	}
-	results := make([]map[string]interface{}, 0, len(contents))
-	for _, info := range contents {
-		res := make(map[string]interface{})
-		res["name"] = info.Name()
-		if info.Mode().IsRegular() {
-			res["size"] = info.Size()
-		}
-		res["mode"] = info.Mode()
-		res["last_modified"] = info.ModTime().UTC().Format(time.RFC3339)
-		results = append(results, res)
-	}
-
-	render.JSON(w, r, results)
+	renderAPIDirContents(w, r, contents, false)
 }
 
 func createUserDir(w http.ResponseWriter, r *http.Request) {
@@ -163,7 +150,7 @@ func getUserFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	inline := r.URL.Query().Get("inline") != ""
-	if status, err := downloadFile(w, r, connection, name, info, inline); err != nil {
+	if status, err := downloadFile(w, r, connection, name, info, inline, nil); err != nil {
 		resp := apiResponse{
 			Error:   err.Error(),
 			Message: http.StatusText(status),

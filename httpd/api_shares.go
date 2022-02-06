@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"strings"
 
 	"github.com/go-chi/render"
 	"github.com/rs/xid"
@@ -135,6 +136,79 @@ func deleteShare(w http.ResponseWriter, r *http.Request) {
 	sendAPIResponse(w, r, err, "Share deleted", http.StatusOK)
 }
 
+func readBrowsableShareContents(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	share, connection, err := checkPublicShare(w, r, dataprovider.ShareScopeRead)
+	if err != nil {
+		return
+	}
+	if err := validateBrowsableShare(share, connection); err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
+	}
+	name, err := getBrowsableSharedPath(share, r)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
+	}
+
+	common.Connections.Add(connection)
+	defer common.Connections.Remove(connection.GetID())
+
+	contents, err := connection.ReadDir(name)
+	if err != nil {
+		sendAPIResponse(w, r, err, "Unable to get directory contents", getMappedStatusCode(err))
+		return
+	}
+	renderAPIDirContents(w, r, contents, true)
+}
+
+func downloadBrowsableSharedFile(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	share, connection, err := checkPublicShare(w, r, dataprovider.ShareScopeRead)
+	if err != nil {
+		return
+	}
+	if err := validateBrowsableShare(share, connection); err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
+	}
+	name, err := getBrowsableSharedPath(share, r)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
+	}
+
+	common.Connections.Add(connection)
+	defer common.Connections.Remove(connection.GetID())
+
+	info, err := connection.Stat(name, 1)
+	if err != nil {
+		sendAPIResponse(w, r, err, "Unable to stat the requested file", getMappedStatusCode(err))
+		return
+	}
+	if info.IsDir() {
+		sendAPIResponse(w, r, nil, fmt.Sprintf("Please set the path to a valid file, %#v is a directory", name),
+			http.StatusBadRequest)
+		return
+	}
+
+	inline := r.URL.Query().Get("inline") != ""
+	dataprovider.UpdateShareLastUse(&share, 1) //nolint:errcheck
+	if status, err := downloadFile(w, r, connection, name, info, inline, &share); err != nil {
+		dataprovider.UpdateShareLastUse(&share, -1) //nolint:errcheck
+		resp := apiResponse{
+			Error:   err.Error(),
+			Message: http.StatusText(status),
+		}
+		ctx := r.Context()
+		if status != 0 {
+			ctx = context.WithValue(ctx, render.StatusCtxKey, status)
+		}
+		render.JSON(w, r.WithContext(ctx), resp)
+	}
+}
+
 func downloadFromShare(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	share, connection, err := checkPublicShare(w, r, dataprovider.ShareScopeRead)
@@ -147,13 +221,13 @@ func downloadFromShare(w http.ResponseWriter, r *http.Request) {
 
 	compress := true
 	var info os.FileInfo
-	if len(share.Paths) > 0 && r.URL.Query().Get("compress") == "false" {
-		info, err = connection.Stat(share.Paths[0], 0)
+	if len(share.Paths) == 1 && r.URL.Query().Get("compress") == "false" {
+		info, err = connection.Stat(share.Paths[0], 1)
 		if err != nil {
 			sendAPIResponse(w, r, err, "", getRespStatus(err))
 			return
 		}
-		if !info.IsDir() {
+		if info.Mode().IsRegular() {
 			compress = false
 		}
 	}
@@ -170,7 +244,7 @@ func downloadFromShare(w http.ResponseWriter, r *http.Request) {
 		renderCompressedFiles(w, connection, "/", share.Paths, &share)
 		return
 	}
-	if status, err := downloadFile(w, r, connection, share.Paths[0], info, false); err != nil {
+	if status, err := downloadFile(w, r, connection, share.Paths[0], info, false, &share); err != nil {
 		dataprovider.UpdateShareLastUse(&share, -1) //nolint:errcheck
 		resp := apiResponse{
 			Error:   err.Error(),
@@ -302,4 +376,30 @@ func checkPublicShare(w http.ResponseWriter, r *http.Request, shareShope datapro
 	}
 
 	return share, connection, nil
+}
+
+func validateBrowsableShare(share dataprovider.Share, connection *Connection) error {
+	if len(share.Paths) != 1 {
+		return util.NewValidationError("A share with multiple paths is not browsable")
+	}
+	basePath := share.Paths[0]
+	info, err := connection.Stat(basePath, 0)
+	if err != nil {
+		return fmt.Errorf("unable to check the share directory: %w", err)
+	}
+	if !info.IsDir() {
+		return util.NewValidationError("The shared object is not a directory and so it is not browsable")
+	}
+	return nil
+}
+
+func getBrowsableSharedPath(share dataprovider.Share, r *http.Request) (string, error) {
+	name := util.CleanPath(path.Join(share.Paths[0], r.URL.Query().Get("path")))
+	if share.Paths[0] == "/" {
+		return name, nil
+	}
+	if name != share.Paths[0] && !strings.HasPrefix(name, share.Paths[0]+"/") {
+		return "", util.NewValidationError(fmt.Sprintf("Invalid path %#v", r.URL.Query().Get("path")))
+	}
+	return name, nil
 }

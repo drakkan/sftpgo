@@ -197,6 +197,19 @@ func (s *Share) validatePaths() error {
 	if s.Scope == ShareScopeWrite && len(s.Paths) != 1 {
 		return util.NewValidationError("the write share scope requires exactly one path")
 	}
+	// check nested paths
+	if len(s.Paths) > 1 {
+		for idx := range s.Paths {
+			for innerIdx := range s.Paths {
+				if idx == innerIdx {
+					continue
+				}
+				if isVirtualDirOverlapped(s.Paths[idx], s.Paths[innerIdx], true) {
+					return util.NewGenericError("shared paths cannot be nested")
+				}
+			}
+		}
+	}
 	return nil
 }
 
@@ -261,6 +274,14 @@ func (s *Share) CheckPassword(password string) (bool, error) {
 		return false, ErrInvalidCredentials
 	}
 	return match, err
+}
+
+// GetRelativePath returns the specified absolute path as relative to the share base path
+func (s *Share) GetRelativePath(name string) string {
+	if len(s.Paths) == 0 {
+		return ""
+	}
+	return util.CleanPath(strings.TrimPrefix(name, s.Paths[0]))
 }
 
 // IsUsable checks if the share is usable from the specified IP

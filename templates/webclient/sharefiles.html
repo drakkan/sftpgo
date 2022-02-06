@@ -1,0 +1,296 @@
+{{template "base" .}}
+
+{{define "title"}}{{.Title}}{{end}}
+
+{{define "extra_css"}}
+<link href="{{.StaticURL}}/vendor/datatables/dataTables.bootstrap4.min.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/datatables/buttons.bootstrap4.min.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/datatables/fixedHeader.bootstrap4.min.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/datatables/responsive.bootstrap4.min.css" rel="stylesheet">
+{{end}}
+
+{{define "page_body"}}
+<div class="card shadow my-4">
+    <div class="card-header py-3">
+        <h6 class="m-0 font-weight-bold"><a href="{{.FilesURL}}?path=%2F"><i class="fas fa-home"></i>&nbsp;Home</a>&nbsp;{{range .Paths}}{{if eq .Href ""}}/{{.DirName}}{{else}}<a href="{{.Href}}">/{{.DirName}}</a>{{end}}{{end}}</h6>
+    </div>
+    <div class="card-body">
+        {{if .Error}}
+        <div class="card mb-4 border-left-warning">
+            <div class="card-body text-form-error">{{.Error}}</div>
+        </div>
+        {{end}}
+        <div id="errorMsg" class="card mb-4 border-left-warning" style="display: none;">
+            <div id="errorTxt" class="card-body text-form-error"></div>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover nowrap" id="dataTable" width="100%" cellspacing="0">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Name</th>
+                        <th>Size</th>
+                        <th>Last modified</th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+    </div>
+</div>
+{{end}}
+
+{{define "extra_js"}}
+<script src="{{.StaticURL}}/vendor/datatables/jquery.dataTables.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/dataTables.bootstrap4.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/dataTables.buttons.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/buttons.bootstrap4.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/dataTables.fixedHeader.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/dataTables.responsive.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/responsive.bootstrap4.min.js"></script>
+<script type="text/javascript">
+
+    var escapeHTML = function ( t ) {
+		return t
+			.replace( /&/g, '&amp;' )
+			.replace( /</g, '&lt;' )
+			.replace( />/g, '&gt;' )
+			.replace( /"/g, '&quot;' );
+	};
+
+    function shortenData(d, cutoff) {
+        if ( typeof d !== 'string' ) {
+			return d;
+		}
+
+		if ( d.length <= cutoff ) {
+			return d;
+		}
+
+        var shortened = d.substr(0, cutoff-1);
+        return shortened+'&#8230;';
+    }
+
+    function getIconForFile(filename) {
+        var extension = filename.slice((filename.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase();
+        switch (extension) {
+            case "doc":
+            case "docx":
+            case "odt":
+            case "wps":
+                return "far fa-file-word";
+            case "ppt":
+            case "pptx":
+                return "far fa-file-powerpoint";
+            case "xls":
+            case "xlsx":
+            case "ods":
+                return "far fa-file-excel";
+            case "pdf":
+                return "far fa-file-pdf";
+            case "webm":
+            case "mkv":
+            case "flv":
+            case "vob":
+            case "ogv":
+            case "ogg":
+            case "avi":
+            case "ts":
+            case "mov":
+            case "wmv":
+            case "asf":
+            case "mpeg":
+            case "mpv":
+            case "3gp":
+                return "far fa-file-video";
+            case "jpeg":
+            case "jpg":
+            case "png":
+            case "gif":
+            case "webp":
+            case "tiff":
+            case "psd":
+            case "bmp":
+            case "svg":
+            case "jp2":
+                return "far fa-file-image";
+            case "go":
+            case "sh":
+            case "bat":
+            case "java":
+            case "php":
+            case "cs":
+            case "asp":
+            case "aspx":
+            case "css":
+            case "html":
+            case "xhtml":
+            case "htm":
+            case "js":
+            case "jsp":
+            case "py":
+            case "rb":
+            case "cgi":
+            case "c":
+            case "cpp":
+            case "h":
+            case "hpp":
+            case "kt":
+            case "ktm":
+            case "kts":
+            case "swift":
+            case "r":
+                return "far fa-file-code";
+            case "zip":
+            case "zipx":
+            case "rar":
+            case "tar":
+            case "gz":
+            case "bz2":
+            case "zstd":
+            case "zst":
+            case "sz":
+            case "lz":
+            case "lz4":
+            case "xz":
+            case "jar":
+                return "far fa-file-archive";
+            case "txt":
+            case "rtf":
+            case "json":
+            case "xml":
+            case "yaml":
+            case "toml":
+            case "log":
+            case "csv":
+            case "ini":
+            case "cfg":
+                return "far fa-file-alt";
+            default:
+                return "far fa-file";
+        }
+    }
+
+    $(document).ready(function () {
+        $.fn.dataTable.ext.buttons.refresh = {
+            text: '<i class="fas fa-sync-alt"></i>',
+            name: 'refresh',
+            titleAttr: "Refresh",
+            action: function (e, dt, node, config) {
+                location.reload();
+            }
+        };
+
+        $.fn.dataTable.ext.buttons.download = {
+            text: '<i class="fas fa-download"></i>',
+            name: 'download',
+            titleAttr: "Download the whole share as zip",
+            action: function (e, dt, node, config) {
+                var downloadURL = '{{.DownloadURL}}';
+                var ts = new Date().getTime().toString();
+                window.location = `${downloadURL}?_=${ts}`;
+            }
+        };
+
+        var table = $('#dataTable').DataTable({
+            "ajax": {
+                "url": "{{.DirsURL}}?path={{.CurrentDir}}",
+                "dataSrc": "",
+                "error": function ($xhr, textStatus, errorThrown) {
+                    $(".dataTables_processing").hide();
+                    var txt = "Failed to get directory listing";
+                    if ($xhr) {
+                        var json = $xhr.responseJSON;
+                        if (json) {
+                            if (json.message){
+                                txt += ": " + json.message;
+                            } else {
+                                txt += ": " + json.error;
+                            }
+                        }
+                    }
+                    $('#errorTxt').text(txt);
+                    $('#errorMsg').show();
+                    setTimeout(function () {
+                        $('#errorMsg').hide();
+                    }, 10000);
+                }
+            },
+            "deferRender": true,
+            "processing": true,
+            "lengthMenu": [ 10, 25, 50, 100, 250, 500 ],
+            "stateSave": true,
+            "stateDuration": 0,
+            "stateSaveParams": function (settings, data) {
+                data.sftpgo_dir = '{{.CurrentDir}}';
+            },
+            "stateLoadParams": function (settings, data) {
+                if (!data.sftpgo_dir || data.sftpgo_dir != '{{.CurrentDir}}'){
+                    data.start = 0;
+                    data.search.search = "";
+                }
+            },
+            "columns": [
+                { "data": "type" },
+                {
+                    "data": "name",
+                    "render": function (data, type, row) {
+                        if (type === 'display') {
+                            var title = "";
+                            var cssClass = "";
+                            var shortened = shortenData(data, 70);
+                            if (shortened != data){
+                                title = escapeHTML(data);
+                                cssClass = "ellipsis";
+                            }
+
+                            if (row["type"] == "1") {
+                                return `<i class="fas fa-folder"></i>&nbsp;<a class="${cssClass}" href="${row['url']}" title="${title}">${shortened}</a>`;
+                            }
+                            if (row["size"] == "") {
+                                return `<i class="fas fa-external-link-alt"></i>&nbsp;<a class="${cssClass}" href="${row['url']}" title="${title}">${shortened}</a>`;
+                            }
+                            var icon = getIconForFile(data);
+                            return `<i class="${icon}"></i>&nbsp;<a class="${cssClass}" href="${row['url']}" title="${title}">${shortened}</a>`;
+                        }
+                        return data;
+                    }
+                },
+                { "data": "size" },
+                { "data": "last_modified" }
+            ],
+            "buttons": [],
+            "lengthChange": false,
+            "columnDefs": [
+                {
+                    "targets": [0],
+                    "visible": false,
+                    "searchable": false
+                },
+                {
+                    "targets": [2, 3],
+                    "searchable": false
+                }
+            ],
+            "scrollX": false,
+            "scrollY": false,
+            "responsive": true,
+            "language": {
+                "processing": '<i class="fas fa-spinner fa-spin fa-3x fa-fw"></i><span class="sr-only">Loading...</span>',
+                "loadingRecords": "",
+                "emptyTable": "No files or folders"
+            },
+            "initComplete": function (settings, json) {
+                table.button().add(0, 'refresh');
+                table.button().add(0, 'pageLength');
+                table.button().add(0, 'download');
+                table.buttons().container().appendTo('.col-md-6:eq(0)', table.table().container());
+            },
+            "orderFixed": [0, 'asc'],
+            "order": [1, 'asc']
+        });
+
+        new $.fn.dataTable.FixedHeader(table);
+        $.fn.dataTable.ext.errMode = 'none';
+    });
+</script>
+{{end}}

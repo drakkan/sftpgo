@@ -2187,3 +2187,46 @@ func TestMetadataAPI(t *testing.T) {
 	err = doMetadataCheck(user)
 	assert.Error(t, err)
 }
+
+func TestBrowsableSharePaths(t *testing.T) {
+	share := dataprovider.Share{
+		Paths: []string{"/"},
+	}
+	req, err := http.NewRequest(http.MethodGet, "/share", nil)
+	require.NoError(t, err)
+	name, err := getBrowsableSharedPath(share, req)
+	assert.NoError(t, err)
+	assert.Equal(t, "/", name)
+	req, err = http.NewRequest(http.MethodGet, "/share?path=abc", nil)
+	require.NoError(t, err)
+	name, err = getBrowsableSharedPath(share, req)
+	assert.NoError(t, err)
+	assert.Equal(t, "/abc", name)
+
+	share.Paths = []string{"/a/b/c"}
+	req, err = http.NewRequest(http.MethodGet, "/share?path=abc", nil)
+	require.NoError(t, err)
+	name, err = getBrowsableSharedPath(share, req)
+	assert.NoError(t, err)
+	assert.Equal(t, "/a/b/c/abc", name)
+	req, err = http.NewRequest(http.MethodGet, "/share?path=%2Fabc/d", nil)
+	require.NoError(t, err)
+	name, err = getBrowsableSharedPath(share, req)
+	assert.NoError(t, err)
+	assert.Equal(t, "/a/b/c/abc/d", name)
+
+	req, err = http.NewRequest(http.MethodGet, "/share?path=%2Fabc%2F..%2F..", nil)
+	require.NoError(t, err)
+	_, err = getBrowsableSharedPath(share, req)
+	assert.Error(t, err)
+
+	req, err = http.NewRequest(http.MethodGet, "/share?path=%2Fabc%2F..", nil)
+	require.NoError(t, err)
+	name, err = getBrowsableSharedPath(share, req)
+	assert.NoError(t, err)
+	assert.Equal(t, "/a/b/c", name)
+
+	share = dataprovider.Share{
+		Paths: []string{"/a", "/b"},
+	}
+}

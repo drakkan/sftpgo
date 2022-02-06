@@ -82,7 +82,7 @@ func getRespStatus(err error) int {
 	if os.IsNotExist(err) {
 		return http.StatusBadRequest
 	}
-	if os.IsPermission(err) {
+	if os.IsPermission(err) || errors.Is(err, dataprovider.ErrLoginNotAllowedFromIP) {
 		return http.StatusForbidden
 	}
 	if errors.Is(err, plugin.ErrNoSearcher) || errors.Is(err, dataprovider.ErrNotImplemented) {
@@ -187,6 +187,25 @@ func getSearchFilters(w http.ResponseWriter, r *http.Request) (int, int, string,
 	return limit, offset, order, err
 }
 
+func renderAPIDirContents(w http.ResponseWriter, r *http.Request, contents []os.FileInfo, omitNonRegularFiles bool) {
+	results := make([]map[string]interface{}, 0, len(contents))
+	for _, info := range contents {
+		if omitNonRegularFiles && !info.Mode().IsDir() && !info.Mode().IsRegular() {
+			continue
+		}
+		res := make(map[string]interface{})
+		res["name"] = info.Name()
+		if info.Mode().IsRegular() {
+			res["size"] = info.Size()
+		}
+		res["mode"] = info.Mode()
+		res["last_modified"] = info.ModTime().UTC().Format(time.RFC3339)
+		results = append(results, res)
+	}
+
+	render.JSON(w, r, results)
+}
+
 func renderCompressedFiles(w http.ResponseWriter, conn *Connection, baseDir string, files []string,
 	share *dataprovider.Share,
 ) {
@@ -266,10 +285,20 @@ func getZipEntryName(entryPath, baseDir string) string {
 	return strings.TrimPrefix(entryPath, "/")
 }
 
+func checkDownloadFileFromShare(share *dataprovider.Share, info os.FileInfo) error {
+	if share != nil && !info.Mode().IsRegular() {
+		return util.NewValidationError("non regular files are not supported for shares")
+	}
+	return nil
+}
+
 func downloadFile(w http.ResponseWriter, r *http.Request, connection *Connection, name string,
-	info os.FileInfo, inline bool,
+	info os.FileInfo, inline bool, share *dataprovider.Share,
 ) (int, error) {
-	var err error
+	err := checkDownloadFileFromShare(share, info)
+	if err != nil {
+		return http.StatusBadRequest, err
+	}
 	rangeHeader := r.Header.Get("Range")
 	if rangeHeader != "" && checkIfRange(r, info.ModTime()) == condFalse {
 		rangeHeader = ""
@@ -314,6 +343,9 @@ func downloadFile(w http.ResponseWriter, r *http.Request, connection *Connection
 	if r.Method != http.MethodHead {
 		_, err = io.CopyN(w, reader, size)
 		if err != nil {
+			if share != nil {
+				dataprovider.UpdateShareLastUse(share, -1) //nolint:errcheck
+			}
 			connection.Log(logger.LevelDebug, "error reading file to download: %v", err)
 			panic(http.ErrAbortHandler)
 		}
