@@ -146,13 +146,13 @@ func downloadFromShare(w http.ResponseWriter, r *http.Request) {
 
 	compress := true
 	var info os.FileInfo
-	if len(share.Paths) > 0 && r.URL.Query().Get("compress") == "false" {
-		info, err = connection.Stat(share.Paths[0], 0)
+	if len(share.Paths) == 1 && r.URL.Query().Get("compress") == "false" {
+		info, err = connection.Stat(share.Paths[0], 1)
 		if err != nil {
 			sendAPIResponse(w, r, err, "", getRespStatus(err))
 			return
 		}
-		if !info.IsDir() {
+		if info.Mode().IsRegular() {
 			compress = false
 		}
 	}

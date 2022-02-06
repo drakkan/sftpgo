@@ -197,6 +197,19 @@ func (s *Share) validatePaths() error {
 	if s.Scope == ShareScopeWrite && len(s.Paths) != 1 {
 		return util.NewValidationError("the write share scope requires exactly one path")
 	}
+	// check nested paths
+	if len(s.Paths) > 1 {
+		for idx := range s.Paths {
+			for innerIdx := range s.Paths {
+				if idx == innerIdx {
+					continue
+				}
+				if isVirtualDirOverlapped(s.Paths[idx], s.Paths[innerIdx], true) {
+					return util.NewGenericError("shared paths cannot be nested")
+				}
+			}
+		}
+	}
 	return nil
 }
 
