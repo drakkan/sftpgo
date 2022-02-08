@@ -34,19 +34,19 @@ Several storage backends are supported: local filesystem, encrypted local filesy
 - Bandwidth throttling, with separate settings for upload and download and overrides based on the client's IP address.
 - Data transfer bandwidth limits, with total limit or separate settings for uploads and downloads and overrides based on the client's IP address. Limits can be reset using the REST API.
 - Per-protocol [rate limiting](./docs/rate-limiting.md) is supported and can be optionally connected to the built-in defender to automatically block hosts that repeatedly exceed the configured limit.
-- Per user maximum concurrent sessions.
-- Per user and global IP filters: login can be restricted to specific ranges of IP addresses or to a specific IP address.
-- Per user and per directory shell like patterns filters: files can be allowed or denied based on shell like patterns.
+- Per-user maximum concurrent sessions.
+- Per-user and global IP filters: login can be restricted to specific ranges of IP addresses or to a specific IP address.
+- Per-user and per-directory shell like patterns filters: files can be allowed, denied or hidden based on shell like patterns.
 - Automatically terminating idle connections.
 - Automatic blocklist management using the built-in [defender](./docs/defender.md).
 - Atomic uploads are configurable.
-- Per user files/folders ownership mapping: you can map all the users to the system account that runs SFTPGo (all platforms are supported) or you can run SFTPGo as root user and map each user or group of users to a different system account (\*NIX only).
+- Per-user files/folders ownership mapping: you can map all the users to the system account that runs SFTPGo (all platforms are supported) or you can run SFTPGo as root user and map each user or group of users to a different system account (\*NIX only).
 - Support for Git repositories over SSH.
 - SCP and rsync are supported.
 - FTP/S is supported. You can configure the FTP service to require TLS for both control and data connections.
 - [WebDAV](./docs/webdav.md) is supported.
 - Two-Way TLS authentication, aka TLS with client certificate authentication, is supported for REST API/Web Admin, FTPS and WebDAV over HTTPS.
-- Per user protocols restrictions. You can configure the allowed protocols (SSH/FTP/WebDAV) for each user.
+- Per-user protocols restrictions. You can configure the allowed protocols (SSH/FTP/WebDAV) for each user.
 - [Prometheus metrics](./docs/metrics.md) are exposed.
 - Support for HAProxy PROXY protocol: you can proxy and/or load balance the SFTP/SCP/FTP/WebDAV service without losing the information about the client's address.
 - Easy [migration](./examples/convertusers) from Linux system user accounts.
@@ -265,13 +265,13 @@ Adding new storage backends is quite easy:
 - update the web interface and the REST API CLI
 - add the flags for the new storage backed to the `portable` mode
 
-Anyway, some backends require a pay per use account (or they offer free account for a limited time period only). To be able to add support for such backends or to review pull requests, please provide a test account. The test account must be available for enough time to be able to maintain the backend and do basic tests before each new release.
+Anyway, some backends require a pay per-use account (or they offer free account for a limited time period only). To be able to add support for such backends or to review pull requests, please provide a test account. The test account must be available for enough time to be able to maintain the backend and do basic tests before each new release.
 
 ## Brute force protection
 
-The [connection failed logs](./docs/logs.md) can be used for integration in tools such as [Fail2ban](http://www.fail2ban.org/). Example of [jails](./fail2ban/jails) and [filters](./fail2ban/filters) working with `systemd`/`journald` are available in fail2ban directory.
+SFTPGo supports a built-in [defender](./docs/defender.md).
 
-You can also use the built-in [defender](./docs/defender.md).
+Alternately you can use the [connection failed logs](./docs/logs.md) for integration in tools such as [Fail2ban](http://www.fail2ban.org/). Example of [jails](./fail2ban/jails) and [filters](./fail2ban/filters) working with `systemd`/`journald` are available in fail2ban directory.
 
 ## Account's configuration properties
 

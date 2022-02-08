@@ -11,7 +11,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -1125,22 +1124,49 @@ func (u *User) GetDataTransferLimits(clientIP string) (int64, int64, int64) {
 
 // GetQuotaSummary returns used quota and limits if defined
 func (u *User) GetQuotaSummary() string {
-	var result string
-	result = "Files: " + strconv.Itoa(u.UsedQuotaFiles)
-	if u.QuotaFiles > 0 {
-		result += "/" + strconv.Itoa(u.QuotaFiles)
-	}
-	if u.UsedQuotaSize > 0 || u.QuotaSize > 0 {
-		result += ". Size: " + util.ByteCountIEC(u.UsedQuotaSize)
-		if u.QuotaSize > 0 {
-			result += "/" + util.ByteCountIEC(u.QuotaSize)
+	var sb strings.Builder
+
+	addSection := func() {
+		if sb.Len() > 0 {
+			sb.WriteString(". ")
 		}
 	}
-	if u.LastQuotaUpdate > 0 {
-		t := util.GetTimeFromMsecSinceEpoch(u.LastQuotaUpdate)
-		result += fmt.Sprintf(". Last update: %v ", t.Format("2006-01-02 15:04")) // YYYY-MM-DD HH:MM
+
+	if u.UsedQuotaFiles > 0 || u.QuotaFiles > 0 {
+		sb.WriteString(fmt.Sprintf("Files: %v", u.UsedQuotaFiles))
+		if u.QuotaFiles > 0 {
+			sb.WriteString(fmt.Sprintf("/%v", u.QuotaFiles))
+		}
 	}
-	return result
+	if u.UsedQuotaSize > 0 || u.QuotaSize > 0 {
+		addSection()
+		sb.WriteString(fmt.Sprintf("Size: %v", util.ByteCountIEC(u.UsedQuotaSize)))
+		if u.QuotaSize > 0 {
+			sb.WriteString(fmt.Sprintf("/%v", util.ByteCountIEC(u.QuotaSize)))
+		}
+	}
+	if u.TotalDataTransfer > 0 {
+		addSection()
+		total := u.UsedDownloadDataTransfer + u.UsedUploadDataTransfer
+		sb.WriteString(fmt.Sprintf("Transfer: %v/%v", util.ByteCountIEC(total),
+			util.ByteCountIEC(u.TotalDataTransfer*1048576)))
+	}
+	if u.UploadDataTransfer > 0 {
+		addSection()
+		sb.WriteString(fmt.Sprintf("UL: %v/%v", util.ByteCountIEC(u.UsedUploadDataTransfer),
+			util.ByteCountIEC(u.UploadDataTransfer*1048576)))
+	}
+	if u.DownloadDataTransfer > 0 {
+		addSection()
+		sb.WriteString(fmt.Sprintf("DL: %v/%v", util.ByteCountIEC(u.UsedDownloadDataTransfer),
+			util.ByteCountIEC(u.DownloadDataTransfer*1048576)))
+	}
+	if u.LastQuotaUpdate > 0 {
+		addSection()
+		t := util.GetTimeFromMsecSinceEpoch(u.LastQuotaUpdate)
+		sb.WriteString(fmt.Sprintf("Last update: %v", t.Format("2006-01-02 15:04"))) // YYYY-MM-DD HH:MM
+	}
+	return sb.String()
 }
 
 // GetPermissionsAsString returns the user's permissions as comma separated string

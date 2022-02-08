@@ -1007,7 +1007,7 @@ func (s *httpdServer) initializeRouter() {
 	s.router.Get(sharesPath+"/{id}", downloadFromShare)
 	s.router.Post(sharesPath+"/{id}", uploadFilesToShare)
 	s.router.Post(sharesPath+"/{id}/{name}", uploadFileToShare)
-	s.router.Get(sharesPath+"/{id}/dirs", readBrowsableShareContents)
+	s.router.With(compressor.Handler).Get(sharesPath+"/{id}/dirs", readBrowsableShareContents)
 	s.router.Get(sharesPath+"/{id}/files", downloadBrowsableSharedFile)
 
 	s.router.Get(tokenPath, s.getToken)
@@ -1229,7 +1229,7 @@ func (s *httpdServer) initializeRouter() {
 		// share API exposed to external users
 		s.router.Get(webClientPubSharesPath+"/{id}", downloadFromShare)
 		s.router.Get(webClientPubSharesPath+"/{id}/browse", s.handleShareGetFiles)
-		s.router.Get(webClientPubSharesPath+"/{id}/dirs", s.handleShareGetDirContents)
+		s.router.With(compressor.Handler).Get(webClientPubSharesPath+"/{id}/dirs", s.handleShareGetDirContents)
 		s.router.Post(webClientPubSharesPath+"/{id}", uploadFilesToShare)
 		s.router.Post(webClientPubSharesPath+"/{id}/{name}", uploadFileToShare)
 
