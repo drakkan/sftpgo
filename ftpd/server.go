@@ -262,7 +262,7 @@ func (s *Server) buildTLSConfig() {
 	if certMgr != nil {
 		s.tlsConfig = &tls.Config{
 			GetCertificate:           certMgr.GetCertificateFunc(),
-			MinVersion:               tls.VersionTLS12,
+			MinVersion:               util.GetTLSVersion(s.binding.MinTLSVersion),
 			CipherSuites:             s.binding.ciphers,
 			PreferServerCipherSuites: true,
 		}

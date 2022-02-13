@@ -80,7 +80,7 @@ func (s *httpdServer) listenAndServe() error {
 	if certMgr != nil && s.binding.EnableHTTPS {
 		config := &tls.Config{
 			GetCertificate:           certMgr.GetCertificateFunc(),
-			MinVersion:               tls.VersionTLS12,
+			MinVersion:               util.GetTLSVersion(s.binding.MinTLSVersion),
 			NextProtos:               []string{"http/1.1", "h2"},
 			CipherSuites:             util.GetTLSCiphersFromNames(s.binding.TLSCipherSuites),
 			PreferServerCipherSuites: true,

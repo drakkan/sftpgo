@@ -1,6 +1,7 @@
 package common
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -867,6 +868,17 @@ func TestUserPerms(t *testing.T) {
 	u.Permissions["/"] = []string{dataprovider.PermDeleteDirs, dataprovider.PermRenameFiles, dataprovider.PermRenameDirs}
 	assert.False(t, u.HasPermsDeleteAll("/"))
 	assert.True(t, u.HasPermsRenameAll("/"))
+}
+
+func TestGetTLSVersion(t *testing.T) {
+	tlsVer := util.GetTLSVersion(0)
+	assert.Equal(t, uint16(tls.VersionTLS12), tlsVer)
+	tlsVer = util.GetTLSVersion(12)
+	assert.Equal(t, uint16(tls.VersionTLS12), tlsVer)
+	tlsVer = util.GetTLSVersion(2)
+	assert.Equal(t, uint16(tls.VersionTLS12), tlsVer)
+	tlsVer = util.GetTLSVersion(13)
+	assert.Equal(t, uint16(tls.VersionTLS13), tlsVer)
 }
 
 func BenchmarkBcryptHashing(b *testing.B) {

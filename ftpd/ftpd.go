@@ -43,6 +43,8 @@ type Binding struct {
 	// Set to 1 to require TLS for both data and control connection.
 	// Set to 2 to enable implicit TLS
 	TLSMode int `json:"tls_mode" mapstructure:"tls_mode"`
+	// Defines the minimum TLS version. 13 means TLS 1.3, default is TLS 1.2
+	MinTLSVersion int `json:"min_tls_version" mapstructure:"min_tls_version"`
 	// External IP address to expose for passive connections.
 	ForcePassiveIP string `json:"force_passive_ip" mapstructure:"force_passive_ip"`
 	// PassiveIPOverrides allows to define different IP addresses to expose for passive connections

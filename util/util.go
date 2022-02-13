@@ -563,3 +563,16 @@ func PrependFileInfo(files []os.FileInfo, info os.FileInfo) []os.FileInfo {
 	files[0] = info
 	return files
 }
+
+// GetTLSVersion returns the TLS version for integer:
+// - 12 means TLS 1.2
+// - 13 means TLS 1.3
+// default is TLS 1.2
+func GetTLSVersion(val int) uint16 {
+	switch val {
+	case 13:
+		return tls.VersionTLS13
+	default:
+		return tls.VersionTLS12
+	}
+}

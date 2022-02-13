@@ -52,6 +52,7 @@ var (
 		Port:                       0,
 		ApplyProxyConfig:           true,
 		TLSMode:                    0,
+		MinTLSVersion:              12,
 		ForcePassiveIP:             "",
 		PassiveIPOverrides:         nil,
 		ClientAuthType:             0,
@@ -64,6 +65,7 @@ var (
 		Address:         "",
 		Port:            0,
 		EnableHTTPS:     false,
+		MinTLSVersion:   12,
 		ClientAuthType:  0,
 		TLSCipherSuites: nil,
 		Prefix:          "",
@@ -75,6 +77,7 @@ var (
 		EnableWebAdmin:        true,
 		EnableWebClient:       true,
 		EnableHTTPS:           false,
+		MinTLSVersion:         12,
 		ClientAuthType:        0,
 		TLSCipherSuites:       nil,
 		ProxyAllowed:          nil,
@@ -333,6 +336,7 @@ func Init() {
 			AuthUserFile:       "",
 			CertificateFile:    "",
 			CertificateKeyFile: "",
+			MinTLSVersion:      12,
 			TLSCipherSuites:    nil,
 		},
 		PluginsConfig: nil,
@@ -916,14 +920,19 @@ func getFTPDPassiveIPOverridesFromEnv(idx int) []ftpd.PassiveIPOverride {
 	return overrides
 }
 
-func getFTPDBindingFromEnv(idx int) {
+func getDefaultFTPDBinding(idx int) ftpd.Binding {
 	binding := ftpd.Binding{
 		ApplyProxyConfig: true,
+		MinTLSVersion:    12,
 	}
 	if len(globalConf.FTPD.Bindings) > idx {
 		binding = globalConf.FTPD.Bindings[idx]
 	}
+	return binding
+}
 
+func getFTPDBindingFromEnv(idx int) {
+	binding := getDefaultFTPDBinding(idx)
 	isSet := false
 
 	port, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__PORT", idx))
@@ -947,6 +956,12 @@ func getFTPDBindingFromEnv(idx int) {
 	tlsMode, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__TLS_MODE", idx))
 	if ok {
 		binding.TLSMode = int(tlsMode)
+		isSet = true
+	}
+
+	tlsVer, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__MIN_TLS_VERSION", idx))
+	if ok {
+		binding.MinTLSVersion = int(tlsVer)
 		isSet = true
 	}
 
@@ -1002,7 +1017,9 @@ func getFTPDBindingFromEnv(idx int) {
 }
 
 func getWebDAVDBindingFromEnv(idx int) {
-	binding := webdavd.Binding{}
+	binding := webdavd.Binding{
+		MinTLSVersion: 12,
+	}
 	if len(globalConf.WebDAVD.Bindings) > idx {
 		binding = globalConf.WebDAVD.Bindings[idx]
 	}
@@ -1024,6 +1041,12 @@ func getWebDAVDBindingFromEnv(idx int) {
 	enableHTTPS, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__ENABLE_HTTPS", idx))
 	if ok {
 		binding.EnableHTTPS = enableHTTPS
+		isSet = true
+	}
+
+	tlsVer, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__MIN_TLS_VERSION", idx))
+	if ok {
+		binding.MinTLSVersion = int(tlsVer)
 		isSet = true
 	}
 
@@ -1133,6 +1156,7 @@ func getDefaultHTTPBinding(idx int) httpd.Binding {
 		EnableWebAdmin:  true,
 		EnableWebClient: true,
 		RenderOpenAPI:   true,
+		MinTLSVersion:   12,
 	}
 	if len(globalConf.HTTPDConfig.Bindings) > idx {
 		binding = globalConf.HTTPDConfig.Bindings[idx]
@@ -1142,7 +1166,6 @@ func getDefaultHTTPBinding(idx int) httpd.Binding {
 
 func getHTTPDBindingFromEnv(idx int) {
 	binding := getDefaultHTTPBinding(idx)
-
 	isSet := false
 
 	port, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__PORT", idx))
@@ -1187,6 +1210,12 @@ func getHTTPDBindingFromEnv(idx int) {
 		isSet = true
 	}
 
+	tlsVer, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__MIN_TLS_VERSION", idx))
+	if ok {
+		binding.MinTLSVersion = int(tlsVer)
+		isSet = true
+	}
+
 	clientAuthType, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__CLIENT_AUTH_TYPE", idx))
 	if ok {
 		binding.ClientAuthType = int(clientAuthType)
@@ -1217,6 +1246,10 @@ func getHTTPDBindingFromEnv(idx int) {
 		isSet = true
 	}
 
+	setHTTPDBinding(isSet, binding, idx)
+}
+
+func setHTTPDBinding(isSet bool, binding httpd.Binding, idx int) {
 	if isSet {
 		if len(globalConf.HTTPDConfig.Bindings) > idx {
 			globalConf.HTTPDConfig.Bindings[idx] = binding
@@ -1417,6 +1450,7 @@ func setViperDefaults() {
 	viper.SetDefault("telemetry.auth_user_file", globalConf.TelemetryConfig.AuthUserFile)
 	viper.SetDefault("telemetry.certificate_file", globalConf.TelemetryConfig.CertificateFile)
 	viper.SetDefault("telemetry.certificate_key_file", globalConf.TelemetryConfig.CertificateKeyFile)
+	viper.SetDefault("telemetry.min_tls_version", globalConf.TelemetryConfig.MinTLSVersion)
 	viper.SetDefault("telemetry.tls_cipher_suites", globalConf.TelemetryConfig.TLSCipherSuites)
 	viper.SetDefault("smtp.host", globalConf.SMTPConfig.Host)
 	viper.SetDefault("smtp.port", globalConf.SMTPConfig.Port)

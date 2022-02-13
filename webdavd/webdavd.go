@@ -74,6 +74,8 @@ type Binding struct {
 	Port int `json:"port" mapstructure:"port"`
 	// you also need to provide a certificate for enabling HTTPS
 	EnableHTTPS bool `json:"enable_https" mapstructure:"enable_https"`
+	// Defines the minimum TLS version. 13 means TLS 1.3, default is TLS 1.2
+	MinTLSVersion int `json:"min_tls_version" mapstructure:"min_tls_version"`
 	// set to 1 to require client certificate authentication in addition to basic auth.
 	// You need to define at least a certificate authority for this to work
 	ClientAuthType int `json:"client_auth_type" mapstructure:"client_auth_type"`
