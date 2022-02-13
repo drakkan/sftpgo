@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	sdkkms "github.com/sftpgo/sdk/kms"
+	"github.com/sftpgo/sdk/kms"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -467,8 +467,8 @@ func TestPluginsFromEnv(t *testing.T) {
 	os.Setenv("SFTPGO_PLUGINS__0__ARGS", "arg1,arg2")
 	os.Setenv("SFTPGO_PLUGINS__0__SHA256SUM", "0a71ded61fccd59c4f3695b51c1b3d180da8d2d77ea09ccee20dac242675c193")
 	os.Setenv("SFTPGO_PLUGINS__0__AUTO_MTLS", "1")
-	os.Setenv("SFTPGO_PLUGINS__0__KMS_OPTIONS__SCHEME", sdkkms.SchemeAWS)
-	os.Setenv("SFTPGO_PLUGINS__0__KMS_OPTIONS__ENCRYPTED_STATUS", sdkkms.SecretStatusAWS)
+	os.Setenv("SFTPGO_PLUGINS__0__KMS_OPTIONS__SCHEME", kms.SchemeAWS)
+	os.Setenv("SFTPGO_PLUGINS__0__KMS_OPTIONS__ENCRYPTED_STATUS", kms.SecretStatusAWS)
 	os.Setenv("SFTPGO_PLUGINS__0__AUTH_OPTIONS__SCOPE", "14")
 	t.Cleanup(func() {
 		os.Unsetenv("SFTPGO_PLUGINS__0__TYPE")
@@ -510,8 +510,8 @@ func TestPluginsFromEnv(t *testing.T) {
 	require.Equal(t, "arg2", pluginConf.Args[1])
 	require.Equal(t, "0a71ded61fccd59c4f3695b51c1b3d180da8d2d77ea09ccee20dac242675c193", pluginConf.SHA256Sum)
 	require.True(t, pluginConf.AutoMTLS)
-	require.Equal(t, sdkkms.SchemeAWS, pluginConf.KMSOptions.Scheme)
-	require.Equal(t, sdkkms.SecretStatusAWS, pluginConf.KMSOptions.EncryptedStatus)
+	require.Equal(t, kms.SchemeAWS, pluginConf.KMSOptions.Scheme)
+	require.Equal(t, kms.SecretStatusAWS, pluginConf.KMSOptions.EncryptedStatus)
 	require.Equal(t, 14, pluginConf.AuthOptions.Scope)
 
 	configAsJSON, err := json.Marshal(pluginsConf)
@@ -524,8 +524,8 @@ func TestPluginsFromEnv(t *testing.T) {
 	os.Setenv("SFTPGO_PLUGINS__0__CMD", "plugin_start_cmd1")
 	os.Setenv("SFTPGO_PLUGINS__0__ARGS", "")
 	os.Setenv("SFTPGO_PLUGINS__0__AUTO_MTLS", "0")
-	os.Setenv("SFTPGO_PLUGINS__0__KMS_OPTIONS__SCHEME", sdkkms.SchemeVaultTransit)
-	os.Setenv("SFTPGO_PLUGINS__0__KMS_OPTIONS__ENCRYPTED_STATUS", sdkkms.SecretStatusVaultTransit)
+	os.Setenv("SFTPGO_PLUGINS__0__KMS_OPTIONS__SCHEME", kms.SchemeVaultTransit)
+	os.Setenv("SFTPGO_PLUGINS__0__KMS_OPTIONS__ENCRYPTED_STATUS", kms.SecretStatusVaultTransit)
 	err = config.LoadConfig(configDir, confName)
 	assert.NoError(t, err)
 	pluginsConf = config.GetPluginsConfig()
@@ -547,8 +547,8 @@ func TestPluginsFromEnv(t *testing.T) {
 	require.Len(t, pluginConf.Args, 0)
 	require.Equal(t, "0a71ded61fccd59c4f3695b51c1b3d180da8d2d77ea09ccee20dac242675c193", pluginConf.SHA256Sum)
 	require.False(t, pluginConf.AutoMTLS)
-	require.Equal(t, sdkkms.SchemeVaultTransit, pluginConf.KMSOptions.Scheme)
-	require.Equal(t, sdkkms.SecretStatusVaultTransit, pluginConf.KMSOptions.EncryptedStatus)
+	require.Equal(t, kms.SchemeVaultTransit, pluginConf.KMSOptions.Scheme)
+	require.Equal(t, kms.SecretStatusVaultTransit, pluginConf.KMSOptions.EncryptedStatus)
 	require.Equal(t, 14, pluginConf.AuthOptions.Scope)
 
 	err = os.Remove(configFilePath)
@@ -803,6 +803,12 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__WEB_CLIENT_INTEGRATIONS__1__FILE_EXTENSIONS", ".pdf, .txt")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__WEB_CLIENT_INTEGRATIONS__2__URL", "http://127.0.1.1/")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__WEB_CLIENT_INTEGRATIONS__3__FILE_EXTENSIONS", ".jpg, .txt")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__OIDC__CLIENT_ID", "client id")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__OIDC__CLIENT_SECRET", "client secret")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__OIDC__CONFIG_URL", "config url")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__OIDC__REDIRECT_BASE_URL", "redirect base url")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__OIDC__USERNAME_FIELD", "preferred_username")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__OIDC__ROLE_FIELD", "sftpgo_role")
 	t.Cleanup(func() {
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__0__ADDRESS")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__0__PORT")
@@ -825,6 +831,12 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__WEB_CLIENT_INTEGRATIONS__1__FILE_EXTENSIONS")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__WEB_CLIENT_INTEGRATIONS__2__URL")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__WEB_CLIENT_INTEGRATIONS__3__FILE_EXTENSIONS")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__OIDC__CLIENT_ID")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__OIDC__CLIENT_SECRET")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__OIDC__CONFIG_URL")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__OIDC__REDIRECT_BASE_URL")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__OIDC__USERNAME_FIELD")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__OIDC__ROLE_FIELD")
 	})
 
 	configDir := ".."
@@ -839,6 +851,7 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 	require.True(t, bindings[0].EnableWebClient)
 	require.True(t, bindings[0].RenderOpenAPI)
 	require.Len(t, bindings[0].TLSCipherSuites, 1)
+	require.Empty(t, bindings[0].OIDC.ConfigURL)
 	require.Equal(t, "TLS_AES_128_GCM_SHA256", bindings[0].TLSCipherSuites[0])
 	require.Equal(t, 0, bindings[0].HideLoginURL)
 	require.Equal(t, 8000, bindings[1].Port)
@@ -849,7 +862,7 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 	require.True(t, bindings[1].RenderOpenAPI)
 	require.Nil(t, bindings[1].TLSCipherSuites)
 	require.Equal(t, 1, bindings[1].HideLoginURL)
-
+	require.Empty(t, bindings[1].OIDC.ClientID)
 	require.Equal(t, 9000, bindings[2].Port)
 	require.Equal(t, "127.0.1.1", bindings[2].Address)
 	require.True(t, bindings[2].EnableHTTPS)
@@ -867,6 +880,12 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 	require.Len(t, bindings[2].WebClientIntegrations, 1)
 	require.Equal(t, "http://127.0.0.1/", bindings[2].WebClientIntegrations[0].URL)
 	require.Equal(t, []string{".pdf", ".txt"}, bindings[2].WebClientIntegrations[0].FileExtensions)
+	require.Equal(t, "client id", bindings[2].OIDC.ClientID)
+	require.Equal(t, "client secret", bindings[2].OIDC.ClientSecret)
+	require.Equal(t, "config url", bindings[2].OIDC.ConfigURL)
+	require.Equal(t, "redirect base url", bindings[2].OIDC.RedirectBaseURL)
+	require.Equal(t, "preferred_username", bindings[2].OIDC.UsernameField)
+	require.Equal(t, "sftpgo_role", bindings[2].OIDC.RoleField)
 }
 
 func TestHTTPClientCertificatesFromEnv(t *testing.T) {

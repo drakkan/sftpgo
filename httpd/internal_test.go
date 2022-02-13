@@ -733,13 +733,13 @@ func TestCreateTokenError(t *testing.T) {
 	form.Set("username", admin.Username)
 	form.Set("password", admin.Password)
 	form.Set(csrfFormToken, createCSRFToken())
-	req, _ = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
+	req, _ = http.NewRequest(http.MethodPost, webAdminLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	req.RemoteAddr = "127.0.0.1:1234"
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	server.handleWebAdminLoginPost(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
 	// req with no content type
-	req, _ = http.NewRequest(http.MethodPost, webLoginPath, nil)
+	req, _ = http.NewRequest(http.MethodPost, webAdminLoginPath, nil)
 	rr = httptest.NewRecorder()
 	server.handleWebAdminLoginPost(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
@@ -747,19 +747,19 @@ func TestCreateTokenError(t *testing.T) {
 	rr = httptest.NewRecorder()
 	server.loginAdmin(rr, req, &admin, false, nil)
 	// req with no POST body
-	req, _ = http.NewRequest(http.MethodGet, webLoginPath+"?a=a%C3%AO%GG", nil)
+	req, _ = http.NewRequest(http.MethodGet, webAdminLoginPath+"?a=a%C3%AO%GG", nil)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = httptest.NewRecorder()
 	server.handleWebAdminLoginPost(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
-	req, _ = http.NewRequest(http.MethodGet, webLoginPath+"?a=a%C3%A1%G2", nil)
+	req, _ = http.NewRequest(http.MethodGet, webAdminLoginPath+"?a=a%C3%A1%G2", nil)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = httptest.NewRecorder()
-	handleWebAdminChangePwdPost(rr, req)
+	server.handleWebAdminChangePwdPost(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
 	assert.Contains(t, rr.Body.String(), "invalid URL escape")
 
-	req, _ = http.NewRequest(http.MethodGet, webLoginPath+"?a=a%C3%A2%G3", nil)
+	req, _ = http.NewRequest(http.MethodGet, webAdminLoginPath+"?a=a%C3%A2%G3", nil)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	_, err := getAdminFromPostFields(req)
 	assert.Error(t, err)
@@ -773,7 +773,7 @@ func TestCreateTokenError(t *testing.T) {
 	req, _ = http.NewRequest(http.MethodPost, webChangeClientPwdPath+"?a=a%C3%AO%GA", bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = httptest.NewRecorder()
-	handleWebClientChangePwdPost(rr, req)
+	server.handleWebClientChangePwdPost(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
 	assert.Contains(t, rr.Body.String(), "invalid URL escape")
 
@@ -943,7 +943,7 @@ func TestJWTTokenValidation(t *testing.T) {
 	ctx = jwtauth.NewContext(req.Context(), token, nil)
 	fn.ServeHTTP(rr, req.WithContext(ctx))
 	assert.Equal(t, http.StatusFound, rr.Code)
-	assert.Equal(t, webLoginPath, rr.Header().Get("Location"))
+	assert.Equal(t, webAdminLoginPath, rr.Header().Get("Location"))
 
 	fn = jwtAuthenticatorWebClient(r)
 	rr = httptest.NewRecorder()
@@ -1469,7 +1469,7 @@ func TestProxyHeaders(t *testing.T) {
 	form.Set("username", username)
 	form.Set("password", password)
 	form.Set(csrfFormToken, createCSRFToken())
-	req, err = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
+	req, err = http.NewRequest(http.MethodPost, webAdminLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = testIP
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -1478,7 +1478,7 @@ func TestProxyHeaders(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
 	assert.Contains(t, rr.Body.String(), "login from IP 10.29.1.9 not allowed")
 
-	req, err = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
+	req, err = http.NewRequest(http.MethodPost, webAdminLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = testIP
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -1489,7 +1489,7 @@ func TestProxyHeaders(t *testing.T) {
 	cookie := rr.Header().Get("Set-Cookie")
 	assert.NotContains(t, cookie, "Secure")
 
-	req, err = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
+	req, err = http.NewRequest(http.MethodPost, webAdminLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = testIP
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -1501,7 +1501,7 @@ func TestProxyHeaders(t *testing.T) {
 	cookie = rr.Header().Get("Set-Cookie")
 	assert.Contains(t, cookie, "Secure")
 
-	req, err = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
+	req, err = http.NewRequest(http.MethodPost, webAdminLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = testIP
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -1650,14 +1650,14 @@ func TestWebAdminRedirect(t *testing.T) {
 	rr := httptest.NewRecorder()
 	testServer.Config.Handler.ServeHTTP(rr, req)
 	assert.Equal(t, http.StatusFound, rr.Code, rr.Body.String())
-	assert.Equal(t, webLoginPath, rr.Header().Get("Location"))
+	assert.Equal(t, webAdminLoginPath, rr.Header().Get("Location"))
 
 	req, err = http.NewRequest(http.MethodGet, webBasePath, nil)
 	assert.NoError(t, err)
 	rr = httptest.NewRecorder()
 	testServer.Config.Handler.ServeHTTP(rr, req)
 	assert.Equal(t, http.StatusFound, rr.Code, rr.Body.String())
-	assert.Equal(t, webLoginPath, rr.Header().Get("Location"))
+	assert.Equal(t, webAdminLoginPath, rr.Header().Get("Location"))
 }
 
 func TestParseRangeRequests(t *testing.T) {

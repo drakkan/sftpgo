@@ -216,7 +216,15 @@
         "proxy_allowed": [],
         "hide_login_url": 0,
         "render_openapi": true,
-        "web_client_integrations": []
+        "web_client_integrations": [],
+        "oidc": {
+          "client_id": "",
+          "client_secret": "",
+          "config_url": "",
+          "redirect_base_url": "",
+          "username_field": "",
+          "role_field": ""
+        }
       }
     ],
     "templates_path": "templates",

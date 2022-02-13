@@ -32,6 +32,7 @@ const (
 	claimPermissionsKey = "permissions"
 	claimAPIKey         = "api_key"
 	basicRealm          = "Basic realm=\"SFTPGo\""
+	jwtCookieKey        = "jwt"
 )
 
 var (
@@ -135,7 +136,7 @@ func (c *jwtTokenClaims) hasPerm(perm string) bool {
 	return util.IsStringInSlice(perm, c.Permissions)
 }
 
-func (c *jwtTokenClaims) createTokenResponse(tokenAuth *jwtauth.JWTAuth, audience tokenAudience) (map[string]interface{}, error) {
+func (c *jwtTokenClaims) createToken(tokenAuth *jwtauth.JWTAuth, audience tokenAudience) (jwt.Token, string, error) {
 	claims := c.asMap()
 	now := time.Now().UTC()
 
@@ -144,7 +145,11 @@ func (c *jwtTokenClaims) createTokenResponse(tokenAuth *jwtauth.JWTAuth, audienc
 	claims[jwt.ExpirationKey] = now.Add(tokenDuration)
 	claims[jwt.AudienceKey] = audience
 
-	token, tokenString, err := tokenAuth.Encode(claims)
+	return tokenAuth.Encode(claims)
+}
+
+func (c *jwtTokenClaims) createTokenResponse(tokenAuth *jwtauth.JWTAuth, audience tokenAudience) (map[string]interface{}, error) {
+	token, tokenString, err := c.createToken(tokenAuth, audience)
 	if err != nil {
 		return nil, err
 	}
@@ -168,7 +173,7 @@ func (c *jwtTokenClaims) createAndSetCookie(w http.ResponseWriter, r *http.Reque
 		basePath = webBaseClientPath
 	}
 	http.SetCookie(w, &http.Cookie{
-		Name:     "jwt",
+		Name:     jwtCookieKey,
 		Value:    resp["access_token"].(string),
 		Path:     basePath,
 		Expires:  time.Now().Add(tokenDuration),
@@ -183,7 +188,7 @@ func (c *jwtTokenClaims) createAndSetCookie(w http.ResponseWriter, r *http.Reque
 
 func (c *jwtTokenClaims) removeCookie(w http.ResponseWriter, r *http.Request, cookiePath string) {
 	http.SetCookie(w, &http.Cookie{
-		Name:     "jwt",
+		Name:     jwtCookieKey,
 		Value:    "",
 		Path:     cookiePath,
 		Expires:  time.Unix(0, 0),
@@ -193,6 +198,13 @@ func (c *jwtTokenClaims) removeCookie(w http.ResponseWriter, r *http.Request, co
 		SameSite: http.SameSiteStrictMode,
 	})
 	invalidateToken(r)
+}
+
+func tokenFromContext(r *http.Request) string {
+	if token, ok := r.Context().Value(oidcGeneratedToken).(string); ok {
+		return token
+	}
+	return ""
 }
 
 func isTLS(r *http.Request) bool {
@@ -206,21 +218,22 @@ func isTLS(r *http.Request) bool {
 }
 
 func isTokenInvalidated(r *http.Request) bool {
+	var findTokenFns []func(r *http.Request) string
+	findTokenFns = append(findTokenFns, jwtauth.TokenFromHeader)
+	findTokenFns = append(findTokenFns, jwtauth.TokenFromCookie)
+	findTokenFns = append(findTokenFns, tokenFromContext)
+
 	isTokenFound := false
-	token := jwtauth.TokenFromHeader(r)
-	if token != "" {
-		isTokenFound = true
-		if _, ok := invalidatedJWTTokens.Load(token); ok {
-			return true
+	for _, fn := range findTokenFns {
+		token := fn(r)
+		if token != "" {
+			isTokenFound = true
+			if _, ok := invalidatedJWTTokens.Load(token); ok {
+				return true
+			}
 		}
 	}
-	token = jwtauth.TokenFromCookie(r)
-	if token != "" {
-		isTokenFound = true
-		if _, ok := invalidatedJWTTokens.Load(token); ok {
-			return true
-		}
-	}
+
 	return !isTokenFound
 }
 

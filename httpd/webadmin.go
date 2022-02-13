@@ -115,6 +115,7 @@ type basePage struct {
 	Version            string
 	CSRFToken          string
 	HasDefender        bool
+	HasExternalLogin   bool
 	LoggedAdmin        *dataprovider.Admin
 }
 
@@ -405,6 +406,7 @@ func getBasePageData(title, currentURL string, r *http.Request) basePage {
 		Version:            version.GetAsString(),
 		LoggedAdmin:        getAdminFromToken(r),
 		HasDefender:        common.Config.DefenderConfig.Enabled,
+		HasExternalLogin:   isLoggedInWithOIDC(r),
 		CSRFToken:          csrfToken,
 	}
 }
@@ -1406,26 +1408,6 @@ func handleWebAdminChangePwd(w http.ResponseWriter, r *http.Request) {
 	renderChangePasswordPage(w, r, "")
 }
 
-func handleWebAdminChangePwdPost(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	err := r.ParseForm()
-	if err != nil {
-		renderChangePasswordPage(w, r, err.Error())
-		return
-	}
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
-		renderForbiddenPage(w, r, err.Error())
-		return
-	}
-	err = doChangeAdminPassword(r, r.Form.Get("current_password"), r.Form.Get("new_password1"),
-		r.Form.Get("new_password2"))
-	if err != nil {
-		renderChangePasswordPage(w, r, err.Error())
-		return
-	}
-	handleWebLogout(w, r)
-}
-
 func handleWebAdminProfilePost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	err := r.ParseForm()
@@ -1457,14 +1439,6 @@ func handleWebAdminProfilePost(w http.ResponseWriter, r *http.Request) {
 	}
 	renderMessagePage(w, r, "Profile updated", "", http.StatusOK, nil,
 		"Your profile has been successfully updated")
-}
-
-func handleWebLogout(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	c := jwtTokenClaims{}
-	c.removeCookie(w, r, webBaseAdminPath)
-
-	http.Redirect(w, r, webLoginPath, http.StatusFound)
 }
 
 func handleWebMaintenance(w http.ResponseWriter, r *http.Request) {
@@ -1555,7 +1529,7 @@ func handleGetWebAdmins(w http.ResponseWriter, r *http.Request) {
 func handleWebAdminSetupGet(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
 	if dataprovider.HasAdmin() {
-		http.Redirect(w, r, webLoginPath, http.StatusFound)
+		http.Redirect(w, r, webAdminLoginPath, http.StatusFound)
 		return
 	}
 	renderAdminSetupPage(w, r, "", "")

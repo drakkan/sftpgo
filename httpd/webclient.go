@@ -78,23 +78,24 @@ func isZeroTime(t time.Time) bool {
 }
 
 type baseClientPage struct {
-	Title        string
-	CurrentURL   string
-	FilesURL     string
-	SharesURL    string
-	ShareURL     string
-	ProfileURL   string
-	ChangePwdURL string
-	StaticURL    string
-	LogoutURL    string
-	MFAURL       string
-	MFATitle     string
-	FilesTitle   string
-	SharesTitle  string
-	ProfileTitle string
-	Version      string
-	CSRFToken    string
-	LoggedUser   *dataprovider.User
+	Title            string
+	CurrentURL       string
+	FilesURL         string
+	SharesURL        string
+	ShareURL         string
+	ProfileURL       string
+	ChangePwdURL     string
+	StaticURL        string
+	LogoutURL        string
+	MFAURL           string
+	MFATitle         string
+	FilesTitle       string
+	SharesTitle      string
+	ProfileTitle     string
+	Version          string
+	CSRFToken        string
+	HasExternalLogin bool
+	LoggedUser       *dataprovider.User
 }
 
 type dirMapping struct {
@@ -302,23 +303,24 @@ func getBaseClientPageData(title, currentURL string, r *http.Request) baseClient
 	v := version.Get()
 
 	return baseClientPage{
-		Title:        title,
-		CurrentURL:   currentURL,
-		FilesURL:     webClientFilesPath,
-		SharesURL:    webClientSharesPath,
-		ShareURL:     webClientSharePath,
-		ProfileURL:   webClientProfilePath,
-		ChangePwdURL: webChangeClientPwdPath,
-		StaticURL:    webStaticFilesPath,
-		LogoutURL:    webClientLogoutPath,
-		MFAURL:       webClientMFAPath,
-		MFATitle:     pageClient2FATitle,
-		FilesTitle:   pageClientFilesTitle,
-		SharesTitle:  pageClientSharesTitle,
-		ProfileTitle: pageClientProfileTitle,
-		Version:      fmt.Sprintf("%v-%v", v.Version, v.CommitHash),
-		CSRFToken:    csrfToken,
-		LoggedUser:   getUserFromToken(r),
+		Title:            title,
+		CurrentURL:       currentURL,
+		FilesURL:         webClientFilesPath,
+		SharesURL:        webClientSharesPath,
+		ShareURL:         webClientSharePath,
+		ProfileURL:       webClientProfilePath,
+		ChangePwdURL:     webChangeClientPwdPath,
+		StaticURL:        webStaticFilesPath,
+		LogoutURL:        webClientLogoutPath,
+		MFAURL:           webClientMFAPath,
+		MFATitle:         pageClient2FATitle,
+		FilesTitle:       pageClientFilesTitle,
+		SharesTitle:      pageClientSharesTitle,
+		ProfileTitle:     pageClientProfileTitle,
+		Version:          fmt.Sprintf("%v-%v", v.Version, v.CommitHash),
+		CSRFToken:        csrfToken,
+		HasExternalLogin: isLoggedInWithOIDC(r),
+		LoggedUser:       getUserFromToken(r),
 	}
 }
 
@@ -541,14 +543,6 @@ func renderClientChangePasswordPage(w http.ResponseWriter, r *http.Request, erro
 	}
 
 	renderClientTemplate(w, templateClientChangePwd, data)
-}
-
-func handleWebClientLogout(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
-	c := jwtTokenClaims{}
-	c.removeCookie(w, r, webBaseClientPath)
-
-	http.Redirect(w, r, webClientLoginPath, http.StatusFound)
 }
 
 func handleWebClientDownloadZip(w http.ResponseWriter, r *http.Request) {
@@ -1040,26 +1034,6 @@ func handleClientGetProfile(w http.ResponseWriter, r *http.Request) {
 func handleWebClientChangePwd(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	renderClientChangePasswordPage(w, r, "")
-}
-
-func handleWebClientChangePwdPost(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	err := r.ParseForm()
-	if err != nil {
-		renderClientChangePasswordPage(w, r, err.Error())
-		return
-	}
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
-		renderClientForbiddenPage(w, r, err.Error())
-		return
-	}
-	err = doChangeUserPassword(r, r.Form.Get("current_password"), r.Form.Get("new_password1"),
-		r.Form.Get("new_password2"))
-	if err != nil {
-		renderClientChangePasswordPage(w, r, err.Error())
-		return
-	}
-	handleWebClientLogout(w, r)
 }
 
 func handleWebClientProfilePost(w http.ResponseWriter, r *http.Request) {

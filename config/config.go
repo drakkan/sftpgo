@@ -70,7 +70,7 @@ var (
 		ProxyAllowed:    nil,
 	}
 	defaultHTTPDBinding = httpd.Binding{
-		Address:               "127.0.0.1",
+		Address:               "",
 		Port:                  8080,
 		EnableWebAdmin:        true,
 		EnableWebClient:       true,
@@ -81,6 +81,14 @@ var (
 		HideLoginURL:          0,
 		RenderOpenAPI:         true,
 		WebClientIntegrations: nil,
+		OIDC: httpd.OIDC{
+			ClientID:        "",
+			ClientSecret:    "",
+			ConfigURL:       "",
+			RedirectBaseURL: "",
+			UsernameField:   "",
+			RoleField:       "",
+		},
 	}
 	defaultRateLimiter = common.RateLimiterConfig{
 		Average:                0,
@@ -490,6 +498,16 @@ func getRedactedGlobalConf() globalConfig {
 	conf.ProviderConf.PostLoginHook = util.GetRedactedURL(conf.ProviderConf.PostLoginHook)
 	conf.ProviderConf.CheckPasswordHook = util.GetRedactedURL(conf.ProviderConf.CheckPasswordHook)
 	conf.SMTPConfig.Password = getRedactedPassword()
+	conf.HTTPDConfig.Bindings = nil
+	for _, binding := range globalConf.HTTPDConfig.Bindings {
+		if binding.OIDC.ClientID != "" {
+			binding.OIDC.ClientID = getRedactedPassword()
+		}
+		if binding.OIDC.ClientSecret != "" {
+			binding.OIDC.ClientSecret = getRedactedPassword()
+		}
+		conf.HTTPDConfig.Bindings = append(conf.HTTPDConfig.Bindings, binding)
+	}
 	return conf
 }
 
@@ -1042,6 +1060,49 @@ func getWebDAVDBindingFromEnv(idx int) {
 	}
 }
 
+func getHTTPDOIDCFromEnv(idx int) (httpd.OIDC, bool) {
+	var result httpd.OIDC
+	isSet := false
+
+	clientID, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__OIDC__CLIENT_ID", idx))
+	if ok {
+		result.ClientID = clientID
+		isSet = true
+	}
+
+	clientSecret, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__OIDC__CLIENT_SECRET", idx))
+	if ok {
+		result.ClientSecret = clientSecret
+		isSet = true
+	}
+
+	configURL, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__OIDC__CONFIG_URL", idx))
+	if ok {
+		result.ConfigURL = configURL
+		isSet = true
+	}
+
+	redirectBaseURL, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__OIDC__REDIRECT_BASE_URL", idx))
+	if ok {
+		result.RedirectBaseURL = redirectBaseURL
+		isSet = true
+	}
+
+	usernameField, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__OIDC__USERNAME_FIELD", idx))
+	if ok {
+		result.UsernameField = usernameField
+		isSet = true
+	}
+
+	roleField, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__OIDC__ROLE_FIELD", idx))
+	if ok {
+		result.RoleField = roleField
+		isSet = true
+	}
+
+	return result, isSet
+}
+
 func getHTTPDWebClientIntegrationsFromEnv(idx int) []httpd.WebClientIntegration {
 	var integrations []httpd.WebClientIntegration
 
@@ -1067,7 +1128,7 @@ func getHTTPDWebClientIntegrationsFromEnv(idx int) []httpd.WebClientIntegration 
 	return integrations
 }
 
-func getHTTPDBindingFromEnv(idx int) {
+func getDefaultHTTPBinding(idx int) httpd.Binding {
 	binding := httpd.Binding{
 		EnableWebAdmin:  true,
 		EnableWebClient: true,
@@ -1076,6 +1137,11 @@ func getHTTPDBindingFromEnv(idx int) {
 	if len(globalConf.HTTPDConfig.Bindings) > idx {
 		binding = globalConf.HTTPDConfig.Bindings[idx]
 	}
+	return binding
+}
+
+func getHTTPDBindingFromEnv(idx int) {
+	binding := getDefaultHTTPBinding(idx)
 
 	isSet := false
 
@@ -1142,6 +1208,12 @@ func getHTTPDBindingFromEnv(idx int) {
 	hideLoginURL, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__HIDE_LOGIN_URL", idx))
 	if ok {
 		binding.HideLoginURL = int(hideLoginURL)
+		isSet = true
+	}
+
+	oidc, ok := getHTTPDOIDCFromEnv(idx)
+	if ok {
+		binding.OIDC = oidc
 		isSet = true
 	}
 

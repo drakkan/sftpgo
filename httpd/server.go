@@ -141,12 +141,44 @@ func (s *httpdServer) renderClientLoginPage(w http.ResponseWriter, error string)
 		StaticURL:  webStaticFilesPath,
 	}
 	if s.binding.showAdminLoginURL() {
-		data.AltLoginURL = webLoginPath
+		data.AltLoginURL = webAdminLoginPath
 	}
 	if smtp.IsEnabled() {
 		data.ForgotPwdURL = webClientForgotPwdPath
 	}
+	if s.binding.OIDC.isEnabled() {
+		data.OpenIDLoginURL = webClientOIDCLoginPath
+	}
 	renderClientTemplate(w, templateClientLogin, data)
+}
+
+func (s *httpdServer) handleWebClientLogout(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
+	c := jwtTokenClaims{}
+	c.removeCookie(w, r, webBaseClientPath)
+	s.logoutOIDCUser(w, r)
+
+	http.Redirect(w, r, webClientLoginPath, http.StatusFound)
+}
+
+func (s *httpdServer) handleWebClientChangePwdPost(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	err := r.ParseForm()
+	if err != nil {
+		renderClientChangePasswordPage(w, r, err.Error())
+		return
+	}
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
+		renderClientForbiddenPage(w, r, err.Error())
+		return
+	}
+	err = doChangeUserPassword(r, r.Form.Get("current_password"), r.Form.Get("new_password1"),
+		r.Form.Get("new_password2"))
+	if err != nil {
+		renderClientChangePasswordPage(w, r, err.Error())
+		return
+	}
+	s.handleWebClientLogout(w, r)
 }
 
 func (s *httpdServer) handleClientWebLogin(w http.ResponseWriter, r *http.Request) {
@@ -155,7 +187,7 @@ func (s *httpdServer) handleClientWebLogin(w http.ResponseWriter, r *http.Reques
 		http.Redirect(w, r, webAdminSetupPath, http.StatusFound)
 		return
 	}
-	s.renderClientLoginPage(w, "")
+	s.renderClientLoginPage(w, getFlashMessage(w, r))
 }
 
 func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Request) {
@@ -470,7 +502,7 @@ func (s *httpdServer) handleWebAdminLoginPost(w http.ResponseWriter, r *http.Req
 
 func (s *httpdServer) renderAdminLoginPage(w http.ResponseWriter, error string) {
 	data := loginPage{
-		CurrentURL: webLoginPath,
+		CurrentURL: webAdminLoginPath,
 		Version:    version.Get().Version,
 		Error:      error,
 		CSRFToken:  createCSRFToken(),
@@ -482,6 +514,9 @@ func (s *httpdServer) renderAdminLoginPage(w http.ResponseWriter, error string) 
 	if smtp.IsEnabled() {
 		data.ForgotPwdURL = webAdminForgotPwdPath
 	}
+	if s.binding.OIDC.hasRoles() {
+		data.OpenIDLoginURL = webAdminOIDCLoginPath
+	}
 	renderAdminTemplate(w, templateLogin, data)
 }
 
@@ -491,7 +526,36 @@ func (s *httpdServer) handleWebAdminLogin(w http.ResponseWriter, r *http.Request
 		http.Redirect(w, r, webAdminSetupPath, http.StatusFound)
 		return
 	}
-	s.renderAdminLoginPage(w, "")
+	s.renderAdminLoginPage(w, getFlashMessage(w, r))
+}
+
+func (s *httpdServer) handleWebAdminLogout(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	c := jwtTokenClaims{}
+	c.removeCookie(w, r, webBaseAdminPath)
+	s.logoutOIDCUser(w, r)
+
+	http.Redirect(w, r, webAdminLoginPath, http.StatusFound)
+}
+
+func (s *httpdServer) handleWebAdminChangePwdPost(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	err := r.ParseForm()
+	if err != nil {
+		renderChangePasswordPage(w, r, err.Error())
+		return
+	}
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
+		renderForbiddenPage(w, r, err.Error())
+		return
+	}
+	err = doChangeAdminPassword(r, r.Form.Get("current_password"), r.Form.Get("new_password1"),
+		r.Form.Get("new_password2"))
+	if err != nil {
+		renderChangePasswordPage(w, r, err.Error())
+		return
+	}
+	s.handleWebAdminLogout(w, r)
 }
 
 func (s *httpdServer) handleWebAdminPasswordResetPost(w http.ResponseWriter, r *http.Request) {
@@ -794,6 +858,9 @@ func (s *httpdServer) generateAndSendToken(w http.ResponseWriter, r *http.Reques
 }
 
 func (s *httpdServer) checkCookieExpiration(w http.ResponseWriter, r *http.Request) {
+	if _, ok := r.Context().Value(oidcTokenKey).(string); ok {
+		return
+	}
 	token, claims, err := jwtauth.FromContext(r.Context())
 	if err != nil {
 		return
@@ -857,7 +924,7 @@ func (s *httpdServer) refreshAdminToken(w http.ResponseWriter, r *http.Request, 
 func (s *httpdServer) updateContextFromCookie(r *http.Request) *http.Request {
 	token, _, err := jwtauth.FromContext(r.Context())
 	if token == nil || err != nil {
-		_, err = r.Cookie("jwt")
+		_, err = r.Cookie(jwtCookieKey)
 		if err != nil {
 			return r
 		}
@@ -1182,6 +1249,9 @@ func (s *httpdServer) initializeRouter() {
 			router.Use(compressor.Handler)
 			fileServer(router, webStaticFilesPath, http.Dir(s.staticFilesPath))
 		})
+		if s.binding.OIDC.isEnabled() {
+			s.router.Get(webOIDCRedirectPath, s.handleOIDCRedirect)
+		}
 		if s.enableWebClient {
 			s.router.Get(webRootPath, func(w http.ResponseWriter, r *http.Request) {
 				r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
@@ -1194,21 +1264,29 @@ func (s *httpdServer) initializeRouter() {
 		} else {
 			s.router.Get(webRootPath, func(w http.ResponseWriter, r *http.Request) {
 				r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-				s.redirectToWebPath(w, r, webLoginPath)
+				s.redirectToWebPath(w, r, webAdminLoginPath)
 			})
 			s.router.Get(webBasePath, func(w http.ResponseWriter, r *http.Request) {
 				r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-				s.redirectToWebPath(w, r, webLoginPath)
+				s.redirectToWebPath(w, r, webAdminLoginPath)
 			})
 		}
 	}
 
+	s.setupWebClientRoutes()
+	s.setupWebAdminRoutes()
+}
+
+func (s *httpdServer) setupWebClientRoutes() {
 	if s.enableWebClient {
 		s.router.Get(webBaseClientPath, func(w http.ResponseWriter, r *http.Request) {
 			r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 			http.Redirect(w, r, webClientLoginPath, http.StatusFound)
 		})
 		s.router.Get(webClientLoginPath, s.handleClientWebLogin)
+		if s.binding.OIDC.isEnabled() {
+			s.router.Get(webClientOIDCLoginPath, s.handleWebClientOIDCLogin)
+		}
 		s.router.Post(webClientLoginPath, s.handleWebClientLoginPost)
 		s.router.Get(webClientForgotPwdPath, handleWebClientForgotPwd)
 		s.router.Post(webClientForgotPwdPath, handleWebClientForgotPwdPost)
@@ -1234,10 +1312,13 @@ func (s *httpdServer) initializeRouter() {
 		s.router.Post(webClientPubSharesPath+"/{id}/{name}", uploadFileToShare)
 
 		s.router.Group(func(router chi.Router) {
-			router.Use(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromCookie))
+			if s.binding.OIDC.isEnabled() {
+				router.Use(s.oidcTokenAuthenticator(tokenAudienceWebClient))
+			}
+			router.Use(jwtauth.Verify(s.tokenAuth, tokenFromContext, jwtauth.TokenFromCookie))
 			router.Use(jwtAuthenticatorWebClient)
 
-			router.Get(webClientLogoutPath, handleWebClientLogout)
+			router.Get(webClientLogoutPath, s.handleWebClientLogout)
 			router.With(s.refreshCookie).Get(webClientFilesPath, s.handleClientGetFiles)
 			router.With(s.refreshCookie).Get(webClientViewPDFPath, handleClientViewPDF)
 			router.With(s.refreshCookie, verifyCSRFHeader).Get(webClientFilePath, getUserFile)
@@ -1256,12 +1337,12 @@ func (s *httpdServer) initializeRouter() {
 			router.With(checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
 				Delete(webClientDirsPath, deleteUserDir)
 			router.With(s.refreshCookie).Get(webClientDownloadZipPath, handleWebClientDownloadZip)
-			router.With(s.refreshCookie).Get(webClientProfilePath, handleClientGetProfile)
-			router.Post(webClientProfilePath, handleWebClientProfilePost)
+			router.With(s.refreshCookie, requireBuiltinLogin).Get(webClientProfilePath, handleClientGetProfile)
+			router.With(requireBuiltinLogin).Post(webClientProfilePath, handleWebClientProfilePost)
 			router.With(checkHTTPUserPerm(sdk.WebClientPasswordChangeDisabled)).
 				Get(webChangeClientPwdPath, handleWebClientChangePwd)
 			router.With(checkHTTPUserPerm(sdk.WebClientPasswordChangeDisabled)).
-				Post(webChangeClientPwdPath, handleWebClientChangePwdPost)
+				Post(webChangeClientPwdPath, s.handleWebClientChangePwdPost)
 			router.With(checkHTTPUserPerm(sdk.WebClientMFADisabled), s.refreshCookie).
 				Get(webClientMFAPath, handleWebClientMFA)
 			router.With(checkHTTPUserPerm(sdk.WebClientMFADisabled), verifyCSRFHeader).
@@ -1288,14 +1369,19 @@ func (s *httpdServer) initializeRouter() {
 				Delete(webClientSharePath+"/{id}", deleteShare)
 		})
 	}
+}
 
+func (s *httpdServer) setupWebAdminRoutes() {
 	if s.enableWebAdmin {
 		s.router.Get(webBaseAdminPath, func(w http.ResponseWriter, r *http.Request) {
 			r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
-			s.redirectToWebPath(w, r, webLoginPath)
+			s.redirectToWebPath(w, r, webAdminLoginPath)
 		})
-		s.router.Get(webLoginPath, s.handleWebAdminLogin)
-		s.router.Post(webLoginPath, s.handleWebAdminLoginPost)
+		s.router.Get(webAdminLoginPath, s.handleWebAdminLogin)
+		if s.binding.OIDC.hasRoles() {
+			s.router.Get(webAdminOIDCLoginPath, s.handleWebAdminOIDCLogin)
+		}
+		s.router.Post(webAdminLoginPath, s.handleWebAdminLoginPost)
 		s.router.Get(webAdminSetupPath, handleWebAdminSetupGet)
 		s.router.Post(webAdminSetupPath, s.handleWebAdminSetupPost)
 		s.router.Get(webAdminForgotPwdPath, handleWebAdminForgotPwd)
@@ -1316,21 +1402,24 @@ func (s *httpdServer) initializeRouter() {
 			Post(webAdminTwoFactorRecoveryPath, s.handleWebAdminTwoFactorRecoveryPost)
 
 		s.router.Group(func(router chi.Router) {
-			router.Use(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromCookie))
+			if s.binding.OIDC.isEnabled() {
+				router.Use(s.oidcTokenAuthenticator(tokenAudienceWebAdmin))
+			}
+			router.Use(jwtauth.Verify(s.tokenAuth, tokenFromContext, jwtauth.TokenFromCookie))
 			router.Use(jwtAuthenticatorWebAdmin)
 
-			router.Get(webLogoutPath, handleWebLogout)
-			router.With(s.refreshCookie).Get(webAdminProfilePath, handleWebAdminProfile)
-			router.Post(webAdminProfilePath, handleWebAdminProfilePost)
-			router.With(s.refreshCookie).Get(webChangeAdminPwdPath, handleWebAdminChangePwd)
-			router.Post(webChangeAdminPwdPath, handleWebAdminChangePwdPost)
+			router.Get(webLogoutPath, s.handleWebAdminLogout)
+			router.With(s.refreshCookie, requireBuiltinLogin).Get(webAdminProfilePath, handleWebAdminProfile)
+			router.With(requireBuiltinLogin).Post(webAdminProfilePath, handleWebAdminProfilePost)
+			router.With(s.refreshCookie, requireBuiltinLogin).Get(webChangeAdminPwdPath, handleWebAdminChangePwd)
+			router.With(requireBuiltinLogin).Post(webChangeAdminPwdPath, s.handleWebAdminChangePwdPost)
 
-			router.With(s.refreshCookie).Get(webAdminMFAPath, handleWebAdminMFA)
-			router.With(verifyCSRFHeader).Post(webAdminTOTPGeneratePath, generateTOTPSecret)
-			router.With(verifyCSRFHeader).Post(webAdminTOTPValidatePath, validateTOTPPasscode)
-			router.With(verifyCSRFHeader).Post(webAdminTOTPSavePath, saveTOTPConfig)
-			router.With(verifyCSRFHeader, s.refreshCookie).Get(webAdminRecoveryCodesPath, getRecoveryCodes)
-			router.With(verifyCSRFHeader).Post(webAdminRecoveryCodesPath, generateRecoveryCodes)
+			router.With(s.refreshCookie, requireBuiltinLogin).Get(webAdminMFAPath, handleWebAdminMFA)
+			router.With(verifyCSRFHeader, requireBuiltinLogin).Post(webAdminTOTPGeneratePath, generateTOTPSecret)
+			router.With(verifyCSRFHeader, requireBuiltinLogin).Post(webAdminTOTPValidatePath, validateTOTPPasscode)
+			router.With(verifyCSRFHeader, requireBuiltinLogin).Post(webAdminTOTPSavePath, saveTOTPConfig)
+			router.With(verifyCSRFHeader, requireBuiltinLogin, s.refreshCookie).Get(webAdminRecoveryCodesPath, getRecoveryCodes)
+			router.With(verifyCSRFHeader, requireBuiltinLogin).Post(webAdminRecoveryCodesPath, generateRecoveryCodes)
 
 			router.With(checkPerm(dataprovider.PermAdminViewUsers), s.refreshCookie).
 				Get(webUsersPath, handleGetWebUsers)

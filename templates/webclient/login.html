@@ -27,6 +27,12 @@
                                         <button type="submit" class="btn btn-primary btn-user-custom btn-block">
                                             Login
                                         </button>
+                                        {{if .OpenIDLoginURL}}
+                                        <hr>
+                                        <a href="{{.OpenIDLoginURL}}" class="btn btn-secondary btn-user-custom btn-block">
+                                            Login with OpenID
+                                        </a>
+                                        {{end}}
                                     </form>
                                     {{if .AltLoginURL}}
                                     <hr>

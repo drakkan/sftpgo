@@ -114,7 +114,7 @@ The configuration file contains the following sections:
   - `keyboard_interactive_authentication`, boolean. This setting specifies whether keyboard interactive authentication is allowed. If no keyboard interactive hook or auth plugin is defined the default is to prompt for the user password and then the one time authentication code, if defined. Default: `false`.
   - `keyboard_interactive_auth_hook`, string. Absolute path to an external program or an HTTP URL to invoke for keyboard interactive authentication. See [Keyboard Interactive Authentication](./keyboard-interactive.md) for more details.
   - `password_authentication`, boolean. Set to false to disable password authentication. This setting will disable multi-step authentication method using public key + password too. It is useful for public key only configurations if you need to manage old clients that will not attempt to authenticate with public keys if the password login method is advertised. Default: `true`.
-  - `folder_prefix`, string. Virtual root folder prefix to include in all file operations (ex: `/files`). The virtual paths used for per-directory permissions, file patterns etc. must not include the folder prefix. The prefix is only applied to SFTP requests (in SFTP server mode), SCP and other SSH commands will be automatically disabled if you configure a prefix.  The prefix is ignored while running as OpenSSH's SFTP subsystem. This setting can help some specific migrations from SFTP servers based on OpenSSH and it is not recommended for general usage. Default: empty.
+  - `folder_prefix`, string. Virtual root folder prefix to include in all file operations (ex: `/files`). The virtual paths used for per-directory permissions, file patterns etc. must not include the folder prefix. The prefix is only applied to SFTP requests (in SFTP server mode), SCP and other SSH commands will be automatically disabled if you configure a prefix.  The prefix is ignored while running as OpenSSH's SFTP subsystem. This setting can help some specific migrations from SFTP servers based on OpenSSH and it is not recommended for general usage. Default: blank.
 - **"ftpd"**, the configuration for the FTP server
   - `bindings`, list of structs. Each struct has the following fields:
     - `port`, integer. The port used for serving FTP requests. 0 means disabled. Default: 0.
@@ -221,18 +221,25 @@ The configuration file contains the following sections:
 - **"httpd"**, the configuration for the HTTP server used to serve REST API and to expose the built-in web interface
   - `bindings`, list of structs. Each struct has the following fields:
     - `port`, integer. The port used for serving HTTP requests. Default: 8080.
-    - `address`, string. Leave blank to listen on all available network interfaces. On *NIX you can specify an absolute path to listen on a Unix-domain socket Default: "127.0.0.1".
+    - `address`, string. Leave blank to listen on all available network interfaces. On *NIX you can specify an absolute path to listen on a Unix-domain socket Default: blank.
     - `enable_web_admin`, boolean. Set to `false` to disable the built-in web admin for this binding. You also need to define `templates_path` and `static_files_path` to use the built-in web admin interface. Default `true`.
     - `enable_web_client`, boolean. Set to `false` to disable the built-in web client for this binding. You also need to define `templates_path` and `static_files_path` to use the built-in web client interface. Default `true`.
     - `enable_https`, boolean. Set to `true` and provide both a certificate and a key file to enable HTTPS connection for this binding. Default `false`.
     - `client_auth_type`, integer. Set to `1` to require client certificate authentication in addition to JWT/Web authentication. You need to define at least a certificate authority for this to work. Default: 0.
-    - `tls_cipher_suites`, list of strings. List of supported cipher suites for TLS version 1.2. If empty, a default list of secure cipher suites is used, with a preference order based on hardware performance. Note that TLS 1.3 ciphersuites are not configurable. The supported ciphersuites names are defined [here](https://github.com/golang/go/blob/master/src/crypto/tls/cipher_suites.go#L52). Any invalid name will be silently ignored. The order matters, the ciphers listed first will be the preferred ones. Default: empty.
-    - `proxy_allowed`, list of IP addresses and IP ranges allowed to set `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Proto`, `CF-Connecting-IP`, `True-Client-IP` headers. Any of the indicated headers, if set on requests from a connection address not in this list, will be silently ignored. Default: empty.
+    - `tls_cipher_suites`, list of strings. List of supported cipher suites for TLS version 1.2. If empty, a default list of secure cipher suites is used, with a preference order based on hardware performance. Note that TLS 1.3 ciphersuites are not configurable. The supported ciphersuites names are defined [here](https://github.com/golang/go/blob/master/src/crypto/tls/cipher_suites.go#L52). Any invalid name will be silently ignored. The order matters, the ciphers listed first will be the preferred ones. Default: blank.
+    - `proxy_allowed`, list of IP addresses and IP ranges allowed to set `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Proto`, `CF-Connecting-IP`, `True-Client-IP` headers. Any of the indicated headers, if set on requests from a connection address not in this list, will be silently ignored. Default: blank.
     - `hide_login_url`, integer. If both web admin and web client are enabled each login page will show a link to the other one. This setting allows to hide this link. 0 means that the login links are displayed on both admin and client login page. This is the default. 1 means that the login link to the web client login page is hidden on admin login page. 2 means that the login link to the web admin login page is hidden on client login page. The flags can be combined, for example 3 will disable both login links.
     - `render_openapi`, boolean. Set to `false` to disable serving of the OpenAPI schema and renderer. Default `true`.
     - `web_client_integrations`, list of struct. The SFTPGo web client allows to send the files with the specified extensions to the configured URL using the [postMessage API](https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage). This way you can integrate your own file viewer or editor. Take a look at the commentented example [here](../examples/webclient-integrations/test.html) to understand how to use this feature. Each struct has the following fields:
       - `file_extensions`, list of strings. File extensions must be specified with the leading dot, for example `.pdf`.
       - `url`, string. URL to open for the configured file extensions. The url will open in a new tab.
+    - `oidc`, struct. Defines the OpenID connect configuration. OpenID integration allows you to map your identity provider users to SFTPGo users and so you can login to SFTPGo Web Client and Web Admin user interfaces using your identity provider. The following fields are supported:
+      - `config_url`, string. Identifier for the service. If defined, SFTPGo will try to retrieve the provider configuration on startup and then will refuse to start if it fails to connect to the specified URL. Default: blank.
+      - `client_id`, string. Defines the application's ID. Default: blank.
+      - `client_secret`, string. Defines the application's secret. Default: blank.
+      - `redirect_base_url`, string. Defines the base URL to redirect to after OpenID authentication. The suffix `/web/oidc/redirect` will be added to this base URL, adding also the `web_root` if configured. Default: blank.
+      - `username_field`, string. Defines the ID token claims field to map to the SFTPGo username. Default: blank.
+      - `role_field`, string. Defines the optional ID token claims field to map to a SFTPGo role. If the defined ID token claims field is set to `admin` the authenticated user is mapped to an SFTPGo admin. You don't need to specify this field if you want to use OpenID only for the Web Client UI. Default: blank.
   - `templates_path`, string. Path to the HTML web templates. This can be an absolute path or a path relative to the config dir
   - `static_files_path`, string. Path to the static files for the web interface. This can be an absolute path or a path relative to the config dir. If both `templates_path` and `static_files_path` are empty the built-in web interface will be disabled
   - `backups_path`, string. Path to the backup directory. This can be an absolute path or a path relative to the config dir. We don't allow backups in arbitrary paths for security reasons
@@ -254,7 +261,7 @@ The configuration file contains the following sections:
     - `max_age`, integer.
 - **"telemetry"**, the configuration for the telemetry server, more details [below](#telemetry-server)
   - `bind_port`, integer. The port used for serving HTTP requests. Set to 0 to disable HTTP server. Default: 0
-  - `bind_address`, string. Leave blank to listen on all available network interfaces. On \*NIX you can specify an absolute path to listen on a Unix-domain socket. Default: "127.0.0.1"
+  - `bind_address`, string. Leave blank to listen on all available network interfaces. On \*NIX you can specify an absolute path to listen on a Unix-domain socket. Default: `127.0.0.1`
   - `enable_profiler`, boolean. Enable the built-in profiler. Default `false`
   - `auth_user_file`, string. Path to a file used to store usernames and passwords for basic authentication. This can be an absolute path or a path relative to the config dir. We support HTTP basic authentication, and the file format must conform to the one generated using the Apache `htpasswd` tool. The supported password formats are bcrypt (`$2y$` prefix) and md5 crypt (`$apr1$` prefix). If empty, HTTP authentication is disabled. Authentication will be always disabled for the `/healthz` endpoint.
   - `certificate_file`, string. Certificate for HTTPS. This can be an absolute path or a path relative to the config dir.
@@ -276,23 +283,23 @@ The configuration file contains the following sections:
     - `url`, string, optional. If not empty, the header will be added only if the request URL starts with the one specified here
 - **kms**, configuration for the Key Management Service, more details can be found [here](./kms.md)
   - `secrets`
-    - `url`, string. Defines the URI to the KMS service. Default: empty.
-    - `master_key`, string. Defines the master encryption key as string. If not empty, it takes precedence over `master_key_path`. Default: empty.
-    - `master_key_path, string. Defines the absolute path to a file containing the master encryption key. Default: empty.
+    - `url`, string. Defines the URI to the KMS service. Default: blank.
+    - `master_key`, string. Defines the master encryption key as string. If not empty, it takes precedence over `master_key_path`. Default: blank.
+    - `master_key_path`, string. Defines the absolute path to a file containing the master encryption key. Default: blank.
 - **mfa**, multi-factor authentication settings
   - `totp`, list of struct that define settings for time-based one time passwords (RFC 6238). Each struct has the following fields:
     - `name`, string. Unique configuration name. This name should not be changed if there are users or admins using the configuration. The name is not exposed to the authentication apps. Default: `Default`.
     - `issuer`, string. Name of the issuing Organization/Company. Default: `SFTPGo`.
     - `algo`, string. Algorithm to use for HMAC. The supported algorithms are: `sha1`, `sha256`, `sha512`. Currently Google Authenticator app on iPhone seems to only support `sha1`, please check the compatibility with your target apps/device before setting a different algorithm. You can also define multiple configurations, for example one that uses `sha256` or `sha512` and another one that uses `sha1` and instruct your users to use the appropriate configuration for their devices/apps. The algorithm should not be changed if there are users or admins using the configuration. Default: `sha1`.
 - **smtp**, SMTP configuration enables SFTPGo email sending capabilities
-  - `host`, string. Location of SMTP email server. Leavy empty to disable email sending capabilities. Default: empty.
+  - `host`, string. Location of SMTP email server. Leavy empty to disable email sending capabilities. Default: blank.
   - `port`, integer. Port of SMTP email server.
-  - `from`, string. From address, for example `SFTPGo <sftpgo@example.com>`. Many SMTP servers reject emails without a `From` header so, if not set, SFTPGo will try to use the username as fallback, this may or may not be appropriate. Default: empty
-  - `user`, string. SMTP username. Default: empty
-  - `password`, string. SMTP password. Leaving both username and password empty the SMTP authentication will be disabled. Default: empty
+  - `from`, string. From address, for example `SFTPGo <sftpgo@example.com>`. Many SMTP servers reject emails without a `From` header so, if not set, SFTPGo will try to use the username as fallback, this may or may not be appropriate. Default: blank
+  - `user`, string. SMTP username. Default: blank
+  - `password`, string. SMTP password. Leaving both username and password empty the SMTP authentication will be disabled. Default: blank
   - `auth_type`, integer. 0 means `Plain`, 1 means `Login`, 2 means `CRAM-MD5`. Default: `0`.
   - `encryption`, integer. 0 means no encryption, 1 means `TLS`, 2 means `STARTTLS`. Default: `0`.
-  - `domain`, string. Domain to use for `HELO` command, if empty `localhost` will be used. Default: empty.
+  - `domain`, string. Domain to use for `HELO` command, if empty `localhost` will be used. Default: blank.
   - `templates_path`, string. Path to the email templates. This can be an absolute path or a path relative to the config dir. Templates are searched within a subdirectory named "email" in the specified path. You can customize the email templates by simply specifying an alternate path and putting your custom templates there.
 - **plugins**, list of external plugins. Each plugin is configured using a struct with the following fields:
   - `type`, string. Defines the plugin type. Supported types: `notifier`, `kms`, `auth`, `metadata`.

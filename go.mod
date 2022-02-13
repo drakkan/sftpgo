@@ -7,10 +7,11 @@ require (
 	github.com/Azure/azure-storage-blob-go v0.14.0
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/alexedwards/argon2id v0.0.0-20211130144151-3585854a6387
-	github.com/aws/aws-sdk-go v1.42.48
-	github.com/cockroachdb/cockroach-go/v2 v2.2.6
+	github.com/aws/aws-sdk-go v1.42.52
+	github.com/cockroachdb/cockroach-go/v2 v2.2.8
+	github.com/coreos/go-oidc/v3 v3.1.0
 	github.com/eikenb/pipeat v0.0.0-20210603033007-44fc3ffce52b
-	github.com/fclairamb/ftpserverlib v0.17.0
+	github.com/fclairamb/ftpserverlib v0.17.1-0.20220212161409-5157f18d716f
 	github.com/fclairamb/go-log v0.2.0
 	github.com/go-chi/chi/v5 v5.0.8-0.20220103230436-7dbe9a0bd10f
 	github.com/go-chi/jwtauth/v5 v5.0.2
@@ -54,9 +55,10 @@ require (
 	gocloud.dev v0.24.0
 	golang.org/x/crypto v0.0.0-20220128200615-198e4374d7ed
 	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd
-	golang.org/x/sys v0.0.0-20220207234003-57398862261d
-	golang.org/x/time v0.0.0-20211116232009-f0f3c7e86c11
-	google.golang.org/api v0.67.0
+	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8
+	golang.org/x/sys v0.0.0-20220209214540-3681064d5158
+	golang.org/x/time v0.0.0-20220210224613-90d013bbcef8
+	google.golang.org/api v0.68.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
 
@@ -121,22 +123,21 @@ require (
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
 	go.opencensus.io v0.23.0 // indirect
 	golang.org/x/mod v0.5.1 // indirect
-	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/tools v0.1.9 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20220207185906-7721543eae58 // indirect
+	google.golang.org/genproto v0.0.0-20220211171837-173942840c17 // indirect
 	google.golang.org/grpc v1.44.0 // indirect
 	google.golang.org/protobuf v1.27.1 // indirect
-	gopkg.in/ini.v1 v1.66.3 // indirect
+	gopkg.in/ini.v1 v1.66.4 // indirect
+	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 )
 
 replace (
 	github.com/eikenb/pipeat => github.com/drakkan/pipeat v0.0.0-20210805162858-70e57fa8a639
-	github.com/fclairamb/ftpserverlib => github.com/drakkan/ftpserverlib v0.0.0-20220113173527-7442aa777ac0
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
 	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20220130095207-a206cf284b7c
 	golang.org/x/net => github.com/drakkan/net v0.0.0-20220130095023-bd85f1236c34

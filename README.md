@@ -28,6 +28,7 @@ Several storage backends are supported: local filesystem, encrypted local filesy
 - Per user authentication methods.
 - [Two-factor authentication](./docs/howto/two-factor-authentication.md) based on time-based one time passwords (RFC 6238) which works with Authy, Google Authenticator and other compatible apps.
 - Custom authentication via external programs/HTTP API.
+- Web Client and Web Admin user interfaces support [OpenID Connect](https://openid.net/connect/) authentication and so they can be integrated with identity providers such as [Keycloak](https://www.keycloak.org/). You can find more details [here](./docs/oidc.md).
 - [Data At Rest Encryption](./docs/dare.md).
 - Dynamic user modification before login via external programs/HTTP API.
 - Quota support: accounts can have individual quota expressed as max total size and/or max number of files.
@@ -63,8 +64,8 @@ SFTPGo is developed and tested on Linux. After each commit, the code is automati
 
 ## Requirements
 
-- Go as build only dependency. We support the Go version(s) used in [continuous integration workflows](./tree/main/.github/workflows).
-- A suitable SQL server to use as data provider: PostgreSQL 9.4+ or MySQL 5.6+ or SQLite 3.x or CockroachDB stable.
+- Go as build only dependency. We support the Go version(s) used in [continuous integration workflows](./.github/workflows).
+- A suitable SQL server to use as data provider: PostgreSQL 9.4+, MySQL 5.6+, SQLite 3.x, CockroachDB stable.
 - The SQL server is optional: you can choose to use an embedded bolt database as key/value store or an in memory data provider.
 
 ## Installation

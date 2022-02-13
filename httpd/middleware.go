@@ -36,7 +36,7 @@ func validateJWTToken(w http.ResponseWriter, r *http.Request, audience tokenAudi
 
 	var redirectPath string
 	if audience == tokenAudienceWebAdmin {
-		redirectPath = webLoginPath
+		redirectPath = webAdminLoginPath
 	} else {
 		redirectPath = webClientLoginPath
 	}
@@ -197,6 +197,20 @@ func checkHTTPUserPerm(perm string) func(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+func requireBuiltinLogin(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if isLoggedInWithOIDC(r) {
+			if isWebClientRequest(r) {
+				renderClientForbiddenPage(w, r, "This feature is not available if you are logged in with OpenID")
+			} else {
+				renderForbiddenPage(w, r, "This feature is not available if you are logged in with OpenID")
+			}
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func checkPerm(perm string) func(next http.Handler) http.Handler {

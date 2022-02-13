@@ -24,13 +24,14 @@ const (
 )
 
 type loginPage struct {
-	CurrentURL   string
-	Version      string
-	Error        string
-	CSRFToken    string
-	StaticURL    string
-	AltLoginURL  string
-	ForgotPwdURL string
+	CurrentURL     string
+	Version        string
+	Error          string
+	CSRFToken      string
+	StaticURL      string
+	AltLoginURL    string
+	ForgotPwdURL   string
+	OpenIDLoginURL string
 }
 
 type twoFactorPage struct {

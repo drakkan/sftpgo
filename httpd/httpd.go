@@ -90,7 +90,9 @@ const (
 	webBasePathAdminDefault               = "/web/admin"
 	webBasePathClientDefault              = "/web/client"
 	webAdminSetupPathDefault              = "/web/admin/setup"
-	webLoginPathDefault                   = "/web/admin/login"
+	webAdminLoginPathDefault              = "/web/admin/login"
+	webAdminOIDCLoginPathDefault          = "/web/admin/oidclogin"
+	webOIDCRedirectPathDefault            = "/web/oidc/redirect"
 	webAdminTwoFactorPathDefault          = "/web/admin/twofactor"
 	webAdminTwoFactorRecoveryPathDefault  = "/web/admin/twofactor-recovery"
 	webLogoutPathDefault                  = "/web/admin/logout"
@@ -121,6 +123,7 @@ const (
 	webDefenderPathDefault                = "/web/admin/defender"
 	webDefenderHostsPathDefault           = "/web/admin/defender/hosts"
 	webClientLoginPathDefault             = "/web/client/login"
+	webClientOIDCLoginPathDefault         = "/web/client/oidclogin"
 	webClientTwoFactorPathDefault         = "/web/client/twofactor"
 	webClientTwoFactorRecoveryPathDefault = "/web/client/twofactor-recovery"
 	webClientFilesPathDefault             = "/web/client/files"
@@ -166,8 +169,10 @@ var (
 	webBasePath                    string
 	webBaseAdminPath               string
 	webBaseClientPath              string
+	webOIDCRedirectPath            string
 	webAdminSetupPath              string
-	webLoginPath                   string
+	webAdminOIDCLoginPath          string
+	webAdminLoginPath              string
 	webAdminTwoFactorPath          string
 	webAdminTwoFactorRecoveryPath  string
 	webLogoutPath                  string
@@ -198,6 +203,7 @@ var (
 	webDefenderPath                string
 	webDefenderHostsPath           string
 	webClientLoginPath             string
+	webClientOIDCLoginPath         string
 	webClientTwoFactorPath         string
 	webClientTwoFactorRecoveryPath string
 	webClientFilesPath             string
@@ -281,7 +287,9 @@ type Binding struct {
 	// Enabling web client integrations you can render or modify the files with the specified
 	// extensions using an external tool.
 	WebClientIntegrations []WebClientIntegration `json:"web_client_integrations" mapstructure:"web_client_integrations"`
-	allowHeadersFrom      []func(net.IP) bool
+	// Defining an OIDC configuration the web admin and web client UI will use OpenID to authenticate users.
+	OIDC             OIDC `json:"oidc" mapstructure:"oidc"`
+	allowHeadersFrom []func(net.IP) bool
 }
 
 func (b *Binding) checkWebClientIntegrations() {
@@ -446,8 +454,19 @@ func (c *Conf) checkRequiredDirs(staticFilesPath, templatesPath string) error {
 }
 
 func (c *Conf) getRedacted() Conf {
+	redacted := "[redacted]"
 	conf := *c
-	conf.SigningPassphrase = "[redacted]"
+	conf.SigningPassphrase = redacted
+	conf.Bindings = nil
+	for _, binding := range c.Bindings {
+		if binding.OIDC.ClientID != "" {
+			binding.OIDC.ClientID = redacted
+		}
+		if binding.OIDC.ClientSecret != "" {
+			binding.OIDC.ClientSecret = redacted
+		}
+		conf.Bindings = append(conf.Bindings, binding)
+	}
 	return conf
 }
 
@@ -508,6 +527,10 @@ func (c *Conf) Initialize(configDir string) error {
 		binding.checkWebClientIntegrations()
 
 		go func(b Binding) {
+			if err := b.OIDC.initialize(); err != nil {
+				exitChannel <- err
+				return
+			}
 			server := newHttpdServer(b, staticFilesPath, c.SigningPassphrase, c.Cors, openAPIPath)
 
 			exitChannel <- server.listenAndServe()
@@ -581,7 +604,9 @@ func updateWebClientURLs(baseURL string) {
 	webRootPath = path.Join(baseURL, webRootPathDefault)
 	webBasePath = path.Join(baseURL, webBasePathDefault)
 	webBaseClientPath = path.Join(baseURL, webBasePathClientDefault)
+	webOIDCRedirectPath = path.Join(baseURL, webOIDCRedirectPathDefault)
 	webClientLoginPath = path.Join(baseURL, webClientLoginPathDefault)
+	webClientOIDCLoginPath = path.Join(baseURL, webClientOIDCLoginPathDefault)
 	webClientTwoFactorPath = path.Join(baseURL, webClientTwoFactorPathDefault)
 	webClientTwoFactorRecoveryPath = path.Join(baseURL, webClientTwoFactorRecoveryPathDefault)
 	webClientFilesPath = path.Join(baseURL, webClientFilesPathDefault)
@@ -612,8 +637,10 @@ func updateWebAdminURLs(baseURL string) {
 	webRootPath = path.Join(baseURL, webRootPathDefault)
 	webBasePath = path.Join(baseURL, webBasePathDefault)
 	webBaseAdminPath = path.Join(baseURL, webBasePathAdminDefault)
+	webOIDCRedirectPath = path.Join(baseURL, webOIDCRedirectPathDefault)
 	webAdminSetupPath = path.Join(baseURL, webAdminSetupPathDefault)
-	webLoginPath = path.Join(baseURL, webLoginPathDefault)
+	webAdminLoginPath = path.Join(baseURL, webAdminLoginPathDefault)
+	webAdminOIDCLoginPath = path.Join(baseURL, webAdminOIDCLoginPathDefault)
 	webAdminTwoFactorPath = path.Join(baseURL, webAdminTwoFactorPathDefault)
 	webAdminTwoFactorRecoveryPath = path.Join(baseURL, webAdminTwoFactorRecoveryPathDefault)
 	webLogoutPath = path.Join(baseURL, webLogoutPathDefault)
