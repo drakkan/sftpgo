@@ -140,7 +140,9 @@ func GetLogger() *zerolog.Logger {
 func SetLogTime(utc bool) {
 	zerolog.TimeFieldFormat = dateFormat
 	if utc {
-		zerolog.TimestampFunc = time.Now().UTC
+		zerolog.TimestampFunc = func() time.Time {
+			return time.Now().UTC()
+		}
 	} else {
 		zerolog.TimestampFunc = time.Now
 	}
