@@ -8,9 +8,9 @@ require (
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/alexedwards/argon2id v0.0.0-20211130144151-3585854a6387
 	github.com/aws/aws-sdk-go v1.42.47
-	github.com/cockroachdb/cockroach-go/v2 v2.2.6
+	github.com/cockroachdb/cockroach-go/v2 v2.2.8
 	github.com/eikenb/pipeat v0.0.0-20210603033007-44fc3ffce52b
-	github.com/fclairamb/ftpserverlib v0.17.0
+	github.com/fclairamb/ftpserverlib v0.17.1-0.20220212161409-5157f18d716f
 	github.com/fclairamb/go-log v0.2.0
 	github.com/go-chi/chi/v5 v5.0.8-0.20220103230436-7dbe9a0bd10f
 	github.com/go-chi/jwtauth/v5 v5.0.2
@@ -39,7 +39,7 @@ require (
 	github.com/rs/cors v1.8.2
 	github.com/rs/xid v1.3.0
 	github.com/rs/zerolog v1.26.2-0.20220203140311-fc26014bd4e1
-	github.com/sftpgo/sdk v0.0.0-20220110174344-ecf586dd8941
+	github.com/sftpgo/sdk v0.1.0
 	github.com/shirou/gopsutil/v3 v3.22.1
 	github.com/spf13/afero v1.8.1
 	github.com/spf13/cobra v1.3.0
@@ -54,7 +54,7 @@ require (
 	gocloud.dev v0.24.0
 	golang.org/x/crypto v0.0.0-20220131195533-30dcbda58838
 	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd
-	golang.org/x/sys v0.0.0-20220204135822-1c1b9b1eba6a
+	golang.org/x/sys v0.0.0-20220209214540-3681064d5158
 	golang.org/x/time v0.0.0-20211116232009-f0f3c7e86c11
 	google.golang.org/api v0.67.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
@@ -136,7 +136,6 @@ require (
 
 replace (
 	github.com/eikenb/pipeat => github.com/drakkan/pipeat v0.0.0-20210805162858-70e57fa8a639
-	github.com/fclairamb/ftpserverlib => github.com/drakkan/ftpserverlib v0.0.0-20220113173527-7442aa777ac0
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
 	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20220203171754-7c88c47fe4cc
 	golang.org/x/net => github.com/drakkan/net v0.0.0-20220203171957-88bffbb14d53
