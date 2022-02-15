@@ -9412,6 +9412,12 @@ func TestShareUploadSingle(t *testing.T) {
 	if assert.NoError(t, err) {
 		assert.InDelta(t, util.GetTimeAsMsSinceEpoch(modTime), util.GetTimeAsMsSinceEpoch(info.ModTime()), float64(1000))
 	}
+	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, objectID, "upload"), nil)
+	assert.NoError(t, err)
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
 	req, err = http.NewRequest(http.MethodPost, path.Join(webClientPubSharesPath, objectID, "file.txt"), bytes.NewBuffer(content))
 	assert.NoError(t, err)
 	req.SetBasicAuth(defaultUsername, defaultPassword)
@@ -9667,6 +9673,12 @@ func TestBrowseShares(t *testing.T) {
 	checkResponseCode(t, http.StatusCreated, rr)
 	objectID := rr.Header().Get("X-Object-ID")
 	assert.NotEmpty(t, objectID)
+
+	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, objectID, "upload"), nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "Invalid share scope")
 
 	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, objectID, "browse?path=%2F"), nil)
 	assert.NoError(t, err)

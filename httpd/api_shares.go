@@ -138,7 +138,7 @@ func deleteShare(w http.ResponseWriter, r *http.Request) {
 
 func readBrowsableShareContents(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	share, connection, err := checkPublicShare(w, r, dataprovider.ShareScopeRead)
+	share, connection, err := checkPublicShare(w, r, dataprovider.ShareScopeRead, false)
 	if err != nil {
 		return
 	}
@@ -165,7 +165,7 @@ func readBrowsableShareContents(w http.ResponseWriter, r *http.Request) {
 
 func downloadBrowsableSharedFile(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	share, connection, err := checkPublicShare(w, r, dataprovider.ShareScopeRead)
+	share, connection, err := checkPublicShare(w, r, dataprovider.ShareScopeRead, false)
 	if err != nil {
 		return
 	}
@@ -211,7 +211,7 @@ func downloadBrowsableSharedFile(w http.ResponseWriter, r *http.Request) {
 
 func downloadFromShare(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	share, connection, err := checkPublicShare(w, r, dataprovider.ShareScopeRead)
+	share, connection, err := checkPublicShare(w, r, dataprovider.ShareScopeRead, false)
 	if err != nil {
 		return
 	}
@@ -263,7 +263,7 @@ func uploadFileToShare(w http.ResponseWriter, r *http.Request) {
 		r.Body = http.MaxBytesReader(w, r.Body, maxUploadFileSize)
 	}
 	name := getURLParam(r, "name")
-	share, connection, err := checkPublicShare(w, r, dataprovider.ShareScopeWrite)
+	share, connection, err := checkPublicShare(w, r, dataprovider.ShareScopeWrite, false)
 	if err != nil {
 		return
 	}
@@ -285,7 +285,7 @@ func uploadFilesToShare(w http.ResponseWriter, r *http.Request) {
 	if maxUploadFileSize > 0 {
 		r.Body = http.MaxBytesReader(w, r.Body, maxUploadFileSize)
 	}
-	share, connection, err := checkPublicShare(w, r, dataprovider.ShareScopeWrite)
+	share, connection, err := checkPublicShare(w, r, dataprovider.ShareScopeWrite, false)
 	if err != nil {
 		return
 	}
@@ -332,40 +332,53 @@ func uploadFilesToShare(w http.ResponseWriter, r *http.Request) {
 }
 
 func checkPublicShare(w http.ResponseWriter, r *http.Request, shareShope dataprovider.ShareScope,
+	isWebClient bool,
 ) (dataprovider.Share, *Connection, error) {
+	renderError := func(err error, message string, statusCode int) {
+		if isWebClient {
+			renderClientMessagePage(w, r, "Unable to access the share", message, statusCode, err, "")
+		} else {
+			sendAPIResponse(w, r, err, message, statusCode)
+		}
+	}
+
 	shareID := getURLParam(r, "id")
 	share, err := dataprovider.ShareExists(shareID, "")
 	if err != nil {
-		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		statusCode := getRespStatus(err)
+		if statusCode == http.StatusNotFound {
+			err = errors.New("share does not exist")
+		}
+		renderError(err, "", statusCode)
 		return share, nil, err
 	}
 	if share.Scope != shareShope {
-		sendAPIResponse(w, r, nil, "Invalid share scope", http.StatusForbidden)
+		renderError(nil, "Invalid share scope", http.StatusForbidden)
 		return share, nil, errors.New("invalid share scope")
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	ok, err := share.IsUsable(ipAddr)
 	if !ok || err != nil {
-		sendAPIResponse(w, r, err, "", getRespStatus(err))
-		return share, nil, errors.New("login not allowed")
+		renderError(err, "", getRespStatus(err))
+		return share, nil, err
 	}
 	if share.Password != "" {
 		_, password, ok := r.BasicAuth()
 		if !ok {
 			w.Header().Set(common.HTTPAuthenticationHeader, basicRealm)
-			sendAPIResponse(w, r, nil, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+			renderError(dataprovider.ErrInvalidCredentials, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 			return share, nil, dataprovider.ErrInvalidCredentials
 		}
 		match, err := share.CheckPassword(password)
 		if !match || err != nil {
 			w.Header().Set(common.HTTPAuthenticationHeader, basicRealm)
-			sendAPIResponse(w, r, nil, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+			renderError(dataprovider.ErrInvalidCredentials, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 			return share, nil, dataprovider.ErrInvalidCredentials
 		}
 	}
 	user, err := dataprovider.UserExists(share.Username)
 	if err != nil {
-		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		renderError(err, "", getRespStatus(err))
 		return share, nil, err
 	}
 	connID := xid.New().String()

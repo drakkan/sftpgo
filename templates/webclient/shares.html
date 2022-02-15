@@ -93,16 +93,24 @@
             <div class="modal-body">
                 <div id="readShare">
                     <p>You can download the shared contents, as single zip file, using this <a id="readLink" href="#" target="_blank">link</a>.</p>
-                    <p>If the share consists of a single folder you can browse and download single files using this <a id="readBrowseLink" href="#" target="_blank">link</a>.</p>
+                    <p>If the share consists of a single directory you can browse and download files using this <a id="readBrowseLink" href="#" target="_blank">page</a>.</p>
                     <p>If the share consists of a single file you can download it uncompressed using this <a id="readUncompressedLink" href="#" target="_blank">link</a>.</p>
                 </div>
                 <div id="writeShare">
-                    <p>You can upload one or more files to the shared directory by sending a multipart/form-data request to this <a id="writeLink" href="#" target="_blank">link</a>. The form field name for the file(s) is <b><code>filenames</code></b>.</p>
-                    <p>For example:</p>
-                    <p><code>curl -F filenames=@file1.txt -F filenames=@file2.txt "share link"</code></p>
-                    <p>You can upload files one by one by adding the path encoded file name to the share <a id="writeLinkSingle" href="#" target="_blank">link</a> and sending the file as POST body. The optional <b><code>X-SFTPGO-MTIME</code></b> header allows to set the file modification time as milliseconds since epoch.</p>
-                    <p>For example:</p>
-                    <p><code>curl --data-binary @file.txt -H "Content-Type: application/octet-stream" -H "X-SFTPGO-MTIME: 1638882991234" "share link/file.txt"</code></p>
+                    <p>You can upload one or more files to the shared directory using this <a id="writePageLink" href="#" target="_blank">page</a></p>
+                    <p>
+                        <a data-toggle="collapse" href="#collapseWriteShareAdvanced" aria-expanded="false" aria-controls="collapseWriteShareAdvanced">
+                            Advanced options
+                        </a>
+                    </p>
+                    <div class="collapse" id="collapseWriteShareAdvanced">
+                        <div class="card card-body">
+                            <p>You can upload one or more files to the shared directory by sending a multipart/form-data request to this <a id="writeLink" href="#" target="_blank">link</a>. The form field name for the file(s) is <b><code>filenames</code></b>.</p>
+                            <p>Example: <code>curl -F filenames=@file1.txt -F filenames=@file2.txt "share link"</code></p>
+                            <p>Or you can upload files one by one by adding the path encoded file name to the share <a id="writeLinkSingle" href="#" target="_blank">link</a> and sending the file as POST body. The optional <b><code>X-SFTPGO-MTIME</code></b> header allows to set the file modification time as milliseconds since epoch.</p>
+                            <p>Example: <code>curl --data-binary @file.txt -H "Content-Type: application/octet-stream" -H "X-SFTPGO-MTIME: 1638882991234" "share link/file.txt"</code></p>
+                        </div>
+                    </div>
                 </div>
                 <div id="expiredShare">
                     This share is no longer accessible because it has expired
@@ -226,6 +234,8 @@
                         $('#expiredShare').hide();
                         $('#writeShare').show();
                         $('#readShare').hide();
+                        $('#writePageLink').attr("href", shareURL+"/upload");
+                        $('#writePageLink').attr("title", shareURL+"/upload");
                         $('#writeLink').attr("href", shareURL);
                         $('#writeLink').attr("title", shareURL);
                         $('#writeLinkSingle').attr("href", shareURL);

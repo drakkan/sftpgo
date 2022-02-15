@@ -1,0 +1,144 @@
+{{template "base" .}}
+
+{{define "title"}}{{.Title}}{{end}}
+
+{{define "page_body"}}
+<div class="row justify-content-center">
+    <div class="col-xl-5 col-lg-6 col-md-8">
+        <div class="card shadow-lg my-5">
+            <div class="card-header py-3">
+                <h6 id="default_title" class="m-0 font-weight-bold text-primary">Upload one or more files to share "{{.Share.Name}}", user "{{.Share.Username}}"</h6>
+                <h6 id="success_title" class="m-0 font-weight-bold text-primary" style="display: none;">Upload completed to share "{{.Share.Name}}", user "{{.Share.Username}}"</h6>
+            </div>
+            <div class="card-body">
+                <div id="errorMsg" class="card mb-4 border-left-warning" style="display: none;">
+                    <div id="errorTxt" class="card-body text-form-error"></div>
+                </div>
+                <div id="successMsg" class="card mb-4 border-left-success" style="display: none;">
+                    <div id="successTxt" class="card-body">
+                        <p>File/s uploaded successfully</p>
+                        <p>If you want to upload other files click <a href="javascript:refreshPage();">here</a></p>
+                    </div>
+                </div>
+                <form id="upload_files_form" action="#" method="POST" enctype="multipart/form-data">
+                    <div class="modal-body">
+                        <input type="file" class="form-control-file" id="files_name" name="filenames" required multiple>
+                    </div>
+                    <button type="submit" class="btn btn-primary float-right mt-3 px-5">Submit</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}
+
+{{define "dialog"}}
+<div class="modal fade" id="spinnerModal" tabindex="-1" role="dialog" data-keyboard="false" data-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered justify-content-center" role="document">
+        <span style="color: #333333;" class="fa fa-spinner fa-spin fa-3x"></span>
+    </div>
+</div>
+{{end}}
+
+{{define "extra_js"}}
+<script type="text/javascript">
+    var spinnerDone = false;
+
+    function refreshPage() {
+        location.reload();
+    }
+
+    $(document).ready(function () {
+        $('#spinnerModal').on('shown.bs.modal', function () {
+            if (spinnerDone){
+                $('#spinnerModal').modal('hide');
+            }
+        });
+
+        $("#upload_files_form").submit(function (event){
+            event.preventDefault();
+            var files = $("#files_name")[0].files;
+            var has_errors = false;
+            var index = 0;
+            var success = 0;
+            spinnerDone = false;
+
+            $('#spinnerModal').modal('show');
+
+            function uploadFile() {
+                if (index >= files.length || has_errors){
+                    $('#spinnerModal').modal('hide');
+                    spinnerDone = true;
+                    if (!has_errors){
+                        $('#errorMsg').hide();
+                        $('#upload_files_form').hide();
+                        $('#default_title').hide();
+                        $('#success_title').show();
+                        $('#successMsg').show();
+                    }
+                    return;
+                }
+
+                async function saveFile() {
+                    var errorMessage = "Error uploading files";
+                    let response;
+                    try {
+                        var f = files[index];
+                        var uploadPath = '{{.UploadBasePath}}/'+fixedEncodeURIComponent(f.name);
+                        var lastModified;
+                        try {
+                            lastModified = f.lastModified;
+                        } catch (e) {
+                            console.log("unable to get last modified time from file: "+e.message);
+                            lastModified = "";
+                        }
+                        response = await fetch(uploadPath, {
+                            method: 'POST',
+                            headers: {
+                                'X-SFTPGO-MTIME': lastModified
+                            },
+                            credentials: 'same-origin',
+                            redirect: 'error',
+                            body: f
+                        });
+                    } catch (e){
+                        throw Error(errorMessage+": " +e.message);
+                    }
+                    if (response.status == 201){
+                        index++;
+                        success++;
+                        uploadFile();
+                    } else {
+                        let jsonResponse;
+                        try {
+                            jsonResponse = await response.json();
+                        } catch(e){
+                            throw Error(errorMessage);
+                        }
+                        if (jsonResponse.message) {
+                            errorMessage = jsonResponse.message;
+                        }
+                        if (jsonResponse.error) {
+                            errorMessage += ": " + jsonResponse.error;
+                        }
+                        throw Error(errorMessage);
+                    }
+                }
+
+                saveFile().catch(function(error){
+                    index++;
+                    has_errors = true;
+                    $('#errorTxt').text(error.message);
+                    $('#errorMsg').show();
+                    setTimeout(function () {
+                        $('#errorMsg').hide();
+                    }, 10000);
+                    uploadFile();
+                });
+            }
+
+            uploadFile();
+        });
+    });
+</script>
+{{end}}

@@ -46,6 +46,7 @@ const (
 	templateClientShares            = "shares.html"
 	templateClientViewPDF           = "viewpdf.html"
 	templateShareFiles              = "sharefiles.html"
+	templateUploadToShare           = "shareupload.html"
 	pageClientFilesTitle            = "My Files"
 	pageClientSharesTitle           = "Shares"
 	pageClientProfileTitle          = "My Profile"
@@ -55,6 +56,7 @@ const (
 	pageClientForgotPwdTitle        = "SFTPGo WebClient - Forgot password"
 	pageClientResetPwdTitle         = "SFTPGo WebClient - Reset password"
 	pageExtShareTitle               = "Shared files"
+	pageUploadToShareTitle          = "Upload to share"
 )
 
 // condResult is the result of an HTTP request precondition check.
@@ -145,6 +147,12 @@ type shareFilesPage struct {
 	DownloadURL string
 	Error       string
 	Paths       []dirMapping
+}
+
+type shareUploadPage struct {
+	baseClientPage
+	Share          *dataprovider.Share
+	UploadBasePath string
 }
 
 type clientMessagePage struct {
@@ -261,6 +269,10 @@ func loadClientTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateClientDir, templateClientBase),
 		filepath.Join(templatesPath, templateClientDir, templateShareFiles),
 	}
+	shareUploadPath := []string{
+		filepath.Join(templatesPath, templateClientDir, templateClientBase),
+		filepath.Join(templatesPath, templateClientDir, templateUploadToShare),
+	}
 
 	filesTmpl := util.LoadTemplate(nil, filesPaths...)
 	profileTmpl := util.LoadTemplate(nil, profilePaths...)
@@ -277,6 +289,7 @@ func loadClientTemplates(templatesPath string) {
 	resetPwdTmpl := util.LoadTemplate(nil, resetPwdPaths...)
 	viewPDFTmpl := util.LoadTemplate(nil, viewPDFPaths...)
 	shareFilesTmpl := util.LoadTemplate(nil, shareFilesPath...)
+	shareUploadTmpl := util.LoadTemplate(nil, shareUploadPath...)
 
 	clientTemplates[templateClientFiles] = filesTmpl
 	clientTemplates[templateClientProfile] = profileTmpl
@@ -293,6 +306,7 @@ func loadClientTemplates(templatesPath string) {
 	clientTemplates[templateResetPassword] = resetPwdTmpl
 	clientTemplates[templateClientViewPDF] = viewPDFTmpl
 	clientTemplates[templateShareFiles] = shareFilesTmpl
+	clientTemplates[templateUploadToShare] = shareUploadTmpl
 }
 
 func getBaseClientPageData(title, currentURL string, r *http.Request) baseClientPage {
@@ -495,6 +509,16 @@ func renderSharedFilesPage(w http.ResponseWriter, r *http.Request, dirName, erro
 	renderClientTemplate(w, templateShareFiles, data)
 }
 
+func renderUploadToSharePage(w http.ResponseWriter, r *http.Request, share dataprovider.Share) {
+	currentURL := path.Join(webClientPubSharesPath, share.ShareID, "upload")
+	data := shareUploadPage{
+		baseClientPage: getBaseClientPageData(pageUploadToShareTitle, currentURL, r),
+		Share:          &share,
+		UploadBasePath: path.Join(webClientPubSharesPath, share.ShareID),
+	}
+	renderClientTemplate(w, templateUploadToShare, data)
+}
+
 func renderFilesPage(w http.ResponseWriter, r *http.Request, dirName, error string, user dataprovider.User,
 	hasIntegrations bool,
 ) {
@@ -590,9 +614,9 @@ func handleWebClientDownloadZip(w http.ResponseWriter, r *http.Request) {
 	renderCompressedFiles(w, connection, name, filesList, nil)
 }
 
-func (s *httpdServer) handleShareGetDirContents(w http.ResponseWriter, r *http.Request) {
+func handleShareGetDirContents(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	share, connection, err := checkPublicShare(w, r, dataprovider.ShareScopeRead)
+	share, connection, err := checkPublicShare(w, r, dataprovider.ShareScopeRead, true)
 	if err != nil {
 		return
 	}
@@ -636,9 +660,18 @@ func (s *httpdServer) handleShareGetDirContents(w http.ResponseWriter, r *http.R
 	render.JSON(w, r, results)
 }
 
-func (s *httpdServer) handleShareGetFiles(w http.ResponseWriter, r *http.Request) {
+func handleClientUploadToShare(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	share, connection, err := checkPublicShare(w, r, dataprovider.ShareScopeRead)
+	share, _, err := checkPublicShare(w, r, dataprovider.ShareScopeWrite, true)
+	if err != nil {
+		return
+	}
+	renderUploadToSharePage(w, r, share)
+}
+
+func handleShareGetFiles(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	share, connection, err := checkPublicShare(w, r, dataprovider.ShareScopeRead, true)
 	if err != nil {
 		return
 	}

@@ -1306,8 +1306,9 @@ func (s *httpdServer) setupWebClientRoutes() {
 			Post(webClientTwoFactorRecoveryPath, s.handleWebClientTwoFactorRecoveryPost)
 		// share API exposed to external users
 		s.router.Get(webClientPubSharesPath+"/{id}", downloadFromShare)
-		s.router.Get(webClientPubSharesPath+"/{id}/browse", s.handleShareGetFiles)
-		s.router.With(compressor.Handler).Get(webClientPubSharesPath+"/{id}/dirs", s.handleShareGetDirContents)
+		s.router.Get(webClientPubSharesPath+"/{id}/browse", handleShareGetFiles)
+		s.router.Get(webClientPubSharesPath+"/{id}/upload", handleClientUploadToShare)
+		s.router.With(compressor.Handler).Get(webClientPubSharesPath+"/{id}/dirs", handleShareGetDirContents)
 		s.router.Post(webClientPubSharesPath+"/{id}", uploadFilesToShare)
 		s.router.Post(webClientPubSharesPath+"/{id}/{name}", uploadFileToShare)
 
