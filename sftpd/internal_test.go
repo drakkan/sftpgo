@@ -309,7 +309,7 @@ func TestUploadFiles(t *testing.T) {
 	if runtime.GOOS == osWindows {
 		missingFile = "missing\\relative\\file.txt"
 	}
-	_, err = c.handleSFTPUploadToNewFile(fs, ".", missingFile, "/missing", nil)
+	_, err = c.handleSFTPUploadToNewFile(fs, flags, ".", missingFile, "/missing", nil)
 	assert.Error(t, err, "upload new file in missing path must fail")
 
 	fs = newMockOsFs(nil, nil, false, "123", os.TempDir())

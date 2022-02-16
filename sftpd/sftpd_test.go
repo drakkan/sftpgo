@@ -568,12 +568,12 @@ func TestFolderPrefix(t *testing.T) {
 				assert.Equal(t, "files", contents[0].Name())
 			}
 		}
-		_, err = client.OpenFile(testFileName, os.O_WRONLY)
+		_, err = client.OpenFile(testFileName, os.O_WRONLY|os.O_CREATE)
 		assert.ErrorIs(t, err, os.ErrPermission)
 		_, err = client.OpenFile(testFileName, os.O_RDONLY)
 		assert.ErrorIs(t, err, os.ErrPermission)
 
-		f, err := client.OpenFile(path.Join("prefix", "files", testFileName), os.O_WRONLY)
+		f, err := client.OpenFile(path.Join("prefix", "files", testFileName), os.O_WRONLY|os.O_CREATE)
 		assert.NoError(t, err)
 		_, err = f.Write([]byte("test"))
 		assert.NoError(t, err)
@@ -4930,7 +4930,7 @@ func TestTruncateQuotaLimits(t *testing.T) {
 			defer conn.Close()
 			defer client.Close()
 			data := []byte("test data")
-			f, err := client.OpenFile(testFileName, os.O_WRONLY)
+			f, err := client.OpenFile(testFileName, os.O_WRONLY|os.O_CREATE)
 			if assert.NoError(t, err) {
 				n, err := f.Write(data)
 				assert.NoError(t, err)
@@ -5048,7 +5048,7 @@ func TestTruncateQuotaLimits(t *testing.T) {
 			if user.Username == defaultUsername {
 				// basic test inside a virtual folder
 				vfileName := path.Join(vdirPath, testFileName)
-				f, err = client.OpenFile(vfileName, os.O_WRONLY)
+				f, err = client.OpenFile(vfileName, os.O_WRONLY|os.O_CREATE)
 				if assert.NoError(t, err) {
 					n, err := f.Write(data)
 					assert.NoError(t, err)

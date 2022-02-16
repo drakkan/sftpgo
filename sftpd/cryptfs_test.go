@@ -349,7 +349,7 @@ func TestTruncate(t *testing.T) {
 	if assert.NoError(t, err) {
 		defer conn.Close()
 		defer client.Close()
-		f, err := client.OpenFile(testFileName, os.O_WRONLY)
+		f, err := client.OpenFile(testFileName, os.O_WRONLY|os.O_CREATE)
 		if assert.NoError(t, err) {
 			err = f.Truncate(0)
 			assert.NoError(t, err)

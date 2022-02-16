@@ -324,6 +324,9 @@ func (fs *SFTPFs) Rename(source, target string) error {
 	if err := fs.checkConnection(); err != nil {
 		return err
 	}
+	if _, ok := fs.sftpClient.HasExtension("posix-rename@openssh.com"); ok {
+		return fs.sftpClient.PosixRename(source, target)
+	}
 	return fs.sftpClient.Rename(source, target)
 }
 

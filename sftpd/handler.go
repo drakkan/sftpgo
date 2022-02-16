@@ -141,7 +141,7 @@ func (c *Connection) handleFilewrite(request *sftp.Request) (sftp.WriterAtReader
 		if !c.User.HasPerm(dataprovider.PermUpload, path.Dir(request.Filepath)) {
 			return nil, sftp.ErrSSHFxPermissionDenied
 		}
-		return c.handleSFTPUploadToNewFile(fs, p, filePath, request.Filepath, errForRead)
+		return c.handleSFTPUploadToNewFile(fs, request.Pflags(), p, filePath, request.Filepath, errForRead)
 	}
 
 	if statErr != nil {
@@ -345,7 +345,7 @@ func (c *Connection) handleSFTPRemove(request *sftp.Request) error {
 	return c.RemoveFile(fs, fsPath, request.Filepath, fi)
 }
 
-func (c *Connection) handleSFTPUploadToNewFile(fs vfs.Fs, resolvedPath, filePath, requestPath string, errForRead error) (sftp.WriterAtReaderAt, error) {
+func (c *Connection) handleSFTPUploadToNewFile(fs vfs.Fs, pflags sftp.FileOpenFlags, resolvedPath, filePath, requestPath string, errForRead error) (sftp.WriterAtReaderAt, error) {
 	diskQuota, transferQuota := c.HasSpace(true, false, requestPath)
 	if !diskQuota.HasSpace || !transferQuota.HasUploadSpace() {
 		c.Log(logger.LevelInfo, "denying file write due to quota limits")
@@ -357,7 +357,8 @@ func (c *Connection) handleSFTPUploadToNewFile(fs vfs.Fs, resolvedPath, filePath
 		return nil, c.GetPermissionDeniedError()
 	}
 
-	file, w, cancelFn, err := fs.Create(filePath, 0)
+	osFlags := getOSOpenFlags(pflags)
+	file, w, cancelFn, err := fs.Create(filePath, osFlags)
 	if err != nil {
 		c.Log(logger.LevelError, "error creating file %#v: %+v", resolvedPath, err)
 		return nil, c.GetFsError(fs, err)

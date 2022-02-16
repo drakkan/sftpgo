@@ -93,7 +93,7 @@ func (*OsFs) Create(name string, flag int) (File, *PipeWriter, func(), error) {
 	if flag == 0 {
 		f, err = os.Create(name)
 	} else {
-		f, err = os.OpenFile(name, flag, os.ModePerm)
+		f, err = os.OpenFile(name, flag, 0666)
 	}
 	return f, nil, nil, err
 }

@@ -661,7 +661,7 @@ func TestTruncateQuotaLimits(t *testing.T) {
 		if assert.NoError(t, err) {
 			defer conn.Close()
 			defer client.Close()
-			f, err := client.OpenFile(testFileName, os.O_WRONLY)
+			f, err := client.OpenFile(testFileName, os.O_WRONLY|os.O_CREATE)
 			if assert.NoError(t, err) {
 				n, err := f.Write(testFileContent)
 				assert.NoError(t, err)
@@ -779,7 +779,7 @@ func TestTruncateQuotaLimits(t *testing.T) {
 			if user.Username == defaultUsername {
 				// basic test inside a virtual folder
 				vfileName1 := path.Join(vdirPath1, testFileName)
-				f, err = client.OpenFile(vfileName1, os.O_WRONLY)
+				f, err = client.OpenFile(vfileName1, os.O_WRONLY|os.O_CREATE)
 				if assert.NoError(t, err) {
 					n, err := f.Write(testFileContent)
 					assert.NoError(t, err)
@@ -808,7 +808,7 @@ func TestTruncateQuotaLimits(t *testing.T) {
 				assert.Equal(t, 1, fold.UsedQuotaFiles)
 				// now test on vdirPath2, the folder quota is included in the user's quota
 				vfileName2 := path.Join(vdirPath2, testFileName)
-				f, err = client.OpenFile(vfileName2, os.O_WRONLY)
+				f, err = client.OpenFile(vfileName2, os.O_WRONLY|os.O_CREATE)
 				if assert.NoError(t, err) {
 					n, err := f.Write(testFileContent)
 					assert.NoError(t, err)
