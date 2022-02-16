@@ -335,6 +335,9 @@ func (fs *SFTPFs) Remove(name string, isDir bool) error {
 	if err := fs.checkConnection(); err != nil {
 		return err
 	}
+	if isDir {
+		return fs.sftpClient.RemoveDirectory(name)
+	}
 	return fs.sftpClient.Remove(name)
 }
 
