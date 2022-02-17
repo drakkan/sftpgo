@@ -338,6 +338,15 @@ func TestMain(m *testing.M) {
 	httpdConf := config.GetHTTPDConfig()
 
 	httpdConf.Bindings[0].Port = 8081
+	httpdConf.Bindings[0].Security = httpd.SecurityConf{
+		Enabled: true,
+		HTTPSProxyHeaders: []httpd.HTTPSProxyHeader{
+			{
+				Key:   "X-Forwarded-Proto",
+				Value: "https",
+			},
+		},
+	}
 	httpdtest.SetBaseURL(httpBaseURL)
 	backupsPath = filepath.Join(os.TempDir(), "test_backups")
 	httpdConf.BackupsPath = backupsPath

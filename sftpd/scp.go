@@ -230,7 +230,7 @@ func (c *scpCommand) handleUploadFile(fs vfs.Fs, resolvedPath, filePath string, 
 
 	maxWriteSize, _ := c.connection.GetMaxWriteSize(diskQuota, false, fileSize, fs.IsUploadResumeSupported())
 
-	file, w, cancelFn, err := fs.Create(filePath, 0)
+	file, w, cancelFn, err := fs.Create(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
 	if err != nil {
 		c.connection.Log(logger.LevelError, "error creating file %#v: %v", resolvedPath, err)
 		c.sendErrorMessage(fs, err)

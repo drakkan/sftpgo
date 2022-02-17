@@ -354,7 +354,7 @@ func (c *Connection) uploadFile(fs vfs.Fs, fsPath, ftpPath string, flags int) (f
 		if !c.User.HasPerm(dataprovider.PermUpload, path.Dir(ftpPath)) {
 			return nil, fmt.Errorf("%w, no upload permission", ftpserver.ErrFileNameNotAllowed)
 		}
-		return c.handleFTPUploadToNewFile(fs, fsPath, filePath, ftpPath)
+		return c.handleFTPUploadToNewFile(fs, flags, fsPath, filePath, ftpPath)
 	}
 
 	if statErr != nil {
@@ -375,7 +375,7 @@ func (c *Connection) uploadFile(fs vfs.Fs, fsPath, ftpPath string, flags int) (f
 	return c.handleFTPUploadToExistingFile(fs, flags, fsPath, filePath, stat.Size(), ftpPath)
 }
 
-func (c *Connection) handleFTPUploadToNewFile(fs vfs.Fs, resolvedPath, filePath, requestPath string) (ftpserver.FileTransfer, error) {
+func (c *Connection) handleFTPUploadToNewFile(fs vfs.Fs, flags int, resolvedPath, filePath, requestPath string) (ftpserver.FileTransfer, error) {
 	diskQuota, transferQuota := c.HasSpace(true, false, requestPath)
 	if !diskQuota.HasSpace || !transferQuota.HasUploadSpace() {
 		c.Log(logger.LevelInfo, "denying file write due to quota limits")
@@ -385,9 +385,9 @@ func (c *Connection) handleFTPUploadToNewFile(fs vfs.Fs, resolvedPath, filePath,
 		c.Log(logger.LevelDebug, "upload for file %#v denied by pre action: %v", requestPath, err)
 		return nil, fmt.Errorf("%w, denied by pre-upload action", ftpserver.ErrFileNameNotAllowed)
 	}
-	file, w, cancelFn, err := fs.Create(filePath, 0)
+	file, w, cancelFn, err := fs.Create(filePath, flags)
 	if err != nil {
-		c.Log(logger.LevelError, "error creating file %#v: %+v", resolvedPath, err)
+		c.Log(logger.LevelError, "error creating file %#v, flags %v: %+v", resolvedPath, flags, err)
 		return nil, c.GetFsError(fs, err)
 	}
 

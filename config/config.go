@@ -92,6 +92,21 @@ var (
 			UsernameField:   "",
 			RoleField:       "",
 		},
+		Security: httpd.SecurityConf{
+			Enabled:                 false,
+			AllowedHosts:            nil,
+			AllowedHostsAreRegex:    false,
+			HostsProxyHeaders:       nil,
+			HTTPSProxyHeaders:       nil,
+			STSSeconds:              0,
+			STSIncludeSubdomains:    false,
+			STSPreload:              false,
+			ContentTypeNosniff:      false,
+			ContentSecurityPolicy:   "",
+			PermissionsPolicy:       "",
+			CrossOriginOpenerPolicy: "",
+			ExpectCTHeader:          "",
+		},
 	}
 	defaultRateLimiter = common.RateLimiterConfig{
 		Average:                0,
@@ -1083,6 +1098,106 @@ func getWebDAVDBindingFromEnv(idx int) {
 	}
 }
 
+func getHTTPDSecurityProxyHeadersFromEnv(idx int) []httpd.HTTPSProxyHeader {
+	var httpsProxyHeaders []httpd.HTTPSProxyHeader
+
+	for subIdx := 0; subIdx < 10; subIdx++ {
+		proxyKey, _ := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__HTTPS_PROXY_HEADERS__%v__KEY", idx, subIdx))
+		proxyVal, _ := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__HTTPS_PROXY_HEADERS__%v__VALUE", idx, subIdx))
+		if proxyKey != "" && proxyVal != "" {
+			httpsProxyHeaders = append(httpsProxyHeaders, httpd.HTTPSProxyHeader{
+				Key:   proxyKey,
+				Value: proxyVal,
+			})
+		}
+	}
+	return httpsProxyHeaders
+}
+
+func getHTTPDSecurityConfFromEnv(idx int) (httpd.SecurityConf, bool) {
+	var result httpd.SecurityConf
+	isSet := false
+
+	enabled, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__ENABLED", idx))
+	if ok {
+		result.Enabled = enabled
+		isSet = true
+	}
+
+	allowedHosts, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__ALLOWED_HOSTS", idx))
+	if ok {
+		result.AllowedHosts = allowedHosts
+		isSet = true
+	}
+
+	allowedHostsAreRegex, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__ALLOWED_HOSTS_ARE_REGEX", idx))
+	if ok {
+		result.AllowedHostsAreRegex = allowedHostsAreRegex
+		isSet = true
+	}
+
+	hostsProxyHeaders, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__HOSTS_PROXY_HEADERS", idx))
+	if ok {
+		result.HostsProxyHeaders = hostsProxyHeaders
+		isSet = true
+	}
+
+	httpsProxyHeaders := getHTTPDSecurityProxyHeadersFromEnv(idx)
+	if len(httpsProxyHeaders) > 0 {
+		result.HTTPSProxyHeaders = httpsProxyHeaders
+		isSet = true
+	}
+
+	stsSeconds, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__STS_SECONDS", idx))
+	if ok {
+		result.STSSeconds = stsSeconds
+	}
+
+	stsIncludeSubDomains, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__STS_INCLUDE_SUBDOMAINS", idx))
+	if ok {
+		result.STSIncludeSubdomains = stsIncludeSubDomains
+		isSet = true
+	}
+
+	stsPreload, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__STS_PRELOAD", idx))
+	if ok {
+		result.STSPreload = stsPreload
+		isSet = true
+	}
+
+	contentTypeNosniff, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__CONTENT_TYPE_NOSNIFF", idx))
+	if ok {
+		result.ContentTypeNosniff = contentTypeNosniff
+		isSet = true
+	}
+
+	contentSecurityPolicy, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__CONTENT_SECURITY_POLICY", idx))
+	if ok {
+		result.ContentSecurityPolicy = contentSecurityPolicy
+		isSet = true
+	}
+
+	permissionsPolicy, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__PERMISSIONS_POLICY", idx))
+	if ok {
+		result.PermissionsPolicy = permissionsPolicy
+		isSet = true
+	}
+
+	crossOriginOpenedPolicy, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__CROSS_ORIGIN_OPENER_POLICY", idx))
+	if ok {
+		result.CrossOriginOpenerPolicy = crossOriginOpenedPolicy
+		isSet = true
+	}
+
+	expectCTHeader, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__EXPECT_CT_HEADER", idx))
+	if ok {
+		result.ExpectCTHeader = expectCTHeader
+		isSet = true
+	}
+
+	return result, isSet
+}
+
 func getHTTPDOIDCFromEnv(idx int) (httpd.OIDC, bool) {
 	var result httpd.OIDC
 	isSet := false
@@ -1243,6 +1358,12 @@ func getHTTPDBindingFromEnv(idx int) {
 	oidc, ok := getHTTPDOIDCFromEnv(idx)
 	if ok {
 		binding.OIDC = oidc
+		isSet = true
+	}
+
+	securityConf, ok := getHTTPDSecurityConfFromEnv(idx)
+	if ok {
+		binding.Security = securityConf
 		isSet = true
 	}
 

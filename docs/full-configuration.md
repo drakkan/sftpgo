@@ -230,7 +230,7 @@ The configuration file contains the following sections:
     - `min_tls_version`, integer. Defines the minimum version of TLS to be enabled. `12` means TLS 1.2 (and therefore TLS 1.2 and TLS 1.3 will be enabled),`13` means TLS 1.3. Default: `12`.
     - `client_auth_type`, integer. Set to `1` to require client certificate authentication in addition to JWT/Web authentication. You need to define at least a certificate authority for this to work. Default: 0.
     - `tls_cipher_suites`, list of strings. List of supported cipher suites for TLS version 1.2. If empty, a default list of secure cipher suites is used, with a preference order based on hardware performance. Note that TLS 1.3 ciphersuites are not configurable. The supported ciphersuites names are defined [here](https://github.com/golang/go/blob/master/src/crypto/tls/cipher_suites.go#L52). Any invalid name will be silently ignored. The order matters, the ciphers listed first will be the preferred ones. Default: blank.
-    - `proxy_allowed`, list of IP addresses and IP ranges allowed to set `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Proto`, `CF-Connecting-IP`, `True-Client-IP` headers. Any of the indicated headers, if set on requests from a connection address not in this list, will be silently ignored. Default: blank.
+    - `proxy_allowed`, list of IP addresses and IP ranges allowed to set `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Proto`, `CF-Connecting-IP`, `True-Client-IP` and any other headers defined in the `security` section. Any of the indicated headers, if set on requests from a connection address not in this list, will be silently ignored. Default: blank.
     - `hide_login_url`, integer. If both web admin and web client are enabled each login page will show a link to the other one. This setting allows to hide this link. 0 means that the login links are displayed on both admin and client login page. This is the default. 1 means that the login link to the web client login page is hidden on admin login page. 2 means that the login link to the web admin login page is hidden on client login page. The flags can be combined, for example 3 will disable both login links.
     - `render_openapi`, boolean. Set to `false` to disable serving of the OpenAPI schema and renderer. Default `true`.
     - `web_client_integrations`, list of struct. The SFTPGo web client allows to send the files with the specified extensions to the configured URL using the [postMessage API](https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage). This way you can integrate your own file viewer or editor. Take a look at the commentented example [here](../examples/webclient-integrations/test.html) to understand how to use this feature. Each struct has the following fields:
@@ -243,6 +243,20 @@ The configuration file contains the following sections:
       - `redirect_base_url`, string. Defines the base URL to redirect to after OpenID authentication. The suffix `/web/oidc/redirect` will be added to this base URL, adding also the `web_root` if configured. Default: blank.
       - `username_field`, string. Defines the ID token claims field to map to the SFTPGo username. Default: blank.
       - `role_field`, string. Defines the optional ID token claims field to map to a SFTPGo role. If the defined ID token claims field is set to `admin` the authenticated user is mapped to an SFTPGo admin. You don't need to specify this field if you want to use OpenID only for the Web Client UI. Default: blank.
+    - `security`, struct. Defines security headers to add to HTTP responses and allows to restrict allowed hosts. The following parameters are supported:
+      - `enabled`, boolean. Set to `true` to enable security configurations. Default: `false`.
+      - `allowed_hosts`, list of strings. Fully qualified domain names that are allowed. An empty list allows any and all host names. Default: empty.
+      - `allowed_hosts_are_regex`, boolean. Determines if the provided allowed hosts contains valid regular expressions. Default: `false`.
+      - `hosts_proxy_headers`, list of string. Defines a set of header keys that may hold a proxied hostname value for the request, for example `X-Forwarded-Host`. Default: empty.
+      - `https_proxy_headers`, list of struct, each struct contains the fields `key` and `value`. Defines a a list of header keys with associated values that would indicate a valid https request. For example `key` could be `X-Forwarded-Proto` and `value` `https`. Default: empty.
+      - `sts_seconds`, integer. Defines the max-age of the `Strict-Transport-Security` header. This header will be included for `https` responses or for HTTP request if the request includes a defined HTTPS proxy header. Default: `0`, which would NOT include the header.
+      - `sts_include_subdomains`, boolean. Set to `true`, the `includeSubdomains` will be appended to the `Strict-Transport-Security` header. Default: `false`.
+      - `sts_preload`, boolean. Set to true, the `preload` flag will be appended to the `Strict-Transport-Security` header. Default: `false`.
+      - `content_type_nosniff`, boolean. Set to `true` to add the `X-Content-Type-Options` header with the value `nosniff` Default: `false`.
+      - `content_security_policy`, string. Allows to set the `Content-Security-Policy` header value. Default: blank.
+      - `permissions_policy`, string. Allows to set the `Permissions-Policy` header value. Default: blank.
+      - `cross_origin_opener_policy`, string. Allows to set the `Cross-Origin-Opener-Policy` header value. Default: blank.
+      - `expect_ct_header`, string. Allows to set the `Expect-CT` header value. Default: blank.
   - `templates_path`, string. Path to the HTML web templates. This can be an absolute path or a path relative to the config dir
   - `static_files_path`, string. Path to the static files for the web interface. This can be an absolute path or a path relative to the config dir. If both `templates_path` and `static_files_path` are empty the built-in web interface will be disabled
   - `backups_path`, string. Path to the backup directory. This can be an absolute path or a path relative to the config dir. We don't allow backups in arbitrary paths for security reasons
@@ -255,7 +269,7 @@ The configuration file contains the following sections:
   - `signing_passphrase`, string. Passphrase to use to derive the signing key for JWT and CSRF tokens. If empty a random signing key will be generated each time SFTPGo starts. If you set a signing passphrase you should consider rotating it periodically for added security.
   - `max_upload_file_size`, integer. Defines the maximum request body size, in bytes, for Web Client/API HTTP upload requests. 0 means no limit. Default: 1048576000.
   - `cors` struct containing CORS configuration. SFTPGo uses [Go CORS handler](https://github.com/rs/cors), please refer to upstream documentation for fields meaning and their default values.
-    - `enabled`, boolean, set to true to enable CORS.
+    - `enabled`, boolean, set to `true` to enable CORS.
     - `allowed_origins`, list of strings.
     - `allowed_methods`, list of strings.
     - `allowed_headers`, list of strings.

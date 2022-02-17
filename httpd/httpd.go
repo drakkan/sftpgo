@@ -236,6 +236,67 @@ func init() {
 	updateWebClientURLs("")
 }
 
+// HTTPSProxyHeader defines an HTTPS proxy header as key/value.
+// For example Key could be "X-Forwarded-Proto" and Value "https"
+type HTTPSProxyHeader struct {
+	Key   string
+	Value string
+}
+
+// SecurityConf allows to add some security related headers to HTTP responses and to restrict allowed hosts
+type SecurityConf struct {
+	// Set to true to enable the security configurations
+	Enabled bool `json:"enabled" mapstructure:"enabled"`
+	// AllowedHosts is a list of fully qualified domain names that are allowed.
+	// Default is empty list, which allows any and all host names.
+	AllowedHosts []string `json:"allowed_hosts" mapstructure:"allowed_hosts"`
+	// AllowedHostsAreRegex determines if the provided allowed hosts contains valid regular expressions
+	AllowedHostsAreRegex bool `json:"allowed_hosts_are_regex" mapstructure:"allowed_hosts_are_regex"`
+	// HostsProxyHeaders is a set of header keys that may hold a proxied hostname value for the request.
+	HostsProxyHeaders []string `json:"hosts_proxy_headers" mapstructure:"hosts_proxy_headers"`
+	// HTTPSProxyHeaders is a list of header keys with associated values that would indicate a valid https request.
+	HTTPSProxyHeaders []HTTPSProxyHeader `json:"https_proxy_headers" mapstructure:"https_proxy_headers"`
+	// STSSeconds is the max-age of the Strict-Transport-Security header.
+	// Default is 0, which would NOT include the header.
+	STSSeconds int64 `json:"sts_seconds" mapstructure:"sts_seconds"`
+	// If STSIncludeSubdomains is set to true, the "includeSubdomains" will be appended to the
+	// Strict-Transport-Security header. Default is false.
+	STSIncludeSubdomains bool `json:"sts_include_subdomains" mapstructure:"sts_include_subdomains"`
+	// If STSPreload is set to true, the `preload` flag will be appended to the
+	// Strict-Transport-Security header. Default is false.
+	STSPreload bool `json:"sts_preload" mapstructure:"sts_preload"`
+	// If ContentTypeNosniff is true, adds the X-Content-Type-Options header with the value "nosniff". Default is false.
+	ContentTypeNosniff bool `json:"content_type_nosniff" mapstructure:"content_type_nosniff"`
+	// ContentSecurityPolicy allows to set the Content-Security-Policy header value. Default is "".
+	ContentSecurityPolicy string `json:"content_security_policy" mapstructure:"content_security_policy"`
+	// PermissionsPolicy allows to set the Permissions-Policy header value. Default is "".
+	PermissionsPolicy string `json:"permissions_policy" mapstructure:"permissions_policy"`
+	// CrossOriginOpenerPolicy allows to set the `Cross-Origin-Opener-Policy` header value. Default is "".
+	CrossOriginOpenerPolicy string `json:"cross_origin_opener_policy" mapstructure:"cross_origin_opener_policy"`
+	// ExpectCTHeader allows to set the Expect-CT header value. Default is "".
+	ExpectCTHeader string `json:"expect_ct_header" mapstructure:"expect_ct_header"`
+	proxyHeaders   []string
+}
+
+func (s *SecurityConf) updateProxyHeaders() {
+	if !s.Enabled {
+		s.proxyHeaders = nil
+		return
+	}
+	s.proxyHeaders = s.HostsProxyHeaders
+	for _, httpsProxyHeader := range s.HTTPSProxyHeaders {
+		s.proxyHeaders = append(s.proxyHeaders, httpsProxyHeader.Key)
+	}
+}
+
+func (s *SecurityConf) getHTTPSProxyHeaders() map[string]string {
+	headers := make(map[string]string)
+	for _, httpsProxyHeader := range s.HTTPSProxyHeaders {
+		headers[httpsProxyHeader.Key] = httpsProxyHeader.Value
+	}
+	return headers
+}
+
 // WebClientIntegration defines the configuration for an external Web Client integration
 type WebClientIntegration struct {
 	// Files with these extensions can be sent to the configured URL
@@ -290,7 +351,9 @@ type Binding struct {
 	// extensions using an external tool.
 	WebClientIntegrations []WebClientIntegration `json:"web_client_integrations" mapstructure:"web_client_integrations"`
 	// Defining an OIDC configuration the web admin and web client UI will use OpenID to authenticate users.
-	OIDC             OIDC `json:"oidc" mapstructure:"oidc"`
+	OIDC OIDC `json:"oidc" mapstructure:"oidc"`
+	// Security defines security headers to add to HTTP responses and allows to restrict allowed hosts
+	Security         SecurityConf `json:"security" mapstructure:"security"`
 	allowHeadersFrom []func(net.IP) bool
 }
 
@@ -527,6 +590,7 @@ func (c *Conf) Initialize(configDir string) error {
 			return err
 		}
 		binding.checkWebClientIntegrations()
+		binding.Security.updateProxyHeaders()
 
 		go func(b Binding) {
 			if err := b.OIDC.initialize(); err != nil {

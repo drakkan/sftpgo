@@ -227,6 +227,21 @@
           "redirect_base_url": "",
           "username_field": "",
           "role_field": ""
+        },
+        "security": {
+          "enabled": false,
+          "allowed_hosts": [],
+          "allowed_hosts_are_regex": false,
+          "hosts_proxy_headers": [],
+          "https_proxy_headers": [],
+          "sts_seconds": 0,
+          "sts_include_subdomains": false,
+          "sts_preload": false,
+          "content_type_nosniff": false,
+          "content_security_policy": "",
+          "permissions_policy": "",
+          "cross_origin_opener_policy": "",
+          "expect_ct_header": ""
         }
       }
     ],

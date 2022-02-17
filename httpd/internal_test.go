@@ -2230,3 +2230,81 @@ func TestBrowsableSharePaths(t *testing.T) {
 		Paths: []string{"/a", "/b"},
 	}
 }
+
+func TestSecureMiddlewareIntegration(t *testing.T) {
+	forwardedHostHeader := "X-Forwarded-Host"
+	server := httpdServer{
+		binding: Binding{
+			ProxyAllowed: []string{"192.168.1.0/24"},
+			Security: SecurityConf{
+				Enabled:              true,
+				AllowedHosts:         []string{"*.sftpgo.com"},
+				AllowedHostsAreRegex: true,
+				HostsProxyHeaders:    []string{forwardedHostHeader},
+				HTTPSProxyHeaders: []HTTPSProxyHeader{
+					{
+						Key:   xForwardedProto,
+						Value: "https",
+					},
+				},
+				STSSeconds:           31536000,
+				STSIncludeSubdomains: true,
+				STSPreload:           true,
+				ContentTypeNosniff:   true,
+			},
+		},
+		enableWebAdmin:  true,
+		enableWebClient: true,
+	}
+	server.binding.Security.updateProxyHeaders()
+	err := server.binding.parseAllowedProxy()
+	assert.NoError(t, err)
+	assert.Equal(t, []string{forwardedHostHeader, xForwardedProto}, server.binding.Security.proxyHeaders)
+	assert.Equal(t, map[string]string{xForwardedProto: "https"}, server.binding.Security.getHTTPSProxyHeaders())
+	server.initializeRouter()
+
+	rr := httptest.NewRecorder()
+	r, err := http.NewRequest(http.MethodGet, webClientLoginPath, nil)
+	assert.NoError(t, err)
+	r.Host = "127.0.0.1"
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+
+	rr = httptest.NewRecorder()
+	r.Header.Set(forwardedHostHeader, "www.sftpgo.com")
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	// the header should be removed
+	assert.Empty(t, r.Header.Get(forwardedHostHeader))
+
+	rr = httptest.NewRecorder()
+	r.Host = "test.sftpgo.com"
+	r.Header.Set(forwardedHostHeader, "test.example.com")
+	r.RemoteAddr = "192.168.1.1"
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.NotEmpty(t, r.Header.Get(forwardedHostHeader))
+
+	rr = httptest.NewRecorder()
+	r.Header.Set(forwardedHostHeader, "www.sftpgo.com")
+	r.RemoteAddr = "192.168.1.1"
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.NotEmpty(t, r.Header.Get(forwardedHostHeader))
+	assert.Empty(t, rr.Header().Get("Strict-Transport-Security"))
+	assert.Equal(t, "nosniff", rr.Header().Get("X-Content-Type-Options"))
+	// now set the X-Forwarded-Proto to https, we should get the Strict-Transport-Security header
+	rr = httptest.NewRecorder()
+	r.Host = "test.sftpgo.com"
+	r.Header.Set(xForwardedProto, "https")
+	r.RemoteAddr = "192.168.1.3"
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.NotEmpty(t, r.Header.Get(forwardedHostHeader))
+	assert.Equal(t, "max-age=31536000; includeSubDomains; preload", rr.Header().Get("Strict-Transport-Security"))
+	assert.Equal(t, "nosniff", rr.Header().Get("X-Content-Type-Options"))
+
+	server.binding.Security.Enabled = false
+	server.binding.Security.updateProxyHeaders()
+	assert.Len(t, server.binding.Security.proxyHeaders, 0)
+}
