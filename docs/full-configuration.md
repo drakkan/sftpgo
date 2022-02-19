@@ -252,7 +252,7 @@ The configuration file contains the following sections:
       - `sts_seconds`, integer. Defines the max-age of the `Strict-Transport-Security` header. This header will be included for `https` responses or for HTTP request if the request includes a defined HTTPS proxy header. Default: `0`, which would NOT include the header.
       - `sts_include_subdomains`, boolean. Set to `true`, the `includeSubdomains` will be appended to the `Strict-Transport-Security` header. Default: `false`.
       - `sts_preload`, boolean. Set to true, the `preload` flag will be appended to the `Strict-Transport-Security` header. Default: `false`.
-      - `content_type_nosniff`, boolean. Set to `true` to add the `X-Content-Type-Options` header with the value `nosniff` Default: `false`.
+      - `content_type_nosniff`, boolean. Set to `true` to add the `X-Content-Type-Options` header with the value `nosniff`. Default: `false`.
       - `content_security_policy`, string. Allows to set the `Content-Security-Policy` header value. Default: blank.
       - `permissions_policy`, string. Allows to set the `Permissions-Policy` header value. Default: blank.
       - `cross_origin_opener_policy`, string. Allows to set the `Cross-Origin-Opener-Policy` header value. Default: blank.

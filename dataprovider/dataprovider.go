@@ -1050,6 +1050,17 @@ func CheckKeyboardInteractiveAuth(username, authHook string, client ssh.Keyboard
 	return doKeyboardInteractiveAuth(&user, authHook, client, ip, protocol)
 }
 
+// GetUserAfterIDPAuth returns the SFTPGo user with the specified username
+// after a successful authentication with an external identity provider.
+// If a pre-login hook is defined it will be executed so the SFTPGo user
+// can be created if it does not exist
+func GetUserAfterIDPAuth(username, ip, protocol string) (User, error) {
+	if config.PreLoginHook != "" {
+		return executePreLoginHook(username, LoginMethodIDP, ip, protocol)
+	}
+	return UserExists(username)
+}
+
 // GetDefenderHosts returns hosts that are banned or for which some violations have been detected
 func GetDefenderHosts(from int64, limit int) ([]DefenderEntry, error) {
 	return provider.getDefenderHosts(from, limit)

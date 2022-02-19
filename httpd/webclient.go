@@ -584,13 +584,14 @@ func handleWebClientDownloadZip(w http.ResponseWriter, r *http.Request) {
 	}
 
 	connID := xid.New().String()
-	connectionID := fmt.Sprintf("%v_%v", common.ProtocolHTTP, connID)
+	protocol := getProtocolFromRequest(r)
+	connectionID := fmt.Sprintf("%v_%v", protocol, connID)
 	if err := checkHTTPClientUser(&user, r, connectionID); err != nil {
 		renderClientForbiddenPage(w, r, err.Error())
 		return
 	}
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(connID, common.ProtocolHTTP, util.GetHTTPLocalAddress(r),
+		BaseConnection: common.NewBaseConnection(connID, protocol, util.GetHTTPLocalAddress(r),
 			r.RemoteAddr, user),
 		request: r,
 	}
@@ -727,13 +728,14 @@ func (s *httpdServer) handleClientGetDirContents(w http.ResponseWriter, r *http.
 	}
 
 	connID := xid.New().String()
-	connectionID := fmt.Sprintf("%v_%v", common.ProtocolHTTP, connID)
+	protocol := getProtocolFromRequest(r)
+	connectionID := fmt.Sprintf("%v_%v", protocol, connID)
 	if err := checkHTTPClientUser(&user, r, connectionID); err != nil {
 		sendAPIResponse(w, r, err, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 		return
 	}
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(connID, common.ProtocolHTTP, util.GetHTTPLocalAddress(r),
+		BaseConnection: common.NewBaseConnection(connID, protocol, util.GetHTTPLocalAddress(r),
 			r.RemoteAddr, user),
 		request: r,
 	}
@@ -804,13 +806,14 @@ func (s *httpdServer) handleClientGetFiles(w http.ResponseWriter, r *http.Reques
 	}
 
 	connID := xid.New().String()
-	connectionID := fmt.Sprintf("%v_%v", common.ProtocolHTTP, connID)
+	protocol := getProtocolFromRequest(r)
+	connectionID := fmt.Sprintf("%v_%v", protocol, connID)
 	if err := checkHTTPClientUser(&user, r, connectionID); err != nil {
 		renderClientForbiddenPage(w, r, err.Error())
 		return
 	}
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(connID, common.ProtocolHTTP, util.GetHTTPLocalAddress(r),
+		BaseConnection: common.NewBaseConnection(connID, protocol, util.GetHTTPLocalAddress(r),
 			r.RemoteAddr, user),
 		request: r,
 	}
@@ -863,13 +866,14 @@ func handleClientEditFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	connID := xid.New().String()
-	connectionID := fmt.Sprintf("%v_%v", common.ProtocolHTTP, connID)
+	protocol := getProtocolFromRequest(r)
+	connectionID := fmt.Sprintf("%v_%v", protocol, connID)
 	if err := checkHTTPClientUser(&user, r, connectionID); err != nil {
 		renderClientForbiddenPage(w, r, err.Error())
 		return
 	}
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(connID, common.ProtocolHTTP, util.GetHTTPLocalAddress(r),
+		BaseConnection: common.NewBaseConnection(connID, protocol, util.GetHTTPLocalAddress(r),
 			r.RemoteAddr, user),
 		request: r,
 	}

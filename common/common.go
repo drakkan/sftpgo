@@ -83,6 +83,7 @@ const (
 	ProtocolHTTP          = "HTTP"
 	ProtocolHTTPShare     = "HTTPShare"
 	ProtocolDataRetention = "DataRetention"
+	ProtocolOIDC          = "OIDC"
 )
 
 // Upload modes
@@ -128,7 +129,7 @@ var (
 	periodicTimeoutTicker     *time.Ticker
 	periodicTimeoutTickerDone chan bool
 	supportedProtocols        = []string{ProtocolSFTP, ProtocolSCP, ProtocolSSH, ProtocolFTP, ProtocolWebDAV,
-		ProtocolHTTP, ProtocolHTTPShare}
+		ProtocolHTTP, ProtocolHTTPShare, ProtocolOIDC}
 	disconnHookProtocols = []string{ProtocolSFTP, ProtocolSCP, ProtocolSSH, ProtocolFTP}
 	// the map key is the protocol, for each protocol we can have multiple rate limiters
 	rateLimiters map[string][]*rateLimiter

@@ -15,6 +15,7 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/kms"
+	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
@@ -262,13 +263,14 @@ func TestUpdateQuotaAfterRename(t *testing.T) {
 func TestErrorsMapping(t *testing.T) {
 	fs := vfs.NewOsFs("", os.TempDir(), "")
 	conn := NewBaseConnection("", ProtocolSFTP, "", "", dataprovider.User{BaseUser: sdk.BaseUser{HomeDir: os.TempDir()}})
+	osErrorsProtocols := []string{ProtocolWebDAV, ProtocolFTP, ProtocolHTTP, ProtocolHTTPShare,
+		ProtocolDataRetention, ProtocolOIDC}
 	for _, protocol := range supportedProtocols {
 		conn.SetProtocol(protocol)
 		err := conn.GetFsError(fs, os.ErrNotExist)
 		if protocol == ProtocolSFTP {
 			assert.ErrorIs(t, err, sftp.ErrSSHFxNoSuchFile)
-		} else if protocol == ProtocolWebDAV || protocol == ProtocolFTP || protocol == ProtocolHTTP ||
-			protocol == ProtocolHTTPShare || protocol == ProtocolDataRetention {
+		} else if util.IsStringInSlice(protocol, osErrorsProtocols) {
 			assert.EqualError(t, err, os.ErrNotExist.Error())
 		} else {
 			assert.EqualError(t, err, ErrNotExist.Error())

@@ -97,3 +97,5 @@ And the following is an example ID token which allows the SFTPGo user `user1` to
     "preferred_username": "user1"
 }
 ```
+
+SFTPGo users (not admins) can be created/updated after successful OpenID authentication by defining a [pre-login hook](./dynamic-user-mod.md).

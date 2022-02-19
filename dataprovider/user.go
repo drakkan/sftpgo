@@ -70,6 +70,7 @@ const (
 	SSHLoginMethodKeyAndKeyboardInt   = "publickey+keyboard-interactive"
 	LoginMethodTLSCertificate         = "TLSCertificate"
 	LoginMethodTLSCertificateAndPwd   = "TLSCertificate+password"
+	LoginMethodIDP                    = "IDP"
 )
 
 var (

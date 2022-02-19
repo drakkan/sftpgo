@@ -199,33 +199,36 @@ func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Re
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	protocol := common.ProtocolHTTP
 	username := r.Form.Get("username")
 	password := r.Form.Get("password")
 	if username == "" || password == "" {
-		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}}, ipAddr, common.ErrNoCredentials)
+		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}},
+			dataprovider.LoginMethodPassword, ipAddr, common.ErrNoCredentials)
 		s.renderClientLoginPage(w, "Invalid credentials")
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
-		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}}, ipAddr, err)
+		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}},
+			dataprovider.LoginMethodPassword, ipAddr, err)
 		s.renderClientLoginPage(w, err.Error())
 		return
 	}
 
-	if err := common.Config.ExecutePostConnectHook(ipAddr, common.ProtocolHTTP); err != nil {
+	if err := common.Config.ExecutePostConnectHook(ipAddr, protocol); err != nil {
 		s.renderClientLoginPage(w, fmt.Sprintf("access denied by post connect hook: %v", err))
 		return
 	}
 
-	user, err := dataprovider.CheckUserAndPass(username, password, ipAddr, common.ProtocolHTTP)
+	user, err := dataprovider.CheckUserAndPass(username, password, ipAddr, protocol)
 	if err != nil {
-		updateLoginMetrics(&user, ipAddr, err)
+		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, err)
 		s.renderClientLoginPage(w, dataprovider.ErrInvalidCredentials.Error())
 		return
 	}
-	connectionID := fmt.Sprintf("%v_%v", common.ProtocolHTTP, xid.New().String())
+	connectionID := fmt.Sprintf("%v_%v", protocol, xid.New().String())
 	if err := checkHTTPClientUser(&user, r, connectionID); err != nil {
-		updateLoginMetrics(&user, ipAddr, err)
+		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, err)
 		s.renderClientLoginPage(w, err.Error())
 		return
 	}
@@ -234,7 +237,7 @@ func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Re
 	err = user.CheckFsRoot(connectionID)
 	if err != nil {
 		logger.Warn(logSender, connectionID, "unable to check fs root: %v", err)
-		updateLoginMetrics(&user, ipAddr, common.ErrInternalFailure)
+		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, common.ErrInternalFailure)
 		s.renderClientLoginPage(w, err.Error())
 		return
 	}
@@ -261,7 +264,7 @@ func (s *httpdServer) handleWebClientPasswordResetPost(w http.ResponseWriter, r 
 		renderClientResetPwdPage(w, err.Error())
 		return
 	}
-	connectionID := fmt.Sprintf("%v_%v", common.ProtocolHTTP, xid.New().String())
+	connectionID := fmt.Sprintf("%v_%v", getProtocolFromRequest(r), xid.New().String())
 	if err := checkHTTPClientUser(user, r, connectionID); err != nil {
 		renderClientResetPwdPage(w, fmt.Sprintf("Password reset successfully but unable to login: %v", err.Error()))
 		return
@@ -325,7 +328,7 @@ func (s *httpdServer) handleWebClientTwoFactorRecoveryPost(w http.ResponseWriter
 				renderClientInternalServerErrorPage(w, r, errors.New("unable to set the recovery code as used"))
 				return
 			}
-			connectionID := fmt.Sprintf("%v_%v", common.ProtocolHTTP, xid.New().String())
+			connectionID := fmt.Sprintf("%v_%v", getProtocolFromRequest(r), xid.New().String())
 			s.loginUser(w, r, &user, connectionID, util.GetIPFromRemoteAddress(r.RemoteAddr), true,
 				renderClientTwoFactorRecoveryPage)
 			return
@@ -375,7 +378,7 @@ func (s *httpdServer) handleWebClientTwoFactorPost(w http.ResponseWriter, r *htt
 		renderClientTwoFactorPage(w, "Invalid authentication code")
 		return
 	}
-	connectionID := fmt.Sprintf("%v_%v", common.ProtocolHTTP, xid.New().String())
+	connectionID := fmt.Sprintf("%v_%v", getProtocolFromRequest(r), xid.New().String())
 	s.loginUser(w, r, &user, connectionID, util.GetIPFromRemoteAddress(r.RemoteAddr), true, renderClientTwoFactorPage)
 }
 
@@ -646,7 +649,7 @@ func (s *httpdServer) loginUser(
 	err := c.createAndSetCookie(w, r, s.tokenAuth, audience)
 	if err != nil {
 		logger.Warn(logSender, connectionID, "unable to set user login cookie %v", err)
-		updateLoginMetrics(user, ipAddr, common.ErrInternalFailure)
+		updateLoginMetrics(user, dataprovider.LoginMethodPassword, ipAddr, common.ErrInternalFailure)
 		errorFunc(w, err.Error())
 		return
 	}
@@ -657,7 +660,7 @@ func (s *httpdServer) loginUser(
 		http.Redirect(w, r, webClientTwoFactorPath, http.StatusFound)
 		return
 	}
-	updateLoginMetrics(user, ipAddr, err)
+	updateLoginMetrics(user, dataprovider.LoginMethodPassword, ipAddr, err)
 	dataprovider.UpdateLastLogin(user)
 	http.Redirect(w, r, webClientFilesPath, http.StatusFound)
 }
@@ -708,33 +711,36 @@ func (s *httpdServer) getUserToken(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	username, password, ok := r.BasicAuth()
+	protocol := common.ProtocolHTTP
 	if !ok {
-		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}}, ipAddr, common.ErrNoCredentials)
+		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}},
+			dataprovider.LoginMethodPassword, ipAddr, common.ErrNoCredentials)
 		w.Header().Set(common.HTTPAuthenticationHeader, basicRealm)
 		sendAPIResponse(w, r, nil, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 		return
 	}
 	if username == "" || password == "" {
-		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}}, ipAddr, common.ErrNoCredentials)
+		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}},
+			dataprovider.LoginMethodPassword, ipAddr, common.ErrNoCredentials)
 		w.Header().Set(common.HTTPAuthenticationHeader, basicRealm)
 		sendAPIResponse(w, r, nil, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 		return
 	}
-	if err := common.Config.ExecutePostConnectHook(ipAddr, common.ProtocolHTTP); err != nil {
+	if err := common.Config.ExecutePostConnectHook(ipAddr, protocol); err != nil {
 		sendAPIResponse(w, r, err, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 		return
 	}
-	user, err := dataprovider.CheckUserAndPass(username, password, ipAddr, common.ProtocolHTTP)
+	user, err := dataprovider.CheckUserAndPass(username, password, ipAddr, protocol)
 	if err != nil {
 		w.Header().Set(common.HTTPAuthenticationHeader, basicRealm)
-		updateLoginMetrics(&user, ipAddr, err)
+		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, err)
 		sendAPIResponse(w, r, dataprovider.ErrInvalidCredentials, http.StatusText(http.StatusUnauthorized),
 			http.StatusUnauthorized)
 		return
 	}
-	connectionID := fmt.Sprintf("%v_%v", common.ProtocolHTTP, xid.New().String())
+	connectionID := fmt.Sprintf("%v_%v", protocol, xid.New().String())
 	if err := checkHTTPClientUser(&user, r, connectionID); err != nil {
-		updateLoginMetrics(&user, ipAddr, err)
+		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, err)
 		sendAPIResponse(w, r, err, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 		return
 	}
@@ -744,14 +750,14 @@ func (s *httpdServer) getUserToken(w http.ResponseWriter, r *http.Request) {
 		if passcode == "" {
 			logger.Debug(logSender, "", "TOTP enabled for user %#v and not passcode provided, authentication refused", user.Username)
 			w.Header().Set(common.HTTPAuthenticationHeader, basicRealm)
-			updateLoginMetrics(&user, ipAddr, dataprovider.ErrInvalidCredentials)
+			updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, dataprovider.ErrInvalidCredentials)
 			sendAPIResponse(w, r, dataprovider.ErrInvalidCredentials, http.StatusText(http.StatusUnauthorized),
 				http.StatusUnauthorized)
 			return
 		}
 		err = user.Filters.TOTPConfig.Secret.Decrypt()
 		if err != nil {
-			updateLoginMetrics(&user, ipAddr, common.ErrInternalFailure)
+			updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, common.ErrInternalFailure)
 			sendAPIResponse(w, r, fmt.Errorf("unable to decrypt TOTP secret: %w", err), http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
@@ -760,7 +766,7 @@ func (s *httpdServer) getUserToken(w http.ResponseWriter, r *http.Request) {
 		if !match || err != nil {
 			logger.Debug(logSender, "invalid passcode for user %#v, match? %v, err: %v", user.Username, match, err)
 			w.Header().Set(common.HTTPAuthenticationHeader, basicRealm)
-			updateLoginMetrics(&user, ipAddr, dataprovider.ErrInvalidCredentials)
+			updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, dataprovider.ErrInvalidCredentials)
 			sendAPIResponse(w, r, dataprovider.ErrInvalidCredentials, http.StatusText(http.StatusUnauthorized),
 				http.StatusUnauthorized)
 			return
@@ -771,7 +777,7 @@ func (s *httpdServer) getUserToken(w http.ResponseWriter, r *http.Request) {
 	err = user.CheckFsRoot(connectionID)
 	if err != nil {
 		logger.Warn(logSender, connectionID, "unable to check fs root: %v", err)
-		updateLoginMetrics(&user, ipAddr, common.ErrInternalFailure)
+		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, common.ErrInternalFailure)
 		sendAPIResponse(w, r, err, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
@@ -789,11 +795,11 @@ func (s *httpdServer) generateAndSendUserToken(w http.ResponseWriter, r *http.Re
 	resp, err := c.createTokenResponse(s.tokenAuth, tokenAudienceAPIUser)
 
 	if err != nil {
-		updateLoginMetrics(&user, ipAddr, common.ErrInternalFailure)
+		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, common.ErrInternalFailure)
 		sendAPIResponse(w, r, err, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
-	updateLoginMetrics(&user, ipAddr, err)
+	updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, err)
 	dataprovider.UpdateLastLogin(&user)
 
 	render.JSON(w, r, resp)

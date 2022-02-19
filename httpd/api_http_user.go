@@ -32,13 +32,14 @@ func getUserConnection(w http.ResponseWriter, r *http.Request) (*Connection, err
 		return nil, err
 	}
 	connID := xid.New().String()
-	connectionID := fmt.Sprintf("%v_%v", common.ProtocolHTTP, connID)
+	protocol := getProtocolFromRequest(r)
+	connectionID := fmt.Sprintf("%v_%v", protocol, connID)
 	if err := checkHTTPClientUser(&user, r, connectionID); err != nil {
 		sendAPIResponse(w, r, err, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 		return nil, err
 	}
 	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(connID, common.ProtocolHTTP, util.GetHTTPLocalAddress(r),
+		BaseConnection: common.NewBaseConnection(connID, protocol, util.GetHTTPLocalAddress(r),
 			r.RemoteAddr, user),
 		request: r,
 	}
@@ -552,7 +553,7 @@ func doChangeUserPassword(r *http.Request, currentPassword, newPassword, confirm
 		return errors.New("invalid token claims")
 	}
 	user, err := dataprovider.CheckUserAndPass(claims.Username, currentPassword, util.GetIPFromRemoteAddress(r.RemoteAddr),
-		common.ProtocolHTTP)
+		getProtocolFromRequest(r))
 	if err != nil {
 		return util.NewValidationError("current password does not match")
 	}

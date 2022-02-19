@@ -278,32 +278,32 @@ func (t *oidcToken) getUser(r *http.Request) error {
 		dataprovider.UpdateAdminLastLogin(&admin)
 		return nil
 	}
-	user, err := dataprovider.UserExists(t.Username)
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	user, err := dataprovider.GetUserAfterIDPAuth(t.Username, ipAddr, common.ProtocolOIDC)
 	if err != nil {
 		return err
 	}
-	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
-	if err := common.Config.ExecutePostConnectHook(ipAddr, common.ProtocolHTTP); err != nil {
-		updateLoginMetrics(&user, ipAddr, err)
+	if err := common.Config.ExecutePostConnectHook(ipAddr, common.ProtocolOIDC); err != nil {
+		updateLoginMetrics(&user, dataprovider.LoginMethodIDP, ipAddr, err)
 		return fmt.Errorf("access denied by post connect hook: %w", err)
 	}
 	if err := user.CheckLoginConditions(); err != nil {
-		updateLoginMetrics(&user, ipAddr, err)
+		updateLoginMetrics(&user, dataprovider.LoginMethodIDP, ipAddr, err)
 		return err
 	}
-	connectionID := fmt.Sprintf("%v_%v", common.ProtocolHTTP, xid.New().String())
+	connectionID := fmt.Sprintf("%v_%v", common.ProtocolOIDC, xid.New().String())
 	if err := checkHTTPClientUser(&user, r, connectionID); err != nil {
-		updateLoginMetrics(&user, ipAddr, err)
+		updateLoginMetrics(&user, dataprovider.LoginMethodIDP, ipAddr, err)
 		return err
 	}
 	defer user.CloseFs() //nolint:errcheck
 	err = user.CheckFsRoot(connectionID)
 	if err != nil {
 		logger.Warn(logSender, connectionID, "unable to check fs root: %v", err)
-		updateLoginMetrics(&user, ipAddr, common.ErrInternalFailure)
+		updateLoginMetrics(&user, dataprovider.LoginMethodIDP, ipAddr, common.ErrInternalFailure)
 		return err
 	}
-	updateLoginMetrics(&user, ipAddr, nil)
+	updateLoginMetrics(&user, dataprovider.LoginMethodIDP, ipAddr, nil)
 	dataprovider.UpdateLastLogin(&user)
 	t.Permissions = user.Filters.WebClient
 	return nil

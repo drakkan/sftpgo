@@ -10,9 +10,9 @@ If the hook defines an external program it can reads the following environment v
 
 - `SFTPGO_LOGIND_USER`, it contains the user serialized as JSON. The username is empty if the connection is closed for authentication timeout
 - `SFTPGO_LOGIND_IP`
-- `SFTPGO_LOGIND_METHOD`, possible values are `publickey`, `password`, `keyboard-interactive`, `publickey+password`, `publickey+keyboard-interactive`, `TLSCertificate`, `TLSCertificate+password` or `no_auth_tryed`
+- `SFTPGO_LOGIND_METHOD`, possible values are `publickey`, `password`, `keyboard-interactive`, `publickey+password`, `publickey+keyboard-interactive`, `TLSCertificate`, `TLSCertificate+password` or `no_auth_tryed`, `IDP` (external identity provider)
 - `SFTPGO_LOGIND_STATUS`, 1 means login OK, 0 login KO
-- `SFTPGO_LOGIND_PROTOCOL`, possible values are `SSH`, `FTP`, `DAV`, `HTTP`
+- `SFTPGO_LOGIND_PROTOCOL`, possible values are `SSH`, `FTP`, `DAV`, `HTTP`, `OIDC` (OpenID Connect)
 
 Previous global environment variables aren't cleared when the script is called.
 The program must finish within 20 seconds.

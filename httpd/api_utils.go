@@ -477,18 +477,25 @@ func parseRangeRequest(bytesRange string, size int64) (int64, int64, error) {
 	return start, size, err
 }
 
-func updateLoginMetrics(user *dataprovider.User, ip string, err error) {
-	metric.AddLoginAttempt(dataprovider.LoginMethodPassword)
+func updateLoginMetrics(user *dataprovider.User, loginMethod, ip string, err error) {
+	metric.AddLoginAttempt(loginMethod)
+	var protocol string
+	switch loginMethod {
+	case dataprovider.LoginMethodIDP:
+		protocol = common.ProtocolOIDC
+	default:
+		protocol = common.ProtocolHTTP
+	}
 	if err != nil && err != common.ErrInternalFailure && err != common.ErrNoCredentials {
-		logger.ConnectionFailedLog(user.Username, ip, dataprovider.LoginMethodPassword, common.ProtocolHTTP, err.Error())
+		logger.ConnectionFailedLog(user.Username, ip, loginMethod, protocol, err.Error())
 		event := common.HostEventLoginFailed
 		if _, ok := err.(*util.RecordNotFoundError); ok {
 			event = common.HostEventUserNotFound
 		}
 		common.AddDefenderEvent(ip, event)
 	}
-	metric.AddLoginResult(dataprovider.LoginMethodPassword, err)
-	dataprovider.ExecutePostLoginHook(user, dataprovider.LoginMethodPassword, ip, common.ProtocolHTTP, err)
+	metric.AddLoginResult(loginMethod, err)
+	dataprovider.ExecutePostLoginHook(user, loginMethod, ip, protocol, err)
 }
 
 func checkHTTPClientUser(user *dataprovider.User, r *http.Request, connectionID string) error {
@@ -496,7 +503,7 @@ func checkHTTPClientUser(user *dataprovider.User, r *http.Request, connectionID 
 		logger.Info(logSender, connectionID, "cannot login user %#v, protocol HTTP is not allowed", user.Username)
 		return fmt.Errorf("protocol HTTP is not allowed for user %#v", user.Username)
 	}
-	if !user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, nil) {
+	if !isLoggedInWithOIDC(r) && !user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, nil) {
 		logger.Info(logSender, connectionID, "cannot login user %#v, password login method is not allowed", user.Username)
 		return fmt.Errorf("login method password is not allowed for user %#v", user.Username)
 	}
@@ -634,4 +641,11 @@ func isUserAllowedToResetPassword(r *http.Request, user *dataprovider.User) bool
 		return false
 	}
 	return true
+}
+
+func getProtocolFromRequest(r *http.Request) string {
+	if isLoggedInWithOIDC(r) {
+		return common.ProtocolOIDC
+	}
+	return common.ProtocolHTTP
 }

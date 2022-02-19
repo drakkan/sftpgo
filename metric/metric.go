@@ -20,6 +20,7 @@ const (
 	loginMethodKeyAndKeyboardInt    = "publickey+keyboard-interactive"
 	loginMethodTLSCertificate       = "TLSCertificate"
 	loginMethodTLSCertificateAndPwd = "TLSCertificate+password"
+	loginMethodIDP                  = "IDP"
 )
 
 func init() {
@@ -257,6 +258,27 @@ var (
 	totalKeyAndKeyIntLoginFailed = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "sftpgo_key_and_keyboard_int_login_ko_total",
 		Help: "The total number of failed logins using  public key + keyboard interactive",
+	})
+
+	// totalIDPLoginAttempts is the metric that reports the total number of
+	// login attempts using identity providers
+	totalIDPLoginAttempts = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_idp_login_attempts_total",
+		Help: "The total number of login attempts using Identity Providers",
+	})
+
+	// totalIDPLoginOK is the metric that reports the total number of
+	// successful logins using identity providers
+	totalIDPLoginOK = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_idp_login_ok_total",
+		Help: "The total number of successful logins using Identity Providers",
+	})
+
+	// totalIDPLoginFailed is the metric that reports the total number of
+	// failed logins using identity providers
+	totalIDPLoginFailed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_idp_login_ko_total",
+		Help: "The total number of failed logins using  Identity Providers",
 	})
 
 	totalHTTPRequests = promauto.NewCounter(prometheus.CounterOpts{
@@ -582,7 +604,6 @@ func TransferCompleted(bytesSent, bytesReceived int64, transferKind int, err err
 		} else {
 			totalUploadErrors.Inc()
 		}
-		totalUploadSize.Add(float64(bytesReceived))
 	} else {
 		// download
 		if err == nil {
@@ -590,6 +611,11 @@ func TransferCompleted(bytesSent, bytesReceived int64, transferKind int, err err
 		} else {
 			totalDownloadErrors.Inc()
 		}
+	}
+	if bytesReceived > 0 {
+		totalUploadSize.Add(float64(bytesReceived))
+	}
+	if bytesSent > 0 {
 		totalDownloadSize.Add(float64(bytesSent))
 	}
 }
@@ -826,6 +852,8 @@ func AddLoginAttempt(authMethod string) {
 		totalTLSCertLoginAttempts.Inc()
 	case loginMethodTLSCertificateAndPwd:
 		totalTLSCertAndPwdLoginAttempts.Inc()
+	case loginMethodIDP:
+		totalIDPLoginAttempts.Inc()
 	default:
 		totalPasswordLoginAttempts.Inc()
 	}
@@ -846,6 +874,8 @@ func incLoginOK(authMethod string) {
 		totalTLSCertLoginOK.Inc()
 	case loginMethodTLSCertificateAndPwd:
 		totalTLSCertAndPwdLoginOK.Inc()
+	case loginMethodIDP:
+		totalIDPLoginOK.Inc()
 	default:
 		totalPasswordLoginOK.Inc()
 	}
@@ -866,6 +896,8 @@ func incLoginFailed(authMethod string) {
 		totalTLSCertLoginFailed.Inc()
 	case loginMethodTLSCertificateAndPwd:
 		totalTLSCertAndPwdLoginFailed.Inc()
+	case loginMethodIDP:
+		totalIDPLoginFailed.Inc()
 	default:
 		totalPasswordLoginFailed.Inc()
 	}

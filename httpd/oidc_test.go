@@ -2,12 +2,14 @@ package httpd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"testing"
 	"time"
 	"unsafe"
@@ -782,23 +784,6 @@ func TestOIDCToken(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func getTestOIDCServer() *httpdServer {
-	return &httpdServer{
-		binding: Binding{
-			OIDC: OIDC{
-				ClientID:        "sftpgo-client",
-				ClientSecret:    "jRsmE0SWnuZjP7djBqNq0mrf8QN77j2c",
-				ConfigURL:       fmt.Sprintf("http://%v/auth/realms/sftpgo", oidcMockAddr),
-				RedirectBaseURL: "http://127.0.0.1:8081/",
-				UsernameField:   "preferred_username",
-				RoleField:       "sftpgo_role",
-			},
-		},
-		enableWebAdmin:  true,
-		enableWebClient: true,
-	}
-}
-
 func TestOIDCManager(t *testing.T) {
 	require.Len(t, oidcMgr.pendingAuths, 0)
 	authReq := newOIDCPendingAuth(tokenAudienceWebAdmin)
@@ -880,4 +865,143 @@ func TestOIDCManager(t *testing.T) {
 	assert.NoError(t, err)
 	oidcMgr.removeToken(newToken.Cookie)
 	require.Len(t, oidcMgr.tokens, 0)
+}
+
+func TestOIDCPreLoginHook(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("this test is not available on Windows")
+	}
+	username := "test_oidc_user_prelogin"
+	u := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username: username,
+			Password: "unused",
+			HomeDir:  filepath.Join(os.TempDir(), username),
+			Status:   1,
+			Permissions: map[string][]string{
+				"/": {dataprovider.PermAny},
+			},
+		},
+	}
+	preLoginPath := filepath.Join(os.TempDir(), "prelogin.sh")
+	providerConf := dataprovider.GetProviderConfig()
+	err := dataprovider.Close()
+	assert.NoError(t, err)
+	err = os.WriteFile(preLoginPath, getPreLoginScriptContent(u, false), os.ModePerm)
+	assert.NoError(t, err)
+	newProviderConf := providerConf
+	newProviderConf.PreLoginHook = preLoginPath
+	err = dataprovider.Initialize(newProviderConf, "..", true)
+	assert.NoError(t, err)
+	server := getTestOIDCServer()
+	err = server.binding.OIDC.initialize()
+	assert.NoError(t, err)
+	server.initializeRouter()
+
+	_, err = dataprovider.UserExists(username)
+	_, ok := err.(*util.RecordNotFoundError)
+	assert.True(t, ok)
+	// now login with OIDC
+	authReq := newOIDCPendingAuth(tokenAudienceWebClient)
+	oidcMgr.addPendingAuth(authReq)
+	token := &oauth2.Token{
+		AccessToken: "1234",
+		Expiry:      time.Now().Add(5 * time.Minute),
+	}
+	token = token.WithExtra(map[string]interface{}{
+		"id_token": "id_token_val",
+	})
+	server.binding.OIDC.oauth2Config = &mockOAuth2Config{
+		tokenSource: &mockTokenSource{},
+		authCodeURL: webOIDCRedirectPath,
+		token:       token,
+	}
+	idToken := &oidc.IDToken{
+		Nonce:  authReq.Nonce,
+		Expiry: time.Now().Add(5 * time.Minute),
+	}
+	setIDTokenClaims(idToken, []byte(`{"preferred_username":"`+username+`"}`))
+	server.binding.OIDC.verifier = &mockOIDCVerifier{
+		err:   nil,
+		token: idToken,
+	}
+	rr := httptest.NewRecorder()
+	r, err := http.NewRequest(http.MethodGet, webOIDCRedirectPath+"?state="+authReq.State, nil)
+	assert.NoError(t, err)
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, webClientFilesPath, rr.Header().Get("Location"))
+	_, err = dataprovider.UserExists(username)
+	assert.NoError(t, err)
+
+	err = dataprovider.DeleteUser(username, "", "")
+	assert.NoError(t, err)
+
+	err = os.WriteFile(preLoginPath, getPreLoginScriptContent(u, true), os.ModePerm)
+	assert.NoError(t, err)
+
+	authReq = newOIDCPendingAuth(tokenAudienceWebClient)
+	oidcMgr.addPendingAuth(authReq)
+	idToken = &oidc.IDToken{
+		Nonce:  authReq.Nonce,
+		Expiry: time.Now().Add(5 * time.Minute),
+	}
+	setIDTokenClaims(idToken, []byte(`{"preferred_username":"`+username+`"}`))
+	server.binding.OIDC.verifier = &mockOIDCVerifier{
+		err:   nil,
+		token: idToken,
+	}
+	rr = httptest.NewRecorder()
+	r, err = http.NewRequest(http.MethodGet, webOIDCRedirectPath+"?state="+authReq.State, nil)
+	assert.NoError(t, err)
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, webClientLoginPath, rr.Header().Get("Location"))
+	_, err = dataprovider.UserExists(username)
+	_, ok = err.(*util.RecordNotFoundError)
+	assert.True(t, ok)
+	if assert.Len(t, oidcMgr.tokens, 1) {
+		for k := range oidcMgr.tokens {
+			oidcMgr.removeToken(k)
+		}
+	}
+	require.Len(t, oidcMgr.pendingAuths, 0)
+	require.Len(t, oidcMgr.tokens, 0)
+
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = dataprovider.Initialize(providerConf, "..", true)
+	assert.NoError(t, err)
+	err = os.Remove(preLoginPath)
+	assert.NoError(t, err)
+}
+
+func getTestOIDCServer() *httpdServer {
+	return &httpdServer{
+		binding: Binding{
+			OIDC: OIDC{
+				ClientID:        "sftpgo-client",
+				ClientSecret:    "jRsmE0SWnuZjP7djBqNq0mrf8QN77j2c",
+				ConfigURL:       fmt.Sprintf("http://%v/auth/realms/sftpgo", oidcMockAddr),
+				RedirectBaseURL: "http://127.0.0.1:8081/",
+				UsernameField:   "preferred_username",
+				RoleField:       "sftpgo_role",
+			},
+		},
+		enableWebAdmin:  true,
+		enableWebClient: true,
+	}
+}
+
+func getPreLoginScriptContent(user dataprovider.User, nonJSONResponse bool) []byte {
+	content := []byte("#!/bin/sh\n\n")
+	if nonJSONResponse {
+		content = append(content, []byte("echo 'text response'\n")...)
+		return content
+	}
+	if len(user.Username) > 0 {
+		u, _ := json.Marshal(user)
+		content = append(content, []byte(fmt.Sprintf("echo '%v'\n", string(u)))...)
+	}
+	return content
 }
