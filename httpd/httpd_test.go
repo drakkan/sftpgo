@@ -10086,7 +10086,7 @@ func TestUserAPIShares(t *testing.T) {
 	token1, err := getJWTAPIUserTokenFromTestServer(user1.Username, defaultPassword)
 	assert.NoError(t, err)
 
-	// the share username will be set from
+	// the share username will be set from the claims
 	share := dataprovider.Share{
 		Name:        "share1",
 		Description: "description1",
@@ -10145,10 +10145,13 @@ func TestUserAPIShares(t *testing.T) {
 
 	s, err := dataprovider.ShareExists(objectID, defaultUsername)
 	assert.NoError(t, err)
-	match, err := s.CheckPassword(defaultPassword)
+	match, err := s.CheckCredentials(defaultUsername, defaultPassword)
 	assert.True(t, match)
 	assert.NoError(t, err)
-	match, err = s.CheckPassword(defaultPassword + "mod")
+	match, err = s.CheckCredentials(defaultUsername, defaultPassword+"mod")
+	assert.False(t, match)
+	assert.Error(t, err)
+	match, err = s.CheckCredentials(altAdminUsername, defaultPassword)
 	assert.False(t, match)
 	assert.Error(t, err)
 
@@ -10163,10 +10166,10 @@ func TestUserAPIShares(t *testing.T) {
 
 	s, err = dataprovider.ShareExists(objectID, defaultUsername)
 	assert.NoError(t, err)
-	match, err = s.CheckPassword(defaultPassword)
+	match, err = s.CheckCredentials(defaultUsername, defaultPassword)
 	assert.True(t, match)
 	assert.NoError(t, err)
-	match, err = s.CheckPassword(defaultPassword + "mod")
+	match, err = s.CheckCredentials(defaultUsername, defaultPassword+"mod")
 	assert.False(t, match)
 	assert.Error(t, err)
 
@@ -10280,6 +10283,58 @@ func TestUserAPIShares(t *testing.T) {
 	_, err = httpdtest.RemoveUser(user1, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user1.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestUsersAPISharesNoPasswordDisabled(t *testing.T) {
+	u := getTestUser()
+	u.Filters.WebClient = []string{sdk.WebClientShareNoPasswordDisabled}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	share := dataprovider.Share{
+		Name:  "s",
+		Scope: dataprovider.ShareScopeRead,
+		Paths: []string{"/"},
+	}
+	asJSON, err := json.Marshal(share)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "You are not authorized to share files/folders without a password")
+
+	share.Password = defaultPassword
+	asJSON, err = json.Marshal(share)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	location := rr.Header().Get("Location")
+	assert.NotEmpty(t, location)
+	objectID := rr.Header().Get("X-Object-ID")
+	assert.NotEmpty(t, objectID)
+	assert.Equal(t, fmt.Sprintf("%v/%v", userSharesPath, objectID), location)
+
+	share.Password = ""
+	asJSON, err = json.Marshal(share)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPut, location, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "You are not authorized to share files/folders without a password")
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
 
@@ -12519,7 +12574,7 @@ func TestWebUserShare(t *testing.T) {
 	// check the password
 	s, err := dataprovider.ShareExists(share.ShareID, user.Username)
 	assert.NoError(t, err)
-	match, err := s.CheckPassword(defaultPassword)
+	match, err := s.CheckCredentials(user.Username, defaultPassword)
 	assert.NoError(t, err)
 	assert.True(t, match)
 
@@ -12559,6 +12614,76 @@ func TestWebUserShare(t *testing.T) {
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
+
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+}
+
+func TestWebUserShareNoPasswordDisabled(t *testing.T) {
+	u := getTestUser()
+	u.Filters.WebClient = []string{sdk.WebClientShareNoPasswordDisabled}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
+	assert.NoError(t, err)
+	token, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+	userAPItoken, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	share := dataprovider.Share{
+		Name:  "s",
+		Scope: dataprovider.ShareScopeRead,
+		Paths: []string{"/"},
+	}
+	form := make(url.Values)
+	form.Set("name", share.Name)
+	form.Set("scope", strconv.Itoa(int(share.Scope)))
+	form.Set("paths", "/")
+	form.Set("max_tokens", "0")
+	form.Set(csrfFormToken, csrfToken)
+	req, err := http.NewRequest(http.MethodPost, webClientSharePath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "You are not authorized to share files/folders without a password")
+
+	form.Set("password", defaultPassword)
+	req, err = http.NewRequest(http.MethodPost, webClientSharePath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+
+	req, err = http.NewRequest(http.MethodGet, userSharesPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, userAPItoken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	var shares []dataprovider.Share
+	err = json.Unmarshal(rr.Body.Bytes(), &shares)
+	assert.NoError(t, err)
+	if assert.Len(t, shares, 1) {
+		s := shares[0]
+		assert.Equal(t, share.Name, s.Name)
+		assert.Equal(t, share.Scope, s.Scope)
+		assert.Equal(t, share.Paths, s.Paths)
+		share.ShareID = s.ShareID
+	}
+	assert.NotEmpty(t, share.ShareID)
+	form.Set("password", "")
+	req, err = http.NewRequest(http.MethodPost, webClientSharePath+"/"+share.ShareID, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "You are not authorized to share files/folders without a password")
 
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)

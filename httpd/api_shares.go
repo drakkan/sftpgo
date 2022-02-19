@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-chi/render"
 	"github.com/rs/xid"
+	"github.com/sftpgo/sdk"
 
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
@@ -76,6 +77,13 @@ func addShare(w http.ResponseWriter, r *http.Request) {
 	if share.Name == "" {
 		share.Name = share.ShareID
 	}
+	if share.Password == "" {
+		if util.IsStringInSlice(sdk.WebClientShareNoPasswordDisabled, claims.Permissions) {
+			sendAPIResponse(w, r, nil, "You are not authorized to share files/folders without a password",
+				http.StatusForbidden)
+			return
+		}
+	}
 	err = dataprovider.AddShare(&share, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
@@ -111,6 +119,13 @@ func updateShare(w http.ResponseWriter, r *http.Request) {
 	share.Username = claims.Username
 	if share.Password == redactedSecret {
 		share.Password = oldPassword
+	}
+	if share.Password == "" {
+		if util.IsStringInSlice(sdk.WebClientShareNoPasswordDisabled, claims.Permissions) {
+			sendAPIResponse(w, r, nil, "You are not authorized to share files/folders without a password",
+				http.StatusForbidden)
+			return
+		}
 	}
 	if err := dataprovider.UpdateShare(&share, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr)); err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
@@ -363,13 +378,13 @@ func checkPublicShare(w http.ResponseWriter, r *http.Request, shareShope datapro
 		return share, nil, err
 	}
 	if share.Password != "" {
-		_, password, ok := r.BasicAuth()
+		username, password, ok := r.BasicAuth()
 		if !ok {
 			w.Header().Set(common.HTTPAuthenticationHeader, basicRealm)
 			renderError(dataprovider.ErrInvalidCredentials, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 			return share, nil, dataprovider.ErrInvalidCredentials
 		}
-		match, err := share.CheckPassword(password)
+		match, err := share.CheckCredentials(username, password)
 		if !match || err != nil {
 			w.Header().Set(common.HTTPAuthenticationHeader, basicRealm)
 			renderError(dataprovider.ErrInvalidCredentials, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)

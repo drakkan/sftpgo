@@ -982,6 +982,12 @@ func handleClientAddSharePost(w http.ResponseWriter, r *http.Request) {
 	share.ShareID = util.GenerateUniqueID()
 	share.LastUseAt = 0
 	share.Username = claims.Username
+	if share.Password == "" {
+		if util.IsStringInSlice(sdk.WebClientShareNoPasswordDisabled, claims.Permissions) {
+			renderClientForbiddenPage(w, r, "You are not authorized to share files/folders without a password")
+			return
+		}
+	}
 	err = dataprovider.AddShare(share, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if err == nil {
 		http.Redirect(w, r, webClientSharesPath, http.StatusSeeOther)
@@ -1019,6 +1025,12 @@ func handleClientUpdateSharePost(w http.ResponseWriter, r *http.Request) {
 	updatedShare.Username = claims.Username
 	if updatedShare.Password == redactedSecret {
 		updatedShare.Password = share.Password
+	}
+	if updatedShare.Password == "" {
+		if util.IsStringInSlice(sdk.WebClientShareNoPasswordDisabled, claims.Permissions) {
+			renderClientForbiddenPage(w, r, "You are not authorized to share files/folders without a password")
+			return
+		}
 	}
 	err = dataprovider.UpdateShare(updatedShare, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if err == nil {
