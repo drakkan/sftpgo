@@ -145,10 +145,34 @@ func GetIPFromRemoteAddress(remoteAddress string) string {
 
 // NilIfEmpty returns nil if the input string is empty
 func NilIfEmpty(s string) *string {
-	if len(s) == 0 {
+	if s == "" {
 		return nil
 	}
 	return &s
+}
+
+// GetStringFromPointer returns the string value or empty if nil
+func GetStringFromPointer(val *string) string {
+	if val == nil {
+		return ""
+	}
+	return *val
+}
+
+// GetIntFromPointer returns the int value or zero
+func GetIntFromPointer(val *int64) int64 {
+	if val == nil {
+		return 0
+	}
+	return *val
+}
+
+// GetTimeFromPointer returns the time value or now
+func GetTimeFromPointer(val *time.Time) time.Time {
+	if val == nil {
+		return time.Now()
+	}
+	return *val
 }
 
 // GenerateRSAKeys generate rsa private and public keys and write the

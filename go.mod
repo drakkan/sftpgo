@@ -4,7 +4,8 @@ go 1.17
 
 require (
 	cloud.google.com/go/storage v1.21.0
-	github.com/Azure/azure-storage-blob-go v0.14.0
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v0.21.1
+	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v0.3.0
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/alexedwards/argon2id v0.0.0-20211130144151-3585854a6387
 	github.com/aws/aws-sdk-go v1.43.2
@@ -67,7 +68,7 @@ require (
 	cloud.google.com/go v0.100.2 // indirect
 	cloud.google.com/go/compute v1.3.0 // indirect
 	cloud.google.com/go/iam v0.2.0 // indirect
-	github.com/Azure/azure-pipeline-go v0.2.3 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/internal v0.9.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/boombuler/barcode v1.0.1 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
@@ -99,7 +100,6 @@ require (
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/magiconair/properties v1.8.5 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
-	github.com/mattn/go-ieproxy v0.0.3 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
 	github.com/miekg/dns v1.1.46 // indirect
