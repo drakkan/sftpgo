@@ -279,12 +279,12 @@
         </div>
 
         <div class="form-group row fsconfig fsconfig-azblobfs">
-            <label for="idAzPartSize" class="col-sm-2 col-form-label">UL Part Size (MB)</label>
+            <label for="idAzUploadPartSize" class="col-sm-2 col-form-label">UL Part Size (MB)</label>
             <div class="col-sm-3">
-                <input type="number" class="form-control" id="idAzPartSize" name="az_upload_part_size" placeholder=""
-                    value="{{.AzBlobConfig.UploadPartSize}}" aria-describedby="AzPartSizeHelpBlock">
-                <small id="AzPartSizeHelpBlock" class="form-text text-muted">
-                    The buffer size for multipart uploads. Zero means the default (4 MB)
+                <input type="number" class="form-control" id="idAzUploadPartSize" name="az_upload_part_size" placeholder=""
+                    value="{{.AzBlobConfig.UploadPartSize}}" aria-describedby="AzDLPartSizeHelpBlock">
+                <small id="AzDLPartSizeHelpBlock" class="form-text text-muted">
+                    The buffer size for multipart uploads. Zero means the default (5 MB)
                 </small>
             </div>
             <div class="col-sm-2"></div>
@@ -292,9 +292,30 @@
             <div class="col-sm-3">
                 <input type="number" class="form-control" id="idAzUploadConcurrency" name="az_upload_concurrency"
                     placeholder="" value="{{.AzBlobConfig.UploadConcurrency}}" min="0"
-                    aria-describedby="AzConcurrencyHelpBlock">
-                <small id="AzConcurrencyHelpBlock" class="form-text text-muted">
-                    How many parts are uploaded in parallel. Zero means the default (2)
+                    aria-describedby="AzULConcurrencyHelpBlock">
+                <small id="AzULConcurrencyHelpBlock" class="form-text text-muted">
+                    How many parts are uploaded in parallel. Zero means the default (5)
+                </small>
+            </div>
+        </div>
+
+        <div class="form-group row fsconfig fsconfig-azblobfs">
+            <label for="idAzDownloadPartSize" class="col-sm-2 col-form-label">DL Part Size (MB)</label>
+            <div class="col-sm-3">
+                <input type="number" class="form-control" id="idAzDownloadPartSize" name="az_download_part_size" placeholder=""
+                    value="{{.AzBlobConfig.DownloadPartSize}}" aria-describedby="AzDLPartSizeHelpBlock">
+                <small id="AzDLPartSizeHelpBlock" class="form-text text-muted">
+                    The buffer size for multipart downloads. Zero means the default (5 MB)
+                </small>
+            </div>
+            <div class="col-sm-2"></div>
+            <label for="idAzDownloadConcurrency" class="col-sm-2 col-form-label">DL Concurrency</label>
+            <div class="col-sm-3">
+                <input type="number" class="form-control" id="idAzDownloadConcurrency" name="az_download_concurrency"
+                    placeholder="" value="{{.AzBlobConfig.DownloadConcurrency}}" min="0"
+                    aria-describedby="AzDLConcurrencyHelpBlock">
+                <small id="AzDLConcurrencyHelpBlock" class="form-text text-muted">
+                    How many parts are downloaded in parallel. Zero means the default (5)
                 </small>
             </div>
         </div>

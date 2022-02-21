@@ -4776,10 +4776,16 @@ components:
           description: 'optional endpoint. Default is "blob.core.windows.net". If you use the emulator the endpoint must include the protocol, for example "http://127.0.0.1:10000"'
         upload_part_size:
           type: integer
-          description: 'the buffer size (in MB) to use for multipart uploads. If this value is set to zero, the default value (4MB) will be used.'
+          description: 'the buffer size (in MB) to use for multipart uploads. If this value is set to zero, the default value (5MB) will be used.'
         upload_concurrency:
           type: integer
-          description: 'the number of parts to upload in parallel. If this value is set to zero, the default value (2) will be used'
+          description: 'the number of parts to upload in parallel. If this value is set to zero, the default value (5) will be used'
+        download_part_size:
+          type: integer
+          description: 'the buffer size (in MB) to use for multipart downloads. If this value is set to zero, the default value (5MB) will be used.'
+        download_concurrency:
+          type: integer
+          description: 'the number of parts to download in parallel. If this value is set to zero, the default value (5) will be used'
         access_tier:
           type: string
           enum:
@@ -5688,7 +5694,7 @@ components:
           type: array
           items:
             type: string
-          description: 'Features for the current build. Available features are "portable", "bolt", "mysql", "sqlite", "pgsql", "s3", "gcs", "metrics". If a feature is available it has a "+" prefix, otherwise a "-" prefix'
+          description: 'Features for the current build. Available features are `portable`, `bolt`, `mysql`, `sqlite`, `pgsql`, `s3`, `gcs`, `metrics`. If a feature is available it has a `+` prefix, otherwise a `-` prefix'
     Token:
       type: object
       properties:

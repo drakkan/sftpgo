@@ -1392,6 +1392,12 @@ func compareAzBlobConfig(expected *vfs.Filesystem, actual *vfs.Filesystem) error
 	if expected.AzBlobConfig.UploadConcurrency != actual.AzBlobConfig.UploadConcurrency {
 		return errors.New("azure Blob upload concurrency mismatch")
 	}
+	if expected.AzBlobConfig.DownloadPartSize != actual.AzBlobConfig.DownloadPartSize {
+		return errors.New("azure Blob download part size mismatch")
+	}
+	if expected.AzBlobConfig.DownloadConcurrency != actual.AzBlobConfig.DownloadConcurrency {
+		return errors.New("azure Blob download concurrency mismatch")
+	}
 	if expected.AzBlobConfig.KeyPrefix != actual.AzBlobConfig.KeyPrefix &&
 		expected.AzBlobConfig.KeyPrefix+"/" != actual.AzBlobConfig.KeyPrefix {
 		return errors.New("azure Blob key prefix mismatch")

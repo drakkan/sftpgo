@@ -409,12 +409,22 @@ func (c *AzBlobFsConfig) isEqual(other *AzBlobFsConfig) bool {
 	if c.UploadConcurrency != other.UploadConcurrency {
 		return false
 	}
+	if c.DownloadPartSize != other.DownloadPartSize {
+		return false
+	}
+	if c.DownloadConcurrency != other.DownloadConcurrency {
+		return false
+	}
 	if c.UseEmulator != other.UseEmulator {
 		return false
 	}
 	if c.AccessTier != other.AccessTier {
 		return false
 	}
+	return c.isSecretEqual(other)
+}
+
+func (c *AzBlobFsConfig) isSecretEqual(other *AzBlobFsConfig) bool {
 	if c.AccountKey == nil {
 		c.AccountKey = kms.NewEmptySecret()
 	}
@@ -461,6 +471,22 @@ func (c *AzBlobFsConfig) checkCredentials() error {
 	return nil
 }
 
+func (c *AzBlobFsConfig) checkPartSizeAndConcurrency() error {
+	if c.UploadPartSize < 0 || c.UploadPartSize > 100 {
+		return fmt.Errorf("invalid upload part size: %v", c.UploadPartSize)
+	}
+	if c.UploadConcurrency < 0 || c.UploadConcurrency > 64 {
+		return fmt.Errorf("invalid upload concurrency: %v", c.UploadConcurrency)
+	}
+	if c.DownloadPartSize < 0 || c.DownloadPartSize > 100 {
+		return fmt.Errorf("invalid download part size: %v", c.DownloadPartSize)
+	}
+	if c.DownloadConcurrency < 0 || c.DownloadConcurrency > 64 {
+		return fmt.Errorf("invalid upload concurrency: %v", c.DownloadConcurrency)
+	}
+	return nil
+}
+
 // Validate returns an error if the configuration is not valid
 func (c *AzBlobFsConfig) Validate() error {
 	if c.AccountKey == nil {
@@ -485,11 +511,8 @@ func (c *AzBlobFsConfig) Validate() error {
 			c.KeyPrefix += "/"
 		}
 	}
-	if c.UploadPartSize < 0 || c.UploadPartSize > 100 {
-		return fmt.Errorf("invalid upload part size: %v", c.UploadPartSize)
-	}
-	if c.UploadConcurrency < 0 || c.UploadConcurrency > 64 {
-		return fmt.Errorf("invalid upload concurrency: %v", c.UploadConcurrency)
+	if err := c.checkPartSizeAndConcurrency(); err != nil {
+		return err
 	}
 	if !util.IsStringInSlice(c.AccessTier, validAzAccessTier) {
 		return fmt.Errorf("invalid access tier %#v, valid values: \"''%v\"", c.AccessTier, strings.Join(validAzAccessTier, ", "))

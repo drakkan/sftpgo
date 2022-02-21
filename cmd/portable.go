@@ -69,6 +69,8 @@ var (
 	portableAzKeyPrefix                string
 	portableAzULPartSize               int
 	portableAzULConcurrency            int
+	portableAzDLPartSize               int
+	portableAzDLConcurrency            int
 	portableAzUseEmulator              bool
 	portableCryptPassphrase            string
 	portableSFTPEndpoint               string
@@ -191,14 +193,16 @@ Please take a look at the usage below to customize the serving parameters`,
 						},
 						AzBlobConfig: vfs.AzBlobFsConfig{
 							BaseAzBlobFsConfig: sdk.BaseAzBlobFsConfig{
-								Container:         portableAzContainer,
-								AccountName:       portableAzAccountName,
-								Endpoint:          portableAzEndpoint,
-								AccessTier:        portableAzAccessTier,
-								KeyPrefix:         portableAzKeyPrefix,
-								UseEmulator:       portableAzUseEmulator,
-								UploadPartSize:    int64(portableAzULPartSize),
-								UploadConcurrency: portableAzULConcurrency,
+								Container:           portableAzContainer,
+								AccountName:         portableAzAccountName,
+								Endpoint:            portableAzEndpoint,
+								AccessTier:          portableAzAccessTier,
+								KeyPrefix:           portableAzKeyPrefix,
+								UseEmulator:         portableAzUseEmulator,
+								UploadPartSize:      int64(portableAzULPartSize),
+								UploadConcurrency:   portableAzULConcurrency,
+								DownloadPartSize:    int64(portableAzDLPartSize),
+								DownloadConcurrency: portableAzDLConcurrency,
 							},
 							AccountKey: kms.NewPlainSecret(portableAzAccountKey),
 							SASURL:     kms.NewPlainSecret(portableAzSASURL),
@@ -328,9 +332,13 @@ container setting`)
 	portableCmd.Flags().StringVar(&portableAzKeyPrefix, "az-key-prefix", "", `Allows to restrict access to the
 virtual folder identified by this
 prefix and its contents`)
-	portableCmd.Flags().IntVar(&portableAzULPartSize, "az-upload-part-size", 4, `The buffer size for multipart uploads
+	portableCmd.Flags().IntVar(&portableAzULPartSize, "az-upload-part-size", 5, `The buffer size for multipart uploads
 (MB)`)
-	portableCmd.Flags().IntVar(&portableAzULConcurrency, "az-upload-concurrency", 2, `How many parts are uploaded in
+	portableCmd.Flags().IntVar(&portableAzULConcurrency, "az-upload-concurrency", 5, `How many parts are uploaded in
+parallel`)
+	portableCmd.Flags().IntVar(&portableAzDLPartSize, "az-download-part-size", 5, `The buffer size for multipart downloads
+(MB)`)
+	portableCmd.Flags().IntVar(&portableAzDLConcurrency, "az-download-concurrency", 5, `How many parts are downloaded in
 parallel`)
 	portableCmd.Flags().BoolVar(&portableAzUseEmulator, "az-use-emulator", false, "")
 	portableCmd.Flags().StringVar(&portableCryptPassphrase, "crypto-passphrase", "", `Passphrase for encryption/decryption`)

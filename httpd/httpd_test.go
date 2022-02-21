@@ -2749,6 +2749,7 @@ func TestUserAzureBlobConfig(t *testing.T) {
 	user.FsConfig.AzBlobConfig.AccountKey = kms.NewPlainSecret("Server-Account-Key")
 	user.FsConfig.AzBlobConfig.Endpoint = "http://127.0.0.1:9000"
 	user.FsConfig.AzBlobConfig.UploadPartSize = 8
+	user.FsConfig.AzBlobConfig.DownloadPartSize = 6
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	initialPayload := user.FsConfig.AzBlobConfig.AccountKey.GetPayload()
@@ -2788,6 +2789,7 @@ func TestUserAzureBlobConfig(t *testing.T) {
 	user.FsConfig.AzBlobConfig.Endpoint = "http://localhost:9001"
 	user.FsConfig.AzBlobConfig.KeyPrefix = "somedir/subdir"
 	user.FsConfig.AzBlobConfig.UploadConcurrency = 5
+	user.FsConfig.AzBlobConfig.DownloadConcurrency = 4
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	assert.Equal(t, sdkkms.SecretStatusSecretBox, user.FsConfig.AzBlobConfig.AccountKey.GetStatus())
@@ -2803,6 +2805,8 @@ func TestUserAzureBlobConfig(t *testing.T) {
 	user.FsConfig.AzBlobConfig.AccountKey = kms.NewEmptySecret()
 	user.FsConfig.AzBlobConfig.UploadPartSize = 6
 	user.FsConfig.AzBlobConfig.UploadConcurrency = 4
+	user.FsConfig.AzBlobConfig.DownloadPartSize = 3
+	user.FsConfig.AzBlobConfig.DownloadConcurrency = 5
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	assert.Nil(t, user.FsConfig.AzBlobConfig.AccountKey)
@@ -15417,6 +15421,8 @@ func TestWebUserAzureBlobMock(t *testing.T) {
 	user.FsConfig.AzBlobConfig.KeyPrefix = "somedir/subdir/"
 	user.FsConfig.AzBlobConfig.UploadPartSize = 5
 	user.FsConfig.AzBlobConfig.UploadConcurrency = 4
+	user.FsConfig.AzBlobConfig.DownloadPartSize = 3
+	user.FsConfig.AzBlobConfig.DownloadConcurrency = 6
 	user.FsConfig.AzBlobConfig.UseEmulator = true
 	form := make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
@@ -15469,8 +15475,26 @@ func TestWebUserAzureBlobMock(t *testing.T) {
 	req.Header.Set("Content-Type", contentType)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	// now add the user
+	// test invalid az_download_part_size
 	form.Set("az_upload_concurrency", strconv.Itoa(user.FsConfig.AzBlobConfig.UploadConcurrency))
+	form.Set("az_download_part_size", "a")
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// test invalid az_download_concurrency
+	form.Set("az_download_part_size", strconv.FormatInt(user.FsConfig.AzBlobConfig.DownloadPartSize, 10))
+	form.Set("az_download_concurrency", "a")
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// now add the user
+	form.Set("az_download_concurrency", strconv.Itoa(user.FsConfig.AzBlobConfig.DownloadConcurrency))
 	b, contentType, _ = getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
 	setJWTCookieForReq(req, webToken)
@@ -15491,6 +15515,8 @@ func TestWebUserAzureBlobMock(t *testing.T) {
 	assert.Equal(t, updateUser.FsConfig.AzBlobConfig.KeyPrefix, user.FsConfig.AzBlobConfig.KeyPrefix)
 	assert.Equal(t, updateUser.FsConfig.AzBlobConfig.UploadPartSize, user.FsConfig.AzBlobConfig.UploadPartSize)
 	assert.Equal(t, updateUser.FsConfig.AzBlobConfig.UploadConcurrency, user.FsConfig.AzBlobConfig.UploadConcurrency)
+	assert.Equal(t, updateUser.FsConfig.AzBlobConfig.DownloadPartSize, user.FsConfig.AzBlobConfig.DownloadPartSize)
+	assert.Equal(t, updateUser.FsConfig.AzBlobConfig.DownloadConcurrency, user.FsConfig.AzBlobConfig.DownloadConcurrency)
 	assert.Equal(t, 2, len(updateUser.Filters.FilePatterns))
 	assert.Equal(t, sdkkms.SecretStatusSecretBox, updateUser.FsConfig.AzBlobConfig.AccountKey.GetStatus())
 	assert.NotEmpty(t, updateUser.FsConfig.AzBlobConfig.AccountKey.GetPayload())

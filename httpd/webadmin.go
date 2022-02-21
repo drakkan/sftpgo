@@ -1058,6 +1058,14 @@ func getAzureConfig(r *http.Request) (vfs.AzBlobFsConfig, error) {
 		return config, err
 	}
 	config.UploadConcurrency, err = strconv.Atoi(r.Form.Get("az_upload_concurrency"))
+	if err != nil {
+		return config, err
+	}
+	config.DownloadPartSize, err = strconv.ParseInt(r.Form.Get("az_download_part_size"), 10, 64)
+	if err != nil {
+		return config, err
+	}
+	config.DownloadConcurrency, err = strconv.Atoi(r.Form.Get("az_download_concurrency"))
 	return config, err
 }
 

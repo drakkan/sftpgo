@@ -30,6 +30,10 @@ Flags:
       --az-account-key string
       --az-account-name string
       --az-container string
+      --az-download-concurrency int     How many parts are downloaded in
+                                        parallel (default 5)
+      --az-download-part-size int       The buffer size for multipart downloads
+                                        (MB) (default 5)
       --az-endpoint string              Leave empty to use the default:
                                         "blob.core.windows.net"
       --az-key-prefix string            Allows to restrict access to the
@@ -37,9 +41,9 @@ Flags:
                                         prefix and its contents
       --az-sas-url string               Shared access signature URL
       --az-upload-concurrency int       How many parts are uploaded in
-                                        parallel (default 2)
+                                        parallel (default 5)
       --az-upload-part-size int         The buffer size for multipart uploads
-                                        (MB) (default 4)
+                                        (MB) (default 5)
       --az-use-emulator
       --crypto-passphrase string        Passphrase for encryption/decryption
       --denied-patterns stringArray     Denied file patterns case insensitive.
