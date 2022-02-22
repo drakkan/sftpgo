@@ -261,7 +261,7 @@ func TestOIDCLoginLogout(t *testing.T) {
 		Nonce:  authReq.Nonce,
 		Expiry: time.Now().Add(5 * time.Minute),
 	}
-	setIDTokenClaims(idToken, []byte(`{}`))
+	setIDTokenClaims(idToken, []byte(`{"aud": "my_client_id"}`))
 	server.binding.OIDC.verifier = &mockOIDCVerifier{
 		err:   nil,
 		token: idToken,

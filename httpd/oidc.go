@@ -137,7 +137,7 @@ func (o *OIDC) initialize() error {
 		ClientSecret: o.ClientSecret,
 		Endpoint:     o.provider.Endpoint(),
 		RedirectURL:  o.getRedirectURL(),
-		Scopes:       []string{oidc.ScopeOpenID},
+		Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
 	}
 
 	return nil
@@ -175,8 +175,17 @@ type oidcToken struct {
 }
 
 func (t *oidcToken) parseClaims(claims map[string]interface{}, usernameField, roleField string) error {
+	getClaimsFields := func() []string {
+		keys := make([]string, 0, len(claims))
+		for k := range claims {
+			keys = append(keys, k)
+		}
+		return keys
+	}
+
 	username, ok := claims[usernameField].(string)
 	if !ok || username == "" {
+		logger.Warn(logSender, "", "username field %#v not found, claims fields: %+v", usernameField, getClaimsFields())
 		return errors.New("no username field")
 	}
 	t.Username = username
