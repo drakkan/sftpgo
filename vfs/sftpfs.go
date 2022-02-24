@@ -349,16 +349,6 @@ func (fs *SFTPFs) Mkdir(name string) error {
 	return fs.sftpClient.Mkdir(name)
 }
 
-// MkdirAll creates a directory named path, along with any necessary parents,
-// and returns nil, or else returns an error.
-// If path is already a directory, MkdirAll does nothing and returns nil.
-func (fs *SFTPFs) MkdirAll(name string, uid int, gid int) error {
-	if err := fs.checkConnection(); err != nil {
-		return err
-	}
-	return fs.sftpClient.MkdirAll(name)
-}
-
 // Symlink creates source as a symbolic link to target.
 func (fs *SFTPFs) Symlink(source, target string) error {
 	if err := fs.checkConnection(); err != nil {
@@ -459,7 +449,10 @@ func (fs *SFTPFs) CheckRootPath(username string, uid int, gid int) bool {
 	if fs.config.Prefix == "/" {
 		return true
 	}
-	if err := fs.MkdirAll(fs.config.Prefix, uid, gid); err != nil {
+	if err := fs.checkConnection(); err != nil {
+		return false
+	}
+	if err := fs.sftpClient.MkdirAll(fs.config.Prefix); err != nil {
 		fsLog(fs, logger.LevelDebug, "error creating root directory %#v for user %#v: %v", fs.config.Prefix, username, err)
 		return false
 	}

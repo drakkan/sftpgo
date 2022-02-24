@@ -881,6 +881,39 @@ func TestGetTLSVersion(t *testing.T) {
 	assert.Equal(t, uint16(tls.VersionTLS13), tlsVer)
 }
 
+func TestCleanPath(t *testing.T) {
+	assert.Equal(t, "/", util.CleanPath("/"))
+	assert.Equal(t, "/", util.CleanPath("."))
+	assert.Equal(t, "/", util.CleanPath("/."))
+	assert.Equal(t, "/", util.CleanPath("/a/.."))
+	assert.Equal(t, "/a", util.CleanPath("/a/"))
+	assert.Equal(t, "/a", util.CleanPath("a/"))
+	// filepath.ToSlash does not touch \ as char on unix systems
+	// so os.PathSeparator is used for windows compatible tests
+	bslash := string(os.PathSeparator)
+	assert.Equal(t, "/", util.CleanPath(bslash))
+	assert.Equal(t, "/", util.CleanPath(bslash+bslash))
+	assert.Equal(t, "/a", util.CleanPath(bslash+"a"+bslash))
+	assert.Equal(t, "/a", util.CleanPath("a"+bslash))
+	assert.Equal(t, "/a/b/c", util.CleanPath(bslash+"a"+bslash+bslash+"b"+bslash+bslash+"c"+bslash))
+	assert.Equal(t, "/C:/a", util.CleanPath("C:"+bslash+"a"))
+}
+
+func TestUserRecentActivity(t *testing.T) {
+	u := dataprovider.User{}
+	res := u.HasRecentActivity()
+	assert.False(t, res)
+	u.LastLogin = util.GetTimeAsMsSinceEpoch(time.Now())
+	res = u.HasRecentActivity()
+	assert.True(t, res)
+	u.LastLogin = util.GetTimeAsMsSinceEpoch(time.Now().Add(1 * time.Minute))
+	res = u.HasRecentActivity()
+	assert.False(t, res)
+	u.LastLogin = util.GetTimeAsMsSinceEpoch(time.Now().Add(1 * time.Second))
+	res = u.HasRecentActivity()
+	assert.True(t, res)
+}
+
 func BenchmarkBcryptHashing(b *testing.B) {
 	bcryptPassword := "bcryptpassword"
 	for i := 0; i < b.N; i++ {

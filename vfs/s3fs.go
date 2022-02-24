@@ -90,22 +90,7 @@ func NewS3Fs(connectionID, localTempDir, mountPath string, config S3FsConfig) (F
 	if fs.config.ForcePathStyle {
 		awsConfig.S3ForcePathStyle = aws.Bool(true)
 	}
-	if fs.config.UploadPartSize == 0 {
-		fs.config.UploadPartSize = s3manager.DefaultUploadPartSize
-	} else {
-		fs.config.UploadPartSize *= 1024 * 1024
-	}
-	if fs.config.UploadConcurrency == 0 {
-		fs.config.UploadConcurrency = s3manager.DefaultUploadConcurrency
-	}
-	if fs.config.DownloadPartSize == 0 {
-		fs.config.DownloadPartSize = s3manager.DefaultDownloadPartSize
-	} else {
-		fs.config.DownloadPartSize *= 1024 * 1024
-	}
-	if fs.config.DownloadConcurrency == 0 {
-		fs.config.DownloadConcurrency = s3manager.DefaultDownloadConcurrency
-	}
+	fs.setConfigDefaults()
 
 	sessOpts := session.Options{
 		Config:            *awsConfig,
@@ -390,11 +375,6 @@ func (fs *S3Fs) Mkdir(name string) error {
 		return err
 	}
 	return w.Close()
-}
-
-// MkdirAll does nothing, we don't have folder
-func (*S3Fs) MkdirAll(name string, uid int, gid int) error {
-	return nil
 }
 
 // Symlink creates source as a symbolic link to target.
@@ -740,6 +720,29 @@ func (fs *S3Fs) checkIfBucketExists() error {
 	})
 	metric.S3HeadBucketCompleted(err)
 	return err
+}
+
+func (fs *S3Fs) setConfigDefaults() {
+	if fs.config.UploadPartSize == 0 {
+		fs.config.UploadPartSize = s3manager.DefaultUploadPartSize
+	} else {
+		if fs.config.UploadPartSize < 1024*1024 {
+			fs.config.UploadPartSize *= 1024 * 1024
+		}
+	}
+	if fs.config.UploadConcurrency == 0 {
+		fs.config.UploadConcurrency = s3manager.DefaultUploadConcurrency
+	}
+	if fs.config.DownloadPartSize == 0 {
+		fs.config.DownloadPartSize = s3manager.DefaultDownloadPartSize
+	} else {
+		if fs.config.DownloadPartSize < 1024*1024 {
+			fs.config.DownloadPartSize *= 1024 * 1024
+		}
+	}
+	if fs.config.DownloadConcurrency == 0 {
+		fs.config.DownloadConcurrency = s3manager.DefaultDownloadConcurrency
+	}
 }
 
 func (fs *S3Fs) hasContents(name string) (bool, error) {

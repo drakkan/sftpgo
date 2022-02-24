@@ -1433,6 +1433,13 @@ func TestResume(t *testing.T) {
 			if user.Username == defaultUsername {
 				err = os.RemoveAll(user.GetHomeDir())
 				assert.NoError(t, err)
+				_, err = httpdtest.RemoveUser(user, http.StatusOK)
+				assert.NoError(t, err)
+				user.Password = defaultPassword
+				user.ID = 0
+				user.CreatedAt = 0
+				_, resp, err := httpdtest.AddUser(user, http.StatusCreated)
+				assert.NoError(t, err, string(resp))
 			}
 		}
 	}
@@ -1579,8 +1586,14 @@ func TestQuotaLimits(t *testing.T) {
 			assert.NoError(t, err)
 			user.QuotaFiles = 0
 			user.QuotaSize = 0
-			_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+			_, err = httpdtest.RemoveUser(user, http.StatusOK)
 			assert.NoError(t, err)
+			user.Password = defaultPassword
+			user.QuotaSize = 0
+			user.ID = 0
+			user.CreatedAt = 0
+			_, resp, err := httpdtest.AddUser(user, http.StatusCreated)
+			assert.NoError(t, err, string(resp))
 		}
 	}
 	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
@@ -1631,9 +1644,14 @@ func TestUploadMaxSize(t *testing.T) {
 		if user.Username == defaultUsername {
 			err = os.RemoveAll(user.GetHomeDir())
 			assert.NoError(t, err)
-			user.Filters.MaxUploadFileSize = 65536000
-			_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+			_, err = httpdtest.RemoveUser(user, http.StatusOK)
 			assert.NoError(t, err)
+			user.Password = defaultPassword
+			user.Filters.MaxUploadFileSize = 65536000
+			user.ID = 0
+			user.CreatedAt = 0
+			_, resp, err := httpdtest.AddUser(user, http.StatusCreated)
+			assert.NoError(t, err, string(resp))
 		}
 	}
 	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
@@ -1823,12 +1841,17 @@ func TestRename(t *testing.T) {
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 		if user.Username == defaultUsername {
-			user.Permissions = make(map[string][]string)
-			user.Permissions["/"] = allPerms
-			user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
-			assert.NoError(t, err)
 			err = os.RemoveAll(user.GetHomeDir())
 			assert.NoError(t, err)
+			_, err = httpdtest.RemoveUser(user, http.StatusOK)
+			assert.NoError(t, err)
+			user.Permissions = make(map[string][]string)
+			user.Permissions["/"] = allPerms
+			user.Password = defaultPassword
+			user.ID = 0
+			user.CreatedAt = 0
+			_, resp, err := httpdtest.AddUser(user, http.StatusCreated)
+			assert.NoError(t, err, string(resp))
 		}
 	}
 	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
@@ -1885,6 +1908,13 @@ func TestSymlink(t *testing.T) {
 			if user.Username == defaultUsername {
 				err = os.RemoveAll(user.GetHomeDir())
 				assert.NoError(t, err)
+				_, err = httpdtest.RemoveUser(user, http.StatusOK)
+				assert.NoError(t, err)
+				user.Password = defaultPassword
+				user.ID = 0
+				user.CreatedAt = 0
+				_, resp, err := httpdtest.AddUser(user, http.StatusCreated)
+				assert.NoError(t, err, string(resp))
 			}
 		}
 		err = os.Remove(testFilePath)
@@ -1935,6 +1965,13 @@ func TestStat(t *testing.T) {
 			if user.Username == defaultUsername {
 				err = os.RemoveAll(user.GetHomeDir())
 				assert.NoError(t, err)
+				_, err = httpdtest.RemoveUser(user, http.StatusOK)
+				assert.NoError(t, err)
+				user.Password = defaultPassword
+				user.ID = 0
+				user.CreatedAt = 0
+				_, resp, err := httpdtest.AddUser(user, http.StatusCreated)
+				assert.NoError(t, err, string(resp))
 			}
 		}
 	}
@@ -2284,6 +2321,13 @@ func TestChtimes(t *testing.T) {
 			if user.Username == defaultUsername {
 				err = os.RemoveAll(user.GetHomeDir())
 				assert.NoError(t, err)
+				_, err = httpdtest.RemoveUser(user, http.StatusOK)
+				assert.NoError(t, err)
+				user.Password = defaultPassword
+				user.ID = 0
+				user.CreatedAt = 0
+				_, resp, err := httpdtest.AddUser(user, http.StatusCreated)
+				assert.NoError(t, err, string(resp))
 			}
 		}
 	}
@@ -2366,6 +2410,13 @@ func TestChmod(t *testing.T) {
 			if user.Username == defaultUsername {
 				err = os.RemoveAll(user.GetHomeDir())
 				assert.NoError(t, err)
+				_, err = httpdtest.RemoveUser(user, http.StatusOK)
+				assert.NoError(t, err)
+				user.Password = defaultPassword
+				user.ID = 0
+				user.CreatedAt = 0
+				_, resp, err := httpdtest.AddUser(user, http.StatusCreated)
+				assert.NoError(t, err, string(resp))
 			}
 		}
 	}
@@ -2523,6 +2574,13 @@ func TestHASH(t *testing.T) {
 			if user.Username == defaultUsername {
 				err = os.RemoveAll(user.GetHomeDir())
 				assert.NoError(t, err)
+				_, err = httpdtest.RemoveUser(user, http.StatusOK)
+				assert.NoError(t, err)
+				user.Password = defaultPassword
+				user.ID = 0
+				user.CreatedAt = 0
+				_, resp, err := httpdtest.AddUser(user, http.StatusCreated)
+				assert.NoError(t, err, string(resp))
 			}
 		}
 	}
@@ -2577,6 +2635,13 @@ func TestCombine(t *testing.T) {
 			if user.Username == defaultUsername {
 				err = os.RemoveAll(user.GetHomeDir())
 				assert.NoError(t, err)
+				_, err = httpdtest.RemoveUser(user, http.StatusOK)
+				assert.NoError(t, err)
+				user.Password = defaultPassword
+				user.ID = 0
+				user.CreatedAt = 0
+				_, resp, err := httpdtest.AddUser(user, http.StatusCreated)
+				assert.NoError(t, err, string(resp))
 			}
 		}
 	}

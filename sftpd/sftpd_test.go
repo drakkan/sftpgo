@@ -762,6 +762,13 @@ func TestOpenReadWritePerm(t *testing.T) {
 			if user.Username == defaultUsername {
 				err = os.RemoveAll(user.GetHomeDir())
 				assert.NoError(t, err)
+				_, err = httpdtest.RemoveUser(user, http.StatusOK)
+				assert.NoError(t, err)
+				user.Password = defaultPassword
+				user.ID = 0
+				user.CreatedAt = 0
+				_, resp, err := httpdtest.AddUser(user, http.StatusCreated)
+				assert.NoError(t, err, string(resp))
 			}
 		}
 	}
@@ -1063,6 +1070,13 @@ func TestUploadResume(t *testing.T) {
 			if user.Username == defaultUsername {
 				err = os.RemoveAll(user.GetHomeDir())
 				assert.NoError(t, err)
+				_, err = httpdtest.RemoveUser(user, http.StatusOK)
+				assert.NoError(t, err)
+				user.Password = defaultPassword
+				user.ID = 0
+				user.CreatedAt = 0
+				_, resp, err := httpdtest.AddUser(user, http.StatusCreated)
+				assert.NoError(t, err, string(resp))
 			}
 		}
 	}
@@ -1290,6 +1304,13 @@ func TestStat(t *testing.T) {
 			if user.Username == defaultUsername {
 				err = os.RemoveAll(user.GetHomeDir())
 				assert.NoError(t, err)
+				_, err = httpdtest.RemoveUser(user, http.StatusOK)
+				assert.NoError(t, err)
+				user.Password = defaultPassword
+				user.ID = 0
+				user.CreatedAt = 0
+				_, resp, err := httpdtest.AddUser(user, http.StatusCreated)
+				assert.NoError(t, err, string(resp))
 			}
 		}
 	}
@@ -1340,6 +1361,13 @@ func TestStatChownChmod(t *testing.T) {
 			if user.Username == defaultUsername {
 				err = os.RemoveAll(user.GetHomeDir())
 				assert.NoError(t, err)
+				_, err = httpdtest.RemoveUser(user, http.StatusOK)
+				assert.NoError(t, err)
+				user.Password = defaultPassword
+				user.ID = 0
+				user.CreatedAt = 0
+				_, resp, err := httpdtest.AddUser(user, http.StatusCreated)
+				assert.NoError(t, err, string(resp))
 			}
 		}
 	}
@@ -1384,11 +1412,13 @@ func TestSFTPFsLoginWrongFingerprint(t *testing.T) {
 	sftpUser.FsConfig.SFTPConfig.Fingerprints = []string{"wrong"}
 	_, _, err = httpdtest.UpdateUser(sftpUser, http.StatusOK, "")
 	assert.NoError(t, err)
-	_, _, err = getSftpClient(sftpUser, usePubKey)
-	assert.Error(t, err)
-
-	_, err = runSSHCommand("md5sum", sftpUser, usePubKey)
-	assert.Error(t, err)
+	conn, client, err = getSftpClient(sftpUser, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		err = checkBasicSFTP(client)
+		assert.Error(t, err)
+	}
 
 	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
 	assert.NoError(t, err)
@@ -1438,6 +1468,13 @@ func TestChtimes(t *testing.T) {
 			if user.Username == defaultUsername {
 				err = os.RemoveAll(user.GetHomeDir())
 				assert.NoError(t, err)
+				_, err = httpdtest.RemoveUser(user, http.StatusOK)
+				assert.NoError(t, err)
+				user.Password = defaultPassword
+				user.ID = 0
+				user.CreatedAt = 0
+				_, resp, err := httpdtest.AddUser(user, http.StatusCreated)
+				assert.NoError(t, err, string(resp))
 			}
 		}
 	}
@@ -3816,13 +3853,14 @@ func TestQuotaFileReplace(t *testing.T) {
 		if user.Username == defaultUsername {
 			err = os.RemoveAll(user.GetHomeDir())
 			assert.NoError(t, err)
-			user.UsedQuotaFiles = 0
-			user.UsedQuotaSize = 0
-			_, err = httpdtest.UpdateQuotaUsage(user, "reset", http.StatusOK)
+			_, err = httpdtest.RemoveUser(user, http.StatusOK)
 			assert.NoError(t, err)
+			user.Password = defaultPassword
+			user.ID = 0
+			user.CreatedAt = 0
 			user.QuotaSize = 0
-			_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
-			assert.NoError(t, err)
+			_, resp, err := httpdtest.AddUser(user, http.StatusCreated)
+			assert.NoError(t, err, string(resp))
 		}
 	}
 	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
@@ -3914,10 +3952,13 @@ func TestQuotaRename(t *testing.T) {
 			if user.Username == defaultUsername {
 				err = os.RemoveAll(user.GetHomeDir())
 				assert.NoError(t, err)
-				user.UsedQuotaFiles = 0
-				user.UsedQuotaSize = 0
-				_, err = httpdtest.UpdateQuotaUsage(user, "reset", http.StatusOK)
+				_, err = httpdtest.RemoveUser(user, http.StatusOK)
 				assert.NoError(t, err)
+				user.Password = defaultPassword
+				user.ID = 0
+				user.CreatedAt = 0
+				_, resp, err := httpdtest.AddUser(user, http.StatusCreated)
+				assert.NoError(t, err, string(resp))
 			}
 		}
 	}
@@ -4078,10 +4119,13 @@ func TestQuotaLimits(t *testing.T) {
 		if user.Username == defaultUsername {
 			err = os.RemoveAll(user.GetHomeDir())
 			assert.NoError(t, err)
-			user.UsedQuotaFiles = 0
-			user.UsedQuotaSize = 0
-			_, err = httpdtest.UpdateQuotaUsage(user, "reset", http.StatusOK)
+			_, err = httpdtest.RemoveUser(user, http.StatusOK)
 			assert.NoError(t, err)
+			user.Password = defaultPassword
+			user.ID = 0
+			user.CreatedAt = 0
+			_, resp, err := httpdtest.AddUser(user, http.StatusCreated)
+			assert.NoError(t, err, string(resp))
 		}
 	}
 	err = os.Remove(testFilePath)
@@ -5078,13 +5122,14 @@ func TestTruncateQuotaLimits(t *testing.T) {
 				// cleanup
 				err = os.RemoveAll(user.GetHomeDir())
 				assert.NoError(t, err)
-				user.UsedQuotaFiles = 0
-				user.UsedQuotaSize = 0
-				_, err = httpdtest.UpdateQuotaUsage(user, "reset", http.StatusOK)
+				_, err = httpdtest.RemoveUser(user, http.StatusOK)
 				assert.NoError(t, err)
+				user.Password = defaultPassword
+				user.ID = 0
+				user.CreatedAt = 0
 				user.QuotaSize = 0
-				_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
-				assert.NoError(t, err)
+				_, resp, err := httpdtest.AddUser(user, http.StatusCreated)
+				assert.NoError(t, err, string(resp))
 			}
 		}
 	}
@@ -7323,10 +7368,15 @@ func TestRootDirCommands(t *testing.T) {
 		if user.Username == defaultUsername {
 			err = os.RemoveAll(user.GetHomeDir())
 			assert.NoError(t, err)
+			_, err = httpdtest.RemoveUser(user, http.StatusOK)
+			assert.NoError(t, err)
+			user.Password = defaultPassword
+			user.ID = 0
+			user.CreatedAt = 0
 			user.Permissions = make(map[string][]string)
 			user.Permissions["/"] = []string{dataprovider.PermAny}
-			_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
-			assert.NoError(t, err)
+			_, resp, err := httpdtest.AddUser(user, http.StatusCreated)
+			assert.NoError(t, err, string(resp))
 		}
 	}
 	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
@@ -8900,6 +8950,13 @@ func TestSCPBasicHandling(t *testing.T) {
 		if user.Username == defaultUsername {
 			err = os.RemoveAll(user.GetHomeDir())
 			assert.NoError(t, err)
+			_, err = httpdtest.RemoveUser(user, http.StatusOK)
+			assert.NoError(t, err)
+			user.Password = defaultPassword
+			user.ID = 0
+			user.CreatedAt = 0
+			_, resp, err := httpdtest.AddUser(user, http.StatusCreated)
+			assert.NoError(t, err, string(resp))
 		}
 	}
 
@@ -8975,6 +9032,13 @@ func TestSCPUploadFileOverwrite(t *testing.T) {
 		if user.Username == defaultUsername {
 			err = os.RemoveAll(user.GetHomeDir())
 			assert.NoError(t, err)
+			_, err = httpdtest.RemoveUser(user, http.StatusOK)
+			assert.NoError(t, err)
+			user.Password = defaultPassword
+			user.ID = 0
+			user.CreatedAt = 0
+			_, resp, err := httpdtest.AddUser(user, http.StatusCreated)
+			assert.NoError(t, err, string(resp))
 		}
 	}
 	err = os.Remove(testFilePath)
@@ -9043,6 +9107,13 @@ func TestSCPRecursive(t *testing.T) {
 		if user.Username == defaultUsername {
 			err = os.RemoveAll(user.GetHomeDir())
 			assert.NoError(t, err)
+			_, err = httpdtest.RemoveUser(user, http.StatusOK)
+			assert.NoError(t, err)
+			user.Password = defaultPassword
+			user.ID = 0
+			user.CreatedAt = 0
+			_, resp, err := httpdtest.AddUser(user, http.StatusCreated)
+			assert.NoError(t, err, string(resp))
 		}
 	}
 

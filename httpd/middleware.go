@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/lestrrat-go/jwx/jwt"
@@ -406,15 +405,11 @@ func authenticateUserWithAPIKey(username, keyID string, tokenAuth *jwtauth.JWTAu
 		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, err)
 		return err
 	}
-	lastLogin := util.GetTimeFromMsecSinceEpoch(user.LastLogin)
-	diff := -time.Until(lastLogin)
-	if diff < 0 || diff > 10*time.Minute {
-		defer user.CloseFs() //nolint:errcheck
-		err = user.CheckFsRoot(connectionID)
-		if err != nil {
-			updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, common.ErrInternalFailure)
-			return common.ErrInternalFailure
-		}
+	defer user.CloseFs() //nolint:errcheck
+	err = user.CheckFsRoot(connectionID)
+	if err != nil {
+		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, common.ErrInternalFailure)
+		return common.ErrInternalFailure
 	}
 	c := jwtTokenClaims{
 		Username:    user.Username,

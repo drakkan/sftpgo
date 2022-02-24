@@ -576,6 +576,13 @@ func TestBasicHandling(t *testing.T) {
 		if user.Username == defaultUsername {
 			err = os.RemoveAll(user.GetHomeDir())
 			assert.NoError(t, err)
+			_, err = httpdtest.RemoveUser(user, http.StatusOK)
+			assert.NoError(t, err)
+			user.Password = defaultPassword
+			user.ID = 0
+			user.CreatedAt = 0
+			_, resp, err := httpdtest.AddUser(user, http.StatusCreated)
+			assert.NoError(t, err, string(resp))
 		}
 	}
 	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
@@ -1484,10 +1491,15 @@ func TestQuotaLimits(t *testing.T) {
 		if user.Username == defaultUsername {
 			err = os.RemoveAll(user.GetHomeDir())
 			assert.NoError(t, err)
+			_, err = httpdtest.RemoveUser(user, http.StatusOK)
+			assert.NoError(t, err)
+			user.Password = defaultPassword
+			user.ID = 0
+			user.CreatedAt = 0
 			user.QuotaFiles = 0
 			user.QuotaSize = 0
-			_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
-			assert.NoError(t, err)
+			_, resp, err := httpdtest.AddUser(user, http.StatusCreated)
+			assert.NoError(t, err, string(resp))
 		}
 	}
 	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
@@ -1581,9 +1593,14 @@ func TestUploadMaxSize(t *testing.T) {
 		if user.Username == defaultUsername {
 			err = os.RemoveAll(user.GetHomeDir())
 			assert.NoError(t, err)
-			user.Filters.MaxUploadFileSize = 65536000
-			_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+			_, err = httpdtest.RemoveUser(user, http.StatusOK)
 			assert.NoError(t, err)
+			user.Filters.MaxUploadFileSize = 65536000
+			user.Password = defaultPassword
+			user.ID = 0
+			user.CreatedAt = 0
+			_, resp, err := httpdtest.AddUser(user, http.StatusCreated)
+			assert.NoError(t, err, string(resp))
 		}
 	}
 	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
@@ -2195,9 +2212,14 @@ func TestMiscCommands(t *testing.T) {
 		if user.Username == defaultUsername {
 			err = os.RemoveAll(user.GetHomeDir())
 			assert.NoError(t, err)
-			user.QuotaFiles = 0
-			_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+			_, err = httpdtest.RemoveUser(user, http.StatusOK)
 			assert.NoError(t, err)
+			user.Password = defaultPassword
+			user.ID = 0
+			user.CreatedAt = 0
+			user.QuotaFiles = 0
+			_, resp, err := httpdtest.AddUser(user, http.StatusCreated)
+			assert.NoError(t, err, string(resp))
 		}
 	}
 	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)

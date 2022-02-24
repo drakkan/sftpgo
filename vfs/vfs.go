@@ -73,7 +73,6 @@ type Fs interface {
 	Rename(source, target string) error
 	Remove(name string, isDir bool) error
 	Mkdir(name string) error
-	MkdirAll(name string, uid int, gid int) error
 	Symlink(source, target string) error
 	Chown(name string, uid int, gid int) error
 	Chmod(name string, mode os.FileMode) error

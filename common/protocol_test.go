@@ -837,13 +837,16 @@ func TestTruncateQuotaLimits(t *testing.T) {
 				// cleanup
 				err = os.RemoveAll(user.GetHomeDir())
 				assert.NoError(t, err)
-				user.UsedQuotaFiles = 0
-				user.UsedQuotaSize = 0
-				_, err = httpdtest.UpdateQuotaUsage(user, "reset", http.StatusOK)
-				assert.NoError(t, err)
-				user.QuotaSize = 0
-				_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
-				assert.NoError(t, err)
+				if user.Username == defaultUsername {
+					_, err = httpdtest.RemoveUser(user, http.StatusOK)
+					assert.NoError(t, err)
+					user.Password = defaultPassword
+					user.QuotaSize = 0
+					user.ID = 0
+					user.CreatedAt = 0
+					_, resp, err := httpdtest.AddUser(user, http.StatusCreated)
+					assert.NoError(t, err, string(resp))
+				}
 			}
 		}
 	}

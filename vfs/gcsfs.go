@@ -317,11 +317,6 @@ func (fs *GCSFs) Mkdir(name string) error {
 	return w.Close()
 }
 
-// MkdirAll does nothing, we don't have folder
-func (*GCSFs) MkdirAll(name string, uid int, gid int) error {
-	return nil
-}
-
 // Symlink creates source as a symbolic link to target.
 func (*GCSFs) Symlink(source, target string) error {
 	return ErrVfsUnsupported

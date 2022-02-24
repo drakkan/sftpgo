@@ -1122,9 +1122,7 @@ func UpdateAPIKeyLastUse(apiKey *APIKey) error {
 
 // UpdateLastLogin updates the last login field for the given SFTPGo user
 func UpdateLastLogin(user *User) {
-	lastLogin := util.GetTimeFromMsecSinceEpoch(user.LastLogin)
-	diff := -time.Until(lastLogin)
-	if diff < 0 || diff > lastLoginMinDelay {
+	if !isLastActivityRecent(user.LastLogin) {
 		err := provider.updateLastLogin(user.Username)
 		if err == nil {
 			webDAVUsersCache.updateLastLogin(user.Username)
@@ -1134,9 +1132,7 @@ func UpdateLastLogin(user *User) {
 
 // UpdateAdminLastLogin updates the last login field for the given SFTPGo admin
 func UpdateAdminLastLogin(admin *Admin) {
-	lastLogin := util.GetTimeFromMsecSinceEpoch(admin.LastLogin)
-	diff := -time.Until(lastLogin)
-	if diff < 0 || diff > lastLoginMinDelay {
+	if !isLastActivityRecent(admin.LastLogin) {
 		provider.updateAdminLastLogin(admin.Username) //nolint:errcheck
 	}
 }
@@ -3374,4 +3370,13 @@ func getUserAndJSONForHook(username string) (User, []byte, error) {
 
 func providerLog(level logger.LogLevel, format string, v ...interface{}) {
 	logger.Log(level, logSender, "", format, v...)
+}
+
+func isLastActivityRecent(lastActivity int64) bool {
+	lastActivityTime := util.GetTimeFromMsecSinceEpoch(lastActivity)
+	diff := -time.Until(lastActivityTime)
+	if diff < -10*time.Second {
+		return false
+	}
+	return diff < lastLoginMinDelay
 }

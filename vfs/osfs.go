@@ -128,13 +128,6 @@ func (*OsFs) Mkdir(name string) error {
 	return os.Mkdir(name, os.ModePerm)
 }
 
-// MkdirAll creates a directory named path, along with any necessary parents,
-// and returns nil, or else returns an error.
-// If path is already a directory, MkdirAll does nothing and returns nil.
-func (fs *OsFs) MkdirAll(name string, uid int, gid int) error {
-	return fs.createMissingDirs(name, uid, gid)
-}
-
 // Symlink creates source as a symbolic link to target.
 func (*OsFs) Symlink(source, target string) error {
 	return os.Symlink(source, target)
@@ -414,23 +407,6 @@ func (fs *OsFs) isSubDir(sub string) error {
 	if !strings.HasPrefix(sub, parent+separator) {
 		err = fmt.Errorf("path %#v is not inside %#v", sub, parent)
 		return &pathResolutionError{err: err.Error()}
-	}
-	return nil
-}
-
-func (fs *OsFs) createMissingDirs(filePath string, uid, gid int) error {
-	dirsToCreate, err := fs.findNonexistentDirs(filePath)
-	if err != nil {
-		return err
-	}
-	last := len(dirsToCreate) - 1
-	for i := range dirsToCreate {
-		d := dirsToCreate[last-i]
-		if err := os.Mkdir(d, os.ModePerm); err != nil {
-			fsLog(fs, logger.LevelError, "error creating missing dir: %#v", d)
-			return err
-		}
-		SetPathPermissions(fs, d, uid, gid)
 	}
 	return nil
 }

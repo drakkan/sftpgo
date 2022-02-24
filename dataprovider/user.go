@@ -161,10 +161,49 @@ func (u *User) getRootFs(connectionID string) (fs vfs.Fs, err error) {
 	}
 }
 
+func (u *User) checkDirWithParents(virtualDirPath, connectionID string) error {
+	dirs := util.GetDirsForVirtualPath(virtualDirPath)
+	for idx := len(dirs) - 1; idx >= 0; idx-- {
+		vPath := dirs[idx]
+		if vPath == "/" {
+			continue
+		}
+		fs, err := u.GetFilesystemForPath(vPath, connectionID)
+		if err != nil {
+			return fmt.Errorf("unable to get fs for path %#v: %w", vPath, err)
+		}
+		if fs.HasVirtualFolders() {
+			continue
+		}
+		fsPath, err := fs.ResolvePath(vPath)
+		if err != nil {
+			return fmt.Errorf("unable to resolve path %#v: %w", vPath, err)
+		}
+		_, err = fs.Stat(fsPath)
+		if err == nil {
+			continue
+		}
+		if fs.IsNotExist(err) {
+			err = fs.Mkdir(fsPath)
+			if err != nil {
+				return err
+			}
+			vfs.SetPathPermissions(fs, fsPath, u.GetUID(), u.GetGID())
+		} else {
+			return fmt.Errorf("unable to stat path %#v: %w", vPath, err)
+		}
+	}
+
+	return nil
+}
+
 // CheckFsRoot check the root directory for the main fs and the virtual folders.
 // It returns an error if the main filesystem cannot be created
 func (u *User) CheckFsRoot(connectionID string) error {
 	if u.Filters.DisableFsChecks {
+		return nil
+	}
+	if isLastActivityRecent(u.LastLogin) {
 		return nil
 	}
 	fs, err := u.GetFilesystemForPath("/", connectionID)
@@ -180,15 +219,9 @@ func (u *User) CheckFsRoot(connectionID string) error {
 			fs.CheckRootPath(u.Username, u.GetUID(), u.GetGID())
 		}
 		// now check intermediary folders
-		fs, err = u.GetFilesystemForPath(path.Dir(v.VirtualPath), connectionID)
-		if err == nil && !fs.HasVirtualFolders() {
-			fsPath, err := fs.ResolvePath(v.VirtualPath)
-			if err != nil {
-				continue
-			}
-			err = fs.MkdirAll(fsPath, u.GetUID(), u.GetGID())
-			logger.Debug(logSender, connectionID, "create intermediary dir to %#v, path %#v, err: %v",
-				v.VirtualPath, fsPath, err)
+		err = u.checkDirWithParents(path.Dir(v.VirtualPath), connectionID)
+		if err != nil {
+			logger.Warn(logSender, connectionID, "could not create intermediary dir to %#v, err: %v", v.VirtualPath, err)
 		}
 	}
 	return nil
@@ -1069,6 +1102,11 @@ func (u *User) GetGID() int {
 // GetHomeDir returns the shortest path name equivalent to the user's home directory
 func (u *User) GetHomeDir() string {
 	return filepath.Clean(u.HomeDir)
+}
+
+// HasRecentActivity returns true if the last user login is recent and so we can skip some expensive checks
+func (u *User) HasRecentActivity() bool {
+	return isLastActivityRecent(u.LastLogin)
 }
 
 // HasQuotaRestrictions returns true if there are any disk quota restrictions
