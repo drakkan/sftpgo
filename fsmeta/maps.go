@@ -21,11 +21,12 @@ var (
 func (K Key) Equals(Cmp Key) bool {
 	K.ETag = strings.Trim(K.ETag, `"`)
 	Cmp.ETag = strings.Trim(Cmp.ETag, `"`)
+	StoreTimeDiff := K.StoreTime.Sub(Cmp.StoreTime)
 
 	return K.Size == Cmp.Size &&
 		K.Path == Cmp.Path &&
 		K.ETag == Cmp.ETag &&
-		K.StoreTime.Equal(Cmp.StoreTime)
+		-time.Second < StoreTimeDiff && StoreTimeDiff < time.Second
 }
 
 func (f emptyGetterS) Get(_ context.Context, Key Key) (Meta, error) {

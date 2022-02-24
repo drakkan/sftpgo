@@ -66,7 +66,7 @@ func TestNewS3Metadata(t *testing.T) {
 	assert.Equal(t, Expected, NewS3Metadata(Now))
 }
 
-func TestKeyEquals(t *testing.T) {
+func TestKeyEqualsETagQuotes(t *testing.T) {
 	Key1 := Key{
 		Path:      "users/test1/test.csv",
 		ETag:      "abcd1234",
@@ -78,4 +78,26 @@ func TestKeyEquals(t *testing.T) {
 	Key2.ETag = `"` + Key1.ETag + `"`
 
 	assert.True(t, Key1.Equals(Key2))
+}
+
+func TestKeyEqualsStoreTimeTolerance(t *testing.T) {
+	Key1 := Key{
+		Path:      "users/test1/test.csv",
+		ETag:      "abcd1234",
+		StoreTime: time.Now(),
+		Size:      12345,
+	}
+
+	Key2 := Key1
+	Key2.StoreTime = Key1.StoreTime.Add(999 * time.Millisecond)
+	assert.True(t, Key1.Equals(Key2))
+
+	Key2.StoreTime = Key1.StoreTime.Add(-999 * time.Millisecond)
+	assert.True(t, Key1.Equals(Key2))
+
+	Key2.StoreTime = Key1.StoreTime.Add(1000 * time.Millisecond)
+	assert.False(t, Key1.Equals(Key2))
+
+	Key2.StoreTime = Key1.StoreTime.Add(-1000 * time.Millisecond)
+	assert.False(t, Key1.Equals(Key2))
 }
