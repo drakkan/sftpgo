@@ -830,11 +830,11 @@ func (c *BaseConnection) hasRenamePerms(virtualSourcePath, virtualTargetPath str
 		return c.User.HasPerm(dataprovider.PermCreateDirs, path.Dir(virtualTargetPath))
 	}
 	// file or symlink
-	if c.User.HasPerm(dataprovider.PermRenameFiles, path.Dir(virtualSourcePath)) &&
-		c.User.HasPerm(dataprovider.PermRenameFiles, path.Dir(virtualTargetPath)) {
-		return true
-	}
 	if !c.User.HasAnyPerm([]string{dataprovider.PermDeleteFiles, dataprovider.PermDelete}, path.Dir(virtualSourcePath)) {
+		return false
+	}
+	if !c.User.HasPerm(dataprovider.PermRenameFiles, path.Dir(virtualSourcePath)) ||
+		!c.User.HasPerm(dataprovider.PermRenameFiles, path.Dir(virtualTargetPath)) {
 		return false
 	}
 	if fi.Mode()&os.ModeSymlink != 0 {
