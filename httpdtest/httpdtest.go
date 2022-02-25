@@ -1275,6 +1275,9 @@ func compareS3Config(expected *vfs.Filesystem, actual *vfs.Filesystem) error { /
 	if expected.S3Config.AccessKey != actual.S3Config.AccessKey {
 		return errors.New("fs S3 access key mismatch")
 	}
+	if expected.S3Config.SessionToken != actual.S3Config.SessionToken {
+		return errors.New("fs S3 session token mismatch")
+	}
 	if err := checkEncryptedSecret(expected.S3Config.AccessSecret, actual.S3Config.AccessSecret); err != nil {
 		return fmt.Errorf("fs S3 access secret mismatch: %v", err)
 	}

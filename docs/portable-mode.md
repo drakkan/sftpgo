@@ -93,6 +93,7 @@ Flags:
                                         virtual folder identified by this
                                         prefix and its contents
       --s3-region string
+      --s3-session-token string
       --s3-storage-class string
       --s3-upload-concurrency int       How many parts are uploaded in
                                         parallel (default 2)

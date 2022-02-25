@@ -4701,6 +4701,8 @@ components:
           type: string
         access_secret:
           $ref: '#/components/schemas/Secret'
+        session_token:
+          type: string
         endpoint:
           type: string
           description: optional endpoint

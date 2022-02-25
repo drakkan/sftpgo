@@ -42,6 +42,7 @@ var (
 	portableS3Region                   string
 	portableS3AccessKey                string
 	portableS3AccessSecret             string
+	portableS3SessionToken             string
 	portableS3Endpoint                 string
 	portableS3StorageClass             string
 	portableS3ACL                      string
@@ -172,6 +173,7 @@ Please take a look at the usage below to customize the serving parameters`,
 								Bucket:            portableS3Bucket,
 								Region:            portableS3Region,
 								AccessKey:         portableS3AccessKey,
+								SessionToken:      portableS3SessionToken,
 								Endpoint:          portableS3Endpoint,
 								StorageClass:      portableS3StorageClass,
 								ACL:               portableS3ACL,
@@ -294,6 +296,7 @@ sftpfs => SFTP (legacy: 5)`)
 	portableCmd.Flags().StringVar(&portableS3Region, "s3-region", "", "")
 	portableCmd.Flags().StringVar(&portableS3AccessKey, "s3-access-key", "", "")
 	portableCmd.Flags().StringVar(&portableS3AccessSecret, "s3-access-secret", "", "")
+	portableCmd.Flags().StringVar(&portableS3SessionToken, "s3-session-token", "", "")
 	portableCmd.Flags().StringVar(&portableS3Endpoint, "s3-endpoint", "", "")
 	portableCmd.Flags().StringVar(&portableS3StorageClass, "s3-storage-class", "", "")
 	portableCmd.Flags().StringVar(&portableS3ACL, "s3-acl", "", "")

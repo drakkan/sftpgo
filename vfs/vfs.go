@@ -173,6 +173,9 @@ func (c *S3FsConfig) isEqual(other *S3FsConfig) bool {
 	if c.AccessKey != other.AccessKey {
 		return false
 	}
+	if c.SessionToken != other.SessionToken {
+		return false
+	}
 	if c.Endpoint != other.Endpoint {
 		return false
 	}
@@ -182,6 +185,17 @@ func (c *S3FsConfig) isEqual(other *S3FsConfig) bool {
 	if c.ACL != other.ACL {
 		return false
 	}
+	if !c.areMultipartFieldsEqual(other) {
+		return false
+	}
+
+	if c.ForcePathStyle != other.ForcePathStyle {
+		return false
+	}
+	return c.isSecretEqual(other)
+}
+
+func (c *S3FsConfig) areMultipartFieldsEqual(other *S3FsConfig) bool {
 	if c.UploadPartSize != other.UploadPartSize {
 		return false
 	}
@@ -200,10 +214,7 @@ func (c *S3FsConfig) isEqual(other *S3FsConfig) bool {
 	if c.UploadPartMaxTime != other.UploadPartMaxTime {
 		return false
 	}
-	if c.ForcePathStyle != other.ForcePathStyle {
-		return false
-	}
-	return c.isSecretEqual(other)
+	return true
 }
 
 func (c *S3FsConfig) isSecretEqual(other *S3FsConfig) bool {

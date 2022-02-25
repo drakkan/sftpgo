@@ -81,7 +81,8 @@ func NewS3Fs(connectionID, localTempDir, mountPath string, config S3FsConfig) (F
 		if err := fs.config.AccessSecret.TryDecrypt(); err != nil {
 			return fs, err
 		}
-		awsConfig.Credentials = credentials.NewStaticCredentials(fs.config.AccessKey, fs.config.AccessSecret.GetPayload(), "")
+		awsConfig.Credentials = credentials.NewStaticCredentials(fs.config.AccessKey,
+			fs.config.AccessSecret.GetPayload(), fs.config.SessionToken)
 	}
 
 	if fs.config.Endpoint != "" {
