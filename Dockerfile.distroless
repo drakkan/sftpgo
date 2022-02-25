@@ -24,9 +24,9 @@ RUN set -xe && \
     go build $(if [ -n "${FEATURES}" ]; then echo "-tags ${FEATURES}"; fi) -trimpath -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/version.commit=${COMMIT_SHA} -X github.com/drakkan/sftpgo/v2/version.date=`date -u +%FT%TZ`" -v -o sftpgo
 
 # Modify the default configuration file
-RUN sed -i "s|\"users_base_dir\": \"\",|\"users_base_dir\": \"/srv/sftpgo/data\",|" sftpgo.json && \
-    sed -i "s|\"backups\"|\"/srv/sftpgo/backups\"|" sftpgo.json && \
-    sed -i "s|\"sqlite\"|\"bolt\"|" sftpgo.json
+RUN sed -i 's|"users_base_dir": "",|"users_base_dir": "/srv/sftpgo/data",|' sftpgo.json && \
+    sed -i 's|"backups"|"/srv/sftpgo/backups"|' sftpgo.json && \
+    sed -i 's|"sqlite"|"bolt"|' sftpgo.json
 
 RUN apt-get update && apt-get install --no-install-recommends -y media-types && rm -rf /var/lib/apt/lists/*
 
