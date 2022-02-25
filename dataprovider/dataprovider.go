@@ -1122,7 +1122,11 @@ func UpdateAPIKeyLastUse(apiKey *APIKey) error {
 
 // UpdateLastLogin updates the last login field for the given SFTPGo user
 func UpdateLastLogin(user *User) {
-	if !isLastActivityRecent(user.LastLogin) {
+	delay := lastLoginMinDelay
+	if user.Filters.ExternalAuthCacheTime > 0 {
+		delay = time.Duration(user.Filters.ExternalAuthCacheTime) * time.Second
+	}
+	if !isLastActivityRecent(user.LastLogin, delay) {
 		err := provider.updateLastLogin(user.Username)
 		if err == nil {
 			webDAVUsersCache.updateLastLogin(user.Username)
@@ -1132,7 +1136,7 @@ func UpdateLastLogin(user *User) {
 
 // UpdateAdminLastLogin updates the last login field for the given SFTPGo admin
 func UpdateAdminLastLogin(admin *Admin) {
-	if !isLastActivityRecent(admin.LastLogin) {
+	if !isLastActivityRecent(admin.LastLogin, lastLoginMinDelay) {
 		provider.updateAdminLastLogin(admin.Username) //nolint:errcheck
 	}
 }
@@ -2051,6 +2055,9 @@ func validateFilters(user *User) error {
 		if !util.IsStringInSlice(opts, sdk.WebClientOptions) {
 			return util.NewValidationError(fmt.Sprintf("invalid web client options %#v", opts))
 		}
+	}
+	if !user.HasExternalAuth() {
+		user.Filters.ExternalAuthCacheTime = 0
 	}
 
 	return validateFiltersPatternExtensions(user)
@@ -3207,7 +3214,9 @@ func updateUserFromExtAuthResponse(user *User, password, pkey string) {
 	}
 }
 
-func doExternalAuth(username, password string, pubKey []byte, keyboardInteractive, ip, protocol string, tlsCert *x509.Certificate) (User, error) {
+func doExternalAuth(username, password string, pubKey []byte, keyboardInteractive, ip, protocol string,
+	tlsCert *x509.Certificate,
+) (User, error) {
 	var user User
 
 	u, userAsJSON, err := getUserAndJSONForHook(username)
@@ -3216,6 +3225,10 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 	}
 
 	if u.Filters.Hooks.ExternalAuthDisabled {
+		return u, nil
+	}
+
+	if u.isExternalAuthCached() {
 		return u, nil
 	}
 
@@ -3295,6 +3308,10 @@ func doPluginAuth(username, password string, pubKey []byte, ip, protocol string,
 		return u, nil
 	}
 
+	if u.isExternalAuthCached() {
+		return u, nil
+	}
+
 	pkey, err := util.GetSSHPublicKeyAsString(pubKey)
 	if err != nil {
 		return user, err
@@ -3368,15 +3385,15 @@ func getUserAndJSONForHook(username string) (User, []byte, error) {
 	return u, userAsJSON, err
 }
 
-func providerLog(level logger.LogLevel, format string, v ...interface{}) {
-	logger.Log(level, logSender, "", format, v...)
-}
-
-func isLastActivityRecent(lastActivity int64) bool {
+func isLastActivityRecent(lastActivity int64, minDelay time.Duration) bool {
 	lastActivityTime := util.GetTimeFromMsecSinceEpoch(lastActivity)
 	diff := -time.Until(lastActivityTime)
 	if diff < -10*time.Second {
 		return false
 	}
-	return diff < lastLoginMinDelay
+	return diff < minDelay
+}
+
+func providerLog(level logger.LogLevel, format string, v ...interface{}) {
+	logger.Log(level, logSender, "", format, v...)
 }

@@ -4659,6 +4659,9 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/DataTransferLimit'
+        external_auth_cache_time:
+          type: integer
+          description: 'Defines the cache time, in seconds, for users authenticated using an external auth hook. 0 means no cache'
       description: Additional user options
     Secret:
       type: object

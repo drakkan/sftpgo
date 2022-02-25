@@ -70,6 +70,8 @@ fi
 
 The structure for SFTPGo users can be found within the [OpenAPI schema](../openapi/openapi.yaml).
 
+You can instruct SFTPGo to cache the external user by setting an `external_auth_cache_time` in user object returned by your hook. The `external_auth_cache_time` defines the cache time in seconds.
+
 You can disable the hook on a per-user basis so that you can mix external and internal users.
 
 An example authentication program allowing to authenticate against an LDAP server can be found inside the source tree [ldapauth](../examples/ldapauth) directory.

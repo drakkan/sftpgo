@@ -943,7 +943,8 @@ func getFiltersFromUserPostFields(r *http.Request) (sdk.BaseUserFilters, error) 
 	}
 	filters.DisableFsChecks = len(r.Form.Get("disable_fs_checks")) > 0
 	filters.AllowAPIKeyAuth = len(r.Form.Get("allow_api_key_auth")) > 0
-	return filters, nil
+	filters.ExternalAuthCacheTime, err = strconv.ParseInt(r.Form.Get("external_auth_cache_time"), 10, 64)
+	return filters, err
 }
 
 func getSecretFromFormField(r *http.Request, field string) *kms.Secret {

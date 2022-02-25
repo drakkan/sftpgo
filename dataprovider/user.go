@@ -19,6 +19,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/mfa"
+	"github.com/drakkan/sftpgo/v2/plugin"
 	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
@@ -203,7 +204,14 @@ func (u *User) CheckFsRoot(connectionID string) error {
 	if u.Filters.DisableFsChecks {
 		return nil
 	}
-	if isLastActivityRecent(u.LastLogin) {
+	delay := lastLoginMinDelay
+	if u.Filters.ExternalAuthCacheTime > 0 {
+		cacheTime := time.Duration(u.Filters.ExternalAuthCacheTime) * time.Second
+		if cacheTime > delay {
+			delay = cacheTime
+		}
+	}
+	if isLastActivityRecent(u.LastLogin, delay) {
 		return nil
 	}
 	fs, err := u.GetFilesystemForPath("/", connectionID)
@@ -924,6 +932,17 @@ func (u *User) CanManageMFA() bool {
 	return len(mfa.GetAvailableTOTPConfigs()) > 0
 }
 
+func (u *User) isExternalAuthCached() bool {
+	if u.ID <= 0 {
+		return false
+	}
+	if u.Filters.ExternalAuthCacheTime <= 0 {
+		return false
+	}
+
+	return isLastActivityRecent(u.LastLogin, time.Duration(u.Filters.ExternalAuthCacheTime)*time.Second)
+}
+
 // CanManageShares returns true if the user can add, update and list shares
 func (u *User) CanManageShares() bool {
 	return !util.IsStringInSlice(sdk.WebClientSharesDisabled, u.Filters.WebClient)
@@ -1106,7 +1125,7 @@ func (u *User) GetHomeDir() string {
 
 // HasRecentActivity returns true if the last user login is recent and so we can skip some expensive checks
 func (u *User) HasRecentActivity() bool {
-	return isLastActivityRecent(u.LastLogin)
+	return isLastActivityRecent(u.LastLogin, lastLoginMinDelay)
 }
 
 // HasQuotaRestrictions returns true if there are any disk quota restrictions
@@ -1310,6 +1329,18 @@ func (u *User) GetDeniedIPAsString() string {
 	return strings.Join(u.Filters.DeniedIP, ",")
 }
 
+// HasExternalAuth returns true if the external authentication is globally enabled
+// and it is not disabled for this user
+func (u *User) HasExternalAuth() bool {
+	if u.Filters.Hooks.ExternalAuthDisabled {
+		return false
+	}
+	if config.ExternalAuthHook != "" {
+		return true
+	}
+	return plugin.Handler.HasAuthenticators()
+}
+
 // CountUnusedRecoveryCodes returns the number of unused recovery codes
 func (u *User) CountUnusedRecoveryCodes() int {
 	unused := 0
@@ -1372,6 +1403,7 @@ func (u *User) getACopy() User {
 	filters.Hooks.CheckPasswordDisabled = u.Filters.Hooks.CheckPasswordDisabled
 	filters.DisableFsChecks = u.Filters.DisableFsChecks
 	filters.AllowAPIKeyAuth = u.Filters.AllowAPIKeyAuth
+	filters.ExternalAuthCacheTime = u.Filters.ExternalAuthCacheTime
 	filters.WebClient = make([]string, len(u.Filters.WebClient))
 	copy(filters.WebClient, u.Filters.WebClient)
 	filters.RecoveryCodes = make([]RecoveryCode, 0, len(u.Filters.RecoveryCodes))

@@ -1518,6 +1518,9 @@ func compareUserFilters(expected *dataprovider.User, actual *dataprovider.User) 
 	if expected.Filters.AllowAPIKeyAuth != actual.Filters.AllowAPIKeyAuth {
 		return errors.New("allow_api_key_auth mismatch")
 	}
+	if expected.Filters.ExternalAuthCacheTime != actual.Filters.ExternalAuthCacheTime {
+		return errors.New("external_auth_cache_time mismatch")
+	}
 	if err := compareUserFilterSubStructs(expected, actual); err != nil {
 		return err
 	}

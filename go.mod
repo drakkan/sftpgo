@@ -8,7 +8,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v0.3.0
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/alexedwards/argon2id v0.0.0-20211130144151-3585854a6387
-	github.com/aws/aws-sdk-go v1.43.5
+	github.com/aws/aws-sdk-go v1.43.6
 	github.com/cockroachdb/cockroach-go/v2 v2.2.8
 	github.com/coreos/go-oidc/v3 v3.1.0
 	github.com/eikenb/pipeat v0.0.0-20210730190139-06b3e6902001
@@ -41,7 +41,7 @@ require (
 	github.com/rs/cors v1.8.2
 	github.com/rs/xid v1.3.0
 	github.com/rs/zerolog v1.26.2-0.20220203140311-fc26014bd4e1
-	github.com/sftpgo/sdk v0.1.1-0.20220221175917-da8bdf77ce76
+	github.com/sftpgo/sdk v0.1.1-0.20220225104414-9e485ac5bc94
 	github.com/shirou/gopsutil/v3 v3.22.1
 	github.com/spf13/afero v1.8.1
 	github.com/spf13/cobra v1.3.0
@@ -59,7 +59,7 @@ require (
 	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd
 	golang.org/x/oauth2 v0.0.0-20220223155221-ee480838109b
 	golang.org/x/sys v0.0.0-20220224120231-95c6836cb0e7
-	golang.org/x/time v0.0.0-20220210224613-90d013bbcef8
+	golang.org/x/time v0.0.0-20220224211638-0e9765cccd65
 	google.golang.org/api v0.70.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )

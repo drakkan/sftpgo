@@ -3430,6 +3430,63 @@ func TestLoginExternalAuth(t *testing.T) {
 	}
 }
 
+func TestLoginExternalAuthCache(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("this test is not available on Windows")
+	}
+	u := getTestUser(false)
+	u.Filters.ExternalAuthCacheTime = 120
+	err := dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf := config.GetProviderConf()
+	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u, false, false, ""), os.ModePerm)
+	assert.NoError(t, err)
+	providerConf.ExternalAuthHook = extAuthPath
+	providerConf.ExternalAuthScope = 1
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+	conn, client, err := getSftpClient(u, false)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		assert.NoError(t, checkBasicSFTP(client))
+	}
+	user, _, err := httpdtest.GetUserByUsername(defaultUsername, http.StatusOK)
+	assert.NoError(t, err)
+	lastLogin := user.LastLogin
+	assert.Greater(t, lastLogin, int64(0))
+	assert.Equal(t, u.Filters.ExternalAuthCacheTime, user.Filters.ExternalAuthCacheTime)
+	// the auth should be now cached so update the hook to return an error
+	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u, true, false, ""), os.ModePerm)
+	assert.NoError(t, err)
+	conn, client, err = getSftpClient(u, false)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		assert.NoError(t, checkBasicSFTP(client))
+	}
+	user, _, err = httpdtest.GetUserByUsername(defaultUsername, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, lastLogin, user.LastLogin)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf = config.GetProviderConf()
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+	err = os.Remove(extAuthPath)
+	assert.NoError(t, err)
+}
+
 func TestLoginExternalAuthInteractive(t *testing.T) {
 	if runtime.GOOS == osWindows {
 		t.Skip("this test is not available on Windows")

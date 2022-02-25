@@ -96,6 +96,7 @@ type Manager struct {
 	hasSearcher   bool
 	hasMetadater  bool
 	hasNotifiers  bool
+	hasAuths      bool
 }
 
 // Initialize initializes the configured plugins
@@ -174,6 +175,7 @@ func (m *Manager) validateConfigs() error {
 	m.hasSearcher = false
 	m.hasMetadater = false
 	m.hasNotifiers = false
+	m.hasAuths = false
 
 	for _, config := range m.Configs {
 		if config.Type == kmsplugin.PluginName {
@@ -201,8 +203,16 @@ func (m *Manager) validateConfigs() error {
 		if config.Type == notifier.PluginName {
 			m.hasNotifiers = true
 		}
+		if config.Type == auth.PluginName {
+			m.hasAuths = true
+		}
 	}
 	return nil
+}
+
+// HasAuthenticators returns true if there is at least an auth plugin
+func (m *Manager) HasAuthenticators() bool {
+	return m.hasAuths
 }
 
 // HasNotifiers returns true if there is at least a notifier plugin
