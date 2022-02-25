@@ -1,0 +1,10 @@
+.bg-login-image {
+    background-image: url(/static/img/logo.png);
+    background-size: contain;
+    background-repeat: no-repeat;
+    padding: 1em;
+}
+
+.row.login-image {
+    height: 200px;
+}
