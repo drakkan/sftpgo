@@ -8,7 +8,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v0.3.0
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/alexedwards/argon2id v0.0.0-20211130144151-3585854a6387
-	github.com/aws/aws-sdk-go v1.43.6
+	github.com/aws/aws-sdk-go v1.43.7
 	github.com/cockroachdb/cockroach-go/v2 v2.2.8
 	github.com/coreos/go-oidc/v3 v3.1.0
 	github.com/eikenb/pipeat v0.0.0-20210730190139-06b3e6902001
@@ -50,7 +50,7 @@ require (
 	github.com/studio-b12/gowebdav v0.0.0-20220128162035-c7b1ff8a5e62
 	github.com/unrolled/secure v1.10.0
 	github.com/wagslane/go-password-validator v0.3.0
-	github.com/xhit/go-simple-mail/v2 v2.10.0
+	github.com/xhit/go-simple-mail/v2 v2.11.0
 	github.com/yl2chen/cidranger v1.0.3-0.20210928021809-d1cb2c52f37a
 	go.etcd.io/bbolt v1.3.6
 	go.uber.org/automaxprocs v1.4.0
@@ -80,6 +80,7 @@ require (
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
+	github.com/go-test/deep v1.0.8 // indirect
 	github.com/goccy/go-json v0.9.4 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
@@ -121,6 +122,7 @@ require (
 	github.com/subosito/gotenv v1.2.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.9 // indirect
 	github.com/tklauser/numcpus v0.4.0 // indirect
+	github.com/toorop/go-dkim v0.0.0-20201103131630-e1cd1a0a5208 // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
 	go.opencensus.io v0.23.0 // indirect
 	golang.org/x/mod v0.5.1 // indirect

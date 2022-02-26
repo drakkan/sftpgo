@@ -163,26 +163,49 @@ func TestRenameVirtualFolders(t *testing.T) {
 func TestRenamePerms(t *testing.T) {
 	src := "source"
 	target := "target"
+	sub := "/sub"
+	subTarget := sub + "/target"
 	u := dataprovider.User{}
 	u.Permissions = map[string][]string{}
 	u.Permissions["/"] = []string{dataprovider.PermCreateDirs, dataprovider.PermUpload, dataprovider.PermCreateSymlinks,
 		dataprovider.PermDeleteFiles}
 	conn := NewBaseConnection("", ProtocolSFTP, "", "", u)
 	assert.False(t, conn.hasRenamePerms(src, target, nil))
-	u.Permissions["/"] = []string{dataprovider.PermCreateDirs, dataprovider.PermUpload, dataprovider.PermCreateSymlinks,
-		dataprovider.PermDeleteFiles, dataprovider.PermDeleteDirs}
+	u.Permissions["/"] = []string{dataprovider.PermRename}
 	assert.True(t, conn.hasRenamePerms(src, target, nil))
 	u.Permissions["/"] = []string{dataprovider.PermCreateDirs, dataprovider.PermUpload, dataprovider.PermDeleteFiles,
 		dataprovider.PermDeleteDirs}
 	assert.False(t, conn.hasRenamePerms(src, target, nil))
 
 	info := vfs.NewFileInfo(src, true, 0, time.Now(), false)
-	u.Permissions["/"] = []string{dataprovider.PermCreateDirs, dataprovider.PermUpload, dataprovider.PermDeleteFiles}
+	u.Permissions["/"] = []string{dataprovider.PermRenameFiles}
 	assert.False(t, conn.hasRenamePerms(src, target, info))
-	u.Permissions["/"] = []string{dataprovider.PermCreateDirs, dataprovider.PermUpload, dataprovider.PermDeleteDirs}
+	u.Permissions["/"] = []string{dataprovider.PermRenameDirs}
+	assert.True(t, conn.hasRenamePerms(src, target, info))
+	u.Permissions["/"] = []string{dataprovider.PermRename}
 	assert.True(t, conn.hasRenamePerms(src, target, info))
 	u.Permissions["/"] = []string{dataprovider.PermDownload, dataprovider.PermUpload, dataprovider.PermDeleteDirs}
 	assert.False(t, conn.hasRenamePerms(src, target, info))
+	// test with different permissions between source and target
+	u.Permissions["/"] = []string{dataprovider.PermRename}
+	u.Permissions[sub] = []string{dataprovider.PermRenameFiles}
+	assert.False(t, conn.hasRenamePerms(src, subTarget, info))
+	u.Permissions[sub] = []string{dataprovider.PermRenameDirs}
+	assert.True(t, conn.hasRenamePerms(src, subTarget, info))
+	// test files
+	info = vfs.NewFileInfo(src, false, 0, time.Now(), false)
+	u.Permissions["/"] = []string{dataprovider.PermRenameDirs}
+	assert.False(t, conn.hasRenamePerms(src, target, info))
+	u.Permissions["/"] = []string{dataprovider.PermRenameFiles}
+	assert.True(t, conn.hasRenamePerms(src, target, info))
+	u.Permissions["/"] = []string{dataprovider.PermRename}
+	assert.True(t, conn.hasRenamePerms(src, target, info))
+	// test with different permissions between source and target
+	u.Permissions["/"] = []string{dataprovider.PermRename}
+	u.Permissions[sub] = []string{dataprovider.PermRenameDirs}
+	assert.False(t, conn.hasRenamePerms(src, subTarget, info))
+	u.Permissions[sub] = []string{dataprovider.PermRenameFiles}
+	assert.True(t, conn.hasRenamePerms(src, subTarget, info))
 }
 
 func TestUpdateQuotaAfterRename(t *testing.T) {

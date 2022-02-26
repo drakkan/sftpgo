@@ -4431,9 +4431,8 @@ func TestVirtualFolders(t *testing.T) {
 		VirtualPath: vdirPath,
 	})
 	u.Permissions[testDir] = []string{dataprovider.PermCreateDirs}
-	u.Permissions[testDir1] = []string{dataprovider.PermCreateDirs, dataprovider.PermUpload, dataprovider.PermDelete}
-	u.Permissions[path.Join(testDir1, "subdir")] = []string{dataprovider.PermCreateSymlinks, dataprovider.PermUpload,
-		dataprovider.PermDelete}
+	u.Permissions[testDir1] = []string{dataprovider.PermCreateDirs, dataprovider.PermUpload, dataprovider.PermRename}
+	u.Permissions[path.Join(testDir1, "subdir")] = []string{dataprovider.PermRename}
 
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
@@ -4492,10 +4491,9 @@ func TestVirtualFolders(t *testing.T) {
 		assert.NoError(t, err)
 		err = sftpUploadFile(testFilePath, path.Join("vdir2", "subdir", "subdir", testFileName), testFileSize, client)
 		assert.NoError(t, err)
-		// we cannot create dirs inside /userDir1/subdir
 		err = client.Rename("vdir2", testDir1)
-		assert.Error(t, err)
-		err = client.Rename("vdir2", "vdir3")
+		assert.NoError(t, err)
+		err = client.Rename(testDir1, "vdir3")
 		assert.NoError(t, err)
 		err = client.Remove(path.Join("vdir3", "subdir", "subdir", testFileName))
 		assert.NoError(t, err)

@@ -78,7 +78,6 @@ var (
 	errNoMatchingVirtualFolder = errors.New("no matching virtual folder found")
 	permsRenameAny             = []string{PermRename, PermRenameDirs, PermRenameFiles}
 	permsDeleteAny             = []string{PermDelete, PermDeleteDirs, PermDeleteFiles}
-	permsCreateAny             = []string{PermUpload, PermCreateDirs}
 )
 
 // RecoveryCode defines a 2FA recovery code
@@ -998,13 +997,7 @@ func (u *User) CanRenameFromWeb(src, dest string) bool {
 	if util.IsStringInSlice(sdk.WebClientWriteDisabled, u.Filters.WebClient) {
 		return false
 	}
-	if u.HasAnyPerm(permsRenameAny, src) && u.HasAnyPerm(permsRenameAny, dest) {
-		return true
-	}
-	if !u.HasAnyPerm(permsDeleteAny, src) {
-		return false
-	}
-	return u.HasAnyPerm(permsCreateAny, dest)
+	return u.HasAnyPerm(permsRenameAny, src) && u.HasAnyPerm(permsRenameAny, dest)
 }
 
 // CanDeleteFromWeb returns true if the client can delete objects from the web UI.

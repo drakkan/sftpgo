@@ -763,12 +763,6 @@ func (c *BaseConnection) truncateFile(fs vfs.Fs, fsPath, virtualPath string, siz
 }
 
 func (c *BaseConnection) checkRecursiveRenameDirPermissions(fsSrc, fsDst vfs.Fs, sourcePath, targetPath string) error {
-	dstPerms := []string{
-		dataprovider.PermCreateDirs,
-		dataprovider.PermUpload,
-		dataprovider.PermCreateSymlinks,
-	}
-
 	err := fsSrc.Walk(sourcePath, func(walkedPath string, info os.FileInfo, err error) error {
 		if err != nil {
 			return c.GetFsError(fsSrc, err)
@@ -782,10 +776,6 @@ func (c *BaseConnection) checkRecursiveRenameDirPermissions(fsSrc, fsDst vfs.Fs,
 		if !c.User.HasPermissionsInside(path.Dir(virtualSrcPath)) && !c.User.HasPermissionsInside(path.Dir(virtualDstPath)) {
 			if c.User.HasPermsRenameAll(path.Dir(virtualSrcPath)) &&
 				c.User.HasPermsRenameAll(path.Dir(virtualDstPath)) {
-				return ErrSkipPermissionsCheck
-			}
-			if c.User.HasPermsDeleteAll(path.Dir(virtualSrcPath)) &&
-				c.User.HasPerms(dstPerms, path.Dir(virtualDstPath)) {
 				return ErrSkipPermissionsCheck
 			}
 		}
@@ -808,39 +798,24 @@ func (c *BaseConnection) hasRenamePerms(virtualSourcePath, virtualTargetPath str
 		return true
 	}
 	if fi == nil {
-		// we don't know if this is a file or a directory we have to check all the required permissions
-		if !c.User.HasPermsDeleteAll(path.Dir(virtualSourcePath)) {
-			return false
-		}
-		dstPerms := []string{
-			dataprovider.PermCreateDirs,
-			dataprovider.PermUpload,
-			dataprovider.PermCreateSymlinks,
-		}
-		return c.User.HasPerms(dstPerms, path.Dir(virtualTargetPath))
-	}
-	if fi.IsDir() {
-		if c.User.HasPerm(dataprovider.PermRenameDirs, path.Dir(virtualSourcePath)) &&
-			c.User.HasPerm(dataprovider.PermRenameDirs, path.Dir(virtualTargetPath)) {
-			return true
-		}
-		if !c.User.HasAnyPerm([]string{dataprovider.PermDeleteDirs, dataprovider.PermDelete}, path.Dir(virtualSourcePath)) {
-			return false
-		}
-		return c.User.HasPerm(dataprovider.PermCreateDirs, path.Dir(virtualTargetPath))
-	}
-	// file or symlink
-	if c.User.HasPerm(dataprovider.PermRenameFiles, path.Dir(virtualSourcePath)) &&
-		c.User.HasPerm(dataprovider.PermRenameFiles, path.Dir(virtualTargetPath)) {
-		return true
-	}
-	if !c.User.HasAnyPerm([]string{dataprovider.PermDeleteFiles, dataprovider.PermDelete}, path.Dir(virtualSourcePath)) {
+		// we don't know if this is a file or a directory and we don't have all the rename perms, return false
 		return false
 	}
-	if fi.Mode()&os.ModeSymlink != 0 {
-		return c.User.HasPerm(dataprovider.PermCreateSymlinks, path.Dir(virtualTargetPath))
+	if fi.IsDir() {
+		perms := []string{
+			dataprovider.PermRenameDirs,
+			dataprovider.PermRename,
+		}
+		return c.User.HasAnyPerm(perms, path.Dir(virtualSourcePath)) &&
+			c.User.HasAnyPerm(perms, path.Dir(virtualTargetPath))
 	}
-	return c.User.HasPerm(dataprovider.PermUpload, path.Dir(virtualTargetPath))
+	// file or symlink
+	perms := []string{
+		dataprovider.PermRenameFiles,
+		dataprovider.PermRename,
+	}
+	return c.User.HasAnyPerm(perms, path.Dir(virtualSourcePath)) &&
+		c.User.HasAnyPerm(perms, path.Dir(virtualTargetPath))
 }
 
 func (c *BaseConnection) isRenamePermitted(fsSrc, fsDst vfs.Fs, fsSourcePath, fsTargetPath, virtualSourcePath, virtualTargetPath string, fi os.FileInfo) bool {
