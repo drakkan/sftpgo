@@ -445,6 +445,8 @@ func TestBasicSFTPHandling(t *testing.T) {
 	assert.True(t, status.IsActive)
 	sshCommands := status.GetSSHCommandsAsString()
 	assert.NotEmpty(t, sshCommands)
+	sshAuths := status.GetSupportedAuthsAsString()
+	assert.NotEmpty(t, sshAuths)
 }
 
 func TestBasicSFTPFsHandling(t *testing.T) {

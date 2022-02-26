@@ -38,15 +38,21 @@ type HostKey struct {
 
 // ServiceStatus defines the service status
 type ServiceStatus struct {
-	IsActive    bool      `json:"is_active"`
-	Bindings    []Binding `json:"bindings"`
-	SSHCommands []string  `json:"ssh_commands"`
-	HostKeys    []HostKey `json:"host_keys"`
+	IsActive        bool      `json:"is_active"`
+	Bindings        []Binding `json:"bindings"`
+	SSHCommands     []string  `json:"ssh_commands"`
+	HostKeys        []HostKey `json:"host_keys"`
+	Authentications []string  `json:"authentications"`
 }
 
 // GetSSHCommandsAsString returns enabled SSH commands as comma separated string
-func (s ServiceStatus) GetSSHCommandsAsString() string {
+func (s *ServiceStatus) GetSSHCommandsAsString() string {
 	return strings.Join(s.SSHCommands, ", ")
+}
+
+// GetSupportedAuthsAsString returns the supported authentications as comma separated string
+func (s *ServiceStatus) GetSupportedAuthsAsString() string {
+	return strings.Join(s.Authentications, ", ")
 }
 
 // GetStatus returns the server status

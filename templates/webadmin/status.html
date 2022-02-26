@@ -21,6 +21,8 @@
                     Address: "{{.GetAddress}}" {{if .HasProxy}}Proxy: ON{{end}}
                     <br>
                     {{end}}
+                    Accepted authentications: "{{.Status.SSH.GetSupportedAuthsAsString}}"
+                    <br>
                     Accepted commands: "{{.Status.SSH.GetSSHCommandsAsString}}"
                     <br>
                     {{range .Status.SSH.HostKeys}}
@@ -49,9 +51,13 @@
                     TLS: "{{.GetTLSDescription}}"
                     {{if .ForcePassiveIP}}
                     <br>
-                    PassiveIP: {{.ForcePassiveIP}}
+                    Passive IP: {{.ForcePassiveIP}}
                     {{end}}
                     <br>
+                    {{range .PassiveIPOverrides}}
+                    Passive IP: {{.IP}} for networks: {{.GetNetworksAsString}}
+                    <br>
+                    {{end}}
                     {{end}}
                     <br>
                     Passive port range: "{{.Status.FTP.PassivePortRange.Start}}-{{.Status.FTP.PassivePortRange.End}}"

@@ -634,8 +634,8 @@ func getConfigPath(name, configDir string) string {
 	return name
 }
 
-func getServicesStatus() ServicesStatus {
-	status := ServicesStatus{
+func getServicesStatus() *ServicesStatus {
+	status := &ServicesStatus{
 		SSH:          sftpd.GetStatus(),
 		FTP:          ftpd.GetStatus(),
 		WebDAV:       webdavd.GetStatus(),

@@ -141,7 +141,7 @@ type connectionsPage struct {
 
 type statusPage struct {
 	basePage
-	Status ServicesStatus
+	Status *ServicesStatus
 }
 
 type fsWrapper struct {

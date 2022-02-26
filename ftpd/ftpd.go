@@ -32,6 +32,11 @@ type PassiveIPOverride struct {
 	parsedNetworks []func(net.IP) bool
 }
 
+// GetNetworksAsString returns the configured networks as string
+func (p *PassiveIPOverride) GetNetworksAsString() string {
+	return strings.Join(p.Networks, ", ")
+}
+
 // Binding defines the configuration for a network listener
 type Binding struct {
 	// The address to listen on. A blank value means listen on all available network interfaces.

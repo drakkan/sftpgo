@@ -263,6 +263,11 @@ func (s *Service) loadInitialData() error {
 	}
 	info, err := os.Stat(s.LoadDataFrom)
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			logger.Warn(logSender, "", "unable to load initial data, the file %#v does not exist", s.LoadDataFrom)
+			logger.WarnToConsole("unable to load initial data, the file %#v does not exist", s.LoadDataFrom)
+			return nil
+		}
 		return err
 	}
 	if info.Size() > httpd.MaxRestoreSize {

@@ -203,13 +203,30 @@ func (c *Configuration) getServerConfig() *ssh.ServerConfig {
 
 			return sp, nil
 		}
+		serviceStatus.Authentications = append(serviceStatus.Authentications, dataprovider.LoginMethodPassword)
 	}
+	serviceStatus.Authentications = append(serviceStatus.Authentications, dataprovider.SSHLoginMethodPublicKey)
 
 	return serverConfig
 }
 
+func (c *Configuration) updateSupportedAuthentications() {
+	serviceStatus.Authentications = util.RemoveDuplicates(serviceStatus.Authentications)
+
+	if util.IsStringInSlice(dataprovider.LoginMethodPassword, serviceStatus.Authentications) &&
+		util.IsStringInSlice(dataprovider.SSHLoginMethodPublicKey, serviceStatus.Authentications) {
+		serviceStatus.Authentications = append(serviceStatus.Authentications, dataprovider.SSHLoginMethodKeyAndPassword)
+	}
+
+	if util.IsStringInSlice(dataprovider.SSHLoginMethodKeyboardInteractive, serviceStatus.Authentications) &&
+		util.IsStringInSlice(dataprovider.SSHLoginMethodPublicKey, serviceStatus.Authentications) {
+		serviceStatus.Authentications = append(serviceStatus.Authentications, dataprovider.SSHLoginMethodKeyAndKeyboardInt)
+	}
+}
+
 // Initialize the SFTP server and add a persistent listener to handle inbound SFTP connections.
 func (c *Configuration) Initialize(configDir string) error {
+	serviceStatus.Authentications = nil
 	serverConfig := c.getServerConfig()
 
 	if !c.ShouldBind() {
@@ -270,6 +287,7 @@ func (c *Configuration) Initialize(configDir string) error {
 
 	serviceStatus.IsActive = true
 	serviceStatus.SSHCommands = c.EnabledSSHCommands
+	c.updateSupportedAuthentications()
 
 	return <-exitChannel
 }
@@ -381,6 +399,8 @@ func (c *Configuration) configureKeyboardInteractiveAuth(serverConfig *ssh.Serve
 
 		return sp, nil
 	}
+
+	serviceStatus.Authentications = append(serviceStatus.Authentications, dataprovider.SSHLoginMethodKeyboardInteractive)
 }
 
 func canAcceptConnection(ip string) bool {

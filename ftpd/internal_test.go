@@ -975,6 +975,7 @@ func TestPassiveIPResolver(t *testing.T) {
 	}
 	err = b.checkPassiveIP()
 	assert.NoError(t, err)
+	assert.NotEmpty(t, b.PassiveIPOverrides[0].GetNetworksAsString())
 	assert.Equal(t, "192.168.1.1", b.PassiveIPOverrides[0].IP)
 	require.Len(t, b.PassiveIPOverrides[0].parsedNetworks, 1)
 	ip := net.ParseIP("192.168.1.2")

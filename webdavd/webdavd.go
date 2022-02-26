@@ -26,7 +26,6 @@ const (
 )
 
 var (
-	//server *webDavServer
 	certMgr       *common.CertManager
 	serviceStatus ServiceStatus
 )
