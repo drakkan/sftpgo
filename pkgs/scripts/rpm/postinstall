@@ -32,5 +32,8 @@ if [ -d /var/lib/sftpgo ]; then
     /usr/bin/chmod 750 /var/lib/sftpgo
 fi
 
+# set the cap_net_bind_service capability so the service can bind to privileged ports
+setcap cap_net_bind_service=+ep /usr/bin/sftpgo || :
+
 # reload to pick up any changes to systemd files
 /bin/systemctl daemon-reload >/dev/null 2>&1 || :
