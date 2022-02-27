@@ -300,6 +300,21 @@ func TestShouldBind(t *testing.T) {
 	}
 }
 
+func TestRedactedConf(t *testing.T) {
+	c := Conf{
+		SigningPassphrase: "passphrase",
+		Setup: SetupConfig{
+			InstallationCode: "123",
+		},
+	}
+	redactedField := "[redacted]"
+	redactedConf := c.getRedacted()
+	assert.Equal(t, redactedField, redactedConf.SigningPassphrase)
+	assert.Equal(t, redactedField, redactedConf.Setup.InstallationCode)
+	assert.NotEqual(t, c.SigningPassphrase, redactedConf.SigningPassphrase)
+	assert.NotEqual(t, c.Setup.InstallationCode, redactedConf.Setup.InstallationCode)
+}
+
 func TestGetRespStatus(t *testing.T) {
 	var err error
 	err = util.NewMethodDisabledError("")
@@ -2183,4 +2198,79 @@ func TestMetadataAPI(t *testing.T) {
 	user.FsConfig.Provider = sdk.AzureBlobFilesystemProvider
 	err = doMetadataCheck(user)
 	assert.Error(t, err)
+}
+
+func TestWebAdminSetupWithInstallCode(t *testing.T) {
+	installationCode = "1234"
+	// delete all the admins
+	admins, err := dataprovider.GetAdmins(100, 0, dataprovider.OrderASC)
+	assert.NoError(t, err)
+	for _, admin := range admins {
+		err = dataprovider.DeleteAdmin(admin.Username, "", "")
+		assert.NoError(t, err)
+	}
+	// close the provider and initializes it without creating the default admin
+	providerConf := dataprovider.GetProviderConfig()
+	providerConf.CreateDefaultAdmin = false
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = dataprovider.Initialize(providerConf, "..", true)
+	assert.NoError(t, err)
+
+	server := httpdServer{
+		enableWebAdmin:  true,
+		enableWebClient: true,
+	}
+	server.initializeRouter()
+
+	rr := httptest.NewRecorder()
+	r, err := http.NewRequest(http.MethodGet, webAdminSetupPath, nil)
+	assert.NoError(t, err)
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	for _, webURL := range []string{"/", webBasePath, webBaseAdminPath, webLoginPath, webClientLoginPath} {
+		rr = httptest.NewRecorder()
+		r, err = http.NewRequest(http.MethodGet, webURL, nil)
+		assert.NoError(t, err)
+		server.router.ServeHTTP(rr, r)
+		assert.Equal(t, http.StatusFound, rr.Code)
+		assert.Equal(t, webAdminSetupPath, rr.Header().Get("Location"))
+	}
+
+	defaultAdminUsername := "admin"
+	form := make(url.Values)
+	csrfToken := createCSRFToken()
+	form.Set("_form_token", csrfToken)
+	form.Set("install_code", "12345")
+	form.Set("username", defaultAdminUsername)
+	form.Set("password", "password")
+	form.Set("confirm_password", "password")
+	rr = httptest.NewRecorder()
+	r, err = http.NewRequest(http.MethodPost, webAdminSetupPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Installation code mismatch")
+
+	_, err = dataprovider.AdminExists(defaultAdminUsername)
+	assert.Error(t, err)
+	form.Set("install_code", "1234")
+	rr = httptest.NewRecorder()
+	r, err = http.NewRequest(http.MethodPost, webAdminSetupPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusFound, rr.Code)
+
+	_, err = dataprovider.AdminExists(defaultAdminUsername)
+	assert.NoError(t, err)
+
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	providerConf.CreateDefaultAdmin = true
+	err = dataprovider.Initialize(providerConf, "..", true)
+	assert.NoError(t, err)
+	installationCode = ""
 }

@@ -536,6 +536,11 @@ func (s *httpdServer) handleWebAdminSetupPost(w http.ResponseWriter, r *http.Req
 	username := r.Form.Get("username")
 	password := r.Form.Get("password")
 	confirmPassword := r.Form.Get("confirm_password")
+	installCode := r.Form.Get("install_code")
+	if installationCode != "" && installCode != installationCode {
+		renderAdminSetupPage(w, r, username, fmt.Sprintf("%v mismatch", installationCodeHint))
+		return
+	}
 	if username == "" {
 		renderAdminSetupPage(w, r, username, "Please set a username")
 		return

@@ -39,10 +39,11 @@ const (
 )
 
 var (
-	globalConf          globalConfig
-	defaultSFTPDBanner  = fmt.Sprintf("SFTPGo_%v", version.Get().Version)
-	defaultFTPDBanner   = fmt.Sprintf("SFTPGo %v ready", version.Get().Version)
-	defaultSFTPDBinding = sftpd.Binding{
+	globalConf             globalConfig
+	defaultSFTPDBanner     = fmt.Sprintf("SFTPGo_%v", version.Get().Version)
+	defaultFTPDBanner      = fmt.Sprintf("SFTPGo %v ready", version.Get().Version)
+	defaultInstallCodeHint = "Installation code"
+	defaultSFTPDBinding    = sftpd.Binding{
 		Address:          "",
 		Port:             2022,
 		ApplyProxyConfig: true,
@@ -294,6 +295,10 @@ func Init() {
 				AllowCredentials: false,
 				MaxAge:           0,
 			},
+			Setup: httpd.SetupConfig{
+				InstallationCode:     "",
+				InstallationCodeHint: defaultInstallCodeHint,
+			},
 		},
 		HTTPConfig: httpclient.Config{
 			Timeout:        20,
@@ -480,6 +485,7 @@ func getRedactedGlobalConf() globalConfig {
 	conf.Common.DataRetentionHook = util.GetRedactedURL(conf.Common.DataRetentionHook)
 	conf.SFTPD.KeyboardInteractiveHook = util.GetRedactedURL(conf.SFTPD.KeyboardInteractiveHook)
 	conf.HTTPDConfig.SigningPassphrase = getRedactedPassword()
+	conf.HTTPDConfig.Setup.InstallationCode = getRedactedPassword()
 	conf.ProviderConf.Password = getRedactedPassword()
 	conf.ProviderConf.Actions.Hook = util.GetRedactedURL(conf.ProviderConf.Actions.Hook)
 	conf.ProviderConf.ExternalAuthHook = util.GetRedactedURL(conf.ProviderConf.ExternalAuthHook)
@@ -536,12 +542,16 @@ func LoadConfig(configDir, configFile string) error {
 	return nil
 }
 
+//nolint:gocyclo
 func resetInvalidConfigs() {
 	if strings.TrimSpace(globalConf.SFTPD.Banner) == "" {
 		globalConf.SFTPD.Banner = defaultSFTPDBanner
 	}
 	if strings.TrimSpace(globalConf.FTPD.Banner) == "" {
 		globalConf.FTPD.Banner = defaultFTPDBanner
+	}
+	if strings.TrimSpace(globalConf.HTTPDConfig.Setup.InstallationCodeHint) == "" {
+		globalConf.HTTPDConfig.Setup.InstallationCodeHint = defaultInstallCodeHint
 	}
 	if globalConf.ProviderConf.UsersBaseDir != "" && !util.IsFileInputValid(globalConf.ProviderConf.UsersBaseDir) {
 		warn := fmt.Sprintf("invalid users base dir %#v will be ignored", globalConf.ProviderConf.UsersBaseDir)
@@ -1324,6 +1334,8 @@ func setViperDefaults() {
 	viper.SetDefault("httpd.cors.exposed_headers", globalConf.HTTPDConfig.Cors.ExposedHeaders)
 	viper.SetDefault("httpd.cors.allow_credentials", globalConf.HTTPDConfig.Cors.AllowCredentials)
 	viper.SetDefault("httpd.cors.max_age", globalConf.HTTPDConfig.Cors.MaxAge)
+	viper.SetDefault("httpd.setup.installation_code", globalConf.HTTPDConfig.Setup.InstallationCode)
+	viper.SetDefault("httpd.setup.installation_code_hint", globalConf.HTTPDConfig.Setup.InstallationCodeHint)
 	viper.SetDefault("http.timeout", globalConf.HTTPConfig.Timeout)
 	viper.SetDefault("http.retry_wait_min", globalConf.HTTPConfig.RetryWaitMin)
 	viper.SetDefault("http.retry_wait_max", globalConf.HTTPConfig.RetryWaitMax)

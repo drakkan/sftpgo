@@ -235,6 +235,10 @@
       "exposed_headers": [],
       "allow_credentials": false,
       "max_age": 0
+    },
+    "setup": {
+      "installation_code": "",
+      "installation_code_hint": "Installation code"
     }
   },
   "telemetry": {
