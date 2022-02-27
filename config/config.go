@@ -1603,6 +1603,7 @@ func setViperDefaults() {
 	viper.SetDefault("smtp.auth_type", globalConf.SMTPConfig.AuthType)
 	viper.SetDefault("smtp.encryption", globalConf.SMTPConfig.Encryption)
 	viper.SetDefault("smtp.domain", globalConf.SMTPConfig.Domain)
+	viper.SetDefault("smtp.templates_path", globalConf.SMTPConfig.TemplatesPath)
 }
 
 func lookupBoolFromEnv(envName string) (bool, bool) {
