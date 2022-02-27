@@ -97,6 +97,12 @@
                                     {{end}}
                                     <form id="login_form" action="{{.CurrentURL}}" method="POST" autocomplete="off"
                                         class="user-custom">
+                                        {{if .HasInstallationCode}}
+                                        <div class="form-group">
+                                            <input type="text" class="form-control form-control-user-custom" id="inputInstallCode"
+                                                name="install_code" placeholder="{{.InstallationCodeHint}}" value="" required>
+                                        </div>
+                                        {{end}}
                                         <div class="form-group">
                                             <input type="text" class="form-control form-control-user-custom" id="inputUsername"
                                                 name="username" placeholder="Username" value="{{.Username}}" required>

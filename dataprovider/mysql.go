@@ -145,7 +145,7 @@ func getMySQLConnectionString(redactedPwd bool) (string, error) {
 	var connectionString string
 	if config.ConnectionString == "" {
 		password := config.Password
-		if redactedPwd {
+		if redactedPwd && password != "" {
 			password = "[redacted]"
 		}
 		sslMode := getSSLMode()

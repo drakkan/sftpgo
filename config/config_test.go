@@ -250,6 +250,34 @@ func TestInvalidUsersBaseDir(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestInvalidInstallationHint(t *testing.T) {
+	reset()
+
+	configDir := ".."
+	confName := tempConfigName + ".json"
+	configFilePath := filepath.Join(configDir, confName)
+	err := config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	httpdConfig := config.GetHTTPDConfig()
+	httpdConfig.Setup = httpd.SetupConfig{
+		InstallationCode:     "abc",
+		InstallationCodeHint: " ",
+	}
+	c := make(map[string]httpd.Conf)
+	c["httpd"] = httpdConfig
+	jsonConf, err := json.Marshal(c)
+	assert.NoError(t, err)
+	err = os.WriteFile(configFilePath, jsonConf, os.ModePerm)
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, confName)
+	assert.NoError(t, err)
+	httpdConfig = config.GetHTTPDConfig()
+	assert.Equal(t, "abc", httpdConfig.Setup.InstallationCode)
+	assert.Equal(t, "Installation code", httpdConfig.Setup.InstallationCodeHint)
+	err = os.Remove(configFilePath)
+	assert.NoError(t, err)
+}
+
 func TestDefenderProviderDriver(t *testing.T) {
 	if config.GetProviderConf().Driver != dataprovider.SQLiteDataProviderName {
 		t.Skip("this test is not supported with the current database provider")
@@ -1094,6 +1122,7 @@ func TestConfigFromEnv(t *testing.T) {
 	os.Setenv("SFTPGO_KMS__SECRETS__URL", "local")
 	os.Setenv("SFTPGO_KMS__SECRETS__MASTER_KEY_PATH", "path")
 	os.Setenv("SFTPGO_TELEMETRY__TLS_CIPHER_SUITES", "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA")
+	os.Setenv("SFTPGO_HTTPD__SETUP__INSTALLATION_CODE", "123")
 	t.Cleanup(func() {
 		os.Unsetenv("SFTPGO_SFTPD__BINDINGS__0__ADDRESS")
 		os.Unsetenv("SFTPGO_WEBDAVD__BINDINGS__0__PORT")
@@ -1104,6 +1133,7 @@ func TestConfigFromEnv(t *testing.T) {
 		os.Unsetenv("SFTPGO_KMS__SECRETS__URL")
 		os.Unsetenv("SFTPGO_KMS__SECRETS__MASTER_KEY_PATH")
 		os.Unsetenv("SFTPGO_TELEMETRY__TLS_CIPHER_SUITES")
+		os.Unsetenv("SFTPGO_HTTPD__SETUP__INSTALLATION_CODE")
 	})
 	err := config.LoadConfig(".", "invalid config")
 	assert.NoError(t, err)
@@ -1123,4 +1153,5 @@ func TestConfigFromEnv(t *testing.T) {
 	assert.Len(t, telemetryConfig.TLSCipherSuites, 2)
 	assert.Equal(t, "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA", telemetryConfig.TLSCipherSuites[0])
 	assert.Equal(t, "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA", telemetryConfig.TLSCipherSuites[1])
+	assert.Equal(t, "123", config.GetHTTPDConfig().Setup.InstallationCode)
 }

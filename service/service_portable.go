@@ -247,7 +247,7 @@ func (s *Service) configurePortableUser() string {
 		s.PortableUser.Username = "user"
 	}
 	printablePassword := ""
-	if len(s.PortableUser.Password) > 0 {
+	if s.PortableUser.Password != "" {
 		printablePassword = "[redacted]"
 	}
 	if len(s.PortableUser.PublicKeys) == 0 && s.PortableUser.Password == "" {

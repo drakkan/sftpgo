@@ -39,10 +39,11 @@ const (
 )
 
 var (
-	globalConf          globalConfig
-	defaultSFTPDBanner  = fmt.Sprintf("SFTPGo_%v", version.Get().Version)
-	defaultFTPDBanner   = fmt.Sprintf("SFTPGo %v ready", version.Get().Version)
-	defaultSFTPDBinding = sftpd.Binding{
+	globalConf             globalConfig
+	defaultSFTPDBanner     = fmt.Sprintf("SFTPGo_%v", version.Get().Version)
+	defaultFTPDBanner      = fmt.Sprintf("SFTPGo %v ready", version.Get().Version)
+	defaultInstallCodeHint = "Installation code"
+	defaultSFTPDBinding    = sftpd.Binding{
 		Address:          "",
 		Port:             2022,
 		ApplyProxyConfig: true,
@@ -323,6 +324,10 @@ func Init() {
 				AllowCredentials: false,
 				MaxAge:           0,
 			},
+			Setup: httpd.SetupConfig{
+				InstallationCode:     "",
+				InstallationCodeHint: defaultInstallCodeHint,
+			},
 		},
 		HTTPConfig: httpclient.Config{
 			Timeout:        20,
@@ -354,7 +359,6 @@ func Init() {
 			MinTLSVersion:      12,
 			TLSCipherSuites:    nil,
 		},
-		PluginsConfig: nil,
 		SMTPConfig: smtp.Config{
 			Host:          "",
 			Port:          25,
@@ -366,6 +370,7 @@ func Init() {
 			Domain:        "",
 			TemplatesPath: "templates",
 		},
+		PluginsConfig: nil,
 	}
 
 	viper.SetEnvPrefix(configEnvPrefix)
@@ -497,7 +502,10 @@ func HasServicesToStart() bool {
 	return false
 }
 
-func getRedactedPassword() string {
+func getRedactedPassword(value string) string {
+	if value == "" {
+		return value
+	}
 	return "[redacted]"
 }
 
@@ -509,22 +517,19 @@ func getRedactedGlobalConf() globalConfig {
 	conf.Common.PostDisconnectHook = util.GetRedactedURL(conf.Common.PostDisconnectHook)
 	conf.Common.DataRetentionHook = util.GetRedactedURL(conf.Common.DataRetentionHook)
 	conf.SFTPD.KeyboardInteractiveHook = util.GetRedactedURL(conf.SFTPD.KeyboardInteractiveHook)
-	conf.HTTPDConfig.SigningPassphrase = getRedactedPassword()
-	conf.ProviderConf.Password = getRedactedPassword()
+	conf.HTTPDConfig.SigningPassphrase = getRedactedPassword(conf.HTTPDConfig.SigningPassphrase)
+	conf.HTTPDConfig.Setup.InstallationCode = getRedactedPassword(conf.HTTPDConfig.Setup.InstallationCode)
+	conf.ProviderConf.Password = getRedactedPassword(conf.ProviderConf.Password)
 	conf.ProviderConf.Actions.Hook = util.GetRedactedURL(conf.ProviderConf.Actions.Hook)
 	conf.ProviderConf.ExternalAuthHook = util.GetRedactedURL(conf.ProviderConf.ExternalAuthHook)
 	conf.ProviderConf.PreLoginHook = util.GetRedactedURL(conf.ProviderConf.PreLoginHook)
 	conf.ProviderConf.PostLoginHook = util.GetRedactedURL(conf.ProviderConf.PostLoginHook)
 	conf.ProviderConf.CheckPasswordHook = util.GetRedactedURL(conf.ProviderConf.CheckPasswordHook)
-	conf.SMTPConfig.Password = getRedactedPassword()
+	conf.SMTPConfig.Password = getRedactedPassword(conf.SMTPConfig.Password)
 	conf.HTTPDConfig.Bindings = nil
 	for _, binding := range globalConf.HTTPDConfig.Bindings {
-		if binding.OIDC.ClientID != "" {
-			binding.OIDC.ClientID = getRedactedPassword()
-		}
-		if binding.OIDC.ClientSecret != "" {
-			binding.OIDC.ClientSecret = getRedactedPassword()
-		}
+		binding.OIDC.ClientID = getRedactedPassword(binding.OIDC.ClientID)
+		binding.OIDC.ClientSecret = getRedactedPassword(binding.OIDC.ClientSecret)
 		conf.HTTPDConfig.Bindings = append(conf.HTTPDConfig.Bindings, binding)
 	}
 	return conf
@@ -576,6 +581,18 @@ func LoadConfig(configDir, configFile string) error {
 	return nil
 }
 
+func isUploadModeValid() bool {
+	return globalConf.Common.UploadMode >= 0 && globalConf.Common.UploadMode <= 2
+}
+
+func isProxyProtocolValid() bool {
+	return globalConf.Common.ProxyProtocol >= 0 && globalConf.Common.ProxyProtocol <= 2
+}
+
+func isExternalAuthScopeValid() bool {
+	return globalConf.ProviderConf.ExternalAuthScope >= 0 && globalConf.ProviderConf.ExternalAuthScope <= 15
+}
+
 func resetInvalidConfigs() {
 	if strings.TrimSpace(globalConf.SFTPD.Banner) == "" {
 		globalConf.SFTPD.Banner = defaultSFTPDBanner
@@ -583,27 +600,30 @@ func resetInvalidConfigs() {
 	if strings.TrimSpace(globalConf.FTPD.Banner) == "" {
 		globalConf.FTPD.Banner = defaultFTPDBanner
 	}
+	if strings.TrimSpace(globalConf.HTTPDConfig.Setup.InstallationCodeHint) == "" {
+		globalConf.HTTPDConfig.Setup.InstallationCodeHint = defaultInstallCodeHint
+	}
 	if globalConf.ProviderConf.UsersBaseDir != "" && !util.IsFileInputValid(globalConf.ProviderConf.UsersBaseDir) {
 		warn := fmt.Sprintf("invalid users base dir %#v will be ignored", globalConf.ProviderConf.UsersBaseDir)
 		globalConf.ProviderConf.UsersBaseDir = ""
 		logger.Warn(logSender, "", "Non-fatal configuration error: %v", warn)
 		logger.WarnToConsole("Non-fatal configuration error: %v", warn)
 	}
-	if globalConf.Common.UploadMode < 0 || globalConf.Common.UploadMode > 2 {
+	if !isUploadModeValid() {
 		warn := fmt.Sprintf("invalid upload_mode 0, 1 and 2 are supported, configured: %v reset upload_mode to 0",
 			globalConf.Common.UploadMode)
 		globalConf.Common.UploadMode = 0
 		logger.Warn(logSender, "", "Non-fatal configuration error: %v", warn)
 		logger.WarnToConsole("Non-fatal configuration error: %v", warn)
 	}
-	if globalConf.Common.ProxyProtocol < 0 || globalConf.Common.ProxyProtocol > 2 {
+	if !isProxyProtocolValid() {
 		warn := fmt.Sprintf("invalid proxy_protocol 0, 1 and 2 are supported, configured: %v reset proxy_protocol to 0",
 			globalConf.Common.ProxyProtocol)
 		globalConf.Common.ProxyProtocol = 0
 		logger.Warn(logSender, "", "Non-fatal configuration error: %v", warn)
 		logger.WarnToConsole("Non-fatal configuration error: %v", warn)
 	}
-	if globalConf.ProviderConf.ExternalAuthScope < 0 || globalConf.ProviderConf.ExternalAuthScope > 15 {
+	if !isExternalAuthScopeValid() {
 		warn := fmt.Sprintf("invalid external_auth_scope: %v reset to 0", globalConf.ProviderConf.ExternalAuthScope)
 		globalConf.ProviderConf.ExternalAuthScope = 0
 		logger.Warn(logSender, "", "Non-fatal configuration error: %v", warn)
@@ -1555,6 +1575,8 @@ func setViperDefaults() {
 	viper.SetDefault("httpd.cors.allowed_headers", globalConf.HTTPDConfig.Cors.AllowedHeaders)
 	viper.SetDefault("httpd.cors.exposed_headers", globalConf.HTTPDConfig.Cors.ExposedHeaders)
 	viper.SetDefault("httpd.cors.allow_credentials", globalConf.HTTPDConfig.Cors.AllowCredentials)
+	viper.SetDefault("httpd.setup.installation_code", globalConf.HTTPDConfig.Setup.InstallationCode)
+	viper.SetDefault("httpd.setup.installation_code_hint", globalConf.HTTPDConfig.Setup.InstallationCodeHint)
 	viper.SetDefault("httpd.cors.max_age", globalConf.HTTPDConfig.Cors.MaxAge)
 	viper.SetDefault("http.timeout", globalConf.HTTPConfig.Timeout)
 	viper.SetDefault("http.retry_wait_min", globalConf.HTTPConfig.RetryWaitMin)
@@ -1581,7 +1603,6 @@ func setViperDefaults() {
 	viper.SetDefault("smtp.auth_type", globalConf.SMTPConfig.AuthType)
 	viper.SetDefault("smtp.encryption", globalConf.SMTPConfig.Encryption)
 	viper.SetDefault("smtp.domain", globalConf.SMTPConfig.Domain)
-	viper.SetDefault("smtp.templates_path", globalConf.SMTPConfig.TemplatesPath)
 }
 
 func lookupBoolFromEnv(envName string) (bool, bool) {

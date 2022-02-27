@@ -228,7 +228,9 @@ var (
 	webStaticFilesPath             string
 	webOpenAPIPath                 string
 	// max upload size for http clients, 1GB by default
-	maxUploadFileSize = int64(1048576000)
+	maxUploadFileSize    = int64(1048576000)
+	installationCode     string
+	installationCodeHint string
 )
 
 func init() {
@@ -426,6 +428,18 @@ type ServicesStatus struct {
 	MFA          mfa.ServiceStatus           `json:"mfa"`
 }
 
+// SetupConfig defines the configuration parameters for the initial web admin setup
+type SetupConfig struct {
+	// Installation code to require when creating the first admin account.
+	// As for the other configurations, this value is read at SFTPGo startup and not at runtime
+	// even if set using an environment variable.
+	// This is not a license key or similar, the purpose here is to prevent anyone who can access
+	// to the initial setup screen from creating an admin user
+	InstallationCode string `json:"installation_code" mapstructure:"installation_code"`
+	// Description for the installation code input field
+	InstallationCodeHint string `json:"installation_code_hint" mapstructure:"installation_code_hint"`
+}
+
 // CorsConfig defines the CORS configuration
 type CorsConfig struct {
 	AllowedOrigins   []string `json:"allowed_origins" mapstructure:"allowed_origins"`
@@ -474,6 +488,8 @@ type Conf struct {
 	MaxUploadFileSize int64 `json:"max_upload_file_size" mapstructure:"max_upload_file_size"`
 	// CORS configuration
 	Cors CorsConfig `json:"cors" mapstructure:"cors"`
+	// Initial setup configuration
+	Setup SetupConfig `json:"setup" mapstructure:"setup"`
 }
 
 type apiResponse struct {
@@ -521,7 +537,12 @@ func (c *Conf) checkRequiredDirs(staticFilesPath, templatesPath string) error {
 func (c *Conf) getRedacted() Conf {
 	redacted := "[redacted]"
 	conf := *c
-	conf.SigningPassphrase = redacted
+	if conf.SigningPassphrase != "" {
+		conf.SigningPassphrase = redacted
+	}
+	if conf.Setup.InstallationCode != "" {
+		conf.Setup.InstallationCode = redacted
+	}
 	conf.Bindings = nil
 	for _, binding := range c.Bindings {
 		if binding.OIDC.ClientID != "" {
@@ -604,6 +625,8 @@ func (c *Conf) Initialize(configDir string) error {
 	}
 
 	maxUploadFileSize = c.MaxUploadFileSize
+	installationCode = c.Setup.InstallationCode
+	installationCodeHint = c.Setup.InstallationCodeHint
 	startCleanupTicker(tokenDuration / 2)
 	return <-exitChannel
 }

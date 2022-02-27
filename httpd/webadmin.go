@@ -212,8 +212,10 @@ type defenderHostsPage struct {
 
 type setupPage struct {
 	basePage
-	Username string
-	Error    string
+	Username             string
+	HasInstallationCode  bool
+	InstallationCodeHint string
+	Error                string
 }
 
 type folderPage struct {
@@ -553,9 +555,11 @@ func renderMaintenancePage(w http.ResponseWriter, r *http.Request, error string)
 
 func renderAdminSetupPage(w http.ResponseWriter, r *http.Request, username, error string) {
 	data := setupPage{
-		basePage: getBasePageData(pageSetupTitle, webAdminSetupPath, r),
-		Username: username,
-		Error:    error,
+		basePage:             getBasePageData(pageSetupTitle, webAdminSetupPath, r),
+		Username:             username,
+		HasInstallationCode:  installationCode != "",
+		InstallationCodeHint: installationCodeHint,
+		Error:                error,
 	}
 
 	renderAdminTemplate(w, templateSetup, data)

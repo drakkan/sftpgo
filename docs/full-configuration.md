@@ -276,6 +276,9 @@ The configuration file contains the following sections:
     - `exposed_headers`, list of strings.
     - `allow_credentials` boolean.
     - `max_age`, integer.
+  - `setup` struct containing configurations for the initial setup screen
+    - `installation_code`, string. If set, this installation code will be required when creating the first admin account. Please note that even if set using an environment variable this field is read at SFTPGo startup and not at runtime. This is not a license key or similar, the purpose here is to prevent anyone who can access to the initial setup screen from creating an admin user. Default: blank.
+    - `installation_code_hint`, string. Description for the installation code input field. Default: `Installation code`.
 - **"telemetry"**, the configuration for the telemetry server, more details [below](#telemetry-server)
   - `bind_port`, integer. The port used for serving HTTP requests. Set to 0 to disable HTTP server. Default: 0
   - `bind_address`, string. Leave blank to listen on all available network interfaces. On \*NIX you can specify an absolute path to listen on a Unix-domain socket. Default: `127.0.0.1`

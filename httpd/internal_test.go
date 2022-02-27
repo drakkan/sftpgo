@@ -266,6 +266,7 @@ G6p7xS+JswJrzX4885bZJ9Oi1AR2yM3sC9l0O7I4lDbNPmWIXBLeEhGMmcPKv/Kc
 w0kqpr7MgJ94qhXCBcVcfPuFN9fBOadM3UBj1B45Cz3pptoK+ScI8XKno6jvVK/p
 xr5cb9VBRBtB9aOKVfuRhpatAfS2Pzm2Htae9lFn7slGPUmu2hkjDw==
 -----END RSA PRIVATE KEY-----`
+	defaultAdminUsername = "admin"
 )
 
 type failingWriter struct {
@@ -298,6 +299,21 @@ func TestShouldBind(t *testing.T) {
 		c.Bindings[0].Address = "/absolute/path"
 		require.True(t, c.ShouldBind())
 	}
+}
+
+func TestRedactedConf(t *testing.T) {
+	c := Conf{
+		SigningPassphrase: "passphrase",
+		Setup: SetupConfig{
+			InstallationCode: "123",
+		},
+	}
+	redactedField := "[redacted]"
+	redactedConf := c.getRedacted()
+	assert.Equal(t, redactedField, redactedConf.SigningPassphrase)
+	assert.Equal(t, redactedField, redactedConf.Setup.InstallationCode)
+	assert.NotEqual(t, c.SigningPassphrase, redactedConf.SigningPassphrase)
+	assert.NotEqual(t, c.Setup.InstallationCode, redactedConf.Setup.InstallationCode)
 }
 
 func TestGetRespStatus(t *testing.T) {
@@ -708,7 +724,7 @@ func TestCreateTokenError(t *testing.T) {
 	}
 	rr := httptest.NewRecorder()
 	admin := dataprovider.Admin{
-		Username: "admin",
+		Username: defaultAdminUsername,
 		Password: "password",
 	}
 	req, _ := http.NewRequest(http.MethodGet, tokenPath, nil)
@@ -918,7 +934,7 @@ func TestAPIKeyAuthForbidden(t *testing.T) {
 func TestJWTTokenValidation(t *testing.T) {
 	tokenAuth := jwtauth.New(jwa.HS256.String(), util.GenerateRandomBytes(32), nil)
 	claims := make(map[string]interface{})
-	claims["username"] = "admin"
+	claims["username"] = defaultAdminUsername
 	claims[jwt.ExpirationKey] = time.Now().UTC().Add(-1 * time.Hour)
 	token, _, err := tokenAuth.Encode(claims)
 	assert.NoError(t, err)
@@ -2307,4 +2323,78 @@ func TestSecureMiddlewareIntegration(t *testing.T) {
 	server.binding.Security.Enabled = false
 	server.binding.Security.updateProxyHeaders()
 	assert.Len(t, server.binding.Security.proxyHeaders, 0)
+}
+
+func TestWebAdminSetupWithInstallCode(t *testing.T) {
+	installationCode = "1234"
+	// delete all the admins
+	admins, err := dataprovider.GetAdmins(100, 0, dataprovider.OrderASC)
+	assert.NoError(t, err)
+	for _, admin := range admins {
+		err = dataprovider.DeleteAdmin(admin.Username, "", "")
+		assert.NoError(t, err)
+	}
+	// close the provider and initializes it without creating the default admin
+	providerConf := dataprovider.GetProviderConfig()
+	providerConf.CreateDefaultAdmin = false
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = dataprovider.Initialize(providerConf, "..", true)
+	assert.NoError(t, err)
+
+	server := httpdServer{
+		enableWebAdmin:  true,
+		enableWebClient: true,
+	}
+	server.initializeRouter()
+
+	rr := httptest.NewRecorder()
+	r, err := http.NewRequest(http.MethodGet, webAdminSetupPath, nil)
+	assert.NoError(t, err)
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	for _, webURL := range []string{"/", webBasePath, webBaseAdminPath, webAdminLoginPath, webClientLoginPath} {
+		rr = httptest.NewRecorder()
+		r, err = http.NewRequest(http.MethodGet, webURL, nil)
+		assert.NoError(t, err)
+		server.router.ServeHTTP(rr, r)
+		assert.Equal(t, http.StatusFound, rr.Code)
+		assert.Equal(t, webAdminSetupPath, rr.Header().Get("Location"))
+	}
+
+	form := make(url.Values)
+	csrfToken := createCSRFToken()
+	form.Set("_form_token", csrfToken)
+	form.Set("install_code", "12345")
+	form.Set("username", defaultAdminUsername)
+	form.Set("password", "password")
+	form.Set("confirm_password", "password")
+	rr = httptest.NewRecorder()
+	r, err = http.NewRequest(http.MethodPost, webAdminSetupPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Installation code mismatch")
+
+	_, err = dataprovider.AdminExists(defaultAdminUsername)
+	assert.Error(t, err)
+	form.Set("install_code", "1234")
+	rr = httptest.NewRecorder()
+	r, err = http.NewRequest(http.MethodPost, webAdminSetupPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusFound, rr.Code)
+
+	_, err = dataprovider.AdminExists(defaultAdminUsername)
+	assert.NoError(t, err)
+
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	providerConf.CreateDefaultAdmin = true
+	err = dataprovider.Initialize(providerConf, "..", true)
+	assert.NoError(t, err)
+	installationCode = ""
 }
