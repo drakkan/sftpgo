@@ -41,7 +41,7 @@ require (
 	github.com/rs/cors v1.8.2
 	github.com/rs/xid v1.3.0
 	github.com/rs/zerolog v1.26.2-0.20220227173336-263b0bde3672
-	github.com/sftpgo/sdk v0.1.1-0.20220225141305-cca7ba31466c
+	github.com/sftpgo/sdk v0.1.1-0.20220228183957-d7251ba29961
 	github.com/shirou/gopsutil/v3 v3.22.1
 	github.com/spf13/afero v1.8.1
 	github.com/spf13/cobra v1.3.0
@@ -130,7 +130,7 @@ require (
 	golang.org/x/tools v0.1.9 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20220222213610-43724f9ea8cf // indirect
+	google.golang.org/genproto v0.0.0-20220228155957-1da8797a5878 // indirect
 	google.golang.org/grpc v1.44.0 // indirect
 	google.golang.org/protobuf v1.27.1 // indirect
 	gopkg.in/ini.v1 v1.66.4 // indirect

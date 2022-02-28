@@ -969,6 +969,7 @@ func getS3Config(r *http.Request) (vfs.S3FsConfig, error) {
 	config.Region = r.Form.Get("s3_region")
 	config.AccessKey = r.Form.Get("s3_access_key")
 	config.SessionToken = strings.TrimSpace(r.Form.Get("s3_session_token"))
+	config.RoleARN = r.Form.Get("s3_role_arn")
 	config.AccessSecret = getSecretFromFormField(r, "s3_access_secret")
 	config.Endpoint = r.Form.Get("s3_endpoint")
 	config.StorageClass = r.Form.Get("s3_storage_class")

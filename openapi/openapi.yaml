@@ -4720,6 +4720,9 @@ components:
           $ref: '#/components/schemas/Secret'
         session_token:
           type: string
+        role_arn:
+          type: string
+          description: 'IAM Role ARN to assume'
         endpoint:
           type: string
           description: optional endpoint

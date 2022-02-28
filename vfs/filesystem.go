@@ -245,6 +245,7 @@ func (f *Filesystem) GetACopy() Filesystem {
 				Region:              f.S3Config.Region,
 				AccessKey:           f.S3Config.AccessKey,
 				SessionToken:        f.S3Config.SessionToken,
+				RoleARN:             f.S3Config.RoleARN,
 				Endpoint:            f.S3Config.Endpoint,
 				StorageClass:        f.S3Config.StorageClass,
 				ACL:                 f.S3Config.ACL,

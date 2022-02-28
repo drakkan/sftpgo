@@ -1788,6 +1788,7 @@ func TestUserRedactedPassword(t *testing.T) {
 	u.FsConfig.S3Config.Region = "eu-west-1"
 	u.FsConfig.S3Config.AccessKey = "access-key"
 	u.FsConfig.S3Config.SessionToken = "session token"
+	u.FsConfig.S3Config.RoleARN = "myRoleARN"
 	u.FsConfig.S3Config.AccessSecret = kms.NewSecret(sdkkms.SecretStatusRedacted, "access-secret", "", "")
 	u.FsConfig.S3Config.Endpoint = "http://127.0.0.1:9000/path?k=m"
 	u.FsConfig.S3Config.StorageClass = "Standard"
@@ -2566,6 +2567,7 @@ func TestUserS3Config(t *testing.T) {
 	user.FsConfig.S3Config.AccessKey = "Server-Access-Key"
 	user.FsConfig.S3Config.AccessSecret = kms.NewPlainSecret("Server-Access-Secret")
 	user.FsConfig.S3Config.SessionToken = "Session token"
+	user.FsConfig.S3Config.RoleARN = "myRoleARN"
 	user.FsConfig.S3Config.Endpoint = "http://127.0.0.1:9000"
 	user.FsConfig.S3Config.UploadPartSize = 8
 	user.FsConfig.S3Config.DownloadPartMaxTime = 60
@@ -15100,6 +15102,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	user.FsConfig.S3Config.AccessKey = "access-key"
 	user.FsConfig.S3Config.AccessSecret = kms.NewPlainSecret("access-secret")
 	user.FsConfig.S3Config.SessionToken = "new session token"
+	user.FsConfig.S3Config.RoleARN = "arn:aws:iam::123456789012:user/Development/product_1234/*"
 	user.FsConfig.S3Config.Endpoint = "http://127.0.0.1:9000/path?a=b"
 	user.FsConfig.S3Config.StorageClass = "Standard"
 	user.FsConfig.S3Config.KeyPrefix = "somedir/subdir/"
@@ -15139,6 +15142,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	form.Set("s3_access_key", user.FsConfig.S3Config.AccessKey)
 	form.Set("s3_access_secret", user.FsConfig.S3Config.AccessSecret.GetPayload())
 	form.Set("s3_session_token", user.FsConfig.S3Config.SessionToken)
+	form.Set("s3_role_arn", user.FsConfig.S3Config.RoleARN)
 	form.Set("s3_storage_class", user.FsConfig.S3Config.StorageClass)
 	form.Set("s3_acl", user.FsConfig.S3Config.ACL)
 	form.Set("s3_endpoint", user.FsConfig.S3Config.Endpoint)
@@ -15229,6 +15233,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	assert.Equal(t, updateUser.FsConfig.S3Config.Region, user.FsConfig.S3Config.Region)
 	assert.Equal(t, updateUser.FsConfig.S3Config.AccessKey, user.FsConfig.S3Config.AccessKey)
 	assert.Equal(t, updateUser.FsConfig.S3Config.SessionToken, user.FsConfig.S3Config.SessionToken)
+	assert.Equal(t, updateUser.FsConfig.S3Config.RoleARN, user.FsConfig.S3Config.RoleARN)
 	assert.Equal(t, updateUser.FsConfig.S3Config.StorageClass, user.FsConfig.S3Config.StorageClass)
 	assert.Equal(t, updateUser.FsConfig.S3Config.ACL, user.FsConfig.S3Config.ACL)
 	assert.Equal(t, updateUser.FsConfig.S3Config.Endpoint, user.FsConfig.S3Config.Endpoint)
@@ -15930,6 +15935,7 @@ func TestS3WebFolderMock(t *testing.T) {
 	S3AccessKey := "access-key"
 	S3AccessSecret := kms.NewPlainSecret("folder-access-secret")
 	S3SessionToken := "fake session token"
+	S3RoleARN := "arn:aws:iam::123456789012:user/Development/product_1234/*"
 	S3Endpoint := "http://127.0.0.1:9000/path?b=c"
 	S3StorageClass := "Standard"
 	S3ACL := "public-read-write"
@@ -15950,6 +15956,7 @@ func TestS3WebFolderMock(t *testing.T) {
 	form.Set("s3_access_key", S3AccessKey)
 	form.Set("s3_access_secret", S3AccessSecret.GetPayload())
 	form.Set("s3_session_token", S3SessionToken)
+	form.Set("s3_role_arn", S3RoleARN)
 	form.Set("s3_storage_class", S3StorageClass)
 	form.Set("s3_acl", S3ACL)
 	form.Set("s3_endpoint", S3Endpoint)
@@ -16044,6 +16051,7 @@ func TestS3WebFolderMock(t *testing.T) {
 	assert.Equal(t, S3Region, folder.FsConfig.S3Config.Region)
 	assert.Equal(t, S3AccessKey, folder.FsConfig.S3Config.AccessKey)
 	assert.Equal(t, S3SessionToken, folder.FsConfig.S3Config.SessionToken)
+	assert.Equal(t, S3RoleARN, folder.FsConfig.S3Config.RoleARN)
 	assert.NotEmpty(t, folder.FsConfig.S3Config.AccessSecret.GetPayload())
 	assert.Equal(t, S3Endpoint, folder.FsConfig.S3Config.Endpoint)
 	assert.Equal(t, S3StorageClass, folder.FsConfig.S3Config.StorageClass)

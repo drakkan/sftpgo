@@ -176,6 +176,9 @@ func (c *S3FsConfig) isEqual(other *S3FsConfig) bool {
 	if c.SessionToken != other.SessionToken {
 		return false
 	}
+	if c.RoleARN != other.RoleARN {
+		return false
+	}
 	if c.Endpoint != other.Endpoint {
 		return false
 	}

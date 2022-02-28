@@ -17,6 +17,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -100,6 +101,10 @@ func NewS3Fs(connectionID, localTempDir, mountPath string, config S3FsConfig) (F
 	sess, err := session.NewSessionWithOptions(sessOpts)
 	if err != nil {
 		return fs, err
+	}
+	if fs.config.RoleARN != "" {
+		creds := stscreds.NewCredentials(sess, fs.config.RoleARN)
+		sess.Config.Credentials = creds
 	}
 	fs.svc = s3.New(sess)
 	return fs, nil
