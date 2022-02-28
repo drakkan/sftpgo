@@ -373,6 +373,8 @@ $ getcap /usr/bin/sftpgo
 
 Now you can use privileged ports such as 21, 22, 443 etc.. without running the SFTPGo service as root user. You have to set the `cap_net_bind_service` capability each time you update the `sftpgo` binary.
 
+The "official" deb/rpm packages attempt to set the `cap_net_bind_service` capability in their `postinstall` scripts.
+
 An alternative method is to use `iptables`, for example you run the SFTP service on port `2022` and redirect traffic from port `22` to port `2022`:
 
 ```shell
