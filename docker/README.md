@@ -133,7 +133,7 @@ Alternately you can mount your custom configuration file to `/var/lib/sftpgo` or
 
 Initial data can be loaded in the following ways:
 
-- via the `--loaddata-from` flag or the `SFTPGO_LOADDATA_FROM` environment variable
+- via the `--loaddata-from` flag or the `SFTPGO_LOADDATA_FROM` environment variable. This flag is supported for both the `serve` command (load initial data and start the service) and the `initprovider` command (initialize the provider, load initial data and exit)
 - by providing a dump file to the memory provider
 
 Please take a look [here](../docs/full-configuration.md) for more details.

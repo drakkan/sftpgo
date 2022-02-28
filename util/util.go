@@ -84,7 +84,7 @@ func RemoveDuplicates(obj []string) []string {
 
 // GetTimeAsMsSinceEpoch returns unix timestamp as milliseconds from a time struct
 func GetTimeAsMsSinceEpoch(t time.Time) int64 {
-	return t.UnixNano() / 1000000
+	return t.UnixMilli()
 }
 
 // GetTimeFromMsecSinceEpoch return a time struct from a unix timestamp with millisecond precision

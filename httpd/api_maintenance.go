@@ -360,7 +360,7 @@ func RestoreUsers(users []dataprovider.User, inputFile string, mode, scanQuota i
 			logger.Debug(logSender, "", "adding new user: %+v, dump file: %#v, error: %v", user, inputFile, err)
 		}
 		if err != nil {
-			return fmt.Errorf("unable to restoreuser %#v: %w", user.Username, err)
+			return fmt.Errorf("unable to restore user %#v: %w", user.Username, err)
 		}
 		if scanQuota == 1 || (scanQuota == 2 && user.HasQuotaRestrictions()) {
 			if common.QuotaScans.AddUserQuotaScan(user.Username) {

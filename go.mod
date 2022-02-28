@@ -40,7 +40,7 @@ require (
 	github.com/prometheus/client_golang v1.12.1
 	github.com/rs/cors v1.8.2
 	github.com/rs/xid v1.3.0
-	github.com/rs/zerolog v1.26.2-0.20220203140311-fc26014bd4e1
+	github.com/rs/zerolog v1.26.2-0.20220227173336-263b0bde3672
 	github.com/sftpgo/sdk v0.1.1-0.20220225141305-cca7ba31466c
 	github.com/shirou/gopsutil/v3 v3.22.1
 	github.com/spf13/afero v1.8.1
@@ -58,7 +58,7 @@ require (
 	golang.org/x/crypto v0.0.0-20220214200702-86341886e292
 	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd
 	golang.org/x/oauth2 v0.0.0-20220223155221-ee480838109b
-	golang.org/x/sys v0.0.0-20220224120231-95c6836cb0e7
+	golang.org/x/sys v0.0.0-20220227234510-4e6760a101f9
 	golang.org/x/time v0.0.0-20220224211638-0e9765cccd65
 	google.golang.org/api v0.70.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
@@ -120,7 +120,7 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/subosito/gotenv v1.2.0 // indirect
-	github.com/tklauser/go-sysconf v0.3.9 // indirect
+	github.com/tklauser/go-sysconf v0.3.10 // indirect
 	github.com/tklauser/numcpus v0.4.0 // indirect
 	github.com/toorop/go-dkim v0.0.0-20201103131630-e1cd1a0a5208 // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect

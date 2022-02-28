@@ -135,7 +135,7 @@ func (s *Service) Start() error {
 		}
 	}
 
-	err = s.loadInitialData()
+	err = s.LoadInitialData()
 	if err != nil {
 		logger.Error(logSender, "", "unable to load initial data: %v", err)
 		logger.ErrorToConsole("unable to load initial data: %v", err)
@@ -248,7 +248,8 @@ func (s *Service) Stop() {
 	logger.Debug(logSender, "", "Service stopped")
 }
 
-func (s *Service) loadInitialData() error {
+// LoadInitialData if a data file is set
+func (s *Service) LoadInitialData() error {
 	if s.LoadDataFrom == "" {
 		return nil
 	}
@@ -263,12 +264,7 @@ func (s *Service) loadInitialData() error {
 	}
 	info, err := os.Stat(s.LoadDataFrom)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			logger.Warn(logSender, "", "unable to load initial data, the file %#v does not exist", s.LoadDataFrom)
-			logger.WarnToConsole("unable to load initial data, the file %#v does not exist", s.LoadDataFrom)
-			return nil
-		}
-		return err
+		return fmt.Errorf("unable to stat file %#v: %w", s.LoadDataFrom, err)
 	}
 	if info.Size() > httpd.MaxRestoreSize {
 		return fmt.Errorf("unable to restore input file %#v size too big: %v/%v bytes",
@@ -276,20 +272,18 @@ func (s *Service) loadInitialData() error {
 	}
 	content, err := os.ReadFile(s.LoadDataFrom)
 	if err != nil {
-		return fmt.Errorf("unable to read input file %#v: %v", s.LoadDataFrom, err)
+		return fmt.Errorf("unable to read input file %#v: %w", s.LoadDataFrom, err)
 	}
 	dump, err := dataprovider.ParseDumpData(content)
 	if err != nil {
-		return fmt.Errorf("unable to parse file to restore %#v: %v", s.LoadDataFrom, err)
+		return fmt.Errorf("unable to parse file to restore %#v: %w", s.LoadDataFrom, err)
 	}
 	err = s.restoreDump(&dump)
 	if err != nil {
 		return err
 	}
-	logger.Info(logSender, "", "data loaded from file %#v mode: %v, quota scan %v", s.LoadDataFrom,
-		s.LoadDataMode, s.LoadDataQuotaScan)
-	logger.InfoToConsole("data loaded from file %#v mode: %v, quota scan %v", s.LoadDataFrom,
-		s.LoadDataMode, s.LoadDataQuotaScan)
+	logger.Info(logSender, "", "data loaded from file %#v mode: %v", s.LoadDataFrom, s.LoadDataMode)
+	logger.InfoToConsole("data loaded from file %#v mode: %v", s.LoadDataFrom, s.LoadDataMode)
 	if s.LoadDataClean {
 		err = os.Remove(s.LoadDataFrom)
 		if err == nil {

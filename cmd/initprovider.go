@@ -10,6 +10,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/config"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/service"
 	"github.com/drakkan/sftpgo/v2/util"
 )
 
@@ -40,13 +41,13 @@ Please take a look at the usage below to customize the options.`,
 			configDir = util.CleanDirInput(configDir)
 			err := config.LoadConfig(configDir, configFile)
 			if err != nil {
-				logger.WarnToConsole("Unable to initialize data provider, config load error: %v", err)
+				logger.ErrorToConsole("Unable to initialize data provider, config load error: %v", err)
 				return
 			}
 			kmsConfig := config.GetKMSConfig()
 			err = kmsConfig.Initialize()
 			if err != nil {
-				logger.ErrorToConsole("unable to initialize KMS: %v", err)
+				logger.ErrorToConsole("Unable to initialize KMS: %v", err)
 				os.Exit(1)
 			}
 			providerConf := config.GetProviderConf()
@@ -57,8 +58,20 @@ Please take a look at the usage below to customize the options.`,
 			} else if err == dataprovider.ErrNoInitRequired {
 				logger.InfoToConsole("%v", err.Error())
 			} else {
-				logger.WarnToConsole("Unable to initialize/update the data provider: %v", err)
+				logger.ErrorToConsole("Unable to initialize/update the data provider: %v", err)
 				os.Exit(1)
+			}
+			if providerConf.Driver != dataprovider.MemoryDataProviderName && loadDataFrom != "" {
+				service := service.Service{
+					LoadDataFrom:      loadDataFrom,
+					LoadDataMode:      loadDataMode,
+					LoadDataQuotaScan: loadDataQuotaScan,
+					LoadDataClean:     loadDataClean,
+				}
+				if err = service.LoadInitialData(); err != nil {
+					logger.ErrorToConsole("Cannot load initial data: %v", err)
+					os.Exit(1)
+				}
 			}
 		},
 	}
@@ -67,4 +80,5 @@ Please take a look at the usage below to customize the options.`,
 func init() {
 	rootCmd.AddCommand(initProviderCmd)
 	addConfigFlags(initProviderCmd)
+	addBaseLoadDataFlags(initProviderCmd)
 }

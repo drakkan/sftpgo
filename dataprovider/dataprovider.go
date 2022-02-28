@@ -804,6 +804,11 @@ func InitializeDatabase(cnf Config, basePath string) error {
 	} else {
 		credentialsDirPath = filepath.Join(basePath, config.CredentialsPath)
 	}
+	vfs.SetCredentialsDirPath(credentialsDirPath)
+
+	if err := initializeHashingAlgo(&cnf); err != nil {
+		return err
+	}
 
 	err := createProvider(basePath)
 	if err != nil {

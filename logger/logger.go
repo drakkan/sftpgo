@@ -46,6 +46,10 @@ type StdLoggerWrapper struct {
 	Sender string
 }
 
+func init() {
+	zerolog.TimeFieldFormat = dateFormat
+}
+
 // Write implements the io.Writer interface. This is useful to set as a writer
 // for the standard library log.
 func (l *StdLoggerWrapper) Write(p []byte) (n int, err error) {
@@ -138,7 +142,6 @@ func GetLogger() *zerolog.Logger {
 
 // SetLogTime sets logging time related setting
 func SetLogTime(utc bool) {
-	zerolog.TimeFieldFormat = dateFormat
 	if utc {
 		zerolog.TimestampFunc = func() time.Time {
 			return time.Now().UTC()

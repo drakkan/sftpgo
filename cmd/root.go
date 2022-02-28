@@ -126,6 +126,43 @@ env var too.`)
 	viper.BindPFlag(configFileKey, cmd.Flags().Lookup(configFileFlag)) //nolint:errcheck
 }
 
+func addBaseLoadDataFlags(cmd *cobra.Command) {
+	viper.SetDefault(loadDataFromKey, defaultLoadDataFrom)
+	viper.BindEnv(loadDataFromKey, "SFTPGO_LOADDATA_FROM") //nolint:errcheck
+	cmd.Flags().StringVar(&loadDataFrom, loadDataFromFlag, viper.GetString(loadDataFromKey),
+		`Load users and folders from this file.
+The file must be specified as absolute path
+and it must contain a backup obtained using
+the "dumpdata" REST API or compatible content.
+This flag can be set using SFTPGO_LOADDATA_FROM
+env var too.
+`)
+	viper.BindPFlag(loadDataFromKey, cmd.Flags().Lookup(loadDataFromFlag)) //nolint:errcheck
+
+	viper.SetDefault(loadDataModeKey, defaultLoadDataMode)
+	viper.BindEnv(loadDataModeKey, "SFTPGO_LOADDATA_MODE") //nolint:errcheck
+	cmd.Flags().IntVar(&loadDataMode, loadDataModeFlag, viper.GetInt(loadDataModeKey),
+		`Restore mode for data to load:
+  0 - new users are added, existing users are
+      updated
+  1 - New users are added, existing users are
+	  not modified
+This flag can be set using SFTPGO_LOADDATA_MODE
+env var too.
+`)
+	viper.BindPFlag(loadDataModeKey, cmd.Flags().Lookup(loadDataModeFlag)) //nolint:errcheck
+
+	viper.SetDefault(loadDataCleanKey, defaultLoadDataClean)
+	viper.BindEnv(loadDataCleanKey, "SFTPGO_LOADDATA_CLEAN") //nolint:errcheck
+	cmd.Flags().BoolVar(&loadDataClean, loadDataCleanFlag, viper.GetBool(loadDataCleanKey),
+		`Determine if the loaddata-from file should
+be removed after a successful load. This flag
+can be set using SFTPGO_LOADDATA_CLEAN env var
+too. (default "false")
+`)
+	viper.BindPFlag(loadDataCleanKey, cmd.Flags().Lookup(loadDataCleanFlag)) //nolint:errcheck
+}
+
 func addServeFlags(cmd *cobra.Command) {
 	addConfigFlags(cmd)
 
@@ -192,30 +229,7 @@ using SFTPGO_LOG_UTC_TIME env var too.
 `)
 	viper.BindPFlag(logUTCTimeKey, cmd.Flags().Lookup(logUTCTimeFlag)) //nolint:errcheck
 
-	viper.SetDefault(loadDataFromKey, defaultLoadDataFrom)
-	viper.BindEnv(loadDataFromKey, "SFTPGO_LOADDATA_FROM") //nolint:errcheck
-	cmd.Flags().StringVar(&loadDataFrom, loadDataFromFlag, viper.GetString(loadDataFromKey),
-		`Load users and folders from this file.
-The file must be specified as absolute path
-and it must contain a backup obtained using
-the "dumpdata" REST API or compatible content.
-This flag can be set using SFTPGO_LOADDATA_FROM
-env var too.
-`)
-	viper.BindPFlag(loadDataFromKey, cmd.Flags().Lookup(loadDataFromFlag)) //nolint:errcheck
-
-	viper.SetDefault(loadDataModeKey, defaultLoadDataMode)
-	viper.BindEnv(loadDataModeKey, "SFTPGO_LOADDATA_MODE") //nolint:errcheck
-	cmd.Flags().IntVar(&loadDataMode, loadDataModeFlag, viper.GetInt(loadDataModeKey),
-		`Restore mode for data to load:
-  0 - new users are added, existing users are
-      updated
-  1 - New users are added, existing users are
-	  not modified
-This flag can be set using SFTPGO_LOADDATA_MODE
-env var too.
-`)
-	viper.BindPFlag(loadDataModeKey, cmd.Flags().Lookup(loadDataModeFlag)) //nolint:errcheck
+	addBaseLoadDataFlags(cmd)
 
 	viper.SetDefault(loadDataQuotaScanKey, defaultLoadDataQuotaScan)
 	viper.BindEnv(loadDataQuotaScanKey, "SFTPGO_LOADDATA_QUOTA_SCAN") //nolint:errcheck
@@ -228,14 +242,4 @@ This flag can be set using SFTPGO_LOADDATA_QUOTA_SCAN
 env var too.
 (default 0)`)
 	viper.BindPFlag(loadDataQuotaScanKey, cmd.Flags().Lookup(loadDataQuotaScanFlag)) //nolint:errcheck
-
-	viper.SetDefault(loadDataCleanKey, defaultLoadDataClean)
-	viper.BindEnv(loadDataCleanKey, "SFTPGO_LOADDATA_CLEAN") //nolint:errcheck
-	cmd.Flags().BoolVar(&loadDataClean, loadDataCleanFlag, viper.GetBool(loadDataCleanKey),
-		`Determine if the loaddata-from file should
-be removed after a successful load. This flag
-can be set using SFTPGO_LOADDATA_CLEAN env var
-too. (default "false")
-`)
-	viper.BindPFlag(logCompressKey, cmd.Flags().Lookup(logCompressFlag)) //nolint:errcheck
 }
