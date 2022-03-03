@@ -211,7 +211,9 @@ func (u *User) CheckFsRoot(connectionID string) error {
 		}
 	}
 	if isLastActivityRecent(u.LastLogin, delay) {
-		return nil
+		if u.LastLogin > u.UpdatedAt {
+			return nil
+		}
 	}
 	fs, err := u.GetFilesystemForPath("/", connectionID)
 	if err != nil {
@@ -258,7 +260,7 @@ func (u *User) GetCleanedPath(rawVirtualPath string) string {
 	return util.CleanPath(rawVirtualPath)
 }
 
-// isFsEqual returns true if the fs has the same configuration
+// isFsEqual returns true if the filesystem configurations are the same
 func (u *User) isFsEqual(other *User) bool {
 	if u.FsConfig.Provider == sdk.LocalFilesystemProvider && u.GetHomeDir() != other.GetHomeDir() {
 		return false

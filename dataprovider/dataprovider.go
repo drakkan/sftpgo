@@ -1131,7 +1131,7 @@ func UpdateLastLogin(user *User) {
 	if user.Filters.ExternalAuthCacheTime > 0 {
 		delay = time.Duration(user.Filters.ExternalAuthCacheTime) * time.Second
 	}
-	if !isLastActivityRecent(user.LastLogin, delay) {
+	if user.LastLogin <= user.UpdatedAt || !isLastActivityRecent(user.LastLogin, delay) {
 		err := provider.updateLastLogin(user.Username)
 		if err == nil {
 			webDAVUsersCache.updateLastLogin(user.Username)

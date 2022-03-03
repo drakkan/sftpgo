@@ -271,6 +271,44 @@ func TestBaseConnection(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestCheckFsAfterUpdate(t *testing.T) {
+	u := getTestUser()
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	conn, client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		err = checkBasicSFTP(client)
+		assert.NoError(t, err)
+	}
+	// remove the home dir, it will not be re-created
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	conn, client, err = getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		err = checkBasicSFTP(client)
+		assert.Error(t, err)
+	}
+	// update the user and login again, this time the home dir will be created
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	conn, client, err = getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		err = checkBasicSFTP(client)
+		assert.NoError(t, err)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestSetStat(t *testing.T) {
 	u := getTestUser()
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)

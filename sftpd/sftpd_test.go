@@ -1477,11 +1477,9 @@ func TestSFTPFsLoginWrongFingerprint(t *testing.T) {
 	_, _, err = httpdtest.UpdateUser(sftpUser, http.StatusOK, "")
 	assert.NoError(t, err)
 	conn, client, err = getSftpClient(sftpUser, usePubKey)
-	if assert.NoError(t, err) {
+	if !assert.Error(t, err) {
 		defer conn.Close()
 		defer client.Close()
-		err = checkBasicSFTP(client)
-		assert.Error(t, err)
 	}
 
 	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
