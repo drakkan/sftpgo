@@ -531,7 +531,7 @@ func (c *sshCommand) getDestPath() string {
 	if len(c.args) == 0 {
 		return ""
 	}
-	return cleanCommandPath(c.args[len(c.args)-1])
+	return c.cleanCommandPath(c.args[len(c.args)-1])
 }
 
 // for the supported commands, the destination path, if any, is the second-last argument
@@ -539,13 +539,13 @@ func (c *sshCommand) getSourcePath() string {
 	if len(c.args) < 2 {
 		return ""
 	}
-	return cleanCommandPath(c.args[len(c.args)-2])
+	return c.cleanCommandPath(c.args[len(c.args)-2])
 }
 
-func cleanCommandPath(name string) string {
+func (c *sshCommand) cleanCommandPath(name string) string {
 	name = strings.Trim(name, "'")
 	name = strings.Trim(name, "\"")
-	result := util.CleanPath(name)
+	result := c.connection.User.GetCleanedPath(name)
 	if strings.HasSuffix(name, "/") && !strings.HasSuffix(result, "/") {
 		result += "/"
 	}

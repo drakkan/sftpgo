@@ -29,6 +29,7 @@ var (
 	portableAdvertiseCredentials       bool
 	portableUsername                   string
 	portablePassword                   string
+	portableStartDir                   string
 	portableLogFile                    string
 	portableLogVerbose                 bool
 	portableLogUTCTime                 bool
@@ -163,7 +164,8 @@ Please take a look at the usage below to customize the serving parameters`,
 					},
 					Filters: dataprovider.UserFilters{
 						BaseUserFilters: sdk.BaseUserFilters{
-							FilePatterns: parsePatternsFilesFilters(),
+							FilePatterns:   parsePatternsFilesFilters(),
+							StartDirectory: portableStartDir,
 						},
 					},
 					FsConfig: vfs.Filesystem{
@@ -246,6 +248,9 @@ func init() {
 This can be an absolute path or a path
 relative to the current directory
 `)
+	portableCmd.Flags().StringVar(&portableStartDir, "start-directory", "/", `Alternate start directory.
+This is a virtual path not a filesystem
+path`)
 	portableCmd.Flags().IntVarP(&portableSFTPDPort, "sftpd-port", "s", 0, `0 means a random unprivileged port,
 < 0 disabled`)
 	portableCmd.Flags().IntVar(&portableFTPDPort, "ftpd-port", -1, `0 means a random unprivileged port,

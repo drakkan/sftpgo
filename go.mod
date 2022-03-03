@@ -8,11 +8,11 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v0.3.0
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/alexedwards/argon2id v0.0.0-20211130144151-3585854a6387
-	github.com/aws/aws-sdk-go v1.43.7
+	github.com/aws/aws-sdk-go v1.43.10
 	github.com/cockroachdb/cockroach-go/v2 v2.2.8
 	github.com/coreos/go-oidc/v3 v3.1.0
 	github.com/eikenb/pipeat v0.0.0-20210730190139-06b3e6902001
-	github.com/fclairamb/ftpserverlib v0.17.1-0.20220212161409-5157f18d716f
+	github.com/fclairamb/ftpserverlib v0.17.1-0.20220302132530-f366fc1586cb
 	github.com/fclairamb/go-log v0.2.0
 	github.com/go-chi/chi/v5 v5.0.8-0.20220103230436-7dbe9a0bd10f
 	github.com/go-chi/jwtauth/v5 v5.0.2
@@ -27,22 +27,22 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.7.0
 	github.com/jlaffaye/ftp v0.0.0-20201112195030-9aae4d151126
 	github.com/klauspost/compress v1.14.4
-	github.com/lestrrat-go/jwx v1.2.19
+	github.com/lestrrat-go/jwx v1.2.20
 	github.com/lib/pq v1.10.4
 	github.com/lithammer/shortuuid/v3 v3.0.7
 	github.com/mattn/go-sqlite3 v1.14.12
 	github.com/mhale/smtpd v0.8.0
 	github.com/minio/sio v0.3.0
 	github.com/otiai10/copy v1.7.0
-	github.com/pires/go-proxyproto v0.6.1
-	github.com/pkg/sftp v1.13.5-0.20220119192800-7d25d533c9a3
+	github.com/pires/go-proxyproto v0.6.2
+	github.com/pkg/sftp v1.13.5-0.20220303113417-dcfc1d5e4162
 	github.com/pquerna/otp v1.3.0
 	github.com/prometheus/client_golang v1.12.1
 	github.com/rs/cors v1.8.2
 	github.com/rs/xid v1.3.0
 	github.com/rs/zerolog v1.26.2-0.20220227173336-263b0bde3672
-	github.com/sftpgo/sdk v0.1.1-0.20220228183957-d7251ba29961
-	github.com/shirou/gopsutil/v3 v3.22.1
+	github.com/sftpgo/sdk v0.1.1-0.20220303113613-e279f0a57712
+	github.com/shirou/gopsutil/v3 v3.22.2
 	github.com/spf13/afero v1.8.1
 	github.com/spf13/cobra v1.3.0
 	github.com/spf13/viper v1.10.1
@@ -67,7 +67,7 @@ require (
 require (
 	cloud.google.com/go v0.100.2 // indirect
 	cloud.google.com/go/compute v1.5.0 // indirect
-	cloud.google.com/go/iam v0.2.0 // indirect
+	cloud.google.com/go/iam v0.3.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v0.9.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/boombuler/barcode v1.0.1 // indirect
@@ -130,7 +130,7 @@ require (
 	golang.org/x/tools v0.1.9 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20220228155957-1da8797a5878 // indirect
+	google.golang.org/genproto v0.0.0-20220302033224-9aa15565e42a // indirect
 	google.golang.org/grpc v1.44.0 // indirect
 	google.golang.org/protobuf v1.27.1 // indirect
 	gopkg.in/ini.v1 v1.66.4 // indirect

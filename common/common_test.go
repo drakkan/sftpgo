@@ -884,6 +884,7 @@ func TestGetTLSVersion(t *testing.T) {
 func TestCleanPath(t *testing.T) {
 	assert.Equal(t, "/", util.CleanPath("/"))
 	assert.Equal(t, "/", util.CleanPath("."))
+	assert.Equal(t, "/", util.CleanPath(""))
 	assert.Equal(t, "/", util.CleanPath("/."))
 	assert.Equal(t, "/", util.CleanPath("/a/.."))
 	assert.Equal(t, "/a", util.CleanPath("/a/"))

@@ -5,16 +5,16 @@ on:
     tags: 'v*'
 
 env:
-  GO_VERSION: 1.17.5
+  GO_VERSION: 1.17.7
 
 jobs:
   prepare-sources-with-deps:
     name: Prepare sources with deps
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Set up Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
 
@@ -45,9 +45,9 @@ jobs:
         os: [macos-10.15, windows-2019]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Set up Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
 
@@ -283,10 +283,10 @@ jobs:
             tar-arch: armv7
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Set up Go
         if: ${{ matrix.arch == 'amd64' }}
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
 
@@ -467,7 +467,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Get versions
         id: get_version
         run: |

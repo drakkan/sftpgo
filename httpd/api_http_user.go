@@ -55,7 +55,7 @@ func readUserFolder(w http.ResponseWriter, r *http.Request) {
 	common.Connections.Add(connection)
 	defer common.Connections.Remove(connection.GetID())
 
-	name := util.CleanPath(r.URL.Query().Get("path"))
+	name := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
 	contents, err := connection.ReadDir(name)
 	if err != nil {
 		sendAPIResponse(w, r, err, "Unable to get directory contents", getMappedStatusCode(err))
@@ -73,7 +73,7 @@ func createUserDir(w http.ResponseWriter, r *http.Request) {
 	common.Connections.Add(connection)
 	defer common.Connections.Remove(connection.GetID())
 
-	name := util.CleanPath(r.URL.Query().Get("path"))
+	name := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
 	if getBoolQueryParam(r, "mkdir_parents") {
 		if err = connection.CheckParentDirs(path.Dir(name)); err != nil {
 			sendAPIResponse(w, r, err, "Error checking parent directories", getMappedStatusCode(err))
@@ -97,8 +97,8 @@ func renameUserDir(w http.ResponseWriter, r *http.Request) {
 	common.Connections.Add(connection)
 	defer common.Connections.Remove(connection.GetID())
 
-	oldName := util.CleanPath(r.URL.Query().Get("path"))
-	newName := util.CleanPath(r.URL.Query().Get("target"))
+	oldName := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
+	newName := connection.User.GetCleanedPath(r.URL.Query().Get("target"))
 	err = connection.Rename(oldName, newName)
 	if err != nil {
 		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to rename directory %#v to %#v", oldName, newName),
@@ -117,7 +117,7 @@ func deleteUserDir(w http.ResponseWriter, r *http.Request) {
 	common.Connections.Add(connection)
 	defer common.Connections.Remove(connection.GetID())
 
-	name := util.CleanPath(r.URL.Query().Get("path"))
+	name := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
 	err = connection.RemoveDir(name)
 	if err != nil {
 		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to delete directory %#v", name), getMappedStatusCode(err))
@@ -135,7 +135,7 @@ func getUserFile(w http.ResponseWriter, r *http.Request) {
 	common.Connections.Add(connection)
 	defer common.Connections.Remove(connection.GetID())
 
-	name := util.CleanPath(r.URL.Query().Get("path"))
+	name := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
 	if name == "/" {
 		sendAPIResponse(w, r, nil, "Please set the path to a valid file", http.StatusBadRequest)
 		return
@@ -186,7 +186,7 @@ func setFileDirMetadata(w http.ResponseWriter, r *http.Request) {
 	common.Connections.Add(connection)
 	defer common.Connections.Remove(connection.GetID())
 
-	name := util.CleanPath(r.URL.Query().Get("path"))
+	name := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
 	attrs := common.StatAttributes{
 		Flags: common.StatAttrTimes,
 		Atime: util.GetTimeFromMsecSinceEpoch(mTime),
@@ -217,7 +217,7 @@ func uploadUserFile(w http.ResponseWriter, r *http.Request) {
 	common.Connections.Add(connection)
 	defer common.Connections.Remove(connection.GetID())
 
-	filePath := util.CleanPath(r.URL.Query().Get("path"))
+	filePath := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
 	if getBoolQueryParam(r, "mkdir_parents") {
 		if err = connection.CheckParentDirs(path.Dir(filePath)); err != nil {
 			sendAPIResponse(w, r, err, "Error checking parent directories", getMappedStatusCode(err))
@@ -279,7 +279,7 @@ func uploadUserFiles(w http.ResponseWriter, r *http.Request) {
 	connection.RemoveTransfer(t)
 	defer r.MultipartForm.RemoveAll() //nolint:errcheck
 
-	parentDir := util.CleanPath(r.URL.Query().Get("path"))
+	parentDir := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
 	files := r.MultipartForm.File["filenames"]
 	if len(files) == 0 {
 		sendAPIResponse(w, r, nil, "No files uploaded!", http.StatusBadRequest)
@@ -339,8 +339,8 @@ func renameUserFile(w http.ResponseWriter, r *http.Request) {
 	common.Connections.Add(connection)
 	defer common.Connections.Remove(connection.GetID())
 
-	oldName := util.CleanPath(r.URL.Query().Get("path"))
-	newName := util.CleanPath(r.URL.Query().Get("target"))
+	oldName := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
+	newName := connection.User.GetCleanedPath(r.URL.Query().Get("target"))
 	err = connection.Rename(oldName, newName)
 	if err != nil {
 		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to rename file %#v to %#v", oldName, newName),
@@ -359,7 +359,7 @@ func deleteUserFile(w http.ResponseWriter, r *http.Request) {
 	common.Connections.Add(connection)
 	defer common.Connections.Remove(connection.GetID())
 
-	name := util.CleanPath(r.URL.Query().Get("path"))
+	name := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
 	fs, p, err := connection.GetFsAndResolvedPath(name)
 	if err != nil {
 		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to delete file %#v", name), getMappedStatusCode(err))

@@ -126,6 +126,9 @@ Flags:
                                         "*" means any supported SSH command
                                         including scp
                                          (default [md5sum,sha1sum,cd,pwd,scp])
+      --start-directory string          Alternate start directory.
+                                        This is a virtual path not a filesystem
+                                        path (default "/")
   -u, --username string                 Leave empty to use an auto generated
                                         value
       --webdav-cert string              Path to the certificate file for WebDAV

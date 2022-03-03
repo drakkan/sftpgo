@@ -597,6 +597,68 @@ func TestBasicFTPHandling(t *testing.T) {
 		50*time.Millisecond)
 }
 
+func TestStartDirectory(t *testing.T) {
+	startDir := "/start/dir"
+	u := getTestUser()
+	u.Filters.StartDirectory = startDir
+	localUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	u = getTestSFTPUser()
+	u.Filters.StartDirectory = startDir
+	sftpUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	for _, user := range []dataprovider.User{localUser, sftpUser} {
+		client, err := getFTPClient(user, true, nil)
+		if assert.NoError(t, err) {
+			currentDir, err := client.CurrentDir()
+			assert.NoError(t, err)
+			assert.Equal(t, startDir, currentDir)
+
+			testFilePath := filepath.Join(homeBasePath, testFileName)
+			testFileSize := int64(65535)
+			err = createTestFile(testFilePath, testFileSize)
+			assert.NoError(t, err)
+			err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
+			assert.NoError(t, err)
+			localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
+			err = ftpDownloadFile(testFileName, localDownloadPath, testFileSize, client, 0)
+			assert.NoError(t, err)
+			entries, err := client.List(".")
+			assert.NoError(t, err)
+			assert.Len(t, entries, 3)
+
+			entries, err = client.List("/")
+			assert.NoError(t, err)
+			assert.Len(t, entries, 2)
+
+			err = client.ChangeDirToParent()
+			assert.NoError(t, err)
+			currentDir, err = client.CurrentDir()
+			assert.NoError(t, err)
+			assert.Equal(t, path.Dir(startDir), currentDir)
+			err = client.ChangeDirToParent()
+			assert.NoError(t, err)
+			currentDir, err = client.CurrentDir()
+			assert.NoError(t, err)
+			assert.Equal(t, "/", currentDir)
+
+			err = os.Remove(testFilePath)
+			assert.NoError(t, err)
+			err = os.Remove(localDownloadPath)
+			assert.NoError(t, err)
+			err = client.Quit()
+			assert.NoError(t, err)
+		}
+	}
+
+	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(localUser.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestMultiFactorAuth(t *testing.T) {
 	u := getTestUser()
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)

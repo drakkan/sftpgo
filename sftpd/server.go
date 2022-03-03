@@ -553,7 +553,8 @@ func (c *Configuration) handleSftpConnection(channel ssh.Channel, connection *Co
 	defer common.Connections.Remove(connection.GetID())
 
 	// Create the server instance for the channel using the handler we created above.
-	server := sftp.NewRequestServer(channel, c.createHandlers(connection), sftp.WithRSAllocator())
+	server := sftp.NewRequestServer(channel, c.createHandlers(connection), sftp.WithRSAllocator(),
+		sftp.WithStartDirectory(connection.User.Filters.StartDirectory))
 
 	defer server.Close()
 	if err := server.Serve(); err == io.EOF {

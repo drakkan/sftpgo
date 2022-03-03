@@ -262,6 +262,8 @@ func (cc mockFTPClientContext) Path() string {
 	return ""
 }
 
+func (cc mockFTPClientContext) SetPath(name string) {}
+
 func (cc mockFTPClientContext) SetDebug(debug bool) {}
 
 func (cc mockFTPClientContext) Debug() bool {

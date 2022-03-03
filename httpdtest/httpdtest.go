@@ -1484,6 +1484,10 @@ func compareUserFilterSubStructs(expected *dataprovider.User, actual *dataprovid
 			return errors.New("web client options contents mismatch")
 		}
 	}
+	return compareUserFiltersEqualFields(expected, actual)
+}
+
+func compareUserFiltersEqualFields(expected *dataprovider.User, actual *dataprovider.User) error {
 	if expected.Filters.Hooks.ExternalAuthDisabled != actual.Filters.Hooks.ExternalAuthDisabled {
 		return errors.New("external_auth_disabled hook mismatch")
 	}
@@ -1495,6 +1499,9 @@ func compareUserFilterSubStructs(expected *dataprovider.User, actual *dataprovid
 	}
 	if expected.Filters.DisableFsChecks != actual.Filters.DisableFsChecks {
 		return errors.New("disable_fs_checks mismatch")
+	}
+	if expected.Filters.StartDirectory != actual.Filters.StartDirectory {
+		return errors.New("start_directory mismatch")
 	}
 	return nil
 }

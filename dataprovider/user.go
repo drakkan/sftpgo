@@ -219,6 +219,13 @@ func (u *User) CheckFsRoot(connectionID string) error {
 		return err
 	}
 	fs.CheckRootPath(u.Username, u.GetUID(), u.GetGID())
+	if u.Filters.StartDirectory != "" {
+		err = u.checkDirWithParents(u.Filters.StartDirectory, connectionID)
+		if err != nil {
+			logger.Warn(logSender, connectionID, "could not create start directory %#v, err: %v",
+				u.Filters.StartDirectory, err)
+		}
+	}
 	for idx := range u.VirtualFolders {
 		v := &u.VirtualFolders[idx]
 		fs, err = u.GetFilesystemForPath(v.VirtualPath, connectionID)
@@ -234,12 +241,32 @@ func (u *User) CheckFsRoot(connectionID string) error {
 	return nil
 }
 
+// GetCleanedPath returns a clean POSIX absolute path using the user start directory as base
+// if the provided rawVirtualPath is relative
+func (u *User) GetCleanedPath(rawVirtualPath string) string {
+	if u.Filters.StartDirectory != "" {
+		if !path.IsAbs(rawVirtualPath) {
+			var b strings.Builder
+
+			b.Grow(len(u.Filters.StartDirectory) + 1 + len(rawVirtualPath))
+			b.WriteString(u.Filters.StartDirectory)
+			b.WriteString("/")
+			b.WriteString(rawVirtualPath)
+			return util.CleanPath(b.String())
+		}
+	}
+	return util.CleanPath(rawVirtualPath)
+}
+
 // isFsEqual returns true if the fs has the same configuration
 func (u *User) isFsEqual(other *User) bool {
 	if u.FsConfig.Provider == sdk.LocalFilesystemProvider && u.GetHomeDir() != other.GetHomeDir() {
 		return false
 	}
 	if !u.FsConfig.IsEqual(&other.FsConfig) {
+		return false
+	}
+	if u.Filters.StartDirectory != other.Filters.StartDirectory {
 		return false
 	}
 	if len(u.VirtualFolders) != len(other.VirtualFolders) {
@@ -586,13 +613,30 @@ func (u *User) GetVirtualFoldersInPath(virtualPath string) map[string]bool {
 		}
 	}
 
+	if u.Filters.StartDirectory != "" {
+		dirsForPath := util.GetDirsForVirtualPath(u.Filters.StartDirectory)
+		for index := range dirsForPath {
+			d := dirsForPath[index]
+			if d == "/" {
+				continue
+			}
+			if path.Dir(d) == virtualPath {
+				result[d] = true
+			}
+		}
+	}
+
 	return result
+}
+
+func (u *User) hasVirtualDirs() bool {
+	return len(u.VirtualFolders) > 0 || u.Filters.StartDirectory != ""
 }
 
 // FilterListDir adds virtual folders and remove hidden items from the given files list
 func (u *User) FilterListDir(dirContents []os.FileInfo, virtualPath string) []os.FileInfo {
 	filter := u.getPatternsFilterForPath(virtualPath)
-	if len(u.VirtualFolders) == 0 && filter.DenyPolicy != sdk.DenyPolicyHide {
+	if !u.hasVirtualDirs() && filter.DenyPolicy != sdk.DenyPolicyHide {
 		return dirContents
 	}
 
@@ -1395,6 +1439,7 @@ func (u *User) getACopy() User {
 	filters.Hooks.PreLoginDisabled = u.Filters.Hooks.PreLoginDisabled
 	filters.Hooks.CheckPasswordDisabled = u.Filters.Hooks.CheckPasswordDisabled
 	filters.DisableFsChecks = u.Filters.DisableFsChecks
+	filters.StartDirectory = u.Filters.StartDirectory
 	filters.AllowAPIKeyAuth = u.Filters.AllowAPIKeyAuth
 	filters.ExternalAuthCacheTime = u.Filters.ExternalAuthCacheTime
 	filters.WebClient = make([]string, len(u.Filters.WebClient))

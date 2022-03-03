@@ -538,6 +538,68 @@ func TestBasicSFTPFsHandling(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestStartDirectory(t *testing.T) {
+	usePubKey := false
+	startDir := "/st@ rt/dir"
+	u := getTestUser(usePubKey)
+	u.Filters.StartDirectory = startDir
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	conn, client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		currentDir, err := client.Getwd()
+		assert.NoError(t, err)
+		assert.Equal(t, startDir, currentDir)
+
+		entries, err := client.ReadDir(".")
+		assert.NoError(t, err)
+		assert.Len(t, entries, 0)
+
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		testFileSize := int64(65535)
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.NoError(t, err)
+		localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
+		err = sftpDownloadFile(testFileName, localDownloadPath, testFileSize, client)
+		assert.NoError(t, err)
+		_, err = client.Stat(testFileName)
+		assert.NoError(t, err)
+		err = client.Rename(testFileName, testFileName+"_rename")
+		assert.NoError(t, err)
+
+		entries, err = client.ReadDir(".")
+		assert.NoError(t, err)
+		assert.Len(t, entries, 1)
+
+		currentDir, err = client.RealPath("..")
+		assert.NoError(t, err)
+		assert.Equal(t, path.Dir(startDir), currentDir)
+
+		currentDir, err = client.RealPath("../..")
+		assert.NoError(t, err)
+		assert.Equal(t, "/", currentDir)
+
+		currentDir, err = client.RealPath("../../..")
+		assert.NoError(t, err)
+		assert.Equal(t, "/", currentDir)
+
+		err = os.Remove(testFilePath)
+		assert.NoError(t, err)
+		err = os.Remove(localDownloadPath)
+		assert.NoError(t, err)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestFolderPrefix(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)
@@ -9181,6 +9243,39 @@ func TestSCPRecursive(t *testing.T) {
 	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
+	assert.NoError(t, err)
+}
+
+func TestSCPStartDirectory(t *testing.T) {
+	usePubKey := true
+	startDir := "/sta rt/dir"
+	u := getTestUser(usePubKey)
+	u.Filters.StartDirectory = startDir
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	testFileSize := int64(131072)
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	localPath := filepath.Join(homeBasePath, "scp_download.dat")
+	remoteUpPath := fmt.Sprintf("%v@127.0.0.1:", user.Username)
+	remoteDownPath := fmt.Sprintf("%v@127.0.0.1:%v", user.Username, testFileName)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+	err = scpUpload(testFilePath, remoteUpPath, false, false)
+	assert.NoError(t, err)
+	err = scpDownload(localPath, remoteDownPath, false, false)
+	assert.NoError(t, err)
+	// check that the file is in the start directory
+	_, err = os.Stat(filepath.Join(user.HomeDir, startDir, testFileName))
+	assert.NoError(t, err)
+
+	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+	err = os.Remove(localPath)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
 

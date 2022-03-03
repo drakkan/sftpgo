@@ -404,7 +404,8 @@ func TestSSHCommandPath(t *testing.T) {
 		ReadError:    nil,
 	}
 	connection := &Connection{
-		channel: &mockSSHChannel,
+		channel:        &mockSSHChannel,
+		BaseConnection: common.NewBaseConnection("", common.ProtocolSSH, "", "", dataprovider.User{}),
 	}
 	sshCommand := sshCommand{
 		command:    "test",

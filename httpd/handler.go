@@ -62,7 +62,6 @@ func (c *Connection) GetCommand() string {
 func (c *Connection) Stat(name string, mode int) (os.FileInfo, error) {
 	c.UpdateLastActivity()
 
-	name = util.CleanPath(name)
 	if !c.User.HasPerm(dataprovider.PermListItems, path.Dir(name)) {
 		return nil, c.GetPermissionDeniedError()
 	}
@@ -78,7 +77,6 @@ func (c *Connection) Stat(name string, mode int) (os.FileInfo, error) {
 func (c *Connection) ReadDir(name string) ([]os.FileInfo, error) {
 	c.UpdateLastActivity()
 
-	name = util.CleanPath(name)
 	return c.ListDir(name)
 }
 
@@ -91,7 +89,6 @@ func (c *Connection) getFileReader(name string, offset int64, method string) (io
 		return nil, c.GetReadQuotaExceededError()
 	}
 
-	name = util.CleanPath(name)
 	if !c.User.HasPerm(dataprovider.PermDownload, path.Dir(name)) {
 		return nil, c.GetPermissionDeniedError()
 	}

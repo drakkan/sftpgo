@@ -201,6 +201,7 @@ func (s *Server) AuthUser(cc ftpserver.ClientContext, username, password string)
 	if err != nil {
 		return nil, err
 	}
+	setStartDirectory(user.Filters.StartDirectory, cc)
 	connection.Log(logger.LevelInfo, "User %#v logged in with %#v from ip %#v", user.Username, loginMethod, ipAddr)
 	dataprovider.UpdateLastLogin(&user)
 	return connection, nil
@@ -246,6 +247,7 @@ func (s *Server) VerifyConnection(cc ftpserver.ClientContext, user string, tlsCo
 					if err != nil {
 						return nil, err
 					}
+					setStartDirectory(dbUser.Filters.StartDirectory, cc)
 					connection.Log(logger.LevelInfo, "User id: %d, logged in with FTP using a TLS certificate, username: %#v, home_dir: %#v remote addr: %#v",
 						dbUser.ID, dbUser.Username, dbUser.HomeDir, ipAddr)
 					dataprovider.UpdateLastLogin(&dbUser)
@@ -365,6 +367,13 @@ func (s *Server) validateUser(user dataprovider.User, cc ftpserver.ClientContext
 		return nil, common.ErrInternalFailure
 	}
 	return connection, nil
+}
+
+func setStartDirectory(startDirectory string, cc ftpserver.ClientContext) {
+	if startDirectory == "" {
+		return
+	}
+	cc.SetPath(startDirectory)
 }
 
 func updateLoginMetrics(user *dataprovider.User, ip, loginMethod string, err error) {

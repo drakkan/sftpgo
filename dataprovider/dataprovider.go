@@ -2021,6 +2021,18 @@ func validateTransferLimitsFilter(user *User) error {
 	return nil
 }
 
+func updateFiltersValues(user *User) {
+	if !user.HasExternalAuth() {
+		user.Filters.ExternalAuthCacheTime = 0
+	}
+	if user.Filters.StartDirectory != "" {
+		user.Filters.StartDirectory = util.CleanPath(user.Filters.StartDirectory)
+		if user.Filters.StartDirectory == "/" {
+			user.Filters.StartDirectory = ""
+		}
+	}
+}
+
 func validateFilters(user *User) error {
 	checkEmptyFiltersStruct(user)
 	if err := validateIPFilters(user); err != nil {
@@ -2061,9 +2073,7 @@ func validateFilters(user *User) error {
 			return util.NewValidationError(fmt.Sprintf("invalid web client options %#v", opts))
 		}
 	}
-	if !user.HasExternalAuth() {
-		user.Filters.ExternalAuthCacheTime = 0
-	}
+	updateFiltersValues(user)
 
 	return validateFiltersPatternExtensions(user)
 }

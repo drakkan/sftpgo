@@ -83,7 +83,7 @@ type Fs interface {
 	IsUploadResumeSupported() bool
 	IsAtomicUploadSupported() bool
 	CheckRootPath(username string, uid int, gid int) bool
-	ResolvePath(sftpPath string) (string, error)
+	ResolvePath(virtualPath string) (string, error)
 	IsNotExist(err error) bool
 	IsPermission(err error) bool
 	IsNotSupported(err error) bool

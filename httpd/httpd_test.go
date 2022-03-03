@@ -11314,6 +11314,146 @@ func TestWebFilesAPI(t *testing.T) {
 	checkResponseCode(t, http.StatusNotFound, rr)
 }
 
+func TestStartDirectory(t *testing.T) {
+	u := getTestUser()
+	u.Filters.StartDirectory = "/start/dir"
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	webAPIToken, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+	webToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	filename := "file1.txt"
+	body := new(bytes.Buffer)
+	writer := multipart.NewWriter(body)
+	part1, err := writer.CreateFormFile("filenames", filename)
+	assert.NoError(t, err)
+	_, err = part1.Write([]byte("test content"))
+	assert.NoError(t, err)
+	err = writer.Close()
+	assert.NoError(t, err)
+	reader := bytes.NewReader(body.Bytes())
+	req, err := http.NewRequest(http.MethodPost, userFilesPath, reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	setBearerForReq(req, webAPIToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	// check we have 2 files in the defined start dir
+	req, err = http.NewRequest(http.MethodGet, userDirsPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	var contents []map[string]interface{}
+	err = json.NewDecoder(rr.Body).Decode(&contents)
+	assert.NoError(t, err)
+	if assert.Len(t, contents, 1) {
+		assert.Equal(t, filename, contents[0]["name"].(string))
+	}
+	req, err = http.NewRequest(http.MethodPost, userUploadFilePath+"?path=file2.txt",
+		bytes.NewBuffer([]byte("single upload content")))
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+
+	req, err = http.NewRequest(http.MethodPost, userDirsPath+"?path=testdir", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+
+	req, err = http.NewRequest(http.MethodPatch, userDirsPath+"?path=testdir&target=testdir1", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodPost, userDirsPath+"?path=%2Ftestdirroot", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+
+	req, err = http.NewRequest(http.MethodGet, userDirsPath+"?path="+url.QueryEscape(u.Filters.StartDirectory), nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	contents = nil
+	err = json.NewDecoder(rr.Body).Decode(&contents)
+	assert.NoError(t, err)
+	assert.Len(t, contents, 3)
+
+	req, err = http.NewRequest(http.MethodGet, userFilesPath+"?path="+filename, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodGet, userFilesPath+"?path=%2F"+filename, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodPatch, userFilesPath+"?path="+filename+"&target="+filename+"_rename", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodDelete, userDirsPath+"?path=testdir1", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodGet, userDirsPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	contents = nil
+	err = json.NewDecoder(rr.Body).Decode(&contents)
+	assert.NoError(t, err)
+	assert.Len(t, contents, 2)
+
+	req, err = http.NewRequest(http.MethodGet, webClientDirsPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	contents = nil
+	err = json.NewDecoder(rr.Body).Decode(&contents)
+	assert.NoError(t, err)
+	assert.Len(t, contents, 2)
+
+	req, err = http.NewRequest(http.MethodDelete, userFilesPath+"?path="+filename+"_rename", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodGet, userDirsPath+"?path="+url.QueryEscape(u.Filters.StartDirectory), nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	contents = nil
+	err = json.NewDecoder(rr.Body).Decode(&contents)
+	assert.NoError(t, err)
+	assert.Len(t, contents, 1)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestWebFilesTransferQuotaLimits(t *testing.T) {
 	u := getTestUser()
 	u.UploadDataTransfer = 1
@@ -13947,6 +14087,7 @@ func TestWebUserAddMock(t *testing.T) {
 	form.Set("disable_fs_checks", "checked")
 	form.Set("total_data_transfer", "0")
 	form.Set("external_auth_cache_time", "0")
+	form.Set("start_directory", "start/dir")
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	// test invalid url escape
 	req, _ = http.NewRequest(http.MethodPost, webUserPath+"?a=%2", &b)
@@ -14228,6 +14369,7 @@ func TestWebUserAddMock(t *testing.T) {
 	assert.True(t, newUser.Filters.DisableFsChecks)
 	assert.False(t, newUser.Filters.AllowAPIKeyAuth)
 	assert.Equal(t, user.Email, newUser.Email)
+	assert.Equal(t, "/start/dir", newUser.Filters.StartDirectory)
 	assert.True(t, util.IsStringInSlice(testPubKey, newUser.PublicKeys))
 	if val, ok := newUser.Permissions["/subdir"]; ok {
 		assert.True(t, util.IsStringInSlice(dataprovider.PermListItems, val))

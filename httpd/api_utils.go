@@ -217,7 +217,7 @@ func renderCompressedFiles(w http.ResponseWriter, conn *Connection, baseDir stri
 	wr := zip.NewWriter(w)
 
 	for _, file := range files {
-		fullPath := path.Join(baseDir, file)
+		fullPath := util.CleanPath(path.Join(baseDir, file))
 		if err := addZipEntry(wr, conn, fullPath, baseDir); err != nil {
 			if share != nil {
 				dataprovider.UpdateShareLastUse(share, -1) //nolint:errcheck
@@ -252,7 +252,7 @@ func addZipEntry(wr *zip.Writer, conn *Connection, entryPath, baseDir string) er
 			return err
 		}
 		for _, info := range contents {
-			fullPath := path.Join(entryPath, info.Name())
+			fullPath := util.CleanPath(path.Join(entryPath, info.Name()))
 			if err := addZipEntry(wr, conn, fullPath, baseDir); err != nil {
 				return err
 			}

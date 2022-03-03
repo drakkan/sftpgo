@@ -211,7 +211,7 @@ paths:
       parameters:
         - in: query
           name: path
-          description: Path to the folder to read. It must be URL encoded, for example the path "my dir/àdir" must be sent as "my%20dir%2F%C3%A0dir". If empty or missing the root folder is assumed
+          description: Path to the folder to read. It must be URL encoded, for example the path "my dir/àdir" must be sent as "my%20dir%2F%C3%A0dir". If empty or missing the user's start directory is assumed. If relative, the user's start directory is used as the base
           schema:
             type: string
       responses:
@@ -3632,7 +3632,7 @@ paths:
       parameters:
         - in: query
           name: path
-          description: Path to the folder to read. It must be URL encoded, for example the path "my dir/àdir" must be sent as "my%20dir%2F%C3%A0dir". If empty or missing the root folder is assumed
+          description: Path to the folder to read. It must be URL encoded, for example the path "my dir/àdir" must be sent as "my%20dir%2F%C3%A0dir". If empty or missing the user's start directory is assumed. If relative, the user's start directory is used as the base
           schema:
             type: string
       responses:
@@ -3664,7 +3664,7 @@ paths:
       parameters:
         - in: query
           name: path
-          description: Path to the folder to read. It must be URL encoded, for example the path "my dir/àdir" must be sent as "my%20dir%2F%C3%A0dir". If empty or missing the root folder is assumed
+          description: Path to the folder to read. It must be URL encoded, for example the path "my dir/àdir" must be sent as "my%20dir%2F%C3%A0dir". If empty or missing the user's start directory is assumed. If relative, the user's start directory is used as the base
           schema:
             type: string
       responses:
@@ -4679,6 +4679,9 @@ components:
         external_auth_cache_time:
           type: integer
           description: 'Defines the cache time, in seconds, for users authenticated using an external auth hook. 0 means no cache'
+        start_directory:
+          type: string
+          description: 'Specifies an alternate starting directory. If not set, the default is "/". This option is supported for SFTP/SCP, FTP and HTTP (WebClient/REST API) protocols. Relative paths will use this directory as base.'
       description: Additional user options
     Secret:
       type: object

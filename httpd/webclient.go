@@ -598,11 +598,7 @@ func handleWebClientDownloadZip(w http.ResponseWriter, r *http.Request) {
 	common.Connections.Add(connection)
 	defer common.Connections.Remove(connection.GetID())
 
-	name := "/"
-	if _, ok := r.URL.Query()["path"]; ok {
-		name = util.CleanPath(r.URL.Query().Get("path"))
-	}
-
+	name := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
 	files := r.URL.Query().Get("files")
 	var filesList []string
 	err = json.Unmarshal([]byte(files), &filesList)
@@ -742,11 +738,7 @@ func (s *httpdServer) handleClientGetDirContents(w http.ResponseWriter, r *http.
 	common.Connections.Add(connection)
 	defer common.Connections.Remove(connection.GetID())
 
-	name := "/"
-	if _, ok := r.URL.Query()["path"]; ok {
-		name = util.CleanPath(r.URL.Query().Get("path"))
-	}
-
+	name := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
 	contents, err := connection.ReadDir(name)
 	if err != nil {
 		sendAPIResponse(w, r, err, "Unable to get directory contents", getMappedStatusCode(err))
@@ -820,10 +812,7 @@ func (s *httpdServer) handleClientGetFiles(w http.ResponseWriter, r *http.Reques
 	common.Connections.Add(connection)
 	defer common.Connections.Remove(connection.GetID())
 
-	name := "/"
-	if _, ok := r.URL.Query()["path"]; ok {
-		name = util.CleanPath(r.URL.Query().Get("path"))
-	}
+	name := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
 	var info os.FileInfo
 	if name == "/" {
 		info = vfs.NewFileInfo(name, true, 0, time.Now(), false)
@@ -880,7 +869,7 @@ func handleClientEditFile(w http.ResponseWriter, r *http.Request) {
 	common.Connections.Add(connection)
 	defer common.Connections.Remove(connection.GetID())
 
-	name := util.CleanPath(r.URL.Query().Get("path"))
+	name := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
 	info, err := connection.Stat(name, 0)
 	if err != nil {
 		renderClientMessagePage(w, r, fmt.Sprintf("Unable to stat file %#v", name), "",
