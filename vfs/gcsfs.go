@@ -762,19 +762,20 @@ func (fs *GCSFs) hasContents(name string) (bool, error) {
 	}
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxLongTimeout))
 	defer cancelFn()
+
 	bkt := fs.svc.Bucket(fs.config.Bucket)
 	it := bkt.Objects(ctx, query)
 	// if we have a dir object with a trailing slash it will be returned so we set the size to 2
-	it.PageInfo().MaxSize = 2
-	for {
-		attrs, err := it.Next()
-		if err == iterator.Done {
-			break
-		}
-		if err != nil {
-			metric.GCSListObjectsCompleted(err)
-			return result, err
-		}
+	pager := iterator.NewPager(it, 2, "")
+
+	var objects []*storage.ObjectAttrs
+	_, err = pager.NextPage(&objects)
+	if err != nil {
+		metric.GCSListObjectsCompleted(err)
+		return result, err
+	}
+
+	for _, attrs := range objects {
 		name, _ := fs.resolve(attrs.Name, prefix)
 		// a dir object with a trailing slash will result in an empty name
 		if name == "/" || name == "" {

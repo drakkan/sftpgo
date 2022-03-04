@@ -41,6 +41,10 @@ var (
 	rollingLogger *lumberjack.Logger
 )
 
+func init() {
+	zerolog.TimeFieldFormat = dateFormat
+}
+
 // StdLoggerWrapper is a wrapper for standard logger compatibility
 type StdLoggerWrapper struct {
 	Sender string
@@ -138,7 +142,6 @@ func GetLogger() *zerolog.Logger {
 
 // SetLogTime sets logging time related setting
 func SetLogTime(utc bool) {
-	zerolog.TimeFieldFormat = dateFormat
 	if utc {
 		zerolog.TimestampFunc = func() time.Time {
 			return time.Now().UTC()
