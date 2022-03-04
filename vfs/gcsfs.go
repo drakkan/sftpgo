@@ -31,6 +31,10 @@ import (
 	"github.com/drakkan/sftpgo/v2/version"
 )
 
+const (
+	defaultPageSize = 5000
+)
+
 var (
 	gcsDefaultFieldsSelection = []string{"Name", "Size", "Deleted", "Updated", "ContentType"}
 )
@@ -156,6 +160,7 @@ func (fs *GCSFs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, fu
 	go func() {
 		defer cancelFn()
 		defer objectReader.Close()
+
 		n, err := io.Copy(w, objectReader)
 		w.CloseWithError(err) //nolint:errcheck
 		fsLog(fs, logger.LevelDebug, "download completed, path: %#v size: %v, err: %v", name, n, err)
@@ -236,6 +241,7 @@ func (fs *GCSFs) Rename(source, target string) error {
 	dst := fs.svc.Bucket(fs.config.Bucket).Object(target)
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
 	defer cancelFn()
+
 	copier := dst.CopierFrom(src)
 	if fs.config.StorageClass != "" {
 		copier.StorageClass = fs.config.StorageClass
@@ -382,55 +388,61 @@ func (fs *GCSFs) ReadDir(dirname string) ([]os.FileInfo, error) {
 	}
 
 	prefixes := make(map[string]bool)
-	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
+	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxLongTimeout))
 	defer cancelFn()
 
 	bkt := fs.svc.Bucket(fs.config.Bucket)
 	it := bkt.Objects(ctx, query)
+	pager := iterator.NewPager(it, defaultPageSize, "")
+
 	for {
-		attrs, err := it.Next()
-		if err == iterator.Done {
-			break
-		}
+		var objects []*storage.ObjectAttrs
+		pageToken, err := pager.NextPage(&objects)
 		if err != nil {
 			metric.GCSListObjectsCompleted(err)
 			return result, err
 		}
-		if attrs.Prefix != "" {
-			name, _ := fs.resolve(attrs.Prefix, prefix)
-			if name == "" {
-				continue
-			}
-			if _, ok := prefixes[name]; ok {
-				continue
-			}
-			result = append(result, NewFileInfo(name, true, 0, time.Now(), false))
-			prefixes[name] = true
-		} else {
-			name, isDir := fs.resolve(attrs.Name, prefix)
-			if name == "" {
-				continue
-			}
-			if !attrs.Deleted.IsZero() {
-				continue
-			}
-			if attrs.ContentType == dirMimeType {
-				isDir = true
-			}
-			if isDir {
-				// check if the dir is already included, it will be sent as blob prefix if it contains at least one item
+
+		for _, attrs := range objects {
+			if attrs.Prefix != "" {
+				name, _ := fs.resolve(attrs.Prefix, prefix, attrs.ContentType)
+				if name == "" {
+					continue
+				}
 				if _, ok := prefixes[name]; ok {
 					continue
 				}
+				result = append(result, NewFileInfo(name, true, 0, time.Now(), false))
 				prefixes[name] = true
+			} else {
+				name, isDir := fs.resolve(attrs.Name, prefix, attrs.ContentType)
+				if name == "" {
+					continue
+				}
+				if !attrs.Deleted.IsZero() {
+					continue
+				}
+				if isDir {
+					// check if the dir is already included, it will be sent as blob prefix if it contains at least one item
+					if _, ok := prefixes[name]; ok {
+						continue
+					}
+					prefixes[name] = true
+				}
+				modTime := attrs.Updated
+				if t, ok := modTimes[name]; ok {
+					modTime = util.GetTimeFromMsecSinceEpoch(t)
+				}
+				result = append(result, NewFileInfo(name, isDir, attrs.Size, modTime, false))
 			}
-			modTime := attrs.Updated
-			if t, ok := modTimes[name]; ok {
-				modTime = util.GetTimeFromMsecSinceEpoch(t)
-			}
-			result = append(result, NewFileInfo(name, isDir, attrs.Size, modTime, false))
+		}
+
+		objects = nil
+		if pageToken == "" {
+			break
 		}
 	}
+
 	metric.GCSListObjectsCompleted(nil)
 	return result, nil
 }
@@ -506,27 +518,37 @@ func (fs *GCSFs) ScanRootDirContents() (int, int64, error) {
 	}
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxLongTimeout))
 	defer cancelFn()
+
 	bkt := fs.svc.Bucket(fs.config.Bucket)
 	it := bkt.Objects(ctx, query)
+	pager := iterator.NewPager(it, defaultPageSize, "")
+
 	for {
-		attrs, err := it.Next()
-		if err == iterator.Done {
-			break
-		}
+		var objects []*storage.ObjectAttrs
+		pageToken, err := pager.NextPage(&objects)
 		if err != nil {
 			metric.GCSListObjectsCompleted(err)
 			return numFiles, size, err
 		}
-		if !attrs.Deleted.IsZero() {
-			continue
+
+		for _, attrs := range objects {
+			if !attrs.Deleted.IsZero() {
+				continue
+			}
+			isDir := strings.HasSuffix(attrs.Name, "/") || attrs.ContentType == dirMimeType
+			if isDir && attrs.Size == 0 {
+				continue
+			}
+			numFiles++
+			size += attrs.Size
 		}
-		isDir := strings.HasSuffix(attrs.Name, "/") || attrs.ContentType == dirMimeType
-		if isDir && attrs.Size == 0 {
-			continue
+
+		objects = nil
+		if pageToken == "" {
+			break
 		}
-		numFiles++
-		size += attrs.Size
 	}
+
 	metric.GCSListObjectsCompleted(nil)
 	return numFiles, size, err
 }
@@ -546,34 +568,43 @@ func (fs *GCSFs) getFileNamesInPrefix(fsPrefix string) (map[string]bool, error) 
 	if err != nil {
 		return fileNames, err
 	}
-	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
+	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxLongTimeout))
 	defer cancelFn()
 
 	bkt := fs.svc.Bucket(fs.config.Bucket)
 	it := bkt.Objects(ctx, query)
+	pager := iterator.NewPager(it, defaultPageSize, "")
+
 	for {
-		attrs, err := it.Next()
-		if err == iterator.Done {
-			break
-		}
+		var objects []*storage.ObjectAttrs
+		pageToken, err := pager.NextPage(&objects)
 		if err != nil {
 			metric.GCSListObjectsCompleted(err)
 			return fileNames, err
 		}
-		if !attrs.Deleted.IsZero() {
-			continue
+
+		for _, attrs := range objects {
+			if !attrs.Deleted.IsZero() {
+				continue
+			}
+			if attrs.Prefix == "" {
+				name, isDir := fs.resolve(attrs.Name, prefix, attrs.ContentType)
+				if name == "" {
+					continue
+				}
+				if isDir {
+					continue
+				}
+				fileNames[name] = true
+			}
 		}
-		if attrs.Prefix == "" {
-			name, isDir := fs.resolve(attrs.Name, prefix)
-			if name == "" {
-				continue
-			}
-			if isDir || attrs.ContentType == dirMimeType {
-				continue
-			}
-			fileNames[name] = true
+
+		objects = nil
+		if pageToken == "" {
+			break
 		}
 	}
+
 	metric.GCSListObjectsCompleted(nil)
 	return fileNames, nil
 }
@@ -635,33 +666,39 @@ func (fs *GCSFs) Walk(root string, walkFn filepath.WalkFunc) error {
 		return err
 	}
 
-	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
+	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxLongTimeout))
 	defer cancelFn()
+
 	bkt := fs.svc.Bucket(fs.config.Bucket)
 	it := bkt.Objects(ctx, query)
+	pager := iterator.NewPager(it, defaultPageSize, "")
+
 	for {
-		attrs, err := it.Next()
-		if err == iterator.Done {
-			break
-		}
+		var objects []*storage.ObjectAttrs
+		pageToken, err := pager.NextPage(&objects)
 		if err != nil {
 			walkFn(root, nil, err) //nolint:errcheck
 			metric.GCSListObjectsCompleted(err)
 			return err
 		}
-		if !attrs.Deleted.IsZero() {
-			continue
+
+		for _, attrs := range objects {
+			if !attrs.Deleted.IsZero() {
+				continue
+			}
+			name, isDir := fs.resolve(attrs.Name, prefix, attrs.ContentType)
+			if name == "" {
+				continue
+			}
+			err = walkFn(attrs.Name, NewFileInfo(name, isDir, attrs.Size, attrs.Updated, false), nil)
+			if err != nil {
+				return err
+			}
 		}
-		name, isDir := fs.resolve(attrs.Name, prefix)
-		if name == "" {
-			continue
-		}
-		if attrs.ContentType == dirMimeType {
-			isDir = true
-		}
-		err = walkFn(attrs.Name, NewFileInfo(name, isDir, attrs.Size, attrs.Updated, false), nil)
-		if err != nil {
-			return err
+
+		objects = nil
+		if pageToken == "" {
+			break
 		}
 	}
 
@@ -691,11 +728,14 @@ func (fs *GCSFs) ResolvePath(virtualPath string) (string, error) {
 	return fs.Join(fs.config.KeyPrefix, strings.TrimPrefix(virtualPath, "/")), nil
 }
 
-func (fs *GCSFs) resolve(name string, prefix string) (string, bool) {
+func (fs *GCSFs) resolve(name, prefix, contentType string) (string, bool) {
 	result := strings.TrimPrefix(name, prefix)
 	isDir := strings.HasSuffix(result, "/")
 	if isDir {
 		result = strings.TrimSuffix(result, "/")
+	}
+	if contentType == dirMimeType {
+		isDir = true
 	}
 	return result, isDir
 }
@@ -735,6 +775,7 @@ func (fs *GCSFs) getObjectStat(name string) (string, os.FileInfo, error) {
 func (fs *GCSFs) checkIfBucketExists() error {
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
 	defer cancelFn()
+
 	bkt := fs.svc.Bucket(fs.config.Bucket)
 	_, err := bkt.Attrs(ctx)
 	metric.GCSHeadBucketCompleted(err)
@@ -755,22 +796,23 @@ func (fs *GCSFs) hasContents(name string) (bool, error) {
 	if err != nil {
 		return result, err
 	}
-	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxLongTimeout))
+	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
 	defer cancelFn()
+
 	bkt := fs.svc.Bucket(fs.config.Bucket)
 	it := bkt.Objects(ctx, query)
 	// if we have a dir object with a trailing slash it will be returned so we set the size to 2
-	it.PageInfo().MaxSize = 2
-	for {
-		attrs, err := it.Next()
-		if err == iterator.Done {
-			break
-		}
-		if err != nil {
-			metric.GCSListObjectsCompleted(err)
-			return result, err
-		}
-		name, _ := fs.resolve(attrs.Name, prefix)
+	pager := iterator.NewPager(it, 2, "")
+
+	var objects []*storage.ObjectAttrs
+	_, err = pager.NextPage(&objects)
+	if err != nil {
+		metric.GCSListObjectsCompleted(err)
+		return result, err
+	}
+
+	for _, attrs := range objects {
+		name, _ := fs.resolve(attrs.Name, prefix, attrs.ContentType)
 		// a dir object with a trailing slash will result in an empty name
 		if name == "/" || name == "" {
 			continue
@@ -779,7 +821,7 @@ func (fs *GCSFs) hasContents(name string) (bool, error) {
 		break
 	}
 
-	metric.GCSListObjectsCompleted(err)
+	metric.GCSListObjectsCompleted(nil)
 	return result, nil
 }
 

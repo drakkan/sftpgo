@@ -199,6 +199,7 @@ func (fs *S3Fs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, fun
 
 	go func() {
 		defer cancelFn()
+
 		n, err := downloader.DownloadWithContext(ctx, w, &s3.GetObjectInput{
 			Bucket: aws.String(fs.config.Bucket),
 			Key:    aws.String(name),
@@ -236,6 +237,7 @@ func (fs *S3Fs) Create(name string, flag int) (File, *PipeWriter, func(), error)
 	}
 	go func() {
 		defer cancelFn()
+
 		key := name
 		var contentType string
 		if flag == -1 {
@@ -305,6 +307,7 @@ func (fs *S3Fs) Rename(source, target string) error {
 	}
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
 	defer cancelFn()
+
 	_, err = fs.svc.CopyObjectWithContext(ctx, &s3.CopyObjectInput{
 		Bucket:       aws.String(fs.config.Bucket),
 		CopySource:   aws.String(pathEscape(copySource)),
@@ -354,6 +357,7 @@ func (fs *S3Fs) Remove(name string, isDir bool) error {
 	}
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
 	defer cancelFn()
+
 	_, err := fs.svc.DeleteObjectWithContext(ctx, &s3.DeleteObjectInput{
 		Bucket: aws.String(fs.config.Bucket),
 		Key:    aws.String(name),
@@ -446,9 +450,9 @@ func (fs *S3Fs) ReadDir(dirname string) ([]os.FileInfo, error) {
 		return result, err
 	}
 	prefixes := make(map[string]bool)
-
-	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
+	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxLongTimeout))
 	defer cancelFn()
+
 	err = fs.svc.ListObjectsV2PagesWithContext(ctx, &s3.ListObjectsV2Input{
 		Bucket:    aws.String(fs.config.Bucket),
 		Prefix:    aws.String(prefix),
@@ -559,6 +563,7 @@ func (fs *S3Fs) ScanRootDirContents() (int, int64, error) {
 	size := int64(0)
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxLongTimeout))
 	defer cancelFn()
+
 	err := fs.svc.ListObjectsV2PagesWithContext(ctx, &s3.ListObjectsV2Input{
 		Bucket: aws.String(fs.config.Bucket),
 		Prefix: aws.String(fs.config.KeyPrefix),
@@ -583,7 +588,7 @@ func (fs *S3Fs) getFileNamesInPrefix(fsPrefix string) (map[string]bool, error) {
 	if fsPrefix != "/" {
 		prefix = strings.TrimPrefix(fsPrefix, "/")
 	}
-	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
+	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxLongTimeout))
 	defer cancelFn()
 
 	err := fs.svc.ListObjectsV2PagesWithContext(ctx, &s3.ListObjectsV2Input{
@@ -656,8 +661,9 @@ func (fs *S3Fs) Walk(root string, walkFn filepath.WalkFunc) error {
 			prefix += "/"
 		}
 	}
-	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
+	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxLongTimeout))
 	defer cancelFn()
+
 	err := fs.svc.ListObjectsV2PagesWithContext(ctx, &s3.ListObjectsV2Input{
 		Bucket: aws.String(fs.config.Bucket),
 		Prefix: aws.String(prefix),
@@ -721,6 +727,7 @@ func (fs *S3Fs) resolve(name *string, prefix string) (string, bool) {
 func (fs *S3Fs) checkIfBucketExists() error {
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
 	defer cancelFn()
+
 	_, err := fs.svc.HeadBucketWithContext(ctx, &s3.HeadBucketInput{
 		Bucket: aws.String(fs.config.Bucket),
 	})
@@ -762,6 +769,7 @@ func (fs *S3Fs) hasContents(name string) (bool, error) {
 	maxResults := int64(2)
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
 	defer cancelFn()
+
 	results, err := fs.svc.ListObjectsV2WithContext(ctx, &s3.ListObjectsV2Input{
 		Bucket:  aws.String(fs.config.Bucket),
 		Prefix:  aws.String(prefix),
@@ -786,6 +794,7 @@ func (fs *S3Fs) hasContents(name string) (bool, error) {
 func (fs *S3Fs) headObject(name string) (*s3.HeadObjectOutput, error) {
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
 	defer cancelFn()
+
 	obj, err := fs.svc.HeadObjectWithContext(ctx, &s3.HeadObjectInput{
 		Bucket: aws.String(fs.config.Bucket),
 		Key:    aws.String(name),
