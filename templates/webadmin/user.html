@@ -482,9 +482,24 @@
                             <div class="form-group row">
                                 <label for="idLoginMethods" class="col-sm-2 col-form-label">Denied login methods</label>
                                 <div class="col-sm-10">
-                                    <select class="form-control" id="idLoginMethods" name="ssh_login_methods" multiple>
+                                    <select class="form-control" id="idLoginMethods" name="denied_login_methods" multiple aria-describedby="deniedLoginMethodsHelpBlock">
                                         {{range $method := .ValidLoginMethods}}
                                         <option value="{{$method}}" {{range $m :=$.User.Filters.DeniedLoginMethods }}{{if eq $m $method}}selected{{end}}{{end}}>{{$method}}
+                                        </option>
+                                        {{end}}
+                                    </select>
+                                    <small id="deniedLoginMethodsHelpBlock" class="form-text text-muted">
+                                        "password" is valid for all supported protocols, "password-over-SSH" only for SSH/SFTP/SCP
+                                    </small>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="idTwoFactorProtocols" class="col-sm-2 col-form-label">Require two-factor auth for</label>
+                                <div class="col-sm-10">
+                                    <select class="form-control" id="idTwoFactorProtocols" name="required_two_factor_protocols" multiple>
+                                        {{range $protocol := .TwoFactorProtocols}}
+                                        <option value="{{$protocol}}" {{range $p :=$.User.Filters.TwoFactorAuthProtocols }}{{if eq $p $protocol}}selected{{end}}{{end}}>{{$protocol}}
                                         </option>
                                         {{end}}
                                     </select>

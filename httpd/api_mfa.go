@@ -90,6 +90,13 @@ func saveTOTPConfig(w http.ResponseWriter, r *http.Request) {
 			sendAPIResponse(w, r, err, "", getRespStatus(err))
 			return
 		}
+		if claims.MustSetTwoFactorAuth {
+			// force logout
+			defer func() {
+				c := jwtTokenClaims{}
+				c.removeCookie(w, r, webBaseClientPath)
+			}()
+		}
 	} else {
 		if err := saveAdminTOTPConfig(claims.Username, r, recoveryCodes); err != nil {
 			sendAPIResponse(w, r, err, "", getRespStatus(err))
@@ -209,6 +216,15 @@ func saveUserTOTPConfig(username string, r *http.Request, recoveryCodes []datapr
 	err = render.DecodeJSON(r.Body, &user.Filters.TOTPConfig)
 	if err != nil {
 		return util.NewValidationError(fmt.Sprintf("unable to decode JSON body: %v", err))
+	}
+	if !user.Filters.TOTPConfig.Enabled && len(user.Filters.TwoFactorAuthProtocols) > 0 {
+		return util.NewValidationError("two-factor authentication must be enabled")
+	}
+	for _, p := range user.Filters.TwoFactorAuthProtocols {
+		if !util.IsStringInSlice(p, user.Filters.TOTPConfig.Protocols) {
+			return util.NewValidationError(fmt.Sprintf("totp: the following protocols are required: %#v",
+				strings.Join(user.Filters.TwoFactorAuthProtocols, ", ")))
+		}
 	}
 	if user.Filters.TOTPConfig.Secret == nil || !user.Filters.TOTPConfig.Secret.IsPlain() {
 		user.Filters.TOTPConfig.Secret = currentTOTPSecret

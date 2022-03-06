@@ -8,7 +8,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v0.3.0
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/alexedwards/argon2id v0.0.0-20211130144151-3585854a6387
-	github.com/aws/aws-sdk-go v1.43.11
+	github.com/aws/aws-sdk-go v1.43.12
 	github.com/cockroachdb/cockroach-go/v2 v2.2.8
 	github.com/coreos/go-oidc/v3 v3.1.0
 	github.com/eikenb/pipeat v0.0.0-20210730190139-06b3e6902001
@@ -41,7 +41,7 @@ require (
 	github.com/rs/cors v1.8.2
 	github.com/rs/xid v1.3.0
 	github.com/rs/zerolog v1.26.2-0.20220227173336-263b0bde3672
-	github.com/sftpgo/sdk v0.1.1-0.20220303113613-e279f0a57712
+	github.com/sftpgo/sdk v0.1.1-0.20220306155429-3a036106d884
 	github.com/shirou/gopsutil/v3 v3.22.2
 	github.com/spf13/afero v1.8.1
 	github.com/spf13/cobra v1.3.0
@@ -98,7 +98,7 @@ require (
 	github.com/lestrrat-go/httpcc v1.0.0 // indirect
 	github.com/lestrrat-go/iter v1.0.1 // indirect
 	github.com/lestrrat-go/option v1.0.0 // indirect
-	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
+	github.com/lufia/plan9stats v0.0.0-20220305071607-d0b38dbe16db // indirect
 	github.com/magiconair/properties v1.8.6 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect

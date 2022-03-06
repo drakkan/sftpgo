@@ -703,6 +703,44 @@ func TestMultiFactorAuth(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestSecondFactorRequirement(t *testing.T) {
+	u := getTestUser()
+	u.Filters.TwoFactorAuthProtocols = []string{common.ProtocolFTP}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	_, err = getFTPClient(user, true, nil)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "second factor authentication is not set")
+	}
+
+	configName, _, secret, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
+	assert.NoError(t, err)
+	user.Password = defaultPassword
+	user.Filters.TOTPConfig = dataprovider.UserTOTPConfig{
+		Enabled:    true,
+		ConfigName: configName,
+		Secret:     kms.NewPlainSecret(secret),
+		Protocols:  []string{common.ProtocolFTP},
+	}
+	err = dataprovider.UpdateUser(&user, "", "")
+	assert.NoError(t, err)
+	passcode, err := generateTOTPPasscode(secret, otp.AlgorithmSHA1)
+	assert.NoError(t, err)
+	user.Password = defaultPassword + passcode
+	client, err := getFTPClient(user, true, nil)
+	if assert.NoError(t, err) {
+		err = checkBasicFTP(client)
+		assert.NoError(t, err)
+		err := client.Quit()
+		assert.NoError(t, err)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestLoginInvalidCredentials(t *testing.T) {
 	u := getTestUser()
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)

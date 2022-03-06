@@ -198,6 +198,34 @@ func checkHTTPUserPerm(perm string) func(next http.Handler) http.Handler {
 	}
 }
 
+func checkSecondFactorRequirement(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, claims, err := jwtauth.FromContext(r.Context())
+		if err != nil {
+			if isWebRequest(r) {
+				renderClientBadRequestPage(w, r, err)
+			} else {
+				sendAPIResponse(w, r, err, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			}
+			return
+		}
+		tokenClaims := jwtTokenClaims{}
+		tokenClaims.Decode(claims)
+		if tokenClaims.MustSetTwoFactorAuth {
+			message := fmt.Sprintf("Two-factor authentication requirements not met, please configure two-factor authentication for the following protocols: %v",
+				strings.Join(tokenClaims.RequiredTwoFactorProtocols, ", "))
+			if isWebRequest(r) {
+				renderClientForbiddenPage(w, r, message)
+			} else {
+				sendAPIResponse(w, r, nil, message, http.StatusForbidden)
+			}
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 func requireBuiltinLogin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if isLoggedInWithOIDC(r) {

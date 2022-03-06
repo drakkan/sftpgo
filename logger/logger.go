@@ -41,114 +41,13 @@ var (
 	rollingLogger *lumberjack.Logger
 )
 
-// StdLoggerWrapper is a wrapper for standard logger compatibility
-type StdLoggerWrapper struct {
-	Sender string
-}
-
 func init() {
 	zerolog.TimeFieldFormat = dateFormat
-}
-
-// Write implements the io.Writer interface. This is useful to set as a writer
-// for the standard library log.
-func (l *StdLoggerWrapper) Write(p []byte) (n int, err error) {
-	n = len(p)
-	if n > 0 && p[n-1] == '\n' {
-		// Trim CR added by stdlog.
-		p = p[0 : n-1]
-	}
-
-	Log(LevelError, l.Sender, "", string(p))
-	return
-}
-
-// LeveledLogger is a logger that accepts a message string and a variadic number of key-value pairs
-type LeveledLogger struct {
-	Sender            string
-	additionalKeyVals []interface{}
-}
-
-func addKeysAndValues(ev *zerolog.Event, keysAndValues ...interface{}) {
-	kvLen := len(keysAndValues)
-	if kvLen%2 != 0 {
-		extra := keysAndValues[kvLen-1]
-		keysAndValues = append(keysAndValues[:kvLen-1], "EXTRA_VALUE_AT_END", extra)
-	}
-	for i := 0; i < len(keysAndValues); i += 2 {
-		key, val := keysAndValues[i], keysAndValues[i+1]
-		if keyStr, ok := key.(string); ok && keyStr != "timestamp" {
-			ev.Str(keyStr, fmt.Sprintf("%v", val))
-		}
-	}
-}
-
-// Error logs at error level for the specified sender
-func (l *LeveledLogger) Error(msg string, keysAndValues ...interface{}) {
-	ev := logger.Error()
-	ev.Timestamp().Str("sender", l.Sender)
-	if len(l.additionalKeyVals) > 0 {
-		addKeysAndValues(ev, l.additionalKeyVals...)
-	}
-	addKeysAndValues(ev, keysAndValues...)
-	ev.Msg(msg)
-}
-
-// Info logs at info level for the specified sender
-func (l *LeveledLogger) Info(msg string, keysAndValues ...interface{}) {
-	ev := logger.Info()
-	ev.Timestamp().Str("sender", l.Sender)
-	if len(l.additionalKeyVals) > 0 {
-		addKeysAndValues(ev, l.additionalKeyVals...)
-	}
-	addKeysAndValues(ev, keysAndValues...)
-	ev.Msg(msg)
-}
-
-// Debug logs at debug level for the specified sender
-func (l *LeveledLogger) Debug(msg string, keysAndValues ...interface{}) {
-	ev := logger.Debug()
-	ev.Timestamp().Str("sender", l.Sender)
-	if len(l.additionalKeyVals) > 0 {
-		addKeysAndValues(ev, l.additionalKeyVals...)
-	}
-	addKeysAndValues(ev, keysAndValues...)
-	ev.Msg(msg)
-}
-
-// Warn logs at warn level for the specified sender
-func (l *LeveledLogger) Warn(msg string, keysAndValues ...interface{}) {
-	ev := logger.Warn()
-	ev.Timestamp().Str("sender", l.Sender)
-	if len(l.additionalKeyVals) > 0 {
-		addKeysAndValues(ev, l.additionalKeyVals...)
-	}
-	addKeysAndValues(ev, keysAndValues...)
-	ev.Msg(msg)
-}
-
-// With returns a LeveledLogger with additional context specific keyvals
-func (l *LeveledLogger) With(keysAndValues ...interface{}) ftpserverlog.Logger {
-	return &LeveledLogger{
-		Sender:            l.Sender,
-		additionalKeyVals: append(l.additionalKeyVals, keysAndValues...),
-	}
 }
 
 // GetLogger get the configured logger instance
 func GetLogger() *zerolog.Logger {
 	return &logger
-}
-
-// SetLogTime sets logging time related setting
-func SetLogTime(utc bool) {
-	if utc {
-		zerolog.TimestampFunc = func() time.Time {
-			return time.Now().UTC()
-		}
-	} else {
-		zerolog.TimestampFunc = time.Now
-	}
 }
 
 // InitLogger configures the logger using the given parameters
@@ -213,6 +112,17 @@ func RotateLogFile() error {
 		return rollingLogger.Rotate()
 	}
 	return errors.New("logging to file is disabled")
+}
+
+// SetLogTime sets logging time related setting
+func SetLogTime(utc bool) {
+	if utc {
+		zerolog.TimestampFunc = func() time.Time {
+			return time.Now().UTC()
+		}
+	} else {
+		zerolog.TimestampFunc = time.Now
+	}
 }
 
 // Log logs at the specified level for the specified sender
@@ -340,4 +250,94 @@ func isLogFilePathValid(logFilePath string) bool {
 		return false
 	}
 	return true
+}
+
+// StdLoggerWrapper is a wrapper for standard logger compatibility
+type StdLoggerWrapper struct {
+	Sender string
+}
+
+// Write implements the io.Writer interface. This is useful to set as a writer
+// for the standard library log.
+func (l *StdLoggerWrapper) Write(p []byte) (n int, err error) {
+	n = len(p)
+	if n > 0 && p[n-1] == '\n' {
+		// Trim CR added by stdlog.
+		p = p[0 : n-1]
+	}
+
+	Log(LevelError, l.Sender, "", string(p))
+	return
+}
+
+// LeveledLogger is a logger that accepts a message string and a variadic number of key-value pairs
+type LeveledLogger struct {
+	Sender            string
+	additionalKeyVals []interface{}
+}
+
+func addKeysAndValues(ev *zerolog.Event, keysAndValues ...interface{}) {
+	kvLen := len(keysAndValues)
+	if kvLen%2 != 0 {
+		extra := keysAndValues[kvLen-1]
+		keysAndValues = append(keysAndValues[:kvLen-1], "EXTRA_VALUE_AT_END", extra)
+	}
+	for i := 0; i < len(keysAndValues); i += 2 {
+		key, val := keysAndValues[i], keysAndValues[i+1]
+		if keyStr, ok := key.(string); ok && keyStr != "timestamp" {
+			ev.Str(keyStr, fmt.Sprintf("%v", val))
+		}
+	}
+}
+
+// Error logs at error level for the specified sender
+func (l *LeveledLogger) Error(msg string, keysAndValues ...interface{}) {
+	ev := logger.Error()
+	ev.Timestamp().Str("sender", l.Sender)
+	if len(l.additionalKeyVals) > 0 {
+		addKeysAndValues(ev, l.additionalKeyVals...)
+	}
+	addKeysAndValues(ev, keysAndValues...)
+	ev.Msg(msg)
+}
+
+// Info logs at info level for the specified sender
+func (l *LeveledLogger) Info(msg string, keysAndValues ...interface{}) {
+	ev := logger.Info()
+	ev.Timestamp().Str("sender", l.Sender)
+	if len(l.additionalKeyVals) > 0 {
+		addKeysAndValues(ev, l.additionalKeyVals...)
+	}
+	addKeysAndValues(ev, keysAndValues...)
+	ev.Msg(msg)
+}
+
+// Debug logs at debug level for the specified sender
+func (l *LeveledLogger) Debug(msg string, keysAndValues ...interface{}) {
+	ev := logger.Debug()
+	ev.Timestamp().Str("sender", l.Sender)
+	if len(l.additionalKeyVals) > 0 {
+		addKeysAndValues(ev, l.additionalKeyVals...)
+	}
+	addKeysAndValues(ev, keysAndValues...)
+	ev.Msg(msg)
+}
+
+// Warn logs at warn level for the specified sender
+func (l *LeveledLogger) Warn(msg string, keysAndValues ...interface{}) {
+	ev := logger.Warn()
+	ev.Timestamp().Str("sender", l.Sender)
+	if len(l.additionalKeyVals) > 0 {
+		addKeysAndValues(ev, l.additionalKeyVals...)
+	}
+	addKeysAndValues(ev, keysAndValues...)
+	ev.Msg(msg)
+}
+
+// With returns a LeveledLogger with additional context specific keyvals
+func (l *LeveledLogger) With(keysAndValues ...interface{}) ftpserverlog.Logger {
+	return &LeveledLogger{
+		Sender:            l.Sender,
+		additionalKeyVals: append(l.additionalKeyVals, keysAndValues...),
+	}
 }

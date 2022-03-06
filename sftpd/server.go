@@ -632,10 +632,15 @@ func loginUser(user *dataprovider.User, loginMethod, publicKey string, conn ssh.
 			return nil, fmt.Errorf("too many open sessions: %v", activeSessions)
 		}
 	}
-	if !user.IsLoginMethodAllowed(loginMethod, conn.PartialSuccessMethods()) {
+	if !user.IsLoginMethodAllowed(loginMethod, common.ProtocolSSH, conn.PartialSuccessMethods()) {
 		logger.Info(logSender, connectionID, "cannot login user %#v, login method %#v is not allowed",
 			user.Username, loginMethod)
 		return nil, fmt.Errorf("login method %#v is not allowed for user %#v", loginMethod, user.Username)
+	}
+	if user.MustSetSecondFactorForProtocol(common.ProtocolSSH) {
+		logger.Info(logSender, connectionID, "cannot login user %#v, second factor authentication is not set",
+			user.Username)
+		return nil, fmt.Errorf("second factor authentication is not set for user %#v", user.Username)
 	}
 	remoteAddr := conn.RemoteAddr().String()
 	if !user.IsLoginFromAddrAllowed(remoteAddr) {
@@ -649,7 +654,7 @@ func loginUser(user *dataprovider.User, loginMethod, publicKey string, conn ssh.
 		logger.Warn(logSender, connectionID, "error serializing user info: %v, authentication rejected", err)
 		return nil, err
 	}
-	if len(publicKey) > 0 {
+	if publicKey != "" {
 		loginMethod = fmt.Sprintf("%v: %v", loginMethod, publicKey)
 	}
 	p := &ssh.Permissions{}

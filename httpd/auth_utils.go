@@ -28,11 +28,13 @@ const (
 )
 
 const (
-	claimUsernameKey    = "username"
-	claimPermissionsKey = "permissions"
-	claimAPIKey         = "api_key"
-	basicRealm          = "Basic realm=\"SFTPGo\""
-	jwtCookieKey        = "jwt"
+	claimUsernameKey                = "username"
+	claimPermissionsKey             = "permissions"
+	claimAPIKey                     = "api_key"
+	claimMustSetSecondFactorKey     = "2fa_required"
+	claimRequiredTwoFactorProtocols = "2fa_protocols"
+	basicRealm                      = "Basic realm=\"SFTPGo\""
+	jwtCookieKey                    = "jwt"
 )
 
 var (
@@ -44,11 +46,13 @@ var (
 )
 
 type jwtTokenClaims struct {
-	Username    string
-	Permissions []string
-	Signature   string
-	Audience    string
-	APIKeyID    string
+	Username                   string
+	Permissions                []string
+	Signature                  string
+	Audience                   string
+	APIKeyID                   string
+	MustSetTwoFactorAuth       bool
+	RequiredTwoFactorProtocols []string
 }
 
 func (c *jwtTokenClaims) hasUserAudience() bool {
@@ -67,6 +71,8 @@ func (c *jwtTokenClaims) asMap() map[string]interface{} {
 		claims[claimAPIKey] = c.APIKeyID
 	}
 	claims[jwt.SubjectKey] = c.Signature
+	claims[claimMustSetSecondFactorKey] = c.MustSetTwoFactorAuth
+	claims[claimRequiredTwoFactorProtocols] = c.RequiredTwoFactorProtocols
 
 	return claims
 }
@@ -110,6 +116,23 @@ func (c *jwtTokenClaims) Decode(token map[string]interface{}) {
 			switch elemValue := elem.(type) {
 			case string:
 				c.Permissions = append(c.Permissions, elemValue)
+			}
+		}
+	}
+
+	secondFactorRequired := token[claimMustSetSecondFactorKey]
+	switch v := secondFactorRequired.(type) {
+	case bool:
+		c.MustSetTwoFactorAuth = v
+	}
+
+	secondFactorProtocols := token[claimRequiredTwoFactorProtocols]
+	switch v := secondFactorProtocols.(type) {
+	case []interface{}:
+		for _, elem := range v {
+			switch elemValue := elem.(type) {
+			case string:
+				c.RequiredTwoFactorProtocols = append(c.RequiredTwoFactorProtocols, elemValue)
 			}
 		}
 	}

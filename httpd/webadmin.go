@@ -153,19 +153,20 @@ type fsWrapper struct {
 
 type userPage struct {
 	basePage
-	User              *dataprovider.User
-	RootPerms         []string
-	Error             string
-	ValidPerms        []string
-	ValidLoginMethods []string
-	ValidProtocols    []string
-	WebClientOptions  []string
-	RootDirPerms      []string
-	RedactedSecret    string
-	Mode              userPageMode
-	VirtualFolders    []vfs.BaseVirtualFolder
-	CanImpersonate    bool
-	FsWrapper         fsWrapper
+	User               *dataprovider.User
+	RootPerms          []string
+	Error              string
+	ValidPerms         []string
+	ValidLoginMethods  []string
+	ValidProtocols     []string
+	TwoFactorProtocols []string
+	WebClientOptions   []string
+	RootDirPerms       []string
+	RedactedSecret     string
+	Mode               userPageMode
+	VirtualFolders     []vfs.BaseVirtualFolder
+	CanImpersonate     bool
+	FsWrapper          fsWrapper
 }
 
 type adminPage struct {
@@ -606,17 +607,18 @@ func renderUserPage(w http.ResponseWriter, r *http.Request, user *dataprovider.U
 	}
 	user.FsConfig.RedactedSecret = redactedSecret
 	data := userPage{
-		basePage:          getBasePageData(title, currentURL, r),
-		Mode:              mode,
-		Error:             error,
-		User:              user,
-		ValidPerms:        dataprovider.ValidPerms,
-		ValidLoginMethods: dataprovider.ValidLoginMethods,
-		ValidProtocols:    dataprovider.ValidProtocols,
-		WebClientOptions:  sdk.WebClientOptions,
-		RootDirPerms:      user.GetPermissionsForPath("/"),
-		VirtualFolders:    folders,
-		CanImpersonate:    os.Getuid() == 0,
+		basePage:           getBasePageData(title, currentURL, r),
+		Mode:               mode,
+		Error:              error,
+		User:               user,
+		ValidPerms:         dataprovider.ValidPerms,
+		ValidLoginMethods:  dataprovider.ValidLoginMethods,
+		ValidProtocols:     dataprovider.ValidProtocols,
+		TwoFactorProtocols: dataprovider.MFAProtocols,
+		WebClientOptions:   sdk.WebClientOptions,
+		RootDirPerms:       user.GetPermissionsForPath("/"),
+		VirtualFolders:     folders,
+		CanImpersonate:     os.Getuid() == 0,
 		FsWrapper: fsWrapper{
 			Filesystem:      user.FsConfig,
 			IsUserPage:      true,
@@ -930,8 +932,9 @@ func getFiltersFromUserPostFields(r *http.Request) (sdk.BaseUserFilters, error) 
 	filters.DataTransferLimits = dtLimits
 	filters.AllowedIP = getSliceFromDelimitedValues(r.Form.Get("allowed_ip"), ",")
 	filters.DeniedIP = getSliceFromDelimitedValues(r.Form.Get("denied_ip"), ",")
-	filters.DeniedLoginMethods = r.Form["ssh_login_methods"]
+	filters.DeniedLoginMethods = r.Form["denied_login_methods"]
 	filters.DeniedProtocols = r.Form["denied_protocols"]
+	filters.TwoFactorAuthProtocols = r.Form["required_two_factor_protocols"]
 	filters.FilePatterns = getFilePatternsFromPostField(r)
 	filters.TLSUsername = sdk.TLSUsername(r.Form.Get("tls_username"))
 	filters.WebClient = r.Form["web_client_options"]

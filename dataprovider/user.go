@@ -65,6 +65,7 @@ const (
 const (
 	LoginMethodNoAuthTryed            = "no_auth_tryed"
 	LoginMethodPassword               = "password"
+	SSHLoginMethodPassword            = "password-over-SSH"
 	SSHLoginMethodPublicKey           = "publickey"
 	SSHLoginMethodKeyboardInteractive = "keyboard-interactive"
 	SSHLoginMethodKeyAndPassword      = "publickey+password"
@@ -827,7 +828,7 @@ func (u *User) HasNoQuotaRestrictions(checkFiles bool) bool {
 }
 
 // IsLoginMethodAllowed returns true if the specified login method is allowed
-func (u *User) IsLoginMethodAllowed(loginMethod string, partialSuccessMethods []string) bool {
+func (u *User) IsLoginMethodAllowed(loginMethod, protocol string, partialSuccessMethods []string) bool {
 	if len(u.Filters.DeniedLoginMethods) == 0 {
 		return true
 	}
@@ -840,6 +841,11 @@ func (u *User) IsLoginMethodAllowed(loginMethod string, partialSuccessMethods []
 	}
 	if util.IsStringInSlice(loginMethod, u.Filters.DeniedLoginMethods) {
 		return false
+	}
+	if protocol == protocolSSH && loginMethod == LoginMethodPassword {
+		if util.IsStringInSlice(SSHLoginMethodPassword, u.Filters.DeniedLoginMethods) {
+			return false
+		}
 	}
 	return true
 }
@@ -875,7 +881,8 @@ func (u *User) IsPartialAuth(loginMethod string) bool {
 		return false
 	}
 	for _, method := range u.GetAllowedLoginMethods() {
-		if method == LoginMethodTLSCertificate || method == LoginMethodTLSCertificateAndPwd {
+		if method == LoginMethodTLSCertificate || method == LoginMethodTLSCertificateAndPwd ||
+			method == SSHLoginMethodPassword {
 			continue
 		}
 		if !util.IsStringInSlice(method, SSHMultiStepsLoginMethods) {
@@ -889,6 +896,9 @@ func (u *User) IsPartialAuth(loginMethod string) bool {
 func (u *User) GetAllowedLoginMethods() []string {
 	var allowedMethods []string
 	for _, method := range ValidLoginMethods {
+		if method == SSHLoginMethodPassword {
+			continue
+		}
 		if !util.IsStringInSlice(method, u.Filters.DeniedLoginMethods) {
 			allowedMethods = append(allowedMethods, method)
 		}
@@ -1053,6 +1063,35 @@ func (u *User) CanDeleteFromWeb(target string) bool {
 		return false
 	}
 	return u.HasAnyPerm(permsDeleteAny, target)
+}
+
+// MustSetSecondFactor returns true if the user must set a second factor authentication
+func (u *User) MustSetSecondFactor() bool {
+	if len(u.Filters.TwoFactorAuthProtocols) > 0 {
+		if !u.Filters.TOTPConfig.Enabled {
+			return true
+		}
+		for _, p := range u.Filters.TwoFactorAuthProtocols {
+			if !util.IsStringInSlice(p, u.Filters.TOTPConfig.Protocols) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// MustSetSecondFactorForProtocol returns true if the user must set a second factor authentication
+// for the specified protocol
+func (u *User) MustSetSecondFactorForProtocol(protocol string) bool {
+	if util.IsStringInSlice(protocol, u.Filters.TwoFactorAuthProtocols) {
+		if !u.Filters.TOTPConfig.Enabled {
+			return true
+		}
+		if !util.IsStringInSlice(protocol, u.Filters.TOTPConfig.Protocols) {
+			return true
+		}
+	}
+	return false
 }
 
 // GetSignature returns a signature for this admin.
@@ -1437,6 +1476,8 @@ func (u *User) getACopy() User {
 	copy(filters.FilePatterns, u.Filters.FilePatterns)
 	filters.DeniedProtocols = make([]string, len(u.Filters.DeniedProtocols))
 	copy(filters.DeniedProtocols, u.Filters.DeniedProtocols)
+	filters.TwoFactorAuthProtocols = make([]string, len(u.Filters.TwoFactorAuthProtocols))
+	copy(filters.TwoFactorAuthProtocols, u.Filters.TwoFactorAuthProtocols)
 	filters.Hooks.ExternalAuthDisabled = u.Filters.Hooks.ExternalAuthDisabled
 	filters.Hooks.PreLoginDisabled = u.Filters.Hooks.PreLoginDisabled
 	filters.Hooks.CheckPasswordDisabled = u.Filters.Hooks.CheckPasswordDisabled

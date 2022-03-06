@@ -989,7 +989,7 @@ func TestPermMFADisabled(t *testing.T) {
 	user.Filters.WebClient = []string{sdk.WebClientMFADisabled}
 	_, resp, err := httpdtest.UpdateUser(user, http.StatusBadRequest, "")
 	assert.NoError(t, err)
-	assert.Contains(t, string(resp), "multi-factor authentication cannot be disabled for a user with an active configuration")
+	assert.Contains(t, string(resp), "two-factor authentication cannot be disabled for a user with an active configuration")
 
 	saveReq := make(map[string]bool)
 	saveReq["enabled"] = false
@@ -1027,6 +1027,90 @@ func TestPermMFADisabled(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestTwoFactorRequirements(t *testing.T) {
+	u := getTestUser()
+	u.Filters.TwoFactorAuthProtocols = []string{common.ProtocolHTTP, common.ProtocolFTP}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+	webToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodGet, userDirsPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "Two-factor authentication requirements not met, please configure two-factor authentication for the following protocols")
+
+	req, err = http.NewRequest(http.MethodGet, webClientFilesPath, nil)
+	assert.NoError(t, err)
+	req.RequestURI = webClientFilesPath
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "Two-factor authentication requirements not met, please configure two-factor authentication for the following protocols")
+
+	configName, _, secret, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
+	assert.NoError(t, err)
+	userTOTPConfig := dataprovider.UserTOTPConfig{
+		Enabled:    true,
+		ConfigName: configName,
+		Secret:     kms.NewPlainSecret(secret),
+		Protocols:  []string{common.ProtocolHTTP},
+	}
+	asJSON, err := json.Marshal(userTOTPConfig)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userTOTPSavePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "the following protocols are required")
+
+	userTOTPConfig.Protocols = []string{common.ProtocolHTTP, common.ProtocolFTP}
+	asJSON, err = json.Marshal(userTOTPConfig)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userTOTPSavePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// now get new tokens and check that the two factor requirements are now met
+	passcode, err := generateTOTPPasscode(secret)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("%v%v", httpBaseURL, userTokenPath), nil)
+	assert.NoError(t, err)
+	req.Header.Set("X-SFTPGO-OTP", passcode)
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	resp, err := httpclient.GetHTTPClient().Do(req)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	responseHolder := make(map[string]interface{})
+	err = render.DecodeJSON(resp.Body, &responseHolder)
+	assert.NoError(t, err)
+	userToken := responseHolder["access_token"].(string)
+	assert.NotEmpty(t, userToken)
+	err = resp.Body.Close()
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("%v%v", httpBaseURL, userDirsPath), nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, userToken)
+	resp, err = httpclient.GetHTTPClient().Do(req)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	err = resp.Body.Close()
+	assert.NoError(t, err)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestLoginUserAPITOTP(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
@@ -1047,6 +1131,39 @@ func TestLoginUserAPITOTP(t *testing.T) {
 	assert.NoError(t, err)
 	setBearerForReq(req, token)
 	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// now require HTTP and SSH for TOTP
+	user.Filters.TwoFactorAuthProtocols = []string{common.ProtocolHTTP, common.ProtocolSSH}
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	// two factor auth cannot be disabled
+	config := make(map[string]interface{})
+	config["enabled"] = false
+	asJSON, err = json.Marshal(config)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userTOTPSavePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "two-factor authentication must be enabled")
+	// all the required protocols must be enabled
+	asJSON, err = json.Marshal(userTOTPConfig)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userTOTPSavePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "the following protocols are required")
+	// setting all the required protocols should work
+	userTOTPConfig.Protocols = []string{common.ProtocolHTTP, common.ProtocolSSH}
+	asJSON, err = json.Marshal(userTOTPConfig)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userTOTPSavePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 
 	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("%v%v", httpBaseURL, userTokenPath), nil)
@@ -1070,8 +1187,8 @@ func TestLoginUserAPITOTP(t *testing.T) {
 	responseHolder := make(map[string]interface{})
 	err = render.DecodeJSON(resp.Body, &responseHolder)
 	assert.NoError(t, err)
-	adminToken := responseHolder["access_token"].(string)
-	assert.NotEmpty(t, adminToken)
+	userToken := responseHolder["access_token"].(string)
+	assert.NotEmpty(t, userToken)
 	err = resp.Body.Close()
 	assert.NoError(t, err)
 
@@ -1543,7 +1660,11 @@ func TestAddUserInvalidFilters(t *testing.T) {
 	u.Filters.DeniedLoginMethods = dataprovider.ValidLoginMethods
 	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
-	u.Filters.DeniedLoginMethods = []string{}
+	u.Filters.DeniedLoginMethods = []string{dataprovider.LoginMethodTLSCertificateAndPwd}
+	u.Filters.DeniedProtocols = dataprovider.ValidProtocols
+	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err)
+	u.Filters.DeniedProtocols = []string{common.ProtocolFTP}
 	u.Filters.FilePatterns = []sdk.PatternsFilter{
 		{
 			Path:            "relative",
@@ -9949,6 +10070,22 @@ func TestBrowseShares(t *testing.T) {
 	err = json.Unmarshal(rr.Body.Bytes(), &contents)
 	assert.NoError(t, err)
 	assert.Len(t, contents, 1)
+	// if we require two-factor auth for HTTP protocol the share should not work anymore
+	user.Filters.TwoFactorAuthProtocols = []string{common.ProtocolSSH}
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodGet, path.Join(sharesPath, objectID, "dirs?path=%2F"), nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	user.Filters.TwoFactorAuthProtocols = []string{common.ProtocolSSH, common.ProtocolHTTP}
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodGet, path.Join(sharesPath, objectID, "dirs?path=%2F"), nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "two-factor authentication requirements not met")
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -14560,7 +14697,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	form.Set("pattern_path0", "/dir1")
 	form.Set("patterns0", "*.zip")
 	form.Set("pattern_type0", "denied")
-	form.Set("ssh_login_methods", dataprovider.SSHLoginMethodKeyboardInteractive)
+	form.Set("denied_login_methods", dataprovider.SSHLoginMethodKeyboardInteractive)
 	form.Set("denied_protocols", common.ProtocolFTP)
 	form.Set("max_upload_file_size", "100")
 	form.Set("disconnect", "1")
@@ -17003,6 +17140,33 @@ func TestStaticFilesMock(t *testing.T) {
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
+}
+
+func TestSecondFactorRequirements(t *testing.T) {
+	user := getTestUser()
+	user.Filters.TwoFactorAuthProtocols = []string{common.ProtocolHTTP, common.ProtocolSSH}
+	assert.True(t, user.MustSetSecondFactor())
+	assert.False(t, user.MustSetSecondFactorForProtocol(common.ProtocolFTP))
+	assert.True(t, user.MustSetSecondFactorForProtocol(common.ProtocolHTTP))
+	assert.True(t, user.MustSetSecondFactorForProtocol(common.ProtocolSSH))
+
+	user.Filters.TOTPConfig.Enabled = true
+	assert.True(t, user.MustSetSecondFactor())
+	assert.False(t, user.MustSetSecondFactorForProtocol(common.ProtocolFTP))
+	assert.True(t, user.MustSetSecondFactorForProtocol(common.ProtocolHTTP))
+	assert.True(t, user.MustSetSecondFactorForProtocol(common.ProtocolSSH))
+
+	user.Filters.TOTPConfig.Protocols = []string{common.ProtocolHTTP}
+	assert.True(t, user.MustSetSecondFactor())
+	assert.False(t, user.MustSetSecondFactorForProtocol(common.ProtocolFTP))
+	assert.False(t, user.MustSetSecondFactorForProtocol(common.ProtocolHTTP))
+	assert.True(t, user.MustSetSecondFactorForProtocol(common.ProtocolSSH))
+
+	user.Filters.TOTPConfig.Protocols = []string{common.ProtocolHTTP, common.ProtocolSSH}
+	assert.False(t, user.MustSetSecondFactor())
+	assert.False(t, user.MustSetSecondFactorForProtocol(common.ProtocolFTP))
+	assert.False(t, user.MustSetSecondFactorForProtocol(common.ProtocolHTTP))
+	assert.False(t, user.MustSetSecondFactorForProtocol(common.ProtocolSSH))
 }
 
 func startOIDCMockServer() {

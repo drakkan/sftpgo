@@ -396,6 +396,11 @@ func checkPublicShare(w http.ResponseWriter, r *http.Request, shareShope datapro
 		renderError(err, "", getRespStatus(err))
 		return share, nil, err
 	}
+	if user.MustSetSecondFactorForProtocol(common.ProtocolHTTP) {
+		err := util.NewMethodDisabledError("two-factor authentication requirements not met")
+		renderError(err, "", getRespStatus(err))
+		return share, nil, err
+	}
 	connID := xid.New().String()
 	connection := &Connection{
 		BaseConnection: common.NewBaseConnection(connID, common.ProtocolHTTPShare, util.GetHTTPLocalAddress(r),

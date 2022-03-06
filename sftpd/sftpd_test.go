@@ -2497,6 +2497,41 @@ func TestInteractiveLoginWithPasscode(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestSecondFactorRequirement(t *testing.T) {
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	u.Filters.TwoFactorAuthProtocols = []string{common.ProtocolSSH}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	_, _, err = getSftpClient(user, usePubKey)
+	assert.Error(t, err)
+
+	configName, _, secret, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
+	assert.NoError(t, err)
+	user.Password = defaultPassword
+	user.Filters.TOTPConfig = dataprovider.UserTOTPConfig{
+		Enabled:    true,
+		ConfigName: configName,
+		Secret:     kms.NewPlainSecret(secret),
+		Protocols:  []string{common.ProtocolSSH},
+	}
+	err = dataprovider.UpdateUser(&user, "", "")
+	assert.NoError(t, err)
+
+	conn, client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		assert.NoError(t, checkBasicSFTP(client))
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestNamingRules(t *testing.T) {
 	err := dataprovider.Close()
 	assert.NoError(t, err)
@@ -7830,18 +7865,31 @@ func TestUserIsLoginMethodAllowed(t *testing.T) {
 		dataprovider.SSHLoginMethodPublicKey,
 		dataprovider.SSHLoginMethodKeyboardInteractive,
 	}
-	assert.False(t, user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, nil))
-	assert.False(t, user.IsLoginMethodAllowed(dataprovider.SSHLoginMethodPublicKey, nil))
-	assert.False(t, user.IsLoginMethodAllowed(dataprovider.SSHLoginMethodKeyboardInteractive, nil))
-	assert.True(t, user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, []string{dataprovider.SSHLoginMethodPublicKey}))
-	assert.True(t, user.IsLoginMethodAllowed(dataprovider.SSHLoginMethodKeyboardInteractive, []string{dataprovider.SSHLoginMethodPublicKey}))
-	assert.True(t, user.IsLoginMethodAllowed(dataprovider.SSHLoginMethodKeyAndPassword, []string{dataprovider.SSHLoginMethodPublicKey}))
+	assert.False(t, user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, common.ProtocolSSH, nil))
+	assert.False(t, user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, common.ProtocolFTP, nil))
+	assert.False(t, user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, common.ProtocolWebDAV, nil))
+	assert.False(t, user.IsLoginMethodAllowed(dataprovider.SSHLoginMethodPublicKey, common.ProtocolSSH, nil))
+	assert.False(t, user.IsLoginMethodAllowed(dataprovider.SSHLoginMethodKeyboardInteractive, common.ProtocolSSH, nil))
+	assert.True(t, user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, common.ProtocolSSH,
+		[]string{dataprovider.SSHLoginMethodPublicKey}))
+	assert.True(t, user.IsLoginMethodAllowed(dataprovider.SSHLoginMethodKeyboardInteractive, common.ProtocolSSH,
+		[]string{dataprovider.SSHLoginMethodPublicKey}))
+	assert.True(t, user.IsLoginMethodAllowed(dataprovider.SSHLoginMethodKeyAndPassword, common.ProtocolSSH,
+		[]string{dataprovider.SSHLoginMethodPublicKey}))
 
 	user.Filters.DeniedLoginMethods = []string{
 		dataprovider.SSHLoginMethodPublicKey,
 		dataprovider.SSHLoginMethodKeyboardInteractive,
 	}
-	assert.True(t, user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, nil))
+	assert.True(t, user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, common.ProtocolSSH, nil))
+
+	user.Filters.DeniedLoginMethods = []string{
+		dataprovider.SSHLoginMethodPassword,
+	}
+	assert.True(t, user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, common.ProtocolHTTP, nil))
+	assert.True(t, user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, common.ProtocolFTP, nil))
+	assert.True(t, user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, common.ProtocolWebDAV, nil))
+	assert.False(t, user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, common.ProtocolSSH, nil))
 }
 
 func TestUserEmptySubDirPerms(t *testing.T) {

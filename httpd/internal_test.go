@@ -1002,6 +1002,21 @@ func TestJWTTokenValidation(t *testing.T) {
 	ctx = jwtauth.NewContext(req.Context(), token, errTest)
 	fn.ServeHTTP(rr, req.WithContext(ctx))
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
+
+	fn = checkSecondFactorRequirement(r)
+	rr = httptest.NewRecorder()
+	req, _ = http.NewRequest(http.MethodPost, webClientProfilePath, nil)
+	req.RequestURI = webClientProfilePath
+	ctx = jwtauth.NewContext(req.Context(), token, errTest)
+	fn.ServeHTTP(rr, req.WithContext(ctx))
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+
+	rr = httptest.NewRecorder()
+	req, _ = http.NewRequest(http.MethodPost, userSharesPath, nil)
+	req.RequestURI = userSharesPath
+	ctx = jwtauth.NewContext(req.Context(), token, errTest)
+	fn.ServeHTTP(rr, req.WithContext(ctx))
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
 }
 
 func TestUpdateContextFromCookie(t *testing.T) {

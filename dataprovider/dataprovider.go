@@ -119,9 +119,9 @@ var (
 		PermRenameFiles, PermRenameDirs, PermDelete, PermDeleteFiles, PermDeleteDirs, PermCreateSymlinks, PermChmod,
 		PermChown, PermChtimes}
 	// ValidLoginMethods defines all the valid login methods
-	ValidLoginMethods = []string{SSHLoginMethodPublicKey, LoginMethodPassword, SSHLoginMethodKeyboardInteractive,
-		SSHLoginMethodKeyAndPassword, SSHLoginMethodKeyAndKeyboardInt, LoginMethodTLSCertificate,
-		LoginMethodTLSCertificateAndPwd}
+	ValidLoginMethods = []string{SSHLoginMethodPublicKey, LoginMethodPassword, SSHLoginMethodPassword,
+		SSHLoginMethodKeyboardInteractive, SSHLoginMethodKeyAndPassword, SSHLoginMethodKeyAndKeyboardInt,
+		LoginMethodTLSCertificate, LoginMethodTLSCertificateAndPwd}
 	// SSHMultiStepsLoginMethods defines the supported Multi-Step Authentications
 	SSHMultiStepsLoginMethods = []string{SSHLoginMethodKeyAndPassword, SSHLoginMethodKeyAndKeyboardInt}
 	// ErrNoAuthTryed defines the error for connection closed before authentication
@@ -872,7 +872,7 @@ func CheckCachedUserCredentials(user *CachedUser, password, loginMethod, protoco
 			return err
 		}
 		if loginMethod == LoginMethodTLSCertificate {
-			if !user.User.IsLoginMethodAllowed(LoginMethodTLSCertificate, nil) {
+			if !user.User.IsLoginMethodAllowed(LoginMethodTLSCertificate, protocol, nil) {
 				return fmt.Errorf("certificate login method is not allowed for user %#v", user.User.Username)
 			}
 			return nil
@@ -918,7 +918,7 @@ func CheckCompositeCredentials(username, password, ip, loginMethod, protocol str
 	if err != nil {
 		return user, loginMethod, err
 	}
-	if loginMethod == LoginMethodTLSCertificate && !user.IsLoginMethodAllowed(LoginMethodTLSCertificate, nil) {
+	if loginMethod == LoginMethodTLSCertificate && !user.IsLoginMethodAllowed(LoginMethodTLSCertificate, protocol, nil) {
 		return user, loginMethod, fmt.Errorf("certificate login method is not allowed for user %#v", user.Username)
 	}
 	if loginMethod == LoginMethodTLSCertificateAndPwd {
@@ -1805,7 +1805,6 @@ func validateUserTOTPConfig(c *UserTOTPConfig, username string) error {
 			return util.NewValidationError(fmt.Sprintf("totp: unable to encrypt secret: %v", err))
 		}
 	}
-	c.Protocols = util.RemoveDuplicates(c.Protocols)
 	if len(c.Protocols) == 0 {
 		return util.NewValidationError("totp: specify at least one protocol")
 	}
@@ -1987,7 +1986,6 @@ func validateBandwidthLimit(bl sdk.BandwidthLimit) error {
 
 func validateBandwidthLimitsFilter(user *User) error {
 	for idx, bandwidthLimit := range user.Filters.BandwidthLimits {
-		user.Filters.BandwidthLimits[idx].Sources = util.RemoveDuplicates(bandwidthLimit.Sources)
 		if err := validateBandwidthLimit(bandwidthLimit); err != nil {
 			return err
 		}
@@ -2033,6 +2031,24 @@ func updateFiltersValues(user *User) {
 	}
 }
 
+func validateFilterProtocols(user *User) error {
+	if len(user.Filters.DeniedProtocols) >= len(ValidProtocols) {
+		return util.NewValidationError("invalid denied_protocols")
+	}
+	for _, p := range user.Filters.DeniedProtocols {
+		if !util.IsStringInSlice(p, ValidProtocols) {
+			return util.NewValidationError(fmt.Sprintf("invalid denied protocol %#v", p))
+		}
+	}
+
+	for _, p := range user.Filters.TwoFactorAuthProtocols {
+		if !util.IsStringInSlice(p, MFAProtocols) {
+			return util.NewValidationError(fmt.Sprintf("invalid two factor protocol %#v", p))
+		}
+	}
+	return nil
+}
+
 func validateFilters(user *User) error {
 	checkEmptyFiltersStruct(user)
 	if err := validateIPFilters(user); err != nil {
@@ -2044,7 +2060,6 @@ func validateFilters(user *User) error {
 	if err := validateTransferLimitsFilter(user); err != nil {
 		return err
 	}
-	user.Filters.DeniedLoginMethods = util.RemoveDuplicates(user.Filters.DeniedLoginMethods)
 	if len(user.Filters.DeniedLoginMethods) >= len(ValidLoginMethods) {
 		return util.NewValidationError("invalid denied_login_methods")
 	}
@@ -2053,21 +2068,14 @@ func validateFilters(user *User) error {
 			return util.NewValidationError(fmt.Sprintf("invalid login method: %#v", loginMethod))
 		}
 	}
-	user.Filters.DeniedProtocols = util.RemoveDuplicates(user.Filters.DeniedProtocols)
-	if len(user.Filters.DeniedProtocols) >= len(ValidProtocols) {
-		return util.NewValidationError("invalid denied_protocols")
-	}
-	for _, p := range user.Filters.DeniedProtocols {
-		if !util.IsStringInSlice(p, ValidProtocols) {
-			return util.NewValidationError(fmt.Sprintf("invalid protocol: %#v", p))
-		}
+	if err := validateFilterProtocols(user); err != nil {
+		return err
 	}
 	if user.Filters.TLSUsername != "" {
 		if !util.IsStringInSlice(string(user.Filters.TLSUsername), validTLSUsernames) {
 			return util.NewValidationError(fmt.Sprintf("invalid TLS username: %#v", user.Filters.TLSUsername))
 		}
 	}
-	user.Filters.WebClient = util.RemoveDuplicates(user.Filters.WebClient)
 	for _, opts := range user.Filters.WebClient {
 		if !util.IsStringInSlice(opts, sdk.WebClientOptions) {
 			return util.NewValidationError(fmt.Sprintf("invalid web client options %#v", opts))
@@ -2244,7 +2252,7 @@ func ValidateUser(user *User) error {
 		return err
 	}
 	if user.Filters.TOTPConfig.Enabled && util.IsStringInSlice(sdk.WebClientMFADisabled, user.Filters.WebClient) {
-		return util.NewValidationError("multi-factor authentication cannot be disabled for a user with an active configuration")
+		return util.NewValidationError("two-factor authentication cannot be disabled for a user with an active configuration")
 	}
 	return saveGCSCredentials(&user.FsConfig, user)
 }
@@ -2405,7 +2413,7 @@ func checkUserAndPubKey(user *User, pubKey []byte) (User, string, error) {
 				certInfo = fmt.Sprintf(" %v ID: %v Serial: %v CA: %v", cert.Type(), cert.KeyId, cert.Serial,
 					ssh.FingerprintSHA256(cert.SignatureKey))
 			}
-			return *user, fmt.Sprintf("%v:%v%v", ssh.FingerprintSHA256(storedPubKey), comment, certInfo), nil
+			return *user, fmt.Sprintf("%s:%s%s", ssh.FingerprintSHA256(storedPubKey), comment, certInfo), nil
 		}
 	}
 	return *user, "", ErrInvalidCredentials

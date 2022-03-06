@@ -239,7 +239,7 @@ func (s *Server) VerifyConnection(cc ftpserver.ClientContext, user string, tlsCo
 
 				s.setTLSConnVerified(cc.ID(), true)
 
-				if dbUser.IsLoginMethodAllowed(dataprovider.LoginMethodTLSCertificate, nil) {
+				if dbUser.IsLoginMethodAllowed(dataprovider.LoginMethodTLSCertificate, common.ProtocolFTP, nil) {
 					connection, err := s.validateUser(dbUser, cc, dataprovider.LoginMethodTLSCertificate)
 
 					defer updateLoginMetrics(&dbUser, ipAddr, dataprovider.LoginMethodTLSCertificate, err)
@@ -330,10 +330,15 @@ func (s *Server) validateUser(user dataprovider.User, cc ftpserver.ClientContext
 		logger.Info(logSender, connectionID, "cannot login user %#v, protocol FTP is not allowed", user.Username)
 		return nil, fmt.Errorf("protocol FTP is not allowed for user %#v", user.Username)
 	}
-	if !user.IsLoginMethodAllowed(loginMethod, nil) {
+	if !user.IsLoginMethodAllowed(loginMethod, common.ProtocolFTP, nil) {
 		logger.Info(logSender, connectionID, "cannot login user %#v, %v login method is not allowed",
 			user.Username, loginMethod)
 		return nil, fmt.Errorf("login method %v is not allowed for user %#v", loginMethod, user.Username)
+	}
+	if user.MustSetSecondFactorForProtocol(common.ProtocolFTP) {
+		logger.Info(logSender, connectionID, "cannot login user %#v, second factor authentication is not set",
+			user.Username)
+		return nil, fmt.Errorf("second factor authentication is not set for user %#v", user.Username)
 	}
 	if user.MaxSessions > 0 {
 		activeSessions := common.Connections.GetActiveSessions(user.Username)

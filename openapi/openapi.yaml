@@ -4308,6 +4308,7 @@ components:
       enum:
         - publickey
         - password
+        - password-over-SSH
         - keyboard-interactive
         - publickey+password
         - publickey+keyboard-interactive
@@ -4316,7 +4317,8 @@ components:
       description: |
         Available login methods. To enable multi-step authentication you have to allow only multi-step login methods
           * `publickey`
-          * `password`
+          * `password`, password for all the supported protocols
+          * `password-over-SSH`, password over SSH protocol (SSH/SFTP/SCP)
           * `keyboard-interactive`
           * `publickey+password` - multi-step auth: public key and password
           * `publickey+keyboard-interactive` - multi-step auth: public key and keyboard interactive
@@ -4682,6 +4684,11 @@ components:
         start_directory:
           type: string
           description: 'Specifies an alternate starting directory. If not set, the default is "/". This option is supported for SFTP/SCP, FTP and HTTP (WebClient/REST API) protocols. Relative paths will use this directory as base.'
+        2fa_protocols:
+          type: array
+          items:
+            $ref: '#/components/schemas/MFAProtocols'
+          description: 'Defines protocols that require two factor authentication'
       description: Additional user options
     Secret:
       type: object
