@@ -6,32 +6,32 @@
 [![Docker Pulls](https://img.shields.io/docker/pulls/drakkan/sftpgo)](https://hub.docker.com/r/drakkan/sftpgo)
 [![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg)](https://github.com/avelino/awesome-go)
 
-Fully featured and highly configurable SFTP server with optional HTTP, FTP/S and WebDAV support.
+Fully featured and highly configurable SFTP server with optional HTTP/S, FTP/S and WebDAV support.
 Several storage backends are supported: local filesystem, encrypted local filesystem, S3 (compatible) Object Storage, Google Cloud Storage, Azure Blob Storage, SFTP.
 
 ## Features
 
 - Support for serving local filesystem, encrypted local filesystem, S3 Compatible Object Storage, Google Cloud Storage, Azure Blob Storage or other SFTP accounts over SFTP/SCP/FTP/WebDAV.
 - Virtual folders are supported: a virtual folder can use any of the supported storage backends. So you can have, for example, an S3 user that exposes a GCS bucket (or part of it) on a specified path and an encrypted local filesystem on another one. Virtual folders can be private or shared among multiple users, for shared virtual folders you can define different quota limits for each user.
-- Configurable [custom commands and/or HTTP hooks](./docs/custom-actions.md) on file upload, pre-upload, download, pre-download, delete, pre-delete, rename, mmkdir, rmdir on SSH commands and on user add, update and delete.
+- Configurable [custom commands and/or HTTP hooks](./docs/custom-actions.md) on file upload, pre-upload, download, pre-download, delete, pre-delete, rename, mkdir, rmdir on SSH commands and on user add, update and delete.
 - Virtual accounts stored within a "data provider".
 - SQLite, MySQL, PostgreSQL, CockroachDB, Bolt (key/value store in pure Go) and in-memory data providers are supported.
 - Chroot isolation for local accounts. Cloud-based accounts can be restricted to a certain base path.
-- Per user and per directory virtual permissions, for each exposed path you can allow or deny: directory listing, upload, overwrite, download, delete, rename, create directories, create symlinks, change owner/group/file mode.
+- Per-user and per-directory virtual permissions, for each exposed path you can allow or deny: directory listing, upload, overwrite, download, delete, rename, create directories, create symlinks, change owner/group/file mode and modification time.
 - [REST API](./docs/rest-api.md) for users and folders management, data retention, backup, restore and real time reports of the active connections with possibility of forcibly closing a connection.
 - [Web based administration interface](./docs/web-admin.md) to easily manage users, folders and connections.
 - [Web client interface](./docs/web-client.md) so that end users can change their credentials, manage and share their files.
-- Public key and password authentication. Multiple public keys per user are supported.
+- Public key and password authentication. Multiple public keys per-user are supported.
 - SSH user [certificate authentication](https://cvsweb.openbsd.org/src/usr.bin/ssh/PROTOCOL.certkeys?rev=1.8).
 - Keyboard interactive authentication. You can easily setup a customizable multi-factor authentication.
 - Partial authentication. You can configure multi-step authentication requiring, for example, the user password after successful public key authentication.
-- Per user authentication methods.
+- Per-user authentication methods.
 - [Two-factor authentication](./docs/howto/two-factor-authentication.md) based on time-based one time passwords (RFC 6238) which works with Authy, Google Authenticator and other compatible apps.
 - Custom authentication via external programs/HTTP API.
 - Web Client and Web Admin user interfaces support [OpenID Connect](https://openid.net/connect/) authentication and so they can be integrated with identity providers such as [Keycloak](https://www.keycloak.org/). You can find more details [here](./docs/oidc.md).
 - [Data At Rest Encryption](./docs/dare.md).
 - Dynamic user modification before login via external programs/HTTP API.
-- Quota support: accounts can have individual quota expressed as max total size and/or max number of files.
+- Quota support: accounts can have individual disk quota expressed as max total size and/or max number of files.
 - Bandwidth throttling, with separate settings for upload and download and overrides based on the client's IP address.
 - Data transfer bandwidth limits, with total limit or separate settings for uploads and downloads and overrides based on the client's IP address. Limits can be reset using the REST API.
 - Per-protocol [rate limiting](./docs/rate-limiting.md) is supported and can be optionally connected to the built-in defender to automatically block hosts that repeatedly exceed the configured limit.
@@ -47,9 +47,9 @@ Several storage backends are supported: local filesystem, encrypted local filesy
 - FTP/S is supported. You can configure the FTP service to require TLS for both control and data connections.
 - [WebDAV](./docs/webdav.md) is supported.
 - Two-Way TLS authentication, aka TLS with client certificate authentication, is supported for REST API/Web Admin, FTPS and WebDAV over HTTPS.
-- Per-user protocols restrictions. You can configure the allowed protocols (SSH/FTP/WebDAV) for each user.
+- Per-user protocols restrictions. You can configure the allowed protocols (SSH/HTTP/FTP/WebDAV) for each user.
 - [Prometheus metrics](./docs/metrics.md) are exposed.
-- Support for HAProxy PROXY protocol: you can proxy and/or load balance the SFTP/SCP/FTP/WebDAV service without losing the information about the client's address.
+- Support for HAProxy PROXY protocol: you can proxy and/or load balance the SFTP/SCP/FTP service without losing the information about the client's address.
 - Easy [migration](./examples/convertusers) from Linux system user accounts.
 - [Portable mode](./docs/portable-mode.md): a convenient way to share a single directory on demand.
 - [SFTP subsystem mode](./docs/sftp-subsystem.md): you can use SFTPGo as OpenSSH's SFTP subsystem.
@@ -82,10 +82,13 @@ Some Linux distro packages are available:
   - [sftpgo-git](https://aur.archlinux.org/packages/sftpgo-git/). This package builds and installs the latest git `main` branch. It requires `git`, `gcc` and `go` to build.
 - Deb and RPM packages are built after each commit and for each release.
 - For Ubuntu a PPA is available [here](https://launchpad.net/~sftpgo/+archive/ubuntu/sftpgo).
+- Void Linux provides an [official package](https://github.com/void-linux/void-packages/tree/master/srcpkgs/sftpgo).
 
 SFTPGo is also available on [AWS Marketplace](https://aws.amazon.com/marketplace/seller-profile?id=6e849ab8-70a6-47de-9a43-13c3fa849335), purchasing from there will help keep SFTPGo a long-term sustainable project.
 
 On FreeBSD you can install from the [SFTPGo port](https://www.freshports.org/ftp/sftpgo).
+
+On DragonFlyBSD you can install SFTPGo from [DPorts](https://github.com/DragonFlyBSD/DPorts/tree/master/ftp/sftpgo).
 
 On Windows you can use:
 
@@ -197,7 +200,7 @@ After starting SFTPGo you can manage users and folders using:
 
 To support embedded data providers like `bolt` and `SQLite` we can't have a CLI that directly write users and folders to the data provider, we always have to use the REST API.
 
-Full details for users, folders, admins and other resources are documented in the [OpenAPI](/openapi/openapi.yaml) schema. If you want to render the schema without importing it manually, you can explore it on [Stoplight](https://sftpgo.stoplight.io/docs/sftpgo/openapi.yaml).
+Full details for users, folders, admins and other resources are documented in the [OpenAPI](./openapi/openapi.yaml) schema. If you want to render the schema without importing it manually, you can explore it on [Stoplight](https://sftpgo.stoplight.io/docs/sftpgo/openapi.yaml).
 
 ## Tutorials
 
