@@ -751,11 +751,13 @@ func (fs *SFTPFs) createConnection() error {
 			fsLog(fs, logger.LevelWarn, "login without host key validation, please provide at least a fingerprint!")
 			return nil
 		},
+		Timeout:       10 * time.Second,
 		ClientVersion: fmt.Sprintf("SSH-2.0-SFTPGo_%v", version.Get().Version),
 	}
 	if fs.config.PrivateKey.GetPayload() != "" {
 		signer, err := ssh.ParsePrivateKey([]byte(fs.config.PrivateKey.GetPayload()))
 		if err != nil {
+			fsLog(fs, logger.LevelError, "unable to parse the provided private key: %v", err)
 			fs.err <- err
 			return err
 		}
@@ -766,11 +768,13 @@ func (fs *SFTPFs) createConnection() error {
 	}
 	fs.sshClient, err = ssh.Dial("tcp", fs.config.Endpoint, clientConfig)
 	if err != nil {
+		fsLog(fs, logger.LevelError, "unable to connect: %v", err)
 		fs.err <- err
 		return err
 	}
 	fs.sftpClient, err = sftp.NewClient(fs.sshClient)
 	if err != nil {
+		fsLog(fs, logger.LevelError, "unable to create SFTP client: %v", err)
 		fs.sshClient.Close()
 		fs.err <- err
 		return err
