@@ -49,7 +49,6 @@ import (
 	"github.com/drakkan/sftpgo/v2/httpclient"
 	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/metric"
 	"github.com/drakkan/sftpgo/v2/mfa"
 	"github.com/drakkan/sftpgo/v2/plugin"
 	"github.com/drakkan/sftpgo/v2/util"
@@ -150,12 +149,7 @@ var (
 	pbkdfPwdB64SaltPrefixes = []string{pbkdf2SHA256B64SaltPrefix}
 	unixPwdPrefixes         = []string{md5cryptPwdPrefix, md5cryptApr1PwdPrefix, sha512cryptPwdPrefix}
 	sharedProviders         = []string{PGSQLDataProviderName, MySQLDataProviderName, CockroachDataProviderName}
-	logSender               = "dataProvider"
-	availabilityTicker      *time.Ticker
-	availabilityTickerDone  chan bool
-	updateCachesTicker      *time.Ticker
-	updateCachesTickerDone  chan bool
-	lastCachesUpdate        int64
+	logSender               = "dataprovider"
 	credentialsDirPath      string
 	sqlTableUsers           = "users"
 	sqlTableFolders         = "folders"
@@ -229,6 +223,24 @@ type ProviderStatus struct {
 	Driver   string `json:"driver"`
 	IsActive bool   `json:"is_active"`
 	Error    string `json:"error"`
+}
+
+// AutoBackup defines the settings for automatic provider backups.
+// Example: hour "0" and day_of_week "*" means a backup every day at midnight.
+// The backup file name is in the format backup_<day_of_week>_<hour>.json
+// files with the same name will be overwritten
+type AutoBackup struct {
+	Enabled bool `json:"enabled" mapstructure:"enabled"`
+	// hour as standard cron expression. Allowed values: 0-23.
+	// Allowed special characters: asterisk (*), slash (/), comma (,), hyphen (-).
+	// More info about special characters here:
+	// https://pkg.go.dev/github.com/robfig/cron#hdr-Special_Characters
+	Hour string `json:"hour" mapstructure:"hour"`
+	// Day of the week as cron expression. Allowed values: 0-6 (Sunday to Saturday).
+	// Allowed special characters: asterisk (*), slash (/), comma (,), hyphen (-), question mark (?).
+	// More info about special characters here:
+	// https://pkg.go.dev/github.com/robfig/cron#hdr-Special_Characters
+	DayOfWeek string `json:"day_of_week" mapstructure:"day_of_week"`
 }
 
 // Config provider configuration
@@ -386,6 +398,10 @@ type Config struct {
 	// For shared data providers, active transfers are persisted in the database and thus
 	// quota checks between ongoing transfers will work cross multiple instances
 	IsShared int `json:"is_shared" mapstructure:"is_shared"`
+	// Path to the backup directory. This can be an absolute path or a path relative to the config dir
+	BackupsPath string `json:"backups_path" mapstructure:"backups_path"`
+	// Settings for automatic backups
+	AutoBackup AutoBackup `json:"auto_backup" mapstructure:"auto_backup"`
 }
 
 // GetShared returns the provider share mode
@@ -429,6 +445,33 @@ func (c *Config) requireCustomTLSForMySQL() bool {
 		return config.SSLMode != 0
 	}
 	return false
+}
+
+func (c *Config) doBackup() {
+	now := time.Now()
+	outputFile := filepath.Join(c.BackupsPath, fmt.Sprintf("backup_%v_%v.json", now.Weekday(), now.Hour()))
+	providerLog(logger.LevelDebug, "starting auto backup to file %#v", outputFile)
+	err := os.MkdirAll(filepath.Dir(outputFile), 0700)
+	if err != nil {
+		providerLog(logger.LevelError, "unable to create backup dir %#v: %v", outputFile, err)
+		return
+	}
+	backup, err := DumpData()
+	if err != nil {
+		providerLog(logger.LevelError, "unable to execute backup: %v", err)
+		return
+	}
+	dump, err := json.Marshal(backup)
+	if err != nil {
+		providerLog(logger.LevelError, "unable to marshal backup as JSON: %v", err)
+		return
+	}
+	err = os.WriteFile(outputFile, dump, 0600)
+	if err != nil {
+		providerLog(logger.LevelError, "unable to save backup: %v", err)
+		return
+	}
+	providerLog(logger.LevelDebug, "auto backup saved to %#v", outputFile)
 }
 
 // ConvertName converts the given name based on the configured rules
@@ -650,11 +693,11 @@ func Initialize(cnf Config, basePath string, checkAdmins bool) error {
 	var err error
 	config = cnf
 
-	if filepath.IsAbs(config.CredentialsPath) {
-		credentialsDirPath = config.CredentialsPath
-	} else {
-		credentialsDirPath = filepath.Join(basePath, config.CredentialsPath)
+	cnf.BackupsPath = getConfigPath(cnf.BackupsPath, basePath)
+	if cnf.BackupsPath == "" {
+		return fmt.Errorf("required directory is invalid, backup path %#v", cnf.BackupsPath)
 	}
+	credentialsDirPath = getConfigPath(config.CredentialsPath, basePath)
 	vfs.SetCredentialsDirPath(credentialsDirPath)
 
 	if err = initializeHashingAlgo(&cnf); err != nil {
@@ -698,10 +741,8 @@ func Initialize(cnf Config, basePath string, checkAdmins bool) error {
 		return err
 	}
 	atomic.StoreInt32(&isAdminCreated, int32(len(admins)))
-	startAvailabilityTimer()
-	startUpdateCachesTimer()
 	delayedQuotaUpdater.start()
-	return nil
+	return startScheduler()
 }
 
 func validateHooks() error {
@@ -731,6 +772,11 @@ func validateHooks() error {
 	}
 
 	return nil
+}
+
+// GetBackupsPath returns the normalized backups path
+func GetBackupsPath() string {
+	return config.BackupsPath
 }
 
 func initializeHashingAlgo(cnf *Config) error {
@@ -1541,7 +1587,7 @@ func GetFolders(limit, offset int, order string) ([]vfs.BaseVirtualFolder, error
 	return provider.getFolders(limit, offset, order)
 }
 
-// DumpData returns all users and folders
+// DumpData returns all users, folders, admins, api keys, shares
 func DumpData() (BackupData, error) {
 	var data BackupData
 	users, err := provider.dumpUsers()
@@ -1604,16 +1650,7 @@ func GetProviderStatus() ProviderStatus {
 // This method is used in test cases.
 // Closing an uninitialized provider is not supported
 func Close() error {
-	if availabilityTicker != nil {
-		availabilityTicker.Stop()
-		availabilityTickerDone <- true
-		availabilityTicker = nil
-	}
-	if updateCachesTicker != nil {
-		updateCachesTicker.Stop()
-		updateCachesTickerDone <- true
-		updateCachesTicker = nil
-	}
+	stopScheduler()
 	return provider.close()
 }
 
@@ -2550,73 +2587,6 @@ func getSSLMode() string {
 	return ""
 }
 
-func checkCacheUpdates() {
-	providerLog(logger.LevelDebug, "start caches check, update time %v", util.GetTimeFromMsecSinceEpoch(lastCachesUpdate))
-	checkTime := util.GetTimeAsMsSinceEpoch(time.Now())
-	users, err := provider.getRecentlyUpdatedUsers(lastCachesUpdate)
-	if err != nil {
-		providerLog(logger.LevelError, "unable to get recently updated users: %v", err)
-		return
-	}
-	for _, user := range users {
-		providerLog(logger.LevelDebug, "invalidate caches for user %#v", user.Username)
-		webDAVUsersCache.swap(&user)
-		cachedPasswords.Remove(user.Username)
-	}
-
-	lastCachesUpdate = checkTime
-	providerLog(logger.LevelDebug, "end caches check, new update time %v", util.GetTimeFromMsecSinceEpoch(lastCachesUpdate))
-}
-
-func startUpdateCachesTimer() {
-	if config.IsShared == 0 {
-		return
-	}
-	if !util.IsStringInSlice(config.Driver, sharedProviders) {
-		providerLog(logger.LevelError, "update caches not supported for provider %v", config.Driver)
-		return
-	}
-	lastCachesUpdate = util.GetTimeAsMsSinceEpoch(time.Now())
-	providerLog(logger.LevelDebug, "update caches check started for provider %v", config.Driver)
-	updateCachesTicker = time.NewTicker(10 * time.Minute)
-	updateCachesTickerDone = make(chan bool)
-
-	go func() {
-		for {
-			select {
-			case <-updateCachesTickerDone:
-				return
-			case <-updateCachesTicker.C:
-				checkCacheUpdates()
-			}
-		}
-	}()
-}
-
-func startAvailabilityTimer() {
-	availabilityTicker = time.NewTicker(30 * time.Second)
-	availabilityTickerDone = make(chan bool)
-	checkDataprovider()
-	go func() {
-		for {
-			select {
-			case <-availabilityTickerDone:
-				return
-			case <-availabilityTicker.C:
-				checkDataprovider()
-			}
-		}
-	}()
-}
-
-func checkDataprovider() {
-	err := provider.checkAvailability()
-	if err != nil {
-		providerLog(logger.LevelError, "check availability error: %v", err)
-	}
-	metric.UpdateDataProviderAvailability(err)
-}
-
 func terminateInteractiveAuthProgram(cmd *exec.Cmd, isFinished bool) {
 	if isFinished {
 		return
@@ -3415,6 +3385,16 @@ func isLastActivityRecent(lastActivity int64, minDelay time.Duration) bool {
 		return false
 	}
 	return diff < minDelay
+}
+
+func getConfigPath(name, configDir string) string {
+	if !util.IsFileInputValid(name) {
+		return ""
+	}
+	if name != "" && !filepath.IsAbs(name) {
+		return filepath.Join(configDir, name)
+	}
+	return name
 }
 
 func providerLog(level logger.LogLevel, format string, v ...interface{}) {

@@ -304,6 +304,14 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
+	backupsPath = filepath.Join(os.TempDir(), "test_backups")
+	providerConf.BackupsPath = backupsPath
+	err = os.MkdirAll(backupsPath, os.ModePerm)
+	if err != nil {
+		logger.ErrorToConsole("error creating backups path: %v", err)
+		os.Exit(1)
+	}
+
 	err = dataprovider.Initialize(providerConf, configDir, true)
 	if err != nil {
 		logger.WarnToConsole("error initializing data provider: %v", err)
@@ -348,14 +356,6 @@ func TestMain(m *testing.M) {
 		},
 	}
 	httpdtest.SetBaseURL(httpBaseURL)
-	backupsPath = filepath.Join(os.TempDir(), "test_backups")
-	httpdConf.BackupsPath = backupsPath
-	err = os.MkdirAll(backupsPath, os.ModePerm)
-	if err != nil {
-		logger.ErrorToConsole("error creating backups path: %v", err)
-		os.Exit(1)
-	}
-
 	// required to test sftpfs
 	sftpdConf := config.GetSFTPDConfig()
 	sftpdConf.Bindings = []sftpd.Binding{
@@ -437,7 +437,6 @@ func TestInitialization(t *testing.T) {
 	httpdConf := config.GetHTTPDConfig()
 	defaultTemplatesPath := httpdConf.TemplatesPath
 	defaultStaticPath := httpdConf.StaticFilesPath
-	httpdConf.BackupsPath = backupsPath
 	httpdConf.CertificateFile = invalidFile
 	httpdConf.CertificateKeyFile = invalidFile
 	err = httpdConf.Initialize(configDir)
@@ -449,10 +448,6 @@ func TestInitialization(t *testing.T) {
 	assert.Error(t, err)
 	httpdConf = config.GetHTTPDConfig()
 	httpdConf.TemplatesPath = defaultTemplatesPath
-	httpdConf.BackupsPath = ".."
-	err = httpdConf.Initialize(configDir)
-	assert.Error(t, err)
-	httpdConf.BackupsPath = backupsPath
 	httpdConf.CertificateFile = invalidFile
 	httpdConf.CertificateKeyFile = invalidFile
 	httpdConf.StaticFilesPath = ""
@@ -1409,6 +1404,7 @@ func TestPasswordValidations(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf = config.GetProviderConf()
+	providerConf.BackupsPath = backupsPath
 	providerConf.CredentialsPath = credentialsPath
 	err = os.RemoveAll(credentialsPath)
 	assert.NoError(t, err)
@@ -1462,6 +1458,7 @@ func TestAdminPasswordHashing(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf = config.GetProviderConf()
+	providerConf.BackupsPath = backupsPath
 	providerConf.CredentialsPath = credentialsPath
 	err = os.RemoveAll(credentialsPath)
 	assert.NoError(t, err)
@@ -3333,6 +3330,7 @@ func TestUserHiddenFields(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf = config.GetProviderConf()
+	providerConf.BackupsPath = backupsPath
 	providerConf.CredentialsPath = credentialsPath
 	err = os.RemoveAll(credentialsPath)
 	assert.NoError(t, err)
@@ -3981,6 +3979,7 @@ func TestNamingRules(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf = config.GetProviderConf()
+	providerConf.BackupsPath = backupsPath
 	providerConf.CredentialsPath = credentialsPath
 	err = os.RemoveAll(credentialsPath)
 	assert.NoError(t, err)
@@ -4193,6 +4192,7 @@ func TestSaveErrors(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf = config.GetProviderConf()
+	providerConf.BackupsPath = backupsPath
 	providerConf.CredentialsPath = credentialsPath
 	err = os.RemoveAll(credentialsPath)
 	assert.NoError(t, err)
@@ -4280,6 +4280,7 @@ func TestUserBaseDir(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf = config.GetProviderConf()
+	providerConf.BackupsPath = backupsPath
 	providerConf.CredentialsPath = credentialsPath
 	err = os.RemoveAll(credentialsPath)
 	assert.NoError(t, err)
@@ -4326,6 +4327,7 @@ func TestQuotaTrackingDisabled(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf = config.GetProviderConf()
+	providerConf.BackupsPath = backupsPath
 	providerConf.CredentialsPath = credentialsPath
 	err = os.RemoveAll(credentialsPath)
 	assert.NoError(t, err)
@@ -4484,6 +4486,7 @@ func TestProviderErrors(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
+	providerConf.BackupsPath = backupsPath
 	providerConf.CredentialsPath = credentialsPath
 	err = os.RemoveAll(credentialsPath)
 	assert.NoError(t, err)
@@ -4597,6 +4600,7 @@ func TestDumpdata(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
+	providerConf.BackupsPath = backupsPath
 	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
 	_, rawResp, err := httpdtest.Dumpdata("", "", "", http.StatusBadRequest)
@@ -4642,6 +4646,7 @@ func TestDumpdata(t *testing.T) {
 	assert.NoError(t, err)
 	providerConf = config.GetProviderConf()
 	providerConf.CredentialsPath = credentialsPath
+	providerConf.BackupsPath = backupsPath
 	err = os.RemoveAll(credentialsPath)
 	assert.NoError(t, err)
 	err = dataprovider.Initialize(providerConf, configDir, true)
@@ -4817,6 +4822,7 @@ func TestDefenderAPIErrors(t *testing.T) {
 		assert.NoError(t, err)
 		providerConf := config.GetProviderConf()
 		providerConf.CredentialsPath = credentialsPath
+		providerConf.BackupsPath = backupsPath
 		err = os.RemoveAll(credentialsPath)
 		assert.NoError(t, err)
 		err = dataprovider.Initialize(providerConf, configDir, true)
@@ -12545,6 +12551,7 @@ func TestWebAdminSetupMock(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf = config.GetProviderConf()
+	providerConf.BackupsPath = backupsPath
 	providerConf.CredentialsPath = credentialsPath
 	err = os.RemoveAll(credentialsPath)
 	assert.NoError(t, err)
@@ -15022,6 +15029,7 @@ func TestUserSaveFromTemplateMock(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
+	providerConf.BackupsPath = backupsPath
 	providerConf.CredentialsPath = credentialsPath
 	err = os.RemoveAll(credentialsPath)
 	assert.NoError(t, err)
@@ -15220,6 +15228,7 @@ func TestFolderSaveFromTemplateMock(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
+	providerConf.BackupsPath = backupsPath
 	providerConf.CredentialsPath = credentialsPath
 	err = os.RemoveAll(credentialsPath)
 	assert.NoError(t, err)
@@ -17062,6 +17071,7 @@ func TestProviderClosedMock(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
+	providerConf.BackupsPath = backupsPath
 	providerConf.CredentialsPath = credentialsPath
 	err = os.RemoveAll(credentialsPath)
 	assert.NoError(t, err)

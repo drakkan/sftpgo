@@ -159,7 +159,6 @@ const (
 )
 
 var (
-	backupsPath                    string
 	certMgr                        *common.CertManager
 	cleanupTicker                  *time.Ticker
 	cleanupDone                    chan bool
@@ -461,7 +460,7 @@ type Conf struct {
 	// If both TemplatesPath and StaticFilesPath are empty the built-in web interface will be disabled
 	StaticFilesPath string `json:"static_files_path" mapstructure:"static_files_path"`
 	// Path to the backup directory. This can be an absolute path or a path relative to the config dir
-	BackupsPath string `json:"backups_path" mapstructure:"backups_path"`
+	//BackupsPath string `json:"backups_path" mapstructure:"backups_path"`
 	// Path to the directory that contains the OpenAPI schema and the default renderer.
 	// This can be an absolute path or a path relative to the config dir
 	OpenAPIPath string `json:"openapi_path" mapstructure:"openapi_path"`
@@ -559,13 +558,9 @@ func (c *Conf) getRedacted() Conf {
 // Initialize configures and starts the HTTP server
 func (c *Conf) Initialize(configDir string) error {
 	logger.Info(logSender, "", "initializing HTTP server with config %+v", c.getRedacted())
-	backupsPath = getConfigPath(c.BackupsPath, configDir)
 	staticFilesPath := getConfigPath(c.StaticFilesPath, configDir)
 	templatesPath := getConfigPath(c.TemplatesPath, configDir)
 	openAPIPath := getConfigPath(c.OpenAPIPath, configDir)
-	if backupsPath == "" {
-		return fmt.Errorf("required directory is invalid, backup path %#v", backupsPath)
-	}
 	if err := c.checkRequiredDirs(staticFilesPath, templatesPath); err != nil {
 		return err
 	}

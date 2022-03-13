@@ -30,7 +30,7 @@ func validateBackupFile(outputFile string) (string, error) {
 	if strings.Contains(outputFile, "..") {
 		return "", fmt.Errorf("invalid output-file %#v", outputFile)
 	}
-	outputFile = filepath.Join(backupsPath, outputFile)
+	outputFile = filepath.Join(dataprovider.GetBackupsPath(), outputFile)
 	return outputFile, nil
 }
 
@@ -57,7 +57,7 @@ func dumpData(w http.ResponseWriter, r *http.Request) {
 
 		err = os.MkdirAll(filepath.Dir(outputFile), 0700)
 		if err != nil {
-			logger.Warn(logSender, "", "dumping data error: %v, output file: %#v", err, outputFile)
+			logger.Error(logSender, "", "dumping data error: %v, output file: %#v", err, outputFile)
 			sendAPIResponse(w, r, err, "", getRespStatus(err))
 			return
 		}
@@ -66,7 +66,7 @@ func dumpData(w http.ResponseWriter, r *http.Request) {
 
 	backup, err := dataprovider.DumpData()
 	if err != nil {
-		logger.Warn(logSender, "", "dumping data error: %v, output file: %#v", err, outputFile)
+		logger.Error(logSender, "", "dumping data error: %v, output file: %#v", err, outputFile)
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}

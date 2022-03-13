@@ -203,7 +203,13 @@
     "update_mode": 0,
     "create_default_admin": false,
     "naming_rules": 0,
-    "is_shared": 0
+    "is_shared": 0,
+    "backups_path": "backups",
+    "auto_backup": {
+      "enabled": true,
+      "hour": "0",
+      "day_of_week": "*"
+    }
   },
   "httpd": {
     "bindings": [
@@ -248,7 +254,6 @@
     "templates_path": "templates",
     "static_files_path": "static",
     "openapi_path": "openapi",
-    "backups_path": "backups",
     "web_root": "",
     "certificate_file": "",
     "certificate_key_file": "",
