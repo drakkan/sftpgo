@@ -2144,6 +2144,15 @@ func TestLoginWithDatabaseCredentials(t *testing.T) {
 }
 
 func TestLoginInvalidFs(t *testing.T) {
+	err := dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf := config.GetProviderConf()
+	providerConf.PreferDatabaseCredentials = false
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+
 	usePubKey := true
 	u := getTestUser(usePubKey)
 	u.FsConfig.Provider = sdk.GCSFilesystemProvider
@@ -2152,7 +2161,7 @@ func TestLoginInvalidFs(t *testing.T) {
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 
-	providerConf := config.GetProviderConf()
+	providerConf = config.GetProviderConf()
 	credentialsFile := filepath.Join(providerConf.CredentialsPath, fmt.Sprintf("%v_gcs_credentials.json", u.Username))
 	if !filepath.IsAbs(credentialsFile) {
 		credentialsFile = filepath.Join(configDir, credentialsFile)
@@ -2171,6 +2180,14 @@ func TestLoginInvalidFs(t *testing.T) {
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf = config.GetProviderConf()
+	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
 }
 

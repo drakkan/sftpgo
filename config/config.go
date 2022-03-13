@@ -296,7 +296,7 @@ func Init() {
 			},
 			PasswordCaching:           true,
 			UpdateMode:                0,
-			PreferDatabaseCredentials: false,
+			PreferDatabaseCredentials: true,
 			DelayedQuotaUpdate:        0,
 			CreateDefaultAdmin:        false,
 			NamingRules:               0,
