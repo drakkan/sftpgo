@@ -132,7 +132,7 @@ The configuration file contains the following sections:
     - `debug`, boolean. If enabled any FTP command will be logged. This will generate a lot of logs. Enable only if you are investigating a client compatibility issue or something similar. You shouldn't leave this setting enabled for production servers. Default `false`.
   - `banner`, string. Greeting banner displayed when a connection first comes in. Leave empty to use the default banner. Default `SFTPGo <version> ready`, for example `SFTPGo 1.0.0-dev ready`.
   - `banner_file`, path to the banner file. The contents of the specified file, if any, are displayed when someone connects to the server. It can be a path relative to the config dir or an absolute one. If set, it overrides the banner string provided by the `banner` option. Leave empty to disable.
-  - `active_transfers_port_non_20`, boolean. Do not impose the port 20 for active data transfers. Enabling this option allows to run SFTPGo with less privilege. Default: false.
+  - `active_transfers_port_non_20`, boolean. Do not impose the port 20 for active data transfers. Enabling this option allows to run SFTPGo with less privilege. Default: `true`.
   - `passive_port_range`, struct containing the key `start` and `end`. Port Range for data connections. Random if not specified. Default range is 50000-50100.
   - `disable_active_mode`, boolean. Set to `true` to disable active FTP, default `false`.
   - `enable_site`, boolean. Set to true to enable the FTP SITE command. We support `chmod` and `symlink` if SITE support is enabled. Default `false`

@@ -71,7 +71,7 @@ var (
 		ProxyAllowed:    nil,
 	}
 	defaultHTTPDBinding = httpd.Binding{
-		Address:               "127.0.0.1",
+		Address:               "",
 		Port:                  8080,
 		EnableWebAdmin:        true,
 		EnableWebClient:       true,
@@ -230,7 +230,7 @@ func Init() {
 			ConnectionString: "",
 			SQLTablesPrefix:  "",
 			SSLMode:          0,
-			TrackQuota:       1,
+			TrackQuota:       2,
 			PoolSize:         0,
 			UsersBaseDir:     "",
 			Actions: dataprovider.ObjectsActions{
@@ -321,7 +321,7 @@ func Init() {
 			TOTP: nil,
 		},
 		TelemetryConfig: telemetry.Conf{
-			BindPort:           10000,
+			BindPort:           0,
 			BindAddress:        "127.0.0.1",
 			EnableProfiler:     false,
 			AuthUserFile:       "",
@@ -528,6 +528,7 @@ func LoadConfig(configDir, configFile string) error {
 			logger.Warn(logSender, "", "error loading configuration file: %v", err)
 			logger.WarnToConsole("error loading configuration file: %v", err)
 		}
+		globalConf.MFAConfig.TOTP = []mfa.TOTPConfig{defaultTOTP}
 	}
 	err = viper.Unmarshal(&globalConf)
 	if err != nil {
