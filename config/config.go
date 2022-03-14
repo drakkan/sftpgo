@@ -187,9 +187,9 @@ func Init() {
 			RateLimitersConfig: []common.RateLimiterConfig{defaultRateLimiter},
 		},
 		SFTPD: sftpd.Configuration{
-			Banner:                            defaultSFTPDBanner,
 			Bindings:                          []sftpd.Binding{defaultSFTPDBinding},
 			MaxAuthTries:                      0,
+			Banner:                            defaultSFTPDBanner,
 			HostKeys:                          []string{},
 			KexAlgorithms:                     []string{},
 			Ciphers:                           []string{},
@@ -259,7 +259,7 @@ func Init() {
 			RootCert:         "",
 			ClientCert:       "",
 			ClientKey:        "",
-			TrackQuota:       1,
+			TrackQuota:       2,
 			PoolSize:         0,
 			UsersBaseDir:     "",
 			Actions: dataprovider.ObjectsActions{
@@ -355,7 +355,7 @@ func Init() {
 			TOTP: nil,
 		},
 		TelemetryConfig: telemetry.Conf{
-			BindPort:           10000,
+			BindPort:           0,
 			BindAddress:        "127.0.0.1",
 			EnableProfiler:     false,
 			AuthUserFile:       "",
@@ -572,6 +572,7 @@ func LoadConfig(configDir, configFile string) error {
 			logger.Warn(logSender, "", "error loading configuration file: %v", err)
 			logger.WarnToConsole("error loading configuration file: %v", err)
 		}
+		globalConf.MFAConfig.TOTP = []mfa.TOTPConfig{defaultTOTP}
 	}
 	err = viper.Unmarshal(&globalConf)
 	if err != nil {

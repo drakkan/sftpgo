@@ -67,6 +67,8 @@ func TestLoadConfigFileNotFound(t *testing.T) {
 	viper.SetConfigName("configfile")
 	err := config.LoadConfig(os.TempDir(), "")
 	assert.NoError(t, err)
+	mfaConf := config.GetMFAConfig()
+	assert.Len(t, mfaConf.TOTP, 1)
 }
 
 func TestEmptyBanner(t *testing.T) {

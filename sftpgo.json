@@ -70,6 +70,7 @@
     "enabled_ssh_commands": [
       "md5sum",
       "sha1sum",
+      "sha256sum",
       "cd",
       "pwd",
       "scp"
