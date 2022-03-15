@@ -5,8 +5,11 @@ package vfs
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"mime"
+	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"path"
@@ -14,14 +17,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
-	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/eikenb/pipeat"
 	"github.com/pkg/sftp"
 
@@ -32,19 +36,21 @@ import (
 	"github.com/drakkan/sftpgo/v2/version"
 )
 
-// using this mime type for directories improves compatibility with s3fs-fuse
-const s3DirMimeType = "application/x-directory"
+const (
+	// using this mime type for directories improves compatibility with s3fs-fuse
+	s3DirMimeType        = "application/x-directory"
+	s3TransferBufferSize = 256 * 1024
+)
 
 // S3Fs is a Fs implementation for AWS S3 compatible object storages
 type S3Fs struct {
 	connectionID string
 	localTempDir string
 	// if not empty this fs is mouted as virtual folder in the specified path
-	mountPath      string
-	config         *S3FsConfig
-	svc            *s3.S3
-	ctxTimeout     time.Duration
-	ctxLongTimeout time.Duration
+	mountPath  string
+	config     *S3FsConfig
+	svc        *s3.Client
+	ctxTimeout time.Duration
 }
 
 func init() {
@@ -53,7 +59,7 @@ func init() {
 
 // NewS3Fs returns an S3Fs object that allows to interact with an s3 compatible
 // object storage
-func NewS3Fs(connectionID, localTempDir, mountPath string, config S3FsConfig) (Fs, error) {
+func NewS3Fs(connectionID, localTempDir, mountPath string, s3Config S3FsConfig) (Fs, error) {
 	if localTempDir == "" {
 		if tempPath != "" {
 			localTempDir = tempPath
@@ -62,51 +68,56 @@ func NewS3Fs(connectionID, localTempDir, mountPath string, config S3FsConfig) (F
 		}
 	}
 	fs := &S3Fs{
-		connectionID:   connectionID,
-		localTempDir:   localTempDir,
-		mountPath:      mountPath,
-		config:         &config,
-		ctxTimeout:     30 * time.Second,
-		ctxLongTimeout: 300 * time.Second,
+		connectionID: connectionID,
+		localTempDir: localTempDir,
+		mountPath:    mountPath,
+		config:       &s3Config,
+		ctxTimeout:   30 * time.Second,
 	}
 	if err := fs.config.Validate(); err != nil {
 		return fs, err
 	}
-	awsConfig := aws.NewConfig()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 
-	if fs.config.Region != "" {
-		awsConfig.WithRegion(fs.config.Region)
+	awsConfig, err := config.LoadDefaultConfig(ctx, config.WithHTTPClient(getAWSHTTPClient(0, 30*time.Second)))
+	if err != nil {
+		return fs, fmt.Errorf("unable to get AWS config: %w", err)
 	}
-
+	if fs.config.Region != "" {
+		awsConfig.Region = fs.config.Region
+	}
 	if !fs.config.AccessSecret.IsEmpty() {
 		if err := fs.config.AccessSecret.TryDecrypt(); err != nil {
 			return fs, err
 		}
-		awsConfig.Credentials = credentials.NewStaticCredentials(fs.config.AccessKey,
-			fs.config.AccessSecret.GetPayload(), fs.config.SessionToken)
+		awsConfig.Credentials = aws.NewCredentialsCache(
+			credentials.NewStaticCredentialsProvider(fs.config.AccessKey, fs.config.AccessSecret.GetPayload(),
+				fs.config.SessionToken))
+	}
+	if fs.config.Endpoint != "" {
+		endpointResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
+			return aws.Endpoint{
+				URL:               fs.config.Endpoint,
+				HostnameImmutable: fs.config.ForcePathStyle,
+				PartitionID:       "aws",
+				SigningRegion:     fs.config.Region,
+				Source:            aws.EndpointSourceCustom,
+			}, nil
+		})
+		awsConfig.EndpointResolverWithOptions = endpointResolver
 	}
 
-	if fs.config.Endpoint != "" {
-		awsConfig.Endpoint = aws.String(fs.config.Endpoint)
-	}
-	if fs.config.ForcePathStyle {
-		awsConfig.S3ForcePathStyle = aws.Bool(true)
-	}
 	fs.setConfigDefaults()
 
-	sessOpts := session.Options{
-		Config:            *awsConfig,
-		SharedConfigState: session.SharedConfigEnable,
-	}
-	sess, err := session.NewSessionWithOptions(sessOpts)
-	if err != nil {
-		return fs, err
-	}
 	if fs.config.RoleARN != "" {
-		creds := stscreds.NewCredentials(sess, fs.config.RoleARN)
-		sess.Config.Credentials = creds
+		client := sts.NewFromConfig(awsConfig)
+		creds := stscreds.NewAssumeRoleProvider(client, fs.config.RoleARN)
+		awsConfig.Credentials = creds
 	}
-	fs.svc = s3.New(sess)
+	fs.svc = s3.NewFromConfig(awsConfig, func(o *s3.Options) {
+		o.UsePathStyle = fs.config.ForcePathStyle
+	})
 	return fs, nil
 }
 
@@ -123,22 +134,21 @@ func (fs *S3Fs) ConnectionID() string {
 // Stat returns a FileInfo describing the named file
 func (fs *S3Fs) Stat(name string) (os.FileInfo, error) {
 	var result *FileInfo
-	if name == "/" || name == "." {
+	if name == "" || name == "/" || name == "." {
 		err := fs.checkIfBucketExists()
 		if err != nil {
 			return result, err
 		}
 		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, 0, time.Now(), false))
 	}
-	if "/"+fs.config.KeyPrefix == name+"/" {
+	if fs.config.KeyPrefix == name+"/" {
 		return NewFileInfo(name, true, 0, time.Now(), false), nil
 	}
 	obj, err := fs.headObject(name)
 	if err == nil {
 		// a "dir" has a trailing "/" so we cannot have a directory here
-		objSize := *obj.ContentLength
-		objectModTime := *obj.LastModified
-		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, false, objSize, objectModTime, false))
+		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, false, obj.ContentLength,
+			util.GetTimeFromPointer(obj.LastModified), false))
 	}
 	if !fs.IsNotExist(err) {
 		return result, err
@@ -163,9 +173,8 @@ func (fs *S3Fs) getStatForDir(name string) (os.FileInfo, error) {
 	if err != nil {
 		return result, err
 	}
-	objSize := *obj.ContentLength
-	objectModTime := *obj.LastModified
-	return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, objSize, objectModTime, false))
+	return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, obj.ContentLength,
+		util.GetTimeFromPointer(obj.LastModified), false))
 }
 
 // Lstat returns a FileInfo describing the named file
@@ -180,18 +189,16 @@ func (fs *S3Fs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, fun
 		return nil, nil, nil, err
 	}
 	ctx, cancelFn := context.WithCancel(context.Background())
-	downloader := s3manager.NewDownloaderWithClient(fs.svc)
-	if offset == 0 && fs.config.DownloadPartMaxTime > 0 {
-		downloader.RequestOptions = append(downloader.RequestOptions, func(r *request.Request) {
-			chunkCtx, cancel := context.WithTimeout(r.Context(), time.Duration(fs.config.DownloadPartMaxTime)*time.Second)
-			r.SetContext(chunkCtx)
+	downloader := manager.NewDownloader(fs.svc, func(d *manager.Downloader) {
+		d.Concurrency = fs.config.DownloadConcurrency
+		d.PartSize = fs.config.DownloadPartSize
+		if offset == 0 && fs.config.DownloadPartMaxTime > 0 {
+			d.ClientOptions = append(d.ClientOptions, func(o *s3.Options) {
+				o.HTTPClient = getAWSHTTPClient(fs.config.DownloadPartMaxTime, 100*time.Millisecond)
+			})
+		}
+	})
 
-			go func() {
-				<-ctx.Done()
-				cancel()
-			}()
-		})
-	}
 	var streamRange *string
 	if offset > 0 {
 		streamRange = aws.String(fmt.Sprintf("bytes=%v-", offset))
@@ -200,16 +207,13 @@ func (fs *S3Fs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, fun
 	go func() {
 		defer cancelFn()
 
-		n, err := downloader.DownloadWithContext(ctx, w, &s3.GetObjectInput{
+		n, err := downloader.Download(ctx, w, &s3.GetObjectInput{
 			Bucket: aws.String(fs.config.Bucket),
 			Key:    aws.String(name),
 			Range:  streamRange,
-		}, func(d *s3manager.Downloader) {
-			d.Concurrency = fs.config.DownloadConcurrency
-			d.PartSize = fs.config.DownloadPartSize
 		})
 		w.CloseWithError(err) //nolint:errcheck
-		fsLog(fs, logger.LevelDebug, "download completed, path: %#v size: %v, err: %v", name, n, err)
+		fsLog(fs, logger.LevelDebug, "download completed, path: %#v size: %v, err: %+v", name, n, err)
 		metric.S3TransferCompleted(n, 1, err)
 	}()
 	return nil, r, cancelFn, nil
@@ -223,43 +227,37 @@ func (fs *S3Fs) Create(name string, flag int) (File, *PipeWriter, func(), error)
 	}
 	p := NewPipeWriter(w)
 	ctx, cancelFn := context.WithCancel(context.Background())
-	uploader := s3manager.NewUploaderWithClient(fs.svc)
-	if fs.config.UploadPartMaxTime > 0 {
-		uploader.RequestOptions = append(uploader.RequestOptions, func(r *request.Request) {
-			chunkCtx, cancel := context.WithTimeout(r.Context(), time.Duration(fs.config.UploadPartMaxTime)*time.Second)
-			r.SetContext(chunkCtx)
+	uploader := manager.NewUploader(fs.svc, func(u *manager.Uploader) {
+		u.Concurrency = fs.config.UploadConcurrency
+		u.PartSize = fs.config.UploadPartSize
+		if fs.config.UploadPartMaxTime > 0 {
+			u.ClientOptions = append(u.ClientOptions, func(o *s3.Options) {
+				o.HTTPClient = getAWSHTTPClient(fs.config.UploadPartMaxTime, 100*time.Millisecond)
+			})
+		}
+	})
 
-			go func() {
-				<-ctx.Done()
-				cancel()
-			}()
-		})
-	}
 	go func() {
 		defer cancelFn()
 
-		key := name
 		var contentType string
 		if flag == -1 {
 			contentType = s3DirMimeType
 		} else {
 			contentType = mime.TypeByExtension(path.Ext(name))
 		}
-		response, err := uploader.UploadWithContext(ctx, &s3manager.UploadInput{
+		_, err := uploader.Upload(ctx, &s3.PutObjectInput{
 			Bucket:       aws.String(fs.config.Bucket),
-			Key:          aws.String(key),
+			Key:          aws.String(name),
 			Body:         r,
-			ACL:          util.NilIfEmpty(fs.config.ACL),
-			StorageClass: util.NilIfEmpty(fs.config.StorageClass),
+			ACL:          types.ObjectCannedACL(fs.config.ACL),
+			StorageClass: types.StorageClass(fs.config.StorageClass),
 			ContentType:  util.NilIfEmpty(contentType),
-		}, func(u *s3manager.Uploader) {
-			u.Concurrency = fs.config.UploadConcurrency
-			u.PartSize = fs.config.UploadPartSize
 		})
 		r.CloseWithError(err) //nolint:errcheck
 		p.Done(err)
-		fsLog(fs, logger.LevelDebug, "upload completed, path: %#v, acl: %#v, response: %v, readed bytes: %v, err: %+v",
-			name, fs.config.ACL, response, r.GetReadedBytes(), err)
+		fsLog(fs, logger.LevelDebug, "upload completed, path: %#v, acl: %#v, readed bytes: %v, err: %+v",
+			name, fs.config.ACL, r.GetReadedBytes(), err)
 		metric.S3TransferCompleted(r.GetReadedBytes(), 0, err)
 	}()
 	return nil, p, cancelFn, nil
@@ -270,11 +268,6 @@ func (fs *S3Fs) Create(name string, flag int) (File, *PipeWriter, func(), error)
 // rename all the contents too and this could take long time: think
 // about directories with thousands of files, for each file we should
 // execute a CopyObject call.
-// TODO: rename does not work for files bigger than 5GB, implement
-// multipart copy or wait for this pull request to be merged:
-//
-// https://github.com/aws/aws-sdk-go/pull/2653
-//
 func (fs *S3Fs) Rename(source, target string) error {
 	if source == target {
 		return nil
@@ -305,25 +298,33 @@ func (fs *S3Fs) Rename(source, target string) error {
 	} else {
 		contentType = mime.TypeByExtension(path.Ext(source))
 	}
-	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
-	defer cancelFn()
+	copySource = pathEscape(copySource)
 
-	_, err = fs.svc.CopyObjectWithContext(ctx, &s3.CopyObjectInput{
-		Bucket:       aws.String(fs.config.Bucket),
-		CopySource:   aws.String(pathEscape(copySource)),
-		Key:          aws.String(target),
-		StorageClass: util.NilIfEmpty(fs.config.StorageClass),
-		ACL:          util.NilIfEmpty(fs.config.ACL),
-		ContentType:  util.NilIfEmpty(contentType),
-	})
+	if fi.Size() > 5*1024*1024*1024 {
+		err = fs.doMultipartCopy(copySource, target, contentType, fi.Size())
+	} else {
+		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
+		defer cancelFn()
+
+		_, err = fs.svc.CopyObject(ctx, &s3.CopyObjectInput{
+			Bucket:       aws.String(fs.config.Bucket),
+			CopySource:   aws.String(copySource),
+			Key:          aws.String(target),
+			StorageClass: types.StorageClass(fs.config.StorageClass),
+			ACL:          types.ObjectCannedACL(fs.config.ACL),
+			ContentType:  util.NilIfEmpty(contentType),
+		})
+	}
 	if err != nil {
 		metric.S3CopyObjectCompleted(err)
 		return err
 	}
-	err = fs.svc.WaitUntilObjectExistsWithContext(ctx, &s3.HeadObjectInput{
+
+	waiter := s3.NewObjectExistsWaiter(fs.svc)
+	err = waiter.Wait(context.Background(), &s3.HeadObjectInput{
 		Bucket: aws.String(fs.config.Bucket),
 		Key:    aws.String(target),
-	})
+	}, 10*time.Second)
 	metric.S3CopyObjectCompleted(err)
 	if err != nil {
 		return err
@@ -333,7 +334,7 @@ func (fs *S3Fs) Rename(source, target string) error {
 			err = plugin.Handler.SetModificationTime(fs.getStorageID(), ensureAbsPath(target),
 				util.GetTimeAsMsSinceEpoch(fi.ModTime()))
 			if err != nil {
-				fsLog(fs, logger.LevelWarn, "unable to preserve modification time after renaming %#v -> %#v: %v",
+				fsLog(fs, logger.LevelWarn, "unable to preserve modification time after renaming %#v -> %#v: %+v",
 					source, target, err)
 			}
 		}
@@ -358,14 +359,14 @@ func (fs *S3Fs) Remove(name string, isDir bool) error {
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
 	defer cancelFn()
 
-	_, err := fs.svc.DeleteObjectWithContext(ctx, &s3.DeleteObjectInput{
+	_, err := fs.svc.DeleteObject(ctx, &s3.DeleteObjectInput{
 		Bucket: aws.String(fs.config.Bucket),
 		Key:    aws.String(name),
 	})
 	metric.S3DeleteObjectCompleted(err)
 	if plugin.Handler.HasMetadater() && err == nil && !isDir {
 		if errMetadata := plugin.Handler.RemoveMetadata(fs.getStorageID(), ensureAbsPath(name)); errMetadata != nil {
-			fsLog(fs, logger.LevelWarn, "unable to remove metadata for path %#v: %v", name, errMetadata)
+			fsLog(fs, logger.LevelWarn, "unable to remove metadata for path %#v: %+v", name, errMetadata)
 		}
 	}
 	return err
@@ -437,27 +438,29 @@ func (*S3Fs) Truncate(name string, size int64) error {
 func (fs *S3Fs) ReadDir(dirname string) ([]os.FileInfo, error) {
 	var result []os.FileInfo
 	// dirname must be already cleaned
-	prefix := ""
-	if dirname != "/" && dirname != "." {
-		prefix = strings.TrimPrefix(dirname, "/")
-		if !strings.HasSuffix(prefix, "/") {
-			prefix += "/"
-		}
-	}
+	prefix := fs.getPrefix(dirname)
 
 	modTimes, err := getFolderModTimes(fs.getStorageID(), dirname)
 	if err != nil {
 		return result, err
 	}
 	prefixes := make(map[string]bool)
-	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxLongTimeout))
-	defer cancelFn()
 
-	err = fs.svc.ListObjectsV2PagesWithContext(ctx, &s3.ListObjectsV2Input{
+	paginator := s3.NewListObjectsV2Paginator(fs.svc, &s3.ListObjectsV2Input{
 		Bucket:    aws.String(fs.config.Bucket),
 		Prefix:    aws.String(prefix),
 		Delimiter: aws.String("/"),
-	}, func(page *s3.ListObjectsV2Output, lastPage bool) bool {
+	})
+
+	for paginator.HasMorePages() {
+		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
+		defer cancelFn()
+
+		page, err := paginator.NextPage(ctx)
+		if err != nil {
+			metric.S3ListObjectsCompleted(err)
+			return result, err
+		}
 		for _, p := range page.CommonPrefixes {
 			// prefixes have a trailing slash
 			name, _ := fs.resolve(p.Prefix, prefix)
@@ -471,10 +474,9 @@ func (fs *S3Fs) ReadDir(dirname string) ([]os.FileInfo, error) {
 			prefixes[name] = true
 		}
 		for _, fileObject := range page.Contents {
-			objectSize := *fileObject.Size
-			objectModTime := *fileObject.LastModified
+			objectModTime := util.GetTimeFromPointer(fileObject.LastModified)
 			name, isDir := fs.resolve(fileObject.Key, prefix)
-			if name == "" {
+			if name == "" || name == "/" {
 				continue
 			}
 			if isDir {
@@ -486,12 +488,13 @@ func (fs *S3Fs) ReadDir(dirname string) ([]os.FileInfo, error) {
 			if t, ok := modTimes[name]; ok {
 				objectModTime = util.GetTimeFromMsecSinceEpoch(t)
 			}
-			result = append(result, NewFileInfo(name, (isDir && objectSize == 0), objectSize, objectModTime, false))
+			result = append(result, NewFileInfo(name, (isDir && fileObject.Size == 0), fileObject.Size,
+				objectModTime, false))
 		}
-		return true
-	})
-	metric.S3ListObjectsCompleted(err)
-	return result, err
+	}
+
+	metric.S3ListObjectsCompleted(nil)
+	return result, nil
 }
 
 // IsUploadResumeSupported returns true if resuming uploads is supported.
@@ -513,23 +516,14 @@ func (*S3Fs) IsNotExist(err error) bool {
 	if err == nil {
 		return false
 	}
-	if aerr, ok := err.(awserr.Error); ok {
-		if aerr.Code() == s3.ErrCodeNoSuchKey {
-			return true
-		}
-		if aerr.Code() == s3.ErrCodeNoSuchBucket {
-			return true
-		}
-	}
-	if multierr, ok := err.(s3manager.MultiUploadFailure); ok {
-		if multierr.Code() == s3.ErrCodeNoSuchKey {
-			return true
-		}
-		if multierr.Code() == s3.ErrCodeNoSuchBucket {
-			return true
+
+	var re *awshttp.ResponseError
+	if errors.As(err, &re) {
+		if re.Response != nil {
+			return re.Response.StatusCode == http.StatusNotFound
 		}
 	}
-	return strings.Contains(err.Error(), "404")
+	return false
 }
 
 // IsPermission returns a boolean indicating whether the error is known to
@@ -538,7 +532,15 @@ func (*S3Fs) IsPermission(err error) bool {
 	if err == nil {
 		return false
 	}
-	return strings.Contains(err.Error(), "403")
+
+	var re *awshttp.ResponseError
+	if errors.As(err, &re) {
+		if re.Response != nil {
+			return re.Response.StatusCode == http.StatusForbidden ||
+				re.Response.StatusCode == http.StatusUnauthorized
+		}
+	}
+	return false
 }
 
 // IsNotSupported returns true if the error indicate an unsupported operation
@@ -561,25 +563,33 @@ func (fs *S3Fs) CheckRootPath(username string, uid int, gid int) bool {
 func (fs *S3Fs) ScanRootDirContents() (int, int64, error) {
 	numFiles := 0
 	size := int64(0)
-	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxLongTimeout))
-	defer cancelFn()
 
-	err := fs.svc.ListObjectsV2PagesWithContext(ctx, &s3.ListObjectsV2Input{
+	paginator := s3.NewListObjectsV2Paginator(fs.svc, &s3.ListObjectsV2Input{
 		Bucket: aws.String(fs.config.Bucket),
 		Prefix: aws.String(fs.config.KeyPrefix),
-	}, func(page *s3.ListObjectsV2Output, lastPage bool) bool {
+	})
+
+	for paginator.HasMorePages() {
+		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
+		defer cancelFn()
+
+		page, err := paginator.NextPage(ctx)
+		if err != nil {
+			metric.S3ListObjectsCompleted(err)
+			return numFiles, size, err
+		}
 		for _, fileObject := range page.Contents {
-			isDir := strings.HasSuffix(*fileObject.Key, "/")
-			if isDir && *fileObject.Size == 0 {
+			isDir := strings.HasSuffix(util.GetStringFromPointer(fileObject.Key), "/")
+			if isDir && fileObject.Size == 0 {
 				continue
 			}
 			numFiles++
-			size += *fileObject.Size
+			size += fileObject.Size
 		}
-		return true
-	})
-	metric.S3ListObjectsCompleted(err)
-	return numFiles, size, err
+	}
+
+	metric.S3ListObjectsCompleted(nil)
+	return numFiles, size, nil
 }
 
 func (fs *S3Fs) getFileNamesInPrefix(fsPrefix string) (map[string]bool, error) {
@@ -588,28 +598,36 @@ func (fs *S3Fs) getFileNamesInPrefix(fsPrefix string) (map[string]bool, error) {
 	if fsPrefix != "/" {
 		prefix = strings.TrimPrefix(fsPrefix, "/")
 	}
-	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxLongTimeout))
-	defer cancelFn()
 
-	err := fs.svc.ListObjectsV2PagesWithContext(ctx, &s3.ListObjectsV2Input{
+	paginator := s3.NewListObjectsV2Paginator(fs.svc, &s3.ListObjectsV2Input{
 		Bucket:    aws.String(fs.config.Bucket),
 		Prefix:    aws.String(prefix),
 		Delimiter: aws.String("/"),
-	}, func(page *s3.ListObjectsV2Output, lastPage bool) bool {
+	})
+
+	for paginator.HasMorePages() {
+		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
+		defer cancelFn()
+
+		page, err := paginator.NextPage(ctx)
+		if err != nil {
+			metric.S3ListObjectsCompleted(err)
+			if err != nil {
+				fsLog(fs, logger.LevelError, "unable to get content for prefix %#v: %+v", prefix, err)
+				return nil, err
+			}
+			return fileNames, err
+		}
 		for _, fileObject := range page.Contents {
 			name, isDir := fs.resolve(fileObject.Key, prefix)
 			if name != "" && !isDir {
 				fileNames[name] = true
 			}
 		}
-		return true
-	})
-	metric.S3ListObjectsCompleted(err)
-	if err != nil {
-		fsLog(fs, logger.LevelError, "unable to get content for prefix %#v: %v", prefix, err)
-		return nil, err
 	}
-	return fileNames, err
+
+	metric.S3ListObjectsCompleted(nil)
+	return fileNames, nil
 }
 
 // CheckMetadata checks the metadata consistency
@@ -637,7 +655,7 @@ func (fs *S3Fs) GetRelativePath(name string) string {
 		rel = ""
 	}
 	if !path.IsAbs(rel) {
-		return "/" + rel
+		rel = "/" + rel
 	}
 	if fs.config.KeyPrefix != "" {
 		if !strings.HasPrefix(rel, "/"+fs.config.KeyPrefix) {
@@ -654,44 +672,44 @@ func (fs *S3Fs) GetRelativePath(name string) string {
 // Walk walks the file tree rooted at root, calling walkFn for each file or
 // directory in the tree, including root. The result are unordered
 func (fs *S3Fs) Walk(root string, walkFn filepath.WalkFunc) error {
-	prefix := ""
-	if root != "/" && root != "." {
-		prefix = strings.TrimPrefix(root, "/")
-		if !strings.HasSuffix(prefix, "/") {
-			prefix += "/"
-		}
-	}
-	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxLongTimeout))
-	defer cancelFn()
+	prefix := fs.getPrefix(root)
 
-	err := fs.svc.ListObjectsV2PagesWithContext(ctx, &s3.ListObjectsV2Input{
+	paginator := s3.NewListObjectsV2Paginator(fs.svc, &s3.ListObjectsV2Input{
 		Bucket: aws.String(fs.config.Bucket),
 		Prefix: aws.String(prefix),
-	}, func(page *s3.ListObjectsV2Output, lastPage bool) bool {
+	})
+
+	for paginator.HasMorePages() {
+		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
+		defer cancelFn()
+
+		page, err := paginator.NextPage(ctx)
+		if err != nil {
+			metric.S3ListObjectsCompleted(err)
+			walkFn(root, NewFileInfo(root, true, 0, time.Now(), false), err) //nolint:errcheck
+			return err
+		}
 		for _, fileObject := range page.Contents {
-			objectSize := *fileObject.Size
-			objectModTime := *fileObject.LastModified
-			isDir := strings.HasSuffix(*fileObject.Key, "/")
-			name := path.Clean(*fileObject.Key)
-			if name == "/" || name == "." {
+			name, isDir := fs.resolve(fileObject.Key, prefix)
+			if name == "" {
 				continue
 			}
-			err := walkFn(fs.Join("/", *fileObject.Key), NewFileInfo(name, isDir, objectSize, objectModTime, false), nil)
+			err := walkFn(util.GetStringFromPointer(fileObject.Key),
+				NewFileInfo(name, isDir, fileObject.Size, util.GetTimeFromPointer(fileObject.LastModified), false), nil)
 			if err != nil {
-				return false
+				return err
 			}
 		}
-		return true
-	})
-	metric.S3ListObjectsCompleted(err)
-	walkFn(root, NewFileInfo(root, true, 0, time.Now(), false), err) //nolint:errcheck
+	}
 
-	return err
+	metric.S3ListObjectsCompleted(nil)
+	walkFn(root, NewFileInfo(root, true, 0, time.Now(), false), nil) //nolint:errcheck
+	return nil
 }
 
 // Join joins any number of path elements into a single path
 func (*S3Fs) Join(elem ...string) string {
-	return path.Join(elem...)
+	return strings.TrimPrefix(path.Join(elem...), "/")
 }
 
 // HasVirtualFolders returns true if folders are emulated
@@ -707,19 +725,14 @@ func (fs *S3Fs) ResolvePath(virtualPath string) (string, error) {
 	if !path.IsAbs(virtualPath) {
 		virtualPath = path.Clean("/" + virtualPath)
 	}
-	return fs.Join("/", fs.config.KeyPrefix, virtualPath), nil
+	return fs.Join(fs.config.KeyPrefix, strings.TrimPrefix(virtualPath, "/")), nil
 }
 
 func (fs *S3Fs) resolve(name *string, prefix string) (string, bool) {
-	result := strings.TrimPrefix(*name, prefix)
+	result := strings.TrimPrefix(util.GetStringFromPointer(name), prefix)
 	isDir := strings.HasSuffix(result, "/")
 	if isDir {
 		result = strings.TrimSuffix(result, "/")
-	}
-	if strings.Contains(result, "/") {
-		i := strings.Index(result, "/")
-		isDir = true
-		result = result[:i]
 	}
 	return result, isDir
 }
@@ -728,7 +741,7 @@ func (fs *S3Fs) checkIfBucketExists() error {
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
 	defer cancelFn()
 
-	_, err := fs.svc.HeadBucketWithContext(ctx, &s3.HeadBucketInput{
+	_, err := fs.svc.HeadBucket(ctx, &s3.HeadBucketInput{
 		Bucket: aws.String(fs.config.Bucket),
 	})
 	metric.S3HeadBucketCompleted(err)
@@ -737,65 +750,148 @@ func (fs *S3Fs) checkIfBucketExists() error {
 
 func (fs *S3Fs) setConfigDefaults() {
 	if fs.config.UploadPartSize == 0 {
-		fs.config.UploadPartSize = s3manager.DefaultUploadPartSize
+		fs.config.UploadPartSize = manager.DefaultUploadPartSize
 	} else {
 		if fs.config.UploadPartSize < 1024*1024 {
 			fs.config.UploadPartSize *= 1024 * 1024
 		}
 	}
 	if fs.config.UploadConcurrency == 0 {
-		fs.config.UploadConcurrency = s3manager.DefaultUploadConcurrency
+		fs.config.UploadConcurrency = manager.DefaultUploadConcurrency
 	}
 	if fs.config.DownloadPartSize == 0 {
-		fs.config.DownloadPartSize = s3manager.DefaultDownloadPartSize
+		fs.config.DownloadPartSize = manager.DefaultDownloadPartSize
 	} else {
 		if fs.config.DownloadPartSize < 1024*1024 {
 			fs.config.DownloadPartSize *= 1024 * 1024
 		}
 	}
 	if fs.config.DownloadConcurrency == 0 {
-		fs.config.DownloadConcurrency = s3manager.DefaultDownloadConcurrency
+		fs.config.DownloadConcurrency = manager.DefaultDownloadConcurrency
 	}
 }
 
 func (fs *S3Fs) hasContents(name string) (bool, error) {
+	prefix := fs.getPrefix(name)
+	paginator := s3.NewListObjectsV2Paginator(fs.svc, &s3.ListObjectsV2Input{
+		Bucket:  aws.String(fs.config.Bucket),
+		Prefix:  aws.String(prefix),
+		MaxKeys: 2,
+	})
+
+	if paginator.HasMorePages() {
+		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
+		defer cancelFn()
+
+		page, err := paginator.NextPage(ctx)
+		metric.S3ListObjectsCompleted(err)
+		if err != nil {
+			return false, err
+		}
+
+		for _, obj := range page.Contents {
+			name, _ := fs.resolve(obj.Key, prefix)
+			if name == "" || name == "/" {
+				continue
+			}
+			return true, nil
+		}
+		return false, nil
+	}
+
+	metric.S3ListObjectsCompleted(nil)
+	return false, nil
+}
+
+func (fs *S3Fs) doMultipartCopy(source, target, contentType string, fileSize int64) error {
+	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
+	defer cancelFn()
+
+	res, err := fs.svc.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
+		Bucket:       aws.String(fs.config.Bucket),
+		Key:          aws.String(target),
+		StorageClass: types.StorageClass(fs.config.StorageClass),
+		ACL:          types.ObjectCannedACL(fs.config.ACL),
+		ContentType:  util.NilIfEmpty(contentType),
+	})
+	if err != nil {
+		return fmt.Errorf("unable to create multipart copy request: %w", err)
+	}
+	uploadID := util.GetStringFromPointer(res.UploadId)
+	if uploadID == "" {
+		return errors.New("unable to get multipart copy upload ID")
+	}
+	maxPartSize := int64(500 * 1024 * 1024)
+	completedParts := make([]types.CompletedPart, 0)
+	partNumber := int32(1)
+
+	for copied := int64(0); copied < fileSize; copied += maxPartSize {
+		innerCtx, innerCancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
+		defer innerCancelFn()
+
+		partResp, err := fs.svc.UploadPartCopy(innerCtx, &s3.UploadPartCopyInput{
+			Bucket:          aws.String(fs.config.Bucket),
+			CopySource:      aws.String(source),
+			Key:             aws.String(target),
+			PartNumber:      partNumber,
+			UploadId:        aws.String(uploadID),
+			CopySourceRange: aws.String(getMultipartCopyRange(copied, maxPartSize, fileSize)),
+		})
+		if err != nil {
+			fsLog(fs, logger.LevelError, "unable to copy part number %v: %+v", partNumber, err)
+			abortCtx, abortCancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
+			defer abortCancelFn()
+
+			_, errAbort := fs.svc.AbortMultipartUpload(abortCtx, &s3.AbortMultipartUploadInput{
+				Bucket:   aws.String(fs.config.Bucket),
+				Key:      aws.String(target),
+				UploadId: aws.String(uploadID),
+			})
+			if errAbort != nil {
+				fsLog(fs, logger.LevelError, "unable to abort multipart copy: %+v", errAbort)
+			}
+			return fmt.Errorf("error copying part number %v: %w", partNumber, err)
+		}
+		completedParts = append(completedParts, types.CompletedPart{
+			ETag:       partResp.CopyPartResult.ETag,
+			PartNumber: partNumber,
+		})
+		partNumber++
+	}
+
+	completeCtx, completeCancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
+	defer completeCancelFn()
+
+	_, err = fs.svc.CompleteMultipartUpload(completeCtx, &s3.CompleteMultipartUploadInput{
+		Bucket:   aws.String(fs.config.Bucket),
+		Key:      aws.String(target),
+		UploadId: aws.String(uploadID),
+		MultipartUpload: &types.CompletedMultipartUpload{
+			Parts: completedParts,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("unable to complete multipart upload: %w", err)
+	}
+	return nil
+}
+
+func (fs *S3Fs) getPrefix(name string) string {
 	prefix := ""
-	if name != "/" && name != "." {
+	if name != "" && name != "." && name != "/" {
 		prefix = strings.TrimPrefix(name, "/")
 		if !strings.HasSuffix(prefix, "/") {
 			prefix += "/"
 		}
 	}
-	maxResults := int64(2)
-	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
-	defer cancelFn()
-
-	results, err := fs.svc.ListObjectsV2WithContext(ctx, &s3.ListObjectsV2Input{
-		Bucket:  aws.String(fs.config.Bucket),
-		Prefix:  aws.String(prefix),
-		MaxKeys: &maxResults,
-	})
-	metric.S3ListObjectsCompleted(err)
-	if err != nil {
-		return false, err
-	}
-	// MinIO returns no contents while S3 returns 1 object
-	// with the key equal to the prefix for empty directories
-	for _, obj := range results.Contents {
-		name, _ := fs.resolve(obj.Key, prefix)
-		if name == "" || name == "/" {
-			continue
-		}
-		return true, nil
-	}
-	return false, nil
+	return prefix
 }
 
 func (fs *S3Fs) headObject(name string) (*s3.HeadObjectOutput, error) {
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
 	defer cancelFn()
 
-	obj, err := fs.svc.HeadObjectWithContext(ctx, &s3.HeadObjectInput{
+	obj, err := fs.svc.HeadObject(ctx, &s3.HeadObjectInput{
 		Bucket: aws.String(fs.config.Bucket),
 		Key:    aws.String(name),
 	})
@@ -809,7 +905,7 @@ func (fs *S3Fs) GetMimeType(name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return *obj.ContentType, err
+	return util.GetStringFromPointer(obj.ContentType), nil
 }
 
 // Close closes the fs
@@ -830,6 +926,32 @@ func (fs *S3Fs) getStorageID() string {
 		return fmt.Sprintf("s3://%v%v", fs.config.Endpoint, fs.config.Bucket)
 	}
 	return fmt.Sprintf("s3://%v", fs.config.Bucket)
+}
+
+func getMultipartCopyRange(start, maxPartSize, fileSize int64) string {
+	end := start + maxPartSize - 1
+	if end > fileSize {
+		end = fileSize - 1
+	}
+
+	return fmt.Sprintf("bytes=%v-%v", start, end)
+}
+
+func getAWSHTTPClient(timeout int, idleConnectionTimeout time.Duration) *awshttp.BuildableClient {
+	c := awshttp.NewBuildableClient().
+		WithDialerOptions(func(d *net.Dialer) {
+			d.Timeout = 8 * time.Second
+		}).
+		WithTransportOptions(func(tr *http.Transport) {
+			tr.IdleConnTimeout = idleConnectionTimeout
+			tr.ResponseHeaderTimeout = 5 * time.Second
+			tr.WriteBufferSize = s3TransferBufferSize
+			tr.ReadBufferSize = s3TransferBufferSize
+		})
+	if timeout > 0 {
+		c = c.WithTimeout(time.Duration(timeout) * time.Second)
+	}
+	return c
 }
 
 // ideally we should simply use url.PathEscape:

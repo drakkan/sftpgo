@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	defaultPageSize = 5000
+	defaultGCSPageSize = 5000
 )
 
 var (
@@ -163,7 +163,7 @@ func (fs *GCSFs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, fu
 
 		n, err := io.Copy(w, objectReader)
 		w.CloseWithError(err) //nolint:errcheck
-		fsLog(fs, logger.LevelDebug, "download completed, path: %#v size: %v, err: %v", name, n, err)
+		fsLog(fs, logger.LevelDebug, "download completed, path: %#v size: %v, err: %+v", name, n, err)
 		metric.GCSTransferCompleted(n, 1, err)
 	}()
 	return nil, r, cancelFn, nil
@@ -205,7 +205,7 @@ func (fs *GCSFs) Create(name string, flag int) (File, *PipeWriter, func(), error
 		}
 		r.CloseWithError(err) //nolint:errcheck
 		p.Done(err)
-		fsLog(fs, logger.LevelDebug, "upload completed, path: %#v, acl: %#v, readed bytes: %v, err: %v",
+		fsLog(fs, logger.LevelDebug, "upload completed, path: %#v, acl: %#v, readed bytes: %v, err: %+v",
 			name, fs.config.ACL, n, err)
 		metric.GCSTransferCompleted(n, 0, err)
 	}()
@@ -268,7 +268,7 @@ func (fs *GCSFs) Rename(source, target string) error {
 			err = plugin.Handler.SetModificationTime(fs.getStorageID(), ensureAbsPath(target),
 				util.GetTimeAsMsSinceEpoch(fi.ModTime()))
 			if err != nil {
-				fsLog(fs, logger.LevelWarn, "unable to preserve modification time after renaming %#v -> %#v: %v",
+				fsLog(fs, logger.LevelWarn, "unable to preserve modification time after renaming %#v -> %#v: %+v",
 					source, target, err)
 			}
 		}
@@ -301,7 +301,7 @@ func (fs *GCSFs) Remove(name string, isDir bool) error {
 	metric.GCSDeleteObjectCompleted(err)
 	if plugin.Handler.HasMetadater() && err == nil && !isDir {
 		if errMetadata := plugin.Handler.RemoveMetadata(fs.getStorageID(), ensureAbsPath(name)); errMetadata != nil {
-			fsLog(fs, logger.LevelWarn, "unable to remove metadata for path %#v: %v", name, errMetadata)
+			fsLog(fs, logger.LevelWarn, "unable to remove metadata for path %#v: %+v", name, errMetadata)
 		}
 	}
 	return err
@@ -393,7 +393,7 @@ func (fs *GCSFs) ReadDir(dirname string) ([]os.FileInfo, error) {
 
 	bkt := fs.svc.Bucket(fs.config.Bucket)
 	it := bkt.Objects(ctx, query)
-	pager := iterator.NewPager(it, defaultPageSize, "")
+	pager := iterator.NewPager(it, defaultGCSPageSize, "")
 
 	for {
 		var objects []*storage.ObjectAttrs
@@ -474,7 +474,7 @@ func (*GCSFs) IsNotExist(err error) bool {
 			return true
 		}
 	}
-	return strings.Contains(err.Error(), "404")
+	return false
 }
 
 // IsPermission returns a boolean indicating whether the error is known to
@@ -488,7 +488,7 @@ func (*GCSFs) IsPermission(err error) bool {
 			return true
 		}
 	}
-	return strings.Contains(err.Error(), "403")
+	return false
 }
 
 // IsNotSupported returns true if the error indicate an unsupported operation
@@ -521,7 +521,7 @@ func (fs *GCSFs) ScanRootDirContents() (int, int64, error) {
 
 	bkt := fs.svc.Bucket(fs.config.Bucket)
 	it := bkt.Objects(ctx, query)
-	pager := iterator.NewPager(it, defaultPageSize, "")
+	pager := iterator.NewPager(it, defaultGCSPageSize, "")
 
 	for {
 		var objects []*storage.ObjectAttrs
@@ -573,7 +573,7 @@ func (fs *GCSFs) getFileNamesInPrefix(fsPrefix string) (map[string]bool, error) 
 
 	bkt := fs.svc.Bucket(fs.config.Bucket)
 	it := bkt.Objects(ctx, query)
-	pager := iterator.NewPager(it, defaultPageSize, "")
+	pager := iterator.NewPager(it, defaultGCSPageSize, "")
 
 	for {
 		var objects []*storage.ObjectAttrs
@@ -651,13 +651,7 @@ func (fs *GCSFs) GetRelativePath(name string) string {
 // Walk walks the file tree rooted at root, calling walkFn for each file or
 // directory in the tree, including root
 func (fs *GCSFs) Walk(root string, walkFn filepath.WalkFunc) error {
-	prefix := ""
-	if root != "" && root != "." {
-		prefix = strings.TrimPrefix(root, "/")
-		if !strings.HasSuffix(prefix, "/") {
-			prefix += "/"
-		}
-	}
+	prefix := fs.getPrefix(root)
 
 	query := &storage.Query{Prefix: prefix}
 	err := query.SetAttrSelection(gcsDefaultFieldsSelection)
@@ -671,7 +665,7 @@ func (fs *GCSFs) Walk(root string, walkFn filepath.WalkFunc) error {
 
 	bkt := fs.svc.Bucket(fs.config.Bucket)
 	it := bkt.Objects(ctx, query)
-	pager := iterator.NewPager(it, defaultPageSize, "")
+	pager := iterator.NewPager(it, defaultGCSPageSize, "")
 
 	for {
 		var objects []*storage.ObjectAttrs
@@ -784,13 +778,7 @@ func (fs *GCSFs) checkIfBucketExists() error {
 
 func (fs *GCSFs) hasContents(name string) (bool, error) {
 	result := false
-	prefix := ""
-	if name != "" && name != "." {
-		prefix = strings.TrimPrefix(name, "/")
-		if !strings.HasSuffix(prefix, "/") {
-			prefix += "/"
-		}
-	}
+	prefix := fs.getPrefix(name)
 	query := &storage.Query{Prefix: prefix}
 	err := query.SetAttrSelection(gcsDefaultFieldsSelection)
 	if err != nil {
