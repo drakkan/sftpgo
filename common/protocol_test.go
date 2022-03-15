@@ -2032,14 +2032,14 @@ func TestTransferQuotaLimits(t *testing.T) {
 		assert.NoError(t, err)
 		f, err := client.Open(testFileName)
 		if assert.NoError(t, err) {
-			_, err = io.ReadAll(f)
+			_, err = io.Copy(io.Discard, f)
 			assert.NoError(t, err)
 			err = f.Close()
 			assert.NoError(t, err)
 		}
 		f, err = client.Open(testFileName)
 		if assert.NoError(t, err) {
-			_, err = io.ReadAll(f)
+			_, err = io.Copy(io.Discard, f)
 			if assert.Error(t, err) {
 				assert.Contains(t, err.Error(), "SSH_FX_FAILURE")
 				assert.Contains(t, err.Error(), common.ErrReadQuotaExceeded.Error())
