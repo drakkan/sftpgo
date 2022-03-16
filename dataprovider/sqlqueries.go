@@ -46,12 +46,12 @@ func getAddDefenderEventQuery() string {
 }
 
 func getDefenderHostsQuery() string {
-	return fmt.Sprintf(`SELECT id,ip,ban_time FROM %v WHERE updated_at >= %v ORDER BY updated_at DESC LIMIT %v`,
+	return fmt.Sprintf(`SELECT id,ip,ban_time FROM %v WHERE updated_at >= %v OR ban_time > 0 ORDER BY updated_at DESC LIMIT %v`,
 		sqlTableDefenderHosts, sqlPlaceholders[0], sqlPlaceholders[1])
 }
 
 func getDefenderHostQuery() string {
-	return fmt.Sprintf(`SELECT id,ip,ban_time FROM %v WHERE ip = %v AND updated_at >= %v`,
+	return fmt.Sprintf(`SELECT id,ip,ban_time FROM %v WHERE ip = %v AND (updated_at >= %v OR ban_time > 0)`,
 		sqlTableDefenderHosts, sqlPlaceholders[0], sqlPlaceholders[1])
 }
 
