@@ -209,7 +209,7 @@ func TestBasicDbDefender(t *testing.T) {
 		assert.False(t, hosts[0].BanTime.IsZero())
 		assert.NotEmpty(t, hosts[0].GetBanTime())
 	}
-	host, err = defender.GetHost(testIP)
+	_, err = defender.GetHost(testIP)
 	assert.NoError(t, err)
 	// cleanup db
 	err = dataprovider.CleanupDefender(util.GetTimeAsMsSinceEpoch(time.Now().Add(10 * time.Minute)))
@@ -223,7 +223,7 @@ func TestBasicDbDefender(t *testing.T) {
 		assert.False(t, hosts[0].BanTime.IsZero())
 		assert.NotEmpty(t, hosts[0].GetBanTime())
 	}
-	host, err = defender.GetHost(testIP)
+	_, err = defender.GetHost(testIP)
 	assert.NoError(t, err)
 	err = dataprovider.SetDefenderBanTime(testIP, util.GetTimeAsMsSinceEpoch(time.Now().Add(-1*time.Minute)))
 	assert.NoError(t, err)
