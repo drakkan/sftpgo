@@ -348,6 +348,7 @@ func (s *Server) validateUser(user dataprovider.User, cc ftpserver.ClientContext
 			return nil, fmt.Errorf("too many open sessions: %v", activeSessions)
 		}
 	}
+	user.Filters.AllowedIP = util.MergeAllowFrom(user.Filters.AllowedIP, common.Config.AllowFrom, common.Config.AllowFromAdditive)
 	remoteAddr := cc.RemoteAddr().String()
 	if !user.IsLoginFromAddrAllowed(remoteAddr) {
 		logger.Info(logSender, connectionID, "cannot login user %#v, remote address is not allowed: %v",

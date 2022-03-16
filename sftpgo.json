@@ -49,7 +49,9 @@
         "entries_soft_limit": 100,
         "entries_hard_limit": 150
       }
-    ]
+    ],
+    "allow_from": [],
+    "allow_from_additive": false
   },
   "sftpd": {
     "bindings": [

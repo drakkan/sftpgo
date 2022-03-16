@@ -642,6 +642,7 @@ func loginUser(user *dataprovider.User, loginMethod, publicKey string, conn ssh.
 			user.Username)
 		return nil, fmt.Errorf("second factor authentication is not set for user %#v", user.Username)
 	}
+	user.Filters.AllowedIP = util.MergeAllowFrom(user.Filters.AllowedIP, common.Config.AllowFrom, common.Config.AllowFromAdditive)
 	remoteAddr := conn.RemoteAddr().String()
 	if !user.IsLoginFromAddrAllowed(remoteAddr) {
 		logger.Info(logSender, connectionID, "cannot login user %#v, remote address is not allowed: %v",

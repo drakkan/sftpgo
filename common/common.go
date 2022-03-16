@@ -447,7 +447,11 @@ type Configuration struct {
 	// Defender configuration
 	DefenderConfig DefenderConfig `json:"defender" mapstructure:"defender"`
 	// Rate limiter configurations
-	RateLimitersConfig    []RateLimiterConfig `json:"rate_limiters" mapstructure:"rate_limiters"`
+	RateLimitersConfig []RateLimiterConfig `json:"rate_limiters" mapstructure:"rate_limiters"`
+	// Global IPs/CIDR networks list to allow access from
+	AllowFrom []string `json:"allow_from" mapstructure:"allow_from"`
+	// Merge global and share AllowFrom list if value is true
+	AllowFromAdditive     bool `json:"allow_from_additive" mapstructure:"allow_from_additive"`
 	idleTimeoutAsDuration time.Duration
 	idleLoginTimeout      time.Duration
 	defender              Defender

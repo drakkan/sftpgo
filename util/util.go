@@ -567,6 +567,46 @@ func ParseAllowedIPAndRanges(allowed []string) ([]func(net.IP) bool, error) {
 	return res, nil
 }
 
+func intersect(n1, n2 *net.IPNet) bool {
+	for i := range n1.IP {
+		if n1.IP[i]&n1.Mask[i] != n2.IP[i]&n2.Mask[i]&n1.Mask[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// MergeAllowFrom return only
+func MergeAllowFrom(local, global []string, additive bool) []string {
+	new := []string{}
+	if additive {
+		new = append(local, global...)
+	} else {
+		for _, u := range local {
+			_, lnet, err := net.ParseCIDR(u)
+			if err != nil {
+				logger.Warn(logSender, "", "invalid local allow from value `%s`, skipping entry", u)
+				continue
+			}
+			for _, g := range global {
+				_, gnet, err := net.ParseCIDR(g)
+				if err != nil {
+					logger.Warn(logSender, "", "invalid global allow from value `%s`, skipping entry", g)
+					continue
+				}
+				if intersect(gnet, lnet) {
+					new = append(new, u)
+				}
+
+			}
+		}
+	}
+	if len(new) == 0 {
+		new = append(new, global...)
+	}
+	return RemoveDuplicates(new)
+}
+
 // GetRedactedURL returns the url redacting the password if any
 func GetRedactedURL(rawurl string) string {
 	if !strings.HasPrefix(rawurl, "http") {

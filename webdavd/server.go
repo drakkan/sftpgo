@@ -319,6 +319,7 @@ func (s *webDavServer) validateUser(user *dataprovider.User, r *http.Request, lo
 			return connID, fmt.Errorf("too many open sessions: %v", activeSessions)
 		}
 	}
+	user.Filters.AllowedIP = util.MergeAllowFrom(user.Filters.AllowedIP, common.Config.AllowFrom, common.Config.AllowFromAdditive)
 	if !user.IsLoginFromAddrAllowed(r.RemoteAddr) {
 		logger.Info(logSender, connectionID, "cannot login user %#v, remote address is not allowed: %v",
 			user.Username, r.RemoteAddr)

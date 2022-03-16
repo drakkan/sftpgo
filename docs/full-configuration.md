@@ -97,6 +97,8 @@ The configuration file contains the following sections:
     - `generate_defender_events`, boolean. If `true`, the defender is enabled, and this is not a global rate limiter, a new defender event will be generated each time the configured limit is exceeded. Default `false`
     - `entries_soft_limit`, integer.
     - `entries_hard_limit`, integer. The number of per-ip rate limiters kept in memory will vary between the soft and hard limit
+  - `allow_from`, List of CIDR ranges to allowed to use services
+  - `allow_from_additive`, if `true`, the global `allow_from` list and the user `allow_from` list are merged, if `false` only entries from the user `allow_from` list that also exist in the global `allow_from` list are taken. Default: `false`
 - **"sftpd"**, the configuration for the SFTP server
   - `bindings`, list of structs. Each struct has the following fields:
     - `port`, integer. The port used for serving SFTP requests. 0 means disabled. Default: 2022
