@@ -301,6 +301,8 @@ func (fs *S3Fs) Rename(source, target string) error {
 	copySource = pathEscape(copySource)
 
 	if fi.Size() > 5*1024*1024*1024 {
+		fsLog(fs, logger.LevelDebug, "renaming file %#v with size %v, a multipart copy is required, this may take a while",
+			source, fi.Size())
 		err = fs.doMultipartCopy(copySource, target, contentType, fi.Size())
 	} else {
 		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
