@@ -983,8 +983,8 @@ func (s *httpdServer) checkConnection(next http.Handler) http.Handler {
 		defer common.Connections.RemoveClientConnection(ipAddr)
 
 		if !common.Connections.IsNewConnectionAllowed(ipAddr) {
-			logger.Log(logger.LevelDebug, common.ProtocolHTTP, "", "connection refused, configured limit reached")
-			s.sendForbiddenResponse(w, r, "configured connections limit reached")
+			logger.Log(logger.LevelDebug, common.ProtocolHTTP, "", fmt.Sprintf("connection not allowed from ip %#v", ipAddr))
+			s.sendForbiddenResponse(w, r, "connection not allowed from your ip")
 			return
 		}
 		if common.IsBanned(ipAddr) {

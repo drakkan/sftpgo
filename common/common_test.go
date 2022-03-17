@@ -130,7 +130,7 @@ func TestDefenderIntegration(t *testing.T) {
 
 	ip := "127.1.1.1"
 
-	assert.Nil(t, ReloadDefender())
+	assert.Nil(t, Reload())
 
 	AddDefenderEvent(ip, HostEventNoLoginTried)
 	assert.False(t, IsBanned(ip))
@@ -173,9 +173,18 @@ func TestDefenderIntegration(t *testing.T) {
 	// ScoreInvalid cannot be greater than threshold
 	assert.Error(t, err)
 	Config.DefenderConfig.Threshold = 3
+	Config.DefenderConfig.SafeListFile = filepath.Join(os.TempDir(), "sl.json")
+	err = os.WriteFile(Config.DefenderConfig.SafeListFile, []byte(`{}`), 0644)
+	assert.NoError(t, err)
+	defer os.Remove(Config.DefenderConfig.SafeListFile)
+
 	err = Initialize(Config, 0)
 	assert.NoError(t, err)
-	assert.Nil(t, ReloadDefender())
+	assert.Nil(t, Reload())
+	err = os.WriteFile(Config.DefenderConfig.SafeListFile, []byte(`{`), 0644)
+	assert.NoError(t, err)
+	err = Reload()
+	assert.Error(t, err)
 
 	AddDefenderEvent(ip, HostEventNoLoginTried)
 	assert.False(t, IsBanned(ip))
@@ -287,6 +296,58 @@ func TestRateLimitersIntegration(t *testing.T) {
 		_, err = LimitRate(ProtocolWebDAV, source3)
 		assert.NoError(t, err)
 	}
+
+	Config = configCopy
+}
+
+func TestWhitelist(t *testing.T) {
+	configCopy := Config
+
+	Config.whitelist = &whitelist{}
+	err := Config.whitelist.reload()
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "cannot accept a nil whitelist")
+	}
+	wlFile := filepath.Join(os.TempDir(), "wl.json")
+	Config.WhiteListFile = wlFile
+
+	err = os.WriteFile(wlFile, []byte(`invalid list file`), 0664)
+	assert.NoError(t, err)
+	err = Initialize(Config, 0)
+	assert.Error(t, err)
+
+	wl := HostListFile{
+		IPAddresses:  []string{"172.18.1.1", "172.18.1.2"},
+		CIDRNetworks: []string{"10.8.7.0/24"},
+	}
+	data, err := json.Marshal(wl)
+	assert.NoError(t, err)
+	err = os.WriteFile(wlFile, data, 0664)
+	assert.NoError(t, err)
+	defer os.Remove(wlFile)
+
+	err = Initialize(Config, 0)
+	assert.NoError(t, err)
+
+	assert.True(t, Connections.IsNewConnectionAllowed("172.18.1.1"))
+	assert.False(t, Connections.IsNewConnectionAllowed("172.18.1.3"))
+	assert.True(t, Connections.IsNewConnectionAllowed("10.8.7.3"))
+	assert.False(t, Connections.IsNewConnectionAllowed("10.8.8.2"))
+
+	wl.IPAddresses = append(wl.IPAddresses, "172.18.1.3")
+	wl.CIDRNetworks = append(wl.CIDRNetworks, "10.8.8.0/24")
+	data, err = json.Marshal(wl)
+	assert.NoError(t, err)
+	err = os.WriteFile(wlFile, data, 0664)
+	assert.NoError(t, err)
+	assert.False(t, Connections.IsNewConnectionAllowed("10.8.8.3"))
+
+	err = Reload()
+	assert.NoError(t, err)
+	assert.True(t, Connections.IsNewConnectionAllowed("10.8.8.3"))
+	assert.True(t, Connections.IsNewConnectionAllowed("172.18.1.3"))
+	assert.True(t, Connections.IsNewConnectionAllowed("172.18.1.2"))
+	assert.False(t, Connections.IsNewConnectionAllowed("172.18.1.12"))
 
 	Config = configCopy
 }

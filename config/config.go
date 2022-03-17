@@ -169,6 +169,7 @@ func Init() {
 			DataRetentionHook:     "",
 			MaxTotalConnections:   0,
 			MaxPerHostConnections: 20,
+			WhiteListFile:         "",
 			DefenderConfig: common.DefenderConfig{
 				Enabled:            false,
 				Driver:             common.DefenderDriverMemory,
@@ -1470,6 +1471,7 @@ func setViperDefaults() {
 	viper.SetDefault("common.data_retention_hook", globalConf.Common.DataRetentionHook)
 	viper.SetDefault("common.max_total_connections", globalConf.Common.MaxTotalConnections)
 	viper.SetDefault("common.max_per_host_connections", globalConf.Common.MaxPerHostConnections)
+	viper.SetDefault("common.whitelist_file", globalConf.Common.WhiteListFile)
 	viper.SetDefault("common.defender.enabled", globalConf.Common.DefenderConfig.Enabled)
 	viper.SetDefault("common.defender.driver", globalConf.Common.DefenderConfig.Driver)
 	viper.SetDefault("common.defender.ban_time", globalConf.Common.DefenderConfig.BanTime)

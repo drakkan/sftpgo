@@ -17,6 +17,7 @@
     "data_retention_hook": "",
     "max_total_connections": 0,
     "max_per_host_connections": 20,
+    "whitelist_file": "",
     "defender": {
       "enabled": false,
       "driver": "memory",

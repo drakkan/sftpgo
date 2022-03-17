@@ -57,9 +57,9 @@ func handleSIGHUP() {
 	if err != nil {
 		logger.Warn(logSender, "", "error reloading telemetry cert manager: %v", err)
 	}
-	err = common.ReloadDefender()
+	err = common.Reload()
 	if err != nil {
-		logger.Warn(logSender, "", "error reloading defender's lists: %v", err)
+		logger.Warn(logSender, "", "error reloading common configs: %v", err)
 	}
 }
 

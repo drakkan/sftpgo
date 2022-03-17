@@ -8700,7 +8700,7 @@ func TestWebClientMaxConnections(t *testing.T) {
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
-	assert.Contains(t, rr.Body.String(), "configured connections limit reached")
+	assert.Contains(t, rr.Body.String(), "connection not allowed from your ip")
 
 	common.Connections.Remove(connection.GetID())
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
@@ -12615,6 +12615,60 @@ func TestWebAdminSetupMock(t *testing.T) {
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	assert.Contains(t, rr.Body.String(), "an admin user already exists")
 	os.Setenv("SFTPGO_DATA_PROVIDER__CREATE_DEFAULT_ADMIN", "1")
+}
+
+func TestWhitelist(t *testing.T) {
+	configCopy := common.Config
+
+	common.Config.MaxTotalConnections = 1
+	wlFile := filepath.Join(os.TempDir(), "wl.json")
+	common.Config.WhiteListFile = wlFile
+	wl := common.HostListFile{
+		IPAddresses:  []string{"172.120.1.1", "172.120.1.2"},
+		CIDRNetworks: []string{"192.8.7.0/22"},
+	}
+	data, err := json.Marshal(wl)
+	assert.NoError(t, err)
+	err = os.WriteFile(wlFile, data, 0664)
+	assert.NoError(t, err)
+	defer os.Remove(wlFile)
+
+	err = common.Initialize(common.Config, 0)
+	assert.NoError(t, err)
+
+	req, _ := http.NewRequest(http.MethodGet, webLoginPath, nil)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "connection not allowed from your ip")
+
+	req.RemoteAddr = "172.120.1.1"
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req.RemoteAddr = "172.120.1.3"
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "connection not allowed from your ip")
+
+	req.RemoteAddr = "192.8.7.1"
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	wl.IPAddresses = append(wl.IPAddresses, "172.120.1.3")
+	data, err = json.Marshal(wl)
+	assert.NoError(t, err)
+	err = os.WriteFile(wlFile, data, 0664)
+	assert.NoError(t, err)
+	err = common.Reload()
+	assert.NoError(t, err)
+
+	req.RemoteAddr = "172.120.1.3"
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	common.Config = configCopy
+	err = common.Initialize(common.Config, 0)
+	assert.NoError(t, err)
 }
 
 func TestWebAdminLoginMock(t *testing.T) {

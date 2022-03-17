@@ -411,7 +411,7 @@ func canAcceptConnection(ip string) bool {
 		return false
 	}
 	if !common.Connections.IsNewConnectionAllowed(ip) {
-		logger.Log(logger.LevelDebug, common.ProtocolSSH, "", "connection refused, configured limit reached")
+		logger.Log(logger.LevelDebug, common.ProtocolSSH, "", fmt.Sprintf("connection not allowed from ip %#v", ip))
 		return false
 	}
 	_, err := common.LimitRate(common.ProtocolSSH, ip)

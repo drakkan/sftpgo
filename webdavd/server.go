@@ -146,7 +146,7 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer common.Connections.RemoveClientConnection(ipAddr)
 
 	if !common.Connections.IsNewConnectionAllowed(ipAddr) {
-		logger.Log(logger.LevelDebug, common.ProtocolWebDAV, "", "connection refused, configured limit reached")
+		logger.Log(logger.LevelDebug, common.ProtocolWebDAV, "", fmt.Sprintf("connection not allowed from ip %#v", ipAddr))
 		http.Error(w, common.ErrConnectionDenied.Error(), http.StatusServiceUnavailable)
 		return
 	}

@@ -142,11 +142,12 @@ func Initialize(c Configuration, isShared int) error {
 	Config.idleTimeoutAsDuration = time.Duration(Config.IdleTimeout) * time.Minute
 	startPeriodicTimeoutTicker(periodicTimeoutCheckInterval)
 	Config.defender = nil
+	Config.whitelist = nil
 	rateLimiters = make(map[string][]*rateLimiter)
 	for _, rlCfg := range c.RateLimitersConfig {
 		if rlCfg.isEnabled() {
 			if err := rlCfg.validate(); err != nil {
-				return fmt.Errorf("rate limiters initialization error: %v", err)
+				return fmt.Errorf("rate limiters initialization error: %w", err)
 			}
 			allowList, err := util.ParseAllowedIPAndRanges(rlCfg.AllowList)
 			if err != nil {
@@ -177,6 +178,16 @@ func Initialize(c Configuration, isShared int) error {
 		logger.Info(logSender, "", "defender initialized with config %+v", c.DefenderConfig)
 		Config.defender = defender
 	}
+	if c.WhiteListFile != "" {
+		whitelist := &whitelist{
+			fileName: c.WhiteListFile,
+		}
+		if err := whitelist.reload(); err != nil {
+			return fmt.Errorf("whitelist initialization error: %w", err)
+		}
+		logger.Info(logSender, "", "whitelist initialized from file: %#v", c.WhiteListFile)
+		Config.whitelist = whitelist
+	}
 	vfs.SetTempPath(c.TempPath)
 	dataprovider.SetTempPath(c.TempPath)
 	transfersChecker = getTransfersChecker(isShared)
@@ -197,13 +208,19 @@ func LimitRate(protocol, ip string) (time.Duration, error) {
 	return 0, nil
 }
 
-// ReloadDefender reloads the defender's block and safe lists
-func ReloadDefender() error {
-	if Config.defender == nil {
-		return nil
+// Reload reloads the whitelist and the defender's block and safe lists
+func Reload() error {
+	var errWithelist error
+	if Config.whitelist != nil {
+		errWithelist = Config.whitelist.reload()
 	}
-
-	return Config.defender.Reload()
+	if Config.defender == nil {
+		return errWithelist
+	}
+	if err := Config.defender.Reload(); err != nil {
+		return err
+	}
+	return errWithelist
 }
 
 // IsBanned returns true if the specified IP address is banned
@@ -379,6 +396,35 @@ func (t *ConnectionTransfer) getConnectionTransferAsString() string {
 	return result
 }
 
+type whitelist struct {
+	fileName string
+	sync.RWMutex
+	list HostList
+}
+
+func (l *whitelist) reload() error {
+	list, err := loadHostListFromFile(l.fileName)
+	if err != nil {
+		return err
+	}
+	if list == nil {
+		return errors.New("cannot accept a nil whitelist")
+	}
+
+	l.Lock()
+	defer l.Unlock()
+
+	l.list = *list
+	return nil
+}
+
+func (l *whitelist) isAllowed(ip string) bool {
+	l.RLock()
+	defer l.RUnlock()
+
+	return l.list.isListed(ip)
+}
+
 // Configuration defines configuration parameters common to all supported protocols
 type Configuration struct {
 	// Maximum idle timeout as minutes. If a client is idle for a time that exceeds this setting it will be disconnected.
@@ -444,6 +490,10 @@ type Configuration struct {
 	MaxTotalConnections int `json:"max_total_connections" mapstructure:"max_total_connections"`
 	// Maximum number of concurrent client connections from the same host (IP). 0 means unlimited
 	MaxPerHostConnections int `json:"max_per_host_connections" mapstructure:"max_per_host_connections"`
+	// Path to a file containing a list of IP addresses and/or networks to allow.
+	// Only the listed IPs/networks can access the configured services, all other client connections
+	// will be dropped before they even try to authenticate.
+	WhiteListFile string `json:"whitelist_file" mapstructure:"whitelist_file"`
 	// Defender configuration
 	DefenderConfig DefenderConfig `json:"defender" mapstructure:"defender"`
 	// Rate limiter configurations
@@ -451,6 +501,7 @@ type Configuration struct {
 	idleTimeoutAsDuration time.Duration
 	idleLoginTimeout      time.Duration
 	defender              Defender
+	whitelist             *whitelist
 }
 
 // IsAtomicUploadEnabled returns true if atomic upload is enabled
@@ -924,7 +975,13 @@ func (conns *ActiveConnections) GetClientConnections() int32 {
 }
 
 // IsNewConnectionAllowed returns false if the maximum number of concurrent allowed connections is exceeded
+// or a whitelist is defined and the specified ipAddr is not listed
 func (conns *ActiveConnections) IsNewConnectionAllowed(ipAddr string) bool {
+	if Config.whitelist != nil {
+		if !Config.whitelist.isAllowed(ipAddr) {
+			return false
+		}
+	}
 	if Config.MaxTotalConnections == 0 && Config.MaxPerHostConnections == 0 {
 		return true
 	}
