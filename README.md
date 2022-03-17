@@ -20,7 +20,7 @@ Several storage backends are supported: local filesystem, encrypted local filesy
 - Per-user and per-directory virtual permissions, for each exposed path you can allow or deny: directory listing, upload, overwrite, download, delete, rename, create directories, create symlinks, change owner/group/file mode and modification time.
 - [REST API](./docs/rest-api.md) for users and folders management, data retention, backup, restore and real time reports of the active connections with possibility of forcibly closing a connection.
 - [Web based administration interface](./docs/web-admin.md) to easily manage users, folders and connections.
-- [Web client interface](./docs/web-client.md) so that end users can change their credentials, manage and share their files.
+- [Web client interface](./docs/web-client.md) so that end users can change their credentials, manage and share their files in the browser.
 - Public key and password authentication. Multiple public keys per-user are supported.
 - SSH user [certificate authentication](https://cvsweb.openbsd.org/src/usr.bin/ssh/PROTOCOL.certkeys?rev=1.8).
 - Keyboard interactive authentication. You can easily setup a customizable multi-factor authentication.
@@ -84,11 +84,7 @@ Some Linux distro packages are available:
 - For Ubuntu a PPA is available [here](https://launchpad.net/~sftpgo/+archive/ubuntu/sftpgo).
 - Void Linux provides an [official package](https://github.com/void-linux/void-packages/tree/master/srcpkgs/sftpgo).
 
-SFTPGo is also available on [AWS Marketplace](https://aws.amazon.com/marketplace/seller-profile?id=6e849ab8-70a6-47de-9a43-13c3fa849335), purchasing from there will help keep SFTPGo a long-term sustainable project.
-
-On FreeBSD you can install from the [SFTPGo port](https://www.freshports.org/ftp/sftpgo).
-
-On DragonFlyBSD you can install SFTPGo from [DPorts](https://github.com/DragonFlyBSD/DPorts/tree/master/ftp/sftpgo).
+SFTPGo is also available on [AWS Marketplace](https://aws.amazon.com/marketplace/seller-profile?id=6e849ab8-70a6-47de-9a43-13c3fa849335) and [Azure Marketplace](https://azuremarketplace.microsoft.com/en-us/marketplace/apps/prasselsrl1645470739547.sftpgo_linux), purchasing from there will help keep SFTPGo a long-term sustainable project.
 
 On Windows you can use:
 
@@ -96,6 +92,9 @@ On Windows you can use:
 - The portable package to start SFTPGo on demand.
 - The [winget](https://docs.microsoft.com/en-us/windows/package-manager/winget/install) package to install and run SFTPGo as a Windows service: `winget install SFTPGo`.
 - The [Chocolatey package](https://community.chocolatey.org/packages/sftpgo) to install and run SFTPGo as a Windows service.
+
+On FreeBSD you can install from the [SFTPGo port](https://www.freshports.org/ftp/sftpgo).
+On DragonFlyBSD you can install SFTPGo from [DPorts](https://github.com/DragonFlyBSD/DPorts/tree/master/ftp/sftpgo).
 
 You can easily test new features selecting a commit from the [Actions](https://github.com/drakkan/sftpgo/actions) page and downloading the matching build artifacts for Linux, macOS or Windows. GitHub stores artifacts for 90 days.
 

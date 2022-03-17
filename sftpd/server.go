@@ -299,7 +299,8 @@ func (c *Configuration) serve(listener net.Listener, serverConfig *ssh.ServerCon
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			if ne, ok := err.(net.Error); ok && ne.Temporary() {
+			// see https://github.com/golang/go/blob/4aa1efed4853ea067d665a952eee77c52faac774/src/net/http/server.go#L3046
+			if ne, ok := err.(net.Error); ok && ne.Temporary() { //nolint:staticcheck
 				if tempDelay == 0 {
 					tempDelay = 5 * time.Millisecond
 				} else {
@@ -315,6 +316,7 @@ func (c *Configuration) serve(listener net.Listener, serverConfig *ssh.ServerCon
 			logger.Warn(logSender, "", "unrecoverable accept error: %v", err)
 			return err
 		}
+		tempDelay = 0
 
 		go c.AcceptInboundConnection(conn, serverConfig)
 	}

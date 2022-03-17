@@ -17,7 +17,7 @@ require (
 	github.com/cockroachdb/cockroach-go/v2 v2.2.8
 	github.com/coreos/go-oidc/v3 v3.1.0
 	github.com/eikenb/pipeat v0.0.0-20210730190139-06b3e6902001
-	github.com/fclairamb/ftpserverlib v0.17.1-0.20220302132530-f366fc1586cb
+	github.com/fclairamb/ftpserverlib v0.17.1-0.20220317111420-26600d07c50e
 	github.com/fclairamb/go-log v0.2.0
 	github.com/go-chi/chi/v5 v5.0.8-0.20220103230436-7dbe9a0bd10f
 	github.com/go-chi/jwtauth/v5 v5.0.2
@@ -64,7 +64,7 @@ require (
 	golang.org/x/crypto v0.0.0-20220214200702-86341886e292
 	golang.org/x/net v0.0.0-20220225172249-27dd8689420f
 	golang.org/x/oauth2 v0.0.0-20220309155454-6242fa91716a
-	golang.org/x/sys v0.0.0-20220315194320-039c03cc5b86
+	golang.org/x/sys v0.0.0-20220317061510-51cd9980dadf
 	golang.org/x/time v0.0.0-20220224211638-0e9765cccd65
 	google.golang.org/api v0.73.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
