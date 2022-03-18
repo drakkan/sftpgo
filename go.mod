@@ -1,6 +1,6 @@
 module github.com/drakkan/sftpgo/v2
 
-go 1.17
+go 1.18
 
 require (
 	cloud.google.com/go/storage v1.21.0
@@ -61,10 +61,10 @@ require (
 	go.etcd.io/bbolt v1.3.6
 	go.uber.org/automaxprocs v1.4.0
 	gocloud.dev v0.24.0
-	golang.org/x/crypto v0.0.0-20220214200702-86341886e292
+	golang.org/x/crypto v0.0.0-20220315160706-3147a52a75dd
 	golang.org/x/net v0.0.0-20220225172249-27dd8689420f
 	golang.org/x/oauth2 v0.0.0-20220309155454-6242fa91716a
-	golang.org/x/sys v0.0.0-20220317061510-51cd9980dadf
+	golang.org/x/sys v0.0.0-20220318055525-2edf467146b5
 	golang.org/x/time v0.0.0-20220224211638-0e9765cccd65
 	google.golang.org/api v0.73.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
@@ -108,7 +108,7 @@ require (
 	github.com/hashicorp/yamux v0.0.0-20211028200310-0bc27b27de87 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
-	github.com/klauspost/cpuid/v2 v2.0.11 // indirect
+	github.com/klauspost/cpuid/v2 v2.0.12 // indirect
 	github.com/kr/fs v0.1.0 // indirect
 	github.com/lestrrat-go/backoff/v2 v2.0.8 // indirect
 	github.com/lestrrat-go/blackmagic v1.0.0 // indirect
@@ -147,7 +147,7 @@ require (
 	golang.org/x/tools v0.1.10 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20220314164441-57ef72a4c106 // indirect
+	google.golang.org/genproto v0.0.0-20220317150908-0efb43f6373e // indirect
 	google.golang.org/grpc v1.45.0 // indirect
 	google.golang.org/protobuf v1.27.1 // indirect
 	gopkg.in/ini.v1 v1.66.4 // indirect
@@ -158,6 +158,6 @@ require (
 
 replace (
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
-	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20220215181150-74469fa99b22
-	golang.org/x/net => github.com/drakkan/net v0.0.0-20220130095023-bd85f1236c34
+	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20220318174651-e17aab150d0b
+	golang.org/x/net => github.com/drakkan/net v0.0.0-20220318153516-c2c9f9a1240f
 )

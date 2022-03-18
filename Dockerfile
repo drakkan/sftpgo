@@ -1,4 +1,4 @@
-FROM golang:1.17-bullseye as builder
+FROM golang:1.18-bullseye as builder
 
 ENV GOFLAGS="-mod=readonly"
 

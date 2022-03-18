@@ -42,7 +42,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-10.15, windows-2019]
+        os: [macos-11, windows-2022]
 
     steps:
       - uses: actions/checkout@v3
@@ -154,10 +154,10 @@ jobs:
           [IO.File]::WriteAllBytes($CERT_PATH,[System.Convert]::FromBase64String($Env:CERT_DATA))
           certutil -f -p "$Env:CERT_PASS" -importpfx MY "$CERT_PATH"
           rm "$CERT_PATH"
-          & 'C:/Program Files (x86)/Windows Kits/10/bin/10.0.17763.0/x86/signtool.exe' sign /sm /tr http://timestamp.sectigo.com /td sha256 /fd sha256 /n "Nicola Murino" /d "SFTPGo" .\sftpgo.exe
-          & 'C:/Program Files (x86)/Windows Kits/10/bin/10.0.17763.0/x86/signtool.exe' sign /sm /tr http://timestamp.sectigo.com /td sha256 /fd sha256 /n "Nicola Murino" /d "SFTPGo" .\arm64\sftpgo.exe
-          & 'C:/Program Files (x86)/Windows Kits/10/bin/10.0.17763.0/x86/signtool.exe' sign /sm /tr http://timestamp.sectigo.com /td sha256 /fd sha256 /n "Nicola Murino" /d "SFTPGo" .\x86\sftpgo.exe
-          $INNO_S='/Ssigntool=$qC:/Program Files (x86)/Windows Kits/10/bin/10.0.17763.0/x86/signtool.exe$q sign /sm /tr http://timestamp.sectigo.com /td sha256 /fd sha256 /n $qNicola Murino$q /d $qSFTPGo$q $f'
+          & 'C:/Program Files (x86)/Windows Kits/10/bin/10.0.20348.0/x86/signtool.exe' sign /sm /tr http://timestamp.sectigo.com /td sha256 /fd sha256 /n "Nicola Murino" /d "SFTPGo" .\sftpgo.exe
+          & 'C:/Program Files (x86)/Windows Kits/10/bin/10.0.20348.0/x86/signtool.exe' sign /sm /tr http://timestamp.sectigo.com /td sha256 /fd sha256 /n "Nicola Murino" /d "SFTPGo" .\arm64\sftpgo.exe
+          & 'C:/Program Files (x86)/Windows Kits/10/bin/10.0.20348.0/x86/signtool.exe' sign /sm /tr http://timestamp.sectigo.com /td sha256 /fd sha256 /n "Nicola Murino" /d "SFTPGo" .\x86\sftpgo.exe
+          $INNO_S='/Ssigntool=$qC:/Program Files (x86)/Windows Kits/10/bin/10.0.20348.0/x86/signtool.exe$q sign /sm /tr http://timestamp.sectigo.com /td sha256 /fd sha256 /n $qNicola Murino$q /d $qSFTPGo$q $f'
           iscc "$INNO_S" .\windows-installer\sftpgo.iss
 
           rm .\output\sftpgo.exe

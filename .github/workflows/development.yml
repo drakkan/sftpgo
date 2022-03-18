@@ -11,12 +11,12 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        go: [1.17]
+        go: [1.18]
         os: [ubuntu-latest, macos-latest]
         upload-coverage: [true]
         include:
-          - go: 1.17
-            os: windows-2019
+          - go: 1.18
+            os: windows-latest
             upload-coverage: false
 
     steps:
@@ -139,10 +139,10 @@ jobs:
           [IO.File]::WriteAllBytes($CERT_PATH,[System.Convert]::FromBase64String($Env:CERT_DATA))
           certutil -f -p "$Env:CERT_PASS" -importpfx MY "$CERT_PATH"
           rm "$CERT_PATH"
-          & 'C:/Program Files (x86)/Windows Kits/10/bin/10.0.17763.0/x86/signtool.exe' sign /sm /tr http://timestamp.sectigo.com /td sha256 /fd sha256 /n "Nicola Murino" /d "SFTPGo" .\sftpgo.exe
-          & 'C:/Program Files (x86)/Windows Kits/10/bin/10.0.17763.0/x86/signtool.exe' sign /sm /tr http://timestamp.sectigo.com /td sha256 /fd sha256 /n "Nicola Murino" /d "SFTPGo" .\arm64\sftpgo.exe
-          & 'C:/Program Files (x86)/Windows Kits/10/bin/10.0.17763.0/x86/signtool.exe' sign /sm /tr http://timestamp.sectigo.com /td sha256 /fd sha256 /n "Nicola Murino" /d "SFTPGo" .\x86\sftpgo.exe
-          $INNO_S='/Ssigntool=$qC:/Program Files (x86)/Windows Kits/10/bin/10.0.17763.0/x86/signtool.exe$q sign /sm /tr http://timestamp.sectigo.com /td sha256 /fd sha256 /n $qNicola Murino$q /d $qSFTPGo$q $f'
+          & 'C:/Program Files (x86)/Windows Kits/10/bin/10.0.20348.0/x86/signtool.exe' sign /sm /tr http://timestamp.sectigo.com /td sha256 /fd sha256 /n "Nicola Murino" /d "SFTPGo" .\sftpgo.exe
+          & 'C:/Program Files (x86)/Windows Kits/10/bin/10.0.20348.0/x86/signtool.exe' sign /sm /tr http://timestamp.sectigo.com /td sha256 /fd sha256 /n "Nicola Murino" /d "SFTPGo" .\arm64\sftpgo.exe
+          & 'C:/Program Files (x86)/Windows Kits/10/bin/10.0.20348.0/x86/signtool.exe' sign /sm /tr http://timestamp.sectigo.com /td sha256 /fd sha256 /n "Nicola Murino" /d "SFTPGo" .\x86\sftpgo.exe
+          $INNO_S='/Ssigntool=$qC:/Program Files (x86)/Windows Kits/10/bin/10.0.20348.0/x86/signtool.exe$q sign /sm /tr http://timestamp.sectigo.com /td sha256 /fd sha256 /n $qNicola Murino$q /d $qSFTPGo$q $f'
           iscc "$INNO_S" .\windows-installer\sftpgo.iss
 
           rm .\output\sftpgo.exe
@@ -223,7 +223,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
-          go-version: 1.17
+          go-version: 1.18
 
       - name: Build
         run: |
@@ -279,7 +279,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
-          go-version: 1.17
+          go-version: 1.18
 
       - name: Build
         run: |
@@ -330,7 +330,7 @@ jobs:
       matrix:
         include:
           - arch: amd64
-            go: 1.17
+            go: 1.18
             go-arch: amd64
           - arch: aarch64
             distro: ubuntu18.04
@@ -451,7 +451,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
-          go-version: 1.17
+          go-version: 1.18
       - uses: actions/checkout@v3
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v3
