@@ -250,7 +250,8 @@
           "permissions_policy": "",
           "cross_origin_opener_policy": "",
           "expect_ct_header": ""
-        }
+        },
+        "extra_css": []
       }
     ],
     "templates_path": "templates",

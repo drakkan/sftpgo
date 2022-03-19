@@ -263,6 +263,8 @@ The configuration file contains the following sections:
       - `permissions_policy`, string. Allows to set the `Permissions-Policy` header value. Default: blank.
       - `cross_origin_opener_policy`, string. Allows to set the `Cross-Origin-Opener-Policy` header value. Default: blank.
       - `expect_ct_header`, string. Allows to set the `Expect-CT` header value. Default: blank.
+    - `extra_css`, list of structs. Defines additional CSS files. Each struct has the following fields:
+      - `path`, string. Path to the CSS file relative to `static_files_path`. For example, if you create a directory named `extra_css` inside the static dir and put the `my.css` file in it, you must set `/extra_css/my.css` as path.
   - `templates_path`, string. Path to the HTML web templates. This can be an absolute path or a path relative to the config dir
   - `static_files_path`, string. Path to the static files for the web interface. This can be an absolute path or a path relative to the config dir. If both `templates_path` and `static_files_path` are empty the built-in web interface will be disabled
   - `openapi_path`, string. Path to the directory that contains the OpenAPI schema and the default renderer. This can be an absolute path or a path relative to the config dir. If empty the OpenAPI schema and the renderer will not be served regardless of the `render_openapi` directive

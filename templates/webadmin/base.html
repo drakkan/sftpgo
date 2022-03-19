@@ -53,6 +53,10 @@
     </style>
     {{block "extra_css" .}}{{end}}
 
+    {{range .ExtraCSS}}
+    <link href="{{$.StaticURL}}{{.Path}}" rel="stylesheet" type="text/css">
+    {{end}}
+
 </head>
 
 <body id="page-top">

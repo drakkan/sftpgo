@@ -828,6 +828,7 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__1__PORT", "8000")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__1__ENABLE_HTTPS", "0")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__1__HIDE_LOGIN_URL", " 1")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__1__EXTRA_CSS__0__PATH", "")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__ADDRESS", "127.0.1.1")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__PORT", "9000")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__ENABLE_WEB_ADMIN", "0")
@@ -863,6 +864,8 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__SECURITY__PERMISSIONS_POLICY", "fullscreen=(), geolocation=()")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__SECURITY__CROSS_ORIGIN_OPENER_POLICY", "same-origin")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__SECURITY__EXPECT_CT_HEADER", `max-age=86400, enforce, report-uri="https://foo.example/report"`)
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__EXTRA_CSS__0__PATH", "path1")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__EXTRA_CSS__1__PATH", "path2")
 	t.Cleanup(func() {
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__0__ADDRESS")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__0__PORT")
@@ -871,6 +874,7 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__1__PORT")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__1__ENABLE_HTTPS")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__1__HIDE_LOGIN_URL")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__1__EXTRA_CSS__0__PATH")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__ADDRESS")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__PORT")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__ENABLE_HTTPS")
@@ -906,6 +910,8 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__SECURITY__PERMISSIONS_POLICY")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__SECURITY__CROSS_ORIGIN_OPENER_POLICY")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__SECURITY__EXPECT_CT_HEADER")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__EXTRA_CSS__0__PATH")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__EXTRA_CSS__1__PATH")
 	})
 
 	configDir := ".."
@@ -929,6 +935,7 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 	require.Equal(t, "127.0.0.1", bindings[1].Address)
 	require.False(t, bindings[1].EnableHTTPS)
 	require.Equal(t, 12, bindings[0].MinTLSVersion)
+	require.Len(t, bindings[0].ExtraCSS, 0)
 	require.True(t, bindings[1].EnableWebAdmin)
 	require.True(t, bindings[1].EnableWebClient)
 	require.True(t, bindings[1].RenderOpenAPI)
@@ -936,6 +943,7 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 	require.Equal(t, 1, bindings[1].HideLoginURL)
 	require.Empty(t, bindings[1].OIDC.ClientID)
 	require.False(t, bindings[1].Security.Enabled)
+	require.Len(t, bindings[1].ExtraCSS, 0)
 	require.Equal(t, 9000, bindings[2].Port)
 	require.Equal(t, "127.0.1.1", bindings[2].Address)
 	require.True(t, bindings[2].EnableHTTPS)
@@ -978,6 +986,9 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 	require.Equal(t, "fullscreen=(), geolocation=()", bindings[2].Security.PermissionsPolicy)
 	require.Equal(t, "same-origin", bindings[2].Security.CrossOriginOpenerPolicy)
 	require.Equal(t, `max-age=86400, enforce, report-uri="https://foo.example/report"`, bindings[2].Security.ExpectCTHeader)
+	require.Len(t, bindings[2].ExtraCSS, 2)
+	require.Equal(t, "path1", bindings[2].ExtraCSS[0].Path)
+	require.Equal(t, "path2", bindings[2].ExtraCSS[1].Path)
 }
 
 func TestHTTPClientCertificatesFromEnv(t *testing.T) {

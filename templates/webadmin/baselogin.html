@@ -71,6 +71,10 @@
         }
     </style>
 
+    {{range .ExtraCSS}}
+    <link href="{{$.StaticURL}}{{.Path}}" rel="stylesheet" type="text/css">
+    {{end}}
+
 </head>
 
 <body class="bg-gradient-primary">

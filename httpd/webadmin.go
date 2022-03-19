@@ -117,6 +117,7 @@ type basePage struct {
 	HasDefender        bool
 	HasExternalLogin   bool
 	LoggedAdmin        *dataprovider.Admin
+	ExtraCSS           []CustomCSS
 }
 
 type usersPage struct {
@@ -372,7 +373,7 @@ func loadAdminTemplates(templatesPath string) {
 	adminTemplates[templateResetPassword] = resetPwdTmpl
 }
 
-func getBasePageData(title, currentURL string, r *http.Request) basePage {
+func (s *httpdServer) getBasePageData(title, currentURL string, r *http.Request) basePage {
 	var csrfToken string
 	if currentURL != "" {
 		csrfToken = createCSRFToken()
@@ -411,6 +412,7 @@ func getBasePageData(title, currentURL string, r *http.Request) basePage {
 		HasDefender:        common.Config.DefenderConfig.Enabled,
 		HasExternalLogin:   isLoggedInWithOIDC(r),
 		CSRFToken:          csrfToken,
+		ExtraCSS:           s.binding.ExtraCSS,
 	}
 }
 
@@ -421,7 +423,9 @@ func renderAdminTemplate(w http.ResponseWriter, tmplName string, data interface{
 	}
 }
 
-func renderMessagePage(w http.ResponseWriter, r *http.Request, title, body string, statusCode int, err error, message string) {
+func (s *httpdServer) renderMessagePage(w http.ResponseWriter, r *http.Request, title, body string, statusCode int,
+	err error, message string,
+) {
 	var errorString string
 	if body != "" {
 		errorString = body + " "
@@ -430,7 +434,7 @@ func renderMessagePage(w http.ResponseWriter, r *http.Request, title, body strin
 		errorString += err.Error()
 	}
 	data := messagePage{
-		basePage: getBasePageData(title, "", r),
+		basePage: s.getBasePageData(title, "", r),
 		Error:    errorString,
 		Success:  message,
 	}
@@ -438,45 +442,47 @@ func renderMessagePage(w http.ResponseWriter, r *http.Request, title, body strin
 	renderAdminTemplate(w, templateMessage, data)
 }
 
-func renderInternalServerErrorPage(w http.ResponseWriter, r *http.Request, err error) {
-	renderMessagePage(w, r, page500Title, page500Body, http.StatusInternalServerError, err, "")
+func (s *httpdServer) renderInternalServerErrorPage(w http.ResponseWriter, r *http.Request, err error) {
+	s.renderMessagePage(w, r, page500Title, page500Body, http.StatusInternalServerError, err, "")
 }
 
-func renderBadRequestPage(w http.ResponseWriter, r *http.Request, err error) {
-	renderMessagePage(w, r, page400Title, "", http.StatusBadRequest, err, "")
+func (s *httpdServer) renderBadRequestPage(w http.ResponseWriter, r *http.Request, err error) {
+	s.renderMessagePage(w, r, page400Title, "", http.StatusBadRequest, err, "")
 }
 
-func renderForbiddenPage(w http.ResponseWriter, r *http.Request, body string) {
-	renderMessagePage(w, r, page403Title, "", http.StatusForbidden, nil, body)
+func (s *httpdServer) renderForbiddenPage(w http.ResponseWriter, r *http.Request, body string) {
+	s.renderMessagePage(w, r, page403Title, "", http.StatusForbidden, nil, body)
 }
 
-func renderNotFoundPage(w http.ResponseWriter, r *http.Request, err error) {
-	renderMessagePage(w, r, page404Title, page404Body, http.StatusNotFound, err, "")
+func (s *httpdServer) renderNotFoundPage(w http.ResponseWriter, r *http.Request, err error) {
+	s.renderMessagePage(w, r, page404Title, page404Body, http.StatusNotFound, err, "")
 }
 
-func renderForgotPwdPage(w http.ResponseWriter, error string) {
+func (s *httpdServer) renderForgotPwdPage(w http.ResponseWriter, error string) {
 	data := forgotPwdPage{
 		CurrentURL: webAdminForgotPwdPath,
 		Error:      error,
 		CSRFToken:  createCSRFToken(),
 		StaticURL:  webStaticFilesPath,
 		Title:      pageForgotPwdTitle,
+		ExtraCSS:   s.binding.ExtraCSS,
 	}
 	renderAdminTemplate(w, templateForgotPassword, data)
 }
 
-func renderResetPwdPage(w http.ResponseWriter, error string) {
+func (s *httpdServer) renderResetPwdPage(w http.ResponseWriter, error string) {
 	data := resetPwdPage{
 		CurrentURL: webAdminResetPwdPath,
 		Error:      error,
 		CSRFToken:  createCSRFToken(),
 		StaticURL:  webStaticFilesPath,
 		Title:      pageResetPwdTitle,
+		ExtraCSS:   s.binding.ExtraCSS,
 	}
 	renderAdminTemplate(w, templateResetPassword, data)
 }
 
-func renderTwoFactorPage(w http.ResponseWriter, error string) {
+func (s *httpdServer) renderTwoFactorPage(w http.ResponseWriter, error string) {
 	data := twoFactorPage{
 		CurrentURL:  webAdminTwoFactorPath,
 		Version:     version.Get().Version,
@@ -484,24 +490,26 @@ func renderTwoFactorPage(w http.ResponseWriter, error string) {
 		CSRFToken:   createCSRFToken(),
 		StaticURL:   webStaticFilesPath,
 		RecoveryURL: webAdminTwoFactorRecoveryPath,
+		ExtraCSS:    s.binding.ExtraCSS,
 	}
 	renderAdminTemplate(w, templateTwoFactor, data)
 }
 
-func renderTwoFactorRecoveryPage(w http.ResponseWriter, error string) {
+func (s *httpdServer) renderTwoFactorRecoveryPage(w http.ResponseWriter, error string) {
 	data := twoFactorPage{
 		CurrentURL: webAdminTwoFactorRecoveryPath,
 		Version:    version.Get().Version,
 		Error:      error,
 		CSRFToken:  createCSRFToken(),
 		StaticURL:  webStaticFilesPath,
+		ExtraCSS:   s.binding.ExtraCSS,
 	}
 	renderAdminTemplate(w, templateTwoFactorRecovery, data)
 }
 
-func renderMFAPage(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) renderMFAPage(w http.ResponseWriter, r *http.Request) {
 	data := mfaPage{
-		basePage:        getBasePageData(pageMFATitle, webAdminMFAPath, r),
+		basePage:        s.getBasePageData(pageMFATitle, webAdminMFAPath, r),
 		TOTPConfigs:     mfa.GetAvailableTOTPConfigNames(),
 		GenerateTOTPURL: webAdminTOTPGeneratePath,
 		ValidateTOTPURL: webAdminTOTPValidatePath,
@@ -510,21 +518,21 @@ func renderMFAPage(w http.ResponseWriter, r *http.Request) {
 	}
 	admin, err := dataprovider.AdminExists(data.LoggedAdmin.Username)
 	if err != nil {
-		renderInternalServerErrorPage(w, r, err)
+		s.renderInternalServerErrorPage(w, r, err)
 		return
 	}
 	data.TOTPConfig = admin.Filters.TOTPConfig
 	renderAdminTemplate(w, templateMFA, data)
 }
 
-func renderProfilePage(w http.ResponseWriter, r *http.Request, error string) {
+func (s *httpdServer) renderProfilePage(w http.ResponseWriter, r *http.Request, error string) {
 	data := profilePage{
-		basePage: getBasePageData(pageProfileTitle, webAdminProfilePath, r),
+		basePage: s.getBasePageData(pageProfileTitle, webAdminProfilePath, r),
 		Error:    error,
 	}
 	admin, err := dataprovider.AdminExists(data.LoggedAdmin.Username)
 	if err != nil {
-		renderInternalServerErrorPage(w, r, err)
+		s.renderInternalServerErrorPage(w, r, err)
 		return
 	}
 	data.AllowAPIKeyAuth = admin.Filters.AllowAPIKeyAuth
@@ -534,18 +542,18 @@ func renderProfilePage(w http.ResponseWriter, r *http.Request, error string) {
 	renderAdminTemplate(w, templateProfile, data)
 }
 
-func renderChangePasswordPage(w http.ResponseWriter, r *http.Request, error string) {
+func (s *httpdServer) renderChangePasswordPage(w http.ResponseWriter, r *http.Request, error string) {
 	data := changePasswordPage{
-		basePage: getBasePageData(pageChangePwdTitle, webChangeAdminPwdPath, r),
+		basePage: s.getBasePageData(pageChangePwdTitle, webChangeAdminPwdPath, r),
 		Error:    error,
 	}
 
 	renderAdminTemplate(w, templateChangePwd, data)
 }
 
-func renderMaintenancePage(w http.ResponseWriter, r *http.Request, error string) {
+func (s *httpdServer) renderMaintenancePage(w http.ResponseWriter, r *http.Request, error string) {
 	data := maintenancePage{
-		basePage:    getBasePageData(pageMaintenanceTitle, webMaintenancePath, r),
+		basePage:    s.getBasePageData(pageMaintenanceTitle, webMaintenancePath, r),
 		BackupPath:  webBackupPath,
 		RestorePath: webRestorePath,
 		Error:       error,
@@ -554,9 +562,9 @@ func renderMaintenancePage(w http.ResponseWriter, r *http.Request, error string)
 	renderAdminTemplate(w, templateMaintenance, data)
 }
 
-func renderAdminSetupPage(w http.ResponseWriter, r *http.Request, username, error string) {
+func (s *httpdServer) renderAdminSetupPage(w http.ResponseWriter, r *http.Request, username, error string) {
 	data := setupPage{
-		basePage:             getBasePageData(pageSetupTitle, webAdminSetupPath, r),
+		basePage:             s.getBasePageData(pageSetupTitle, webAdminSetupPath, r),
 		Username:             username,
 		HasInstallationCode:  installationCode != "",
 		InstallationCodeHint: installationCodeHint,
@@ -566,7 +574,7 @@ func renderAdminSetupPage(w http.ResponseWriter, r *http.Request, username, erro
 	renderAdminTemplate(w, templateSetup, data)
 }
 
-func renderAddUpdateAdminPage(w http.ResponseWriter, r *http.Request, admin *dataprovider.Admin,
+func (s *httpdServer) renderAddUpdateAdminPage(w http.ResponseWriter, r *http.Request, admin *dataprovider.Admin,
 	error string, isAdd bool) {
 	currentURL := webAdminPath
 	title := "Add a new admin"
@@ -575,7 +583,7 @@ func renderAddUpdateAdminPage(w http.ResponseWriter, r *http.Request, admin *dat
 		title = "Update admin"
 	}
 	data := adminPage{
-		basePage: getBasePageData(title, currentURL, r),
+		basePage: s.getBasePageData(title, currentURL, r),
 		Admin:    admin,
 		Error:    error,
 		IsAdd:    isAdd,
@@ -584,8 +592,10 @@ func renderAddUpdateAdminPage(w http.ResponseWriter, r *http.Request, admin *dat
 	renderAdminTemplate(w, templateAdmin, data)
 }
 
-func renderUserPage(w http.ResponseWriter, r *http.Request, user *dataprovider.User, mode userPageMode, error string) {
-	folders, err := getWebVirtualFolders(w, r, defaultQueryLimit)
+func (s *httpdServer) renderUserPage(w http.ResponseWriter, r *http.Request, user *dataprovider.User,
+	mode userPageMode, error string,
+) {
+	folders, err := s.getWebVirtualFolders(w, r, defaultQueryLimit)
 	if err != nil {
 		return
 	}
@@ -607,7 +617,7 @@ func renderUserPage(w http.ResponseWriter, r *http.Request, user *dataprovider.U
 	}
 	user.FsConfig.RedactedSecret = redactedSecret
 	data := userPage{
-		basePage:           getBasePageData(title, currentURL, r),
+		basePage:           s.getBasePageData(title, currentURL, r),
 		Mode:               mode,
 		Error:              error,
 		User:               user,
@@ -629,7 +639,7 @@ func renderUserPage(w http.ResponseWriter, r *http.Request, user *dataprovider.U
 	renderAdminTemplate(w, templateUser, data)
 }
 
-func renderFolderPage(w http.ResponseWriter, r *http.Request, folder vfs.BaseVirtualFolder, mode folderPageMode, error string) {
+func (s *httpdServer) renderFolderPage(w http.ResponseWriter, r *http.Request, folder vfs.BaseVirtualFolder, mode folderPageMode, error string) {
 	var title, currentURL string
 	switch mode {
 	case folderPageModeAdd:
@@ -646,7 +656,7 @@ func renderFolderPage(w http.ResponseWriter, r *http.Request, folder vfs.BaseVir
 	folder.FsConfig.SetEmptySecretsIfNil()
 
 	data := folderPage{
-		basePage: getBasePageData(title, currentURL, r),
+		basePage: s.getBasePageData(title, currentURL, r),
 		Error:    error,
 		Folder:   folder,
 		Mode:     mode,
@@ -1360,92 +1370,91 @@ func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 	return user, err
 }
 
-func handleWebAdminForgotPwd(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebAdminForgotPwd(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	if !smtp.IsEnabled() {
-		renderNotFoundPage(w, r, errors.New("this page does not exist"))
+		s.renderNotFoundPage(w, r, errors.New("this page does not exist"))
 		return
 	}
-	renderForgotPwdPage(w, "")
+	s.renderForgotPwdPage(w, "")
 }
 
-func handleWebAdminForgotPwdPost(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebAdminForgotPwdPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	err := r.ParseForm()
 	if err != nil {
-		renderForgotPwdPage(w, err.Error())
+		s.renderForgotPwdPage(w, err.Error())
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
-		renderForbiddenPage(w, r, err.Error())
+		s.renderForbiddenPage(w, r, err.Error())
 		return
 	}
-	username := r.Form.Get("username")
-	err = handleForgotPassword(r, username, true)
+	err = handleForgotPassword(r, r.Form.Get("username"), true)
 	if err != nil {
 		if e, ok := err.(*util.ValidationError); ok {
-			renderForgotPwdPage(w, e.GetErrorString())
+			s.renderForgotPwdPage(w, e.GetErrorString())
 			return
 		}
-		renderForgotPwdPage(w, err.Error())
+		s.renderForgotPwdPage(w, err.Error())
 		return
 	}
 	http.Redirect(w, r, webAdminResetPwdPath, http.StatusFound)
 }
 
-func handleWebAdminPasswordReset(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebAdminPasswordReset(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
 	if !smtp.IsEnabled() {
-		renderNotFoundPage(w, r, errors.New("this page does not exist"))
+		s.renderNotFoundPage(w, r, errors.New("this page does not exist"))
 		return
 	}
-	renderResetPwdPage(w, "")
+	s.renderResetPwdPage(w, "")
 }
 
-func handleWebAdminTwoFactor(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebAdminTwoFactor(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	renderTwoFactorPage(w, "")
+	s.renderTwoFactorPage(w, "")
 }
 
-func handleWebAdminTwoFactorRecovery(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebAdminTwoFactorRecovery(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	renderTwoFactorRecoveryPage(w, "")
+	s.renderTwoFactorRecoveryPage(w, "")
 }
 
-func handleWebAdminMFA(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebAdminMFA(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	renderMFAPage(w, r)
+	s.renderMFAPage(w, r)
 }
 
-func handleWebAdminProfile(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebAdminProfile(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	renderProfilePage(w, r, "")
+	s.renderProfilePage(w, r, "")
 }
 
-func handleWebAdminChangePwd(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebAdminChangePwd(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	renderChangePasswordPage(w, r, "")
+	s.renderChangePasswordPage(w, r, "")
 }
 
-func handleWebAdminProfilePost(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebAdminProfilePost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	err := r.ParseForm()
 	if err != nil {
-		renderProfilePage(w, r, err.Error())
+		s.renderProfilePage(w, r, err.Error())
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
-		renderForbiddenPage(w, r, err.Error())
+		s.renderForbiddenPage(w, r, err.Error())
 		return
 	}
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		renderProfilePage(w, r, "Invalid token claims")
+		s.renderProfilePage(w, r, "Invalid token claims")
 		return
 	}
 	admin, err := dataprovider.AdminExists(claims.Username)
 	if err != nil {
-		renderProfilePage(w, r, err.Error())
+		s.renderProfilePage(w, r, err.Error())
 		return
 	}
 	admin.Filters.AllowAPIKeyAuth = len(r.Form.Get("allow_api_key_auth")) > 0
@@ -1453,48 +1462,48 @@ func handleWebAdminProfilePost(w http.ResponseWriter, r *http.Request) {
 	admin.Description = r.Form.Get("description")
 	err = dataprovider.UpdateAdmin(&admin, dataprovider.ActionExecutorSelf, util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if err != nil {
-		renderProfilePage(w, r, err.Error())
+		s.renderProfilePage(w, r, err.Error())
 		return
 	}
-	renderMessagePage(w, r, "Profile updated", "", http.StatusOK, nil,
+	s.renderMessagePage(w, r, "Profile updated", "", http.StatusOK, nil,
 		"Your profile has been successfully updated")
 }
 
-func handleWebMaintenance(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebMaintenance(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	renderMaintenancePage(w, r, "")
+	s.renderMaintenancePage(w, r, "")
 }
 
-func handleWebRestore(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebRestore(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, MaxRestoreSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
 		return
 	}
 	err = r.ParseMultipartForm(MaxRestoreSize)
 	if err != nil {
-		renderMaintenancePage(w, r, err.Error())
+		s.renderMaintenancePage(w, r, err.Error())
 		return
 	}
 	defer r.MultipartForm.RemoveAll() //nolint:errcheck
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
-		renderForbiddenPage(w, r, err.Error())
+		s.renderForbiddenPage(w, r, err.Error())
 		return
 	}
 	restoreMode, err := strconv.Atoi(r.Form.Get("mode"))
 	if err != nil {
-		renderMaintenancePage(w, r, err.Error())
+		s.renderMaintenancePage(w, r, err.Error())
 		return
 	}
 	scanQuota, err := strconv.Atoi(r.Form.Get("quota"))
 	if err != nil {
-		renderMaintenancePage(w, r, err.Error())
+		s.renderMaintenancePage(w, r, err.Error())
 		return
 	}
 	backupFile, _, err := r.FormFile("backup_file")
 	if err != nil {
-		renderMaintenancePage(w, r, err.Error())
+		s.renderMaintenancePage(w, r, err.Error())
 		return
 	}
 	defer backupFile.Close()
@@ -1504,19 +1513,19 @@ func handleWebRestore(w http.ResponseWriter, r *http.Request) {
 		if len(backupContent) == 0 {
 			err = errors.New("backup file size must be greater than 0")
 		}
-		renderMaintenancePage(w, r, err.Error())
+		s.renderMaintenancePage(w, r, err.Error())
 		return
 	}
 
 	if err := restoreBackup(backupContent, "", scanQuota, restoreMode, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr)); err != nil {
-		renderMaintenancePage(w, r, err.Error())
+		s.renderMaintenancePage(w, r, err.Error())
 		return
 	}
 
-	renderMessagePage(w, r, "Data restored", "", http.StatusOK, nil, "Your backup was successfully restored")
+	s.renderMessagePage(w, r, "Data restored", "", http.StatusOK, nil, "Your backup was successfully restored")
 }
 
-func handleGetWebAdmins(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleGetWebAdmins(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	limit := defaultQueryLimit
 	if _, ok := r.URL.Query()["qlimit"]; ok {
@@ -1530,7 +1539,7 @@ func handleGetWebAdmins(w http.ResponseWriter, r *http.Request) {
 	for {
 		a, err := dataprovider.GetAdmins(limit, len(admins), dataprovider.OrderASC)
 		if err != nil {
-			renderInternalServerErrorPage(w, r, err)
+			s.renderInternalServerErrorPage(w, r, err)
 			return
 		}
 		admins = append(admins, a...)
@@ -1539,84 +1548,84 @@ func handleGetWebAdmins(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	data := adminsPage{
-		basePage: getBasePageData(pageAdminsTitle, webAdminsPath, r),
+		basePage: s.getBasePageData(pageAdminsTitle, webAdminsPath, r),
 		Admins:   admins,
 	}
 	renderAdminTemplate(w, templateAdmins, data)
 }
 
-func handleWebAdminSetupGet(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebAdminSetupGet(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
 	if dataprovider.HasAdmin() {
 		http.Redirect(w, r, webAdminLoginPath, http.StatusFound)
 		return
 	}
-	renderAdminSetupPage(w, r, "", "")
+	s.renderAdminSetupPage(w, r, "", "")
 }
 
-func handleWebAddAdminGet(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebAddAdminGet(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	admin := &dataprovider.Admin{Status: 1}
-	renderAddUpdateAdminPage(w, r, admin, "", true)
+	s.renderAddUpdateAdminPage(w, r, admin, "", true)
 }
 
-func handleWebUpdateAdminGet(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebUpdateAdminGet(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	username := getURLParam(r, "username")
 	admin, err := dataprovider.AdminExists(username)
 	if err == nil {
-		renderAddUpdateAdminPage(w, r, &admin, "", false)
+		s.renderAddUpdateAdminPage(w, r, &admin, "", false)
 	} else if _, ok := err.(*util.RecordNotFoundError); ok {
-		renderNotFoundPage(w, r, err)
+		s.renderNotFoundPage(w, r, err)
 	} else {
-		renderInternalServerErrorPage(w, r, err)
+		s.renderInternalServerErrorPage(w, r, err)
 	}
 }
 
-func handleWebAddAdminPost(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebAddAdminPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
 		return
 	}
 	admin, err := getAdminFromPostFields(r)
 	if err != nil {
-		renderAddUpdateAdminPage(w, r, &admin, err.Error(), true)
+		s.renderAddUpdateAdminPage(w, r, &admin, err.Error(), true)
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
-		renderForbiddenPage(w, r, err.Error())
+		s.renderForbiddenPage(w, r, err.Error())
 		return
 	}
 	err = dataprovider.AddAdmin(&admin, claims.Username, util.GetIPFromRemoteAddress(r.Method))
 	if err != nil {
-		renderAddUpdateAdminPage(w, r, &admin, err.Error(), true)
+		s.renderAddUpdateAdminPage(w, r, &admin, err.Error(), true)
 		return
 	}
 	http.Redirect(w, r, webAdminsPath, http.StatusSeeOther)
 }
 
-func handleWebUpdateAdminPost(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebUpdateAdminPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 
 	username := getURLParam(r, "username")
 	admin, err := dataprovider.AdminExists(username)
 	if _, ok := err.(*util.RecordNotFoundError); ok {
-		renderNotFoundPage(w, r, err)
+		s.renderNotFoundPage(w, r, err)
 		return
 	} else if err != nil {
-		renderInternalServerErrorPage(w, r, err)
+		s.renderInternalServerErrorPage(w, r, err)
 		return
 	}
 
 	updatedAdmin, err := getAdminFromPostFields(r)
 	if err != nil {
-		renderAddUpdateAdminPage(w, r, &updatedAdmin, err.Error(), false)
+		s.renderAddUpdateAdminPage(w, r, &updatedAdmin, err.Error(), false)
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
-		renderForbiddenPage(w, r, err.Error())
+		s.renderForbiddenPage(w, r, err.Error())
 		return
 	}
 	updatedAdmin.ID = admin.ID
@@ -1628,52 +1637,54 @@ func handleWebUpdateAdminPost(w http.ResponseWriter, r *http.Request) {
 	updatedAdmin.Filters.RecoveryCodes = admin.Filters.RecoveryCodes
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		renderAddUpdateAdminPage(w, r, &updatedAdmin, "Invalid token claims", false)
+		s.renderAddUpdateAdminPage(w, r, &updatedAdmin, "Invalid token claims", false)
 		return
 	}
 	if username == claims.Username {
 		if claims.isCriticalPermRemoved(updatedAdmin.Permissions) {
-			renderAddUpdateAdminPage(w, r, &updatedAdmin, "You cannot remove these permissions to yourself", false)
+			s.renderAddUpdateAdminPage(w, r, &updatedAdmin, "You cannot remove these permissions to yourself", false)
 			return
 		}
 		if updatedAdmin.Status == 0 {
-			renderAddUpdateAdminPage(w, r, &updatedAdmin, "You cannot disable yourself", false)
+			s.renderAddUpdateAdminPage(w, r, &updatedAdmin, "You cannot disable yourself", false)
 			return
 		}
 	}
 	err = dataprovider.UpdateAdmin(&updatedAdmin, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if err != nil {
-		renderAddUpdateAdminPage(w, r, &admin, err.Error(), false)
+		s.renderAddUpdateAdminPage(w, r, &admin, err.Error(), false)
 		return
 	}
 	http.Redirect(w, r, webAdminsPath, http.StatusSeeOther)
 }
 
-func handleWebDefenderPage(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebDefenderPage(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	data := defenderHostsPage{
-		basePage:         getBasePageData(pageDefenderTitle, webDefenderPath, r),
+		basePage:         s.getBasePageData(pageDefenderTitle, webDefenderPath, r),
 		DefenderHostsURL: webDefenderHostsPath,
 	}
 
 	renderAdminTemplate(w, templateDefender, data)
 }
 
-func handleGetWebUsers(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleGetWebUsers(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	limit := defaultQueryLimit
+	var limit int
 	if _, ok := r.URL.Query()["qlimit"]; ok {
 		var err error
 		limit, err = strconv.Atoi(r.URL.Query().Get("qlimit"))
 		if err != nil {
 			limit = defaultQueryLimit
 		}
+	} else {
+		limit = defaultQueryLimit
 	}
 	users := make([]dataprovider.User, 0, limit)
 	for {
 		u, err := dataprovider.GetUsers(limit, len(users), dataprovider.OrderASC)
 		if err != nil {
-			renderInternalServerErrorPage(w, r, err)
+			s.renderInternalServerErrorPage(w, r, err)
 			return
 		}
 		users = append(users, u...)
@@ -1682,48 +1693,48 @@ func handleGetWebUsers(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	data := usersPage{
-		basePage: getBasePageData(pageUsersTitle, webUsersPath, r),
+		basePage: s.getBasePageData(pageUsersTitle, webUsersPath, r),
 		Users:    users,
 	}
 	renderAdminTemplate(w, templateUsers, data)
 }
 
-func handleWebTemplateFolderGet(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebTemplateFolderGet(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	if r.URL.Query().Get("from") != "" {
 		name := r.URL.Query().Get("from")
 		folder, err := dataprovider.GetFolderByName(name)
 		if err == nil {
 			folder.FsConfig.SetEmptySecrets()
-			renderFolderPage(w, r, folder, folderPageModeTemplate, "")
+			s.renderFolderPage(w, r, folder, folderPageModeTemplate, "")
 		} else if _, ok := err.(*util.RecordNotFoundError); ok {
-			renderNotFoundPage(w, r, err)
+			s.renderNotFoundPage(w, r, err)
 		} else {
-			renderInternalServerErrorPage(w, r, err)
+			s.renderInternalServerErrorPage(w, r, err)
 		}
 	} else {
 		folder := vfs.BaseVirtualFolder{}
-		renderFolderPage(w, r, folder, folderPageModeTemplate, "")
+		s.renderFolderPage(w, r, folder, folderPageModeTemplate, "")
 	}
 }
 
-func handleWebTemplateFolderPost(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebTemplateFolderPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
 		return
 	}
 	templateFolder := vfs.BaseVirtualFolder{}
 	err = r.ParseMultipartForm(maxRequestSize)
 	if err != nil {
-		renderMessagePage(w, r, "Error parsing folders fields", "", http.StatusBadRequest, err, "")
+		s.renderMessagePage(w, r, "Error parsing folders fields", "", http.StatusBadRequest, err, "")
 		return
 	}
 	defer r.MultipartForm.RemoveAll() //nolint:errcheck
 
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
-		renderForbiddenPage(w, r, err.Error())
+		s.renderForbiddenPage(w, r, err.Error())
 		return
 	}
 
@@ -1731,7 +1742,7 @@ func handleWebTemplateFolderPost(w http.ResponseWriter, r *http.Request) {
 	templateFolder.Description = r.Form.Get("description")
 	fsConfig, err := getFsConfigFromPostFields(r)
 	if err != nil {
-		renderMessagePage(w, r, "Error parsing folders fields", "", http.StatusBadRequest, err, "")
+		s.renderMessagePage(w, r, "Error parsing folders fields", "", http.StatusBadRequest, err, "")
 		return
 	}
 	templateFolder.FsConfig = fsConfig
@@ -1743,7 +1754,7 @@ func handleWebTemplateFolderPost(w http.ResponseWriter, r *http.Request) {
 	for _, tmpl := range foldersFields {
 		f := getFolderFromTemplate(templateFolder, tmpl)
 		if err := dataprovider.ValidateFolder(&f); err != nil {
-			renderMessagePage(w, r, "Folder validation error", fmt.Sprintf("Error validating folder %#v", f.Name),
+			s.renderMessagePage(w, r, "Folder validation error", fmt.Sprintf("Error validating folder %#v", f.Name),
 				http.StatusBadRequest, err, "")
 			return
 		}
@@ -1751,7 +1762,7 @@ func handleWebTemplateFolderPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(dump.Folders) == 0 {
-		renderMessagePage(w, r, "No folders defined", "No valid folders defined, unable to complete the requested action",
+		s.renderMessagePage(w, r, "No folders defined", "No valid folders defined, unable to complete the requested action",
 			http.StatusBadRequest, nil, "")
 		return
 	}
@@ -1762,14 +1773,14 @@ func handleWebTemplateFolderPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err = RestoreFolders(dump.Folders, "", 1, 0, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr)); err != nil {
-		renderMessagePage(w, r, "Unable to save folders", "Cannot save the defined folders:",
+		s.renderMessagePage(w, r, "Unable to save folders", "Cannot save the defined folders:",
 			getRespStatus(err), err, "")
 		return
 	}
 	http.Redirect(w, r, webFoldersPath, http.StatusSeeOther)
 }
 
-func handleWebTemplateUserGet(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebTemplateUserGet(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	if r.URL.Query().Get("from") != "" {
 		username := r.URL.Query().Get("from")
@@ -1779,11 +1790,11 @@ func handleWebTemplateUserGet(w http.ResponseWriter, r *http.Request) {
 			user.PublicKeys = nil
 			user.Email = ""
 			user.Description = ""
-			renderUserPage(w, r, &user, userPageModeTemplate, "")
+			s.renderUserPage(w, r, &user, userPageModeTemplate, "")
 		} else if _, ok := err.(*util.RecordNotFoundError); ok {
-			renderNotFoundPage(w, r, err)
+			s.renderNotFoundPage(w, r, err)
 		} else {
-			renderInternalServerErrorPage(w, r, err)
+			s.renderInternalServerErrorPage(w, r, err)
 		}
 	} else {
 		user := dataprovider.User{BaseUser: sdk.BaseUser{
@@ -1792,24 +1803,24 @@ func handleWebTemplateUserGet(w http.ResponseWriter, r *http.Request) {
 				"/": {dataprovider.PermAny},
 			},
 		}}
-		renderUserPage(w, r, &user, userPageModeTemplate, "")
+		s.renderUserPage(w, r, &user, userPageModeTemplate, "")
 	}
 }
 
-func handleWebTemplateUserPost(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebTemplateUserPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
 		return
 	}
 	templateUser, err := getUserFromPostFields(r)
 	if err != nil {
-		renderMessagePage(w, r, "Error parsing user fields", "", http.StatusBadRequest, err, "")
+		s.renderMessagePage(w, r, "Error parsing user fields", "", http.StatusBadRequest, err, "")
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
-		renderForbiddenPage(w, r, err.Error())
+		s.renderForbiddenPage(w, r, err.Error())
 		return
 	}
 
@@ -1820,7 +1831,7 @@ func handleWebTemplateUserPost(w http.ResponseWriter, r *http.Request) {
 	for _, tmpl := range userTmplFields {
 		u := getUserFromTemplate(templateUser, tmpl)
 		if err := dataprovider.ValidateUser(&u); err != nil {
-			renderMessagePage(w, r, "User validation error", fmt.Sprintf("Error validating user %#v", u.Username),
+			s.renderMessagePage(w, r, "User validation error", fmt.Sprintf("Error validating user %#v", u.Username),
 				http.StatusBadRequest, err, "")
 			return
 		}
@@ -1833,7 +1844,7 @@ func handleWebTemplateUserPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(dump.Users) == 0 {
-		renderMessagePage(w, r, "No users defined", "No valid users defined, unable to complete the requested action",
+		s.renderMessagePage(w, r, "No users defined", "No valid users defined, unable to complete the requested action",
 			http.StatusBadRequest, nil, "")
 		return
 	}
@@ -1844,14 +1855,14 @@ func handleWebTemplateUserPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err = RestoreUsers(dump.Users, "", 1, 0, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr)); err != nil {
-		renderMessagePage(w, r, "Unable to save users", "Cannot save the defined users:",
+		s.renderMessagePage(w, r, "Unable to save users", "Cannot save the defined users:",
 			getRespStatus(err), err, "")
 		return
 	}
 	http.Redirect(w, r, webUsersPath, http.StatusSeeOther)
 }
 
-func handleWebAddUserGet(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebAddUserGet(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	user := dataprovider.User{BaseUser: sdk.BaseUser{
 		Status: 1,
@@ -1859,69 +1870,69 @@ func handleWebAddUserGet(w http.ResponseWriter, r *http.Request) {
 			"/": {dataprovider.PermAny},
 		},
 	}}
-	renderUserPage(w, r, &user, userPageModeAdd, "")
+	s.renderUserPage(w, r, &user, userPageModeAdd, "")
 }
 
-func handleWebUpdateUserGet(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebUpdateUserGet(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	username := getURLParam(r, "username")
 	user, err := dataprovider.UserExists(username)
 	if err == nil {
-		renderUserPage(w, r, &user, userPageModeUpdate, "")
+		s.renderUserPage(w, r, &user, userPageModeUpdate, "")
 	} else if _, ok := err.(*util.RecordNotFoundError); ok {
-		renderNotFoundPage(w, r, err)
+		s.renderNotFoundPage(w, r, err)
 	} else {
-		renderInternalServerErrorPage(w, r, err)
+		s.renderInternalServerErrorPage(w, r, err)
 	}
 }
 
-func handleWebAddUserPost(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebAddUserPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
 		return
 	}
 	user, err := getUserFromPostFields(r)
 	if err != nil {
-		renderUserPage(w, r, &user, userPageModeAdd, err.Error())
+		s.renderUserPage(w, r, &user, userPageModeAdd, err.Error())
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
-		renderForbiddenPage(w, r, err.Error())
+		s.renderForbiddenPage(w, r, err.Error())
 		return
 	}
 	err = dataprovider.AddUser(&user, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if err == nil {
 		http.Redirect(w, r, webUsersPath, http.StatusSeeOther)
 	} else {
-		renderUserPage(w, r, &user, userPageModeAdd, err.Error())
+		s.renderUserPage(w, r, &user, userPageModeAdd, err.Error())
 	}
 }
 
-func handleWebUpdateUserPost(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebUpdateUserPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
 		return
 	}
 	username := getURLParam(r, "username")
 	user, err := dataprovider.UserExists(username)
 	if _, ok := err.(*util.RecordNotFoundError); ok {
-		renderNotFoundPage(w, r, err)
+		s.renderNotFoundPage(w, r, err)
 		return
 	} else if err != nil {
-		renderInternalServerErrorPage(w, r, err)
+		s.renderInternalServerErrorPage(w, r, err)
 		return
 	}
 	updatedUser, err := getUserFromPostFields(r)
 	if err != nil {
-		renderUserPage(w, r, &user, userPageModeUpdate, err.Error())
+		s.renderUserPage(w, r, &user, userPageModeUpdate, err.Error())
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
-		renderForbiddenPage(w, r, err.Error())
+		s.renderForbiddenPage(w, r, err.Error())
 		return
 	}
 	updatedUser.ID = user.ID
@@ -1943,46 +1954,46 @@ func handleWebUpdateUserPost(w http.ResponseWriter, r *http.Request) {
 		}
 		http.Redirect(w, r, webUsersPath, http.StatusSeeOther)
 	} else {
-		renderUserPage(w, r, &user, userPageModeUpdate, err.Error())
+		s.renderUserPage(w, r, &user, userPageModeUpdate, err.Error())
 	}
 }
 
-func handleWebGetStatus(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebGetStatus(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	data := statusPage{
-		basePage: getBasePageData(pageStatusTitle, webStatusPath, r),
+		basePage: s.getBasePageData(pageStatusTitle, webStatusPath, r),
 		Status:   getServicesStatus(),
 	}
 	renderAdminTemplate(w, templateStatus, data)
 }
 
-func handleWebGetConnections(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebGetConnections(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	connectionStats := common.Connections.GetStats()
 	data := connectionsPage{
-		basePage:    getBasePageData(pageConnectionsTitle, webConnectionsPath, r),
+		basePage:    s.getBasePageData(pageConnectionsTitle, webConnectionsPath, r),
 		Connections: connectionStats,
 	}
 	renderAdminTemplate(w, templateConnections, data)
 }
 
-func handleWebAddFolderGet(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebAddFolderGet(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	renderFolderPage(w, r, vfs.BaseVirtualFolder{}, folderPageModeAdd, "")
+	s.renderFolderPage(w, r, vfs.BaseVirtualFolder{}, folderPageModeAdd, "")
 }
 
-func handleWebAddFolderPost(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebAddFolderPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	folder := vfs.BaseVirtualFolder{}
 	err := r.ParseMultipartForm(maxRequestSize)
 	if err != nil {
-		renderFolderPage(w, r, folder, folderPageModeAdd, err.Error())
+		s.renderFolderPage(w, r, folder, folderPageModeAdd, err.Error())
 		return
 	}
 	defer r.MultipartForm.RemoveAll() //nolint:errcheck
 
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
-		renderForbiddenPage(w, r, err.Error())
+		s.renderForbiddenPage(w, r, err.Error())
 		return
 	}
 	folder.MappedPath = r.Form.Get("mapped_path")
@@ -1990,7 +2001,7 @@ func handleWebAddFolderPost(w http.ResponseWriter, r *http.Request) {
 	folder.Description = r.Form.Get("description")
 	fsConfig, err := getFsConfigFromPostFields(r)
 	if err != nil {
-		renderFolderPage(w, r, folder, folderPageModeAdd, err.Error())
+		s.renderFolderPage(w, r, folder, folderPageModeAdd, err.Error())
 		return
 	}
 	folder.FsConfig = fsConfig
@@ -1999,54 +2010,54 @@ func handleWebAddFolderPost(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		http.Redirect(w, r, webFoldersPath, http.StatusSeeOther)
 	} else {
-		renderFolderPage(w, r, folder, folderPageModeAdd, err.Error())
+		s.renderFolderPage(w, r, folder, folderPageModeAdd, err.Error())
 	}
 }
 
-func handleWebUpdateFolderGet(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebUpdateFolderGet(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	name := getURLParam(r, "name")
 	folder, err := dataprovider.GetFolderByName(name)
 	if err == nil {
-		renderFolderPage(w, r, folder, folderPageModeUpdate, "")
+		s.renderFolderPage(w, r, folder, folderPageModeUpdate, "")
 	} else if _, ok := err.(*util.RecordNotFoundError); ok {
-		renderNotFoundPage(w, r, err)
+		s.renderNotFoundPage(w, r, err)
 	} else {
-		renderInternalServerErrorPage(w, r, err)
+		s.renderInternalServerErrorPage(w, r, err)
 	}
 }
 
-func handleWebUpdateFolderPost(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebUpdateFolderPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
 		return
 	}
 	name := getURLParam(r, "name")
 	folder, err := dataprovider.GetFolderByName(name)
 	if _, ok := err.(*util.RecordNotFoundError); ok {
-		renderNotFoundPage(w, r, err)
+		s.renderNotFoundPage(w, r, err)
 		return
 	} else if err != nil {
-		renderInternalServerErrorPage(w, r, err)
+		s.renderInternalServerErrorPage(w, r, err)
 		return
 	}
 
 	err = r.ParseMultipartForm(maxRequestSize)
 	if err != nil {
-		renderFolderPage(w, r, folder, folderPageModeUpdate, err.Error())
+		s.renderFolderPage(w, r, folder, folderPageModeUpdate, err.Error())
 		return
 	}
 	defer r.MultipartForm.RemoveAll() //nolint:errcheck
 
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
-		renderForbiddenPage(w, r, err.Error())
+		s.renderForbiddenPage(w, r, err.Error())
 		return
 	}
 	fsConfig, err := getFsConfigFromPostFields(r)
 	if err != nil {
-		renderFolderPage(w, r, folder, folderPageModeUpdate, err.Error())
+		s.renderFolderPage(w, r, folder, folderPageModeUpdate, err.Error())
 		return
 	}
 	updatedFolder := &vfs.BaseVirtualFolder{
@@ -2063,18 +2074,18 @@ func handleWebUpdateFolderPost(w http.ResponseWriter, r *http.Request) {
 
 	err = dataprovider.UpdateFolder(updatedFolder, folder.Users, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if err != nil {
-		renderFolderPage(w, r, folder, folderPageModeUpdate, err.Error())
+		s.renderFolderPage(w, r, folder, folderPageModeUpdate, err.Error())
 		return
 	}
 	http.Redirect(w, r, webFoldersPath, http.StatusSeeOther)
 }
 
-func getWebVirtualFolders(w http.ResponseWriter, r *http.Request, limit int) ([]vfs.BaseVirtualFolder, error) {
+func (s *httpdServer) getWebVirtualFolders(w http.ResponseWriter, r *http.Request, limit int) ([]vfs.BaseVirtualFolder, error) {
 	folders := make([]vfs.BaseVirtualFolder, 0, limit)
 	for {
 		f, err := dataprovider.GetFolders(limit, len(folders), dataprovider.OrderASC)
 		if err != nil {
-			renderInternalServerErrorPage(w, r, err)
+			s.renderInternalServerErrorPage(w, r, err)
 			return folders, err
 		}
 		folders = append(folders, f...)
@@ -2085,7 +2096,7 @@ func getWebVirtualFolders(w http.ResponseWriter, r *http.Request, limit int) ([]
 	return folders, nil
 }
 
-func handleWebGetFolders(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebGetFolders(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	limit := defaultQueryLimit
 	if _, ok := r.URL.Query()["qlimit"]; ok {
@@ -2095,13 +2106,13 @@ func handleWebGetFolders(w http.ResponseWriter, r *http.Request) {
 			limit = defaultQueryLimit
 		}
 	}
-	folders, err := getWebVirtualFolders(w, r, limit)
+	folders, err := s.getWebVirtualFolders(w, r, limit)
 	if err != nil {
 		return
 	}
 
 	data := foldersPage{
-		basePage: getBasePageData(pageFoldersTitle, webFoldersPath, r),
+		basePage: s.getBasePageData(pageFoldersTitle, webFoldersPath, r),
 		Folders:  folders,
 	}
 	renderAdminTemplate(w, templateFolders, data)

@@ -108,6 +108,7 @@ var (
 			CrossOriginOpenerPolicy: "",
 			ExpectCTHeader:          "",
 		},
+		ExtraCSS: []httpd.CustomCSS{},
 	}
 	defaultRateLimiter = common.RateLimiterConfig{
 		Average:                0,
@@ -1268,6 +1269,25 @@ func getHTTPDOIDCFromEnv(idx int) (httpd.OIDC, bool) {
 	return result, isSet
 }
 
+func getHTTPDExtraCSSFromEnv(idx int) []httpd.CustomCSS {
+	var css []httpd.CustomCSS
+
+	for subIdx := 0; subIdx < 10; subIdx++ {
+		var customCSS httpd.CustomCSS
+
+		path, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__EXTRA_CSS__%v__PATH", idx, subIdx))
+		if ok {
+			customCSS.Path = path
+		}
+
+		if path != "" {
+			css = append(css, customCSS)
+		}
+	}
+
+	return css
+}
+
 func getHTTPDWebClientIntegrationsFromEnv(idx int) []httpd.WebClientIntegration {
 	var integrations []httpd.WebClientIntegration
 
@@ -1306,6 +1326,36 @@ func getDefaultHTTPBinding(idx int) httpd.Binding {
 	return binding
 }
 
+func getHTTPDNestedObjectsFromEnv(idx int, binding *httpd.Binding) bool {
+	isSet := false
+
+	webClientIntegrations := getHTTPDWebClientIntegrationsFromEnv(idx)
+	if len(webClientIntegrations) > 0 {
+		binding.WebClientIntegrations = webClientIntegrations
+		isSet = true
+	}
+
+	oidc, ok := getHTTPDOIDCFromEnv(idx)
+	if ok {
+		binding.OIDC = oidc
+		isSet = true
+	}
+
+	securityConf, ok := getHTTPDSecurityConfFromEnv(idx)
+	if ok {
+		binding.Security = securityConf
+		isSet = true
+	}
+
+	extraCSS := getHTTPDExtraCSSFromEnv(idx)
+	if len(extraCSS) > 0 {
+		binding.ExtraCSS = extraCSS
+		isSet = true
+	}
+
+	return isSet
+}
+
 func getHTTPDBindingFromEnv(idx int) {
 	binding := getDefaultHTTPBinding(idx)
 	isSet := false
@@ -1337,12 +1387,6 @@ func getHTTPDBindingFromEnv(idx int) {
 	renderOpenAPI, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__RENDER_OPENAPI", idx))
 	if ok {
 		binding.RenderOpenAPI = renderOpenAPI
-		isSet = true
-	}
-
-	webClientIntegrations := getHTTPDWebClientIntegrationsFromEnv(idx)
-	if len(webClientIntegrations) > 0 {
-		binding.WebClientIntegrations = webClientIntegrations
 		isSet = true
 	}
 
@@ -1382,15 +1426,7 @@ func getHTTPDBindingFromEnv(idx int) {
 		isSet = true
 	}
 
-	oidc, ok := getHTTPDOIDCFromEnv(idx)
-	if ok {
-		binding.OIDC = oidc
-		isSet = true
-	}
-
-	securityConf, ok := getHTTPDSecurityConfFromEnv(idx)
-	if ok {
-		binding.Security = securityConf
+	if getHTTPDNestedObjectsFromEnv(idx, &binding) {
 		isSet = true
 	}
 

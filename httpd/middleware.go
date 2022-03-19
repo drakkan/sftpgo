@@ -87,13 +87,13 @@ func validateJWTToken(w http.ResponseWriter, r *http.Request, audience tokenAudi
 	return nil
 }
 
-func validateJWTPartialToken(w http.ResponseWriter, r *http.Request, audience tokenAudience) error {
+func (s *httpdServer) validateJWTPartialToken(w http.ResponseWriter, r *http.Request, audience tokenAudience) error {
 	token, _, err := jwtauth.FromContext(r.Context())
 	var notFoundFunc func(w http.ResponseWriter, r *http.Request, err error)
 	if audience == tokenAudienceWebAdminPartial {
-		notFoundFunc = renderNotFoundPage
+		notFoundFunc = s.renderNotFoundPage
 	} else {
-		notFoundFunc = renderClientNotFoundPage
+		notFoundFunc = s.renderClientNotFoundPage
 	}
 	if err != nil || token == nil || jwt.Validate(token) != nil {
 		notFoundFunc(w, r, nil)
@@ -112,10 +112,10 @@ func validateJWTPartialToken(w http.ResponseWriter, r *http.Request, audience to
 	return nil
 }
 
-func jwtAuthenticatorPartial(audience tokenAudience) func(next http.Handler) http.Handler {
+func (s *httpdServer) jwtAuthenticatorPartial(audience tokenAudience) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if err := validateJWTPartialToken(w, r, audience); err != nil {
+			if err := s.validateJWTPartialToken(w, r, audience); err != nil {
 				return
 			}
 
@@ -169,13 +169,13 @@ func jwtAuthenticatorWebClient(next http.Handler) http.Handler {
 	})
 }
 
-func checkHTTPUserPerm(perm string) func(next http.Handler) http.Handler {
+func (s *httpdServer) checkHTTPUserPerm(perm string) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			_, claims, err := jwtauth.FromContext(r.Context())
 			if err != nil {
 				if isWebRequest(r) {
-					renderClientBadRequestPage(w, r, err)
+					s.renderClientBadRequestPage(w, r, err)
 				} else {
 					sendAPIResponse(w, r, err, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 				}
@@ -186,7 +186,7 @@ func checkHTTPUserPerm(perm string) func(next http.Handler) http.Handler {
 			// for web client perms are negated and not granted
 			if tokenClaims.hasPerm(perm) {
 				if isWebRequest(r) {
-					renderClientForbiddenPage(w, r, "You don't have permission for this action")
+					s.renderClientForbiddenPage(w, r, "You don't have permission for this action")
 				} else {
 					sendAPIResponse(w, r, nil, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 				}
@@ -198,12 +198,12 @@ func checkHTTPUserPerm(perm string) func(next http.Handler) http.Handler {
 	}
 }
 
-func checkSecondFactorRequirement(next http.Handler) http.Handler {
+func (s *httpdServer) checkSecondFactorRequirement(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, claims, err := jwtauth.FromContext(r.Context())
 		if err != nil {
 			if isWebRequest(r) {
-				renderClientBadRequestPage(w, r, err)
+				s.renderClientBadRequestPage(w, r, err)
 			} else {
 				sendAPIResponse(w, r, err, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 			}
@@ -215,7 +215,7 @@ func checkSecondFactorRequirement(next http.Handler) http.Handler {
 			message := fmt.Sprintf("Two-factor authentication requirements not met, please configure two-factor authentication for the following protocols: %v",
 				strings.Join(tokenClaims.RequiredTwoFactorProtocols, ", "))
 			if isWebRequest(r) {
-				renderClientForbiddenPage(w, r, message)
+				s.renderClientForbiddenPage(w, r, message)
 			} else {
 				sendAPIResponse(w, r, nil, message, http.StatusForbidden)
 			}
@@ -226,13 +226,13 @@ func checkSecondFactorRequirement(next http.Handler) http.Handler {
 	})
 }
 
-func requireBuiltinLogin(next http.Handler) http.Handler {
+func (s *httpdServer) requireBuiltinLogin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if isLoggedInWithOIDC(r) {
 			if isWebClientRequest(r) {
-				renderClientForbiddenPage(w, r, "This feature is not available if you are logged in with OpenID")
+				s.renderClientForbiddenPage(w, r, "This feature is not available if you are logged in with OpenID")
 			} else {
-				renderForbiddenPage(w, r, "This feature is not available if you are logged in with OpenID")
+				s.renderForbiddenPage(w, r, "This feature is not available if you are logged in with OpenID")
 			}
 			return
 		}
@@ -240,13 +240,13 @@ func requireBuiltinLogin(next http.Handler) http.Handler {
 	})
 }
 
-func checkPerm(perm string) func(next http.Handler) http.Handler {
+func (s *httpdServer) checkPerm(perm string) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			_, claims, err := jwtauth.FromContext(r.Context())
 			if err != nil {
 				if isWebRequest(r) {
-					renderBadRequestPage(w, r, err)
+					s.renderBadRequestPage(w, r, err)
 				} else {
 					sendAPIResponse(w, r, err, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 				}
@@ -257,7 +257,7 @@ func checkPerm(perm string) func(next http.Handler) http.Handler {
 
 			if !tokenClaims.hasPerm(perm) {
 				if isWebRequest(r) {
-					renderForbiddenPage(w, r, "You don't have permission for this action")
+					s.renderForbiddenPage(w, r, "You don't have permission for this action")
 				} else {
 					sendAPIResponse(w, r, nil, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 				}

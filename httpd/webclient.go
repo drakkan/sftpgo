@@ -98,6 +98,7 @@ type baseClientPage struct {
 	CSRFToken        string
 	HasExternalLogin bool
 	LoggedUser       *dataprovider.User
+	ExtraCSS         []CustomCSS
 }
 
 type dirMapping struct {
@@ -109,6 +110,7 @@ type viewPDFPage struct {
 	Title     string
 	URL       string
 	StaticURL string
+	ExtraCSS  []CustomCSS
 }
 
 type editFilePage struct {
@@ -309,7 +311,7 @@ func loadClientTemplates(templatesPath string) {
 	clientTemplates[templateUploadToShare] = shareUploadTmpl
 }
 
-func getBaseClientPageData(title, currentURL string, r *http.Request) baseClientPage {
+func (s *httpdServer) getBaseClientPageData(title, currentURL string, r *http.Request) baseClientPage {
 	var csrfToken string
 	if currentURL != "" {
 		csrfToken = createCSRFToken()
@@ -335,27 +337,30 @@ func getBaseClientPageData(title, currentURL string, r *http.Request) baseClient
 		CSRFToken:        csrfToken,
 		HasExternalLogin: isLoggedInWithOIDC(r),
 		LoggedUser:       getUserFromToken(r),
+		ExtraCSS:         s.binding.ExtraCSS,
 	}
 }
 
-func renderClientForgotPwdPage(w http.ResponseWriter, error string) {
+func (s *httpdServer) renderClientForgotPwdPage(w http.ResponseWriter, error string) {
 	data := forgotPwdPage{
 		CurrentURL: webClientForgotPwdPath,
 		Error:      error,
 		CSRFToken:  createCSRFToken(),
 		StaticURL:  webStaticFilesPath,
 		Title:      pageClientForgotPwdTitle,
+		ExtraCSS:   s.binding.ExtraCSS,
 	}
 	renderClientTemplate(w, templateForgotPassword, data)
 }
 
-func renderClientResetPwdPage(w http.ResponseWriter, error string) {
+func (s *httpdServer) renderClientResetPwdPage(w http.ResponseWriter, error string) {
 	data := resetPwdPage{
 		CurrentURL: webClientResetPwdPath,
 		Error:      error,
 		CSRFToken:  createCSRFToken(),
 		StaticURL:  webStaticFilesPath,
 		Title:      pageClientResetPwdTitle,
+		ExtraCSS:   s.binding.ExtraCSS,
 	}
 	renderClientTemplate(w, templateResetPassword, data)
 }
@@ -367,7 +372,7 @@ func renderClientTemplate(w http.ResponseWriter, tmplName string, data interface
 	}
 }
 
-func renderClientMessagePage(w http.ResponseWriter, r *http.Request, title, body string, statusCode int, err error, message string) {
+func (s *httpdServer) renderClientMessagePage(w http.ResponseWriter, r *http.Request, title, body string, statusCode int, err error, message string) {
 	var errorString string
 	if body != "" {
 		errorString = body + " "
@@ -376,7 +381,7 @@ func renderClientMessagePage(w http.ResponseWriter, r *http.Request, title, body
 		errorString += err.Error()
 	}
 	data := clientMessagePage{
-		baseClientPage: getBaseClientPageData(title, "", r),
+		baseClientPage: s.getBaseClientPageData(title, "", r),
 		Error:          errorString,
 		Success:        message,
 	}
@@ -384,23 +389,23 @@ func renderClientMessagePage(w http.ResponseWriter, r *http.Request, title, body
 	renderClientTemplate(w, templateClientMessage, data)
 }
 
-func renderClientInternalServerErrorPage(w http.ResponseWriter, r *http.Request, err error) {
-	renderClientMessagePage(w, r, page500Title, page500Body, http.StatusInternalServerError, err, "")
+func (s *httpdServer) renderClientInternalServerErrorPage(w http.ResponseWriter, r *http.Request, err error) {
+	s.renderClientMessagePage(w, r, page500Title, page500Body, http.StatusInternalServerError, err, "")
 }
 
-func renderClientBadRequestPage(w http.ResponseWriter, r *http.Request, err error) {
-	renderClientMessagePage(w, r, page400Title, "", http.StatusBadRequest, err, "")
+func (s *httpdServer) renderClientBadRequestPage(w http.ResponseWriter, r *http.Request, err error) {
+	s.renderClientMessagePage(w, r, page400Title, "", http.StatusBadRequest, err, "")
 }
 
-func renderClientForbiddenPage(w http.ResponseWriter, r *http.Request, body string) {
-	renderClientMessagePage(w, r, page403Title, "", http.StatusForbidden, nil, body)
+func (s *httpdServer) renderClientForbiddenPage(w http.ResponseWriter, r *http.Request, body string) {
+	s.renderClientMessagePage(w, r, page403Title, "", http.StatusForbidden, nil, body)
 }
 
-func renderClientNotFoundPage(w http.ResponseWriter, r *http.Request, err error) {
-	renderClientMessagePage(w, r, page404Title, page404Body, http.StatusNotFound, err, "")
+func (s *httpdServer) renderClientNotFoundPage(w http.ResponseWriter, r *http.Request, err error) {
+	s.renderClientMessagePage(w, r, page404Title, page404Body, http.StatusNotFound, err, "")
 }
 
-func renderClientTwoFactorPage(w http.ResponseWriter, error string) {
+func (s *httpdServer) renderClientTwoFactorPage(w http.ResponseWriter, error string) {
 	data := twoFactorPage{
 		CurrentURL:  webClientTwoFactorPath,
 		Version:     version.Get().Version,
@@ -408,24 +413,26 @@ func renderClientTwoFactorPage(w http.ResponseWriter, error string) {
 		CSRFToken:   createCSRFToken(),
 		StaticURL:   webStaticFilesPath,
 		RecoveryURL: webClientTwoFactorRecoveryPath,
+		ExtraCSS:    s.binding.ExtraCSS,
 	}
 	renderClientTemplate(w, templateTwoFactor, data)
 }
 
-func renderClientTwoFactorRecoveryPage(w http.ResponseWriter, error string) {
+func (s *httpdServer) renderClientTwoFactorRecoveryPage(w http.ResponseWriter, error string) {
 	data := twoFactorPage{
 		CurrentURL: webClientTwoFactorRecoveryPath,
 		Version:    version.Get().Version,
 		Error:      error,
 		CSRFToken:  createCSRFToken(),
 		StaticURL:  webStaticFilesPath,
+		ExtraCSS:   s.binding.ExtraCSS,
 	}
 	renderClientTemplate(w, templateTwoFactorRecovery, data)
 }
 
-func renderClientMFAPage(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) renderClientMFAPage(w http.ResponseWriter, r *http.Request) {
 	data := clientMFAPage{
-		baseClientPage:  getBaseClientPageData(pageMFATitle, webClientMFAPath, r),
+		baseClientPage:  s.getBaseClientPageData(pageMFATitle, webClientMFAPath, r),
 		TOTPConfigs:     mfa.GetAvailableTOTPConfigNames(),
 		GenerateTOTPURL: webClientTOTPGeneratePath,
 		ValidateTOTPURL: webClientTOTPValidatePath,
@@ -435,16 +442,16 @@ func renderClientMFAPage(w http.ResponseWriter, r *http.Request) {
 	}
 	user, err := dataprovider.UserExists(data.LoggedUser.Username)
 	if err != nil {
-		renderInternalServerErrorPage(w, r, err)
+		s.renderInternalServerErrorPage(w, r, err)
 		return
 	}
 	data.TOTPConfig = user.Filters.TOTPConfig
 	renderClientTemplate(w, templateClientMFA, data)
 }
 
-func renderEditFilePage(w http.ResponseWriter, r *http.Request, fileName, fileData string, readOnly bool) {
+func (s *httpdServer) renderEditFilePage(w http.ResponseWriter, r *http.Request, fileName, fileData string, readOnly bool) {
 	data := editFilePage{
-		baseClientPage: getBaseClientPageData(pageClientEditFileTitle, webClientEditFilePath, r),
+		baseClientPage: s.getBaseClientPageData(pageClientEditFileTitle, webClientEditFilePath, r),
 		Path:           fileName,
 		Name:           path.Base(fileName),
 		CurrentDir:     path.Dir(fileName),
@@ -456,7 +463,7 @@ func renderEditFilePage(w http.ResponseWriter, r *http.Request, fileName, fileDa
 	renderClientTemplate(w, templateClientEditFile, data)
 }
 
-func renderAddUpdateSharePage(w http.ResponseWriter, r *http.Request, share *dataprovider.Share,
+func (s *httpdServer) renderAddUpdateSharePage(w http.ResponseWriter, r *http.Request, share *dataprovider.Share,
 	error string, isAdd bool) {
 	currentURL := webClientSharePath
 	title := "Add a new share"
@@ -465,7 +472,7 @@ func renderAddUpdateSharePage(w http.ResponseWriter, r *http.Request, share *dat
 		title = "Update share"
 	}
 	data := clientSharePage{
-		baseClientPage: getBaseClientPageData(title, currentURL, r),
+		baseClientPage: s.getBaseClientPageData(title, currentURL, r),
 		Share:          share,
 		Error:          error,
 		IsAdd:          isAdd,
@@ -495,10 +502,12 @@ func getDirMapping(dirName, baseWebPath string) []dirMapping {
 	return paths
 }
 
-func renderSharedFilesPage(w http.ResponseWriter, r *http.Request, dirName, error string, share dataprovider.Share) {
+func (s *httpdServer) renderSharedFilesPage(w http.ResponseWriter, r *http.Request, dirName, error string,
+	share dataprovider.Share,
+) {
 	currentURL := path.Join(webClientPubSharesPath, share.ShareID, "browse")
 	data := shareFilesPage{
-		baseClientPage: getBaseClientPageData(pageExtShareTitle, currentURL, r),
+		baseClientPage: s.getBaseClientPageData(pageExtShareTitle, currentURL, r),
 		CurrentDir:     url.QueryEscape(dirName),
 		DirsURL:        path.Join(webClientPubSharesPath, share.ShareID, "dirs"),
 		FilesURL:       currentURL,
@@ -509,21 +518,21 @@ func renderSharedFilesPage(w http.ResponseWriter, r *http.Request, dirName, erro
 	renderClientTemplate(w, templateShareFiles, data)
 }
 
-func renderUploadToSharePage(w http.ResponseWriter, r *http.Request, share dataprovider.Share) {
+func (s *httpdServer) renderUploadToSharePage(w http.ResponseWriter, r *http.Request, share dataprovider.Share) {
 	currentURL := path.Join(webClientPubSharesPath, share.ShareID, "upload")
 	data := shareUploadPage{
-		baseClientPage: getBaseClientPageData(pageUploadToShareTitle, currentURL, r),
+		baseClientPage: s.getBaseClientPageData(pageUploadToShareTitle, currentURL, r),
 		Share:          &share,
 		UploadBasePath: path.Join(webClientPubSharesPath, share.ShareID),
 	}
 	renderClientTemplate(w, templateUploadToShare, data)
 }
 
-func renderFilesPage(w http.ResponseWriter, r *http.Request, dirName, error string, user dataprovider.User,
+func (s *httpdServer) renderFilesPage(w http.ResponseWriter, r *http.Request, dirName, error string, user dataprovider.User,
 	hasIntegrations bool,
 ) {
 	data := filesPage{
-		baseClientPage:  getBaseClientPageData(pageClientFilesTitle, webClientFilesPath, r),
+		baseClientPage:  s.getBaseClientPageData(pageClientFilesTitle, webClientFilesPath, r),
 		Error:           error,
 		CurrentDir:      url.QueryEscape(dirName),
 		DownloadURL:     webClientDownloadZipPath,
@@ -542,14 +551,14 @@ func renderFilesPage(w http.ResponseWriter, r *http.Request, dirName, error stri
 	renderClientTemplate(w, templateClientFiles, data)
 }
 
-func renderClientProfilePage(w http.ResponseWriter, r *http.Request, error string) {
+func (s *httpdServer) renderClientProfilePage(w http.ResponseWriter, r *http.Request, error string) {
 	data := clientProfilePage{
-		baseClientPage: getBaseClientPageData(pageClientProfileTitle, webClientProfilePath, r),
+		baseClientPage: s.getBaseClientPageData(pageClientProfileTitle, webClientProfilePath, r),
 		Error:          error,
 	}
 	user, err := dataprovider.UserExists(data.LoggedUser.Username)
 	if err != nil {
-		renderClientInternalServerErrorPage(w, r, err)
+		s.renderClientInternalServerErrorPage(w, r, err)
 		return
 	}
 	data.PublicKeys = user.PublicKeys
@@ -560,26 +569,26 @@ func renderClientProfilePage(w http.ResponseWriter, r *http.Request, error strin
 	renderClientTemplate(w, templateClientProfile, data)
 }
 
-func renderClientChangePasswordPage(w http.ResponseWriter, r *http.Request, error string) {
+func (s *httpdServer) renderClientChangePasswordPage(w http.ResponseWriter, r *http.Request, error string) {
 	data := changeClientPasswordPage{
-		baseClientPage: getBaseClientPageData(pageClientChangePwdTitle, webChangeClientPwdPath, r),
+		baseClientPage: s.getBaseClientPageData(pageClientChangePwdTitle, webChangeClientPwdPath, r),
 		Error:          error,
 	}
 
 	renderClientTemplate(w, templateClientChangePwd, data)
 }
 
-func handleWebClientDownloadZip(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebClientDownloadZip(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		renderClientMessagePage(w, r, "Invalid token claims", "", http.StatusForbidden, nil, "")
+		s.renderClientMessagePage(w, r, "Invalid token claims", "", http.StatusForbidden, nil, "")
 		return
 	}
 
 	user, err := dataprovider.UserExists(claims.Username)
 	if err != nil {
-		renderClientMessagePage(w, r, "Unable to retrieve your user", "", getRespStatus(err), nil, "")
+		s.renderClientMessagePage(w, r, "Unable to retrieve your user", "", getRespStatus(err), nil, "")
 		return
 	}
 
@@ -587,7 +596,7 @@ func handleWebClientDownloadZip(w http.ResponseWriter, r *http.Request) {
 	protocol := getProtocolFromRequest(r)
 	connectionID := fmt.Sprintf("%v_%v", protocol, connID)
 	if err := checkHTTPClientUser(&user, r, connectionID); err != nil {
-		renderClientForbiddenPage(w, r, err.Error())
+		s.renderClientForbiddenPage(w, r, err.Error())
 		return
 	}
 	connection := &Connection{
@@ -603,7 +612,7 @@ func handleWebClientDownloadZip(w http.ResponseWriter, r *http.Request) {
 	var filesList []string
 	err = json.Unmarshal([]byte(files), &filesList)
 	if err != nil {
-		renderClientMessagePage(w, r, "Unable to get files list", "", http.StatusInternalServerError, err, "")
+		s.renderClientMessagePage(w, r, "Unable to get files list", "", http.StatusInternalServerError, err, "")
 		return
 	}
 
@@ -611,19 +620,19 @@ func handleWebClientDownloadZip(w http.ResponseWriter, r *http.Request) {
 	renderCompressedFiles(w, connection, name, filesList, nil)
 }
 
-func handleShareGetDirContents(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleShareGetDirContents(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	share, connection, err := checkPublicShare(w, r, dataprovider.ShareScopeRead, true)
+	share, connection, err := s.checkPublicShare(w, r, dataprovider.ShareScopeRead, true)
 	if err != nil {
 		return
 	}
 	if err := validateBrowsableShare(share, connection); err != nil {
-		renderClientMessagePage(w, r, "Unable to validate share", "", getRespStatus(err), err, "")
+		s.renderClientMessagePage(w, r, "Unable to validate share", "", getRespStatus(err), err, "")
 		return
 	}
 	name, err := getBrowsableSharedPath(share, r)
 	if err != nil {
-		renderClientMessagePage(w, r, "Invalid share path", "", getRespStatus(err), err, "")
+		s.renderClientMessagePage(w, r, "Invalid share path", "", getRespStatus(err), err, "")
 		return
 	}
 	common.Connections.Add(connection)
@@ -657,28 +666,28 @@ func handleShareGetDirContents(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, results)
 }
 
-func handleClientUploadToShare(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleClientUploadToShare(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	share, _, err := checkPublicShare(w, r, dataprovider.ShareScopeWrite, true)
+	share, _, err := s.checkPublicShare(w, r, dataprovider.ShareScopeWrite, true)
 	if err != nil {
 		return
 	}
-	renderUploadToSharePage(w, r, share)
+	s.renderUploadToSharePage(w, r, share)
 }
 
-func handleShareGetFiles(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleShareGetFiles(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	share, connection, err := checkPublicShare(w, r, dataprovider.ShareScopeRead, true)
+	share, connection, err := s.checkPublicShare(w, r, dataprovider.ShareScopeRead, true)
 	if err != nil {
 		return
 	}
 	if err := validateBrowsableShare(share, connection); err != nil {
-		renderClientMessagePage(w, r, "Unable to validate share", "", getRespStatus(err), err, "")
+		s.renderClientMessagePage(w, r, "Unable to validate share", "", getRespStatus(err), err, "")
 		return
 	}
 	name, err := getBrowsableSharedPath(share, r)
 	if err != nil {
-		renderClientMessagePage(w, r, "Invalid share path", "", getRespStatus(err), err, "")
+		s.renderClientMessagePage(w, r, "Invalid share path", "", getRespStatus(err), err, "")
 		return
 	}
 
@@ -692,11 +701,11 @@ func handleShareGetFiles(w http.ResponseWriter, r *http.Request) {
 		info, err = connection.Stat(name, 1)
 	}
 	if err != nil {
-		renderSharedFilesPage(w, r, path.Dir(share.GetRelativePath(name)), err.Error(), share)
+		s.renderSharedFilesPage(w, r, path.Dir(share.GetRelativePath(name)), err.Error(), share)
 		return
 	}
 	if info.IsDir() {
-		renderSharedFilesPage(w, r, share.GetRelativePath(name), "", share)
+		s.renderSharedFilesPage(w, r, share.GetRelativePath(name), "", share)
 		return
 	}
 	inline := r.URL.Query().Get("inline") != ""
@@ -704,7 +713,7 @@ func handleShareGetFiles(w http.ResponseWriter, r *http.Request) {
 	if status, err := downloadFile(w, r, connection, name, info, inline, &share); err != nil {
 		dataprovider.UpdateShareLastUse(&share, -1) //nolint:errcheck
 		if status > 0 {
-			renderSharedFilesPage(w, r, path.Dir(share.GetRelativePath(name)), err.Error(), share)
+			s.renderSharedFilesPage(w, r, path.Dir(share.GetRelativePath(name)), err.Error(), share)
 		}
 	}
 }
@@ -787,13 +796,13 @@ func (s *httpdServer) handleClientGetFiles(w http.ResponseWriter, r *http.Reques
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		renderClientForbiddenPage(w, r, "Invalid token claims")
+		s.renderClientForbiddenPage(w, r, "Invalid token claims")
 		return
 	}
 
 	user, err := dataprovider.UserExists(claims.Username)
 	if err != nil {
-		renderClientMessagePage(w, r, "Unable to retrieve your user", "", getRespStatus(err), nil, "")
+		s.renderClientMessagePage(w, r, "Unable to retrieve your user", "", getRespStatus(err), nil, "")
 		return
 	}
 
@@ -801,7 +810,7 @@ func (s *httpdServer) handleClientGetFiles(w http.ResponseWriter, r *http.Reques
 	protocol := getProtocolFromRequest(r)
 	connectionID := fmt.Sprintf("%v_%v", protocol, connID)
 	if err := checkHTTPClientUser(&user, r, connectionID); err != nil {
-		renderClientForbiddenPage(w, r, err.Error())
+		s.renderClientForbiddenPage(w, r, err.Error())
 		return
 	}
 	connection := &Connection{
@@ -820,37 +829,37 @@ func (s *httpdServer) handleClientGetFiles(w http.ResponseWriter, r *http.Reques
 		info, err = connection.Stat(name, 0)
 	}
 	if err != nil {
-		renderFilesPage(w, r, path.Dir(name), fmt.Sprintf("unable to stat file %#v: %v", name, err),
+		s.renderFilesPage(w, r, path.Dir(name), fmt.Sprintf("unable to stat file %#v: %v", name, err),
 			user, len(s.binding.WebClientIntegrations) > 0)
 		return
 	}
 	if info.IsDir() {
-		renderFilesPage(w, r, name, "", user, len(s.binding.WebClientIntegrations) > 0)
+		s.renderFilesPage(w, r, name, "", user, len(s.binding.WebClientIntegrations) > 0)
 		return
 	}
 	inline := r.URL.Query().Get("inline") != ""
 	if status, err := downloadFile(w, r, connection, name, info, inline, nil); err != nil && status != 0 {
 		if status > 0 {
 			if status == http.StatusRequestedRangeNotSatisfiable {
-				renderClientMessagePage(w, r, http.StatusText(status), "", status, err, "")
+				s.renderClientMessagePage(w, r, http.StatusText(status), "", status, err, "")
 				return
 			}
-			renderFilesPage(w, r, path.Dir(name), err.Error(), user, len(s.binding.WebClientIntegrations) > 0)
+			s.renderFilesPage(w, r, path.Dir(name), err.Error(), user, len(s.binding.WebClientIntegrations) > 0)
 		}
 	}
 }
 
-func handleClientEditFile(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleClientEditFile(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		renderClientForbiddenPage(w, r, "Invalid token claims")
+		s.renderClientForbiddenPage(w, r, "Invalid token claims")
 		return
 	}
 
 	user, err := dataprovider.UserExists(claims.Username)
 	if err != nil {
-		renderClientMessagePage(w, r, "Unable to retrieve your user", "", getRespStatus(err), nil, "")
+		s.renderClientMessagePage(w, r, "Unable to retrieve your user", "", getRespStatus(err), nil, "")
 		return
 	}
 
@@ -858,7 +867,7 @@ func handleClientEditFile(w http.ResponseWriter, r *http.Request) {
 	protocol := getProtocolFromRequest(r)
 	connectionID := fmt.Sprintf("%v_%v", protocol, connID)
 	if err := checkHTTPClientUser(&user, r, connectionID); err != nil {
-		renderClientForbiddenPage(w, r, err.Error())
+		s.renderClientForbiddenPage(w, r, err.Error())
 		return
 	}
 	connection := &Connection{
@@ -872,24 +881,24 @@ func handleClientEditFile(w http.ResponseWriter, r *http.Request) {
 	name := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
 	info, err := connection.Stat(name, 0)
 	if err != nil {
-		renderClientMessagePage(w, r, fmt.Sprintf("Unable to stat file %#v", name), "",
+		s.renderClientMessagePage(w, r, fmt.Sprintf("Unable to stat file %#v", name), "",
 			getRespStatus(err), nil, "")
 		return
 	}
 	if info.IsDir() {
-		renderClientMessagePage(w, r, fmt.Sprintf("The path %#v does not point to a file", name), "",
+		s.renderClientMessagePage(w, r, fmt.Sprintf("The path %#v does not point to a file", name), "",
 			http.StatusBadRequest, nil, "")
 		return
 	}
 	if info.Size() > httpdMaxEditFileSize {
-		renderClientMessagePage(w, r, fmt.Sprintf("The file size %v for %#v exceeds the maximum allowed size",
+		s.renderClientMessagePage(w, r, fmt.Sprintf("The file size %v for %#v exceeds the maximum allowed size",
 			util.ByteCountIEC(info.Size()), name), "", http.StatusBadRequest, nil, "")
 		return
 	}
 
 	reader, err := connection.getFileReader(name, 0, r.Method)
 	if err != nil {
-		renderClientMessagePage(w, r, fmt.Sprintf("Unable to get a reader for the file %#v", name), "",
+		s.renderClientMessagePage(w, r, fmt.Sprintf("Unable to get a reader for the file %#v", name), "",
 			getRespStatus(err), nil, "")
 		return
 	}
@@ -898,15 +907,15 @@ func handleClientEditFile(w http.ResponseWriter, r *http.Request) {
 	var b bytes.Buffer
 	_, err = io.Copy(&b, reader)
 	if err != nil {
-		renderClientMessagePage(w, r, fmt.Sprintf("Unable to read the file %#v", name), "", http.StatusInternalServerError,
+		s.renderClientMessagePage(w, r, fmt.Sprintf("Unable to read the file %#v", name), "", http.StatusInternalServerError,
 			nil, "")
 		return
 	}
 
-	renderEditFilePage(w, r, name, b.String(), util.IsStringInSlice(sdk.WebClientWriteDisabled, user.Filters.WebClient))
+	s.renderEditFilePage(w, r, name, b.String(), util.IsStringInSlice(sdk.WebClientWriteDisabled, user.Filters.WebClient))
 }
 
-func handleClientAddShareGet(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleClientAddShareGet(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	share := &dataprovider.Share{Scope: dataprovider.ShareScopeRead}
 	dirName := "/"
@@ -919,7 +928,7 @@ func handleClientAddShareGet(w http.ResponseWriter, r *http.Request) {
 		var filesList []string
 		err := json.Unmarshal([]byte(files), &filesList)
 		if err != nil {
-			renderClientMessagePage(w, r, "Invalid share list", "", http.StatusBadRequest, err, "")
+			s.renderClientMessagePage(w, r, "Invalid share list", "", http.StatusBadRequest, err, "")
 			return
 		}
 		for _, f := range filesList {
@@ -929,42 +938,42 @@ func handleClientAddShareGet(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	renderAddUpdateSharePage(w, r, share, "", true)
+	s.renderAddUpdateSharePage(w, r, share, "", true)
 }
 
-func handleClientUpdateShareGet(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleClientUpdateShareGet(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		renderClientForbiddenPage(w, r, "Invalid token claims")
+		s.renderClientForbiddenPage(w, r, "Invalid token claims")
 		return
 	}
 	shareID := getURLParam(r, "id")
 	share, err := dataprovider.ShareExists(shareID, claims.Username)
 	if err == nil {
 		share.HideConfidentialData()
-		renderAddUpdateSharePage(w, r, &share, "", false)
+		s.renderAddUpdateSharePage(w, r, &share, "", false)
 	} else if _, ok := err.(*util.RecordNotFoundError); ok {
-		renderClientNotFoundPage(w, r, err)
+		s.renderClientNotFoundPage(w, r, err)
 	} else {
-		renderClientInternalServerErrorPage(w, r, err)
+		s.renderClientInternalServerErrorPage(w, r, err)
 	}
 }
 
-func handleClientAddSharePost(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleClientAddSharePost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		renderClientForbiddenPage(w, r, "Invalid token claims")
+		s.renderClientForbiddenPage(w, r, "Invalid token claims")
 		return
 	}
 	share, err := getShareFromPostFields(r)
 	if err != nil {
-		renderAddUpdateSharePage(w, r, share, err.Error(), true)
+		s.renderAddUpdateSharePage(w, r, share, err.Error(), true)
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
-		renderClientForbiddenPage(w, r, err.Error())
+		s.renderClientForbiddenPage(w, r, err.Error())
 		return
 	}
 	share.ID = 0
@@ -973,7 +982,7 @@ func handleClientAddSharePost(w http.ResponseWriter, r *http.Request) {
 	share.Username = claims.Username
 	if share.Password == "" {
 		if util.IsStringInSlice(sdk.WebClientShareNoPasswordDisabled, claims.Permissions) {
-			renderClientForbiddenPage(w, r, "You are not authorized to share files/folders without a password")
+			s.renderClientForbiddenPage(w, r, "You are not authorized to share files/folders without a password")
 			return
 		}
 	}
@@ -981,33 +990,33 @@ func handleClientAddSharePost(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		http.Redirect(w, r, webClientSharesPath, http.StatusSeeOther)
 	} else {
-		renderAddUpdateSharePage(w, r, share, err.Error(), true)
+		s.renderAddUpdateSharePage(w, r, share, err.Error(), true)
 	}
 }
 
-func handleClientUpdateSharePost(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleClientUpdateSharePost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		renderClientForbiddenPage(w, r, "Invalid token claims")
+		s.renderClientForbiddenPage(w, r, "Invalid token claims")
 		return
 	}
 	shareID := getURLParam(r, "id")
 	share, err := dataprovider.ShareExists(shareID, claims.Username)
 	if _, ok := err.(*util.RecordNotFoundError); ok {
-		renderClientNotFoundPage(w, r, err)
+		s.renderClientNotFoundPage(w, r, err)
 		return
 	} else if err != nil {
-		renderClientInternalServerErrorPage(w, r, err)
+		s.renderClientInternalServerErrorPage(w, r, err)
 		return
 	}
 	updatedShare, err := getShareFromPostFields(r)
 	if err != nil {
-		renderAddUpdateSharePage(w, r, updatedShare, err.Error(), false)
+		s.renderAddUpdateSharePage(w, r, updatedShare, err.Error(), false)
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
-		renderClientForbiddenPage(w, r, err.Error())
+		s.renderClientForbiddenPage(w, r, err.Error())
 		return
 	}
 	updatedShare.ShareID = shareID
@@ -1017,7 +1026,7 @@ func handleClientUpdateSharePost(w http.ResponseWriter, r *http.Request) {
 	}
 	if updatedShare.Password == "" {
 		if util.IsStringInSlice(sdk.WebClientShareNoPasswordDisabled, claims.Permissions) {
-			renderClientForbiddenPage(w, r, "You are not authorized to share files/folders without a password")
+			s.renderClientForbiddenPage(w, r, "You are not authorized to share files/folders without a password")
 			return
 		}
 	}
@@ -1025,15 +1034,15 @@ func handleClientUpdateSharePost(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		http.Redirect(w, r, webClientSharesPath, http.StatusSeeOther)
 	} else {
-		renderAddUpdateSharePage(w, r, updatedShare, err.Error(), false)
+		s.renderAddUpdateSharePage(w, r, updatedShare, err.Error(), false)
 	}
 }
 
-func handleClientGetShares(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleClientGetShares(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		renderClientForbiddenPage(w, r, "Invalid token claims")
+		s.renderClientForbiddenPage(w, r, "Invalid token claims")
 		return
 	}
 	limit := defaultQueryLimit
@@ -1046,57 +1055,57 @@ func handleClientGetShares(w http.ResponseWriter, r *http.Request) {
 	}
 	shares := make([]dataprovider.Share, 0, limit)
 	for {
-		s, err := dataprovider.GetShares(limit, len(shares), dataprovider.OrderASC, claims.Username)
+		sh, err := dataprovider.GetShares(limit, len(shares), dataprovider.OrderASC, claims.Username)
 		if err != nil {
-			renderInternalServerErrorPage(w, r, err)
+			s.renderInternalServerErrorPage(w, r, err)
 			return
 		}
-		shares = append(shares, s...)
-		if len(s) < limit {
+		shares = append(shares, sh...)
+		if len(sh) < limit {
 			break
 		}
 	}
 	data := clientSharesPage{
-		baseClientPage:      getBaseClientPageData(pageClientSharesTitle, webClientSharesPath, r),
+		baseClientPage:      s.getBaseClientPageData(pageClientSharesTitle, webClientSharesPath, r),
 		Shares:              shares,
 		BasePublicSharesURL: webClientPubSharesPath,
 	}
 	renderClientTemplate(w, templateClientShares, data)
 }
 
-func handleClientGetProfile(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleClientGetProfile(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	renderClientProfilePage(w, r, "")
+	s.renderClientProfilePage(w, r, "")
 }
 
-func handleWebClientChangePwd(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebClientChangePwd(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	renderClientChangePasswordPage(w, r, "")
+	s.renderClientChangePasswordPage(w, r, "")
 }
 
-func handleWebClientProfilePost(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebClientProfilePost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	err := r.ParseForm()
 	if err != nil {
-		renderClientProfilePage(w, r, err.Error())
+		s.renderClientProfilePage(w, r, err.Error())
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
-		renderClientForbiddenPage(w, r, err.Error())
+		s.renderClientForbiddenPage(w, r, err.Error())
 		return
 	}
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
-		renderClientForbiddenPage(w, r, "Invalid token claims")
+		s.renderClientForbiddenPage(w, r, "Invalid token claims")
 		return
 	}
 	user, err := dataprovider.UserExists(claims.Username)
 	if err != nil {
-		renderClientProfilePage(w, r, err.Error())
+		s.renderClientProfilePage(w, r, err.Error())
 		return
 	}
 	if !user.CanManagePublicKeys() && !user.CanChangeAPIKeyAuth() && !user.CanChangeInfo() {
-		renderClientForbiddenPage(w, r, "You are not allowed to change anything")
+		s.renderClientForbiddenPage(w, r, "You are not allowed to change anything")
 		return
 	}
 	if user.CanManagePublicKeys() {
@@ -1111,26 +1120,26 @@ func handleWebClientProfilePost(w http.ResponseWriter, r *http.Request) {
 	}
 	err = dataprovider.UpdateUser(&user, dataprovider.ActionExecutorSelf, util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if err != nil {
-		renderClientProfilePage(w, r, err.Error())
+		s.renderClientProfilePage(w, r, err.Error())
 		return
 	}
-	renderClientMessagePage(w, r, "Profile updated", "", http.StatusOK, nil,
+	s.renderClientMessagePage(w, r, "Profile updated", "", http.StatusOK, nil,
 		"Your profile has been successfully updated")
 }
 
-func handleWebClientMFA(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebClientMFA(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	renderClientMFAPage(w, r)
+	s.renderClientMFAPage(w, r)
 }
 
-func handleWebClientTwoFactor(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebClientTwoFactor(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	renderClientTwoFactorPage(w, "")
+	s.renderClientTwoFactorPage(w, "")
 }
 
-func handleWebClientTwoFactorRecovery(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebClientTwoFactorRecovery(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	renderClientTwoFactorRecoveryPage(w, "")
+	s.renderClientTwoFactorRecoveryPage(w, "")
 }
 
 func getShareFromPostFields(r *http.Request) (*dataprovider.Share, error) {
@@ -1166,53 +1175,53 @@ func getShareFromPostFields(r *http.Request) (*dataprovider.Share, error) {
 	return share, nil
 }
 
-func handleWebClientForgotPwd(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebClientForgotPwd(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	if !smtp.IsEnabled() {
-		renderClientNotFoundPage(w, r, errors.New("this page does not exist"))
+		s.renderClientNotFoundPage(w, r, errors.New("this page does not exist"))
 		return
 	}
-	renderClientForgotPwdPage(w, "")
+	s.renderClientForgotPwdPage(w, "")
 }
 
-func handleWebClientForgotPwdPost(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebClientForgotPwdPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	err := r.ParseForm()
 	if err != nil {
-		renderClientForgotPwdPage(w, err.Error())
+		s.renderClientForgotPwdPage(w, err.Error())
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
-		renderClientForbiddenPage(w, r, err.Error())
+		s.renderClientForbiddenPage(w, r, err.Error())
 		return
 	}
 	username := r.Form.Get("username")
 	err = handleForgotPassword(r, username, false)
 	if err != nil {
 		if e, ok := err.(*util.ValidationError); ok {
-			renderClientForgotPwdPage(w, e.GetErrorString())
+			s.renderClientForgotPwdPage(w, e.GetErrorString())
 			return
 		}
-		renderClientForgotPwdPage(w, err.Error())
+		s.renderClientForgotPwdPage(w, err.Error())
 		return
 	}
 	http.Redirect(w, r, webClientResetPwdPath, http.StatusFound)
 }
 
-func handleWebClientPasswordReset(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleWebClientPasswordReset(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
 	if !smtp.IsEnabled() {
-		renderClientNotFoundPage(w, r, errors.New("this page does not exist"))
+		s.renderClientNotFoundPage(w, r, errors.New("this page does not exist"))
 		return
 	}
-	renderClientResetPwdPage(w, "")
+	s.renderClientResetPwdPage(w, "")
 }
 
-func handleClientViewPDF(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) handleClientViewPDF(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
 	name := r.URL.Query().Get("path")
 	if name == "" {
-		renderClientBadRequestPage(w, r, errors.New("no file specified"))
+		s.renderClientBadRequestPage(w, r, errors.New("no file specified"))
 		return
 	}
 	name = util.CleanPath(name)
@@ -1220,6 +1229,7 @@ func handleClientViewPDF(w http.ResponseWriter, r *http.Request) {
 		Title:     path.Base(name),
 		URL:       fmt.Sprintf("%v?path=%v&inline=1", webClientFilesPath, url.QueryEscape(name)),
 		StaticURL: webStaticFilesPath,
+		ExtraCSS:  s.binding.ExtraCSS,
 	}
 	renderClientTemplate(w, templateClientViewPDF, data)
 }

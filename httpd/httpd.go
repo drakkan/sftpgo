@@ -298,6 +298,14 @@ func (s *SecurityConf) getHTTPSProxyHeaders() map[string]string {
 	return headers
 }
 
+// CustomCSS defines the configuration for custom CSS
+type CustomCSS struct {
+	// Path to the CSS file relative to "static_files_path".
+	// For example, if you create a directory named "extra_css" inside the static dir
+	// and put the "my.css" file in it, you must set "/extra_css/my.css" as path.
+	Path string `json:"path" mapstructure:"path"`
+}
+
 // WebClientIntegration defines the configuration for an external Web Client integration
 type WebClientIntegration struct {
 	// Files with these extensions can be sent to the configured URL
@@ -354,7 +362,9 @@ type Binding struct {
 	// Defining an OIDC configuration the web admin and web client UI will use OpenID to authenticate users.
 	OIDC OIDC `json:"oidc" mapstructure:"oidc"`
 	// Security defines security headers to add to HTTP responses and allows to restrict allowed hosts
-	Security         SecurityConf `json:"security" mapstructure:"security"`
+	Security SecurityConf `json:"security" mapstructure:"security"`
+	// Additional CSS
+	ExtraCSS         []CustomCSS `json:"extra_css" mapstructure:"extra_css"`
 	allowHeadersFrom []func(net.IP) bool
 }
 
@@ -366,6 +376,16 @@ func (b *Binding) checkWebClientIntegrations() {
 		}
 	}
 	b.WebClientIntegrations = integrations
+}
+
+func (b *Binding) checkExtraCSS() {
+	var extraCSS []CustomCSS
+	for _, css := range b.ExtraCSS {
+		extraCSS = append(extraCSS, CustomCSS{
+			Path: path.Join("/", css.Path),
+		})
+	}
+	b.ExtraCSS = extraCSS
 }
 
 func (b *Binding) parseAllowedProxy() error {
@@ -606,6 +626,7 @@ func (c *Conf) Initialize(configDir string) error {
 			return err
 		}
 		binding.checkWebClientIntegrations()
+		binding.checkExtraCSS()
 		binding.Security.updateProxyHeaders()
 
 		go func(b Binding) {

@@ -151,9 +151,9 @@ func deleteShare(w http.ResponseWriter, r *http.Request) {
 	sendAPIResponse(w, r, err, "Share deleted", http.StatusOK)
 }
 
-func readBrowsableShareContents(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) readBrowsableShareContents(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	share, connection, err := checkPublicShare(w, r, dataprovider.ShareScopeRead, false)
+	share, connection, err := s.checkPublicShare(w, r, dataprovider.ShareScopeRead, false)
 	if err != nil {
 		return
 	}
@@ -178,9 +178,9 @@ func readBrowsableShareContents(w http.ResponseWriter, r *http.Request) {
 	renderAPIDirContents(w, r, contents, true)
 }
 
-func downloadBrowsableSharedFile(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) downloadBrowsableSharedFile(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	share, connection, err := checkPublicShare(w, r, dataprovider.ShareScopeRead, false)
+	share, connection, err := s.checkPublicShare(w, r, dataprovider.ShareScopeRead, false)
 	if err != nil {
 		return
 	}
@@ -224,9 +224,9 @@ func downloadBrowsableSharedFile(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func downloadFromShare(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) downloadFromShare(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	share, connection, err := checkPublicShare(w, r, dataprovider.ShareScopeRead, false)
+	share, connection, err := s.checkPublicShare(w, r, dataprovider.ShareScopeRead, false)
 	if err != nil {
 		return
 	}
@@ -273,12 +273,12 @@ func downloadFromShare(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func uploadFileToShare(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) uploadFileToShare(w http.ResponseWriter, r *http.Request) {
 	if maxUploadFileSize > 0 {
 		r.Body = http.MaxBytesReader(w, r.Body, maxUploadFileSize)
 	}
 	name := getURLParam(r, "name")
-	share, connection, err := checkPublicShare(w, r, dataprovider.ShareScopeWrite, false)
+	share, connection, err := s.checkPublicShare(w, r, dataprovider.ShareScopeWrite, false)
 	if err != nil {
 		return
 	}
@@ -296,11 +296,11 @@ func uploadFileToShare(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func uploadFilesToShare(w http.ResponseWriter, r *http.Request) {
+func (s *httpdServer) uploadFilesToShare(w http.ResponseWriter, r *http.Request) {
 	if maxUploadFileSize > 0 {
 		r.Body = http.MaxBytesReader(w, r.Body, maxUploadFileSize)
 	}
-	share, connection, err := checkPublicShare(w, r, dataprovider.ShareScopeWrite, false)
+	share, connection, err := s.checkPublicShare(w, r, dataprovider.ShareScopeWrite, false)
 	if err != nil {
 		return
 	}
@@ -346,12 +346,12 @@ func uploadFilesToShare(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func checkPublicShare(w http.ResponseWriter, r *http.Request, shareShope dataprovider.ShareScope,
+func (s *httpdServer) checkPublicShare(w http.ResponseWriter, r *http.Request, shareShope dataprovider.ShareScope,
 	isWebClient bool,
 ) (dataprovider.Share, *Connection, error) {
 	renderError := func(err error, message string, statusCode int) {
 		if isWebClient {
-			renderClientMessagePage(w, r, "Unable to access the share", message, statusCode, err, "")
+			s.renderClientMessagePage(w, r, "Unable to access the share", message, statusCode, err, "")
 		} else {
 			sendAPIResponse(w, r, err, message, statusCode)
 		}
