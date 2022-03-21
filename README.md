@@ -257,7 +257,7 @@ You can use your own hook to [check passwords](./docs/check-password-hook.md).
 
 ## Storage backends
 
-### S3/GCP/Azure 
+### S3/GCP/Azure
 
 Each user can be mapped with a [S3 Compatible Object Storage](./docs/s3.md) /[Google Cloud Storage](./docs/google-cloud-storage.md)/[Azure Blob Storage](./docs/azure-blob-storage.md) bucket or a bucket virtual folder that is exposed over SFTP/SCP/FTP/WebDAV.
 
