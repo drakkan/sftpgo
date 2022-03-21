@@ -11,6 +11,8 @@ Several storage backends are supported: local filesystem, encrypted local filesy
 
 ## Features
 
+<details>
+
 - Support for serving local filesystem, encrypted local filesystem, S3 Compatible Object Storage, Google Cloud Storage, Azure Blob Storage or other SFTP accounts over SFTP/SCP/FTP/WebDAV.
 - Virtual folders are supported: a virtual folder can use any of the supported storage backends. So you can have, for example, an S3 user that exposes a GCS bucket (or part of it) on a specified path and an encrypted local filesystem on another one. Virtual folders can be private or shared among multiple users, for shared virtual folders you can define different quota limits for each user.
 - Configurable [custom commands and/or HTTP hooks](./docs/custom-actions.md) on file upload, pre-upload, download, pre-download, delete, pre-delete, rename, mkdir, rmdir on SSH commands and on user add, update and delete.
@@ -58,6 +60,8 @@ Several storage backends are supported: local filesystem, encrypted local filesy
 - Log files are accurate and they are saved in the easily parsable JSON format ([more information](./docs/logs.md)).
 - SFTPGo supports a [plugin system](./docs/plugins.md) and therefore can be extended using external plugins.
 
+</details>
+
 ## Platforms
 
 SFTPGo is developed and tested on Linux. After each commit, the code is automatically built and tested on Linux, macOS and Windows using a [GitHub Action](./.github/workflows/development.yml). The test cases are regularly manually executed and passed on FreeBSD. Other *BSD variants should work too.
@@ -74,7 +78,9 @@ Binary releases for Linux, macOS, and Windows are available. Please visit the [r
 
 An official Docker image is available. Documentation is [here](./docker/README.md).
 
-Some Linux distro packages are available:
+<details>
+
+<summary>Some Linux distro packages are available</summary>
 
 - For Arch Linux via AUR:
   - [sftpgo](https://aur.archlinux.org/packages/sftpgo/). This package follows stable releases. It requires `git`, `gcc` and `go` to build.
@@ -84,14 +90,18 @@ Some Linux distro packages are available:
 - For Ubuntu a PPA is available [here](https://launchpad.net/~sftpgo/+archive/ubuntu/sftpgo).
 - Void Linux provides an [official package](https://github.com/void-linux/void-packages/tree/master/srcpkgs/sftpgo).
 
+</details>
+
 SFTPGo is also available on [AWS Marketplace](https://aws.amazon.com/marketplace/seller-profile?id=6e849ab8-70a6-47de-9a43-13c3fa849335) and [Azure Marketplace](https://azuremarketplace.microsoft.com/en-us/marketplace/apps/prasselsrl1645470739547.sftpgo_linux), purchasing from there will help keep SFTPGo a long-term sustainable project.
 
-On Windows you can use:
+<details><summary>On Windows you can use</summary>
 
 - The Windows installer to install and run SFTPGo as a Windows service.
 - The portable package to start SFTPGo on demand.
 - The [winget](https://docs.microsoft.com/en-us/windows/package-manager/winget/install) package to install and run SFTPGo as a Windows service: `winget install SFTPGo`.
 - The [Chocolatey package](https://community.chocolatey.org/packages/sftpgo) to install and run SFTPGo as a Windows service.
+
+</details>
 
 On FreeBSD you can install from the [SFTPGo port](https://www.freshports.org/ftp/sftpgo).
 On DragonFlyBSD you can install SFTPGo from [DPorts](https://github.com/DragonFlyBSD/DPorts/tree/master/ftp/sftpgo).
@@ -170,6 +180,8 @@ Loading data from a provider independent JSON dump is supported from the previou
 
 ## Downgrading
 
+<details>
+
 If for some reason you want to downgrade SFTPGo, you may need to downgrade your data provider schema and data as well. You can use the `revertprovider` command for this task.
 
 As for upgrading, SFTPGo supports downgrading from the previous release branch to the current one.
@@ -190,6 +202,8 @@ The `revertprovider` command is not supported for the memory provider.
 
 Please note that we only support the current release branch and the current main branch, if you find a bug it is better to report it rather than downgrading to an older unsupported version.
 
+</details>
+
 ## Users and folders management
 
 After starting SFTPGo you can manage users and folders using:
@@ -207,16 +221,20 @@ Some step-to-step tutorials can be found inside the source tree [howto](./docs/h
 
 ## Authentication options
 
-### External Authentication
+<details><summary> External Authentication</summary>
 
 Custom authentication methods can easily be added. SFTPGo supports external authentication modules, and writing a new backend can be as simple as a few lines of shell script. More information can be found [here](./docs/external-auth.md).
 
-### Keyboard Interactive Authentication
+</details>
+
+<details><summary> Keyboard Interactive Authentication</summary>
 
 Keyboard interactive authentication is, in general, a series of questions asked by the server with responses provided by the client.
 This authentication method is typically used for multi-factor authentication.
 
 More information can be found [here](./docs/keyboard-interactive.md).
+
+</details>
 
 ## Dynamic user creation or modification
 
@@ -239,17 +257,9 @@ You can use your own hook to [check passwords](./docs/check-password-hook.md).
 
 ## Storage backends
 
-### S3 Compatible Object Storage backends
+### S3/GCP/Azure 
 
-Each user can be mapped to the whole bucket or to a bucket virtual folder. This way, the mapped bucket/virtual folder is exposed over SFTP/SCP/FTP/WebDAV. More information about S3 integration can be found [here](./docs/s3.md).
-
-### Google Cloud Storage backend
-
-Each user can be mapped with a Google Cloud Storage bucket or a bucket virtual folder. This way, the mapped bucket/virtual folder is exposed over SFTP/SCP/FTP/WebDAV. More information about Google Cloud Storage integration can be found [here](./docs/google-cloud-storage.md).
-
-### Azure Blob Storage backend
-
-Each user can be mapped with an Azure Blob Storage container or a container virtual folder. This way, the mapped container/virtual folder is exposed over SFTP/SCP/FTP/WebDAV. More information about Azure Blob Storage integration can be found [here](./docs/azure-blob-storage.md).
+Each user can be mapped with a [S3 Compatible Object Storage](./docs/s3.md) /[Google Cloud Storage](./docs/google-cloud-storage.md)/[Azure Blob Storage](./docs/azure-blob-storage.md) bucket or a bucket virtual folder that is exposed over SFTP/SCP/FTP/WebDAV.
 
 ### SFTP backend
 
