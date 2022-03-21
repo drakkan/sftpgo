@@ -1,6 +1,6 @@
 # Configuring SFTPGo
 
-## Command line options
+<details><summary><font size=5> Command line option</font></summary>
 
 The SFTPGo executable can be used this way:
 
@@ -47,7 +47,11 @@ If you don't configure any private host key, the daemon will use `id_rsa`, `id_e
 
 The `gen` command allows to generate completion scripts for your shell and man pages.
 
-## Configuration file
+</details>
+
+<details><summary><font size=5> Configuration file</font></summary>
+
+
 
 The configuration file contains the following sections:
 
@@ -377,7 +381,9 @@ then SFTPGo will try to create `id_rsa`, `id_ecdsa` and `id_ed25519`, if they ar
 
 The configuration can be read from JSON, TOML, YAML, HCL, envfile and Java properties config files. If your `config-file` flag is set to `sftpgo` (default value), you need to create a configuration file called `sftpgo.json` or `sftpgo.yaml` and so on inside `config-dir`.
 
-## Environment variables
+</details>
+
+<details><summary><font size=5>  Environment variables</font></summary>
 
 You can also override all the available configuration options using environment variables. SFTPGo will check for environment variables with a name matching the key uppercased and prefixed with the `SFTPGO_`. You need to use `__` to traverse a struct.
 
@@ -395,13 +401,15 @@ You can select `sha256-simd` setting the environment variable `SFTPGO_MINIO_SHA2
 
  `sha256-simd` is particularly useful if you have an Intel CPU with SHA extensions or an ARM CPU with Cryptography Extensions.
 
-## Binding to privileged ports
+</details>
+
+<details><summary><font size=5> Binding to privileged ports</font></summary>
 
 On Linux, if you want to use Internet domain privileged ports (port numbers less than 1024) instead of running the SFTPGo service as root user you can set the `cap_net_bind_service` capability on the `sftpgo` binary. To set the capability you can use the following command:
 
 ```shell
 $ sudo setcap cap_net_bind_service=+ep /usr/bin/sftpgo
-# Check that the capability is added
+# Check that the capability is added 
 $ getcap /usr/bin/sftpgo
 /usr/bin/sftpgo cap_net_bind_service=ep
 ```
@@ -416,6 +424,8 @@ An alternative method is to use `iptables`, for example you run the SFTP service
 sudo iptables -t nat -A PREROUTING -d <ip> -p tcp --dport 22 -m addrtype --dst-type LOCAL -j DNAT --to-destination <ip>:2022
 sudo iptables -t nat -A OUTPUT     -d <ip> -p tcp --dport 22 -m addrtype --dst-type LOCAL -j DNAT --to-destination <ip>:2022
 ```
+
+</details>
 
 ## Telemetry Server
 
