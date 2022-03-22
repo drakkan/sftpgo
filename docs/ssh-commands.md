@@ -44,6 +44,7 @@ The following SSH commands are enabled by default:
 
 - `md5sum`
 - `sha1sum`
+- `sha256sum`
 - `cd`
 - `pwd`
 - `scp`

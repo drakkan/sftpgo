@@ -45,7 +45,7 @@ require (
 	github.com/prometheus/client_golang v1.12.1
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rs/cors v1.8.2
-	github.com/rs/xid v1.3.0
+	github.com/rs/xid v1.4.0
 	github.com/rs/zerolog v1.26.2-0.20220227173336-263b0bde3672
 	github.com/sftpgo/sdk v0.1.1-0.20220306155429-3a036106d884
 	github.com/shirou/gopsutil/v3 v3.22.2
@@ -98,7 +98,7 @@ require (
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-test/deep v1.0.8 // indirect
-	github.com/goccy/go-json v0.9.5 // indirect
+	github.com/goccy/go-json v0.9.6 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/go-cmp v0.5.7 // indirect
@@ -147,9 +147,9 @@ require (
 	golang.org/x/tools v0.1.10 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20220317150908-0efb43f6373e // indirect
+	google.golang.org/genproto v0.0.0-20220322021311-435b647f9ef2 // indirect
 	google.golang.org/grpc v1.45.0 // indirect
-	google.golang.org/protobuf v1.27.1 // indirect
+	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/ini.v1 v1.66.4 // indirect
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
