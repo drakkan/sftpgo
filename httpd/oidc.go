@@ -424,7 +424,7 @@ func (o *oidcManager) cleanupTokens() {
 
 	for k, token := range o.tokens {
 		diff := util.GetTimeAsMsSinceEpoch(time.Now()) - token.UsedAt
-		// remove tokens unused from more than 1 hour
+		// remove tokens unused from more than tokenDeleteInterval
 		if diff > tokenDeleteInterval {
 			delete(o.tokens, k)
 		}

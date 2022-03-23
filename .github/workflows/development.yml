@@ -36,6 +36,9 @@ jobs:
           cd tests/eventsearcher
           go build -trimpath -ldflags "-s -w" -o eventsearcher
           cd -
+          cd tests/ipfilter
+          go build -trimpath -ldflags "-s -w" -o ipfilter
+          cd -
 
       - name: Build for macOS arm64
         if: startsWith(matrix.os, 'macos-') == true
@@ -55,6 +58,9 @@ jobs:
           go build -trimpath -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/version.commit=$GIT_COMMIT -X github.com/drakkan/sftpgo/v2/version.date=$DATE_TIME" -o sftpgo.exe
           cd tests/eventsearcher
           go build -trimpath -ldflags "-s -w" -o eventsearcher.exe
+          cd ../..
+          cd tests/ipfilter
+          go build -trimpath -ldflags "-s -w" -o ipfilter.exe
           cd ../..
           mkdir arm64
           $Env:CGO_ENABLED='0'
@@ -230,6 +236,9 @@ jobs:
           cd tests/eventsearcher
           go build -trimpath -ldflags "-s -w" -o eventsearcher
           cd -
+          cd tests/ipfilter
+          go build -trimpath -ldflags "-s -w" -o ipfilter
+          cd -
         env:
           GOARCH: 386
 
@@ -285,6 +294,9 @@ jobs:
         run: |
           cd tests/eventsearcher
           go build -trimpath -ldflags "-s -w" -o eventsearcher
+          cd -
+          cd tests/ipfilter
+          go build -trimpath -ldflags "-s -w" -o ipfilter
           cd -
 
       - name: Run tests using PostgreSQL provider

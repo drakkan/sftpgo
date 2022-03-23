@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/sftpgo/sdk/plugin/auth"
 	"github.com/sftpgo/sdk/plugin/eventsearcher"
+	"github.com/sftpgo/sdk/plugin/ipfilter"
 	kmsplugin "github.com/sftpgo/sdk/plugin/kms"
 	"github.com/sftpgo/sdk/plugin/metadata"
 	"github.com/sftpgo/sdk/plugin/notifier"
@@ -92,11 +93,14 @@ type Manager struct {
 	searcher      *searcherPlugin
 	metadaterLock sync.RWMutex
 	metadater     *metadataPlugin
+	ipFilterLock  sync.RWMutex
+	filter        *ipFilterPlugin
 	authScopes    int
 	hasSearcher   bool
 	hasMetadater  bool
 	hasNotifiers  bool
 	hasAuths      bool
+	hasIPFilter   bool
 }
 
 // Initialize initializes the configured plugins
@@ -116,7 +120,15 @@ func Initialize(configs []Config, logVerbose bool) error {
 	if err := Handler.validateConfigs(); err != nil {
 		return err
 	}
+	if err := initializePlugins(); err != nil {
+		return err
+	}
 
+	startCheckTicker()
+	return nil
+}
+
+func initializePlugins() error {
 	kmsID := 0
 	for idx, config := range Handler.Configs {
 		switch config.Type {
@@ -161,11 +173,17 @@ func Initialize(configs []Config, logVerbose bool) error {
 				return err
 			}
 			Handler.metadater = plugin
+		case ipfilter.PluginName:
+			plugin, err := newIPFilterPlugin(config)
+			if err != nil {
+				return err
+			}
+			Handler.filter = plugin
 		default:
 			return fmt.Errorf("unsupported plugin type: %v", config.Type)
 		}
 	}
-	startCheckTicker()
+
 	return nil
 }
 
@@ -176,9 +194,11 @@ func (m *Manager) validateConfigs() error {
 	m.hasMetadater = false
 	m.hasNotifiers = false
 	m.hasAuths = false
+	m.hasIPFilter = false
 
 	for _, config := range m.Configs {
-		if config.Type == kmsplugin.PluginName {
+		switch config.Type {
+		case kmsplugin.PluginName:
 			if _, ok := kmsSchemes[config.KMSOptions.Scheme]; ok {
 				return fmt.Errorf("invalid KMS configuration, duplicated scheme %#v", config.KMSOptions.Scheme)
 			}
@@ -187,24 +207,22 @@ func (m *Manager) validateConfigs() error {
 			}
 			kmsSchemes[config.KMSOptions.Scheme] = true
 			kmsEncryptions[config.KMSOptions.EncryptedStatus] = true
-		}
-		if config.Type == eventsearcher.PluginName {
+		case eventsearcher.PluginName:
 			if m.hasSearcher {
 				return errors.New("only one eventsearcher plugin can be defined")
 			}
 			m.hasSearcher = true
-		}
-		if config.Type == metadata.PluginName {
+		case metadata.PluginName:
 			if m.hasMetadater {
 				return errors.New("only one metadata plugin can be defined")
 			}
 			m.hasMetadater = true
-		}
-		if config.Type == notifier.PluginName {
+		case notifier.PluginName:
 			m.hasNotifiers = true
-		}
-		if config.Type == auth.PluginName {
+		case auth.PluginName:
 			m.hasAuths = true
+		case ipfilter.PluginName:
+			m.hasIPFilter = true
 		}
 	}
 	return nil
@@ -327,6 +345,25 @@ func (m *Manager) GetMetadataFolders(storageID, from string, limit int) ([]strin
 	m.metadaterLock.RUnlock()
 
 	return plugin.metadater.GetFolders(storageID, limit, from)
+}
+
+// IsIPBanned returns true if the IP filter plugin does not allow the specified ip.
+// If no IP filter plugin is defined this method returns false
+func (m *Manager) IsIPBanned(ip string) bool {
+	if !m.hasIPFilter {
+		return false
+	}
+
+	m.ipFilterLock.RLock()
+	plugin := m.filter
+	m.ipFilterLock.RUnlock()
+
+	if plugin.exited() {
+		logger.Warn(logSender, "", "ip filter plugin is not active, cannot check ip %#v", ip)
+		return false
+	}
+
+	return plugin.filter.CheckIP(ip) != nil
 }
 
 func (m *Manager) kmsEncrypt(secret kms.BaseSecret, url string, masterKey string, kmsID int) (string, string, int32, error) {
@@ -524,6 +561,16 @@ func (m *Manager) checkCrashedPlugins() {
 		}
 		m.metadaterLock.RUnlock()
 	}
+
+	if m.hasIPFilter {
+		m.ipFilterLock.RLock()
+		if m.filter.exited() {
+			defer func(cfg Config) {
+				Handler.restartIPFilterPlugin(cfg)
+			}(m.filter.config)
+		}
+		m.ipFilterLock.RUnlock()
+	}
 }
 
 func (m *Manager) restartNotifierPlugin(config Config, idx int) {
@@ -608,6 +655,22 @@ func (m *Manager) restartMetadaterPlugin(config Config) {
 	m.metadaterLock.Unlock()
 }
 
+func (m *Manager) restartIPFilterPlugin(config Config) {
+	if atomic.LoadInt32(&m.closed) == 1 {
+		return
+	}
+	logger.Info(logSender, "", "try to restart crashed IP filter plugin %#v", config.Cmd)
+	plugin, err := newIPFilterPlugin(config)
+	if err != nil {
+		logger.Error(logSender, "", "unable to restart IP filter plugin %#v, err: %v", config.Cmd, err)
+		return
+	}
+
+	m.ipFilterLock.Lock()
+	m.filter = plugin
+	m.ipFilterLock.Unlock()
+}
+
 // Cleanup releases all the active plugins
 func (m *Manager) Cleanup() {
 	logger.Debug(logSender, "", "cleanup")
@@ -646,6 +709,13 @@ func (m *Manager) Cleanup() {
 		logger.Debug(logSender, "", "cleanup metadater plugin %v", m.metadater.config.Cmd)
 		m.metadater.cleanup()
 		m.metadaterLock.Unlock()
+	}
+
+	if m.hasIPFilter {
+		m.ipFilterLock.Lock()
+		logger.Debug(logSender, "", "cleanup IP filter plugin %v", m.filter.config.Cmd)
+		m.filter.cleanup()
+		m.ipFilterLock.Unlock()
 	}
 }
 

@@ -23,6 +23,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/httpclient"
 	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/metric"
+	"github.com/drakkan/sftpgo/v2/plugin"
 	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
@@ -225,6 +226,9 @@ func Reload() error {
 
 // IsBanned returns true if the specified IP address is banned
 func IsBanned(ip string) bool {
+	if plugin.Handler.IsIPBanned(ip) {
+		return true
+	}
 	if Config.defender == nil {
 		return false
 	}

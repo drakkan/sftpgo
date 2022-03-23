@@ -662,8 +662,8 @@ github.com/russross/blackfriday/v2 v2.1.0 h1:JIOH55/0cWyOuilr9/qlrm0BSXldqnqwMsf
 github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
 github.com/satori/go.uuid v1.2.0/go.mod h1:dA0hQrYB0VpLJoorglMZABFdXlWrHn1NEOzdhQKdks0=
 github.com/secsy/goftp v0.0.0-20200609142545-aa2de14babf4 h1:PT+ElG/UUFMfqy5HrxJxNzj3QBOf7dZwupeVC+mG1Lo=
-github.com/sftpgo/sdk v0.1.1-0.20220306155429-3a036106d884 h1:YrOexWq3hwNk/QM3ZyP/VI2E7UcCj/PMqJd1PLA1EME=
-github.com/sftpgo/sdk v0.1.1-0.20220306155429-3a036106d884/go.mod h1:zqCRMcwS28IViwekJHNkFu4GqSfyVmOQTlh8h3icAXE=
+github.com/sftpgo/sdk v0.1.1-0.20220323095514-1e4782d9c52e h1:MZA1K8cG6Z31a788iOzidP4xARhsTIs0wvhxgPeVWXE=
+github.com/sftpgo/sdk v0.1.1-0.20220323095514-1e4782d9c52e/go.mod h1:m5J7DH8unhD5RUsREFRiidP8zgBjup0+iQaxQnYHJOM=
 github.com/shirou/gopsutil/v3 v3.22.2 h1:wCrArWFkHYIdDxx/FSfF5RB4dpJYW6t7rcp3+zL8uks=
 github.com/shirou/gopsutil/v3 v3.22.2/go.mod h1:WapW1AOOPlHyXr+yOyw3uYx36enocrtSoSBy0L5vUHY=
 github.com/shopspring/decimal v0.0.0-20180709203117-cd690d0c9e24/go.mod h1:M+9NzErvs504Cn4c5DxATwIqPbtswREoFCre64PpcG4=

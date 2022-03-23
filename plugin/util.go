@@ -16,10 +16,10 @@ func killProcess(processPath string) {
 		if err == nil {
 			if cmdLine == processPath {
 				err = p.Kill()
-				logger.Debug(logSender, "killed process %v, pid %v, err %v", cmdLine, p.Pid, err)
+				logger.Debug(logSender, "", "killed process %v, pid %v, err %v", cmdLine, p.Pid, err)
 				return
 			}
 		}
 	}
-	logger.Debug(logSender, "no match for plugin process %v", processPath)
+	logger.Debug(logSender, "", "no match for plugin process %v", processPath)
 }

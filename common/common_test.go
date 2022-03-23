@@ -22,6 +22,7 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/kms"
+	"github.com/drakkan/sftpgo/v2/plugin"
 	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
@@ -128,9 +129,26 @@ func TestDefenderIntegration(t *testing.T) {
 	// by default defender is nil
 	configCopy := Config
 
+	wdPath, err := os.Getwd()
+	require.NoError(t, err)
+	pluginsConfig := []plugin.Config{
+		{
+			Type:     "ipfilter",
+			Cmd:      filepath.Join(wdPath, "..", "tests", "ipfilter", "ipfilter"),
+			AutoMTLS: true,
+		},
+	}
+	if runtime.GOOS == osWindows {
+		pluginsConfig[0].Cmd += ".exe"
+	}
+	err = plugin.Initialize(pluginsConfig, true)
+	require.NoError(t, err)
+
 	ip := "127.1.1.1"
 
 	assert.Nil(t, Reload())
+	// 192.168.1.12 is banned from the ipfilter plugin
+	assert.True(t, IsBanned("192.168.1.12"))
 
 	AddDefenderEvent(ip, HostEventNoLoginTried)
 	assert.False(t, IsBanned(ip))
