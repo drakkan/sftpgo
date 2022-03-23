@@ -28,12 +28,12 @@ RUN set -xe && \
 
 FROM alpine:3.15
 
-# Set to "true" to install the optional git and rsync dependencies
+# Set to "true" to install jq and the optional git and rsync dependencies
 ARG INSTALL_OPTIONAL_PACKAGES=false
 
 RUN apk add --update --no-cache ca-certificates tzdata mailcap
 
-RUN if [ "${INSTALL_OPTIONAL_PACKAGES}" = "true" ]; then apk add --update --no-cache git rsync; fi
+RUN if [ "${INSTALL_OPTIONAL_PACKAGES}" = "true" ]; then apk add --update --no-cache jq git rsync; fi
 
 # set up nsswitch.conf for Go's "netgo" implementation
 # https://github.com/gliderlabs/docker-alpine/issues/367#issuecomment-424546457
