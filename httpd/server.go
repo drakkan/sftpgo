@@ -413,6 +413,7 @@ func (s *httpdServer) handleWebAdminTwoFactorRecoveryPost(w http.ResponseWriter,
 		s.renderTwoFactorRecoveryPage(w, "Two factory authentication is not enabled")
 		return
 	}
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	for idx, code := range admin.Filters.RecoveryCodes {
 		if err := code.Secret.Decrypt(); err != nil {
 			s.renderInternalServerErrorPage(w, r, fmt.Errorf("unable to decrypt recovery code: %w", err))
@@ -424,13 +425,13 @@ func (s *httpdServer) handleWebAdminTwoFactorRecoveryPost(w http.ResponseWriter,
 				return
 			}
 			admin.Filters.RecoveryCodes[idx].Used = true
-			err = dataprovider.UpdateAdmin(&admin, dataprovider.ActionExecutorSelf, util.GetIPFromRemoteAddress(r.RemoteAddr))
+			err = dataprovider.UpdateAdmin(&admin, dataprovider.ActionExecutorSelf, ipAddr)
 			if err != nil {
 				logger.Warn(logSender, "", "unable to set the recovery code %#v as used: %v", recoveryCode, err)
 				s.renderInternalServerErrorPage(w, r, errors.New("unable to set the recovery code as used"))
 				return
 			}
-			s.loginAdmin(w, r, &admin, true, s.renderTwoFactorRecoveryPage)
+			s.loginAdmin(w, r, &admin, true, s.renderTwoFactorRecoveryPage, ipAddr)
 			return
 		}
 	}
@@ -478,7 +479,7 @@ func (s *httpdServer) handleWebAdminTwoFactorPost(w http.ResponseWriter, r *http
 		s.renderTwoFactorPage(w, "Invalid authentication code")
 		return
 	}
-	s.loginAdmin(w, r, &admin, true, s.renderTwoFactorPage)
+	s.loginAdmin(w, r, &admin, true, s.renderTwoFactorPage, util.GetIPFromRemoteAddress(r.RemoteAddr))
 }
 
 func (s *httpdServer) handleWebAdminLoginPost(w http.ResponseWriter, r *http.Request) {
@@ -497,12 +498,13 @@ func (s *httpdServer) handleWebAdminLoginPost(w http.ResponseWriter, r *http.Req
 		s.renderAdminLoginPage(w, err.Error())
 		return
 	}
-	admin, err := dataprovider.CheckAdminAndPass(username, password, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	admin, err := dataprovider.CheckAdminAndPass(username, password, ipAddr)
 	if err != nil {
 		s.renderAdminLoginPage(w, err.Error())
 		return
 	}
-	s.loginAdmin(w, r, &admin, false, s.renderAdminLoginPage)
+	s.loginAdmin(w, r, &admin, false, s.renderAdminLoginPage, ipAddr)
 }
 
 func (s *httpdServer) renderAdminLoginPage(w http.ResponseWriter, error string) {
@@ -585,7 +587,7 @@ func (s *httpdServer) handleWebAdminPasswordResetPost(w http.ResponseWriter, r *
 		return
 	}
 
-	s.loginAdmin(w, r, admin, false, s.renderResetPwdPage)
+	s.loginAdmin(w, r, admin, false, s.renderResetPwdPage, util.GetIPFromRemoteAddress(r.RemoteAddr))
 }
 
 func (s *httpdServer) handleWebAdminSetupPost(w http.ResponseWriter, r *http.Request) {
@@ -629,12 +631,13 @@ func (s *httpdServer) handleWebAdminSetupPost(w http.ResponseWriter, r *http.Req
 		Status:      1,
 		Permissions: []string{dataprovider.PermAdminAny},
 	}
-	err = dataprovider.AddAdmin(&admin, username, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	err = dataprovider.AddAdmin(&admin, username, ipAddr)
 	if err != nil {
 		s.renderAdminSetupPage(w, r, username, err.Error())
 		return
 	}
-	s.loginAdmin(w, r, &admin, false, nil)
+	s.loginAdmin(w, r, &admin, false, nil, ipAddr)
 }
 
 func (s *httpdServer) loginUser(
@@ -655,7 +658,7 @@ func (s *httpdServer) loginUser(
 		audience = tokenAudienceWebClientPartial
 	}
 
-	err := c.createAndSetCookie(w, r, s.tokenAuth, audience)
+	err := c.createAndSetCookie(w, r, s.tokenAuth, audience, ipAddr)
 	if err != nil {
 		logger.Warn(logSender, connectionID, "unable to set user login cookie %v", err)
 		updateLoginMetrics(user, dataprovider.LoginMethodPassword, ipAddr, common.ErrInternalFailure)
@@ -676,7 +679,7 @@ func (s *httpdServer) loginUser(
 
 func (s *httpdServer) loginAdmin(
 	w http.ResponseWriter, r *http.Request, admin *dataprovider.Admin,
-	isSecondFactorAuth bool, errorFunc func(w http.ResponseWriter, error string),
+	isSecondFactorAuth bool, errorFunc func(w http.ResponseWriter, error string), ip string,
 ) {
 	c := jwtTokenClaims{
 		Username:    admin.Username,
@@ -689,7 +692,7 @@ func (s *httpdServer) loginAdmin(
 		audience = tokenAudienceWebAdminPartial
 	}
 
-	err := c.createAndSetCookie(w, r, s.tokenAuth, audience)
+	err := c.createAndSetCookie(w, r, s.tokenAuth, audience, ip)
 	if err != nil {
 		logger.Warn(logSender, "", "unable to set admin login cookie %v", err)
 		if errorFunc == nil {
@@ -803,7 +806,7 @@ func (s *httpdServer) generateAndSendUserToken(w http.ResponseWriter, r *http.Re
 		RequiredTwoFactorProtocols: user.Filters.TwoFactorAuthProtocols,
 	}
 
-	resp, err := c.createTokenResponse(s.tokenAuth, tokenAudienceAPIUser)
+	resp, err := c.createTokenResponse(s.tokenAuth, tokenAudienceAPIUser, ipAddr)
 
 	if err != nil {
 		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, common.ErrInternalFailure)
@@ -823,7 +826,8 @@ func (s *httpdServer) getToken(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, nil, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 		return
 	}
-	admin, err := dataprovider.CheckAdminAndPass(username, password, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	admin, err := dataprovider.CheckAdminAndPass(username, password, ipAddr)
 	if err != nil {
 		w.Header().Set(common.HTTPAuthenticationHeader, basicRealm)
 		sendAPIResponse(w, r, err, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
@@ -854,17 +858,17 @@ func (s *httpdServer) getToken(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	s.generateAndSendToken(w, r, admin)
+	s.generateAndSendToken(w, r, admin, ipAddr)
 }
 
-func (s *httpdServer) generateAndSendToken(w http.ResponseWriter, r *http.Request, admin dataprovider.Admin) {
+func (s *httpdServer) generateAndSendToken(w http.ResponseWriter, r *http.Request, admin dataprovider.Admin, ip string) {
 	c := jwtTokenClaims{
 		Username:    admin.Username,
 		Permissions: admin.Permissions,
 		Signature:   admin.GetSignature(),
 	}
 
-	resp, err := c.createTokenResponse(s.tokenAuth, tokenAudienceAPI)
+	resp, err := c.createTokenResponse(s.tokenAuth, tokenAudienceAPI, ip)
 
 	if err != nil {
 		sendAPIResponse(w, r, err, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -914,7 +918,7 @@ func (s *httpdServer) refreshClientToken(w http.ResponseWriter, r *http.Request,
 
 	tokenClaims.Permissions = user.Filters.WebClient
 	logger.Debug(logSender, "", "cookie refreshed for user %#v", user.Username)
-	tokenClaims.createAndSetCookie(w, r, s.tokenAuth, tokenAudienceWebClient) //nolint:errcheck
+	tokenClaims.createAndSetCookie(w, r, s.tokenAuth, tokenAudienceWebClient, util.GetIPFromRemoteAddress(r.RemoteAddr)) //nolint:errcheck
 }
 
 func (s *httpdServer) refreshAdminToken(w http.ResponseWriter, r *http.Request, tokenClaims jwtTokenClaims) {
@@ -930,13 +934,14 @@ func (s *httpdServer) refreshAdminToken(w http.ResponseWriter, r *http.Request, 
 		logger.Debug(logSender, "", "signature mismatch for admin %#v, unable to refresh cookie", admin.Username)
 		return
 	}
-	if !admin.CanLoginFromIP(util.GetIPFromRemoteAddress(r.RemoteAddr)) {
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	if !admin.CanLoginFromIP(ipAddr) {
 		logger.Debug(logSender, "", "admin %#v cannot login from %v, unable to refresh cookie", admin.Username, r.RemoteAddr)
 		return
 	}
 	tokenClaims.Permissions = admin.Permissions
 	logger.Debug(logSender, "", "cookie refreshed for admin %#v", admin.Username)
-	tokenClaims.createAndSetCookie(w, r, s.tokenAuth, tokenAudienceWebAdmin) //nolint:errcheck
+	tokenClaims.createAndSetCookie(w, r, s.tokenAuth, tokenAudienceWebAdmin, ipAddr) //nolint:errcheck
 }
 
 func (s *httpdServer) updateContextFromCookie(r *http.Request) *http.Request {

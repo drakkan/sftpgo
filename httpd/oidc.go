@@ -496,7 +496,7 @@ func (s *httpdServer) oidcTokenAuthenticator(audience tokenAudience) func(next h
 				Username:    token.Username,
 				Permissions: token.Permissions,
 			}
-			_, tokenString, err := jwtTokenClaims.createToken(s.tokenAuth, audience)
+			_, tokenString, err := jwtTokenClaims.createToken(s.tokenAuth, audience, util.GetIPFromRemoteAddress(r.RemoteAddr))
 			if err != nil {
 				setFlashMessage(w, r, "Unable to create cookie")
 				if audience == tokenAudienceWebAdmin {

@@ -159,11 +159,11 @@ func (c *jwtTokenClaims) hasPerm(perm string) bool {
 	return util.IsStringInSlice(perm, c.Permissions)
 }
 
-func (c *jwtTokenClaims) createToken(tokenAuth *jwtauth.JWTAuth, audience tokenAudience) (jwt.Token, string, error) {
+func (c *jwtTokenClaims) createToken(tokenAuth *jwtauth.JWTAuth, audience tokenAudience, ip string) (jwt.Token, string, error) {
 	claims := c.asMap()
 	now := time.Now().UTC()
 
-	claims[jwt.JwtIDKey] = xid.New().String()
+	claims[jwt.JwtIDKey] = fmt.Sprintf("%s%s", xid.New().String(), ip)
 	claims[jwt.NotBeforeKey] = now.Add(-30 * time.Second)
 	claims[jwt.ExpirationKey] = now.Add(tokenDuration)
 	claims[jwt.AudienceKey] = audience
@@ -171,8 +171,8 @@ func (c *jwtTokenClaims) createToken(tokenAuth *jwtauth.JWTAuth, audience tokenA
 	return tokenAuth.Encode(claims)
 }
 
-func (c *jwtTokenClaims) createTokenResponse(tokenAuth *jwtauth.JWTAuth, audience tokenAudience) (map[string]interface{}, error) {
-	token, tokenString, err := c.createToken(tokenAuth, audience)
+func (c *jwtTokenClaims) createTokenResponse(tokenAuth *jwtauth.JWTAuth, audience tokenAudience, ip string) (map[string]interface{}, error) {
+	token, tokenString, err := c.createToken(tokenAuth, audience, ip)
 	if err != nil {
 		return nil, err
 	}
@@ -184,8 +184,10 @@ func (c *jwtTokenClaims) createTokenResponse(tokenAuth *jwtauth.JWTAuth, audienc
 	return response, nil
 }
 
-func (c *jwtTokenClaims) createAndSetCookie(w http.ResponseWriter, r *http.Request, tokenAuth *jwtauth.JWTAuth, audience tokenAudience) error {
-	resp, err := c.createTokenResponse(tokenAuth, audience)
+func (c *jwtTokenClaims) createAndSetCookie(w http.ResponseWriter, r *http.Request, tokenAuth *jwtauth.JWTAuth,
+	audience tokenAudience, ip string,
+) error {
+	resp, err := c.createTokenResponse(tokenAuth, audience, ip)
 	if err != nil {
 		return err
 	}

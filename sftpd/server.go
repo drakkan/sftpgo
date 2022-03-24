@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -509,7 +510,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 		go func(in <-chan *ssh.Request, counter int64) {
 			for req := range in {
 				ok := false
-				connID := fmt.Sprintf("%v_%v", connectionID, counter)
+				connID := fmt.Sprintf("%s_%d", connectionID, counter)
 
 				switch req.Type {
 				case "subsystem":
@@ -879,7 +880,7 @@ func (c *Configuration) validatePublicKeyCredentials(conn ssh.ConnMetadata, pubK
 			return nil, err
 		}
 		if !c.certChecker.IsUserAuthority(cert.SignatureKey) {
-			err = fmt.Errorf("ssh: certificate signed by unrecognized authority")
+			err = errors.New("ssh: certificate signed by unrecognized authority")
 			user.Username = conn.User()
 			updateLoginMetrics(&user, ipAddr, method, err)
 			return nil, err

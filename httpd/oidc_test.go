@@ -666,7 +666,7 @@ func TestSkipOIDCAuth(t *testing.T) {
 	jwtTokenClaims := jwtTokenClaims{
 		Username: "user",
 	}
-	_, tokenString, err := jwtTokenClaims.createToken(server.tokenAuth, tokenAudienceWebClient)
+	_, tokenString, err := jwtTokenClaims.createToken(server.tokenAuth, tokenAudienceWebClient, "")
 	assert.NoError(t, err)
 	rr := httptest.NewRecorder()
 	r, err := http.NewRequest(http.MethodGet, webClientLogoutPath, nil)

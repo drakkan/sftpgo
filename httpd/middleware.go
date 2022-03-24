@@ -42,33 +42,29 @@ func validateJWTToken(w http.ResponseWriter, r *http.Request, audience tokenAudi
 
 	isAPIToken := (audience == tokenAudienceAPI || audience == tokenAudienceAPIUser)
 
-	if err != nil || token == nil {
-		logger.Debug(logSender, "", "error getting jwt token: %v", err)
+	doRedirect := func(message string, err error) {
 		if isAPIToken {
-			sendAPIResponse(w, r, err, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+			sendAPIResponse(w, r, err, message, http.StatusUnauthorized)
 		} else {
 			http.Redirect(w, r, redirectPath, http.StatusFound)
 		}
+	}
+
+	if err != nil || token == nil {
+		logger.Debug(logSender, "", "error getting jwt token: %v", err)
+		doRedirect(http.StatusText(http.StatusUnauthorized), err)
 		return errInvalidToken
 	}
 
 	err = jwt.Validate(token)
 	if err != nil {
 		logger.Debug(logSender, "", "error validating jwt token: %v", err)
-		if isAPIToken {
-			sendAPIResponse(w, r, err, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
-		} else {
-			http.Redirect(w, r, redirectPath, http.StatusFound)
-		}
+		doRedirect(http.StatusText(http.StatusUnauthorized), err)
 		return errInvalidToken
 	}
 	if isTokenInvalidated(r) {
 		logger.Debug(logSender, "", "the token has been invalidated")
-		if isAPIToken {
-			sendAPIResponse(w, r, nil, "Your token is no longer valid", http.StatusUnauthorized)
-		} else {
-			http.Redirect(w, r, redirectPath, http.StatusFound)
-		}
+		doRedirect("Your token is no longer valid", nil)
 		return errInvalidToken
 	}
 	// a user with a partial token will be always redirected to the appropriate two factor auth page
@@ -77,11 +73,13 @@ func validateJWTToken(w http.ResponseWriter, r *http.Request, audience tokenAudi
 	}
 	if !util.IsStringInSlice(audience, token.Audience()) {
 		logger.Debug(logSender, "", "the token is not valid for audience %#v", audience)
-		if isAPIToken {
-			sendAPIResponse(w, r, nil, "Your token audience is not valid", http.StatusUnauthorized)
-		} else {
-			http.Redirect(w, r, redirectPath, http.StatusFound)
-		}
+		doRedirect("Your token audience is not valid", nil)
+		return errInvalidToken
+	}
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	if ipAddr != "" && !strings.Contains(token.JwtID(), ipAddr) {
+		logger.Debug(logSender, "", "the token with id %#v is not valid for the ip address %#v", token.JwtID(), ipAddr)
+		doRedirect("Your token is not valid", nil)
 		return errInvalidToken
 	}
 	return nil
@@ -382,7 +380,8 @@ func authenticateAdminWithAPIKey(username, keyID string, tokenAuth *jwtauth.JWTA
 	if !admin.Filters.AllowAPIKeyAuth {
 		return fmt.Errorf("API key authentication disabled for admin %#v", admin.Username)
 	}
-	if err := admin.CanLogin(util.GetIPFromRemoteAddress(r.RemoteAddr)); err != nil {
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	if err := admin.CanLogin(ipAddr); err != nil {
 		return err
 	}
 	c := jwtTokenClaims{
@@ -392,7 +391,7 @@ func authenticateAdminWithAPIKey(username, keyID string, tokenAuth *jwtauth.JWTA
 		APIKeyID:    keyID,
 	}
 
-	resp, err := c.createTokenResponse(tokenAuth, tokenAudienceAPI)
+	resp, err := c.createTokenResponse(tokenAuth, tokenAudienceAPI, ipAddr)
 	if err != nil {
 		return err
 	}
@@ -446,7 +445,7 @@ func authenticateUserWithAPIKey(username, keyID string, tokenAuth *jwtauth.JWTAu
 		APIKeyID:    keyID,
 	}
 
-	resp, err := c.createTokenResponse(tokenAuth, tokenAudienceAPIUser)
+	resp, err := c.createTokenResponse(tokenAuth, tokenAudienceAPIUser, ipAddr)
 	if err != nil {
 		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, common.ErrInternalFailure)
 		return err

@@ -629,7 +629,7 @@ func TestUpdateWebAdminInvalidClaims(t *testing.T) {
 		Permissions: admin.Permissions,
 		Signature:   admin.GetSignature(),
 	}
-	token, err := c.createTokenResponse(server.tokenAuth, tokenAudienceWebAdmin)
+	token, err := c.createTokenResponse(server.tokenAuth, tokenAudienceWebAdmin, "")
 	assert.NoError(t, err)
 
 	form := make(url.Values)
@@ -746,7 +746,7 @@ func TestCreateTokenError(t *testing.T) {
 	}
 	req, _ := http.NewRequest(http.MethodGet, tokenPath, nil)
 
-	server.generateAndSendToken(rr, req, admin)
+	server.generateAndSendToken(rr, req, admin, "")
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)
 
 	rr = httptest.NewRecorder()
@@ -778,7 +778,7 @@ func TestCreateTokenError(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
 	req, _ = http.NewRequest(http.MethodPost, webAdminSetupPath, nil)
 	rr = httptest.NewRecorder()
-	server.loginAdmin(rr, req, &admin, false, nil)
+	server.loginAdmin(rr, req, &admin, false, nil, "")
 	// req with no POST body
 	req, _ = http.NewRequest(http.MethodGet, webAdminLoginPath+"?a=a%C3%AO%GG", nil)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -1991,7 +1991,7 @@ func TestWebUserInvalidClaims(t *testing.T) {
 		Permissions: nil,
 		Signature:   user.GetSignature(),
 	}
-	token, err := c.createTokenResponse(server.tokenAuth, tokenAudienceWebClient)
+	token, err := c.createTokenResponse(server.tokenAuth, tokenAudienceWebClient, "")
 	assert.NoError(t, err)
 
 	req, _ := http.NewRequest(http.MethodGet, webClientFilesPath, nil)
@@ -2066,7 +2066,7 @@ func TestInvalidClaims(t *testing.T) {
 		Permissions: nil,
 		Signature:   user.GetSignature(),
 	}
-	token, err := c.createTokenResponse(server.tokenAuth, tokenAudienceWebClient)
+	token, err := c.createTokenResponse(server.tokenAuth, tokenAudienceWebClient, "")
 	assert.NoError(t, err)
 	form := make(url.Values)
 	form.Set(csrfFormToken, createCSRFToken())
@@ -2086,7 +2086,7 @@ func TestInvalidClaims(t *testing.T) {
 		Permissions: nil,
 		Signature:   admin.GetSignature(),
 	}
-	token, err = c.createTokenResponse(server.tokenAuth, tokenAudienceWebAdmin)
+	token, err = c.createTokenResponse(server.tokenAuth, tokenAudienceWebAdmin, "")
 	assert.NoError(t, err)
 	form = make(url.Values)
 	form.Set(csrfFormToken, createCSRFToken())
@@ -2134,7 +2134,7 @@ func TestSigningKey(t *testing.T) {
 		Permissions: nil,
 		Signature:   user.GetSignature(),
 	}
-	token, err := c.createTokenResponse(server1.tokenAuth, tokenAudienceWebClient)
+	token, err := c.createTokenResponse(server1.tokenAuth, tokenAudienceWebClient, "")
 	assert.NoError(t, err)
 	accessToken := token["access_token"].(string)
 	assert.NotEmpty(t, accessToken)

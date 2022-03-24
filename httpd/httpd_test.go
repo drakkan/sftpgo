@@ -8713,6 +8713,38 @@ func TestWebClientMaxConnections(t *testing.T) {
 	common.Config.MaxTotalConnections = oldValue
 }
 
+func TestTokenInvalidIPAddress(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+
+	webToken, err := getJWTWebClientTokenFromTestServerWithAddr(defaultUsername, defaultPassword, "1.1.1.1")
+	assert.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodGet, webClientFilesPath, nil)
+	assert.NoError(t, err)
+	req.RemoteAddr = "1.1.1.2"
+	req.RequestURI = webClientFilesPath
+	setJWTCookieForReq(req, webToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusFound, rr)
+
+	apiToken, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodGet, userDirsPath+"/?path=%2F", nil)
+	assert.NoError(t, err)
+	req.RemoteAddr = "2.2.2.2"
+	setBearerForReq(req, apiToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusUnauthorized, rr)
+	assert.Contains(t, rr.Body.String(), "Your token is not valid")
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestDefender(t *testing.T) {
 	oldConfig := config.GetCommonConfig()
 
@@ -17500,7 +17532,7 @@ func getJWTAPIUserTokenFromTestServer(username, password string) (string, error)
 	req.SetBasicAuth(username, password)
 	rr := executeRequest(req)
 	if rr.Code != http.StatusOK {
-		return "", fmt.Errorf("unexpected  status code %v", rr.Code)
+		return "", fmt.Errorf("unexpected status code %v", rr.Code)
 	}
 	responseHolder := make(map[string]interface{})
 	err := render.DecodeJSON(rr.Body, &responseHolder)

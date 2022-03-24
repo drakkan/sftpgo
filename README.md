@@ -11,8 +11,6 @@ Several storage backends are supported: local filesystem, encrypted local filesy
 
 ## Features
 
-<details>
-
 - Support for serving local filesystem, encrypted local filesystem, S3 Compatible Object Storage, Google Cloud Storage, Azure Blob Storage or other SFTP accounts over SFTP/SCP/FTP/WebDAV.
 - Virtual folders are supported: a virtual folder can use any of the supported storage backends. So you can have, for example, an S3 user that exposes a GCS bucket (or part of it) on a specified path and an encrypted local filesystem on another one. Virtual folders can be private or shared among multiple users, for shared virtual folders you can define different quota limits for each user.
 - Configurable [custom commands and/or HTTP hooks](./docs/custom-actions.md) on file upload, pre-upload, download, pre-download, delete, pre-delete, rename, mkdir, rmdir on SSH commands and on user add, update and delete.
@@ -42,6 +40,7 @@ Several storage backends are supported: local filesystem, encrypted local filesy
 - Per-user and per-directory shell like patterns filters: files can be allowed, denied or hidden based on shell like patterns.
 - Automatically terminating idle connections.
 - Automatic blocklist management using the built-in [defender](./docs/defender.md).
+- Geo-IP filtering using a [plugin](https://github.com/sftpgo/sftpgo-plugin-geoipfilter).
 - Atomic uploads are configurable.
 - Per-user files/folders ownership mapping: you can map all the users to the system account that runs SFTPGo (all platforms are supported) or you can run SFTPGo as root user and map each user or group of users to a different system account (\*NIX only).
 - Support for Git repositories over SSH.
@@ -59,8 +58,6 @@ Several storage backends are supported: local filesystem, encrypted local filesy
 - Configuration format is at your choice: JSON, TOML, YAML, HCL, envfile are supported.
 - Log files are accurate and they are saved in the easily parsable JSON format ([more information](./docs/logs.md)).
 - SFTPGo supports a [plugin system](./docs/plugins.md) and therefore can be extended using external plugins.
-
-</details>
 
 ## Platforms
 
