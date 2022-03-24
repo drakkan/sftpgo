@@ -80,8 +80,8 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4/go.mod h1:xMI15A0UPsDsEKsMN9yxemIoYk6Tm2C1GtYGdfGttqA=
 github.com/rogpeppe/fastuuid v1.2.0/go.mod h1:jVj6XXZzXRy/MSR5jhDC/2q6DgLz+nrA6LYCDYWNEvQ=
-github.com/sftpgo/sdk v0.1.1-0.20220323095514-1e4782d9c52e h1:MZA1K8cG6Z31a788iOzidP4xARhsTIs0wvhxgPeVWXE=
-github.com/sftpgo/sdk v0.1.1-0.20220323095514-1e4782d9c52e/go.mod h1:m5J7DH8unhD5RUsREFRiidP8zgBjup0+iQaxQnYHJOM=
+github.com/sftpgo/sdk v0.1.1-0.20220323191209-5d4ff81576b4 h1:zpu89DMnl3d5Bu3YlvQuu3/KsjkhERgvqgqz+Lnn4CY=
+github.com/sftpgo/sdk v0.1.1-0.20220323191209-5d4ff81576b4/go.mod h1:m5J7DH8unhD5RUsREFRiidP8zgBjup0+iQaxQnYHJOM=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.2.2/go.mod h1:a8OnRcib4nhh0OaRAV+Yts87kKdq0PP7pXfy6kDkUVs=
 github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=

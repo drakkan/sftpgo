@@ -16,6 +16,10 @@ func (f *Filter) CheckIP(ip string) error {
 	return nil
 }
 
+func (f *Filter) Reload() error {
+	return nil
+}
+
 func main() {
 	plugin.Serve(&plugin.ServeConfig{
 		HandshakeConfig: ipfilter.Handshake,

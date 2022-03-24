@@ -174,21 +174,21 @@ jobs:
 
       - name: Upload Windows installer x86_64 artifact
         if: ${{ startsWith(matrix.os, 'windows-') && github.event_name != 'pull_request' }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: sftpgo_windows_installer_x86_64
           path: ./sftpgo_windows_x86_64.exe
 
       - name: Upload Windows installer arm64 artifact
         if: ${{ startsWith(matrix.os, 'windows-') && github.event_name != 'pull_request' }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: sftpgo_windows_installer_arm64
           path: ./sftpgo_windows_arm64.exe
 
       - name: Upload Windows installer x86 artifact
         if: ${{ startsWith(matrix.os, 'windows-') && github.event_name != 'pull_request' }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: sftpgo_windows_installer_x86
           path: ./sftpgo_windows_x86.exe
@@ -214,7 +214,7 @@ jobs:
 
       - name: Upload build artifact
         if: startsWith(matrix.os, 'ubuntu-') != true
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: sftpgo-${{ matrix.os }}-go-${{ matrix.go }}
           path: output
@@ -430,7 +430,7 @@ jobs:
             cp sftpgo output/
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: sftpgo-linux-${{ matrix.arch }}-go-${{ matrix.go }}
           path: output
@@ -445,13 +445,13 @@ jobs:
           echo "::set-output name=pkg-version::${PKG_VERSION}"
 
       - name: Upload Debian Package
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: sftpgo-${{ steps.build_linux_pkgs.outputs.pkg-version }}-${{ matrix.go-arch }}-deb
           path: pkgs/dist/deb/*
 
       - name: Upload RPM Package
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: sftpgo-${{ steps.build_linux_pkgs.outputs.pkg-version }}-${{ matrix.go-arch }}-rpm
           path: pkgs/dist/rpm/*

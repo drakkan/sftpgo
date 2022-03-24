@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/hashicorp/go-plugin v1.4.3
-	github.com/sftpgo/sdk v0.1.1-0.20220323095514-1e4782d9c52e
+	github.com/sftpgo/sdk v0.1.1-0.20220323191209-5d4ff81576b4
 )
 
 require (

@@ -366,6 +366,20 @@ func (m *Manager) IsIPBanned(ip string) bool {
 	return plugin.filter.CheckIP(ip) != nil
 }
 
+// ReloadFilter sends a reload request to the IP filter plugin
+func (m *Manager) ReloadFilter() {
+	if !m.hasIPFilter {
+		return
+	}
+	m.ipFilterLock.RLock()
+	plugin := m.filter
+	m.ipFilterLock.RUnlock()
+
+	if err := plugin.filter.Reload(); err != nil {
+		logger.Error(logSender, "", "unable to reload IP filter plugin: %v", err)
+	}
+}
+
 func (m *Manager) kmsEncrypt(secret kms.BaseSecret, url string, masterKey string, kmsID int) (string, string, int32, error) {
 	m.kmsLock.RLock()
 	plugin := m.kms[kmsID]

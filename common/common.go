@@ -209,8 +209,9 @@ func LimitRate(protocol, ip string) (time.Duration, error) {
 	return 0, nil
 }
 
-// Reload reloads the whitelist and the defender's block and safe lists
+// Reload reloads the whitelist, the IP filter plugin and the defender's block and safe lists
 func Reload() error {
+	plugin.Handler.ReloadFilter()
 	var errWithelist error
 	if Config.whitelist != nil {
 		errWithelist = Config.whitelist.reload()
