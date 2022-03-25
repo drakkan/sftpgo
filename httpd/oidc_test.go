@@ -1005,3 +1005,28 @@ func getPreLoginScriptContent(user dataprovider.User, nonJSONResponse bool) []by
 	}
 	return content
 }
+
+func TestOIDCIsAdmin(t *testing.T) {
+	type test struct {
+		input interface{}
+		want  bool
+	}
+
+	emptySlice := make([]interface{}, 0)
+
+	tests := []test{
+		{input: "admin", want: true},
+		{input: append(emptySlice, "admin"), want: true},
+		{input: append(emptySlice, "user", "admin"), want: true},
+		{input: "user", want: false},
+		{input: emptySlice, want: false},
+		{input: 1, want: false},
+		{input: nil, want: false},
+	}
+	for _, tc := range tests {
+		token := oidcToken{
+			Role: tc.input,
+		}
+		assert.Equal(t, tc.want, token.isAdmin(), "%v should return %t", tc.input, tc.want)
+	}
+}
