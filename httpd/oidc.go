@@ -208,7 +208,7 @@ func (t *oidcToken) isAdmin() bool {
 		return v == "admin"
 	case []interface{}:
 		for _, s := range v {
-			if s.(string) == "admin" {
+			if val, ok := s.(string); ok && val == "admin" {
 				return true
 			}
 		}

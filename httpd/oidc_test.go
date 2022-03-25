@@ -1020,6 +1020,7 @@ func TestOIDCIsAdmin(t *testing.T) {
 		{input: append(emptySlice, "user", "admin"), want: true},
 		{input: "user", want: false},
 		{input: emptySlice, want: false},
+		{input: append(emptySlice, 1), want: false},
 		{input: 1, want: false},
 		{input: nil, want: false},
 	}
