@@ -160,18 +160,18 @@ func newOIDCPendingAuth(audience tokenAudience) oidcPendingAuth {
 }
 
 type oidcToken struct {
-	AccessToken  string   `json:"access_token"`
-	TokenType    string   `json:"token_type,omitempty"`
-	RefreshToken string   `json:"refresh_token,omitempty"`
-	ExpiresAt    int64    `json:"expires_at,omitempty"`
-	SessionID    string   `json:"session_id"`
-	IDToken      string   `json:"id_token"`
-	Nonce        string   `json:"nonce"`
-	Username     string   `json:"username"`
-	Permissions  []string `json:"permissions"`
-	Role         string   `json:"role"`
-	Cookie       string   `json:"cookie"`
-	UsedAt       int64    `json:"used_at"`
+	AccessToken  string      `json:"access_token"`
+	TokenType    string      `json:"token_type,omitempty"`
+	RefreshToken string      `json:"refresh_token,omitempty"`
+	ExpiresAt    int64       `json:"expires_at,omitempty"`
+	SessionID    string      `json:"session_id"`
+	IDToken      string      `json:"id_token"`
+	Nonce        string      `json:"nonce"`
+	Username     string      `json:"username"`
+	Permissions  []string    `json:"permissions"`
+	Role         interface{} `json:"role"`
+	Cookie       string      `json:"cookie"`
+	UsedAt       int64       `json:"used_at"`
 }
 
 func (t *oidcToken) parseClaims(claims map[string]interface{}, usernameField, roleField string) error {
@@ -190,7 +190,7 @@ func (t *oidcToken) parseClaims(claims map[string]interface{}, usernameField, ro
 	}
 	t.Username = username
 	if roleField != "" {
-		role, ok := claims[roleField].(string)
+		role, ok := claims[roleField]
 		if ok {
 			t.Role = role
 		}
@@ -203,7 +203,19 @@ func (t *oidcToken) parseClaims(claims map[string]interface{}, usernameField, ro
 }
 
 func (t *oidcToken) isAdmin() bool {
-	return t.Role == "admin"
+	switch v := t.Role.(type) {
+	case string:
+		return v == "admin"
+	case []interface{}:
+		for _, s := range v {
+			if val, ok := s.(string); ok && val == "admin" {
+				return true
+			}
+		}
+		return false
+	default:
+		return false
+	}
 }
 
 func (t *oidcToken) isExpired() bool {
