@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 	"github.com/eikenb/pipeat"
@@ -177,7 +178,7 @@ func (fs *AzureBlobFs) Stat(name string) (os.FileInfo, error) {
 	if hasContents {
 		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, 0, time.Now(), false))
 	}
-	return nil, errors.New("404 no such file or directory")
+	return nil, os.ErrNotExist
 }
 
 // Lstat returns a FileInfo describing the named file
@@ -494,12 +495,17 @@ func (*AzureBlobFs) IsNotExist(err error) bool {
 	if err == nil {
 		return false
 	}
-	var errResp *azblob.StorageError
-	if errors.As(err, &errResp) {
-		return errResp.StatusCode() == http.StatusNotFound
+	var errStorage *azblob.StorageError
+	if errors.As(err, &errStorage) {
+		return errStorage.StatusCode() == http.StatusNotFound
 	}
 
-	return false
+	var errResp *azcore.ResponseError
+	if errors.As(err, &errResp) {
+		return errResp.StatusCode == http.StatusNotFound
+	}
+	// os.ErrNotExist can be returned internally by fs.Stat
+	return errors.Is(err, os.ErrNotExist)
 }
 
 // IsPermission returns a boolean indicating whether the error is known to
@@ -508,10 +514,15 @@ func (*AzureBlobFs) IsPermission(err error) bool {
 	if err == nil {
 		return false
 	}
-	var errResp *azblob.StorageError
-	if errors.As(err, &errResp) {
-		statusCode := errResp.StatusCode()
+	var errStorage *azblob.StorageError
+	if errors.As(err, &errStorage) {
+		statusCode := errStorage.StatusCode()
 		return statusCode == http.StatusForbidden || statusCode == http.StatusUnauthorized
+	}
+
+	var errResp *azcore.ResponseError
+	if errors.As(err, &errResp) {
+		return errResp.StatusCode == http.StatusForbidden || errResp.StatusCode == http.StatusUnauthorized
 	}
 
 	return false
