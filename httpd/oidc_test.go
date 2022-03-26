@@ -81,7 +81,10 @@ func setIDTokenClaims(idToken *oidc.IDToken, claims []byte) {
 }
 
 func TestOIDCInitialization(t *testing.T) {
-	config := OIDC{
+	config := OIDC{}
+	err := config.initialize()
+	assert.NoError(t, err)
+	config = OIDC{
 		ClientID:        "sftpgo-client",
 		ClientSecret:    "jRsmE0SWnuZjP7djBqNq0mrf8QN77j2c",
 		ConfigURL:       fmt.Sprintf("http://%v/", oidcMockAddr),
@@ -89,7 +92,7 @@ func TestOIDCInitialization(t *testing.T) {
 		UsernameField:   "preferred_username",
 		RoleField:       "sftpgo_role",
 	}
-	err := config.initialize()
+	err = config.initialize()
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "oidc: unable to initialize provider")
 	}

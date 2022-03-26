@@ -314,7 +314,7 @@ func loadClientTemplates(templatesPath string) {
 func (s *httpdServer) getBaseClientPageData(title, currentURL string, r *http.Request) baseClientPage {
 	var csrfToken string
 	if currentURL != "" {
-		csrfToken = createCSRFToken()
+		csrfToken = createCSRFToken(util.GetIPFromRemoteAddress(r.RemoteAddr))
 	}
 	v := version.Get()
 
@@ -341,11 +341,11 @@ func (s *httpdServer) getBaseClientPageData(title, currentURL string, r *http.Re
 	}
 }
 
-func (s *httpdServer) renderClientForgotPwdPage(w http.ResponseWriter, error string) {
+func (s *httpdServer) renderClientForgotPwdPage(w http.ResponseWriter, error, ip string) {
 	data := forgotPwdPage{
 		CurrentURL: webClientForgotPwdPath,
 		Error:      error,
-		CSRFToken:  createCSRFToken(),
+		CSRFToken:  createCSRFToken(ip),
 		StaticURL:  webStaticFilesPath,
 		Title:      pageClientForgotPwdTitle,
 		ExtraCSS:   s.binding.ExtraCSS,
@@ -353,11 +353,11 @@ func (s *httpdServer) renderClientForgotPwdPage(w http.ResponseWriter, error str
 	renderClientTemplate(w, templateForgotPassword, data)
 }
 
-func (s *httpdServer) renderClientResetPwdPage(w http.ResponseWriter, error string) {
+func (s *httpdServer) renderClientResetPwdPage(w http.ResponseWriter, error, ip string) {
 	data := resetPwdPage{
 		CurrentURL: webClientResetPwdPath,
 		Error:      error,
-		CSRFToken:  createCSRFToken(),
+		CSRFToken:  createCSRFToken(ip),
 		StaticURL:  webStaticFilesPath,
 		Title:      pageClientResetPwdTitle,
 		ExtraCSS:   s.binding.ExtraCSS,
@@ -405,12 +405,12 @@ func (s *httpdServer) renderClientNotFoundPage(w http.ResponseWriter, r *http.Re
 	s.renderClientMessagePage(w, r, page404Title, page404Body, http.StatusNotFound, err, "")
 }
 
-func (s *httpdServer) renderClientTwoFactorPage(w http.ResponseWriter, error string) {
+func (s *httpdServer) renderClientTwoFactorPage(w http.ResponseWriter, error, ip string) {
 	data := twoFactorPage{
 		CurrentURL:  webClientTwoFactorPath,
 		Version:     version.Get().Version,
 		Error:       error,
-		CSRFToken:   createCSRFToken(),
+		CSRFToken:   createCSRFToken(ip),
 		StaticURL:   webStaticFilesPath,
 		RecoveryURL: webClientTwoFactorRecoveryPath,
 		ExtraCSS:    s.binding.ExtraCSS,
@@ -418,12 +418,12 @@ func (s *httpdServer) renderClientTwoFactorPage(w http.ResponseWriter, error str
 	renderClientTemplate(w, templateTwoFactor, data)
 }
 
-func (s *httpdServer) renderClientTwoFactorRecoveryPage(w http.ResponseWriter, error string) {
+func (s *httpdServer) renderClientTwoFactorRecoveryPage(w http.ResponseWriter, error, ip string) {
 	data := twoFactorPage{
 		CurrentURL: webClientTwoFactorRecoveryPath,
 		Version:    version.Get().Version,
 		Error:      error,
-		CSRFToken:  createCSRFToken(),
+		CSRFToken:  createCSRFToken(ip),
 		StaticURL:  webStaticFilesPath,
 		ExtraCSS:   s.binding.ExtraCSS,
 	}
@@ -972,7 +972,8 @@ func (s *httpdServer) handleClientAddSharePost(w http.ResponseWriter, r *http.Re
 		s.renderAddUpdateSharePage(w, r, share, err.Error(), true)
 		return
 	}
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
 		s.renderClientForbiddenPage(w, r, err.Error())
 		return
 	}
@@ -986,7 +987,7 @@ func (s *httpdServer) handleClientAddSharePost(w http.ResponseWriter, r *http.Re
 			return
 		}
 	}
-	err = dataprovider.AddShare(share, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	err = dataprovider.AddShare(share, claims.Username, ipAddr)
 	if err == nil {
 		http.Redirect(w, r, webClientSharesPath, http.StatusSeeOther)
 	} else {
@@ -1015,7 +1016,8 @@ func (s *httpdServer) handleClientUpdateSharePost(w http.ResponseWriter, r *http
 		s.renderAddUpdateSharePage(w, r, updatedShare, err.Error(), false)
 		return
 	}
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
 		s.renderClientForbiddenPage(w, r, err.Error())
 		return
 	}
@@ -1030,7 +1032,7 @@ func (s *httpdServer) handleClientUpdateSharePost(w http.ResponseWriter, r *http
 			return
 		}
 	}
-	err = dataprovider.UpdateShare(updatedShare, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	err = dataprovider.UpdateShare(updatedShare, claims.Username, ipAddr)
 	if err == nil {
 		http.Redirect(w, r, webClientSharesPath, http.StatusSeeOther)
 	} else {
@@ -1090,7 +1092,8 @@ func (s *httpdServer) handleWebClientProfilePost(w http.ResponseWriter, r *http.
 		s.renderClientProfilePage(w, r, err.Error())
 		return
 	}
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
 		s.renderClientForbiddenPage(w, r, err.Error())
 		return
 	}
@@ -1118,7 +1121,7 @@ func (s *httpdServer) handleWebClientProfilePost(w http.ResponseWriter, r *http.
 		user.Email = r.Form.Get("email")
 		user.Description = r.Form.Get("description")
 	}
-	err = dataprovider.UpdateUser(&user, dataprovider.ActionExecutorSelf, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	err = dataprovider.UpdateUser(&user, dataprovider.ActionExecutorSelf, ipAddr)
 	if err != nil {
 		s.renderClientProfilePage(w, r, err.Error())
 		return
@@ -1134,12 +1137,12 @@ func (s *httpdServer) handleWebClientMFA(w http.ResponseWriter, r *http.Request)
 
 func (s *httpdServer) handleWebClientTwoFactor(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	s.renderClientTwoFactorPage(w, "")
+	s.renderClientTwoFactorPage(w, "", util.GetIPFromRemoteAddress(r.RemoteAddr))
 }
 
 func (s *httpdServer) handleWebClientTwoFactorRecovery(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	s.renderClientTwoFactorRecoveryPage(w, "")
+	s.renderClientTwoFactorRecoveryPage(w, "", util.GetIPFromRemoteAddress(r.RemoteAddr))
 }
 
 func getShareFromPostFields(r *http.Request) (*dataprovider.Share, error) {
@@ -1181,17 +1184,19 @@ func (s *httpdServer) handleWebClientForgotPwd(w http.ResponseWriter, r *http.Re
 		s.renderClientNotFoundPage(w, r, errors.New("this page does not exist"))
 		return
 	}
-	s.renderClientForgotPwdPage(w, "")
+	s.renderClientForgotPwdPage(w, "", util.GetIPFromRemoteAddress(r.RemoteAddr))
 }
 
 func (s *httpdServer) handleWebClientForgotPwdPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	err := r.ParseForm()
 	if err != nil {
-		s.renderClientForgotPwdPage(w, err.Error())
+		s.renderClientForgotPwdPage(w, err.Error(), ipAddr)
 		return
 	}
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
 		s.renderClientForbiddenPage(w, r, err.Error())
 		return
 	}
@@ -1199,10 +1204,10 @@ func (s *httpdServer) handleWebClientForgotPwdPost(w http.ResponseWriter, r *htt
 	err = handleForgotPassword(r, username, false)
 	if err != nil {
 		if e, ok := err.(*util.ValidationError); ok {
-			s.renderClientForgotPwdPage(w, e.GetErrorString())
+			s.renderClientForgotPwdPage(w, e.GetErrorString(), ipAddr)
 			return
 		}
-		s.renderClientForgotPwdPage(w, err.Error())
+		s.renderClientForgotPwdPage(w, err.Error(), ipAddr)
 		return
 	}
 	http.Redirect(w, r, webClientResetPwdPath, http.StatusFound)
@@ -1214,7 +1219,7 @@ func (s *httpdServer) handleWebClientPasswordReset(w http.ResponseWriter, r *htt
 		s.renderClientNotFoundPage(w, r, errors.New("this page does not exist"))
 		return
 	}
-	s.renderClientResetPwdPage(w, "")
+	s.renderClientResetPwdPage(w, "", util.GetIPFromRemoteAddress(r.RemoteAddr))
 }
 
 func (s *httpdServer) handleClientViewPDF(w http.ResponseWriter, r *http.Request) {

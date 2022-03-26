@@ -162,6 +162,7 @@ const (
 	webClientResetPwdPath           = "/web/client/reset-password"
 	webClientViewPDFPath            = "/web/client/viewpdf"
 	httpBaseURL                     = "http://127.0.0.1:8081"
+	defaultRemoteAddr               = "127.0.0.1:1234"
 	sftpServerAddr                  = "127.0.0.1:8022"
 	smtpServerAddr                  = "127.0.0.1:3525"
 	configDir                       = ".."
@@ -4031,6 +4032,7 @@ func TestNamingRules(t *testing.T) {
 	lastResetCode = ""
 	req, err = http.NewRequest(http.MethodPost, webClientForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -4041,6 +4043,7 @@ func TestNamingRules(t *testing.T) {
 	form.Set("password", defaultPassword)
 	req, err = http.NewRequest(http.MethodPost, webClientResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -4087,6 +4090,7 @@ func TestNamingRules(t *testing.T) {
 	form = make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
 	req, _ = http.NewRequest(http.MethodPost, webAdminProfilePath, bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
@@ -4124,6 +4128,7 @@ func TestNamingRules(t *testing.T) {
 	lastResetCode = ""
 	req, err = http.NewRequest(http.MethodPost, webAdminForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -4134,6 +4139,7 @@ func TestNamingRules(t *testing.T) {
 	form.Set("password", defaultPassword)
 	req, err = http.NewRequest(http.MethodPost, webAdminResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -4229,6 +4235,7 @@ func TestSaveErrors(t *testing.T) {
 	form := getLoginForm(a.Username, a.Password, csrfToken)
 	req, err := http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr := executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -4242,6 +4249,7 @@ func TestSaveErrors(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webAdminTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, cookie)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)
@@ -4252,6 +4260,7 @@ func TestSaveErrors(t *testing.T) {
 	form = getLoginForm(u.Username, u.Password, csrfToken)
 	req, err = http.NewRequest(http.MethodPost, webClientLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -4265,6 +4274,7 @@ func TestSaveErrors(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, cookie)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)
@@ -4395,6 +4405,7 @@ func TestProviderErrors(t *testing.T) {
 	form.Set(csrfFormToken, csrfToken)
 	req, err = http.NewRequest(http.MethodPost, webClientForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -5541,6 +5552,7 @@ func TestAdminTwoFactorLogin(t *testing.T) {
 	form := getLoginForm(altAdminUsername, altAdminPassword, csrfToken)
 	req, err = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -5589,6 +5601,7 @@ func TestAdminTwoFactorLogin(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webAdminTwoFactorPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, cookie)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -5599,6 +5612,7 @@ func TestAdminTwoFactorLogin(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webAdminTwoFactorPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, cookie)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -5617,6 +5631,7 @@ func TestAdminTwoFactorLogin(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webAdminTwoFactorPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, cookie)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -5625,6 +5640,7 @@ func TestAdminTwoFactorLogin(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webAdminTwoFactorPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, cookie)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusNotFound, rr.Code)
@@ -5632,6 +5648,7 @@ func TestAdminTwoFactorLogin(t *testing.T) {
 	form = getLoginForm(altAdminUsername, altAdminPassword, csrfToken)
 	req, err = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -5646,6 +5663,7 @@ func TestAdminTwoFactorLogin(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webAdminTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, cookie)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -5656,6 +5674,7 @@ func TestAdminTwoFactorLogin(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webAdminTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, cookie)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -5665,6 +5684,7 @@ func TestAdminTwoFactorLogin(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webAdminTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, cookie)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -5674,6 +5694,7 @@ func TestAdminTwoFactorLogin(t *testing.T) {
 	//render MFA page
 	req, err = http.NewRequest(http.MethodGet, webAdminMFAPath, nil)
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	setJWTCookieForReq(req, authenticatedCookie)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -5701,6 +5722,7 @@ func TestAdminTwoFactorLogin(t *testing.T) {
 	form = getLoginForm(altAdminUsername, altAdminPassword, csrfToken)
 	req, err = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -5713,6 +5735,7 @@ func TestAdminTwoFactorLogin(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webAdminTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, cookie)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -5722,6 +5745,7 @@ func TestAdminTwoFactorLogin(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webAdminTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, cookie)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -5730,6 +5754,7 @@ func TestAdminTwoFactorLogin(t *testing.T) {
 	form = getLoginForm(altAdminUsername, altAdminPassword, csrfToken)
 	req, err = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -5750,6 +5775,7 @@ func TestAdminTwoFactorLogin(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webAdminTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, cookie)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -5759,6 +5785,7 @@ func TestAdminTwoFactorLogin(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webAdminTwoFactorPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, cookie)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -5770,6 +5797,7 @@ func TestAdminTwoFactorLogin(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webAdminTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, cookie)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -5778,6 +5806,7 @@ func TestAdminTwoFactorLogin(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webAdminTwoFactorPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, cookie)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -5785,6 +5814,7 @@ func TestAdminTwoFactorLogin(t *testing.T) {
 
 	req, err = http.NewRequest(http.MethodGet, webAdminMFAPath, nil)
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	setJWTCookieForReq(req, authenticatedCookie)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusInternalServerError, rr)
@@ -6106,6 +6136,7 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	form := getLoginForm(defaultUsername, defaultPassword, csrfToken)
 	req, err = http.NewRequest(http.MethodPost, webClientLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -6153,6 +6184,7 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, cookie)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -6163,6 +6195,7 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, cookie)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -6172,6 +6205,7 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, cookie)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -6181,6 +6215,7 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, cookie)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -6189,6 +6224,7 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, cookie)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusNotFound, rr.Code)
@@ -6196,6 +6232,7 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	form = getLoginForm(defaultUsername, defaultPassword, csrfToken)
 	req, err = http.NewRequest(http.MethodPost, webClientLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -6220,6 +6257,7 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, cookie)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -6229,6 +6267,7 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, cookie)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -6238,6 +6277,7 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	//render MFA page
 	req, err = http.NewRequest(http.MethodGet, webClientMFAPath, nil)
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	setJWTCookieForReq(req, authenticatedCookie)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -6266,6 +6306,7 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	form = getLoginForm(defaultUsername, defaultPassword, csrfToken)
 	req, err = http.NewRequest(http.MethodPost, webClientLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -6278,6 +6319,7 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, cookie)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -6287,6 +6329,7 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, cookie)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -6295,6 +6338,7 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	form = getLoginForm(defaultUsername, defaultPassword, csrfToken)
 	req, err = http.NewRequest(http.MethodPost, webClientLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -6317,6 +6361,7 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, cookie)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -6325,6 +6370,7 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, cookie)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -6338,6 +6384,7 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, cookie)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -6346,6 +6393,7 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, cookie)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -6353,6 +6401,7 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 
 	req, err = http.NewRequest(http.MethodGet, webClientMFAPath, nil)
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	setJWTCookieForReq(req, authenticatedCookie)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusInternalServerError, rr)
@@ -6650,6 +6699,7 @@ func TestMFAInvalidSecret(t *testing.T) {
 	form := getLoginForm(defaultUsername, defaultPassword, csrfToken)
 	req, err = http.NewRequest(http.MethodPost, webClientLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -6662,6 +6712,7 @@ func TestMFAInvalidSecret(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, cookie)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)
@@ -6672,6 +6723,7 @@ func TestMFAInvalidSecret(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, cookie)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)
@@ -6715,6 +6767,7 @@ func TestMFAInvalidSecret(t *testing.T) {
 	form = getLoginForm(altAdminUsername, altAdminPassword, csrfToken)
 	req, err = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -6727,6 +6780,7 @@ func TestMFAInvalidSecret(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webAdminTwoFactorPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, cookie)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)
@@ -6737,6 +6791,7 @@ func TestMFAInvalidSecret(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, webAdminTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, cookie)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)
@@ -8564,10 +8619,12 @@ func TestWebClientLoginMock(t *testing.T) {
 	assert.Equal(t, webClientLoginPath, rr.Header().Get("Location"))
 	// now try to render client pages
 	req, _ = http.NewRequest(http.MethodGet, webClientProfilePath, nil)
+	req.RemoteAddr = defaultRemoteAddr
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	req, _ = http.NewRequest(http.MethodGet, webClientFilesPath, nil)
+	req.RemoteAddr = defaultRemoteAddr
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -8595,21 +8652,25 @@ func TestWebClientLoginMock(t *testing.T) {
 
 	req, _ = http.NewRequest(http.MethodGet, webClientProfilePath, nil)
 	setJWTCookieForReq(req, webToken)
+	req.RemoteAddr = defaultRemoteAddr
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusInternalServerError, rr)
 	req, _ = http.NewRequest(http.MethodGet, webClientFilesPath, nil)
+	req.RemoteAddr = defaultRemoteAddr
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
 	assert.Contains(t, rr.Body.String(), "Unable to retrieve your user")
 
 	req, _ = http.NewRequest(http.MethodGet, webClientDirsPath, nil)
+	req.RemoteAddr = defaultRemoteAddr
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
 	assert.Contains(t, rr.Body.String(), "Unable to retrieve your user")
 
 	req, _ = http.NewRequest(http.MethodGet, webClientDownloadZipPath, nil)
+	req.RemoteAddr = defaultRemoteAddr
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
@@ -8651,6 +8712,7 @@ func TestWebClientLoginMock(t *testing.T) {
 	form.Set("public_keys", testPubKey)
 	form.Set(csrfFormToken, csrfToken)
 	req, _ = http.NewRequest(http.MethodPost, webClientProfilePath, bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
@@ -8660,6 +8722,7 @@ func TestWebClientLoginMock(t *testing.T) {
 func TestWebClientLoginErrorsMock(t *testing.T) {
 	form := getLoginForm("", "", "")
 	req, _ := http.NewRequest(http.MethodPost, webClientLoginPath, bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr := executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -8667,6 +8730,7 @@ func TestWebClientLoginErrorsMock(t *testing.T) {
 
 	form = getLoginForm(defaultUsername, defaultPassword, "")
 	req, _ = http.NewRequest(http.MethodPost, webClientLoginPath, bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -8717,14 +8781,14 @@ func TestTokenInvalidIPAddress(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
 
-	webToken, err := getJWTWebClientTokenFromTestServerWithAddr(defaultUsername, defaultPassword, "1.1.1.1")
+	webToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
 
 	req, err := http.NewRequest(http.MethodGet, webClientFilesPath, nil)
 	assert.NoError(t, err)
-	req.RemoteAddr = "1.1.1.2"
 	req.RequestURI = webClientFilesPath
 	setJWTCookieForReq(req, webToken)
+	req.RemoteAddr = "1.1.1.2"
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusFound, rr)
 
@@ -8767,9 +8831,9 @@ func TestDefender(t *testing.T) {
 	assert.NoError(t, err)
 
 	req, _ := http.NewRequest(http.MethodGet, webClientFilesPath, nil)
-	req.RemoteAddr = remoteAddr
 	req.RequestURI = webClientFilesPath
 	setJWTCookieForReq(req, webToken)
+	req.RemoteAddr = remoteAddr
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 
@@ -8781,25 +8845,25 @@ func TestDefender(t *testing.T) {
 	_, err = getJWTWebClientTokenFromTestServerWithAddr(defaultUsername, defaultPassword, remoteAddr)
 	assert.Error(t, err)
 	req, _ = http.NewRequest(http.MethodGet, webClientFilesPath, nil)
-	req.RemoteAddr = remoteAddr
 	req.RequestURI = webClientFilesPath
 	setJWTCookieForReq(req, webToken)
+	req.RemoteAddr = remoteAddr
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
 	assert.Contains(t, rr.Body.String(), "your IP address is banned")
 
 	req, _ = http.NewRequest(http.MethodGet, webUsersPath, nil)
-	req.RemoteAddr = remoteAddr
 	req.RequestURI = webUsersPath
 	setJWTCookieForReq(req, webAdminToken)
+	req.RemoteAddr = remoteAddr
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
 	assert.Contains(t, rr.Body.String(), "your IP address is banned")
 
 	req, _ = http.NewRequest(http.MethodGet, webClientFilesPath, nil)
-	req.RemoteAddr = remoteAddr
 	req.Header.Set("X-Real-IP", "127.0.0.1:2345")
 	setJWTCookieForReq(req, webToken)
+	req.RemoteAddr = remoteAddr
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
 	assert.Contains(t, rr.Body.String(), "your IP address is banned")
@@ -8904,6 +8968,7 @@ func TestMaxSessions(t *testing.T) {
 	lastResetCode = ""
 	req, err := http.NewRequest(http.MethodPost, webClientForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr := executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -8914,6 +8979,7 @@ func TestMaxSessions(t *testing.T) {
 	form.Set("code", lastResetCode)
 	req, err = http.NewRequest(http.MethodPost, webClientResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -8979,6 +9045,7 @@ func TestSFTPLoopError(t *testing.T) {
 	lastResetCode = ""
 	req, err := http.NewRequest(http.MethodPost, webClientForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr := executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -8989,6 +9056,7 @@ func TestSFTPLoopError(t *testing.T) {
 	form.Set("code", lastResetCode)
 	req, err = http.NewRequest(http.MethodPost, webClientResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -9082,6 +9150,7 @@ func TestWebClientChangePwd(t *testing.T) {
 
 	req, err := http.NewRequest(http.MethodGet, webChangeClientPwdPath, nil)
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	setJWTCookieForReq(req, webToken)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -9093,6 +9162,7 @@ func TestWebClientChangePwd(t *testing.T) {
 	// no csrf token
 	req, err = http.NewRequest(http.MethodPost, webChangeClientPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
@@ -9101,6 +9171,7 @@ func TestWebClientChangePwd(t *testing.T) {
 
 	form.Set(csrfFormToken, csrfToken)
 	req, _ = http.NewRequest(http.MethodPost, webChangeClientPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
@@ -9111,6 +9182,7 @@ func TestWebClientChangePwd(t *testing.T) {
 	form.Set("new_password1", defaultPassword+"1")
 	form.Set("new_password2", defaultPassword+"1")
 	req, _ = http.NewRequest(http.MethodPost, webChangeClientPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
@@ -9121,6 +9193,7 @@ func TestWebClientChangePwd(t *testing.T) {
 	form.Set("new_password1", defaultPassword+"1")
 	form.Set("new_password2", defaultPassword+"1")
 	req, _ = http.NewRequest(http.MethodPost, webChangeClientPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
@@ -9147,6 +9220,7 @@ func TestWebClientChangePwd(t *testing.T) {
 	form.Set("new_password1", defaultPassword)
 	form.Set("new_password2", defaultPassword)
 	req, _ = http.NewRequest(http.MethodPost, webChangeClientPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
@@ -12585,12 +12659,14 @@ func TestWebAdminSetupMock(t *testing.T) {
 	form := make(url.Values)
 	req, err = http.NewRequest(http.MethodPost, webAdminSetupPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
 	form.Set(csrfFormToken, csrfToken)
 	req, err = http.NewRequest(http.MethodPost, webAdminSetupPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -12598,6 +12674,7 @@ func TestWebAdminSetupMock(t *testing.T) {
 	form.Set("username", defaultTokenAuthUser)
 	req, err = http.NewRequest(http.MethodPost, webAdminSetupPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -12605,6 +12682,7 @@ func TestWebAdminSetupMock(t *testing.T) {
 	form.Set("password", defaultTokenAuthPass)
 	req, err = http.NewRequest(http.MethodPost, webAdminSetupPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -12613,6 +12691,7 @@ func TestWebAdminSetupMock(t *testing.T) {
 	// test a parse form error
 	req, err = http.NewRequest(http.MethodPost, webAdminSetupPath+"?param=p%C3%AO%GH", bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -12621,6 +12700,7 @@ func TestWebAdminSetupMock(t *testing.T) {
 	assert.NoError(t, err)
 	req, err = http.NewRequest(http.MethodPost, webAdminSetupPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -12636,6 +12716,7 @@ func TestWebAdminSetupMock(t *testing.T) {
 	assert.NoError(t, err)
 	req, err = http.NewRequest(http.MethodPost, webAdminSetupPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusFound, rr)
@@ -12643,6 +12724,7 @@ func TestWebAdminSetupMock(t *testing.T) {
 	// if we resubmit the form we get a bad request, an admin already exists
 	req, err = http.NewRequest(http.MethodPost, webAdminSetupPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
@@ -12722,6 +12804,7 @@ func TestWebAdminLoginMock(t *testing.T) {
 	checkResponseCode(t, http.StatusNotFound, rr)
 
 	req, _ = http.NewRequest(http.MethodGet, webStatusPath, nil)
+	req.RemoteAddr = defaultRemoteAddr
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -12754,6 +12837,7 @@ func TestWebAdminLoginMock(t *testing.T) {
 	// now try using wrong credentials
 	form := getLoginForm(defaultTokenAuthUser, "wrong pwd", csrfToken)
 	req, _ = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -12766,23 +12850,34 @@ func TestWebAdminLoginMock(t *testing.T) {
 	_, _, err = httpdtest.AddAdmin(a, http.StatusCreated)
 	assert.NoError(t, err)
 
+	rAddr := "127.1.1.1:1234"
+	csrfToken, err = getCSRFTokenMock(webLoginPath, rAddr)
+	assert.NoError(t, err)
 	form = getLoginForm(altAdminUsername, altAdminPassword, csrfToken)
 	req, _ = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.RemoteAddr = "127.1.1.1:1234"
+	req.RemoteAddr = rAddr
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Contains(t, rr.Body.String(), "login from IP 127.1.1.1 not allowed")
 
+	rAddr = "10.9.9.9:1234"
+	csrfToken, err = getCSRFTokenMock(webLoginPath, rAddr)
+	assert.NoError(t, err)
+	form = getLoginForm(altAdminUsername, altAdminPassword, csrfToken)
 	req, _ = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.RemoteAddr = "10.9.9.9:1234"
+	req.RemoteAddr = rAddr
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusFound, rr)
 
+	rAddr = "127.0.1.1:4567"
+	csrfToken, err = getCSRFTokenMock(webLoginPath, rAddr)
+	assert.NoError(t, err)
+	form = getLoginForm(altAdminUsername, altAdminPassword, csrfToken)
 	req, _ = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.RemoteAddr = "127.0.1.1:4567"
+	req.RemoteAddr = rAddr
 	req.Header.Set("X-Forwarded-For", "10.9.9.9")
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -12858,6 +12953,7 @@ func TestWebUserShare(t *testing.T) {
 	// invalid expiration date
 	req, err := http.NewRequest(http.MethodPost, webClientSharePath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr := executeRequest(req)
@@ -12868,6 +12964,7 @@ func TestWebUserShare(t *testing.T) {
 	// invalid scope
 	req, err = http.NewRequest(http.MethodPost, webClientSharePath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
@@ -12878,6 +12975,7 @@ func TestWebUserShare(t *testing.T) {
 	form.Set("max_tokens", "t")
 	req, err = http.NewRequest(http.MethodPost, webClientSharePath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
@@ -12887,6 +12985,7 @@ func TestWebUserShare(t *testing.T) {
 	// no csrf token
 	req, err = http.NewRequest(http.MethodPost, webClientSharePath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
@@ -12897,6 +12996,7 @@ func TestWebUserShare(t *testing.T) {
 	form.Set("scope", "100")
 	req, err = http.NewRequest(http.MethodPost, webClientSharePath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
@@ -12906,6 +13006,7 @@ func TestWebUserShare(t *testing.T) {
 	form.Set("scope", strconv.Itoa(int(share.Scope)))
 	req, err = http.NewRequest(http.MethodPost, webClientSharePath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
@@ -12935,6 +13036,7 @@ func TestWebUserShare(t *testing.T) {
 	form.Set("expiration_date", "123")
 	req, err = http.NewRequest(http.MethodPost, webClientSharePath+"/unknowid", bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
@@ -12942,6 +13044,7 @@ func TestWebUserShare(t *testing.T) {
 
 	req, err = http.NewRequest(http.MethodPost, webClientSharePath+"/"+share.ShareID, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
@@ -12952,6 +13055,7 @@ func TestWebUserShare(t *testing.T) {
 	form.Set(csrfFormToken, "")
 	req, err = http.NewRequest(http.MethodPost, webClientSharePath+"/"+share.ShareID, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
@@ -12962,6 +13066,7 @@ func TestWebUserShare(t *testing.T) {
 	form.Set("allowed_ip", "1.1.1")
 	req, err = http.NewRequest(http.MethodPost, webClientSharePath+"/"+share.ShareID, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
@@ -12971,6 +13076,7 @@ func TestWebUserShare(t *testing.T) {
 	form.Set("allowed_ip", "")
 	req, err = http.NewRequest(http.MethodPost, webClientSharePath+"/"+share.ShareID, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
@@ -13003,6 +13109,7 @@ func TestWebUserShare(t *testing.T) {
 
 	req, err = http.NewRequest(http.MethodGet, webClientSharePath+"?path=%2F&files=a", nil)
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
@@ -13010,30 +13117,35 @@ func TestWebUserShare(t *testing.T) {
 
 	req, err = http.NewRequest(http.MethodGet, webClientSharePath+"?path=%2F&files=%5B\"adir\"%5D", nil)
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 
 	req, err = http.NewRequest(http.MethodGet, webClientSharePath+"/unknown", nil)
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
 
 	req, err = http.NewRequest(http.MethodGet, webClientSharePath+"/"+share.ShareID, nil)
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 
 	req, err = http.NewRequest(http.MethodGet, webClientSharesPath+"?qlimit=a", nil)
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 
 	req, err = http.NewRequest(http.MethodGet, webClientSharesPath+"?qlimit=1", nil)
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -13069,6 +13181,7 @@ func TestWebUserShareNoPasswordDisabled(t *testing.T) {
 	form.Set(csrfFormToken, csrfToken)
 	req, err := http.NewRequest(http.MethodPost, webClientSharePath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr := executeRequest(req)
@@ -13078,6 +13191,7 @@ func TestWebUserShareNoPasswordDisabled(t *testing.T) {
 	form.Set("password", defaultPassword)
 	req, err = http.NewRequest(http.MethodPost, webClientSharePath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
@@ -13102,6 +13216,7 @@ func TestWebUserShareNoPasswordDisabled(t *testing.T) {
 	form.Set("password", "")
 	req, err = http.NewRequest(http.MethodPost, webClientSharePath+"/"+share.ShareID, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
@@ -13135,6 +13250,7 @@ func TestWebUserProfile(t *testing.T) {
 	// no csrf token
 	req, err := http.NewRequest(http.MethodPost, webClientProfilePath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr := executeRequest(req)
@@ -13143,6 +13259,7 @@ func TestWebUserProfile(t *testing.T) {
 
 	form.Set(csrfFormToken, csrfToken)
 	req, _ = http.NewRequest(http.MethodPost, webClientProfilePath, bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
@@ -13159,6 +13276,7 @@ func TestWebUserProfile(t *testing.T) {
 	// set an invalid email
 	form.Set("email", "not an email")
 	req, _ = http.NewRequest(http.MethodPost, webClientProfilePath, bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
@@ -13168,6 +13286,7 @@ func TestWebUserProfile(t *testing.T) {
 	form.Set("email", email)
 	form.Set("public_keys", "invalid")
 	req, _ = http.NewRequest(http.MethodPost, webClientProfilePath, bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
@@ -13184,6 +13303,7 @@ func TestWebUserProfile(t *testing.T) {
 	form.Set("allow_api_key_auth", "0")
 	form.Set(csrfFormToken, csrfToken)
 	req, _ = http.NewRequest(http.MethodPost, webClientProfilePath, bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
@@ -13204,6 +13324,7 @@ func TestWebUserProfile(t *testing.T) {
 	form.Set("public_keys", testPubKey)
 	form.Add("public_keys", testPubKey1)
 	req, _ = http.NewRequest(http.MethodPost, webClientProfilePath, bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
@@ -13224,6 +13345,7 @@ func TestWebUserProfile(t *testing.T) {
 	form.Set("email", "newemail@user.com")
 	form.Set("description", "new description")
 	req, _ = http.NewRequest(http.MethodPost, webClientProfilePath, bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
@@ -13243,6 +13365,7 @@ func TestWebUserProfile(t *testing.T) {
 	token, err = getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
 	req, _ = http.NewRequest(http.MethodPost, webClientProfilePath, bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
@@ -13256,6 +13379,7 @@ func TestWebUserProfile(t *testing.T) {
 	form = make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
 	req, _ = http.NewRequest(http.MethodPost, webClientProfilePath, bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
@@ -13274,6 +13398,7 @@ func TestWebAdminProfile(t *testing.T) {
 	assert.NoError(t, err)
 	req, err := http.NewRequest(http.MethodGet, webAdminProfilePath, nil)
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	setJWTCookieForReq(req, token)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -13285,6 +13410,7 @@ func TestWebAdminProfile(t *testing.T) {
 	// no csrf token
 	req, err = http.NewRequest(http.MethodPost, webAdminProfilePath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
@@ -13293,6 +13419,7 @@ func TestWebAdminProfile(t *testing.T) {
 
 	form.Set(csrfFormToken, csrfToken)
 	req, _ = http.NewRequest(http.MethodPost, webAdminProfilePath, bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
@@ -13308,6 +13435,7 @@ func TestWebAdminProfile(t *testing.T) {
 	form = make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
 	req, _ = http.NewRequest(http.MethodPost, webAdminProfilePath, bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
@@ -13326,6 +13454,7 @@ func TestWebAdminProfile(t *testing.T) {
 	form = make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
 	req, _ = http.NewRequest(http.MethodPost, webAdminProfilePath, bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
@@ -13345,6 +13474,7 @@ func TestWebAdminPwdChange(t *testing.T) {
 	assert.NoError(t, err)
 	req, err := http.NewRequest(http.MethodGet, webChangeAdminPwdPath, nil)
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	setJWTCookieForReq(req, token)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -13354,6 +13484,7 @@ func TestWebAdminPwdChange(t *testing.T) {
 	form.Set("new_password2", altAdminPassword)
 	// no csrf token
 	req, _ = http.NewRequest(http.MethodPost, webChangeAdminPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
@@ -13362,6 +13493,7 @@ func TestWebAdminPwdChange(t *testing.T) {
 
 	form.Set(csrfFormToken, csrfToken)
 	req, _ = http.NewRequest(http.MethodPost, webChangeAdminPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
@@ -13371,6 +13503,7 @@ func TestWebAdminPwdChange(t *testing.T) {
 	form.Set("new_password1", altAdminPassword+"1")
 	form.Set("new_password2", altAdminPassword+"1")
 	req, _ = http.NewRequest(http.MethodPost, webChangeAdminPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
@@ -13881,6 +14014,7 @@ func TestWebAdminBasicMock(t *testing.T) {
 	form.Set("permissions", "*")
 	form.Set("description", admin.Description)
 	req, _ := http.NewRequest(http.MethodPost, webAdminPath, bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr := executeRequest(req)
@@ -13890,6 +14024,7 @@ func TestWebAdminBasicMock(t *testing.T) {
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("status", "a")
 	req, _ = http.NewRequest(http.MethodPost, webAdminPath, bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
@@ -13897,6 +14032,7 @@ func TestWebAdminBasicMock(t *testing.T) {
 
 	form.Set("status", "1")
 	req, _ = http.NewRequest(http.MethodPost, webAdminPath, bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
@@ -13904,6 +14040,7 @@ func TestWebAdminBasicMock(t *testing.T) {
 
 	form.Set("password", admin.Password)
 	req, _ = http.NewRequest(http.MethodPost, webAdminPath, bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
@@ -13924,6 +14061,7 @@ func TestWebAdminBasicMock(t *testing.T) {
 	// no CSRF token
 	req, err = http.NewRequest(http.MethodPost, webAdminTOTPSavePath, bytes.NewBuffer(asJSON))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	setJWTCookieForReq(req, altToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
@@ -13933,6 +14071,7 @@ func TestWebAdminBasicMock(t *testing.T) {
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, altToken)
 	setCSRFHeaderForReq(req, csrfToken)
+	req.RemoteAddr = defaultRemoteAddr
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 
@@ -13951,6 +14090,7 @@ func TestWebAdminBasicMock(t *testing.T) {
 	assert.NoError(t, err)
 	req, err = http.NewRequest(http.MethodPost, webAdminTOTPSavePath, bytes.NewBuffer(asJSON))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	setJWTCookieForReq(req, altToken)
 	setCSRFHeaderForReq(req, csrfToken)
 	rr = executeRequest(req)
@@ -13970,27 +14110,32 @@ func TestWebAdminBasicMock(t *testing.T) {
 	assert.NoError(t, err)
 	req, err = http.NewRequest(http.MethodPost, webAdminTOTPSavePath, bytes.NewBuffer(asJSON))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	setJWTCookieForReq(req, altToken)
 	setCSRFHeaderForReq(req, csrfToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 
 	req, _ = http.NewRequest(http.MethodGet, webAdminsPath+"?qlimit=a", nil)
+	req.RemoteAddr = defaultRemoteAddr
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	req, _ = http.NewRequest(http.MethodGet, webAdminsPath+"?qlimit=1", nil)
+	req.RemoteAddr = defaultRemoteAddr
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 
 	req, _ = http.NewRequest(http.MethodGet, webAdminPath, nil)
+	req.RemoteAddr = defaultRemoteAddr
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 
 	form.Set("password", "")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webAdminPath, altAdminUsername), bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
@@ -13998,6 +14143,7 @@ func TestWebAdminBasicMock(t *testing.T) {
 
 	form.Set(csrfFormToken, "invalid csrf")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webAdminPath, altAdminUsername), bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
@@ -14007,6 +14153,7 @@ func TestWebAdminBasicMock(t *testing.T) {
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("email", "not-an-email")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webAdminPath, altAdminUsername), bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
@@ -14015,6 +14162,7 @@ func TestWebAdminBasicMock(t *testing.T) {
 	form.Set("email", "")
 	form.Set("status", "b")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webAdminPath, altAdminUsername), bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
@@ -14023,6 +14171,7 @@ func TestWebAdminBasicMock(t *testing.T) {
 	form.Set("email", "admin@example.com")
 	form.Set("status", "0")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webAdminPath, altAdminUsername), bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
@@ -14035,22 +14184,26 @@ func TestWebAdminBasicMock(t *testing.T) {
 	assert.Equal(t, 0, admin.Status)
 
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webAdminPath, altAdminUsername+"1"), bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
 
 	req, _ = http.NewRequest(http.MethodGet, path.Join(webAdminPath, altAdminUsername), nil)
+	req.RemoteAddr = defaultRemoteAddr
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 
 	req, _ = http.NewRequest(http.MethodGet, path.Join(webAdminPath, altAdminUsername+"1"), nil)
+	req.RemoteAddr = defaultRemoteAddr
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
 
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(webAdminPath, altAdminUsername), nil)
+	req.RemoteAddr = defaultRemoteAddr
 	setJWTCookieForReq(req, token)
 	setCSRFHeaderForReq(req, csrfToken)
 	rr = executeRequest(req)
@@ -14060,6 +14213,7 @@ func TestWebAdminBasicMock(t *testing.T) {
 	assert.NoError(t, err)
 
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(webAdminPath, defaultTokenAuthUser), nil)
+	req.RemoteAddr = defaultRemoteAddr
 	setJWTCookieForReq(req, token)
 	setCSRFHeaderForReq(req, csrfToken)
 	rr = executeRequest(req)
@@ -14067,6 +14221,7 @@ func TestWebAdminBasicMock(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "you cannot delete yourself")
 
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(webAdminPath, defaultTokenAuthUser), nil)
+	req.RemoteAddr = defaultRemoteAddr
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
@@ -14159,6 +14314,7 @@ func TestAdminUpdateSelfMock(t *testing.T) {
 	form.Set("permissions", dataprovider.PermAdminCloseConnections)
 	form.Set(csrfFormToken, csrfToken)
 	req, _ := http.NewRequest(http.MethodPost, path.Join(webAdminPath, defaultTokenAuthUser), bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr := executeRequest(req)
@@ -14167,6 +14323,7 @@ func TestAdminUpdateSelfMock(t *testing.T) {
 
 	form.Set("permissions", dataprovider.PermAdminAny)
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webAdminPath, defaultTokenAuthUser), bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
@@ -16718,6 +16875,7 @@ func TestAdminForgotPassword(t *testing.T) {
 	// no csrf token
 	req, err = http.NewRequest(http.MethodPost, webAdminForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusForbidden, rr.Code)
@@ -16725,6 +16883,7 @@ func TestAdminForgotPassword(t *testing.T) {
 	form.Set(csrfFormToken, csrfToken)
 	req, err = http.NewRequest(http.MethodPost, webAdminForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -16734,6 +16893,7 @@ func TestAdminForgotPassword(t *testing.T) {
 	form.Set("username", altAdminUsername)
 	req, err = http.NewRequest(http.MethodPost, webAdminForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -16742,6 +16902,7 @@ func TestAdminForgotPassword(t *testing.T) {
 	form = make(url.Values)
 	req, err = http.NewRequest(http.MethodPost, webAdminResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusForbidden, rr.Code)
@@ -16749,6 +16910,7 @@ func TestAdminForgotPassword(t *testing.T) {
 	form.Set(csrfFormToken, csrfToken)
 	req, err = http.NewRequest(http.MethodPost, webAdminResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -16757,6 +16919,7 @@ func TestAdminForgotPassword(t *testing.T) {
 	form.Set("password", defaultPassword)
 	req, err = http.NewRequest(http.MethodPost, webAdminResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -16765,6 +16928,7 @@ func TestAdminForgotPassword(t *testing.T) {
 	form.Set("code", lastResetCode)
 	req, err = http.NewRequest(http.MethodPost, webAdminResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -16772,6 +16936,7 @@ func TestAdminForgotPassword(t *testing.T) {
 	form.Set("username", altAdminUsername)
 	req, err = http.NewRequest(http.MethodPost, webAdminForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -16791,6 +16956,7 @@ func TestAdminForgotPassword(t *testing.T) {
 	form.Set(csrfFormToken, csrfToken)
 	req, err = http.NewRequest(http.MethodPost, webAdminForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -16804,6 +16970,7 @@ func TestAdminForgotPassword(t *testing.T) {
 	form.Set(csrfFormToken, csrfToken)
 	req, err = http.NewRequest(http.MethodPost, webAdminForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -16858,6 +17025,7 @@ func TestUserForgotPassword(t *testing.T) {
 	// no csrf token
 	req, err = http.NewRequest(http.MethodPost, webClientForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusForbidden, rr.Code)
@@ -16867,6 +17035,7 @@ func TestUserForgotPassword(t *testing.T) {
 	form.Set(csrfFormToken, csrfToken)
 	req, err = http.NewRequest(http.MethodPost, webClientForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -16875,6 +17044,7 @@ func TestUserForgotPassword(t *testing.T) {
 	form.Set("username", user.Username)
 	req, err = http.NewRequest(http.MethodPost, webClientForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -16886,6 +17056,7 @@ func TestUserForgotPassword(t *testing.T) {
 	lastResetCode = ""
 	req, err = http.NewRequest(http.MethodPost, webClientForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -16894,6 +17065,7 @@ func TestUserForgotPassword(t *testing.T) {
 	form = make(url.Values)
 	req, err = http.NewRequest(http.MethodPost, webClientResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusForbidden, rr.Code)
@@ -16901,6 +17073,7 @@ func TestUserForgotPassword(t *testing.T) {
 	form.Set(csrfFormToken, csrfToken)
 	req, err = http.NewRequest(http.MethodPost, webClientResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -16909,6 +17082,7 @@ func TestUserForgotPassword(t *testing.T) {
 	form.Set("password", altAdminPassword)
 	req, err = http.NewRequest(http.MethodPost, webClientResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -16917,6 +17091,7 @@ func TestUserForgotPassword(t *testing.T) {
 	form.Set("code", lastResetCode)
 	req, err = http.NewRequest(http.MethodPost, webClientResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -16927,6 +17102,7 @@ func TestUserForgotPassword(t *testing.T) {
 	lastResetCode = ""
 	req, err = http.NewRequest(http.MethodPost, webClientForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
@@ -16957,6 +17133,7 @@ func TestUserForgotPassword(t *testing.T) {
 	form.Set("password", "pwd")
 	req, err = http.NewRequest(http.MethodPost, webClientResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
@@ -17438,6 +17615,16 @@ func getUserAsJSON(t *testing.T, user dataprovider.User) []byte {
 	return json
 }
 
+func getCSRFTokenMock(loginURLPath, remoteAddr string) (string, error) {
+	req, err := http.NewRequest(http.MethodGet, loginURLPath, nil)
+	if err != nil {
+		return "", err
+	}
+	req.RemoteAddr = remoteAddr
+	rr := executeRequest(req)
+	return getCSRFTokenFromBody(bytes.NewBuffer(rr.Body.Bytes()))
+}
+
 func getCSRFToken(url string) (string, error) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
@@ -17450,7 +17637,11 @@ func getCSRFToken(url string) (string, error) {
 
 	defer resp.Body.Close()
 
-	doc, err := html.Parse(resp.Body)
+	return getCSRFTokenFromBody(resp.Body)
+}
+
+func getCSRFTokenFromBody(body io.Reader) (string, error) {
+	doc, err := html.Parse(body)
 	if err != nil {
 		return "", err
 	}
@@ -17509,6 +17700,7 @@ func setAPIKeyForReq(req *http.Request, apiKey, username string) {
 }
 
 func setJWTCookieForReq(req *http.Request, jwtToken string) {
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", jwtToken))
 }
 
@@ -17573,8 +17765,16 @@ func getJWTWebToken(username, password string) (string, error) {
 	return "", errors.New("no cookie found")
 }
 
+func getCookieFromResponse(rr *httptest.ResponseRecorder) (string, error) {
+	cookie := strings.Split(rr.Header().Get("Set-Cookie"), ";")
+	if strings.HasPrefix(cookie[0], "jwt=") {
+		return cookie[0][4:], nil
+	}
+	return "", errors.New("no cookie found")
+}
+
 func getJWTWebClientTokenFromTestServerWithAddr(username, password, remoteAddr string) (string, error) {
-	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
+	csrfToken, err := getCSRFTokenMock(webClientLoginPath, remoteAddr)
 	if err != nil {
 		return "", err
 	}
@@ -17589,16 +17789,20 @@ func getJWTWebClientTokenFromTestServerWithAddr(username, password, remoteAddr s
 	return getCookieFromResponse(rr)
 }
 
-func getCookieFromResponse(rr *httptest.ResponseRecorder) (string, error) {
-	cookie := strings.Split(rr.Header().Get("Set-Cookie"), ";")
-	if strings.HasPrefix(cookie[0], "jwt=") {
-		return cookie[0][4:], nil
-	}
-	return "", errors.New("no cookie found")
-}
-
 func getJWTWebClientTokenFromTestServer(username, password string) (string, error) {
-	return getJWTWebClientTokenFromTestServerWithAddr(username, password, "")
+	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
+	if err != nil {
+		return "", err
+	}
+	form := getLoginForm(username, password, csrfToken)
+	req, _ := http.NewRequest(http.MethodPost, webClientLoginPath, bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := executeRequest(req)
+	if rr.Code != http.StatusFound {
+		return "", fmt.Errorf("unexpected  status code %v", rr)
+	}
+	return getCookieFromResponse(rr)
 }
 
 func getJWTWebTokenFromTestServer(username, password string) (string, error) {
@@ -17608,6 +17812,7 @@ func getJWTWebTokenFromTestServer(username, password string) (string, error) {
 	}
 	form := getLoginForm(username, password, csrfToken)
 	req, _ := http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr := executeRequest(req)
 	if rr.Code != http.StatusFound {

@@ -77,7 +77,7 @@ func validateJWTToken(w http.ResponseWriter, r *http.Request, audience tokenAudi
 		return errInvalidToken
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
-	if ipAddr != "" && !strings.Contains(token.JwtID(), ipAddr) {
+	if !util.IsStringInSlice(ipAddr, token.Audience()) {
 		logger.Debug(logSender, "", "the token with id %#v is not valid for the ip address %#v", token.JwtID(), ipAddr)
 		doRedirect("Your token is not valid", nil)
 		return errInvalidToken
@@ -278,7 +278,13 @@ func verifyCSRFHeader(next http.Handler) http.Handler {
 		}
 
 		if !util.IsStringInSlice(tokenAudienceCSRF, token.Audience()) {
-			logger.Debug(logSender, "", "error validating CSRF header audience")
+			logger.Debug(logSender, "", "error validating CSRF header token audience")
+			sendAPIResponse(w, r, errors.New("the token is not valid"), "", http.StatusForbidden)
+			return
+		}
+
+		if !util.IsStringInSlice(util.GetIPFromRemoteAddress(r.RemoteAddr), token.Audience()) {
+			logger.Debug(logSender, "", "error validating CSRF header IP audience")
 			sendAPIResponse(w, r, errors.New("the token is not valid"), "", http.StatusForbidden)
 			return
 		}

@@ -633,7 +633,7 @@ func TestUpdateWebAdminInvalidClaims(t *testing.T) {
 	assert.NoError(t, err)
 
 	form := make(url.Values)
-	form.Set(csrfFormToken, createCSRFToken())
+	form.Set(csrfFormToken, createCSRFToken(""))
 	form.Set("status", "1")
 	req, _ := http.NewRequest(http.MethodPost, path.Join(webAdminPath, "admin"), bytes.NewBuffer([]byte(form.Encode())))
 	rctx := chi.NewRouteContext()
@@ -688,7 +688,7 @@ func TestRetentionInvalidTokenClaims(t *testing.T) {
 
 func TestCSRFToken(t *testing.T) {
 	// invalid token
-	err := verifyCSRFToken("token")
+	err := verifyCSRFToken("token", "")
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "unable to verify form token")
 	}
@@ -699,14 +699,28 @@ func TestCSRFToken(t *testing.T) {
 	claims[jwt.JwtIDKey] = xid.New().String()
 	claims[jwt.NotBeforeKey] = now.Add(-30 * time.Second)
 	claims[jwt.ExpirationKey] = now.Add(tokenDuration)
-	claims[jwt.AudienceKey] = tokenAudienceAPI
+	claims[jwt.AudienceKey] = []string{tokenAudienceAPI}
 
 	_, tokenString, err := csrfTokenAuth.Encode(claims)
 	assert.NoError(t, err)
-	err = verifyCSRFToken(tokenString)
+	err = verifyCSRFToken(tokenString, "")
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "form token is not valid")
 	}
+
+	// bad IP
+	tokenString = createCSRFToken("127.1.1.1")
+	err = verifyCSRFToken(tokenString, "127.1.1.2")
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "form token is not valid")
+	}
+
+	claims[jwt.JwtIDKey] = xid.New().String()
+	claims[jwt.NotBeforeKey] = now.Add(-30 * time.Second)
+	claims[jwt.ExpirationKey] = now.Add(tokenDuration)
+	claims[jwt.AudienceKey] = []string{tokenAudienceAPI}
+	_, tokenString, err = csrfTokenAuth.Encode(claims)
+	assert.NoError(t, err)
 
 	r := GetHTTPRouter(Binding{
 		Address:         "",
@@ -722,6 +736,15 @@ func TestCSRFToken(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, rr.Code)
 	assert.Contains(t, rr.Body.String(), "Invalid token")
 
+	// invalid audience
+	req.Header.Set(csrfHeaderToken, tokenString)
+	rr = httptest.NewRecorder()
+	fn.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), "the token is not valid")
+
+	// invalid IP
+	tokenString = createCSRFToken("172.16.1.2")
 	req.Header.Set(csrfHeaderToken, tokenString)
 	rr = httptest.NewRecorder()
 	fn.ServeHTTP(rr, req)
@@ -729,7 +752,7 @@ func TestCSRFToken(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "the token is not valid")
 
 	csrfTokenAuth = jwtauth.New("PS256", util.GenerateRandomBytes(32), nil)
-	tokenString = createCSRFToken()
+	tokenString = createCSRFToken("")
 	assert.Empty(t, tokenString)
 
 	csrfTokenAuth = jwtauth.New(jwa.HS256.String(), util.GenerateRandomBytes(32), nil)
@@ -765,7 +788,7 @@ func TestCreateTokenError(t *testing.T) {
 	form := make(url.Values)
 	form.Set("username", admin.Username)
 	form.Set("password", admin.Password)
-	form.Set(csrfFormToken, createCSRFToken())
+	form.Set(csrfFormToken, createCSRFToken("127.0.0.1"))
 	req, _ = http.NewRequest(http.MethodPost, webAdminLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	req.RemoteAddr = "127.0.0.1:1234"
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -905,7 +928,7 @@ func TestCreateTokenError(t *testing.T) {
 	form = make(url.Values)
 	form.Set("username", user.Username)
 	form.Set("password", "clientpwd")
-	form.Set(csrfFormToken, createCSRFToken())
+	form.Set(csrfFormToken, createCSRFToken("127.0.0.1"))
 	req, _ = http.NewRequest(http.MethodPost, webClientLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	req.RemoteAddr = "127.0.0.1:4567"
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -1086,7 +1109,7 @@ func TestCookieExpiration(t *testing.T) {
 	claims[claimPermissionsKey] = admin.Permissions
 	claims[jwt.SubjectKey] = admin.GetSignature()
 	claims[jwt.ExpirationKey] = time.Now().Add(1 * time.Minute)
-	claims[jwt.AudienceKey] = tokenAudienceAPI
+	claims[jwt.AudienceKey] = []string{tokenAudienceAPI}
 	token, _, err = server.tokenAuth.Encode(claims)
 	assert.NoError(t, err)
 	req, _ = http.NewRequest(http.MethodGet, tokenPath, nil)
@@ -1121,7 +1144,7 @@ func TestCookieExpiration(t *testing.T) {
 	claims[claimPermissionsKey] = admin.Permissions
 	claims[jwt.SubjectKey] = admin.GetSignature()
 	claims[jwt.ExpirationKey] = time.Now().Add(1 * time.Minute)
-	claims[jwt.AudienceKey] = tokenAudienceAPI
+	claims[jwt.AudienceKey] = []string{tokenAudienceAPI}
 	token, _, err = server.tokenAuth.Encode(claims)
 	assert.NoError(t, err)
 	req, _ = http.NewRequest(http.MethodGet, tokenPath, nil)
@@ -1159,7 +1182,7 @@ func TestCookieExpiration(t *testing.T) {
 	claims[claimPermissionsKey] = user.Filters.WebClient
 	claims[jwt.SubjectKey] = user.GetSignature()
 	claims[jwt.ExpirationKey] = time.Now().Add(1 * time.Minute)
-	claims[jwt.AudienceKey] = tokenAudienceWebClient
+	claims[jwt.AudienceKey] = []string{tokenAudienceWebClient}
 	token, _, err = server.tokenAuth.Encode(claims)
 	assert.NoError(t, err)
 
@@ -1191,7 +1214,7 @@ func TestCookieExpiration(t *testing.T) {
 	claims[claimPermissionsKey] = user.Filters.WebClient
 	claims[jwt.SubjectKey] = user.GetSignature()
 	claims[jwt.ExpirationKey] = time.Now().Add(1 * time.Minute)
-	claims[jwt.AudienceKey] = tokenAudienceWebClient
+	claims[jwt.AudienceKey] = []string{tokenAudienceWebClient}
 	token, _, err = server.tokenAuth.Encode(claims)
 	assert.NoError(t, err)
 
@@ -1520,7 +1543,7 @@ func TestProxyHeaders(t *testing.T) {
 	form := make(url.Values)
 	form.Set("username", username)
 	form.Set("password", password)
-	form.Set(csrfFormToken, createCSRFToken())
+	form.Set(csrfFormToken, createCSRFToken(testIP))
 	req, err = http.NewRequest(http.MethodPost, webAdminLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = testIP
@@ -1530,6 +1553,7 @@ func TestProxyHeaders(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
 	assert.Contains(t, rr.Body.String(), "login from IP 10.29.1.9 not allowed")
 
+	form.Set(csrfFormToken, createCSRFToken(validForwardedFor))
 	req, err = http.NewRequest(http.MethodPost, webAdminLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = testIP
@@ -2069,7 +2093,7 @@ func TestInvalidClaims(t *testing.T) {
 	token, err := c.createTokenResponse(server.tokenAuth, tokenAudienceWebClient, "")
 	assert.NoError(t, err)
 	form := make(url.Values)
-	form.Set(csrfFormToken, createCSRFToken())
+	form.Set(csrfFormToken, createCSRFToken(""))
 	form.Set("public_keys", "")
 	req, _ := http.NewRequest(http.MethodPost, webClientProfilePath, bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -2089,7 +2113,7 @@ func TestInvalidClaims(t *testing.T) {
 	token, err = c.createTokenResponse(server.tokenAuth, tokenAudienceWebAdmin, "")
 	assert.NoError(t, err)
 	form = make(url.Values)
-	form.Set(csrfFormToken, createCSRFToken())
+	form.Set(csrfFormToken, createCSRFToken(""))
 	form.Set("allow_api_key_auth", "")
 	req, _ = http.NewRequest(http.MethodPost, webAdminProfilePath, bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -2400,7 +2424,7 @@ func TestWebAdminSetupWithInstallCode(t *testing.T) {
 	}
 
 	form := make(url.Values)
-	csrfToken := createCSRFToken()
+	csrfToken := createCSRFToken("")
 	form.Set("_form_token", csrfToken)
 	form.Set("install_code", "12345")
 	form.Set("username", defaultAdminUsername)

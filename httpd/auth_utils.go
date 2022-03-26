@@ -49,16 +49,19 @@ type jwtTokenClaims struct {
 	Username                   string
 	Permissions                []string
 	Signature                  string
-	Audience                   string
+	Audience                   []string
 	APIKeyID                   string
 	MustSetTwoFactorAuth       bool
 	RequiredTwoFactorProtocols []string
 }
 
 func (c *jwtTokenClaims) hasUserAudience() bool {
-	if c.Audience == tokenAudienceWebClient || c.Audience == tokenAudienceAPIUser {
-		return true
+	for _, audience := range c.Audience {
+		if audience == tokenAudienceWebClient || audience == tokenAudienceAPIUser {
+			return true
+		}
 	}
+
 	return false
 }
 
@@ -97,9 +100,7 @@ func (c *jwtTokenClaims) Decode(token map[string]interface{}) {
 
 	switch v := audience.(type) {
 	case []string:
-		if len(v) > 0 {
-			c.Audience = v[0]
-		}
+		c.Audience = v
 	}
 
 	if val, ok := token[claimAPIKey]; ok {
@@ -163,10 +164,10 @@ func (c *jwtTokenClaims) createToken(tokenAuth *jwtauth.JWTAuth, audience tokenA
 	claims := c.asMap()
 	now := time.Now().UTC()
 
-	claims[jwt.JwtIDKey] = fmt.Sprintf("%s%s", xid.New().String(), ip)
+	claims[jwt.JwtIDKey] = xid.New().String()
 	claims[jwt.NotBeforeKey] = now.Add(-30 * time.Second)
 	claims[jwt.ExpirationKey] = now.Add(tokenDuration)
-	claims[jwt.AudienceKey] = audience
+	claims[jwt.AudienceKey] = []string{audience, ip}
 
 	return tokenAuth.Encode(claims)
 }
@@ -299,14 +300,14 @@ func getAdminFromToken(r *http.Request) *dataprovider.Admin {
 	return admin
 }
 
-func createCSRFToken() string {
+func createCSRFToken(ip string) string {
 	claims := make(map[string]interface{})
 	now := time.Now().UTC()
 
 	claims[jwt.JwtIDKey] = xid.New().String()
 	claims[jwt.NotBeforeKey] = now.Add(-30 * time.Second)
 	claims[jwt.ExpirationKey] = now.Add(csrfTokenDuration)
-	claims[jwt.AudienceKey] = tokenAudienceCSRF
+	claims[jwt.AudienceKey] = []string{tokenAudienceCSRF, ip}
 
 	_, tokenString, err := csrfTokenAuth.Encode(claims)
 	if err != nil {
@@ -316,7 +317,7 @@ func createCSRFToken() string {
 	return tokenString
 }
 
-func verifyCSRFToken(tokenString string) error {
+func verifyCSRFToken(tokenString, ip string) error {
 	token, err := jwtauth.VerifyToken(csrfTokenAuth, tokenString)
 	if err != nil || token == nil {
 		logger.Debug(logSender, "", "error validating CSRF token %#v: %v", tokenString, err)
@@ -325,6 +326,11 @@ func verifyCSRFToken(tokenString string) error {
 
 	if !util.IsStringInSlice(tokenAudienceCSRF, token.Audience()) {
 		logger.Debug(logSender, "", "error validating CSRF token audience")
+		return errors.New("the form token is not valid")
+	}
+
+	if !util.IsStringInSlice(ip, token.Audience()) {
+		logger.Debug(logSender, "", "error validating CSRF token IP audience")
 		return errors.New("the form token is not valid")
 	}
 

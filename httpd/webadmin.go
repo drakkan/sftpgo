@@ -376,7 +376,7 @@ func loadAdminTemplates(templatesPath string) {
 func (s *httpdServer) getBasePageData(title, currentURL string, r *http.Request) basePage {
 	var csrfToken string
 	if currentURL != "" {
-		csrfToken = createCSRFToken()
+		csrfToken = createCSRFToken(util.GetIPFromRemoteAddress(r.RemoteAddr))
 	}
 	return basePage{
 		Title:              title,
@@ -458,11 +458,11 @@ func (s *httpdServer) renderNotFoundPage(w http.ResponseWriter, r *http.Request,
 	s.renderMessagePage(w, r, page404Title, page404Body, http.StatusNotFound, err, "")
 }
 
-func (s *httpdServer) renderForgotPwdPage(w http.ResponseWriter, error string) {
+func (s *httpdServer) renderForgotPwdPage(w http.ResponseWriter, error, ip string) {
 	data := forgotPwdPage{
 		CurrentURL: webAdminForgotPwdPath,
 		Error:      error,
-		CSRFToken:  createCSRFToken(),
+		CSRFToken:  createCSRFToken(ip),
 		StaticURL:  webStaticFilesPath,
 		Title:      pageForgotPwdTitle,
 		ExtraCSS:   s.binding.ExtraCSS,
@@ -470,11 +470,11 @@ func (s *httpdServer) renderForgotPwdPage(w http.ResponseWriter, error string) {
 	renderAdminTemplate(w, templateForgotPassword, data)
 }
 
-func (s *httpdServer) renderResetPwdPage(w http.ResponseWriter, error string) {
+func (s *httpdServer) renderResetPwdPage(w http.ResponseWriter, error, ip string) {
 	data := resetPwdPage{
 		CurrentURL: webAdminResetPwdPath,
 		Error:      error,
-		CSRFToken:  createCSRFToken(),
+		CSRFToken:  createCSRFToken(ip),
 		StaticURL:  webStaticFilesPath,
 		Title:      pageResetPwdTitle,
 		ExtraCSS:   s.binding.ExtraCSS,
@@ -482,12 +482,12 @@ func (s *httpdServer) renderResetPwdPage(w http.ResponseWriter, error string) {
 	renderAdminTemplate(w, templateResetPassword, data)
 }
 
-func (s *httpdServer) renderTwoFactorPage(w http.ResponseWriter, error string) {
+func (s *httpdServer) renderTwoFactorPage(w http.ResponseWriter, error, ip string) {
 	data := twoFactorPage{
 		CurrentURL:  webAdminTwoFactorPath,
 		Version:     version.Get().Version,
 		Error:       error,
-		CSRFToken:   createCSRFToken(),
+		CSRFToken:   createCSRFToken(ip),
 		StaticURL:   webStaticFilesPath,
 		RecoveryURL: webAdminTwoFactorRecoveryPath,
 		ExtraCSS:    s.binding.ExtraCSS,
@@ -495,12 +495,12 @@ func (s *httpdServer) renderTwoFactorPage(w http.ResponseWriter, error string) {
 	renderAdminTemplate(w, templateTwoFactor, data)
 }
 
-func (s *httpdServer) renderTwoFactorRecoveryPage(w http.ResponseWriter, error string) {
+func (s *httpdServer) renderTwoFactorRecoveryPage(w http.ResponseWriter, error, ip string) {
 	data := twoFactorPage{
 		CurrentURL: webAdminTwoFactorRecoveryPath,
 		Version:    version.Get().Version,
 		Error:      error,
-		CSRFToken:  createCSRFToken(),
+		CSRFToken:  createCSRFToken(ip),
 		StaticURL:  webStaticFilesPath,
 		ExtraCSS:   s.binding.ExtraCSS,
 	}
@@ -1376,27 +1376,29 @@ func (s *httpdServer) handleWebAdminForgotPwd(w http.ResponseWriter, r *http.Req
 		s.renderNotFoundPage(w, r, errors.New("this page does not exist"))
 		return
 	}
-	s.renderForgotPwdPage(w, "")
+	s.renderForgotPwdPage(w, "", util.GetIPFromRemoteAddress(r.RemoteAddr))
 }
 
 func (s *httpdServer) handleWebAdminForgotPwdPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	err := r.ParseForm()
 	if err != nil {
-		s.renderForgotPwdPage(w, err.Error())
+		s.renderForgotPwdPage(w, err.Error(), ipAddr)
 		return
 	}
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
 		s.renderForbiddenPage(w, r, err.Error())
 		return
 	}
 	err = handleForgotPassword(r, r.Form.Get("username"), true)
 	if err != nil {
 		if e, ok := err.(*util.ValidationError); ok {
-			s.renderForgotPwdPage(w, e.GetErrorString())
+			s.renderForgotPwdPage(w, e.GetErrorString(), ipAddr)
 			return
 		}
-		s.renderForgotPwdPage(w, err.Error())
+		s.renderForgotPwdPage(w, err.Error(), ipAddr)
 		return
 	}
 	http.Redirect(w, r, webAdminResetPwdPath, http.StatusFound)
@@ -1408,17 +1410,17 @@ func (s *httpdServer) handleWebAdminPasswordReset(w http.ResponseWriter, r *http
 		s.renderNotFoundPage(w, r, errors.New("this page does not exist"))
 		return
 	}
-	s.renderResetPwdPage(w, "")
+	s.renderResetPwdPage(w, "", util.GetIPFromRemoteAddress(r.RemoteAddr))
 }
 
 func (s *httpdServer) handleWebAdminTwoFactor(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	s.renderTwoFactorPage(w, "")
+	s.renderTwoFactorPage(w, "", util.GetIPFromRemoteAddress(r.RemoteAddr))
 }
 
 func (s *httpdServer) handleWebAdminTwoFactorRecovery(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	s.renderTwoFactorRecoveryPage(w, "")
+	s.renderTwoFactorRecoveryPage(w, "", util.GetIPFromRemoteAddress(r.RemoteAddr))
 }
 
 func (s *httpdServer) handleWebAdminMFA(w http.ResponseWriter, r *http.Request) {
@@ -1443,7 +1445,8 @@ func (s *httpdServer) handleWebAdminProfilePost(w http.ResponseWriter, r *http.R
 		s.renderProfilePage(w, r, err.Error())
 		return
 	}
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
 		s.renderForbiddenPage(w, r, err.Error())
 		return
 	}
@@ -1460,7 +1463,7 @@ func (s *httpdServer) handleWebAdminProfilePost(w http.ResponseWriter, r *http.R
 	admin.Filters.AllowAPIKeyAuth = len(r.Form.Get("allow_api_key_auth")) > 0
 	admin.Email = r.Form.Get("email")
 	admin.Description = r.Form.Get("description")
-	err = dataprovider.UpdateAdmin(&admin, dataprovider.ActionExecutorSelf, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	err = dataprovider.UpdateAdmin(&admin, dataprovider.ActionExecutorSelf, ipAddr)
 	if err != nil {
 		s.renderProfilePage(w, r, err.Error())
 		return
@@ -1487,7 +1490,9 @@ func (s *httpdServer) handleWebRestore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer r.MultipartForm.RemoveAll() //nolint:errcheck
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
+
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
 		s.renderForbiddenPage(w, r, err.Error())
 		return
 	}
@@ -1517,7 +1522,7 @@ func (s *httpdServer) handleWebRestore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := restoreBackup(backupContent, "", scanQuota, restoreMode, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr)); err != nil {
+	if err := restoreBackup(backupContent, "", scanQuota, restoreMode, claims.Username, ipAddr); err != nil {
 		s.renderMaintenancePage(w, r, err.Error())
 		return
 	}
@@ -1594,11 +1599,12 @@ func (s *httpdServer) handleWebAddAdminPost(w http.ResponseWriter, r *http.Reque
 		s.renderAddUpdateAdminPage(w, r, &admin, err.Error(), true)
 		return
 	}
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
 		s.renderForbiddenPage(w, r, err.Error())
 		return
 	}
-	err = dataprovider.AddAdmin(&admin, claims.Username, util.GetIPFromRemoteAddress(r.Method))
+	err = dataprovider.AddAdmin(&admin, claims.Username, ipAddr)
 	if err != nil {
 		s.renderAddUpdateAdminPage(w, r, &admin, err.Error(), true)
 		return
@@ -1624,7 +1630,8 @@ func (s *httpdServer) handleWebUpdateAdminPost(w http.ResponseWriter, r *http.Re
 		s.renderAddUpdateAdminPage(w, r, &updatedAdmin, err.Error(), false)
 		return
 	}
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
 		s.renderForbiddenPage(w, r, err.Error())
 		return
 	}
@@ -1650,7 +1657,7 @@ func (s *httpdServer) handleWebUpdateAdminPost(w http.ResponseWriter, r *http.Re
 			return
 		}
 	}
-	err = dataprovider.UpdateAdmin(&updatedAdmin, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	err = dataprovider.UpdateAdmin(&updatedAdmin, claims.Username, ipAddr)
 	if err != nil {
 		s.renderAddUpdateAdminPage(w, r, &admin, err.Error(), false)
 		return
@@ -1733,7 +1740,8 @@ func (s *httpdServer) handleWebTemplateFolderPost(w http.ResponseWriter, r *http
 	}
 	defer r.MultipartForm.RemoveAll() //nolint:errcheck
 
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
 		s.renderForbiddenPage(w, r, err.Error())
 		return
 	}
@@ -1772,7 +1780,7 @@ func (s *httpdServer) handleWebTemplateFolderPost(w http.ResponseWriter, r *http
 		render.JSON(w, r, dump)
 		return
 	}
-	if err = RestoreFolders(dump.Folders, "", 1, 0, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr)); err != nil {
+	if err = RestoreFolders(dump.Folders, "", 1, 0, claims.Username, ipAddr); err != nil {
 		s.renderMessagePage(w, r, "Unable to save folders", "Cannot save the defined folders:",
 			getRespStatus(err), err, "")
 		return
@@ -1819,7 +1827,8 @@ func (s *httpdServer) handleWebTemplateUserPost(w http.ResponseWriter, r *http.R
 		s.renderMessagePage(w, r, "Error parsing user fields", "", http.StatusBadRequest, err, "")
 		return
 	}
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
 		s.renderForbiddenPage(w, r, err.Error())
 		return
 	}
@@ -1854,7 +1863,7 @@ func (s *httpdServer) handleWebTemplateUserPost(w http.ResponseWriter, r *http.R
 		render.JSON(w, r, dump)
 		return
 	}
-	if err = RestoreUsers(dump.Users, "", 1, 0, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr)); err != nil {
+	if err = RestoreUsers(dump.Users, "", 1, 0, claims.Username, ipAddr); err != nil {
 		s.renderMessagePage(w, r, "Unable to save users", "Cannot save the defined users:",
 			getRespStatus(err), err, "")
 		return
@@ -1898,11 +1907,12 @@ func (s *httpdServer) handleWebAddUserPost(w http.ResponseWriter, r *http.Reques
 		s.renderUserPage(w, r, &user, userPageModeAdd, err.Error())
 		return
 	}
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
 		s.renderForbiddenPage(w, r, err.Error())
 		return
 	}
-	err = dataprovider.AddUser(&user, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	err = dataprovider.AddUser(&user, claims.Username, ipAddr)
 	if err == nil {
 		http.Redirect(w, r, webUsersPath, http.StatusSeeOther)
 	} else {
@@ -1931,7 +1941,8 @@ func (s *httpdServer) handleWebUpdateUserPost(w http.ResponseWriter, r *http.Req
 		s.renderUserPage(w, r, &user, userPageModeUpdate, err.Error())
 		return
 	}
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
 		s.renderForbiddenPage(w, r, err.Error())
 		return
 	}
@@ -1947,7 +1958,7 @@ func (s *httpdServer) handleWebUpdateUserPost(w http.ResponseWriter, r *http.Req
 		user.FsConfig.AzBlobConfig.SASURL, user.FsConfig.GCSConfig.Credentials, user.FsConfig.CryptConfig.Passphrase,
 		user.FsConfig.SFTPConfig.Password, user.FsConfig.SFTPConfig.PrivateKey)
 
-	err = dataprovider.UpdateUser(&updatedUser, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	err = dataprovider.UpdateUser(&updatedUser, claims.Username, ipAddr)
 	if err == nil {
 		if len(r.Form.Get("disconnect")) > 0 {
 			disconnectUser(user.Username)
@@ -1992,7 +2003,8 @@ func (s *httpdServer) handleWebAddFolderPost(w http.ResponseWriter, r *http.Requ
 	}
 	defer r.MultipartForm.RemoveAll() //nolint:errcheck
 
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
 		s.renderForbiddenPage(w, r, err.Error())
 		return
 	}
@@ -2051,7 +2063,8 @@ func (s *httpdServer) handleWebUpdateFolderPost(w http.ResponseWriter, r *http.R
 	}
 	defer r.MultipartForm.RemoveAll() //nolint:errcheck
 
-	if err := verifyCSRFToken(r.Form.Get(csrfFormToken)); err != nil {
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
 		s.renderForbiddenPage(w, r, err.Error())
 		return
 	}
@@ -2072,7 +2085,7 @@ func (s *httpdServer) handleWebUpdateFolderPost(w http.ResponseWriter, r *http.R
 		folder.FsConfig.AzBlobConfig.SASURL, folder.FsConfig.GCSConfig.Credentials, folder.FsConfig.CryptConfig.Passphrase,
 		folder.FsConfig.SFTPConfig.Password, folder.FsConfig.SFTPConfig.PrivateKey)
 
-	err = dataprovider.UpdateFolder(updatedFolder, folder.Users, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	err = dataprovider.UpdateFolder(updatedFolder, folder.Users, claims.Username, ipAddr)
 	if err != nil {
 		s.renderFolderPage(w, r, folder, folderPageModeUpdate, err.Error())
 		return
