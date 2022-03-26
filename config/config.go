@@ -98,6 +98,8 @@ var (
 			AllowedHosts:            nil,
 			AllowedHostsAreRegex:    false,
 			HostsProxyHeaders:       nil,
+			HTTPSRedirect:           false,
+			HTTPSHost:               "",
 			HTTPSProxyHeaders:       nil,
 			STSSeconds:              0,
 			STSIncludeSubdomains:    false,
@@ -1142,7 +1144,7 @@ func getHTTPDSecurityProxyHeadersFromEnv(idx int) []httpd.HTTPSProxyHeader {
 	return httpsProxyHeaders
 }
 
-func getHTTPDSecurityConfFromEnv(idx int) (httpd.SecurityConf, bool) {
+func getHTTPDSecurityConfFromEnv(idx int) (httpd.SecurityConf, bool) { //nolint:gocyclo
 	var result httpd.SecurityConf
 	isSet := false
 
@@ -1167,6 +1169,18 @@ func getHTTPDSecurityConfFromEnv(idx int) (httpd.SecurityConf, bool) {
 	hostsProxyHeaders, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__HOSTS_PROXY_HEADERS", idx))
 	if ok {
 		result.HostsProxyHeaders = hostsProxyHeaders
+		isSet = true
+	}
+
+	httpsRedirect, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__HTTPS_REDIRECT", idx))
+	if ok {
+		result.HTTPSRedirect = httpsRedirect
+		isSet = true
+	}
+
+	httpsHost, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__SECURITY__HTTPS_HOST", idx))
+	if ok {
+		result.HTTPSHost = httpsHost
 		isSet = true
 	}
 

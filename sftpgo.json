@@ -241,6 +241,8 @@
           "allowed_hosts": [],
           "allowed_hosts_are_regex": false,
           "hosts_proxy_headers": [],
+          "https_redirect": false,
+          "https_host": "",
           "https_proxy_headers": [],
           "sts_seconds": 0,
           "sts_include_subdomains": false,

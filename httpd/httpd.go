@@ -255,6 +255,11 @@ type SecurityConf struct {
 	AllowedHostsAreRegex bool `json:"allowed_hosts_are_regex" mapstructure:"allowed_hosts_are_regex"`
 	// HostsProxyHeaders is a set of header keys that may hold a proxied hostname value for the request.
 	HostsProxyHeaders []string `json:"hosts_proxy_headers" mapstructure:"hosts_proxy_headers"`
+	// Set to true to redirect HTTP requests to HTTPS
+	HTTPSRedirect bool `json:"https_redirect" mapstructure:"https_redirect"`
+	// HTTPSHost defines the host name that is used to redirect HTTP requests to HTTPS.
+	// Default is "", which indicates to use the same host.
+	HTTPSHost string `json:"https_host" mapstructure:"https_host"`
 	// HTTPSProxyHeaders is a list of header keys with associated values that would indicate a valid https request.
 	HTTPSProxyHeaders []HTTPSProxyHeader `json:"https_proxy_headers" mapstructure:"https_proxy_headers"`
 	// STSSeconds is the max-age of the Strict-Transport-Security header.
