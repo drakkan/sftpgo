@@ -1906,7 +1906,6 @@ func TestUserRedactedPassword(t *testing.T) {
 	u.FsConfig.S3Config.Bucket = "b"
 	u.FsConfig.S3Config.Region = "eu-west-1"
 	u.FsConfig.S3Config.AccessKey = "access-key"
-	u.FsConfig.S3Config.SessionToken = "session token"
 	u.FsConfig.S3Config.RoleARN = "myRoleARN"
 	u.FsConfig.S3Config.AccessSecret = kms.NewSecret(sdkkms.SecretStatusRedacted, "access-secret", "", "")
 	u.FsConfig.S3Config.Endpoint = "http://127.0.0.1:9000/path?k=m"
@@ -2685,7 +2684,6 @@ func TestUserS3Config(t *testing.T) {
 	user.FsConfig.S3Config.Region = "us-east-1" //nolint:goconst
 	user.FsConfig.S3Config.AccessKey = "Server-Access-Key"
 	user.FsConfig.S3Config.AccessSecret = kms.NewPlainSecret("Server-Access-Secret")
-	user.FsConfig.S3Config.SessionToken = "Session token"
 	user.FsConfig.S3Config.RoleARN = "myRoleARN"
 	user.FsConfig.S3Config.Endpoint = "http://127.0.0.1:9000"
 	user.FsConfig.S3Config.UploadPartSize = 8
@@ -15470,6 +15468,117 @@ func TestUserTemplateMock(t *testing.T) {
 	require.True(t, user2.Filters.DisableFsChecks)
 }
 
+func TestUserPlaceholders(t *testing.T) {
+	token, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	assert.NoError(t, err)
+	u := getTestUser()
+	u.HomeDir = filepath.Join(os.TempDir(), "%username%_%password%")
+	form := make(url.Values)
+	form.Set(csrfFormToken, csrfToken)
+	form.Set("username", u.Username)
+	form.Set("home_dir", u.HomeDir)
+	form.Set("password", u.Password)
+	form.Set("status", strconv.Itoa(u.Status))
+	form.Set("expiration_date", "")
+	form.Set("permissions", "*")
+	form.Set("public_keys", testPubKey)
+	form.Add("public_keys", testPubKey1)
+	form.Set("uid", "0")
+	form.Set("gid", "0")
+	form.Set("max_sessions", "0")
+	form.Set("quota_size", "0")
+	form.Set("quota_files", "0")
+	form.Set("upload_bandwidth", "0")
+	form.Set("download_bandwidth", "0")
+	form.Set("total_data_transfer", "0")
+	form.Set("upload_data_transfer", "0")
+	form.Set("download_data_transfer", "0")
+	form.Set("external_auth_cache_time", "0")
+	form.Set("max_upload_file_size", "0")
+	b, contentType, _ := getMultipartFormData(form, "", "")
+	req, _ := http.NewRequest(http.MethodPost, webUserPath, &b)
+	setJWTCookieForReq(req, token)
+	req.Header.Set("Content-Type", contentType)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+
+	user, _, err := httpdtest.GetUserByUsername(defaultUsername, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, filepath.Join(os.TempDir(), fmt.Sprintf("%v_%v", defaultUsername, defaultPassword)), user.HomeDir)
+
+	dbUser, err := dataprovider.UserExists(defaultUsername)
+	assert.NoError(t, err)
+	assert.True(t, dbUser.IsPasswordHashed())
+	hashedPwd := dbUser.Password
+
+	form.Set("password", redactedSecret)
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, err = http.NewRequest(http.MethodPost, path.Join(webUserPath, defaultUsername), &b)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, token)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+
+	user, _, err = httpdtest.GetUserByUsername(defaultUsername, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, filepath.Join(os.TempDir(), defaultUsername+"_%password%"), user.HomeDir)
+	// check that the password was unchanged
+	dbUser, err = dataprovider.UserExists(defaultUsername)
+	assert.NoError(t, err)
+	assert.True(t, dbUser.IsPasswordHashed())
+	assert.Equal(t, hashedPwd, dbUser.Password)
+
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+}
+
+func TestFolderPlaceholders(t *testing.T) {
+	token, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	assert.NoError(t, err)
+	folderName := "folderName"
+	form := make(url.Values)
+	form.Set("name", folderName)
+	form.Set("mapped_path", filepath.Join(os.TempDir(), "%name%"))
+	form.Set("description", "desc folder %name%")
+	form.Set(csrfFormToken, csrfToken)
+	b, contentType, _ := getMultipartFormData(form, "", "")
+	req, err := http.NewRequest(http.MethodPost, webFolderPath, &b)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, token)
+	req.Header.Set("Content-Type", contentType)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+
+	folderGet, _, err := httpdtest.GetFolderByName(folderName, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, filepath.Join(os.TempDir(), folderName), folderGet.MappedPath)
+	assert.Equal(t, fmt.Sprintf("desc folder %v", folderName), folderGet.Description)
+
+	form.Set("mapped_path", filepath.Join(os.TempDir(), "%name%_%name%"))
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, err = http.NewRequest(http.MethodPost, path.Join(webFolderPath, folderName), &b)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, token)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+
+	folderGet, _, err = httpdtest.GetFolderByName(folderName, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, filepath.Join(os.TempDir(), fmt.Sprintf("%v_%v", folderName, folderName)), folderGet.MappedPath)
+	assert.Equal(t, fmt.Sprintf("desc folder %v", folderName), folderGet.Description)
+
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName}, http.StatusOK)
+	assert.NoError(t, err)
+}
+
 func TestFolderSaveFromTemplateMock(t *testing.T) {
 	folder1 := "f1"
 	folder2 := "f2"
@@ -15677,7 +15786,6 @@ func TestWebUserS3Mock(t *testing.T) {
 	user.FsConfig.S3Config.Region = "eu-west-1"
 	user.FsConfig.S3Config.AccessKey = "access-key"
 	user.FsConfig.S3Config.AccessSecret = kms.NewPlainSecret("access-secret")
-	user.FsConfig.S3Config.SessionToken = "new session token"
 	user.FsConfig.S3Config.RoleARN = "arn:aws:iam::123456789012:user/Development/product_1234/*"
 	user.FsConfig.S3Config.Endpoint = "http://127.0.0.1:9000/path?a=b"
 	user.FsConfig.S3Config.StorageClass = "Standard"
@@ -15717,7 +15825,6 @@ func TestWebUserS3Mock(t *testing.T) {
 	form.Set("s3_region", user.FsConfig.S3Config.Region)
 	form.Set("s3_access_key", user.FsConfig.S3Config.AccessKey)
 	form.Set("s3_access_secret", user.FsConfig.S3Config.AccessSecret.GetPayload())
-	form.Set("s3_session_token", user.FsConfig.S3Config.SessionToken)
 	form.Set("s3_role_arn", user.FsConfig.S3Config.RoleARN)
 	form.Set("s3_storage_class", user.FsConfig.S3Config.StorageClass)
 	form.Set("s3_acl", user.FsConfig.S3Config.ACL)
@@ -15808,7 +15915,6 @@ func TestWebUserS3Mock(t *testing.T) {
 	assert.Equal(t, updateUser.FsConfig.S3Config.Bucket, user.FsConfig.S3Config.Bucket)
 	assert.Equal(t, updateUser.FsConfig.S3Config.Region, user.FsConfig.S3Config.Region)
 	assert.Equal(t, updateUser.FsConfig.S3Config.AccessKey, user.FsConfig.S3Config.AccessKey)
-	assert.Equal(t, updateUser.FsConfig.S3Config.SessionToken, user.FsConfig.S3Config.SessionToken)
 	assert.Equal(t, updateUser.FsConfig.S3Config.RoleARN, user.FsConfig.S3Config.RoleARN)
 	assert.Equal(t, updateUser.FsConfig.S3Config.StorageClass, user.FsConfig.S3Config.StorageClass)
 	assert.Equal(t, updateUser.FsConfig.S3Config.ACL, user.FsConfig.S3Config.ACL)
@@ -16577,7 +16683,6 @@ func TestS3WebFolderMock(t *testing.T) {
 	assert.Equal(t, S3Bucket, folder.FsConfig.S3Config.Bucket)
 	assert.Equal(t, S3Region, folder.FsConfig.S3Config.Region)
 	assert.Equal(t, S3AccessKey, folder.FsConfig.S3Config.AccessKey)
-	assert.Equal(t, S3SessionToken, folder.FsConfig.S3Config.SessionToken)
 	assert.NotEmpty(t, folder.FsConfig.S3Config.AccessSecret.GetPayload())
 	assert.Equal(t, S3Endpoint, folder.FsConfig.S3Config.Endpoint)
 	assert.Equal(t, S3StorageClass, folder.FsConfig.S3Config.StorageClass)
@@ -16626,7 +16731,6 @@ func TestS3WebFolderMock(t *testing.T) {
 	assert.Equal(t, S3Bucket, folder.FsConfig.S3Config.Bucket)
 	assert.Equal(t, S3Region, folder.FsConfig.S3Config.Region)
 	assert.Equal(t, S3AccessKey, folder.FsConfig.S3Config.AccessKey)
-	assert.Equal(t, S3SessionToken, folder.FsConfig.S3Config.SessionToken)
 	assert.Equal(t, S3RoleARN, folder.FsConfig.S3Config.RoleARN)
 	assert.NotEmpty(t, folder.FsConfig.S3Config.AccessSecret.GetPayload())
 	assert.Equal(t, S3Endpoint, folder.FsConfig.S3Config.Endpoint)

@@ -93,7 +93,7 @@ Flags:
                                         virtual folder identified by this
                                         prefix and its contents
       --s3-region string
-      --s3-session-token string
+      --s3-role-arn string
       --s3-storage-class string
       --s3-upload-concurrency int       How many parts are uploaded in
                                         parallel (default 2)
@@ -125,7 +125,7 @@ Flags:
   -c, --ssh-commands strings            SSH commands to enable.
                                         "*" means any supported SSH command
                                         including scp
-                                         (default [md5sum,sha1sum,cd,pwd,scp])
+                                         (default [md5sum,sha1sum,sha256sum,cd,pwd,scp])
       --start-directory string          Alternate start directory.
                                         This is a virtual path not a filesystem
                                         path (default "/")

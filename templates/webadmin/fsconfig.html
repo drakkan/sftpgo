@@ -70,13 +70,19 @@
             <label for="idS3StorageClass" class="col-sm-2 col-form-label">Storage Class</label>
             <div class="col-sm-3">
                 <input type="text" class="form-control" id="idS3StorageClass" name="s3_storage_class" placeholder=""
-                    value="{{.S3Config.StorageClass}}" maxlength="255">
+                    value="{{.S3Config.StorageClass}}" maxlength="255" aria-describedby="S3StorageClassHelpBlock">
+                <small id="S3StorageClassHelpBlock" class="form-text text-muted">
+                    Leave blank for default
+                </small>
             </div>
             <div class="col-sm-2"></div>
             <label for="idS3Endpoint" class="col-sm-2 col-form-label">Endpoint</label>
             <div class="col-sm-3">
                 <input type="text" class="form-control" id="idS3Endpoint" name="s3_endpoint" placeholder=""
-                    value="{{.S3Config.Endpoint}}" maxlength="255">
+                    value="{{.S3Config.Endpoint}}" maxlength="512" aria-describedby="S3EndpointHelpBlock">
+                    <small id="S3EndpointHelpBlock" class="form-text text-muted">
+                        For AWS S3, leave blank to use the default endpoint for the specified region
+                    </small>
             </div>
         </div>
 
@@ -150,7 +156,7 @@
                 <input type="text" class="form-control" id="idS3RoleARN" name="s3_role_arn" placeholder=""
                     value="{{.S3Config.RoleARN}}" aria-describedby="S3RoleARNHelpBlock">
                 <small id="S3RoleARNHelpBlock" class="form-text text-muted">
-                    IAM Role ARN to assume
+                    Optional IAM Role ARN to assume
                 </small>
             </div>
         </div>
@@ -161,7 +167,7 @@
                 <input type="text" class="form-control" id="idS3ACL" name="s3_acl" placeholder=""
                     value="{{.S3Config.ACL}}" maxlength="255" aria-describedby="S3ACLHelpBlock">
                 <small id="S3ACLHelpBlock" class="form-text text-muted">
-                    ACL for uploaded objects. For more info take a look <a href="https://docs.aws.amazon.com/AmazonS3/latest/userguide/acl-overview.html#canned-acl" target="_blank">here</a>
+                    ACL for uploaded objects. Leave blank for default. For more info take a look <a href="https://docs.aws.amazon.com/AmazonS3/latest/userguide/acl-overview.html#canned-acl" target="_blank">here</a>
                 </small>
             </div>
         </div>
@@ -177,20 +183,14 @@
             </div>
         </div>
 
-        <div class="form-group row fsconfig fsconfig-s3fs">
-            <label for="idS3SessionToken" class="col-sm-2 col-form-label">Session token</label>
-            <div class="col-sm-10">
-                <textarea class="form-control" id="idS3SessionToken" name="s3_session_token"
-                    rows="3">{{.S3Config.SessionToken}}</textarea>
-            </div>
-        </div>
-
-
         <div class="form-group fsconfig fsconfig-s3fs">
             <div class="form-check">
                 <input type="checkbox" class="form-check-input" id="idS3ForcePathStyle" name="s3_force_path_style"
                     {{if .S3Config.ForcePathStyle}}checked{{end}}>
-                <label for="idS3ForcePathStyle" class="form-check-label">Use path-style addressing, i.e., "`endpoint`/BUCKET/KEY"</label>
+                <label for="idS3ForcePathStyle" class="form-check-label" aria-describedby="S3PathStyleHelpBlock">Use path-style addressing, i.e., "`endpoint`/BUCKET/KEY"</label>
+                <small id="S3PathStyleHelpBlock" class="form-text text-muted">
+                    It is required for some compatible S3 backends
+                </small>
             </div>
         </div>
 
@@ -215,15 +215,21 @@
             <label for="idGCSStorageClass" class="col-sm-2 col-form-label">Storage Class</label>
             <div class="col-sm-3">
                 <input type="text" class="form-control" id="idGCSStorageClass" name="gcs_storage_class" placeholder=""
-                    value="{{.GCSConfig.StorageClass}}" maxlength="255">
+                    value="{{.GCSConfig.StorageClass}}" maxlength="255" aria-describedby="GCSStorageClassHelpBlock">
+                <small id="GCSStorageClassHelpBlock" class="form-text text-muted">
+                    Leave blank for default
+                </small>
             </div>
         </div>
 
         <div class="form-group fsconfig fsconfig-gcsfs">
             <div class="form-check">
                 <input type="checkbox" class="form-check-input" id="idGCSAutoCredentials" name="gcs_auto_credentials"
-                    {{if gt .GCSConfig.AutomaticCredentials 0}}checked{{end}}>
+                    aria-describedby="GCSAutoCredentialsHelpBlock" {{if gt .GCSConfig.AutomaticCredentials 0}}checked{{end}}>
                 <label for="idGCSAutoCredentials" class="form-check-label">Automatic credentials</label>
+                <small id="GCSAutoCredentialsHelpBlock" class="form-text text-muted">
+                    Use default application credentials or credentials from environment
+                </small>
             </div>
         </div>
 
@@ -242,7 +248,7 @@
                 <input type="text" class="form-control" id="idGCSACL" name="gcs_acl" placeholder=""
                     value="{{.GCSConfig.ACL}}" maxlength="255" aria-describedby="GCSACLHelpBlock">
                 <small id="GCSACLHelpBlock" class="form-text text-muted">
-                    ACL for uploaded objects. For more info refer to the JSON API <a href="https://cloud.google.com/storage/docs/access-control/lists#predefined-acl" target="_blank">here</a>
+                    ACL for uploaded objects. Leave blank for default. For more info refer to the JSON API <a href="https://cloud.google.com/storage/docs/access-control/lists#predefined-acl" target="_blank">here</a>
                 </small>
             </div>
         </div>
@@ -272,15 +278,21 @@
         <div class="form-group row fsconfig fsconfig-azblobfs">
             <label for="idAzSASURL" class="col-sm-2 col-form-label">SAS URL</label>
             <div class="col-sm-10">
-                <input type="password" class="form-control" id="idAzSASURL" name="az_sas_url" placeholder=""
+                <input type="password" class="form-control" id="idAzSASURL" name="az_sas_url" placeholder="" aria-describedby="AzSASURLHelpBlock"
                     value="{{if .AzBlobConfig.SASURL.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.AzBlobConfig.SASURL.GetPayload}}{{end}}">
+                <small id="AzSASURLHelpBlock" class="form-text text-muted">
+                    Shared Access Signature URL can be used instead of account name/key
+                </small>
             </div>
         </div>
         <div class="form-group row fsconfig fsconfig-azblobfs">
             <label for="idAzEndpoint" class="col-sm-2 col-form-label">Endpoint</label>
             <div class="col-sm-10">
                 <input type="text" class="form-control" id="idAzEndpoint" name="az_endpoint" placeholder=""
-                    value="{{.AzBlobConfig.Endpoint}}" maxlength="255">
+                    aria-describedby="AzEndpointHelpBlock" value="{{.AzBlobConfig.Endpoint}}" maxlength="512">
+                <small id="AzEndpointHelpBlock" class="form-text text-muted">
+                    Optional endpoint
+                </small>
             </div>
         </div>
 
@@ -362,8 +374,11 @@
             <label for="idCryptPassphrase" class="col-sm-2 col-form-label">Passphrase</label>
             <div class="col-sm-10">
                 <input type="password" class="form-control" id="idCryptPassphrase" name="crypt_passphrase"
-                    placeholder=""
+                    placeholder="" aria-describedby="CryptPassphraseHelpBlock"
                     value="{{if .CryptConfig.Passphrase.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.CryptConfig.Passphrase.GetPayload}}{{end}}">
+                <small id="CryptPassphraseHelpBlock" class="form-text text-muted">
+                    Passphrase to derive the per-object encryption key
+                </small>
             </div>
         </div>
 

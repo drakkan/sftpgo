@@ -1275,9 +1275,6 @@ func compareS3Config(expected *vfs.Filesystem, actual *vfs.Filesystem) error { /
 	if expected.S3Config.AccessKey != actual.S3Config.AccessKey {
 		return errors.New("fs S3 access key mismatch")
 	}
-	if expected.S3Config.SessionToken != actual.S3Config.SessionToken {
-		return errors.New("fs S3 session token mismatch")
-	}
 	if expected.S3Config.RoleARN != actual.S3Config.RoleARN {
 		return errors.New("fs S3 role ARN mismatch")
 	}

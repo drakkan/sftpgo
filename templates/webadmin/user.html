@@ -30,7 +30,9 @@
                     <li><span class="text-success">%username%</span> will be replaced with the specified username</li>
                     <li><span class="text-success">%password%</span> will be replaced with the specified password</li>
                 </ul>
-                The generated users file can be imported from the "Maintenance" section.
+                They will be replaced, with the specified username and password, in the paths and credentials of the configured storage backend.
+                <br>
+                The generated users can be saved or exported. Exported users can be imported from the "Maintenance" section of this SFTPGo instance or another.
                 {{if .User.Username}}
                 <br>
                 Please note that no credentials were copied from user "{{.User.Username}}", you have to set them explicitly.

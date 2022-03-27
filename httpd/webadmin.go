@@ -235,9 +235,9 @@ type messagePage struct {
 }
 
 type userTemplateFields struct {
-	Username  string
-	Password  string
-	PublicKey string
+	Username   string
+	Password   string
+	PublicKeys []string
 }
 
 func loadAdminTemplates(templatesPath string) {
@@ -714,9 +714,9 @@ func getUsersForTemplate(r *http.Request) []userTemplateFields {
 
 		users[username] = true
 		res = append(res, userTemplateFields{
-			Username:  username,
-			Password:  password,
-			PublicKey: publicKey,
+			Username:   username,
+			Password:   password,
+			PublicKeys: []string{publicKey},
 		})
 	}
 
@@ -982,7 +982,6 @@ func getS3Config(r *http.Request) (vfs.S3FsConfig, error) {
 	config.Bucket = r.Form.Get("s3_bucket")
 	config.Region = r.Form.Get("s3_region")
 	config.AccessKey = r.Form.Get("s3_access_key")
-	config.SessionToken = strings.TrimSpace(r.Form.Get("s3_session_token"))
 	config.RoleARN = r.Form.Get("s3_role_arn")
 	config.AccessSecret = getSecretFromFormField(r, "s3_access_secret")
 	config.Endpoint = r.Form.Get("s3_endpoint")
@@ -1224,14 +1223,13 @@ func getSFTPFsFromTemplate(fsConfig vfs.SFTPFsConfig, replacements map[string]st
 func getUserFromTemplate(user dataprovider.User, template userTemplateFields) dataprovider.User {
 	user.Username = template.Username
 	user.Password = template.Password
-	user.PublicKeys = nil
-	if template.PublicKey != "" {
-		user.PublicKeys = append(user.PublicKeys, template.PublicKey)
-	}
+	user.PublicKeys = template.PublicKeys
 	replacements := make(map[string]string)
 	replacements["%username%"] = user.Username
-	user.Password = replacePlaceholders(user.Password, replacements)
-	replacements["%password%"] = user.Password
+	if user.Password != "" && !user.IsPasswordHashed() {
+		user.Password = replacePlaceholders(user.Password, replacements)
+		replacements["%password%"] = user.Password
+	}
 
 	user.HomeDir = replacePlaceholders(user.HomeDir, replacements)
 	var vfolders []vfs.VirtualFolder
@@ -1263,17 +1261,29 @@ func getUserFromTemplate(user dataprovider.User, template userTemplateFields) da
 func getTransferLimits(r *http.Request) (int64, int64, int64, error) {
 	dataTransferUL, err := strconv.ParseInt(r.Form.Get("upload_data_transfer"), 10, 64)
 	if err != nil {
-		return 0, 0, 0, err
+		return 0, 0, 0, fmt.Errorf("invalid upload data transfer: %w", err)
 	}
 	dataTransferDL, err := strconv.ParseInt(r.Form.Get("download_data_transfer"), 10, 64)
 	if err != nil {
-		return 0, 0, 0, err
+		return 0, 0, 0, fmt.Errorf("invalid download data transfer: %w", err)
 	}
 	dataTransferTotal, err := strconv.ParseInt(r.Form.Get("total_data_transfer"), 10, 64)
 	if err != nil {
-		return 0, 0, 0, err
+		return 0, 0, 0, fmt.Errorf("invalid total data transfer: %w", err)
 	}
 	return dataTransferUL, dataTransferDL, dataTransferTotal, nil
+}
+
+func getQuotaLimits(r *http.Request) (int64, int, error) {
+	quotaSize, err := strconv.ParseInt(r.Form.Get("quota_size"), 10, 64)
+	if err != nil {
+		return 0, 0, fmt.Errorf("invalid quota size: %w", err)
+	}
+	quotaFiles, err := strconv.Atoi(r.Form.Get("quota_files"))
+	if err != nil {
+		return 0, 0, fmt.Errorf("invalid quota files: %w", err)
+	}
+	return quotaSize, quotaFiles, nil
 }
 
 func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
@@ -1285,31 +1295,27 @@ func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 	defer r.MultipartForm.RemoveAll() //nolint:errcheck
 	uid, err := strconv.Atoi(r.Form.Get("uid"))
 	if err != nil {
-		return user, err
+		return user, fmt.Errorf("invalid uid: %w", err)
 	}
 	gid, err := strconv.Atoi(r.Form.Get("gid"))
 	if err != nil {
-		return user, err
+		return user, fmt.Errorf("invalid uid: %w", err)
 	}
 	maxSessions, err := strconv.Atoi(r.Form.Get("max_sessions"))
 	if err != nil {
-		return user, err
+		return user, fmt.Errorf("invalid max sessions: %w", err)
 	}
-	quotaSize, err := strconv.ParseInt(r.Form.Get("quota_size"), 10, 64)
-	if err != nil {
-		return user, err
-	}
-	quotaFiles, err := strconv.Atoi(r.Form.Get("quota_files"))
+	quotaSize, quotaFiles, err := getQuotaLimits(r)
 	if err != nil {
 		return user, err
 	}
 	bandwidthUL, err := strconv.ParseInt(r.Form.Get("upload_bandwidth"), 10, 64)
 	if err != nil {
-		return user, err
+		return user, fmt.Errorf("invalid upload bandwidth: %w", err)
 	}
 	bandwidthDL, err := strconv.ParseInt(r.Form.Get("download_bandwidth"), 10, 64)
 	if err != nil {
-		return user, err
+		return user, fmt.Errorf("invalid download bandwidth: %w", err)
 	}
 	dataTransferUL, dataTransferDL, dataTransferTotal, err := getTransferLimits(r)
 	if err != nil {
@@ -1317,7 +1323,7 @@ func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 	}
 	status, err := strconv.Atoi(r.Form.Get("status"))
 	if err != nil {
-		return user, err
+		return user, fmt.Errorf("invalid status: %w", err)
 	}
 	expirationDateMillis := int64(0)
 	expirationDateString := r.Form.Get("expiration_date")
@@ -1366,6 +1372,9 @@ func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 		FsConfig:       fsConfig,
 	}
 	maxFileSize, err := strconv.ParseInt(r.Form.Get("max_upload_file_size"), 10, 64)
+	if err != nil {
+		return user, fmt.Errorf("invalid max upload file size: %w", err)
+	}
 	user.Filters.MaxUploadFileSize = maxFileSize
 	return user, err
 }
@@ -1912,6 +1921,11 @@ func (s *httpdServer) handleWebAddUserPost(w http.ResponseWriter, r *http.Reques
 		s.renderForbiddenPage(w, r, err.Error())
 		return
 	}
+	user = getUserFromTemplate(user, userTemplateFields{
+		Username:   user.Username,
+		Password:   user.Password,
+		PublicKeys: user.PublicKeys,
+	})
 	err = dataprovider.AddUser(&user, claims.Username, ipAddr)
 	if err == nil {
 		http.Redirect(w, r, webUsersPath, http.StatusSeeOther)
@@ -1957,6 +1971,12 @@ func (s *httpdServer) handleWebUpdateUserPost(w http.ResponseWriter, r *http.Req
 	updateEncryptedSecrets(&updatedUser.FsConfig, user.FsConfig.S3Config.AccessSecret, user.FsConfig.AzBlobConfig.AccountKey,
 		user.FsConfig.AzBlobConfig.SASURL, user.FsConfig.GCSConfig.Credentials, user.FsConfig.CryptConfig.Passphrase,
 		user.FsConfig.SFTPConfig.Password, user.FsConfig.SFTPConfig.PrivateKey)
+
+	updatedUser = getUserFromTemplate(updatedUser, userTemplateFields{
+		Username:   updatedUser.Username,
+		Password:   updatedUser.Password,
+		PublicKeys: updatedUser.PublicKeys,
+	})
 
 	err = dataprovider.UpdateUser(&updatedUser, claims.Username, ipAddr)
 	if err == nil {
@@ -2017,6 +2037,7 @@ func (s *httpdServer) handleWebAddFolderPost(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	folder.FsConfig = fsConfig
+	folder = getFolderFromTemplate(folder, folder.Name)
 
 	err = dataprovider.AddFolder(&folder)
 	if err == nil {
@@ -2073,7 +2094,7 @@ func (s *httpdServer) handleWebUpdateFolderPost(w http.ResponseWriter, r *http.R
 		s.renderFolderPage(w, r, folder, folderPageModeUpdate, err.Error())
 		return
 	}
-	updatedFolder := &vfs.BaseVirtualFolder{
+	updatedFolder := vfs.BaseVirtualFolder{
 		MappedPath:  r.Form.Get("mapped_path"),
 		Description: r.Form.Get("description"),
 	}
@@ -2085,7 +2106,9 @@ func (s *httpdServer) handleWebUpdateFolderPost(w http.ResponseWriter, r *http.R
 		folder.FsConfig.AzBlobConfig.SASURL, folder.FsConfig.GCSConfig.Credentials, folder.FsConfig.CryptConfig.Passphrase,
 		folder.FsConfig.SFTPConfig.Password, folder.FsConfig.SFTPConfig.PrivateKey)
 
-	err = dataprovider.UpdateFolder(updatedFolder, folder.Users, claims.Username, ipAddr)
+	updatedFolder = getFolderFromTemplate(updatedFolder, updatedFolder.Name)
+
+	err = dataprovider.UpdateFolder(&updatedFolder, folder.Users, claims.Username, ipAddr)
 	if err != nil {
 		s.renderFolderPage(w, r, folder, folderPageModeUpdate, err.Error())
 		return
