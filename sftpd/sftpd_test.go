@@ -10544,8 +10544,6 @@ func getScpDownloadCommand(localPath, remotePath string, preserveTime, recursive
 	args = append(args, "2022")
 	args = append(args, "-o")
 	args = append(args, "StrictHostKeyChecking=no")
-	args = append(args, "-o")
-	args = append(args, "HostKeyAlgorithms=+ssh-rsa")
 	args = append(args, "-i")
 	args = append(args, privateKeyPath)
 	args = append(args, remotePath)

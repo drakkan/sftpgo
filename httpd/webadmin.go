@@ -1980,7 +1980,7 @@ func (s *httpdServer) handleWebUpdateUserPost(w http.ResponseWriter, r *http.Req
 
 	err = dataprovider.UpdateUser(&updatedUser, claims.Username, ipAddr)
 	if err == nil {
-		if len(r.Form.Get("disconnect")) > 0 {
+		if r.Form.Get("disconnect") != "" {
 			disconnectUser(user.Username)
 		}
 		http.Redirect(w, r, webUsersPath, http.StatusSeeOther)
