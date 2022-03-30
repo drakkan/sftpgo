@@ -32,7 +32,7 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.7.0
 	github.com/jlaffaye/ftp v0.0.0-20201112195030-9aae4d151126
 	github.com/klauspost/compress v1.15.1
-	github.com/lestrrat-go/jwx v1.2.20
+	github.com/lestrrat-go/jwx v1.2.21
 	github.com/lib/pq v1.10.4
 	github.com/lithammer/shortuuid/v3 v3.0.7
 	github.com/mattn/go-sqlite3 v1.14.12
@@ -64,7 +64,7 @@ require (
 	golang.org/x/crypto v0.0.0-20220321153916-2c7772ba3064
 	golang.org/x/net v0.0.0-20220325170049-de3da57026de
 	golang.org/x/oauth2 v0.0.0-20220309155454-6242fa91716a
-	golang.org/x/sys v0.0.0-20220329152356-43be30ef3008
+	golang.org/x/sys v0.0.0-20220330033206-e17cdc41300f
 	golang.org/x/time v0.0.0-20220224211638-0e9765cccd65
 	google.golang.org/api v0.73.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
@@ -147,7 +147,7 @@ require (
 	golang.org/x/tools v0.1.10 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20220329135034-5a5e19f58d62 // indirect
+	google.golang.org/genproto v0.0.0-20220329172620-7be39ac1afc7 // indirect
 	google.golang.org/grpc v1.45.0 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/ini.v1 v1.66.4 // indirect
@@ -158,6 +158,6 @@ require (
 
 replace (
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
-	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20220329110313-be0d0d09dfb3
+	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20220330084528-de7c3d562f3d
 	golang.org/x/net => github.com/drakkan/net v0.0.0-20220329114603-5c284e9951ef
 )
