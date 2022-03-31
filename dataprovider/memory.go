@@ -126,7 +126,7 @@ func (p *MemoryProvider) validateUserAndPass(username, password, ip, protocol st
 	return checkUserAndPass(&user, password, ip, protocol)
 }
 
-func (p *MemoryProvider) validateUserAndPubKey(username string, pubKey []byte) (User, string, error) {
+func (p *MemoryProvider) validateUserAndPubKey(username string, pubKey []byte, isSSHCert bool) (User, string, error) {
 	var user User
 	if len(pubKey) == 0 {
 		return user, "", errors.New("credentials cannot be null or empty")
@@ -136,7 +136,7 @@ func (p *MemoryProvider) validateUserAndPubKey(username string, pubKey []byte) (
 		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)
 		return user, "", err
 	}
-	return checkUserAndPubKey(&user, pubKey)
+	return checkUserAndPubKey(&user, pubKey, isSSHCert)
 }
 
 func (p *MemoryProvider) validateAdminAndPass(username, password, ip string) (Admin, error) {

@@ -885,6 +885,13 @@ func (c *Configuration) validatePublicKeyCredentials(conn ssh.ConnMetadata, pubK
 			updateLoginMetrics(&user, ipAddr, method, err)
 			return nil, err
 		}
+		if len(cert.ValidPrincipals) == 0 {
+			err = fmt.Errorf("ssh: certificate %s has no valid principals, user: \"%s\"",
+				ssh.FingerprintSHA256(pubKey), conn.User())
+			user.Username = conn.User()
+			updateLoginMetrics(&user, ipAddr, method, err)
+			return nil, err
+		}
 		if err := c.certChecker.CheckCert(conn.User(), cert); err != nil {
 			user.Username = conn.User()
 			updateLoginMetrics(&user, ipAddr, method, err)
@@ -892,7 +899,11 @@ func (c *Configuration) validatePublicKeyCredentials(conn ssh.ConnMetadata, pubK
 		}
 		certPerm = &cert.Permissions
 	}
-	if user, keyID, err = dataprovider.CheckUserAndPubKey(conn.User(), pubKey.Marshal(), ipAddr, common.ProtocolSSH); err == nil {
+	if user, keyID, err = dataprovider.CheckUserAndPubKey(conn.User(), pubKey.Marshal(), ipAddr, common.ProtocolSSH, ok); err == nil {
+		if ok {
+			keyID = fmt.Sprintf("%s: ID: %s, serial: %v, CA %s %s", ssh.FingerprintSHA256(pubKey),
+				cert.KeyId, cert.Serial, cert.Type(), ssh.FingerprintSHA256(cert.SignatureKey))
+		}
 		if user.IsPartialAuth(method) {
 			logger.Debug(logSender, connectionID, "user %#v authenticated with partial success", conn.User())
 			return certPerm, ssh.ErrPartialSuccess

@@ -1583,7 +1583,13 @@ func TestAddUserNoCredentials(t *testing.T) {
 	u := getTestUser()
 	u.Password = ""
 	u.PublicKeys = []string{}
-	_, _, err := httpdtest.AddUser(u, http.StatusBadRequest)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	// this user cannot login with an empty password but it still can use an SSH cert
+	_, err = getJWTAPITokenFromTestServer(defaultTokenAuthUser, "")
+	assert.Error(t, err)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 }
 

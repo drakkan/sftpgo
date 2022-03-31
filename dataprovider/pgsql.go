@@ -179,8 +179,8 @@ func (p *PGSQLProvider) validateUserAndTLSCert(username, protocol string, tlsCer
 	return sqlCommonValidateUserAndTLSCertificate(username, protocol, tlsCert, p.dbHandle)
 }
 
-func (p *PGSQLProvider) validateUserAndPubKey(username string, publicKey []byte) (User, string, error) {
-	return sqlCommonValidateUserAndPubKey(username, publicKey, p.dbHandle)
+func (p *PGSQLProvider) validateUserAndPubKey(username string, publicKey []byte, isSSHCert bool) (User, string, error) {
+	return sqlCommonValidateUserAndPubKey(username, publicKey, isSSHCert, p.dbHandle)
 }
 
 func (p *PGSQLProvider) updateTransferQuota(username string, uploadSize, downloadSize int64, reset bool) error {

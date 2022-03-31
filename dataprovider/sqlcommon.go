@@ -620,7 +620,7 @@ func sqlCommonValidateUserAndTLSCertificate(username, protocol string, tlsCert *
 	return checkUserAndTLSCertificate(&user, protocol, tlsCert)
 }
 
-func sqlCommonValidateUserAndPubKey(username string, pubKey []byte, dbHandle *sql.DB) (User, string, error) {
+func sqlCommonValidateUserAndPubKey(username string, pubKey []byte, isSSHCert bool, dbHandle *sql.DB) (User, string, error) {
 	var user User
 	if len(pubKey) == 0 {
 		return user, "", errors.New("credentials cannot be null or empty")
@@ -630,7 +630,7 @@ func sqlCommonValidateUserAndPubKey(username string, pubKey []byte, dbHandle *sq
 		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)
 		return user, "", err
 	}
-	return checkUserAndPubKey(&user, pubKey)
+	return checkUserAndPubKey(&user, pubKey, isSSHCert)
 }
 
 func sqlCommonCheckAvailability(dbHandle *sql.DB) error {

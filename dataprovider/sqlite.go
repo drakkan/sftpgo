@@ -153,8 +153,8 @@ func (p *SQLiteProvider) validateUserAndTLSCert(username, protocol string, tlsCe
 	return sqlCommonValidateUserAndTLSCertificate(username, protocol, tlsCert, p.dbHandle)
 }
 
-func (p *SQLiteProvider) validateUserAndPubKey(username string, publicKey []byte) (User, string, error) {
-	return sqlCommonValidateUserAndPubKey(username, publicKey, p.dbHandle)
+func (p *SQLiteProvider) validateUserAndPubKey(username string, publicKey []byte, isSSHCert bool) (User, string, error) {
+	return sqlCommonValidateUserAndPubKey(username, publicKey, isSSHCert, p.dbHandle)
 }
 
 func (p *SQLiteProvider) updateTransferQuota(username string, uploadSize, downloadSize int64, reset bool) error {

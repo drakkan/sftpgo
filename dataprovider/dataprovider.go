@@ -615,7 +615,7 @@ func HasUsersBaseDir() bool {
 // Provider defines the interface that data providers must implement.
 type Provider interface {
 	validateUserAndPass(username, password, ip, protocol string) (User, error)
-	validateUserAndPubKey(username string, pubKey []byte) (User, string, error)
+	validateUserAndPubKey(username string, pubKey []byte, isSSHCert bool) (User, string, error)
 	validateUserAndTLSCert(username, protocol string, tlsCert *x509.Certificate) (User, error)
 	updateQuota(username string, filesAdd int, sizeAdd int64, reset bool) error
 	updateTransferQuota(username string, uploadSize, downloadSize int64, reset bool) error
@@ -1054,30 +1054,30 @@ func CheckUserAndPass(username, password, ip, protocol string) (User, error) {
 }
 
 // CheckUserAndPubKey retrieves the SFTP user with the given username and public key if a match is found or an error
-func CheckUserAndPubKey(username string, pubKey []byte, ip, protocol string) (User, string, error) {
+func CheckUserAndPubKey(username string, pubKey []byte, ip, protocol string, isSSHCert bool) (User, string, error) {
 	username = config.convertName(username)
 	if plugin.Handler.HasAuthScope(plugin.AuthScopePublicKey) {
 		user, err := doPluginAuth(username, "", pubKey, ip, protocol, nil, plugin.AuthScopePublicKey)
 		if err != nil {
 			return user, "", err
 		}
-		return checkUserAndPubKey(&user, pubKey)
+		return checkUserAndPubKey(&user, pubKey, isSSHCert)
 	}
 	if config.ExternalAuthHook != "" && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&2 != 0) {
 		user, err := doExternalAuth(username, "", pubKey, "", ip, protocol, nil)
 		if err != nil {
 			return user, "", err
 		}
-		return checkUserAndPubKey(&user, pubKey)
+		return checkUserAndPubKey(&user, pubKey, isSSHCert)
 	}
 	if config.PreLoginHook != "" {
 		user, err := executePreLoginHook(username, SSHLoginMethodPublicKey, ip, protocol)
 		if err != nil {
 			return user, "", err
 		}
-		return checkUserAndPubKey(&user, pubKey)
+		return checkUserAndPubKey(&user, pubKey, isSSHCert)
 	}
-	return provider.validateUserAndPubKey(username, pubKey)
+	return provider.validateUserAndPubKey(username, pubKey, isSSHCert)
 }
 
 // CheckKeyboardInteractiveAuth checks the keyboard interactive authentication and returns
@@ -2178,9 +2178,10 @@ func validateBaseParams(user *User) error {
 	if user.HomeDir == "" {
 		return util.NewValidationError("home_dir is mandatory")
 	}
-	if user.Password == "" && len(user.PublicKeys) == 0 {
+	// we can have users with no passwords and public keys, they can authenticate via SSH user certs or OIDC
+	/*if user.Password == "" && len(user.PublicKeys) == 0 {
 		return util.NewValidationError("please set a password or at least a public_key")
-	}
+	}*/
 	if !filepath.IsAbs(user.HomeDir) {
 		return util.NewValidationError(fmt.Sprintf("home_dir must be an absolute path, actual value: %v", user.HomeDir))
 	}
@@ -2429,10 +2430,13 @@ func checkUserPasscode(user *User, password, protocol string) (string, error) {
 	return password, nil
 }
 
-func checkUserAndPubKey(user *User, pubKey []byte) (User, string, error) {
+func checkUserAndPubKey(user *User, pubKey []byte, isSSHCert bool) (User, string, error) {
 	err := user.CheckLoginConditions()
 	if err != nil {
 		return *user, "", err
+	}
+	if isSSHCert {
+		return *user, "", nil
 	}
 	if len(user.PublicKeys) == 0 {
 		return *user, "", ErrInvalidCredentials
@@ -2440,17 +2444,11 @@ func checkUserAndPubKey(user *User, pubKey []byte) (User, string, error) {
 	for i, k := range user.PublicKeys {
 		storedPubKey, comment, _, _, err := ssh.ParseAuthorizedKey([]byte(k))
 		if err != nil {
-			providerLog(logger.LevelError, "error parsing stored public key %d for user %v: %v", i, user.Username, err)
+			providerLog(logger.LevelError, "error parsing stored public key %d for user %s: %v", i, user.Username, err)
 			return *user, "", err
 		}
 		if bytes.Equal(storedPubKey.Marshal(), pubKey) {
-			certInfo := ""
-			cert, ok := storedPubKey.(*ssh.Certificate)
-			if ok {
-				certInfo = fmt.Sprintf(" %v ID: %v Serial: %v CA: %v", cert.Type(), cert.KeyId, cert.Serial,
-					ssh.FingerprintSHA256(cert.SignatureKey))
-			}
-			return *user, fmt.Sprintf("%s:%s%s", ssh.FingerprintSHA256(storedPubKey), comment, certInfo), nil
+			return *user, fmt.Sprintf("%s:%s", ssh.FingerprintSHA256(storedPubKey), comment), nil
 		}
 	}
 	return *user, "", ErrInvalidCredentials
