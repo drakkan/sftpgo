@@ -17,6 +17,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/httpd"
 	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/plugin"
+	"github.com/drakkan/sftpgo/v2/sftpd"
 	"github.com/drakkan/sftpgo/v2/telemetry"
 	"github.com/drakkan/sftpgo/v2/webdavd"
 )
@@ -140,6 +141,10 @@ loop:
 			err = common.Reload()
 			if err != nil {
 				logger.Warn(logSender, "", "error reloading common configs: %v", err)
+			}
+			err = sftpd.Reload()
+			if err != nil {
+				logger.Warn(logSender, "", "error reloading sftpd revoked certificates: %v", err)
 			}
 		case rotateLogCmd:
 			logger.Debug(logSender, "", "Received log file rotation request")

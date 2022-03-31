@@ -135,6 +135,7 @@ var (
 	pubKeyPath       string
 	privateKeyPath   string
 	trustedCAUserKey string
+	revokeUserCerts  string
 	gitWrapPath      string
 	extAuthPath      string
 	keyIntAuthPath   string
@@ -236,6 +237,7 @@ func TestMain(m *testing.M) {
 
 	createInitialFiles(scriptArgs)
 	sftpdConf.TrustedUserCAKeys = append(sftpdConf.TrustedUserCAKeys, trustedCAUserKey)
+	sftpdConf.RevokedUserCertsFile = revokeUserCerts
 
 	go func() {
 		logger.Debug(logSender, "", "initializing SFTP server with config %+v", sftpdConf)
@@ -320,6 +322,7 @@ func TestMain(m *testing.M) {
 	os.Remove(pubKeyPath)
 	os.Remove(privateKeyPath)
 	os.Remove(trustedCAUserKey)
+	os.Remove(revokeUserCerts)
 	os.Remove(gitWrapPath)
 	os.Remove(extAuthPath)
 	os.Remove(preLoginPath)
@@ -393,6 +396,22 @@ func TestInitialization(t *testing.T) {
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "unsupported key-exchange algorithm")
 	}
+	sftpdConf.RevokedUserCertsFile = "."
+	err = sftpdConf.Initialize(configDir)
+	assert.Error(t, err)
+	sftpdConf.RevokedUserCertsFile = "a missing file"
+	err = sftpdConf.Initialize(configDir)
+	assert.ErrorIs(t, err, os.ErrNotExist)
+
+	err = createTestFile(revokeUserCerts, 10*1024*1024)
+	sftpdConf.RevokedUserCertsFile = revokeUserCerts
+	err = sftpdConf.Initialize(configDir)
+	assert.Error(t, err)
+
+	err = os.WriteFile(revokeUserCerts, []byte(`[]`), 0644)
+	assert.NoError(t, err)
+	err = sftpdConf.Initialize(configDir)
+	assert.Error(t, err)
 }
 
 func TestBasicSFTPHandling(t *testing.T) {
@@ -1802,6 +1821,34 @@ func TestLoginUserCert(t *testing.T) {
 		defer client.Close()
 		assert.NoError(t, checkBasicSFTP(client))
 	}
+	// revoke the certificate
+	certs := []string{"SHA256:OkxVB1ImSJ2XeI8nA2Wg+6zJVlxdevD1FYBSEJjFEN4"}
+	data, err := json.Marshal(certs)
+	assert.NoError(t, err)
+	err = os.WriteFile(revokeUserCerts, data, 0644)
+	assert.NoError(t, err)
+	err = sftpd.Reload()
+	assert.NoError(t, err)
+	conn, client, err = getCustomAuthSftpClient(user, []ssh.AuthMethod{ssh.PublicKeys(signer)}, "")
+	if !assert.Error(t, err) {
+		client.Close()
+		conn.Close()
+	}
+	// if we remove the revoked certificate login should work again
+	certs = []string{"SHA256:bsBRHC/xgiqBJdSuvSTNpJNLTISP/G356jNMCRYC5Es, SHA256:1kxVB1ImSJ2XeI8nA2Wg+6zJVlxdevD1FYBSEJjFEN4"}
+	data, err = json.Marshal(certs)
+	assert.NoError(t, err)
+	err = os.WriteFile(revokeUserCerts, data, 0644)
+	assert.NoError(t, err)
+	err = sftpd.Reload()
+	assert.NoError(t, err)
+	conn, client, err = getCustomAuthSftpClient(user, []ssh.AuthMethod{ssh.PublicKeys(signer)}, "")
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		assert.NoError(t, checkBasicSFTP(client))
+	}
+
 	// try login using a cert signed from an untrusted CA
 	signer, err = getSignerForUserCert([]byte(testCertUntrustedCA))
 	assert.NoError(t, err)
@@ -1868,6 +1915,11 @@ func TestLoginUserCert(t *testing.T) {
 		client.Close()
 		conn.Close()
 	}
+
+	err = os.WriteFile(revokeUserCerts, []byte(`[]`), 0644)
+	assert.NoError(t, err)
+	err = sftpd.Reload()
+	assert.NoError(t, err)
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -10865,6 +10917,7 @@ func createInitialFiles(scriptArgs string) {
 	checkPwdPath = filepath.Join(homeBasePath, "checkpwd.sh")
 	preDownloadPath = filepath.Join(homeBasePath, "predownload.sh")
 	preUploadPath = filepath.Join(homeBasePath, "preupload.sh")
+	revokeUserCerts = filepath.Join(homeBasePath, "revoked_certs.json")
 	err := os.WriteFile(pubKeyPath, []byte(testPubKey+"\n"), 0600)
 	if err != nil {
 		logger.WarnToConsole("unable to save public key to file: %v", err)
@@ -10881,5 +10934,9 @@ func createInitialFiles(scriptArgs string) {
 	err = os.WriteFile(trustedCAUserKey, []byte(testCAUserKey), 0600)
 	if err != nil {
 		logger.WarnToConsole("unable to save trusted CA user key: %v", err)
+	}
+	err = os.WriteFile(revokeUserCerts, []byte(`[]`), 0644)
+	if err != nil {
+		logger.WarnToConsole("unable to save revoked user certs: %v", err)
 	}
 }

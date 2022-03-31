@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"runtime/debug"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pkg/sftp"
@@ -54,6 +55,10 @@ var (
 		"hmac-sha2-256-etm@openssh.com", "hmac-sha2-256",
 		"hmac-sha2-512-etm@openssh.com", "hmac-sha2-512",
 		"hmac-sha1", "hmac-sha1-96",
+	}
+
+	revokedCertManager = revokedCertificates{
+		certs: map[string]bool{},
 	}
 )
 
@@ -109,6 +114,11 @@ type Configuration struct {
 	// that are trusted to sign user certificates for authentication.
 	// The paths can be absolute or relative to the configuration directory
 	TrustedUserCAKeys []string `json:"trusted_user_ca_keys" mapstructure:"trusted_user_ca_keys"`
+	// Path to a file containing the revoked user certificates.
+	// This file must contain a JSON list with the public key fingerprints of the revoked certificates.
+	// Example content:
+	// ["SHA256:bsBRHC/xgiqBJdSuvSTNpJNLTISP/G356jNMCRYC5Es","SHA256:119+8cL/HH+NLMawRsJx6CzPF1I3xC+jpM60bQHXGE8"]
+	RevokedUserCertsFile string `json:"revoked_user_certs_file" mapstructure:"revoked_user_certs_file"`
 	// LoginBannerFile the contents of the specified file, if any, are sent to
 	// the remote user before authentication is allowed.
 	LoginBannerFile string `json:"login_banner_file" mapstructure:"login_banner_file"`
@@ -858,7 +868,16 @@ func (c *Configuration) initializeCertChecker(configDir string) error {
 			return false
 		},
 	}
-	return nil
+	if c.RevokedUserCertsFile != "" {
+		if !util.IsFileInputValid(c.RevokedUserCertsFile) {
+			return fmt.Errorf("invalid revoked user certificate: %#v", c.RevokedUserCertsFile)
+		}
+		if !filepath.IsAbs(c.RevokedUserCertsFile) {
+			c.RevokedUserCertsFile = filepath.Join(configDir, c.RevokedUserCertsFile)
+		}
+	}
+	revokedCertManager.filePath = c.RevokedUserCertsFile
+	return revokedCertManager.load()
 }
 
 func (c *Configuration) validatePublicKeyCredentials(conn ssh.ConnMetadata, pubKey ssh.PublicKey) (*ssh.Permissions, error) {
@@ -872,7 +891,9 @@ func (c *Configuration) validatePublicKeyCredentials(conn ssh.ConnMetadata, pubK
 	method := dataprovider.SSHLoginMethodPublicKey
 	ipAddr := util.GetIPFromRemoteAddress(conn.RemoteAddr().String())
 	cert, ok := pubKey.(*ssh.Certificate)
+	var certFingerprint string
 	if ok {
+		certFingerprint = ssh.FingerprintSHA256(cert.Key)
 		if cert.CertType != ssh.UserCert {
 			err = fmt.Errorf("ssh: cert has type %d", cert.CertType)
 			user.Username = conn.User()
@@ -886,8 +907,13 @@ func (c *Configuration) validatePublicKeyCredentials(conn ssh.ConnMetadata, pubK
 			return nil, err
 		}
 		if len(cert.ValidPrincipals) == 0 {
-			err = fmt.Errorf("ssh: certificate %s has no valid principals, user: \"%s\"",
-				ssh.FingerprintSHA256(pubKey), conn.User())
+			err = fmt.Errorf("ssh: certificate %s has no valid principals, user: \"%s\"", certFingerprint, conn.User())
+			user.Username = conn.User()
+			updateLoginMetrics(&user, ipAddr, method, err)
+			return nil, err
+		}
+		if revokedCertManager.isRevoked(certFingerprint) {
+			err = fmt.Errorf("ssh: certificate %s is revoked", certFingerprint)
 			user.Username = conn.User()
 			updateLoginMetrics(&user, ipAddr, method, err)
 			return nil, err
@@ -901,7 +927,7 @@ func (c *Configuration) validatePublicKeyCredentials(conn ssh.ConnMetadata, pubK
 	}
 	if user, keyID, err = dataprovider.CheckUserAndPubKey(conn.User(), pubKey.Marshal(), ipAddr, common.ProtocolSSH, ok); err == nil {
 		if ok {
-			keyID = fmt.Sprintf("%s: ID: %s, serial: %v, CA %s %s", ssh.FingerprintSHA256(pubKey),
+			keyID = fmt.Sprintf("%s: ID: %s, serial: %v, CA %s %s", certFingerprint,
 				cert.KeyId, cert.Serial, cert.Type(), ssh.FingerprintSHA256(cert.SignatureKey))
 		}
 		if user.IsPartialAuth(method) {
@@ -979,4 +1005,57 @@ func updateLoginMetrics(user *dataprovider.User, ip, method string, err error) {
 	}
 	metric.AddLoginResult(method, err)
 	dataprovider.ExecutePostLoginHook(user, method, ip, common.ProtocolSSH, err)
+}
+
+type revokedCertificates struct {
+	filePath string
+	mu       sync.RWMutex
+	certs    map[string]bool
+}
+
+func (r *revokedCertificates) load() error {
+	if r.filePath == "" {
+		return nil
+	}
+	logger.Debug(logSender, "", "loading revoked user certificate file %#v", r.filePath)
+	info, err := os.Stat(r.filePath)
+	if err != nil {
+		return fmt.Errorf("unable to load revoked user certificate file %#v: %w", r.filePath, err)
+	}
+	maxSize := int64(1048576 * 5) // 5MB
+	if info.Size() > maxSize {
+		return fmt.Errorf("unable to load revoked user certificate file %#v size too big: %v/%v bytes",
+			r.filePath, info.Size(), maxSize)
+	}
+	content, err := os.ReadFile(r.filePath)
+	if err != nil {
+		return fmt.Errorf("unable to read revoked user certificate file %#v: %w", r.filePath, err)
+	}
+	var certs []string
+	err = json.Unmarshal(content, &certs)
+	if err != nil {
+		return fmt.Errorf("unable to parse revoked user certificate file %#v: %w", r.filePath, err)
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.certs = map[string]bool{}
+	for _, fp := range certs {
+		r.certs[fp] = true
+	}
+	logger.Debug(logSender, "", "revoked user certificate file %#v loaded, entries: %v", r.filePath, len(r.certs))
+	return nil
+}
+
+func (r *revokedCertificates) isRevoked(fp string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	return r.certs[fp]
+}
+
+// Reload reloads the list of revoked user certificates
+func Reload() error {
+	return revokedCertManager.load()
 }

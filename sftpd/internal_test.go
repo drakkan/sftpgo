@@ -2126,3 +2126,23 @@ func TestFolderPrefix(t *testing.T) {
 	c.checkFolderPrefix()
 	assert.Empty(t, c.FolderPrefix)
 }
+
+func TestLoadRevokedUserCertsFile(t *testing.T) {
+	r := revokedCertificates{
+		certs: map[string]bool{},
+	}
+	err := r.load()
+	assert.NoError(t, err)
+	r.filePath = filepath.Join(os.TempDir(), "sub", "testrevoked")
+	err = os.MkdirAll(filepath.Dir(r.filePath), os.ModePerm)
+	assert.NoError(t, err)
+	err = os.WriteFile(r.filePath, []byte(`no json`), 0644)
+	assert.NoError(t, err)
+	err = r.load()
+	assert.Error(t, err)
+	r.filePath = filepath.Dir(r.filePath)
+	err = r.load()
+	assert.Error(t, err)
+	err = os.RemoveAll(r.filePath)
+	assert.NoError(t, err)
+}
