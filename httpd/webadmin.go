@@ -705,7 +705,7 @@ func getUsersForTemplate(r *http.Request) []userTemplateFields {
 		if len(tplPublicKeys) > idx {
 			publicKey = strings.TrimSpace(tplPublicKeys[idx])
 		}
-		if username == "" || (password == "" && publicKey == "") {
+		if username == "" {
 			continue
 		}
 		if _, ok := users[username]; ok {
