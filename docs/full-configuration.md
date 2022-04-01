@@ -212,7 +212,7 @@ The configuration file contains the following sections:
       - `parallelism`. unsigned 8 bit integer. The number of threads (or lanes) used by the algorithm. Default: 2.
     - `bcrypt_options`, struct containing the options for bcrypt hashing algorithm
       - `cost`, integer between 4 and 31. Default: 10
-    - `algo`, string. Algorithm to use for hashing passwords. Available algorithms: `argon2id`, `bcrypt`. For bcrypt hashing we use the `$2a$` prefix. Default: `bcrypt`
+    - `algo`, string. Algorithm to use for hashing passwords. Available algorithms: `argon2id`, `bcrypt`, `md5`. For bcrypt hashing we use the `$2a$` prefix. Default: `bcrypt`
   - `password_validation` struct. It defines the password validation rules for admins and protocol users.
     - `admins`, struct. It defines the password validation rules for SFTPGo admins.
       - `min_entropy`, float. Defines the minimum password entropy. Take a looke [here](https://github.com/wagslane/go-password-validator#what-entropy-value-should-i-use) for more details. `0` means disabled, any password will be accepted. Default: `0`.
