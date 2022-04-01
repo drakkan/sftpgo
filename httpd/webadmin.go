@@ -1509,7 +1509,7 @@ func handleWebAddAdminPost(w http.ResponseWriter, r *http.Request) {
 		renderForbiddenPage(w, r, err.Error())
 		return
 	}
-	err = dataprovider.AddAdmin(&admin, claims.Username, util.GetIPFromRemoteAddress(r.Method))
+	err = dataprovider.AddAdmin(&admin, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if err != nil {
 		renderAddUpdateAdminPage(w, r, &admin, err.Error(), true)
 		return

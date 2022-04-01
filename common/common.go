@@ -787,8 +787,10 @@ func (conns *ActiveConnections) checkIdles() {
 			toClose := true
 			for _, conn := range conns.connections {
 				if strings.Contains(conn.GetID(), idToMatch) {
-					toClose = false
-					break
+					if time.Since(conn.GetLastActivity()) <= Config.idleTimeoutAsDuration {
+						toClose = false
+						break
+					}
 				}
 			}
 			if toClose {
