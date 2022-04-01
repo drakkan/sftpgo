@@ -63,6 +63,7 @@
     "max_auth_tries": 0,
     "banner": "",
     "host_keys": [],
+    "host_certificates": [],
     "kex_algorithms": [],
     "ciphers": [],
     "macs": [],

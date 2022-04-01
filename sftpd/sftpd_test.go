@@ -396,6 +396,44 @@ func TestInitialization(t *testing.T) {
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "unsupported key-exchange algorithm")
 	}
+	sftpdConf.HostCertificates = []string{"missing file"}
+	err = sftpdConf.Initialize(configDir)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "unable to load host certificate")
+	}
+	sftpdConf.HostCertificates = []string{"."}
+	err = sftpdConf.Initialize(configDir)
+	assert.Error(t, err)
+	hostCertPath := filepath.Join(os.TempDir(), "host_cert.pub")
+	err = os.WriteFile(hostCertPath, []byte(testCertValid), 0600)
+	assert.NoError(t, err)
+	sftpdConf.HostKeys = []string{privateKeyPath}
+	sftpdConf.HostCertificates = []string{hostCertPath}
+	err = sftpdConf.Initialize(configDir)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "is not an host certificate")
+	}
+	err = os.WriteFile(hostCertPath, []byte(testPubKey), 0600)
+	assert.NoError(t, err)
+	err = sftpdConf.Initialize(configDir)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "is not an SSH certificate")
+	}
+	err = os.WriteFile(hostCertPath, []byte("abc"), 0600)
+	assert.NoError(t, err)
+	err = sftpdConf.Initialize(configDir)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "unable to parse host certificate")
+	}
+	err = os.WriteFile(hostCertPath, []byte(testHostCert), 0600)
+	assert.NoError(t, err)
+	err = sftpdConf.Initialize(configDir)
+	assert.Error(t, err)
+
+	err = os.Remove(hostCertPath)
+	assert.NoError(t, err)
+	sftpdConf.HostKeys = nil
+	sftpdConf.HostCertificates = nil
 	sftpdConf.RevokedUserCertsFile = "."
 	err = sftpdConf.Initialize(configDir)
 	assert.Error(t, err)

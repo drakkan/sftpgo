@@ -102,6 +102,10 @@ type Configuration struct {
 	// If empty or missing, the daemon will search or try to generate "id_rsa" and "id_ecdsa" host keys
 	// inside the configuration directory.
 	HostKeys []string `json:"host_keys" mapstructure:"host_keys"`
+	// HostCertificates defines public host certificates.
+	// Each certificate can be defined as a path relative to the configuration directory or an absolute one.
+	// Certificate's public key must match a private host key otherwise it will be silently ignored.
+	HostCertificates []string `json:"host_certificates" mapstructure:"host_certificates"`
 	// KexAlgorithms specifies the available KEX (Key Exchange) algorithms in
 	// preference order.
 	KexAlgorithms []string `json:"kex_algorithms" mapstructure:"kex_algorithms"`
@@ -790,6 +794,10 @@ func (c *Configuration) checkAndLoadHostKeys(configDir string, serverConfig *ssh
 	if err := c.checkHostKeyAutoGeneration(configDir); err != nil {
 		return err
 	}
+	hostCertificates, err := c.loadHostCertificates(configDir)
+	if err != nil {
+		return err
+	}
 	serviceStatus.HostKeys = nil
 	for _, hostKey := range c.HostKeys {
 		if !util.IsFileInputValid(hostKey) {
@@ -821,6 +829,14 @@ func (c *Configuration) checkAndLoadHostKeys(configDir string, serverConfig *ssh
 
 		// Add private key to the server configuration.
 		serverConfig.AddHostKey(private)
+		for _, cert := range hostCertificates {
+			signer, err := ssh.NewCertSigner(cert, private)
+			if err == nil {
+				serverConfig.AddHostKey(signer)
+				logger.Info(logSender, "", "Host certificate loaded for host key %#v, fingerprint %#v",
+					hostKey, ssh.FingerprintSHA256(signer.PublicKey()))
+			}
+		}
 	}
 	var fp []string
 	for idx := range serviceStatus.HostKeys {
@@ -831,11 +847,42 @@ func (c *Configuration) checkAndLoadHostKeys(configDir string, serverConfig *ssh
 	return nil
 }
 
+func (c *Configuration) loadHostCertificates(configDir string) ([]*ssh.Certificate, error) {
+	var certs []*ssh.Certificate
+	for _, certPath := range c.HostCertificates {
+		if !util.IsFileInputValid(certPath) {
+			logger.Warn(logSender, "", "unable to load invalid host certificate %#v", certPath)
+			logger.WarnToConsole("unable to load invalid host certificate %#v", certPath)
+			continue
+		}
+		if !filepath.IsAbs(certPath) {
+			certPath = filepath.Join(configDir, certPath)
+		}
+		certBytes, err := os.ReadFile(certPath)
+		if err != nil {
+			return certs, fmt.Errorf("unable to load host certificate %#v: %w", certPath, err)
+		}
+		parsed, _, _, _, err := ssh.ParseAuthorizedKey(certBytes)
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse host certificate %#v: %w", certPath, err)
+		}
+		cert, ok := parsed.(*ssh.Certificate)
+		if !ok {
+			return nil, fmt.Errorf("the file %#v is not an SSH certificate", certPath)
+		}
+		if cert.CertType != ssh.HostCert {
+			return nil, fmt.Errorf("the file %#v is not an host certificate", certPath)
+		}
+		certs = append(certs, cert)
+	}
+	return certs, nil
+}
+
 func (c *Configuration) initializeCertChecker(configDir string) error {
 	for _, keyPath := range c.TrustedUserCAKeys {
 		if !util.IsFileInputValid(keyPath) {
-			logger.Warn(logSender, "", "unable to load invalid trusted user CA key: %#v", keyPath)
-			logger.WarnToConsole("unable to load invalid trusted user CA key: %#v", keyPath)
+			logger.Warn(logSender, "", "unable to load invalid trusted user CA key %#v", keyPath)
+			logger.WarnToConsole("unable to load invalid trusted user CA key %#v", keyPath)
 			continue
 		}
 		if !filepath.IsAbs(keyPath) {
