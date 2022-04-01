@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/md5"
 	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/sha512"
@@ -94,6 +95,7 @@ const (
 const (
 	HashingAlgoBcrypt   = "bcrypt"
 	HashingAlgoArgon2ID = "argon2id"
+	HashingAlgoMD5      = "md5"
 )
 
 // ordering constants
@@ -2210,6 +2212,10 @@ func createUserPasswordHash(user *User) error {
 			if err != nil {
 				return err
 			}
+			user.Password = string(pwd)
+		} else if config.PasswordHashing.Algo == HashingAlgoMD5 {
+			hash := md5.Sum([]byte(user.Password))
+			pwd := hex.EncodeToString(hash[:])
 			user.Password = string(pwd)
 		} else {
 			pwd, err := argon2id.CreateHash(user.Password, argon2Params)
