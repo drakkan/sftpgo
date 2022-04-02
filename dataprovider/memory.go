@@ -367,6 +367,22 @@ func (p *MemoryProvider) deleteUser(user *User) error {
 	return nil
 }
 
+func (p *MemoryProvider) updateUserPassword(username, password string) error {
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return errMemoryProviderClosed
+	}
+
+	user, err := p.userExistsInternal(username)
+	if err != nil {
+		return err
+	}
+	user.Password = password
+	p.dbHandle.users[username] = user
+	return nil
+}
+
 func (p *MemoryProvider) dumpUsers() ([]User, error) {
 	p.dbHandle.Lock()
 	defer p.dbHandle.Unlock()

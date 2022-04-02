@@ -838,6 +838,21 @@ func sqlCommonAddUser(user *User, dbHandle *sql.DB) error {
 	})
 }
 
+func sqlCommonUpdateUserPassword(username, password string, dbHandle *sql.DB) error {
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+
+	q := getUpdateUserPasswordQuery()
+	stmt, err := dbHandle.PrepareContext(ctx, q)
+	if err != nil {
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
+		return err
+	}
+	defer stmt.Close()
+	_, err = stmt.ExecContext(ctx, password, username)
+	return err
+}
+
 func sqlCommonUpdateUser(user *User, dbHandle *sql.DB) error {
 	err := ValidateUser(user)
 	if err != nil {

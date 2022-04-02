@@ -365,6 +365,10 @@ func getUpdateUserQuery() string {
 		sqlPlaceholders[20], sqlPlaceholders[21], sqlPlaceholders[22])
 }
 
+func getUpdateUserPasswordQuery() string {
+	return fmt.Sprintf(`UPDATE %v SET password=%v WHERE username = %v`, sqlTableUsers, sqlPlaceholders[0], sqlPlaceholders[1])
+}
+
 func getDeleteUserQuery() string {
 	return fmt.Sprintf(`DELETE FROM %v WHERE id = %v`, sqlTableUsers, sqlPlaceholders[0])
 }

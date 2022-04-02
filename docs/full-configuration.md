@@ -405,7 +405,7 @@ You can select `sha256-simd` setting the environment variable `SFTPGO_MINIO_SHA2
 
 </details>
 
-<details><summary><font size=5> Binding to privileged ports</font></summary>
+<details><summary><font size=5>Binding to privileged ports</font></summary>
 
 On Linux, if you want to use Internet domain privileged ports (port numbers less than 1024) instead of running the SFTPGo service as root user you can set the `cap_net_bind_service` capability on the `sftpgo` binary. To set the capability you can use the following command:
 
@@ -426,6 +426,27 @@ An alternative method is to use `iptables`, for example you run the SFTP service
 sudo iptables -t nat -A PREROUTING -d <ip> -p tcp --dport 22 -m addrtype --dst-type LOCAL -j DNAT --to-destination <ip>:2022
 sudo iptables -t nat -A OUTPUT     -d <ip> -p tcp --dport 22 -m addrtype --dst-type LOCAL -j DNAT --to-destination <ip>:2022
 ```
+
+</details>
+
+<details><summary><font size=5>Supported Password Hashing Algorithms</font></summary>
+
+SFTPGo can verify passwords in several formats and uses, by default, the `bcrypt` algorithm to hash passwords in plain-text before storing them inside the data provider. Each hashing algorithm is identified by a prefix.
+Supported hash algorithms:
+
+- bcrypt, prefix `$2a$`
+- argon2id, prefix `$argon2id$`
+- PBKDF2 sha1, prefix `$pbkdf2-sha1$`
+- PBKDF2 sha256, prefix `$pbkdf2-sha256$`
+- PBKDF2 sha512, prefix `$pbkdf2-sha512$`
+- PBKDF2 sha256 with base64 salt, prefix `$pbkdf2-b64salt-sha256$`
+- MD5 crypt, prefix `$1$`
+- MD5 crypt APR1, prefix `$apr1$`
+- SHA512 crypt, prefix `$6$`
+- LDAP md5, prefix `{MD5}`
+
+If you set a password with one of these prefixes it will not be encrypted.
+When users log in, if their passwords are stored with anything other than the preferred algorithm, SFTPGo will automatically upgrade the algorithm to the preferred one.
 
 </details>
 

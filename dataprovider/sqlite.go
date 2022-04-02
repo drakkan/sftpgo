@@ -197,6 +197,10 @@ func (p *SQLiteProvider) deleteUser(user *User) error {
 	return sqlCommonDeleteUser(user, p.dbHandle)
 }
 
+func (p *SQLiteProvider) updateUserPassword(username, password string) error {
+	return sqlCommonUpdateUserPassword(username, password, p.dbHandle)
+}
+
 func (p *SQLiteProvider) dumpUsers() ([]User, error) {
 	return sqlCommonDumpUsers(p.dbHandle)
 }

@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/md5"
 	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/sha512"
@@ -81,6 +82,7 @@ const (
 	md5cryptPwdPrefix         = "$1$"
 	md5cryptApr1PwdPrefix     = "$apr1$"
 	sha512cryptPwdPrefix      = "$6$"
+	md5LDAPPwdPrefix          = "{MD5}"
 	trackQuotaDisabledError   = "please enable track_quota in your configuration to use this method"
 	operationAdd              = "add"
 	operationUpdate           = "update"
@@ -144,7 +146,8 @@ var (
 	sqlPlaceholders          []string
 	internalHashPwdPrefixes  = []string{argonPwdPrefix, bcryptPwdPrefix}
 	hashPwdPrefixes          = []string{argonPwdPrefix, bcryptPwdPrefix, pbkdf2SHA1Prefix, pbkdf2SHA256Prefix,
-		pbkdf2SHA512Prefix, pbkdf2SHA256B64SaltPrefix, md5cryptPwdPrefix, md5cryptApr1PwdPrefix, sha512cryptPwdPrefix}
+		pbkdf2SHA512Prefix, pbkdf2SHA256B64SaltPrefix, md5cryptPwdPrefix, md5cryptApr1PwdPrefix, md5LDAPPwdPrefix,
+		sha512cryptPwdPrefix}
 	pbkdfPwdPrefixes        = []string{pbkdf2SHA1Prefix, pbkdf2SHA256Prefix, pbkdf2SHA512Prefix, pbkdf2SHA256B64SaltPrefix}
 	pbkdfPwdB64SaltPrefixes = []string{pbkdf2SHA256B64SaltPrefix}
 	unixPwdPrefixes         = []string{md5cryptPwdPrefix, md5cryptApr1PwdPrefix, sha512cryptPwdPrefix}
@@ -624,6 +627,7 @@ type Provider interface {
 	addUser(user *User) error
 	updateUser(user *User) error
 	deleteUser(user *User) error
+	updateUserPassword(username, password string) error
 	getUsers(limit int, offset int, order string) ([]User, error)
 	dumpUsers() ([]User, error)
 	getRecentlyUpdatedUsers(after int64) ([]User, error)
@@ -2166,6 +2170,21 @@ func validateBaseParams(user *User) error {
 	return nil
 }
 
+func hashPlainPassword(plainPwd string) (string, error) {
+	if config.PasswordHashing.Algo == HashingAlgoBcrypt {
+		pwd, err := bcrypt.GenerateFromPassword([]byte(plainPwd), config.PasswordHashing.BcryptOptions.Cost)
+		if err != nil {
+			return "", fmt.Errorf("bcrypt hashing error: %w", err)
+		}
+		return string(pwd), nil
+	}
+	pwd, err := argon2id.CreateHash(plainPwd, argon2Params)
+	if err != nil {
+		return "", fmt.Errorf("argon2ID hashing error: %w", err)
+	}
+	return pwd, nil
+}
+
 func createUserPasswordHash(user *User) error {
 	if user.Password != "" && !user.IsPasswordHashed() {
 		if config.PasswordValidation.Users.MinEntropy > 0 {
@@ -2173,19 +2192,11 @@ func createUserPasswordHash(user *User) error {
 				return util.NewValidationError(err.Error())
 			}
 		}
-		if config.PasswordHashing.Algo == HashingAlgoBcrypt {
-			pwd, err := bcrypt.GenerateFromPassword([]byte(user.Password), config.PasswordHashing.BcryptOptions.Cost)
-			if err != nil {
-				return err
-			}
-			user.Password = string(pwd)
-		} else {
-			pwd, err := argon2id.CreateHash(user.Password, argon2Params)
-			if err != nil {
-				return err
-			}
-			user.Password = pwd
+		hashedPwd, err := hashPlainPassword(user.Password)
+		if err != nil {
+			return err
 		}
+		user.Password = hashedPwd
 	}
 	return nil
 }
@@ -2271,18 +2282,21 @@ func isPasswordOK(user *User, password string) (bool, error) {
 	}
 
 	match := false
+	updatePwd := true
 	var err error
 	if strings.HasPrefix(user.Password, bcryptPwdPrefix) {
 		if err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
 			return match, ErrInvalidCredentials
 		}
 		match = true
+		updatePwd = config.PasswordHashing.Algo != HashingAlgoBcrypt
 	} else if strings.HasPrefix(user.Password, argonPwdPrefix) {
 		match, err = argon2id.ComparePasswordAndHash(password, user.Password)
 		if err != nil {
 			providerLog(logger.LevelError, "error comparing password with argon hash: %v", err)
 			return match, err
 		}
+		updatePwd = config.PasswordHashing.Algo != HashingAlgoArgon2ID
 	} else if util.IsStringPrefixInSlice(user.Password, pbkdfPwdPrefixes) {
 		match, err = comparePbkdf2PasswordAndHash(password, user.Password)
 		if err != nil {
@@ -2293,11 +2307,30 @@ func isPasswordOK(user *User, password string) (bool, error) {
 		if err != nil {
 			return match, err
 		}
+	} else if strings.HasPrefix(user.Password, md5LDAPPwdPrefix) {
+		h := md5.New()
+		h.Write([]byte(password))
+		match = fmt.Sprintf("%s%x", md5LDAPPwdPrefix, h.Sum(nil)) == user.Password
 	}
 	if err == nil && match {
 		cachedPasswords.Add(user.Username, password)
+		if updatePwd {
+			convertUserPassword(user.Username, password)
+		}
 	}
 	return match, err
+}
+
+func convertUserPassword(username, plainPwd string) {
+	hashedPwd, err := hashPlainPassword(plainPwd)
+	if err == nil {
+		err = provider.updateUserPassword(username, hashedPwd)
+	}
+	if err != nil {
+		providerLog(logger.LevelWarn, "unable to convert password for user %s: %v", username, err)
+	} else {
+		providerLog(logger.LevelDebug, "password converted for user %s", username)
+	}
 }
 
 func checkUserAndTLSCertificate(user *User, protocol string, tlsCert *x509.Certificate) (User, error) {

@@ -6919,20 +6919,29 @@ func TestOverwriteDirWithFile(t *testing.T) {
 
 func TestHashedPasswords(t *testing.T) {
 	usePubKey := false
+	plainPwd := "password"
 	pwdMapping := make(map[string]string)
-	pwdMapping["$pbkdf2-sha1$150000$DveVjgYUD05R$X6ydQZdyMeOvpgND2nqGR/0GGic="] = "password" //nolint:goconst
-	pwdMapping["$pbkdf2-sha256$150000$E86a9YMX3zC7$R5J62hsSq+pYw00hLLPKBbcGXmq7fj5+/M0IFoYtZbo="] = "password"
-	pwdMapping["$pbkdf2-sha512$150000$dsu7T5R3IaVQ$1hFXPO1ntRBcoWkSLKw+s4sAP09Xtu4Ya7CyxFq64jM9zdUg8eRJVr3NcR2vQgb0W9HHvZaILHsL4Q/Vr6arCg=="] = "password"
-	pwdMapping["$1$b5caebda$VODr/nyhGWgZaY8sJ4x05."] = "password"
+	pwdMapping["$argon2id$v=19$m=65536,t=3,p=2$xtcO/oRkC8O2Tn+mryl2mw$O7bn24f2kuSGRMi9s5Cm61Wqd810px1jDsAasrGWkzQ"] = plainPwd
+	pwdMapping["$pbkdf2-sha1$150000$DveVjgYUD05R$X6ydQZdyMeOvpgND2nqGR/0GGic="] = plainPwd
+	pwdMapping["$pbkdf2-sha256$150000$E86a9YMX3zC7$R5J62hsSq+pYw00hLLPKBbcGXmq7fj5+/M0IFoYtZbo="] = plainPwd
+	pwdMapping["$pbkdf2-sha512$150000$dsu7T5R3IaVQ$1hFXPO1ntRBcoWkSLKw+s4sAP09Xtu4Ya7CyxFq64jM9zdUg8eRJVr3NcR2vQgb0W9HHvZaILHsL4Q/Vr6arCg=="] = plainPwd
+	pwdMapping["$1$b5caebda$VODr/nyhGWgZaY8sJ4x05."] = plainPwd
 	pwdMapping["$2a$14$ajq8Q7fbtFRQvXpdCq7Jcuy.Rx1h/L4J60Otx.gyNLbAYctGMJ9tK"] = "secret"
 	pwdMapping["$6$459ead56b72e44bc$uog86fUxscjt28BZxqFBE2pp2QD8P/1e98MNF75Z9xJfQvOckZnQ/1YJqiq1XeytPuDieHZvDAMoP7352ELkO1"] = "secret"
-	pwdMapping["$apr1$OBWLeSme$WoJbB736e7kKxMBIAqilb1"] = "password"
+	pwdMapping["$apr1$OBWLeSme$WoJbB736e7kKxMBIAqilb1"] = plainPwd
+	pwdMapping["{MD5}5f4dcc3b5aa765d61d8327deb882cf99"] = plainPwd
 
 	for pwd, clearPwd := range pwdMapping {
 		u := getTestUser(usePubKey)
 		u.Password = pwd
 		user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 		assert.NoError(t, err)
+		user.Password = ""
+		userGetInitial, _, err := httpdtest.UpdateUser(user, http.StatusOK, "")
+		assert.NoError(t, err)
+		user, err = dataprovider.UserExists(user.Username)
+		assert.NoError(t, err)
+		assert.Equal(t, pwd, user.Password)
 		user.Password = clearPwd
 		conn, client, err := getSftpClient(user, usePubKey)
 		if assert.NoError(t, err, "unable to login with password %#v", pwd) {
@@ -6945,6 +6954,25 @@ func TestHashedPasswords(t *testing.T) {
 		if !assert.Error(t, err, "login with wrong password must fail") {
 			client.Close()
 			conn.Close()
+		}
+		// the password must converted to bcrypt and we should still be able to login
+		user, err = dataprovider.UserExists(user.Username)
+		assert.NoError(t, err)
+		assert.True(t, strings.HasPrefix(user.Password, "$2a$"))
+		// update the user to invalidate the cached password and force a new check
+		user.Password = ""
+		userGet, _, err := httpdtest.UpdateUser(user, http.StatusOK, "")
+		assert.NoError(t, err)
+		userGetInitial.LastLogin = userGet.LastLogin
+		userGetInitial.UpdatedAt = userGet.UpdatedAt
+		assert.Equal(t, userGetInitial, userGet)
+		// login should still work
+		user.Password = clearPwd
+		conn, client, err = getSftpClient(user, usePubKey)
+		if assert.NoError(t, err, "unable to login with password %#v", pwd) {
+			defer conn.Close()
+			defer client.Close()
+			assert.NoError(t, checkBasicSFTP(client))
 		}
 		_, err = httpdtest.RemoveUser(user, http.StatusOK)
 		assert.NoError(t, err)

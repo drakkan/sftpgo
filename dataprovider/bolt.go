@@ -653,6 +653,30 @@ func (p *BoltProvider) deleteUser(user *User) error {
 	})
 }
 
+func (p *BoltProvider) updateUserPassword(username, password string) error {
+	return p.dbHandle.Update(func(tx *bolt.Tx) error {
+		bucket, err := getUsersBucket(tx)
+		if err != nil {
+			return err
+		}
+		var u []byte
+		if u = bucket.Get([]byte(username)); u == nil {
+			return util.NewRecordNotFoundError(fmt.Sprintf("username %#v does not exist", username))
+		}
+		var user User
+		err = json.Unmarshal(u, &user)
+		if err != nil {
+			return err
+		}
+		user.Password = password
+		buf, err := json.Marshal(user)
+		if err != nil {
+			return err
+		}
+		return bucket.Put([]byte(username), buf)
+	})
+}
+
 func (p *BoltProvider) dumpUsers() ([]User, error) {
 	users := make([]User, 0, 100)
 	err := p.dbHandle.View(func(tx *bolt.Tx) error {

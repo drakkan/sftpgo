@@ -223,6 +223,10 @@ func (p *PGSQLProvider) deleteUser(user *User) error {
 	return sqlCommonDeleteUser(user, p.dbHandle)
 }
 
+func (p *PGSQLProvider) updateUserPassword(username, password string) error {
+	return sqlCommonUpdateUserPassword(username, password, p.dbHandle)
+}
+
 func (p *PGSQLProvider) dumpUsers() ([]User, error) {
 	return sqlCommonDumpUsers(p.dbHandle)
 }

@@ -247,6 +247,10 @@ func (p *MySQLProvider) deleteUser(user *User) error {
 	return sqlCommonDeleteUser(user, p.dbHandle)
 }
 
+func (p *MySQLProvider) updateUserPassword(username, password string) error {
+	return sqlCommonUpdateUserPassword(username, password, p.dbHandle)
+}
+
 func (p *MySQLProvider) dumpUsers() ([]User, error) {
 	return sqlCommonDumpUsers(p.dbHandle)
 }
