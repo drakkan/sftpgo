@@ -194,7 +194,7 @@ func NewSFTPFs(connectionID, mountPath, localTempDir string, forbiddenSelfUserna
 	config.forbiddenSelfUsernames = forbiddenSelfUsernames
 	sftpFs := &SFTPFs{
 		connectionID: connectionID,
-		mountPath:    mountPath,
+		mountPath:    getMountPath(mountPath),
 		localTempDir: localTempDir,
 		config:       &config,
 		err:          make(chan error, 1),

@@ -306,6 +306,21 @@ func (t *BaseTransfer) getUploadFileSize() (int64, error) {
 	return fileSize, err
 }
 
+// return 1 if the file is deleted
+func (t *BaseTransfer) checkUploadOutsideHomeDir(err error) int {
+	if Config.TempPath != "" && err != nil {
+		errRm := t.Fs.Remove(t.effectiveFsPath, false)
+		t.Connection.Log(logger.LevelWarn, "atomic upload in temp path cannot be renamed, delete temporary file: %#v, deletion error: %v",
+			t.effectiveFsPath, errRm)
+		if errRm == nil {
+			atomic.StoreInt64(&t.BytesReceived, 0)
+			t.MinWriteOffset = 0
+			return 1
+		}
+	}
+	return 0
+}
+
 // Close it is called when the transfer is completed.
 // It logs the transfer info, updates the user quota (for uploads)
 // and executes any defined action.
@@ -340,10 +355,12 @@ func (t *BaseTransfer) Close() error {
 			err = t.Fs.Rename(t.effectiveFsPath, t.fsPath)
 			t.Connection.Log(logger.LevelDebug, "atomic upload completed, rename: %#v -> %#v, error: %v",
 				t.effectiveFsPath, t.fsPath, err)
+			// the file must be removed if it is uploaded to a path outside the home dir and cannot be renamed
+			numFiles -= t.checkUploadOutsideHomeDir(err)
 		} else {
 			err = t.Fs.Remove(t.effectiveFsPath, false)
-			t.Connection.Log(logger.LevelWarn, "atomic upload completed with error: \"%v\", delete temporary file: %#v, "+
-				"deletion error: %v", t.ErrTransfer, t.effectiveFsPath, err)
+			t.Connection.Log(logger.LevelWarn, "atomic upload completed with error: \"%v\", delete temporary file: %#v, deletion error: %v",
+				t.ErrTransfer, t.effectiveFsPath, err)
 			if err == nil {
 				numFiles--
 				atomic.StoreInt64(&t.BytesReceived, 0)
@@ -359,7 +376,7 @@ func (t *BaseTransfer) Close() error {
 			atomic.LoadInt64(&t.BytesSent), t.ErrTransfer)
 	} else {
 		fileSize := atomic.LoadInt64(&t.BytesReceived) + t.MinWriteOffset
-		if statSize, err := t.getUploadFileSize(); err == nil {
+		if statSize, errStat := t.getUploadFileSize(); errStat == nil {
 			fileSize = statSize
 		}
 		t.Connection.Log(logger.LevelDebug, "uploaded file size %v", fileSize)

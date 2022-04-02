@@ -46,7 +46,7 @@ func NewOsFs(connectionID, rootDir, mountPath string) Fs {
 		name:         osFsName,
 		connectionID: connectionID,
 		rootDir:      rootDir,
-		mountPath:    mountPath,
+		mountPath:    getMountPath(mountPath),
 	}
 }
 

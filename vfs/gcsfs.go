@@ -69,7 +69,7 @@ func NewGCSFs(connectionID, localTempDir, mountPath string, config GCSFsConfig) 
 	fs := &GCSFs{
 		connectionID:   connectionID,
 		localTempDir:   localTempDir,
-		mountPath:      mountPath,
+		mountPath:      getMountPath(mountPath),
 		config:         &config,
 		ctxTimeout:     30 * time.Second,
 		ctxLongTimeout: 300 * time.Second,

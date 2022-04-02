@@ -12,6 +12,7 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -65,7 +66,7 @@ func NewAzBlobFs(connectionID, localTempDir, mountPath string, config AzBlobFsCo
 	fs := &AzureBlobFs{
 		connectionID:   connectionID,
 		localTempDir:   localTempDir,
-		mountPath:      mountPath,
+		mountPath:      getMountPath(mountPath),
 		config:         &config,
 		ctxTimeout:     30 * time.Second,
 		ctxLongTimeout: 90 * time.Second,
@@ -74,12 +75,10 @@ func NewAzBlobFs(connectionID, localTempDir, mountPath string, config AzBlobFsCo
 		return fs, err
 	}
 
-	if err := fs.config.AccountKey.TryDecrypt(); err != nil {
+	if err := fs.config.tryDecrypt(); err != nil {
 		return fs, err
 	}
-	if err := fs.config.SASURL.TryDecrypt(); err != nil {
-		return fs, err
-	}
+
 	fs.setConfigDefaults()
 
 	version := version.Get()
@@ -90,6 +89,9 @@ func NewAzBlobFs(connectionID, localTempDir, mountPath string, config AzBlobFsCo
 	}
 
 	if fs.config.SASURL.GetPayload() != "" {
+		if _, err := url.Parse(fs.config.SASURL.GetPayload()); err != nil {
+			return fs, fmt.Errorf("invalid SAS URL: %w", err)
+		}
 		parts := azblob.NewBlobURLParts(fs.config.SASURL.GetPayload())
 		if parts.ContainerName != "" {
 			if fs.config.Container != "" && fs.config.Container != parts.ContainerName {

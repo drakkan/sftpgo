@@ -13,7 +13,7 @@ Several storage backends are supported: local filesystem, encrypted local filesy
 
 - Support for serving local filesystem, encrypted local filesystem, S3 Compatible Object Storage, Google Cloud Storage, Azure Blob Storage or other SFTP accounts over SFTP/SCP/FTP/WebDAV.
 - Virtual folders are supported: a virtual folder can use any of the supported storage backends. So you can have, for example, an S3 user that exposes a GCS bucket (or part of it) on a specified path and an encrypted local filesystem on another one. Virtual folders can be private or shared among multiple users, for shared virtual folders you can define different quota limits for each user.
-- Configurable [custom commands and/or HTTP hooks](./docs/custom-actions.md) on file upload, pre-upload, download, pre-download, delete, pre-delete, rename, mkdir, rmdir on SSH commands and on user add, update and delete.
+- Configurable [custom commands and/or HTTP hooks](./docs/custom-actions.md) on upload, pre-upload, download, pre-download, delete, pre-delete, rename, mkdir, rmdir on SSH commands and on user add, update and delete.
 - Virtual accounts stored within a "data provider".
 - SQLite, MySQL, PostgreSQL, CockroachDB, Bolt (key/value store in pure Go) and in-memory data providers are supported.
 - Chroot isolation for local accounts. Cloud-based accounts can be restricted to a certain base path.

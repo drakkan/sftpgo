@@ -422,3 +422,34 @@ func TestTransferQuota(t *testing.T) {
 	err = transfer.CheckWrite()
 	assert.True(t, conn.IsQuotaExceededError(err))
 }
+
+func TestUploadOutsideHomeRenameError(t *testing.T) {
+	oldTempPath := Config.TempPath
+
+	conn := NewBaseConnection("", ProtocolSFTP, "", "", dataprovider.User{})
+	transfer := BaseTransfer{
+		Connection:    conn,
+		transferType:  TransferUpload,
+		BytesReceived: 123,
+		Fs:            vfs.NewOsFs("", filepath.Join(os.TempDir(), "home"), ""),
+	}
+
+	fileName := filepath.Join(os.TempDir(), "_temp")
+	err := os.WriteFile(fileName, []byte(`data`), 0644)
+	assert.NoError(t, err)
+
+	transfer.effectiveFsPath = fileName
+	res := transfer.checkUploadOutsideHomeDir(os.ErrPermission)
+	assert.Equal(t, 0, res)
+
+	Config.TempPath = filepath.Clean(os.TempDir())
+	res = transfer.checkUploadOutsideHomeDir(nil)
+	assert.Equal(t, 0, res)
+	assert.Greater(t, transfer.BytesReceived, int64(0))
+	res = transfer.checkUploadOutsideHomeDir(os.ErrPermission)
+	assert.Equal(t, 1, res)
+	assert.Equal(t, int64(0), transfer.BytesReceived)
+	assert.NoFileExists(t, fileName)
+
+	Config.TempPath = oldTempPath
+}

@@ -283,7 +283,7 @@ func GenerateEd25519Keys(file string) error {
 // for example if the path is: /1/2/3/4 it returns:
 // [ "/1/2/3/4", "/1/2/3", "/1/2", "/1", "/" ]
 func GetDirsForVirtualPath(virtualPath string) []string {
-	if virtualPath == "." {
+	if virtualPath == "" || virtualPath == "." {
 		virtualPath = "/"
 	} else {
 		if !path.IsAbs(virtualPath) {

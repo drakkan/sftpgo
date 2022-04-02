@@ -44,7 +44,7 @@ func NewCryptFs(connectionID, rootDir, mountPath string, config CryptFsConfig) (
 			name:         cryptFsName,
 			connectionID: connectionID,
 			rootDir:      rootDir,
-			mountPath:    mountPath,
+			mountPath:    getMountPath(mountPath),
 		},
 		masterKey: []byte(config.Passphrase.GetPayload()),
 	}

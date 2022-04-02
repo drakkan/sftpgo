@@ -70,7 +70,7 @@ func NewS3Fs(connectionID, localTempDir, mountPath string, s3Config S3FsConfig) 
 	fs := &S3Fs{
 		connectionID: connectionID,
 		localTempDir: localTempDir,
-		mountPath:    mountPath,
+		mountPath:    getMountPath(mountPath),
 		config:       &s3Config,
 		ctxTimeout:   30 * time.Second,
 	}

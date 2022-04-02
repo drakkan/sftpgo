@@ -2124,56 +2124,6 @@ func TestAddUserInvalidVirtualFolders(t *testing.T) {
 			MappedPath: filepath.Join(os.TempDir(), "mapped_dir"),
 			Name:       folderName,
 		},
-		VirtualPath: "vdir", // invalid
-	})
-	_, _, err := httpdtest.AddUser(u, http.StatusBadRequest)
-	assert.NoError(t, err)
-	u.VirtualFolders = nil
-	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
-		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			MappedPath: filepath.Join(os.TempDir(), "mapped_dir"),
-			Name:       folderName,
-		},
-		VirtualPath: "/", // invalid
-	})
-	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
-	assert.NoError(t, err)
-	u.VirtualFolders = nil
-	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
-		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			MappedPath: filepath.Join(u.GetHomeDir(), "mapped_dir"), // invalid, inside home dir
-			Name:       folderName,
-		},
-		VirtualPath: "/vdir",
-	})
-	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
-	assert.NoError(t, err)
-	u.VirtualFolders = nil
-	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
-		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			MappedPath: u.GetHomeDir(), // invalid
-			Name:       folderName,
-		},
-		VirtualPath: "/vdir",
-	})
-	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
-	assert.NoError(t, err)
-	u.VirtualFolders = nil
-	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
-		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			MappedPath: filepath.Join(u.GetHomeDir(), ".."), // invalid, contains home dir
-			Name:       "tmp",
-		},
-		VirtualPath: "/vdir",
-	})
-	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
-	assert.NoError(t, err)
-	u.VirtualFolders = nil
-	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
-		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			MappedPath: filepath.Join(os.TempDir(), "mapped_dir"),
-			Name:       folderName,
-		},
 		VirtualPath: "/vdir",
 	})
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
@@ -2183,7 +2133,7 @@ func TestAddUserInvalidVirtualFolders(t *testing.T) {
 		},
 		VirtualPath: "/vdir", // invalid, already defined
 	})
-	_, _, err = httpdtest.AddUser(u, http.StatusBadRequest)
+	_, _, err := httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err)
 	u.VirtualFolders = nil
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
@@ -2195,8 +2145,8 @@ func TestAddUserInvalidVirtualFolders(t *testing.T) {
 	})
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			MappedPath: filepath.Join(os.TempDir(), "mapped_dir"), // invalid, already defined
-			Name:       folderName,
+			MappedPath: filepath.Join(os.TempDir(), "mapped_dir"),
+			Name:       folderName, // invalid, unique constraint (user.id, folder.id) violated
 		},
 		VirtualPath: "/vdir2",
 	})

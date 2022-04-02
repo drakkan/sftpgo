@@ -186,7 +186,7 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !isCached {
 		err = user.CheckFsRoot(connectionID)
 	} else {
-		_, err = user.GetFilesystem(connectionID)
+		_, err = user.GetFilesystemForPath("/", connectionID)
 	}
 	if err != nil {
 		errClose := user.CloseFs()

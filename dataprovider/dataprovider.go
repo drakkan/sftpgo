@@ -1715,25 +1715,6 @@ func isVirtualDirOverlapped(dir1, dir2 string, fullCheck bool) bool {
 	return false
 }
 
-func isMappedDirOverlapped(dir1, dir2 string, fullCheck bool) bool {
-	if dir1 == dir2 {
-		return true
-	}
-	if fullCheck {
-		if len(dir1) > len(dir2) {
-			if strings.HasPrefix(dir1, dir2+string(os.PathSeparator)) {
-				return true
-			}
-		}
-		if len(dir2) > len(dir1) {
-			if strings.HasPrefix(dir2, dir1+string(os.PathSeparator)) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 func validateFolderQuotaLimits(folder vfs.VirtualFolder) error {
 	if folder.QuotaSize < -1 {
 		return util.NewValidationError(fmt.Sprintf("invalid quota_size: %v folder path %#v", folder.QuotaSize, folder.MappedPath))
@@ -1774,13 +1755,10 @@ func validateUserVirtualFolders(user *User) error {
 		return nil
 	}
 	var virtualFolders []vfs.VirtualFolder
-	mappedPaths := make(map[string]bool)
-	virtualPaths := make(map[string]bool)
+	folderNames := make(map[string]bool)
+
 	for _, v := range user.VirtualFolders {
-		cleanedVPath := filepath.ToSlash(path.Clean(v.VirtualPath))
-		if !path.IsAbs(cleanedVPath) || cleanedVPath == "/" {
-			return util.NewValidationError(fmt.Sprintf("invalid virtual folder %#v", v.VirtualPath))
-		}
+		cleanedVPath := util.CleanPath(v.VirtualPath)
 		if err := validateFolderQuotaLimits(v); err != nil {
 			return err
 		}
@@ -1788,33 +1766,22 @@ func validateUserVirtualFolders(user *User) error {
 		if err := ValidateFolder(folder); err != nil {
 			return err
 		}
-		cleanedMPath := folder.MappedPath
-		if folder.IsLocalOrLocalCrypted() {
-			if isMappedDirOverlapped(cleanedMPath, user.GetHomeDir(), true) {
-				return util.NewValidationError(fmt.Sprintf("invalid mapped folder %#v cannot be inside or contain the user home dir %#v",
-					folder.MappedPath, user.GetHomeDir()))
-			}
-			for mPath := range mappedPaths {
-				if folder.IsLocalOrLocalCrypted() && isMappedDirOverlapped(mPath, cleanedMPath, false) {
-					return util.NewValidationError(fmt.Sprintf("invalid mapped folder %#v overlaps with mapped folder %#v",
-						v.MappedPath, mPath))
-				}
-			}
-			mappedPaths[cleanedMPath] = true
+		if folderNames[folder.Name] {
+			return util.NewValidationError(fmt.Sprintf("the folder %#v is duplicated", folder.Name))
 		}
-		for vPath := range virtualPaths {
-			if isVirtualDirOverlapped(vPath, cleanedVPath, false) {
-				return util.NewValidationError(fmt.Sprintf("invalid virtual folder %#v overlaps with virtual folder %#v",
-					v.VirtualPath, vPath))
+		for _, vFolder := range virtualFolders {
+			if isVirtualDirOverlapped(vFolder.VirtualPath, cleanedVPath, false) {
+				return util.NewValidationError(fmt.Sprintf("invalid virtual folder %#v, it overlaps with virtual folder %#v",
+					v.VirtualPath, vFolder.VirtualPath))
 			}
 		}
-		virtualPaths[cleanedVPath] = true
 		virtualFolders = append(virtualFolders, vfs.VirtualFolder{
 			BaseVirtualFolder: *folder,
 			VirtualPath:       cleanedVPath,
 			QuotaSize:         v.QuotaSize,
 			QuotaFiles:        v.QuotaFiles,
 		})
+		folderNames[folder.Name] = true
 	}
 	user.VirtualFolders = virtualFolders
 	return nil

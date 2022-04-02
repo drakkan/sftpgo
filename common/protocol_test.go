@@ -660,6 +660,107 @@ func TestFileNotAllowedErrors(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestRootDirVirtualFolder(t *testing.T) {
+	u := getTestUser()
+	u.QuotaFiles = 1000
+	u.UploadDataTransfer = 1000
+	u.DownloadDataTransfer = 5000
+	mappedPath1 := filepath.Join(os.TempDir(), "mapped1")
+	folderName1 := filepath.Base(mappedPath1)
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName1,
+			MappedPath: mappedPath1,
+			FsConfig: vfs.Filesystem{
+				Provider: sdk.CryptedFilesystemProvider,
+				CryptConfig: vfs.CryptFsConfig{
+					Passphrase: kms.NewPlainSecret("cryptsecret"),
+				},
+			},
+		},
+		VirtualPath: "/",
+		QuotaFiles:  1000,
+	})
+	mappedPath2 := filepath.Join(os.TempDir(), "mapped2")
+	folderName2 := filepath.Base(mappedPath2)
+	vdirPath2 := "/vmapped"
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName2,
+			MappedPath: mappedPath2,
+		},
+		VirtualPath: vdirPath2,
+		QuotaFiles:  -1,
+		QuotaSize:   -1,
+	})
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	conn, client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		err = checkBasicSFTP(client)
+		assert.NoError(t, err)
+		f, err := client.Create(testFileName)
+		if assert.NoError(t, err) {
+			_, err = f.Write(testFileContent)
+			assert.NoError(t, err)
+			err = f.Close()
+			assert.NoError(t, err)
+		}
+		assert.NoFileExists(t, filepath.Join(user.HomeDir, testFileName))
+		assert.FileExists(t, filepath.Join(mappedPath1, testFileName))
+		entries, err := client.ReadDir(".")
+		if assert.NoError(t, err) {
+			assert.Len(t, entries, 2)
+		}
+
+		user, _, err := httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 0, user.UsedQuotaFiles)
+		folder, _, err := httpdtest.GetFolderByName(folderName1, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, folder.UsedQuotaFiles)
+
+		f, err = client.Create(path.Join(vdirPath2, testFileName))
+		if assert.NoError(t, err) {
+			_, err = f.Write(testFileContent)
+			assert.NoError(t, err)
+			err = f.Close()
+			assert.NoError(t, err)
+		}
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, user.UsedQuotaFiles)
+		folder, _, err = httpdtest.GetFolderByName(folderName1, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, folder.UsedQuotaFiles)
+
+		err = client.Rename(testFileName, path.Join(vdirPath2, testFileName+"_rename"))
+		assert.Error(t, err)
+		err = client.Rename(path.Join(vdirPath2, testFileName), testFileName+"_rename")
+		assert.Error(t, err)
+		err = client.Rename(testFileName, testFileName+"_rename")
+		assert.NoError(t, err)
+		err = client.Rename(path.Join(vdirPath2, testFileName), path.Join(vdirPath2, testFileName+"_rename"))
+		assert.NoError(t, err)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName1}, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath1)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName2}, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath2)
+	assert.NoError(t, err)
+}
+
 func TestTruncateQuotaLimits(t *testing.T) {
 	u := getTestUser()
 	u.QuotaSize = 20

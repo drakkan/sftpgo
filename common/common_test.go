@@ -886,13 +886,17 @@ func TestCachedFs(t *testing.T) {
 	_, p, err = conn.GetFsAndResolvedPath("/")
 	assert.NoError(t, err)
 	assert.Equal(t, filepath.Clean(os.TempDir()), p)
-	user.FsConfig.Provider = sdk.S3FilesystemProvider
-	_, err = user.GetFilesystem("")
-	assert.Error(t, err)
+	// the filesystem is cached changing the provider will not affect the connection
 	conn.User.FsConfig.Provider = sdk.S3FilesystemProvider
 	_, p, err = conn.GetFsAndResolvedPath("/")
 	assert.NoError(t, err)
 	assert.Equal(t, filepath.Clean(os.TempDir()), p)
+	user = dataprovider.User{}
+	user.HomeDir = filepath.Join(os.TempDir(), "temp")
+	user.FsConfig.Provider = sdk.S3FilesystemProvider
+	_, err = user.GetFilesystem("")
+	assert.Error(t, err)
+
 	err = os.Remove(user.HomeDir)
 	assert.NoError(t, err)
 }

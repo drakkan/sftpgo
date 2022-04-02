@@ -129,13 +129,7 @@ type User struct {
 
 // GetFilesystem returns the base filesystem for this user
 func (u *User) GetFilesystem(connectionID string) (fs vfs.Fs, err error) {
-	fs, err = u.getRootFs(connectionID)
-	if err != nil {
-		return fs, err
-	}
-	u.fsCache = make(map[string]vfs.Fs)
-	u.fsCache["/"] = fs
-	return fs, err
+	return u.GetFilesystemForPath("/", connectionID)
 }
 
 func (u *User) getRootFs(connectionID string) (fs vfs.Fs, err error) {
@@ -499,7 +493,8 @@ func (u *User) GetFilesystemForPath(virtualPath, connectionID string) (vfs.Fs, e
 	if u.fsCache == nil {
 		u.fsCache = make(map[string]vfs.Fs)
 	}
-	if virtualPath != "" && virtualPath != "/" && len(u.VirtualFolders) > 0 {
+	// allow to override the `/` path with a virtual folder
+	if len(u.VirtualFolders) > 0 {
 		folder, err := u.GetVirtualFolderForPath(virtualPath)
 		if err == nil {
 			if fs, ok := u.fsCache[folder.VirtualPath]; ok {
@@ -524,15 +519,19 @@ func (u *User) GetFilesystemForPath(virtualPath, connectionID string) (vfs.Fs, e
 	if val, ok := u.fsCache["/"]; ok {
 		return val, nil
 	}
-
-	return u.GetFilesystem(connectionID)
+	fs, err := u.getRootFs(connectionID)
+	if err != nil {
+		return fs, err
+	}
+	u.fsCache["/"] = fs
+	return fs, err
 }
 
 // GetVirtualFolderForPath returns the virtual folder containing the specified virtual path.
 // If the path is not inside a virtual folder an error is returned
 func (u *User) GetVirtualFolderForPath(virtualPath string) (vfs.VirtualFolder, error) {
 	var folder vfs.VirtualFolder
-	if virtualPath == "/" || len(u.VirtualFolders) == 0 {
+	if len(u.VirtualFolders) == 0 {
 		return folder, errNoMatchingVirtualFolder
 	}
 	dirsForPath := util.GetDirsForVirtualPath(virtualPath)
@@ -633,7 +632,14 @@ func (u *User) GetVirtualFoldersInPath(virtualPath string) map[string]bool {
 }
 
 func (u *User) hasVirtualDirs() bool {
-	return len(u.VirtualFolders) > 0 || u.Filters.StartDirectory != ""
+	if u.Filters.StartDirectory != "" {
+		return true
+	}
+	numFolders := len(u.VirtualFolders)
+	if numFolders == 1 {
+		return u.VirtualFolders[0].VirtualPath != "/"
+	}
+	return numFolders > 0
 }
 
 // FilterListDir adds virtual folders and remove hidden items from the given files list

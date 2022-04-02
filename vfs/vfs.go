@@ -497,6 +497,16 @@ func (c *AzBlobFsConfig) checkPartSizeAndConcurrency() error {
 	return nil
 }
 
+func (c *AzBlobFsConfig) tryDecrypt() error {
+	if err := c.AccountKey.TryDecrypt(); err != nil {
+		return fmt.Errorf("unable to decrypt account key: %w", err)
+	}
+	if err := c.SASURL.TryDecrypt(); err != nil {
+		return fmt.Errorf("unable to decrypt SAS URL: %w", err)
+	}
+	return nil
+}
+
 // Validate returns an error if the configuration is not valid
 func (c *AzBlobFsConfig) Validate() error {
 	if c.AccountKey == nil {
@@ -792,6 +802,13 @@ func fsMetadataCheck(fs fsMetadataChecker, storageID, keyPrefix string) error {
 			return nil
 		}
 	}
+}
+
+func getMountPath(mountPath string) string {
+	if mountPath == "/" {
+		return ""
+	}
+	return mountPath
 }
 
 func fsLog(fs Fs, level logger.LogLevel, format string, v ...interface{}) {

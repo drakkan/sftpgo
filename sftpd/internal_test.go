@@ -475,8 +475,9 @@ func TestSSHCommandErrors(t *testing.T) {
 		assert.NoError(t, err)
 	}()
 	user := dataprovider.User{}
-	user.Permissions = make(map[string][]string)
-	user.Permissions["/"] = []string{dataprovider.PermAny}
+	user.Permissions = map[string][]string{
+		"/": {dataprovider.PermAny},
+	}
 	connection := Connection{
 		BaseConnection: common.NewBaseConnection("", common.ProtocolSSH, "", "", user),
 		channel:        &mockSSHChannel,
@@ -505,9 +506,14 @@ func TestSSHCommandErrors(t *testing.T) {
 	err = cmd.handle()
 	assert.Error(t, err, "ssh command must fail, we are requesting an invalid path")
 
-	cmd.connection.User.HomeDir = filepath.Clean(os.TempDir())
-	cmd.connection.User.QuotaFiles = 1
-	cmd.connection.User.UsedQuotaFiles = 2
+	user = dataprovider.User{}
+	user.Permissions = map[string][]string{
+		"/": {dataprovider.PermAny},
+	}
+	user.HomeDir = filepath.Clean(os.TempDir())
+	user.QuotaFiles = 1
+	user.UsedQuotaFiles = 2
+	cmd.connection.User = user
 	fs, err := cmd.connection.User.GetFilesystem("123")
 	assert.NoError(t, err)
 	err = cmd.handle()
