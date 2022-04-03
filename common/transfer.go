@@ -306,19 +306,21 @@ func (t *BaseTransfer) getUploadFileSize() (int64, error) {
 	return fileSize, err
 }
 
-// return 1 if the file is deleted
+// return 1 if the file is outside the user home dir
 func (t *BaseTransfer) checkUploadOutsideHomeDir(err error) int {
-	if Config.TempPath != "" && err != nil {
-		errRm := t.Fs.Remove(t.effectiveFsPath, false)
-		t.Connection.Log(logger.LevelWarn, "atomic upload in temp path cannot be renamed, delete temporary file: %#v, deletion error: %v",
-			t.effectiveFsPath, errRm)
-		if errRm == nil {
-			atomic.StoreInt64(&t.BytesReceived, 0)
-			t.MinWriteOffset = 0
-			return 1
-		}
+	if err == nil {
+		return 0
 	}
-	return 0
+	if Config.TempPath == "" {
+		return 0
+	}
+	err = t.Fs.Remove(t.effectiveFsPath, false)
+	t.Connection.Log(logger.LevelWarn, "upload in temp path cannot be renamed, delete temporary file: %#v, deletion error: %v",
+		t.effectiveFsPath, err)
+	// the file is outside the home dir so don't update the quota
+	atomic.StoreInt64(&t.BytesReceived, 0)
+	t.MinWriteOffset = 0
+	return 1
 }
 
 // Close it is called when the transfer is completed.

@@ -2409,6 +2409,58 @@ func TestFsPermissionErrors(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestRenameErrorOutsideHomeDir(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("this test is not available on Windows")
+	}
+	oldUploadMode := common.Config.UploadMode
+	oldTempPath := common.Config.TempPath
+
+	common.Config.UploadMode = common.UploadModeAtomicWithResume
+	common.Config.TempPath = filepath.Clean(os.TempDir())
+	vfs.SetTempPath(common.Config.TempPath)
+
+	u := getTestUser()
+	u.QuotaFiles = 1000
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	conn, client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		err = os.Chmod(user.GetHomeDir(), 0555)
+		assert.NoError(t, err)
+
+		err = checkBasicSFTP(client)
+		assert.NoError(t, err)
+		f, err := client.Create(testFileName)
+		assert.NoError(t, err)
+		_, err = f.Write(testFileContent)
+		assert.NoError(t, err)
+		err = f.Close()
+		assert.ErrorIs(t, err, os.ErrPermission)
+
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 0, user.UsedQuotaFiles)
+		assert.Equal(t, int64(0), user.UsedQuotaSize)
+
+		err = os.Chmod(user.GetHomeDir(), os.ModeDir)
+		assert.NoError(t, err)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	common.Config.UploadMode = oldUploadMode
+	common.Config.TempPath = oldTempPath
+	vfs.SetTempPath(oldTempPath)
+}
+
 func TestResolvePathError(t *testing.T) {
 	u := getTestUser()
 	u.HomeDir = "relative_path"
