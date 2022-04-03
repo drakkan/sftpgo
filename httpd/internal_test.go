@@ -2426,7 +2426,7 @@ func TestWebAdminSetupWithInstallCode(t *testing.T) {
 	form := make(url.Values)
 	csrfToken := createCSRFToken("")
 	form.Set("_form_token", csrfToken)
-	form.Set("install_code", "12345")
+	form.Set("install_code", installationCode+"5")
 	form.Set("username", defaultAdminUsername)
 	form.Set("password", "password")
 	form.Set("confirm_password", "password")
@@ -2440,7 +2440,63 @@ func TestWebAdminSetupWithInstallCode(t *testing.T) {
 
 	_, err = dataprovider.AdminExists(defaultAdminUsername)
 	assert.Error(t, err)
-	form.Set("install_code", "1234")
+	form.Set("install_code", installationCode)
+	rr = httptest.NewRecorder()
+	r, err = http.NewRequest(http.MethodPost, webAdminSetupPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusFound, rr.Code)
+
+	_, err = dataprovider.AdminExists(defaultAdminUsername)
+	assert.NoError(t, err)
+
+	// delete the admin and test the installation code resolver
+	err = dataprovider.DeleteAdmin(defaultAdminUsername, "", "")
+	assert.NoError(t, err)
+
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = dataprovider.Initialize(providerConf, "..", true)
+	assert.NoError(t, err)
+
+	SetInstallationCodeResolver(func(defaultInstallationCode string) string {
+		return "5678"
+	})
+
+	rr = httptest.NewRecorder()
+	r, err = http.NewRequest(http.MethodGet, webAdminSetupPath, nil)
+	assert.NoError(t, err)
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	for _, webURL := range []string{"/", webBasePath, webBaseAdminPath, webAdminLoginPath, webClientLoginPath} {
+		rr = httptest.NewRecorder()
+		r, err = http.NewRequest(http.MethodGet, webURL, nil)
+		assert.NoError(t, err)
+		server.router.ServeHTTP(rr, r)
+		assert.Equal(t, http.StatusFound, rr.Code)
+		assert.Equal(t, webAdminSetupPath, rr.Header().Get("Location"))
+	}
+
+	form = make(url.Values)
+	csrfToken = createCSRFToken("")
+	form.Set("_form_token", csrfToken)
+	form.Set("install_code", installationCode)
+	form.Set("username", defaultAdminUsername)
+	form.Set("password", "password")
+	form.Set("confirm_password", "password")
+	rr = httptest.NewRecorder()
+	r, err = http.NewRequest(http.MethodPost, webAdminSetupPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Installation code mismatch")
+
+	_, err = dataprovider.AdminExists(defaultAdminUsername)
+	assert.Error(t, err)
+	form.Set("install_code", "5678")
 	rr = httptest.NewRecorder()
 	r, err = http.NewRequest(http.MethodPost, webAdminSetupPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
@@ -2457,4 +2513,5 @@ func TestWebAdminSetupWithInstallCode(t *testing.T) {
 	err = dataprovider.Initialize(providerConf, "..", true)
 	assert.NoError(t, err)
 	installationCode = ""
+	SetInstallationCodeResolver(nil)
 }

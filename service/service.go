@@ -135,6 +135,12 @@ func (s *Service) Start() error {
 		}
 	}
 
+	if err := registerAWSContainer(); err != nil {
+		logger.Error(logSender, "", "error registering AWS container: %v", err)
+		logger.ErrorToConsole("error registering AWS container: %v", err)
+		return err
+	}
+
 	err = s.LoadInitialData()
 	if err != nil {
 		logger.Error(logSender, "", "unable to load initial data: %v", err)

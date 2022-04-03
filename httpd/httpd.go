@@ -227,15 +227,20 @@ var (
 	webStaticFilesPath             string
 	webOpenAPIPath                 string
 	// max upload size for http clients, 1GB by default
-	maxUploadFileSize    = int64(1048576000)
-	installationCode     string
-	installationCodeHint string
+	maxUploadFileSize          = int64(1048576000)
+	installationCode           string
+	installationCodeHint       string
+	fnInstallationCodeResolver FnInstallationCodeResolver
 )
 
 func init() {
 	updateWebAdminURLs("")
 	updateWebClientURLs("")
 }
+
+// FnInstallationCodeResolver defines a method to get the installation code.
+// If the installation code cannot be resolved the provided default must be returned
+type FnInstallationCodeResolver func(defaultInstallationCode string) string
 
 // HTTPSProxyHeader defines an HTTPS proxy header as key/value.
 // For example Key could be "X-Forwarded-Proto" and Value "https"
@@ -834,4 +839,16 @@ func getSigningKey(signingPassphrase string) []byte {
 		return sk[:]
 	}
 	return util.GenerateRandomBytes(32)
+}
+
+// SetInstallationCodeResolver sets a function to call to resolve the installation code
+func SetInstallationCodeResolver(fn FnInstallationCodeResolver) {
+	fnInstallationCodeResolver = fn
+}
+
+func resolveInstallationCode() string {
+	if fnInstallationCodeResolver != nil {
+		return fnInstallationCodeResolver(installationCode)
+	}
+	return installationCode
 }
