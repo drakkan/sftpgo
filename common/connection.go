@@ -40,7 +40,7 @@ type BaseConnection struct {
 func NewBaseConnection(id, protocol string, user dataprovider.User, fs vfs.Fs) *BaseConnection {
 	connID := id
 	if utils.IsStringInSlice(protocol, supportedProtocols) {
-		connID = fmt.Sprintf("%v_%v", protocol, id)
+		connID = fmt.Sprintf("%s_%s", protocol, id)
 	}
 	return &BaseConnection{
 		ID:           connID,

@@ -574,11 +574,12 @@ func (conns *ActiveConnections) checkIdles() {
 	for _, sshConn := range conns.sshConnections {
 		idleTime := time.Since(sshConn.GetLastActivity())
 		if idleTime > Config.idleTimeoutAsDuration {
-			// we close the an ssh connection if it has no active connections associated
-			idToMatch := fmt.Sprintf("_%v_", sshConn.GetID())
+			// we close an SSH connection if it has no active connections associated
+			idToMatch := fmt.Sprintf("_%s_", sshConn.GetID())
 			toClose := true
 			for _, conn := range conns.connections {
-				if strings.Contains(conn.GetID(), idToMatch) {
+				if strings.Contains(conn.GetID(), idToMatch) &&
+					time.Since(conn.GetLastActivity()) <= Config.idleTimeoutAsDuration {
 					toClose = false
 					break
 				}
