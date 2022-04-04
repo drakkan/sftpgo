@@ -1,3 +1,4 @@
+//go:build noawskms || nogcpkms || novaultkms
 // +build noawskms nogcpkms novaultkms
 
 package kms

@@ -1,3 +1,4 @@
+//go:build novaultkms
 // +build novaultkms
 
 package kms
