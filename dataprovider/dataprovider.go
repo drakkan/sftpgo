@@ -2373,7 +2373,7 @@ func sendKeyboardAuthHTTPReq(url string, request *plugin.KeyboardAuthRequest) (*
 }
 
 func doBuiltinKeyboardInteractiveAuth(user *User, client ssh.KeyboardInteractiveChallenge, ip, protocol string) (int, error) {
-	answers, err := client(user.Username, "", []string{"Password: "}, []bool{false})
+	answers, err := client("", "", []string{"Password: "}, []bool{false})
 	if err != nil {
 		return 0, err
 	}
@@ -2393,7 +2393,7 @@ func doBuiltinKeyboardInteractiveAuth(user *User, client ssh.KeyboardInteractive
 			user.Username, protocol, err)
 		return 0, err
 	}
-	answers, err = client(user.Username, "", []string{"Authentication code: "}, []bool{false})
+	answers, err = client("", "", []string{"Authentication code: "}, []bool{false})
 	if err != nil {
 		return 0, err
 	}
@@ -2496,7 +2496,7 @@ func getKeyboardInteractiveAnswers(client ssh.KeyboardInteractiveChallenge, resp
 	user *User, ip, protocol string,
 ) ([]string, error) {
 	questions := response.Questions
-	answers, err := client(user.Username, response.Instruction, questions, response.Echos)
+	answers, err := client("", response.Instruction, questions, response.Echos)
 	if err != nil {
 		providerLog(logger.LevelInfo, "error getting interactive auth client response: %v", err)
 		return answers, err

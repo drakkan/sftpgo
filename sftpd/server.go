@@ -35,9 +35,11 @@ const (
 var (
 	sftpExtensions    = []string{"statvfs@openssh.com"}
 	supportedKexAlgos = []string{
-		"curve25519-sha256@libssh.org",
+		"curve25519-sha256", "curve25519-sha256@libssh.org",
 		"ecdh-sha2-nistp256", "ecdh-sha2-nistp384", "ecdh-sha2-nistp521",
-		"diffie-hellman-group14-sha1", "diffie-hellman-group1-sha1",
+		"diffie-hellman-group14-sha256", "diffie-hellman-group16-sha512",
+		"diffie-hellman-group18-sha512", "diffie-hellman-group14-sha1",
+		"diffie-hellman-group1-sha1",
 	}
 	supportedCiphers = []string{
 		"aes128-gcm@openssh.com", "aes256-gcm@openssh.com",
@@ -283,7 +285,7 @@ func (c *Configuration) serve(listener net.Listener, serverConfig *ssh.ServerCon
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			if ne, ok := err.(net.Error); ok && ne.Temporary() {
+			if ne, ok := err.(net.Error); ok && ne.Temporary() { //nolint:staticcheck
 				if tempDelay == 0 {
 					tempDelay = 5 * time.Millisecond
 				} else {
@@ -299,6 +301,7 @@ func (c *Configuration) serve(listener net.Listener, serverConfig *ssh.ServerCon
 			logger.Warn(logSender, "", "unrecoverable accept error: %v", err)
 			return err
 		}
+		tempDelay = 0
 
 		go c.AcceptInboundConnection(conn, serverConfig)
 	}
