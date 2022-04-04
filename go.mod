@@ -67,7 +67,7 @@ require (
 	golang.org/x/crypto v0.0.0-20220331220935-ae2d96664a29
 	golang.org/x/net v0.0.0-20220401154927-543a649e0bdd
 	golang.org/x/oauth2 v0.0.0-20220309155454-6242fa91716a
-	golang.org/x/sys v0.0.0-20220403020550-483a9cbc67c0
+	golang.org/x/sys v0.0.0-20220403205710-6acee93ad0eb
 	golang.org/x/time v0.0.0-20220224211638-0e9765cccd65
 	google.golang.org/api v0.74.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
@@ -160,6 +160,6 @@ require (
 
 replace (
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
-	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20220403064943-e77ee20c52ed
+	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20220404114519-57edd90b9b42
 	golang.org/x/net => github.com/drakkan/net v0.0.0-20220403065115-db06d28f9f8d
 )

@@ -35,7 +35,24 @@ const (
 )
 
 var (
-	sftpExtensions    = []string{"statvfs@openssh.com"}
+	sftpExtensions        = []string{"statvfs@openssh.com"}
+	supportedHostKeyAlgos = []string{
+		ssh.CertAlgoRSASHA512v01, ssh.CertAlgoRSASHA256v01,
+		ssh.CertAlgoRSAv01, ssh.CertAlgoDSAv01, ssh.CertAlgoECDSA256v01,
+		ssh.CertAlgoECDSA384v01, ssh.CertAlgoECDSA521v01, ssh.CertAlgoED25519v01,
+		ssh.KeyAlgoECDSA256, ssh.KeyAlgoECDSA384, ssh.KeyAlgoECDSA521,
+		ssh.KeyAlgoRSASHA512, ssh.KeyAlgoRSASHA256,
+		ssh.KeyAlgoRSA, ssh.KeyAlgoDSA,
+		ssh.KeyAlgoED25519,
+	}
+	preferredHostKeyAlgos = []string{
+		ssh.CertAlgoRSASHA512v01, ssh.CertAlgoRSASHA256v01,
+		ssh.CertAlgoECDSA256v01,
+		ssh.CertAlgoECDSA384v01, ssh.CertAlgoECDSA521v01, ssh.CertAlgoED25519v01,
+		ssh.KeyAlgoECDSA256, ssh.KeyAlgoECDSA384, ssh.KeyAlgoECDSA521,
+		ssh.KeyAlgoRSASHA512, ssh.KeyAlgoRSASHA256,
+		ssh.KeyAlgoED25519,
+	}
 	supportedKexAlgos = []string{
 		"curve25519-sha256", "curve25519-sha256@libssh.org",
 		"ecdh-sha2-nistp256", "ecdh-sha2-nistp384", "ecdh-sha2-nistp521",
@@ -106,6 +123,9 @@ type Configuration struct {
 	// Each certificate can be defined as a path relative to the configuration directory or an absolute one.
 	// Certificate's public key must match a private host key otherwise it will be silently ignored.
 	HostCertificates []string `json:"host_certificates" mapstructure:"host_certificates"`
+	// HostKeyAlgorithms lists the public key algorithms that the server will accept for host
+	// key authentication.
+	HostKeyAlgorithms []string `json:"host_key_algorithms" mapstructure:"host_key_algorithms"`
 	// KexAlgorithms specifies the available KEX (Key Exchange) algorithms in
 	// preference order.
 	KexAlgorithms []string `json:"kex_algorithms" mapstructure:"kex_algorithms"`
@@ -340,6 +360,18 @@ func (c *Configuration) serve(listener net.Listener, serverConfig *ssh.ServerCon
 }
 
 func (c *Configuration) configureSecurityOptions(serverConfig *ssh.ServerConfig) error {
+	if len(c.HostKeyAlgorithms) == 0 {
+		c.HostKeyAlgorithms = preferredHostKeyAlgos
+	} else {
+		c.HostKeyAlgorithms = util.RemoveDuplicates(c.HostKeyAlgorithms)
+	}
+	for _, hostKeyAlgo := range c.HostKeyAlgorithms {
+		if !util.IsStringInSlice(hostKeyAlgo, supportedHostKeyAlgos) {
+			return fmt.Errorf("unsupported host key algorithm %#v", hostKeyAlgo)
+		}
+	}
+	serverConfig.HostKeyAlgorithms = c.HostKeyAlgorithms
+
 	if len(c.KexAlgorithms) > 0 {
 		c.KexAlgorithms = util.RemoveDuplicates(c.KexAlgorithms)
 		for _, kex := range c.KexAlgorithms {

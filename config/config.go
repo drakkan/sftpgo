@@ -196,6 +196,7 @@ func Init() {
 			Banner:                            defaultSFTPDBanner,
 			HostKeys:                          []string{},
 			HostCertificates:                  []string{},
+			HostKeyAlgorithms:                 []string{},
 			KexAlgorithms:                     []string{},
 			Ciphers:                           []string{},
 			MACs:                              []string{},
@@ -1541,6 +1542,7 @@ func setViperDefaults() {
 	viper.SetDefault("sftpd.banner", globalConf.SFTPD.Banner)
 	viper.SetDefault("sftpd.host_keys", globalConf.SFTPD.HostKeys)
 	viper.SetDefault("sftpd.host_certificates", globalConf.SFTPD.HostCertificates)
+	viper.SetDefault("sftpd.host_key_algorithms", globalConf.SFTPD.HostKeyAlgorithms)
 	viper.SetDefault("sftpd.kex_algorithms", globalConf.SFTPD.KexAlgorithms)
 	viper.SetDefault("sftpd.ciphers", globalConf.SFTPD.Ciphers)
 	viper.SetDefault("sftpd.macs", globalConf.SFTPD.MACs)

@@ -396,6 +396,12 @@ func TestInitialization(t *testing.T) {
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "unsupported key-exchange algorithm")
 	}
+	sftpdConf.HostKeyAlgorithms = []string{"not a host key algo"}
+	err = sftpdConf.Initialize(configDir)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "unsupported host key algorithm")
+	}
+	sftpdConf.HostKeyAlgorithms = nil
 	sftpdConf.HostCertificates = []string{"missing file"}
 	err = sftpdConf.Initialize(configDir)
 	if assert.Error(t, err) {

@@ -64,6 +64,7 @@
     "banner": "",
     "host_keys": [],
     "host_certificates": [],
+    "host_key_algorithms": [],
     "kex_algorithms": [],
     "ciphers": [],
     "macs": [],
