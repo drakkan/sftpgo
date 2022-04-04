@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 
 	"github.com/drakkan/sftpgo/metrics"
@@ -44,7 +45,9 @@ func (l *StructuredLogger) NewLogEntry(r *http.Request) middleware.LogEntry {
 		"proto":       r.Proto,
 		"method":      r.Method,
 		"user_agent":  r.UserAgent(),
-		"uri":         fmt.Sprintf("%s://%s%s", scheme, r.Host, r.RequestURI)}
+		"uri":         fmt.Sprintf("%s://%s%s", scheme, r.Host, r.RequestURI),
+		KeyEventID:    uuid.NewString(),
+	}
 
 	reqID := middleware.GetReqID(r.Context())
 	if reqID != "" {

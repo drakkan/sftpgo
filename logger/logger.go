@@ -16,6 +16,7 @@ import (
 	"runtime"
 
 	ftpserver "github.com/fclairamb/ftpserverlib"
+	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 )
@@ -33,6 +34,8 @@ const (
 	LevelInfo
 	LevelWarn
 	LevelError
+
+	KeyEventID = `event_id`
 )
 
 var (
@@ -82,6 +85,7 @@ func (l *LeveledLogger) addKeysAndValues(ev *zerolog.Event, keysAndValues ...int
 func (l *LeveledLogger) Error(msg string, keysAndValues ...interface{}) {
 	ev := logger.Error()
 	ev.Timestamp().Str("sender", l.Sender)
+	ev.Str(KeyEventID, uuid.NewString())
 	l.addKeysAndValues(ev, keysAndValues...)
 	ev.Msg(msg)
 }
@@ -90,6 +94,7 @@ func (l *LeveledLogger) Error(msg string, keysAndValues ...interface{}) {
 func (l *LeveledLogger) Info(msg string, keysAndValues ...interface{}) {
 	ev := logger.Info()
 	ev.Timestamp().Str("sender", l.Sender)
+	ev.Str(KeyEventID, uuid.NewString())
 	l.addKeysAndValues(ev, keysAndValues...)
 	ev.Msg(msg)
 }
@@ -98,6 +103,7 @@ func (l *LeveledLogger) Info(msg string, keysAndValues ...interface{}) {
 func (l *LeveledLogger) Debug(msg string, keysAndValues ...interface{}) {
 	ev := logger.Debug()
 	ev.Timestamp().Str("sender", l.Sender)
+	ev.Str(KeyEventID, uuid.NewString())
 	l.addKeysAndValues(ev, keysAndValues...)
 	ev.Msg(msg)
 }
@@ -106,6 +112,7 @@ func (l *LeveledLogger) Debug(msg string, keysAndValues ...interface{}) {
 func (l *LeveledLogger) Warn(msg string, keysAndValues ...interface{}) {
 	ev := logger.Warn()
 	ev.Timestamp().Str("sender", l.Sender)
+	ev.Str(KeyEventID, uuid.NewString())
 	l.addKeysAndValues(ev, keysAndValues...)
 	ev.Msg(msg)
 }
@@ -187,6 +194,7 @@ func Log(level LogLevel, sender string, connectionID string, format string, v ..
 	if connectionID != "" {
 		ev.Str("connection_id", connectionID)
 	}
+	ev.Str(KeyEventID, uuid.NewString())
 	ev.Msg(fmt.Sprintf(format, v...))
 }
 
@@ -240,7 +248,8 @@ func TransferLog(operation string, path string, elapsed int64, size int64, user 
 		Str("username", user).
 		Str("file_path", path).
 		Str("connection_id", connectionID).
-		Str("protocol", protocol)
+		Str("protocol", protocol).
+		Str(KeyEventID, uuid.NewString())
 	switch dataChannel {
 	case ftpserver.DataChannelActive:
 		Event.Str(`data_channel`, `active`)
@@ -268,6 +277,7 @@ func CommandLog(command, path, target, user, fileMode, connectionID, protocol st
 		Str("ssh_command", sshCommand).
 		Str("connection_id", connectionID).
 		Str("protocol", protocol).
+		Str(KeyEventID, uuid.NewString()).
 		Send()
 }
 
@@ -284,6 +294,7 @@ func ConnectionFailedLog(user, ip, loginType, protocol, errorString string) {
 		Str("login_type", loginType).
 		Str("protocol", protocol).
 		Str("error", errorString).
+		Str(KeyEventID, uuid.NewString()).
 		Send()
 }
 
