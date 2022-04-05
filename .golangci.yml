@@ -19,8 +19,6 @@ linters-settings:
     simplify: true
   goimports:
     local-prefixes: github.com/drakkan/sftpgo
-  maligned:
-    suggest-new: true
 
 linters:
   enable:
@@ -28,15 +26,14 @@ linters:
     - errcheck
     - gofmt
     - goimports
-    - golint
+    - revive
     - unconvert
     - unparam
     - bodyclose
     # - gocyclo
     - misspell
-    - maligned
     - whitespace
     - dupl
-    - scopelint
     - rowserrcheck
     - dogsled
+    - govet

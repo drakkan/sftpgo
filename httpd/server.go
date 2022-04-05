@@ -205,7 +205,7 @@ func (s *httpdServer) checkCookieExpiration(w http.ResponseWriter, r *http.Reque
 	if tokenClaims.Username == "" || tokenClaims.Signature == "" {
 		return
 	}
-	if time.Until(token.Expiration()) > tokenRefreshMin {
+	if time.Until(token.Expiration()) > tokenRefreshThreshold {
 		return
 	}
 	admin, err := dataprovider.AdminExists(tokenClaims.Username)
