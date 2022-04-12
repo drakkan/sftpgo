@@ -61,7 +61,7 @@ Several storage backends are supported: local filesystem, encrypted local filesy
 
 ## Platforms
 
-SFTPGo is developed and tested on Linux. After each commit, the code is automatically built and tested on Linux, macOS and Windows using a [GitHub Action](./.github/workflows/development.yml). The test cases are regularly manually executed and passed on FreeBSD. Other *BSD variants should work too.
+SFTPGo is developed and tested on Linux. After each commit, the code is automatically built and tested on Linux, macOS and Windows using [GitHub Actions](./.github/workflows/development.yml). The test cases are regularly manually executed and passed on FreeBSD. Other *BSD variants should work too.
 
 ## Requirements
 
@@ -91,7 +91,7 @@ An official Docker image is available. Documentation is [here](./docker/README.m
 
 SFTPGo is also available on [AWS Marketplace](https://aws.amazon.com/marketplace/seller-profile?id=6e849ab8-70a6-47de-9a43-13c3fa849335) and [Azure Marketplace](https://azuremarketplace.microsoft.com/en-us/marketplace/apps/prasselsrl1645470739547.sftpgo_linux), purchasing from there will help keep SFTPGo a long-term sustainable project.
 
-<details><summary>On Windows you can use</summary>
+<details><summary>Windows packages</summary>
 
 - The Windows installer to install and run SFTPGo as a Windows service.
 - The portable package to start SFTPGo on demand.
@@ -177,8 +177,6 @@ Loading data from a provider independent JSON dump is supported from the previou
 
 ## Downgrading
 
-<details>
-
 If for some reason you want to downgrade SFTPGo, you may need to downgrade your data provider schema and data as well. You can use the `revertprovider` command for this task.
 
 As for upgrading, SFTPGo supports downgrading from the previous release branch to the current one.
@@ -198,8 +196,6 @@ sftpgo revertprovider --help
 The `revertprovider` command is not supported for the memory provider.
 
 Please note that we only support the current release branch and the current main branch, if you find a bug it is better to report it rather than downgrading to an older unsupported version.
-
-</details>
 
 ## Users and folders management
 

@@ -203,14 +203,18 @@ func (fs *CryptFs) ReadDir(dirname string) ([]os.FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	list, err := f.Readdir(-1)
+	entries, err := f.ReadDir(-1)
 	f.Close()
 	if err != nil {
 		return nil, err
 	}
-	result := make([]os.FileInfo, 0, len(list))
-	for _, info := range list {
-		result = append(result, fs.ConvertFileInfo(info))
+	result := make([]os.FileInfo, len(entries))
+	for idx, entry := range entries {
+		info, err := entry.Info()
+		if err != nil {
+			return nil, err
+		}
+		result[idx] = fs.ConvertFileInfo(info)
 	}
 	return result, nil
 }

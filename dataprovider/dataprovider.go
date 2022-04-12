@@ -977,7 +977,7 @@ func CheckCompositeCredentials(username, password, ip, loginMethod, protocol str
 		} else if config.ExternalAuthHook != "" && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&1 != 0) {
 			user, err = doExternalAuth(username, password, nil, "", ip, protocol, nil)
 		} else if config.PreLoginHook != "" {
-			user, err = executePreLoginHook(username, LoginMethodPassword, ip, protocol)
+			user, err = executePreLoginHook(username, LoginMethodPassword, ip, protocol, nil)
 		}
 		if err != nil {
 			return user, loginMethod, err
@@ -997,7 +997,7 @@ func CheckUserBeforeTLSAuth(username, ip, protocol string, tlsCert *x509.Certifi
 		return doExternalAuth(username, "", nil, "", ip, protocol, tlsCert)
 	}
 	if config.PreLoginHook != "" {
-		return executePreLoginHook(username, LoginMethodTLSCertificate, ip, protocol)
+		return executePreLoginHook(username, LoginMethodTLSCertificate, ip, protocol, nil)
 	}
 	return UserExists(username)
 }
@@ -1021,7 +1021,7 @@ func CheckUserAndTLSCert(username, ip, protocol string, tlsCert *x509.Certificat
 		return checkUserAndTLSCertificate(&user, protocol, tlsCert)
 	}
 	if config.PreLoginHook != "" {
-		user, err := executePreLoginHook(username, LoginMethodTLSCertificate, ip, protocol)
+		user, err := executePreLoginHook(username, LoginMethodTLSCertificate, ip, protocol, nil)
 		if err != nil {
 			return user, err
 		}
@@ -1048,7 +1048,7 @@ func CheckUserAndPass(username, password, ip, protocol string) (User, error) {
 		return checkUserAndPass(&user, password, ip, protocol)
 	}
 	if config.PreLoginHook != "" {
-		user, err := executePreLoginHook(username, LoginMethodPassword, ip, protocol)
+		user, err := executePreLoginHook(username, LoginMethodPassword, ip, protocol, nil)
 		if err != nil {
 			return user, err
 		}
@@ -1075,7 +1075,7 @@ func CheckUserAndPubKey(username string, pubKey []byte, ip, protocol string, isS
 		return checkUserAndPubKey(&user, pubKey, isSSHCert)
 	}
 	if config.PreLoginHook != "" {
-		user, err := executePreLoginHook(username, SSHLoginMethodPublicKey, ip, protocol)
+		user, err := executePreLoginHook(username, SSHLoginMethodPublicKey, ip, protocol, nil)
 		if err != nil {
 			return user, "", err
 		}
@@ -1095,7 +1095,7 @@ func CheckKeyboardInteractiveAuth(username, authHook string, client ssh.Keyboard
 	} else if config.ExternalAuthHook != "" && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&4 != 0) {
 		user, err = doExternalAuth(username, "", nil, "1", ip, protocol, nil)
 	} else if config.PreLoginHook != "" {
-		user, err = executePreLoginHook(username, SSHLoginMethodKeyboardInteractive, ip, protocol)
+		user, err = executePreLoginHook(username, SSHLoginMethodKeyboardInteractive, ip, protocol, nil)
 	} else {
 		user, err = provider.userExists(username)
 	}
@@ -1109,9 +1109,9 @@ func CheckKeyboardInteractiveAuth(username, authHook string, client ssh.Keyboard
 // after a successful authentication with an external identity provider.
 // If a pre-login hook is defined it will be executed so the SFTPGo user
 // can be created if it does not exist
-func GetUserAfterIDPAuth(username, ip, protocol string) (User, error) {
+func GetUserAfterIDPAuth(username, ip, protocol string, oidcTokenFields *map[string]interface{}) (User, error) {
 	if config.PreLoginHook != "" {
-		return executePreLoginHook(username, LoginMethodIDP, ip, protocol)
+		return executePreLoginHook(username, LoginMethodIDP, ip, protocol, oidcTokenFields)
 	}
 	return UserExists(username)
 }
@@ -2232,6 +2232,7 @@ func ValidateFolder(folder *vfs.BaseVirtualFolder) error {
 // ValidateUser returns an error if the user is not valid
 // FIXME: this should be defined as User struct method
 func ValidateUser(user *User) error {
+	user.OIDCCustomFields = nil
 	user.SetEmptySecretsIfNil()
 	buildUserHomeDir(user)
 	if err := validateBaseParams(user); err != nil {
@@ -3004,8 +3005,8 @@ func getPreLoginHookResponse(loginMethod, ip, protocol string, userAsJSON []byte
 	return cmd.Output()
 }
 
-func executePreLoginHook(username, loginMethod, ip, protocol string) (User, error) {
-	u, userAsJSON, err := getUserAndJSONForHook(username)
+func executePreLoginHook(username, loginMethod, ip, protocol string, oidcTokenFields *map[string]interface{}) (User, error) {
+	u, userAsJSON, err := getUserAndJSONForHook(username, oidcTokenFields)
 	if err != nil {
 		return u, err
 	}
@@ -3210,7 +3211,7 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 ) (User, error) {
 	var user User
 
-	u, userAsJSON, err := getUserAndJSONForHook(username)
+	u, userAsJSON, err := getUserAndJSONForHook(username, nil)
 	if err != nil {
 		return user, err
 	}
@@ -3290,7 +3291,7 @@ func doPluginAuth(username, password string, pubKey []byte, ip, protocol string,
 ) (User, error) {
 	var user User
 
-	u, userAsJSON, err := getUserAndJSONForHook(username)
+	u, userAsJSON, err := getUserAndJSONForHook(username, nil)
 	if err != nil {
 		return user, err
 	}
@@ -3355,7 +3356,7 @@ func doPluginAuth(username, password string, pubKey []byte, ip, protocol string,
 	return provider.userExists(user.Username)
 }
 
-func getUserAndJSONForHook(username string) (User, []byte, error) {
+func getUserAndJSONForHook(username string, oidcTokenFields *map[string]interface{}) (User, []byte, error) {
 	var userAsJSON []byte
 	u, err := provider.userExists(username)
 	if err != nil {
@@ -3369,6 +3370,7 @@ func getUserAndJSONForHook(username string) (User, []byte, error) {
 			},
 		}
 	}
+	u.OIDCCustomFields = oidcTokenFields
 	userAsJSON, err = json.Marshal(u)
 	if err != nil {
 		return u, userAsJSON, err

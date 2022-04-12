@@ -237,7 +237,8 @@
           "config_url": "",
           "redirect_base_url": "",
           "username_field": "",
-          "role_field": ""
+          "role_field": "",
+          "custom_fields": []
         },
         "security": {
           "enabled": false,

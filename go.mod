@@ -50,7 +50,7 @@ require (
 	github.com/rs/cors v1.8.2
 	github.com/rs/xid v1.4.0
 	github.com/rs/zerolog v1.26.2-0.20220312163309-e9344a8c507b
-	github.com/sftpgo/sdk v0.1.1-0.20220327080604-3c0f878c8c37
+	github.com/sftpgo/sdk v0.1.1-0.20220412171743-453880fab5f7
 	github.com/shirou/gopsutil/v3 v3.22.3
 	github.com/spf13/afero v1.8.2
 	github.com/spf13/cobra v1.4.0
@@ -64,11 +64,11 @@ require (
 	go.etcd.io/bbolt v1.3.6
 	go.uber.org/automaxprocs v1.5.1
 	gocloud.dev v0.25.0
-	golang.org/x/crypto v0.0.0-20220331220935-ae2d96664a29
-	golang.org/x/net v0.0.0-20220401154927-543a649e0bdd
-	golang.org/x/oauth2 v0.0.0-20220309155454-6242fa91716a
-	golang.org/x/sys v0.0.0-20220408201424-a24fb2fb8a0f
-	golang.org/x/time v0.0.0-20220224211638-0e9765cccd65
+	golang.org/x/crypto v0.0.0-20220411220226-7b82a4e95df4
+	golang.org/x/net v0.0.0-20220412020605-290c469a71a5
+	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5
+	golang.org/x/sys v0.0.0-20220412071739-889880a91fd5
+	golang.org/x/time v0.0.0-20220411224347-583f2d630306
 	google.golang.org/api v0.74.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
@@ -105,7 +105,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/go-cmp v0.5.7 // indirect
-	github.com/googleapis/gax-go/v2 v2.2.0 // indirect
+	github.com/googleapis/gax-go/v2 v2.3.0 // indirect
 	github.com/googleapis/go-type-adapters v1.0.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
@@ -149,7 +149,7 @@ require (
 	golang.org/x/mod v0.6.0-dev.0.20220106191415-9b9b3d81d5e3 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/tools v0.1.10 // indirect
-	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
+	golang.org/x/xerrors v0.0.0-20220411194840-2f41105eb62f // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20220407144326-9054f6ed7bac // indirect
 	google.golang.org/grpc v1.45.0 // indirect
@@ -162,6 +162,6 @@ require (
 
 replace (
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
-	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20220404114519-57edd90b9b42
-	golang.org/x/net => github.com/drakkan/net v0.0.0-20220403065115-db06d28f9f8d
+	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20220412172350-e76a61f8e7d2
+	golang.org/x/net => github.com/drakkan/net v0.0.0-20220412172245-b4d0d6443325
 )

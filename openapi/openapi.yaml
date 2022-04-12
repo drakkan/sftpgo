@@ -5070,6 +5070,10 @@ components:
         additional_info:
           type: string
           description: Free form text field for external systems
+        oidc_custom_fields:
+          type: object
+          additionalProperties: true
+          description: 'This field is passed to the pre-login hook if custom OIDC token fields have been configured. Field values can be of any type (this is a free form object) and depend on the type of the configured OIDC token fields'
     AdminFilters:
       type: object
       properties:

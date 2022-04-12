@@ -878,7 +878,6 @@ func TestOIDCPreLoginHook(t *testing.T) {
 	u := dataprovider.User{
 		BaseUser: sdk.BaseUser{
 			Username: username,
-			Password: "unused",
 			HomeDir:  filepath.Join(os.TempDir(), username),
 			Status:   1,
 			Permissions: map[string][]string{
@@ -897,6 +896,7 @@ func TestOIDCPreLoginHook(t *testing.T) {
 	err = dataprovider.Initialize(newProviderConf, "..", true)
 	assert.NoError(t, err)
 	server := getTestOIDCServer()
+	server.binding.OIDC.CustomFields = []string{"field1", "field2"}
 	err = server.binding.OIDC.initialize()
 	assert.NoError(t, err)
 	server.initializeRouter()
@@ -949,7 +949,7 @@ func TestOIDCPreLoginHook(t *testing.T) {
 		Nonce:  authReq.Nonce,
 		Expiry: time.Now().Add(5 * time.Minute),
 	}
-	setIDTokenClaims(idToken, []byte(`{"preferred_username":"`+username+`"}`))
+	setIDTokenClaims(idToken, []byte(`{"preferred_username":"`+username+`","field1":"value1","field2":"value2","field3":"value3"}`))
 	server.binding.OIDC.verifier = &mockOIDCVerifier{
 		err:   nil,
 		token: idToken,
@@ -989,6 +989,7 @@ func getTestOIDCServer() *httpdServer {
 				RedirectBaseURL: "http://127.0.0.1:8081/",
 				UsernameField:   "preferred_username",
 				RoleField:       "sftpgo_role",
+				CustomFields:    nil,
 			},
 		},
 		enableWebAdmin:  true,

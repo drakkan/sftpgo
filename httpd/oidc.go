@@ -75,7 +75,9 @@ type OIDC struct {
 	// is mapped to an SFTPGo admin.
 	// You don't need to specify this field if you want to use OpenID only for the
 	// Web Client UI
-	RoleField         string `json:"role_field" mapstructure:"role_field"`
+	RoleField string `json:"role_field" mapstructure:"role_field"`
+	// Custom token claims fields to pass to the pre-login hook
+	CustomFields      []string `json:"custom_fields" mapstructure:"custom_fields"`
 	provider          *oidc.Provider
 	verifier          OIDCTokenVerifier
 	providerLogoutURL string
@@ -160,21 +162,22 @@ func newOIDCPendingAuth(audience tokenAudience) oidcPendingAuth {
 }
 
 type oidcToken struct {
-	AccessToken  string      `json:"access_token"`
-	TokenType    string      `json:"token_type,omitempty"`
-	RefreshToken string      `json:"refresh_token,omitempty"`
-	ExpiresAt    int64       `json:"expires_at,omitempty"`
-	SessionID    string      `json:"session_id"`
-	IDToken      string      `json:"id_token"`
-	Nonce        string      `json:"nonce"`
-	Username     string      `json:"username"`
-	Permissions  []string    `json:"permissions"`
-	Role         interface{} `json:"role"`
-	Cookie       string      `json:"cookie"`
-	UsedAt       int64       `json:"used_at"`
+	AccessToken  string                  `json:"access_token"`
+	TokenType    string                  `json:"token_type,omitempty"`
+	RefreshToken string                  `json:"refresh_token,omitempty"`
+	ExpiresAt    int64                   `json:"expires_at,omitempty"`
+	SessionID    string                  `json:"session_id"`
+	IDToken      string                  `json:"id_token"`
+	Nonce        string                  `json:"nonce"`
+	Username     string                  `json:"username"`
+	Permissions  []string                `json:"permissions"`
+	Role         interface{}             `json:"role"`
+	CustomFields *map[string]interface{} `json:"custom_fields,omitempty"`
+	Cookie       string                  `json:"cookie"`
+	UsedAt       int64                   `json:"used_at"`
 }
 
-func (t *oidcToken) parseClaims(claims map[string]interface{}, usernameField, roleField string) error {
+func (t *oidcToken) parseClaims(claims map[string]interface{}, usernameField, roleField string, customFields []string) error {
 	getClaimsFields := func() []string {
 		keys := make([]string, 0, len(claims))
 		for k := range claims {
@@ -193,6 +196,21 @@ func (t *oidcToken) parseClaims(claims map[string]interface{}, usernameField, ro
 		role, ok := claims[roleField]
 		if ok {
 			t.Role = role
+		}
+	}
+	t.CustomFields = nil
+	if len(customFields) > 0 {
+		for _, field := range customFields {
+			if val, ok := claims[field]; ok {
+				if t.CustomFields == nil {
+					customFields := make(map[string]interface{})
+					t.CustomFields = &customFields
+				}
+				logger.Debug(logSender, "", "custom field %#v found in token claims", field)
+				(*t.CustomFields)[field] = val
+			} else {
+				logger.Info(logSender, "", "custom field %#v not found in token claims", field)
+			}
 		}
 	}
 	sid, ok := claims["sid"].(string)
@@ -300,7 +318,7 @@ func (t *oidcToken) getUser(r *http.Request) error {
 		return nil
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
-	user, err := dataprovider.GetUserAfterIDPAuth(t.Username, ipAddr, common.ProtocolOIDC)
+	user, err := dataprovider.GetUserAfterIDPAuth(t.Username, ipAddr, common.ProtocolOIDC, t.CustomFields)
 	if err != nil {
 		return err
 	}
@@ -616,7 +634,7 @@ func (s *httpdServer) handleOIDCRedirect(w http.ResponseWriter, r *http.Request)
 	if !oauth2Token.Expiry.IsZero() {
 		token.ExpiresAt = util.GetTimeAsMsSinceEpoch(oauth2Token.Expiry)
 	}
-	if err = token.parseClaims(claims, s.binding.OIDC.UsernameField, s.binding.OIDC.RoleField); err != nil {
+	if err = token.parseClaims(claims, s.binding.OIDC.UsernameField, s.binding.OIDC.RoleField, s.binding.OIDC.CustomFields); err != nil {
 		logger.Debug(logSender, "", "unable to parse oidc token claims: %v", err)
 		setFlashMessage(w, r, fmt.Sprintf("Unable to parse OpenID token claims: %v", err))
 		doRedirect()

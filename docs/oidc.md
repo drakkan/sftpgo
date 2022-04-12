@@ -42,7 +42,8 @@ Add the following configuration parameters to the SFTPGo configuration file (or 
       "config_url": "http://192.168.1.12:8086/auth/realms/sftpgo",
       "redirect_base_url": "http://192.168.1.50:8080",
       "username_field": "preferred_username",
-      "role_field": "sftpgo_role"
+      "role_field": "sftpgo_role",
+      "custom_fields": []
     }
 ...
 ```
@@ -99,3 +100,29 @@ And the following is an example ID token which allows the SFTPGo user `user1` to
 ```
 
 SFTPGo users (not admins) can be created/updated after successful OpenID authentication by defining a [pre-login hook](./dynamic-user-mod.md).
+You can use the `custom_fields` configuration parameter to define the token claims field names to pass to the pre-login hook, these fields are useful for implementing custom logic when creating/updating the SFTPGo user within the hook.
+For example you can set the field `sftpgo_home_dir` in your identity provider and add it to the `custom_fields` in the SFTPGo configuration like this:
+
+```json
+...
+    "oidc": {
+      "client_id": "sftpgo-client",
+      "client_secret": "jRsmE0SWnuZjP7djBqNq0mrf8QN77j2c",
+      "config_url": "http://192.168.1.12:8086/auth/realms/sftpgo",
+      "redirect_base_url": "http://192.168.1.50:8080",
+      "username_field": "preferred_username",
+      "role_field": "sftpgo_role",
+      "custom_fields": ["sftpgo_home_dir"]
+    }
+...
+```
+
+The pre-login hook will receive a JSON serialized user with the following field:
+
+```json
+...
+  "oidc_custom_fields": {
+    "sftpgo_home_dir": "configured value"
+  },
+...
+```

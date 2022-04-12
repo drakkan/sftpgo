@@ -511,6 +511,9 @@ func TestBasicUserHandling(t *testing.T) {
 	user.AdditionalInfo = "some free text"
 	user.Filters.TLSUsername = sdk.TLSUsernameCN
 	user.Email = "user@example.net"
+	user.OIDCCustomFields = &map[string]interface{}{
+		"field1": "value1",
+	}
 	user.Filters.WebClient = append(user.Filters.WebClient, sdk.WebClientPubKeyChangeDisabled,
 		sdk.WebClientWriteDisabled)
 	originalUser := user
@@ -520,6 +523,7 @@ func TestBasicUserHandling(t *testing.T) {
 
 	user, _, err = httpdtest.GetUserByUsername(defaultUsername, http.StatusOK)
 	assert.NoError(t, err)
+	assert.Nil(t, user.OIDCCustomFields)
 
 	user.Email = "invalid@email"
 	_, body, err := httpdtest.UpdateUser(user, http.StatusBadRequest, "")
