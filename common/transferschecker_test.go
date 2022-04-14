@@ -62,7 +62,8 @@ func TestTransfersCheckerDiskQuota(t *testing.T) {
 	transfer1 := NewBaseTransfer(nil, conn1, nil, filepath.Join(user.HomeDir, "file1"), filepath.Join(user.HomeDir, "file1"),
 		"/file1", TransferUpload, 0, 0, 120, 0, true, fsUser, dataprovider.TransferQuota{})
 	transfer1.BytesReceived = 150
-	Connections.Add(fakeConn1)
+	err = Connections.Add(fakeConn1)
+	assert.NoError(t, err)
 	// the transferschecker will do nothing if there is only one ongoing transfer
 	Connections.checkTransfers()
 	assert.Nil(t, transfer1.errAbort)
@@ -76,7 +77,8 @@ func TestTransfersCheckerDiskQuota(t *testing.T) {
 		"/file2", TransferUpload, 0, 0, 120, 40, true, fsUser, dataprovider.TransferQuota{})
 	transfer1.BytesReceived = 50
 	transfer2.BytesReceived = 60
-	Connections.Add(fakeConn2)
+	err = Connections.Add(fakeConn2)
+	assert.NoError(t, err)
 
 	connID3 := xid.New().String()
 	conn3 := NewBaseConnection(connID3, ProtocolSFTP, "", "", user)
@@ -86,7 +88,8 @@ func TestTransfersCheckerDiskQuota(t *testing.T) {
 	transfer3 := NewBaseTransfer(nil, conn3, nil, filepath.Join(user.HomeDir, "file3"), filepath.Join(user.HomeDir, "file3"),
 		"/file3", TransferDownload, 0, 0, 120, 0, true, fsUser, dataprovider.TransferQuota{})
 	transfer3.BytesReceived = 60 // this value will be ignored, this is a download
-	Connections.Add(fakeConn3)
+	err = Connections.Add(fakeConn3)
+	assert.NoError(t, err)
 
 	// the transfers are not overquota
 	Connections.checkTransfers()
@@ -146,7 +149,8 @@ func TestTransfersCheckerDiskQuota(t *testing.T) {
 	transfer4 := NewBaseTransfer(nil, conn4, nil, filepath.Join(os.TempDir(), folderName, "file1"),
 		filepath.Join(os.TempDir(), folderName, "file1"), path.Join(vdirPath, "/file1"), TransferUpload, 0, 0,
 		100, 0, true, fsFolder, dataprovider.TransferQuota{})
-	Connections.Add(fakeConn4)
+	err = Connections.Add(fakeConn4)
+	assert.NoError(t, err)
 	connID5 := xid.New().String()
 	conn5 := NewBaseConnection(connID5, ProtocolSFTP, "", "", user)
 	fakeConn5 := &fakeConnection{
@@ -156,7 +160,8 @@ func TestTransfersCheckerDiskQuota(t *testing.T) {
 		filepath.Join(os.TempDir(), folderName, "file2"), path.Join(vdirPath, "/file2"), TransferUpload, 0, 0,
 		100, 0, true, fsFolder, dataprovider.TransferQuota{})
 
-	Connections.Add(fakeConn5)
+	err = Connections.Add(fakeConn5)
+	assert.NoError(t, err)
 	transfer4.BytesReceived = 50
 	transfer5.BytesReceived = 40
 	Connections.checkTransfers()
@@ -245,7 +250,8 @@ func TestTransferCheckerTransferQuota(t *testing.T) {
 	transfer1 := NewBaseTransfer(nil, conn1, nil, filepath.Join(user.HomeDir, "file1"), filepath.Join(user.HomeDir, "file1"),
 		"/file1", TransferUpload, 0, 0, 0, 0, true, fsUser, dataprovider.TransferQuota{AllowedTotalSize: 100})
 	transfer1.BytesReceived = 150
-	Connections.Add(fakeConn1)
+	err = Connections.Add(fakeConn1)
+	assert.NoError(t, err)
 	// the transferschecker will do nothing if there is only one ongoing transfer
 	Connections.checkTransfers()
 	assert.Nil(t, transfer1.errAbort)
@@ -258,7 +264,8 @@ func TestTransferCheckerTransferQuota(t *testing.T) {
 	transfer2 := NewBaseTransfer(nil, conn2, nil, filepath.Join(user.HomeDir, "file2"), filepath.Join(user.HomeDir, "file2"),
 		"/file2", TransferUpload, 0, 0, 0, 0, true, fsUser, dataprovider.TransferQuota{AllowedTotalSize: 100})
 	transfer2.BytesReceived = 150
-	Connections.Add(fakeConn2)
+	err = Connections.Add(fakeConn2)
+	assert.NoError(t, err)
 	Connections.checkTransfers()
 	assert.Nil(t, transfer1.errAbort)
 	assert.Nil(t, transfer2.errAbort)
@@ -294,7 +301,8 @@ func TestTransferCheckerTransferQuota(t *testing.T) {
 	transfer3 := NewBaseTransfer(nil, conn3, nil, filepath.Join(user.HomeDir, "file1"), filepath.Join(user.HomeDir, "file1"),
 		"/file1", TransferDownload, 0, 0, 0, 0, true, fsUser, dataprovider.TransferQuota{AllowedDLSize: 100})
 	transfer3.BytesSent = 150
-	Connections.Add(fakeConn3)
+	err = Connections.Add(fakeConn3)
+	assert.NoError(t, err)
 
 	connID4 := xid.New().String()
 	conn4 := NewBaseConnection(connID4, ProtocolSFTP, "", "", user)
@@ -304,7 +312,8 @@ func TestTransferCheckerTransferQuota(t *testing.T) {
 	transfer4 := NewBaseTransfer(nil, conn4, nil, filepath.Join(user.HomeDir, "file2"), filepath.Join(user.HomeDir, "file2"),
 		"/file2", TransferDownload, 0, 0, 0, 0, true, fsUser, dataprovider.TransferQuota{AllowedDLSize: 100})
 	transfer4.BytesSent = 150
-	Connections.Add(fakeConn4)
+	err = Connections.Add(fakeConn4)
+	assert.NoError(t, err)
 	Connections.checkTransfers()
 	assert.Nil(t, transfer3.errAbort)
 	assert.Nil(t, transfer4.errAbort)

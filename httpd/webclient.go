@@ -595,7 +595,7 @@ func (s *httpdServer) handleWebClientDownloadZip(w http.ResponseWriter, r *http.
 	connID := xid.New().String()
 	protocol := getProtocolFromRequest(r)
 	connectionID := fmt.Sprintf("%v_%v", protocol, connID)
-	if err := checkHTTPClientUser(&user, r, connectionID); err != nil {
+	if err := checkHTTPClientUser(&user, r, connectionID, false); err != nil {
 		s.renderClientForbiddenPage(w, r, err.Error())
 		return
 	}
@@ -604,7 +604,10 @@ func (s *httpdServer) handleWebClientDownloadZip(w http.ResponseWriter, r *http.
 			r.RemoteAddr, user),
 		request: r,
 	}
-	common.Connections.Add(connection)
+	if err = common.Connections.Add(connection); err != nil {
+		s.renderClientMessagePage(w, r, "Unable to add connection", "", http.StatusTooManyRequests, err, "")
+		return
+	}
 	defer common.Connections.Remove(connection.GetID())
 
 	name := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
@@ -635,7 +638,10 @@ func (s *httpdServer) handleShareGetDirContents(w http.ResponseWriter, r *http.R
 		s.renderClientMessagePage(w, r, "Invalid share path", "", getRespStatus(err), err, "")
 		return
 	}
-	common.Connections.Add(connection)
+	if err = common.Connections.Add(connection); err != nil {
+		s.renderClientMessagePage(w, r, "Unable to add connection", "", http.StatusTooManyRequests, err, "")
+		return
+	}
 	defer common.Connections.Remove(connection.GetID())
 
 	contents, err := connection.ReadDir(name)
@@ -691,7 +697,10 @@ func (s *httpdServer) handleShareGetFiles(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	common.Connections.Add(connection)
+	if err = common.Connections.Add(connection); err != nil {
+		s.renderClientMessagePage(w, r, "Unable to add connection", "", http.StatusTooManyRequests, err, "")
+		return
+	}
 	defer common.Connections.Remove(connection.GetID())
 
 	var info os.FileInfo
@@ -735,7 +744,7 @@ func (s *httpdServer) handleClientGetDirContents(w http.ResponseWriter, r *http.
 	connID := xid.New().String()
 	protocol := getProtocolFromRequest(r)
 	connectionID := fmt.Sprintf("%v_%v", protocol, connID)
-	if err := checkHTTPClientUser(&user, r, connectionID); err != nil {
+	if err := checkHTTPClientUser(&user, r, connectionID, false); err != nil {
 		sendAPIResponse(w, r, err, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 		return
 	}
@@ -744,7 +753,10 @@ func (s *httpdServer) handleClientGetDirContents(w http.ResponseWriter, r *http.
 			r.RemoteAddr, user),
 		request: r,
 	}
-	common.Connections.Add(connection)
+	if err = common.Connections.Add(connection); err != nil {
+		s.renderClientMessagePage(w, r, "Unable to add connection", "", http.StatusTooManyRequests, err, "")
+		return
+	}
 	defer common.Connections.Remove(connection.GetID())
 
 	name := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
@@ -809,7 +821,7 @@ func (s *httpdServer) handleClientGetFiles(w http.ResponseWriter, r *http.Reques
 	connID := xid.New().String()
 	protocol := getProtocolFromRequest(r)
 	connectionID := fmt.Sprintf("%v_%v", protocol, connID)
-	if err := checkHTTPClientUser(&user, r, connectionID); err != nil {
+	if err := checkHTTPClientUser(&user, r, connectionID, false); err != nil {
 		s.renderClientForbiddenPage(w, r, err.Error())
 		return
 	}
@@ -818,7 +830,10 @@ func (s *httpdServer) handleClientGetFiles(w http.ResponseWriter, r *http.Reques
 			r.RemoteAddr, user),
 		request: r,
 	}
-	common.Connections.Add(connection)
+	if err = common.Connections.Add(connection); err != nil {
+		s.renderClientMessagePage(w, r, "Unable to add connection", "", http.StatusTooManyRequests, err, "")
+		return
+	}
 	defer common.Connections.Remove(connection.GetID())
 
 	name := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
@@ -866,7 +881,7 @@ func (s *httpdServer) handleClientEditFile(w http.ResponseWriter, r *http.Reques
 	connID := xid.New().String()
 	protocol := getProtocolFromRequest(r)
 	connectionID := fmt.Sprintf("%v_%v", protocol, connID)
-	if err := checkHTTPClientUser(&user, r, connectionID); err != nil {
+	if err := checkHTTPClientUser(&user, r, connectionID, false); err != nil {
 		s.renderClientForbiddenPage(w, r, err.Error())
 		return
 	}
@@ -875,7 +890,10 @@ func (s *httpdServer) handleClientEditFile(w http.ResponseWriter, r *http.Reques
 			r.RemoteAddr, user),
 		request: r,
 	}
-	common.Connections.Add(connection)
+	if err = common.Connections.Add(connection); err != nil {
+		s.renderClientMessagePage(w, r, "Unable to add connection", "", http.StatusTooManyRequests, err, "")
+		return
+	}
 	defer common.Connections.Remove(connection.GetID())
 
 	name := connection.User.GetCleanedPath(r.URL.Query().Get("path"))

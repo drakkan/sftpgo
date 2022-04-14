@@ -457,8 +457,12 @@ func (c *Connection) handleSFTPUploadToExistingFile(fs vfs.Fs, pflags sftp.FileO
 	return t, nil
 }
 
-// Disconnect disconnects the client closing the network connection
+// Disconnect disconnects the client by closing the channel
 func (c *Connection) Disconnect() error {
+	if c.channel == nil {
+		c.Log(logger.LevelWarn, "cannot disconnect a nil channel")
+		return nil
+	}
 	return c.channel.Close()
 }
 

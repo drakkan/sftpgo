@@ -196,18 +196,24 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updateLoginMetrics(&user, ipAddr, loginMethod, err)
-
-	ctx := context.WithValue(r.Context(), requestIDKey, connectionID)
-	ctx = context.WithValue(ctx, requestStartKey, time.Now())
-
 	connection := &Connection{
 		BaseConnection: common.NewBaseConnection(connectionID, common.ProtocolWebDAV, util.GetHTTPLocalAddress(r),
 			r.RemoteAddr, user),
 		request: r,
 	}
-	common.Connections.Add(connection)
+	if err = common.Connections.Add(connection); err != nil {
+		errClose := user.CloseFs()
+		logger.Warn(logSender, connectionID, "unable add connection: %v close fs error: %v", err, errClose)
+		updateLoginMetrics(&user, ipAddr, loginMethod, err)
+		http.Error(w, err.Error(), http.StatusTooManyRequests)
+		return
+	}
 	defer common.Connections.Remove(connection.GetID())
+
+	updateLoginMetrics(&user, ipAddr, loginMethod, err)
+
+	ctx := context.WithValue(r.Context(), requestIDKey, connectionID)
+	ctx = context.WithValue(ctx, requestStartKey, time.Now())
 
 	dataprovider.UpdateLastLogin(&user)
 
@@ -310,14 +316,6 @@ func (s *webDavServer) validateUser(user *dataprovider.User, r *http.Request, lo
 		logger.Info(logSender, connectionID, "cannot login user %#v, %v login method is not allowed",
 			user.Username, loginMethod)
 		return connID, fmt.Errorf("login method %v is not allowed for user %#v", loginMethod, user.Username)
-	}
-	if user.MaxSessions > 0 {
-		activeSessions := common.Connections.GetActiveSessions(user.Username)
-		if activeSessions >= user.MaxSessions {
-			logger.Info(logSender, connID, "authentication refused for user: %#v, too many open sessions: %v/%v",
-				user.Username, activeSessions, user.MaxSessions)
-			return connID, fmt.Errorf("too many open sessions: %v", activeSessions)
-		}
 	}
 	if !user.IsLoginFromAddrAllowed(r.RemoteAddr) {
 		logger.Info(logSender, connectionID, "cannot login user %#v, remote address is not allowed: %v",

@@ -369,7 +369,7 @@ func TestTruncate(t *testing.T) {
 }
 
 func TestSCPBasicHandlingCryptoFs(t *testing.T) {
-	if len(scpPath) == 0 {
+	if scpPath == "" {
 		t.Skip("scp command not found, unable to execute this test")
 	}
 	usePubKey := true
@@ -427,7 +427,7 @@ func TestSCPBasicHandlingCryptoFs(t *testing.T) {
 }
 
 func TestSCPRecursiveCryptFs(t *testing.T) {
-	if len(scpPath) == 0 {
+	if scpPath == "" {
 		t.Skip("scp command not found, unable to execute this test")
 	}
 	usePubKey := true

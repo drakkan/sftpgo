@@ -34,7 +34,7 @@ func getUserConnection(w http.ResponseWriter, r *http.Request) (*Connection, err
 	connID := xid.New().String()
 	protocol := getProtocolFromRequest(r)
 	connectionID := fmt.Sprintf("%v_%v", protocol, connID)
-	if err := checkHTTPClientUser(&user, r, connectionID); err != nil {
+	if err := checkHTTPClientUser(&user, r, connectionID, false); err != nil {
 		sendAPIResponse(w, r, err, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 		return nil, err
 	}
@@ -42,6 +42,10 @@ func getUserConnection(w http.ResponseWriter, r *http.Request) (*Connection, err
 		BaseConnection: common.NewBaseConnection(connID, protocol, util.GetHTTPLocalAddress(r),
 			r.RemoteAddr, user),
 		request: r,
+	}
+	if err = common.Connections.Add(connection); err != nil {
+		sendAPIResponse(w, r, err, "Unable to add connection", http.StatusTooManyRequests)
+		return connection, err
 	}
 	return connection, nil
 }
@@ -52,7 +56,6 @@ func readUserFolder(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	common.Connections.Add(connection)
 	defer common.Connections.Remove(connection.GetID())
 
 	name := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
@@ -70,7 +73,6 @@ func createUserDir(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	common.Connections.Add(connection)
 	defer common.Connections.Remove(connection.GetID())
 
 	name := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
@@ -90,22 +92,7 @@ func createUserDir(w http.ResponseWriter, r *http.Request) {
 
 func renameUserDir(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	connection, err := getUserConnection(w, r)
-	if err != nil {
-		return
-	}
-	common.Connections.Add(connection)
-	defer common.Connections.Remove(connection.GetID())
-
-	oldName := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
-	newName := connection.User.GetCleanedPath(r.URL.Query().Get("target"))
-	err = connection.Rename(oldName, newName)
-	if err != nil {
-		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to rename directory %#v to %#v", oldName, newName),
-			getMappedStatusCode(err))
-		return
-	}
-	sendAPIResponse(w, r, nil, fmt.Sprintf("Directory %#v renamed to %#v", oldName, newName), http.StatusOK)
+	renameItem(w, r)
 }
 
 func deleteUserDir(w http.ResponseWriter, r *http.Request) {
@@ -114,7 +101,6 @@ func deleteUserDir(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	common.Connections.Add(connection)
 	defer common.Connections.Remove(connection.GetID())
 
 	name := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
@@ -132,7 +118,6 @@ func getUserFile(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	common.Connections.Add(connection)
 	defer common.Connections.Remove(connection.GetID())
 
 	name := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
@@ -183,7 +168,6 @@ func setFileDirMetadata(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	common.Connections.Add(connection)
 	defer common.Connections.Remove(connection.GetID())
 
 	name := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
@@ -214,7 +198,6 @@ func uploadUserFile(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	common.Connections.Add(connection)
 	defer common.Connections.Remove(connection.GetID())
 
 	filePath := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
@@ -258,6 +241,8 @@ func uploadUserFiles(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
+	defer common.Connections.Remove(connection.GetID())
+
 	transferQuota := connection.GetTransferQuota()
 	if !transferQuota.HasUploadSpace() {
 		connection.Log(logger.LevelInfo, "denying file write due to transfer quota limits")
@@ -265,8 +250,6 @@ func uploadUserFiles(w http.ResponseWriter, r *http.Request) {
 			http.StatusRequestEntityTooLarge)
 		return
 	}
-	common.Connections.Add(connection)
-	defer common.Connections.Remove(connection.GetID())
 
 	t := newThrottledReader(r.Body, connection.User.UploadBandwidth, connection)
 	r.Body = t
@@ -332,22 +315,7 @@ func doUploadFiles(w http.ResponseWriter, r *http.Request, connection *Connectio
 
 func renameUserFile(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	connection, err := getUserConnection(w, r)
-	if err != nil {
-		return
-	}
-	common.Connections.Add(connection)
-	defer common.Connections.Remove(connection.GetID())
-
-	oldName := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
-	newName := connection.User.GetCleanedPath(r.URL.Query().Get("target"))
-	err = connection.Rename(oldName, newName)
-	if err != nil {
-		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to rename file %#v to %#v", oldName, newName),
-			getMappedStatusCode(err))
-		return
-	}
-	sendAPIResponse(w, r, nil, fmt.Sprintf("File %#v renamed to %#v", oldName, newName), http.StatusOK)
+	renameItem(w, r)
 }
 
 func deleteUserFile(w http.ResponseWriter, r *http.Request) {
@@ -356,7 +324,6 @@ func deleteUserFile(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	common.Connections.Add(connection)
 	defer common.Connections.Remove(connection.GetID())
 
 	name := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
@@ -393,7 +360,6 @@ func getUserFilesAsZipStream(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	common.Connections.Add(connection)
 	defer common.Connections.Remove(connection.GetID())
 
 	var filesList []string
@@ -580,4 +546,22 @@ func setModificationTimeFromHeader(r *http.Request, c *Connection, filePath stri
 			c.Log(logger.LevelInfo, "invalid modification time header was ignored: %v", mTimeString)
 		}
 	}
+}
+
+func renameItem(w http.ResponseWriter, r *http.Request) {
+	connection, err := getUserConnection(w, r)
+	if err != nil {
+		return
+	}
+	defer common.Connections.Remove(connection.GetID())
+
+	oldName := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
+	newName := connection.User.GetCleanedPath(r.URL.Query().Get("target"))
+	err = connection.Rename(oldName, newName)
+	if err != nil {
+		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to rename %#v -> %#v", oldName, newName),
+			getMappedStatusCode(err))
+		return
+	}
+	sendAPIResponse(w, r, nil, fmt.Sprintf("%#v renamed to %#v", oldName, newName), http.StatusOK)
 }

@@ -1167,7 +1167,8 @@ func TestMaxConnections(t *testing.T) {
 	connection := &webdavd.Connection{
 		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolWebDAV, "", "", user),
 	}
-	common.Connections.Add(connection)
+	err = common.Connections.Add(connection)
+	assert.NoError(t, err)
 	assert.Error(t, checkBasicFunc(client))
 	common.Connections.Remove(connection.GetID())
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
@@ -1222,7 +1223,8 @@ func TestMaxSessions(t *testing.T) {
 	connection := &webdavd.Connection{
 		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolWebDAV, "", "", user),
 	}
-	common.Connections.Add(connection)
+	err = common.Connections.Add(connection)
+	assert.NoError(t, err)
 	assert.Error(t, checkBasicFunc(client))
 	common.Connections.Remove(connection.GetID())
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)

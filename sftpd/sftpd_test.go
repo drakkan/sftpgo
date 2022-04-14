@@ -3,6 +3,7 @@ package sftpd_test
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/sha512"
@@ -129,6 +130,7 @@ var (
 	allPerms         = []string{dataprovider.PermAny}
 	homeBasePath     string
 	scpPath          string
+	scpForce         bool
 	gitPath          string
 	sshPath          string
 	hookCmdPath      string
@@ -935,8 +937,6 @@ func TestConcurrency(t *testing.T) {
 
 			conn, client, err := getSftpClient(user, usePubKey)
 			if assert.NoError(t, err) {
-				err = checkBasicSFTP(client)
-				assert.NoError(t, err)
 				err = sftpUploadFile(testFilePath, testFileName+strconv.Itoa(counter), testFileSize, client)
 				assert.NoError(t, err)
 				assert.Greater(t, common.Connections.GetActiveSessions(defaultUsername), 0)
@@ -9231,7 +9231,7 @@ func TestGitErrors(t *testing.T) {
 
 // Start SCP tests
 func TestSCPBasicHandling(t *testing.T) {
-	if len(scpPath) == 0 {
+	if scpPath == "" {
 		t.Skip("scp command not found, unable to execute this test")
 	}
 	usePubKey := true
@@ -9295,7 +9295,7 @@ func TestSCPBasicHandling(t *testing.T) {
 }
 
 func TestSCPUploadFileOverwrite(t *testing.T) {
-	if len(scpPath) == 0 {
+	if scpPath == "" {
 		t.Skip("scp command not found, unable to execute this test")
 	}
 	usePubKey := true
@@ -9376,7 +9376,7 @@ func TestSCPUploadFileOverwrite(t *testing.T) {
 }
 
 func TestSCPRecursive(t *testing.T) {
-	if len(scpPath) == 0 {
+	if scpPath == "" {
 		t.Skip("scp command not found, unable to execute this test")
 	}
 	usePubKey := true
@@ -9485,7 +9485,7 @@ func TestSCPStartDirectory(t *testing.T) {
 }
 
 func TestSCPPatternsFilter(t *testing.T) {
-	if len(scpPath) == 0 {
+	if scpPath == "" {
 		t.Skip("scp command not found, unable to execute this test")
 	}
 	usePubKey := true
@@ -9606,7 +9606,7 @@ func TestSCPUploadMaxSize(t *testing.T) {
 }
 
 func TestSCPVirtualFolders(t *testing.T) {
-	if len(scpPath) == 0 {
+	if scpPath == "" {
 		t.Skip("scp command not found, unable to execute this test")
 	}
 	usePubKey := true
@@ -9658,7 +9658,7 @@ func TestSCPVirtualFolders(t *testing.T) {
 }
 
 func TestSCPNestedFolders(t *testing.T) {
-	if len(scpPath) == 0 {
+	if scpPath == "" {
 		t.Skip("scp command not found, unable to execute this test")
 	}
 	baseUser, resp, err := httpdtest.AddUser(getTestUser(false), http.StatusCreated)
@@ -9791,7 +9791,7 @@ func TestSCPNestedFolders(t *testing.T) {
 }
 
 func TestSCPVirtualFoldersQuota(t *testing.T) {
-	if len(scpPath) == 0 {
+	if scpPath == "" {
 		t.Skip("scp command not found, unable to execute this test")
 	}
 	usePubKey := true
@@ -9889,7 +9889,7 @@ func TestSCPVirtualFoldersQuota(t *testing.T) {
 }
 
 func TestSCPPermsSubDirs(t *testing.T) {
-	if len(scpPath) == 0 {
+	if scpPath == "" {
 		t.Skip("scp command not found, unable to execute this test")
 	}
 	usePubKey := true
@@ -9929,7 +9929,7 @@ func TestSCPPermsSubDirs(t *testing.T) {
 }
 
 func TestSCPPermCreateDirs(t *testing.T) {
-	if len(scpPath) == 0 {
+	if scpPath == "" {
 		t.Skip("scp command not found, unable to execute this test")
 	}
 	usePubKey := true
@@ -9963,7 +9963,7 @@ func TestSCPPermCreateDirs(t *testing.T) {
 }
 
 func TestSCPPermUpload(t *testing.T) {
-	if len(scpPath) == 0 {
+	if scpPath == "" {
 		t.Skip("scp command not found, unable to execute this test")
 	}
 	usePubKey := true
@@ -9987,7 +9987,7 @@ func TestSCPPermUpload(t *testing.T) {
 }
 
 func TestSCPPermOverwrite(t *testing.T) {
-	if len(scpPath) == 0 {
+	if scpPath == "" {
 		t.Skip("scp command not found, unable to execute this test")
 	}
 	usePubKey := true
@@ -10014,7 +10014,7 @@ func TestSCPPermOverwrite(t *testing.T) {
 }
 
 func TestSCPPermDownload(t *testing.T) {
-	if len(scpPath) == 0 {
+	if scpPath == "" {
 		t.Skip("scp command not found, unable to execute this test")
 	}
 	usePubKey := true
@@ -10043,7 +10043,7 @@ func TestSCPPermDownload(t *testing.T) {
 }
 
 func TestSCPQuotaSize(t *testing.T) {
-	if len(scpPath) == 0 {
+	if scpPath == "" {
 		t.Skip("scp command not found, unable to execute this test")
 	}
 	usePubKey := true
@@ -10099,7 +10099,7 @@ func TestSCPQuotaSize(t *testing.T) {
 }
 
 func TestSCPEscapeHomeDir(t *testing.T) {
-	if len(scpPath) == 0 {
+	if scpPath == "" {
 		t.Skip("scp command not found, unable to execute this test")
 	}
 	usePubKey := true
@@ -10135,7 +10135,7 @@ func TestSCPEscapeHomeDir(t *testing.T) {
 }
 
 func TestSCPUploadPaths(t *testing.T) {
-	if len(scpPath) == 0 {
+	if scpPath == "" {
 		t.Skip("scp command not found, unable to execute this test")
 	}
 	usePubKey := true
@@ -10170,7 +10170,7 @@ func TestSCPUploadPaths(t *testing.T) {
 }
 
 func TestSCPOverwriteDirWithFile(t *testing.T) {
-	if len(scpPath) == 0 {
+	if scpPath == "" {
 		t.Skip("scp command not found, unable to execute this test")
 	}
 	usePubKey := true
@@ -10194,7 +10194,7 @@ func TestSCPOverwriteDirWithFile(t *testing.T) {
 }
 
 func TestSCPRemoteToRemote(t *testing.T) {
-	if len(scpPath) == 0 {
+	if scpPath == "" {
 		t.Skip("scp command not found, unable to execute this test")
 	}
 	if runtime.GOOS == osWindows {
@@ -10229,7 +10229,7 @@ func TestSCPRemoteToRemote(t *testing.T) {
 }
 
 func TestSCPErrors(t *testing.T) {
-	if len(scpPath) == 0 {
+	if scpPath == "" {
 		t.Skip("scp command not found, unable to execute this test")
 	}
 	u := getTestUser(true)
@@ -10682,6 +10682,9 @@ func getScpDownloadCommand(localPath, remotePath string, preserveTime, recursive
 	if recursive {
 		args = append(args, "-r")
 	}
+	if scpForce {
+		args = append(args, "-O")
+	}
 	args = append(args, "-P")
 	args = append(args, "2022")
 	args = append(args, "-o")
@@ -10706,6 +10709,9 @@ func getScpUploadCommand(localPath, remotePath string, preserveTime, remoteToRem
 		if fi.IsDir() {
 			args = append(args, "-r")
 		}
+	}
+	if scpForce {
+		args = append(args, "-O")
 	}
 	args = append(args, "-P")
 	args = append(args, "2022")
@@ -10770,6 +10776,12 @@ func checkSystemCommands() {
 		logger.Warn(logSender, "", "unable to get scp command. SCP tests will be skipped, err: %v", err)
 		logger.WarnToConsole("unable to get scp command. SCP tests will be skipped, err: %v", err)
 		scpPath = ""
+	} else {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		cmd := exec.CommandContext(ctx, scpPath, "-O")
+		out, _ := cmd.CombinedOutput()
+		scpForce = !strings.Contains(string(out), "option -- O")
 	}
 }
 

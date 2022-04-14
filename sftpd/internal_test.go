@@ -14,6 +14,7 @@ import (
 
 	"github.com/eikenb/pipeat"
 	"github.com/pkg/sftp"
+	"github.com/rs/xid"
 	"github.com/sftpgo/sdk"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -2151,4 +2152,46 @@ func TestLoadRevokedUserCertsFile(t *testing.T) {
 	assert.Error(t, err)
 	err = os.RemoveAll(r.filePath)
 	assert.NoError(t, err)
+}
+
+func TestMaxUserSessions(t *testing.T) {
+	connection := &Connection{
+		BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolSFTP, "", "", dataprovider.User{
+			BaseUser: sdk.BaseUser{
+				Username:    "user_max_sessions",
+				HomeDir:     filepath.Clean(os.TempDir()),
+				MaxSessions: 1,
+			},
+		}),
+	}
+	err := common.Connections.Add(connection)
+	assert.NoError(t, err)
+
+	c := Configuration{}
+	c.handleSftpConnection(nil, connection)
+
+	sshCmd := sshCommand{
+		command:    "cd",
+		connection: connection,
+	}
+	err = sshCmd.handle()
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "too many open sessions")
+	}
+	scpCmd := scpCommand{
+		sshCommand: sshCommand{
+			command:    "scp",
+			connection: connection,
+		},
+	}
+	err = scpCmd.handle()
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "too many open sessions")
+	}
+	err = ServeSubSystemConnection(&connection.User, connection.ID, nil, nil)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "too many open sessions")
+	}
+	common.Connections.Remove(connection.GetID())
+	assert.Len(t, common.Connections.GetStats(), 0)
 }

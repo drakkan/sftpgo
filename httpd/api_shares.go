@@ -167,7 +167,10 @@ func (s *httpdServer) readBrowsableShareContents(w http.ResponseWriter, r *http.
 		return
 	}
 
-	common.Connections.Add(connection)
+	if err = common.Connections.Add(connection); err != nil {
+		sendAPIResponse(w, r, err, "Unable to add connection", http.StatusTooManyRequests)
+		return
+	}
 	defer common.Connections.Remove(connection.GetID())
 
 	contents, err := connection.ReadDir(name)
@@ -194,7 +197,10 @@ func (s *httpdServer) downloadBrowsableSharedFile(w http.ResponseWriter, r *http
 		return
 	}
 
-	common.Connections.Add(connection)
+	if err = common.Connections.Add(connection); err != nil {
+		sendAPIResponse(w, r, err, "Unable to add connection", http.StatusTooManyRequests)
+		return
+	}
 	defer common.Connections.Remove(connection.GetID())
 
 	info, err := connection.Stat(name, 1)
@@ -231,7 +237,10 @@ func (s *httpdServer) downloadFromShare(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	common.Connections.Add(connection)
+	if err = common.Connections.Add(connection); err != nil {
+		sendAPIResponse(w, r, err, "Unable to add connection", http.StatusTooManyRequests)
+		return
+	}
 	defer common.Connections.Remove(connection.GetID())
 
 	compress := true
@@ -289,7 +298,10 @@ func (s *httpdServer) uploadFileToShare(w http.ResponseWriter, r *http.Request) 
 	}
 	dataprovider.UpdateShareLastUse(&share, 1) //nolint:errcheck
 
-	common.Connections.Add(connection)
+	if err = common.Connections.Add(connection); err != nil {
+		sendAPIResponse(w, r, err, "Unable to add connection", http.StatusTooManyRequests)
+		return
+	}
 	defer common.Connections.Remove(connection.GetID())
 	if err := doUploadFile(w, r, connection, filePath); err != nil {
 		dataprovider.UpdateShareLastUse(&share, -1) //nolint:errcheck
@@ -313,7 +325,10 @@ func (s *httpdServer) uploadFilesToShare(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	common.Connections.Add(connection)
+	if err = common.Connections.Add(connection); err != nil {
+		sendAPIResponse(w, r, err, "Unable to add connection", http.StatusTooManyRequests)
+		return
+	}
 	defer common.Connections.Remove(connection.GetID())
 
 	t := newThrottledReader(r.Body, connection.User.UploadBandwidth, connection)

@@ -3,7 +3,6 @@ package vfs
 import (
 	"fmt"
 	"io"
-	"io/fs"
 	"net/http"
 	"os"
 	"path"
@@ -171,20 +170,12 @@ func (*OsFs) ReadDir(dirname string) ([]os.FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	entries, err := f.ReadDir(-1)
+	list, err := f.Readdir(-1)
 	f.Close()
 	if err != nil {
 		return nil, err
 	}
-	result := make([]fs.FileInfo, len(entries))
-	for idx, entry := range entries {
-		info, err := entry.Info()
-		if err != nil {
-			return nil, err
-		}
-		result[idx] = info
-	}
-	return result, nil
+	return list, nil
 }
 
 // IsUploadResumeSupported returns true if resuming uploads is supported

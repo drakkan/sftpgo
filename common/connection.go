@@ -80,6 +80,11 @@ func (c *BaseConnection) GetUsername() string {
 	return c.User.Username
 }
 
+// GetMaxSessions returns the maximum number of concurrent sessions allowed
+func (c *BaseConnection) GetMaxSessions() int {
+	return c.User.MaxSessions
+}
+
 // GetProtocol returns the protocol for the connection
 func (c *BaseConnection) GetProtocol() string {
 	return c.protocol

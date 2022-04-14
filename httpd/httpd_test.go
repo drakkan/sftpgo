@@ -3857,7 +3857,8 @@ func TestCloseActiveConnection(t *testing.T) {
 	fakeConn := &fakeConnection{
 		BaseConnection: c,
 	}
-	common.Connections.Add(fakeConn)
+	err = common.Connections.Add(fakeConn)
+	assert.NoError(t, err)
 	_, err = httpdtest.CloseConnection(c.GetID(), http.StatusOK)
 	assert.NoError(t, err)
 	assert.Len(t, common.Connections.GetStats(), 0)
@@ -3870,12 +3871,14 @@ func TestCloseConnectionAfterUserUpdateDelete(t *testing.T) {
 	fakeConn := &fakeConnection{
 		BaseConnection: c,
 	}
-	common.Connections.Add(fakeConn)
+	err = common.Connections.Add(fakeConn)
+	assert.NoError(t, err)
 	c1 := common.NewBaseConnection("connID1", common.ProtocolSFTP, "", "", user)
 	fakeConn1 := &fakeConnection{
 		BaseConnection: c1,
 	}
-	common.Connections.Add(fakeConn1)
+	err = common.Connections.Add(fakeConn1)
+	assert.NoError(t, err)
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "0")
 	assert.NoError(t, err)
 	assert.Len(t, common.Connections.GetStats(), 2)
@@ -3883,8 +3886,10 @@ func TestCloseConnectionAfterUserUpdateDelete(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, common.Connections.GetStats(), 0)
 
-	common.Connections.Add(fakeConn)
-	common.Connections.Add(fakeConn1)
+	err = common.Connections.Add(fakeConn)
+	assert.NoError(t, err)
+	err = common.Connections.Add(fakeConn1)
+	assert.NoError(t, err)
 	assert.Len(t, common.Connections.GetStats(), 2)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -5173,7 +5178,8 @@ func TestLoaddataMode(t *testing.T) {
 	fakeConn := &fakeConnection{
 		BaseConnection: c,
 	}
-	common.Connections.Add(fakeConn)
+	err = common.Connections.Add(fakeConn)
+	assert.NoError(t, err)
 	assert.Len(t, common.Connections.GetStats(), 1)
 	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 	assert.NoError(t, err)
@@ -8714,7 +8720,8 @@ func TestWebClientMaxConnections(t *testing.T) {
 	connection := &httpd.Connection{
 		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolHTTP, "", "", user),
 	}
-	common.Connections.Add(connection)
+	err = common.Connections.Add(connection)
+	assert.NoError(t, err)
 
 	_, err = getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.Error(t, err)
@@ -8895,20 +8902,57 @@ func TestMaxSessions(t *testing.T) {
 	u.Email = "user@session.com"
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
-	_, err = getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
+	webToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
-	_, err = getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	apiToken, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
 	// now add a fake connection
 	fs := vfs.NewOsFs("id", os.TempDir(), "")
 	connection := &httpd.Connection{
 		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolHTTP, "", "", user),
 	}
-	common.Connections.Add(connection)
+	err = common.Connections.Add(connection)
+	assert.NoError(t, err)
 	_, err = getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.Error(t, err)
 	_, err = getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.Error(t, err)
+	// try an user API call
+	req, err := http.NewRequest(http.MethodGet, userDirsPath+"/?path=%2F", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, apiToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusTooManyRequests, rr)
+	assert.Contains(t, rr.Body.String(), "too many open sessions")
+	// web client requests
+	req, err = http.NewRequest(http.MethodGet, webClientDownloadZipPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusTooManyRequests, rr)
+	assert.Contains(t, rr.Body.String(), "too many open sessions")
+
+	req, err = http.NewRequest(http.MethodGet, webClientDirsPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusTooManyRequests, rr)
+	assert.Contains(t, rr.Body.String(), "too many open sessions")
+
+	req, err = http.NewRequest(http.MethodGet, webClientFilesPath+"?path=p", nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusTooManyRequests, rr)
+	assert.Contains(t, rr.Body.String(), "too many open sessions")
+
+	req, err = http.NewRequest(http.MethodGet, webClientEditFilePath+"?path=file", nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusTooManyRequests, rr)
+	assert.Contains(t, rr.Body.String(), "too many open sessions")
+
 	// test reset password
 	smtpCfg := smtp.Config{
 		Host:          "127.0.0.1",
@@ -8924,11 +8968,11 @@ func TestMaxSessions(t *testing.T) {
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("username", user.Username)
 	lastResetCode = ""
-	req, err := http.NewRequest(http.MethodPost, webClientForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	req, err = http.NewRequest(http.MethodPost, webClientForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	rr := executeRequest(req)
+	rr = executeRequest(req)
 	assert.Equal(t, http.StatusFound, rr.Code)
 	assert.GreaterOrEqual(t, len(lastResetCode), 20)
 	form = make(url.Values)
@@ -9628,6 +9672,123 @@ func TestShareUsage(t *testing.T) {
 	assert.NoError(t, err)
 	req.SetBasicAuth(defaultUsername, defaultPassword)
 	executeRequest(req)
+}
+
+func TestShareMaxSessions(t *testing.T) {
+	u := getTestUser()
+	u.MaxSessions = 1
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	share := dataprovider.Share{
+		Name:  "test share max sessions read",
+		Scope: dataprovider.ShareScopeRead,
+		Paths: []string{"/"},
+	}
+	asJSON, err := json.Marshal(share)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	objectID := rr.Header().Get("X-Object-ID")
+	assert.NotEmpty(t, objectID)
+
+	req, err = http.NewRequest(http.MethodGet, sharesPath+"/"+objectID+"/dirs", nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// add a fake connection
+	fs := vfs.NewOsFs("id", os.TempDir(), "")
+	connection := &httpd.Connection{
+		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolHTTP, "", "", user),
+	}
+	err = common.Connections.Add(connection)
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodGet, sharesPath+"/"+objectID+"/dirs", nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusTooManyRequests, rr)
+	assert.Contains(t, rr.Body.String(), "too many open sessions")
+
+	req, err = http.NewRequest(http.MethodGet, webClientPubSharesPath+"/"+objectID+"/dirs", nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusTooManyRequests, rr)
+	assert.Contains(t, rr.Body.String(), "too many open sessions")
+
+	req, err = http.NewRequest(http.MethodGet, webClientPubSharesPath+"/"+objectID+"/browse", nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusTooManyRequests, rr)
+	assert.Contains(t, rr.Body.String(), "too many open sessions")
+
+	req, err = http.NewRequest(http.MethodGet, sharesPath+"/"+objectID+"/files?path=afile", nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusTooManyRequests, rr)
+	assert.Contains(t, rr.Body.String(), "too many open sessions")
+
+	req, err = http.NewRequest(http.MethodGet, sharesPath+"/"+objectID, nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusTooManyRequests, rr)
+	assert.Contains(t, rr.Body.String(), "too many open sessions")
+
+	req, err = http.NewRequest(http.MethodDelete, userSharesPath+"/"+objectID, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	// now test a write share
+	share = dataprovider.Share{
+		Name:  "test share max sessions write",
+		Scope: dataprovider.ShareScopeWrite,
+		Paths: []string{"/"},
+	}
+	asJSON, err = json.Marshal(share)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	objectID = rr.Header().Get("X-Object-ID")
+	assert.NotEmpty(t, objectID)
+
+	req, err = http.NewRequest(http.MethodPost, path.Join(sharesPath, objectID, "file.txt"), bytes.NewBuffer([]byte("content")))
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusTooManyRequests, rr)
+	assert.Contains(t, rr.Body.String(), "too many open sessions")
+
+	body := new(bytes.Buffer)
+	writer := multipart.NewWriter(body)
+	part1, err := writer.CreateFormFile("filenames", "file1.txt")
+	assert.NoError(t, err)
+	_, err = part1.Write([]byte("file1 content"))
+	assert.NoError(t, err)
+	err = writer.Close()
+	assert.NoError(t, err)
+	reader := bytes.NewReader(body.Bytes())
+	req, err = http.NewRequest(http.MethodPost, sharesPath+"/"+objectID, reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusTooManyRequests, rr)
+	assert.Contains(t, rr.Body.String(), "too many open sessions")
+
+	common.Connections.Remove(connection.GetID())
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	assert.Len(t, common.Connections.GetStats(), 0)
 }
 
 func TestShareUploadSingle(t *testing.T) {

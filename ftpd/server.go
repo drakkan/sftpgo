@@ -168,8 +168,8 @@ func (s *Server) ClientConnected(cc ftpserver.ClientContext) (string, error) {
 			cc.RemoteAddr().String(), user),
 		clientContext: cc,
 	}
-	common.Connections.Add(connection)
-	return s.initialMsg, nil
+	err = common.Connections.Add(connection)
+	return s.initialMsg, err
 }
 
 // ClientDisconnected is called when the user disconnects, even if he never authenticated
@@ -367,9 +367,9 @@ func (s *Server) validateUser(user dataprovider.User, cc ftpserver.ClientContext
 	}
 	err = common.Connections.Swap(connection)
 	if err != nil {
-		err = user.CloseFs()
-		logger.Warn(logSender, connectionID, "unable to swap connection, close fs error: %v", err)
-		return nil, common.ErrInternalFailure
+		errClose := user.CloseFs()
+		logger.Warn(logSender, connectionID, "unable to swap connection: %v, close fs error: %v", err, errClose)
+		return nil, err
 	}
 	return connection, nil
 }

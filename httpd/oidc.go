@@ -331,7 +331,7 @@ func (t *oidcToken) getUser(r *http.Request) error {
 		return err
 	}
 	connectionID := fmt.Sprintf("%v_%v", common.ProtocolOIDC, xid.New().String())
-	if err := checkHTTPClientUser(&user, r, connectionID); err != nil {
+	if err := checkHTTPClientUser(&user, r, connectionID, true); err != nil {
 		updateLoginMetrics(&user, dataprovider.LoginMethodIDP, ipAddr, err)
 		return err
 	}

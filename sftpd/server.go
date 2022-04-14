@@ -562,7 +562,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 				case "subsystem":
 					if string(req.Payload[4:]) == "sftp" {
 						ok = true
-						connection := Connection{
+						connection := &Connection{
 							BaseConnection: common.NewBaseConnection(connID, common.ProtocolSFTP, conn.LocalAddr().String(),
 								conn.RemoteAddr().String(), user),
 							ClientVersion: string(sconn.ClientVersion()),
@@ -571,7 +571,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 							channel:       channel,
 							folderPrefix:  c.FolderPrefix,
 						}
-						go c.handleSftpConnection(channel, &connection)
+						go c.handleSftpConnection(channel, connection)
 					}
 				case "exec":
 					// protocol will be set later inside processSSHCommand it could be SSH or SCP
@@ -600,7 +600,11 @@ func (c *Configuration) handleSftpConnection(channel ssh.Channel, connection *Co
 			logger.Error(logSender, "", "panic in handleSftpConnection: %#v stack strace: %v", r, string(debug.Stack()))
 		}
 	}()
-	common.Connections.Add(connection)
+	if err := common.Connections.Add(connection); err != nil {
+		errClose := connection.Disconnect()
+		logger.Info(logSender, "", "unable to add connection: %v, close err: %v", err, errClose)
+		return
+	}
 	defer common.Connections.Remove(connection.GetID())
 
 	// Create the server instance for the channel using the handler we created above.

@@ -370,6 +370,29 @@ func TestWhitelist(t *testing.T) {
 	Config = configCopy
 }
 
+func TestUserMaxSessions(t *testing.T) {
+	c := NewBaseConnection("id", ProtocolSFTP, "", "", dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username:    userTestUsername,
+			MaxSessions: 1,
+		},
+	})
+	fakeConn := &fakeConnection{
+		BaseConnection: c,
+	}
+	err := Connections.Add(fakeConn)
+	assert.NoError(t, err)
+	err = Connections.Add(fakeConn)
+	assert.Error(t, err)
+	err = Connections.Swap(fakeConn)
+	assert.NoError(t, err)
+	Connections.Remove(fakeConn.GetID())
+	Connections.Lock()
+	Connections.removeUserConnection(userTestUsername)
+	Connections.Unlock()
+	assert.Len(t, Connections.GetStats(), 0)
+}
+
 func TestMaxConnections(t *testing.T) {
 	oldValue := Config.MaxTotalConnections
 	perHost := Config.MaxPerHostConnections
@@ -387,7 +410,8 @@ func TestMaxConnections(t *testing.T) {
 	fakeConn := &fakeConnection{
 		BaseConnection: c,
 	}
-	Connections.Add(fakeConn)
+	err := Connections.Add(fakeConn)
+	assert.NoError(t, err)
 	assert.Len(t, Connections.GetStats(), 1)
 	assert.False(t, Connections.IsNewConnectionAllowed(ipAddr))
 
@@ -466,14 +490,16 @@ func TestIdleConnections(t *testing.T) {
 	sshConn1.lastActivity = c.lastActivity
 	sshConn2.lastActivity = c.lastActivity
 	Connections.AddSSHConnection(sshConn1)
-	Connections.Add(fakeConn)
+	err = Connections.Add(fakeConn)
+	assert.NoError(t, err)
 	assert.Equal(t, Connections.GetActiveSessions(username), 1)
 	c = NewBaseConnection(sshConn2.id+"_1", ProtocolSSH, "", "", user)
 	fakeConn = &fakeConnection{
 		BaseConnection: c,
 	}
 	Connections.AddSSHConnection(sshConn2)
-	Connections.Add(fakeConn)
+	err = Connections.Add(fakeConn)
+	assert.NoError(t, err)
 	assert.Equal(t, Connections.GetActiveSessions(username), 2)
 
 	cFTP := NewBaseConnection("id2", ProtocolFTP, "", "", dataprovider.User{})
@@ -481,7 +507,8 @@ func TestIdleConnections(t *testing.T) {
 	fakeConn = &fakeConnection{
 		BaseConnection: cFTP,
 	}
-	Connections.Add(fakeConn)
+	err = Connections.Add(fakeConn)
+	assert.NoError(t, err)
 	assert.Equal(t, Connections.GetActiveSessions(username), 2)
 	assert.Len(t, Connections.GetStats(), 3)
 	Connections.RLock()
@@ -521,7 +548,8 @@ func TestCloseConnection(t *testing.T) {
 		BaseConnection: c,
 	}
 	assert.True(t, Connections.IsNewConnectionAllowed("127.0.0.1"))
-	Connections.Add(fakeConn)
+	err := Connections.Add(fakeConn)
+	assert.NoError(t, err)
 	assert.Len(t, Connections.GetStats(), 1)
 	res := Connections.Close(fakeConn.GetID())
 	assert.True(t, res)
@@ -536,19 +564,34 @@ func TestSwapConnection(t *testing.T) {
 	fakeConn := &fakeConnection{
 		BaseConnection: c,
 	}
-	Connections.Add(fakeConn)
+	err := Connections.Add(fakeConn)
+	assert.NoError(t, err)
 	if assert.Len(t, Connections.GetStats(), 1) {
 		assert.Equal(t, "", Connections.GetStats()[0].Username)
 	}
 	c = NewBaseConnection("id", ProtocolFTP, "", "", dataprovider.User{
 		BaseUser: sdk.BaseUser{
-			Username: userTestUsername,
+			Username:    userTestUsername,
+			MaxSessions: 1,
 		},
 	})
 	fakeConn = &fakeConnection{
 		BaseConnection: c,
 	}
-	err := Connections.Swap(fakeConn)
+	c1 := NewBaseConnection("id1", ProtocolFTP, "", "", dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username: userTestUsername,
+		},
+	})
+	fakeConn1 := &fakeConnection{
+		BaseConnection: c1,
+	}
+	err = Connections.Add(fakeConn1)
+	assert.NoError(t, err)
+	err = Connections.Swap(fakeConn)
+	assert.Error(t, err)
+	Connections.Remove(fakeConn1.ID)
+	err = Connections.Swap(fakeConn)
 	assert.NoError(t, err)
 	if assert.Len(t, Connections.GetStats(), 1) {
 		assert.Equal(t, userTestUsername, Connections.GetStats()[0].Username)
@@ -600,9 +643,12 @@ func TestConnectionStatus(t *testing.T) {
 		command:        "PROPFIND",
 	}
 	t3 := NewBaseTransfer(nil, c3, nil, "/p2", "/p2", "/r2", TransferDownload, 0, 0, 0, 0, true, fs, dataprovider.TransferQuota{})
-	Connections.Add(fakeConn1)
-	Connections.Add(fakeConn2)
-	Connections.Add(fakeConn3)
+	err := Connections.Add(fakeConn1)
+	assert.NoError(t, err)
+	err = Connections.Add(fakeConn2)
+	assert.NoError(t, err)
+	err = Connections.Add(fakeConn3)
+	assert.NoError(t, err)
 
 	stats := Connections.GetStats()
 	assert.Len(t, stats, 3)
@@ -628,7 +674,7 @@ func TestConnectionStatus(t *testing.T) {
 		}
 	}
 
-	err := t1.Close()
+	err = t1.Close()
 	assert.NoError(t, err)
 	err = t2.Close()
 	assert.NoError(t, err)

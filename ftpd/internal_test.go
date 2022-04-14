@@ -593,7 +593,8 @@ func TestClientVersion(t *testing.T) {
 		BaseConnection: common.NewBaseConnection(connID, common.ProtocolFTP, "", "", user),
 		clientContext:  mockCC,
 	}
-	common.Connections.Add(connection)
+	err := common.Connections.Add(connection)
+	assert.NoError(t, err)
 	stats := common.Connections.GetStats()
 	if assert.Len(t, stats, 1) {
 		assert.Equal(t, "mock version", stats[0].ClientVersion)

@@ -43,7 +43,6 @@ func ServeSubSystemConnection(user *dataprovider.User, connectionID string, read
 		logger.Warn(logSender, connectionID, "unable to check fs root: %v close fs error: %v", err, errClose)
 		return err
 	}
-	dataprovider.UpdateLastLogin(user)
 
 	connection := &Connection{
 		BaseConnection: common.NewBaseConnection(connectionID, common.ProtocolSFTP, "", "", *user),
@@ -52,9 +51,15 @@ func ServeSubSystemConnection(user *dataprovider.User, connectionID string, read
 		LocalAddr:      &net.IPAddr{},
 		channel:        newSubsystemChannel(reader, writer),
 	}
-	common.Connections.Add(connection)
+	err = common.Connections.Add(connection)
+	if err != nil {
+		errClose := user.CloseFs()
+		logger.Warn(logSender, connectionID, "unable to add connection: %v close fs error: %v", err, errClose)
+		return err
+	}
 	defer common.Connections.Remove(connection.GetID())
 
+	dataprovider.UpdateLastLogin(user)
 	server := sftp.NewRequestServer(connection.channel, sftp.Handlers{
 		FileGet:  connection,
 		FilePut:  connection,

@@ -228,7 +228,7 @@ func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Re
 		return
 	}
 	connectionID := fmt.Sprintf("%v_%v", protocol, xid.New().String())
-	if err := checkHTTPClientUser(&user, r, connectionID); err != nil {
+	if err := checkHTTPClientUser(&user, r, connectionID, true); err != nil {
 		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, err)
 		s.renderClientLoginPage(w, err.Error(), ipAddr)
 		return
@@ -268,7 +268,7 @@ func (s *httpdServer) handleWebClientPasswordResetPost(w http.ResponseWriter, r 
 		return
 	}
 	connectionID := fmt.Sprintf("%v_%v", getProtocolFromRequest(r), xid.New().String())
-	if err := checkHTTPClientUser(user, r, connectionID); err != nil {
+	if err := checkHTTPClientUser(user, r, connectionID, true); err != nil {
 		s.renderClientResetPwdPage(w, fmt.Sprintf("Password reset successfully but unable to login: %v", err.Error()), ipAddr)
 		return
 	}
@@ -760,7 +760,7 @@ func (s *httpdServer) getUserToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	connectionID := fmt.Sprintf("%v_%v", protocol, xid.New().String())
-	if err := checkHTTPClientUser(&user, r, connectionID); err != nil {
+	if err := checkHTTPClientUser(&user, r, connectionID, true); err != nil {
 		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, err)
 		sendAPIResponse(w, r, err, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 		return
@@ -920,7 +920,7 @@ func (s *httpdServer) refreshClientToken(w http.ResponseWriter, r *http.Request,
 		logger.Debug(logSender, "", "signature mismatch for user %#v, unable to refresh cookie", user.Username)
 		return
 	}
-	if err := checkHTTPClientUser(&user, r, xid.New().String()); err != nil {
+	if err := checkHTTPClientUser(&user, r, xid.New().String(), true); err != nil {
 		logger.Debug(logSender, "", "unable to refresh cookie for user %#v: %v", user.Username, err)
 		return
 	}

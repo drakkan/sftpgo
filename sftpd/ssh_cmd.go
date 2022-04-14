@@ -115,7 +115,10 @@ func (c *sshCommand) handle() (err error) {
 			err = common.ErrGenericFailure
 		}
 	}()
-	common.Connections.Add(c.connection)
+	if err := common.Connections.Add(c.connection); err != nil {
+		logger.Info(logSender, "", "unable to add SSH command connection: %v", err)
+		return err
+	}
 	defer common.Connections.Remove(c.connection.GetID())
 
 	c.connection.UpdateLastActivity()
@@ -131,7 +134,7 @@ func (c *sshCommand) handle() (err error) {
 		c.sendExitStatus(nil)
 	} else if c.command == "pwd" {
 		// hard coded response to "/"
-		c.connection.channel.Write([]byte("/\n")) //nolint:errcheck
+		c.connection.channel.Write([]byte(util.CleanPath(c.connection.User.Filters.StartDirectory) + "\n")) //nolint:errcheck
 		c.sendExitStatus(nil)
 	} else if c.command == "sftpgo-copy" {
 		return c.handleSFTPGoCopy()

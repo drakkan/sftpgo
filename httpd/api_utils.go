@@ -498,7 +498,7 @@ func updateLoginMetrics(user *dataprovider.User, loginMethod, ip string, err err
 	dataprovider.ExecutePostLoginHook(user, loginMethod, ip, protocol, err)
 }
 
-func checkHTTPClientUser(user *dataprovider.User, r *http.Request, connectionID string) error {
+func checkHTTPClientUser(user *dataprovider.User, r *http.Request, connectionID string, checkSessions bool) error {
 	if util.IsStringInSlice(common.ProtocolHTTP, user.Filters.DeniedProtocols) {
 		logger.Info(logSender, connectionID, "cannot login user %#v, protocol HTTP is not allowed", user.Username)
 		return fmt.Errorf("protocol HTTP is not allowed for user %#v", user.Username)
@@ -507,7 +507,7 @@ func checkHTTPClientUser(user *dataprovider.User, r *http.Request, connectionID 
 		logger.Info(logSender, connectionID, "cannot login user %#v, password login method is not allowed", user.Username)
 		return fmt.Errorf("login method password is not allowed for user %#v", user.Username)
 	}
-	if user.MaxSessions > 0 {
+	if checkSessions && user.MaxSessions > 0 {
 		activeSessions := common.Connections.GetActiveSessions(user.Username)
 		if activeSessions >= user.MaxSessions {
 			logger.Info(logSender, connectionID, "authentication refused for user: %#v, too many open sessions: %v/%v", user.Username,
