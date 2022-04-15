@@ -5,16 +5,16 @@ on:
     tags: 'v*'
 
 env:
-  GO_VERSION: 1.17.6
+  GO_VERSION: 1.17.9
 
 jobs:
   prepare-sources-with-deps:
     name: Prepare sources with deps
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Set up Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
 
@@ -31,7 +31,7 @@ jobs:
           SFTPGO_VERSION: ${{ steps.get_version.outputs.VERSION }}
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: sftpgo_${{ steps.get_version.outputs.VERSION }}_src_with_deps.tar.xz
           path: ./sftpgo_${{ steps.get_version.outputs.VERSION }}_src_with_deps.tar.xz
@@ -45,9 +45,9 @@ jobs:
         os: [macos-10.15, windows-2019]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Set up Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
 
@@ -206,7 +206,7 @@ jobs:
 
       - name: Upload macOS x86_64 artifact
         if: startsWith(matrix.os, 'macos-')
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_x86_64.tar.xz
           path: ./sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_x86_64.tar.xz
@@ -214,7 +214,7 @@ jobs:
 
       - name: Upload macOS arm64 artifact
         if: startsWith(matrix.os, 'macos-')
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_arm64.tar.xz
           path: ./sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_arm64.tar.xz
@@ -222,7 +222,7 @@ jobs:
 
       - name: Upload Windows installer x86_64 artifact
         if: startsWith(matrix.os, 'windows-')
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_x86_64.exe
           path: ./sftpgo_windows_x86_64.exe
@@ -230,7 +230,7 @@ jobs:
 
       - name: Upload Windows installer arm64 artifact
         if: startsWith(matrix.os, 'windows-')
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_arm64.exe
           path: ./sftpgo_windows_arm64.exe
@@ -238,7 +238,7 @@ jobs:
 
       - name: Upload Windows installer x86 artifact
         if: startsWith(matrix.os, 'windows-')
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_x86.exe
           path: ./sftpgo_windows_x86.exe
@@ -246,7 +246,7 @@ jobs:
 
       - name: Upload Windows portable artifact
         if: startsWith(matrix.os, 'windows-')
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: sftpgo_${{ steps.get_version.outputs.VERSION }}_${{ steps.get_os_name.outputs.OS }}_portable.zip
           path: ./sftpgo_portable.zip
@@ -283,10 +283,10 @@ jobs:
             tar-arch: armv7
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Set up Go
         if: ${{ matrix.arch == 'amd64' }}
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
 
@@ -326,7 +326,7 @@ jobs:
         env:
           SFTPGO_VERSION: ${{ steps.get_version.outputs.SFTPGO_VERSION }}
 
-      - uses: uraimo/run-on-arch-action@v2.1.1
+      - uses: uraimo/run-on-arch-action@v2
         if: ${{ matrix.arch != 'amd64' }}
         name: Build for ${{ matrix.arch }}
         id: build
@@ -373,7 +373,7 @@ jobs:
             cd ..
 
       - name: Upload build artifact for ${{ matrix.arch }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_${{ matrix.tar-arch }}.tar.xz
           path: ./output/sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_${{ matrix.tar-arch }}.tar.xz
@@ -391,14 +391,14 @@ jobs:
           SFTPGO_VERSION: ${{ steps.get_version.outputs.SFTPGO_VERSION }}
 
       - name: Upload Deb Package
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: sftpgo_${{ steps.build_linux_pkgs.outputs.pkg-version }}-1_${{ matrix.deb-arch}}.deb
           path: ./pkgs/dist/deb/sftpgo_${{ steps.build_linux_pkgs.outputs.pkg-version }}-1_${{ matrix.deb-arch}}.deb
           retention-days: 1
 
       - name: Upload RPM Package
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: sftpgo-${{ steps.build_linux_pkgs.outputs.pkg-version }}-1.${{ matrix.rpm-arch}}.rpm
           path: ./pkgs/dist/rpm/sftpgo-${{ steps.build_linux_pkgs.outputs.pkg-version }}-1.${{ matrix.rpm-arch}}.rpm
@@ -417,22 +417,22 @@ jobs:
         shell: bash
 
       - name: Download amd64 artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_x86_64.tar.xz
 
       - name: Download arm64 artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_arm64.tar.xz
 
       - name: Download ppc64le artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_ppc64le.tar.xz
 
       - name: Download armv7 artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_armv7.tar.xz
 
@@ -455,7 +455,7 @@ jobs:
           SFTPGO_VERSION: ${{ steps.get_version.outputs.SFTPGO_VERSION }}
 
       - name: Upload Linux bundle
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_bundle.tar.xz
           path: ./bundle/sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_bundle.tar.xz
@@ -467,7 +467,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Get versions
         id: get_version
         run: |
@@ -478,102 +478,102 @@ jobs:
         shell: bash
 
       - name: Download amd64 artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_x86_64.tar.xz
 
       - name: Download arm64 artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_arm64.tar.xz
 
       - name: Download ppc64le artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_ppc64le.tar.xz
 
       - name: Download armv7 artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_armv7.tar.xz
 
       - name: Download Linux bundle artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_bundle.tar.xz
 
       - name: Download Deb amd64 artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: sftpgo_${{ steps.get_version.outputs.PKG_VERSION }}-1_amd64.deb
 
       - name: Download Deb arm64 artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: sftpgo_${{ steps.get_version.outputs.PKG_VERSION }}-1_arm64.deb
 
       - name: Download Deb ppc64le artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: sftpgo_${{ steps.get_version.outputs.PKG_VERSION }}-1_ppc64el.deb
 
       - name: Download Deb armv7 artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: sftpgo_${{ steps.get_version.outputs.PKG_VERSION }}-1_armhf.deb
 
       - name: Download RPM x86_64 artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: sftpgo-${{ steps.get_version.outputs.PKG_VERSION }}-1.x86_64.rpm
 
       - name: Download RPM aarch64 artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: sftpgo-${{ steps.get_version.outputs.PKG_VERSION }}-1.aarch64.rpm
 
       - name: Download RPM ppc64le artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: sftpgo-${{ steps.get_version.outputs.PKG_VERSION }}-1.ppc64le.rpm
 
       - name: Download RPM armv7 artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: sftpgo-${{ steps.get_version.outputs.PKG_VERSION }}-1.armv7hl.rpm
 
       - name: Download macOS x86_64 artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_macOS_x86_64.tar.xz
 
       - name: Download macOS arm64 artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_macOS_arm64.tar.xz
 
       - name: Download Windows installer x86_64 artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_windows_x86_64.exe
 
       - name: Download Windows installer arm64 artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_windows_arm64.exe
 
       - name: Download Windows installer x86 artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_windows_x86.exe
 
       - name: Download Windows portable artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_windows_portable.zip
 
       - name: Download source with deps artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_src_with_deps.tar.xz
 

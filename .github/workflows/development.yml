@@ -20,12 +20,12 @@ jobs:
             upload-coverage: false
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ matrix.go }}
 
@@ -75,7 +75,7 @@ jobs:
 
       - name: Upload coverage to Codecov
         if: ${{ matrix.upload-coverage }}
-        uses: codecov/codecov-action@v2
+        uses: codecov/codecov-action@v3
         with:
           file: ./coverage.txt
           fail_ci_if_error: false
@@ -168,21 +168,21 @@ jobs:
 
       - name: Upload Windows installer x86_64 artifact
         if: ${{ startsWith(matrix.os, 'windows-') && github.event_name != 'pull_request' }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: sftpgo_windows_installer_x86_64
           path: ./sftpgo_windows_x86_64.exe
 
       - name: Upload Windows installer arm64 artifact
         if: ${{ startsWith(matrix.os, 'windows-') && github.event_name != 'pull_request' }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: sftpgo_windows_installer_arm64
           path: ./sftpgo_windows_arm64.exe
 
       - name: Upload Windows installer x86 artifact
         if: ${{ startsWith(matrix.os, 'windows-') && github.event_name != 'pull_request' }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: sftpgo_windows_installer_x86
           path: ./sftpgo_windows_x86.exe
@@ -208,7 +208,7 @@ jobs:
 
       - name: Upload build artifact
         if: startsWith(matrix.os, 'ubuntu-') != true
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: sftpgo-${{ matrix.os }}-go-${{ matrix.go }}
           path: output
@@ -218,10 +218,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Set up Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: 1.17
 
@@ -274,10 +274,10 @@ jobs:
           - 3307:3306
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Set up Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: 1.17
 
@@ -334,23 +334,23 @@ jobs:
             go-arch: amd64
           - arch: aarch64
             distro: ubuntu18.04
-            go: latest
+            go: go1.17.9
             go-arch: arm64
           - arch: ppc64le
             distro: ubuntu18.04
-            go: latest
+            go: go1.17.9
             go-arch: ppc64le
           - arch: armv7
             distro: ubuntu18.04
-            go: latest
+            go: go1.17.9
             go-arch: arm7
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Set up Go
         if: ${{ matrix.arch == 'amd64' }}
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ matrix.go }}
 
@@ -370,7 +370,7 @@ jobs:
           gzip output/man/man1/*
           cp sftpgo output/
 
-      - uses: uraimo/run-on-arch-action@v2.1.1
+      - uses: uraimo/run-on-arch-action@v2
         if: ${{ matrix.arch != 'amd64' }}
         name: Build for ${{ matrix.arch }}
         id: build
@@ -418,7 +418,7 @@ jobs:
             cp sftpgo output/
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: sftpgo-linux-${{ matrix.arch }}-go-${{ matrix.go }}
           path: output
@@ -433,13 +433,13 @@ jobs:
           echo "::set-output name=pkg-version::${PKG_VERSION}"
 
       - name: Upload Debian Package
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: sftpgo-${{ steps.build_linux_pkgs.outputs.pkg-version }}-${{ matrix.go-arch }}-deb
           path: pkgs/dist/deb/*
 
       - name: Upload RPM Package
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: sftpgo-${{ steps.build_linux_pkgs.outputs.pkg-version }}-${{ matrix.go-arch }}-rpm
           path: pkgs/dist/rpm/*
@@ -449,10 +449,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set up Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: 1.17
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:

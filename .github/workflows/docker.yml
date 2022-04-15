@@ -30,7 +30,7 @@ jobs:
             optional_deps: false
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Gather image information
         id: info
