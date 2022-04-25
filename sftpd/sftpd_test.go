@@ -450,6 +450,7 @@ func TestInitialization(t *testing.T) {
 	assert.ErrorIs(t, err, os.ErrNotExist)
 
 	err = createTestFile(revokeUserCerts, 10*1024*1024)
+	assert.NoError(t, err)
 	sftpdConf.RevokedUserCertsFile = revokeUserCerts
 	err = sftpdConf.Initialize(configDir)
 	assert.Error(t, err)
@@ -603,6 +604,39 @@ func TestBasicSFTPFsHandling(t *testing.T) {
 	_, err = httpdtest.RemoveUser(baseUser, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(baseUser.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestGroupSettingsOverride(t *testing.T) {
+	usePubKey := true
+	g := getTestGroup()
+	g.UserSettings.Filters.StartDirectory = "/%username%"
+	group, _, err := httpdtest.AddGroup(g, http.StatusCreated)
+	assert.NoError(t, err)
+	u := getTestUser(usePubKey)
+	u.Groups = []sdk.GroupMapping{
+		{
+			Name: group.Name,
+			Type: sdk.GroupTypePrimary,
+		},
+	}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	conn, client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		currentDir, err := client.Getwd()
+		assert.NoError(t, err)
+		assert.Equal(t, "/"+user.Username, currentDir)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveGroup(group, http.StatusOK)
 	assert.NoError(t, err)
 }
 
@@ -10294,6 +10328,15 @@ func waitTCPListening(address string) {
 		logger.InfoToConsole("tcp server %v now listening", address)
 		conn.Close()
 		break
+	}
+}
+
+func getTestGroup() dataprovider.Group {
+	return dataprovider.Group{
+		BaseGroup: sdk.BaseGroup{
+			Name:        "test_group",
+			Description: "test group description",
+		},
 	}
 }
 

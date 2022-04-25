@@ -23,10 +23,14 @@ import (
 const (
 	pgsqlResetSQL = `DROP TABLE IF EXISTS "{{api_keys}}" CASCADE;
 DROP TABLE IF EXISTS "{{folders_mapping}}" CASCADE;
+DROP TABLE IF EXISTS "{{users_folders_mapping}}" CASCADE;
+DROP TABLE IF EXISTS "{{users_groups_mapping}}" CASCADE;
+DROP TABLE IF EXISTS "{{groups_folders_mapping}}" CASCADE;
 DROP TABLE IF EXISTS "{{admins}}" CASCADE;
 DROP TABLE IF EXISTS "{{folders}}" CASCADE;
 DROP TABLE IF EXISTS "{{shares}}" CASCADE;
 DROP TABLE IF EXISTS "{{users}}" CASCADE;
+DROP TABLE IF EXISTS "{{groups}}" CASCADE;
 DROP TABLE IF EXISTS "{{defender_events}}" CASCADE;
 DROP TABLE IF EXISTS "{{defender_hosts}}" CASCADE;
 DROP TABLE IF EXISTS "{{active_transfers}}" CASCADE;
@@ -113,6 +117,46 @@ ALTER TABLE "{{users}}" DROP COLUMN "upload_data_transfer" CASCADE;
 ALTER TABLE "{{users}}" DROP COLUMN "total_data_transfer" CASCADE;
 ALTER TABLE "{{users}}" DROP COLUMN "download_data_transfer" CASCADE;
 DROP TABLE "{{active_transfers}}" CASCADE;
+`
+	pgsqlV17SQL = `CREATE TABLE "{{groups}}" ("id" serial NOT NULL PRIMARY KEY, "name" varchar(255) NOT NULL UNIQUE,
+"description" varchar(512) NULL, "created_at" bigint NOT NULL, "updated_at" bigint NOT NULL, "user_settings" text NULL);
+CREATE TABLE "{{groups_folders_mapping}}" ("id" serial NOT NULL PRIMARY KEY, "group_id" integer NOT NULL,
+"folder_id" integer NOT NULL, "virtual_path" text NOT NULL, "quota_size" bigint NOT NULL, "quota_files" integer NOT NULL);
+CREATE TABLE "{{users_groups_mapping}}" ("id" serial NOT NULL PRIMARY KEY, "user_id" integer NOT NULL,
+"group_id" integer NOT NULL, "group_type" integer NOT NULL);
+DROP INDEX "{{prefix}}folders_mapping_folder_id_idx";
+DROP INDEX "{{prefix}}folders_mapping_user_id_idx";
+ALTER TABLE "{{folders_mapping}}" DROP CONSTRAINT "{{prefix}}unique_mapping";
+ALTER TABLE "{{folders_mapping}}" RENAME TO "{{users_folders_mapping}}";
+ALTER TABLE "{{users_folders_mapping}}" ADD CONSTRAINT "{{prefix}}unique_user_folder_mapping" UNIQUE ("user_id", "folder_id");
+CREATE INDEX "{{prefix}}users_folders_mapping_folder_id_idx" ON "{{users_folders_mapping}}" ("folder_id");
+CREATE INDEX "{{prefix}}users_folders_mapping_user_id_idx" ON "{{users_folders_mapping}}" ("user_id");
+ALTER TABLE "{{users_groups_mapping}}" ADD CONSTRAINT "{{prefix}}unique_user_group_mapping" UNIQUE ("user_id", "group_id");
+ALTER TABLE "{{groups_folders_mapping}}" ADD CONSTRAINT "{{prefix}}unique_group_folder_mapping" UNIQUE ("group_id", "folder_id");
+CREATE INDEX "{{prefix}}users_groups_mapping_group_id_idx" ON "{{users_groups_mapping}}" ("group_id");
+ALTER TABLE "{{users_groups_mapping}}" ADD CONSTRAINT "{{prefix}}users_groups_mapping_group_id_fk_groups_id"
+FOREIGN KEY ("group_id") REFERENCES "{{groups}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION;
+CREATE INDEX "{{prefix}}users_groups_mapping_user_id_idx" ON "{{users_groups_mapping}}" ("user_id");
+ALTER TABLE "{{users_groups_mapping}}" ADD CONSTRAINT "{{prefix}}users_groups_mapping_user_id_fk_users_id"
+FOREIGN KEY ("user_id") REFERENCES "{{users}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE;
+CREATE INDEX "{{prefix}}groups_folders_mapping_folder_id_idx" ON "{{groups_folders_mapping}}" ("folder_id");
+ALTER TABLE "{{groups_folders_mapping}}" ADD CONSTRAINT "{{prefix}}groups_folders_mapping_folder_id_fk_folders_id"
+FOREIGN KEY ("folder_id") REFERENCES "{{folders}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE;
+CREATE INDEX "{{prefix}}groups_folders_mapping_group_id_idx" ON "{{groups_folders_mapping}}" ("group_id");
+ALTER TABLE "{{groups_folders_mapping}}" ADD CONSTRAINT "{{prefix}}groups_folders_mapping_group_id_fk_groups_id"
+FOREIGN KEY ("group_id") REFERENCES "groups" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE;
+CREATE INDEX "{{prefix}}groups_updated_at_idx" ON "{{groups}}" ("updated_at");
+`
+	pgsqlV17DownSQL = `DROP TABLE "{{users_groups_mapping}}" CASCADE;
+DROP TABLE "{{groups_folders_mapping}}" CASCADE;
+DROP TABLE "{{groups}}" CASCADE;
+DROP INDEX "{{prefix}}users_folders_mapping_folder_id_idx";
+DROP INDEX "{{prefix}}users_folders_mapping_user_id_idx";
+ALTER TABLE "{{users_folders_mapping}}" DROP CONSTRAINT "{{prefix}}unique_user_folder_mapping";
+ALTER TABLE "{{users_folders_mapping}}" RENAME TO "{{folders_mapping}}";
+ALTER TABLE "{{folders_mapping}}" ADD CONSTRAINT "{{prefix}}unique_mapping" UNIQUE ("user_id", "folder_id");
+CREATE INDEX "{{prefix}}folders_mapping_folder_id_idx" ON "{{folders_mapping}}" ("folder_id");
+CREATE INDEX "{{prefix}}folders_mapping_user_id_idx" ON "{{folders_mapping}}" ("user_id");
 `
 )
 
@@ -219,7 +263,7 @@ func (p *PGSQLProvider) updateUser(user *User) error {
 	return sqlCommonUpdateUser(user, p.dbHandle)
 }
 
-func (p *PGSQLProvider) deleteUser(user *User) error {
+func (p *PGSQLProvider) deleteUser(user User) error {
 	return sqlCommonDeleteUser(user, p.dbHandle)
 }
 
@@ -247,8 +291,8 @@ func (p *PGSQLProvider) dumpFolders() ([]vfs.BaseVirtualFolder, error) {
 	return sqlCommonDumpFolders(p.dbHandle)
 }
 
-func (p *PGSQLProvider) getFolders(limit, offset int, order string) ([]vfs.BaseVirtualFolder, error) {
-	return sqlCommonGetFolders(limit, offset, order, p.dbHandle)
+func (p *PGSQLProvider) getFolders(limit, offset int, order string, minimal bool) ([]vfs.BaseVirtualFolder, error) {
+	return sqlCommonGetFolders(limit, offset, order, minimal, p.dbHandle)
 }
 
 func (p *PGSQLProvider) getFolderByName(name string) (vfs.BaseVirtualFolder, error) {
@@ -265,7 +309,7 @@ func (p *PGSQLProvider) updateFolder(folder *vfs.BaseVirtualFolder) error {
 	return sqlCommonUpdateFolder(folder, p.dbHandle)
 }
 
-func (p *PGSQLProvider) deleteFolder(folder *vfs.BaseVirtualFolder) error {
+func (p *PGSQLProvider) deleteFolder(folder vfs.BaseVirtualFolder) error {
 	return sqlCommonDeleteFolder(folder, p.dbHandle)
 }
 
@@ -275,6 +319,38 @@ func (p *PGSQLProvider) updateFolderQuota(name string, filesAdd int, sizeAdd int
 
 func (p *PGSQLProvider) getUsedFolderQuota(name string) (int, int64, error) {
 	return sqlCommonGetFolderUsedQuota(name, p.dbHandle)
+}
+
+func (p *PGSQLProvider) getGroups(limit, offset int, order string, minimal bool) ([]Group, error) {
+	return sqlCommonGetGroups(limit, offset, order, minimal, p.dbHandle)
+}
+
+func (p *PGSQLProvider) getGroupsWithNames(names []string) ([]Group, error) {
+	return sqlCommonGetGroupsWithNames(names, p.dbHandle)
+}
+
+func (p *PGSQLProvider) getUsersInGroups(names []string) ([]string, error) {
+	return sqlCommonGetUsersInGroups(names, p.dbHandle)
+}
+
+func (p *PGSQLProvider) groupExists(name string) (Group, error) {
+	return sqlCommonGetGroupByName(name, p.dbHandle)
+}
+
+func (p *PGSQLProvider) addGroup(group *Group) error {
+	return sqlCommonAddGroup(group, p.dbHandle)
+}
+
+func (p *PGSQLProvider) updateGroup(group *Group) error {
+	return sqlCommonUpdateGroup(group, p.dbHandle)
+}
+
+func (p *PGSQLProvider) deleteGroup(group Group) error {
+	return sqlCommonDeleteGroup(group, p.dbHandle)
+}
+
+func (p *PGSQLProvider) dumpGroups() ([]Group, error) {
+	return sqlCommonDumpGroups(p.dbHandle)
 }
 
 func (p *PGSQLProvider) adminExists(username string) (Admin, error) {
@@ -289,7 +365,7 @@ func (p *PGSQLProvider) updateAdmin(admin *Admin) error {
 	return sqlCommonUpdateAdmin(admin, p.dbHandle)
 }
 
-func (p *PGSQLProvider) deleteAdmin(admin *Admin) error {
+func (p *PGSQLProvider) deleteAdmin(admin Admin) error {
 	return sqlCommonDeleteAdmin(admin, p.dbHandle)
 }
 
@@ -317,7 +393,7 @@ func (p *PGSQLProvider) updateAPIKey(apiKey *APIKey) error {
 	return sqlCommonUpdateAPIKey(apiKey, p.dbHandle)
 }
 
-func (p *PGSQLProvider) deleteAPIKey(apiKey *APIKey) error {
+func (p *PGSQLProvider) deleteAPIKey(apiKey APIKey) error {
 	return sqlCommonDeleteAPIKey(apiKey, p.dbHandle)
 }
 
@@ -345,7 +421,7 @@ func (p *PGSQLProvider) updateShare(share *Share) error {
 	return sqlCommonUpdateShare(share, p.dbHandle)
 }
 
-func (p *PGSQLProvider) deleteShare(share *Share) error {
+func (p *PGSQLProvider) deleteShare(share Share) error {
 	return sqlCommonDeleteShare(share, p.dbHandle)
 }
 
@@ -469,6 +545,8 @@ func (p *PGSQLProvider) migrateDatabase() error {
 		return err
 	case version == 15:
 		return updatePGSQLDatabaseFromV15(p.dbHandle)
+	case version == 16:
+		return updatePGSQLDatabaseFromV16(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database version %v is newer than the supported one: %v", version,
@@ -493,27 +571,34 @@ func (p *PGSQLProvider) revertDatabase(targetVersion int) error {
 	switch dbVersion.Version {
 	case 16:
 		return downgradePGSQLDatabaseFromV16(p.dbHandle)
+	case 17:
+		return downgradePGSQLDatabaseFromV17(p.dbHandle)
 	default:
 		return fmt.Errorf("database version not handled: %v", dbVersion.Version)
 	}
 }
 
 func (p *PGSQLProvider) resetDatabase() error {
-	sql := strings.ReplaceAll(pgsqlResetSQL, "{{schema_version}}", sqlTableSchemaVersion)
-	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
-	sql = strings.ReplaceAll(sql, "{{folders}}", sqlTableFolders)
-	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
-	sql = strings.ReplaceAll(sql, "{{folders_mapping}}", sqlTableFoldersMapping)
-	sql = strings.ReplaceAll(sql, "{{api_keys}}", sqlTableAPIKeys)
-	sql = strings.ReplaceAll(sql, "{{shares}}", sqlTableShares)
-	sql = strings.ReplaceAll(sql, "{{defender_events}}", sqlTableDefenderEvents)
-	sql = strings.ReplaceAll(sql, "{{defender_hosts}}", sqlTableDefenderHosts)
-	sql = strings.ReplaceAll(sql, "{{active_transfers}}", sqlTableActiveTransfers)
+	sql := sqlReplaceAll(pgsqlResetSQL)
 	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{sql}, 0)
 }
 
 func updatePGSQLDatabaseFromV15(dbHandle *sql.DB) error {
-	return updatePGSQLDatabaseFrom15To16(dbHandle)
+	if err := updatePGSQLDatabaseFrom15To16(dbHandle); err != nil {
+		return err
+	}
+	return updatePGSQLDatabaseFromV16(dbHandle)
+}
+
+func updatePGSQLDatabaseFromV16(dbHandle *sql.DB) error {
+	return updatePGSQLDatabaseFrom16To17(dbHandle)
+}
+
+func downgradePGSQLDatabaseFromV17(dbHandle *sql.DB) error {
+	if err := downgradePGSQLDatabaseFrom17To16(dbHandle); err != nil {
+		return err
+	}
+	return downgradePGSQLDatabaseFromV16(dbHandle)
 }
 
 func downgradePGSQLDatabaseFromV16(dbHandle *sql.DB) error {
@@ -529,10 +614,48 @@ func updatePGSQLDatabaseFrom15To16(dbHandle *sql.DB) error {
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 16)
 }
 
+func updatePGSQLDatabaseFrom16To17(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 16 -> 17")
+	providerLog(logger.LevelInfo, "updating database version: 16 -> 17")
+	sql := pgsqlV17SQL
+	if config.Driver == CockroachDataProviderName {
+		sql = strings.ReplaceAll(sql, `ALTER TABLE "{{folders_mapping}}" DROP CONSTRAINT "{{prefix}}unique_mapping";`,
+			`DROP INDEX "{{prefix}}unique_mapping" CASCADE;`)
+	}
+	sql = strings.ReplaceAll(sql, "{{groups}}", sqlTableGroups)
+	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{folders}}", sqlTableFolders)
+	sql = strings.ReplaceAll(sql, "{{folders_mapping}}", sqlTableFoldersMapping)
+	sql = strings.ReplaceAll(sql, "{{users_folders_mapping}}", sqlTableUsersFoldersMapping)
+	sql = strings.ReplaceAll(sql, "{{users_groups_mapping}}", sqlTableUsersGroupsMapping)
+	sql = strings.ReplaceAll(sql, "{{groups_folders_mapping}}", sqlTableGroupsFoldersMapping)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 17)
+}
+
 func downgradePGSQLDatabaseFrom16To15(dbHandle *sql.DB) error {
 	logger.InfoToConsole("downgrading database version: 16 -> 15")
 	providerLog(logger.LevelInfo, "downgrading database version: 16 -> 15")
 	sql := strings.ReplaceAll(pgsqlV16DownSQL, "{{users}}", sqlTableUsers)
 	sql = strings.ReplaceAll(sql, "{{active_transfers}}", sqlTableActiveTransfers)
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 15)
+}
+
+func downgradePGSQLDatabaseFrom17To16(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 17 -> 16")
+	providerLog(logger.LevelInfo, "downgrading database version: 17 -> 16")
+	sql := pgsqlV17DownSQL
+	if config.Driver == CockroachDataProviderName {
+		sql = strings.ReplaceAll(sql, `ALTER TABLE "{{users_folders_mapping}}" DROP CONSTRAINT "{{prefix}}unique_user_folder_mapping";`,
+			`DROP INDEX "{{prefix}}unique_user_folder_mapping" CASCADE;`)
+	}
+	sql = strings.ReplaceAll(sql, "{{groups}}", sqlTableGroups)
+	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{folders}}", sqlTableFolders)
+	sql = strings.ReplaceAll(sql, "{{folders_mapping}}", sqlTableFoldersMapping)
+	sql = strings.ReplaceAll(sql, "{{users_folders_mapping}}", sqlTableUsersFoldersMapping)
+	sql = strings.ReplaceAll(sql, "{{users_groups_mapping}}", sqlTableUsersGroupsMapping)
+	sql = strings.ReplaceAll(sql, "{{groups_folders_mapping}}", sqlTableGroupsFoldersMapping)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 16)
 }

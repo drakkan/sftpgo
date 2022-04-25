@@ -93,6 +93,14 @@
             </li>
             {{end}}
 
+            {{ if .LoggedAdmin.HasPermission "manage_groups"}}
+            <li class="nav-item {{if eq .CurrentURL .GroupsURL}}active{{end}}">
+                <a class="nav-link" href="{{.GroupsURL}}">
+                    <i class="fas fa-user-friends"></i>
+                    <span>{{.GroupsTitle}}</span></a>
+            </li>
+            {{end}}
+
             {{ if .LoggedAdmin.HasPermission "view_conns"}}
             <li class="nav-item {{if eq .CurrentURL .ConnectionsURL}}active{{end}}">
                 <a class="nav-link" href="{{.ConnectionsURL}}">

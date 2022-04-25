@@ -141,7 +141,7 @@ func updateUserTransferQuotaUsage(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
-	user, err := dataprovider.UserExists(getURLParam(r, "username"))
+	user, err := dataprovider.GetUserWithGroupSettings(getURLParam(r, "username"))
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -171,7 +171,7 @@ func doUpdateUserQuotaUsage(w http.ResponseWriter, r *http.Request, username str
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
-	user, err := dataprovider.UserExists(username)
+	user, err := dataprovider.GetUserWithGroupSettings(username)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -228,7 +228,7 @@ func doStartUserQuotaScan(w http.ResponseWriter, r *http.Request, username strin
 		sendAPIResponse(w, r, nil, "Quota tracking is disabled!", http.StatusForbidden)
 		return
 	}
-	user, err := dataprovider.UserExists(username)
+	user, err := dataprovider.GetUserWithGroupSettings(username)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return

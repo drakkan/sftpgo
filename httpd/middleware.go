@@ -418,7 +418,7 @@ func authenticateUserWithAPIKey(username, keyID string, tokenAuth *jwtauth.JWTAu
 	if err := common.Config.ExecutePostConnectHook(ipAddr, protocol); err != nil {
 		return err
 	}
-	user, err := dataprovider.UserExists(username)
+	user, err := dataprovider.GetUserWithGroupSettings(username)
 	if err != nil {
 		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}},
 			dataprovider.LoginMethodPassword, ipAddr, err)

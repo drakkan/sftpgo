@@ -556,7 +556,7 @@ func (s *httpdServer) renderClientProfilePage(w http.ResponseWriter, r *http.Req
 		baseClientPage: s.getBaseClientPageData(pageClientProfileTitle, webClientProfilePath, r),
 		Error:          error,
 	}
-	user, err := dataprovider.UserExists(data.LoggedUser.Username)
+	user, userMerged, err := dataprovider.GetUserVariants(data.LoggedUser.Username)
 	if err != nil {
 		s.renderClientInternalServerErrorPage(w, r, err)
 		return
@@ -565,7 +565,7 @@ func (s *httpdServer) renderClientProfilePage(w http.ResponseWriter, r *http.Req
 	data.AllowAPIKeyAuth = user.Filters.AllowAPIKeyAuth
 	data.Email = user.Email
 	data.Description = user.Description
-	data.CanSubmit = user.CanChangeAPIKeyAuth() || user.CanManagePublicKeys() || user.CanChangeInfo()
+	data.CanSubmit = userMerged.CanChangeAPIKeyAuth() || userMerged.CanManagePublicKeys() || userMerged.CanChangeInfo()
 	renderClientTemplate(w, templateClientProfile, data)
 }
 
@@ -586,7 +586,7 @@ func (s *httpdServer) handleWebClientDownloadZip(w http.ResponseWriter, r *http.
 		return
 	}
 
-	user, err := dataprovider.UserExists(claims.Username)
+	user, err := dataprovider.GetUserWithGroupSettings(claims.Username)
 	if err != nil {
 		s.renderClientMessagePage(w, r, "Unable to retrieve your user", "", getRespStatus(err), nil, "")
 		return
@@ -735,7 +735,7 @@ func (s *httpdServer) handleClientGetDirContents(w http.ResponseWriter, r *http.
 		return
 	}
 
-	user, err := dataprovider.UserExists(claims.Username)
+	user, err := dataprovider.GetUserWithGroupSettings(claims.Username)
 	if err != nil {
 		sendAPIResponse(w, r, nil, "Unable to retrieve your user", getRespStatus(err))
 		return
@@ -812,7 +812,7 @@ func (s *httpdServer) handleClientGetFiles(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	user, err := dataprovider.UserExists(claims.Username)
+	user, err := dataprovider.GetUserWithGroupSettings(claims.Username)
 	if err != nil {
 		s.renderClientMessagePage(w, r, "Unable to retrieve your user", "", getRespStatus(err), nil, "")
 		return
@@ -872,7 +872,7 @@ func (s *httpdServer) handleClientEditFile(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	user, err := dataprovider.UserExists(claims.Username)
+	user, err := dataprovider.GetUserWithGroupSettings(claims.Username)
 	if err != nil {
 		s.renderClientMessagePage(w, r, "Unable to retrieve your user", "", getRespStatus(err), nil, "")
 		return
@@ -1120,22 +1120,22 @@ func (s *httpdServer) handleWebClientProfilePost(w http.ResponseWriter, r *http.
 		s.renderClientForbiddenPage(w, r, "Invalid token claims")
 		return
 	}
-	user, err := dataprovider.UserExists(claims.Username)
+	user, userMerged, err := dataprovider.GetUserVariants(claims.Username)
 	if err != nil {
 		s.renderClientProfilePage(w, r, err.Error())
 		return
 	}
-	if !user.CanManagePublicKeys() && !user.CanChangeAPIKeyAuth() && !user.CanChangeInfo() {
+	if !userMerged.CanManagePublicKeys() && !userMerged.CanChangeAPIKeyAuth() && !userMerged.CanChangeInfo() {
 		s.renderClientForbiddenPage(w, r, "You are not allowed to change anything")
 		return
 	}
-	if user.CanManagePublicKeys() {
+	if userMerged.CanManagePublicKeys() {
 		user.PublicKeys = r.Form["public_keys"]
 	}
-	if user.CanChangeAPIKeyAuth() {
+	if userMerged.CanChangeAPIKeyAuth() {
 		user.Filters.AllowAPIKeyAuth = len(r.Form.Get("allow_api_key_auth")) > 0
 	}
-	if user.CanChangeInfo() {
+	if userMerged.CanChangeInfo() {
 		user.Email = r.Form.Get("email")
 		user.Description = r.Form.Get("description")
 	}

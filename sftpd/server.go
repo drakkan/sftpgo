@@ -222,7 +222,7 @@ func (c *Configuration) getServerConfig() *ssh.ServerConfig {
 		},
 		NextAuthMethodsCallback: func(conn ssh.ConnMetadata) []string {
 			var nextMethods []string
-			user, err := dataprovider.UserExists(conn.User())
+			user, err := dataprovider.GetUserWithGroupSettings(conn.User())
 			if err == nil {
 				nextMethods = user.GetNextAuthMethods(conn.PartialSuccessMethods(), c.PasswordAuthentication)
 			}

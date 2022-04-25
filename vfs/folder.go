@@ -26,6 +26,8 @@ type BaseVirtualFolder struct {
 	LastQuotaUpdate int64 `json:"last_quota_update"`
 	// list of usernames associated with this virtual folder
 	Users []string `json:"users,omitempty"`
+	// list of group names associated with this virtual folder
+	Groups []string `json:"groups,omitempty"`
 	// Filesystem configuration details
 	FsConfig Filesystem `json:"filesystem"`
 }
@@ -44,6 +46,8 @@ func (v *BaseVirtualFolder) GetGCSCredentialsFilePath() string {
 func (v *BaseVirtualFolder) GetACopy() BaseVirtualFolder {
 	users := make([]string, len(v.Users))
 	copy(users, v.Users)
+	groups := make([]string, len(v.Groups))
+	copy(groups, v.Groups)
 	return BaseVirtualFolder{
 		ID:              v.ID,
 		Name:            v.Name,
@@ -53,6 +57,7 @@ func (v *BaseVirtualFolder) GetACopy() BaseVirtualFolder {
 		UsedQuotaFiles:  v.UsedQuotaFiles,
 		LastQuotaUpdate: v.LastQuotaUpdate,
 		Users:           users,
+		Groups:          v.Groups,
 		FsConfig:        v.FsConfig.GetACopy(),
 	}
 }

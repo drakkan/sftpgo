@@ -74,6 +74,7 @@ const (
 	adminPath                       = "/api/v2/admins"
 	adminPwdPath                    = "/api/v2/admin/changepwd"
 	folderPath                      = "/api/v2/folders"
+	groupPath                       = "/api/v2/groups"
 	activeConnectionsPath           = "/api/v2/connections"
 	serverStatusPath                = "/api/v2/status"
 	quotasBasePath                  = "/api/v2/quotas"
@@ -123,6 +124,8 @@ const (
 	webLogoutPath                   = "/web/admin/logout"
 	webUsersPath                    = "/web/admin/users"
 	webUserPath                     = "/web/admin/user"
+	webGroupsPath                   = "/web/admin/groups"
+	webGroupPath                    = "/web/admin/group"
 	webFoldersPath                  = "/web/admin/folders"
 	webFolderPath                   = "/web/admin/folder"
 	webConnectionsPath              = "/web/admin/connections"
@@ -531,6 +534,484 @@ func TestBasicUserHandling(t *testing.T) {
 	assert.Contains(t, string(body), "Validation error: email")
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+}
+
+func TestBasicGroupHandling(t *testing.T) {
+	g := getTestGroup()
+	group, _, err := httpdtest.AddGroup(g, http.StatusCreated)
+	assert.NoError(t, err)
+	assert.Greater(t, group.CreatedAt, int64(0))
+	assert.Greater(t, group.UpdatedAt, int64(0))
+	groupGet, _, err := httpdtest.GetGroupByName(group.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, group, groupGet)
+	groups, _, err := httpdtest.GetGroups(0, 0, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, groups, 1) {
+		assert.Equal(t, group, groups[0])
+	}
+	groups, _, err = httpdtest.GetGroups(0, 1, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, groups, 0)
+	_, _, err = httpdtest.GetGroupByName(group.Name+"_", http.StatusNotFound)
+	assert.NoError(t, err)
+	// adding the same group again should fail
+	_, _, err = httpdtest.AddGroup(g, http.StatusInternalServerError)
+	assert.NoError(t, err)
+
+	group.UserSettings.HomeDir = filepath.Join(os.TempDir(), "%username%")
+	group.UserSettings.FsConfig.Provider = sdk.SFTPFilesystemProvider
+	group.UserSettings.FsConfig.SFTPConfig.Endpoint = sftpServerAddr
+	group.UserSettings.FsConfig.SFTPConfig.Username = defaultUsername
+	group.UserSettings.FsConfig.SFTPConfig.Password = kms.NewPlainSecret(defaultPassword)
+	group, _, err = httpdtest.UpdateGroup(group, http.StatusOK)
+	assert.NoError(t, err)
+	// update again and check that the password was preserved
+	dbGroup, err := dataprovider.GroupExists(group.Name)
+	assert.NoError(t, err)
+	group.UserSettings.FsConfig.SFTPConfig.Password = kms.NewSecret(
+		dbGroup.UserSettings.FsConfig.SFTPConfig.Password.GetStatus(),
+		dbGroup.UserSettings.FsConfig.SFTPConfig.Password.GetPayload(), "", "")
+	group, _, err = httpdtest.UpdateGroup(group, http.StatusOK)
+	assert.NoError(t, err)
+	dbGroup, err = dataprovider.GroupExists(group.Name)
+	assert.NoError(t, err)
+	err = dbGroup.UserSettings.FsConfig.SFTPConfig.Password.Decrypt()
+	assert.NoError(t, err)
+	assert.Equal(t, defaultPassword, dbGroup.UserSettings.FsConfig.SFTPConfig.Password.GetPayload())
+
+	group.UserSettings.HomeDir = "relative path"
+	_, _, err = httpdtest.UpdateGroup(group, http.StatusBadRequest)
+	assert.NoError(t, err)
+
+	_, err = httpdtest.RemoveGroup(group, http.StatusOK)
+	assert.NoError(t, err)
+	_, _, err = httpdtest.UpdateGroup(group, http.StatusNotFound)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveGroup(group, http.StatusNotFound)
+	assert.NoError(t, err)
+}
+
+func TestGroupRelations(t *testing.T) {
+	mappedPath1 := filepath.Join(os.TempDir(), util.GenerateUniqueID())
+	folderName1 := filepath.Base(mappedPath1)
+	mappedPath2 := filepath.Join(os.TempDir(), util.GenerateUniqueID())
+	folderName2 := filepath.Base(mappedPath2)
+	_, _, err := httpdtest.AddFolder(vfs.BaseVirtualFolder{
+		Name:       folderName2,
+		MappedPath: mappedPath2,
+	}, http.StatusCreated)
+	assert.NoError(t, err)
+	g1 := getTestGroup()
+	g1.Name += "_1"
+	g1.VirtualFolders = append(g1.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName1,
+			MappedPath: mappedPath1,
+		},
+		VirtualPath: "/vdir1",
+	})
+	g2 := getTestGroup()
+	g2.Name += "_2"
+	g2.VirtualFolders = append(g2.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName1,
+			MappedPath: mappedPath1,
+		},
+		VirtualPath: "/vdir2",
+	})
+	g3 := getTestGroup()
+	g3.Name += "_3"
+	g3.VirtualFolders = append(g3.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName1,
+			MappedPath: mappedPath1,
+		},
+		VirtualPath: "/vdir3",
+	})
+	group1, resp, err := httpdtest.AddGroup(g1, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	assert.Len(t, group1.VirtualFolders, 1)
+	group2, resp, err := httpdtest.AddGroup(g2, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	assert.Len(t, group2.VirtualFolders, 1)
+	group3, resp, err := httpdtest.AddGroup(g3, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	assert.Len(t, group3.VirtualFolders, 1)
+
+	folder1, _, err := httpdtest.GetFolderByName(folderName1, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, folder1.Groups, 3)
+	folder2, _, err := httpdtest.GetFolderByName(folderName2, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, folder2.Groups, 0)
+
+	group1.VirtualFolders = append(group1.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: folder2,
+		VirtualPath:       "/vfolder2",
+	})
+	group1, _, err = httpdtest.UpdateGroup(group1, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, group1.VirtualFolders, 2)
+
+	folder2, _, err = httpdtest.GetFolderByName(folderName2, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, folder2.Groups, 1)
+
+	group1.VirtualFolders = []vfs.VirtualFolder{
+		{
+			BaseVirtualFolder: vfs.BaseVirtualFolder{
+				Name:       folder1.Name,
+				MappedPath: folder1.MappedPath,
+			},
+			VirtualPath: "/vpathmod",
+		},
+	}
+	group1, _, err = httpdtest.UpdateGroup(group1, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, group1.VirtualFolders, 1)
+
+	folder2, _, err = httpdtest.GetFolderByName(folderName2, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, folder2.Groups, 0)
+
+	group1.VirtualFolders = append(group1.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: folder2,
+		VirtualPath:       "/vfolder2mod",
+	})
+	group1, _, err = httpdtest.UpdateGroup(group1, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, group1.VirtualFolders, 2)
+
+	folder2, _, err = httpdtest.GetFolderByName(folderName2, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, folder2.Groups, 1)
+
+	u := getTestUser()
+	u.Groups = []sdk.GroupMapping{
+		{
+			Name: group1.Name,
+			Type: sdk.GroupTypePrimary,
+		},
+		{
+			Name: group2.Name,
+			Type: sdk.GroupTypeSecondary,
+		},
+		{
+			Name: group3.Name,
+			Type: sdk.GroupTypeSecondary,
+		},
+	}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	if assert.Len(t, user.Groups, 3) {
+		for _, g := range user.Groups {
+			if g.Name == group1.Name {
+				assert.Equal(t, sdk.GroupTypePrimary, g.Type)
+			} else {
+				assert.Equal(t, sdk.GroupTypeSecondary, g.Type)
+			}
+		}
+	}
+	group1, _, err = httpdtest.GetGroupByName(group1.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, group1.Users, 1)
+	group2, _, err = httpdtest.GetGroupByName(group2.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, group2.Users, 1)
+	group3, _, err = httpdtest.GetGroupByName(group3.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, group3.Users, 1)
+
+	user.Groups = []sdk.GroupMapping{
+		{
+			Name: group3.Name,
+			Type: sdk.GroupTypeSecondary,
+		},
+	}
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	assert.Len(t, user.Groups, 1)
+
+	group1, _, err = httpdtest.GetGroupByName(group1.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, group1.Users, 0)
+	group2, _, err = httpdtest.GetGroupByName(group2.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, group2.Users, 0)
+	group3, _, err = httpdtest.GetGroupByName(group3.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, group3.Users, 1)
+
+	user.Groups = []sdk.GroupMapping{
+		{
+			Name: group1.Name,
+			Type: sdk.GroupTypePrimary,
+		},
+		{
+			Name: group2.Name,
+			Type: sdk.GroupTypeSecondary,
+		},
+		{
+			Name: group3.Name,
+			Type: sdk.GroupTypeSecondary,
+		},
+	}
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	assert.Len(t, user.Groups, 3)
+
+	group1, _, err = httpdtest.GetGroupByName(group1.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, group1.Users, 1)
+	group2, _, err = httpdtest.GetGroupByName(group2.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, group2.Users, 1)
+	group3, _, err = httpdtest.GetGroupByName(group3.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, group3.Users, 1)
+
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(folder1, http.StatusOK)
+	assert.NoError(t, err)
+	group1, _, err = httpdtest.GetGroupByName(group1.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, group1.Users, 0)
+	assert.Len(t, group1.VirtualFolders, 1)
+	group2, _, err = httpdtest.GetGroupByName(group2.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, group2.Users, 0)
+	assert.Len(t, group2.VirtualFolders, 0)
+	group3, _, err = httpdtest.GetGroupByName(group3.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, group3.Users, 0)
+	assert.Len(t, group3.VirtualFolders, 0)
+	_, err = httpdtest.RemoveGroup(group1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveGroup(group2, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveGroup(group3, http.StatusOK)
+	assert.NoError(t, err)
+	folder2, _, err = httpdtest.GetFolderByName(folderName2, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, folder2.Groups, 0)
+	_, err = httpdtest.RemoveFolder(folder2, http.StatusOK)
+	assert.NoError(t, err)
+}
+
+func TestGroupValidation(t *testing.T) {
+	group := getTestGroup()
+	group.VirtualFolders = []vfs.VirtualFolder{
+		{
+			BaseVirtualFolder: vfs.BaseVirtualFolder{
+				Name:       util.GenerateUniqueID(),
+				MappedPath: filepath.Join(os.TempDir(), util.GenerateUniqueID()),
+			},
+		},
+	}
+	_, resp, err := httpdtest.AddGroup(group, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "virtual path is mandatory")
+	group.VirtualFolders = nil
+	group.UserSettings.FsConfig.Provider = sdk.SFTPFilesystemProvider
+	_, resp, err = httpdtest.AddGroup(group, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "endpoint cannot be empty")
+	group.UserSettings.FsConfig.Provider = sdk.LocalFilesystemProvider
+	group.UserSettings.Permissions = map[string][]string{
+		"a": nil,
+	}
+	_, resp, err = httpdtest.AddGroup(group, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "cannot set permissions for non absolute path")
+	group.UserSettings.Permissions = map[string][]string{
+		"/": nil,
+	}
+	_, resp, err = httpdtest.AddGroup(group, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "no permissions granted")
+	group.UserSettings.Permissions = map[string][]string{
+		"/..": nil,
+	}
+	_, resp, err = httpdtest.AddGroup(group, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "cannot set permissions for invalid subdirectory")
+	group.UserSettings.Permissions = map[string][]string{
+		"/": {dataprovider.PermAny},
+	}
+	group.UserSettings.HomeDir = "relative"
+	_, resp, err = httpdtest.AddGroup(group, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "home_dir must be an absolute path")
+	group.UserSettings.HomeDir = ""
+	group.UserSettings.Filters.WebClient = []string{"invalid permission"}
+	_, resp, err = httpdtest.AddGroup(group, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "invalid web client options")
+}
+
+func TestGroupSettingsOverride(t *testing.T) {
+	mappedPath1 := filepath.Join(os.TempDir(), util.GenerateUniqueID())
+	folderName1 := filepath.Base(mappedPath1)
+	mappedPath2 := filepath.Join(os.TempDir(), util.GenerateUniqueID())
+	folderName2 := filepath.Base(mappedPath2)
+	g1 := getTestGroup()
+	g1.Name += "_1"
+	g1.VirtualFolders = append(g1.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName1,
+			MappedPath: mappedPath1,
+		},
+		VirtualPath: "/vdir1",
+	})
+	g2 := getTestGroup()
+	g2.Name += "_2"
+	g2.VirtualFolders = append(g2.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName1,
+			MappedPath: mappedPath1,
+		},
+		VirtualPath: "/vdir2",
+	})
+	g2.VirtualFolders = append(g2.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName2,
+			MappedPath: mappedPath2,
+		},
+		VirtualPath: "/vdir3",
+	})
+	group1, resp, err := httpdtest.AddGroup(g1, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	group2, resp, err := httpdtest.AddGroup(g2, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	u := getTestUser()
+	u.Groups = []sdk.GroupMapping{
+		{
+			Name: group1.Name,
+			Type: sdk.GroupTypePrimary,
+		},
+		{
+			Name: group2.Name,
+			Type: sdk.GroupTypeSecondary,
+		},
+	}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	assert.Len(t, user.VirtualFolders, 0)
+
+	user, err = dataprovider.CheckUserAndPass(defaultUsername, defaultPassword, "", common.ProtocolHTTP)
+	assert.NoError(t, err)
+	assert.Len(t, user.VirtualFolders, 3)
+
+	user, err = dataprovider.GetUserAfterIDPAuth(defaultUsername, "", common.ProtocolOIDC, nil)
+	assert.NoError(t, err)
+	assert.Len(t, user.VirtualFolders, 3)
+
+	user1, user2, err := dataprovider.GetUserVariants(defaultUsername)
+	assert.NoError(t, err)
+	assert.Len(t, user1.VirtualFolders, 0)
+	assert.Len(t, user2.VirtualFolders, 3)
+
+	group2.UserSettings.FsConfig = vfs.Filesystem{
+		Provider: sdk.SFTPFilesystemProvider,
+		SFTPConfig: vfs.SFTPFsConfig{
+			BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
+				Endpoint: sftpServerAddr,
+				Username: defaultUsername,
+			},
+			Password: kms.NewPlainSecret(defaultPassword),
+		},
+	}
+	group2.UserSettings.Permissions = map[string][]string{
+		"/":           {dataprovider.PermListItems, dataprovider.PermDownload},
+		"/%username%": {dataprovider.PermListItems},
+	}
+	group2.UserSettings.DownloadBandwidth = 128
+	group2.UserSettings.UploadBandwidth = 256
+	group2.UserSettings.Filters.WebClient = []string{sdk.WebClientInfoChangeDisabled, sdk.WebClientMFADisabled}
+	_, _, err = httpdtest.UpdateGroup(group2, http.StatusOK)
+	assert.NoError(t, err)
+	user, err = dataprovider.CheckUserAndPass(defaultUsername, defaultPassword, "", common.ProtocolHTTP)
+	assert.NoError(t, err)
+	assert.Len(t, user.VirtualFolders, 3)
+	assert.Equal(t, sdk.LocalFilesystemProvider, user.FsConfig.Provider)
+	assert.Equal(t, int64(0), user.DownloadBandwidth)
+	assert.Equal(t, int64(0), user.UploadBandwidth)
+	assert.Equal(t, []string{dataprovider.PermAny}, user.GetPermissionsForPath("/"))
+	assert.Equal(t, []string{dataprovider.PermListItems}, user.GetPermissionsForPath("/"+defaultUsername))
+	assert.Len(t, user.Filters.WebClient, 2)
+
+	group1.UserSettings.FsConfig = vfs.Filesystem{
+		Provider: sdk.SFTPFilesystemProvider,
+		SFTPConfig: vfs.SFTPFsConfig{
+			BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
+				Endpoint: sftpServerAddr,
+				Username: altAdminUsername,
+				Prefix:   "/dirs/%username%",
+			},
+			Password: kms.NewPlainSecret(defaultPassword),
+		},
+	}
+	group1.UserSettings.MaxSessions = 2
+	group1.UserSettings.QuotaFiles = 1000
+	group1.UserSettings.UploadBandwidth = 512
+	group1.UserSettings.DownloadBandwidth = 1024
+	group1.UserSettings.TotalDataTransfer = 2048
+	group1.UserSettings.Filters.MaxUploadFileSize = 1024 * 1024
+	group1.UserSettings.Filters.StartDirectory = "/startdir/%username%"
+	group1.UserSettings.Filters.WebClient = []string{sdk.WebClientInfoChangeDisabled}
+	group1.UserSettings.Permissions = map[string][]string{
+		"/":               {dataprovider.PermListItems, dataprovider.PermUpload},
+		"/sub/%username%": {dataprovider.PermRename},
+		"/%username%":     {dataprovider.PermDelete},
+	}
+	group1.UserSettings.Filters.FilePatterns = []sdk.PatternsFilter{
+		{
+			Path:            "/sub2/%username%test",
+			AllowedPatterns: []string{},
+			DeniedPatterns:  []string{"*.jpg", "*.zip"},
+		},
+	}
+	_, _, err = httpdtest.UpdateGroup(group1, http.StatusOK)
+	assert.NoError(t, err)
+	user, err = dataprovider.CheckUserAndPass(defaultUsername, defaultPassword, "", common.ProtocolHTTP)
+	assert.NoError(t, err)
+	assert.Len(t, user.VirtualFolders, 3)
+	assert.Equal(t, sdk.SFTPFilesystemProvider, user.FsConfig.Provider)
+	assert.Equal(t, altAdminUsername, user.FsConfig.SFTPConfig.Username)
+	assert.Equal(t, "/dirs/"+defaultUsername, user.FsConfig.SFTPConfig.Prefix)
+	assert.Equal(t, []string{dataprovider.PermListItems, dataprovider.PermUpload}, user.GetPermissionsForPath("/"))
+	assert.Equal(t, []string{dataprovider.PermDelete}, user.GetPermissionsForPath("/"+defaultUsername))
+	assert.Equal(t, []string{dataprovider.PermRename}, user.GetPermissionsForPath("/sub/"+defaultUsername))
+	assert.Equal(t, group1.UserSettings.MaxSessions, user.MaxSessions)
+	assert.Equal(t, group1.UserSettings.QuotaFiles, user.QuotaFiles)
+	assert.Equal(t, group1.UserSettings.UploadBandwidth, user.UploadBandwidth)
+	assert.Equal(t, group1.UserSettings.TotalDataTransfer, user.TotalDataTransfer)
+	assert.Equal(t, group1.UserSettings.Filters.MaxUploadFileSize, user.Filters.MaxUploadFileSize)
+	assert.Equal(t, "/startdir/"+defaultUsername, user.Filters.StartDirectory)
+	if assert.Len(t, user.Filters.FilePatterns, 1) {
+		assert.Equal(t, "/sub2/"+defaultUsername+"test", user.Filters.FilePatterns[0].Path)
+	}
+	if assert.Len(t, user.Filters.WebClient, 2) {
+		assert.Contains(t, user.Filters.WebClient, sdk.WebClientInfoChangeDisabled)
+		assert.Contains(t, user.Filters.WebClient, sdk.WebClientMFADisabled)
+	}
+
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveGroup(group1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveGroup(group2, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName1}, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName2}, http.StatusOK)
 	assert.NoError(t, err)
 }
 
@@ -4009,8 +4490,7 @@ func TestNamingRules(t *testing.T) {
 	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
-	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Unable to set the new password")
+	assert.Equal(t, http.StatusFound, rr.Code)
 
 	adminAPIToken, err = getJWTAPITokenFromTestServer(admin.Username, defaultTokenAuthPass)
 	assert.NoError(t, err)
@@ -4106,7 +4586,7 @@ func TestNamingRules(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Unable to set the new password")
+	assert.Contains(t, rr.Body.String(), "unable to set the new password")
 
 	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
 	assert.NoError(t, err)
@@ -4350,6 +4830,8 @@ func TestProviderErrors(t *testing.T) {
 	assert.NoError(t, err)
 	_, _, err = httpdtest.GetUsers(1, 0, http.StatusInternalServerError)
 	assert.NoError(t, err)
+	_, _, err = httpdtest.GetGroups(1, 0, http.StatusInternalServerError)
+	assert.NoError(t, err)
 	_, _, err = httpdtest.GetAdmins(1, 0, http.StatusInternalServerError)
 	assert.NoError(t, err)
 	_, _, err = httpdtest.GetAPIKeys(1, 0, http.StatusInternalServerError)
@@ -4426,6 +4908,14 @@ func TestProviderErrors(t *testing.T) {
 	assert.NoError(t, err)
 	backupData.Users = nil
 	backupData.Folders = nil
+	backupData.Groups = append(backupData.Groups, getTestGroup())
+	backupContent, err = json.Marshal(backupData)
+	assert.NoError(t, err)
+	err = os.WriteFile(backupFilePath, backupContent, os.ModePerm)
+	assert.NoError(t, err)
+	_, _, err = httpdtest.Loaddata(backupFilePath, "", "", http.StatusInternalServerError)
+	assert.NoError(t, err)
+	backupData.Groups = nil
 	backupData.Admins = append(backupData.Admins, getTestAdmin())
 	backupContent, err = json.Marshal(backupData)
 	assert.NoError(t, err)
@@ -4470,6 +4960,26 @@ func TestProviderErrors(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusInternalServerError, rr)
 	req, err = http.NewRequest(http.MethodGet, webTemplateUser+"?from=auser", nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, testServerToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+	req, err = http.NewRequest(http.MethodGet, webGroupPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, testServerToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+	req, err = http.NewRequest(http.MethodGet, webGroupsPath+"?qlimit=a", nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, testServerToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+	req, err = http.NewRequest(http.MethodGet, path.Join(webGroupPath, "groupname"), nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, testServerToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+	req, err = http.NewRequest(http.MethodPost, path.Join(webGroupPath, "grpname"), nil)
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, testServerToken)
 	rr = executeRequest(req)
@@ -4612,6 +5122,8 @@ func TestDumpdata(t *testing.T) {
 	_, ok := response["admins"]
 	assert.True(t, ok)
 	_, ok = response["users"]
+	assert.True(t, ok)
+	_, ok = response["groups"]
 	assert.True(t, ok)
 	_, ok = response["folders"]
 	assert.True(t, ok)
@@ -4880,14 +5392,24 @@ func TestRestoreShares(t *testing.T) {
 func TestLoaddataFromPostBody(t *testing.T) {
 	mappedPath := filepath.Join(os.TempDir(), "restored_folder")
 	folderName := filepath.Base(mappedPath)
+	group := getTestGroup()
+	group.ID = 1
+	group.Name = "test_group_restored"
 	user := getTestUser()
 	user.ID = 1
 	user.Username = "test_user_restored"
+	user.Groups = []sdk.GroupMapping{
+		{
+			Name: group.Name,
+			Type: sdk.GroupTypePrimary,
+		},
+	}
 	admin := getTestAdmin()
 	admin.ID = 1
 	admin.Username = "test_admin_restored"
 	backupData := dataprovider.BackupData{}
 	backupData.Users = append(backupData.Users, user)
+	backupData.Groups = append(backupData.Groups, group)
 	backupData.Admins = append(backupData.Admins, admin)
 	backupData.Folders = []vfs.BaseVirtualFolder{
 		{
@@ -4940,9 +5462,18 @@ func TestLoaddataFromPostBody(t *testing.T) {
 	assert.NoError(t, err)
 	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 	assert.NoError(t, err)
+	if assert.Len(t, user.Groups, 1) {
+		assert.Equal(t, sdk.GroupTypePrimary, user.Groups[0].Type)
+		assert.Equal(t, group.Name, user.Groups[0].Name)
+	}
 	_, err = dataprovider.ShareExists(keyID, user.Username)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+
+	group, _, err = httpdtest.GetGroupByName(group.Name, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveGroup(group, http.StatusOK)
 	assert.NoError(t, err)
 
 	admin, _, err = httpdtest.GetAdminByUsername(admin.Username, http.StatusOK)
@@ -4972,6 +5503,9 @@ func TestLoaddata(t *testing.T) {
 	user := getTestUser()
 	user.ID = 1
 	user.Username = "test_user_restore"
+	group := getTestGroup()
+	group.ID = 1
+	group.Name = "test_group_restore"
 	admin := getTestAdmin()
 	admin.ID = 1
 	admin.Username = "test_admin_restore"
@@ -4990,6 +5524,7 @@ func TestLoaddata(t *testing.T) {
 	}
 	backupData := dataprovider.BackupData{}
 	backupData.Users = append(backupData.Users, user)
+	backupData.Groups = append(backupData.Groups, group)
 	backupData.Admins = append(backupData.Admins, admin)
 	backupData.Folders = []vfs.BaseVirtualFolder{
 		{
@@ -5029,7 +5564,7 @@ func TestLoaddata(t *testing.T) {
 		err = os.Chmod(backupFilePath, 0644)
 		assert.NoError(t, err)
 	}
-	// add user, folder, admin, API key, share from backup
+	// add user, group, folder, admin, API key, share from backup
 	_, _, err = httpdtest.Loaddata(backupFilePath, "1", "", http.StatusOK)
 	assert.NoError(t, err)
 	// update from backup
@@ -5040,6 +5575,11 @@ func TestLoaddata(t *testing.T) {
 	_, err = dataprovider.ShareExists(share.ShareID, user.Username)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+
+	group, _, err = httpdtest.GetGroupByName(group.Name, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveGroup(group, http.StatusOK)
 	assert.NoError(t, err)
 
 	admin, _, err = httpdtest.GetAdminByUsername(admin.Username, http.StatusOK)
@@ -5084,6 +5624,15 @@ func TestLoaddataMode(t *testing.T) {
 	user := getTestUser()
 	user.ID = 1
 	user.Username = "test_user_restore"
+	group := getTestGroup()
+	group.ID = 1
+	group.Name = "test_group_restore"
+	user.Groups = []sdk.GroupMapping{
+		{
+			Name: group.Name,
+			Type: sdk.GroupTypePrimary,
+		},
+	}
 	admin := getTestAdmin()
 	admin.ID = 1
 	admin.Username = "test_admin_restore"
@@ -5103,6 +5652,7 @@ func TestLoaddataMode(t *testing.T) {
 	}
 	backupData := dataprovider.BackupData{}
 	backupData.Users = append(backupData.Users, user)
+	backupData.Groups = append(backupData.Groups, group)
 	backupData.Admins = append(backupData.Admins, admin)
 	backupData.Folders = []vfs.BaseVirtualFolder{
 		{
@@ -5139,6 +5689,13 @@ func TestLoaddataMode(t *testing.T) {
 	user.UploadBandwidth = oldUploadBandwidth + 128
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
+	group, _, err = httpdtest.GetGroupByName(group.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, group.Users, 1)
+	oldGroupDesc := group.Description
+	group.Description = "new group description"
+	group, _, err = httpdtest.UpdateGroup(group, http.StatusOK)
+	assert.NoError(t, err)
 	admin, _, err = httpdtest.GetAdminByUsername(admin.Username, http.StatusOK)
 	assert.NoError(t, err)
 	oldInfo := admin.AdditionalInfo
@@ -5166,6 +5723,9 @@ func TestLoaddataMode(t *testing.T) {
 	}
 	_, _, err = httpdtest.Loaddata(backupFilePath, "0", "1", http.StatusOK)
 	assert.NoError(t, err)
+	group, _, err = httpdtest.GetGroupByName(group.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.NotEqual(t, oldGroupDesc, group.Description)
 	folder, _, err = httpdtest.GetFolderByName(folderName, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Equal(t, mappedPath+"1", folder.MappedPath)
@@ -5205,7 +5765,12 @@ func TestLoaddataMode(t *testing.T) {
 	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Equal(t, oldUploadBandwidth, user.UploadBandwidth)
+	// the group is referenced
+	_, err = httpdtest.RemoveGroup(group, http.StatusBadRequest)
+	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveGroup(group, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
 	assert.NoError(t, err)
@@ -5376,6 +5941,36 @@ func TestAddFolderInvalidJsonMock(t *testing.T) {
 	setBearerForReq(req, token)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
+}
+
+func TestGroupErrorsMock(t *testing.T) {
+	token, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	reqBody := bytes.NewBuffer([]byte("not a json string"))
+
+	req, err := http.NewRequest(http.MethodPost, groupPath, reqBody)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	req, err = http.NewRequest(http.MethodGet, groupPath+"?limit=a", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	group, _, err := httpdtest.AddGroup(getTestGroup(), http.StatusCreated)
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodPut, path.Join(groupPath, group.Name), reqBody)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	_, err = httpdtest.RemoveGroup(group, http.StatusOK)
+	assert.NoError(t, err)
 }
 
 func TestUpdateFolderInvalidJsonMock(t *testing.T) {
@@ -7131,6 +7726,66 @@ func TestWebAPIChangeUserProfileMock(t *testing.T) {
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
+}
+
+func TestPermGroupOverride(t *testing.T) {
+	g := getTestGroup()
+	g.UserSettings.Filters.WebClient = []string{sdk.WebClientPasswordChangeDisabled}
+	group, _, err := httpdtest.AddGroup(g, http.StatusCreated)
+	assert.NoError(t, err)
+	u := getTestUser()
+	u.Groups = []sdk.GroupMapping{
+		{
+			Name: group.Name,
+			Type: sdk.GroupTypePrimary,
+		},
+	}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	pwd := make(map[string]string)
+	pwd["current_password"] = defaultPassword
+	pwd["new_password"] = altAdminPassword
+	asJSON, err := json.Marshal(pwd)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPut, userPwdPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+
+	group.UserSettings.Filters.TwoFactorAuthProtocols = []string{common.ProtocolHTTP}
+	group, _, err = httpdtest.UpdateGroup(group, http.StatusOK)
+	assert.NoError(t, err)
+
+	token, err = getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+	webToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodGet, userDirsPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "Two-factor authentication requirements not met, please configure two-factor authentication for the following protocols")
+
+	req, err = http.NewRequest(http.MethodGet, webClientFilesPath, nil)
+	assert.NoError(t, err)
+	req.RequestURI = webClientFilesPath
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "Two-factor authentication requirements not met, please configure two-factor authentication for the following protocols")
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveGroup(group, http.StatusOK)
+	assert.NoError(t, err)
 }
 
 func TestWebAPIChangeUserPwdMock(t *testing.T) {
@@ -10244,13 +10899,13 @@ func TestBrowseShares(t *testing.T) {
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
-	assert.Contains(t, rr.Body.String(), "The shared object is not a directory and so it is not browsable")
+	assert.Contains(t, rr.Body.String(), "the shared object is not a directory and so it is not browsable")
 
 	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, objectID, "browse?path=%2F"), nil)
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
-	assert.Contains(t, rr.Body.String(), "The shared object is not a directory and so it is not browsable")
+	assert.Contains(t, rr.Body.String(), "the shared object is not a directory and so it is not browsable")
 
 	// now test a missing shareID
 	objectID = "123456"
@@ -10315,7 +10970,7 @@ func TestBrowseShares(t *testing.T) {
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
-	assert.Contains(t, rr.Body.String(), "A share with multiple paths is not browsable")
+	assert.Contains(t, rr.Body.String(), "a share with multiple paths is not browsable")
 	// share the root path
 	share = dataprovider.Share{
 		Name:      "test share root",
@@ -14578,6 +15233,14 @@ func TestWebUserAddMock(t *testing.T) {
 	assert.NoError(t, err)
 	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
 	assert.NoError(t, err)
+	group1 := getTestGroup()
+	group1.Name += "_1"
+	group1, _, err = httpdtest.AddGroup(group1, http.StatusCreated)
+	assert.NoError(t, err)
+	group2 := getTestGroup()
+	group2.Name += "_2"
+	group2, _, err = httpdtest.AddGroup(group2, http.StatusCreated)
+	assert.NoError(t, err)
 	user := getTestUser()
 	user.UploadBandwidth = 32
 	user.DownloadBandwidth = 64
@@ -14606,6 +15269,8 @@ func TestWebUserAddMock(t *testing.T) {
 	form.Set("email", user.Email)
 	form.Set("home_dir", user.HomeDir)
 	form.Set("password", user.Password)
+	form.Set("primary_group", group1.Name)
+	form.Set("secondary_groups", group2.Name)
 	form.Set("status", strconv.Itoa(user.Status))
 	form.Set("expiration_date", "")
 	form.Set("permissions", "*")
@@ -14998,7 +15663,7 @@ func TestWebUserAddMock(t *testing.T) {
 			}
 		}
 	}
-
+	assert.Len(t, newUser.Groups, 2)
 	assert.Equal(t, sdk.TLSUsernameNone, newUser.Filters.TLSUsername)
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(userPath, newUser.Username), nil)
 	setBearerForReq(req, apiToken)
@@ -15008,6 +15673,10 @@ func TestWebUserAddMock(t *testing.T) {
 	setBearerForReq(req, apiToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
+	_, err = httpdtest.RemoveGroup(group1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveGroup(group2, http.StatusOK)
+	assert.NoError(t, err)
 }
 
 func TestWebUserUpdateMock(t *testing.T) {
@@ -16649,6 +17318,172 @@ func TestWebUserSFTPFsMock(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 }
 
+func TestAddWebGroup(t *testing.T) {
+	webToken, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	apiToken, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	assert.NoError(t, err)
+	group := getTestGroup()
+	group.UserSettings = dataprovider.GroupUserSettings{
+		BaseGroupUserSettings: sdk.BaseGroupUserSettings{
+			HomeDir:           filepath.Join(os.TempDir(), util.GenerateUniqueID()),
+			Permissions:       make(map[string][]string),
+			MaxSessions:       2,
+			QuotaSize:         123,
+			QuotaFiles:        10,
+			UploadBandwidth:   128,
+			DownloadBandwidth: 256,
+		},
+	}
+	form := make(url.Values)
+	form.Set("name", group.Name)
+	form.Set("description", group.Description)
+	form.Set("home_dir", group.UserSettings.HomeDir)
+	b, contentType, err := getMultipartFormData(form, "", "")
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, webGroupPath, &b)
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", contentType)
+	setJWTCookieForReq(req, webToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "invalid max sessions")
+	form.Set("max_sessions", strconv.FormatInt(int64(group.UserSettings.MaxSessions), 10))
+	b, contentType, err = getMultipartFormData(form, "", "")
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, webGroupPath, &b)
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", contentType)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "invalid quota size")
+	form.Set("quota_files", strconv.FormatInt(int64(group.UserSettings.QuotaFiles), 10))
+	form.Set("quota_size", strconv.FormatInt(group.UserSettings.QuotaSize, 10))
+	b, contentType, err = getMultipartFormData(form, "", "")
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, webGroupPath, &b)
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", contentType)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "invalid upload bandwidth")
+	form.Set("upload_bandwidth", strconv.FormatInt(group.UserSettings.UploadBandwidth, 10))
+	b, contentType, err = getMultipartFormData(form, "", "")
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, webGroupPath, &b)
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", contentType)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "invalid download bandwidth")
+	form.Set("download_bandwidth", strconv.FormatInt(group.UserSettings.DownloadBandwidth, 10))
+	b, contentType, err = getMultipartFormData(form, "", "")
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, webGroupPath, &b)
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", contentType)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "invalid upload data transfer")
+	form.Set("upload_data_transfer", "0")
+	form.Set("download_data_transfer", "0")
+	form.Set("total_data_transfer", "0")
+	b, contentType, err = getMultipartFormData(form, "", "")
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, webGroupPath, &b)
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", contentType)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "invalid max upload file size")
+	form.Set("max_upload_file_size", "0")
+	b, contentType, err = getMultipartFormData(form, "", "")
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, webGroupPath, &b)
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", contentType)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "invalid external auth cache time")
+	form.Set("external_auth_cache_time", "0")
+	b, contentType, err = getMultipartFormData(form, "", "")
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, webGroupPath, &b)
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", contentType)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "unable to verify form token")
+	form.Set(csrfFormToken, csrfToken)
+	b, contentType, err = getMultipartFormData(form, "", "")
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, webGroupPath+"?b=%2", &b)
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", contentType)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr) // error parsing the multipart form
+	b, contentType, err = getMultipartFormData(form, "", "")
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, webGroupPath, &b)
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", contentType)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+	// a new add will fail
+	b, contentType, err = getMultipartFormData(form, "", "")
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, webGroupPath, &b)
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", contentType)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// list groups
+	req, err = http.NewRequest(http.MethodGet, webGroupsPath, nil)
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", contentType)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// render the new group page
+	req, err = http.NewRequest(http.MethodGet, path.Join(webGroupPath, group.Name), nil)
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", contentType)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// check the added group
+	groupGet, _, err := httpdtest.GetGroupByName(group.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, group.UserSettings, groupGet.UserSettings)
+	assert.Equal(t, group.Name, groupGet.Name)
+	assert.Equal(t, group.Description, groupGet.Description)
+	// cleanup
+	req, err = http.NewRequest(http.MethodDelete, path.Join(groupPath, group.Name), nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, apiToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodGet, path.Join(webGroupPath, group.Name), nil)
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", contentType)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+}
+
 func TestAddWebFoldersMock(t *testing.T) {
 	webToken, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
@@ -16865,6 +17700,106 @@ func TestS3WebFolderMock(t *testing.T) {
 	setBearerForReq(req, apiToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
+}
+
+func TestUpdateWebGroupMock(t *testing.T) {
+	webToken, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	apiToken, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	assert.NoError(t, err)
+	group, _, err := httpdtest.AddGroup(getTestGroup(), http.StatusCreated)
+	assert.NoError(t, err)
+
+	group.UserSettings = dataprovider.GroupUserSettings{
+		BaseGroupUserSettings: sdk.BaseGroupUserSettings{
+			HomeDir:     filepath.Join(os.TempDir(), util.GenerateUniqueID()),
+			Permissions: make(map[string][]string),
+		},
+		FsConfig: vfs.Filesystem{
+			Provider: sdk.SFTPFilesystemProvider,
+			SFTPConfig: vfs.SFTPFsConfig{
+				BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
+					Endpoint:   sftpServerAddr,
+					Username:   defaultUsername,
+					BufferSize: 1,
+				},
+			},
+		},
+	}
+	form := make(url.Values)
+	form.Set("name", group.Name)
+	form.Set("description", group.Description)
+	form.Set("home_dir", group.UserSettings.HomeDir)
+	form.Set("max_sessions", strconv.FormatInt(int64(group.UserSettings.MaxSessions), 10))
+	form.Set("quota_files", strconv.FormatInt(int64(group.UserSettings.QuotaFiles), 10))
+	form.Set("quota_size", strconv.FormatInt(group.UserSettings.QuotaSize, 10))
+	form.Set("upload_bandwidth", strconv.FormatInt(group.UserSettings.UploadBandwidth, 10))
+	form.Set("download_bandwidth", strconv.FormatInt(group.UserSettings.DownloadBandwidth, 10))
+	form.Set("upload_data_transfer", "0")
+	form.Set("download_data_transfer", "0")
+	form.Set("total_data_transfer", "0")
+	form.Set("max_upload_file_size", "0")
+	form.Set("external_auth_cache_time", "0")
+	form.Set("fs_provider", strconv.FormatInt(int64(group.UserSettings.FsConfig.Provider), 10))
+	form.Set("sftp_endpoint", group.UserSettings.FsConfig.SFTPConfig.Endpoint)
+	form.Set("sftp_username", group.UserSettings.FsConfig.SFTPConfig.Username)
+	b, contentType, err := getMultipartFormData(form, "", "")
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, path.Join(webGroupPath, group.Name), &b)
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", contentType)
+	setJWTCookieForReq(req, webToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "invalid SFTP buffer size")
+	form.Set("sftp_buffer_size", strconv.FormatInt(group.UserSettings.FsConfig.SFTPConfig.BufferSize, 10))
+	b, contentType, err = getMultipartFormData(form, "", "")
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, path.Join(webGroupPath, group.Name), &b)
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", contentType)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "unable to verify form token")
+
+	form.Set(csrfFormToken, csrfToken)
+	b, contentType, err = getMultipartFormData(form, "", "")
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, path.Join(webGroupPath, group.Name), &b)
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", contentType)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "credentials cannot be empty")
+
+	form.Set("sftp_password", defaultPassword)
+	b, contentType, err = getMultipartFormData(form, "", "")
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, path.Join(webGroupPath, group.Name), &b)
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", contentType)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+
+	req, err = http.NewRequest(http.MethodDelete, path.Join(groupPath, group.Name), nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, apiToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	b, contentType, err = getMultipartFormData(form, "", "")
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, path.Join(webGroupPath, group.Name), &b)
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", contentType)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
 }
 
 func TestUpdateWebFolderMock(t *testing.T) {
@@ -17112,7 +18047,7 @@ func TestAdminForgotPassword(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Username is mandatory")
+	assert.Contains(t, rr.Body.String(), "username is mandatory")
 
 	lastResetCode = ""
 	form.Set("username", altAdminUsername)
@@ -17139,7 +18074,7 @@ func TestAdminForgotPassword(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Please set a password")
+	assert.Contains(t, rr.Body.String(), "please set a password")
 	// no code
 	form.Set("password", defaultPassword)
 	req, err = http.NewRequest(http.MethodPost, webAdminResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
@@ -17148,7 +18083,7 @@ func TestAdminForgotPassword(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Please set a confirmation code")
+	assert.Contains(t, rr.Body.String(), "please set a confirmation code")
 	// ok
 	form.Set("code", lastResetCode)
 	req, err = http.NewRequest(http.MethodPost, webAdminResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
@@ -17264,7 +18199,7 @@ func TestUserForgotPassword(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Username is mandatory")
+	assert.Contains(t, rr.Body.String(), "username is mandatory")
 	// user cannot reset the password
 	form.Set("username", user.Username)
 	req, err = http.NewRequest(http.MethodPost, webClientForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
@@ -17273,7 +18208,7 @@ func TestUserForgotPassword(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "You are not allowed to reset your password")
+	assert.Contains(t, rr.Body.String(), "you are not allowed to reset your password")
 	user.Filters.WebClient = []string{sdk.WebClientAPIKeyAuthChangeDisabled}
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
@@ -17302,7 +18237,7 @@ func TestUserForgotPassword(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Please set a password")
+	assert.Contains(t, rr.Body.String(), "please set a password")
 	// no code
 	form.Set("password", altAdminPassword)
 	req, err = http.NewRequest(http.MethodPost, webClientResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
@@ -17311,7 +18246,7 @@ func TestUserForgotPassword(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Please set a confirmation code")
+	assert.Contains(t, rr.Body.String(), "please set a confirmation code")
 	// ok
 	form.Set("code", lastResetCode)
 	req, err = http.NewRequest(http.MethodPost, webClientResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
@@ -17415,7 +18350,7 @@ func TestAPIForgotPassword(t *testing.T) {
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
-	assert.Contains(t, rr.Body.String(), "Invalid confirmation code")
+	assert.Contains(t, rr.Body.String(), "invalid confirmation code")
 
 	req, err = http.NewRequest(http.MethodPost, path.Join(adminPath, altAdminUsername, "/reset-password"), bytes.NewBuffer(asJSON))
 	assert.NoError(t, err)
@@ -17427,7 +18362,7 @@ func TestAPIForgotPassword(t *testing.T) {
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
-	assert.Contains(t, rr.Body.String(), "Confirmation code not found")
+	assert.Contains(t, rr.Body.String(), "confirmation code not found")
 
 	admin, err = dataprovider.AdminExists(altAdminUsername)
 	assert.NoError(t, err)
@@ -17473,7 +18408,7 @@ func TestAPIForgotPassword(t *testing.T) {
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
-	assert.Contains(t, rr.Body.String(), "You are not allowed to reset your password")
+	assert.Contains(t, rr.Body.String(), "you are not allowed to reset your password")
 
 	user.Filters.WebClient = []string{sdk.WebClientSharesDisabled}
 	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
@@ -17487,7 +18422,7 @@ func TestAPIForgotPassword(t *testing.T) {
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
-	assert.Contains(t, rr.Body.String(), "Confirmation code not found")
+	assert.Contains(t, rr.Body.String(), "confirmation code not found")
 
 	user, err = dataprovider.UserExists(defaultUsername)
 	assert.NoError(t, err)
@@ -17543,7 +18478,7 @@ func TestAPIForgotPassword(t *testing.T) {
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
-	assert.Contains(t, rr.Body.String(), "Unable to associate the confirmation code with an existing admin")
+	assert.Contains(t, rr.Body.String(), "unable to associate the confirmation code with an existing admin")
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -17806,6 +18741,15 @@ func getTestAdmin() dataprovider.Admin {
 		Permissions: []string{dataprovider.PermAdminAny},
 		Email:       "admin@example.com",
 		Description: "test admin",
+	}
+}
+
+func getTestGroup() dataprovider.Group {
+	return dataprovider.Group{
+		BaseGroup: sdk.BaseGroup{
+			Name:        "test_group",
+			Description: "test group description",
+		},
 	}
 }
 

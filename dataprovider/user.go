@@ -123,8 +123,12 @@ type User struct {
 	VirtualFolders []vfs.VirtualFolder `json:"virtual_folders,omitempty"`
 	// Filesystem configuration details
 	FsConfig vfs.Filesystem `json:"filesystem"`
+	// groups associated with this user
+	Groups []sdk.GroupMapping `json:"groups,omitempty"`
 	// we store the filesystem here using the base path as key.
 	fsCache map[string]vfs.Fs `json:"-"`
+	// true if group settings are already applied for this user
+	groupSettingsApplied bool `json:"-"`
 }
 
 // GetFilesystem returns the base filesystem for this user
@@ -453,6 +457,9 @@ func (u *User) HasBufferedSFTP(name string) bool {
 
 func (u *User) getForbiddenSFTPSelfUsers(username string) ([]string, error) {
 	sftpUser, err := UserExists(username)
+	if err == nil {
+		err = sftpUser.LoadAndApplyGroupSettings()
+	}
 	if err == nil {
 		// we don't allow local nested SFTP folders
 		var forbiddens []string
@@ -912,30 +919,6 @@ func (u *User) GetAllowedLoginMethods() []string {
 	return allowedMethods
 }
 
-// GetFlatFilePatterns returns file patterns as flat list
-// duplicating a path if it has both allowed and denied patterns
-func (u *User) GetFlatFilePatterns() []sdk.PatternsFilter {
-	var result []sdk.PatternsFilter
-
-	for _, pattern := range u.Filters.FilePatterns {
-		if len(pattern.AllowedPatterns) > 0 {
-			result = append(result, sdk.PatternsFilter{
-				Path:            pattern.Path,
-				AllowedPatterns: pattern.AllowedPatterns,
-				DenyPolicy:      pattern.DenyPolicy,
-			})
-		}
-		if len(pattern.DeniedPatterns) > 0 {
-			result = append(result, sdk.PatternsFilter{
-				Path:           pattern.Path,
-				DeniedPatterns: pattern.DeniedPatterns,
-				DenyPolicy:     pattern.DenyPolicy,
-			})
-		}
-	}
-	return result
-}
-
 func (u *User) getPatternsFilterForPath(virtualPath string) sdk.PatternsFilter {
 	var filter sdk.PatternsFilter
 	if len(u.Filters.FilePatterns) == 0 {
@@ -1204,7 +1187,7 @@ func (u *User) GetGID() int {
 
 // GetHomeDir returns the shortest path name equivalent to the user's home directory
 func (u *User) GetHomeDir() string {
-	return filepath.Clean(u.HomeDir)
+	return u.HomeDir
 }
 
 // HasRecentActivity returns true if the last user login is recent and so we can skip some expensive checks
@@ -1448,6 +1431,256 @@ func (u *User) SetEmptySecretsIfNil() {
 	}
 }
 
+func (u *User) hasMainDataTransferLimits() bool {
+	return u.UploadDataTransfer > 0 || u.DownloadDataTransfer > 0 || u.TotalDataTransfer > 0
+}
+
+// HasPrimaryGroup returns true if the user has the specified primary group
+func (u *User) HasPrimaryGroup(name string) bool {
+	for _, g := range u.Groups {
+		if g.Name == name {
+			return g.Type == sdk.GroupTypePrimary
+		}
+	}
+	return false
+}
+
+// HasSecondaryGroup returns true if the user has the specified secondary group
+func (u *User) HasSecondaryGroup(name string) bool {
+	for _, g := range u.Groups {
+		if g.Name == name {
+			return g.Type == sdk.GroupTypeSecondary
+		}
+	}
+	return false
+}
+
+func (u *User) applyGroupSettings(groupsMapping map[string]Group) {
+	if len(u.Groups) == 0 {
+		return
+	}
+	if u.groupSettingsApplied {
+		return
+	}
+	for _, g := range u.Groups {
+		if g.Type == sdk.GroupTypePrimary {
+			if group, ok := groupsMapping[g.Name]; ok {
+				u.mergeWithPrimaryGroup(group)
+			} else {
+				providerLog(logger.LevelError, "mapping not found for user %s, group %s", u.Username, g.Name)
+			}
+			break
+		}
+	}
+	for _, g := range u.Groups {
+		if g.Type == sdk.GroupTypeSecondary {
+			if group, ok := groupsMapping[g.Name]; ok {
+				u.mergeAdditiveProperties(group, sdk.GroupTypeSecondary)
+			} else {
+				providerLog(logger.LevelError, "mapping not found for user %s, group %s", u.Username, g.Name)
+			}
+		}
+	}
+	u.removeDuplicatesAfterGroupMerge()
+}
+
+// LoadAndApplyGroupSettings update the user by loading and applying the group settings
+func (u *User) LoadAndApplyGroupSettings() error {
+	if len(u.Groups) == 0 {
+		return nil
+	}
+	if u.groupSettingsApplied {
+		return nil
+	}
+	names := make([]string, 0, len(u.Groups))
+	var primaryGroupName string
+	for _, g := range u.Groups {
+		if g.Type == sdk.GroupTypePrimary {
+			primaryGroupName = g.Name
+		}
+		names = append(names, g.Name)
+	}
+	groups, err := provider.getGroupsWithNames(names)
+	if err != nil {
+		return fmt.Errorf("unable to get groups: %w", err)
+	}
+	// make sure to always merge with the primary group first
+	for idx, g := range groups {
+		if g.Name == primaryGroupName {
+			u.mergeWithPrimaryGroup(g)
+			lastIdx := len(groups) - 1
+			groups[idx] = groups[lastIdx]
+			groups = groups[:lastIdx]
+			break
+		}
+	}
+	for _, g := range groups {
+		u.mergeAdditiveProperties(g, sdk.GroupTypeSecondary)
+	}
+	u.removeDuplicatesAfterGroupMerge()
+	return nil
+}
+
+func (u *User) replacePlaceholder(value string) string {
+	if value == "" {
+		return value
+	}
+	return strings.ReplaceAll(value, "%username%", u.Username)
+}
+
+func (u *User) replaceFsConfigPlaceholders() {
+	switch u.FsConfig.Provider {
+	case sdk.S3FilesystemProvider:
+		u.FsConfig.S3Config.KeyPrefix = u.replacePlaceholder(u.FsConfig.S3Config.KeyPrefix)
+	case sdk.GCSFilesystemProvider:
+		u.FsConfig.GCSConfig.KeyPrefix = u.replacePlaceholder(u.FsConfig.GCSConfig.KeyPrefix)
+	case sdk.AzureBlobFilesystemProvider:
+		u.FsConfig.AzBlobConfig.KeyPrefix = u.replacePlaceholder(u.FsConfig.AzBlobConfig.KeyPrefix)
+	case sdk.SFTPFilesystemProvider:
+		u.FsConfig.SFTPConfig.Username = u.replacePlaceholder(u.FsConfig.SFTPConfig.Username)
+		u.FsConfig.SFTPConfig.Prefix = u.replacePlaceholder(u.FsConfig.SFTPConfig.Prefix)
+	}
+}
+
+func (u *User) mergeWithPrimaryGroup(group Group) {
+	if group.UserSettings.HomeDir != "" {
+		u.HomeDir = u.replacePlaceholder(group.UserSettings.HomeDir)
+	}
+	if group.UserSettings.FsConfig.Provider != 0 {
+		u.FsConfig = group.UserSettings.FsConfig
+		u.replaceFsConfigPlaceholders()
+	}
+	if u.MaxSessions == 0 {
+		u.MaxSessions = group.UserSettings.MaxSessions
+	}
+	if u.QuotaSize == 0 {
+		u.QuotaSize = group.UserSettings.QuotaSize
+	}
+	if u.QuotaFiles == 0 {
+		u.QuotaFiles = group.UserSettings.QuotaFiles
+	}
+	if u.UploadBandwidth == 0 {
+		u.UploadBandwidth = group.UserSettings.UploadBandwidth
+	}
+	if u.DownloadBandwidth == 0 {
+		u.DownloadBandwidth = group.UserSettings.DownloadBandwidth
+	}
+	if !u.hasMainDataTransferLimits() {
+		u.UploadDataTransfer = group.UserSettings.UploadDataTransfer
+		u.DownloadDataTransfer = group.UserSettings.DownloadDataTransfer
+		u.TotalDataTransfer = group.UserSettings.TotalDataTransfer
+	}
+	u.mergePrimaryGroupFilters(group.UserSettings.Filters)
+	u.mergeAdditiveProperties(group, sdk.GroupTypePrimary)
+}
+
+func (u *User) mergePrimaryGroupFilters(filters sdk.BaseUserFilters) {
+	if u.Filters.MaxUploadFileSize == 0 {
+		u.Filters.MaxUploadFileSize = filters.MaxUploadFileSize
+	}
+	if u.Filters.TLSUsername == "" || u.Filters.TLSUsername == sdk.TLSUsernameNone {
+		u.Filters.TLSUsername = filters.TLSUsername
+	}
+	if !u.Filters.Hooks.CheckPasswordDisabled {
+		u.Filters.Hooks.CheckPasswordDisabled = filters.Hooks.CheckPasswordDisabled
+	}
+	if !u.Filters.Hooks.PreLoginDisabled {
+		u.Filters.Hooks.PreLoginDisabled = filters.Hooks.PreLoginDisabled
+	}
+	if !u.Filters.Hooks.ExternalAuthDisabled {
+		u.Filters.Hooks.ExternalAuthDisabled = filters.Hooks.ExternalAuthDisabled
+	}
+	if !u.Filters.DisableFsChecks {
+		u.Filters.DisableFsChecks = filters.DisableFsChecks
+	}
+	if !u.Filters.AllowAPIKeyAuth {
+		u.Filters.AllowAPIKeyAuth = filters.AllowAPIKeyAuth
+	}
+	if u.Filters.ExternalAuthCacheTime == 0 {
+		u.Filters.ExternalAuthCacheTime = filters.ExternalAuthCacheTime
+	}
+	if u.Filters.StartDirectory == "" {
+		u.Filters.StartDirectory = u.replacePlaceholder(filters.StartDirectory)
+	}
+}
+
+func (u *User) mergeAdditiveProperties(group Group, groupType int) {
+	u.mergeVirtualFolders(group, groupType)
+	u.mergePermissions(group, groupType)
+	u.mergeFilePatterns(group, groupType)
+	u.Filters.BandwidthLimits = append(u.Filters.BandwidthLimits, group.UserSettings.Filters.BandwidthLimits...)
+	u.Filters.DataTransferLimits = append(u.Filters.DataTransferLimits, group.UserSettings.Filters.DataTransferLimits...)
+	u.Filters.AllowedIP = append(u.Filters.AllowedIP, group.UserSettings.Filters.AllowedIP...)
+	u.Filters.DeniedIP = append(u.Filters.DeniedIP, group.UserSettings.Filters.DeniedIP...)
+	u.Filters.DeniedLoginMethods = append(u.Filters.DeniedLoginMethods, group.UserSettings.Filters.DeniedLoginMethods...)
+	u.Filters.DeniedProtocols = append(u.Filters.DeniedProtocols, group.UserSettings.Filters.DeniedProtocols...)
+	u.Filters.WebClient = append(u.Filters.WebClient, group.UserSettings.Filters.WebClient...)
+	u.Filters.TwoFactorAuthProtocols = append(u.Filters.TwoFactorAuthProtocols, group.UserSettings.Filters.TwoFactorAuthProtocols...)
+}
+
+func (u *User) mergeVirtualFolders(group Group, groupType int) {
+	if len(group.VirtualFolders) > 0 {
+		folderPaths := make(map[string]bool)
+		for _, folder := range u.VirtualFolders {
+			folderPaths[folder.VirtualPath] = true
+		}
+		for _, folder := range group.VirtualFolders {
+			if folder.VirtualPath == "/" && groupType != sdk.GroupTypePrimary {
+				continue
+			}
+			folder.VirtualPath = u.replacePlaceholder(folder.VirtualPath)
+			if _, ok := folderPaths[folder.VirtualPath]; !ok {
+				folder.MappedPath = u.replacePlaceholder(folder.MappedPath)
+				u.VirtualFolders = append(u.VirtualFolders, folder)
+			}
+		}
+	}
+}
+
+func (u *User) mergePermissions(group Group, groupType int) {
+	for k, v := range group.UserSettings.Permissions {
+		if k == "/" {
+			if groupType == sdk.GroupTypePrimary {
+				u.Permissions[k] = v
+			} else {
+				continue
+			}
+		}
+		k = u.replacePlaceholder(k)
+		if _, ok := u.Permissions[k]; !ok {
+			u.Permissions[k] = v
+		}
+	}
+}
+
+func (u *User) mergeFilePatterns(group Group, groupType int) {
+	if len(group.UserSettings.Filters.FilePatterns) > 0 {
+		patternPaths := make(map[string]bool)
+		for _, pattern := range u.Filters.FilePatterns {
+			patternPaths[pattern.Path] = true
+		}
+		for _, pattern := range group.UserSettings.Filters.FilePatterns {
+			if pattern.Path == "/" && groupType != sdk.GroupTypePrimary {
+				continue
+			}
+			pattern.Path = u.replacePlaceholder(pattern.Path)
+			if _, ok := patternPaths[pattern.Path]; !ok {
+				u.Filters.FilePatterns = append(u.Filters.FilePatterns, pattern)
+			}
+		}
+	}
+}
+
+func (u *User) removeDuplicatesAfterGroupMerge() {
+	u.Filters.AllowedIP = util.RemoveDuplicates(u.Filters.AllowedIP)
+	u.Filters.DeniedIP = util.RemoveDuplicates(u.Filters.DeniedIP)
+	u.Filters.DeniedLoginMethods = util.RemoveDuplicates(u.Filters.DeniedLoginMethods)
+	u.Filters.DeniedProtocols = util.RemoveDuplicates(u.Filters.DeniedProtocols)
+	u.Filters.WebClient = util.RemoveDuplicates(u.Filters.WebClient)
+	u.Filters.TwoFactorAuthProtocols = util.RemoveDuplicates(u.Filters.TwoFactorAuthProtocols)
+	u.groupSettingsApplied = true
+}
+
 func (u *User) getACopy() User {
 	u.SetEmptySecretsIfNil()
 	pubKeys := make([]string, len(u.PublicKeys))
@@ -1457,42 +1690,27 @@ func (u *User) getACopy() User {
 		vfolder := u.VirtualFolders[idx].GetACopy()
 		virtualFolders = append(virtualFolders, vfolder)
 	}
+	groups := make([]sdk.GroupMapping, 0, len(u.Groups))
+	for _, g := range u.Groups {
+		groups = append(groups, sdk.GroupMapping{
+			Name: g.Name,
+			Type: g.Type,
+		})
+	}
 	permissions := make(map[string][]string)
 	for k, v := range u.Permissions {
 		perms := make([]string, len(v))
 		copy(perms, v)
 		permissions[k] = perms
 	}
-	filters := UserFilters{}
-	filters.MaxUploadFileSize = u.Filters.MaxUploadFileSize
-	filters.TLSUsername = u.Filters.TLSUsername
-	filters.UserType = u.Filters.UserType
+	filters := UserFilters{
+		BaseUserFilters: copyBaseUserFilters(u.Filters.BaseUserFilters),
+	}
 	filters.TOTPConfig.Enabled = u.Filters.TOTPConfig.Enabled
 	filters.TOTPConfig.ConfigName = u.Filters.TOTPConfig.ConfigName
 	filters.TOTPConfig.Secret = u.Filters.TOTPConfig.Secret.Clone()
 	filters.TOTPConfig.Protocols = make([]string, len(u.Filters.TOTPConfig.Protocols))
 	copy(filters.TOTPConfig.Protocols, u.Filters.TOTPConfig.Protocols)
-	filters.AllowedIP = make([]string, len(u.Filters.AllowedIP))
-	copy(filters.AllowedIP, u.Filters.AllowedIP)
-	filters.DeniedIP = make([]string, len(u.Filters.DeniedIP))
-	copy(filters.DeniedIP, u.Filters.DeniedIP)
-	filters.DeniedLoginMethods = make([]string, len(u.Filters.DeniedLoginMethods))
-	copy(filters.DeniedLoginMethods, u.Filters.DeniedLoginMethods)
-	filters.FilePatterns = make([]sdk.PatternsFilter, len(u.Filters.FilePatterns))
-	copy(filters.FilePatterns, u.Filters.FilePatterns)
-	filters.DeniedProtocols = make([]string, len(u.Filters.DeniedProtocols))
-	copy(filters.DeniedProtocols, u.Filters.DeniedProtocols)
-	filters.TwoFactorAuthProtocols = make([]string, len(u.Filters.TwoFactorAuthProtocols))
-	copy(filters.TwoFactorAuthProtocols, u.Filters.TwoFactorAuthProtocols)
-	filters.Hooks.ExternalAuthDisabled = u.Filters.Hooks.ExternalAuthDisabled
-	filters.Hooks.PreLoginDisabled = u.Filters.Hooks.PreLoginDisabled
-	filters.Hooks.CheckPasswordDisabled = u.Filters.Hooks.CheckPasswordDisabled
-	filters.DisableFsChecks = u.Filters.DisableFsChecks
-	filters.StartDirectory = u.Filters.StartDirectory
-	filters.AllowAPIKeyAuth = u.Filters.AllowAPIKeyAuth
-	filters.ExternalAuthCacheTime = u.Filters.ExternalAuthCacheTime
-	filters.WebClient = make([]string, len(u.Filters.WebClient))
-	copy(filters.WebClient, u.Filters.WebClient)
 	filters.RecoveryCodes = make([]RecoveryCode, 0, len(u.Filters.RecoveryCodes))
 	for _, code := range u.Filters.RecoveryCodes {
 		if code.Secret == nil {
@@ -1502,29 +1720,6 @@ func (u *User) getACopy() User {
 			Secret: code.Secret.Clone(),
 			Used:   code.Used,
 		})
-	}
-	filters.BandwidthLimits = make([]sdk.BandwidthLimit, 0, len(u.Filters.BandwidthLimits))
-	for _, limit := range u.Filters.BandwidthLimits {
-		bwLimit := sdk.BandwidthLimit{
-			UploadBandwidth:   limit.UploadBandwidth,
-			DownloadBandwidth: limit.DownloadBandwidth,
-			Sources:           make([]string, 0, len(limit.Sources)),
-		}
-		bwLimit.Sources = make([]string, len(limit.Sources))
-		copy(bwLimit.Sources, limit.Sources)
-		filters.BandwidthLimits = append(filters.BandwidthLimits, bwLimit)
-	}
-	filters.DataTransferLimits = make([]sdk.DataTransferLimit, 0, len(u.Filters.DataTransferLimits))
-	for _, limit := range u.Filters.DataTransferLimits {
-		dtLimit := sdk.DataTransferLimit{
-			UploadDataTransfer:   limit.UploadDataTransfer,
-			DownloadDataTransfer: limit.DownloadDataTransfer,
-			TotalDataTransfer:    limit.TotalDataTransfer,
-			Sources:              make([]string, 0, len(limit.Sources)),
-		}
-		dtLimit.Sources = make([]string, len(limit.Sources))
-		copy(dtLimit.Sources, limit.Sources)
-		filters.DataTransferLimits = append(filters.DataTransferLimits, dtLimit)
 	}
 
 	return User{
@@ -1559,9 +1754,11 @@ func (u *User) getACopy() User {
 			CreatedAt:                u.CreatedAt,
 			UpdatedAt:                u.UpdatedAt,
 		},
-		Filters:        filters,
-		VirtualFolders: virtualFolders,
-		FsConfig:       u.FsConfig.GetACopy(),
+		Filters:              filters,
+		VirtualFolders:       virtualFolders,
+		Groups:               groups,
+		FsConfig:             u.FsConfig.GetACopy(),
+		groupSettingsApplied: u.groupSettingsApplied,
 	}
 }
 

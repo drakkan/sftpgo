@@ -82,7 +82,7 @@ func getMetadataChecks(w http.ResponseWriter, r *http.Request) {
 func startMetadataCheck(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 
-	user, err := dataprovider.UserExists(getURLParam(r, "username"))
+	user, err := dataprovider.GetUserWithGroupSettings(getURLParam(r, "username"))
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return

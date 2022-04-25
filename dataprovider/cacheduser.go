@@ -62,7 +62,11 @@ func (cache *usersCache) updateLastLogin(username string) {
 
 // swapWebDAVUser updates an existing cached user with the specified one
 // preserving the lock fs if possible
-func (cache *usersCache) swap(user *User) {
+// FIXME: this could be racy in rare cases
+func (cache *usersCache) swap(userRef *User) {
+	user := userRef.getACopy()
+	err := user.LoadAndApplyGroupSettings()
+
 	cache.Lock()
 	defer cache.Unlock()
 
@@ -74,11 +78,17 @@ func (cache *usersCache) swap(user *User) {
 			delete(cache.users, user.Username)
 			return
 		}
-		if cachedUser.User.isFsEqual(user) {
+		if err != nil {
+			providerLog(logger.LevelDebug, "unable to load group settings, for user %#v, removing from cache, err :%v",
+				user.Username, err)
+			delete(cache.users, user.Username)
+			return
+		}
+		if cachedUser.User.isFsEqual(&user) {
 			// the updated user has the same fs as the cached one, we can preserve the lock filesystem
 			providerLog(logger.LevelDebug, "current password and fs unchanged for for user %#v, swap cached one",
 				user.Username)
-			cachedUser.User = *user
+			cachedUser.User = user
 			cache.users[user.Username] = cachedUser
 		} else {
 			// filesystem changed, the cached user is no longer valid

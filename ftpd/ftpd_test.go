@@ -782,6 +782,11 @@ func TestLoginExternalAuth(t *testing.T) {
 	providerConf.ExternalAuthScope = 0
 	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
+	g := getTestGroup()
+	g.UserSettings.Filters.DeniedProtocols = []string{common.ProtocolFTP}
+	group, _, err := httpdtest.AddGroup(g, http.StatusCreated)
+	assert.NoError(t, err)
+
 	client, err := getFTPClient(u, true, nil)
 	if assert.NoError(t, err) {
 		err = checkBasicFTP(client)
@@ -789,11 +794,32 @@ func TestLoginExternalAuth(t *testing.T) {
 		err := client.Quit()
 		assert.NoError(t, err)
 	}
+	u.Groups = []sdk.GroupMapping{
+		{
+			Name: group.Name,
+			Type: sdk.GroupTypePrimary,
+		},
+	}
+	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u, false, ""), os.ModePerm)
+	assert.NoError(t, err)
+	_, err = getFTPClient(u, true, nil)
+	if !assert.Error(t, err) {
+		err := client.Quit()
+		assert.NoError(t, err)
+	} else {
+		assert.Contains(t, err.Error(), "protocol FTP is not allowed")
+	}
+
+	u.Groups = nil
+	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u, false, ""), os.ModePerm)
+	assert.NoError(t, err)
 	u.Username = defaultUsername + "1"
 	client, err = getFTPClient(u, true, nil)
 	if !assert.Error(t, err) {
 		err := client.Quit()
 		assert.NoError(t, err)
+	} else {
+		assert.Contains(t, err.Error(), "invalid credentials")
 	}
 
 	user, _, err := httpdtest.GetUserByUsername(defaultUsername, http.StatusOK)
@@ -802,6 +828,8 @@ func TestLoginExternalAuth(t *testing.T) {
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveGroup(group, http.StatusOK)
 	assert.NoError(t, err)
 
 	err = dataprovider.Close()
@@ -2920,7 +2948,7 @@ func TestClientCertificateAndPwdAuth(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestExternatAuthWithClientCert(t *testing.T) {
+func TestExternalAuthWithClientCert(t *testing.T) {
 	if runtime.GOOS == osWindows {
 		t.Skip("this test is not available on Windows")
 	}
@@ -3310,6 +3338,15 @@ func waitNoConnections() {
 	time.Sleep(50 * time.Millisecond)
 	for len(common.Connections.GetStats()) > 0 {
 		time.Sleep(50 * time.Millisecond)
+	}
+}
+
+func getTestGroup() dataprovider.Group {
+	return dataprovider.Group{
+		BaseGroup: sdk.BaseGroup{
+			Name:        "test_group",
+			Description: "test group description",
+		},
 	}
 }
 

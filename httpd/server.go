@@ -260,10 +260,6 @@ func (s *httpdServer) handleWebClientPasswordResetPost(w http.ResponseWriter, r 
 	}
 	_, user, err := handleResetPassword(r, r.Form.Get("code"), r.Form.Get("password"), false)
 	if err != nil {
-		if e, ok := err.(*util.ValidationError); ok {
-			s.renderClientResetPwdPage(w, e.GetErrorString(), ipAddr)
-			return
-		}
 		s.renderClientResetPwdPage(w, err.Error(), ipAddr)
 		return
 	}
@@ -305,12 +301,12 @@ func (s *httpdServer) handleWebClientTwoFactorRecoveryPost(w http.ResponseWriter
 		s.renderClientTwoFactorRecoveryPage(w, err.Error(), ipAddr)
 		return
 	}
-	user, err := dataprovider.UserExists(username)
+	user, userMerged, err := dataprovider.GetUserVariants(username)
 	if err != nil {
 		s.renderClientTwoFactorRecoveryPage(w, "Invalid credentials", ipAddr)
 		return
 	}
-	if !user.Filters.TOTPConfig.Enabled || !util.IsStringInSlice(common.ProtocolHTTP, user.Filters.TOTPConfig.Protocols) {
+	if !userMerged.Filters.TOTPConfig.Enabled || !util.IsStringInSlice(common.ProtocolHTTP, userMerged.Filters.TOTPConfig.Protocols) {
 		s.renderClientTwoFactorPage(w, "Two factory authentication is not enabled", ipAddr)
 		return
 	}
@@ -332,7 +328,7 @@ func (s *httpdServer) handleWebClientTwoFactorRecoveryPost(w http.ResponseWriter
 				return
 			}
 			connectionID := fmt.Sprintf("%v_%v", getProtocolFromRequest(r), xid.New().String())
-			s.loginUser(w, r, &user, connectionID, ipAddr, true,
+			s.loginUser(w, r, &userMerged, connectionID, ipAddr, true,
 				s.renderClientTwoFactorRecoveryPage)
 			return
 		}
@@ -362,7 +358,7 @@ func (s *httpdServer) handleWebClientTwoFactorPost(w http.ResponseWriter, r *htt
 		s.renderClientTwoFactorPage(w, err.Error(), ipAddr)
 		return
 	}
-	user, err := dataprovider.UserExists(username)
+	user, err := dataprovider.GetUserWithGroupSettings(username)
 	if err != nil {
 		s.renderClientTwoFactorPage(w, "Invalid credentials", ipAddr)
 		return
@@ -912,7 +908,7 @@ func (s *httpdServer) checkCookieExpiration(w http.ResponseWriter, r *http.Reque
 }
 
 func (s *httpdServer) refreshClientToken(w http.ResponseWriter, r *http.Request, tokenClaims jwtTokenClaims) {
-	user, err := dataprovider.UserExists(tokenClaims.Username)
+	user, err := dataprovider.GetUserWithGroupSettings(tokenClaims.Username)
 	if err != nil {
 		return
 	}
@@ -1211,6 +1207,11 @@ func (s *httpdServer) initializeRouter() {
 		router.With(s.checkPerm(dataprovider.PermAdminAddUsers)).Post(folderPath, addFolder)
 		router.With(s.checkPerm(dataprovider.PermAdminChangeUsers)).Put(folderPath+"/{name}", updateFolder)
 		router.With(s.checkPerm(dataprovider.PermAdminDeleteUsers)).Delete(folderPath+"/{name}", deleteFolder)
+		router.With(s.checkPerm(dataprovider.PermAdminManageGroups)).Get(groupPath, getGroups)
+		router.With(s.checkPerm(dataprovider.PermAdminManageGroups)).Get(groupPath+"/{name}", getGroupByName)
+		router.With(s.checkPerm(dataprovider.PermAdminManageGroups)).Post(groupPath, addGroup)
+		router.With(s.checkPerm(dataprovider.PermAdminManageGroups)).Put(groupPath+"/{name}", updateGroup)
+		router.With(s.checkPerm(dataprovider.PermAdminManageGroups)).Delete(groupPath+"/{name}", deleteGroup)
 		router.With(s.checkPerm(dataprovider.PermAdminManageSystem)).Get(dumpDataPath, dumpData)
 		router.With(s.checkPerm(dataprovider.PermAdminManageSystem)).Get(loadDataPath, loadData)
 		router.With(s.checkPerm(dataprovider.PermAdminManageSystem)).Post(loadDataPath, loadDataFromRequest)
@@ -1519,6 +1520,17 @@ func (s *httpdServer) setupWebAdminRoutes() {
 			router.With(s.checkPerm(dataprovider.PermAdminAddUsers)).Post(webUserPath, s.handleWebAddUserPost)
 			router.With(s.checkPerm(dataprovider.PermAdminChangeUsers)).Post(webUserPath+"/{username}",
 				s.handleWebUpdateUserPost)
+			router.With(s.checkPerm(dataprovider.PermAdminManageGroups), s.refreshCookie).
+				Get(webGroupsPath, s.handleWebGetGroups)
+			router.With(s.checkPerm(dataprovider.PermAdminManageGroups), s.refreshCookie).
+				Get(webGroupPath, s.handleWebAddGroupGet)
+			router.With(s.checkPerm(dataprovider.PermAdminManageGroups)).Post(webGroupPath, s.handleWebAddGroupPost)
+			router.With(s.checkPerm(dataprovider.PermAdminManageGroups), s.refreshCookie).
+				Get(webGroupPath+"/{name}", s.handleWebUpdateGroupGet)
+			router.With(s.checkPerm(dataprovider.PermAdminManageGroups)).Post(webGroupPath+"/{name}",
+				s.handleWebUpdateGroupPost)
+			router.With(s.checkPerm(dataprovider.PermAdminManageGroups), verifyCSRFHeader).
+				Delete(webGroupPath+"/{name}", deleteGroup)
 			router.With(s.checkPerm(dataprovider.PermAdminViewConnections), s.refreshCookie).
 				Get(webConnectionsPath, s.handleWebGetConnections)
 			router.With(s.checkPerm(dataprovider.PermAdminViewUsers), s.refreshCookie).

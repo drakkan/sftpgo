@@ -71,7 +71,7 @@ const (
 	CockroachDataProviderName = "cockroachdb"
 	// DumpVersion defines the version for the dump.
 	// For restore/load we support the current version and the previous one
-	DumpVersion = 11
+	DumpVersion = 12
 
 	argonPwdPrefix            = "$argon2id$"
 	bcryptPwdPrefix           = "$2a$"
@@ -148,26 +148,30 @@ var (
 	hashPwdPrefixes          = []string{argonPwdPrefix, bcryptPwdPrefix, pbkdf2SHA1Prefix, pbkdf2SHA256Prefix,
 		pbkdf2SHA512Prefix, pbkdf2SHA256B64SaltPrefix, md5cryptPwdPrefix, md5cryptApr1PwdPrefix, md5LDAPPwdPrefix,
 		sha512cryptPwdPrefix}
-	pbkdfPwdPrefixes        = []string{pbkdf2SHA1Prefix, pbkdf2SHA256Prefix, pbkdf2SHA512Prefix, pbkdf2SHA256B64SaltPrefix}
-	pbkdfPwdB64SaltPrefixes = []string{pbkdf2SHA256B64SaltPrefix}
-	unixPwdPrefixes         = []string{md5cryptPwdPrefix, md5cryptApr1PwdPrefix, sha512cryptPwdPrefix}
-	sharedProviders         = []string{PGSQLDataProviderName, MySQLDataProviderName, CockroachDataProviderName}
-	logSender               = "dataprovider"
-	credentialsDirPath      string
-	sqlTableUsers           = "users"
-	sqlTableFolders         = "folders"
-	sqlTableFoldersMapping  = "folders_mapping"
-	sqlTableAdmins          = "admins"
-	sqlTableAPIKeys         = "api_keys"
-	sqlTableShares          = "shares"
-	sqlTableDefenderHosts   = "defender_hosts"
-	sqlTableDefenderEvents  = "defender_events"
-	sqlTableActiveTransfers = "active_transfers"
-	sqlTableSchemaVersion   = "schema_version"
-	argon2Params            *argon2id.Params
-	lastLoginMinDelay       = 10 * time.Minute
-	usernameRegex           = regexp.MustCompile("^[a-zA-Z0-9-_.~]+$")
-	tempPath                string
+	pbkdfPwdPrefixes             = []string{pbkdf2SHA1Prefix, pbkdf2SHA256Prefix, pbkdf2SHA512Prefix, pbkdf2SHA256B64SaltPrefix}
+	pbkdfPwdB64SaltPrefixes      = []string{pbkdf2SHA256B64SaltPrefix}
+	unixPwdPrefixes              = []string{md5cryptPwdPrefix, md5cryptApr1PwdPrefix, sha512cryptPwdPrefix}
+	sharedProviders              = []string{PGSQLDataProviderName, MySQLDataProviderName, CockroachDataProviderName}
+	logSender                    = "dataprovider"
+	credentialsDirPath           string
+	sqlTableUsers                = "users"
+	sqlTableFolders              = "folders"
+	sqlTableFoldersMapping       = "folders_mapping"
+	sqlTableUsersFoldersMapping  = "users_folders_mapping"
+	sqlTableAdmins               = "admins"
+	sqlTableAPIKeys              = "api_keys"
+	sqlTableShares               = "shares"
+	sqlTableDefenderHosts        = "defender_hosts"
+	sqlTableDefenderEvents       = "defender_events"
+	sqlTableActiveTransfers      = "active_transfers"
+	sqlTableGroups               = "groups"
+	sqlTableUsersGroupsMapping   = "users_groups_mapping"
+	sqlTableGroupsFoldersMapping = "groups_folders_mapping"
+	sqlTableSchemaVersion        = "schema_version"
+	argon2Params                 *argon2id.Params
+	lastLoginMinDelay            = 10 * time.Minute
+	usernameRegex                = regexp.MustCompile("^[a-zA-Z0-9-_.~]+$")
+	tempPath                     string
 )
 
 type schemaVersion struct {
@@ -573,6 +577,7 @@ func (d *DefenderEntry) MarshalJSON() ([]byte, error) {
 // BackupData defines the structure for the backup/restore files
 type BackupData struct {
 	Users   []User                  `json:"users"`
+	Groups  []Group                 `json:"groups"`
 	Folders []vfs.BaseVirtualFolder `json:"folders"`
 	Admins  []Admin                 `json:"admins"`
 	APIKeys []APIKey                `json:"api_keys"`
@@ -626,7 +631,7 @@ type Provider interface {
 	userExists(username string) (User, error)
 	addUser(user *User) error
 	updateUser(user *User) error
-	deleteUser(user *User) error
+	deleteUser(user User) error
 	updateUserPassword(username, password string) error
 	getUsers(limit int, offset int, order string) ([]User, error)
 	dumpUsers() ([]User, error)
@@ -635,32 +640,40 @@ type Provider interface {
 	updateLastLogin(username string) error
 	updateAdminLastLogin(username string) error
 	setUpdatedAt(username string)
-	getFolders(limit, offset int, order string) ([]vfs.BaseVirtualFolder, error)
+	getFolders(limit, offset int, order string, minimal bool) ([]vfs.BaseVirtualFolder, error)
 	getFolderByName(name string) (vfs.BaseVirtualFolder, error)
 	addFolder(folder *vfs.BaseVirtualFolder) error
 	updateFolder(folder *vfs.BaseVirtualFolder) error
-	deleteFolder(folder *vfs.BaseVirtualFolder) error
+	deleteFolder(folder vfs.BaseVirtualFolder) error
 	updateFolderQuota(name string, filesAdd int, sizeAdd int64, reset bool) error
 	getUsedFolderQuota(name string) (int, int64, error)
 	dumpFolders() ([]vfs.BaseVirtualFolder, error)
+	getGroups(limit, offset int, order string, minimal bool) ([]Group, error)
+	getGroupsWithNames(names []string) ([]Group, error)
+	getUsersInGroups(names []string) ([]string, error)
+	groupExists(name string) (Group, error)
+	addGroup(group *Group) error
+	updateGroup(group *Group) error
+	deleteGroup(group Group) error
+	dumpGroups() ([]Group, error)
 	adminExists(username string) (Admin, error)
 	addAdmin(admin *Admin) error
 	updateAdmin(admin *Admin) error
-	deleteAdmin(admin *Admin) error
+	deleteAdmin(admin Admin) error
 	getAdmins(limit int, offset int, order string) ([]Admin, error)
 	dumpAdmins() ([]Admin, error)
 	validateAdminAndPass(username, password, ip string) (Admin, error)
 	apiKeyExists(keyID string) (APIKey, error)
 	addAPIKey(apiKey *APIKey) error
 	updateAPIKey(apiKey *APIKey) error
-	deleteAPIKey(apiKey *APIKey) error
+	deleteAPIKey(apiKey APIKey) error
 	getAPIKeys(limit int, offset int, order string) ([]APIKey, error)
 	dumpAPIKeys() ([]APIKey, error)
 	updateAPIKeyLastUse(keyID string) error
 	shareExists(shareID, username string) (Share, error)
 	addShare(share *Share) error
 	updateShare(share *Share) error
-	deleteShare(share *Share) error
+	deleteShare(share Share) error
 	getShares(limit int, offset int, order, username string) ([]Share, error)
 	dumpShares() ([]Share, error)
 	updateShareLastUse(shareID string, numTokens int) error
@@ -991,15 +1004,35 @@ func CheckCompositeCredentials(username, password, ip, loginMethod, protocol str
 func CheckUserBeforeTLSAuth(username, ip, protocol string, tlsCert *x509.Certificate) (User, error) {
 	username = config.convertName(username)
 	if plugin.Handler.HasAuthScope(plugin.AuthScopeTLSCertificate) {
-		return doPluginAuth(username, "", nil, ip, protocol, tlsCert, plugin.AuthScopeTLSCertificate)
+		user, err := doPluginAuth(username, "", nil, ip, protocol, tlsCert, plugin.AuthScopeTLSCertificate)
+		if err != nil {
+			return user, err
+		}
+		err = user.LoadAndApplyGroupSettings()
+		return user, err
 	}
 	if config.ExternalAuthHook != "" && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&8 != 0) {
-		return doExternalAuth(username, "", nil, "", ip, protocol, tlsCert)
+		user, err := doExternalAuth(username, "", nil, "", ip, protocol, tlsCert)
+		if err != nil {
+			return user, err
+		}
+		err = user.LoadAndApplyGroupSettings()
+		return user, err
 	}
 	if config.PreLoginHook != "" {
-		return executePreLoginHook(username, LoginMethodTLSCertificate, ip, protocol, nil)
+		user, err := executePreLoginHook(username, LoginMethodTLSCertificate, ip, protocol, nil)
+		if err != nil {
+			return user, err
+		}
+		err = user.LoadAndApplyGroupSettings()
+		return user, err
 	}
-	return UserExists(username)
+	user, err := UserExists(username)
+	if err != nil {
+		return user, err
+	}
+	err = user.LoadAndApplyGroupSettings()
+	return user, err
 }
 
 // CheckUserAndTLSCert returns the SFTPGo user with the given username and check if the
@@ -1110,10 +1143,18 @@ func CheckKeyboardInteractiveAuth(username, authHook string, client ssh.Keyboard
 // If a pre-login hook is defined it will be executed so the SFTPGo user
 // can be created if it does not exist
 func GetUserAfterIDPAuth(username, ip, protocol string, oidcTokenFields *map[string]interface{}) (User, error) {
+	var user User
+	var err error
 	if config.PreLoginHook != "" {
-		return executePreLoginHook(username, LoginMethodIDP, ip, protocol, oidcTokenFields)
+		user, err = executePreLoginHook(username, LoginMethodIDP, ip, protocol, oidcTokenFields)
+	} else {
+		user, err = UserExists(username)
 	}
-	return UserExists(username)
+	if err != nil {
+		return user, err
+	}
+	err = user.LoadAndApplyGroupSettings()
+	return user, err
 }
 
 // GetDefenderHosts returns hosts that are banned or for which some violations have been detected
@@ -1310,7 +1351,7 @@ func DeleteShare(shareID string, executor, ipAddress string) error {
 	if err != nil {
 		return err
 	}
-	err = provider.deleteShare(&share)
+	err = provider.deleteShare(share)
 	if err == nil {
 		executeAction(operationDelete, executor, ipAddress, actionObjectShare, shareID, &share)
 	}
@@ -1323,6 +1364,67 @@ func ShareExists(shareID, username string) (Share, error) {
 		return Share{}, util.NewRecordNotFoundError(fmt.Sprintf("Share %#v does not exist", shareID))
 	}
 	return provider.shareExists(shareID, username)
+}
+
+// AddGroup adds a new group
+func AddGroup(group *Group, executor, ipAddress string) error {
+	group.Name = config.convertName(group.Name)
+	err := provider.addGroup(group)
+	if err == nil {
+		executeAction(operationAdd, executor, ipAddress, actionObjectGroup, group.Name, group)
+	}
+	return err
+}
+
+// UpdateGroup updates an existing Group
+func UpdateGroup(group *Group, users []string, executor, ipAddress string) error {
+	err := provider.updateGroup(group)
+	if err == nil {
+		for _, user := range users {
+			provider.setUpdatedAt(user)
+			u, err := provider.userExists(user)
+			if err == nil {
+				webDAVUsersCache.swap(&u)
+				executeAction(operationUpdate, executor, ipAddress, actionObjectUser, u.Username, &u)
+			} else {
+				RemoveCachedWebDAVUser(user)
+			}
+		}
+		executeAction(operationUpdate, executor, ipAddress, actionObjectGroup, group.Name, group)
+	}
+	return err
+}
+
+// DeleteGroup deletes an existing Group
+func DeleteGroup(name string, executor, ipAddress string) error {
+	name = config.convertName(name)
+	group, err := provider.groupExists(name)
+	if err != nil {
+		return err
+	}
+	if len(group.Users) > 0 {
+		errorString := fmt.Sprintf("the group %#v is referenced, it cannot be removed", group.Name)
+		return util.NewValidationError(errorString)
+	}
+	err = provider.deleteGroup(group)
+	if err == nil {
+		for _, user := range group.Users {
+			provider.setUpdatedAt(user)
+			u, err := provider.userExists(user)
+			if err == nil {
+				executeAction(operationUpdate, executor, ipAddress, actionObjectUser, u.Username, &u)
+			}
+			RemoveCachedWebDAVUser(user)
+		}
+		executeAction(operationDelete, executor, ipAddress, actionObjectGroup, group.Name, &group)
+	}
+	return err
+}
+
+// GroupExists returns the Group with the given name if it exists
+func GroupExists(name string) (Group, error) {
+	name = config.convertName(name)
+	return provider.groupExists(name)
 }
 
 // AddAPIKey adds a new API key
@@ -1349,7 +1451,7 @@ func DeleteAPIKey(keyID string, executor, ipAddress string) error {
 	if err != nil {
 		return err
 	}
-	err = provider.deleteAPIKey(&apiKey)
+	err = provider.deleteAPIKey(apiKey)
 	if err == nil {
 		executeAction(operationDelete, executor, ipAddress, actionObjectAPIKey, apiKey.KeyID, &apiKey)
 	}
@@ -1401,7 +1503,7 @@ func DeleteAdmin(username, executor, ipAddress string) error {
 	if err != nil {
 		return err
 	}
-	err = provider.deleteAdmin(&admin)
+	err = provider.deleteAdmin(admin)
 	if err == nil {
 		executeAction(operationDelete, executor, ipAddress, actionObjectAdmin, admin.Username, &admin)
 	}
@@ -1420,6 +1522,31 @@ func UserExists(username string) (User, error) {
 	return provider.userExists(username)
 }
 
+// GetUserWithGroupSettings tries to return the user with the specified username
+// loading also the group settings
+func GetUserWithGroupSettings(username string) (User, error) {
+	username = config.convertName(username)
+	user, err := provider.userExists(username)
+	if err != nil {
+		return user, err
+	}
+	err = user.LoadAndApplyGroupSettings()
+	return user, err
+}
+
+// GetUserVariants tries to return the user with the specified username with and without
+// group settings applied
+func GetUserVariants(username string) (User, User, error) {
+	username = config.convertName(username)
+	user, err := provider.userExists(username)
+	if err != nil {
+		return user, User{}, err
+	}
+	userWithGroupSettings := user.getACopy()
+	err = userWithGroupSettings.LoadAndApplyGroupSettings()
+	return user, userWithGroupSettings, err
+}
+
 // AddUser adds a new SFTPGo user.
 func AddUser(user *User, executor, ipAddress string) error {
 	user.Filters.RecoveryCodes = nil
@@ -1434,8 +1561,26 @@ func AddUser(user *User, executor, ipAddress string) error {
 	return err
 }
 
+// UpdateUserPassword updates the user password
+func UpdateUserPassword(username, plainPwd, executor, ipAddress string) error {
+	hashedPwd, err := hashPlainPassword(plainPwd)
+	if err != nil {
+		return util.NewGenericError(fmt.Sprintf("unable to set the new password: %v", err))
+	}
+	err = provider.updateUserPassword(username, hashedPwd)
+	if err != nil {
+		return util.NewGenericError(fmt.Sprintf("unable to set the new password: %v", err))
+	}
+	cachedPasswords.Remove(username)
+	executeAction(operationUpdate, executor, ipAddress, actionObjectUser, username, &User{})
+	return nil
+}
+
 // UpdateUser updates an existing SFTPGo user.
 func UpdateUser(user *User, executor, ipAddress string) error {
+	if user.groupSettingsApplied {
+		return errors.New("cannot save a user with group settings applied")
+	}
 	err := provider.updateUser(user)
 	if err == nil {
 		webDAVUsersCache.swap(user)
@@ -1452,7 +1597,7 @@ func DeleteUser(username, executor, ipAddress string) error {
 	if err != nil {
 		return err
 	}
-	err = provider.deleteUser(&user)
+	err = provider.deleteUser(user)
 	if err == nil {
 		RemoveCachedWebDAVUser(user.Username)
 		delayedQuotaUpdater.resetUserQuota(username)
@@ -1524,7 +1669,12 @@ func GetAdmins(limit, offset int, order string) ([]Admin, error) {
 	return provider.getAdmins(limit, offset, order)
 }
 
-// GetUsers returns an array of users respecting limit and offset and filtered by username exact match if not empty
+// GetGroups returns an array of groups respecting limit and offset
+func GetGroups(limit, offset int, order string, minimal bool) ([]Group, error) {
+	return provider.getGroups(limit, offset, order, minimal)
+}
+
+// GetUsers returns an array of users respecting limit and offset
 func GetUsers(limit, offset int, order string) ([]User, error) {
 	return provider.getUsers(limit, offset, order)
 }
@@ -1541,9 +1691,16 @@ func AddFolder(folder *vfs.BaseVirtualFolder) error {
 }
 
 // UpdateFolder updates the specified virtual folder
-func UpdateFolder(folder *vfs.BaseVirtualFolder, users []string, executor, ipAddress string) error {
+func UpdateFolder(folder *vfs.BaseVirtualFolder, users []string, groups []string, executor, ipAddress string) error {
 	err := provider.updateFolder(folder)
 	if err == nil {
+		usersInGroups, errGrp := provider.getUsersInGroups(groups)
+		if errGrp == nil {
+			users = append(users, usersInGroups...)
+			users = util.RemoveDuplicates(users)
+		} else {
+			providerLog(logger.LevelWarn, "unable to get users in groups %+v: %v", groups, errGrp)
+		}
 		for _, user := range users {
 			provider.setUpdatedAt(user)
 			u, err := provider.userExists(user)
@@ -1565,9 +1722,17 @@ func DeleteFolder(folderName, executor, ipAddress string) error {
 	if err != nil {
 		return err
 	}
-	err = provider.deleteFolder(&folder)
+	err = provider.deleteFolder(folder)
 	if err == nil {
-		for _, user := range folder.Users {
+		users := folder.Users
+		usersInGroups, errGrp := provider.getUsersInGroups(folder.Groups)
+		if errGrp == nil {
+			users = append(users, usersInGroups...)
+			users = util.RemoveDuplicates(users)
+		} else {
+			providerLog(logger.LevelWarn, "unable to get users in groups %+v: %v", folder.Groups, errGrp)
+		}
+		for _, user := range users {
 			provider.setUpdatedAt(user)
 			u, err := provider.userExists(user)
 			if err == nil {
@@ -1587,13 +1752,17 @@ func GetFolderByName(name string) (vfs.BaseVirtualFolder, error) {
 }
 
 // GetFolders returns an array of folders respecting limit and offset
-func GetFolders(limit, offset int, order string) ([]vfs.BaseVirtualFolder, error) {
-	return provider.getFolders(limit, offset, order)
+func GetFolders(limit, offset int, order string, minimal bool) ([]vfs.BaseVirtualFolder, error) {
+	return provider.getFolders(limit, offset, order, minimal)
 }
 
 // DumpData returns all users, folders, admins, api keys, shares
 func DumpData() (BackupData, error) {
 	var data BackupData
+	groups, err := provider.dumpGroups()
+	if err != nil {
+		return data, err
+	}
 	users, err := provider.dumpUsers()
 	if err != nil {
 		return data, err
@@ -1615,6 +1784,7 @@ func DumpData() (BackupData, error) {
 		return data, err
 	}
 	data.Users = users
+	data.Groups = groups
 	data.Folders = folders
 	data.Admins = admins
 	data.APIKeys = apiKeys
@@ -1683,6 +1853,58 @@ func createProvider(basePath string) error {
 	}
 }
 
+func copyBaseUserFilters(in sdk.BaseUserFilters) sdk.BaseUserFilters {
+	filters := sdk.BaseUserFilters{}
+	filters.MaxUploadFileSize = in.MaxUploadFileSize
+	filters.TLSUsername = in.TLSUsername
+	filters.UserType = in.UserType
+	filters.AllowedIP = make([]string, len(in.AllowedIP))
+	copy(filters.AllowedIP, in.AllowedIP)
+	filters.DeniedIP = make([]string, len(in.DeniedIP))
+	copy(filters.DeniedIP, in.DeniedIP)
+	filters.DeniedLoginMethods = make([]string, len(in.DeniedLoginMethods))
+	copy(filters.DeniedLoginMethods, in.DeniedLoginMethods)
+	filters.FilePatterns = make([]sdk.PatternsFilter, len(in.FilePatterns))
+	copy(filters.FilePatterns, in.FilePatterns)
+	filters.DeniedProtocols = make([]string, len(in.DeniedProtocols))
+	copy(filters.DeniedProtocols, in.DeniedProtocols)
+	filters.TwoFactorAuthProtocols = make([]string, len(in.TwoFactorAuthProtocols))
+	copy(filters.TwoFactorAuthProtocols, in.TwoFactorAuthProtocols)
+	filters.Hooks.ExternalAuthDisabled = in.Hooks.ExternalAuthDisabled
+	filters.Hooks.PreLoginDisabled = in.Hooks.PreLoginDisabled
+	filters.Hooks.CheckPasswordDisabled = in.Hooks.CheckPasswordDisabled
+	filters.DisableFsChecks = in.DisableFsChecks
+	filters.StartDirectory = in.StartDirectory
+	filters.AllowAPIKeyAuth = in.AllowAPIKeyAuth
+	filters.ExternalAuthCacheTime = in.ExternalAuthCacheTime
+	filters.WebClient = make([]string, len(in.WebClient))
+	copy(filters.WebClient, in.WebClient)
+	filters.BandwidthLimits = make([]sdk.BandwidthLimit, 0, len(in.BandwidthLimits))
+	for _, limit := range in.BandwidthLimits {
+		bwLimit := sdk.BandwidthLimit{
+			UploadBandwidth:   limit.UploadBandwidth,
+			DownloadBandwidth: limit.DownloadBandwidth,
+			Sources:           make([]string, 0, len(limit.Sources)),
+		}
+		bwLimit.Sources = make([]string, len(limit.Sources))
+		copy(bwLimit.Sources, limit.Sources)
+		filters.BandwidthLimits = append(filters.BandwidthLimits, bwLimit)
+	}
+	filters.DataTransferLimits = make([]sdk.DataTransferLimit, 0, len(in.DataTransferLimits))
+	for _, limit := range in.DataTransferLimits {
+		dtLimit := sdk.DataTransferLimit{
+			UploadDataTransfer:   limit.UploadDataTransfer,
+			DownloadDataTransfer: limit.DownloadDataTransfer,
+			TotalDataTransfer:    limit.TotalDataTransfer,
+			Sources:              make([]string, 0, len(limit.Sources)),
+		}
+		dtLimit.Sources = make([]string, len(limit.Sources))
+		copy(dtLimit.Sources, limit.Sources)
+		filters.DataTransferLimits = append(filters.DataTransferLimits, dtLimit)
+	}
+	return filters
+}
+
 func buildUserHomeDir(user *User) {
 	if user.HomeDir == "" {
 		if config.UsersBaseDir != "" {
@@ -1697,6 +1919,8 @@ func buildUserHomeDir(user *User) {
 				user.HomeDir = filepath.Join(os.TempDir(), user.Username)
 			}
 		}
+	} else {
+		user.HomeDir = filepath.Clean(user.HomeDir)
 	}
 }
 
@@ -1753,29 +1977,56 @@ func getVirtualFolderIfInvalid(folder *vfs.BaseVirtualFolder) *vfs.BaseVirtualFo
 	return folder
 }
 
-func validateUserVirtualFolders(user *User) error {
-	if len(user.VirtualFolders) == 0 {
-		user.VirtualFolders = []vfs.VirtualFolder{}
+func validateUserGroups(user *User) error {
+	if len(user.Groups) == 0 {
 		return nil
+	}
+	hasPrimary := false
+	groupNames := make(map[string]bool)
+
+	for _, g := range user.Groups {
+		if g.Type < sdk.GroupTypePrimary && g.Type > sdk.GroupTypeSecondary {
+			return util.NewValidationError(fmt.Sprintf("invalid group type: %v", g.Type))
+		}
+		if g.Type == sdk.GroupTypePrimary {
+			if hasPrimary {
+				return util.NewValidationError("only one primary group is allowed")
+			}
+			hasPrimary = true
+		}
+		if groupNames[g.Name] {
+			return util.NewValidationError(fmt.Sprintf("the group %#v is duplicated", g.Name))
+		}
+		groupNames[g.Name] = true
+	}
+	return nil
+}
+
+func validateAssociatedVirtualFolders(vfolders []vfs.VirtualFolder) ([]vfs.VirtualFolder, error) {
+	if len(vfolders) == 0 {
+		return []vfs.VirtualFolder{}, nil
 	}
 	var virtualFolders []vfs.VirtualFolder
 	folderNames := make(map[string]bool)
 
-	for _, v := range user.VirtualFolders {
+	for _, v := range vfolders {
+		if v.VirtualPath == "" {
+			return nil, util.NewValidationError("mount/virtual path is mandatory")
+		}
 		cleanedVPath := util.CleanPath(v.VirtualPath)
 		if err := validateFolderQuotaLimits(v); err != nil {
-			return err
+			return nil, err
 		}
 		folder := getVirtualFolderIfInvalid(&v.BaseVirtualFolder)
 		if err := ValidateFolder(folder); err != nil {
-			return err
+			return nil, err
 		}
 		if folderNames[folder.Name] {
-			return util.NewValidationError(fmt.Sprintf("the folder %#v is duplicated", folder.Name))
+			return nil, util.NewValidationError(fmt.Sprintf("the folder %#v is duplicated", folder.Name))
 		}
 		for _, vFolder := range virtualFolders {
 			if isVirtualDirOverlapped(vFolder.VirtualPath, cleanedVPath, false) {
-				return util.NewValidationError(fmt.Sprintf("invalid virtual folder %#v, it overlaps with virtual folder %#v",
+				return nil, util.NewValidationError(fmt.Sprintf("invalid virtual folder %#v, it overlaps with virtual folder %#v",
 					v.VirtualPath, vFolder.VirtualPath))
 			}
 		}
@@ -1787,8 +2038,7 @@ func validateUserVirtualFolders(user *User) error {
 		})
 		folderNames[folder.Name] = true
 	}
-	user.VirtualFolders = virtualFolders
-	return nil
+	return virtualFolders, nil
 }
 
 func validateUserTOTPConfig(c *UserTOTPConfig, username string) error {
@@ -1840,24 +2090,18 @@ func validateUserRecoveryCodes(user *User) error {
 	return nil
 }
 
-func validatePermissions(user *User) error {
-	if len(user.Permissions) == 0 {
-		return util.NewValidationError("please grant some permissions to this user")
-	}
+func validateUserPermissions(permsToCheck map[string][]string) (map[string][]string, error) {
 	permissions := make(map[string][]string)
-	if _, ok := user.Permissions["/"]; !ok {
-		return util.NewValidationError("permissions for the root dir \"/\" must be set")
-	}
-	for dir, perms := range user.Permissions {
+	for dir, perms := range permsToCheck {
 		if len(perms) == 0 && dir == "/" {
-			return util.NewValidationError(fmt.Sprintf("no permissions granted for the directory: %#v", dir))
+			return permissions, util.NewValidationError(fmt.Sprintf("no permissions granted for the directory: %#v", dir))
 		}
 		if len(perms) > len(ValidPerms) {
-			return util.NewValidationError("invalid permissions")
+			return permissions, util.NewValidationError("invalid permissions")
 		}
 		for _, p := range perms {
 			if !util.IsStringInSlice(p, ValidPerms) {
-				return util.NewValidationError(fmt.Sprintf("invalid permission: %#v", p))
+				return permissions, util.NewValidationError(fmt.Sprintf("invalid permission: %#v", p))
 			}
 		}
 		cleanedDir := filepath.ToSlash(path.Clean(dir))
@@ -1865,16 +2109,31 @@ func validatePermissions(user *User) error {
 			cleanedDir = strings.TrimSuffix(cleanedDir, "/")
 		}
 		if !path.IsAbs(cleanedDir) {
-			return util.NewValidationError(fmt.Sprintf("cannot set permissions for non absolute path: %#v", dir))
+			return permissions, util.NewValidationError(fmt.Sprintf("cannot set permissions for non absolute path: %#v", dir))
 		}
 		if dir != cleanedDir && cleanedDir == "/" {
-			return util.NewValidationError(fmt.Sprintf("cannot set permissions for invalid subdirectory: %#v is an alias for \"/\"", dir))
+			return permissions, util.NewValidationError(fmt.Sprintf("cannot set permissions for invalid subdirectory: %#v is an alias for \"/\"", dir))
 		}
 		if util.IsStringInSlice(PermAny, perms) {
 			permissions[cleanedDir] = []string{PermAny}
 		} else {
 			permissions[cleanedDir] = util.RemoveDuplicates(perms)
 		}
+	}
+
+	return permissions, nil
+}
+
+func validatePermissions(user *User) error {
+	if len(user.Permissions) == 0 {
+		return util.NewValidationError("please grant some permissions to this user")
+	}
+	if _, ok := user.Permissions["/"]; !ok {
+		return util.NewValidationError("permissions for the root dir \"/\" must be set")
+	}
+	permissions, err := validateUserPermissions(user.Permissions)
+	if err != nil {
+		return err
 	}
 	user.Permissions = permissions
 	return nil
@@ -1899,14 +2158,14 @@ func validatePublicKeys(user *User) error {
 	return nil
 }
 
-func validateFiltersPatternExtensions(user *User) error {
-	if len(user.Filters.FilePatterns) == 0 {
-		user.Filters.FilePatterns = []sdk.PatternsFilter{}
+func validateFiltersPatternExtensions(baseFilters *sdk.BaseUserFilters) error {
+	if len(baseFilters.FilePatterns) == 0 {
+		baseFilters.FilePatterns = []sdk.PatternsFilter{}
 		return nil
 	}
 	filteredPaths := []string{}
 	var filters []sdk.PatternsFilter
-	for _, f := range user.Filters.FilePatterns {
+	for _, f := range baseFilters.FilePatterns {
 		cleanedPath := filepath.ToSlash(path.Clean(f.Path))
 		if !path.IsAbs(cleanedPath) {
 			return util.NewValidationError(fmt.Sprintf("invalid path %#v for file patterns filter", f.Path))
@@ -1942,35 +2201,35 @@ func validateFiltersPatternExtensions(user *User) error {
 		filters = append(filters, f)
 		filteredPaths = append(filteredPaths, cleanedPath)
 	}
-	user.Filters.FilePatterns = filters
+	baseFilters.FilePatterns = filters
 	return nil
 }
 
-func checkEmptyFiltersStruct(user *User) {
-	if len(user.Filters.AllowedIP) == 0 {
-		user.Filters.AllowedIP = []string{}
+func checkEmptyFiltersStruct(filters *sdk.BaseUserFilters) {
+	if len(filters.AllowedIP) == 0 {
+		filters.AllowedIP = []string{}
 	}
-	if len(user.Filters.DeniedIP) == 0 {
-		user.Filters.DeniedIP = []string{}
+	if len(filters.DeniedIP) == 0 {
+		filters.DeniedIP = []string{}
 	}
-	if len(user.Filters.DeniedLoginMethods) == 0 {
-		user.Filters.DeniedLoginMethods = []string{}
+	if len(filters.DeniedLoginMethods) == 0 {
+		filters.DeniedLoginMethods = []string{}
 	}
-	if len(user.Filters.DeniedProtocols) == 0 {
-		user.Filters.DeniedProtocols = []string{}
+	if len(filters.DeniedProtocols) == 0 {
+		filters.DeniedProtocols = []string{}
 	}
 }
 
-func validateIPFilters(user *User) error {
-	user.Filters.DeniedIP = util.RemoveDuplicates(user.Filters.DeniedIP)
-	for _, IPMask := range user.Filters.DeniedIP {
+func validateIPFilters(filters *sdk.BaseUserFilters) error {
+	filters.DeniedIP = util.RemoveDuplicates(filters.DeniedIP)
+	for _, IPMask := range filters.DeniedIP {
 		_, _, err := net.ParseCIDR(IPMask)
 		if err != nil {
 			return util.NewValidationError(fmt.Sprintf("could not parse denied IP/Mask %#v: %v", IPMask, err))
 		}
 	}
-	user.Filters.AllowedIP = util.RemoveDuplicates(user.Filters.AllowedIP)
-	for _, IPMask := range user.Filters.AllowedIP {
+	filters.AllowedIP = util.RemoveDuplicates(filters.AllowedIP)
+	for _, IPMask := range filters.AllowedIP {
 		_, _, err := net.ParseCIDR(IPMask)
 		if err != nil {
 			return util.NewValidationError(fmt.Sprintf("could not parse allowed IP/Mask %#v: %v", IPMask, err))
@@ -1992,24 +2251,24 @@ func validateBandwidthLimit(bl sdk.BandwidthLimit) error {
 	return nil
 }
 
-func validateBandwidthLimitsFilter(user *User) error {
-	for idx, bandwidthLimit := range user.Filters.BandwidthLimits {
+func validateBandwidthLimitsFilter(filters *sdk.BaseUserFilters) error {
+	for idx, bandwidthLimit := range filters.BandwidthLimits {
 		if err := validateBandwidthLimit(bandwidthLimit); err != nil {
 			return err
 		}
 		if bandwidthLimit.DownloadBandwidth < 0 {
-			user.Filters.BandwidthLimits[idx].DownloadBandwidth = 0
+			filters.BandwidthLimits[idx].DownloadBandwidth = 0
 		}
 		if bandwidthLimit.UploadBandwidth < 0 {
-			user.Filters.BandwidthLimits[idx].UploadBandwidth = 0
+			filters.BandwidthLimits[idx].UploadBandwidth = 0
 		}
 	}
 	return nil
 }
 
-func validateTransferLimitsFilter(user *User) error {
-	for idx, limit := range user.Filters.DataTransferLimits {
-		user.Filters.DataTransferLimits[idx].Sources = util.RemoveDuplicates(limit.Sources)
+func validateTransferLimitsFilter(filters *sdk.BaseUserFilters) error {
+	for idx, limit := range filters.DataTransferLimits {
+		filters.DataTransferLimits[idx].Sources = util.RemoveDuplicates(limit.Sources)
 		if len(limit.Sources) == 0 {
 			return util.NewValidationError("no data transfer limit source specified")
 		}
@@ -2020,36 +2279,33 @@ func validateTransferLimitsFilter(user *User) error {
 			}
 		}
 		if limit.TotalDataTransfer > 0 {
-			user.Filters.DataTransferLimits[idx].UploadDataTransfer = 0
-			user.Filters.DataTransferLimits[idx].DownloadDataTransfer = 0
+			filters.DataTransferLimits[idx].UploadDataTransfer = 0
+			filters.DataTransferLimits[idx].DownloadDataTransfer = 0
 		}
 	}
 	return nil
 }
 
-func updateFiltersValues(user *User) {
-	if !user.HasExternalAuth() {
-		user.Filters.ExternalAuthCacheTime = 0
-	}
-	if user.Filters.StartDirectory != "" {
-		user.Filters.StartDirectory = util.CleanPath(user.Filters.StartDirectory)
-		if user.Filters.StartDirectory == "/" {
-			user.Filters.StartDirectory = ""
+func updateFiltersValues(filters *sdk.BaseUserFilters) {
+	if filters.StartDirectory != "" {
+		filters.StartDirectory = util.CleanPath(filters.StartDirectory)
+		if filters.StartDirectory == "/" {
+			filters.StartDirectory = ""
 		}
 	}
 }
 
-func validateFilterProtocols(user *User) error {
-	if len(user.Filters.DeniedProtocols) >= len(ValidProtocols) {
+func validateFilterProtocols(filters *sdk.BaseUserFilters) error {
+	if len(filters.DeniedProtocols) >= len(ValidProtocols) {
 		return util.NewValidationError("invalid denied_protocols")
 	}
-	for _, p := range user.Filters.DeniedProtocols {
+	for _, p := range filters.DeniedProtocols {
 		if !util.IsStringInSlice(p, ValidProtocols) {
 			return util.NewValidationError(fmt.Sprintf("invalid denied protocol %#v", p))
 		}
 	}
 
-	for _, p := range user.Filters.TwoFactorAuthProtocols {
+	for _, p := range filters.TwoFactorAuthProtocols {
 		if !util.IsStringInSlice(p, MFAProtocols) {
 			return util.NewValidationError(fmt.Sprintf("invalid two factor protocol %#v", p))
 		}
@@ -2057,41 +2313,41 @@ func validateFilterProtocols(user *User) error {
 	return nil
 }
 
-func validateFilters(user *User) error {
-	checkEmptyFiltersStruct(user)
-	if err := validateIPFilters(user); err != nil {
+func validateBaseFilters(filters *sdk.BaseUserFilters) error {
+	checkEmptyFiltersStruct(filters)
+	if err := validateIPFilters(filters); err != nil {
 		return err
 	}
-	if err := validateBandwidthLimitsFilter(user); err != nil {
+	if err := validateBandwidthLimitsFilter(filters); err != nil {
 		return err
 	}
-	if err := validateTransferLimitsFilter(user); err != nil {
+	if err := validateTransferLimitsFilter(filters); err != nil {
 		return err
 	}
-	if len(user.Filters.DeniedLoginMethods) >= len(ValidLoginMethods) {
+	if len(filters.DeniedLoginMethods) >= len(ValidLoginMethods) {
 		return util.NewValidationError("invalid denied_login_methods")
 	}
-	for _, loginMethod := range user.Filters.DeniedLoginMethods {
+	for _, loginMethod := range filters.DeniedLoginMethods {
 		if !util.IsStringInSlice(loginMethod, ValidLoginMethods) {
 			return util.NewValidationError(fmt.Sprintf("invalid login method: %#v", loginMethod))
 		}
 	}
-	if err := validateFilterProtocols(user); err != nil {
+	if err := validateFilterProtocols(filters); err != nil {
 		return err
 	}
-	if user.Filters.TLSUsername != "" {
-		if !util.IsStringInSlice(string(user.Filters.TLSUsername), validTLSUsernames) {
-			return util.NewValidationError(fmt.Sprintf("invalid TLS username: %#v", user.Filters.TLSUsername))
+	if filters.TLSUsername != "" {
+		if !util.IsStringInSlice(string(filters.TLSUsername), validTLSUsernames) {
+			return util.NewValidationError(fmt.Sprintf("invalid TLS username: %#v", filters.TLSUsername))
 		}
 	}
-	for _, opts := range user.Filters.WebClient {
+	for _, opts := range filters.WebClient {
 		if !util.IsStringInSlice(opts, sdk.WebClientOptions) {
 			return util.NewValidationError(fmt.Sprintf("invalid web client options %#v", opts))
 		}
 	}
-	updateFiltersValues(user)
+	updateFiltersValues(filters)
 
-	return validateFiltersPatternExtensions(user)
+	return validateFiltersPatternExtensions(filters)
 }
 
 func saveGCSCredentials(fsConfig *vfs.Filesystem, helper vfs.ValidatorHelper) error {
@@ -2146,6 +2402,9 @@ func validateBaseParams(user *User) error {
 		return util.NewValidationError(fmt.Sprintf("username %#v is not valid, the following characters are allowed: a-zA-Z0-9-_.~",
 			user.Username))
 	}
+	if user.hasRedactedSecret() {
+		return util.NewValidationError("cannot save a user with a redacted secret")
+	}
 	if user.HomeDir == "" {
 		return util.NewValidationError("home_dir is mandatory")
 	}
@@ -2167,7 +2426,7 @@ func validateBaseParams(user *User) error {
 		user.UploadDataTransfer = 0
 		user.DownloadDataTransfer = 0
 	}
-	return nil
+	return user.FsConfig.Validate(user)
 }
 
 func hashPlainPassword(plainPwd string) (string, error) {
@@ -2238,11 +2497,11 @@ func ValidateUser(user *User) error {
 	if err := validateBaseParams(user); err != nil {
 		return err
 	}
-	if err := validatePermissions(user); err != nil {
+	if err := validateUserGroups(user); err != nil {
 		return err
 	}
-	if user.hasRedactedSecret() {
-		return util.NewValidationError("cannot save a user with a redacted secret")
+	if err := validatePermissions(user); err != nil {
+		return err
 	}
 	if err := validateUserTOTPConfig(&user.Filters.TOTPConfig, user.Username); err != nil {
 		return err
@@ -2250,12 +2509,11 @@ func ValidateUser(user *User) error {
 	if err := validateUserRecoveryCodes(user); err != nil {
 		return err
 	}
-	if err := user.FsConfig.Validate(user); err != nil {
+	vfolders, err := validateAssociatedVirtualFolders(user.VirtualFolders)
+	if err != nil {
 		return err
 	}
-	if err := validateUserVirtualFolders(user); err != nil {
-		return err
-	}
+	user.VirtualFolders = vfolders
 	if user.Status < 0 || user.Status > 1 {
 		return util.NewValidationError(fmt.Sprintf("invalid user status: %v", user.Status))
 	}
@@ -2265,8 +2523,11 @@ func ValidateUser(user *User) error {
 	if err := validatePublicKeys(user); err != nil {
 		return err
 	}
-	if err := validateFilters(user); err != nil {
+	if err := validateBaseFilters(&user.Filters.BaseUserFilters); err != nil {
 		return err
+	}
+	if !user.HasExternalAuth() {
+		user.Filters.ExternalAuthCacheTime = 0
 	}
 	if user.Filters.TOTPConfig.Enabled && util.IsStringInSlice(sdk.WebClientMFADisabled, user.Filters.WebClient) {
 		return util.NewValidationError("two-factor authentication cannot be disabled for a user with an active configuration")
@@ -2335,7 +2596,11 @@ func convertUserPassword(username, plainPwd string) {
 }
 
 func checkUserAndTLSCertificate(user *User, protocol string, tlsCert *x509.Certificate) (User, error) {
-	err := user.CheckLoginConditions()
+	err := user.LoadAndApplyGroupSettings()
+	if err != nil {
+		return *user, err
+	}
+	err = user.CheckLoginConditions()
 	if err != nil {
 		return *user, err
 	}
@@ -2354,7 +2619,11 @@ func checkUserAndTLSCertificate(user *User, protocol string, tlsCert *x509.Certi
 }
 
 func checkUserAndPass(user *User, password, ip, protocol string) (User, error) {
-	err := user.CheckLoginConditions()
+	err := user.LoadAndApplyGroupSettings()
+	if err != nil {
+		return *user, err
+	}
+	err = user.CheckLoginConditions()
 	if err != nil {
 		return *user, err
 	}
@@ -2432,7 +2701,11 @@ func checkUserPasscode(user *User, password, protocol string) (string, error) {
 }
 
 func checkUserAndPubKey(user *User, pubKey []byte, isSSHCert bool) (User, string, error) {
-	err := user.CheckLoginConditions()
+	err := user.LoadAndApplyGroupSettings()
+	if err != nil {
+		return *user, "", err
+	}
+	err = user.CheckLoginConditions()
 	if err != nil {
 		return *user, "", err
 	}
@@ -2624,6 +2897,10 @@ func doBuiltinKeyboardInteractiveAuth(user *User, client ssh.KeyboardInteractive
 	}
 	if len(answers) != 1 {
 		return 0, fmt.Errorf("unexpected number of answers: %v", len(answers))
+	}
+	err = user.LoadAndApplyGroupSettings()
+	if err != nil {
+		return 0, err
 	}
 	_, err = checkUserAndPass(user, answers[0], ip, protocol)
 	if err != nil {
@@ -2884,6 +3161,10 @@ func doKeyboardInteractiveAuth(user *User, authHook string, client ssh.KeyboardI
 	if authResult != 1 {
 		return *user, fmt.Errorf("keyboard interactive auth failed, result: %v", authResult)
 	}
+	err = user.LoadAndApplyGroupSettings()
+	if err != nil {
+		return *user, err
+	}
 	err = user.CheckLoginConditions()
 	if err != nil {
 		return *user, err
@@ -3006,11 +3287,11 @@ func getPreLoginHookResponse(loginMethod, ip, protocol string, userAsJSON []byte
 }
 
 func executePreLoginHook(username, loginMethod, ip, protocol string, oidcTokenFields *map[string]interface{}) (User, error) {
-	u, userAsJSON, err := getUserAndJSONForHook(username, oidcTokenFields)
+	u, mergedUser, userAsJSON, err := getUserAndJSONForHook(username, oidcTokenFields)
 	if err != nil {
 		return u, err
 	}
-	if u.Filters.Hooks.PreLoginDisabled {
+	if mergedUser.Filters.Hooks.PreLoginDisabled {
 		return u, nil
 	}
 	startTime := time.Now()
@@ -3211,16 +3492,16 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 ) (User, error) {
 	var user User
 
-	u, userAsJSON, err := getUserAndJSONForHook(username, nil)
+	u, mergedUser, userAsJSON, err := getUserAndJSONForHook(username, nil)
 	if err != nil {
 		return user, err
 	}
 
-	if u.Filters.Hooks.ExternalAuthDisabled {
+	if mergedUser.Filters.Hooks.ExternalAuthDisabled {
 		return u, nil
 	}
 
-	if u.isExternalAuthCached() {
+	if mergedUser.isExternalAuthCached() {
 		return u, nil
 	}
 
@@ -3291,16 +3572,16 @@ func doPluginAuth(username, password string, pubKey []byte, ip, protocol string,
 ) (User, error) {
 	var user User
 
-	u, userAsJSON, err := getUserAndJSONForHook(username, nil)
+	u, mergedUser, userAsJSON, err := getUserAndJSONForHook(username, nil)
 	if err != nil {
 		return user, err
 	}
 
-	if u.Filters.Hooks.ExternalAuthDisabled {
+	if mergedUser.Filters.Hooks.ExternalAuthDisabled {
 		return u, nil
 	}
 
-	if u.isExternalAuthCached() {
+	if mergedUser.isExternalAuthCached() {
 		return u, nil
 	}
 
@@ -3356,12 +3637,12 @@ func doPluginAuth(username, password string, pubKey []byte, ip, protocol string,
 	return provider.userExists(user.Username)
 }
 
-func getUserAndJSONForHook(username string, oidcTokenFields *map[string]interface{}) (User, []byte, error) {
+func getUserAndJSONForHook(username string, oidcTokenFields *map[string]interface{}) (User, User, []byte, error) {
 	var userAsJSON []byte
 	u, err := provider.userExists(username)
 	if err != nil {
 		if _, ok := err.(*util.RecordNotFoundError); !ok {
-			return u, userAsJSON, err
+			return u, u, userAsJSON, err
 		}
 		u = User{
 			BaseUser: sdk.BaseUser{
@@ -3370,12 +3651,18 @@ func getUserAndJSONForHook(username string, oidcTokenFields *map[string]interfac
 			},
 		}
 	}
+	mergedUser := u.getACopy()
+	err = mergedUser.LoadAndApplyGroupSettings()
+	if err != nil {
+		return u, mergedUser, userAsJSON, err
+	}
+
 	u.OIDCCustomFields = oidcTokenFields
 	userAsJSON, err = json.Marshal(u)
 	if err != nil {
-		return u, userAsJSON, err
+		return u, mergedUser, userAsJSON, err
 	}
-	return u, userAsJSON, err
+	return u, mergedUser, userAsJSON, err
 }
 
 func isLastActivityRecent(lastActivity int64, minDelay time.Duration) bool {

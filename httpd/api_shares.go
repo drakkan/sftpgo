@@ -406,7 +406,7 @@ func (s *httpdServer) checkPublicShare(w http.ResponseWriter, r *http.Request, s
 			return share, nil, dataprovider.ErrInvalidCredentials
 		}
 	}
-	user, err := dataprovider.UserExists(share.Username)
+	user, err := dataprovider.GetUserWithGroupSettings(share.Username)
 	if err != nil {
 		renderError(err, "", getRespStatus(err))
 		return share, nil, err
@@ -428,7 +428,7 @@ func (s *httpdServer) checkPublicShare(w http.ResponseWriter, r *http.Request, s
 
 func validateBrowsableShare(share dataprovider.Share, connection *Connection) error {
 	if len(share.Paths) != 1 {
-		return util.NewValidationError("A share with multiple paths is not browsable")
+		return util.NewValidationError("a share with multiple paths is not browsable")
 	}
 	basePath := share.Paths[0]
 	info, err := connection.Stat(basePath, 0)
@@ -436,7 +436,7 @@ func validateBrowsableShare(share dataprovider.Share, connection *Connection) er
 		return fmt.Errorf("unable to check the share directory: %w", err)
 	}
 	if !info.IsDir() {
-		return util.NewValidationError("The shared object is not a directory and so it is not browsable")
+		return util.NewValidationError("the shared object is not a directory and so it is not browsable")
 	}
 	return nil
 }

@@ -9,6 +9,7 @@ tags:
   - name: defender
   - name: quota
   - name: folders
+  - name: groups
   - name: users
   - name: data retention
   - name: events
@@ -22,6 +23,7 @@ info:
     Several storage backends are supported and they are configurable per-user, so you can serve a local directory for a user and an S3 bucket (or part of it) for another one.
     SFTPGo also supports virtual folders, a virtual folder can use any of the supported storage backends. So you can have, for example, an S3 user that exposes a Google Cloud Storage bucket (or part of it) on a specified path and an encrypted local filesystem on another one.
     Virtual folders can be private or shared among multiple users, for shared virtual folders you can define different quota limits for each user.
+    SFTPGo supports groups to simplify the administration of multiple accounts by letting you assign settings once to a group, instead of multiple times to each individual user.
     The SFTPGo WebClient allows end users to change their credentials, browse and manage their files in the browser and setup two-factor authentication which works with Authy, Google Authenticator and other compatible apps.
     From the WebClient each authorized user can also create HTTP/S links to externally share files and folders securely, by setting limits to the number of downloads/uploads, protecting the share with a password, limiting access by source IP address, setting an automatic expiration date.
   version: 2.2.2-dev
@@ -1696,7 +1698,7 @@ paths:
         - in: query
           name: order
           required: false
-          description: Ordering folders by path. Default ASC
+          description: Ordering folders by name. Default ASC
           schema:
             type: string
             enum:
@@ -1823,6 +1825,181 @@ paths:
       summary: Delete folder
       description: Deletes an existing folder
       operationId: delete_folder
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                message: User deleted
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /groups:
+    get:
+      tags:
+        - groups
+      summary: Get groups
+      description: Returns an array with one or more groups
+      operationId: get_groups
+      parameters:
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          required: false
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
+          required: false
+          description: 'The maximum number of items to return. Max value is 500, default is 100'
+        - in: query
+          name: order
+          required: false
+          description: Ordering groups by name. Default ASC
+          schema:
+            type: string
+            enum:
+              - ASC
+              - DESC
+            example: ASC
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Group'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+    post:
+      tags:
+        - groups
+      summary: Add group
+      operationId: add_group
+      description: Adds a new group
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Group'
+      responses:
+        '201':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  '/groups/{name}':
+    parameters:
+      - name: name
+        in: path
+        description: group name
+        required: true
+        schema:
+          type: string
+    get:
+      tags:
+        - groups
+      summary: Find groups by name
+      description: Returns the group with the given name if it exists.
+      operationId: get_group_by_name
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+    put:
+      tags:
+        - groups
+      summary: Update group
+      description: Updates an existing group
+      operationId: update_group
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Group'
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                message: User updated
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+    delete:
+      tags:
+        - groups
+      summary: Delete
+      description: Deletes an existing group
+      operationId: delete_group
       responses:
         '200':
           description: successful operation
@@ -4606,7 +4783,7 @@ components:
         total_data_transfer:
           type: integer
           description: 'Maximum total data transfer as MB. 0 means unlimited. You can set a total data transfer instead of the individual values for uploads and downloads'
-    UserFilters:
+    BaseUserFilters:
       type: object
       properties:
         allowed_ip:
@@ -4665,12 +4842,6 @@ components:
           description: 'API key authentication allows to impersonate this user with an API key'
         user_type:
           $ref: '#/components/schemas/UserType'
-        totp_config:
-          $ref: '#/components/schemas/UserTOTPConfig'
-        recovery_codes:
-          type: array
-          items:
-            $ref: '#/components/schemas/RecoveryCode'
         bandwidth_limits:
           type: array
           items:
@@ -4691,6 +4862,17 @@ components:
             $ref: '#/components/schemas/MFAProtocols'
           description: 'Defines protocols that require two factor authentication'
       description: Additional user options
+    UserFilters:
+      allOf:
+        - $ref: '#/components/schemas/BaseUserFilters'
+        - type: object
+          properties:
+            totp_config:
+              $ref: '#/components/schemas/UserTOTPConfig'
+            recovery_codes:
+              type: array
+              items:
+                $ref: '#/components/schemas/RecoveryCode'
     Secret:
       type: object
       properties:
@@ -4984,7 +5166,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/VirtualFolder'
-          description: mapping between virtual SFTPGo paths and filesystem paths outside the user home directory. Supported for local filesystem only. If one or more of the specified folders are not inside the dataprovider they will be automatically created. You have to create the folder on the filesystem yourself
+          description: mapping between virtual SFTPGo paths and virtual folders. If one or more of the specified folders are not inside the dataprovider they will be automatically created. You have to create the folder on the filesystem yourself
         uid:
           type: integer
           format: int32
@@ -5070,6 +5252,10 @@ components:
         additional_info:
           type: string
           description: Free form text field for external systems
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/GroupMapping'
         oidc_custom_fields:
           type: object
           additionalProperties: true
@@ -5652,6 +5838,95 @@ components:
           example:
             - 192.0.2.0/24
             - '2001:db8::/32'
+    GroupUserSettings:
+      type: object
+      properties:
+        home_dir:
+          type: string
+        max_sessions:
+          type: integer
+          format: int32
+        quota_size:
+          type: integer
+          format: int64
+        quota_files:
+          type: integer
+          format: int32
+        permissions:
+          type: object
+          items:
+            $ref: '#/components/schemas/DirPermissions'
+          minItems: 1
+          example:
+            /:
+              - '*'
+            /somedir:
+              - list
+              - download
+        upload_bandwidth:
+          type: integer
+          description: 'Maximum upload bandwidth as KB/s'
+        download_bandwidth:
+          type: integer
+          description: 'Maximum download bandwidth as KB/s'
+        upload_data_transfer:
+          type: integer
+          description: 'Maximum data transfer allowed for uploads as MB'
+        download_data_transfer:
+          type: integer
+          description: 'Maximum data transfer allowed for downloads as MB'
+        total_data_transfer:
+          type: integer
+          description: 'Maximum total data transfer as MB'
+        filters:
+          $ref: '#/components/schemas/BaseUserFilters'
+    Group:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int32
+          minimum: 1
+        name:
+          type: string
+          description: name is unique
+        description:
+          type: string
+          description: 'optional description'
+        created_at:
+          type: integer
+          format: int64
+          description: creation time as unix timestamp in milliseconds
+        updated_at:
+          type: integer
+          format: int64
+          description: last update time as unix timestamp in milliseconds
+        user_settings:
+          $ref: '#/components/schemas/GroupUserSettings'
+        virtual_folders:
+          type: array
+          items:
+            $ref: '#/components/schemas/VirtualFolder'
+          description: mapping between virtual SFTPGo paths and folders
+        users:
+          type: array
+          items:
+            type: string
+          description: list of usernames associated with this group
+    GroupMapping:
+      type: object
+      properties:
+        name:
+          type: string
+          description: group name
+        type:
+          enum:
+            - 1
+            - 2
+          description: |
+            Group type:
+              * `1` - Primary group
+              * `2` - Secondaru group
     BackupData:
       type: object
       properties:
@@ -5663,6 +5938,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/BaseVirtualFolder'
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/Group'
         admins:
           type: array
           items:

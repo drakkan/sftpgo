@@ -2,6 +2,10 @@
 
 {{define "title"}}{{.Title}}{{end}}
 
+{{define "extra_css"}}
+<link href="{{.StaticURL}}/vendor/bootstrap-select/css/bootstrap-select.min.css" rel="stylesheet">
+{{end}}
+
 {{define "page_body"}}
 <div class="card shadow mb-4">
     <div class="card-header py-3">
@@ -92,6 +96,7 @@
 {{end}}
 
 {{define "extra_js"}}
+<script src="{{.StaticURL}}/vendor/bootstrap-select/js/bootstrap-select.min.js"></script>
 <script type="text/javascript">
     $(document).ready(function () {
         onFilesystemChanged('{{.Folder.FsConfig.Provider.Name}}');
@@ -120,7 +125,7 @@
         });
 
     });
-
-    {{template "fsjs"}}
 </script>
+
+{{template "fsjs"}}
 {{end}}

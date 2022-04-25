@@ -1,0 +1,193 @@
+{{template "base" .}}
+
+{{define "title"}}{{.Title}}{{end}}
+
+{{define "extra_css"}}
+<link href="{{.StaticURL}}/vendor/datatables/dataTables.bootstrap4.min.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/datatables/buttons.bootstrap4.min.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/datatables/fixedHeader.bootstrap4.min.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/datatables/responsive.bootstrap4.min.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/datatables/select.bootstrap4.min.css" rel="stylesheet">
+{{end}}
+
+{{define "page_body"}}
+<div id="errorMsg" class="card mb-4 border-left-warning" style="display: none;">
+    <div id="errorTxt" class="card-body text-form-error"></div>
+</div>
+
+<div id="successMsg" class="card mb-4 border-left-success" style="display: none;">
+    <div id="successTxt" class="card-body"></div>
+</div>
+
+<div class="card shadow mb-4">
+    <div class="card-header py-3">
+        <h6 class="m-0 font-weight-bold text-primary">View and manage groups</h6>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover nowrap" id="dataTable" width="100%" cellspacing="0">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Description</th>
+                        <th>Used by</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Groups}}
+                    <tr>
+                        <td>{{.Name}}</td>
+                        <td>{{.Description}}</td>
+                        <td>{{.GetUsersAsString}}</td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{{end}}
+
+{{define "dialog"}}
+<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog" aria-labelledby="deleteModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">
+                    Confirmation required
+                </h5>
+                <button class="close" type="button" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">Do you want to delete the selected group? A referenced group cannot be removed</div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" type="button" data-dismiss="modal">
+                    Cancel
+                </button>
+                <a class="btn btn-warning" href="#" onclick="deleteAction()">
+                    Delete
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}
+
+{{define "extra_js"}}
+<script src="{{.StaticURL}}/vendor/datatables/jquery.dataTables.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/dataTables.bootstrap4.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/dataTables.buttons.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/buttons.bootstrap4.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/dataTables.fixedHeader.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/dataTables.responsive.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/responsive.bootstrap4.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/dataTables.select.min.js"></script>
+<script type="text/javascript">
+
+function deleteAction() {
+        var table = $('#dataTable').DataTable();
+        table.button('delete:name').enable(false);
+        var groupName = table.row({ selected: true }).data()[0];
+        var path = '{{.GroupURL}}' + "/" + fixedEncodeURIComponent(groupName);
+        $('#deleteModal').modal('hide');
+        $.ajax({
+            url: path,
+            type: 'DELETE',
+            dataType: 'json',
+            headers: {'X-CSRF-TOKEN' : '{{.CSRFToken}}'},
+            timeout: 15000,
+            success: function (result) {
+                window.location.href = '{{.GroupsURL}}';
+            },
+            error: function ($xhr, textStatus, errorThrown) {
+                var txt = "Unable to delete the selected group";
+                if ($xhr) {
+                    var json = $xhr.responseJSON;
+                    if (json) {
+                        if (json.message){
+                            txt += ": " + json.message;
+                        } else {
+                            txt += ": " + json.error;
+                        }
+                    }
+                }
+                $('#errorTxt').text(txt);
+                $('#errorMsg').show();
+                setTimeout(function () {
+                    $('#errorMsg').hide();
+                }, 5000);
+            }
+        });
+    }
+
+    $(document).ready(function () {
+        $.fn.dataTable.ext.buttons.add = {
+            text: '<i class="fas fa-plus"></i>',
+            name: 'add',
+            titleAttr: "Add",
+            action: function (e, dt, node, config) {
+                window.location.href = '{{.GroupURL}}';
+            }
+        };
+
+        $.fn.dataTable.ext.buttons.edit = {
+            text: '<i class="fas fa-pen"></i>',
+            name: 'edit',
+            titleAttr: "Edit",
+            action: function (e, dt, node, config) {
+                var groupName = table.row({ selected: true }).data()[0];
+                var path = '{{.GroupURL}}' + "/" + fixedEncodeURIComponent(groupName);
+                window.location.href = path;
+            },
+            enabled: false
+        };
+
+        $.fn.dataTable.ext.buttons.delete = {
+            text: '<i class="fas fa-trash"></i>',
+            name: 'delete',
+            titleAttr: "Delete",
+            action: function (e, dt, node, config) {
+                $('#deleteModal').modal('show');
+            },
+            enabled: false
+        };
+
+        var table = $('#dataTable').DataTable({
+            "select": {
+                "style": "single",
+                "blurable": true
+            },
+            "stateSave": true,
+            "stateDuration": 0,
+            "buttons": [],
+            "scrollX": false,
+            "scrollY": false,
+            "responsive": true,
+            "language": {
+                "emptyTable": "No group defined"
+            },
+            "order": [[0, 'asc']]
+        });
+
+        new $.fn.dataTable.FixedHeader( table );
+
+        {{if .LoggedAdmin.HasPermission "manage_groups"}}
+        table.button().add(0,'delete');
+        table.button().add(0,'edit');
+        table.button().add(0,'add');
+
+        table.buttons().container().appendTo('.col-md-6:eq(0)', table.table().container());
+
+        table.on('select deselect', function () {
+            var selectedRows = table.rows({ selected: true }).count();
+            table.button('delete:name').enable(selectedRows == 1);
+            table.button('edit:name').enable(selectedRows == 1);
+        });
+        {{end}}
+
+    });
+
+</script>
+{{end}}

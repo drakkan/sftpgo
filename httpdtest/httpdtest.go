@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/go-chi/render"
+	"github.com/sftpgo/sdk"
 
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
@@ -33,6 +34,7 @@ const (
 	quotaScanPath         = "/api/v2/quotas/users/scans"
 	quotaScanVFolderPath  = "/api/v2/quotas/folders/scans"
 	userPath              = "/api/v2/users"
+	groupPath             = "/api/v2/groups"
 	versionPath           = "/api/v2/version"
 	folderPath            = "/api/v2/folders"
 	serverStatusPath      = "/api/v2/status"
@@ -242,6 +244,115 @@ func GetUsers(limit, offset int64, expectedStatusCode int) ([]dataprovider.User,
 		body, _ = getResponseBody(resp)
 	}
 	return users, body, err
+}
+
+// AddGroup adds a new group and checks the received HTTP Status code against expectedStatusCode.
+func AddGroup(group dataprovider.Group, expectedStatusCode int) (dataprovider.Group, []byte, error) {
+	var newGroup dataprovider.Group
+	var body []byte
+	asJSON, _ := json.Marshal(group)
+	resp, err := sendHTTPRequest(http.MethodPost, buildURLRelativeToBase(groupPath), bytes.NewBuffer(asJSON),
+		"application/json", getDefaultToken())
+	if err != nil {
+		return newGroup, body, err
+	}
+	defer resp.Body.Close()
+	err = checkResponse(resp.StatusCode, expectedStatusCode)
+	if expectedStatusCode != http.StatusCreated {
+		body, _ = getResponseBody(resp)
+		return newGroup, body, err
+	}
+	if err == nil {
+		err = render.DecodeJSON(resp.Body, &newGroup)
+	} else {
+		body, _ = getResponseBody(resp)
+	}
+	if err == nil {
+		err = checkGroup(group, newGroup)
+	}
+	return newGroup, body, err
+}
+
+// UpdateGroup updates an existing group and checks the received HTTP Status code against expectedStatusCode
+func UpdateGroup(group dataprovider.Group, expectedStatusCode int) (dataprovider.Group, []byte, error) {
+	var newGroup dataprovider.Group
+	var body []byte
+
+	asJSON, _ := json.Marshal(group)
+	resp, err := sendHTTPRequest(http.MethodPut, buildURLRelativeToBase(groupPath, url.PathEscape(group.Name)),
+		bytes.NewBuffer(asJSON), "application/json", getDefaultToken())
+	if err != nil {
+		return newGroup, body, err
+	}
+	defer resp.Body.Close()
+	body, _ = getResponseBody(resp)
+	err = checkResponse(resp.StatusCode, expectedStatusCode)
+	if expectedStatusCode != http.StatusOK {
+		return newGroup, body, err
+	}
+	if err == nil {
+		newGroup, body, err = GetGroupByName(group.Name, expectedStatusCode)
+	}
+	if err == nil {
+		err = checkGroup(group, newGroup)
+	}
+	return newGroup, body, err
+}
+
+// RemoveGroup removes an existing group and checks the received HTTP Status code against expectedStatusCode.
+func RemoveGroup(group dataprovider.Group, expectedStatusCode int) ([]byte, error) {
+	var body []byte
+	resp, err := sendHTTPRequest(http.MethodDelete, buildURLRelativeToBase(groupPath, url.PathEscape(group.Name)),
+		nil, "", getDefaultToken())
+	if err != nil {
+		return body, err
+	}
+	defer resp.Body.Close()
+	body, _ = getResponseBody(resp)
+	return body, checkResponse(resp.StatusCode, expectedStatusCode)
+}
+
+// GetGroupByName gets a group by name and checks the received HTTP Status code against expectedStatusCode.
+func GetGroupByName(name string, expectedStatusCode int) (dataprovider.Group, []byte, error) {
+	var group dataprovider.Group
+	var body []byte
+	resp, err := sendHTTPRequest(http.MethodGet, buildURLRelativeToBase(groupPath, url.PathEscape(name)),
+		nil, "", getDefaultToken())
+	if err != nil {
+		return group, body, err
+	}
+	defer resp.Body.Close()
+	err = checkResponse(resp.StatusCode, expectedStatusCode)
+	if err == nil && expectedStatusCode == http.StatusOK {
+		err = render.DecodeJSON(resp.Body, &group)
+	} else {
+		body, _ = getResponseBody(resp)
+	}
+	return group, body, err
+}
+
+// GetGroups returns a list of groups and checks the received HTTP Status code against expectedStatusCode.
+// The number of results can be limited specifying a limit.
+// Some results can be skipped specifying an offset.
+func GetGroups(limit, offset int64, expectedStatusCode int) ([]dataprovider.Group, []byte, error) {
+	var groups []dataprovider.Group
+	var body []byte
+	url, err := addLimitAndOffsetQueryParams(buildURLRelativeToBase(groupPath), limit, offset)
+	if err != nil {
+		return groups, body, err
+	}
+	resp, err := sendHTTPRequest(http.MethodGet, url.String(), nil, "", getDefaultToken())
+	if err != nil {
+		return groups, body, err
+	}
+	defer resp.Body.Close()
+	err = checkResponse(resp.StatusCode, expectedStatusCode)
+	if err == nil && expectedStatusCode == http.StatusOK {
+		err = render.DecodeJSON(resp.Body, &groups)
+	} else {
+		body, _ = getResponseBody(resp)
+	}
+	return groups, body, err
 }
 
 // AddAdmin adds a new admin and checks the received HTTP Status code against expectedStatusCode.
@@ -1043,6 +1154,35 @@ func getResponseBody(resp *http.Response) ([]byte, error) {
 	return io.ReadAll(resp.Body)
 }
 
+func checkGroup(expected dataprovider.Group, actual dataprovider.Group) error {
+	if expected.ID <= 0 {
+		if actual.ID <= 0 {
+			return errors.New("actual group ID must be > 0")
+		}
+	} else {
+		if actual.ID != expected.ID {
+			return errors.New("group ID mismatch")
+		}
+	}
+	if dataprovider.ConvertName(expected.Name) != actual.Name {
+		return errors.New("name mismatch")
+	}
+	if expected.Description != actual.Description {
+		return errors.New("description mismatch")
+	}
+	if err := compareEqualGroupSettingsFields(expected.UserSettings.BaseGroupUserSettings,
+		actual.UserSettings.BaseGroupUserSettings); err != nil {
+		return err
+	}
+	if err := compareVirtualFolders(expected.VirtualFolders, actual.VirtualFolders); err != nil {
+		return err
+	}
+	if err := compareUserFilters(expected.UserSettings.Filters, actual.UserSettings.Filters); err != nil {
+		return err
+	}
+	return compareFsConfig(&expected.UserSettings.FsConfig, &actual.UserSettings.FsConfig)
+}
+
 func checkFolder(expected *vfs.BaseVirtualFolder, actual *vfs.BaseVirtualFolder) error {
 	if expected.ID <= 0 {
 		if actual.ID <= 0 {
@@ -1185,27 +1325,30 @@ func checkUser(expected *dataprovider.User, actual *dataprovider.User) error {
 	if expected.Email != actual.Email {
 		return errors.New("email mismatch")
 	}
-	if err := compareUserPermissions(expected, actual); err != nil {
+	if err := compareUserPermissions(expected.Permissions, actual.Permissions); err != nil {
 		return err
 	}
-	if err := compareUserFilters(expected, actual); err != nil {
+	if err := compareUserFilters(expected.Filters.BaseUserFilters, actual.Filters.BaseUserFilters); err != nil {
 		return err
 	}
 	if err := compareFsConfig(&expected.FsConfig, &actual.FsConfig); err != nil {
 		return err
 	}
-	if err := compareUserVirtualFolders(expected, actual); err != nil {
+	if err := compareUserGroups(expected, actual); err != nil {
+		return err
+	}
+	if err := compareVirtualFolders(expected.VirtualFolders, actual.VirtualFolders); err != nil {
 		return err
 	}
 	return compareEqualsUserFields(expected, actual)
 }
 
-func compareUserPermissions(expected *dataprovider.User, actual *dataprovider.User) error {
-	if len(expected.Permissions) != len(actual.Permissions) {
+func compareUserPermissions(expected map[string][]string, actual map[string][]string) error {
+	if len(expected) != len(actual) {
 		return errors.New("permissions mismatch")
 	}
-	for dir, perms := range expected.Permissions {
-		if actualPerms, ok := actual.Permissions[dir]; ok {
+	for dir, perms := range expected {
+		if actualPerms, ok := actual[dir]; ok {
 			for _, v := range actualPerms {
 				if !util.IsStringInSlice(v, perms) {
 					return errors.New("permissions contents mismatch")
@@ -1218,13 +1361,34 @@ func compareUserPermissions(expected *dataprovider.User, actual *dataprovider.Us
 	return nil
 }
 
-func compareUserVirtualFolders(expected *dataprovider.User, actual *dataprovider.User) error {
-	if len(actual.VirtualFolders) != len(expected.VirtualFolders) {
+func compareUserGroups(expected *dataprovider.User, actual *dataprovider.User) error {
+	if len(actual.Groups) != len(expected.Groups) {
+		return errors.New("groups len mismatch")
+	}
+	for _, g := range actual.Groups {
+		found := false
+		for _, g1 := range expected.Groups {
+			if g1.Name == g.Name {
+				found = true
+				if g1.Type != g.Type {
+					return fmt.Errorf("type mismatch for group %s", g.Name)
+				}
+			}
+		}
+		if !found {
+			return errors.New("groups mismatch")
+		}
+	}
+	return nil
+}
+
+func compareVirtualFolders(expected []vfs.VirtualFolder, actual []vfs.VirtualFolder) error {
+	if len(actual) != len(expected) {
 		return errors.New("virtual folders len mismatch")
 	}
-	for _, v := range actual.VirtualFolders {
+	for _, v := range actual {
 		found := false
-		for _, v1 := range expected.VirtualFolders {
+		for _, v1 := range expected {
 			if path.Clean(v.VirtualPath) == path.Clean(v1.VirtualPath) {
 				if err := checkFolder(&v1.BaseVirtualFolder, &v.BaseVirtualFolder); err != nil {
 					return err
@@ -1455,80 +1619,80 @@ func checkEncryptedSecret(expected, actual *kms.Secret) error {
 	return nil
 }
 
-func compareUserFilterSubStructs(expected *dataprovider.User, actual *dataprovider.User) error {
-	for _, IPMask := range expected.Filters.AllowedIP {
-		if !util.IsStringInSlice(IPMask, actual.Filters.AllowedIP) {
+func compareUserFilterSubStructs(expected sdk.BaseUserFilters, actual sdk.BaseUserFilters) error {
+	for _, IPMask := range expected.AllowedIP {
+		if !util.IsStringInSlice(IPMask, actual.AllowedIP) {
 			return errors.New("allowed IP contents mismatch")
 		}
 	}
-	for _, IPMask := range expected.Filters.DeniedIP {
-		if !util.IsStringInSlice(IPMask, actual.Filters.DeniedIP) {
+	for _, IPMask := range expected.DeniedIP {
+		if !util.IsStringInSlice(IPMask, actual.DeniedIP) {
 			return errors.New("denied IP contents mismatch")
 		}
 	}
-	for _, method := range expected.Filters.DeniedLoginMethods {
-		if !util.IsStringInSlice(method, actual.Filters.DeniedLoginMethods) {
+	for _, method := range expected.DeniedLoginMethods {
+		if !util.IsStringInSlice(method, actual.DeniedLoginMethods) {
 			return errors.New("denied login methods contents mismatch")
 		}
 	}
-	for _, protocol := range expected.Filters.DeniedProtocols {
-		if !util.IsStringInSlice(protocol, actual.Filters.DeniedProtocols) {
+	for _, protocol := range expected.DeniedProtocols {
+		if !util.IsStringInSlice(protocol, actual.DeniedProtocols) {
 			return errors.New("denied protocols contents mismatch")
 		}
 	}
-	for _, options := range expected.Filters.WebClient {
-		if !util.IsStringInSlice(options, actual.Filters.WebClient) {
+	for _, options := range expected.WebClient {
+		if !util.IsStringInSlice(options, actual.WebClient) {
 			return errors.New("web client options contents mismatch")
 		}
 	}
 	return compareUserFiltersEqualFields(expected, actual)
 }
 
-func compareUserFiltersEqualFields(expected *dataprovider.User, actual *dataprovider.User) error {
-	if expected.Filters.Hooks.ExternalAuthDisabled != actual.Filters.Hooks.ExternalAuthDisabled {
+func compareUserFiltersEqualFields(expected sdk.BaseUserFilters, actual sdk.BaseUserFilters) error {
+	if expected.Hooks.ExternalAuthDisabled != actual.Hooks.ExternalAuthDisabled {
 		return errors.New("external_auth_disabled hook mismatch")
 	}
-	if expected.Filters.Hooks.PreLoginDisabled != actual.Filters.Hooks.PreLoginDisabled {
+	if expected.Hooks.PreLoginDisabled != actual.Hooks.PreLoginDisabled {
 		return errors.New("pre_login_disabled hook mismatch")
 	}
-	if expected.Filters.Hooks.CheckPasswordDisabled != actual.Filters.Hooks.CheckPasswordDisabled {
+	if expected.Hooks.CheckPasswordDisabled != actual.Hooks.CheckPasswordDisabled {
 		return errors.New("check_password_disabled hook mismatch")
 	}
-	if expected.Filters.DisableFsChecks != actual.Filters.DisableFsChecks {
+	if expected.DisableFsChecks != actual.DisableFsChecks {
 		return errors.New("disable_fs_checks mismatch")
 	}
-	if expected.Filters.StartDirectory != actual.Filters.StartDirectory {
+	if expected.StartDirectory != actual.StartDirectory {
 		return errors.New("start_directory mismatch")
 	}
 	return nil
 }
 
-func compareUserFilters(expected *dataprovider.User, actual *dataprovider.User) error {
-	if len(expected.Filters.AllowedIP) != len(actual.Filters.AllowedIP) {
+func compareUserFilters(expected sdk.BaseUserFilters, actual sdk.BaseUserFilters) error {
+	if len(expected.AllowedIP) != len(actual.AllowedIP) {
 		return errors.New("allowed IP mismatch")
 	}
-	if len(expected.Filters.DeniedIP) != len(actual.Filters.DeniedIP) {
+	if len(expected.DeniedIP) != len(actual.DeniedIP) {
 		return errors.New("denied IP mismatch")
 	}
-	if len(expected.Filters.DeniedLoginMethods) != len(actual.Filters.DeniedLoginMethods) {
+	if len(expected.DeniedLoginMethods) != len(actual.DeniedLoginMethods) {
 		return errors.New("denied login methods mismatch")
 	}
-	if len(expected.Filters.DeniedProtocols) != len(actual.Filters.DeniedProtocols) {
+	if len(expected.DeniedProtocols) != len(actual.DeniedProtocols) {
 		return errors.New("denied protocols mismatch")
 	}
-	if expected.Filters.MaxUploadFileSize != actual.Filters.MaxUploadFileSize {
+	if expected.MaxUploadFileSize != actual.MaxUploadFileSize {
 		return errors.New("max upload file size mismatch")
 	}
-	if expected.Filters.TLSUsername != actual.Filters.TLSUsername {
+	if expected.TLSUsername != actual.TLSUsername {
 		return errors.New("TLSUsername mismatch")
 	}
-	if len(expected.Filters.WebClient) != len(actual.Filters.WebClient) {
+	if len(expected.WebClient) != len(actual.WebClient) {
 		return errors.New("WebClient filter mismatch")
 	}
-	if expected.Filters.AllowAPIKeyAuth != actual.Filters.AllowAPIKeyAuth {
+	if expected.AllowAPIKeyAuth != actual.AllowAPIKeyAuth {
 		return errors.New("allow_api_key_auth mismatch")
 	}
-	if expected.Filters.ExternalAuthCacheTime != actual.Filters.ExternalAuthCacheTime {
+	if expected.ExternalAuthCacheTime != actual.ExternalAuthCacheTime {
 		return errors.New("external_auth_cache_time mismatch")
 	}
 	if err := compareUserFilterSubStructs(expected, actual); err != nil {
@@ -1555,21 +1719,21 @@ func checkFilterMatch(expected []string, actual []string) bool {
 	return true
 }
 
-func compareUserDataTransferLimitFilters(expected *dataprovider.User, actual *dataprovider.User) error {
-	if len(expected.Filters.DataTransferLimits) != len(actual.Filters.DataTransferLimits) {
+func compareUserDataTransferLimitFilters(expected sdk.BaseUserFilters, actual sdk.BaseUserFilters) error {
+	if len(expected.DataTransferLimits) != len(actual.DataTransferLimits) {
 		return errors.New("data transfer limits filters mismatch")
 	}
-	for idx, l := range expected.Filters.DataTransferLimits {
-		if actual.Filters.DataTransferLimits[idx].UploadDataTransfer != l.UploadDataTransfer {
+	for idx, l := range expected.DataTransferLimits {
+		if actual.DataTransferLimits[idx].UploadDataTransfer != l.UploadDataTransfer {
 			return errors.New("data transfer limit upload_data_transfer mismatch")
 		}
-		if actual.Filters.DataTransferLimits[idx].DownloadDataTransfer != l.DownloadDataTransfer {
+		if actual.DataTransferLimits[idx].DownloadDataTransfer != l.DownloadDataTransfer {
 			return errors.New("data transfer limit download_data_transfer mismatch")
 		}
-		if actual.Filters.DataTransferLimits[idx].TotalDataTransfer != l.TotalDataTransfer {
+		if actual.DataTransferLimits[idx].TotalDataTransfer != l.TotalDataTransfer {
 			return errors.New("data transfer limit total_data_transfer mismatch")
 		}
-		for _, source := range actual.Filters.DataTransferLimits[idx].Sources {
+		for _, source := range actual.DataTransferLimits[idx].Sources {
 			if !util.IsStringInSlice(source, l.Sources) {
 				return errors.New("data transfer limit source mismatch")
 			}
@@ -1579,22 +1743,22 @@ func compareUserDataTransferLimitFilters(expected *dataprovider.User, actual *da
 	return nil
 }
 
-func compareUserBandwidthLimitFilters(expected *dataprovider.User, actual *dataprovider.User) error {
-	if len(expected.Filters.BandwidthLimits) != len(actual.Filters.BandwidthLimits) {
+func compareUserBandwidthLimitFilters(expected sdk.BaseUserFilters, actual sdk.BaseUserFilters) error {
+	if len(expected.BandwidthLimits) != len(actual.BandwidthLimits) {
 		return errors.New("bandwidth limits filters mismatch")
 	}
 
-	for idx, l := range expected.Filters.BandwidthLimits {
-		if actual.Filters.BandwidthLimits[idx].UploadBandwidth != l.UploadBandwidth {
+	for idx, l := range expected.BandwidthLimits {
+		if actual.BandwidthLimits[idx].UploadBandwidth != l.UploadBandwidth {
 			return errors.New("bandwidth filters upload_bandwidth mismatch")
 		}
-		if actual.Filters.BandwidthLimits[idx].DownloadBandwidth != l.DownloadBandwidth {
+		if actual.BandwidthLimits[idx].DownloadBandwidth != l.DownloadBandwidth {
 			return errors.New("bandwidth filters download_bandwidth mismatch")
 		}
-		if len(actual.Filters.BandwidthLimits[idx].Sources) != len(l.Sources) {
+		if len(actual.BandwidthLimits[idx].Sources) != len(l.Sources) {
 			return errors.New("bandwidth filters sources mismatch")
 		}
-		for _, source := range actual.Filters.BandwidthLimits[idx].Sources {
+		for _, source := range actual.BandwidthLimits[idx].Sources {
 			if !util.IsStringInSlice(source, l.Sources) {
 				return errors.New("bandwidth filters source mismatch")
 			}
@@ -1604,13 +1768,13 @@ func compareUserBandwidthLimitFilters(expected *dataprovider.User, actual *datap
 	return nil
 }
 
-func compareUserFilePatternsFilters(expected *dataprovider.User, actual *dataprovider.User) error {
-	if len(expected.Filters.FilePatterns) != len(actual.Filters.FilePatterns) {
+func compareUserFilePatternsFilters(expected sdk.BaseUserFilters, actual sdk.BaseUserFilters) error {
+	if len(expected.FilePatterns) != len(actual.FilePatterns) {
 		return errors.New("file patterns mismatch")
 	}
-	for _, f := range expected.Filters.FilePatterns {
+	for _, f := range expected.FilePatterns {
 		found := false
-		for _, f1 := range actual.Filters.FilePatterns {
+		for _, f1 := range actual.FilePatterns {
 			if path.Clean(f.Path) == path.Clean(f1.Path) && f.DenyPolicy == f1.DenyPolicy {
 				if !checkFilterMatch(f.AllowedPatterns, f1.AllowedPatterns) ||
 					!checkFilterMatch(f.DeniedPatterns, f1.DeniedPatterns) {
@@ -1624,6 +1788,37 @@ func compareUserFilePatternsFilters(expected *dataprovider.User, actual *datapro
 		}
 	}
 	return nil
+}
+
+func compareEqualGroupSettingsFields(expected sdk.BaseGroupUserSettings, actual sdk.BaseGroupUserSettings) error {
+	if expected.HomeDir != actual.HomeDir {
+		return errors.New("home dir mismatch")
+	}
+	if expected.MaxSessions != actual.MaxSessions {
+		return errors.New("MaxSessions mismatch")
+	}
+	if expected.QuotaSize != actual.QuotaSize {
+		return errors.New("QuotaSize mismatch")
+	}
+	if expected.QuotaFiles != actual.QuotaFiles {
+		return errors.New("QuotaFiles mismatch")
+	}
+	if expected.UploadBandwidth != actual.UploadBandwidth {
+		return errors.New("UploadBandwidth mismatch")
+	}
+	if expected.DownloadBandwidth != actual.DownloadBandwidth {
+		return errors.New("DownloadBandwidth mismatch")
+	}
+	if expected.UploadDataTransfer != actual.UploadDataTransfer {
+		return errors.New("upload_data_transfer mismatch")
+	}
+	if expected.DownloadDataTransfer != actual.DownloadDataTransfer {
+		return errors.New("download_data_transfer mismatch")
+	}
+	if expected.TotalDataTransfer != actual.TotalDataTransfer {
+		return errors.New("total_data_transfer mismatch")
+	}
+	return compareUserPermissions(expected.Permissions, actual.Permissions)
 }
 
 func compareEqualsUserFields(expected *dataprovider.User, actual *dataprovider.User) error {

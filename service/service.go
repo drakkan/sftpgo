@@ -308,6 +308,10 @@ func (s *Service) restoreDump(dump *dataprovider.BackupData) error {
 	if err != nil {
 		return fmt.Errorf("unable to restore folders from file %#v: %v", s.LoadDataFrom, err)
 	}
+	err = httpd.RestoreGroups(dump.Groups, s.LoadDataFrom, s.LoadDataMode, dataprovider.ActionExecutorSystem, "")
+	if err != nil {
+		return fmt.Errorf("unable to restore groups from file %#v: %v", s.LoadDataFrom, err)
+	}
 	err = httpd.RestoreUsers(dump.Users, s.LoadDataFrom, s.LoadDataMode, s.LoadDataQuotaScan, dataprovider.ActionExecutorSystem, "")
 	if err != nil {
 		return fmt.Errorf("unable to restore users from file %#v: %v", s.LoadDataFrom, err)

@@ -43,40 +43,51 @@ const (
 	folderPageModeTemplate
 )
 
+type groupPageMode int
+
 const (
-	templateAdminDir     = "webadmin"
-	templateBase         = "base.html"
-	templateBaseLogin    = "baselogin.html"
-	templateFsConfig     = "fsconfig.html"
-	templateUsers        = "users.html"
-	templateUser         = "user.html"
-	templateAdmins       = "admins.html"
-	templateAdmin        = "admin.html"
-	templateConnections  = "connections.html"
-	templateFolders      = "folders.html"
-	templateFolder       = "folder.html"
-	templateMessage      = "message.html"
-	templateStatus       = "status.html"
-	templateLogin        = "login.html"
-	templateDefender     = "defender.html"
-	templateProfile      = "profile.html"
-	templateChangePwd    = "changepassword.html"
-	templateMaintenance  = "maintenance.html"
-	templateMFA          = "mfa.html"
-	templateSetup        = "adminsetup.html"
-	pageUsersTitle       = "Users"
-	pageAdminsTitle      = "Admins"
-	pageConnectionsTitle = "Connections"
-	pageStatusTitle      = "Status"
-	pageFoldersTitle     = "Folders"
-	pageProfileTitle     = "My profile"
-	pageChangePwdTitle   = "Change password"
-	pageMaintenanceTitle = "Maintenance"
-	pageDefenderTitle    = "Defender"
-	pageForgotPwdTitle   = "SFTPGo Admin - Forgot password"
-	pageResetPwdTitle    = "SFTPGo Admin - Reset password"
-	pageSetupTitle       = "Create first admin user"
-	defaultQueryLimit    = 500
+	groupPageModeAdd groupPageMode = iota + 1
+	groupPageModeUpdate
+)
+
+const (
+	templateAdminDir         = "webadmin"
+	templateBase             = "base.html"
+	templateBaseLogin        = "baselogin.html"
+	templateFsConfig         = "fsconfig.html"
+	templateSharedComponents = "sharedcomponents.html"
+	templateUsers            = "users.html"
+	templateUser             = "user.html"
+	templateAdmins           = "admins.html"
+	templateAdmin            = "admin.html"
+	templateConnections      = "connections.html"
+	templateGroups           = "groups.html"
+	templateGroup            = "group.html"
+	templateFolders          = "folders.html"
+	templateFolder           = "folder.html"
+	templateMessage          = "message.html"
+	templateStatus           = "status.html"
+	templateLogin            = "login.html"
+	templateDefender         = "defender.html"
+	templateProfile          = "profile.html"
+	templateChangePwd        = "changepassword.html"
+	templateMaintenance      = "maintenance.html"
+	templateMFA              = "mfa.html"
+	templateSetup            = "adminsetup.html"
+	pageUsersTitle           = "Users"
+	pageAdminsTitle          = "Admins"
+	pageConnectionsTitle     = "Connections"
+	pageStatusTitle          = "Status"
+	pageFoldersTitle         = "Folders"
+	pageGroupsTitle          = "Groups"
+	pageProfileTitle         = "My profile"
+	pageChangePwdTitle       = "Change password"
+	pageMaintenanceTitle     = "Maintenance"
+	pageDefenderTitle        = "Defender"
+	pageForgotPwdTitle       = "SFTPGo Admin - Forgot password"
+	pageResetPwdTitle        = "SFTPGo Admin - Reset password"
+	pageSetupTitle           = "Create first admin user"
+	defaultQueryLimit        = 500
 )
 
 var (
@@ -93,6 +104,8 @@ type basePage struct {
 	AdminURL           string
 	QuotaScanURL       string
 	ConnectionsURL     string
+	GroupsURL          string
+	GroupURL           string
 	FoldersURL         string
 	FolderURL          string
 	FolderTemplateURL  string
@@ -109,6 +122,7 @@ type basePage struct {
 	AdminsTitle        string
 	ConnectionsTitle   string
 	FoldersTitle       string
+	GroupsTitle        string
 	StatusTitle        string
 	MaintenanceTitle   string
 	DefenderTitle      string
@@ -135,6 +149,11 @@ type foldersPage struct {
 	Folders []vfs.BaseVirtualFolder
 }
 
+type groupsPage struct {
+	basePage
+	Groups []dataprovider.Group
+}
+
 type connectionsPage struct {
 	basePage
 	Connections []common.ConnectionStatus
@@ -148,6 +167,7 @@ type statusPage struct {
 type fsWrapper struct {
 	vfs.Filesystem
 	IsUserPage      bool
+	IsGroupPage     bool
 	HasUsersBaseDir bool
 	DirPath         string
 }
@@ -166,6 +186,7 @@ type userPage struct {
 	RedactedSecret     string
 	Mode               userPageMode
 	VirtualFolders     []vfs.BaseVirtualFolder
+	Groups             []dataprovider.Group
 	CanImpersonate     bool
 	FsWrapper          fsWrapper
 }
@@ -228,6 +249,20 @@ type folderPage struct {
 	FsWrapper fsWrapper
 }
 
+type groupPage struct {
+	basePage
+	Group              *dataprovider.Group
+	Error              string
+	Mode               groupPageMode
+	ValidPerms         []string
+	ValidLoginMethods  []string
+	ValidProtocols     []string
+	TwoFactorProtocols []string
+	WebClientOptions   []string
+	VirtualFolders     []vfs.BaseVirtualFolder
+	FsWrapper          fsWrapper
+}
+
 type messagePage struct {
 	basePage
 	Error   string
@@ -247,6 +282,7 @@ func loadAdminTemplates(templatesPath string) {
 	}
 	userPaths := []string{
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
+		filepath.Join(templatesPath, templateAdminDir, templateSharedComponents),
 		filepath.Join(templatesPath, templateAdminDir, templateFsConfig),
 		filepath.Join(templatesPath, templateAdminDir, templateUser),
 	}
@@ -282,6 +318,16 @@ func loadAdminTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateFsConfig),
 		filepath.Join(templatesPath, templateAdminDir, templateFolder),
+	}
+	groupsPaths := []string{
+		filepath.Join(templatesPath, templateAdminDir, templateBase),
+		filepath.Join(templatesPath, templateAdminDir, templateGroups),
+	}
+	groupPaths := []string{
+		filepath.Join(templatesPath, templateAdminDir, templateBase),
+		filepath.Join(templatesPath, templateAdminDir, templateFsConfig),
+		filepath.Join(templatesPath, templateAdminDir, templateSharedComponents),
+		filepath.Join(templatesPath, templateAdminDir, templateGroup),
 	}
 	statusPaths := []string{
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
@@ -336,6 +382,8 @@ func loadAdminTemplates(templatesPath string) {
 	adminTmpl := util.LoadTemplate(nil, adminPaths...)
 	connectionsTmpl := util.LoadTemplate(nil, connectionsPaths...)
 	messageTmpl := util.LoadTemplate(nil, messagePaths...)
+	groupsTmpl := util.LoadTemplate(nil, groupsPaths...)
+	groupTmpl := util.LoadTemplate(fsBaseTpl, groupPaths...)
 	foldersTmpl := util.LoadTemplate(nil, foldersPaths...)
 	folderTmpl := util.LoadTemplate(fsBaseTpl, folderPaths...)
 	statusTmpl := util.LoadTemplate(nil, statusPaths...)
@@ -357,6 +405,8 @@ func loadAdminTemplates(templatesPath string) {
 	adminTemplates[templateAdmin] = adminTmpl
 	adminTemplates[templateConnections] = connectionsTmpl
 	adminTemplates[templateMessage] = messageTmpl
+	adminTemplates[templateGroups] = groupsTmpl
+	adminTemplates[templateGroup] = groupTmpl
 	adminTemplates[templateFolders] = foldersTmpl
 	adminTemplates[templateFolder] = folderTmpl
 	adminTemplates[templateStatus] = statusTmpl
@@ -386,6 +436,8 @@ func (s *httpdServer) getBasePageData(title, currentURL string, r *http.Request)
 		UserTemplateURL:    webTemplateUser,
 		AdminsURL:          webAdminsPath,
 		AdminURL:           webAdminPath,
+		GroupsURL:          webGroupsPath,
+		GroupURL:           webGroupPath,
 		FoldersURL:         webFoldersPath,
 		FolderURL:          webFolderPath,
 		FolderTemplateURL:  webTemplateFolder,
@@ -404,6 +456,7 @@ func (s *httpdServer) getBasePageData(title, currentURL string, r *http.Request)
 		AdminsTitle:        pageAdminsTitle,
 		ConnectionsTitle:   pageConnectionsTitle,
 		FoldersTitle:       pageFoldersTitle,
+		GroupsTitle:        pageGroupsTitle,
 		StatusTitle:        pageStatusTitle,
 		MaintenanceTitle:   pageMaintenanceTitle,
 		DefenderTitle:      pageDefenderTitle,
@@ -595,7 +648,11 @@ func (s *httpdServer) renderAddUpdateAdminPage(w http.ResponseWriter, r *http.Re
 func (s *httpdServer) renderUserPage(w http.ResponseWriter, r *http.Request, user *dataprovider.User,
 	mode userPageMode, error string,
 ) {
-	folders, err := s.getWebVirtualFolders(w, r, defaultQueryLimit)
+	folders, err := s.getWebVirtualFolders(w, r, defaultQueryLimit, true)
+	if err != nil {
+		return
+	}
+	groups, err := s.getWebGroups(w, r, defaultQueryLimit, true)
 	if err != nil {
 		return
 	}
@@ -628,10 +685,12 @@ func (s *httpdServer) renderUserPage(w http.ResponseWriter, r *http.Request, use
 		WebClientOptions:   sdk.WebClientOptions,
 		RootDirPerms:       user.GetPermissionsForPath("/"),
 		VirtualFolders:     folders,
+		Groups:             groups,
 		CanImpersonate:     os.Getuid() == 0,
 		FsWrapper: fsWrapper{
 			Filesystem:      user.FsConfig,
 			IsUserPage:      true,
+			IsGroupPage:     false,
 			HasUsersBaseDir: dataprovider.HasUsersBaseDir(),
 			DirPath:         user.HomeDir,
 		},
@@ -639,7 +698,52 @@ func (s *httpdServer) renderUserPage(w http.ResponseWriter, r *http.Request, use
 	renderAdminTemplate(w, templateUser, data)
 }
 
-func (s *httpdServer) renderFolderPage(w http.ResponseWriter, r *http.Request, folder vfs.BaseVirtualFolder, mode folderPageMode, error string) {
+func (s *httpdServer) renderGroupPage(w http.ResponseWriter, r *http.Request, group dataprovider.Group,
+	mode groupPageMode, error string,
+) {
+	folders, err := s.getWebVirtualFolders(w, r, defaultQueryLimit, true)
+	if err != nil {
+		return
+	}
+	group.SetEmptySecretsIfNil()
+	group.UserSettings.FsConfig.RedactedSecret = redactedSecret
+	var title, currentURL string
+	switch mode {
+	case groupPageModeAdd:
+		title = "Add a new group"
+		currentURL = webGroupPath
+	case groupPageModeUpdate:
+		title = "Update group"
+		currentURL = fmt.Sprintf("%v/%v", webGroupPath, url.PathEscape(group.Name))
+	}
+	group.UserSettings.FsConfig.RedactedSecret = redactedSecret
+	group.UserSettings.FsConfig.SetEmptySecretsIfNil()
+
+	data := groupPage{
+		basePage:           s.getBasePageData(title, currentURL, r),
+		Error:              error,
+		Group:              &group,
+		Mode:               mode,
+		ValidPerms:         dataprovider.ValidPerms,
+		ValidLoginMethods:  dataprovider.ValidLoginMethods,
+		ValidProtocols:     dataprovider.ValidProtocols,
+		TwoFactorProtocols: dataprovider.MFAProtocols,
+		WebClientOptions:   sdk.WebClientOptions,
+		VirtualFolders:     folders,
+		FsWrapper: fsWrapper{
+			Filesystem:      group.UserSettings.FsConfig,
+			IsUserPage:      false,
+			IsGroupPage:     true,
+			HasUsersBaseDir: false,
+			DirPath:         group.UserSettings.HomeDir,
+		},
+	}
+	renderAdminTemplate(w, templateGroup, data)
+}
+
+func (s *httpdServer) renderFolderPage(w http.ResponseWriter, r *http.Request, folder vfs.BaseVirtualFolder,
+	mode folderPageMode, error string,
+) {
 	var title, currentURL string
 	switch mode {
 	case folderPageModeAdd:
@@ -663,6 +767,7 @@ func (s *httpdServer) renderFolderPage(w http.ResponseWriter, r *http.Request, f
 		FsWrapper: fsWrapper{
 			Filesystem:      folder.FsConfig,
 			IsUserPage:      false,
+			IsGroupPage:     false,
 			HasUsersBaseDir: false,
 			DirPath:         folder.MappedPath,
 		},
@@ -763,9 +868,8 @@ func getVirtualFoldersFromPostFields(r *http.Request) []vfs.VirtualFolder {
 	return virtualFolders
 }
 
-func getUserPermissionsFromPostFields(r *http.Request) map[string][]string {
+func getSubDirPermissionsFromPostFields(r *http.Request) map[string][]string {
 	permissions := make(map[string][]string)
-	permissions["/"] = r.Form["permissions"]
 
 	for k := range r.Form {
 		if strings.HasPrefix(k, "sub_perm_path") {
@@ -776,6 +880,13 @@ func getUserPermissionsFromPostFields(r *http.Request) map[string][]string {
 			}
 		}
 	}
+
+	return permissions
+}
+
+func getUserPermissionsFromPostFields(r *http.Request) map[string][]string {
+	permissions := getSubDirPermissionsFromPostFields(r)
+	permissions["/"] = r.Form["permissions"]
 
 	return permissions
 }
@@ -928,6 +1039,27 @@ func getFilePatternsFromPostField(r *http.Request) []sdk.PatternsFilter {
 	return result
 }
 
+func getGroupsFromUserPostFields(r *http.Request) []sdk.GroupMapping {
+	var groups []sdk.GroupMapping
+
+	primaryGroup := r.Form.Get("primary_group")
+	if primaryGroup != "" {
+		groups = append(groups, sdk.GroupMapping{
+			Name: primaryGroup,
+			Type: sdk.GroupTypePrimary,
+		})
+	}
+	secondaryGroups := r.Form["secondary_groups"]
+	for _, name := range secondaryGroups {
+		groups = append(groups, sdk.GroupMapping{
+			Name: name,
+			Type: sdk.GroupTypeSecondary,
+		})
+	}
+
+	return groups
+}
+
 func getFiltersFromUserPostFields(r *http.Request) (sdk.BaseUserFilters, error) {
 	var filters sdk.BaseUserFilters
 	bwLimits, err := getBandwidthLimitsFromPostFields(r)
@@ -937,6 +1069,10 @@ func getFiltersFromUserPostFields(r *http.Request) (sdk.BaseUserFilters, error) 
 	dtLimits, err := getDataTransferLimitsFromPostFields(r)
 	if err != nil {
 		return filters, err
+	}
+	maxFileSize, err := strconv.ParseInt(r.Form.Get("max_upload_file_size"), 10, 64)
+	if err != nil {
+		return filters, fmt.Errorf("invalid max upload file size: %w", err)
 	}
 	filters.BandwidthLimits = bwLimits
 	filters.DataTransferLimits = dtLimits
@@ -960,9 +1096,13 @@ func getFiltersFromUserPostFields(r *http.Request) (sdk.BaseUserFilters, error) 
 	}
 	filters.DisableFsChecks = len(r.Form.Get("disable_fs_checks")) > 0
 	filters.AllowAPIKeyAuth = len(r.Form.Get("allow_api_key_auth")) > 0
-	filters.ExternalAuthCacheTime, err = strconv.ParseInt(r.Form.Get("external_auth_cache_time"), 10, 64)
 	filters.StartDirectory = r.Form.Get("start_directory")
-	return filters, err
+	filters.MaxUploadFileSize = maxFileSize
+	filters.ExternalAuthCacheTime, err = strconv.ParseInt(r.Form.Get("external_auth_cache_time"), 10, 64)
+	if err != nil {
+		return filters, fmt.Errorf("invalid external auth cache time: %w", err)
+	}
+	return filters, nil
 }
 
 func getSecretFromFormField(r *http.Request, field string) *kms.Secret {
@@ -990,27 +1130,30 @@ func getS3Config(r *http.Request) (vfs.S3FsConfig, error) {
 	config.KeyPrefix = r.Form.Get("s3_key_prefix")
 	config.UploadPartSize, err = strconv.ParseInt(r.Form.Get("s3_upload_part_size"), 10, 64)
 	if err != nil {
-		return config, err
+		return config, fmt.Errorf("invalid s3 upload part size: %w", err)
 	}
 	config.UploadConcurrency, err = strconv.Atoi(r.Form.Get("s3_upload_concurrency"))
 	if err != nil {
-		return config, err
+		return config, fmt.Errorf("invalid s3 upload concurrency: %w", err)
 	}
 	config.DownloadPartSize, err = strconv.ParseInt(r.Form.Get("s3_download_part_size"), 10, 64)
 	if err != nil {
-		return config, err
+		return config, fmt.Errorf("invalid s3 download part size: %w", err)
 	}
 	config.DownloadConcurrency, err = strconv.Atoi(r.Form.Get("s3_download_concurrency"))
 	if err != nil {
-		return config, err
+		return config, fmt.Errorf("invalid s3 download concurrency: %w", err)
 	}
 	config.ForcePathStyle = r.Form.Get("s3_force_path_style") != ""
 	config.DownloadPartMaxTime, err = strconv.Atoi(r.Form.Get("s3_download_part_max_time"))
 	if err != nil {
-		return config, err
+		return config, fmt.Errorf("invalid s3 download part max time: %w", err)
 	}
 	config.UploadPartMaxTime, err = strconv.Atoi(r.Form.Get("s3_upload_part_max_time"))
-	return config, err
+	if err != nil {
+		return config, fmt.Errorf("invalid s3 upload part max time: %w", err)
+	}
+	return config, nil
 }
 
 func getGCSConfig(r *http.Request) (vfs.GCSFsConfig, error) {
@@ -1059,7 +1202,10 @@ func getSFTPConfig(r *http.Request) (vfs.SFTPFsConfig, error) {
 	config.Prefix = r.Form.Get("sftp_prefix")
 	config.DisableCouncurrentReads = len(r.Form.Get("sftp_disable_concurrent_reads")) > 0
 	config.BufferSize, err = strconv.ParseInt(r.Form.Get("sftp_buffer_size"), 10, 64)
-	return config, err
+	if err != nil {
+		return config, fmt.Errorf("invalid SFTP buffer size: %w", err)
+	}
+	return config, nil
 }
 
 func getAzureConfig(r *http.Request) (vfs.AzBlobFsConfig, error) {
@@ -1075,18 +1221,21 @@ func getAzureConfig(r *http.Request) (vfs.AzBlobFsConfig, error) {
 	config.UseEmulator = len(r.Form.Get("az_use_emulator")) > 0
 	config.UploadPartSize, err = strconv.ParseInt(r.Form.Get("az_upload_part_size"), 10, 64)
 	if err != nil {
-		return config, err
+		return config, fmt.Errorf("invalid azure upload part size: %w", err)
 	}
 	config.UploadConcurrency, err = strconv.Atoi(r.Form.Get("az_upload_concurrency"))
 	if err != nil {
-		return config, err
+		return config, fmt.Errorf("invalid azure upload concurrency: %w", err)
 	}
 	config.DownloadPartSize, err = strconv.ParseInt(r.Form.Get("az_download_part_size"), 10, 64)
 	if err != nil {
-		return config, err
+		return config, fmt.Errorf("invalid azure download part size: %w", err)
 	}
 	config.DownloadConcurrency, err = strconv.Atoi(r.Form.Get("az_download_concurrency"))
-	return config, err
+	if err != nil {
+		return config, fmt.Errorf("invalid azure download concurrency: %w", err)
+	}
+	return config, nil
 }
 
 func getFsConfigFromPostFields(r *http.Request) (vfs.Filesystem, error) {
@@ -1287,7 +1436,7 @@ func getQuotaLimits(r *http.Request) (int64, int, error) {
 }
 
 func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
-	var user dataprovider.User
+	user := dataprovider.User{}
 	err := r.ParseMultipartForm(maxRequestSize)
 	if err != nil {
 		return user, err
@@ -1370,13 +1519,71 @@ func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 		},
 		VirtualFolders: getVirtualFoldersFromPostFields(r),
 		FsConfig:       fsConfig,
+		Groups:         getGroupsFromUserPostFields(r),
 	}
-	maxFileSize, err := strconv.ParseInt(r.Form.Get("max_upload_file_size"), 10, 64)
+	return user, nil
+}
+
+func getGroupFromPostFields(r *http.Request) (dataprovider.Group, error) {
+	group := dataprovider.Group{}
+	err := r.ParseMultipartForm(maxRequestSize)
 	if err != nil {
-		return user, fmt.Errorf("invalid max upload file size: %w", err)
+		return group, err
 	}
-	user.Filters.MaxUploadFileSize = maxFileSize
-	return user, err
+	defer r.MultipartForm.RemoveAll() //nolint:errcheck
+
+	maxSessions, err := strconv.Atoi(r.Form.Get("max_sessions"))
+	if err != nil {
+		return group, fmt.Errorf("invalid max sessions: %w", err)
+	}
+	quotaSize, quotaFiles, err := getQuotaLimits(r)
+	if err != nil {
+		return group, err
+	}
+	bandwidthUL, err := strconv.ParseInt(r.Form.Get("upload_bandwidth"), 10, 64)
+	if err != nil {
+		return group, fmt.Errorf("invalid upload bandwidth: %w", err)
+	}
+	bandwidthDL, err := strconv.ParseInt(r.Form.Get("download_bandwidth"), 10, 64)
+	if err != nil {
+		return group, fmt.Errorf("invalid download bandwidth: %w", err)
+	}
+	dataTransferUL, dataTransferDL, dataTransferTotal, err := getTransferLimits(r)
+	if err != nil {
+		return group, err
+	}
+	fsConfig, err := getFsConfigFromPostFields(r)
+	if err != nil {
+		return group, err
+	}
+	filters, err := getFiltersFromUserPostFields(r)
+	if err != nil {
+		return group, err
+	}
+	group = dataprovider.Group{
+		BaseGroup: sdk.BaseGroup{
+			Name:        r.Form.Get("name"),
+			Description: r.Form.Get("description"),
+		},
+		UserSettings: dataprovider.GroupUserSettings{
+			BaseGroupUserSettings: sdk.BaseGroupUserSettings{
+				HomeDir:              r.Form.Get("home_dir"),
+				MaxSessions:          maxSessions,
+				QuotaSize:            quotaSize,
+				QuotaFiles:           quotaFiles,
+				Permissions:          getSubDirPermissionsFromPostFields(r),
+				UploadBandwidth:      bandwidthUL,
+				DownloadBandwidth:    bandwidthDL,
+				UploadDataTransfer:   dataTransferUL,
+				DownloadDataTransfer: dataTransferDL,
+				TotalDataTransfer:    dataTransferTotal,
+				Filters:              filters,
+			},
+			FsConfig: fsConfig,
+		},
+		VirtualFolders: getVirtualFoldersFromPostFields(r),
+	}
+	return group, nil
 }
 
 func (s *httpdServer) handleWebAdminForgotPwd(w http.ResponseWriter, r *http.Request) {
@@ -1927,11 +2134,11 @@ func (s *httpdServer) handleWebAddUserPost(w http.ResponseWriter, r *http.Reques
 		PublicKeys: user.PublicKeys,
 	})
 	err = dataprovider.AddUser(&user, claims.Username, ipAddr)
-	if err == nil {
-		http.Redirect(w, r, webUsersPath, http.StatusSeeOther)
-	} else {
+	if err != nil {
 		s.renderUserPage(w, r, &user, userPageModeAdd, err.Error())
+		return
 	}
+	http.Redirect(w, r, webUsersPath, http.StatusSeeOther)
 }
 
 func (s *httpdServer) handleWebUpdateUserPost(w http.ResponseWriter, r *http.Request) {
@@ -1979,14 +2186,14 @@ func (s *httpdServer) handleWebUpdateUserPost(w http.ResponseWriter, r *http.Req
 	})
 
 	err = dataprovider.UpdateUser(&updatedUser, claims.Username, ipAddr)
-	if err == nil {
-		if r.Form.Get("disconnect") != "" {
-			disconnectUser(user.Username)
-		}
-		http.Redirect(w, r, webUsersPath, http.StatusSeeOther)
-	} else {
-		s.renderUserPage(w, r, &user, userPageModeUpdate, err.Error())
+	if err != nil {
+		s.renderUserPage(w, r, &updatedUser, userPageModeUpdate, err.Error())
+		return
 	}
+	if r.Form.Get("disconnect") != "" {
+		disconnectUser(user.Username)
+	}
+	http.Redirect(w, r, webUsersPath, http.StatusSeeOther)
 }
 
 func (s *httpdServer) handleWebGetStatus(w http.ResponseWriter, r *http.Request) {
@@ -2108,18 +2315,18 @@ func (s *httpdServer) handleWebUpdateFolderPost(w http.ResponseWriter, r *http.R
 
 	updatedFolder = getFolderFromTemplate(updatedFolder, updatedFolder.Name)
 
-	err = dataprovider.UpdateFolder(&updatedFolder, folder.Users, claims.Username, ipAddr)
+	err = dataprovider.UpdateFolder(&updatedFolder, folder.Users, folder.Groups, claims.Username, ipAddr)
 	if err != nil {
-		s.renderFolderPage(w, r, folder, folderPageModeUpdate, err.Error())
+		s.renderFolderPage(w, r, updatedFolder, folderPageModeUpdate, err.Error())
 		return
 	}
 	http.Redirect(w, r, webFoldersPath, http.StatusSeeOther)
 }
 
-func (s *httpdServer) getWebVirtualFolders(w http.ResponseWriter, r *http.Request, limit int) ([]vfs.BaseVirtualFolder, error) {
+func (s *httpdServer) getWebVirtualFolders(w http.ResponseWriter, r *http.Request, limit int, minimal bool) ([]vfs.BaseVirtualFolder, error) {
 	folders := make([]vfs.BaseVirtualFolder, 0, limit)
 	for {
-		f, err := dataprovider.GetFolders(limit, len(folders), dataprovider.OrderASC)
+		f, err := dataprovider.GetFolders(limit, len(folders), dataprovider.OrderASC, minimal)
 		if err != nil {
 			s.renderInternalServerErrorPage(w, r, err)
 			return folders, err
@@ -2142,7 +2349,7 @@ func (s *httpdServer) handleWebGetFolders(w http.ResponseWriter, r *http.Request
 			limit = defaultQueryLimit
 		}
 	}
-	folders, err := s.getWebVirtualFolders(w, r, limit)
+	folders, err := s.getWebVirtualFolders(w, r, limit, false)
 	if err != nil {
 		return
 	}
@@ -2152,4 +2359,128 @@ func (s *httpdServer) handleWebGetFolders(w http.ResponseWriter, r *http.Request
 		Folders:  folders,
 	}
 	renderAdminTemplate(w, templateFolders, data)
+}
+
+func (s *httpdServer) getWebGroups(w http.ResponseWriter, r *http.Request, limit int, minimal bool) ([]dataprovider.Group, error) {
+	groups := make([]dataprovider.Group, 0, limit)
+	for {
+		f, err := dataprovider.GetGroups(limit, len(groups), dataprovider.OrderASC, minimal)
+		if err != nil {
+			s.renderInternalServerErrorPage(w, r, err)
+			return groups, err
+		}
+		groups = append(groups, f...)
+		if len(f) < limit {
+			break
+		}
+	}
+	return groups, nil
+}
+
+func (s *httpdServer) handleWebGetGroups(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	limit := defaultQueryLimit
+	if _, ok := r.URL.Query()["qlimit"]; ok {
+		var err error
+		limit, err = strconv.Atoi(r.URL.Query().Get("qlimit"))
+		if err != nil {
+			limit = defaultQueryLimit
+		}
+	}
+	groups, err := s.getWebGroups(w, r, limit, false)
+	if err != nil {
+		return
+	}
+
+	data := groupsPage{
+		basePage: s.getBasePageData(pageGroupsTitle, webGroupsPath, r),
+		Groups:   groups,
+	}
+	renderAdminTemplate(w, templateGroups, data)
+}
+
+func (s *httpdServer) handleWebAddGroupGet(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	s.renderGroupPage(w, r, dataprovider.Group{}, groupPageModeAdd, "")
+}
+
+func (s *httpdServer) handleWebAddGroupPost(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		return
+	}
+	group, err := getGroupFromPostFields(r)
+	if err != nil {
+		s.renderGroupPage(w, r, group, groupPageModeAdd, err.Error())
+		return
+	}
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
+		s.renderForbiddenPage(w, r, err.Error())
+		return
+	}
+	err = dataprovider.AddGroup(&group, claims.Username, ipAddr)
+	if err != nil {
+		s.renderGroupPage(w, r, group, groupPageModeAdd, err.Error())
+		return
+	}
+	http.Redirect(w, r, webGroupsPath, http.StatusSeeOther)
+}
+
+func (s *httpdServer) handleWebUpdateGroupGet(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	name := getURLParam(r, "name")
+	group, err := dataprovider.GroupExists(name)
+	if err == nil {
+		s.renderGroupPage(w, r, group, groupPageModeUpdate, "")
+	} else if _, ok := err.(*util.RecordNotFoundError); ok {
+		s.renderNotFoundPage(w, r, err)
+	} else {
+		s.renderInternalServerErrorPage(w, r, err)
+	}
+}
+
+func (s *httpdServer) handleWebUpdateGroupPost(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		return
+	}
+	name := getURLParam(r, "name")
+	group, err := dataprovider.GroupExists(name)
+	if _, ok := err.(*util.RecordNotFoundError); ok {
+		s.renderNotFoundPage(w, r, err)
+		return
+	} else if err != nil {
+		s.renderInternalServerErrorPage(w, r, err)
+		return
+	}
+	updatedGroup, err := getGroupFromPostFields(r)
+	if err != nil {
+		s.renderGroupPage(w, r, group, groupPageModeUpdate, err.Error())
+		return
+	}
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
+		s.renderForbiddenPage(w, r, err.Error())
+		return
+	}
+	updatedGroup.ID = group.ID
+	updatedGroup.Name = group.Name
+	updatedGroup.SetEmptySecretsIfNil()
+
+	updateEncryptedSecrets(&updatedGroup.UserSettings.FsConfig, group.UserSettings.FsConfig.S3Config.AccessSecret,
+		group.UserSettings.FsConfig.AzBlobConfig.AccountKey, group.UserSettings.FsConfig.AzBlobConfig.SASURL,
+		group.UserSettings.FsConfig.GCSConfig.Credentials, group.UserSettings.FsConfig.CryptConfig.Passphrase,
+		group.UserSettings.FsConfig.SFTPConfig.Password, group.UserSettings.FsConfig.SFTPConfig.PrivateKey)
+
+	err = dataprovider.UpdateGroup(&updatedGroup, group.Users, claims.Username, ipAddr)
+	if err != nil {
+		s.renderGroupPage(w, r, updatedGroup, groupPageModeUpdate, err.Error())
+		return
+	}
+	http.Redirect(w, r, webGroupsPath, http.StatusSeeOther)
 }

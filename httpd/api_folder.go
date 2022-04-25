@@ -18,12 +18,12 @@ func getFolders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	folders, err := dataprovider.GetFolders(limit, offset, order)
-	if err == nil {
-		render.JSON(w, r, folders)
-	} else {
+	folders, err := dataprovider.GetFolders(limit, offset, order, false)
+	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusInternalServerError)
+		return
 	}
+	render.JSON(w, r, folders)
 }
 
 func addFolder(w http.ResponseWriter, r *http.Request) {
@@ -57,6 +57,7 @@ func updateFolder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	users := folder.Users
+	groups := folder.Groups
 	folderID := folder.ID
 	name = folder.Name
 	currentS3AccessSecret := folder.FsConfig.S3Config.AccessSecret
@@ -82,7 +83,7 @@ func updateFolder(w http.ResponseWriter, r *http.Request) {
 	folder.FsConfig.SetEmptySecretsIfNil()
 	updateEncryptedSecrets(&folder.FsConfig, currentS3AccessSecret, currentAzAccountKey, currentAzSASUrl, currentGCSCredentials,
 		currentCryptoPassphrase, currentSFTPPassword, currentSFTPKey)
-	err = dataprovider.UpdateFolder(&folder, users, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	err = dataprovider.UpdateFolder(&folder, users, groups, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return

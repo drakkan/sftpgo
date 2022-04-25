@@ -29,6 +29,7 @@ const (
 
 const (
 	actionObjectUser   = "user"
+	actionObjectGroup  = "group"
 	actionObjectAdmin  = "admin"
 	actionObjectAPIKey = "api_key"
 	actionObjectShare  = "share"

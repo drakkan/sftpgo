@@ -529,19 +529,19 @@ func handleForgotPassword(r *http.Request, username string, isAdmin bool) error 
 	var user dataprovider.User
 
 	if username == "" {
-		return util.NewValidationError("Username is mandatory")
+		return util.NewValidationError("username is mandatory")
 	}
 	if isAdmin {
 		admin, err = dataprovider.AdminExists(username)
 		email = admin.Email
 		subject = fmt.Sprintf("Email Verification Code for admin %#v", username)
 	} else {
-		user, err = dataprovider.UserExists(username)
+		user, err = dataprovider.GetUserWithGroupSettings(username)
 		email = user.Email
 		subject = fmt.Sprintf("Email Verification Code for user %#v", username)
 		if err == nil {
 			if !isUserAllowedToResetPassword(r, &user) {
-				return util.NewValidationError("You are not allowed to reset your password")
+				return util.NewValidationError("you are not allowed to reset your password")
 			}
 		}
 	}
@@ -584,47 +584,47 @@ func handleResetPassword(r *http.Request, code, newPassword string, isAdmin bool
 	var err error
 
 	if newPassword == "" {
-		return &admin, &user, util.NewValidationError("Please set a password")
+		return &admin, &user, util.NewValidationError("please set a password")
 	}
 	if code == "" {
-		return &admin, &user, util.NewValidationError("Please set a confirmation code")
+		return &admin, &user, util.NewValidationError("please set a confirmation code")
 	}
 	c, ok := resetCodes.Load(code)
 	if !ok {
-		return &admin, &user, util.NewValidationError("Confirmation code not found")
+		return &admin, &user, util.NewValidationError("confirmation code not found")
 	}
 	resetCode := c.(*resetCode)
 	if resetCode.IsAdmin != isAdmin {
-		return &admin, &user, util.NewValidationError("Invalid confirmation code")
+		return &admin, &user, util.NewValidationError("invalid confirmation code")
 	}
 	if isAdmin {
 		admin, err = dataprovider.AdminExists(resetCode.Username)
 		if err != nil {
-			return &admin, &user, util.NewValidationError("Unable to associate the confirmation code with an existing admin")
+			return &admin, &user, util.NewValidationError("unable to associate the confirmation code with an existing admin")
 		}
 		admin.Password = newPassword
-		err = dataprovider.UpdateAdmin(&admin, admin.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
+		err = dataprovider.UpdateAdmin(&admin, dataprovider.ActionExecutorSelf, util.GetIPFromRemoteAddress(r.RemoteAddr))
 		if err != nil {
-			return &admin, &user, util.NewGenericError(fmt.Sprintf("Unable to set the new password: %v", err))
+			return &admin, &user, util.NewGenericError(fmt.Sprintf("unable to set the new password: %v", err))
 		}
-	} else {
-		user, err = dataprovider.UserExists(resetCode.Username)
-		if err != nil {
-			return &admin, &user, util.NewValidationError("Unable to associate the confirmation code with an existing user")
-		}
-		if err == nil {
-			if !isUserAllowedToResetPassword(r, &user) {
-				return &admin, &user, util.NewValidationError("You are not allowed to reset your password")
-			}
-		}
-		user.Password = newPassword
-		err = dataprovider.UpdateUser(&user, user.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
-		if err != nil {
-			return &admin, &user, util.NewGenericError(fmt.Sprintf("Unable to set the new password: %v", err))
+		resetCodes.Delete(code)
+		return &admin, &user, nil
+	}
+	user, err = dataprovider.GetUserWithGroupSettings(resetCode.Username)
+	if err != nil {
+		return &admin, &user, util.NewValidationError("Unable to associate the confirmation code with an existing user")
+	}
+	if err == nil {
+		if !isUserAllowedToResetPassword(r, &user) {
+			return &admin, &user, util.NewValidationError("you are not allowed to reset your password")
 		}
 	}
-	resetCodes.Delete(code)
-	return &admin, &user, nil
+	err = dataprovider.UpdateUserPassword(user.Username, newPassword, dataprovider.ActionExecutorSelf,
+		util.GetIPFromRemoteAddress(r.RemoteAddr))
+	if err == nil {
+		resetCodes.Delete(code)
+	}
+	return &admin, &user, err
 }
 
 func isUserAllowedToResetPassword(r *http.Request, user *dataprovider.User) bool {

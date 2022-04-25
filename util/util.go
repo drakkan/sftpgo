@@ -71,15 +71,16 @@ func RemoveDuplicates(obj []string) []string {
 	if len(obj) == 0 {
 		return obj
 	}
-	result := make([]string, 0, len(obj))
 	seen := make(map[string]bool)
+	validIdx := 0
 	for _, item := range obj {
-		if _, ok := seen[item]; !ok {
-			result = append(result, item)
+		if !seen[item] {
+			seen[item] = true
+			obj[validIdx] = item
+			validIdx++
 		}
-		seen[item] = true
 	}
-	return result
+	return obj[:validIdx]
 }
 
 // GetTimeAsMsSinceEpoch returns unix timestamp as milliseconds from a time struct

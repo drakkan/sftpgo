@@ -163,10 +163,14 @@ func loadData(w http.ResponseWriter, r *http.Request) {
 func restoreBackup(content []byte, inputFile string, scanQuota, mode int, executor, ipAddress string) error {
 	dump, err := dataprovider.ParseDumpData(content)
 	if err != nil {
-		return util.NewValidationError(fmt.Sprintf("Unable to parse backup content: %v", err))
+		return util.NewValidationError(fmt.Sprintf("unable to parse backup content: %v", err))
 	}
 
 	if err = RestoreFolders(dump.Folders, inputFile, mode, scanQuota, executor, ipAddress); err != nil {
+		return err
+	}
+
+	if err = RestoreGroups(dump.Groups, inputFile, mode, executor, ipAddress); err != nil {
 		return err
 	}
 
@@ -229,12 +233,12 @@ func RestoreFolders(folders []vfs.BaseVirtualFolder, inputFile string, mode, sca
 			}
 			folder.ID = f.ID
 			folder.Name = f.Name
-			err = dataprovider.UpdateFolder(&folder, f.Users, executor, ipAddress)
-			logger.Debug(logSender, "", "restoring existing folder: %+v, dump file: %#v, error: %v", folder, inputFile, err)
+			err = dataprovider.UpdateFolder(&folder, f.Users, f.Groups, executor, ipAddress)
+			logger.Debug(logSender, "", "restoring existing folder %#v, dump file: %#v, error: %v", folder.Name, inputFile, err)
 		} else {
 			folder.Users = nil
 			err = dataprovider.AddFolder(&folder)
-			logger.Debug(logSender, "", "adding new folder: %+v, dump file: %#v, error: %v", folder, inputFile, err)
+			logger.Debug(logSender, "", "adding new folder %#v, dump file: %#v, error: %v", folder.Name, inputFile, err)
 		}
 		if err != nil {
 			return fmt.Errorf("unable to restore folder %#v: %w", folder.Name, err)
@@ -264,12 +268,10 @@ func RestoreShares(shares []dataprovider.Share, inputFile string, mode int, exec
 			}
 			share.ID = s.ID
 			err = dataprovider.UpdateShare(&share, executor, ipAddress)
-			share.Password = redactedSecret
-			logger.Debug(logSender, "", "restoring existing share: %+v, dump file: %#v, error: %v", share, inputFile, err)
+			logger.Debug(logSender, "", "restoring existing share %#v, dump file: %#v, error: %v", share.ShareID, inputFile, err)
 		} else {
 			err = dataprovider.AddShare(&share, executor, ipAddress)
-			share.Password = redactedSecret
-			logger.Debug(logSender, "", "adding new share: %+v, dump file: %#v, error: %v", share, inputFile, err)
+			logger.Debug(logSender, "", "adding new share %#v, dump file: %#v, error: %v", share.ShareID, inputFile, err)
 		}
 		if err != nil {
 			return fmt.Errorf("unable to restore share %#v: %w", share.ShareID, err)
@@ -294,12 +296,10 @@ func RestoreAPIKeys(apiKeys []dataprovider.APIKey, inputFile string, mode int, e
 			}
 			apiKey.ID = k.ID
 			err = dataprovider.UpdateAPIKey(&apiKey, executor, ipAddress)
-			apiKey.Key = redactedSecret
-			logger.Debug(logSender, "", "restoring existing API key: %+v, dump file: %#v, error: %v", apiKey, inputFile, err)
+			logger.Debug(logSender, "", "restoring existing API key %#v, dump file: %#v, error: %v", apiKey.KeyID, inputFile, err)
 		} else {
 			err = dataprovider.AddAPIKey(&apiKey, executor, ipAddress)
-			apiKey.Key = redactedSecret
-			logger.Debug(logSender, "", "adding new API key: %+v, dump file: %#v, error: %v", apiKey, inputFile, err)
+			logger.Debug(logSender, "", "adding new API key %#v, dump file: %#v, error: %v", apiKey.KeyID, inputFile, err)
 		}
 		if err != nil {
 			return fmt.Errorf("unable to restore API key %#v: %w", apiKey.KeyID, err)
@@ -321,18 +321,41 @@ func RestoreAdmins(admins []dataprovider.Admin, inputFile string, mode int, exec
 			admin.ID = a.ID
 			admin.Username = a.Username
 			err = dataprovider.UpdateAdmin(&admin, executor, ipAddress)
-			admin.Password = redactedSecret
-			logger.Debug(logSender, "", "restoring existing admin: %+v, dump file: %#v, error: %v", admin, inputFile, err)
+			logger.Debug(logSender, "", "restoring existing admin %#v, dump file: %#v, error: %v", admin.Username, inputFile, err)
 		} else {
 			err = dataprovider.AddAdmin(&admin, executor, ipAddress)
-			admin.Password = redactedSecret
-			logger.Debug(logSender, "", "adding new admin: %+v, dump file: %#v, error: %v", admin, inputFile, err)
+			logger.Debug(logSender, "", "adding new admin %#v, dump file: %#v, error: %v", admin.Username, inputFile, err)
 		}
 		if err != nil {
 			return fmt.Errorf("unable to restore admin %#v: %w", admin.Username, err)
 		}
 	}
 
+	return nil
+}
+
+// RestoreGroups restores the specified groups
+func RestoreGroups(groups []dataprovider.Group, inputFile string, mode int, executor, ipAddress string) error {
+	for _, group := range groups {
+		group := group // pin
+		g, err := dataprovider.GroupExists(group.Name)
+		if err == nil {
+			if mode == 1 {
+				logger.Debug(logSender, "", "loaddata mode 1, existing group %#v not updated", g.Name)
+				continue
+			}
+			group.ID = g.ID
+			group.Name = g.Name
+			err = dataprovider.UpdateGroup(&group, g.Users, executor, ipAddress)
+			logger.Debug(logSender, "", "restoring existing group: %#v, dump file: %#v, error: %v", group.Name, inputFile, err)
+		} else {
+			err = dataprovider.AddGroup(&group, executor, ipAddress)
+			logger.Debug(logSender, "", "adding new group: %#v, dump file: %#v, error: %v", group.Name, inputFile, err)
+		}
+		if err != nil {
+			return fmt.Errorf("unable to restore group %#v: %w", group.Name, err)
+		}
+	}
 	return nil
 }
 
@@ -349,15 +372,13 @@ func RestoreUsers(users []dataprovider.User, inputFile string, mode, scanQuota i
 			user.ID = u.ID
 			user.Username = u.Username
 			err = dataprovider.UpdateUser(&user, executor, ipAddress)
-			user.Password = redactedSecret
-			logger.Debug(logSender, "", "restoring existing user: %+v, dump file: %#v, error: %v", user, inputFile, err)
+			logger.Debug(logSender, "", "restoring existing user: %#v, dump file: %#v, error: %v", user.Username, inputFile, err)
 			if mode == 2 && err == nil {
 				disconnectUser(user.Username)
 			}
 		} else {
 			err = dataprovider.AddUser(&user, executor, ipAddress)
-			user.Password = redactedSecret
-			logger.Debug(logSender, "", "adding new user: %+v, dump file: %#v, error: %v", user, inputFile, err)
+			logger.Debug(logSender, "", "adding new user: %#v, dump file: %#v, error: %v", user.Username, inputFile, err)
 		}
 		if err != nil {
 			return fmt.Errorf("unable to restore user %#v: %w", user.Username, err)

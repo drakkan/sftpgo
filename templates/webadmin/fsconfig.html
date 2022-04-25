@@ -7,7 +7,7 @@
         <div class="form-group row">
             <label for="idFilesystem" class="col-sm-2 col-form-label">Storage</label>
             <div class="col-sm-10">
-                <select class="form-control" id="idFilesystem" name="fs_provider"
+                <select class="form-control selectpicker" id="idFilesystem" name="fs_provider"
                     onchange="onFilesystemChanged(this.value)">
                     {{ range ListFSProviders }}
                     <option value="{{.Name}}" {{if eq . $.Provider }}selected{{end}}>{{.ShortInfo}}</option>
@@ -15,14 +15,14 @@
                 </select>
             </div>
         </div>
-        {{if .IsUserPage}}
+        {{if or .IsUserPage .IsGroupPage}}
         <div class="form-group row">
             <label for="idHomeDir" class="col-sm-2 col-form-label">Home Dir</label>
             <div class="col-sm-10">
                 <input type="text" class="form-control" id="idHomeDir" name="home_dir" placeholder="Absolute path to a local directory"
                     value="{{.DirPath}}" aria-describedby="homeDirHelpBlock">
                 <small id="homeDirHelpBlock" class="form-text text-muted">
-                    {{if not .DirPath}}{{if .HasUsersBaseDir}}Leave blank for an appropriate default{{else}}Required for local storage providers. For non-local filesystems it will store temporary files, you can leave blank for an appropriate default{{end}}{{end}}
+                    {{if not .DirPath}}{{if .HasUsersBaseDir}}Leave blank for an appropriate default{{else}}{{if .IsGroupPage}}Leave blank and the storage to "local" to not override the root filesystem{{else}}Required for local storage providers. For non-local filesystems it will store temporary files, you can leave blank for an appropriate default{{end}}{{end}}{{end}}
                 </small>
             </div>
         </div>
@@ -299,7 +299,7 @@
         <div class="form-group row fsconfig fsconfig-azblobfs">
             <label for="idAzAccessTier" class="col-sm-2 col-form-label">Access Tier</label>
             <div class="col-sm-10">
-                <select class="form-control" id="idAzAccessTier" name="az_access_tier">
+                <select class="form-control selectpicker" id="idAzAccessTier" name="az_access_tier">
                     <option value="" {{if eq .AzBlobConfig.AccessTier "" }}selected{{end}}>Default</option>
                     <option value="Hot" {{if eq .AzBlobConfig.AccessTier "Hot" }}selected{{end}}>Hot</option>
                     <option value="Cool" {{if eq .AzBlobConfig.AccessTier "Cool" }}selected{{end}}>Cool</option>
@@ -459,6 +459,7 @@
 {{end}}
 
 {{define "fsjs"}}
+<script type="text/javascript">
     function onFilesystemChanged(val){
         // each fsconfig form-group has the 'fsconfig' css class
         // as well as a 'fsconfig-{name}' class where name is the FilesystemProvider.Name
@@ -466,4 +467,5 @@
         $('.form-group.fsconfig').hide();
         $('.form-group.fsconfig-'+val).show();
     }
+</script>
 {{end}}

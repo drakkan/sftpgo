@@ -25,10 +25,14 @@ import (
 const (
 	sqliteResetSQL = `DROP TABLE IF EXISTS "{{api_keys}}";
 DROP TABLE IF EXISTS "{{folders_mapping}}";
+DROP TABLE IF EXISTS "{{users_folders_mapping}}";
+DROP TABLE IF EXISTS "{{users_groups_mapping}}";
+DROP TABLE IF EXISTS "{{groups_folders_mapping}}";
 DROP TABLE IF EXISTS "{{admins}}";
 DROP TABLE IF EXISTS "{{folders}}";
 DROP TABLE IF EXISTS "{{shares}}";
 DROP TABLE IF EXISTS "{{users}}";
+DROP TABLE IF EXISTS "{{groups}}";
 DROP TABLE IF EXISTS "{{defender_events}}";
 DROP TABLE IF EXISTS "{{defender_hosts}}";
 DROP TABLE IF EXISTS "{{active_transfers}}";
@@ -101,6 +105,49 @@ ALTER TABLE "{{users}}" DROP COLUMN "upload_data_transfer";
 ALTER TABLE "{{users}}" DROP COLUMN "total_data_transfer";
 ALTER TABLE "{{users}}" DROP COLUMN "download_data_transfer";
 DROP TABLE "{{active_transfers}}";
+`
+	sqliteV17SQL = `CREATE TABLE "{{groups}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "name" varchar(255) NOT NULL UNIQUE,
+"description" varchar(512) NULL, "created_at" bigint NOT NULL, "updated_at" bigint NOT NULL, "user_settings" text NULL);
+CREATE TABLE "{{groups_folders_mapping}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+"folder_id" integer NOT NULL REFERENCES "{{folders}}" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
+"group_id" integer NOT NULL REFERENCES "{{groups}}" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
+"virtual_path" text NOT NULL, "quota_size" bigint NOT NULL, "quota_files" integer NOT NULL,
+CONSTRAINT "{{prefix}}unique_group_folder_mapping" UNIQUE ("group_id", "folder_id"));
+CREATE TABLE "{{users_groups_mapping}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+"user_id" integer NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
+"group_id" integer NOT NULL REFERENCES "groups" ("id") ON DELETE NO ACTION,
+"group_type" integer NOT NULL, CONSTRAINT "{{prefix}}unique_user_group_mapping" UNIQUE ("user_id", "group_id"));
+CREATE TABLE "new__folders_mapping" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+"user_id" integer NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
+"folder_id" integer NOT NULL REFERENCES "folders" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
+"virtual_path" text NOT NULL, "quota_size" bigint NOT NULL, "quota_files" integer NOT NULL,
+CONSTRAINT "{{prefix}}unique_user_folder_mapping" UNIQUE ("user_id", "folder_id"));
+INSERT INTO "new__folders_mapping" ("id", "virtual_path", "quota_size", "quota_files", "folder_id", "user_id") SELECT "id",
+"virtual_path", "quota_size", "quota_files", "folder_id", "user_id" FROM "{{folders_mapping}}";
+DROP TABLE "{{folders_mapping}}";
+ALTER TABLE "new__folders_mapping" RENAME TO "{{users_folders_mapping}}";
+CREATE INDEX "{{prefix}}groups_updated_at_idx" ON "{{groups}}" ("updated_at");
+CREATE INDEX "{{prefix}}users_folders_mapping_folder_id_idx" ON "{{users_folders_mapping}}" ("folder_id");
+CREATE INDEX "{{prefix}}users_folders_mapping_user_id_idx" ON "{{users_folders_mapping}}" ("user_id");
+CREATE INDEX "{{prefix}}users_groups_mapping_group_id_idx" ON "{{users_groups_mapping}}" ("group_id");
+CREATE INDEX "{{prefix}}users_groups_mapping_user_id_idx" ON "{{users_groups_mapping}}" ("user_id");
+CREATE INDEX "{{prefix}}groups_folders_mapping_folder_id_idx" ON "{{groups_folders_mapping}}" ("folder_id");
+CREATE INDEX "{{prefix}}groups_folders_mapping_group_id_idx" ON "{{groups_folders_mapping}}" ("group_id");
+`
+	sqliteV17DownSQL = `DROP TABLE "{{users_groups_mapping}}";
+DROP TABLE "{{groups_folders_mapping}}";
+DROP TABLE "{{groups}}";
+CREATE TABLE "new__folders_mapping" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+"user_id" integer NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
+"folder_id" integer NOT NULL REFERENCES "folders" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
+"virtual_path" text NOT NULL, "quota_size" bigint NOT NULL, "quota_files" integer NOT NULL,
+CONSTRAINT "{{prefix}}unique_folder_mapping" UNIQUE ("user_id", "folder_id"));
+INSERT INTO "new__folders_mapping" ("id", "virtual_path", "quota_size", "quota_files", "folder_id", "user_id") SELECT "id",
+"virtual_path", "quota_size", "quota_files", "folder_id", "user_id" FROM "{{users_folders_mapping}}";
+DROP TABLE "{{users_folders_mapping}}";
+ALTER TABLE "new__folders_mapping" RENAME TO "{{folders_mapping}}";
+CREATE INDEX "{{prefix}}folders_mapping_folder_id_idx" ON "{{folders_mapping}}" ("folder_id");
+CREATE INDEX "{{prefix}}folders_mapping_user_id_idx" ON "{{folders_mapping}}" ("user_id");
 `
 )
 
@@ -193,7 +240,7 @@ func (p *SQLiteProvider) updateUser(user *User) error {
 	return sqlCommonUpdateUser(user, p.dbHandle)
 }
 
-func (p *SQLiteProvider) deleteUser(user *User) error {
+func (p *SQLiteProvider) deleteUser(user User) error {
 	return sqlCommonDeleteUser(user, p.dbHandle)
 }
 
@@ -222,8 +269,8 @@ func (p *SQLiteProvider) dumpFolders() ([]vfs.BaseVirtualFolder, error) {
 	return sqlCommonDumpFolders(p.dbHandle)
 }
 
-func (p *SQLiteProvider) getFolders(limit, offset int, order string) ([]vfs.BaseVirtualFolder, error) {
-	return sqlCommonGetFolders(limit, offset, order, p.dbHandle)
+func (p *SQLiteProvider) getFolders(limit, offset int, order string, minimal bool) ([]vfs.BaseVirtualFolder, error) {
+	return sqlCommonGetFolders(limit, offset, order, minimal, p.dbHandle)
 }
 
 func (p *SQLiteProvider) getFolderByName(name string) (vfs.BaseVirtualFolder, error) {
@@ -240,7 +287,7 @@ func (p *SQLiteProvider) updateFolder(folder *vfs.BaseVirtualFolder) error {
 	return sqlCommonUpdateFolder(folder, p.dbHandle)
 }
 
-func (p *SQLiteProvider) deleteFolder(folder *vfs.BaseVirtualFolder) error {
+func (p *SQLiteProvider) deleteFolder(folder vfs.BaseVirtualFolder) error {
 	return sqlCommonDeleteFolder(folder, p.dbHandle)
 }
 
@@ -250,6 +297,38 @@ func (p *SQLiteProvider) updateFolderQuota(name string, filesAdd int, sizeAdd in
 
 func (p *SQLiteProvider) getUsedFolderQuota(name string) (int, int64, error) {
 	return sqlCommonGetFolderUsedQuota(name, p.dbHandle)
+}
+
+func (p *SQLiteProvider) getGroups(limit, offset int, order string, minimal bool) ([]Group, error) {
+	return sqlCommonGetGroups(limit, offset, order, minimal, p.dbHandle)
+}
+
+func (p *SQLiteProvider) getGroupsWithNames(names []string) ([]Group, error) {
+	return sqlCommonGetGroupsWithNames(names, p.dbHandle)
+}
+
+func (p *SQLiteProvider) getUsersInGroups(names []string) ([]string, error) {
+	return sqlCommonGetUsersInGroups(names, p.dbHandle)
+}
+
+func (p *SQLiteProvider) groupExists(name string) (Group, error) {
+	return sqlCommonGetGroupByName(name, p.dbHandle)
+}
+
+func (p *SQLiteProvider) addGroup(group *Group) error {
+	return sqlCommonAddGroup(group, p.dbHandle)
+}
+
+func (p *SQLiteProvider) updateGroup(group *Group) error {
+	return sqlCommonUpdateGroup(group, p.dbHandle)
+}
+
+func (p *SQLiteProvider) deleteGroup(group Group) error {
+	return sqlCommonDeleteGroup(group, p.dbHandle)
+}
+
+func (p *SQLiteProvider) dumpGroups() ([]Group, error) {
+	return sqlCommonDumpGroups(p.dbHandle)
 }
 
 func (p *SQLiteProvider) adminExists(username string) (Admin, error) {
@@ -264,7 +343,7 @@ func (p *SQLiteProvider) updateAdmin(admin *Admin) error {
 	return sqlCommonUpdateAdmin(admin, p.dbHandle)
 }
 
-func (p *SQLiteProvider) deleteAdmin(admin *Admin) error {
+func (p *SQLiteProvider) deleteAdmin(admin Admin) error {
 	return sqlCommonDeleteAdmin(admin, p.dbHandle)
 }
 
@@ -292,7 +371,7 @@ func (p *SQLiteProvider) updateAPIKey(apiKey *APIKey) error {
 	return sqlCommonUpdateAPIKey(apiKey, p.dbHandle)
 }
 
-func (p *SQLiteProvider) deleteAPIKey(apiKey *APIKey) error {
+func (p *SQLiteProvider) deleteAPIKey(apiKey APIKey) error {
 	return sqlCommonDeleteAPIKey(apiKey, p.dbHandle)
 }
 
@@ -320,7 +399,7 @@ func (p *SQLiteProvider) updateShare(share *Share) error {
 	return sqlCommonUpdateShare(share, p.dbHandle)
 }
 
-func (p *SQLiteProvider) deleteShare(share *Share) error {
+func (p *SQLiteProvider) deleteShare(share Share) error {
 	return sqlCommonDeleteShare(share, p.dbHandle)
 }
 
@@ -438,6 +517,8 @@ func (p *SQLiteProvider) migrateDatabase() error {
 		return err
 	case version == 15:
 		return updateSQLiteDatabaseFromV15(p.dbHandle)
+	case version == 16:
+		return updateSQLiteDatabaseFromV16(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database version %v is newer than the supported one: %v", version,
@@ -462,31 +543,38 @@ func (p *SQLiteProvider) revertDatabase(targetVersion int) error {
 	switch dbVersion.Version {
 	case 16:
 		return downgradeSQLiteDatabaseFromV16(p.dbHandle)
+	case 17:
+		return downgradeSQLiteDatabaseFromV17(p.dbHandle)
 	default:
 		return fmt.Errorf("database version not handled: %v", dbVersion.Version)
 	}
 }
 
 func (p *SQLiteProvider) resetDatabase() error {
-	sql := strings.ReplaceAll(sqliteResetSQL, "{{schema_version}}", sqlTableSchemaVersion)
-	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
-	sql = strings.ReplaceAll(sql, "{{folders}}", sqlTableFolders)
-	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
-	sql = strings.ReplaceAll(sql, "{{folders_mapping}}", sqlTableFoldersMapping)
-	sql = strings.ReplaceAll(sql, "{{api_keys}}", sqlTableAPIKeys)
-	sql = strings.ReplaceAll(sql, "{{shares}}", sqlTableShares)
-	sql = strings.ReplaceAll(sql, "{{defender_events}}", sqlTableDefenderEvents)
-	sql = strings.ReplaceAll(sql, "{{defender_hosts}}", sqlTableDefenderHosts)
-	sql = strings.ReplaceAll(sql, "{{active_transfers}}", sqlTableActiveTransfers)
+	sql := sqlReplaceAll(sqliteResetSQL)
 	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{sql}, 0)
 }
 
 func updateSQLiteDatabaseFromV15(dbHandle *sql.DB) error {
-	return updateSQLiteDatabaseFrom15To16(dbHandle)
+	if err := updateSQLiteDatabaseFrom15To16(dbHandle); err != nil {
+		return err
+	}
+	return updateSQLiteDatabaseFromV16(dbHandle)
+}
+
+func updateSQLiteDatabaseFromV16(dbHandle *sql.DB) error {
+	return updateSQLiteDatabaseFrom16To17(dbHandle)
 }
 
 func downgradeSQLiteDatabaseFromV16(dbHandle *sql.DB) error {
 	return downgradeSQLiteDatabaseFrom16To15(dbHandle)
+}
+
+func downgradeSQLiteDatabaseFromV17(dbHandle *sql.DB) error {
+	if err := downgradeSQLiteDatabaseFrom17To16(dbHandle); err != nil {
+		return err
+	}
+	return downgradeSQLiteDatabaseFromV16(dbHandle)
 }
 
 func updateSQLiteDatabaseFrom15To16(dbHandle *sql.DB) error {
@@ -498,6 +586,26 @@ func updateSQLiteDatabaseFrom15To16(dbHandle *sql.DB) error {
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 16)
 }
 
+func updateSQLiteDatabaseFrom16To17(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 16 -> 17")
+	providerLog(logger.LevelInfo, "updating database version: 16 -> 17")
+	if err := setPragmaFK(dbHandle, "OFF"); err != nil {
+		return err
+	}
+	sql := strings.ReplaceAll(sqliteV17SQL, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{groups}}", sqlTableGroups)
+	sql = strings.ReplaceAll(sql, "{{folders}}", sqlTableFolders)
+	sql = strings.ReplaceAll(sql, "{{folders_mapping}}", sqlTableFoldersMapping)
+	sql = strings.ReplaceAll(sql, "{{users_folders_mapping}}", sqlTableUsersFoldersMapping)
+	sql = strings.ReplaceAll(sql, "{{users_groups_mapping}}", sqlTableUsersGroupsMapping)
+	sql = strings.ReplaceAll(sql, "{{groups_folders_mapping}}", sqlTableGroupsFoldersMapping)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	if err := sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 17); err != nil {
+		return err
+	}
+	return setPragmaFK(dbHandle, "ON")
+}
+
 func downgradeSQLiteDatabaseFrom16To15(dbHandle *sql.DB) error {
 	logger.InfoToConsole("downgrading database version: 16 -> 15")
 	providerLog(logger.LevelInfo, "downgrading database version: 16 -> 15")
@@ -506,7 +614,27 @@ func downgradeSQLiteDatabaseFrom16To15(dbHandle *sql.DB) error {
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 15)
 }
 
-/*func setPragmaFK(dbHandle *sql.DB, value string) error {
+func downgradeSQLiteDatabaseFrom17To16(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 17 -> 16")
+	providerLog(logger.LevelInfo, "downgrading database version: 17 -> 16")
+	if err := setPragmaFK(dbHandle, "OFF"); err != nil {
+		return err
+	}
+	sql := strings.ReplaceAll(sqliteV17DownSQL, "{{groups}}", sqlTableGroups)
+	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{folders}}", sqlTableFolders)
+	sql = strings.ReplaceAll(sql, "{{folders_mapping}}", sqlTableFoldersMapping)
+	sql = strings.ReplaceAll(sql, "{{users_folders_mapping}}", sqlTableUsersFoldersMapping)
+	sql = strings.ReplaceAll(sql, "{{users_groups_mapping}}", sqlTableUsersGroupsMapping)
+	sql = strings.ReplaceAll(sql, "{{groups_folders_mapping}}", sqlTableGroupsFoldersMapping)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	if err := sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 16); err != nil {
+		return err
+	}
+	return setPragmaFK(dbHandle, "ON")
+}
+
+func setPragmaFK(dbHandle *sql.DB, value string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), longSQLQueryTimeout)
 	defer cancel()
 
@@ -514,4 +642,4 @@ func downgradeSQLiteDatabaseFrom16To15(dbHandle *sql.DB) error {
 
 	_, err := dbHandle.ExecContext(ctx, sql)
 	return err
-}*/
+}

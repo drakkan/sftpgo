@@ -1119,7 +1119,7 @@ func TestCachedUserWithFolders(t *testing.T) {
 	folder, err := dataprovider.GetFolderByName(folderName)
 	assert.NoError(t, err)
 	// updating a used folder should invalidate the cache only if the fs changed
-	err = dataprovider.UpdateFolder(&folder, folder.Users, "", "")
+	err = dataprovider.UpdateFolder(&folder, folder.Users, folder.Groups, "", "")
 	assert.NoError(t, err)
 
 	_, isCached, _, loginMethod, err = server.authenticate(req, ipAddr)
@@ -1132,7 +1132,7 @@ func TestCachedUserWithFolders(t *testing.T) {
 	}
 	// changing the folder path should invalidate the cache
 	folder.MappedPath = filepath.Join(os.TempDir(), "anotherpath")
-	err = dataprovider.UpdateFolder(&folder, folder.Users, "", "")
+	err = dataprovider.UpdateFolder(&folder, folder.Users, folder.Groups, "", "")
 	assert.NoError(t, err)
 	_, isCached, _, loginMethod, err = server.authenticate(req, ipAddr)
 	assert.NoError(t, err)

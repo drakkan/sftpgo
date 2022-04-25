@@ -140,6 +140,11 @@ Command-line flags should be specified in the Subsystem declaration.
 					os.Exit(1)
 				}
 			}
+			err = user.LoadAndApplyGroupSettings()
+			if err != nil {
+				logger.Error(logSender, connectionID, "unable to apply group settings for user %#v: %v", username, err)
+				os.Exit(1)
+			}
 			err = sftpd.ServeSubSystemConnection(&user, connectionID, os.Stdin, os.Stdout)
 			if err != nil && err != io.EOF {
 				logger.Warn(logSender, connectionID, "serving subsystem finished with error: %v", err)

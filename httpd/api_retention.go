@@ -18,7 +18,7 @@ func getRetentionChecks(w http.ResponseWriter, r *http.Request) {
 func startRetentionCheck(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	username := getURLParam(r, "username")
-	user, err := dataprovider.UserExists(username)
+	user, err := dataprovider.GetUserWithGroupSettings(username)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return

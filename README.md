@@ -27,6 +27,7 @@ Several storage backends are supported: local filesystem, encrypted local filesy
 - Partial authentication. You can configure multi-step authentication requiring, for example, the user password after successful public key authentication.
 - Per-user authentication methods.
 - [Two-factor authentication](./docs/howto/two-factor-authentication.md) based on time-based one time passwords (RFC 6238) which works with Authy, Google Authenticator and other compatible apps.
+- Simplified user administrations using [groups](./docs/groups.md).
 - Custom authentication via external programs/HTTP API.
 - Web Client and Web Admin user interfaces support [OpenID Connect](https://openid.net/connect/) authentication and so they can be integrated with identity providers such as [Keycloak](https://www.keycloak.org/). You can find more details [here](./docs/oidc.md).
 - [Data At Rest Encryption](./docs/dare.md).

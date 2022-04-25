@@ -42,6 +42,7 @@ const (
 	userPath                              = "/api/v2/users"
 	versionPath                           = "/api/v2/version"
 	folderPath                            = "/api/v2/folders"
+	groupPath                             = "/api/v2/groups"
 	serverStatusPath                      = "/api/v2/status"
 	dumpDataPath                          = "/api/v2/dumpdata"
 	loadDataPath                          = "/api/v2/loaddata"
@@ -101,6 +102,8 @@ const (
 	webConnectionsPathDefault             = "/web/admin/connections"
 	webFoldersPathDefault                 = "/web/admin/folders"
 	webFolderPathDefault                  = "/web/admin/folder"
+	webGroupsPathDefault                  = "/web/admin/groups"
+	webGroupPathDefault                   = "/web/admin/group"
 	webStatusPathDefault                  = "/web/admin/status"
 	webAdminsPathDefault                  = "/web/admin/managers"
 	webAdminPathDefault                   = "/web/admin/manager"
@@ -180,6 +183,8 @@ var (
 	webConnectionsPath             string
 	webFoldersPath                 string
 	webFolderPath                  string
+	webGroupsPath                  string
+	webGroupPath                   string
 	webStatusPath                  string
 	webAdminsPath                  string
 	webAdminPath                   string
@@ -764,6 +769,8 @@ func updateWebAdminURLs(baseURL string) {
 	webConnectionsPath = path.Join(baseURL, webConnectionsPathDefault)
 	webFoldersPath = path.Join(baseURL, webFoldersPathDefault)
 	webFolderPath = path.Join(baseURL, webFolderPathDefault)
+	webGroupsPath = path.Join(baseURL, webGroupsPathDefault)
+	webGroupPath = path.Join(baseURL, webGroupPathDefault)
 	webStatusPath = path.Join(baseURL, webStatusPathDefault)
 	webAdminsPath = path.Join(baseURL, webAdminsPathDefault)
 	webAdminPath = path.Join(baseURL, webAdminPathDefault)

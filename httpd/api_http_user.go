@@ -26,7 +26,7 @@ func getUserConnection(w http.ResponseWriter, r *http.Request) (*Connection, err
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return nil, fmt.Errorf("invalid token claims %w", err)
 	}
-	user, err := dataprovider.UserExists(claims.Username)
+	user, err := dataprovider.GetUserWithGroupSettings(claims.Username)
 	if err != nil {
 		sendAPIResponse(w, r, nil, "Unable to retrieve your user", getRespStatus(err))
 		return nil, err
@@ -461,22 +461,22 @@ func updateUserProfile(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
-	user, err := dataprovider.UserExists(claims.Username)
+	user, userMerged, err := dataprovider.GetUserVariants(claims.Username)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	if !user.CanManagePublicKeys() && !user.CanChangeAPIKeyAuth() && !user.CanChangeInfo() {
+	if !userMerged.CanManagePublicKeys() && !userMerged.CanChangeAPIKeyAuth() && !userMerged.CanChangeInfo() {
 		sendAPIResponse(w, r, nil, "You are not allowed to change anything", http.StatusForbidden)
 		return
 	}
-	if user.CanManagePublicKeys() {
+	if userMerged.CanManagePublicKeys() {
 		user.PublicKeys = req.PublicKeys
 	}
-	if user.CanChangeAPIKeyAuth() {
+	if userMerged.CanChangeAPIKeyAuth() {
 		user.Filters.AllowAPIKeyAuth = req.AllowAPIKeyAuth
 	}
-	if user.CanChangeInfo() {
+	if userMerged.CanChangeInfo() {
 		user.Email = req.Email
 		user.Description = req.Description
 	}
@@ -518,14 +518,14 @@ func doChangeUserPassword(r *http.Request, currentPassword, newPassword, confirm
 	if err != nil || claims.Username == "" {
 		return errors.New("invalid token claims")
 	}
-	user, err := dataprovider.CheckUserAndPass(claims.Username, currentPassword, util.GetIPFromRemoteAddress(r.RemoteAddr),
+	_, err = dataprovider.CheckUserAndPass(claims.Username, currentPassword, util.GetIPFromRemoteAddress(r.RemoteAddr),
 		getProtocolFromRequest(r))
 	if err != nil {
 		return util.NewValidationError("current password does not match")
 	}
-	user.Password = newPassword
 
-	return dataprovider.UpdateUser(&user, dataprovider.ActionExecutorSelf, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	return dataprovider.UpdateUserPassword(claims.Username, newPassword, dataprovider.ActionExecutorSelf,
+		util.GetIPFromRemoteAddress(r.RemoteAddr))
 }
 
 func setModificationTimeFromHeader(r *http.Request, c *Connection, filePath string) {
