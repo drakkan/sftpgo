@@ -10,7 +10,7 @@ env:
 jobs:
   prepare-sources-with-deps:
     name: Prepare sources with deps
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v3
       - name: Set up Go

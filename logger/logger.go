@@ -127,6 +127,11 @@ func (l *LeveledLogger) Warn(msg string, keysAndValues ...interface{}) {
 	ev.Msg(msg)
 }
 
+// Panic logs the panic at error level for the specified sender
+func (l *LeveledLogger) Panic(msg string, keysAndValues ...interface{}) {
+	l.Error(msg, keysAndValues...)
+}
+
 // With returns a LeveledLogger with additional context specific keyvals
 func (l *LeveledLogger) With(keysAndValues ...interface{}) ftpserverlog.Logger {
 	return &LeveledLogger{

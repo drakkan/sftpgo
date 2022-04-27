@@ -462,6 +462,7 @@ func TestBasicSFTPFsHandling(t *testing.T) {
 		testFilePath := filepath.Join(homeBasePath, testFileName)
 		testFileSize := int64(65535)
 		testLinkName := testFileName + ".link"
+		testLinkToLinkName := testLinkName + ".link"
 		expectedQuotaSize := testFileSize
 		expectedQuotaFiles := 1
 		err = createTestFile(testFilePath, testFileSize)
@@ -489,6 +490,28 @@ func TestBasicSFTPFsHandling(t *testing.T) {
 		if assert.NoError(t, err) {
 			assert.Equal(t, path.Join("/", testFileName), val)
 		}
+		linkDir := "linkDir"
+		err = client.Mkdir(linkDir)
+		assert.NoError(t, err)
+		linkToLinkPath := path.Join(linkDir, testLinkToLinkName)
+		err = client.Symlink(testLinkName, linkToLinkPath)
+		assert.NoError(t, err)
+		info, err = client.Lstat(linkToLinkPath)
+		if assert.NoError(t, err) {
+			assert.True(t, info.Mode()&os.ModeSymlink != 0)
+		}
+		info, err = client.Stat(linkToLinkPath)
+		if assert.NoError(t, err) {
+			assert.True(t, info.Mode()&os.ModeSymlink == 0)
+		}
+		val, err = client.ReadLink(linkToLinkPath)
+		if assert.NoError(t, err) {
+			assert.Equal(t, path.Join("/", testLinkName), val)
+		}
+		err = client.Remove(linkToLinkPath)
+		assert.NoError(t, err)
+		err = client.RemoveDirectory(linkDir)
+		assert.NoError(t, err)
 		err = client.Remove(testFileName)
 		assert.NoError(t, err)
 		_, err = client.Lstat(testFileName)
@@ -522,6 +545,49 @@ func TestBasicSFTPFsHandling(t *testing.T) {
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 		err = os.Remove(localDownloadPath)
+		assert.NoError(t, err)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(baseUser, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(baseUser.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestSFTPFsEscapeHomeDir(t *testing.T) {
+	usePubKey := true
+	baseUser, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
+	assert.NoError(t, err)
+	u := getTestSFTPUser(usePubKey)
+	sftpPrefix := "/prefix"
+	u.FsConfig.SFTPConfig.Prefix = sftpPrefix
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	conn, client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		err = checkBasicSFTP(client)
+		assert.NoError(t, err)
+		dirName := "dir"
+		linkName := "link"
+		err := client.Mkdir(dirName)
+		assert.NoError(t, err)
+		err = os.Symlink(baseUser.GetHomeDir(), filepath.Join(baseUser.GetHomeDir(), sftpPrefix, dirName, linkName))
+		assert.NoError(t, err)
+		err = os.Symlink(filepath.Join(baseUser.GetHomeDir(), sftpPrefix, dirName, linkName),
+			filepath.Join(baseUser.GetHomeDir(), sftpPrefix, linkName))
+		assert.NoError(t, err)
+		// linkName points to a link inside the home dir and this link points to a dir outside the home dir
+		_, err = client.ReadLink(linkName)
+		assert.ErrorIs(t, err, os.ErrPermission)
+		_, err = client.ReadDir(linkName)
+		assert.ErrorIs(t, err, os.ErrPermission)
+		_, err = client.ReadDir(path.Join(dirName, linkName))
+		assert.ErrorIs(t, err, os.ErrPermission)
+		_, err = client.ReadDir("/")
 		assert.NoError(t, err)
 	}
 

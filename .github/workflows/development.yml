@@ -12,7 +12,7 @@ jobs:
     strategy:
       matrix:
         go: [1.17]
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-18.04, macos-10.15]
         upload-coverage: [true]
         include:
           - go: 1.17
@@ -215,7 +215,7 @@ jobs:
 
   test-goarch-386:
     name: Run test cases on 32-bit arch
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
 
     steps:
       - uses: actions/checkout@v3
@@ -242,7 +242,7 @@ jobs:
 
   test-postgresql-mysql-crdb:
     name: Test with PgSQL/MySQL/Cockroach
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
 
     services:
       postgres:

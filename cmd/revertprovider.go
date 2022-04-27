@@ -58,7 +58,6 @@ Please take a look at the usage below to customize the options.`,
 func init() {
 	addConfigFlags(revertProviderCmd)
 	revertProviderCmd.Flags().IntVar(&revertProviderTargetVersion, "to-version", 10, `10 means the version supported in v2.1.x`)
-	revertProviderCmd.MarkFlagRequired("to-version") //nolint:errcheck
 
 	rootCmd.AddCommand(revertProviderCmd)
 }

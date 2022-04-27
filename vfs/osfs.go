@@ -143,11 +143,17 @@ func (*OsFs) Symlink(source, target string) error {
 // Readlink returns the destination of the named symbolic link
 // as absolute virtual path
 func (fs *OsFs) Readlink(name string) (string, error) {
-	p, err := os.Readlink(name)
+	// we don't have to follow multiple links:
+	// https://github.com/openssh/openssh-portable/blob/7bf2eb958fbb551e7d61e75c176bb3200383285d/sftp-server.c#L1329
+	resolved, err := os.Readlink(name)
 	if err != nil {
-		return p, err
+		return "", err
 	}
-	return fs.GetRelativePath(p), err
+	resolved = filepath.Clean(resolved)
+	if !filepath.IsAbs(resolved) {
+		resolved = filepath.Join(filepath.Dir(name), resolved)
+	}
+	return fs.GetRelativePath(resolved), nil
 }
 
 // Chown changes the numeric uid and gid of the named file.
