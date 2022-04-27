@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/pkg/sftp"
+	"github.com/sftpgo/sdk"
 
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
@@ -226,8 +227,8 @@ func (c *Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 
 		return listerAt([]os.FileInfo{s}), nil
 	case "Readlink":
-		if !c.User.HasPerm(dataprovider.PermListItems, path.Dir(request.Filepath)) {
-			return nil, sftp.ErrSSHFxPermissionDenied
+		if err := c.canReadLink(request.Filepath); err != nil {
+			return nil, err
 		}
 
 		fs, p, err := c.GetFsAndResolvedPath(request.Filepath)
@@ -241,12 +242,11 @@ func (c *Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 			return nil, c.GetFsError(fs, err)
 		}
 
-		if !c.User.HasPerm(dataprovider.PermListItems, path.Dir(s)) {
-			return nil, sftp.ErrSSHFxPermissionDenied
+		if err := c.canReadLink(s); err != nil {
+			return nil, err
 		}
 
 		return listerAt([]os.FileInfo{vfs.NewFileInfo(s, false, 0, time.Now(), true)}), nil
-
 	default:
 		return nil, sftp.ErrSSHFxOpUnsupported
 	}
@@ -298,6 +298,17 @@ func (c *Connection) StatVFS(r *sftp.Request) (*sftp.StatVFS, error) {
 
 	// there is free space but some limits are configured
 	return c.getStatVFSFromQuotaResult(fs, p, quotaResult), nil
+}
+
+func (c *Connection) canReadLink(name string) error {
+	if !c.User.HasPerm(dataprovider.PermListItems, path.Dir(name)) {
+		return sftp.ErrSSHFxPermissionDenied
+	}
+	ok, policy := c.User.IsFileAllowed(name)
+	if !ok && policy == sdk.DenyPolicyHide {
+		return sftp.ErrSSHFxNoSuchFile
+	}
+	return nil
 }
 
 func (c *Connection) handleSFTPSetstat(request *sftp.Request) error {

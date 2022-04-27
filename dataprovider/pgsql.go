@@ -611,6 +611,22 @@ func updatePGSQLDatabaseFrom15To16(dbHandle *sql.DB) error {
 	sql := strings.ReplaceAll(pgsqlV16SQL, "{{users}}", sqlTableUsers)
 	sql = strings.ReplaceAll(sql, "{{active_transfers}}", sqlTableActiveTransfers)
 	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	if config.Driver == CockroachDataProviderName {
+		// Cockroach does not allow to run this schema migration within a transaction
+		ctx, cancel := context.WithTimeout(context.Background(), longSQLQueryTimeout)
+		defer cancel()
+
+		for _, q := range strings.Split(sql, ";") {
+			if strings.TrimSpace(q) == "" {
+				continue
+			}
+			_, err := dbHandle.ExecContext(ctx, q)
+			if err != nil {
+				return err
+			}
+		}
+		return sqlCommonUpdateDatabaseVersion(ctx, dbHandle, 16)
+	}
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 16)
 }
 

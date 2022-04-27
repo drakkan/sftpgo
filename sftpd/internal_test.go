@@ -2195,3 +2195,34 @@ func TestMaxUserSessions(t *testing.T) {
 	common.Connections.Remove(connection.GetID())
 	assert.Len(t, common.Connections.GetStats(), 0)
 }
+
+func TestCanReadSymlink(t *testing.T) {
+	connection := &Connection{
+		BaseConnection: common.NewBaseConnection(xid.New().String(), common.ProtocolSFTP, "", "", dataprovider.User{
+			BaseUser: sdk.BaseUser{
+				Username: "user_can_read_symlink",
+				HomeDir:  filepath.Clean(os.TempDir()),
+				Permissions: map[string][]string{
+					"/":    {dataprovider.PermAny},
+					"/sub": {dataprovider.PermUpload},
+				},
+			},
+			Filters: dataprovider.UserFilters{
+				BaseUserFilters: sdk.BaseUserFilters{
+					FilePatterns: []sdk.PatternsFilter{
+						{
+							Path:           "/denied",
+							DeniedPatterns: []string{"*.txt"},
+							DenyPolicy:     sdk.DenyPolicyHide,
+						},
+					},
+				},
+			},
+		}),
+	}
+	err := connection.canReadLink("/sub/link")
+	assert.ErrorIs(t, err, sftp.ErrSSHFxPermissionDenied)
+
+	err = connection.canReadLink("/denied/file.txt")
+	assert.ErrorIs(t, err, sftp.ErrSSHFxNoSuchFile)
+}

@@ -362,7 +362,16 @@ func (fs *SFTPFs) Readlink(name string) (string, error) {
 	if err := fs.checkConnection(); err != nil {
 		return "", err
 	}
-	return fs.sftpClient.ReadLink(name)
+	resolved, err := fs.sftpClient.ReadLink(name)
+	if err != nil {
+		return resolved, err
+	}
+	resolved = path.Clean(resolved)
+	if !path.IsAbs(resolved) {
+		// we assume that multiple links are not followed
+		resolved = path.Join(path.Dir(name), resolved)
+	}
+	return fs.GetRelativePath(resolved), nil
 }
 
 // Chown changes the numeric uid and gid of the named file.
@@ -577,14 +586,30 @@ func (fs *SFTPFs) ResolvePath(virtualPath string) (string, error) {
 
 // getRealPath returns the real remote path trying to resolve symbolic links if any
 func (fs *SFTPFs) getRealPath(name string) (string, error) {
-	info, err := fs.sftpClient.Lstat(name)
-	if err != nil {
-		return name, err
+	linksWalked := 0
+	for {
+		info, err := fs.sftpClient.Lstat(name)
+		if err != nil {
+			return name, err
+		}
+		if info.Mode()&os.ModeSymlink == 0 {
+			return name, nil
+		}
+		resolvedLink, err := fs.sftpClient.ReadLink(name)
+		if err != nil {
+			return name, err
+		}
+		resolvedLink = path.Clean(resolvedLink)
+		if path.IsAbs(resolvedLink) {
+			name = resolvedLink
+		} else {
+			name = path.Join(path.Dir(name), resolvedLink)
+		}
+		linksWalked++
+		if linksWalked > 10 {
+			return "", &pathResolutionError{err: "too many links"}
+		}
 	}
-	if info.Mode()&os.ModeSymlink != 0 {
-		return fs.sftpClient.ReadLink(name)
-	}
-	return name, err
 }
 
 func (fs *SFTPFs) isSubDir(name string) error {
