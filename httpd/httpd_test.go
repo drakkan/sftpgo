@@ -3227,103 +3227,6 @@ func TestUserS3Config(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestUserGCSConfig(t *testing.T) {
-	err := dataprovider.Close()
-	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, "")
-	assert.NoError(t, err)
-	providerConf := config.GetProviderConf()
-	providerConf.PreferDatabaseCredentials = false
-	providerConf.CredentialsPath = credentialsPath
-	err = dataprovider.Initialize(providerConf, configDir, true)
-	assert.NoError(t, err)
-
-	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
-	assert.NoError(t, err)
-	err = os.RemoveAll(credentialsPath)
-	assert.NoError(t, err)
-	err = os.MkdirAll(credentialsPath, 0700)
-	assert.NoError(t, err)
-	user.FsConfig.Provider = sdk.GCSFilesystemProvider
-	user.FsConfig.GCSConfig.Bucket = "test"
-	user.FsConfig.GCSConfig.Credentials = kms.NewPlainSecret("fake credentials") //nolint:goconst
-	user, bb, err := httpdtest.UpdateUser(user, http.StatusOK, "")
-	assert.NoError(t, err, string(bb))
-	credentialFile := filepath.Join(credentialsPath, fmt.Sprintf("%v_gcs_credentials.json", user.Username))
-	assert.FileExists(t, credentialFile)
-	creds, err := os.ReadFile(credentialFile)
-	assert.NoError(t, err)
-	secret := kms.NewEmptySecret()
-	err = json.Unmarshal(creds, secret)
-	assert.NoError(t, err)
-	err = secret.Decrypt()
-	assert.NoError(t, err)
-	assert.Equal(t, "fake credentials", secret.GetPayload())
-	user.FsConfig.GCSConfig.Credentials = kms.NewSecret(sdkkms.SecretStatusSecretBox, "fake encrypted credentials", "", "")
-	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
-	assert.NoError(t, err)
-	assert.FileExists(t, credentialFile)
-	creds, err = os.ReadFile(credentialFile)
-	assert.NoError(t, err)
-	secret = kms.NewEmptySecret()
-	err = json.Unmarshal(creds, secret)
-	assert.NoError(t, err)
-	err = secret.Decrypt()
-	assert.NoError(t, err)
-	assert.Equal(t, "fake credentials", secret.GetPayload())
-	_, err = httpdtest.RemoveUser(user, http.StatusOK)
-	assert.NoError(t, err)
-	user.Password = defaultPassword
-	user.ID = 0
-	user.CreatedAt = 0
-	user.FsConfig.GCSConfig.Credentials = kms.NewSecret(sdkkms.SecretStatusSecretBox, "fake credentials", "", "")
-	_, _, err = httpdtest.AddUser(user, http.StatusCreated)
-	assert.Error(t, err)
-	user.FsConfig.GCSConfig.Credentials.SetStatus(sdkkms.SecretStatusPlain)
-	user, body, err := httpdtest.AddUser(user, http.StatusCreated)
-	assert.NoError(t, err, string(body))
-	err = os.RemoveAll(credentialsPath)
-	assert.NoError(t, err)
-	err = os.MkdirAll(credentialsPath, 0700)
-	assert.NoError(t, err)
-	user.FsConfig.GCSConfig.Credentials = kms.NewEmptySecret()
-	user.FsConfig.GCSConfig.AutomaticCredentials = 1
-	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
-	assert.NoError(t, err)
-	assert.NoFileExists(t, credentialFile)
-	user.FsConfig.GCSConfig = vfs.GCSFsConfig{}
-	user.FsConfig.Provider = sdk.S3FilesystemProvider
-	user.FsConfig.S3Config.Bucket = "test1"
-	user.FsConfig.S3Config.Region = "us-east-1"
-	user.FsConfig.S3Config.AccessKey = "Server-Access-Key1"
-	user.FsConfig.S3Config.AccessSecret = kms.NewPlainSecret("secret")
-	user.FsConfig.S3Config.Endpoint = "http://localhost:9000"
-	user.FsConfig.S3Config.KeyPrefix = "somedir/subdir"
-	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
-	assert.NoError(t, err)
-	user.FsConfig.S3Config = vfs.S3FsConfig{}
-	user.FsConfig.Provider = sdk.GCSFilesystemProvider
-	user.FsConfig.GCSConfig.Bucket = "test1"
-	user.FsConfig.GCSConfig.Credentials = kms.NewPlainSecret("fake credentials")
-	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
-	assert.NoError(t, err)
-
-	_, err = httpdtest.RemoveUser(user, http.StatusOK)
-	assert.NoError(t, err)
-
-	err = dataprovider.Close()
-	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, "")
-	assert.NoError(t, err)
-	providerConf = config.GetProviderConf()
-	providerConf.BackupsPath = backupsPath
-	providerConf.CredentialsPath = credentialsPath
-	err = os.RemoveAll(credentialsPath)
-	assert.NoError(t, err)
-	err = dataprovider.Initialize(providerConf, configDir, true)
-	assert.NoError(t, err)
-}
-
 func TestUserAzureBlobConfig(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
@@ -3570,15 +3473,6 @@ func TestUserSFTPFs(t *testing.T) {
 }
 
 func TestUserHiddenFields(t *testing.T) {
-	err := dataprovider.Close()
-	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, "")
-	assert.NoError(t, err)
-	providerConf := config.GetProviderConf()
-	providerConf.PreferDatabaseCredentials = true
-	err = dataprovider.Initialize(providerConf, configDir, true)
-	assert.NoError(t, err)
-
 	// sensitive data must be hidden but not deleted from the dataprovider
 	usernames := []string{"user1", "user2", "user3", "user4", "user5"}
 	u1 := getTestUser()
@@ -3785,18 +3679,6 @@ func TestUserHiddenFields(t *testing.T) {
 	_, err = httpdtest.RemoveUser(user4, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user5, http.StatusOK)
-	assert.NoError(t, err)
-
-	err = dataprovider.Close()
-	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, "")
-	assert.NoError(t, err)
-	providerConf = config.GetProviderConf()
-	providerConf.BackupsPath = backupsPath
-	providerConf.CredentialsPath = credentialsPath
-	err = os.RemoveAll(credentialsPath)
-	assert.NoError(t, err)
-	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
 }
 
@@ -9734,16 +9616,6 @@ func TestSFTPLoopError(t *testing.T) {
 }
 
 func TestLoginInvalidFs(t *testing.T) {
-	err := dataprovider.Close()
-	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, "")
-	assert.NoError(t, err)
-	providerConf := config.GetProviderConf()
-	providerConf.PreferDatabaseCredentials = false
-	providerConf.CredentialsPath = credentialsPath
-	err = dataprovider.Initialize(providerConf, configDir, true)
-	assert.NoError(t, err)
-
 	u := getTestUser()
 	u.Filters.AllowAPIKeyAuth = true
 	u.FsConfig.Provider = sdk.GCSFilesystemProvider
@@ -9756,15 +9628,6 @@ func TestLoginInvalidFs(t *testing.T) {
 		Scope: dataprovider.APIKeyScopeUser,
 		User:  u.Username,
 	}, http.StatusCreated)
-	assert.NoError(t, err)
-
-	credentialsFile := filepath.Join(credentialsPath, fmt.Sprintf("%v_gcs_credentials.json", u.Username))
-	if !filepath.IsAbs(credentialsFile) {
-		credentialsFile = filepath.Join(configDir, credentialsFile)
-	}
-
-	// now remove the credentials file so the filesystem creation will fail
-	err = os.Remove(credentialsFile)
 	assert.NoError(t, err)
 
 	_, err = getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
@@ -9782,18 +9645,6 @@ func TestLoginInvalidFs(t *testing.T) {
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
-
-	err = dataprovider.Close()
-	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, "")
-	assert.NoError(t, err)
-	providerConf = config.GetProviderConf()
-	providerConf.BackupsPath = backupsPath
-	providerConf.CredentialsPath = credentialsPath
-	err = os.RemoveAll(credentialsPath)
-	assert.NoError(t, err)
-	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
 }
 

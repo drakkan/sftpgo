@@ -74,7 +74,7 @@ func NewS3Fs(connectionID, localTempDir, mountPath string, s3Config S3FsConfig) 
 		config:       &s3Config,
 		ctxTimeout:   30 * time.Second,
 	}
-	if err := fs.config.Validate(); err != nil {
+	if err := fs.config.validate(); err != nil {
 		return fs, err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

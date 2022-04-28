@@ -547,6 +547,8 @@ func (p *PGSQLProvider) migrateDatabase() error {
 		return updatePGSQLDatabaseFromV15(p.dbHandle)
 	case version == 16:
 		return updatePGSQLDatabaseFromV16(p.dbHandle)
+	case version == 17:
+		return updatePGSQLDatabaseFromV17(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database version %v is newer than the supported one: %v", version,
@@ -573,6 +575,8 @@ func (p *PGSQLProvider) revertDatabase(targetVersion int) error {
 		return downgradePGSQLDatabaseFromV16(p.dbHandle)
 	case 17:
 		return downgradePGSQLDatabaseFromV17(p.dbHandle)
+	case 18:
+		return downgradePGSQLDatabaseFromV18(p.dbHandle)
 	default:
 		return fmt.Errorf("database version not handled: %v", dbVersion.Version)
 	}
@@ -591,7 +595,18 @@ func updatePGSQLDatabaseFromV15(dbHandle *sql.DB) error {
 }
 
 func updatePGSQLDatabaseFromV16(dbHandle *sql.DB) error {
-	return updatePGSQLDatabaseFrom16To17(dbHandle)
+	if err := updatePGSQLDatabaseFrom16To17(dbHandle); err != nil {
+		return err
+	}
+	return updatePGSQLDatabaseFromV17(dbHandle)
+}
+
+func updatePGSQLDatabaseFromV17(dbHandle *sql.DB) error {
+	return updatePGSQLDatabaseFrom17To18(dbHandle)
+}
+
+func downgradePGSQLDatabaseFromV16(dbHandle *sql.DB) error {
+	return downgradePGSQLDatabaseFrom16To15(dbHandle)
 }
 
 func downgradePGSQLDatabaseFromV17(dbHandle *sql.DB) error {
@@ -601,8 +616,11 @@ func downgradePGSQLDatabaseFromV17(dbHandle *sql.DB) error {
 	return downgradePGSQLDatabaseFromV16(dbHandle)
 }
 
-func downgradePGSQLDatabaseFromV16(dbHandle *sql.DB) error {
-	return downgradePGSQLDatabaseFrom16To15(dbHandle)
+func downgradePGSQLDatabaseFromV18(dbHandle *sql.DB) error {
+	if err := downgradePGSQLDatabaseFrom18To17(dbHandle); err != nil {
+		return err
+	}
+	return downgradePGSQLDatabaseFromV17(dbHandle)
 }
 
 func updatePGSQLDatabaseFrom15To16(dbHandle *sql.DB) error {
@@ -649,6 +667,15 @@ func updatePGSQLDatabaseFrom16To17(dbHandle *sql.DB) error {
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 17)
 }
 
+func updatePGSQLDatabaseFrom17To18(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 17 -> 18")
+	providerLog(logger.LevelInfo, "updating database version: 17 -> 18")
+	if err := importGCSCredentials(); err != nil {
+		return err
+	}
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, nil, 18)
+}
+
 func downgradePGSQLDatabaseFrom16To15(dbHandle *sql.DB) error {
 	logger.InfoToConsole("downgrading database version: 16 -> 15")
 	providerLog(logger.LevelInfo, "downgrading database version: 16 -> 15")
@@ -674,4 +701,10 @@ func downgradePGSQLDatabaseFrom17To16(dbHandle *sql.DB) error {
 	sql = strings.ReplaceAll(sql, "{{groups_folders_mapping}}", sqlTableGroupsFoldersMapping)
 	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 16)
+}
+
+func downgradePGSQLDatabaseFrom18To17(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 18 -> 17")
+	providerLog(logger.LevelInfo, "downgrading database version: 18 -> 17")
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, nil, 17)
 }

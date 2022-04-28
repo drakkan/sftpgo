@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -19,7 +20,7 @@ import (
 )
 
 const (
-	sqlDatabaseVersion     = 17
+	sqlDatabaseVersion     = 18
 	defaultSQLQueryTimeout = 10 * time.Second
 	longSQLQueryTimeout    = 60 * time.Second
 )
@@ -913,10 +914,19 @@ func sqlCommonValidateUserAndPubKey(username string, pubKey []byte, isSSHCert bo
 	return checkUserAndPubKey(&user, pubKey, isSSHCert)
 }
 
-func sqlCommonCheckAvailability(dbHandle *sql.DB) error {
+func sqlCommonCheckAvailability(dbHandle *sql.DB) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			providerLog(logger.LevelError, "panic in check provider availability, stack trace: %v", string(debug.Stack()))
+			err = errors.New("unable to check provider status")
+		}
+	}()
+
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
-	return dbHandle.PingContext(ctx)
+
+	err = dbHandle.PingContext(ctx)
+	return
 }
 
 func sqlCommonUpdateTransferQuota(username string, uploadSize, downloadSize int64, reset bool, dbHandle *sql.DB) error {
@@ -1216,10 +1226,6 @@ func sqlCommonDumpUsers(dbHandle sqlQuerier) ([]User, error) {
 	defer rows.Close()
 	for rows.Next() {
 		u, err := getUserFromDbRow(rows)
-		if err != nil {
-			return users, err
-		}
-		err = addCredentialsToUser(&u)
 		if err != nil {
 			return users, err
 		}

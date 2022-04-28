@@ -364,10 +364,6 @@ type Config struct {
 	UpdateMode int `json:"update_mode" mapstructure:"update_mode"`
 	// PasswordHashing defines the configuration for password hashing
 	PasswordHashing PasswordHashing `json:"password_hashing" mapstructure:"password_hashing"`
-	// PreferDatabaseCredentials indicates whether credential files (currently used for Google
-	// Cloud Storage) should be stored in the database instead of in the directory specified by
-	// CredentialsPath.
-	PreferDatabaseCredentials bool `json:"prefer_database_credentials" mapstructure:"prefer_database_credentials"`
 	// PasswordValidation defines the password validation rules
 	PasswordValidation PasswordValidation `json:"password_validation" mapstructure:"password_validation"`
 	// Verifying argon2 passwords has a high memory and computational cost,
@@ -2350,47 +2346,6 @@ func validateBaseFilters(filters *sdk.BaseUserFilters) error {
 	return validateFiltersPatternExtensions(filters)
 }
 
-func saveGCSCredentials(fsConfig *vfs.Filesystem, helper vfs.ValidatorHelper) error {
-	if fsConfig.Provider != sdk.GCSFilesystemProvider {
-		return nil
-	}
-	if fsConfig.GCSConfig.Credentials.GetPayload() == "" {
-		return nil
-	}
-	if config.PreferDatabaseCredentials {
-		if fsConfig.GCSConfig.Credentials.IsPlain() {
-			fsConfig.GCSConfig.Credentials.SetAdditionalData(helper.GetEncryptionAdditionalData())
-			err := fsConfig.GCSConfig.Credentials.Encrypt()
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-	if fsConfig.GCSConfig.Credentials.IsPlain() {
-		fsConfig.GCSConfig.Credentials.SetAdditionalData(helper.GetEncryptionAdditionalData())
-		err := fsConfig.GCSConfig.Credentials.Encrypt()
-		if err != nil {
-			return util.NewValidationError(fmt.Sprintf("could not encrypt GCS credentials: %v", err))
-		}
-	}
-	creds, err := json.Marshal(fsConfig.GCSConfig.Credentials)
-	if err != nil {
-		return util.NewValidationError(fmt.Sprintf("could not marshal GCS credentials: %v", err))
-	}
-	credentialsFilePath := helper.GetGCSCredentialsFilePath()
-	err = os.MkdirAll(filepath.Dir(credentialsFilePath), 0700)
-	if err != nil {
-		return util.NewValidationError(fmt.Sprintf("could not create GCS credentials dir: %v", err))
-	}
-	err = os.WriteFile(credentialsFilePath, creds, 0600)
-	if err != nil {
-		return util.NewValidationError(fmt.Sprintf("could not save GCS credentials: %v", err))
-	}
-	fsConfig.GCSConfig.Credentials = kms.NewEmptySecret()
-	return nil
-}
-
 func validateBaseParams(user *User) error {
 	if user.Username == "" {
 		return util.NewValidationError("username is mandatory")
@@ -2426,7 +2381,7 @@ func validateBaseParams(user *User) error {
 		user.UploadDataTransfer = 0
 		user.DownloadDataTransfer = 0
 	}
-	return user.FsConfig.Validate(user)
+	return user.FsConfig.Validate(user.GetEncryptionAdditionalData())
 }
 
 func hashPlainPassword(plainPwd string) (string, error) {
@@ -2482,10 +2437,7 @@ func ValidateFolder(folder *vfs.BaseVirtualFolder) error {
 	if folder.HasRedactedSecret() {
 		return errors.New("cannot save a folder with a redacted secret")
 	}
-	if err := folder.FsConfig.Validate(folder); err != nil {
-		return err
-	}
-	return saveGCSCredentials(&folder.FsConfig, folder)
+	return folder.FsConfig.Validate(folder.GetEncryptionAdditionalData())
 }
 
 // ValidateUser returns an error if the user is not valid
@@ -2532,7 +2484,7 @@ func ValidateUser(user *User) error {
 	if user.Filters.TOTPConfig.Enabled && util.IsStringInSlice(sdk.WebClientMFADisabled, user.Filters.WebClient) {
 		return util.NewValidationError("two-factor authentication cannot be disabled for a user with an active configuration")
 	}
-	return saveGCSCredentials(&user.FsConfig, user)
+	return nil
 }
 
 func isPasswordOK(user *User, password string) (bool, error) {
@@ -2779,54 +2731,6 @@ func comparePbkdf2PasswordAndHash(password, hashedPassword string) (bool, error)
 	}
 	df := pbkdf2.Key([]byte(password), salt, iterations, len(expected), hashFunc)
 	return subtle.ConstantTimeCompare(df, expected) == 1, nil
-}
-
-func addCredentialsToUser(user *User) error {
-	if err := addFolderCredentialsToUser(user); err != nil {
-		return err
-	}
-	if user.FsConfig.Provider != sdk.GCSFilesystemProvider {
-		return nil
-	}
-	if user.FsConfig.GCSConfig.AutomaticCredentials > 0 {
-		return nil
-	}
-
-	// Don't read from file if credentials have already been set
-	if user.FsConfig.GCSConfig.Credentials.IsValid() {
-		return nil
-	}
-
-	cred, err := os.ReadFile(user.GetGCSCredentialsFilePath())
-	if err != nil {
-		return err
-	}
-	return json.Unmarshal(cred, &user.FsConfig.GCSConfig.Credentials)
-}
-
-func addFolderCredentialsToUser(user *User) error {
-	for idx := range user.VirtualFolders {
-		f := &user.VirtualFolders[idx]
-		if f.FsConfig.Provider != sdk.GCSFilesystemProvider {
-			continue
-		}
-		if f.FsConfig.GCSConfig.AutomaticCredentials > 0 {
-			continue
-		}
-		// Don't read from file if credentials have already been set
-		if f.FsConfig.GCSConfig.Credentials.IsValid() {
-			continue
-		}
-		cred, err := os.ReadFile(f.GetGCSCredentialsFilePath())
-		if err != nil {
-			return err
-		}
-		err = json.Unmarshal(cred, f.FsConfig.GCSConfig.Credentials)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func getSSLMode() string {
@@ -3672,6 +3576,89 @@ func isLastActivityRecent(lastActivity int64, minDelay time.Duration) bool {
 		return false
 	}
 	return diff < minDelay
+}
+
+func addGCSCredentialsToFolder(folder *vfs.BaseVirtualFolder) (bool, error) {
+	if folder.FsConfig.Provider != sdk.GCSFilesystemProvider {
+		return false, nil
+	}
+	if folder.FsConfig.GCSConfig.AutomaticCredentials > 0 {
+		return false, nil
+	}
+	if folder.FsConfig.GCSConfig.Credentials.IsValid() {
+		return false, nil
+	}
+	cred, err := os.ReadFile(folder.GetGCSCredentialsFilePath())
+	if err != nil {
+		return false, err
+	}
+	err = json.Unmarshal(cred, &folder.FsConfig.GCSConfig.Credentials)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func addGCSCredentialsToUser(user *User) (bool, error) {
+	if user.FsConfig.Provider != sdk.GCSFilesystemProvider {
+		return false, nil
+	}
+	if user.FsConfig.GCSConfig.AutomaticCredentials > 0 {
+		return false, nil
+	}
+	if user.FsConfig.GCSConfig.Credentials.IsValid() {
+		return false, nil
+	}
+	cred, err := os.ReadFile(user.GetGCSCredentialsFilePath())
+	if err != nil {
+		return false, err
+	}
+	err = json.Unmarshal(cred, &user.FsConfig.GCSConfig.Credentials)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func importGCSCredentials() error {
+	folders, err := provider.dumpFolders()
+	if err != nil {
+		return fmt.Errorf("unable to get folders: %w", err)
+	}
+	for idx := range folders {
+		folder := &folders[idx]
+		added, err := addGCSCredentialsToFolder(folder)
+		if err != nil {
+			return fmt.Errorf("unable to add GCS credentials to folder %#v: %w", folder.Name, err)
+		}
+		if added {
+			logger.InfoToConsole("importing GCS credentials for folder %#v", folder.Name)
+			providerLog(logger.LevelInfo, "importing GCS credentials for folder %#v", folder.Name)
+			if err = provider.updateFolder(folder); err != nil {
+				return fmt.Errorf("unable to update folder %#v: %w", folder.Name, err)
+			}
+		}
+	}
+
+	users, err := provider.dumpUsers()
+	if err != nil {
+		return fmt.Errorf("unable to get users: %w", err)
+	}
+	for idx := range users {
+		user := &users[idx]
+		added, err := addGCSCredentialsToUser(user)
+		if err != nil {
+			return fmt.Errorf("unable to add GCS credentials to user %#v: %w", user.Username, err)
+		}
+		if added {
+			logger.InfoToConsole("importing GCS credentials for user %#v", user.Username)
+			providerLog(logger.LevelInfo, "importing GCS credentials for user %#v", user.Username)
+			if err = provider.updateUser(user); err != nil {
+				return fmt.Errorf("unable to update user %#v: %w", user.Username, err)
+			}
+		}
+	}
+	return nil
 }
 
 func getConfigPath(name, configDir string) string {

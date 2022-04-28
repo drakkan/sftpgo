@@ -111,7 +111,7 @@ func processSSHCommand(payload []byte, connection *Connection, enabledSSHCommand
 func (c *sshCommand) handle() (err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			logger.Error(logSender, "", "panic in handle ssh command: %#v stack strace: %v", r, string(debug.Stack()))
+			logger.Error(logSender, "", "panic in handle ssh command: %#v stack trace: %v", r, string(debug.Stack()))
 			err = common.ErrGenericFailure
 		}
 	}()

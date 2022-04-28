@@ -93,8 +93,8 @@ func (c *SFTPFsConfig) setEmptyCredentialsIfNil() {
 	}
 }
 
-// Validate returns an error if the configuration is not valid
-func (c *SFTPFsConfig) Validate() error {
+// validate returns an error if the configuration is not valid
+func (c *SFTPFsConfig) validate() error {
 	c.setEmptyCredentialsIfNil()
 	if c.Endpoint == "" {
 		return errors.New("endpoint cannot be empty")
@@ -139,18 +139,21 @@ func (c *SFTPFsConfig) validateCredentials() error {
 	return nil
 }
 
-// EncryptCredentials encrypts password and/or private key if they are in plain text
-func (c *SFTPFsConfig) EncryptCredentials(additionalData string) error {
+// ValidateAndEncryptCredentials encrypts password and/or private key if they are in plain text
+func (c *SFTPFsConfig) ValidateAndEncryptCredentials(additionalData string) error {
+	if err := c.validate(); err != nil {
+		return util.NewValidationError(fmt.Sprintf("could not validate SFTP fs config: %v", err))
+	}
 	if c.Password.IsPlain() {
 		c.Password.SetAdditionalData(additionalData)
 		if err := c.Password.Encrypt(); err != nil {
-			return err
+			return util.NewValidationError(fmt.Sprintf("could not encrypt SFTP fs password: %v", err))
 		}
 	}
 	if c.PrivateKey.IsPlain() {
 		c.PrivateKey.SetAdditionalData(additionalData)
 		if err := c.PrivateKey.Encrypt(); err != nil {
-			return err
+			return util.NewValidationError(fmt.Sprintf("could not encrypt SFTP fs private key: %v", err))
 		}
 	}
 	return nil
@@ -178,7 +181,7 @@ func NewSFTPFs(connectionID, mountPath, localTempDir string, forbiddenSelfUserna
 			localTempDir = filepath.Clean(os.TempDir())
 		}
 	}
-	if err := config.Validate(); err != nil {
+	if err := config.validate(); err != nil {
 		return nil, err
 	}
 	if !config.Password.IsEmpty() {

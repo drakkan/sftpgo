@@ -1704,32 +1704,12 @@ func TestLoginWithDatabaseCredentials(t *testing.T) {
 	u.FsConfig.Provider = sdk.GCSFilesystemProvider
 	u.FsConfig.GCSConfig.Bucket = "test"
 	u.FsConfig.GCSConfig.Credentials = kms.NewPlainSecret(`{ "type": "service_account" }`)
-
-	providerConf := config.GetProviderConf()
-	providerConf.PreferDatabaseCredentials = true
-	credentialsFile := filepath.Join(providerConf.CredentialsPath, fmt.Sprintf("%v_gcs_credentials.json", u.Username))
-	if !filepath.IsAbs(credentialsFile) {
-		credentialsFile = filepath.Join(configDir, credentialsFile)
-	}
-
-	assert.NoError(t, dataprovider.Close())
-
-	err := dataprovider.Initialize(providerConf, configDir, true)
-	assert.NoError(t, err)
-
-	if _, err = os.Stat(credentialsFile); err == nil {
-		// remove the credentials file
-		assert.NoError(t, os.Remove(credentialsFile))
-	}
-
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	assert.Equal(t, sdkkms.SecretStatusSecretBox, user.FsConfig.GCSConfig.Credentials.GetStatus())
 	assert.NotEmpty(t, user.FsConfig.GCSConfig.Credentials.GetPayload())
 	assert.Empty(t, user.FsConfig.GCSConfig.Credentials.GetAdditionalData())
 	assert.Empty(t, user.FsConfig.GCSConfig.Credentials.GetKey())
-
-	assert.NoFileExists(t, credentialsFile)
 
 	client := getWebDavClient(user, false, nil)
 
@@ -1740,38 +1720,14 @@ func TestLoginWithDatabaseCredentials(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-
-	assert.NoError(t, dataprovider.Close())
-	assert.NoError(t, config.LoadConfig(configDir, ""))
-	providerConf = config.GetProviderConf()
-	assert.NoError(t, dataprovider.Initialize(providerConf, configDir, true))
 }
 
 func TestLoginInvalidFs(t *testing.T) {
-	err := dataprovider.Close()
-	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, "")
-	assert.NoError(t, err)
-	providerConf := config.GetProviderConf()
-	providerConf.PreferDatabaseCredentials = false
-	err = dataprovider.Initialize(providerConf, configDir, true)
-	assert.NoError(t, err)
-
 	u := getTestUser()
 	u.FsConfig.Provider = sdk.GCSFilesystemProvider
 	u.FsConfig.GCSConfig.Bucket = "test"
 	u.FsConfig.GCSConfig.Credentials = kms.NewPlainSecret("invalid JSON for credentials")
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
-	assert.NoError(t, err)
-
-	providerConf = config.GetProviderConf()
-	credentialsFile := filepath.Join(providerConf.CredentialsPath, fmt.Sprintf("%v_gcs_credentials.json", u.Username))
-	if !filepath.IsAbs(credentialsFile) {
-		credentialsFile = filepath.Join(configDir, credentialsFile)
-	}
-
-	// now remove the credentials file so the filesystem creation will fail
-	err = os.Remove(credentialsFile)
 	assert.NoError(t, err)
 
 	client := getWebDavClient(user, true, nil)
@@ -1780,14 +1736,6 @@ func TestLoginInvalidFs(t *testing.T) {
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
-
-	err = dataprovider.Close()
-	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, "")
-	assert.NoError(t, err)
-	providerConf = config.GetProviderConf()
-	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
 }
 

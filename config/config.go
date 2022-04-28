@@ -302,14 +302,13 @@ func Init() {
 					MinEntropy: 0,
 				},
 			},
-			PasswordCaching:           true,
-			UpdateMode:                0,
-			PreferDatabaseCredentials: true,
-			DelayedQuotaUpdate:        0,
-			CreateDefaultAdmin:        false,
-			NamingRules:               0,
-			IsShared:                  0,
-			BackupsPath:               "backups",
+			PasswordCaching:    true,
+			UpdateMode:         0,
+			DelayedQuotaUpdate: 0,
+			CreateDefaultAdmin: false,
+			NamingRules:        0,
+			IsShared:           0,
+			BackupsPath:        "backups",
 			AutoBackup: dataprovider.AutoBackup{
 				Enabled:   true,
 				Hour:      "0",
@@ -1610,7 +1609,6 @@ func setViperDefaults() {
 	viper.SetDefault("data_provider.external_auth_hook", globalConf.ProviderConf.ExternalAuthHook)
 	viper.SetDefault("data_provider.external_auth_scope", globalConf.ProviderConf.ExternalAuthScope)
 	viper.SetDefault("data_provider.credentials_path", globalConf.ProviderConf.CredentialsPath)
-	viper.SetDefault("data_provider.prefer_database_credentials", globalConf.ProviderConf.PreferDatabaseCredentials)
 	viper.SetDefault("data_provider.pre_login_hook", globalConf.ProviderConf.PreLoginHook)
 	viper.SetDefault("data_provider.post_login_hook", globalConf.ProviderConf.PostLoginHook)
 	viper.SetDefault("data_provider.post_login_scope", globalConf.ProviderConf.PostLoginScope)

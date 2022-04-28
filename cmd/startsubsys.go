@@ -99,7 +99,6 @@ Command-line flags should be specified in the Subsystem declaration.
 					dataProviderConf.Driver, dataprovider.MemoryDataProviderName)
 				dataProviderConf.Driver = dataprovider.MemoryDataProviderName
 				dataProviderConf.Name = ""
-				dataProviderConf.PreferDatabaseCredentials = true
 			}
 			config.SetProviderConf(dataProviderConf)
 			err = dataprovider.Initialize(dataProviderConf, configDir, false)

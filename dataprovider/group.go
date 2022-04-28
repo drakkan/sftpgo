@@ -106,11 +106,6 @@ func (g *Group) GetEncryptionAdditionalData() string {
 	return fmt.Sprintf("group_%v", g.Name)
 }
 
-// GetGCSCredentialsFilePath returns the path for GCS credentials
-func (g *Group) GetGCSCredentialsFilePath() string {
-	return filepath.Join(credentialsDirPath, "groups", fmt.Sprintf("%v_gcs_credentials.json", g.Name))
-}
-
 // HasRedactedSecret returns true if the user has a redacted secret
 func (g *Group) hasRedactedSecret() bool {
 	for idx := range g.VirtualFolders {
@@ -150,10 +145,7 @@ func (g *Group) validateUserSettings() error {
 				g.UserSettings.HomeDir))
 		}
 	}
-	if err := g.UserSettings.FsConfig.Validate(g); err != nil {
-		return err
-	}
-	if err := saveGCSCredentials(&g.UserSettings.FsConfig, g); err != nil {
+	if err := g.UserSettings.FsConfig.Validate(g.GetEncryptionAdditionalData()); err != nil {
 		return err
 	}
 	if g.UserSettings.TotalDataTransfer > 0 {

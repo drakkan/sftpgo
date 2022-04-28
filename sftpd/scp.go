@@ -33,7 +33,7 @@ type scpCommand struct {
 func (c *scpCommand) handle() (err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			logger.Error(logSender, "", "panic in handle scp command: %#v stack strace: %v", r, string(debug.Stack()))
+			logger.Error(logSender, "", "panic in handle scp command: %#v stack trace: %v", r, string(debug.Stack()))
 			err = common.ErrGenericFailure
 		}
 	}()

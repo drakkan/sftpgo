@@ -46,7 +46,6 @@ func (s *Service) StartPortableMode(sftpdPort, ftpPort, webdavPort int, enabledS
 	dataProviderConf := config.GetProviderConf()
 	dataProviderConf.Driver = dataprovider.MemoryDataProviderName
 	dataProviderConf.Name = ""
-	dataProviderConf.PreferDatabaseCredentials = true
 	config.SetProviderConf(dataProviderConf)
 	httpdConf := config.GetHTTPDConfig()
 	httpdConf.Bindings = nil

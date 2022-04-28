@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	boltDatabaseVersion = 17
+	boltDatabaseVersion = 18
 )
 
 var (
@@ -700,10 +700,6 @@ func (p *BoltProvider) dumpUsers() ([]User, error) {
 		cursor := bucket.Cursor()
 		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
 			user, err := p.joinUserAndFolders(v, folderBucket)
-			if err != nil {
-				return err
-			}
-			err = addCredentialsToUser(&user)
 			if err != nil {
 				return err
 			}
@@ -1888,8 +1884,13 @@ func (p *BoltProvider) migrateDatabase() error {
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
-	case version == 15, version == 16:
-		return updateBoltDatabaseVersion(p.dbHandle, 17)
+	case version == 15, version == 16, version == 17:
+		logger.InfoToConsole(fmt.Sprintf("updating database version: %v -> 18", version))
+		providerLog(logger.LevelInfo, "updating database version: %v -> 18", version)
+		if err = importGCSCredentials(); err != nil {
+			return err
+		}
+		return updateBoltDatabaseVersion(p.dbHandle, 18)
 	default:
 		if version > boltDatabaseVersion {
 			providerLog(logger.LevelError, "database version %v is newer than the supported one: %v", version,
@@ -1911,7 +1912,7 @@ func (p *BoltProvider) revertDatabase(targetVersion int) error {
 		return errors.New("current version match target version, nothing to do")
 	}
 	switch dbVersion.Version {
-	case 16, 17:
+	case 16, 17, 18:
 		return updateBoltDatabaseVersion(p.dbHandle, 15)
 	default:
 		return fmt.Errorf("database version not handled: %v", dbVersion.Version)

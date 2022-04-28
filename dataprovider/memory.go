@@ -421,10 +421,6 @@ func (p *MemoryProvider) dumpUsers() ([]User, error) {
 		u := p.dbHandle.users[username]
 		user := u.getACopy()
 		p.addVirtualFoldersToUser(&user)
-		err = addCredentialsToUser(&user)
-		if err != nil {
-			return users, err
-		}
 		users = append(users, user)
 	}
 	return users, err

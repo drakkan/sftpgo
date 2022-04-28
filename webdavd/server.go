@@ -135,7 +135,7 @@ func (s *webDavServer) checkRequestMethod(ctx context.Context, r *http.Request, 
 func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		if r := recover(); r != nil {
-			logger.Error(logSender, "", "panic in ServeHTTP: %#v stack strace: %v", r, string(debug.Stack()))
+			logger.Error(logSender, "", "panic in ServeHTTP: %#v stack trace: %v", r, string(debug.Stack()))
 			http.Error(w, common.ErrGenericFailure.Error(), http.StatusInternalServerError)
 		}
 	}()

@@ -141,9 +141,7 @@ func (u *User) getRootFs(connectionID string) (fs vfs.Fs, err error) {
 	case sdk.S3FilesystemProvider:
 		return vfs.NewS3Fs(connectionID, u.GetHomeDir(), "", u.FsConfig.S3Config)
 	case sdk.GCSFilesystemProvider:
-		config := u.FsConfig.GCSConfig
-		config.CredentialFile = u.GetGCSCredentialsFilePath()
-		return vfs.NewGCSFs(connectionID, u.GetHomeDir(), "", config)
+		return vfs.NewGCSFs(connectionID, u.GetHomeDir(), "", u.FsConfig.GCSConfig)
 	case sdk.AzureBlobFilesystemProvider:
 		return vfs.NewAzBlobFs(connectionID, u.GetHomeDir(), "", u.FsConfig.AzBlobConfig)
 	case sdk.CryptedFilesystemProvider:

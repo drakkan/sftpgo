@@ -5,7 +5,6 @@ package vfs
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"mime"
@@ -23,7 +22,6 @@ import (
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 
-	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/metric"
 	"github.com/drakkan/sftpgo/v2/plugin"
@@ -74,34 +72,18 @@ func NewGCSFs(connectionID, localTempDir, mountPath string, config GCSFsConfig) 
 		ctxTimeout:     30 * time.Second,
 		ctxLongTimeout: 300 * time.Second,
 	}
-	if err = fs.config.Validate(fs.config.CredentialFile); err != nil {
+	if err = fs.config.validate(); err != nil {
 		return fs, err
 	}
 	ctx := context.Background()
 	if fs.config.AutomaticCredentials > 0 {
 		fs.svc, err = storage.NewClient(ctx)
-	} else if !fs.config.Credentials.IsEmpty() {
+	} else {
 		err = fs.config.Credentials.TryDecrypt()
 		if err != nil {
 			return fs, err
 		}
 		fs.svc, err = storage.NewClient(ctx, option.WithCredentialsJSON([]byte(fs.config.Credentials.GetPayload())))
-	} else {
-		var creds []byte
-		creds, err = os.ReadFile(fs.config.CredentialFile)
-		if err != nil {
-			return fs, err
-		}
-		secret := kms.NewEmptySecret()
-		err = json.Unmarshal(creds, secret)
-		if err != nil {
-			return fs, err
-		}
-		err = secret.Decrypt()
-		if err != nil {
-			return fs, err
-		}
-		fs.svc, err = storage.NewClient(ctx, option.WithCredentialsJSON([]byte(secret.GetPayload())))
 	}
 	return fs, err
 }

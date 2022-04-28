@@ -243,13 +243,16 @@ func (c *S3FsConfig) checkCredentials() error {
 	return nil
 }
 
-// EncryptCredentials encrypts access secret if it is in plain text
-func (c *S3FsConfig) EncryptCredentials(additionalData string) error {
+// ValidateAndEncryptCredentials validates the configuration and encrypts access secret if it is in plain text
+func (c *S3FsConfig) ValidateAndEncryptCredentials(additionalData string) error {
+	if err := c.validate(); err != nil {
+		return util.NewValidationError(fmt.Sprintf("could not validate s3config: %v", err))
+	}
 	if c.AccessSecret.IsPlain() {
 		c.AccessSecret.SetAdditionalData(additionalData)
 		err := c.AccessSecret.Encrypt()
 		if err != nil {
-			return err
+			return util.NewValidationError(fmt.Sprintf("could not encrypt s3 access secret: %v", err))
 		}
 	}
 	return nil
@@ -271,8 +274,8 @@ func (c *S3FsConfig) checkPartSizeAndConcurrency() error {
 	return nil
 }
 
-// Validate returns an error if the configuration is not valid
-func (c *S3FsConfig) Validate() error {
+// validate returns an error if the configuration is not valid
+func (c *S3FsConfig) validate() error {
 	if c.AccessSecret == nil {
 		c.AccessSecret = kms.NewEmptySecret()
 	}
@@ -312,6 +315,21 @@ func (c *GCSFsConfig) HideConfidentialData() {
 	}
 }
 
+// ValidateAndEncryptCredentials validates the configuration and encrypts credentials if they are in plain text
+func (c *GCSFsConfig) ValidateAndEncryptCredentials(additionalData string) error {
+	if err := c.validate(); err != nil {
+		return util.NewValidationError(fmt.Sprintf("could not validate GCS config: %v", err))
+	}
+	if c.Credentials.IsPlain() {
+		c.Credentials.SetAdditionalData(additionalData)
+		err := c.Credentials.Encrypt()
+		if err != nil {
+			return util.NewValidationError(fmt.Sprintf("could not encrypt GCS credentials: %v", err))
+		}
+	}
+	return nil
+}
+
 func (c *GCSFsConfig) isEqual(other *GCSFsConfig) bool {
 	if c.Bucket != other.Bucket {
 		return false
@@ -337,8 +355,8 @@ func (c *GCSFsConfig) isEqual(other *GCSFsConfig) bool {
 	return c.Credentials.IsEqual(other.Credentials)
 }
 
-// Validate returns an error if the configuration is not valid
-func (c *GCSFsConfig) Validate(credentialsFilePath string) error {
+// validate returns an error if the configuration is not valid
+func (c *GCSFsConfig) validate() error {
 	if c.Credentials == nil || c.AutomaticCredentials == 1 {
 		c.Credentials = kms.NewEmptySecret()
 	}
@@ -358,13 +376,7 @@ func (c *GCSFsConfig) Validate(credentialsFilePath string) error {
 		return errors.New("invalid encrypted credentials")
 	}
 	if c.AutomaticCredentials == 0 && !c.Credentials.IsValidInput() {
-		fi, err := os.Stat(credentialsFilePath)
-		if err != nil {
-			return fmt.Errorf("invalid credentials %v", err)
-		}
-		if fi.Size() == 0 {
-			return errors.New("credentials cannot be empty")
-		}
+		return errors.New("invalid credentials")
 	}
 	c.StorageClass = strings.TrimSpace(c.StorageClass)
 	c.ACL = strings.TrimSpace(c.ACL)
@@ -444,18 +456,21 @@ func (c *AzBlobFsConfig) isSecretEqual(other *AzBlobFsConfig) bool {
 	return c.AccountKey.IsEqual(other.AccountKey)
 }
 
-// EncryptCredentials encrypts access secret if it is in plain text
-func (c *AzBlobFsConfig) EncryptCredentials(additionalData string) error {
+// ValidateAndEncryptCredentials validates the configuration and  encrypts access secret if it is in plain text
+func (c *AzBlobFsConfig) ValidateAndEncryptCredentials(additionalData string) error {
+	if err := c.validate(); err != nil {
+		return util.NewValidationError(fmt.Sprintf("could not validate Azure Blob config: %v", err))
+	}
 	if c.AccountKey.IsPlain() {
 		c.AccountKey.SetAdditionalData(additionalData)
 		if err := c.AccountKey.Encrypt(); err != nil {
-			return err
+			return util.NewValidationError(fmt.Sprintf("could not encrypt Azure blob account key: %v", err))
 		}
 	}
 	if c.SASURL.IsPlain() {
 		c.SASURL.SetAdditionalData(additionalData)
 		if err := c.SASURL.Encrypt(); err != nil {
-			return err
+			return util.NewValidationError(fmt.Sprintf("could not encrypt Azure blob SAS URL: %v", err))
 		}
 	}
 	return nil
@@ -507,8 +522,8 @@ func (c *AzBlobFsConfig) tryDecrypt() error {
 	return nil
 }
 
-// Validate returns an error if the configuration is not valid
-func (c *AzBlobFsConfig) Validate() error {
+// validate returns an error if the configuration is not valid
+func (c *AzBlobFsConfig) validate() error {
 	if c.AccountKey == nil {
 		c.AccountKey = kms.NewEmptySecret()
 	}
@@ -562,19 +577,22 @@ func (c *CryptFsConfig) isEqual(other *CryptFsConfig) bool {
 	return c.Passphrase.IsEqual(other.Passphrase)
 }
 
-// EncryptCredentials encrypts access secret if it is in plain text
-func (c *CryptFsConfig) EncryptCredentials(additionalData string) error {
+// ValidateAndEncryptCredentials validates the configuration and encrypts the passphrase if it is in plain text
+func (c *CryptFsConfig) ValidateAndEncryptCredentials(additionalData string) error {
+	if err := c.validate(); err != nil {
+		return util.NewValidationError(fmt.Sprintf("could not validate Crypt fs config: %v", err))
+	}
 	if c.Passphrase.IsPlain() {
 		c.Passphrase.SetAdditionalData(additionalData)
 		if err := c.Passphrase.Encrypt(); err != nil {
-			return err
+			return util.NewValidationError(fmt.Sprintf("could not encrypt Crypt fs passphrase: %v", err))
 		}
 	}
 	return nil
 }
 
-// Validate returns an error if the configuration is not valid
-func (c *CryptFsConfig) Validate() error {
+// validate returns an error if the configuration is not valid
+func (c *CryptFsConfig) validate() error {
 	if c.Passphrase == nil || c.Passphrase.IsEmpty() {
 		return errors.New("invalid passphrase")
 	}

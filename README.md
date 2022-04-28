@@ -154,6 +154,8 @@ You can also reset your provider by using the `resetprovider` sub-command. Take 
 sftpgo resetprovider --help
 ```
 
+:warning: Please note that some data providers (e.g. MySQL and CockroachDB) do not support schema changes within a transaction, this means that you may end up with an inconsistent schema if migrations are forcibly aborted or if they are run concurrently by multiple instances.
+
 ## Create the first admin
 
 To start using SFTPGo you need to create an admin user, you can do it in several ways:

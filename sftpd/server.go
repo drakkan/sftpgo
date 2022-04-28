@@ -477,7 +477,7 @@ func canAcceptConnection(ip string) bool {
 func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.ServerConfig) {
 	defer func() {
 		if r := recover(); r != nil {
-			logger.Error(logSender, "", "panic in AcceptInboundConnection: %#v stack strace: %v", r, string(debug.Stack()))
+			logger.Error(logSender, "", "panic in AcceptInboundConnection: %#v stack trace: %v", r, string(debug.Stack()))
 		}
 	}()
 
@@ -597,7 +597,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 func (c *Configuration) handleSftpConnection(channel ssh.Channel, connection *Connection) {
 	defer func() {
 		if r := recover(); r != nil {
-			logger.Error(logSender, "", "panic in handleSftpConnection: %#v stack strace: %v", r, string(debug.Stack()))
+			logger.Error(logSender, "", "panic in handleSftpConnection: %#v stack trace: %v", r, string(debug.Stack()))
 		}
 	}()
 	if err := common.Connections.Add(connection); err != nil {

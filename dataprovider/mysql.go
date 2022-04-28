@@ -572,6 +572,8 @@ func (p *MySQLProvider) migrateDatabase() error {
 		return updateMySQLDatabaseFromV15(p.dbHandle)
 	case version == 16:
 		return updateMySQLDatabaseFromV16(p.dbHandle)
+	case version == 17:
+		return updateMySQLDatabaseFromV17(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database version %v is newer than the supported one: %v", version,
@@ -598,6 +600,8 @@ func (p *MySQLProvider) revertDatabase(targetVersion int) error {
 		return downgradeMySQLDatabaseFromV16(p.dbHandle)
 	case 17:
 		return downgradeMySQLDatabaseFromV17(p.dbHandle)
+	case 18:
+		return downgradeMySQLDatabaseFromV18(p.dbHandle)
 	default:
 		return fmt.Errorf("database version not handled: %v", dbVersion.Version)
 	}
@@ -616,7 +620,18 @@ func updateMySQLDatabaseFromV15(dbHandle *sql.DB) error {
 }
 
 func updateMySQLDatabaseFromV16(dbHandle *sql.DB) error {
-	return updateMySQLDatabaseFrom16To17(dbHandle)
+	if err := updateMySQLDatabaseFrom16To17(dbHandle); err != nil {
+		return err
+	}
+	return updateMySQLDatabaseFromV17(dbHandle)
+}
+
+func updateMySQLDatabaseFromV17(dbHandle *sql.DB) error {
+	return updateMySQLDatabaseFrom17To18(dbHandle)
+}
+
+func downgradeMySQLDatabaseFromV16(dbHandle *sql.DB) error {
+	return downgradeMySQLDatabaseFrom16To15(dbHandle)
 }
 
 func downgradeMySQLDatabaseFromV17(dbHandle *sql.DB) error {
@@ -626,8 +641,11 @@ func downgradeMySQLDatabaseFromV17(dbHandle *sql.DB) error {
 	return downgradeMySQLDatabaseFromV16(dbHandle)
 }
 
-func downgradeMySQLDatabaseFromV16(dbHandle *sql.DB) error {
-	return downgradeMySQLDatabaseFrom16To15(dbHandle)
+func downgradeMySQLDatabaseFromV18(dbHandle *sql.DB) error {
+	if err := downgradeMySQLDatabaseFrom18To17(dbHandle); err != nil {
+		return err
+	}
+	return downgradeMySQLDatabaseFromV17(dbHandle)
 }
 
 func updateMySQLDatabaseFrom15To16(dbHandle *sql.DB) error {
@@ -653,6 +671,15 @@ func updateMySQLDatabaseFrom16To17(dbHandle *sql.DB) error {
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 17)
 }
 
+func updateMySQLDatabaseFrom17To18(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 17 -> 18")
+	providerLog(logger.LevelInfo, "updating database version: 17 -> 18")
+	if err := importGCSCredentials(); err != nil {
+		return err
+	}
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, nil, 18)
+}
+
 func downgradeMySQLDatabaseFrom16To15(dbHandle *sql.DB) error {
 	logger.InfoToConsole("downgrading database version: 16 -> 15")
 	providerLog(logger.LevelInfo, "downgrading database version: 16 -> 15")
@@ -673,4 +700,10 @@ func downgradeMySQLDatabaseFrom17To16(dbHandle *sql.DB) error {
 	sql = strings.ReplaceAll(sql, "{{groups_folders_mapping}}", sqlTableGroupsFoldersMapping)
 	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 16)
+}
+
+func downgradeMySQLDatabaseFrom18To17(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 18 -> 17")
+	providerLog(logger.LevelInfo, "downgrading database version: 18 -> 17")
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, nil, 17)
 }

@@ -70,7 +70,7 @@ func NewAzBlobFs(connectionID, localTempDir, mountPath string, config AzBlobFsCo
 		ctxTimeout:     30 * time.Second,
 		ctxLongTimeout: 90 * time.Second,
 	}
-	if err := fs.config.Validate(); err != nil {
+	if err := fs.config.validate(); err != nil {
 		return fs, err
 	}
 

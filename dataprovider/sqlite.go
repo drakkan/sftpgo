@@ -519,6 +519,8 @@ func (p *SQLiteProvider) migrateDatabase() error {
 		return updateSQLiteDatabaseFromV15(p.dbHandle)
 	case version == 16:
 		return updateSQLiteDatabaseFromV16(p.dbHandle)
+	case version == 17:
+		return updateSQLiteDatabaseFromV17(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database version %v is newer than the supported one: %v", version,
@@ -545,6 +547,8 @@ func (p *SQLiteProvider) revertDatabase(targetVersion int) error {
 		return downgradeSQLiteDatabaseFromV16(p.dbHandle)
 	case 17:
 		return downgradeSQLiteDatabaseFromV17(p.dbHandle)
+	case 18:
+		return downgradeSQLiteDatabaseFromV18(p.dbHandle)
 	default:
 		return fmt.Errorf("database version not handled: %v", dbVersion.Version)
 	}
@@ -563,7 +567,14 @@ func updateSQLiteDatabaseFromV15(dbHandle *sql.DB) error {
 }
 
 func updateSQLiteDatabaseFromV16(dbHandle *sql.DB) error {
-	return updateSQLiteDatabaseFrom16To17(dbHandle)
+	if err := updateSQLiteDatabaseFrom16To17(dbHandle); err != nil {
+		return err
+	}
+	return updateSQLiteDatabaseFromV17(dbHandle)
+}
+
+func updateSQLiteDatabaseFromV17(dbHandle *sql.DB) error {
+	return updateSQLiteDatabaseFrom17To18(dbHandle)
 }
 
 func downgradeSQLiteDatabaseFromV16(dbHandle *sql.DB) error {
@@ -575,6 +586,13 @@ func downgradeSQLiteDatabaseFromV17(dbHandle *sql.DB) error {
 		return err
 	}
 	return downgradeSQLiteDatabaseFromV16(dbHandle)
+}
+
+func downgradeSQLiteDatabaseFromV18(dbHandle *sql.DB) error {
+	if err := downgradeSQLiteDatabaseFrom18To17(dbHandle); err != nil {
+		return err
+	}
+	return downgradeSQLiteDatabaseFromV17(dbHandle)
 }
 
 func updateSQLiteDatabaseFrom15To16(dbHandle *sql.DB) error {
@@ -606,6 +624,15 @@ func updateSQLiteDatabaseFrom16To17(dbHandle *sql.DB) error {
 	return setPragmaFK(dbHandle, "ON")
 }
 
+func updateSQLiteDatabaseFrom17To18(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 17 -> 18")
+	providerLog(logger.LevelInfo, "updating database version: 17 -> 18")
+	if err := importGCSCredentials(); err != nil {
+		return err
+	}
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, nil, 18)
+}
+
 func downgradeSQLiteDatabaseFrom16To15(dbHandle *sql.DB) error {
 	logger.InfoToConsole("downgrading database version: 16 -> 15")
 	providerLog(logger.LevelInfo, "downgrading database version: 16 -> 15")
@@ -632,6 +659,12 @@ func downgradeSQLiteDatabaseFrom17To16(dbHandle *sql.DB) error {
 		return err
 	}
 	return setPragmaFK(dbHandle, "ON")
+}
+
+func downgradeSQLiteDatabaseFrom18To17(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 18 -> 17")
+	providerLog(logger.LevelInfo, "downgrading database version: 18 -> 17")
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, nil, 17)
 }
 
 func setPragmaFK(dbHandle *sql.DB, value string) error {

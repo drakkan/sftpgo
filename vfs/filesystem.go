@@ -1,20 +1,10 @@
 package vfs
 
 import (
-	"fmt"
-
 	"github.com/sftpgo/sdk"
 
 	"github.com/drakkan/sftpgo/v2/kms"
-	"github.com/drakkan/sftpgo/v2/util"
 )
-
-// ValidatorHelper implements methods we need for Filesystem.ValidateConfig.
-// It is implemented by vfs.Folder and dataprovider.User
-type ValidatorHelper interface {
-	GetGCSCredentialsFilePath() string
-	GetEncryptionAdditionalData() string
-}
 
 // Filesystem defines filesystem details
 type Filesystem struct {
@@ -113,14 +103,11 @@ func (f *Filesystem) IsEqual(other *Filesystem) bool {
 
 // Validate verifies the FsConfig matching the configured provider and sets all other
 // Filesystem.*Config to their zero value if successful
-func (f *Filesystem) Validate(helper ValidatorHelper) error {
+func (f *Filesystem) Validate(additionalData string) error {
 	switch f.Provider {
 	case sdk.S3FilesystemProvider:
-		if err := f.S3Config.Validate(); err != nil {
-			return util.NewValidationError(fmt.Sprintf("could not validate s3config: %v", err))
-		}
-		if err := f.S3Config.EncryptCredentials(helper.GetEncryptionAdditionalData()); err != nil {
-			return util.NewValidationError(fmt.Sprintf("could not encrypt s3 access secret: %v", err))
+		if err := f.S3Config.ValidateAndEncryptCredentials(additionalData); err != nil {
+			return err
 		}
 		f.GCSConfig = GCSFsConfig{}
 		f.AzBlobConfig = AzBlobFsConfig{}
@@ -128,8 +115,8 @@ func (f *Filesystem) Validate(helper ValidatorHelper) error {
 		f.SFTPConfig = SFTPFsConfig{}
 		return nil
 	case sdk.GCSFilesystemProvider:
-		if err := f.GCSConfig.Validate(helper.GetGCSCredentialsFilePath()); err != nil {
-			return util.NewValidationError(fmt.Sprintf("could not validate GCS config: %v", err))
+		if err := f.GCSConfig.ValidateAndEncryptCredentials(additionalData); err != nil {
+			return err
 		}
 		f.S3Config = S3FsConfig{}
 		f.AzBlobConfig = AzBlobFsConfig{}
@@ -137,11 +124,8 @@ func (f *Filesystem) Validate(helper ValidatorHelper) error {
 		f.SFTPConfig = SFTPFsConfig{}
 		return nil
 	case sdk.AzureBlobFilesystemProvider:
-		if err := f.AzBlobConfig.Validate(); err != nil {
-			return util.NewValidationError(fmt.Sprintf("could not validate Azure Blob config: %v", err))
-		}
-		if err := f.AzBlobConfig.EncryptCredentials(helper.GetEncryptionAdditionalData()); err != nil {
-			return util.NewValidationError(fmt.Sprintf("could not encrypt Azure blob account key: %v", err))
+		if err := f.AzBlobConfig.ValidateAndEncryptCredentials(additionalData); err != nil {
+			return err
 		}
 		f.S3Config = S3FsConfig{}
 		f.GCSConfig = GCSFsConfig{}
@@ -149,11 +133,8 @@ func (f *Filesystem) Validate(helper ValidatorHelper) error {
 		f.SFTPConfig = SFTPFsConfig{}
 		return nil
 	case sdk.CryptedFilesystemProvider:
-		if err := f.CryptConfig.Validate(); err != nil {
-			return util.NewValidationError(fmt.Sprintf("could not validate Crypt fs config: %v", err))
-		}
-		if err := f.CryptConfig.EncryptCredentials(helper.GetEncryptionAdditionalData()); err != nil {
-			return util.NewValidationError(fmt.Sprintf("could not encrypt Crypt fs passphrase: %v", err))
+		if err := f.CryptConfig.ValidateAndEncryptCredentials(additionalData); err != nil {
+			return err
 		}
 		f.S3Config = S3FsConfig{}
 		f.GCSConfig = GCSFsConfig{}
@@ -161,11 +142,8 @@ func (f *Filesystem) Validate(helper ValidatorHelper) error {
 		f.SFTPConfig = SFTPFsConfig{}
 		return nil
 	case sdk.SFTPFilesystemProvider:
-		if err := f.SFTPConfig.Validate(); err != nil {
-			return util.NewValidationError(fmt.Sprintf("could not validate SFTP fs config: %v", err))
-		}
-		if err := f.SFTPConfig.EncryptCredentials(helper.GetEncryptionAdditionalData()); err != nil {
-			return util.NewValidationError(fmt.Sprintf("could not encrypt SFTP fs credentials: %v", err))
+		if err := f.SFTPConfig.ValidateAndEncryptCredentials(additionalData); err != nil {
+			return err
 		}
 		f.S3Config = S3FsConfig{}
 		f.GCSConfig = GCSFsConfig{}
@@ -262,7 +240,6 @@ func (f *Filesystem) GetACopy() Filesystem {
 		GCSConfig: GCSFsConfig{
 			BaseGCSFsConfig: sdk.BaseGCSFsConfig{
 				Bucket:               f.GCSConfig.Bucket,
-				CredentialFile:       f.GCSConfig.CredentialFile,
 				AutomaticCredentials: f.GCSConfig.AutomaticCredentials,
 				StorageClass:         f.GCSConfig.StorageClass,
 				ACL:                  f.GCSConfig.ACL,

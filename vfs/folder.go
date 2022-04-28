@@ -184,9 +184,7 @@ func (v *VirtualFolder) GetFilesystem(connectionID string, forbiddenSelfUsers []
 	case sdk.S3FilesystemProvider:
 		return NewS3Fs(connectionID, v.MappedPath, v.VirtualPath, v.FsConfig.S3Config)
 	case sdk.GCSFilesystemProvider:
-		config := v.FsConfig.GCSConfig
-		config.CredentialFile = v.GetGCSCredentialsFilePath()
-		return NewGCSFs(connectionID, v.MappedPath, v.VirtualPath, config)
+		return NewGCSFs(connectionID, v.MappedPath, v.VirtualPath, v.FsConfig.GCSConfig)
 	case sdk.AzureBlobFilesystemProvider:
 		return NewAzBlobFs(connectionID, v.MappedPath, v.VirtualPath, v.FsConfig.AzBlobConfig)
 	case sdk.CryptedFilesystemProvider:
