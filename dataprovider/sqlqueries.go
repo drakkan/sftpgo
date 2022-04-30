@@ -338,10 +338,6 @@ func getFolderByNameQuery() string {
 	return fmt.Sprintf(`SELECT %v FROM %v WHERE name = %v`, selectFolderFields, sqlTableFolders, sqlPlaceholders[0])
 }
 
-func checkFolderNameQuery() string {
-	return fmt.Sprintf(`SELECT name FROM %v WHERE name = %v`, sqlTableFolders, sqlPlaceholders[0])
-}
-
 func getAddFolderQuery() string {
 	return fmt.Sprintf(`INSERT INTO %v (path,used_quota_size,used_quota_files,last_quota_update,name,description,filesystem)
 		VALUES (%v,%v,%v,%v,%v,%v,%v)`, sqlTableFolders, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2],
@@ -357,6 +353,20 @@ func getDeleteFolderQuery() string {
 	return fmt.Sprintf(`DELETE FROM %v WHERE id = %v`, sqlTableFolders, sqlPlaceholders[0])
 }
 
+func getUpsertFolderQuery() string {
+	if config.Driver == MySQLDataProviderName {
+		return fmt.Sprintf("INSERT INTO %v (`path`,`used_quota_size`,`used_quota_files`,`last_quota_update`,`name`,"+
+			"`description`,`filesystem`) VALUES (%v,%v,%v,%v,%v,%v,%v) ON DUPLICATE KEY UPDATE "+
+			"`path`=VALUES(`path`),`description`=VALUES(`description`),`filesystem`=VALUES(`filesystem`)",
+			sqlTableFolders, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3], sqlPlaceholders[4],
+			sqlPlaceholders[5], sqlPlaceholders[6])
+	}
+	return fmt.Sprintf(`INSERT INTO %v (path,used_quota_size,used_quota_files,last_quota_update,name,description,filesystem)
+		VALUES (%v,%v,%v,%v,%v,%v,%v) ON CONFLICT (name) DO UPDATE SET path = EXCLUDED.path,description=EXCLUDED.description,
+		filesystem=EXCLUDED.filesystem`, sqlTableFolders, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2],
+		sqlPlaceholders[3], sqlPlaceholders[4], sqlPlaceholders[5], sqlPlaceholders[6])
+}
+
 func getClearFolderMappingQuery() string {
 	return fmt.Sprintf(`DELETE FROM %v WHERE user_id = (SELECT id FROM %v WHERE username = %v)`, sqlTableFoldersMapping,
 		sqlTableUsers, sqlPlaceholders[0])
@@ -364,8 +374,9 @@ func getClearFolderMappingQuery() string {
 
 func getAddFolderMappingQuery() string {
 	return fmt.Sprintf(`INSERT INTO %v (virtual_path,quota_size,quota_files,folder_id,user_id)
-		VALUES (%v,%v,%v,%v,(SELECT id FROM %v WHERE username = %v))`, sqlTableFoldersMapping, sqlPlaceholders[0],
-		sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3], sqlTableUsers, sqlPlaceholders[4])
+	VALUES (%v,%v,%v,(SELECT id FROM %v WHERE name = %v),(SELECT id FROM %v WHERE username = %v))`,
+		sqlTableFoldersMapping, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlTableFolders,
+		sqlPlaceholders[3], sqlTableUsers, sqlPlaceholders[4])
 }
 
 func getFoldersQuery(order string) string {
