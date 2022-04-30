@@ -252,9 +252,8 @@ func (p *SQLiteProvider) dumpUsers() ([]User, error) {
 	return sqlCommonDumpUsers(p.dbHandle)
 }
 
-// SQLite provider cannot be shared, so we always return no recently updated users
 func (p *SQLiteProvider) getRecentlyUpdatedUsers(after int64) ([]User, error) {
-	return nil, nil
+	return sqlCommonGetRecentlyUpdatedUsers(after, p.dbHandle)
 }
 
 func (p *SQLiteProvider) getUsers(limit int, offset int, order string) ([]User, error) {

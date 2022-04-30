@@ -23,14 +23,25 @@ import (
 func TestTransfersCheckerDiskQuota(t *testing.T) {
 	username := "transfers_check_username"
 	folderName := "test_transfers_folder"
+	groupName := "test_transfers_group"
 	vdirPath := "/vdir"
+	group := dataprovider.Group{
+		BaseGroup: sdk.BaseGroup{
+			Name: groupName,
+		},
+		UserSettings: dataprovider.GroupUserSettings{
+			BaseGroupUserSettings: sdk.BaseGroupUserSettings{
+				QuotaSize: 120,
+			},
+		},
+	}
 	user := dataprovider.User{
 		BaseUser: sdk.BaseUser{
 			Username:  username,
 			Password:  "testpwd",
 			HomeDir:   filepath.Join(os.TempDir(), username),
 			Status:    1,
-			QuotaSize: 120,
+			QuotaSize: 0, // the quota size defined for the group is used
 			Permissions: map[string][]string{
 				"/": {dataprovider.PermAny},
 			},
@@ -45,11 +56,21 @@ func TestTransfersCheckerDiskQuota(t *testing.T) {
 				QuotaSize:   100,
 			},
 		},
+		Groups: []sdk.GroupMapping{
+			{
+				Name: groupName,
+				Type: sdk.GroupTypePrimary,
+			},
+		},
 	}
-
-	err := dataprovider.AddUser(&user, "", "")
+	err := dataprovider.AddGroup(&group, "", "")
 	assert.NoError(t, err)
-	user, err = dataprovider.UserExists(username)
+	group, err = dataprovider.GroupExists(groupName)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(120), group.UserSettings.QuotaSize)
+	err = dataprovider.AddUser(&user, "", "")
+	assert.NoError(t, err)
+	user, err = dataprovider.GetUserWithGroupSettings(username)
 	assert.NoError(t, err)
 
 	connID1 := xid.New().String()
@@ -113,14 +134,14 @@ func TestTransfersCheckerDiskQuota(t *testing.T) {
 	atomic.StoreInt32(&Connections.transfersCheckStatus, 0)
 
 	Connections.checkTransfers()
-	assert.True(t, conn1.IsQuotaExceededError(transfer1.errAbort))
-	assert.True(t, conn2.IsQuotaExceededError(transfer2.errAbort))
+	assert.True(t, conn1.IsQuotaExceededError(transfer1.errAbort), transfer1.errAbort)
+	assert.True(t, conn2.IsQuotaExceededError(transfer2.errAbort), transfer2.errAbort)
 	assert.True(t, conn1.IsQuotaExceededError(transfer1.GetAbortError()))
 	assert.Nil(t, transfer3.errAbort)
 	assert.True(t, conn3.IsQuotaExceededError(transfer3.GetAbortError()))
 	// update the user quota size
-	user.QuotaSize = 1000
-	err = dataprovider.UpdateUser(&user, "", "")
+	group.UserSettings.QuotaSize = 1000
+	err = dataprovider.UpdateGroup(&group, []string{username}, "", "")
 	assert.NoError(t, err)
 	transfer1.errAbort = nil
 	transfer2.errAbort = nil
@@ -129,8 +150,8 @@ func TestTransfersCheckerDiskQuota(t *testing.T) {
 	assert.Nil(t, transfer2.errAbort)
 	assert.Nil(t, transfer3.errAbort)
 
-	user.QuotaSize = 0
-	err = dataprovider.UpdateUser(&user, "", "")
+	group.UserSettings.QuotaSize = 0
+	err = dataprovider.UpdateGroup(&group, []string{username}, "", "")
 	assert.NoError(t, err)
 	Connections.checkTransfers()
 	assert.Nil(t, transfer1.errAbort)
@@ -220,6 +241,8 @@ func TestTransfersCheckerDiskQuota(t *testing.T) {
 	err = dataprovider.DeleteFolder(folderName, "", "")
 	assert.NoError(t, err)
 	err = os.RemoveAll(filepath.Join(os.TempDir(), folderName))
+	assert.NoError(t, err)
+	err = dataprovider.DeleteGroup(groupName, "", "")
 	assert.NoError(t, err)
 }
 

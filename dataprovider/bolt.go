@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"sync/atomic"
 	"time"
 
 	bolt "go.etcd.io/bbolt"
@@ -24,6 +25,7 @@ const (
 )
 
 var (
+	lastUserUpdate  int64
 	usersBucket     = []byte("users")
 	groupsBucket    = []byte("groups")
 	foldersBucket   = []byte("folders")
@@ -185,6 +187,7 @@ func (p *BoltProvider) setUpdatedAt(username string) {
 		err = bucket.Put([]byte(username), buf)
 		if err == nil {
 			providerLog(logger.LevelDebug, "updated at set for user %#v", username)
+			setLastUserUpdate()
 		} else {
 			providerLog(logger.LevelWarn, "error setting updated_at for user %#v: %v", username, err)
 		}
@@ -514,11 +517,11 @@ func (p *BoltProvider) userExists(username string) (User, error) {
 		if u == nil {
 			return util.NewRecordNotFoundError(fmt.Sprintf("username %#v does not exist", username))
 		}
-		folderBucket, err := p.getFoldersBucket(tx)
+		foldersBucket, err := p.getFoldersBucket(tx)
 		if err != nil {
 			return err
 		}
-		user, err = p.joinUserAndFolders(u, folderBucket)
+		user, err = p.joinUserAndFolders(u, foldersBucket)
 		return err
 	})
 	return user, err
@@ -534,7 +537,7 @@ func (p *BoltProvider) addUser(user *User) error {
 		if err != nil {
 			return err
 		}
-		folderBucket, err := p.getFoldersBucket(tx)
+		foldersBucket, err := p.getFoldersBucket(tx)
 		if err != nil {
 			return err
 		}
@@ -559,7 +562,7 @@ func (p *BoltProvider) addUser(user *User) error {
 		user.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 		user.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 		for idx := range user.VirtualFolders {
-			err = p.addRelationToFolderMapping(&user.VirtualFolders[idx].BaseVirtualFolder, user, nil, folderBucket)
+			err = p.addRelationToFolderMapping(&user.VirtualFolders[idx].BaseVirtualFolder, user, nil, foldersBucket)
 			if err != nil {
 				return err
 			}
@@ -613,7 +616,12 @@ func (p *BoltProvider) updateUser(user *User) error {
 		if err != nil {
 			return err
 		}
-		return bucket.Put([]byte(user.Username), buf)
+
+		err = bucket.Put([]byte(user.Username), buf)
+		if err == nil {
+			setLastUserUpdate()
+		}
+		return err
 	})
 }
 
@@ -629,12 +637,12 @@ func (p *BoltProvider) deleteUser(user User) error {
 		}
 
 		if len(user.VirtualFolders) > 0 {
-			folderBucket, err := p.getFoldersBucket(tx)
+			foldersBucket, err := p.getFoldersBucket(tx)
 			if err != nil {
 				return err
 			}
 			for idx := range user.VirtualFolders {
-				err = p.removeRelationFromFolderMapping(user.VirtualFolders[idx], user.Username, "", folderBucket)
+				err = p.removeRelationFromFolderMapping(user.VirtualFolders[idx], user.Username, "", foldersBucket)
 				if err != nil {
 					return err
 				}
@@ -693,13 +701,13 @@ func (p *BoltProvider) dumpUsers() ([]User, error) {
 		if err != nil {
 			return err
 		}
-		folderBucket, err := p.getFoldersBucket(tx)
+		foldersBucket, err := p.getFoldersBucket(tx)
 		if err != nil {
 			return err
 		}
 		cursor := bucket.Cursor()
 		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
-			user, err := p.joinUserAndFolders(v, folderBucket)
+			user, err := p.joinUserAndFolders(v, foldersBucket)
 			if err != nil {
 				return err
 			}
@@ -710,13 +718,68 @@ func (p *BoltProvider) dumpUsers() ([]User, error) {
 	return users, err
 }
 
-// bolt provider cannot be shared, so we always return no recently updated users
 func (p *BoltProvider) getRecentlyUpdatedUsers(after int64) ([]User, error) {
-	return nil, nil
+	if getLastUserUpdate() < after {
+		return nil, nil
+	}
+	users := make([]User, 0, 10)
+	err := p.dbHandle.View(func(tx *bolt.Tx) error {
+		bucket, err := p.getUsersBucket(tx)
+		if err != nil {
+			return err
+		}
+		foldersBucket, err := p.getFoldersBucket(tx)
+		if err != nil {
+			return err
+		}
+		groupsBucket, err := p.getGroupsBucket(tx)
+		if err != nil {
+			return err
+		}
+		cursor := bucket.Cursor()
+		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
+			var user User
+			err := json.Unmarshal(v, &user)
+			if err != nil {
+				return err
+			}
+			if user.UpdatedAt < after {
+				continue
+			}
+			if len(user.VirtualFolders) > 0 {
+				var folders []vfs.VirtualFolder
+				for idx := range user.VirtualFolders {
+					folder := &user.VirtualFolders[idx]
+					baseFolder, err := p.folderExistsInternal(folder.Name, foldersBucket)
+					if err != nil {
+						continue
+					}
+					folder.BaseVirtualFolder = baseFolder
+					folders = append(folders, *folder)
+				}
+				user.VirtualFolders = folders
+			}
+			if len(user.Groups) > 0 {
+				groupMapping := make(map[string]Group)
+				for idx := range user.Groups {
+					group, err := p.groupExistsInternal(user.Groups[idx].Name, groupsBucket)
+					if err != nil {
+						continue
+					}
+					groupMapping[group.Name] = group
+				}
+				user.applyGroupSettings(groupMapping)
+			}
+			user.SetEmptySecretsIfNil()
+			users = append(users, user)
+		}
+		return err
+	})
+	return users, err
 }
 
 func (p *BoltProvider) getUsersForQuotaCheck(toFetch map[string]bool) ([]User, error) {
-	users := make([]User, 0, 30)
+	users := make([]User, 0, 10)
 
 	err := p.dbHandle.View(func(tx *bolt.Tx) error {
 		bucket, err := p.getUsersBucket(tx)
@@ -738,38 +801,36 @@ func (p *BoltProvider) getUsersForQuotaCheck(toFetch map[string]bool) ([]User, e
 			if err != nil {
 				return err
 			}
-			needFolders, ok := toFetch[user.Username]
-			if !ok {
-				continue
-			}
-			if len(user.Groups) > 0 {
-				groupMapping := make(map[string]Group)
-				for idx := range user.Groups {
-					group, err := p.groupExistsInternal(user.Groups[idx].Name, groupsBucket)
-					if err != nil {
-						continue
+			if needFolders, ok := toFetch[user.Username]; ok {
+				if needFolders && len(user.VirtualFolders) > 0 {
+					var folders []vfs.VirtualFolder
+					for idx := range user.VirtualFolders {
+						folder := &user.VirtualFolders[idx]
+						baseFolder, err := p.folderExistsInternal(folder.Name, foldersBucket)
+						if err != nil {
+							continue
+						}
+						folder.BaseVirtualFolder = baseFolder
+						folders = append(folders, *folder)
 					}
-					groupMapping[group.Name] = group
+					user.VirtualFolders = folders
 				}
-				user.applyGroupSettings(groupMapping)
-			}
-			if needFolders && len(user.VirtualFolders) > 0 {
-				var folders []vfs.VirtualFolder
-				for idx := range user.VirtualFolders {
-					folder := &user.VirtualFolders[idx]
-					baseFolder, err := p.folderExistsInternal(folder.Name, foldersBucket)
-					if err != nil {
-						continue
+				if len(user.Groups) > 0 {
+					groupMapping := make(map[string]Group)
+					for idx := range user.Groups {
+						group, err := p.groupExistsInternal(user.Groups[idx].Name, groupsBucket)
+						if err != nil {
+							continue
+						}
+						groupMapping[group.Name] = group
 					}
-					folder.BaseVirtualFolder = baseFolder
-					folders = append(folders, *folder)
+					user.applyGroupSettings(groupMapping)
 				}
-				user.VirtualFolders = folders
-			}
 
-			user.SetEmptySecretsIfNil()
-			user.PrepareForRendering()
-			users = append(users, user)
+				user.SetEmptySecretsIfNil()
+				user.PrepareForRendering()
+				users = append(users, user)
+			}
 		}
 		return nil
 	})
@@ -788,7 +849,7 @@ func (p *BoltProvider) getUsers(limit int, offset int, order string) ([]User, er
 		if err != nil {
 			return err
 		}
-		folderBucket, err := p.getFoldersBucket(tx)
+		foldersBucket, err := p.getFoldersBucket(tx)
 		if err != nil {
 			return err
 		}
@@ -800,7 +861,7 @@ func (p *BoltProvider) getUsers(limit int, offset int, order string) ([]User, er
 				if itNum <= offset {
 					continue
 				}
-				user, err := p.joinUserAndFolders(v, folderBucket)
+				user, err := p.joinUserAndFolders(v, foldersBucket)
 				if err != nil {
 					return err
 				}
@@ -816,7 +877,7 @@ func (p *BoltProvider) getUsers(limit int, offset int, order string) ([]User, er
 				if itNum <= offset {
 					continue
 				}
-				user, err := p.joinUserAndFolders(v, folderBucket)
+				user, err := p.joinUserAndFolders(v, foldersBucket)
 				if err != nil {
 					return err
 				}
@@ -1112,7 +1173,7 @@ func (p *BoltProvider) getGroups(limit, offset int, order string, minimal bool) 
 		if err != nil {
 			return err
 		}
-		folderBucket, err := p.getFoldersBucket(tx)
+		foldersBucket, err := p.getFoldersBucket(tx)
 		if err != nil {
 			return err
 		}
@@ -1125,7 +1186,7 @@ func (p *BoltProvider) getGroups(limit, offset int, order string, minimal bool) 
 					continue
 				}
 				var group Group
-				group, err = p.joinGroupAndFolders(v, folderBucket)
+				group, err = p.joinGroupAndFolders(v, foldersBucket)
 				if err != nil {
 					return err
 				}
@@ -1142,7 +1203,7 @@ func (p *BoltProvider) getGroups(limit, offset int, order string, minimal bool) 
 					continue
 				}
 				var group Group
-				group, err = p.joinGroupAndFolders(v, folderBucket)
+				group, err = p.joinGroupAndFolders(v, foldersBucket)
 				if err != nil {
 					return err
 				}
@@ -1165,7 +1226,7 @@ func (p *BoltProvider) getGroupsWithNames(names []string) ([]Group, error) {
 		if err != nil {
 			return err
 		}
-		folderBucket, err := p.getFoldersBucket(tx)
+		foldersBucket, err := p.getFoldersBucket(tx)
 		if err != nil {
 			return err
 		}
@@ -1174,7 +1235,7 @@ func (p *BoltProvider) getGroupsWithNames(names []string) ([]Group, error) {
 			if g == nil {
 				continue
 			}
-			group, err := p.joinGroupAndFolders(g, folderBucket)
+			group, err := p.joinGroupAndFolders(g, foldersBucket)
 			if err != nil {
 				return err
 			}
@@ -1220,11 +1281,11 @@ func (p *BoltProvider) groupExists(name string) (Group, error) {
 		if g == nil {
 			return util.NewRecordNotFoundError(fmt.Sprintf("group %#v does not exist", name))
 		}
-		folderBucket, err := p.getFoldersBucket(tx)
+		foldersBucket, err := p.getFoldersBucket(tx)
 		if err != nil {
 			return err
 		}
-		group, err = p.joinGroupAndFolders(g, folderBucket)
+		group, err = p.joinGroupAndFolders(g, foldersBucket)
 		return err
 	})
 	return group, err
@@ -1239,7 +1300,7 @@ func (p *BoltProvider) addGroup(group *Group) error {
 		if err != nil {
 			return err
 		}
-		folderBucket, err := p.getFoldersBucket(tx)
+		foldersBucket, err := p.getFoldersBucket(tx)
 		if err != nil {
 			return err
 		}
@@ -1254,7 +1315,7 @@ func (p *BoltProvider) addGroup(group *Group) error {
 		group.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 		group.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 		for idx := range group.VirtualFolders {
-			err = p.addRelationToFolderMapping(&group.VirtualFolders[idx].BaseVirtualFolder, nil, group, folderBucket)
+			err = p.addRelationToFolderMapping(&group.VirtualFolders[idx].BaseVirtualFolder, nil, group, foldersBucket)
 			if err != nil {
 				return err
 			}
@@ -1276,7 +1337,7 @@ func (p *BoltProvider) updateGroup(group *Group) error {
 		if err != nil {
 			return err
 		}
-		folderBucket, err := p.getFoldersBucket(tx)
+		foldersBucket, err := p.getFoldersBucket(tx)
 		if err != nil {
 			return err
 		}
@@ -1290,13 +1351,13 @@ func (p *BoltProvider) updateGroup(group *Group) error {
 			return err
 		}
 		for idx := range oldGroup.VirtualFolders {
-			err = p.removeRelationFromFolderMapping(oldGroup.VirtualFolders[idx], "", oldGroup.Name, folderBucket)
+			err = p.removeRelationFromFolderMapping(oldGroup.VirtualFolders[idx], "", oldGroup.Name, foldersBucket)
 			if err != nil {
 				return err
 			}
 		}
 		for idx := range group.VirtualFolders {
-			err = p.addRelationToFolderMapping(&group.VirtualFolders[idx].BaseVirtualFolder, nil, group, folderBucket)
+			err = p.addRelationToFolderMapping(&group.VirtualFolders[idx].BaseVirtualFolder, nil, group, foldersBucket)
 			if err != nil {
 				return err
 			}
@@ -1330,12 +1391,12 @@ func (p *BoltProvider) deleteGroup(group Group) error {
 		if len(oldGroup.Users) > 0 {
 			return util.NewValidationError(fmt.Sprintf("the group %#v is referenced, it cannot be removed", group.Name))
 		}
-		folderBucket, err := p.getFoldersBucket(tx)
+		foldersBucket, err := p.getFoldersBucket(tx)
 		if err != nil {
 			return err
 		}
 		for idx := range group.VirtualFolders {
-			err = p.removeRelationFromFolderMapping(group.VirtualFolders[idx], "", group.Name, folderBucket)
+			err = p.removeRelationFromFolderMapping(group.VirtualFolders[idx], "", group.Name, foldersBucket)
 			if err != nil {
 				return err
 			}
@@ -1352,13 +1413,13 @@ func (p *BoltProvider) dumpGroups() ([]Group, error) {
 		if err != nil {
 			return err
 		}
-		folderBucket, err := p.getFoldersBucket(tx)
+		foldersBucket, err := p.getFoldersBucket(tx)
 		if err != nil {
 			return err
 		}
 		cursor := bucket.Cursor()
 		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
-			group, err := p.joinGroupAndFolders(v, folderBucket)
+			group, err := p.joinGroupAndFolders(v, foldersBucket)
 			if err != nil {
 				return err
 			}
@@ -2144,7 +2205,7 @@ func (p *BoltProvider) removeRelationFromFolderMapping(folder vfs.VirtualFolder,
 }
 
 func (p *BoltProvider) updateUserRelations(tx *bolt.Tx, user *User, oldUser User) error {
-	folderBucket, err := p.getFoldersBucket(tx)
+	foldersBucket, err := p.getFoldersBucket(tx)
 	if err != nil {
 		return err
 	}
@@ -2153,7 +2214,7 @@ func (p *BoltProvider) updateUserRelations(tx *bolt.Tx, user *User, oldUser User
 		return err
 	}
 	for idx := range oldUser.VirtualFolders {
-		err = p.removeRelationFromFolderMapping(oldUser.VirtualFolders[idx], oldUser.Username, "", folderBucket)
+		err = p.removeRelationFromFolderMapping(oldUser.VirtualFolders[idx], oldUser.Username, "", foldersBucket)
 		if err != nil {
 			return err
 		}
@@ -2165,7 +2226,7 @@ func (p *BoltProvider) updateUserRelations(tx *bolt.Tx, user *User, oldUser User
 		}
 	}
 	for idx := range user.VirtualFolders {
-		err = p.addRelationToFolderMapping(&user.VirtualFolders[idx].BaseVirtualFolder, user, nil, folderBucket)
+		err = p.addRelationToFolderMapping(&user.VirtualFolders[idx].BaseVirtualFolder, user, nil, foldersBucket)
 		if err != nil {
 			return err
 		}
@@ -2318,6 +2379,14 @@ func (p *BoltProvider) getFoldersBucket(tx *bolt.Tx) (*bolt.Bucket, error) {
 		err = fmt.Errorf("unable to find folders buckets, bolt database structure not correcly defined")
 	}
 	return bucket, err
+}
+
+func setLastUserUpdate() {
+	atomic.StoreInt64(&lastUserUpdate, util.GetTimeAsMsSinceEpoch(time.Now()))
+}
+
+func getLastUserUpdate() int64 {
+	return atomic.LoadInt64(&lastUserUpdate)
 }
 
 func getBoltDatabaseVersion(dbHandle *bolt.DB) (schemaVersion, error) {

@@ -695,6 +695,9 @@ func TestRootDirVirtualFolder(t *testing.T) {
 	})
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
+	f, err := user.GetVirtualFolderForPath("/")
+	assert.NoError(t, err)
+	assert.Equal(t, "/", f.VirtualPath)
 	conn, client, err := getSftpClient(user)
 	if assert.NoError(t, err) {
 		defer conn.Close()

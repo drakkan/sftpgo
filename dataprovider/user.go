@@ -1676,6 +1676,7 @@ func (u *User) removeDuplicatesAfterGroupMerge() {
 	u.Filters.DeniedProtocols = util.RemoveDuplicates(u.Filters.DeniedProtocols)
 	u.Filters.WebClient = util.RemoveDuplicates(u.Filters.WebClient)
 	u.Filters.TwoFactorAuthProtocols = util.RemoveDuplicates(u.Filters.TwoFactorAuthProtocols)
+	u.SetEmptySecretsIfNil()
 	u.groupSettingsApplied = true
 }
 

@@ -1288,9 +1288,12 @@ func sqlCommonGetRecentlyUpdatedUsers(after int64, dbHandle sqlQuerier) ([]User,
 	if err != nil {
 		return users, err
 	}
+	if len(groups) == 0 {
+		return users, nil
+	}
 	groupsMapping := make(map[string]Group)
-	for _, g := range groups {
-		groupsMapping[g.Name] = g
+	for idx := range groups {
+		groupsMapping[groups[idx].Name] = groups[idx]
 	}
 	for idx := range users {
 		ref := &users[idx]
@@ -1332,9 +1335,6 @@ func sqlCommonGetUsersForQuotaCheck(toFetch map[string]bool, dbHandle sqlQuerier
 		}
 	}
 	users = users[:validIdx]
-	if len(usersWithFolders) == 0 {
-		return users, nil
-	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
@@ -1355,13 +1355,16 @@ func sqlCommonGetUsersForQuotaCheck(toFetch map[string]bool, dbHandle sqlQuerier
 		}
 	}
 	groupNames = util.RemoveDuplicates(groupNames)
+	if len(groupNames) == 0 {
+		return users, nil
+	}
 	groups, err := sqlCommonGetGroupsWithNames(groupNames, dbHandle)
 	if err != nil {
 		return users, err
 	}
 	groupsMapping := make(map[string]Group)
-	for _, g := range groups {
-		groupsMapping[g.Name] = g
+	for idx := range groups {
+		groupsMapping[groups[idx].Name] = groups[idx]
 	}
 	for idx := range users {
 		ref := &users[idx]

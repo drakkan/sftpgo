@@ -182,6 +182,7 @@ func (p *MemoryProvider) setUpdatedAt(username string) {
 	}
 	user.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 	p.dbHandle.users[user.Username] = user
+	setLastUserUpdate()
 }
 
 func (p *MemoryProvider) updateLastLogin(username string) error {
@@ -360,6 +361,7 @@ func (p *MemoryProvider) updateUser(user *User) error {
 	user.ID = u.ID
 	// pre-login and external auth hook will use the passed *user so save a copy
 	p.dbHandle.users[user.Username] = user.getACopy()
+	setLastUserUpdate()
 	return nil
 }
 
@@ -439,9 +441,40 @@ func (p *MemoryProvider) dumpFolders() ([]vfs.BaseVirtualFolder, error) {
 	return folders, nil
 }
 
-// memory provider cannot be shared, so we always return no recently updated users
 func (p *MemoryProvider) getRecentlyUpdatedUsers(after int64) ([]User, error) {
-	return nil, nil
+	if getLastUserUpdate() < after {
+		return nil, nil
+	}
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return nil, errMemoryProviderClosed
+	}
+	users := make([]User, 0, 10)
+	for _, username := range p.dbHandle.usernames {
+		u := p.dbHandle.users[username]
+		if u.UpdatedAt < after {
+			continue
+		}
+		user := u.getACopy()
+		p.addVirtualFoldersToUser(&user)
+		if len(user.Groups) > 0 {
+			groupMapping := make(map[string]Group)
+			for idx := range user.Groups {
+				group, err := p.groupExistsInternal(user.Groups[idx].Name)
+				if err != nil {
+					continue
+				}
+				groupMapping[group.Name] = group
+			}
+			user.applyGroupSettings(groupMapping)
+		}
+
+		user.SetEmptySecretsIfNil()
+		users = append(users, user)
+	}
+
+	return users, nil
 }
 
 func (p *MemoryProvider) getUsersForQuotaCheck(toFetch map[string]bool) ([]User, error) {
@@ -452,9 +485,12 @@ func (p *MemoryProvider) getUsersForQuotaCheck(toFetch map[string]bool) ([]User,
 		return users, errMemoryProviderClosed
 	}
 	for _, username := range p.dbHandle.usernames {
-		if val, ok := toFetch[username]; ok {
+		if needFolders, ok := toFetch[username]; ok {
 			u := p.dbHandle.users[username]
 			user := u.getACopy()
+			if needFolders {
+				p.addVirtualFoldersToUser(&user)
+			}
 			if len(user.Groups) > 0 {
 				groupMapping := make(map[string]Group)
 				for idx := range user.Groups {
@@ -465,9 +501,6 @@ func (p *MemoryProvider) getUsersForQuotaCheck(toFetch map[string]bool) ([]User,
 					groupMapping[group.Name] = group
 				}
 				user.applyGroupSettings(groupMapping)
-			}
-			if val {
-				p.addVirtualFoldersToUser(&user)
 			}
 			user.SetEmptySecretsIfNil()
 			user.PrepareForRendering()

@@ -49,13 +49,6 @@ func startScheduler() error {
 }
 
 func addScheduledCacheUpdates() error {
-	if config.IsShared == 0 {
-		return nil
-	}
-	if !util.IsStringInSlice(config.Driver, sharedProviders) {
-		providerLog(logger.LevelError, "update caches not supported for provider %v", config.Driver)
-		return nil
-	}
 	lastCachesUpdate = util.GetTimeAsMsSinceEpoch(time.Now())
 	_, err := scheduler.AddFunc("@every 10m", checkCacheUpdates)
 	if err != nil {
