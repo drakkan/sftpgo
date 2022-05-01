@@ -44,7 +44,7 @@ Index: sftpgo/sftpgo.json
      "web_root": "",
      "certificate_file": "",
      "certificate_key_file": "",
-@@ -281,7 +281,7 @@
+@@ -285,7 +285,7 @@
      "auth_type": 0,
      "encryption": 0,
      "domain": "",

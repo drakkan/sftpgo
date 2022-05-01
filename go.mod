@@ -51,7 +51,7 @@ require (
 	github.com/rs/xid v1.4.0
 	github.com/rs/zerolog v1.26.2-0.20220312163309-e9344a8c507b
 	github.com/sftpgo/sdk v0.1.1-0.20220425123921-2f843a49e012
-	github.com/shirou/gopsutil/v3 v3.22.3
+	github.com/shirou/gopsutil/v3 v3.22.4
 	github.com/spf13/afero v1.8.2
 	github.com/spf13/cobra v1.4.0
 	github.com/spf13/viper v1.11.0
