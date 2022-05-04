@@ -1002,3 +1002,28 @@ func TestPassiveIPResolver(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, b.ForcePassiveIP, passiveIP)
 }
+
+func TestRelativePath(t *testing.T) {
+	rel := getPathRelativeTo("/testpath", "/testpath")
+	assert.Empty(t, rel)
+	rel = getPathRelativeTo("/", "/")
+	assert.Empty(t, rel)
+	rel = getPathRelativeTo("/", "/dir/sub")
+	assert.Equal(t, "dir/sub", rel)
+	rel = getPathRelativeTo("./", "/dir/sub")
+	assert.Equal(t, "/dir/sub", rel)
+	rel = getPathRelativeTo("/sub", "/dir/sub")
+	assert.Equal(t, "../dir/sub", rel)
+	rel = getPathRelativeTo("/dir", "/dir/sub")
+	assert.Equal(t, "sub", rel)
+	rel = getPathRelativeTo("/dir/sub", "/dir")
+	assert.Equal(t, "../", rel)
+	rel = getPathRelativeTo("dir", "/dir1")
+	assert.Equal(t, "/dir1", rel)
+	rel = getPathRelativeTo("", "/dir2")
+	assert.Equal(t, "dir2", rel)
+	rel = getPathRelativeTo(".", "/dir2")
+	assert.Equal(t, "/dir2", rel)
+	rel = getPathRelativeTo("/dir3", "dir3")
+	assert.Equal(t, "dir3", rel)
+}

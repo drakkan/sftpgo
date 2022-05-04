@@ -12,9 +12,9 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.15.4
 	github.com/aws/aws-sdk-go-v2/credentials v1.12.0
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.4
-	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.7
+	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.8
 	github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.13.4
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.26.7
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.26.8
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.15.6
 	github.com/aws/aws-sdk-go-v2/service/sts v1.16.4
 	github.com/cockroachdb/cockroach-go/v2 v2.2.8
@@ -65,16 +65,16 @@ require (
 	go.uber.org/automaxprocs v1.5.1
 	gocloud.dev v0.25.0
 	golang.org/x/crypto v0.0.0-20220411220226-7b82a4e95df4
-	golang.org/x/net v0.0.0-20220421235706-1d1ef9303861
+	golang.org/x/net v0.0.0-20220425223048-2871e0cb64e4
 	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5
-	golang.org/x/sys v0.0.0-20220429233432-b5fbb4746d32
+	golang.org/x/sys v0.0.0-20220503163025-988cb79eb6c6
 	golang.org/x/time v0.0.0-20220411224347-583f2d630306
-	google.golang.org/api v0.77.0
+	google.golang.org/api v0.78.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
 
 require (
-	cloud.google.com/go v0.101.0 // indirect
+	cloud.google.com/go v0.101.1 // indirect
 	cloud.google.com/go/compute v1.6.1 // indirect
 	cloud.google.com/go/iam v0.3.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v0.9.2 // indirect
@@ -152,7 +152,7 @@ require (
 	golang.org/x/tools v0.1.10 // indirect
 	golang.org/x/xerrors v0.0.0-20220411194840-2f41105eb62f // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20220429170224-98d788798c3e // indirect
+	google.golang.org/genproto v0.0.0-20220504150022-98cd25cafc72 // indirect
 	google.golang.org/grpc v1.46.0 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/ini.v1 v1.66.4 // indirect
@@ -164,5 +164,5 @@ require (
 replace (
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
 	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20220412172350-e76a61f8e7d2
-	golang.org/x/net => github.com/drakkan/net v0.0.0-20220425150817-e26421ba5d2e
+	golang.org/x/net => github.com/drakkan/net v0.0.0-20220504073018-5d1702f4106f
 )

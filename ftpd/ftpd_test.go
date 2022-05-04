@@ -550,15 +550,11 @@ func TestBasicFTPHandling(t *testing.T) {
 			}
 			res, err := client.List(path.Join("/", testDir))
 			assert.NoError(t, err)
-			if assert.Len(t, res, 2) {
-				assert.Equal(t, ".", res[0].Name)
-				assert.Equal(t, "..", res[1].Name)
-			}
+			assert.Len(t, res, 0)
 			res, err = client.List(path.Join("/"))
 			assert.NoError(t, err)
-			if assert.Len(t, res, 2) {
-				assert.Equal(t, ".", res[0].Name)
-				assert.Equal(t, testDir, res[1].Name)
+			if assert.Len(t, res, 1) {
+				assert.Equal(t, testDir, res[0].Name)
 			}
 			err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
 			assert.NoError(t, err)
@@ -597,6 +593,105 @@ func TestBasicFTPHandling(t *testing.T) {
 		50*time.Millisecond)
 }
 
+func TestListDirWithWildcards(t *testing.T) {
+	localUser, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	sftpUser, _, err := httpdtest.AddUser(getTestSFTPUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	for _, user := range []dataprovider.User{localUser, sftpUser} {
+		client, err := getFTPClient(user, true, nil)
+		if assert.NoError(t, err) {
+			dir1 := "test.dir"
+			dir2 := "test.dir1"
+			err = client.MakeDir(dir1)
+			assert.NoError(t, err)
+			err = client.MakeDir(dir2)
+			assert.NoError(t, err)
+			testFilePath := filepath.Join(homeBasePath, testFileName)
+			testFileSize := int64(65535)
+			err = createTestFile(testFilePath, testFileSize)
+			assert.NoError(t, err)
+			fileName := "fil*e.dat"
+			err = ftpUploadFile(testFilePath, fileName, testFileSize, client, 0)
+			assert.NoError(t, err)
+			localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
+			err = ftpDownloadFile(fileName, localDownloadPath, testFileSize, client, 0)
+			assert.NoError(t, err)
+			entries, err := client.NameList(fileName)
+			if assert.NoError(t, err) {
+				assert.Len(t, entries, 1)
+				assert.Contains(t, entries, fileName)
+			}
+			entries, err = client.NameList(".")
+			assert.NoError(t, err)
+			assert.Len(t, entries, 3)
+			entries, err = client.NameList("/test.*")
+			if assert.NoError(t, err) {
+				assert.Len(t, entries, 2)
+				assert.Contains(t, entries, dir1)
+				assert.Contains(t, entries, dir2)
+			}
+			entries, err = client.NameList("/*.dir?")
+			if assert.NoError(t, err) {
+				assert.Len(t, entries, 1)
+				assert.Contains(t, entries, dir2)
+			}
+			entries, err = client.NameList("/test.???")
+			if assert.NoError(t, err) {
+				assert.Len(t, entries, 1)
+				assert.Contains(t, entries, dir1)
+			}
+			_, err = client.NameList("/missingdir/test.*")
+			assert.Error(t, err)
+			_, err = client.NameList("test[-]")
+			if assert.Error(t, err) {
+				assert.Contains(t, err.Error(), path.ErrBadPattern.Error())
+			}
+			subDir := path.Join(dir1, "sub.d")
+			err = client.MakeDir(subDir)
+			assert.NoError(t, err)
+			err = client.ChangeDir(path.Dir(subDir))
+			assert.NoError(t, err)
+			entries, err = client.NameList("sub.?")
+			if assert.NoError(t, err) {
+				assert.Len(t, entries, 1)
+				assert.Contains(t, entries, path.Base(subDir))
+			}
+			entries, err = client.NameList("../*.dir?")
+			if assert.NoError(t, err) {
+				assert.Len(t, entries, 1)
+				assert.Contains(t, entries, path.Join("../", dir2))
+			}
+			err = client.ChangeDir("/")
+			assert.NoError(t, err)
+			entries, err = client.NameList(path.Join(dir1, "sub.*"))
+			if assert.NoError(t, err) {
+				assert.Len(t, entries, 1)
+				assert.Contains(t, entries, path.Join(dir1, "sub.d"))
+			}
+			err = client.RemoveDir(subDir)
+			assert.NoError(t, err)
+			err = client.RemoveDir(dir1)
+			assert.NoError(t, err)
+			err = client.RemoveDir(dir2)
+			assert.NoError(t, err)
+			err = os.Remove(testFilePath)
+			assert.NoError(t, err)
+			err = os.Remove(localDownloadPath)
+			assert.NoError(t, err)
+			err = client.Quit()
+			assert.NoError(t, err)
+		}
+	}
+
+	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(localUser.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestStartDirectory(t *testing.T) {
 	startDir := "/start/dir"
 	u := getTestUser()
@@ -625,12 +720,14 @@ func TestStartDirectory(t *testing.T) {
 			assert.NoError(t, err)
 			entries, err := client.List(".")
 			assert.NoError(t, err)
-			assert.Len(t, entries, 3)
-
+			if assert.Len(t, entries, 1) {
+				assert.Equal(t, testFileName, entries[0].Name)
+			}
 			entries, err = client.List("/")
 			assert.NoError(t, err)
-			assert.Len(t, entries, 2)
-
+			if assert.Len(t, entries, 1) {
+				assert.Equal(t, "start", entries[0].Name)
+			}
 			err = client.ChangeDirToParent()
 			assert.NoError(t, err)
 			currentDir, err = client.CurrentDir()

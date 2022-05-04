@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"strings"
 	"time"
 
 	ftpserver "github.com/fclairamb/ftpserverlib"
@@ -14,7 +15,6 @@ import (
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/logger"
-	"github.com/drakkan/sftpgo/v2/util"
 	"github.com/drakkan/sftpgo/v2/vfs"
 )
 
@@ -147,6 +147,9 @@ func (c *Connection) Stat(name string) (os.FileInfo, error) {
 
 	fi, err := c.DoStat(name, 0, true)
 	if err != nil {
+		if c.isListDirWithWildcards(path.Base(name), err) {
+			return vfs.NewFileInfo(name, true, 0, time.Now(), false), nil
+		}
 		return nil, err
 	}
 	return fi, nil
@@ -276,13 +279,15 @@ func (c *Connection) ReadDir(name string) ([]os.FileInfo, error) {
 
 	files, err := c.ListDir(name)
 	if err != nil {
-		return files, err
+		baseName := path.Base(name)
+		if c.isListDirWithWildcards(baseName, err) {
+			// we only support wildcards for the last path level, for example:
+			// - *.xml is supported
+			// - dir*/*.xml is not supported
+			return c.getListDirWithWildcards(path.Dir(name), baseName)
+		}
 	}
-	if name != "/" {
-		files = util.PrependFileInfo(files, vfs.NewFileInfo("..", true, 0, time.Now(), false))
-	}
-	files = util.PrependFileInfo(files, vfs.NewFileInfo(".", true, 0, time.Now(), false))
-	return files, nil
+	return files, err
 }
 
 // GetHandle implements ClientDriverExtentionFileTransfer
@@ -481,4 +486,57 @@ func (c *Connection) handleFTPUploadToExistingFile(fs vfs.Fs, flags int, resolve
 	t := newTransfer(baseTransfer, w, nil, 0)
 
 	return t, nil
+}
+
+func (c *Connection) getListDirWithWildcards(dirName, pattern string) ([]os.FileInfo, error) {
+	files, err := c.ListDir(dirName)
+	if err != nil {
+		return files, err
+	}
+	validIdx := 0
+	relativeBase := getPathRelativeTo(c.clientContext.Path(), dirName)
+	for _, fi := range files {
+		match, err := path.Match(pattern, fi.Name())
+		if err != nil {
+			return files, err
+		}
+		if match {
+			files[validIdx] = vfs.NewFileInfo(path.Join(relativeBase, fi.Name()), fi.IsDir(), fi.Size(),
+				fi.ModTime(), true)
+			validIdx++
+		}
+	}
+
+	return files[:validIdx], nil
+}
+
+func (c *Connection) isListDirWithWildcards(name string, err error) bool {
+	if errors.Is(err, c.GetNotExistError()) {
+		lastCommand := c.clientContext.GetLastCommand()
+		if lastCommand == "LIST" || lastCommand == "NLST" {
+			return strings.ContainsAny(name, "*?[]")
+		}
+	}
+	return false
+}
+
+func getPathRelativeTo(base, target string) string {
+	var sb strings.Builder
+	for {
+		if base == target {
+			return sb.String()
+		}
+		if !strings.HasSuffix(base, "/") {
+			base += "/"
+		}
+		if strings.HasPrefix(target, base) {
+			sb.WriteString(strings.TrimPrefix(target, base))
+			return sb.String()
+		}
+		if base == "/" || base == "./" {
+			return target
+		}
+		sb.WriteString("../")
+		base = path.Dir(path.Clean(base))
+	}
 }
