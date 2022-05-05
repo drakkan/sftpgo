@@ -5,7 +5,7 @@ Some SSH commands are implemented directly inside SFTPGo, while for others we us
 For system commands we have no direct control on file creation/deletion and so there are some limitations:
 
 - we cannot allow them if the target directory contains virtual folders or file extensions filters
-- system commands work only on local filyestem
+- system commands work only on local filesystem
 - we cannot avoid to leak real filesystem paths
 - quota check is suboptimal
 - maximum size restriction on single file is not respected

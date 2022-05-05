@@ -2,7 +2,7 @@
 
 The `WebDAV` support can be enabled by configuring one or more `bindings` inside the `webdavd` configuration section.
 
-Each user can access their home directory using the path `http/s://<SFTPGo ip>:<WevDAVPORT>/<prefix>`. By default `prefix` is empty. If you define a prefix it must be an abosulte URI, for example `/dav`.
+Each user can access their home directory using the path `http/s://<SFTPGo ip>:<WevDAVPORT>/<prefix>`. By default `prefix` is empty. If you define a prefix it must be an absolute URI, for example `/dav`.
 
 WebDAV is quite a different protocol than SFTP/FTP, there is no session concept, each command is a separate HTTP request and must be authenticated, to improve performance SFTPGo caches authenticated users. This way SFTPGo don't need to do a dataprovider query and a password check for each request.
 

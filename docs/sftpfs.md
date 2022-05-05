@@ -30,6 +30,6 @@ SHA256 fingerprints for remote server host keys are optional but highly recommen
 
 Specifying a prefix you can restrict all operations to a given path within the remote SFTP server. If you set a prefix make sure it is not inside a symlinked directory or it is a symlink itself.
 
-Buffering can be enabled by setting a buffer size (in MB) greater than 0. By enabling buffering, the reads and writes, from/to the remote SFTP server, are split in multiple concurrent requests and this allows data to be transferred at a faster rate, over high latency networks, by overlapping round-trip times. With buffering enabled, resuming uploads and trucate are not supported and a file cannot be opened for both reading and writing at the same time. 0 means disabled.
+Buffering can be enabled by setting a buffer size (in MB) greater than 0. By enabling buffering, the reads and writes, from/to the remote SFTP server, are split in multiple concurrent requests and this allows data to be transferred at a faster rate, over high latency networks, by overlapping round-trip times. With buffering enabled, resuming uploads and truncate are not supported and a file cannot be opened for both reading and writing at the same time. 0 means disabled.
 
 Some SFTP servers (eg. AWS Transfer) do not support opening files read/write at the same time, you can enable buffering to work with them.

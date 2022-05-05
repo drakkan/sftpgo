@@ -4897,7 +4897,7 @@ components:
         mode:
           type: integer
           description: 1 means encrypted using a master key
-      description: The secret is encrypted before saving, so to set a new secret you must provide a payload and set the status to "Plain". The encryption key and additional data will be generated automatically. If you set the status to "Redacted" the existig secret will be preserved
+      description: The secret is encrypted before saving, so to set a new secret you must provide a payload and set the status to "Plain". The encryption key and additional data will be generated automatically. If you set the status to "Redacted" the existing secret will be preserved
     S3Config:
       type: object
       properties:
@@ -5112,11 +5112,11 @@ components:
             quota_size:
               type: integer
               format: int64
-              description: 'Quota as size in bytes. 0 menas unlimited, -1 means included in user quota. Please note that quota is updated if files are added/removed via SFTPGo otherwise a quota scan or a manual quota update is needed'
+              description: 'Quota as size in bytes. 0 means unlimited, -1 means included in user quota. Please note that quota is updated if files are added/removed via SFTPGo otherwise a quota scan or a manual quota update is needed'
             quota_files:
               type: integer
               format: int32
-              description: 'Quota as number of files. 0 menas unlimited, , -1 means included in user quota. Please note that quota is updated if files are added/removed via SFTPGo otherwise a quota scan or a manual quota update is needed'
+              description: 'Quota as number of files. 0 means unlimited, , -1 means included in user quota. Please note that quota is updated if files are added/removed via SFTPGo otherwise a quota scan or a manual quota update is needed'
           required:
             - virtual_path
       description: 'A virtual folder is a mapping between a SFTPGo virtual path and a filesystem path outside the user home directory. The specified paths must be absolute and the virtual path cannot be "/", it must be a sub directory. The parent directory for the specified virtual path must exist. SFTPGo will try to automatically create any missing parent directory for the configured virtual folders at user login.'
@@ -5186,11 +5186,11 @@ components:
         quota_size:
           type: integer
           format: int64
-          description: Quota as size in bytes. 0 menas unlimited. Please note that quota is updated if files are added/removed via SFTPGo otherwise a quota scan or a manual quota update is needed
+          description: Quota as size in bytes. 0 means unlimited. Please note that quota is updated if files are added/removed via SFTPGo otherwise a quota scan or a manual quota update is needed
         quota_files:
           type: integer
           format: int32
-          description: Quota as number of files. 0 menas unlimited. Please note that quota is updated if files are added/removed via SFTPGo otherwise a quota scan or a manual quota update is needed
+          description: Quota as number of files. 0 means unlimited. Please note that quota is updated if files are added/removed via SFTPGo otherwise a quota scan or a manual quota update is needed
         permissions:
           type: object
           items:
