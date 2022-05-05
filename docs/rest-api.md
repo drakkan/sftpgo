@@ -48,8 +48,8 @@ The API keys allow the impersonation of users and administrators, using the API 
 
 The user/admin association can be:
 
-- static, a user/admin is explictly associated to the API key
-- dynamic, the API key has no user/admin associated, you need to add ".username" at the end of the key to specificy the user/admin to impersonate. For example if your API key is `6ajKLwswLccVBGpZGv596G.ySAXc8vtp9hMiwAuaLtzof` and you want to impersonate the admin with username `myadmin` you have to use `6ajKLwswLccVBGpZGv596G.ySAXc8vtp9hMiwAuaLtzof.myadmin` as API key.
+- static, a user/admin is explicitly associated to the API key
+- dynamic, the API key has no user/admin associated, you need to add ".username" at the end of the key to specify the user/admin to impersonate. For example if your API key is `6ajKLwswLccVBGpZGv596G.ySAXc8vtp9hMiwAuaLtzof` and you want to impersonate the admin with username `myadmin` you have to use `6ajKLwswLccVBGpZGv596G.ySAXc8vtp9hMiwAuaLtzof.myadmin` as API key.
 
 The API key scope defines if the API key can impersonate users or admins.
 Before you can impersonate a user/admin you have to set `allow_api_key_auth` at user/admin level. Each user/admin can always revoke this permission.

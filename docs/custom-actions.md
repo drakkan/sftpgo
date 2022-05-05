@@ -63,7 +63,7 @@ If the `hook` defines an HTTP URL then this URL will be invoked as HTTP POST. Th
 - `ssh_cmd`, string, included for `ssh_cmd` action
 - `file_size`, int64, included for `pre-upload`, `upload`, `download`, `delete` actions if the file size is greater than `0`
 - `fs_provider`, integer, `0` for local filesystem, `1` for S3 backend, `2` for Google Cloud Storage (GCS) backend, `3` for Azure Blob Storage backend, `4` for local encrypted backend, `5` for SFTP backend
-- `bucket`, string, inlcuded for S3, GCS and Azure backends
+- `bucket`, string, included for S3, GCS and Azure backends
 - `endpoint`, string, included for S3, SFTP and Azure backend if configured
 - `status`, integer. Status for `upload`, `download` and `ssh_cmd` actions. 1 means no error, 2 means a generic error occurred, 3 means quota exceeded error
 - `protocol`, string. Possible values are `SSH`, `SFTP`, `SCP`, `FTP`, `DAV`, `HTTP`, `HTTPShare`, `OIDC`, `DataRetention`
@@ -91,7 +91,7 @@ Actions will not be fired for internal updates, such as the last login or the us
 If the `hook` defines a path to an external program, then this program can read the following environment variables:
 
 - `SFTPGO_PROVIDER_ACTION`, supported values are `add`, `update`, `delete`
-- `SFTPGO_PROVIDER_OBJECT_TYPE`, affetected object type
+- `SFTPGO_PROVIDER_OBJECT_TYPE`, affected object type
 - `SFTPGO_PROVIDER_OBJECT_NAME`, unique identifier for the affected object, for example username or key id
 - `SFTPGO_PROVIDER_USERNAME`, the username that executed the action. There are two special usernames: `__self__` identifies a user/admin that updates itself and `__system__` identifies an action that does not have an explicit executor associated with it, for example users/admins can be added/updated by loading them from initial data
 - `SFTPGO_PROVIDER_IP`, the action was executed from this IP address

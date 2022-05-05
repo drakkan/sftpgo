@@ -8,7 +8,7 @@ SFTPGo will try to automatically create any missing parent directory for the con
 
 For each virtual folder, the following properties can be configured:
 
-- `folder_name`, is the ID for an existings folder. The folder structure contains the absolute filesystem path to expose as virtual folder
+- `folder_name`, is the ID for an existing folder. The folder structure contains the absolute filesystem path to expose as virtual folder
 - `filesystem`, this way you can map a local path or a Cloud backend to mount as virtual folders
 - `virtual_path`, the SFTPGo absolute path to use to expose the mapped path
 - `quota_size`, maximum size allowed as bytes. 0 means unlimited, -1 included in user quota
@@ -38,4 +38,4 @@ Using the REST API you can:
 - inspect the relationships among users and folders
 - delete a virtual folder. SFTPGo removes folders from the data provider, no files deletion will occur
 
-If you remove a folder, from the data provider, any users relationships will be cleared up. If the deleted folder is mounted on the user's root (`/`) path, the user is still valid and its root filesystem will no longer be hidden. If the deleted folder is included inside the user quota you need to do a user quota scan to update its quota. An orphan virtual folder will not be automatically deleted since if you add it again later then a quota scan is needed and it could be quite expensive, anyway you can easily list the orphan folders using the REST API and delete them if they are not needed anymore.
+If you remove a folder, from the data provider, any users relationships will be cleared up. If the deleted folder is mounted on the user's root (`/`) path, the user is still valid and its root filesystem will no longer be hidden. If the deleted folder is included inside the user quota you need to do a user quota scan to update its quota. An orphan virtual folder will not be automatically deleted since if you add it again later, then a quota scan is needed, and it could be quite expensive, anyway you can easily list the orphan folders using the REST API and delete them if they are not needed anymore.
