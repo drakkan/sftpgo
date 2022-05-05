@@ -346,6 +346,32 @@ func IsFileInputValid(fileInput string) bool {
 	return true
 }
 
+// FindSharedDataPath searches for the specified directory name in searchDir
+// and in system-wide shared data directories.
+// If name is an absolute path it is returned unmodified.
+func FindSharedDataPath(name, searchDir string) string {
+	if !IsFileInputValid(name) {
+		return ""
+	}
+	if name != "" && !filepath.IsAbs(name) {
+		searchList := []string{searchDir}
+		if runtime.GOOS != osWindows {
+			searchList = append(searchList, "/usr/share/sftpgo")
+			searchList = append(searchList, "/usr/local/share/sftpgo")
+		}
+		for _, basePath := range searchList {
+			res := filepath.Join(basePath, name)
+			_, err := os.Stat(res)
+			if err == nil {
+				logger.Debug(logSender, "", "found share data path for name %#v: %#v", name, res)
+				return res
+			}
+		}
+		return filepath.Join(searchDir, name)
+	}
+	return name
+}
+
 // CleanDirInput sanitizes user input for directories.
 // On Windows it removes any trailing `"`.
 // We try to help windows users that set an invalid path such as "C:\ProgramData\SFTPGO\".

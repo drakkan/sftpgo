@@ -174,6 +174,9 @@ func (*OsFs) Truncate(name string, size int64) error {
 func (*OsFs) ReadDir(dirname string) ([]os.FileInfo, error) {
 	f, err := os.Open(dirname)
 	if err != nil {
+		if isInvalidNameError(err) {
+			err = os.ErrNotExist
+		}
 		return nil, err
 	}
 	list, err := f.Readdir(-1)
@@ -291,6 +294,9 @@ func (fs *OsFs) ResolvePath(virtualPath string) (string, error) {
 	}
 	r := filepath.Clean(filepath.Join(fs.rootDir, virtualPath))
 	p, err := filepath.EvalSymlinks(r)
+	if isInvalidNameError(err) {
+		err = os.ErrNotExist
+	}
 	if err != nil && !os.IsNotExist(err) {
 		return "", err
 	} else if os.IsNotExist(err) {

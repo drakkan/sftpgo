@@ -12,3 +12,7 @@ import (
 func isCrossDeviceError(err error) bool {
 	return errors.Is(err, unix.EXDEV)
 }
+
+func isInvalidNameError(err error) bool {
+	return false
+}

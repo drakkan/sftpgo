@@ -593,9 +593,9 @@ func (c *Conf) getRedacted() Conf {
 // Initialize configures and starts the HTTP server
 func (c *Conf) Initialize(configDir string) error {
 	logger.Info(logSender, "", "initializing HTTP server with config %+v", c.getRedacted())
-	staticFilesPath := getConfigPath(c.StaticFilesPath, configDir)
-	templatesPath := getConfigPath(c.TemplatesPath, configDir)
-	openAPIPath := getConfigPath(c.OpenAPIPath, configDir)
+	staticFilesPath := util.FindSharedDataPath(c.StaticFilesPath, configDir)
+	templatesPath := util.FindSharedDataPath(c.TemplatesPath, configDir)
+	openAPIPath := util.FindSharedDataPath(c.OpenAPIPath, configDir)
 	if err := c.checkRequiredDirs(staticFilesPath, templatesPath); err != nil {
 		return err
 	}

@@ -611,7 +611,7 @@ func TestListDirWithWildcards(t *testing.T) {
 			testFileSize := int64(65535)
 			err = createTestFile(testFilePath, testFileSize)
 			assert.NoError(t, err)
-			fileName := "fil*e.dat"
+			fileName := "file[a-z]e.dat"
 			err = ftpUploadFile(testFilePath, fileName, testFileSize, client, 0)
 			assert.NoError(t, err)
 			localDownloadPath := filepath.Join(homeBasePath, testDLFileName)

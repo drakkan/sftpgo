@@ -91,12 +91,9 @@ func (c *Config) Initialize(configDir string) error {
 	if c.Encryption < 0 || c.Encryption > 2 {
 		return fmt.Errorf("smtp: invalid encryption %v", c.Encryption)
 	}
-	templatesPath := c.TemplatesPath
-	if templatesPath == "" || !util.IsFileInputValid(templatesPath) {
+	templatesPath := util.FindSharedDataPath(c.TemplatesPath, configDir)
+	if templatesPath == "" {
 		return fmt.Errorf("smtp: invalid templates path %#v", templatesPath)
-	}
-	if !filepath.IsAbs(templatesPath) {
-		templatesPath = filepath.Join(configDir, templatesPath)
 	}
 	loadTemplates(filepath.Join(templatesPath, templateEmailDir))
 	from = c.From

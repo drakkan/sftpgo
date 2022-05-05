@@ -52,11 +52,6 @@ COPY --from=builder /workspace/sftpgo /usr/local/bin/
 
 # Log to the stdout so the logs will be available using docker logs
 ENV SFTPGO_LOG_FILE_PATH=""
-# templates and static paths are inside the container
-ENV SFTPGO_HTTPD__TEMPLATES_PATH=/usr/share/sftpgo/templates
-ENV SFTPGO_SMTP__TEMPLATES_PATH=/usr/share/sftpgo/templates
-ENV SFTPGO_HTTPD__STATIC_FILES_PATH=/usr/share/sftpgo/static
-ENV SFTPGO_HTTPD__OPENAPI_PATH=/usr/share/sftpgo/openapi
 
 # Modify the default configuration file
 RUN sed -i 's|"users_base_dir": "",|"users_base_dir": "/srv/sftpgo/data",|' /etc/sftpgo/sftpgo.json && \

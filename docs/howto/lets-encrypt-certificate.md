@@ -74,10 +74,9 @@ Open the SFTPGo configuration file, search for the `httpd` section and change it
         "render_openapi": true
       }
     ],
-    "templates_path": "/usr/share/sftpgo/templates",
-    "static_files_path": "/usr/share/sftpgo/static",
-    "backups_path": "/srv/sftpgo/backups",
-    "openapi_path": "/srv/sftpgo/openapi",
+    "templates_path": "templates",
+    "static_files_path": "static",
+    "openapi_path": "openapi",
     "web_root": "",
     "certificate_file": "/etc/sftpgo/certs/sftpgo.com.crt",
     "certificate_key_file": "/etc/sftpgo/certs/sftpgo.com.key",
