@@ -7,7 +7,7 @@ require (
 	github.com/Azure/azure-storage-blob-go v0.15.0
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/alexedwards/argon2id v0.0.0-20211130144151-3585854a6387
-	github.com/aws/aws-sdk-go v1.44.4
+	github.com/aws/aws-sdk-go v1.44.8
 	github.com/cockroachdb/cockroach-go/v2 v2.2.8
 	github.com/eikenb/pipeat v0.0.0-20210730190139-06b3e6902001
 	github.com/fclairamb/ftpserverlib v0.18.0
@@ -21,11 +21,11 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/grandcat/zeroconf v1.0.0
 	github.com/hashicorp/go-hclog v1.2.0
-	github.com/hashicorp/go-plugin v1.4.3
+	github.com/hashicorp/go-plugin v1.4.4
 	github.com/hashicorp/go-retryablehttp v0.7.1
 	github.com/jlaffaye/ftp v0.0.0-20201112195030-9aae4d151126
-	github.com/klauspost/compress v1.15.2
-	github.com/lestrrat-go/jwx v1.2.23
+	github.com/klauspost/compress v1.15.3
+	github.com/lestrrat-go/jwx v1.2.24
 	github.com/lib/pq v1.10.5
 	github.com/lithammer/shortuuid/v3 v3.0.7
 	github.com/mattn/go-sqlite3 v1.14.12
@@ -40,7 +40,7 @@ require (
 	github.com/rs/xid v1.4.0
 	github.com/rs/zerolog v1.26.2-0.20220312163309-e9344a8c507b
 	github.com/sftpgo/sdk v0.1.0
-	github.com/shirou/gopsutil/v3 v3.22.3
+	github.com/shirou/gopsutil/v3 v3.22.4
 	github.com/spf13/afero v1.8.2
 	github.com/spf13/cobra v1.4.0
 	github.com/spf13/viper v1.11.0
@@ -54,14 +54,14 @@ require (
 	gocloud.dev v0.25.0
 	golang.org/x/crypto v0.0.0-20220427172511-eb4f295cb31f
 	golang.org/x/net v0.0.0-20220425223048-2871e0cb64e4
-	golang.org/x/sys v0.0.0-20220429233432-b5fbb4746d32
+	golang.org/x/sys v0.0.0-20220503163025-988cb79eb6c6
 	golang.org/x/time v0.0.0-20220411224347-583f2d630306
-	google.golang.org/api v0.77.0
+	google.golang.org/api v0.78.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
 
 require (
-	cloud.google.com/go v0.101.0 // indirect
+	cloud.google.com/go v0.101.1 // indirect
 	cloud.google.com/go/compute v1.6.1 // indirect
 	cloud.google.com/go/iam v0.3.0 // indirect
 	github.com/Azure/azure-pipeline-go v0.2.3 // indirect
@@ -130,7 +130,7 @@ require (
 	golang.org/x/tools v0.1.10 // indirect
 	golang.org/x/xerrors v0.0.0-20220411194840-2f41105eb62f // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20220429170224-98d788798c3e // indirect
+	google.golang.org/genproto v0.0.0-20220505152158-f39f71e6c8f3 // indirect
 	google.golang.org/grpc v1.46.0 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/ini.v1 v1.66.4 // indirect
