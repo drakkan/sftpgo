@@ -31,7 +31,7 @@ var (
 	awsProductCode = ""
 )
 
-func registerAWSContainer() error {
+func registerAWSContainer(disableAWSInstallationCode bool) error {
 	if awsProductCode == "" {
 		return errors.New("product code not set")
 	}
@@ -42,8 +42,10 @@ func registerAWSContainer() error {
 	if err != nil {
 		return fmt.Errorf("unable to get config to register AWS container: %w", err)
 	}
-	if err := setInstallationCode(cfg); err != nil {
-		return err
+	if !disableAWSInstallationCode {
+		if err := setInstallationCode(cfg); err != nil {
+			return err
+		}
 	}
 	requestNonce, err := uuid.NewRandom()
 	if err != nil {

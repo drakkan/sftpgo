@@ -543,7 +543,7 @@ func (c *Configuration) GetProxyListener(listener net.Listener) (*proxyproto.Lis
 		return &proxyproto.Listener{
 			Listener:          listener,
 			Policy:            policyFunc,
-			ReadHeaderTimeout: 5 * time.Second,
+			ReadHeaderTimeout: 10 * time.Second,
 		}, nil
 	}
 	return nil, errors.New("proxy protocol not configured")

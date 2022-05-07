@@ -150,8 +150,8 @@ github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.3/go.mod h1:uk1vhHHERfSVCUnq
 github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.4 h1:FP8gquGeGHHdfY6G5llaMQDF+HAf20VKc8opRwmjf04=
 github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.4/go.mod h1:u/s5/Z+ohUQOPXl00m2yJVyioWDECsbpXTQlaqSlufc=
 github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.3/go.mod h1:0dHuD2HZZSiwfJSy1FO5bX1hQ1TxVV1QXXjpn3XUE44=
-github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.8 h1:DrnslKj0yz31roe7+tmMblGhbr6OV7VQUJo5ylBU9YQ=
-github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.8/go.mod h1:PCN2NuDpHRYLcO2Gl9yVToeahcRBkf+87inUVGwtM+Q=
+github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.9 h1:YLaNNJWkBsmo2ksMDiGrTUlGNMn6HZ/PP8CcXjRFZVE=
+github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.9/go.mod h1:1ca7t9uEmhcv9srUhdsjT3V4wJOcqabbgP1+1i3X8Vs=
 github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.9/go.mod h1:AnVH5pvai0pAF4lXRq0bmhbes1u9R8wTE+g+183bZNM=
 github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.10 h1:uFWgo6mGJI1n17nbcvSc6fxVuR3xLNqvXt12JCnEcT8=
 github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.10/go.mod h1:F+EZtuIwjlv35kRJPyBGcsA4f7bnSoz15zOQ2lJq1Z4=
@@ -178,8 +178,8 @@ github.com/aws/aws-sdk-go-v2/service/kms v1.16.3/go.mod h1:QuiHPBqlOFCi4LqdSskYY
 github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.13.4 h1:qmHavnjRtgdH54nyG4iEk6ZCde9m2S++32INurhaNTk=
 github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.13.4/go.mod h1:CloMDruFIVZJ8qv2OsY5ENIqzg5c0eeTciVVW3KHdvE=
 github.com/aws/aws-sdk-go-v2/service/s3 v1.26.3/go.mod h1:g1qvDuRsJY+XghsV6zg00Z4KJ7DtFFCx8fJD2a491Ak=
-github.com/aws/aws-sdk-go-v2/service/s3 v1.26.8 h1:XInp7WokGrNBYC+5rm9npWC0vrF2xtfNfM/qozGI6U0=
-github.com/aws/aws-sdk-go-v2/service/s3 v1.26.8/go.mod h1:iMYipLPXlWpBJ0KFX7QJHZ84rBydHBY8as2aQICTPWk=
+github.com/aws/aws-sdk-go-v2/service/s3 v1.26.9 h1:LCQKnopq2t4oQS3VKivlYTzAHCTJZZoQICM9fny7KHY=
+github.com/aws/aws-sdk-go-v2/service/s3 v1.26.9/go.mod h1:iMYipLPXlWpBJ0KFX7QJHZ84rBydHBY8as2aQICTPWk=
 github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.15.4/go.mod h1:PJc8s+lxyU8rrre0/4a0pn2wgwiDvOEzoOjcJUBr67o=
 github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.15.6 h1:m+mxqLIrGq7GJo5qw4rHn8BbUqHrvxvwFx54N1Pglvw=
 github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.15.6/go.mod h1:Z+i6uqZgCOBXhNoEGoRm/ZaLsaJA9rGUAmkVKM/3+g4=
@@ -537,8 +537,8 @@ github.com/julienschmidt/httprouter v1.3.0/go.mod h1:JR6WtHb+2LUe8TCKY3cZOxFyyO8
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
 github.com/klauspost/compress v1.10.3/go.mod h1:aoV0uJVorq1K+umq18yTdKaF57EivdYsUV+/s2qKfXs=
 github.com/klauspost/compress v1.15.1/go.mod h1:/3/Vjq9QcHkK5uEr5lBEmyoZ1iFhe47etQ6QUkpK6sk=
-github.com/klauspost/compress v1.15.2 h1:3WH+AG7s2+T8o3nrM/8u2rdqUEcQhmga7smjrT41nAw=
-github.com/klauspost/compress v1.15.2/go.mod h1:PhcZ0MbTNciWF3rruxRgKxI5NkcHHrHUDtV4Yw2GlzU=
+github.com/klauspost/compress v1.15.3 h1:wmfu2iqj9q22SyMINp1uQ8C2/V4M1phJdmH9fG4nba0=
+github.com/klauspost/compress v1.15.3/go.mod h1:PhcZ0MbTNciWF3rruxRgKxI5NkcHHrHUDtV4Yw2GlzU=
 github.com/klauspost/cpuid/v2 v2.0.4/go.mod h1:FInQzS24/EEf25PyTYn52gqo7WaD8xa0213Md/qVLRg=
 github.com/klauspost/cpuid/v2 v2.0.12 h1:p9dKCg8i4gmOxtv35DvrYoWqYzQrvEVdjQ762Y0OqZE=
 github.com/klauspost/cpuid/v2 v2.0.12/go.mod h1:g2LTdtYhdyuGPqyWyv7qRAmj1WBqxuObKfj5c0PQa7c=

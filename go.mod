@@ -12,9 +12,9 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.15.4
 	github.com/aws/aws-sdk-go-v2/credentials v1.12.0
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.4
-	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.8
+	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.9
 	github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.13.4
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.26.8
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.26.9
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.15.6
 	github.com/aws/aws-sdk-go-v2/service/sts v1.16.4
 	github.com/cockroachdb/cockroach-go/v2 v2.2.8
@@ -34,7 +34,7 @@ require (
 	github.com/hashicorp/go-plugin v1.4.4
 	github.com/hashicorp/go-retryablehttp v0.7.1
 	github.com/jlaffaye/ftp v0.0.0-20201112195030-9aae4d151126
-	github.com/klauspost/compress v1.15.2
+	github.com/klauspost/compress v1.15.3
 	github.com/lestrrat-go/jwx v1.2.24
 	github.com/lib/pq v1.10.5
 	github.com/lithammer/shortuuid/v3 v3.0.7

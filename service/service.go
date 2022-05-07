@@ -66,7 +66,7 @@ func (s *Service) initLogger() {
 }
 
 // Start initializes the service
-func (s *Service) Start() error {
+func (s *Service) Start(disableAWSInstallationCode bool) error {
 	s.initLogger()
 	logger.Info(logSender, "", "starting SFTPGo %v, config dir: %v, config file: %v, log max size: %v log max backups: %v "+
 		"log max age: %v log verbose: %v, log compress: %v, log utc time: %v, load data from: %#v", version.GetAsString(), s.ConfigDir, s.ConfigFile,
@@ -135,7 +135,7 @@ func (s *Service) Start() error {
 		}
 	}
 
-	if err := registerAWSContainer(); err != nil {
+	if err := registerAWSContainer(disableAWSInstallationCode); err != nil {
 		logger.Error(logSender, "", "error registering AWS container: %v", err)
 		logger.ErrorToConsole("error registering AWS container: %v", err)
 		return err

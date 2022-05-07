@@ -36,7 +36,7 @@ Please take a look at the usage below to customize the startup options`,
 				LoadDataClean:     loadDataClean,
 				Shutdown:          make(chan bool),
 			}
-			if err := service.Start(); err == nil {
+			if err := service.Start(disableAWSInstallationCode); err == nil {
 				service.Wait()
 				if service.Error == nil {
 					os.Exit(0)
@@ -50,4 +50,5 @@ Please take a look at the usage below to customize the startup options`,
 func init() {
 	rootCmd.AddCommand(serveCmd)
 	addServeFlags(serveCmd)
+	addAWSContainerFlags(serveCmd)
 }

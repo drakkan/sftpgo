@@ -3,6 +3,6 @@
 
 package service
 
-func registerAWSContainer() error {
+func registerAWSContainer(disableAWSInstallationCode bool) error {
 	return nil
 }

@@ -93,7 +93,7 @@ func (s *WindowsService) handleExit(wasStopped chan bool) {
 func (s *WindowsService) Execute(args []string, r <-chan svc.ChangeRequest, changes chan<- svc.Status) (ssec bool, errno uint32) {
 	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown | svc.AcceptParamChange | acceptRotateLog
 	changes <- svc.Status{State: svc.StartPending}
-	if err := s.Service.Start(); err != nil {
+	if err := s.Service.Start(false); err != nil {
 		return true, 1
 	}
 
