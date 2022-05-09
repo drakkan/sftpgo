@@ -2,6 +2,7 @@ package dataprovider
 
 import (
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/robfig/cron/v3"
@@ -14,6 +15,9 @@ import (
 var (
 	scheduler        *cron.Cron
 	lastCachesUpdate int64
+	// used for bolt and memory providers, so we avoid iterating all users
+	// to find recently modified ones
+	lastUserUpdate int64
 )
 
 func stopScheduler() {
@@ -81,4 +85,12 @@ func checkCacheUpdates() {
 
 	lastCachesUpdate = checkTime
 	providerLog(logger.LevelDebug, "end caches check, new update time %v", util.GetTimeFromMsecSinceEpoch(lastCachesUpdate))
+}
+
+func setLastUserUpdate() {
+	atomic.StoreInt64(&lastUserUpdate, util.GetTimeAsMsSinceEpoch(time.Now()))
+}
+
+func getLastUserUpdate() int64 {
+	return atomic.LoadInt64(&lastUserUpdate)
 }

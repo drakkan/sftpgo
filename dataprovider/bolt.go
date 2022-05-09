@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"sync/atomic"
 	"time"
 
 	bolt "go.etcd.io/bbolt"
@@ -25,7 +24,6 @@ const (
 )
 
 var (
-	lastUserUpdate  int64
 	usersBucket     = []byte("users")
 	groupsBucket    = []byte("groups")
 	foldersBucket   = []byte("folders")
@@ -2379,14 +2377,6 @@ func (p *BoltProvider) getFoldersBucket(tx *bolt.Tx) (*bolt.Bucket, error) {
 		err = fmt.Errorf("unable to find folders buckets, bolt database structure not correcly defined")
 	}
 	return bucket, err
-}
-
-func setLastUserUpdate() {
-	atomic.StoreInt64(&lastUserUpdate, util.GetTimeAsMsSinceEpoch(time.Now()))
-}
-
-func getLastUserUpdate() int64 {
-	return atomic.LoadInt64(&lastUserUpdate)
 }
 
 func getBoltDatabaseVersion(dbHandle *bolt.DB) (schemaVersion, error) {
