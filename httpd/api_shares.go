@@ -153,7 +153,8 @@ func deleteShare(w http.ResponseWriter, r *http.Request) {
 
 func (s *httpdServer) readBrowsableShareContents(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	share, connection, err := s.checkPublicShare(w, r, dataprovider.ShareScopeRead, false)
+	validScopes := []dataprovider.ShareScope{dataprovider.ShareScopeRead, dataprovider.ShareScopeReadWrite}
+	share, connection, err := s.checkPublicShare(w, r, validScopes, false)
 	if err != nil {
 		return
 	}
@@ -183,7 +184,8 @@ func (s *httpdServer) readBrowsableShareContents(w http.ResponseWriter, r *http.
 
 func (s *httpdServer) downloadBrowsableSharedFile(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	share, connection, err := s.checkPublicShare(w, r, dataprovider.ShareScopeRead, false)
+	validScopes := []dataprovider.ShareScope{dataprovider.ShareScopeRead, dataprovider.ShareScopeReadWrite}
+	share, connection, err := s.checkPublicShare(w, r, validScopes, false)
 	if err != nil {
 		return
 	}
@@ -232,7 +234,8 @@ func (s *httpdServer) downloadBrowsableSharedFile(w http.ResponseWriter, r *http
 
 func (s *httpdServer) downloadFromShare(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	share, connection, err := s.checkPublicShare(w, r, dataprovider.ShareScopeRead, false)
+	validScopes := []dataprovider.ShareScope{dataprovider.ShareScopeRead, dataprovider.ShareScopeReadWrite}
+	share, connection, err := s.checkPublicShare(w, r, validScopes, false)
 	if err != nil {
 		return
 	}
@@ -264,7 +267,7 @@ func (s *httpdServer) downloadFromShare(w http.ResponseWriter, r *http.Request) 
 			connection.Log(logger.LevelInfo, "denying share read due to quota limits")
 			sendAPIResponse(w, r, err, "", getMappedStatusCode(err))
 		}
-		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"share-%v.zip\"", share.ShareID))
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"share-%v.zip\"", share.Name))
 		renderCompressedFiles(w, connection, "/", share.Paths, &share)
 		return
 	}
@@ -287,12 +290,17 @@ func (s *httpdServer) uploadFileToShare(w http.ResponseWriter, r *http.Request) 
 		r.Body = http.MaxBytesReader(w, r.Body, maxUploadFileSize)
 	}
 	name := getURLParam(r, "name")
-	share, connection, err := s.checkPublicShare(w, r, dataprovider.ShareScopeWrite, false)
+	validScopes := []dataprovider.ShareScope{dataprovider.ShareScopeWrite, dataprovider.ShareScopeReadWrite}
+	share, connection, err := s.checkPublicShare(w, r, validScopes, false)
 	if err != nil {
 		return
 	}
-	filePath := path.Join(share.Paths[0], name)
-	if path.Dir(filePath) != share.Paths[0] {
+	filePath := util.CleanPath(path.Join(share.Paths[0], name))
+	expectedPrefix := share.Paths[0]
+	if !strings.HasSuffix(expectedPrefix, "/") {
+		expectedPrefix += "/"
+	}
+	if !strings.HasPrefix(filePath, expectedPrefix) {
 		sendAPIResponse(w, r, err, "Uploading outside the share is not allowed", http.StatusForbidden)
 		return
 	}
@@ -312,7 +320,8 @@ func (s *httpdServer) uploadFilesToShare(w http.ResponseWriter, r *http.Request)
 	if maxUploadFileSize > 0 {
 		r.Body = http.MaxBytesReader(w, r.Body, maxUploadFileSize)
 	}
-	share, connection, err := s.checkPublicShare(w, r, dataprovider.ShareScopeWrite, false)
+	validScopes := []dataprovider.ShareScope{dataprovider.ShareScopeWrite, dataprovider.ShareScopeReadWrite}
+	share, connection, err := s.checkPublicShare(w, r, validScopes, false)
 	if err != nil {
 		return
 	}
@@ -361,7 +370,7 @@ func (s *httpdServer) uploadFilesToShare(w http.ResponseWriter, r *http.Request)
 	}
 }
 
-func (s *httpdServer) checkPublicShare(w http.ResponseWriter, r *http.Request, shareShope dataprovider.ShareScope,
+func (s *httpdServer) checkPublicShare(w http.ResponseWriter, r *http.Request, validScopes []dataprovider.ShareScope,
 	isWebClient bool,
 ) (dataprovider.Share, *Connection, error) {
 	renderError := func(err error, message string, statusCode int) {
@@ -382,7 +391,7 @@ func (s *httpdServer) checkPublicShare(w http.ResponseWriter, r *http.Request, s
 		renderError(err, "", statusCode)
 		return share, nil, err
 	}
-	if share.Scope != shareShope {
+	if !util.Contains(validScopes, share.Scope) {
 		renderError(nil, "Invalid share scope", http.StatusForbidden)
 		return share, nil, errors.New("invalid share scope")
 	}
@@ -406,13 +415,8 @@ func (s *httpdServer) checkPublicShare(w http.ResponseWriter, r *http.Request, s
 			return share, nil, dataprovider.ErrInvalidCredentials
 		}
 	}
-	user, err := dataprovider.GetUserWithGroupSettings(share.Username)
+	user, err := getUserForShare(share)
 	if err != nil {
-		renderError(err, "", getRespStatus(err))
-		return share, nil, err
-	}
-	if user.MustSetSecondFactorForProtocol(common.ProtocolHTTP) {
-		err := util.NewMethodDisabledError("two-factor authentication requirements not met")
 		renderError(err, "", getRespStatus(err))
 		return share, nil, err
 	}
@@ -424,6 +428,23 @@ func (s *httpdServer) checkPublicShare(w http.ResponseWriter, r *http.Request, s
 	}
 
 	return share, connection, nil
+}
+
+func getUserForShare(share dataprovider.Share) (dataprovider.User, error) {
+	user, err := dataprovider.GetUserWithGroupSettings(share.Username)
+	if err != nil {
+		return user, err
+	}
+	if !user.CanManageShares() {
+		return user, util.NewRecordNotFoundError("this share does not exist")
+	}
+	if share.Password == "" && util.Contains(user.Filters.WebClient, sdk.WebClientShareNoPasswordDisabled) {
+		return user, fmt.Errorf("sharing without a password was disabled: %w", os.ErrPermission)
+	}
+	if user.MustSetSecondFactorForProtocol(common.ProtocolHTTP) {
+		return user, util.NewMethodDisabledError("two-factor authentication requirements not met")
+	}
+	return user, nil
 }
 
 func validateBrowsableShare(share dataprovider.Share, connection *Connection) error {

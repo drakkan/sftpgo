@@ -2,6 +2,10 @@
 
 {{define "title"}}{{.Title}}{{end}}
 
+{{define "extra_css"}}
+<link href="{{.StaticURL}}/vendor/bootstrap-select/css/bootstrap-select.min.css" rel="stylesheet">
+{{end}}
+
 {{define "page_body"}}
 
 <div class="card shadow mb-4">
@@ -26,7 +30,7 @@
         <div class="form-group row">
             <label for="idConfig" class="col-sm-2 col-form-label">Configuration</label>
             <div class="col-sm-10">
-                <select class="form-control" id="idConfig" name="config_name">
+                <select class="form-control selectpicker" id="idConfig" name="config_name">
                     <option value="">None</option>
                     {{range .TOTPConfigs}}
                     <option value="{{.}}" {{if eq . $.TOTPConfig.ConfigName}}selected{{end}}>{{.}}</option>
@@ -127,6 +131,7 @@
 {{end}}
 
 {{define "extra_js"}}
+<script src="{{.StaticURL}}/vendor/bootstrap-select/js/bootstrap-select.min.js"></script>
 <script type="text/javascript">
 
     function totpGenerate() {

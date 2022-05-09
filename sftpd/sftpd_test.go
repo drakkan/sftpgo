@@ -10,9 +10,11 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"hash"
 	"io"
+	"io/fs"
 	"math"
 	"net"
 	"net/http"
@@ -1463,11 +1465,11 @@ func TestStat(t *testing.T) {
 			assert.NoError(t, err)
 			_, err = client.Stat(testFileName)
 			assert.NoError(t, err)
-			// stat a missing path we should get an os.IsNotExist error
+			// stat a missing path we should get an fs.ErrNotExist error
 			_, err = client.Stat("missing path")
-			assert.True(t, os.IsNotExist(err))
+			assert.True(t, errors.Is(err, fs.ErrNotExist))
 			_, err = client.Lstat("missing path")
-			assert.True(t, os.IsNotExist(err))
+			assert.True(t, errors.Is(err, fs.ErrNotExist))
 			// mode 0666 and 0444 works on Windows too
 			newPerm := os.FileMode(0666)
 			err = client.Chmod(testFileName, newPerm)
@@ -6924,7 +6926,7 @@ func TestOpenError(t *testing.T) {
 		err = os.Chmod(filepath.Join(user.GetHomeDir(), testDir), 0000)
 		assert.NoError(t, err)
 		err = client.Rename(testFileName, path.Join(testDir, testFileName))
-		assert.True(t, os.IsPermission(err))
+		assert.True(t, errors.Is(err, fs.ErrPermission))
 		err = os.Chmod(filepath.Join(user.GetHomeDir(), testDir), os.ModePerm)
 		assert.NoError(t, err)
 		err = os.Remove(localDownloadPath)
@@ -7253,7 +7255,7 @@ func TestPermRename(t *testing.T) {
 		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
 		assert.NoError(t, err)
 		err = client.Rename(testFileName, testFileName+".rename")
-		assert.True(t, os.IsPermission(err))
+		assert.True(t, errors.Is(err, fs.ErrPermission))
 		_, err = client.Stat(testFileName)
 		assert.NoError(t, err)
 		err = os.Remove(testFilePath)
@@ -7289,7 +7291,7 @@ func TestPermRenameOverwrite(t *testing.T) {
 		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
 		assert.NoError(t, err)
 		err = client.Rename(testFileName, testFileName+".rename")
-		assert.True(t, os.IsPermission(err))
+		assert.True(t, errors.Is(err, fs.ErrPermission))
 		err = client.Remove(testFileName)
 		assert.NoError(t, err)
 		err = os.Remove(testFilePath)
@@ -7474,13 +7476,13 @@ func TestSubDirsUploads(t *testing.T) {
 		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
 		assert.NoError(t, err)
 		err = sftpUploadFile(testFilePath, testFileNameSub, testFileSize, client)
-		assert.True(t, os.IsPermission(err))
+		assert.True(t, errors.Is(err, fs.ErrPermission))
 		err = client.Symlink(testFileName, testFileNameSub+".link")
-		assert.True(t, os.IsPermission(err))
+		assert.True(t, errors.Is(err, fs.ErrPermission))
 		err = client.Symlink(testFileName, testFileName+".link")
 		assert.NoError(t, err)
 		err = client.Rename(testFileName, testFileNameSub+".rename")
-		assert.True(t, os.IsPermission(err))
+		assert.True(t, errors.Is(err, fs.ErrPermission))
 		err = client.Rename(testFileName, testFileName+".rename")
 		assert.NoError(t, err)
 		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
@@ -7500,7 +7502,7 @@ func TestSubDirsUploads(t *testing.T) {
 		err = client.Remove(testDir)
 		assert.NoError(t, err)
 		err = client.Remove(path.Join("/subdir", "file.dat"))
-		assert.True(t, os.IsPermission(err))
+		assert.True(t, errors.Is(err, fs.ErrPermission))
 		err = client.Remove(testFileName + ".rename")
 		assert.NoError(t, err)
 		err = os.Remove(testFilePath)
@@ -7532,7 +7534,7 @@ func TestSubDirsOverwrite(t *testing.T) {
 		err = createTestFile(testFileSFTPPath, 16384)
 		assert.NoError(t, err)
 		err = sftpUploadFile(testFilePath, testFileName+".new", testFileSize, client)
-		assert.True(t, os.IsPermission(err))
+		assert.True(t, errors.Is(err, fs.ErrPermission))
 		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
 		assert.NoError(t, err)
 		err = os.Remove(testFilePath)
@@ -7566,17 +7568,17 @@ func TestSubDirsDownloads(t *testing.T) {
 		assert.NoError(t, err)
 		localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
 		err = sftpDownloadFile(testFileName, localDownloadPath, testFileSize, client)
-		assert.True(t, os.IsPermission(err))
+		assert.True(t, errors.Is(err, fs.ErrPermission))
 		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
-		assert.True(t, os.IsPermission(err))
+		assert.True(t, errors.Is(err, fs.ErrPermission))
 		err = client.Chtimes(testFileName, time.Now(), time.Now())
-		assert.True(t, os.IsPermission(err))
+		assert.True(t, errors.Is(err, fs.ErrPermission))
 		err = client.Rename(testFileName, testFileName+".rename")
-		assert.True(t, os.IsPermission(err))
+		assert.True(t, errors.Is(err, fs.ErrPermission))
 		err = client.Symlink(testFileName, testFileName+".link")
-		assert.True(t, os.IsPermission(err))
+		assert.True(t, errors.Is(err, fs.ErrPermission))
 		err = client.Remove(testFileName)
-		assert.True(t, os.IsPermission(err))
+		assert.True(t, errors.Is(err, fs.ErrPermission))
 		err = os.Remove(localDownloadPath)
 		assert.NoError(t, err)
 		err = os.Remove(testFilePath)
@@ -7611,9 +7613,9 @@ func TestPermsSubDirsSetstat(t *testing.T) {
 		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
 		assert.NoError(t, err)
 		err = client.Chtimes("/subdir/", time.Now(), time.Now())
-		assert.True(t, os.IsPermission(err))
+		assert.True(t, errors.Is(err, fs.ErrPermission))
 		err = client.Chtimes("subdir/", time.Now(), time.Now())
-		assert.True(t, os.IsPermission(err))
+		assert.True(t, errors.Is(err, fs.ErrPermission))
 		err = client.Chtimes(testFileName, time.Now(), time.Now())
 		assert.NoError(t, err)
 		err = os.Remove(testFilePath)
@@ -7674,19 +7676,19 @@ func TestPermsSubDirsCommands(t *testing.T) {
 		_, err = client.ReadDir("/")
 		assert.NoError(t, err)
 		_, err = client.ReadDir("/subdir")
-		assert.True(t, os.IsPermission(err))
+		assert.True(t, errors.Is(err, fs.ErrPermission))
 		err = client.RemoveDirectory("/subdir/dir")
-		assert.True(t, os.IsPermission(err))
+		assert.True(t, errors.Is(err, fs.ErrPermission))
 		err = client.Mkdir("/subdir/otherdir/dir")
-		assert.True(t, os.IsPermission(err))
+		assert.True(t, errors.Is(err, fs.ErrPermission))
 		err = client.Mkdir("/otherdir")
 		assert.NoError(t, err)
 		err = client.Mkdir("/subdir/otherdir")
 		assert.NoError(t, err)
 		err = client.Rename("/otherdir", "/subdir/otherdir/adir")
-		assert.True(t, os.IsPermission(err))
+		assert.True(t, errors.Is(err, fs.ErrPermission))
 		err = client.Symlink("/otherdir", "/subdir/otherdir")
-		assert.True(t, os.IsPermission(err))
+		assert.True(t, errors.Is(err, fs.ErrPermission))
 		err = client.Symlink("/otherdir", "/otherdir_link")
 		assert.NoError(t, err)
 		err = client.Rename("/otherdir", "/otherdir1")
@@ -7718,11 +7720,11 @@ func TestRootDirCommands(t *testing.T) {
 			defer conn.Close()
 			defer client.Close()
 			err = client.Rename("/", "rootdir")
-			assert.True(t, os.IsPermission(err))
+			assert.True(t, errors.Is(err, fs.ErrPermission))
 			err = client.Symlink("/", "rootdir")
-			assert.True(t, os.IsPermission(err))
+			assert.True(t, errors.Is(err, fs.ErrPermission))
 			err = client.RemoveDirectory("/")
-			assert.True(t, os.IsPermission(err))
+			assert.True(t, errors.Is(err, fs.ErrPermission))
 		}
 		if user.Username == defaultUsername {
 			err = os.RemoveAll(user.GetHomeDir())
@@ -8200,7 +8202,7 @@ func TestStatVFS(t *testing.T) {
 
 		_, err = client.StatVFS("missing-path")
 		assert.Error(t, err)
-		assert.True(t, os.IsNotExist(err))
+		assert.True(t, errors.Is(err, fs.ErrNotExist))
 	}
 	user.QuotaFiles = 100
 	user.Filters.DisableFsChecks = true
@@ -10524,7 +10526,7 @@ func getCustomAuthSftpClient(user dataprovider.User, authMethods []ssh.AuthMetho
 
 func createTestFile(path string, size int64) error {
 	baseDir := filepath.Dir(path)
-	if _, err := os.Stat(baseDir); os.IsNotExist(err) {
+	if _, err := os.Stat(baseDir); errors.Is(err, fs.ErrNotExist) {
 		err = os.MkdirAll(baseDir, os.ModePerm)
 		if err != nil {
 			return err

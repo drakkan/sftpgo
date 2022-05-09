@@ -143,12 +143,14 @@ type filesPage struct {
 
 type shareFilesPage struct {
 	baseClientPage
-	CurrentDir  string
-	DirsURL     string
-	FilesURL    string
-	DownloadURL string
-	Error       string
-	Paths       []dirMapping
+	CurrentDir    string
+	DirsURL       string
+	FilesURL      string
+	DownloadURL   string
+	UploadBaseURL string
+	Error         string
+	Paths         []dirMapping
+	Scope         dataprovider.ShareScope
 }
 
 type shareUploadPage struct {
@@ -512,8 +514,10 @@ func (s *httpdServer) renderSharedFilesPage(w http.ResponseWriter, r *http.Reque
 		DirsURL:        path.Join(webClientPubSharesPath, share.ShareID, "dirs"),
 		FilesURL:       currentURL,
 		DownloadURL:    path.Join(webClientPubSharesPath, share.ShareID),
+		UploadBaseURL:  path.Join(webClientPubSharesPath, share.ShareID, url.PathEscape(dirName)),
 		Error:          error,
 		Paths:          getDirMapping(dirName, currentURL),
+		Scope:          share.Scope,
 	}
 	renderClientTemplate(w, templateShareFiles, data)
 }
@@ -625,7 +629,8 @@ func (s *httpdServer) handleWebClientDownloadZip(w http.ResponseWriter, r *http.
 
 func (s *httpdServer) handleShareGetDirContents(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	share, connection, err := s.checkPublicShare(w, r, dataprovider.ShareScopeRead, true)
+	validScopes := []dataprovider.ShareScope{dataprovider.ShareScopeRead, dataprovider.ShareScopeReadWrite}
+	share, connection, err := s.checkPublicShare(w, r, validScopes, true)
 	if err != nil {
 		return
 	}
@@ -674,8 +679,13 @@ func (s *httpdServer) handleShareGetDirContents(w http.ResponseWriter, r *http.R
 
 func (s *httpdServer) handleClientUploadToShare(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	share, _, err := s.checkPublicShare(w, r, dataprovider.ShareScopeWrite, true)
+	validScopes := []dataprovider.ShareScope{dataprovider.ShareScopeWrite, dataprovider.ShareScopeReadWrite}
+	share, _, err := s.checkPublicShare(w, r, validScopes, true)
 	if err != nil {
+		return
+	}
+	if share.Scope == dataprovider.ShareScopeReadWrite {
+		http.Redirect(w, r, path.Join(webClientPubSharesPath, share.ShareID, "browse"), http.StatusFound)
 		return
 	}
 	s.renderUploadToSharePage(w, r, share)
@@ -683,7 +693,8 @@ func (s *httpdServer) handleClientUploadToShare(w http.ResponseWriter, r *http.R
 
 func (s *httpdServer) handleShareGetFiles(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	share, connection, err := s.checkPublicShare(w, r, dataprovider.ShareScopeRead, true)
+	validScopes := []dataprovider.ShareScope{dataprovider.ShareScopeRead, dataprovider.ShareScopeReadWrite}
+	share, connection, err := s.checkPublicShare(w, r, validScopes, true)
 	if err != nil {
 		return
 	}

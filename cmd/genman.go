@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 
 	"github.com/rs/zerolog"
@@ -25,7 +27,7 @@ current directory.
 		Run: func(cmd *cobra.Command, args []string) {
 			logger.DisableLogger()
 			logger.EnableConsoleLogger(zerolog.DebugLevel)
-			if _, err := os.Stat(manDir); os.IsNotExist(err) {
+			if _, err := os.Stat(manDir); errors.Is(err, fs.ErrNotExist) {
 				err = os.MkdirAll(manDir, os.ModePerm)
 				if err != nil {
 					logger.WarnToConsole("Unable to generate man page files: %v", err)

@@ -290,7 +290,7 @@ func doUploadFiles(w http.ResponseWriter, r *http.Request, connection *Connectio
 		}
 		defer file.Close()
 
-		filePath := path.Join(parentDir, f.Filename)
+		filePath := path.Join(parentDir, path.Base(util.CleanPath(f.Filename)))
 		writer, err := connection.getFileWriter(filePath)
 		if err != nil {
 			sendAPIResponse(w, r, err, fmt.Sprintf("Unable to write file %#v", f.Filename), getMappedStatusCode(err))

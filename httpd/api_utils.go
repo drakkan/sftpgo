@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"mime"
 	"net/http"
 	"net/url"
@@ -79,10 +80,10 @@ func getRespStatus(err error) int {
 	if _, ok := err.(*util.RecordNotFoundError); ok {
 		return http.StatusNotFound
 	}
-	if os.IsNotExist(err) {
+	if errors.Is(err, fs.ErrNotExist) {
 		return http.StatusBadRequest
 	}
-	if os.IsPermission(err) || errors.Is(err, dataprovider.ErrLoginNotAllowedFromIP) {
+	if errors.Is(err, fs.ErrPermission) || errors.Is(err, dataprovider.ErrLoginNotAllowedFromIP) {
 		return http.StatusForbidden
 	}
 	if errors.Is(err, plugin.ErrNoSearcher) || errors.Is(err, dataprovider.ErrNotImplemented) {
@@ -241,7 +242,11 @@ func addZipEntry(wr *zip.Writer, conn *Connection, entryPath, baseDir string) er
 		return err
 	}
 	if info.IsDir() {
-		_, err := wr.Create(getZipEntryName(entryPath, baseDir) + "/")
+		_, err := wr.CreateHeader(&zip.FileHeader{
+			Name:     getZipEntryName(entryPath, baseDir) + "/",
+			Method:   zip.Deflate,
+			Modified: info.ModTime(),
+		})
 		if err != nil {
 			conn.Log(logger.LevelDebug, "unable to create zip entry %#v: %v", entryPath, err)
 			return err
@@ -271,7 +276,11 @@ func addZipEntry(wr *zip.Writer, conn *Connection, entryPath, baseDir string) er
 	}
 	defer reader.Close()
 
-	f, err := wr.Create(getZipEntryName(entryPath, baseDir))
+	f, err := wr.CreateHeader(&zip.FileHeader{
+		Name:     getZipEntryName(entryPath, baseDir),
+		Method:   zip.Deflate,
+		Modified: info.ModTime(),
+	})
 	if err != nil {
 		conn.Log(logger.LevelDebug, "unable to create zip entry %#v: %v", entryPath, err)
 		return err

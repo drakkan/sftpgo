@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"math"
 	"mime/multipart"
 	"net"
@@ -8561,7 +8562,7 @@ func TestStartQuotaScanMock(t *testing.T) {
 	waitForUsersQuotaScan(t, token)
 
 	_, err = os.Stat(user.HomeDir)
-	if err != nil && os.IsNotExist(err) {
+	if err != nil && errors.Is(err, fs.ErrNotExist) {
 		err = os.MkdirAll(user.HomeDir, os.ModePerm)
 		assert.NoError(t, err)
 	}
@@ -8725,7 +8726,7 @@ func TestStartFolderQuotaScanMock(t *testing.T) {
 	assert.True(t, common.QuotaScans.RemoveVFolderQuotaScan(folderName))
 	// and now a real quota scan
 	_, err = os.Stat(mappedPath)
-	if err != nil && os.IsNotExist(err) {
+	if err != nil && errors.Is(err, fs.ErrNotExist) {
 		err = os.MkdirAll(mappedPath, os.ModePerm)
 		assert.NoError(t, err)
 	}
@@ -10137,6 +10138,10 @@ func TestShareUsage(t *testing.T) {
 	checkResponseCode(t, http.StatusForbidden, rr)
 	assert.Contains(t, rr.Body.String(), "permission denied")
 
+	user.Permissions["/"] = []string{dataprovider.PermAny}
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+
 	body = new(bytes.Buffer)
 	writer = multipart.NewWriter(body)
 	part, err := writer.CreateFormFile("filename", "file1.txt")
@@ -10155,7 +10160,37 @@ func TestShareUsage(t *testing.T) {
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	assert.Contains(t, rr.Body.String(), "No files uploaded!")
 
-	share.Scope = dataprovider.ShareScopeRead
+	user.Filters.WebClient = []string{sdk.WebClientSharesDisabled}
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodPost, sharesPath+"/"+objectID, reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	user.Filters.WebClient = []string{sdk.WebClientShareNoPasswordDisabled}
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	share.Password = ""
+	err = dataprovider.UpdateShare(&share, user.Username, "")
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodPost, sharesPath+"/"+objectID, reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "sharing without a password was disabled")
+
+	user.Filters.WebClient = []string{sdk.WebClientInfoChangeDisabled}
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+
+	share.Scope = dataprovider.ShareScopeReadWrite
 	share.Paths = []string{"/missing"}
 	err = dataprovider.UpdateShare(&share, user.Username, "")
 	assert.NoError(t, err)
@@ -10347,12 +10382,6 @@ func TestShareUploadSingle(t *testing.T) {
 	if assert.NoError(t, err) {
 		assert.InDelta(t, util.GetTimeAsMsSinceEpoch(time.Now()), util.GetTimeAsMsSinceEpoch(info.ModTime()), float64(3000))
 	}
-	// we don't allow to create the file in subdirectories
-	req, err = http.NewRequest(http.MethodPost, path.Join(sharesPath, objectID, "%2Fdir%2Ffile1.txt"), bytes.NewBuffer(content))
-	assert.NoError(t, err)
-	req.SetBasicAuth(defaultUsername, defaultPassword)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusForbidden, rr)
 
 	req, err = http.NewRequest(http.MethodPost, path.Join(sharesPath, objectID, "dir", "file.dat"), bytes.NewBuffer(content))
 	assert.NoError(t, err)
@@ -10389,6 +10418,76 @@ func TestShareUploadSingle(t *testing.T) {
 	req.SetBasicAuth(defaultUsername, defaultPassword)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
+}
+
+func TestShareReadWrite(t *testing.T) {
+	u := getTestUser()
+	u.Filters.StartDirectory = path.Join("/start", "dir")
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+	testFileName := "test.txt"
+
+	share := dataprovider.Share{
+		Name:      "test share rw",
+		Scope:     dataprovider.ShareScopeReadWrite,
+		Paths:     []string{user.Filters.StartDirectory},
+		Password:  defaultPassword,
+		MaxTokens: 0,
+	}
+	asJSON, err := json.Marshal(share)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	objectID := rr.Header().Get("X-Object-ID")
+	assert.NotEmpty(t, objectID)
+
+	content := []byte("shared rw content")
+	req, err = http.NewRequest(http.MethodPost, path.Join(sharesPath, objectID, testFileName), bytes.NewBuffer(content))
+	assert.NoError(t, err)
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	assert.FileExists(t, filepath.Join(user.GetHomeDir(), user.Filters.StartDirectory, testFileName))
+
+	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, objectID, "browse?path=%2F"), nil)
+	assert.NoError(t, err)
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, objectID, "browse?path="+testFileName), nil)
+	assert.NoError(t, err)
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	contentDisposition := rr.Header().Get("Content-Disposition")
+	assert.NotEmpty(t, contentDisposition)
+
+	req, err = http.NewRequest(http.MethodPost, path.Join(sharesPath, objectID)+"/"+url.PathEscape("../"+testFileName),
+		bytes.NewBuffer(content))
+	assert.NoError(t, err)
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "Uploading outside the share is not allowed")
+
+	req, err = http.NewRequest(http.MethodPost, path.Join(sharesPath, objectID)+"/"+url.PathEscape("/../../"+testFileName),
+		bytes.NewBuffer(content))
+	assert.NoError(t, err)
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "Uploading outside the share is not allowed")
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
 }
 
 func TestShareUncompressed(t *testing.T) {
@@ -10799,7 +10898,7 @@ func TestBrowseShares(t *testing.T) {
 	req, err = http.NewRequest(http.MethodGet, path.Join(sharesPath, objectID, "dirs"), nil)
 	assert.NoError(t, err)
 	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusInternalServerError, rr)
+	checkResponseCode(t, http.StatusBadRequest, rr)
 	assert.Contains(t, rr.Body.String(), "unable to check the share directory")
 	// share multiple paths
 	share = dataprovider.Share{
@@ -10868,6 +10967,32 @@ func TestBrowseShares(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
 	assert.Contains(t, rr.Body.String(), "two-factor authentication requirements not met")
+	user.Filters.TwoFactorAuthProtocols = []string{common.ProtocolSSH}
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	// share read/write
+	share.Scope = dataprovider.ShareScopeReadWrite
+	asJSON, err = json.Marshal(share)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	objectID = rr.Header().Get("X-Object-ID")
+	assert.NotEmpty(t, objectID)
+	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, objectID, "browse?path=%2F"), nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// on upload we should be redirected
+	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, objectID, "upload"), nil)
+	assert.NoError(t, err)
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusFound, rr)
+	location := rr.Header().Get("Location")
+	assert.Equal(t, path.Join(webClientPubSharesPath, objectID, "browse"), location)
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -18853,7 +18978,7 @@ func checkResponseCode(t *testing.T, expected int, rr *httptest.ResponseRecorder
 
 func createTestFile(path string, size int64) error {
 	baseDir := filepath.Dir(path)
-	if _, err := os.Stat(baseDir); os.IsNotExist(err) {
+	if _, err := os.Stat(baseDir); errors.Is(err, fs.ErrNotExist) {
 		err = os.MkdirAll(baseDir, os.ModePerm)
 		if err != nil {
 			return err

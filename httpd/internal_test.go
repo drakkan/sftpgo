@@ -2291,7 +2291,13 @@ func TestMetadataAPI(t *testing.T) {
 
 func TestBrowsableSharePaths(t *testing.T) {
 	share := dataprovider.Share{
-		Paths: []string{"/"},
+		Paths:    []string{"/"},
+		Username: defaultAdminUsername,
+	}
+	_, err := getUserForShare(share)
+	if assert.Error(t, err) {
+		_, ok := err.(*util.RecordNotFoundError)
+		assert.True(t, ok)
 	}
 	req, err := http.NewRequest(http.MethodGet, "/share", nil)
 	require.NoError(t, err)

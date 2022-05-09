@@ -6,8 +6,10 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"net/http"
 	"os"
@@ -2916,7 +2918,7 @@ func getExitCodeScriptContent(exitCode int) []byte {
 
 func createTestFile(path string, size int64) error {
 	baseDir := filepath.Dir(path)
-	if _, err := os.Stat(baseDir); os.IsNotExist(err) {
+	if _, err := os.Stat(baseDir); errors.Is(err, fs.ErrNotExist) {
 		err = os.MkdirAll(baseDir, os.ModePerm)
 		if err != nil {
 			return err

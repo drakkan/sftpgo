@@ -3,7 +3,9 @@ package ftpd
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
+	"io/fs"
 	"net"
 	"os"
 	"path/filepath"
@@ -735,7 +737,7 @@ func TestAVBLErrors(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = connection.GetAvailableSpace("/missing-path")
 	assert.Error(t, err)
-	assert.True(t, os.IsNotExist(err))
+	assert.True(t, errors.Is(err, fs.ErrNotExist))
 }
 
 func TestUploadOverwriteErrors(t *testing.T) {

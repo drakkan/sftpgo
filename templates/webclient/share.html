@@ -4,6 +4,7 @@
 
 {{define "extra_css"}}
 <link href="{{.StaticURL}}/vendor/tempusdominus/css/tempusdominus-bootstrap-4.min.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/bootstrap-select/css/bootstrap-select.min.css" rel="stylesheet">
 {{end}}
 
 {{define "page_body"}}
@@ -29,12 +30,13 @@
             <div class="form-group row">
                 <label for="idScope" class="col-sm-2 col-form-label">Scope</label>
                 <div class="col-sm-10">
-                    <select class="form-control" id="idScope" name="scope" aria-describedby="scopeHelpBlock">
+                    <select class="form-control selectpicker" id="idScope" name="scope" aria-describedby="scopeHelpBlock">
                         <option value="1" {{if eq .Share.Scope 1 }}selected{{end}}>Read</option>
                         <option value="2" {{if eq .Share.Scope 2 }}selected{{end}}>Write</option>
+                        <option value="3" {{if eq .Share.Scope 3 }}selected{{end}}>Read/Write</option>
                     </select>
                     <small id="scopeHelpBlock" class="form-text text-muted">
-                        For scope "Write" you have to define one path and it must be a directory
+                        For scope "Write" and "Read&Write" you have to define one path and it must be a directory
                     </small>
                 </div>
             </div>
@@ -144,6 +146,7 @@
 {{define "extra_js"}}
 <script src="{{.StaticURL}}/vendor/moment/js/moment.min.js"></script>
 <script src="{{.StaticURL}}/vendor/tempusdominus/js/tempusdominus-bootstrap-4.min.js"></script>
+<script src="{{.StaticURL}}/vendor/bootstrap-select/js/bootstrap-select.min.js"></script>
 <script type="text/javascript">
     $(document).ready(function () {
 

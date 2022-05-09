@@ -11,6 +11,7 @@ package logger
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"time"
@@ -57,7 +58,7 @@ func InitLogger(logFilePath string, logMaxSize int, logMaxBackups int, logMaxAge
 	SetLogTime(logUTCTime)
 	if isLogFilePathValid(logFilePath) {
 		logDir := filepath.Dir(logFilePath)
-		if _, err := os.Stat(logDir); os.IsNotExist(err) {
+		if _, err := os.Stat(logDir); errors.Is(err, fs.ErrNotExist) {
 			err = os.MkdirAll(logDir, os.ModePerm)
 			if err != nil {
 				fmt.Printf("unable to create log dir %#v: %v", logDir, err)

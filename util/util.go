@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"io/fs"
 	"net"
 	"net/http"
 	"net/url"
@@ -45,7 +46,18 @@ var (
 	trueClientIP   = http.CanonicalHeaderKey("True-Client-IP")
 )
 
+// Contains reports whether v is present in elems.
+func Contains[T comparable](elems []T, v T) bool {
+	for _, s := range elems {
+		if v == s {
+			return true
+		}
+	}
+	return false
+}
+
 // IsStringInSlice searches a string in a slice and returns true if the string is found
+// TODO: replace with Contains above
 func IsStringInSlice(obj string, list []string) bool {
 	for i := 0; i < len(list); i++ {
 		if list[i] == obj {
@@ -390,7 +402,7 @@ func CleanDirInput(dirInput string) string {
 
 func createDirPathIfMissing(file string, perm os.FileMode) error {
 	dirPath := filepath.Dir(file)
-	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
+	if _, err := os.Stat(dirPath); errors.Is(err, fs.ErrNotExist) {
 		err = os.MkdirAll(dirPath, perm)
 		if err != nil {
 			return err

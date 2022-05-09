@@ -644,13 +644,13 @@ func TestRemoveDirTree(t *testing.T) {
 	p := filepath.Join(user.HomeDir, "adir", "missing")
 	err := connection.removeDirTree(fs, p, vpath)
 	if assert.Error(t, err) {
-		assert.True(t, os.IsNotExist(err))
+		assert.True(t, fs.IsNotExist(err))
 	}
 
 	fs = newMockOsFs(nil, false, "mockID", user.HomeDir, nil)
 	err = connection.removeDirTree(fs, p, vpath)
 	if assert.Error(t, err) {
-		assert.True(t, os.IsNotExist(err), "unexpected error: %v", err)
+		assert.True(t, fs.IsNotExist(err), "unexpected error: %v", err)
 	}
 
 	errFake := errors.New("fake err")
@@ -663,7 +663,7 @@ func TestRemoveDirTree(t *testing.T) {
 	fs = newMockOsFs(errWalkDir, true, "mockID", user.HomeDir, nil)
 	err = connection.removeDirTree(fs, p, vpath)
 	if assert.Error(t, err) {
-		assert.True(t, os.IsPermission(err), "unexpected error: %v", err)
+		assert.True(t, fs.IsPermission(err), "unexpected error: %v", err)
 	}
 
 	fs = newMockOsFs(errWalkFile, false, "mockID", user.HomeDir, nil)
@@ -766,9 +766,9 @@ func TestTransferReadWriteErrors(t *testing.T) {
 		common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{})
 	davFile = newWebDavFile(baseTransfer, nil, nil)
 	_, err = davFile.Read(p)
-	assert.True(t, os.IsNotExist(err))
+	assert.True(t, fs.IsNotExist(err))
 	_, err = davFile.Stat()
-	assert.True(t, os.IsNotExist(err))
+	assert.True(t, fs.IsNotExist(err))
 
 	baseTransfer = common.NewBaseTransfer(nil, connection.BaseConnection, nil, testFilePath, testFilePath, testFile,
 		common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{})
@@ -852,7 +852,7 @@ func TestTransferSeek(t *testing.T) {
 		common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{AllowedTotalSize: 100})
 	davFile = newWebDavFile(baseTransfer, nil, nil)
 	_, err = davFile.Seek(0, io.SeekCurrent)
-	assert.True(t, os.IsNotExist(err))
+	assert.True(t, fs.IsNotExist(err))
 	davFile.Connection.RemoveTransfer(davFile.BaseTransfer)
 
 	err = os.WriteFile(testFilePath, testFileContents, os.ModePerm)
@@ -888,7 +888,7 @@ func TestTransferSeek(t *testing.T) {
 		common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{AllowedTotalSize: 100})
 	davFile = newWebDavFile(baseTransfer, nil, nil)
 	_, err = davFile.Seek(0, io.SeekEnd)
-	assert.True(t, os.IsNotExist(err))
+	assert.True(t, fs.IsNotExist(err))
 	davFile.Connection.RemoveTransfer(davFile.BaseTransfer)
 
 	baseTransfer = common.NewBaseTransfer(nil, connection.BaseConnection, nil, testFilePath, testFilePath, testFile,
@@ -912,7 +912,7 @@ func TestTransferSeek(t *testing.T) {
 	davFile = newWebDavFile(baseTransfer, nil, nil)
 	davFile.Fs = newMockOsFs(nil, true, fs.ConnectionID(), user.GetHomeDir(), nil)
 	res, err = davFile.Seek(2, io.SeekEnd)
-	assert.True(t, os.IsNotExist(err))
+	assert.True(t, fs.IsNotExist(err))
 	assert.Equal(t, int64(0), res)
 
 	assert.Len(t, common.Connections.GetStats(), 0)

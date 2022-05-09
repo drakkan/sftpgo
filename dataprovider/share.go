@@ -21,6 +21,7 @@ type ShareScope int
 const (
 	ShareScopeRead ShareScope = iota + 1
 	ShareScopeWrite
+	ShareScopeReadWrite
 )
 
 const (
@@ -64,10 +65,12 @@ type Share struct {
 // Used in web pages
 func (s *Share) GetScopeAsString() string {
 	switch s.Scope {
-	case ShareScopeRead:
-		return "Read"
-	default:
+	case ShareScopeWrite:
 		return "Write"
+	case ShareScopeReadWrite:
+		return "Read/Write"
+	default:
+		return "Read"
 	}
 }
 
@@ -194,7 +197,7 @@ func (s *Share) validatePaths() error {
 		s.Paths[idx] = util.CleanPath(s.Paths[idx])
 	}
 	s.Paths = util.RemoveDuplicates(s.Paths)
-	if s.Scope == ShareScopeWrite && len(s.Paths) != 1 {
+	if s.Scope >= ShareScopeWrite && len(s.Paths) != 1 {
 		return util.NewValidationError("the write share scope requires exactly one path")
 	}
 	// check nested paths
@@ -220,7 +223,7 @@ func (s *Share) validate() error {
 	if s.Name == "" {
 		return util.NewValidationError("name is mandatory")
 	}
-	if s.Scope != ShareScopeRead && s.Scope != ShareScopeWrite {
+	if s.Scope < ShareScopeRead || s.Scope > ShareScopeReadWrite {
 		return util.NewValidationError(fmt.Sprintf("invalid scope: %v", s.Scope))
 	}
 	if err := s.validatePaths(); err != nil {

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"os"
 	"path"
@@ -755,7 +756,7 @@ func (c *Configuration) generateDefaultHostKeys(configDir string) error {
 	defaultHostKeys := []string{defaultPrivateRSAKeyName, defaultPrivateECDSAKeyName, defaultPrivateEd25519KeyName}
 	for _, k := range defaultHostKeys {
 		autoFile := filepath.Join(configDir, k)
-		if _, err = os.Stat(autoFile); os.IsNotExist(err) {
+		if _, err = os.Stat(autoFile); errors.Is(err, fs.ErrNotExist) {
 			logger.Info(logSender, "", "No host keys configured and %#v does not exist; try to create a new host key", autoFile)
 			logger.InfoToConsole("No host keys configured and %#v does not exist; try to create a new host key", autoFile)
 			if k == defaultPrivateRSAKeyName {
@@ -780,7 +781,7 @@ func (c *Configuration) generateDefaultHostKeys(configDir string) error {
 func (c *Configuration) checkHostKeyAutoGeneration(configDir string) error {
 	for _, k := range c.HostKeys {
 		if filepath.IsAbs(k) {
-			if _, err := os.Stat(k); os.IsNotExist(err) {
+			if _, err := os.Stat(k); errors.Is(err, fs.ErrNotExist) {
 				keyName := filepath.Base(k)
 				switch keyName {
 				case defaultPrivateRSAKeyName:

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"net/http"
 	"os"
@@ -431,7 +432,7 @@ func (fs *SFTPFs) IsAtomicUploadSupported() bool {
 // IsNotExist returns a boolean indicating whether the error is known to
 // report that a file or directory does not exist
 func (*SFTPFs) IsNotExist(err error) bool {
-	return os.IsNotExist(err)
+	return errors.Is(err, fs.ErrNotExist)
 }
 
 // IsPermission returns a boolean indicating whether the error is known to
@@ -440,7 +441,7 @@ func (*SFTPFs) IsPermission(err error) bool {
 	if _, ok := err.(*pathResolutionError); ok {
 		return true
 	}
-	return os.IsPermission(err)
+	return errors.Is(err, fs.ErrPermission)
 }
 
 // IsNotSupported returns true if the error indicate an unsupported operation
@@ -559,12 +560,13 @@ func (fs *SFTPFs) ResolvePath(virtualPath string) (string, error) {
 		var validatedPath string
 		var err error
 		validatedPath, err = fs.getRealPath(fsPath)
-		if err != nil && !os.IsNotExist(err) {
+		isNotExist := fs.IsNotExist(err)
+		if err != nil && !isNotExist {
 			fsLog(fs, logger.LevelError, "Invalid path resolution, original path %v resolved %#v err: %v",
 				virtualPath, fsPath, err)
 			return "", err
-		} else if os.IsNotExist(err) {
-			for os.IsNotExist(err) {
+		} else if isNotExist {
+			for fs.IsNotExist(err) {
 				validatedPath = path.Dir(validatedPath)
 				if validatedPath == "/" {
 					err = nil

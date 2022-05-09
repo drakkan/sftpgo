@@ -1,8 +1,10 @@
 package vfs
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"os"
 	"path"
@@ -200,7 +202,7 @@ func (*OsFs) IsAtomicUploadSupported() bool {
 // IsNotExist returns a boolean indicating whether the error is known to
 // report that a file or directory does not exist
 func (*OsFs) IsNotExist(err error) bool {
-	return os.IsNotExist(err)
+	return errors.Is(err, fs.ErrNotExist)
 }
 
 // IsPermission returns a boolean indicating whether the error is known to
@@ -209,8 +211,7 @@ func (*OsFs) IsPermission(err error) bool {
 	if _, ok := err.(*pathResolutionError); ok {
 		return true
 	}
-
-	return os.IsPermission(err)
+	return errors.Is(err, fs.ErrPermission)
 }
 
 // IsNotSupported returns true if the error indicate an unsupported operation
@@ -297,9 +298,10 @@ func (fs *OsFs) ResolvePath(virtualPath string) (string, error) {
 	if isInvalidNameError(err) {
 		err = os.ErrNotExist
 	}
-	if err != nil && !os.IsNotExist(err) {
+	isNotExist := fs.IsNotExist(err)
+	if err != nil && !isNotExist {
 		return "", err
-	} else if os.IsNotExist(err) {
+	} else if isNotExist {
 		// The requested path doesn't exist, so at this point we need to iterate up the
 		// path chain until we hit a directory that _does_ exist and can be validated.
 		_, err = fs.findFirstExistingDir(r)
@@ -349,7 +351,7 @@ func (fs *OsFs) findNonexistentDirs(filePath string) ([]string, error) {
 	parent := filepath.Dir(cleanPath)
 	_, err := os.Stat(parent)
 
-	for os.IsNotExist(err) {
+	for fs.IsNotExist(err) {
 		results = append(results, parent)
 		parent = filepath.Dir(parent)
 		_, err = os.Stat(parent)
