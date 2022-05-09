@@ -117,7 +117,7 @@ jobs:
           OPTIONAL_DEPS: ${{ matrix.optional_deps }}
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
+        uses: docker/setup-qemu-action@v2
 
       - name: Set up builder
         uses: docker/setup-buildx-action@v1
