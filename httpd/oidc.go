@@ -318,7 +318,7 @@ func (t *oidcToken) getUser(r *http.Request) error {
 		return nil
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
-	user, err := dataprovider.GetUserAfterIDPAuth(t.Username, ipAddr, common.ProtocolOIDC, t.CustomFields)
+	user, err := dataprovider.GetUserAfterIDPAuth(t.Username, ipAddr, common.ProtocolOIDC, r.TLS != nil, t.CustomFields)
 	if err != nil {
 		return err
 	}

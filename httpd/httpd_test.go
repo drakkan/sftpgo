@@ -904,11 +904,11 @@ func TestGroupSettingsOverride(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, user.VirtualFolders, 0)
 
-	user, err = dataprovider.CheckUserAndPass(defaultUsername, defaultPassword, "", common.ProtocolHTTP)
+	user, err = dataprovider.CheckUserAndPass(defaultUsername, defaultPassword, "", common.ProtocolHTTP, false)
 	assert.NoError(t, err)
 	assert.Len(t, user.VirtualFolders, 3)
 
-	user, err = dataprovider.GetUserAfterIDPAuth(defaultUsername, "", common.ProtocolOIDC, nil)
+	user, err = dataprovider.GetUserAfterIDPAuth(defaultUsername, "", common.ProtocolOIDC, false, nil)
 	assert.NoError(t, err)
 	assert.Len(t, user.VirtualFolders, 3)
 
@@ -936,7 +936,7 @@ func TestGroupSettingsOverride(t *testing.T) {
 	group2.UserSettings.Filters.WebClient = []string{sdk.WebClientInfoChangeDisabled, sdk.WebClientMFADisabled}
 	_, _, err = httpdtest.UpdateGroup(group2, http.StatusOK)
 	assert.NoError(t, err)
-	user, err = dataprovider.CheckUserAndPass(defaultUsername, defaultPassword, "", common.ProtocolHTTP)
+	user, err = dataprovider.CheckUserAndPass(defaultUsername, defaultPassword, "", common.ProtocolHTTP, false)
 	assert.NoError(t, err)
 	assert.Len(t, user.VirtualFolders, 3)
 	assert.Equal(t, sdk.LocalFilesystemProvider, user.FsConfig.Provider)
@@ -979,7 +979,7 @@ func TestGroupSettingsOverride(t *testing.T) {
 	}
 	_, _, err = httpdtest.UpdateGroup(group1, http.StatusOK)
 	assert.NoError(t, err)
-	user, err = dataprovider.CheckUserAndPass(defaultUsername, defaultPassword, "", common.ProtocolHTTP)
+	user, err = dataprovider.CheckUserAndPass(defaultUsername, defaultPassword, "", common.ProtocolHTTP, false)
 	assert.NoError(t, err)
 	assert.Len(t, user.VirtualFolders, 3)
 	assert.Equal(t, sdk.SFTPFilesystemProvider, user.FsConfig.Provider)

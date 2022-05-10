@@ -280,7 +280,7 @@ func (s *webDavServer) authenticate(r *http.Request, ip string) (dataprovider.Us
 		}
 	}
 	user, loginMethod, err = dataprovider.CheckCompositeCredentials(username, password, ip, loginMethod,
-		common.ProtocolWebDAV, tlsCert)
+		common.ProtocolWebDAV, r.TLS != nil, tlsCert)
 	if err != nil {
 		user.Username = username
 		updateLoginMetrics(&user, ip, loginMethod, err)

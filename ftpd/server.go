@@ -187,7 +187,7 @@ func (s *Server) AuthUser(cc ftpserver.ClientContext, username, password string)
 		loginMethod = dataprovider.LoginMethodTLSCertificateAndPwd
 	}
 	ipAddr := util.GetIPFromRemoteAddress(cc.RemoteAddr().String())
-	user, err := dataprovider.CheckUserAndPass(username, password, ipAddr, common.ProtocolFTP)
+	user, err := dataprovider.CheckUserAndPass(username, password, ipAddr, common.ProtocolFTP, cc.HasTLSForControl())
 	if err != nil {
 		user.Username = username
 		updateLoginMetrics(&user, ipAddr, loginMethod, err)
@@ -225,7 +225,7 @@ func (s *Server) VerifyConnection(cc ftpserver.ClientContext, user string, tlsCo
 		state := tlsConn.ConnectionState()
 		if len(state.PeerCertificates) > 0 {
 			ipAddr := util.GetIPFromRemoteAddress(cc.RemoteAddr().String())
-			dbUser, err := dataprovider.CheckUserBeforeTLSAuth(user, ipAddr, common.ProtocolFTP, state.PeerCertificates[0])
+			dbUser, err := dataprovider.CheckUserBeforeTLSAuth(user, ipAddr, common.ProtocolFTP, true, state.PeerCertificates[0])
 			if err != nil {
 				dbUser.Username = user
 				updateLoginMetrics(&dbUser, ipAddr, dataprovider.LoginMethodTLSCertificate, err)

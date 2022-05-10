@@ -221,7 +221,7 @@ func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	user, err := dataprovider.CheckUserAndPass(username, password, ipAddr, protocol)
+	user, err := dataprovider.CheckUserAndPass(username, password, ipAddr, protocol, r.TLS != nil)
 	if err != nil {
 		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, err)
 		s.renderClientLoginPage(w, dataprovider.ErrInvalidCredentials.Error(), ipAddr)
@@ -747,7 +747,7 @@ func (s *httpdServer) getUserToken(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 		return
 	}
-	user, err := dataprovider.CheckUserAndPass(username, password, ipAddr, protocol)
+	user, err := dataprovider.CheckUserAndPass(username, password, ipAddr, protocol, r.TLS != nil)
 	if err != nil {
 		w.Header().Set(common.HTTPAuthenticationHeader, basicRealm)
 		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, err)

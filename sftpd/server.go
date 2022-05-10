@@ -1045,7 +1045,7 @@ func (c *Configuration) validatePasswordCredentials(conn ssh.ConnMetadata, pass 
 		method = dataprovider.SSHLoginMethodKeyAndPassword
 	}
 	ipAddr := util.GetIPFromRemoteAddress(conn.RemoteAddr().String())
-	if user, err = dataprovider.CheckUserAndPass(conn.User(), string(pass), ipAddr, common.ProtocolSSH); err == nil {
+	if user, err = dataprovider.CheckUserAndPass(conn.User(), string(pass), ipAddr, common.ProtocolSSH, true); err == nil {
 		sshPerm, err = loginUser(&user, method, "", conn)
 	}
 	user.Username = conn.User()

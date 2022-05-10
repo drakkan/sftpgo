@@ -957,20 +957,20 @@ func CheckCachedUserCredentials(user *CachedUser, password, loginMethod, protoco
 
 // CheckCompositeCredentials checks multiple credentials.
 // WebDAV users can send both a password and a TLS certificate within the same request
-func CheckCompositeCredentials(username, password, ip, loginMethod, protocol string, tlsCert *x509.Certificate) (User, string, error) {
+func CheckCompositeCredentials(username, password, ip, loginMethod, protocol string, protocolSecure bool, tlsCert *x509.Certificate) (User, string, error) {
 	username = config.convertName(username)
 	if loginMethod == LoginMethodPassword {
-		user, err := CheckUserAndPass(username, password, ip, protocol)
+		user, err := CheckUserAndPass(username, password, ip, protocol, protocolSecure)
 		return user, loginMethod, err
 	}
-	user, err := CheckUserBeforeTLSAuth(username, ip, protocol, tlsCert)
+	user, err := CheckUserBeforeTLSAuth(username, ip, protocol, protocolSecure, tlsCert)
 	if err != nil {
 		return user, loginMethod, err
 	}
 	if !user.IsTLSUsernameVerificationEnabled() {
 		// for backward compatibility with 2.0.x we only check the password and change the login method here
 		// in future updates we have to return an error
-		user, err := CheckUserAndPass(username, password, ip, protocol)
+		user, err := CheckUserAndPass(username, password, ip, protocol, protocolSecure)
 		return user, LoginMethodPassword, err
 	}
 	user, err = checkUserAndTLSCertificate(&user, protocol, tlsCert)
@@ -986,7 +986,7 @@ func CheckCompositeCredentials(username, password, ip, loginMethod, protocol str
 		} else if config.ExternalAuthHook != "" && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&1 != 0) {
 			user, err = doExternalAuth(username, password, nil, "", ip, protocol, nil)
 		} else if config.PreLoginHook != "" {
-			user, err = executePreLoginHook(username, LoginMethodPassword, ip, protocol, nil)
+			user, err = executePreLoginHook(username, LoginMethodPassword, ip, protocol, protocolSecure, nil)
 		}
 		if err != nil {
 			return user, loginMethod, err
@@ -997,7 +997,7 @@ func CheckCompositeCredentials(username, password, ip, loginMethod, protocol str
 }
 
 // CheckUserBeforeTLSAuth checks if a user exits before trying mutual TLS
-func CheckUserBeforeTLSAuth(username, ip, protocol string, tlsCert *x509.Certificate) (User, error) {
+func CheckUserBeforeTLSAuth(username, ip, protocol string, protocolSecure bool, tlsCert *x509.Certificate) (User, error) {
 	username = config.convertName(username)
 	if plugin.Handler.HasAuthScope(plugin.AuthScopeTLSCertificate) {
 		user, err := doPluginAuth(username, "", nil, ip, protocol, tlsCert, plugin.AuthScopeTLSCertificate)
@@ -1016,7 +1016,7 @@ func CheckUserBeforeTLSAuth(username, ip, protocol string, tlsCert *x509.Certifi
 		return user, err
 	}
 	if config.PreLoginHook != "" {
-		user, err := executePreLoginHook(username, LoginMethodTLSCertificate, ip, protocol, nil)
+		user, err := executePreLoginHook(username, LoginMethodTLSCertificate, ip, protocol, protocolSecure, nil)
 		if err != nil {
 			return user, err
 		}
@@ -1050,7 +1050,7 @@ func CheckUserAndTLSCert(username, ip, protocol string, tlsCert *x509.Certificat
 		return checkUserAndTLSCertificate(&user, protocol, tlsCert)
 	}
 	if config.PreLoginHook != "" {
-		user, err := executePreLoginHook(username, LoginMethodTLSCertificate, ip, protocol, nil)
+		user, err := executePreLoginHook(username, LoginMethodTLSCertificate, ip, protocol, true, nil)
 		if err != nil {
 			return user, err
 		}
@@ -1060,7 +1060,7 @@ func CheckUserAndTLSCert(username, ip, protocol string, tlsCert *x509.Certificat
 }
 
 // CheckUserAndPass retrieves the SFTPGo user with the given username and password if a match is found or an error
-func CheckUserAndPass(username, password, ip, protocol string) (User, error) {
+func CheckUserAndPass(username, password, ip, protocol string, protocolSecure bool) (User, error) {
 	username = config.convertName(username)
 	if plugin.Handler.HasAuthScope(plugin.AuthScopePassword) {
 		user, err := doPluginAuth(username, password, nil, ip, protocol, nil, plugin.AuthScopePassword)
@@ -1077,7 +1077,7 @@ func CheckUserAndPass(username, password, ip, protocol string) (User, error) {
 		return checkUserAndPass(&user, password, ip, protocol)
 	}
 	if config.PreLoginHook != "" {
-		user, err := executePreLoginHook(username, LoginMethodPassword, ip, protocol, nil)
+		user, err := executePreLoginHook(username, LoginMethodPassword, ip, protocol, protocolSecure, nil)
 		if err != nil {
 			return user, err
 		}
@@ -1104,7 +1104,7 @@ func CheckUserAndPubKey(username string, pubKey []byte, ip, protocol string, isS
 		return checkUserAndPubKey(&user, pubKey, isSSHCert)
 	}
 	if config.PreLoginHook != "" {
-		user, err := executePreLoginHook(username, SSHLoginMethodPublicKey, ip, protocol, nil)
+		user, err := executePreLoginHook(username, SSHLoginMethodPublicKey, ip, protocol, true, nil)
 		if err != nil {
 			return user, "", err
 		}
@@ -1124,7 +1124,7 @@ func CheckKeyboardInteractiveAuth(username, authHook string, client ssh.Keyboard
 	} else if config.ExternalAuthHook != "" && (config.ExternalAuthScope == 0 || config.ExternalAuthScope&4 != 0) {
 		user, err = doExternalAuth(username, "", nil, "1", ip, protocol, nil)
 	} else if config.PreLoginHook != "" {
-		user, err = executePreLoginHook(username, SSHLoginMethodKeyboardInteractive, ip, protocol, nil)
+		user, err = executePreLoginHook(username, SSHLoginMethodKeyboardInteractive, ip, protocol, true, nil)
 	} else {
 		user, err = provider.userExists(username)
 	}
@@ -1138,11 +1138,11 @@ func CheckKeyboardInteractiveAuth(username, authHook string, client ssh.Keyboard
 // after a successful authentication with an external identity provider.
 // If a pre-login hook is defined it will be executed so the SFTPGo user
 // can be created if it does not exist
-func GetUserAfterIDPAuth(username, ip, protocol string, oidcTokenFields *map[string]interface{}) (User, error) {
+func GetUserAfterIDPAuth(username, ip, protocol string, protocolSecure bool, oidcTokenFields *map[string]interface{}) (User, error) {
 	var user User
 	var err error
 	if config.PreLoginHook != "" {
-		user, err = executePreLoginHook(username, LoginMethodIDP, ip, protocol, oidcTokenFields)
+		user, err = executePreLoginHook(username, LoginMethodIDP, ip, protocol, protocolSecure, oidcTokenFields)
 	} else {
 		user, err = UserExists(username)
 	}
@@ -3149,7 +3149,7 @@ func executeCheckPasswordHook(username, password, ip, protocol string) (checkPas
 	return response, err
 }
 
-func getPreLoginHookResponse(loginMethod, ip, protocol string, userAsJSON []byte) ([]byte, error) {
+func getPreLoginHookResponse(loginMethod, ip, protocol string, protocolSecure bool, userAsJSON []byte) ([]byte, error) {
 	if strings.HasPrefix(config.PreLoginHook, "http") {
 		var url *url.URL
 		var result []byte
@@ -3158,10 +3158,15 @@ func getPreLoginHookResponse(loginMethod, ip, protocol string, userAsJSON []byte
 			providerLog(logger.LevelError, "invalid url for pre-login hook %#v, error: %v", config.PreLoginHook, err)
 			return result, err
 		}
+		var protocolIsSecure = "0"
+		if protocolSecure {
+			protocolIsSecure = "1"
+		}
 		q := url.Query()
 		q.Add("login_method", loginMethod)
 		q.Add("ip", ip)
 		q.Add("protocol", protocol)
+		q.Add("protocol_secure", protocolIsSecure)
 		url.RawQuery = q.Encode()
 
 		resp, err := httpclient.Post(url.String(), "application/json", bytes.NewBuffer(userAsJSON))
@@ -3190,7 +3195,7 @@ func getPreLoginHookResponse(loginMethod, ip, protocol string, userAsJSON []byte
 	return cmd.Output()
 }
 
-func executePreLoginHook(username, loginMethod, ip, protocol string, oidcTokenFields *map[string]interface{}) (User, error) {
+func executePreLoginHook(username, loginMethod, ip, protocol string, protocolSecure bool, oidcTokenFields *map[string]interface{}) (User, error) {
 	u, mergedUser, userAsJSON, err := getUserAndJSONForHook(username, oidcTokenFields)
 	if err != nil {
 		return u, err
@@ -3199,7 +3204,7 @@ func executePreLoginHook(username, loginMethod, ip, protocol string, oidcTokenFi
 		return u, nil
 	}
 	startTime := time.Now()
-	out, err := getPreLoginHookResponse(loginMethod, ip, protocol, userAsJSON)
+	out, err := getPreLoginHookResponse(loginMethod, ip, protocol, protocolSecure, userAsJSON)
 	if err != nil {
 		return u, fmt.Errorf("pre-login hook error: %v, username %#v, ip %v, protocol %v elapsed %v",
 			err, username, ip, protocol, time.Since(startTime))

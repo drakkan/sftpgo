@@ -519,7 +519,7 @@ func doChangeUserPassword(r *http.Request, currentPassword, newPassword, confirm
 		return errors.New("invalid token claims")
 	}
 	_, err = dataprovider.CheckUserAndPass(claims.Username, currentPassword, util.GetIPFromRemoteAddress(r.RemoteAddr),
-		getProtocolFromRequest(r))
+		getProtocolFromRequest(r), r.TLS != nil)
 	if err != nil {
 		return util.NewValidationError("current password does not match")
 	}
