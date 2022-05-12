@@ -1138,7 +1138,7 @@ func (s *httpdServer) initializeRouter() {
 	})
 
 	s.router.Get(robotsTxtPath, func(w http.ResponseWriter, r *http.Request) {
-		render.PlainText(w, r, "User-agent: * Disallow: /")
+		render.PlainText(w, r, "User-agent: *\nDisallow: /")
 	})
 
 	// share API exposed to external users

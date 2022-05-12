@@ -8915,7 +8915,7 @@ func TestRobotsTxtCheck(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodGet, "/robots.txt", nil)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Equal(t, "User-agent: * Disallow: /", rr.Body.String())
+	assert.Equal(t, "User-agent: *\nDisallow: /", rr.Body.String())
 }
 
 func TestGetWebRootMock(t *testing.T) {
