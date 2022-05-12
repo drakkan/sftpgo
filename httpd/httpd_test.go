@@ -118,6 +118,7 @@ const (
 	providerEventsPath              = "/api/v2/events/provider"
 	sharesPath                      = "/api/v2/shares"
 	healthzPath                     = "/healthz"
+	robotsTxtPath                   = "/robots.txt"
 	webBasePath                     = "/web"
 	webBasePathAdmin                = "/web/admin"
 	webAdminSetupPath               = "/web/admin/setup"
@@ -8908,6 +8909,13 @@ func TestHealthCheck(t *testing.T) {
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Equal(t, "ok", rr.Body.String())
+}
+
+func TestRobotsTxtCheck(t *testing.T) {
+	req, _ := http.NewRequest(http.MethodGet, "/robots.txt", nil)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Equal(t, "User-agent: * Disallow: /", rr.Body.String())
 }
 
 func TestGetWebRootMock(t *testing.T) {
