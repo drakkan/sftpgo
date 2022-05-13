@@ -54,6 +54,8 @@ func TestBasicDefender(t *testing.T) {
 		EntriesHardLimit:   2,
 		SafeListFile:       "slFile",
 		BlockListFile:      "blFile",
+		SafeList:           []string{"192.168.1.3", "192.168.1.4", "192.168.9.0/24"},
+		BlockList:          []string{"192.168.1.1", "192.168.1.2", "10.8.9.0/24"},
 	}
 
 	_, err = newInMemoryDefender(config)
@@ -67,9 +69,13 @@ func TestBasicDefender(t *testing.T) {
 
 	defender := d.(*memoryDefender)
 	assert.True(t, defender.IsBanned("172.16.1.1"))
+	assert.True(t, defender.IsBanned("192.168.1.1"))
 	assert.False(t, defender.IsBanned("172.16.1.10"))
+	assert.False(t, defender.IsBanned("192.168.1.10"))
 	assert.False(t, defender.IsBanned("10.8.2.3"))
+	assert.False(t, defender.IsBanned("10.9.2.3"))
 	assert.True(t, defender.IsBanned("10.8.0.3"))
+	assert.True(t, defender.IsBanned("10.8.9.3"))
 	assert.False(t, defender.IsBanned("invalid ip"))
 	assert.Equal(t, 0, defender.countBanned())
 	assert.Equal(t, 0, defender.countHosts())
@@ -80,8 +86,10 @@ func TestBasicDefender(t *testing.T) {
 	assert.Error(t, err)
 
 	defender.AddEvent("172.16.1.4", HostEventLoginFailed)
+	defender.AddEvent("192.168.1.4", HostEventLoginFailed)
 	defender.AddEvent("192.168.8.4", HostEventUserNotFound)
 	defender.AddEvent("172.16.1.3", HostEventLimitExceeded)
+	defender.AddEvent("192.168.1.3", HostEventLimitExceeded)
 	assert.Equal(t, 0, defender.countHosts())
 
 	testIP := "12.34.56.78"
@@ -362,6 +370,21 @@ func TestLoadHostListFromFile(t *testing.T) {
 
 	err = os.Remove(hostsFilePath)
 	assert.NoError(t, err)
+}
+
+func TestAddEntriesToHostList(t *testing.T) {
+	name := "testList"
+	hostlist := addEntriesToList([]string{"192.168.6.1", "10.7.0.0/25"}, nil, name)
+	require.NotNil(t, hostlist)
+	assert.True(t, hostlist.isListed("192.168.6.1"))
+	assert.False(t, hostlist.isListed("192.168.6.2"))
+	assert.True(t, hostlist.isListed("10.7.0.28"))
+	assert.False(t, hostlist.isListed("10.7.0.129"))
+	// load invalid values
+	hostlist = addEntriesToList([]string{"invalidip", "invalidnet/24"}, nil, name)
+	require.NotNil(t, hostlist)
+	assert.Len(t, hostlist.IPAddresses, 0)
+	assert.Equal(t, 0, hostlist.Ranges.Len())
 }
 
 func TestDefenderCleanup(t *testing.T) {

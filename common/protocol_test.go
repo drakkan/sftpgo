@@ -1,6 +1,7 @@
 package common_test
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/rand"
 	"fmt"
@@ -59,12 +60,13 @@ const (
 var (
 	allPerms        = []string{dataprovider.PermAny}
 	homeBasePath    string
+	logFilePath     string
 	testFileContent = []byte("test data")
 )
 
 func TestMain(m *testing.M) {
 	homeBasePath = os.TempDir()
-	logFilePath := filepath.Join(configDir, "common_test.log")
+	logFilePath = filepath.Join(configDir, "common_test.log")
 	logger.InitLogger(logFilePath, 5, 1, 28, false, false, zerolog.DebugLevel)
 
 	os.Setenv("SFTPGO_DATA_PROVIDER__CREATE_DEFAULT_ADMIN", "1")
@@ -263,6 +265,8 @@ func TestBaseConnection(t *testing.T) {
 		assert.NoError(t, err)
 		err = client.RemoveDirectory("missing")
 		assert.Error(t, err)
+	} else {
+		printLatestLogs(10)
 	}
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
@@ -291,6 +295,8 @@ func TestCheckFsAfterUpdate(t *testing.T) {
 		defer client.Close()
 		err = checkBasicSFTP(client)
 		assert.Error(t, err)
+	} else {
+		printLatestLogs(10)
 	}
 	// update the user and login again, this time the home dir will be created
 	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
@@ -3793,5 +3799,28 @@ func isDbDefenderSupported() bool {
 		return true
 	default:
 		return false
+	}
+}
+
+func printLatestLogs(maxNumberOfLines int) {
+	var lines []string
+	f, err := os.Open(logFilePath)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text()+"\r\n")
+		for len(lines) > maxNumberOfLines {
+			lines = lines[1:]
+		}
+	}
+	if scanner.Err() != nil {
+		logger.WarnToConsole("Unable to print latest logs: %v", scanner.Err())
+		return
+	}
+	for _, line := range lines {
+		logger.DebugToConsole(line)
 	}
 }

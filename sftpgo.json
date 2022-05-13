@@ -31,7 +31,9 @@
       "entries_soft_limit": 100,
       "entries_hard_limit": 150,
       "safelist_file": "",
-      "blocklist_file": ""
+      "blocklist_file": "",
+      "safelist": [],
+      "blocklist": []
     },
     "rate_limiters": [
       {

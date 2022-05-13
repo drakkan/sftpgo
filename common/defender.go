@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -81,10 +82,16 @@ type DefenderConfig struct {
 	// to return when you request for the entire host list from the defender
 	EntriesSoftLimit int `json:"entries_soft_limit" mapstructure:"entries_soft_limit"`
 	EntriesHardLimit int `json:"entries_hard_limit" mapstructure:"entries_hard_limit"`
-	// Path to a file containing a list of ip addresses and/or networks to never ban
+	// Path to a file containing a list of IP addresses and/or networks to never ban
 	SafeListFile string `json:"safelist_file" mapstructure:"safelist_file"`
-	// Path to a file containing a list of ip addresses and/or networks to always ban
+	// Path to a file containing a list of IP addresses and/or networks to always ban
 	BlockListFile string `json:"blocklist_file" mapstructure:"blocklist_file"`
+	// List of IP addresses and/or networks to never ban.
+	// For large lists prefer SafeListFile
+	SafeList []string `json:"safelist" mapstructure:"safelist"`
+	// List of IP addresses and/or networks to always ban.
+	// For large lists prefer BlockListFile
+	BlockList []string `json:"blocklist" mapstructure:"blocklist"`
 }
 
 type baseDefender struct {
@@ -100,6 +107,7 @@ func (d *baseDefender) Reload() error {
 	if err != nil {
 		return err
 	}
+	blockList = addEntriesToList(d.config.BlockList, blockList, "blocklist")
 
 	d.Lock()
 	d.blockList = blockList
@@ -109,6 +117,7 @@ func (d *baseDefender) Reload() error {
 	if err != nil {
 		return err
 	}
+	safeList = addEntriesToList(d.config.SafeList, safeList, "safelist")
 
 	d.Lock()
 	d.safeList = safeList
@@ -256,7 +265,7 @@ func loadHostListFromFile(name string) (*HostList, error) {
 		for _, cidrNet := range hostList.CIDRNetworks {
 			_, network, err := net.ParseCIDR(cidrNet)
 			if err != nil {
-				logger.Warn(logSender, "", "unable to parse CIDR network %#v", cidrNet)
+				logger.Warn(logSender, "", "unable to parse CIDR network %#v: %v", cidrNet, err)
 				continue
 			}
 			err = result.Ranges.Insert(cidranger.NewBasicRangerEntry(*network))
@@ -271,4 +280,48 @@ func loadHostListFromFile(name string) (*HostList, error) {
 	}
 
 	return nil, nil
+}
+
+func addEntriesToList(entries []string, hostList *HostList, listName string) *HostList {
+	if len(entries) == 0 {
+		return hostList
+	}
+
+	if hostList == nil {
+		hostList = &HostList{
+			IPAddresses: make(map[string]bool),
+			Ranges:      cidranger.NewPCTrieRanger(),
+		}
+	}
+	ipCount := 0
+	ipLoaded := 0
+	cdrCount := 0
+	cdrLoaded := 0
+
+	for _, entry := range entries {
+		if strings.LastIndex(entry, "/") > 0 {
+			cdrCount++
+			_, network, err := net.ParseCIDR(entry)
+			if err != nil {
+				logger.Warn(logSender, "", "unable to parse CIDR network %#v: %v", entry, err)
+				continue
+			}
+			err = hostList.Ranges.Insert(cidranger.NewBasicRangerEntry(*network))
+			if err == nil {
+				cdrLoaded++
+			}
+		} else {
+			ipCount++
+			if net.ParseIP(entry) == nil {
+				logger.Warn(logSender, "", "unable to parse IP %#v", entry)
+				continue
+			}
+			hostList.IPAddresses[entry] = true
+			ipLoaded++
+		}
+	}
+	logger.Info(logSender, "", "%s from config loaded, ip addresses loaded: %v/%v networks loaded: %v/%v",
+		listName, ipLoaded, ipCount, cdrLoaded, cdrCount)
+
+	return hostList
 }

@@ -188,6 +188,8 @@ func Init() {
 				EntriesHardLimit:   150,
 				SafeListFile:       "",
 				BlockListFile:      "",
+				SafeList:           []string{},
+				BlockList:          []string{},
 			},
 			RateLimitersConfig: []common.RateLimiterConfig{defaultRateLimiter},
 		},
@@ -1544,6 +1546,8 @@ func setViperDefaults() {
 	viper.SetDefault("common.defender.entries_hard_limit", globalConf.Common.DefenderConfig.EntriesHardLimit)
 	viper.SetDefault("common.defender.safelist_file", globalConf.Common.DefenderConfig.SafeListFile)
 	viper.SetDefault("common.defender.blocklist_file", globalConf.Common.DefenderConfig.BlockListFile)
+	viper.SetDefault("common.defender.safelist", globalConf.Common.DefenderConfig.SafeList)
+	viper.SetDefault("common.defender.blocklist", globalConf.Common.DefenderConfig.BlockList)
 	viper.SetDefault("sftpd.max_auth_tries", globalConf.SFTPD.MaxAuthTries)
 	viper.SetDefault("sftpd.banner", globalConf.SFTPD.Banner)
 	viper.SetDefault("sftpd.host_keys", globalConf.SFTPD.HostKeys)

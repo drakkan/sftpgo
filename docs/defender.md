@@ -64,4 +64,6 @@ Here is a small example:
 }
 ```
 
+Small lists can also be set using the `safelist`/`blocklist` configuration parameters and or using environment variables. These lists will be merged with the ones specified via files, if any, so that you can set both.
+
 These list will be always loaded in memory (even if you use the `provider` driver) for faster lookups. The REST API queries "live" data and not these lists.
