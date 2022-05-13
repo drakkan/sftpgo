@@ -10,9 +10,9 @@
     <meta name="description" content="">
     <meta name="author" content="">
 
-    <title>SFTPGo WebClient - {{template "title" .}}</title>
+    <title>{{.Branding.Name}} - {{template "title" .}}</title>
 
-    <link rel="shortcut icon" href="{{.StaticURL}}/favicon.ico" />
+    <link rel="shortcut icon" href="{{.StaticURL}}{{.Branding.FaviconPath}}" />
 
     <!-- Custom styles for this template-->
     <link href="{{.StaticURL}}/css/sb-admin-2.min.css" rel="stylesheet">
@@ -70,10 +70,21 @@
             border-radius: 10rem;
             padding: 0.75rem 1rem;
         }
+
+        .bg-login-image {
+            background-image: url('{{.StaticURL}}{{.Branding.LoginImagePath}}');
+            background-size: contain;
+            background-repeat: no-repeat;
+            padding: 1em;
+        }
+
+        .row.login-image {
+            height: 200px;
+        }
     </style>
 
-    {{range .ExtraCSS}}
-    <link href="{{$.StaticURL}}{{.Path}}" rel="stylesheet" type="text/css">
+    {{range .Branding.ExtraCSS}}
+    <link href="{{$.StaticURL}}{{.}}" rel="stylesheet" type="text/css">
     {{end}}
 
 </head>
@@ -95,12 +106,12 @@
                             </div>
                         </div>
                         <div class="row">
-                            <div class="col-lg-6 d-none d-lg-block bg-login-image">
+                            <div class="col-lg-5 d-none d-lg-block bg-login-image">
                             </div>
-                            <div class="col-lg-6">
+                            <div class="col-lg-7">
                                 <div class="p-5">
                                     <div class="text-center">
-                                        <h1 class="h4 text-gray-900 mb-4">SFTPGo WebClient - {{.Version}}</h1>
+                                        <h1 class="h4 text-gray-900 mb-4">{{.Branding.Name}} - {{.Version}}</h1>
                                     </div>
                                     {{template "content" .}}
                                 </div>

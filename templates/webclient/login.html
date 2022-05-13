@@ -40,4 +40,10 @@
                                         <a class="small" href="{{.AltLoginURL}}">Web Admin</a>
                                     </div>
                                     {{end}}
+                                    {{if and .Branding.DisclaimerName .Branding.DisclaimerPath}}
+                                    <hr>
+                                    <div class="text-center">
+                                        <a class="small" href="{{.Branding.DisclaimerPath}}" target="_blank">{{.Branding.DisclaimerName}}</a>
+                                    </div>
+                                    {{end}}
 {{end}}

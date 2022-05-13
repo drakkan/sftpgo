@@ -301,21 +301,31 @@ func TestShouldBind(t *testing.T) {
 	}
 }
 
-func TestExtraCSSValidation(t *testing.T) {
+func TestBrandingValidation(t *testing.T) {
 	b := Binding{
-		ExtraCSS: []CustomCSS{
-			{
-				Path: "path1",
+		Branding: Branding{
+			WebAdmin: UIBranding{
+				LogoPath:       "path1",
+				LoginImagePath: "login1.png",
 			},
-			{
-				Path: "../path2",
+			WebClient: UIBranding{
+				FaviconPath:    "favicon1.ico",
+				DisclaimerPath: "../path2",
+				ExtraCSS:       []string{"1.css"},
 			},
 		},
 	}
-	b.checkExtraCSS()
-	require.Len(t, b.ExtraCSS, 2)
-	assert.Equal(t, "/path1", b.ExtraCSS[0].Path)
-	assert.Equal(t, "/path2", b.ExtraCSS[1].Path)
+	b.checkBranding()
+	assert.Equal(t, "/favicon.ico", b.Branding.WebAdmin.FaviconPath)
+	assert.Equal(t, "/path1", b.Branding.WebAdmin.LogoPath)
+	assert.Equal(t, "/login1.png", b.Branding.WebAdmin.LoginImagePath)
+	assert.Len(t, b.Branding.WebAdmin.ExtraCSS, 0)
+	assert.Equal(t, "/favicon1.ico", b.Branding.WebClient.FaviconPath)
+	assert.Equal(t, "/path2", b.Branding.WebClient.DisclaimerPath)
+	assert.Equal(t, "/img/login_image.png", b.Branding.WebClient.LoginImagePath)
+	if assert.Len(t, b.Branding.WebClient.ExtraCSS, 1) {
+		assert.Equal(t, "/1.css", b.Branding.WebClient.ExtraCSS[0])
+	}
 }
 
 func TestRedactedConf(t *testing.T) {

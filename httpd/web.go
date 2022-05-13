@@ -32,7 +32,7 @@ type loginPage struct {
 	AltLoginURL    string
 	ForgotPwdURL   string
 	OpenIDLoginURL string
-	ExtraCSS       []CustomCSS
+	Branding       UIBranding
 }
 
 type twoFactorPage struct {
@@ -42,7 +42,7 @@ type twoFactorPage struct {
 	CSRFToken   string
 	StaticURL   string
 	RecoveryURL string
-	ExtraCSS    []CustomCSS
+	Branding    UIBranding
 }
 
 type forgotPwdPage struct {
@@ -51,7 +51,7 @@ type forgotPwdPage struct {
 	CSRFToken  string
 	StaticURL  string
 	Title      string
-	ExtraCSS   []CustomCSS
+	Branding   UIBranding
 }
 
 type resetPwdPage struct {
@@ -60,7 +60,7 @@ type resetPwdPage struct {
 	CSRFToken  string
 	StaticURL  string
 	Title      string
-	ExtraCSS   []CustomCSS
+	Branding   UIBranding
 }
 
 func getSliceFromDelimitedValues(values, delimiter string) []string {

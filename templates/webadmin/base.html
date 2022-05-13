@@ -10,9 +10,9 @@
     <meta name="description" content="">
     <meta name="author" content="">
 
-    <title>SFTPGo Admin - {{template "title" .}}</title>
+    <title>{{.Branding.Name}} - {{template "title" .}}</title>
 
-    <link rel="shortcut icon" href="{{.StaticURL}}/favicon.ico" />
+    <link rel="shortcut icon" href="{{.StaticURL}}{{.Branding.FaviconPath}}" />
 
     <!-- Custom fonts for this template-->
     <link href="{{.StaticURL}}/vendor/fontawesome-free/css/fontawesome.min.css" rel="stylesheet" type="text/css">
@@ -53,8 +53,8 @@
     </style>
     {{block "extra_css" .}}{{end}}
 
-    {{range .ExtraCSS}}
-    <link href="{{$.StaticURL}}{{.Path}}" rel="stylesheet" type="text/css">
+    {{range .Branding.ExtraCSS}}
+    <link href="{{$.StaticURL}}{{.}}" rel="stylesheet" type="text/css">
     {{end}}
 
 </head>
@@ -69,12 +69,12 @@
         <ul class="navbar-nav bg-gradient-primary sidebar sidebar-dark accordion" id="accordionSidebar">
 
             <!-- Sidebar - Brand -->
-            <a class="sidebar-brand d-flex align-items-center justify-content-center" href="{{.UsersURL}}">
+            <div class="sidebar-brand d-flex align-items-center justify-content-center">
                 <div class="sidebar-brand-icon">
-                    <i class="fas fa-folder-open"></i>
+                    <img src="{{.StaticURL}}{{.Branding.LogoPath}}" alt="logo" style="width: 2rem; height: auto;">
                 </div>
-                <div class="sidebar-brand-text mx-3" style="text-transform: none;">SFTPGo Admin</div>
-            </a>
+                <div class="sidebar-brand-text mx-3" style="text-transform: none;">{{.Branding.ShortName}}</div>
+            </div>
 
             <!-- Divider -->
             <hr class="sidebar-divider my-0">

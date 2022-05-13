@@ -7001,9 +7001,9 @@ func TestHashedPasswords(t *testing.T) {
 		user.Password = clearPwd
 		conn, client, err := getSftpClient(user, usePubKey)
 		if assert.NoError(t, err, "unable to login with password %#v", pwd) {
-			defer conn.Close()
-			defer client.Close()
 			assert.NoError(t, checkBasicSFTP(client))
+			conn.Close()
+			client.Close()
 		}
 		user.Password = pwd
 		conn, client, err = getSftpClient(user, usePubKey)
@@ -7026,9 +7026,9 @@ func TestHashedPasswords(t *testing.T) {
 		user.Password = clearPwd
 		conn, client, err = getSftpClient(user, usePubKey)
 		if assert.NoError(t, err, "unable to login with password %#v", pwd) {
-			defer conn.Close()
-			defer client.Close()
 			assert.NoError(t, checkBasicSFTP(client))
+			conn.Close()
+			client.Close()
 		}
 		_, err = httpdtest.RemoveUser(user, http.StatusOK)
 		assert.NoError(t, err)

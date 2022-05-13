@@ -314,12 +314,56 @@ func (s *SecurityConf) getHTTPSProxyHeaders() map[string]string {
 	return headers
 }
 
-// CustomCSS defines the configuration for custom CSS
-type CustomCSS struct {
-	// Path to the CSS file relative to "static_files_path".
-	// For example, if you create a directory named "extra_css" inside the static dir
-	// and put the "my.css" file in it, you must set "/extra_css/my.css" as path.
-	Path string `json:"path" mapstructure:"path"`
+// UIBranding defines the supported customizations for the web UIs
+type UIBranding struct {
+	// Name defines the text to show at the login page and as HTML title
+	Name string `json:"name" mapstructure:"name"`
+	// ShortName defines the name to show next to the logo image
+	ShortName string `json:"short_name" mapstructure:"short_name"`
+	// Path to your logo relative to "static_files_path".
+	// For example, if you create a directory named "branding" inside the static dir and
+	// put the "mylogo.png" file in it, you must set "/branding/mylogo.png" as logo path.
+	LogoPath string `json:"logo_path" mapstructure:"logo_path"`
+	// Path to the image to show on the login screen relative to "static_files_path"
+	LoginImagePath string `json:"login_image_path" mapstructure:"login_image_path"`
+	// Path to your favicon relative to "static_files_path"
+	FaviconPath string `json:"favicon_path" mapstructure:"favicon_path"`
+	// DisclaimerName defines the name for the link to your optional disclaimer
+	DisclaimerName string `json:"disclaimer_name" mapstructure:"disclaimer_name"`
+	// Path to the HTML page for your disclaimer relative to "static_files_path".
+	DisclaimerPath string `json:"disclaimer_path" mapstructure:"disclaimer_path"`
+	// Additional CSS file paths, relative to "static_files_path", to include
+	ExtraCSS []string `json:"extra_css" mapstructure:"extra_css"`
+}
+
+func (b *UIBranding) check() {
+	if b.LogoPath != "" {
+		b.LogoPath = util.CleanPath(b.LogoPath)
+	} else {
+		b.LogoPath = "/img/logo.png"
+	}
+	if b.LoginImagePath != "" {
+		b.LoginImagePath = util.CleanPath(b.LoginImagePath)
+	} else {
+		b.LoginImagePath = "/img/login_image.png"
+	}
+	if b.FaviconPath != "" {
+		b.FaviconPath = util.CleanPath(b.FaviconPath)
+	} else {
+		b.FaviconPath = "/favicon.ico"
+	}
+	if b.DisclaimerPath != "" {
+		b.DisclaimerPath = util.CleanPath(b.DisclaimerPath)
+	}
+	for idx := range b.ExtraCSS {
+		b.ExtraCSS[idx] = util.CleanPath(b.ExtraCSS[idx])
+	}
+}
+
+// Branding defines the branding-related customizations supported
+type Branding struct {
+	WebAdmin  UIBranding `json:"web_admin" mapstructure:"web_admin"`
+	WebClient UIBranding `json:"web_client" mapstructure:"web_client"`
 }
 
 // WebClientIntegration defines the configuration for an external Web Client integration
@@ -379,8 +423,8 @@ type Binding struct {
 	OIDC OIDC `json:"oidc" mapstructure:"oidc"`
 	// Security defines security headers to add to HTTP responses and allows to restrict allowed hosts
 	Security SecurityConf `json:"security" mapstructure:"security"`
-	// Additional CSS
-	ExtraCSS         []CustomCSS `json:"extra_css" mapstructure:"extra_css"`
+	// Branding defines customizations to suit your brand
+	Branding         Branding `json:"branding" mapstructure:"branding"`
 	allowHeadersFrom []func(net.IP) bool
 }
 
@@ -394,14 +438,21 @@ func (b *Binding) checkWebClientIntegrations() {
 	b.WebClientIntegrations = integrations
 }
 
-func (b *Binding) checkExtraCSS() {
-	var extraCSS []CustomCSS
-	for _, css := range b.ExtraCSS {
-		extraCSS = append(extraCSS, CustomCSS{
-			Path: path.Join("/", css.Path),
-		})
+func (b *Binding) checkBranding() {
+	b.Branding.WebAdmin.check()
+	b.Branding.WebClient.check()
+	if b.Branding.WebAdmin.Name == "" {
+		b.Branding.WebAdmin.Name = "SFTPGo WebAdmin"
 	}
-	b.ExtraCSS = extraCSS
+	if b.Branding.WebAdmin.ShortName == "" {
+		b.Branding.WebAdmin.ShortName = "WebAdmin"
+	}
+	if b.Branding.WebClient.Name == "" {
+		b.Branding.WebClient.Name = "SFTPGo WebClient"
+	}
+	if b.Branding.WebClient.ShortName == "" {
+		b.Branding.WebClient.ShortName = "WebClient"
+	}
 }
 
 func (b *Binding) parseAllowedProxy() error {
@@ -642,7 +693,7 @@ func (c *Conf) Initialize(configDir string) error {
 			return err
 		}
 		binding.checkWebClientIntegrations()
-		binding.checkExtraCSS()
+		binding.checkBranding()
 		binding.Security.updateProxyHeaders()
 
 		go func(b Binding) {

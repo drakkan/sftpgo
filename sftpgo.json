@@ -258,7 +258,28 @@
           "cross_origin_opener_policy": "",
           "expect_ct_header": ""
         },
-        "extra_css": []
+        "branding": {
+          "web_admin": {
+            "name": "",
+            "short_name": "",
+            "favicon_path": "",
+            "logo_path": "",
+            "login_image_path": "",
+            "disclaimer_name": "",
+            "disclaimer_path": "",
+            "extra_css": []
+          },
+          "web_client": {
+            "name": "",
+            "short_name": "",
+            "favicon_path": "",
+            "logo_path": "",
+            "login_image_path": "",
+            "disclaimer_name": "",
+            "disclaimer_path": "",
+            "extra_css": []
+          }
+        }
       }
     ],
     "templates_path": "templates",

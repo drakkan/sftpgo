@@ -131,7 +131,7 @@ type basePage struct {
 	HasDefender        bool
 	HasExternalLogin   bool
 	LoggedAdmin        *dataprovider.Admin
-	ExtraCSS           []CustomCSS
+	Branding           UIBranding
 }
 
 type usersPage struct {
@@ -465,7 +465,7 @@ func (s *httpdServer) getBasePageData(title, currentURL string, r *http.Request)
 		HasDefender:        common.Config.DefenderConfig.Enabled,
 		HasExternalLogin:   isLoggedInWithOIDC(r),
 		CSRFToken:          csrfToken,
-		ExtraCSS:           s.binding.ExtraCSS,
+		Branding:           s.binding.Branding.WebAdmin,
 	}
 }
 
@@ -518,7 +518,7 @@ func (s *httpdServer) renderForgotPwdPage(w http.ResponseWriter, error, ip strin
 		CSRFToken:  createCSRFToken(ip),
 		StaticURL:  webStaticFilesPath,
 		Title:      pageForgotPwdTitle,
-		ExtraCSS:   s.binding.ExtraCSS,
+		Branding:   s.binding.Branding.WebAdmin,
 	}
 	renderAdminTemplate(w, templateForgotPassword, data)
 }
@@ -530,7 +530,7 @@ func (s *httpdServer) renderResetPwdPage(w http.ResponseWriter, error, ip string
 		CSRFToken:  createCSRFToken(ip),
 		StaticURL:  webStaticFilesPath,
 		Title:      pageResetPwdTitle,
-		ExtraCSS:   s.binding.ExtraCSS,
+		Branding:   s.binding.Branding.WebAdmin,
 	}
 	renderAdminTemplate(w, templateResetPassword, data)
 }
@@ -543,7 +543,7 @@ func (s *httpdServer) renderTwoFactorPage(w http.ResponseWriter, error, ip strin
 		CSRFToken:   createCSRFToken(ip),
 		StaticURL:   webStaticFilesPath,
 		RecoveryURL: webAdminTwoFactorRecoveryPath,
-		ExtraCSS:    s.binding.ExtraCSS,
+		Branding:    s.binding.Branding.WebAdmin,
 	}
 	renderAdminTemplate(w, templateTwoFactor, data)
 }
@@ -555,7 +555,7 @@ func (s *httpdServer) renderTwoFactorRecoveryPage(w http.ResponseWriter, error, 
 		Error:      error,
 		CSRFToken:  createCSRFToken(ip),
 		StaticURL:  webStaticFilesPath,
-		ExtraCSS:   s.binding.ExtraCSS,
+		Branding:   s.binding.Branding.WebAdmin,
 	}
 	renderAdminTemplate(w, templateTwoFactorRecovery, data)
 }

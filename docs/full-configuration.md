@@ -272,8 +272,15 @@ The configuration file contains the following sections:
       - `permissions_policy`, string. Allows to set the `Permissions-Policy` header value. Default: blank.
       - `cross_origin_opener_policy`, string. Allows to set the `Cross-Origin-Opener-Policy` header value. Default: blank.
       - `expect_ct_header`, string. Allows to set the `Expect-CT` header value. Default: blank.
-    - `extra_css`, list of structs. Defines additional CSS files. Each struct has the following fields:
-      - `path`, string. Path to the CSS file relative to `static_files_path`. For example, if you create a directory named `extra_css` inside the static dir and put the `my.css` file in it, you must set `/extra_css/my.css` as path.
+    - `branding`, struct. Defines the supported customizations to suit your brand. It contains the `web_admin` and `web_client` structs that define customizations for the WebAdmin and the WebClient UIs. Each customization struct contains the following fields:
+      - `name`, string. Defines the UI name
+      - `short_name`, string. Define the short name to show next to the logo image
+      - `favicon_path`, string. Path to the favicon relative to `static_files_path`. For example, if you create a directory named `branding` inside the static dir and put the `favicon.ico` file in it, you must set `/branding/favicon.ico` as path.
+      - `logo_path`, string. Path to your logo relative to `static_files_path`. The preferred image size is 256x256 pixel
+      - `login_image_path`, string. Path to a custom image to show on the login screen relative to `static_files_path`. The preferred image size is 900x900 pixel
+      - `disclaimer_name`, string. Name for your optional disclaimer
+      - `disclaimer_path`, string. Path to the HTML page with the disclaimer relative to `static_files_path`
+      - `extra_css`, list of strings. Defines the paths, relative to `static_files_path`, to additional CSS files
   - `templates_path`, string. Path to the HTML web templates. This can be an absolute path or a path relative to the config dir
   - `static_files_path`, string. Path to the static files for the web interface. This can be an absolute path or a path relative to the config dir. If both `templates_path` and `static_files_path` are empty the built-in web interface will be disabled
   - `openapi_path`, string. Path to the directory that contains the OpenAPI schema and the default renderer. This can be an absolute path or a path relative to the config dir. If empty the OpenAPI schema and the renderer will not be served regardless of the `render_openapi` directive

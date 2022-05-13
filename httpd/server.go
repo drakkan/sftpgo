@@ -140,7 +140,7 @@ func (s *httpdServer) renderClientLoginPage(w http.ResponseWriter, error, ip str
 		Error:      error,
 		CSRFToken:  createCSRFToken(ip),
 		StaticURL:  webStaticFilesPath,
-		ExtraCSS:   s.binding.ExtraCSS,
+		Branding:   s.binding.Branding.WebClient,
 	}
 	if s.binding.showAdminLoginURL() {
 		data.AltLoginURL = webAdminLoginPath
@@ -516,7 +516,7 @@ func (s *httpdServer) renderAdminLoginPage(w http.ResponseWriter, error, ip stri
 		Error:      error,
 		CSRFToken:  createCSRFToken(ip),
 		StaticURL:  webStaticFilesPath,
-		ExtraCSS:   s.binding.ExtraCSS,
+		Branding:   s.binding.Branding.WebAdmin,
 	}
 	if s.binding.showClientLoginURL() {
 		data.AltLoginURL = webClientLoginPath

@@ -111,7 +111,7 @@ var (
 			CrossOriginOpenerPolicy: "",
 			ExpectCTHeader:          "",
 		},
-		ExtraCSS: []httpd.CustomCSS{},
+		Branding: httpd.Branding{},
 	}
 	defaultRateLimiter = common.RateLimiterConfig{
 		Average:                0,
@@ -1294,23 +1294,78 @@ func getHTTPDOIDCFromEnv(idx int) (httpd.OIDC, bool) {
 	return result, isSet
 }
 
-func getHTTPDExtraCSSFromEnv(idx int) []httpd.CustomCSS {
-	var css []httpd.CustomCSS
+func getHTTPDUIBrandingFromEnv(prefix string) (httpd.UIBranding, bool) {
+	var result httpd.UIBranding
+	isSet := false
 
-	for subIdx := 0; subIdx < 10; subIdx++ {
-		var customCSS httpd.CustomCSS
-
-		path, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__EXTRA_CSS__%v__PATH", idx, subIdx))
-		if ok {
-			customCSS.Path = path
-		}
-
-		if path != "" {
-			css = append(css, customCSS)
-		}
+	name, ok := os.LookupEnv(fmt.Sprintf("%s__NAME", prefix))
+	if ok {
+		result.Name = name
+		isSet = true
 	}
 
-	return css
+	shortName, ok := os.LookupEnv(fmt.Sprintf("%s__SHORT_NAME", prefix))
+	if ok {
+		result.ShortName = shortName
+		isSet = true
+	}
+
+	faviconPath, ok := os.LookupEnv(fmt.Sprintf("%s__FAVICON_PATH", prefix))
+	if ok {
+		result.FaviconPath = faviconPath
+		isSet = true
+	}
+
+	logoPath, ok := os.LookupEnv(fmt.Sprintf("%s__LOGO_PATH", prefix))
+	if ok {
+		result.LogoPath = logoPath
+		isSet = true
+	}
+
+	loginImagePath, ok := os.LookupEnv(fmt.Sprintf("%s__LOGIN_IMAGE_PATH", prefix))
+	if ok {
+		result.LoginImagePath = loginImagePath
+		isSet = true
+	}
+
+	disclaimerName, ok := os.LookupEnv(fmt.Sprintf("%s__DISCLAIMER_NAME", prefix))
+	if ok {
+		result.DisclaimerName = disclaimerName
+		isSet = true
+	}
+
+	disclaimerPath, ok := os.LookupEnv(fmt.Sprintf("%s__DISCLAIMER_PATH", prefix))
+	if ok {
+		result.DisclaimerPath = disclaimerPath
+		isSet = true
+	}
+
+	extraCSS, ok := lookupStringListFromEnv(fmt.Sprintf("%s__EXTRA_CSS", prefix))
+	if ok {
+		result.ExtraCSS = extraCSS
+		isSet = true
+	}
+
+	return result, isSet
+}
+
+func getHTTPDBrandingFromEnv(idx int) (httpd.Branding, bool) {
+	var result httpd.Branding
+	isSet := false
+
+	webAdmin, ok := getHTTPDUIBrandingFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__BRANDING__WEB_ADMIN", idx))
+	if ok {
+		result.WebAdmin = webAdmin
+		isSet = true
+	}
+
+	webClient, ok := getHTTPDUIBrandingFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__BRANDING__WEB_CLIENT", idx))
+	if ok {
+		result.WebClient = webClient
+		isSet = true
+	}
+
+	return result, isSet
 }
 
 func getHTTPDWebClientIntegrationsFromEnv(idx int) []httpd.WebClientIntegration {
@@ -1372,10 +1427,9 @@ func getHTTPDNestedObjectsFromEnv(idx int, binding *httpd.Binding) bool {
 		isSet = true
 	}
 
-	extraCSS := getHTTPDExtraCSSFromEnv(idx)
-	if len(extraCSS) > 0 {
-		binding.ExtraCSS = extraCSS
-		isSet = true
+	brandingConf, ok := getHTTPDBrandingFromEnv(idx)
+	if ok {
+		binding.Branding = brandingConf
 	}
 
 	return isSet

@@ -98,7 +98,7 @@ type baseClientPage struct {
 	CSRFToken        string
 	HasExternalLogin bool
 	LoggedUser       *dataprovider.User
-	ExtraCSS         []CustomCSS
+	Branding         UIBranding
 }
 
 type dirMapping struct {
@@ -110,7 +110,7 @@ type viewPDFPage struct {
 	Title     string
 	URL       string
 	StaticURL string
-	ExtraCSS  []CustomCSS
+	Branding  UIBranding
 }
 
 type editFilePage struct {
@@ -339,7 +339,7 @@ func (s *httpdServer) getBaseClientPageData(title, currentURL string, r *http.Re
 		CSRFToken:        csrfToken,
 		HasExternalLogin: isLoggedInWithOIDC(r),
 		LoggedUser:       getUserFromToken(r),
-		ExtraCSS:         s.binding.ExtraCSS,
+		Branding:         s.binding.Branding.WebClient,
 	}
 }
 
@@ -350,7 +350,7 @@ func (s *httpdServer) renderClientForgotPwdPage(w http.ResponseWriter, error, ip
 		CSRFToken:  createCSRFToken(ip),
 		StaticURL:  webStaticFilesPath,
 		Title:      pageClientForgotPwdTitle,
-		ExtraCSS:   s.binding.ExtraCSS,
+		Branding:   s.binding.Branding.WebClient,
 	}
 	renderClientTemplate(w, templateForgotPassword, data)
 }
@@ -362,7 +362,7 @@ func (s *httpdServer) renderClientResetPwdPage(w http.ResponseWriter, error, ip 
 		CSRFToken:  createCSRFToken(ip),
 		StaticURL:  webStaticFilesPath,
 		Title:      pageClientResetPwdTitle,
-		ExtraCSS:   s.binding.ExtraCSS,
+		Branding:   s.binding.Branding.WebClient,
 	}
 	renderClientTemplate(w, templateResetPassword, data)
 }
@@ -415,7 +415,7 @@ func (s *httpdServer) renderClientTwoFactorPage(w http.ResponseWriter, error, ip
 		CSRFToken:   createCSRFToken(ip),
 		StaticURL:   webStaticFilesPath,
 		RecoveryURL: webClientTwoFactorRecoveryPath,
-		ExtraCSS:    s.binding.ExtraCSS,
+		Branding:    s.binding.Branding.WebClient,
 	}
 	renderClientTemplate(w, templateTwoFactor, data)
 }
@@ -427,7 +427,7 @@ func (s *httpdServer) renderClientTwoFactorRecoveryPage(w http.ResponseWriter, e
 		Error:      error,
 		CSRFToken:  createCSRFToken(ip),
 		StaticURL:  webStaticFilesPath,
-		ExtraCSS:   s.binding.ExtraCSS,
+		Branding:   s.binding.Branding.WebClient,
 	}
 	renderClientTemplate(w, templateTwoFactorRecovery, data)
 }
@@ -1263,7 +1263,7 @@ func (s *httpdServer) handleClientViewPDF(w http.ResponseWriter, r *http.Request
 		Title:     path.Base(name),
 		URL:       fmt.Sprintf("%v?path=%v&inline=1", webClientFilesPath, url.QueryEscape(name)),
 		StaticURL: webStaticFilesPath,
-		ExtraCSS:  s.binding.ExtraCSS,
+		Branding:  s.binding.Branding.WebClient,
 	}
 	renderClientTemplate(w, templateClientViewPDF, data)
 }
