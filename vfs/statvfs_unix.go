@@ -19,10 +19,10 @@ func getStatFS(path string) (*sftp.StatVFS, error) {
 		Frsize:  uint64(stat.Bsize),
 		Blocks:  stat.Blocks,
 		Bfree:   stat.Bfree,
-		Bavail:  uint64(stat.Bavail),
+		Bavail:  stat.Bavail,
 		Files:   stat.Files,
-		Ffree:   uint64(stat.Ffree),
-		Favail:  uint64(stat.Ffree), // not sure how to calculate Favail
+		Ffree:   stat.Ffree,
+		Favail:  stat.Ffree, // not sure how to calculate Favail
 		Flag:    uint64(stat.Flags),
 		Namemax: 255, // we use a conservative value here
 	}, nil

@@ -8905,14 +8905,14 @@ func TestMethodNotAllowedMock(t *testing.T) {
 }
 
 func TestHealthCheck(t *testing.T) {
-	req, _ := http.NewRequest(http.MethodGet, "/healthz", nil)
+	req, _ := http.NewRequest(http.MethodGet, healthzPath, nil)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Equal(t, "ok", rr.Body.String())
 }
 
 func TestRobotsTxtCheck(t *testing.T) {
-	req, _ := http.NewRequest(http.MethodGet, "/robots.txt", nil)
+	req, _ := http.NewRequest(http.MethodGet, robotsTxtPath, nil)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Equal(t, "User-agent: *\nDisallow: /", rr.Body.String())
