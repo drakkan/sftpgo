@@ -1137,6 +1137,10 @@ func (s *httpdServer) initializeRouter() {
 		render.PlainText(w, r, "ok")
 	})
 
+	s.router.Get(robotsTxtPath, func(w http.ResponseWriter, r *http.Request) {
+		render.PlainText(w, r, "User-agent: *\nDisallow: /")
+	})
+
 	// share API exposed to external users
 	s.router.Get(sharesPath+"/{id}", s.downloadFromShare)
 	s.router.Post(sharesPath+"/{id}", s.uploadFilesToShare)

@@ -86,6 +86,7 @@ const (
 	providerEventsPath                    = "/api/v2/events/provider"
 	sharesPath                            = "/api/v2/shares"
 	healthzPath                           = "/healthz"
+	robotsTxtPath                         = "/robots.txt"
 	webRootPathDefault                    = "/"
 	webBasePathDefault                    = "/web"
 	webBasePathAdminDefault               = "/web/admin"
