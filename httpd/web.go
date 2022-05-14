@@ -21,6 +21,7 @@ const (
 	templateTwoFactorRecovery = "twofactor-recovery.html"
 	templateForgotPassword    = "forgot-password.html"
 	templateResetPassword     = "reset-password.html"
+	templateCommonCSS         = "sftpgo.css"
 )
 
 type loginPage struct {

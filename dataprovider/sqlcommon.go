@@ -649,8 +649,7 @@ func sqlCommonDumpGroups(dbHandle sqlQuerier) ([]Group, error) {
 		group.PrepareForRendering()
 		groups = append(groups, group)
 	}
-	err = rows.Err()
-	return groups, err
+	return groups, rows.Err()
 }
 
 func sqlCommonGetUsersInGroups(names []string, dbHandle sqlQuerier) ([]string, error) {
@@ -675,16 +674,18 @@ func sqlCommonGetUsersInGroups(names []string, dbHandle sqlQuerier) ([]string, e
 
 	usernames := make([]string, 0, len(names))
 	rows, err := stmt.QueryContext(ctx, args...)
-	if err == nil {
-		defer rows.Close()
-		for rows.Next() {
-			var username string
-			err = rows.Scan(&username)
-			if err != nil {
-				return usernames, err
-			}
-			usernames = append(usernames, username)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var username string
+		err = rows.Scan(&username)
+		if err != nil {
+			return usernames, err
 		}
+		usernames = append(usernames, username)
 	}
 	return usernames, rows.Err()
 }
@@ -711,15 +712,17 @@ func sqlCommonGetGroupsWithNames(names []string, dbHandle sqlQuerier) ([]Group, 
 
 	groups := make([]Group, 0, len(names))
 	rows, err := stmt.QueryContext(ctx, args...)
-	if err == nil {
-		defer rows.Close()
-		for rows.Next() {
-			group, err := getGroupFromDbRow(rows)
-			if err != nil {
-				return groups, err
-			}
-			groups = append(groups, group)
+	if err != nil {
+		return groups, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		group, err := getGroupFromDbRow(rows)
+		if err != nil {
+			return groups, err
 		}
+		groups = append(groups, group)
 	}
 	err = rows.Err()
 	if err != nil {
@@ -2200,8 +2203,7 @@ func sqlCommonDumpFolders(dbHandle sqlQuerier) ([]vfs.BaseVirtualFolder, error) 
 		}
 		folders = append(folders, folder)
 	}
-	err = rows.Err()
-	return folders, err
+	return folders, rows.Err()
 }
 
 func sqlCommonGetFolders(limit, offset int, order string, minimal bool, dbHandle sqlQuerier) ([]vfs.BaseVirtualFolder, error) {

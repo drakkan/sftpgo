@@ -277,94 +277,116 @@ type userTemplateFields struct {
 
 func loadAdminTemplates(templatesPath string) {
 	usersPaths := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateUsers),
 	}
 	userPaths := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateSharedComponents),
 		filepath.Join(templatesPath, templateAdminDir, templateFsConfig),
 		filepath.Join(templatesPath, templateAdminDir, templateUser),
 	}
 	adminsPaths := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateAdmins),
 	}
 	adminPaths := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateAdmin),
 	}
 	profilePaths := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateProfile),
 	}
 	changePwdPaths := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateChangePwd),
 	}
 	connectionsPaths := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateConnections),
 	}
 	messagePaths := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateMessage),
 	}
 	foldersPaths := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateFolders),
 	}
 	folderPaths := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateFsConfig),
 		filepath.Join(templatesPath, templateAdminDir, templateFolder),
 	}
 	groupsPaths := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateGroups),
 	}
 	groupPaths := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateFsConfig),
 		filepath.Join(templatesPath, templateAdminDir, templateSharedComponents),
 		filepath.Join(templatesPath, templateAdminDir, templateGroup),
 	}
 	statusPaths := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateStatus),
 	}
 	loginPaths := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
 		filepath.Join(templatesPath, templateAdminDir, templateBaseLogin),
 		filepath.Join(templatesPath, templateAdminDir, templateLogin),
 	}
 	maintenancePaths := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateMaintenance),
 	}
 	defenderPaths := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateDefender),
 	}
 	mfaPaths := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateMFA),
 	}
 	twoFactorPaths := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
 		filepath.Join(templatesPath, templateAdminDir, templateBaseLogin),
 		filepath.Join(templatesPath, templateAdminDir, templateTwoFactor),
 	}
 	twoFactorRecoveryPaths := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
 		filepath.Join(templatesPath, templateAdminDir, templateBaseLogin),
 		filepath.Join(templatesPath, templateAdminDir, templateTwoFactorRecovery),
 	}
 	setupPaths := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
 		filepath.Join(templatesPath, templateAdminDir, templateBaseLogin),
 		filepath.Join(templatesPath, templateAdminDir, templateSetup),
 	}
 	forgotPwdPaths := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
 		filepath.Join(templatesPath, templateCommonDir, templateForgotPassword),
 	}
 	resetPwdPaths := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
 		filepath.Join(templatesPath, templateCommonDir, templateResetPassword),
 	}
 

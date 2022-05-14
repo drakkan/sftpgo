@@ -22,34 +22,7 @@
     <!-- Custom styles for this template-->
     <link href="{{.StaticURL}}/css/sb-admin-2.min.css" rel="stylesheet">
     <style>
-        @font-face {
-            font-family: 'Roboto';
-            src: url('{{.StaticURL}}/vendor/fonts/Roboto-Bold-webfont.woff');
-            font-weight: 700;
-            font-style: normal;
-        }
-
-        @font-face {
-            font-family: 'Roboto';
-            src: url('{{.StaticURL}}/vendor/fonts/Roboto-Regular-webfont.woff');
-            font-weight: 400;
-            font-style: normal;
-        }
-
-        @font-face {
-            font-family: 'Roboto';
-            src: url('{{.StaticURL}}/vendor/fonts/Roboto-Light-webfont.woff');
-            font-weight: 300;
-            font-style: normal;
-        }
-
-        div.dt-buttons {
-            margin-bottom: 1em;
-        }
-
-        .text-form-error {
-            color: var(--red) !important;
-        }
+        {{template "commoncss" .}}
     </style>
     {{block "extra_css" .}}{{end}}
 

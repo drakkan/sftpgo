@@ -65,9 +65,9 @@ require (
 	go.uber.org/automaxprocs v1.5.1
 	gocloud.dev v0.25.0
 	golang.org/x/crypto v0.0.0-20220511200225-c6db032c6c88
-	golang.org/x/net v0.0.0-20220425223048-2871e0cb64e4
+	golang.org/x/net v0.0.0-20220513224357-95641704303c
 	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5
-	golang.org/x/sys v0.0.0-20220503163025-988cb79eb6c6
+	golang.org/x/sys v0.0.0-20220513210249-45d2b4557a2a
 	golang.org/x/time v0.0.0-20220411224347-583f2d630306
 	google.golang.org/api v0.79.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
@@ -153,7 +153,7 @@ require (
 	golang.org/x/xerrors v0.0.0-20220411194840-2f41105eb62f // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20220505152158-f39f71e6c8f3 // indirect
-	google.golang.org/grpc v1.46.0 // indirect
+	google.golang.org/grpc v1.46.2 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/ini.v1 v1.66.4 // indirect
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
@@ -163,6 +163,6 @@ require (
 
 replace (
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
-	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20220505051548-eb52ab1741ed
-	golang.org/x/net => github.com/drakkan/net v0.0.0-20220504073018-5d1702f4106f
+	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20220514091251-ad79d832b8dc
+	golang.org/x/net => github.com/drakkan/net v0.0.0-20220514085754-d827943a3fff
 )
