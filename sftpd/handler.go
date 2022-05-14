@@ -284,20 +284,20 @@ func (c *Connection) StatVFS(r *sftp.Request) (*sftp.StatVFS, error) {
 	}
 
 	if !quotaResult.HasSpace {
-		return c.getStatVFSFromQuotaResult(fs, p, quotaResult), nil
+		return c.getStatVFSFromQuotaResult(fs, p, quotaResult)
 	}
 
 	if quotaResult.QuotaSize == 0 && quotaResult.QuotaFiles == 0 {
 		// no quota restrictions
 		statvfs, err := fs.GetAvailableDiskSize(p)
 		if err == vfs.ErrStorageSizeUnavailable {
-			return c.getStatVFSFromQuotaResult(fs, p, quotaResult), nil
+			return c.getStatVFSFromQuotaResult(fs, p, quotaResult)
 		}
 		return statvfs, err
 	}
 
 	// there is free space but some limits are configured
-	return c.getStatVFSFromQuotaResult(fs, p, quotaResult), nil
+	return c.getStatVFSFromQuotaResult(fs, p, quotaResult)
 }
 
 func (c *Connection) canReadLink(name string) error {
@@ -477,17 +477,17 @@ func (c *Connection) Disconnect() error {
 	return c.channel.Close()
 }
 
-func (c *Connection) getStatVFSFromQuotaResult(fs vfs.Fs, name string, quotaResult vfs.QuotaCheckResult) *sftp.StatVFS {
-	if quotaResult.QuotaSize == 0 || quotaResult.QuotaFiles == 0 {
-		s, err := fs.GetAvailableDiskSize(name)
-		if err == nil {
-			if quotaResult.QuotaSize == 0 {
-				quotaResult.QuotaSize = int64(s.TotalSpace())
-			}
-			if quotaResult.QuotaFiles == 0 {
-				quotaResult.QuotaFiles = int(s.Files)
-			}
+func (c *Connection) getStatVFSFromQuotaResult(fs vfs.Fs, name string, quotaResult vfs.QuotaCheckResult) (*sftp.StatVFS, error) {
+	s, err := fs.GetAvailableDiskSize(name)
+	if err == nil {
+		if quotaResult.QuotaSize == 0 || quotaResult.QuotaSize > int64(s.TotalSpace()) {
+			quotaResult.QuotaSize = int64(s.TotalSpace())
 		}
+		if quotaResult.QuotaFiles == 0 || quotaResult.QuotaFiles > int(s.Files) {
+			quotaResult.QuotaFiles = int(s.Files)
+		}
+	} else if err != vfs.ErrStorageSizeUnavailable {
+		return nil, err
 	}
 	// if we are unable to get quota size or quota files we add some arbitrary values
 	if quotaResult.QuotaSize == 0 {
@@ -520,7 +520,7 @@ func (c *Connection) getStatVFSFromQuotaResult(fs vfs.Fs, name string, quotaResu
 		Ffree:   ffree,
 		Favail:  ffree,
 		Namemax: 255,
-	}
+	}, nil
 }
 
 func getOSOpenFlags(requestFlags sftp.FileOpenFlags) (flags int) {

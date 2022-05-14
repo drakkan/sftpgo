@@ -8221,6 +8221,10 @@ func TestStatVFS(t *testing.T) {
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 
+		_, err = client.StatVFS("missing-path")
+		assert.Error(t, err)
+		assert.ErrorIs(t, err, fs.ErrNotExist)
+
 		stat, err := client.StatVFS("/")
 		assert.NoError(t, err)
 		assert.Greater(t, stat.ID, uint32(0))

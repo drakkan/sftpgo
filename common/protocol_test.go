@@ -131,6 +131,9 @@ func TestMain(m *testing.M) {
 		}
 	}()
 
+	waitTCPListening(sftpdConf.Bindings[0].GetAddress())
+	waitTCPListening(httpdConf.Bindings[0].GetAddress())
+
 	go func() {
 		// start a test HTTP server to receive action notifications
 		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -179,9 +182,6 @@ func TestMain(m *testing.M) {
 	waitTCPListening(httpAddr)
 	waitTCPListening(httpProxyAddr)
 	waitTCPListening(smtpServerAddr)
-
-	waitTCPListening(sftpdConf.Bindings[0].GetAddress())
-	waitTCPListening(httpdConf.Bindings[0].GetAddress())
 
 	exitCode := m.Run()
 	os.Remove(logFilePath)
