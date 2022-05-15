@@ -144,6 +144,7 @@ func (s *httpdServer) renderClientLoginPage(w http.ResponseWriter, error, ip str
 	}
 	if s.binding.showAdminLoginURL() {
 		data.AltLoginURL = webAdminLoginPath
+		data.AltLoginName = s.binding.Branding.WebAdmin.ShortName
 	}
 	if smtp.IsEnabled() {
 		data.ForgotPwdURL = webClientForgotPwdPath
@@ -520,6 +521,7 @@ func (s *httpdServer) renderAdminLoginPage(w http.ResponseWriter, error, ip stri
 	}
 	if s.binding.showClientLoginURL() {
 		data.AltLoginURL = webClientLoginPath
+		data.AltLoginName = s.binding.Branding.WebClient.ShortName
 	}
 	if smtp.IsEnabled() {
 		data.ForgotPwdURL = webAdminForgotPwdPath

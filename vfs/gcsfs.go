@@ -831,7 +831,7 @@ func (fs *GCSFs) Close() error {
 	return nil
 }
 
-// GetAvailableDiskSize return the available size for the specified path
+// GetAvailableDiskSize returns the available size for the specified path
 func (*GCSFs) GetAvailableDiskSize(dirName string) (*sftp.StatVFS, error) {
 	return nil, ErrStorageSizeUnavailable
 }

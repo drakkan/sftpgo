@@ -31,6 +31,7 @@ type loginPage struct {
 	CSRFToken      string
 	StaticURL      string
 	AltLoginURL    string
+	AltLoginName   string
 	ForgotPwdURL   string
 	OpenIDLoginURL string
 	Branding       UIBranding

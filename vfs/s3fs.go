@@ -914,7 +914,7 @@ func (*S3Fs) Close() error {
 	return nil
 }
 
-// GetAvailableDiskSize return the available size for the specified path
+// GetAvailableDiskSize returns the available size for the specified path
 func (*S3Fs) GetAvailableDiskSize(dirName string) (*sftp.StatVFS, error) {
 	return nil, ErrStorageSizeUnavailable
 }

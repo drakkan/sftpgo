@@ -274,7 +274,7 @@ The configuration file contains the following sections:
       - `expect_ct_header`, string. Allows to set the `Expect-CT` header value. Default: blank.
     - `branding`, struct. Defines the supported customizations to suit your brand. It contains the `web_admin` and `web_client` structs that define customizations for the WebAdmin and the WebClient UIs. Each customization struct contains the following fields:
       - `name`, string. Defines the UI name
-      - `short_name`, string. Define the short name to show next to the logo image
+      - `short_name`, string. Defines the short name to show next to the logo image and on the login page
       - `favicon_path`, string. Path to the favicon relative to `static_files_path`. For example, if you create a directory named `branding` inside the static dir and put the `favicon.ico` file in it, you must set `/branding/favicon.ico` as path.
       - `logo_path`, string. Path to your logo relative to `static_files_path`. The preferred image size is 256x256 pixel
       - `login_image_path`, string. Path to a custom image to show on the login screen relative to `static_files_path`. The preferred image size is 900x900 pixel

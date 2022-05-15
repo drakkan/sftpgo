@@ -678,7 +678,7 @@ func (fs *SFTPFs) GetMimeType(name string) (string, error) {
 	return ctype, err
 }
 
-// GetAvailableDiskSize return the available size for the specified path
+// GetAvailableDiskSize returns the available size for the specified path
 func (fs *SFTPFs) GetAvailableDiskSize(dirName string) (*sftp.StatVFS, error) {
 	if err := fs.checkConnection(); err != nil {
 		return nil, err

@@ -448,7 +448,7 @@ func (*OsFs) Close() error {
 	return nil
 }
 
-// GetAvailableDiskSize return the available size for the specified path
+// GetAvailableDiskSize returns the available size for the specified path
 func (*OsFs) GetAvailableDiskSize(dirName string) (*sftp.StatVFS, error) {
 	return getStatFS(dirName)
 }
