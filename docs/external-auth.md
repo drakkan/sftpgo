@@ -25,7 +25,7 @@ If the hook is an HTTP URL then it will be invoked as HTTP POST. The request bod
 
 - `username`
 - `ip`
-- `user`, STPGo user serialized as JSON, omitted if the user does not exist within the data provider
+- `user`, STPGo user, omitted if the user does not exist within the data provider
 - `protocol`, possible values are `SSH`, `FTP`, `DAV`, `HTTP`
 - `password`, not empty for password authentication
 - `public_key`, not empty for public key authentication

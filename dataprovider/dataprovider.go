@@ -3327,7 +3327,9 @@ func ExecutePostLoginHook(user *User, loginMethod, ip, protocol string, err erro
 	}()
 }
 
-func getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, protocol string, cert *x509.Certificate, userAsJSON []byte) ([]byte, error) {
+func getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, protocol string, cert *x509.Certificate,
+	user User,
+) ([]byte, error) {
 	var tlsCert string
 	if cert != nil {
 		var err error
@@ -3338,7 +3340,7 @@ func getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, 
 	}
 	if strings.HasPrefix(config.ExternalAuthHook, "http") {
 		var result []byte
-		authRequest := make(map[string]string)
+		authRequest := make(map[string]interface{})
 		authRequest["username"] = username
 		authRequest["ip"] = ip
 		authRequest["password"] = password
@@ -3346,8 +3348,8 @@ func getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, 
 		authRequest["protocol"] = protocol
 		authRequest["keyboard_interactive"] = keyboardInteractive
 		authRequest["tls_cert"] = tlsCert
-		if len(userAsJSON) > 0 {
-			authRequest["user"] = string(userAsJSON)
+		if user.ID > 0 {
+			authRequest["user"] = user
 		}
 		authRequestAsJSON, err := json.Marshal(authRequest)
 		if err != nil {
@@ -3367,8 +3369,17 @@ func getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, 
 
 		return io.ReadAll(io.LimitReader(resp.Body, maxHookResponseSize))
 	}
+	var userAsJSON []byte
+	var err error
+	if user.ID > 0 {
+		userAsJSON, err = json.Marshal(user)
+		if err != nil {
+			return nil, fmt.Errorf("unable to serialize user as JSON: %w", err)
+		}
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+
 	cmd := exec.CommandContext(ctx, config.ExternalAuthHook)
 	cmd.Env = append(os.Environ(),
 		fmt.Sprintf("SFTPGO_AUTHD_USERNAME=%v", username),
@@ -3396,7 +3407,7 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 ) (User, error) {
 	var user User
 
-	u, mergedUser, userAsJSON, err := getUserAndJSONForHook(username, nil)
+	u, mergedUser, err := getUserForHook(username, nil)
 	if err != nil {
 		return user, err
 	}
@@ -3415,7 +3426,7 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 	}
 
 	startTime := time.Now()
-	out, err := getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, protocol, tlsCert, userAsJSON)
+	out, err := getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, protocol, tlsCert, u)
 	if err != nil {
 		return user, fmt.Errorf("external auth error for user %#v: %v, elapsed: %v", username, err, time.Since(startTime))
 	}
@@ -3541,12 +3552,11 @@ func doPluginAuth(username, password string, pubKey []byte, ip, protocol string,
 	return provider.userExists(user.Username)
 }
 
-func getUserAndJSONForHook(username string, oidcTokenFields *map[string]interface{}) (User, User, []byte, error) {
-	var userAsJSON []byte
+func getUserForHook(username string, oidcTokenFields *map[string]interface{}) (User, User, error) {
 	u, err := provider.userExists(username)
 	if err != nil {
 		if _, ok := err.(*util.RecordNotFoundError); !ok {
-			return u, u, userAsJSON, err
+			return u, u, err
 		}
 		u = User{
 			BaseUser: sdk.BaseUser{
@@ -3558,11 +3568,19 @@ func getUserAndJSONForHook(username string, oidcTokenFields *map[string]interfac
 	mergedUser := u.getACopy()
 	err = mergedUser.LoadAndApplyGroupSettings()
 	if err != nil {
-		return u, mergedUser, userAsJSON, err
+		return u, mergedUser, err
 	}
 
 	u.OIDCCustomFields = oidcTokenFields
-	userAsJSON, err = json.Marshal(u)
+	return u, mergedUser, err
+}
+
+func getUserAndJSONForHook(username string, oidcTokenFields *map[string]interface{}) (User, User, []byte, error) {
+	u, mergedUser, err := getUserForHook(username, oidcTokenFields)
+	if err != nil {
+		return u, mergedUser, nil, err
+	}
+	userAsJSON, err := json.Marshal(u)
 	if err != nil {
 		return u, mergedUser, userAsJSON, err
 	}
