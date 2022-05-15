@@ -2911,10 +2911,11 @@ func sqlCommonGetAPIKeyRelatedIDs(apiKey *APIKey) (sql.NullInt64, sql.NullInt64,
 	return userID, adminID, nil
 }
 
-func sqlCommonGetDatabaseVersion(dbHandle *sql.DB, showInitWarn bool) (schemaVersion, error) {
+func sqlCommonGetDatabaseVersion(dbHandle sqlQuerier, showInitWarn bool) (schemaVersion, error) {
 	var result schemaVersion
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
+
 	q := getDatabaseVersionQuery()
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
@@ -2943,8 +2944,22 @@ func sqlCommonUpdateDatabaseVersion(ctx context.Context, dbHandle sqlQuerier, ve
 }
 
 func sqlCommonExecSQLAndUpdateDBVersion(dbHandle *sql.DB, sqlQueries []string, newVersion int) error {
+	if err := sqlAquireLock(dbHandle); err != nil {
+		return err
+	}
+	defer sqlReleaseLock(dbHandle)
+
 	ctx, cancel := context.WithTimeout(context.Background(), longSQLQueryTimeout)
 	defer cancel()
+
+	if newVersion > 0 {
+		currentVersion, err := sqlCommonGetDatabaseVersion(dbHandle, false)
+		if err == nil && currentVersion.Version >= newVersion {
+			providerLog(logger.LevelInfo, "current schema version: %v, requested: %v, did you execute simultaneous migrations?",
+				currentVersion.Version, newVersion)
+			return nil
+		}
+	}
 
 	return sqlCommonExecuteTx(ctx, dbHandle, func(tx *sql.Tx) error {
 		for _, q := range sqlQueries {
@@ -2961,6 +2976,63 @@ func sqlCommonExecSQLAndUpdateDBVersion(dbHandle *sql.DB, sqlQueries []string, n
 		}
 		return sqlCommonUpdateDatabaseVersion(ctx, tx, newVersion)
 	})
+}
+
+func sqlAquireLock(dbHandle *sql.DB) error {
+	ctx, cancel := context.WithTimeout(context.Background(), longSQLQueryTimeout)
+	defer cancel()
+
+	switch config.Driver {
+	case PGSQLDataProviderName:
+		_, err := dbHandle.ExecContext(ctx, `SELECT pg_advisory_lock(101,1)`)
+		if err != nil {
+			return fmt.Errorf("unable to get advisory lock: %w", err)
+		}
+		providerLog(logger.LevelInfo, "acquired database lock")
+	case MySQLDataProviderName:
+		stmt, err := dbHandle.PrepareContext(ctx, `SELECT GET_LOCK('sftpgo.migration',30)`)
+		if err != nil {
+			return fmt.Errorf("unable to get lock: %w", err)
+		}
+		defer stmt.Close()
+
+		var lockResult sql.NullInt64
+		err = stmt.QueryRowContext(ctx).Scan(&lockResult)
+		if err != nil {
+			return fmt.Errorf("unable to get lock: %w", err)
+		}
+		if !lockResult.Valid {
+			return errors.New("unable to get lock: null value returned")
+		}
+		if lockResult.Int64 != 1 {
+			return fmt.Errorf("unable to get lock, result: %v", lockResult.Int64)
+		}
+		providerLog(logger.LevelInfo, "acquired database lock")
+	}
+
+	return nil
+}
+
+func sqlReleaseLock(dbHandle *sql.DB) {
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+
+	switch config.Driver {
+	case PGSQLDataProviderName:
+		_, err := dbHandle.ExecContext(ctx, `SELECT pg_advisory_unlock(101,1)`)
+		if err != nil {
+			providerLog(logger.LevelWarn, "unable to release lock: %v", err)
+		} else {
+			providerLog(logger.LevelInfo, "released database lock")
+		}
+	case MySQLDataProviderName:
+		_, err := dbHandle.ExecContext(ctx, `SELECT RELEASE_LOCK('sftpgo.migration')`)
+		if err != nil {
+			providerLog(logger.LevelWarn, "unable to release lock: %v", err)
+		} else {
+			providerLog(logger.LevelInfo, "released database lock")
+		}
+	}
 }
 
 func sqlCommonExecuteTx(ctx context.Context, dbHandle *sql.DB, txFn func(*sql.Tx) error) error {
