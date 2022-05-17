@@ -44,7 +44,7 @@
                         <td>{{.ID}}</td>
                         <td>{{.Username}}</td>
                         <td>{{.GetStatusAsString}}</td>
-                        <td>{{if .Filters.TOTPConfig.Enabled }}Enabled{{else}}-{{end}}</td>
+                        <td>{{.GetMFAStatusAsString}}</td>
                         <td>{{.GetBandwidthAsString}}</td>
                         <td>{{.GetQuotaSummary}}</td>
                         <td>{{.GetInfoString}}</td>

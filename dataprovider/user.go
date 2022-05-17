@@ -1331,6 +1331,15 @@ func (u *User) GetBandwidthAsString() string {
 	return result
 }
 
+// GetMFAStatusAsString returns MFA status
+func (u *User) GetMFAStatusAsString() string {
+	result := "-"
+	if u.Filters.TOTPConfig.Enabled {
+		result = strings.Join(u.Filters.TOTPConfig.Protocols, ", ")
+	}
+	return result
+}
+
 // GetInfoString returns user's info as string.
 // Storage provider, number of public keys, max sessions, uid,
 // gid, denied and allowed IP/Mask are returned
