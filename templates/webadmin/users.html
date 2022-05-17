@@ -32,6 +32,7 @@
                         <th>ID</th>
                         <th>Username</th>
                         <th>Status</th>
+                        <th>MFA</th>
                         <th>Bandwidth</th>
                         <th>Quota</th>
                         <th>Other</th>
@@ -43,6 +44,7 @@
                         <td>{{.ID}}</td>
                         <td>{{.Username}}</td>
                         <td>{{.GetStatusAsString}}</td>
+                        <td>{{if .Filters.TOTPConfig.Enabled }}Enabled{{else}}-{{end}}</td>
                         <td>{{.GetBandwidthAsString}}</td>
                         <td>{{.GetQuotaSummary}}</td>
                         <td>{{.GetInfoString}}</td>
