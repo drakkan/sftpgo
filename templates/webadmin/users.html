@@ -32,6 +32,7 @@
                         <th>ID</th>
                         <th>Username</th>
                         <th>Status</th>
+                        {{if .HasMFA }}<th>MFA</th>{{end}}
                         <th>Bandwidth</th>
                         <th>Quota</th>
                         <th>Other</th>
@@ -43,6 +44,7 @@
                         <td>{{.ID}}</td>
                         <td>{{.Username}}</td>
                         <td>{{.GetStatusAsString}}</td>
+                        {{if $.HasMFA }}<td>{{.GetMFAStatusAsString}}</td>{{end}}
                         <td>{{.GetBandwidthAsString}}</td>
                         <td>{{.GetQuotaSummary}}</td>
                         <td>{{.GetInfoString}}</td>
