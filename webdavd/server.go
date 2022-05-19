@@ -308,7 +308,7 @@ func (s *webDavServer) validateUser(user *dataprovider.User, r *http.Request, lo
 			user.Username, user.HomeDir)
 		return connID, fmt.Errorf("cannot login user with invalid home dir: %#v", user.HomeDir)
 	}
-	if util.IsStringInSlice(common.ProtocolWebDAV, user.Filters.DeniedProtocols) {
+	if util.Contains(user.Filters.DeniedProtocols, common.ProtocolWebDAV) {
 		logger.Info(logSender, connectionID, "cannot login user %#v, protocol DAV is not allowed", user.Username)
 		return connID, fmt.Errorf("protocol DAV is not allowed for user %#v", user.Username)
 	}
@@ -348,7 +348,7 @@ func writeLog(r *http.Request, status int, err error) {
 	if r.TLS != nil {
 		scheme = "https"
 	}
-	fields := map[string]interface{}{
+	fields := map[string]any{
 		"remote_addr": r.RemoteAddr,
 		"proto":       r.Proto,
 		"method":      r.Method,

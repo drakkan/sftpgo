@@ -373,7 +373,7 @@ func TestMain(m *testing.M) {
 	sftpdConf.HostKeys = []string{hostKeyPath}
 
 	go func() {
-		if err := httpdConf.Initialize(configDir); err != nil {
+		if err := httpdConf.Initialize(configDir, 0); err != nil {
 			logger.ErrorToConsole("could not start HTTP server: %v", err)
 			os.Exit(1)
 		}
@@ -412,7 +412,7 @@ func TestMain(m *testing.M) {
 	httpdConf.Bindings = append(httpdConf.Bindings, httpd.Binding{})
 
 	go func() {
-		if err := httpdConf.Initialize(configDir); err != nil {
+		if err := httpdConf.Initialize(configDir, 0); err != nil {
 			logger.ErrorToConsole("could not start HTTPS server: %v", err)
 			os.Exit(1)
 		}
@@ -437,6 +437,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestInitialization(t *testing.T) {
+	isShared := 0
 	err := config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	invalidFile := "invalid file"
@@ -445,12 +446,12 @@ func TestInitialization(t *testing.T) {
 	defaultStaticPath := httpdConf.StaticFilesPath
 	httpdConf.CertificateFile = invalidFile
 	httpdConf.CertificateKeyFile = invalidFile
-	err = httpdConf.Initialize(configDir)
+	err = httpdConf.Initialize(configDir, isShared)
 	assert.Error(t, err)
 	httpdConf.CertificateFile = ""
 	httpdConf.CertificateKeyFile = ""
 	httpdConf.TemplatesPath = "."
-	err = httpdConf.Initialize(configDir)
+	err = httpdConf.Initialize(configDir, isShared)
 	assert.Error(t, err)
 	httpdConf = config.GetHTTPDConfig()
 	httpdConf.TemplatesPath = defaultTemplatesPath
@@ -458,22 +459,22 @@ func TestInitialization(t *testing.T) {
 	httpdConf.CertificateKeyFile = invalidFile
 	httpdConf.StaticFilesPath = ""
 	httpdConf.TemplatesPath = ""
-	err = httpdConf.Initialize(configDir)
+	err = httpdConf.Initialize(configDir, isShared)
 	assert.Error(t, err)
 	httpdConf.StaticFilesPath = defaultStaticPath
 	httpdConf.TemplatesPath = defaultTemplatesPath
 	httpdConf.CertificateFile = filepath.Join(os.TempDir(), "test.crt")
 	httpdConf.CertificateKeyFile = filepath.Join(os.TempDir(), "test.key")
 	httpdConf.CACertificates = append(httpdConf.CACertificates, invalidFile)
-	err = httpdConf.Initialize(configDir)
+	err = httpdConf.Initialize(configDir, isShared)
 	assert.Error(t, err)
 	httpdConf.CACertificates = nil
 	httpdConf.CARevocationLists = append(httpdConf.CARevocationLists, invalidFile)
-	err = httpdConf.Initialize(configDir)
+	err = httpdConf.Initialize(configDir, isShared)
 	assert.Error(t, err)
 	httpdConf.CARevocationLists = nil
 	httpdConf.Bindings[0].ProxyAllowed = []string{"invalid ip/network"}
-	err = httpdConf.Initialize(configDir)
+	err = httpdConf.Initialize(configDir, isShared)
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "is not a valid IP range")
 	}
@@ -483,7 +484,7 @@ func TestInitialization(t *testing.T) {
 	httpdConf.Bindings[0].Port = 8081
 	httpdConf.Bindings[0].EnableHTTPS = true
 	httpdConf.Bindings[0].ClientAuthType = 1
-	err = httpdConf.Initialize(configDir)
+	err = httpdConf.Initialize(configDir, 0)
 	assert.Error(t, err)
 
 	httpdConf.Bindings[0].OIDC = httpd.OIDC{
@@ -491,12 +492,12 @@ func TestInitialization(t *testing.T) {
 		ClientSecret: "secret",
 		ConfigURL:    "http://127.0.0.1:11111",
 	}
-	err = httpdConf.Initialize(configDir)
+	err = httpdConf.Initialize(configDir, 0)
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "oidc")
 	}
 	httpdConf.Bindings[0].OIDC.UsernameField = "preferred_username"
-	err = httpdConf.Initialize(configDir)
+	err = httpdConf.Initialize(configDir, isShared)
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "oidc")
 	}
@@ -516,7 +517,7 @@ func TestBasicUserHandling(t *testing.T) {
 	user.AdditionalInfo = "some free text"
 	user.Filters.TLSUsername = sdk.TLSUsernameCN
 	user.Email = "user@example.net"
-	user.OIDCCustomFields = &map[string]interface{}{
+	user.OIDCCustomFields = &map[string]any{
 		"field1": "value1",
 	}
 	user.Filters.WebClient = append(user.Filters.WebClient, sdk.WebClientPubKeyChangeDisabled,
@@ -1301,7 +1302,7 @@ func TestHTTPUserAuthentication(t *testing.T) {
 	c.CloseIdleConnections()
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	responseHolder := make(map[string]interface{})
+	responseHolder := make(map[string]any)
 	err = render.DecodeJSON(resp.Body, &responseHolder)
 	assert.NoError(t, err)
 	userToken := responseHolder["access_token"].(string)
@@ -1356,7 +1357,7 @@ func TestHTTPUserAuthentication(t *testing.T) {
 	resp, err = httpclient.GetHTTPClient().Do(req)
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	responseHolder = make(map[string]interface{})
+	responseHolder = make(map[string]any)
 	err = render.DecodeJSON(resp.Body, &responseHolder)
 	assert.NoError(t, err)
 	adminToken := responseHolder["access_token"].(string)
@@ -1571,7 +1572,7 @@ func TestTwoFactorRequirements(t *testing.T) {
 	resp, err := httpclient.GetHTTPClient().Do(req)
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	responseHolder := make(map[string]interface{})
+	responseHolder := make(map[string]any)
 	err = render.DecodeJSON(resp.Body, &responseHolder)
 	assert.NoError(t, err)
 	userToken := responseHolder["access_token"].(string)
@@ -1620,7 +1621,7 @@ func TestLoginUserAPITOTP(t *testing.T) {
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	// two factor auth cannot be disabled
-	config := make(map[string]interface{})
+	config := make(map[string]any)
 	config["enabled"] = false
 	asJSON, err = json.Marshal(config)
 	assert.NoError(t, err)
@@ -1667,7 +1668,7 @@ func TestLoginUserAPITOTP(t *testing.T) {
 	resp, err = httpclient.GetHTTPClient().Do(req)
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	responseHolder := make(map[string]interface{})
+	responseHolder := make(map[string]any)
 	err = render.DecodeJSON(resp.Body, &responseHolder)
 	assert.NoError(t, err)
 	userToken := responseHolder["access_token"].(string)
@@ -1743,7 +1744,7 @@ func TestLoginAdminAPITOTP(t *testing.T) {
 	resp, err = httpclient.GetHTTPClient().Do(req)
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	responseHolder := make(map[string]interface{})
+	responseHolder := make(map[string]any)
 	err = render.DecodeJSON(resp.Body, &responseHolder)
 	assert.NoError(t, err)
 	adminToken := responseHolder["access_token"].(string)
@@ -1774,7 +1775,7 @@ func TestHTTPStreamZipError(t *testing.T) {
 	resp, err := httpclient.GetHTTPClient().Do(req)
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	responseHolder := make(map[string]interface{})
+	responseHolder := make(map[string]any)
 	err = render.DecodeJSON(resp.Body, &responseHolder)
 	assert.NoError(t, err)
 	userToken := responseHolder["access_token"].(string)
@@ -1968,7 +1969,7 @@ func TestAdminInvalidCredentials(t *testing.T) {
 	resp, err = httpclient.GetHTTPClient().Do(req)
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
-	responseHolder := make(map[string]interface{})
+	responseHolder := make(map[string]any)
 	err = render.DecodeJSON(resp.Body, &responseHolder)
 	assert.NoError(t, err)
 	err = resp.Body.Close()
@@ -1979,7 +1980,7 @@ func TestAdminInvalidCredentials(t *testing.T) {
 	resp, err = httpclient.GetHTTPClient().Do(req)
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
-	responseHolder = make(map[string]interface{})
+	responseHolder = make(map[string]any)
 	err = render.DecodeJSON(resp.Body, &responseHolder)
 	assert.NoError(t, err)
 	err = resp.Body.Close()
@@ -2467,7 +2468,7 @@ func TestMetadataAPI(t *testing.T) {
 	setBearerForReq(req, token)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	var resp []interface{}
+	var resp []any
 	err = json.Unmarshal(rr.Body.Bytes(), &resp)
 	assert.NoError(t, err)
 	assert.Len(t, resp, 0)
@@ -2484,7 +2485,7 @@ func TestMetadataAPI(t *testing.T) {
 		setBearerForReq(req, token)
 		rr := executeRequest(req)
 		checkResponseCode(t, http.StatusOK, rr)
-		var resp []interface{}
+		var resp []any
 		err = json.Unmarshal(rr.Body.Bytes(), &resp)
 		assert.NoError(t, err)
 		return len(resp) == 0
@@ -2744,7 +2745,7 @@ func TestUpdateUserEmptyPassword(t *testing.T) {
 	assert.NotEmpty(t, dbUser.Password)
 	assert.True(t, dbUser.IsPasswordHashed())
 	// now update the user and set an empty password
-	customUser := make(map[string]interface{})
+	customUser := make(map[string]any)
 	customUser["password"] = ""
 	asJSON, err := json.Marshal(customUser)
 	assert.NoError(t, err)
@@ -5775,7 +5776,7 @@ func TestBasicUserHandlingMock(t *testing.T) {
 	assert.Equal(t, user.MaxSessions, updatedUser.MaxSessions)
 	assert.Equal(t, user.UploadBandwidth, updatedUser.UploadBandwidth)
 	assert.Equal(t, 1, len(updatedUser.Permissions["/"]))
-	assert.True(t, util.IsStringInSlice(dataprovider.PermAny, updatedUser.Permissions["/"]))
+	assert.True(t, util.Contains(updatedUser.Permissions["/"], dataprovider.PermAny))
 	req, _ = http.NewRequest(http.MethodDelete, userPath+"/"+user.Username, nil)
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
@@ -6859,7 +6860,7 @@ func TestSearchEvents(t *testing.T) {
 	setBearerForReq(req, token)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	events := make([]map[string]interface{}, 0)
+	events := make([]map[string]any, 0)
 	err = json.Unmarshal(rr.Body.Bytes(), &events)
 	assert.NoError(t, err)
 	if assert.Len(t, events, 1) {
@@ -6889,7 +6890,7 @@ func TestSearchEvents(t *testing.T) {
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	events = make([]map[string]interface{}, 0)
+	events = make([]map[string]any, 0)
 	err = json.Unmarshal(rr.Body.Bytes(), &events)
 	assert.NoError(t, err)
 	if assert.Len(t, events, 1) {
@@ -7467,7 +7468,7 @@ func TestWebAPIChangeUserProfileMock(t *testing.T) {
 
 	email := "userapi@example.com"
 	description := "user API description"
-	profileReq := make(map[string]interface{})
+	profileReq := make(map[string]any)
 	profileReq["allow_api_key_auth"] = true
 	profileReq["email"] = email
 	profileReq["description"] = description
@@ -7480,7 +7481,7 @@ func TestWebAPIChangeUserProfileMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 
-	profileReq = make(map[string]interface{})
+	profileReq = make(map[string]any)
 	req, err = http.NewRequest(http.MethodGet, userProfilePath, nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, token)
@@ -7491,9 +7492,9 @@ func TestWebAPIChangeUserProfileMock(t *testing.T) {
 	assert.Equal(t, email, profileReq["email"].(string))
 	assert.Equal(t, description, profileReq["description"].(string))
 	assert.True(t, profileReq["allow_api_key_auth"].(bool))
-	assert.Len(t, profileReq["public_keys"].([]interface{}), 2)
+	assert.Len(t, profileReq["public_keys"].([]any), 2)
 	// set an invalid email
-	profileReq = make(map[string]interface{})
+	profileReq = make(map[string]any)
 	profileReq["email"] = "notavalidemail"
 	asJSON, err = json.Marshal(profileReq)
 	assert.NoError(t, err)
@@ -7504,7 +7505,7 @@ func TestWebAPIChangeUserProfileMock(t *testing.T) {
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	assert.Contains(t, rr.Body.String(), "Validation error: email")
 	// set an invalid public key
-	profileReq = make(map[string]interface{})
+	profileReq = make(map[string]any)
 	profileReq["public_keys"] = []string{"not a public key"}
 	asJSON, err = json.Marshal(profileReq)
 	assert.NoError(t, err)
@@ -7524,7 +7525,7 @@ func TestWebAPIChangeUserProfileMock(t *testing.T) {
 	token, err = getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
 
-	profileReq = make(map[string]interface{})
+	profileReq = make(map[string]any)
 	profileReq["allow_api_key_auth"] = false
 	profileReq["email"] = email
 	profileReq["description"] = description + "_mod"
@@ -7538,7 +7539,7 @@ func TestWebAPIChangeUserProfileMock(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Contains(t, rr.Body.String(), "Profile updated")
 	// check that api key auth and public keys were not changed
-	profileReq = make(map[string]interface{})
+	profileReq = make(map[string]any)
 	req, err = http.NewRequest(http.MethodGet, userProfilePath, nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, token)
@@ -7549,7 +7550,7 @@ func TestWebAPIChangeUserProfileMock(t *testing.T) {
 	assert.Equal(t, email, profileReq["email"].(string))
 	assert.Equal(t, description+"_mod", profileReq["description"].(string))
 	assert.True(t, profileReq["allow_api_key_auth"].(bool))
-	assert.Len(t, profileReq["public_keys"].([]interface{}), 2)
+	assert.Len(t, profileReq["public_keys"].([]any), 2)
 
 	user.Filters.WebClient = []string{sdk.WebClientAPIKeyAuthChangeDisabled, sdk.WebClientInfoChangeDisabled}
 	user.Description = description + "_mod"
@@ -7558,7 +7559,7 @@ func TestWebAPIChangeUserProfileMock(t *testing.T) {
 	token, err = getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
 
-	profileReq = make(map[string]interface{})
+	profileReq = make(map[string]any)
 	profileReq["allow_api_key_auth"] = false
 	profileReq["email"] = "newemail@apiuser.com"
 	profileReq["description"] = description
@@ -7570,7 +7571,7 @@ func TestWebAPIChangeUserProfileMock(t *testing.T) {
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	profileReq = make(map[string]interface{})
+	profileReq = make(map[string]any)
 	req, err = http.NewRequest(http.MethodGet, userProfilePath, nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, token)
@@ -7581,7 +7582,7 @@ func TestWebAPIChangeUserProfileMock(t *testing.T) {
 	assert.Equal(t, email, profileReq["email"].(string))
 	assert.Equal(t, description+"_mod", profileReq["description"].(string))
 	assert.True(t, profileReq["allow_api_key_auth"].(bool))
-	assert.Len(t, profileReq["public_keys"].([]interface{}), 1)
+	assert.Len(t, profileReq["public_keys"].([]any), 1)
 	// finally disable all profile permissions
 	user.Filters.WebClient = []string{sdk.WebClientAPIKeyAuthChangeDisabled, sdk.WebClientInfoChangeDisabled,
 		sdk.WebClientPubKeyChangeDisabled}
@@ -7765,7 +7766,7 @@ func TestWebAPIChangeAdminProfileMock(t *testing.T) {
 
 	email := "adminapi@example.com"
 	description := "admin API description"
-	profileReq := make(map[string]interface{})
+	profileReq := make(map[string]any)
 	profileReq["allow_api_key_auth"] = true
 	profileReq["email"] = email
 	profileReq["description"] = description
@@ -7778,7 +7779,7 @@ func TestWebAPIChangeAdminProfileMock(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Contains(t, rr.Body.String(), "Profile updated")
 
-	profileReq = make(map[string]interface{})
+	profileReq = make(map[string]any)
 	req, err = http.NewRequest(http.MethodGet, adminProfilePath, nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, token)
@@ -8187,7 +8188,7 @@ func TestUpdateUserMock(t *testing.T) {
 	for dir, perms := range permissions {
 		if actualPerms, ok := updatedUser.Permissions[dir]; ok {
 			for _, v := range actualPerms {
-				assert.True(t, util.IsStringInSlice(v, perms))
+				assert.True(t, util.Contains(perms, v))
 			}
 		} else {
 			assert.Fail(t, "Permissions directories mismatch")
@@ -8346,7 +8347,7 @@ func TestUserPermissionsMock(t *testing.T) {
 	err = render.DecodeJSON(rr.Body, &updatedUser)
 	assert.NoError(t, err)
 	if val, ok := updatedUser.Permissions["/otherdir"]; ok {
-		assert.True(t, util.IsStringInSlice(dataprovider.PermListItems, val))
+		assert.True(t, util.Contains(val, dataprovider.PermListItems))
 		assert.Equal(t, 1, len(val))
 	} else {
 		assert.Fail(t, "expected dir not found in permissions")
@@ -10015,7 +10016,7 @@ func TestShareUsage(t *testing.T) {
 	checkResponseCode(t, http.StatusNotFound, rr)
 
 	share.ExpiresAt = 0
-	jsonReq := make(map[string]interface{})
+	jsonReq := make(map[string]any)
 	jsonReq["name"] = share.Name
 	jsonReq["scope"] = share.Scope
 	jsonReq["paths"] = share.Paths
@@ -10722,7 +10723,7 @@ func TestBrowseShares(t *testing.T) {
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	contents := make([]map[string]interface{}, 0)
+	contents := make([]map[string]any, 0)
 	err = json.Unmarshal(rr.Body.Bytes(), &contents)
 	assert.NoError(t, err)
 	assert.Len(t, contents, 2)
@@ -10731,7 +10732,7 @@ func TestBrowseShares(t *testing.T) {
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	contents = make([]map[string]interface{}, 0)
+	contents = make([]map[string]any, 0)
 	err = json.Unmarshal(rr.Body.Bytes(), &contents)
 	assert.NoError(t, err)
 	assert.Len(t, contents, 2)
@@ -10740,7 +10741,7 @@ func TestBrowseShares(t *testing.T) {
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	contents = make([]map[string]interface{}, 0)
+	contents = make([]map[string]any, 0)
 	err = json.Unmarshal(rr.Body.Bytes(), &contents)
 	assert.NoError(t, err)
 	assert.Len(t, contents, 1)
@@ -10955,7 +10956,7 @@ func TestBrowseShares(t *testing.T) {
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	contents = make([]map[string]interface{}, 0)
+	contents = make([]map[string]any, 0)
 	err = json.Unmarshal(rr.Body.Bytes(), &contents)
 	assert.NoError(t, err)
 	assert.Len(t, contents, 1)
@@ -11437,7 +11438,7 @@ func TestUserAPIKey(t *testing.T) {
 	setAPIKeyForReq(req, apiKey.Key, "")
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	var dirEntries []map[string]interface{}
+	var dirEntries []map[string]any
 	err = json.Unmarshal(rr.Body.Bytes(), &dirEntries)
 	assert.NoError(t, err)
 	assert.Len(t, dirEntries, 1)
@@ -11668,7 +11669,7 @@ func TestWebGetFiles(t *testing.T) {
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	var dirEntries []map[string]interface{}
+	var dirEntries []map[string]any
 	err = json.Unmarshal(rr.Body.Bytes(), &dirEntries)
 	assert.NoError(t, err)
 	assert.Len(t, dirEntries, 1)
@@ -11918,7 +11919,7 @@ func TestWebDirsAPI(t *testing.T) {
 	setBearerForReq(req, webAPIToken)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	var contents []map[string]interface{}
+	var contents []map[string]any
 	err = json.NewDecoder(rr.Body).Decode(&contents)
 	assert.NoError(t, err)
 	assert.Len(t, contents, 0)
@@ -12197,7 +12198,7 @@ func TestWebFilesAPI(t *testing.T) {
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	var contents []map[string]interface{}
+	var contents []map[string]any
 	err = json.NewDecoder(rr.Body).Decode(&contents)
 	assert.NoError(t, err)
 	assert.Len(t, contents, 2)
@@ -12398,7 +12399,7 @@ func TestStartDirectory(t *testing.T) {
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	var contents []map[string]interface{}
+	var contents []map[string]any
 	err = json.NewDecoder(rr.Body).Decode(&contents)
 	assert.NoError(t, err)
 	if assert.Len(t, contents, 1) {
@@ -14628,7 +14629,7 @@ func TestAPIKeyOnDeleteCascade(t *testing.T) {
 	setAPIKeyForReq(req, apiKey.Key, "")
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	var contents []map[string]interface{}
+	var contents []map[string]any
 	err = json.NewDecoder(rr.Body).Decode(&contents)
 	assert.NoError(t, err)
 	assert.Len(t, contents, 0)
@@ -15570,10 +15571,10 @@ func TestWebUserAddMock(t *testing.T) {
 	assert.False(t, newUser.Filters.AllowAPIKeyAuth)
 	assert.Equal(t, user.Email, newUser.Email)
 	assert.Equal(t, "/start/dir", newUser.Filters.StartDirectory)
-	assert.True(t, util.IsStringInSlice(testPubKey, newUser.PublicKeys))
+	assert.True(t, util.Contains(newUser.PublicKeys, testPubKey))
 	if val, ok := newUser.Permissions["/subdir"]; ok {
-		assert.True(t, util.IsStringInSlice(dataprovider.PermListItems, val))
-		assert.True(t, util.IsStringInSlice(dataprovider.PermDownload, val))
+		assert.True(t, util.Contains(val, dataprovider.PermListItems))
+		assert.True(t, util.Contains(val, dataprovider.PermDownload))
 	} else {
 		assert.Fail(t, "user permissions must contain /somedir", "actual: %v", newUser.Permissions)
 	}
@@ -15592,20 +15593,20 @@ func TestWebUserAddMock(t *testing.T) {
 		case "/dir1":
 			assert.Len(t, filter.DeniedPatterns, 1)
 			assert.Len(t, filter.AllowedPatterns, 1)
-			assert.True(t, util.IsStringInSlice("*.png", filter.AllowedPatterns))
-			assert.True(t, util.IsStringInSlice("*.zip", filter.DeniedPatterns))
+			assert.True(t, util.Contains(filter.AllowedPatterns, "*.png"))
+			assert.True(t, util.Contains(filter.DeniedPatterns, "*.zip"))
 			assert.Equal(t, sdk.DenyPolicyDefault, filter.DenyPolicy)
 		case "/dir2":
 			assert.Len(t, filter.DeniedPatterns, 1)
 			assert.Len(t, filter.AllowedPatterns, 2)
-			assert.True(t, util.IsStringInSlice("*.jpg", filter.AllowedPatterns))
-			assert.True(t, util.IsStringInSlice("*.png", filter.AllowedPatterns))
-			assert.True(t, util.IsStringInSlice("*.mkv", filter.DeniedPatterns))
+			assert.True(t, util.Contains(filter.AllowedPatterns, "*.jpg"))
+			assert.True(t, util.Contains(filter.AllowedPatterns, "*.png"))
+			assert.True(t, util.Contains(filter.DeniedPatterns, "*.mkv"))
 			assert.Equal(t, sdk.DenyPolicyHide, filter.DenyPolicy)
 		case "/dir3":
 			assert.Len(t, filter.DeniedPatterns, 1)
 			assert.Len(t, filter.AllowedPatterns, 0)
-			assert.True(t, util.IsStringInSlice("*.rar", filter.DeniedPatterns))
+			assert.True(t, util.Contains(filter.DeniedPatterns, "*.rar"))
 			assert.Equal(t, sdk.DenyPolicyDefault, filter.DenyPolicy)
 		}
 	}
@@ -15845,16 +15846,16 @@ func TestWebUserUpdateMock(t *testing.T) {
 	assert.Equal(t, int64(0), updateUser.UploadDataTransfer)
 	assert.Equal(t, int64(0), updateUser.Filters.ExternalAuthCacheTime)
 	if val, ok := updateUser.Permissions["/otherdir"]; ok {
-		assert.True(t, util.IsStringInSlice(dataprovider.PermListItems, val))
-		assert.True(t, util.IsStringInSlice(dataprovider.PermUpload, val))
+		assert.True(t, util.Contains(val, dataprovider.PermListItems))
+		assert.True(t, util.Contains(val, dataprovider.PermUpload))
 	} else {
 		assert.Fail(t, "user permissions must contains /otherdir", "actual: %v", updateUser.Permissions)
 	}
-	assert.True(t, util.IsStringInSlice("192.168.1.3/32", updateUser.Filters.AllowedIP))
-	assert.True(t, util.IsStringInSlice("10.0.0.2/32", updateUser.Filters.DeniedIP))
-	assert.True(t, util.IsStringInSlice(dataprovider.SSHLoginMethodKeyboardInteractive, updateUser.Filters.DeniedLoginMethods))
-	assert.True(t, util.IsStringInSlice(common.ProtocolFTP, updateUser.Filters.DeniedProtocols))
-	assert.True(t, util.IsStringInSlice("*.zip", updateUser.Filters.FilePatterns[0].DeniedPatterns))
+	assert.True(t, util.Contains(updateUser.Filters.AllowedIP, "192.168.1.3/32"))
+	assert.True(t, util.Contains(updateUser.Filters.DeniedIP, "10.0.0.2/32"))
+	assert.True(t, util.Contains(updateUser.Filters.DeniedLoginMethods, dataprovider.SSHLoginMethodKeyboardInteractive))
+	assert.True(t, util.Contains(updateUser.Filters.DeniedProtocols, common.ProtocolFTP))
+	assert.True(t, util.Contains(updateUser.Filters.FilePatterns[0].DeniedPatterns, "*.zip"))
 	assert.Len(t, updateUser.Filters.BandwidthLimits, 0)
 	req, err = http.NewRequest(http.MethodDelete, path.Join(userPath, user.Username), nil)
 	assert.NoError(t, err)
@@ -18864,7 +18865,7 @@ func getJWTAPITokenFromTestServer(username, password string) (string, error) {
 	if rr.Code != http.StatusOK {
 		return "", fmt.Errorf("unexpected  status code %v", rr.Code)
 	}
-	responseHolder := make(map[string]interface{})
+	responseHolder := make(map[string]any)
 	err := render.DecodeJSON(rr.Body, &responseHolder)
 	if err != nil {
 		return "", err
@@ -18879,7 +18880,7 @@ func getJWTAPIUserTokenFromTestServer(username, password string) (string, error)
 	if rr.Code != http.StatusOK {
 		return "", fmt.Errorf("unexpected status code %v", rr.Code)
 	}
-	responseHolder := make(map[string]interface{})
+	responseHolder := make(map[string]any)
 	err := render.DecodeJSON(rr.Body, &responseHolder)
 	if err != nil {
 		return "", err

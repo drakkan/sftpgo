@@ -44,7 +44,7 @@ func (m *MockMiddleware) Filecmd(arg0 *sftp.Request) error {
 }
 
 // Filecmd indicates an expected call of Filecmd.
-func (mr *MockMiddlewareMockRecorder) Filecmd(arg0 interface{}) *gomock.Call {
+func (mr *MockMiddlewareMockRecorder) Filecmd(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Filecmd", reflect.TypeOf((*MockMiddleware)(nil).Filecmd), arg0)
 }
@@ -59,7 +59,7 @@ func (m *MockMiddleware) Filelist(arg0 *sftp.Request) (sftp.ListerAt, error) {
 }
 
 // Filelist indicates an expected call of Filelist.
-func (mr *MockMiddlewareMockRecorder) Filelist(arg0 interface{}) *gomock.Call {
+func (mr *MockMiddlewareMockRecorder) Filelist(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Filelist", reflect.TypeOf((*MockMiddleware)(nil).Filelist), arg0)
 }
@@ -74,7 +74,7 @@ func (m *MockMiddleware) Fileread(arg0 *sftp.Request) (io.ReaderAt, error) {
 }
 
 // Fileread indicates an expected call of Fileread.
-func (mr *MockMiddlewareMockRecorder) Fileread(arg0 interface{}) *gomock.Call {
+func (mr *MockMiddlewareMockRecorder) Fileread(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Fileread", reflect.TypeOf((*MockMiddleware)(nil).Fileread), arg0)
 }
@@ -89,7 +89,7 @@ func (m *MockMiddleware) Filewrite(arg0 *sftp.Request) (io.WriterAt, error) {
 }
 
 // Filewrite indicates an expected call of Filewrite.
-func (mr *MockMiddlewareMockRecorder) Filewrite(arg0 interface{}) *gomock.Call {
+func (mr *MockMiddlewareMockRecorder) Filewrite(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Filewrite", reflect.TypeOf((*MockMiddleware)(nil).Filewrite), arg0)
 }
@@ -104,7 +104,7 @@ func (m *MockMiddleware) Lstat(arg0 *sftp.Request) (sftp.ListerAt, error) {
 }
 
 // Lstat indicates an expected call of Lstat.
-func (mr *MockMiddlewareMockRecorder) Lstat(arg0 interface{}) *gomock.Call {
+func (mr *MockMiddlewareMockRecorder) Lstat(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Lstat", reflect.TypeOf((*MockMiddleware)(nil).Lstat), arg0)
 }
@@ -119,7 +119,7 @@ func (m *MockMiddleware) OpenFile(arg0 *sftp.Request) (sftp.WriterAtReaderAt, er
 }
 
 // OpenFile indicates an expected call of OpenFile.
-func (mr *MockMiddlewareMockRecorder) OpenFile(arg0 interface{}) *gomock.Call {
+func (mr *MockMiddlewareMockRecorder) OpenFile(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenFile", reflect.TypeOf((*MockMiddleware)(nil).OpenFile), arg0)
 }
@@ -134,7 +134,7 @@ func (m *MockMiddleware) StatVFS(arg0 *sftp.Request) (*sftp.StatVFS, error) {
 }
 
 // StatVFS indicates an expected call of StatVFS.
-func (mr *MockMiddlewareMockRecorder) StatVFS(arg0 interface{}) *gomock.Call {
+func (mr *MockMiddlewareMockRecorder) StatVFS(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StatVFS", reflect.TypeOf((*MockMiddleware)(nil).StatVFS), arg0)
 }

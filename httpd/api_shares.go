@@ -78,7 +78,7 @@ func addShare(w http.ResponseWriter, r *http.Request) {
 		share.Name = share.ShareID
 	}
 	if share.Password == "" {
-		if util.IsStringInSlice(sdk.WebClientShareNoPasswordDisabled, claims.Permissions) {
+		if util.Contains(claims.Permissions, sdk.WebClientShareNoPasswordDisabled) {
 			sendAPIResponse(w, r, nil, "You are not authorized to share files/folders without a password",
 				http.StatusForbidden)
 			return
@@ -121,7 +121,7 @@ func updateShare(w http.ResponseWriter, r *http.Request) {
 		share.Password = oldPassword
 	}
 	if share.Password == "" {
-		if util.IsStringInSlice(sdk.WebClientShareNoPasswordDisabled, claims.Permissions) {
+		if util.Contains(claims.Permissions, sdk.WebClientShareNoPasswordDisabled) {
 			sendAPIResponse(w, r, nil, "You are not authorized to share files/folders without a password",
 				http.StatusForbidden)
 			return

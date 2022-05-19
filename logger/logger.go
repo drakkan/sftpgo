@@ -127,7 +127,7 @@ func SetLogTime(utc bool) {
 }
 
 // Log logs at the specified level for the specified sender
-func Log(level LogLevel, sender string, connectionID string, format string, v ...interface{}) {
+func Log(level LogLevel, sender string, connectionID string, format string, v ...any) {
 	var ev *zerolog.Event
 	switch level {
 	case LevelDebug:
@@ -147,42 +147,42 @@ func Log(level LogLevel, sender string, connectionID string, format string, v ..
 }
 
 // Debug logs at debug level for the specified sender
-func Debug(sender, connectionID, format string, v ...interface{}) {
+func Debug(sender, connectionID, format string, v ...any) {
 	Log(LevelDebug, sender, connectionID, format, v...)
 }
 
 // Info logs at info level for the specified sender
-func Info(sender, connectionID, format string, v ...interface{}) {
+func Info(sender, connectionID, format string, v ...any) {
 	Log(LevelInfo, sender, connectionID, format, v...)
 }
 
 // Warn logs at warn level for the specified sender
-func Warn(sender, connectionID, format string, v ...interface{}) {
+func Warn(sender, connectionID, format string, v ...any) {
 	Log(LevelWarn, sender, connectionID, format, v...)
 }
 
 // Error logs at error level for the specified sender
-func Error(sender, connectionID, format string, v ...interface{}) {
+func Error(sender, connectionID, format string, v ...any) {
 	Log(LevelError, sender, connectionID, format, v...)
 }
 
 // DebugToConsole logs at debug level to stdout
-func DebugToConsole(format string, v ...interface{}) {
+func DebugToConsole(format string, v ...any) {
 	consoleLogger.Debug().Msg(fmt.Sprintf(format, v...))
 }
 
 // InfoToConsole logs at info level to stdout
-func InfoToConsole(format string, v ...interface{}) {
+func InfoToConsole(format string, v ...any) {
 	consoleLogger.Info().Msg(fmt.Sprintf(format, v...))
 }
 
 // WarnToConsole logs at info level to stdout
-func WarnToConsole(format string, v ...interface{}) {
+func WarnToConsole(format string, v ...any) {
 	consoleLogger.Warn().Msg(fmt.Sprintf(format, v...))
 }
 
 // ErrorToConsole logs at error level to stdout
-func ErrorToConsole(format string, v ...interface{}) {
+func ErrorToConsole(format string, v ...any) {
 	consoleLogger.Error().Msg(fmt.Sprintf(format, v...))
 }
 
@@ -274,10 +274,10 @@ func (l *StdLoggerWrapper) Write(p []byte) (n int, err error) {
 // LeveledLogger is a logger that accepts a message string and a variadic number of key-value pairs
 type LeveledLogger struct {
 	Sender            string
-	additionalKeyVals []interface{}
+	additionalKeyVals []any
 }
 
-func addKeysAndValues(ev *zerolog.Event, keysAndValues ...interface{}) {
+func addKeysAndValues(ev *zerolog.Event, keysAndValues ...any) {
 	kvLen := len(keysAndValues)
 	if kvLen%2 != 0 {
 		extra := keysAndValues[kvLen-1]
@@ -292,7 +292,7 @@ func addKeysAndValues(ev *zerolog.Event, keysAndValues ...interface{}) {
 }
 
 // Error logs at error level for the specified sender
-func (l *LeveledLogger) Error(msg string, keysAndValues ...interface{}) {
+func (l *LeveledLogger) Error(msg string, keysAndValues ...any) {
 	ev := logger.Error()
 	ev.Timestamp().Str("sender", l.Sender)
 	if len(l.additionalKeyVals) > 0 {
@@ -303,7 +303,7 @@ func (l *LeveledLogger) Error(msg string, keysAndValues ...interface{}) {
 }
 
 // Info logs at info level for the specified sender
-func (l *LeveledLogger) Info(msg string, keysAndValues ...interface{}) {
+func (l *LeveledLogger) Info(msg string, keysAndValues ...any) {
 	ev := logger.Info()
 	ev.Timestamp().Str("sender", l.Sender)
 	if len(l.additionalKeyVals) > 0 {
@@ -314,7 +314,7 @@ func (l *LeveledLogger) Info(msg string, keysAndValues ...interface{}) {
 }
 
 // Debug logs at debug level for the specified sender
-func (l *LeveledLogger) Debug(msg string, keysAndValues ...interface{}) {
+func (l *LeveledLogger) Debug(msg string, keysAndValues ...any) {
 	ev := logger.Debug()
 	ev.Timestamp().Str("sender", l.Sender)
 	if len(l.additionalKeyVals) > 0 {
@@ -325,7 +325,7 @@ func (l *LeveledLogger) Debug(msg string, keysAndValues ...interface{}) {
 }
 
 // Warn logs at warn level for the specified sender
-func (l *LeveledLogger) Warn(msg string, keysAndValues ...interface{}) {
+func (l *LeveledLogger) Warn(msg string, keysAndValues ...any) {
 	ev := logger.Warn()
 	ev.Timestamp().Str("sender", l.Sender)
 	if len(l.additionalKeyVals) > 0 {
@@ -336,12 +336,12 @@ func (l *LeveledLogger) Warn(msg string, keysAndValues ...interface{}) {
 }
 
 // Panic logs the panic at error level for the specified sender
-func (l *LeveledLogger) Panic(msg string, keysAndValues ...interface{}) {
+func (l *LeveledLogger) Panic(msg string, keysAndValues ...any) {
 	l.Error(msg, keysAndValues...)
 }
 
 // With returns a LeveledLogger with additional context specific keyvals
-func (l *LeveledLogger) With(keysAndValues ...interface{}) ftpserverlog.Logger {
+func (l *LeveledLogger) With(keysAndValues ...any) ftpserverlog.Logger {
 	return &LeveledLogger{
 		Sender:            l.Sender,
 		additionalKeyVals: append(l.additionalKeyVals, keysAndValues...),

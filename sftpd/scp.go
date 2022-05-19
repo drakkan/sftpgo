@@ -560,11 +560,11 @@ func (c *scpCommand) getCommandType() string {
 }
 
 func (c *scpCommand) sendFileTime() bool {
-	return util.IsStringInSlice("-p", c.args)
+	return util.Contains(c.args, "-p")
 }
 
 func (c *scpCommand) isRecursive() bool {
-	return util.IsStringInSlice("-r", c.args)
+	return util.Contains(c.args, "-r")
 }
 
 // read the SCP confirmation message and the optional text message

@@ -756,20 +756,20 @@ func (u *User) HasPermissionsInside(virtualPath string) bool {
 // HasPerm returns true if the user has the given permission or any permission
 func (u *User) HasPerm(permission, path string) bool {
 	perms := u.GetPermissionsForPath(path)
-	if util.IsStringInSlice(PermAny, perms) {
+	if util.Contains(perms, PermAny) {
 		return true
 	}
-	return util.IsStringInSlice(permission, perms)
+	return util.Contains(perms, permission)
 }
 
 // HasAnyPerm returns true if the user has at least one of the given permissions
 func (u *User) HasAnyPerm(permissions []string, path string) bool {
 	perms := u.GetPermissionsForPath(path)
-	if util.IsStringInSlice(PermAny, perms) {
+	if util.Contains(perms, PermAny) {
 		return true
 	}
 	for _, permission := range permissions {
-		if util.IsStringInSlice(permission, perms) {
+		if util.Contains(perms, permission) {
 			return true
 		}
 	}
@@ -779,11 +779,11 @@ func (u *User) HasAnyPerm(permissions []string, path string) bool {
 // HasPerms returns true if the user has all the given permissions
 func (u *User) HasPerms(permissions []string, path string) bool {
 	perms := u.GetPermissionsForPath(path)
-	if util.IsStringInSlice(PermAny, perms) {
+	if util.Contains(perms, PermAny) {
 		return true
 	}
 	for _, permission := range permissions {
-		if !util.IsStringInSlice(permission, perms) {
+		if !util.Contains(perms, permission) {
 			return false
 		}
 	}
@@ -850,11 +850,11 @@ func (u *User) IsLoginMethodAllowed(loginMethod, protocol string, partialSuccess
 			}
 		}
 	}
-	if util.IsStringInSlice(loginMethod, u.Filters.DeniedLoginMethods) {
+	if util.Contains(u.Filters.DeniedLoginMethods, loginMethod) {
 		return false
 	}
 	if protocol == protocolSSH && loginMethod == LoginMethodPassword {
-		if util.IsStringInSlice(SSHLoginMethodPassword, u.Filters.DeniedLoginMethods) {
+		if util.Contains(u.Filters.DeniedLoginMethods, SSHLoginMethodPassword) {
 			return false
 		}
 	}
@@ -896,7 +896,7 @@ func (u *User) IsPartialAuth(loginMethod string) bool {
 			method == SSHLoginMethodPassword {
 			continue
 		}
-		if !util.IsStringInSlice(method, SSHMultiStepsLoginMethods) {
+		if !util.Contains(SSHMultiStepsLoginMethods, method) {
 			return false
 		}
 	}
@@ -910,7 +910,7 @@ func (u *User) GetAllowedLoginMethods() []string {
 		if method == SSHLoginMethodPassword {
 			continue
 		}
-		if !util.IsStringInSlice(method, u.Filters.DeniedLoginMethods) {
+		if !util.Contains(u.Filters.DeniedLoginMethods, method) {
 			allowedMethods = append(allowedMethods, method)
 		}
 	}
@@ -968,7 +968,7 @@ func (u *User) IsFileAllowed(virtualPath string) (bool, int) {
 
 // CanManageMFA returns true if the user can add a multi-factor authentication configuration
 func (u *User) CanManageMFA() bool {
-	if util.IsStringInSlice(sdk.WebClientMFADisabled, u.Filters.WebClient) {
+	if util.Contains(u.Filters.WebClient, sdk.WebClientMFADisabled) {
 		return false
 	}
 	return len(mfa.GetAvailableTOTPConfigs()) > 0
@@ -987,39 +987,39 @@ func (u *User) isExternalAuthCached() bool {
 
 // CanManageShares returns true if the user can add, update and list shares
 func (u *User) CanManageShares() bool {
-	return !util.IsStringInSlice(sdk.WebClientSharesDisabled, u.Filters.WebClient)
+	return !util.Contains(u.Filters.WebClient, sdk.WebClientSharesDisabled)
 }
 
 // CanResetPassword returns true if this user is allowed to reset its password
 func (u *User) CanResetPassword() bool {
-	return !util.IsStringInSlice(sdk.WebClientPasswordResetDisabled, u.Filters.WebClient)
+	return !util.Contains(u.Filters.WebClient, sdk.WebClientPasswordResetDisabled)
 }
 
 // CanChangePassword returns true if this user is allowed to change its password
 func (u *User) CanChangePassword() bool {
-	return !util.IsStringInSlice(sdk.WebClientPasswordChangeDisabled, u.Filters.WebClient)
+	return !util.Contains(u.Filters.WebClient, sdk.WebClientPasswordChangeDisabled)
 }
 
 // CanChangeAPIKeyAuth returns true if this user is allowed to enable/disable API key authentication
 func (u *User) CanChangeAPIKeyAuth() bool {
-	return !util.IsStringInSlice(sdk.WebClientAPIKeyAuthChangeDisabled, u.Filters.WebClient)
+	return !util.Contains(u.Filters.WebClient, sdk.WebClientAPIKeyAuthChangeDisabled)
 }
 
 // CanChangeInfo returns true if this user is allowed to change its info such as email and description
 func (u *User) CanChangeInfo() bool {
-	return !util.IsStringInSlice(sdk.WebClientInfoChangeDisabled, u.Filters.WebClient)
+	return !util.Contains(u.Filters.WebClient, sdk.WebClientInfoChangeDisabled)
 }
 
 // CanManagePublicKeys returns true if this user is allowed to manage public keys
 // from the web client. Used in web client UI
 func (u *User) CanManagePublicKeys() bool {
-	return !util.IsStringInSlice(sdk.WebClientPubKeyChangeDisabled, u.Filters.WebClient)
+	return !util.Contains(u.Filters.WebClient, sdk.WebClientPubKeyChangeDisabled)
 }
 
 // CanAddFilesFromWeb returns true if the client can add files from the web UI.
 // The specified target is the directory where the files must be uploaded
 func (u *User) CanAddFilesFromWeb(target string) bool {
-	if util.IsStringInSlice(sdk.WebClientWriteDisabled, u.Filters.WebClient) {
+	if util.Contains(u.Filters.WebClient, sdk.WebClientWriteDisabled) {
 		return false
 	}
 	return u.HasPerm(PermUpload, target) || u.HasPerm(PermOverwrite, target)
@@ -1028,7 +1028,7 @@ func (u *User) CanAddFilesFromWeb(target string) bool {
 // CanAddDirsFromWeb returns true if the client can add directories from the web UI.
 // The specified target is the directory where the new directory must be created
 func (u *User) CanAddDirsFromWeb(target string) bool {
-	if util.IsStringInSlice(sdk.WebClientWriteDisabled, u.Filters.WebClient) {
+	if util.Contains(u.Filters.WebClient, sdk.WebClientWriteDisabled) {
 		return false
 	}
 	return u.HasPerm(PermCreateDirs, target)
@@ -1037,7 +1037,7 @@ func (u *User) CanAddDirsFromWeb(target string) bool {
 // CanRenameFromWeb returns true if the client can rename objects from the web UI.
 // The specified src and dest are the source and target directories for the rename.
 func (u *User) CanRenameFromWeb(src, dest string) bool {
-	if util.IsStringInSlice(sdk.WebClientWriteDisabled, u.Filters.WebClient) {
+	if util.Contains(u.Filters.WebClient, sdk.WebClientWriteDisabled) {
 		return false
 	}
 	return u.HasAnyPerm(permsRenameAny, src) && u.HasAnyPerm(permsRenameAny, dest)
@@ -1046,7 +1046,7 @@ func (u *User) CanRenameFromWeb(src, dest string) bool {
 // CanDeleteFromWeb returns true if the client can delete objects from the web UI.
 // The specified target is the parent directory for the object to delete
 func (u *User) CanDeleteFromWeb(target string) bool {
-	if util.IsStringInSlice(sdk.WebClientWriteDisabled, u.Filters.WebClient) {
+	if util.Contains(u.Filters.WebClient, sdk.WebClientWriteDisabled) {
 		return false
 	}
 	return u.HasAnyPerm(permsDeleteAny, target)
@@ -1059,7 +1059,7 @@ func (u *User) MustSetSecondFactor() bool {
 			return true
 		}
 		for _, p := range u.Filters.TwoFactorAuthProtocols {
-			if !util.IsStringInSlice(p, u.Filters.TOTPConfig.Protocols) {
+			if !util.Contains(u.Filters.TOTPConfig.Protocols, p) {
 				return true
 			}
 		}
@@ -1070,11 +1070,11 @@ func (u *User) MustSetSecondFactor() bool {
 // MustSetSecondFactorForProtocol returns true if the user must set a second factor authentication
 // for the specified protocol
 func (u *User) MustSetSecondFactorForProtocol(protocol string) bool {
-	if util.IsStringInSlice(protocol, u.Filters.TwoFactorAuthProtocols) {
+	if util.Contains(u.Filters.TwoFactorAuthProtocols, protocol) {
 		if !u.Filters.TOTPConfig.Enabled {
 			return true
 		}
-		if !util.IsStringInSlice(protocol, u.Filters.TOTPConfig.Protocols) {
+		if !util.Contains(u.Filters.TOTPConfig.Protocols, protocol) {
 			return true
 		}
 	}

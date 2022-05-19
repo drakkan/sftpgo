@@ -49,8 +49,8 @@ func executeAction(operation, executor, ip, objectType, objectName string, objec
 	if config.Actions.Hook == "" {
 		return
 	}
-	if !util.IsStringInSlice(operation, config.Actions.ExecuteOn) ||
-		!util.IsStringInSlice(objectType, config.Actions.ExecuteFor) {
+	if !util.Contains(config.Actions.ExecuteOn, operation) ||
+		!util.Contains(config.Actions.ExecuteFor, objectType) {
 		return
 	}
 

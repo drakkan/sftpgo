@@ -103,6 +103,7 @@ SFTPGo is also available on [AWS Marketplace](https://aws.amazon.com/marketplace
 
 </details>
 
+On macOS you can install from the Homebrew [Formula](https://formulae.brew.sh/formula/sftpgo).
 On FreeBSD you can install from the [SFTPGo port](https://www.freshports.org/ftp/sftpgo).
 On DragonFlyBSD you can install SFTPGo from [DPorts](https://github.com/DragonFlyBSD/DPorts/tree/master/ftp/sftpgo).
 

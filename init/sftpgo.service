@@ -22,6 +22,7 @@ PrivateDevices=yes
 DevicePolicy=closed
 ProtectSystem=true
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+AmbientCapabilities=CAP_NET_BIND_SERVICE
 
 [Install]
 WantedBy=multi-user.target

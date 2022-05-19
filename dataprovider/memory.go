@@ -988,7 +988,7 @@ func (p *MemoryProvider) addUserFromGroupMapping(username, groupname string) err
 	if err != nil {
 		return err
 	}
-	if !util.IsStringInSlice(username, g.Users) {
+	if !util.Contains(g.Users, username) {
 		g.Users = append(g.Users, username)
 		p.dbHandle.groups[groupname] = g
 	}
@@ -1000,7 +1000,7 @@ func (p *MemoryProvider) removeUserFromGroupMapping(username, groupname string) 
 	if err != nil {
 		return err
 	}
-	if util.IsStringInSlice(username, g.Users) {
+	if util.Contains(g.Users, username) {
 		var users []string
 		for _, u := range g.Users {
 			if u != username {
@@ -1069,7 +1069,7 @@ func (p *MemoryProvider) removeRelationFromFolderMapping(folderName, username, g
 
 func (p *MemoryProvider) updateFoldersMappingInternal(folder vfs.BaseVirtualFolder) {
 	p.dbHandle.vfolders[folder.Name] = folder
-	if !util.IsStringInSlice(folder.Name, p.dbHandle.vfoldersNames) {
+	if !util.Contains(p.dbHandle.vfoldersNames, folder.Name) {
 		p.dbHandle.vfoldersNames = append(p.dbHandle.vfoldersNames, folder.Name)
 		sort.Strings(p.dbHandle.vfoldersNames)
 	}
@@ -1084,10 +1084,10 @@ func (p *MemoryProvider) addOrUpdateFolderInternal(baseFolder *vfs.BaseVirtualFo
 		folder.MappedPath = baseFolder.MappedPath
 		folder.Description = baseFolder.Description
 		folder.FsConfig = baseFolder.FsConfig.GetACopy()
-		if username != "" && !util.IsStringInSlice(username, folder.Users) {
+		if username != "" && !util.Contains(folder.Users, username) {
 			folder.Users = append(folder.Users, username)
 		}
-		if groupname != "" && !util.IsStringInSlice(groupname, folder.Groups) {
+		if groupname != "" && !util.Contains(folder.Groups, groupname) {
 			folder.Groups = append(folder.Groups, groupname)
 		}
 		p.updateFoldersMappingInternal(folder)
@@ -1750,6 +1750,22 @@ func (p *MemoryProvider) cleanupActiveTransfers(before time.Time) error {
 
 func (p *MemoryProvider) getActiveTransfers(from time.Time) ([]ActiveTransfer, error) {
 	return nil, ErrNotImplemented
+}
+
+func (p *MemoryProvider) addSharedSession(session Session) error {
+	return ErrNotImplemented
+}
+
+func (p *MemoryProvider) deleteSharedSession(key string) error {
+	return ErrNotImplemented
+}
+
+func (p *MemoryProvider) getSharedSession(key string) (Session, error) {
+	return Session{}, ErrNotImplemented
+}
+
+func (p *MemoryProvider) cleanupSharedSessions(sessionType SessionType, before int64) error {
+	return ErrNotImplemented
 }
 
 func (p *MemoryProvider) getNextID() int64 {

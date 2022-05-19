@@ -163,7 +163,7 @@ func Initialize(c Configuration, isShared int) error {
 		}
 	}
 	if c.DefenderConfig.Enabled {
-		if !util.IsStringInSlice(c.DefenderConfig.Driver, supportedDefenderDrivers) {
+		if !util.Contains(supportedDefenderDrivers, c.DefenderConfig.Driver) {
 			return fmt.Errorf("unsupported defender driver %#v", c.DefenderConfig.Driver)
 		}
 		var defender Defender
@@ -635,7 +635,7 @@ func (c *Configuration) checkPostDisconnectHook(remoteAddr, protocol, username, 
 	if c.PostDisconnectHook == "" {
 		return
 	}
-	if !util.IsStringInSlice(protocol, disconnHookProtocols) {
+	if !util.Contains(disconnHookProtocols, protocol) {
 		return
 	}
 	go c.executePostDisconnectHook(remoteAddr, protocol, username, connID, connectionTime)

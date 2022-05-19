@@ -549,7 +549,7 @@ func (c *AzBlobFsConfig) validate() error {
 	if err := c.checkPartSizeAndConcurrency(); err != nil {
 		return err
 	}
-	if !util.IsStringInSlice(c.AccessTier, validAzAccessTier) {
+	if !util.Contains(validAzAccessTier, c.AccessTier) {
 		return fmt.Errorf("invalid access tier %#v, valid values: \"''%v\"", c.AccessTier, strings.Join(validAzAccessTier, ", "))
 	}
 	return nil
@@ -829,6 +829,6 @@ func getMountPath(mountPath string) string {
 	return mountPath
 }
 
-func fsLog(fs Fs, level logger.LogLevel, format string, v ...interface{}) {
+func fsLog(fs Fs, level logger.LogLevel, format string, v ...any) {
 	logger.Log(level, fs.Name(), fs.ConnectionID(), format, v...)
 }

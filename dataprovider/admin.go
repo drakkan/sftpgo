@@ -68,7 +68,7 @@ func (c *AdminTOTPConfig) validate(username string) error {
 	if c.ConfigName == "" {
 		return util.NewValidationError("totp: config name is mandatory")
 	}
-	if !util.IsStringInSlice(c.ConfigName, mfa.GetAvailableTOTPConfigNames()) {
+	if !util.Contains(mfa.GetAvailableTOTPConfigNames(), c.ConfigName) {
 		return util.NewValidationError(fmt.Sprintf("totp: config name %#v not found", c.ConfigName))
 	}
 	if c.Secret.IsEmpty() {
@@ -182,11 +182,11 @@ func (a *Admin) validatePermissions() error {
 	if len(a.Permissions) == 0 {
 		return util.NewValidationError("please grant some permissions to this admin")
 	}
-	if util.IsStringInSlice(PermAdminAny, a.Permissions) {
+	if util.Contains(a.Permissions, PermAdminAny) {
 		a.Permissions = []string{PermAdminAny}
 	}
 	for _, perm := range a.Permissions {
-		if !util.IsStringInSlice(perm, validAdminPerms) {
+		if !util.Contains(validAdminPerms, perm) {
 			return util.NewValidationError(fmt.Sprintf("invalid permission: %#v", perm))
 		}
 	}
@@ -345,10 +345,10 @@ func (a *Admin) SetNilSecretsIfEmpty() {
 
 // HasPermission returns true if the admin has the specified permission
 func (a *Admin) HasPermission(perm string) bool {
-	if util.IsStringInSlice(PermAdminAny, a.Permissions) {
+	if util.Contains(a.Permissions, PermAdminAny) {
 		return true
 	}
-	return util.IsStringInSlice(perm, a.Permissions)
+	return util.Contains(a.Permissions, perm)
 }
 
 // GetPermissionsAsString returns permission as string

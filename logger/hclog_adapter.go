@@ -14,7 +14,7 @@ type HCLogAdapter struct {
 }
 
 // Log emits a message and key/value pairs at a provided log level
-func (l *HCLogAdapter) Log(level hclog.Level, msg string, args ...interface{}) {
+func (l *HCLogAdapter) Log(level hclog.Level, msg string, args ...any) {
 	var ev *zerolog.Event
 	switch level {
 	case hclog.Info:
@@ -32,32 +32,32 @@ func (l *HCLogAdapter) Log(level hclog.Level, msg string, args ...interface{}) {
 }
 
 // Trace emits a message and key/value pairs at the TRACE level
-func (l *HCLogAdapter) Trace(msg string, args ...interface{}) {
+func (l *HCLogAdapter) Trace(msg string, args ...any) {
 	l.Log(hclog.Debug, msg, args...)
 }
 
 // Debug emits a message and key/value pairs at the DEBUG level
-func (l *HCLogAdapter) Debug(msg string, args ...interface{}) {
+func (l *HCLogAdapter) Debug(msg string, args ...any) {
 	l.Log(hclog.Debug, msg, args...)
 }
 
 // Info emits a message and key/value pairs at the INFO level
-func (l *HCLogAdapter) Info(msg string, args ...interface{}) {
+func (l *HCLogAdapter) Info(msg string, args ...any) {
 	l.Log(hclog.Info, msg, args...)
 }
 
 // Warn emits a message and key/value pairs at the WARN level
-func (l *HCLogAdapter) Warn(msg string, args ...interface{}) {
+func (l *HCLogAdapter) Warn(msg string, args ...any) {
 	l.Log(hclog.Warn, msg, args...)
 }
 
 // Error emits a message and key/value pairs at the ERROR level
-func (l *HCLogAdapter) Error(msg string, args ...interface{}) {
+func (l *HCLogAdapter) Error(msg string, args ...any) {
 	l.Log(hclog.Error, msg, args...)
 }
 
 // With creates a sub-logger
-func (l *HCLogAdapter) With(args ...interface{}) hclog.Logger {
+func (l *HCLogAdapter) With(args ...any) hclog.Logger {
 	return &HCLogAdapter{Logger: l.Logger.With(args...)}
 }
 

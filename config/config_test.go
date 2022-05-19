@@ -294,7 +294,7 @@ func TestDefenderProviderDriver(t *testing.T) {
 	commonConfig := config.GetCommonConfig()
 	commonConfig.DefenderConfig.Enabled = true
 	commonConfig.DefenderConfig.Driver = common.DefenderDriverProvider
-	c := make(map[string]interface{})
+	c := make(map[string]any)
 	c["common"] = commonConfig
 	c["data_provider"] = providerConf
 	jsonConf, err := json.Marshal(c)
@@ -524,8 +524,8 @@ func TestPluginsFromEnv(t *testing.T) {
 	pluginConf := pluginsConf[0]
 	require.Equal(t, "notifier", pluginConf.Type)
 	require.Len(t, pluginConf.NotifierOptions.FsEvents, 2)
-	require.True(t, util.IsStringInSlice("upload", pluginConf.NotifierOptions.FsEvents))
-	require.True(t, util.IsStringInSlice("download", pluginConf.NotifierOptions.FsEvents))
+	require.True(t, util.Contains(pluginConf.NotifierOptions.FsEvents, "upload"))
+	require.True(t, util.Contains(pluginConf.NotifierOptions.FsEvents, "download"))
 	require.Len(t, pluginConf.NotifierOptions.ProviderEvents, 2)
 	require.Equal(t, "add", pluginConf.NotifierOptions.ProviderEvents[0])
 	require.Equal(t, "update", pluginConf.NotifierOptions.ProviderEvents[1])
@@ -563,8 +563,8 @@ func TestPluginsFromEnv(t *testing.T) {
 	pluginConf = pluginsConf[0]
 	require.Equal(t, "notifier", pluginConf.Type)
 	require.Len(t, pluginConf.NotifierOptions.FsEvents, 2)
-	require.True(t, util.IsStringInSlice("upload", pluginConf.NotifierOptions.FsEvents))
-	require.True(t, util.IsStringInSlice("download", pluginConf.NotifierOptions.FsEvents))
+	require.True(t, util.Contains(pluginConf.NotifierOptions.FsEvents, "upload"))
+	require.True(t, util.Contains(pluginConf.NotifierOptions.FsEvents, "download"))
 	require.Len(t, pluginConf.NotifierOptions.ProviderEvents, 2)
 	require.Equal(t, "add", pluginConf.NotifierOptions.ProviderEvents[0])
 	require.Equal(t, "update", pluginConf.NotifierOptions.ProviderEvents[1])
@@ -624,8 +624,8 @@ func TestRateLimitersFromEnv(t *testing.T) {
 	require.Equal(t, 2, limiters[0].Type)
 	protocols := limiters[0].Protocols
 	require.Len(t, protocols, 2)
-	require.True(t, util.IsStringInSlice(common.ProtocolFTP, protocols))
-	require.True(t, util.IsStringInSlice(common.ProtocolSSH, protocols))
+	require.True(t, util.Contains(protocols, common.ProtocolFTP))
+	require.True(t, util.Contains(protocols, common.ProtocolSSH))
 	require.True(t, limiters[0].GenerateDefenderEvents)
 	require.Equal(t, 50, limiters[0].EntriesSoftLimit)
 	require.Equal(t, 100, limiters[0].EntriesHardLimit)
@@ -641,10 +641,10 @@ func TestRateLimitersFromEnv(t *testing.T) {
 	require.Equal(t, 2, limiters[1].Type)
 	protocols = limiters[1].Protocols
 	require.Len(t, protocols, 4)
-	require.True(t, util.IsStringInSlice(common.ProtocolFTP, protocols))
-	require.True(t, util.IsStringInSlice(common.ProtocolSSH, protocols))
-	require.True(t, util.IsStringInSlice(common.ProtocolWebDAV, protocols))
-	require.True(t, util.IsStringInSlice(common.ProtocolHTTP, protocols))
+	require.True(t, util.Contains(protocols, common.ProtocolFTP))
+	require.True(t, util.Contains(protocols, common.ProtocolSSH))
+	require.True(t, util.Contains(protocols, common.ProtocolWebDAV))
+	require.True(t, util.Contains(protocols, common.ProtocolHTTP))
 	require.False(t, limiters[1].GenerateDefenderEvents)
 	require.Equal(t, 100, limiters[1].EntriesSoftLimit)
 	require.Equal(t, 150, limiters[1].EntriesHardLimit)

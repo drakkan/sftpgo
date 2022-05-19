@@ -186,7 +186,8 @@ func (s *Service) startServices() {
 
 	if httpdConf.ShouldBind() {
 		go func() {
-			if err := httpdConf.Initialize(s.ConfigDir); err != nil {
+			providerConf := config.GetProviderConf()
+			if err := httpdConf.Initialize(s.ConfigDir, providerConf.GetShared()); err != nil {
 				logger.Error(logSender, "", "could not start HTTP server: %v", err)
 				logger.ErrorToConsole("could not start HTTP server: %v", err)
 				s.Error = err

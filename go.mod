@@ -3,26 +3,26 @@ module github.com/drakkan/sftpgo/v2
 go 1.18
 
 require (
-	cloud.google.com/go/storage v1.22.0
+	cloud.google.com/go/storage v1.22.1
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.0.0
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v0.4.1
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/alexedwards/argon2id v0.0.0-20211130144151-3585854a6387
-	github.com/aws/aws-sdk-go-v2 v1.16.3
-	github.com/aws/aws-sdk-go-v2/config v1.15.5
-	github.com/aws/aws-sdk-go-v2/credentials v1.12.0
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.4
-	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.10
-	github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.13.4
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.26.9
-	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.15.7
-	github.com/aws/aws-sdk-go-v2/service/sts v1.16.4
-	github.com/cockroachdb/cockroach-go/v2 v2.2.8
+	github.com/aws/aws-sdk-go-v2 v1.16.4
+	github.com/aws/aws-sdk-go-v2/config v1.15.7
+	github.com/aws/aws-sdk-go-v2/credentials v1.12.2
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.5
+	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.12
+	github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.13.5
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.26.10
+	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.15.8
+	github.com/aws/aws-sdk-go-v2/service/sts v1.16.6
+	github.com/cockroachdb/cockroach-go/v2 v2.2.10
 	github.com/coreos/go-oidc/v3 v3.2.0
 	github.com/eikenb/pipeat v0.0.0-20210730190139-06b3e6902001
-	github.com/fclairamb/ftpserverlib v0.18.0
+	github.com/fclairamb/ftpserverlib v0.18.1-0.20220515214847-f96d31ec626e
 	github.com/fclairamb/go-log v0.3.0
-	github.com/go-chi/chi/v5 v5.0.8-0.20220103230436-7dbe9a0bd10f
+	github.com/go-chi/chi/v5 v5.0.8-0.20220512131524-9e71a0d4b3d6
 	github.com/go-chi/jwtauth/v5 v5.0.2
 	github.com/go-chi/render v1.0.1
 	github.com/go-sql-driver/mysql v1.6.0
@@ -36,7 +36,7 @@ require (
 	github.com/jlaffaye/ftp v0.0.0-20201112195030-9aae4d151126
 	github.com/klauspost/compress v1.15.4
 	github.com/lestrrat-go/jwx v1.2.24
-	github.com/lib/pq v1.10.5
+	github.com/lib/pq v1.10.6
 	github.com/lithammer/shortuuid/v3 v3.0.7
 	github.com/mattn/go-sqlite3 v1.14.13
 	github.com/mhale/smtpd v0.8.0
@@ -49,7 +49,7 @@ require (
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rs/cors v1.8.2
 	github.com/rs/xid v1.4.0
-	github.com/rs/zerolog v1.26.2-0.20220312163309-e9344a8c507b
+	github.com/rs/zerolog v1.26.2-0.20220505171737-a4ec5e4cdd4b
 	github.com/sftpgo/sdk v0.1.1-0.20220425123921-2f843a49e012
 	github.com/shirou/gopsutil/v3 v3.22.4
 	github.com/spf13/afero v1.8.2
@@ -64,12 +64,12 @@ require (
 	go.etcd.io/bbolt v1.3.6
 	go.uber.org/automaxprocs v1.5.1
 	gocloud.dev v0.25.0
-	golang.org/x/crypto v0.0.0-20220511200225-c6db032c6c88
+	golang.org/x/crypto v0.0.0-20220518034528-6f7dac969898
 	golang.org/x/net v0.0.0-20220513224357-95641704303c
 	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5
-	golang.org/x/sys v0.0.0-20220513210249-45d2b4557a2a
+	golang.org/x/sys v0.0.0-20220519141025-dcacdad47464
 	golang.org/x/time v0.0.0-20220411224347-583f2d630306
-	google.golang.org/api v0.79.0
+	google.golang.org/api v0.80.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
 
@@ -79,15 +79,15 @@ require (
 	cloud.google.com/go/iam v0.3.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.0.0 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.4.1 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.10 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.4 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/ini v1.3.11 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/v4a v1.0.1 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.11 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.5 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/ini v1.3.12 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/v4a v1.0.2 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.9.1 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.1.5 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.4 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.13.4 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.11.4 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.1.6 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.5 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.13.5 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.11.5 // indirect
 	github.com/aws/smithy-go v1.11.2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/boombuler/barcode v1.0.1 // indirect
@@ -119,7 +119,7 @@ require (
 	github.com/lestrrat-go/httpcc v1.0.1 // indirect
 	github.com/lestrrat-go/iter v1.0.2 // indirect
 	github.com/lestrrat-go/option v1.0.0 // indirect
-	github.com/lufia/plan9stats v0.0.0-20220326011226-f1430873d8db // indirect
+	github.com/lufia/plan9stats v0.0.0-20220517141722-cf486979b281 // indirect
 	github.com/magiconair/properties v1.8.6 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
@@ -150,9 +150,9 @@ require (
 	golang.org/x/mod v0.6.0-dev.0.20220106191415-9b9b3d81d5e3 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/tools v0.1.10 // indirect
-	golang.org/x/xerrors v0.0.0-20220411194840-2f41105eb62f // indirect
+	golang.org/x/xerrors v0.0.0-20220517211312-f3a8303e98df // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20220505152158-f39f71e6c8f3 // indirect
+	google.golang.org/genproto v0.0.0-20220519153652-3a47de7e79bd // indirect
 	google.golang.org/grpc v1.46.2 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/ini.v1 v1.66.4 // indirect
@@ -163,6 +163,6 @@ require (
 
 replace (
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
-	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20220514091251-ad79d832b8dc
+	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20220519062025-309756691f42
 	golang.org/x/net => github.com/drakkan/net v0.0.0-20220514085754-d827943a3fff
 )

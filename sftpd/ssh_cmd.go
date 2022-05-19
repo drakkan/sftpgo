@@ -76,7 +76,7 @@ func processSSHCommand(payload []byte, connection *Connection, enabledSSHCommand
 		name, args, err := parseCommandPayload(msg.Command)
 		connection.Log(logger.LevelDebug, "new ssh command: %#v args: %v num args: %v user: %v, error: %v",
 			name, args, len(args), connection.User.Username, err)
-		if err == nil && util.IsStringInSlice(name, enabledSSHCommands) {
+		if err == nil && util.Contains(enabledSSHCommands, name) {
 			connection.command = msg.Command
 			if name == scpCmdName && len(args) >= 2 {
 				connection.SetProtocol(common.ProtocolSCP)
@@ -122,9 +122,9 @@ func (c *sshCommand) handle() (err error) {
 	defer common.Connections.Remove(c.connection.GetID())
 
 	c.connection.UpdateLastActivity()
-	if util.IsStringInSlice(c.command, sshHashCommands) {
+	if util.Contains(sshHashCommands, c.command) {
 		return c.handleHashCommands()
-	} else if util.IsStringInSlice(c.command, systemCommands) {
+	} else if util.Contains(systemCommands, c.command) {
 		command, err := c.getSystemCommand()
 		if err != nil {
 			return c.sendErrorResponse(err)
@@ -507,11 +507,11 @@ func (c *sshCommand) getSystemCommand() (systemCommand, error) {
 		// If the user cannot create symlinks we add the option --munge-links, if it is not
 		// already set. This should make symlinks unusable (but manually recoverable)
 		if c.connection.User.HasPerm(dataprovider.PermCreateSymlinks, c.getDestPath()) {
-			if !util.IsStringInSlice("--safe-links", args) {
+			if !util.Contains(args, "--safe-links") {
 				args = append([]string{"--safe-links"}, args...)
 			}
 		} else {
-			if !util.IsStringInSlice("--munge-links", args) {
+			if !util.Contains(args, "--munge-links") {
 				args = append([]string{"--munge-links"}, args...)
 			}
 		}

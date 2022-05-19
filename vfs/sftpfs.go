@@ -73,7 +73,7 @@ func (c *SFTPFsConfig) isEqual(other *SFTPFsConfig) bool {
 		return false
 	}
 	for _, fp := range c.Fingerprints {
-		if !util.IsStringInSlice(fp, other.Fingerprints) {
+		if !util.Contains(other.Fingerprints, fp) {
 			return false
 		}
 	}
@@ -756,8 +756,8 @@ func (fs *SFTPFs) createConnection() error {
 		User: fs.config.Username,
 		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
 			fp := ssh.FingerprintSHA256(key)
-			if util.IsStringInSlice(fp, sftpFingerprints) {
-				if util.IsStringInSlice(fs.config.Username, fs.config.forbiddenSelfUsernames) {
+			if util.Contains(sftpFingerprints, fp) {
+				if util.Contains(fs.config.forbiddenSelfUsernames, fs.config.Username) {
 					fsLog(fs, logger.LevelError, "SFTP loop or nested local SFTP folders detected, mount path %#v, username %#v, forbidden usernames: %+v",
 						fs.mountPath, fs.config.Username, fs.config.forbiddenSelfUsernames)
 					return ErrSFTPLoop

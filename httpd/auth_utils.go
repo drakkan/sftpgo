@@ -65,8 +65,8 @@ func (c *jwtTokenClaims) hasUserAudience() bool {
 	return false
 }
 
-func (c *jwtTokenClaims) asMap() map[string]interface{} {
-	claims := make(map[string]interface{})
+func (c *jwtTokenClaims) asMap() map[string]any {
+	claims := make(map[string]any)
 
 	claims[claimUsernameKey] = c.Username
 	claims[claimPermissionsKey] = c.Permissions
@@ -80,7 +80,7 @@ func (c *jwtTokenClaims) asMap() map[string]interface{} {
 	return claims
 }
 
-func (c *jwtTokenClaims) Decode(token map[string]interface{}) {
+func (c *jwtTokenClaims) Decode(token map[string]any) {
 	c.Permissions = nil
 	username := token[claimUsernameKey]
 
@@ -112,7 +112,7 @@ func (c *jwtTokenClaims) Decode(token map[string]interface{}) {
 
 	permissions := token[claimPermissionsKey]
 	switch v := permissions.(type) {
-	case []interface{}:
+	case []any:
 		for _, elem := range v {
 			switch elemValue := elem.(type) {
 			case string:
@@ -129,7 +129,7 @@ func (c *jwtTokenClaims) Decode(token map[string]interface{}) {
 
 	secondFactorProtocols := token[claimRequiredTwoFactorProtocols]
 	switch v := secondFactorProtocols.(type) {
-	case []interface{}:
+	case []any:
 		for _, elem := range v {
 			switch elemValue := elem.(type) {
 			case string:
@@ -140,24 +140,24 @@ func (c *jwtTokenClaims) Decode(token map[string]interface{}) {
 }
 
 func (c *jwtTokenClaims) isCriticalPermRemoved(permissions []string) bool {
-	if util.IsStringInSlice(dataprovider.PermAdminAny, permissions) {
+	if util.Contains(permissions, dataprovider.PermAdminAny) {
 		return false
 	}
-	if (util.IsStringInSlice(dataprovider.PermAdminManageAdmins, c.Permissions) ||
-		util.IsStringInSlice(dataprovider.PermAdminAny, c.Permissions)) &&
-		!util.IsStringInSlice(dataprovider.PermAdminManageAdmins, permissions) &&
-		!util.IsStringInSlice(dataprovider.PermAdminAny, permissions) {
+	if (util.Contains(c.Permissions, dataprovider.PermAdminManageAdmins) ||
+		util.Contains(c.Permissions, dataprovider.PermAdminAny)) &&
+		!util.Contains(permissions, dataprovider.PermAdminManageAdmins) &&
+		!util.Contains(permissions, dataprovider.PermAdminAny) {
 		return true
 	}
 	return false
 }
 
 func (c *jwtTokenClaims) hasPerm(perm string) bool {
-	if util.IsStringInSlice(dataprovider.PermAdminAny, c.Permissions) {
+	if util.Contains(c.Permissions, dataprovider.PermAdminAny) {
 		return true
 	}
 
-	return util.IsStringInSlice(perm, c.Permissions)
+	return util.Contains(c.Permissions, perm)
 }
 
 func (c *jwtTokenClaims) createToken(tokenAuth *jwtauth.JWTAuth, audience tokenAudience, ip string) (jwt.Token, string, error) {
@@ -172,13 +172,13 @@ func (c *jwtTokenClaims) createToken(tokenAuth *jwtauth.JWTAuth, audience tokenA
 	return tokenAuth.Encode(claims)
 }
 
-func (c *jwtTokenClaims) createTokenResponse(tokenAuth *jwtauth.JWTAuth, audience tokenAudience, ip string) (map[string]interface{}, error) {
+func (c *jwtTokenClaims) createTokenResponse(tokenAuth *jwtauth.JWTAuth, audience tokenAudience, ip string) (map[string]any, error) {
 	token, tokenString, err := c.createToken(tokenAuth, audience, ip)
 	if err != nil {
 		return nil, err
 	}
 
-	response := make(map[string]interface{})
+	response := make(map[string]any)
 	response["access_token"] = tokenString
 	response["expires_at"] = token.Expiration().Format(time.RFC3339)
 
@@ -301,7 +301,7 @@ func getAdminFromToken(r *http.Request) *dataprovider.Admin {
 }
 
 func createCSRFToken(ip string) string {
-	claims := make(map[string]interface{})
+	claims := make(map[string]any)
 	now := time.Now().UTC()
 
 	claims[jwt.JwtIDKey] = xid.New().String()
@@ -324,12 +324,12 @@ func verifyCSRFToken(tokenString, ip string) error {
 		return fmt.Errorf("unable to verify form token: %v", err)
 	}
 
-	if !util.IsStringInSlice(tokenAudienceCSRF, token.Audience()) {
+	if !util.Contains(token.Audience(), tokenAudienceCSRF) {
 		logger.Debug(logSender, "", "error validating CSRF token audience")
 		return errors.New("the form token is not valid")
 	}
 
-	if !util.IsStringInSlice(ip, token.Audience()) {
+	if !util.Contains(token.Audience(), ip) {
 		logger.Debug(logSender, "", "error validating CSRF token IP audience")
 		return errors.New("the form token is not valid")
 	}

@@ -71,13 +71,13 @@ func validateJWTToken(w http.ResponseWriter, r *http.Request, audience tokenAudi
 	if err := checkPartialAuth(w, r, audience, token.Audience()); err != nil {
 		return err
 	}
-	if !util.IsStringInSlice(audience, token.Audience()) {
+	if !util.Contains(token.Audience(), audience) {
 		logger.Debug(logSender, "", "the token is not valid for audience %#v", audience)
 		doRedirect("Your token audience is not valid", nil)
 		return errInvalidToken
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
-	if !util.IsStringInSlice(ipAddr, token.Audience()) {
+	if !util.Contains(token.Audience(), ipAddr) {
 		logger.Debug(logSender, "", "the token with id %#v is not valid for the ip address %#v", token.JwtID(), ipAddr)
 		doRedirect("Your token is not valid", nil)
 		return errInvalidToken
@@ -101,7 +101,7 @@ func (s *httpdServer) validateJWTPartialToken(w http.ResponseWriter, r *http.Req
 		notFoundFunc(w, r, nil)
 		return errInvalidToken
 	}
-	if !util.IsStringInSlice(audience, token.Audience()) {
+	if !util.Contains(token.Audience(), audience) {
 		logger.Debug(logSender, "", "the token is not valid for audience %#v", audience)
 		notFoundFunc(w, r, nil)
 		return errInvalidToken
@@ -277,13 +277,13 @@ func verifyCSRFHeader(next http.Handler) http.Handler {
 			return
 		}
 
-		if !util.IsStringInSlice(tokenAudienceCSRF, token.Audience()) {
+		if !util.Contains(token.Audience(), tokenAudienceCSRF) {
 			logger.Debug(logSender, "", "error validating CSRF header token audience")
 			sendAPIResponse(w, r, errors.New("the token is not valid"), "", http.StatusForbidden)
 			return
 		}
 
-		if !util.IsStringInSlice(util.GetIPFromRemoteAddress(r.RemoteAddr), token.Audience()) {
+		if !util.Contains(token.Audience(), util.GetIPFromRemoteAddress(r.RemoteAddr)) {
 			logger.Debug(logSender, "", "error validating CSRF header IP audience")
 			sendAPIResponse(w, r, errors.New("the token is not valid"), "", http.StatusForbidden)
 			return
@@ -464,11 +464,11 @@ func authenticateUserWithAPIKey(username, keyID string, tokenAuth *jwtauth.JWTAu
 }
 
 func checkPartialAuth(w http.ResponseWriter, r *http.Request, audience string, tokenAudience []string) error {
-	if audience == tokenAudienceWebAdmin && util.IsStringInSlice(tokenAudienceWebAdminPartial, tokenAudience) {
+	if audience == tokenAudienceWebAdmin && util.Contains(tokenAudience, tokenAudienceWebAdminPartial) {
 		http.Redirect(w, r, webAdminTwoFactorPath, http.StatusFound)
 		return errInvalidToken
 	}
-	if audience == tokenAudienceWebClient && util.IsStringInSlice(tokenAudienceWebClientPartial, tokenAudience) {
+	if audience == tokenAudienceWebClient && util.Contains(tokenAudience, tokenAudienceWebClientPartial) {
 		http.Redirect(w, r, webClientTwoFactorPath, http.StatusFound)
 		return errInvalidToken
 	}

@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	boltDatabaseVersion = 18
+	boltDatabaseVersion = 19
 )
 
 var (
@@ -1916,6 +1916,22 @@ func (p *BoltProvider) getActiveTransfers(from time.Time) ([]ActiveTransfer, err
 	return nil, ErrNotImplemented
 }
 
+func (p *BoltProvider) addSharedSession(session Session) error {
+	return ErrNotImplemented
+}
+
+func (p *BoltProvider) deleteSharedSession(key string) error {
+	return ErrNotImplemented
+}
+
+func (p *BoltProvider) getSharedSession(key string) (Session, error) {
+	return Session{}, ErrNotImplemented
+}
+
+func (p *BoltProvider) cleanupSharedSessions(sessionType SessionType, before int64) error {
+	return ErrNotImplemented
+}
+
 func (p *BoltProvider) close() error {
 	return p.dbHandle.Close()
 }
@@ -1943,13 +1959,13 @@ func (p *BoltProvider) migrateDatabase() error {
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
-	case version == 15, version == 16, version == 17:
-		logger.InfoToConsole(fmt.Sprintf("updating database version: %v -> 18", version))
-		providerLog(logger.LevelInfo, "updating database version: %v -> 18", version)
+	case version == 15, version == 16, version == 17, version == 18:
+		logger.InfoToConsole(fmt.Sprintf("updating database version: %v -> 19", version))
+		providerLog(logger.LevelInfo, "updating database version: %v -> 19", version)
 		if err = importGCSCredentials(); err != nil {
 			return err
 		}
-		return updateBoltDatabaseVersion(p.dbHandle, 18)
+		return updateBoltDatabaseVersion(p.dbHandle, 19)
 	default:
 		if version > boltDatabaseVersion {
 			providerLog(logger.LevelError, "database version %v is newer than the supported one: %v", version,
@@ -1971,7 +1987,7 @@ func (p *BoltProvider) revertDatabase(targetVersion int) error {
 		return errors.New("current version match target version, nothing to do")
 	}
 	switch dbVersion.Version {
-	case 16, 17, 18:
+	case 16, 17, 18, 19:
 		return updateBoltDatabaseVersion(p.dbHandle, 15)
 	default:
 		return fmt.Errorf("database version not handled: %v", dbVersion.Version)
@@ -2081,7 +2097,7 @@ func (p *BoltProvider) addUserToGroupMapping(username, groupname string, bucket 
 	if err != nil {
 		return err
 	}
-	if !util.IsStringInSlice(username, group.Users) {
+	if !util.Contains(group.Users, username) {
 		group.Users = append(group.Users, username)
 		buf, err := json.Marshal(group)
 		if err != nil {
@@ -2102,7 +2118,7 @@ func (p *BoltProvider) removeUserFromGroupMapping(username, groupname string, bu
 	if err != nil {
 		return err
 	}
-	if util.IsStringInSlice(username, group.Users) {
+	if util.Contains(group.Users, username) {
 		var users []string
 		for _, u := range group.Users {
 			if u != username {
@@ -2145,10 +2161,10 @@ func (p *BoltProvider) addRelationToFolderMapping(baseFolder *vfs.BaseVirtualFol
 	baseFolder.UsedQuotaSize = oldFolder.UsedQuotaSize
 	baseFolder.Users = oldFolder.Users
 	baseFolder.Groups = oldFolder.Groups
-	if user != nil && !util.IsStringInSlice(user.Username, baseFolder.Users) {
+	if user != nil && !util.Contains(baseFolder.Users, user.Username) {
 		baseFolder.Users = append(baseFolder.Users, user.Username)
 	}
-	if group != nil && !util.IsStringInSlice(group.Name, baseFolder.Groups) {
+	if group != nil && !util.Contains(baseFolder.Groups, group.Name) {
 		baseFolder.Groups = append(baseFolder.Groups, group.Name)
 	}
 	buf, err := json.Marshal(baseFolder)
@@ -2172,7 +2188,7 @@ func (p *BoltProvider) removeRelationFromFolderMapping(folder vfs.VirtualFolder,
 		return err
 	}
 	found := false
-	if username != "" && util.IsStringInSlice(username, baseFolder.Users) {
+	if username != "" && util.Contains(baseFolder.Users, username) {
 		found = true
 		var newUserMapping []string
 		for _, u := range baseFolder.Users {
@@ -2182,7 +2198,7 @@ func (p *BoltProvider) removeRelationFromFolderMapping(folder vfs.VirtualFolder,
 		}
 		baseFolder.Users = newUserMapping
 	}
-	if groupname != "" && util.IsStringInSlice(groupname, baseFolder.Groups) {
+	if groupname != "" && util.Contains(baseFolder.Groups, groupname) {
 		found = true
 		var newGroupMapping []string
 		for _, g := range baseFolder.Groups {

@@ -486,14 +486,14 @@ func (s *httpdServer) getBasePageData(title, currentURL string, r *http.Request)
 		Version:            version.GetAsString(),
 		LoggedAdmin:        getAdminFromToken(r),
 		HasDefender:        common.Config.DefenderConfig.Enabled,
-		HasMFA:             len(mfa.GetAvailableTOTPConfigNames()) > 0,
+		HasMFA:             len(mfa.GetAvailableTOTPConfigs()) > 0,
 		HasExternalLogin:   isLoggedInWithOIDC(r),
 		CSRFToken:          csrfToken,
 		Branding:           s.binding.Branding.WebAdmin,
 	}
 }
 
-func renderAdminTemplate(w http.ResponseWriter, tmplName string, data interface{}) {
+func renderAdminTemplate(w http.ResponseWriter, tmplName string, data any) {
 	err := adminTemplates[tmplName].ExecuteTemplate(w, tmplName, data)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -1109,13 +1109,13 @@ func getFiltersFromUserPostFields(r *http.Request) (sdk.BaseUserFilters, error) 
 	filters.TLSUsername = sdk.TLSUsername(r.Form.Get("tls_username"))
 	filters.WebClient = r.Form["web_client_options"]
 	hooks := r.Form["hooks"]
-	if util.IsStringInSlice("external_auth_disabled", hooks) {
+	if util.Contains(hooks, "external_auth_disabled") {
 		filters.Hooks.ExternalAuthDisabled = true
 	}
-	if util.IsStringInSlice("pre_login_disabled", hooks) {
+	if util.Contains(hooks, "pre_login_disabled") {
 		filters.Hooks.PreLoginDisabled = true
 	}
-	if util.IsStringInSlice("check_password_disabled", hooks) {
+	if util.Contains(hooks, "check_password_disabled") {
 		filters.Hooks.CheckPasswordDisabled = true
 	}
 	filters.DisableFsChecks = len(r.Form.Get("disable_fs_checks")) > 0

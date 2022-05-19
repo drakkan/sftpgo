@@ -36,6 +36,7 @@ DROP TABLE IF EXISTS "{{groups}}";
 DROP TABLE IF EXISTS "{{defender_events}}";
 DROP TABLE IF EXISTS "{{defender_hosts}}";
 DROP TABLE IF EXISTS "{{active_transfers}}";
+DROP TABLE IF EXISTS "{{shared_sessions}}";
 DROP TABLE IF EXISTS "{{schema_version}}";
 `
 	sqliteInitialSQL = `CREATE TABLE "{{schema_version}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "version" integer NOT NULL);
@@ -149,6 +150,12 @@ ALTER TABLE "new__folders_mapping" RENAME TO "{{folders_mapping}}";
 CREATE INDEX "{{prefix}}folders_mapping_folder_id_idx" ON "{{folders_mapping}}" ("folder_id");
 CREATE INDEX "{{prefix}}folders_mapping_user_id_idx" ON "{{folders_mapping}}" ("user_id");
 `
+	sqliteV19SQL = `CREATE TABLE "{{shared_sessions}}" ("key" varchar(128) NOT NULL PRIMARY KEY, "data" text NOT NULL,
+"type" integer NOT NULL, "timestamp" bigint NOT NULL);
+CREATE INDEX "{{prefix}}shared_sessions_type_idx" ON "{{shared_sessions}}" ("type");
+CREATE INDEX "{{prefix}}shared_sessions_timestamp_idx" ON "{{shared_sessions}}" ("timestamp");
+	`
+	sqliteV19DownSQL = `DROP TABLE "{{shared_sessions}}";`
 )
 
 // SQLiteProvider defines the auth provider for SQLite database
@@ -466,6 +473,22 @@ func (p *SQLiteProvider) getActiveTransfers(from time.Time) ([]ActiveTransfer, e
 	return sqlCommonGetActiveTransfers(from, p.dbHandle)
 }
 
+func (p *SQLiteProvider) addSharedSession(session Session) error {
+	return sqlCommonAddSession(session, p.dbHandle)
+}
+
+func (p *SQLiteProvider) deleteSharedSession(key string) error {
+	return sqlCommonDeleteSession(key, p.dbHandle)
+}
+
+func (p *SQLiteProvider) getSharedSession(key string) (Session, error) {
+	return sqlCommonGetSession(key, p.dbHandle)
+}
+
+func (p *SQLiteProvider) cleanupSharedSessions(sessionType SessionType, before int64) error {
+	return sqlCommonCleanupSessions(sessionType, before, p.dbHandle)
+}
+
 func (p *SQLiteProvider) close() error {
 	return p.dbHandle.Close()
 }
@@ -496,10 +519,10 @@ func (p *SQLiteProvider) initializeDatabase() error {
 	initialSQL = strings.ReplaceAll(initialSQL, "{{defender_hosts}}", sqlTableDefenderHosts)
 	initialSQL = strings.ReplaceAll(initialSQL, "{{prefix}}", config.SQLTablesPrefix)
 
-	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{initialSQL}, 15)
+	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{initialSQL}, 15, true)
 }
 
-func (p *SQLiteProvider) migrateDatabase() error {
+func (p *SQLiteProvider) migrateDatabase() error { //nolint:dupl
 	dbVersion, err := sqlCommonGetDatabaseVersion(p.dbHandle, true)
 	if err != nil {
 		return err
@@ -520,6 +543,8 @@ func (p *SQLiteProvider) migrateDatabase() error {
 		return updateSQLiteDatabaseFromV16(p.dbHandle)
 	case version == 17:
 		return updateSQLiteDatabaseFromV17(p.dbHandle)
+	case version == 18:
+		return updateSQLiteDatabaseFromV18(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database version %v is newer than the supported one: %v", version,
@@ -548,6 +573,8 @@ func (p *SQLiteProvider) revertDatabase(targetVersion int) error {
 		return downgradeSQLiteDatabaseFromV17(p.dbHandle)
 	case 18:
 		return downgradeSQLiteDatabaseFromV18(p.dbHandle)
+	case 19:
+		return downgradeSQLiteDatabaseFromV19(p.dbHandle)
 	default:
 		return fmt.Errorf("database version not handled: %v", dbVersion.Version)
 	}
@@ -555,7 +582,7 @@ func (p *SQLiteProvider) revertDatabase(targetVersion int) error {
 
 func (p *SQLiteProvider) resetDatabase() error {
 	sql := sqlReplaceAll(sqliteResetSQL)
-	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{sql}, 0)
+	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{sql}, 0, false)
 }
 
 func updateSQLiteDatabaseFromV15(dbHandle *sql.DB) error {
@@ -573,7 +600,14 @@ func updateSQLiteDatabaseFromV16(dbHandle *sql.DB) error {
 }
 
 func updateSQLiteDatabaseFromV17(dbHandle *sql.DB) error {
-	return updateSQLiteDatabaseFrom17To18(dbHandle)
+	if err := updateSQLiteDatabaseFrom17To18(dbHandle); err != nil {
+		return err
+	}
+	return updateSQLiteDatabaseFromV18(dbHandle)
+}
+
+func updateSQLiteDatabaseFromV18(dbHandle *sql.DB) error {
+	return updateSQLiteDatabaseFrom18To19(dbHandle)
 }
 
 func downgradeSQLiteDatabaseFromV16(dbHandle *sql.DB) error {
@@ -594,13 +628,20 @@ func downgradeSQLiteDatabaseFromV18(dbHandle *sql.DB) error {
 	return downgradeSQLiteDatabaseFromV17(dbHandle)
 }
 
+func downgradeSQLiteDatabaseFromV19(dbHandle *sql.DB) error {
+	if err := downgradeSQLiteDatabaseFrom19To18(dbHandle); err != nil {
+		return err
+	}
+	return downgradeSQLiteDatabaseFromV18(dbHandle)
+}
+
 func updateSQLiteDatabaseFrom15To16(dbHandle *sql.DB) error {
 	logger.InfoToConsole("updating database version: 15 -> 16")
 	providerLog(logger.LevelInfo, "updating database version: 15 -> 16")
 	sql := strings.ReplaceAll(sqliteV16SQL, "{{users}}", sqlTableUsers)
 	sql = strings.ReplaceAll(sql, "{{active_transfers}}", sqlTableActiveTransfers)
 	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 16)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 16, true)
 }
 
 func updateSQLiteDatabaseFrom16To17(dbHandle *sql.DB) error {
@@ -617,7 +658,7 @@ func updateSQLiteDatabaseFrom16To17(dbHandle *sql.DB) error {
 	sql = strings.ReplaceAll(sql, "{{users_groups_mapping}}", sqlTableUsersGroupsMapping)
 	sql = strings.ReplaceAll(sql, "{{groups_folders_mapping}}", sqlTableGroupsFoldersMapping)
 	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	if err := sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 17); err != nil {
+	if err := sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 17, true); err != nil {
 		return err
 	}
 	return setPragmaFK(dbHandle, "ON")
@@ -629,7 +670,15 @@ func updateSQLiteDatabaseFrom17To18(dbHandle *sql.DB) error {
 	if err := importGCSCredentials(); err != nil {
 		return err
 	}
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, nil, 18)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, nil, 18, true)
+}
+
+func updateSQLiteDatabaseFrom18To19(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 18 -> 19")
+	providerLog(logger.LevelInfo, "updating database version: 18 -> 19")
+	sql := strings.ReplaceAll(sqliteV19SQL, "{{shared_sessions}}", sqlTableSharedSessions)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 19, true)
 }
 
 func downgradeSQLiteDatabaseFrom16To15(dbHandle *sql.DB) error {
@@ -637,7 +686,7 @@ func downgradeSQLiteDatabaseFrom16To15(dbHandle *sql.DB) error {
 	providerLog(logger.LevelInfo, "downgrading database version: 16 -> 15")
 	sql := strings.ReplaceAll(sqliteV16DownSQL, "{{users}}", sqlTableUsers)
 	sql = strings.ReplaceAll(sql, "{{active_transfers}}", sqlTableActiveTransfers)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 15)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 15, false)
 }
 
 func downgradeSQLiteDatabaseFrom17To16(dbHandle *sql.DB) error {
@@ -654,7 +703,7 @@ func downgradeSQLiteDatabaseFrom17To16(dbHandle *sql.DB) error {
 	sql = strings.ReplaceAll(sql, "{{users_groups_mapping}}", sqlTableUsersGroupsMapping)
 	sql = strings.ReplaceAll(sql, "{{groups_folders_mapping}}", sqlTableGroupsFoldersMapping)
 	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	if err := sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 16); err != nil {
+	if err := sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 16, false); err != nil {
 		return err
 	}
 	return setPragmaFK(dbHandle, "ON")
@@ -663,7 +712,14 @@ func downgradeSQLiteDatabaseFrom17To16(dbHandle *sql.DB) error {
 func downgradeSQLiteDatabaseFrom18To17(dbHandle *sql.DB) error {
 	logger.InfoToConsole("downgrading database version: 18 -> 17")
 	providerLog(logger.LevelInfo, "downgrading database version: 18 -> 17")
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, nil, 17)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, nil, 17, false)
+}
+
+func downgradeSQLiteDatabaseFrom19To18(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 19 -> 18")
+	providerLog(logger.LevelInfo, "downgrading database version: 19 -> 18")
+	sql := strings.ReplaceAll(sqliteV19DownSQL, "{{shared_sessions}}", sqlTableSharedSessions)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 18, false)
 }
 
 func setPragmaFK(dbHandle *sql.DB, value string) error {

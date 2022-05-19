@@ -66,7 +66,7 @@ func handleUnconfiguredPreAction(operation string) error {
 func ExecutePreAction(conn *BaseConnection, operation, filePath, virtualPath string, fileSize int64, openFlags int) error {
 	var event *notifier.FsEvent
 	hasNotifiersPlugin := plugin.Handler.HasNotifiers()
-	hasHook := util.IsStringInSlice(operation, Config.Actions.ExecuteOn)
+	hasHook := util.Contains(Config.Actions.ExecuteOn, operation)
 	if !hasHook && !hasNotifiersPlugin {
 		return handleUnconfiguredPreAction(operation)
 	}
@@ -86,7 +86,7 @@ func ExecuteActionNotification(conn *BaseConnection, operation, filePath, virtua
 	fileSize int64, err error,
 ) {
 	hasNotifiersPlugin := plugin.Handler.HasNotifiers()
-	hasHook := util.IsStringInSlice(operation, Config.Actions.ExecuteOn)
+	hasHook := util.Contains(Config.Actions.ExecuteOn, operation)
 	if !hasHook && !hasNotifiersPlugin {
 		return
 	}
@@ -97,7 +97,7 @@ func ExecuteActionNotification(conn *BaseConnection, operation, filePath, virtua
 	}
 
 	if hasHook {
-		if util.IsStringInSlice(operation, Config.Actions.ExecuteSync) {
+		if util.Contains(Config.Actions.ExecuteSync, operation) {
 			actionHandler.Handle(notification) //nolint:errcheck
 			return
 		}
@@ -168,7 +168,7 @@ func newActionNotification(
 type defaultActionHandler struct{}
 
 func (h *defaultActionHandler) Handle(event *notifier.FsEvent) error {
-	if !util.IsStringInSlice(event.Action, Config.Actions.ExecuteOn) {
+	if !util.Contains(Config.Actions.ExecuteOn, event.Action) {
 		return errUnconfiguredAction
 	}
 

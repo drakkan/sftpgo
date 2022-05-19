@@ -643,8 +643,10 @@ func (c *Conf) getRedacted() Conf {
 }
 
 // Initialize configures and starts the HTTP server
-func (c *Conf) Initialize(configDir string) error {
+func (c *Conf) Initialize(configDir string, isShared int) error {
 	logger.Info(logSender, "", "initializing HTTP server with config %+v", c.getRedacted())
+	resetCodesMgr = newResetCodeManager(isShared)
+	oidcMgr = newOIDCManager(isShared)
 	staticFilesPath := util.FindSharedDataPath(c.StaticFilesPath, configDir)
 	templatesPath := util.FindSharedDataPath(c.TemplatesPath, configDir)
 	openAPIPath := util.FindSharedDataPath(c.OpenAPIPath, configDir)
@@ -862,13 +864,18 @@ func startCleanupTicker(duration time.Duration) {
 	cleanupDone = make(chan bool)
 
 	go func() {
+		counter := int64(0)
 		for {
 			select {
 			case <-cleanupDone:
 				return
 			case <-cleanupTicker.C:
+				counter++
 				cleanupExpiredJWTTokens()
-				cleanupExpiredResetCodes()
+				resetCodesMgr.Cleanup()
+				if counter%2 == 0 {
+					oidcMgr.cleanup()
+				}
 			}
 		}
 	}()
@@ -883,7 +890,7 @@ func stopCleanupTicker() {
 }
 
 func cleanupExpiredJWTTokens() {
-	invalidatedJWTTokens.Range(func(key, value interface{}) bool {
+	invalidatedJWTTokens.Range(func(key, value any) bool {
 		exp, ok := value.(time.Time)
 		if !ok || exp.Before(time.Now().UTC()) {
 			invalidatedJWTTokens.Delete(key)

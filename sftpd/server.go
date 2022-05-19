@@ -251,13 +251,13 @@ func (c *Configuration) getServerConfig() *ssh.ServerConfig {
 func (c *Configuration) updateSupportedAuthentications() {
 	serviceStatus.Authentications = util.RemoveDuplicates(serviceStatus.Authentications)
 
-	if util.IsStringInSlice(dataprovider.LoginMethodPassword, serviceStatus.Authentications) &&
-		util.IsStringInSlice(dataprovider.SSHLoginMethodPublicKey, serviceStatus.Authentications) {
+	if util.Contains(serviceStatus.Authentications, dataprovider.LoginMethodPassword) &&
+		util.Contains(serviceStatus.Authentications, dataprovider.SSHLoginMethodPublicKey) {
 		serviceStatus.Authentications = append(serviceStatus.Authentications, dataprovider.SSHLoginMethodKeyAndPassword)
 	}
 
-	if util.IsStringInSlice(dataprovider.SSHLoginMethodKeyboardInteractive, serviceStatus.Authentications) &&
-		util.IsStringInSlice(dataprovider.SSHLoginMethodPublicKey, serviceStatus.Authentications) {
+	if util.Contains(serviceStatus.Authentications, dataprovider.SSHLoginMethodKeyboardInteractive) &&
+		util.Contains(serviceStatus.Authentications, dataprovider.SSHLoginMethodPublicKey) {
 		serviceStatus.Authentications = append(serviceStatus.Authentications, dataprovider.SSHLoginMethodKeyAndKeyboardInt)
 	}
 }
@@ -367,7 +367,7 @@ func (c *Configuration) configureSecurityOptions(serverConfig *ssh.ServerConfig)
 		c.HostKeyAlgorithms = util.RemoveDuplicates(c.HostKeyAlgorithms)
 	}
 	for _, hostKeyAlgo := range c.HostKeyAlgorithms {
-		if !util.IsStringInSlice(hostKeyAlgo, supportedHostKeyAlgos) {
+		if !util.Contains(supportedHostKeyAlgos, hostKeyAlgo) {
 			return fmt.Errorf("unsupported host key algorithm %#v", hostKeyAlgo)
 		}
 	}
@@ -376,7 +376,7 @@ func (c *Configuration) configureSecurityOptions(serverConfig *ssh.ServerConfig)
 	if len(c.KexAlgorithms) > 0 {
 		c.KexAlgorithms = util.RemoveDuplicates(c.KexAlgorithms)
 		for _, kex := range c.KexAlgorithms {
-			if !util.IsStringInSlice(kex, supportedKexAlgos) {
+			if !util.Contains(supportedKexAlgos, kex) {
 				return fmt.Errorf("unsupported key-exchange algorithm %#v", kex)
 			}
 		}
@@ -385,7 +385,7 @@ func (c *Configuration) configureSecurityOptions(serverConfig *ssh.ServerConfig)
 	if len(c.Ciphers) > 0 {
 		c.Ciphers = util.RemoveDuplicates(c.Ciphers)
 		for _, cipher := range c.Ciphers {
-			if !util.IsStringInSlice(cipher, supportedCiphers) {
+			if !util.Contains(supportedCiphers, cipher) {
 				return fmt.Errorf("unsupported cipher %#v", cipher)
 			}
 		}
@@ -394,7 +394,7 @@ func (c *Configuration) configureSecurityOptions(serverConfig *ssh.ServerConfig)
 	if len(c.MACs) > 0 {
 		c.MACs = util.RemoveDuplicates(c.MACs)
 		for _, mac := range c.MACs {
-			if !util.IsStringInSlice(mac, supportedMACs) {
+			if !util.Contains(supportedMACs, mac) {
 				return fmt.Errorf("unsupported MAC algorithm %#v", mac)
 			}
 		}
@@ -676,7 +676,7 @@ func loginUser(user *dataprovider.User, loginMethod, publicKey string, conn ssh.
 			user.Username, user.HomeDir)
 		return nil, fmt.Errorf("cannot login user with invalid home dir: %#v", user.HomeDir)
 	}
-	if util.IsStringInSlice(common.ProtocolSSH, user.Filters.DeniedProtocols) {
+	if util.Contains(user.Filters.DeniedProtocols, common.ProtocolSSH) {
 		logger.Info(logSender, connectionID, "cannot login user %#v, protocol SSH is not allowed", user.Username)
 		return nil, fmt.Errorf("protocol SSH is not allowed for user %#v", user.Username)
 	}
@@ -721,13 +721,13 @@ func loginUser(user *dataprovider.User, loginMethod, publicKey string, conn ssh.
 }
 
 func (c *Configuration) checkSSHCommands() {
-	if util.IsStringInSlice("*", c.EnabledSSHCommands) {
+	if util.Contains(c.EnabledSSHCommands, "*") {
 		c.EnabledSSHCommands = GetSupportedSSHCommands()
 		return
 	}
 	sshCommands := []string{}
 	for _, command := range c.EnabledSSHCommands {
-		if util.IsStringInSlice(command, supportedSSHCommands) {
+		if util.Contains(supportedSSHCommands, command) {
 			sshCommands = append(sshCommands, command)
 		} else {
 			logger.Warn(logSender, "", "unsupported ssh command: %#v ignored", command)

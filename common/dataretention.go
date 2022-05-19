@@ -364,7 +364,7 @@ func (c *RetentionCheck) sendNotifications(elapsed time.Duration, err error) {
 
 func (c *RetentionCheck) sendEmailNotification(elapsed time.Duration, errCheck error) error {
 	body := new(bytes.Buffer)
-	data := make(map[string]interface{})
+	data := make(map[string]any)
 	data["Results"] = c.results
 	totalDeletedFiles := 0
 	totalDeletedSize := int64(0)
@@ -399,7 +399,7 @@ func (c *RetentionCheck) sendEmailNotification(elapsed time.Duration, errCheck e
 }
 
 func (c *RetentionCheck) sendHookNotification(elapsed time.Duration, errCheck error) error {
-	data := make(map[string]interface{})
+	data := make(map[string]any)
 	totalDeletedFiles := 0
 	totalDeletedSize := int64(0)
 	for _, result := range c.results {

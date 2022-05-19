@@ -383,7 +383,7 @@ func (s *httpdServer) renderClientResetPwdPage(w http.ResponseWriter, error, ip 
 	renderClientTemplate(w, templateResetPassword, data)
 }
 
-func renderClientTemplate(w http.ResponseWriter, tmplName string, data interface{}) {
+func renderClientTemplate(w http.ResponseWriter, tmplName string, data any) {
 	err := clientTemplates[tmplName].ExecuteTemplate(w, tmplName, data)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -812,7 +812,7 @@ func (s *httpdServer) handleClientGetDirContents(w http.ResponseWriter, r *http.
 				if len(s.binding.WebClientIntegrations) > 0 {
 					extension := path.Ext(info.Name())
 					for idx := range s.binding.WebClientIntegrations {
-						if util.IsStringInSlice(extension, s.binding.WebClientIntegrations[idx].FileExtensions) {
+						if util.Contains(s.binding.WebClientIntegrations[idx].FileExtensions, extension) {
 							res["ext_url"] = s.binding.WebClientIntegrations[idx].URL
 							res["ext_link"] = fmt.Sprintf("%v?path=%v&_=%v", webClientFilePath,
 								url.QueryEscape(path.Join(name, info.Name())), time.Now().UTC().Unix())
@@ -957,7 +957,7 @@ func (s *httpdServer) handleClientEditFile(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	s.renderEditFilePage(w, r, name, b.String(), util.IsStringInSlice(sdk.WebClientWriteDisabled, user.Filters.WebClient))
+	s.renderEditFilePage(w, r, name, b.String(), util.Contains(user.Filters.WebClient, sdk.WebClientWriteDisabled))
 }
 
 func (s *httpdServer) handleClientAddShareGet(w http.ResponseWriter, r *http.Request) {
@@ -1027,7 +1027,7 @@ func (s *httpdServer) handleClientAddSharePost(w http.ResponseWriter, r *http.Re
 	share.LastUseAt = 0
 	share.Username = claims.Username
 	if share.Password == "" {
-		if util.IsStringInSlice(sdk.WebClientShareNoPasswordDisabled, claims.Permissions) {
+		if util.Contains(claims.Permissions, sdk.WebClientShareNoPasswordDisabled) {
 			s.renderClientForbiddenPage(w, r, "You are not authorized to share files/folders without a password")
 			return
 		}
@@ -1072,7 +1072,7 @@ func (s *httpdServer) handleClientUpdateSharePost(w http.ResponseWriter, r *http
 		updatedShare.Password = share.Password
 	}
 	if updatedShare.Password == "" {
-		if util.IsStringInSlice(sdk.WebClientShareNoPasswordDisabled, claims.Permissions) {
+		if util.Contains(claims.Permissions, sdk.WebClientShareNoPasswordDisabled) {
 			s.renderClientForbiddenPage(w, r, "You are not authorized to share files/folders without a password")
 			return
 		}

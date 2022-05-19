@@ -307,7 +307,7 @@ func (s *httpdServer) handleWebClientTwoFactorRecoveryPost(w http.ResponseWriter
 		s.renderClientTwoFactorRecoveryPage(w, "Invalid credentials", ipAddr)
 		return
 	}
-	if !userMerged.Filters.TOTPConfig.Enabled || !util.IsStringInSlice(common.ProtocolHTTP, userMerged.Filters.TOTPConfig.Protocols) {
+	if !userMerged.Filters.TOTPConfig.Enabled || !util.Contains(userMerged.Filters.TOTPConfig.Protocols, common.ProtocolHTTP) {
 		s.renderClientTwoFactorPage(w, "Two factory authentication is not enabled", ipAddr)
 		return
 	}
@@ -364,7 +364,7 @@ func (s *httpdServer) handleWebClientTwoFactorPost(w http.ResponseWriter, r *htt
 		s.renderClientTwoFactorPage(w, "Invalid credentials", ipAddr)
 		return
 	}
-	if !user.Filters.TOTPConfig.Enabled || !util.IsStringInSlice(common.ProtocolHTTP, user.Filters.TOTPConfig.Protocols) {
+	if !user.Filters.TOTPConfig.Enabled || !util.Contains(user.Filters.TOTPConfig.Protocols, common.ProtocolHTTP) {
 		s.renderClientTwoFactorPage(w, "Two factory authentication is not enabled", ipAddr)
 		return
 	}
@@ -659,7 +659,7 @@ func (s *httpdServer) loginUser(
 	}
 
 	audience := tokenAudienceWebClient
-	if user.Filters.TOTPConfig.Enabled && util.IsStringInSlice(common.ProtocolHTTP, user.Filters.TOTPConfig.Protocols) &&
+	if user.Filters.TOTPConfig.Enabled && util.Contains(user.Filters.TOTPConfig.Protocols, common.ProtocolHTTP) &&
 		user.CanManageMFA() && !isSecondFactorAuth {
 		audience = tokenAudienceWebClientPartial
 	}
@@ -764,7 +764,7 @@ func (s *httpdServer) getUserToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if user.Filters.TOTPConfig.Enabled && util.IsStringInSlice(common.ProtocolHTTP, user.Filters.TOTPConfig.Protocols) {
+	if user.Filters.TOTPConfig.Enabled && util.Contains(user.Filters.TOTPConfig.Protocols, common.ProtocolHTTP) {
 		passcode := r.Header.Get(otpHeaderCode)
 		if passcode == "" {
 			logger.Debug(logSender, "", "TOTP enabled for user %#v and not passcode provided, authentication refused", user.Username)
@@ -902,7 +902,7 @@ func (s *httpdServer) checkCookieExpiration(w http.ResponseWriter, r *http.Reque
 	if time.Until(token.Expiration()) > tokenRefreshThreshold {
 		return
 	}
-	if util.IsStringInSlice(tokenAudienceWebClient, token.Audience()) {
+	if util.Contains(token.Audience(), tokenAudienceWebClient) {
 		s.refreshClientToken(w, r, tokenClaims)
 	} else {
 		s.refreshAdminToken(w, r, tokenClaims)

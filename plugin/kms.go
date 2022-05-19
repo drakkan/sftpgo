@@ -29,10 +29,10 @@ type KMSConfig struct {
 }
 
 func (c *KMSConfig) validate() error {
-	if !util.IsStringInSlice(c.Scheme, validKMSSchemes) {
+	if !util.Contains(validKMSSchemes, c.Scheme) {
 		return fmt.Errorf("invalid kms scheme: %v", c.Scheme)
 	}
-	if !util.IsStringInSlice(c.EncryptedStatus, validKMSEncryptedStatuses) {
+	if !util.Contains(validKMSEncryptedStatuses, c.EncryptedStatus) {
 		return fmt.Errorf("invalid kms encrypted status: %v", c.EncryptedStatus)
 	}
 	return nil

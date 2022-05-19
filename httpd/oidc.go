@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -31,16 +30,7 @@ const (
 var (
 	oidcTokenKey       = &contextKey{"OIDC token key"}
 	oidcGeneratedToken = &contextKey{"OIDC generated token"}
-	oidcMgr            *oidcManager
 )
-
-func init() {
-	oidcMgr = &oidcManager{
-		pendingAuths: make(map[string]oidcPendingAuth),
-		tokens:       make(map[string]oidcToken),
-		lastCleanup:  time.Now(),
-	}
-}
 
 // OAuth2Config defines an interface for OAuth2 methods, so we can mock them
 type OAuth2Config interface {
@@ -119,7 +109,7 @@ func (o *OIDC) initialize() error {
 	if err != nil {
 		return fmt.Errorf("oidc: unable to initialize provider for URL %#v: %w", o.ConfigURL, err)
 	}
-	claims := make(map[string]interface{})
+	claims := make(map[string]any)
 	// we cannot get an error here because the response body was already parsed as JSON
 	// on provider creation
 	provider.Claims(&claims) //nolint:errcheck
@@ -146,10 +136,10 @@ func (o *OIDC) initialize() error {
 }
 
 type oidcPendingAuth struct {
-	State    string
-	Nonce    string
-	Audience tokenAudience
-	IssueAt  int64
+	State    string        `json:"state"`
+	Nonce    string        `json:"nonce"`
+	Audience tokenAudience `json:"audience"`
+	IssuedAt int64         `json:"issued_at"`
 }
 
 func newOIDCPendingAuth(audience tokenAudience) oidcPendingAuth {
@@ -157,27 +147,27 @@ func newOIDCPendingAuth(audience tokenAudience) oidcPendingAuth {
 		State:    xid.New().String(),
 		Nonce:    xid.New().String(),
 		Audience: audience,
-		IssueAt:  util.GetTimeAsMsSinceEpoch(time.Now()),
+		IssuedAt: util.GetTimeAsMsSinceEpoch(time.Now()),
 	}
 }
 
 type oidcToken struct {
-	AccessToken  string                  `json:"access_token"`
-	TokenType    string                  `json:"token_type,omitempty"`
-	RefreshToken string                  `json:"refresh_token,omitempty"`
-	ExpiresAt    int64                   `json:"expires_at,omitempty"`
-	SessionID    string                  `json:"session_id"`
-	IDToken      string                  `json:"id_token"`
-	Nonce        string                  `json:"nonce"`
-	Username     string                  `json:"username"`
-	Permissions  []string                `json:"permissions"`
-	Role         interface{}             `json:"role"`
-	CustomFields *map[string]interface{} `json:"custom_fields,omitempty"`
-	Cookie       string                  `json:"cookie"`
-	UsedAt       int64                   `json:"used_at"`
+	AccessToken  string          `json:"access_token"`
+	TokenType    string          `json:"token_type,omitempty"`
+	RefreshToken string          `json:"refresh_token,omitempty"`
+	ExpiresAt    int64           `json:"expires_at,omitempty"`
+	SessionID    string          `json:"session_id"`
+	IDToken      string          `json:"id_token"`
+	Nonce        string          `json:"nonce"`
+	Username     string          `json:"username"`
+	Permissions  []string        `json:"permissions"`
+	Role         any             `json:"role"`
+	CustomFields *map[string]any `json:"custom_fields,omitempty"`
+	Cookie       string          `json:"cookie"`
+	UsedAt       int64           `json:"used_at"`
 }
 
-func (t *oidcToken) parseClaims(claims map[string]interface{}, usernameField, roleField string, customFields []string) error {
+func (t *oidcToken) parseClaims(claims map[string]any, usernameField, roleField string, customFields []string) error {
 	getClaimsFields := func() []string {
 		keys := make([]string, 0, len(claims))
 		for k := range claims {
@@ -203,7 +193,7 @@ func (t *oidcToken) parseClaims(claims map[string]interface{}, usernameField, ro
 		for _, field := range customFields {
 			if val, ok := claims[field]; ok {
 				if t.CustomFields == nil {
-					customFields := make(map[string]interface{})
+					customFields := make(map[string]any)
 					t.CustomFields = &customFields
 				}
 				logger.Debug(logSender, "", "custom field %#v found in token claims", field)
@@ -224,7 +214,7 @@ func (t *oidcToken) isAdmin() bool {
 	switch v := t.Role.(type) {
 	case string:
 		return v == "admin"
-	case []interface{}:
+	case []any:
 		for _, s := range v {
 			if val, ok := s.(string); ok && val == "admin" {
 				return true
@@ -288,7 +278,7 @@ func (t *oidcToken) refresh(config OAuth2Config, verifier OIDCTokenVerifier) err
 		logger.Debug(logSender, "", "unable to verify refreshed id token for cookie %#v: nonce mismatch", t.Cookie)
 		return errors.New("the refreshed token nonce mismatch")
 	}
-	claims := make(map[string]interface{})
+	claims := make(map[string]any)
 	err = idToken.Claims(&claims)
 	if err != nil {
 		logger.Debug(logSender, "", "unable to get refreshed id token claims for cookie %#v: %v", t.Cookie, err)
@@ -346,119 +336,6 @@ func (t *oidcToken) getUser(r *http.Request) error {
 	dataprovider.UpdateLastLogin(&user)
 	t.Permissions = user.Filters.WebClient
 	return nil
-}
-
-type oidcManager struct {
-	authMutex    sync.RWMutex
-	pendingAuths map[string]oidcPendingAuth
-	tokenMutex   sync.RWMutex
-	tokens       map[string]oidcToken
-	lastCleanup  time.Time
-}
-
-func (o *oidcManager) addPendingAuth(pendingAuth oidcPendingAuth) {
-	o.authMutex.Lock()
-	o.pendingAuths[pendingAuth.State] = pendingAuth
-	o.authMutex.Unlock()
-
-	o.checkCleanup()
-}
-
-func (o *oidcManager) removePendingAuth(key string) {
-	o.authMutex.Lock()
-	defer o.authMutex.Unlock()
-
-	delete(o.pendingAuths, key)
-}
-
-func (o *oidcManager) getPendingAuth(state string) (oidcPendingAuth, error) {
-	o.authMutex.RLock()
-	defer o.authMutex.RUnlock()
-
-	authReq, ok := o.pendingAuths[state]
-	if !ok {
-		return oidcPendingAuth{}, errors.New("oidc: no auth request found for the specified state")
-	}
-	diff := util.GetTimeAsMsSinceEpoch(time.Now()) - authReq.IssueAt
-	if diff > authStateValidity {
-		return oidcPendingAuth{}, errors.New("oidc: auth request is too old")
-	}
-	return authReq, nil
-}
-
-func (o *oidcManager) addToken(token oidcToken) {
-	o.tokenMutex.Lock()
-	token.UsedAt = util.GetTimeAsMsSinceEpoch(time.Now())
-	o.tokens[token.Cookie] = token
-	o.tokenMutex.Unlock()
-
-	o.checkCleanup()
-}
-
-func (o *oidcManager) getToken(cookie string) (oidcToken, error) {
-	o.tokenMutex.RLock()
-	defer o.tokenMutex.RUnlock()
-
-	token, ok := o.tokens[cookie]
-	if !ok {
-		return oidcToken{}, errors.New("oidc: no token found for the specified session")
-	}
-	return token, nil
-}
-
-func (o *oidcManager) removeToken(cookie string) {
-	o.tokenMutex.Lock()
-	defer o.tokenMutex.Unlock()
-
-	delete(o.tokens, cookie)
-}
-
-func (o *oidcManager) updateTokenUsage(token oidcToken) {
-	diff := util.GetTimeAsMsSinceEpoch(time.Now()) - token.UsedAt
-	if diff > tokenUpdateInterval {
-		o.addToken(token)
-	}
-}
-
-func (o *oidcManager) checkCleanup() {
-	o.authMutex.RLock()
-	needCleanup := o.lastCleanup.Add(20 * time.Minute).Before(time.Now())
-	o.authMutex.RUnlock()
-
-	if needCleanup {
-		o.authMutex.Lock()
-		o.lastCleanup = time.Now()
-		o.authMutex.Unlock()
-
-		o.cleanupAuthRequests()
-		o.cleanupTokens()
-	}
-}
-
-func (o *oidcManager) cleanupAuthRequests() {
-	o.authMutex.Lock()
-	defer o.authMutex.Unlock()
-
-	for k, auth := range o.pendingAuths {
-		diff := util.GetTimeAsMsSinceEpoch(time.Now()) - auth.IssueAt
-		// remove old pending auth requests
-		if diff < 0 || diff > authStateValidity {
-			delete(o.pendingAuths, k)
-		}
-	}
-}
-
-func (o *oidcManager) cleanupTokens() {
-	o.tokenMutex.Lock()
-	defer o.tokenMutex.Unlock()
-
-	for k, token := range o.tokens {
-		diff := util.GetTimeAsMsSinceEpoch(time.Now()) - token.UsedAt
-		// remove tokens unused from more than tokenDeleteInterval
-		if diff > tokenDeleteInterval {
-			delete(o.tokens, k)
-		}
-	}
 }
 
 func (s *httpdServer) validateOIDCToken(w http.ResponseWriter, r *http.Request, isAdmin bool) (oidcToken, error) {
@@ -614,7 +491,7 @@ func (s *httpdServer) handleOIDCRedirect(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	claims := make(map[string]interface{})
+	claims := make(map[string]any)
 	err = idToken.Claims(&claims)
 	if err != nil {
 		logger.Debug(logSender, "", "unable to get oidc token claims: %v", err)

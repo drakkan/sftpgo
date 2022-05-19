@@ -181,7 +181,7 @@ func (p *notifierPlugin) canQueueEvent(timestamp int64) bool {
 }
 
 func (p *notifierPlugin) notifyFsAction(event *notifier.FsEvent) {
-	if !util.IsStringInSlice(event.Action, p.config.NotifierOptions.FsEvents) {
+	if !util.Contains(p.config.NotifierOptions.FsEvents, event.Action) {
 		return
 	}
 
@@ -191,8 +191,8 @@ func (p *notifierPlugin) notifyFsAction(event *notifier.FsEvent) {
 }
 
 func (p *notifierPlugin) notifyProviderAction(event *notifier.ProviderEvent, object Renderer) {
-	if !util.IsStringInSlice(event.Action, p.config.NotifierOptions.ProviderEvents) ||
-		!util.IsStringInSlice(event.ObjectType, p.config.NotifierOptions.ProviderObjects) {
+	if !util.Contains(p.config.NotifierOptions.ProviderEvents, event.Action) ||
+		!util.Contains(p.config.NotifierOptions.ProviderObjects, event.ObjectType) {
 		return
 	}
 

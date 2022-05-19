@@ -359,7 +359,7 @@ func (c *Connection) orderDirsToRemove(fs vfs.Fs, dirsToRemove []objectMapping) 
 
 	for len(orderedDirs) < len(dirsToRemove) {
 		for idx, d := range dirsToRemove {
-			if util.IsStringInSlice(d.fsPath, removedDirs) {
+			if util.Contains(removedDirs, d.fsPath) {
 				continue
 			}
 			isEmpty := true
@@ -367,7 +367,7 @@ func (c *Connection) orderDirsToRemove(fs vfs.Fs, dirsToRemove []objectMapping) 
 				if idx == idx1 {
 					continue
 				}
-				if util.IsStringInSlice(d1.fsPath, removedDirs) {
+				if util.Contains(removedDirs, d1.fsPath) {
 					continue
 				}
 				if strings.HasPrefix(d1.fsPath, d.fsPath+pathSeparator) {

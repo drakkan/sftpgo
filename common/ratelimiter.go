@@ -83,7 +83,7 @@ func (r *RateLimiterConfig) validate() error {
 	}
 	r.Protocols = util.RemoveDuplicates(r.Protocols)
 	for _, protocol := range r.Protocols {
-		if !util.IsStringInSlice(protocol, rateLimiterProtocolValues) {
+		if !util.Contains(rateLimiterProtocolValues, protocol) {
 			return fmt.Errorf("invalid protocol %#v", protocol)
 		}
 	}

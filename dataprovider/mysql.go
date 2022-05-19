@@ -35,6 +35,7 @@ const (
 		"DROP TABLE IF EXISTS `{{defender_events}}` CASCADE;" +
 		"DROP TABLE IF EXISTS `{{defender_hosts}}` CASCADE;" +
 		"DROP TABLE IF EXISTS `{{active_transfers}}` CASCADE;" +
+		"DROP TABLE IF EXISTS `{{shared_sessions}}` CASCADE;" +
 		"DROP TABLE IF EXISTS `{{schema_version}}` CASCADE;"
 	mysqlInitialSQL = "CREATE TABLE `{{schema_version}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `version` integer NOT NULL);" +
 		"CREATE TABLE `{{admins}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `username` varchar(255) NOT NULL UNIQUE, " +
@@ -152,6 +153,11 @@ const (
 		"FOREIGN KEY (`user_id`) REFERENCES `{{users}}` (`id`) ON DELETE CASCADE;" +
 		"ALTER TABLE `{{folders_mapping}}` ADD CONSTRAINT `{{prefix}}folders_mapping_folder_id_fk_folders_id` " +
 		"FOREIGN KEY (`folder_id`) REFERENCES `{{folders}}` (`id`) ON DELETE CASCADE;"
+	mysqlV19SQL = "CREATE TABLE `{{shared_sessions}}` (`key` varchar(128) NOT NULL PRIMARY KEY, " +
+		"`data` longtext NOT NULL, `type` integer NOT NULL, `timestamp` bigint NOT NULL);" +
+		"CREATE INDEX `{{prefix}}shared_sessions_type_idx` ON `{{shared_sessions}}` (`type`);" +
+		"CREATE INDEX `{{prefix}}shared_sessions_timestamp_idx` ON `{{shared_sessions}}` (`timestamp`);"
+	mysqlV19DownSQL = "DROP TABLE `{{shared_sessions}}` CASCADE;"
 )
 
 // MySQLProvider defines the auth provider for MySQL/MariaDB database
@@ -520,6 +526,22 @@ func (p *MySQLProvider) getActiveTransfers(from time.Time) ([]ActiveTransfer, er
 	return sqlCommonGetActiveTransfers(from, p.dbHandle)
 }
 
+func (p *MySQLProvider) addSharedSession(session Session) error {
+	return sqlCommonAddSession(session, p.dbHandle)
+}
+
+func (p *MySQLProvider) deleteSharedSession(key string) error {
+	return sqlCommonDeleteSession(key, p.dbHandle)
+}
+
+func (p *MySQLProvider) getSharedSession(key string) (Session, error) {
+	return sqlCommonGetSession(key, p.dbHandle)
+}
+
+func (p *MySQLProvider) cleanupSharedSessions(sessionType SessionType, before int64) error {
+	return sqlCommonCleanupSessions(sessionType, before, p.dbHandle)
+}
+
 func (p *MySQLProvider) close() error {
 	return p.dbHandle.Close()
 }
@@ -550,10 +572,10 @@ func (p *MySQLProvider) initializeDatabase() error {
 	initialSQL = strings.ReplaceAll(initialSQL, "{{defender_hosts}}", sqlTableDefenderHosts)
 	initialSQL = strings.ReplaceAll(initialSQL, "{{prefix}}", config.SQLTablesPrefix)
 
-	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, strings.Split(initialSQL, ";"), 15)
+	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, strings.Split(initialSQL, ";"), 15, true)
 }
 
-func (p *MySQLProvider) migrateDatabase() error {
+func (p *MySQLProvider) migrateDatabase() error { //nolint:dupl
 	dbVersion, err := sqlCommonGetDatabaseVersion(p.dbHandle, true)
 	if err != nil {
 		return err
@@ -574,6 +596,8 @@ func (p *MySQLProvider) migrateDatabase() error {
 		return updateMySQLDatabaseFromV16(p.dbHandle)
 	case version == 17:
 		return updateMySQLDatabaseFromV17(p.dbHandle)
+	case version == 18:
+		return updateMySQLDatabaseFromV18(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database version %v is newer than the supported one: %v", version,
@@ -602,6 +626,8 @@ func (p *MySQLProvider) revertDatabase(targetVersion int) error {
 		return downgradeMySQLDatabaseFromV17(p.dbHandle)
 	case 18:
 		return downgradeMySQLDatabaseFromV18(p.dbHandle)
+	case 19:
+		return downgradeMySQLDatabaseFromV19(p.dbHandle)
 	default:
 		return fmt.Errorf("database version not handled: %v", dbVersion.Version)
 	}
@@ -609,7 +635,7 @@ func (p *MySQLProvider) revertDatabase(targetVersion int) error {
 
 func (p *MySQLProvider) resetDatabase() error {
 	sql := sqlReplaceAll(mysqlResetSQL)
-	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, strings.Split(sql, ";"), 0)
+	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, strings.Split(sql, ";"), 0, false)
 }
 
 func updateMySQLDatabaseFromV15(dbHandle *sql.DB) error {
@@ -627,7 +653,14 @@ func updateMySQLDatabaseFromV16(dbHandle *sql.DB) error {
 }
 
 func updateMySQLDatabaseFromV17(dbHandle *sql.DB) error {
-	return updateMySQLDatabaseFrom17To18(dbHandle)
+	if err := updateMySQLDatabaseFrom17To18(dbHandle); err != nil {
+		return err
+	}
+	return updateMySQLDatabaseFromV18(dbHandle)
+}
+
+func updateMySQLDatabaseFromV18(dbHandle *sql.DB) error {
+	return updateMySQLDatabaseFrom18To19(dbHandle)
 }
 
 func downgradeMySQLDatabaseFromV16(dbHandle *sql.DB) error {
@@ -648,13 +681,20 @@ func downgradeMySQLDatabaseFromV18(dbHandle *sql.DB) error {
 	return downgradeMySQLDatabaseFromV17(dbHandle)
 }
 
+func downgradeMySQLDatabaseFromV19(dbHandle *sql.DB) error {
+	if err := downgradeMySQLDatabaseFrom19To18(dbHandle); err != nil {
+		return err
+	}
+	return downgradeMySQLDatabaseFromV18(dbHandle)
+}
+
 func updateMySQLDatabaseFrom15To16(dbHandle *sql.DB) error {
 	logger.InfoToConsole("updating database version: 15 -> 16")
 	providerLog(logger.LevelInfo, "updating database version: 15 -> 16")
 	sql := strings.ReplaceAll(mysqlV16SQL, "{{users}}", sqlTableUsers)
 	sql = strings.ReplaceAll(sql, "{{active_transfers}}", sqlTableActiveTransfers)
 	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 16)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 16, true)
 }
 
 func updateMySQLDatabaseFrom16To17(dbHandle *sql.DB) error {
@@ -668,7 +708,7 @@ func updateMySQLDatabaseFrom16To17(dbHandle *sql.DB) error {
 	sql = strings.ReplaceAll(sql, "{{users_groups_mapping}}", sqlTableUsersGroupsMapping)
 	sql = strings.ReplaceAll(sql, "{{groups_folders_mapping}}", sqlTableGroupsFoldersMapping)
 	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 17)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 17, true)
 }
 
 func updateMySQLDatabaseFrom17To18(dbHandle *sql.DB) error {
@@ -677,7 +717,15 @@ func updateMySQLDatabaseFrom17To18(dbHandle *sql.DB) error {
 	if err := importGCSCredentials(); err != nil {
 		return err
 	}
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, nil, 18)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, nil, 18, true)
+}
+
+func updateMySQLDatabaseFrom18To19(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 18 -> 19")
+	providerLog(logger.LevelInfo, "updating database version: 18 -> 19")
+	sql := strings.ReplaceAll(mysqlV19SQL, "{{shared_sessions}}", sqlTableSharedSessions)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 19, true)
 }
 
 func downgradeMySQLDatabaseFrom16To15(dbHandle *sql.DB) error {
@@ -685,7 +733,7 @@ func downgradeMySQLDatabaseFrom16To15(dbHandle *sql.DB) error {
 	providerLog(logger.LevelInfo, "downgrading database version: 16 -> 15")
 	sql := strings.ReplaceAll(mysqlV16DownSQL, "{{users}}", sqlTableUsers)
 	sql = strings.ReplaceAll(sql, "{{active_transfers}}", sqlTableActiveTransfers)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 15)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 15, false)
 }
 
 func downgradeMySQLDatabaseFrom17To16(dbHandle *sql.DB) error {
@@ -699,11 +747,18 @@ func downgradeMySQLDatabaseFrom17To16(dbHandle *sql.DB) error {
 	sql = strings.ReplaceAll(sql, "{{users_groups_mapping}}", sqlTableUsersGroupsMapping)
 	sql = strings.ReplaceAll(sql, "{{groups_folders_mapping}}", sqlTableGroupsFoldersMapping)
 	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 16)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 16, false)
 }
 
 func downgradeMySQLDatabaseFrom18To17(dbHandle *sql.DB) error {
 	logger.InfoToConsole("downgrading database version: 18 -> 17")
 	providerLog(logger.LevelInfo, "downgrading database version: 18 -> 17")
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, nil, 17)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, nil, 17, false)
+}
+
+func downgradeMySQLDatabaseFrom19To18(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 19 -> 18")
+	providerLog(logger.LevelInfo, "downgrading database version: 19 -> 18")
+	sql := strings.ReplaceAll(mysqlV19DownSQL, "{{shared_sessions}}", sqlTableSharedSessions)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 18, false)
 }

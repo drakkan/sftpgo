@@ -56,17 +56,6 @@ func Contains[T comparable](elems []T, v T) bool {
 	return false
 }
 
-// IsStringInSlice searches a string in a slice and returns true if the string is found
-// TODO: replace with Contains above
-func IsStringInSlice(obj string, list []string) bool {
-	for i := 0; i < len(list); i++ {
-		if list[i] == obj {
-			return true
-		}
-	}
-	return false
-}
-
 // IsStringPrefixInSlice searches a string prefix in a slice and returns true
 // if a matching prefix is found
 func IsStringPrefixInSlice(obj string, list []string) bool {

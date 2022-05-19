@@ -326,7 +326,7 @@ func (s *Server) validateUser(user dataprovider.User, cc ftpserver.ClientContext
 			user.Username, user.HomeDir)
 		return nil, fmt.Errorf("cannot login user with invalid home dir: %#v", user.HomeDir)
 	}
-	if util.IsStringInSlice(common.ProtocolFTP, user.Filters.DeniedProtocols) {
+	if util.Contains(user.Filters.DeniedProtocols, common.ProtocolFTP) {
 		logger.Info(logSender, connectionID, "cannot login user %#v, protocol FTP is not allowed", user.Username)
 		return nil, fmt.Errorf("protocol FTP is not allowed for user %#v", user.Username)
 	}

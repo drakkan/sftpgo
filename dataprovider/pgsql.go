@@ -34,6 +34,7 @@ DROP TABLE IF EXISTS "{{groups}}" CASCADE;
 DROP TABLE IF EXISTS "{{defender_events}}" CASCADE;
 DROP TABLE IF EXISTS "{{defender_hosts}}" CASCADE;
 DROP TABLE IF EXISTS "{{active_transfers}}" CASCADE;
+DROP TABLE IF EXISTS "{{shared_sessions}}" CASCADE;
 DROP TABLE IF EXISTS "{{schema_version}}" CASCADE;
 `
 	pgsqlInitial = `CREATE TABLE "{{schema_version}}" ("id" serial NOT NULL PRIMARY KEY, "version" integer NOT NULL);
@@ -158,6 +159,11 @@ ALTER TABLE "{{folders_mapping}}" ADD CONSTRAINT "{{prefix}}unique_mapping" UNIQ
 CREATE INDEX "{{prefix}}folders_mapping_folder_id_idx" ON "{{folders_mapping}}" ("folder_id");
 CREATE INDEX "{{prefix}}folders_mapping_user_id_idx" ON "{{folders_mapping}}" ("user_id");
 `
+	pgsqlV19SQL = `CREATE TABLE "{{shared_sessions}}" ("key" varchar(128) NOT NULL PRIMARY KEY,
+"data" text NOT NULL, "type" integer NOT NULL, "timestamp" bigint NOT NULL);
+CREATE INDEX "{{prefix}}shared_sessions_type_idx" ON "{{shared_sessions}}" ("type");
+CREATE INDEX "{{prefix}}shared_sessions_timestamp_idx" ON "{{shared_sessions}}" ("timestamp");`
+	pgsqlV19DownSQL = `DROP TABLE "{{shared_sessions}}" CASCADE;`
 )
 
 // PGSQLProvider defines the auth provider for PostgreSQL database
@@ -489,6 +495,22 @@ func (p *PGSQLProvider) getActiveTransfers(from time.Time) ([]ActiveTransfer, er
 	return sqlCommonGetActiveTransfers(from, p.dbHandle)
 }
 
+func (p *PGSQLProvider) addSharedSession(session Session) error {
+	return sqlCommonAddSession(session, p.dbHandle)
+}
+
+func (p *PGSQLProvider) deleteSharedSession(key string) error {
+	return sqlCommonDeleteSession(key, p.dbHandle)
+}
+
+func (p *PGSQLProvider) getSharedSession(key string) (Session, error) {
+	return sqlCommonGetSession(key, p.dbHandle)
+}
+
+func (p *PGSQLProvider) cleanupSharedSessions(sessionType SessionType, before int64) error {
+	return sqlCommonCleanupSessions(sessionType, before, p.dbHandle)
+}
+
 func (p *PGSQLProvider) close() error {
 	return p.dbHandle.Close()
 }
@@ -525,10 +547,10 @@ func (p *PGSQLProvider) initializeDatabase() error {
 		initialSQL = strings.ReplaceAll(initialSQL, "DEFERRABLE INITIALLY DEFERRED", "")
 	}
 
-	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{initialSQL}, 15)
+	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{initialSQL}, 15, true)
 }
 
-func (p *PGSQLProvider) migrateDatabase() error {
+func (p *PGSQLProvider) migrateDatabase() error { //nolint:dupl
 	dbVersion, err := sqlCommonGetDatabaseVersion(p.dbHandle, true)
 	if err != nil {
 		return err
@@ -549,6 +571,8 @@ func (p *PGSQLProvider) migrateDatabase() error {
 		return updatePGSQLDatabaseFromV16(p.dbHandle)
 	case version == 17:
 		return updatePGSQLDatabaseFromV17(p.dbHandle)
+	case version == 18:
+		return updatePGSQLDatabaseFromV18(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database version %v is newer than the supported one: %v", version,
@@ -577,6 +601,8 @@ func (p *PGSQLProvider) revertDatabase(targetVersion int) error {
 		return downgradePGSQLDatabaseFromV17(p.dbHandle)
 	case 18:
 		return downgradePGSQLDatabaseFromV18(p.dbHandle)
+	case 19:
+		return downgradePGSQLDatabaseFromV19(p.dbHandle)
 	default:
 		return fmt.Errorf("database version not handled: %v", dbVersion.Version)
 	}
@@ -584,7 +610,7 @@ func (p *PGSQLProvider) revertDatabase(targetVersion int) error {
 
 func (p *PGSQLProvider) resetDatabase() error {
 	sql := sqlReplaceAll(pgsqlResetSQL)
-	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{sql}, 0)
+	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{sql}, 0, false)
 }
 
 func updatePGSQLDatabaseFromV15(dbHandle *sql.DB) error {
@@ -602,7 +628,14 @@ func updatePGSQLDatabaseFromV16(dbHandle *sql.DB) error {
 }
 
 func updatePGSQLDatabaseFromV17(dbHandle *sql.DB) error {
-	return updatePGSQLDatabaseFrom17To18(dbHandle)
+	if err := updatePGSQLDatabaseFrom17To18(dbHandle); err != nil {
+		return err
+	}
+	return updatePGSQLDatabaseFromV18(dbHandle)
+}
+
+func updatePGSQLDatabaseFromV18(dbHandle *sql.DB) error {
+	return updatePGSQLDatabaseFrom18To19(dbHandle)
 }
 
 func downgradePGSQLDatabaseFromV16(dbHandle *sql.DB) error {
@@ -621,6 +654,13 @@ func downgradePGSQLDatabaseFromV18(dbHandle *sql.DB) error {
 		return err
 	}
 	return downgradePGSQLDatabaseFromV17(dbHandle)
+}
+
+func downgradePGSQLDatabaseFromV19(dbHandle *sql.DB) error {
+	if err := downgradePGSQLDatabaseFrom19To18(dbHandle); err != nil {
+		return err
+	}
+	return downgradePGSQLDatabaseFromV18(dbHandle)
 }
 
 func updatePGSQLDatabaseFrom15To16(dbHandle *sql.DB) error {
@@ -645,7 +685,7 @@ func updatePGSQLDatabaseFrom15To16(dbHandle *sql.DB) error {
 		}
 		return sqlCommonUpdateDatabaseVersion(ctx, dbHandle, 16)
 	}
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 16)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 16, true)
 }
 
 func updatePGSQLDatabaseFrom16To17(dbHandle *sql.DB) error {
@@ -664,7 +704,7 @@ func updatePGSQLDatabaseFrom16To17(dbHandle *sql.DB) error {
 	sql = strings.ReplaceAll(sql, "{{users_groups_mapping}}", sqlTableUsersGroupsMapping)
 	sql = strings.ReplaceAll(sql, "{{groups_folders_mapping}}", sqlTableGroupsFoldersMapping)
 	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 17)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 17, true)
 }
 
 func updatePGSQLDatabaseFrom17To18(dbHandle *sql.DB) error {
@@ -673,7 +713,15 @@ func updatePGSQLDatabaseFrom17To18(dbHandle *sql.DB) error {
 	if err := importGCSCredentials(); err != nil {
 		return err
 	}
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, nil, 18)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, nil, 18, true)
+}
+
+func updatePGSQLDatabaseFrom18To19(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 18 -> 19")
+	providerLog(logger.LevelInfo, "updating database version: 18 -> 19")
+	sql := strings.ReplaceAll(pgsqlV19SQL, "{{shared_sessions}}", sqlTableSharedSessions)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 19, true)
 }
 
 func downgradePGSQLDatabaseFrom16To15(dbHandle *sql.DB) error {
@@ -681,7 +729,7 @@ func downgradePGSQLDatabaseFrom16To15(dbHandle *sql.DB) error {
 	providerLog(logger.LevelInfo, "downgrading database version: 16 -> 15")
 	sql := strings.ReplaceAll(pgsqlV16DownSQL, "{{users}}", sqlTableUsers)
 	sql = strings.ReplaceAll(sql, "{{active_transfers}}", sqlTableActiveTransfers)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 15)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 15, false)
 }
 
 func downgradePGSQLDatabaseFrom17To16(dbHandle *sql.DB) error {
@@ -700,11 +748,18 @@ func downgradePGSQLDatabaseFrom17To16(dbHandle *sql.DB) error {
 	sql = strings.ReplaceAll(sql, "{{users_groups_mapping}}", sqlTableUsersGroupsMapping)
 	sql = strings.ReplaceAll(sql, "{{groups_folders_mapping}}", sqlTableGroupsFoldersMapping)
 	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 16)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 16, false)
 }
 
 func downgradePGSQLDatabaseFrom18To17(dbHandle *sql.DB) error {
 	logger.InfoToConsole("downgrading database version: 18 -> 17")
 	providerLog(logger.LevelInfo, "downgrading database version: 18 -> 17")
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, nil, 17)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, nil, 17, false)
+}
+
+func downgradePGSQLDatabaseFrom19To18(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 19 -> 18")
+	providerLog(logger.LevelInfo, "downgrading database version: 19 -> 18")
+	sql := strings.ReplaceAll(pgsqlV19DownSQL, "{{shared_sessions}}", sqlTableSharedSessions)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 18, false)
 }

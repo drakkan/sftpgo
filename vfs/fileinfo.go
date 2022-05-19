@@ -64,6 +64,6 @@ func (fi *FileInfo) SetMode(mode os.FileMode) {
 }
 
 // Sys provides the underlying data source (can return nil)
-func (fi *FileInfo) Sys() interface{} {
+func (fi *FileInfo) Sys() any {
 	return nil
 }

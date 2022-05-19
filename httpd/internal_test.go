@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -728,7 +729,7 @@ func TestCSRFToken(t *testing.T) {
 		assert.Contains(t, err.Error(), "unable to verify form token")
 	}
 	// bad audience
-	claims := make(map[string]interface{})
+	claims := make(map[string]any)
 	now := time.Now().UTC()
 
 	claims[jwt.JwtIDKey] = xid.New().String()
@@ -1008,7 +1009,7 @@ func TestAPIKeyAuthForbidden(t *testing.T) {
 
 func TestJWTTokenValidation(t *testing.T) {
 	tokenAuth := jwtauth.New(jwa.HS256.String(), util.GenerateRandomBytes(32), nil)
-	claims := make(map[string]interface{})
+	claims := make(map[string]any)
 	claims["username"] = defaultAdminUsername
 	claims[jwt.ExpirationKey] = time.Now().UTC().Add(-1 * time.Hour)
 	token, _, err := tokenAuth.Encode(claims)
@@ -1103,7 +1104,7 @@ func TestUpdateContextFromCookie(t *testing.T) {
 		tokenAuth: jwtauth.New(jwa.HS256.String(), util.GenerateRandomBytes(32), nil),
 	}
 	req, _ := http.NewRequest(http.MethodGet, tokenPath, nil)
-	claims := make(map[string]interface{})
+	claims := make(map[string]any)
 	claims["a"] = "b"
 	token, _, err := server.tokenAuth.Encode(claims)
 	assert.NoError(t, err)
@@ -1125,7 +1126,7 @@ func TestCookieExpiration(t *testing.T) {
 	assert.Empty(t, cookie)
 
 	req, _ = http.NewRequest(http.MethodGet, tokenPath, nil)
-	claims := make(map[string]interface{})
+	claims := make(map[string]any)
 	claims["a"] = "b"
 	token, _, err := server.tokenAuth.Encode(claims)
 	assert.NoError(t, err)
@@ -1139,7 +1140,7 @@ func TestCookieExpiration(t *testing.T) {
 		Password:    "password",
 		Permissions: []string{dataprovider.PermAdminAny},
 	}
-	claims = make(map[string]interface{})
+	claims = make(map[string]any)
 	claims[claimUsernameKey] = admin.Username
 	claims[claimPermissionsKey] = admin.Permissions
 	claims[jwt.SubjectKey] = admin.GetSignature()
@@ -1174,7 +1175,7 @@ func TestCookieExpiration(t *testing.T) {
 
 	admin, err = dataprovider.AdminExists(admin.Username)
 	assert.NoError(t, err)
-	claims = make(map[string]interface{})
+	claims = make(map[string]any)
 	claims[claimUsernameKey] = admin.Username
 	claims[claimPermissionsKey] = admin.Permissions
 	claims[jwt.SubjectKey] = admin.GetSignature()
@@ -1212,7 +1213,7 @@ func TestCookieExpiration(t *testing.T) {
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{"*"}
 
-	claims = make(map[string]interface{})
+	claims = make(map[string]any)
 	claims[claimUsernameKey] = user.Username
 	claims[claimPermissionsKey] = user.Filters.WebClient
 	claims[jwt.SubjectKey] = user.GetSignature()
@@ -1244,7 +1245,7 @@ func TestCookieExpiration(t *testing.T) {
 
 	user, err = dataprovider.UserExists(user.Username)
 	assert.NoError(t, err)
-	claims = make(map[string]interface{})
+	claims = make(map[string]any)
 	claims[claimUsernameKey] = user.Username
 	claims[claimPermissionsKey] = user.Filters.WebClient
 	claims[jwt.SubjectKey] = user.GetSignature()
@@ -1502,7 +1503,7 @@ func TestJWTTokenCleanup(t *testing.T) {
 		Password:    "password",
 		Permissions: []string{dataprovider.PermAdminAny},
 	}
-	claims := make(map[string]interface{})
+	claims := make(map[string]any)
 	claims[claimUsernameKey] = admin.Username
 	claims[claimPermissionsKey] = admin.Permissions
 	claims[jwt.SubjectKey] = admin.GetSignature()
@@ -2234,10 +2235,11 @@ func TestLoginLinks(t *testing.T) {
 func TestResetCodesCleanup(t *testing.T) {
 	resetCode := newResetCode(util.GenerateUniqueID(), false)
 	resetCode.ExpiresAt = time.Now().Add(-1 * time.Minute).UTC()
-	resetCodes.Store(resetCode.Code, resetCode)
-	cleanupExpiredResetCodes()
-	_, ok := resetCodes.Load(resetCode.Code)
-	assert.False(t, ok)
+	err := resetCodesMgr.Add(resetCode)
+	assert.NoError(t, err)
+	resetCodesMgr.Cleanup()
+	_, err = resetCodesMgr.Get(resetCode.Code)
+	assert.Error(t, err)
 }
 
 func TestUserCanResetPassword(t *testing.T) {
@@ -2555,4 +2557,56 @@ func TestWebAdminSetupWithInstallCode(t *testing.T) {
 	assert.NoError(t, err)
 	installationCode = ""
 	SetInstallationCodeResolver(nil)
+}
+
+func TestDbResetCodeManager(t *testing.T) {
+	if !isSharedProviderSupported() {
+		t.Skip("this test it is not available with this provider")
+	}
+	mgr := newResetCodeManager(1)
+	resetCode := newResetCode("admin", true)
+	err := mgr.Add(resetCode)
+	assert.NoError(t, err)
+	codeGet, err := mgr.Get(resetCode.Code)
+	assert.NoError(t, err)
+	assert.Equal(t, resetCode, codeGet)
+	err = mgr.Delete(resetCode.Code)
+	assert.NoError(t, err)
+	err = mgr.Delete(resetCode.Code)
+	if assert.Error(t, err) {
+		_, ok := err.(*util.RecordNotFoundError)
+		assert.True(t, ok)
+	}
+	_, err = mgr.Get(resetCode.Code)
+	assert.ErrorIs(t, err, sql.ErrNoRows)
+	// add an expired reset code
+	resetCode = newResetCode("user", false)
+	resetCode.ExpiresAt = time.Now().Add(-24 * time.Hour)
+	err = mgr.Add(resetCode)
+	assert.NoError(t, err)
+	_, err = mgr.Get(resetCode.Code)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "reset code expired")
+	}
+	mgr.Cleanup()
+	_, err = mgr.Get(resetCode.Code)
+	assert.ErrorIs(t, err, sql.ErrNoRows)
+
+	dbMgr, ok := mgr.(*dbResetCodeManager)
+	if assert.True(t, ok) {
+		_, err = dbMgr.decodeData("astring")
+		assert.Error(t, err)
+	}
+}
+
+func isSharedProviderSupported() bool {
+	// SQLite shares the implementation with other SQL-based provider but it makes no sense
+	// to use it outside test cases
+	switch dataprovider.GetProviderStatus().Driver {
+	case dataprovider.MySQLDataProviderName, dataprovider.PGSQLDataProviderName,
+		dataprovider.CockroachDataProviderName, dataprovider.SQLiteDataProviderName:
+		return true
+	default:
+		return false
+	}
 }

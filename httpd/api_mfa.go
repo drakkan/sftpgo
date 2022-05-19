@@ -221,7 +221,7 @@ func saveUserTOTPConfig(username string, r *http.Request, recoveryCodes []datapr
 		return util.NewValidationError("two-factor authentication must be enabled")
 	}
 	for _, p := range user.Filters.TwoFactorAuthProtocols {
-		if !util.IsStringInSlice(p, user.Filters.TOTPConfig.Protocols) {
+		if !util.Contains(user.Filters.TOTPConfig.Protocols, p) {
 			return util.NewValidationError(fmt.Sprintf("totp: the following protocols are required: %#v",
 				strings.Join(user.Filters.TwoFactorAuthProtocols, ", ")))
 		}

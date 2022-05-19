@@ -24,7 +24,7 @@ type StructuredLoggerEntry struct {
 	// The zerolog logger
 	Logger *zerolog.Logger
 	// fields to write in the log
-	fields map[string]interface{}
+	fields map[string]any
 }
 
 // NewStructuredLogger returns a chi.middleware.RequestLogger using our StructuredLogger.
@@ -40,7 +40,7 @@ func (l *StructuredLogger) NewLogEntry(r *http.Request) middleware.LogEntry {
 		scheme = "https"
 	}
 
-	fields := map[string]interface{}{
+	fields := map[string]any{
 		"local_addr":  getLocalAddress(r),
 		"remote_addr": r.RemoteAddr,
 		"proto":       r.Proto,
@@ -57,7 +57,7 @@ func (l *StructuredLogger) NewLogEntry(r *http.Request) middleware.LogEntry {
 }
 
 // Write logs a new entry at the end of the HTTP request
-func (l *StructuredLoggerEntry) Write(status, bytes int, header http.Header, elapsed time.Duration, extra interface{}) {
+func (l *StructuredLoggerEntry) Write(status, bytes int, header http.Header, elapsed time.Duration, extra any) {
 	metric.HTTPRequestServed(status)
 	l.Logger.Info().
 		Timestamp().
@@ -70,7 +70,7 @@ func (l *StructuredLoggerEntry) Write(status, bytes int, header http.Header, ela
 }
 
 // Panic logs panics
-func (l *StructuredLoggerEntry) Panic(v interface{}, stack []byte) {
+func (l *StructuredLoggerEntry) Panic(v any, stack []byte) {
 	l.Logger.Error().
 		Timestamp().
 		Str("sender", "httpd").

@@ -96,7 +96,7 @@ func (c *TOTPConfig) generate(username string, qrCodeWidth, qrCodeHeight int) (s
 }
 
 func cleanupUsedPasscodes() {
-	usedPasscodes.Range(func(key, value interface{}) bool {
+	usedPasscodes.Range(func(key, value any) bool {
 		exp, ok := value.(time.Time)
 		if !ok || exp.Before(time.Now().UTC()) {
 			usedPasscodes.Delete(key)

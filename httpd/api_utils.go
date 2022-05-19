@@ -189,12 +189,12 @@ func getSearchFilters(w http.ResponseWriter, r *http.Request) (int, int, string,
 }
 
 func renderAPIDirContents(w http.ResponseWriter, r *http.Request, contents []os.FileInfo, omitNonRegularFiles bool) {
-	results := make([]map[string]interface{}, 0, len(contents))
+	results := make([]map[string]any, 0, len(contents))
 	for _, info := range contents {
 		if omitNonRegularFiles && !info.Mode().IsDir() && !info.Mode().IsRegular() {
 			continue
 		}
-		res := make(map[string]interface{})
+		res := make(map[string]any)
 		res["name"] = info.Name()
 		if info.Mode().IsRegular() {
 			res["size"] = info.Size()
@@ -508,7 +508,7 @@ func updateLoginMetrics(user *dataprovider.User, loginMethod, ip string, err err
 }
 
 func checkHTTPClientUser(user *dataprovider.User, r *http.Request, connectionID string, checkSessions bool) error {
-	if util.IsStringInSlice(common.ProtocolHTTP, user.Filters.DeniedProtocols) {
+	if util.Contains(user.Filters.DeniedProtocols, common.ProtocolHTTP) {
 		logger.Info(logSender, connectionID, "cannot login user %#v, protocol HTTP is not allowed", user.Username)
 		return fmt.Errorf("protocol HTTP is not allowed for user %#v", user.Username)
 	}
@@ -581,8 +581,7 @@ func handleForgotPassword(r *http.Request, username string, isAdmin bool) error 
 	}
 	logger.Debug(logSender, middleware.GetReqID(r.Context()), "reset code sent via email to %#v, email: %#v, is admin? %v, elapsed: %v",
 		username, email, isAdmin, time.Since(startTime))
-	resetCodes.Store(c.Code, c)
-	return nil
+	return resetCodesMgr.Add(c)
 }
 
 func handleResetPassword(r *http.Request, code, newPassword string, isAdmin bool) (
@@ -598,11 +597,10 @@ func handleResetPassword(r *http.Request, code, newPassword string, isAdmin bool
 	if code == "" {
 		return &admin, &user, util.NewValidationError("please set a confirmation code")
 	}
-	c, ok := resetCodes.Load(code)
-	if !ok {
+	resetCode, err := resetCodesMgr.Get(code)
+	if err != nil {
 		return &admin, &user, util.NewValidationError("confirmation code not found")
 	}
-	resetCode := c.(*resetCode)
 	if resetCode.IsAdmin != isAdmin {
 		return &admin, &user, util.NewValidationError("invalid confirmation code")
 	}
@@ -616,8 +614,8 @@ func handleResetPassword(r *http.Request, code, newPassword string, isAdmin bool
 		if err != nil {
 			return &admin, &user, util.NewGenericError(fmt.Sprintf("unable to set the new password: %v", err))
 		}
-		resetCodes.Delete(code)
-		return &admin, &user, nil
+		err = resetCodesMgr.Delete(code)
+		return &admin, &user, err
 	}
 	user, err = dataprovider.GetUserWithGroupSettings(resetCode.Username)
 	if err != nil {
@@ -631,7 +629,7 @@ func handleResetPassword(r *http.Request, code, newPassword string, isAdmin bool
 	err = dataprovider.UpdateUserPassword(user.Username, newPassword, dataprovider.ActionExecutorSelf,
 		util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if err == nil {
-		resetCodes.Delete(code)
+		err = resetCodesMgr.Delete(code)
 	}
 	return &admin, &user, err
 }
@@ -640,7 +638,7 @@ func isUserAllowedToResetPassword(r *http.Request, user *dataprovider.User) bool
 	if !user.CanResetPassword() {
 		return false
 	}
-	if util.IsStringInSlice(common.ProtocolHTTP, user.Filters.DeniedProtocols) {
+	if util.Contains(user.Filters.DeniedProtocols, common.ProtocolHTTP) {
 		return false
 	}
 	if !user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, common.ProtocolHTTP, nil) {

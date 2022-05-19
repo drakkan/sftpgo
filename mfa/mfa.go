@@ -53,7 +53,7 @@ func (c *Config) Initialize() error {
 	return nil
 }
 
-// GetAvailableTOTPConfigs returns the available TOTP config names
+// GetAvailableTOTPConfigs returns the available TOTP configs
 func GetAvailableTOTPConfigs() []*TOTPConfig {
 	return totpConfigs
 }

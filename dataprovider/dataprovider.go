@@ -167,6 +167,7 @@ var (
 	sqlTableGroups               = "groups"
 	sqlTableUsersGroupsMapping   = "users_groups_mapping"
 	sqlTableGroupsFoldersMapping = "groups_folders_mapping"
+	sqlTableSharedSessions       = "shared_sessions"
 	sqlTableSchemaVersion        = "schema_version"
 	argon2Params                 *argon2id.Params
 	lastLoginMinDelay            = 10 * time.Minute
@@ -409,7 +410,7 @@ type Config struct {
 
 // GetShared returns the provider share mode
 func (c *Config) GetShared() int {
-	if !util.IsStringInSlice(c.Driver, sharedProviders) {
+	if !util.Contains(sharedProviders, c.Driver) {
 		return 0
 	}
 	return c.IsShared
@@ -686,6 +687,10 @@ type Provider interface {
 	removeActiveTransfer(transferID int64, connectionID string) error
 	cleanupActiveTransfers(before time.Time) error
 	getActiveTransfers(from time.Time) ([]ActiveTransfer, error)
+	addSharedSession(session Session) error
+	deleteSharedSession(key string) error
+	getSharedSession(key string) (Session, error)
+	cleanupSharedSessions(sessionType SessionType, before int64) error
 	checkAvailability() error
 	close() error
 	reloadConfig() error
@@ -1138,7 +1143,7 @@ func CheckKeyboardInteractiveAuth(username, authHook string, client ssh.Keyboard
 // after a successful authentication with an external identity provider.
 // If a pre-login hook is defined it will be executed so the SFTPGo user
 // can be created if it does not exist
-func GetUserAfterIDPAuth(username, ip, protocol string, oidcTokenFields *map[string]interface{}) (User, error) {
+func GetUserAfterIDPAuth(username, ip, protocol string, oidcTokenFields *map[string]any) (User, error) {
 	var user User
 	var err error
 	if config.PreLoginHook != "" {
@@ -1643,6 +1648,42 @@ func GetActiveTransfers(from time.Time) ([]ActiveTransfer, error) {
 	return provider.getActiveTransfers(from)
 }
 
+// AddSharedSession stores a new session within the data provider
+func AddSharedSession(session Session) error {
+	err := provider.addSharedSession(session)
+	if err != nil {
+		providerLog(logger.LevelError, "unable to add shared session, key %#v, type: %v, err: %v",
+			session.Key, session.Type, err)
+	}
+	return err
+}
+
+// DeleteSharedSession deletes the session with the specified key
+func DeleteSharedSession(key string) error {
+	err := provider.deleteSharedSession(key)
+	if err != nil {
+		providerLog(logger.LevelError, "unable to add shared session, key %#v, err: %v", key, err)
+	}
+	return err
+}
+
+// GetSharedSession retrieves the session with the specified key
+func GetSharedSession(key string) (Session, error) {
+	return provider.getSharedSession(key)
+}
+
+// CleanupSharedSessions removes the shared session with the specified type and
+// before the specified time
+func CleanupSharedSessions(sessionType SessionType, before time.Time) error {
+	err := provider.cleanupSharedSessions(sessionType, util.GetTimeAsMsSinceEpoch(before))
+	if err == nil {
+		providerLog(logger.LevelDebug, "deleted shared sessions before: %v, type: %v", before, sessionType)
+	} else {
+		providerLog(logger.LevelError, "error deleting shared session before %v, type %v: %v", before, sessionType, err)
+	}
+	return err
+}
+
 // ReloadConfig reloads provider configuration.
 // Currently only implemented for memory provider, allows to reload the users
 // from the configured file, if defined
@@ -2047,7 +2088,7 @@ func validateUserTOTPConfig(c *UserTOTPConfig, username string) error {
 	if c.ConfigName == "" {
 		return util.NewValidationError("totp: config name is mandatory")
 	}
-	if !util.IsStringInSlice(c.ConfigName, mfa.GetAvailableTOTPConfigNames()) {
+	if !util.Contains(mfa.GetAvailableTOTPConfigNames(), c.ConfigName) {
 		return util.NewValidationError(fmt.Sprintf("totp: config name %#v not found", c.ConfigName))
 	}
 	if c.Secret.IsEmpty() {
@@ -2063,7 +2104,7 @@ func validateUserTOTPConfig(c *UserTOTPConfig, username string) error {
 		return util.NewValidationError("totp: specify at least one protocol")
 	}
 	for _, protocol := range c.Protocols {
-		if !util.IsStringInSlice(protocol, MFAProtocols) {
+		if !util.Contains(MFAProtocols, protocol) {
 			return util.NewValidationError(fmt.Sprintf("totp: invalid protocol %#v", protocol))
 		}
 	}
@@ -2096,7 +2137,7 @@ func validateUserPermissions(permsToCheck map[string][]string) (map[string][]str
 			return permissions, util.NewValidationError("invalid permissions")
 		}
 		for _, p := range perms {
-			if !util.IsStringInSlice(p, ValidPerms) {
+			if !util.Contains(ValidPerms, p) {
 				return permissions, util.NewValidationError(fmt.Sprintf("invalid permission: %#v", p))
 			}
 		}
@@ -2110,7 +2151,7 @@ func validateUserPermissions(permsToCheck map[string][]string) (map[string][]str
 		if dir != cleanedDir && cleanedDir == "/" {
 			return permissions, util.NewValidationError(fmt.Sprintf("cannot set permissions for invalid subdirectory: %#v is an alias for \"/\"", dir))
 		}
-		if util.IsStringInSlice(PermAny, perms) {
+		if util.Contains(perms, PermAny) {
 			permissions[cleanedDir] = []string{PermAny}
 		} else {
 			permissions[cleanedDir] = util.RemoveDuplicates(perms)
@@ -2166,7 +2207,7 @@ func validateFiltersPatternExtensions(baseFilters *sdk.BaseUserFilters) error {
 		if !path.IsAbs(cleanedPath) {
 			return util.NewValidationError(fmt.Sprintf("invalid path %#v for file patterns filter", f.Path))
 		}
-		if util.IsStringInSlice(cleanedPath, filteredPaths) {
+		if util.Contains(filteredPaths, cleanedPath) {
 			return util.NewValidationError(fmt.Sprintf("duplicate file patterns filter for path %#v", f.Path))
 		}
 		if len(f.AllowedPatterns) == 0 && len(f.DeniedPatterns) == 0 {
@@ -2296,13 +2337,13 @@ func validateFilterProtocols(filters *sdk.BaseUserFilters) error {
 		return util.NewValidationError("invalid denied_protocols")
 	}
 	for _, p := range filters.DeniedProtocols {
-		if !util.IsStringInSlice(p, ValidProtocols) {
+		if !util.Contains(ValidProtocols, p) {
 			return util.NewValidationError(fmt.Sprintf("invalid denied protocol %#v", p))
 		}
 	}
 
 	for _, p := range filters.TwoFactorAuthProtocols {
-		if !util.IsStringInSlice(p, MFAProtocols) {
+		if !util.Contains(MFAProtocols, p) {
 			return util.NewValidationError(fmt.Sprintf("invalid two factor protocol %#v", p))
 		}
 	}
@@ -2324,7 +2365,7 @@ func validateBaseFilters(filters *sdk.BaseUserFilters) error {
 		return util.NewValidationError("invalid denied_login_methods")
 	}
 	for _, loginMethod := range filters.DeniedLoginMethods {
-		if !util.IsStringInSlice(loginMethod, ValidLoginMethods) {
+		if !util.Contains(ValidLoginMethods, loginMethod) {
 			return util.NewValidationError(fmt.Sprintf("invalid login method: %#v", loginMethod))
 		}
 	}
@@ -2332,12 +2373,12 @@ func validateBaseFilters(filters *sdk.BaseUserFilters) error {
 		return err
 	}
 	if filters.TLSUsername != "" {
-		if !util.IsStringInSlice(string(filters.TLSUsername), validTLSUsernames) {
+		if !util.Contains(validTLSUsernames, string(filters.TLSUsername)) {
 			return util.NewValidationError(fmt.Sprintf("invalid TLS username: %#v", filters.TLSUsername))
 		}
 	}
 	for _, opts := range filters.WebClient {
-		if !util.IsStringInSlice(opts, sdk.WebClientOptions) {
+		if !util.Contains(sdk.WebClientOptions, opts) {
 			return util.NewValidationError(fmt.Sprintf("invalid web client options %#v", opts))
 		}
 	}
@@ -2481,7 +2522,7 @@ func ValidateUser(user *User) error {
 	if !user.HasExternalAuth() {
 		user.Filters.ExternalAuthCacheTime = 0
 	}
-	if user.Filters.TOTPConfig.Enabled && util.IsStringInSlice(sdk.WebClientMFADisabled, user.Filters.WebClient) {
+	if user.Filters.TOTPConfig.Enabled && util.Contains(user.Filters.WebClient, sdk.WebClientMFADisabled) {
 		return util.NewValidationError("two-factor authentication cannot be disabled for a user with an active configuration")
 	}
 	return nil
@@ -2622,7 +2663,7 @@ func checkUserPasscode(user *User, password, protocol string) (string, error) {
 	if user.Filters.TOTPConfig.Enabled {
 		switch protocol {
 		case protocolFTP:
-			if util.IsStringInSlice(protocol, user.Filters.TOTPConfig.Protocols) {
+			if util.Contains(user.Filters.TOTPConfig.Protocols, protocol) {
 				// the TOTP passcode has six digits
 				pwdLen := len(password)
 				if pwdLen < 7 {
@@ -2810,7 +2851,7 @@ func doBuiltinKeyboardInteractiveAuth(user *User, client ssh.KeyboardInteractive
 	if err != nil {
 		return 0, err
 	}
-	if !user.Filters.TOTPConfig.Enabled || !util.IsStringInSlice(protocolSSH, user.Filters.TOTPConfig.Protocols) {
+	if !user.Filters.TOTPConfig.Enabled || !util.Contains(user.Filters.TOTPConfig.Protocols, protocolSSH) {
 		return 1, nil
 	}
 	err = user.Filters.TOTPConfig.Secret.TryDecrypt()
@@ -2934,7 +2975,7 @@ func getKeyboardInteractiveAnswers(client ssh.KeyboardInteractiveChallenge, resp
 	}
 	if len(answers) == 1 && response.CheckPwd > 0 {
 		if response.CheckPwd == 2 {
-			if !user.Filters.TOTPConfig.Enabled || !util.IsStringInSlice(protocolSSH, user.Filters.TOTPConfig.Protocols) {
+			if !user.Filters.TOTPConfig.Enabled || !util.Contains(user.Filters.TOTPConfig.Protocols, protocolSSH) {
 				providerLog(logger.LevelInfo, "keyboard interactive auth error: unable to check TOTP passcode, TOTP is not enabled for user %#v",
 					user.Username)
 				return answers, errors.New("TOTP not enabled for SSH protocol")
@@ -3190,7 +3231,7 @@ func getPreLoginHookResponse(loginMethod, ip, protocol string, userAsJSON []byte
 	return cmd.Output()
 }
 
-func executePreLoginHook(username, loginMethod, ip, protocol string, oidcTokenFields *map[string]interface{}) (User, error) {
+func executePreLoginHook(username, loginMethod, ip, protocol string, oidcTokenFields *map[string]any) (User, error) {
 	u, mergedUser, userAsJSON, err := getUserAndJSONForHook(username, oidcTokenFields)
 	if err != nil {
 		return u, err
@@ -3340,7 +3381,7 @@ func getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, 
 	}
 	if strings.HasPrefix(config.ExternalAuthHook, "http") {
 		var result []byte
-		authRequest := make(map[string]interface{})
+		authRequest := make(map[string]any)
 		authRequest["username"] = username
 		authRequest["ip"] = ip
 		authRequest["password"] = password
@@ -3552,7 +3593,7 @@ func doPluginAuth(username, password string, pubKey []byte, ip, protocol string,
 	return provider.userExists(user.Username)
 }
 
-func getUserForHook(username string, oidcTokenFields *map[string]interface{}) (User, User, error) {
+func getUserForHook(username string, oidcTokenFields *map[string]any) (User, User, error) {
 	u, err := provider.userExists(username)
 	if err != nil {
 		if _, ok := err.(*util.RecordNotFoundError); !ok {
@@ -3575,7 +3616,7 @@ func getUserForHook(username string, oidcTokenFields *map[string]interface{}) (U
 	return u, mergedUser, err
 }
 
-func getUserAndJSONForHook(username string, oidcTokenFields *map[string]interface{}) (User, User, []byte, error) {
+func getUserAndJSONForHook(username string, oidcTokenFields *map[string]any) (User, User, []byte, error) {
 	u, mergedUser, err := getUserForHook(username, oidcTokenFields)
 	if err != nil {
 		return u, mergedUser, nil, err
@@ -3689,6 +3730,6 @@ func getConfigPath(name, configDir string) string {
 	return name
 }
 
-func providerLog(level logger.LogLevel, format string, v ...interface{}) {
+func providerLog(level logger.LogLevel, format string, v ...any) {
 	logger.Log(level, logSender, "", format, v...)
 }

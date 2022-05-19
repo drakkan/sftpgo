@@ -67,7 +67,7 @@ func (s *Service) StartPortableMode(sftpdPort, ftpPort, webdavPort int, enabledS
 			// dynamic ports starts from 49152
 			sftpdConf.Bindings[0].Port = 49152 + rand.Intn(15000)
 		}
-		if util.IsStringInSlice("*", enabledSSHCommands) {
+		if util.Contains(enabledSSHCommands, "*") {
 			sftpdConf.EnabledSSHCommands = sftpd.GetSupportedSSHCommands()
 		} else {
 			sftpdConf.EnabledSSHCommands = enabledSSHCommands

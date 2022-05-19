@@ -252,7 +252,7 @@ func TestMain(m *testing.M) {
 	}()
 
 	go func() {
-		if err := httpdConf.Initialize(configDir); err != nil {
+		if err := httpdConf.Initialize(configDir, 0); err != nil {
 			logger.ErrorToConsole("could not start HTTP server: %v", err)
 			os.Exit(1)
 		}
@@ -7988,8 +7988,8 @@ func TestUserAllowedLoginMethods(t *testing.T) {
 	allowedMethods = user.GetAllowedLoginMethods()
 	assert.Equal(t, 4, len(allowedMethods))
 
-	assert.True(t, util.IsStringInSlice(dataprovider.SSHLoginMethodKeyAndKeyboardInt, allowedMethods))
-	assert.True(t, util.IsStringInSlice(dataprovider.SSHLoginMethodKeyAndPassword, allowedMethods))
+	assert.True(t, util.Contains(allowedMethods, dataprovider.SSHLoginMethodKeyAndKeyboardInt))
+	assert.True(t, util.Contains(allowedMethods, dataprovider.SSHLoginMethodKeyAndPassword))
 }
 
 func TestUserPartialAuth(t *testing.T) {
@@ -8040,11 +8040,11 @@ func TestUserGetNextAuthMethods(t *testing.T) {
 
 	methods = user.GetNextAuthMethods([]string{dataprovider.SSHLoginMethodPublicKey}, true)
 	assert.Equal(t, 2, len(methods))
-	assert.True(t, util.IsStringInSlice(dataprovider.LoginMethodPassword, methods))
-	assert.True(t, util.IsStringInSlice(dataprovider.SSHLoginMethodKeyboardInteractive, methods))
+	assert.True(t, util.Contains(methods, dataprovider.LoginMethodPassword))
+	assert.True(t, util.Contains(methods, dataprovider.SSHLoginMethodKeyboardInteractive))
 	methods = user.GetNextAuthMethods([]string{dataprovider.SSHLoginMethodPublicKey}, false)
 	assert.Equal(t, 1, len(methods))
-	assert.True(t, util.IsStringInSlice(dataprovider.SSHLoginMethodKeyboardInteractive, methods))
+	assert.True(t, util.Contains(methods, dataprovider.SSHLoginMethodKeyboardInteractive))
 
 	user.Filters.DeniedLoginMethods = []string{
 		dataprovider.LoginMethodPassword,
@@ -8054,7 +8054,7 @@ func TestUserGetNextAuthMethods(t *testing.T) {
 	}
 	methods = user.GetNextAuthMethods([]string{dataprovider.SSHLoginMethodPublicKey}, true)
 	assert.Equal(t, 1, len(methods))
-	assert.True(t, util.IsStringInSlice(dataprovider.LoginMethodPassword, methods))
+	assert.True(t, util.Contains(methods, dataprovider.LoginMethodPassword))
 
 	user.Filters.DeniedLoginMethods = []string{
 		dataprovider.LoginMethodPassword,
@@ -8064,7 +8064,7 @@ func TestUserGetNextAuthMethods(t *testing.T) {
 	}
 	methods = user.GetNextAuthMethods([]string{dataprovider.SSHLoginMethodPublicKey}, true)
 	assert.Equal(t, 1, len(methods))
-	assert.True(t, util.IsStringInSlice(dataprovider.SSHLoginMethodKeyboardInteractive, methods))
+	assert.True(t, util.Contains(methods, dataprovider.SSHLoginMethodKeyboardInteractive))
 }
 
 func TestUserIsLoginMethodAllowed(t *testing.T) {
