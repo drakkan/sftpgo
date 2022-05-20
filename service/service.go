@@ -141,17 +141,17 @@ func (s *Service) Start(disableAWSInstallationCode bool) error {
 		return err
 	}
 
-	err = s.LoadInitialData()
-	if err != nil {
-		logger.Error(logSender, "", "unable to load initial data: %v", err)
-		logger.ErrorToConsole("unable to load initial data: %v", err)
-	}
-
 	httpConfig := config.GetHTTPConfig()
 	err = httpConfig.Initialize(s.ConfigDir)
 	if err != nil {
 		logger.Error(logSender, "", "error initializing http client: %v", err)
 		logger.ErrorToConsole("error initializing http client: %v", err)
+		return err
+	}
+	commandConfig := config.GetCommandConfig()
+	if err := commandConfig.Initialize(); err != nil {
+		logger.Error(logSender, "", "error initializing commands configuration: %v", err)
+		logger.ErrorToConsole("error initializing commands configuration: %v", err)
 		return err
 	}
 
@@ -162,6 +162,12 @@ func (s *Service) Start(disableAWSInstallationCode bool) error {
 }
 
 func (s *Service) startServices() {
+	err := s.LoadInitialData()
+	if err != nil {
+		logger.Error(logSender, "", "unable to load initial data: %v", err)
+		logger.ErrorToConsole("unable to load initial data: %v", err)
+	}
+
 	sftpdConf := config.GetSFTPDConfig()
 	ftpdConf := config.GetFTPDConfig()
 	httpdConf := config.GetHTTPDConfig()

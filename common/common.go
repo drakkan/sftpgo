@@ -19,6 +19,7 @@ import (
 
 	"github.com/pires/go-proxyproto"
 
+	"github.com/drakkan/sftpgo/v2/command"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/httpclient"
 	"github.com/drakkan/sftpgo/v2/logger"
@@ -577,9 +578,12 @@ func (c *Configuration) ExecuteStartupHook() error {
 		return err
 	}
 	startTime := time.Now()
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	timeout, env := command.GetConfig(c.StartupHook)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
+
 	cmd := exec.CommandContext(ctx, c.StartupHook)
+	cmd.Env = env
 	err := cmd.Run()
 	logger.Debug(logSender, "", "Startup hook executed, elapsed: %v, error: %v", time.Since(startTime), err)
 	return nil
@@ -617,12 +621,13 @@ func (c *Configuration) executePostDisconnectHook(remoteAddr, protocol, username
 		logger.Debug(protocol, connID, "invalid post disconnect hook %#v", c.PostDisconnectHook)
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	timeout, env := command.GetConfig(c.PostDisconnectHook)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	startTime := time.Now()
 	cmd := exec.CommandContext(ctx, c.PostDisconnectHook)
-	cmd.Env = append(os.Environ(),
+	cmd.Env = append(env,
 		fmt.Sprintf("SFTPGO_CONNECTION_IP=%v", ipAddr),
 		fmt.Sprintf("SFTPGO_CONNECTION_USERNAME=%v", username),
 		fmt.Sprintf("SFTPGO_CONNECTION_DURATION=%v", connDuration),
@@ -676,10 +681,12 @@ func (c *Configuration) ExecutePostConnectHook(ipAddr, protocol string) error {
 		logger.Warn(protocol, "", "Login from ip %#v denied: %v", ipAddr, err)
 		return err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	timeout, env := command.GetConfig(c.PostConnectHook)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
+
 	cmd := exec.CommandContext(ctx, c.PostConnectHook)
-	cmd.Env = append(os.Environ(),
+	cmd.Env = append(env,
 		fmt.Sprintf("SFTPGO_CONNECTION_IP=%v", ipAddr),
 		fmt.Sprintf("SFTPGO_CONNECTION_PROTOCOL=%v", protocol))
 	err := cmd.Run()

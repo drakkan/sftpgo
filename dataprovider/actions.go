@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/sftpgo/sdk/plugin/notifier"
 
+	"github.com/drakkan/sftpgo/v2/command"
 	"github.com/drakkan/sftpgo/v2/httpclient"
 	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/plugin"
@@ -98,11 +98,12 @@ func executeNotificationCommand(operation, executor, ip, objectType, objectName 
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	timeout, env := command.GetConfig(config.Actions.Hook)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, config.Actions.Hook)
-	cmd.Env = append(os.Environ(),
+	cmd.Env = append(env,
 		fmt.Sprintf("SFTPGO_PROVIDER_ACTION=%v", operation),
 		fmt.Sprintf("SFTPGO_PROVIDER_OBJECT_TYPE=%v", objectType),
 		fmt.Sprintf("SFTPGO_PROVIDER_OBJECT_NAME=%v", objectName),

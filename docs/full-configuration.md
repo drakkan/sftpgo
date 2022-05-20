@@ -325,6 +325,13 @@ The configuration file contains the following sections:
     - `key`, string
     - `value`, string. The header is silently ignored if `key` or `value` are empty
     - `url`, string, optional. If not empty, the header will be added only if the request URL starts with the one specified here
+- **command**, configuration for external commands such as program based hooks
+  - `timeout`, integer. Timeout specifies a time limit, in seconds, to execute external commands. Valid range: `1-300`. Default: `30`
+  - `env`, list of strings. Additional environment variable to pass to all the external commands. Each entry is of the form `key=value`. Default: empty
+  - `commands`, list of structs. Allow to customize configuration per-command. Each struct has the following fields:
+    - `path`, string. Define the command path as defined in the hook configuration
+    - `timeout`, integer. This value overrides the global timeout if set
+    - `env`, list of strings. These values are added to the environment variables defined for all commands, if any
 - **kms**, configuration for the Key Management Service, more details can be found [here](./kms.md)
   - `secrets`
     - `url`, string. Defines the URI to the KMS service. Default: blank.

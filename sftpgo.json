@@ -326,6 +326,11 @@
     "skip_tls_verify": false,
     "headers": []
   },
+  "command": {
+    "timeout": 30,
+    "env": [],
+    "commands": []
+  },
   "kms": {
     "secrets": {
       "url": "",

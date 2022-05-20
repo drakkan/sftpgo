@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/viper"
 
+	"github.com/drakkan/sftpgo/v2/command"
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/ftpd"
@@ -139,6 +140,7 @@ type globalConfig struct {
 	ProviderConf    dataprovider.Config   `json:"data_provider" mapstructure:"data_provider"`
 	HTTPDConfig     httpd.Conf            `json:"httpd" mapstructure:"httpd"`
 	HTTPConfig      httpclient.Config     `json:"http" mapstructure:"http"`
+	CommandConfig   command.Config        `json:"command" mapstructure:"command"`
 	KMSConfig       kms.Configuration     `json:"kms" mapstructure:"kms"`
 	MFAConfig       mfa.Config            `json:"mfa" mapstructure:"mfa"`
 	TelemetryConfig telemetry.Conf        `json:"telemetry" mapstructure:"telemetry"`
@@ -353,6 +355,11 @@ func Init() {
 			SkipTLSVerify:  false,
 			Headers:        nil,
 		},
+		CommandConfig: command.Config{
+			Timeout:  30,
+			Env:      nil,
+			Commands: nil,
+		},
 		KMSConfig: kms.Configuration{
 			Secrets: kms.Secrets{
 				URL:             "",
@@ -459,6 +466,11 @@ func SetProviderConf(config dataprovider.Config) {
 // GetHTTPConfig returns the configuration for HTTP clients
 func GetHTTPConfig() httpclient.Config {
 	return globalConf.HTTPConfig
+}
+
+// GetCommandConfig returns the configuration for external commands
+func GetCommandConfig() command.Config {
+	return globalConf.CommandConfig
 }
 
 // GetKMSConfig returns the KMS configuration
@@ -674,6 +686,7 @@ func loadBindingsFromEnv() {
 		getHTTPDBindingFromEnv(idx)
 		getHTTPClientCertificatesFromEnv(idx)
 		getHTTPClientHeadersFromEnv(idx)
+		getCommandConfigsFromEnv(idx)
 	}
 }
 
@@ -1546,6 +1559,9 @@ func getHTTPClientCertificatesFromEnv(idx int) {
 
 func getHTTPClientHeadersFromEnv(idx int) {
 	header := httpclient.Header{}
+	if len(globalConf.HTTPConfig.Headers) > idx {
+		header = globalConf.HTTPConfig.Headers[idx]
+	}
 
 	key, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTP__HEADERS__%v__KEY", idx))
 	if ok {
@@ -1567,6 +1583,36 @@ func getHTTPClientHeadersFromEnv(idx int) {
 			globalConf.HTTPConfig.Headers[idx] = header
 		} else {
 			globalConf.HTTPConfig.Headers = append(globalConf.HTTPConfig.Headers, header)
+		}
+	}
+}
+
+func getCommandConfigsFromEnv(idx int) {
+	cfg := command.Command{}
+	if len(globalConf.CommandConfig.Commands) > idx {
+		cfg = globalConf.CommandConfig.Commands[idx]
+	}
+
+	path, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_COMMAND__COMMANDS__%v__PATH", idx))
+	if ok {
+		cfg.Path = path
+	}
+
+	timeout, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_COMMAND__COMMANDS__%v__TIMEOUT", idx))
+	if ok {
+		cfg.Timeout = int(timeout)
+	}
+
+	env, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_COMMAND__COMMANDS__%v__ENV", idx))
+	if ok {
+		cfg.Env = env
+	}
+
+	if cfg.Path != "" {
+		if len(globalConf.CommandConfig.Commands) > idx {
+			globalConf.CommandConfig.Commands[idx] = cfg
+		} else {
+			globalConf.CommandConfig.Commands = append(globalConf.CommandConfig.Commands, cfg)
 		}
 	}
 }
@@ -1714,6 +1760,8 @@ func setViperDefaults() {
 	viper.SetDefault("http.retry_max", globalConf.HTTPConfig.RetryMax)
 	viper.SetDefault("http.ca_certificates", globalConf.HTTPConfig.CACertificates)
 	viper.SetDefault("http.skip_tls_verify", globalConf.HTTPConfig.SkipTLSVerify)
+	viper.SetDefault("command.timeout", globalConf.CommandConfig.Timeout)
+	viper.SetDefault("command.env", globalConf.CommandConfig.Env)
 	viper.SetDefault("kms.secrets.url", globalConf.KMSConfig.Secrets.URL)
 	viper.SetDefault("kms.secrets.master_key", globalConf.KMSConfig.Secrets.MasterKeyString)
 	viper.SetDefault("kms.secrets.master_key_path", globalConf.KMSConfig.Secrets.MasterKeyPath)

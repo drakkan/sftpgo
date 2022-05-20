@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/drakkan/sftpgo/v2/command"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/httpclient"
 	"github.com/drakkan/sftpgo/v2/logger"
@@ -450,11 +451,12 @@ func (c *RetentionCheck) sendHookNotification(elapsed time.Duration, errCheck er
 		c.conn.Log(logger.LevelError, "%v", err)
 		return err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	timeout, env := command.GetConfig(Config.DataRetentionHook)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, Config.DataRetentionHook)
-	cmd.Env = append(os.Environ(),
+	cmd.Env = append(env,
 		fmt.Sprintf("SFTPGO_DATA_RETENTION_RESULT=%v", string(jsonData)))
 	err := cmd.Run()
 

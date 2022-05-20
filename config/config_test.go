@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/drakkan/sftpgo/v2/command"
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/config"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
@@ -677,6 +678,69 @@ func TestSFTPDBindingsFromEnv(t *testing.T) {
 	require.Equal(t, 2203, bindings[1].Port)
 	require.Equal(t, "127.0.1.1", bindings[1].Address)
 	require.True(t, bindings[1].ApplyProxyConfig) // default value
+}
+
+func TestCommandsFromEnv(t *testing.T) {
+	reset()
+
+	configDir := ".."
+	confName := tempConfigName + ".json"
+	configFilePath := filepath.Join(configDir, confName)
+	err := config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	commandConfig := config.GetCommandConfig()
+	commandConfig.Commands = append(commandConfig.Commands, command.Command{
+		Path:    "cmd",
+		Timeout: 10,
+		Env:     []string{"a=a"},
+	})
+	c := make(map[string]command.Config)
+	c["command"] = commandConfig
+	jsonConf, err := json.Marshal(c)
+	require.NoError(t, err)
+	err = os.WriteFile(configFilePath, jsonConf, os.ModePerm)
+	require.NoError(t, err)
+	err = config.LoadConfig(configDir, confName)
+	require.NoError(t, err)
+	commandConfig = config.GetCommandConfig()
+	require.Equal(t, 30, commandConfig.Timeout)
+	require.Len(t, commandConfig.Env, 0)
+	require.Len(t, commandConfig.Commands, 1)
+	require.Equal(t, "cmd", commandConfig.Commands[0].Path)
+	require.Equal(t, 10, commandConfig.Commands[0].Timeout)
+	require.Equal(t, []string{"a=a"}, commandConfig.Commands[0].Env)
+
+	os.Setenv("SFTPGO_COMMAND__TIMEOUT", "25")
+	os.Setenv("SFTPGO_COMMAND__ENV", "a=b,c=d")
+	os.Setenv("SFTPGO_COMMAND__COMMANDS__0__PATH", "cmd1")
+	os.Setenv("SFTPGO_COMMAND__COMMANDS__0__TIMEOUT", "11")
+	os.Setenv("SFTPGO_COMMAND__COMMANDS__1__PATH", "cmd2")
+	os.Setenv("SFTPGO_COMMAND__COMMANDS__1__TIMEOUT", "20")
+	os.Setenv("SFTPGO_COMMAND__COMMANDS__1__ENV", "e=f")
+
+	t.Cleanup(func() {
+		os.Unsetenv("SFTPGO_COMMAND__TIMEOUT")
+		os.Unsetenv("SFTPGO_COMMAND__ENV")
+		os.Unsetenv("SFTPGO_COMMAND__COMMANDS__0__PATH")
+		os.Unsetenv("SFTPGO_COMMAND__COMMANDS__0__TIMEOUT")
+		os.Unsetenv("SFTPGO_COMMAND__COMMANDS__0__ENV")
+	})
+
+	err = config.LoadConfig(configDir, confName)
+	assert.NoError(t, err)
+	commandConfig = config.GetCommandConfig()
+	require.Equal(t, 25, commandConfig.Timeout)
+	require.Equal(t, []string{"a=b", "c=d"}, commandConfig.Env)
+	require.Len(t, commandConfig.Commands, 2)
+	require.Equal(t, "cmd1", commandConfig.Commands[0].Path)
+	require.Equal(t, 11, commandConfig.Commands[0].Timeout)
+	require.Equal(t, []string{"a=a"}, commandConfig.Commands[0].Env)
+	require.Equal(t, "cmd2", commandConfig.Commands[1].Path)
+	require.Equal(t, 20, commandConfig.Commands[1].Timeout)
+	require.Equal(t, []string{"e=f"}, commandConfig.Commands[1].Env)
+
+	err = os.Remove(configFilePath)
+	assert.NoError(t, err)
 }
 
 func TestFTPDBindingsFromEnv(t *testing.T) {

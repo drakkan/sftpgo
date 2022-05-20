@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -17,6 +16,7 @@ import (
 	"github.com/sftpgo/sdk"
 	"github.com/sftpgo/sdk/plugin/notifier"
 
+	"github.com/drakkan/sftpgo/v2/command"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/httpclient"
 	"github.com/drakkan/sftpgo/v2/logger"
@@ -223,11 +223,12 @@ func (h *defaultActionHandler) handleCommand(event *notifier.FsEvent) error {
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	timeout, env := command.GetConfig(Config.Actions.Hook)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, Config.Actions.Hook)
-	cmd.Env = append(os.Environ(), notificationAsEnvVars(event)...)
+	cmd.Env = append(env, notificationAsEnvVars(event)...)
 
 	startTime := time.Now()
 	err := cmd.Run()
