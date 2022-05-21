@@ -875,8 +875,14 @@ func TestVerifyTLSConnection(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.WriteFile(keyPath, []byte(ftpsKey), os.ModePerm)
 	assert.NoError(t, err)
-
-	certMgr, err = common.NewCertManager(certPath, keyPath, "", "ftp_test")
+	keyPairs := []common.TLSKeyPair{
+		{
+			Cert: certPath,
+			Key:  keyPath,
+			ID:   common.DefaultTLSKeyPaidID,
+		},
+	}
+	certMgr, err = common.NewCertManager(keyPairs, "", "ftp_test")
 	assert.NoError(t, err)
 
 	certMgr.SetCARevocationLists([]string{caCrlPath})

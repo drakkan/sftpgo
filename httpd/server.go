@@ -79,16 +79,20 @@ func (s *httpdServer) listenAndServe() error {
 		ErrorLog:          log.New(&logger.StdLoggerWrapper{Sender: logSender}, "", 0),
 	}
 	if certMgr != nil && s.binding.EnableHTTPS {
+		certID := common.DefaultTLSKeyPaidID
+		if getConfigPath(s.binding.CertificateFile, "") != "" && getConfigPath(s.binding.CertificateKeyFile, "") != "" {
+			certID = s.binding.GetAddress()
+		}
 		config := &tls.Config{
-			GetCertificate:           certMgr.GetCertificateFunc(),
+			GetCertificate:           certMgr.GetCertificateFunc(certID),
 			MinVersion:               util.GetTLSVersion(s.binding.MinTLSVersion),
 			NextProtos:               []string{"http/1.1", "h2"},
 			CipherSuites:             util.GetTLSCiphersFromNames(s.binding.TLSCipherSuites),
 			PreferServerCipherSuites: true,
 		}
-		logger.Debug(logSender, "", "configured TLS cipher suites for binding %#v: %v", s.binding.GetAddress(),
-			config.CipherSuites)
 		httpServer.TLSConfig = config
+		logger.Debug(logSender, "", "configured TLS cipher suites for binding %#v: %v, certID: %v",
+			s.binding.GetAddress(), httpServer.TLSConfig.CipherSuites, certID)
 		if s.binding.ClientAuthType == 1 {
 			httpServer.TLSConfig.ClientCAs = certMgr.GetRootCAs()
 			httpServer.TLSConfig.ClientAuth = tls.RequireAndVerifyClientCert

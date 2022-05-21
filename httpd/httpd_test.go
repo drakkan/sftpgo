@@ -407,8 +407,8 @@ func TestMain(m *testing.M) {
 	}
 	httpdConf.Bindings[0].Port = 8443
 	httpdConf.Bindings[0].EnableHTTPS = true
-	httpdConf.CertificateFile = certPath
-	httpdConf.CertificateKeyFile = keyPath
+	httpdConf.Bindings[0].CertificateFile = certPath
+	httpdConf.Bindings[0].CertificateKeyFile = keyPath
 	httpdConf.Bindings = append(httpdConf.Bindings, httpd.Binding{})
 
 	go func() {

@@ -100,12 +100,19 @@ func (c Conf) Initialize(configDir string) error {
 		ErrorLog:          log.New(&logger.StdLoggerWrapper{Sender: logSender}, "", 0),
 	}
 	if certificateFile != "" && certificateKeyFile != "" {
-		certMgr, err = common.NewCertManager(certificateFile, certificateKeyFile, configDir, logSender)
+		keyPairs := []common.TLSKeyPair{
+			{
+				Cert: certificateFile,
+				Key:  certificateKeyFile,
+				ID:   common.DefaultTLSKeyPaidID,
+			},
+		}
+		certMgr, err = common.NewCertManager(keyPairs, configDir, logSender)
 		if err != nil {
 			return err
 		}
 		config := &tls.Config{
-			GetCertificate:           certMgr.GetCertificateFunc(),
+			GetCertificate:           certMgr.GetCertificateFunc(common.DefaultTLSKeyPaidID),
 			MinVersion:               util.GetTLSVersion(c.MinTLSVersion),
 			NextProtos:               []string{"http/1.1", "h2"},
 			CipherSuites:             util.GetTLSCiphersFromNames(c.TLSCipherSuites),

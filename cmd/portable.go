@@ -123,8 +123,15 @@ Please take a look at the usage below to customize the serving parameters`,
 				}
 				portableSFTPPrivateKey = contents
 			}
-			if portableFTPDPort >= 0 && len(portableFTPSCert) > 0 && len(portableFTPSKey) > 0 {
-				_, err := common.NewCertManager(portableFTPSCert, portableFTPSKey, filepath.Clean(defaultConfigDir),
+			if portableFTPDPort >= 0 && portableFTPSCert != "" && portableFTPSKey != "" {
+				keyPairs := []common.TLSKeyPair{
+					{
+						Cert: portableFTPSCert,
+						Key:  portableFTPSKey,
+						ID:   common.DefaultTLSKeyPaidID,
+					},
+				}
+				_, err := common.NewCertManager(keyPairs, filepath.Clean(defaultConfigDir),
 					"FTP portable")
 				if err != nil {
 					fmt.Printf("Unable to load FTPS key pair, cert file %#v key file %#v error: %v\n",
@@ -132,8 +139,15 @@ Please take a look at the usage below to customize the serving parameters`,
 					os.Exit(1)
 				}
 			}
-			if portableWebDAVPort > 0 && len(portableWebDAVCert) > 0 && len(portableWebDAVKey) > 0 {
-				_, err := common.NewCertManager(portableWebDAVCert, portableWebDAVKey, filepath.Clean(defaultConfigDir),
+			if portableWebDAVPort > 0 && portableWebDAVCert != "" && portableWebDAVKey != "" {
+				keyPairs := []common.TLSKeyPair{
+					{
+						Cert: portableWebDAVCert,
+						Key:  portableWebDAVKey,
+						ID:   common.DefaultTLSKeyPaidID,
+					},
+				}
+				_, err := common.NewCertManager(keyPairs, filepath.Clean(defaultConfigDir),
 					"WebDAV portable")
 				if err != nil {
 					fmt.Printf("Unable to load WebDAV key pair, cert file %#v key file %#v error: %v\n",

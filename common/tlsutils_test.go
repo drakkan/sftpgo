@@ -280,9 +280,35 @@ func TestLoadCertificate(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.WriteFile(keyPath, []byte(serverKey), os.ModePerm)
 	assert.NoError(t, err)
-	certManager, err := NewCertManager(certPath, keyPath, configDir, logSenderTest)
+	keyPairs := []TLSKeyPair{
+		{
+			Cert: certPath,
+			Key:  keyPath,
+			ID:   DefaultTLSKeyPaidID,
+		},
+		{
+			Cert: certPath,
+			Key:  keyPath,
+			ID:   DefaultTLSKeyPaidID,
+		},
+	}
+	certManager, err := NewCertManager(keyPairs, configDir, logSenderTest)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "is duplicated")
+	}
+	assert.Nil(t, certManager)
+
+	keyPairs = []TLSKeyPair{
+		{
+			Cert: certPath,
+			Key:  keyPath,
+			ID:   DefaultTLSKeyPaidID,
+		},
+	}
+
+	certManager, err = NewCertManager(keyPairs, configDir, logSenderTest)
 	assert.NoError(t, err)
-	certFunc := certManager.GetCertificateFunc()
+	certFunc := certManager.GetCertificateFunc(DefaultTLSKeyPaidID)
 	if assert.NotNil(t, certFunc) {
 		hello := &tls.ClientHelloInfo{
 			ServerName:   "localhost",
@@ -290,9 +316,19 @@ func TestLoadCertificate(t *testing.T) {
 		}
 		cert, err := certFunc(hello)
 		assert.NoError(t, err)
-		assert.Equal(t, certManager.cert, cert)
+		assert.Equal(t, certManager.certs[DefaultTLSKeyPaidID], cert)
 	}
-
+	certFunc = certManager.GetCertificateFunc("unknownID")
+	if assert.NotNil(t, certFunc) {
+		hello := &tls.ClientHelloInfo{
+			ServerName:   "localhost",
+			CipherSuites: []uint16{tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305},
+		}
+		_, err = certFunc(hello)
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), "no certificate for id unknownID")
+		}
+	}
 	certManager.SetCACertificates(nil)
 	err = certManager.LoadRootCAs()
 	assert.NoError(t, err)
@@ -380,7 +416,32 @@ func TestLoadCertificate(t *testing.T) {
 }
 
 func TestLoadInvalidCert(t *testing.T) {
-	certManager, err := NewCertManager("test.crt", "test.key", configDir, logSenderTest)
+	certManager, err := NewCertManager(nil, configDir, logSenderTest)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "no key pairs defined")
+	}
+	assert.Nil(t, certManager)
+
+	keyPairs := []TLSKeyPair{
+		{
+			Cert: "test.crt",
+			Key:  "test.key",
+			ID:   DefaultTLSKeyPaidID,
+		},
+	}
+	certManager, err = NewCertManager(keyPairs, configDir, logSenderTest)
 	assert.Error(t, err)
+	assert.Nil(t, certManager)
+
+	keyPairs = []TLSKeyPair{
+		{
+			Cert: "test.crt",
+			Key:  "test.key",
+		},
+	}
+	certManager, err = NewCertManager(keyPairs, configDir, logSenderTest)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "TLS certificate without ID")
+	}
 	assert.Nil(t, certManager)
 }

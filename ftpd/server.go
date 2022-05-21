@@ -262,12 +262,18 @@ func (s *Server) VerifyConnection(cc ftpserver.ClientContext, user string, tlsCo
 
 func (s *Server) buildTLSConfig() {
 	if certMgr != nil {
+		certID := common.DefaultTLSKeyPaidID
+		if getConfigPath(s.binding.CertificateFile, "") != "" && getConfigPath(s.binding.CertificateKeyFile, "") != "" {
+			certID = s.binding.GetAddress()
+		}
 		s.tlsConfig = &tls.Config{
-			GetCertificate:           certMgr.GetCertificateFunc(),
+			GetCertificate:           certMgr.GetCertificateFunc(certID),
 			MinVersion:               util.GetTLSVersion(s.binding.MinTLSVersion),
 			CipherSuites:             s.binding.ciphers,
 			PreferServerCipherSuites: true,
 		}
+		logger.Debug(logSender, "", "configured TLS cipher suites for binding %#v: %v, certID: %v",
+			s.binding.GetAddress(), s.binding.ciphers, certID)
 		if s.binding.isMutualTLSEnabled() {
 			s.tlsConfig.ClientCAs = certMgr.GetRootCAs()
 			s.tlsConfig.VerifyConnection = s.verifyTLSConnection

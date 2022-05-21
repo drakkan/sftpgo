@@ -1480,7 +1480,14 @@ func TestVerifyTLSConnection(t *testing.T) {
 	err = os.WriteFile(keyPath, []byte(webDavKey), os.ModePerm)
 	assert.NoError(t, err)
 
-	certMgr, err = common.NewCertManager(certPath, keyPath, "", "webdav_test")
+	keyPairs := []common.TLSKeyPair{
+		{
+			Cert: certPath,
+			Key:  keyPath,
+			ID:   common.DefaultTLSKeyPaidID,
+		},
+	}
+	certMgr, err = common.NewCertManager(keyPairs, "", "webdav_test")
 	assert.NoError(t, err)
 
 	certMgr.SetCARevocationLists([]string{caCrlPath})

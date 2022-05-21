@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,23 +15,34 @@ import (
 	"github.com/drakkan/sftpgo/v2/util"
 )
 
+const (
+	// DefaultTLSKeyPaidID defines the id to use for non-binding specific key pairs
+	DefaultTLSKeyPaidID = "default"
+)
+
+// TLSKeyPair defines the paths and the unique identifier for a TLS key pair
+type TLSKeyPair struct {
+	Cert string
+	Key  string
+	ID   string
+}
+
 // CertManager defines a TLS certificate manager
 type CertManager struct {
-	certPath  string
-	keyPath   string
+	keyPairs  []TLSKeyPair
 	configDir string
 	logSender string
 	sync.RWMutex
 	caCertificates    []string
 	caRevocationLists []string
-	cert              *tls.Certificate
+	certs             map[string]*tls.Certificate
 	rootCAs           *x509.CertPool
 	crls              []*pkix.CertificateList
 }
 
 // Reload tries to reload certificate and CRLs
 func (m *CertManager) Reload() error {
-	errCrt := m.loadCertificate()
+	errCrt := m.loadCertificates()
 	errCRLs := m.LoadCRLs()
 
 	if errCrt != nil {
@@ -39,30 +51,48 @@ func (m *CertManager) Reload() error {
 	return errCRLs
 }
 
-// LoadCertificate loads the configured x509 key pair
-func (m *CertManager) loadCertificate() error {
-	newCert, err := tls.LoadX509KeyPair(m.certPath, m.keyPath)
-	if err != nil {
-		logger.Warn(m.logSender, "", "unable to load X509 key pair, cert file %#v key file %#v error: %v",
-			m.certPath, m.keyPath, err)
-		return err
+// LoadCertificates tries to load the configured x509 key pairs
+func (m *CertManager) loadCertificates() error {
+	if len(m.keyPairs) == 0 {
+		return errors.New("no key pairs defined")
 	}
-	logger.Debug(m.logSender, "", "TLS certificate %#v successfully loaded", m.certPath)
+	certs := make(map[string]*tls.Certificate)
+	for _, keyPair := range m.keyPairs {
+		if keyPair.ID == "" {
+			return errors.New("TLS certificate without ID")
+		}
+		newCert, err := tls.LoadX509KeyPair(keyPair.Cert, keyPair.Key)
+		if err != nil {
+			logger.Warn(m.logSender, "", "unable to load X509 key pair, cert file %#v key file %#v error: %v",
+				keyPair.Cert, keyPair.Key, err)
+			return err
+		}
+		if _, ok := certs[keyPair.ID]; ok {
+			return fmt.Errorf("TLS certificate with id %#v is duplicated", keyPair.ID)
+		}
+		logger.Debug(m.logSender, "", "TLS certificate %#v successfully loaded, id %v", keyPair.Cert, keyPair.ID)
+		certs[keyPair.ID] = &newCert
+	}
 
 	m.Lock()
 	defer m.Unlock()
 
-	m.cert = &newCert
+	m.certs = certs
 	return nil
 }
 
 // GetCertificateFunc returns the loaded certificate
-func (m *CertManager) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+func (m *CertManager) GetCertificateFunc(certID string) func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 	return func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 		m.RLock()
 		defer m.RUnlock()
 
-		return m.cert, nil
+		val, ok := m.certs[certID]
+		if !ok {
+			return nil, fmt.Errorf("no certificate for id %v", certID)
+		}
+
+		return val, nil
 	}
 }
 
@@ -184,15 +214,14 @@ func (m *CertManager) SetCARevocationLists(caRevocationLists []string) {
 }
 
 // NewCertManager creates a new certificate manager
-func NewCertManager(certificateFile, certificateKeyFile, configDir, logSender string) (*CertManager, error) {
+func NewCertManager(keyPairs []TLSKeyPair, configDir, logSender string) (*CertManager, error) {
 	manager := &CertManager{
-		cert:      nil,
-		certPath:  certificateFile,
-		keyPath:   certificateKeyFile,
+		keyPairs:  keyPairs,
+		certs:     make(map[string]*tls.Certificate),
 		configDir: configDir,
 		logSender: logSender,
 	}
-	err := manager.loadCertificate()
+	err := manager.loadCertificates()
 	if err != nil {
 		return nil, err
 	}

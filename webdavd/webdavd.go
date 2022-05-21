@@ -73,6 +73,10 @@ type Binding struct {
 	Port int `json:"port" mapstructure:"port"`
 	// you also need to provide a certificate for enabling HTTPS
 	EnableHTTPS bool `json:"enable_https" mapstructure:"enable_https"`
+	// Certificate and matching private key for this specific binding, if empty the global
+	// ones will be used, if any
+	CertificateFile    string `json:"certificate_file" mapstructure:"certificate_file"`
+	CertificateKeyFile string `json:"certificate_key_file" mapstructure:"certificate_key_file"`
 	// Defines the minimum TLS version. 13 means TLS 1.3, default is TLS 1.2
 	MinTLSVersion int `json:"min_tls_version" mapstructure:"min_tls_version"`
 	// set to 1 to require client certificate authentication in addition to basic auth.
@@ -124,8 +128,8 @@ func (b *Binding) IsValid() bool {
 type Configuration struct {
 	// Addresses and ports to bind to
 	Bindings []Binding `json:"bindings" mapstructure:"bindings"`
-	// If files containing a certificate and matching private key for the server are provided the server will expect
-	// HTTPS connections.
+	// If files containing a certificate and matching private key for the server are provided you
+	// can enable HTTPS connections for the configured bindings
 	// Certificate and key files can be reloaded on demand sending a "SIGHUP" signal on Unix based systems and a
 	// "paramchange" request to the running service on Windows.
 	CertificateFile    string `json:"certificate_file" mapstructure:"certificate_file"`
@@ -157,6 +161,32 @@ func (c *Configuration) ShouldBind() bool {
 	return false
 }
 
+func (c *Configuration) getKeyPairs(configDir string) []common.TLSKeyPair {
+	var keyPairs []common.TLSKeyPair
+
+	for _, binding := range c.Bindings {
+		certificateFile := getConfigPath(binding.CertificateFile, configDir)
+		certificateKeyFile := getConfigPath(binding.CertificateKeyFile, configDir)
+		if certificateFile != "" && certificateKeyFile != "" {
+			keyPairs = append(keyPairs, common.TLSKeyPair{
+				Cert: certificateFile,
+				Key:  certificateKeyFile,
+				ID:   binding.GetAddress(),
+			})
+		}
+	}
+	certificateFile := getConfigPath(c.CertificateFile, configDir)
+	certificateKeyFile := getConfigPath(c.CertificateKeyFile, configDir)
+	if certificateFile != "" && certificateKeyFile != "" {
+		keyPairs = append(keyPairs, common.TLSKeyPair{
+			Cert: certificateFile,
+			Key:  certificateKeyFile,
+			ID:   common.DefaultTLSKeyPaidID,
+		})
+	}
+	return keyPairs
+}
+
 // Initialize configures and starts the WebDAV server
 func (c *Configuration) Initialize(configDir string) error {
 	logger.Info(logSender, "", "initializing WebDAV server with config %+v", *c)
@@ -171,10 +201,9 @@ func (c *Configuration) Initialize(configDir string) error {
 		return common.ErrNoBinding
 	}
 
-	certificateFile := getConfigPath(c.CertificateFile, configDir)
-	certificateKeyFile := getConfigPath(c.CertificateKeyFile, configDir)
-	if certificateFile != "" && certificateKeyFile != "" {
-		mgr, err := common.NewCertManager(certificateFile, certificateKeyFile, configDir, logSender)
+	keyPairs := c.getKeyPairs(configDir)
+	if len(keyPairs) > 0 {
+		mgr, err := common.NewCertManager(keyPairs, configDir, logSender)
 		if err != nil {
 			return err
 		}

@@ -48,6 +48,10 @@ type Binding struct {
 	// Set to 1 to require TLS for both data and control connection.
 	// Set to 2 to enable implicit TLS
 	TLSMode int `json:"tls_mode" mapstructure:"tls_mode"`
+	// Certificate and matching private key for this specific binding, if empty the global
+	// ones will be used, if any
+	CertificateFile    string `json:"certificate_file" mapstructure:"certificate_file"`
+	CertificateKeyFile string `json:"certificate_key_file" mapstructure:"certificate_key_file"`
 	// Defines the minimum TLS version. 13 means TLS 1.3, default is TLS 1.2
 	MinTLSVersion int `json:"min_tls_version" mapstructure:"min_tls_version"`
 	// External IP address to expose for passive connections.
@@ -262,6 +266,32 @@ func (c *Configuration) ShouldBind() bool {
 	return false
 }
 
+func (c *Configuration) getKeyPairs(configDir string) []common.TLSKeyPair {
+	var keyPairs []common.TLSKeyPair
+
+	for _, binding := range c.Bindings {
+		certificateFile := getConfigPath(binding.CertificateFile, configDir)
+		certificateKeyFile := getConfigPath(binding.CertificateKeyFile, configDir)
+		if certificateFile != "" && certificateKeyFile != "" {
+			keyPairs = append(keyPairs, common.TLSKeyPair{
+				Cert: certificateFile,
+				Key:  certificateKeyFile,
+				ID:   binding.GetAddress(),
+			})
+		}
+	}
+	certificateFile := getConfigPath(c.CertificateFile, configDir)
+	certificateKeyFile := getConfigPath(c.CertificateKeyFile, configDir)
+	if certificateFile != "" && certificateKeyFile != "" {
+		keyPairs = append(keyPairs, common.TLSKeyPair{
+			Cert: certificateFile,
+			Key:  certificateKeyFile,
+			ID:   common.DefaultTLSKeyPaidID,
+		})
+	}
+	return keyPairs
+}
+
 // Initialize configures and starts the FTP server
 func (c *Configuration) Initialize(configDir string) error {
 	logger.Info(logSender, "", "initializing FTP server with config %+v", *c)
@@ -269,10 +299,9 @@ func (c *Configuration) Initialize(configDir string) error {
 		return common.ErrNoBinding
 	}
 
-	certificateFile := getConfigPath(c.CertificateFile, configDir)
-	certificateKeyFile := getConfigPath(c.CertificateKeyFile, configDir)
-	if certificateFile != "" && certificateKeyFile != "" {
-		mgr, err := common.NewCertManager(certificateFile, certificateKeyFile, configDir, logSender)
+	keyPairs := c.getKeyPairs(configDir)
+	if len(keyPairs) > 0 {
+		mgr, err := common.NewCertManager(keyPairs, configDir, logSender)
 		if err != nil {
 			return err
 		}

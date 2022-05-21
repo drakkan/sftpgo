@@ -56,15 +56,19 @@ func (s *webDavServer) listenAndServe(compressor *middleware.Compressor) error {
 	httpServer.Handler = handler
 	if certMgr != nil && s.binding.EnableHTTPS {
 		serviceStatus.Bindings = append(serviceStatus.Bindings, s.binding)
+		certID := common.DefaultTLSKeyPaidID
+		if getConfigPath(s.binding.CertificateFile, "") != "" && getConfigPath(s.binding.CertificateKeyFile, "") != "" {
+			certID = s.binding.GetAddress()
+		}
 		httpServer.TLSConfig = &tls.Config{
-			GetCertificate:           certMgr.GetCertificateFunc(),
+			GetCertificate:           certMgr.GetCertificateFunc(certID),
 			MinVersion:               util.GetTLSVersion(s.binding.MinTLSVersion),
 			NextProtos:               []string{"http/1.1", "h2"},
 			CipherSuites:             util.GetTLSCiphersFromNames(s.binding.TLSCipherSuites),
 			PreferServerCipherSuites: true,
 		}
-		logger.Debug(logSender, "", "configured TLS cipher suites for binding %#v: %v", s.binding.GetAddress(),
-			httpServer.TLSConfig.CipherSuites)
+		logger.Debug(logSender, "", "configured TLS cipher suites for binding %#v: %v, certID: %v",
+			s.binding.GetAddress(), httpServer.TLSConfig.CipherSuites, certID)
 		if s.binding.isMutualTLSEnabled() {
 			httpServer.TLSConfig.ClientCAs = certMgr.GetRootCAs()
 			httpServer.TLSConfig.VerifyConnection = s.verifyTLSConnection

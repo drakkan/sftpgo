@@ -764,6 +764,8 @@ func TestFTPDBindingsFromEnv(t *testing.T) {
 	os.Setenv("SFTPGO_FTPD__BINDINGS__9__CLIENT_AUTH_TYPE", "2")
 	os.Setenv("SFTPGO_FTPD__BINDINGS__9__DEBUG", "1")
 	os.Setenv("SFTPGO_FTPD__BINDINGS__9__ACTIVE_CONNECTIONS_SECURITY", "1")
+	os.Setenv("SFTPGO_FTPD__BINDINGS__9__CERTIFICATE_FILE", "cert.crt")
+	os.Setenv("SFTPGO_FTPD__BINDINGS__9__CERTIFICATE_KEY_FILE", "cert.key")
 
 	t.Cleanup(func() {
 		os.Unsetenv("SFTPGO_FTPD__BINDINGS__0__ADDRESS")
@@ -784,6 +786,8 @@ func TestFTPDBindingsFromEnv(t *testing.T) {
 		os.Unsetenv("SFTPGO_FTPD__BINDINGS__9__CLIENT_AUTH_TYPE")
 		os.Unsetenv("SFTPGO_FTPD__BINDINGS__9__DEBUG")
 		os.Unsetenv("SFTPGO_FTPD__BINDINGS__9__ACTIVE_CONNECTIONS_SECURITY")
+		os.Unsetenv("SFTPGO_FTPD__BINDINGS__9__CERTIFICATE_FILE")
+		os.Unsetenv("SFTPGO_FTPD__BINDINGS__9__CERTIFICATE_KEY_FILE")
 	})
 
 	configDir := ".."
@@ -821,6 +825,8 @@ func TestFTPDBindingsFromEnv(t *testing.T) {
 	require.Equal(t, 0, bindings[1].PassiveConnectionsSecurity)
 	require.Equal(t, 1, bindings[1].ActiveConnectionsSecurity)
 	require.True(t, bindings[1].Debug)
+	require.Equal(t, "cert.crt", bindings[1].CertificateFile)
+	require.Equal(t, "cert.key", bindings[1].CertificateKeyFile)
 }
 
 func TestWebDAVBindingsFromEnv(t *testing.T) {
@@ -837,6 +843,9 @@ func TestWebDAVBindingsFromEnv(t *testing.T) {
 	os.Setenv("SFTPGO_WEBDAVD__BINDINGS__2__MIN_TLS_VERSION", "13")
 	os.Setenv("SFTPGO_WEBDAVD__BINDINGS__2__CLIENT_AUTH_TYPE", "1")
 	os.Setenv("SFTPGO_WEBDAVD__BINDINGS__2__PREFIX", "/dav2")
+	os.Setenv("SFTPGO_WEBDAVD__BINDINGS__2__CERTIFICATE_FILE", "webdav.crt")
+	os.Setenv("SFTPGO_WEBDAVD__BINDINGS__2__CERTIFICATE_KEY_FILE", "webdav.key")
+
 	t.Cleanup(func() {
 		os.Unsetenv("SFTPGO_WEBDAVD__BINDINGS__1__ADDRESS")
 		os.Unsetenv("SFTPGO_WEBDAVD__BINDINGS__1__PORT")
@@ -849,6 +858,8 @@ func TestWebDAVBindingsFromEnv(t *testing.T) {
 		os.Unsetenv("SFTPGO_WEBDAVD__BINDINGS__2__MIN_TLS_VERSION")
 		os.Unsetenv("SFTPGO_WEBDAVD__BINDINGS__2__CLIENT_AUTH_TYPE")
 		os.Unsetenv("SFTPGO_WEBDAVD__BINDINGS__2__PREFIX")
+		os.Unsetenv("SFTPGO_WEBDAVD__BINDINGS__2__CERTIFICATE_FILE")
+		os.Unsetenv("SFTPGO_WEBDAVD__BINDINGS__2__CERTIFICATE_KEY_FILE")
 	})
 
 	configDir := ".."
@@ -878,6 +889,8 @@ func TestWebDAVBindingsFromEnv(t *testing.T) {
 	require.Equal(t, 1, bindings[2].ClientAuthType)
 	require.Nil(t, bindings[2].TLSCipherSuites)
 	require.Equal(t, "/dav2", bindings[2].Prefix)
+	require.Equal(t, "webdav.crt", bindings[2].CertificateFile)
+	require.Equal(t, "webdav.key", bindings[2].CertificateKeyFile)
 }
 
 func TestHTTPDBindingsFromEnv(t *testing.T) {
@@ -941,6 +954,9 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__BRANDING__WEB_ADMIN__DISCLAIMER_PATH", "disclaimer.html")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__BRANDING__WEB_CLIENT__DEFAULT_CSS", "default.css")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__BRANDING__WEB_CLIENT__EXTRA_CSS", "1.css,2.css")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__CERTIFICATE_FILE", "httpd.crt")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__CERTIFICATE_KEY_FILE", "httpd.key")
+
 	t.Cleanup(func() {
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__0__ADDRESS")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__0__PORT")
@@ -999,6 +1015,8 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__BRANDING__WEB_ADMIN__DISCLAIMER_PATH")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__BRANDING__WEB_CLIENT__DEFAULT_CSS")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__BRANDING__WEB_CLIENT__EXTRA_CSS")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__CERTIFICATE_FILE")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__CERTIFICATE_KEY_FILE")
 	})
 
 	configDir := ".."
@@ -1087,6 +1105,8 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 	require.Len(t, bindings[2].Branding.WebClient.ExtraCSS, 2)
 	require.Equal(t, "1.css", bindings[2].Branding.WebClient.ExtraCSS[0])
 	require.Equal(t, "2.css", bindings[2].Branding.WebClient.ExtraCSS[1])
+	require.Equal(t, "httpd.crt", bindings[2].CertificateFile)
+	require.Equal(t, "httpd.key", bindings[2].CertificateKeyFile)
 }
 
 func TestHTTPClientCertificatesFromEnv(t *testing.T) {

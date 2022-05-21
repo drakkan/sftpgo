@@ -325,15 +325,15 @@ func TestMain(m *testing.M) {
 	ftpdConf := config.GetFTPDConfig()
 	ftpdConf.Bindings = []ftpd.Binding{
 		{
-			Port:           2121,
-			ClientAuthType: 2,
+			Port:               2121,
+			ClientAuthType:     2,
+			CertificateFile:    certPath,
+			CertificateKeyFile: keyPath,
 		},
 	}
 	ftpdConf.PassivePortRange.Start = 0
 	ftpdConf.PassivePortRange.End = 0
 	ftpdConf.BannerFile = bannerFileName
-	ftpdConf.CertificateFile = certPath
-	ftpdConf.CertificateKeyFile = keyPath
 	ftpdConf.CACertificates = []string{caCrtPath}
 	ftpdConf.CARevocationLists = []string{caCRLPath}
 	ftpdConf.EnableSite = true

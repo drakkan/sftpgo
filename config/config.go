@@ -54,6 +54,8 @@ var (
 		Port:                       0,
 		ApplyProxyConfig:           true,
 		TLSMode:                    0,
+		CertificateFile:            "",
+		CertificateKeyFile:         "",
 		MinTLSVersion:              12,
 		ForcePassiveIP:             "",
 		PassiveIPOverrides:         nil,
@@ -64,14 +66,16 @@ var (
 		Debug:                      false,
 	}
 	defaultWebDAVDBinding = webdavd.Binding{
-		Address:         "",
-		Port:            0,
-		EnableHTTPS:     false,
-		MinTLSVersion:   12,
-		ClientAuthType:  0,
-		TLSCipherSuites: nil,
-		Prefix:          "",
-		ProxyAllowed:    nil,
+		Address:            "",
+		Port:               0,
+		EnableHTTPS:        false,
+		CertificateFile:    "",
+		CertificateKeyFile: "",
+		MinTLSVersion:      12,
+		ClientAuthType:     0,
+		TLSCipherSuites:    nil,
+		Prefix:             "",
+		ProxyAllowed:       nil,
 	}
 	defaultHTTPDBinding = httpd.Binding{
 		Address:               "",
@@ -79,6 +83,8 @@ var (
 		EnableWebAdmin:        true,
 		EnableWebClient:       true,
 		EnableHTTPS:           false,
+		CertificateFile:       "",
+		CertificateKeyFile:    "",
 		MinTLSVersion:         12,
 		ClientAuthType:        0,
 		TLSCipherSuites:       nil,
@@ -1016,6 +1022,18 @@ func getFTPDBindingFromEnv(idx int) {
 		isSet = true
 	}
 
+	certificateFile, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__CERTIFICATE_FILE", idx))
+	if ok {
+		binding.CertificateFile = certificateFile
+		isSet = true
+	}
+
+	certificateKeyFile, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__CERTIFICATE_KEY_FILE", idx))
+	if ok {
+		binding.CertificateKeyFile = certificateKeyFile
+		isSet = true
+	}
+
 	tlsMode, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__TLS_MODE", idx))
 	if ok {
 		binding.TLSMode = int(tlsMode)
@@ -1070,6 +1088,10 @@ func getFTPDBindingFromEnv(idx int) {
 		isSet = true
 	}
 
+	applyFTPDBindingFromEnv(idx, isSet, binding)
+}
+
+func applyFTPDBindingFromEnv(idx int, isSet bool, binding ftpd.Binding) {
 	if isSet {
 		if len(globalConf.FTPD.Bindings) > idx {
 			globalConf.FTPD.Bindings[idx] = binding
@@ -1098,6 +1120,18 @@ func getWebDAVDBindingFromEnv(idx int) {
 	address, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__ADDRESS", idx))
 	if ok {
 		binding.Address = address
+		isSet = true
+	}
+
+	certificateFile, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__CERTIFICATE_FILE", idx))
+	if ok {
+		binding.CertificateFile = certificateFile
+		isSet = true
+	}
+
+	certificateKeyFile, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__CERTIFICATE_KEY_FILE", idx))
+	if ok {
+		binding.CertificateKeyFile = certificateKeyFile
 		isSet = true
 	}
 
@@ -1467,6 +1501,18 @@ func getHTTPDBindingFromEnv(idx int) {
 	address, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__ADDRESS", idx))
 	if ok {
 		binding.Address = address
+		isSet = true
+	}
+
+	certificateFile, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__CERTIFICATE_FILE", idx))
+	if ok {
+		binding.CertificateFile = certificateFile
+		isSet = true
+	}
+
+	certificateKeyFile, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__CERTIFICATE_KEY_FILE", idx))
+	if ok {
+		binding.CertificateKeyFile = certificateKeyFile
 		isSet = true
 	}
 

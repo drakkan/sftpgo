@@ -336,8 +336,6 @@ func TestMain(m *testing.M) {
 	sftpdConf.HostKeys = []string{hostKeyPath}
 
 	webDavConf := config.GetWebDAVDConfig()
-	webDavConf.CertificateFile = certPath
-	webDavConf.CertificateKeyFile = keyPath
 	webDavConf.CACertificates = []string{caCrtPath}
 	webDavConf.CARevocationLists = []string{caCRLPath}
 	webDavConf.Bindings = []webdavd.Binding{
@@ -345,9 +343,11 @@ func TestMain(m *testing.M) {
 			Port: webDavServerPort,
 		},
 		{
-			Port:           webDavTLSServerPort,
-			EnableHTTPS:    true,
-			ClientAuthType: 2,
+			Port:               webDavTLSServerPort,
+			EnableHTTPS:        true,
+			CertificateFile:    certPath,
+			CertificateKeyFile: keyPath,
+			ClientAuthType:     2,
 		},
 	}
 	webDavConf.Cors = webdavd.CorsConfig{
