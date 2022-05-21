@@ -1353,6 +1353,12 @@ func getHTTPDUIBrandingFromEnv(prefix string) (httpd.UIBranding, bool) {
 		isSet = true
 	}
 
+	defaultCSSPath, ok := os.LookupEnv(fmt.Sprintf("%s__DEFAULT_CSS", prefix))
+	if ok {
+		result.DefaultCSS = defaultCSSPath
+		isSet = true
+	}
+
 	extraCSS, ok := lookupStringListFromEnv(fmt.Sprintf("%s__EXTRA_CSS", prefix))
 	if ok {
 		result.ExtraCSS = extraCSS

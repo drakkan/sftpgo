@@ -332,6 +332,10 @@ type UIBranding struct {
 	DisclaimerName string `json:"disclaimer_name" mapstructure:"disclaimer_name"`
 	// Path to the HTML page for your disclaimer relative to "static_files_path".
 	DisclaimerPath string `json:"disclaimer_path" mapstructure:"disclaimer_path"`
+	// Path to a custom CSS file, relative to "static_files_path", which replaces
+	// the SB Admin2 default CSS. This is useful, for example, if you rebuild
+	// SB Admin2 CSS to use custom colors
+	DefaultCSS string `json:"default_css" mapstructure:"default_css"`
 	// Additional CSS file paths, relative to "static_files_path", to include
 	ExtraCSS []string `json:"extra_css" mapstructure:"extra_css"`
 }
@@ -354,6 +358,11 @@ func (b *UIBranding) check() {
 	}
 	if b.DisclaimerPath != "" {
 		b.DisclaimerPath = util.CleanPath(b.DisclaimerPath)
+	}
+	if b.DefaultCSS != "" {
+		b.DefaultCSS = util.CleanPath(b.DefaultCSS)
+	} else {
+		b.DefaultCSS = "/css/sb-admin-2.min.css"
 	}
 	for idx := range b.ExtraCSS {
 		b.ExtraCSS[idx] = util.CleanPath(b.ExtraCSS[idx])

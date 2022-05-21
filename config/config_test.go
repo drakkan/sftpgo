@@ -939,6 +939,7 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__BRANDING__WEB_ADMIN__LOGIN_IMAGE_PATH", "login_image.png")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__BRANDING__WEB_CLIENT__DISCLAIMER_NAME", "disclaimer")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__BRANDING__WEB_ADMIN__DISCLAIMER_PATH", "disclaimer.html")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__BRANDING__WEB_CLIENT__DEFAULT_CSS", "default.css")
 	os.Setenv("SFTPGO_HTTPD__BINDINGS__2__BRANDING__WEB_CLIENT__EXTRA_CSS", "1.css,2.css")
 	t.Cleanup(func() {
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__0__ADDRESS")
@@ -996,6 +997,7 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__BRANDING__WEB_ADMIN__LOGIN_IMAGE_PATH")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__BRANDING__WEB_CLIENT__DISCLAIMER_NAME")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__BRANDING__WEB_ADMIN__DISCLAIMER_PATH")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__BRANDING__WEB_CLIENT__DEFAULT_CSS")
 		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__2__BRANDING__WEB_CLIENT__EXTRA_CSS")
 	})
 
@@ -1081,6 +1083,7 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 	require.Equal(t, "login_image.png", bindings[2].Branding.WebAdmin.LoginImagePath)
 	require.Equal(t, "disclaimer", bindings[2].Branding.WebClient.DisclaimerName)
 	require.Equal(t, "disclaimer.html", bindings[2].Branding.WebAdmin.DisclaimerPath)
+	require.Equal(t, "default.css", bindings[2].Branding.WebClient.DefaultCSS)
 	require.Len(t, bindings[2].Branding.WebClient.ExtraCSS, 2)
 	require.Equal(t, "1.css", bindings[2].Branding.WebClient.ExtraCSS[0])
 	require.Equal(t, "2.css", bindings[2].Branding.WebClient.ExtraCSS[1])

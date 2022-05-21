@@ -280,6 +280,7 @@ The configuration file contains the following sections:
       - `login_image_path`, string. Path to a custom image to show on the login screen relative to `static_files_path`. The preferred image size is 900x900 pixel
       - `disclaimer_name`, string. Name for your optional disclaimer
       - `disclaimer_path`, string. Path to the HTML page with the disclaimer relative to `static_files_path`
+      - `default_css`, string. Optional path to a custom CSS file, relative to `static_files_path`, which replaces the SB Admin2 default CSS
       - `extra_css`, list of strings. Defines the paths, relative to `static_files_path`, to additional CSS files
   - `templates_path`, string. Path to the HTML web templates. This can be an absolute path or a path relative to the config dir
   - `static_files_path`, string. Path to the static files for the web interface. This can be an absolute path or a path relative to the config dir. If both `templates_path` and `static_files_path` are empty the built-in web interface will be disabled
@@ -327,7 +328,7 @@ The configuration file contains the following sections:
     - `url`, string, optional. If not empty, the header will be added only if the request URL starts with the one specified here
 - **command**, configuration for external commands such as program based hooks
   - `timeout`, integer. Timeout specifies a time limit, in seconds, to execute external commands. Valid range: `1-300`. Default: `30`
-  - `env`, list of strings. Additional environment variable to pass to all the external commands. Each entry is of the form `key=value`. Default: empty
+  - `env`, list of strings. Additional environment variable to pass to all the external commands. Each entry is of the form `key=value`. Do not use environment variables prefixed with `SFTPGO_` to avoid conflicts with environment variables that SFTPGo hooks can set. Default: empty
   - `commands`, list of structs. Allow to customize configuration per-command. Each struct has the following fields:
     - `path`, string. Define the command path as defined in the hook configuration
     - `timeout`, integer. This value overrides the global timeout if set
