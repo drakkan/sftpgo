@@ -43,6 +43,7 @@ Add the following configuration parameters to the SFTPGo configuration file (or 
       "redirect_base_url": "http://192.168.1.50:8080",
       "username_field": "preferred_username",
       "role_field": "sftpgo_role",
+      "implicit_roles": false,
       "custom_fields": []
     }
 ...
@@ -51,6 +52,7 @@ Add the following configuration parameters to the SFTPGo configuration file (or 
 From SFTPGo login page click `Login with OpenID` button, you will be redirected to the Keycloak login page, after a successful authentication Keyclock will redirect back to SFTPGo Web Admin or SFTPGo Web Client.
 
 Please note that the ID token returned from Keycloak must contain the `username_field` specified in the SFTPGo configuration and optionally the `role_field`. The mapped usernames must exist in SFTPGo.
+If you don't want to explicitly define SFTPGo roles in your identity provider, you can set `implicit_roles` to `true`. With this configuration, the SFTPGo role is assumed based on the login link used.
 
 Here is an example ID token which allows the SFTPGo admin `root` to access to the Web Admin UI.
 

@@ -245,6 +245,7 @@
           "redirect_base_url": "",
           "username_field": "",
           "role_field": "",
+          "implicit_roles": false,
           "custom_fields": []
         },
         "security": {

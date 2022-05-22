@@ -99,6 +99,7 @@ var (
 			RedirectBaseURL: "",
 			UsernameField:   "",
 			RoleField:       "",
+			ImplicitRoles:   false,
 			CustomFields:    []string{},
 		},
 		Security: httpd.SecurityConf{
@@ -1329,6 +1330,12 @@ func getHTTPDOIDCFromEnv(idx int) (httpd.OIDC, bool) {
 	roleField, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__OIDC__ROLE_FIELD", idx))
 	if ok {
 		result.RoleField = roleField
+		isSet = true
+	}
+
+	implicitRoles, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__OIDC__IMPLICIT_ROLES", idx))
+	if ok {
+		result.ImplicitRoles = implicitRoles
 		isSet = true
 	}
 

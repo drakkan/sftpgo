@@ -793,6 +793,129 @@ func TestOIDCToken(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestOIDCImplicitRoles(t *testing.T) {
+	oidcMgr, ok := oidcMgr.(*memoryOIDCManager)
+	require.True(t, ok)
+
+	server := getTestOIDCServer()
+	server.binding.OIDC.ImplicitRoles = true
+	err := server.binding.OIDC.initialize()
+	assert.NoError(t, err)
+	server.initializeRouter()
+
+	authReq := newOIDCPendingAuth(tokenAudienceWebAdmin)
+	oidcMgr.addPendingAuth(authReq)
+	token := &oauth2.Token{
+		AccessToken: "1234",
+		Expiry:      time.Now().Add(5 * time.Minute),
+	}
+	token = token.WithExtra(map[string]any{
+		"id_token": "id_token_val",
+	})
+	server.binding.OIDC.oauth2Config = &mockOAuth2Config{
+		tokenSource: &mockTokenSource{},
+		authCodeURL: webOIDCRedirectPath,
+		token:       token,
+	}
+	idToken := &oidc.IDToken{
+		Nonce:  authReq.Nonce,
+		Expiry: time.Now().Add(5 * time.Minute),
+	}
+	setIDTokenClaims(idToken, []byte(`{"preferred_username":"admin","sid":"sid456"}`))
+	server.binding.OIDC.verifier = &mockOIDCVerifier{
+		err:   nil,
+		token: idToken,
+	}
+	rr := httptest.NewRecorder()
+	r, err := http.NewRequest(http.MethodGet, webOIDCRedirectPath+"?state="+authReq.State, nil)
+	assert.NoError(t, err)
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, webUsersPath, rr.Header().Get("Location"))
+	require.Len(t, oidcMgr.pendingAuths, 0)
+	require.Len(t, oidcMgr.tokens, 1)
+	var tokenCookie string
+	for k := range oidcMgr.tokens {
+		tokenCookie = k
+	}
+	// Web Client is not available with an admin token
+	rr = httptest.NewRecorder()
+	r, err = http.NewRequest(http.MethodGet, webClientFilesPath, nil)
+	assert.NoError(t, err)
+	r.Header.Set("Cookie", fmt.Sprintf("%v=%v", oidcCookieKey, tokenCookie))
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, webClientLoginPath, rr.Header().Get("Location"))
+	// logout the admin user
+	rr = httptest.NewRecorder()
+	r, err = http.NewRequest(http.MethodGet, webLogoutPath, nil)
+	assert.NoError(t, err)
+	r.Header.Set("Cookie", fmt.Sprintf("%v=%v", oidcCookieKey, tokenCookie))
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, webAdminLoginPath, rr.Header().Get("Location"))
+	require.Len(t, oidcMgr.pendingAuths, 0)
+	require.Len(t, oidcMgr.tokens, 0)
+	// now login and logout a user
+	username := "test_oidc_implicit_user"
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username: username,
+			Password: "pwd",
+			HomeDir:  filepath.Join(os.TempDir(), username),
+			Status:   1,
+			Permissions: map[string][]string{
+				"/": {dataprovider.PermAny},
+			},
+		},
+		Filters: dataprovider.UserFilters{
+			BaseUserFilters: sdk.BaseUserFilters{
+				WebClient: []string{sdk.WebClientSharesDisabled},
+			},
+		},
+	}
+	err = dataprovider.AddUser(&user, "", "")
+	assert.NoError(t, err)
+
+	authReq = newOIDCPendingAuth(tokenAudienceWebClient)
+	oidcMgr.addPendingAuth(authReq)
+	idToken = &oidc.IDToken{
+		Nonce:  authReq.Nonce,
+		Expiry: time.Now().Add(5 * time.Minute),
+	}
+	setIDTokenClaims(idToken, []byte(`{"preferred_username":"test_oidc_implicit_user"}`))
+	server.binding.OIDC.verifier = &mockOIDCVerifier{
+		err:   nil,
+		token: idToken,
+	}
+	rr = httptest.NewRecorder()
+	r, err = http.NewRequest(http.MethodGet, webOIDCRedirectPath+"?state="+authReq.State, nil)
+	assert.NoError(t, err)
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, webClientFilesPath, rr.Header().Get("Location"))
+	require.Len(t, oidcMgr.pendingAuths, 0)
+	require.Len(t, oidcMgr.tokens, 1)
+	for k := range oidcMgr.tokens {
+		tokenCookie = k
+	}
+
+	rr = httptest.NewRecorder()
+	r, err = http.NewRequest(http.MethodGet, webClientLogoutPath, nil)
+	assert.NoError(t, err)
+	r.Header.Set("Cookie", fmt.Sprintf("%v=%v", oidcCookieKey, tokenCookie))
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, webClientLoginPath, rr.Header().Get("Location"))
+	require.Len(t, oidcMgr.pendingAuths, 0)
+	require.Len(t, oidcMgr.tokens, 0)
+
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = dataprovider.DeleteUser(username, "", "")
+	assert.NoError(t, err)
+}
+
 func TestMemoryOIDCManager(t *testing.T) {
 	oidcMgr, ok := oidcMgr.(*memoryOIDCManager)
 	require.True(t, ok)
@@ -1139,6 +1262,7 @@ func getTestOIDCServer() *httpdServer {
 				RedirectBaseURL: "http://127.0.0.1:8081/",
 				UsernameField:   "preferred_username",
 				RoleField:       "sftpgo_role",
+				ImplicitRoles:   false,
 				CustomFields:    nil,
 			},
 		},

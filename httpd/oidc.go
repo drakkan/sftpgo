@@ -22,6 +22,7 @@ import (
 
 const (
 	oidcCookieKey       = "oidc"
+	adminRoleFieldValue = "admin"
 	authStateValidity   = 1 * 60 * 1000   // 1 minute
 	tokenUpdateInterval = 3 * 60 * 1000   // 3 minutes
 	tokenDeleteInterval = 2 * 3600 * 1000 // 2 hours
@@ -66,6 +67,9 @@ type OIDC struct {
 	// You don't need to specify this field if you want to use OpenID only for the
 	// Web Client UI
 	RoleField string `json:"role_field" mapstructure:"role_field"`
+	// If set, the `RoleField` is ignored and the SFTPGo role is assumed based on
+	// the login link used
+	ImplicitRoles bool `json:"implicit_roles" mapstructure:"implicit_roles"`
 	// Custom token claims fields to pass to the pre-login hook
 	CustomFields      []string `json:"custom_fields" mapstructure:"custom_fields"`
 	provider          *oidc.Provider
@@ -79,7 +83,17 @@ func (o *OIDC) isEnabled() bool {
 }
 
 func (o *OIDC) hasRoles() bool {
-	return o.isEnabled() && o.RoleField != ""
+	return o.isEnabled() && (o.RoleField != "" || o.ImplicitRoles)
+}
+
+func (o *OIDC) getForcedRole(audience string) string {
+	if !o.ImplicitRoles {
+		return ""
+	}
+	if audience == tokenAudienceWebAdmin {
+		return adminRoleFieldValue
+	}
+	return ""
 }
 
 func (o *OIDC) getRedirectURL() string {
@@ -167,7 +181,9 @@ type oidcToken struct {
 	UsedAt       int64           `json:"used_at"`
 }
 
-func (t *oidcToken) parseClaims(claims map[string]any, usernameField, roleField string, customFields []string) error {
+func (t *oidcToken) parseClaims(claims map[string]any, usernameField, roleField string, customFields []string,
+	forcedRole string,
+) error {
 	getClaimsFields := func() []string {
 		keys := make([]string, 0, len(claims))
 		for k := range claims {
@@ -182,10 +198,14 @@ func (t *oidcToken) parseClaims(claims map[string]any, usernameField, roleField 
 		return errors.New("no username field")
 	}
 	t.Username = username
-	if roleField != "" {
-		role, ok := claims[roleField]
-		if ok {
-			t.Role = role
+	if forcedRole != "" {
+		t.Role = forcedRole
+	} else {
+		if roleField != "" {
+			role, ok := claims[roleField]
+			if ok {
+				t.Role = role
+			}
 		}
 	}
 	t.CustomFields = nil
@@ -213,10 +233,10 @@ func (t *oidcToken) parseClaims(claims map[string]any, usernameField, roleField 
 func (t *oidcToken) isAdmin() bool {
 	switch v := t.Role.(type) {
 	case string:
-		return v == "admin"
+		return v == adminRoleFieldValue
 	case []any:
 		for _, s := range v {
-			if val, ok := s.(string); ok && val == "admin" {
+			if val, ok := s.(string); ok && val == adminRoleFieldValue {
 				return true
 			}
 		}
@@ -511,7 +531,9 @@ func (s *httpdServer) handleOIDCRedirect(w http.ResponseWriter, r *http.Request)
 	if !oauth2Token.Expiry.IsZero() {
 		token.ExpiresAt = util.GetTimeAsMsSinceEpoch(oauth2Token.Expiry)
 	}
-	if err = token.parseClaims(claims, s.binding.OIDC.UsernameField, s.binding.OIDC.RoleField, s.binding.OIDC.CustomFields); err != nil {
+	err = token.parseClaims(claims, s.binding.OIDC.UsernameField, s.binding.OIDC.RoleField,
+		s.binding.OIDC.CustomFields, s.binding.OIDC.getForcedRole(authReq.Audience))
+	if err != nil {
 		logger.Debug(logSender, "", "unable to parse oidc token claims: %v", err)
 		setFlashMessage(w, r, fmt.Sprintf("Unable to parse OpenID token claims: %v", err))
 		doRedirect()
