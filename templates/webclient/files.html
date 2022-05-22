@@ -1009,7 +1009,7 @@
                 }
             ],
             "buttons": [],
-            "lengthChange": false,
+            "lengthChange": true,
             "columnDefs": [
                 {
                     "targets": [0],
@@ -1060,13 +1060,12 @@
             "scrollY": false,
             "responsive": true,
             "language": {
-                "processing": '<i class="fas fa-spinner fa-spin fa-3x fa-fw"></i><span class="sr-only">Loading...</span>',
                 "loadingRecords": "",
                 "emptyTable": "No files or folders"
             },
             "initComplete": function (settings, json) {
                 table.button().add(0, 'refresh');
-                table.button().add(0, 'pageLength');
+                //table.button().add(0, 'pageLength');
                 {{if .CanShare}}
                 table.button().add(0, 'share');
                 {{end}}

@@ -130,7 +130,6 @@ type basePage struct {
 	CSRFToken          string
 	HasDefender        bool
 	HasExternalLogin   bool
-	HasMFA             bool
 	LoggedAdmin        *dataprovider.Admin
 	Branding           UIBranding
 }
@@ -486,7 +485,6 @@ func (s *httpdServer) getBasePageData(title, currentURL string, r *http.Request)
 		Version:            version.GetAsString(),
 		LoggedAdmin:        getAdminFromToken(r),
 		HasDefender:        common.Config.DefenderConfig.Enabled,
-		HasMFA:             len(mfa.GetAvailableTOTPConfigs()) > 0,
 		HasExternalLogin:   isLoggedInWithOIDC(r),
 		CSRFToken:          csrfToken,
 		Branding:           s.binding.Branding.WebAdmin,

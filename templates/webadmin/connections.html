@@ -80,6 +80,7 @@
 <script src="{{.StaticURL}}/vendor/datatables/dataTables.bootstrap4.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/dataTables.buttons.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/buttons.bootstrap4.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/buttons.colVis.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/dataTables.fixedHeader.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/dataTables.responsive.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/responsive.bootstrap4.min.js"></script>
@@ -148,14 +149,25 @@
                 "style": "single",
                 "blurable": true
             },
-            "buttons": [],
-            "lengthChange": false,
+            "buttons": [
+                {
+                    "text": "Column visibility",
+                    "extend": "colvis",
+                    "columns": ":not(.noVis)"
+                }
+            ],
+            "lengthChange": true,
             "columnDefs": [
                 {
                     "targets": [0],
                     "visible": false,
-                    "searchable": false
+                    "searchable": false,
+                    "className": "noVis"
                 },
+                {
+                    "targets": [1],
+                    "className": "noVis"
+                }
             ],
             "scrollX": false,
             "scrollY": false,
@@ -169,7 +181,7 @@
         new $.fn.dataTable.FixedHeader( table );
 
         table.button().add(0, 'refresh');
-        table.button().add(0,'pageLength');
+        //table.button().add(0,'pageLength');
 
         {{if .LoggedAdmin.HasPermission "close_conns"}}
         table.button().add(0,'disconnect');

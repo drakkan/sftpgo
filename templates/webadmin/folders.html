@@ -8,6 +8,7 @@
 <link href="{{.StaticURL}}/vendor/datatables/fixedHeader.bootstrap4.min.css" rel="stylesheet">
 <link href="{{.StaticURL}}/vendor/datatables/responsive.bootstrap4.min.css" rel="stylesheet">
 <link href="{{.StaticURL}}/vendor/datatables/select.bootstrap4.min.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/datatables/colReorder.bootstrap4.min.css" rel="stylesheet">
 {{end}}
 
 {{define "page_body"}}
@@ -28,19 +29,25 @@
             <table class="table table-hover nowrap" id="dataTable" width="100%" cellspacing="0">
                 <thead>
                     <tr>
+                        <th></th>
                         <th>Name</th>
                         <th>Storage</th>
+                        <th>Description</th>
+                        <th>Associated users</th>
+                        <th>Associated groups</th>
                         <th>Quota</th>
-                        <th>Used by</th>
                     </tr>
                 </thead>
                 <tbody>
                     {{range .Folders}}
                     <tr>
+                        <td>{{.GetLastQuotaUpdateAsString}}</td>
                         <td>{{.Name}}</td>
                         <td>{{.GetStorageDescrition}}</td>
-                        <td>{{.GetQuotaSummary}}</td>
+                        <td>{{.Description}}</td>
                         <td>{{.GetUsersAsString}}</td>
+                        <td>{{.GetGroupsAsString}}</td>
+                        <td>{{.GetQuotaSummary}}</td>
                     </tr>
                     {{end}}
 
@@ -83,17 +90,19 @@
 <script src="{{.StaticURL}}/vendor/datatables/dataTables.bootstrap4.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/dataTables.buttons.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/buttons.bootstrap4.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/buttons.colVis.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/dataTables.fixedHeader.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/dataTables.responsive.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/responsive.bootstrap4.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/dataTables.select.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/ellipsis.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/dataTables.colReorder.min.js"></script>
 <script type="text/javascript">
 
 function deleteAction() {
         var table = $('#dataTable').DataTable();
         table.button('delete:name').enable(false);
-        var folderName = table.row({ selected: true }).data()[0];
+        var folderName = table.row({ selected: true }).data()[1];
         var path = '{{.FolderURL}}' + "/" + fixedEncodeURIComponent(folderName);
         $('#deleteModal').modal('hide');
         $.ajax({
@@ -141,7 +150,7 @@ function deleteAction() {
             name: 'edit',
             titleAttr: "Edit",
             action: function (e, dt, node, config) {
-                var folderName = table.row({ selected: true }).data()[0];
+                var folderName = table.row({ selected: true }).data()[1];
                 var path = '{{.FolderURL}}' + "/" + fixedEncodeURIComponent(folderName);
                 window.location.href = path;
             },
@@ -155,7 +164,7 @@ function deleteAction() {
             action: function (e, dt, node, config) {
                 var selectedRows = table.rows({ selected: true }).count();
                 if (selectedRows == 1){
-                    var folderName = table.row({ selected: true }).data()[0];
+                    var folderName = table.row({ selected: true }).data()[1];
                     var path = '{{.FolderTemplateURL}}' + "?from=" + encodeURIComponent(folderName);
                     window.location.href = path;
                 } else {
@@ -175,11 +184,12 @@ function deleteAction() {
         };
 
         $.fn.dataTable.ext.buttons.quota_scan = {
-            text: 'Quota scan',
+            text: '<i class="fas fa-redo-alt"></i>',
             name: 'quota_scan',
+            titleAttr: 'Quota Scan',
             action: function (e, dt, node, config) {
                 dt.button('quota_scan:name').enable(false);
-                var folderName = dt.row({ selected: true }).data()[0];
+                var folderName = dt.row({ selected: true }).data()[1];
                 var path = '{{.FolderQuotaScanURL}}'+ "/" + fixedEncodeURIComponent(folderName);
                 $.ajax({
                     url: path,
@@ -223,21 +233,61 @@ function deleteAction() {
                 "style": "single",
                 "blurable": true
             },
+            "colReorder": {
+                "enable": true,
+                "fixedColumnsLeft": 2
+            },
             "stateSave": true,
             "stateDuration": 0,
-            "buttons": [],
+            "buttons": [
+                {
+                    "text": "Column visibility",
+                    "extend": "colvis",
+                    "columns": ":not(.noVis)"
+                }
+            ],
             "columnDefs": [
                 {
+                    "targets": [0],
+                    "visible": false,
+                    "className": "noVis"
+                },
+                {
                     "targets": [1],
-                    "render": $.fn.dataTable.render.ellipsis(50, true)
+                    "className": "noVis"
                 },
                 {
                     "targets": [2],
-                    "render": $.fn.dataTable.render.ellipsis(60, true)
+                    "render": $.fn.dataTable.render.ellipsis(50, true)
                 },
                 {
                     "targets": [3],
+                    "visible": false
+                },
+                {
+                    "targets": [4],
                     "render": $.fn.dataTable.render.ellipsis(40, true)
+                },
+                {
+                    "targets": [5],
+                    "visible": false,
+                    "render": $.fn.dataTable.render.ellipsis(40, true)
+                },
+                {
+                    "targets": [6],
+                    "visible": false,
+                    "render": function ( data, type, row, meta ) {
+                        if (type !== 'display') {
+			                return data;
+		                }
+                        if (row[0] !== ""){
+                            var dateFn = $.fn.dataTable.render.datetime();
+                            var formattedDate = dateFn(row[0], type);
+                            data = `${data}. Updated at: ${formattedDate}`;
+                        }
+                        var ellipsisFn = $.fn.dataTable.render.ellipsis(60, true);
+                        return ellipsisFn(data, type);
+                    }
                 }
             ],
             "scrollX": false,
@@ -246,7 +296,7 @@ function deleteAction() {
             "language": {
                 "emptyTable": "No folder defined"
             },
-            "order": [[0, 'asc']]
+            "order": [[1, 'asc']]
         });
 
         new $.fn.dataTable.FixedHeader( table );

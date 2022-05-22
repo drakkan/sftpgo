@@ -67,16 +67,25 @@ func (v *BaseVirtualFolder) GetUsersAsString() string {
 	return strings.Join(v.Users, ",")
 }
 
+// GetGroupsAsString returns the list of groups as comma separated string
+func (v *BaseVirtualFolder) GetGroupsAsString() string {
+	return strings.Join(v.Groups, ",")
+}
+
+// GetLastQuotaUpdateAsString returns the last quota update as string
+func (v *BaseVirtualFolder) GetLastQuotaUpdateAsString() string {
+	if v.LastQuotaUpdate > 0 {
+		return util.GetTimeFromMsecSinceEpoch(v.LastQuotaUpdate).UTC().Format("2006-01-02 15:04:05Z")
+	}
+	return ""
+}
+
 // GetQuotaSummary returns used quota and last update as string
 func (v *BaseVirtualFolder) GetQuotaSummary() string {
 	var result string
 	result = "Files: " + strconv.Itoa(v.UsedQuotaFiles)
 	if v.UsedQuotaSize > 0 {
 		result += ". Size: " + util.ByteCountIEC(v.UsedQuotaSize)
-	}
-	if v.LastQuotaUpdate > 0 {
-		t := util.GetTimeFromMsecSinceEpoch(v.LastQuotaUpdate)
-		result += fmt.Sprintf(". Last update: %v ", t.Format("2006-01-02 15:04")) // YYYY-MM-DD HH:MM
 	}
 	return result
 }

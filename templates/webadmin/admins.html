@@ -8,6 +8,7 @@
 <link href="{{.StaticURL}}/vendor/datatables/fixedHeader.bootstrap4.min.css" rel="stylesheet">
 <link href="{{.StaticURL}}/vendor/datatables/responsive.bootstrap4.min.css" rel="stylesheet">
 <link href="{{.StaticURL}}/vendor/datatables/select.bootstrap4.min.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/datatables/colReorder.bootstrap4.min.css" rel="stylesheet">
 {{end}}
 
 {{define "page_body"}}
@@ -32,9 +33,12 @@
                         <th>ID</th>
                         <th>Username</th>
                         <th>Status</th>
-                        {{if .HasMFA }}<th>MFA</th>{{end}}
                         <th>Permissions</th>
-                        <th>Other</th>
+                        <th>Last login</th>
+                        <th>MFA</th>
+                        <th>Allow list</th>
+                        <th>Email</th>
+                        <th>Description</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -43,9 +47,12 @@
                         <td>{{.ID}}</td>
                         <td>{{.Username}}</td>
                         <td>{{if eq .Status 1 }}Active{{else}}Inactive{{end}}</td>
-                        {{if $.HasMFA }}<td>{{if .Filters.TOTPConfig.Enabled }}Enabled{{else}}-{{end}}</td>{{end}}
                         <td>{{.GetPermissionsAsString}}</td>
-                        <td>{{.GetInfoString}}</td>
+                        <td>{{.GetLastLoginAsString}}</td>
+                        <td>{{if .Filters.TOTPConfig.Enabled }}Enabled{{else}}Disabled{{end}}</td>
+                        <td>{{.GetAllowedIPAsString}}</td>
+                        <td>{{.Email}}</td>
+                        <td>{{.Description}}</td>
                     </tr>
                     {{end}}
 
@@ -89,11 +96,13 @@
 <script src="{{.StaticURL}}/vendor/datatables/dataTables.bootstrap4.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/dataTables.buttons.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/buttons.bootstrap4.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/buttons.colVis.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/dataTables.fixedHeader.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/dataTables.responsive.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/responsive.bootstrap4.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/dataTables.select.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/ellipsis.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/dataTables.colReorder.min.js"></script>
 <script type="text/javascript">
 
     function deleteAction() {
@@ -169,18 +178,46 @@
                 "style": "single",
                 "blurable": true
             },
+            "colReorder": {
+                "enable": true,
+                "fixedColumnsLeft": 2
+            },
             "stateSave": true,
             "stateDuration": 0,
-            "buttons": [],
+            "buttons": [
+                {
+                    "text": "Column visibility",
+                    "extend": "colvis",
+                    "columns": ":not(.noVis)"
+                }
+            ],
             "columnDefs": [
                 {
                     "targets": [0],
                     "visible": false,
-                    "searchable": false
+                    "searchable": false,
+                    "className": "noVis"
+                },
+                {
+                    "targets": [1],
+                    "className": "noVis"
                 },
                 {
                     "targets": [3],
-                    "render": $.fn.dataTable.render.ellipsis(40, true)
+                    "render": $.fn.dataTable.render.ellipsis(70, true)
+                },
+                {
+                    "targets": [4],
+                    "render": $.fn.dataTable.render.datetime()
+                },
+                {
+                    "targets": [6],
+                    "render": $.fn.dataTable.render.ellipsis(60, true),
+                    "visible": false,
+                },
+                {
+                    "targets": [5,7,8],
+                    "visible": false,
                 }
             ],
             "scrollX": false,

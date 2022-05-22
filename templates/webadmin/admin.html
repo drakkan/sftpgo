@@ -2,6 +2,10 @@
 
 {{define "title"}}{{.Title}}{{end}}
 
+{{define "extra_css"}}
+<link href="{{.StaticURL}}/vendor/bootstrap-select/css/bootstrap-select.min.css" rel="stylesheet">
+{{end}}
+
 {{define "page_body"}}
 <div class="card shadow mb-4">
     <div class="card-header py-3">
@@ -44,7 +48,7 @@
             <div class="form-group row">
                 <label for="idStatus" class="col-sm-2 col-form-label">Status</label>
                 <div class="col-sm-10">
-                    <select class="form-control" id="idStatus" name="status">
+                    <select class="form-control selectpicker" id="idStatus" name="status">
                         <option value="1" {{if eq .Admin.Status 1 }}selected{{end}}>Active</option>
                         <option value="0" {{if eq .Admin.Status 0 }}selected{{end}}>Inactive</option>
                     </select>
@@ -67,7 +71,7 @@
             <div class="form-group row">
                 <label for="idPermissions" class="col-sm-2 col-form-label">Permissions</label>
                 <div class="col-sm-10">
-                    <select class="form-control" id="idPermissions" name="permissions" required multiple>
+                    <select class="form-control selectpicker" id="idPermissions" name="permissions" required multiple>
                         {{range $validPerm := .Admin.GetValidPerms}}
                         <option value="{{$validPerm}}" {{range $perm :=$.Admin.Permissions }}
                         {{if eq $perm $validPerm}}selected{{end}}{{end}}>{{$validPerm}}
@@ -115,4 +119,8 @@
         </form>
     </div>
 </div>
+{{end}}
+
+{{define "extra_js"}}
+<script src="{{.StaticURL}}/vendor/bootstrap-select/js/bootstrap-select.min.js"></script>
 {{end}}

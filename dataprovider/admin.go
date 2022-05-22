@@ -356,6 +356,14 @@ func (a *Admin) GetPermissionsAsString() string {
 	return strings.Join(a.Permissions, ", ")
 }
 
+// GetLastLoginAsString returns the last login as string
+func (a *Admin) GetLastLoginAsString() string {
+	if a.LastLogin > 0 {
+		return util.GetTimeFromMsecSinceEpoch(a.LastLogin).UTC().Format(iso8601UTCFormat)
+	}
+	return ""
+}
+
 // GetAllowedIPAsString returns the allowed IP as comma separated string
 func (a *Admin) GetAllowedIPAsString() string {
 	return strings.Join(a.Filters.AllowList, ",")
@@ -364,18 +372,6 @@ func (a *Admin) GetAllowedIPAsString() string {
 // GetValidPerms returns the allowed admin permissions
 func (a *Admin) GetValidPerms() []string {
 	return validAdminPerms
-}
-
-// GetInfoString returns admin's info as string.
-func (a *Admin) GetInfoString() string {
-	var result strings.Builder
-	if a.Email != "" {
-		result.WriteString(fmt.Sprintf("Email: %v. ", a.Email))
-	}
-	if len(a.Filters.AllowList) > 0 {
-		result.WriteString(fmt.Sprintf("Allowed IP/Mask: %v. ", len(a.Filters.AllowList)))
-	}
-	return result.String()
 }
 
 // CanManageMFA returns true if the admin can add a multi-factor authentication configuration

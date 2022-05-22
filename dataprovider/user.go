@@ -1284,11 +1284,6 @@ func (u *User) GetQuotaSummary() string {
 		sb.WriteString(fmt.Sprintf("DL: %v/%v", util.ByteCountIEC(u.UsedDownloadDataTransfer),
 			util.ByteCountIEC(u.DownloadDataTransfer*1048576)))
 	}
-	if u.LastQuotaUpdate > 0 {
-		addSection()
-		t := util.GetTimeFromMsecSinceEpoch(u.LastQuotaUpdate)
-		sb.WriteString(fmt.Sprintf("Last update: %v", t.Format("2006-01-02 15:04"))) // YYYY-MM-DD HH:MM
-	}
 	return sb.String()
 }
 
@@ -1316,28 +1311,83 @@ func (u *User) GetPermissionsAsString() string {
 
 // GetBandwidthAsString returns bandwidth limits if defines
 func (u *User) GetBandwidthAsString() string {
-	result := "DL: "
+	var sb strings.Builder
+	sb.WriteString("DL: ")
 	if u.DownloadBandwidth > 0 {
-		result += util.ByteCountIEC(u.DownloadBandwidth*1000) + "/s."
+		sb.WriteString(util.ByteCountIEC(u.DownloadBandwidth*1000) + "/s.")
 	} else {
-		result += "unlimited."
+		sb.WriteString("unlimited.")
 	}
-	result += " UL: "
+	sb.WriteString(" UL: ")
 	if u.UploadBandwidth > 0 {
-		result += util.ByteCountIEC(u.UploadBandwidth*1000) + "/s."
+		sb.WriteString(util.ByteCountIEC(u.UploadBandwidth*1000) + "/s.")
 	} else {
-		result += "unlimited."
+		sb.WriteString("unlimited.")
 	}
-	return result
+	return sb.String()
 }
 
 // GetMFAStatusAsString returns MFA status
 func (u *User) GetMFAStatusAsString() string {
-	result := "-"
 	if u.Filters.TOTPConfig.Enabled {
-		result = strings.Join(u.Filters.TOTPConfig.Protocols, ", ")
+		return strings.Join(u.Filters.TOTPConfig.Protocols, ", ")
 	}
-	return result
+	return "Disabled"
+}
+
+// GetLastLoginAsString returns the last login as string
+func (u *User) GetLastLoginAsString() string {
+	if u.LastLogin > 0 {
+		return util.GetTimeFromMsecSinceEpoch(u.LastLogin).UTC().Format(iso8601UTCFormat)
+	}
+	return ""
+}
+
+// GetLastQuotaUpdateAsString returns the last quota update as string
+func (u *User) GetLastQuotaUpdateAsString() string {
+	if u.LastQuotaUpdate > 0 {
+		return util.GetTimeFromMsecSinceEpoch(u.LastQuotaUpdate).UTC().Format(iso8601UTCFormat)
+	}
+	return ""
+}
+
+// GetStorageDescrition returns the storage description
+func (u *User) GetStorageDescrition() string {
+	switch u.FsConfig.Provider {
+	case sdk.LocalFilesystemProvider:
+		return fmt.Sprintf("Local: %v", u.GetHomeDir())
+	case sdk.S3FilesystemProvider:
+		return fmt.Sprintf("S3: %v", u.FsConfig.S3Config.Bucket)
+	case sdk.GCSFilesystemProvider:
+		return fmt.Sprintf("GCS: %v", u.FsConfig.GCSConfig.Bucket)
+	case sdk.AzureBlobFilesystemProvider:
+		return fmt.Sprintf("AzBlob: %v", u.FsConfig.AzBlobConfig.Container)
+	case sdk.CryptedFilesystemProvider:
+		return fmt.Sprintf("Encrypted: %v", u.GetHomeDir())
+	case sdk.SFTPFilesystemProvider:
+		return fmt.Sprintf("SFTP: %v", u.FsConfig.SFTPConfig.Endpoint)
+	default:
+		return ""
+	}
+}
+
+// GetGroupsAsString returns the user's groups as a string
+func (u *User) GetGroupsAsString() string {
+	if len(u.Groups) == 0 {
+		return ""
+	}
+	var groups []string
+	for _, g := range u.Groups {
+		if g.Type == sdk.GroupTypePrimary {
+			groups = append(groups, "")
+			copy(groups[1:], groups)
+			groups[0] = g.Name
+		} else {
+			groups = append(groups, g.Name)
+		}
+	}
+
+	return strings.Join(groups, ",")
 }
 
 // GetInfoString returns user's info as string.
@@ -1345,13 +1395,6 @@ func (u *User) GetMFAStatusAsString() string {
 // gid, denied and allowed IP/Mask are returned
 func (u *User) GetInfoString() string {
 	var result strings.Builder
-	if u.LastLogin > 0 {
-		t := util.GetTimeFromMsecSinceEpoch(u.LastLogin)
-		result.WriteString(fmt.Sprintf("Last login: %v. ", t.Format("2006-01-02 15:04"))) // YYYY-MM-DD HH:MM
-	}
-	if u.FsConfig.Provider != sdk.LocalFilesystemProvider {
-		result.WriteString(fmt.Sprintf("Storage: %s. ", u.FsConfig.Provider.ShortInfo()))
-	}
 	if len(u.PublicKeys) > 0 {
 		result.WriteString(fmt.Sprintf("Public keys: %v. ", len(u.PublicKeys)))
 	}
@@ -1363,6 +1406,12 @@ func (u *User) GetInfoString() string {
 	}
 	if u.GID > 0 {
 		result.WriteString(fmt.Sprintf("GID: %v. ", u.GID))
+	}
+	if len(u.Filters.DeniedLoginMethods) > 0 {
+		result.WriteString(fmt.Sprintf("Denied login methods: %v. ", strings.Join(u.Filters.DeniedLoginMethods, ",")))
+	}
+	if len(u.Filters.DeniedProtocols) > 0 {
+		result.WriteString(fmt.Sprintf("Denied protocols: %v. ", strings.Join(u.Filters.DeniedProtocols, ",")))
 	}
 	if len(u.Filters.DeniedIP) > 0 {
 		result.WriteString(fmt.Sprintf("Denied IP/Mask: %v. ", len(u.Filters.DeniedIP)))

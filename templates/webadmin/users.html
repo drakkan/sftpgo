@@ -8,6 +8,7 @@
 <link href="{{.StaticURL}}/vendor/datatables/fixedHeader.bootstrap4.min.css" rel="stylesheet">
 <link href="{{.StaticURL}}/vendor/datatables/responsive.bootstrap4.min.css" rel="stylesheet">
 <link href="{{.StaticURL}}/vendor/datatables/select.bootstrap4.min.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/datatables/colReorder.bootstrap4.min.css" rel="stylesheet">
 {{end}}
 
 {{define "page_body"}}
@@ -32,10 +33,16 @@
                         <th>ID</th>
                         <th>Username</th>
                         <th>Status</th>
-                        {{if .HasMFA }}<th>MFA</th>{{end}}
+                        <th>Last login</th>
+                        <th>Description</th>
+                        <th>Email</th>
+                        <th>Storage</th>
+                        <th>Groups</th>
+                        <th>MFA</th>
                         <th>Bandwidth</th>
                         <th>Quota</th>
                         <th>Other</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -44,10 +51,16 @@
                         <td>{{.ID}}</td>
                         <td>{{.Username}}</td>
                         <td>{{.GetStatusAsString}}</td>
-                        {{if $.HasMFA }}<td>{{.GetMFAStatusAsString}}</td>{{end}}
+                        <td>{{.GetLastLoginAsString}}</td>
+                        <td>{{.Description}}</td>
+                        <td>{{.Email}}</td>
+                        <td>{{.GetStorageDescrition}}</td>
+                        <td>{{.GetGroupsAsString}}</td>
+                        <td>{{.GetMFAStatusAsString}}</td>
                         <td>{{.GetBandwidthAsString}}</td>
                         <td>{{.GetQuotaSummary}}</td>
                         <td>{{.GetInfoString}}</td>
+                        <td>{{.GetLastQuotaUpdateAsString}}</td>
                     </tr>
                     {{end}}
                 </tbody>
@@ -90,11 +103,13 @@
 <script src="{{.StaticURL}}/vendor/datatables/dataTables.bootstrap4.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/dataTables.buttons.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/buttons.bootstrap4.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/buttons.colVis.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/dataTables.fixedHeader.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/dataTables.responsive.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/responsive.bootstrap4.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/dataTables.select.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/ellipsis.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/dataTables.colReorder.min.js"></script>
 <script type="text/javascript">
 
     function deleteAction() {
@@ -187,8 +202,9 @@
         };
 
         $.fn.dataTable.ext.buttons.quota_scan = {
-            text: 'Quota scan',
+            text: '<i class="fas fa-redo-alt"></i>',
             name: 'quota_scan',
+            titleAttr: 'Quota Scan',
             action: function (e, dt, node, config) {
                 dt.button('quota_scan:name').enable(false);
                 var username = dt.row({ selected: true }).data()[1];
@@ -235,22 +251,68 @@
                 "style": "single",
                 "blurable": true
             },
+            "colReorder": {
+                "enable": true,
+                "fixedColumnsLeft": 2
+            },
             "stateSave": true,
             "stateDuration": 0,
-            "buttons": [],
+            "buttons": [
+                {
+                    "text": "Column visibility",
+                    "extend": "colvis",
+                    "columns": ":not(.noVis)"
+                }
+            ],
             "columnDefs": [
                 {
-                    "targets": [0],
+                    "targets": [0,12],
                     "visible": false,
-                    "searchable": false
+                    "searchable": false,
+                    "className": "noVis"
+                },
+                {
+                    "targets": [1],
+                    "className": "noVis"
                 },
                 {
                     "targets": [3],
+                    "render": $.fn.dataTable.render.datetime()
+                },
+                {
+                    "targets": [4,5,8],
+                    "visible": false
+                },
+                {
+                    "targets": [6,7],
+                    "visible": false,
+                    "render": $.fn.dataTable.render.ellipsis(50, true)
+                },
+                {
+                    "targets": [9],
+                    "visible": false,
                     "render": $.fn.dataTable.render.ellipsis(40, true)
                 },
                 {
-                    "targets": [4],
-                    "render": $.fn.dataTable.render.ellipsis(70, true)
+                    "targets": [10],
+                    "visible": false,
+                    "render": function ( data, type, row, meta ) {
+                        if (type !== 'display') {
+			                return data;
+		                }
+                        if (row[12] !== ""){
+                            var dateFn = $.fn.dataTable.render.datetime();
+                            var formattedDate = dateFn(row[12], type);
+                            data = `${data}. Updated at: ${formattedDate}`;
+                        }
+                        var ellipsisFn = $.fn.dataTable.render.ellipsis(70, true);
+                        return ellipsisFn(data, type);
+                    }
+                },
+                {
+                    "targets": [11],
+                    "visible": false,
+                    "render": $.fn.dataTable.render.ellipsis(100, true)
                 }
             ],
             "scrollX": false,
