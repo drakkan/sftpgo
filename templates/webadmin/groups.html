@@ -80,10 +80,12 @@
 <script src="{{.StaticURL}}/vendor/datatables/dataTables.bootstrap4.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/dataTables.buttons.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/buttons.bootstrap4.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/buttons.colVis.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/dataTables.fixedHeader.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/dataTables.responsive.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/responsive.bootstrap4.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/dataTables.select.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/ellipsis.js"></script>
 <script type="text/javascript">
 
 function deleteAction() {
@@ -161,7 +163,24 @@ function deleteAction() {
             },
             "stateSave": true,
             "stateDuration": 0,
-            "buttons": [],
+            "buttons": [
+                {
+                    "text": "Column visibility",
+                    "extend": "colvis",
+                    "columns": ":not(.noVis)"
+                }
+            ],
+            "columnDefs": [
+                {
+                    "targets": [0],
+                    "visible": false,
+                    "className": "noVis"
+                },
+                {
+                    "targets": [2],
+                    "render": $.fn.dataTable.render.ellipsis(100, true)
+                },
+            ],
             "scrollX": false,
             "scrollY": false,
             "responsive": true,

@@ -1808,7 +1808,10 @@ func (s *httpdServer) handleWebAdminSetupGet(w http.ResponseWriter, r *http.Requ
 
 func (s *httpdServer) handleWebAddAdminGet(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	admin := &dataprovider.Admin{Status: 1}
+	admin := &dataprovider.Admin{
+		Status:      1,
+		Permissions: []string{dataprovider.PermAdminAny},
+	}
 	s.renderAddUpdateAdminPage(w, r, admin, "", true)
 }
 
