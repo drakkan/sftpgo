@@ -134,6 +134,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	currentCryptoPassphrase := user.FsConfig.CryptConfig.Passphrase
 	currentSFTPPassword := user.FsConfig.SFTPConfig.Password
 	currentSFTPKey := user.FsConfig.SFTPConfig.PrivateKey
+	currentSFTPKeyPassphrase := user.FsConfig.SFTPConfig.Passphrase
 
 	user.Permissions = make(map[string][]string)
 	user.FsConfig.S3Config = vfs.S3FsConfig{}
@@ -159,7 +160,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		user.Permissions = currentPermissions
 	}
 	updateEncryptedSecrets(&user.FsConfig, currentS3AccessSecret, currentAzAccountKey, currentAzSASUrl,
-		currentGCSCredentials, currentCryptoPassphrase, currentSFTPPassword, currentSFTPKey)
+		currentGCSCredentials, currentCryptoPassphrase, currentSFTPPassword, currentSFTPKey, currentSFTPKeyPassphrase)
 	err = dataprovider.UpdateUser(&user, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
@@ -231,7 +232,7 @@ func disconnectUser(username string) {
 }
 
 func updateEncryptedSecrets(fsConfig *vfs.Filesystem, currentS3AccessSecret, currentAzAccountKey, currentAzSASUrl,
-	currentGCSCredentials, currentCryptoPassphrase, currentSFTPPassword, currentSFTPKey *kms.Secret) {
+	currentGCSCredentials, currentCryptoPassphrase, currentSFTPPassword, currentSFTPKey *kms.Secret, currentSFTPPassphrase *kms.Secret) {
 	// we use the new access secret if plain or empty, otherwise the old value
 	switch fsConfig.Provider {
 	case sdk.S3FilesystemProvider:
@@ -261,6 +262,9 @@ func updateEncryptedSecrets(fsConfig *vfs.Filesystem, currentS3AccessSecret, cur
 		}
 		if fsConfig.SFTPConfig.PrivateKey.IsNotPlainAndNotEmpty() {
 			fsConfig.SFTPConfig.PrivateKey = currentSFTPKey
+		}
+		if fsConfig.SFTPConfig.Passphrase.IsNotPlainAndNotEmpty() {
+			fsConfig.SFTPConfig.Passphrase = currentSFTPPassphrase
 		}
 	}
 }

@@ -67,6 +67,7 @@ func updateFolder(w http.ResponseWriter, r *http.Request) {
 	currentCryptoPassphrase := folder.FsConfig.CryptConfig.Passphrase
 	currentSFTPPassword := folder.FsConfig.SFTPConfig.Password
 	currentSFTPKey := folder.FsConfig.SFTPConfig.PrivateKey
+	currentSFTPKeyPassphrase := folder.FsConfig.SFTPConfig.Passphrase
 
 	folder.FsConfig.S3Config = vfs.S3FsConfig{}
 	folder.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
@@ -82,7 +83,7 @@ func updateFolder(w http.ResponseWriter, r *http.Request) {
 	folder.Name = name
 	folder.FsConfig.SetEmptySecretsIfNil()
 	updateEncryptedSecrets(&folder.FsConfig, currentS3AccessSecret, currentAzAccountKey, currentAzSASUrl, currentGCSCredentials,
-		currentCryptoPassphrase, currentSFTPPassword, currentSFTPKey)
+		currentCryptoPassphrase, currentSFTPPassword, currentSFTPKey, currentSFTPKeyPassphrase)
 	err = dataprovider.UpdateFolder(&folder, users, groups, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))

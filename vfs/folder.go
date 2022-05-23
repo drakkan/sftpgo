@@ -168,6 +168,9 @@ func (v *BaseVirtualFolder) HasRedactedSecret() bool {
 		if v.FsConfig.SFTPConfig.PrivateKey.IsRedacted() {
 			return true
 		}
+		if v.FsConfig.SFTPConfig.Passphrase.IsRedacted() {
+			return true
+		}
 	}
 	return false
 }
