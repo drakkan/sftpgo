@@ -72,6 +72,7 @@ func updateGroup(w http.ResponseWriter, r *http.Request) {
 	currentCryptoPassphrase := group.UserSettings.FsConfig.CryptConfig.Passphrase
 	currentSFTPPassword := group.UserSettings.FsConfig.SFTPConfig.Password
 	currentSFTPKey := group.UserSettings.FsConfig.SFTPConfig.PrivateKey
+	currentSFTPKeyPassphrase := group.UserSettings.FsConfig.SFTPConfig.Passphrase
 
 	group.UserSettings.FsConfig.S3Config = vfs.S3FsConfig{}
 	group.UserSettings.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
@@ -87,7 +88,7 @@ func updateGroup(w http.ResponseWriter, r *http.Request) {
 	group.Name = name
 	group.UserSettings.FsConfig.SetEmptySecretsIfNil()
 	updateEncryptedSecrets(&group.UserSettings.FsConfig, currentS3AccessSecret, currentAzAccountKey, currentAzSASUrl,
-		currentGCSCredentials, currentCryptoPassphrase, currentSFTPPassword, currentSFTPKey)
+		currentGCSCredentials, currentCryptoPassphrase, currentSFTPPassword, currentSFTPKey, currentSFTPKeyPassphrase)
 	err = dataprovider.UpdateGroup(&group, users, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))

@@ -26,6 +26,7 @@ func (f *Filesystem) SetEmptySecrets() {
 	f.CryptConfig.Passphrase = kms.NewEmptySecret()
 	f.SFTPConfig.Password = kms.NewEmptySecret()
 	f.SFTPConfig.PrivateKey = kms.NewEmptySecret()
+	f.SFTPConfig.Passphrase = kms.NewEmptySecret()
 }
 
 // SetEmptySecretsIfNil sets the secrets to empty if nil
@@ -50,6 +51,9 @@ func (f *Filesystem) SetEmptySecretsIfNil() {
 	}
 	if f.SFTPConfig.PrivateKey == nil {
 		f.SFTPConfig.PrivateKey = kms.NewEmptySecret()
+	}
+	if f.SFTPConfig.Passphrase == nil {
+		f.SFTPConfig.Passphrase = kms.NewEmptySecret()
 	}
 }
 
@@ -77,6 +81,9 @@ func (f *Filesystem) SetNilSecretsIfEmpty() {
 	}
 	if f.SFTPConfig.PrivateKey != nil && f.SFTPConfig.PrivateKey.IsEmpty() {
 		f.SFTPConfig.PrivateKey = nil
+	}
+	if f.SFTPConfig.Passphrase != nil && f.SFTPConfig.Passphrase.IsEmpty() {
+		f.SFTPConfig.Passphrase = nil
 	}
 }
 
@@ -189,6 +196,9 @@ func (f *Filesystem) HasRedactedSecret() bool {
 			return true
 		}
 		if f.SFTPConfig.PrivateKey.IsRedacted() {
+			return true
+		}
+		if f.SFTPConfig.Passphrase.IsRedacted() {
 			return true
 		}
 	}
