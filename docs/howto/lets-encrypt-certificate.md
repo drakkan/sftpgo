@@ -17,9 +17,11 @@ In this tutorial we'll focus on `HTTP-01` challenge type and make the following 
 - we need a TLS certificate for the `sftpgo.com` domain
 - we have an existing web server already running on port `80` for the `sftpgo.com` domain and the web root path is `/var/www/sftpgo.com`
 
+## Overview
+
 - [Obtaining a certificate using the Lego CLI tool](#Obtaining-a-certificate-using-the-Lego-CLI-tool)
   - [Automatic certificate renewal using the Lego CLI tool](#Automatic-certificate-renewal-using-the-Lego-CLI-tool)
-- [## Obtaining a certificate using the ACME protocol built into SFTPGo](#Obtaining-a-certificate-using-the-ACME-protocol-built-into-SFTPGo)
+- [Obtaining a certificate using the ACME protocol built into SFTPGo](#Obtaining-a-certificate-using-the-ACME-protocol-built-into-SFTPGo)
 - [Enable HTTPS for SFTPGo Web UI and REST API](#Enable-HTTPS-for-SFTPGo-Web-UI-and-REST-API)
 - [Enable HTTPS for WebDAV service](#Enable-HTTPS-for-WebDAV-service)
 - [Enable explicit FTP over TLS](#Enable-explicit-FTP-over-TLS)
@@ -139,13 +141,13 @@ Open the SFTPGo configuration file, search for the `acme` section and change it 
 Make sure that the `sftpgo` user can write to the `/var/www/sftpgo.com` directory or pre-create the `/var/www/sftpgo.com/.well-known/acme-challenge` directory with the appropriate permissions.
 This directory must be publicly served by your web server.
 
-Register your account and obtain the certificates with the following command.
+Register your account and obtain certificates by running the following command as the root user.
 
 ```bash
-sftpgo acme run -c /etc/sftpgo
+su - sftpgo -s /bin/bash -c 'sftpgo acme run -c /etc/sftpgo'
 ```
 
-If this command completes successfully, you are done. The SFTPGo service will take care of the automatic renewal of certificates for the configured domains.
+If this command completes successfully, you are done. The SFTPGo service will take care of the automatic renewal of certificates for the configured domains. Make sure that the `sftpgo` system user can read and write to `/var/lib/sftpgo/certs` directory otherwise the certificate renewal will fail.
 
 ## Enable HTTPS for SFTPGo Web UI and REST API
 
