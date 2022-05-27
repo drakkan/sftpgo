@@ -286,6 +286,7 @@ func (f *Filesystem) GetACopy() Filesystem {
 			},
 			Password:   f.SFTPConfig.Password.Clone(),
 			PrivateKey: f.SFTPConfig.PrivateKey.Clone(),
+			Passphrase: f.SFTPConfig.Passphrase.Clone(),
 		},
 	}
 	if len(f.SFTPConfig.Fingerprints) > 0 {
