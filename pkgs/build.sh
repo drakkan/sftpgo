@@ -41,6 +41,7 @@ sed -i "s|sftpgo.db|/var/lib/sftpgo/sftpgo.db|" sftpgo.json
 sed -i "s|\"users_base_dir\": \"\",|\"users_base_dir\": \"/srv/sftpgo/data\",|" sftpgo.json
 sed -i "s|\"backups\"|\"/srv/sftpgo/backups\"|" sftpgo.json
 sed -i "s|\"credentials\"|\"/var/lib/sftpgo/credentials\"|" sftpgo.json
+sed -i "s|\"certs\"|\"/var/lib/sftpgo/certs\"|" sftpgo.json
 
 cat >nfpm.yaml <<EOF
 name: "sftpgo"

@@ -54,6 +54,22 @@
       }
     ]
   },
+  "acme": {
+    "domains": [],
+    "email": "",
+    "key_type": "4096",
+    "certs_path": "certs",
+    "ca_endpoint": "https://acme-v02.api.letsencrypt.org/directory",
+    "renew_days": 30,
+    "http01_challenge": {
+      "port": 80,
+      "proxy_header": "",
+      "webroot": ""
+    },
+    "tls_alpn01_challenge": {
+      "port": 0
+    }
+  },
   "sftpd": {
     "bindings": [
       {

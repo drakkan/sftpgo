@@ -65,7 +65,7 @@ func (s *Service) initLogger() {
 	}
 }
 
-// Start initializes the service
+// Start initializes and starts the service
 func (s *Service) Start(disableAWSInstallationCode bool) error {
 	s.initLogger()
 	logger.Info(logSender, "", "starting SFTPGo %v, config dir: %v, config file: %v, log max size: %v log max backups: %v "+
@@ -86,38 +86,49 @@ func (s *Service) Start(disableAWSInstallationCode bool) error {
 		return errors.New(infoString)
 	}
 
+	if err := s.initializeServices(disableAWSInstallationCode); err != nil {
+		return err
+	}
+
+	s.startServices()
+	go common.Config.ExecuteStartupHook() //nolint:errcheck
+
+	return nil
+}
+
+func (s *Service) initializeServices(disableAWSInstallationCode bool) error {
 	providerConf := config.GetProviderConf()
 	err := common.Initialize(config.GetCommonConfig(), providerConf.GetShared())
 	if err != nil {
 		logger.Error(logSender, "", "%v", err)
 		logger.ErrorToConsole("%v", err)
-		os.Exit(1)
+		return err
 	}
 	kmsConfig := config.GetKMSConfig()
 	err = kmsConfig.Initialize()
 	if err != nil {
 		logger.Error(logSender, "", "unable to initialize KMS: %v", err)
 		logger.ErrorToConsole("unable to initialize KMS: %v", err)
-		os.Exit(1)
+		return err
 	}
 	mfaConfig := config.GetMFAConfig()
 	err = mfaConfig.Initialize()
 	if err != nil {
 		logger.Error(logSender, "", "unable to initialize MFA: %v", err)
 		logger.ErrorToConsole("unable to initialize MFA: %v", err)
-		os.Exit(1)
+		return err
 	}
 	if err := plugin.Initialize(config.GetPluginsConfig(), s.LogVerbose); err != nil {
 		logger.Error(logSender, "", "unable to initialize plugin system: %v", err)
 		logger.ErrorToConsole("unable to initialize plugin system: %v", err)
-		os.Exit(1)
+		return err
 	}
 	smtpConfig := config.GetSMTPConfig()
 	err = smtpConfig.Initialize(s.ConfigDir)
 	if err != nil {
 		logger.Error(logSender, "", "unable to initialize SMTP configuration: %v", err)
 		logger.ErrorToConsole("unable to initialize SMTP configuration: %v", err)
-		os.Exit(1)
+		return err
 	}
 	err = dataprovider.Initialize(providerConf, s.ConfigDir, s.PortableMode == 0)
 	if err != nil {
@@ -131,6 +142,14 @@ func (s *Service) Start(disableAWSInstallationCode bool) error {
 		err = dataprovider.AddUser(&s.PortableUser, dataprovider.ActionExecutorSystem, "")
 		if err != nil {
 			logger.ErrorToConsole("error adding portable user: %v", err)
+			return err
+		}
+	} else {
+		acmeConfig := config.GetACMEConfig()
+		err = acmeConfig.Initialize(s.ConfigDir, true)
+		if err != nil {
+			logger.Error(logSender, "", "error initializing ACME configuration: %v", err)
+			logger.ErrorToConsole("error initializing ACME configuration: %v", err)
 			return err
 		}
 	}
@@ -154,9 +173,6 @@ func (s *Service) Start(disableAWSInstallationCode bool) error {
 		logger.ErrorToConsole("error initializing commands configuration: %v", err)
 		return err
 	}
-
-	s.startServices()
-	go common.Config.ExecuteStartupHook() //nolint:errcheck
 
 	return nil
 }

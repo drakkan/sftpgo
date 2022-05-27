@@ -9,19 +9,20 @@ require (
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/alexedwards/argon2id v0.0.0-20211130144151-3585854a6387
 	github.com/aws/aws-sdk-go-v2 v1.16.4
-	github.com/aws/aws-sdk-go-v2/config v1.15.7
-	github.com/aws/aws-sdk-go-v2/credentials v1.12.2
+	github.com/aws/aws-sdk-go-v2/config v1.15.9
+	github.com/aws/aws-sdk-go-v2/credentials v1.12.4
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.5
-	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.12
+	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.14
 	github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.13.5
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.26.10
-	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.15.8
+	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.15.9
 	github.com/aws/aws-sdk-go-v2/service/sts v1.16.6
-	github.com/cockroachdb/cockroach-go/v2 v2.2.10
+	github.com/cockroachdb/cockroach-go/v2 v2.2.11
 	github.com/coreos/go-oidc/v3 v3.2.0
 	github.com/eikenb/pipeat v0.0.0-20210730190139-06b3e6902001
 	github.com/fclairamb/ftpserverlib v0.18.1-0.20220515214847-f96d31ec626e
 	github.com/fclairamb/go-log v0.3.0
+	github.com/go-acme/lego/v4 v4.6.0
 	github.com/go-chi/chi/v5 v5.0.8-0.20220512131524-9e71a0d4b3d6
 	github.com/go-chi/jwtauth/v5 v5.0.2
 	github.com/go-chi/render v1.0.1
@@ -34,7 +35,7 @@ require (
 	github.com/hashicorp/go-plugin v1.4.4
 	github.com/hashicorp/go-retryablehttp v0.7.1
 	github.com/jlaffaye/ftp v0.0.0-20201112195030-9aae4d151126
-	github.com/klauspost/compress v1.15.4
+	github.com/klauspost/compress v1.15.5
 	github.com/lestrrat-go/jwx v1.2.25
 	github.com/lib/pq v1.10.6
 	github.com/lithammer/shortuuid/v3 v3.0.7
@@ -54,7 +55,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.22.4
 	github.com/spf13/afero v1.8.2
 	github.com/spf13/cobra v1.4.0
-	github.com/spf13/viper v1.11.0
+	github.com/spf13/viper v1.12.0
 	github.com/stretchr/testify v1.7.1
 	github.com/studio-b12/gowebdav v0.0.0-20220128162035-c7b1ff8a5e62
 	github.com/unrolled/secure v1.10.0
@@ -64,17 +65,17 @@ require (
 	go.etcd.io/bbolt v1.3.6
 	go.uber.org/automaxprocs v1.5.1
 	gocloud.dev v0.25.0
-	golang.org/x/crypto v0.0.0-20220518034528-6f7dac969898
-	golang.org/x/net v0.0.0-20220513224357-95641704303c
-	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5
+	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
+	golang.org/x/net v0.0.0-20220526153639-5463443f8c37
+	golang.org/x/oauth2 v0.0.0-20220524215830-622c5d57e401
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a
 	golang.org/x/time v0.0.0-20220411224347-583f2d630306
-	google.golang.org/api v0.80.0
+	google.golang.org/api v0.81.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
 
 require (
-	cloud.google.com/go v0.101.1 // indirect
+	cloud.google.com/go v0.102.0 // indirect
 	cloud.google.com/go/compute v1.6.1 // indirect
 	cloud.google.com/go/iam v0.3.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.0.0 // indirect
@@ -87,11 +88,12 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.1.6 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.5 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.13.5 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.11.5 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.11.7 // indirect
 	github.com/aws/smithy-go v1.11.2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/boombuler/barcode v1.0.1 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
+	github.com/cenkalti/backoff/v4 v4.1.3 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/coreos/go-systemd/v22 v22.3.3-0.20220203105225-a9a7ef127534 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
@@ -152,7 +154,7 @@ require (
 	golang.org/x/tools v0.1.10 // indirect
 	golang.org/x/xerrors v0.0.0-20220517211312-f3a8303e98df // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20220524023933-508584e28198 // indirect
+	google.golang.org/genproto v0.0.0-20220526192754-51939a95c655 // indirect
 	google.golang.org/grpc v1.46.2 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/ini.v1 v1.66.4 // indirect
@@ -163,6 +165,6 @@ require (
 
 replace (
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
-	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20220519062025-309756691f42
-	golang.org/x/net => github.com/drakkan/net v0.0.0-20220514085754-d827943a3fff
+	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20220527053356-5e1caf8ed0e1
+	golang.org/x/net => github.com/drakkan/net v0.0.0-20220527053128-4a99afeacbd0
 )

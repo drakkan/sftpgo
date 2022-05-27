@@ -50,6 +50,7 @@ Several storage backends are supported: local filesystem, encrypted local filesy
 - SCP and rsync are supported.
 - FTP/S is supported. You can configure the FTP service to require TLS for both control and data connections.
 - [WebDAV](./docs/webdav.md) is supported.
+- ACME protocol is supported. SFTPGo can obtain and automatically renew TLS certificates for HTTPS, WebDAV and FTPS from `Let's Encrypt` or other ACME compliant certificate authorities, using the the `HTTP-01` or `TLS-ALPN-01` [challenge types](https://letsencrypt.org/docs/challenge-types/).
 - Two-Way TLS authentication, aka TLS with client certificate authentication, is supported for REST API/Web Admin, FTPS and WebDAV over HTTPS.
 - Per-user protocols restrictions. You can configure the allowed protocols (SSH/HTTP/FTP/WebDAV) for each user.
 - [Prometheus metrics](./docs/metrics.md) are exposed.

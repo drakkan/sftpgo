@@ -74,6 +74,7 @@ Source: "README.txt"; DestDir: "{app}"; Flags: ignoreversion isreadme
 Name: "{commonappdata}\{#MyAppName}\logs"; Permissions: everyone-full
 Name: "{commonappdata}\{#MyAppName}\backups"; Permissions: everyone-full
 Name: "{commonappdata}\{#MyAppName}\credentials"; Permissions: everyone-full
+Name: "{commonappdata}\{#MyAppName}\certs"; Permissions: everyone-full
 
 [Icons]
 Name: "{group}\Web Admin"; Filename: "http://localhost:8080/web/admin";

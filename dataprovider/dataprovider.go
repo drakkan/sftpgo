@@ -2393,7 +2393,7 @@ func validateBaseParams(user *User) error {
 	if user.Username == "" {
 		return util.NewValidationError("username is mandatory")
 	}
-	if user.Email != "" && !emailRegex.MatchString(user.Email) {
+	if user.Email != "" && !util.IsEmailValid(user.Email) {
 		return util.NewValidationError(fmt.Sprintf("email %#v is not valid", user.Email))
 	}
 	if config.NamingRules&1 == 0 && !usernameRegex.MatchString(user.Username) {

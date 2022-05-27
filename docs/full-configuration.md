@@ -9,10 +9,12 @@ Usage:
   sftpgo [command]
 
 Available Commands:
+  acme           Obtain TLS certificates from ACME-based CAs like Let's Encrypt
   gen            A collection of useful generators
   help           Help about any command
   initprovider   Initialize and/or updates the configured data provider
   portable       Serve a single directory/account
+  resetprovider  Reset the configured provider, any data will be lost
   revertprovider Revert the configured data provider to a previous version
   serve          Start the SFTPGo service
   smtptest       Test the SMTP configuration
@@ -102,6 +104,19 @@ The configuration file contains the following sections:
     - `generate_defender_events`, boolean. If `true`, the defender is enabled, and this is not a global rate limiter, a new defender event will be generated each time the configured limit is exceeded. Default `false`
     - `entries_soft_limit`, integer.
     - `entries_hard_limit`, integer. The number of per-ip rate limiters kept in memory will vary between the soft and hard limit
+- **"acme"**, Automatic Certificate Management Environment (ACME) protocol configuration. To obtain the certificates the first time you have to configure the ACME protocol and execute the `sftpgo acme run` command. The SFTPGo service will take care of the automatic renewal of certificates for the configured domains.
+  - `domains`, list of domains for which to obtain certificates. If a single certificate is to be valid for multiple domains specify the names separated by commas, for example: `example.com,www.example.com`. An empty list means that ACME protocol is disabled. Default: empty.
+  - `email`, string. Email used for registration and recovery contact. Default: empty.
+  - `key_type`, string. Key type to use for private keys. Supported values: `2048` (RSA 2048), `4096` (RSA 4096), `8192` (RSA 8192), `P256` (EC 256), `P384` (EC 384). Default: `4096`
+  - `certs_path`, string. Directory, absolute or relative to the configuration directory, to use for storing certificates and related data.
+  - `ca_endpoint`, string. Default: `https://acme-v02.api.letsencrypt.org/directory`.
+  - `renew_days`, integer. The number of days left on a certificate to renew it. Default: `30`.
+  - `http01_challenge`, configuration for `HTTP-01` challenge type, the following fields are supported:
+    - `port`, integer. This challenge is expected to run on port `80`. If you set a port other than `80` you have to proxy the path `/.well-known/acme-challenge` from the port `80` to the configured port. Default: `80`.
+    - `proxy_header`, string. Validate against this HTTP header when solving HTTP based challenges behind a reverse proxy. Empty means `Host`. Default: empty.
+    - `webroot`, string. Set the absolute path to the webroot folder to use for HTTP based challenges to write directly in a file in `.well-known/acme-challenge`. Setting a `webroot` disables the built-in server (the `port` setting is ignored) and expects the given directory to be publicly served, on port `80`, with access to `.well-known/acme-challenge`. If `webroot` is empty and `port` is `0` the `HTTP-01` challenge is disabled. Default: empty.
+  - `tls_alpn01_challenge`, configuration for `TLS-ALPN-01` challenge type, the following fields are supported:
+    - `port`, integer. This challenge is expected to run on port `443`. `0` means `TLS-ALPN-01` is disabled. Default: `0`.
 - **"sftpd"**, the configuration for the SFTP server
   - `bindings`, list of structs. Each struct has the following fields:
     - `port`, integer. The port used for serving SFTP requests. 0 means disabled. Default: 2022

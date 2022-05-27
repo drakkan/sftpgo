@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/viper"
 
+	"github.com/drakkan/sftpgo/v2/acme"
 	"github.com/drakkan/sftpgo/v2/command"
 	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
@@ -141,6 +142,7 @@ var (
 
 type globalConfig struct {
 	Common          common.Configuration  `json:"common" mapstructure:"common"`
+	ACME            acme.Configuration    `json:"acme" mapstructure:"acme"`
 	SFTPD           sftpd.Configuration   `json:"sftpd" mapstructure:"sftpd"`
 	FTPD            ftpd.Configuration    `json:"ftpd" mapstructure:"ftpd"`
 	WebDAVD         webdavd.Configuration `json:"webdavd" mapstructure:"webdavd"`
@@ -201,6 +203,22 @@ func Init() {
 				BlockList:          []string{},
 			},
 			RateLimitersConfig: []common.RateLimiterConfig{defaultRateLimiter},
+		},
+		ACME: acme.Configuration{
+			Email:      "",
+			KeyType:    "4096",
+			CertsPath:  "certs",
+			CAEndpoint: "https://acme-v02.api.letsencrypt.org/directory",
+			Domains:    []string{},
+			RenewDays:  30,
+			HTTP01Challenge: acme.HTTP01Challenge{
+				Port:        80,
+				WebRoot:     "",
+				ProxyHeader: "",
+			},
+			TLSALPN01Challenge: acme.TLSALPN01Challenge{
+				Port: 0,
+			},
 		},
 		SFTPD: sftpd.Configuration{
 			Bindings:                          []sftpd.Binding{defaultSFTPDBinding},
@@ -518,6 +536,11 @@ func GetMFAConfig() mfa.Config {
 // GetSMTPConfig returns the SMTP configuration
 func GetSMTPConfig() smtp.Config {
 	return globalConf.SMTPConfig
+}
+
+// GetACMEConfig returns the ACME configuration
+func GetACMEConfig() acme.Configuration {
+	return globalConf.ACME
 }
 
 // HasServicesToStart returns true if the config defines at least a service to start.
@@ -1707,6 +1730,16 @@ func setViperDefaults() {
 	viper.SetDefault("common.defender.blocklist_file", globalConf.Common.DefenderConfig.BlockListFile)
 	viper.SetDefault("common.defender.safelist", globalConf.Common.DefenderConfig.SafeList)
 	viper.SetDefault("common.defender.blocklist", globalConf.Common.DefenderConfig.BlockList)
+	viper.SetDefault("acme.email", globalConf.ACME.Email)
+	viper.SetDefault("acme.key_type", globalConf.ACME.KeyType)
+	viper.SetDefault("acme.certs_path", globalConf.ACME.CertsPath)
+	viper.SetDefault("acme.ca_endpoint", globalConf.ACME.CAEndpoint)
+	viper.SetDefault("acme.domains", globalConf.ACME.Domains)
+	viper.SetDefault("acme.renew_days", globalConf.ACME.RenewDays)
+	viper.SetDefault("acme.http01_challenge.port", globalConf.ACME.HTTP01Challenge.Port)
+	viper.SetDefault("acme.http01_challenge.webroot", globalConf.ACME.HTTP01Challenge.WebRoot)
+	viper.SetDefault("acme.http01_challenge.proxy_header", globalConf.ACME.HTTP01Challenge.ProxyHeader)
+	viper.SetDefault("acme.tls_alpn01_challenge.port", globalConf.ACME.TLSALPN01Challenge.Port)
 	viper.SetDefault("sftpd.max_auth_tries", globalConf.SFTPD.MaxAuthTries)
 	viper.SetDefault("sftpd.banner", globalConf.SFTPD.Banner)
 	viper.SetDefault("sftpd.host_keys", globalConf.SFTPD.HostKeys)

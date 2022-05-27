@@ -1257,6 +1257,7 @@ func TestConfigFromEnv(t *testing.T) {
 	os.Setenv("SFTPGO_KMS__SECRETS__MASTER_KEY_PATH", "path")
 	os.Setenv("SFTPGO_TELEMETRY__TLS_CIPHER_SUITES", "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA")
 	os.Setenv("SFTPGO_HTTPD__SETUP__INSTALLATION_CODE", "123")
+	os.Setenv("SFTPGO_ACME__HTTP01_CHALLENGE__PORT", "5002")
 	t.Cleanup(func() {
 		os.Unsetenv("SFTPGO_SFTPD__BINDINGS__0__ADDRESS")
 		os.Unsetenv("SFTPGO_WEBDAVD__BINDINGS__0__PORT")
@@ -1268,6 +1269,7 @@ func TestConfigFromEnv(t *testing.T) {
 		os.Unsetenv("SFTPGO_KMS__SECRETS__MASTER_KEY_PATH")
 		os.Unsetenv("SFTPGO_TELEMETRY__TLS_CIPHER_SUITES")
 		os.Unsetenv("SFTPGO_HTTPD__SETUP__INSTALLATION_CODE")
+		os.Unsetenv("SFTPGO_ACME__HTTP01_CHALLENGE_PORT")
 	})
 	err := config.LoadConfig(".", "invalid config")
 	assert.NoError(t, err)
@@ -1288,4 +1290,6 @@ func TestConfigFromEnv(t *testing.T) {
 	assert.Equal(t, "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA", telemetryConfig.TLSCipherSuites[0])
 	assert.Equal(t, "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA", telemetryConfig.TLSCipherSuites[1])
 	assert.Equal(t, "123", config.GetHTTPDConfig().Setup.InstallationCode)
+	acmeConfig := config.GetACMEConfig()
+	assert.Equal(t, 5002, acmeConfig.HTTP01Challenge.Port)
 }
