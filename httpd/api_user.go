@@ -232,7 +232,7 @@ func disconnectUser(username string) {
 }
 
 func updateEncryptedSecrets(fsConfig *vfs.Filesystem, currentS3AccessSecret, currentAzAccountKey, currentAzSASUrl,
-	currentGCSCredentials, currentCryptoPassphrase, currentSFTPPassword, currentSFTPKey *kms.Secret, currentSFTPPassphrase *kms.Secret) {
+	currentGCSCredentials, currentCryptoPassphrase, currentSFTPPassword, currentSFTPKey *kms.Secret, currentSFTPKeyPassphrase *kms.Secret) {
 	// we use the new access secret if plain or empty, otherwise the old value
 	switch fsConfig.Provider {
 	case sdk.S3FilesystemProvider:
@@ -264,7 +264,7 @@ func updateEncryptedSecrets(fsConfig *vfs.Filesystem, currentS3AccessSecret, cur
 			fsConfig.SFTPConfig.PrivateKey = currentSFTPKey
 		}
 		if fsConfig.SFTPConfig.Passphrase.IsNotPlainAndNotEmpty() {
-			fsConfig.SFTPConfig.Passphrase = currentSFTPPassphrase
+			fsConfig.SFTPConfig.Passphrase = currentSFTPKeyPassphrase
 		}
 	}
 }
