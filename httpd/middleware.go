@@ -76,11 +76,13 @@ func validateJWTToken(w http.ResponseWriter, r *http.Request, audience tokenAudi
 		doRedirect("Your token audience is not valid", nil)
 		return errInvalidToken
 	}
-	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
-	if !util.Contains(token.Audience(), ipAddr) {
-		logger.Debug(logSender, "", "the token with id %#v is not valid for the ip address %#v", token.JwtID(), ipAddr)
-		doRedirect("Your token is not valid", nil)
-		return errInvalidToken
+	if tokenValidationMode != tokenValidationNoIPMatch {
+		ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+		if !util.Contains(token.Audience(), ipAddr) {
+			logger.Debug(logSender, "", "the token with id %#v is not valid for the ip address %#v", token.JwtID(), ipAddr)
+			doRedirect("Your token is not valid", nil)
+			return errInvalidToken
+		}
 	}
 	return nil
 }

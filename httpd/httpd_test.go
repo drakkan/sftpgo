@@ -484,6 +484,10 @@ func TestInitialization(t *testing.T) {
 	httpdConf.Bindings[0].Port = 8081
 	httpdConf.Bindings[0].EnableHTTPS = true
 	httpdConf.Bindings[0].ClientAuthType = 1
+	httpdConf.TokenValidation = 1
+	err = httpdConf.Initialize(configDir, 0)
+	assert.Error(t, err)
+	httpdConf.TokenValidation = 0
 	err = httpdConf.Initialize(configDir, 0)
 	assert.Error(t, err)
 

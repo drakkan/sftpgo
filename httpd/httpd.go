@@ -582,6 +582,10 @@ type Conf struct {
 	// If empty a random signing key will be generated each time SFTPGo starts. If you set a
 	// signing passphrase you should consider rotating it periodically for added security
 	SigningPassphrase string `json:"signing_passphrase" mapstructure:"signing_passphrase"`
+	// TokenValidation allows to define how to validate JWT tokens, cookies and CSRF tokens.
+	// By default all the available security checks are enabled. Set to 1 to disable the requirement
+	// that a token must be used by the same IP for which it was issued.
+	TokenValidation int `json:"token_validation" mapstructure:"token_validation"`
 	// MaxUploadFileSize Defines the maximum request body size, in bytes, for Web Client/API HTTP upload requests.
 	// 0 means no limit
 	MaxUploadFileSize int64 `json:"max_upload_file_size" mapstructure:"max_upload_file_size"`
@@ -681,6 +685,14 @@ func (c *Conf) getKeyPairs(configDir string) []common.TLSKeyPair {
 	return keyPairs
 }
 
+func (c *Conf) setTokenValidationMode() {
+	if c.TokenValidation == 1 {
+		tokenValidationMode = tokenValidationNoIPMatch
+	} else {
+		tokenValidationMode = tokenValidationFull
+	}
+}
+
 // Initialize configures and starts the HTTP server
 func (c *Conf) Initialize(configDir string, isShared int) error {
 	logger.Info(logSender, "", "initializing HTTP server with config %+v", c.getRedacted())
@@ -751,6 +763,7 @@ func (c *Conf) Initialize(configDir string, isShared int) error {
 	installationCode = c.Setup.InstallationCode
 	installationCodeHint = c.Setup.InstallationCodeHint
 	startCleanupTicker(tokenDuration / 2)
+	c.setTokenValidationMode()
 	return <-exitChannel
 }
 

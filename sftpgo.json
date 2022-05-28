@@ -316,6 +316,7 @@
     "ca_certificates": [],
     "ca_revocation_lists": [],
     "signing_passphrase": "",
+    "token_validation": 0,
     "max_upload_file_size": 1048576000,
     "cors": {
       "enabled": false,

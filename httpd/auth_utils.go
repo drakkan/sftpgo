@@ -27,6 +27,13 @@ const (
 	tokenAudienceCSRF             tokenAudience = "CSRF"
 )
 
+type tokenValidation = int
+
+const (
+	tokenValidationFull                      = iota
+	tokenValidationNoIPMatch tokenValidation = iota
+)
+
 const (
 	claimUsernameKey                = "username"
 	claimPermissionsKey             = "permissions"
@@ -43,6 +50,7 @@ var (
 	// with the login form
 	csrfTokenDuration     = 6 * time.Hour
 	tokenRefreshThreshold = 10 * time.Minute
+	tokenValidationMode   = tokenValidationFull
 )
 
 type jwtTokenClaims struct {
@@ -329,9 +337,11 @@ func verifyCSRFToken(tokenString, ip string) error {
 		return errors.New("the form token is not valid")
 	}
 
-	if !util.Contains(token.Audience(), ip) {
-		logger.Debug(logSender, "", "error validating CSRF token IP audience")
-		return errors.New("the form token is not valid")
+	if tokenValidationMode != tokenValidationNoIPMatch {
+		if !util.Contains(token.Audience(), ip) {
+			logger.Debug(logSender, "", "error validating CSRF token IP audience")
+			return errors.New("the form token is not valid")
+		}
 	}
 
 	return nil

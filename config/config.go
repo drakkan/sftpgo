@@ -355,6 +355,7 @@ func Init() {
 			CACertificates:     nil,
 			CARevocationLists:  nil,
 			SigningPassphrase:  "",
+			TokenValidation:    0,
 			MaxUploadFileSize:  1048576000,
 			Cors: httpd.CorsConfig{
 				Enabled:          false,
@@ -1836,6 +1837,7 @@ func setViperDefaults() {
 	viper.SetDefault("httpd.ca_certificates", globalConf.HTTPDConfig.CACertificates)
 	viper.SetDefault("httpd.ca_revocation_lists", globalConf.HTTPDConfig.CARevocationLists)
 	viper.SetDefault("httpd.signing_passphrase", globalConf.HTTPDConfig.SigningPassphrase)
+	viper.SetDefault("httpd.token_validation", globalConf.HTTPDConfig.TokenValidation)
 	viper.SetDefault("httpd.max_upload_file_size", globalConf.HTTPDConfig.MaxUploadFileSize)
 	viper.SetDefault("httpd.cors.enabled", globalConf.HTTPDConfig.Cors.Enabled)
 	viper.SetDefault("httpd.cors.allowed_origins", globalConf.HTTPDConfig.Cors.AllowedOrigins)
