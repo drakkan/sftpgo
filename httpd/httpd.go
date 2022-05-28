@@ -417,9 +417,16 @@ type Binding struct {
 	// any invalid name will be silently ignored.
 	// The order matters, the ciphers listed first will be the preferred ones.
 	TLSCipherSuites []string `json:"tls_cipher_suites" mapstructure:"tls_cipher_suites"`
-	// List of IP addresses and IP ranges allowed to set X-Forwarded-For, X-Real-IP,
-	// X-Forwarded-Proto headers.
+	// List of IP addresses and IP ranges allowed to set client IP proxy headers and
+	// X-Forwarded-Proto header.
 	ProxyAllowed []string `json:"proxy_allowed" mapstructure:"proxy_allowed"`
+	// Allowed client IP proxy header such as "X-Forwarded-For", "X-Real-IP"
+	ClientIPProxyHeader string `json:"client_ip_proxy_header" mapstructure:"client_ip_proxy_header"`
+	// Some client IP headers such as "X-Forwarded-For" can contain multiple IP address, this setting
+	// define the position to trust starting from the right. For example if we have:
+	// "10.0.0.1,11.0.0.1,12.0.0.1,13.0.0.1" and the depth is 0, SFTPGo will use "13.0.0.1"
+	// as client IP, if depth is 1, "12.0.0.1" will be used and so on
+	ClientIPHeaderDepth int `json:"client_ip_header_depth" mapstructure:"client_ip_header_depth"`
 	// If both web admin and web client are enabled each login page will show a link
 	// to the other one. This setting allows to hide this link:
 	// - 0 login links are displayed on both admin and client login page. This is the default

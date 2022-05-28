@@ -435,19 +435,26 @@ func TestRemoteAddress(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Empty(t, req.RemoteAddr)
 
-	req.Header.Set("True-Client-IP", remoteAddr1)
-	ip := util.GetRealIP(req)
+	trueClientIP := "True-Client-IP"
+	cfConnectingIP := "CF-Connecting-IP"
+	xff := "X-Forwarded-For"
+	xRealIP := "X-Real-IP"
+
+	req.Header.Set(trueClientIP, remoteAddr1)
+	ip := util.GetRealIP(req, trueClientIP, 0)
 	assert.Equal(t, remoteAddr1, ip)
-	req.Header.Del("True-Client-IP")
-	req.Header.Set("CF-Connecting-IP", remoteAddr1)
-	ip = util.GetRealIP(req)
+	ip = util.GetRealIP(req, trueClientIP, 2)
+	assert.Empty(t, ip)
+	req.Header.Del(trueClientIP)
+	req.Header.Set(cfConnectingIP, remoteAddr1)
+	ip = util.GetRealIP(req, cfConnectingIP, 0)
 	assert.Equal(t, remoteAddr1, ip)
-	req.Header.Del("CF-Connecting-IP")
-	req.Header.Set("X-Forwarded-For", remoteAddr1)
-	ip = util.GetRealIP(req)
+	req.Header.Del(cfConnectingIP)
+	req.Header.Set(xff, remoteAddr1)
+	ip = util.GetRealIP(req, xff, 0)
 	assert.Equal(t, remoteAddr1, ip)
 	// this will be ignored, remoteAddr1 is not allowed to se this header
-	req.Header.Set("X-Forwarded-For", remoteAddr2)
+	req.Header.Set(xff, remoteAddr2)
 	req.RemoteAddr = remoteAddr1
 	ip = server.checkRemoteAddress(req)
 	assert.Equal(t, remoteAddr1, ip)
@@ -455,32 +462,41 @@ func TestRemoteAddress(t *testing.T) {
 	ip = server.checkRemoteAddress(req)
 	assert.Empty(t, ip)
 
-	req.Header.Set("X-Forwarded-For", fmt.Sprintf("%v, %v", remoteAddr2, remoteAddr1))
-	ip = util.GetRealIP(req)
+	req.Header.Set(xff, fmt.Sprintf("%v , %v", remoteAddr2, remoteAddr1))
+	ip = util.GetRealIP(req, xff, 1)
 	assert.Equal(t, remoteAddr2, ip)
 
 	req.RemoteAddr = remoteAddr2
-	req.Header.Set("X-Forwarded-For", fmt.Sprintf("%v,%v", "12.34.56.78", "172.16.2.4"))
+	req.Header.Set(xff, fmt.Sprintf("%v,%v", "12.34.56.78", "172.16.2.4"))
+	server.binding.ClientIPHeaderDepth = 1
+	server.binding.ClientIPProxyHeader = xff
 	ip = server.checkRemoteAddress(req)
 	assert.Equal(t, "12.34.56.78", ip)
 	assert.Equal(t, ip, req.RemoteAddr)
 
+	req.RemoteAddr = remoteAddr2
+	req.Header.Set(xff, fmt.Sprintf("%v,%v", "12.34.56.79", "172.16.2.5"))
+	server.binding.ClientIPHeaderDepth = 0
+	ip = server.checkRemoteAddress(req)
+	assert.Equal(t, "172.16.2.5", ip)
+	assert.Equal(t, ip, req.RemoteAddr)
+
 	req.RemoteAddr = "10.8.0.2"
-	req.Header.Set("X-Forwarded-For", remoteAddr1)
+	req.Header.Set(xff, remoteAddr1)
 	ip = server.checkRemoteAddress(req)
 	assert.Equal(t, remoteAddr1, ip)
 	assert.Equal(t, ip, req.RemoteAddr)
 
 	req.RemoteAddr = "10.8.0.3"
-	req.Header.Set("X-Forwarded-For", "not an ip")
+	req.Header.Set(xff, "not an ip")
 	ip = server.checkRemoteAddress(req)
 	assert.Equal(t, "10.8.0.3", ip)
 	assert.Equal(t, ip, req.RemoteAddr)
 
-	req.Header.Del("X-Forwarded-For")
+	req.Header.Del(xff)
 	req.RemoteAddr = ""
-	req.Header.Set("X-Real-IP", remoteAddr1)
-	ip = util.GetRealIP(req)
+	req.Header.Set(xRealIP, remoteAddr1)
+	ip = util.GetRealIP(req, "x-real-ip", 0)
 	assert.Equal(t, remoteAddr1, ip)
 	req.RemoteAddr = ""
 }

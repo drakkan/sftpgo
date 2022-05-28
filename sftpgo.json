@@ -149,7 +149,9 @@
         "client_auth_type": 0,
         "tls_cipher_suites": [],
         "prefix": "",
-        "proxy_allowed": []
+        "proxy_allowed": [],
+        "client_ip_proxy_header": "",
+        "client_ip_header_depth": 0
       }
     ],
     "certificate_file": "",
@@ -251,6 +253,8 @@
         "client_auth_type": 0,
         "tls_cipher_suites": [],
         "proxy_allowed": [],
+        "client_ip_proxy_header": "",
+        "client_ip_header_depth": 0,
         "hide_login_url": 0,
         "render_openapi": true,
         "web_client_integrations": [],

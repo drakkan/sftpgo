@@ -96,9 +96,16 @@ type Binding struct {
 	// Prefix for WebDAV resources, if empty WebDAV resources will be available at the
 	// root ("/") URI. If defined it must be an absolute URI.
 	Prefix string `json:"prefix" mapstructure:"prefix"`
-	// List of IP addresses and IP ranges allowed to set X-Forwarded-For/X-Real-IP headers.
-	ProxyAllowed     []string `json:"proxy_allowed" mapstructure:"proxy_allowed"`
-	allowHeadersFrom []func(net.IP) bool
+	// List of IP addresses and IP ranges allowed to set client IP proxy headers
+	ProxyAllowed []string `json:"proxy_allowed" mapstructure:"proxy_allowed"`
+	// Allowed client IP proxy header such as "X-Forwarded-For", "X-Real-IP"
+	ClientIPProxyHeader string `json:"client_ip_proxy_header" mapstructure:"client_ip_proxy_header"`
+	// Some client IP headers such as "X-Forwarded-For" can contain multiple IP address, this setting
+	// define the position to trust starting from the right. For example if we have:
+	// "10.0.0.1,11.0.0.1,12.0.0.1,13.0.0.1" and the depth is 0, SFTPGo will use "13.0.0.1"
+	// as client IP, if depth is 1, "12.0.0.1" will be used and so on
+	ClientIPHeaderDepth int `json:"client_ip_header_depth" mapstructure:"client_ip_header_depth"`
+	allowHeadersFrom    []func(net.IP) bool
 }
 
 func (b *Binding) parseAllowedProxy() error {

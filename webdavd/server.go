@@ -335,7 +335,7 @@ func (s *webDavServer) checkRemoteAddress(r *http.Request) string {
 	if ip != nil {
 		for _, allow := range s.binding.allowHeadersFrom {
 			if allow(ip) {
-				parsedIP := util.GetRealIP(r)
+				parsedIP := util.GetRealIP(r, s.binding.ClientIPProxyHeader, s.binding.ClientIPHeaderDepth)
 				if parsedIP != "" {
 					ipAddr = parsedIP
 					r.RemoteAddr = ipAddr

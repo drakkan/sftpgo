@@ -1551,11 +1551,12 @@ func TestProxyHeaders(t *testing.T) {
 	testIP := "10.29.1.9"
 	validForwardedFor := "172.19.2.6"
 	b := Binding{
-		Address:         "",
-		Port:            8080,
-		EnableWebAdmin:  true,
-		EnableWebClient: false,
-		ProxyAllowed:    []string{testIP, "10.8.0.0/30"},
+		Address:             "",
+		Port:                8080,
+		EnableWebAdmin:      true,
+		EnableWebClient:     false,
+		ProxyAllowed:        []string{testIP, "10.8.0.0/30"},
+		ClientIPProxyHeader: "x-forwarded-for",
 	}
 	err = b.parseAllowedProxy()
 	assert.NoError(t, err)

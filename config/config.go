@@ -67,16 +67,18 @@ var (
 		Debug:                      false,
 	}
 	defaultWebDAVDBinding = webdavd.Binding{
-		Address:            "",
-		Port:               0,
-		EnableHTTPS:        false,
-		CertificateFile:    "",
-		CertificateKeyFile: "",
-		MinTLSVersion:      12,
-		ClientAuthType:     0,
-		TLSCipherSuites:    nil,
-		Prefix:             "",
-		ProxyAllowed:       nil,
+		Address:             "",
+		Port:                0,
+		EnableHTTPS:         false,
+		CertificateFile:     "",
+		CertificateKeyFile:  "",
+		MinTLSVersion:       12,
+		ClientAuthType:      0,
+		TLSCipherSuites:     nil,
+		Prefix:              "",
+		ProxyAllowed:        nil,
+		ClientIPProxyHeader: "",
+		ClientIPHeaderDepth: 0,
 	}
 	defaultHTTPDBinding = httpd.Binding{
 		Address:               "",
@@ -90,6 +92,8 @@ var (
 		ClientAuthType:        0,
 		TLSCipherSuites:       nil,
 		ProxyAllowed:          nil,
+		ClientIPProxyHeader:   "",
+		ClientIPHeaderDepth:   0,
 		HideLoginURL:          0,
 		RenderOpenAPI:         true,
 		WebClientIntegrations: nil,
@@ -1126,6 +1130,30 @@ func applyFTPDBindingFromEnv(idx int, isSet bool, binding ftpd.Binding) {
 	}
 }
 
+func getWebDAVDBindingProxyConfigsFromEnv(idx int, binding *webdavd.Binding) bool {
+	isSet := false
+
+	proxyAllowed, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__PROXY_ALLOWED", idx))
+	if ok {
+		binding.ProxyAllowed = proxyAllowed
+		isSet = true
+	}
+
+	clientIPProxyHeader, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__CLIENT_IP_PROXY_HEADER", idx))
+	if ok {
+		binding.ClientIPProxyHeader = clientIPProxyHeader
+		isSet = true
+	}
+
+	clientIPHeaderDepth, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__CLIENT_IP_HEADER_DEPTH", idx))
+	if ok {
+		binding.ClientIPHeaderDepth = int(clientIPHeaderDepth)
+		isSet = true
+	}
+
+	return isSet
+}
+
 func getWebDAVDBindingFromEnv(idx int) {
 	binding := webdavd.Binding{
 		MinTLSVersion: 12,
@@ -1184,9 +1212,7 @@ func getWebDAVDBindingFromEnv(idx int) {
 		isSet = true
 	}
 
-	proxyAllowed, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__PROXY_ALLOWED", idx))
-	if ok {
-		binding.ProxyAllowed = proxyAllowed
+	if getWebDAVDBindingProxyConfigsFromEnv(idx, &binding) {
 		isSet = true
 	}
 
@@ -1519,6 +1545,30 @@ func getHTTPDNestedObjectsFromEnv(idx int, binding *httpd.Binding) bool {
 	return isSet
 }
 
+func getHTTPDBindingProxyConfigsFromEnv(idx int, binding *httpd.Binding) bool {
+	isSet := false
+
+	proxyAllowed, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__PROXY_ALLOWED", idx))
+	if ok {
+		binding.ProxyAllowed = proxyAllowed
+		isSet = true
+	}
+
+	clientIPProxyHeader, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__CLIENT_IP_PROXY_HEADER", idx))
+	if ok {
+		binding.ClientIPProxyHeader = clientIPProxyHeader
+		isSet = true
+	}
+
+	clientIPHeaderDepth, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__CLIENT_IP_HEADER_DEPTH", idx))
+	if ok {
+		binding.ClientIPHeaderDepth = int(clientIPHeaderDepth)
+		isSet = true
+	}
+
+	return isSet
+}
+
 func getHTTPDBindingFromEnv(idx int) {
 	binding := getDefaultHTTPBinding(idx)
 	isSet := false
@@ -1589,9 +1639,7 @@ func getHTTPDBindingFromEnv(idx int) {
 		isSet = true
 	}
 
-	proxyAllowed, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__PROXY_ALLOWED", idx))
-	if ok {
-		binding.ProxyAllowed = proxyAllowed
+	if getHTTPDBindingProxyConfigsFromEnv(idx, &binding) {
 		isSet = true
 	}
 
