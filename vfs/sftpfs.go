@@ -40,8 +40,8 @@ type SFTPFsConfig struct {
 	sdk.BaseSFTPFsConfig
 	Password               *kms.Secret `json:"password,omitempty"`
 	PrivateKey             *kms.Secret `json:"private_key,omitempty"`
+	KeyPassphrase          *kms.Secret `json:"key_passphrase,omitempty"`
 	forbiddenSelfUsernames []string    `json:"-"`
-	Passphrase             *kms.Secret `json:"passphrase,omitempty"`
 }
 
 // HideConfidentialData hides confidential data
@@ -52,8 +52,20 @@ func (c *SFTPFsConfig) HideConfidentialData() {
 	if c.PrivateKey != nil {
 		c.PrivateKey.Hide()
 	}
-	if c.Passphrase != nil {
-		c.Passphrase.Hide()
+	if c.KeyPassphrase != nil {
+		c.KeyPassphrase.Hide()
+	}
+}
+
+func (c *SFTPFsConfig) setNilSecretsIfEmpty() {
+	if c.Password != nil && c.Password.IsEmpty() {
+		c.Password = nil
+	}
+	if c.PrivateKey != nil && c.PrivateKey.IsEmpty() {
+		c.PrivateKey = nil
+	}
+	if c.KeyPassphrase != nil && c.KeyPassphrase.IsEmpty() {
+		c.KeyPassphrase = nil
 	}
 }
 
@@ -86,7 +98,7 @@ func (c *SFTPFsConfig) isEqual(other *SFTPFsConfig) bool {
 	if !c.Password.IsEqual(other.Password) {
 		return false
 	}
-	if !c.Passphrase.IsEqual(other.Passphrase) {
+	if !c.KeyPassphrase.IsEqual(other.KeyPassphrase) {
 		return false
 	}
 	return c.PrivateKey.IsEqual(other.PrivateKey)
@@ -99,8 +111,8 @@ func (c *SFTPFsConfig) setEmptyCredentialsIfNil() {
 	if c.PrivateKey == nil {
 		c.PrivateKey = kms.NewEmptySecret()
 	}
-	if c.Passphrase == nil {
-		c.Passphrase = kms.NewEmptySecret()
+	if c.KeyPassphrase == nil {
+		c.KeyPassphrase = kms.NewEmptySecret()
 	}
 }
 
@@ -147,6 +159,12 @@ func (c *SFTPFsConfig) validateCredentials() error {
 	if !c.PrivateKey.IsEmpty() && !c.PrivateKey.IsValidInput() {
 		return errors.New("invalid private key")
 	}
+	if c.KeyPassphrase.IsEncrypted() && !c.KeyPassphrase.IsValid() {
+		return errors.New("invalid encrypted private key passphrase")
+	}
+	if !c.KeyPassphrase.IsEmpty() && !c.KeyPassphrase.IsValidInput() {
+		return errors.New("invalid private key passphrase")
+	}
 	return nil
 }
 
@@ -167,10 +185,10 @@ func (c *SFTPFsConfig) ValidateAndEncryptCredentials(additionalData string) erro
 			return util.NewValidationError(fmt.Sprintf("could not encrypt SFTP fs private key: %v", err))
 		}
 	}
-	if c.Passphrase.IsPlain() {
-		c.Passphrase.SetAdditionalData(additionalData)
-		if err := c.Passphrase.Encrypt(); err != nil {
-			return err
+	if c.KeyPassphrase.IsPlain() {
+		c.KeyPassphrase.SetAdditionalData(additionalData)
+		if err := c.KeyPassphrase.Encrypt(); err != nil {
+			return util.NewValidationError(fmt.Sprintf("could not encrypt SFTP fs private key passphrase: %v", err))
 		}
 	}
 	return nil
@@ -211,8 +229,8 @@ func NewSFTPFs(connectionID, mountPath, localTempDir string, forbiddenSelfUserna
 			return nil, err
 		}
 	}
-	if !config.Passphrase.IsEmpty() {
-		if err := config.Passphrase.TryDecrypt(); err != nil {
+	if !config.KeyPassphrase.IsEmpty() {
+		if err := config.KeyPassphrase.TryDecrypt(); err != nil {
 			return nil, err
 		}
 	}
@@ -800,18 +818,15 @@ func (fs *SFTPFs) createConnection() error {
 	}
 	if fs.config.PrivateKey.GetPayload() != "" {
 		var signer ssh.Signer
-		if fs.config.Passphrase.GetPayload() != "" {
-			signer, err = ssh.ParsePrivateKeyWithPassphrase([]byte(fs.config.PrivateKey.GetPayload()), []byte(fs.config.Passphrase.GetPayload()))
-			if err != nil {
-				fs.err <- err
-				return err
-			}
+		if fs.config.KeyPassphrase.GetPayload() != "" {
+			signer, err = ssh.ParsePrivateKeyWithPassphrase([]byte(fs.config.PrivateKey.GetPayload()),
+				[]byte(fs.config.KeyPassphrase.GetPayload()))
 		} else {
 			signer, err = ssh.ParsePrivateKey([]byte(fs.config.PrivateKey.GetPayload()))
-			if err != nil {
-				fs.err <- err
-				return err
-			}
+		}
+		if err != nil {
+			fs.err <- err
+			return fmt.Errorf("sftpfs: unable to parse the private key: %w", err)
 		}
 		clientConfig.Auth = append(clientConfig.Auth, ssh.PublicKeys(signer))
 	}

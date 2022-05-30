@@ -72,7 +72,7 @@ func updateGroup(w http.ResponseWriter, r *http.Request) {
 	currentCryptoPassphrase := group.UserSettings.FsConfig.CryptConfig.Passphrase
 	currentSFTPPassword := group.UserSettings.FsConfig.SFTPConfig.Password
 	currentSFTPKey := group.UserSettings.FsConfig.SFTPConfig.PrivateKey
-	currentSFTPKeyPassphrase := group.UserSettings.FsConfig.SFTPConfig.Passphrase
+	currentSFTPKeyPassphrase := group.UserSettings.FsConfig.SFTPConfig.KeyPassphrase
 
 	group.UserSettings.FsConfig.S3Config = vfs.S3FsConfig{}
 	group.UserSettings.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}

@@ -102,6 +102,18 @@ NbbCNsVroqKlChT5wyPNGS+phi2bPARBno7WSDvshTZ7dAVEP2c9MJW0XwoSevwKlhgSdt
 RLFFQ/5nclJSdzPBOmQouC0OBcMFSrYtMeknJ4VvueVvve5HcHFaEsaMc7ABAGaLYaBQOm
 iixITGvaNZh/tjAAAACW5pY29sYUBwMQE=
 -----END OPENSSH PRIVATE KEY-----`
+	// password protected private key
+	testPrivateKeyPwd = `-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAACmFlczI1Ni1jdHIAAAAGYmNyeXB0AAAAGAAAABAvfwQQcs
++PyMsCLTNFcKiQAAAAEAAAAAEAAAAzAAAAC3NzaC1lZDI1NTE5AAAAILqltfCL7IPuIQ2q
++8w23flfgskjIlKViEwMfjJR4mrbAAAAkHp5xgG8J1XW90M/fT59ZUQht8sZzzP17rEKlX
+waYKvLzDxkPK6LFIYs55W1EX1eVt/2Maq+zQ7k2SOUmhPNknsUOlPV2gytX3uIYvXF7u2F
+FTBIJuzZ+UQ14wFbraunliE9yye9DajVG1kz2cz2wVgXUbee+gp5NyFVvln+TcTxXwMsWD
+qwlk5iw/jQekxThg==
+-----END OPENSSH PRIVATE KEY-----
+`
+	testPubKeyPwd = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILqltfCL7IPuIQ2q+8w23flfgskjIlKViEwMfjJR4mrb"
+	privateKeyPwd = "password"
 	// test CA user key.
 	// % ssh-keygen -f ca_user_key
 	testCAUserKey = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDF5fcwZHiyixmnE6IlOZJpZhWXoh62gN+yadAA0GJ509SAEaZVLPDP8S5RsE8mUikR3wxynVshxHeqMhrkS+RlNbhSlOXDdNg94yTrq/xF8Z/PgKRInvef74k5i7bAIytza7jERzFJ/ujTEy3537T5k5EYQJ15ZQGuvzynSdv+6o99SjI4jFplyQOZ2QcYbEAmhHm5GgQlIiEFG/RlDtLksOulKZxOY3qPzP0AyQxtZJXn/5vG40aW9LTbwxCJqWlgrkFXMqAAVCbuU5YspwhiXmKt1PsldiXw23oloa4caCKN1jzbFiGuZNXEU2Ebx7JIvjQCPaUYwLjEbkRDxDqN/vmwZqBuKYiuG9Eafx+nFSQkr7QYb5b+mT+/1IFHnmeRGn38731kBqtH7tpzC/t+soRX9p2HtJM+9MYhblO2OqTSPGTlxihWUkyiRBekpAhaiHld16TsG+A3bOJHrojGcX+5g6oGarKGLAMcykL1X+rZqT993Mo6d2Z7q43MOXE= root@p1"
@@ -621,6 +633,43 @@ func TestBasicSFTPFsHandling(t *testing.T) {
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 		err = os.Remove(localDownloadPath)
+		assert.NoError(t, err)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(baseUser, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(baseUser.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestSFTPFsPasswordProtectedPrivateKey(t *testing.T) {
+	usePubKey := false
+	u := getTestUser(true)
+	u.PublicKeys = []string{testPubKeyPwd}
+	baseUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	u = getTestSFTPUser(usePubKey)
+	u.FsConfig.SFTPConfig.PrivateKey = kms.NewPlainSecret(testPrivateKeyPwd)
+	u.FsConfig.SFTPConfig.KeyPassphrase = kms.NewPlainSecret(privateKeyPwd)
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	conn, client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		err = checkBasicSFTP(client)
+		assert.NoError(t, err)
+	}
+	// update the user, the key must be preserved
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	conn, client, err = getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		err = checkBasicSFTP(client)
 		assert.NoError(t, err)
 	}
 

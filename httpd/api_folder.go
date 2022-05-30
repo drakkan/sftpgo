@@ -67,7 +67,7 @@ func updateFolder(w http.ResponseWriter, r *http.Request) {
 	currentCryptoPassphrase := folder.FsConfig.CryptConfig.Passphrase
 	currentSFTPPassword := folder.FsConfig.SFTPConfig.Password
 	currentSFTPKey := folder.FsConfig.SFTPConfig.PrivateKey
-	currentSFTPKeyPassphrase := folder.FsConfig.SFTPConfig.Passphrase
+	currentSFTPKeyPassphrase := folder.FsConfig.SFTPConfig.KeyPassphrase
 
 	folder.FsConfig.S3Config = vfs.S3FsConfig{}
 	folder.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}

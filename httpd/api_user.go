@@ -134,7 +134,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	currentCryptoPassphrase := user.FsConfig.CryptConfig.Passphrase
 	currentSFTPPassword := user.FsConfig.SFTPConfig.Password
 	currentSFTPKey := user.FsConfig.SFTPConfig.PrivateKey
-	currentSFTPKeyPassphrase := user.FsConfig.SFTPConfig.Passphrase
+	currentSFTPKeyPassphrase := user.FsConfig.SFTPConfig.KeyPassphrase
 
 	user.Permissions = make(map[string][]string)
 	user.FsConfig.S3Config = vfs.S3FsConfig{}
@@ -263,8 +263,8 @@ func updateEncryptedSecrets(fsConfig *vfs.Filesystem, currentS3AccessSecret, cur
 		if fsConfig.SFTPConfig.PrivateKey.IsNotPlainAndNotEmpty() {
 			fsConfig.SFTPConfig.PrivateKey = currentSFTPKey
 		}
-		if fsConfig.SFTPConfig.Passphrase.IsNotPlainAndNotEmpty() {
-			fsConfig.SFTPConfig.Passphrase = currentSFTPKeyPassphrase
+		if fsConfig.SFTPConfig.KeyPassphrase.IsNotPlainAndNotEmpty() {
+			fsConfig.SFTPConfig.KeyPassphrase = currentSFTPKeyPassphrase
 		}
 	}
 }

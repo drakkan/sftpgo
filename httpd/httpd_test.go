@@ -202,9 +202,21 @@ AAAEA0E24gi8ab/XRSvJ85TGZJMe6HVmwxSG4ExPfTMwwe2n5EHjI1NnP2Yc6RrDBSJs11
 6aKNVXcSsx4vFZQGUI3+AAAACW5pY29sYUBwMQECAwQ=
 -----END OPENSSH PRIVATE KEY-----`
 	sftpPkeyFingerprint = "SHA256:QVQ06XHZZbYZzqfrsZcf3Yozy2WTnqQPeLOkcJCdbP0"
-	redactedSecret      = "[**redacted**]"
-	osWindows           = "windows"
-	oidcMockAddr        = "127.0.0.1:11111"
+	// password protected private key
+	testPrivateKeyPwd = `-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAACmFlczI1Ni1jdHIAAAAGYmNyeXB0AAAAGAAAABAvfwQQcs
++PyMsCLTNFcKiQAAAAEAAAAAEAAAAzAAAAC3NzaC1lZDI1NTE5AAAAILqltfCL7IPuIQ2q
++8w23flfgskjIlKViEwMfjJR4mrbAAAAkHp5xgG8J1XW90M/fT59ZUQht8sZzzP17rEKlX
+waYKvLzDxkPK6LFIYs55W1EX1eVt/2Maq+zQ7k2SOUmhPNknsUOlPV2gytX3uIYvXF7u2F
+FTBIJuzZ+UQ14wFbraunliE9yye9DajVG1kz2cz2wVgXUbee+gp5NyFVvln+TcTxXwMsWD
+qwlk5iw/jQekxThg==
+-----END OPENSSH PRIVATE KEY-----
+`
+	testPubKeyPwd  = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILqltfCL7IPuIQ2q+8w23flfgskjIlKViEwMfjJR4mrb"
+	privateKeyPwd  = "password"
+	redactedSecret = "[**redacted**]"
+	osWindows      = "windows"
+	oidcMockAddr   = "127.0.0.1:11111"
 )
 
 var (
@@ -13136,6 +13148,58 @@ func TestWebUploadSFTP(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestWebAPISFTPPasswordProtectedPrivateKey(t *testing.T) {
+	u := getTestUser()
+	u.Password = ""
+	u.PublicKeys = []string{testPubKeyPwd}
+	localUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	u = getTestSFTPUser()
+	u.FsConfig.SFTPConfig.Password = kms.NewEmptySecret()
+	u.FsConfig.SFTPConfig.PrivateKey = kms.NewPlainSecret(testPrivateKeyPwd)
+	u.FsConfig.SFTPConfig.KeyPassphrase = kms.NewPlainSecret(privateKeyPwd)
+	u.HomeDir = filepath.Join(os.TempDir(), u.Username)
+	sftpUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	webToken, err := getJWTWebClientTokenFromTestServer(sftpUser.Username, defaultPassword)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodGet, webClientFilesPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// update the user, the key must be preserved
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, sftpUser.FsConfig.SFTPConfig.KeyPassphrase.GetStatus())
+	_, _, err = httpdtest.UpdateUser(sftpUser, http.StatusOK, "")
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodGet, webClientFilesPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// using a wrong passphrase or no passphrase should fail
+	sftpUser.FsConfig.SFTPConfig.KeyPassphrase = kms.NewPlainSecret("wrong")
+	_, _, err = httpdtest.UpdateUser(sftpUser, http.StatusOK, "")
+	assert.NoError(t, err)
+	_, err = getJWTWebClientTokenFromTestServer(sftpUser.Username, defaultPassword)
+	assert.Error(t, err)
+	sftpUser.FsConfig.SFTPConfig.KeyPassphrase = kms.NewEmptySecret()
+	_, _, err = httpdtest.UpdateUser(sftpUser, http.StatusOK, "")
+	assert.NoError(t, err)
+	_, err = getJWTWebClientTokenFromTestServer(sftpUser.Username, defaultPassword)
+	assert.Error(t, err)
+
+	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(localUser.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(sftpUser.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestWebUploadMultipartFormReadError(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
@@ -17198,6 +17262,7 @@ func TestWebUserSFTPFsMock(t *testing.T) {
 	user.FsConfig.SFTPConfig.Username = "sftpuser"
 	user.FsConfig.SFTPConfig.Password = kms.NewPlainSecret("pwd")
 	user.FsConfig.SFTPConfig.PrivateKey = kms.NewPlainSecret(sftpPrivateKey)
+	user.FsConfig.SFTPConfig.KeyPassphrase = kms.NewPlainSecret(testPrivateKeyPwd)
 	user.FsConfig.SFTPConfig.Fingerprints = []string{sftpPkeyFingerprint}
 	user.FsConfig.SFTPConfig.Prefix = "/home/sftpuser"
 	user.FsConfig.SFTPConfig.DisableCouncurrentReads = true
@@ -17243,6 +17308,7 @@ func TestWebUserSFTPFsMock(t *testing.T) {
 	form.Set("sftp_username", user.FsConfig.SFTPConfig.Username)
 	form.Set("sftp_password", user.FsConfig.SFTPConfig.Password.GetPayload())
 	form.Set("sftp_private_key", user.FsConfig.SFTPConfig.PrivateKey.GetPayload())
+	form.Set("sftp_key_passphrase", user.FsConfig.SFTPConfig.KeyPassphrase.GetPayload())
 	form.Set("sftp_fingerprints", user.FsConfig.SFTPConfig.Fingerprints[0])
 	form.Set("sftp_prefix", user.FsConfig.SFTPConfig.Prefix)
 	form.Set("sftp_disable_concurrent_reads", "true")
@@ -17270,6 +17336,10 @@ func TestWebUserSFTPFsMock(t *testing.T) {
 	assert.NotEmpty(t, updateUser.FsConfig.SFTPConfig.PrivateKey.GetPayload())
 	assert.Empty(t, updateUser.FsConfig.SFTPConfig.PrivateKey.GetKey())
 	assert.Empty(t, updateUser.FsConfig.SFTPConfig.PrivateKey.GetAdditionalData())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, updateUser.FsConfig.SFTPConfig.KeyPassphrase.GetStatus())
+	assert.NotEmpty(t, updateUser.FsConfig.SFTPConfig.KeyPassphrase.GetPayload())
+	assert.Empty(t, updateUser.FsConfig.SFTPConfig.KeyPassphrase.GetKey())
+	assert.Empty(t, updateUser.FsConfig.SFTPConfig.KeyPassphrase.GetAdditionalData())
 	assert.Equal(t, updateUser.FsConfig.SFTPConfig.Prefix, user.FsConfig.SFTPConfig.Prefix)
 	assert.Equal(t, updateUser.FsConfig.SFTPConfig.Username, user.FsConfig.SFTPConfig.Username)
 	assert.Equal(t, updateUser.FsConfig.SFTPConfig.Endpoint, user.FsConfig.SFTPConfig.Endpoint)
@@ -17280,6 +17350,7 @@ func TestWebUserSFTPFsMock(t *testing.T) {
 	// now check that a redacted credentials are not saved
 	form.Set("sftp_password", redactedSecret+" ")
 	form.Set("sftp_private_key", redactedSecret)
+	form.Set("sftp_key_passphrase", redactedSecret)
 	b, contentType, _ = getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
 	setJWTCookieForReq(req, webToken)
@@ -17301,6 +17372,10 @@ func TestWebUserSFTPFsMock(t *testing.T) {
 	assert.Equal(t, updateUser.FsConfig.SFTPConfig.PrivateKey.GetPayload(), lastUpdatedUser.FsConfig.SFTPConfig.PrivateKey.GetPayload())
 	assert.Empty(t, lastUpdatedUser.FsConfig.SFTPConfig.PrivateKey.GetKey())
 	assert.Empty(t, lastUpdatedUser.FsConfig.SFTPConfig.PrivateKey.GetAdditionalData())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, lastUpdatedUser.FsConfig.SFTPConfig.KeyPassphrase.GetStatus())
+	assert.Equal(t, updateUser.FsConfig.SFTPConfig.KeyPassphrase.GetPayload(), lastUpdatedUser.FsConfig.SFTPConfig.KeyPassphrase.GetPayload())
+	assert.Empty(t, lastUpdatedUser.FsConfig.SFTPConfig.KeyPassphrase.GetKey())
+	assert.Empty(t, lastUpdatedUser.FsConfig.SFTPConfig.KeyPassphrase.GetAdditionalData())
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(userPath, user.Username), nil)
 	setBearerForReq(req, apiToken)
 	rr = executeRequest(req)

@@ -5035,6 +5035,8 @@ components:
           $ref: '#/components/schemas/Secret'
         private_key:
           $ref: '#/components/schemas/Secret'
+        key_passphrase:
+          $ref: '#/components/schemas/Secret'
         fingerprints:
           type: array
           items:

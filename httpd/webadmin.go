@@ -1219,7 +1219,7 @@ func getSFTPConfig(r *http.Request) (vfs.SFTPFsConfig, error) {
 	config.Username = r.Form.Get("sftp_username")
 	config.Password = getSecretFromFormField(r, "sftp_password")
 	config.PrivateKey = getSecretFromFormField(r, "sftp_private_key")
-	config.Passphrase = getSecretFromFormField(r, "sftp_passphrase")
+	config.KeyPassphrase = getSecretFromFormField(r, "sftp_key_passphrase")
 	fingerprintsFormValue := r.Form.Get("sftp_fingerprints")
 	config.Fingerprints = getSliceFromDelimitedValues(fingerprintsFormValue, "\n")
 	config.Prefix = r.Form.Get("sftp_prefix")
@@ -2203,7 +2203,7 @@ func (s *httpdServer) handleWebUpdateUserPost(w http.ResponseWriter, r *http.Req
 	}
 	updateEncryptedSecrets(&updatedUser.FsConfig, user.FsConfig.S3Config.AccessSecret, user.FsConfig.AzBlobConfig.AccountKey,
 		user.FsConfig.AzBlobConfig.SASURL, user.FsConfig.GCSConfig.Credentials, user.FsConfig.CryptConfig.Passphrase,
-		user.FsConfig.SFTPConfig.Password, user.FsConfig.SFTPConfig.PrivateKey, user.FsConfig.SFTPConfig.Passphrase)
+		user.FsConfig.SFTPConfig.Password, user.FsConfig.SFTPConfig.PrivateKey, user.FsConfig.SFTPConfig.KeyPassphrase)
 
 	updatedUser = getUserFromTemplate(updatedUser, userTemplateFields{
 		Username:   updatedUser.Username,
@@ -2337,7 +2337,7 @@ func (s *httpdServer) handleWebUpdateFolderPost(w http.ResponseWriter, r *http.R
 	updatedFolder.FsConfig.SetEmptySecretsIfNil()
 	updateEncryptedSecrets(&updatedFolder.FsConfig, folder.FsConfig.S3Config.AccessSecret, folder.FsConfig.AzBlobConfig.AccountKey,
 		folder.FsConfig.AzBlobConfig.SASURL, folder.FsConfig.GCSConfig.Credentials, folder.FsConfig.CryptConfig.Passphrase,
-		folder.FsConfig.SFTPConfig.Password, folder.FsConfig.SFTPConfig.PrivateKey, folder.FsConfig.SFTPConfig.Passphrase)
+		folder.FsConfig.SFTPConfig.Password, folder.FsConfig.SFTPConfig.PrivateKey, folder.FsConfig.SFTPConfig.KeyPassphrase)
 
 	updatedFolder = getFolderFromTemplate(updatedFolder, updatedFolder.Name)
 
@@ -2501,7 +2501,8 @@ func (s *httpdServer) handleWebUpdateGroupPost(w http.ResponseWriter, r *http.Re
 	updateEncryptedSecrets(&updatedGroup.UserSettings.FsConfig, group.UserSettings.FsConfig.S3Config.AccessSecret,
 		group.UserSettings.FsConfig.AzBlobConfig.AccountKey, group.UserSettings.FsConfig.AzBlobConfig.SASURL,
 		group.UserSettings.FsConfig.GCSConfig.Credentials, group.UserSettings.FsConfig.CryptConfig.Passphrase,
-		group.UserSettings.FsConfig.SFTPConfig.Password, group.UserSettings.FsConfig.SFTPConfig.PrivateKey, group.UserSettings.FsConfig.SFTPConfig.Passphrase)
+		group.UserSettings.FsConfig.SFTPConfig.Password, group.UserSettings.FsConfig.SFTPConfig.PrivateKey,
+		group.UserSettings.FsConfig.SFTPConfig.KeyPassphrase)
 
 	err = dataprovider.UpdateGroup(&updatedGroup, group.Users, claims.Username, ipAddr)
 	if err != nil {

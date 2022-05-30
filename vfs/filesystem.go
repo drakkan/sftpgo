@@ -26,7 +26,7 @@ func (f *Filesystem) SetEmptySecrets() {
 	f.CryptConfig.Passphrase = kms.NewEmptySecret()
 	f.SFTPConfig.Password = kms.NewEmptySecret()
 	f.SFTPConfig.PrivateKey = kms.NewEmptySecret()
-	f.SFTPConfig.Passphrase = kms.NewEmptySecret()
+	f.SFTPConfig.KeyPassphrase = kms.NewEmptySecret()
 }
 
 // SetEmptySecretsIfNil sets the secrets to empty if nil
@@ -52,8 +52,8 @@ func (f *Filesystem) SetEmptySecretsIfNil() {
 	if f.SFTPConfig.PrivateKey == nil {
 		f.SFTPConfig.PrivateKey = kms.NewEmptySecret()
 	}
-	if f.SFTPConfig.Passphrase == nil {
-		f.SFTPConfig.Passphrase = kms.NewEmptySecret()
+	if f.SFTPConfig.KeyPassphrase == nil {
+		f.SFTPConfig.KeyPassphrase = kms.NewEmptySecret()
 	}
 }
 
@@ -76,15 +76,7 @@ func (f *Filesystem) SetNilSecretsIfEmpty() {
 	if f.CryptConfig.Passphrase != nil && f.CryptConfig.Passphrase.IsEmpty() {
 		f.CryptConfig.Passphrase = nil
 	}
-	if f.SFTPConfig.Password != nil && f.SFTPConfig.Password.IsEmpty() {
-		f.SFTPConfig.Password = nil
-	}
-	if f.SFTPConfig.PrivateKey != nil && f.SFTPConfig.PrivateKey.IsEmpty() {
-		f.SFTPConfig.PrivateKey = nil
-	}
-	if f.SFTPConfig.Passphrase != nil && f.SFTPConfig.Passphrase.IsEmpty() {
-		f.SFTPConfig.Passphrase = nil
-	}
+	f.SFTPConfig.setNilSecretsIfEmpty()
 }
 
 // IsEqual returns true if the fs is equal to other
@@ -198,7 +190,7 @@ func (f *Filesystem) HasRedactedSecret() bool {
 		if f.SFTPConfig.PrivateKey.IsRedacted() {
 			return true
 		}
-		if f.SFTPConfig.Passphrase.IsRedacted() {
+		if f.SFTPConfig.KeyPassphrase.IsRedacted() {
 			return true
 		}
 	}
@@ -284,9 +276,9 @@ func (f *Filesystem) GetACopy() Filesystem {
 				DisableCouncurrentReads: f.SFTPConfig.DisableCouncurrentReads,
 				BufferSize:              f.SFTPConfig.BufferSize,
 			},
-			Password:   f.SFTPConfig.Password.Clone(),
-			PrivateKey: f.SFTPConfig.PrivateKey.Clone(),
-			Passphrase: f.SFTPConfig.Passphrase.Clone(),
+			Password:      f.SFTPConfig.Password.Clone(),
+			PrivateKey:    f.SFTPConfig.PrivateKey.Clone(),
+			KeyPassphrase: f.SFTPConfig.KeyPassphrase.Clone(),
 		},
 	}
 	if len(f.SFTPConfig.Fingerprints) > 0 {

@@ -86,7 +86,7 @@ func NewEmptySecret() *Secret {
 
 // NewPlainSecret stores the give payload in a plain text secret
 func NewPlainSecret(payload string) *Secret {
-	return NewSecret(sdkkms.SecretStatusPlain, payload, "", "")
+	return NewSecret(sdkkms.SecretStatusPlain, strings.TrimSpace(payload), "", "")
 }
 
 // Initialize configures the KMS support

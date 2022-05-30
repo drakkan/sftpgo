@@ -1521,6 +1521,9 @@ func compareSFTPFsConfig(expected *vfs.Filesystem, actual *vfs.Filesystem) error
 	if err := checkEncryptedSecret(expected.SFTPConfig.PrivateKey, actual.SFTPConfig.PrivateKey); err != nil {
 		return fmt.Errorf("SFTPFs private key mismatch: %v", err)
 	}
+	if err := checkEncryptedSecret(expected.SFTPConfig.KeyPassphrase, actual.SFTPConfig.KeyPassphrase); err != nil {
+		return fmt.Errorf("SFTPFs private key passphrase mismatch: %v", err)
+	}
 	if expected.SFTPConfig.Prefix != actual.SFTPConfig.Prefix {
 		if expected.SFTPConfig.Prefix != "" && actual.SFTPConfig.Prefix != "/" {
 			return errors.New("SFTPFs prefix mismatch")
