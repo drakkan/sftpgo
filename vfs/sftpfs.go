@@ -41,6 +41,7 @@ type SFTPFsConfig struct {
 	Password               *kms.Secret `json:"password,omitempty"`
 	PrivateKey             *kms.Secret `json:"private_key,omitempty"`
 	forbiddenSelfUsernames []string    `json:"-"`
+	Passphrase             *kms.Secret `json:"passphrase,omitempty"`
 }
 
 // HideConfidentialData hides confidential data
@@ -50,6 +51,9 @@ func (c *SFTPFsConfig) HideConfidentialData() {
 	}
 	if c.PrivateKey != nil {
 		c.PrivateKey.Hide()
+	}
+	if c.Passphrase != nil {
+		c.Passphrase.Hide()
 	}
 }
 
@@ -82,6 +86,9 @@ func (c *SFTPFsConfig) isEqual(other *SFTPFsConfig) bool {
 	if !c.Password.IsEqual(other.Password) {
 		return false
 	}
+	if !c.Passphrase.IsEqual(other.Passphrase) {
+		return false
+	}
 	return c.PrivateKey.IsEqual(other.PrivateKey)
 }
 
@@ -91,6 +98,9 @@ func (c *SFTPFsConfig) setEmptyCredentialsIfNil() {
 	}
 	if c.PrivateKey == nil {
 		c.PrivateKey = kms.NewEmptySecret()
+	}
+	if c.Passphrase == nil {
+		c.Passphrase = kms.NewEmptySecret()
 	}
 }
 
@@ -157,6 +167,12 @@ func (c *SFTPFsConfig) ValidateAndEncryptCredentials(additionalData string) erro
 			return util.NewValidationError(fmt.Sprintf("could not encrypt SFTP fs private key: %v", err))
 		}
 	}
+	if c.Passphrase.IsPlain() {
+		c.Passphrase.SetAdditionalData(additionalData)
+		if err := c.Passphrase.Encrypt(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -192,6 +208,11 @@ func NewSFTPFs(connectionID, mountPath, localTempDir string, forbiddenSelfUserna
 	}
 	if !config.PrivateKey.IsEmpty() {
 		if err := config.PrivateKey.TryDecrypt(); err != nil {
+			return nil, err
+		}
+	}
+	if !config.Passphrase.IsEmpty() {
+		if err := config.Passphrase.TryDecrypt(); err != nil {
 			return nil, err
 		}
 	}
@@ -778,11 +799,19 @@ func (fs *SFTPFs) createConnection() error {
 		ClientVersion: fmt.Sprintf("SSH-2.0-SFTPGo_%v", version.Get().Version),
 	}
 	if fs.config.PrivateKey.GetPayload() != "" {
-		signer, err := ssh.ParsePrivateKey([]byte(fs.config.PrivateKey.GetPayload()))
-		if err != nil {
-			fsLog(fs, logger.LevelError, "unable to parse the provided private key: %v", err)
-			fs.err <- err
-			return err
+		var signer ssh.Signer
+		if fs.config.Passphrase.GetPayload() != "" {
+			signer, err = ssh.ParsePrivateKeyWithPassphrase([]byte(fs.config.PrivateKey.GetPayload()), []byte(fs.config.Passphrase.GetPayload()))
+			if err != nil {
+				fs.err <- err
+				return err
+			}
+		} else {
+			signer, err = ssh.ParsePrivateKey([]byte(fs.config.PrivateKey.GetPayload()))
+			if err != nil {
+				fs.err <- err
+				return err
+			}
 		}
 		clientConfig.Auth = append(clientConfig.Auth, ssh.PublicKeys(signer))
 	}

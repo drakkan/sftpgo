@@ -425,6 +425,17 @@
         </div>
 
         <div class="form-group row fsconfig fsconfig-sftpfs">
+            <label for="idSFTPPassphrase" class="col-sm-2 col-form-label">Passphrase</label>
+            <div class="col-sm-10">
+                <input type="text" class="form-control" id="idSFTPPassphrase" name="sftp_passphrase" placeholder=""
+                value="{{if .SFTPConfig.Passphrase.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.SFTPConfig.Passphrase.GetPayload}}{{end}}" maxlength="255" aria-describedby="SFTPPassphraseHelpBlock">
+                <small id="SFTPPassphraseHelpBlock" class="form-text text-muted">
+                    A passphrase is a word or phrase that protects private key files,its used in case of encrypted private keys.
+                </small>
+            </div>
+        </div>
+
+        <div class="form-group row fsconfig fsconfig-sftpfs">
             <label for="idSFTPFingerprints" class="col-sm-2 col-form-label">Fingerprints</label>
             <div class="col-sm-10">
                 <textarea class="form-control" id="idSFTPFingerprints" name="sftp_fingerprints" rows="3"
