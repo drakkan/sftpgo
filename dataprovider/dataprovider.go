@@ -712,6 +712,8 @@ func SetTempPath(fsPath string) {
 func Initialize(cnf Config, basePath string, checkAdmins bool) error {
 	var err error
 	config = cnf
+	config.Actions.ExecuteOn = util.RemoveDuplicates(config.Actions.ExecuteOn, true)
+	config.Actions.ExecuteFor = util.RemoveDuplicates(config.Actions.ExecuteFor, true)
 
 	cnf.BackupsPath = getConfigPath(cnf.BackupsPath, basePath)
 	if cnf.BackupsPath == "" {
@@ -1736,7 +1738,7 @@ func UpdateFolder(folder *vfs.BaseVirtualFolder, users []string, groups []string
 		usersInGroups, errGrp := provider.getUsersInGroups(groups)
 		if errGrp == nil {
 			users = append(users, usersInGroups...)
-			users = util.RemoveDuplicates(users)
+			users = util.RemoveDuplicates(users, false)
 		} else {
 			providerLog(logger.LevelWarn, "unable to get users in groups %+v: %v", groups, errGrp)
 		}
@@ -1767,7 +1769,7 @@ func DeleteFolder(folderName, executor, ipAddress string) error {
 		usersInGroups, errGrp := provider.getUsersInGroups(folder.Groups)
 		if errGrp == nil {
 			users = append(users, usersInGroups...)
-			users = util.RemoveDuplicates(users)
+			users = util.RemoveDuplicates(users, false)
 		} else {
 			providerLog(logger.LevelWarn, "unable to get users in groups %+v: %v", folder.Groups, errGrp)
 		}
@@ -2156,7 +2158,7 @@ func validateUserPermissions(permsToCheck map[string][]string) (map[string][]str
 		if util.Contains(perms, PermAny) {
 			permissions[cleanedDir] = []string{PermAny}
 		} else {
-			permissions[cleanedDir] = util.RemoveDuplicates(perms)
+			permissions[cleanedDir] = util.RemoveDuplicates(perms, false)
 		}
 	}
 
@@ -2193,7 +2195,7 @@ func validatePublicKeys(user *User) error {
 		}
 		validatedKeys = append(validatedKeys, k)
 	}
-	user.PublicKeys = util.RemoveDuplicates(validatedKeys)
+	user.PublicKeys = util.RemoveDuplicates(validatedKeys, false)
 	return nil
 }
 
@@ -2235,8 +2237,8 @@ func validateFiltersPatternExtensions(baseFilters *sdk.BaseUserFilters) error {
 			}
 			denied = append(denied, strings.ToLower(pattern))
 		}
-		f.AllowedPatterns = util.RemoveDuplicates(allowed)
-		f.DeniedPatterns = util.RemoveDuplicates(denied)
+		f.AllowedPatterns = util.RemoveDuplicates(allowed, false)
+		f.DeniedPatterns = util.RemoveDuplicates(denied, false)
 		filters = append(filters, f)
 		filteredPaths = append(filteredPaths, cleanedPath)
 	}
@@ -2260,14 +2262,14 @@ func checkEmptyFiltersStruct(filters *sdk.BaseUserFilters) {
 }
 
 func validateIPFilters(filters *sdk.BaseUserFilters) error {
-	filters.DeniedIP = util.RemoveDuplicates(filters.DeniedIP)
+	filters.DeniedIP = util.RemoveDuplicates(filters.DeniedIP, false)
 	for _, IPMask := range filters.DeniedIP {
 		_, _, err := net.ParseCIDR(IPMask)
 		if err != nil {
 			return util.NewValidationError(fmt.Sprintf("could not parse denied IP/Mask %#v: %v", IPMask, err))
 		}
 	}
-	filters.AllowedIP = util.RemoveDuplicates(filters.AllowedIP)
+	filters.AllowedIP = util.RemoveDuplicates(filters.AllowedIP, false)
 	for _, IPMask := range filters.AllowedIP {
 		_, _, err := net.ParseCIDR(IPMask)
 		if err != nil {
@@ -2307,7 +2309,7 @@ func validateBandwidthLimitsFilter(filters *sdk.BaseUserFilters) error {
 
 func validateTransferLimitsFilter(filters *sdk.BaseUserFilters) error {
 	for idx, limit := range filters.DataTransferLimits {
-		filters.DataTransferLimits[idx].Sources = util.RemoveDuplicates(limit.Sources)
+		filters.DataTransferLimits[idx].Sources = util.RemoveDuplicates(limit.Sources, false)
 		if len(limit.Sources) == 0 {
 			return util.NewValidationError("no data transfer limit source specified")
 		}

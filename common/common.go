@@ -141,6 +141,9 @@ var (
 // Initialize sets the common configuration
 func Initialize(c Configuration, isShared int) error {
 	Config = c
+	Config.Actions.ExecuteOn = util.RemoveDuplicates(Config.Actions.ExecuteOn, true)
+	Config.Actions.ExecuteSync = util.RemoveDuplicates(Config.Actions.ExecuteSync, true)
+	Config.ProxyAllowed = util.RemoveDuplicates(Config.ProxyAllowed, true)
 	Config.idleLoginTimeout = 2 * time.Minute
 	Config.idleTimeoutAsDuration = time.Duration(Config.IdleTimeout) * time.Minute
 	startPeriodicTimeoutTicker(periodicTimeoutCheckInterval)

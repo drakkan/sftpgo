@@ -81,7 +81,7 @@ func (r *RateLimiterConfig) validate() error {
 			return fmt.Errorf("invalid entries_hard_limit %v must be > %v", r.EntriesHardLimit, r.EntriesSoftLimit)
 		}
 	}
-	r.Protocols = util.RemoveDuplicates(r.Protocols)
+	r.Protocols = util.RemoveDuplicates(r.Protocols, true)
 	for _, protocol := range r.Protocols {
 		if !util.Contains(rateLimiterProtocolValues, protocol) {
 			return fmt.Errorf("invalid protocol %#v", protocol)

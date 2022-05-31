@@ -204,13 +204,13 @@ func (m *CertManager) LoadRootCAs() error {
 // SetCACertificates sets the root CA authorities file paths.
 // This should not be changed at runtime
 func (m *CertManager) SetCACertificates(caCertificates []string) {
-	m.caCertificates = caCertificates
+	m.caCertificates = util.RemoveDuplicates(caCertificates, true)
 }
 
 // SetCARevocationLists sets the CA revocation lists file paths.
 // This should not be changed at runtime
 func (m *CertManager) SetCARevocationLists(caRevocationLists []string) {
-	m.caRevocationLists = caRevocationLists
+	m.caRevocationLists = util.RemoveDuplicates(caRevocationLists, true)
 }
 
 // NewCertManager creates a new certificate manager

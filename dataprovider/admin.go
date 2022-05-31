@@ -176,7 +176,7 @@ func (a *Admin) validateRecoveryCodes() error {
 }
 
 func (a *Admin) validatePermissions() error {
-	a.Permissions = util.RemoveDuplicates(a.Permissions)
+	a.Permissions = util.RemoveDuplicates(a.Permissions, false)
 	if len(a.Permissions) == 0 {
 		return util.NewValidationError("please grant some permissions to this admin")
 	}
@@ -220,7 +220,7 @@ func (a *Admin) validate() error {
 	if a.Email != "" && !util.IsEmailValid(a.Email) {
 		return util.NewValidationError(fmt.Sprintf("email %#v is not valid", a.Email))
 	}
-	a.Filters.AllowList = util.RemoveDuplicates(a.Filters.AllowList)
+	a.Filters.AllowList = util.RemoveDuplicates(a.Filters.AllowList, false)
 	for _, IPMask := range a.Filters.AllowList {
 		_, _, err := net.ParseCIDR(IPMask)
 		if err != nil {

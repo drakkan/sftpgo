@@ -249,7 +249,7 @@ func (c *Configuration) getServerConfig() *ssh.ServerConfig {
 }
 
 func (c *Configuration) updateSupportedAuthentications() {
-	serviceStatus.Authentications = util.RemoveDuplicates(serviceStatus.Authentications)
+	serviceStatus.Authentications = util.RemoveDuplicates(serviceStatus.Authentications, false)
 
 	if util.Contains(serviceStatus.Authentications, dataprovider.LoginMethodPassword) &&
 		util.Contains(serviceStatus.Authentications, dataprovider.SSHLoginMethodPublicKey) {
@@ -364,7 +364,7 @@ func (c *Configuration) configureSecurityOptions(serverConfig *ssh.ServerConfig)
 	if len(c.HostKeyAlgorithms) == 0 {
 		c.HostKeyAlgorithms = preferredHostKeyAlgos
 	} else {
-		c.HostKeyAlgorithms = util.RemoveDuplicates(c.HostKeyAlgorithms)
+		c.HostKeyAlgorithms = util.RemoveDuplicates(c.HostKeyAlgorithms, true)
 	}
 	for _, hostKeyAlgo := range c.HostKeyAlgorithms {
 		if !util.Contains(supportedHostKeyAlgos, hostKeyAlgo) {
@@ -374,7 +374,7 @@ func (c *Configuration) configureSecurityOptions(serverConfig *ssh.ServerConfig)
 	serverConfig.HostKeyAlgorithms = c.HostKeyAlgorithms
 
 	if len(c.KexAlgorithms) > 0 {
-		c.KexAlgorithms = util.RemoveDuplicates(c.KexAlgorithms)
+		c.KexAlgorithms = util.RemoveDuplicates(c.KexAlgorithms, true)
 		for _, kex := range c.KexAlgorithms {
 			if !util.Contains(supportedKexAlgos, kex) {
 				return fmt.Errorf("unsupported key-exchange algorithm %#v", kex)
@@ -383,7 +383,7 @@ func (c *Configuration) configureSecurityOptions(serverConfig *ssh.ServerConfig)
 		serverConfig.KeyExchanges = c.KexAlgorithms
 	}
 	if len(c.Ciphers) > 0 {
-		c.Ciphers = util.RemoveDuplicates(c.Ciphers)
+		c.Ciphers = util.RemoveDuplicates(c.Ciphers, true)
 		for _, cipher := range c.Ciphers {
 			if !util.Contains(supportedCiphers, cipher) {
 				return fmt.Errorf("unsupported cipher %#v", cipher)
@@ -392,7 +392,7 @@ func (c *Configuration) configureSecurityOptions(serverConfig *ssh.ServerConfig)
 		serverConfig.Ciphers = c.Ciphers
 	}
 	if len(c.MACs) > 0 {
-		c.MACs = util.RemoveDuplicates(c.MACs)
+		c.MACs = util.RemoveDuplicates(c.MACs, true)
 		for _, mac := range c.MACs {
 			if !util.Contains(supportedMACs, mac) {
 				return fmt.Errorf("unsupported MAC algorithm %#v", mac)
@@ -727,6 +727,7 @@ func (c *Configuration) checkSSHCommands() {
 	}
 	sshCommands := []string{}
 	for _, command := range c.EnabledSSHCommands {
+		command = strings.TrimSpace(command)
 		if util.Contains(supportedSSHCommands, command) {
 			sshCommands = append(sshCommands, command)
 		} else {
@@ -780,6 +781,7 @@ func (c *Configuration) generateDefaultHostKeys(configDir string) error {
 
 func (c *Configuration) checkHostKeyAutoGeneration(configDir string) error {
 	for _, k := range c.HostKeys {
+		k = strings.TrimSpace(k)
 		if filepath.IsAbs(k) {
 			if _, err := os.Stat(k); errors.Is(err, fs.ErrNotExist) {
 				keyName := filepath.Base(k)
@@ -837,6 +839,7 @@ func (c *Configuration) checkAndLoadHostKeys(configDir string, serverConfig *ssh
 	}
 	serviceStatus.HostKeys = nil
 	for _, hostKey := range c.HostKeys {
+		hostKey = strings.TrimSpace(hostKey)
 		if !util.IsFileInputValid(hostKey) {
 			logger.Warn(logSender, "", "unable to load invalid host key %#v", hostKey)
 			logger.WarnToConsole("unable to load invalid host key %#v", hostKey)
@@ -887,6 +890,7 @@ func (c *Configuration) checkAndLoadHostKeys(configDir string, serverConfig *ssh
 func (c *Configuration) loadHostCertificates(configDir string) ([]*ssh.Certificate, error) {
 	var certs []*ssh.Certificate
 	for _, certPath := range c.HostCertificates {
+		certPath = strings.TrimSpace(certPath)
 		if !util.IsFileInputValid(certPath) {
 			logger.Warn(logSender, "", "unable to load invalid host certificate %#v", certPath)
 			logger.WarnToConsole("unable to load invalid host certificate %#v", certPath)
@@ -917,6 +921,7 @@ func (c *Configuration) loadHostCertificates(configDir string) ([]*ssh.Certifica
 
 func (c *Configuration) initializeCertChecker(configDir string) error {
 	for _, keyPath := range c.TrustedUserCAKeys {
+		keyPath = strings.TrimSpace(keyPath)
 		if !util.IsFileInputValid(keyPath) {
 			logger.Warn(logSender, "", "unable to load invalid trusted user CA key %#v", keyPath)
 			logger.WarnToConsole("unable to load invalid trusted user CA key %#v", keyPath)

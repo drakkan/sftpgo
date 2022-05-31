@@ -196,7 +196,7 @@ func (s *Share) validatePaths() error {
 	for idx := range s.Paths {
 		s.Paths[idx] = util.CleanPath(s.Paths[idx])
 	}
-	s.Paths = util.RemoveDuplicates(s.Paths)
+	s.Paths = util.RemoveDuplicates(s.Paths, false)
 	if s.Scope >= ShareScopeWrite && len(s.Paths) != 1 {
 		return util.NewValidationError("the write share scope requires exactly one path")
 	}
@@ -248,7 +248,7 @@ func (s *Share) validate() error {
 	if err := s.hashPassword(); err != nil {
 		return err
 	}
-	s.AllowFrom = util.RemoveDuplicates(s.AllowFrom)
+	s.AllowFrom = util.RemoveDuplicates(s.AllowFrom, false)
 	for _, IPMask := range s.AllowFrom {
 		_, _, err := net.ParseCIDR(IPMask)
 		if err != nil {

@@ -131,7 +131,7 @@ func getCommaSeparatedQueryParam(r *http.Request, key string) []string {
 		}
 	}
 
-	return util.RemoveDuplicates(result)
+	return util.RemoveDuplicates(result, false)
 }
 
 func getBoolQueryParam(r *http.Request, param string) bool {

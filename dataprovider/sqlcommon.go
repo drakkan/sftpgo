@@ -1301,7 +1301,7 @@ func sqlCommonGetRecentlyUpdatedUsers(after int64, dbHandle sqlQuerier) ([]User,
 			groupNames = append(groupNames, g.Name)
 		}
 	}
-	groupNames = util.RemoveDuplicates(groupNames)
+	groupNames = util.RemoveDuplicates(groupNames, false)
 	groups, err := sqlCommonGetGroupsWithNames(groupNames, dbHandle)
 	if err != nil {
 		return users, err
@@ -1372,7 +1372,7 @@ func sqlCommonGetUsersForQuotaCheck(toFetch map[string]bool, dbHandle sqlQuerier
 			groupNames = append(groupNames, g.Name)
 		}
 	}
-	groupNames = util.RemoveDuplicates(groupNames)
+	groupNames = util.RemoveDuplicates(groupNames, false)
 	if len(groupNames) == 0 {
 		return users, nil
 	}

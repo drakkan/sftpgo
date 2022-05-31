@@ -1886,6 +1886,17 @@ func TestSupportedSecurityOptions(t *testing.T) {
 	c.KexAlgorithms = append(c.KexAlgorithms, "not a kex")
 	err = c.configureSecurityOptions(serverConfig)
 	assert.Error(t, err)
+	c.KexAlgorithms = supportedKexAlgos
+	c.MACs = []string{
+		" hmac-sha2-256-etm@openssh.com ", "hmac-sha2-256",
+		" hmac-sha2-512-etm@openssh.com", "hmac-sha2-512 ",
+		"hmac-sha1 ", " hmac-sha1-96",
+	}
+	err = c.configureSecurityOptions(serverConfig)
+	assert.NoError(t, err)
+	assert.Equal(t, supportedCiphers, serverConfig.Ciphers)
+	assert.Equal(t, supportedMACs, serverConfig.MACs)
+	assert.Equal(t, supportedKexAlgos, serverConfig.KeyExchanges)
 }
 
 func TestLoadHostKeys(t *testing.T) {

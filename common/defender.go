@@ -299,6 +299,7 @@ func addEntriesToList(entries []string, hostList *HostList, listName string) *Ho
 	cdrLoaded := 0
 
 	for _, entry := range entries {
+		entry = strings.TrimSpace(entry)
 		if strings.LastIndex(entry, "/") > 0 {
 			cdrCount++
 			_, network, err := net.ParseCIDR(entry)

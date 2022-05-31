@@ -216,7 +216,7 @@ func (c *Configuration) checkDomains() {
 			domains = append(domains, d)
 		}
 	}
-	c.Domains = util.RemoveDuplicates(domains)
+	c.Domains = util.RemoveDuplicates(domains, true)
 }
 
 func (c *Configuration) setLockTime() error {

@@ -66,13 +66,16 @@ func IsStringPrefixInSlice(obj string, list []string) bool {
 }
 
 // RemoveDuplicates returns a new slice removing any duplicate element from the initial one
-func RemoveDuplicates(obj []string) []string {
+func RemoveDuplicates(obj []string, trim bool) []string {
 	if len(obj) == 0 {
 		return obj
 	}
 	seen := make(map[string]bool)
 	validIdx := 0
 	for _, item := range obj {
+		if trim {
+			item = strings.TrimSpace(item)
+		}
 		if !seen[item] {
 			seen[item] = true
 			obj[validIdx] = item
@@ -462,7 +465,7 @@ func HTTPListenAndServe(srv *http.Server, address string, port int, isTLS bool, 
 func GetTLSCiphersFromNames(cipherNames []string) []uint16 {
 	var ciphers []uint16
 
-	for _, name := range RemoveDuplicates(cipherNames) {
+	for _, name := range RemoveDuplicates(cipherNames, false) {
 		for _, c := range tls.CipherSuites() {
 			if c.Name == strings.TrimSpace(name) {
 				ciphers = append(ciphers, c.ID)

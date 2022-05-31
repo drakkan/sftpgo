@@ -43,10 +43,10 @@ func (s *webDavServer) listenAndServe(compressor *middleware.Compressor) error {
 	}
 	if s.config.Cors.Enabled {
 		c := cors.New(cors.Options{
-			AllowedOrigins:     s.config.Cors.AllowedOrigins,
-			AllowedMethods:     s.config.Cors.AllowedMethods,
-			AllowedHeaders:     s.config.Cors.AllowedHeaders,
-			ExposedHeaders:     s.config.Cors.ExposedHeaders,
+			AllowedOrigins:     util.RemoveDuplicates(s.config.Cors.AllowedOrigins, true),
+			AllowedMethods:     util.RemoveDuplicates(s.config.Cors.AllowedMethods, true),
+			AllowedHeaders:     util.RemoveDuplicates(s.config.Cors.AllowedHeaders, true),
+			ExposedHeaders:     util.RemoveDuplicates(s.config.Cors.ExposedHeaders, true),
 			MaxAge:             s.config.Cors.MaxAge,
 			AllowCredentials:   s.config.Cors.AllowCredentials,
 			OptionsPassthrough: true,

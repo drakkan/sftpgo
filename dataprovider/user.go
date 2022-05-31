@@ -1728,12 +1728,12 @@ func (u *User) mergeFilePatterns(group Group, groupType int) {
 }
 
 func (u *User) removeDuplicatesAfterGroupMerge() {
-	u.Filters.AllowedIP = util.RemoveDuplicates(u.Filters.AllowedIP)
-	u.Filters.DeniedIP = util.RemoveDuplicates(u.Filters.DeniedIP)
-	u.Filters.DeniedLoginMethods = util.RemoveDuplicates(u.Filters.DeniedLoginMethods)
-	u.Filters.DeniedProtocols = util.RemoveDuplicates(u.Filters.DeniedProtocols)
-	u.Filters.WebClient = util.RemoveDuplicates(u.Filters.WebClient)
-	u.Filters.TwoFactorAuthProtocols = util.RemoveDuplicates(u.Filters.TwoFactorAuthProtocols)
+	u.Filters.AllowedIP = util.RemoveDuplicates(u.Filters.AllowedIP, false)
+	u.Filters.DeniedIP = util.RemoveDuplicates(u.Filters.DeniedIP, false)
+	u.Filters.DeniedLoginMethods = util.RemoveDuplicates(u.Filters.DeniedLoginMethods, false)
+	u.Filters.DeniedProtocols = util.RemoveDuplicates(u.Filters.DeniedProtocols, false)
+	u.Filters.WebClient = util.RemoveDuplicates(u.Filters.WebClient, false)
+	u.Filters.TwoFactorAuthProtocols = util.RemoveDuplicates(u.Filters.TwoFactorAuthProtocols, false)
 	u.SetEmptySecretsIfNil()
 	u.groupSettingsApplied = true
 }
