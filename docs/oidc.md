@@ -49,6 +49,8 @@ Add the following configuration parameters to the SFTPGo configuration file (or 
 ...
 ```
 
+SFTPGo will automatically add the `/.well-known/openid-configuration` suffix to the provided `config_url` and uses [OpenID Connect Discovery specifications](https://openid.net/specs/openid-connect-discovery-1_0.html) to obtain information needed to interact with it, including its OAuth 2.0 endpoint locations.
+
 From SFTPGo login page click `Login with OpenID` button, you will be redirected to the Keycloak login page, after a successful authentication Keyclock will redirect back to SFTPGo Web Admin or SFTPGo Web Client.
 
 Please note that the ID token returned from Keycloak must contain the `username_field` specified in the SFTPGo configuration and optionally the `role_field`. The mapped usernames must exist in SFTPGo.

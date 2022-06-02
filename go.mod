@@ -52,7 +52,7 @@ require (
 	github.com/rs/xid v1.4.0
 	github.com/rs/zerolog v1.26.2-0.20220505171737-a4ec5e4cdd4b
 	github.com/sftpgo/sdk v0.1.1-0.20220425123921-2f843a49e012
-	github.com/shirou/gopsutil/v3 v3.22.4
+	github.com/shirou/gopsutil/v3 v3.22.5
 	github.com/spf13/afero v1.8.2
 	github.com/spf13/cobra v1.4.0
 	github.com/spf13/viper v1.12.0
@@ -70,7 +70,7 @@ require (
 	golang.org/x/oauth2 v0.0.0-20220524215830-622c5d57e401
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a
 	golang.org/x/time v0.0.0-20220411224347-583f2d630306
-	google.golang.org/api v0.81.0
+	google.golang.org/api v0.82.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
 
@@ -154,8 +154,8 @@ require (
 	golang.org/x/tools v0.1.10 // indirect
 	golang.org/x/xerrors v0.0.0-20220517211312-f3a8303e98df // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20220531134929-86cf59382f1b // indirect
-	google.golang.org/grpc v1.46.2 // indirect
+	google.golang.org/genproto v0.0.0-20220601144221-27df5f98adab // indirect
+	google.golang.org/grpc v1.47.0 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/ini.v1 v1.66.6 // indirect
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect

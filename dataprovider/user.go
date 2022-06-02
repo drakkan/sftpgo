@@ -1584,18 +1584,19 @@ func (u *User) replacePlaceholder(value string) string {
 	return strings.ReplaceAll(value, "%username%", u.Username)
 }
 
-func (u *User) replaceFsConfigPlaceholders() {
-	switch u.FsConfig.Provider {
+func (u *User) replaceFsConfigPlaceholders(fsConfig vfs.Filesystem) vfs.Filesystem {
+	switch fsConfig.Provider {
 	case sdk.S3FilesystemProvider:
-		u.FsConfig.S3Config.KeyPrefix = u.replacePlaceholder(u.FsConfig.S3Config.KeyPrefix)
+		fsConfig.S3Config.KeyPrefix = u.replacePlaceholder(fsConfig.S3Config.KeyPrefix)
 	case sdk.GCSFilesystemProvider:
-		u.FsConfig.GCSConfig.KeyPrefix = u.replacePlaceholder(u.FsConfig.GCSConfig.KeyPrefix)
+		fsConfig.GCSConfig.KeyPrefix = u.replacePlaceholder(fsConfig.GCSConfig.KeyPrefix)
 	case sdk.AzureBlobFilesystemProvider:
-		u.FsConfig.AzBlobConfig.KeyPrefix = u.replacePlaceholder(u.FsConfig.AzBlobConfig.KeyPrefix)
+		fsConfig.AzBlobConfig.KeyPrefix = u.replacePlaceholder(fsConfig.AzBlobConfig.KeyPrefix)
 	case sdk.SFTPFilesystemProvider:
-		u.FsConfig.SFTPConfig.Username = u.replacePlaceholder(u.FsConfig.SFTPConfig.Username)
-		u.FsConfig.SFTPConfig.Prefix = u.replacePlaceholder(u.FsConfig.SFTPConfig.Prefix)
+		fsConfig.SFTPConfig.Username = u.replacePlaceholder(fsConfig.SFTPConfig.Username)
+		fsConfig.SFTPConfig.Prefix = u.replacePlaceholder(fsConfig.SFTPConfig.Prefix)
 	}
+	return fsConfig
 }
 
 func (u *User) mergeWithPrimaryGroup(group Group) {
@@ -1603,8 +1604,7 @@ func (u *User) mergeWithPrimaryGroup(group Group) {
 		u.HomeDir = u.replacePlaceholder(group.UserSettings.HomeDir)
 	}
 	if group.UserSettings.FsConfig.Provider != 0 {
-		u.FsConfig = group.UserSettings.FsConfig
-		u.replaceFsConfigPlaceholders()
+		u.FsConfig = u.replaceFsConfigPlaceholders(group.UserSettings.FsConfig)
 	}
 	if u.MaxSessions == 0 {
 		u.MaxSessions = group.UserSettings.MaxSessions
@@ -1687,6 +1687,7 @@ func (u *User) mergeVirtualFolders(group Group, groupType int) {
 			folder.VirtualPath = u.replacePlaceholder(folder.VirtualPath)
 			if _, ok := folderPaths[folder.VirtualPath]; !ok {
 				folder.MappedPath = u.replacePlaceholder(folder.MappedPath)
+				folder.FsConfig = u.replaceFsConfigPlaceholders(folder.FsConfig)
 				u.VirtualFolders = append(u.VirtualFolders, folder)
 			}
 		}

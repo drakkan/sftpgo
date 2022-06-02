@@ -274,7 +274,7 @@ The configuration file contains the following sections:
       - `file_extensions`, list of strings. File extensions must be specified with the leading dot, for example `.pdf`.
       - `url`, string. URL to open for the configured file extensions. The url will open in a new tab.
     - `oidc`, struct. Defines the OpenID connect configuration. OpenID integration allows you to map your identity provider users to SFTPGo users and so you can login to SFTPGo Web Client and Web Admin user interfaces using your identity provider. The following fields are supported:
-      - `config_url`, string. Identifier for the service. If defined, SFTPGo will try to retrieve the provider configuration on startup and then will refuse to start if it fails to connect to the specified URL. Default: blank.
+      - `config_url`, string. Identifier for the service. If defined, SFTPGo will add `/.well-known/openid-configuration` to this url and attempt to retrieve the provider configuration on startup. SFTPGo will refuse to start if it fails to connect to the specified URL. Default: blank.
       - `client_id`, string. Defines the application's ID. Default: blank.
       - `client_secret`, string. Defines the application's secret. Default: blank.
       - `redirect_base_url`, string. Defines the base URL to redirect to after OpenID authentication. The suffix `/web/oidc/redirect` will be added to this base URL, adding also the `web_root` if configured. Default: blank.
