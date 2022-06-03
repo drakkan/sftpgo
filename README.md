@@ -40,7 +40,7 @@ Several storage backends are supported: local filesystem, encrypted local filesy
 - Per-protocol [rate limiting](./docs/rate-limiting.md) is supported and can be optionally connected to the built-in defender to automatically block hosts that repeatedly exceed the configured limit.
 - Per-user maximum concurrent sessions.
 - Per-user and global IP filters: login can be restricted to specific ranges of IP addresses or to a specific IP address.
-- Per-user and per-directory shell like patterns filters: files can be allowed, denied or hidden based on shell like patterns.
+- Per-user and per-directory shell like patterns filters: files can be allowed, denied and optionally hidden based on shell like patterns.
 - Automatically terminating idle connections.
 - Automatic blocklist management using the built-in [defender](./docs/defender.md).
 - Geo-IP filtering using a [plugin](https://github.com/sftpgo/sftpgo-plugin-geoipfilter).

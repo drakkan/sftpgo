@@ -339,7 +339,7 @@ func Init() {
 			UpdateMode:         0,
 			DelayedQuotaUpdate: 0,
 			CreateDefaultAdmin: false,
-			NamingRules:        0,
+			NamingRules:        1,
 			IsShared:           0,
 			BackupsPath:        "backups",
 			AutoBackup: dataprovider.AutoBackup{
