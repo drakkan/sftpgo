@@ -1,6 +1,6 @@
 # Securing SFTPGo with a free Let's Encrypt TLS Certificate
 
-This tutorial shows how to create and configure a free Let's encrypt TLS certificate for the SFTPGo Web UI and REST API, the WebDAV service and the FTP service.
+This tutorial shows how to obtain and renew a free Let's encrypt TLS certificate for the SFTPGo Web UI and REST API, the WebDAV service and the FTP service.
 
 Obtaining a Let's Encrypt certificate involves solving a domain validation challenge issued by an ACME (Automatic Certificate Management Environment) server. This challenge verifies your ownership of the domain(s) you're trying to obtain a certificate for. Different challenge types exist, the most commonly used being `HTTP-01`. As its name suggests, it uses the HTTP protocol. While HTTP servers can be configured to use any TCP port, this challenge will only work on port `80` due to security measures.
 
@@ -141,10 +141,10 @@ Open the SFTPGo configuration file, search for the `acme` section and change it 
 Make sure that the `sftpgo` user can write to the `/var/www/sftpgo.com` directory or pre-create the `/var/www/sftpgo.com/.well-known/acme-challenge` directory with the appropriate permissions.
 This directory must be publicly served by your web server.
 
-Register your account and obtain certificates by running the following command as the root user.
+Register your account and obtain certificates by running the following command.
 
 ```bash
-su - sftpgo -s /bin/bash -c 'sftpgo acme run -c /etc/sftpgo'
+sudo -E su - sftpgo -m -s /bin/bash -c 'sftpgo acme run -c /etc/sftpgo'
 ```
 
 If this command completes successfully, you are done. The SFTPGo service will take care of the automatic renewal of certificates for the configured domains. Make sure that the `sftpgo` system user can read and write to `/var/lib/sftpgo/certs` directory otherwise the certificate renewal will fail.

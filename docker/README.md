@@ -125,7 +125,7 @@ If you want to get fine grained control, you can also mount `/srv/sftpgo/data` a
 
 The runtime configuration can be customized via environment variables that you can set passing the `-e` option to the `docker run` command or inside the `environment` section if you are using [docker stack deploy](https://docs.docker.com/engine/reference/commandline/stack_deploy/) or [docker-compose](https://github.com/docker/compose).
 
-Please take a look [here](../docs/full-configuration.md#environment-variables) to learn how to configure SFTPGo via environment variables.
+Please take a look [here](../docs/full-configuration.md) to learn how to configure SFTPGo via environment variables.
 
 Alternately you can mount your custom configuration file to `/var/lib/sftpgo` or `/var/lib/sftpgo/.config/sftpgo`.
 

@@ -53,8 +53,8 @@ The default configuration enables the SFTP service on port `2022` and uses an em
 
 Let's create our first local user:
 
-- from the users page click the `+` icon to open the Add user page
-- the only required fields are the `Username`, a `Password` or a `Public key`, and the default `Permissions`
+- from the `Users` page click the `+` icon to open the `Add user page`
+- the only required fields are the `Username` and a `Password` or a `Public key`
 - if you are on Windows or you installed SFTPGo manually and no `users_base_dir` is defined in your configuration file you also have to set a `Home Dir`. It must be an absolute path, for example `/srv/sftpgo/data/username` on Linux or `C:\sftpgo\data\username` on Windows. SFTPGo will try to automatically create the home directory, if missing, when the user logs in. Each user can only access files and folders inside its home directory.
 - click `Submit`
 
@@ -86,13 +86,13 @@ Fetching /adir/file.txt to file.txt
 
 It worked! We can upload/download files and create directories.
 
-Each user can browse and download their files and change their credentials using the web client interface available at the following URL:
+Each user can browse and download their files, share files with external users, change their credentials and configure two-factor authentication using the WebClient interface available at the following URL:
 
 [http://127.0.0.1:8080/web/client](http://127.0.0.1:8080/web/client)
 
-![Web client files](./img/web-client-files.png)
+![WebClient files](./img/web-client-files.png)
 
-![Web client credentials](./img/web-client-credentials.png)
+![WebClient two-factor authentication](./img/web-client-two-factor-auth.png)
 
 ### Creating users with a Cloud Storage backend
 
@@ -100,11 +100,13 @@ The procedure is similar to the one described for local users, you have only spe
 
 The screenshot below shows an example configuration for an S3 backend.
 
-![S3 user](./img/s3-user.png)
+![S3 user](./img/s3-user-1.png)
+![S3 user](./img/s3-user-2.png)
 
 The screenshot below shows an example configuration for an Azure Blob Storage backend.
 
-![Azure Blob user](./img/az-user.png)
+![Azure Blob user](./img/az-user-1.png)
+![Azure Blob user](./img/az-user-2.png)
 
 The screenshot below shows an example configuration for a Google Cloud Storage backend.
 
@@ -114,7 +116,7 @@ The screenshot below shows an example configuration for an SFTP server as storag
 
 ![User using another SFTP server as storage backend](./img/sftp-user.png)
 
-Setting a `Key Prefix` you restrict the user to a specific "folder" in the bucket, so that the same bucket can be shared among different users by assigning to each user a specific portion of the bucket.
+Setting a `Key Prefix` you restrict the user to a specific "sub-folder" in the bucket, so that the same bucket can be shared among different users.
 
 ### Creating users with a local encrypted backend (Data At Rest Encryption)
 
@@ -131,8 +133,7 @@ SFTPGo supports per directory virtual permissions. For each user you have to spe
 
 Take a look at the following screens.
 
-![Virtual permissions](./img/virtual-permissions.png)
-![Per-directory permissions](./img/dir-permissions.png)
+![Permissions](./img/virtual-permissions.png)
 
 This user has full access as default (`*`), can only list and download from `/read-only` path and has no permissions at all for the `/subdir` path.
 
@@ -230,7 +231,7 @@ The last upload failed since we exceeded the number of files quota limit.
 
 Until now we used the default configuration, to change the global service parameters you have to edit the configuration file, or set appropriate environment variables, and restart SFTPGo to apply the changes.
 
-A full explanation of all configuration methods can be found [here](./../full-configuration.md), we explore some common use cases. Please keep in mind that SFTPGo can also be configured via [environment variables](../full-configuration.md#environment-variables), this is very convenient if you are using Docker.
+A full explanation of all configuration methods can be found [here](./../full-configuration.md), we explore some common use cases. Please keep in mind that SFTPGo can also be configured via environment variables, this is very convenient if you are using Docker.
 
 The default configuration file is `sftpgo.json` and it can be found within the `/etc/sftpgo` directory if you installed from Linux distro packages. On Windows the configuration file can be found within the `{commonappdata}\SFTPGo` directory where `{commonappdata}` is typically `C:\ProgramData`. SFTPGo also supports reading from TOML and YAML configuration files.
 
@@ -346,7 +347,7 @@ We suppose you have installed CockroachDB this way:
 
 ```shell
 sudo su
-export CRDB_VERSION=21.1.2 # set the latest available version here
+export CRDB_VERSION=22.1.0 # set the latest available version here
 wget -qO- https://binaries.cockroachdb.com/cockroach-v${CRDB_VERSION}.linux-amd64.tgz | tar xvz
 cp -i cockroach-v${CRDB_VERSION}.linux-amd64/cockroach /usr/local/bin/
 mkdir -p /usr/local/lib/cockroach
@@ -398,13 +399,15 @@ Open the SFTPGo configuration file, search for the `data_provider` section and c
 ```json
   "data_provider": {
     "driver": "cockroachdb",
-    "name": "",
-    "host": "",
-    "port": 0,
-    "username": "",
+    "name": "sftpgo",
+    "host": "localhost",
+    "port": 26257,
+    "username": "root",
     "password": "",
-    "sslmode": 0,
-    "connection_string": "postgresql://root@localhost:26257/sftpgo?sslcert=%2Fetc%2Fcockroach%2Fcerts%2Fclient.root.crt&sslkey=%2Fetc%2Fcockroach%2Fcerts%2Fclient.root.key&sslmode=verify-full&sslrootcert=%2Fetc%2Fcockroach%2Fcerts%2Fca.crt&connect_timeout=10"
+    "sslmode": 3,
+    "root_cert": "/etc/cockroach/certs/ca.crt",
+    "client_cert": "/etc/cockroach/certs/client.root.crt",
+    "client_key": "/etc/cockroach/certs/client.root.key",
     ...
 }
 ```
@@ -413,9 +416,13 @@ Confirm that the database connection works by initializing the data provider.
 
 ```shell
 $ sudo su - sftpgo -s /bin/bash -c 'sftpgo initprovider -c /etc/sftpgo'
-2021-05-19T22:41:53.000 INF Initializing provider: "cockroachdb" config file: "/etc/sftpgo/sftpgo.json"
-2021-05-19T22:41:53.000 INF updating database version: 8 -> 9
-2021-05-19T22:41:53.000 INF Data provider successfully initialized/updated
+2022-06-02T14:54:04.510 INF Initializing provider: "cockroachdb" config file: "/etc/sftpgo/sftpgo.json"
+2022-06-02T14:54:04.554 INF creating initial database schema, version 15
+2022-06-02T14:54:04.698 INF updating database version: 15 -> 16
+2022-06-02T14:54:07.093 INF updating database version: 16 -> 17
+2022-06-02T14:54:07.672 INF updating database version: 17 -> 18
+2022-06-02T14:54:07.699 INF updating database version: 18 -> 19
+2022-06-02T14:54:07.721 INF Data provider successfully initialized/updated
 ```
 
 Ensure that SFTPGo starts after the database service.
@@ -445,9 +452,16 @@ Open the SFTPGo configuration file, search for the `ftpd` section and change it 
         "address": "",
         "apply_proxy_config": true,
         "tls_mode": 0,
+        "certificate_file": "",
+        "certificate_key_file": "",
+        "min_tls_version": 12,
         "force_passive_ip": "",
+        "passive_ip_overrides": [],
         "client_auth_type": 0,
-        "tls_cipher_suites": []
+        "tls_cipher_suites": [],
+        "passive_connections_security": 0,
+        "active_connections_security": 0,
+        "debug": false
       }
     ],
     "banner": "",
@@ -478,10 +492,15 @@ Open the SFTPGo configuration file, search for the `webdavd` section and change 
         "port": 10080,
         "address": "",
         "enable_https": false,
+        "certificate_file": "",
+        "certificate_key_file": "",
+        "min_tls_version": 12,
         "client_auth_type": 0,
         "tls_cipher_suites": [],
         "prefix": "",
-        "proxy_allowed": []
+        "proxy_allowed": [],
+        "client_ip_proxy_header": "",
+        "client_ip_header_depth": 0
       }
     ],
     ...
