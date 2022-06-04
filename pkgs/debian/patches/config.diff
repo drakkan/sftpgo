@@ -2,7 +2,16 @@ Index: sftpgo/sftpgo.json
 ===================================================================
 --- sftpgo.orig/sftpgo.json
 +++ sftpgo/sftpgo.json
-@@ -149,7 +149,7 @@
+@@ -58,7 +58,7 @@
+     "domains": [],
+     "email": "",
+     "key_type": "4096",
+-    "certs_path": "certs",
++    "certs_path": "/var/lib/sftpgo/certs",
+     "ca_endpoint": "https://acme-v02.api.letsencrypt.org/directory",
+     "renew_days": 30,
+     "http01_challenge": {
+@@ -180,7 +180,7 @@
    },
    "data_provider": {
      "driver": "sqlite",
@@ -11,7 +20,7 @@ Index: sftpgo/sftpgo.json
      "host": "",
      "port": 0,
      "username": "",
-@@ -160,7 +160,7 @@
+@@ -194,7 +194,7 @@
      "track_quota": 2,
      "delayed_quota_update": 0,
      "pool_size": 0,
@@ -20,37 +29,21 @@ Index: sftpgo/sftpgo.json
      "actions": {
        "execute_on": [],
        "execute_for": [],
-@@ -168,7 +168,7 @@
+@@ -202,7 +202,7 @@
      },
      "external_auth_hook": "",
      "external_auth_scope": 0,
 -    "credentials_path": "credentials",
 +    "credentials_path": "/var/lib/sftpgo/credentials",
-     "prefer_database_credentials": false,
      "pre_login_hook": "",
      "post_login_hook": "",
-@@ -216,10 +216,10 @@
-         "web_client_integrations": []
-       }
-     ],
--    "templates_path": "templates",
--    "static_files_path": "static",
--    "openapi_path": "openapi",
+     "post_login_scope": 0,
+@@ -232,7 +232,7 @@
+     "create_default_admin": false,
+     "naming_rules": 1,
+     "is_shared": 0,
 -    "backups_path": "backups",
-+    "templates_path": "/usr/share/sftpgo/templates",
-+    "static_files_path": "/usr/share/sftpgo/static",
-+    "openapi_path": "/usr/share/sftpgo/openapi",
 +    "backups_path": "/srv/sftpgo/backups",
-     "web_root": "",
-     "certificate_file": "",
-     "certificate_key_file": "",
-@@ -285,7 +285,7 @@
-     "auth_type": 0,
-     "encryption": 0,
-     "domain": "",
--    "templates_path": "templates"
-+    "templates_path": "/usr/share/sftpgo/templates"
-   },
-   "plugins": []
- }
-\ No newline at end of file
+     "auto_backup": {
+       "enabled": true,
+       "hour": "0",
