@@ -90,7 +90,7 @@ const (
 	operationDelete           = "delete"
 	sqlPrefixValidChars       = "abcdefghijklmnopqrstuvwxyz_0123456789"
 	maxHookResponseSize       = 1048576 // 1MB
-	iso8601UTCFormat          = "2006-01-02 15:04:05Z"
+	iso8601UTCFormat          = "2006-01-02T15:04:05Z"
 )
 
 // Supported algorithms for hashing passwords.
