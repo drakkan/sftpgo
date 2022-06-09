@@ -1,6 +1,6 @@
 # SFTPGo repositories
 
-These repository are available through Oregon State University's free mirror service. Special thanks to Lance Albertson, Director of the Oregon State University Open Source Lab, who helped me with the initial setup.
+These repositories are available through Oregon State University's free mirror service. Special thanks to Lance Albertson, Director of the Oregon State University Open Source Lab, who helped me with the initial setup.
 
 ## APT repo
 
