@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -972,9 +973,13 @@ func (s *httpdServer) updateContextFromCookie(r *http.Request) *http.Request {
 func (s *httpdServer) checkConnection(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
-		ip := net.ParseIP(ipAddr)
+		var ip net.IP
+		isUnixSocket := filepath.IsAbs(s.binding.Address)
+		if !isUnixSocket {
+			ip = net.ParseIP(ipAddr)
+		}
 		areHeadersAllowed := false
-		if ip != nil {
+		if isUnixSocket || ip != nil {
 			for _, allow := range s.binding.allowHeadersFrom {
 				if allow(ip) {
 					parsedIP := util.GetRealIP(r, s.binding.ClientIPProxyHeader, s.binding.ClientIPHeaderDepth)

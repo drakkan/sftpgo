@@ -331,8 +331,12 @@ func (s *webDavServer) validateUser(user *dataprovider.User, r *http.Request, lo
 
 func (s *webDavServer) checkRemoteAddress(r *http.Request) string {
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
-	ip := net.ParseIP(ipAddr)
-	if ip != nil {
+	var ip net.IP
+	isUnixSocket := filepath.IsAbs(s.binding.Address)
+	if !isUnixSocket {
+		ip = net.ParseIP(ipAddr)
+	}
+	if isUnixSocket || ip != nil {
 		for _, allow := range s.binding.allowHeadersFrom {
 			if allow(ip) {
 				parsedIP := util.GetRealIP(r, s.binding.ClientIPProxyHeader, s.binding.ClientIPHeaderDepth)

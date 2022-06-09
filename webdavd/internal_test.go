@@ -412,6 +412,18 @@ func TestUserInvalidParams(t *testing.T) {
 	writeLog(req, http.StatusOK, nil)
 }
 
+func TestAllowedProxyUnixDomainSocket(t *testing.T) {
+	b := Binding{
+		Address:      filepath.Join(os.TempDir(), "sock"),
+		ProxyAllowed: []string{"127.0.0.1", "127.0.1.1"},
+	}
+	err := b.parseAllowedProxy()
+	assert.NoError(t, err)
+	if assert.Len(t, b.allowHeadersFrom, 1) {
+		assert.True(t, b.allowHeadersFrom[0](nil))
+	}
+}
+
 func TestRemoteAddress(t *testing.T) {
 	remoteAddr1 := "100.100.100.100"
 	remoteAddr2 := "172.172.172.172"
