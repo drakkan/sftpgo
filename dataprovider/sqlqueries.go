@@ -33,6 +33,14 @@ func getSQLPlaceholders() []string {
 	return placeholders
 }
 
+func getSQLTableGroups() string {
+	if config.Driver == MySQLDataProviderName {
+		return fmt.Sprintf("`%s`", sqlTableGroups)
+	}
+
+	return sqlTableGroups
+}
+
 func getAddSessionQuery() string {
 	if config.Driver == MySQLDataProviderName {
 		return fmt.Sprintf("INSERT INTO %s (`key`,`data`,`type`,`timestamp`) VALUES (%s,%s,%s,%s) "+
@@ -139,7 +147,7 @@ func getDefenderEventsCleanupQuery() string {
 }
 
 func getGroupByNameQuery() string {
-	return fmt.Sprintf(`SELECT %s FROM %s WHERE name = %s`, selectGroupFields, sqlTableGroups, sqlPlaceholders[0])
+	return fmt.Sprintf(`SELECT %s FROM %s WHERE name = %s`, selectGroupFields, getSQLTableGroups(), sqlPlaceholders[0])
 }
 
 func getGroupsQuery(order string, minimal bool) string {
@@ -149,7 +157,7 @@ func getGroupsQuery(order string, minimal bool) string {
 	} else {
 		fieldSelection = selectGroupFields
 	}
-	return fmt.Sprintf(`SELECT %s FROM %s ORDER BY name %s LIMIT %v OFFSET %v`, fieldSelection, sqlTableGroups,
+	return fmt.Sprintf(`SELECT %s FROM %s ORDER BY name %s LIMIT %v OFFSET %v`, fieldSelection, getSQLTableGroups(),
 		order, sqlPlaceholders[0], sqlPlaceholders[1])
 }
 
@@ -168,7 +176,7 @@ func getGroupsWithNamesQuery(numArgs int) string {
 	} else {
 		sb.WriteString("('')")
 	}
-	return fmt.Sprintf(`SELECT %s FROM %s WHERE name in %s`, selectGroupFields, sqlTableGroups, sb.String())
+	return fmt.Sprintf(`SELECT %s FROM %s WHERE name in %s`, selectGroupFields, getSQLTableGroups(), sb.String())
 }
 
 func getUsersInGroupsQuery(numArgs int) string {
@@ -187,27 +195,27 @@ func getUsersInGroupsQuery(numArgs int) string {
 		sb.WriteString("('')")
 	}
 	return fmt.Sprintf(`SELECT username FROM %s WHERE id IN (SELECT user_id from %s WHERE group_id IN (SELECT id FROM %s WHERE name IN (%s)))`,
-		sqlTableUsers, sqlTableUsersGroupsMapping, sqlTableGroups, sb.String())
+		sqlTableUsers, sqlTableUsersGroupsMapping, getSQLTableGroups(), sb.String())
 }
 
 func getDumpGroupsQuery() string {
-	return fmt.Sprintf(`SELECT %s FROM %s`, selectGroupFields, sqlTableGroups)
+	return fmt.Sprintf(`SELECT %s FROM %s`, selectGroupFields, getSQLTableGroups())
 }
 
 func getAddGroupQuery() string {
 	return fmt.Sprintf(`INSERT INTO %s (name,description,created_at,updated_at,user_settings)
-		VALUES (%v,%v,%v,%v,%v)`, sqlTableGroups, sqlPlaceholders[0], sqlPlaceholders[1],
+		VALUES (%v,%v,%v,%v,%v)`, getSQLTableGroups(), sqlPlaceholders[0], sqlPlaceholders[1],
 		sqlPlaceholders[2], sqlPlaceholders[3], sqlPlaceholders[4])
 }
 
 func getUpdateGroupQuery() string {
 	return fmt.Sprintf(`UPDATE %s SET description=%v,user_settings=%v,updated_at=%v
-		WHERE name = %s`, sqlTableGroups, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2],
+		WHERE name = %s`, getSQLTableGroups(), sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2],
 		sqlPlaceholders[3])
 }
 
 func getDeleteGroupQuery() string {
-	return fmt.Sprintf(`DELETE FROM %s WHERE name = %s`, sqlTableGroups, sqlPlaceholders[0])
+	return fmt.Sprintf(`DELETE FROM %s WHERE name = %s`, getSQLTableGroups(), sqlPlaceholders[0])
 }
 
 func getAdminByUsernameQuery() string {
@@ -519,19 +527,19 @@ func getClearUserGroupMappingQuery() string {
 func getAddUserGroupMappingQuery() string {
 	return fmt.Sprintf(`INSERT INTO %v (user_id,group_id,group_type) VALUES ((SELECT id FROM %v WHERE username = %v),
 		(SELECT id FROM %v WHERE name = %v),%v)`,
-		sqlTableUsersGroupsMapping, sqlTableUsers, sqlPlaceholders[0], sqlTableGroups, sqlPlaceholders[1], sqlPlaceholders[2])
+		sqlTableUsersGroupsMapping, sqlTableUsers, sqlPlaceholders[0], getSQLTableGroups(), sqlPlaceholders[1], sqlPlaceholders[2])
 }
 
 func getClearGroupFolderMappingQuery() string {
 	return fmt.Sprintf(`DELETE FROM %v WHERE group_id = (SELECT id FROM %v WHERE name = %v)`, sqlTableGroupsFoldersMapping,
-		sqlTableGroups, sqlPlaceholders[0])
+		getSQLTableGroups(), sqlPlaceholders[0])
 }
 
 func getAddGroupFolderMappingQuery() string {
 	return fmt.Sprintf(`INSERT INTO %v (virtual_path,quota_size,quota_files,folder_id,group_id)
 		VALUES (%v,%v,%v,(SELECT id FROM %v WHERE name = %v),(SELECT id FROM %v WHERE name = %v))`,
 		sqlTableGroupsFoldersMapping, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlTableFolders,
-		sqlPlaceholders[3], sqlTableGroups, sqlPlaceholders[4])
+		sqlPlaceholders[3], getSQLTableGroups(), sqlPlaceholders[4])
 }
 
 func getClearUserFolderMappingQuery() string {
@@ -585,7 +593,7 @@ func getRelatedGroupsForUsersQuery(users []User) string {
 		sb.WriteString(")")
 	}
 	return fmt.Sprintf(`SELECT g.name,ug.group_type,ug.user_id FROM %v g INNER JOIN %v ug ON g.id = ug.group_id WHERE
-		ug.user_id IN %v ORDER BY ug.user_id`, sqlTableGroups, sqlTableUsersGroupsMapping, sb.String())
+		ug.user_id IN %v ORDER BY ug.user_id`, getSQLTableGroups(), sqlTableUsersGroupsMapping, sb.String())
 }
 
 func getRelatedFoldersForUsersQuery(users []User) string {
@@ -637,7 +645,7 @@ func getRelatedGroupsForFoldersQuery(folders []vfs.BaseVirtualFolder) string {
 		sb.WriteString(")")
 	}
 	return fmt.Sprintf(`SELECT fm.folder_id,g.name FROM %v fm INNER JOIN %v g ON fm.group_id = g.id
-		WHERE fm.folder_id IN %v ORDER BY fm.folder_id`, sqlTableGroupsFoldersMapping, sqlTableGroups, sb.String())
+		WHERE fm.folder_id IN %v ORDER BY fm.folder_id`, sqlTableGroupsFoldersMapping, getSQLTableGroups(), sb.String())
 }
 
 func getRelatedUsersForGroupsQuery(groups []Group) string {

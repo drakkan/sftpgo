@@ -283,6 +283,21 @@ jobs:
         ports:
           - 3307:3306
 
+      mysql:
+        image: mysql:latest
+        env:
+          MYSQL_ROOT_PASSWORD: mysql
+          MYSQL_DATABASE: sftpgo
+          MYSQL_USER: sftpgo
+          MYSQL_PASSWORD: sftpgo
+        options: >-
+          --health-cmd "mysqladmin status -h 127.0.0.1 -P 3306 -u root -p$MYSQL_ROOT_PASSWORD"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 6
+        ports:
+          - 3308:3306
+
     steps:
       - uses: actions/checkout@v3
 
@@ -312,6 +327,17 @@ jobs:
           SFTPGO_DATA_PROVIDER__PASSWORD: postgres
 
       - name: Run tests using MySQL provider
+        run: |
+          go test -v -p 1 -timeout 15m ./... -covermode=atomic
+        env:
+          SFTPGO_DATA_PROVIDER__DRIVER: mysql
+          SFTPGO_DATA_PROVIDER__NAME: sftpgo
+          SFTPGO_DATA_PROVIDER__HOST: localhost
+          SFTPGO_DATA_PROVIDER__PORT: 3308
+          SFTPGO_DATA_PROVIDER__USERNAME: sftpgo
+          SFTPGO_DATA_PROVIDER__PASSWORD: sftpgo
+
+      - name: Run tests using MariaDB provider
         run: |
           go test -v -p 1 -timeout 15m ./... -covermode=atomic
         env:
