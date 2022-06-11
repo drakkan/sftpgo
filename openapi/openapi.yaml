@@ -26,7 +26,7 @@ info:
     SFTPGo supports groups to simplify the administration of multiple accounts by letting you assign settings once to a group, instead of multiple times to each individual user.
     The SFTPGo WebClient allows end users to change their credentials, browse and manage their files in the browser and setup two-factor authentication which works with Authy, Google Authenticator and other compatible apps.
     From the WebClient each authorized user can also create HTTP/S links to externally share files and folders securely, by setting limits to the number of downloads/uploads, protecting the share with a password, limiting access by source IP address, setting an automatic expiration date.
-  version: 2.3.1
+  version: 2.3.1-dev
   contact:
     name: API support
     url: 'https://github.com/drakkan/sftpgo'
@@ -4416,15 +4416,6 @@ components:
           * `chmod` changing file or directory permissions is allowed
           * `chown` changing file or directory owner and group is allowed
           * `chtimes` changing file or directory access and modification time is allowed
-    DirPermissions:
-      type: object
-      additionalProperties:
-        type: array
-        items:
-          $ref: '#/components/schemas/Permission'
-        minItems: 1
-      minProperties: 1
-      description: 'hash map with directory as key and an array of permissions as value. Directories must be absolute paths, permissions for root directory ("/") are required'
     AdminPermissions:
       type: string
       enum:
@@ -5195,9 +5186,13 @@ components:
           description: Quota as number of files. 0 means unlimited. Please note that quota is updated if files are added/removed via SFTPGo otherwise a quota scan or a manual quota update is needed
         permissions:
           type: object
-          items:
-            $ref: '#/components/schemas/DirPermissions'
-          minItems: 1
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/Permission'
+            minItems: 1
+          minProperties: 1
+          description: 'hash map with directory as key and an array of permissions as value. Directories must be absolute paths, permissions for root directory ("/") are required'
           example:
             /:
               - '*'
@@ -5856,9 +5851,13 @@ components:
           format: int32
         permissions:
           type: object
-          items:
-            $ref: '#/components/schemas/DirPermissions'
-          minItems: 1
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/Permission'
+            minItems: 1
+          minProperties: 1
+          description: 'hash map with directory as key and an array of permissions as value. Directories must be absolute paths, permissions for root directory ("/") are required'
           example:
             /:
               - '*'
