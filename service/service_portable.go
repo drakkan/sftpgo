@@ -229,15 +229,20 @@ func (s *Service) advertiseServices(advertiseService, advertiseCredentials bool)
 }
 
 func (s *Service) getPortableDirToServe() string {
-	var dirToServe string
-	if s.PortableUser.FsConfig.Provider == sdk.S3FilesystemProvider {
-		dirToServe = s.PortableUser.FsConfig.S3Config.KeyPrefix
-	} else if s.PortableUser.FsConfig.Provider == sdk.GCSFilesystemProvider {
-		dirToServe = s.PortableUser.FsConfig.GCSConfig.KeyPrefix
-	} else {
-		dirToServe = s.PortableUser.HomeDir
+	switch s.PortableUser.FsConfig.Provider {
+	case sdk.S3FilesystemProvider:
+		return s.PortableUser.FsConfig.S3Config.KeyPrefix
+	case sdk.GCSFilesystemProvider:
+		return s.PortableUser.FsConfig.GCSConfig.KeyPrefix
+	case sdk.AzureBlobFilesystemProvider:
+		return s.PortableUser.FsConfig.AzBlobConfig.KeyPrefix
+	case sdk.SFTPFilesystemProvider:
+		return s.PortableUser.FsConfig.SFTPConfig.Prefix
+	case sdk.HTTPFilesystemProvider:
+		return "/"
+	default:
+		return s.PortableUser.HomeDir
 	}
-	return dirToServe
 }
 
 // configures the portable user and return the printable password if any
@@ -266,43 +271,36 @@ func (s *Service) configurePortableSecrets() {
 	switch s.PortableUser.FsConfig.Provider {
 	case sdk.S3FilesystemProvider:
 		payload := s.PortableUser.FsConfig.S3Config.AccessSecret.GetPayload()
-		s.PortableUser.FsConfig.S3Config.AccessSecret = kms.NewEmptySecret()
-		if payload != "" {
-			s.PortableUser.FsConfig.S3Config.AccessSecret = kms.NewPlainSecret(payload)
-		}
+		s.PortableUser.FsConfig.S3Config.AccessSecret = getSecretFromString(payload)
 	case sdk.GCSFilesystemProvider:
 		payload := s.PortableUser.FsConfig.GCSConfig.Credentials.GetPayload()
-		s.PortableUser.FsConfig.GCSConfig.Credentials = kms.NewEmptySecret()
-		if payload != "" {
-			s.PortableUser.FsConfig.GCSConfig.Credentials = kms.NewPlainSecret(payload)
-		}
+		s.PortableUser.FsConfig.GCSConfig.Credentials = getSecretFromString(payload)
 	case sdk.AzureBlobFilesystemProvider:
 		payload := s.PortableUser.FsConfig.AzBlobConfig.AccountKey.GetPayload()
-		s.PortableUser.FsConfig.AzBlobConfig.AccountKey = kms.NewEmptySecret()
-		if payload != "" {
-			s.PortableUser.FsConfig.AzBlobConfig.AccountKey = kms.NewPlainSecret(payload)
-		}
+		s.PortableUser.FsConfig.AzBlobConfig.AccountKey = getSecretFromString(payload)
 		payload = s.PortableUser.FsConfig.AzBlobConfig.SASURL.GetPayload()
-		s.PortableUser.FsConfig.AzBlobConfig.SASURL = kms.NewEmptySecret()
-		if payload != "" {
-			s.PortableUser.FsConfig.AzBlobConfig.SASURL = kms.NewPlainSecret(payload)
-		}
+		s.PortableUser.FsConfig.AzBlobConfig.SASURL = getSecretFromString(payload)
 	case sdk.CryptedFilesystemProvider:
 		payload := s.PortableUser.FsConfig.CryptConfig.Passphrase.GetPayload()
-		s.PortableUser.FsConfig.CryptConfig.Passphrase = kms.NewEmptySecret()
-		if payload != "" {
-			s.PortableUser.FsConfig.CryptConfig.Passphrase = kms.NewPlainSecret(payload)
-		}
+		s.PortableUser.FsConfig.CryptConfig.Passphrase = getSecretFromString(payload)
 	case sdk.SFTPFilesystemProvider:
 		payload := s.PortableUser.FsConfig.SFTPConfig.Password.GetPayload()
-		s.PortableUser.FsConfig.SFTPConfig.Password = kms.NewEmptySecret()
-		if payload != "" {
-			s.PortableUser.FsConfig.SFTPConfig.Password = kms.NewPlainSecret(payload)
-		}
+		s.PortableUser.FsConfig.SFTPConfig.Password = getSecretFromString(payload)
 		payload = s.PortableUser.FsConfig.SFTPConfig.PrivateKey.GetPayload()
-		s.PortableUser.FsConfig.SFTPConfig.PrivateKey = kms.NewEmptySecret()
-		if payload != "" {
-			s.PortableUser.FsConfig.SFTPConfig.PrivateKey = kms.NewPlainSecret(payload)
-		}
+		s.PortableUser.FsConfig.SFTPConfig.PrivateKey = getSecretFromString(payload)
+		payload = s.PortableUser.FsConfig.SFTPConfig.KeyPassphrase.GetPayload()
+		s.PortableUser.FsConfig.SFTPConfig.KeyPassphrase = getSecretFromString(payload)
+	case sdk.HTTPFilesystemProvider:
+		payload := s.PortableUser.FsConfig.HTTPConfig.Password.GetPayload()
+		s.PortableUser.FsConfig.HTTPConfig.Password = getSecretFromString(payload)
+		payload = s.PortableUser.FsConfig.HTTPConfig.APIKey.GetPayload()
+		s.PortableUser.FsConfig.HTTPConfig.APIKey = getSecretFromString(payload)
 	}
+}
+
+func getSecretFromString(payload string) *kms.Secret {
+	if payload != "" {
+		return kms.NewPlainSecret(payload)
+	}
+	return kms.NewEmptySecret()
 }

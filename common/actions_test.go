@@ -49,6 +49,11 @@ func TestNewActionNotification(t *testing.T) {
 			Endpoint: "sftpendpoint",
 		},
 	}
+	user.FsConfig.HTTPConfig = vfs.HTTPFsConfig{
+		BaseHTTPFsConfig: sdk.BaseHTTPFsConfig{
+			Endpoint: "httpendpoint",
+		},
+	}
 	sessionID := xid.New().String()
 	a := newActionNotification(user, operationDownload, "path", "vpath", "target", "", "", ProtocolSFTP, "", sessionID,
 		123, 0, errors.New("fake error"))
@@ -70,6 +75,12 @@ func TestNewActionNotification(t *testing.T) {
 	assert.Equal(t, "gcsbucket", a.Bucket)
 	assert.Equal(t, 0, len(a.Endpoint))
 	assert.Equal(t, 3, a.Status)
+
+	user.FsConfig.Provider = sdk.HTTPFilesystemProvider
+	a = newActionNotification(user, operationDownload, "path", "vpath", "target", "", "", ProtocolSSH, "", sessionID,
+		123, 0, nil)
+	assert.Equal(t, "httpendpoint", a.Endpoint)
+	assert.Equal(t, 1, a.Status)
 
 	user.FsConfig.Provider = sdk.AzureBlobFilesystemProvider
 	a = newActionNotification(user, operationDownload, "path", "vpath", "target", "", "", ProtocolSCP, "", sessionID,

@@ -593,37 +593,19 @@ func (c *sshCommand) checkRecursiveCopyPermissions(fsSrc vfs.Fs, fsDst vfs.Fs, f
 	if !c.connection.User.HasPerm(dataprovider.PermCreateDirs, path.Dir(sshDestPath)) {
 		return common.ErrPermissionDenied
 	}
-	dstPerms := []string{
-		dataprovider.PermCreateDirs,
-		dataprovider.PermCreateSymlinks,
-		dataprovider.PermUpload,
-	}
 
-	err := fsSrc.Walk(fsSourcePath, func(walkedPath string, info os.FileInfo, err error) error {
+	return fsSrc.Walk(fsSourcePath, func(walkedPath string, info os.FileInfo, err error) error {
 		if err != nil {
 			return c.connection.GetFsError(fsSrc, err)
 		}
 		fsDstSubPath := strings.Replace(walkedPath, fsSourcePath, fsDestPath, 1)
 		sshSrcSubPath := fsSrc.GetRelativePath(walkedPath)
 		sshDstSubPath := fsDst.GetRelativePath(fsDstSubPath)
-		// If the current dir has no subdirs with defined permissions inside it
-		// and it has all the possible permissions we can stop scanning
-		if !c.connection.User.HasPermissionsInside(path.Dir(sshSrcSubPath)) &&
-			!c.connection.User.HasPermissionsInside(path.Dir(sshDstSubPath)) {
-			if c.connection.User.HasPerm(dataprovider.PermListItems, path.Dir(sshSrcSubPath)) &&
-				c.connection.User.HasPerms(dstPerms, path.Dir(sshDstSubPath)) {
-				return common.ErrSkipPermissionsCheck
-			}
-		}
 		if !c.hasCopyPermissions(sshSrcSubPath, sshDstSubPath, info) {
 			return common.ErrPermissionDenied
 		}
 		return nil
 	})
-	if err == common.ErrSkipPermissionsCheck {
-		err = nil
-	}
-	return err
 }
 
 func (c *sshCommand) checkCopyPermissions(fsSrc vfs.Fs, fsDst vfs.Fs, fsSourcePath, fsDestPath, sshSourcePath, sshDestPath string, info os.FileInfo) error {

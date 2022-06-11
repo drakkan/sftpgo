@@ -1,0 +1,601 @@
+openapi: 3.0.3
+tags:
+  - name: fs
+info:
+  title: SFTPGo HTTPFs
+  description: 'SFTPGo HTTP Filesystem API'
+  version: 0.1.0
+servers:
+- url: /v1
+security:
+- ApiKeyAuth: []
+- BasicAuth: []
+paths:
+  /stat/{name}:
+    parameters:
+      - name: name
+        in: path
+        description: object name
+        required: true
+        schema:
+          type: string
+    get:
+      tags:
+        - fs
+      summary: Describes the named object
+      operationId: stat
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileInfo'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          $ref: '#/components/responses/NotFound'
+        500:
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /open/{name}:
+    parameters:
+      - name: name
+        in: path
+        description: object name
+        required: true
+        schema:
+          type: string
+      - name: offset
+        in: query
+        description: 'offset, in bytes, from the start. If not specified 0 must be assumed'
+        required: false
+        schema:
+          type: integer
+          format: int64
+    get:
+      tags:
+        - fs
+      summary: Opens the named file for reading
+      operationId: open
+      responses:
+        '200':
+          description: successful operation
+          content:
+            '*/*':
+              schema:
+                type: string
+                format: binary
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          $ref: '#/components/responses/NotFound'
+        500:
+          $ref: '#/components/responses/InternalServerError'
+        501:
+          $ref: '#/components/responses/NotImplemented'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /create/{name}:
+    parameters:
+      - name: name
+        in: path
+        description: object name
+        required: true
+        schema:
+          type: string
+      - name: flags
+        in: query
+        description: 'flags to use for opening the file, if omitted O_RDWR|O_CREATE|O_TRUNC must be assumed. Supported flags: https://pkg.go.dev/os#pkg-constants'
+        required: false
+        schema:
+          type: integer
+          format: int32
+    post:
+      tags:
+        - fs
+      summary: Creates or opens the named file for writing
+      operationId: create
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              type: string
+              format: binary
+        required: true
+      responses:
+        201:
+          $ref: '#/components/responses/OKResponse'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          $ref: '#/components/responses/NotFound'
+        500:
+          $ref: '#/components/responses/InternalServerError'
+        501:
+          $ref: '#/components/responses/NotImplemented'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /rename/{name}:
+    parameters:
+      - name: name
+        in: path
+        description: object name
+        required: true
+        schema:
+          type: string
+      - name: target
+        in: query
+        description: target name
+        required: true
+        schema:
+          type: string
+    patch:
+      tags:
+        - fs
+      summary: Renames (moves) source to target
+      operationId: rename
+      responses:
+        200:
+          $ref: '#/components/responses/OKResponse'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          $ref: '#/components/responses/NotFound'
+        500:
+          $ref: '#/components/responses/InternalServerError'
+        501:
+          $ref: '#/components/responses/NotImplemented'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /remove/{name}:
+    parameters:
+      - name: name
+        in: path
+        description: object name
+        required: true
+        schema:
+          type: string
+    delete:
+      tags:
+        - fs
+      summary: Removes the named file or (empty) directory.
+      operationId: delete
+      responses:
+        200:
+          $ref: '#/components/responses/OKResponse'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          $ref: '#/components/responses/NotFound'
+        500:
+          $ref: '#/components/responses/InternalServerError'
+        501:
+          $ref: '#/components/responses/NotImplemented'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /mkdir/{name}:
+    parameters:
+      - name: name
+        in: path
+        description: object name
+        required: true
+        schema:
+          type: string
+    post:
+      tags:
+        - fs
+      summary: Creates a new directory with the specified name
+      operationId: mkdir
+      responses:
+        200:
+          $ref: '#/components/responses/OKResponse'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          $ref: '#/components/responses/NotFound'
+        500:
+          $ref: '#/components/responses/InternalServerError'
+        501:
+          $ref: '#/components/responses/NotImplemented'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /chmod/{name}:
+    parameters:
+      - name: name
+        in: path
+        description: object name
+        required: true
+        schema:
+          type: string
+      - name: mode
+        in: query
+        required: true
+        schema:
+          type: integer
+    patch:
+      tags:
+        - fs
+      summary: Changes the mode of the named file
+      operationId: chmod
+      responses:
+        200:
+          $ref: '#/components/responses/OKResponse'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          $ref: '#/components/responses/NotFound'
+        500:
+          $ref: '#/components/responses/InternalServerError'
+        501:
+          $ref: '#/components/responses/NotImplemented'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /chtimes/{name}:
+    parameters:
+      - name: name
+        in: path
+        description: object name
+        required: true
+        schema:
+          type: string
+      - name: access_time
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date-time
+      - name: modification_time
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date-time
+    patch:
+      tags:
+        - fs
+      summary: Changes the access and modification time of the named file
+      operationId: chtimes
+      responses:
+        200:
+          $ref: '#/components/responses/OKResponse'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          $ref: '#/components/responses/NotFound'
+        500:
+          $ref: '#/components/responses/InternalServerError'
+        501:
+          $ref: '#/components/responses/NotImplemented'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /truncate/{name}:
+    parameters:
+      - name: name
+        in: path
+        description: object name
+        required: true
+        schema:
+          type: string
+      - name: size
+        in: query
+        required: true
+        description: 'new file size in bytes'
+        schema:
+          type: integer
+          format: int64
+    patch:
+      tags:
+        - fs
+      summary: Changes the size of the named file
+      operationId: truncate
+      responses:
+        200:
+          $ref: '#/components/responses/OKResponse'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          $ref: '#/components/responses/NotFound'
+        500:
+          $ref: '#/components/responses/InternalServerError'
+        501:
+          $ref: '#/components/responses/NotImplemented'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /readdir/{name}:
+    parameters:
+      - name: name
+        in: path
+        description: object name
+        required: true
+        schema:
+          type: string
+    get:
+      tags:
+        - fs
+      summary: Reads the named directory and returns the contents
+      operationId: readdir
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FileInfo'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          $ref: '#/components/responses/NotFound'
+        500:
+          $ref: '#/components/responses/InternalServerError'
+        501:
+          $ref: '#/components/responses/NotImplemented'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /dirsize/{name}:
+    parameters:
+      - name: name
+        in: path
+        description: object name
+        required: true
+        schema:
+          type: string
+    get:
+      tags:
+        - fs
+      summary: Returns the number of files and the size for the named directory including any sub-directory
+      operationId: dirsize
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  files:
+                    type: integer
+                    description: 'Total number of files'
+                  size:
+                    type: integer
+                    format: int64
+                    description: 'Total size of files'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          $ref: '#/components/responses/NotFound'
+        500:
+          $ref: '#/components/responses/InternalServerError'
+        501:
+          $ref: '#/components/responses/NotImplemented'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /mimetype/{name}:
+    parameters:
+      - name: name
+        in: path
+        description: object name
+        required: true
+        schema:
+          type: string
+    get:
+      tags:
+        - fs
+      summary: Returns the mime type for the named file
+      operationId: mimetype
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mime:
+                    type: string
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          $ref: '#/components/responses/NotFound'
+        500:
+          $ref: '#/components/responses/InternalServerError'
+        501:
+          $ref: '#/components/responses/NotImplemented'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /statvfs/{name}:
+    parameters:
+      - name: name
+        in: path
+        description: object name
+        required: true
+        schema:
+          type: string
+    get:
+      tags:
+        - fs
+      summary: Returns the VFS stats for the specified path
+      operationId: statvfs
+      responses:
+        200:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatVFS'
+        401:
+          $ref: '#/components/responses/Unauthorized'
+        403:
+          $ref: '#/components/responses/Forbidden'
+        404:
+          $ref: '#/components/responses/NotFound'
+        500:
+          $ref: '#/components/responses/InternalServerError'
+        501:
+          $ref: '#/components/responses/NotImplemented'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+components:
+  responses:
+    OKResponse:
+      description: successful operation
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiResponse'
+    BadRequest:
+      description: Bad Request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiResponse'
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiResponse'
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiResponse'
+    NotFound:
+      description: Not Found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiResponse'
+    NotImplemented:
+      description: Not Implemented
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiResponse'
+    Conflict:
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiResponse'
+    RequestEntityTooLarge:
+      description: Request Entity Too Large, max allowed size exceeded
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiResponse'
+    InternalServerError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiResponse'
+    DefaultResponse:
+      description: Unexpected Error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiResponse'
+  schemas:
+    ApiResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: 'message, can be empty'
+        error:
+          type: string
+          description: error description if any
+    FileInfo:
+      type: object
+      properties:
+        name:
+          type: string
+          description: base name of the file
+        size:
+          type: integer
+          format: int64
+          description: length in bytes for regular files; system-dependent for others
+        mode:
+          type: integer
+          description: |
+            File mode and permission bits. More details here: https://golang.org/pkg/io/fs/#FileMode.
+            Let's see some examples:
+            - for a directory mode&2147483648 != 0
+            - for a symlink mode&134217728 != 0
+            - for a regular file mode&2401763328 == 0
+        last_modified:
+          type: string
+          format: date-time
+    StatVFS:
+      type: object
+      properties:
+        bsize:
+          type: integer
+          description: file system block size
+        frsize:
+          type: integer
+          description: fundamental fs block size
+        blocks:
+          type: integer
+          description: number of blocks
+        bfree:
+          type: integer
+          description: free blocks in file system
+        bavail:
+          type: integer
+          description: free blocks for non-root
+        files:
+          type: integer
+          description: total file inodes
+        ffree:
+          type: integer
+          description: free file inodes
+        favail:
+          type: integer
+          description: free file inodes for non-root
+        fsid:
+          type: integer
+          description: file system id
+        flag:
+          type: integer
+          description: bit mask of f_flag values
+        namemax:
+          type: integer
+          description: maximum filename length
+  securitySchemes:
+    BasicAuth:
+      type: http
+      scheme: basic
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-KEY

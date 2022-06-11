@@ -68,12 +68,15 @@ func updateFolder(w http.ResponseWriter, r *http.Request) {
 	currentSFTPPassword := folder.FsConfig.SFTPConfig.Password
 	currentSFTPKey := folder.FsConfig.SFTPConfig.PrivateKey
 	currentSFTPKeyPassphrase := folder.FsConfig.SFTPConfig.KeyPassphrase
+	currentHTTPPassword := folder.FsConfig.HTTPConfig.Password
+	currentHTTPAPIKey := folder.FsConfig.HTTPConfig.APIKey
 
 	folder.FsConfig.S3Config = vfs.S3FsConfig{}
 	folder.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
 	folder.FsConfig.GCSConfig = vfs.GCSFsConfig{}
 	folder.FsConfig.CryptConfig = vfs.CryptFsConfig{}
 	folder.FsConfig.SFTPConfig = vfs.SFTPFsConfig{}
+	folder.FsConfig.HTTPConfig = vfs.HTTPFsConfig{}
 	err = render.DecodeJSON(r.Body, &folder)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
@@ -83,7 +86,8 @@ func updateFolder(w http.ResponseWriter, r *http.Request) {
 	folder.Name = name
 	folder.FsConfig.SetEmptySecretsIfNil()
 	updateEncryptedSecrets(&folder.FsConfig, currentS3AccessSecret, currentAzAccountKey, currentAzSASUrl, currentGCSCredentials,
-		currentCryptoPassphrase, currentSFTPPassword, currentSFTPKey, currentSFTPKeyPassphrase)
+		currentCryptoPassphrase, currentSFTPPassword, currentSFTPKey, currentSFTPKeyPassphrase, currentHTTPPassword,
+		currentHTTPAPIKey)
 	err = dataprovider.UpdateFolder(&folder, users, groups, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))

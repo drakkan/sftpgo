@@ -331,6 +331,7 @@ func TestMain(m *testing.M) {
 
 	waitTCPListening(sftpdConf.Bindings[0].GetAddress())
 	getHostKeysFingerprints(sftpdConf.HostKeys)
+	startHTTPFs()
 
 	exitCode := m.Run()
 	os.Remove(logFilePath)

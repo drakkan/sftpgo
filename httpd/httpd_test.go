@@ -2409,6 +2409,26 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	if assert.NoError(t, err) {
 		assert.Contains(t, string(resp), "invalid buffer_size")
 	}
+
+	u = getTestUser()
+	u.FsConfig.Provider = sdk.HTTPFilesystemProvider
+	u.FsConfig.HTTPConfig.Endpoint = "http://foo\x7f.com/"
+	_, resp, err = httpdtest.AddUser(u, http.StatusBadRequest)
+	if assert.NoError(t, err) {
+		assert.Contains(t, string(resp), "invalid endpoint")
+	}
+	u.FsConfig.HTTPConfig.Endpoint = "http://127.0.0.1:9999/api/v1"
+	u.FsConfig.HTTPConfig.Password = kms.NewSecret(sdkkms.SecretStatusSecretBox, "", "", "")
+	_, resp, err = httpdtest.AddUser(u, http.StatusBadRequest)
+	if assert.NoError(t, err) {
+		assert.Contains(t, string(resp), "invalid encrypted password")
+	}
+	u.FsConfig.HTTPConfig.Password = nil
+	u.FsConfig.HTTPConfig.APIKey = kms.NewSecret(sdkkms.SecretStatusRedacted, redactedSecret, "", "")
+	_, resp, err = httpdtest.AddUser(u, http.StatusBadRequest)
+	if assert.NoError(t, err) {
+		assert.Contains(t, string(resp), "cannot save a user with a redacted secret")
+	}
 }
 
 func TestUserRedactedPassword(t *testing.T) {
@@ -3247,6 +3267,74 @@ func TestUserS3Config(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestHTTPFsConfig(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	user.FsConfig.Provider = sdk.HTTPFilesystemProvider
+	user.FsConfig.HTTPConfig = vfs.HTTPFsConfig{
+		BaseHTTPFsConfig: sdk.BaseHTTPFsConfig{
+			Endpoint: "http://127.0.0.1/httpfs",
+			Username: defaultUsername,
+		},
+		Password: kms.NewPlainSecret(defaultPassword),
+		APIKey:   kms.NewPlainSecret(defaultTokenAuthUser),
+	}
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	initialPwdPayload := user.FsConfig.HTTPConfig.Password.GetPayload()
+	initialAPIKeyPayload := user.FsConfig.HTTPConfig.APIKey.GetPayload()
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, user.FsConfig.HTTPConfig.Password.GetStatus())
+	assert.NotEmpty(t, initialPwdPayload)
+	assert.Empty(t, user.FsConfig.HTTPConfig.Password.GetAdditionalData())
+	assert.Empty(t, user.FsConfig.HTTPConfig.Password.GetKey())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, user.FsConfig.HTTPConfig.APIKey.GetStatus())
+	assert.NotEmpty(t, initialAPIKeyPayload)
+	assert.Empty(t, user.FsConfig.HTTPConfig.APIKey.GetAdditionalData())
+	assert.Empty(t, user.FsConfig.HTTPConfig.APIKey.GetKey())
+	user.FsConfig.HTTPConfig.Password.SetStatus(sdkkms.SecretStatusSecretBox)
+	user.FsConfig.HTTPConfig.Password.SetAdditionalData(util.GenerateUniqueID())
+	user.FsConfig.HTTPConfig.Password.SetKey(util.GenerateUniqueID())
+	user.FsConfig.HTTPConfig.APIKey.SetStatus(sdkkms.SecretStatusSecretBox)
+	user.FsConfig.HTTPConfig.APIKey.SetAdditionalData(util.GenerateUniqueID())
+	user.FsConfig.HTTPConfig.APIKey.SetKey(util.GenerateUniqueID())
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, user.FsConfig.HTTPConfig.Password.GetStatus())
+	assert.Equal(t, initialPwdPayload, user.FsConfig.HTTPConfig.Password.GetPayload())
+	assert.Empty(t, user.FsConfig.HTTPConfig.Password.GetAdditionalData())
+	assert.Empty(t, user.FsConfig.HTTPConfig.Password.GetKey())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, user.FsConfig.HTTPConfig.APIKey.GetStatus())
+	assert.Equal(t, initialAPIKeyPayload, user.FsConfig.HTTPConfig.APIKey.GetPayload())
+	assert.Empty(t, user.FsConfig.HTTPConfig.APIKey.GetAdditionalData())
+	assert.Empty(t, user.FsConfig.HTTPConfig.APIKey.GetKey())
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	// also test AddUser
+	u := getTestUser()
+	u.FsConfig.Provider = sdk.HTTPFilesystemProvider
+	u.FsConfig.HTTPConfig = vfs.HTTPFsConfig{
+		BaseHTTPFsConfig: sdk.BaseHTTPFsConfig{
+			Endpoint: "http://127.0.0.1/httpfs",
+			Username: defaultUsername,
+		},
+		Password: kms.NewPlainSecret(defaultPassword),
+		APIKey:   kms.NewPlainSecret(defaultTokenAuthUser),
+	}
+	user, _, err = httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, user.FsConfig.HTTPConfig.Password.GetStatus())
+	assert.NotEmpty(t, user.FsConfig.HTTPConfig.Password.GetPayload())
+	assert.Empty(t, user.FsConfig.HTTPConfig.Password.GetAdditionalData())
+	assert.Empty(t, user.FsConfig.HTTPConfig.Password.GetKey())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, user.FsConfig.HTTPConfig.APIKey.GetStatus())
+	assert.NotEmpty(t, user.FsConfig.HTTPConfig.APIKey.GetPayload())
+	assert.Empty(t, user.FsConfig.HTTPConfig.APIKey.GetAdditionalData())
+	assert.Empty(t, user.FsConfig.HTTPConfig.APIKey.GetKey())
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+}
+
 func TestUserAzureBlobConfig(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
@@ -3494,7 +3582,7 @@ func TestUserSFTPFs(t *testing.T) {
 
 func TestUserHiddenFields(t *testing.T) {
 	// sensitive data must be hidden but not deleted from the dataprovider
-	usernames := []string{"user1", "user2", "user3", "user4", "user5"}
+	usernames := []string{"user1", "user2", "user3", "user4", "user5", "user6"}
 	u1 := getTestUser()
 	u1.Username = usernames[0]
 	u1.FsConfig.Provider = sdk.S3FilesystemProvider
@@ -3542,9 +3630,23 @@ func TestUserHiddenFields(t *testing.T) {
 	user5, _, err := httpdtest.AddUser(u5, http.StatusCreated)
 	assert.NoError(t, err)
 
+	u6 := getTestUser()
+	u6.Username = usernames[5]
+	u6.FsConfig.Provider = sdk.HTTPFilesystemProvider
+	u6.FsConfig.HTTPConfig = vfs.HTTPFsConfig{
+		BaseHTTPFsConfig: sdk.BaseHTTPFsConfig{
+			Endpoint: "http://127.0.0.1/api/v1",
+			Username: defaultUsername,
+		},
+		Password: kms.NewPlainSecret(defaultPassword),
+		APIKey:   kms.NewPlainSecret(defaultTokenAuthUser),
+	}
+	user6, _, err := httpdtest.AddUser(u6, http.StatusCreated)
+	assert.NoError(t, err)
+
 	users, _, err := httpdtest.GetUsers(0, 0, http.StatusOK)
 	assert.NoError(t, err)
-	assert.GreaterOrEqual(t, len(users), 5)
+	assert.GreaterOrEqual(t, len(users), 6)
 	for _, username := range usernames {
 		user, _, err := httpdtest.GetUserByUsername(username, http.StatusOK)
 		assert.NoError(t, err)
@@ -3594,6 +3696,14 @@ func TestUserHiddenFields(t *testing.T) {
 	assert.NotEmpty(t, user5.FsConfig.SFTPConfig.PrivateKey.GetStatus())
 	assert.NotEmpty(t, user5.FsConfig.SFTPConfig.PrivateKey.GetPayload())
 	assert.Equal(t, "/prefix", user5.FsConfig.SFTPConfig.Prefix)
+
+	user6, _, err = httpdtest.GetUserByUsername(user6.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Empty(t, user6.Password)
+	assert.Empty(t, user6.FsConfig.HTTPConfig.Password.GetKey())
+	assert.Empty(t, user6.FsConfig.HTTPConfig.Password.GetAdditionalData())
+	assert.NotEmpty(t, user6.FsConfig.HTTPConfig.APIKey.GetStatus())
+	assert.NotEmpty(t, user6.FsConfig.HTTPConfig.APIKey.GetPayload())
 
 	// finally check that we have all the data inside the data provider
 	user1, err = dataprovider.UserExists(user1.Username)
@@ -3676,6 +3786,20 @@ func TestUserHiddenFields(t *testing.T) {
 	assert.Empty(t, user5.FsConfig.SFTPConfig.PrivateKey.GetKey())
 	assert.Empty(t, user5.FsConfig.SFTPConfig.PrivateKey.GetAdditionalData())
 
+	user6, err = dataprovider.UserExists(user6.Username)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, user6.Password)
+	assert.NotEmpty(t, user6.FsConfig.HTTPConfig.Password.GetKey())
+	assert.NotEmpty(t, user6.FsConfig.HTTPConfig.Password.GetAdditionalData())
+	assert.NotEmpty(t, user6.FsConfig.HTTPConfig.Password.GetStatus())
+	assert.NotEmpty(t, user6.FsConfig.HTTPConfig.Password.GetPayload())
+	err = user6.FsConfig.HTTPConfig.Password.Decrypt()
+	assert.NoError(t, err)
+	assert.Equal(t, sdkkms.SecretStatusPlain, user6.FsConfig.HTTPConfig.Password.GetStatus())
+	assert.Equal(t, u6.FsConfig.HTTPConfig.Password.GetPayload(), user6.FsConfig.HTTPConfig.Password.GetPayload())
+	assert.Empty(t, user6.FsConfig.HTTPConfig.Password.GetKey())
+	assert.Empty(t, user6.FsConfig.HTTPConfig.Password.GetAdditionalData())
+
 	// update the GCS user and check that the credentials are preserved
 	user2.FsConfig.GCSConfig.Credentials = kms.NewEmptySecret()
 	user2.FsConfig.GCSConfig.ACL = "private"
@@ -3699,6 +3823,8 @@ func TestUserHiddenFields(t *testing.T) {
 	_, err = httpdtest.RemoveUser(user4, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user5, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user6, http.StatusOK)
 	assert.NoError(t, err)
 }
 
@@ -16951,6 +17077,125 @@ func TestWebUserGCSMock(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestWebUserHTTPFsMock(t *testing.T) {
+	webToken, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	apiToken, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	assert.NoError(t, err)
+	user := getTestUser()
+	userAsJSON := getUserAsJSON(t, user)
+	req, err := http.NewRequest(http.MethodPost, userPath, bytes.NewBuffer(userAsJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, apiToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	err = render.DecodeJSON(rr.Body, &user)
+	assert.NoError(t, err)
+	user.FsConfig.Provider = sdk.HTTPFilesystemProvider
+	user.FsConfig.HTTPConfig = vfs.HTTPFsConfig{
+		BaseHTTPFsConfig: sdk.BaseHTTPFsConfig{
+			Endpoint:      "https://127.0.0.1:9999/api/v1",
+			Username:      defaultUsername,
+			SkipTLSVerify: true,
+		},
+		Password: kms.NewPlainSecret(defaultPassword),
+		APIKey:   kms.NewPlainSecret(defaultTokenAuthPass),
+	}
+	form := make(url.Values)
+	form.Set(csrfFormToken, csrfToken)
+	form.Set("username", user.Username)
+	form.Set("password", redactedSecret)
+	form.Set("home_dir", user.HomeDir)
+	form.Set("uid", "0")
+	form.Set("gid", strconv.FormatInt(int64(user.GID), 10))
+	form.Set("max_sessions", strconv.FormatInt(int64(user.MaxSessions), 10))
+	form.Set("quota_size", strconv.FormatInt(user.QuotaSize, 10))
+	form.Set("quota_files", strconv.FormatInt(int64(user.QuotaFiles), 10))
+	form.Set("upload_bandwidth", "0")
+	form.Set("download_bandwidth", "0")
+	form.Set("upload_data_transfer", "0")
+	form.Set("download_data_transfer", "0")
+	form.Set("total_data_transfer", "0")
+	form.Set("external_auth_cache_time", "0")
+	form.Set("permissions", "*")
+	form.Set("status", strconv.Itoa(user.Status))
+	form.Set("expiration_date", "2020-01-01 00:00:00")
+	form.Set("allowed_ip", "")
+	form.Set("denied_ip", "")
+	form.Set("fs_provider", "6")
+	form.Set("http_endpoint", user.FsConfig.HTTPConfig.Endpoint)
+	form.Set("http_username", user.FsConfig.HTTPConfig.Username)
+	form.Set("http_password", user.FsConfig.HTTPConfig.Password.GetPayload())
+	form.Set("http_api_key", user.FsConfig.HTTPConfig.APIKey.GetPayload())
+	form.Set("http_skip_tls_verify", "checked")
+	form.Set("pattern_path0", "/dir1")
+	form.Set("patterns0", "*.jpg,*.png")
+	form.Set("pattern_type0", "allowed")
+	form.Set("pattern_path1", "/dir2")
+	form.Set("patterns1", "*.zip")
+	form.Set("pattern_type1", "denied")
+	form.Set("max_upload_file_size", "0")
+	b, contentType, _ := getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+	// check the updated user
+	req, _ = http.NewRequest(http.MethodGet, path.Join(userPath, user.Username), nil)
+	setBearerForReq(req, apiToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	var updateUser dataprovider.User
+	err = render.DecodeJSON(rr.Body, &updateUser)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(1577836800000), updateUser.ExpirationDate)
+	assert.Equal(t, 2, len(updateUser.Filters.FilePatterns))
+	assert.Equal(t, user.FsConfig.HTTPConfig.Endpoint, updateUser.FsConfig.HTTPConfig.Endpoint)
+	assert.Equal(t, user.FsConfig.HTTPConfig.Username, updateUser.FsConfig.HTTPConfig.Username)
+	assert.Equal(t, user.FsConfig.HTTPConfig.SkipTLSVerify, updateUser.FsConfig.HTTPConfig.SkipTLSVerify)
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, updateUser.FsConfig.HTTPConfig.Password.GetStatus())
+	assert.NotEmpty(t, updateUser.FsConfig.HTTPConfig.Password.GetPayload())
+	assert.Empty(t, updateUser.FsConfig.HTTPConfig.Password.GetKey())
+	assert.Empty(t, updateUser.FsConfig.HTTPConfig.Password.GetAdditionalData())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, updateUser.FsConfig.HTTPConfig.APIKey.GetStatus())
+	assert.NotEmpty(t, updateUser.FsConfig.HTTPConfig.APIKey.GetPayload())
+	assert.Empty(t, updateUser.FsConfig.HTTPConfig.APIKey.GetKey())
+	assert.Empty(t, updateUser.FsConfig.HTTPConfig.APIKey.GetAdditionalData())
+	// now check that a redacted password is not saved
+	form.Set("http_password", " "+redactedSecret+" ")
+	form.Set("http_api_key", redactedSecret)
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+	req, _ = http.NewRequest(http.MethodGet, path.Join(userPath, user.Username), nil)
+	setBearerForReq(req, apiToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	var lastUpdatedUser dataprovider.User
+	err = render.DecodeJSON(rr.Body, &lastUpdatedUser)
+	assert.NoError(t, err)
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, lastUpdatedUser.FsConfig.HTTPConfig.Password.GetStatus())
+	assert.Equal(t, updateUser.FsConfig.HTTPConfig.Password.GetPayload(), lastUpdatedUser.FsConfig.HTTPConfig.Password.GetPayload())
+	assert.Empty(t, lastUpdatedUser.FsConfig.HTTPConfig.Password.GetKey())
+	assert.Empty(t, lastUpdatedUser.FsConfig.HTTPConfig.Password.GetAdditionalData())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, lastUpdatedUser.FsConfig.HTTPConfig.APIKey.GetStatus())
+	assert.Equal(t, updateUser.FsConfig.HTTPConfig.APIKey.GetPayload(), lastUpdatedUser.FsConfig.HTTPConfig.APIKey.GetPayload())
+	assert.Empty(t, lastUpdatedUser.FsConfig.HTTPConfig.APIKey.GetKey())
+	assert.Empty(t, lastUpdatedUser.FsConfig.HTTPConfig.APIKey.GetAdditionalData())
+
+	req, err = http.NewRequest(http.MethodDelete, path.Join(userPath, user.Username), nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, apiToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+}
+
 func TestWebUserAzureBlobMock(t *testing.T) {
 	webToken, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
@@ -17616,6 +17861,101 @@ func TestAddWebFoldersMock(t *testing.T) {
 	assert.Equal(t, mappedPath, folder.MappedPath)
 	assert.Equal(t, folderName, folder.Name)
 	assert.Equal(t, folderDesc, folder.Description)
+	// cleanup
+	req, _ = http.NewRequest(http.MethodDelete, path.Join(folderPath, folderName), nil)
+	setBearerForReq(req, apiToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+}
+
+func TestHTTPFsWebFolderMock(t *testing.T) {
+	webToken, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	apiToken, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	assert.NoError(t, err)
+	mappedPath := filepath.Clean(os.TempDir())
+	folderName := filepath.Base(mappedPath)
+	httpfsConfig := vfs.HTTPFsConfig{
+		BaseHTTPFsConfig: sdk.BaseHTTPFsConfig{
+			Endpoint:      "https://127.0.0.1:9998/api/v1",
+			Username:      folderName,
+			SkipTLSVerify: true,
+		},
+		Password: kms.NewPlainSecret(defaultPassword),
+		APIKey:   kms.NewPlainSecret(defaultTokenAuthPass),
+	}
+	form := make(url.Values)
+	form.Set("mapped_path", mappedPath)
+	form.Set("name", folderName)
+	form.Set("fs_provider", "6")
+	form.Set("http_endpoint", httpfsConfig.Endpoint)
+	form.Set("http_username", "%name%")
+	form.Set("http_password", httpfsConfig.Password.GetPayload())
+	form.Set("http_api_key", httpfsConfig.APIKey.GetPayload())
+	form.Set("http_skip_tls_verify", "checked")
+	form.Set(csrfFormToken, csrfToken)
+	b, contentType, err := getMultipartFormData(form, "", "")
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, webFolderPath, &b)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+	// check
+	var folder vfs.BaseVirtualFolder
+	req, _ = http.NewRequest(http.MethodGet, path.Join(folderPath, folderName), nil)
+	setBearerForReq(req, apiToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	err = render.DecodeJSON(rr.Body, &folder)
+	assert.NoError(t, err)
+	assert.Equal(t, mappedPath, folder.MappedPath)
+	assert.Equal(t, folderName, folder.Name)
+	assert.Equal(t, sdk.HTTPFilesystemProvider, folder.FsConfig.Provider)
+	assert.Equal(t, httpfsConfig.Endpoint, folder.FsConfig.HTTPConfig.Endpoint)
+	assert.Equal(t, httpfsConfig.Username, folder.FsConfig.HTTPConfig.Username)
+	assert.Equal(t, httpfsConfig.SkipTLSVerify, folder.FsConfig.HTTPConfig.SkipTLSVerify)
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, folder.FsConfig.HTTPConfig.Password.GetStatus())
+	assert.NotEmpty(t, folder.FsConfig.HTTPConfig.Password.GetPayload())
+	assert.Empty(t, folder.FsConfig.HTTPConfig.Password.GetKey())
+	assert.Empty(t, folder.FsConfig.HTTPConfig.Password.GetAdditionalData())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, folder.FsConfig.HTTPConfig.APIKey.GetStatus())
+	assert.NotEmpty(t, folder.FsConfig.HTTPConfig.APIKey.GetPayload())
+	assert.Empty(t, folder.FsConfig.HTTPConfig.APIKey.GetKey())
+	assert.Empty(t, folder.FsConfig.HTTPConfig.APIKey.GetAdditionalData())
+	// update
+	form.Set("http_password", redactedSecret)
+	form.Set("http_api_key", redactedSecret)
+	b, contentType, err = getMultipartFormData(form, "", "")
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, path.Join(webFolderPath, folderName), &b)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+	// check
+	var updateFolder vfs.BaseVirtualFolder
+	req, _ = http.NewRequest(http.MethodGet, path.Join(folderPath, folderName), nil)
+	setBearerForReq(req, apiToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	err = render.DecodeJSON(rr.Body, &updateFolder)
+	assert.NoError(t, err)
+	assert.Equal(t, mappedPath, updateFolder.MappedPath)
+	assert.Equal(t, folderName, updateFolder.Name)
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, updateFolder.FsConfig.HTTPConfig.Password.GetStatus())
+	assert.Equal(t, folder.FsConfig.HTTPConfig.Password.GetPayload(), updateFolder.FsConfig.HTTPConfig.Password.GetPayload())
+	assert.Empty(t, updateFolder.FsConfig.HTTPConfig.Password.GetKey())
+	assert.Empty(t, updateFolder.FsConfig.HTTPConfig.Password.GetAdditionalData())
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, updateFolder.FsConfig.HTTPConfig.APIKey.GetStatus())
+	assert.Equal(t, folder.FsConfig.HTTPConfig.APIKey.GetPayload(), updateFolder.FsConfig.HTTPConfig.APIKey.GetPayload())
+	assert.Empty(t, updateFolder.FsConfig.HTTPConfig.APIKey.GetKey())
+	assert.Empty(t, updateFolder.FsConfig.HTTPConfig.APIKey.GetAdditionalData())
+
 	// cleanup
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(folderPath, folderName), nil)
 	setBearerForReq(req, apiToken)

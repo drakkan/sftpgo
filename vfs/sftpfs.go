@@ -168,7 +168,7 @@ func (c *SFTPFsConfig) validateCredentials() error {
 	return nil
 }
 
-// ValidateAndEncryptCredentials encrypts password and/or private key if they are in plain text
+// ValidateAndEncryptCredentials validates the config and encrypts credentials if they are in plain text
 func (c *SFTPFsConfig) ValidateAndEncryptCredentials(additionalData string) error {
 	if err := c.validate(); err != nil {
 		return util.NewValidationError(fmt.Sprintf("could not validate SFTP fs config: %v", err))

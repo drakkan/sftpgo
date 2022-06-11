@@ -465,6 +465,44 @@
                 <label for="idDisableConcurrentReads" class="form-check-label">Disable concurrent reads</label>
             </div>
         </div>
+
+        <div class="form-group row fsconfig fsconfig-httpfs">
+            <label for="idHTTPEndpoint" class="col-sm-2 col-form-label">Endpoint</label>
+            <div class="col-sm-10">
+                <input type="text" class="form-control" id="idHTTPEndpoint" name="http_endpoint" placeholder=""
+                    value="{{.HTTPConfig.Endpoint}}" maxlength="255">
+            </div>
+        </div>
+
+        <div class="form-group row fsconfig fsconfig-httpfs">
+            <label for="idHTTPUsername" class="col-sm-2 col-form-label">Username</label>
+            <div class="col-sm-3">
+                <input type="text" class="form-control" id="idHTTPUsername" name="http_username" placeholder=""
+                    value="{{.HTTPConfig.Username}}" maxlength="255">
+            </div>
+            <div class="col-sm-2"></div>
+            <label for="idHTTPPassword" class="col-sm-2 col-form-label">Password</label>
+            <div class="col-sm-3">
+                <input type="password" class="form-control" id="idHTTPPassword" name="http_password" placeholder=""
+                    value="{{if .HTTPConfig.Password.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.HTTPConfig.Password.GetPayload}}{{end}}">
+            </div>
+        </div>
+
+        <div class="form-group row fsconfig fsconfig-httpfs">
+            <label for="idHTTPAPIKey" class="col-sm-2 col-form-label">API Key</label>
+            <div class="col-sm-10">
+                <input type="password" class="form-control" id="idHTTPAPIKey" name="http_api_key" placeholder=""
+                    value="{{if .HTTPConfig.APIKey.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.HTTPConfig.APIKey.GetPayload}}{{end}}">
+            </div>
+        </div>
+
+        <div class="form-group fsconfig fsconfig-httpfs">
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="idHTTPSkipTLSVerify"
+                    name="http_skip_tls_verify" {{if .HTTPConfig.SkipTLSVerify}}checked{{end}}>
+                <label for="idHTTPSkipTLSVerify" class="form-check-label">Skip TLS verify</label>
+            </div>
+        </div>
     </div>
 </div>
 {{end}}

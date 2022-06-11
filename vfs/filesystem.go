@@ -15,6 +15,7 @@ type Filesystem struct {
 	AzBlobConfig   AzBlobFsConfig         `json:"azblobconfig,omitempty"`
 	CryptConfig    CryptFsConfig          `json:"cryptconfig,omitempty"`
 	SFTPConfig     SFTPFsConfig           `json:"sftpconfig,omitempty"`
+	HTTPConfig     HTTPFsConfig           `json:"httpconfig,omitempty"`
 }
 
 // SetEmptySecrets sets the secrets to empty
@@ -27,6 +28,8 @@ func (f *Filesystem) SetEmptySecrets() {
 	f.SFTPConfig.Password = kms.NewEmptySecret()
 	f.SFTPConfig.PrivateKey = kms.NewEmptySecret()
 	f.SFTPConfig.KeyPassphrase = kms.NewEmptySecret()
+	f.HTTPConfig.Password = kms.NewEmptySecret()
+	f.HTTPConfig.APIKey = kms.NewEmptySecret()
 }
 
 // SetEmptySecretsIfNil sets the secrets to empty if nil
@@ -55,6 +58,12 @@ func (f *Filesystem) SetEmptySecretsIfNil() {
 	if f.SFTPConfig.KeyPassphrase == nil {
 		f.SFTPConfig.KeyPassphrase = kms.NewEmptySecret()
 	}
+	if f.HTTPConfig.Password == nil {
+		f.HTTPConfig.Password = kms.NewEmptySecret()
+	}
+	if f.HTTPConfig.APIKey == nil {
+		f.HTTPConfig.APIKey = kms.NewEmptySecret()
+	}
 }
 
 // SetNilSecretsIfEmpty set the secrets to nil if empty.
@@ -77,6 +86,7 @@ func (f *Filesystem) SetNilSecretsIfEmpty() {
 		f.CryptConfig.Passphrase = nil
 	}
 	f.SFTPConfig.setNilSecretsIfEmpty()
+	f.HTTPConfig.setNilSecretsIfEmpty()
 }
 
 // IsEqual returns true if the fs is equal to other
@@ -95,6 +105,8 @@ func (f *Filesystem) IsEqual(other *Filesystem) bool {
 		return f.CryptConfig.isEqual(&other.CryptConfig)
 	case sdk.SFTPFilesystemProvider:
 		return f.SFTPConfig.isEqual(&other.SFTPConfig)
+	case sdk.HTTPFilesystemProvider:
+		return f.HTTPConfig.isEqual(&other.HTTPConfig)
 	default:
 		return true
 	}
@@ -112,6 +124,7 @@ func (f *Filesystem) Validate(additionalData string) error {
 		f.AzBlobConfig = AzBlobFsConfig{}
 		f.CryptConfig = CryptFsConfig{}
 		f.SFTPConfig = SFTPFsConfig{}
+		f.HTTPConfig = HTTPFsConfig{}
 		return nil
 	case sdk.GCSFilesystemProvider:
 		if err := f.GCSConfig.ValidateAndEncryptCredentials(additionalData); err != nil {
@@ -121,6 +134,7 @@ func (f *Filesystem) Validate(additionalData string) error {
 		f.AzBlobConfig = AzBlobFsConfig{}
 		f.CryptConfig = CryptFsConfig{}
 		f.SFTPConfig = SFTPFsConfig{}
+		f.HTTPConfig = HTTPFsConfig{}
 		return nil
 	case sdk.AzureBlobFilesystemProvider:
 		if err := f.AzBlobConfig.ValidateAndEncryptCredentials(additionalData); err != nil {
@@ -130,6 +144,7 @@ func (f *Filesystem) Validate(additionalData string) error {
 		f.GCSConfig = GCSFsConfig{}
 		f.CryptConfig = CryptFsConfig{}
 		f.SFTPConfig = SFTPFsConfig{}
+		f.HTTPConfig = HTTPFsConfig{}
 		return nil
 	case sdk.CryptedFilesystemProvider:
 		if err := f.CryptConfig.ValidateAndEncryptCredentials(additionalData); err != nil {
@@ -139,6 +154,7 @@ func (f *Filesystem) Validate(additionalData string) error {
 		f.GCSConfig = GCSFsConfig{}
 		f.AzBlobConfig = AzBlobFsConfig{}
 		f.SFTPConfig = SFTPFsConfig{}
+		f.HTTPConfig = HTTPFsConfig{}
 		return nil
 	case sdk.SFTPFilesystemProvider:
 		if err := f.SFTPConfig.ValidateAndEncryptCredentials(additionalData); err != nil {
@@ -148,6 +164,17 @@ func (f *Filesystem) Validate(additionalData string) error {
 		f.GCSConfig = GCSFsConfig{}
 		f.AzBlobConfig = AzBlobFsConfig{}
 		f.CryptConfig = CryptFsConfig{}
+		f.HTTPConfig = HTTPFsConfig{}
+		return nil
+	case sdk.HTTPFilesystemProvider:
+		if err := f.HTTPConfig.ValidateAndEncryptCredentials(additionalData); err != nil {
+			return err
+		}
+		f.S3Config = S3FsConfig{}
+		f.GCSConfig = GCSFsConfig{}
+		f.AzBlobConfig = AzBlobFsConfig{}
+		f.CryptConfig = CryptFsConfig{}
+		f.SFTPConfig = SFTPFsConfig{}
 		return nil
 	default:
 		f.Provider = sdk.LocalFilesystemProvider
@@ -156,6 +183,7 @@ func (f *Filesystem) Validate(additionalData string) error {
 		f.AzBlobConfig = AzBlobFsConfig{}
 		f.CryptConfig = CryptFsConfig{}
 		f.SFTPConfig = SFTPFsConfig{}
+		f.HTTPConfig = HTTPFsConfig{}
 		return nil
 	}
 }
@@ -165,24 +193,16 @@ func (f *Filesystem) HasRedactedSecret() bool {
 	// TODO move vfs specific code into each *FsConfig struct
 	switch f.Provider {
 	case sdk.S3FilesystemProvider:
-		if f.S3Config.AccessSecret.IsRedacted() {
-			return true
-		}
+		return f.S3Config.AccessSecret.IsRedacted()
 	case sdk.GCSFilesystemProvider:
-		if f.GCSConfig.Credentials.IsRedacted() {
-			return true
-		}
+		return f.GCSConfig.Credentials.IsRedacted()
 	case sdk.AzureBlobFilesystemProvider:
 		if f.AzBlobConfig.AccountKey.IsRedacted() {
 			return true
 		}
-		if f.AzBlobConfig.SASURL.IsRedacted() {
-			return true
-		}
+		return f.AzBlobConfig.SASURL.IsRedacted()
 	case sdk.CryptedFilesystemProvider:
-		if f.CryptConfig.Passphrase.IsRedacted() {
-			return true
-		}
+		return f.CryptConfig.Passphrase.IsRedacted()
 	case sdk.SFTPFilesystemProvider:
 		if f.SFTPConfig.Password.IsRedacted() {
 			return true
@@ -190,9 +210,12 @@ func (f *Filesystem) HasRedactedSecret() bool {
 		if f.SFTPConfig.PrivateKey.IsRedacted() {
 			return true
 		}
-		if f.SFTPConfig.KeyPassphrase.IsRedacted() {
+		return f.SFTPConfig.KeyPassphrase.IsRedacted()
+	case sdk.HTTPFilesystemProvider:
+		if f.HTTPConfig.Password.IsRedacted() {
 			return true
 		}
+		return f.HTTPConfig.APIKey.IsRedacted()
 	}
 
 	return false
@@ -211,6 +234,8 @@ func (f *Filesystem) HideConfidentialData() {
 		f.CryptConfig.HideConfidentialData()
 	case sdk.SFTPFilesystemProvider:
 		f.SFTPConfig.HideConfidentialData()
+	case sdk.HTTPFilesystemProvider:
+		f.HTTPConfig.HideConfidentialData()
 	}
 }
 
@@ -279,6 +304,15 @@ func (f *Filesystem) GetACopy() Filesystem {
 			Password:      f.SFTPConfig.Password.Clone(),
 			PrivateKey:    f.SFTPConfig.PrivateKey.Clone(),
 			KeyPassphrase: f.SFTPConfig.KeyPassphrase.Clone(),
+		},
+		HTTPConfig: HTTPFsConfig{
+			BaseHTTPFsConfig: sdk.BaseHTTPFsConfig{
+				Endpoint:      f.HTTPConfig.Endpoint,
+				Username:      f.HTTPConfig.Username,
+				SkipTLSVerify: f.HTTPConfig.SkipTLSVerify,
+			},
+			Password: f.HTTPConfig.Password.Clone(),
+			APIKey:   f.HTTPConfig.APIKey.Clone(),
 		},
 	}
 	if len(f.SFTPConfig.Fingerprints) > 0 {

@@ -1160,7 +1160,7 @@ func (s *httpdServer) handleWebClientProfilePost(w http.ResponseWriter, r *http.
 		user.PublicKeys = r.Form["public_keys"]
 	}
 	if userMerged.CanChangeAPIKeyAuth() {
-		user.Filters.AllowAPIKeyAuth = len(r.Form.Get("allow_api_key_auth")) > 0
+		user.Filters.AllowAPIKeyAuth = r.Form.Get("allow_api_key_auth") != ""
 	}
 	if userMerged.CanChangeInfo() {
 		user.Email = r.Form.Get("email")

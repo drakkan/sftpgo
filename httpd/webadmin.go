@@ -393,8 +393,8 @@ func loadAdminTemplates(templatesPath string) {
 	fsBaseTpl := template.New("fsBaseTemplate").Funcs(template.FuncMap{
 		"ListFSProviders": func() []sdk.FilesystemProvider {
 			return []sdk.FilesystemProvider{sdk.LocalFilesystemProvider, sdk.CryptedFilesystemProvider,
-				sdk.S3FilesystemProvider, sdk.GCSFilesystemProvider,
-				sdk.AzureBlobFilesystemProvider, sdk.SFTPFilesystemProvider,
+				sdk.S3FilesystemProvider, sdk.GCSFilesystemProvider, sdk.AzureBlobFilesystemProvider,
+				sdk.SFTPFilesystemProvider, sdk.HTTPFilesystemProvider,
 			}
 		},
 	})
@@ -1116,8 +1116,8 @@ func getFiltersFromUserPostFields(r *http.Request) (sdk.BaseUserFilters, error) 
 	if util.Contains(hooks, "check_password_disabled") {
 		filters.Hooks.CheckPasswordDisabled = true
 	}
-	filters.DisableFsChecks = len(r.Form.Get("disable_fs_checks")) > 0
-	filters.AllowAPIKeyAuth = len(r.Form.Get("allow_api_key_auth")) > 0
+	filters.DisableFsChecks = r.Form.Get("disable_fs_checks") != ""
+	filters.AllowAPIKeyAuth = r.Form.Get("allow_api_key_auth") != ""
 	filters.StartDirectory = r.Form.Get("start_directory")
 	filters.MaxUploadFileSize = maxFileSize
 	filters.ExternalAuthCacheTime, err = strconv.ParseInt(r.Form.Get("external_auth_cache_time"), 10, 64)
@@ -1223,12 +1223,22 @@ func getSFTPConfig(r *http.Request) (vfs.SFTPFsConfig, error) {
 	fingerprintsFormValue := r.Form.Get("sftp_fingerprints")
 	config.Fingerprints = getSliceFromDelimitedValues(fingerprintsFormValue, "\n")
 	config.Prefix = r.Form.Get("sftp_prefix")
-	config.DisableCouncurrentReads = len(r.Form.Get("sftp_disable_concurrent_reads")) > 0
+	config.DisableCouncurrentReads = r.Form.Get("sftp_disable_concurrent_reads") != ""
 	config.BufferSize, err = strconv.ParseInt(r.Form.Get("sftp_buffer_size"), 10, 64)
 	if err != nil {
 		return config, fmt.Errorf("invalid SFTP buffer size: %w", err)
 	}
 	return config, nil
+}
+
+func getHTTPFsConfig(r *http.Request) vfs.HTTPFsConfig {
+	config := vfs.HTTPFsConfig{}
+	config.Endpoint = r.Form.Get("http_endpoint")
+	config.Username = r.Form.Get("http_username")
+	config.SkipTLSVerify = r.Form.Get("http_skip_tls_verify") != ""
+	config.Password = getSecretFromFormField(r, "http_password")
+	config.APIKey = getSecretFromFormField(r, "http_api_key")
+	return config
 }
 
 func getAzureConfig(r *http.Request) (vfs.AzBlobFsConfig, error) {
@@ -1241,7 +1251,7 @@ func getAzureConfig(r *http.Request) (vfs.AzBlobFsConfig, error) {
 	config.Endpoint = r.Form.Get("az_endpoint")
 	config.KeyPrefix = r.Form.Get("az_key_prefix")
 	config.AccessTier = r.Form.Get("az_access_tier")
-	config.UseEmulator = len(r.Form.Get("az_use_emulator")) > 0
+	config.UseEmulator = r.Form.Get("az_use_emulator") != ""
 	config.UploadPartSize, err = strconv.ParseInt(r.Form.Get("az_upload_part_size"), 10, 64)
 	if err != nil {
 		return config, fmt.Errorf("invalid azure upload part size: %w", err)
@@ -1291,6 +1301,8 @@ func getFsConfigFromPostFields(r *http.Request) (vfs.Filesystem, error) {
 			return fs, err
 		}
 		fs.SFTPConfig = config
+	case sdk.HTTPFilesystemProvider:
+		fs.HTTPConfig = getHTTPFsConfig(r)
 	}
 	return fs, nil
 }
@@ -1311,7 +1323,7 @@ func getAdminFromPostFields(r *http.Request) (dataprovider.Admin, error) {
 	admin.Email = r.Form.Get("email")
 	admin.Status = status
 	admin.Filters.AllowList = getSliceFromDelimitedValues(r.Form.Get("allowed_ip"), ",")
-	admin.Filters.AllowAPIKeyAuth = len(r.Form.Get("allow_api_key_auth")) > 0
+	admin.Filters.AllowAPIKeyAuth = r.Form.Get("allow_api_key_auth") != ""
 	admin.AdditionalInfo = r.Form.Get("additional_info")
 	admin.Description = r.Form.Get("description")
 	return admin, nil
@@ -1342,6 +1354,8 @@ func getFolderFromTemplate(folder vfs.BaseVirtualFolder, name string) vfs.BaseVi
 		folder.FsConfig.AzBlobConfig = getAzBlobFsFromTemplate(folder.FsConfig.AzBlobConfig, replacements)
 	case sdk.SFTPFilesystemProvider:
 		folder.FsConfig.SFTPConfig = getSFTPFsFromTemplate(folder.FsConfig.SFTPConfig, replacements)
+	case sdk.HTTPFilesystemProvider:
+		folder.FsConfig.HTTPConfig = getHTTPFsFromTemplate(folder.FsConfig.HTTPConfig, replacements)
 	}
 
 	return folder
@@ -1392,6 +1406,11 @@ func getSFTPFsFromTemplate(fsConfig vfs.SFTPFsConfig, replacements map[string]st
 	return fsConfig
 }
 
+func getHTTPFsFromTemplate(fsConfig vfs.HTTPFsConfig, replacements map[string]string) vfs.HTTPFsConfig {
+	fsConfig.Username = replacePlaceholders(fsConfig.Username, replacements)
+	return fsConfig
+}
+
 func getUserFromTemplate(user dataprovider.User, template userTemplateFields) dataprovider.User {
 	user.Username = template.Username
 	user.Password = template.Password
@@ -1425,6 +1444,8 @@ func getUserFromTemplate(user dataprovider.User, template userTemplateFields) da
 		user.FsConfig.AzBlobConfig = getAzBlobFsFromTemplate(user.FsConfig.AzBlobConfig, replacements)
 	case sdk.SFTPFilesystemProvider:
 		user.FsConfig.SFTPConfig = getSFTPFsFromTemplate(user.FsConfig.SFTPConfig, replacements)
+	case sdk.HTTPFilesystemProvider:
+		user.FsConfig.HTTPConfig = getHTTPFsFromTemplate(user.FsConfig.HTTPConfig, replacements)
 	}
 
 	return user
@@ -1699,7 +1720,7 @@ func (s *httpdServer) handleWebAdminProfilePost(w http.ResponseWriter, r *http.R
 		s.renderProfilePage(w, r, err.Error())
 		return
 	}
-	admin.Filters.AllowAPIKeyAuth = len(r.Form.Get("allow_api_key_auth")) > 0
+	admin.Filters.AllowAPIKeyAuth = r.Form.Get("allow_api_key_auth") != ""
 	admin.Email = r.Form.Get("email")
 	admin.Description = r.Form.Get("description")
 	err = dataprovider.UpdateAdmin(&admin, dataprovider.ActionExecutorSelf, ipAddr)
@@ -2203,7 +2224,8 @@ func (s *httpdServer) handleWebUpdateUserPost(w http.ResponseWriter, r *http.Req
 	}
 	updateEncryptedSecrets(&updatedUser.FsConfig, user.FsConfig.S3Config.AccessSecret, user.FsConfig.AzBlobConfig.AccountKey,
 		user.FsConfig.AzBlobConfig.SASURL, user.FsConfig.GCSConfig.Credentials, user.FsConfig.CryptConfig.Passphrase,
-		user.FsConfig.SFTPConfig.Password, user.FsConfig.SFTPConfig.PrivateKey, user.FsConfig.SFTPConfig.KeyPassphrase)
+		user.FsConfig.SFTPConfig.Password, user.FsConfig.SFTPConfig.PrivateKey, user.FsConfig.SFTPConfig.KeyPassphrase,
+		user.FsConfig.HTTPConfig.Password, user.FsConfig.HTTPConfig.APIKey)
 
 	updatedUser = getUserFromTemplate(updatedUser, userTemplateFields{
 		Username:   updatedUser.Username,
@@ -2337,7 +2359,8 @@ func (s *httpdServer) handleWebUpdateFolderPost(w http.ResponseWriter, r *http.R
 	updatedFolder.FsConfig.SetEmptySecretsIfNil()
 	updateEncryptedSecrets(&updatedFolder.FsConfig, folder.FsConfig.S3Config.AccessSecret, folder.FsConfig.AzBlobConfig.AccountKey,
 		folder.FsConfig.AzBlobConfig.SASURL, folder.FsConfig.GCSConfig.Credentials, folder.FsConfig.CryptConfig.Passphrase,
-		folder.FsConfig.SFTPConfig.Password, folder.FsConfig.SFTPConfig.PrivateKey, folder.FsConfig.SFTPConfig.KeyPassphrase)
+		folder.FsConfig.SFTPConfig.Password, folder.FsConfig.SFTPConfig.PrivateKey, folder.FsConfig.SFTPConfig.KeyPassphrase,
+		folder.FsConfig.HTTPConfig.Password, folder.FsConfig.HTTPConfig.APIKey)
 
 	updatedFolder = getFolderFromTemplate(updatedFolder, updatedFolder.Name)
 
@@ -2502,7 +2525,8 @@ func (s *httpdServer) handleWebUpdateGroupPost(w http.ResponseWriter, r *http.Re
 		group.UserSettings.FsConfig.AzBlobConfig.AccountKey, group.UserSettings.FsConfig.AzBlobConfig.SASURL,
 		group.UserSettings.FsConfig.GCSConfig.Credentials, group.UserSettings.FsConfig.CryptConfig.Passphrase,
 		group.UserSettings.FsConfig.SFTPConfig.Password, group.UserSettings.FsConfig.SFTPConfig.PrivateKey,
-		group.UserSettings.FsConfig.SFTPConfig.KeyPassphrase)
+		group.UserSettings.FsConfig.SFTPConfig.KeyPassphrase, group.UserSettings.FsConfig.HTTPConfig.Password,
+		group.UserSettings.FsConfig.HTTPConfig.APIKey)
 
 	err = dataprovider.UpdateGroup(&updatedGroup, group.Users, claims.Username, ipAddr)
 	if err != nil {

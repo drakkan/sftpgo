@@ -1426,7 +1426,10 @@ func compareFsConfig(expected *vfs.Filesystem, actual *vfs.Filesystem) error {
 	if err := checkEncryptedSecret(expected.CryptConfig.Passphrase, actual.CryptConfig.Passphrase); err != nil {
 		return err
 	}
-	return compareSFTPFsConfig(expected, actual)
+	if err := compareSFTPFsConfig(expected, actual); err != nil {
+		return err
+	}
+	return compareHTTPFsConfig(expected, actual)
 }
 
 func compareS3Config(expected *vfs.Filesystem, actual *vfs.Filesystem) error { //nolint:gocyclo
@@ -1498,6 +1501,25 @@ func compareGCSConfig(expected *vfs.Filesystem, actual *vfs.Filesystem) error {
 	}
 	if expected.GCSConfig.AutomaticCredentials != actual.GCSConfig.AutomaticCredentials {
 		return errors.New("GCS automatic credentials mismatch")
+	}
+	return nil
+}
+
+func compareHTTPFsConfig(expected *vfs.Filesystem, actual *vfs.Filesystem) error {
+	if expected.HTTPConfig.Endpoint != actual.HTTPConfig.Endpoint {
+		return errors.New("HTTPFs endpoint mismatch")
+	}
+	if expected.HTTPConfig.Username != actual.HTTPConfig.Username {
+		return errors.New("HTTPFs username mismatch")
+	}
+	if expected.HTTPConfig.SkipTLSVerify != actual.HTTPConfig.SkipTLSVerify {
+		return errors.New("HTTPFs skip_tls_verify mismatch")
+	}
+	if err := checkEncryptedSecret(expected.HTTPConfig.Password, actual.HTTPConfig.Password); err != nil {
+		return fmt.Errorf("HTTPFs password mismatch: %v", err)
+	}
+	if err := checkEncryptedSecret(expected.HTTPConfig.APIKey, actual.HTTPConfig.APIKey); err != nil {
+		return fmt.Errorf("HTTPFs API key mismatch: %v", err)
 	}
 	return nil
 }

@@ -19,7 +19,7 @@ The following settings are inherited from the primary group:
 
 The following settings are inherited from the primary and secondary groups:
 
-- virtual folders, file patterns, permissions: they are added to the user configuration if the user does not already have a setting for the configured path. The `/` path is ignored for secondary groups. The `%username%` placeholder is replaced with the username within the virtual path, the defined "prefix", for any vfs, and the "username" for the SFTP filesystem config
+- virtual folders, file patterns, permissions: they are added to the user configuration if the user does not already have a setting for the configured path. The `/` path is ignored for secondary groups. The `%username%` placeholder is replaced with the username within the virtual path, the defined "prefix", for any vfs, and the "username" for the SFTP and HTTP filesystem config
 - per-source bandwidth limits
 - per-source data transfer limits
 - allowed/denied IPs

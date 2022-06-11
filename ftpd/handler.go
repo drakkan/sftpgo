@@ -462,7 +462,7 @@ func (c *Connection) handleFTPUploadToExistingFile(fs vfs.Fs, flags int, resolve
 			file.Seek(initialSize, io.SeekStart) //nolint:errcheck // for sftp seek simply set the offset
 		}
 	} else {
-		if vfs.IsLocalOrSFTPFs(fs) {
+		if vfs.HasTruncateSupport(fs) {
 			vfolder, err := c.User.GetVirtualFolderForPath(path.Dir(requestPath))
 			if err == nil {
 				dataprovider.UpdateVirtualFolderQuota(&vfolder.BaseVirtualFolder, 0, -fileSize, false) //nolint:errcheck

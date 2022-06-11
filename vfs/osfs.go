@@ -288,7 +288,7 @@ func (*OsFs) Join(elem ...string) string {
 // ResolvePath returns the matching filesystem path for the specified sftp path
 func (fs *OsFs) ResolvePath(virtualPath string) (string, error) {
 	if !filepath.IsAbs(fs.rootDir) {
-		return "", fmt.Errorf("invalid root path: %v", fs.rootDir)
+		return "", fmt.Errorf("invalid root path %q", fs.rootDir)
 	}
 	if fs.mountPath != "" {
 		virtualPath = strings.TrimPrefix(virtualPath, fs.mountPath)

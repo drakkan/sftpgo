@@ -226,10 +226,12 @@ G6p7xS+JswJrzX4885bZJ9Oi1AR2yM3sC9l0O7I4lDbNPmWIXBLeEhGMmcPKv/Kc
 w0kqpr7MgJ94qhXCBcVcfPuFN9fBOadM3UBj1B45Cz3pptoK+ScI8XKno6jvVK/p
 xr5cb9VBRBtB9aOKVfuRhpatAfS2Pzm2Htae9lFn7slGPUmu2hkjDw==
 -----END RSA PRIVATE KEY-----`
-	testFileName       = "test_file_ftp.dat"
-	testDLFileName     = "test_download_ftp.dat"
-	tlsClient1Username = "client1"
-	tlsClient2Username = "client2"
+	testFileName          = "test_file_ftp.dat"
+	testDLFileName        = "test_download_ftp.dat"
+	tlsClient1Username    = "client1"
+	tlsClient2Username    = "client2"
+	httpFsPort            = 23456
+	defaultHTTPFsUsername = "httpfs_ftp_user"
 )
 
 var (
@@ -414,6 +416,7 @@ func TestMain(m *testing.M) {
 
 	waitTCPListening(ftpdConf.Bindings[0].GetAddress())
 	waitNoConnections()
+	startHTTPFs()
 
 	exitCode := m.Run()
 	os.Remove(logFilePath)
@@ -589,6 +592,50 @@ func TestBasicFTPHandling(t *testing.T) {
 	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(localUser.GetHomeDir())
+	assert.NoError(t, err)
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 }, 1*time.Second, 50*time.Millisecond)
+	assert.Eventually(t, func() bool { return common.Connections.GetClientConnections() == 0 }, 1000*time.Millisecond,
+		50*time.Millisecond)
+}
+
+func TestHTTPFs(t *testing.T) {
+	u := getTestUserWithHTTPFs()
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	client, err := getFTPClient(user, true, nil)
+	if assert.NoError(t, err) {
+		err = checkBasicFTP(client)
+		assert.NoError(t, err)
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		testFileSize := int64(65535)
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+		err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
+		assert.NoError(t, err)
+		localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
+		err = ftpDownloadFile(testFileName, localDownloadPath, testFileSize, client, 0)
+		assert.NoError(t, err)
+		// test a download resume
+		data := []byte("test data")
+		err = os.WriteFile(testFilePath, data, os.ModePerm)
+		assert.NoError(t, err)
+		err = ftpUploadFile(testFilePath, testFileName, int64(len(data)), client, 0)
+		assert.NoError(t, err)
+		err = ftpDownloadFile(testFileName, localDownloadPath, int64(len(data)-5), client, 5)
+		assert.NoError(t, err)
+		readed, err := os.ReadFile(localDownloadPath)
+		assert.NoError(t, err)
+		assert.Equal(t, []byte("data"), readed, "readed data mismatch: %q", string(readed))
+		err = os.Remove(testFilePath)
+		assert.NoError(t, err)
+		err = os.Remove(localDownloadPath)
+		assert.NoError(t, err)
+		err = client.Quit()
+		assert.NoError(t, err)
+	}
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 	assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 }, 1*time.Second, 50*time.Millisecond)
 	assert.Eventually(t, func() bool { return common.Connections.GetClientConnections() == 0 }, 1000*time.Millisecond,
@@ -3422,6 +3469,18 @@ func getTestSFTPUser() dataprovider.User {
 	return u
 }
 
+func getTestUserWithHTTPFs() dataprovider.User {
+	u := getTestUser()
+	u.FsConfig.Provider = sdk.HTTPFilesystemProvider
+	u.FsConfig.HTTPConfig = vfs.HTTPFsConfig{
+		BaseHTTPFsConfig: sdk.BaseHTTPFsConfig{
+			Endpoint: fmt.Sprintf("http://127.0.0.1:%d/api/v1", httpFsPort),
+			Username: defaultHTTPFsUsername,
+		},
+	}
+	return u
+}
+
 func getExtAuthScriptContent(user dataprovider.User, nonJSONResponse bool, username string) []byte {
 	extAuthContent := []byte("#!/bin/sh\n\n")
 	extAuthContent = append(extAuthContent, []byte(fmt.Sprintf("if test \"$SFTPGO_AUTHD_USERNAME\" = \"%v\"; then\n", user.Username))...)
@@ -3510,4 +3569,14 @@ func generateTOTPPasscode(secret string, algo otp.Algorithm) (string, error) {
 		Digits:    otp.DigitsSix,
 		Algorithm: algo,
 	})
+}
+
+func startHTTPFs() {
+	go func() {
+		if err := httpdtest.StartTestHTTPFs(httpFsPort); err != nil {
+			logger.ErrorToConsole("could not start HTTPfs test server: %v", err)
+			os.Exit(1)
+		}
+	}()
+	waitTCPListening(fmt.Sprintf(":%d", httpFsPort))
 }

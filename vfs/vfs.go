@@ -669,6 +669,11 @@ func IsSFTPFs(fs Fs) bool {
 	return strings.HasPrefix(fs.Name(), sftpFsName)
 }
 
+// IsHTTPFs returns true if fs is an HTTP filesystem
+func IsHTTPFs(fs Fs) bool {
+	return strings.HasPrefix(fs.Name(), httpFsName)
+}
+
 // IsBufferedSFTPFs returns true if this is a buffered SFTP filesystem
 func IsBufferedSFTPFs(fs Fs) bool {
 	if !IsSFTPFs(fs) {
@@ -691,6 +696,11 @@ func IsLocalOrUnbufferedSFTPFs(fs Fs) bool {
 // IsLocalOrSFTPFs returns true if fs is local or SFTP
 func IsLocalOrSFTPFs(fs Fs) bool {
 	return IsLocalOsFs(fs) || IsSFTPFs(fs)
+}
+
+// HasTruncateSupport returns true if the fs supports truncate files
+func HasTruncateSupport(fs Fs) bool {
+	return IsLocalOsFs(fs) || IsSFTPFs(fs) || IsHTTPFs(fs)
 }
 
 // HasOpenRWSupport returns true if the fs can open a file

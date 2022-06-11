@@ -94,17 +94,19 @@ func (v *BaseVirtualFolder) GetQuotaSummary() string {
 func (v *BaseVirtualFolder) GetStorageDescrition() string {
 	switch v.FsConfig.Provider {
 	case sdk.LocalFilesystemProvider:
-		return fmt.Sprintf("Local: %v", v.MappedPath)
+		return fmt.Sprintf("Local: %s", v.MappedPath)
 	case sdk.S3FilesystemProvider:
-		return fmt.Sprintf("S3: %v", v.FsConfig.S3Config.Bucket)
+		return fmt.Sprintf("S3: %s", v.FsConfig.S3Config.Bucket)
 	case sdk.GCSFilesystemProvider:
-		return fmt.Sprintf("GCS: %v", v.FsConfig.GCSConfig.Bucket)
+		return fmt.Sprintf("GCS: %s", v.FsConfig.GCSConfig.Bucket)
 	case sdk.AzureBlobFilesystemProvider:
-		return fmt.Sprintf("AzBlob: %v", v.FsConfig.AzBlobConfig.Container)
+		return fmt.Sprintf("AzBlob: %s", v.FsConfig.AzBlobConfig.Container)
 	case sdk.CryptedFilesystemProvider:
-		return fmt.Sprintf("Encrypted: %v", v.MappedPath)
+		return fmt.Sprintf("Encrypted: %s", v.MappedPath)
 	case sdk.SFTPFilesystemProvider:
-		return fmt.Sprintf("SFTP: %v", v.FsConfig.SFTPConfig.Endpoint)
+		return fmt.Sprintf("SFTP: %s", v.FsConfig.SFTPConfig.Endpoint)
+	case sdk.HTTPFilesystemProvider:
+		return fmt.Sprintf("HTTP: %s", v.FsConfig.HTTPConfig.Endpoint)
 	default:
 		return ""
 	}
@@ -128,6 +130,8 @@ func (v *BaseVirtualFolder) hideConfidentialData() {
 		v.FsConfig.CryptConfig.HideConfidentialData()
 	case sdk.SFTPFilesystemProvider:
 		v.FsConfig.SFTPConfig.HideConfidentialData()
+	case sdk.HTTPFilesystemProvider:
+		v.FsConfig.HTTPConfig.HideConfidentialData()
 	}
 }
 
@@ -141,38 +145,7 @@ func (v *BaseVirtualFolder) PrepareForRendering() {
 
 // HasRedactedSecret returns true if the folder has a redacted secret
 func (v *BaseVirtualFolder) HasRedactedSecret() bool {
-	switch v.FsConfig.Provider {
-	case sdk.S3FilesystemProvider:
-		if v.FsConfig.S3Config.AccessSecret.IsRedacted() {
-			return true
-		}
-	case sdk.GCSFilesystemProvider:
-		if v.FsConfig.GCSConfig.Credentials.IsRedacted() {
-			return true
-		}
-	case sdk.AzureBlobFilesystemProvider:
-		if v.FsConfig.AzBlobConfig.AccountKey.IsRedacted() {
-			return true
-		}
-		if v.FsConfig.AzBlobConfig.SASURL.IsRedacted() {
-			return true
-		}
-	case sdk.CryptedFilesystemProvider:
-		if v.FsConfig.CryptConfig.Passphrase.IsRedacted() {
-			return true
-		}
-	case sdk.SFTPFilesystemProvider:
-		if v.FsConfig.SFTPConfig.Password.IsRedacted() {
-			return true
-		}
-		if v.FsConfig.SFTPConfig.PrivateKey.IsRedacted() {
-			return true
-		}
-		if v.FsConfig.SFTPConfig.KeyPassphrase.IsRedacted() {
-			return true
-		}
-	}
-	return false
+	return v.FsConfig.HasRedactedSecret()
 }
 
 // VirtualFolder defines a mapping between an SFTPGo exposed virtual path and a
@@ -203,6 +176,8 @@ func (v *VirtualFolder) GetFilesystem(connectionID string, forbiddenSelfUsers []
 		return NewCryptFs(connectionID, v.MappedPath, v.VirtualPath, v.FsConfig.CryptConfig)
 	case sdk.SFTPFilesystemProvider:
 		return NewSFTPFs(connectionID, v.VirtualPath, v.MappedPath, forbiddenSelfUsers, v.FsConfig.SFTPConfig)
+	case sdk.HTTPFilesystemProvider:
+		return NewHTTPFs(connectionID, v.MappedPath, v.VirtualPath, v.FsConfig.HTTPConfig)
 	default:
 		return NewOsFs(connectionID, v.MappedPath, v.VirtualPath), nil
 	}

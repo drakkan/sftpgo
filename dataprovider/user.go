@@ -153,6 +153,8 @@ func (u *User) getRootFs(connectionID string) (fs vfs.Fs, err error) {
 		}
 		forbiddenSelfUsers = append(forbiddenSelfUsers, u.Username)
 		return vfs.NewSFTPFs(connectionID, "", u.GetHomeDir(), forbiddenSelfUsers, u.FsConfig.SFTPConfig)
+	case sdk.HTTPFilesystemProvider:
+		return vfs.NewHTTPFs(connectionID, u.GetHomeDir(), "", u.FsConfig.HTTPConfig)
 	default:
 		return vfs.NewOsFs(connectionID, u.GetHomeDir(), ""), nil
 	}
@@ -1366,6 +1368,8 @@ func (u *User) GetStorageDescrition() string {
 		return fmt.Sprintf("Encrypted: %v", u.GetHomeDir())
 	case sdk.SFTPFilesystemProvider:
 		return fmt.Sprintf("SFTP: %v", u.FsConfig.SFTPConfig.Endpoint)
+	case sdk.HTTPFilesystemProvider:
+		return fmt.Sprintf("HTTP: %v", u.FsConfig.HTTPConfig.Endpoint)
 	default:
 		return ""
 	}
@@ -1595,6 +1599,8 @@ func (u *User) replaceFsConfigPlaceholders(fsConfig vfs.Filesystem) vfs.Filesyst
 	case sdk.SFTPFilesystemProvider:
 		fsConfig.SFTPConfig.Username = u.replacePlaceholder(fsConfig.SFTPConfig.Username)
 		fsConfig.SFTPConfig.Prefix = u.replacePlaceholder(fsConfig.SFTPConfig.Prefix)
+	case sdk.HTTPFilesystemProvider:
+		fsConfig.HTTPConfig.Username = u.replacePlaceholder(fsConfig.HTTPConfig.Username)
 	}
 	return fsConfig
 }

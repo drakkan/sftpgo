@@ -443,7 +443,7 @@ func (c *Connection) handleSFTPUploadToExistingFile(fs vfs.Fs, pflags sftp.FileO
 		}
 		initialSize = fileSize
 	} else {
-		if vfs.IsLocalOrSFTPFs(fs) && isTruncate {
+		if isTruncate && vfs.HasTruncateSupport(fs) {
 			vfolder, err := c.User.GetVirtualFolderForPath(path.Dir(requestPath))
 			if err == nil {
 				dataprovider.UpdateVirtualFolderQuota(&vfolder.BaseVirtualFolder, 0, -fileSize, false) //nolint:errcheck

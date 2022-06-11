@@ -254,7 +254,7 @@ func (c *Connection) handleUploadToExistingFile(fs vfs.Fs, resolvedPath, filePat
 	}
 	initialSize := int64(0)
 	truncatedSize := int64(0) // bytes truncated and not included in quota
-	if vfs.IsLocalOrSFTPFs(fs) {
+	if vfs.HasTruncateSupport(fs) {
 		vfolder, err := c.User.GetVirtualFolderForPath(path.Dir(requestPath))
 		if err == nil {
 			dataprovider.UpdateVirtualFolderQuota(&vfolder.BaseVirtualFolder, 0, -fileSize, false) //nolint:errcheck

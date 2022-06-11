@@ -26,7 +26,7 @@ info:
     SFTPGo supports groups to simplify the administration of multiple accounts by letting you assign settings once to a group, instead of multiple times to each individual user.
     The SFTPGo WebClient allows end users to change their credentials, browse and manage their files in the browser and setup two-factor authentication which works with Authy, Google Authenticator and other compatible apps.
     From the WebClient each authorized user can also create HTTP/S links to externally share files and folders securely, by setting limits to the number of downloads/uploads, protecting the share with a password, limiting access by source IP address, setting an automatic expiration date.
-  version: 2.3.0-dev
+  version: 2.3.1-dev
   contact:
     name: API support
     url: 'https://github.com/drakkan/sftpgo'
@@ -4473,6 +4473,7 @@ components:
         - 3
         - 4
         - 5
+        - 6
       description: |
         Filesystem providers:
           * `0` - Local filesystem
@@ -4481,6 +4482,7 @@ components:
           * `3` - Azure Blob Storage
           * `4` - Local filesystem encrypted
           * `5` - SFTP
+          * `6` - HTTP filesystem
     LoginMethods:
       type: string
       enum:
@@ -5054,6 +5056,20 @@ components:
           maximum: 16
           example: 2
           description: The size of the buffer (in MB) to use for transfers. By enabling buffering, the reads and writes, from/to the remote SFTP server, are split in multiple concurrent requests and this allows data to be transferred at a faster rate, over high latency networks, by overlapping round-trip times. With buffering enabled, resuming uploads is not supported and a file cannot be opened for both reading and writing at the same time. 0 means disabled.
+    HTTPFsConfig:
+      type: object
+      properties:
+        endpoint:
+          type: string
+          description: 'HTTP/S endpoint URL. SFTPGo will use this URL as base, for example for the `stat` API, SFTPGo will add `/stat/{name}`'
+        username:
+          type: string
+        password:
+          $ref: '#/components/schemas/Secret'
+        api_key:
+          $ref: '#/components/schemas/Secret'
+        skip_tls_verify:
+          type: boolean
     FilesystemConfig:
       type: object
       properties:
@@ -5069,6 +5085,8 @@ components:
           $ref: '#/components/schemas/CryptFsConfig'
         sftpconfig:
           $ref: '#/components/schemas/SFTPFsConfig'
+        httpconfig:
+          $ref: '#/components/schemas/HTTPFsConfig'
       description: Storage filesystem details
     BaseVirtualFolder:
       type: object

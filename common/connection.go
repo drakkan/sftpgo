@@ -752,7 +752,7 @@ func (c *BaseConnection) truncateFile(fs vfs.Fs, fsPath, virtualPath string, siz
 		initialSize = info.Size()
 		err = fs.Truncate(fsPath, size)
 	}
-	if err == nil && vfs.IsLocalOrSFTPFs(fs) {
+	if err == nil && vfs.HasTruncateSupport(fs) {
 		sizeDiff := initialSize - size
 		vfolder, err := c.User.GetVirtualFolderForPath(path.Dir(virtualPath))
 		if err == nil {
@@ -768,22 +768,13 @@ func (c *BaseConnection) truncateFile(fs vfs.Fs, fsPath, virtualPath string, siz
 }
 
 func (c *BaseConnection) checkRecursiveRenameDirPermissions(fsSrc, fsDst vfs.Fs, sourcePath, targetPath string) error {
-	err := fsSrc.Walk(sourcePath, func(walkedPath string, info os.FileInfo, err error) error {
+	return fsSrc.Walk(sourcePath, func(walkedPath string, info os.FileInfo, err error) error {
 		if err != nil {
 			return c.GetFsError(fsSrc, err)
 		}
 		dstPath := strings.Replace(walkedPath, sourcePath, targetPath, 1)
 		virtualSrcPath := fsSrc.GetRelativePath(walkedPath)
 		virtualDstPath := fsDst.GetRelativePath(dstPath)
-		// walk scans the directory tree in order, checking the parent directory permissions we are sure that all contents
-		// inside the parent path was checked. If the current dir has no subdirs with defined permissions inside it
-		// and it has all the possible permissions we can stop scanning
-		if !c.User.HasPermissionsInside(path.Dir(virtualSrcPath)) && !c.User.HasPermissionsInside(path.Dir(virtualDstPath)) {
-			if c.User.HasPermsRenameAll(path.Dir(virtualSrcPath)) &&
-				c.User.HasPermsRenameAll(path.Dir(virtualDstPath)) {
-				return ErrSkipPermissionsCheck
-			}
-		}
 		if !c.isRenamePermitted(fsSrc, fsDst, walkedPath, dstPath, virtualSrcPath, virtualDstPath, info) {
 			c.Log(logger.LevelInfo, "rename %#v -> %#v is not allowed, virtual destination path: %#v",
 				walkedPath, dstPath, virtualDstPath)
@@ -791,10 +782,6 @@ func (c *BaseConnection) checkRecursiveRenameDirPermissions(fsSrc, fsDst vfs.Fs,
 		}
 		return nil
 	})
-	if err == ErrSkipPermissionsCheck {
-		err = nil
-	}
-	return err
 }
 
 func (c *BaseConnection) hasRenamePerms(virtualSourcePath, virtualTargetPath string, fi os.FileInfo) bool {

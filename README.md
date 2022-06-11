@@ -271,6 +271,10 @@ Each user can be mapped to another SFTP server account or a subfolder of it. Mor
 
 Data at-rest encryption is supported via the [cryptfs backend](./docs/dare.md).
 
+### HTTP/S backend
+
+HTTP/S backend allows you to write your own custom storage backend by implementing a REST API. More information can be found [here](./docs/httpfs.md).
+
 ### Other Storage backends
 
 Adding new storage backends is quite easy:
