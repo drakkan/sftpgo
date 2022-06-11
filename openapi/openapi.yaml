@@ -4416,15 +4416,6 @@ components:
           * `chmod` changing file or directory permissions is allowed
           * `chown` changing file or directory owner and group is allowed
           * `chtimes` changing file or directory access and modification time is allowed
-    DirPermissions:
-      type: object
-      additionalProperties:
-        type: array
-        items:
-          $ref: '#/components/schemas/Permission'
-        minItems: 1
-      minProperties: 1
-      description: 'hash map with directory as key and an array of permissions as value. Directories must be absolute paths, permissions for root directory ("/") are required'
     AdminPermissions:
       type: string
       enum:
@@ -5213,9 +5204,13 @@ components:
           description: Quota as number of files. 0 means unlimited. Please note that quota is updated if files are added/removed via SFTPGo otherwise a quota scan or a manual quota update is needed
         permissions:
           type: object
-          items:
-            $ref: '#/components/schemas/DirPermissions'
-          minItems: 1
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/Permission'
+            minItems: 1
+          minProperties: 1
+          description: 'hash map with directory as key and an array of permissions as value. Directories must be absolute paths, permissions for root directory ("/") are required'
           example:
             /:
               - '*'
@@ -5874,9 +5869,13 @@ components:
           format: int32
         permissions:
           type: object
-          items:
-            $ref: '#/components/schemas/DirPermissions'
-          minItems: 1
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/Permission'
+            minItems: 1
+          minProperties: 1
+          description: 'hash map with directory as key and an array of permissions as value. Directories must be absolute paths, permissions for root directory ("/") are required'
           example:
             /:
               - '*'
