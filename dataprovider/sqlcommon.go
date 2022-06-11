@@ -33,7 +33,9 @@ var (
 )
 
 type sqlQuerier interface {
-	PrepareContext(ctx context.Context, query string) (*sql.Stmt, error)
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
 }
 
 type sqlScanner interface {
@@ -60,23 +62,17 @@ func sqlReplaceAll(sql string) string {
 }
 
 func sqlCommonGetShareByID(shareID, username string, dbHandle sqlQuerier) (Share, error) {
-	var share Share
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
 
 	filterUser := username != ""
 	q := getShareByIDQuery(filterUser)
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return share, err
-	}
-	defer stmt.Close()
+
 	var row *sql.Row
 	if filterUser {
-		row = stmt.QueryRowContext(ctx, shareID, username)
+		row = dbHandle.QueryRowContext(ctx, q, shareID, username)
 	} else {
-		row = stmt.QueryRowContext(ctx, shareID)
+		row = dbHandle.QueryRowContext(ctx, q, shareID)
 	}
 
 	return getShareFromDbRow(row)
@@ -107,14 +103,8 @@ func sqlCommonAddShare(share *Share, dbHandle *sql.DB) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
-	q := getAddShareQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
 
+	q := getAddShareQuery()
 	usedTokens := 0
 	createdAt := util.GetTimeAsMsSinceEpoch(time.Now())
 	updatedAt := createdAt
@@ -129,7 +119,7 @@ func sqlCommonAddShare(share *Share, dbHandle *sql.DB) error {
 		}
 		lastUseAt = share.LastUseAt
 	}
-	_, err = stmt.ExecContext(ctx, share.ShareID, share.Name, share.Description, share.Scope,
+	_, err = dbHandle.ExecContext(ctx, q, share.ShareID, share.Name, share.Description, share.Scope,
 		string(paths), createdAt, updatedAt, lastUseAt, share.ExpiresAt, share.Password,
 		share.MaxTokens, usedTokens, allowFrom, user.ID)
 	return err
@@ -161,18 +151,13 @@ func sqlCommonUpdateShare(share *Share, dbHandle *sql.DB) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
+
 	var q string
 	if share.IsRestore {
 		q = getUpdateShareRestoreQuery()
 	} else {
 		q = getUpdateShareQuery()
 	}
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
 
 	if share.IsRestore {
 		if share.CreatedAt == 0 {
@@ -181,11 +166,11 @@ func sqlCommonUpdateShare(share *Share, dbHandle *sql.DB) error {
 		if share.UpdatedAt == 0 {
 			share.UpdatedAt = share.CreatedAt
 		}
-		_, err = stmt.ExecContext(ctx, share.Name, share.Description, share.Scope, string(paths),
+		_, err = dbHandle.ExecContext(ctx, q, share.Name, share.Description, share.Scope, string(paths),
 			share.CreatedAt, share.UpdatedAt, share.LastUseAt, share.ExpiresAt, share.Password, share.MaxTokens,
 			share.UsedTokens, allowFrom, user.ID, share.ShareID)
 	} else {
-		_, err = stmt.ExecContext(ctx, share.Name, share.Description, share.Scope, string(paths),
+		_, err = dbHandle.ExecContext(ctx, q, share.Name, share.Description, share.Scope, string(paths),
 			util.GetTimeAsMsSinceEpoch(time.Now()), share.ExpiresAt, share.Password, share.MaxTokens,
 			allowFrom, user.ID, share.ShareID)
 	}
@@ -197,13 +182,7 @@ func sqlCommonDeleteShare(share Share, dbHandle *sql.DB) error {
 	defer cancel()
 
 	q := getDeleteShareQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
-	res, err := stmt.ExecContext(ctx, share.ShareID)
+	res, err := dbHandle.ExecContext(ctx, q, share.ShareID)
 	if err != nil {
 		return err
 	}
@@ -212,18 +191,11 @@ func sqlCommonDeleteShare(share Share, dbHandle *sql.DB) error {
 
 func sqlCommonGetShares(limit, offset int, order, username string, dbHandle sqlQuerier) ([]Share, error) {
 	shares := make([]Share, 0, limit)
-
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
-	q := getSharesQuery(order)
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return nil, err
-	}
-	defer stmt.Close()
 
-	rows, err := stmt.QueryContext(ctx, username, limit, offset)
+	q := getSharesQuery(order)
+	rows, err := dbHandle.QueryContext(ctx, q, username, limit, offset)
 	if err != nil {
 		return shares, err
 	}
@@ -243,18 +215,11 @@ func sqlCommonGetShares(limit, offset int, order, username string, dbHandle sqlQ
 
 func sqlCommonDumpShares(dbHandle sqlQuerier) ([]Share, error) {
 	shares := make([]Share, 0, 30)
-
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
-	q := getDumpSharesQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return nil, err
-	}
-	defer stmt.Close()
 
-	rows, err := stmt.QueryContext(ctx)
+	q := getDumpSharesQuery()
+	rows, err := dbHandle.QueryContext(ctx, q)
 	if err != nil {
 		return shares, err
 	}
@@ -272,20 +237,13 @@ func sqlCommonDumpShares(dbHandle sqlQuerier) ([]Share, error) {
 }
 
 func sqlCommonGetAPIKeyByID(keyID string, dbHandle sqlQuerier) (APIKey, error) {
-	var apiKey APIKey
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
 
 	q := getAPIKeyByIDQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return apiKey, err
-	}
-	defer stmt.Close()
-	row := stmt.QueryRowContext(ctx, keyID)
+	row := dbHandle.QueryRowContext(ctx, q, keyID)
 
-	apiKey, err = getAPIKeyFromDbRow(row)
+	apiKey, err := getAPIKeyFromDbRow(row)
 	if err != nil {
 		return apiKey, err
 	}
@@ -305,17 +263,11 @@ func sqlCommonAddAPIKey(apiKey *APIKey, dbHandle *sql.DB) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
-	q := getAddAPIKeyQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
 
-	_, err = stmt.ExecContext(ctx, apiKey.KeyID, apiKey.Name, apiKey.Key, apiKey.Scope, util.GetTimeAsMsSinceEpoch(time.Now()),
-		util.GetTimeAsMsSinceEpoch(time.Now()), apiKey.LastUseAt, apiKey.ExpiresAt, apiKey.Description,
-		userID, adminID)
+	q := getAddAPIKeyQuery()
+	_, err = dbHandle.ExecContext(ctx, q, apiKey.KeyID, apiKey.Name, apiKey.Key, apiKey.Scope,
+		util.GetTimeAsMsSinceEpoch(time.Now()), util.GetTimeAsMsSinceEpoch(time.Now()), apiKey.LastUseAt,
+		apiKey.ExpiresAt, apiKey.Description, userID, adminID)
 	return err
 }
 
@@ -332,15 +284,9 @@ func sqlCommonUpdateAPIKey(apiKey *APIKey, dbHandle *sql.DB) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
-	q := getUpdateAPIKeyQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
 
-	_, err = stmt.ExecContext(ctx, apiKey.Name, apiKey.Scope, apiKey.ExpiresAt, userID, adminID,
+	q := getUpdateAPIKeyQuery()
+	_, err = dbHandle.ExecContext(ctx, q, apiKey.Name, apiKey.Scope, apiKey.ExpiresAt, userID, adminID,
 		apiKey.Description, util.GetTimeAsMsSinceEpoch(time.Now()), apiKey.KeyID)
 	return err
 }
@@ -348,14 +294,9 @@ func sqlCommonUpdateAPIKey(apiKey *APIKey, dbHandle *sql.DB) error {
 func sqlCommonDeleteAPIKey(apiKey APIKey, dbHandle *sql.DB) error {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
+
 	q := getDeleteAPIKeyQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
-	res, err := stmt.ExecContext(ctx, apiKey.KeyID)
+	res, err := dbHandle.ExecContext(ctx, q, apiKey.KeyID)
 	if err != nil {
 		return err
 	}
@@ -364,18 +305,11 @@ func sqlCommonDeleteAPIKey(apiKey APIKey, dbHandle *sql.DB) error {
 
 func sqlCommonGetAPIKeys(limit, offset int, order string, dbHandle sqlQuerier) ([]APIKey, error) {
 	apiKeys := make([]APIKey, 0, limit)
-
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
-	q := getAPIKeysQuery(order)
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return nil, err
-	}
-	defer stmt.Close()
 
-	rows, err := stmt.QueryContext(ctx, limit, offset)
+	q := getAPIKeysQuery(order)
+	rows, err := dbHandle.QueryContext(ctx, q, limit, offset)
 	if err != nil {
 		return apiKeys, err
 	}
@@ -403,18 +337,11 @@ func sqlCommonGetAPIKeys(limit, offset int, order string, dbHandle sqlQuerier) (
 
 func sqlCommonDumpAPIKeys(dbHandle sqlQuerier) ([]APIKey, error) {
 	apiKeys := make([]APIKey, 0, 30)
-
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
-	q := getDumpAPIKeysQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return nil, err
-	}
-	defer stmt.Close()
 
-	rows, err := stmt.QueryContext(ctx)
+	q := getDumpAPIKeysQuery()
+	rows, err := dbHandle.QueryContext(ctx, q)
 	if err != nil {
 		return apiKeys, err
 	}
@@ -440,17 +367,11 @@ func sqlCommonDumpAPIKeys(dbHandle sqlQuerier) ([]APIKey, error) {
 }
 
 func sqlCommonGetAdminByUsername(username string, dbHandle sqlQuerier) (Admin, error) {
-	var admin Admin
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
+
 	q := getAdminByUsernameQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return admin, err
-	}
-	defer stmt.Close()
-	row := stmt.QueryRowContext(ctx, username)
+	row := dbHandle.QueryRowContext(ctx, q, username)
 
 	return getAdminFromDbRow(row)
 }
@@ -473,14 +394,8 @@ func sqlCommonAddAdmin(admin *Admin, dbHandle *sql.DB) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
-	q := getAddAdminQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
 
+	q := getAddAdminQuery()
 	perms, err := json.Marshal(admin.Permissions)
 	if err != nil {
 		return err
@@ -491,7 +406,7 @@ func sqlCommonAddAdmin(admin *Admin, dbHandle *sql.DB) error {
 		return err
 	}
 
-	_, err = stmt.ExecContext(ctx, admin.Username, admin.Password, admin.Status, admin.Email, string(perms),
+	_, err = dbHandle.ExecContext(ctx, q, admin.Username, admin.Password, admin.Status, admin.Email, string(perms),
 		string(filters), admin.AdditionalInfo, admin.Description, util.GetTimeAsMsSinceEpoch(time.Now()),
 		util.GetTimeAsMsSinceEpoch(time.Now()))
 	return err
@@ -505,14 +420,8 @@ func sqlCommonUpdateAdmin(admin *Admin, dbHandle *sql.DB) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
-	q := getUpdateAdminQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
 
+	q := getUpdateAdminQuery()
 	perms, err := json.Marshal(admin.Permissions)
 	if err != nil {
 		return err
@@ -523,7 +432,7 @@ func sqlCommonUpdateAdmin(admin *Admin, dbHandle *sql.DB) error {
 		return err
 	}
 
-	_, err = stmt.ExecContext(ctx, admin.Password, admin.Status, admin.Email, string(perms), string(filters),
+	_, err = dbHandle.ExecContext(ctx, q, admin.Password, admin.Status, admin.Email, string(perms), string(filters),
 		admin.AdditionalInfo, admin.Description, util.GetTimeAsMsSinceEpoch(time.Now()), admin.Username)
 	return err
 }
@@ -531,14 +440,9 @@ func sqlCommonUpdateAdmin(admin *Admin, dbHandle *sql.DB) error {
 func sqlCommonDeleteAdmin(admin Admin, dbHandle *sql.DB) error {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
+
 	q := getDeleteAdminQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
-	res, err := stmt.ExecContext(ctx, admin.Username)
+	res, err := dbHandle.ExecContext(ctx, q, admin.Username)
 	if err != nil {
 		return err
 	}
@@ -547,18 +451,11 @@ func sqlCommonDeleteAdmin(admin Admin, dbHandle *sql.DB) error {
 
 func sqlCommonGetAdmins(limit, offset int, order string, dbHandle sqlQuerier) ([]Admin, error) {
 	admins := make([]Admin, 0, limit)
-
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
-	q := getAdminsQuery(order)
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return nil, err
-	}
-	defer stmt.Close()
 
-	rows, err := stmt.QueryContext(ctx, limit, offset)
+	q := getAdminsQuery(order)
+	rows, err := dbHandle.QueryContext(ctx, q, limit, offset)
 	if err != nil {
 		return admins, err
 	}
@@ -578,18 +475,11 @@ func sqlCommonGetAdmins(limit, offset int, order string, dbHandle sqlQuerier) ([
 
 func sqlCommonDumpAdmins(dbHandle sqlQuerier) ([]Admin, error) {
 	admins := make([]Admin, 0, 30)
-
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
-	q := getDumpAdminsQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return nil, err
-	}
-	defer stmt.Close()
 
-	rows, err := stmt.QueryContext(ctx)
+	q := getDumpAdminsQuery()
+	rows, err := dbHandle.QueryContext(ctx, q)
 	if err != nil {
 		return admins, err
 	}
@@ -607,20 +497,13 @@ func sqlCommonDumpAdmins(dbHandle sqlQuerier) ([]Admin, error) {
 }
 
 func sqlCommonGetGroupByName(name string, dbHandle sqlQuerier) (Group, error) {
-	var group Group
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
 
 	q := getGroupByNameQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return group, err
-	}
-	defer stmt.Close()
 
-	row := stmt.QueryRowContext(ctx, name)
-	group, err = getGroupFromDbRow(row)
+	row := dbHandle.QueryRowContext(ctx, q, name)
+	group, err := getGroupFromDbRow(row)
 	if err != nil {
 		return group, err
 	}
@@ -637,14 +520,8 @@ func sqlCommonDumpGroups(dbHandle sqlQuerier) ([]Group, error) {
 	defer cancel()
 
 	q := getDumpGroupsQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return nil, err
-	}
-	defer stmt.Close()
 
-	rows, err := stmt.QueryContext(ctx)
+	rows, err := dbHandle.QueryContext(ctx, q)
 	if err != nil {
 		return groups, err
 	}
@@ -669,20 +546,13 @@ func sqlCommonGetUsersInGroups(names []string, dbHandle sqlQuerier) ([]string, e
 	defer cancel()
 
 	q := getUsersInGroupsQuery(len(names))
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return nil, err
-	}
-	defer stmt.Close()
-
 	args := make([]any, 0, len(names))
 	for _, name := range names {
 		args = append(args, name)
 	}
 
 	usernames := make([]string, 0, len(names))
-	rows, err := stmt.QueryContext(ctx, args...)
+	rows, err := dbHandle.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -707,20 +577,12 @@ func sqlCommonGetGroupsWithNames(names []string, dbHandle sqlQuerier) ([]Group, 
 	defer cancel()
 
 	q := getGroupsWithNamesQuery(len(names))
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return nil, err
-	}
-	defer stmt.Close()
-
 	args := make([]any, 0, len(names))
 	for _, name := range names {
 		args = append(args, name)
 	}
-
 	groups := make([]Group, 0, len(names))
-	rows, err := stmt.QueryContext(ctx, args...)
+	rows, err := dbHandle.QueryContext(ctx, q, args...)
 	if err != nil {
 		return groups, err
 	}
@@ -745,29 +607,25 @@ func sqlCommonGetGroups(limit int, offset int, order string, minimal bool, dbHan
 	defer cancel()
 
 	q := getGroupsQuery(order, minimal)
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return nil, err
-	}
-	defer stmt.Close()
 
 	groups := make([]Group, 0, limit)
-	rows, err := stmt.QueryContext(ctx, limit, offset)
-	if err == nil {
-		defer rows.Close()
-		for rows.Next() {
-			var group Group
-			if minimal {
-				err = rows.Scan(&group.ID, &group.Name)
-			} else {
-				group, err = getGroupFromDbRow(rows)
-			}
-			if err != nil {
-				return groups, err
-			}
-			groups = append(groups, group)
+	rows, err := dbHandle.QueryContext(ctx, q, limit, offset)
+	if err != nil {
+		return groups, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var group Group
+		if minimal {
+			err = rows.Scan(&group.ID, &group.Name)
+		} else {
+			group, err = getGroupFromDbRow(rows)
 		}
+		if err != nil {
+			return groups, err
+		}
+		groups = append(groups, group)
 	}
 	err = rows.Err()
 	if err != nil {
@@ -799,18 +657,12 @@ func sqlCommonAddGroup(group *Group, dbHandle *sql.DB) error {
 
 	return sqlCommonExecuteTx(ctx, dbHandle, func(tx *sql.Tx) error {
 		q := getAddGroupQuery()
-		stmt, err := tx.PrepareContext(ctx, q)
-		if err != nil {
-			providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-			return err
-		}
-		defer stmt.Close()
 
 		settings, err := json.Marshal(group.UserSettings)
 		if err != nil {
 			return err
 		}
-		_, err = stmt.ExecContext(ctx, group.Name, group.Description, util.GetTimeAsMsSinceEpoch(time.Now()),
+		_, err = tx.ExecContext(ctx, q, group.Name, group.Description, util.GetTimeAsMsSinceEpoch(time.Now()),
 			util.GetTimeAsMsSinceEpoch(time.Now()), string(settings))
 		if err != nil {
 			return err
@@ -828,18 +680,12 @@ func sqlCommonUpdateGroup(group *Group, dbHandle *sql.DB) error {
 
 	return sqlCommonExecuteTx(ctx, dbHandle, func(tx *sql.Tx) error {
 		q := getUpdateGroupQuery()
-		stmt, err := tx.PrepareContext(ctx, q)
-		if err != nil {
-			providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-			return err
-		}
-		defer stmt.Close()
 
 		settings, err := json.Marshal(group.UserSettings)
 		if err != nil {
 			return err
 		}
-		_, err = stmt.ExecContext(ctx, group.Description, settings, util.GetTimeAsMsSinceEpoch(time.Now()), group.Name)
+		_, err = tx.ExecContext(ctx, q, group.Description, settings, util.GetTimeAsMsSinceEpoch(time.Now()), group.Name)
 		if err != nil {
 			return err
 		}
@@ -852,13 +698,7 @@ func sqlCommonDeleteGroup(group Group, dbHandle *sql.DB) error {
 	defer cancel()
 
 	q := getDeleteGroupQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
-	res, err := stmt.ExecContext(ctx, group.Name)
+	res, err := dbHandle.ExecContext(ctx, q, group.Name)
 	if err != nil {
 		return err
 	}
@@ -866,20 +706,12 @@ func sqlCommonDeleteGroup(group Group, dbHandle *sql.DB) error {
 }
 
 func sqlCommonGetUserByUsername(username string, dbHandle sqlQuerier) (User, error) {
-	var user User
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
 
 	q := getUserByUsernameQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return user, err
-	}
-	defer stmt.Close()
-
-	row := stmt.QueryRowContext(ctx, username)
-	user, err = getUserFromDbRow(row)
+	row := dbHandle.QueryRowContext(ctx, q, username)
+	user, err := getUserFromDbRow(row)
 	if err != nil {
 		return user, err
 	}
@@ -947,14 +779,9 @@ func sqlCommonCheckAvailability(dbHandle *sql.DB) (err error) {
 func sqlCommonUpdateTransferQuota(username string, uploadSize, downloadSize int64, reset bool, dbHandle *sql.DB) error {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
+
 	q := getUpdateTransferQuotaQuery(reset)
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
-	_, err = stmt.ExecContext(ctx, uploadSize, downloadSize, util.GetTimeAsMsSinceEpoch(time.Now()), username)
+	_, err := dbHandle.ExecContext(ctx, q, uploadSize, downloadSize, util.GetTimeAsMsSinceEpoch(time.Now()), username)
 	if err == nil {
 		providerLog(logger.LevelDebug, "transfer quota updated for user %#v, ul increment: %v dl increment: %v is reset? %v",
 			username, uploadSize, downloadSize, reset)
@@ -967,14 +794,9 @@ func sqlCommonUpdateTransferQuota(username string, uploadSize, downloadSize int6
 func sqlCommonUpdateQuota(username string, filesAdd int, sizeAdd int64, reset bool, dbHandle *sql.DB) error {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
+
 	q := getUpdateQuotaQuery(reset)
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
-	_, err = stmt.ExecContext(ctx, sizeAdd, filesAdd, util.GetTimeAsMsSinceEpoch(time.Now()), username)
+	_, err := dbHandle.ExecContext(ctx, q, sizeAdd, filesAdd, util.GetTimeAsMsSinceEpoch(time.Now()), username)
 	if err == nil {
 		providerLog(logger.LevelDebug, "quota updated for user %#v, files increment: %v size increment: %v is reset? %v",
 			username, filesAdd, sizeAdd, reset)
@@ -987,17 +809,11 @@ func sqlCommonUpdateQuota(username string, filesAdd int, sizeAdd int64, reset bo
 func sqlCommonGetUsedQuota(username string, dbHandle *sql.DB) (int, int64, int64, int64, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
-	q := getQuotaQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return 0, 0, 0, 0, err
-	}
-	defer stmt.Close()
 
+	q := getQuotaQuery()
 	var usedFiles int
 	var usedSize, usedUploadSize, usedDownloadSize int64
-	err = stmt.QueryRowContext(ctx, username).Scan(&usedSize, &usedFiles, &usedUploadSize, &usedDownloadSize)
+	err := dbHandle.QueryRowContext(ctx, q, username).Scan(&usedSize, &usedFiles, &usedUploadSize, &usedDownloadSize)
 	if err != nil {
 		providerLog(logger.LevelError, "error getting quota for user: %v, error: %v", username, err)
 		return 0, 0, 0, 0, err
@@ -1008,14 +824,9 @@ func sqlCommonGetUsedQuota(username string, dbHandle *sql.DB) (int, int64, int64
 func sqlCommonUpdateShareLastUse(shareID string, numTokens int, dbHandle *sql.DB) error {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
+
 	q := getUpdateShareLastUseQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
-	_, err = stmt.ExecContext(ctx, util.GetTimeAsMsSinceEpoch(time.Now()), numTokens, shareID)
+	_, err := dbHandle.ExecContext(ctx, q, util.GetTimeAsMsSinceEpoch(time.Now()), numTokens, shareID)
 	if err == nil {
 		providerLog(logger.LevelDebug, "last use updated for shared object %#v", shareID)
 	} else {
@@ -1027,14 +838,9 @@ func sqlCommonUpdateShareLastUse(shareID string, numTokens int, dbHandle *sql.DB
 func sqlCommonUpdateAPIKeyLastUse(keyID string, dbHandle *sql.DB) error {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
+
 	q := getUpdateAPIKeyLastUseQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
-	_, err = stmt.ExecContext(ctx, util.GetTimeAsMsSinceEpoch(time.Now()), keyID)
+	_, err := dbHandle.ExecContext(ctx, q, util.GetTimeAsMsSinceEpoch(time.Now()), keyID)
 	if err == nil {
 		providerLog(logger.LevelDebug, "last use updated for key %#v", keyID)
 	} else {
@@ -1046,14 +852,9 @@ func sqlCommonUpdateAPIKeyLastUse(keyID string, dbHandle *sql.DB) error {
 func sqlCommonUpdateAdminLastLogin(username string, dbHandle *sql.DB) error {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
+
 	q := getUpdateAdminLastLoginQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
-	_, err = stmt.ExecContext(ctx, util.GetTimeAsMsSinceEpoch(time.Now()), username)
+	_, err := dbHandle.ExecContext(ctx, q, util.GetTimeAsMsSinceEpoch(time.Now()), username)
 	if err == nil {
 		providerLog(logger.LevelDebug, "last login updated for admin %#v", username)
 	} else {
@@ -1065,14 +866,9 @@ func sqlCommonUpdateAdminLastLogin(username string, dbHandle *sql.DB) error {
 func sqlCommonSetUpdatedAt(username string, dbHandle *sql.DB) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
+
 	q := getSetUpdateAtQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return
-	}
-	defer stmt.Close()
-	_, err = stmt.ExecContext(ctx, util.GetTimeAsMsSinceEpoch(time.Now()), username)
+	_, err := dbHandle.ExecContext(ctx, q, util.GetTimeAsMsSinceEpoch(time.Now()), username)
 	if err == nil {
 		providerLog(logger.LevelDebug, "updated_at set for user %#v", username)
 	} else {
@@ -1083,14 +879,9 @@ func sqlCommonSetUpdatedAt(username string, dbHandle *sql.DB) {
 func sqlCommonUpdateLastLogin(username string, dbHandle *sql.DB) error {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
+
 	q := getUpdateLastLoginQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
-	_, err = stmt.ExecContext(ctx, util.GetTimeAsMsSinceEpoch(time.Now()), username)
+	_, err := dbHandle.ExecContext(ctx, q, util.GetTimeAsMsSinceEpoch(time.Now()), username)
 	if err == nil {
 		providerLog(logger.LevelDebug, "last login updated for user %#v", username)
 	} else {
@@ -1109,12 +900,6 @@ func sqlCommonAddUser(user *User, dbHandle *sql.DB) error {
 
 	return sqlCommonExecuteTx(ctx, dbHandle, func(tx *sql.Tx) error {
 		q := getAddUserQuery()
-		stmt, err := tx.PrepareContext(ctx, q)
-		if err != nil {
-			providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-			return err
-		}
-		defer stmt.Close()
 		permissions, err := user.GetPermissionsAsJSON()
 		if err != nil {
 			return err
@@ -1131,7 +916,7 @@ func sqlCommonAddUser(user *User, dbHandle *sql.DB) error {
 		if err != nil {
 			return err
 		}
-		_, err = stmt.ExecContext(ctx, user.Username, user.Password, string(publicKeys), user.HomeDir, user.UID, user.GID,
+		_, err = tx.ExecContext(ctx, q, user.Username, user.Password, string(publicKeys), user.HomeDir, user.UID, user.GID,
 			user.MaxSessions, user.QuotaSize, user.QuotaFiles, string(permissions), user.UploadBandwidth,
 			user.DownloadBandwidth, user.Status, user.ExpirationDate, string(filters), string(fsConfig), user.AdditionalInfo,
 			user.Description, user.Email, util.GetTimeAsMsSinceEpoch(time.Now()), util.GetTimeAsMsSinceEpoch(time.Now()),
@@ -1151,13 +936,7 @@ func sqlCommonUpdateUserPassword(username, password string, dbHandle *sql.DB) er
 	defer cancel()
 
 	q := getUpdateUserPasswordQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
-	_, err = stmt.ExecContext(ctx, password, username)
+	_, err := dbHandle.ExecContext(ctx, q, password, username)
 	return err
 }
 
@@ -1171,12 +950,6 @@ func sqlCommonUpdateUser(user *User, dbHandle *sql.DB) error {
 
 	return sqlCommonExecuteTx(ctx, dbHandle, func(tx *sql.Tx) error {
 		q := getUpdateUserQuery()
-		stmt, err := tx.PrepareContext(ctx, q)
-		if err != nil {
-			providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-			return err
-		}
-		defer stmt.Close()
 		permissions, err := user.GetPermissionsAsJSON()
 		if err != nil {
 			return err
@@ -1193,7 +966,7 @@ func sqlCommonUpdateUser(user *User, dbHandle *sql.DB) error {
 		if err != nil {
 			return err
 		}
-		_, err = stmt.ExecContext(ctx, user.Password, string(publicKeys), user.HomeDir, user.UID, user.GID, user.MaxSessions,
+		_, err = tx.ExecContext(ctx, q, user.Password, string(publicKeys), user.HomeDir, user.UID, user.GID, user.MaxSessions,
 			user.QuotaSize, user.QuotaFiles, string(permissions), user.UploadBandwidth, user.DownloadBandwidth, user.Status,
 			user.ExpirationDate, string(filters), string(fsConfig), user.AdditionalInfo, user.Description, user.Email,
 			util.GetTimeAsMsSinceEpoch(time.Now()), user.UploadDataTransfer, user.DownloadDataTransfer, user.TotalDataTransfer,
@@ -1211,14 +984,9 @@ func sqlCommonUpdateUser(user *User, dbHandle *sql.DB) error {
 func sqlCommonDeleteUser(user User, dbHandle *sql.DB) error {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
+
 	q := getDeleteUserQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
-	res, err := stmt.ExecContext(ctx, user.ID)
+	res, err := dbHandle.ExecContext(ctx, q, user.ID)
 	if err != nil {
 		return err
 	}
@@ -1229,14 +997,9 @@ func sqlCommonDumpUsers(dbHandle sqlQuerier) ([]User, error) {
 	users := make([]User, 0, 100)
 	ctx, cancel := context.WithTimeout(context.Background(), longSQLQueryTimeout)
 	defer cancel()
+
 	q := getDumpUsersQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return nil, err
-	}
-	defer stmt.Close()
-	rows, err := stmt.QueryContext(ctx)
+	rows, err := dbHandle.QueryContext(ctx, q)
 	if err != nil {
 		return users, err
 	}
@@ -1264,24 +1027,21 @@ func sqlCommonGetRecentlyUpdatedUsers(after int64, dbHandle sqlQuerier) ([]User,
 	users := make([]User, 0, 10)
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
-	q := getRecentlyUpdatedUsersQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return nil, err
-	}
-	defer stmt.Close()
 
-	rows, err := stmt.QueryContext(ctx, after)
-	if err == nil {
-		defer rows.Close()
-		for rows.Next() {
-			u, err := getUserFromDbRow(rows)
-			if err != nil {
-				return users, err
-			}
-			users = append(users, u)
+	q := getRecentlyUpdatedUsersQuery()
+
+	rows, err := dbHandle.QueryContext(ctx, q, after)
+	if err != nil {
+		return users, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		u, err := getUserFromDbRow(rows)
+		if err != nil {
+			return users, err
 		}
+		users = append(users, u)
 	}
 	err = rows.Err()
 	if err != nil {
@@ -1353,7 +1113,6 @@ func sqlCommonGetUsersForQuotaCheck(toFetch map[string]bool, dbHandle sqlQuerier
 		}
 	}
 	users = users[:validIdx]
-
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
 
@@ -1397,19 +1156,12 @@ func sqlCommonGetUsersRangeForQuotaCheck(usernames []string, dbHandle sqlQuerier
 	defer cancel()
 
 	q := getUsersForQuotaCheckQuery(len(usernames))
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return users, err
-	}
-	defer stmt.Close()
-
 	queryArgs := make([]any, 0, len(usernames))
 	for idx := range usernames {
 		queryArgs = append(queryArgs, usernames[idx])
 	}
 
-	rows, err := stmt.QueryContext(ctx, queryArgs...)
+	rows, err := dbHandle.QueryContext(ctx, q, queryArgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -1440,15 +1192,10 @@ func sqlCommonGetUsersRangeForQuotaCheck(usernames []string, dbHandle sqlQuerier
 func sqlCommonAddActiveTransfer(transfer ActiveTransfer, dbHandle *sql.DB) error {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
+
 	q := getAddActiveTransferQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
 	now := util.GetTimeAsMsSinceEpoch(time.Now())
-	_, err = stmt.ExecContext(ctx, transfer.ID, transfer.ConnID, transfer.Type, transfer.Username,
+	_, err := dbHandle.ExecContext(ctx, q, transfer.ID, transfer.ConnID, transfer.Type, transfer.Username,
 		transfer.FolderName, transfer.IP, transfer.TruncatedSize, transfer.CurrentULSize, transfer.CurrentDLSize,
 		now, now)
 	return err
@@ -1457,29 +1204,18 @@ func sqlCommonAddActiveTransfer(transfer ActiveTransfer, dbHandle *sql.DB) error
 func sqlCommonUpdateActiveTransferSizes(ulSize, dlSize, transferID int64, connectionID string, dbHandle *sql.DB) error {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
-	q := getUpdateActiveTransferSizesQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
 
-	_, err = stmt.ExecContext(ctx, ulSize, dlSize, util.GetTimeAsMsSinceEpoch(time.Now()), connectionID, transferID)
+	q := getUpdateActiveTransferSizesQuery()
+	_, err := dbHandle.ExecContext(ctx, q, ulSize, dlSize, util.GetTimeAsMsSinceEpoch(time.Now()), connectionID, transferID)
 	return err
 }
 
 func sqlCommonRemoveActiveTransfer(transferID int64, connectionID string, dbHandle *sql.DB) error {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
+
 	q := getRemoveActiveTransferQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
-	_, err = stmt.ExecContext(ctx, connectionID, transferID)
+	_, err := dbHandle.ExecContext(ctx, q, connectionID, transferID)
 	return err
 }
 
@@ -1488,13 +1224,7 @@ func sqlCommonCleanupActiveTransfers(before time.Time, dbHandle *sql.DB) error {
 	defer cancel()
 
 	q := getCleanupActiveTransfersQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
-	_, err = stmt.ExecContext(ctx, util.GetTimeAsMsSinceEpoch(before))
+	_, err := dbHandle.ExecContext(ctx, q, util.GetTimeAsMsSinceEpoch(before))
 	return err
 }
 
@@ -1504,14 +1234,7 @@ func sqlCommonGetActiveTransfers(from time.Time, dbHandle sqlQuerier) ([]ActiveT
 	defer cancel()
 
 	q := getActiveTransfersQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return nil, err
-	}
-	defer stmt.Close()
-
-	rows, err := stmt.QueryContext(ctx, util.GetTimeAsMsSinceEpoch(from))
+	rows, err := dbHandle.QueryContext(ctx, q, util.GetTimeAsMsSinceEpoch(from))
 	if err != nil {
 		return nil, err
 	}
@@ -1539,24 +1262,20 @@ func sqlCommonGetUsers(limit int, offset int, order string, dbHandle sqlQuerier)
 	users := make([]User, 0, limit)
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
-	q := getUsersQuery(order)
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return nil, err
-	}
-	defer stmt.Close()
 
-	rows, err := stmt.QueryContext(ctx, limit, offset)
-	if err == nil {
-		defer rows.Close()
-		for rows.Next() {
-			u, err := getUserFromDbRow(rows)
-			if err != nil {
-				return users, err
-			}
-			users = append(users, u)
+	q := getUsersQuery(order)
+	rows, err := dbHandle.QueryContext(ctx, q, limit, offset)
+	if err != nil {
+		return users, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		u, err := getUserFromDbRow(rows)
+		if err != nil {
+			return users, err
 		}
+		users = append(users, u)
 	}
 	err = rows.Err()
 	if err != nil {
@@ -1578,18 +1297,11 @@ func sqlCommonGetUsers(limit int, offset int, order string, dbHandle sqlQuerier)
 
 func sqlCommonGetDefenderHosts(from int64, limit int, dbHandle sqlQuerier) ([]DefenderEntry, error) {
 	hosts := make([]DefenderEntry, 0, 100)
-
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
 
 	q := getDefenderHostsQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return nil, err
-	}
-	defer stmt.Close()
-	rows, err := stmt.QueryContext(ctx, from, limit)
+	rows, err := dbHandle.QueryContext(ctx, q, from, limit)
 	if err != nil {
 		providerLog(logger.LevelError, "unable to get defender hosts: %v", err)
 		return hosts, err
@@ -1633,15 +1345,8 @@ func sqlCommonIsDefenderHostBanned(ip string, dbHandle sqlQuerier) (DefenderEntr
 	defer cancel()
 
 	q := getDefenderIsHostBannedQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return host, err
-	}
-	defer stmt.Close()
-
-	row := stmt.QueryRowContext(ctx, ip, util.GetTimeAsMsSinceEpoch(time.Now()))
-	err = row.Scan(&host.ID)
+	row := dbHandle.QueryRowContext(ctx, q, ip, util.GetTimeAsMsSinceEpoch(time.Now()))
+	err := row.Scan(&host.ID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return host, util.NewRecordNotFoundError("host not found")
@@ -1655,21 +1360,13 @@ func sqlCommonIsDefenderHostBanned(ip string, dbHandle sqlQuerier) (DefenderEntr
 
 func sqlCommonGetDefenderHostByIP(ip string, from int64, dbHandle sqlQuerier) (DefenderEntry, error) {
 	var host DefenderEntry
-
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
 
 	q := getDefenderHostQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return host, err
-	}
-	defer stmt.Close()
-
-	row := stmt.QueryRowContext(ctx, ip, from)
+	row := dbHandle.QueryRowContext(ctx, q, ip, from)
 	var banTime sql.NullInt64
-	err = row.Scan(&host.ID, &host.IP, &banTime)
+	err := row.Scan(&host.ID, &host.IP, &banTime)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return host, util.NewRecordNotFoundError("host not found")
@@ -1699,14 +1396,9 @@ func sqlCommonGetDefenderHostByIP(ip string, from int64, dbHandle sqlQuerier) (D
 func sqlCommonDefenderIncrementBanTime(ip string, minutesToAdd int, dbHandle *sql.DB) error {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
+
 	q := getDefenderIncrementBanTimeQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
-	_, err = stmt.ExecContext(ctx, minutesToAdd*60000, ip)
+	_, err := dbHandle.ExecContext(ctx, q, minutesToAdd*60000, ip)
 	if err == nil {
 		providerLog(logger.LevelDebug, "ban time updated for ip %#v, increment (minutes): %v",
 			ip, minutesToAdd)
@@ -1719,14 +1411,9 @@ func sqlCommonDefenderIncrementBanTime(ip string, minutesToAdd int, dbHandle *sq
 func sqlCommonSetDefenderBanTime(ip string, banTime int64, dbHandle *sql.DB) error {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
+
 	q := getDefenderSetBanTimeQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
-	_, err = stmt.ExecContext(ctx, banTime, ip)
+	_, err := dbHandle.ExecContext(ctx, q, banTime, ip)
 	if err == nil {
 		providerLog(logger.LevelDebug, "ip %#v banned until %v", ip, util.GetTimeFromMsecSinceEpoch(banTime))
 	} else {
@@ -1738,14 +1425,9 @@ func sqlCommonSetDefenderBanTime(ip string, banTime int64, dbHandle *sql.DB) err
 func sqlCommonDeleteDefenderHost(ip string, dbHandle sqlQuerier) error {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
+
 	q := getDeleteDefenderHostQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
-	res, err := stmt.ExecContext(ctx, ip)
+	res, err := dbHandle.ExecContext(ctx, q, ip)
 	if err != nil {
 		providerLog(logger.LevelError, "unable to delete defender host %#v: %v", ip, err)
 		return err
@@ -1774,13 +1456,7 @@ func sqlCommonDefenderCleanup(from int64, dbHandler *sql.DB) error {
 
 func sqlCommonAddDefenderHost(ctx context.Context, ip string, tx *sql.Tx) error {
 	q := getAddDefenderHostQuery()
-	stmt, err := tx.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
-	_, err = stmt.ExecContext(ctx, ip, util.GetTimeAsMsSinceEpoch(time.Now()))
+	_, err := tx.ExecContext(ctx, q, ip, util.GetTimeAsMsSinceEpoch(time.Now()))
 	if err != nil {
 		providerLog(logger.LevelError, "unable to add defender host %#v: %v", ip, err)
 	}
@@ -1789,13 +1465,7 @@ func sqlCommonAddDefenderHost(ctx context.Context, ip string, tx *sql.Tx) error 
 
 func sqlCommonAddDefenderEvent(ctx context.Context, ip string, score int, tx *sql.Tx) error {
 	q := getAddDefenderEventQuery()
-	stmt, err := tx.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
-	_, err = stmt.ExecContext(ctx, util.GetTimeAsMsSinceEpoch(time.Now()), score, ip)
+	_, err := tx.ExecContext(ctx, q, util.GetTimeAsMsSinceEpoch(time.Now()), score, ip)
 	if err != nil {
 		providerLog(logger.LevelError, "unable to add defender event for %#v: %v", ip, err)
 	}
@@ -1807,13 +1477,7 @@ func sqlCommonCleanupDefenderHosts(from int64, dbHandle *sql.DB) error {
 	defer cancel()
 
 	q := getDefenderHostsCleanupQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
-	_, err = stmt.ExecContext(ctx, util.GetTimeAsMsSinceEpoch(time.Now()), from)
+	_, err := dbHandle.ExecContext(ctx, q, util.GetTimeAsMsSinceEpoch(time.Now()), from)
 	if err != nil {
 		providerLog(logger.LevelError, "unable to cleanup defender hosts: %v", err)
 	}
@@ -1825,13 +1489,7 @@ func sqlCommonCleanupDefenderEvents(from int64, dbHandle *sql.DB) error {
 	defer cancel()
 
 	q := getDefenderEventsCleanupQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
-	_, err = stmt.ExecContext(ctx, from)
+	_, err := dbHandle.ExecContext(ctx, q, from)
 	if err != nil {
 		providerLog(logger.LevelError, "unable to cleanup defender events: %v", err)
 	}
@@ -2047,15 +1705,9 @@ func getUserFromDbRow(row sqlScanner) (User, error) {
 func sqlCommonGetFolder(ctx context.Context, name string, dbHandle sqlQuerier) (vfs.BaseVirtualFolder, error) {
 	var folder vfs.BaseVirtualFolder
 	q := getFolderByNameQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return folder, err
-	}
-	defer stmt.Close()
-	row := stmt.QueryRowContext(ctx, name)
+	row := dbHandle.QueryRowContext(ctx, q, name)
 	var mappedPath, description, fsConfig sql.NullString
-	err = row.Scan(&folder.ID, &mappedPath, &folder.UsedQuotaSize, &folder.UsedQuotaFiles, &folder.LastQuotaUpdate,
+	err := row.Scan(&folder.ID, &mappedPath, &folder.UsedQuotaSize, &folder.UsedQuotaFiles, &folder.LastQuotaUpdate,
 		&folder.Name, &description, &fsConfig)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -2109,14 +1761,7 @@ func sqlCommonAddOrUpdateFolder(ctx context.Context, baseFolder *vfs.BaseVirtual
 		return err
 	}
 	q := getUpsertFolderQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
-
-	_, err = stmt.ExecContext(ctx, baseFolder.MappedPath, usedQuotaSize, usedQuotaFiles,
+	_, err = dbHandle.ExecContext(ctx, q, baseFolder.MappedPath, usedQuotaSize, usedQuotaFiles,
 		lastQuotaUpdate, baseFolder.Name, baseFolder.Description, string(fsConfig))
 	return err
 }
@@ -2132,14 +1777,9 @@ func sqlCommonAddFolder(folder *vfs.BaseVirtualFolder, dbHandle sqlQuerier) erro
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
+
 	q := getAddFolderQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
-	_, err = stmt.ExecContext(ctx, folder.MappedPath, folder.UsedQuotaSize, folder.UsedQuotaFiles,
+	_, err = dbHandle.ExecContext(ctx, q, folder.MappedPath, folder.UsedQuotaSize, folder.UsedQuotaFiles,
 		folder.LastQuotaUpdate, folder.Name, folder.Description, string(fsConfig))
 	return err
 }
@@ -2155,28 +1795,18 @@ func sqlCommonUpdateFolder(folder *vfs.BaseVirtualFolder, dbHandle sqlQuerier) e
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
+
 	q := getUpdateFolderQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
-	_, err = stmt.ExecContext(ctx, folder.MappedPath, folder.Description, string(fsConfig), folder.Name)
+	_, err = dbHandle.ExecContext(ctx, q, folder.MappedPath, folder.Description, string(fsConfig), folder.Name)
 	return err
 }
 
 func sqlCommonDeleteFolder(folder vfs.BaseVirtualFolder, dbHandle sqlQuerier) error {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
+
 	q := getDeleteFolderQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
-	res, err := stmt.ExecContext(ctx, folder.ID)
+	res, err := dbHandle.ExecContext(ctx, q, folder.ID)
 	if err != nil {
 		return err
 	}
@@ -2187,14 +1817,9 @@ func sqlCommonDumpFolders(dbHandle sqlQuerier) ([]vfs.BaseVirtualFolder, error) 
 	folders := make([]vfs.BaseVirtualFolder, 0, 50)
 	ctx, cancel := context.WithTimeout(context.Background(), longSQLQueryTimeout)
 	defer cancel()
+
 	q := getDumpFoldersQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return nil, err
-	}
-	defer stmt.Close()
-	rows, err := stmt.QueryContext(ctx)
+	rows, err := dbHandle.QueryContext(ctx, q)
 	if err != nil {
 		return folders, err
 	}
@@ -2229,15 +1854,9 @@ func sqlCommonGetFolders(limit, offset int, order string, minimal bool, dbHandle
 	folders := make([]vfs.BaseVirtualFolder, 0, limit)
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
-	q := getFoldersQuery(order, minimal)
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return nil, err
-	}
-	defer stmt.Close()
 
-	rows, err := stmt.QueryContext(ctx, limit, offset)
+	q := getFoldersQuery(order, minimal)
+	rows, err := dbHandle.QueryContext(ctx, q, limit, offset)
 	if err != nil {
 		return folders, err
 	}
@@ -2290,73 +1909,37 @@ func sqlCommonGetFolders(limit, offset int, order string, minimal bool, dbHandle
 
 func sqlCommonClearUserFolderMapping(ctx context.Context, user *User, dbHandle sqlQuerier) error {
 	q := getClearUserFolderMappingQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
-	_, err = stmt.ExecContext(ctx, user.Username)
+	_, err := dbHandle.ExecContext(ctx, q, user.Username)
 	return err
 }
 
 func sqlCommonClearGroupFolderMapping(ctx context.Context, group *Group, dbHandle sqlQuerier) error {
 	q := getClearGroupFolderMappingQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
-	_, err = stmt.ExecContext(ctx, group.Name)
+	_, err := dbHandle.ExecContext(ctx, q, group.Name)
 	return err
 }
 
 func sqlCommonClearUserGroupMapping(ctx context.Context, user *User, dbHandle sqlQuerier) error {
 	q := getClearUserGroupMappingQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
-	_, err = stmt.ExecContext(ctx, user.Username)
+	_, err := dbHandle.ExecContext(ctx, q, user.Username)
 	return err
 }
 
 func sqlCommonAddUserFolderMapping(ctx context.Context, user *User, folder *vfs.VirtualFolder, dbHandle sqlQuerier) error {
 	q := getAddUserFolderMappingQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
-	_, err = stmt.ExecContext(ctx, folder.VirtualPath, folder.QuotaSize, folder.QuotaFiles, folder.Name, user.Username)
+	_, err := dbHandle.ExecContext(ctx, q, folder.VirtualPath, folder.QuotaSize, folder.QuotaFiles, folder.Name, user.Username)
 	return err
 }
 
 func sqlCommonAddGroupFolderMapping(ctx context.Context, group *Group, folder *vfs.VirtualFolder, dbHandle sqlQuerier) error {
 	q := getAddGroupFolderMappingQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
-	_, err = stmt.ExecContext(ctx, folder.VirtualPath, folder.QuotaSize, folder.QuotaFiles, folder.Name, group.Name)
+	_, err := dbHandle.ExecContext(ctx, q, folder.VirtualPath, folder.QuotaSize, folder.QuotaFiles, folder.Name, group.Name)
 	return err
 }
 
 func sqlCommonAddUserGroupMapping(ctx context.Context, username, groupName string, groupType int, dbHandle sqlQuerier) error {
 	q := getAddUserGroupMappingQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
-	_, err = stmt.ExecContext(ctx, username, groupName, groupType)
+	_, err := dbHandle.ExecContext(ctx, q, username, groupName, groupType)
 	return err
 }
 
@@ -2423,14 +2006,7 @@ func getDefenderHostsWithScores(ctx context.Context, hosts []DefenderEntry, from
 
 	hostsWithScores := make(map[int64]int)
 	q := getDefenderEventsQuery(idForScores)
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return nil, err
-	}
-	defer stmt.Close()
-
-	rows, err := stmt.QueryContext(ctx, from)
+	rows, err := dbHandle.QueryContext(ctx, q, from)
 	if err != nil {
 		providerLog(logger.LevelError, "unable to get score for hosts with id %+v: %v", idForScores, err)
 		return nil, err
@@ -2486,13 +2062,7 @@ func getUsersWithVirtualFolders(ctx context.Context, users []User, dbHandle sqlQ
 	var err error
 	usersVirtualFolders := make(map[int64][]vfs.VirtualFolder)
 	q := getRelatedFoldersForUsersQuery(users)
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return nil, err
-	}
-	defer stmt.Close()
-	rows, err := stmt.QueryContext(ctx)
+	rows, err := dbHandle.QueryContext(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -2554,13 +2124,7 @@ func getUsersWithGroups(ctx context.Context, users []User, dbHandle sqlQuerier) 
 	var err error
 	usersGroups := make(map[int64][]sdk.GroupMapping)
 	q := getRelatedGroupsForUsersQuery(users)
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return nil, err
-	}
-	defer stmt.Close()
-	rows, err := stmt.QueryContext(ctx)
+	rows, err := dbHandle.QueryContext(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -2618,13 +2182,7 @@ func getGroupsWithVirtualFolders(ctx context.Context, groups []Group, dbHandle s
 
 	var err error
 	q := getRelatedFoldersForGroupsQuery(groups)
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return nil, err
-	}
-	defer stmt.Close()
-	rows, err := stmt.QueryContext(ctx)
+	rows, err := dbHandle.QueryContext(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -2677,13 +2235,7 @@ func getGroupsWithUsers(ctx context.Context, groups []Group, dbHandle sqlQuerier
 
 	var err error
 	q := getRelatedUsersForGroupsQuery(groups)
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return nil, err
-	}
-	defer stmt.Close()
-	rows, err := stmt.QueryContext(ctx)
+	rows, err := dbHandle.QueryContext(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -2721,14 +2273,9 @@ func getVirtualFoldersWithGroups(folders []vfs.BaseVirtualFolder, dbHandle sqlQu
 	vFoldersGroups := make(map[int64][]string)
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
+
 	q := getRelatedGroupsForFoldersQuery(folders)
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return nil, err
-	}
-	defer stmt.Close()
-	rows, err := stmt.QueryContext(ctx)
+	rows, err := dbHandle.QueryContext(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -2760,18 +2307,12 @@ func getVirtualFoldersWithUsers(folders []vfs.BaseVirtualFolder, dbHandle sqlQue
 	if len(folders) == 0 {
 		return folders, nil
 	}
-
 	var err error
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
+
 	q := getRelatedUsersForFoldersQuery(folders)
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return nil, err
-	}
-	defer stmt.Close()
-	rows, err := stmt.QueryContext(ctx)
+	rows, err := dbHandle.QueryContext(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -2804,14 +2345,9 @@ func getVirtualFoldersWithUsers(folders []vfs.BaseVirtualFolder, dbHandle sqlQue
 func sqlCommonUpdateFolderQuota(name string, filesAdd int, sizeAdd int64, reset bool, dbHandle *sql.DB) error {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
+
 	q := getUpdateFolderQuotaQuery(reset)
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
-	_, err = stmt.ExecContext(ctx, sizeAdd, filesAdd, util.GetTimeAsMsSinceEpoch(time.Now()), name)
+	_, err := dbHandle.ExecContext(ctx, q, sizeAdd, filesAdd, util.GetTimeAsMsSinceEpoch(time.Now()), name)
 	if err == nil {
 		providerLog(logger.LevelDebug, "quota updated for folder %#v, files increment: %v size increment: %v is reset? %v",
 			name, filesAdd, sizeAdd, reset)
@@ -2824,17 +2360,11 @@ func sqlCommonUpdateFolderQuota(name string, filesAdd int, sizeAdd int64, reset 
 func sqlCommonGetFolderUsedQuota(mappedPath string, dbHandle *sql.DB) (int, int64, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
-	q := getQuotaFolderQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return 0, 0, err
-	}
-	defer stmt.Close()
 
+	q := getQuotaFolderQuery()
 	var usedFiles int
 	var usedSize int64
-	err = stmt.QueryRowContext(ctx, mappedPath).Scan(&usedSize, &usedFiles)
+	err := dbHandle.QueryRowContext(ctx, q, mappedPath).Scan(&usedSize, &usedFiles)
 	if err != nil {
 		providerLog(logger.LevelError, "error getting quota for folder: %v, error: %v", mappedPath, err)
 		return 0, 0, err
@@ -2871,13 +2401,7 @@ func getRelatedValuesForAPIKeys(ctx context.Context, apiKeys []APIKey, dbHandle 
 	} else {
 		q = getRelatedAdminsForAPIKeysQuery(apiKeys)
 	}
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return nil, err
-	}
-	defer stmt.Close()
-	rows, err := stmt.QueryContext(ctx)
+	rows, err := dbHandle.QueryContext(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -2942,34 +2466,18 @@ func sqlCommonAddSession(session Session, dbHandle *sql.DB) error {
 	defer cancel()
 
 	q := getAddSessionQuery()
-
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
-
-	_, err = stmt.ExecContext(ctx, session.Key, data, session.Type, session.Timestamp)
+	_, err = dbHandle.ExecContext(ctx, q, session.Key, data, session.Type, session.Timestamp)
 	return err
 }
 
 func sqlCommonGetSession(key string, dbHandle sqlQuerier) (Session, error) {
 	var session Session
-
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
 
 	q := getSessionQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return session, err
-	}
-	defer stmt.Close()
-
 	var data []byte // type hint, some driver will use string instead of []byte if the type is any
-	err = stmt.QueryRowContext(ctx, key).Scan(&session.Key, &data, &session.Type, &session.Timestamp)
+	err := dbHandle.QueryRowContext(ctx, q, key).Scan(&session.Key, &data, &session.Type, &session.Timestamp)
 	if err != nil {
 		return session, err
 	}
@@ -2982,13 +2490,7 @@ func sqlCommonDeleteSession(key string, dbHandle *sql.DB) error {
 	defer cancel()
 
 	q := getDeleteSessionQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
-	res, err := stmt.ExecContext(ctx, key)
+	res, err := dbHandle.ExecContext(ctx, q, key)
 	if err != nil {
 		return err
 	}
@@ -3000,13 +2502,7 @@ func sqlCommonCleanupSessions(sessionType SessionType, before int64, dbHandle *s
 	defer cancel()
 
 	q := getCleanupSessionsQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
-	_, err = stmt.ExecContext(ctx, sessionType, before)
+	_, err := dbHandle.ExecContext(ctx, q, sessionType, before)
 	return err
 }
 
@@ -3016,17 +2512,8 @@ func sqlCommonGetDatabaseVersion(dbHandle sqlQuerier, showInitWarn bool) (schema
 	defer cancel()
 
 	q := getDatabaseVersionQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		if showInitWarn && strings.Contains(err.Error(), sqlTableSchemaVersion) {
-			logger.WarnToConsole("database query error, did you forgot to run the \"initprovider\" command?")
-		}
-		return result, err
-	}
-	defer stmt.Close()
-	row := stmt.QueryRowContext(ctx)
-	err = row.Scan(&result.Version)
+	row := dbHandle.QueryRowContext(ctx, q)
+	err := row.Scan(&result.Version)
 	return result, err
 }
 
@@ -3042,13 +2529,7 @@ func sqlCommonRequireRowAffected(res sql.Result) error {
 
 func sqlCommonUpdateDatabaseVersion(ctx context.Context, dbHandle sqlQuerier, version int) error {
 	q := getUpdateDBVersionQuery()
-	stmt, err := dbHandle.PrepareContext(ctx, q)
-	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
-		return err
-	}
-	defer stmt.Close()
-	_, err = stmt.ExecContext(ctx, version)
+	_, err := dbHandle.ExecContext(ctx, q, version)
 	return err
 }
 
@@ -3101,14 +2582,8 @@ func sqlAcquireLock(dbHandle *sql.DB) error {
 		}
 		providerLog(logger.LevelInfo, "acquired database lock")
 	case MySQLDataProviderName:
-		stmt, err := dbHandle.PrepareContext(ctx, `SELECT GET_LOCK('sftpgo.migration',30)`)
-		if err != nil {
-			return fmt.Errorf("unable to get lock: %w", err)
-		}
-		defer stmt.Close()
-
 		var lockResult sql.NullInt64
-		err = stmt.QueryRowContext(ctx).Scan(&lockResult)
+		err := dbHandle.QueryRowContext(ctx, `SELECT GET_LOCK('sftpgo.migration',30)`).Scan(&lockResult)
 		if err != nil {
 			return fmt.Errorf("unable to get lock: %w", err)
 		}

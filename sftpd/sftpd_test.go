@@ -8633,8 +8633,7 @@ func TestSSHCopy(t *testing.T) {
 			assert.NoError(t, err)
 			err = os.Chmod(subPath, 0001)
 			assert.NoError(t, err)
-			// c.connection.fs.GetDirSize(fsSourcePath) will fail scanning subdirs
-			// checkRecursiveCopyPermissions will work since it will skip subdirs with no permissions
+			// checkRecursiveCopyPermissions will fail scanning subdirs
 			_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", vdirPath1, "newdir"), user, usePubKey)
 			assert.Error(t, err)
 			err = os.Chmod(subPath, os.ModePerm)
