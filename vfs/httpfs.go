@@ -31,6 +31,10 @@ const (
 	httpFsName = "httpfs"
 )
 
+var (
+	supportedEndpointSchema = []string{"http://", "https://"}
+)
+
 // HTTPFsConfig defines the configuration for HTTP based filesystem
 type HTTPFsConfig struct {
 	sdk.BaseHTTPFsConfig
@@ -95,6 +99,9 @@ func (c *HTTPFsConfig) validate() error {
 	if err != nil {
 		return fmt.Errorf("httpfs: invalid endpoint: %w", err)
 	}
+	if !util.IsStringPrefixInSlice(c.Endpoint, supportedEndpointSchema) {
+		return errors.New("httpfs: invalid endpoint schema: http and https are supported")
+	}
 	if c.Password.IsEncrypted() && !c.Password.IsValid() {
 		return errors.New("httpfs: invalid encrypted password")
 	}
@@ -150,9 +157,7 @@ func NewHTTPFs(connectionID, localTempDir, mountPath string, config HTTPFsConfig
 			localTempDir = filepath.Clean(os.TempDir())
 		}
 	}
-	if err := config.validate(); err != nil {
-		return nil, err
-	}
+	config.setEmptyCredentialsIfNil()
 	if !config.Password.IsEmpty() {
 		if err := config.Password.TryDecrypt(); err != nil {
 			return nil, err
@@ -343,16 +348,6 @@ func (*HTTPFs) Readlink(name string) (string, error) {
 
 // Chown changes the numeric uid and gid of the named file.
 func (fs *HTTPFs) Chown(name string, uid int, gid int) error {
-	/*ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
-	defer cancelFn()
-
-	queryString := fmt.Sprintf("?uid=%d&gid=%d", uid, gid)
-	resp, err := fs.sendHTTPRequest(ctx, http.MethodPatch, "chown", name, queryString, "", nil)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	return nil*/
 	return ErrVfsUnsupported
 }
 

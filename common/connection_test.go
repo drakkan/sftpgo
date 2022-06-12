@@ -116,10 +116,28 @@ func TestSetStatMode(t *testing.T) {
 }
 
 func TestRecursiveRenameWalkError(t *testing.T) {
-	fs := vfs.NewOsFs("", os.TempDir(), "")
-	conn := NewBaseConnection("", ProtocolWebDAV, "", "", dataprovider.User{})
-	err := conn.checkRecursiveRenameDirPermissions(fs, fs, "/source", "/target")
+	fs := vfs.NewOsFs("", filepath.Clean(os.TempDir()), "")
+	conn := NewBaseConnection("", ProtocolWebDAV, "", "", dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Permissions: map[string][]string{
+				"/": {dataprovider.PermListItems, dataprovider.PermUpload,
+					dataprovider.PermDownload, dataprovider.PermRenameDirs},
+			},
+		},
+	})
+	err := conn.checkRecursiveRenameDirPermissions(fs, fs, filepath.Join(os.TempDir(), "/source"),
+		filepath.Join(os.TempDir(), "/target"), "/source", "/target",
+		vfs.NewFileInfo("source", true, 0, time.Now(), false))
 	assert.ErrorIs(t, err, os.ErrNotExist)
+	conn.User.Permissions["/"] = []string{dataprovider.PermListItems, dataprovider.PermUpload,
+		dataprovider.PermDownload, dataprovider.PermRenameFiles}
+	// no dir rename permission, the quick check path returns permission error without walking
+	err = conn.checkRecursiveRenameDirPermissions(fs, fs, filepath.Join(os.TempDir(), "/source"),
+		filepath.Join(os.TempDir(), "/target"), "/source", "/target",
+		vfs.NewFileInfo("source", true, 0, time.Now(), false))
+	if assert.Error(t, err) {
+		assert.EqualError(t, err, conn.GetPermissionDeniedError().Error())
+	}
 }
 
 func TestCrossRenameFsErrors(t *testing.T) {

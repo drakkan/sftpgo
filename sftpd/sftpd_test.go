@@ -4799,10 +4799,9 @@ func TestVirtualFolders(t *testing.T) {
 		assert.NoError(t, err)
 		err = sftpUploadFile(testFilePath, path.Join("vdir2", testFileName), testFileSize, client)
 		assert.NoError(t, err)
-		// we don't have upload permission on testDir, we can only create dirs
+		// we don't have rename permission in testDir and vdir2 contains a file
 		err = client.Rename("vdir2", testDir)
 		assert.Error(t, err)
-		// on testDir1 only symlink aren't allowed
 		err = client.Rename("vdir2", testDir1)
 		assert.NoError(t, err)
 		err = client.Rename(testDir1, "vdir2")
@@ -8633,7 +8632,8 @@ func TestSSHCopy(t *testing.T) {
 			assert.NoError(t, err)
 			err = os.Chmod(subPath, 0001)
 			assert.NoError(t, err)
-			// checkRecursiveCopyPermissions will fail scanning subdirs
+			// c.connection.fs.GetDirSize(fsSourcePath) will fail scanning subdirs
+			// checkRecursiveCopyPermissions will work since it will skip subdirs with no permissions
 			_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", vdirPath1, "newdir"), user, usePubKey)
 			assert.Error(t, err)
 			err = os.Chmod(subPath, os.ModePerm)

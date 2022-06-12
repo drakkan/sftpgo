@@ -2,6 +2,8 @@
 
 SFTPGo can use custom storage backend implementations compliant with the REST API documented [here](./../openapi/httpfs.yaml).
 
+:warning: HTTPFs is a work in progress and makes no API stability promises.
+
 The only required parameter is the HTTP/S endpoint that SFTPGo must use to make API calls.
 If you define `http://127.0.0.1:9999/api/v1` as endpoint, SFTPGo will add the API path, for example for the `stat` API it will invoke `http://127.0.0.1:9999/api/v1/stat/{name}`.
 

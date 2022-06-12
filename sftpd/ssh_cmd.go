@@ -589,9 +589,27 @@ func (c *sshCommand) hasCopyPermissions(sshSourcePath, sshDestPath string, srcIn
 }
 
 // fsSourcePath must be a directory
-func (c *sshCommand) checkRecursiveCopyPermissions(fsSrc vfs.Fs, fsDst vfs.Fs, fsSourcePath, fsDestPath, sshDestPath string) error {
+func (c *sshCommand) checkRecursiveCopyPermissions(fsSrc vfs.Fs, fsDst vfs.Fs, fsSourcePath, fsDestPath,
+	sshSourcePath, sshDestPath string,
+) error {
 	if !c.connection.User.HasPerm(dataprovider.PermCreateDirs, path.Dir(sshDestPath)) {
 		return common.ErrPermissionDenied
+	}
+	if !c.connection.User.HasPermissionsInside(sshSourcePath) &&
+		!c.connection.User.HasPermissionsInside(sshDestPath) {
+		// if there are no subdirs with defined permissions we can just check source and destination paths
+		dstPerms := []string{
+			dataprovider.PermCreateDirs,
+			dataprovider.PermCreateSymlinks,
+			dataprovider.PermUpload,
+		}
+		if c.connection.User.HasPerm(dataprovider.PermListItems, sshSourcePath) &&
+			c.connection.User.HasPerms(dstPerms, sshDestPath) {
+			return nil
+		}
+		// we don't return an error here because we checked all the required permissions above
+		// for example the directory could not have symlinks inside, so we have to walk to check
+		// permissions for each item
 	}
 
 	return fsSrc.Walk(fsSourcePath, func(walkedPath string, info os.FileInfo, err error) error {
@@ -608,9 +626,11 @@ func (c *sshCommand) checkRecursiveCopyPermissions(fsSrc vfs.Fs, fsDst vfs.Fs, f
 	})
 }
 
-func (c *sshCommand) checkCopyPermissions(fsSrc vfs.Fs, fsDst vfs.Fs, fsSourcePath, fsDestPath, sshSourcePath, sshDestPath string, info os.FileInfo) error {
+func (c *sshCommand) checkCopyPermissions(fsSrc vfs.Fs, fsDst vfs.Fs, fsSourcePath, fsDestPath, sshSourcePath,
+	sshDestPath string, info os.FileInfo,
+) error {
 	if info.IsDir() {
-		return c.checkRecursiveCopyPermissions(fsSrc, fsDst, fsSourcePath, fsDestPath, sshDestPath)
+		return c.checkRecursiveCopyPermissions(fsSrc, fsDst, fsSourcePath, fsDestPath, sshSourcePath, sshDestPath)
 	}
 	if !c.hasCopyPermissions(sshSourcePath, sshDestPath, info) {
 		return c.connection.GetPermissionDeniedError()

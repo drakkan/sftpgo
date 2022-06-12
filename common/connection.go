@@ -502,7 +502,8 @@ func (c *BaseConnection) Rename(virtualSourcePath, virtualTargetPath string) err
 				virtualSourcePath)
 			return c.GetOpUnsupportedError()
 		}
-		if err = c.checkRecursiveRenameDirPermissions(fsSrc, fsDst, fsSourcePath, fsTargetPath); err != nil {
+		if err = c.checkRecursiveRenameDirPermissions(fsSrc, fsDst, fsSourcePath, fsTargetPath,
+			virtualSourcePath, virtualTargetPath, srcInfo); err != nil {
 			c.Log(logger.LevelDebug, "error checking recursive permissions before renaming %#v: %+v", fsSourcePath, err)
 			return err
 		}
@@ -767,7 +768,24 @@ func (c *BaseConnection) truncateFile(fs vfs.Fs, fsPath, virtualPath string, siz
 	return err
 }
 
-func (c *BaseConnection) checkRecursiveRenameDirPermissions(fsSrc, fsDst vfs.Fs, sourcePath, targetPath string) error {
+func (c *BaseConnection) checkRecursiveRenameDirPermissions(fsSrc, fsDst vfs.Fs, sourcePath, targetPath,
+	virtualSourcePath, virtualTargetPath string, fi os.FileInfo,
+) error {
+	if !c.User.HasPermissionsInside(virtualSourcePath) &&
+		!c.User.HasPermissionsInside(virtualTargetPath) {
+		if !c.isRenamePermitted(fsSrc, fsDst, sourcePath, targetPath, virtualSourcePath, virtualTargetPath, fi) {
+			c.Log(logger.LevelInfo, "rename %#v -> %#v is not allowed, virtual destination path: %#v",
+				sourcePath, targetPath, virtualTargetPath)
+			return c.GetPermissionDeniedError()
+		}
+		// if all rename permissions are granted we have finished, otherwise we have to walk
+		// because we could have the rename dir permission but not the rename file and the dir to
+		// rename could contain files
+		if c.User.HasPermsRenameAll(path.Dir(virtualSourcePath)) && c.User.HasPermsRenameAll(path.Dir(virtualTargetPath)) {
+			return nil
+		}
+	}
+
 	return fsSrc.Walk(sourcePath, func(walkedPath string, info os.FileInfo, err error) error {
 		if err != nil {
 			return c.GetFsError(fsSrc, err)
@@ -810,7 +828,9 @@ func (c *BaseConnection) hasRenamePerms(virtualSourcePath, virtualTargetPath str
 		c.User.HasAnyPerm(perms, path.Dir(virtualTargetPath))
 }
 
-func (c *BaseConnection) isRenamePermitted(fsSrc, fsDst vfs.Fs, fsSourcePath, fsTargetPath, virtualSourcePath, virtualTargetPath string, fi os.FileInfo) bool {
+func (c *BaseConnection) isRenamePermitted(fsSrc, fsDst vfs.Fs, fsSourcePath, fsTargetPath, virtualSourcePath,
+	virtualTargetPath string, fi os.FileInfo,
+) bool {
 	if !c.isLocalOrSameFolderRename(virtualSourcePath, virtualTargetPath) {
 		c.Log(logger.LevelInfo, "rename %#v->%#v is not allowed: the paths must be local or on the same virtual folder",
 			virtualSourcePath, virtualTargetPath)

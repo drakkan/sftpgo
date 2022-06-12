@@ -1991,7 +1991,18 @@ func TestRecursiveCopyErrors(t *testing.T) {
 		args:       []string{"adir", "another"},
 	}
 	// try to copy a missing directory
-	err = sshCmd.checkRecursiveCopyPermissions(fs, fs, "adir", "another", "/another")
+	sshCmd.connection.User.Permissions["/another"] = []string{
+		dataprovider.PermCreateDirs,
+		dataprovider.PermCreateSymlinks,
+		dataprovider.PermListItems,
+	}
+	err = sshCmd.checkRecursiveCopyPermissions(fs, fs, "adir", "another/sub", "/adir", "/another/sub")
+	assert.Error(t, err)
+	sshCmd.connection.User.Permissions["/another"] = []string{
+		dataprovider.PermListItems,
+		dataprovider.PermCreateDirs,
+	}
+	err = sshCmd.checkRecursiveCopyPermissions(fs, fs, "adir", "another", "/adir/sub", "/another/sub/dir")
 	assert.Error(t, err)
 }
 

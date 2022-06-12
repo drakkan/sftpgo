@@ -2429,6 +2429,12 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	if assert.NoError(t, err) {
 		assert.Contains(t, string(resp), "cannot save a user with a redacted secret")
 	}
+	u.FsConfig.HTTPConfig.APIKey = nil
+	u.FsConfig.HTTPConfig.Endpoint = "/api/v1"
+	_, resp, err = httpdtest.AddUser(u, http.StatusBadRequest)
+	if assert.NoError(t, err) {
+		assert.Contains(t, string(resp), "invalid endpoint schema")
+	}
 }
 
 func TestUserRedactedPassword(t *testing.T) {

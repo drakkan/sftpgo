@@ -9,7 +9,7 @@ Supported distributions:
 - Debian 10 "buster"
 - Debian 11 "bullseye"
 
-Import the public key used by the package management system using the following command:
+Import the public key used by the package management system:
 
 ```shell
 curl -sS https://ftp.osuosl.org/pub/sftpgo/apt/gpg.key | sudo gpg --dearmor -o /usr/share/keyrings/sftpgo-archive-keyring.gpg
@@ -39,7 +39,7 @@ sudo apt install sftpgo
 
 The YUM repository supports generic Red Hat based distributions.
 
-Create the SFTPGo repository using the following command:
+Create the SFTPGo repository:
 
 ```shell
 ARCH=`uname -m`

@@ -743,7 +743,10 @@ func (u *User) HasVirtualFoldersInside(virtualPath string) bool {
 // HasPermissionsInside returns true if the specified virtualPath has no permissions itself and
 // no subdirs with defined permissions
 func (u *User) HasPermissionsInside(virtualPath string) bool {
-	for dir := range u.Permissions {
+	for dir, perms := range u.Permissions {
+		if len(perms) == 1 && perms[0] == PermAny {
+			continue
+		}
 		if dir == virtualPath {
 			return true
 		} else if len(dir) > len(virtualPath) {
