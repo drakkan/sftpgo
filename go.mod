@@ -44,7 +44,7 @@ require (
 	github.com/minio/sio v0.3.0
 	github.com/otiai10/copy v1.7.0
 	github.com/pires/go-proxyproto v0.6.2
-	github.com/pkg/sftp v1.13.5-0.20220303113417-dcfc1d5e4162
+	github.com/pkg/sftp v1.13.5
 	github.com/pquerna/otp v1.3.0
 	github.com/prometheus/client_golang v1.12.2
 	github.com/robfig/cron/v3 v3.0.1

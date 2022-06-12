@@ -5,9 +5,11 @@ import (
 	"io/fs"
 	"math"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -24,6 +26,10 @@ import (
 const (
 	httpFsPort            = 12345
 	defaultHTTPFsUsername = "httpfs_user"
+)
+
+var (
+	httpFsSocketPath = filepath.Join(os.TempDir(), "httpfs.sock")
 )
 
 func TestBasicHTTPFsHandling(t *testing.T) {
@@ -271,6 +277,49 @@ func TestHTTPFsWalk(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestHTTPFsOverUNIXSocket(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("UNIX domain sockets are not supported on Windows")
+	}
+	assert.Eventually(t, func() bool {
+		_, err := os.Stat(httpFsSocketPath)
+		return err == nil
+	}, 1*time.Second, 50*time.Millisecond)
+	usePubKey := true
+	u := getTestUserWithHTTPFs(usePubKey)
+	u.FsConfig.HTTPConfig.Endpoint = fmt.Sprintf("http://unix?socket_path=%s&api_prefix=%s",
+		url.QueryEscape(httpFsSocketPath), url.QueryEscape("/api/v1"))
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	conn, client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		err = checkBasicSFTP(client)
+		assert.NoError(t, err)
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		testFileSize := int64(65535)
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+		err = sftpUploadFile(testFilePath, testFileName, testFileSize, client)
+		assert.NoError(t, err)
+		err = client.Remove(testFileName)
+		assert.NoError(t, err)
+		err = client.Mkdir(testFileName)
+		assert.NoError(t, err)
+		err = client.RemoveDirectory(testFileName)
+		assert.NoError(t, err)
+		err = os.Remove(testFilePath)
+		assert.NoError(t, err)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func getTestUserWithHTTPFs(usePubKey bool) dataprovider.User {
 	u := getTestUser(usePubKey)
 	u.FsConfig.Provider = sdk.HTTPFilesystemProvider
@@ -284,6 +333,14 @@ func getTestUserWithHTTPFs(usePubKey bool) dataprovider.User {
 }
 
 func startHTTPFs() {
+	if runtime.GOOS != osWindows {
+		go func() {
+			if err := httpdtest.StartTestHTTPFsOverUnixSocket(httpFsSocketPath); err != nil {
+				logger.ErrorToConsole("could not start HTTPfs test server over UNIX socket: %v", err)
+				os.Exit(1)
+			}
+		}()
+	}
 	go func() {
 		if err := httpdtest.StartTestHTTPFs(httpFsPort); err != nil {
 			logger.ErrorToConsole("could not start HTTPfs test server: %v", err)

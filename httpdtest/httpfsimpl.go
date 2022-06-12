@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"mime"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -38,6 +39,7 @@ const (
 )
 
 // StartTestHTTPFs starts a test HTTP service that implements httpfs
+// and listens on the specified port
 func StartTestHTTPFs(port int) error {
 	fs := httpFsImpl{
 		port: port,
@@ -45,10 +47,20 @@ func StartTestHTTPFs(port int) error {
 	return fs.Run()
 }
 
+// StartTestHTTPFsOverUnixSocket starts a test HTTP service that implements httpfs
+// and listens on the specified UNIX domain socket path
+func StartTestHTTPFsOverUnixSocket(socketPath string) error {
+	fs := httpFsImpl{
+		unixSocketPath: socketPath,
+	}
+	return fs.Run()
+}
+
 type httpFsImpl struct {
-	router   *chi.Mux
-	basePath string
-	port     int
+	router         *chi.Mux
+	basePath       string
+	port           int
+	unixSocketPath string
 }
 
 type apiResponse struct {
@@ -473,7 +485,18 @@ func (fs *httpFsImpl) Run() error {
 		MaxHeaderBytes: 1 << 16, // 64KB
 	}
 
-	return httpServer.ListenAndServe()
+	if fs.unixSocketPath == "" {
+		return httpServer.ListenAndServe()
+	}
+	err := os.Remove(fs.unixSocketPath)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	listener, err := net.Listen("unix", fs.unixSocketPath)
+	if err != nil {
+		return err
+	}
+	return httpServer.Serve(listener)
 }
 
 func getStatFromInfo(info os.FileInfo) map[string]any {

@@ -2435,6 +2435,16 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	if assert.NoError(t, err) {
 		assert.Contains(t, string(resp), "invalid endpoint schema")
 	}
+	u.FsConfig.HTTPConfig.Endpoint = "http://unix?api_prefix=v1"
+	_, resp, err = httpdtest.AddUser(u, http.StatusBadRequest)
+	if assert.NoError(t, err) {
+		assert.Contains(t, string(resp), "invalid unix domain socket path")
+	}
+	u.FsConfig.HTTPConfig.Endpoint = "http://unix?socket_path=test.sock"
+	_, resp, err = httpdtest.AddUser(u, http.StatusBadRequest)
+	if assert.NoError(t, err) {
+		assert.Contains(t, string(resp), "invalid unix domain socket path")
+	}
 }
 
 func TestUserRedactedPassword(t *testing.T) {

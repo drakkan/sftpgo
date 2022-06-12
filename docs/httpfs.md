@@ -16,3 +16,12 @@ Here is a mapping between HTTP response codes and protocol errors:
 - `501`, means not supported error
 - `200`, `201`, mean no error
 - any other response code means a generic error
+
+HTTPFs can also connect to UNIX domain sockets. To use UNIX domain sockets you need to set an endpoint with the following conventions:
+
+- the URL schema can be `http` or `https` as usual.
+- The URL host must be `unix`.
+- The socket path is mandatory and is set using the `socket_path` query parameter. The path must be query escaped.
+- The optional API prefix can be set using the `api_prefix` query parameter. The prefix must be query escaped.
+
+Here is an example endpoint for UNIX domain socket connections: `http://unix?socket_path=%2Ftmp%2Fsftpgofs.sock&api_prefix=%2Fapi%2Fv1`. In this case we are connecting using the `HTTP` protocol to the socket `/tmp/sftpgofs.sock` and we use the `/api/v1` prefix for API URLs.
