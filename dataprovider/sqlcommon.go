@@ -55,6 +55,7 @@ func sqlReplaceAll(sql string) string {
 	sql = strings.ReplaceAll(sql, "{{defender_events}}", sqlTableDefenderEvents)
 	sql = strings.ReplaceAll(sql, "{{defender_hosts}}", sqlTableDefenderHosts)
 	sql = strings.ReplaceAll(sql, "{{active_transfers}}", sqlTableActiveTransfers)
+	sql = strings.ReplaceAll(sql, "{{shared_sessions}}", sqlTableSharedSessions)
 	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
 	return sql
 }
