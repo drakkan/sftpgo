@@ -10,7 +10,6 @@ import (
 	"net"
 	"os"
 	"path"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -1832,9 +1831,4 @@ func (u *User) getACopy() User {
 // GetEncryptionAdditionalData returns the additional data to use for AEAD
 func (u *User) GetEncryptionAdditionalData() string {
 	return u.Username
-}
-
-// GetGCSCredentialsFilePath returns the path for GCS credentials
-func (u *User) GetGCSCredentialsFilePath() string {
-	return filepath.Join(credentialsDirPath, fmt.Sprintf("%v_gcs_credentials.json", u.Username))
 }

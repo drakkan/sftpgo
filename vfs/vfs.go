@@ -31,21 +31,10 @@ var (
 	// ErrStorageSizeUnavailable is returned if the storage backend does not support getting the size
 	ErrStorageSizeUnavailable = errors.New("unable to get available size for this storage backend")
 	// ErrVfsUnsupported defines the error for an unsupported VFS operation
-	ErrVfsUnsupported  = errors.New("not supported")
-	credentialsDirPath string
-	tempPath           string
-	sftpFingerprints   []string
+	ErrVfsUnsupported = errors.New("not supported")
+	tempPath          string
+	sftpFingerprints  []string
 )
-
-// SetCredentialsDirPath sets the credentials dir path
-func SetCredentialsDirPath(credentialsPath string) {
-	credentialsDirPath = credentialsPath
-}
-
-// GetCredentialsDirPath returns the credentials dir path
-func GetCredentialsDirPath() string {
-	return credentialsDirPath
-}
 
 // SetTempPath sets the path for temporary files
 func SetTempPath(fsPath string) {

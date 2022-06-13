@@ -42,6 +42,11 @@ CREATE TABLE "{{admins}}" ("id" serial NOT NULL PRIMARY KEY, "username" varchar(
 "description" varchar(512) NULL, "password" varchar(255) NOT NULL, "email" varchar(255) NULL, "status" integer NOT NULL,
 "permissions" text NOT NULL, "filters" text NULL, "additional_info" text NULL, "last_login" bigint NOT NULL,
 "created_at" bigint NOT NULL, "updated_at" bigint NOT NULL);
+CREATE TABLE "{{active_transfers}}" ("id" bigserial NOT NULL PRIMARY KEY, "connection_id" varchar(100) NOT NULL,
+"transfer_id" bigint NOT NULL, "transfer_type" integer NOT NULL, "username" varchar(255) NOT NULL,
+"folder_name" varchar(255) NULL, "ip" varchar(50) NOT NULL, "truncated_size" bigint NOT NULL,
+"current_ul_size" bigint NOT NULL, "current_dl_size" bigint NOT NULL, "created_at" bigint NOT NULL,
+"updated_at" bigint NOT NULL);
 CREATE TABLE "{{defender_hosts}}" ("id" bigserial NOT NULL PRIMARY KEY, "ip" varchar(50) NOT NULL UNIQUE,
 "ban_time" bigint NOT NULL, "updated_at" bigint NOT NULL);
 CREATE TABLE "{{defender_events}}" ("id" bigserial NOT NULL PRIMARY KEY, "date_time" bigint NOT NULL, "score" integer NOT NULL,
@@ -51,19 +56,29 @@ ALTER TABLE "{{defender_events}}" ADD CONSTRAINT "{{prefix}}defender_events_host
 CREATE TABLE "{{folders}}" ("id" serial NOT NULL PRIMARY KEY, "name" varchar(255) NOT NULL UNIQUE, "description" varchar(512) NULL,
 "path" text NULL, "used_quota_size" bigint NOT NULL, "used_quota_files" integer NOT NULL, "last_quota_update" bigint NOT NULL,
 "filesystem" text NULL);
+CREATE TABLE "{{groups}}" ("id" serial NOT NULL PRIMARY KEY, "name" varchar(255) NOT NULL UNIQUE,
+"description" varchar(512) NULL, "created_at" bigint NOT NULL, "updated_at" bigint NOT NULL, "user_settings" text NULL);
+CREATE TABLE "{{shared_sessions}}" ("key" varchar(128) NOT NULL PRIMARY KEY,
+"data" text NOT NULL, "type" integer NOT NULL, "timestamp" bigint NOT NULL);
 CREATE TABLE "{{users}}" ("id" serial NOT NULL PRIMARY KEY, "username" varchar(255) NOT NULL UNIQUE, "status" integer NOT NULL,
 "expiration_date" bigint NOT NULL, "description" varchar(512) NULL, "password" text NULL, "public_keys" text NULL,
 "home_dir" text NOT NULL, "uid" bigint NOT NULL, "gid" bigint NOT NULL, "max_sessions" integer NOT NULL,
 "quota_size" bigint NOT NULL, "quota_files" integer NOT NULL, "permissions" text NOT NULL, "used_quota_size" bigint NOT NULL,
 "used_quota_files" integer NOT NULL, "last_quota_update" bigint NOT NULL, "upload_bandwidth" integer NOT NULL,
 "download_bandwidth" integer NOT NULL, "last_login" bigint NOT NULL, "filters" text NULL, "filesystem" text NULL,
-"additional_info" text NULL, "created_at" bigint NOT NULL, "updated_at" bigint NOT NULL, "email" varchar(255) NULL);
-CREATE TABLE "{{folders_mapping}}" ("id" serial NOT NULL PRIMARY KEY, "virtual_path" text NOT NULL,
+"additional_info" text NULL, "created_at" bigint NOT NULL, "updated_at" bigint NOT NULL, "email" varchar(255) NULL,
+"upload_data_transfer" integer NOT NULL, "download_data_transfer" integer NOT NULL, "total_data_transfer" integer NOT NULL,
+"used_upload_data_transfer" integer NOT NULL, "used_download_data_transfer" integer NOT NULL);
+CREATE TABLE "{{groups_folders_mapping}}" ("id" serial NOT NULL PRIMARY KEY, "group_id" integer NOT NULL,
+"folder_id" integer NOT NULL, "virtual_path" text NOT NULL, "quota_size" bigint NOT NULL, "quota_files" integer NOT NULL);
+CREATE TABLE "{{users_groups_mapping}}" ("id" serial NOT NULL PRIMARY KEY, "user_id" integer NOT NULL,
+"group_id" integer NOT NULL, "group_type" integer NOT NULL);
+CREATE TABLE "{{users_folders_mapping}}" ("id" serial NOT NULL PRIMARY KEY, "virtual_path" text NOT NULL,
 "quota_size" bigint NOT NULL, "quota_files" integer NOT NULL, "folder_id" integer NOT NULL, "user_id" integer NOT NULL);
-ALTER TABLE "{{folders_mapping}}" ADD CONSTRAINT "{{prefix}}unique_mapping" UNIQUE ("user_id", "folder_id");
-ALTER TABLE "{{folders_mapping}}" ADD CONSTRAINT "{{prefix}}folders_mapping_folder_id_fk_folders_id"
+ALTER TABLE "{{users_folders_mapping}}" ADD CONSTRAINT "{{prefix}}unique_user_folder_mapping" UNIQUE ("user_id", "folder_id");
+ALTER TABLE "{{users_folders_mapping}}" ADD CONSTRAINT "{{prefix}}users_folders_mapping_folder_id_fk_folders_id"
 FOREIGN KEY ("folder_id") REFERENCES "{{folders}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE;
-ALTER TABLE "{{folders_mapping}}" ADD CONSTRAINT "{{prefix}}folders_mapping_user_id_fk_users_id"
+ALTER TABLE "{{users_folders_mapping}}" ADD CONSTRAINT "{{prefix}}users_folders_mapping_user_id_fk_users_id"
 FOREIGN KEY ("user_id") REFERENCES "{{users}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE;
 CREATE TABLE "{{shares}}" ("id" serial NOT NULL PRIMARY KEY,
 "share_id" varchar(60) NOT NULL UNIQUE, "name" varchar(255) NOT NULL, "description" varchar(512) NULL,
@@ -81,57 +96,6 @@ ALTER TABLE "{{api_keys}}" ADD CONSTRAINT "{{prefix}}api_keys_admin_id_fk_admins
 REFERENCES "{{admins}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE;
 ALTER TABLE "{{api_keys}}" ADD CONSTRAINT "{{prefix}}api_keys_user_id_fk_users_id" FOREIGN KEY ("user_id")
 REFERENCES "{{users}}" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE;
-CREATE INDEX "{{prefix}}folders_mapping_folder_id_idx" ON "{{folders_mapping}}" ("folder_id");
-CREATE INDEX "{{prefix}}folders_mapping_user_id_idx" ON "{{folders_mapping}}" ("user_id");
-CREATE INDEX "{{prefix}}api_keys_admin_id_idx" ON "{{api_keys}}" ("admin_id");
-CREATE INDEX "{{prefix}}api_keys_user_id_idx" ON "{{api_keys}}" ("user_id");
-CREATE INDEX "{{prefix}}users_updated_at_idx" ON "{{users}}" ("updated_at");
-CREATE INDEX "{{prefix}}shares_user_id_idx" ON "{{shares}}" ("user_id");
-CREATE INDEX "{{prefix}}defender_hosts_updated_at_idx" ON "{{defender_hosts}}" ("updated_at");
-CREATE INDEX "{{prefix}}defender_hosts_ban_time_idx" ON "{{defender_hosts}}" ("ban_time");
-CREATE INDEX "{{prefix}}defender_events_date_time_idx" ON "{{defender_events}}" ("date_time");
-CREATE INDEX "{{prefix}}defender_events_host_id_idx" ON "{{defender_events}}" ("host_id");
-INSERT INTO {{schema_version}} (version) VALUES (15);
-`
-	pgsqlV16SQL = `ALTER TABLE "{{users}}" ADD COLUMN "download_data_transfer" integer DEFAULT 0 NOT NULL;
-ALTER TABLE "{{users}}" ALTER COLUMN "download_data_transfer" DROP DEFAULT;
-ALTER TABLE "{{users}}" ADD COLUMN "total_data_transfer" integer DEFAULT 0 NOT NULL;
-ALTER TABLE "{{users}}" ALTER COLUMN "total_data_transfer" DROP DEFAULT;
-ALTER TABLE "{{users}}" ADD COLUMN "upload_data_transfer" integer DEFAULT 0 NOT NULL;
-ALTER TABLE "{{users}}" ALTER COLUMN "upload_data_transfer" DROP DEFAULT;
-ALTER TABLE "{{users}}" ADD COLUMN "used_download_data_transfer" integer DEFAULT 0 NOT NULL;
-ALTER TABLE "{{users}}" ALTER COLUMN "used_download_data_transfer" DROP DEFAULT;
-ALTER TABLE "{{users}}" ADD COLUMN "used_upload_data_transfer" integer DEFAULT 0 NOT NULL;
-ALTER TABLE "{{users}}" ALTER COLUMN "used_upload_data_transfer" DROP DEFAULT;
-CREATE TABLE "{{active_transfers}}" ("id" bigserial NOT NULL PRIMARY KEY, "connection_id" varchar(100) NOT NULL,
-"transfer_id" bigint NOT NULL, "transfer_type" integer NOT NULL, "username" varchar(255) NOT NULL,
-"folder_name" varchar(255) NULL, "ip" varchar(50) NOT NULL, "truncated_size" bigint NOT NULL,
-"current_ul_size" bigint NOT NULL, "current_dl_size" bigint NOT NULL, "created_at" bigint NOT NULL,
-"updated_at" bigint NOT NULL);
-CREATE INDEX "{{prefix}}active_transfers_connection_id_idx" ON "{{active_transfers}}" ("connection_id");
-CREATE INDEX "{{prefix}}active_transfers_transfer_id_idx" ON "{{active_transfers}}" ("transfer_id");
-CREATE INDEX "{{prefix}}active_transfers_updated_at_idx" ON "{{active_transfers}}" ("updated_at");
-`
-	pgsqlV16DownSQL = `ALTER TABLE "{{users}}" DROP COLUMN "used_upload_data_transfer" CASCADE;
-ALTER TABLE "{{users}}" DROP COLUMN "used_download_data_transfer" CASCADE;
-ALTER TABLE "{{users}}" DROP COLUMN "upload_data_transfer" CASCADE;
-ALTER TABLE "{{users}}" DROP COLUMN "total_data_transfer" CASCADE;
-ALTER TABLE "{{users}}" DROP COLUMN "download_data_transfer" CASCADE;
-DROP TABLE "{{active_transfers}}" CASCADE;
-`
-	pgsqlV17SQL = `CREATE TABLE "{{groups}}" ("id" serial NOT NULL PRIMARY KEY, "name" varchar(255) NOT NULL UNIQUE,
-"description" varchar(512) NULL, "created_at" bigint NOT NULL, "updated_at" bigint NOT NULL, "user_settings" text NULL);
-CREATE TABLE "{{groups_folders_mapping}}" ("id" serial NOT NULL PRIMARY KEY, "group_id" integer NOT NULL,
-"folder_id" integer NOT NULL, "virtual_path" text NOT NULL, "quota_size" bigint NOT NULL, "quota_files" integer NOT NULL);
-CREATE TABLE "{{users_groups_mapping}}" ("id" serial NOT NULL PRIMARY KEY, "user_id" integer NOT NULL,
-"group_id" integer NOT NULL, "group_type" integer NOT NULL);
-DROP INDEX "{{prefix}}folders_mapping_folder_id_idx";
-DROP INDEX "{{prefix}}folders_mapping_user_id_idx";
-ALTER TABLE "{{folders_mapping}}" DROP CONSTRAINT "{{prefix}}unique_mapping";
-ALTER TABLE "{{folders_mapping}}" RENAME TO "{{users_folders_mapping}}";
-ALTER TABLE "{{users_folders_mapping}}" ADD CONSTRAINT "{{prefix}}unique_user_folder_mapping" UNIQUE ("user_id", "folder_id");
-CREATE INDEX "{{prefix}}users_folders_mapping_folder_id_idx" ON "{{users_folders_mapping}}" ("folder_id");
-CREATE INDEX "{{prefix}}users_folders_mapping_user_id_idx" ON "{{users_folders_mapping}}" ("user_id");
 ALTER TABLE "{{users_groups_mapping}}" ADD CONSTRAINT "{{prefix}}unique_user_group_mapping" UNIQUE ("user_id", "group_id");
 ALTER TABLE "{{groups_folders_mapping}}" ADD CONSTRAINT "{{prefix}}unique_group_folder_mapping" UNIQUE ("group_id", "folder_id");
 CREATE INDEX "{{prefix}}users_groups_mapping_group_id_idx" ON "{{users_groups_mapping}}" ("group_id");
@@ -147,23 +111,23 @@ CREATE INDEX "{{prefix}}groups_folders_mapping_group_id_idx" ON "{{groups_folder
 ALTER TABLE "{{groups_folders_mapping}}" ADD CONSTRAINT "{{prefix}}groups_folders_mapping_group_id_fk_groups_id"
 FOREIGN KEY ("group_id") REFERENCES "groups" ("id") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE;
 CREATE INDEX "{{prefix}}groups_updated_at_idx" ON "{{groups}}" ("updated_at");
-`
-	pgsqlV17DownSQL = `DROP TABLE "{{users_groups_mapping}}" CASCADE;
-DROP TABLE "{{groups_folders_mapping}}" CASCADE;
-DROP TABLE "{{groups}}" CASCADE;
-DROP INDEX "{{prefix}}users_folders_mapping_folder_id_idx";
-DROP INDEX "{{prefix}}users_folders_mapping_user_id_idx";
-ALTER TABLE "{{users_folders_mapping}}" DROP CONSTRAINT "{{prefix}}unique_user_folder_mapping";
-ALTER TABLE "{{users_folders_mapping}}" RENAME TO "{{folders_mapping}}";
-ALTER TABLE "{{folders_mapping}}" ADD CONSTRAINT "{{prefix}}unique_mapping" UNIQUE ("user_id", "folder_id");
-CREATE INDEX "{{prefix}}folders_mapping_folder_id_idx" ON "{{folders_mapping}}" ("folder_id");
-CREATE INDEX "{{prefix}}folders_mapping_user_id_idx" ON "{{folders_mapping}}" ("user_id");
-`
-	pgsqlV19SQL = `CREATE TABLE "{{shared_sessions}}" ("key" varchar(128) NOT NULL PRIMARY KEY,
-"data" text NOT NULL, "type" integer NOT NULL, "timestamp" bigint NOT NULL);
+CREATE INDEX "{{prefix}}users_folders_mapping_folder_id_idx" ON "{{users_folders_mapping}}" ("folder_id");
+CREATE INDEX "{{prefix}}users_folders_mapping_user_id_idx" ON "{{users_folders_mapping}}" ("user_id");
+CREATE INDEX "{{prefix}}api_keys_admin_id_idx" ON "{{api_keys}}" ("admin_id");
+CREATE INDEX "{{prefix}}api_keys_user_id_idx" ON "{{api_keys}}" ("user_id");
+CREATE INDEX "{{prefix}}users_updated_at_idx" ON "{{users}}" ("updated_at");
+CREATE INDEX "{{prefix}}shares_user_id_idx" ON "{{shares}}" ("user_id");
+CREATE INDEX "{{prefix}}defender_hosts_updated_at_idx" ON "{{defender_hosts}}" ("updated_at");
+CREATE INDEX "{{prefix}}defender_hosts_ban_time_idx" ON "{{defender_hosts}}" ("ban_time");
+CREATE INDEX "{{prefix}}defender_events_date_time_idx" ON "{{defender_events}}" ("date_time");
+CREATE INDEX "{{prefix}}defender_events_host_id_idx" ON "{{defender_events}}" ("host_id");
+CREATE INDEX "{{prefix}}active_transfers_connection_id_idx" ON "{{active_transfers}}" ("connection_id");
+CREATE INDEX "{{prefix}}active_transfers_transfer_id_idx" ON "{{active_transfers}}" ("transfer_id");
+CREATE INDEX "{{prefix}}active_transfers_updated_at_idx" ON "{{active_transfers}}" ("updated_at");
 CREATE INDEX "{{prefix}}shared_sessions_type_idx" ON "{{shared_sessions}}" ("type");
-CREATE INDEX "{{prefix}}shared_sessions_timestamp_idx" ON "{{shared_sessions}}" ("timestamp");`
-	pgsqlV19DownSQL = `DROP TABLE "{{shared_sessions}}" CASCADE;`
+CREATE INDEX "{{prefix}}shared_sessions_timestamp_idx" ON "{{shared_sessions}}" ("timestamp");
+INSERT INTO {{schema_version}} (version) VALUES (19);
+`
 )
 
 // PGSQLProvider defines the auth provider for PostgreSQL database
@@ -528,18 +492,9 @@ func (p *PGSQLProvider) initializeDatabase() error {
 	if errors.Is(err, sql.ErrNoRows) {
 		return errSchemaVersionEmpty
 	}
-	logger.InfoToConsole("creating initial database schema, version 15")
-	providerLog(logger.LevelInfo, "creating initial database schema, version 15")
-	initialSQL := strings.ReplaceAll(pgsqlInitial, "{{schema_version}}", sqlTableSchemaVersion)
-	initialSQL = strings.ReplaceAll(initialSQL, "{{admins}}", sqlTableAdmins)
-	initialSQL = strings.ReplaceAll(initialSQL, "{{folders}}", sqlTableFolders)
-	initialSQL = strings.ReplaceAll(initialSQL, "{{users}}", sqlTableUsers)
-	initialSQL = strings.ReplaceAll(initialSQL, "{{folders_mapping}}", sqlTableFoldersMapping)
-	initialSQL = strings.ReplaceAll(initialSQL, "{{api_keys}}", sqlTableAPIKeys)
-	initialSQL = strings.ReplaceAll(initialSQL, "{{shares}}", sqlTableShares)
-	initialSQL = strings.ReplaceAll(initialSQL, "{{defender_events}}", sqlTableDefenderEvents)
-	initialSQL = strings.ReplaceAll(initialSQL, "{{defender_hosts}}", sqlTableDefenderHosts)
-	initialSQL = strings.ReplaceAll(initialSQL, "{{prefix}}", config.SQLTablesPrefix)
+	logger.InfoToConsole("creating initial database schema, version 19")
+	providerLog(logger.LevelInfo, "creating initial database schema, version 19")
+	initialSQL := sqlReplaceAll(pgsqlInitial)
 	if config.Driver == CockroachDataProviderName {
 		// Cockroach does not support deferrable constraint validation, we don't need them,
 		// we keep these definitions for the PostgreSQL driver to avoid changes for users
@@ -547,7 +502,7 @@ func (p *PGSQLProvider) initializeDatabase() error {
 		initialSQL = strings.ReplaceAll(initialSQL, "DEFERRABLE INITIALLY DEFERRED", "")
 	}
 
-	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{initialSQL}, 15, true)
+	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{initialSQL}, 19, true)
 }
 
 func (p *PGSQLProvider) migrateDatabase() error { //nolint:dupl
@@ -560,19 +515,11 @@ func (p *PGSQLProvider) migrateDatabase() error { //nolint:dupl
 	case version == sqlDatabaseVersion:
 		providerLog(logger.LevelDebug, "sql database is up to date, current version: %v", version)
 		return ErrNoInitRequired
-	case version < 15:
+	case version < 19:
 		err = fmt.Errorf("database version %v is too old, please see the upgrading docs", version)
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
-	case version == 15:
-		return updatePGSQLDatabaseFromV15(p.dbHandle)
-	case version == 16:
-		return updatePGSQLDatabaseFromV16(p.dbHandle)
-	case version == 17:
-		return updatePGSQLDatabaseFromV17(p.dbHandle)
-	case version == 18:
-		return updatePGSQLDatabaseFromV18(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database version %v is newer than the supported one: %v", version,
@@ -595,14 +542,6 @@ func (p *PGSQLProvider) revertDatabase(targetVersion int) error {
 	}
 
 	switch dbVersion.Version {
-	case 16:
-		return downgradePGSQLDatabaseFromV16(p.dbHandle)
-	case 17:
-		return downgradePGSQLDatabaseFromV17(p.dbHandle)
-	case 18:
-		return downgradePGSQLDatabaseFromV18(p.dbHandle)
-	case 19:
-		return downgradePGSQLDatabaseFromV19(p.dbHandle)
 	default:
 		return fmt.Errorf("database version not handled: %v", dbVersion.Version)
 	}
@@ -611,155 +550,4 @@ func (p *PGSQLProvider) revertDatabase(targetVersion int) error {
 func (p *PGSQLProvider) resetDatabase() error {
 	sql := sqlReplaceAll(pgsqlResetSQL)
 	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{sql}, 0, false)
-}
-
-func updatePGSQLDatabaseFromV15(dbHandle *sql.DB) error {
-	if err := updatePGSQLDatabaseFrom15To16(dbHandle); err != nil {
-		return err
-	}
-	return updatePGSQLDatabaseFromV16(dbHandle)
-}
-
-func updatePGSQLDatabaseFromV16(dbHandle *sql.DB) error {
-	if err := updatePGSQLDatabaseFrom16To17(dbHandle); err != nil {
-		return err
-	}
-	return updatePGSQLDatabaseFromV17(dbHandle)
-}
-
-func updatePGSQLDatabaseFromV17(dbHandle *sql.DB) error {
-	if err := updatePGSQLDatabaseFrom17To18(dbHandle); err != nil {
-		return err
-	}
-	return updatePGSQLDatabaseFromV18(dbHandle)
-}
-
-func updatePGSQLDatabaseFromV18(dbHandle *sql.DB) error {
-	return updatePGSQLDatabaseFrom18To19(dbHandle)
-}
-
-func downgradePGSQLDatabaseFromV16(dbHandle *sql.DB) error {
-	return downgradePGSQLDatabaseFrom16To15(dbHandle)
-}
-
-func downgradePGSQLDatabaseFromV17(dbHandle *sql.DB) error {
-	if err := downgradePGSQLDatabaseFrom17To16(dbHandle); err != nil {
-		return err
-	}
-	return downgradePGSQLDatabaseFromV16(dbHandle)
-}
-
-func downgradePGSQLDatabaseFromV18(dbHandle *sql.DB) error {
-	if err := downgradePGSQLDatabaseFrom18To17(dbHandle); err != nil {
-		return err
-	}
-	return downgradePGSQLDatabaseFromV17(dbHandle)
-}
-
-func downgradePGSQLDatabaseFromV19(dbHandle *sql.DB) error {
-	if err := downgradePGSQLDatabaseFrom19To18(dbHandle); err != nil {
-		return err
-	}
-	return downgradePGSQLDatabaseFromV18(dbHandle)
-}
-
-func updatePGSQLDatabaseFrom15To16(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database version: 15 -> 16")
-	providerLog(logger.LevelInfo, "updating database version: 15 -> 16")
-	sql := strings.ReplaceAll(pgsqlV16SQL, "{{users}}", sqlTableUsers)
-	sql = strings.ReplaceAll(sql, "{{active_transfers}}", sqlTableActiveTransfers)
-	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	if config.Driver == CockroachDataProviderName {
-		// Cockroach does not allow to run this schema migration within a transaction
-		ctx, cancel := context.WithTimeout(context.Background(), longSQLQueryTimeout)
-		defer cancel()
-
-		for _, q := range strings.Split(sql, ";") {
-			if strings.TrimSpace(q) == "" {
-				continue
-			}
-			_, err := dbHandle.ExecContext(ctx, q)
-			if err != nil {
-				return err
-			}
-		}
-		return sqlCommonUpdateDatabaseVersion(ctx, dbHandle, 16)
-	}
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 16, true)
-}
-
-func updatePGSQLDatabaseFrom16To17(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database version: 16 -> 17")
-	providerLog(logger.LevelInfo, "updating database version: 16 -> 17")
-	sql := pgsqlV17SQL
-	if config.Driver == CockroachDataProviderName {
-		sql = strings.ReplaceAll(sql, `ALTER TABLE "{{folders_mapping}}" DROP CONSTRAINT "{{prefix}}unique_mapping";`,
-			`DROP INDEX "{{prefix}}unique_mapping" CASCADE;`)
-	}
-	sql = strings.ReplaceAll(sql, "{{groups}}", sqlTableGroups)
-	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
-	sql = strings.ReplaceAll(sql, "{{folders}}", sqlTableFolders)
-	sql = strings.ReplaceAll(sql, "{{folders_mapping}}", sqlTableFoldersMapping)
-	sql = strings.ReplaceAll(sql, "{{users_folders_mapping}}", sqlTableUsersFoldersMapping)
-	sql = strings.ReplaceAll(sql, "{{users_groups_mapping}}", sqlTableUsersGroupsMapping)
-	sql = strings.ReplaceAll(sql, "{{groups_folders_mapping}}", sqlTableGroupsFoldersMapping)
-	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 17, true)
-}
-
-func updatePGSQLDatabaseFrom17To18(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database version: 17 -> 18")
-	providerLog(logger.LevelInfo, "updating database version: 17 -> 18")
-	if err := importGCSCredentials(); err != nil {
-		return err
-	}
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, nil, 18, true)
-}
-
-func updatePGSQLDatabaseFrom18To19(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database version: 18 -> 19")
-	providerLog(logger.LevelInfo, "updating database version: 18 -> 19")
-	sql := strings.ReplaceAll(pgsqlV19SQL, "{{shared_sessions}}", sqlTableSharedSessions)
-	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 19, true)
-}
-
-func downgradePGSQLDatabaseFrom16To15(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database version: 16 -> 15")
-	providerLog(logger.LevelInfo, "downgrading database version: 16 -> 15")
-	sql := strings.ReplaceAll(pgsqlV16DownSQL, "{{users}}", sqlTableUsers)
-	sql = strings.ReplaceAll(sql, "{{active_transfers}}", sqlTableActiveTransfers)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 15, false)
-}
-
-func downgradePGSQLDatabaseFrom17To16(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database version: 17 -> 16")
-	providerLog(logger.LevelInfo, "downgrading database version: 17 -> 16")
-	sql := pgsqlV17DownSQL
-	if config.Driver == CockroachDataProviderName {
-		sql = strings.ReplaceAll(sql, `ALTER TABLE "{{users_folders_mapping}}" DROP CONSTRAINT "{{prefix}}unique_user_folder_mapping";`,
-			`DROP INDEX "{{prefix}}unique_user_folder_mapping" CASCADE;`)
-	}
-	sql = strings.ReplaceAll(sql, "{{groups}}", sqlTableGroups)
-	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
-	sql = strings.ReplaceAll(sql, "{{folders}}", sqlTableFolders)
-	sql = strings.ReplaceAll(sql, "{{folders_mapping}}", sqlTableFoldersMapping)
-	sql = strings.ReplaceAll(sql, "{{users_folders_mapping}}", sqlTableUsersFoldersMapping)
-	sql = strings.ReplaceAll(sql, "{{users_groups_mapping}}", sqlTableUsersGroupsMapping)
-	sql = strings.ReplaceAll(sql, "{{groups_folders_mapping}}", sqlTableGroupsFoldersMapping)
-	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 16, false)
-}
-
-func downgradePGSQLDatabaseFrom18To17(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database version: 18 -> 17")
-	providerLog(logger.LevelInfo, "downgrading database version: 18 -> 17")
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, nil, 17, false)
-}
-
-func downgradePGSQLDatabaseFrom19To18(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database version: 19 -> 18")
-	providerLog(logger.LevelInfo, "downgrading database version: 19 -> 18")
-	sql := strings.ReplaceAll(pgsqlV19DownSQL, "{{shared_sessions}}", sqlTableSharedSessions)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 18, false)
 }

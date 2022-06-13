@@ -310,7 +310,6 @@ func Init() {
 			},
 			ExternalAuthHook:   "",
 			ExternalAuthScope:  0,
-			CredentialsPath:    "credentials",
 			PreLoginHook:       "",
 			PostLoginHook:      "",
 			PostLoginScope:     0,
@@ -688,12 +687,6 @@ func resetInvalidConfigs() {
 	if !isExternalAuthScopeValid() {
 		warn := fmt.Sprintf("invalid external_auth_scope: %v reset to 0", globalConf.ProviderConf.ExternalAuthScope)
 		globalConf.ProviderConf.ExternalAuthScope = 0
-		logger.Warn(logSender, "", "Non-fatal configuration error: %v", warn)
-		logger.WarnToConsole("Non-fatal configuration error: %v", warn)
-	}
-	if globalConf.ProviderConf.CredentialsPath == "" {
-		warn := "invalid credentials path, reset to \"credentials\""
-		globalConf.ProviderConf.CredentialsPath = "credentials"
 		logger.Warn(logSender, "", "Non-fatal configuration error: %v", warn)
 		logger.WarnToConsole("Non-fatal configuration error: %v", warn)
 	}
@@ -1853,7 +1846,6 @@ func setViperDefaults() {
 	viper.SetDefault("data_provider.actions.hook", globalConf.ProviderConf.Actions.Hook)
 	viper.SetDefault("data_provider.external_auth_hook", globalConf.ProviderConf.ExternalAuthHook)
 	viper.SetDefault("data_provider.external_auth_scope", globalConf.ProviderConf.ExternalAuthScope)
-	viper.SetDefault("data_provider.credentials_path", globalConf.ProviderConf.CredentialsPath)
 	viper.SetDefault("data_provider.pre_login_hook", globalConf.ProviderConf.PreLoginHook)
 	viper.SetDefault("data_provider.post_login_hook", globalConf.ProviderConf.PostLoginHook)
 	viper.SetDefault("data_provider.post_login_scope", globalConf.ProviderConf.PostLoginScope)

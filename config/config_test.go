@@ -184,29 +184,6 @@ func TestInvalidExternalAuthScope(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestInvalidCredentialsPath(t *testing.T) {
-	reset()
-
-	configDir := ".."
-	confName := tempConfigName + ".json"
-	configFilePath := filepath.Join(configDir, confName)
-	err := config.LoadConfig(configDir, "")
-	assert.NoError(t, err)
-	providerConf := config.GetProviderConf()
-	providerConf.CredentialsPath = ""
-	c := make(map[string]dataprovider.Config)
-	c["data_provider"] = providerConf
-	jsonConf, err := json.Marshal(c)
-	assert.NoError(t, err)
-	err = os.WriteFile(configFilePath, jsonConf, os.ModePerm)
-	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, confName)
-	assert.NoError(t, err)
-	assert.Equal(t, "credentials", config.GetProviderConf().CredentialsPath)
-	err = os.Remove(configFilePath)
-	assert.NoError(t, err)
-}
-
 func TestInvalidProxyProtocol(t *testing.T) {
 	reset()
 

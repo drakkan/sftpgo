@@ -42,6 +42,11 @@ const (
 		"`description` varchar(512) NULL, `password` varchar(255) NOT NULL, `email` varchar(255) NULL, `status` integer NOT NULL, " +
 		"`permissions` longtext NOT NULL, `filters` longtext NULL, `additional_info` longtext NULL, `last_login` bigint NOT NULL, " +
 		"`created_at` bigint NOT NULL, `updated_at` bigint NOT NULL);" +
+		"CREATE TABLE `{{active_transfers}}` (`id` bigint AUTO_INCREMENT NOT NULL PRIMARY KEY, " +
+		"`connection_id` varchar(100) NOT NULL, `transfer_id` bigint NOT NULL, `transfer_type` integer NOT NULL, " +
+		"`username` varchar(255) NOT NULL, `folder_name` varchar(255) NULL, `ip` varchar(50) NOT NULL, " +
+		"`truncated_size` bigint NOT NULL, `current_ul_size` bigint NOT NULL, `current_dl_size` bigint NOT NULL, " +
+		"`created_at` bigint NOT NULL, `updated_at` bigint NOT NULL);" +
 		"CREATE TABLE `{{defender_hosts}}` (`id` bigint AUTO_INCREMENT NOT NULL PRIMARY KEY, " +
 		"`ip` varchar(50) NOT NULL UNIQUE, `ban_time` bigint NOT NULL, `updated_at` bigint NOT NULL);" +
 		"CREATE TABLE `{{defender_events}}` (`id` bigint AUTO_INCREMENT NOT NULL PRIMARY KEY, " +
@@ -51,6 +56,11 @@ const (
 		"CREATE TABLE `{{folders}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `name` varchar(255) NOT NULL UNIQUE, " +
 		"`description` varchar(512) NULL, `path` longtext NULL, `used_quota_size` bigint NOT NULL, " +
 		"`used_quota_files` integer NOT NULL, `last_quota_update` bigint NOT NULL, `filesystem` longtext NULL);" +
+		"CREATE TABLE `{{groups}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, " +
+		"`name` varchar(255) NOT NULL UNIQUE, `description` varchar(512) NULL, `created_at` bigint NOT NULL, " +
+		"`updated_at` bigint NOT NULL, `user_settings` longtext NULL);" +
+		"CREATE TABLE `{{shared_sessions}}` (`key` varchar(128) NOT NULL PRIMARY KEY, " +
+		"`data` longtext NOT NULL, `type` integer NOT NULL, `timestamp` bigint NOT NULL);" +
 		"CREATE TABLE `{{users}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `username` varchar(255) NOT NULL UNIQUE, " +
 		"`status` integer NOT NULL, `expiration_date` bigint NOT NULL, `description` varchar(512) NULL, `password` longtext NULL, " +
 		"`public_keys` longtext NULL, `home_dir` longtext NOT NULL, `uid` bigint NOT NULL, `gid` bigint NOT NULL, " +
@@ -58,12 +68,33 @@ const (
 		"`permissions` longtext NOT NULL, `used_quota_size` bigint NOT NULL, `used_quota_files` integer NOT NULL, " +
 		"`last_quota_update` bigint NOT NULL, `upload_bandwidth` integer NOT NULL, `download_bandwidth` integer NOT NULL, " +
 		"`last_login` bigint NOT NULL, `filters` longtext NULL, `filesystem` longtext NULL, `additional_info` longtext NULL, " +
-		"`created_at` bigint NOT NULL, `updated_at` bigint NOT NULL, `email` varchar(255) NULL);" +
-		"CREATE TABLE `{{folders_mapping}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `virtual_path` longtext NOT NULL, " +
+		"`created_at` bigint NOT NULL, `updated_at` bigint NOT NULL, `email` varchar(255) NULL, " +
+		"`upload_data_transfer` integer NOT NULL, `download_data_transfer` integer NOT NULL, " +
+		"`total_data_transfer` integer NOT NULL, `used_upload_data_transfer` integer NOT NULL, " +
+		"`used_download_data_transfer` integer NOT NULL);" +
+		"CREATE TABLE `{{groups_folders_mapping}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, " +
+		"`group_id` integer NOT NULL, `folder_id` integer NOT NULL, " +
+		"`virtual_path` longtext NOT NULL, `quota_size` bigint NOT NULL, `quota_files` integer NOT NULL);" +
+		"CREATE TABLE `{{users_groups_mapping}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, " +
+		"`user_id` integer NOT NULL, `group_id` integer NOT NULL, `group_type` integer NOT NULL);" +
+		"CREATE TABLE `{{users_folders_mapping}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `virtual_path` longtext NOT NULL, " +
 		"`quota_size` bigint NOT NULL, `quota_files` integer NOT NULL, `folder_id` integer NOT NULL, `user_id` integer NOT NULL);" +
-		"ALTER TABLE `{{folders_mapping}}` ADD CONSTRAINT `{{prefix}}unique_mapping` UNIQUE (`user_id`, `folder_id`);" +
-		"ALTER TABLE `{{folders_mapping}}` ADD CONSTRAINT `{{prefix}}folders_mapping_folder_id_fk_folders_id` FOREIGN KEY (`folder_id`) REFERENCES `{{folders}}` (`id`) ON DELETE CASCADE;" +
-		"ALTER TABLE `{{folders_mapping}}` ADD CONSTRAINT `{{prefix}}folders_mapping_user_id_fk_users_id` FOREIGN KEY (`user_id`) REFERENCES `{{users}}` (`id`) ON DELETE CASCADE;" +
+		"ALTER TABLE `{{users_folders_mapping}}` ADD CONSTRAINT `{{prefix}}unique_user_folder_mapping` " +
+		"UNIQUE (`user_id`, `folder_id`);" +
+		"ALTER TABLE `{{users_folders_mapping}}` ADD CONSTRAINT `{{prefix}}users_folders_mapping_user_id_fk_users_id` " +
+		"FOREIGN KEY (`user_id`) REFERENCES `{{users}}` (`id`) ON DELETE CASCADE;" +
+		"ALTER TABLE `{{users_folders_mapping}}` ADD CONSTRAINT `{{prefix}}users_folders_mapping_folder_id_fk_folders_id` " +
+		"FOREIGN KEY (`folder_id`) REFERENCES `{{folders}}` (`id`) ON DELETE CASCADE;" +
+		"ALTER TABLE `{{users_groups_mapping}}` ADD CONSTRAINT `{{prefix}}unique_user_group_mapping` UNIQUE (`user_id`, `group_id`);" +
+		"ALTER TABLE `{{groups_folders_mapping}}` ADD CONSTRAINT `{{prefix}}unique_group_folder_mapping` UNIQUE (`group_id`, `folder_id`);" +
+		"ALTER TABLE `{{users_groups_mapping}}` ADD CONSTRAINT `{{prefix}}users_groups_mapping_group_id_fk_groups_id` " +
+		"FOREIGN KEY (`group_id`) REFERENCES `{{groups}}` (`id`) ON DELETE NO ACTION;" +
+		"ALTER TABLE `{{users_groups_mapping}}` ADD CONSTRAINT `{{prefix}}users_groups_mapping_user_id_fk_users_id` " +
+		"FOREIGN KEY (`user_id`) REFERENCES `{{users}}` (`id`) ON DELETE CASCADE;" +
+		"ALTER TABLE `{{groups_folders_mapping}}` ADD CONSTRAINT `{{prefix}}groups_folders_mapping_folder_id_fk_folders_id` " +
+		"FOREIGN KEY (`folder_id`) REFERENCES `{{folders}}` (`id`) ON DELETE CASCADE;" +
+		"ALTER TABLE `{{groups_folders_mapping}}` ADD CONSTRAINT `{{prefix}}groups_folders_mapping_group_id_fk_groups_id` " +
+		"FOREIGN KEY (`group_id`) REFERENCES `{{groups}}` (`id`) ON DELETE CASCADE;" +
 		"CREATE TABLE `{{shares}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, " +
 		"`share_id` varchar(60) NOT NULL UNIQUE, `name` varchar(255) NOT NULL, `description` varchar(512) NULL, " +
 		"`scope` integer NOT NULL, `paths` longtext NOT NULL, `created_at` bigint NOT NULL, " +
@@ -81,83 +112,13 @@ const (
 		"CREATE INDEX `{{prefix}}defender_hosts_updated_at_idx` ON `{{defender_hosts}}` (`updated_at`);" +
 		"CREATE INDEX `{{prefix}}defender_hosts_ban_time_idx` ON `{{defender_hosts}}` (`ban_time`);" +
 		"CREATE INDEX `{{prefix}}defender_events_date_time_idx` ON `{{defender_events}}` (`date_time`);" +
-		"INSERT INTO {{schema_version}} (version) VALUES (15);"
-	mysqlV16SQL = "ALTER TABLE `{{users}}` ADD COLUMN `download_data_transfer` integer DEFAULT 0 NOT NULL;" +
-		"ALTER TABLE `{{users}}` ALTER COLUMN `download_data_transfer` DROP DEFAULT;" +
-		"ALTER TABLE `{{users}}` ADD COLUMN `total_data_transfer` integer DEFAULT 0 NOT NULL;" +
-		"ALTER TABLE `{{users}}` ALTER COLUMN `total_data_transfer` DROP DEFAULT;" +
-		"ALTER TABLE `{{users}}` ADD COLUMN `upload_data_transfer` integer DEFAULT 0 NOT NULL;" +
-		"ALTER TABLE `{{users}}` ALTER COLUMN `upload_data_transfer` DROP DEFAULT;" +
-		"ALTER TABLE `{{users}}` ADD COLUMN `used_download_data_transfer` integer DEFAULT 0 NOT NULL;" +
-		"ALTER TABLE `{{users}}` ALTER COLUMN `used_download_data_transfer` DROP DEFAULT;" +
-		"ALTER TABLE `{{users}}` ADD COLUMN `used_upload_data_transfer` integer DEFAULT 0 NOT NULL;" +
-		"ALTER TABLE `{{users}}` ALTER COLUMN `used_upload_data_transfer` DROP DEFAULT;" +
-		"CREATE TABLE `{{active_transfers}}` (`id` bigint AUTO_INCREMENT NOT NULL PRIMARY KEY, " +
-		"`connection_id` varchar(100) NOT NULL, `transfer_id` bigint NOT NULL, `transfer_type` integer NOT NULL, " +
-		"`username` varchar(255) NOT NULL, `folder_name` varchar(255) NULL, `ip` varchar(50) NOT NULL, " +
-		"`truncated_size` bigint NOT NULL, `current_ul_size` bigint NOT NULL, `current_dl_size` bigint NOT NULL, " +
-		"`created_at` bigint NOT NULL, `updated_at` bigint NOT NULL);" +
 		"CREATE INDEX `{{prefix}}active_transfers_connection_id_idx` ON `{{active_transfers}}` (`connection_id`);" +
 		"CREATE INDEX `{{prefix}}active_transfers_transfer_id_idx` ON `{{active_transfers}}` (`transfer_id`);" +
-		"CREATE INDEX `{{prefix}}active_transfers_updated_at_idx` ON `{{active_transfers}}` (`updated_at`);"
-	mysqlV16DownSQL = "ALTER TABLE `{{users}}` DROP COLUMN `used_upload_data_transfer`;" +
-		"ALTER TABLE `{{users}}` DROP COLUMN `used_download_data_transfer`;" +
-		"ALTER TABLE `{{users}}` DROP COLUMN `upload_data_transfer`;" +
-		"ALTER TABLE `{{users}}` DROP COLUMN `total_data_transfer`;" +
-		"ALTER TABLE `{{users}}` DROP COLUMN `download_data_transfer`;" +
-		"DROP TABLE `{{active_transfers}}` CASCADE;"
-	mysqlV17SQL = "CREATE TABLE `{{groups}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, " +
-		"`name` varchar(255) NOT NULL UNIQUE, `description` varchar(512) NULL, `created_at` bigint NOT NULL, " +
-		"`updated_at` bigint NOT NULL, `user_settings` longtext NULL);" +
-		"CREATE TABLE `{{groups_folders_mapping}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, " +
-		"`group_id` integer NOT NULL, `folder_id` integer NOT NULL, " +
-		"`virtual_path` longtext NOT NULL, `quota_size` bigint NOT NULL, `quota_files` integer NOT NULL);" +
-		"CREATE TABLE `{{users_groups_mapping}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, " +
-		"`user_id` integer NOT NULL, `group_id` integer NOT NULL, `group_type` integer NOT NULL);" +
-		"ALTER TABLE `{{folders_mapping}}` DROP FOREIGN KEY `{{prefix}}folders_mapping_folder_id_fk_folders_id`;" +
-		"ALTER TABLE `{{folders_mapping}}` DROP FOREIGN KEY `{{prefix}}folders_mapping_user_id_fk_users_id`;" +
-		"ALTER TABLE `{{folders_mapping}}` DROP INDEX `{{prefix}}unique_mapping`;" +
-		"RENAME TABLE `{{folders_mapping}}` TO `{{users_folders_mapping}}`;" +
-		"ALTER TABLE `{{users_folders_mapping}}` ADD CONSTRAINT `{{prefix}}unique_user_folder_mapping` " +
-		"UNIQUE (`user_id`, `folder_id`);" +
-		"ALTER TABLE `{{users_folders_mapping}}` ADD CONSTRAINT `{{prefix}}users_folders_mapping_user_id_fk_users_id` " +
-		"FOREIGN KEY (`user_id`) REFERENCES `{{users}}` (`id`) ON DELETE CASCADE;" +
-		"ALTER TABLE `{{users_folders_mapping}}` ADD CONSTRAINT `{{prefix}}users_folders_mapping_folder_id_fk_folders_id` " +
-		"FOREIGN KEY (`folder_id`) REFERENCES `{{folders}}` (`id`) ON DELETE CASCADE;" +
-		"ALTER TABLE `{{users_groups_mapping}}` ADD CONSTRAINT `{{prefix}}unique_user_group_mapping` UNIQUE (`user_id`, `group_id`);" +
-		"ALTER TABLE `{{groups_folders_mapping}}` ADD CONSTRAINT `{{prefix}}unique_group_folder_mapping` UNIQUE (`group_id`, `folder_id`);" +
-		"ALTER TABLE `{{users_groups_mapping}}` ADD CONSTRAINT `{{prefix}}users_groups_mapping_group_id_fk_groups_id` " +
-		"FOREIGN KEY (`group_id`) REFERENCES `{{groups}}` (`id`) ON DELETE NO ACTION;" +
-		"ALTER TABLE `{{users_groups_mapping}}` ADD CONSTRAINT `{{prefix}}users_groups_mapping_user_id_fk_users_id` " +
-		"FOREIGN KEY (`user_id`) REFERENCES `{{users}}` (`id`) ON DELETE CASCADE;" +
-		"ALTER TABLE `{{groups_folders_mapping}}` ADD CONSTRAINT `{{prefix}}groups_folders_mapping_folder_id_fk_folders_id` " +
-		"FOREIGN KEY (`folder_id`) REFERENCES `{{folders}}` (`id`) ON DELETE CASCADE;" +
-		"ALTER TABLE `{{groups_folders_mapping}}` ADD CONSTRAINT `{{prefix}}groups_folders_mapping_group_id_fk_groups_id` " +
-		"FOREIGN KEY (`group_id`) REFERENCES `{{groups}}` (`id`) ON DELETE CASCADE;" +
-		"CREATE INDEX `{{prefix}}groups_updated_at_idx` ON `{{groups}}` (`updated_at`);"
-	mysqlV17DownSQL = "ALTER TABLE `{{groups_folders_mapping}}` DROP FOREIGN KEY `{{prefix}}groups_folders_mapping_group_id_fk_groups_id`;" +
-		"ALTER TABLE `{{groups_folders_mapping}}` DROP FOREIGN KEY `{{prefix}}groups_folders_mapping_folder_id_fk_folders_id`;" +
-		"ALTER TABLE `{{users_groups_mapping}}` DROP FOREIGN KEY `{{prefix}}users_groups_mapping_user_id_fk_users_id`;" +
-		"ALTER TABLE `{{users_groups_mapping}}` DROP FOREIGN KEY `{{prefix}}users_groups_mapping_group_id_fk_groups_id`;" +
-		"ALTER TABLE `{{groups_folders_mapping}}` DROP INDEX `{{prefix}}unique_group_folder_mapping`;" +
-		"ALTER TABLE `{{users_groups_mapping}}` DROP INDEX `{{prefix}}unique_user_group_mapping`;" +
-		"DROP TABLE `{{users_groups_mapping}}` CASCADE;" +
-		"DROP TABLE `{{groups_folders_mapping}}` CASCADE;" +
-		"DROP TABLE `{{groups}}` CASCADE;" +
-		"ALTER TABLE `{{users_folders_mapping}}` DROP FOREIGN KEY `{{prefix}}users_folders_mapping_folder_id_fk_folders_id`;" +
-		"ALTER TABLE `{{users_folders_mapping}}` DROP FOREIGN KEY `{{prefix}}users_folders_mapping_user_id_fk_users_id`;" +
-		"ALTER TABLE `{{users_folders_mapping}}` DROP INDEX `{{prefix}}unique_user_folder_mapping`;" +
-		"RENAME TABLE `{{users_folders_mapping}}` TO `{{folders_mapping}}`;" +
-		"ALTER TABLE `{{folders_mapping}}` ADD CONSTRAINT `{{prefix}}unique_mapping` UNIQUE (`user_id`, `folder_id`);" +
-		"ALTER TABLE `{{folders_mapping}}` ADD CONSTRAINT `{{prefix}}folders_mapping_user_id_fk_users_id` " +
-		"FOREIGN KEY (`user_id`) REFERENCES `{{users}}` (`id`) ON DELETE CASCADE;" +
-		"ALTER TABLE `{{folders_mapping}}` ADD CONSTRAINT `{{prefix}}folders_mapping_folder_id_fk_folders_id` " +
-		"FOREIGN KEY (`folder_id`) REFERENCES `{{folders}}` (`id`) ON DELETE CASCADE;"
-	mysqlV19SQL = "CREATE TABLE `{{shared_sessions}}` (`key` varchar(128) NOT NULL PRIMARY KEY, " +
-		"`data` longtext NOT NULL, `type` integer NOT NULL, `timestamp` bigint NOT NULL);" +
+		"CREATE INDEX `{{prefix}}active_transfers_updated_at_idx` ON `{{active_transfers}}` (`updated_at`);" +
+		"CREATE INDEX `{{prefix}}groups_updated_at_idx` ON `{{groups}}` (`updated_at`);" +
 		"CREATE INDEX `{{prefix}}shared_sessions_type_idx` ON `{{shared_sessions}}` (`type`);" +
-		"CREATE INDEX `{{prefix}}shared_sessions_timestamp_idx` ON `{{shared_sessions}}` (`timestamp`);"
-	mysqlV19DownSQL = "DROP TABLE `{{shared_sessions}}` CASCADE;"
+		"CREATE INDEX `{{prefix}}shared_sessions_timestamp_idx` ON `{{shared_sessions}}` (`timestamp`);" +
+		"INSERT INTO {{schema_version}} (version) VALUES (19);"
 )
 
 // MySQLProvider defines the auth provider for MySQL/MariaDB database
@@ -559,20 +520,11 @@ func (p *MySQLProvider) initializeDatabase() error {
 	if errors.Is(err, sql.ErrNoRows) {
 		return errSchemaVersionEmpty
 	}
-	logger.InfoToConsole("creating initial database schema, version 15")
-	providerLog(logger.LevelInfo, "creating initial database schema, version 15")
-	initialSQL := strings.ReplaceAll(mysqlInitialSQL, "{{schema_version}}", sqlTableSchemaVersion)
-	initialSQL = strings.ReplaceAll(initialSQL, "{{admins}}", sqlTableAdmins)
-	initialSQL = strings.ReplaceAll(initialSQL, "{{folders}}", sqlTableFolders)
-	initialSQL = strings.ReplaceAll(initialSQL, "{{users}}", sqlTableUsers)
-	initialSQL = strings.ReplaceAll(initialSQL, "{{folders_mapping}}", sqlTableFoldersMapping)
-	initialSQL = strings.ReplaceAll(initialSQL, "{{api_keys}}", sqlTableAPIKeys)
-	initialSQL = strings.ReplaceAll(initialSQL, "{{shares}}", sqlTableShares)
-	initialSQL = strings.ReplaceAll(initialSQL, "{{defender_events}}", sqlTableDefenderEvents)
-	initialSQL = strings.ReplaceAll(initialSQL, "{{defender_hosts}}", sqlTableDefenderHosts)
-	initialSQL = strings.ReplaceAll(initialSQL, "{{prefix}}", config.SQLTablesPrefix)
+	logger.InfoToConsole("creating initial database schema, version 19")
+	providerLog(logger.LevelInfo, "creating initial database schema, version 19")
+	initialSQL := sqlReplaceAll(mysqlInitialSQL)
 
-	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, strings.Split(initialSQL, ";"), 15, true)
+	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, strings.Split(initialSQL, ";"), 19, true)
 }
 
 func (p *MySQLProvider) migrateDatabase() error { //nolint:dupl
@@ -585,19 +537,11 @@ func (p *MySQLProvider) migrateDatabase() error { //nolint:dupl
 	case version == sqlDatabaseVersion:
 		providerLog(logger.LevelDebug, "sql database is up to date, current version: %v", version)
 		return ErrNoInitRequired
-	case version < 15:
+	case version < 19:
 		err = fmt.Errorf("database version %v is too old, please see the upgrading docs", version)
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
-	case version == 15:
-		return updateMySQLDatabaseFromV15(p.dbHandle)
-	case version == 16:
-		return updateMySQLDatabaseFromV16(p.dbHandle)
-	case version == 17:
-		return updateMySQLDatabaseFromV17(p.dbHandle)
-	case version == 18:
-		return updateMySQLDatabaseFromV18(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database version %v is newer than the supported one: %v", version,
@@ -620,14 +564,6 @@ func (p *MySQLProvider) revertDatabase(targetVersion int) error {
 	}
 
 	switch dbVersion.Version {
-	case 16:
-		return downgradeMySQLDatabaseFromV16(p.dbHandle)
-	case 17:
-		return downgradeMySQLDatabaseFromV17(p.dbHandle)
-	case 18:
-		return downgradeMySQLDatabaseFromV18(p.dbHandle)
-	case 19:
-		return downgradeMySQLDatabaseFromV19(p.dbHandle)
 	default:
 		return fmt.Errorf("database version not handled: %v", dbVersion.Version)
 	}
@@ -636,129 +572,4 @@ func (p *MySQLProvider) revertDatabase(targetVersion int) error {
 func (p *MySQLProvider) resetDatabase() error {
 	sql := sqlReplaceAll(mysqlResetSQL)
 	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, strings.Split(sql, ";"), 0, false)
-}
-
-func updateMySQLDatabaseFromV15(dbHandle *sql.DB) error {
-	if err := updateMySQLDatabaseFrom15To16(dbHandle); err != nil {
-		return err
-	}
-	return updateMySQLDatabaseFromV16(dbHandle)
-}
-
-func updateMySQLDatabaseFromV16(dbHandle *sql.DB) error {
-	if err := updateMySQLDatabaseFrom16To17(dbHandle); err != nil {
-		return err
-	}
-	return updateMySQLDatabaseFromV17(dbHandle)
-}
-
-func updateMySQLDatabaseFromV17(dbHandle *sql.DB) error {
-	if err := updateMySQLDatabaseFrom17To18(dbHandle); err != nil {
-		return err
-	}
-	return updateMySQLDatabaseFromV18(dbHandle)
-}
-
-func updateMySQLDatabaseFromV18(dbHandle *sql.DB) error {
-	return updateMySQLDatabaseFrom18To19(dbHandle)
-}
-
-func downgradeMySQLDatabaseFromV16(dbHandle *sql.DB) error {
-	return downgradeMySQLDatabaseFrom16To15(dbHandle)
-}
-
-func downgradeMySQLDatabaseFromV17(dbHandle *sql.DB) error {
-	if err := downgradeMySQLDatabaseFrom17To16(dbHandle); err != nil {
-		return err
-	}
-	return downgradeMySQLDatabaseFromV16(dbHandle)
-}
-
-func downgradeMySQLDatabaseFromV18(dbHandle *sql.DB) error {
-	if err := downgradeMySQLDatabaseFrom18To17(dbHandle); err != nil {
-		return err
-	}
-	return downgradeMySQLDatabaseFromV17(dbHandle)
-}
-
-func downgradeMySQLDatabaseFromV19(dbHandle *sql.DB) error {
-	if err := downgradeMySQLDatabaseFrom19To18(dbHandle); err != nil {
-		return err
-	}
-	return downgradeMySQLDatabaseFromV18(dbHandle)
-}
-
-func updateMySQLDatabaseFrom15To16(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database version: 15 -> 16")
-	providerLog(logger.LevelInfo, "updating database version: 15 -> 16")
-	sql := strings.ReplaceAll(mysqlV16SQL, "{{users}}", sqlTableUsers)
-	sql = strings.ReplaceAll(sql, "{{active_transfers}}", sqlTableActiveTransfers)
-	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 16, true)
-}
-
-func updateMySQLDatabaseFrom16To17(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database version: 16 -> 17")
-	providerLog(logger.LevelInfo, "updating database version: 16 -> 17")
-	sql := strings.ReplaceAll(mysqlV17SQL, "{{users}}", sqlTableUsers)
-	sql = strings.ReplaceAll(sql, "{{groups}}", sqlTableGroups)
-	sql = strings.ReplaceAll(sql, "{{folders}}", sqlTableFolders)
-	sql = strings.ReplaceAll(sql, "{{folders_mapping}}", sqlTableFoldersMapping)
-	sql = strings.ReplaceAll(sql, "{{users_folders_mapping}}", sqlTableUsersFoldersMapping)
-	sql = strings.ReplaceAll(sql, "{{users_groups_mapping}}", sqlTableUsersGroupsMapping)
-	sql = strings.ReplaceAll(sql, "{{groups_folders_mapping}}", sqlTableGroupsFoldersMapping)
-	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 17, true)
-}
-
-func updateMySQLDatabaseFrom17To18(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database version: 17 -> 18")
-	providerLog(logger.LevelInfo, "updating database version: 17 -> 18")
-	if err := importGCSCredentials(); err != nil {
-		return err
-	}
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, nil, 18, true)
-}
-
-func updateMySQLDatabaseFrom18To19(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database version: 18 -> 19")
-	providerLog(logger.LevelInfo, "updating database version: 18 -> 19")
-	sql := strings.ReplaceAll(mysqlV19SQL, "{{shared_sessions}}", sqlTableSharedSessions)
-	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 19, true)
-}
-
-func downgradeMySQLDatabaseFrom16To15(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database version: 16 -> 15")
-	providerLog(logger.LevelInfo, "downgrading database version: 16 -> 15")
-	sql := strings.ReplaceAll(mysqlV16DownSQL, "{{users}}", sqlTableUsers)
-	sql = strings.ReplaceAll(sql, "{{active_transfers}}", sqlTableActiveTransfers)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 15, false)
-}
-
-func downgradeMySQLDatabaseFrom17To16(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database version: 17 -> 16")
-	providerLog(logger.LevelInfo, "downgrading database version: 17 -> 16")
-	sql := strings.ReplaceAll(mysqlV17DownSQL, "{{users}}", sqlTableUsers)
-	sql = strings.ReplaceAll(sql, "{{groups}}", sqlTableGroups)
-	sql = strings.ReplaceAll(sql, "{{folders}}", sqlTableFolders)
-	sql = strings.ReplaceAll(sql, "{{folders_mapping}}", sqlTableFoldersMapping)
-	sql = strings.ReplaceAll(sql, "{{users_folders_mapping}}", sqlTableUsersFoldersMapping)
-	sql = strings.ReplaceAll(sql, "{{users_groups_mapping}}", sqlTableUsersGroupsMapping)
-	sql = strings.ReplaceAll(sql, "{{groups_folders_mapping}}", sqlTableGroupsFoldersMapping)
-	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 16, false)
-}
-
-func downgradeMySQLDatabaseFrom18To17(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database version: 18 -> 17")
-	providerLog(logger.LevelInfo, "downgrading database version: 18 -> 17")
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, nil, 17, false)
-}
-
-func downgradeMySQLDatabaseFrom19To18(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database version: 19 -> 18")
-	providerLog(logger.LevelInfo, "downgrading database version: 19 -> 18")
-	sql := strings.ReplaceAll(mysqlV19DownSQL, "{{shared_sessions}}", sqlTableSharedSessions)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 18, false)
 }

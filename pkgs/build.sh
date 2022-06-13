@@ -1,6 +1,6 @@
 #!/bin/bash
 
-NFPM_VERSION=2.15.1
+NFPM_VERSION=2.16.0
 NFPM_ARCH=${NFPM_ARCH:-amd64}
 if [ -z ${SFTPGO_VERSION} ]
 then
@@ -40,7 +40,6 @@ cp ${BASE_DIR}/sftpgo.json .
 sed -i "s|sftpgo.db|/var/lib/sftpgo/sftpgo.db|" sftpgo.json
 sed -i "s|\"users_base_dir\": \"\",|\"users_base_dir\": \"/srv/sftpgo/data\",|" sftpgo.json
 sed -i "s|\"backups\"|\"/srv/sftpgo/backups\"|" sftpgo.json
-sed -i "s|\"credentials\"|\"/var/lib/sftpgo/credentials\"|" sftpgo.json
 sed -i "s|\"certs\"|\"/var/lib/sftpgo/certs\"|" sftpgo.json
 
 cat >nfpm.yaml <<EOF

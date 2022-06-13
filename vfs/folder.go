@@ -2,7 +2,6 @@ package vfs
 
 import (
 	"fmt"
-	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -35,11 +34,6 @@ type BaseVirtualFolder struct {
 // GetEncryptionAdditionalData returns the additional data to use for AEAD
 func (v *BaseVirtualFolder) GetEncryptionAdditionalData() string {
 	return fmt.Sprintf("folder_%v", v.Name)
-}
-
-// GetGCSCredentialsFilePath returns the path for GCS credentials
-func (v *BaseVirtualFolder) GetGCSCredentialsFilePath() string {
-	return filepath.Join(credentialsDirPath, "folders", fmt.Sprintf("%v_gcs_credentials.json", v.Name))
 }
 
 // GetACopy returns a copy

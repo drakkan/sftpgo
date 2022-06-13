@@ -30,10 +30,10 @@ Several storage backends are supported: local filesystem, encrypted local filesy
 - Per-user authentication methods.
 - [Two-factor authentication](./docs/howto/two-factor-authentication.md) based on time-based one time passwords (RFC 6238) which works with Authy, Google Authenticator and other compatible apps.
 - Simplified user administrations using [groups](./docs/groups.md).
-- Custom authentication via external programs/HTTP API.
+- Custom authentication via [external programs/HTTP API](./docs/external-auth.md).
 - Web Client and Web Admin user interfaces support [OpenID Connect](https://openid.net/connect/) authentication and so they can be integrated with identity providers such as [Keycloak](https://www.keycloak.org/). You can find more details [here](./docs/oidc.md).
 - [Data At Rest Encryption](./docs/dare.md).
-- Dynamic user modification before login via external programs/HTTP API.
+- Dynamic user modification before login via [external programs/HTTP API](./docs/dynamic-user-mod.md).
 - Quota support: accounts can have individual disk quota expressed as max total size and/or max number of files.
 - Bandwidth throttling, with separate settings for upload and download and overrides based on the client's IP address.
 - Data transfer bandwidth limits, with total limit or separate settings for uploads and downloads and overrides based on the client's IP address. Limits can be reset using the REST API.

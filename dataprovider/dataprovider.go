@@ -155,7 +155,6 @@ var (
 	unixPwdPrefixes              = []string{md5cryptPwdPrefix, md5cryptApr1PwdPrefix, sha512cryptPwdPrefix}
 	sharedProviders              = []string{PGSQLDataProviderName, MySQLDataProviderName, CockroachDataProviderName}
 	logSender                    = "dataprovider"
-	credentialsDirPath           string
 	sqlTableUsers                = "users"
 	sqlTableFolders              = "folders"
 	sqlTableFoldersMapping       = "folders_mapping"
@@ -322,10 +321,6 @@ type Config struct {
 	// you can combine the scopes, for example 3 means password and public key, 5 password and keyboard
 	// interactive and so on
 	ExternalAuthScope int `json:"external_auth_scope" mapstructure:"external_auth_scope"`
-	// CredentialsPath defines the directory for storing user provided credential files such as
-	// Google Cloud Storage credentials. It can be a path relative to the config dir or an
-	// absolute path
-	CredentialsPath string `json:"credentials_path" mapstructure:"credentials_path"`
 	// Absolute path to an external program or an HTTP URL to invoke just before the user login.
 	// This program/URL allows to modify or create the user trying to login.
 	// It is useful if you have users with dynamic fields to update just before the login.
@@ -719,8 +714,6 @@ func Initialize(cnf Config, basePath string, checkAdmins bool) error {
 	if cnf.BackupsPath == "" {
 		return fmt.Errorf("required directory is invalid, backup path %#v", cnf.BackupsPath)
 	}
-	credentialsDirPath = getConfigPath(config.CredentialsPath, basePath)
-	vfs.SetCredentialsDirPath(credentialsDirPath)
 
 	if err = initializeHashingAlgo(&cnf); err != nil {
 		return err
@@ -867,13 +860,6 @@ func checkDefaultAdmin() error {
 func InitializeDatabase(cnf Config, basePath string) error {
 	config = cnf
 
-	if filepath.IsAbs(config.CredentialsPath) {
-		credentialsDirPath = config.CredentialsPath
-	} else {
-		credentialsDirPath = filepath.Join(basePath, config.CredentialsPath)
-	}
-	vfs.SetCredentialsDirPath(credentialsDirPath)
-
 	if err := initializeHashingAlgo(&cnf); err != nil {
 		return err
 	}
@@ -893,12 +879,6 @@ func InitializeDatabase(cnf Config, basePath string) error {
 func RevertDatabase(cnf Config, basePath string, targetVersion int) error {
 	config = cnf
 
-	if filepath.IsAbs(config.CredentialsPath) {
-		credentialsDirPath = config.CredentialsPath
-	} else {
-		credentialsDirPath = filepath.Join(basePath, config.CredentialsPath)
-	}
-
 	err := createProvider(basePath)
 	if err != nil {
 		return err
@@ -913,12 +893,6 @@ func RevertDatabase(cnf Config, basePath string, targetVersion int) error {
 // ResetDatabase restores schema and/or data to a previous version
 func ResetDatabase(cnf Config, basePath string) error {
 	config = cnf
-
-	if filepath.IsAbs(config.CredentialsPath) {
-		credentialsDirPath = config.CredentialsPath
-	} else {
-		credentialsDirPath = filepath.Join(basePath, config.CredentialsPath)
-	}
 
 	if err := createProvider(basePath); err != nil {
 		return err
@@ -3648,89 +3622,6 @@ func isLastActivityRecent(lastActivity int64, minDelay time.Duration) bool {
 		return false
 	}
 	return diff < minDelay
-}
-
-func addGCSCredentialsToFolder(folder *vfs.BaseVirtualFolder) (bool, error) {
-	if folder.FsConfig.Provider != sdk.GCSFilesystemProvider {
-		return false, nil
-	}
-	if folder.FsConfig.GCSConfig.AutomaticCredentials > 0 {
-		return false, nil
-	}
-	if folder.FsConfig.GCSConfig.Credentials.IsValid() {
-		return false, nil
-	}
-	cred, err := os.ReadFile(folder.GetGCSCredentialsFilePath())
-	if err != nil {
-		return false, err
-	}
-	err = json.Unmarshal(cred, &folder.FsConfig.GCSConfig.Credentials)
-	if err != nil {
-		return false, err
-	}
-	return true, nil
-}
-
-func addGCSCredentialsToUser(user *User) (bool, error) {
-	if user.FsConfig.Provider != sdk.GCSFilesystemProvider {
-		return false, nil
-	}
-	if user.FsConfig.GCSConfig.AutomaticCredentials > 0 {
-		return false, nil
-	}
-	if user.FsConfig.GCSConfig.Credentials.IsValid() {
-		return false, nil
-	}
-	cred, err := os.ReadFile(user.GetGCSCredentialsFilePath())
-	if err != nil {
-		return false, err
-	}
-	err = json.Unmarshal(cred, &user.FsConfig.GCSConfig.Credentials)
-	if err != nil {
-		return false, err
-	}
-	return true, nil
-}
-
-func importGCSCredentials() error {
-	folders, err := provider.dumpFolders()
-	if err != nil {
-		return fmt.Errorf("unable to get folders: %w", err)
-	}
-	for idx := range folders {
-		folder := &folders[idx]
-		added, err := addGCSCredentialsToFolder(folder)
-		if err != nil {
-			return fmt.Errorf("unable to add GCS credentials to folder %#v: %w", folder.Name, err)
-		}
-		if added {
-			logger.InfoToConsole("importing GCS credentials for folder %#v", folder.Name)
-			providerLog(logger.LevelInfo, "importing GCS credentials for folder %#v", folder.Name)
-			if err = provider.updateFolder(folder); err != nil {
-				return fmt.Errorf("unable to update folder %#v: %w", folder.Name, err)
-			}
-		}
-	}
-
-	users, err := provider.dumpUsers()
-	if err != nil {
-		return fmt.Errorf("unable to get users: %w", err)
-	}
-	for idx := range users {
-		user := &users[idx]
-		added, err := addGCSCredentialsToUser(user)
-		if err != nil {
-			return fmt.Errorf("unable to add GCS credentials to user %#v: %w", user.Username, err)
-		}
-		if added {
-			logger.InfoToConsole("importing GCS credentials for user %#v", user.Username)
-			providerLog(logger.LevelInfo, "importing GCS credentials for user %#v", user.Username)
-			if err = provider.updateUser(user); err != nil {
-				return fmt.Errorf("unable to update user %#v: %w", user.Username, err)
-			}
-		}
-	}
-	return nil
 }
 
 func getConfigPath(name, configDir string) string {
