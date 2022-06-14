@@ -588,6 +588,78 @@ var (
 		Name: "sftpgo_az_head_container_errors",
 		Help: "The total number of Azure head container errors",
 	})
+
+	// totalSFTPFsUploads is the metric that reports the total number of successful SFTPFs uploads
+	totalSFTPFsUploads = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_sftpfs_uploads_total",
+		Help: "The total number of successful SFTPFs uploads",
+	})
+
+	// totalSFTPFsDownloads is the metric that reports the total number of successful SFTPFs downloads
+	totalSFTPFsDownloads = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_sftpfs_downloads_total",
+		Help: "The total number of successful SFTPFs downloads",
+	})
+
+	// totalSFTPFsUploadErrors is the metric that reports the total number of SFTPFs upload errors
+	totalSFTPFsUploadErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_sftpfs_upload_errors_total",
+		Help: "The total number of SFTPFs upload errors",
+	})
+
+	// totalSFTPFsDownloadErrors is the metric that reports the total number of SFTPFs download errors
+	totalSFTPFsDownloadErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_sftpfs_download_errors_total",
+		Help: "The total number of SFTPFs download errors",
+	})
+
+	// totalSFTPFsUploadSize is the metric that reports the total SFTPFs uploads size as bytes
+	totalSFTPFsUploadSize = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_sftpfs_upload_size",
+		Help: "The total SFTPFs upload size as bytes, partial uploads are included",
+	})
+
+	// totalSFTPFsDownloadSize is the metric that reports the total SFTPFs downloads size as bytes
+	totalSFTPFsDownloadSize = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_sftpfs_download_size",
+		Help: "The total SFTPFs download size as bytes, partial downloads are included",
+	})
+
+	// totalHTTPFsUploads is the metric that reports the total number of successful HTTPFs uploads
+	totalHTTPFsUploads = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_httpfs_uploads_total",
+		Help: "The total number of successful HTTPFs uploads",
+	})
+
+	// totalHTTPFsDownloads is the metric that reports the total number of successful HTTPFs downloads
+	totalHTTPFsDownloads = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_httpfs_downloads_total",
+		Help: "The total number of successful HTTPFs downloads",
+	})
+
+	// totalHTTPFsUploadErrors is the metric that reports the total number of HTTPFs upload errors
+	totalHTTPFsUploadErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_httpfs_upload_errors_total",
+		Help: "The total number of HTTPFs upload errors",
+	})
+
+	// totalHTTPFsDownloadErrors is the metric that reports the total number of HTTPFs download errors
+	totalHTTPFsDownloadErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_httpfs_download_errors_total",
+		Help: "The total number of HTTPFs download errors",
+	})
+
+	// totalHTTPFsUploadSize is the metric that reports the total HTTPFs uploads size as bytes
+	totalHTTPFsUploadSize = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_httpfs_upload_size",
+		Help: "The total HTTPFs upload size as bytes, partial uploads are included",
+	})
+
+	// totalHTTPFsDownloadSize is the metric that reports the total HTTPFs downloads size as bytes
+	totalHTTPFsDownloadSize = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_httpfs_download_size",
+		Help: "The total HTTPFs download size as bytes, partial downloads are included",
+	})
 )
 
 // AddMetricsEndpoint exposes metrics to the specified endpoint
@@ -596,7 +668,7 @@ func AddMetricsEndpoint(metricsPath string, handler chi.Router) {
 }
 
 // TransferCompleted updates metrics after an upload or a download
-func TransferCompleted(bytesSent, bytesReceived int64, transferKind int, err error) {
+func TransferCompleted(bytesSent, bytesReceived int64, transferKind int, err error, isSFTPFs bool) {
 	if transferKind == 0 {
 		// upload
 		if err == nil {
@@ -617,6 +689,9 @@ func TransferCompleted(bytesSent, bytesReceived int64, transferKind int, err err
 	}
 	if bytesSent > 0 {
 		totalDownloadSize.Add(float64(bytesSent))
+	}
+	if isSFTPFs {
+		sftpFsTransferCompleted(bytesSent, bytesReceived, transferKind, err)
 	}
 }
 
@@ -815,6 +890,52 @@ func AZHeadContainerCompleted(err error) {
 		totalAZHeadContainer.Inc()
 	} else {
 		totalAZHeadContainerErrors.Inc()
+	}
+}
+
+// sftpFsTransferCompleted updates metrics after an SFTPFs upload or a download
+func sftpFsTransferCompleted(bytesSent, bytesReceived int64, transferKind int, err error) {
+	if transferKind == 0 {
+		// upload
+		if err == nil {
+			totalSFTPFsUploads.Inc()
+		} else {
+			totalSFTPFsUploadErrors.Inc()
+		}
+	} else {
+		// download
+		if err == nil {
+			totalSFTPFsDownloads.Inc()
+		} else {
+			totalSFTPFsDownloadErrors.Inc()
+		}
+	}
+	if bytesReceived > 0 {
+		totalSFTPFsUploadSize.Add(float64(bytesReceived))
+	}
+	if bytesSent > 0 {
+		totalSFTPFsDownloadSize.Add(float64(bytesSent))
+	}
+}
+
+// HTTPFsTransferCompleted updates metrics after an HTTPFs upload or a download
+func HTTPFsTransferCompleted(bytes int64, transferKind int, err error) {
+	if transferKind == 0 {
+		// upload
+		if err == nil {
+			totalHTTPFsUploads.Inc()
+		} else {
+			totalHTTPFsUploadErrors.Inc()
+		}
+		totalHTTPFsUploadSize.Add(float64(bytes))
+	} else {
+		// download
+		if err == nil {
+			totalHTTPFsDownloads.Inc()
+		} else {
+			totalHTTPFsDownloadErrors.Inc()
+		}
+		totalHTTPFsDownloadSize.Add(float64(bytes))
 	}
 }
 

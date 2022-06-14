@@ -24,6 +24,7 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/kms"
 	"github.com/drakkan/sftpgo/v2/logger"
+	"github.com/drakkan/sftpgo/v2/metric"
 	"github.com/drakkan/sftpgo/v2/util"
 )
 
@@ -289,12 +290,14 @@ func (fs *HTTPFs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, f
 		if err != nil {
 			fsLog(fs, logger.LevelError, "download error, path %q, err: %v", name, err)
 			w.CloseWithError(err) //nolint:errcheck
+			metric.HTTPFsTransferCompleted(0, 1, err)
 			return
 		}
 		defer resp.Body.Close()
 		n, err := io.Copy(w, resp.Body)
 		w.CloseWithError(err) //nolint:errcheck
 		fsLog(fs, logger.LevelDebug, "download completed, path %q size: %v, err: %+v", name, n, err)
+		metric.HTTPFsTransferCompleted(n, 1, err)
 	}()
 
 	return nil, r, cancelFn, nil
@@ -324,6 +327,7 @@ func (fs *HTTPFs) Create(name string, flag int) (File, *PipeWriter, func(), erro
 			fsLog(fs, logger.LevelError, "upload error, path %q, err: %v", name, err)
 			r.CloseWithError(err) //nolint:errcheck
 			p.Done(err)
+			metric.HTTPFsTransferCompleted(0, 0, err)
 			return
 		}
 		defer resp.Body.Close()
@@ -331,6 +335,7 @@ func (fs *HTTPFs) Create(name string, flag int) (File, *PipeWriter, func(), erro
 		r.CloseWithError(err) //nolint:errcheck
 		p.Done(err)
 		fsLog(fs, logger.LevelDebug, "upload completed, path: %q, readed bytes: %d", name, r.GetReadedBytes())
+		metric.HTTPFsTransferCompleted(r.GetReadedBytes(), 0, err)
 	}()
 
 	return nil, p, cancelFn, nil

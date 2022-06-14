@@ -231,7 +231,8 @@ func (t *transfer) copyFromReaderToWriter(dst io.Writer, src io.Reader) (int64, 
 	}
 	t.ErrTransfer = err
 	if written > 0 || err != nil {
-		metric.TransferCompleted(atomic.LoadInt64(&t.BytesSent), atomic.LoadInt64(&t.BytesReceived), t.GetType(), t.ErrTransfer)
+		metric.TransferCompleted(atomic.LoadInt64(&t.BytesSent), atomic.LoadInt64(&t.BytesReceived), t.GetType(),
+			t.ErrTransfer, vfs.IsSFTPFs(t.Fs))
 	}
 	return written, err
 }
