@@ -380,51 +380,6 @@ func getUserFilesAsZipStream(w http.ResponseWriter, r *http.Request) {
 	renderCompressedFiles(w, connection, baseDir, filesList, nil)
 }
 
-func getUserPublicKeys(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	claims, err := getTokenClaims(r)
-	if err != nil || claims.Username == "" {
-		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
-		return
-	}
-	user, err := dataprovider.UserExists(claims.Username)
-	if err != nil {
-		sendAPIResponse(w, r, nil, "Unable to retrieve your user", getRespStatus(err))
-		return
-	}
-	render.JSON(w, r, user.PublicKeys)
-}
-
-func setUserPublicKeys(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-
-	claims, err := getTokenClaims(r)
-	if err != nil || claims.Username == "" {
-		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
-		return
-	}
-	user, err := dataprovider.UserExists(claims.Username)
-	if err != nil {
-		sendAPIResponse(w, r, nil, "Unable to retrieve your user", getRespStatus(err))
-		return
-	}
-
-	var publicKeys []string
-	err = render.DecodeJSON(r.Body, &publicKeys)
-	if err != nil {
-		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
-		return
-	}
-
-	user.PublicKeys = publicKeys
-	err = dataprovider.UpdateUser(&user, dataprovider.ActionExecutorSelf, util.GetIPFromRemoteAddress(r.RemoteAddr))
-	if err != nil {
-		sendAPIResponse(w, r, err, "", getRespStatus(err))
-		return
-	}
-	sendAPIResponse(w, r, err, "Public keys updated", http.StatusOK)
-}
-
 func getUserProfile(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	claims, err := getTokenClaims(r)

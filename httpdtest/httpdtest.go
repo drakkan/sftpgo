@@ -41,9 +41,6 @@ const (
 	dumpDataPath          = "/api/v2/dumpdata"
 	loadDataPath          = "/api/v2/loaddata"
 	defenderHosts         = "/api/v2/defender/hosts"
-	defenderBanTime       = "/api/v2/defender/bantime"
-	defenderUnban         = "/api/v2/defender/unban"
-	defenderScore         = "/api/v2/defender/score"
 	adminPath             = "/api/v2/admins"
 	adminPwdPath          = "/api/v2/admin/changepwd"
 	apiKeysPath           = "/api/v2/apikeys"
@@ -982,70 +979,6 @@ func RemoveDefenderHostByIP(ip string, expectedStatusCode int) ([]byte, error) {
 	defer resp.Body.Close()
 	body, _ = getResponseBody(resp)
 	return body, checkResponse(resp.StatusCode, expectedStatusCode)
-}
-
-// GetBanTime returns the ban time for the given IP address
-func GetBanTime(ip string, expectedStatusCode int) (map[string]any, []byte, error) {
-	var response map[string]any
-	var body []byte
-	url, err := url.Parse(buildURLRelativeToBase(defenderBanTime))
-	if err != nil {
-		return response, body, err
-	}
-	q := url.Query()
-	q.Add("ip", ip)
-	url.RawQuery = q.Encode()
-	resp, err := sendHTTPRequest(http.MethodGet, url.String(), nil, "", getDefaultToken())
-	if err != nil {
-		return response, body, err
-	}
-	defer resp.Body.Close()
-	err = checkResponse(resp.StatusCode, expectedStatusCode)
-	if err == nil && expectedStatusCode == http.StatusOK {
-		err = render.DecodeJSON(resp.Body, &response)
-	} else {
-		body, _ = getResponseBody(resp)
-	}
-	return response, body, err
-}
-
-// GetScore returns the score for the given IP address
-func GetScore(ip string, expectedStatusCode int) (map[string]any, []byte, error) {
-	var response map[string]any
-	var body []byte
-	url, err := url.Parse(buildURLRelativeToBase(defenderScore))
-	if err != nil {
-		return response, body, err
-	}
-	q := url.Query()
-	q.Add("ip", ip)
-	url.RawQuery = q.Encode()
-	resp, err := sendHTTPRequest(http.MethodGet, url.String(), nil, "", getDefaultToken())
-	if err != nil {
-		return response, body, err
-	}
-	defer resp.Body.Close()
-	err = checkResponse(resp.StatusCode, expectedStatusCode)
-	if err == nil && expectedStatusCode == http.StatusOK {
-		err = render.DecodeJSON(resp.Body, &response)
-	} else {
-		body, _ = getResponseBody(resp)
-	}
-	return response, body, err
-}
-
-// UnbanIP unbans the given IP address
-func UnbanIP(ip string, expectedStatusCode int) error {
-	postBody := make(map[string]string)
-	postBody["ip"] = ip
-	asJSON, _ := json.Marshal(postBody)
-	resp, err := sendHTTPRequest(http.MethodPost, buildURLRelativeToBase(defenderUnban), bytes.NewBuffer(asJSON),
-		"", getDefaultToken())
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	return checkResponse(resp.StatusCode, expectedStatusCode)
 }
 
 // Dumpdata requests a backup to outputFile.

@@ -49,22 +49,6 @@ func updateUserQuotaUsage(w http.ResponseWriter, r *http.Request) {
 	doUpdateUserQuotaUsage(w, r, getURLParam(r, "username"), usage)
 }
 
-func updateUserQuotaUsageCompat(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	var u dataprovider.User
-	err := render.DecodeJSON(r.Body, &u)
-	if err != nil {
-		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
-		return
-	}
-	usage := quotaUsage{
-		UsedQuotaSize:  u.UsedQuotaSize,
-		UsedQuotaFiles: u.UsedQuotaFiles,
-	}
-
-	doUpdateUserQuotaUsage(w, r, u.Username, usage)
-}
-
 func updateFolderQuotaUsage(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	var usage quotaUsage
@@ -76,51 +60,14 @@ func updateFolderQuotaUsage(w http.ResponseWriter, r *http.Request) {
 	doUpdateFolderQuotaUsage(w, r, getURLParam(r, "name"), usage)
 }
 
-func updateFolderQuotaUsageCompat(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	var f vfs.BaseVirtualFolder
-	err := render.DecodeJSON(r.Body, &f)
-	if err != nil {
-		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
-		return
-	}
-	usage := quotaUsage{
-		UsedQuotaSize:  f.UsedQuotaSize,
-		UsedQuotaFiles: f.UsedQuotaFiles,
-	}
-	doUpdateFolderQuotaUsage(w, r, f.Name, usage)
-}
-
 func startUserQuotaScan(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	doStartUserQuotaScan(w, r, getURLParam(r, "username"))
 }
 
-func startUserQuotaScanCompat(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	var u dataprovider.User
-	err := render.DecodeJSON(r.Body, &u)
-	if err != nil {
-		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
-		return
-	}
-	doStartUserQuotaScan(w, r, u.Username)
-}
-
 func startFolderQuotaScan(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	doStartFolderQuotaScan(w, r, getURLParam(r, "name"))
-}
-
-func startFolderQuotaScanCompat(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	var f vfs.BaseVirtualFolder
-	err := render.DecodeJSON(r.Body, &f)
-	if err != nil {
-		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
-		return
-	}
-	doStartFolderQuotaScan(w, r, f.Name)
 }
 
 func updateUserTransferQuotaUsage(w http.ResponseWriter, r *http.Request) {

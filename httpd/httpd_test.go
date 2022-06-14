@@ -59,119 +59,111 @@ import (
 )
 
 const (
-	defaultUsername                 = "test_user"
-	defaultPassword                 = "test_password"
-	testPubKey                      = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC03jj0D+djk7pxIf/0OhrxrchJTRZklofJ1NoIu4752Sq02mdXmarMVsqJ1cAjV5LBVy3D1F5U6XW4rppkXeVtd04Pxb09ehtH0pRRPaoHHlALiJt8CoMpbKYMA8b3KXPPriGxgGomvtU2T2RMURSwOZbMtpsugfjYSWenyYX+VORYhylWnSXL961LTyC21ehd6d6QnW9G7E5hYMITMY9TuQZz3bROYzXiTsgN0+g6Hn7exFQp50p45StUMfV/SftCMdCxlxuyGny2CrN/vfjO7xxOo2uv7q1qm10Q46KPWJQv+pgZ/OfL+EDjy07n5QVSKHlbx+2nT4Q0EgOSQaCTYwn3YjtABfIxWwgAFdyj6YlPulCL22qU4MYhDcA6PSBwDdf8hvxBfvsiHdM+JcSHvv8/VeJhk6CmnZxGY0fxBupov27z3yEO8nAg8k+6PaUiW1MSUfuGMF/ktB8LOstXsEPXSszuyXiOv4DaryOXUiSn7bmRqKcEFlJusO6aZP0= nicola@p1"
-	testPubKey1                     = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCd60+/j+y8f0tLftihWV1YN9RSahMI9btQMDIMqts/jeNbD8jgoogM3nhF7KxfcaMKURuD47KC4Ey6iAJUJ0sWkSNNxOcIYuvA+5MlspfZDsa8Ag76Fe1vyz72WeHMHMeh/hwFo2TeIeIXg480T1VI6mzfDrVp2GzUx0SS0dMsQBjftXkuVR8YOiOwMCAH2a//M1OrvV7d/NBk6kBN0WnuIBb2jKm15PAA7+jQQG7tzwk2HedNH3jeL5GH31xkSRwlBczRK0xsCQXehAlx6cT/e/s44iJcJTHfpPKoSk6UAhPJYe7Z1QnuoawY9P9jQaxpyeImBZxxUEowhjpj2avBxKdRGBVK8R7EL8tSOeLbhdyWe5Mwc1+foEbq9Zz5j5Kd+hn3Wm1UnsGCrXUUUoZp1jnlNl0NakCto+5KmqnT9cHxaY+ix2RLUWAZyVFlRq71OYux1UHJnEJPiEI1/tr4jFBSL46qhQZv/TfpkfVW8FLz0lErfqu0gQEZnNHr3Fc= nicola@p1"
-	defaultTokenAuthUser            = "admin"
-	defaultTokenAuthPass            = "password"
-	altAdminUsername                = "newTestAdmin"
-	altAdminPassword                = "password1"
-	csrfFormToken                   = "_form_token"
-	tokenPath                       = "/api/v2/token"
-	userTokenPath                   = "/api/v2/user/token"
-	userLogoutPath                  = "/api/v2/user/logout"
-	userPath                        = "/api/v2/users"
-	adminPath                       = "/api/v2/admins"
-	adminPwdPath                    = "/api/v2/admin/changepwd"
-	folderPath                      = "/api/v2/folders"
-	groupPath                       = "/api/v2/groups"
-	activeConnectionsPath           = "/api/v2/connections"
-	serverStatusPath                = "/api/v2/status"
-	quotasBasePath                  = "/api/v2/quotas"
-	quotaScanPath                   = "/api/v2/quotas/users/scans"
-	quotaScanVFolderPath            = "/api/v2/quotas/folders/scans"
-	quotaScanCompatPath             = "/api/v2/quota-scans"
-	quotaScanVFolderCompatPath      = "/api/v2/folder-quota-scans"
-	updateUsedQuotaCompatPath       = "/api/v2/quota-update"
-	updateFolderUsedQuotaCompatPath = "/api/v2/folder-quota-update"
-	defenderHosts                   = "/api/v2/defender/hosts"
-	defenderBanTime                 = "/api/v2/defender/bantime"
-	defenderUnban                   = "/api/v2/defender/unban"
-	defenderScore                   = "/api/v2/defender/score"
-	versionPath                     = "/api/v2/version"
-	logoutPath                      = "/api/v2/logout"
-	userPwdPath                     = "/api/v2/user/changepwd"
-	userPublicKeysPath              = "/api/v2/user/publickeys"
-	userDirsPath                    = "/api/v2/user/dirs"
-	userFilesPath                   = "/api/v2/user/files"
-	userStreamZipPath               = "/api/v2/user/streamzip"
-	userUploadFilePath              = "/api/v2/user/files/upload"
-	userFilesDirsMetadataPath       = "/api/v2/user/files/metadata"
-	apiKeysPath                     = "/api/v2/apikeys"
-	adminTOTPConfigsPath            = "/api/v2/admin/totp/configs"
-	adminTOTPGeneratePath           = "/api/v2/admin/totp/generate"
-	adminTOTPValidatePath           = "/api/v2/admin/totp/validate"
-	adminTOTPSavePath               = "/api/v2/admin/totp/save"
-	admin2FARecoveryCodesPath       = "/api/v2/admin/2fa/recoverycodes"
-	adminProfilePath                = "/api/v2/admin/profile"
-	userTOTPConfigsPath             = "/api/v2/user/totp/configs"
-	userTOTPGeneratePath            = "/api/v2/user/totp/generate"
-	userTOTPValidatePath            = "/api/v2/user/totp/validate"
-	userTOTPSavePath                = "/api/v2/user/totp/save"
-	user2FARecoveryCodesPath        = "/api/v2/user/2fa/recoverycodes"
-	userProfilePath                 = "/api/v2/user/profile"
-	userSharesPath                  = "/api/v2/user/shares"
-	retentionBasePath               = "/api/v2/retention/users"
-	metadataBasePath                = "/api/v2/metadata/users"
-	fsEventsPath                    = "/api/v2/events/fs"
-	providerEventsPath              = "/api/v2/events/provider"
-	sharesPath                      = "/api/v2/shares"
-	healthzPath                     = "/healthz"
-	robotsTxtPath                   = "/robots.txt"
-	webBasePath                     = "/web"
-	webBasePathAdmin                = "/web/admin"
-	webAdminSetupPath               = "/web/admin/setup"
-	webLoginPath                    = "/web/admin/login"
-	webLogoutPath                   = "/web/admin/logout"
-	webUsersPath                    = "/web/admin/users"
-	webUserPath                     = "/web/admin/user"
-	webGroupsPath                   = "/web/admin/groups"
-	webGroupPath                    = "/web/admin/group"
-	webFoldersPath                  = "/web/admin/folders"
-	webFolderPath                   = "/web/admin/folder"
-	webConnectionsPath              = "/web/admin/connections"
-	webStatusPath                   = "/web/admin/status"
-	webAdminsPath                   = "/web/admin/managers"
-	webAdminPath                    = "/web/admin/manager"
-	webMaintenancePath              = "/web/admin/maintenance"
-	webRestorePath                  = "/web/admin/restore"
-	webChangeAdminPwdPath           = "/web/admin/changepwd"
-	webAdminProfilePath             = "/web/admin/profile"
-	webTemplateUser                 = "/web/admin/template/user"
-	webTemplateFolder               = "/web/admin/template/folder"
-	webDefenderPath                 = "/web/admin/defender"
-	webAdminTwoFactorPath           = "/web/admin/twofactor"
-	webAdminTwoFactorRecoveryPath   = "/web/admin/twofactor-recovery"
-	webAdminMFAPath                 = "/web/admin/mfa"
-	webAdminTOTPSavePath            = "/web/admin/totp/save"
-	webAdminForgotPwdPath           = "/web/admin/forgot-password"
-	webAdminResetPwdPath            = "/web/admin/reset-password"
-	webBasePathClient               = "/web/client"
-	webClientLoginPath              = "/web/client/login"
-	webClientFilesPath              = "/web/client/files"
-	webClientEditFilePath           = "/web/client/editfile"
-	webClientDirsPath               = "/web/client/dirs"
-	webClientDownloadZipPath        = "/web/client/downloadzip"
-	webChangeClientPwdPath          = "/web/client/changepwd"
-	webClientProfilePath            = "/web/client/profile"
-	webClientTwoFactorPath          = "/web/client/twofactor"
-	webClientTwoFactorRecoveryPath  = "/web/client/twofactor-recovery"
-	webClientLogoutPath             = "/web/client/logout"
-	webClientMFAPath                = "/web/client/mfa"
-	webClientTOTPSavePath           = "/web/client/totp/save"
-	webClientSharesPath             = "/web/client/shares"
-	webClientSharePath              = "/web/client/share"
-	webClientPubSharesPath          = "/web/client/pubshares"
-	webClientForgotPwdPath          = "/web/client/forgot-password"
-	webClientResetPwdPath           = "/web/client/reset-password"
-	webClientViewPDFPath            = "/web/client/viewpdf"
-	httpBaseURL                     = "http://127.0.0.1:8081"
-	defaultRemoteAddr               = "127.0.0.1:1234"
-	sftpServerAddr                  = "127.0.0.1:8022"
-	smtpServerAddr                  = "127.0.0.1:3525"
-	configDir                       = ".."
-	httpsCert                       = `-----BEGIN CERTIFICATE-----
+	defaultUsername                = "test_user"
+	defaultPassword                = "test_password"
+	testPubKey                     = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC03jj0D+djk7pxIf/0OhrxrchJTRZklofJ1NoIu4752Sq02mdXmarMVsqJ1cAjV5LBVy3D1F5U6XW4rppkXeVtd04Pxb09ehtH0pRRPaoHHlALiJt8CoMpbKYMA8b3KXPPriGxgGomvtU2T2RMURSwOZbMtpsugfjYSWenyYX+VORYhylWnSXL961LTyC21ehd6d6QnW9G7E5hYMITMY9TuQZz3bROYzXiTsgN0+g6Hn7exFQp50p45StUMfV/SftCMdCxlxuyGny2CrN/vfjO7xxOo2uv7q1qm10Q46KPWJQv+pgZ/OfL+EDjy07n5QVSKHlbx+2nT4Q0EgOSQaCTYwn3YjtABfIxWwgAFdyj6YlPulCL22qU4MYhDcA6PSBwDdf8hvxBfvsiHdM+JcSHvv8/VeJhk6CmnZxGY0fxBupov27z3yEO8nAg8k+6PaUiW1MSUfuGMF/ktB8LOstXsEPXSszuyXiOv4DaryOXUiSn7bmRqKcEFlJusO6aZP0= nicola@p1"
+	testPubKey1                    = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCd60+/j+y8f0tLftihWV1YN9RSahMI9btQMDIMqts/jeNbD8jgoogM3nhF7KxfcaMKURuD47KC4Ey6iAJUJ0sWkSNNxOcIYuvA+5MlspfZDsa8Ag76Fe1vyz72WeHMHMeh/hwFo2TeIeIXg480T1VI6mzfDrVp2GzUx0SS0dMsQBjftXkuVR8YOiOwMCAH2a//M1OrvV7d/NBk6kBN0WnuIBb2jKm15PAA7+jQQG7tzwk2HedNH3jeL5GH31xkSRwlBczRK0xsCQXehAlx6cT/e/s44iJcJTHfpPKoSk6UAhPJYe7Z1QnuoawY9P9jQaxpyeImBZxxUEowhjpj2avBxKdRGBVK8R7EL8tSOeLbhdyWe5Mwc1+foEbq9Zz5j5Kd+hn3Wm1UnsGCrXUUUoZp1jnlNl0NakCto+5KmqnT9cHxaY+ix2RLUWAZyVFlRq71OYux1UHJnEJPiEI1/tr4jFBSL46qhQZv/TfpkfVW8FLz0lErfqu0gQEZnNHr3Fc= nicola@p1"
+	defaultTokenAuthUser           = "admin"
+	defaultTokenAuthPass           = "password"
+	altAdminUsername               = "newTestAdmin"
+	altAdminPassword               = "password1"
+	csrfFormToken                  = "_form_token"
+	tokenPath                      = "/api/v2/token"
+	userTokenPath                  = "/api/v2/user/token"
+	userLogoutPath                 = "/api/v2/user/logout"
+	userPath                       = "/api/v2/users"
+	adminPath                      = "/api/v2/admins"
+	adminPwdPath                   = "/api/v2/admin/changepwd"
+	folderPath                     = "/api/v2/folders"
+	groupPath                      = "/api/v2/groups"
+	activeConnectionsPath          = "/api/v2/connections"
+	serverStatusPath               = "/api/v2/status"
+	quotasBasePath                 = "/api/v2/quotas"
+	quotaScanPath                  = "/api/v2/quotas/users/scans"
+	quotaScanVFolderPath           = "/api/v2/quotas/folders/scans"
+	defenderHosts                  = "/api/v2/defender/hosts"
+	versionPath                    = "/api/v2/version"
+	logoutPath                     = "/api/v2/logout"
+	userPwdPath                    = "/api/v2/user/changepwd"
+	userDirsPath                   = "/api/v2/user/dirs"
+	userFilesPath                  = "/api/v2/user/files"
+	userStreamZipPath              = "/api/v2/user/streamzip"
+	userUploadFilePath             = "/api/v2/user/files/upload"
+	userFilesDirsMetadataPath      = "/api/v2/user/files/metadata"
+	apiKeysPath                    = "/api/v2/apikeys"
+	adminTOTPConfigsPath           = "/api/v2/admin/totp/configs"
+	adminTOTPGeneratePath          = "/api/v2/admin/totp/generate"
+	adminTOTPValidatePath          = "/api/v2/admin/totp/validate"
+	adminTOTPSavePath              = "/api/v2/admin/totp/save"
+	admin2FARecoveryCodesPath      = "/api/v2/admin/2fa/recoverycodes"
+	adminProfilePath               = "/api/v2/admin/profile"
+	userTOTPConfigsPath            = "/api/v2/user/totp/configs"
+	userTOTPGeneratePath           = "/api/v2/user/totp/generate"
+	userTOTPValidatePath           = "/api/v2/user/totp/validate"
+	userTOTPSavePath               = "/api/v2/user/totp/save"
+	user2FARecoveryCodesPath       = "/api/v2/user/2fa/recoverycodes"
+	userProfilePath                = "/api/v2/user/profile"
+	userSharesPath                 = "/api/v2/user/shares"
+	retentionBasePath              = "/api/v2/retention/users"
+	metadataBasePath               = "/api/v2/metadata/users"
+	fsEventsPath                   = "/api/v2/events/fs"
+	providerEventsPath             = "/api/v2/events/provider"
+	sharesPath                     = "/api/v2/shares"
+	healthzPath                    = "/healthz"
+	robotsTxtPath                  = "/robots.txt"
+	webBasePath                    = "/web"
+	webBasePathAdmin               = "/web/admin"
+	webAdminSetupPath              = "/web/admin/setup"
+	webLoginPath                   = "/web/admin/login"
+	webLogoutPath                  = "/web/admin/logout"
+	webUsersPath                   = "/web/admin/users"
+	webUserPath                    = "/web/admin/user"
+	webGroupsPath                  = "/web/admin/groups"
+	webGroupPath                   = "/web/admin/group"
+	webFoldersPath                 = "/web/admin/folders"
+	webFolderPath                  = "/web/admin/folder"
+	webConnectionsPath             = "/web/admin/connections"
+	webStatusPath                  = "/web/admin/status"
+	webAdminsPath                  = "/web/admin/managers"
+	webAdminPath                   = "/web/admin/manager"
+	webMaintenancePath             = "/web/admin/maintenance"
+	webRestorePath                 = "/web/admin/restore"
+	webChangeAdminPwdPath          = "/web/admin/changepwd"
+	webAdminProfilePath            = "/web/admin/profile"
+	webTemplateUser                = "/web/admin/template/user"
+	webTemplateFolder              = "/web/admin/template/folder"
+	webDefenderPath                = "/web/admin/defender"
+	webAdminTwoFactorPath          = "/web/admin/twofactor"
+	webAdminTwoFactorRecoveryPath  = "/web/admin/twofactor-recovery"
+	webAdminMFAPath                = "/web/admin/mfa"
+	webAdminTOTPSavePath           = "/web/admin/totp/save"
+	webAdminForgotPwdPath          = "/web/admin/forgot-password"
+	webAdminResetPwdPath           = "/web/admin/reset-password"
+	webBasePathClient              = "/web/client"
+	webClientLoginPath             = "/web/client/login"
+	webClientFilesPath             = "/web/client/files"
+	webClientEditFilePath          = "/web/client/editfile"
+	webClientDirsPath              = "/web/client/dirs"
+	webClientDownloadZipPath       = "/web/client/downloadzip"
+	webChangeClientPwdPath         = "/web/client/changepwd"
+	webClientProfilePath           = "/web/client/profile"
+	webClientTwoFactorPath         = "/web/client/twofactor"
+	webClientTwoFactorRecoveryPath = "/web/client/twofactor-recovery"
+	webClientLogoutPath            = "/web/client/logout"
+	webClientMFAPath               = "/web/client/mfa"
+	webClientTOTPSavePath          = "/web/client/totp/save"
+	webClientSharesPath            = "/web/client/shares"
+	webClientSharePath             = "/web/client/share"
+	webClientPubSharesPath         = "/web/client/pubshares"
+	webClientForgotPwdPath         = "/web/client/forgot-password"
+	webClientResetPwdPath          = "/web/client/reset-password"
+	webClientViewPDFPath           = "/web/client/viewpdf"
+	httpBaseURL                    = "http://127.0.0.1:8081"
+	defaultRemoteAddr              = "127.0.0.1:1234"
+	sftpServerAddr                 = "127.0.0.1:8022"
+	smtpServerAddr                 = "127.0.0.1:3525"
+	configDir                      = ".."
+	httpsCert                      = `-----BEGIN CERTIFICATE-----
 MIICHTCCAaKgAwIBAgIUHnqw7QnB1Bj9oUsNpdb+ZkFPOxMwCgYIKoZIzj0EAwIw
 RTELMAkGA1UEBhMCQVUxEzARBgNVBAgMClNvbWUtU3RhdGUxITAfBgNVBAoMGElu
 dGVybmV0IFdpZGdpdHMgUHR5IEx0ZDAeFw0yMDAyMDQwOTUzMDRaFw0zMDAyMDEw
@@ -1393,24 +1385,6 @@ func TestHTTPUserAuthentication(t *testing.T) {
 	err = resp.Body.Close()
 	assert.NoError(t, err)
 
-	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("%v%v", httpBaseURL, userPublicKeysPath), nil)
-	assert.NoError(t, err)
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %v", userToken))
-	resp, err = httpclient.GetHTTPClient().Do(req)
-	assert.NoError(t, err)
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	err = resp.Body.Close()
-	assert.NoError(t, err)
-	// using the admin token should not work
-	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("%v%v", httpBaseURL, userPublicKeysPath), nil)
-	assert.NoError(t, err)
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %v", adminToken))
-	resp, err = httpclient.GetHTTPClient().Do(req)
-	assert.NoError(t, err)
-	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
-	err = resp.Body.Close()
-	assert.NoError(t, err)
-
 	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("%v%v", httpBaseURL, userLogoutPath), nil)
 	assert.NoError(t, err)
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %v", adminToken))
@@ -1426,15 +1400,6 @@ func TestHTTPUserAuthentication(t *testing.T) {
 	resp, err = httpclient.GetHTTPClient().Do(req)
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	err = resp.Body.Close()
-	assert.NoError(t, err)
-
-	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("%v%v", httpBaseURL, userPublicKeysPath), nil)
-	assert.NoError(t, err)
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %v", userToken))
-	resp, err = httpclient.GetHTTPClient().Do(req)
-	assert.NoError(t, err)
-	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 	err = resp.Body.Close()
 	assert.NoError(t, err)
 
@@ -5191,35 +5156,14 @@ func TestDefenderAPI(t *testing.T) {
 
 		ip := "::1"
 
-		response, _, err := httpdtest.GetBanTime(ip, http.StatusOK)
-		assert.NoError(t, err)
-		banTime, ok := response["date_time"]
-		assert.True(t, ok)
-		assert.Nil(t, banTime)
-
 		hosts, _, err := httpdtest.GetDefenderHosts(http.StatusOK)
 		assert.NoError(t, err)
 		assert.Len(t, hosts, 0)
-
-		response, _, err = httpdtest.GetScore(ip, http.StatusOK)
-		assert.NoError(t, err)
-		score, ok := response["score"]
-		assert.True(t, ok)
-		assert.Equal(t, float64(0), score)
-
-		err = httpdtest.UnbanIP(ip, http.StatusNotFound)
-		assert.NoError(t, err)
 
 		_, err = httpdtest.RemoveDefenderHostByIP(ip, http.StatusNotFound)
 		assert.NoError(t, err)
 
 		common.AddDefenderEvent(ip, common.HostEventNoLoginTried)
-		response, _, err = httpdtest.GetScore(ip, http.StatusOK)
-		assert.NoError(t, err)
-		score, ok = response["score"]
-		assert.True(t, ok)
-		assert.Equal(t, float64(2), score)
-
 		hosts, _, err = httpdtest.GetDefenderHosts(http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, hosts, 1) {
@@ -5234,11 +5178,6 @@ func TestDefenderAPI(t *testing.T) {
 		assert.Equal(t, 2, host.Score)
 
 		common.AddDefenderEvent(ip, common.HostEventNoLoginTried)
-		response, _, err = httpdtest.GetBanTime(ip, http.StatusOK)
-		assert.NoError(t, err)
-		banTime, ok = response["date_time"]
-		assert.True(t, ok)
-		assert.NotNil(t, banTime)
 		hosts, _, err = httpdtest.GetDefenderHosts(http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, hosts, 1) {
@@ -5252,13 +5191,10 @@ func TestDefenderAPI(t *testing.T) {
 		assert.NotEmpty(t, host.GetBanTime())
 		assert.Equal(t, 0, host.Score)
 
-		err = httpdtest.UnbanIP(ip, http.StatusOK)
+		_, err = httpdtest.RemoveDefenderHostByIP(ip, http.StatusOK)
 		assert.NoError(t, err)
 
-		err = httpdtest.UnbanIP(ip, http.StatusNotFound)
-		assert.NoError(t, err)
-
-		host, _, err = httpdtest.GetDefenderHostByIP(ip, http.StatusNotFound)
+		_, _, err = httpdtest.GetDefenderHostByIP(ip, http.StatusNotFound)
 		assert.NoError(t, err)
 
 		common.AddDefenderEvent(ip, common.HostEventNoLoginTried)
@@ -5290,17 +5226,6 @@ func TestDefenderAPI(t *testing.T) {
 }
 
 func TestDefenderAPIErrors(t *testing.T) {
-	_, _, err := httpdtest.GetBanTime("", http.StatusBadRequest)
-	require.NoError(t, err)
-
-	_, _, err = httpdtest.GetBanTime("invalid", http.StatusBadRequest)
-	require.NoError(t, err)
-
-	_, _, err = httpdtest.GetScore("", http.StatusBadRequest)
-	require.NoError(t, err)
-
-	err = httpdtest.UnbanIP("", http.StatusBadRequest)
-	require.NoError(t, err)
 	if isDbDefenderSupported() {
 		oldConfig := config.GetCommonConfig()
 
@@ -5316,24 +5241,10 @@ func TestDefenderAPIErrors(t *testing.T) {
 		err = dataprovider.Close()
 		assert.NoError(t, err)
 
-		ip := "127.1.1.2"
-
 		req, err := http.NewRequest(http.MethodGet, defenderHosts, nil)
 		assert.NoError(t, err)
 		setBearerForReq(req, token)
 		rr := executeRequest(req)
-		checkResponseCode(t, http.StatusInternalServerError, rr)
-
-		req, err = http.NewRequest(http.MethodGet, defenderBanTime+"?ip="+ip, nil)
-		assert.NoError(t, err)
-		setBearerForReq(req, token)
-		rr = executeRequest(req)
-		checkResponseCode(t, http.StatusInternalServerError, rr)
-
-		req, err = http.NewRequest(http.MethodGet, defenderScore+"?ip="+ip, nil)
-		assert.NoError(t, err)
-		setBearerForReq(req, token)
-		rr = executeRequest(req)
 		checkResponseCode(t, http.StatusInternalServerError, rr)
 
 		err = config.LoadConfig(configDir, "")
@@ -5997,15 +5908,6 @@ func TestUpdateFolderInvalidJsonMock(t *testing.T) {
 
 	_, err = httpdtest.RemoveFolder(folder, http.StatusOK)
 	assert.NoError(t, err)
-}
-
-func TestUnbanInvalidJsonMock(t *testing.T) {
-	token, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
-	assert.NoError(t, err)
-	req, _ := http.NewRequest(http.MethodPost, defenderUnban, bytes.NewBuffer([]byte("invalid json")))
-	setBearerForReq(req, token)
-	rr := executeRequest(req)
-	checkResponseCode(t, http.StatusBadRequest, rr)
 }
 
 func TestAddUserInvalidJsonMock(t *testing.T) {
@@ -8343,10 +8245,6 @@ func TestUpdateUserQuotaUsageMock(t *testing.T) {
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	req, _ = http.NewRequest(http.MethodPut, updateUsedQuotaCompatPath, bytes.NewBuffer(userAsJSON))
-	setBearerForReq(req, token)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusOK, rr)
 	req, _ = http.NewRequest(http.MethodGet, path.Join(userPath, user.Username), nil)
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
@@ -8386,10 +8284,6 @@ func TestUpdateUserQuotaUsageMock(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, usedQuotaFiles*2, user.UsedQuotaFiles)
 	assert.Equal(t, usedQuotaSize*2, user.UsedQuotaSize)
-	req, _ = http.NewRequest(http.MethodPut, updateUsedQuotaCompatPath, bytes.NewBuffer([]byte("string")))
-	setBearerForReq(req, token)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusBadRequest, rr)
 	req, _ = http.NewRequest(http.MethodPut, path.Join(quotasBasePath, "users", u.Username, "usage"), bytes.NewBuffer([]byte("string")))
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
@@ -8704,15 +8598,6 @@ func TestStartQuotaScanMock(t *testing.T) {
 
 	waitForUsersQuotaScan(t, token)
 
-	asJSON, err := json.Marshal(user)
-	assert.NoError(t, err)
-	req, _ = http.NewRequest(http.MethodPost, quotaScanCompatPath, bytes.NewBuffer(asJSON))
-	setBearerForReq(req, token)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusAccepted, rr)
-
-	waitForUsersQuotaScan(t, token)
-
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(userPath, user.Username), nil)
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
@@ -8744,10 +8629,6 @@ func TestUpdateFolderQuotaUsageMock(t *testing.T) {
 	err = render.DecodeJSON(rr.Body, &folder)
 	assert.NoError(t, err)
 	req, _ = http.NewRequest(http.MethodPut, path.Join(quotasBasePath, "folders", folder.Name, "usage"), bytes.NewBuffer(folderAsJSON))
-	setBearerForReq(req, token)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusOK, rr)
-	req, _ = http.NewRequest(http.MethodPut, updateFolderUsedQuotaCompatPath, bytes.NewBuffer(folderAsJSON))
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
@@ -8797,10 +8678,6 @@ func TestUpdateFolderQuotaUsageMock(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, usedQuotaFiles*2, folderGet.UsedQuotaFiles)
 	assert.Equal(t, usedQuotaSize*2, folderGet.UsedQuotaSize)
-	req, _ = http.NewRequest(http.MethodPut, updateFolderUsedQuotaCompatPath, bytes.NewBuffer([]byte("string")))
-	setBearerForReq(req, token)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusBadRequest, rr)
 	req, _ = http.NewRequest(http.MethodPut, path.Join(quotasBasePath, "folders", folder.Name, "usage"),
 		bytes.NewBuffer([]byte("not a json")))
 	setBearerForReq(req, token)
@@ -8859,17 +8736,7 @@ func TestStartFolderQuotaScanMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusAccepted, rr)
 	waitForFoldersQuotaScanPath(t, token)
-
-	asJSON, err := json.Marshal(folder)
-	assert.NoError(t, err)
-	req, _ = http.NewRequest(http.MethodPost, quotaScanVFolderCompatPath, bytes.NewBuffer(asJSON))
-	setBearerForReq(req, token)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusAccepted, rr)
-	waitForFoldersQuotaScanPath(t, token)
-
 	// cleanup
-
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(folderPath, folderName), nil)
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
@@ -8889,24 +8756,6 @@ func TestStartQuotaScanNonExistentUserMock(t *testing.T) {
 	setBearerForReq(req, token)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
-}
-
-func TestStartQuotaScanBadUserMock(t *testing.T) {
-	token, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
-	assert.NoError(t, err)
-	req, _ := http.NewRequest(http.MethodPost, quotaScanCompatPath, bytes.NewBuffer([]byte("invalid json")))
-	setBearerForReq(req, token)
-	rr := executeRequest(req)
-	checkResponseCode(t, http.StatusBadRequest, rr)
-}
-
-func TestStartQuotaScanBadFolderMock(t *testing.T) {
-	token, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
-	assert.NoError(t, err)
-	req, _ := http.NewRequest(http.MethodPost, quotaScanVFolderCompatPath, bytes.NewBuffer([]byte("invalid json")))
-	setBearerForReq(req, token)
-	rr := executeRequest(req)
-	checkResponseCode(t, http.StatusBadRequest, rr)
 }
 
 func TestStartQuotaScanNonExistentFolderMock(t *testing.T) {
@@ -9322,18 +9171,6 @@ func TestWebClientLoginMock(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "Unable to retrieve your user")
 
 	req, _ = http.NewRequest(http.MethodPost, userStreamZipPath, bytes.NewBuffer([]byte(`{}`)))
-	setBearerForReq(req, apiUserToken)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusNotFound, rr)
-	assert.Contains(t, rr.Body.String(), "Unable to retrieve your user")
-
-	req, _ = http.NewRequest(http.MethodGet, userPublicKeysPath, nil)
-	setBearerForReq(req, apiUserToken)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusNotFound, rr)
-	assert.Contains(t, rr.Body.String(), "Unable to retrieve your user")
-
-	req, _ = http.NewRequest(http.MethodPut, userPublicKeysPath, bytes.NewBuffer([]byte(`{}`)))
 	setBearerForReq(req, apiUserToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
@@ -9863,75 +9700,6 @@ func TestWebClientChangePwd(t *testing.T) {
 	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, webToken)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusForbidden, rr)
-
-	_, err = httpdtest.RemoveUser(user, http.StatusOK)
-	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
-}
-
-func TestWebAPIPublicKeys(t *testing.T) {
-	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
-	assert.NoError(t, err)
-	apiToken, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
-	assert.NoError(t, err)
-
-	req, err := http.NewRequest(http.MethodGet, userPublicKeysPath, nil)
-	assert.NoError(t, err)
-	setBearerForReq(req, apiToken)
-	rr := executeRequest(req)
-	checkResponseCode(t, http.StatusOK, rr)
-	var keys []string
-	err = json.Unmarshal(rr.Body.Bytes(), &keys)
-	assert.NoError(t, err)
-	assert.Len(t, keys, 0)
-
-	keys = []string{testPubKey, testPubKey1}
-	asJSON, err := json.Marshal(keys)
-	assert.NoError(t, err)
-	req, err = http.NewRequest(http.MethodPut, userPublicKeysPath, bytes.NewBuffer(asJSON))
-	assert.NoError(t, err)
-	setBearerForReq(req, apiToken)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusOK, rr)
-
-	req, err = http.NewRequest(http.MethodGet, userPublicKeysPath, nil)
-	assert.NoError(t, err)
-	setBearerForReq(req, apiToken)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusOK, rr)
-	keys = nil
-	err = json.Unmarshal(rr.Body.Bytes(), &keys)
-	assert.NoError(t, err)
-	assert.Len(t, keys, 2)
-
-	req, err = http.NewRequest(http.MethodPut, userPublicKeysPath, bytes.NewBuffer([]byte(`invalid json`)))
-	assert.NoError(t, err)
-	setBearerForReq(req, apiToken)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusBadRequest, rr)
-
-	keys = []string{`not a public key`}
-	asJSON, err = json.Marshal(keys)
-	assert.NoError(t, err)
-	req, err = http.NewRequest(http.MethodPut, userPublicKeysPath, bytes.NewBuffer(asJSON))
-	assert.NoError(t, err)
-	setBearerForReq(req, apiToken)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusBadRequest, rr)
-	assert.Contains(t, rr.Body.String(), "could not parse key")
-
-	user.Filters.WebClient = append(user.Filters.WebClient, sdk.WebClientPubKeyChangeDisabled)
-	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
-	assert.NoError(t, err)
-
-	apiToken, err = getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
-	assert.NoError(t, err)
-	req, err = http.NewRequest(http.MethodGet, userPublicKeysPath, nil)
-	assert.NoError(t, err)
-	setBearerForReq(req, apiToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
 

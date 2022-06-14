@@ -1179,8 +1179,6 @@ func (s *httpdServer) initializeRouter() {
 		router.With(forbidAPIKeyAuthentication).Get(adminProfilePath, getAdminProfile)
 		router.With(forbidAPIKeyAuthentication).Put(adminProfilePath, updateAdminProfile)
 		router.With(forbidAPIKeyAuthentication).Put(adminPwdPath, changeAdminPassword)
-		// compatibility layer to remove in v2.2
-		router.With(forbidAPIKeyAuthentication).Put(adminPwdCompatPath, changeAdminPassword)
 		// admin TOTP APIs
 		router.With(forbidAPIKeyAuthentication).Get(adminTOTPConfigsPath, getTOTPConfigs)
 		router.With(forbidAPIKeyAuthentication).Post(adminTOTPGeneratePath, generateTOTPSecret)
@@ -1203,13 +1201,9 @@ func (s *httpdServer) initializeRouter() {
 
 		router.With(s.checkPerm(dataprovider.PermAdminCloseConnections)).
 			Delete(activeConnectionsPath+"/{connectionID}", handleCloseConnection)
-		router.With(s.checkPerm(dataprovider.PermAdminQuotaScans)).Get(quotaScanPath, getUsersQuotaScans)
 		router.With(s.checkPerm(dataprovider.PermAdminQuotaScans)).Get(quotasBasePath+"/users/scans", getUsersQuotaScans)
-		router.With(s.checkPerm(dataprovider.PermAdminQuotaScans)).Post(quotaScanPath, startUserQuotaScanCompat)
 		router.With(s.checkPerm(dataprovider.PermAdminQuotaScans)).Post(quotasBasePath+"/users/{username}/scan", startUserQuotaScan)
-		router.With(s.checkPerm(dataprovider.PermAdminQuotaScans)).Get(quotaScanVFolderPath, getFoldersQuotaScans)
 		router.With(s.checkPerm(dataprovider.PermAdminQuotaScans)).Get(quotasBasePath+"/folders/scans", getFoldersQuotaScans)
-		router.With(s.checkPerm(dataprovider.PermAdminQuotaScans)).Post(quotaScanVFolderPath, startFolderQuotaScanCompat)
 		router.With(s.checkPerm(dataprovider.PermAdminQuotaScans)).Post(quotasBasePath+"/folders/{name}/scan", startFolderQuotaScan)
 		router.With(s.checkPerm(dataprovider.PermAdminViewUsers)).Get(userPath, getUsers)
 		router.With(s.checkPerm(dataprovider.PermAdminAddUsers)).Post(userPath, addUser)
@@ -1230,20 +1224,15 @@ func (s *httpdServer) initializeRouter() {
 		router.With(s.checkPerm(dataprovider.PermAdminManageSystem)).Get(dumpDataPath, dumpData)
 		router.With(s.checkPerm(dataprovider.PermAdminManageSystem)).Get(loadDataPath, loadData)
 		router.With(s.checkPerm(dataprovider.PermAdminManageSystem)).Post(loadDataPath, loadDataFromRequest)
-		router.With(s.checkPerm(dataprovider.PermAdminChangeUsers)).Put(updateUsedQuotaPath, updateUserQuotaUsageCompat)
 		router.With(s.checkPerm(dataprovider.PermAdminChangeUsers)).Put(quotasBasePath+"/users/{username}/usage",
 			updateUserQuotaUsage)
 		router.With(s.checkPerm(dataprovider.PermAdminChangeUsers)).Put(quotasBasePath+"/users/{username}/transfer-usage",
 			updateUserTransferQuotaUsage)
-		router.With(s.checkPerm(dataprovider.PermAdminChangeUsers)).Put(updateFolderUsedQuotaPath, updateFolderQuotaUsageCompat)
 		router.With(s.checkPerm(dataprovider.PermAdminChangeUsers)).Put(quotasBasePath+"/folders/{name}/usage",
 			updateFolderQuotaUsage)
 		router.With(s.checkPerm(dataprovider.PermAdminViewDefender)).Get(defenderHosts, getDefenderHosts)
 		router.With(s.checkPerm(dataprovider.PermAdminViewDefender)).Get(defenderHosts+"/{id}", getDefenderHostByID)
 		router.With(s.checkPerm(dataprovider.PermAdminManageDefender)).Delete(defenderHosts+"/{id}", deleteDefenderHostByID)
-		router.With(s.checkPerm(dataprovider.PermAdminViewDefender)).Get(defenderBanTime, getBanTime)
-		router.With(s.checkPerm(dataprovider.PermAdminViewDefender)).Get(defenderScore, getScore)
-		router.With(s.checkPerm(dataprovider.PermAdminManageDefender)).Post(defenderUnban, unban)
 		router.With(s.checkPerm(dataprovider.PermAdminManageAdmins)).Get(adminPath, getAdmins)
 		router.With(s.checkPerm(dataprovider.PermAdminManageAdmins)).Post(adminPath, addAdmin)
 		router.With(s.checkPerm(dataprovider.PermAdminManageAdmins)).Get(adminPath+"/{username}", getAdminByUsername)
@@ -1282,10 +1271,6 @@ func (s *httpdServer) initializeRouter() {
 		router.With(forbidAPIKeyAuthentication).Get(userLogoutPath, s.logout)
 		router.With(forbidAPIKeyAuthentication, s.checkSecondFactorRequirement,
 			s.checkHTTPUserPerm(sdk.WebClientPasswordChangeDisabled)).Put(userPwdPath, changeUserPassword)
-		router.With(forbidAPIKeyAuthentication, s.checkSecondFactorRequirement,
-			s.checkHTTPUserPerm(sdk.WebClientPubKeyChangeDisabled)).Get(userPublicKeysPath, getUserPublicKeys)
-		router.With(forbidAPIKeyAuthentication, s.checkSecondFactorRequirement,
-			s.checkHTTPUserPerm(sdk.WebClientPubKeyChangeDisabled)).Put(userPublicKeysPath, setUserPublicKeys)
 		router.With(forbidAPIKeyAuthentication).Get(userProfilePath, getUserProfile)
 		router.With(forbidAPIKeyAuthentication, s.checkSecondFactorRequirement).Put(userProfilePath, updateUserProfile)
 		// user TOTP APIs
@@ -1301,10 +1286,6 @@ func (s *httpdServer) initializeRouter() {
 			Get(user2FARecoveryCodesPath, getRecoveryCodes)
 		router.With(forbidAPIKeyAuthentication, s.checkHTTPUserPerm(sdk.WebClientMFADisabled)).
 			Post(user2FARecoveryCodesPath, generateRecoveryCodes)
-
-		// compatibility layer to remove in v2.3
-		router.With(s.checkSecondFactorRequirement, compressor.Handler).Get(userFolderPath, readUserFolder)
-		router.With(s.checkSecondFactorRequirement).Get(userFilePath, getUserFile)
 
 		router.With(s.checkSecondFactorRequirement, compressor.Handler).Get(userDirsPath, readUserFolder)
 		router.With(s.checkSecondFactorRequirement, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled)).

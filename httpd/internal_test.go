@@ -462,16 +462,6 @@ func TestInvalidToken(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "Invalid token claims")
 
 	rr = httptest.NewRecorder()
-	getUserPublicKeys(rr, req)
-	assert.Equal(t, http.StatusBadRequest, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Invalid token claims")
-
-	rr = httptest.NewRecorder()
-	setUserPublicKeys(rr, req)
-	assert.Equal(t, http.StatusBadRequest, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Invalid token claims")
-
-	rr = httptest.NewRecorder()
 	generateTOTPSecret(rr, req)
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), "Invalid token claims")
@@ -1079,8 +1069,8 @@ func TestJWTTokenValidation(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 
 	rr = httptest.NewRecorder()
-	req, _ = http.NewRequest(http.MethodPost, userPublicKeysPath, nil)
-	req.RequestURI = userPublicKeysPath
+	req, _ = http.NewRequest(http.MethodPost, userProfilePath, nil)
+	req.RequestURI = userProfilePath
 	ctx = jwtauth.NewContext(req.Context(), token, errTest)
 	fn.ServeHTTP(rr, req.WithContext(ctx))
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
