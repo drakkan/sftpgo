@@ -39,6 +39,8 @@ jobs:
           cd tests/ipfilter
           go build -trimpath -ldflags "-s -w" -o ipfilter
           cd -
+          ./sftpgo initprovider
+          ./sftpgo resetprovider --force
 
       - name: Build for macOS arm64
         if: startsWith(matrix.os, 'macos-') == true
@@ -308,6 +310,7 @@ jobs:
 
       - name: Build
         run: |
+          go build -trimpath -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/version.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/v2/version.date=`date -u +%FT%TZ`" -o sftpgo
           cd tests/eventsearcher
           go build -trimpath -ldflags "-s -w" -o eventsearcher
           cd -
@@ -317,6 +320,8 @@ jobs:
 
       - name: Run tests using PostgreSQL provider
         run: |
+          ./sftpgo initprovider
+          ./sftpgo resetprovider --force
           go test -v -p 1 -timeout 15m ./... -covermode=atomic
         env:
           SFTPGO_DATA_PROVIDER__DRIVER: postgresql
@@ -328,6 +333,8 @@ jobs:
 
       - name: Run tests using MySQL provider
         run: |
+          ./sftpgo initprovider
+          ./sftpgo resetprovider --force
           go test -v -p 1 -timeout 15m ./... -covermode=atomic
         env:
           SFTPGO_DATA_PROVIDER__DRIVER: mysql
@@ -339,6 +346,8 @@ jobs:
 
       - name: Run tests using MariaDB provider
         run: |
+          ./sftpgo initprovider
+          ./sftpgo resetprovider --force
           go test -v -p 1 -timeout 15m ./... -covermode=atomic
         env:
           SFTPGO_DATA_PROVIDER__DRIVER: mysql
@@ -353,6 +362,8 @@ jobs:
           docker run --rm --name crdb --health-cmd "curl -I http://127.0.0.1:8080" --health-interval 10s --health-timeout 5s --health-retries 6 -p 26257:26257 -d cockroachdb/cockroach:latest start-single-node --insecure --listen-addr :26257
           sleep 10
           docker exec crdb cockroach sql --insecure -e 'create database "sftpgo"'
+          ./sftpgo initprovider
+          ./sftpgo resetprovider --force
           go test -v -p 1 -timeout 15m ./... -covermode=atomic
           docker stop crdb
         env:
