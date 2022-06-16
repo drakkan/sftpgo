@@ -157,9 +157,11 @@ func TestActionCMD(t *testing.T) {
 	assert.NoError(t, err)
 
 	c := NewBaseConnection("id", ProtocolSFTP, "", "", *user)
-	ExecuteActionNotification(c, OperationSSHCmd, "path", "vpath", "target", "vtarget", "sha1sum", 0, nil)
+	err = ExecuteActionNotification(c, OperationSSHCmd, "path", "vpath", "target", "vtarget", "sha1sum", 0, nil)
+	assert.NoError(t, err)
 
-	ExecuteActionNotification(c, operationDownload, "path", "vpath", "", "", "", 0, nil)
+	err = ExecuteActionNotification(c, operationDownload, "path", "vpath", "", "", "", 0, nil)
+	assert.NoError(t, err)
 
 	Config.Actions = actionsCopy
 }
@@ -272,7 +274,8 @@ func TestUnconfiguredHook(t *testing.T) {
 	err = ExecutePreAction(c, operationPreDelete, "", "", 0, 0)
 	assert.ErrorIs(t, err, errUnconfiguredAction)
 
-	ExecuteActionNotification(c, operationDownload, "", "", "", "", "", 0, nil)
+	err = ExecuteActionNotification(c, operationDownload, "", "", "", "", "", 0, nil)
+	assert.NoError(t, err)
 
 	err = plugin.Initialize(nil, true)
 	assert.NoError(t, err)

@@ -27,7 +27,7 @@ import (
 var (
 	errUnconfiguredAction    = errors.New("no hook is configured for this action")
 	errNoHook                = errors.New("unable to execute action, no hook defined")
-	errUnexpectedHTTResponse = errors.New("unexpected HTTP response code")
+	errUnexpectedHTTResponse = errors.New("unexpected HTTP hook response code")
 )
 
 // ProtocolActions defines the action to execute on file operations and SSH commands
@@ -84,11 +84,11 @@ func ExecutePreAction(conn *BaseConnection, operation, filePath, virtualPath str
 // ExecuteActionNotification executes the defined hook, if any, for the specified action
 func ExecuteActionNotification(conn *BaseConnection, operation, filePath, virtualPath, target, virtualTarget, sshCmd string,
 	fileSize int64, err error,
-) {
+) error {
 	hasNotifiersPlugin := plugin.Handler.HasNotifiers()
 	hasHook := util.Contains(Config.Actions.ExecuteOn, operation)
 	if !hasHook && !hasNotifiersPlugin {
-		return
+		return nil
 	}
 	notification := newActionNotification(&conn.User, operation, filePath, virtualPath, target, virtualTarget, sshCmd,
 		conn.protocol, conn.GetRemoteIP(), conn.ID, fileSize, 0, err)
@@ -98,12 +98,12 @@ func ExecuteActionNotification(conn *BaseConnection, operation, filePath, virtua
 
 	if hasHook {
 		if util.Contains(Config.Actions.ExecuteSync, operation) {
-			actionHandler.Handle(notification) //nolint:errcheck
-			return
+			return actionHandler.Handle(notification)
 		}
 
 		go actionHandler.Handle(notification) //nolint:errcheck
 	}
+	return nil
 }
 
 // ActionHandler handles a notification for a Protocol Action.

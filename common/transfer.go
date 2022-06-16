@@ -375,7 +375,7 @@ func (t *BaseTransfer) Close() error {
 	if t.transferType == TransferDownload {
 		logger.TransferLog(downloadLogSender, t.fsPath, elapsed, atomic.LoadInt64(&t.BytesSent), t.Connection.User.Username,
 			t.Connection.ID, t.Connection.protocol, t.Connection.localAddr, t.Connection.remoteAddr, t.ftpMode)
-		ExecuteActionNotification(t.Connection, operationDownload, t.fsPath, t.requestPath, "", "", "",
+		ExecuteActionNotification(t.Connection, operationDownload, t.fsPath, t.requestPath, "", "", "", //nolint:errcheck
 			atomic.LoadInt64(&t.BytesSent), t.ErrTransfer)
 	} else {
 		fileSize := atomic.LoadInt64(&t.BytesReceived) + t.MinWriteOffset
@@ -383,11 +383,11 @@ func (t *BaseTransfer) Close() error {
 			fileSize = statSize
 		}
 		t.Connection.Log(logger.LevelDebug, "uploaded file size %v", fileSize)
+		numFiles, fileSize = t.executeUploadHook(numFiles, fileSize)
 		t.updateQuota(numFiles, fileSize)
 		t.updateTimes()
 		logger.TransferLog(uploadLogSender, t.fsPath, elapsed, atomic.LoadInt64(&t.BytesReceived), t.Connection.User.Username,
 			t.Connection.ID, t.Connection.protocol, t.Connection.localAddr, t.Connection.remoteAddr, t.ftpMode)
-		ExecuteActionNotification(t.Connection, operationUpload, t.fsPath, t.requestPath, "", "", "", fileSize, t.ErrTransfer)
 	}
 	if t.ErrTransfer != nil {
 		t.Connection.Log(logger.LevelError, "transfer error: %v, path: %#v", t.ErrTransfer, t.fsPath)
@@ -396,6 +396,27 @@ func (t *BaseTransfer) Close() error {
 		}
 	}
 	return err
+}
+
+func (t *BaseTransfer) executeUploadHook(numFiles int, fileSize int64) (int, int64) {
+	err := ExecuteActionNotification(t.Connection, operationUpload, t.fsPath, t.requestPath, "", "", "",
+		fileSize, t.ErrTransfer)
+	if err != nil {
+		if t.ErrTransfer == nil {
+			t.ErrTransfer = err
+		}
+		// try to remove the uploaded file
+		err = t.Fs.Remove(t.fsPath, false)
+		if err == nil {
+			numFiles--
+			fileSize = 0
+			atomic.StoreInt64(&t.BytesReceived, 0)
+			t.MinWriteOffset = 0
+		} else {
+			t.Connection.Log(logger.LevelWarn, "unable to remove path %q after upload hook failure: %v", t.fsPath, err)
+		}
+	}
+	return numFiles, fileSize
 }
 
 func (t *BaseTransfer) updateTimes() {

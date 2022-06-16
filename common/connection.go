@@ -344,7 +344,7 @@ func (c *BaseConnection) CreateDir(virtualPath string, checkFilePatterns bool) e
 
 	logger.CommandLog(mkdirLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", -1,
 		c.localAddr, c.remoteAddr)
-	ExecuteActionNotification(c, operationMkdir, fsPath, virtualPath, "", "", "", 0, nil)
+	ExecuteActionNotification(c, operationMkdir, fsPath, virtualPath, "", "", "", 0, nil) //nolint:errcheck
 	return nil
 }
 
@@ -391,7 +391,7 @@ func (c *BaseConnection) RemoveFile(fs vfs.Fs, fsPath, virtualPath string, info 
 		}
 	}
 	if actionErr != nil {
-		ExecuteActionNotification(c, operationDelete, fsPath, virtualPath, "", "", "", size, nil)
+		ExecuteActionNotification(c, operationDelete, fsPath, virtualPath, "", "", "", size, nil) //nolint:errcheck
 	}
 	return nil
 }
@@ -455,7 +455,7 @@ func (c *BaseConnection) RemoveDir(virtualPath string) error {
 
 	logger.CommandLog(rmdirLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", -1,
 		c.localAddr, c.remoteAddr)
-	ExecuteActionNotification(c, operationRmdir, fsPath, virtualPath, "", "", "", 0, nil)
+	ExecuteActionNotification(c, operationRmdir, fsPath, virtualPath, "", "", "", 0, nil) //nolint:errcheck
 	return nil
 }
 
@@ -520,8 +520,8 @@ func (c *BaseConnection) Rename(virtualSourcePath, virtualTargetPath string) err
 	c.updateQuotaAfterRename(fsDst, virtualSourcePath, virtualTargetPath, fsTargetPath, initialSize) //nolint:errcheck
 	logger.CommandLog(renameLogSender, fsSourcePath, fsTargetPath, c.User.Username, "", c.ID, c.protocol, -1, -1,
 		"", "", "", -1, c.localAddr, c.remoteAddr)
-	ExecuteActionNotification(c, operationRename, fsSourcePath, virtualSourcePath, fsTargetPath, virtualTargetPath,
-		"", 0, nil)
+	ExecuteActionNotification(c, operationRename, fsSourcePath, virtualSourcePath, fsTargetPath, //nolint:errcheck
+		virtualTargetPath, "", 0, nil)
 
 	return nil
 }

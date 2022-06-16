@@ -2808,10 +2808,13 @@ func TestSyncUploadAction(t *testing.T) {
 	common.Config.Actions.ExecuteSync = []string{"upload"}
 	common.Config.Actions.Hook = uploadScriptPath
 
-	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	u := getTestUser()
+	u.QuotaFiles = 1000
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
-	movedPath := filepath.Join(user.HomeDir, "moved.dat")
-	err = os.WriteFile(uploadScriptPath, getUploadScriptContent(movedPath), 0755)
+	movedFileName := "moved.dat"
+	movedPath := filepath.Join(user.HomeDir, movedFileName)
+	err = os.WriteFile(uploadScriptPath, getUploadScriptContent(movedPath, 0), 0755)
 	assert.NoError(t, err)
 	conn, client, err := getSftpClient(user)
 	if assert.NoError(t, err) {
@@ -2823,10 +2826,47 @@ func TestSyncUploadAction(t *testing.T) {
 		assert.NoError(t, err)
 		_, err = client.Stat(testFileName)
 		assert.Error(t, err)
-		info, err := client.Stat(filepath.Base(movedPath))
+		info, err := client.Stat(movedFileName)
 		if assert.NoError(t, err) {
 			assert.Equal(t, size, info.Size())
 		}
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, user.UsedQuotaFiles)
+		assert.Equal(t, size, user.UsedQuotaSize)
+		// test some hook failure
+		// the uploaded file is moved and the hook fails, it will be not removed from the quota
+		err = os.WriteFile(uploadScriptPath, getUploadScriptContent(movedPath, 1), 0755)
+		assert.NoError(t, err)
+		err = writeSFTPFileNoCheck(testFileName+"_1", size, client)
+		assert.Error(t, err)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 2, user.UsedQuotaFiles)
+		assert.Equal(t, size*2, user.UsedQuotaSize)
+
+		// the uploaded file is not moved and the hook fails, the uploaded file will be deleted
+		// and removed from the quota
+		movedPath = filepath.Join(user.HomeDir, "missing dir", movedFileName)
+		err = os.WriteFile(uploadScriptPath, getUploadScriptContent(movedPath, 1), 0755)
+		assert.NoError(t, err)
+		err = writeSFTPFileNoCheck(testFileName+"_2", size, client)
+		assert.Error(t, err)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 2, user.UsedQuotaFiles)
+		assert.Equal(t, size*2, user.UsedQuotaSize)
+		// overwrite an existing file
+		_, err = client.Stat(movedFileName)
+		assert.NoError(t, err)
+		err = writeSFTPFileNoCheck(movedFileName, size, client)
+		assert.Error(t, err)
+		_, err = client.Stat(movedFileName)
+		assert.Error(t, err)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, user.UsedQuotaFiles)
+		assert.Equal(t, size, user.UsedQuotaSize)
 	}
 
 	err = os.Remove(uploadScriptPath)
@@ -3774,10 +3814,11 @@ func writeSFTPFileNoCheck(name string, size int64, client *sftp.Client) error {
 	return f.Close()
 }
 
-func getUploadScriptContent(movedPath string) []byte {
+func getUploadScriptContent(movedPath string, exitStatus int) []byte {
 	content := []byte("#!/bin/sh\n\n")
 	content = append(content, []byte("sleep 1\n")...)
 	content = append(content, []byte(fmt.Sprintf("mv ${SFTPGO_ACTION_PATH} %v\n", movedPath))...)
+	content = append(content, []byte(fmt.Sprintf("exit %d", exitStatus))...)
 	return content
 }
 
