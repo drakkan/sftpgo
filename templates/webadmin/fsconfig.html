@@ -67,17 +67,8 @@
         </div>
 
         <div class="form-group row fsconfig fsconfig-s3fs">
-            <label for="idS3StorageClass" class="col-sm-2 col-form-label">Storage Class</label>
-            <div class="col-sm-3">
-                <input type="text" class="form-control" id="idS3StorageClass" name="s3_storage_class" placeholder=""
-                    value="{{.S3Config.StorageClass}}" maxlength="255" aria-describedby="S3StorageClassHelpBlock">
-                <small id="S3StorageClassHelpBlock" class="form-text text-muted">
-                    Leave blank for default
-                </small>
-            </div>
-            <div class="col-sm-2"></div>
             <label for="idS3Endpoint" class="col-sm-2 col-form-label">Endpoint</label>
-            <div class="col-sm-3">
+            <div class="col-sm-10">
                 <input type="text" class="form-control" id="idS3Endpoint" name="s3_endpoint" placeholder=""
                     value="{{.S3Config.Endpoint}}" maxlength="512" aria-describedby="S3EndpointHelpBlock">
                     <small id="S3EndpointHelpBlock" class="form-text text-muted">
@@ -151,23 +142,32 @@
         </div>
 
         <div class="form-group row fsconfig fsconfig-s3fs">
+            <label for="idS3StorageClass" class="col-sm-2 col-form-label">Storage Class</label>
+            <div class="col-sm-3">
+                <input type="text" class="form-control" id="idS3StorageClass" name="s3_storage_class" placeholder=""
+                    value="{{.S3Config.StorageClass}}" maxlength="255" aria-describedby="S3StorageClassHelpBlock">
+                <small id="S3StorageClassHelpBlock" class="form-text text-muted">
+                    Leave blank for default
+                </small>
+            </div>
+            <div class="col-sm-2"></div>
+            <label for="idS3ACL" class="col-sm-2 col-form-label">ACL</label>
+            <div class="col-sm-3">
+                <input type="text" class="form-control" id="idS3ACL" name="s3_acl" placeholder=""
+                    value="{{.S3Config.ACL}}" maxlength="255" aria-describedby="S3ACLHelpBlock">
+                <small id="S3ACLHelpBlock" class="form-text text-muted">
+                    Leave blank for default. More info <a href="https://docs.aws.amazon.com/AmazonS3/latest/userguide/acl-overview.html#canned-acl" target="_blank">here</a>
+                </small>
+            </div>
+        </div>
+
+        <div class="form-group row fsconfig fsconfig-s3fs">
             <label for="idS3RoleARN" class="col-sm-2 col-form-label">Role ARN</label>
             <div class="col-sm-10">
                 <input type="text" class="form-control" id="idS3RoleARN" name="s3_role_arn" placeholder=""
                     value="{{.S3Config.RoleARN}}" aria-describedby="S3RoleARNHelpBlock">
                 <small id="S3RoleARNHelpBlock" class="form-text text-muted">
                     Optional IAM Role ARN to assume
-                </small>
-            </div>
-        </div>
-
-        <div class="form-group row fsconfig fsconfig-s3fs">
-            <label for="idS3ACL" class="col-sm-2 col-form-label">ACL</label>
-            <div class="col-sm-10">
-                <input type="text" class="form-control" id="idS3ACL" name="s3_acl" placeholder=""
-                    value="{{.S3Config.ACL}}" maxlength="255" aria-describedby="S3ACLHelpBlock">
-                <small id="S3ACLHelpBlock" class="form-text text-muted">
-                    ACL for uploaded objects. Leave blank for default. For more info take a look <a href="https://docs.aws.amazon.com/AmazonS3/latest/userguide/acl-overview.html#canned-acl" target="_blank">here</a>
                 </small>
             </div>
         </div>

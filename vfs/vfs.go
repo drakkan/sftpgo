@@ -271,7 +271,9 @@ func (c *S3FsConfig) validate() error {
 	if c.Bucket == "" {
 		return errors.New("bucket cannot be empty")
 	}
-	if c.Region == "" {
+	// the region may be embedded within the endpoint for some S3 compatible
+	// object storage, for example B2
+	if c.Endpoint == "" && c.Region == "" {
 		return errors.New("region cannot be empty")
 	}
 	if err := c.checkCredentials(); err != nil {

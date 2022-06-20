@@ -9,13 +9,13 @@ require (
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/alexedwards/argon2id v0.0.0-20211130144151-3585854a6387
 	github.com/aws/aws-sdk-go-v2 v1.16.5
-	github.com/aws/aws-sdk-go-v2/config v1.15.10
-	github.com/aws/aws-sdk-go-v2/credentials v1.12.5
+	github.com/aws/aws-sdk-go-v2/config v1.15.11
+	github.com/aws/aws-sdk-go-v2/credentials v1.12.6
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.6
-	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.15
+	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.16
 	github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.13.6
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.26.11
-	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.15.10
+	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.15.11
 	github.com/aws/aws-sdk-go-v2/service/sts v1.16.7
 	github.com/cockroachdb/cockroach-go/v2 v2.2.13
 	github.com/coreos/go-oidc/v3 v3.2.0
@@ -56,7 +56,7 @@ require (
 	github.com/spf13/afero v1.8.2
 	github.com/spf13/cobra v1.4.0
 	github.com/spf13/viper v1.12.0
-	github.com/stretchr/testify v1.7.2
+	github.com/stretchr/testify v1.7.3
 	github.com/studio-b12/gowebdav v0.0.0-20220128162035-c7b1ff8a5e62
 	github.com/unrolled/secure v1.10.0
 	github.com/wagslane/go-password-validator v0.3.0
@@ -75,8 +75,8 @@ require (
 )
 
 require (
-	cloud.google.com/go v0.102.0 // indirect
-	cloud.google.com/go/compute v1.6.1 // indirect
+	cloud.google.com/go v0.102.1 // indirect
+	cloud.google.com/go/compute v1.7.0 // indirect
 	cloud.google.com/go/iam v0.3.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.0.0 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.4.2 // indirect
@@ -88,7 +88,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.1.7 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.6 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.13.6 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.11.8 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.11.9 // indirect
 	github.com/aws/smithy-go v1.11.3 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/boombuler/barcode v1.0.1 // indirect
@@ -138,7 +138,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20220216144756-c35f1ee13d7c // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
-	github.com/prometheus/common v0.34.0 // indirect
+	github.com/prometheus/common v0.35.0 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
@@ -155,7 +155,7 @@ require (
 	golang.org/x/tools v0.1.11 // indirect
 	golang.org/x/xerrors v0.0.0-20220609144429-65e65417b02f // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20220616135557-88e70c0c3a90 // indirect
+	google.golang.org/genproto v0.0.0-20220617124728-180714bec0ad // indirect
 	google.golang.org/grpc v1.47.0 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/ini.v1 v1.66.6 // indirect

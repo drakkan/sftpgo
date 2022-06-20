@@ -2274,6 +2274,13 @@ func TestAddUserInvalidFsConfig(t *testing.T) {
 	if assert.NoError(t, err) {
 		assert.Contains(t, string(resp), "invalid download concurrency")
 	}
+	u.FsConfig.S3Config.DownloadConcurrency = 0
+	u.FsConfig.S3Config.Endpoint = ""
+	u.FsConfig.S3Config.Region = ""
+	_, resp, err = httpdtest.AddUser(u, http.StatusBadRequest)
+	if assert.NoError(t, err) {
+		assert.Contains(t, string(resp), "region cannot be empty")
+	}
 	u = getTestUser()
 	u.FsConfig.Provider = sdk.GCSFilesystemProvider
 	u.FsConfig.GCSConfig.Bucket = ""
@@ -3126,8 +3133,7 @@ func TestUserS3Config(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
 	user.FsConfig.Provider = sdk.S3FilesystemProvider
-	user.FsConfig.S3Config.Bucket = "test"      //nolint:goconst
-	user.FsConfig.S3Config.Region = "us-east-1" //nolint:goconst
+	user.FsConfig.S3Config.Bucket = "test" //nolint:goconst
 	user.FsConfig.S3Config.AccessKey = "Server-Access-Key"
 	user.FsConfig.S3Config.AccessSecret = kms.NewPlainSecret("Server-Access-Secret")
 	user.FsConfig.S3Config.RoleARN = "myRoleARN"
