@@ -9,8 +9,8 @@ require (
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/alexedwards/argon2id v0.0.0-20211130144151-3585854a6387
 	github.com/aws/aws-sdk-go-v2 v1.16.5
-	github.com/aws/aws-sdk-go-v2/config v1.15.10
-	github.com/aws/aws-sdk-go-v2/credentials v1.12.5
+	github.com/aws/aws-sdk-go-v2/config v1.15.11
+	github.com/aws/aws-sdk-go-v2/credentials v1.12.6
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.6
 	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.15
 	github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.13.6
@@ -88,7 +88,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.1.7 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.6 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.13.6 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.11.8 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.11.9 // indirect
 	github.com/aws/smithy-go v1.11.3 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/boombuler/barcode v1.0.1 // indirect
