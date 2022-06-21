@@ -656,10 +656,13 @@ func sqlCommonDumpGroups(dbHandle sqlQuerier) ([]Group, error) {
 		if err != nil {
 			return groups, err
 		}
-		group.PrepareForRendering()
 		groups = append(groups, group)
 	}
-	return groups, rows.Err()
+	err = rows.Err()
+	if err != nil {
+		return groups, err
+	}
+	return getGroupsWithVirtualFolders(ctx, groups, dbHandle)
 }
 
 func sqlCommonGetUsersInGroups(names []string, dbHandle sqlQuerier) ([]string, error) {

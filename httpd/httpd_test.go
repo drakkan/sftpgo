@@ -5405,9 +5405,25 @@ func TestLoaddata(t *testing.T) {
 	user := getTestUser()
 	user.ID = 1
 	user.Username = "test_user_restore"
+	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name: folderName,
+		},
+		VirtualPath: "/vuserpath",
+	})
 	group := getTestGroup()
 	group.ID = 1
 	group.Name = "test_group_restore"
+	group.VirtualFolders = append(group.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name: folderName,
+		},
+		VirtualPath: "/vgrouppath",
+	})
+	user.Groups = append(user.Groups, sdk.GroupMapping{
+		Name: group.Name,
+		Type: sdk.GroupTypePrimary,
+	})
 	admin := getTestAdmin()
 	admin.ID = 1
 	admin.Username = "test_admin_restore"
@@ -5467,22 +5483,21 @@ func TestLoaddata(t *testing.T) {
 		assert.NoError(t, err)
 	}
 	// add user, group, folder, admin, API key, share from backup
-	_, _, err = httpdtest.Loaddata(backupFilePath, "1", "", http.StatusOK)
-	assert.NoError(t, err)
+	_, resp, err := httpdtest.Loaddata(backupFilePath, "1", "", http.StatusOK)
+	assert.NoError(t, err, string(resp))
 	// update from backup
 	_, _, err = httpdtest.Loaddata(backupFilePath, "2", "", http.StatusOK)
 	assert.NoError(t, err)
 	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 	assert.NoError(t, err)
+	assert.Len(t, user.VirtualFolders, 1)
+	assert.Len(t, user.Groups, 1)
 	_, err = dataprovider.ShareExists(share.ShareID, user.Username)
-	assert.NoError(t, err)
-	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 
 	group, _, err = httpdtest.GetGroupByName(group.Name, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpdtest.RemoveGroup(group, http.StatusOK)
-	assert.NoError(t, err)
+	assert.Len(t, group.VirtualFolders, 1)
 
 	admin, _, err = httpdtest.GetAdminByUsername(admin.Username, http.StatusOK)
 	assert.NoError(t, err)
@@ -5491,8 +5506,28 @@ func TestLoaddata(t *testing.T) {
 
 	apiKey, _, err = httpdtest.GetAPIKeyByID(apiKey.KeyID, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpdtest.RemoveAPIKey(apiKey, http.StatusOK)
+
+	response, _, err := httpdtest.Dumpdata("", "1", "0", http.StatusOK)
 	assert.NoError(t, err)
+	var dumpedData dataprovider.BackupData
+	data, err := json.Marshal(response)
+	assert.NoError(t, err)
+	err = json.Unmarshal(data, &dumpedData)
+	assert.NoError(t, err)
+	found := false
+	if assert.GreaterOrEqual(t, len(dumpedData.Users), 1) {
+		for _, u := range dumpedData.Users {
+			if u.Username == user.Username {
+				found = true
+				assert.Equal(t, len(user.VirtualFolders), len(u.VirtualFolders))
+				assert.Equal(t, len(user.Groups), len(u.Groups))
+			}
+		}
+	}
+	assert.True(t, found)
+	if assert.Len(t, dumpedData.Groups, 1) {
+		assert.Equal(t, len(group.VirtualFolders), len(dumpedData.Groups[0].VirtualFolders))
+	}
 
 	folder, _, err := httpdtest.GetFolderByName(folderName, http.StatusOK)
 	assert.NoError(t, err)
@@ -5501,9 +5536,16 @@ func TestLoaddata(t *testing.T) {
 	assert.Equal(t, 456, folder.UsedQuotaFiles)
 	assert.Equal(t, int64(789), folder.LastQuotaUpdate)
 	assert.Equal(t, foldeDesc, folder.Description)
-	assert.Len(t, folder.Users, 0)
+	assert.Len(t, folder.Users, 1)
 	_, err = httpdtest.RemoveFolder(folder, http.StatusOK)
 	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveGroup(group, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveAPIKey(apiKey, http.StatusOK)
+	assert.NoError(t, err)
+
 	err = os.Remove(backupFilePath)
 	assert.NoError(t, err)
 	err = createTestFile(backupFilePath, 10485761)
