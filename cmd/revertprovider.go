@@ -26,8 +26,8 @@ Please take a look at the usage below to customize the options.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			logger.DisableLogger()
 			logger.EnableConsoleLogger(zerolog.DebugLevel)
-			if revertProviderTargetVersion != 15 {
-				logger.WarnToConsole("Unsupported target version, 15 is the only supported one")
+			if revertProviderTargetVersion != 19 {
+				logger.WarnToConsole("Unsupported target version, 19 is the only supported one")
 				os.Exit(1)
 			}
 			configDir = util.CleanDirInput(configDir)
@@ -57,7 +57,7 @@ Please take a look at the usage below to customize the options.`,
 
 func init() {
 	addConfigFlags(revertProviderCmd)
-	revertProviderCmd.Flags().IntVar(&revertProviderTargetVersion, "to-version", 15, `15 means the version supported in v2.2.x`)
+	revertProviderCmd.Flags().IntVar(&revertProviderTargetVersion, "to-version", 19, `19 means the version supported in v2.3.x`)
 
 	rootCmd.AddCommand(revertProviderCmd)
 }

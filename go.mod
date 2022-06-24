@@ -3,7 +3,7 @@ module github.com/drakkan/sftpgo/v2
 go 1.18
 
 require (
-	cloud.google.com/go/storage v1.22.1
+	cloud.google.com/go/storage v1.23.0
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.1.0
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v0.4.1
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
@@ -17,7 +17,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.26.11
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.15.11
 	github.com/aws/aws-sdk-go-v2/service/sts v1.16.7
-	github.com/cockroachdb/cockroach-go/v2 v2.2.13
+	github.com/cockroachdb/cockroach-go/v2 v2.2.14
 	github.com/coreos/go-oidc/v3 v3.2.0
 	github.com/eikenb/pipeat v0.0.0-20210730190139-06b3e6902001
 	github.com/fclairamb/ftpserverlib v0.18.1-0.20220515214847-f96d31ec626e
@@ -54,9 +54,9 @@ require (
 	github.com/sftpgo/sdk v0.1.2-0.20220611083241-b653555f7f4d
 	github.com/shirou/gopsutil/v3 v3.22.5
 	github.com/spf13/afero v1.8.2
-	github.com/spf13/cobra v1.4.0
+	github.com/spf13/cobra v1.5.0
 	github.com/spf13/viper v1.12.0
-	github.com/stretchr/testify v1.7.3
+	github.com/stretchr/testify v1.7.5
 	github.com/studio-b12/gowebdav v0.0.0-20220128162035-c7b1ff8a5e62
 	github.com/unrolled/secure v1.10.0
 	github.com/wagslane/go-password-validator v0.3.0
@@ -65,12 +65,12 @@ require (
 	go.etcd.io/bbolt v1.3.6
 	go.uber.org/automaxprocs v1.5.1
 	gocloud.dev v0.25.0
-	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
-	golang.org/x/net v0.0.0-20220607020251-c690dde0001d
-	golang.org/x/oauth2 v0.0.0-20220608161450-d0670ef3b1eb
-	golang.org/x/sys v0.0.0-20220615213510-4f61da869c0c
+	golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d
+	golang.org/x/net v0.0.0-20220622184535-263ec571b305
+	golang.org/x/oauth2 v0.0.0-20220622183110-fd043fe589d2
+	golang.org/x/sys v0.0.0-20220622161953-175b2fd9d664
 	golang.org/x/time v0.0.0-20220609170525-579cf78fd858
-	google.golang.org/api v0.84.0
+	google.golang.org/api v0.85.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
 
@@ -115,7 +115,7 @@ require (
 	github.com/hashicorp/yamux v0.0.0-20211028200310-0bc27b27de87 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
-	github.com/klauspost/cpuid/v2 v2.0.13 // indirect
+	github.com/klauspost/cpuid/v2 v2.0.14 // indirect
 	github.com/kr/fs v0.1.0 // indirect
 	github.com/lestrrat-go/backoff/v2 v2.0.8 // indirect
 	github.com/lestrrat-go/blackmagic v1.0.1 // indirect
@@ -127,7 +127,7 @@ require (
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
-	github.com/miekg/dns v1.1.49 // indirect
+	github.com/miekg/dns v1.1.50 // indirect
 	github.com/minio/sha256-simd v1.0.0 // indirect
 	github.com/mitchellh/go-testing-interface v1.14.1 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
@@ -155,7 +155,7 @@ require (
 	golang.org/x/tools v0.1.11 // indirect
 	golang.org/x/xerrors v0.0.0-20220609144429-65e65417b02f // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20220617124728-180714bec0ad // indirect
+	google.golang.org/genproto v0.0.0-20220623142657-077d458a5694 // indirect
 	google.golang.org/grpc v1.47.0 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/ini.v1 v1.66.6 // indirect
@@ -166,6 +166,6 @@ require (
 
 replace (
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
-	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20220615084019-08e8cc176bad
-	golang.org/x/net => github.com/drakkan/net v0.0.0-20220609171611-ca8008b74f1f
+	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20220624105932-71c5dfcef1e8
+	golang.org/x/net => github.com/drakkan/net v0.0.0-20220624105841-7e4aeacf55c7
 )

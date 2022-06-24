@@ -76,12 +76,12 @@ CREATE TABLE "{{groups_folders_mapping}}" ("id" integer NOT NULL PRIMARY KEY AUT
 "virtual_path" text NOT NULL, "quota_size" bigint NOT NULL, "quota_files" integer NOT NULL,
 CONSTRAINT "{{prefix}}unique_group_folder_mapping" UNIQUE ("group_id", "folder_id"));
 CREATE TABLE "{{users_groups_mapping}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
-"user_id" integer NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
-"group_id" integer NOT NULL REFERENCES "groups" ("id") ON DELETE NO ACTION,
+"user_id" integer NOT NULL REFERENCES "{{users}}" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
+"group_id" integer NOT NULL REFERENCES "{{groups}}" ("id") ON DELETE NO ACTION,
 "group_type" integer NOT NULL, CONSTRAINT "{{prefix}}unique_user_group_mapping" UNIQUE ("user_id", "group_id"));
 CREATE TABLE "{{users_folders_mapping}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
-"user_id" integer NOT NULL REFERENCES "users" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
-"folder_id" integer NOT NULL REFERENCES "folders" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
+"user_id" integer NOT NULL REFERENCES "{{users}}" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
+"folder_id" integer NOT NULL REFERENCES "{{folders}}" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
 "virtual_path" text NOT NULL, "quota_size" bigint NOT NULL, "quota_files" integer NOT NULL,
 CONSTRAINT "{{prefix}}unique_user_folder_mapping" UNIQUE ("user_id", "folder_id"));
 CREATE TABLE "{{shares}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "share_id" varchar(60) NOT NULL UNIQUE,

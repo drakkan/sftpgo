@@ -48,7 +48,6 @@ func sqlReplaceAll(sql string) string {
 	sql = strings.ReplaceAll(sql, "{{folders}}", sqlTableFolders)
 	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
 	sql = strings.ReplaceAll(sql, "{{groups}}", sqlTableGroups)
-	sql = strings.ReplaceAll(sql, "{{folders_mapping}}", sqlTableFoldersMapping)
 	sql = strings.ReplaceAll(sql, "{{users_folders_mapping}}", sqlTableUsersFoldersMapping)
 	sql = strings.ReplaceAll(sql, "{{users_groups_mapping}}", sqlTableUsersGroupsMapping)
 	sql = strings.ReplaceAll(sql, "{{groups_folders_mapping}}", sqlTableGroupsFoldersMapping)
@@ -533,10 +532,13 @@ func sqlCommonDumpGroups(dbHandle sqlQuerier) ([]Group, error) {
 		if err != nil {
 			return groups, err
 		}
-		group.PrepareForRendering()
 		groups = append(groups, group)
 	}
-	return groups, rows.Err()
+	err = rows.Err()
+	if err != nil {
+		return groups, err
+	}
+	return getGroupsWithVirtualFolders(ctx, groups, dbHandle)
 }
 
 func sqlCommonGetUsersInGroups(names []string, dbHandle sqlQuerier) ([]string, error) {

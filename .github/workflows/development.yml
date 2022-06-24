@@ -356,6 +356,7 @@ jobs:
           SFTPGO_DATA_PROVIDER__PORT: 3307
           SFTPGO_DATA_PROVIDER__USERNAME: sftpgo
           SFTPGO_DATA_PROVIDER__PASSWORD: sftpgo
+          SFTPGO_DATA_PROVIDER__SQL_TABLES_PREFIX: prefix_
 
       - name: Run tests using CockroachDB provider
         run: |
@@ -373,6 +374,7 @@ jobs:
           SFTPGO_DATA_PROVIDER__PORT: 26257
           SFTPGO_DATA_PROVIDER__USERNAME: root
           SFTPGO_DATA_PROVIDER__PASSWORD:
+          SFTPGO_DATA_PROVIDER__SQL_TABLES_PREFIX: prefix_
 
   build-linux-packages:
     name: Build Linux packages
