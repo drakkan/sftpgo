@@ -156,26 +156,44 @@ var (
 	sharedProviders              = []string{PGSQLDataProviderName, MySQLDataProviderName, CockroachDataProviderName}
 	logSender                    = "dataprovider"
 	credentialsDirPath           string
-	sqlTableUsers                = "users"
-	sqlTableFolders              = "folders"
-	sqlTableFoldersMapping       = "folders_mapping"
-	sqlTableUsersFoldersMapping  = "users_folders_mapping"
-	sqlTableAdmins               = "admins"
-	sqlTableAPIKeys              = "api_keys"
-	sqlTableShares               = "shares"
-	sqlTableDefenderHosts        = "defender_hosts"
-	sqlTableDefenderEvents       = "defender_events"
-	sqlTableActiveTransfers      = "active_transfers"
-	sqlTableGroups               = "groups"
-	sqlTableUsersGroupsMapping   = "users_groups_mapping"
-	sqlTableGroupsFoldersMapping = "groups_folders_mapping"
-	sqlTableSharedSessions       = "shared_sessions"
-	sqlTableSchemaVersion        = "schema_version"
+	sqlTableUsers                string
+	sqlTableFolders              string
+	sqlTableFoldersMapping       string
+	sqlTableUsersFoldersMapping  string
+	sqlTableAdmins               string
+	sqlTableAPIKeys              string
+	sqlTableShares               string
+	sqlTableDefenderHosts        string
+	sqlTableDefenderEvents       string
+	sqlTableActiveTransfers      string
+	sqlTableGroups               string
+	sqlTableUsersGroupsMapping   string
+	sqlTableGroupsFoldersMapping string
+	sqlTableSharedSessions       string
+	sqlTableSchemaVersion        string
 	argon2Params                 *argon2id.Params
 	lastLoginMinDelay            = 10 * time.Minute
 	usernameRegex                = regexp.MustCompile("^[a-zA-Z0-9-_.~]+$")
 	tempPath                     string
 )
+
+func initSQLTables() {
+	sqlTableUsers = "users"
+	sqlTableFolders = "folders"
+	sqlTableFoldersMapping = "folders_mapping"
+	sqlTableUsersFoldersMapping = "users_folders_mapping"
+	sqlTableAdmins = "admins"
+	sqlTableAPIKeys = "api_keys"
+	sqlTableShares = "shares"
+	sqlTableDefenderHosts = "defender_hosts"
+	sqlTableDefenderEvents = "defender_events"
+	sqlTableActiveTransfers = "active_transfers"
+	sqlTableGroups = "groups"
+	sqlTableUsersGroupsMapping = "users_groups_mapping"
+	sqlTableGroupsFoldersMapping = "groups_folders_mapping"
+	sqlTableSharedSessions = "shared_sessions"
+	sqlTableSchemaVersion = "schema_version"
+}
 
 type schemaVersion struct {
 	Version int
@@ -822,6 +840,7 @@ func initializeHashingAlgo(cnf *Config) error {
 }
 
 func validateSQLTablesPrefix() error {
+	initSQLTables()
 	if config.SQLTablesPrefix != "" {
 		for _, char := range config.SQLTablesPrefix {
 			if !strings.Contains(sqlPrefixValidChars, strings.ToLower(string(char))) {
@@ -831,17 +850,24 @@ func validateSQLTablesPrefix() error {
 		sqlTableUsers = config.SQLTablesPrefix + sqlTableUsers
 		sqlTableFolders = config.SQLTablesPrefix + sqlTableFolders
 		sqlTableFoldersMapping = config.SQLTablesPrefix + sqlTableFoldersMapping
+		sqlTableUsersFoldersMapping = config.SQLTablesPrefix + sqlTableUsersFoldersMapping
 		sqlTableAdmins = config.SQLTablesPrefix + sqlTableAdmins
 		sqlTableAPIKeys = config.SQLTablesPrefix + sqlTableAPIKeys
 		sqlTableShares = config.SQLTablesPrefix + sqlTableShares
 		sqlTableDefenderEvents = config.SQLTablesPrefix + sqlTableDefenderEvents
 		sqlTableDefenderHosts = config.SQLTablesPrefix + sqlTableDefenderHosts
 		sqlTableActiveTransfers = config.SQLTablesPrefix + sqlTableActiveTransfers
+		sqlTableGroups = config.SQLTablesPrefix + sqlTableGroups
+		sqlTableUsersGroupsMapping = config.SQLTablesPrefix + sqlTableUsersGroupsMapping
+		sqlTableGroupsFoldersMapping = config.SQLTablesPrefix + sqlTableGroupsFoldersMapping
+		sqlTableSharedSessions = config.SQLTablesPrefix + sqlTableSharedSessions
 		sqlTableSchemaVersion = config.SQLTablesPrefix + sqlTableSchemaVersion
-		providerLog(logger.LevelDebug, "sql table for users %#v, folders %#v folders mapping %#v admins %#v "+
-			"api keys %#v shares %#v defender hosts %#v defender events %#v transfers %#v schema version %#v",
-			sqlTableUsers, sqlTableFolders, sqlTableFoldersMapping, sqlTableAdmins, sqlTableAPIKeys,
-			sqlTableShares, sqlTableDefenderHosts, sqlTableDefenderEvents, sqlTableActiveTransfers, sqlTableSchemaVersion)
+		providerLog(logger.LevelDebug, "sql table for users %q, folders %q users folders mapping %q admins %q "+
+			"api keys %q shares %q defender hosts %q defender events %q transfers %q  groups %q "+
+			"users groups mapping %q groups folders mapping %q shared sessions %q schema version %q",
+			sqlTableUsers, sqlTableFolders, sqlTableUsersFoldersMapping, sqlTableAdmins, sqlTableAPIKeys,
+			sqlTableShares, sqlTableDefenderHosts, sqlTableDefenderEvents, sqlTableActiveTransfers, sqlTableGroups,
+			sqlTableUsersGroupsMapping, sqlTableGroupsFoldersMapping, sqlTableSharedSessions, sqlTableSchemaVersion)
 	}
 	return nil
 }
