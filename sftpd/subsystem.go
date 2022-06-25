@@ -60,6 +60,7 @@ func ServeSubSystemConnection(user *dataprovider.User, connectionID string, read
 	defer common.Connections.Remove(connection.GetID())
 
 	dataprovider.UpdateLastLogin(user)
+	sftp.SetSFTPExtensions(sftpExtensions...) //nolint:errcheck
 	server := sftp.NewRequestServer(connection.channel, sftp.Handlers{
 		FileGet:  connection,
 		FilePut:  connection,
