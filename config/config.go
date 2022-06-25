@@ -1370,6 +1370,12 @@ func getHTTPDOIDCFromEnv(idx int) (httpd.OIDC, bool) {
 		isSet = true
 	}
 
+	scopes, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__OIDC__SCOPES", idx))
+	if ok {
+		result.Scopes = scopes
+		isSet = true
+	}
+
 	roleField, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__OIDC__ROLE_FIELD", idx))
 	if ok {
 		result.RoleField = roleField

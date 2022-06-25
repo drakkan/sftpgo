@@ -1,6 +1,7 @@
 # OpenID Connect
 
-OpenID Connect integration allows you to map your identity provider users to SFTPGo admins/users and so you can login to SFTPGo Web Client and Web Admin user interfaces using your identity provider.
+OpenID Connect integration allows you to map your identity provider users to SFTPGo admins/users,
+so you can login to SFTPGo Web Client and Web Admin user interfaces, using your own identity provider.
 
 SFTPGo allows to configure per-binding OpenID Connect configurations. The supported configuration parameters are documented within the `oidc` section [here](./full-configuration.md).
 
@@ -42,6 +43,7 @@ Add the following configuration parameters to the SFTPGo configuration file (or 
       "config_url": "http://192.168.1.12:8086/auth/realms/sftpgo",
       "redirect_base_url": "http://192.168.1.50:8080",
       "username_field": "preferred_username",
+      "scopes": [ "openid", "profile", "email" ],
       "role_field": "sftpgo_role",
       "implicit_roles": false,
       "custom_fields": []
@@ -104,8 +106,12 @@ And the following is an example ID token which allows the SFTPGo user `user1` to
 ```
 
 SFTPGo users (not admins) can be created/updated after successful OpenID authentication by defining a [pre-login hook](./dynamic-user-mod.md).
-You can use the `custom_fields` configuration parameter to define the token claims field names to pass to the pre-login hook, these fields are useful for implementing custom logic when creating/updating the SFTPGo user within the hook.
-For example you can set the field `sftpgo_home_dir` in your identity provider and add it to the `custom_fields` in the SFTPGo configuration like this:
+You can use `scopes` configuration to request additional information (claims) about authenticated users (See your provider's own documentation for more information).
+By default the scopes `"openid", "profile", "email"` are retrieved.
+The `custom_fields` configuration parameter can be used to define claim field names to pass to the pre-login hook,
+these fields can be used e.g. for implementing custom logic when creating/updating the SFTPGo user within the hook.
+For example, if you have created a scope with name `sftpgo` in your identity provider to provide a claim for `sftpgo_home_dir` ,
+then you can add it to the `custom_fields` in the SFTPGo configuration like this:
 
 ```json
 ...
@@ -115,6 +121,7 @@ For example you can set the field `sftpgo_home_dir` in your identity provider an
       "config_url": "http://192.168.1.12:8086/auth/realms/sftpgo",
       "redirect_base_url": "http://192.168.1.50:8080",
       "username_field": "preferred_username",
+      "scopes": [ "openid", "profile", "email", "sftpgo" ],
       "role_field": "sftpgo_role",
       "custom_fields": ["sftpgo_home_dir"]
     }
