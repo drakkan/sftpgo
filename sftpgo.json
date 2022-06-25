@@ -262,7 +262,11 @@
           "client_secret": "",
           "config_url": "",
           "redirect_base_url": "",
-          "scopes": [ "openid", "profile", "email" ],
+          "scopes": [
+            "openid",
+            "profile",
+            "email"
+          ],
           "username_field": "",
           "role_field": "",
           "implicit_roles": false,

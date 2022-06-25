@@ -105,6 +105,7 @@ var (
 			UsernameField:   "",
 			RoleField:       "",
 			ImplicitRoles:   false,
+			Scopes:          []string{"openid", "profile", "email"},
 			CustomFields:    []string{},
 		},
 		Security: httpd.SecurityConf{
@@ -1337,7 +1338,10 @@ func getHTTPDSecurityConfFromEnv(idx int) (httpd.SecurityConf, bool) { //nolint:
 }
 
 func getHTTPDOIDCFromEnv(idx int) (httpd.OIDC, bool) {
-	var result httpd.OIDC
+	result := defaultHTTPDBinding.OIDC
+	if len(globalConf.HTTPDConfig.Bindings) > idx {
+		result = globalConf.HTTPDConfig.Bindings[idx].OIDC
+	}
 	isSet := false
 
 	clientID, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__OIDC__CLIENT_ID", idx))
@@ -1503,12 +1507,7 @@ func getHTTPDWebClientIntegrationsFromEnv(idx int) []httpd.WebClientIntegration 
 }
 
 func getDefaultHTTPBinding(idx int) httpd.Binding {
-	binding := httpd.Binding{
-		EnableWebAdmin:  true,
-		EnableWebClient: true,
-		RenderOpenAPI:   true,
-		MinTLSVersion:   12,
-	}
+	binding := defaultHTTPDBinding
 	if len(globalConf.HTTPDConfig.Bindings) > idx {
 		binding = globalConf.HTTPDConfig.Bindings[idx]
 	}

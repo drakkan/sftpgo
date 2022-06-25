@@ -94,6 +94,11 @@ func TestOIDCInitialization(t *testing.T) {
 	}
 	err = config.initialize()
 	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "oidc: required scope \"openid\" is not set")
+	}
+	config.Scopes = []string{oidc.ScopeOpenID}
+	err = config.initialize()
+	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "oidc: unable to initialize provider")
 	}
 	config.ConfigURL = fmt.Sprintf("http://%v/auth/realms/sftpgo", oidcMockAddr)
@@ -1263,6 +1268,7 @@ func getTestOIDCServer() *httpdServer {
 				UsernameField:   "preferred_username",
 				RoleField:       "sftpgo_role",
 				ImplicitRoles:   false,
+				Scopes:          []string{oidc.ScopeOpenID, "profile", "email"},
 				CustomFields:    nil,
 			},
 		},
