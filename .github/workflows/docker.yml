@@ -159,4 +159,4 @@ jobs:
             org.opencontainers.image.version=${{ steps.info.outputs.version }}
             org.opencontainers.image.created=${{ steps.info.outputs.created }}
             org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.licenses=AGPL-3.0
+            org.opencontainers.image.licenses=AGPL-3.0-only
