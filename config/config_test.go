@@ -485,6 +485,126 @@ func TestDisabledMFAConfig(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestFTPDOverridesFromEnv(t *testing.T) {
+	reset()
+
+	os.Setenv("SFTPGO_FTPD__BINDINGS__0__PASSIVE_IP_OVERRIDES__0__IP", "192.168.1.1")
+	os.Setenv("SFTPGO_FTPD__BINDINGS__0__PASSIVE_IP_OVERRIDES__0__NETWORKS", "192.168.1.0/24, 192.168.3.0/25")
+	os.Setenv("SFTPGO_FTPD__BINDINGS__0__PASSIVE_IP_OVERRIDES__1__IP", "192.168.2.1")
+	os.Setenv("SFTPGO_FTPD__BINDINGS__0__PASSIVE_IP_OVERRIDES__1__NETWORKS", "192.168.2.0/24")
+	cleanup := func() {
+		os.Unsetenv("SFTPGO_FTPD__BINDINGS__0__PASSIVE_IP_OVERRIDES__0__IP")
+		os.Unsetenv("SFTPGO_FTPD__BINDINGS__0__PASSIVE_IP_OVERRIDES__0__NETWORKS")
+		os.Unsetenv("SFTPGO_FTPD__BINDINGS__0__PASSIVE_IP_OVERRIDES__1__IP")
+		os.Unsetenv("SFTPGO_FTPD__BINDINGS__0__PASSIVE_IP_OVERRIDES__1__NETWORKS")
+	}
+	t.Cleanup(cleanup)
+
+	configDir := ".."
+	err := config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	ftpdConf := config.GetFTPDConfig()
+	require.Len(t, ftpdConf.Bindings, 1)
+	require.Len(t, ftpdConf.Bindings[0].PassiveIPOverrides, 2)
+	require.Equal(t, "192.168.1.1", ftpdConf.Bindings[0].PassiveIPOverrides[0].IP)
+	require.Len(t, ftpdConf.Bindings[0].PassiveIPOverrides[0].Networks, 2)
+	require.Equal(t, "192.168.2.1", ftpdConf.Bindings[0].PassiveIPOverrides[1].IP)
+	require.Len(t, ftpdConf.Bindings[0].PassiveIPOverrides[1].Networks, 1)
+
+	cleanup()
+	cfg := make(map[string]any)
+	cfg["ftpd"] = ftpdConf
+	configAsJSON, err := json.Marshal(cfg)
+	require.NoError(t, err)
+	confName := tempConfigName + ".json"
+	configFilePath := filepath.Join(configDir, confName)
+	err = os.WriteFile(configFilePath, configAsJSON, os.ModePerm)
+	assert.NoError(t, err)
+	os.Setenv("SFTPGO_FTPD__BINDINGS__0__PASSIVE_IP_OVERRIDES__0__IP", "192.168.1.2")
+	os.Setenv("SFTPGO_FTPD__BINDINGS__0__PASSIVE_IP_OVERRIDES__1__NETWORKS", "192.168.2.0/24,192.168.4.0/25")
+	err = config.LoadConfig(configDir, confName)
+	assert.NoError(t, err)
+	ftpdConf = config.GetFTPDConfig()
+	require.Len(t, ftpdConf.Bindings, 1)
+	require.Len(t, ftpdConf.Bindings[0].PassiveIPOverrides, 2)
+	require.Equal(t, "192.168.1.2", ftpdConf.Bindings[0].PassiveIPOverrides[0].IP)
+	require.Len(t, ftpdConf.Bindings[0].PassiveIPOverrides[0].Networks, 2)
+	require.Equal(t, "192.168.2.1", ftpdConf.Bindings[0].PassiveIPOverrides[1].IP)
+	require.Len(t, ftpdConf.Bindings[0].PassiveIPOverrides[1].Networks, 2)
+
+	err = os.Remove(configFilePath)
+	assert.NoError(t, err)
+}
+
+func TestHTTPDSubObjectsFromEnv(t *testing.T) {
+	reset()
+
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__0__SECURITY__HTTPS_PROXY_HEADERS__0__KEY", "X-Forwarded-Proto")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__0__SECURITY__HTTPS_PROXY_HEADERS__0__VALUE", "https")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__0__WEB_CLIENT_INTEGRATIONS__0__URL", "http://127.0.0.1/")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__0__WEB_CLIENT_INTEGRATIONS__0__FILE_EXTENSIONS", ".pdf, .txt")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__0__OIDC__CLIENT_ID", "client_id")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__0__OIDC__CLIENT_SECRET", "client_secret")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__0__OIDC__CONFIG_URL", "config_url")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__0__OIDC__REDIRECT_BASE_URL", "redirect_base_url")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__0__OIDC__USERNAME_FIELD", "email")
+	cleanup := func() {
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__0__SECURITY__HTTPS_PROXY_HEADERS__0__KEY")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__0__SECURITY__HTTPS_PROXY_HEADERS__0__VALUE")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__0__WEB_CLIENT_INTEGRATIONS__0__URL")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__0__WEB_CLIENT_INTEGRATIONS__0__FILE_EXTENSIONS")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__0__OIDC__CLIENT_ID")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__0__OIDC__CLIENT_SECRET")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__0__OIDC__CONFIG_URL")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__0__OIDC__REDIRECT_BASE_URL")
+		os.Unsetenv("SFTPGO_HTTPD__BINDINGS__0__OIDC__USERNAME_FIELD")
+	}
+	t.Cleanup(cleanup)
+
+	configDir := ".."
+	err := config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	httpdConf := config.GetHTTPDConfig()
+	require.Len(t, httpdConf.Bindings, 1)
+	require.Len(t, httpdConf.Bindings[0].Security.HTTPSProxyHeaders, 1)
+	require.Len(t, httpdConf.Bindings[0].WebClientIntegrations, 1)
+	require.Equal(t, "client_id", httpdConf.Bindings[0].OIDC.ClientID)
+	require.Equal(t, "client_secret", httpdConf.Bindings[0].OIDC.ClientSecret)
+	require.Equal(t, "config_url", httpdConf.Bindings[0].OIDC.ConfigURL)
+	require.Equal(t, "redirect_base_url", httpdConf.Bindings[0].OIDC.RedirectBaseURL)
+	require.Equal(t, "email", httpdConf.Bindings[0].OIDC.UsernameField)
+
+	cleanup()
+	cfg := make(map[string]any)
+	cfg["httpd"] = httpdConf
+	configAsJSON, err := json.Marshal(cfg)
+	require.NoError(t, err)
+	confName := tempConfigName + ".json"
+	configFilePath := filepath.Join(configDir, confName)
+	err = os.WriteFile(configFilePath, configAsJSON, os.ModePerm)
+	assert.NoError(t, err)
+
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__0__SECURITY__HTTPS_PROXY_HEADERS__0__VALUE", "http")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__0__WEB_CLIENT_INTEGRATIONS__0__URL", "http://127.0.1.1/")
+	os.Setenv("SFTPGO_HTTPD__BINDINGS__0__OIDC__CLIENT_SECRET", "new_client_secret")
+	err = config.LoadConfig(configDir, confName)
+	assert.NoError(t, err)
+	httpdConf = config.GetHTTPDConfig()
+	require.Len(t, httpdConf.Bindings, 1)
+	require.Len(t, httpdConf.Bindings[0].Security.HTTPSProxyHeaders, 1)
+	require.Equal(t, "http", httpdConf.Bindings[0].Security.HTTPSProxyHeaders[0].Value)
+	require.Len(t, httpdConf.Bindings[0].WebClientIntegrations, 1)
+	require.Equal(t, "http://127.0.1.1/", httpdConf.Bindings[0].WebClientIntegrations[0].URL)
+	require.Equal(t, "client_id", httpdConf.Bindings[0].OIDC.ClientID)
+	require.Equal(t, "new_client_secret", httpdConf.Bindings[0].OIDC.ClientSecret)
+	require.Equal(t, "config_url", httpdConf.Bindings[0].OIDC.ConfigURL)
+	require.Equal(t, "redirect_base_url", httpdConf.Bindings[0].OIDC.RedirectBaseURL)
+	require.Equal(t, "email", httpdConf.Bindings[0].OIDC.UsernameField)
+
+	err = os.Remove(configFilePath)
+	assert.NoError(t, err)
+}
+
 func TestPluginsFromEnv(t *testing.T) {
 	reset()
 
@@ -545,7 +665,9 @@ func TestPluginsFromEnv(t *testing.T) {
 	require.Equal(t, kms.SecretStatusAWS, pluginConf.KMSOptions.EncryptedStatus)
 	require.Equal(t, 14, pluginConf.AuthOptions.Scope)
 
-	configAsJSON, err := json.Marshal(pluginsConf)
+	cfg := make(map[string]any)
+	cfg["plugins"] = pluginConf
+	configAsJSON, err := json.Marshal(cfg)
 	require.NoError(t, err)
 	confName := tempConfigName + ".json"
 	configFilePath := filepath.Join(configDir, confName)
