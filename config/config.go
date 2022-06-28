@@ -1540,6 +1540,7 @@ func getHTTPDNestedObjectsFromEnv(idx int, binding *httpd.Binding) bool {
 	brandingConf, ok := getHTTPDBrandingFromEnv(idx)
 	if ok {
 		binding.Branding = brandingConf
+		isSet = true
 	}
 
 	return isSet
