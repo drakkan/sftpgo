@@ -1345,9 +1345,11 @@ func (c *BaseConnection) GetGenericError(err error) error {
 		}
 		if err != nil {
 			if e, ok := err.(*os.PathError); ok {
+				c.Log(logger.LevelError, "generic path error: %+v", e)
 				return fmt.Errorf("%w: %v %v", sftp.ErrSSHFxFailure, e.Op, e.Err.Error())
 			}
-			return fmt.Errorf("%w: %v", sftp.ErrSSHFxFailure, err.Error())
+			c.Log(logger.LevelError, "generic error: %+v", err)
+			return fmt.Errorf("%w: %v", sftp.ErrSSHFxFailure, ErrGenericFailure.Error())
 		}
 		return sftp.ErrSSHFxFailure
 	default:

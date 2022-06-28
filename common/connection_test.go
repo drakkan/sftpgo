@@ -325,14 +325,12 @@ func TestErrorsMapping(t *testing.T) {
 		err = conn.GetFsError(fs, os.ErrClosed)
 		if protocol == ProtocolSFTP {
 			assert.ErrorIs(t, err, sftp.ErrSSHFxFailure)
-			assert.Contains(t, err.Error(), os.ErrClosed.Error())
 		} else {
 			assert.EqualError(t, err, ErrGenericFailure.Error())
 		}
 		err = conn.GetFsError(fs, ErrPermissionDenied)
 		if protocol == ProtocolSFTP {
 			assert.ErrorIs(t, err, sftp.ErrSSHFxFailure)
-			assert.Contains(t, err.Error(), ErrPermissionDenied.Error())
 		} else {
 			assert.EqualError(t, err, ErrPermissionDenied.Error())
 		}
