@@ -299,7 +299,7 @@ func (fs *S3Fs) Rename(source, target string) error {
 	}
 	copySource = pathEscape(copySource)
 
-	if fi.Size() > 5*1024*1024*1024 {
+	if fi.Size() > 500*1024*1024 {
 		fsLog(fs, logger.LevelDebug, "renaming file %#v with size %v, a multipart copy is required, this may take a while",
 			source, fi.Size())
 		err = fs.doMultipartCopy(copySource, target, contentType, fi.Size())
@@ -945,7 +945,6 @@ func getAWSHTTPClient(timeout int, idleConnectionTimeout time.Duration) *awshttp
 		}).
 		WithTransportOptions(func(tr *http.Transport) {
 			tr.IdleConnTimeout = idleConnectionTimeout
-			tr.ResponseHeaderTimeout = 5 * time.Second
 			tr.WriteBufferSize = s3TransferBufferSize
 			tr.ReadBufferSize = s3TransferBufferSize
 		})
