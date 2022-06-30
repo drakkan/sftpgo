@@ -14,7 +14,10 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -300,7 +303,7 @@ func (fs *S3Fs) Rename(source, target string) error {
 	copySource = pathEscape(copySource)
 
 	if fi.Size() > 500*1024*1024 {
-		fsLog(fs, logger.LevelDebug, "renaming file %#v with size %v, a multipart copy is required, this may take a while",
+		fsLog(fs, logger.LevelDebug, "renaming file %q with size %d using multipart copy",
 			source, fi.Size())
 		err = fs.doMultipartCopy(copySource, target, contentType, fi.Size())
 	} else {
@@ -822,43 +825,99 @@ func (fs *S3Fs) doMultipartCopy(source, target, contentType string, fileSize int
 	if uploadID == "" {
 		return errors.New("unable to get multipart copy upload ID")
 	}
-	maxPartSize := int64(500 * 1024 * 1024)
-	completedParts := make([]types.CompletedPart, 0)
-	partNumber := int32(1)
-
-	for copied := int64(0); copied < fileSize; copied += maxPartSize {
-		innerCtx, innerCancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
-		defer innerCancelFn()
-
-		partResp, err := fs.svc.UploadPartCopy(innerCtx, &s3.UploadPartCopyInput{
-			Bucket:          aws.String(fs.config.Bucket),
-			CopySource:      aws.String(source),
-			Key:             aws.String(target),
-			PartNumber:      partNumber,
-			UploadId:        aws.String(uploadID),
-			CopySourceRange: aws.String(getMultipartCopyRange(copied, maxPartSize, fileSize)),
-		})
-		if err != nil {
-			fsLog(fs, logger.LevelError, "unable to copy part number %v: %+v", partNumber, err)
-			abortCtx, abortCancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
-			defer abortCancelFn()
-
-			_, errAbort := fs.svc.AbortMultipartUpload(abortCtx, &s3.AbortMultipartUploadInput{
-				Bucket:   aws.String(fs.config.Bucket),
-				Key:      aws.String(target),
-				UploadId: aws.String(uploadID),
-			})
-			if errAbort != nil {
-				fsLog(fs, logger.LevelError, "unable to abort multipart copy: %+v", errAbort)
-			}
-			return fmt.Errorf("error copying part number %v: %w", partNumber, err)
-		}
-		completedParts = append(completedParts, types.CompletedPart{
-			ETag:       partResp.CopyPartResult.ETag,
-			PartNumber: partNumber,
-		})
-		partNumber++
+	// We use 32 MB part size and copy 10 parts in parallel.
+	// These values are arbitrary. We don't want to start too many goroutines
+	maxPartSize := int64(32 * 1024 * 1024)
+	if fileSize > int64(100*1024*1024*1024) {
+		maxPartSize = int64(500 * 1024 * 1024)
 	}
+	guard := make(chan struct{}, 10)
+	finished := false
+	var completedParts []types.CompletedPart
+	var partMutex sync.Mutex
+	var wg sync.WaitGroup
+	var hasError int32
+	var errOnce sync.Once
+	var copyError error
+	var partNumber int32
+	var offset int64
+
+	opCtx, opCancel := context.WithCancel(context.Background())
+	defer opCancel()
+
+	for partNumber = 1; !finished; partNumber++ {
+		start := offset
+		end := offset + maxPartSize
+		if end >= fileSize {
+			end = fileSize
+			finished = true
+		}
+		offset = end
+
+		guard <- struct{}{}
+		if atomic.LoadInt32(&hasError) == 1 {
+			fsLog(fs, logger.LevelDebug, "previous multipart copy error, copy for part %d not started", partNumber)
+			break
+		}
+
+		wg.Add(1)
+		go func(partNum int32, partStart, partEnd int64) {
+			defer func() {
+				<-guard
+				wg.Done()
+			}()
+
+			innerCtx, innerCancelFn := context.WithDeadline(opCtx, time.Now().Add(fs.ctxTimeout))
+			defer innerCancelFn()
+
+			partResp, err := fs.svc.UploadPartCopy(innerCtx, &s3.UploadPartCopyInput{
+				Bucket:          aws.String(fs.config.Bucket),
+				CopySource:      aws.String(source),
+				Key:             aws.String(target),
+				PartNumber:      partNum,
+				UploadId:        aws.String(uploadID),
+				CopySourceRange: aws.String(fmt.Sprintf("bytes=%d-%d", partStart, partEnd-1)),
+			})
+			if err != nil {
+				errOnce.Do(func() {
+					fsLog(fs, logger.LevelError, "unable to copy part number %d: %+v", partNum, err)
+					atomic.StoreInt32(&hasError, 1)
+					copyError = fmt.Errorf("error copying part number %d: %w", partNum, err)
+					opCancel()
+
+					abortCtx, abortCancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
+					defer abortCancelFn()
+
+					_, errAbort := fs.svc.AbortMultipartUpload(abortCtx, &s3.AbortMultipartUploadInput{
+						Bucket:   aws.String(fs.config.Bucket),
+						Key:      aws.String(target),
+						UploadId: aws.String(uploadID),
+					})
+					if errAbort != nil {
+						fsLog(fs, logger.LevelError, "unable to abort multipart copy: %+v", errAbort)
+					}
+				})
+				return
+			}
+
+			partMutex.Lock()
+			completedParts = append(completedParts, types.CompletedPart{
+				ETag:       partResp.CopyPartResult.ETag,
+				PartNumber: partNum,
+			})
+			partMutex.Unlock()
+		}(partNumber, start, end)
+	}
+
+	wg.Wait()
+	close(guard)
+
+	if copyError != nil {
+		return copyError
+	}
+	sort.Slice(completedParts, func(i, j int) bool {
+		return completedParts[i].PartNumber < completedParts[j].PartNumber
+	})
 
 	completeCtx, completeCancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
 	defer completeCancelFn()
@@ -927,15 +986,6 @@ func (fs *S3Fs) getStorageID() string {
 		return fmt.Sprintf("s3://%v%v", fs.config.Endpoint, fs.config.Bucket)
 	}
 	return fmt.Sprintf("s3://%v", fs.config.Bucket)
-}
-
-func getMultipartCopyRange(start, maxPartSize, fileSize int64) string {
-	end := start + maxPartSize - 1
-	if end > fileSize {
-		end = fileSize - 1
-	}
-
-	return fmt.Sprintf("bytes=%v-%v", start, end)
 }
 
 func getAWSHTTPClient(timeout int, idleConnectionTimeout time.Duration) *awshttp.BuildableClient {
