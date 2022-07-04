@@ -184,8 +184,9 @@ github.com/aws/aws-sdk-go-v2/service/kms v1.16.3/go.mod h1:QuiHPBqlOFCi4LqdSskYY
 github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.13.7 h1:/5I4p9aytzW1pQfQaCYAqTUzVE48jgJHVFfQVTU4LB8=
 github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.13.7/go.mod h1:DbtPrtO8rAOefDzgqGCqUV+Ub2UtL3/prfQt9bFFYoU=
 github.com/aws/aws-sdk-go-v2/service/s3 v1.26.3/go.mod h1:g1qvDuRsJY+XghsV6zg00Z4KJ7DtFFCx8fJD2a491Ak=
-github.com/aws/aws-sdk-go-v2/service/s3 v1.26.12 h1:/JTTdNObz+GygQqnbdBzummuxFIcuB6hbra1mqS+Wic=
 github.com/aws/aws-sdk-go-v2/service/s3 v1.26.12/go.mod h1:eas8WnpTDJtCvEjRXAINFuox9TmEGeevxiUKEKv2tQ8=
+github.com/aws/aws-sdk-go-v2/service/s3 v1.27.0 h1:ZCjVO28Xlr2zmPSp+xON/0Mw2HgnLOmR/MHILnx4ZTI=
+github.com/aws/aws-sdk-go-v2/service/s3 v1.27.0/go.mod h1:eas8WnpTDJtCvEjRXAINFuox9TmEGeevxiUKEKv2tQ8=
 github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.15.4/go.mod h1:PJc8s+lxyU8rrre0/4a0pn2wgwiDvOEzoOjcJUBr67o=
 github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.15.12 h1:Pq2GrbfG74dX/JhY/O+bWBz7DUzdgTvqugofqTWLACQ=
 github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.15.12/go.mod h1:MfgrkSNjFbMLz19srWgyGJtvDEfXg/ZUJ6AIrxdj65M=
