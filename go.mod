@@ -12,9 +12,9 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.15.12
 	github.com/aws/aws-sdk-go-v2/credentials v1.12.7
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.7
-	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.17
+	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.18
 	github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.13.7
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.26.12
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.27.0
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.15.12
 	github.com/aws/aws-sdk-go-v2/service/sts v1.16.8
 	github.com/cockroachdb/cockroach-go/v2 v2.2.14
