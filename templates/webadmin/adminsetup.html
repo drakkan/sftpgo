@@ -69,6 +69,12 @@
                                             Create admin
                                         </button>
                                     </form>
+                                    {{if not .HideSupportLink}}
+                                    <hr>
+                                    <div class="text-center">
+                                        <a class="small" href="https://github.com/drakkan/sftpgo#sponsors">SFTPGo needs your help</a>
+                                    </div>
+                                    {{end}}
                                 </div>
                             </div>
                         </div>

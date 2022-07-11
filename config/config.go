@@ -369,6 +369,7 @@ func Init() {
 				InstallationCode:     "",
 				InstallationCodeHint: defaultInstallCodeHint,
 			},
+			HideSupportLink: false,
 		},
 		HTTPConfig: httpclient.Config{
 			Timeout:        20,
@@ -1931,9 +1932,10 @@ func setViperDefaults() {
 	viper.SetDefault("httpd.cors.allowed_headers", globalConf.HTTPDConfig.Cors.AllowedHeaders)
 	viper.SetDefault("httpd.cors.exposed_headers", globalConf.HTTPDConfig.Cors.ExposedHeaders)
 	viper.SetDefault("httpd.cors.allow_credentials", globalConf.HTTPDConfig.Cors.AllowCredentials)
+	viper.SetDefault("httpd.cors.max_age", globalConf.HTTPDConfig.Cors.MaxAge)
 	viper.SetDefault("httpd.setup.installation_code", globalConf.HTTPDConfig.Setup.InstallationCode)
 	viper.SetDefault("httpd.setup.installation_code_hint", globalConf.HTTPDConfig.Setup.InstallationCodeHint)
-	viper.SetDefault("httpd.cors.max_age", globalConf.HTTPDConfig.Cors.MaxAge)
+	viper.SetDefault("httpd.hide_support_link", globalConf.HTTPDConfig.HideSupportLink)
 	viper.SetDefault("http.timeout", globalConf.HTTPConfig.Timeout)
 	viper.SetDefault("http.retry_wait_min", globalConf.HTTPConfig.RetryWaitMin)
 	viper.SetDefault("http.retry_wait_max", globalConf.HTTPConfig.RetryWaitMax)

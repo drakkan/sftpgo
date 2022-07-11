@@ -333,7 +333,8 @@
     "setup": {
       "installation_code": "",
       "installation_code_hint": "Installation code"
-    }
+    },
+    "hide_support_link": false
   },
   "telemetry": {
     "bind_port": 0,
