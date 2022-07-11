@@ -96,7 +96,13 @@ An official Docker image is available. Documentation is [here](./docker/README.m
 
 APT and YUM repositories are [available](./docs/repo.md).
 
-SFTPGo is also available on [AWS Marketplace](https://aws.amazon.com/marketplace/seller-profile?id=6e849ab8-70a6-47de-9a43-13c3fa849335) and [Azure Marketplace](https://azuremarketplace.microsoft.com/en-us/marketplace/apps/prasselsrl1645470739547.sftpgo_linux), purchasing from there will help keep SFTPGo a long-term sustainable project.
+SFTPGo is also available on some marketplaces:
+
+- [AWS Marketplace](https://aws.amazon.com/marketplace/seller-profile?id=6e849ab8-70a6-47de-9a43-13c3fa849335)
+- [Azure Marketplace](https://azuremarketplace.microsoft.com/en-us/marketplace/apps/prasselsrl1645470739547.sftpgo_linux)
+- [Elest.io](https://elest.io/open-source/sftpgo)
+
+Purchasing from there will help keep SFTPGo a long-term sustainable project.
 
 <details><summary>Windows packages</summary>
 
