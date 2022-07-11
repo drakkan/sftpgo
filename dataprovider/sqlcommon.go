@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	sqlDatabaseVersion     = 19
+	sqlDatabaseVersion     = 20
 	defaultSQLQueryTimeout = 10 * time.Second
 	longSQLQueryTimeout    = 60 * time.Second
 )
@@ -57,6 +57,10 @@ func sqlReplaceAll(sql string) string {
 	sql = strings.ReplaceAll(sql, "{{defender_hosts}}", sqlTableDefenderHosts)
 	sql = strings.ReplaceAll(sql, "{{active_transfers}}", sqlTableActiveTransfers)
 	sql = strings.ReplaceAll(sql, "{{shared_sessions}}", sqlTableSharedSessions)
+	sql = strings.ReplaceAll(sql, "{{events_actions}}", sqlTableEventsActions)
+	sql = strings.ReplaceAll(sql, "{{events_rules}}", sqlTableEventsRules)
+	sql = strings.ReplaceAll(sql, "{{rules_actions_mapping}}", sqlTableRulesActionsMapping)
+	sql = strings.ReplaceAll(sql, "{{tasks}}", sqlTableTasks)
 	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
 	return sql
 }
@@ -655,17 +659,16 @@ func sqlCommonAddGroup(group *Group, dbHandle *sql.DB) error {
 	if err := group.validate(); err != nil {
 		return err
 	}
+	settings, err := json.Marshal(group.UserSettings)
+	if err != nil {
+		return err
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
 
 	return sqlCommonExecuteTx(ctx, dbHandle, func(tx *sql.Tx) error {
 		q := getAddGroupQuery()
-
-		settings, err := json.Marshal(group.UserSettings)
-		if err != nil {
-			return err
-		}
-		_, err = tx.ExecContext(ctx, q, group.Name, group.Description, util.GetTimeAsMsSinceEpoch(time.Now()),
+		_, err := tx.ExecContext(ctx, q, group.Name, group.Description, util.GetTimeAsMsSinceEpoch(time.Now()),
 			util.GetTimeAsMsSinceEpoch(time.Now()), string(settings))
 		if err != nil {
 			return err
@@ -678,17 +681,17 @@ func sqlCommonUpdateGroup(group *Group, dbHandle *sql.DB) error {
 	if err := group.validate(); err != nil {
 		return err
 	}
+
+	settings, err := json.Marshal(group.UserSettings)
+	if err != nil {
+		return err
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
 
 	return sqlCommonExecuteTx(ctx, dbHandle, func(tx *sql.Tx) error {
 		q := getUpdateGroupQuery()
-
-		settings, err := json.Marshal(group.UserSettings)
-		if err != nil {
-			return err
-		}
-		_, err = tx.ExecContext(ctx, q, group.Description, settings, util.GetTimeAsMsSinceEpoch(time.Now()), group.Name)
+		_, err := tx.ExecContext(ctx, q, group.Description, settings, util.GetTimeAsMsSinceEpoch(time.Now()), group.Name)
 		if err != nil {
 			return err
 		}
@@ -898,28 +901,29 @@ func sqlCommonAddUser(user *User, dbHandle *sql.DB) error {
 	if err != nil {
 		return err
 	}
+
+	permissions, err := user.GetPermissionsAsJSON()
+	if err != nil {
+		return err
+	}
+	publicKeys, err := user.GetPublicKeysAsJSON()
+	if err != nil {
+		return err
+	}
+	filters, err := user.GetFiltersAsJSON()
+	if err != nil {
+		return err
+	}
+	fsConfig, err := user.GetFsConfigAsJSON()
+	if err != nil {
+		return err
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
 
 	return sqlCommonExecuteTx(ctx, dbHandle, func(tx *sql.Tx) error {
 		q := getAddUserQuery()
-		permissions, err := user.GetPermissionsAsJSON()
-		if err != nil {
-			return err
-		}
-		publicKeys, err := user.GetPublicKeysAsJSON()
-		if err != nil {
-			return err
-		}
-		filters, err := user.GetFiltersAsJSON()
-		if err != nil {
-			return err
-		}
-		fsConfig, err := user.GetFsConfigAsJSON()
-		if err != nil {
-			return err
-		}
-		_, err = tx.ExecContext(ctx, q, user.Username, user.Password, string(publicKeys), user.HomeDir, user.UID, user.GID,
+		_, err := tx.ExecContext(ctx, q, user.Username, user.Password, string(publicKeys), user.HomeDir, user.UID, user.GID,
 			user.MaxSessions, user.QuotaSize, user.QuotaFiles, string(permissions), user.UploadBandwidth,
 			user.DownloadBandwidth, user.Status, user.ExpirationDate, string(filters), string(fsConfig), user.AdditionalInfo,
 			user.Description, user.Email, util.GetTimeAsMsSinceEpoch(time.Now()), util.GetTimeAsMsSinceEpoch(time.Now()),
@@ -948,28 +952,29 @@ func sqlCommonUpdateUser(user *User, dbHandle *sql.DB) error {
 	if err != nil {
 		return err
 	}
+
+	permissions, err := user.GetPermissionsAsJSON()
+	if err != nil {
+		return err
+	}
+	publicKeys, err := user.GetPublicKeysAsJSON()
+	if err != nil {
+		return err
+	}
+	filters, err := user.GetFiltersAsJSON()
+	if err != nil {
+		return err
+	}
+	fsConfig, err := user.GetFsConfigAsJSON()
+	if err != nil {
+		return err
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
 
 	return sqlCommonExecuteTx(ctx, dbHandle, func(tx *sql.Tx) error {
 		q := getUpdateUserQuery()
-		permissions, err := user.GetPermissionsAsJSON()
-		if err != nil {
-			return err
-		}
-		publicKeys, err := user.GetPublicKeysAsJSON()
-		if err != nil {
-			return err
-		}
-		filters, err := user.GetFiltersAsJSON()
-		if err != nil {
-			return err
-		}
-		fsConfig, err := user.GetFsConfigAsJSON()
-		if err != nil {
-			return err
-		}
-		_, err = tx.ExecContext(ctx, q, user.Password, string(publicKeys), user.HomeDir, user.UID, user.GID, user.MaxSessions,
+		_, err := tx.ExecContext(ctx, q, user.Password, string(publicKeys), user.HomeDir, user.UID, user.GID, user.MaxSessions,
 			user.QuotaSize, user.QuotaFiles, string(permissions), user.UploadBandwidth, user.DownloadBandwidth, user.Status,
 			user.ExpirationDate, string(filters), string(fsConfig), user.AdditionalInfo, user.Description, user.Email,
 			util.GetTimeAsMsSinceEpoch(time.Now()), user.UploadDataTransfer, user.DownloadDataTransfer, user.TotalDataTransfer,
@@ -1611,6 +1616,55 @@ func getAdminFromDbRow(row sqlScanner) (Admin, error) {
 	return admin, nil
 }
 
+func getEventActionFromDbRow(row sqlScanner) (BaseEventAction, error) {
+	var action BaseEventAction
+	var description sql.NullString
+	var options []byte
+
+	err := row.Scan(&action.ID, &action.Name, &description, &action.Type, &options)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return action, util.NewRecordNotFoundError(err.Error())
+		}
+		return action, err
+	}
+	if description.Valid {
+		action.Description = description.String
+	}
+	if len(options) > 0 {
+		err = json.Unmarshal(options, &action.Options)
+		if err != nil {
+			return action, err
+		}
+	}
+	return action, nil
+}
+
+func getEventRuleFromDbRow(row sqlScanner) (EventRule, error) {
+	var rule EventRule
+	var description sql.NullString
+	var conditions []byte
+
+	err := row.Scan(&rule.ID, &rule.Name, &description, &rule.CreatedAt, &rule.UpdatedAt, &rule.Trigger,
+		&conditions, &rule.DeletedAt)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return rule, util.NewRecordNotFoundError(err.Error())
+		}
+		return rule, err
+	}
+	if len(conditions) > 0 {
+		err = json.Unmarshal(conditions, &rule.Conditions)
+		if err != nil {
+			return rule, err
+		}
+	}
+	if description.Valid {
+		rule.Description = description.String
+	}
+	return rule, nil
+}
+
 func getGroupFromDbRow(row sqlScanner) (Group, error) {
 	var group Group
 	var userSettings, description sql.NullString
@@ -2062,7 +2116,6 @@ func getUsersWithVirtualFolders(ctx context.Context, users []User, dbHandle sqlQ
 		return users, nil
 	}
 
-	var err error
 	usersVirtualFolders := make(map[int64][]vfs.VirtualFolder)
 	q := getRelatedFoldersForUsersQuery(users)
 	rows, err := dbHandle.QueryContext(ctx, q)
@@ -2124,7 +2177,6 @@ func getUsersWithGroups(ctx context.Context, users []User, dbHandle sqlQuerier) 
 	if len(users) == 0 {
 		return users, nil
 	}
-	var err error
 	usersGroups := make(map[int64][]sdk.GroupMapping)
 	q := getRelatedGroupsForUsersQuery(users)
 	rows, err := dbHandle.QueryContext(ctx, q)
@@ -2182,8 +2234,6 @@ func getGroupsWithVirtualFolders(ctx context.Context, groups []Group, dbHandle s
 	if len(groups) == 0 {
 		return groups, nil
 	}
-
-	var err error
 	q := getRelatedFoldersForGroupsQuery(groups)
 	rows, err := dbHandle.QueryContext(ctx, q)
 	if err != nil {
@@ -2235,8 +2285,6 @@ func getGroupsWithUsers(ctx context.Context, groups []Group, dbHandle sqlQuerier
 	if len(groups) == 0 {
 		return groups, nil
 	}
-
-	var err error
 	q := getRelatedUsersForGroupsQuery(groups)
 	rows, err := dbHandle.QueryContext(ctx, q)
 	if err != nil {
@@ -2272,7 +2320,6 @@ func getVirtualFoldersWithGroups(folders []vfs.BaseVirtualFolder, dbHandle sqlQu
 	if len(folders) == 0 {
 		return folders, nil
 	}
-	var err error
 	vFoldersGroups := make(map[int64][]string)
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
@@ -2310,7 +2357,6 @@ func getVirtualFoldersWithUsers(folders []vfs.BaseVirtualFolder, dbHandle sqlQue
 	if len(folders) == 0 {
 		return folders, nil
 	}
-	var err error
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
 
@@ -2509,6 +2555,492 @@ func sqlCommonCleanupSessions(sessionType SessionType, before int64, dbHandle *s
 	return err
 }
 
+func getActionsWithRuleNames(ctx context.Context, actions []BaseEventAction, dbHandle sqlQuerier,
+) ([]BaseEventAction, error) {
+	if len(actions) == 0 {
+		return actions, nil
+	}
+	q := getRelatedRulesForActionsQuery(actions)
+	rows, err := dbHandle.QueryContext(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	actionsRules := make(map[int64][]string)
+	for rows.Next() {
+		var name string
+		var actionID int64
+		if err = rows.Scan(&actionID, &name); err != nil {
+			return nil, err
+		}
+		actionsRules[actionID] = append(actionsRules[actionID], name)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, err
+	}
+	if len(actionsRules) == 0 {
+		return actions, nil
+	}
+	for idx := range actions {
+		ref := &actions[idx]
+		ref.Rules = actionsRules[ref.ID]
+	}
+	return actions, nil
+}
+
+func getRulesWithActions(ctx context.Context, rules []EventRule, dbHandle sqlQuerier) ([]EventRule, error) {
+	if len(rules) == 0 {
+		return rules, nil
+	}
+	rulesActions := make(map[int64][]EventAction)
+	q := getRelatedActionsForRulesQuery(rules)
+	rows, err := dbHandle.QueryContext(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var action EventAction
+		var ruleID int64
+		var description sql.NullString
+		var baseOptions, options []byte
+		err = rows.Scan(&action.ID, &action.Name, &description, &action.Type, &baseOptions, &options,
+			&action.Order, &ruleID)
+		if err != nil {
+			return rules, err
+		}
+		if len(baseOptions) > 0 {
+			err = json.Unmarshal(baseOptions, &action.BaseEventAction.Options)
+			if err != nil {
+				return rules, err
+			}
+		}
+		if len(options) > 0 {
+			err = json.Unmarshal(options, &action.Options)
+			if err != nil {
+				return rules, err
+			}
+		}
+		action.BaseEventAction.Options.SetEmptySecretsIfNil()
+		rulesActions[ruleID] = append(rulesActions[ruleID], action)
+	}
+	err = rows.Err()
+	if err != nil {
+		return rules, err
+	}
+	if len(rulesActions) == 0 {
+		return rules, nil
+	}
+	for idx := range rules {
+		ref := &rules[idx]
+		ref.Actions = rulesActions[ref.ID]
+	}
+	return rules, nil
+}
+
+func generateEventRuleActionsMapping(ctx context.Context, rule *EventRule, dbHandle sqlQuerier) error {
+	q := getClearRuleActionMappingQuery()
+	_, err := dbHandle.ExecContext(ctx, q, rule.Name)
+	if err != nil {
+		return err
+	}
+	for _, action := range rule.Actions {
+		options, err := json.Marshal(action.Options)
+		if err != nil {
+			return err
+		}
+		q = getAddRuleActionMappingQuery()
+		_, err = dbHandle.ExecContext(ctx, q, rule.Name, action.Name, action.Order, string(options))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func sqlCommonGetEventActionByName(name string, dbHandle sqlQuerier) (BaseEventAction, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+
+	q := getEventActionByNameQuery()
+	row := dbHandle.QueryRowContext(ctx, q, name)
+
+	action, err := getEventActionFromDbRow(row)
+	if err != nil {
+		return action, err
+	}
+	actions, err := getActionsWithRuleNames(ctx, []BaseEventAction{action}, dbHandle)
+	if err != nil {
+		return action, err
+	}
+	if len(actions) != 1 {
+		return action, fmt.Errorf("unable to associate rules with action %q", name)
+	}
+	return actions[0], nil
+}
+
+func sqlCommonDumpEventActions(dbHandle sqlQuerier) ([]BaseEventAction, error) {
+	actions := make([]BaseEventAction, 0, 10)
+	ctx, cancel := context.WithTimeout(context.Background(), longSQLQueryTimeout)
+	defer cancel()
+
+	q := getDumpEventActionsQuery()
+	rows, err := dbHandle.QueryContext(ctx, q)
+	if err != nil {
+		return actions, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		action, err := getEventActionFromDbRow(rows)
+		if err != nil {
+			return actions, err
+		}
+		actions = append(actions, action)
+	}
+	return actions, rows.Err()
+}
+
+func sqlCommonGetEventActions(limit int, offset int, order string, minimal bool,
+	dbHandle sqlQuerier,
+) ([]BaseEventAction, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+
+	q := getEventsActionsQuery(order, minimal)
+
+	actions := make([]BaseEventAction, 0, limit)
+	rows, err := dbHandle.QueryContext(ctx, q, limit, offset)
+	if err != nil {
+		return actions, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var action BaseEventAction
+		if minimal {
+			err = rows.Scan(&action.ID, &action.Name)
+		} else {
+			action, err = getEventActionFromDbRow(rows)
+		}
+		if err != nil {
+			return actions, err
+		}
+		actions = append(actions, action)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, err
+	}
+	if minimal {
+		return actions, nil
+	}
+	actions, err = getActionsWithRuleNames(ctx, actions, dbHandle)
+	if err != nil {
+		return nil, err
+	}
+	for idx := range actions {
+		actions[idx].PrepareForRendering()
+	}
+	return actions, nil
+}
+
+func sqlCommonAddEventAction(action *BaseEventAction, dbHandle *sql.DB) error {
+	if err := action.validate(); err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+
+	q := getAddEventActionQuery()
+	options, err := json.Marshal(action.Options)
+	if err != nil {
+		return err
+	}
+	_, err = dbHandle.ExecContext(ctx, q, action.Name, action.Description, action.Type, string(options))
+	return err
+}
+
+func sqlCommonUpdateEventAction(action *BaseEventAction, dbHandle *sql.DB) error {
+	if err := action.validate(); err != nil {
+		return err
+	}
+	options, err := json.Marshal(action.Options)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+
+	return sqlCommonExecuteTx(ctx, dbHandle, func(tx *sql.Tx) error {
+		q := getUpdateEventActionQuery()
+		_, err = tx.ExecContext(ctx, q, action.Description, action.Type, string(options), action.Name)
+		if err != nil {
+			return err
+		}
+		q = getUpdateRulesTimestampQuery()
+		_, err = tx.ExecContext(ctx, q, util.GetTimeAsMsSinceEpoch(time.Now()), action.ID)
+		return err
+	})
+}
+
+func sqlCommonDeleteEventAction(action BaseEventAction, dbHandle *sql.DB) error {
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+
+	q := getDeleteEventActionQuery()
+	res, err := dbHandle.ExecContext(ctx, q, action.Name)
+	if err != nil {
+		return err
+	}
+	return sqlCommonRequireRowAffected(res)
+}
+
+func sqlCommonGetEventRuleByName(name string, dbHandle sqlQuerier) (EventRule, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+
+	q := getEventRulesByNameQuery()
+	row := dbHandle.QueryRowContext(ctx, q, name)
+	rule, err := getEventRuleFromDbRow(row)
+	if err != nil {
+		return rule, err
+	}
+	rules, err := getRulesWithActions(ctx, []EventRule{rule}, dbHandle)
+	if err != nil {
+		return rule, err
+	}
+	if len(rules) != 1 {
+		return rule, fmt.Errorf("unable to associate rule %q with actions", name)
+	}
+	return rules[0], nil
+}
+
+func sqlCommonDumpEventRules(dbHandle sqlQuerier) ([]EventRule, error) {
+	rules := make([]EventRule, 0, 10)
+	ctx, cancel := context.WithTimeout(context.Background(), longSQLQueryTimeout)
+	defer cancel()
+
+	q := getDumpEventRulesQuery()
+	rows, err := dbHandle.QueryContext(ctx, q)
+	if err != nil {
+		return rules, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		rule, err := getEventRuleFromDbRow(rows)
+		if err != nil {
+			return rules, err
+		}
+		rules = append(rules, rule)
+	}
+	err = rows.Err()
+	if err != nil {
+		return rules, err
+	}
+	return getRulesWithActions(ctx, rules, dbHandle)
+}
+
+func sqlCommonGetRecentlyUpdatedRules(after int64, dbHandle sqlQuerier) ([]EventRule, error) {
+	rules := make([]EventRule, 0, 10)
+	ctx, cancel := context.WithTimeout(context.Background(), longSQLQueryTimeout)
+	defer cancel()
+
+	q := getRecentlyUpdatedRulesQuery()
+	rows, err := dbHandle.QueryContext(ctx, q, after)
+	if err != nil {
+		return rules, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		rule, err := getEventRuleFromDbRow(rows)
+		if err != nil {
+			return rules, err
+		}
+		rules = append(rules, rule)
+	}
+	err = rows.Err()
+	if err != nil {
+		return rules, err
+	}
+	return getRulesWithActions(ctx, rules, dbHandle)
+}
+
+func sqlCommonGetEventRules(limit int, offset int, order string, dbHandle sqlQuerier) ([]EventRule, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+
+	q := getEventRulesQuery(order)
+
+	rules := make([]EventRule, 0, limit)
+	rows, err := dbHandle.QueryContext(ctx, q, limit, offset)
+	if err != nil {
+		return rules, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		rule, err := getEventRuleFromDbRow(rows)
+		if err != nil {
+			return rules, err
+		}
+		rules = append(rules, rule)
+	}
+	err = rows.Err()
+	if err != nil {
+		return rules, err
+	}
+	rules, err = getRulesWithActions(ctx, rules, dbHandle)
+	if err != nil {
+		return rules, err
+	}
+	for idx := range rules {
+		rules[idx].PrepareForRendering()
+	}
+	return rules, nil
+}
+
+func sqlCommonAddEventRule(rule *EventRule, dbHandle *sql.DB) error {
+	if err := rule.validate(); err != nil {
+		return err
+	}
+	conditions, err := json.Marshal(rule.Conditions)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+
+	return sqlCommonExecuteTx(ctx, dbHandle, func(tx *sql.Tx) error {
+		q := getAddEventRuleQuery()
+		_, err := tx.ExecContext(ctx, q, rule.Name, rule.Description, util.GetTimeAsMsSinceEpoch(time.Now()),
+			util.GetTimeAsMsSinceEpoch(time.Now()), rule.Trigger, string(conditions))
+		if err != nil {
+			return err
+		}
+		return generateEventRuleActionsMapping(ctx, rule, tx)
+	})
+}
+
+func sqlCommonUpdateEventRule(rule *EventRule, dbHandle *sql.DB) error {
+	if err := rule.validate(); err != nil {
+		return err
+	}
+	conditions, err := json.Marshal(rule.Conditions)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+
+	return sqlCommonExecuteTx(ctx, dbHandle, func(tx *sql.Tx) error {
+		q := getUpdateEventRuleQuery()
+		_, err := tx.ExecContext(ctx, q, rule.Description, util.GetTimeAsMsSinceEpoch(time.Now()),
+			rule.Trigger, string(conditions), rule.Name)
+		if err != nil {
+			return err
+		}
+		return generateEventRuleActionsMapping(ctx, rule, tx)
+	})
+}
+
+func sqlCommonDeleteEventRule(rule EventRule, softDelete bool, dbHandle *sql.DB) error {
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+
+	return sqlCommonExecuteTx(ctx, dbHandle, func(tx *sql.Tx) error {
+		if softDelete {
+			q := getClearRuleActionMappingQuery()
+			_, err := tx.ExecContext(ctx, q, rule.Name)
+			if err != nil {
+				return err
+			}
+		}
+		q := getDeleteEventRuleQuery(softDelete)
+		if softDelete {
+			ts := util.GetTimeAsMsSinceEpoch(time.Now())
+			res, err := tx.ExecContext(ctx, q, ts, ts, rule.Name)
+			if err != nil {
+				return err
+			}
+			return sqlCommonRequireRowAffected(res)
+		}
+		res, err := tx.ExecContext(ctx, q, rule.Name)
+		if err != nil {
+			return err
+		}
+		if err = sqlCommonRequireRowAffected(res); err != nil {
+			return err
+		}
+		return sqlCommonDeleteTask(rule.Name, tx)
+	})
+}
+
+func sqlCommonGetTaskByName(name string, dbHandle sqlQuerier) (Task, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+
+	task := Task{
+		Name: name,
+	}
+	q := getTaskByNameQuery()
+	row := dbHandle.QueryRowContext(ctx, q, name)
+	err := row.Scan(&task.UpdateAt, &task.Version)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return task, util.NewRecordNotFoundError(err.Error())
+		}
+	}
+	return task, err
+}
+
+func sqlCommonAddTask(name string, dbHandle *sql.DB) error {
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+
+	q := getAddTaskQuery()
+	_, err := dbHandle.ExecContext(ctx, q, name, util.GetTimeAsMsSinceEpoch(time.Now()))
+	return err
+}
+
+func sqlCommonUpdateTask(name string, version int64, dbHandle *sql.DB) error {
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+
+	q := getUpdateTaskQuery()
+	res, err := dbHandle.ExecContext(ctx, q, util.GetTimeAsMsSinceEpoch(time.Now()), name, version)
+	if err != nil {
+		return err
+	}
+	return sqlCommonRequireRowAffected(res)
+}
+
+func sqlCommonUpdateTaskTimestamp(name string, dbHandle *sql.DB) error {
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+
+	q := getUpdateTaskTimestampQuery()
+	res, err := dbHandle.ExecContext(ctx, q, util.GetTimeAsMsSinceEpoch(time.Now()), name)
+	if err != nil {
+		return err
+	}
+	return sqlCommonRequireRowAffected(res)
+}
+
+func sqlCommonDeleteTask(name string, dbHandle sqlQuerier) error {
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+
+	q := getDeleteTaskQuery()
+	_, err := dbHandle.ExecContext(ctx, q, name)
+	return err
+}
+
 func sqlCommonGetDatabaseVersion(dbHandle sqlQuerier, showInitWarn bool) (schemaVersion, error) {
 	var result schemaVersion
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
@@ -2594,7 +3126,7 @@ func sqlAcquireLock(dbHandle *sql.DB) error {
 			return errors.New("unable to get lock: null value returned")
 		}
 		if lockResult.Int64 != 1 {
-			return fmt.Errorf("unable to get lock, result: %v", lockResult.Int64)
+			return fmt.Errorf("unable to get lock, result: %d", lockResult.Int64)
 		}
 		providerLog(logger.LevelInfo, "acquired database lock")
 	}

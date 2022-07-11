@@ -36,6 +36,10 @@ const (
 		"DROP TABLE IF EXISTS `{{defender_hosts}}` CASCADE;" +
 		"DROP TABLE IF EXISTS `{{active_transfers}}` CASCADE;" +
 		"DROP TABLE IF EXISTS `{{shared_sessions}}` CASCADE;" +
+		"DROP TABLE IF EXISTS `{{rules_actions_mapping}}` CASCADE;" +
+		"DROP TABLE IF EXISTS `{{events_actions}}` CASCADE;" +
+		"DROP TABLE IF EXISTS `{{events_rules}}` CASCADE;" +
+		"DROP TABLE IF EXISTS `{{tasks}}` CASCADE;" +
 		"DROP TABLE IF EXISTS `{{schema_version}}` CASCADE;"
 	mysqlInitialSQL = "CREATE TABLE `{{schema_version}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `version` integer NOT NULL);" +
 		"CREATE TABLE `{{admins}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `username` varchar(255) NOT NULL UNIQUE, " +
@@ -119,6 +123,33 @@ const (
 		"CREATE INDEX `{{prefix}}shared_sessions_type_idx` ON `{{shared_sessions}}` (`type`);" +
 		"CREATE INDEX `{{prefix}}shared_sessions_timestamp_idx` ON `{{shared_sessions}}` (`timestamp`);" +
 		"INSERT INTO {{schema_version}} (version) VALUES (19);"
+	mysqlV20SQL = "CREATE TABLE `{{events_rules}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, " +
+		"`name` varchar(255) NOT NULL UNIQUE, `description` varchar(512) NULL, `created_at` bigint NOT NULL, " +
+		"`updated_at` bigint NOT NULL, `trigger` integer NOT NULL, `conditions` longtext NOT NULL, `deleted_at` bigint NOT NULL);" +
+		"CREATE TABLE `{{events_actions}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, " +
+		"`name` varchar(255) NOT NULL UNIQUE, `description` varchar(512) NULL, `type` integer NOT NULL, " +
+		"`options` longtext NOT NULL);" +
+		"CREATE TABLE `{{rules_actions_mapping}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, " +
+		"`rule_id` integer NOT NULL, `action_id` integer NOT NULL, `order` integer NOT NULL, `options` longtext NOT NULL);" +
+		"CREATE TABLE `{{tasks}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `name` varchar(255) NOT NULL UNIQUE, " +
+		"`updated_at` bigint NOT NULL, `version` bigint NOT NULL);" +
+		"ALTER TABLE `{{rules_actions_mapping}}` ADD CONSTRAINT `{{prefix}}unique_rule_action_mapping` UNIQUE (`rule_id`, `action_id`);" +
+		"ALTER TABLE `{{rules_actions_mapping}}` ADD CONSTRAINT `{{prefix}}rules_actions_mapping_rule_id_fk_events_rules_id` " +
+		"FOREIGN KEY (`rule_id`) REFERENCES `{{events_rules}}` (`id`) ON DELETE CASCADE;" +
+		"ALTER TABLE `{{rules_actions_mapping}}` ADD CONSTRAINT `{{prefix}}rules_actions_mapping_action_id_fk_events_targets_id` " +
+		"FOREIGN KEY (`action_id`) REFERENCES `{{events_actions}}` (`id`) ON DELETE NO ACTION;" +
+		"ALTER TABLE `{{users}}` ADD COLUMN `deleted_at` bigint DEFAULT 0 NOT NULL;" +
+		"ALTER TABLE `{{users}}` ALTER COLUMN `deleted_at` DROP DEFAULT;" +
+		"CREATE INDEX `{{prefix}}events_rules_updated_at_idx` ON `{{events_rules}}` (`updated_at`);" +
+		"CREATE INDEX `{{prefix}}events_rules_deleted_at_idx` ON `{{events_rules}}` (`deleted_at`);" +
+		"CREATE INDEX `{{prefix}}events_rules_trigger_idx` ON `{{events_rules}}` (`trigger`);" +
+		"CREATE INDEX `{{prefix}}rules_actions_mapping_order_idx` ON `{{rules_actions_mapping}}` (`order`);" +
+		"CREATE INDEX `{{prefix}}users_deleted_at_idx` ON `{{users}}` (`deleted_at`);"
+	mysqlV20DownSQL = "DROP TABLE `{{rules_actions_mapping}}` CASCADE;" +
+		"DROP TABLE `{{events_rules}}` CASCADE;" +
+		"DROP TABLE `{{events_actions}}` CASCADE;" +
+		"DROP TABLE `{{tasks}}` CASCADE;" +
+		"ALTER TABLE `{{users}}` DROP COLUMN `deleted_at`;"
 )
 
 // MySQLProvider defines the auth provider for MySQL/MariaDB database
@@ -503,6 +534,74 @@ func (p *MySQLProvider) cleanupSharedSessions(sessionType SessionType, before in
 	return sqlCommonCleanupSessions(sessionType, before, p.dbHandle)
 }
 
+func (p *MySQLProvider) getEventActions(limit, offset int, order string, minimal bool) ([]BaseEventAction, error) {
+	return sqlCommonGetEventActions(limit, offset, order, minimal, p.dbHandle)
+}
+
+func (p *MySQLProvider) dumpEventActions() ([]BaseEventAction, error) {
+	return sqlCommonDumpEventActions(p.dbHandle)
+}
+
+func (p *MySQLProvider) eventActionExists(name string) (BaseEventAction, error) {
+	return sqlCommonGetEventActionByName(name, p.dbHandle)
+}
+
+func (p *MySQLProvider) addEventAction(action *BaseEventAction) error {
+	return sqlCommonAddEventAction(action, p.dbHandle)
+}
+
+func (p *MySQLProvider) updateEventAction(action *BaseEventAction) error {
+	return sqlCommonUpdateEventAction(action, p.dbHandle)
+}
+
+func (p *MySQLProvider) deleteEventAction(action BaseEventAction) error {
+	return sqlCommonDeleteEventAction(action, p.dbHandle)
+}
+
+func (p *MySQLProvider) getEventRules(limit, offset int, order string) ([]EventRule, error) {
+	return sqlCommonGetEventRules(limit, offset, order, p.dbHandle)
+}
+
+func (p *MySQLProvider) dumpEventRules() ([]EventRule, error) {
+	return sqlCommonDumpEventRules(p.dbHandle)
+}
+
+func (p *MySQLProvider) getRecentlyUpdatedRules(after int64) ([]EventRule, error) {
+	return sqlCommonGetRecentlyUpdatedRules(after, p.dbHandle)
+}
+
+func (p *MySQLProvider) eventRuleExists(name string) (EventRule, error) {
+	return sqlCommonGetEventRuleByName(name, p.dbHandle)
+}
+
+func (p *MySQLProvider) addEventRule(rule *EventRule) error {
+	return sqlCommonAddEventRule(rule, p.dbHandle)
+}
+
+func (p *MySQLProvider) updateEventRule(rule *EventRule) error {
+	return sqlCommonUpdateEventRule(rule, p.dbHandle)
+}
+
+func (p *MySQLProvider) deleteEventRule(rule EventRule, softDelete bool) error {
+	return sqlCommonDeleteEventRule(rule, softDelete, p.dbHandle)
+}
+
+func (p *MySQLProvider) getTaskByName(name string) (Task, error) {
+	return sqlCommonGetTaskByName(name, p.dbHandle)
+}
+
+func (p *MySQLProvider) addTask(name string) error {
+	return sqlCommonAddTask(name, p.dbHandle)
+}
+
+func (p *MySQLProvider) updateTask(name string, version int64) error {
+	return sqlCommonUpdateTask(name, version, p.dbHandle)
+}
+
+func (p *MySQLProvider) updateTaskTimestamp(name string) error {
+	return sqlCommonUpdateTaskTimestamp(name, p.dbHandle)
+}
+
 func (p *MySQLProvider) close() error {
 	return p.dbHandle.Close()
 }
@@ -542,6 +641,8 @@ func (p *MySQLProvider) migrateDatabase() error { //nolint:dupl
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
+	case version == 19:
+		return updateMySQLDatabaseFromV19(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database version %v is newer than the supported one: %v", version,
@@ -564,6 +665,8 @@ func (p *MySQLProvider) revertDatabase(targetVersion int) error {
 	}
 
 	switch dbVersion.Version {
+	case 20:
+		return downgradeMySQLDatabaseFromV20(p.dbHandle)
 	default:
 		return fmt.Errorf("database version not handled: %v", dbVersion.Version)
 	}
@@ -572,4 +675,35 @@ func (p *MySQLProvider) revertDatabase(targetVersion int) error {
 func (p *MySQLProvider) resetDatabase() error {
 	sql := sqlReplaceAll(mysqlResetSQL)
 	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, strings.Split(sql, ";"), 0, false)
+}
+
+func updateMySQLDatabaseFromV19(dbHandle *sql.DB) error {
+	return updateMySQLDatabaseFrom19To20(dbHandle)
+}
+
+func downgradeMySQLDatabaseFromV20(dbHandle *sql.DB) error {
+	return downgradeMySQLDatabaseFrom20To19(dbHandle)
+}
+
+func updateMySQLDatabaseFrom19To20(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 19 -> 20")
+	providerLog(logger.LevelInfo, "updating database version: 19 -> 20")
+	sql := strings.ReplaceAll(mysqlV20SQL, "{{events_actions}}", sqlTableEventsActions)
+	sql = strings.ReplaceAll(sql, "{{events_rules}}", sqlTableEventsRules)
+	sql = strings.ReplaceAll(sql, "{{rules_actions_mapping}}", sqlTableRulesActionsMapping)
+	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{tasks}}", sqlTableTasks)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 20, true)
+}
+
+func downgradeMySQLDatabaseFrom20To19(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 20 -> 19")
+	providerLog(logger.LevelInfo, "downgrading database version: 20 -> 19")
+	sql := strings.ReplaceAll(mysqlV20DownSQL, "{{events_actions}}", sqlTableEventsActions)
+	sql = strings.ReplaceAll(sql, "{{events_rules}}", sqlTableEventsRules)
+	sql = strings.ReplaceAll(sql, "{{rules_actions_mapping}}", sqlTableRulesActionsMapping)
+	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{tasks}}", sqlTableTasks)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 19, false)
 }

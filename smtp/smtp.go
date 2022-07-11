@@ -22,7 +22,7 @@ const (
 // EmailContentType defines the support content types for email body
 type EmailContentType int
 
-// Supporte email body content type
+// Supported email body content type
 const (
 	EmailContentTypeTextPlain EmailContentType = iota
 	EmailContentTypeTextHTML
@@ -169,7 +169,7 @@ func RenderPasswordResetTemplate(buf *bytes.Buffer, data any) error {
 }
 
 // SendEmail tries to send an email using the specified parameters.
-func SendEmail(to, subject, body string, contentType EmailContentType) error {
+func SendEmail(to []string, subject, body string, contentType EmailContentType) error {
 	if smtpServer == nil {
 		return errors.New("smtp: not configured")
 	}
@@ -184,7 +184,7 @@ func SendEmail(to, subject, body string, contentType EmailContentType) error {
 	} else {
 		email.SetFrom(smtpServer.Username)
 	}
-	email.AddTo(to).SetSubject(subject)
+	email.AddTo(to...).SetSubject(subject)
 	switch contentType {
 	case EmailContentTypeTextPlain:
 		email.SetBody(mail.TextPlain, body)

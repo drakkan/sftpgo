@@ -612,6 +612,36 @@ func TestInvalidToken(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "Invalid token claims")
 
 	rr = httptest.NewRecorder()
+	addEventAction(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	updateEventAction(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	deleteEventAction(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	addEventRule(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	updateEventRule(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	deleteEventRule(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
 	server.handleWebAddAdminPost(rr, req)
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), "invalid token claims")
@@ -623,6 +653,26 @@ func TestInvalidToken(t *testing.T) {
 
 	rr = httptest.NewRecorder()
 	server.handleWebUpdateGroupPost(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "invalid token claims")
+
+	rr = httptest.NewRecorder()
+	server.handleWebAddEventActionPost(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "invalid token claims")
+
+	rr = httptest.NewRecorder()
+	server.handleWebUpdateEventActionPost(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "invalid token claims")
+
+	rr = httptest.NewRecorder()
+	server.handleWebAddEventRulePost(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "invalid token claims")
+
+	rr = httptest.NewRecorder()
+	server.handleWebUpdateEventRulePost(rr, req)
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), "invalid token claims")
 
@@ -836,6 +886,7 @@ func TestCreateTokenError(t *testing.T) {
 	rr = httptest.NewRecorder()
 	server.handleWebAdminLoginPost(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
+
 	req, _ = http.NewRequest(http.MethodGet, webAdminLoginPath+"?a=a%C3%A1%G2", nil)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = httptest.NewRecorder()
@@ -846,6 +897,16 @@ func TestCreateTokenError(t *testing.T) {
 	req, _ = http.NewRequest(http.MethodGet, webAdminLoginPath+"?a=a%C3%A2%G3", nil)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	_, err := getAdminFromPostFields(req)
+	assert.Error(t, err)
+
+	req, _ = http.NewRequest(http.MethodPost, webAdminEventActionPath+"?a=a%C3%AO%GG", nil)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	_, err = getEventActionFromPostFields(req)
+	assert.Error(t, err)
+
+	req, _ = http.NewRequest(http.MethodPost, webAdminEventRulePath+"?a=a%C3%AO%GG", nil)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	_, err = getEventRuleFromPostFields(req)
 	assert.Error(t, err)
 
 	req, _ = http.NewRequest(http.MethodPost, webClientLoginPath+"?a=a%C3%AO%GG", bytes.NewBuffer([]byte(form.Encode())))
@@ -1330,7 +1391,7 @@ func TestQuotaScanInvalidFs(t *testing.T) {
 			Provider: sdk.S3FilesystemProvider,
 		},
 	}
-	common.QuotaScans.AddUserQuotaScan(user.Username)
+	dataprovider.QuotaScans.AddUserQuotaScan(user.Username)
 	err := doUserQuotaScan(user)
 	assert.Error(t, err)
 }

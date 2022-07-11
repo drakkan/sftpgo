@@ -35,11 +35,11 @@ const (
 )
 
 var (
-	// RetentionChecks is the list of active quota scans
+	// RetentionChecks is the list of active retention checks
 	RetentionChecks ActiveRetentionChecks
 )
 
-// ActiveRetentionChecks holds the active quota scans
+// ActiveRetentionChecks holds the active retention checks
 type ActiveRetentionChecks struct {
 	sync.RWMutex
 	Checks []RetentionCheck
@@ -390,7 +390,7 @@ func (c *RetentionCheck) sendEmailNotification(elapsed time.Duration, errCheck e
 	}
 	startTime := time.Now()
 	subject := fmt.Sprintf("Retention check completed for user %#v", c.conn.User.Username)
-	if err := smtp.SendEmail(c.Email, subject, body.String(), smtp.EmailContentTypeTextHTML); err != nil {
+	if err := smtp.SendEmail([]string{c.Email}, subject, body.String(), smtp.EmailContentTypeTextHTML); err != nil {
 		c.conn.Log(logger.LevelError, "unable to notify retention check result via email: %v, elapsed: %v", err,
 			time.Since(startTime))
 		return err

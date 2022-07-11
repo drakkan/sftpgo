@@ -72,7 +72,7 @@ const (
 	CockroachDataProviderName = "cockroachdb"
 	// DumpVersion defines the version for the dump.
 	// For restore/load we support the current version and the previous one
-	DumpVersion = 12
+	DumpVersion = 13
 
 	argonPwdPrefix            = "$argon2id$"
 	bcryptPwdPrefix           = "$2a$"
@@ -168,6 +168,10 @@ var (
 	sqlTableUsersGroupsMapping   string
 	sqlTableGroupsFoldersMapping string
 	sqlTableSharedSessions       string
+	sqlTableEventsActions        string
+	sqlTableEventsRules          string
+	sqlTableRulesActionsMapping  string
+	sqlTableTasks                string
 	sqlTableSchemaVersion        string
 	argon2Params                 *argon2id.Params
 	lastLoginMinDelay            = 10 * time.Minute
@@ -189,6 +193,10 @@ func initSQLTables() {
 	sqlTableUsersGroupsMapping = "users_groups_mapping"
 	sqlTableGroupsFoldersMapping = "groups_folders_mapping"
 	sqlTableSharedSessions = "shared_sessions"
+	sqlTableEventsActions = "events_actions"
+	sqlTableEventsRules = "events_rules"
+	sqlTableRulesActionsMapping = "rules_actions_mapping"
+	sqlTableTasks = "tasks"
 	sqlTableSchemaVersion = "schema_version"
 }
 
@@ -248,24 +256,6 @@ type ProviderStatus struct {
 	Driver   string `json:"driver"`
 	IsActive bool   `json:"is_active"`
 	Error    string `json:"error"`
-}
-
-// AutoBackup defines the settings for automatic provider backups.
-// Example: hour "0" and day_of_week "*" means a backup every day at midnight.
-// The backup file name is in the format backup_<day_of_week>_<hour>.json
-// files with the same name will be overwritten
-type AutoBackup struct {
-	Enabled bool `json:"enabled" mapstructure:"enabled"`
-	// hour as standard cron expression. Allowed values: 0-23.
-	// Allowed special characters: asterisk (*), slash (/), comma (,), hyphen (-).
-	// More info about special characters here:
-	// https://pkg.go.dev/github.com/robfig/cron#hdr-Special_Characters
-	Hour string `json:"hour" mapstructure:"hour"`
-	// Day of the week as cron expression. Allowed values: 0-6 (Sunday to Saturday).
-	// Allowed special characters: asterisk (*), slash (/), comma (,), hyphen (-), question mark (?).
-	// More info about special characters here:
-	// https://pkg.go.dev/github.com/robfig/cron#hdr-Special_Characters
-	DayOfWeek string `json:"day_of_week" mapstructure:"day_of_week"`
 }
 
 // Config provider configuration
@@ -417,8 +407,6 @@ type Config struct {
 	IsShared int `json:"is_shared" mapstructure:"is_shared"`
 	// Path to the backup directory. This can be an absolute path or a path relative to the config dir
 	BackupsPath string `json:"backups_path" mapstructure:"backups_path"`
-	// Settings for automatic backups
-	AutoBackup AutoBackup `json:"auto_backup" mapstructure:"auto_backup"`
 }
 
 // GetShared returns the provider share mode
@@ -430,7 +418,7 @@ func (c *Config) GetShared() int {
 }
 
 func (c *Config) convertName(name string) string {
-	if c.NamingRules == 0 {
+	if c.NamingRules <= 1 {
 		return name
 	}
 	if c.NamingRules&2 != 0 {
@@ -464,31 +452,32 @@ func (c *Config) requireCustomTLSForMySQL() bool {
 	return false
 }
 
-func (c *Config) doBackup() {
-	now := time.Now()
-	outputFile := filepath.Join(c.BackupsPath, fmt.Sprintf("backup_%v_%v.json", now.Weekday(), now.Hour()))
-	providerLog(logger.LevelDebug, "starting auto backup to file %#v", outputFile)
+func (c *Config) doBackup() error {
+	now := time.Now().UTC()
+	outputFile := filepath.Join(c.BackupsPath, fmt.Sprintf("backup_%s_%d.json", now.Weekday(), now.Hour()))
+	eventManagerLog(logger.LevelDebug, "starting backup to file %q", outputFile)
 	err := os.MkdirAll(filepath.Dir(outputFile), 0700)
 	if err != nil {
-		providerLog(logger.LevelError, "unable to create backup dir %#v: %v", outputFile, err)
-		return
+		eventManagerLog(logger.LevelError, "unable to create backup dir %q: %v", outputFile, err)
+		return fmt.Errorf("unable to create backup dir: %w", err)
 	}
 	backup, err := DumpData()
 	if err != nil {
-		providerLog(logger.LevelError, "unable to execute backup: %v", err)
-		return
+		eventManagerLog(logger.LevelError, "unable to execute backup: %v", err)
+		return fmt.Errorf("unable to dump backup data: %w", err)
 	}
 	dump, err := json.Marshal(backup)
 	if err != nil {
-		providerLog(logger.LevelError, "unable to marshal backup as JSON: %v", err)
-		return
+		eventManagerLog(logger.LevelError, "unable to marshal backup as JSON: %v", err)
+		return fmt.Errorf("unable to marshal backup data as JSON: %w", err)
 	}
 	err = os.WriteFile(outputFile, dump, 0600)
 	if err != nil {
-		providerLog(logger.LevelError, "unable to save backup: %v", err)
-		return
+		eventManagerLog(logger.LevelError, "unable to save backup: %v", err)
+		return fmt.Errorf("unable to save backup: %w", err)
 	}
-	providerLog(logger.LevelDebug, "auto backup saved to %#v", outputFile)
+	eventManagerLog(logger.LevelDebug, "auto backup saved to %q", outputFile)
+	return nil
 }
 
 // ConvertName converts the given name based on the configured rules
@@ -586,13 +575,15 @@ func (d *DefenderEntry) MarshalJSON() ([]byte, error) {
 
 // BackupData defines the structure for the backup/restore files
 type BackupData struct {
-	Users   []User                  `json:"users"`
-	Groups  []Group                 `json:"groups"`
-	Folders []vfs.BaseVirtualFolder `json:"folders"`
-	Admins  []Admin                 `json:"admins"`
-	APIKeys []APIKey                `json:"api_keys"`
-	Shares  []Share                 `json:"shares"`
-	Version int                     `json:"version"`
+	Users        []User                  `json:"users"`
+	Groups       []Group                 `json:"groups"`
+	Folders      []vfs.BaseVirtualFolder `json:"folders"`
+	Admins       []Admin                 `json:"admins"`
+	APIKeys      []APIKey                `json:"api_keys"`
+	Shares       []Share                 `json:"shares"`
+	EventActions []BaseEventAction       `json:"event_actions"`
+	EventRules   []EventRule             `json:"event_rules"`
+	Version      int                     `json:"version"`
 }
 
 // HasFolder returns true if the folder with the given name is included
@@ -704,6 +695,23 @@ type Provider interface {
 	deleteSharedSession(key string) error
 	getSharedSession(key string) (Session, error)
 	cleanupSharedSessions(sessionType SessionType, before int64) error
+	getEventActions(limit, offset int, order string, minimal bool) ([]BaseEventAction, error)
+	dumpEventActions() ([]BaseEventAction, error)
+	eventActionExists(name string) (BaseEventAction, error)
+	addEventAction(action *BaseEventAction) error
+	updateEventAction(action *BaseEventAction) error
+	deleteEventAction(action BaseEventAction) error
+	getEventRules(limit, offset int, order string) ([]EventRule, error)
+	dumpEventRules() ([]EventRule, error)
+	getRecentlyUpdatedRules(after int64) ([]EventRule, error)
+	eventRuleExists(name string) (EventRule, error)
+	addEventRule(rule *EventRule) error
+	updateEventRule(rule *EventRule) error
+	deleteEventRule(rule EventRule, softDelete bool) error
+	getTaskByName(name string) (Task, error)
+	addTask(name string) error
+	updateTask(name string, version int64) error
+	updateTaskTimestamp(name string) error
 	checkAvailability() error
 	close() error
 	reloadConfig() error
@@ -851,13 +859,19 @@ func validateSQLTablesPrefix() error {
 		sqlTableUsersGroupsMapping = config.SQLTablesPrefix + sqlTableUsersGroupsMapping
 		sqlTableGroupsFoldersMapping = config.SQLTablesPrefix + sqlTableGroupsFoldersMapping
 		sqlTableSharedSessions = config.SQLTablesPrefix + sqlTableSharedSessions
+		sqlTableEventsActions = config.SQLTablesPrefix + sqlTableEventsActions
+		sqlTableEventsRules = config.SQLTablesPrefix + sqlTableEventsRules
+		sqlTableRulesActionsMapping = config.SQLTablesPrefix + sqlTableRulesActionsMapping
+		sqlTableTasks = config.SQLTablesPrefix + sqlTableTasks
 		sqlTableSchemaVersion = config.SQLTablesPrefix + sqlTableSchemaVersion
 		providerLog(logger.LevelDebug, "sql table for users %q, folders %q users folders mapping %q admins %q "+
 			"api keys %q shares %q defender hosts %q defender events %q transfers %q  groups %q "+
-			"users groups mapping %q groups folders mapping %q shared sessions %q schema version %q",
+			"users groups mapping %q groups folders mapping %q shared sessions %q schema version %q"+
+			"events actions %q events rules %q rules actions mapping %q tasks %q",
 			sqlTableUsers, sqlTableFolders, sqlTableUsersFoldersMapping, sqlTableAdmins, sqlTableAPIKeys,
 			sqlTableShares, sqlTableDefenderHosts, sqlTableDefenderEvents, sqlTableActiveTransfers, sqlTableGroups,
-			sqlTableUsersGroupsMapping, sqlTableGroupsFoldersMapping, sqlTableSharedSessions, sqlTableSchemaVersion)
+			sqlTableUsersGroupsMapping, sqlTableGroupsFoldersMapping, sqlTableSharedSessions, sqlTableSchemaVersion,
+			sqlTableEventsActions, sqlTableEventsRules, sqlTableRulesActionsMapping, sqlTableTasks)
 	}
 	return nil
 }
@@ -1468,6 +1482,102 @@ func APIKeyExists(keyID string) (APIKey, error) {
 	return provider.apiKeyExists(keyID)
 }
 
+// GetEventActions returns an array of event actions respecting limit and offset
+func GetEventActions(limit, offset int, order string, minimal bool) ([]BaseEventAction, error) {
+	return provider.getEventActions(limit, offset, order, minimal)
+}
+
+// EventActionExists returns the event action with the given name if it exists
+func EventActionExists(name string) (BaseEventAction, error) {
+	name = config.convertName(name)
+	return provider.eventActionExists(name)
+}
+
+// AddEventAction adds a new event action
+func AddEventAction(action *BaseEventAction, executor, ipAddress string) error {
+	action.Name = config.convertName(action.Name)
+	err := provider.addEventAction(action)
+	if err == nil {
+		executeAction(operationAdd, executor, ipAddress, actionObjectEventAction, action.Name, action)
+	}
+	return err
+}
+
+// UpdateEventAction updates an existing event action
+func UpdateEventAction(action *BaseEventAction, executor, ipAddress string) error {
+	err := provider.updateEventAction(action)
+	if err == nil {
+		EventManager.loadRules()
+		executeAction(operationUpdate, executor, ipAddress, actionObjectEventAction, action.Name, action)
+	}
+	return err
+}
+
+// DeleteEventAction deletes an existing event action
+func DeleteEventAction(name string, executor, ipAddress string) error {
+	name = config.convertName(name)
+	action, err := provider.eventActionExists(name)
+	if err != nil {
+		return err
+	}
+	if len(action.Rules) > 0 {
+		errorString := fmt.Sprintf("the event action %#q is referenced, it cannot be removed", action.Name)
+		return util.NewValidationError(errorString)
+	}
+	err = provider.deleteEventAction(action)
+	if err == nil {
+		executeAction(operationDelete, executor, ipAddress, actionObjectEventAction, action.Name, &action)
+	}
+	return err
+}
+
+// GetEventRules returns an array of event rules respecting limit and offset
+func GetEventRules(limit, offset int, order string) ([]EventRule, error) {
+	return provider.getEventRules(limit, offset, order)
+}
+
+// EventRuleExists returns the event rule with the given name if it exists
+func EventRuleExists(name string) (EventRule, error) {
+	name = config.convertName(name)
+	return provider.eventRuleExists(name)
+}
+
+// AddEventRule adds a new event rule
+func AddEventRule(rule *EventRule, executor, ipAddress string) error {
+	rule.Name = config.convertName(rule.Name)
+	err := provider.addEventRule(rule)
+	if err == nil {
+		EventManager.loadRules()
+		executeAction(operationAdd, executor, ipAddress, actionObjectEventRule, rule.Name, rule)
+	}
+	return err
+}
+
+// UpdateEventRule updates an existing event rule
+func UpdateEventRule(rule *EventRule, executor, ipAddress string) error {
+	err := provider.updateEventRule(rule)
+	if err == nil {
+		EventManager.loadRules()
+		executeAction(operationUpdate, executor, ipAddress, actionObjectEventRule, rule.Name, rule)
+	}
+	return err
+}
+
+// DeleteEventRule deletes an existing event rule
+func DeleteEventRule(name string, executor, ipAddress string) error {
+	name = config.convertName(name)
+	rule, err := provider.eventRuleExists(name)
+	if err != nil {
+		return err
+	}
+	err = provider.deleteEventRule(rule, config.GetShared() == 1)
+	if err == nil {
+		EventManager.RemoveRule(rule.Name)
+		executeAction(operationDelete, executor, ipAddress, actionObjectEventRule, rule.Name, &rule)
+	}
+	return err
+}
+
 // HasAdmin returns true if the first admin has been created
 // and so SFTPGo is ready to be used
 func HasAdmin() bool {
@@ -1794,7 +1904,7 @@ func GetFolders(limit, offset int, order string, minimal bool) ([]vfs.BaseVirtua
 	return provider.getFolders(limit, offset, order, minimal)
 }
 
-// DumpData returns all users, folders, admins, api keys, shares
+// DumpData returns all users, groups, folders, admins, api keys, shares, actions, rules
 func DumpData() (BackupData, error) {
 	var data BackupData
 	groups, err := provider.dumpGroups()
@@ -1821,12 +1931,22 @@ func DumpData() (BackupData, error) {
 	if err != nil {
 		return data, err
 	}
+	actions, err := provider.dumpEventActions()
+	if err != nil {
+		return data, err
+	}
+	rules, err := provider.dumpEventRules()
+	if err != nil {
+		return data, err
+	}
 	data.Users = users
 	data.Groups = groups
 	data.Folders = folders
 	data.Admins = admins
 	data.APIKeys = apiKeys
 	data.Shares = shares
+	data.EventActions = actions
+	data.EventRules = rules
 	data.Version = DumpVersion
 	return data, err
 }

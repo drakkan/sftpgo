@@ -62,7 +62,7 @@ If the `hook` defines an HTTP URL then this URL will be invoked as HTTP POST. Th
 - `virtual_target_path`, string, virtual target path, seen by SFTPGo users
 - `ssh_cmd`, string, included for `ssh_cmd` action
 - `file_size`, int64, included for `pre-upload`, `upload`, `download`, `delete` actions if the file size is greater than `0`
-- `fs_provider`, integer, `0` for local filesystem, `1` for S3 backend, `2` for Google Cloud Storage (GCS) backend, `3` for Azure Blob Storage backend, `4` for local encrypted backend, `5` for SFTP backend
+- `fs_provider`, integer, `0` for local filesystem, `1` for S3 backend, `2` for Google Cloud Storage (GCS) backend, `3` for Azure Blob Storage backend, `4` for local encrypted backend, `5` for SFTP backend, `6` for HTTPFs backend
 - `bucket`, string, included for S3, GCS and Azure backends
 - `endpoint`, string, included for S3, SFTP and Azure backend if configured
 - `status`, integer. Status for `upload`, `download` and `ssh_cmd` actions. 1 means no error, 2 means a generic error occurred, 3 means quota exceeded error
@@ -85,8 +85,12 @@ The `actions` struct inside the `data_provider` configuration section allows you
 The supported object types are:
 
 - `user`
+- `group`
 - `admin`
 - `api_key`
+- `share`
+- `event_action`
+- `event_rule`
 
 Actions will not be fired for internal updates, such as the last login or the user quota fields, or after external authentication.
 

@@ -46,6 +46,8 @@ const (
 	apiKeysPath           = "/api/v2/apikeys"
 	retentionBasePath     = "/api/v2/retention/users"
 	retentionChecksPath   = "/api/v2/retention/users/checks"
+	eventActionsPath      = "/api/v2/eventactions"
+	eventRulesPath        = "/api/v2/eventrules"
 )
 
 const (
@@ -598,9 +600,227 @@ func GetAPIKeyByID(keyID string, expectedStatusCode int) (dataprovider.APIKey, [
 	return apiKey, body, err
 }
 
+// AddEventAction adds a new event action
+func AddEventAction(action dataprovider.BaseEventAction, expectedStatusCode int) (dataprovider.BaseEventAction, []byte, error) {
+	var newAction dataprovider.BaseEventAction
+	var body []byte
+	asJSON, _ := json.Marshal(action)
+	resp, err := sendHTTPRequest(http.MethodPost, buildURLRelativeToBase(eventActionsPath), bytes.NewBuffer(asJSON),
+		"application/json", getDefaultToken())
+	if err != nil {
+		return newAction, body, err
+	}
+	defer resp.Body.Close()
+	err = checkResponse(resp.StatusCode, expectedStatusCode)
+	if expectedStatusCode != http.StatusCreated {
+		body, _ = getResponseBody(resp)
+		return newAction, body, err
+	}
+	if err == nil {
+		err = render.DecodeJSON(resp.Body, &newAction)
+	} else {
+		body, _ = getResponseBody(resp)
+	}
+	if err == nil {
+		err = checkEventAction(action, newAction)
+	}
+	return newAction, body, err
+}
+
+// UpdateEventAction updates an existing event action
+func UpdateEventAction(action dataprovider.BaseEventAction, expectedStatusCode int) (dataprovider.BaseEventAction, []byte, error) {
+	var newAction dataprovider.BaseEventAction
+	var body []byte
+
+	asJSON, _ := json.Marshal(action)
+	resp, err := sendHTTPRequest(http.MethodPut, buildURLRelativeToBase(eventActionsPath, url.PathEscape(action.Name)),
+		bytes.NewBuffer(asJSON), "application/json", getDefaultToken())
+	if err != nil {
+		return newAction, body, err
+	}
+	defer resp.Body.Close()
+	body, _ = getResponseBody(resp)
+	err = checkResponse(resp.StatusCode, expectedStatusCode)
+	if expectedStatusCode != http.StatusOK {
+		return newAction, body, err
+	}
+	if err == nil {
+		newAction, body, err = GetEventActionByName(action.Name, expectedStatusCode)
+	}
+	if err == nil {
+		err = checkEventAction(action, newAction)
+	}
+	return newAction, body, err
+}
+
+// RemoveEventAction removes an existing action and checks the received HTTP Status code against expectedStatusCode.
+func RemoveEventAction(action dataprovider.BaseEventAction, expectedStatusCode int) ([]byte, error) {
+	var body []byte
+	resp, err := sendHTTPRequest(http.MethodDelete, buildURLRelativeToBase(eventActionsPath, url.PathEscape(action.Name)),
+		nil, "", getDefaultToken())
+	if err != nil {
+		return body, err
+	}
+	defer resp.Body.Close()
+	body, _ = getResponseBody(resp)
+	return body, checkResponse(resp.StatusCode, expectedStatusCode)
+}
+
+// GetEventActionByName gets an event action by name and checks the received HTTP Status code against expectedStatusCode.
+func GetEventActionByName(name string, expectedStatusCode int) (dataprovider.BaseEventAction, []byte, error) {
+	var action dataprovider.BaseEventAction
+	var body []byte
+	resp, err := sendHTTPRequest(http.MethodGet, buildURLRelativeToBase(eventActionsPath, url.PathEscape(name)),
+		nil, "", getDefaultToken())
+	if err != nil {
+		return action, body, err
+	}
+	defer resp.Body.Close()
+	err = checkResponse(resp.StatusCode, expectedStatusCode)
+	if err == nil && expectedStatusCode == http.StatusOK {
+		err = render.DecodeJSON(resp.Body, &action)
+	} else {
+		body, _ = getResponseBody(resp)
+	}
+	return action, body, err
+}
+
+// GetEventActions returns a list of event actions and checks the received HTTP Status code against expectedStatusCode.
+// The number of results can be limited specifying a limit.
+// Some results can be skipped specifying an offset.
+func GetEventActions(limit, offset int64, expectedStatusCode int) ([]dataprovider.BaseEventAction, []byte, error) {
+	var actions []dataprovider.BaseEventAction
+	var body []byte
+	url, err := addLimitAndOffsetQueryParams(buildURLRelativeToBase(eventActionsPath), limit, offset)
+	if err != nil {
+		return actions, body, err
+	}
+	resp, err := sendHTTPRequest(http.MethodGet, url.String(), nil, "", getDefaultToken())
+	if err != nil {
+		return actions, body, err
+	}
+	defer resp.Body.Close()
+	err = checkResponse(resp.StatusCode, expectedStatusCode)
+	if err == nil && expectedStatusCode == http.StatusOK {
+		err = render.DecodeJSON(resp.Body, &actions)
+	} else {
+		body, _ = getResponseBody(resp)
+	}
+	return actions, body, err
+}
+
+// AddEventRule adds a new event rule
+func AddEventRule(rule dataprovider.EventRule, expectedStatusCode int) (dataprovider.EventRule, []byte, error) {
+	var newRule dataprovider.EventRule
+	var body []byte
+	asJSON, _ := json.Marshal(rule)
+	resp, err := sendHTTPRequest(http.MethodPost, buildURLRelativeToBase(eventRulesPath), bytes.NewBuffer(asJSON),
+		"application/json", getDefaultToken())
+	if err != nil {
+		return newRule, body, err
+	}
+	defer resp.Body.Close()
+	err = checkResponse(resp.StatusCode, expectedStatusCode)
+	if expectedStatusCode != http.StatusCreated {
+		body, _ = getResponseBody(resp)
+		return newRule, body, err
+	}
+	if err == nil {
+		err = render.DecodeJSON(resp.Body, &newRule)
+	} else {
+		body, _ = getResponseBody(resp)
+	}
+	if err == nil {
+		err = checkEventRule(rule, newRule)
+	}
+	return newRule, body, err
+}
+
+// UpdateEventRule updates an existing event rule
+func UpdateEventRule(rule dataprovider.EventRule, expectedStatusCode int) (dataprovider.EventRule, []byte, error) {
+	var newRule dataprovider.EventRule
+	var body []byte
+
+	asJSON, _ := json.Marshal(rule)
+	resp, err := sendHTTPRequest(http.MethodPut, buildURLRelativeToBase(eventRulesPath, url.PathEscape(rule.Name)),
+		bytes.NewBuffer(asJSON), "application/json", getDefaultToken())
+	if err != nil {
+		return newRule, body, err
+	}
+	defer resp.Body.Close()
+	body, _ = getResponseBody(resp)
+	err = checkResponse(resp.StatusCode, expectedStatusCode)
+	if expectedStatusCode != http.StatusOK {
+		return newRule, body, err
+	}
+	if err == nil {
+		newRule, body, err = GetEventRuleByName(rule.Name, expectedStatusCode)
+	}
+	if err == nil {
+		err = checkEventRule(rule, newRule)
+	}
+	return newRule, body, err
+}
+
+// RemoveEventRule removes an existing rule and checks the received HTTP Status code against expectedStatusCode.
+func RemoveEventRule(rule dataprovider.EventRule, expectedStatusCode int) ([]byte, error) {
+	var body []byte
+	resp, err := sendHTTPRequest(http.MethodDelete, buildURLRelativeToBase(eventRulesPath, url.PathEscape(rule.Name)),
+		nil, "", getDefaultToken())
+	if err != nil {
+		return body, err
+	}
+	defer resp.Body.Close()
+	body, _ = getResponseBody(resp)
+	return body, checkResponse(resp.StatusCode, expectedStatusCode)
+}
+
+// GetEventRuleByName gets an event rule by name and checks the received HTTP Status code against expectedStatusCode.
+func GetEventRuleByName(name string, expectedStatusCode int) (dataprovider.EventRule, []byte, error) {
+	var rule dataprovider.EventRule
+	var body []byte
+	resp, err := sendHTTPRequest(http.MethodGet, buildURLRelativeToBase(eventRulesPath, url.PathEscape(name)),
+		nil, "", getDefaultToken())
+	if err != nil {
+		return rule, body, err
+	}
+	defer resp.Body.Close()
+	err = checkResponse(resp.StatusCode, expectedStatusCode)
+	if err == nil && expectedStatusCode == http.StatusOK {
+		err = render.DecodeJSON(resp.Body, &rule)
+	} else {
+		body, _ = getResponseBody(resp)
+	}
+	return rule, body, err
+}
+
+// GetEventRules returns a list of event rules and checks the received HTTP Status code against expectedStatusCode.
+// The number of results can be limited specifying a limit.
+// Some results can be skipped specifying an offset.
+func GetEventRules(limit, offset int64, expectedStatusCode int) ([]dataprovider.EventRule, []byte, error) {
+	var rules []dataprovider.EventRule
+	var body []byte
+	url, err := addLimitAndOffsetQueryParams(buildURLRelativeToBase(eventRulesPath), limit, offset)
+	if err != nil {
+		return rules, body, err
+	}
+	resp, err := sendHTTPRequest(http.MethodGet, url.String(), nil, "", getDefaultToken())
+	if err != nil {
+		return rules, body, err
+	}
+	defer resp.Body.Close()
+	err = checkResponse(resp.StatusCode, expectedStatusCode)
+	if err == nil && expectedStatusCode == http.StatusOK {
+		err = render.DecodeJSON(resp.Body, &rules)
+	} else {
+		body, _ = getResponseBody(resp)
+	}
+	return rules, body, err
+}
+
 // GetQuotaScans gets active quota scans for users and checks the received HTTP Status code against expectedStatusCode.
-func GetQuotaScans(expectedStatusCode int) ([]common.ActiveQuotaScan, []byte, error) {
-	var quotaScans []common.ActiveQuotaScan
+func GetQuotaScans(expectedStatusCode int) ([]dataprovider.ActiveQuotaScan, []byte, error) {
+	var quotaScans []dataprovider.ActiveQuotaScan
 	var body []byte
 	resp, err := sendHTTPRequest(http.MethodGet, buildURLRelativeToBase(quotaScanPath), nil, "", getDefaultToken())
 	if err != nil {
@@ -843,8 +1063,8 @@ func GetFolders(limit int64, offset int64, expectedStatusCode int) ([]vfs.BaseVi
 }
 
 // GetFoldersQuotaScans gets active quota scans for folders and checks the received HTTP Status code against expectedStatusCode.
-func GetFoldersQuotaScans(expectedStatusCode int) ([]common.ActiveVirtualFolderQuotaScan, []byte, error) {
-	var quotaScans []common.ActiveVirtualFolderQuotaScan
+func GetFoldersQuotaScans(expectedStatusCode int) ([]dataprovider.ActiveVirtualFolderQuotaScan, []byte, error) {
+	var quotaScans []dataprovider.ActiveVirtualFolderQuotaScan
 	var body []byte
 	resp, err := sendHTTPRequest(http.MethodGet, buildURLRelativeToBase(quotaScanVFolderPath), nil, "", getDefaultToken())
 	if err != nil {
@@ -1087,7 +1307,149 @@ func getResponseBody(resp *http.Response) ([]byte, error) {
 	return io.ReadAll(resp.Body)
 }
 
-func checkGroup(expected dataprovider.Group, actual dataprovider.Group) error {
+func checkEventAction(expected, actual dataprovider.BaseEventAction) error {
+	if expected.ID <= 0 {
+		if actual.ID <= 0 {
+			return errors.New("actual action ID must be > 0")
+		}
+	} else {
+		if actual.ID != expected.ID {
+			return errors.New("action ID mismatch")
+		}
+	}
+	if dataprovider.ConvertName(expected.Name) != actual.Name {
+		return errors.New("name mismatch")
+	}
+	if expected.Description != actual.Description {
+		return errors.New("description mismatch")
+	}
+	if expected.Type != actual.Type {
+		return errors.New("type mismatch")
+	}
+	if err := compareEventActionCmdConfigFields(expected.Options.CmdConfig, actual.Options.CmdConfig); err != nil {
+		return err
+	}
+	if err := compareEventActionEmailConfigFields(expected.Options.EmailConfig, actual.Options.EmailConfig); err != nil {
+		return err
+	}
+	return compareEventActionHTTPConfigFields(expected.Options.HTTPConfig, actual.Options.HTTPConfig)
+}
+
+func checkEventSchedules(expected, actual []dataprovider.Schedule) error {
+	if len(expected) != len(actual) {
+		return errors.New("schedules mismatch")
+	}
+	for _, ex := range expected {
+		found := false
+		for _, ac := range actual {
+			if ac.DayOfMonth == ex.DayOfMonth && ac.DayOfWeek == ex.DayOfWeek && ac.Hours == ex.Hours && ac.Month == ex.Month {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return errors.New("schedules content mismatch")
+		}
+	}
+	return nil
+}
+
+func compareConditionPatternOptions(expected, actual []dataprovider.ConditionPattern) error {
+	if len(expected) != len(actual) {
+		return errors.New("condition pattern mismatch")
+	}
+	for _, ex := range expected {
+		found := false
+		for _, ac := range actual {
+			if ac.Pattern == ex.Pattern && ac.InverseMatch == ex.InverseMatch {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return errors.New("condition pattern content mismatch")
+		}
+	}
+	return nil
+}
+
+func checkEventConditionOptions(expected, actual dataprovider.ConditionOptions) error {
+	if err := compareConditionPatternOptions(expected.Names, actual.Names); err != nil {
+		return errors.New("condition names mismatch")
+	}
+	if err := compareConditionPatternOptions(expected.FsPaths, actual.FsPaths); err != nil {
+		return errors.New("condition fs_paths mismatch")
+	}
+	if len(expected.Protocols) != len(actual.Protocols) {
+		return errors.New("condition protocols mismatch")
+	}
+	for _, v := range expected.Protocols {
+		if !util.Contains(actual.Protocols, v) {
+			return errors.New("condition protocols content mismatch")
+		}
+	}
+	if len(expected.ProviderObjects) != len(actual.ProviderObjects) {
+		return errors.New("condition provider objects mismatch")
+	}
+	for _, v := range expected.ProviderObjects {
+		if !util.Contains(actual.ProviderObjects, v) {
+			return errors.New("condition provider objects content mismatch")
+		}
+	}
+	if expected.MinFileSize != actual.MinFileSize {
+		return errors.New("condition min file size mismatch")
+	}
+	if expected.MaxFileSize != actual.MaxFileSize {
+		return errors.New("condition max file size mismatch")
+	}
+	return nil
+}
+
+func checkEventConditions(expected, actual dataprovider.EventConditions) error {
+	if len(expected.FsEvents) != len(actual.FsEvents) {
+		return errors.New("fs events mismatch")
+	}
+	for _, v := range expected.FsEvents {
+		if !util.Contains(actual.FsEvents, v) {
+			return errors.New("fs events content mismatch")
+		}
+	}
+	if len(expected.ProviderEvents) != len(actual.ProviderEvents) {
+		return errors.New("provider events mismatch")
+	}
+	for _, v := range expected.ProviderEvents {
+		if !util.Contains(actual.ProviderEvents, v) {
+			return errors.New("provider events content mismatch")
+		}
+	}
+	if err := checkEventConditionOptions(expected.Options, actual.Options); err != nil {
+		return err
+	}
+
+	return checkEventSchedules(expected.Schedules, actual.Schedules)
+}
+
+func checkEventRuleActions(expected, actual []dataprovider.EventAction) error {
+	if len(expected) != len(actual) {
+		return errors.New("actions mismatch")
+	}
+	for _, ex := range expected {
+		found := false
+		for _, ac := range actual {
+			if ex.Name == ac.Name && ex.Order == ac.Order && ex.Options.ExecuteSync == ac.Options.ExecuteSync &&
+				ex.Options.IsFailureAction == ac.Options.IsFailureAction && ex.Options.StopOnFailure == ac.Options.StopOnFailure {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return errors.New("actions contents mismatch")
+		}
+	}
+	return nil
+}
+
+func checkEventRule(expected, actual dataprovider.EventRule) error {
 	if expected.ID <= 0 {
 		if actual.ID <= 0 {
 			return errors.New("actual group ID must be > 0")
@@ -1102,6 +1464,43 @@ func checkGroup(expected dataprovider.Group, actual dataprovider.Group) error {
 	}
 	if expected.Description != actual.Description {
 		return errors.New("description mismatch")
+	}
+	if actual.CreatedAt == 0 {
+		return errors.New("created_at unset")
+	}
+	if actual.UpdatedAt == 0 {
+		return errors.New("updated_at unset")
+	}
+	if expected.Trigger != actual.Trigger {
+		return errors.New("trigger mismatch")
+	}
+	if err := checkEventConditions(expected.Conditions, actual.Conditions); err != nil {
+		return err
+	}
+	return checkEventRuleActions(expected.Actions, actual.Actions)
+}
+
+func checkGroup(expected, actual dataprovider.Group) error {
+	if expected.ID <= 0 {
+		if actual.ID <= 0 {
+			return errors.New("actual group ID must be > 0")
+		}
+	} else {
+		if actual.ID != expected.ID {
+			return errors.New("group ID mismatch")
+		}
+	}
+	if dataprovider.ConvertName(expected.Name) != actual.Name {
+		return errors.New("name mismatch")
+	}
+	if expected.Description != actual.Description {
+		return errors.New("description mismatch")
+	}
+	if actual.CreatedAt == 0 {
+		return errors.New("created_at unset")
+	}
+	if actual.UpdatedAt == 0 {
+		return errors.New("updated_at unset")
 	}
 	if err := compareEqualGroupSettingsFields(expected.UserSettings.BaseGroupUserSettings,
 		actual.UserSettings.BaseGroupUserSettings); err != nil {
@@ -1202,11 +1601,11 @@ func checkAdmin(expected, actual *dataprovider.Admin) error {
 			return errors.New("permissions content mismatch")
 		}
 	}
-	if len(expected.Filters.AllowList) != len(actual.Filters.AllowList) {
-		return errors.New("allow list mismatch")
-	}
 	if expected.Filters.AllowAPIKeyAuth != actual.Filters.AllowAPIKeyAuth {
 		return errors.New("allow_api_key_auth mismatch")
+	}
+	if len(expected.Filters.AllowList) != len(actual.Filters.AllowList) {
+		return errors.New("allow list mismatch")
 	}
 	for _, v := range expected.Filters.AllowList {
 		if !util.Contains(actual.Filters.AllowList, v) {
@@ -1744,6 +2143,87 @@ func compareUserFilePatternsFilters(expected sdk.BaseUserFilters, actual sdk.Bas
 		if !found {
 			return errors.New("file patterns contents mismatch")
 		}
+	}
+	return nil
+}
+
+func compareKeyValues(expected, actual []dataprovider.KeyValue) error {
+	if len(expected) != len(actual) {
+		return errors.New("kay values mismatch")
+	}
+	for _, ex := range expected {
+		found := false
+		for _, ac := range actual {
+			if ac.Key == ex.Key && ac.Value == ex.Value {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return errors.New("kay values mismatch")
+		}
+	}
+	return nil
+}
+
+func compareEventActionHTTPConfigFields(expected, actual dataprovider.EventActionHTTPConfig) error {
+	if expected.Endpoint != actual.Endpoint {
+		return errors.New("http endpoint mismatch")
+	}
+	if expected.Username != actual.Username {
+		return errors.New("http username mismatch")
+	}
+	if err := checkEncryptedSecret(expected.Password, actual.Password); err != nil {
+		return err
+	}
+	if err := compareKeyValues(expected.Headers, actual.Headers); err != nil {
+		return errors.New("http headers mismatch")
+	}
+	if expected.Timeout != actual.Timeout {
+		return errors.New("http timeout mismatch")
+	}
+	if expected.SkipTLSVerify != actual.SkipTLSVerify {
+		return errors.New("http skip TLS verify mismatch")
+	}
+	if expected.Method != actual.Method {
+		return errors.New("http method mismatch")
+	}
+	if err := compareKeyValues(expected.QueryParameters, actual.QueryParameters); err != nil {
+		return errors.New("http query parameters mismatch")
+	}
+	if expected.Body != actual.Body {
+		return errors.New("http body mismatch")
+	}
+	return nil
+}
+
+func compareEventActionEmailConfigFields(expected, actual dataprovider.EventActionEmailConfig) error {
+	if len(expected.Recipients) != len(actual.Recipients) {
+		return errors.New("email recipients mismatch")
+	}
+	for _, v := range expected.Recipients {
+		if !util.Contains(actual.Recipients, v) {
+			return errors.New("email recipients content mismatch")
+		}
+	}
+	if expected.Subject != actual.Subject {
+		return errors.New("email subject mismatch")
+	}
+	if expected.Body != actual.Body {
+		return errors.New("email body mismatch")
+	}
+	return nil
+}
+
+func compareEventActionCmdConfigFields(expected, actual dataprovider.EventActionCommandConfig) error {
+	if expected.Cmd != actual.Cmd {
+		return errors.New("command mismatch")
+	}
+	if expected.Timeout != actual.Timeout {
+		return errors.New("cmd timeout mismatch")
+	}
+	if err := compareKeyValues(expected.EnvVars, actual.EnvVars); err != nil {
+		return errors.New("cmd env vars mismatch")
 	}
 	return nil
 }

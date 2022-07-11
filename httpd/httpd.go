@@ -74,6 +74,8 @@ const (
 	fsEventsPath                          = "/api/v2/events/fs"
 	providerEventsPath                    = "/api/v2/events/provider"
 	sharesPath                            = "/api/v2/shares"
+	eventActionsPath                      = "/api/v2/eventactions"
+	eventRulesPath                        = "/api/v2/eventrules"
 	healthzPath                           = "/healthz"
 	robotsTxtPath                         = "/robots.txt"
 	webRootPathDefault                    = "/"
@@ -107,6 +109,10 @@ const (
 	webAdminResetPwdPathDefault           = "/web/admin/reset-password"
 	webAdminProfilePathDefault            = "/web/admin/profile"
 	webAdminMFAPathDefault                = "/web/admin/mfa"
+	webAdminEventRulesPathDefault         = "/web/admin/eventrules"
+	webAdminEventRulePathDefault          = "/web/admin/eventrule"
+	webAdminEventActionsPathDefault       = "/web/admin/eventactions"
+	webAdminEventActionPathDefault        = "/web/admin/eventaction"
 	webAdminTOTPGeneratePathDefault       = "/web/admin/totp/generate"
 	webAdminTOTPValidatePathDefault       = "/web/admin/totp/validate"
 	webAdminTOTPSavePathDefault           = "/web/admin/totp/save"
@@ -185,6 +191,10 @@ var (
 	webQuotaScanPath               string
 	webAdminProfilePath            string
 	webAdminMFAPath                string
+	webAdminEventRulesPath         string
+	webAdminEventRulePath          string
+	webAdminEventActionsPath       string
+	webAdminEventActionPath        string
 	webAdminTOTPGeneratePath       string
 	webAdminTOTPValidatePath       string
 	webAdminTOTPSavePath           string
@@ -755,6 +765,7 @@ func (c *Conf) Initialize(configDir string, isShared int) error {
 				return
 			}
 			server := newHttpdServer(b, staticFilesPath, c.SigningPassphrase, c.Cors, openAPIPath)
+			server.setShared(isShared)
 
 			exitChannel <- server.listenAndServe()
 		}(binding)
@@ -890,6 +901,10 @@ func updateWebAdminURLs(baseURL string) {
 	webAdminResetPwdPath = path.Join(baseURL, webAdminResetPwdPathDefault)
 	webAdminProfilePath = path.Join(baseURL, webAdminProfilePathDefault)
 	webAdminMFAPath = path.Join(baseURL, webAdminMFAPathDefault)
+	webAdminEventRulesPath = path.Join(baseURL, webAdminEventRulesPathDefault)
+	webAdminEventRulePath = path.Join(baseURL, webAdminEventRulePathDefault)
+	webAdminEventActionsPath = path.Join(baseURL, webAdminEventActionsPathDefault)
+	webAdminEventActionPath = path.Join(baseURL, webAdminEventActionPathDefault)
 	webAdminTOTPGeneratePath = path.Join(baseURL, webAdminTOTPGeneratePathDefault)
 	webAdminTOTPValidatePath = path.Join(baseURL, webAdminTOTPValidatePathDefault)
 	webAdminTOTPSavePath = path.Join(baseURL, webAdminTOTPSavePathDefault)

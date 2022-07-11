@@ -13,11 +13,12 @@ import (
 )
 
 var (
-	scheduler        *cron.Cron
-	lastCachesUpdate int64
-	// used for bolt and memory providers, so we avoid iterating all users
+	scheduler           *cron.Cron
+	lastUserCacheUpdate int64
+	// used for bolt and memory providers, so we avoid iterating all users/rules
 	// to find recently modified ones
 	lastUserUpdate int64
+	lastRuleUpdate int64
 )
 
 func stopScheduler() {
@@ -30,30 +31,22 @@ func stopScheduler() {
 func startScheduler() error {
 	stopScheduler()
 
-	scheduler = cron.New()
-	_, err := scheduler.AddFunc("@every 30s", checkDataprovider)
+	scheduler = cron.New(cron.WithLocation(time.UTC))
+	_, err := scheduler.AddFunc("@every 60s", checkDataprovider)
 	if err != nil {
 		return fmt.Errorf("unable to schedule dataprovider availability check: %w", err)
 	}
-
-	if config.AutoBackup.Enabled {
-		spec := fmt.Sprintf("0 %v * * %v", config.AutoBackup.Hour, config.AutoBackup.DayOfWeek)
-		_, err = scheduler.AddFunc(spec, config.doBackup)
-		if err != nil {
-			return fmt.Errorf("unable to schedule auto backup: %w", err)
-		}
-	}
-
 	err = addScheduledCacheUpdates()
 	if err != nil {
 		return err
 	}
+	EventManager.loadRules()
 	scheduler.Start()
 	return nil
 }
 
 func addScheduledCacheUpdates() error {
-	lastCachesUpdate = util.GetTimeAsMsSinceEpoch(time.Now())
+	lastUserCacheUpdate = util.GetTimeAsMsSinceEpoch(time.Now())
 	_, err := scheduler.AddFunc("@every 10m", checkCacheUpdates)
 	if err != nil {
 		return fmt.Errorf("unable to schedule cache updates: %w", err)
@@ -70,9 +63,9 @@ func checkDataprovider() {
 }
 
 func checkCacheUpdates() {
-	providerLog(logger.LevelDebug, "start caches check, update time %v", util.GetTimeFromMsecSinceEpoch(lastCachesUpdate))
+	providerLog(logger.LevelDebug, "start caches check, update time %v", util.GetTimeFromMsecSinceEpoch(lastUserCacheUpdate))
 	checkTime := util.GetTimeAsMsSinceEpoch(time.Now())
-	users, err := provider.getRecentlyUpdatedUsers(lastCachesUpdate)
+	users, err := provider.getRecentlyUpdatedUsers(lastUserCacheUpdate)
 	if err != nil {
 		providerLog(logger.LevelError, "unable to get recently updated users: %v", err)
 		return
@@ -83,8 +76,9 @@ func checkCacheUpdates() {
 		cachedPasswords.Remove(user.Username)
 	}
 
-	lastCachesUpdate = checkTime
-	providerLog(logger.LevelDebug, "end caches check, new update time %v", util.GetTimeFromMsecSinceEpoch(lastCachesUpdate))
+	lastUserCacheUpdate = checkTime
+	EventManager.loadRules()
+	providerLog(logger.LevelDebug, "end caches check, new update time %v", util.GetTimeFromMsecSinceEpoch(lastUserCacheUpdate))
 }
 
 func setLastUserUpdate() {
@@ -93,4 +87,12 @@ func setLastUserUpdate() {
 
 func getLastUserUpdate() int64 {
 	return atomic.LoadInt64(&lastUserUpdate)
+}
+
+func setLastRuleUpdate() {
+	atomic.StoreInt64(&lastRuleUpdate, util.GetTimeAsMsSinceEpoch(time.Now()))
+}
+
+func getLastRuleUpdate() int64 {
+	return atomic.LoadInt64(&lastRuleUpdate)
 }

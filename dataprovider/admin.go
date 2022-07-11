@@ -40,6 +40,7 @@ const (
 	PermAdminRetentionChecks  = "retention_checks"
 	PermAdminMetadataChecks   = "metadata_checks"
 	PermAdminViewEvents       = "view_events"
+	PermAdminManageEventRules = "manage_event_rules"
 )
 
 var (

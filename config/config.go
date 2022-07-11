@@ -342,11 +342,6 @@ func Init() {
 			NamingRules:        1,
 			IsShared:           0,
 			BackupsPath:        "backups",
-			AutoBackup: dataprovider.AutoBackup{
-				Enabled:   true,
-				Hour:      "0",
-				DayOfWeek: "*",
-			},
 		},
 		HTTPDConfig: httpd.Conf{
 			Bindings:           []httpd.Binding{defaultHTTPDBinding},
@@ -1919,9 +1914,6 @@ func setViperDefaults() {
 	viper.SetDefault("data_provider.naming_rules", globalConf.ProviderConf.NamingRules)
 	viper.SetDefault("data_provider.is_shared", globalConf.ProviderConf.IsShared)
 	viper.SetDefault("data_provider.backups_path", globalConf.ProviderConf.BackupsPath)
-	viper.SetDefault("data_provider.auto_backup.enabled", globalConf.ProviderConf.AutoBackup.Enabled)
-	viper.SetDefault("data_provider.auto_backup.hour", globalConf.ProviderConf.AutoBackup.Hour)
-	viper.SetDefault("data_provider.auto_backup.day_of_week", globalConf.ProviderConf.AutoBackup.DayOfWeek)
 	viper.SetDefault("httpd.templates_path", globalConf.HTTPDConfig.TemplatesPath)
 	viper.SetDefault("httpd.static_files_path", globalConf.HTTPDConfig.StaticFilesPath)
 	viper.SetDefault("httpd.openapi_path", globalConf.HTTPDConfig.OpenAPIPath)

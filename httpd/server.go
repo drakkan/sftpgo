@@ -44,6 +44,7 @@ type httpdServer struct {
 	enableWebAdmin    bool
 	enableWebClient   bool
 	renderOpenAPI     bool
+	isShared          int
 	router            *chi.Mux
 	tokenAuth         *jwtauth.JWTAuth
 	signingPassphrase string
@@ -66,6 +67,10 @@ func newHttpdServer(b Binding, staticFilesPath, signingPassphrase string, cors C
 		signingPassphrase: signingPassphrase,
 		cors:              cors,
 	}
+}
+
+func (s *httpdServer) setShared(value int) {
+	s.isShared = value
 }
 
 func (s *httpdServer) listenAndServe() error {
@@ -1259,6 +1264,16 @@ func (s *httpdServer) initializeRouter() {
 			Put(apiKeysPath+"/{id}", updateAPIKey)
 		router.With(forbidAPIKeyAuthentication, s.checkPerm(dataprovider.PermAdminManageAPIKeys)).
 			Delete(apiKeysPath+"/{id}", deleteAPIKey)
+		router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Get(eventActionsPath, getEventActions)
+		router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Get(eventActionsPath+"/{name}", getEventActionByName)
+		router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Post(eventActionsPath, addEventAction)
+		router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Put(eventActionsPath+"/{name}", updateEventAction)
+		router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Delete(eventActionsPath+"/{name}", deleteEventAction)
+		router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Get(eventRulesPath, getEventRules)
+		router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Get(eventRulesPath+"/{name}", getEventRuleByName)
+		router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Post(eventRulesPath, addEventRule)
+		router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Put(eventRulesPath+"/{name}", updateEventRule)
+		router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Delete(eventRulesPath+"/{name}", deleteEventRule)
 	})
 
 	s.router.Get(userTokenPath, s.getUserToken)
@@ -1504,7 +1519,8 @@ func (s *httpdServer) setupWebAdminRoutes() {
 			router.With(verifyCSRFHeader, s.requireBuiltinLogin).Post(webAdminTOTPGeneratePath, generateTOTPSecret)
 			router.With(verifyCSRFHeader, s.requireBuiltinLogin).Post(webAdminTOTPValidatePath, validateTOTPPasscode)
 			router.With(verifyCSRFHeader, s.requireBuiltinLogin).Post(webAdminTOTPSavePath, saveTOTPConfig)
-			router.With(verifyCSRFHeader, s.requireBuiltinLogin, s.refreshCookie).Get(webAdminRecoveryCodesPath, getRecoveryCodes)
+			router.With(verifyCSRFHeader, s.requireBuiltinLogin, s.refreshCookie).Get(webAdminRecoveryCodesPath,
+				getRecoveryCodes)
 			router.With(verifyCSRFHeader, s.requireBuiltinLogin).Post(webAdminRecoveryCodesPath, generateRecoveryCodes)
 
 			router.With(s.checkPerm(dataprovider.PermAdminViewUsers), s.refreshCookie).
@@ -1574,6 +1590,30 @@ func (s *httpdServer) setupWebAdminRoutes() {
 			router.With(s.checkPerm(dataprovider.PermAdminViewDefender)).Get(webDefenderHostsPath, getDefenderHosts)
 			router.With(s.checkPerm(dataprovider.PermAdminManageDefender)).Delete(webDefenderHostsPath+"/{id}",
 				deleteDefenderHostByID)
+			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules), s.refreshCookie).
+				Get(webAdminEventActionsPath, s.handleWebGetEventActions)
+			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules), s.refreshCookie).
+				Get(webAdminEventActionPath, s.handleWebAddEventActionGet)
+			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Post(webAdminEventActionPath,
+				s.handleWebAddEventActionPost)
+			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules), s.refreshCookie).
+				Get(webAdminEventActionPath+"/{name}", s.handleWebUpdateEventActionGet)
+			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Post(webAdminEventActionPath+"/{name}",
+				s.handleWebUpdateEventActionPost)
+			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules), verifyCSRFHeader).
+				Delete(webAdminEventActionPath+"/{name}", deleteEventAction)
+			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules), s.refreshCookie).
+				Get(webAdminEventRulesPath, s.handleWebGetEventRules)
+			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules), s.refreshCookie).
+				Get(webAdminEventRulePath, s.handleWebAddEventRuleGet)
+			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Post(webAdminEventRulePath,
+				s.handleWebAddEventRulePost)
+			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules), s.refreshCookie).
+				Get(webAdminEventRulePath+"/{name}", s.handleWebUpdateEventRuleGet)
+			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Post(webAdminEventRulePath+"/{name}",
+				s.handleWebUpdateEventRulePost)
+			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules), verifyCSRFHeader).
+				Delete(webAdminEventRulePath+"/{name}", deleteEventRule)
 		})
 	}
 }

@@ -4403,14 +4403,14 @@ func TestQuotaScan(t *testing.T) {
 }
 
 func TestMultipleQuotaScans(t *testing.T) {
-	res := common.QuotaScans.AddUserQuotaScan(defaultUsername)
+	res := dataprovider.QuotaScans.AddUserQuotaScan(defaultUsername)
 	assert.True(t, res)
-	res = common.QuotaScans.AddUserQuotaScan(defaultUsername)
+	res = dataprovider.QuotaScans.AddUserQuotaScan(defaultUsername)
 	assert.False(t, res, "add quota must fail if another scan is already active")
-	assert.True(t, common.QuotaScans.RemoveUserQuotaScan(defaultUsername))
-	activeScans := common.QuotaScans.GetUsersQuotaScans()
+	assert.True(t, dataprovider.QuotaScans.RemoveUserQuotaScan(defaultUsername))
+	activeScans := dataprovider.QuotaScans.GetUsersQuotaScans()
 	assert.Equal(t, 0, len(activeScans))
-	assert.False(t, common.QuotaScans.RemoveUserQuotaScan(defaultUsername))
+	assert.False(t, dataprovider.QuotaScans.RemoveUserQuotaScan(defaultUsername))
 }
 
 func TestQuotaLimits(t *testing.T) {
@@ -6762,15 +6762,15 @@ func TestVirtualFolderQuotaScan(t *testing.T) {
 
 func TestVFolderMultipleQuotaScan(t *testing.T) {
 	folderName := "folder_name"
-	res := common.QuotaScans.AddVFolderQuotaScan(folderName)
+	res := dataprovider.QuotaScans.AddVFolderQuotaScan(folderName)
 	assert.True(t, res)
-	res = common.QuotaScans.AddVFolderQuotaScan(folderName)
+	res = dataprovider.QuotaScans.AddVFolderQuotaScan(folderName)
 	assert.False(t, res)
-	res = common.QuotaScans.RemoveVFolderQuotaScan(folderName)
+	res = dataprovider.QuotaScans.RemoveVFolderQuotaScan(folderName)
 	assert.True(t, res)
-	activeScans := common.QuotaScans.GetVFoldersQuotaScans()
+	activeScans := dataprovider.QuotaScans.GetVFoldersQuotaScans()
 	assert.Len(t, activeScans, 0)
-	res = common.QuotaScans.RemoveVFolderQuotaScan(folderName)
+	res = dataprovider.QuotaScans.RemoveVFolderQuotaScan(folderName)
 	assert.False(t, res)
 }
 

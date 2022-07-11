@@ -351,5 +351,13 @@ func (s *Service) restoreDump(dump *dataprovider.BackupData) error {
 	if err != nil {
 		return fmt.Errorf("unable to restore API keys from file %#v: %v", s.LoadDataFrom, err)
 	}
+	err = httpd.RestoreEventActions(dump.EventActions, s.LoadDataFrom, s.LoadDataMode, dataprovider.ActionExecutorSystem, "")
+	if err != nil {
+		return fmt.Errorf("unable to restore event actions from file %#v: %v", s.LoadDataFrom, err)
+	}
+	err = httpd.RestoreEventRules(dump.EventRules, s.LoadDataFrom, s.LoadDataMode, dataprovider.ActionExecutorSystem, "")
+	if err != nil {
+		return fmt.Errorf("unable to restore event rules from file %#v: %v", s.LoadDataFrom, err)
+	}
 	return nil
 }

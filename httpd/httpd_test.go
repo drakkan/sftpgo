@@ -109,6 +109,8 @@ const (
 	fsEventsPath                   = "/api/v2/events/fs"
 	providerEventsPath             = "/api/v2/events/provider"
 	sharesPath                     = "/api/v2/shares"
+	eventActionsPath               = "/api/v2/eventactions"
+	eventRulesPath                 = "/api/v2/eventrules"
 	healthzPath                    = "/healthz"
 	robotsTxtPath                  = "/robots.txt"
 	webBasePath                    = "/web"
@@ -158,6 +160,10 @@ const (
 	webClientForgotPwdPath         = "/web/client/forgot-password"
 	webClientResetPwdPath          = "/web/client/reset-password"
 	webClientViewPDFPath           = "/web/client/viewpdf"
+	webAdminEventRulesPath         = "/web/admin/eventrules"
+	webAdminEventRulePath          = "/web/admin/eventrule"
+	webAdminEventActionsPath       = "/web/admin/eventactions"
+	webAdminEventActionPath        = "/web/admin/eventaction"
 	httpBaseURL                    = "http://127.0.0.1:8081"
 	defaultRemoteAddr              = "127.0.0.1:1234"
 	sftpServerAddr                 = "127.0.0.1:8022"
@@ -1017,6 +1023,598 @@ func TestGroupSettingsOverride(t *testing.T) {
 	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName1}, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName2}, http.StatusOK)
+	assert.NoError(t, err)
+}
+
+func TestBasicActionRulesHandling(t *testing.T) {
+	actionName := "test action"
+	a := dataprovider.BaseEventAction{
+		Name:        actionName,
+		Description: "test description",
+		Type:        dataprovider.ActionTypeBackup,
+		Options:     dataprovider.BaseEventActionOptions{},
+	}
+	action, _, err := httpdtest.AddEventAction(a, http.StatusCreated)
+	assert.NoError(t, err)
+	// adding the same action should fail
+	_, _, err = httpdtest.AddEventAction(a, http.StatusInternalServerError)
+	assert.NoError(t, err)
+	actionGet, _, err := httpdtest.GetEventActionByName(actionName, http.StatusOK)
+	assert.NoError(t, err)
+	actions, _, err := httpdtest.GetEventActions(0, 0, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Greater(t, len(actions), 0)
+	found := false
+	for _, ac := range actions {
+		if ac.Name == actionName {
+			assert.Equal(t, actionGet, ac)
+			found = true
+		}
+	}
+	assert.True(t, found)
+	a.Description = "new description"
+	a.Type = dataprovider.ActionTypeCommand
+	a.Options = dataprovider.BaseEventActionOptions{
+		CmdConfig: dataprovider.EventActionCommandConfig{
+			Cmd:     filepath.Join(os.TempDir(), "test_cmd"),
+			Timeout: 20,
+			EnvVars: []dataprovider.KeyValue{
+				{
+					Key:   "NAME",
+					Value: "VALUE",
+				},
+			},
+		},
+	}
+	_, _, err = httpdtest.UpdateEventAction(a, http.StatusOK)
+	assert.NoError(t, err)
+	// invalid type
+	a.Type = 1000
+	_, _, err = httpdtest.UpdateEventAction(a, http.StatusBadRequest)
+	assert.NoError(t, err)
+
+	a.Type = dataprovider.ActionTypeEmail
+	a.Options = dataprovider.BaseEventActionOptions{
+		EmailConfig: dataprovider.EventActionEmailConfig{
+			Recipients: []string{"email@example.com"},
+			Subject:    "Event: {{Event}}",
+			Body:       "test mail body",
+		},
+	}
+
+	_, _, err = httpdtest.UpdateEventAction(a, http.StatusOK)
+	assert.NoError(t, err)
+
+	a.Type = dataprovider.ActionTypeHTTP
+	a.Options = dataprovider.BaseEventActionOptions{
+		HTTPConfig: dataprovider.EventActionHTTPConfig{
+			Endpoint: "https://localhost:1234",
+			Username: defaultUsername,
+			Password: kms.NewPlainSecret(defaultPassword),
+			Headers: []dataprovider.KeyValue{
+				{
+					Key:   "Content-Type",
+					Value: "application/json",
+				},
+			},
+			Timeout:       10,
+			SkipTLSVerify: true,
+			Method:        http.MethodPost,
+			QueryParameters: []dataprovider.KeyValue{
+				{
+					Key:   "a",
+					Value: "b",
+				},
+			},
+			Body: `{"event":"{{Event}}","name":"{{Name}}"}`,
+		},
+	}
+	action, _, err = httpdtest.UpdateEventAction(a, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, action.Options.HTTPConfig.Password.GetStatus())
+	assert.NotEmpty(t, action.Options.HTTPConfig.Password.GetPayload())
+	assert.Empty(t, action.Options.HTTPConfig.Password.GetKey())
+	assert.Empty(t, action.Options.HTTPConfig.Password.GetAdditionalData())
+	// update again and check that the password was preserved
+	dbAction, err := dataprovider.EventActionExists(actionName)
+	assert.NoError(t, err)
+	action.Options.HTTPConfig.Password = kms.NewSecret(
+		dbAction.Options.HTTPConfig.Password.GetStatus(),
+		dbAction.Options.HTTPConfig.Password.GetPayload(), "", "")
+	action, _, err = httpdtest.UpdateEventAction(action, http.StatusOK)
+	assert.NoError(t, err)
+	dbAction, err = dataprovider.EventActionExists(actionName)
+	assert.NoError(t, err)
+	err = dbAction.Options.HTTPConfig.Password.Decrypt()
+	assert.NoError(t, err)
+	assert.Equal(t, defaultPassword, dbAction.Options.HTTPConfig.Password.GetPayload())
+
+	r := dataprovider.EventRule{
+		Name:        "test rule name",
+		Description: "",
+		Trigger:     dataprovider.EventTriggerFsEvent,
+		Conditions: dataprovider.EventConditions{
+			FsEvents: []string{"upload"},
+			Options: dataprovider.ConditionOptions{
+				MinFileSize: 1024 * 1024,
+			},
+		},
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: actionName,
+				},
+				Order: 1,
+				Options: dataprovider.EventActionOptions{
+					IsFailureAction: false,
+					StopOnFailure:   true,
+					ExecuteSync:     true,
+				},
+			},
+		},
+	}
+	rule, _, err := httpdtest.AddEventRule(r, http.StatusCreated)
+	assert.NoError(t, err)
+	// adding the same rule should fail
+	_, _, err = httpdtest.AddEventRule(r, http.StatusInternalServerError)
+	assert.NoError(t, err)
+
+	rule.Description = "new rule desc"
+	rule.Trigger = 1000
+	_, _, err = httpdtest.UpdateEventRule(rule, http.StatusBadRequest)
+	assert.NoError(t, err)
+	rule.Trigger = dataprovider.EventTriggerFsEvent
+	rule, _, err = httpdtest.UpdateEventRule(rule, http.StatusOK)
+	assert.NoError(t, err)
+
+	ruleGet, _, err := httpdtest.GetEventRuleByName(rule.Name, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, ruleGet.Actions, 1) {
+		if assert.NotNil(t, ruleGet.Actions[0].BaseEventAction.Options.HTTPConfig.Password) {
+			assert.Equal(t, sdkkms.SecretStatusSecretBox, ruleGet.Actions[0].BaseEventAction.Options.HTTPConfig.Password.GetStatus())
+			assert.NotEmpty(t, ruleGet.Actions[0].BaseEventAction.Options.HTTPConfig.Password.GetPayload())
+			assert.Empty(t, ruleGet.Actions[0].BaseEventAction.Options.HTTPConfig.Password.GetKey())
+			assert.Empty(t, ruleGet.Actions[0].BaseEventAction.Options.HTTPConfig.Password.GetAdditionalData())
+		}
+	}
+	rules, _, err := httpdtest.GetEventRules(0, 0, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Greater(t, len(rules), 0)
+	found = false
+	for _, ru := range rules {
+		if ru.Name == rule.Name {
+			assert.Equal(t, ruleGet, ru)
+			found = true
+		}
+	}
+	assert.True(t, found)
+
+	_, err = httpdtest.RemoveEventRule(rule, http.StatusOK)
+	assert.NoError(t, err)
+	_, _, err = httpdtest.UpdateEventRule(rule, http.StatusNotFound)
+	assert.NoError(t, err)
+	_, _, err = httpdtest.GetEventRuleByName(rule.Name, http.StatusNotFound)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventRule(rule, http.StatusNotFound)
+	assert.NoError(t, err)
+
+	_, err = httpdtest.RemoveEventAction(action, http.StatusOK)
+	assert.NoError(t, err)
+	_, _, err = httpdtest.UpdateEventAction(action, http.StatusNotFound)
+	assert.NoError(t, err)
+	_, _, err = httpdtest.GetEventActionByName(actionName, http.StatusNotFound)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action, http.StatusNotFound)
+	assert.NoError(t, err)
+}
+
+func TestActionRuleRelations(t *testing.T) {
+	a1 := dataprovider.BaseEventAction{
+		Name:        "action1",
+		Description: "test description",
+		Type:        dataprovider.ActionTypeBackup,
+		Options:     dataprovider.BaseEventActionOptions{},
+	}
+	a2 := dataprovider.BaseEventAction{
+		Name:    "action2",
+		Type:    dataprovider.ActionTypeTransferQuotaReset,
+		Options: dataprovider.BaseEventActionOptions{},
+	}
+	a3 := dataprovider.BaseEventAction{
+		Name: "action3",
+		Type: dataprovider.ActionTypeEmail,
+		Options: dataprovider.BaseEventActionOptions{
+			EmailConfig: dataprovider.EventActionEmailConfig{
+				Recipients: []string{"test@example.net"},
+				Subject:    "test subject",
+				Body:       "test body",
+			},
+		},
+	}
+	action1, _, err := httpdtest.AddEventAction(a1, http.StatusCreated)
+	assert.NoError(t, err)
+	action2, _, err := httpdtest.AddEventAction(a2, http.StatusCreated)
+	assert.NoError(t, err)
+	action3, _, err := httpdtest.AddEventAction(a3, http.StatusCreated)
+	assert.NoError(t, err)
+
+	r1 := dataprovider.EventRule{
+		Name:        "rule1",
+		Description: "",
+		Trigger:     dataprovider.EventTriggerProviderEvent,
+		Conditions: dataprovider.EventConditions{
+			ProviderEvents: []string{"add"},
+		},
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action3.Name,
+				},
+				Order: 2,
+				Options: dataprovider.EventActionOptions{
+					IsFailureAction: true,
+				},
+			},
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action1.Name,
+				},
+				Order: 1,
+			},
+		},
+	}
+	rule1, _, err := httpdtest.AddEventRule(r1, http.StatusCreated)
+	assert.NoError(t, err)
+	if assert.Len(t, rule1.Actions, 2) {
+		assert.Equal(t, action1.Name, rule1.Actions[0].Name)
+		assert.Equal(t, 1, rule1.Actions[0].Order)
+		assert.Equal(t, action3.Name, rule1.Actions[1].Name)
+		assert.Equal(t, 2, rule1.Actions[1].Order)
+		assert.True(t, rule1.Actions[1].Options.IsFailureAction)
+	}
+
+	r2 := dataprovider.EventRule{
+		Name:        "rule2",
+		Description: "",
+		Trigger:     dataprovider.EventTriggerSchedule,
+		Conditions: dataprovider.EventConditions{
+			Schedules: []dataprovider.Schedule{
+				{
+					Hours:      "1",
+					DayOfWeek:  "*",
+					DayOfMonth: "*",
+					Month:      "*",
+				},
+			},
+		},
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action3.Name,
+				},
+				Order: 2,
+				Options: dataprovider.EventActionOptions{
+					IsFailureAction: true,
+				},
+			},
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action2.Name,
+				},
+				Order: 1,
+			},
+		},
+	}
+	rule2, _, err := httpdtest.AddEventRule(r2, http.StatusCreated)
+	assert.NoError(t, err)
+	if assert.Len(t, rule1.Actions, 2) {
+		assert.Equal(t, action2.Name, rule2.Actions[0].Name)
+		assert.Equal(t, 1, rule2.Actions[0].Order)
+		assert.Equal(t, action3.Name, rule2.Actions[1].Name)
+		assert.Equal(t, 2, rule2.Actions[1].Order)
+		assert.True(t, rule2.Actions[1].Options.IsFailureAction)
+	}
+	// check the references
+	action1, _, err = httpdtest.GetEventActionByName(action1.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, action1.Rules, 1)
+	assert.True(t, util.Contains(action1.Rules, rule1.Name))
+	action2, _, err = httpdtest.GetEventActionByName(action2.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, action2.Rules, 1)
+	assert.True(t, util.Contains(action2.Rules, rule2.Name))
+	action3, _, err = httpdtest.GetEventActionByName(action3.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, action3.Rules, 2)
+	assert.True(t, util.Contains(action3.Rules, rule1.Name))
+	assert.True(t, util.Contains(action3.Rules, rule2.Name))
+	// referenced actions cannot be removed
+	_, err = httpdtest.RemoveEventAction(action1, http.StatusBadRequest)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action2, http.StatusBadRequest)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action3, http.StatusBadRequest)
+	assert.NoError(t, err)
+	// remove action3 from rule2
+	r2.Actions = []dataprovider.EventAction{
+		{
+			BaseEventAction: dataprovider.BaseEventAction{
+				Name: action2.Name,
+			},
+			Order: 10,
+		},
+	}
+	rule2, _, err = httpdtest.UpdateEventRule(r2, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, rule2.Actions, 1) {
+		assert.Equal(t, action2.Name, rule2.Actions[0].Name)
+		assert.Equal(t, 10, rule2.Actions[0].Order)
+	}
+	// check the updated relation
+	action3, _, err = httpdtest.GetEventActionByName(action3.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, action3.Rules, 1)
+	assert.True(t, util.Contains(action3.Rules, rule1.Name))
+
+	_, err = httpdtest.RemoveEventRule(rule1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventRule(rule2, http.StatusOK)
+	assert.NoError(t, err)
+	// no relations anymore
+	action1, _, err = httpdtest.GetEventActionByName(action1.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, action1.Rules, 0)
+	action2, _, err = httpdtest.GetEventActionByName(action2.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, action2.Rules, 0)
+	action3, _, err = httpdtest.GetEventActionByName(action3.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, action3.Rules, 0)
+
+	_, err = httpdtest.RemoveEventAction(action1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action2, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action3, http.StatusOK)
+	assert.NoError(t, err)
+}
+
+func TestEventActionValidation(t *testing.T) {
+	action := dataprovider.BaseEventAction{
+		Name: "",
+	}
+	_, resp, err := httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "name is mandatory")
+	action = dataprovider.BaseEventAction{
+		Name: "n",
+		Type: -1,
+	}
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "invalid action type")
+	action.Type = dataprovider.ActionTypeHTTP
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "HTTP endpoint is required")
+	action.Options.HTTPConfig.Endpoint = "abc"
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "invalid HTTP endpoint schema")
+	action.Options.HTTPConfig.Endpoint = "http://localhost"
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "invalid HTTP timeout")
+	action.Options.HTTPConfig.Timeout = 20
+	action.Options.HTTPConfig.Headers = []dataprovider.KeyValue{
+		{
+			Key:   "",
+			Value: "",
+		},
+	}
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "invalid HTTP headers")
+	action.Options.HTTPConfig.Headers = []dataprovider.KeyValue{
+		{
+			Key:   "Content-Type",
+			Value: "application/json",
+		},
+	}
+	action.Options.HTTPConfig.Password = kms.NewSecret(sdkkms.SecretStatusRedacted, "paylod", "", "")
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "cannot save HTTP configuration with a redacted secret")
+	action.Options.HTTPConfig.Password = nil
+	action.Options.HTTPConfig.Method = http.MethodDelete
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "unsupported HTTP method")
+	action.Options.HTTPConfig.Method = http.MethodGet
+	action.Options.HTTPConfig.QueryParameters = []dataprovider.KeyValue{
+		{
+			Key:   "a",
+			Value: "",
+		},
+	}
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "invalid HTTP query parameters")
+
+	action.Type = dataprovider.ActionTypeCommand
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "command is required")
+	action.Options.CmdConfig.Cmd = "relative"
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "invalid command, it must be an absolute path")
+	action.Options.CmdConfig.Cmd = filepath.Join(os.TempDir(), "cmd")
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "invalid command action timeout")
+	action.Options.CmdConfig.Timeout = 30
+	action.Options.CmdConfig.EnvVars = []dataprovider.KeyValue{
+		{
+			Key: "k",
+		},
+	}
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "invalid command env vars")
+
+	action.Type = dataprovider.ActionTypeEmail
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "at least one email recipient is required")
+	action.Options.EmailConfig.Recipients = []string{""}
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "invalid email recipients")
+	action.Options.EmailConfig.Recipients = []string{"a@a.com"}
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "email subject is required")
+	action.Options.EmailConfig.Subject = "subject"
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "email body is required")
+}
+
+func TestEventRuleValidation(t *testing.T) {
+	rule := dataprovider.EventRule{
+		Name: "",
+	}
+	_, resp, err := httpdtest.AddEventRule(rule, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "name is mandatory")
+	rule.Name = "r"
+	rule.Trigger = 1000
+	_, resp, err = httpdtest.AddEventRule(rule, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "invalid event rule trigger")
+	rule.Trigger = dataprovider.EventTriggerFsEvent
+	_, resp, err = httpdtest.AddEventRule(rule, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "at least one filesystem event is required")
+	rule.Conditions.FsEvents = []string{""}
+	_, resp, err = httpdtest.AddEventRule(rule, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "unsupported fs event")
+	rule.Conditions.FsEvents = []string{"upload"}
+	_, resp, err = httpdtest.AddEventRule(rule, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "at least one action is required")
+	rule.Actions = []dataprovider.EventAction{
+		{
+			BaseEventAction: dataprovider.BaseEventAction{
+				Name: "action1",
+			},
+			Order: 1,
+		},
+		{
+			BaseEventAction: dataprovider.BaseEventAction{
+				Name: "",
+			},
+		},
+	}
+	_, resp, err = httpdtest.AddEventRule(rule, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "name not specified")
+	rule.Actions = []dataprovider.EventAction{
+		{
+			BaseEventAction: dataprovider.BaseEventAction{
+				Name: "action",
+			},
+			Order: 1,
+		},
+		{
+			BaseEventAction: dataprovider.BaseEventAction{
+				Name: "action",
+			},
+		},
+	}
+	_, resp, err = httpdtest.AddEventRule(rule, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "duplicated action")
+	rule.Actions = []dataprovider.EventAction{
+		{
+			BaseEventAction: dataprovider.BaseEventAction{
+				Name: "action11",
+			},
+			Order: 1,
+		},
+		{
+			BaseEventAction: dataprovider.BaseEventAction{
+				Name: "action12",
+			},
+			Order: 1,
+		},
+	}
+	_, resp, err = httpdtest.AddEventRule(rule, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "duplicated order")
+	rule.Actions = []dataprovider.EventAction{
+		{
+			BaseEventAction: dataprovider.BaseEventAction{
+				Name: "action111",
+			},
+			Order: 1,
+			Options: dataprovider.EventActionOptions{
+				IsFailureAction: true,
+			},
+		},
+		{
+			BaseEventAction: dataprovider.BaseEventAction{
+				Name: "action112",
+			},
+			Order: 2,
+			Options: dataprovider.EventActionOptions{
+				IsFailureAction: true,
+			},
+		},
+	}
+	_, resp, err = httpdtest.AddEventRule(rule, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "at least a non-failure action is required")
+	rule.Actions = []dataprovider.EventAction{
+		{
+			BaseEventAction: dataprovider.BaseEventAction{
+				Name: "action1234",
+			},
+			Order: 1,
+			Options: dataprovider.EventActionOptions{
+				IsFailureAction: false,
+			},
+		},
+	}
+	rule.Trigger = dataprovider.EventTriggerProviderEvent
+	_, resp, err = httpdtest.AddEventRule(rule, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "at least one provider event is required")
+	rule.Conditions.ProviderEvents = []string{""}
+	_, resp, err = httpdtest.AddEventRule(rule, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "unsupported provider event")
+	rule.Trigger = dataprovider.EventTriggerSchedule
+	_, resp, err = httpdtest.AddEventRule(rule, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "at least one schedule is required")
+	rule.Conditions.Schedules = []dataprovider.Schedule{
+		{},
+	}
+	_, resp, err = httpdtest.AddEventRule(rule, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "invalid schedule")
+	rule.Conditions.Schedules = []dataprovider.Schedule{
+		{
+			Hours:      "3",
+			DayOfWeek:  "*",
+			DayOfMonth: "*",
+			Month:      "*",
+		},
+	}
+	_, _, err = httpdtest.AddEventRule(rule, http.StatusInternalServerError)
 	assert.NoError(t, err)
 }
 
@@ -4823,6 +5421,10 @@ func TestProviderErrors(t *testing.T) {
 	assert.NoError(t, err)
 	_, _, err = httpdtest.GetAPIKeys(1, 0, http.StatusInternalServerError)
 	assert.NoError(t, err)
+	_, _, err = httpdtest.GetEventActions(1, 0, http.StatusInternalServerError)
+	assert.NoError(t, err)
+	_, _, err = httpdtest.GetEventRules(1, 0, http.StatusInternalServerError)
+	assert.NoError(t, err)
 	req, err := http.NewRequest(http.MethodGet, userSharesPath, nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, userAPIToken)
@@ -4939,6 +5541,53 @@ func TestProviderErrors(t *testing.T) {
 	assert.NoError(t, err)
 	_, _, err = httpdtest.Loaddata(backupFilePath, "", "", http.StatusInternalServerError)
 	assert.NoError(t, err)
+	backupData = dataprovider.BackupData{
+		EventActions: []dataprovider.BaseEventAction{
+			{
+				Name: "quota reset",
+				Type: dataprovider.ActionTypeFolderQuotaReset,
+			},
+		},
+	}
+	backupContent, err = json.Marshal(backupData)
+	assert.NoError(t, err)
+	err = os.WriteFile(backupFilePath, backupContent, os.ModePerm)
+	assert.NoError(t, err)
+	_, _, err = httpdtest.Loaddata(backupFilePath, "", "", http.StatusInternalServerError)
+	assert.NoError(t, err)
+	backupData = dataprovider.BackupData{
+		EventRules: []dataprovider.EventRule{
+			{
+				Name:    "quota reset",
+				Trigger: dataprovider.EventTriggerSchedule,
+				Conditions: dataprovider.EventConditions{
+					Schedules: []dataprovider.Schedule{
+						{
+							Hours:      "2",
+							DayOfWeek:  "1",
+							DayOfMonth: "2",
+							Month:      "3",
+						},
+					},
+				},
+				Actions: []dataprovider.EventAction{
+					{
+						BaseEventAction: dataprovider.BaseEventAction{
+							Name: "unknown action",
+						},
+						Order: 1,
+					},
+				},
+			},
+		},
+	}
+	backupContent, err = json.Marshal(backupData)
+	assert.NoError(t, err)
+	err = os.WriteFile(backupFilePath, backupContent, os.ModePerm)
+	assert.NoError(t, err)
+	_, _, err = httpdtest.Loaddata(backupFilePath, "", "", http.StatusInternalServerError)
+	assert.NoError(t, err)
+
 	err = os.Remove(backupFilePath)
 	assert.NoError(t, err)
 	req, err = http.NewRequest(http.MethodGet, webUserPath, nil)
@@ -4972,6 +5621,41 @@ func TestProviderErrors(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusInternalServerError, rr)
 	req, err = http.NewRequest(http.MethodGet, webTemplateFolder+"?from=afolder", nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, testServerToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+	req, err = http.NewRequest(http.MethodGet, path.Join(webAdminEventActionPath, "actionname"), nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, testServerToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminEventActionPath, "actionname"), bytes.NewBuffer(nil))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, testServerToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+	req, err = http.NewRequest(http.MethodGet, webAdminEventActionsPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, testServerToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+	req, err = http.NewRequest(http.MethodGet, path.Join(webAdminEventRulePath, "rulename"), nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, testServerToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminEventRulePath, "rulename"), bytes.NewBuffer(nil))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, testServerToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+	req, err = http.NewRequest(http.MethodGet, webAdminEventRulesPath+"?qlimit=10", nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, testServerToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+	req, err = http.NewRequest(http.MethodGet, webAdminEventRulePath, nil)
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, testServerToken)
 	rr = executeRequest(req)
@@ -5462,6 +6146,39 @@ func TestLoaddata(t *testing.T) {
 		Paths:    []string{"/"},
 		Username: user.Username,
 	}
+	action := dataprovider.BaseEventAction{
+		ID:   81,
+		Name: "test restore action",
+		Type: dataprovider.ActionTypeHTTP,
+		Options: dataprovider.BaseEventActionOptions{
+			HTTPConfig: dataprovider.EventActionHTTPConfig{
+				Endpoint:      "https://localhost:4567/action",
+				Username:      defaultUsername,
+				Password:      kms.NewPlainSecret(defaultPassword),
+				Timeout:       10,
+				SkipTLSVerify: true,
+				Method:        http.MethodPost,
+				Body:          `{"event":"{{Event}}","name":"{{Name}}"}`,
+			},
+		},
+	}
+	rule := dataprovider.EventRule{
+		ID:          100,
+		Name:        "test rule restore",
+		Description: "",
+		Trigger:     dataprovider.EventTriggerFsEvent,
+		Conditions: dataprovider.EventConditions{
+			FsEvents: []string{"download"},
+		},
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action.Name,
+				},
+				Order: 1,
+			},
+		},
+	}
 	backupData := dataprovider.BackupData{}
 	backupData.Users = append(backupData.Users, user)
 	backupData.Groups = append(backupData.Groups, group)
@@ -5483,6 +6200,8 @@ func TestLoaddata(t *testing.T) {
 	}
 	backupData.APIKeys = append(backupData.APIKeys, apiKey)
 	backupData.Shares = append(backupData.Shares, share)
+	backupData.EventActions = append(backupData.EventActions, action)
+	backupData.EventRules = append(backupData.EventRules, rule)
 	backupContent, err := json.Marshal(backupData)
 	assert.NoError(t, err)
 	backupFilePath := filepath.Join(backupsPath, "backup.json")
@@ -5504,7 +6223,7 @@ func TestLoaddata(t *testing.T) {
 		err = os.Chmod(backupFilePath, 0644)
 		assert.NoError(t, err)
 	}
-	// add user, group, folder, admin, API key, share from backup
+	// add objects from backup
 	_, resp, err := httpdtest.Loaddata(backupFilePath, "1", "", http.StatusOK)
 	assert.NoError(t, err, string(resp))
 	// update from backup
@@ -5529,6 +6248,20 @@ func TestLoaddata(t *testing.T) {
 	apiKey, _, err = httpdtest.GetAPIKeyByID(apiKey.KeyID, http.StatusOK)
 	assert.NoError(t, err)
 
+	action, _, err = httpdtest.GetEventActionByName(action.Name, http.StatusOK)
+	assert.NoError(t, err)
+
+	rule, _, err = httpdtest.GetEventRuleByName(rule.Name, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, rule.Actions, 1) {
+		if assert.NotNil(t, rule.Actions[0].BaseEventAction.Options.HTTPConfig.Password) {
+			assert.Equal(t, sdkkms.SecretStatusSecretBox, rule.Actions[0].BaseEventAction.Options.HTTPConfig.Password.GetStatus())
+			assert.NotEmpty(t, rule.Actions[0].BaseEventAction.Options.HTTPConfig.Password.GetPayload())
+			assert.Empty(t, rule.Actions[0].BaseEventAction.Options.HTTPConfig.Password.GetKey())
+			assert.Empty(t, rule.Actions[0].BaseEventAction.Options.HTTPConfig.Password.GetAdditionalData())
+		}
+	}
+
 	response, _, err := httpdtest.Dumpdata("", "1", "0", http.StatusOK)
 	assert.NoError(t, err)
 	var dumpedData dataprovider.BackupData
@@ -5550,7 +6283,21 @@ func TestLoaddata(t *testing.T) {
 	if assert.Len(t, dumpedData.Groups, 1) {
 		assert.Equal(t, len(group.VirtualFolders), len(dumpedData.Groups[0].VirtualFolders))
 	}
-
+	found = false
+	for _, a := range dumpedData.EventActions {
+		if a.Name == action.Name {
+			found = true
+		}
+	}
+	assert.True(t, found)
+	found = false
+	for _, r := range dumpedData.EventRules {
+		if r.Name == rule.Name {
+			found = true
+			assert.Len(t, r.Actions, 1)
+		}
+	}
+	assert.True(t, found)
 	folder, _, err := httpdtest.GetFolderByName(folderName, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Equal(t, mappedPath, folder.MappedPath)
@@ -5566,6 +6313,10 @@ func TestLoaddata(t *testing.T) {
 	_, err = httpdtest.RemoveGroup(group, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveAPIKey(apiKey, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventRule(rule, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action, http.StatusOK)
 	assert.NoError(t, err)
 
 	err = os.Remove(backupFilePath)
@@ -5616,10 +6367,46 @@ func TestLoaddataMode(t *testing.T) {
 		Paths:    []string{"/"},
 		Username: user.Username,
 	}
+	action := dataprovider.BaseEventAction{
+		ID:          81,
+		Name:        "test restore action data mode",
+		Description: "action desc",
+		Type:        dataprovider.ActionTypeHTTP,
+		Options: dataprovider.BaseEventActionOptions{
+			HTTPConfig: dataprovider.EventActionHTTPConfig{
+				Endpoint:      "https://localhost:4567/mode",
+				Username:      defaultUsername,
+				Password:      kms.NewPlainSecret(defaultPassword),
+				Timeout:       10,
+				SkipTLSVerify: true,
+				Method:        http.MethodPost,
+				Body:          `{"event":"{{Event}}","name":"{{Name}}"}`,
+			},
+		},
+	}
+	rule := dataprovider.EventRule{
+		ID:          100,
+		Name:        "test rule restore data mode",
+		Description: "rule desc",
+		Trigger:     dataprovider.EventTriggerFsEvent,
+		Conditions: dataprovider.EventConditions{
+			FsEvents: []string{"mkdir"},
+		},
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action.Name,
+				},
+				Order: 1,
+			},
+		},
+	}
 	backupData := dataprovider.BackupData{}
 	backupData.Users = append(backupData.Users, user)
 	backupData.Groups = append(backupData.Groups, group)
 	backupData.Admins = append(backupData.Admins, admin)
+	backupData.EventActions = append(backupData.EventActions, action)
+	backupData.EventRules = append(backupData.EventRules, rule)
 	backupData.Folders = []vfs.BaseVirtualFolder{
 		{
 			Name:            folderName,
@@ -5681,6 +6468,20 @@ func TestLoaddataMode(t *testing.T) {
 	err = dataprovider.UpdateShare(&share, "", "")
 	assert.NoError(t, err)
 
+	action, _, err = httpdtest.GetEventActionByName(action.Name, http.StatusOK)
+	assert.NoError(t, err)
+	oldActionDesc := action.Description
+	action.Description = "new action description"
+	action, _, err = httpdtest.UpdateEventAction(action, http.StatusOK)
+	assert.NoError(t, err)
+
+	rule, _, err = httpdtest.GetEventRuleByName(rule.Name, http.StatusOK)
+	assert.NoError(t, err)
+	oldRuleDesc := rule.Description
+	rule.Description = "new rule description"
+	rule, _, err = httpdtest.UpdateEventRule(rule, http.StatusOK)
+	assert.NoError(t, err)
+
 	backupData.Folders = []vfs.BaseVirtualFolder{
 		{
 			MappedPath: mappedPath,
@@ -5699,6 +6500,12 @@ func TestLoaddataMode(t *testing.T) {
 	assert.Equal(t, 456, folder.UsedQuotaFiles)
 	assert.Equal(t, int64(789), folder.LastQuotaUpdate)
 	assert.Len(t, folder.Users, 0)
+	action, _, err = httpdtest.GetEventActionByName(action.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.NotEqual(t, oldActionDesc, action.Description)
+	rule, _, err = httpdtest.GetEventRuleByName(rule.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.NotEqual(t, oldRuleDesc, rule.Description)
 
 	c := common.NewBaseConnection("connID", common.ProtocolFTP, "", "", user)
 	fakeConn := &fakeConnection{
@@ -5743,6 +6550,10 @@ func TestLoaddataMode(t *testing.T) {
 	_, err = httpdtest.RemoveFolder(folder, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveAPIKey(apiKey, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventRule(rule, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.Remove(backupFilePath)
 	assert.NoError(t, err)
@@ -5907,6 +6718,99 @@ func TestAddFolderInvalidJsonMock(t *testing.T) {
 	setBearerForReq(req, token)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
+}
+
+func TestAddEventRuleInvalidJsonMock(t *testing.T) {
+	token, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, eventActionsPath, bytes.NewBuffer([]byte("invalid json")))
+	require.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	req, err = http.NewRequest(http.MethodPost, eventRulesPath, bytes.NewBuffer([]byte("invalid json")))
+	require.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+}
+
+func TestEventRuleErrorsMock(t *testing.T) {
+	token, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	reqBody := bytes.NewBuffer([]byte("invalid json body"))
+
+	req, err := http.NewRequest(http.MethodGet, eventActionsPath+"?limit=a", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	req, err = http.NewRequest(http.MethodGet, eventRulesPath+"?limit=a", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	a := dataprovider.BaseEventAction{
+		Name:        "action name",
+		Description: "test description",
+		Type:        dataprovider.ActionTypeBackup,
+		Options:     dataprovider.BaseEventActionOptions{},
+	}
+	action, _, err := httpdtest.AddEventAction(a, http.StatusCreated)
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodPut, path.Join(eventActionsPath, action.Name), reqBody)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	r := dataprovider.EventRule{
+		Name:    "test event rule",
+		Trigger: dataprovider.EventTriggerSchedule,
+		Conditions: dataprovider.EventConditions{
+			Schedules: []dataprovider.Schedule{
+				{
+					Hours:      "2",
+					DayOfWeek:  "*",
+					DayOfMonth: "*",
+					Month:      "*",
+				},
+			},
+		},
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action.Name,
+				},
+				Order: 1,
+			},
+		},
+	}
+	rule, _, err := httpdtest.AddEventRule(r, http.StatusCreated)
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodPut, path.Join(eventRulesPath, rule.Name), reqBody)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	rule.Actions[0].Name = "misssing action name"
+	asJSON, err := json.Marshal(rule)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPut, path.Join(eventRulesPath, rule.Name), bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+
+	_, err = httpdtest.RemoveEventRule(rule, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action, http.StatusOK)
+	assert.NoError(t, err)
 }
 
 func TestGroupErrorsMock(t *testing.T) {
@@ -8336,12 +9240,12 @@ func TestUpdateUserQuotaUsageMock(t *testing.T) {
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
-	assert.True(t, common.QuotaScans.AddUserQuotaScan(user.Username))
+	assert.True(t, dataprovider.QuotaScans.AddUserQuotaScan(user.Username))
 	req, _ = http.NewRequest(http.MethodPut, path.Join(quotasBasePath, "users", u.Username, "usage"), bytes.NewBuffer(userAsJSON))
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusConflict, rr)
-	assert.True(t, common.QuotaScans.RemoveUserQuotaScan(user.Username))
+	assert.True(t, dataprovider.QuotaScans.RemoveUserQuotaScan(user.Username))
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(userPath, user.Username), nil)
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
@@ -8613,12 +9517,12 @@ func TestStartQuotaScanMock(t *testing.T) {
 		assert.NoError(t, err)
 	}
 	// simulate a duplicate quota scan
-	common.QuotaScans.AddUserQuotaScan(user.Username)
+	dataprovider.QuotaScans.AddUserQuotaScan(user.Username)
 	req, _ = http.NewRequest(http.MethodPost, path.Join(quotasBasePath, "users", user.Username, "scan"), nil)
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusConflict, rr)
-	assert.True(t, common.QuotaScans.RemoveUserQuotaScan(user.Username))
+	assert.True(t, dataprovider.QuotaScans.RemoveUserQuotaScan(user.Username))
 
 	req, _ = http.NewRequest(http.MethodPost, path.Join(quotasBasePath, "users", user.Username, "scan"), nil)
 	setBearerForReq(req, token)
@@ -8732,13 +9636,13 @@ func TestUpdateFolderQuotaUsageMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
 
-	assert.True(t, common.QuotaScans.AddVFolderQuotaScan(folderName))
+	assert.True(t, dataprovider.QuotaScans.AddVFolderQuotaScan(folderName))
 	req, _ = http.NewRequest(http.MethodPut, path.Join(quotasBasePath, "folders", folder.Name, "usage"),
 		bytes.NewBuffer(folderAsJSON))
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusConflict, rr)
-	assert.True(t, common.QuotaScans.RemoveVFolderQuotaScan(folderName))
+	assert.True(t, dataprovider.QuotaScans.RemoveVFolderQuotaScan(folderName))
 
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(folderPath, folderName), nil)
 	setBearerForReq(req, token)
@@ -8767,12 +9671,12 @@ func TestStartFolderQuotaScanMock(t *testing.T) {
 		assert.NoError(t, err)
 	}
 	// simulate a duplicate quota scan
-	common.QuotaScans.AddVFolderQuotaScan(folderName)
+	dataprovider.QuotaScans.AddVFolderQuotaScan(folderName)
 	req, _ = http.NewRequest(http.MethodPost, path.Join(quotasBasePath, "folders", folder.Name, "scan"), nil)
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusConflict, rr)
-	assert.True(t, common.QuotaScans.RemoveVFolderQuotaScan(folderName))
+	assert.True(t, dataprovider.QuotaScans.RemoveVFolderQuotaScan(folderName))
 	// and now a real quota scan
 	_, err = os.Stat(mappedPath)
 	if err != nil && errors.Is(err, fs.ErrNotExist) {
@@ -17411,6 +18315,516 @@ func TestWebUserSFTPFsMock(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 }
 
+func TestWebEventAction(t *testing.T) {
+	webToken, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	apiToken, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	assert.NoError(t, err)
+	action := dataprovider.BaseEventAction{
+		ID:          81,
+		Name:        "web_action_http",
+		Description: "http web action",
+		Type:        dataprovider.ActionTypeHTTP,
+		Options: dataprovider.BaseEventActionOptions{
+			HTTPConfig: dataprovider.EventActionHTTPConfig{
+				Endpoint: "https://localhost:4567/action",
+				Username: defaultUsername,
+				Headers: []dataprovider.KeyValue{
+					{
+						Key:   "Content-Type",
+						Value: "application/json",
+					},
+				},
+				Password:      kms.NewPlainSecret(defaultPassword),
+				Timeout:       10,
+				SkipTLSVerify: true,
+				Method:        http.MethodPost,
+				QueryParameters: []dataprovider.KeyValue{
+					{
+						Key:   "param1",
+						Value: "value1",
+					},
+				},
+				Body: `{"event":"{{Event}}","name":"{{Name}}"}`,
+			},
+		},
+	}
+	form := make(url.Values)
+	form.Set("name", action.Name)
+	form.Set("description", action.Description)
+	form.Set("type", "a")
+	req, err := http.NewRequest(http.MethodPost, webAdminEventActionPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "invalid action type")
+	form.Set("type", fmt.Sprintf("%d", action.Type))
+	form.Set("http_timeout", "b")
+	req, err = http.NewRequest(http.MethodPost, webAdminEventActionPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "invalid http timeout")
+	form.Set("cmd_timeout", "20")
+	form.Set("http_timeout", fmt.Sprintf("%d", action.Options.HTTPConfig.Timeout))
+	form.Set("http_header_key0", action.Options.HTTPConfig.Headers[0].Key)
+	form.Set("http_header_val0", action.Options.HTTPConfig.Headers[0].Value)
+	form.Set("http_header_key1", action.Options.HTTPConfig.Headers[0].Key) // ignored
+	form.Set("http_query_key0", action.Options.HTTPConfig.QueryParameters[0].Key)
+	form.Set("http_query_val0", action.Options.HTTPConfig.QueryParameters[0].Value)
+	form.Set("http_body", action.Options.HTTPConfig.Body)
+	form.Set("http_skip_tls_verify", "1")
+	form.Set("http_username", action.Options.HTTPConfig.Username)
+	form.Set("http_password", action.Options.HTTPConfig.Password.GetPayload())
+	form.Set("http_method", action.Options.HTTPConfig.Method)
+	req, err = http.NewRequest(http.MethodPost, webAdminEventActionPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "unable to verify form token")
+	form.Set(csrfFormToken, csrfToken)
+	req, err = http.NewRequest(http.MethodPost, webAdminEventActionPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "HTTP endpoint is required")
+	form.Set("http_endpoint", action.Options.HTTPConfig.Endpoint)
+	req, err = http.NewRequest(http.MethodPost, webAdminEventActionPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+	// a new add will fail
+	req, err = http.NewRequest(http.MethodPost, webAdminEventActionPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// list actions
+	req, err = http.NewRequest(http.MethodGet, webAdminEventActionsPath+"?qlimit=a", nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// render add page
+	req, err = http.NewRequest(http.MethodGet, webAdminEventActionPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// render action page
+	req, err = http.NewRequest(http.MethodGet, path.Join(webAdminEventActionPath, action.Name), nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// missing action
+	req, err = http.NewRequest(http.MethodGet, path.Join(webAdminEventActionPath, action.Name+"1"), nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+	// check the action
+	actionGet, _, err := httpdtest.GetEventActionByName(action.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, action.Type, actionGet.Type)
+	assert.Equal(t, action.Description, actionGet.Description)
+	assert.Equal(t, action.Options.HTTPConfig.Body, actionGet.Options.HTTPConfig.Body)
+	assert.Equal(t, action.Options.HTTPConfig.Endpoint, actionGet.Options.HTTPConfig.Endpoint)
+	assert.Equal(t, action.Options.HTTPConfig.Headers, actionGet.Options.HTTPConfig.Headers)
+	assert.Equal(t, action.Options.HTTPConfig.Method, actionGet.Options.HTTPConfig.Method)
+	assert.Equal(t, action.Options.HTTPConfig.SkipTLSVerify, actionGet.Options.HTTPConfig.SkipTLSVerify)
+	assert.Equal(t, action.Options.HTTPConfig.Timeout, actionGet.Options.HTTPConfig.Timeout)
+	assert.Equal(t, action.Options.HTTPConfig.Username, actionGet.Options.HTTPConfig.Username)
+	assert.Equal(t, sdkkms.SecretStatusSecretBox, actionGet.Options.HTTPConfig.Password.GetStatus())
+	assert.NotEmpty(t, actionGet.Options.HTTPConfig.Password.GetPayload())
+	assert.Empty(t, actionGet.Options.HTTPConfig.Password.GetKey())
+	assert.Empty(t, actionGet.Options.HTTPConfig.Password.GetAdditionalData())
+	// update and check that the password is preserved
+	form.Set("http_password", redactedSecret)
+	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminEventActionPath, action.Name),
+		bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+	dbAction, err := dataprovider.EventActionExists(action.Name)
+	assert.NoError(t, err)
+	err = dbAction.Options.HTTPConfig.Password.Decrypt()
+	assert.NoError(t, err)
+	assert.Equal(t, defaultPassword, dbAction.Options.HTTPConfig.Password.GetPayload())
+	// change action type
+	action.Type = dataprovider.ActionTypeCommand
+	action.Options.CmdConfig = dataprovider.EventActionCommandConfig{
+		Cmd:     filepath.Join(os.TempDir(), "cmd"),
+		Timeout: 20,
+		EnvVars: []dataprovider.KeyValue{
+			{
+				Key:   "key",
+				Value: "val",
+			},
+		},
+	}
+	form.Set("type", fmt.Sprintf("%d", action.Type))
+	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminEventActionPath, action.Name),
+		bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "command is required")
+	form.Set("cmd_path", action.Options.CmdConfig.Cmd)
+	form.Set("cmd_timeout", "a")
+	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminEventActionPath, action.Name),
+		bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "invalid command timeout")
+	form.Set("cmd_timeout", fmt.Sprintf("%d", action.Options.CmdConfig.Timeout))
+	form.Set("cmd_env_key0", action.Options.CmdConfig.EnvVars[0].Key)
+	form.Set("cmd_env_val0", action.Options.CmdConfig.EnvVars[0].Value)
+	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminEventActionPath, action.Name),
+		bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+	// update a missing action
+	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminEventActionPath, action.Name+"1"),
+		bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+	// update with no csrf token
+	form.Del(csrfFormToken)
+	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminEventActionPath, action.Name),
+		bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "unable to verify form token")
+	form.Set(csrfFormToken, csrfToken)
+	// check the update
+	actionGet, _, err = httpdtest.GetEventActionByName(action.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, action.Type, actionGet.Type)
+	assert.Equal(t, action.Options.CmdConfig.Cmd, actionGet.Options.CmdConfig.Cmd)
+	assert.Equal(t, action.Options.CmdConfig.Timeout, actionGet.Options.CmdConfig.Timeout)
+	assert.Equal(t, action.Options.CmdConfig.EnvVars, actionGet.Options.CmdConfig.EnvVars)
+	assert.Equal(t, dataprovider.EventActionHTTPConfig{}, actionGet.Options.HTTPConfig)
+	// change action type again
+	action.Type = dataprovider.ActionTypeEmail
+	action.Options.EmailConfig = dataprovider.EventActionEmailConfig{
+		Recipients: []string{"address1@example.com", "address2@example.com"},
+		Subject:    "subject",
+		Body:       "body",
+	}
+	form.Set("type", fmt.Sprintf("%d", action.Type))
+	form.Set("email_recipients", "address1@example.com,  address2@example.com")
+	form.Set("email_subject", action.Options.EmailConfig.Subject)
+	form.Set("email_body", action.Options.EmailConfig.Body)
+	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminEventActionPath, action.Name),
+		bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+	// check the update
+	actionGet, _, err = httpdtest.GetEventActionByName(action.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, action.Type, actionGet.Type)
+	assert.Equal(t, action.Options.EmailConfig.Recipients, actionGet.Options.EmailConfig.Recipients)
+	assert.Equal(t, action.Options.EmailConfig.Subject, actionGet.Options.EmailConfig.Subject)
+	assert.Equal(t, action.Options.EmailConfig.Body, actionGet.Options.EmailConfig.Body)
+	assert.Equal(t, dataprovider.EventActionHTTPConfig{}, actionGet.Options.HTTPConfig)
+	assert.Empty(t, actionGet.Options.CmdConfig.Cmd)
+	assert.Equal(t, 0, actionGet.Options.CmdConfig.Timeout)
+	assert.Len(t, actionGet.Options.CmdConfig.EnvVars, 0)
+
+	req, err = http.NewRequest(http.MethodDelete, path.Join(webAdminEventActionPath, action.Name), nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, apiToken)
+	setCSRFHeaderForReq(req, csrfToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusFound, rr)
+	assert.Equal(t, webLoginPath, rr.Header().Get("Location"))
+
+	req, err = http.NewRequest(http.MethodDelete, path.Join(webAdminEventActionPath, action.Name), nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	setCSRFHeaderForReq(req, csrfToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+}
+
+func TestWebEventRule(t *testing.T) {
+	webToken, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	assert.NoError(t, err)
+	a := dataprovider.BaseEventAction{
+		Name: "web_action",
+		Type: dataprovider.ActionTypeBackup,
+	}
+	action, _, err := httpdtest.AddEventAction(a, http.StatusCreated)
+	assert.NoError(t, err)
+	rule := dataprovider.EventRule{
+		Name:        "test_web_rule",
+		Description: "rule added using web API",
+		Trigger:     dataprovider.EventTriggerSchedule,
+		Conditions: dataprovider.EventConditions{
+			Schedules: []dataprovider.Schedule{
+				{
+					Hours:      "0",
+					DayOfWeek:  "*",
+					DayOfMonth: "*",
+					Month:      "*",
+				},
+			},
+			Options: dataprovider.ConditionOptions{
+				Names: []dataprovider.ConditionPattern{
+					{
+						Pattern:      "u*",
+						InverseMatch: true,
+					},
+				},
+			},
+		},
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action.Name,
+				},
+				Order: 1,
+			},
+		},
+	}
+	form := make(url.Values)
+	form.Set("name", rule.Name)
+	form.Set("description", rule.Description)
+	form.Set("trigger", "a")
+	req, err := http.NewRequest(http.MethodPost, webAdminEventRulePath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "invalid trigger")
+	form.Set("trigger", fmt.Sprintf("%d", rule.Trigger))
+	form.Set("schedule_hour0", rule.Conditions.Schedules[0].Hours)
+	form.Set("schedule_day_of_week0", rule.Conditions.Schedules[0].DayOfWeek)
+	form.Set("schedule_day_of_month0", rule.Conditions.Schedules[0].DayOfMonth)
+	form.Set("schedule_month0", rule.Conditions.Schedules[0].Month)
+	form.Set("name_pattern0", rule.Conditions.Options.Names[0].Pattern)
+	form.Set("type_name_pattern0", "inverse")
+	req, err = http.NewRequest(http.MethodPost, webAdminEventRulePath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "invalid min file size")
+	form.Set("fs_min_size", "0")
+	req, err = http.NewRequest(http.MethodPost, webAdminEventRulePath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "invalid max file size")
+	form.Set("fs_max_size", "0")
+	form.Set("action_name0", action.Name)
+	form.Set("action_order0", "a")
+	req, err = http.NewRequest(http.MethodPost, webAdminEventRulePath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "invalid order")
+	form.Set("action_order0", "0")
+	req, err = http.NewRequest(http.MethodPost, webAdminEventRulePath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "unable to verify form token")
+	form.Set(csrfFormToken, csrfToken)
+	req, err = http.NewRequest(http.MethodPost, webAdminEventRulePath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+	// a new add will fail
+	req, err = http.NewRequest(http.MethodPost, webAdminEventRulePath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// list rules
+	req, err = http.NewRequest(http.MethodGet, webAdminEventRulesPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// render add page
+	req, err = http.NewRequest(http.MethodGet, webAdminEventRulePath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// render rule page
+	req, err = http.NewRequest(http.MethodGet, path.Join(webAdminEventRulePath, rule.Name), nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// missing rule
+	req, err = http.NewRequest(http.MethodGet, path.Join(webAdminEventRulePath, rule.Name+"1"), nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+	// check the rule
+	ruleGet, _, err := httpdtest.GetEventRuleByName(rule.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, rule.Trigger, ruleGet.Trigger)
+	assert.Equal(t, rule.Description, ruleGet.Description)
+	assert.Equal(t, rule.Conditions, ruleGet.Conditions)
+	if assert.Len(t, ruleGet.Actions, 1) {
+		assert.Equal(t, rule.Actions[0].Name, ruleGet.Actions[0].Name)
+		assert.Equal(t, rule.Actions[0].Order, ruleGet.Actions[0].Order)
+	}
+	// change rule trigger
+	rule.Trigger = dataprovider.EventTriggerFsEvent
+	rule.Conditions = dataprovider.EventConditions{
+		FsEvents: []string{"upload", "download"},
+		Options: dataprovider.ConditionOptions{
+			Names: []dataprovider.ConditionPattern{
+				{
+					Pattern:      "u*",
+					InverseMatch: true,
+				},
+			},
+			FsPaths: []dataprovider.ConditionPattern{
+				{
+					Pattern: "/subdir/*.txt",
+				},
+			},
+			Protocols:   []string{common.ProtocolSFTP, common.ProtocolHTTP},
+			MinFileSize: 1024 * 1024,
+			MaxFileSize: 5 * 1024 * 1024,
+		},
+	}
+	form.Set("trigger", fmt.Sprintf("%d", rule.Trigger))
+	for _, event := range rule.Conditions.FsEvents {
+		form.Add("fs_events", event)
+	}
+	form.Set("fs_path_pattern0", rule.Conditions.Options.FsPaths[0].Pattern)
+	for _, protocol := range rule.Conditions.Options.Protocols {
+		form.Add("fs_protocols", protocol)
+	}
+	form.Set("fs_min_size", fmt.Sprintf("%d", rule.Conditions.Options.MinFileSize))
+	form.Set("fs_max_size", fmt.Sprintf("%d", rule.Conditions.Options.MaxFileSize))
+	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminEventRulePath, rule.Name),
+		bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+	// check the rule
+	ruleGet, _, err = httpdtest.GetEventRuleByName(rule.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, rule.Trigger, ruleGet.Trigger)
+	assert.Equal(t, rule.Description, ruleGet.Description)
+	assert.Equal(t, rule.Conditions, ruleGet.Conditions)
+	if assert.Len(t, ruleGet.Actions, 1) {
+		assert.Equal(t, rule.Actions[0].Name, ruleGet.Actions[0].Name)
+		assert.Equal(t, rule.Actions[0].Order, ruleGet.Actions[0].Order)
+	}
+	// update a missing rule
+	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminEventRulePath, rule.Name+"1"),
+		bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+	// update with no csrf token
+	form.Del(csrfFormToken)
+	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminEventRulePath, rule.Name),
+		bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "unable to verify form token")
+	form.Set(csrfFormToken, csrfToken)
+	// update with no action defined
+	form.Del("action_name0")
+	form.Del("action_order0")
+	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminEventRulePath, rule.Name),
+		bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "at least one action is required")
+	// invalid trigger
+	form.Set("trigger", "a")
+	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminEventRulePath, rule.Name),
+		bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "invalid trigger")
+
+	req, err = http.NewRequest(http.MethodDelete, path.Join(webAdminEventRulePath, rule.Name), nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	setCSRFHeaderForReq(req, csrfToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodDelete, path.Join(webAdminEventActionPath, action.Name), nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	setCSRFHeaderForReq(req, csrfToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+}
+
 func TestAddWebGroup(t *testing.T) {
 	webToken, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
@@ -17571,7 +18985,6 @@ func TestAddWebGroup(t *testing.T) {
 
 	req, err = http.NewRequest(http.MethodGet, path.Join(webGroupPath, group.Name), nil)
 	assert.NoError(t, err)
-	req.Header.Set("Content-Type", contentType)
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
@@ -18854,7 +20267,7 @@ func startOIDCMockServer() {
 
 func waitForUsersQuotaScan(t *testing.T, token string) {
 	for {
-		var scans []common.ActiveQuotaScan
+		var scans []dataprovider.ActiveQuotaScan
 		req, _ := http.NewRequest(http.MethodGet, quotaScanPath, nil)
 		setBearerForReq(req, token)
 		rr := executeRequest(req)
@@ -18872,7 +20285,7 @@ func waitForUsersQuotaScan(t *testing.T, token string) {
 }
 
 func waitForFoldersQuotaScanPath(t *testing.T, token string) {
-	var scans []common.ActiveVirtualFolderQuotaScan
+	var scans []dataprovider.ActiveVirtualFolderQuotaScan
 	for {
 		req, _ := http.NewRequest(http.MethodGet, quotaScanVFolderPath, nil)
 		setBearerForReq(req, token)

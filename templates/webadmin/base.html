@@ -74,6 +74,22 @@
             </li>
             {{end}}
 
+            {{ if .LoggedAdmin.HasPermission "manage_event_rules"}}
+            <li class="nav-item {{if .IsEventManagerPage}}active{{end}}">
+                <a class="nav-link {{if not .IsEventManagerPage}}collapsed{{end}}" href="#" data-toggle="collapse" data-target="#collapseEventManager"
+                    aria-expanded="true" aria-controls="collapseEventManager">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span>Event Manager</span>
+                </a>
+                <div id="collapseEventManager" class="collapse {{if .IsEventManagerPage}}show{{end}}" aria-labelledby="headingEventManager" data-parent="#accordionSidebar">
+                    <div class="bg-white py-2 collapse-inner rounded">
+                        <a class="collapse-item {{if eq .CurrentURL .EventRulesURL}}active{{end}}" href="{{.EventRulesURL}}">{{.EventRulesTitle}}</a>
+                        <a class="collapse-item {{if eq .CurrentURL .EventActionsURL}}active{{end}}" href="{{.EventActionsURL}}">{{.EventActionsTitle}}</a>
+                    </div>
+                </div>
+            </li>
+            {{end}}
+
             {{ if .LoggedAdmin.HasPermission "view_conns"}}
             <li class="nav-item {{if eq .CurrentURL .ConnectionsURL}}active{{end}}">
                 <a class="nav-link" href="{{.ConnectionsURL}}">
@@ -142,6 +158,7 @@
 
                     <!-- Topbar Navbar -->
                     <ul class="navbar-nav ml-auto">
+                        {{block "additionalnavitems" .}}{{end}}
 
                         <!-- Nav Item - User Information -->
                         <li class="nav-item dropdown no-arrow">

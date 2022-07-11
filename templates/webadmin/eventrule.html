@@ -1,0 +1,541 @@
+{{template "base" .}}
+
+{{define "title"}}{{.Title}}{{end}}
+
+{{define "extra_css"}}
+<link href="{{.StaticURL}}/vendor/bootstrap-select/css/bootstrap-select.min.css" rel="stylesheet">
+{{end}}
+
+{{define "page_body"}}
+<div class="card shadow mb-4">
+    <div class="card-header py-3">
+        <h6 class="m-0 font-weight-bold text-primary">{{.Title}}</h6>
+    </div>
+    <div class="card-body">
+        {{if .Error}}
+        <div class="card mb-4 border-left-warning">
+            <div class="card-body text-form-error">{{.Error}}</div>
+        </div>
+        {{end}}
+        <form id="eventrule_form" action="{{.CurrentURL}}" method="POST" autocomplete="off">
+            <div class="form-group row">
+                <label for="idName" class="col-sm-2 col-form-label">Name</label>
+                <div class="col-sm-10">
+                    <input type="text" class="form-control" id="idName" name="name" placeholder=""
+                        value="{{.Rule.Name}}" maxlength="255" autocomplete="nope" required {{if eq .Mode 2}}readonly{{end}}>
+                </div>
+            </div>
+
+            <div class="form-group row">
+                <label for="idDescription" class="col-sm-2 col-form-label">Description</label>
+                <div class="col-sm-10">
+                    <input type="text" class="form-control" id="idDescription" name="description" placeholder=""
+                        value="{{.Rule.Description}}" maxlength="255" aria-describedby="descriptionHelpBlock">
+                    <small id="descriptionHelpBlock" class="form-text text-muted">
+                        Optional description
+                    </small>
+                </div>
+            </div>
+
+            <div class="form-group row">
+                <label for="idTrigger" class="col-sm-2 col-form-label">Trigger</label>
+                <div class="col-sm-10">
+                    <select class="form-control selectpicker" id="idTrigger" name="trigger" onchange="onTriggerChanged(this.value)">
+                        {{- range .TriggerTypes}}
+                        <option value="{{.Value}}" {{if eq $.Rule.Trigger .Value }}selected{{end}}>{{.Name}}</option>
+                        {{- end}}
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group row trigger trigger-fs">
+                <label for="idFsEvents" class="col-sm-2 col-form-label">Fs events</label>
+                <div class="col-sm-10">
+                    <select class="form-control selectpicker" id="idFsEvents" name="fs_events" multiple>
+                        {{- range $event := .FsEvents}}
+                        <option value="{{$event}}" {{- range $.Rule.Conditions.FsEvents }}{{- if eq . $event}}selected{{- end}}{{- end}}>{{$event}}</option>
+                        {{- end}}
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group row trigger trigger-provider">
+                <label for="idProviderEvents" class="col-sm-2 col-form-label">Provider events</label>
+                <div class="col-sm-10">
+                    <select class="form-control selectpicker" id="idProviderEvents" name="provider_events" multiple>
+                        {{- range $event := .ProviderEvents}}
+                        <option value="{{$event}}" {{- range $.Rule.Conditions.ProviderEvents }}{{- if eq . $event}}selected{{- end}}{{- end}}>{{$event}}</option>
+                        {{- end}}
+                    </select>
+                </div>
+            </div>
+
+            <div class="card bg-light mb-3 trigger trigger-schedule">
+                <div class="card-header">
+                    <b>Schedules</b>
+                </div>
+                <div class="card-body">
+                    <h6 class="card-title mb-4">Hours: 0-23. Day of week: 0-6 (Sun-Sat). Day of month: 1-31. Month: 1-12. Asterisk (*) indicates a match for all the values of the field. e.g. every day of week, every day of month and so on. More <a href="https://pkg.go.dev/github.com/robfig/cron/v3#hdr-CRON_Expression_Format" target="_blank">info</a>.</h6>
+                    <div class="form-group row">
+                        <div class="col-md-12 form_field_schedules_outer">
+                            {{range $idx, $val := .Rule.Conditions.Schedules}}
+                            <div class="row form_field_schedules_outer_row">
+                                <div class="form-group col-md-3">
+                                    <input type="text" class="form-control" id="idScheduleHour{{$idx}}" name="schedule_hour{{$idx}}" placeholder="Hours" value="{{$val.Hours}}">
+                                </div>
+                                <div class="form-group col-md-3">
+                                    <input type="text" class="form-control" id="idScheduleDayOfWeek{{$idx}}" name="schedule_day_of_week{{$idx}}" placeholder="Day of week" value="{{$val.DayOfWeek}}">
+                                </div>
+                                <div class="form-group col-md-3">
+                                    <input type="text" class="form-control" id="idScheduleDayOfMonth{{$idx}}" name="schedule_day_of_month{{$idx}}" placeholder="Day of month" value="{{$val.DayOfMonth}}">
+                                </div>
+                                <div class="form-group col-md-2">
+                                    <input type="text" class="form-control" id="idScheduleMonth{{$idx}}" name="schedule_month{{$idx}}" placeholder="Month" value="{{$val.Month}}">
+                                </div>
+                                <div class="form-group col-md-1">
+                                    <button class="btn btn-circle btn-danger remove_schedule_btn_frm_field">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {{else}}
+                            <div class="row form_field_schedules_outer_row">
+                                <div class="form-group col-md-3">
+                                    <input type="text" class="form-control" id="idScheduleHour0" name="schedule_hour0" placeholder="Hours" value="">
+                                </div>
+                                <div class="form-group col-md-3">
+                                    <input type="text" class="form-control" id="idScheduleDayOfWeek0" name="schedule_day_of_week0" placeholder="Day of week" value="">
+                                </div>
+                                <div class="form-group col-md-3">
+                                    <input type="text" class="form-control" id="idScheduleDayOfMonth0" name="schedule_day_of_month0" placeholder="Day of month" value="">
+                                </div>
+                                <div class="form-group col-md-2">
+                                    <input type="text" class="form-control" id="idScheduleMonth0" name="schedule_month0" placeholder="Month" value="">
+                                </div>
+                                <div class="form-group col-md-1">
+                                    <button class="btn btn-circle btn-danger remove_schedule_btn_frm_field">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {{end}}
+                        </div>
+                    </div>
+
+                    <div class="row mx-1">
+                        <button type="button" class="btn btn-secondary add_new_schedule_field_btn">
+                            <i class="fas fa-plus"></i> Add new schedule
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {{if .IsShared}}
+            <div class="form-group trigger trigger-schedule">
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="idConcurrentExecution" name="concurrent_execution"
+                        {{if .Rule.Conditions.Options.ConcurrentExecution}}checked{{end}}>
+                    <label for="idConcurrentExecution" class="form-check-label">Allow concurrent execution from multiple instances</label>
+                </div>
+            </div>
+            {{end}}
+
+            <div class="form-group row trigger trigger-fs">
+                <label for="idFsProtocols" class="col-sm-2 col-form-label">Protocol filters</label>
+                <div class="col-sm-10">
+                    <select class="form-control selectpicker" id="idFsProtocols" name="fs_protocols" aria-describedby="fsProtocolsHelpBlock" multiple>
+                        {{- range $p := .Protocols}}
+                        <option value="{{$p}}" {{- range $.Rule.Conditions.Options.Protocols }}{{- if eq . $p}}selected{{- end}}{{- end}}>{{$p}}</option>
+                        {{- end}}
+                    </select>
+                    <small id="fsProtocolsHelpBlock" class="form-text text-muted">
+                        No selection means any protocol will trigger events
+                    </small>
+                </div>
+            </div>
+
+            <div class="form-group row trigger trigger-provider">
+                <label for="idProviderObjects" class="col-sm-2 col-form-label">Object filters</label>
+                <div class="col-sm-10">
+                    <select class="form-control selectpicker" id="idProviderObjects" name="provider_objects" aria-describedby="providerObjectsHelpBlock" multiple>
+                        {{- range $p := .ProviderObjects}}
+                        <option value="{{$p}}" {{- range $.Rule.Conditions.Options.ProviderObjects }}{{- if eq . $p}}selected{{- end}}{{- end}}>{{$p}}</option>
+                        {{- end}}
+                    </select>
+                    <small id="providerObjectsHelpBlock" class="form-text text-muted">
+                        No selection means any provider object will trigger events
+                    </small>
+                </div>
+            </div>
+
+            <div class="card bg-light mb-3">
+                <div class="card-header">
+                    <b>Name filters</b>
+                </div>
+                <div class="card-body">
+                    <h6 class="card-title mb-4">Shell-like pattern filters for usernames, folder names. For example "user*"" will match names starting with "user"</h6>
+                    <div class="form-group row">
+                        <div class="col-md-12 form_field_names_outer">
+                            {{range $idx, $val := .Rule.Conditions.Options.Names}}
+                            <div class="row form_field_names_outer_row">
+                                <div class="form-group col-md-8">
+                                    <input type="text" class="form-control" id="idNamePattern{{$idx}}" name="name_pattern{{$idx}}" placeholder="" value="{{$val.Pattern}}" maxlength="255">
+                                </div>
+                                <div class="form-group col-md-3">
+                                    <select class="form-control selectpicker" id="idNamePatternType{{$idx}}" name="type_name_pattern{{$idx}}">
+                                        <option value=""></option>
+                                        <option value="inverse" {{if $val.InverseMatch}}selected{{end}}>Inverse match</option>
+                                    </select>
+                                </div>
+                                <div class="form-group col-md-1">
+                                    <button class="btn btn-circle btn-danger remove_name_pattern_btn_frm_field">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {{else}}
+                            <div class="row form_field_names_outer_row">
+                                <div class="form-group col-md-8">
+                                    <input type="text" class="form-control" id="idNamePattern0" name="name_pattern0" placeholder="" value="" maxlength="255">
+                                </div>
+                                <div class="form-group col-md-3">
+                                    <select class="form-control selectpicker" id="idNamePatternType0" name="type_name_pattern0">
+                                        <option value=""></option>
+                                        <option value="inverse">Inverse match</option>
+                                    </select>
+                                </div>
+                                <div class="form-group col-md-1">
+                                    <button class="btn btn-circle btn-danger remove_name_pattern_btn_frm_field">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {{end}}
+                        </div>
+                    </div>
+
+                    <div class="row mx-1">
+                        <button type="button" class="btn btn-secondary add_new_name_pattern_field_btn">
+                            <i class="fas fa-plus"></i> Add new filter
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card bg-light mb-3 trigger trigger-fs">
+                <div class="card-header">
+                    <b>Path filters</b>
+                </div>
+                <div class="card-body">
+                    <h6 class="card-title mb-4">Shell-like pattern filters for filesystem events. For example "/adir/*.txt"" will match paths in the "/adir" directory ending with ".txt"</h6>
+                    <div class="form-group row">
+                        <div class="col-md-12 form_field_fs_paths_outer">
+                            {{range $idx, $val := .Rule.Conditions.Options.FsPaths}}
+                            <div class="row form_field_fs_paths_outer_row">
+                                <div class="form-group col-md-8">
+                                    <input type="text" class="form-control" id="idFsPathPattern{{$idx}}" name="fs_path_pattern{{$idx}}" placeholder="" value="{{$val.Pattern}}" maxlength="255">
+                                </div>
+                                <div class="form-group col-md-3">
+                                    <select class="form-control selectpicker" id="idFsPathPatternType{{$idx}}" name="type_fs_path_pattern{{$idx}}">
+                                        <option value=""></option>
+                                        <option value="inverse" {{if $val.InverseMatch}}selected{{end}}>Inverse match</option>
+                                    </select>
+                                </div>
+                                <div class="form-group col-md-1">
+                                    <button class="btn btn-circle btn-danger remove_fs_path_pattern_btn_frm_field">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {{else}}
+                            <div class="row form_field_fs_paths_outer_row">
+                                <div class="form-group col-md-8">
+                                    <input type="text" class="form-control" id="idFsPathPattern0" name="fs_path_pattern0" placeholder="" value="" maxlength="255">
+                                </div>
+                                <div class="form-group col-md-3">
+                                    <select class="form-control selectpicker" id="idFsPathPatternType0" name="type_fs_path_pattern0">
+                                        <option value=""></option>
+                                        <option value="inverse">Inverse match</option>
+                                    </select>
+                                </div>
+                                <div class="form-group col-md-1">
+                                    <button class="btn btn-circle btn-danger remove_fs_path_pattern_btn_frm_field">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {{end}}
+                        </div>
+                    </div>
+
+                    <div class="row mx-1">
+                        <button type="button" class="btn btn-secondary add_new_fs_path_pattern_field_btn">
+                            <i class="fas fa-plus"></i> Add new filter
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card bg-light mb-3 trigger trigger-fs">
+                <div class="card-header">
+                    <b>File size limits. 0 means no limit</b>
+                </div>
+                <div class="card-body">
+                    <div class="form-group row">
+                        <label for="idFsMinSize" class="col-sm-2 col-form-label">Min size</label>
+                        <div class="col-sm-3">
+                            <input type="number" class="form-control" id="idFsMinSize" name="fs_min_size" placeholder=""
+                                value="{{.Rule.Conditions.Options.MinFileSize}}" min="0">
+                        </div>
+                        <div class="col-sm-2"></div>
+                        <label for="idFsMaxSize" class="col-sm-2 col-form-label">Max size</label>
+                        <div class="col-sm-3">
+                            <input type="number" class="form-control" id="idFsMaxSize" name="fs_max_size" placeholder=""
+                                value="{{.Rule.Conditions.Options.MaxFileSize}}" min="0">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card bg-light mb-3">
+                <div class="card-header">
+                    <b>Actions</b>
+                </div>
+                <div class="card-body">
+                    <h6 class="card-title mb-4">One or more actions to execute. The "Execute sync" options is only supported for upload events</h6>
+                    <div class="form-group row">
+                        <div class="col-md-12 form_field_action_outer">
+                            {{range $idx, $val := .Rule.Actions}}
+                            <div class="row form_field_action_outer_row">
+                                <div class="form-group col-md-5">
+                                    <select class="form-control selectpicker" data-live-search="true" id="idActionName{{$idx}}" name="action_name{{$idx}}">
+                                        <option value=""></option>
+                                        {{range $.Actions}}
+                                        <option value="{{.Name}}" {{if eq $val.Name .Name}}selected{{end}}>{{.Name}}</option>
+                                        {{end}}
+                                    </select>
+                                </div>
+                                <div class="form-group col-md-5">
+                                    <select class="form-control selectpicker" id="idActionOptions{{$idx}}" name="action_options{{$idx}}" multiple>
+                                        <option value="2" {{if $val.Options.StopOnFailure}}selected{{end}}>Stop on failure</option>
+                                        <option value="3" {{if $val.Options.ExecuteSync}}selected{{end}}>Execute sync</option>
+                                        <option value="1" {{if $val.Options.IsFailureAction}}selected{{end}}>Is failure action</option>
+                                    </select>
+                                </div>
+                                <div class="col-sm-1">
+                                    <input type="hidden" name="action_order{{$idx}}" value="{{$idx}}">
+                                </div>
+                                <div class="form-group col-md-1">
+                                    <button class="btn btn-circle btn-danger remove_action_btn_frm_field">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {{else}}
+                            <div class="row form_field_action_outer_row">
+                                <div class="form-group col-md-5">
+                                    <select class="form-control selectpicker" data-live-search="true" id="idActionName0" name="action_name0">
+                                        <option value=""></option>
+                                        {{range $.Actions}}
+                                        <option value="{{.Name}}">{{.Name}}</option>
+                                        {{end}}
+                                    </select>
+                                </div>
+                                <div class="form-group col-md-5">
+                                    <select class="form-control selectpicker" id="idActionOptions0" name="action_options0" multiple>
+                                        <option value="1">Is failure action</option>
+                                        <option value="2">Stop on failure</option>
+                                        <option value="3">Execute sync</option>
+                                    </select>
+                                </div>
+                                <div class="col-sm-1">
+                                    <input type="hidden" name="action_order0" value="0">
+                                </div>
+                                <div class="form-group col-md-1">
+                                    <button class="btn btn-circle btn-danger remove_action_btn_frm_field">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {{end}}
+                        </div>
+                    </div>
+
+                    <div class="row mx-1">
+                        <button type="button" class="btn btn-secondary add_new_action_field_btn">
+                            <i class="fas fa-plus"></i> Add new action
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
+            <div class="col-sm-12 text-right px-0">
+                <button type="submit" class="btn btn-primary mt-3 ml-3 px-5" name="form_action" value="submit">Submit</button>
+            </div>
+        </form>
+    </div>
+</div>
+{{end}}
+
+{{define "extra_js"}}
+<script src="{{.StaticURL}}/vendor/bootstrap-select/js/bootstrap-select.min.js"></script>
+<script type="text/javascript">
+    $("body").on("click", ".add_new_schedule_field_btn", function () {
+        var index = $(".form_field_schedules_outer").find(".form_field_schedules_outer_row").length;
+        while (document.getElementById("idScheduleHour"+index) != null){
+            index++;
+        }
+        $(".form_field_schedules_outer").append(`
+            <div class="row form_field_schedules_outer_row">
+                <div class="form-group col-md-3">
+                    <input type="text" class="form-control" id="idScheduleHour${index}" name="schedule_hour${index}" placeholder="Hours" value="">
+                </div>
+                <div class="form-group col-md-3">
+                    <input type="text" class="form-control" id="idScheduleDayOfWeek${index}" name="schedule_day_of_week${index}" placeholder="Day of week" value="">
+                </div>
+                <div class="form-group col-md-3">
+                    <input type="text" class="form-control" id="idScheduleDayOfMonth${index}" name="schedule_day_of_month${index}" placeholder="Day of month" value="">
+                </div>
+                <div class="form-group col-md-2">
+                    <input type="text" class="form-control" id="idScheduleMonth${index}" name="schedule_month${index}" placeholder="Month" value="">
+                </div>
+                <div class="form-group col-md-1">
+                    <button class="btn btn-circle btn-danger remove_schedule_btn_frm_field">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+            `);
+        });
+
+    $("body").on("click", ".remove_schedule_btn_frm_field", function () {
+        $(this).closest(".form_field_schedules_outer_row").remove();
+    });
+
+    $("body").on("click", ".add_new_name_pattern_field_btn", function () {
+        var index = $(".form_field_names_outer").find(".form_field_names_outer_row").length;
+        while (document.getElementById("idNamePattern"+index) != null){
+            index++;
+        }
+        $(".form_field_names_outer").append(`
+            <div class="row form_field_names_outer_row">
+                <div class="form-group col-md-8">
+                    <input type="text" class="form-control" id="idNamePattern${index}" name="name_pattern${index}" placeholder="" value="" maxlength="255">
+                </div>
+                <div class="form-group col-md-3">
+                    <select class="form-control" id="idNamePatternType${index}" name="type_name_pattern${index}">
+                        <option value=""></option>
+                        <option value="inverse">Inverse match</option>
+                    </select>
+                </div>
+                <div class="form-group col-md-1">
+                    <button class="btn btn-circle btn-danger remove_name_pattern_btn_frm_field">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `);
+        $("#idNamePatternType"+index).selectpicker();
+    });
+
+    $("body").on("click", ".remove_name_pattern_btn_frm_field", function () {
+        $(this).closest(".form_field_names_outer_row").remove();
+    });
+
+    $("body").on("click", ".add_new_fs_path_pattern_field_btn", function () {
+        var index = $(".form_field_fs_paths_outer").find("form_field_fs_paths_outer_row").length;
+        while (document.getElementById("idFsPathPattern"+index) != null){
+            index++;
+        }
+        $(".form_field_fs_paths_outer").append(`
+            <div class="row form_field_fs_paths_outer_row">
+                <div class="form-group col-md-8">
+                    <input type="text" class="form-control" id="idFsPathPattern${index}" name="fs_path_pattern${index}" placeholder="" value="" maxlength="255">
+                </div>
+                <div class="form-group col-md-3">
+                    <select class="form-control" id="idFsPathPatternType${index}" name="type_fs_path_pattern${index}">
+                        <option value=""></option>
+                        <option value="inverse">Inverse match</option>
+                    </select>
+                </div>
+                <div class="form-group col-md-1">
+                    <button class="btn btn-circle btn-danger remove_fs_path_pattern_btn_frm_field">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `);
+        $("#idFsPathPatternType"+index).selectpicker();
+    });
+
+    $("body").on("click", ".remove_fs_path_pattern_btn_frm_field", function () {
+        $(this).closest(".form_field_fs_paths_outer_row").remove();
+    });
+
+    $("body").on("click", ".add_new_action_field_btn", function () {
+        var index = $(".form_field_action_outer").find("form_field_action_outer_row").length;
+        while (document.getElementById("idActionName"+index) != null){
+            index++;
+        }
+        $(".form_field_action_outer").append(`
+            <div class="row form_field_action_outer_row">
+                <div class="form-group col-md-5">
+                    <select class="form-control" id="idActionName${index}" name="action_name${index}">
+                        <option value=""></option>
+                    </select>
+                </div>
+                <div class="form-group col-md-5">
+                    <select class="form-control" id="idActionOptions${index}" name="action_options${index}" multiple>
+                        <option value="1">Is failure action</option>
+                        <option value="2">Stop on failure</option>
+                        <option value="3">Execute sync</option>
+                    </select>
+                </div>
+                <div class="col-sm-1">
+                    <input type="hidden" name="action_order${index}" value="${index}">
+                </div>
+                <div class="form-group col-md-1">
+                    <button class="btn btn-circle btn-danger remove_action_btn_frm_field">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `);
+        {{- range .Actions}}
+        $("#idActionName"+index).append($('<option>').val('{{.Name}}').text('{{.Name}}'));
+        {{- end}}
+        console.log("index "+index);
+        $("#idActionName"+index).selectpicker({'liveSearch': true});
+        $("#idActionOptions"+index).selectpicker();
+    });
+
+    $("body").on("click", ".remove_action_btn_frm_field", function () {
+        $(this).closest(".form_field_action_outer_row").remove();
+    });
+
+    function onTriggerChanged(val){
+        $('.trigger').hide();
+        switch (val) {
+            case '1':
+            case 1:
+                $('.trigger-fs').show();
+                break;
+            case '2':
+            case 2:
+                $('.trigger-provider').show();
+                break;
+            case '3':
+            case 3:
+                $('.trigger-schedule').show();
+                break;
+            default:
+                console.log(`unsupported event trigger type: ${val}`);
+        }
+    }
+
+    $(document).ready(function () {
+        onTriggerChanged('{{.Rule.Trigger}}');
+    });
+</script>
+{{end}}

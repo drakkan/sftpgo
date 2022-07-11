@@ -574,7 +574,7 @@ func handleForgotPassword(r *http.Request, username string, isAdmin bool) error 
 		return util.NewGenericError("Unable to render password reset template")
 	}
 	startTime := time.Now()
-	if err := smtp.SendEmail(email, subject, body.String(), smtp.EmailContentTypeTextHTML); err != nil {
+	if err := smtp.SendEmail([]string{email}, subject, body.String(), smtp.EmailContentTypeTextHTML); err != nil {
 		logger.Warn(logSender, middleware.GetReqID(r.Context()), "unable to send password reset code via email: %v, elapsed: %v",
 			err, time.Since(startTime))
 		return util.NewGenericError(fmt.Sprintf("Unable to send confirmation code via email: %v", err))

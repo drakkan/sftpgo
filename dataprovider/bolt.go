@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"sort"
 	"time"
 
 	bolt "go.etcd.io/bbolt"
@@ -20,7 +21,7 @@ import (
 )
 
 const (
-	boltDatabaseVersion = 19
+	boltDatabaseVersion = 20
 )
 
 var (
@@ -30,10 +31,12 @@ var (
 	adminsBucket    = []byte("admins")
 	apiKeysBucket   = []byte("api_keys")
 	sharesBucket    = []byte("shares")
+	actionsBucket   = []byte("events_actions")
+	rulesBucket     = []byte("events_rules")
 	dbVersionBucket = []byte("db_version")
 	dbVersionKey    = []byte("version")
 	boltBuckets     = [][]byte{usersBucket, groupsBucket, foldersBucket, adminsBucket, apiKeysBucket,
-		sharesBucket, dbVersionBucket}
+		sharesBucket, actionsBucket, rulesBucket, dbVersionBucket}
 )
 
 // BoltProvider defines the auth provider for bolt key/value store
@@ -629,30 +632,35 @@ func (p *BoltProvider) deleteUser(user User) error {
 		if err != nil {
 			return err
 		}
-		exists := bucket.Get([]byte(user.Username))
-		if exists == nil {
-			return util.NewRecordNotFoundError(fmt.Sprintf("user %#v does not exist", user.Username))
+		var u []byte
+		if u = bucket.Get([]byte(user.Username)); u == nil {
+			return util.NewRecordNotFoundError(fmt.Sprintf("username %q does not exist", user.Username))
+		}
+		var oldUser User
+		err = json.Unmarshal(u, &oldUser)
+		if err != nil {
+			return err
 		}
 
-		if len(user.VirtualFolders) > 0 {
+		if len(oldUser.VirtualFolders) > 0 {
 			foldersBucket, err := p.getFoldersBucket(tx)
 			if err != nil {
 				return err
 			}
-			for idx := range user.VirtualFolders {
-				err = p.removeRelationFromFolderMapping(user.VirtualFolders[idx], user.Username, "", foldersBucket)
+			for idx := range oldUser.VirtualFolders {
+				err = p.removeRelationFromFolderMapping(oldUser.VirtualFolders[idx], oldUser.Username, "", foldersBucket)
 				if err != nil {
 					return err
 				}
 			}
 		}
-		if len(user.Groups) > 0 {
+		if len(oldUser.Groups) > 0 {
 			groupBucket, err := p.getGroupsBucket(tx)
 			if err != nil {
 				return err
 			}
-			for idx := range user.Groups {
-				err = p.removeUserFromGroupMapping(user.Username, user.Groups[idx].Name, groupBucket)
+			for idx := range oldUser.Groups {
+				err = p.removeUserFromGroupMapping(oldUser.Username, oldUser.Groups[idx].Name, groupBucket)
 				if err != nil {
 					return err
 				}
@@ -1362,6 +1370,7 @@ func (p *BoltProvider) updateGroup(group *Group) error {
 		}
 		group.ID = oldGroup.ID
 		group.CreatedAt = oldGroup.CreatedAt
+		group.Users = oldGroup.Users
 		group.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 		buf, err := json.Marshal(group)
 		if err != nil {
@@ -1932,6 +1941,490 @@ func (p *BoltProvider) cleanupSharedSessions(sessionType SessionType, before int
 	return ErrNotImplemented
 }
 
+func (p *BoltProvider) getEventActions(limit, offset int, order string, minimal bool) ([]BaseEventAction, error) {
+	if limit <= 0 {
+		return nil, nil
+	}
+	actions := make([]BaseEventAction, 0, limit)
+	err := p.dbHandle.View(func(tx *bolt.Tx) error {
+		bucket, err := p.getActionsBucket(tx)
+		if err != nil {
+			return err
+		}
+		itNum := 0
+		cursor := bucket.Cursor()
+		if order == OrderASC {
+			for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
+				itNum++
+				if itNum <= offset {
+					continue
+				}
+				var action BaseEventAction
+				err = json.Unmarshal(v, &action)
+				if err != nil {
+					return err
+				}
+				action.PrepareForRendering()
+				actions = append(actions, action)
+				if len(actions) >= limit {
+					break
+				}
+			}
+		} else {
+			for k, v := cursor.Last(); k != nil; k, v = cursor.Prev() {
+				itNum++
+				if itNum <= offset {
+					continue
+				}
+				var action BaseEventAction
+				err = json.Unmarshal(v, &action)
+				if err != nil {
+					return err
+				}
+				action.PrepareForRendering()
+				actions = append(actions, action)
+				if len(actions) >= limit {
+					break
+				}
+			}
+		}
+		return nil
+	})
+	return actions, err
+}
+
+func (p *BoltProvider) dumpEventActions() ([]BaseEventAction, error) {
+	actions := make([]BaseEventAction, 0, 50)
+	err := p.dbHandle.View(func(tx *bolt.Tx) error {
+		bucket, err := p.getActionsBucket(tx)
+		if err != nil {
+			return err
+		}
+		cursor := bucket.Cursor()
+		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
+			var action BaseEventAction
+			err = json.Unmarshal(v, &action)
+			if err != nil {
+				return err
+			}
+			actions = append(actions, action)
+		}
+		return nil
+	})
+	return actions, err
+}
+
+func (p *BoltProvider) eventActionExists(name string) (BaseEventAction, error) {
+	var action BaseEventAction
+	err := p.dbHandle.View(func(tx *bolt.Tx) error {
+		bucket, err := p.getActionsBucket(tx)
+		if err != nil {
+			return err
+		}
+		k := bucket.Get([]byte(name))
+		if k == nil {
+			return util.NewRecordNotFoundError(fmt.Sprintf("action %q does not exist", name))
+		}
+		return json.Unmarshal(k, &action)
+	})
+	return action, err
+}
+
+func (p *BoltProvider) addEventAction(action *BaseEventAction) error {
+	err := action.validate()
+	if err != nil {
+		return err
+	}
+	return p.dbHandle.Update(func(tx *bolt.Tx) error {
+		bucket, err := p.getActionsBucket(tx)
+		if err != nil {
+			return err
+		}
+		if a := bucket.Get([]byte(action.Name)); a != nil {
+			return fmt.Errorf("event action %s already exists", action.Name)
+		}
+		id, err := bucket.NextSequence()
+		if err != nil {
+			return err
+		}
+		action.ID = int64(id)
+		action.Rules = nil
+		buf, err := json.Marshal(action)
+		if err != nil {
+			return err
+		}
+		return bucket.Put([]byte(action.Name), buf)
+	})
+}
+
+func (p *BoltProvider) updateEventAction(action *BaseEventAction) error {
+	err := action.validate()
+	if err != nil {
+		return err
+	}
+	return p.dbHandle.Update(func(tx *bolt.Tx) error {
+		bucket, err := p.getActionsBucket(tx)
+		if err != nil {
+			return err
+		}
+		var a []byte
+
+		if a = bucket.Get([]byte(action.Name)); a == nil {
+			return util.NewRecordNotFoundError(fmt.Sprintf("event action %s does not exist", action.Name))
+		}
+		var oldAction BaseEventAction
+		err = json.Unmarshal(a, &oldAction)
+		if err != nil {
+			return err
+		}
+		action.ID = oldAction.ID
+		action.Name = oldAction.Name
+		action.Rules = nil
+		if len(oldAction.Rules) > 0 {
+			rulesBucket, err := p.getRulesBucket(tx)
+			if err != nil {
+				return err
+			}
+			var relatedRules []string
+			for _, ruleName := range oldAction.Rules {
+				r := rulesBucket.Get([]byte(ruleName))
+				if r != nil {
+					relatedRules = append(relatedRules, ruleName)
+					var rule EventRule
+					err := json.Unmarshal(r, &rule)
+					if err != nil {
+						return err
+					}
+					rule.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+					buf, err := json.Marshal(rule)
+					if err != nil {
+						return err
+					}
+					if err = rulesBucket.Put([]byte(rule.Name), buf); err != nil {
+						return err
+					}
+					setLastRuleUpdate()
+				}
+			}
+			action.Rules = relatedRules
+		}
+		buf, err := json.Marshal(action)
+		if err != nil {
+			return err
+		}
+		return bucket.Put([]byte(action.Name), buf)
+	})
+}
+
+func (p *BoltProvider) deleteEventAction(action BaseEventAction) error {
+	return p.dbHandle.Update(func(tx *bolt.Tx) error {
+		bucket, err := p.getActionsBucket(tx)
+		if err != nil {
+			return err
+		}
+		var a []byte
+
+		if a = bucket.Get([]byte(action.Name)); a == nil {
+			return util.NewRecordNotFoundError(fmt.Sprintf("action %s does not exist", action.Name))
+		}
+		var oldAction BaseEventAction
+		err = json.Unmarshal(a, &oldAction)
+		if err != nil {
+			return err
+		}
+		if len(oldAction.Rules) > 0 {
+			return util.NewValidationError(fmt.Sprintf("action %s is referenced, it cannot be removed", oldAction.Name))
+		}
+		return bucket.Delete([]byte(action.Name))
+	})
+}
+
+func (p *BoltProvider) getEventRules(limit, offset int, order string) ([]EventRule, error) {
+	if limit <= 0 {
+		return nil, nil
+	}
+	rules := make([]EventRule, 0, limit)
+	err := p.dbHandle.View(func(tx *bolt.Tx) error {
+		bucket, err := p.getRulesBucket(tx)
+		if err != nil {
+			return err
+		}
+		actionsBucket, err := p.getActionsBucket(tx)
+		if err != nil {
+			return err
+		}
+		itNum := 0
+		cursor := bucket.Cursor()
+		if order == OrderASC {
+			for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
+				itNum++
+				if itNum <= offset {
+					continue
+				}
+				var rule EventRule
+				rule, err = p.joinRuleAndActions(v, actionsBucket)
+				if err != nil {
+					return err
+				}
+				rule.PrepareForRendering()
+				rules = append(rules, rule)
+				if len(rules) >= limit {
+					break
+				}
+			}
+		} else {
+			for k, v := cursor.Last(); k != nil; k, v = cursor.Prev() {
+				itNum++
+				if itNum <= offset {
+					continue
+				}
+				var rule EventRule
+				rule, err = p.joinRuleAndActions(v, actionsBucket)
+				if err != nil {
+					return err
+				}
+				rule.PrepareForRendering()
+				rules = append(rules, rule)
+				if len(rules) >= limit {
+					break
+				}
+			}
+		}
+		return err
+	})
+	return rules, err
+}
+
+func (p *BoltProvider) dumpEventRules() ([]EventRule, error) {
+	rules := make([]EventRule, 0, 50)
+	err := p.dbHandle.View(func(tx *bolt.Tx) error {
+		bucket, err := p.getRulesBucket(tx)
+		if err != nil {
+			return err
+		}
+		actionsBucket, err := p.getActionsBucket(tx)
+		if err != nil {
+			return err
+		}
+		cursor := bucket.Cursor()
+		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
+			rule, err := p.joinRuleAndActions(v, actionsBucket)
+			if err != nil {
+				return err
+			}
+			rules = append(rules, rule)
+		}
+		return nil
+	})
+	return rules, err
+}
+
+func (p *BoltProvider) getRecentlyUpdatedRules(after int64) ([]EventRule, error) {
+	if getLastRuleUpdate() < after {
+		return nil, nil
+	}
+	rules := make([]EventRule, 0, 10)
+	err := p.dbHandle.View(func(tx *bolt.Tx) error {
+		bucket, err := p.getRulesBucket(tx)
+		if err != nil {
+			return err
+		}
+		actionsBucket, err := p.getActionsBucket(tx)
+		if err != nil {
+			return err
+		}
+		cursor := bucket.Cursor()
+		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
+			var rule EventRule
+			err := json.Unmarshal(v, &rule)
+			if err != nil {
+				return err
+			}
+			if rule.UpdatedAt < after {
+				continue
+			}
+			var actions []EventAction
+			for idx := range rule.Actions {
+				action := &rule.Actions[idx]
+				var baseAction BaseEventAction
+				k := actionsBucket.Get([]byte(action.Name))
+				if k == nil {
+					continue
+				}
+				err = json.Unmarshal(k, &baseAction)
+				if err != nil {
+					continue
+				}
+				baseAction.Options.SetEmptySecretsIfNil()
+				action.BaseEventAction = baseAction
+				actions = append(actions, *action)
+			}
+			rule.Actions = actions
+			rules = append(rules, rule)
+		}
+		return nil
+	})
+	return rules, err
+}
+
+func (p *BoltProvider) eventRuleExists(name string) (EventRule, error) {
+	var rule EventRule
+	err := p.dbHandle.View(func(tx *bolt.Tx) error {
+		bucket, err := p.getRulesBucket(tx)
+		if err != nil {
+			return err
+		}
+		r := bucket.Get([]byte(name))
+		if r == nil {
+			return util.NewRecordNotFoundError(fmt.Sprintf("event rule %q does not exist", name))
+		}
+		actionsBucket, err := p.getActionsBucket(tx)
+		if err != nil {
+			return err
+		}
+		rule, err = p.joinRuleAndActions(r, actionsBucket)
+		return err
+	})
+	return rule, err
+}
+
+func (p *BoltProvider) addEventRule(rule *EventRule) error {
+	if err := rule.validate(); err != nil {
+		return err
+	}
+	return p.dbHandle.Update(func(tx *bolt.Tx) error {
+		bucket, err := p.getRulesBucket(tx)
+		if err != nil {
+			return err
+		}
+		actionsBucket, err := p.getActionsBucket(tx)
+		if err != nil {
+			return err
+		}
+		if r := bucket.Get([]byte(rule.Name)); r != nil {
+			return fmt.Errorf("event rule %q already exists", rule.Name)
+		}
+		id, err := bucket.NextSequence()
+		if err != nil {
+			return err
+		}
+		rule.ID = int64(id)
+		rule.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+		rule.UpdatedAt = rule.CreatedAt
+		for idx := range rule.Actions {
+			if err = p.addRuleToActionMapping(rule.Name, rule.Actions[idx].Name, actionsBucket); err != nil {
+				return err
+			}
+		}
+		sort.Slice(rule.Actions, func(i, j int) bool {
+			return rule.Actions[i].Order < rule.Actions[j].Order
+		})
+		buf, err := json.Marshal(rule)
+		if err != nil {
+			return err
+		}
+		err = bucket.Put([]byte(rule.Name), buf)
+		if err == nil {
+			setLastRuleUpdate()
+		}
+		return err
+	})
+}
+
+func (p *BoltProvider) updateEventRule(rule *EventRule) error {
+	if err := rule.validate(); err != nil {
+		return err
+	}
+	return p.dbHandle.Update(func(tx *bolt.Tx) error {
+		bucket, err := p.getRulesBucket(tx)
+		if err != nil {
+			return err
+		}
+		actionsBucket, err := p.getActionsBucket(tx)
+		if err != nil {
+			return err
+		}
+		var r []byte
+		if r = bucket.Get([]byte(rule.Name)); r == nil {
+			return util.NewRecordNotFoundError(fmt.Sprintf("event rule %q does not exist", rule.Name))
+		}
+		var oldRule EventRule
+		if err = json.Unmarshal(r, &oldRule); err != nil {
+			return err
+		}
+		for idx := range oldRule.Actions {
+			if err = p.removeRuleFromActionMapping(rule.Name, oldRule.Actions[idx].Name, actionsBucket); err != nil {
+				return err
+			}
+		}
+		for idx := range rule.Actions {
+			if err = p.addRuleToActionMapping(rule.Name, rule.Actions[idx].Name, actionsBucket); err != nil {
+				return err
+			}
+		}
+		rule.ID = oldRule.ID
+		rule.CreatedAt = oldRule.CreatedAt
+		rule.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+		buf, err := json.Marshal(rule)
+		if err != nil {
+			return err
+		}
+		sort.Slice(rule.Actions, func(i, j int) bool {
+			return rule.Actions[i].Order < rule.Actions[j].Order
+		})
+		err = bucket.Put([]byte(rule.Name), buf)
+		if err == nil {
+			setLastRuleUpdate()
+		}
+		return err
+	})
+}
+
+func (p *BoltProvider) deleteEventRule(rule EventRule, softDelete bool) error {
+	return p.dbHandle.Update(func(tx *bolt.Tx) error {
+		bucket, err := p.getRulesBucket(tx)
+		if err != nil {
+			return err
+		}
+		var r []byte
+		if r = bucket.Get([]byte(rule.Name)); r == nil {
+			return util.NewRecordNotFoundError(fmt.Sprintf("event rule %q does not exist", rule.Name))
+		}
+		var oldRule EventRule
+		if err = json.Unmarshal(r, &oldRule); err != nil {
+			return err
+		}
+		if len(oldRule.Actions) > 0 {
+			actionsBucket, err := p.getActionsBucket(tx)
+			if err != nil {
+				return err
+			}
+			for idx := range oldRule.Actions {
+				if err = p.removeRuleFromActionMapping(rule.Name, oldRule.Actions[idx].Name, actionsBucket); err != nil {
+					return err
+				}
+			}
+		}
+		return bucket.Delete([]byte(rule.Name))
+	})
+}
+
+func (p *BoltProvider) getTaskByName(name string) (Task, error) {
+	return Task{}, ErrNotImplemented
+}
+
+func (p *BoltProvider) addTask(name string) error {
+	return ErrNotImplemented
+}
+
+func (p *BoltProvider) updateTask(name string, version int64) error {
+	return ErrNotImplemented
+}
+
+func (p *BoltProvider) updateTaskTimestamp(name string) error {
+	return ErrNotImplemented
+}
+
 func (p *BoltProvider) close() error {
 	return p.dbHandle.Close()
 }
@@ -1959,6 +2452,10 @@ func (p *BoltProvider) migrateDatabase() error {
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
+	case version == 19:
+		logger.InfoToConsole(fmt.Sprintf("updating database version: %d -> 20", version))
+		providerLog(logger.LevelInfo, "updating database version: %d -> 20", version)
+		return updateBoltDatabaseVersion(p.dbHandle, 20)
 	default:
 		if version > boltDatabaseVersion {
 			providerLog(logger.LevelError, "database version %v is newer than the supported one: %v", version,
@@ -1980,6 +2477,22 @@ func (p *BoltProvider) revertDatabase(targetVersion int) error {
 		return errors.New("current version match target version, nothing to do")
 	}
 	switch dbVersion.Version {
+	case 20:
+		logger.InfoToConsole("downgrading database version: 20 -> 19")
+		providerLog(logger.LevelInfo, "downgrading database version: 20 -> 19")
+		err := p.dbHandle.Update(func(tx *bolt.Tx) error {
+			for _, bucketName := range [][]byte{actionsBucket, rulesBucket} {
+				err := tx.DeleteBucket(bucketName)
+				if err != nil && !errors.Is(err, bolt.ErrBucketNotFound) {
+					return err
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		return updateBoltDatabaseVersion(p.dbHandle, 19)
 	default:
 		return fmt.Errorf("database version not handled: %v", dbVersion.Version)
 	}
@@ -1995,6 +2508,32 @@ func (p *BoltProvider) resetDatabase() error {
 		}
 		return nil
 	})
+}
+
+func (p *BoltProvider) joinRuleAndActions(r []byte, actionsBucket *bolt.Bucket) (EventRule, error) {
+	var rule EventRule
+	err := json.Unmarshal(r, &rule)
+	if err != nil {
+		return rule, err
+	}
+	var actions []EventAction
+	for idx := range rule.Actions {
+		action := &rule.Actions[idx]
+		var baseAction BaseEventAction
+		k := actionsBucket.Get([]byte(action.Name))
+		if k == nil {
+			continue
+		}
+		err = json.Unmarshal(k, &baseAction)
+		if err != nil {
+			continue
+		}
+		baseAction.Options.SetEmptySecretsIfNil()
+		action.BaseEventAction = baseAction
+		actions = append(actions, *action)
+	}
+	rule.Actions = actions
+	return rule, nil
 }
 
 func (p *BoltProvider) joinGroupAndFolders(g []byte, foldersBucket *bolt.Bucket) (Group, error) {
@@ -2078,10 +2617,59 @@ func (p *BoltProvider) addFolderInternal(folder vfs.BaseVirtualFolder, bucket *b
 	return bucket.Put([]byte(folder.Name), buf)
 }
 
+func (p *BoltProvider) addRuleToActionMapping(ruleName, actionName string, bucket *bolt.Bucket) error {
+	a := bucket.Get([]byte(actionName))
+	if a == nil {
+		return util.NewGenericError(fmt.Sprintf("action %q does not exist", actionName))
+	}
+	var action BaseEventAction
+	err := json.Unmarshal(a, &action)
+	if err != nil {
+		return err
+	}
+	if !util.Contains(action.Rules, ruleName) {
+		action.Rules = append(action.Rules, ruleName)
+		buf, err := json.Marshal(action)
+		if err != nil {
+			return err
+		}
+		return bucket.Put([]byte(action.Name), buf)
+	}
+	return nil
+}
+
+func (p *BoltProvider) removeRuleFromActionMapping(ruleName, actionName string, bucket *bolt.Bucket) error {
+	a := bucket.Get([]byte(actionName))
+	if a == nil {
+		providerLog(logger.LevelWarn, "action %q does not exist, cannot remove from mapping", actionName)
+		return nil
+	}
+	var action BaseEventAction
+	err := json.Unmarshal(a, &action)
+	if err != nil {
+		return err
+	}
+	if util.Contains(action.Rules, ruleName) {
+		var rules []string
+		for _, r := range action.Rules {
+			if r != ruleName {
+				rules = append(rules, r)
+			}
+		}
+		action.Rules = util.RemoveDuplicates(rules, false)
+		buf, err := json.Marshal(action)
+		if err != nil {
+			return err
+		}
+		return bucket.Put([]byte(action.Name), buf)
+	}
+	return nil
+}
+
 func (p *BoltProvider) addUserToGroupMapping(username, groupname string, bucket *bolt.Bucket) error {
 	g := bucket.Get([]byte(groupname))
 	if g == nil {
-		return util.NewRecordNotFoundError(fmt.Sprintf("group %#v does not exist", groupname))
+		return util.NewRecordNotFoundError(fmt.Sprintf("group %q does not exist", groupname))
 	}
 	var group Group
 	err := json.Unmarshal(g, &group)
@@ -2102,7 +2690,7 @@ func (p *BoltProvider) addUserToGroupMapping(username, groupname string, bucket 
 func (p *BoltProvider) removeUserFromGroupMapping(username, groupname string, bucket *bolt.Bucket) error {
 	g := bucket.Get([]byte(groupname))
 	if g == nil {
-		return util.NewRecordNotFoundError(fmt.Sprintf("group %#v does not exist", groupname))
+		return util.NewRecordNotFoundError(fmt.Sprintf("group %q does not exist", groupname))
 	}
 	var group Group
 	err := json.Unmarshal(g, &group)
@@ -2116,7 +2704,7 @@ func (p *BoltProvider) removeUserFromGroupMapping(username, groupname string, bu
 				users = append(users, u)
 			}
 		}
-		group.Users = users
+		group.Users = util.RemoveDuplicates(users, false)
 		buf, err := json.Marshal(group)
 		if err != nil {
 			return err
@@ -2372,7 +2960,7 @@ func (p *BoltProvider) getGroupsBucket(tx *bolt.Tx) (*bolt.Bucket, error) {
 	var err error
 	bucket := tx.Bucket(groupsBucket)
 	if bucket == nil {
-		err = fmt.Errorf("unable to find groups buckets, bolt database structure not correcly defined")
+		err = fmt.Errorf("unable to find groups bucket, bolt database structure not correcly defined")
 	}
 	return bucket, err
 }
@@ -2381,7 +2969,25 @@ func (p *BoltProvider) getFoldersBucket(tx *bolt.Tx) (*bolt.Bucket, error) {
 	var err error
 	bucket := tx.Bucket(foldersBucket)
 	if bucket == nil {
-		err = fmt.Errorf("unable to find folders buckets, bolt database structure not correcly defined")
+		err = fmt.Errorf("unable to find folders bucket, bolt database structure not correcly defined")
+	}
+	return bucket, err
+}
+
+func (p *BoltProvider) getActionsBucket(tx *bolt.Tx) (*bolt.Bucket, error) {
+	var err error
+	bucket := tx.Bucket(actionsBucket)
+	if bucket == nil {
+		err = fmt.Errorf("unable to find event actions bucket, bolt database structure not correcly defined")
+	}
+	return bucket, err
+}
+
+func (p *BoltProvider) getRulesBucket(tx *bolt.Tx) (*bolt.Bucket, error) {
+	var err error
+	bucket := tx.Bucket(rulesBucket)
+	if bucket == nil {
+		err = fmt.Errorf("unable to find event rules bucket, bolt database structure not correcly defined")
 	}
 	return bucket, err
 }
@@ -2405,7 +3011,7 @@ func getBoltDatabaseVersion(dbHandle *bolt.DB) (schemaVersion, error) {
 	return dbVersion, err
 }
 
-/*func updateBoltDatabaseVersion(dbHandle *bolt.DB, version int) error {
+func updateBoltDatabaseVersion(dbHandle *bolt.DB, version int) error {
 	err := dbHandle.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(dbVersionBucket)
 		if bucket == nil {
@@ -2421,4 +3027,4 @@ func getBoltDatabaseVersion(dbHandle *bolt.DB) (schemaVersion, error) {
 		return bucket.Put(dbVersionKey, buf)
 	})
 	return err
-}*/
+}

@@ -28,11 +28,13 @@ const (
 )
 
 const (
-	actionObjectUser   = "user"
-	actionObjectGroup  = "group"
-	actionObjectAdmin  = "admin"
-	actionObjectAPIKey = "api_key"
-	actionObjectShare  = "share"
+	actionObjectUser        = "user"
+	actionObjectGroup       = "group"
+	actionObjectAdmin       = "admin"
+	actionObjectAPIKey      = "api_key"
+	actionObjectShare       = "share"
+	actionObjectEventAction = "event_action"
+	actionObjectEventRule   = "event_rule"
 )
 
 func executeAction(operation, executor, ip, objectType, objectName string, object plugin.Renderer) {
@@ -45,6 +47,18 @@ func executeAction(operation, executor, ip, objectType, objectName string, objec
 			IP:         ip,
 			Timestamp:  time.Now().UnixNano(),
 		}, object)
+	}
+	if EventManager.hasProviderEvents() {
+		EventManager.handleProviderEvent(EventParams{
+			Name:       executor,
+			ObjectName: objectName,
+			Event:      operation,
+			Status:     1,
+			ObjectType: objectType,
+			IP:         ip,
+			Timestamp:  time.Now().UnixNano(),
+			Object:     object,
+		})
 	}
 	if config.Actions.Hook == "" {
 		return
@@ -74,7 +88,7 @@ func executeAction(operation, executor, ip, objectType, objectName string, objec
 			q.Add("ip", ip)
 			q.Add("object_type", objectType)
 			q.Add("object_name", objectName)
-			q.Add("timestamp", fmt.Sprintf("%v", time.Now().UnixNano()))
+			q.Add("timestamp", fmt.Sprintf("%d", time.Now().UnixNano()))
 			url.RawQuery = q.Encode()
 			startTime := time.Now()
 			resp, err := httpclient.RetryablePost(url.String(), "application/json", bytes.NewBuffer(dataAsJSON))
@@ -104,13 +118,13 @@ func executeNotificationCommand(operation, executor, ip, objectType, objectName 
 
 	cmd := exec.CommandContext(ctx, config.Actions.Hook)
 	cmd.Env = append(env,
-		fmt.Sprintf("SFTPGO_PROVIDER_ACTION=%v", operation),
-		fmt.Sprintf("SFTPGO_PROVIDER_OBJECT_TYPE=%v", objectType),
-		fmt.Sprintf("SFTPGO_PROVIDER_OBJECT_NAME=%v", objectName),
-		fmt.Sprintf("SFTPGO_PROVIDER_USERNAME=%v", executor),
-		fmt.Sprintf("SFTPGO_PROVIDER_IP=%v", ip),
-		fmt.Sprintf("SFTPGO_PROVIDER_TIMESTAMP=%v", util.GetTimeAsMsSinceEpoch(time.Now())),
-		fmt.Sprintf("SFTPGO_PROVIDER_OBJECT=%v", string(objectAsJSON)))
+		fmt.Sprintf("SFTPGO_PROVIDER_ACTION=%vs", operation),
+		fmt.Sprintf("SFTPGO_PROVIDER_OBJECT_TYPE=%s", objectType),
+		fmt.Sprintf("SFTPGO_PROVIDER_OBJECT_NAME=%s", objectName),
+		fmt.Sprintf("SFTPGO_PROVIDER_USERNAME=%s", executor),
+		fmt.Sprintf("SFTPGO_PROVIDER_IP=%s", ip),
+		fmt.Sprintf("SFTPGO_PROVIDER_TIMESTAMP=%d", util.GetTimeAsMsSinceEpoch(time.Now())),
+		fmt.Sprintf("SFTPGO_PROVIDER_OBJECT=%s", string(objectAsJSON)))
 
 	startTime := time.Now()
 	err := cmd.Run()

@@ -13,7 +13,6 @@ import (
 
 	"github.com/go-chi/render"
 
-	"github.com/drakkan/sftpgo/v2/common"
 	"github.com/drakkan/sftpgo/v2/dataprovider"
 	"github.com/drakkan/sftpgo/v2/logger"
 	"github.com/drakkan/sftpgo/v2/util"
@@ -190,7 +189,15 @@ func restoreBackup(content []byte, inputFile string, scanQuota, mode int, execut
 		return err
 	}
 
-	logger.Debug(logSender, "", "backup restored, users: %v, folders: %v, admins: %vs",
+	if err = RestoreEventActions(dump.EventActions, inputFile, mode, executor, ipAddress); err != nil {
+		return err
+	}
+
+	if err = RestoreEventRules(dump.EventRules, inputFile, mode, executor, ipAddress); err != nil {
+		return err
+	}
+
+	logger.Debug(logSender, "", "backup restored, users: %d, folders: %d, admins: %d",
 		len(dump.Users), len(dump.Folders), len(dump.Admins))
 
 	return nil
@@ -244,7 +251,7 @@ func RestoreFolders(folders []vfs.BaseVirtualFolder, inputFile string, mode, sca
 			return fmt.Errorf("unable to restore folder %#v: %w", folder.Name, err)
 		}
 		if scanQuota >= 1 {
-			if common.QuotaScans.AddVFolderQuotaScan(folder.Name) {
+			if dataprovider.QuotaScans.AddVFolderQuotaScan(folder.Name) {
 				logger.Debug(logSender, "", "starting quota scan for restored folder: %#v", folder.Name)
 				go doFolderQuotaScan(folder) //nolint:errcheck
 			}
@@ -275,6 +282,54 @@ func RestoreShares(shares []dataprovider.Share, inputFile string, mode int, exec
 		}
 		if err != nil {
 			return fmt.Errorf("unable to restore share %#v: %w", share.ShareID, err)
+		}
+	}
+	return nil
+}
+
+// RestoreEventActions restores the specified event actions
+func RestoreEventActions(actions []dataprovider.BaseEventAction, inputFile string, mode int, executor, ipAddress string) error {
+	for _, action := range actions {
+		action := action // pin
+		a, err := dataprovider.EventActionExists(action.Name)
+		if err == nil {
+			if mode == 1 {
+				logger.Debug(logSender, "", "loaddata mode 1, existing event action %q not updated", a.Name)
+				continue
+			}
+			action.ID = a.ID
+			err = dataprovider.UpdateEventAction(&action, executor, ipAddress)
+			logger.Debug(logSender, "", "restoring event action %q, dump file: %q, error: %v", action.Name, inputFile, err)
+		} else {
+			err = dataprovider.AddEventAction(&action, executor, ipAddress)
+			logger.Debug(logSender, "", "adding new event action %q, dump file: %q, error: %v", action.Name, inputFile, err)
+		}
+		if err != nil {
+			return fmt.Errorf("unable to restore event action %q: %w", action.Name, err)
+		}
+	}
+	return nil
+}
+
+// RestoreEventRules restores the specified event rules
+func RestoreEventRules(rules []dataprovider.EventRule, inputFile string, mode int, executor, ipAddress string) error {
+	for _, rule := range rules {
+		rule := rule // pin
+		r, err := dataprovider.EventRuleExists(rule.Name)
+		if err == nil {
+			if mode == 1 {
+				logger.Debug(logSender, "", "loaddata mode 1, existing event rule %q not updated", r.Name)
+				continue
+			}
+			rule.ID = r.ID
+			err = dataprovider.UpdateEventRule(&rule, executor, ipAddress)
+			logger.Debug(logSender, "", "restoring event rule %q, dump file: %q, error: %v", rule.Name, inputFile, err)
+		} else {
+			err = dataprovider.AddEventRule(&rule, executor, ipAddress)
+			logger.Debug(logSender, "", "adding new event rule %q, dump file: %q, error: %v", rule.Name, inputFile, err)
+		}
+		if err != nil {
+			return fmt.Errorf("unable to restore event rule %q: %w", rule.Name, err)
 		}
 	}
 	return nil
@@ -384,7 +439,7 @@ func RestoreUsers(users []dataprovider.User, inputFile string, mode, scanQuota i
 			return fmt.Errorf("unable to restore user %#v: %w", user.Username, err)
 		}
 		if scanQuota == 1 || (scanQuota == 2 && user.HasQuotaRestrictions()) {
-			if common.QuotaScans.AddUserQuotaScan(user.Username) {
+			if dataprovider.QuotaScans.AddUserQuotaScan(user.Username) {
 				logger.Debug(logSender, "", "starting quota scan for restored user: %#v", user.Username)
 				go doUserQuotaScan(user) //nolint:errcheck
 			}

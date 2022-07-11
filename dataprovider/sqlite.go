@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	// we import go-sqlite3 here to be able to disable SQLite support using a build tag
@@ -36,6 +37,10 @@ DROP TABLE IF EXISTS "{{defender_events}}";
 DROP TABLE IF EXISTS "{{defender_hosts}}";
 DROP TABLE IF EXISTS "{{active_transfers}}";
 DROP TABLE IF EXISTS "{{shared_sessions}}";
+DROP TABLE IF EXISTS "{{rules_actions_mapping}}";
+DROP TABLE IF EXISTS "{{events_rules}}";
+DROP TABLE IF EXISTS "{{events_actions}}";
+DROP TABLE IF EXISTS "{{tasks}}";
 DROP TABLE IF EXISTS "{{schema_version}}";
 `
 	sqliteInitialSQL = `CREATE TABLE "{{schema_version}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "version" integer NOT NULL);
@@ -115,6 +120,33 @@ CREATE INDEX "{{prefix}}active_transfers_updated_at_idx" ON "{{active_transfers}
 CREATE INDEX "{{prefix}}shared_sessions_type_idx" ON "{{shared_sessions}}" ("type");
 CREATE INDEX "{{prefix}}shared_sessions_timestamp_idx" ON "{{shared_sessions}}" ("timestamp");
 INSERT INTO {{schema_version}} (version) VALUES (19);
+`
+	sqliteV20SQL = `CREATE TABLE "{{events_rules}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+"name" varchar(255) NOT NULL UNIQUE, "description" varchar(512) NULL, "created_at" bigint NOT NULL,
+"updated_at" bigint NOT NULL, "trigger" integer NOT NULL, "conditions" text NOT NULL, "deleted_at" bigint NOT NULL);
+CREATE TABLE "{{events_actions}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "name" varchar(255) NOT NULL UNIQUE,
+"description" varchar(512) NULL, "type" integer NOT NULL, "options" text NOT NULL);
+CREATE TABLE "{{rules_actions_mapping}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+"rule_id" integer NOT NULL REFERENCES "{{events_rules}}" ("id")  ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
+"action_id" integer NOT NULL REFERENCES "{{events_actions}}" ("id")  ON DELETE NO ACTION DEFERRABLE INITIALLY DEFERRED,
+"order" integer NOT NULL, "options" text NOT NULL,
+CONSTRAINT "{{prefix}}unique_rule_action_mapping" UNIQUE ("rule_id", "action_id"));
+CREATE TABLE "{{tasks}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "name" varchar(255) NOT NULL UNIQUE,
+"updated_at" bigint NOT NULL, "version" bigint NOT NULL);
+ALTER TABLE "{{users}}" ADD COLUMN "deleted_at" bigint DEFAULT 0 NOT NULL;
+CREATE INDEX "{{prefix}}events_rules_updated_at_idx" ON "{{events_rules}}" ("updated_at");
+CREATE INDEX "{{prefix}}events_rules_deleted_at_idx" ON "{{events_rules}}" ("deleted_at");
+CREATE INDEX "{{prefix}}events_rules_trigger_idx" ON "{{events_rules}}" ("trigger");
+CREATE INDEX "{{prefix}}rules_actions_mapping_rule_id_idx" ON "{{rules_actions_mapping}}" ("rule_id");
+CREATE INDEX "{{prefix}}rules_actions_mapping_action_id_idx" ON "{{rules_actions_mapping}}" ("action_id");
+CREATE INDEX "{{prefix}}rules_actions_mapping_order_idx" ON "{{rules_actions_mapping}}" ("order");
+CREATE INDEX "{{prefix}}users_deleted_at_idx" ON "{{users}}" ("deleted_at");
+`
+	sqliteV20DownSQL = `DROP TABLE "{{rules_actions_mapping}}";
+DROP TABLE "{{events_rules}}";
+DROP TABLE "{{events_actions}}";
+DROP TABLE "{{tasks}}";
+ALTER TABLE "{{users}}" DROP COLUMN "deleted_at";
 `
 )
 
@@ -449,6 +481,74 @@ func (p *SQLiteProvider) cleanupSharedSessions(sessionType SessionType, before i
 	return sqlCommonCleanupSessions(sessionType, before, p.dbHandle)
 }
 
+func (p *SQLiteProvider) getEventActions(limit, offset int, order string, minimal bool) ([]BaseEventAction, error) {
+	return sqlCommonGetEventActions(limit, offset, order, minimal, p.dbHandle)
+}
+
+func (p *SQLiteProvider) dumpEventActions() ([]BaseEventAction, error) {
+	return sqlCommonDumpEventActions(p.dbHandle)
+}
+
+func (p *SQLiteProvider) eventActionExists(name string) (BaseEventAction, error) {
+	return sqlCommonGetEventActionByName(name, p.dbHandle)
+}
+
+func (p *SQLiteProvider) addEventAction(action *BaseEventAction) error {
+	return sqlCommonAddEventAction(action, p.dbHandle)
+}
+
+func (p *SQLiteProvider) updateEventAction(action *BaseEventAction) error {
+	return sqlCommonUpdateEventAction(action, p.dbHandle)
+}
+
+func (p *SQLiteProvider) deleteEventAction(action BaseEventAction) error {
+	return sqlCommonDeleteEventAction(action, p.dbHandle)
+}
+
+func (p *SQLiteProvider) getEventRules(limit, offset int, order string) ([]EventRule, error) {
+	return sqlCommonGetEventRules(limit, offset, order, p.dbHandle)
+}
+
+func (p *SQLiteProvider) dumpEventRules() ([]EventRule, error) {
+	return sqlCommonDumpEventRules(p.dbHandle)
+}
+
+func (p *SQLiteProvider) getRecentlyUpdatedRules(after int64) ([]EventRule, error) {
+	return sqlCommonGetRecentlyUpdatedRules(after, p.dbHandle)
+}
+
+func (p *SQLiteProvider) eventRuleExists(name string) (EventRule, error) {
+	return sqlCommonGetEventRuleByName(name, p.dbHandle)
+}
+
+func (p *SQLiteProvider) addEventRule(rule *EventRule) error {
+	return sqlCommonAddEventRule(rule, p.dbHandle)
+}
+
+func (p *SQLiteProvider) updateEventRule(rule *EventRule) error {
+	return sqlCommonUpdateEventRule(rule, p.dbHandle)
+}
+
+func (p *SQLiteProvider) deleteEventRule(rule EventRule, softDelete bool) error {
+	return sqlCommonDeleteEventRule(rule, softDelete, p.dbHandle)
+}
+
+func (p *SQLiteProvider) getTaskByName(name string) (Task, error) {
+	return sqlCommonGetTaskByName(name, p.dbHandle)
+}
+
+func (p *SQLiteProvider) addTask(name string) error {
+	return sqlCommonAddTask(name, p.dbHandle)
+}
+
+func (p *SQLiteProvider) updateTask(name string, version int64) error {
+	return sqlCommonUpdateTask(name, version, p.dbHandle)
+}
+
+func (p *SQLiteProvider) updateTaskTimestamp(name string) error {
+	return sqlCommonUpdateTaskTimestamp(name, p.dbHandle)
+}
+
 func (p *SQLiteProvider) close() error {
 	return p.dbHandle.Close()
 }
@@ -488,6 +588,8 @@ func (p *SQLiteProvider) migrateDatabase() error { //nolint:dupl
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
+	case version == 19:
+		return updateSQLiteDatabaseFromV19(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database version %v is newer than the supported one: %v", version,
@@ -510,6 +612,8 @@ func (p *SQLiteProvider) revertDatabase(targetVersion int) error {
 	}
 
 	switch dbVersion.Version {
+	case 20:
+		return downgradeSQLiteDatabaseFromV20(p.dbHandle)
 	default:
 		return fmt.Errorf("database version not handled: %v", dbVersion.Version)
 	}
@@ -518,6 +622,37 @@ func (p *SQLiteProvider) revertDatabase(targetVersion int) error {
 func (p *SQLiteProvider) resetDatabase() error {
 	sql := sqlReplaceAll(sqliteResetSQL)
 	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{sql}, 0, false)
+}
+
+func updateSQLiteDatabaseFromV19(dbHandle *sql.DB) error {
+	return updateSQLiteDatabaseFrom19To20(dbHandle)
+}
+
+func downgradeSQLiteDatabaseFromV20(dbHandle *sql.DB) error {
+	return downgradeSQLiteDatabaseFrom20To19(dbHandle)
+}
+
+func updateSQLiteDatabaseFrom19To20(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 19 -> 20")
+	providerLog(logger.LevelInfo, "updating database version: 19 -> 20")
+	sql := strings.ReplaceAll(sqliteV20SQL, "{{events_actions}}", sqlTableEventsActions)
+	sql = strings.ReplaceAll(sql, "{{events_rules}}", sqlTableEventsRules)
+	sql = strings.ReplaceAll(sql, "{{rules_actions_mapping}}", sqlTableRulesActionsMapping)
+	sql = strings.ReplaceAll(sql, "{{tasks}}", sqlTableTasks)
+	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 20, true)
+}
+
+func downgradeSQLiteDatabaseFrom20To19(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 20 -> 19")
+	providerLog(logger.LevelInfo, "downgrading database version: 20 -> 19")
+	sql := strings.ReplaceAll(sqliteV20DownSQL, "{{events_actions}}", sqlTableEventsActions)
+	sql = strings.ReplaceAll(sql, "{{events_rules}}", sqlTableEventsRules)
+	sql = strings.ReplaceAll(sql, "{{rules_actions_mapping}}", sqlTableRulesActionsMapping)
+	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{tasks}}", sqlTableTasks)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 19, false)
 }
 
 /*func setPragmaFK(dbHandle *sql.DB, value string) error {

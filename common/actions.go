@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -87,7 +88,8 @@ func ExecuteActionNotification(conn *BaseConnection, operation, filePath, virtua
 ) error {
 	hasNotifiersPlugin := plugin.Handler.HasNotifiers()
 	hasHook := util.Contains(Config.Actions.ExecuteOn, operation)
-	if !hasHook && !hasNotifiersPlugin {
+	hasRules := dataprovider.EventManager.HasFsRules()
+	if !hasHook && !hasNotifiersPlugin && !hasRules {
 		return nil
 	}
 	notification := newActionNotification(&conn.User, operation, filePath, virtualPath, target, virtualTarget, sshCmd,
@@ -95,15 +97,34 @@ func ExecuteActionNotification(conn *BaseConnection, operation, filePath, virtua
 	if hasNotifiersPlugin {
 		plugin.Handler.NotifyFsEvent(notification)
 	}
-
+	var errRes error
+	if hasRules {
+		errRes = dataprovider.EventManager.HandleFsEvent(dataprovider.EventParams{
+			Name:              notification.Username,
+			Event:             notification.Action,
+			Status:            notification.Status,
+			VirtualPath:       notification.VirtualPath,
+			FsPath:            notification.Path,
+			VirtualTargetPath: notification.VirtualTargetPath,
+			FsTargetPath:      notification.TargetPath,
+			ObjectName:        path.Base(notification.VirtualPath),
+			FileSize:          notification.FileSize,
+			Protocol:          notification.Protocol,
+			IP:                notification.IP,
+			Timestamp:         notification.Timestamp,
+			Object:            nil,
+		})
+	}
 	if hasHook {
 		if util.Contains(Config.Actions.ExecuteSync, operation) {
-			return actionHandler.Handle(notification)
+			if errHook := actionHandler.Handle(notification); errHook != nil {
+				errRes = errHook
+			}
+		} else {
+			go actionHandler.Handle(notification) //nolint:errcheck
 		}
-
-		go actionHandler.Handle(notification) //nolint:errcheck
 	}
-	return nil
+	return errRes
 }
 
 // ActionHandler handles a notification for a Protocol Action.
@@ -119,7 +140,6 @@ func newActionNotification(
 	err error,
 ) *notifier.FsEvent {
 	var bucket, endpoint string
-	status := 1
 
 	fsConfig := user.GetFsConfigForPath(virtualPath)
 
@@ -140,12 +160,6 @@ func newActionNotification(
 		endpoint = fsConfig.HTTPConfig.Endpoint
 	}
 
-	if err == ErrQuotaExceeded {
-		status = 3
-	} else if err != nil {
-		status = 2
-	}
-
 	return &notifier.FsEvent{
 		Action:            operation,
 		Username:          user.Username,
@@ -158,7 +172,7 @@ func newActionNotification(
 		FsProvider:        int(fsConfig.Provider),
 		Bucket:            bucket,
 		Endpoint:          endpoint,
-		Status:            status,
+		Status:            getNotificationStatus(err),
 		Protocol:          protocol,
 		IP:                ip,
 		SessionID:         sessionID,
@@ -211,7 +225,7 @@ func (h *defaultActionHandler) handleHTTP(event *notifier.FsEvent) error {
 		}
 	}
 
-	logger.Debug(event.Protocol, "", "notified operation %#v to URL: %v status code: %v, elapsed: %v err: %v",
+	logger.Debug(event.Protocol, "", "notified operation %q to URL: %s status code: %d, elapsed: %s err: %v",
 		event.Action, u.Redacted(), respCode, time.Since(startTime), err)
 
 	return err
@@ -243,22 +257,32 @@ func (h *defaultActionHandler) handleCommand(event *notifier.FsEvent) error {
 
 func notificationAsEnvVars(event *notifier.FsEvent) []string {
 	return []string{
-		fmt.Sprintf("SFTPGO_ACTION=%v", event.Action),
-		fmt.Sprintf("SFTPGO_ACTION_USERNAME=%v", event.Username),
-		fmt.Sprintf("SFTPGO_ACTION_PATH=%v", event.Path),
-		fmt.Sprintf("SFTPGO_ACTION_TARGET=%v", event.TargetPath),
-		fmt.Sprintf("SFTPGO_ACTION_VIRTUAL_PATH=%v", event.VirtualPath),
-		fmt.Sprintf("SFTPGO_ACTION_VIRTUAL_TARGET=%v", event.VirtualTargetPath),
-		fmt.Sprintf("SFTPGO_ACTION_SSH_CMD=%v", event.SSHCmd),
-		fmt.Sprintf("SFTPGO_ACTION_FILE_SIZE=%v", event.FileSize),
-		fmt.Sprintf("SFTPGO_ACTION_FS_PROVIDER=%v", event.FsProvider),
-		fmt.Sprintf("SFTPGO_ACTION_BUCKET=%v", event.Bucket),
-		fmt.Sprintf("SFTPGO_ACTION_ENDPOINT=%v", event.Endpoint),
-		fmt.Sprintf("SFTPGO_ACTION_STATUS=%v", event.Status),
-		fmt.Sprintf("SFTPGO_ACTION_PROTOCOL=%v", event.Protocol),
-		fmt.Sprintf("SFTPGO_ACTION_IP=%v", event.IP),
-		fmt.Sprintf("SFTPGO_ACTION_SESSION_ID=%v", event.SessionID),
-		fmt.Sprintf("SFTPGO_ACTION_OPEN_FLAGS=%v", event.OpenFlags),
-		fmt.Sprintf("SFTPGO_ACTION_TIMESTAMP=%v", event.Timestamp),
+		fmt.Sprintf("SFTPGO_ACTION=%s", event.Action),
+		fmt.Sprintf("SFTPGO_ACTION_USERNAME=%s", event.Username),
+		fmt.Sprintf("SFTPGO_ACTION_PATH=%s", event.Path),
+		fmt.Sprintf("SFTPGO_ACTION_TARGET=%s", event.TargetPath),
+		fmt.Sprintf("SFTPGO_ACTION_VIRTUAL_PATH=%s", event.VirtualPath),
+		fmt.Sprintf("SFTPGO_ACTION_VIRTUAL_TARGET=%s", event.VirtualTargetPath),
+		fmt.Sprintf("SFTPGO_ACTION_SSH_CMD=%s", event.SSHCmd),
+		fmt.Sprintf("SFTPGO_ACTION_FILE_SIZE=%d", event.FileSize),
+		fmt.Sprintf("SFTPGO_ACTION_FS_PROVIDER=%d", event.FsProvider),
+		fmt.Sprintf("SFTPGO_ACTION_BUCKET=%s", event.Bucket),
+		fmt.Sprintf("SFTPGO_ACTION_ENDPOINT=%s", event.Endpoint),
+		fmt.Sprintf("SFTPGO_ACTION_STATUS=%d", event.Status),
+		fmt.Sprintf("SFTPGO_ACTION_PROTOCOL=%s", event.Protocol),
+		fmt.Sprintf("SFTPGO_ACTION_IP=%s", event.IP),
+		fmt.Sprintf("SFTPGO_ACTION_SESSION_ID=%s", event.SessionID),
+		fmt.Sprintf("SFTPGO_ACTION_OPEN_FLAGS=%d", event.OpenFlags),
+		fmt.Sprintf("SFTPGO_ACTION_TIMESTAMP=%d", event.Timestamp),
 	}
+}
+
+func getNotificationStatus(err error) int {
+	status := 1
+	if err == ErrQuotaExceeded {
+		status = 3
+	} else if err != nil {
+		status = 2
+	}
+	return status
 }

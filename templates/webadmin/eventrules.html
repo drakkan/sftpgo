@@ -14,10 +14,9 @@
 <div id="errorMsg" class="card mb-4 border-left-warning" style="display: none;">
     <div id="errorTxt" class="card-body text-form-error"></div>
 </div>
-
 <div class="card shadow mb-4">
     <div class="card-header py-3">
-        <h6 class="m-0 font-weight-bold text-primary">View and manage groups</h6>
+        <h6 class="m-0 font-weight-bold text-primary">View and manage event rules</h6>
     </div>
     <div class="card-body">
         <div class="table-responsive">
@@ -26,15 +25,17 @@
                     <tr>
                         <th>Name</th>
                         <th>Description</th>
-                        <th>Members</th>
+                        <th>Trigger</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {{range .Groups}}
+                    {{range .Rules}}
                     <tr>
                         <td>{{.Name}}</td>
                         <td>{{.Description}}</td>
-                        <td>{{.GetUsersAsString}}</td>
+                        <td>{{.GetTriggerAsString}}</td>
+                        <td>{{.GetActionsAsString}}</td>
                     </tr>
                     {{end}}
                 </tbody>
@@ -57,7 +58,7 @@
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
-            <div class="modal-body">Do you want to delete the selected group? A referenced group cannot be removed</div>
+            <div class="modal-body">Do you want to delete the selected rule?</div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" type="button" data-dismiss="modal">
                     Cancel
@@ -87,8 +88,8 @@
     function deleteAction() {
         var table = $('#dataTable').DataTable();
         table.button('delete:name').enable(false);
-        var groupName = table.row({ selected: true }).data()[0];
-        var path = '{{.GroupURL}}' + "/" + fixedEncodeURIComponent(groupName);
+        var name = table.row({ selected: true }).data()[0];
+        var path = '{{.EventRuleURL}}' + "/" + fixedEncodeURIComponent(name);
         $('#deleteModal').modal('hide');
         $.ajax({
             url: path,
@@ -97,10 +98,10 @@
             headers: {'X-CSRF-TOKEN' : '{{.CSRFToken}}'},
             timeout: 15000,
             success: function (result) {
-                window.location.href = '{{.GroupsURL}}';
+                window.location.href = '{{.EventRulesURL}}';
             },
             error: function ($xhr, textStatus, errorThrown) {
-                var txt = "Unable to delete the selected group";
+                var txt = "Unable to delete the selected rule";
                 if ($xhr) {
                     var json = $xhr.responseJSON;
                     if (json) {
@@ -126,7 +127,7 @@
             name: 'add',
             titleAttr: "Add",
             action: function (e, dt, node, config) {
-                window.location.href = '{{.GroupURL}}';
+                window.location.href = '{{.EventRuleURL}}';
             }
         };
 
@@ -135,8 +136,8 @@
             name: 'edit',
             titleAttr: "Edit",
             action: function (e, dt, node, config) {
-                var groupName = table.row({ selected: true }).data()[0];
-                var path = '{{.GroupURL}}' + "/" + fixedEncodeURIComponent(groupName);
+                var name = table.row({ selected: true }).data()[0];
+                var path = '{{.EventRuleURL}}' + "/" + fixedEncodeURIComponent(name);
                 window.location.href = path;
             },
             enabled: false
@@ -172,7 +173,7 @@
                     "className": "noVis"
                 },
                 {
-                    "targets": [2],
+                    "targets": [3],
                     "render": $.fn.dataTable.render.ellipsis(100, true)
                 },
             ],
@@ -180,14 +181,13 @@
             "scrollY": false,
             "responsive": true,
             "language": {
-                "emptyTable": "No group defined"
+                "emptyTable": "No event rules defined"
             },
             "order": [[0, 'asc']]
         });
 
         new $.fn.dataTable.FixedHeader( table );
 
-        {{if .LoggedAdmin.HasPermission "manage_groups"}}
         table.button().add(0,'delete');
         table.button().add(0,'edit');
         table.button().add(0,'add');
@@ -199,7 +199,6 @@
             table.button('delete:name').enable(selectedRows == 1);
             table.button('edit:name').enable(selectedRows == 1);
         });
-        {{end}}
 
     });
 

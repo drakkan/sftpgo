@@ -1524,10 +1524,11 @@ func (u *User) applyGroupSettings(groupsMapping map[string]Group) {
 	if u.groupSettingsApplied {
 		return
 	}
+	replacer := u.getGroupPlacehodersReplacer()
 	for _, g := range u.Groups {
 		if g.Type == sdk.GroupTypePrimary {
 			if group, ok := groupsMapping[g.Name]; ok {
-				u.mergeWithPrimaryGroup(group)
+				u.mergeWithPrimaryGroup(group, replacer)
 			} else {
 				providerLog(logger.LevelError, "mapping not found for user %s, group %s", u.Username, g.Name)
 			}
@@ -1537,7 +1538,7 @@ func (u *User) applyGroupSettings(groupsMapping map[string]Group) {
 	for _, g := range u.Groups {
 		if g.Type == sdk.GroupTypeSecondary {
 			if group, ok := groupsMapping[g.Name]; ok {
-				u.mergeAdditiveProperties(group, sdk.GroupTypeSecondary)
+				u.mergeAdditiveProperties(group, sdk.GroupTypeSecondary, replacer)
 			} else {
 				providerLog(logger.LevelError, "mapping not found for user %s, group %s", u.Username, g.Name)
 			}
@@ -1566,10 +1567,11 @@ func (u *User) LoadAndApplyGroupSettings() error {
 	if err != nil {
 		return fmt.Errorf("unable to get groups: %w", err)
 	}
+	replacer := u.getGroupPlacehodersReplacer()
 	// make sure to always merge with the primary group first
 	for idx, g := range groups {
 		if g.Name == primaryGroupName {
-			u.mergeWithPrimaryGroup(g)
+			u.mergeWithPrimaryGroup(g, replacer)
 			lastIdx := len(groups) - 1
 			groups[idx] = groups[lastIdx]
 			groups = groups[:lastIdx]
@@ -1577,42 +1579,46 @@ func (u *User) LoadAndApplyGroupSettings() error {
 		}
 	}
 	for _, g := range groups {
-		u.mergeAdditiveProperties(g, sdk.GroupTypeSecondary)
+		u.mergeAdditiveProperties(g, sdk.GroupTypeSecondary, replacer)
 	}
 	u.removeDuplicatesAfterGroupMerge()
 	return nil
 }
 
-func (u *User) replacePlaceholder(value string) string {
+func (u *User) getGroupPlacehodersReplacer() *strings.Replacer {
+	return strings.NewReplacer("%username%", u.Username)
+}
+
+func (u *User) replacePlaceholder(value string, replacer *strings.Replacer) string {
 	if value == "" {
 		return value
 	}
-	return strings.ReplaceAll(value, "%username%", u.Username)
+	return replacer.Replace(value)
 }
 
-func (u *User) replaceFsConfigPlaceholders(fsConfig vfs.Filesystem) vfs.Filesystem {
+func (u *User) replaceFsConfigPlaceholders(fsConfig vfs.Filesystem, replacer *strings.Replacer) vfs.Filesystem {
 	switch fsConfig.Provider {
 	case sdk.S3FilesystemProvider:
-		fsConfig.S3Config.KeyPrefix = u.replacePlaceholder(fsConfig.S3Config.KeyPrefix)
+		fsConfig.S3Config.KeyPrefix = u.replacePlaceholder(fsConfig.S3Config.KeyPrefix, replacer)
 	case sdk.GCSFilesystemProvider:
-		fsConfig.GCSConfig.KeyPrefix = u.replacePlaceholder(fsConfig.GCSConfig.KeyPrefix)
+		fsConfig.GCSConfig.KeyPrefix = u.replacePlaceholder(fsConfig.GCSConfig.KeyPrefix, replacer)
 	case sdk.AzureBlobFilesystemProvider:
-		fsConfig.AzBlobConfig.KeyPrefix = u.replacePlaceholder(fsConfig.AzBlobConfig.KeyPrefix)
+		fsConfig.AzBlobConfig.KeyPrefix = u.replacePlaceholder(fsConfig.AzBlobConfig.KeyPrefix, replacer)
 	case sdk.SFTPFilesystemProvider:
-		fsConfig.SFTPConfig.Username = u.replacePlaceholder(fsConfig.SFTPConfig.Username)
-		fsConfig.SFTPConfig.Prefix = u.replacePlaceholder(fsConfig.SFTPConfig.Prefix)
+		fsConfig.SFTPConfig.Username = u.replacePlaceholder(fsConfig.SFTPConfig.Username, replacer)
+		fsConfig.SFTPConfig.Prefix = u.replacePlaceholder(fsConfig.SFTPConfig.Prefix, replacer)
 	case sdk.HTTPFilesystemProvider:
-		fsConfig.HTTPConfig.Username = u.replacePlaceholder(fsConfig.HTTPConfig.Username)
+		fsConfig.HTTPConfig.Username = u.replacePlaceholder(fsConfig.HTTPConfig.Username, replacer)
 	}
 	return fsConfig
 }
 
-func (u *User) mergeWithPrimaryGroup(group Group) {
+func (u *User) mergeWithPrimaryGroup(group Group, replacer *strings.Replacer) {
 	if group.UserSettings.HomeDir != "" {
-		u.HomeDir = u.replacePlaceholder(group.UserSettings.HomeDir)
+		u.HomeDir = u.replacePlaceholder(group.UserSettings.HomeDir, replacer)
 	}
 	if group.UserSettings.FsConfig.Provider != 0 {
-		u.FsConfig = u.replaceFsConfigPlaceholders(group.UserSettings.FsConfig)
+		u.FsConfig = u.replaceFsConfigPlaceholders(group.UserSettings.FsConfig, replacer)
 	}
 	if u.MaxSessions == 0 {
 		u.MaxSessions = group.UserSettings.MaxSessions
@@ -1634,11 +1640,11 @@ func (u *User) mergeWithPrimaryGroup(group Group) {
 		u.DownloadDataTransfer = group.UserSettings.DownloadDataTransfer
 		u.TotalDataTransfer = group.UserSettings.TotalDataTransfer
 	}
-	u.mergePrimaryGroupFilters(group.UserSettings.Filters)
-	u.mergeAdditiveProperties(group, sdk.GroupTypePrimary)
+	u.mergePrimaryGroupFilters(group.UserSettings.Filters, replacer)
+	u.mergeAdditiveProperties(group, sdk.GroupTypePrimary, replacer)
 }
 
-func (u *User) mergePrimaryGroupFilters(filters sdk.BaseUserFilters) {
+func (u *User) mergePrimaryGroupFilters(filters sdk.BaseUserFilters, replacer *strings.Replacer) {
 	if u.Filters.MaxUploadFileSize == 0 {
 		u.Filters.MaxUploadFileSize = filters.MaxUploadFileSize
 	}
@@ -1664,14 +1670,14 @@ func (u *User) mergePrimaryGroupFilters(filters sdk.BaseUserFilters) {
 		u.Filters.ExternalAuthCacheTime = filters.ExternalAuthCacheTime
 	}
 	if u.Filters.StartDirectory == "" {
-		u.Filters.StartDirectory = u.replacePlaceholder(filters.StartDirectory)
+		u.Filters.StartDirectory = u.replacePlaceholder(filters.StartDirectory, replacer)
 	}
 }
 
-func (u *User) mergeAdditiveProperties(group Group, groupType int) {
-	u.mergeVirtualFolders(group, groupType)
-	u.mergePermissions(group, groupType)
-	u.mergeFilePatterns(group, groupType)
+func (u *User) mergeAdditiveProperties(group Group, groupType int, replacer *strings.Replacer) {
+	u.mergeVirtualFolders(group, groupType, replacer)
+	u.mergePermissions(group, groupType, replacer)
+	u.mergeFilePatterns(group, groupType, replacer)
 	u.Filters.BandwidthLimits = append(u.Filters.BandwidthLimits, group.UserSettings.Filters.BandwidthLimits...)
 	u.Filters.DataTransferLimits = append(u.Filters.DataTransferLimits, group.UserSettings.Filters.DataTransferLimits...)
 	u.Filters.AllowedIP = append(u.Filters.AllowedIP, group.UserSettings.Filters.AllowedIP...)
@@ -1682,7 +1688,7 @@ func (u *User) mergeAdditiveProperties(group Group, groupType int) {
 	u.Filters.TwoFactorAuthProtocols = append(u.Filters.TwoFactorAuthProtocols, group.UserSettings.Filters.TwoFactorAuthProtocols...)
 }
 
-func (u *User) mergeVirtualFolders(group Group, groupType int) {
+func (u *User) mergeVirtualFolders(group Group, groupType int, replacer *strings.Replacer) {
 	if len(group.VirtualFolders) > 0 {
 		folderPaths := make(map[string]bool)
 		for _, folder := range u.VirtualFolders {
@@ -1692,17 +1698,17 @@ func (u *User) mergeVirtualFolders(group Group, groupType int) {
 			if folder.VirtualPath == "/" && groupType != sdk.GroupTypePrimary {
 				continue
 			}
-			folder.VirtualPath = u.replacePlaceholder(folder.VirtualPath)
+			folder.VirtualPath = u.replacePlaceholder(folder.VirtualPath, replacer)
 			if _, ok := folderPaths[folder.VirtualPath]; !ok {
-				folder.MappedPath = u.replacePlaceholder(folder.MappedPath)
-				folder.FsConfig = u.replaceFsConfigPlaceholders(folder.FsConfig)
+				folder.MappedPath = u.replacePlaceholder(folder.MappedPath, replacer)
+				folder.FsConfig = u.replaceFsConfigPlaceholders(folder.FsConfig, replacer)
 				u.VirtualFolders = append(u.VirtualFolders, folder)
 			}
 		}
 	}
 }
 
-func (u *User) mergePermissions(group Group, groupType int) {
+func (u *User) mergePermissions(group Group, groupType int, replacer *strings.Replacer) {
 	for k, v := range group.UserSettings.Permissions {
 		if k == "/" {
 			if groupType == sdk.GroupTypePrimary {
@@ -1711,14 +1717,14 @@ func (u *User) mergePermissions(group Group, groupType int) {
 				continue
 			}
 		}
-		k = u.replacePlaceholder(k)
+		k = u.replacePlaceholder(k, replacer)
 		if _, ok := u.Permissions[k]; !ok {
 			u.Permissions[k] = v
 		}
 	}
 }
 
-func (u *User) mergeFilePatterns(group Group, groupType int) {
+func (u *User) mergeFilePatterns(group Group, groupType int, replacer *strings.Replacer) {
 	if len(group.UserSettings.Filters.FilePatterns) > 0 {
 		patternPaths := make(map[string]bool)
 		for _, pattern := range u.Filters.FilePatterns {
@@ -1728,7 +1734,7 @@ func (u *User) mergeFilePatterns(group Group, groupType int) {
 			if pattern.Path == "/" && groupType != sdk.GroupTypePrimary {
 				continue
 			}
-			pattern.Path = u.replacePlaceholder(pattern.Path)
+			pattern.Path = u.replacePlaceholder(pattern.Path, replacer)
 			if _, ok := patternPaths[pattern.Path]; !ok {
 				u.Filters.FilePatterns = append(u.Filters.FilePatterns, pattern)
 			}

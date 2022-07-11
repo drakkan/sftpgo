@@ -48,6 +48,14 @@ type memoryProviderHandle struct {
 	shares map[string]Share
 	// slice with ordered shares shareID
 	sharesIDs []string
+	// map for event actions, name is the key
+	actions map[string]BaseEventAction
+	// slice with ordered actions
+	actionsNames []string
+	// map for event actions, name is the key
+	rules map[string]EventRule
+	// slice with ordered rules
+	rulesNames []string
 }
 
 // MemoryProvider defines the auth provider for a memory store
@@ -78,6 +86,10 @@ func initializeMemoryProvider(basePath string) {
 			apiKeysIDs:      []string{},
 			shares:          make(map[string]Share),
 			sharesIDs:       []string{},
+			actions:         make(map[string]BaseEventAction),
+			actionsNames:    []string{},
+			rules:           make(map[string]EventRule),
+			rulesNames:      []string{},
 			configFile:      configFile,
 		},
 	}
@@ -576,14 +588,28 @@ func (p *MemoryProvider) userExistsInternal(username string) (User, error) {
 	if val, ok := p.dbHandle.users[username]; ok {
 		return val.getACopy(), nil
 	}
-	return User{}, util.NewRecordNotFoundError(fmt.Sprintf("username %#v does not exist", username))
+	return User{}, util.NewRecordNotFoundError(fmt.Sprintf("username %q does not exist", username))
 }
 
 func (p *MemoryProvider) groupExistsInternal(name string) (Group, error) {
 	if val, ok := p.dbHandle.groups[name]; ok {
 		return val.getACopy(), nil
 	}
-	return Group{}, util.NewRecordNotFoundError(fmt.Sprintf("group %#v does not exist", name))
+	return Group{}, util.NewRecordNotFoundError(fmt.Sprintf("group %q does not exist", name))
+}
+
+func (p *MemoryProvider) actionExistsInternal(name string) (BaseEventAction, error) {
+	if val, ok := p.dbHandle.actions[name]; ok {
+		return val.getACopy(), nil
+	}
+	return BaseEventAction{}, util.NewRecordNotFoundError(fmt.Sprintf("event action %q does not exist", name))
+}
+
+func (p *MemoryProvider) ruleExistsInternal(name string) (EventRule, error) {
+	if val, ok := p.dbHandle.rules[name]; ok {
+		return val.getACopy(), nil
+	}
+	return EventRule{}, util.NewRecordNotFoundError(fmt.Sprintf("event rule %q does not exist", name))
 }
 
 func (p *MemoryProvider) addAdmin(admin *Admin) error {
@@ -981,6 +1007,52 @@ func (p *MemoryProvider) addVirtualFoldersToGroup(group *Group) {
 		}
 		group.VirtualFolders = folders
 	}
+}
+
+func (p *MemoryProvider) addActionsToRule(rule *EventRule) {
+	var actions []EventAction
+	for idx := range rule.Actions {
+		action := &rule.Actions[idx]
+		baseAction, err := p.actionExistsInternal(action.Name)
+		if err != nil {
+			continue
+		}
+		baseAction.Options.SetEmptySecretsIfNil()
+		action.BaseEventAction = baseAction
+		actions = append(actions, *action)
+	}
+	rule.Actions = actions
+}
+
+func (p *MemoryProvider) addRuleToActionMapping(ruleName, actionName string) error {
+	a, err := p.actionExistsInternal(actionName)
+	if err != nil {
+		return util.NewGenericError(fmt.Sprintf("action %q does not exist", actionName))
+	}
+	if !util.Contains(a.Rules, ruleName) {
+		a.Rules = append(a.Rules, ruleName)
+		p.dbHandle.actions[actionName] = a
+	}
+	return nil
+}
+
+func (p *MemoryProvider) removeRuleFromActionMapping(ruleName, actionName string) error {
+	a, err := p.actionExistsInternal(actionName)
+	if err != nil {
+		providerLog(logger.LevelWarn, "action %q does not exist, cannot remove from mapping", actionName)
+		return nil
+	}
+	if util.Contains(a.Rules, ruleName) {
+		var rules []string
+		for _, r := range a.Rules {
+			if r != ruleName {
+				rules = append(rules, r)
+			}
+		}
+		a.Rules = rules
+		p.dbHandle.actions[actionName] = a
+	}
+	return nil
 }
 
 func (p *MemoryProvider) addUserFromGroupMapping(username, groupname string) error {
@@ -1768,6 +1840,359 @@ func (p *MemoryProvider) cleanupSharedSessions(sessionType SessionType, before i
 	return ErrNotImplemented
 }
 
+func (p *MemoryProvider) getEventActions(limit, offset int, order string, minimal bool) ([]BaseEventAction, error) {
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return nil, errMemoryProviderClosed
+	}
+	if limit <= 0 {
+		return nil, nil
+	}
+	actions := make([]BaseEventAction, 0, limit)
+	itNum := 0
+	if order == OrderASC {
+		for _, name := range p.dbHandle.actionsNames {
+			itNum++
+			if itNum <= offset {
+				continue
+			}
+			a := p.dbHandle.actions[name]
+			action := a.getACopy()
+			action.PrepareForRendering()
+			actions = append(actions, action)
+			if len(actions) >= limit {
+				break
+			}
+		}
+	} else {
+		for i := len(p.dbHandle.actionsNames) - 1; i >= 0; i-- {
+			itNum++
+			if itNum <= offset {
+				continue
+			}
+			name := p.dbHandle.actionsNames[i]
+			a := p.dbHandle.actions[name]
+			action := a.getACopy()
+			action.PrepareForRendering()
+			actions = append(actions, action)
+			if len(actions) >= limit {
+				break
+			}
+		}
+	}
+	return actions, nil
+}
+
+func (p *MemoryProvider) dumpEventActions() ([]BaseEventAction, error) {
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return nil, errMemoryProviderClosed
+	}
+	actions := make([]BaseEventAction, 0, len(p.dbHandle.actions))
+	for _, name := range p.dbHandle.actionsNames {
+		a := p.dbHandle.actions[name]
+		action := a.getACopy()
+		actions = append(actions, action)
+	}
+	return actions, nil
+}
+
+func (p *MemoryProvider) eventActionExists(name string) (BaseEventAction, error) {
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return BaseEventAction{}, errMemoryProviderClosed
+	}
+	return p.actionExistsInternal(name)
+}
+
+func (p *MemoryProvider) addEventAction(action *BaseEventAction) error {
+	err := action.validate()
+	if err != nil {
+		return err
+	}
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return errMemoryProviderClosed
+	}
+	_, err = p.actionExistsInternal(action.Name)
+	if err == nil {
+		return fmt.Errorf("event action %q already exists", action.Name)
+	}
+	action.ID = p.getNextActionID()
+	action.Rules = nil
+	p.dbHandle.actions[action.Name] = action.getACopy()
+	p.dbHandle.actionsNames = append(p.dbHandle.actionsNames, action.Name)
+	sort.Strings(p.dbHandle.actionsNames)
+	return nil
+}
+
+func (p *MemoryProvider) updateEventAction(action *BaseEventAction) error {
+	err := action.validate()
+	if err != nil {
+		return err
+	}
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return errMemoryProviderClosed
+	}
+	oldAction, err := p.actionExistsInternal(action.Name)
+	if err != nil {
+		return fmt.Errorf("event action %s does not exist", action.Name)
+	}
+	action.ID = oldAction.ID
+	action.Name = oldAction.Name
+	action.Rules = nil
+	if len(oldAction.Rules) > 0 {
+		var relatedRules []string
+		for _, ruleName := range oldAction.Rules {
+			rule, err := p.ruleExistsInternal(ruleName)
+			if err == nil {
+				relatedRules = append(relatedRules, ruleName)
+				rule.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+				p.dbHandle.rules[ruleName] = rule
+				setLastRuleUpdate()
+			}
+		}
+		action.Rules = relatedRules
+	}
+	p.dbHandle.actions[action.Name] = action.getACopy()
+	return nil
+}
+
+func (p *MemoryProvider) deleteEventAction(action BaseEventAction) error {
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return errMemoryProviderClosed
+	}
+	oldAction, err := p.actionExistsInternal(action.Name)
+	if err != nil {
+		return fmt.Errorf("event action %s does not exist", action.Name)
+	}
+	if len(oldAction.Rules) > 0 {
+		return util.NewValidationError(fmt.Sprintf("action %s is referenced, it cannot be removed", oldAction.Name))
+	}
+	delete(p.dbHandle.actions, action.Name)
+	// this could be more efficient
+	p.dbHandle.actionsNames = make([]string, 0, len(p.dbHandle.actions))
+	for name := range p.dbHandle.actions {
+		p.dbHandle.actionsNames = append(p.dbHandle.actionsNames, name)
+	}
+	sort.Strings(p.dbHandle.actionsNames)
+	return nil
+}
+
+func (p *MemoryProvider) getEventRules(limit, offset int, order string) ([]EventRule, error) {
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return nil, errMemoryProviderClosed
+	}
+	if limit <= 0 {
+		return nil, nil
+	}
+	itNum := 0
+	rules := make([]EventRule, 0, limit)
+	if order == OrderASC {
+		for _, name := range p.dbHandle.rulesNames {
+			itNum++
+			if itNum <= offset {
+				continue
+			}
+			r := p.dbHandle.rules[name]
+			rule := r.getACopy()
+			p.addActionsToRule(&rule)
+			rule.PrepareForRendering()
+			rules = append(rules, rule)
+			if len(rules) >= limit {
+				break
+			}
+		}
+	} else {
+		for i := len(p.dbHandle.rulesNames) - 1; i >= 0; i-- {
+			itNum++
+			if itNum <= offset {
+				continue
+			}
+			name := p.dbHandle.rulesNames[i]
+			r := p.dbHandle.rules[name]
+			rule := r.getACopy()
+			p.addActionsToRule(&rule)
+			rule.PrepareForRendering()
+			rules = append(rules, rule)
+			if len(rules) >= limit {
+				break
+			}
+		}
+	}
+	return rules, nil
+}
+
+func (p *MemoryProvider) dumpEventRules() ([]EventRule, error) {
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return nil, errMemoryProviderClosed
+	}
+	rules := make([]EventRule, 0, len(p.dbHandle.rules))
+	for _, name := range p.dbHandle.rulesNames {
+		r := p.dbHandle.rules[name]
+		rule := r.getACopy()
+		p.addActionsToRule(&rule)
+		rules = append(rules, rule)
+	}
+	return rules, nil
+}
+
+func (p *MemoryProvider) getRecentlyUpdatedRules(after int64) ([]EventRule, error) {
+	if getLastRuleUpdate() < after {
+		return nil, nil
+	}
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return nil, errMemoryProviderClosed
+	}
+	rules := make([]EventRule, 0, 10)
+	for _, name := range p.dbHandle.rulesNames {
+		r := p.dbHandle.rules[name]
+		if r.UpdatedAt < after {
+			continue
+		}
+		rule := r.getACopy()
+		p.addActionsToRule(&rule)
+		rules = append(rules, rule)
+	}
+	return rules, nil
+}
+
+func (p *MemoryProvider) eventRuleExists(name string) (EventRule, error) {
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return EventRule{}, errMemoryProviderClosed
+	}
+	rule, err := p.ruleExistsInternal(name)
+	if err != nil {
+		return rule, err
+	}
+	p.addActionsToRule(&rule)
+	return rule, nil
+}
+
+func (p *MemoryProvider) addEventRule(rule *EventRule) error {
+	if err := rule.validate(); err != nil {
+		return err
+	}
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return errMemoryProviderClosed
+	}
+	_, err := p.ruleExistsInternal(rule.Name)
+	if err == nil {
+		return fmt.Errorf("event rule %q already exists", rule.Name)
+	}
+	rule.ID = p.getNextRuleID()
+	rule.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+	rule.UpdatedAt = rule.CreatedAt
+	for idx := range rule.Actions {
+		if err := p.addRuleToActionMapping(rule.Name, rule.Actions[idx].Name); err != nil {
+			return err
+		}
+	}
+	sort.Slice(rule.Actions, func(i, j int) bool {
+		return rule.Actions[i].Order < rule.Actions[j].Order
+	})
+	p.dbHandle.rules[rule.Name] = rule.getACopy()
+	p.dbHandle.rulesNames = append(p.dbHandle.rulesNames, rule.Name)
+	sort.Strings(p.dbHandle.rulesNames)
+	setLastRuleUpdate()
+	return nil
+}
+
+func (p *MemoryProvider) updateEventRule(rule *EventRule) error {
+	if err := rule.validate(); err != nil {
+		return err
+	}
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return errMemoryProviderClosed
+	}
+	oldRule, err := p.ruleExistsInternal(rule.Name)
+	if err != nil {
+		return err
+	}
+	for idx := range oldRule.Actions {
+		if err = p.removeRuleFromActionMapping(rule.Name, oldRule.Actions[idx].Name); err != nil {
+			return err
+		}
+	}
+	for idx := range rule.Actions {
+		if err = p.addRuleToActionMapping(rule.Name, rule.Actions[idx].Name); err != nil {
+			return err
+		}
+	}
+	rule.ID = oldRule.ID
+	rule.CreatedAt = oldRule.CreatedAt
+	rule.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+	sort.Slice(rule.Actions, func(i, j int) bool {
+		return rule.Actions[i].Order < rule.Actions[j].Order
+	})
+	p.dbHandle.rules[rule.Name] = rule.getACopy()
+	setLastRuleUpdate()
+	return nil
+}
+
+func (p *MemoryProvider) deleteEventRule(rule EventRule, softDelete bool) error {
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return errMemoryProviderClosed
+	}
+	oldRule, err := p.ruleExistsInternal(rule.Name)
+	if err != nil {
+		return err
+	}
+	if len(oldRule.Actions) > 0 {
+		for idx := range oldRule.Actions {
+			if err = p.removeRuleFromActionMapping(rule.Name, oldRule.Actions[idx].Name); err != nil {
+				return err
+			}
+		}
+	}
+	delete(p.dbHandle.rules, rule.Name)
+	p.dbHandle.rulesNames = make([]string, 0, len(p.dbHandle.rules))
+	for name := range p.dbHandle.rules {
+		p.dbHandle.rulesNames = append(p.dbHandle.rulesNames, name)
+	}
+	sort.Strings(p.dbHandle.rulesNames)
+	setLastRuleUpdate()
+	return nil
+}
+
+func (p *MemoryProvider) getTaskByName(name string) (Task, error) {
+	return Task{}, ErrNotImplemented
+}
+
+func (p *MemoryProvider) addTask(name string) error {
+	return ErrNotImplemented
+}
+
+func (p *MemoryProvider) updateTask(name string, version int64) error {
+	return ErrNotImplemented
+}
+
+func (p *MemoryProvider) updateTaskTimestamp(name string) error {
+	return ErrNotImplemented
+}
+
 func (p *MemoryProvider) getNextID() int64 {
 	nextID := int64(1)
 	for _, v := range p.dbHandle.users {
@@ -1803,6 +2228,26 @@ func (p *MemoryProvider) getNextGroupID() int64 {
 	for _, g := range p.dbHandle.groups {
 		if g.ID >= nextID {
 			nextID = g.ID + 1
+		}
+	}
+	return nextID
+}
+
+func (p *MemoryProvider) getNextActionID() int64 {
+	nextID := int64(1)
+	for _, a := range p.dbHandle.actions {
+		if a.ID >= nextID {
+			nextID = a.ID + 1
+		}
+	}
+	return nextID
+}
+
+func (p *MemoryProvider) getNextRuleID() int64 {
+	nextID := int64(1)
+	for _, r := range p.dbHandle.rules {
+		if r.ID >= nextID {
+			nextID = r.ID + 1
 		}
 	}
 	return nextID
@@ -1856,27 +2301,35 @@ func (p *MemoryProvider) reloadConfig() error {
 	}
 	p.clear()
 
-	if err := p.restoreFolders(&dump); err != nil {
+	if err := p.restoreFolders(dump); err != nil {
 		return err
 	}
 
-	if err := p.restoreGroups(&dump); err != nil {
+	if err := p.restoreGroups(dump); err != nil {
 		return err
 	}
 
-	if err := p.restoreUsers(&dump); err != nil {
+	if err := p.restoreUsers(dump); err != nil {
 		return err
 	}
 
-	if err := p.restoreAdmins(&dump); err != nil {
+	if err := p.restoreAdmins(dump); err != nil {
 		return err
 	}
 
-	if err := p.restoreAPIKeys(&dump); err != nil {
+	if err := p.restoreAPIKeys(dump); err != nil {
 		return err
 	}
 
-	if err := p.restoreShares(&dump); err != nil {
+	if err := p.restoreShares(dump); err != nil {
+		return err
+	}
+
+	if err := p.restoreEventActions(dump); err != nil {
+		return err
+	}
+
+	if err := p.restoreEventRules(dump); err != nil {
 		return err
 	}
 
@@ -1884,7 +2337,51 @@ func (p *MemoryProvider) reloadConfig() error {
 	return nil
 }
 
-func (p *MemoryProvider) restoreShares(dump *BackupData) error {
+func (p *MemoryProvider) restoreEventActions(dump BackupData) error {
+	for _, action := range dump.EventActions {
+		a, err := p.eventActionExists(action.Name)
+		action := action // pin
+		if err == nil {
+			action.ID = a.ID
+			err = UpdateEventAction(&action, ActionExecutorSystem, "")
+			if err != nil {
+				providerLog(logger.LevelError, "error updating event action %q: %v", action.Name, err)
+				return err
+			}
+		} else {
+			err = AddEventAction(&action, ActionExecutorSystem, "")
+			if err != nil {
+				providerLog(logger.LevelError, "error adding event action %q: %v", action.Name, err)
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (p *MemoryProvider) restoreEventRules(dump BackupData) error {
+	for _, rule := range dump.EventRules {
+		r, err := p.eventRuleExists(rule.Name)
+		rule := rule // pin
+		if err == nil {
+			rule.ID = r.ID
+			err = UpdateEventRule(&rule, ActionExecutorSystem, "")
+			if err != nil {
+				providerLog(logger.LevelError, "error updating event rule %q: %v", rule.Name, err)
+				return err
+			}
+		} else {
+			err = AddEventRule(&rule, ActionExecutorSystem, "")
+			if err != nil {
+				providerLog(logger.LevelError, "error adding event rule %q: %v", rule.Name, err)
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (p *MemoryProvider) restoreShares(dump BackupData) error {
 	for _, share := range dump.Shares {
 		s, err := p.shareExists(share.ShareID, "")
 		share := share // pin
@@ -1907,7 +2404,7 @@ func (p *MemoryProvider) restoreShares(dump *BackupData) error {
 	return nil
 }
 
-func (p *MemoryProvider) restoreAPIKeys(dump *BackupData) error {
+func (p *MemoryProvider) restoreAPIKeys(dump BackupData) error {
 	for _, apiKey := range dump.APIKeys {
 		if apiKey.Key == "" {
 			return fmt.Errorf("cannot restore an empty API key: %+v", apiKey)
@@ -1932,7 +2429,7 @@ func (p *MemoryProvider) restoreAPIKeys(dump *BackupData) error {
 	return nil
 }
 
-func (p *MemoryProvider) restoreAdmins(dump *BackupData) error {
+func (p *MemoryProvider) restoreAdmins(dump BackupData) error {
 	for _, admin := range dump.Admins {
 		admin := admin // pin
 		admin.Username = config.convertName(admin.Username)
@@ -1955,7 +2452,7 @@ func (p *MemoryProvider) restoreAdmins(dump *BackupData) error {
 	return nil
 }
 
-func (p *MemoryProvider) restoreGroups(dump *BackupData) error {
+func (p *MemoryProvider) restoreGroups(dump BackupData) error {
 	for _, group := range dump.Groups {
 		group := group // pin
 		group.Name = config.convertName(group.Name)
@@ -1979,7 +2476,7 @@ func (p *MemoryProvider) restoreGroups(dump *BackupData) error {
 	return nil
 }
 
-func (p *MemoryProvider) restoreFolders(dump *BackupData) error {
+func (p *MemoryProvider) restoreFolders(dump BackupData) error {
 	for _, folder := range dump.Folders {
 		folder := folder // pin
 		folder.Name = config.convertName(folder.Name)
@@ -2003,7 +2500,7 @@ func (p *MemoryProvider) restoreFolders(dump *BackupData) error {
 	return nil
 }
 
-func (p *MemoryProvider) restoreUsers(dump *BackupData) error {
+func (p *MemoryProvider) restoreUsers(dump BackupData) error {
 	for _, user := range dump.Users {
 		user := user // pin
 		user.Username = config.convertName(user.Username)

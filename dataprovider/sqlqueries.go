@@ -18,7 +18,9 @@ const (
 	selectAPIKeyFields = "key_id,name,api_key,scope,created_at,updated_at,last_use_at,expires_at,description,user_id,admin_id"
 	selectShareFields  = "s.share_id,s.name,s.description,s.scope,s.paths,u.username,s.created_at,s.updated_at,s.last_use_at," +
 		"s.expires_at,s.password,s.max_tokens,s.used_tokens,s.allow_from"
-	selectGroupFields = "id,name,description,created_at,updated_at,user_settings"
+	selectGroupFields       = "id,name,description,created_at,updated_at,user_settings"
+	selectEventActionFields = "id,name,description,type,options"
+	selectMinimalFields     = "id,name"
 )
 
 func getSQLPlaceholders() []string {
@@ -33,12 +35,20 @@ func getSQLPlaceholders() []string {
 	return placeholders
 }
 
-func getSQLTableGroups() string {
+func getSQLQuotedName(name string) string {
 	if config.Driver == MySQLDataProviderName {
-		return fmt.Sprintf("`%s`", sqlTableGroups)
+		return fmt.Sprintf("`%s`", name)
 	}
 
-	return sqlTableGroups
+	return fmt.Sprintf(`"%s"`, name)
+}
+
+func getSelectEventRuleFields() string {
+	if config.Driver == MySQLDataProviderName {
+		return "id,name,description,created_at,updated_at,`trigger`,conditions,deleted_at"
+	}
+
+	return `id,name,description,created_at,updated_at,"trigger",conditions,deleted_at`
 }
 
 func getAddSessionQuery() string {
@@ -147,18 +157,19 @@ func getDefenderEventsCleanupQuery() string {
 }
 
 func getGroupByNameQuery() string {
-	return fmt.Sprintf(`SELECT %s FROM %s WHERE name = %s`, selectGroupFields, getSQLTableGroups(), sqlPlaceholders[0])
+	return fmt.Sprintf(`SELECT %s FROM %s WHERE name = %s`, selectGroupFields, getSQLQuotedName(sqlTableGroups),
+		sqlPlaceholders[0])
 }
 
 func getGroupsQuery(order string, minimal bool) string {
 	var fieldSelection string
 	if minimal {
-		fieldSelection = "id,name"
+		fieldSelection = selectMinimalFields
 	} else {
 		fieldSelection = selectGroupFields
 	}
-	return fmt.Sprintf(`SELECT %s FROM %s ORDER BY name %s LIMIT %s OFFSET %s`, fieldSelection, getSQLTableGroups(),
-		order, sqlPlaceholders[0], sqlPlaceholders[1])
+	return fmt.Sprintf(`SELECT %s FROM %s ORDER BY name %s LIMIT %s OFFSET %s`, fieldSelection,
+		getSQLQuotedName(sqlTableGroups), order, sqlPlaceholders[0], sqlPlaceholders[1])
 }
 
 func getGroupsWithNamesQuery(numArgs int) string {
@@ -176,7 +187,7 @@ func getGroupsWithNamesQuery(numArgs int) string {
 	} else {
 		sb.WriteString("('')")
 	}
-	return fmt.Sprintf(`SELECT %s FROM %s WHERE name in %s`, selectGroupFields, getSQLTableGroups(), sb.String())
+	return fmt.Sprintf(`SELECT %s FROM %s WHERE name in %s`, selectGroupFields, getSQLQuotedName(sqlTableGroups), sb.String())
 }
 
 func getUsersInGroupsQuery(numArgs int) string {
@@ -195,27 +206,27 @@ func getUsersInGroupsQuery(numArgs int) string {
 		sb.WriteString("('')")
 	}
 	return fmt.Sprintf(`SELECT username FROM %s WHERE id IN (SELECT user_id from %s WHERE group_id IN (SELECT id FROM %s WHERE name IN (%s)))`,
-		sqlTableUsers, sqlTableUsersGroupsMapping, getSQLTableGroups(), sb.String())
+		sqlTableUsers, sqlTableUsersGroupsMapping, getSQLQuotedName(sqlTableGroups), sb.String())
 }
 
 func getDumpGroupsQuery() string {
-	return fmt.Sprintf(`SELECT %s FROM %s`, selectGroupFields, getSQLTableGroups())
+	return fmt.Sprintf(`SELECT %s FROM %s`, selectGroupFields, getSQLQuotedName(sqlTableGroups))
 }
 
 func getAddGroupQuery() string {
 	return fmt.Sprintf(`INSERT INTO %s (name,description,created_at,updated_at,user_settings)
-		VALUES (%s,%s,%s,%s,%s)`, getSQLTableGroups(), sqlPlaceholders[0], sqlPlaceholders[1],
+		VALUES (%s,%s,%s,%s,%s)`, getSQLQuotedName(sqlTableGroups), sqlPlaceholders[0], sqlPlaceholders[1],
 		sqlPlaceholders[2], sqlPlaceholders[3], sqlPlaceholders[4])
 }
 
 func getUpdateGroupQuery() string {
 	return fmt.Sprintf(`UPDATE %s SET description=%s,user_settings=%s,updated_at=%s
-		WHERE name = %s`, getSQLTableGroups(), sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2],
+		WHERE name = %s`, getSQLQuotedName(sqlTableGroups), sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2],
 		sqlPlaceholders[3])
 }
 
 func getDeleteGroupQuery() string {
-	return fmt.Sprintf(`DELETE FROM %s WHERE name = %s`, getSQLTableGroups(), sqlPlaceholders[0])
+	return fmt.Sprintf(`DELETE FROM %s WHERE name = %s`, getSQLQuotedName(sqlTableGroups), sqlPlaceholders[0])
 }
 
 func getAdminByUsernameQuery() string {
@@ -457,8 +468,8 @@ func getAddUserQuery() string {
 	return fmt.Sprintf(`INSERT INTO %s (username,password,public_keys,home_dir,uid,gid,max_sessions,quota_size,quota_files,permissions,
 		used_quota_size,used_quota_files,last_quota_update,upload_bandwidth,download_bandwidth,status,last_login,expiration_date,filters,
 		filesystem,additional_info,description,email,created_at,updated_at,upload_data_transfer,download_data_transfer,total_data_transfer,
-		used_upload_data_transfer,used_download_data_transfer)
-		VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,0,0,0,%s,%s,%s,0,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,0,0)`,
+		used_upload_data_transfer,used_download_data_transfer,deleted_at)
+		VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,0,0,0,%s,%s,%s,0,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,0,0,0)`,
 		sqlTableUsers, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3], sqlPlaceholders[4],
 		sqlPlaceholders[5], sqlPlaceholders[6], sqlPlaceholders[7], sqlPlaceholders[8], sqlPlaceholders[9],
 		sqlPlaceholders[10], sqlPlaceholders[11], sqlPlaceholders[12], sqlPlaceholders[13], sqlPlaceholders[14],
@@ -527,19 +538,20 @@ func getClearUserGroupMappingQuery() string {
 func getAddUserGroupMappingQuery() string {
 	return fmt.Sprintf(`INSERT INTO %s (user_id,group_id,group_type) VALUES ((SELECT id FROM %s WHERE username = %s),
 		(SELECT id FROM %s WHERE name = %s),%s)`,
-		sqlTableUsersGroupsMapping, sqlTableUsers, sqlPlaceholders[0], getSQLTableGroups(), sqlPlaceholders[1], sqlPlaceholders[2])
+		sqlTableUsersGroupsMapping, sqlTableUsers, sqlPlaceholders[0], getSQLQuotedName(sqlTableGroups),
+		sqlPlaceholders[1], sqlPlaceholders[2])
 }
 
 func getClearGroupFolderMappingQuery() string {
 	return fmt.Sprintf(`DELETE FROM %s WHERE group_id = (SELECT id FROM %s WHERE name = %s)`, sqlTableGroupsFoldersMapping,
-		getSQLTableGroups(), sqlPlaceholders[0])
+		getSQLQuotedName(sqlTableGroups), sqlPlaceholders[0])
 }
 
 func getAddGroupFolderMappingQuery() string {
 	return fmt.Sprintf(`INSERT INTO %s (virtual_path,quota_size,quota_files,folder_id,group_id)
 		VALUES (%s,%s,%s,(SELECT id FROM %s WHERE name = %s),(SELECT id FROM %s WHERE name = %s))`,
 		sqlTableGroupsFoldersMapping, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlTableFolders,
-		sqlPlaceholders[3], getSQLTableGroups(), sqlPlaceholders[4])
+		sqlPlaceholders[3], getSQLQuotedName(sqlTableGroups), sqlPlaceholders[4])
 }
 
 func getClearUserFolderMappingQuery() string {
@@ -557,7 +569,7 @@ func getAddUserFolderMappingQuery() string {
 func getFoldersQuery(order string, minimal bool) string {
 	var fieldSelection string
 	if minimal {
-		fieldSelection = "id,name"
+		fieldSelection = selectMinimalFields
 	} else {
 		fieldSelection = selectFolderFields
 	}
@@ -593,7 +605,7 @@ func getRelatedGroupsForUsersQuery(users []User) string {
 		sb.WriteString(")")
 	}
 	return fmt.Sprintf(`SELECT g.name,ug.group_type,ug.user_id FROM %s g INNER JOIN %s ug ON g.id = ug.group_id WHERE
-		ug.user_id IN %s ORDER BY ug.user_id`, getSQLTableGroups(), sqlTableUsersGroupsMapping, sb.String())
+		ug.user_id IN %s ORDER BY ug.user_id`, getSQLQuotedName(sqlTableGroups), sqlTableUsersGroupsMapping, sb.String())
 }
 
 func getRelatedFoldersForUsersQuery(users []User) string {
@@ -645,7 +657,8 @@ func getRelatedGroupsForFoldersQuery(folders []vfs.BaseVirtualFolder) string {
 		sb.WriteString(")")
 	}
 	return fmt.Sprintf(`SELECT fm.folder_id,g.name FROM %s fm INNER JOIN %s g ON fm.group_id = g.id
-		WHERE fm.folder_id IN %s ORDER BY fm.folder_id`, sqlTableGroupsFoldersMapping, getSQLTableGroups(), sb.String())
+		WHERE fm.folder_id IN %s ORDER BY fm.folder_id`, sqlTableGroupsFoldersMapping, getSQLQuotedName(sqlTableGroups),
+		sb.String())
 }
 
 func getRelatedUsersForGroupsQuery(groups []Group) string {
@@ -709,6 +722,156 @@ func getRemoveActiveTransferQuery() string {
 
 func getCleanupActiveTransfersQuery() string {
 	return fmt.Sprintf(`DELETE FROM %s WHERE updated_at < %s`, sqlTableActiveTransfers, sqlPlaceholders[0])
+}
+
+func getRelatedRulesForActionsQuery(actions []BaseEventAction) string {
+	var sb strings.Builder
+	for _, a := range actions {
+		if sb.Len() == 0 {
+			sb.WriteString("(")
+		} else {
+			sb.WriteString(",")
+		}
+		sb.WriteString(strconv.FormatInt(a.ID, 10))
+	}
+	if sb.Len() > 0 {
+		sb.WriteString(")")
+	}
+	return fmt.Sprintf(`SELECT am.action_id,r.name FROM %s am INNER JOIN %s r ON am.rule_id = r.id
+		WHERE am.action_id IN %s ORDER BY r.name ASC`, sqlTableRulesActionsMapping, sqlTableEventsRules, sb.String())
+}
+
+func getEventsActionsQuery(order string, minimal bool) string {
+	var fieldSelection string
+	if minimal {
+		fieldSelection = selectMinimalFields
+	} else {
+		fieldSelection = selectEventActionFields
+	}
+	return fmt.Sprintf(`SELECT %s FROM %s ORDER BY name %s LIMIT %s OFFSET %s`, fieldSelection,
+		sqlTableEventsActions, order, sqlPlaceholders[0], sqlPlaceholders[1])
+}
+
+func getDumpEventActionsQuery() string {
+	return fmt.Sprintf(`SELECT %s FROM %s`, selectEventActionFields, sqlTableEventsActions)
+}
+
+func getEventActionByNameQuery() string {
+	return fmt.Sprintf(`SELECT %s FROM %s WHERE name = %s`, selectEventActionFields, sqlTableEventsActions,
+		sqlPlaceholders[0])
+}
+
+func getAddEventActionQuery() string {
+	return fmt.Sprintf(`INSERT INTO %s (name,description,type,options) VALUES (%s,%s,%s,%s)`,
+		sqlTableEventsActions, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3])
+}
+
+func getUpdateEventActionQuery() string {
+	return fmt.Sprintf(`UPDATE %s SET description=%s,type=%s,options=%s WHERE name = %s`, sqlTableEventsActions,
+		sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3])
+}
+
+func getDeleteEventActionQuery() string {
+	return fmt.Sprintf(`DELETE FROM %s WHERE name = %s`, sqlTableEventsActions, sqlPlaceholders[0])
+}
+
+func getEventRulesQuery(order string) string {
+	return fmt.Sprintf(`SELECT %s FROM %s WHERE deleted_at = 0 ORDER BY name %s LIMIT %s OFFSET %s`,
+		getSelectEventRuleFields(), sqlTableEventsRules, order, sqlPlaceholders[0], sqlPlaceholders[1])
+}
+
+func getDumpEventRulesQuery() string {
+	return fmt.Sprintf(`SELECT %s FROM %s WHERE deleted_at = 0`, getSelectEventRuleFields(), sqlTableEventsRules)
+}
+
+func getRecentlyUpdatedRulesQuery() string {
+	return fmt.Sprintf(`SELECT %s FROM %s WHERE updated_at >= %s OR deleted_at > 0`, getSelectEventRuleFields(),
+		sqlTableEventsRules, sqlPlaceholders[0])
+}
+
+func getEventRulesByNameQuery() string {
+	return fmt.Sprintf(`SELECT %s FROM %s WHERE name = %s AND deleted_at = 0`, getSelectEventRuleFields(), sqlTableEventsRules,
+		sqlPlaceholders[0])
+}
+
+func getAddEventRuleQuery() string {
+	return fmt.Sprintf(`INSERT INTO %s (name,description,created_at,updated_at,%s,conditions,deleted_at)
+		VALUES (%s,%s,%s,%s,%s,%s,0)`,
+		sqlTableEventsRules, getSQLQuotedName("trigger"), sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2],
+		sqlPlaceholders[3], sqlPlaceholders[4], sqlPlaceholders[5])
+}
+
+func getUpdateEventRuleQuery() string {
+	return fmt.Sprintf(`UPDATE %s SET description=%s,updated_at=%s,%s=%s,conditions=%s WHERE name = %s`,
+		sqlTableEventsRules, sqlPlaceholders[0], sqlPlaceholders[1], getSQLQuotedName("trigger"), sqlPlaceholders[2],
+		sqlPlaceholders[3], sqlPlaceholders[4])
+}
+
+func getDeleteEventRuleQuery(softDelete bool) string {
+	if softDelete {
+		return fmt.Sprintf(`UPDATE %s SET updated_at=%s,deleted_at=%s WHERE name = %s`,
+			sqlTableEventsRules, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2])
+	}
+	return fmt.Sprintf(`DELETE FROM %s WHERE name = %s`, sqlTableEventsRules, sqlPlaceholders[0])
+}
+
+func getClearRuleActionMappingQuery() string {
+	return fmt.Sprintf(`DELETE FROM %s WHERE rule_id = (SELECT id FROM %s WHERE name = %s)`, sqlTableRulesActionsMapping,
+		sqlTableEventsRules, sqlPlaceholders[0])
+}
+
+func getUpdateRulesTimestampQuery() string {
+	return fmt.Sprintf(`UPDATE %s SET updated_at=%s WHERE id IN (SELECT rule_id FROM %s WHERE action_id = %s)`,
+		sqlTableEventsRules, sqlPlaceholders[0], sqlTableRulesActionsMapping, sqlPlaceholders[1])
+}
+
+func getRelatedActionsForRulesQuery(rules []EventRule) string {
+	var sb strings.Builder
+	for _, r := range rules {
+		if sb.Len() == 0 {
+			sb.WriteString("(")
+		} else {
+			sb.WriteString(",")
+		}
+		sb.WriteString(strconv.FormatInt(r.ID, 10))
+	}
+	if sb.Len() > 0 {
+		sb.WriteString(")")
+	}
+	return fmt.Sprintf(`SELECT a.id,a.name,a.description,a.type,a.options,am.options,am.%s,
+		am.rule_id FROM %s a INNER JOIN %s am ON a.id = am.action_id WHERE am.rule_id IN %s ORDER BY am.%s ASC`,
+		getSQLQuotedName("order"), sqlTableEventsActions, sqlTableRulesActionsMapping, sb.String(),
+		getSQLQuotedName("order"))
+}
+
+func getAddRuleActionMappingQuery() string {
+	return fmt.Sprintf(`INSERT INTO %s (rule_id,action_id,%s,options) VALUES ((SELECT id FROM %s WHERE name = %s),
+		(SELECT id FROM %s WHERE name = %s),%s,%s)`,
+		sqlTableRulesActionsMapping, getSQLQuotedName("order"), sqlTableEventsRules, sqlPlaceholders[0],
+		sqlTableEventsActions, sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3])
+}
+
+func getTaskByNameQuery() string {
+	return fmt.Sprintf(`SELECT updated_at,version FROM %s WHERE name = %s`, sqlTableTasks, sqlPlaceholders[0])
+}
+
+func getAddTaskQuery() string {
+	return fmt.Sprintf(`INSERT INTO %s (name,updated_at,version) VALUES (%s,%s,0)`,
+		sqlTableTasks, sqlPlaceholders[0], sqlPlaceholders[1])
+}
+
+func getUpdateTaskQuery() string {
+	return fmt.Sprintf(`UPDATE %s SET updated_at=%s,version = version + 1 WHERE name = %s AND version = %s`,
+		sqlTableTasks, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2])
+}
+
+func getUpdateTaskTimestampQuery() string {
+	return fmt.Sprintf(`UPDATE %s SET updated_at=%s WHERE name = %s`,
+		sqlTableTasks, sqlPlaceholders[0], sqlPlaceholders[1])
+}
+
+func getDeleteTaskQuery() string {
+	return fmt.Sprintf(`DELETE FROM %s WHERE name = %s`, sqlTableTasks, sqlPlaceholders[0])
 }
 
 func getDatabaseVersionQuery() string {

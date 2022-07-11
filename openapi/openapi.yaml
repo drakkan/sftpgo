@@ -16,6 +16,7 @@ tags:
   - name: metadata
   - name: user APIs
   - name: public shares
+  - name: event manager
 info:
   title: SFTPGo
   description: |
@@ -1450,7 +1451,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
               example:
-                message: User updated
+                message: Folder updated
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1625,7 +1626,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
               example:
-                message: User updated
+                message: Group updated
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1641,7 +1642,7 @@ paths:
     delete:
       tags:
         - groups
-      summary: Delete
+      summary: Delete group
       description: Deletes an existing group
       operationId: delete_group
       responses:
@@ -1652,7 +1653,357 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
               example:
-                message: User deleted
+                message: Group deleted
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /eventactions:
+    get:
+      tags:
+        - event manager
+      summary: Get event actions
+      description: Returns an array with one or more event actions
+      operationId: get_event_actons
+      parameters:
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          required: false
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
+          required: false
+          description: 'The maximum number of items to return. Max value is 500, default is 100'
+        - in: query
+          name: order
+          required: false
+          description: Ordering actions by name. Default ASC
+          schema:
+            type: string
+            enum:
+              - ASC
+              - DESC
+            example: ASC
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BaseEventAction'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+    post:
+      tags:
+        - event manager
+      summary: Add event action
+      operationId: add_event_action
+      description: Adds a new event actions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BaseEventAction'
+      responses:
+        '201':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseEventAction'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  '/eventactions/{name}':
+    parameters:
+      - name: name
+        in: path
+        description: action name
+        required: true
+        schema:
+          type: string
+    get:
+      tags:
+        - event manager
+      summary: Find event actions by name
+      description: Returns the event action with the given name if it exists.
+      operationId: get_event_action_by_name
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseEventAction'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+    put:
+      tags:
+        - event manager
+      summary: Update event action
+      description: Updates an existing event action
+      operationId: update_event_action
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BaseEventAction'
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                message: Event action updated
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+    delete:
+      tags:
+        - event manager
+      summary: Delete event action
+      description: Deletes an existing event action
+      operationId: delete_event_action
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                message: Event action deleted
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /eventrules:
+    get:
+      tags:
+        - event manager
+      summary: Get event rules
+      description: Returns an array with one or more event rules
+      operationId: get_event_rules
+      parameters:
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          required: false
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
+          required: false
+          description: 'The maximum number of items to return. Max value is 500, default is 100'
+        - in: query
+          name: order
+          required: false
+          description: Ordering rules by name. Default ASC
+          schema:
+            type: string
+            enum:
+              - ASC
+              - DESC
+            example: ASC
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EventRule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+    post:
+      tags:
+        - event manager
+      summary: Add event rule
+      operationId: add_event_rule
+      description: Adds a new event rule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventRuleMinimal'
+      responses:
+        '201':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventRule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  '/eventrules/{name}':
+    parameters:
+      - name: name
+        in: path
+        description: rule name
+        required: true
+        schema:
+          type: string
+    get:
+      tags:
+        - event manager
+      summary: Find event rules by name
+      description: Returns the event rule with the given name if it exists.
+      operationId: get_event_rile_by_name
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventRule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+    put:
+      tags:
+        - event manager
+      summary: Update event rule
+      description: Updates an existing event rule
+      operationId: update_event_rule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventRuleMinimal'
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                message: Event rules updated
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+    delete:
+      tags:
+        - event manager
+      summary: Delete event rule
+      description: Deletes an existing event rule
+      operationId: delete_event_rule
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+              example:
+                message: Event rules deleted
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -3942,6 +4293,7 @@ components:
         - retention_checks
         - metadata_checks
         - view_events
+        - manage_event_rules
       description: |
         Admin permissions:
           * `*` - all permissions are granted
@@ -3961,6 +4313,7 @@ components:
           * `retention_checks` - view and start retention checks is allowed
           * `metadata_checks` - view and start metadata checks is allowed
           * `view_events` - view and search filesystem and provider events is allowed
+          * `manage_event_rules` - manage event actions and rules is allowed
     FsProviders:
       type: integer
       enum:
@@ -3980,6 +4333,36 @@ components:
           * `4` - Local filesystem encrypted
           * `5` - SFTP
           * `6` - HTTP filesystem
+    EventActionTypes:
+      type: integer
+      enum:
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        - 6
+        - 7
+      description: |
+        Supported event action types:
+          * `1` - HTTP
+          * `2` - Command
+          * `3` - Email
+          * `4` - Backup
+          * `5` - User quota reset
+          * `6` - Folder quota reset
+          * `7` - Transfer quota reset
+    EventTriggerTypes:
+      type: integer
+      enum:
+        - 1
+        - 2
+        - 3
+      description: |
+        Supported event trigger types:
+          * `1` - Filesystem event
+          * `2` - Provider event
+          * `3` - Schedule
     LoginMethods:
       type: string
       enum:
@@ -5289,20 +5672,6 @@ components:
               type: boolean
         mfa:
           $ref: '#/components/schemas/MFAStatus'
-    BanStatus:
-      type: object
-      properties:
-        date_time:
-          type: string
-          format: date-time
-          nullable: true
-          description: if null the host is not banned
-    ScoreStatus:
-      type: object
-      properties:
-        score:
-          type: integer
-          description: if 0 the host is not listed
     Share:
       type: object
       properties:
@@ -5574,6 +5943,269 @@ components:
           type: string
         instance_id:
           type: string
+    KeyValue:
+      type: object
+      properties:
+        key:
+          type: string
+        value:
+          type: string
+    EventActionHTTPConfig:
+      type: object
+      properties:
+        endpoint:
+          type: string
+          description: HTTP endpoint
+          example: https://example.com
+        username:
+          type: string
+        password:
+          $ref: '#/components/schemas/Secret'
+        headers:
+          type: array
+          items:
+            $ref: '#/components/schemas/KeyValue'
+          description: headers to add
+        timeout:
+          type: integer
+          minimum: 1
+          maximum: 120
+        skip_tls_verify:
+          type: boolean
+          description: 'if enabled the HTTP client accepts any TLS certificate presented by the server and any host name in that certificate. In this mode, TLS is susceptible to man-in-the-middle attacks. This should be used only for testing.'
+        method:
+          type: string
+          enum:
+            - GET
+            - POST
+            - PUT
+        query_parameters:
+          type: array
+          items:
+            $ref: '#/components/schemas/KeyValue'
+        body:
+          type: string
+          description: HTTP POST/PUT body
+    EventActionCommandConfig:
+      type: object
+      properties:
+        cmd:
+          type: string
+          description: absolute path to the command to execute
+        timeout:
+          type: integer
+          minimum: 1
+          maximum: 120
+        env_vars:
+          type: array
+          items:
+            $ref: '#/components/schemas/KeyValue'
+    EventActionEmailConfig:
+      type: object
+      properties:
+        recipients:
+          type: array
+          items:
+            type: string
+        subject:
+          type: string
+        body:
+          type: string
+    BaseEventActionOptions:
+      type: object
+      properties:
+        http_config:
+          $ref: '#/components/schemas/EventActionHTTPConfig'
+        cmd_config:
+          $ref: '#/components/schemas/EventActionCommandConfig'
+        email_config:
+          $ref: '#/components/schemas/EventActionEmailConfig'
+    BaseEventAction:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int32
+          minimum: 1
+        name:
+          type: string
+          description: unique name
+        description:
+          type: string
+          description: optional description
+        type:
+          $ref: '#/components/schemas/EventActionTypes'
+        options:
+          $ref: '#/components/schemas/BaseEventActionOptions'
+        rules:
+          type: array
+          items:
+            type: string
+          description: list of event rules names associated with this action
+    EventActionOptions:
+      type: object
+      properties:
+        is_failure_action:
+          type: boolean
+        stop_on_failure:
+          type: boolean
+        execute_sync:
+          type: boolean
+    EventAction:
+      allOf:
+        - $ref: '#/components/schemas/BaseEventAction'
+        - type: object
+          properties:
+            order:
+              type: integer
+              description: execution order
+            relation_options:
+              $ref: '#/components/schemas/EventActionOptions'
+    EventActionMinimal:
+      type: object
+      properties:
+        name:
+          type: string
+        order:
+          type: integer
+          description: execution order
+        relation_options:
+          $ref: '#/components/schemas/EventActionOptions'
+    ConditionPattern:
+      type: object
+      properties:
+        pattern:
+          type: string
+        inverse_match:
+          type: boolean
+    ConditionOptions:
+      type: object
+      properties:
+        names:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConditionPattern'
+        fs_paths:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConditionPattern'
+        protocols:
+          type: array
+          items:
+            type: string
+            enum:
+              - SFTP
+              - SCP
+              - SSH
+              - FTP
+              - DAV
+              - HTTP
+              - HTTPShare
+              - OIDC
+        provider_objects:
+          type: array
+          items:
+            type: string
+            enum:
+              - user
+              - group
+              - admin
+              - api_key
+              - share
+              - event_action
+              - event_rule
+        min_size:
+          type: integer
+          format: int64
+        max_size:
+          type: integer
+          format: int64
+        concurrent_execution:
+          type: boolean
+          description: allow concurrent execution from multiple nodes
+    Schedule:
+      type: object
+      properties:
+        hour:
+          type: string
+        day_of_week:
+          type: string
+        day_of_month:
+          type: string
+        month:
+          type: string
+    EventConditions:
+      type: object
+      properties:
+        fs_events:
+          type: array
+          items:
+            type: string
+            enum:
+              - upload
+              - download
+              - delete
+              - rename
+              - mkdir
+              - rmdir
+              - ssh_cmd
+        provider_events:
+          type: array
+          items:
+            type: string
+            enum:
+              - add
+              - update
+              - delete
+        schedules:
+          type: array
+          items:
+            $ref: '#/components/schemas/Schedule'
+        options:
+          $ref: '#/components/schemas/ConditionOptions'
+    BaseEventRule:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int32
+          minimum: 1
+        name:
+          type: string
+          description: unique name
+        description:
+          type: string
+          description: optional description
+        created_at:
+          type: integer
+          format: int64
+          description: creation time as unix timestamp in milliseconds
+        updated_at:
+          type: integer
+          format: int64
+          description: last update time as unix timestamp in millisecond
+        trigger:
+          $ref: '#/components/schemas/EventTriggerTypes'
+        conditions:
+          $ref: '#/components/schemas/EventConditions'
+    EventRule:
+      allOf:
+        - $ref: '#/components/schemas/BaseEventRule'
+        - type: object
+          properties:
+            actions:
+              type: array
+              items:
+                $ref: '#/components/schemas/EventAction'
+    EventRuleMinimal:
+      allOf:
+        - $ref: '#/components/schemas/BaseEventRule'
+        - type: object
+          properties:
+            actions:
+              type: array
+              items:
+                $ref: '#/components/schemas/EventActionMinimal'
     ApiResponse:
       type: object
       properties:

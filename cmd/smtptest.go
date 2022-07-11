@@ -34,7 +34,7 @@ If the SMTP configuration is correct you should receive this email.`,
 				logger.ErrorToConsole("unable to initialize SMTP configuration: %v", err)
 				os.Exit(1)
 			}
-			err = smtp.SendEmail(smtpTestRecipient, "SFTPGo - Testing Email Settings", "It appears your SFTPGo email is setup correctly!",
+			err = smtp.SendEmail([]string{smtpTestRecipient}, "SFTPGo - Testing Email Settings", "It appears your SFTPGo email is setup correctly!",
 				smtp.EmailContentTypeTextPlain)
 			if err != nil {
 				logger.WarnToConsole("Error sending email: %v", err)

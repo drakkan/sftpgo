@@ -1,0 +1,511 @@
+{{template "base" .}}
+
+{{define "title"}}{{.Title}}{{end}}
+
+{{define "extra_css"}}
+<link href="{{.StaticURL}}/vendor/bootstrap-select/css/bootstrap-select.min.css" rel="stylesheet">
+{{end}}
+
+{{define "additionalnavitems"}}
+<li class="nav-item dropdown no-arrow mx-1">
+    <a class="nav-link dropdown-toggle" href="#" id="editorDropdown" role="button"
+        data-toggle="modal" data-target="#infoModal">
+        <i class="fas fa-info fa-fw"></i>
+    </a>
+</li>
+
+<div class="topbar-divider d-none d-sm-block"></div>
+{{end}}
+
+{{define "page_body"}}
+<div class="card shadow mb-4">
+    <div class="card-header py-3">
+        <h6 class="m-0 font-weight-bold text-primary">{{.Title}}</h6>
+    </div>
+    <div class="card-body">
+        {{if .Error}}
+        <div class="card mb-4 border-left-warning">
+            <div class="card-body text-form-error">{{.Error}}</div>
+        </div>
+        {{end}}
+        <form id="eventaction_form" action="{{.CurrentURL}}" method="POST" autocomplete="off">
+            <div class="form-group row">
+                <label for="idName" class="col-sm-2 col-form-label">Name</label>
+                <div class="col-sm-10">
+                    <input type="text" class="form-control" id="idName" name="name" placeholder=""
+                        value="{{.Action.Name}}" maxlength="255" autocomplete="nope" required {{if eq .Mode 2}}readonly{{end}}>
+                </div>
+            </div>
+
+            <div class="form-group row">
+                <label for="idDescription" class="col-sm-2 col-form-label">Description</label>
+                <div class="col-sm-10">
+                    <input type="text" class="form-control" id="idDescription" name="description" placeholder=""
+                        value="{{.Action.Description}}" maxlength="255" aria-describedby="descriptionHelpBlock">
+                    <small id="descriptionHelpBlock" class="form-text text-muted">
+                        Optional description
+                    </small>
+                </div>
+            </div>
+
+            <div class="form-group row">
+                <label for="idType" class="col-sm-2 col-form-label">Type</label>
+                <div class="col-sm-10">
+                    <select class="form-control selectpicker" id="idType" name="type" onchange="onTypeChanged(this.value)">
+                        {{- range .ActionTypes}}
+                        <option value="{{.Value}}" {{if eq $.Action.Type .Value }}selected{{end}}>{{.Name}}</option>
+                        {{- end}}
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group row action-type action-http">
+                <label for="idHTTPEndpoint" class="col-sm-2 col-form-label">Endpoint</label>
+                <div class="col-sm-10">
+                    <input type="text" class="form-control" id="idHTTPEndpoint" name="http_endpoint" placeholder=""
+                        aria-describedby="HTTPEndpointHelpBlock" value="{{.Action.Options.HTTPConfig.Endpoint}}">
+                    <small id="HTTPEndpointHelpBlock" class="form-text text-muted">
+                        Endpoint URL, i.e https://host:port/path
+                    </small>
+                </div>
+            </div>
+
+            <div class="form-group row action-type action-http">
+                <label for="idHTTPUsername" class="col-sm-2 col-form-label">Username</label>
+                <div class="col-sm-3">
+                    <input type="text" class="form-control" id="idHTTPUsername" name="http_username" placeholder=""
+                    aria-describedby="usernameHelpBlock" value="{{.Action.Options.HTTPConfig.Username}}" maxlength="255">
+                    <small id="httpBodyHelpBlock" class="form-text text-muted">
+                        Placeholders are supported
+                    </small>
+                </div>
+                <div class="col-sm-2"></div>
+                <label for="idHTTPPassword" class="col-sm-2 col-form-label">Password</label>
+                <div class="col-sm-3">
+                    <input type="password" class="form-control" id="idHTTPPassword" name="http_password" placeholder=""
+                        value="{{if .Action.Options.HTTPConfig.Password.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.Action.Options.HTTPConfig.Password.GetPayload}}{{end}}">
+                </div>
+            </div>
+
+            <div class="card bg-light mb-3 action-type action-http">
+                <div class="card-header">
+                    <b>HTTP headers</b>
+                </div>
+                <div class="card-body">
+                    <h6 class="card-title mb-4">Placeholders are supported in header values.</h6>
+                    <div class="form-group row">
+                        <div class="col-md-12 form_field_http_headers_outer">
+                            {{range $idx, $val := .Action.Options.HTTPConfig.Headers}}
+                            <div class="row form_field_http_headers_outer_row">
+                                <div class="form-group col-md-5">
+                                    <input type="text" class="form-control" id="idHTTPHeaderKey{{$idx}}" name="http_header_key{{$idx}}" placeholder="Enter key" value="{{$val.Key}}">
+                                </div>
+                                <div class="form-group col-md-5">
+                                    <input type="text" class="form-control" id="idHTTPHeaderVal{{$idx}}" name="http_header_val{{$idx}}" placeholder="Enter value" value="{{$val.Value}}">
+                                </div>
+                                <div class="form-group col-md-1"></div>
+                                <div class="form-group col-md-1">
+                                    <button class="btn btn-circle btn-danger remove_http_header_btn_frm_field">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {{else}}
+                            <div class="row form_field_http_headers_outer_row">
+                                <div class="form-group col-md-5">
+                                    <input type="text" class="form-control" id="idHTTPHeaderKey0" name="http_header_key0" placeholder="Enter key" value="">
+                                </div>
+                                <div class="form-group col-md-5">
+                                    <input type="text" class="form-control" id="idHTTPHeaderVal0" name="http_header_val0" placeholder="Enter value" value="">
+                                </div>
+                                <div class="form-group col-md-1"></div>
+                                <div class="form-group col-md-1">
+                                    <button class="btn btn-circle btn-danger remove_http_header_btn_frm_field">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {{end}}
+                        </div>
+                    </div>
+
+                    <div class="row mx-1">
+                        <button type="button" class="btn btn-secondary add_new_header_field_btn">
+                            <i class="fas fa-plus"></i> Add new header
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card bg-light mb-3 action-type action-http">
+                <div class="card-header">
+                    <b>Query parameters</b>
+                </div>
+                <div class="card-body">
+                    <h6 class="card-title mb-4">Placeholders are supported in query values.</h6>
+                    <div class="form-group row">
+                        <div class="col-md-12 form_field_http_query_outer">
+                            {{range $idx, $val := .Action.Options.HTTPConfig.QueryParameters}}
+                            <div class="row form_field_http_query_outer_row">
+                                <div class="form-group col-md-5">
+                                    <input type="text" class="form-control" id="idHTTPQueryKey{{$idx}}" name="http_query_key{{$idx}}" placeholder="Enter key" value="{{$val.Key}}">
+                                </div>
+                                <div class="form-group col-md-5">
+                                    <input type="text" class="form-control" id="idHTTPQueryVal{{$idx}}" name="http_query_val{{$idx}}" placeholder="Enter value" value="{{$val.Value}}">
+                                </div>
+                                <div class="form-group col-md-1"></div>
+                                <div class="form-group col-md-1">
+                                    <button class="btn btn-circle btn-danger remove_http_query_btn_frm_field">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {{else}}
+                            <div class="row form_field_http_query_outer_row">
+                                <div class="form-group col-md-5">
+                                    <input type="text" class="form-control" id="idHTTPQueryKey0" name="http_query_key0" placeholder="Enter key" value="">
+                                </div>
+                                <div class="form-group col-md-5">
+                                    <input type="text" class="form-control" id="idHTTPQueryVal0" name="http_query_val0" placeholder="Enter value" value="">
+                                </div>
+                                <div class="form-group col-md-1"></div>
+                                <div class="form-group col-md-1">
+                                    <button class="btn btn-circle btn-danger remove_http_query_btn_frm_field">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {{end}}
+                        </div>
+                    </div>
+
+                    <div class="row mx-1">
+                        <button type="button" class="btn btn-secondary add_new_query_field_btn">
+                            <i class="fas fa-plus"></i> Add new parameter
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group row action-type action-http">
+                <label for="idHTTPMethod" class="col-sm-2 col-form-label">Method</label>
+                <div class="col-sm-10">
+                    <select class="form-control selectpicker" id="idHTTPMethod" name="http_method">
+                        {{- range .HTTPMethods}}
+                        <option value="{{.}}" {{if eq $.Action.Options.HTTPConfig.Method . }}selected{{end}}>{{.}}</option>
+                        {{- end}}
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group row action-type action-http">
+                <label for="idHTTPBody" class="col-sm-2 col-form-label">Body</label>
+                <div class="col-sm-10">
+                    <textarea class="form-control" id="idHTTPBody" name="http_body" rows="4" placeholder=""
+                        aria-describedby="httpBodyHelpBlock">{{.Action.Options.HTTPConfig.Body}}</textarea>
+                    <small id="httpBodyHelpBlock" class="form-text text-muted">
+                        Placeholders are supported
+                    </small>
+                </div>
+            </div>
+
+            <div class="form-group row action-type action-http">
+                <label for="idHTTPTimeout" class="col-sm-2 col-form-label">Timeout</label>
+                <div class="col-sm-10">
+                    <input type="number" min="1" max="120" class="form-control" id="idHTTPTimeout" name="http_timeout" placeholder=""
+                        value="{{.Action.Options.HTTPConfig.Timeout}}">
+                </div>
+            </div>
+
+            <div class="form-group action-type action-http">
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="idHTTPSkipTLSVerify" name="http_skip_tls_verify"
+                        {{if .Action.Options.HTTPConfig.SkipTLSVerify}}checked{{end}}>
+                    <label for="idHTTPSkipTLSVerify" class="form-check-label">Skip TLS verify</label>
+                </div>
+            </div>
+
+            <div class="form-group row action-type action-cmd">
+                <label for="idCmdPath" class="col-sm-2 col-form-label">Command</label>
+                <div class="col-sm-10">
+                    <input type="text" class="form-control" id="idCmdPath" name="cmd_path" placeholder=""
+                        aria-describedby="CmdPathHelpBlock" value="{{.Action.Options.CmdConfig.Cmd}}">
+                    <small id="CmdPathHelpBlock" class="form-text text-muted">
+                        Absolute path of the command to execute
+                    </small>
+                </div>
+            </div>
+
+            <div class="form-group row action-type action-cmd">
+                <label for="idCmdTimeout" class="col-sm-2 col-form-label">Timeout</label>
+                <div class="col-sm-10">
+                    <input type="number" min="1" max="120" class="form-control" id="idCmdTimeout" name="cmd_timeout" placeholder=""
+                        value="{{.Action.Options.CmdConfig.Timeout}}">
+                </div>
+            </div>
+
+            <div class="card bg-light mb-3 action-type action-cmd">
+                <div class="card-header">
+                    <b>Environment variables</b>
+                </div>
+                <div class="card-body">
+                    <h6 class="card-title mb-4">Placeholders are supported in values.</h6>
+                    <div class="form-group row">
+                        <div class="col-md-12 form_field_cmd_env_outer">
+                            {{range $idx, $val := .Action.Options.CmdConfig.EnvVars}}
+                            <div class="row form_field_cmd_env_outer_row">
+                                <div class="form-group col-md-5">
+                                    <input type="text" class="form-control" id="idCMDEnvKey{{$idx}}" name="cmd_env_key{{$idx}}" placeholder="Enter key" value="{{$val.Key}}">
+                                </div>
+                                <div class="form-group col-md-5">
+                                    <input type="text" class="form-control" id="idCMDEnvVal{{$idx}}" name="cmd_env_val{{$idx}}" placeholder="Enter value" value="{{$val.Value}}">
+                                </div>
+                                <div class="form-group col-md-1"></div>
+                                <div class="form-group col-md-1">
+                                    <button class="btn btn-circle btn-danger remove_cmd_env_btn_frm_field">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {{else}}
+                            <div class="row form_field_cmd_env_outer_row">
+                                <div class="form-group col-md-5">
+                                    <input type="text" class="form-control" id="idCMDEnvKey0" name="cmd_env_key0" placeholder="Enter key" value="">
+                                </div>
+                                <div class="form-group col-md-5">
+                                    <input type="text" class="form-control" id="idCMDEnvVal0" name="cmd_env_val0" placeholder="Enter value" value="">
+                                </div>
+                                <div class="form-group col-md-1"></div>
+                                <div class="form-group col-md-1">
+                                    <button class="btn btn-circle btn-danger remove_cmd_env_btn_frm_field">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {{end}}
+                        </div>
+                    </div>
+
+                    <div class="row mx-1">
+                        <button type="button" class="btn btn-secondary add_new_cmd_env_field_btn">
+                            <i class="fas fa-plus"></i> Add environment variable
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group row action-type action-smtp">
+                <label for="idEmailRecipients" class="col-sm-2 col-form-label">Email recipients</label>
+                <div class="col-sm-10">
+                    <textarea class="form-control" id="idEmailRecipients" name="email_recipients" rows="2" placeholder=""
+                        aria-describedby="smtpRecipientsHelpBlock">{{.Action.Options.EmailConfig.GetRecipientsAsString}}</textarea>
+                    <small id="smtpRecipientsHelpBlock" class="form-text text-muted">
+                        Comma separated email recipients
+                    </small>
+                </div>
+            </div>
+
+            <div class="form-group row action-type action-smtp">
+                <label for="idEmailSubject" class="col-sm-2 col-form-label">Email subject</label>
+                <div class="col-sm-10">
+                    <input type="text" class="form-control" id="idEmailSubject" name="email_subject" placeholder=""
+                        value="{{.Action.Options.EmailConfig.Subject}}" maxlength="255" aria-describedby="emailSubjectHelpBlock">
+                    <small id="emailSubjectHelpBlock" class="form-text text-muted">
+                        Placeholders are supported
+                    </small>
+                </div>
+            </div>
+
+            <div class="form-group row action-type action-smtp">
+                <label for="idEmailBody" class="col-sm-2 col-form-label">Email body</label>
+                <div class="col-sm-10">
+                    <textarea class="form-control" id="idEmailBody" name="email_body" rows="4" placeholder=""
+                        aria-describedby="smtpBodyHelpBlock">{{.Action.Options.EmailConfig.Body}}</textarea>
+                    <small id="smtpBodyHelpBlock" class="form-text text-muted">
+                        Placeholders are supported
+                    </small>
+                </div>
+            </div>
+
+
+            <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
+            <div class="col-sm-12 text-right px-0">
+                <button type="submit" class="btn btn-primary mt-3 ml-3 px-5" name="form_action" value="submit">Submit</button>
+            </div>
+        </form>
+    </div>
+</div>
+{{end}}
+
+{{define "dialog"}}
+<div class="modal fade" id="infoModal" tabindex="-1" role="dialog" aria-labelledby="infoModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="infoModalLabel">
+                    Supported placeholders
+                </h5>
+                <button class="close" type="button" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>
+                    <span class="shortcut"><b>{{`{{Name}}`}}</b></span> => Username, folder name, or admin username for provider actions.
+                </p>
+                <p>
+                    <span class="shortcut"><b>{{`{{Event}}`}}</b></span> => Event name, for example "upload", "download" for filesystem events or "add", "update" for provider events.
+                </p>
+                <p>
+                    <span class="shortcut"><b>{{`{{Status}}`}}</b></span> => Status for "upload", "download" and "ssh_cmd" events. 1 means no error, 2 means a generic error occurred, 3 means quota exceeded error.
+                </p>
+                <p>
+                    <span class="shortcut"><b>{{`{{VirtualPath}}`}}</b></span> => Path seen by SFTPGo users, for example "/adir/afile.txt".
+                </p>
+                <p>
+                    <span class="shortcut"><b>{{`{{FsPath}}`}}</b></span> => Full filesystem path, for example "/user/homedir/adir/afile.txt" or "C:/data/user/homedir/adir/afile.txt" on Windows.
+                </p>
+                <p>
+                    <span class="shortcut"><b>{{`{{ObjectName}}`}}</b></span> => File/directory name, for example "afile.txt" or provider object name.
+                </p>
+                <p>
+                    <span class="shortcut"><b>{{`{{ObjectType}}`}}</b></span> => Object type for provider events: "user", "group", "admin", etc.
+                </p>
+                <p>
+                    <span class="shortcut"><b>{{`{{VirtualTargetPath}}`}}</b></span> => Virtual target path for renames.
+                </p>
+                <p>
+                    <span class="shortcut"><b>{{`{{FsTargetPath}}`}}</b></span> => Full filesystem target path for renames.
+                </p>
+                <p>
+                    <span class="shortcut"><b>{{`{{FileSize}}`}}</b></span> => File size.
+                </p>
+                <p>
+                    <span class="shortcut"><b>{{`{{Protocol}}`}}</b></span> => Protocol, for example "SFTP", "FTP".
+                </p>
+                <p>
+                    <span class="shortcut"><b>{{`{{IP}}`}}</b></span> => Client IP address.
+                </p>
+                <p>
+                    <span class="shortcut"><b>{{`{{Timestamp}}`}}</b></span> =>  Event timestamp as nanoseconds since epoch.
+                </p>
+                <p>
+                    <span class="shortcut"><b>{{`{{ObjectData}}`}}</b></span> => Provider object data serialized as JSON with sensitive fields removed.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" type="button" data-dismiss="modal">OK</button>
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}
+
+{{define "extra_js"}}
+<script src="{{.StaticURL}}/vendor/bootstrap-select/js/bootstrap-select.min.js"></script>
+<script type="text/javascript">
+    $("body").on("click", ".add_new_header_field_btn", function () {
+        var index = $(".form_field_http_headers_outer").find(".form_field_http_headers_outer_row").length;
+        while (document.getElementById("idHTTPHeaderKey"+index) != null){
+            index++;
+        }
+        $(".form_field_http_headers_outer").append(`
+            <div class="row form_field_http_headers_outer_row">
+                <div class="form-group col-md-5">
+                    <input type="text" class="form-control" id="idHTTPHeaderKey${index}" name="http_header_key${index}" placeholder="Enter key" value="">
+                </div>
+                <div class="form-group col-md-5">
+                    <input type="text" class="form-control" id="idHTTPHeaderVal${index}" name="http_header_val${index}" placeholder="Enter value" value="">
+                </div>
+                <div class="form-group col-md-1"></div>
+                <div class="form-group col-md-1">
+                    <button class="btn btn-circle btn-danger remove_http_header_btn_frm_field">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+            `);
+        });
+
+    $("body").on("click", ".remove_http_header_btn_frm_field", function () {
+        $(this).closest(".form_field_http_headers_outer_row").remove();
+    });
+
+    $("body").on("click", ".add_new_query_field_btn", function () {
+        var index = $(".form_field_http_query_outer").find(".form_field_http_query_outer_row").length;
+        while (document.getElementById("idHTTPQueryKey"+index) != null){
+            index++;
+        }
+        $(".form_field_http_query_outer").append(`
+            <div class="row form_field_http_query_outer_row">
+                <div class="form-group col-md-5">
+                    <input type="text" class="form-control" id="idHTTPQueryKey${index}" name="http_query_key${index}" placeholder="Enter key" value="">
+                </div>
+                <div class="form-group col-md-5">
+                    <input type="text" class="form-control" id="idHTTPQueryVal${index}" name="http_query_val${index}" placeholder="Enter value" value="">
+                </div>
+                <div class="form-group col-md-1"></div>
+                <div class="form-group col-md-1">
+                    <button class="btn btn-circle btn-danger remove_http_query_btn_frm_field">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+            `);
+        });
+
+    $("body").on("click", ".remove_http_query_btn_frm_field", function () {
+        $(this).closest(".form_field_http_query_outer_row").remove();
+    });
+
+    $("body").on("click", ".add_new_cmd_env_field_btn", function () {
+        var index = $(".form_field_cmd_env_outer").find(".form_field_cmd_env_outer_row").length;
+        while (document.getElementById("idCMDEnvKey"+index) != null){
+            index++;
+        }
+        $(".form_field_cmd_env_outer").append(`
+            <div class="row form_field_cmd_env_outer_row">
+                <div class="form-group col-md-5">
+                    <input type="text" class="form-control" id="idCMDEnvKey${index}" name="cmd_env_key${index}" placeholder="Enter key" value="">
+                </div>
+                <div class="form-group col-md-5">
+                    <input type="text" class="form-control" id="idCMDEnvVal${index}" name="cmd_env_val${index}" placeholder="Enter value" value="">
+                </div>
+                <div class="form-group col-md-1"></div>
+                <div class="form-group col-md-1">
+                    <button class="btn btn-circle btn-danger remove_cmd_env_btn_frm_field">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+            `);
+        });
+
+    $("body").on("click", ".remove_cmd_env_btn_frm_field", function () {
+        $(this).closest(".form_field_cmd_env_outer_row").remove();
+    });
+
+    function onTypeChanged(val){
+        $('.action-type').hide();
+        switch (val) {
+            case '1':
+            case 1:
+                $('.action-http').show();
+                break;
+            case '2':
+            case 2:
+                $('.action-cmd').show();
+                break;
+            case '3':
+            case 3:
+                $('.action-smtp').show();
+                break;
+        }
+    }
+
+    $(document).ready(function () {
+        onTypeChanged('{{.Action.Type}}');
+    });
+</script>
+{{end}}

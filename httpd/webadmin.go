@@ -43,11 +43,11 @@ const (
 	folderPageModeTemplate
 )
 
-type groupPageMode int
+type genericPageMode int
 
 const (
-	groupPageModeAdd groupPageMode = iota + 1
-	groupPageModeUpdate
+	genericPageModeAdd genericPageMode = iota + 1
+	genericPageModeUpdate
 )
 
 const (
@@ -65,6 +65,10 @@ const (
 	templateGroup            = "group.html"
 	templateFolders          = "folders.html"
 	templateFolder           = "folder.html"
+	templateEventRules       = "eventrules.html"
+	templateEventRule        = "eventrule.html"
+	templateEventActions     = "eventactions.html"
+	templateEventAction      = "eventaction.html"
 	templateMessage          = "message.html"
 	templateStatus           = "status.html"
 	templateLogin            = "login.html"
@@ -80,6 +84,8 @@ const (
 	pageStatusTitle          = "Status"
 	pageFoldersTitle         = "Folders"
 	pageGroupsTitle          = "Groups"
+	pageEventRulesTitle      = "Event rules"
+	pageEventActionsTitle    = "Event actions"
 	pageProfileTitle         = "My profile"
 	pageChangePwdTitle       = "Change password"
 	pageMaintenanceTitle     = "Maintenance"
@@ -114,6 +120,10 @@ type basePage struct {
 	ProfileURL         string
 	ChangePwdURL       string
 	MFAURL             string
+	EventRulesURL      string
+	EventRuleURL       string
+	EventActionsURL    string
+	EventActionURL     string
 	FolderQuotaScanURL string
 	StatusURL          string
 	MaintenanceURL     string
@@ -123,11 +133,14 @@ type basePage struct {
 	ConnectionsTitle   string
 	FoldersTitle       string
 	GroupsTitle        string
+	EventRulesTitle    string
+	EventActionsTitle  string
 	StatusTitle        string
 	MaintenanceTitle   string
 	DefenderTitle      string
 	Version            string
 	CSRFToken          string
+	IsEventManagerPage bool
 	HasDefender        bool
 	HasExternalLogin   bool
 	LoggedAdmin        *dataprovider.Admin
@@ -152,6 +165,16 @@ type foldersPage struct {
 type groupsPage struct {
 	basePage
 	Groups []dataprovider.Group
+}
+
+type eventRulesPage struct {
+	basePage
+	Rules []dataprovider.EventRule
+}
+
+type eventActionsPage struct {
+	basePage
+	Actions []dataprovider.BaseEventAction
 }
 
 type connectionsPage struct {
@@ -183,7 +206,6 @@ type userPage struct {
 	TwoFactorProtocols []string
 	WebClientOptions   []string
 	RootDirPerms       []string
-	RedactedSecret     string
 	Mode               userPageMode
 	VirtualFolders     []vfs.BaseVirtualFolder
 	Groups             []dataprovider.Group
@@ -253,7 +275,7 @@ type groupPage struct {
 	basePage
 	Group              *dataprovider.Group
 	Error              string
-	Mode               groupPageMode
+	Mode               genericPageMode
 	ValidPerms         []string
 	ValidLoginMethods  []string
 	ValidProtocols     []string
@@ -261,6 +283,30 @@ type groupPage struct {
 	WebClientOptions   []string
 	VirtualFolders     []vfs.BaseVirtualFolder
 	FsWrapper          fsWrapper
+}
+
+type eventActionPage struct {
+	basePage
+	Action         dataprovider.BaseEventAction
+	ActionTypes    []dataprovider.EnumMapping
+	HTTPMethods    []string
+	RedactedSecret string
+	Error          string
+	Mode           genericPageMode
+}
+
+type eventRulePage struct {
+	basePage
+	Rule            dataprovider.EventRule
+	TriggerTypes    []dataprovider.EnumMapping
+	Actions         []dataprovider.BaseEventAction
+	FsEvents        []string
+	Protocols       []string
+	ProviderEvents  []string
+	ProviderObjects []string
+	Error           string
+	Mode            genericPageMode
+	IsShared        bool
 }
 
 type messagePage struct {
@@ -341,6 +387,26 @@ func loadAdminTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateAdminDir, templateSharedComponents),
 		filepath.Join(templatesPath, templateAdminDir, templateGroup),
 	}
+	eventRulesPaths := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
+		filepath.Join(templatesPath, templateAdminDir, templateBase),
+		filepath.Join(templatesPath, templateAdminDir, templateEventRules),
+	}
+	eventRulePaths := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
+		filepath.Join(templatesPath, templateAdminDir, templateBase),
+		filepath.Join(templatesPath, templateAdminDir, templateEventRule),
+	}
+	eventActionsPaths := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
+		filepath.Join(templatesPath, templateAdminDir, templateBase),
+		filepath.Join(templatesPath, templateAdminDir, templateEventActions),
+	}
+	eventActionPaths := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
+		filepath.Join(templatesPath, templateAdminDir, templateBase),
+		filepath.Join(templatesPath, templateAdminDir, templateEventAction),
+	}
 	statusPaths := []string{
 		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
@@ -408,6 +474,10 @@ func loadAdminTemplates(templatesPath string) {
 	groupTmpl := util.LoadTemplate(fsBaseTpl, groupPaths...)
 	foldersTmpl := util.LoadTemplate(nil, foldersPaths...)
 	folderTmpl := util.LoadTemplate(fsBaseTpl, folderPaths...)
+	eventRulesTmpl := util.LoadTemplate(nil, eventRulesPaths...)
+	eventRuleTmpl := util.LoadTemplate(nil, eventRulePaths...)
+	eventActionsTmpl := util.LoadTemplate(nil, eventActionsPaths...)
+	eventActionTmpl := util.LoadTemplate(nil, eventActionPaths...)
 	statusTmpl := util.LoadTemplate(nil, statusPaths...)
 	loginTmpl := util.LoadTemplate(nil, loginPaths...)
 	profileTmpl := util.LoadTemplate(nil, profilePaths...)
@@ -431,6 +501,10 @@ func loadAdminTemplates(templatesPath string) {
 	adminTemplates[templateGroup] = groupTmpl
 	adminTemplates[templateFolders] = foldersTmpl
 	adminTemplates[templateFolder] = folderTmpl
+	adminTemplates[templateEventRules] = eventRulesTmpl
+	adminTemplates[templateEventRule] = eventRuleTmpl
+	adminTemplates[templateEventActions] = eventActionsTmpl
+	adminTemplates[templateEventAction] = eventActionTmpl
 	adminTemplates[templateStatus] = statusTmpl
 	adminTemplates[templateLogin] = loginTmpl
 	adminTemplates[templateProfile] = profileTmpl
@@ -443,6 +517,22 @@ func loadAdminTemplates(templatesPath string) {
 	adminTemplates[templateSetup] = setupTmpl
 	adminTemplates[templateForgotPassword] = forgotPwdTmpl
 	adminTemplates[templateResetPassword] = resetPwdTmpl
+}
+
+func isEventManagerResource(currentURL string) bool {
+	if currentURL == webAdminEventRulesPath {
+		return true
+	}
+	if currentURL == webAdminEventActionsPath {
+		return true
+	}
+	if currentURL == webAdminEventRulePath || strings.HasPrefix(currentURL, webAdminEventRulePath+"/") {
+		return true
+	}
+	if currentURL == webAdminEventActionPath || strings.HasPrefix(currentURL, webAdminEventActionPath+"/") {
+		return true
+	}
+	return false
 }
 
 func (s *httpdServer) getBasePageData(title, currentURL string, r *http.Request) basePage {
@@ -468,6 +558,10 @@ func (s *httpdServer) getBasePageData(title, currentURL string, r *http.Request)
 		ProfileURL:         webAdminProfilePath,
 		ChangePwdURL:       webChangeAdminPwdPath,
 		MFAURL:             webAdminMFAPath,
+		EventRulesURL:      webAdminEventRulesPath,
+		EventRuleURL:       webAdminEventRulePath,
+		EventActionsURL:    webAdminEventActionsPath,
+		EventActionURL:     webAdminEventActionPath,
 		QuotaScanURL:       webQuotaScanPath,
 		ConnectionsURL:     webConnectionsPath,
 		StatusURL:          webStatusPath,
@@ -479,11 +573,14 @@ func (s *httpdServer) getBasePageData(title, currentURL string, r *http.Request)
 		ConnectionsTitle:   pageConnectionsTitle,
 		FoldersTitle:       pageFoldersTitle,
 		GroupsTitle:        pageGroupsTitle,
+		EventRulesTitle:    pageEventRulesTitle,
+		EventActionsTitle:  pageEventActionsTitle,
 		StatusTitle:        pageStatusTitle,
 		MaintenanceTitle:   pageMaintenanceTitle,
 		DefenderTitle:      pageDefenderTitle,
 		Version:            version.GetAsString(),
 		LoggedAdmin:        getAdminFromToken(r),
+		IsEventManagerPage: isEventManagerResource(currentURL),
 		HasDefender:        common.Config.DefenderConfig.Enabled,
 		HasExternalLogin:   isLoggedInWithOIDC(r),
 		CSRFToken:          csrfToken,
@@ -721,7 +818,7 @@ func (s *httpdServer) renderUserPage(w http.ResponseWriter, r *http.Request, use
 }
 
 func (s *httpdServer) renderGroupPage(w http.ResponseWriter, r *http.Request, group dataprovider.Group,
-	mode groupPageMode, error string,
+	mode genericPageMode, error string,
 ) {
 	folders, err := s.getWebVirtualFolders(w, r, defaultQueryLimit, true)
 	if err != nil {
@@ -731,10 +828,10 @@ func (s *httpdServer) renderGroupPage(w http.ResponseWriter, r *http.Request, gr
 	group.UserSettings.FsConfig.RedactedSecret = redactedSecret
 	var title, currentURL string
 	switch mode {
-	case groupPageModeAdd:
+	case genericPageModeAdd:
 		title = "Add a new group"
 		currentURL = webGroupPath
-	case groupPageModeUpdate:
+	case genericPageModeUpdate:
 		title = "Update group"
 		currentURL = fmt.Sprintf("%v/%v", webGroupPath, url.PathEscape(group.Name))
 	}
@@ -761,6 +858,71 @@ func (s *httpdServer) renderGroupPage(w http.ResponseWriter, r *http.Request, gr
 		},
 	}
 	renderAdminTemplate(w, templateGroup, data)
+}
+
+func (s *httpdServer) renderEventActionPage(w http.ResponseWriter, r *http.Request, action dataprovider.BaseEventAction,
+	mode genericPageMode, error string,
+) {
+	action.Options.SetEmptySecretsIfNil()
+	var title, currentURL string
+	switch mode {
+	case genericPageModeAdd:
+		title = "Add a new event action"
+		currentURL = webAdminEventActionPath
+	case genericPageModeUpdate:
+		title = "Update event action"
+		currentURL = fmt.Sprintf("%v/%v", webAdminEventActionPath, url.PathEscape(action.Name))
+	}
+	if action.Options.HTTPConfig.Timeout == 0 {
+		action.Options.HTTPConfig.Timeout = 20
+	}
+	if action.Options.CmdConfig.Timeout == 0 {
+		action.Options.CmdConfig.Timeout = 20
+	}
+
+	data := eventActionPage{
+		basePage:       s.getBasePageData(title, currentURL, r),
+		Action:         action,
+		ActionTypes:    dataprovider.EventActionTypes,
+		HTTPMethods:    dataprovider.SupportedHTTPActionMethods,
+		RedactedSecret: redactedSecret,
+		Error:          error,
+		Mode:           mode,
+	}
+	renderAdminTemplate(w, templateEventAction, data)
+}
+
+func (s *httpdServer) renderEventRulePage(w http.ResponseWriter, r *http.Request, rule dataprovider.EventRule,
+	mode genericPageMode, error string,
+) {
+	actions, err := s.getWebEventActions(w, r, defaultQueryLimit, true)
+	if err != nil {
+		return
+	}
+	var title, currentURL string
+	switch mode {
+	case genericPageModeAdd:
+		title = "Add new event rules"
+		currentURL = webAdminEventRulePath
+	case genericPageModeUpdate:
+		title = "Update event rules"
+		currentURL = fmt.Sprintf("%v/%v", webAdminEventRulePath, url.PathEscape(rule.Name))
+	}
+
+	data := eventRulePage{
+		basePage:        s.getBasePageData(title, currentURL, r),
+		Rule:            rule,
+		TriggerTypes:    dataprovider.EventTriggerTypes,
+		Actions:         actions,
+		FsEvents:        dataprovider.SupportedFsEvents,
+		Protocols:       dataprovider.SupportedRuleConditionProtocols,
+		ProviderEvents:  dataprovider.SupportedProviderEvents,
+		ProviderObjects: dataprovider.SupporteRuleConditionProviderObjects,
+		Error:           error,
+		Mode:            mode,
+		IsShared:        s.isShared > 0,
+	}
+	renderAdminTemplate(w, templateEventRule, data)
 }
 
 func (s *httpdServer) renderFolderPage(w http.ResponseWriter, r *http.Request, folder vfs.BaseVirtualFolder,
@@ -1630,6 +1792,204 @@ func getGroupFromPostFields(r *http.Request) (dataprovider.Group, error) {
 	return group, nil
 }
 
+func getKeyValsFromPostFields(r *http.Request, key, val string) []dataprovider.KeyValue {
+	var res []dataprovider.KeyValue
+	for k := range r.Form {
+		if strings.HasPrefix(k, key) {
+			formKey := r.Form.Get(k)
+			idx := strings.TrimPrefix(k, key)
+			formVal := r.Form.Get(fmt.Sprintf("%s%s", val, idx))
+			if formKey != "" && formVal != "" {
+				res = append(res, dataprovider.KeyValue{
+					Key:   formKey,
+					Value: formVal,
+				})
+			}
+		}
+	}
+	return res
+}
+
+func getEventActionOptionsFromPostFields(r *http.Request) (dataprovider.BaseEventActionOptions, error) {
+	httpTimeout, err := strconv.Atoi(r.Form.Get("http_timeout"))
+	if err != nil {
+		return dataprovider.BaseEventActionOptions{}, fmt.Errorf("invalid http timeout: %w", err)
+	}
+	cmdTimeout, err := strconv.Atoi(r.Form.Get("cmd_timeout"))
+	if err != nil {
+		return dataprovider.BaseEventActionOptions{}, fmt.Errorf("invalid command timeout: %w", err)
+	}
+	options := dataprovider.BaseEventActionOptions{
+		HTTPConfig: dataprovider.EventActionHTTPConfig{
+			Endpoint:        r.Form.Get("http_endpoint"),
+			Username:        r.Form.Get("http_username"),
+			Password:        getSecretFromFormField(r, "http_password"),
+			Headers:         getKeyValsFromPostFields(r, "http_header_key", "http_header_val"),
+			Timeout:         httpTimeout,
+			SkipTLSVerify:   r.Form.Get("http_skip_tls_verify") != "",
+			Method:          r.Form.Get("http_method"),
+			QueryParameters: getKeyValsFromPostFields(r, "http_query_key", "http_query_val"),
+			Body:            r.Form.Get("http_body"),
+		},
+		CmdConfig: dataprovider.EventActionCommandConfig{
+			Cmd:     r.Form.Get("cmd_path"),
+			Timeout: cmdTimeout,
+			EnvVars: getKeyValsFromPostFields(r, "cmd_env_key", "cmd_env_val"),
+		},
+		EmailConfig: dataprovider.EventActionEmailConfig{
+			Recipients: strings.Split(strings.ReplaceAll(r.Form.Get("email_recipients"), " ", ""), ","),
+			Subject:    r.Form.Get("email_subject"),
+			Body:       r.Form.Get("email_body"),
+		},
+	}
+	return options, nil
+}
+
+func getEventActionFromPostFields(r *http.Request) (dataprovider.BaseEventAction, error) {
+	err := r.ParseForm()
+	if err != nil {
+		return dataprovider.BaseEventAction{}, err
+	}
+	actionType, err := strconv.Atoi(r.Form.Get("type"))
+	if err != nil {
+		return dataprovider.BaseEventAction{}, fmt.Errorf("invalid action type: %w", err)
+	}
+	options, err := getEventActionOptionsFromPostFields(r)
+	if err != nil {
+		return dataprovider.BaseEventAction{}, err
+	}
+	action := dataprovider.BaseEventAction{
+		Name:        r.Form.Get("name"),
+		Description: r.Form.Get("description"),
+		Type:        actionType,
+		Options:     options,
+	}
+	return action, nil
+}
+
+func getEventRuleConditionsFromPostFields(r *http.Request) (dataprovider.EventConditions, error) {
+	var schedules []dataprovider.Schedule
+	var names, fsPaths []dataprovider.ConditionPattern
+	for k := range r.Form {
+		if strings.HasPrefix(k, "schedule_hour") {
+			hour := r.Form.Get(k)
+			if hour != "" {
+				idx := strings.TrimPrefix(k, "schedule_hour")
+				dayOfWeek := r.Form.Get(fmt.Sprintf("schedule_day_of_week%s", idx))
+				dayOfMonth := r.Form.Get(fmt.Sprintf("schedule_day_of_month%s", idx))
+				month := r.Form.Get(fmt.Sprintf("schedule_month%s", idx))
+				schedules = append(schedules, dataprovider.Schedule{
+					Hours:      hour,
+					DayOfWeek:  dayOfWeek,
+					DayOfMonth: dayOfMonth,
+					Month:      month,
+				})
+			}
+		}
+		if strings.HasPrefix(k, "name_pattern") {
+			pattern := r.Form.Get(k)
+			if pattern != "" {
+				idx := strings.TrimPrefix(k, "name_pattern")
+				patternType := r.Form.Get(fmt.Sprintf("type_name_pattern%s", idx))
+				names = append(names, dataprovider.ConditionPattern{
+					Pattern:      pattern,
+					InverseMatch: patternType == "inverse",
+				})
+			}
+		}
+		if strings.HasPrefix(k, "fs_path_pattern") {
+			pattern := r.Form.Get(k)
+			if pattern != "" {
+				idx := strings.TrimPrefix(k, "fs_path_pattern")
+				patternType := r.Form.Get(fmt.Sprintf("type_fs_path_pattern%s", idx))
+				fsPaths = append(fsPaths, dataprovider.ConditionPattern{
+					Pattern:      pattern,
+					InverseMatch: patternType == "inverse",
+				})
+			}
+		}
+	}
+	minFileSize, err := strconv.ParseInt(r.Form.Get("fs_min_size"), 10, 64)
+	if err != nil {
+		return dataprovider.EventConditions{}, fmt.Errorf("invalid min file size: %w", err)
+	}
+	maxFileSize, err := strconv.ParseInt(r.Form.Get("fs_max_size"), 10, 64)
+	if err != nil {
+		return dataprovider.EventConditions{}, fmt.Errorf("invalid max file size: %w", err)
+	}
+	conditions := dataprovider.EventConditions{
+		FsEvents:       r.Form["fs_events"],
+		ProviderEvents: r.Form["provider_events"],
+		Schedules:      schedules,
+		Options: dataprovider.ConditionOptions{
+			Names:               names,
+			FsPaths:             fsPaths,
+			Protocols:           r.Form["fs_protocols"],
+			ProviderObjects:     r.Form["provider_objects"],
+			MinFileSize:         minFileSize,
+			MaxFileSize:         maxFileSize,
+			ConcurrentExecution: r.Form.Get("concurrent_execution") != "",
+		},
+	}
+	return conditions, nil
+}
+
+func getEventRuleActionsFromPostFields(r *http.Request) ([]dataprovider.EventAction, error) {
+	var actions []dataprovider.EventAction
+	for k := range r.Form {
+		if strings.HasPrefix(k, "action_name") {
+			name := r.Form.Get(k)
+			if name != "" {
+				idx := strings.TrimPrefix(k, "action_name")
+				order, err := strconv.Atoi(r.Form.Get(fmt.Sprintf("action_order%s", idx)))
+				if err != nil {
+					return actions, fmt.Errorf("invalid order: %w", err)
+				}
+				options := r.Form[fmt.Sprintf("action_options%s", idx)]
+				actions = append(actions, dataprovider.EventAction{
+					BaseEventAction: dataprovider.BaseEventAction{
+						Name: name,
+					},
+					Order: order + 1,
+					Options: dataprovider.EventActionOptions{
+						IsFailureAction: util.Contains(options, "1"),
+						StopOnFailure:   util.Contains(options, "2"),
+						ExecuteSync:     util.Contains(options, "3"),
+					},
+				})
+			}
+		}
+	}
+	return actions, nil
+}
+
+func getEventRuleFromPostFields(r *http.Request) (dataprovider.EventRule, error) {
+	err := r.ParseForm()
+	if err != nil {
+		return dataprovider.EventRule{}, err
+	}
+	trigger, err := strconv.Atoi(r.Form.Get("trigger"))
+	if err != nil {
+		return dataprovider.EventRule{}, fmt.Errorf("invalid trigger: %w", err)
+	}
+	conditions, err := getEventRuleConditionsFromPostFields(r)
+	if err != nil {
+		return dataprovider.EventRule{}, err
+	}
+	actions, err := getEventRuleActionsFromPostFields(r)
+	if err != nil {
+		return dataprovider.EventRule{}, err
+	}
+	rule := dataprovider.EventRule{
+		Name:        r.Form.Get("name"),
+		Description: r.Form.Get("description"),
+		Trigger:     trigger,
+		Conditions:  conditions,
+		Actions:     actions,
+	}
+	return rule, nil
+}
+
 func (s *httpdServer) handleWebAdminForgotPwd(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	if !smtp.IsEnabled() {
@@ -2450,7 +2810,7 @@ func (s *httpdServer) handleWebGetGroups(w http.ResponseWriter, r *http.Request)
 
 func (s *httpdServer) handleWebAddGroupGet(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	s.renderGroupPage(w, r, dataprovider.Group{}, groupPageModeAdd, "")
+	s.renderGroupPage(w, r, dataprovider.Group{}, genericPageModeAdd, "")
 }
 
 func (s *httpdServer) handleWebAddGroupPost(w http.ResponseWriter, r *http.Request) {
@@ -2462,7 +2822,7 @@ func (s *httpdServer) handleWebAddGroupPost(w http.ResponseWriter, r *http.Reque
 	}
 	group, err := getGroupFromPostFields(r)
 	if err != nil {
-		s.renderGroupPage(w, r, group, groupPageModeAdd, err.Error())
+		s.renderGroupPage(w, r, group, genericPageModeAdd, err.Error())
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
@@ -2472,7 +2832,7 @@ func (s *httpdServer) handleWebAddGroupPost(w http.ResponseWriter, r *http.Reque
 	}
 	err = dataprovider.AddGroup(&group, claims.Username, ipAddr)
 	if err != nil {
-		s.renderGroupPage(w, r, group, groupPageModeAdd, err.Error())
+		s.renderGroupPage(w, r, group, genericPageModeAdd, err.Error())
 		return
 	}
 	http.Redirect(w, r, webGroupsPath, http.StatusSeeOther)
@@ -2483,7 +2843,7 @@ func (s *httpdServer) handleWebUpdateGroupGet(w http.ResponseWriter, r *http.Req
 	name := getURLParam(r, "name")
 	group, err := dataprovider.GroupExists(name)
 	if err == nil {
-		s.renderGroupPage(w, r, group, groupPageModeUpdate, "")
+		s.renderGroupPage(w, r, group, genericPageModeUpdate, "")
 	} else if _, ok := err.(*util.RecordNotFoundError); ok {
 		s.renderNotFoundPage(w, r, err)
 	} else {
@@ -2509,7 +2869,7 @@ func (s *httpdServer) handleWebUpdateGroupPost(w http.ResponseWriter, r *http.Re
 	}
 	updatedGroup, err := getGroupFromPostFields(r)
 	if err != nil {
-		s.renderGroupPage(w, r, group, groupPageModeUpdate, err.Error())
+		s.renderGroupPage(w, r, group, genericPageModeUpdate, err.Error())
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
@@ -2530,8 +2890,245 @@ func (s *httpdServer) handleWebUpdateGroupPost(w http.ResponseWriter, r *http.Re
 
 	err = dataprovider.UpdateGroup(&updatedGroup, group.Users, claims.Username, ipAddr)
 	if err != nil {
-		s.renderGroupPage(w, r, updatedGroup, groupPageModeUpdate, err.Error())
+		s.renderGroupPage(w, r, updatedGroup, genericPageModeUpdate, err.Error())
 		return
 	}
 	http.Redirect(w, r, webGroupsPath, http.StatusSeeOther)
+}
+
+func (s *httpdServer) getWebEventActions(w http.ResponseWriter, r *http.Request, limit int, minimal bool,
+) ([]dataprovider.BaseEventAction, error) {
+	actions := make([]dataprovider.BaseEventAction, 0, limit)
+	for {
+		res, err := dataprovider.GetEventActions(limit, len(actions), dataprovider.OrderASC, minimal)
+		if err != nil {
+			s.renderInternalServerErrorPage(w, r, err)
+			return actions, err
+		}
+		actions = append(actions, res...)
+		if len(res) < limit {
+			break
+		}
+	}
+	return actions, nil
+}
+
+func (s *httpdServer) handleWebGetEventActions(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	limit := defaultQueryLimit
+	if _, ok := r.URL.Query()["qlimit"]; ok {
+		var err error
+		limit, err = strconv.Atoi(r.URL.Query().Get("qlimit"))
+		if err != nil {
+			limit = defaultQueryLimit
+		}
+	}
+	actions, err := s.getWebEventActions(w, r, limit, false)
+	if err != nil {
+		return
+	}
+
+	data := eventActionsPage{
+		basePage: s.getBasePageData(pageEventActionsTitle, webAdminEventActionsPath, r),
+		Actions:  actions,
+	}
+	renderAdminTemplate(w, templateEventActions, data)
+}
+
+func (s *httpdServer) handleWebAddEventActionGet(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	action := dataprovider.BaseEventAction{
+		Type: dataprovider.ActionTypeHTTP,
+	}
+	s.renderEventActionPage(w, r, action, genericPageModeAdd, "")
+}
+
+func (s *httpdServer) handleWebAddEventActionPost(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		return
+	}
+	action, err := getEventActionFromPostFields(r)
+	if err != nil {
+		s.renderEventActionPage(w, r, action, genericPageModeAdd, err.Error())
+		return
+	}
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
+		s.renderForbiddenPage(w, r, err.Error())
+		return
+	}
+	if err = dataprovider.AddEventAction(&action, claims.Username, ipAddr); err != nil {
+		s.renderEventActionPage(w, r, action, genericPageModeAdd, err.Error())
+		return
+	}
+	http.Redirect(w, r, webAdminEventActionsPath, http.StatusSeeOther)
+}
+
+func (s *httpdServer) handleWebUpdateEventActionGet(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	name := getURLParam(r, "name")
+	action, err := dataprovider.EventActionExists(name)
+	if err == nil {
+		s.renderEventActionPage(w, r, action, genericPageModeUpdate, "")
+	} else if _, ok := err.(*util.RecordNotFoundError); ok {
+		s.renderNotFoundPage(w, r, err)
+	} else {
+		s.renderInternalServerErrorPage(w, r, err)
+	}
+}
+
+func (s *httpdServer) handleWebUpdateEventActionPost(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		return
+	}
+	name := getURLParam(r, "name")
+	action, err := dataprovider.EventActionExists(name)
+	if _, ok := err.(*util.RecordNotFoundError); ok {
+		s.renderNotFoundPage(w, r, err)
+		return
+	} else if err != nil {
+		s.renderInternalServerErrorPage(w, r, err)
+		return
+	}
+	updatedAction, err := getEventActionFromPostFields(r)
+	if err != nil {
+		s.renderEventActionPage(w, r, updatedAction, genericPageModeUpdate, err.Error())
+		return
+	}
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
+		s.renderForbiddenPage(w, r, err.Error())
+		return
+	}
+	updatedAction.ID = action.ID
+	updatedAction.Name = action.Name
+	updatedAction.Options.SetEmptySecretsIfNil()
+	switch updatedAction.Type {
+	case dataprovider.ActionTypeHTTP:
+		if updatedAction.Options.HTTPConfig.Password.IsNotPlainAndNotEmpty() {
+			updatedAction.Options.HTTPConfig.Password = action.Options.HTTPConfig.Password
+		}
+	}
+	err = dataprovider.UpdateEventAction(&updatedAction, claims.Username, ipAddr)
+	if err != nil {
+		s.renderEventActionPage(w, r, updatedAction, genericPageModeUpdate, err.Error())
+		return
+	}
+	http.Redirect(w, r, webAdminEventActionsPath, http.StatusSeeOther)
+}
+
+func (s *httpdServer) handleWebGetEventRules(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	limit := defaultQueryLimit
+	if _, ok := r.URL.Query()["qlimit"]; ok {
+		if lim, err := strconv.Atoi(r.URL.Query().Get("qlimit")); err == nil {
+			limit = lim
+		}
+	}
+	rules := make([]dataprovider.EventRule, 0, limit)
+	for {
+		res, err := dataprovider.GetEventRules(limit, len(rules), dataprovider.OrderASC)
+		if err != nil {
+			s.renderInternalServerErrorPage(w, r, err)
+			return
+		}
+		rules = append(rules, res...)
+		if len(res) < limit {
+			break
+		}
+	}
+
+	data := eventRulesPage{
+		basePage: s.getBasePageData(pageEventRulesTitle, webAdminEventRulesPath, r),
+		Rules:    rules,
+	}
+	renderAdminTemplate(w, templateEventRules, data)
+}
+
+func (s *httpdServer) handleWebAddEventRuleGet(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	rule := dataprovider.EventRule{
+		Trigger: dataprovider.EventTriggerFsEvent,
+	}
+	s.renderEventRulePage(w, r, rule, genericPageModeAdd, "")
+}
+
+func (s *httpdServer) handleWebAddEventRulePost(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		return
+	}
+	rule, err := getEventRuleFromPostFields(r)
+	if err != nil {
+		s.renderEventRulePage(w, r, rule, genericPageModeAdd, err.Error())
+		return
+	}
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	err = verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr)
+	if err != nil {
+		s.renderForbiddenPage(w, r, err.Error())
+		return
+	}
+	if err = dataprovider.AddEventRule(&rule, claims.Username, ipAddr); err != nil {
+		s.renderEventRulePage(w, r, rule, genericPageModeAdd, err.Error())
+		return
+	}
+	http.Redirect(w, r, webAdminEventRulesPath, http.StatusSeeOther)
+}
+
+func (s *httpdServer) handleWebUpdateEventRuleGet(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	name := getURLParam(r, "name")
+	rule, err := dataprovider.EventRuleExists(name)
+	if err == nil {
+		s.renderEventRulePage(w, r, rule, genericPageModeUpdate, "")
+	} else if _, ok := err.(*util.RecordNotFoundError); ok {
+		s.renderNotFoundPage(w, r, err)
+	} else {
+		s.renderInternalServerErrorPage(w, r, err)
+	}
+}
+
+func (s *httpdServer) handleWebUpdateEventRulePost(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		return
+	}
+	name := getURLParam(r, "name")
+	rule, err := dataprovider.EventRuleExists(name)
+	if _, ok := err.(*util.RecordNotFoundError); ok {
+		s.renderNotFoundPage(w, r, err)
+		return
+	} else if err != nil {
+		s.renderInternalServerErrorPage(w, r, err)
+		return
+	}
+	updatedRule, err := getEventRuleFromPostFields(r)
+	if err != nil {
+		s.renderEventRulePage(w, r, updatedRule, genericPageModeUpdate, err.Error())
+		return
+	}
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
+		s.renderForbiddenPage(w, r, err.Error())
+		return
+	}
+	updatedRule.ID = rule.ID
+	updatedRule.Name = rule.Name
+	err = dataprovider.UpdateEventRule(&updatedRule, claims.Username, ipAddr)
+	if err != nil {
+		s.renderEventRulePage(w, r, updatedRule, genericPageModeUpdate, err.Error())
+		return
+	}
+	http.Redirect(w, r, webAdminEventRulesPath, http.StatusSeeOther)
 }

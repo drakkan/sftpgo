@@ -28,9 +28,9 @@
             $("#idSubDirPermissions"+index).selectpicker();
         });
 
-        $("body").on("click", ".remove_dirperms_btn_frm_field", function () {
-            $(this).closest(".form_field_dirperms_outer_row").remove();
-        });
+    $("body").on("click", ".remove_dirperms_btn_frm_field", function () {
+        $(this).closest(".form_field_dirperms_outer_row").remove();
+    });
 
     $("body").on("click", ".add_new_vfolder_field_btn", function () {
         var index = $(".form_field_vfolders_outer").find(".form_field_vfolder_outer_row").length;
