@@ -60,6 +60,13 @@ Let's create our first local user:
 
 ![Add user](./img/add-user.png)
 
+:warning: Please note that, on Linux, SFTPGo runs using a dedicated system user and group called `sftpgo`, for added security. If you want to be able to use diretories outside `/srv/sftpgo` you need to set the appropriate system level permissions. For example if you define `/home/username/test` as home dir you have to create this directory yourself with the proper permissions:
+
+```shell
+sudo mkdir /home/username/test
+sudo chown sftpgo:sftpgo /home/username/test
+```
+
 Now test the new user, we use the `sftp` CLI here, you can use any SFTP client.
 
 ```shell

@@ -798,7 +798,7 @@ func (f *ConditionOptions) validate() error {
 				f.MaxFileSize, f.MinFileSize))
 		}
 	}
-	if config.GetShared() == 0 {
+	if config.IsShared == 0 {
 		f.ConcurrentExecution = false
 	}
 	return nil
@@ -1002,7 +1002,7 @@ func (r *EventRule) getACopy() EventRule {
 }
 
 func (r *EventRule) guardFromConcurrentExecution() bool {
-	if config.GetShared() == 0 {
+	if config.IsShared == 0 {
 		return false
 	}
 	return !r.Conditions.Options.ConcurrentExecution
