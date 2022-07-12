@@ -27,7 +27,8 @@ var (
 // It implements common.ActiveConnection and ftpserver.ClientDriver interfaces
 type Connection struct {
 	*common.BaseConnection
-	clientContext ftpserver.ClientContext
+	clientContext     ftpserver.ClientContext
+	doWildcardListDir bool
 }
 
 func (c *Connection) getFTPMode() string {
@@ -140,6 +141,7 @@ func (c *Connection) Rename(oldname, newname string) error {
 // if any happens
 func (c *Connection) Stat(name string) (os.FileInfo, error) {
 	c.UpdateLastActivity()
+	c.doWildcardListDir = false
 
 	if !c.User.HasPerm(dataprovider.PermListItems, path.Dir(name)) {
 		return nil, c.GetPermissionDeniedError()
@@ -147,7 +149,8 @@ func (c *Connection) Stat(name string) (os.FileInfo, error) {
 
 	fi, err := c.DoStat(name, 0, true)
 	if err != nil {
-		if c.isListDirWithWildcards(path.Base(name), os.ErrNotExist) {
+		if c.isListDirWithWildcards(path.Base(name)) {
+			c.doWildcardListDir = true
 			return vfs.NewFileInfo(name, true, 0, time.Now(), false), nil
 		}
 		return nil, err
@@ -277,17 +280,16 @@ func (c *Connection) Symlink(oldname, newname string) error {
 func (c *Connection) ReadDir(name string) ([]os.FileInfo, error) {
 	c.UpdateLastActivity()
 
-	files, err := c.ListDir(name)
-	if err != nil {
+	if c.doWildcardListDir {
+		c.doWildcardListDir = false
 		baseName := path.Base(name)
-		if c.isListDirWithWildcards(baseName, err) {
-			// we only support wildcards for the last path level, for example:
-			// - *.xml is supported
-			// - dir*/*.xml is not supported
-			return c.getListDirWithWildcards(path.Dir(name), baseName)
-		}
+		// we only support wildcards for the last path level, for example:
+		// - *.xml is supported
+		// - dir*/*.xml is not supported
+		return c.getListDirWithWildcards(path.Dir(name), baseName)
 	}
-	return files, err
+
+	return c.ListDir(name)
 }
 
 // GetHandle implements ClientDriverExtentionFileTransfer
@@ -510,12 +512,10 @@ func (c *Connection) getListDirWithWildcards(dirName, pattern string) ([]os.File
 	return files[:validIdx], nil
 }
 
-func (c *Connection) isListDirWithWildcards(name string, err error) bool {
-	if errors.Is(err, c.GetNotExistError()) {
+func (c *Connection) isListDirWithWildcards(name string) bool {
+	if strings.ContainsAny(name, "*?[]") {
 		lastCommand := c.clientContext.GetLastCommand()
-		if lastCommand == "LIST" || lastCommand == "NLST" {
-			return strings.ContainsAny(name, "*?[]")
-		}
+		return lastCommand == "LIST" || lastCommand == "NLST"
 	}
 	return false
 }
