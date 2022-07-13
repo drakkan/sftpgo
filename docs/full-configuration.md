@@ -40,7 +40,7 @@ The `serve` command supports the following flags:
 - `--log-max-age` int. Maximum number of days to retain old log files. Default 28 or the value of `SFTPGO_LOG_MAX_AGE` environment variable. It is unused if `log-file-path` is empty.
 - `--log-max-backups` int. Maximum number of old log files to retain. Default 5 or the value of `SFTPGO_LOG_MAX_BACKUPS` environment variable. It is unused if `log-file-path` is empty.
 - `--log-max-size` int. Maximum size in megabytes of the log file before it gets rotated. Default 10 or the value of `SFTPGO_LOG_MAX_SIZE` environment variable. It is unused if `log-file-path` is empty.
-- `--log-verbose` boolean. Enable verbose logs. Default `true` or the value of `SFTPGO_LOG_VERBOSE` environment variable (1 or `true`, 0 or `false`).
+- `--log-level` string. Set the log level. Supported values: `debug`, `info`, `warn`, `error`. Default `debug` or the value of `SFTPGO_LOG_LEVEL` environment variable.
 - `--log-utc-time` boolean. Enable UTC time for logging. Default `false` or the value of `SFTPGO_LOG_UTC_TIME` environment variable (1 or `true`, 0 or `false`)
 
 Log file can be rotated on demand sending a `SIGUSR1` signal on Unix based systems and using the command `sftpgo service rotatelogs` on Windows.

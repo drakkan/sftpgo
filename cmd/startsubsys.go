@@ -40,15 +40,22 @@ Command-line flags should be specified in the Subsystem declaration.
 		Run: func(cmd *cobra.Command, args []string) {
 			logSender := "startsubsys"
 			connectionID := xid.New().String()
-			logLevel := zerolog.DebugLevel
-			if !logVerbose {
-				logLevel = zerolog.InfoLevel
+			var zeroLogLevel zerolog.Level
+			switch logLevel {
+			case "info":
+				zeroLogLevel = zerolog.InfoLevel
+			case "warn":
+				zeroLogLevel = zerolog.WarnLevel
+			case "error":
+				zeroLogLevel = zerolog.ErrorLevel
+			default:
+				zeroLogLevel = zerolog.DebugLevel
 			}
 			logger.SetLogTime(logUTCTime)
 			if logJournalD {
-				logger.InitJournalDLogger(logLevel)
+				logger.InitJournalDLogger(zeroLogLevel)
 			} else {
-				logger.InitStdErrLogger(logLevel)
+				logger.InitStdErrLogger(zeroLogLevel)
 			}
 			osUser, err := user.Current()
 			if err != nil {
@@ -84,7 +91,7 @@ Command-line flags should be specified in the Subsystem declaration.
 				logger.Error(logSender, "", "unable to initialize MFA: %v", err)
 				os.Exit(1)
 			}
-			if err := plugin.Initialize(config.GetPluginsConfig(), logVerbose); err != nil {
+			if err := plugin.Initialize(config.GetPluginsConfig(), logLevel); err != nil {
 				logger.Error(logSender, connectionID, "unable to initialize plugin system: %v", err)
 				os.Exit(1)
 			}
@@ -182,13 +189,17 @@ error`)
 
 	addConfigFlags(subsystemCmd)
 
-	viper.SetDefault(logVerboseKey, defaultLogVerbose)
-	viper.BindEnv(logVerboseKey, "SFTPGO_LOG_VERBOSE") //nolint:errcheck
-	subsystemCmd.Flags().BoolVarP(&logVerbose, logVerboseFlag, "v", viper.GetBool(logVerboseKey),
-		`Enable verbose logs. This flag can be set
-using SFTPGO_LOG_VERBOSE env var too.
+	viper.SetDefault(logLevelKey, defaultLogLevel)
+	viper.BindEnv(logLevelKey, "SFTPGO_LOG_LEVEL") //nolint:errcheck
+	subsystemCmd.Flags().StringVar(&logLevel, logLevelFlag, viper.GetString(logLevelKey),
+		`Set the log level. Supported values:
+
+debug, info, warn, error.
+
+This flag can be set
+using SFTPGO_LOG_LEVEL env var too.
 `)
-	viper.BindPFlag(logVerboseKey, subsystemCmd.Flags().Lookup(logVerboseFlag)) //nolint:errcheck
+	viper.BindPFlag(logLevelKey, subsystemCmd.Flags().Lookup(logLevelFlag)) //nolint:errcheck
 
 	viper.SetDefault(logUTCTimeKey, defaultLogUTCTime)
 	viper.BindEnv(logUTCTimeKey, "SFTPGO_LOG_UTC_TIME") //nolint:errcheck

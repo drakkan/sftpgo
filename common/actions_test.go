@@ -264,7 +264,7 @@ func TestUnconfiguredHook(t *testing.T) {
 			Type: "notifier",
 		},
 	}
-	err := plugin.Initialize(pluginsConfig, true)
+	err := plugin.Initialize(pluginsConfig, "debug")
 	assert.Error(t, err)
 	assert.True(t, plugin.Handler.HasNotifiers())
 
@@ -277,7 +277,7 @@ func TestUnconfiguredHook(t *testing.T) {
 	err = ExecuteActionNotification(c, operationDownload, "", "", "", "", "", 0, nil)
 	assert.NoError(t, err)
 
-	err = plugin.Initialize(nil, true)
+	err = plugin.Initialize(nil, "debug")
 	assert.NoError(t, err)
 	assert.False(t, plugin.Handler.HasNotifiers())
 

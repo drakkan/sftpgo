@@ -348,7 +348,7 @@ func TestMain(m *testing.M) {
 		logger.ErrorToConsole("error initializing MFA: %v", err)
 		os.Exit(1)
 	}
-	err = plugin.Initialize(pluginsConfig, true)
+	err = plugin.Initialize(pluginsConfig, "debug")
 	if err != nil {
 		logger.ErrorToConsole("error initializing plugin: %v", err)
 		os.Exit(1)

@@ -30,7 +30,7 @@ Please take a look at the usage below to customize the startup options`,
 				LogMaxBackups: logMaxBackups,
 				LogMaxAge:     logMaxAge,
 				LogCompress:   logCompress,
-				LogVerbose:    logVerbose,
+				LogLevel:      logLevel,
 				LogUTCTime:    logUTCTime,
 				Shutdown:      make(chan bool),
 			}
@@ -85,8 +85,9 @@ func getCustomServeFlags() []string {
 		result = append(result, "--"+logMaxAgeFlag)
 		result = append(result, strconv.Itoa(logMaxAge))
 	}
-	if logVerbose != defaultLogVerbose {
-		result = append(result, "--"+logVerboseFlag+"=false")
+	if logLevel != defaultLogLevel {
+		result = append(result, "--"+logLevelFlag)
+		result = append(result, logLevel)
 	}
 	if logUTCTime != defaultLogUTCTime {
 		result = append(result, "--"+logUTCTimeFlag+"=true")

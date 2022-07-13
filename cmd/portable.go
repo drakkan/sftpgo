@@ -31,7 +31,7 @@ var (
 	portablePassword                   string
 	portableStartDir                   string
 	portableLogFile                    string
-	portableLogVerbose                 bool
+	portableLogLevel                   string
 	portableLogUTCTime                 bool
 	portablePublicKeys                 []string
 	portablePermissions                []string
@@ -163,7 +163,7 @@ Please take a look at the usage below to customize the serving parameters`,
 				LogMaxBackups: defaultLogMaxBackup,
 				LogMaxAge:     defaultLogMaxAge,
 				LogCompress:   defaultLogCompress,
-				LogVerbose:    portableLogVerbose,
+				LogLevel:      portableLogLevel,
 				LogUTCTime:    portableLogUTCTime,
 				Shutdown:      make(chan bool),
 				PortableMode:  1,
@@ -281,7 +281,11 @@ value`)
 	portableCmd.Flags().StringVarP(&portablePassword, "password", "p", "", `Leave empty to use an auto generated
 value`)
 	portableCmd.Flags().StringVarP(&portableLogFile, logFilePathFlag, "l", "", "Leave empty to disable logging")
-	portableCmd.Flags().BoolVarP(&portableLogVerbose, logVerboseFlag, "v", false, "Enable verbose logs")
+	portableCmd.Flags().StringVar(&portableLogLevel, logLevelFlag, defaultLogLevel, `Set the log level.
+Supported values:
+
+debug, info, warn, error.
+`)
 	portableCmd.Flags().BoolVar(&portableLogUTCTime, logUTCTimeFlag, false, "Use UTC time for logging")
 	portableCmd.Flags().StringSliceVarP(&portablePublicKeys, "public-key", "k", []string{}, "")
 	portableCmd.Flags().StringSliceVarP(&portablePermissions, "permissions", "g", []string{"list", "download"},

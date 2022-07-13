@@ -70,7 +70,7 @@ require (
 	golang.org/x/oauth2 v0.0.0-20220630143837-2104d58473e0
 	golang.org/x/sys v0.0.0-20220712014510-0a85c31ab51e
 	golang.org/x/time v0.0.0-20220609170525-579cf78fd858
-	google.golang.org/api v0.86.0
+	google.golang.org/api v0.87.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
 
@@ -155,8 +155,8 @@ require (
 	golang.org/x/tools v0.1.11 // indirect
 	golang.org/x/xerrors v0.0.0-20220609144429-65e65417b02f // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20220711200234-e2551ce405a2 // indirect
-	google.golang.org/grpc v1.47.0 // indirect
+	google.golang.org/genproto v0.0.0-20220712132514-bdd2acd4974d // indirect
+	google.golang.org/grpc v1.48.0 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/ini.v1 v1.66.6 // indirect
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect

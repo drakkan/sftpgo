@@ -38,7 +38,7 @@ type Service struct {
 	PortableMode      int
 	PortableUser      dataprovider.User
 	LogCompress       bool
-	LogVerbose        bool
+	LogLevel          string
 	LogUTCTime        bool
 	LoadDataClean     bool
 	LoadDataFrom      string
@@ -49,9 +49,16 @@ type Service struct {
 }
 
 func (s *Service) initLogger() {
-	logLevel := zerolog.DebugLevel
-	if !s.LogVerbose {
+	var logLevel zerolog.Level
+	switch s.LogLevel {
+	case "info":
 		logLevel = zerolog.InfoLevel
+	case "warn":
+		logLevel = zerolog.WarnLevel
+	case "error":
+		logLevel = zerolog.ErrorLevel
+	default:
+		logLevel = zerolog.DebugLevel
 	}
 	if !filepath.IsAbs(s.LogFilePath) && util.IsFileInputValid(s.LogFilePath) {
 		s.LogFilePath = filepath.Join(s.ConfigDir, s.LogFilePath)
@@ -69,8 +76,8 @@ func (s *Service) initLogger() {
 func (s *Service) Start(disableAWSInstallationCode bool) error {
 	s.initLogger()
 	logger.Info(logSender, "", "starting SFTPGo %v, config dir: %v, config file: %v, log max size: %v log max backups: %v "+
-		"log max age: %v log verbose: %v, log compress: %v, log utc time: %v, load data from: %#v", version.GetAsString(), s.ConfigDir, s.ConfigFile,
-		s.LogMaxSize, s.LogMaxBackups, s.LogMaxAge, s.LogVerbose, s.LogCompress, s.LogUTCTime, s.LoadDataFrom)
+		"log max age: %v log level: %v, log compress: %v, log utc time: %v, load data from: %#v", version.GetAsString(), s.ConfigDir, s.ConfigFile,
+		s.LogMaxSize, s.LogMaxBackups, s.LogMaxAge, s.LogLevel, s.LogCompress, s.LogUTCTime, s.LoadDataFrom)
 	// in portable mode we don't read configuration from file
 	if s.PortableMode != 1 {
 		err := config.LoadConfig(s.ConfigDir, s.ConfigFile)
@@ -118,7 +125,7 @@ func (s *Service) initializeServices(disableAWSInstallationCode bool) error {
 		logger.ErrorToConsole("unable to initialize MFA: %v", err)
 		return err
 	}
-	if err := plugin.Initialize(config.GetPluginsConfig(), s.LogVerbose); err != nil {
+	if err := plugin.Initialize(config.GetPluginsConfig(), s.LogLevel); err != nil {
 		logger.Error(logSender, "", "unable to initialize plugin system: %v", err)
 		logger.ErrorToConsole("unable to initialize plugin system: %v", err)
 		return err

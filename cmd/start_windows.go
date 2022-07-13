@@ -28,7 +28,7 @@ var (
 				LogMaxBackups: logMaxBackups,
 				LogMaxAge:     logMaxAge,
 				LogCompress:   logCompress,
-				LogVerbose:    logVerbose,
+				LogLevel:      logLevel,
 				LogUTCTime:    logUTCTime,
 				Shutdown:      make(chan bool),
 			}

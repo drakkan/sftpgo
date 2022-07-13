@@ -104,7 +104,7 @@ type Manager struct {
 }
 
 // Initialize initializes the configured plugins
-func Initialize(configs []Config, logVerbose bool) error {
+func Initialize(configs []Config, logLevel string) error {
 	logger.Debug(logSender, "", "initialize")
 	Handler = Manager{
 		Configs:    configs,
@@ -112,7 +112,7 @@ func Initialize(configs []Config, logVerbose bool) error {
 		closed:     0,
 		authScopes: -1,
 	}
-	setLogLevel(logVerbose)
+	setLogLevel(logLevel)
 	if len(configs) == 0 {
 		return nil
 	}
@@ -733,11 +733,16 @@ func (m *Manager) Cleanup() {
 	}
 }
 
-func setLogLevel(logVerbose bool) {
-	if logVerbose {
-		pluginsLogLevel = hclog.Debug
-	} else {
+func setLogLevel(logLevel string) {
+	switch logLevel {
+	case "info":
 		pluginsLogLevel = hclog.Info
+	case "warn":
+		pluginsLogLevel = hclog.Warn
+	case "error":
+		pluginsLogLevel = hclog.Error
+	default:
+		pluginsLogLevel = hclog.Debug
 	}
 }
 

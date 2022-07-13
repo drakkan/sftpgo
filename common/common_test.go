@@ -142,7 +142,7 @@ func TestDefenderIntegration(t *testing.T) {
 	if runtime.GOOS == osWindows {
 		pluginsConfig[0].Cmd += ".exe"
 	}
-	err = plugin.Initialize(pluginsConfig, true)
+	err = plugin.Initialize(pluginsConfig, "debug")
 	require.NoError(t, err)
 
 	ip := "127.1.1.1"

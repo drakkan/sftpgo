@@ -26,8 +26,8 @@ const (
 	logMaxAgeKey             = "log_max_age"
 	logCompressFlag          = "log-compress"
 	logCompressKey           = "log_compress"
-	logVerboseFlag           = "log-verbose"
-	logVerboseKey            = "log_verbose"
+	logLevelFlag             = "log-level"
+	logLevelKey              = "log_level"
 	logUTCTimeFlag           = "log-utc-time"
 	logUTCTimeKey            = "log_utc_time"
 	loadDataFromFlag         = "loaddata-from"
@@ -45,7 +45,7 @@ const (
 	defaultLogMaxBackup      = 5
 	defaultLogMaxAge         = 28
 	defaultLogCompress       = false
-	defaultLogVerbose        = true
+	defaultLogLevel          = "debug"
 	defaultLogUTCTime        = false
 	defaultLoadDataFrom      = ""
 	defaultLoadDataMode      = 1
@@ -61,7 +61,7 @@ var (
 	logMaxBackups     int
 	logMaxAge         int
 	logCompress       bool
-	logVerbose        bool
+	logLevel          string
 	logUTCTime        bool
 	loadDataFrom      string
 	loadDataMode      int
@@ -215,13 +215,17 @@ It is unused if log-file-path is empty.
 `)
 	viper.BindPFlag(logCompressKey, cmd.Flags().Lookup(logCompressFlag)) //nolint:errcheck
 
-	viper.SetDefault(logVerboseKey, defaultLogVerbose)
-	viper.BindEnv(logVerboseKey, "SFTPGO_LOG_VERBOSE") //nolint:errcheck
-	cmd.Flags().BoolVarP(&logVerbose, logVerboseFlag, "v", viper.GetBool(logVerboseKey),
-		`Enable verbose logs. This flag can be set
-using SFTPGO_LOG_VERBOSE env var too.
+	viper.SetDefault(logLevelKey, defaultLogLevel)
+	viper.BindEnv(logLevelKey, "SFTPGO_LOG_LEVEL") //nolint:errcheck
+	cmd.Flags().StringVar(&logLevel, logLevelFlag, viper.GetString(logLevelKey),
+		`Set the log level. Supported values:
+
+debug, info, warn, error.
+
+This flag can be set
+using SFTPGO_LOG_LEVEL env var too.
 `)
-	viper.BindPFlag(logVerboseKey, cmd.Flags().Lookup(logVerboseFlag)) //nolint:errcheck
+	viper.BindPFlag(logLevelKey, cmd.Flags().Lookup(logLevelFlag)) //nolint:errcheck
 
 	viper.SetDefault(logUTCTimeKey, defaultLogUTCTime)
 	viper.BindEnv(logUTCTimeKey, "SFTPGO_LOG_UTC_TIME") //nolint:errcheck

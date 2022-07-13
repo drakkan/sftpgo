@@ -11,7 +11,7 @@ In this tutorial we explore the main features and concepts using the built-in we
 - [Initial configuration](#Initial-configuration)
 - [Creating users](#Creating-users)
   - [Creating users with a Cloud Storage backend](#Creating-users-with-a-Cloud-Storage-backend)
-  - [Creating users with a local encrypted backend (Data At Rest Encryption)](#Creating-users-with-a-local-encrypted-backend-Data-At-Rest-Encryption))
+  - [Creating users with a local encrypted backend (Data At Rest Encryption)](#Creating-users-with-a-local-encrypted-backend-Data-At-Rest-Encryption)
 - [Virtual permissions](#Virtual-permissions)
 - [Virtual folders](#Virtual-folders)
 - [Configuration parameters](#Configuration-parameters)
@@ -60,7 +60,7 @@ Let's create our first local user:
 
 ![Add user](./img/add-user.png)
 
-:warning: Please note that, on Linux, SFTPGo runs using a dedicated system user and group called `sftpgo`, for added security. If you want to be able to use diretories outside `/srv/sftpgo` you need to set the appropriate system level permissions. For example if you define `/home/username/test` as home dir you have to create this directory yourself with the proper permissions:
+:warning: Please note that, on Linux, SFTPGo runs using a dedicated system user and group called `sftpgo`, for added security. If you want to be able to use directories outside `/srv/sftpgo` you need to set the appropriate system level permissions. For example if you define `/home/username/test` as home dir you have to create this directory yourself, if it doesn't exist, and set the appropriate system-level permissions:
 
 ```shell
 sudo mkdir /home/username/test
