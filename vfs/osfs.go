@@ -227,10 +227,10 @@ func (fs *OsFs) CheckRootPath(username string, uid int, gid int) bool {
 	var err error
 	if _, err = fs.Stat(fs.rootDir); fs.IsNotExist(err) {
 		err = os.MkdirAll(fs.rootDir, os.ModePerm)
-		fsLog(fs, logger.LevelDebug, "root directory %#v for user %#v does not exist, try to create, mkdir error: %v",
-			fs.rootDir, username, err)
 		if err == nil {
 			SetPathPermissions(fs, fs.rootDir, uid, gid)
+		} else {
+			fsLog(fs, logger.LevelError, "error creating root directory %q for user %q: %v", fs.rootDir, username, err)
 		}
 	}
 	return err == nil

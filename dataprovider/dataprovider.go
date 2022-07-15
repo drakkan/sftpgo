@@ -725,11 +725,18 @@ func SetTempPath(fsPath string) {
 	tempPath = fsPath
 }
 
+func checkSharedMode() {
+	if !util.Contains(sharedProviders, config.Driver) {
+		config.IsShared = 0
+	}
+}
+
 // Initialize the data provider.
 // An error is returned if the configured driver is invalid or if the data provider cannot be initialized
 func Initialize(cnf Config, basePath string, checkAdmins bool) error {
 	var err error
 	config = cnf
+	checkSharedMode()
 	config.Actions.ExecuteOn = util.RemoveDuplicates(config.Actions.ExecuteOn, true)
 	config.Actions.ExecuteFor = util.RemoveDuplicates(config.Actions.ExecuteFor, true)
 
