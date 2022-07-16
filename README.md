@@ -11,6 +11,25 @@
 Fully featured and highly configurable SFTP server with optional HTTP/S, FTP/S and WebDAV support.
 Several storage backends are supported: local filesystem, encrypted local filesystem, S3 (compatible) Object Storage, Google Cloud Storage, Azure Blob Storage, SFTP.
 
+## Sponsors
+
+If you find SFTPGo useful please consider supporting this Open Source project.
+
+Maintaining and evolving SFTPGo is a lot of work - easily the equivalent of a full time job - for me.
+
+I'd like to make SFTPGo into a sustainable long term project and would not like to introduce a dual licensing option and limit some features to the proprietary version only.
+
+If you use SFTPGo, it is in your best interest to ensure that the project you rely on stays healthy and well maintained.
+This can only happen with your donations and [sponsorships](https://github.com/sponsors/drakkan) :heart:
+
+If you just take and don't return anything back, the project will die in the long run and you will be forced to pay for a similar proprietary solution.
+
+More [info](https://github.com/drakkan/sftpgo/issues/452).
+
+Thank you to our sponsors!
+
+[<img src="https://www.7digital.com/wp-content/themes/sevendigital/images/top_logo.png" alt="7digital logo">](https://www.7digital.com/)
+
 ## Features
 
 - Support for serving local filesystem, encrypted local filesystem, S3 Compatible Object Storage, Google Cloud Storage, Azure Blob Storage or other SFTP accounts over SFTP/SCP/FTP/WebDAV.
@@ -309,14 +328,6 @@ SFTPGo makes use of the third party libraries listed inside [go.mod](./go.mod).
 We are very grateful to all the people who contributed with ideas and/or pull requests.
 
 Thank you [ysura](https://www.ysura.com/) for granting me stable access to a test AWS S3 account.
-
-## Sponsors
-
-I'd like to make SFTPGo into a sustainable long term project and your [sponsorship](https://github.com/sponsors/drakkan) will really help :heart:
-
-Thank you to our sponsors!
-
-[<img src="https://www.7digital.com/wp-content/themes/sevendigital/images/top_logo.png" alt="7digital logo">](https://www.7digital.com/)
 
 ## License
 

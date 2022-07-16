@@ -234,6 +234,7 @@ var (
 	webOpenAPIPath                 string
 	// max upload size for http clients, 1GB by default
 	maxUploadFileSize          = int64(1048576000)
+	hideSupportLink            bool
 	installationCode           string
 	installationCodeHint       string
 	fnInstallationCodeResolver FnInstallationCodeResolver
@@ -605,6 +606,8 @@ type Conf struct {
 	Cors CorsConfig `json:"cors" mapstructure:"cors"`
 	// Initial setup configuration
 	Setup SetupConfig `json:"setup" mapstructure:"setup"`
+	// If enabled, the link to the sponsors section will not appear on the setup screen page
+	HideSupportLink bool `json:"hide_support_link" mapstructure:"hide_support_link"`
 }
 
 type apiResponse struct {
@@ -746,6 +749,7 @@ func (c *Conf) Initialize(configDir string, isShared int) error {
 	}
 
 	csrfTokenAuth = jwtauth.New(jwa.HS256.String(), getSigningKey(c.SigningPassphrase), nil)
+	hideSupportLink = c.HideSupportLink
 
 	exitChannel := make(chan error, 1)
 

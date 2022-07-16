@@ -238,6 +238,7 @@ type setupPage struct {
 	Username             string
 	HasInstallationCode  bool
 	InstallationCodeHint string
+	HideSupportLink      bool
 	Error                string
 }
 
@@ -643,6 +644,7 @@ func (s *httpdServer) renderAdminSetupPage(w http.ResponseWriter, r *http.Reques
 		Username:             username,
 		HasInstallationCode:  installationCode != "",
 		InstallationCodeHint: installationCodeHint,
+		HideSupportLink:      hideSupportLink,
 		Error:                error,
 	}
 
