@@ -70,6 +70,10 @@ type OIDC struct {
 	// If set, the `RoleField` is ignored and the SFTPGo role is assumed based on
 	// the login link used
 	ImplicitRoles bool `json:"implicit_roles" mapstructure:"implicit_roles"`
+	// Scopes required by the OAuth provider to retrieve information about the authenticated user.
+	// The "openid" scope is required.
+	// Refer to your OAuth provider documentation for more information about this
+	Scopes []string `json:"scopes" mapstructure:"scopes"`
 	// Custom token claims fields to pass to the pre-login hook
 	CustomFields      []string `json:"custom_fields" mapstructure:"custom_fields"`
 	provider          *oidc.Provider
@@ -116,6 +120,9 @@ func (o *OIDC) initialize() error {
 	if o.RedirectBaseURL == "" {
 		return errors.New("oidc: redirect base URL cannot be empty")
 	}
+	if !util.Contains(o.Scopes, oidc.ScopeOpenID) {
+		return fmt.Errorf("oidc: required scope %q is not set", oidc.ScopeOpenID)
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -143,7 +150,7 @@ func (o *OIDC) initialize() error {
 		ClientSecret: o.ClientSecret,
 		Endpoint:     o.provider.Endpoint(),
 		RedirectURL:  o.getRedirectURL(),
-		Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
+		Scopes:       o.Scopes,
 	}
 
 	return nil

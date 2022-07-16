@@ -105,6 +105,7 @@ var (
 			UsernameField:   "",
 			RoleField:       "",
 			ImplicitRoles:   false,
+			Scopes:          []string{"openid", "profile", "email"},
 			CustomFields:    []string{},
 		},
 		Security: httpd.SecurityConf{
@@ -1405,6 +1406,12 @@ func getHTTPDOIDCFromEnv(idx int) (httpd.OIDC, bool) {
 	usernameField, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__OIDC__USERNAME_FIELD", idx))
 	if ok {
 		result.UsernameField = usernameField
+		isSet = true
+	}
+
+	scopes, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__OIDC__SCOPES", idx))
+	if ok {
+		result.Scopes = scopes
 		isSet = true
 	}
 
