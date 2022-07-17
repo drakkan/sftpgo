@@ -239,8 +239,8 @@ func (p *SQLiteProvider) updateUser(user *User) error {
 	return sqlCommonUpdateUser(user, p.dbHandle)
 }
 
-func (p *SQLiteProvider) deleteUser(user User) error {
-	return sqlCommonDeleteUser(user, p.dbHandle)
+func (p *SQLiteProvider) deleteUser(user User, softDelete bool) error {
+	return sqlCommonDeleteUser(user, softDelete, p.dbHandle)
 }
 
 func (p *SQLiteProvider) updateUserPassword(username, password string) error {

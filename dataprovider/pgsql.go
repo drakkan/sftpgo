@@ -267,8 +267,8 @@ func (p *PGSQLProvider) updateUser(user *User) error {
 	return sqlCommonUpdateUser(user, p.dbHandle)
 }
 
-func (p *PGSQLProvider) deleteUser(user User) error {
-	return sqlCommonDeleteUser(user, p.dbHandle)
+func (p *PGSQLProvider) deleteUser(user User, softDelete bool) error {
+	return sqlCommonDeleteUser(user, softDelete, p.dbHandle)
 }
 
 func (p *PGSQLProvider) updateUserPassword(username, password string) error {

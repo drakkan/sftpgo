@@ -632,7 +632,7 @@ type Provider interface {
 	userExists(username string) (User, error)
 	addUser(user *User) error
 	updateUser(user *User) error
-	deleteUser(user User) error
+	deleteUser(user User, softDelete bool) error
 	updateUserPassword(username, password string) error
 	getUsers(limit int, offset int, order string) ([]User, error)
 	dumpUsers() ([]User, error)
@@ -1577,7 +1577,7 @@ func DeleteEventRule(name string, executor, ipAddress string) error {
 	if err != nil {
 		return err
 	}
-	err = provider.deleteEventRule(rule, config.GetShared() == 1)
+	err = provider.deleteEventRule(rule, config.IsShared == 1)
 	if err == nil {
 		EventManager.RemoveRule(rule.Name)
 		executeAction(operationDelete, executor, ipAddress, actionObjectEventRule, rule.Name, &rule)
@@ -1716,10 +1716,10 @@ func DeleteUser(username, executor, ipAddress string) error {
 	if err != nil {
 		return err
 	}
-	err = provider.deleteUser(user)
+	err = provider.deleteUser(user, config.IsShared == 1)
 	if err == nil {
 		RemoveCachedWebDAVUser(user.Username)
-		delayedQuotaUpdater.resetUserQuota(username)
+		delayedQuotaUpdater.resetUserQuota(user.Username)
 		cachedPasswords.Remove(username)
 		executeAction(operationDelete, executor, ipAddress, actionObjectUser, user.Username, &user)
 	}

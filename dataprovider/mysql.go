@@ -292,8 +292,8 @@ func (p *MySQLProvider) updateUser(user *User) error {
 	return sqlCommonUpdateUser(user, p.dbHandle)
 }
 
-func (p *MySQLProvider) deleteUser(user User) error {
-	return sqlCommonDeleteUser(user, p.dbHandle)
+func (p *MySQLProvider) deleteUser(user User, softDelete bool) error {
+	return sqlCommonDeleteUser(user, softDelete, p.dbHandle)
 }
 
 func (p *MySQLProvider) updateUserPassword(username, password string) error {

@@ -377,7 +377,7 @@ func (p *MemoryProvider) updateUser(user *User) error {
 	return nil
 }
 
-func (p *MemoryProvider) deleteUser(user User) error {
+func (p *MemoryProvider) deleteUser(user User, softDelete bool) error {
 	p.dbHandle.Lock()
 	defer p.dbHandle.Unlock()
 	if p.dbHandle.isClosed {

@@ -12,7 +12,7 @@ const (
 	selectUserFields = "id,username,password,public_keys,home_dir,uid,gid,max_sessions,quota_size,quota_files,permissions,used_quota_size," +
 		"used_quota_files,last_quota_update,upload_bandwidth,download_bandwidth,expiration_date,last_login,status,filters,filesystem," +
 		"additional_info,description,email,created_at,updated_at,upload_data_transfer,download_data_transfer,total_data_transfer," +
-		"used_upload_data_transfer,used_download_data_transfer"
+		"used_upload_data_transfer,used_download_data_transfer,deleted_at"
 	selectFolderFields = "id,path,used_quota_size,used_quota_files,last_quota_update,name,description,filesystem"
 	selectAdminFields  = "id,username,password,status,email,permissions,filters,additional_info,description,created_at,updated_at,last_login"
 	selectAPIKeyFields = "key_id,name,api_key,scope,created_at,updated_at,last_use_at,expires_at,description,user_id,admin_id"
@@ -380,12 +380,13 @@ func getRelatedAdminsForAPIKeysQuery(apiKeys []APIKey) string {
 }
 
 func getUserByUsernameQuery() string {
-	return fmt.Sprintf(`SELECT %s FROM %s WHERE username = %s`, selectUserFields, sqlTableUsers, sqlPlaceholders[0])
+	return fmt.Sprintf(`SELECT %s FROM %s WHERE username = %s AND deleted_at = 0`,
+		selectUserFields, sqlTableUsers, sqlPlaceholders[0])
 }
 
 func getUsersQuery(order string) string {
-	return fmt.Sprintf(`SELECT %s FROM %s ORDER BY username %s LIMIT %s OFFSET %s`, selectUserFields, sqlTableUsers,
-		order, sqlPlaceholders[0], sqlPlaceholders[1])
+	return fmt.Sprintf(`SELECT %s FROM %s WHERE deleted_at = 0 ORDER BY username %s LIMIT %s OFFSET %s`,
+		selectUserFields, sqlTableUsers, order, sqlPlaceholders[0], sqlPlaceholders[1])
 }
 
 func getUsersForQuotaCheckQuery(numArgs int) string {
@@ -407,11 +408,12 @@ func getUsersForQuotaCheckQuery(numArgs int) string {
 }
 
 func getRecentlyUpdatedUsersQuery() string {
-	return fmt.Sprintf(`SELECT %s FROM %s WHERE updated_at >= %s`, selectUserFields, sqlTableUsers, sqlPlaceholders[0])
+	return fmt.Sprintf(`SELECT %s FROM %s WHERE updated_at >= %s OR deleted_at > 0`,
+		selectUserFields, sqlTableUsers, sqlPlaceholders[0])
 }
 
 func getDumpUsersQuery() string {
-	return fmt.Sprintf(`SELECT %s FROM %s`, selectUserFields, sqlTableUsers)
+	return fmt.Sprintf(`SELECT %s FROM %s WHERE deleted_at = 0`, selectUserFields, sqlTableUsers)
 }
 
 func getDumpFoldersQuery() string {
@@ -493,7 +495,11 @@ func getUpdateUserPasswordQuery() string {
 	return fmt.Sprintf(`UPDATE %s SET password=%s WHERE username = %s`, sqlTableUsers, sqlPlaceholders[0], sqlPlaceholders[1])
 }
 
-func getDeleteUserQuery() string {
+func getDeleteUserQuery(softDelete bool) string {
+	if softDelete {
+		return fmt.Sprintf(`UPDATE %s SET updated_at=%s,deleted_at=%s WHERE username = %s`,
+			sqlTableUsers, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2])
+	}
 	return fmt.Sprintf(`DELETE FROM %s WHERE id = %s`, sqlTableUsers, sqlPlaceholders[0])
 }
 

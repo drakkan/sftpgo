@@ -989,11 +989,27 @@ func sqlCommonUpdateUser(user *User, dbHandle *sql.DB) error {
 	})
 }
 
-func sqlCommonDeleteUser(user User, dbHandle *sql.DB) error {
+func sqlCommonDeleteUser(user User, softDelete bool, dbHandle *sql.DB) error {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
 	defer cancel()
 
-	q := getDeleteUserQuery()
+	q := getDeleteUserQuery(softDelete)
+	if softDelete {
+		return sqlCommonExecuteTx(ctx, dbHandle, func(tx *sql.Tx) error {
+			if err := sqlCommonClearUserFolderMapping(ctx, &user, tx); err != nil {
+				return err
+			}
+			if err := sqlCommonClearUserGroupMapping(ctx, &user, tx); err != nil {
+				return err
+			}
+			ts := util.GetTimeAsMsSinceEpoch(time.Now())
+			res, err := tx.ExecContext(ctx, q, ts, ts, user.Username)
+			if err != nil {
+				return err
+			}
+			return sqlCommonRequireRowAffected(res)
+		})
+	}
 	res, err := dbHandle.ExecContext(ctx, q, user.ID)
 	if err != nil {
 		return err
@@ -1703,7 +1719,7 @@ func getUserFromDbRow(row sqlScanner) (User, error) {
 		&user.QuotaSize, &user.QuotaFiles, &permissions, &user.UsedQuotaSize, &user.UsedQuotaFiles, &user.LastQuotaUpdate,
 		&user.UploadBandwidth, &user.DownloadBandwidth, &user.ExpirationDate, &user.LastLogin, &user.Status, &filters, &fsConfig,
 		&additionalInfo, &description, &email, &user.CreatedAt, &user.UpdatedAt, &user.UploadDataTransfer, &user.DownloadDataTransfer,
-		&user.TotalDataTransfer, &user.UsedUploadDataTransfer, &user.UsedDownloadDataTransfer)
+		&user.TotalDataTransfer, &user.UsedUploadDataTransfer, &user.UsedDownloadDataTransfer, &user.DeletedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return user, util.NewRecordNotFoundError(err.Error())

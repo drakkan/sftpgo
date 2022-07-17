@@ -71,8 +71,18 @@ func checkCacheUpdates() {
 		return
 	}
 	for _, user := range users {
-		providerLog(logger.LevelDebug, "invalidate caches for user %#v", user.Username)
-		webDAVUsersCache.swap(&user)
+		providerLog(logger.LevelDebug, "invalidate caches for user %q", user.Username)
+		if user.DeletedAt > 0 {
+			deletedAt := util.GetTimeFromMsecSinceEpoch(user.DeletedAt)
+			if deletedAt.Add(30 * time.Minute).Before(time.Now()) {
+				providerLog(logger.LevelDebug, "removing user %q deleted at %s", user.Username, deletedAt)
+				go provider.deleteUser(user, false) //nolint:errcheck
+			}
+			webDAVUsersCache.remove(user.Username)
+			delayedQuotaUpdater.resetUserQuota(user.Username)
+		} else {
+			webDAVUsersCache.swap(&user)
+		}
 		cachedPasswords.Remove(user.Username)
 	}
 

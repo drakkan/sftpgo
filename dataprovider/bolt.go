@@ -626,7 +626,7 @@ func (p *BoltProvider) updateUser(user *User) error {
 	})
 }
 
-func (p *BoltProvider) deleteUser(user User) error {
+func (p *BoltProvider) deleteUser(user User, softDelete bool) error {
 	return p.dbHandle.Update(func(tx *bolt.Tx) error {
 		bucket, err := p.getUsersBucket(tx)
 		if err != nil {

@@ -790,8 +790,13 @@ func (s *httpdServer) renderUserPage(w http.ResponseWriter, r *http.Request, use
 		title = "User template"
 		currentURL = webTemplateUser
 	}
-	if user.Password != "" && user.IsPasswordHashed() && mode == userPageModeUpdate {
-		user.Password = redactedSecret
+	if user.Password != "" && user.IsPasswordHashed() {
+		switch mode {
+		case userPageModeUpdate:
+			user.Password = redactedSecret
+		default:
+			user.Password = ""
+		}
 	}
 	user.FsConfig.RedactedSecret = redactedSecret
 	data := userPage{

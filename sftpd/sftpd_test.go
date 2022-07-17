@@ -1235,8 +1235,10 @@ func TestRealPath(t *testing.T) {
 			assert.ErrorIs(t, err, os.ErrPermission)
 			err = os.Remove(filepath.Join(localUser.GetHomeDir(), subdir, "temp"))
 			assert.NoError(t, err)
-			err = os.RemoveAll(filepath.Join(localUser.GetHomeDir(), subdir))
-			assert.NoError(t, err)
+			if user.Username == localUser.Username {
+				err = os.RemoveAll(filepath.Join(localUser.GetHomeDir(), subdir))
+				assert.NoError(t, err)
+			}
 		}
 	}
 	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)

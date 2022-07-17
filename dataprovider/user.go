@@ -128,6 +128,8 @@ type User struct {
 	fsCache map[string]vfs.Fs `json:"-"`
 	// true if group settings are already applied for this user
 	groupSettingsApplied bool `json:"-"`
+	// in multi node setups we mark the user as deleted to be able to update the webdav cache
+	DeletedAt int64 `json:"-"`
 }
 
 // GetFilesystem returns the base filesystem for this user
