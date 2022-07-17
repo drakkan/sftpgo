@@ -7,6 +7,9 @@ info:
     SFTPGo can use custom storage backend implementations compliant with the API defined here.
     HTTPFs is a work in progress and makes no API stability promises.
   version: 0.1.0
+  license:
+    name: AGPL-3.0-only
+    url: 'https://www.gnu.org/licenses/agpl-3.0.en.html'
 servers:
 - url: /v1
 security:

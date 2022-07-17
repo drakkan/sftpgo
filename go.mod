@@ -66,7 +66,7 @@ require (
 	go.uber.org/automaxprocs v1.5.1
 	gocloud.dev v0.25.0
 	golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d
-	golang.org/x/net v0.0.0-20220624214902-1bab6f366d9e
+	golang.org/x/net v0.0.0-20220708220712-1185a9018129
 	golang.org/x/oauth2 v0.0.0-20220630143837-2104d58473e0
 	golang.org/x/sys v0.0.0-20220715151400-c0bba94af5f8
 	golang.org/x/time v0.0.0-20220609170525-579cf78fd858
@@ -168,5 +168,5 @@ replace (
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
 	github.com/pkg/sftp => github.com/drakkan/sftp v0.0.0-20220716075551-51a5aa4e044d
 	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20220624105932-71c5dfcef1e8
-	golang.org/x/net => github.com/drakkan/net v0.0.0-20220628171916-78de6a2a21b0
+	golang.org/x/net => github.com/drakkan/net v0.0.0-20220717180040-c9045f6f4c55
 )

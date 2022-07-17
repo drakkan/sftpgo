@@ -32,7 +32,7 @@ info:
     name: API support
     url: 'https://github.com/drakkan/sftpgo'
   license:
-    name: AGPLv3
+    name: AGPL-3.0-only
     url: 'https://www.gnu.org/licenses/agpl-3.0.en.html'
 servers:
   - url: /api/v2

@@ -17,7 +17,7 @@ func init() {
 func AddMetricsEndpoint(metricsPath string, handler chi.Router) {}
 
 // TransferCompleted updates metrics after an upload or a download
-func TransferCompleted(bytesSent, bytesReceived int64, transferKind int, err error) {}
+func TransferCompleted(bytesSent, bytesReceived int64, transferKind int, err error, isSFTPFs bool) {}
 
 // S3TransferCompleted updates metrics after an S3 upload or a download
 func S3TransferCompleted(bytes int64, transferKind int, err error) {}
@@ -48,6 +48,9 @@ func GCSDeleteObjectCompleted(err error) {}
 
 // GCSHeadBucketCompleted updates metrics after a GCS head bucket request terminates
 func GCSHeadBucketCompleted(err error) {}
+
+// HTTPFsTransferCompleted updates metrics after an HTTPFs upload or a download
+func HTTPFsTransferCompleted(bytes int64, transferKind int, err error) {}
 
 // SSHCommandCompleted update metrics after an SSH command terminates
 func SSHCommandCompleted(err error) {}
