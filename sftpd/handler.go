@@ -268,6 +268,31 @@ func (c *Connection) Lstat(request *sftp.Request) (sftp.ListerAt, error) {
 	return listerAt([]os.FileInfo{s}), nil
 }
 
+// RealPath implements the RealPathFileLister interface
+func (c *Connection) RealPath(p string) (string, error) {
+	if !c.User.HasPerm(dataprovider.PermListItems, path.Dir(p)) {
+		return "", sftp.ErrSSHFxPermissionDenied
+	}
+
+	if c.User.Filters.StartDirectory == "" {
+		p = util.CleanPath(p)
+	} else {
+		p = util.CleanPathWithBase(c.User.Filters.StartDirectory, p)
+	}
+	fs, fsPath, err := c.GetFsAndResolvedPath(p)
+	if err != nil {
+		return "", err
+	}
+	if realPather, ok := fs.(vfs.FsRealPather); ok {
+		realPath, err := realPather.RealPath(fsPath)
+		if err != nil {
+			return "", c.GetFsError(fs, err)
+		}
+		return realPath, nil
+	}
+	return p, nil
+}
+
 // StatVFS implements StatVFSFileCmder interface
 func (c *Connection) StatVFS(r *sftp.Request) (*sftp.StatVFS, error) {
 	c.UpdateLastActivity()

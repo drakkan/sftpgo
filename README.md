@@ -14,8 +14,11 @@ Several storage backends are supported: local filesystem, encrypted local filesy
 ## Sponsors
 
 If you find SFTPGo useful please consider supporting this Open Source project.
-Maintaing and evolving SFTPGo is a lot of work - easily the equivalent of a full time job - for me.
+
+Maintaining and evolving SFTPGo is a lot of work - easily the equivalent of a full time job - for me.
+
 I'd like to make SFTPGo into a sustainable long term project and would not like to introduce a dual licensing option and limit some features to the proprietary version only.
+
 If you use SFTPGo, it is in your best interest to ensure that the project you rely on stays healthy and well maintained.
 This can only happen with your donations and [sponsorships](https://github.com/sponsors/drakkan) :heart:
 

@@ -35,7 +35,7 @@ require (
 	github.com/hashicorp/go-plugin v1.4.4
 	github.com/hashicorp/go-retryablehttp v0.7.1
 	github.com/jlaffaye/ftp v0.0.0-20201112195030-9aae4d151126
-	github.com/klauspost/compress v1.15.7
+	github.com/klauspost/compress v1.15.8
 	github.com/lestrrat-go/jwx v1.2.25
 	github.com/lib/pq v1.10.6
 	github.com/lithammer/shortuuid/v3 v3.0.7
@@ -53,12 +53,12 @@ require (
 	github.com/rs/zerolog v1.27.0
 	github.com/sftpgo/sdk v0.1.2-0.20220611083241-b653555f7f4d
 	github.com/shirou/gopsutil/v3 v3.22.6
-	github.com/spf13/afero v1.8.2
+	github.com/spf13/afero v1.9.0
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/viper v1.12.0
 	github.com/stretchr/testify v1.8.0
 	github.com/studio-b12/gowebdav v0.0.0-20220128162035-c7b1ff8a5e62
-	github.com/unrolled/secure v1.11.0
+	github.com/unrolled/secure v1.12.0
 	github.com/wagslane/go-password-validator v0.3.0
 	github.com/xhit/go-simple-mail/v2 v2.11.0
 	github.com/yl2chen/cidranger v1.0.3-0.20210928021809-d1cb2c52f37a
@@ -68,7 +68,7 @@ require (
 	golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d
 	golang.org/x/net v0.0.0-20220624214902-1bab6f366d9e
 	golang.org/x/oauth2 v0.0.0-20220630143837-2104d58473e0
-	golang.org/x/sys v0.0.0-20220712014510-0a85c31ab51e
+	golang.org/x/sys v0.0.0-20220715151400-c0bba94af5f8
 	golang.org/x/time v0.0.0-20220609170525-579cf78fd858
 	google.golang.org/api v0.87.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
@@ -103,7 +103,7 @@ require (
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-test/deep v1.0.8 // indirect
-	github.com/goccy/go-json v0.9.8 // indirect
+	github.com/goccy/go-json v0.9.10 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/go-cmp v0.5.8 // indirect
@@ -138,7 +138,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20220216144756-c35f1ee13d7c // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
-	github.com/prometheus/common v0.36.0 // indirect
+	github.com/prometheus/common v0.37.0 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
@@ -155,7 +155,7 @@ require (
 	golang.org/x/tools v0.1.11 // indirect
 	golang.org/x/xerrors v0.0.0-20220609144429-65e65417b02f // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20220712132514-bdd2acd4974d // indirect
+	google.golang.org/genproto v0.0.0-20220715211116-798f69b842b9 // indirect
 	google.golang.org/grpc v1.48.0 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/ini.v1 v1.66.6 // indirect
@@ -166,6 +166,7 @@ require (
 
 replace (
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
+	github.com/pkg/sftp => github.com/drakkan/sftp v0.0.0-20220716075551-51a5aa4e044d
 	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20220624105932-71c5dfcef1e8
 	golang.org/x/net => github.com/drakkan/net v0.0.0-20220628171916-78de6a2a21b0
 )

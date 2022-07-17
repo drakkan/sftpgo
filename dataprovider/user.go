@@ -198,7 +198,7 @@ func (u *User) checkDirWithParents(virtualDirPath, connectionID string) error {
 func (u *User) checkRootPath(connectionID string) error {
 	fs, err := u.GetFilesystemForPath("/", connectionID)
 	if err != nil {
-		logger.Warn(logSender, connectionID, "could not create main filesystem for user %#v err: %v", u.Username, err)
+		logger.Warn(logSender, connectionID, "could not create main filesystem for user %q err: %v", u.Username, err)
 		return fmt.Errorf("could not create root filesystem: %w", err)
 	}
 	fs.CheckRootPath(u.Username, u.GetUID(), u.GetGID())

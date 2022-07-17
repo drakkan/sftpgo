@@ -313,10 +313,42 @@ func (fs *OsFs) ResolvePath(virtualPath string) (string, error) {
 
 	err = fs.isSubDir(p)
 	if err != nil {
-		fsLog(fs, logger.LevelError, "Invalid path resolution, dir %#v original path %#v resolved %#v err: %v",
+		fsLog(fs, logger.LevelError, "Invalid path resolution, path %q original path %q resolved %q err: %v",
 			p, virtualPath, r, err)
 	}
 	return r, err
+}
+
+// RealPath implements the FsRealPather interface
+func (fs *OsFs) RealPath(p string) (string, error) {
+	linksWalked := 0
+	for {
+		info, err := os.Lstat(p)
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				return fs.GetRelativePath(p), nil
+			}
+			return "", err
+		}
+		if info.Mode()&os.ModeSymlink == 0 {
+			return fs.GetRelativePath(p), nil
+		}
+		resolvedLink, err := os.Readlink(p)
+		if err != nil {
+			return "", err
+		}
+		resolvedLink = filepath.Clean(resolvedLink)
+		if filepath.IsAbs(resolvedLink) {
+			p = resolvedLink
+		} else {
+			p = filepath.Join(filepath.Dir(p), resolvedLink)
+		}
+		linksWalked++
+		if linksWalked > 10 {
+			fsLog(fs, logger.LevelError, "unable to get real path, too many links: %d", linksWalked)
+			return "", &pathResolutionError{err: "too many links"}
+		}
+	}
 }
 
 // GetDirSize returns the number of files and the size for a folder
@@ -402,14 +434,14 @@ func (fs *OsFs) isSubDir(sub string) error {
 	// fs.rootDir must exist and it is already a validated absolute path
 	parent, err := filepath.EvalSymlinks(fs.rootDir)
 	if err != nil {
-		fsLog(fs, logger.LevelError, "invalid root path %#v: %v", fs.rootDir, err)
+		fsLog(fs, logger.LevelError, "invalid root path %q: %v", fs.rootDir, err)
 		return err
 	}
 	if parent == sub {
 		return nil
 	}
 	if len(sub) < len(parent) {
-		err = fmt.Errorf("path %#v is not inside %#v", sub, parent)
+		err = fmt.Errorf("path %q is not inside %q", sub, parent)
 		return &pathResolutionError{err: err.Error()}
 	}
 	separator := string(os.PathSeparator)
@@ -419,7 +451,7 @@ func (fs *OsFs) isSubDir(sub string) error {
 		separator = ""
 	}
 	if !strings.HasPrefix(sub, parent+separator) {
-		err = fmt.Errorf("path %#v is not inside %#v", sub, parent)
+		err = fmt.Errorf("path %q is not inside %q", sub, parent)
 		return &pathResolutionError{err: err.Error()}
 	}
 	return nil

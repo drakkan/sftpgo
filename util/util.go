@@ -308,9 +308,15 @@ func GetDirsForVirtualPath(virtualPath string) []string {
 
 // CleanPath returns a clean POSIX (/) absolute path to work with
 func CleanPath(p string) string {
+	return CleanPathWithBase("/", p)
+}
+
+// CleanPathWithBase returns a clean POSIX (/) absolute path to work with.
+// The specified base will be used if the provided path is not absolute
+func CleanPathWithBase(base, p string) string {
 	p = filepath.ToSlash(p)
 	if !path.IsAbs(p) {
-		p = "/" + p
+		p = path.Join(base, p)
 	}
 	return path.Clean(p)
 }

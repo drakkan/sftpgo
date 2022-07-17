@@ -89,6 +89,12 @@ type Fs interface {
 	Close() error
 }
 
+// FsRealPather is a Fs that implements the RealPath method.
+type FsRealPather interface {
+	Fs
+	RealPath(p string) (string, error)
+}
+
 // fsMetadataChecker is a Fs that implements the getFileNamesInPrefix method.
 // This interface is used to abstract metadata consistency checks
 type fsMetadataChecker interface {

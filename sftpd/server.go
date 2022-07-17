@@ -613,7 +613,7 @@ func (c *Configuration) handleSftpConnection(channel ssh.Channel, connection *Co
 		sftp.WithStartDirectory(connection.User.Filters.StartDirectory))
 
 	defer server.Close()
-	if err := server.Serve(); err == io.EOF {
+	if err := server.Serve(); errors.Is(err, io.EOF) {
 		exitStatus := sshSubsystemExitStatus{Status: uint32(0)}
 		_, err = channel.SendRequest("exit-status", false, ssh.Marshal(&exitStatus))
 		connection.Log(logger.LevelInfo, "connection closed, sent exit status %+v error: %v", exitStatus, err)

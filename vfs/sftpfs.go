@@ -628,6 +628,25 @@ func (fs *SFTPFs) ResolvePath(virtualPath string) (string, error) {
 	return fsPath, nil
 }
 
+// RealPath implements the FsRealPather interface
+func (fs *SFTPFs) RealPath(p string) (string, error) {
+	if err := fs.checkConnection(); err != nil {
+		return "", err
+	}
+	resolved, err := fs.sftpClient.RealPath(p)
+	if err != nil {
+		return "", err
+	}
+	if fs.config.Prefix != "/" {
+		if err := fs.isSubDir(resolved); err != nil {
+			fsLog(fs, logger.LevelError, "Invalid real path resolution, original path %q resolved %q err: %v",
+				p, resolved, err)
+			return "", err
+		}
+	}
+	return fs.GetRelativePath(resolved), nil
+}
+
 // getRealPath returns the real remote path trying to resolve symbolic links if any
 func (fs *SFTPFs) getRealPath(name string) (string, error) {
 	linksWalked := 0
@@ -641,7 +660,7 @@ func (fs *SFTPFs) getRealPath(name string) (string, error) {
 		}
 		resolvedLink, err := fs.sftpClient.ReadLink(name)
 		if err != nil {
-			return name, err
+			return name, fmt.Errorf("unable to resolve link to %q: %w", name, err)
 		}
 		resolvedLink = path.Clean(resolvedLink)
 		if path.IsAbs(resolvedLink) {
@@ -651,6 +670,7 @@ func (fs *SFTPFs) getRealPath(name string) (string, error) {
 		}
 		linksWalked++
 		if linksWalked > 10 {
+			fsLog(fs, logger.LevelError, "unable to get real path, too many links: %d", linksWalked)
 			return "", &pathResolutionError{err: "too many links"}
 		}
 	}
@@ -661,11 +681,11 @@ func (fs *SFTPFs) isSubDir(name string) error {
 		return nil
 	}
 	if len(name) < len(fs.config.Prefix) {
-		err := fmt.Errorf("path %#v is not inside: %#v", name, fs.config.Prefix)
+		err := fmt.Errorf("path %q is not inside: %#v", name, fs.config.Prefix)
 		return &pathResolutionError{err: err.Error()}
 	}
 	if !strings.HasPrefix(name, fs.config.Prefix+"/") {
-		err := fmt.Errorf("path %#v is not inside: %#v", name, fs.config.Prefix)
+		err := fmt.Errorf("path %q is not inside: %#v", name, fs.config.Prefix)
 		return &pathResolutionError{err: err.Error()}
 	}
 	return nil

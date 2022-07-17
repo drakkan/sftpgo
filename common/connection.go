@@ -482,7 +482,7 @@ func (c *BaseConnection) Rename(virtualSourcePath, virtualTargetPath string) err
 	initialSize := int64(-1)
 	if dstInfo, err := fsDst.Lstat(fsTargetPath); err == nil {
 		if dstInfo.IsDir() {
-			c.Log(logger.LevelWarn, "attempted to rename %#v overwriting an existing directory %#v",
+			c.Log(logger.LevelWarn, "attempted to rename %q overwriting an existing directory %q",
 				fsSourcePath, fsTargetPath)
 			return c.GetOpUnsupportedError()
 		}

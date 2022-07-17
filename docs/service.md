@@ -6,9 +6,9 @@ Run the following instructions from the directory that contains the sftpgo binar
 
 ## Linux
 
-The easiest way to run SFTPGo as a service is to download and install the pre-compiled deb/rpm package or use one of the Arch Linux PKGBUILDs we maintain.
+The easiest way to run SFTPGo as a service is to use the [deb/rpm repos](./repo.md) or download and install a pre-compiled deb/rpm package or use one of the Arch Linux PKGBUILDs we maintain.
 
-This section describes the procedure to use if you prefer to build SFTPGo yourself or if you want to download and configure a pre-built release as tar.
+This section describes the manual procedure.
 
 A `systemd` sample [service](../init/sftpgo.service "systemd service") can be found inside the source tree.
 
@@ -66,6 +66,10 @@ sudo /usr/bin/sftpgo gen man -d /usr/share/man/man1
 ```
 
 ## macOS
+
+The easiest way to run SFTPGo as a service is to install it from the Homebrew [Formula](https://formulae.brew.sh/formula/sftpgo).
+
+This section describes the procedure to use if you prefer to build SFTPGo yourself or if you want to download and configure a pre-built release as tar.
 
 For macOS, a `launchd` sample [service](../init/com.github.drakkan.sftpgo.plist "launchd plist") can be found inside the source tree. The `launchd` plist assumes that SFTPGo has `/usr/local/opt/sftpgo` as base directory.
 
