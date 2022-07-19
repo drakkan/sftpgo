@@ -97,7 +97,7 @@ func (m *CertManager) loadCertificates() error {
 
 // GetCertificateFunc returns the loaded certificate
 func (m *CertManager) GetCertificateFunc(certID string) func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
-	return func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+	return func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
 		m.RLock()
 		defer m.RUnlock()
 

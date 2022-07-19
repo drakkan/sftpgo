@@ -372,7 +372,7 @@ func (fs *OsFs) GetDirSize(dirname string) (int, int64, error) {
 	size := int64(0)
 	isDir, err := IsDirectory(fs, dirname)
 	if err == nil && isDir {
-		err = filepath.Walk(dirname, func(path string, info os.FileInfo, err error) error {
+		err = filepath.Walk(dirname, func(_ string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
 			}

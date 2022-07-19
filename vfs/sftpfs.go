@@ -827,7 +827,7 @@ func (fs *SFTPFs) createConnection() error {
 	var err error
 	clientConfig := &ssh.ClientConfig{
 		User: fs.config.Username,
-		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+		HostKeyCallback: func(_ string, _ net.Addr, key ssh.PublicKey) error {
 			fp := ssh.FingerprintSHA256(key)
 			if util.Contains(sftpFingerprints, fp) {
 				if util.Contains(fs.config.forbiddenSelfUsernames, fs.config.Username) {

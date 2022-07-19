@@ -27,7 +27,7 @@ var (
 	reloadCmd = &cobra.Command{
 		Use:   "reload",
 		Short: "Reload the SFTPGo Windows Service sending a \"paramchange\" request",
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: func(_ *cobra.Command, _ []string) {
 			s := service.WindowsService{
 				Service: service.Service{
 					Shutdown: make(chan bool),

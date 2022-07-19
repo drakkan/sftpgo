@@ -14,62 +14,62 @@ func init() {
 }
 
 // AddMetricsEndpoint exposes metrics to the specified endpoint
-func AddMetricsEndpoint(metricsPath string, handler chi.Router) {}
+func AddMetricsEndpoint(_ string, _ chi.Router) {}
 
 // TransferCompleted updates metrics after an upload or a download
-func TransferCompleted(bytesSent, bytesReceived int64, transferKind int, err error, isSFTPFs bool) {}
+func TransferCompleted(_, _ int64, _ int, _ error, _ bool) {}
 
 // S3TransferCompleted updates metrics after an S3 upload or a download
-func S3TransferCompleted(bytes int64, transferKind int, err error) {}
+func S3TransferCompleted(_ int64, _ int, _ error) {}
 
 // S3ListObjectsCompleted updates metrics after an S3 list objects request terminates
-func S3ListObjectsCompleted(err error) {}
+func S3ListObjectsCompleted(_ error) {}
 
 // S3CopyObjectCompleted updates metrics after an S3 copy object request terminates
-func S3CopyObjectCompleted(err error) {}
+func S3CopyObjectCompleted(_ error) {}
 
 // S3DeleteObjectCompleted updates metrics after an S3 delete object request terminates
-func S3DeleteObjectCompleted(err error) {}
+func S3DeleteObjectCompleted(_ error) {}
 
 // S3HeadBucketCompleted updates metrics after an S3 head bucket request terminates
-func S3HeadBucketCompleted(err error) {}
+func S3HeadBucketCompleted(_ error) {}
 
 // GCSTransferCompleted updates metrics after a GCS upload or a download
-func GCSTransferCompleted(bytes int64, transferKind int, err error) {}
+func GCSTransferCompleted(_ int64, _ int, _ error) {}
 
 // GCSListObjectsCompleted updates metrics after a GCS list objects request terminates
-func GCSListObjectsCompleted(err error) {}
+func GCSListObjectsCompleted(_ error) {}
 
 // GCSCopyObjectCompleted updates metrics after a GCS copy object request terminates
-func GCSCopyObjectCompleted(err error) {}
+func GCSCopyObjectCompleted(_ error) {}
 
 // GCSDeleteObjectCompleted updates metrics after a GCS delete object request terminates
-func GCSDeleteObjectCompleted(err error) {}
+func GCSDeleteObjectCompleted(_ error) {}
 
 // GCSHeadBucketCompleted updates metrics after a GCS head bucket request terminates
-func GCSHeadBucketCompleted(err error) {}
+func GCSHeadBucketCompleted(_ error) {}
 
 // HTTPFsTransferCompleted updates metrics after an HTTPFs upload or a download
-func HTTPFsTransferCompleted(bytes int64, transferKind int, err error) {}
+func HTTPFsTransferCompleted(_ int64, _ int, _ error) {}
 
 // SSHCommandCompleted update metrics after an SSH command terminates
-func SSHCommandCompleted(err error) {}
+func SSHCommandCompleted(_ error) {}
 
 // UpdateDataProviderAvailability updates the metric for the data provider availability
-func UpdateDataProviderAvailability(err error) {}
+func UpdateDataProviderAvailability(_ error) {}
 
 // AddLoginAttempt increments the metrics for login attempts
-func AddLoginAttempt(authMethod string) {}
+func AddLoginAttempt(_ string) {}
 
 // AddLoginResult increments the metrics for login results
-func AddLoginResult(authMethod string, err error) {}
+func AddLoginResult(_ string, _ error) {}
 
 // AddNoAuthTryed increments the metric for clients disconnected
 // for inactivity before trying to login
 func AddNoAuthTryed() {}
 
 // HTTPRequestServed increments the metrics for HTTP requests
-func HTTPRequestServed(status int) {}
+func HTTPRequestServed(_ int) {}
 
 // UpdateActiveConnectionsSize sets the metric for active connections
-func UpdateActiveConnectionsSize(size int) {}
+func UpdateActiveConnectionsSize(_ int) {}

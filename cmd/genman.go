@@ -38,7 +38,7 @@ command-line interface.
 By default, it creates the man page files in the "man" directory under the
 current directory.
 `,
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: func(cmd *cobra.Command, _ []string) {
 			logger.DisableLogger()
 			logger.EnableConsoleLogger(zerolog.DebugLevel)
 			if _, err := os.Stat(manDir); errors.Is(err, fs.ErrNotExist) {

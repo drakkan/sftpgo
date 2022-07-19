@@ -27,6 +27,6 @@ func init() {
 	version.AddFeature("-bolt")
 }
 
-func initializeBoltProvider(basePath string) error {
+func initializeBoltProvider(_ string) error {
 	return errors.New("bolt disabled at build time")
 }

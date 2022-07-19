@@ -17,6 +17,6 @@
 
 package service
 
-func registerAWSContainer(disableAWSInstallationCode bool) error {
+func registerAWSContainer(_ bool) error {
 	return nil
 }

@@ -18,6 +18,6 @@ import (
 	"os/exec"
 )
 
-func wrapCmd(cmd *exec.Cmd, uid, gid int) *exec.Cmd {
+func wrapCmd(cmd *exec.Cmd, _, _ int) *exec.Cmd {
 	return cmd
 }

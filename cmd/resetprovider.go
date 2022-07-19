@@ -39,7 +39,7 @@ configuration file and resets the provider by deleting all data and schemas.
 This command is not supported for the memory provider.
 
 Please take a look at the usage below to customize the options.`,
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: func(_ *cobra.Command, _ []string) {
 			logger.DisableLogger()
 			logger.EnableConsoleLogger(zerolog.DebugLevel)
 			configDir = util.CleanDirInput(configDir)

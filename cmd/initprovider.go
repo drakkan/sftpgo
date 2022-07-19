@@ -49,7 +49,7 @@ To initialize/update the data provider from the configuration directory simply u
 $ sftpgo initprovider
 
 Please take a look at the usage below to customize the options.`,
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: func(_ *cobra.Command, _ []string) {
 			logger.DisableLogger()
 			logger.EnableConsoleLogger(zerolog.DebugLevel)
 			configDir = util.CleanDirInput(configDir)

@@ -377,7 +377,7 @@ func (fs *httpFsImpl) dirsize(w http.ResponseWriter, r *http.Request) {
 	numFiles := 0
 	size := int64(0)
 	if info.IsDir() {
-		err = filepath.Walk(fsPath, func(path string, info os.FileInfo, err error) error {
+		err = filepath.Walk(fsPath, func(_ string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
 			}

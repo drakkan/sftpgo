@@ -33,7 +33,7 @@ var (
 		Short: "Test the SMTP configuration",
 		Long: `SFTPGo will try to send a test email to the specified recipient.
 If the SMTP configuration is correct you should receive this email.`,
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: func(_ *cobra.Command, _ []string) {
 			logger.DisableLogger()
 			logger.EnableConsoleLogger(zerolog.DebugLevel)
 			configDir = util.CleanDirInput(configDir)

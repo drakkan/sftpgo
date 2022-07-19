@@ -27,7 +27,7 @@ var (
 	stopCmd = &cobra.Command{
 		Use:   "stop",
 		Short: "Stop the SFTPGo Windows Service",
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: func(_ *cobra.Command, _ []string) {
 			s := service.WindowsService{
 				Service: service.Service{
 					Shutdown: make(chan bool),

@@ -51,7 +51,7 @@ Subsystem	sftp	sftpgo startsubsys
 
 Command-line flags should be specified in the Subsystem declaration.
 `,
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: func(_ *cobra.Command, _ []string) {
 			logSender := "startsubsys"
 			connectionID := xid.New().String()
 			var zeroLogLevel zerolog.Level

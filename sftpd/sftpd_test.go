@@ -2719,7 +2719,7 @@ func TestInteractiveLoginWithPasscode(t *testing.T) {
 	passwordAsked := false
 	passcodeAsked := false
 	authMethods := []ssh.AuthMethod{
-		ssh.KeyboardInteractive(func(user, instruction string, questions []string, echos []bool) ([]string, error) {
+		ssh.KeyboardInteractive(func(_, _ string, questions []string, _ []bool) ([]string, error) {
 			var answers []string
 			if strings.HasPrefix(questions[0], "Password") {
 				answers = append(answers, defaultPassword)
@@ -2768,7 +2768,7 @@ func TestInteractiveLoginWithPasscode(t *testing.T) {
 	_, _, err = getCustomAuthSftpClient(user, authMethods, "")
 	assert.Error(t, err)
 	authMethods = []ssh.AuthMethod{
-		ssh.KeyboardInteractive(func(user, instruction string, questions []string, echos []bool) ([]string, error) {
+		ssh.KeyboardInteractive(func(_, _ string, questions []string, _ []bool) ([]string, error) {
 			var answers []string
 			if strings.HasPrefix(questions[0], "Password") {
 				answers = append(answers, defaultPassword)

@@ -29,7 +29,7 @@ var (
 	startCmd = &cobra.Command{
 		Use:   "start",
 		Short: "Start the SFTPGo Windows Service",
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: func(_ *cobra.Command, _ []string) {
 			configDir = util.CleanDirInput(configDir)
 			if !filepath.IsAbs(logFilePath) && util.IsFileInputValid(logFilePath) {
 				logFilePath = filepath.Join(configDir, logFilePath)

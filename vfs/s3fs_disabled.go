@@ -28,6 +28,6 @@ func init() {
 }
 
 // NewS3Fs returns an error, S3 is disabled
-func NewS3Fs(connectionID, localTempDir, mountPath string, config S3FsConfig) (Fs, error) {
+func NewS3Fs(_, _, _ string, _ S3FsConfig) (Fs, error) {
 	return nil, errors.New("S3 disabled at build time")
 }

@@ -106,7 +106,7 @@ use:
 $ sftpgo portable
 
 Please take a look at the usage below to customize the serving parameters`,
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: func(_ *cobra.Command, _ []string) {
 			portableDir := directoryToServe
 			fsProvider := sdk.GetProviderByName(portableFsProvider)
 			if !filepath.IsAbs(portableDir) {

@@ -27,6 +27,6 @@ func init() {
 	version.AddFeature("-sqlite")
 }
 
-func initializeSQLiteProvider(basePath string) error {
+func initializeSQLiteProvider(_ string) error {
 	return errors.New("SQLite disabled at build time")
 }

@@ -216,7 +216,7 @@ func NewHTTPFs(connectionID, localTempDir, mountPath string, config HTTPFsConfig
 				return nil, fmt.Errorf("httpfs: invalid unix domain socket path: %q", socketPath)
 			}
 			if endpointURL.Scheme == "https" {
-				transport.DialTLSContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+				transport.DialTLSContext = func(ctx context.Context, _, _ string) (net.Conn, error) {
 					var tlsConfig *tls.Config
 					var d tls.Dialer
 					if config.SkipTLSVerify {
@@ -226,7 +226,7 @@ func NewHTTPFs(connectionID, localTempDir, mountPath string, config HTTPFsConfig
 					return d.DialContext(ctx, "unix", socketPath)
 				}
 			} else {
-				transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+				transport.DialContext = func(ctx context.Context, _, _ string) (net.Conn, error) {
 					var d net.Dialer
 					return d.DialContext(ctx, "unix", socketPath)
 				}

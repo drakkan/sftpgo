@@ -33,7 +33,7 @@ use:
 $ sftpgo serve
 
 Please take a look at the usage below to customize the startup options`,
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: func(_ *cobra.Command, _ []string) {
 			service := service.Service{
 				ConfigDir:         util.CleanDirInput(configDir),
 				ConfigFile:        configFile,

@@ -247,7 +247,7 @@ func TestHTTPFsWalk(t *testing.T) {
 	assert.NoError(t, err)
 
 	var walkedPaths []string
-	err = httpFs.Walk("/", func(walkedPath string, info fs.FileInfo, err error) error {
+	err = httpFs.Walk("/", func(walkedPath string, _ fs.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -269,7 +269,7 @@ func TestHTTPFsWalk(t *testing.T) {
 		}
 	}
 	walkedPaths = nil
-	err = httpFs.Walk("/", func(walkedPath string, info fs.FileInfo, err error) error {
+	err = httpFs.Walk("/", func(walkedPath string, _ fs.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}

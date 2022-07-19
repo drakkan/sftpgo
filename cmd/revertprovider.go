@@ -37,7 +37,7 @@ configuration file and restore the provider schema and/or data to a previous ver
 This command is not supported for the memory provider.
 
 Please take a look at the usage below to customize the options.`,
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: func(_ *cobra.Command, _ []string) {
 			logger.DisableLogger()
 			logger.EnableConsoleLogger(zerolog.DebugLevel)
 			if revertProviderTargetVersion != 19 {

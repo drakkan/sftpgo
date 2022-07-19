@@ -35,7 +35,7 @@ line flags simply use:
 sftpgo service install
 
 Please take a look at the usage below to customize the startup options`,
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: func(_ *cobra.Command, _ []string) {
 			s := service.Service{
 				ConfigDir:     util.CleanDirInput(configDir),
 				ConfigFile:    configFile,
