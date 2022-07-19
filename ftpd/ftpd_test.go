@@ -936,7 +936,7 @@ func TestLoginExternalAuth(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
-	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u, false, ""), os.ModePerm)
+	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u), os.ModePerm)
 	assert.NoError(t, err)
 	providerConf.ExternalAuthHook = extAuthPath
 	providerConf.ExternalAuthScope = 0
@@ -960,7 +960,7 @@ func TestLoginExternalAuth(t *testing.T) {
 			Type: sdk.GroupTypePrimary,
 		},
 	}
-	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u, false, ""), os.ModePerm)
+	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u), os.ModePerm)
 	assert.NoError(t, err)
 	_, err = getFTPClient(u, true, nil)
 	if !assert.Error(t, err) {
@@ -971,7 +971,7 @@ func TestLoginExternalAuth(t *testing.T) {
 	}
 
 	u.Groups = nil
-	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u, false, ""), os.ModePerm)
+	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u), os.ModePerm)
 	assert.NoError(t, err)
 	u.Username = defaultUsername + "1"
 	client, err = getFTPClient(u, true, nil)
@@ -3069,7 +3069,7 @@ func TestExternalAuthWithClientCert(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
-	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u, false, ""), os.ModePerm)
+	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u), os.ModePerm)
 	assert.NoError(t, err)
 	providerConf.ExternalAuthHook = extAuthPath
 	providerConf.ExternalAuthScope = 8
@@ -3495,24 +3495,13 @@ func getTestUserWithHTTPFs() dataprovider.User {
 	return u
 }
 
-func getExtAuthScriptContent(user dataprovider.User, nonJSONResponse bool, username string) []byte {
+func getExtAuthScriptContent(user dataprovider.User) []byte {
 	extAuthContent := []byte("#!/bin/sh\n\n")
 	extAuthContent = append(extAuthContent, []byte(fmt.Sprintf("if test \"$SFTPGO_AUTHD_USERNAME\" = \"%v\"; then\n", user.Username))...)
-	if len(username) > 0 {
-		user.Username = username
-	}
 	u, _ := json.Marshal(user)
-	if nonJSONResponse {
-		extAuthContent = append(extAuthContent, []byte("echo 'text response'\n")...)
-	} else {
-		extAuthContent = append(extAuthContent, []byte(fmt.Sprintf("echo '%v'\n", string(u)))...)
-	}
+	extAuthContent = append(extAuthContent, []byte(fmt.Sprintf("echo '%v'\n", string(u)))...)
 	extAuthContent = append(extAuthContent, []byte("else\n")...)
-	if nonJSONResponse {
-		extAuthContent = append(extAuthContent, []byte("echo 'text response'\n")...)
-	} else {
-		extAuthContent = append(extAuthContent, []byte("echo '{\"username\":\"\"}'\n")...)
-	}
+	extAuthContent = append(extAuthContent, []byte("echo '{\"username\":\"\"}'\n")...)
 	extAuthContent = append(extAuthContent, []byte("fi\n")...)
 	return extAuthContent
 }

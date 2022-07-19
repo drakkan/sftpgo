@@ -42,8 +42,12 @@ Add the following configuration parameters to the SFTPGo configuration file (or 
       "client_secret": "jRsmE0SWnuZjP7djBqNq0mrf8QN77j2c",
       "config_url": "http://192.168.1.12:8086/auth/realms/sftpgo",
       "redirect_base_url": "http://192.168.1.50:8080",
+      "scopes": [
+        "openid",
+        "profile",
+        "email"
+      ],
       "username_field": "preferred_username",
-      "scopes": [ "openid", "profile", "email" ],
       "role_field": "sftpgo_role",
       "implicit_roles": false,
       "custom_fields": []

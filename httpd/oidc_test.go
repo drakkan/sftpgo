@@ -15,11 +15,13 @@
 package httpd
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -30,6 +32,7 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-chi/jwtauth/v5"
+	"github.com/lestrrat-go/jwx/jwa"
 	"github.com/rs/xid"
 	"github.com/sftpgo/sdk"
 	"github.com/stretchr/testify/assert"
@@ -1158,6 +1161,97 @@ func TestOIDCIsAdmin(t *testing.T) {
 		}
 		assert.Equal(t, tc.want, token.isAdmin(), "%v should return %t", tc.input, tc.want)
 	}
+}
+
+func TestOIDCWithLoginFormsDisabled(t *testing.T) {
+	oidcMgr, ok := oidcMgr.(*memoryOIDCManager)
+	require.True(t, ok)
+
+	server := getTestOIDCServer()
+	server.binding.OIDC.ImplicitRoles = true
+	server.binding.EnabledLoginMethods = 3
+	server.binding.EnableWebAdmin = true
+	server.binding.EnableWebClient = true
+	err := server.binding.OIDC.initialize()
+	assert.NoError(t, err)
+	server.initializeRouter()
+	// login with an admin user
+	authReq := newOIDCPendingAuth(tokenAudienceWebAdmin)
+	oidcMgr.addPendingAuth(authReq)
+	token := &oauth2.Token{
+		AccessToken: "1234",
+		Expiry:      time.Now().Add(5 * time.Minute),
+	}
+	token = token.WithExtra(map[string]any{
+		"id_token": "id_token_val",
+	})
+	server.binding.OIDC.oauth2Config = &mockOAuth2Config{
+		tokenSource: &mockTokenSource{},
+		authCodeURL: webOIDCRedirectPath,
+		token:       token,
+	}
+	idToken := &oidc.IDToken{
+		Nonce:  authReq.Nonce,
+		Expiry: time.Now().Add(5 * time.Minute),
+	}
+	setIDTokenClaims(idToken, []byte(`{"preferred_username":"admin","sid":"sid456"}`))
+	server.binding.OIDC.verifier = &mockOIDCVerifier{
+		err:   nil,
+		token: idToken,
+	}
+	rr := httptest.NewRecorder()
+	r, err := http.NewRequest(http.MethodGet, webOIDCRedirectPath+"?state="+authReq.State, nil)
+	assert.NoError(t, err)
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, webUsersPath, rr.Header().Get("Location"))
+	var tokenCookie string
+	for k := range oidcMgr.tokens {
+		tokenCookie = k
+	}
+	// we should be able to create admins without setting a password
+	if csrfTokenAuth == nil {
+		csrfTokenAuth = jwtauth.New(jwa.HS256.String(), util.GenerateRandomBytes(32), nil)
+	}
+	adminUsername := "testAdmin"
+	form := make(url.Values)
+	form.Set(csrfFormToken, createCSRFToken(""))
+	form.Set("username", adminUsername)
+	form.Set("password", "")
+	form.Set("status", "1")
+	form.Set("permissions", "*")
+	rr = httptest.NewRecorder()
+	r, err = http.NewRequest(http.MethodPost, webAdminPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	r.Header.Set("Cookie", fmt.Sprintf("%v=%v", oidcCookieKey, tokenCookie))
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusSeeOther, rr.Code)
+	_, err = dataprovider.AdminExists(adminUsername)
+	assert.NoError(t, err)
+	err = dataprovider.DeleteAdmin(adminUsername, "", "")
+	assert.NoError(t, err)
+	// login and password related routes are disabled
+	rr = httptest.NewRecorder()
+	r, err = http.NewRequest(http.MethodPost, webAdminLoginPath, nil)
+	assert.NoError(t, err)
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusMethodNotAllowed, rr.Code)
+	rr = httptest.NewRecorder()
+	r, err = http.NewRequest(http.MethodPost, webAdminTwoFactorPath, nil)
+	assert.NoError(t, err)
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+	rr = httptest.NewRecorder()
+	r, err = http.NewRequest(http.MethodPost, webClientLoginPath, nil)
+	assert.NoError(t, err)
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusMethodNotAllowed, rr.Code)
+	rr = httptest.NewRecorder()
+	r, err = http.NewRequest(http.MethodPost, webClientForgotPwdPath, nil)
+	assert.NoError(t, err)
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusNotFound, rr.Code)
 }
 
 func TestDbOIDCManager(t *testing.T) {

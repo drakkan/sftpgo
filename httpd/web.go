@@ -49,6 +49,7 @@ type loginPage struct {
 	ForgotPwdURL   string
 	OpenIDLoginURL string
 	Branding       UIBranding
+	FormDisabled   bool
 }
 
 type twoFactorPage struct {

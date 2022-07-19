@@ -1498,7 +1498,7 @@ func getAdminFromPostFields(r *http.Request) (dataprovider.Admin, error) {
 	}
 	status, err := strconv.Atoi(r.Form.Get("status"))
 	if err != nil {
-		return admin, err
+		return admin, fmt.Errorf("invalid status: %w", err)
 	}
 	admin.Username = r.Form.Get("username")
 	admin.Password = r.Form.Get("password")
@@ -2242,6 +2242,9 @@ func (s *httpdServer) handleWebAddAdminPost(w http.ResponseWriter, r *http.Reque
 	if err != nil {
 		s.renderAddUpdateAdminPage(w, r, &admin, err.Error(), true)
 		return
+	}
+	if admin.Password == "" && s.binding.isWebAdminLoginFormDisabled() {
+		admin.Password = util.GenerateUniqueID()
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {

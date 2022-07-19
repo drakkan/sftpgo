@@ -19,6 +19,7 @@ package httpd
 
 import (
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -409,6 +410,15 @@ type Binding struct {
 	// Enable the built-in client interface.
 	// You have to define TemplatesPath and StaticFilesPath for this to work
 	EnableWebClient bool `json:"enable_web_client" mapstructure:"enable_web_client"`
+	// Defines the login methods available for the WebAdmin and WebClient UIs:
+	//
+	// - 0 means any configured method: username/password login form and OIDC, if enabled
+	// - 1 means OIDC for the WebAdmin UI. The username/password login form will not be available
+	// - 2 means OIDC for the WebClient UI. The username/password login form will not be available
+	//
+	// You can combine the values. For example 3 means that you can only login using OIDC on
+	// both WebClient and WebAdmin UI.
+	EnabledLoginMethods int `json:"enabled_login_methods" mapstructure:"enabled_login_methods"`
 	// you also need to provide a certificate for enabling HTTPS
 	EnableHTTPS bool `json:"enable_https" mapstructure:"enable_https"`
 	// Certificate and matching private key for this specific binding, if empty the global
@@ -517,6 +527,36 @@ func (b *Binding) IsValid() bool {
 		return true
 	}
 	return false
+}
+
+func (b *Binding) isWebAdminLoginFormDisabled() bool {
+	if b.EnableWebAdmin {
+		if b.EnabledLoginMethods == 0 {
+			return false
+		}
+		return b.EnabledLoginMethods&1 != 0
+	}
+	return false
+}
+
+func (b *Binding) isWebClientLoginFormDisabled() bool {
+	if b.EnableWebClient {
+		if b.EnabledLoginMethods == 0 {
+			return false
+		}
+		return b.EnabledLoginMethods&2 != 0
+	}
+	return false
+}
+
+func (b *Binding) checkLoginMethods() error {
+	if b.isWebAdminLoginFormDisabled() && !b.OIDC.hasRoles() {
+		return errors.New("no login method available for WebAdmin UI")
+	}
+	if b.isWebClientLoginFormDisabled() && !b.OIDC.isEnabled() {
+		return errors.New("no login method available for WebClient UI")
+	}
+	return nil
 }
 
 func (b *Binding) showAdminLoginURL() bool {
@@ -779,6 +819,10 @@ func (c *Conf) Initialize(configDir string, isShared int) error {
 
 		go func(b Binding) {
 			if err := b.OIDC.initialize(); err != nil {
+				exitChannel <- err
+				return
+			}
+			if err := b.checkLoginMethods(); err != nil {
 				exitChannel <- err
 				return
 			}

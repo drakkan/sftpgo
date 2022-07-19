@@ -99,6 +99,7 @@ var (
 		Port:                  8080,
 		EnableWebAdmin:        true,
 		EnableWebClient:       true,
+		EnabledLoginMethods:   0,
 		EnableHTTPS:           false,
 		CertificateFile:       "",
 		CertificateKeyFile:    "",
@@ -1623,7 +1624,7 @@ func getHTTPDBindingProxyConfigsFromEnv(idx int, binding *httpd.Binding) bool {
 	return isSet
 }
 
-func getHTTPDBindingFromEnv(idx int) {
+func getHTTPDBindingFromEnv(idx int) { //nolint:gocyclo
 	binding := getDefaultHTTPBinding(idx)
 	isSet := false
 
@@ -1660,6 +1661,12 @@ func getHTTPDBindingFromEnv(idx int) {
 	enableWebClient, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__ENABLE_WEB_CLIENT", idx))
 	if ok {
 		binding.EnableWebClient = enableWebClient
+		isSet = true
+	}
+
+	enabledLoginMethods, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__ENABLED_LOGIN_METHODS", idx))
+	if ok {
+		binding.EnabledLoginMethods = int(enabledLoginMethods)
 		isSet = true
 	}
 

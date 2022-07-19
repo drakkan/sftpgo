@@ -1052,9 +1052,7 @@ func (p *BoltProvider) updateFolder(folder *vfs.BaseVirtualFolder) error {
 	})
 }
 
-func (p *BoltProvider) deleteFolderMappings(tx *bolt.Tx, folder vfs.BaseVirtualFolder, usersBucket,
-	groupsBucket *bolt.Bucket,
-) error {
+func (p *BoltProvider) deleteFolderMappings(folder vfs.BaseVirtualFolder, usersBucket, groupsBucket *bolt.Bucket) error {
 	for _, username := range folder.Users {
 		var u []byte
 		if u = usersBucket.Get([]byte(username)); u == nil {
@@ -1134,7 +1132,7 @@ func (p *BoltProvider) deleteFolder(folder vfs.BaseVirtualFolder) error {
 		if err != nil {
 			return err
 		}
-		if err = p.deleteFolderMappings(tx, folder, usersBucket, groupsBucket); err != nil {
+		if err = p.deleteFolderMappings(folder, usersBucket, groupsBucket); err != nil {
 			return err
 		}
 

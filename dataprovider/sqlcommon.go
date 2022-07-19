@@ -50,6 +50,7 @@ type sqlQuerier interface {
 	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
 	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
 	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+	PrepareContext(ctx context.Context, query string) (*sql.Stmt, error)
 }
 
 type sqlScanner interface {
@@ -3077,8 +3078,17 @@ func sqlCommonGetDatabaseVersion(dbHandle sqlQuerier, showInitWarn bool) (schema
 	defer cancel()
 
 	q := getDatabaseVersionQuery()
-	row := dbHandle.QueryRowContext(ctx, q)
-	err := row.Scan(&result.Version)
+	stmt, err := dbHandle.PrepareContext(ctx, q)
+	if err != nil {
+		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
+		if showInitWarn && strings.Contains(err.Error(), sqlTableSchemaVersion) {
+			logger.WarnToConsole("database query error, did you forgot to run the \"initprovider\" command?")
+		}
+		return result, err
+	}
+	defer stmt.Close()
+	row := stmt.QueryRowContext(ctx)
+	err = row.Scan(&result.Version)
 	return result, err
 }
 
