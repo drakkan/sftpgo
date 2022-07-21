@@ -211,6 +211,16 @@ func (u *User) checkDirWithParents(virtualDirPath, connectionID string) error {
 	return nil
 }
 
+func (u *User) checkLocalHomeDir(connectionID string) {
+	switch u.FsConfig.Provider {
+	case sdk.LocalFilesystemProvider, sdk.CryptedFilesystemProvider:
+		return
+	default:
+		osFs := vfs.NewOsFs(connectionID, u.GetHomeDir(), "")
+		osFs.CheckRootPath(u.Username, u.GetUID(), u.GetGID())
+	}
+}
+
 func (u *User) checkRootPath(connectionID string) error {
 	fs, err := u.GetFilesystemForPath("/", connectionID)
 	if err != nil {
@@ -236,8 +246,8 @@ func (u *User) CheckFsRoot(connectionID string) error {
 	}
 	if isLastActivityRecent(u.LastLogin, delay) {
 		if u.LastLogin > u.UpdatedAt {
-			if u.FsConfig.Provider != sdk.LocalFilesystemProvider && config.IsShared == 1 {
-				return u.checkRootPath(connectionID)
+			if config.IsShared == 1 {
+				u.checkLocalHomeDir(connectionID)
 			}
 			return nil
 		}

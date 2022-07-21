@@ -443,7 +443,7 @@ func checkIfRange(r *http.Request, modtime time.Time) condResult {
 	if err != nil {
 		return condFalse
 	}
-	if modtime.Add(60 * time.Second).Before(t) {
+	if modtime.Unix() == t.Unix() {
 		return condTrue
 	}
 	return condFalse
@@ -482,7 +482,7 @@ func parseRangeRequest(bytesRange string, size int64) (int64, int64, error) {
 			// we have something like -500
 			start = size - end
 			size = end
-			// start cannit be < 0 here, we did end = size -1 above
+			// start cannot be < 0 here, we did end = size -1 above
 		} else {
 			// we have something like 500-600
 			size = end - start + 1

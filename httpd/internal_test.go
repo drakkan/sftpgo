@@ -1043,6 +1043,8 @@ func TestCreateTokenError(t *testing.T) {
 
 	err = dataprovider.DeleteUser(username, "", "")
 	assert.NoError(t, err)
+	err = os.RemoveAll(user.HomeDir)
+	assert.NoError(t, err)
 
 	admin.Username += "1"
 	admin.Status = 1

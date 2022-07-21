@@ -24,6 +24,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 <link href="{{.StaticURL}}/vendor/datatables/responsive.bootstrap4.min.css" rel="stylesheet">
 <link href="{{.StaticURL}}/vendor/datatables/dataTables.checkboxes.css" rel="stylesheet">
 <link href="{{.StaticURL}}/vendor/lightbox2/css/lightbox.min.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/video-js/video-js.min.css" rel="stylesheet" />
 <style>
     div.dataTables_wrapper span.selected-info,
     div.dataTables_wrapper span.selected-item {
@@ -185,6 +186,27 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     </div>
 </div>
 
+<div class="modal fade" id="videoModal" tabindex="-1" role="dialog" aria-labelledby="videoModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="videoModalLabel">
+                    <span id="video_title"></span>
+                </h5>
+                <button class="close" type="button" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <video id="video_player" class="video-js vjs-big-play-centered vjs-fluid">
+                    <p class="vjs-no-js">To view this video please enable JavaScript, and consider upgrading to a web browser that supports HTML5 video</p>
+                  </video>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="modal fade" id="spinnerModal" tabindex="-1" role="dialog" data-keyboard="false" data-backdrop="static">
     <div class="modal-dialog modal-dialog-centered justify-content-center" role="document">
         <span style="color: #333333;" class="fa fa-spinner fa-spin fa-3x"></span>
@@ -206,6 +228,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 <script src="{{.StaticURL}}/vendor/pdfobject/pdfobject.min.js"></script>
 <script src="{{.StaticURL}}/vendor/codemirror/codemirror.js"></script>
 <script src="{{.StaticURL}}/vendor/codemirror/meta.js"></script>
+<script src="{{.StaticURL}}/vendor/video-js/video.min.js"></script>
 {{if .HasIntegrations}}
 <script type="text/javascript">
     var childReference = null;
@@ -407,6 +430,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 {{end}}
 <script type="text/javascript">
     var spinnerDone = false;
+    var player;
+    var playerKeepAlive;
 
     var escapeHTML = function ( t ) {
 		return t
@@ -427,6 +452,17 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
         var shortened = d.substr(0, cutoff-1);
         return shortened+'&#8230;';
+    }
+
+    function openVideoPlayer(name, url, videoType){
+        $("#video_title").text(name);
+        $('#videoModal').modal('show');
+        player.src({
+            type: videoType,
+            src: url
+        });
+        keepAlive();
+        playerKeepAlive = setInterval(keepAlive, 300000);
     }
 
     function getIconForFile(filename) {
@@ -460,6 +496,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             case "mpeg":
             case "mpv":
             case "3gp":
+            case "mp4":
                 return "far fa-file-video";
             case "jpeg":
             case "jpg":
@@ -622,6 +659,19 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     }
 
     $(document).ready(function () {
+        player = videojs('video_player', {
+            controls: true,
+            autoplay: false,
+            preload: 'auto'
+        });
+        $('#videoModal').on('hide.bs.modal', function () {
+            player.pause();
+            player.reset();
+            if (playerKeepAlive != null){
+                clearInterval(playerKeepAlive);
+            }
+        });
+
         $('#spinnerModal').on('shown.bs.modal', function () {
             if (spinnerDone){
                 $('#spinnerModal').modal('hide');
@@ -998,6 +1048,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                                     case "ico":
                                         var view_url = row['url']+"&inline=1";
                                         return `<a href="${view_url}" data-lightbox="${filename}" data-title="${filename}"><i class="fas fa-eye"></i></a>`;
+                                    case "mp4":
+                                    case "mov":
+                                        return `<a href="#" onclick="openVideoPlayer('${row["name"]}', '${row['url']}', 'video/mp4');"><i class="fas fa-eye"></i></a>`;
+                                    case "webm":
+                                        return `<a href="#" onclick="openVideoPlayer('${row["name"]}', '${row['url']}', 'video/webm');"><i class="fas fa-eye"></i></a>`;
+                                    case "ogv":
+                                    case "ogg":
+                                        return `<a href="#" onclick="openVideoPlayer('${row["name"]}', '${row['url']}', 'video/ogg');"><i class="fas fa-eye"></i></a>`;
                                     case "pdf":
                                         if (PDFObject.supportsPDFs){
                                             var view_url = row['url'];

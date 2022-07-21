@@ -1097,6 +1097,8 @@ func TestOIDCPreLoginHook(t *testing.T) {
 
 	err = dataprovider.DeleteUser(username, "", "")
 	assert.NoError(t, err)
+	err = os.RemoveAll(u.HomeDir)
+	assert.NoError(t, err)
 
 	err = os.WriteFile(preLoginPath, getPreLoginScriptContent(u, true), os.ModePerm)
 	assert.NoError(t, err)
