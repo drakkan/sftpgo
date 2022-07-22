@@ -1380,6 +1380,7 @@ func getTestOIDCServer() *httpdServer {
 				ImplicitRoles:   false,
 				Scopes:          []string{oidc.ScopeOpenID, "profile", "email"},
 				CustomFields:    nil,
+				Debug:           true,
 			},
 		},
 		enableWebAdmin:  true,

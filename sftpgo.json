@@ -266,7 +266,8 @@
           "username_field": "",
           "role_field": "",
           "implicit_roles": false,
-          "custom_fields": []
+          "custom_fields": [],
+          "debug": false
         },
         "security": {
           "enabled": false,
