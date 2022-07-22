@@ -534,6 +534,16 @@ func TestInitialization(t *testing.T) {
 	httpdConf.Bindings[0].EnabledLoginMethods = 2
 	err = httpdConf.Initialize(configDir, isShared)
 	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "no login method available for WebAdmin UI")
+	}
+	httpdConf.Bindings[0].EnabledLoginMethods = 6
+	err = httpdConf.Initialize(configDir, isShared)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "no login method available for WebClient UI")
+	}
+	httpdConf.Bindings[0].EnabledLoginMethods = 4
+	err = httpdConf.Initialize(configDir, isShared)
+	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "no login method available for WebClient UI")
 	}
 	httpdConf.Bindings[0].EnabledLoginMethods = 3

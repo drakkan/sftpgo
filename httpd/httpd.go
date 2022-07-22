@@ -413,8 +413,10 @@ type Binding struct {
 	// Defines the login methods available for the WebAdmin and WebClient UIs:
 	//
 	// - 0 means any configured method: username/password login form and OIDC, if enabled
-	// - 1 means OIDC for the WebAdmin UI. The username/password login form will not be available
-	// - 2 means OIDC for the WebClient UI. The username/password login form will not be available
+	// - 1 means OIDC for the WebAdmin UI
+	// - 2 means OIDC for the WebClient UI
+	// - 4 means login form for the WebAdmin UI
+	// - 8 means login form for the WebClient UI
 	//
 	// You can combine the values. For example 3 means that you can only login using OIDC on
 	// both WebClient and WebAdmin UI.
@@ -529,12 +531,32 @@ func (b *Binding) IsValid() bool {
 	return false
 }
 
+func (b *Binding) isWebAdminOIDCLoginDisabled() bool {
+	if b.EnableWebAdmin {
+		if b.EnabledLoginMethods == 0 {
+			return false
+		}
+		return b.EnabledLoginMethods&1 == 0
+	}
+	return false
+}
+
+func (b *Binding) isWebClientOIDCLoginDisabled() bool {
+	if b.EnableWebClient {
+		if b.EnabledLoginMethods == 0 {
+			return false
+		}
+		return b.EnabledLoginMethods&2 == 0
+	}
+	return false
+}
+
 func (b *Binding) isWebAdminLoginFormDisabled() bool {
 	if b.EnableWebAdmin {
 		if b.EnabledLoginMethods == 0 {
 			return false
 		}
-		return b.EnabledLoginMethods&1 != 0
+		return b.EnabledLoginMethods&4 == 0
 	}
 	return false
 }
@@ -544,17 +566,27 @@ func (b *Binding) isWebClientLoginFormDisabled() bool {
 		if b.EnabledLoginMethods == 0 {
 			return false
 		}
-		return b.EnabledLoginMethods&2 != 0
+		return b.EnabledLoginMethods&8 == 0
 	}
 	return false
 }
 
 func (b *Binding) checkLoginMethods() error {
-	if b.isWebAdminLoginFormDisabled() && !b.OIDC.hasRoles() {
+	if b.isWebAdminLoginFormDisabled() && b.isWebAdminOIDCLoginDisabled() {
 		return errors.New("no login method available for WebAdmin UI")
 	}
-	if b.isWebClientLoginFormDisabled() && !b.OIDC.isEnabled() {
+	if !b.isWebAdminOIDCLoginDisabled() {
+		if b.isWebAdminLoginFormDisabled() && !b.OIDC.hasRoles() {
+			return errors.New("no login method available for WebAdmin UI")
+		}
+	}
+	if b.isWebClientLoginFormDisabled() && b.isWebClientOIDCLoginDisabled() {
 		return errors.New("no login method available for WebClient UI")
+	}
+	if !b.isWebClientOIDCLoginDisabled() {
+		if b.isWebClientLoginFormDisabled() && !b.OIDC.isEnabled() {
+			return errors.New("no login method available for WebClient UI")
+		}
 	}
 	return nil
 }

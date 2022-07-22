@@ -174,7 +174,7 @@ func (s *httpdServer) renderClientLoginPage(w http.ResponseWriter, error, ip str
 	if smtp.IsEnabled() && !data.FormDisabled {
 		data.ForgotPwdURL = webClientForgotPwdPath
 	}
-	if s.binding.OIDC.isEnabled() {
+	if s.binding.OIDC.isEnabled() && !s.binding.isWebClientOIDCLoginDisabled() {
 		data.OpenIDLoginURL = webClientOIDCLoginPath
 	}
 	renderClientTemplate(w, templateClientLogin, data)
@@ -552,7 +552,7 @@ func (s *httpdServer) renderAdminLoginPage(w http.ResponseWriter, error, ip stri
 	if smtp.IsEnabled() && !data.FormDisabled {
 		data.ForgotPwdURL = webAdminForgotPwdPath
 	}
-	if s.binding.OIDC.hasRoles() {
+	if s.binding.OIDC.hasRoles() && !s.binding.isWebAdminOIDCLoginDisabled() {
 		data.OpenIDLoginURL = webAdminOIDCLoginPath
 	}
 	renderAdminTemplate(w, templateLogin, data)
@@ -1396,7 +1396,7 @@ func (s *httpdServer) setupWebClientRoutes() {
 			http.Redirect(w, r, webClientLoginPath, http.StatusFound)
 		})
 		s.router.Get(webClientLoginPath, s.handleClientWebLogin)
-		if s.binding.OIDC.isEnabled() {
+		if s.binding.OIDC.isEnabled() && !s.binding.isWebClientOIDCLoginDisabled() {
 			s.router.Get(webClientOIDCLoginPath, s.handleWebClientOIDCLogin)
 		}
 		if !s.binding.isWebClientLoginFormDisabled() {
@@ -1497,7 +1497,7 @@ func (s *httpdServer) setupWebAdminRoutes() {
 			s.redirectToWebPath(w, r, webAdminLoginPath)
 		})
 		s.router.Get(webAdminLoginPath, s.handleWebAdminLogin)
-		if s.binding.OIDC.hasRoles() {
+		if s.binding.OIDC.hasRoles() && !s.binding.isWebAdminOIDCLoginDisabled() {
 			s.router.Get(webAdminOIDCLoginPath, s.handleWebAdminOIDCLogin)
 		}
 		s.router.Get(webAdminSetupPath, s.handleWebAdminSetupGet)

@@ -67,9 +67,9 @@ require (
 	gocloud.dev v0.25.0
 	golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d
 	golang.org/x/net v0.0.0-20220708220712-1185a9018129
-	golang.org/x/oauth2 v0.0.0-20220718184931-c8730f7fcb92
-	golang.org/x/sys v0.0.0-20220721230656-c6bc011c0c49
-	golang.org/x/time v0.0.0-20220609170525-579cf78fd858
+	golang.org/x/oauth2 v0.0.0-20220722155238-128564f6959c
+	golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f
+	golang.org/x/time v0.0.0-20220722155302-e5dcc9cfc0b9
 	google.golang.org/api v0.88.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
