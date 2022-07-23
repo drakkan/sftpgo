@@ -220,7 +220,7 @@ The configuration file contains the following sections:
   - `users_base_dir`, string. Users default base directory. If no home dir is defined while adding a new user, and this value is a valid absolute path, then the user home dir will be automatically defined as the path obtained joining the base dir and the username
   - `actions`, struct. It contains the command to execute and/or the HTTP URL to notify and the trigger conditions. See [Custom Actions](./custom-actions.md) for more details
     - `execute_on`, list of strings. Valid values are `add`, `update`, `delete`. `update` action will not be fired for internal updates such as the last login or the user quota fields.
-    - `execute_for`, list of strings. Defines the provider objects that trigger the action. Valid values are `user`, `admin`, `api_key`.
+    - `execute_for`, list of strings. Defines the provider objects that trigger the action. Valid values are `user`, `admin`, `api_key`, `share`, `event_action`, `event_rule`.
     - `hook`, string. Absolute path to the command to execute or HTTP URL to notify.
   - `external_auth_hook`, string. Absolute path to an external program or an HTTP URL to invoke for users authentication. See [External Authentication](./external-auth.md) for more details. Leave empty to disable.
   - `external_auth_scope`, integer. 0 means all supported authentication scopes (passwords, public keys and keyboard interactive). 1 means passwords only. 2 means public keys only. 4 means key keyboard interactive only. 8 means TLS certificate. The flags can be combined, for example 6 means public keys and keyboard interactive
