@@ -227,6 +227,7 @@ func CommandLog(command, path, target, user, fileMode, connectionID, protocol st
 	logger.Info().
 		Timestamp().
 		Str("sender", command).
+		Str("local_addr", localAddr).
 		Str("remote_addr", remoteAddr).
 		Str("username", user).
 		Str("file_path", path).
@@ -235,7 +236,7 @@ func CommandLog(command, path, target, user, fileMode, connectionID, protocol st
 		Int("uid", uid).
 		Int("gid", gid).
 		Str("access_time", atime).
-		Str("modification_time", atime).
+		Str("modification_time", mtime).
 		Int64("size", size).
 		Str("ssh_command", sshCommand).
 		Str("connection_id", connectionID).

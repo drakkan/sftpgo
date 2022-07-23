@@ -260,6 +260,8 @@ The configuration file contains the following sections:
     - `enable_web_admin`, boolean. Set to `false` to disable the built-in web admin for this binding. You also need to define `templates_path` and `static_files_path` to use the built-in web admin interface. Default `true`.
     - `enable_web_client`, boolean. Set to `false` to disable the built-in web client for this binding. You also need to define `templates_path` and `static_files_path` to use the built-in web client interface. Default `true`.
     - `enable_https`, boolean. Set to `true` and provide both a certificate and a key file to enable HTTPS connection for this binding. Default `false`.
+    - `enabled_login_methods`, integer. Defines the login methods available for the WebAdmin and WebClient UIs. `0` means any configured method: username/password login form and OIDC, if enabled. `1` means OIDC for the WebAdmin UI. `2` means OIDC for the WebClient UI. `4` means login form for the WebAdmin UI. `8` means login form for the WebClient UI. You can combine the values. For example `3` means that you can only login using OIDC on both WebClient and WebAdmin UI. Default: `0`.
+    - `enable_https`, boolean. Set to `true` and provide both a certificate and a key file to enable HTTPS connection for this binding. Default `false`.
     - `certificate_file`, string. Binding specific TLS certificate. This can be an absolute path or a path relative to the config dir.
     - `certificate_key_file`, string. Binding specific private key matching the above certificate. This can be an absolute path or a path relative to the config dir. If not set the global ones will be used, if any.
     - `min_tls_version`, integer. Defines the minimum version of TLS to be enabled. `12` means TLS 1.2 (and therefore TLS 1.2 and TLS 1.3 will be enabled),`13` means TLS 1.3. Default: `12`.
@@ -283,6 +285,7 @@ The configuration file contains the following sections:
       - `role_field`, string. Defines the optional ID token claims field to map to a SFTPGo role. If the defined ID token claims field is set to `admin` the authenticated user is mapped to an SFTPGo admin. You don't need to specify this field if you want to use OpenID only for the Web Client UI. Default: blank.
       - `implicit_roles`, boolean. If set, the `role_field` is ignored and the SFTPGo role is assumed based on the login link used. Default: `false`.
       - `custom_fields`, list of strings. Custom token claims fields to pass to the pre-login hook. Default: empty.
+      - `debug`, boolean. If set, the received id tokens will be logged at debug level. Default: `false`.
     - `security`, struct. Defines security headers to add to HTTP responses and allows to restrict allowed hosts. The following parameters are supported:
       - `enabled`, boolean. Set to `true` to enable security configurations. Default: `false`.
       - `allowed_hosts`, list of strings. Fully qualified domain names that are allowed. An empty list allows any and all host names. Default: empty.

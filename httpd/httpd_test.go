@@ -532,6 +532,39 @@ func TestInitialization(t *testing.T) {
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "oidc")
 	}
+	httpdConf.Bindings[0].OIDC = httpd.OIDC{}
+	httpdConf.Bindings[0].EnableWebClient = true
+	httpdConf.Bindings[0].EnableWebAdmin = true
+	httpdConf.Bindings[0].EnabledLoginMethods = 1
+	err = httpdConf.Initialize(configDir, isShared)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "no login method available for WebAdmin UI")
+	}
+	httpdConf.Bindings[0].EnabledLoginMethods = 2
+	err = httpdConf.Initialize(configDir, isShared)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "no login method available for WebAdmin UI")
+	}
+	httpdConf.Bindings[0].EnabledLoginMethods = 6
+	err = httpdConf.Initialize(configDir, isShared)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "no login method available for WebClient UI")
+	}
+	httpdConf.Bindings[0].EnabledLoginMethods = 4
+	err = httpdConf.Initialize(configDir, isShared)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "no login method available for WebClient UI")
+	}
+	httpdConf.Bindings[0].EnabledLoginMethods = 3
+	err = httpdConf.Initialize(configDir, isShared)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "no login method available for WebAdmin UI")
+	}
+	httpdConf.Bindings[0].EnableWebAdmin = false
+	err = httpdConf.Initialize(configDir, isShared)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "no login method available for WebClient UI")
+	}
 }
 
 func TestBasicUserHandling(t *testing.T) {

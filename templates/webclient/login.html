@@ -25,6 +25,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                                     {{end}}
                                     <form id="login_form" action="{{.CurrentURL}}" method="POST" autocomplete="off"
                                         class="user-custom">
+                                        {{if not .FormDisabled}}
                                         <div class="form-group">
                                             <input type="text" class="form-control form-control-user-custom"
                                                 id="inputUsername" name="username" placeholder="Username" required>
@@ -42,6 +43,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                                         <button type="submit" class="btn btn-primary btn-user-custom btn-block">
                                             Login
                                         </button>
+                                        {{end}}
                                         {{if .OpenIDLoginURL}}
                                         <hr>
                                         <a href="{{.OpenIDLoginURL}}" class="btn btn-secondary btn-user-custom btn-block">
