@@ -262,7 +262,7 @@ func (c *RetentionCheck) cleanupFolder(folderPath string) error {
 		result.Elapsed = time.Since(startTime)
 		result.Info = "data retention check skipped: no permissions"
 		c.conn.Log(logger.LevelInfo, "user %#v does not have permissions to check retention on %#v, retention check skipped",
-			c.conn.User, folderPath)
+			c.conn.User.Username, folderPath)
 		return nil
 	}
 

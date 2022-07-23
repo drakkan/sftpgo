@@ -1047,7 +1047,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                                     case "svg":
                                     case "ico":
                                         var view_url = row['url']+"&inline=1";
-                                        return `<a href="${view_url}" data-lightbox="${filename}" data-title="${filename}"><i class="fas fa-eye"></i></a>`;
+                                        return `<a href="${view_url}" data-lightbox="image-gallery" data-title="${filename}"><i class="fas fa-eye"></i></a>`;
                                     case "mp4":
                                     case "mov":
                                         return `<a href="#" onclick="openVideoPlayer('${row["name"]}', '${row['url']}', 'video/mp4');"><i class="fas fa-eye"></i></a>`;
