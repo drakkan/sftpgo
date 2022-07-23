@@ -295,15 +295,15 @@ func (fs *SFTPFs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, f
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	if fs.config.BufferSize == 0 {
-		return f, nil, nil, err
-	}
 	if offset > 0 {
 		_, err = f.Seek(offset, io.SeekStart)
 		if err != nil {
 			f.Close()
 			return nil, nil, nil, err
 		}
+	}
+	if fs.config.BufferSize == 0 {
+		return f, nil, nil, nil
 	}
 	r, w, err := pipeat.PipeInDir(fs.localTempDir)
 	if err != nil {
@@ -507,11 +507,9 @@ func (*SFTPFs) IsNotSupported(err error) bool {
 
 // CheckRootPath creates the specified local root directory if it does not exists
 func (fs *SFTPFs) CheckRootPath(username string, uid int, gid int) bool {
-	if fs.config.BufferSize > 0 {
-		// we need a local directory for temporary files
-		osFs := NewOsFs(fs.ConnectionID(), fs.localTempDir, "")
-		osFs.CheckRootPath(username, uid, gid)
-	}
+	// we need a local directory for temporary files
+	osFs := NewOsFs(fs.ConnectionID(), fs.localTempDir, "")
+	osFs.CheckRootPath(username, uid, gid)
 	if fs.config.Prefix == "/" {
 		return true
 	}

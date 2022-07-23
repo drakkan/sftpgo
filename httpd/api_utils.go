@@ -443,7 +443,7 @@ func checkIfRange(r *http.Request, modtime time.Time) condResult {
 	if err != nil {
 		return condFalse
 	}
-	if modtime.Add(60 * time.Second).Before(t) {
+	if modtime.Unix() == t.Unix() {
 		return condTrue
 	}
 	return condFalse
