@@ -2717,7 +2717,7 @@ func TestDelayedQuotaUpdater(t *testing.T) {
 		Name:       "folder",
 		MappedPath: filepath.Join(os.TempDir(), "p"),
 	}
-	err = dataprovider.AddFolder(&folder)
+	err = dataprovider.AddFolder(&folder, "", "")
 	assert.NoError(t, err)
 
 	err = dataprovider.UpdateVirtualFolderQuota(&folder, 10, 6000, false)

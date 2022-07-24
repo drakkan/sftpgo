@@ -258,7 +258,7 @@ func RestoreFolders(folders []vfs.BaseVirtualFolder, inputFile string, mode, sca
 			logger.Debug(logSender, "", "restoring existing folder %#v, dump file: %#v, error: %v", folder.Name, inputFile, err)
 		} else {
 			folder.Users = nil
-			err = dataprovider.AddFolder(&folder)
+			err = dataprovider.AddFolder(&folder, executor, ipAddress)
 			logger.Debug(logSender, "", "adding new folder %#v, dump file: %#v, error: %v", folder.Name, inputFile, err)
 		}
 		if err != nil {

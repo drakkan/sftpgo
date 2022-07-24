@@ -43,6 +43,7 @@ const (
 
 const (
 	actionObjectUser        = "user"
+	actionObjectFolder      = "folder"
 	actionObjectGroup       = "group"
 	actionObjectAdmin       = "admin"
 	actionObjectAPIKey      = "api_key"
