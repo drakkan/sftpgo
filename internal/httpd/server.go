@@ -1352,14 +1352,14 @@ func (s *httpdServer) initializeRouter() {
 	if s.renderOpenAPI {
 		s.router.Group(func(router chi.Router) {
 			router.Use(compressor.Handler)
-			fileServer(router, webOpenAPIPath, http.Dir(s.openAPIPath))
+			serveStaticDir(router, webOpenAPIPath, s.openAPIPath)
 		})
 	}
 
 	if s.enableWebAdmin || s.enableWebClient {
 		s.router.Group(func(router chi.Router) {
 			router.Use(compressor.Handler)
-			fileServer(router, webStaticFilesPath, http.Dir(s.staticFilesPath))
+			serveStaticDir(router, webStaticFilesPath, s.staticFilesPath)
 		})
 		if s.binding.OIDC.isEnabled() {
 			s.router.Get(webOIDCRedirectPath, s.handleOIDCRedirect)
