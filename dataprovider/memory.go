@@ -2007,7 +2007,7 @@ func (p *MemoryProvider) restoreFolders(dump *BackupData) error {
 			}
 		} else {
 			folder.Users = nil
-			err = AddFolder(&folder)
+			err = AddFolder(&folder, ActionExecutorSystem, "")
 			if err != nil {
 				providerLog(logger.LevelError, "error adding folder %#v: %v", folder.Name, err)
 				return err

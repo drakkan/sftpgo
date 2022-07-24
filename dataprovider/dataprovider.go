@@ -250,6 +250,24 @@ type PasswordValidation struct {
 	Users PasswordValidationRules `json:"users" mapstructure:"users"`
 }
 
+type wrappedFolder struct {
+	Folder vfs.BaseVirtualFolder
+}
+
+func (w *wrappedFolder) RenderAsJSON(reload bool) ([]byte, error) {
+	if reload {
+		folder, err := provider.getFolderByName(w.Folder.Name)
+		if err != nil {
+			providerLog(logger.LevelError, "unable to reload folder before rendering as json: %v", err)
+			return nil, err
+		}
+		folder.PrepareForRendering()
+		return json.Marshal(folder)
+	}
+	w.Folder.PrepareForRendering()
+	return json.Marshal(w.Folder)
+}
+
 // ObjectsActions defines the action to execute on user create, update, delete for the specified objects
 type ObjectsActions struct {
 	// Valid values are add, update, delete. Empty slice to disable
@@ -1773,15 +1791,20 @@ func GetUsersForQuotaCheck(toFetch map[string]bool) ([]User, error) {
 }
 
 // AddFolder adds a new virtual folder.
-func AddFolder(folder *vfs.BaseVirtualFolder) error {
+func AddFolder(folder *vfs.BaseVirtualFolder, executor, ipAddress string) error {
 	folder.Name = config.convertName(folder.Name)
-	return provider.addFolder(folder)
+	err := provider.addFolder(folder)
+	if err == nil {
+		executeAction(operationAdd, executor, ipAddress, actionObjectFolder, folder.Name, &wrappedFolder{Folder: *folder})
+	}
+	return err
 }
 
 // UpdateFolder updates the specified virtual folder
 func UpdateFolder(folder *vfs.BaseVirtualFolder, users []string, groups []string, executor, ipAddress string) error {
 	err := provider.updateFolder(folder)
 	if err == nil {
+		executeAction(operationUpdate, executor, ipAddress, actionObjectFolder, folder.Name, &wrappedFolder{Folder: *folder})
 		usersInGroups, errGrp := provider.getUsersInGroups(groups)
 		if errGrp == nil {
 			users = append(users, usersInGroups...)
@@ -1812,6 +1835,7 @@ func DeleteFolder(folderName, executor, ipAddress string) error {
 	}
 	err = provider.deleteFolder(folder)
 	if err == nil {
+		executeAction(operationDelete, executor, ipAddress, actionObjectFolder, folder.Name, &wrappedFolder{Folder: folder})
 		users := folder.Users
 		usersInGroups, errGrp := provider.getUsersInGroups(folder.Groups)
 		if errGrp == nil {

@@ -4635,6 +4635,8 @@ components:
       type: string
       enum:
         - user
+        - folder
+        - group
         - admin
         - api_key
         - share

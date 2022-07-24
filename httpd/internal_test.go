@@ -581,6 +581,11 @@ func TestInvalidToken(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "invalid token claims")
 
 	rr = httptest.NewRecorder()
+	addFolder(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
 	updateFolder(rr, req)
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), "Invalid token claims")
@@ -589,6 +594,11 @@ func TestInvalidToken(t *testing.T) {
 	deleteFolder(rr, req)
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	server.handleWebAddFolderPost(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "invalid token claims")
 
 	rr = httptest.NewRecorder()
 	server.handleWebUpdateFolderPost(rr, req)

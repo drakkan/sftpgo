@@ -2267,8 +2267,13 @@ func (s *httpdServer) handleWebAddFolderGet(w http.ResponseWriter, r *http.Reque
 
 func (s *httpdServer) handleWebAddFolderPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		return
+	}
 	folder := vfs.BaseVirtualFolder{}
-	err := r.ParseMultipartForm(maxRequestSize)
+	err = r.ParseMultipartForm(maxRequestSize)
 	if err != nil {
 		s.renderFolderPage(w, r, folder, folderPageModeAdd, err.Error())
 		return
@@ -2291,7 +2296,7 @@ func (s *httpdServer) handleWebAddFolderPost(w http.ResponseWriter, r *http.Requ
 	folder.FsConfig = fsConfig
 	folder = getFolderFromTemplate(folder, folder.Name)
 
-	err = dataprovider.AddFolder(&folder)
+	err = dataprovider.AddFolder(&folder, claims.Username, ipAddr)
 	if err == nil {
 		http.Redirect(w, r, webFoldersPath, http.StatusSeeOther)
 	} else {

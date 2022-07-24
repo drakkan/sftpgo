@@ -48,6 +48,7 @@ To initialize/update the data provider from the configuration directory simply u
 
 $ sftpgo initprovider
 
+Any defined action is ignored.
 Please take a look at the usage below to customize the options.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			logger.DisableLogger()
@@ -65,6 +66,10 @@ Please take a look at the usage below to customize the options.`,
 				os.Exit(1)
 			}
 			providerConf := config.GetProviderConf()
+			// ignore actions
+			providerConf.Actions.Hook = ""
+			providerConf.Actions.ExecuteFor = nil
+			providerConf.Actions.ExecuteOn = nil
 			logger.InfoToConsole("Initializing provider: %#v config file: %#v", providerConf.Driver, viper.ConfigFileUsed())
 			err = dataprovider.InitializeDatabase(providerConf, configDir)
 			if err == nil {

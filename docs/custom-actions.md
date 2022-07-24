@@ -83,6 +83,8 @@ The `actions` struct inside the `data_provider` configuration section allows you
 The supported object types are:
 
 - `user`
+- `folder`
+- `group`
 - `admin`
 - `api_key`
 

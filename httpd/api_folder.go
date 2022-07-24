@@ -42,13 +42,19 @@ func getFolders(w http.ResponseWriter, r *http.Request) {
 
 func addFolder(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+		return
+	}
+
 	var folder vfs.BaseVirtualFolder
-	err := render.DecodeJSON(r.Body, &folder)
+	err = render.DecodeJSON(r.Body, &folder)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
-	err = dataprovider.AddFolder(&folder)
+	err = dataprovider.AddFolder(&folder, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
