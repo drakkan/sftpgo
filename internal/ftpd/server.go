@@ -221,6 +221,23 @@ func (s *Server) AuthUser(cc ftpserver.ClientContext, username, password string)
 	return connection, nil
 }
 
+// PreAuthUser implements the MainDriverExtensionUserVerifier interface
+func (s *Server) PreAuthUser(cc ftpserver.ClientContext, username string) error {
+	if s.binding.TLSMode == 0 && s.tlsConfig != nil {
+		user, err := dataprovider.GetFTPPreAuthUser(username, util.GetIPFromRemoteAddress(cc.RemoteAddr().String()))
+		if err == nil {
+			if user.Filters.FTPSecurity == 1 {
+				return cc.SetTLSRequirement(ftpserver.MandatoryEncryption)
+			}
+			return nil
+		}
+		if _, ok := err.(*util.RecordNotFoundError); !ok {
+			return common.ErrInternalFailure
+		}
+	}
+	return nil
+}
+
 // WrapPassiveListener implements the MainDriverExtensionPassiveWrapper interface
 func (s *Server) WrapPassiveListener(listener net.Listener) (net.Listener, error) {
 	if s.binding.HasProxy() {

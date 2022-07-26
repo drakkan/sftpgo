@@ -325,6 +325,10 @@ func (cc mockFTPClientContext) HasTLSForTransfers() bool {
 	return false
 }
 
+func (cc mockFTPClientContext) SetTLSRequirement(requirement ftpserver.TLSRequirement) error {
+	return nil
+}
+
 func (cc mockFTPClientContext) GetLastCommand() string {
 	return ""
 }

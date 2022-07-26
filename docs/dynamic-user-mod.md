@@ -6,7 +6,7 @@ To enable dynamic user modification, you must set the absolute path of your prog
 The external program can read the following environment variables to get info about the user trying to login:
 
 - `SFTPGO_LOGIND_USER`, it contains the user trying to login serialized as JSON. A JSON serialized user id equal to zero means the user does not exist inside SFTPGo
-- `SFTPGO_LOGIND_METHOD`, possible values are: `password`, `publickey`, `keyboard-interactive`, `TLSCertificate`, `IDP` (external identity provider)
+- `SFTPGO_LOGIND_METHOD`, possible values are: `password`, `publickey`, `keyboard-interactive`, `TLSCertificate`, `IDP` (external identity provider) or empty if the hook is executed after receiving the FTP `USER` command
 - `SFTPGO_LOGIND_IP`, ip address of the user trying to login
 - `SFTPGO_LOGIND_PROTOCOL`, possible values are `SSH`, `FTP`, `DAV`, `HTTP`, `OIDC` (OpenID Connect)
 
@@ -35,7 +35,9 @@ If an error happens while executing the hook then login will be denied.
 "Dynamic user creation or modification" and "External Authentication" are mutually exclusive, they are quite similar, the difference is that "External Authentication" returns an already authenticated user while using "Dynamic users modification" you simply create or update a user. The authentication will be checked inside SFTPGo.
 In other words while using "External Authentication" the external program receives the credentials of the user trying to login (for example the cleartext password) and it needs to validate them. While using "Dynamic users modification" the pre-login program receives the user stored inside the dataprovider (it includes the hashed password if any) and it can modify it, after the modification SFTPGo will check the credentials of the user trying to login.
 
-For SFTPGo users (not admins) authenticating using an external identity provider such as OpenID Connect, the pre-login hook will be executed after a successful authentication against the external IDP so that you can create/update the SFTPGo user matching the one authenticated against the identity provider. This is the only case where the pre-login hook is executed even if an external authentication hook is defined.
+For SFTPGo users (not admins) authenticating using an external identity provider such as OpenID Connect, the pre-login hook will be executed after a successful authentication against the external IDP so that you can create/update the SFTPGo user matching the one authenticated against the identity provider. In this case where the pre-login hook is executed even if an external authentication hook is defined.
+
+If you enable FTP and allow both encrypted and plain text sessions, the pre-login hook is executed after receiving the FTP `USER` command. If you return an SFTPGo user with `ftp_security` set to `1` and the FTP session is not encrypted, it will be terminated. In this case where the pre-login hook is executed even if an external authentication hook is defined.
 
 You can disable the hook on a per-user basis.
 

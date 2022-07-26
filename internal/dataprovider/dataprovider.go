@@ -1193,6 +1193,25 @@ func CheckKeyboardInteractiveAuth(username, authHook string, client ssh.Keyboard
 	return doKeyboardInteractiveAuth(&user, authHook, client, ip, protocol)
 }
 
+// GetFTPPreAuthUser returns the SFTPGo user with the specified username
+// after receiving the FTP "USER" command.
+// If a pre-login hook is defined it will be executed so the SFTPGo user
+// can be created if it does not exist
+func GetFTPPreAuthUser(username, ip string) (User, error) {
+	var user User
+	var err error
+	if config.PreLoginHook != "" {
+		user, err = executePreLoginHook(username, "", ip, protocolFTP, nil)
+	} else {
+		user, err = UserExists(username)
+	}
+	if err != nil {
+		return user, err
+	}
+	err = user.LoadAndApplyGroupSettings()
+	return user, err
+}
+
 // GetUserAfterIDPAuth returns the SFTPGo user with the specified username
 // after a successful authentication with an external identity provider.
 // If a pre-login hook is defined it will be executed so the SFTPGo user
@@ -2078,6 +2097,7 @@ func copyBaseUserFilters(in sdk.BaseUserFilters) sdk.BaseUserFilters {
 	filters.Hooks.CheckPasswordDisabled = in.Hooks.CheckPasswordDisabled
 	filters.DisableFsChecks = in.DisableFsChecks
 	filters.StartDirectory = in.StartDirectory
+	filters.FTPSecurity = in.FTPSecurity
 	filters.AllowAPIKeyAuth = in.AllowAPIKeyAuth
 	filters.ExternalAuthCacheTime = in.ExternalAuthCacheTime
 	filters.WebClient = make([]string, len(in.WebClient))

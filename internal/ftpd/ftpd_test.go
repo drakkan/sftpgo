@@ -926,6 +926,61 @@ func TestLoginNonExistentUser(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestFTPSecurity(t *testing.T) {
+	u := getTestUser()
+	u.Filters.FTPSecurity = 1
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	client, err := getFTPClient(user, true, nil)
+	if assert.NoError(t, err) {
+		err = checkBasicFTP(client)
+		assert.NoError(t, err)
+		err := client.Quit()
+		assert.NoError(t, err)
+	}
+	_, err = getFTPClient(user, false, nil)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "TLS is required")
+	}
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestGroupFTPSecurity(t *testing.T) {
+	g := getTestGroup()
+	g.UserSettings.Filters.FTPSecurity = 1
+	group, _, err := httpdtest.AddGroup(g, http.StatusCreated)
+	assert.NoError(t, err)
+	u := getTestUser()
+	u.Groups = []sdk.GroupMapping{
+		{
+			Name: group.Name,
+			Type: sdk.GroupTypePrimary,
+		},
+	}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	client, err := getFTPClient(user, true, nil)
+	if assert.NoError(t, err) {
+		err = checkBasicFTP(client)
+		assert.NoError(t, err)
+		err := client.Quit()
+		assert.NoError(t, err)
+	}
+	_, err = getFTPClient(user, false, nil)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "TLS is required")
+	}
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveGroup(group, http.StatusOK)
+	assert.NoError(t, err)
+}
+
 func TestLoginExternalAuth(t *testing.T) {
 	if runtime.GOOS == osWindows {
 		t.Skip("this test is not available on Windows")
@@ -1054,6 +1109,19 @@ func TestPreLoginHook(t *testing.T) {
 	if !assert.Error(t, err, "pre-login script returned a disabled user, login must fail") {
 		err := client.Quit()
 		assert.NoError(t, err)
+	}
+	user.Status = 0
+	user.Filters.FTPSecurity = 1
+	err = os.WriteFile(preLoginPath, getPreLoginScriptContent(user, false), os.ModePerm)
+	assert.NoError(t, err)
+	client, err = getFTPClient(u, true, nil)
+	if !assert.Error(t, err) {
+		err := client.Quit()
+		assert.NoError(t, err)
+	}
+	_, err = getFTPClient(user, false, nil)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "TLS is required")
 	}
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)

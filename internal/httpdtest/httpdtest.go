@@ -2066,6 +2066,9 @@ func compareUserFilters(expected sdk.BaseUserFilters, actual sdk.BaseUserFilters
 	if expected.ExternalAuthCacheTime != actual.ExternalAuthCacheTime {
 		return errors.New("external_auth_cache_time mismatch")
 	}
+	if expected.FTPSecurity != actual.FTPSecurity {
+		return errors.New("ftp_security mismatch")
+	}
 	if err := compareUserFilterSubStructs(expected, actual); err != nil {
 		return err
 	}

@@ -20,7 +20,7 @@ require (
 	github.com/cockroachdb/cockroach-go/v2 v2.2.15
 	github.com/coreos/go-oidc/v3 v3.2.0
 	github.com/eikenb/pipeat v0.0.0-20210730190139-06b3e6902001
-	github.com/fclairamb/ftpserverlib v0.18.1-0.20220515214847-f96d31ec626e
+	github.com/fclairamb/ftpserverlib v0.18.1-0.20220726122738-5dc4d4ff4940
 	github.com/fclairamb/go-log v0.3.0
 	github.com/go-acme/lego/v4 v4.8.0
 	github.com/go-chi/chi/v5 v5.0.8-0.20220512131524-9e71a0d4b3d6
@@ -31,7 +31,7 @@ require (
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/google/uuid v1.3.0
 	github.com/grandcat/zeroconf v1.0.0
-	github.com/hashicorp/go-hclog v1.2.1
+	github.com/hashicorp/go-hclog v1.2.2
 	github.com/hashicorp/go-plugin v1.4.4
 	github.com/hashicorp/go-retryablehttp v0.7.1
 	github.com/jlaffaye/ftp v0.0.0-20201112195030-9aae4d151126
@@ -51,7 +51,7 @@ require (
 	github.com/rs/cors v1.8.2
 	github.com/rs/xid v1.4.0
 	github.com/rs/zerolog v1.27.0
-	github.com/sftpgo/sdk v0.1.2-0.20220611083241-b653555f7f4d
+	github.com/sftpgo/sdk v0.1.2-0.20220726072922-52d01129ff42
 	github.com/shirou/gopsutil/v3 v3.22.6
 	github.com/spf13/afero v1.9.2
 	github.com/spf13/cobra v1.5.0
@@ -66,7 +66,7 @@ require (
 	go.uber.org/automaxprocs v1.5.1
 	gocloud.dev v0.25.0
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa
-	golang.org/x/net v0.0.0-20220722155237-a158d28d115b
+	golang.org/x/net v0.0.0-20220725212005-46097bf591d3
 	golang.org/x/oauth2 v0.0.0-20220722155238-128564f6959c
 	golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f
 	golang.org/x/time v0.0.0-20220722155302-e5dcc9cfc0b9
@@ -111,7 +111,7 @@ require (
 	github.com/googleapis/gax-go/v2 v2.4.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
-	github.com/hashicorp/yamux v0.1.0 // indirect
+	github.com/hashicorp/yamux v0.1.1 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.1.0 // indirect
@@ -138,7 +138,7 @@ require (
 	github.com/power-devops/perfstat v0.0.0-20220216144756-c35f1ee13d7c // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.37.0 // indirect
-	github.com/prometheus/procfs v0.7.3 // indirect
+	github.com/prometheus/procfs v0.8.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
@@ -154,7 +154,7 @@ require (
 	golang.org/x/tools v0.1.11 // indirect
 	golang.org/x/xerrors v0.0.0-20220609144429-65e65417b02f // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20220722212130-b98a9ff5e252 // indirect
+	google.golang.org/genproto v0.0.0-20220725144611-272f38e5d71b // indirect
 	google.golang.org/grpc v1.48.0 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/ini.v1 v1.66.6 // indirect

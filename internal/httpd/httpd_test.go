@@ -16513,6 +16513,7 @@ func TestWebUserAddMock(t *testing.T) {
 	assert.False(t, newUser.Filters.AllowAPIKeyAuth)
 	assert.Equal(t, user.Email, newUser.Email)
 	assert.Equal(t, "/start/dir", newUser.Filters.StartDirectory)
+	assert.Equal(t, 0, newUser.Filters.FTPSecurity)
 	assert.True(t, util.Contains(newUser.PublicKeys, testPubKey))
 	if val, ok := newUser.Permissions["/subdir"]; ok {
 		assert.True(t, util.Contains(val, dataprovider.PermListItems))
@@ -16897,6 +16898,7 @@ func TestUserTemplateWithFoldersMock(t *testing.T) {
 	form.Set("expiration_date", "2020-01-01 00:00:00")
 	form.Set("fs_provider", "0")
 	form.Set("max_upload_file_size", "0")
+	form.Set("ftp_security", "1")
 	form.Set("external_auth_cache_time", "0")
 	form.Set("description", "desc %username% %password%")
 	form.Set("vfolder_path", "/vdir%username%")
@@ -16963,6 +16965,8 @@ func TestUserTemplateWithFoldersMock(t *testing.T) {
 	assert.Len(t, user2.VirtualFolders, 1)
 	assert.Equal(t, "/vdirauser1", user1.VirtualFolders[0].VirtualPath)
 	assert.Equal(t, "/vdirauser2", user2.VirtualFolders[0].VirtualPath)
+	assert.Equal(t, 1, user1.Filters.FTPSecurity)
+	assert.Equal(t, 1, user2.Filters.FTPSecurity)
 
 	_, err = httpdtest.RemoveFolder(folder, http.StatusOK)
 	assert.NoError(t, err)
@@ -17550,6 +17554,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	form.Set("pattern_type1", "denied")
 	form.Set("pattern_policy1", "1")
 	form.Set("max_upload_file_size", "0")
+	form.Set("ftp_security", "1")
 	form.Set("s3_force_path_style", "checked")
 	form.Set("description", user.Description)
 	form.Add("hooks", "pre_login_disabled")
@@ -17658,6 +17663,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	assert.False(t, updateUser.Filters.Hooks.CheckPasswordDisabled)
 	assert.False(t, updateUser.Filters.DisableFsChecks)
 	assert.True(t, updateUser.Filters.AllowAPIKeyAuth)
+	assert.Equal(t, 1, updateUser.Filters.FTPSecurity)
 	// now check that a redacted password is not saved
 	form.Set("s3_access_secret", redactedSecret)
 	b, contentType, _ = getMultipartFormData(form, "", "")
@@ -17756,6 +17762,7 @@ func TestWebUserGCSMock(t *testing.T) {
 	form.Set("patterns0", "*.jpg,*.png")
 	form.Set("pattern_type0", "allowed")
 	form.Set("max_upload_file_size", "0")
+	form.Set("ftp_security", "1")
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
 	setJWTCookieForReq(req, webToken)
@@ -17795,6 +17802,7 @@ func TestWebUserGCSMock(t *testing.T) {
 		assert.Contains(t, updateUser.Filters.FilePatterns[0].AllowedPatterns, "*.png")
 		assert.Contains(t, updateUser.Filters.FilePatterns[0].AllowedPatterns, "*.jpg")
 	}
+	assert.Equal(t, 1, updateUser.Filters.FTPSecurity)
 	form.Set("gcs_auto_credentials", "on")
 	b, contentType, _ = getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)

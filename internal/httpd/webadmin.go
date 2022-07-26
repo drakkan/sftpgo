@@ -1279,6 +1279,9 @@ func getFiltersFromUserPostFields(r *http.Request) (sdk.BaseUserFilters, error) 
 	if err != nil {
 		return filters, fmt.Errorf("invalid max upload file size: %w", err)
 	}
+	if r.Form.Get("ftp_security") == "1" {
+		filters.FTPSecurity = 1
+	}
 	filters.BandwidthLimits = bwLimits
 	filters.DataTransferLimits = dtLimits
 	filters.AllowedIP = getSliceFromDelimitedValues(r.Form.Get("allowed_ip"), ",")

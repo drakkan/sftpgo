@@ -909,6 +909,19 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                             </div>
 
                             <div class="form-group row">
+                                <label for="idFTPSecurity" class="col-sm-2 col-form-label">FTP security</label>
+                                <div class="col-sm-10">
+                                    <select class="form-control selectpicker" id="idFTPSecurity" name="ftp_security" aria-describedby="ftpSecurityHelpBlock">
+                                        <option value="" {{if eq .User.Filters.FTPSecurity 0 }}selected{{end}}>Server settings</option>
+                                        <option value="1" {{if eq .User.Filters.FTPSecurity 1 }}selected{{end}}>Mandatory encryption</option>
+                                    </select>
+                                    <small id="ftpSecurityHelpBlock" class="form-text text-muted">
+                                        Ignored if TLS is globally required for all FTP users
+                                    </small>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
                                 <label for="idHooks" class="col-sm-2 col-form-label">Hooks</label>
                                 <div class="col-sm-10">
                                     <select class="form-control selectpicker" id="idHooks" name="hooks" multiple>

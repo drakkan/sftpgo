@@ -1706,6 +1706,9 @@ func (u *User) mergePrimaryGroupFilters(filters sdk.BaseUserFilters, replacer *s
 	if u.Filters.ExternalAuthCacheTime == 0 {
 		u.Filters.ExternalAuthCacheTime = filters.ExternalAuthCacheTime
 	}
+	if u.Filters.FTPSecurity == 0 {
+		u.Filters.FTPSecurity = filters.FTPSecurity
+	}
 	if u.Filters.StartDirectory == "" {
 		u.Filters.StartDirectory = u.replacePlaceholder(filters.StartDirectory, replacer)
 	}

@@ -4747,6 +4747,12 @@ components:
           items:
             $ref: '#/components/schemas/MFAProtocols'
           description: 'Defines protocols that require two factor authentication'
+        ftp_security:
+          type: integer
+          enum:
+            - 0
+            - 1
+          description: 'Set to `1` to require TLS for both data and control connection. his setting is useful if you want to allow both encrypted and plain text FTP sessions globally and then you want to require encrypted sessions on a per-user basis. It has no effect if TLS is already required for all users in the configuration file.'
       description: Additional user options
     UserFilters:
       allOf:
