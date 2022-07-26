@@ -390,7 +390,8 @@ func getUserFilesAsZipStream(w http.ResponseWriter, r *http.Request) {
 
 	filesList = util.RemoveDuplicates(filesList, false)
 
-	w.Header().Set("Content-Disposition", "attachment; filename=\"sftpgo-download.zip\"")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"",
+		getCompressedFileName(connection.GetUsername(), filesList)))
 	renderCompressedFiles(w, connection, baseDir, filesList, nil)
 }
 

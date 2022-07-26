@@ -653,7 +653,8 @@ func (s *httpdServer) handleWebClientDownloadZip(w http.ResponseWriter, r *http.
 		return
 	}
 
-	w.Header().Set("Content-Disposition", "attachment; filename=\"sftpgo-download.zip\"")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"",
+		getCompressedFileName(connection.GetUsername(), filesList)))
 	renderCompressedFiles(w, connection, name, filesList, nil)
 }
 

@@ -221,6 +221,14 @@ func renderAPIDirContents(w http.ResponseWriter, r *http.Request, contents []os.
 	render.JSON(w, r, results)
 }
 
+func getCompressedFileName(username string, files []string) string {
+	if len(files) == 1 {
+		name := path.Base(files[0])
+		return fmt.Sprintf("%s-%s.zip", username, strings.TrimSuffix(name, path.Ext(name)))
+	}
+	return fmt.Sprintf("%s-download.zip", username)
+}
+
 func renderCompressedFiles(w http.ResponseWriter, conn *Connection, baseDir string, files []string,
 	share *dataprovider.Share,
 ) {

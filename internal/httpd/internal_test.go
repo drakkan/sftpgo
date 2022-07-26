@@ -2531,6 +2531,23 @@ func TestSecureMiddlewareIntegration(t *testing.T) {
 	assert.Len(t, server.binding.Security.proxyHeaders, 0)
 }
 
+func TestGetCompressedFileName(t *testing.T) {
+	username := "test"
+	res := getCompressedFileName(username, []string{"single dir"})
+	require.Equal(t, fmt.Sprintf("%s-single dir.zip", username), res)
+	res = getCompressedFileName(username, []string{"file1", "file2"})
+	require.Equal(t, fmt.Sprintf("%s-download.zip", username), res)
+	res = getCompressedFileName(username, []string{"file1.txt"})
+	require.Equal(t, fmt.Sprintf("%s-file1.zip", username), res)
+	// now files with full paths
+	res = getCompressedFileName(username, []string{"/dir/single dir"})
+	require.Equal(t, fmt.Sprintf("%s-single dir.zip", username), res)
+	res = getCompressedFileName(username, []string{"/adir/file1", "/adir/file2"})
+	require.Equal(t, fmt.Sprintf("%s-download.zip", username), res)
+	res = getCompressedFileName(username, []string{"/sub/dir/file1.txt"})
+	require.Equal(t, fmt.Sprintf("%s-file1.zip", username), res)
+}
+
 func TestWebAdminSetupWithInstallCode(t *testing.T) {
 	installationCode = "1234"
 	// delete all the admins
