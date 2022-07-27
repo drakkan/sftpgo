@@ -999,6 +999,9 @@ func CheckAdminAndPass(username, password, ip string) (Admin, error) {
 
 // CheckCachedUserCredentials checks the credentials for a cached user
 func CheckCachedUserCredentials(user *CachedUser, password, loginMethod, protocol string, tlsCert *x509.Certificate) error {
+	if err := user.User.CheckLoginConditions(); err != nil {
+		return err
+	}
 	if loginMethod != LoginMethodPassword {
 		_, err := checkUserAndTLSCertificate(&user.User, protocol, tlsCert)
 		if err != nil {
@@ -1010,9 +1013,6 @@ func CheckCachedUserCredentials(user *CachedUser, password, loginMethod, protoco
 			}
 			return nil
 		}
-	}
-	if err := user.User.CheckLoginConditions(); err != nil {
-		return err
 	}
 	if password == "" {
 		return ErrInvalidCredentials

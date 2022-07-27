@@ -1429,6 +1429,7 @@ func getUserFromTemplate(user dataprovider.User, template userTemplateFields) da
 	user.VirtualFolders = vfolders
 	user.Description = replacePlaceholders(user.Description, replacements)
 	user.AdditionalInfo = replacePlaceholders(user.AdditionalInfo, replacements)
+	user.Filters.StartDirectory = replacePlaceholders(user.Filters.StartDirectory, replacements)
 
 	switch user.FsConfig.Provider {
 	case sdk.CryptedFilesystemProvider:
