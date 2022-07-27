@@ -232,6 +232,8 @@ func (s *Server) PreAuthUser(cc ftpserver.ClientContext, username string) error 
 			return nil
 		}
 		if _, ok := err.(*util.RecordNotFoundError); !ok {
+			logger.Error(logSender, fmt.Sprintf("%v_%v_%v", common.ProtocolFTP, s.ID, cc.ID()),
+				"unable to get user on pre auth: %v", err)
 			return common.ErrInternalFailure
 		}
 	}

@@ -240,10 +240,11 @@ D17SEQKBgCKC0GjDjnt/JvujdzHuBt1sWdOtb+B6kQvA09qVmuDF/Dq36jiaHDjg
 XMf5HU3ThYqYn3bYypZZ8nQ7BXVh4LqGNqG29wR4v6l+dLO6odXnLzfApGD9e+d4
 2tmlLP54LaN35hQxRjhT8lCN0BkrNF44+bh8frwm/kuxSd8wT2S+
 -----END RSA PRIVATE KEY-----`
-	testFileName       = "test_file_dav.dat"
-	testDLFileName     = "test_download_dav.dat"
-	tlsClient1Username = "client1"
-	tlsClient2Username = "client2"
+	testFileName        = "test_file_dav.dat"
+	testDLFileName      = "test_download_dav.dat"
+	tlsClient1Username  = "client1"
+	tlsClient2Username  = "client2"
+	emptyPwdPlaceholder = "empty"
 )
 
 var (
@@ -691,6 +692,63 @@ func TestBasicHandlingCryptFs(t *testing.T) {
 	assert.Len(t, common.Connections.GetStats(), 0)
 }
 
+func TestLoginEmptyPassword(t *testing.T) {
+	u := getTestUser()
+	u.Password = ""
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	user.Password = emptyPwdPlaceholder
+	client := getWebDavClient(user, false, nil)
+	err = checkBasicFunc(client)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "401")
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestAnonymousUser(t *testing.T) {
+	u := getTestUser()
+	u.Password = ""
+	u.Filters.IsAnonymous = true
+	_, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.Error(t, err)
+	user, _, err := httpdtest.GetUserByUsername(u.Username, http.StatusOK)
+	assert.NoError(t, err)
+
+	client := getWebDavClient(user, false, nil)
+	assert.NoError(t, checkBasicFunc(client))
+
+	user.Password = emptyPwdPlaceholder
+	client = getWebDavClient(user, false, nil)
+	assert.NoError(t, checkBasicFunc(client))
+
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	testFileSize := int64(65535)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+	err = uploadFileWithRawClient(testFilePath, testFileName, user.Username, defaultPassword,
+		false, testFileSize, client)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "403")
+	}
+	err = client.Mkdir("testdir", os.ModePerm)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "403")
+	}
+
+	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestLockAfterDelete(t *testing.T) {
 	u := getTestUser()
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
@@ -950,7 +1008,7 @@ func TestLoginExternalAuth(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
-	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u, false, ""), os.ModePerm)
+	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u), os.ModePerm)
 	assert.NoError(t, err)
 	providerConf.ExternalAuthHook = extAuthPath
 	providerConf.ExternalAuthScope = 0
@@ -967,6 +1025,151 @@ func TestLoginExternalAuth(t *testing.T) {
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf = config.GetProviderConf()
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+	err = os.Remove(extAuthPath)
+	assert.NoError(t, err)
+}
+
+func TestExternalAuthReturningAnonymousUser(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("this test is not available on Windows")
+	}
+	u := getTestUser()
+	u.Filters.IsAnonymous = true
+	u.Filters.DeniedProtocols = []string{common.ProtocolSSH}
+	u.Password = ""
+	err := dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf := config.GetProviderConf()
+	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u), os.ModePerm)
+	assert.NoError(t, err)
+	providerConf.ExternalAuthHook = extAuthPath
+	providerConf.ExternalAuthScope = 0
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+
+	client := getWebDavClient(u, false, nil)
+	assert.NoError(t, checkBasicFunc(client))
+
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	testFileSize := int64(65535)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+	err = uploadFileWithRawClient(testFilePath, testFileName, u.Username, emptyPwdPlaceholder,
+		false, testFileSize, client)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "403")
+	}
+
+	user, _, err := httpdtest.GetUserByUsername(defaultUsername, http.StatusOK)
+	assert.NoError(t, err)
+	assert.True(t, user.Filters.IsAnonymous)
+	assert.Equal(t, []string{dataprovider.PermListItems, dataprovider.PermDownload}, user.Permissions["/"])
+	assert.Equal(t, []string{common.ProtocolSSH, common.ProtocolHTTP}, user.Filters.DeniedProtocols)
+	assert.Equal(t, []string{dataprovider.SSHLoginMethodPublicKey, dataprovider.SSHLoginMethodPassword,
+		dataprovider.SSHLoginMethodKeyboardInteractive, dataprovider.SSHLoginMethodKeyAndPassword,
+		dataprovider.SSHLoginMethodKeyAndKeyboardInt, dataprovider.LoginMethodTLSCertificate,
+		dataprovider.LoginMethodTLSCertificateAndPwd}, user.Filters.DeniedLoginMethods)
+
+	u.Password = emptyPwdPlaceholder
+	client = getWebDavClient(user, false, nil)
+	assert.NoError(t, checkBasicFunc(client))
+
+	err = uploadFileWithRawClient(testFilePath, testFileName, user.Username, defaultPassword,
+		false, testFileSize, client)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "403")
+	}
+	err = client.Mkdir("testdir", os.ModePerm)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "403")
+	}
+
+	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf = config.GetProviderConf()
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+	err = os.Remove(extAuthPath)
+	assert.NoError(t, err)
+}
+
+func TestExternalAuthAnonymousGroupInheritance(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("this test is not available on Windows")
+	}
+	g := dataprovider.Group{
+		BaseGroup: sdk.BaseGroup{
+			Name: "test_group",
+		},
+		UserSettings: dataprovider.GroupUserSettings{
+			BaseGroupUserSettings: sdk.BaseGroupUserSettings{
+				Permissions: map[string][]string{
+					"/": allPerms,
+				},
+				Filters: sdk.BaseUserFilters{
+					IsAnonymous: true,
+				},
+			},
+		},
+	}
+	u := getTestUser()
+	u.Groups = []sdk.GroupMapping{
+		{
+			Name: g.Name,
+			Type: sdk.GroupTypePrimary,
+		},
+	}
+	err := dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf := config.GetProviderConf()
+	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u), os.ModePerm)
+	assert.NoError(t, err)
+	providerConf.ExternalAuthHook = extAuthPath
+	providerConf.ExternalAuthScope = 0
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+
+	group, _, err := httpdtest.AddGroup(g, http.StatusCreated)
+	assert.NoError(t, err)
+
+	u.Password = emptyPwdPlaceholder
+	client := getWebDavClient(u, false, nil)
+	assert.NoError(t, checkBasicFunc(client))
+
+	err = client.Mkdir("tdir", os.ModePerm)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "403")
+	}
+
+	user, _, err := httpdtest.GetUserByUsername(defaultUsername, http.StatusOK)
+	assert.NoError(t, err)
+	assert.False(t, user.Filters.IsAnonymous)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveGroup(group, http.StatusOK)
 	assert.NoError(t, err)
 	err = dataprovider.Close()
 	assert.NoError(t, err)
@@ -2415,7 +2618,7 @@ func TestExternatAuthWithClientCert(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
-	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u, false, ""), os.ModePerm)
+	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u), os.ModePerm)
 	assert.NoError(t, err)
 	providerConf.ExternalAuthHook = extAuthPath
 	providerConf.ExternalAuthScope = 0
@@ -2826,7 +3029,11 @@ func getWebDavClient(user dataprovider.User, useTLS bool, tlsConfig *tls.Config)
 	}
 	pwd := defaultPassword
 	if user.Password != "" {
-		pwd = user.Password
+		if user.Password == emptyPwdPlaceholder {
+			pwd = ""
+		} else {
+			pwd = user.Password
+		}
 	}
 	client := gowebdav.NewClient(rootPath, user.Username, pwd)
 	client.SetTimeout(10 * time.Second)
@@ -2889,24 +3096,13 @@ func getEncryptedFileSize(size int64) (int64, error) {
 	return int64(encSize) + 33, err
 }
 
-func getExtAuthScriptContent(user dataprovider.User, nonJSONResponse bool, username string) []byte {
+func getExtAuthScriptContent(user dataprovider.User) []byte {
 	extAuthContent := []byte("#!/bin/sh\n\n")
 	extAuthContent = append(extAuthContent, []byte(fmt.Sprintf("if test \"$SFTPGO_AUTHD_USERNAME\" = \"%v\"; then\n", user.Username))...)
-	if len(username) > 0 {
-		user.Username = username
-	}
 	u, _ := json.Marshal(user)
-	if nonJSONResponse {
-		extAuthContent = append(extAuthContent, []byte("echo 'text response'\n")...)
-	} else {
-		extAuthContent = append(extAuthContent, []byte(fmt.Sprintf("echo '%v'\n", string(u)))...)
-	}
+	extAuthContent = append(extAuthContent, []byte(fmt.Sprintf("echo '%v'\n", string(u)))...)
 	extAuthContent = append(extAuthContent, []byte("else\n")...)
-	if nonJSONResponse {
-		extAuthContent = append(extAuthContent, []byte("echo 'text response'\n")...)
-	} else {
-		extAuthContent = append(extAuthContent, []byte("echo '{\"username\":\"\"}'\n")...)
-	}
+	extAuthContent = append(extAuthContent, []byte("echo '{\"username\":\"\"}'\n")...)
 	extAuthContent = append(extAuthContent, []byte("fi\n")...)
 	return extAuthContent
 }

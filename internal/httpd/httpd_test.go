@@ -1938,6 +1938,66 @@ func TestAdminTimestamps(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestHTTPUserAuthEmptyPassword(t *testing.T) {
+	u := getTestUser()
+	u.Password = ""
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%v%v", httpBaseURL, userTokenPath), nil)
+	assert.NoError(t, err)
+	req.SetBasicAuth(defaultUsername, "")
+	c := httpclient.GetHTTPClient()
+	resp, err := c.Do(req)
+	c.CloseIdleConnections()
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+
+	_, err = getJWTAPIUserTokenFromTestServer(defaultUsername, "")
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "unexpected status code 401")
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestHTTPAnonymousUser(t *testing.T) {
+	u := getTestUser()
+	u.Filters.IsAnonymous = true
+	_, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.Error(t, err)
+	user, _, err := httpdtest.GetUserByUsername(u.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.True(t, user.Filters.IsAnonymous)
+	assert.Equal(t, []string{dataprovider.PermListItems, dataprovider.PermDownload}, user.Permissions["/"])
+	assert.Equal(t, []string{common.ProtocolSSH, common.ProtocolHTTP}, user.Filters.DeniedProtocols)
+	assert.Equal(t, []string{dataprovider.SSHLoginMethodPublicKey, dataprovider.SSHLoginMethodPassword,
+		dataprovider.SSHLoginMethodKeyboardInteractive, dataprovider.SSHLoginMethodKeyAndPassword,
+		dataprovider.SSHLoginMethodKeyAndKeyboardInt, dataprovider.LoginMethodTLSCertificate,
+		dataprovider.LoginMethodTLSCertificateAndPwd}, user.Filters.DeniedLoginMethods)
+
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%v%v", httpBaseURL, userTokenPath), nil)
+	assert.NoError(t, err)
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	c := httpclient.GetHTTPClient()
+	resp, err := c.Do(req)
+	c.CloseIdleConnections()
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+
+	_, err = getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "unexpected status code 403")
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestHTTPUserAuthentication(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
@@ -16901,6 +16961,7 @@ func TestUserTemplateWithFoldersMock(t *testing.T) {
 	form.Set("ftp_security", "1")
 	form.Set("external_auth_cache_time", "0")
 	form.Set("description", "desc %username% %password%")
+	form.Set("start_directory", "/base/%username%")
 	form.Set("vfolder_path", "/vdir%username%")
 	form.Set("vfolder_name", folder.Name)
 	form.Set("vfolder_quota_size", "-1")
@@ -16956,6 +17017,8 @@ func TestUserTemplateWithFoldersMock(t *testing.T) {
 	assert.Equal(t, "desc auser2 password2", user2.Description)
 	assert.Equal(t, filepath.Join(os.TempDir(), user1.Username), user1.HomeDir)
 	assert.Equal(t, filepath.Join(os.TempDir(), user2.Username), user2.HomeDir)
+	assert.Equal(t, path.Join("/base", user1.Username), user1.Filters.StartDirectory)
+	assert.Equal(t, path.Join("/base", user2.Username), user2.Filters.StartDirectory)
 	assert.Equal(t, folder.Name, folder1.Name)
 	assert.Equal(t, folder.MappedPath, folder1.MappedPath)
 	assert.Equal(t, folder.Description, folder1.Description)

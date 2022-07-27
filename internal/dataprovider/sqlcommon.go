@@ -744,10 +744,6 @@ func sqlCommonGetUserByUsername(username string, dbHandle sqlQuerier) (User, err
 }
 
 func sqlCommonValidateUserAndPass(username, password, ip, protocol string, dbHandle *sql.DB) (User, error) {
-	var user User
-	if password == "" {
-		return user, errors.New("credentials cannot be null or empty")
-	}
 	user, err := sqlCommonGetUserByUsername(username, dbHandle)
 	if err != nil {
 		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)

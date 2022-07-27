@@ -2069,6 +2069,9 @@ func compareUserFilters(expected sdk.BaseUserFilters, actual sdk.BaseUserFilters
 	if expected.FTPSecurity != actual.FTPSecurity {
 		return errors.New("ftp_security mismatch")
 	}
+	if expected.IsAnonymous != actual.IsAnonymous {
+		return errors.New("is_anonymous mismatch")
+	}
 	if err := compareUserFilterSubStructs(expected, actual); err != nil {
 		return err
 	}

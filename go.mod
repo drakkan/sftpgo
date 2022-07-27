@@ -51,7 +51,7 @@ require (
 	github.com/rs/cors v1.8.2
 	github.com/rs/xid v1.4.0
 	github.com/rs/zerolog v1.27.0
-	github.com/sftpgo/sdk v0.1.2-0.20220726072922-52d01129ff42
+	github.com/sftpgo/sdk v0.1.2-0.20220727164210-06723ba7ce9a
 	github.com/shirou/gopsutil/v3 v3.22.6
 	github.com/spf13/afero v1.9.2
 	github.com/spf13/cobra v1.5.0
@@ -66,11 +66,11 @@ require (
 	go.uber.org/automaxprocs v1.5.1
 	gocloud.dev v0.25.0
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa
-	golang.org/x/net v0.0.0-20220725212005-46097bf591d3
+	golang.org/x/net v0.0.0-20220726230323-06994584191e
 	golang.org/x/oauth2 v0.0.0-20220722155238-128564f6959c
-	golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f
+	golang.org/x/sys v0.0.0-20220727055044-e65921a090b8
 	golang.org/x/time v0.0.0-20220722155302-e5dcc9cfc0b9
-	google.golang.org/api v0.88.0
+	google.golang.org/api v0.89.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
 
@@ -167,5 +167,5 @@ replace (
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
 	github.com/pkg/sftp => github.com/drakkan/sftp v0.0.0-20220716075551-51a5aa4e044d
 	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20220723143649-81550382d55e
-	golang.org/x/net => github.com/drakkan/net v0.0.0-20220723143609-9fc59277ebad
+	golang.org/x/net => github.com/drakkan/net v0.0.0-20220727071746-ba26829f1764
 )

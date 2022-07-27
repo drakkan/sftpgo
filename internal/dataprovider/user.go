@@ -373,6 +373,20 @@ func (u *User) GetSubDirPermissions() []sdk.DirectoryPermissions {
 	return result
 }
 
+func (u *User) setAnonymousSettings() {
+	for k := range u.Permissions {
+		u.Permissions[k] = []string{PermListItems, PermDownload}
+	}
+	u.Filters.DeniedProtocols = append(u.Filters.DeniedProtocols, protocolSSH, protocolHTTP)
+	u.Filters.DeniedProtocols = util.RemoveDuplicates(u.Filters.DeniedProtocols, false)
+	for _, method := range ValidLoginMethods {
+		if method != LoginMethodPassword {
+			u.Filters.DeniedLoginMethods = append(u.Filters.DeniedLoginMethods, method)
+		}
+	}
+	u.Filters.DeniedLoginMethods = util.RemoveDuplicates(u.Filters.DeniedLoginMethods, false)
+}
+
 // RenderAsJSON implements the renderer interface used within plugins
 func (u *User) RenderAsJSON(reload bool) ([]byte, error) {
 	if reload {
@@ -1702,6 +1716,9 @@ func (u *User) mergePrimaryGroupFilters(filters sdk.BaseUserFilters, replacer *s
 	}
 	if !u.Filters.AllowAPIKeyAuth {
 		u.Filters.AllowAPIKeyAuth = filters.AllowAPIKeyAuth
+	}
+	if !u.Filters.IsAnonymous {
+		u.Filters.IsAnonymous = filters.IsAnonymous
 	}
 	if u.Filters.ExternalAuthCacheTime == 0 {
 		u.Filters.ExternalAuthCacheTime = filters.ExternalAuthCacheTime

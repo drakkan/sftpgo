@@ -245,6 +245,7 @@ XMf5HU3ThYqYn3bYypZZ8nQ7BXVh4LqGNqG29wR4v6l+dLO6odXnLzfApGD9e+d4
 	tlsClient2Username    = "client2"
 	httpFsPort            = 23456
 	defaultHTTPFsUsername = "httpfs_ftp_user"
+	emptyPwdPlaceholder   = "empty"
 )
 
 var (
@@ -819,6 +820,144 @@ func TestStartDirectory(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestLoginEmptyPassword(t *testing.T) {
+	u := getTestUser()
+	u.Password = ""
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	user.Password = emptyPwdPlaceholder
+
+	_, err = getFTPClient(user, true, nil)
+	assert.Error(t, err)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestAnonymousUser(t *testing.T) {
+	u := getTestUser()
+	u.Password = ""
+	u.Filters.IsAnonymous = true
+	_, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.Error(t, err)
+	user, _, err := httpdtest.GetUserByUsername(u.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.True(t, user.Filters.IsAnonymous)
+	assert.Equal(t, []string{dataprovider.PermListItems, dataprovider.PermDownload}, user.Permissions["/"])
+	assert.Equal(t, []string{common.ProtocolSSH, common.ProtocolHTTP}, user.Filters.DeniedProtocols)
+	assert.Equal(t, []string{dataprovider.SSHLoginMethodPublicKey, dataprovider.SSHLoginMethodPassword,
+		dataprovider.SSHLoginMethodKeyboardInteractive, dataprovider.SSHLoginMethodKeyAndPassword,
+		dataprovider.SSHLoginMethodKeyAndKeyboardInt, dataprovider.LoginMethodTLSCertificate,
+		dataprovider.LoginMethodTLSCertificateAndPwd}, user.Filters.DeniedLoginMethods)
+
+	user.Password = emptyPwdPlaceholder
+	client, err := getFTPClient(user, true, nil)
+	if assert.NoError(t, err) {
+		err = checkBasicFTP(client)
+		assert.NoError(t, err)
+
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		testFileSize := int64(65535)
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+
+		err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), "permission")
+		}
+		err = os.Rename(testFilePath, filepath.Join(user.GetHomeDir(), testFileName))
+		assert.NoError(t, err)
+		localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
+		err = ftpDownloadFile(testFileName, localDownloadPath, testFileSize, client, 0)
+		assert.NoError(t, err)
+		err = client.MakeDir("adir")
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), "permission")
+		}
+
+		err = client.Quit()
+		assert.NoError(t, err)
+		err = os.Remove(localDownloadPath)
+		assert.NoError(t, err)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestAnonymousGroupInheritance(t *testing.T) {
+	g := getTestGroup()
+	g.UserSettings.Filters.IsAnonymous = true
+	g.UserSettings.Permissions = make(map[string][]string)
+	g.UserSettings.Permissions["/"] = allPerms
+	g.UserSettings.Permissions["/testsub"] = allPerms
+	group, _, err := httpdtest.AddGroup(g, http.StatusCreated)
+	assert.NoError(t, err)
+	u := getTestUser()
+	u.Groups = []sdk.GroupMapping{
+		{
+			Name: group.Name,
+			Type: sdk.GroupTypePrimary,
+		},
+	}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	user.Password = emptyPwdPlaceholder
+	client, err := getFTPClient(user, true, nil)
+	if assert.NoError(t, err) {
+		err = checkBasicFTP(client)
+		assert.NoError(t, err)
+
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		testFileSize := int64(65535)
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+
+		err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), "permission")
+		}
+		err = client.MakeDir("adir")
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), "permission")
+		}
+		err = client.MakeDir("/testsub/adir")
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), "permission")
+		}
+		err = os.Rename(testFilePath, filepath.Join(user.GetHomeDir(), testFileName))
+		assert.NoError(t, err)
+		localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
+		err = ftpDownloadFile(testFileName, localDownloadPath, testFileSize, client, 0)
+		assert.NoError(t, err)
+
+		err = client.Quit()
+		assert.NoError(t, err)
+		err = os.Remove(localDownloadPath)
+		assert.NoError(t, err)
+	}
+	user.Password = defaultPassword
+	client, err = getFTPClient(user, true, nil)
+	if assert.NoError(t, err) {
+		err = checkBasicFTP(client)
+		assert.NoError(t, err)
+		err := client.Quit()
+		assert.NoError(t, err)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveGroup(group, http.StatusOK)
+	assert.NoError(t, err)
+}
+
 func TestMultiFactorAuth(t *testing.T) {
 	u := getTestUser()
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
@@ -1122,6 +1261,98 @@ func TestPreLoginHook(t *testing.T) {
 	_, err = getFTPClient(user, false, nil)
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "TLS is required")
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf = config.GetProviderConf()
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+	err = os.Remove(preLoginPath)
+	assert.NoError(t, err)
+}
+
+func TestPreLoginHookReturningAnonymousUser(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("this test is not available on Windows")
+	}
+	u := getTestUser()
+	u.Filters.IsAnonymous = true
+	u.Filters.DeniedProtocols = []string{common.ProtocolSSH}
+	u.Password = ""
+	err := dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf := config.GetProviderConf()
+	err = os.WriteFile(preLoginPath, getPreLoginScriptContent(u, false), os.ModePerm)
+	assert.NoError(t, err)
+	providerConf.PreLoginHook = preLoginPath
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+	// the pre-login hook create the anonymous user
+	client, err := getFTPClient(u, false, nil)
+	if assert.NoError(t, err) {
+		err = checkBasicFTP(client)
+		assert.NoError(t, err)
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		testFileSize := int64(65535)
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+
+		err = client.MakeDir("tdiranonymous")
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), "permission")
+		}
+		err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), "permission")
+		}
+		err = os.Rename(testFilePath, filepath.Join(u.GetHomeDir(), testFileName))
+		assert.NoError(t, err)
+		localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
+		err = ftpDownloadFile(testFileName, localDownloadPath, testFileSize, client, 0)
+		assert.NoError(t, err)
+		err := client.Quit()
+		assert.NoError(t, err)
+	}
+
+	user, _, err := httpdtest.GetUserByUsername(defaultUsername, http.StatusOK)
+	assert.NoError(t, err)
+	assert.True(t, user.Filters.IsAnonymous)
+	assert.Equal(t, []string{dataprovider.PermListItems, dataprovider.PermDownload}, user.Permissions["/"])
+	assert.Equal(t, []string{common.ProtocolSSH, common.ProtocolHTTP}, user.Filters.DeniedProtocols)
+	assert.Equal(t, []string{dataprovider.SSHLoginMethodPublicKey, dataprovider.SSHLoginMethodPassword,
+		dataprovider.SSHLoginMethodKeyboardInteractive, dataprovider.SSHLoginMethodKeyAndPassword,
+		dataprovider.SSHLoginMethodKeyAndKeyboardInt, dataprovider.LoginMethodTLSCertificate,
+		dataprovider.LoginMethodTLSCertificateAndPwd}, user.Filters.DeniedLoginMethods)
+	// now the same with an existing user
+	client, err = getFTPClient(u, false, nil)
+	if assert.NoError(t, err) {
+		err = checkBasicFTP(client)
+		assert.NoError(t, err)
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		testFileSize := int64(65535)
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+
+		err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), "permission")
+		}
+		err = os.Rename(testFilePath, filepath.Join(u.GetHomeDir(), testFileName))
+		assert.NoError(t, err)
+		localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
+		err = ftpDownloadFile(testFileName, localDownloadPath, testFileSize, client, 0)
+		assert.NoError(t, err)
+		err := client.Quit()
+		assert.NoError(t, err)
 	}
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
@@ -3487,7 +3718,11 @@ func getFTPClient(user dataprovider.User, useTLS bool, tlsConfig *tls.Config) (*
 	}
 	pwd := defaultPassword
 	if user.Password != "" {
-		pwd = user.Password
+		if user.Password == emptyPwdPlaceholder {
+			pwd = ""
+		} else {
+			pwd = user.Password
+		}
 	}
 	err = client.Login(user.Username, pwd)
 	if err != nil {

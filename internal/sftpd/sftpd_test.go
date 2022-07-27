@@ -2576,6 +2576,74 @@ func TestLoginWithIPFilters(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestLoginEmptyPassword(t *testing.T) {
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	u.Password = ""
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	user.Password = "empty"
+	_, _, err = getSftpClient(user, usePubKey)
+	assert.Error(t, err)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestLoginAnonymousUser(t *testing.T) {
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	u.Password = ""
+	u.Filters.IsAnonymous = true
+	_, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.Error(t, err)
+	user, _, err := httpdtest.GetUserByUsername(u.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.True(t, user.Filters.IsAnonymous)
+	assert.Equal(t, []string{dataprovider.PermListItems, dataprovider.PermDownload}, user.Permissions["/"])
+	assert.Equal(t, []string{common.ProtocolSSH, common.ProtocolHTTP}, user.Filters.DeniedProtocols)
+	assert.Equal(t, []string{dataprovider.SSHLoginMethodPublicKey, dataprovider.SSHLoginMethodPassword,
+		dataprovider.SSHLoginMethodKeyboardInteractive, dataprovider.SSHLoginMethodKeyAndPassword,
+		dataprovider.SSHLoginMethodKeyAndKeyboardInt, dataprovider.LoginMethodTLSCertificate,
+		dataprovider.LoginMethodTLSCertificateAndPwd}, user.Filters.DeniedLoginMethods)
+	_, _, err = getSftpClient(user, usePubKey)
+	assert.Error(t, err)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestAnonymousGroupInheritance(t *testing.T) {
+	g := getTestGroup()
+	g.UserSettings.Filters.IsAnonymous = true
+	group, _, err := httpdtest.AddGroup(g, http.StatusCreated)
+	assert.NoError(t, err)
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	u.Groups = []sdk.GroupMapping{
+		{
+			Name: group.Name,
+			Type: sdk.GroupTypePrimary,
+		},
+	}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	_, _, err = getSftpClient(user, usePubKey)
+	assert.Error(t, err)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveGroup(group, http.StatusOK)
+	assert.NoError(t, err)
+}
+
 func TestLoginAfterUserUpdateEmptyPwd(t *testing.T) {
 	usePubKey := false
 	user, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
@@ -3967,6 +4035,62 @@ func TestLoginExternalAuthErrors(t *testing.T) {
 		conn.Close()
 	}
 	_, _, err = httpdtest.GetUserByUsername(defaultUsername, http.StatusNotFound)
+	assert.NoError(t, err)
+
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf = config.GetProviderConf()
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+	err = os.Remove(extAuthPath)
+	assert.NoError(t, err)
+}
+
+func TestExternalAuthReturningAnonymousUser(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("this test is not available on Windows")
+	}
+	usePubKey := false
+	u := getTestUser(usePubKey)
+	u.Filters.IsAnonymous = true
+	u.Password = ""
+	err := dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf := config.GetProviderConf()
+	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u, false, false, ""), os.ModePerm)
+	assert.NoError(t, err)
+	providerConf.ExternalAuthHook = extAuthPath
+	providerConf.ExternalAuthScope = 0
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+	_, _, err = getSftpClient(u, usePubKey)
+	assert.Error(t, err)
+
+	user, _, err := httpdtest.GetUserByUsername(defaultUsername, http.StatusOK)
+	assert.NoError(t, err)
+	assert.True(t, user.Filters.IsAnonymous)
+	assert.Equal(t, []string{dataprovider.PermListItems, dataprovider.PermDownload}, user.Permissions["/"])
+	assert.Equal(t, []string{common.ProtocolSSH, common.ProtocolHTTP}, user.Filters.DeniedProtocols)
+	assert.Equal(t, []string{dataprovider.SSHLoginMethodPublicKey, dataprovider.SSHLoginMethodPassword,
+		dataprovider.SSHLoginMethodKeyboardInteractive, dataprovider.SSHLoginMethodKeyAndPassword,
+		dataprovider.SSHLoginMethodKeyAndKeyboardInt, dataprovider.LoginMethodTLSCertificate,
+		dataprovider.LoginMethodTLSCertificateAndPwd}, user.Filters.DeniedLoginMethods)
+
+	// test again, the user now exists
+	_, _, err = getSftpClient(u, usePubKey)
+	assert.Error(t, err)
+	updatedUser, _, err := httpdtest.GetUserByUsername(defaultUsername, http.StatusOK)
+	assert.NoError(t, err)
+	user.UpdatedAt = updatedUser.UpdatedAt
+	assert.Equal(t, user, updatedUser)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 
 	err = dataprovider.Close()
@@ -10572,7 +10696,11 @@ func getSftpClientWithAddr(user dataprovider.User, usePubKey bool, addr string) 
 		config.Auth = []ssh.AuthMethod{ssh.PublicKeys(signer)}
 	} else {
 		if user.Password != "" {
-			config.Auth = []ssh.AuthMethod{ssh.Password(user.Password)}
+			if user.Password == "empty" {
+				config.Auth = []ssh.AuthMethod{ssh.Password("")}
+			} else {
+				config.Auth = []ssh.AuthMethod{ssh.Password(user.Password)}
+			}
 		} else {
 			config.Auth = []ssh.AuthMethod{ssh.Password(defaultPassword)}
 		}

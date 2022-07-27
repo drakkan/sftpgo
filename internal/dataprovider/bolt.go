@@ -114,10 +114,6 @@ func (p *BoltProvider) validateUserAndTLSCert(username, protocol string, tlsCert
 }
 
 func (p *BoltProvider) validateUserAndPass(username, password, ip, protocol string) (User, error) {
-	var user User
-	if password == "" {
-		return user, errors.New("credentials cannot be null or empty")
-	}
 	user, err := p.userExists(username)
 	if err != nil {
 		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)

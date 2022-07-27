@@ -984,6 +984,12 @@ func CheckAdminAndPass(username, password, ip string) (Admin, error) {
 
 // CheckCachedUserCredentials checks the credentials for a cached user
 func CheckCachedUserCredentials(user *CachedUser, password, loginMethod, protocol string, tlsCert *x509.Certificate) error {
+	if err := user.User.CheckLoginConditions(); err != nil {
+		return err
+	}
+	if loginMethod == LoginMethodPassword && user.User.Filters.IsAnonymous {
+		return nil
+	}
 	if loginMethod != LoginMethodPassword {
 		_, err := checkUserAndTLSCertificate(&user.User, protocol, tlsCert)
 		if err != nil {
@@ -995,9 +1001,6 @@ func CheckCachedUserCredentials(user *CachedUser, password, loginMethod, protoco
 			}
 			return nil
 		}
-	}
-	if err := user.User.CheckLoginConditions(); err != nil {
-		return err
 	}
 	if password == "" {
 		return ErrInvalidCredentials
@@ -2098,6 +2101,7 @@ func copyBaseUserFilters(in sdk.BaseUserFilters) sdk.BaseUserFilters {
 	filters.DisableFsChecks = in.DisableFsChecks
 	filters.StartDirectory = in.StartDirectory
 	filters.FTPSecurity = in.FTPSecurity
+	filters.IsAnonymous = in.IsAnonymous
 	filters.AllowAPIKeyAuth = in.AllowAPIKeyAuth
 	filters.ExternalAuthCacheTime = in.ExternalAuthCacheTime
 	filters.WebClient = make([]string, len(in.WebClient))
@@ -2608,6 +2612,9 @@ func validateBaseParams(user *User) error {
 		user.UploadDataTransfer = 0
 		user.DownloadDataTransfer = 0
 	}
+	if user.Filters.IsAnonymous {
+		user.setAnonymousSettings()
+	}
 	return user.FsConfig.Validate(user.GetEncryptionAdditionalData())
 }
 
@@ -2806,11 +2813,15 @@ func checkUserAndPass(user *User, password, ip, protocol string) (User, error) {
 	if err != nil {
 		return *user, err
 	}
+	if user.Filters.IsAnonymous {
+		user.setAnonymousSettings()
+		return *user, nil
+	}
 	password, err = checkUserPasscode(user, password, protocol)
 	if err != nil {
 		return *user, ErrInvalidCredentials
 	}
-	if user.Password == "" {
+	if user.Password == "" || password == "" {
 		return *user, errors.New("credentials cannot be null or empty")
 	}
 	if !user.Filters.Hooks.CheckPasswordDisabled {

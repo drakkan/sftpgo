@@ -1302,6 +1302,7 @@ func getFiltersFromUserPostFields(r *http.Request) (sdk.BaseUserFilters, error) 
 	if util.Contains(hooks, "check_password_disabled") {
 		filters.Hooks.CheckPasswordDisabled = true
 	}
+	filters.IsAnonymous = r.Form.Get("is_anonymous") != ""
 	filters.DisableFsChecks = r.Form.Get("disable_fs_checks") != ""
 	filters.AllowAPIKeyAuth = r.Form.Get("allow_api_key_auth") != ""
 	filters.StartDirectory = r.Form.Get("start_directory")
@@ -1618,6 +1619,7 @@ func getUserFromTemplate(user dataprovider.User, template userTemplateFields) da
 	user.VirtualFolders = vfolders
 	user.Description = replacePlaceholders(user.Description, replacements)
 	user.AdditionalInfo = replacePlaceholders(user.AdditionalInfo, replacements)
+	user.Filters.StartDirectory = replacePlaceholders(user.Filters.StartDirectory, replacements)
 
 	switch user.FsConfig.Provider {
 	case sdk.CryptedFilesystemProvider:

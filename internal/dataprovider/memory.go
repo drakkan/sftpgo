@@ -146,10 +146,6 @@ func (p *MemoryProvider) validateUserAndTLSCert(username, protocol string, tlsCe
 }
 
 func (p *MemoryProvider) validateUserAndPass(username, password, ip, protocol string) (User, error) {
-	var user User
-	if password == "" {
-		return user, errors.New("credentials cannot be null or empty")
-	}
 	user, err := p.userExists(username)
 	if err != nil {
 		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)
