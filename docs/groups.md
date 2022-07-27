@@ -9,6 +9,8 @@ SFTPGo supports two types of groups:
 
 A user can be a member of a primary group and many secondary groups. Depending on the group type, the settings are inherited differently.
 
+:warning: SFTPGo groups are completely unrelated to system groups. Therefore, it is not necessary to add Linux/Windows groups to use SFTPGo groups.
+
 The following settings are inherited from the primary group:
 
 - home dir, if set for the group will replace the one defined for the user. The `%username%` placeholder is replaced with the username

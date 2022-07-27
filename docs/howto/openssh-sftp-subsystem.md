@@ -3,6 +3,7 @@
 This tutorial shows how to run SFTPGo as OpenSSH's SFTP subsystem and still use its advanced features.
 
 Please note that when running in SFTP subsystem mode some SFTPGo features are not available, for example SFTPGo cannot limit the concurrent connnections or user sessions, restrict available ciphers etc. In this mode OpenSSH accepts the network connection, handles the SSH handshake and user authentication and then executes a separate SFTPGo process for each SFTP connection.
+Hooks may or may not work because OpenSSH stops the SFTPGo process when the user logs out and some hooks may not have run or ended yet. If you need these features use SFTPGo in standalone mode.
 
 ## Preliminary Note
 

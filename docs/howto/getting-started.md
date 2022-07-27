@@ -7,19 +7,19 @@ Virtual folders can be private or shared among multiple users, for shared virtua
 
 In this tutorial we explore the main features and concepts using the built-in web admin interface. Advanced users can also use the SFTPGo [REST API](https://sftpgo.stoplight.io/docs/sftpgo/openapi.yaml)
 
-- [Installation](#Installation)
-- [Initial configuration](#Initial-configuration)
-- [Creating users](#Creating-users)
-  - [Creating users with a Cloud Storage backend](#Creating-users-with-a-Cloud-Storage-backend)
-  - [Creating users with a local encrypted backend (Data At Rest Encryption)](#Creating-users-with-a-local-encrypted-backend-Data-At-Rest-Encryption)
-- [Virtual permissions](#Virtual-permissions)
-- [Virtual folders](#Virtual-folders)
-- [Configuration parameters](#Configuration-parameters)
-  - [Use PostgreSQL data provider](#Use-PostgreSQL-data-provider)
-  - [Use MySQL/MariaDB data provider](#Use-MySQLMariaDB-data-provider)
-  - [Use CockroachDB data provider](#Use-CockroachDB-data-provider)
-  - [Enable FTP service](#Enable-FTP-service)
-  - [Enable WebDAV service](#Enable-WebDAV-service)
+- [Installation](#installation)
+- [Initial configuration](#initial-configuration)
+- [Creating users](#creating-users)
+  - [Creating users with a Cloud Storage backend](#creating-users-with-a-cloud-storage-backend)
+  - [Creating users with a local encrypted backend (Data At Rest Encryption)](#creating-users-with-a-local-encrypted-backend-data-at-rest-Encryption)
+- [Virtual permissions](#virtual-permissions)
+- [Virtual folders](#virtual-folders)
+- [Configuration parameters](#configuration-parameters)
+  - [Use PostgreSQL data provider](#use-postgresql-data-provider)
+  - [Use MySQL/MariaDB data provider](#use-mysqlmariadb-data-provider)
+  - [Use CockroachDB data provider](#use-cockroachdb-data-provider)
+  - [Enable FTP service](#enable-ftp-service)
+  - [Enable WebDAV service](#enable-webdav-service)
 
 ## Installation
 
@@ -60,7 +60,7 @@ Let's create our first local user:
 
 ![Add user](./img/add-user.png)
 
-:warning: Please note that, on Linux, SFTPGo runs using a dedicated system user and group called `sftpgo`, for added security. If you want to be able to use directories outside `/srv/sftpgo` you need to set the appropriate system level permissions. For example if you define `/home/username/test` as home dir you have to create this directory yourself, if it doesn't exist, and set the appropriate system-level permissions:
+:warning: Please note that, on Linux, SFTPGo runs using a dedicated system user and group called `sftpgo`, for added security. If you want to be able to use directories outside the `/srv/sftpgo` path you need to set the appropriate system level permissions. For example if you define `/home/username/test` as home dir you have to create this directory yourself, if it doesn't exist, and set the appropriate system-level permissions:
 
 ```shell
 sudo mkdir /home/username/test
@@ -178,6 +178,9 @@ remote readdir("/subdir"): Permission denied
 as you can see it worked as expected.
 
 ## Virtual folders
+
+A virtual folder is a mapping between a SFTPGo virtual path and a filesystem path outside the user home directory or on a different storage provider.
+Therefore, there is no need to create virtual folders for the users home directory or for directories within the users home directory.
 
 From the web admin interface click `Folders` and then the `+` icon.
 
