@@ -12,16 +12,14 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//go:build linux
-// +build linux
+//go:build darwin
+// +build darwin
 
 package config
 
 import "github.com/spf13/viper"
 
-// linux specific config search path
+// macOS specific config search path
 func setViperAdditionalConfigPaths() {
-	viper.AddConfigPath("$HOME/.config/sftpgo")
-	viper.AddConfigPath("/etc/sftpgo")
 	viper.AddConfigPath("/usr/local/etc/sftpgo")
 }
