@@ -63,17 +63,8 @@ func executeAction(operation, executor, ip, objectType, objectName string, objec
 			Timestamp:  time.Now().UnixNano(),
 		}, object)
 	}
-	if EventManager.hasProviderEvents() {
-		EventManager.handleProviderEvent(EventParams{
-			Name:       executor,
-			ObjectName: objectName,
-			Event:      operation,
-			Status:     1,
-			ObjectType: objectType,
-			IP:         ip,
-			Timestamp:  time.Now().UnixNano(),
-			Object:     object,
-		})
+	if fnHandleRuleForProviderEvent != nil {
+		fnHandleRuleForProviderEvent(operation, executor, ip, objectType, objectName, object)
 	}
 	if config.Actions.Hook == "" {
 		return

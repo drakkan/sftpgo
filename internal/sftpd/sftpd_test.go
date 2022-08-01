@@ -1213,9 +1213,6 @@ func TestRealPath(t *testing.T) {
 	for _, user := range []dataprovider.User{localUser, sftpUser} {
 		conn, client, err := getSftpClient(user, usePubKey)
 		if assert.NoError(t, err) {
-			defer conn.Close()
-			defer client.Close()
-
 			p, err := client.RealPath("../..")
 			assert.NoError(t, err)
 			assert.Equal(t, "/", p)
@@ -1247,6 +1244,9 @@ func TestRealPath(t *testing.T) {
 			assert.NoError(t, err)
 			_, err = client.RealPath(path.Join(subdir, "temp"))
 			assert.ErrorIs(t, err, os.ErrPermission)
+
+			conn.Close()
+			client.Close()
 			err = os.Remove(filepath.Join(localUser.GetHomeDir(), subdir, "temp"))
 			assert.NoError(t, err)
 			if user.Username == localUser.Username {
@@ -4590,14 +4590,14 @@ func TestQuotaScan(t *testing.T) {
 }
 
 func TestMultipleQuotaScans(t *testing.T) {
-	res := dataprovider.QuotaScans.AddUserQuotaScan(defaultUsername)
+	res := common.QuotaScans.AddUserQuotaScan(defaultUsername)
 	assert.True(t, res)
-	res = dataprovider.QuotaScans.AddUserQuotaScan(defaultUsername)
+	res = common.QuotaScans.AddUserQuotaScan(defaultUsername)
 	assert.False(t, res, "add quota must fail if another scan is already active")
-	assert.True(t, dataprovider.QuotaScans.RemoveUserQuotaScan(defaultUsername))
-	activeScans := dataprovider.QuotaScans.GetUsersQuotaScans()
+	assert.True(t, common.QuotaScans.RemoveUserQuotaScan(defaultUsername))
+	activeScans := common.QuotaScans.GetUsersQuotaScans()
 	assert.Equal(t, 0, len(activeScans))
-	assert.False(t, dataprovider.QuotaScans.RemoveUserQuotaScan(defaultUsername))
+	assert.False(t, common.QuotaScans.RemoveUserQuotaScan(defaultUsername))
 }
 
 func TestQuotaLimits(t *testing.T) {
@@ -6949,15 +6949,15 @@ func TestVirtualFolderQuotaScan(t *testing.T) {
 
 func TestVFolderMultipleQuotaScan(t *testing.T) {
 	folderName := "folder_name"
-	res := dataprovider.QuotaScans.AddVFolderQuotaScan(folderName)
+	res := common.QuotaScans.AddVFolderQuotaScan(folderName)
 	assert.True(t, res)
-	res = dataprovider.QuotaScans.AddVFolderQuotaScan(folderName)
+	res = common.QuotaScans.AddVFolderQuotaScan(folderName)
 	assert.False(t, res)
-	res = dataprovider.QuotaScans.RemoveVFolderQuotaScan(folderName)
+	res = common.QuotaScans.RemoveVFolderQuotaScan(folderName)
 	assert.True(t, res)
-	activeScans := dataprovider.QuotaScans.GetVFoldersQuotaScans()
+	activeScans := common.QuotaScans.GetVFoldersQuotaScans()
 	assert.Len(t, activeScans, 0)
-	res = dataprovider.QuotaScans.RemoveVFolderQuotaScan(folderName)
+	res = common.QuotaScans.RemoveVFolderQuotaScan(folderName)
 	assert.False(t, res)
 }
 

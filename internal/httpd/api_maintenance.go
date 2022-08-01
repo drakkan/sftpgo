@@ -27,6 +27,7 @@ import (
 
 	"github.com/go-chi/render"
 
+	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/util"
@@ -265,7 +266,7 @@ func RestoreFolders(folders []vfs.BaseVirtualFolder, inputFile string, mode, sca
 			return fmt.Errorf("unable to restore folder %#v: %w", folder.Name, err)
 		}
 		if scanQuota >= 1 {
-			if dataprovider.QuotaScans.AddVFolderQuotaScan(folder.Name) {
+			if common.QuotaScans.AddVFolderQuotaScan(folder.Name) {
 				logger.Debug(logSender, "", "starting quota scan for restored folder: %#v", folder.Name)
 				go doFolderQuotaScan(folder) //nolint:errcheck
 			}
@@ -453,7 +454,7 @@ func RestoreUsers(users []dataprovider.User, inputFile string, mode, scanQuota i
 			return fmt.Errorf("unable to restore user %#v: %w", user.Username, err)
 		}
 		if scanQuota == 1 || (scanQuota == 2 && user.HasQuotaRestrictions()) {
-			if dataprovider.QuotaScans.AddUserQuotaScan(user.Username) {
+			if common.QuotaScans.AddUserQuotaScan(user.Username) {
 				logger.Debug(logSender, "", "starting quota scan for restored user: %#v", user.Username)
 				go doUserQuotaScan(user) //nolint:errcheck
 			}

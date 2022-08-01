@@ -607,3 +607,10 @@ func GetTLSVersion(val int) uint16 {
 func IsEmailValid(email string) bool {
 	return emailRegex.MatchString(email)
 }
+
+// PanicOnError calls panic if err is not nil
+func PanicOnError(err error) {
+	if err != nil {
+		panic(fmt.Errorf("unexpected error: %w", err))
+	}
+}

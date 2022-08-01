@@ -18,6 +18,7 @@ import (
 	"bufio"
 	"bytes"
 	"crypto/rand"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math"
@@ -77,6 +78,7 @@ var (
 	allPerms          = []string{dataprovider.PermAny}
 	homeBasePath      string
 	logFilePath       string
+	backupsPath       string
 	testFileContent   = []byte("test data")
 	lastReceivedEmail receivedEmail
 )
@@ -84,6 +86,7 @@ var (
 func TestMain(m *testing.M) {
 	homeBasePath = os.TempDir()
 	logFilePath = filepath.Join(configDir, "common_test.log")
+	backupsPath = filepath.Join(os.TempDir(), "backups")
 	logger.InitLogger(logFilePath, 5, 1, 28, false, false, zerolog.DebugLevel)
 
 	os.Setenv("SFTPGO_DATA_PROVIDER__CREATE_DEFAULT_ADMIN", "1")
@@ -95,6 +98,7 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 	providerConf := config.GetProviderConf()
+	providerConf.BackupsPath = backupsPath
 	logger.InfoToConsole("Starting COMMON tests, provider: %v", providerConf.Driver)
 
 	err = common.Initialize(config.GetCommonConfig(), 0)
@@ -203,6 +207,7 @@ func TestMain(m *testing.M) {
 
 	exitCode := m.Run()
 	os.Remove(logFilePath)
+	os.RemoveAll(backupsPath)
 	os.Exit(exitCode)
 }
 
@@ -2848,7 +2853,7 @@ func TestEventRule(t *testing.T) {
 			EmailConfig: dataprovider.EventActionEmailConfig{
 				Recipients: []string{"test1@example.com", "test2@example.com"},
 				Subject:    `New "{{Event}}" from "{{Name}}"`,
-				Body:       "Fs path {{FsPath}}, size: {{FileSize}}, protocol: {{Protocol}}, IP: {{IP}}",
+				Body:       "Fs path {{FsPath}}, size: {{FileSize}}, protocol: {{Protocol}}, IP: {{IP}} Data: {{ObjectData}}",
 			},
 		},
 	}
@@ -2987,6 +2992,10 @@ func TestEventRule(t *testing.T) {
 					Key:   "SFTPGO_ACTION_PATH",
 					Value: "{{FsPath}}",
 				},
+				{
+					Key:   "CUSTOM_ENV_VAR",
+					Value: "value",
+				},
 			},
 		},
 	}
@@ -3088,6 +3097,176 @@ func TestEventRule(t *testing.T) {
 	smtpCfg = smtp.Config{}
 	err = smtpCfg.Initialize(configDir)
 	require.NoError(t, err)
+}
+
+func TestEventRuleProviderEvents(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("this test is not available on Windows")
+	}
+	smtpCfg := smtp.Config{
+		Host:          "127.0.0.1",
+		Port:          2525,
+		From:          "notification@example.com",
+		TemplatesPath: "templates",
+	}
+	err := smtpCfg.Initialize(configDir)
+	require.NoError(t, err)
+
+	saveObjectScriptPath := filepath.Join(os.TempDir(), "provider.sh")
+	outPath := filepath.Join(os.TempDir(), "provider_out.json")
+	err = os.WriteFile(saveObjectScriptPath, getSaveProviderObjectScriptContent(outPath, 0), 0755)
+	assert.NoError(t, err)
+
+	a1 := dataprovider.BaseEventAction{
+		Name: "a1",
+		Type: dataprovider.ActionTypeCommand,
+		Options: dataprovider.BaseEventActionOptions{
+			CmdConfig: dataprovider.EventActionCommandConfig{
+				Cmd:     saveObjectScriptPath,
+				Timeout: 10,
+				EnvVars: []dataprovider.KeyValue{
+					{
+						Key:   "SFTPGO_OBJECT_DATA",
+						Value: "{{ObjectData}}",
+					},
+				},
+			},
+		},
+	}
+	a2 := dataprovider.BaseEventAction{
+		Name: "a2",
+		Type: dataprovider.ActionTypeEmail,
+		Options: dataprovider.BaseEventActionOptions{
+			EmailConfig: dataprovider.EventActionEmailConfig{
+				Recipients: []string{"test3@example.com"},
+				Subject:    `New "{{Event}}" from "{{Name}}"`,
+				Body:       "Object name: {{ObjectName}} object type: {{ObjectType}} Data: {{ObjectData}}",
+			},
+		},
+	}
+
+	a3 := dataprovider.BaseEventAction{
+		Name: "a3",
+		Type: dataprovider.ActionTypeEmail,
+		Options: dataprovider.BaseEventActionOptions{
+			EmailConfig: dataprovider.EventActionEmailConfig{
+				Recipients: []string{"failure@example.com"},
+				Subject:    `Failed "{{Event}}" from "{{Name}}"`,
+				Body:       "Object name: {{ObjectName}} object type: {{ObjectType}}, IP: {{IP}}",
+			},
+		},
+	}
+	action1, _, err := httpdtest.AddEventAction(a1, http.StatusCreated)
+	assert.NoError(t, err)
+	action2, _, err := httpdtest.AddEventAction(a2, http.StatusCreated)
+	assert.NoError(t, err)
+	action3, _, err := httpdtest.AddEventAction(a3, http.StatusCreated)
+	assert.NoError(t, err)
+
+	r := dataprovider.EventRule{
+		Name:    "rule",
+		Trigger: dataprovider.EventTriggerProviderEvent,
+		Conditions: dataprovider.EventConditions{
+			ProviderEvents: []string{"update"},
+		},
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action1.Name,
+				},
+				Order: 1,
+				Options: dataprovider.EventActionOptions{
+					StopOnFailure: true,
+				},
+			},
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action2.Name,
+				},
+				Order: 2,
+			},
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action3.Name,
+				},
+				Order: 3,
+				Options: dataprovider.EventActionOptions{
+					IsFailureAction: true,
+					StopOnFailure:   true,
+				},
+			},
+		},
+	}
+	rule, _, err := httpdtest.AddEventRule(r, http.StatusCreated)
+	assert.NoError(t, err)
+
+	lastReceivedEmail.reset()
+	// create and update a folder to trigger the rule
+	folder := vfs.BaseVirtualFolder{
+		Name:       "ftest rule",
+		MappedPath: filepath.Join(os.TempDir(), "p"),
+	}
+	folder, _, err = httpdtest.AddFolder(folder, http.StatusCreated)
+	assert.NoError(t, err)
+	// no action is triggered on add
+	assert.NoFileExists(t, outPath)
+	// update the folder
+	_, _, err = httpdtest.UpdateFolder(folder, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.FileExists(t, outPath) {
+		content, err := os.ReadFile(outPath)
+		assert.NoError(t, err)
+		var folderGet vfs.BaseVirtualFolder
+		err = json.Unmarshal(content, &folderGet)
+		assert.NoError(t, err)
+		assert.Equal(t, folder, folderGet)
+		err = os.Remove(outPath)
+		assert.NoError(t, err)
+		assert.Eventually(t, func() bool {
+			return lastReceivedEmail.get().From != ""
+		}, 3000*time.Millisecond, 100*time.Millisecond)
+		email := lastReceivedEmail.get()
+		assert.Len(t, email.To, 1)
+		assert.True(t, util.Contains(email.To, "test3@example.com"))
+		assert.Contains(t, string(email.Data), `Subject: New "update" from "admin"`)
+	}
+	// now delete the script to generate an error
+	lastReceivedEmail.reset()
+	err = os.Remove(saveObjectScriptPath)
+	assert.NoError(t, err)
+	_, _, err = httpdtest.UpdateFolder(folder, http.StatusOK)
+	assert.NoError(t, err)
+	assert.NoFileExists(t, outPath)
+	assert.Eventually(t, func() bool {
+		return lastReceivedEmail.get().From != ""
+	}, 3000*time.Millisecond, 100*time.Millisecond)
+	email := lastReceivedEmail.get()
+	assert.Len(t, email.To, 1)
+	assert.True(t, util.Contains(email.To, "failure@example.com"))
+	assert.Contains(t, string(email.Data), `Subject: Failed "update" from "admin"`)
+	assert.Contains(t, string(email.Data), fmt.Sprintf("Object name: %s object type: folder", folder.Name))
+	lastReceivedEmail.reset()
+	// generate an error for the failure action
+	smtpCfg = smtp.Config{}
+	err = smtpCfg.Initialize(configDir)
+	require.NoError(t, err)
+	_, _, err = httpdtest.UpdateFolder(folder, http.StatusOK)
+	assert.NoError(t, err)
+	assert.NoFileExists(t, outPath)
+	email = lastReceivedEmail.get()
+	assert.Len(t, email.To, 0)
+
+	_, err = httpdtest.RemoveFolder(folder, http.StatusOK)
+	assert.NoError(t, err)
+
+	_, err = httpdtest.RemoveEventRule(rule, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action2, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action3, http.StatusOK)
+	assert.NoError(t, err)
 }
 
 func TestSyncUploadAction(t *testing.T) {
@@ -4109,6 +4288,13 @@ func getUploadScriptContent(movedPath string, exitStatus int) []byte {
 	content := []byte("#!/bin/sh\n\n")
 	content = append(content, []byte("sleep 1\n")...)
 	content = append(content, []byte(fmt.Sprintf("mv ${SFTPGO_ACTION_PATH} %v\n", movedPath))...)
+	content = append(content, []byte(fmt.Sprintf("exit %d", exitStatus))...)
+	return content
+}
+
+func getSaveProviderObjectScriptContent(outFilePath string, exitStatus int) []byte {
+	content := []byte("#!/bin/sh\n\n")
+	content = append(content, []byte(fmt.Sprintf("echo ${SFTPGO_OBJECT_DATA} > %v\n", outFilePath))...)
 	content = append(content, []byte(fmt.Sprintf("exit %d", exitStatus))...)
 	return content
 }

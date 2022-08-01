@@ -54,7 +54,9 @@ func startScheduler() error {
 	if err != nil {
 		return err
 	}
-	EventManager.loadRules()
+	if fnReloadRules != nil {
+		fnReloadRules()
+	}
 	scheduler.Start()
 	return nil
 }
@@ -77,7 +79,7 @@ func checkDataprovider() {
 }
 
 func checkCacheUpdates() {
-	providerLog(logger.LevelDebug, "start caches check, update time %v", util.GetTimeFromMsecSinceEpoch(lastUserCacheUpdate))
+	providerLog(logger.LevelDebug, "start user cache check, update time %v", util.GetTimeFromMsecSinceEpoch(lastUserCacheUpdate))
 	checkTime := util.GetTimeAsMsSinceEpoch(time.Now())
 	users, err := provider.getRecentlyUpdatedUsers(lastUserCacheUpdate)
 	if err != nil {
@@ -101,8 +103,7 @@ func checkCacheUpdates() {
 	}
 
 	lastUserCacheUpdate = checkTime
-	EventManager.loadRules()
-	providerLog(logger.LevelDebug, "end caches check, new update time %v", util.GetTimeFromMsecSinceEpoch(lastUserCacheUpdate))
+	providerLog(logger.LevelDebug, "end user cache check, new update time %v", util.GetTimeFromMsecSinceEpoch(lastUserCacheUpdate))
 }
 
 func setLastUserUpdate() {

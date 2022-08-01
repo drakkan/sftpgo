@@ -1951,6 +1951,8 @@ func TestHTTPUserAuthEmptyPassword(t *testing.T) {
 	c.CloseIdleConnections()
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+	err = resp.Body.Close()
+	assert.NoError(t, err)
 
 	_, err = getJWTAPIUserTokenFromTestServer(defaultUsername, "")
 	if assert.Error(t, err) {
@@ -1986,6 +1988,8 @@ func TestHTTPAnonymousUser(t *testing.T) {
 	c.CloseIdleConnections()
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+	err = resp.Body.Close()
+	assert.NoError(t, err)
 
 	_, err = getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
 	if assert.Error(t, err) {
@@ -9347,12 +9351,12 @@ func TestUpdateUserQuotaUsageMock(t *testing.T) {
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
-	assert.True(t, dataprovider.QuotaScans.AddUserQuotaScan(user.Username))
+	assert.True(t, common.QuotaScans.AddUserQuotaScan(user.Username))
 	req, _ = http.NewRequest(http.MethodPut, path.Join(quotasBasePath, "users", u.Username, "usage"), bytes.NewBuffer(userAsJSON))
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusConflict, rr)
-	assert.True(t, dataprovider.QuotaScans.RemoveUserQuotaScan(user.Username))
+	assert.True(t, common.QuotaScans.RemoveUserQuotaScan(user.Username))
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(userPath, user.Username), nil)
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
@@ -9624,12 +9628,12 @@ func TestStartQuotaScanMock(t *testing.T) {
 		assert.NoError(t, err)
 	}
 	// simulate a duplicate quota scan
-	dataprovider.QuotaScans.AddUserQuotaScan(user.Username)
+	common.QuotaScans.AddUserQuotaScan(user.Username)
 	req, _ = http.NewRequest(http.MethodPost, path.Join(quotasBasePath, "users", user.Username, "scan"), nil)
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusConflict, rr)
-	assert.True(t, dataprovider.QuotaScans.RemoveUserQuotaScan(user.Username))
+	assert.True(t, common.QuotaScans.RemoveUserQuotaScan(user.Username))
 
 	req, _ = http.NewRequest(http.MethodPost, path.Join(quotasBasePath, "users", user.Username, "scan"), nil)
 	setBearerForReq(req, token)
@@ -9743,13 +9747,13 @@ func TestUpdateFolderQuotaUsageMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
 
-	assert.True(t, dataprovider.QuotaScans.AddVFolderQuotaScan(folderName))
+	assert.True(t, common.QuotaScans.AddVFolderQuotaScan(folderName))
 	req, _ = http.NewRequest(http.MethodPut, path.Join(quotasBasePath, "folders", folder.Name, "usage"),
 		bytes.NewBuffer(folderAsJSON))
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusConflict, rr)
-	assert.True(t, dataprovider.QuotaScans.RemoveVFolderQuotaScan(folderName))
+	assert.True(t, common.QuotaScans.RemoveVFolderQuotaScan(folderName))
 
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(folderPath, folderName), nil)
 	setBearerForReq(req, token)
@@ -9778,12 +9782,12 @@ func TestStartFolderQuotaScanMock(t *testing.T) {
 		assert.NoError(t, err)
 	}
 	// simulate a duplicate quota scan
-	dataprovider.QuotaScans.AddVFolderQuotaScan(folderName)
+	common.QuotaScans.AddVFolderQuotaScan(folderName)
 	req, _ = http.NewRequest(http.MethodPost, path.Join(quotasBasePath, "folders", folder.Name, "scan"), nil)
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusConflict, rr)
-	assert.True(t, dataprovider.QuotaScans.RemoveVFolderQuotaScan(folderName))
+	assert.True(t, common.QuotaScans.RemoveVFolderQuotaScan(folderName))
 	// and now a real quota scan
 	_, err = os.Stat(mappedPath)
 	if err != nil && errors.Is(err, fs.ErrNotExist) {
@@ -20392,7 +20396,7 @@ func startOIDCMockServer() {
 
 func waitForUsersQuotaScan(t *testing.T, token string) {
 	for {
-		var scans []dataprovider.ActiveQuotaScan
+		var scans []common.ActiveQuotaScan
 		req, _ := http.NewRequest(http.MethodGet, quotaScanPath, nil)
 		setBearerForReq(req, token)
 		rr := executeRequest(req)
@@ -20410,7 +20414,7 @@ func waitForUsersQuotaScan(t *testing.T, token string) {
 }
 
 func waitForFoldersQuotaScanPath(t *testing.T, token string) {
-	var scans []dataprovider.ActiveVirtualFolderQuotaScan
+	var scans []common.ActiveVirtualFolderQuotaScan
 	for {
 		req, _ := http.NewRequest(http.MethodGet, quotaScanVFolderPath, nil)
 		setBearerForReq(req, token)

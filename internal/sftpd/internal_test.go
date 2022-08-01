@@ -155,7 +155,7 @@ func newMockOsFs(err, statErr error, atomicUpload bool, connectionID, rootDir st
 }
 
 func TestRemoveNonexistentQuotaScan(t *testing.T) {
-	assert.False(t, dataprovider.QuotaScans.RemoveUserQuotaScan("username"))
+	assert.False(t, common.QuotaScans.RemoveUserQuotaScan("username"))
 }
 
 func TestGetOSOpenFlags(t *testing.T) {

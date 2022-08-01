@@ -191,6 +191,9 @@ var (
 	lastLoginMinDelay            = 10 * time.Minute
 	usernameRegex                = regexp.MustCompile("^[a-zA-Z0-9-_.~]+$")
 	tempPath                     string
+	fnReloadRules                FnReloadRules
+	fnRemoveRule                 FnRemoveRule
+	fnHandleRuleForProviderEvent FnHandleRuleForProviderEvent
 )
 
 func initSQLTables() {
@@ -212,6 +215,22 @@ func initSQLTables() {
 	sqlTableRulesActionsMapping = "rules_actions_mapping"
 	sqlTableTasks = "tasks"
 	sqlTableSchemaVersion = "schema_version"
+}
+
+// FnReloadRules defined the callback to reload event rules
+type FnReloadRules func()
+
+// FnRemoveRule defines the callback to remove an event rule
+type FnRemoveRule func(name string)
+
+// FnHandleRuleForProviderEvent define the callback to handle event rules for provider events
+type FnHandleRuleForProviderEvent func(operation, executor, ip, objectType, objectName string, object plugin.Renderer)
+
+// SetEventRulesCallbacks sets the event rules callbacks
+func SetEventRulesCallbacks(reload FnReloadRules, remove FnRemoveRule, handle FnHandleRuleForProviderEvent) {
+	fnReloadRules = reload
+	fnRemoveRule = remove
+	fnHandleRuleForProviderEvent = handle
 }
 
 type schemaVersion struct {
@@ -487,29 +506,34 @@ func (c *Config) requireCustomTLSForMySQL() bool {
 func (c *Config) doBackup() error {
 	now := time.Now().UTC()
 	outputFile := filepath.Join(c.BackupsPath, fmt.Sprintf("backup_%s_%d.json", now.Weekday(), now.Hour()))
-	eventManagerLog(logger.LevelDebug, "starting backup to file %q", outputFile)
+	providerLog(logger.LevelDebug, "starting backup to file %q", outputFile)
 	err := os.MkdirAll(filepath.Dir(outputFile), 0700)
 	if err != nil {
-		eventManagerLog(logger.LevelError, "unable to create backup dir %q: %v", outputFile, err)
+		providerLog(logger.LevelError, "unable to create backup dir %q: %v", outputFile, err)
 		return fmt.Errorf("unable to create backup dir: %w", err)
 	}
 	backup, err := DumpData()
 	if err != nil {
-		eventManagerLog(logger.LevelError, "unable to execute backup: %v", err)
+		providerLog(logger.LevelError, "unable to execute backup: %v", err)
 		return fmt.Errorf("unable to dump backup data: %w", err)
 	}
 	dump, err := json.Marshal(backup)
 	if err != nil {
-		eventManagerLog(logger.LevelError, "unable to marshal backup as JSON: %v", err)
+		providerLog(logger.LevelError, "unable to marshal backup as JSON: %v", err)
 		return fmt.Errorf("unable to marshal backup data as JSON: %w", err)
 	}
 	err = os.WriteFile(outputFile, dump, 0600)
 	if err != nil {
-		eventManagerLog(logger.LevelError, "unable to save backup: %v", err)
+		providerLog(logger.LevelError, "unable to save backup: %v", err)
 		return fmt.Errorf("unable to save backup: %w", err)
 	}
-	eventManagerLog(logger.LevelDebug, "auto backup saved to %q", outputFile)
+	providerLog(logger.LevelDebug, "backup saved to %q", outputFile)
 	return nil
+}
+
+// ExecuteBackup executes a backup
+func ExecuteBackup() error {
+	return config.doBackup()
 }
 
 // ConvertName converts the given name based on the configured rules
@@ -1568,7 +1592,9 @@ func AddEventAction(action *BaseEventAction, executor, ipAddress string) error {
 func UpdateEventAction(action *BaseEventAction, executor, ipAddress string) error {
 	err := provider.updateEventAction(action)
 	if err == nil {
-		EventManager.loadRules()
+		if fnReloadRules != nil {
+			fnReloadRules()
+		}
 		executeAction(operationUpdate, executor, ipAddress, actionObjectEventAction, action.Name, action)
 	}
 	return err
@@ -1597,6 +1623,11 @@ func GetEventRules(limit, offset int, order string) ([]EventRule, error) {
 	return provider.getEventRules(limit, offset, order)
 }
 
+// GetRecentlyUpdatedRules returns the event rules updated after the specified time
+func GetRecentlyUpdatedRules(after int64) ([]EventRule, error) {
+	return provider.getRecentlyUpdatedRules(after)
+}
+
 // EventRuleExists returns the event rule with the given name if it exists
 func EventRuleExists(name string) (EventRule, error) {
 	name = config.convertName(name)
@@ -1608,7 +1639,9 @@ func AddEventRule(rule *EventRule, executor, ipAddress string) error {
 	rule.Name = config.convertName(rule.Name)
 	err := provider.addEventRule(rule)
 	if err == nil {
-		EventManager.loadRules()
+		if fnReloadRules != nil {
+			fnReloadRules()
+		}
 		executeAction(operationAdd, executor, ipAddress, actionObjectEventRule, rule.Name, rule)
 	}
 	return err
@@ -1618,7 +1651,9 @@ func AddEventRule(rule *EventRule, executor, ipAddress string) error {
 func UpdateEventRule(rule *EventRule, executor, ipAddress string) error {
 	err := provider.updateEventRule(rule)
 	if err == nil {
-		EventManager.loadRules()
+		if fnReloadRules != nil {
+			fnReloadRules()
+		}
 		executeAction(operationUpdate, executor, ipAddress, actionObjectEventRule, rule.Name, rule)
 	}
 	return err
@@ -1633,10 +1668,37 @@ func DeleteEventRule(name string, executor, ipAddress string) error {
 	}
 	err = provider.deleteEventRule(rule, config.IsShared == 1)
 	if err == nil {
-		EventManager.RemoveRule(rule.Name)
+		if fnRemoveRule != nil {
+			fnRemoveRule(rule.Name)
+		}
 		executeAction(operationDelete, executor, ipAddress, actionObjectEventRule, rule.Name, &rule)
 	}
 	return err
+}
+
+// RemoveEventRule delets an existing event rule without marking it as deleted
+func RemoveEventRule(rule EventRule) error {
+	return provider.deleteEventRule(rule, false)
+}
+
+// GetTaskByName returns the task with the specified name
+func GetTaskByName(name string) (Task, error) {
+	return provider.getTaskByName(name)
+}
+
+// AddTask add a task with the specified name
+func AddTask(name string) error {
+	return provider.addTask(name)
+}
+
+// UpdateTask updates the task with the specified name and version
+func UpdateTask(name string, version int64) error {
+	return provider.updateTask(name, version)
+}
+
+// UpdateTaskTimestamp updates the timestamp for the task with the specified name
+func UpdateTaskTimestamp(name string) error {
+	return provider.updateTaskTimestamp(name)
 }
 
 // HasAdmin returns true if the first admin has been created
@@ -1969,6 +2031,16 @@ func GetFolderByName(name string) (vfs.BaseVirtualFolder, error) {
 // GetFolders returns an array of folders respecting limit and offset
 func GetFolders(limit, offset int, order string, minimal bool) ([]vfs.BaseVirtualFolder, error) {
 	return provider.getFolders(limit, offset, order, minimal)
+}
+
+// DumpUsers returns all users, including confidential data
+func DumpUsers() ([]User, error) {
+	return provider.dumpUsers()
+}
+
+// DumpFolders returns all folders, including confidential data
+func DumpFolders() ([]vfs.BaseVirtualFolder, error) {
+	return provider.dumpFolders()
 }
 
 // DumpData returns all users, groups, folders, admins, api keys, shares, actions, rules

@@ -833,8 +833,8 @@ func GetEventRules(limit, offset int64, expectedStatusCode int) ([]dataprovider.
 }
 
 // GetQuotaScans gets active quota scans for users and checks the received HTTP Status code against expectedStatusCode.
-func GetQuotaScans(expectedStatusCode int) ([]dataprovider.ActiveQuotaScan, []byte, error) {
-	var quotaScans []dataprovider.ActiveQuotaScan
+func GetQuotaScans(expectedStatusCode int) ([]common.ActiveQuotaScan, []byte, error) {
+	var quotaScans []common.ActiveQuotaScan
 	var body []byte
 	resp, err := sendHTTPRequest(http.MethodGet, buildURLRelativeToBase(quotaScanPath), nil, "", getDefaultToken())
 	if err != nil {
@@ -1077,8 +1077,8 @@ func GetFolders(limit int64, offset int64, expectedStatusCode int) ([]vfs.BaseVi
 }
 
 // GetFoldersQuotaScans gets active quota scans for folders and checks the received HTTP Status code against expectedStatusCode.
-func GetFoldersQuotaScans(expectedStatusCode int) ([]dataprovider.ActiveVirtualFolderQuotaScan, []byte, error) {
-	var quotaScans []dataprovider.ActiveVirtualFolderQuotaScan
+func GetFoldersQuotaScans(expectedStatusCode int) ([]common.ActiveVirtualFolderQuotaScan, []byte, error) {
+	var quotaScans []common.ActiveVirtualFolderQuotaScan
 	var body []byte
 	resp, err := sendHTTPRequest(http.MethodGet, buildURLRelativeToBase(quotaScanVFolderPath), nil, "", getDefaultToken())
 	if err != nil {

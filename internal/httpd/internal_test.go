@@ -1421,7 +1421,7 @@ func TestQuotaScanInvalidFs(t *testing.T) {
 			Provider: sdk.S3FilesystemProvider,
 		},
 	}
-	dataprovider.QuotaScans.AddUserQuotaScan(user.Username)
+	common.QuotaScans.AddUserQuotaScan(user.Username)
 	err := doUserQuotaScan(user)
 	assert.Error(t, err)
 }

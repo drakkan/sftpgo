@@ -21,6 +21,7 @@ import (
 
 	"github.com/go-chi/render"
 
+	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/vfs"
@@ -43,12 +44,12 @@ type transferQuotaUsage struct {
 
 func getUsersQuotaScans(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	render.JSON(w, r, dataprovider.QuotaScans.GetUsersQuotaScans())
+	render.JSON(w, r, common.QuotaScans.GetUsersQuotaScans())
 }
 
 func getFoldersQuotaScans(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	render.JSON(w, r, dataprovider.QuotaScans.GetVFoldersQuotaScans())
+	render.JSON(w, r, common.QuotaScans.GetVFoldersQuotaScans())
 }
 
 func updateUserQuotaUsage(w http.ResponseWriter, r *http.Request) {
@@ -141,11 +142,11 @@ func doUpdateUserQuotaUsage(w http.ResponseWriter, r *http.Request, username str
 			"", http.StatusBadRequest)
 		return
 	}
-	if !dataprovider.QuotaScans.AddUserQuotaScan(user.Username) {
+	if !common.QuotaScans.AddUserQuotaScan(user.Username) {
 		sendAPIResponse(w, r, err, "A quota scan is in progress for this user", http.StatusConflict)
 		return
 	}
-	defer dataprovider.QuotaScans.RemoveUserQuotaScan(user.Username)
+	defer common.QuotaScans.RemoveUserQuotaScan(user.Username)
 	err = dataprovider.UpdateUserQuota(&user, usage.UsedQuotaFiles, usage.UsedQuotaSize, mode == quotaUpdateModeReset)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
@@ -170,11 +171,11 @@ func doUpdateFolderQuotaUsage(w http.ResponseWriter, r *http.Request, name strin
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	if !dataprovider.QuotaScans.AddVFolderQuotaScan(folder.Name) {
+	if !common.QuotaScans.AddVFolderQuotaScan(folder.Name) {
 		sendAPIResponse(w, r, err, "A quota scan is in progress for this folder", http.StatusConflict)
 		return
 	}
-	defer dataprovider.QuotaScans.RemoveVFolderQuotaScan(folder.Name)
+	defer common.QuotaScans.RemoveVFolderQuotaScan(folder.Name)
 	err = dataprovider.UpdateVirtualFolderQuota(&folder, usage.UsedQuotaFiles, usage.UsedQuotaSize, mode == quotaUpdateModeReset)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
@@ -193,7 +194,7 @@ func doStartUserQuotaScan(w http.ResponseWriter, r *http.Request, username strin
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	if !dataprovider.QuotaScans.AddUserQuotaScan(user.Username) {
+	if !common.QuotaScans.AddUserQuotaScan(user.Username) {
 		sendAPIResponse(w, r, nil, fmt.Sprintf("Another scan is already in progress for user %#v", username),
 			http.StatusConflict)
 		return
@@ -212,7 +213,7 @@ func doStartFolderQuotaScan(w http.ResponseWriter, r *http.Request, name string)
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	if !dataprovider.QuotaScans.AddVFolderQuotaScan(folder.Name) {
+	if !common.QuotaScans.AddVFolderQuotaScan(folder.Name) {
 		sendAPIResponse(w, r, err, fmt.Sprintf("Another scan is already in progress for folder %#v", name),
 			http.StatusConflict)
 		return
@@ -222,7 +223,7 @@ func doStartFolderQuotaScan(w http.ResponseWriter, r *http.Request, name string)
 }
 
 func doUserQuotaScan(user dataprovider.User) error {
-	defer dataprovider.QuotaScans.RemoveUserQuotaScan(user.Username)
+	defer common.QuotaScans.RemoveUserQuotaScan(user.Username)
 	numFiles, size, err := user.ScanQuota()
 	if err != nil {
 		logger.Warn(logSender, "", "error scanning user quota %#v: %v", user.Username, err)
@@ -234,7 +235,7 @@ func doUserQuotaScan(user dataprovider.User) error {
 }
 
 func doFolderQuotaScan(folder vfs.BaseVirtualFolder) error {
-	defer dataprovider.QuotaScans.RemoveVFolderQuotaScan(folder.Name)
+	defer common.QuotaScans.RemoveVFolderQuotaScan(folder.Name)
 	f := vfs.VirtualFolder{
 		BaseVirtualFolder: folder,
 		VirtualPath:       "/",

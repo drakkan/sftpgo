@@ -102,7 +102,7 @@ func ExecuteActionNotification(conn *BaseConnection, operation, filePath, virtua
 ) error {
 	hasNotifiersPlugin := plugin.Handler.HasNotifiers()
 	hasHook := util.Contains(Config.Actions.ExecuteOn, operation)
-	hasRules := dataprovider.EventManager.HasFsRules()
+	hasRules := eventManager.hasFsRules()
 	if !hasHook && !hasNotifiersPlugin && !hasRules {
 		return nil
 	}
@@ -113,7 +113,7 @@ func ExecuteActionNotification(conn *BaseConnection, operation, filePath, virtua
 	}
 	var errRes error
 	if hasRules {
-		errRes = dataprovider.EventManager.HandleFsEvent(dataprovider.EventParams{
+		errRes = eventManager.handleFsEvent(EventParams{
 			Name:              notification.Username,
 			Event:             notification.Action,
 			Status:            notification.Status,
