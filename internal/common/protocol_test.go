@@ -3213,7 +3213,10 @@ func TestEventRuleProviderEvents(t *testing.T) {
 	// update the folder
 	_, _, err = httpdtest.UpdateFolder(folder, http.StatusOK)
 	assert.NoError(t, err)
-	if assert.FileExists(t, outPath) {
+	if assert.Eventually(t, func() bool {
+		_, err := os.Stat(outPath)
+		return err == nil
+	}, 2*time.Second, 100*time.Millisecond) {
 		content, err := os.ReadFile(outPath)
 		assert.NoError(t, err)
 		var folderGet vfs.BaseVirtualFolder

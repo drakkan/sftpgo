@@ -107,23 +107,24 @@ func NewAzBlobFs(connectionID, localTempDir, mountPath string, config AzBlobFsCo
 		if err != nil {
 			return fs, fmt.Errorf("invalid SAS URL: %w", err)
 		}
+		svc, err := azblob.NewServiceClientWithNoCredential(fs.config.SASURL.GetPayload(), clientOptions)
+		if err != nil {
+			return fs, fmt.Errorf("invalid credentials: %v", err)
+		}
 		if parts.ContainerName != "" {
 			if fs.config.Container != "" && fs.config.Container != parts.ContainerName {
 				return fs, fmt.Errorf("container name in SAS URL %#v and container provided %#v do not match",
 					parts.ContainerName, fs.config.Container)
 			}
 			fs.config.Container = parts.ContainerName
+			fs.containerClient, err = svc.NewContainerClient("")
 		} else {
 			if fs.config.Container == "" {
 				return fs, errors.New("container is required with this SAS URL")
 			}
-		}
-		svc, err := azblob.NewServiceClientWithNoCredential(fs.config.SASURL.GetPayload(), clientOptions)
-		if err != nil {
-			return fs, fmt.Errorf("invalid credentials: %v", err)
+			fs.containerClient, err = svc.NewContainerClient(fs.config.Container)
 		}
 		fs.hasContainerAccess = false
-		fs.containerClient, err = svc.NewContainerClient(fs.config.Container)
 		return fs, err
 	}
 

@@ -545,7 +545,7 @@ func TestIdleConnections(t *testing.T) {
 	cFTP.lastActivity = time.Now().Add(-24 * time.Hour).UnixNano()
 	sshConn2.lastActivity = c.lastActivity
 	startPeriodicChecks(100 * time.Millisecond)
-	assert.Eventually(t, func() bool { return len(Connections.GetStats()) == 0 }, 1*time.Second, 200*time.Millisecond)
+	assert.Eventually(t, func() bool { return len(Connections.GetStats()) == 0 }, 2*time.Second, 200*time.Millisecond)
 	assert.Eventually(t, func() bool {
 		Connections.RLock()
 		defer Connections.RUnlock()
