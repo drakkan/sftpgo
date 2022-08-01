@@ -156,7 +156,7 @@ func (fs *CryptFs) Create(name string, flag int) (File, *PipeWriter, func(), err
 	if flag == 0 {
 		f, err = os.Create(name)
 	} else {
-		f, err = os.OpenFile(name, flag, os.ModePerm)
+		f, err = os.OpenFile(name, flag, 0666)
 	}
 	if err != nil {
 		return nil, nil, nil, err
