@@ -80,13 +80,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                     <span>{{.SharesTitle}}</span></a>
             </li>
             {{end}}
-            {{if not .HasExternalLogin}}
             <li class="nav-item {{if eq .CurrentURL .ProfileURL}}active{{end}}">
                 <a class="nav-link" href="{{.ProfileURL}}">
                     <i class="fas fa-user"></i>
                     <span>{{.ProfileTitle}}</span></a>
             </li>
-            {{end}}
             {{if .LoggedUser.CanManageMFA}}
             <li class="nav-item {{if eq .CurrentURL .MFAURL}}active{{end}}">
                 <a class="nav-link" href="{{.MFAURL}}">

@@ -326,6 +326,10 @@ func (cc mockFTPClientContext) GetLastCommand() string {
 	return ""
 }
 
+func (cc mockFTPClientContext) SetTLSRequirement(requirement ftpserver.TLSRequirement) error {
+	return nil
+}
+
 func (cc mockFTPClientContext) GetLastDataChannel() ftpserver.DataChannel {
 	return cc.lastDataChannel
 }
