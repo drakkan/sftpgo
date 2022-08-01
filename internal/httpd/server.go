@@ -1454,10 +1454,9 @@ func (s *httpdServer) setupWebClientRoutes() {
 				Delete(webClientDirsPath, deleteUserDir)
 			router.With(s.checkSecondFactorRequirement, s.refreshCookie).
 				Get(webClientDownloadZipPath, s.handleWebClientDownloadZip)
-			router.With(s.checkSecondFactorRequirement, s.refreshCookie, s.requireBuiltinLogin).
-				Get(webClientProfilePath, s.handleClientGetProfile)
-			router.With(s.checkSecondFactorRequirement, s.requireBuiltinLogin).
-				Post(webClientProfilePath, s.handleWebClientProfilePost)
+			router.With(s.checkSecondFactorRequirement, s.refreshCookie).Get(webClientProfilePath,
+				s.handleClientGetProfile)
+			router.With(s.checkSecondFactorRequirement).Post(webClientProfilePath, s.handleWebClientProfilePost)
 			router.With(s.checkSecondFactorRequirement, s.checkHTTPUserPerm(sdk.WebClientPasswordChangeDisabled)).
 				Get(webChangeClientPwdPath, s.handleWebClientChangePwd)
 			router.With(s.checkSecondFactorRequirement, s.checkHTTPUserPerm(sdk.WebClientPasswordChangeDisabled)).

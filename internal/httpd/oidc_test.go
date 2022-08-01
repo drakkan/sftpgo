@@ -484,7 +484,7 @@ func TestOIDCLoginLogout(t *testing.T) {
 	r.RequestURI = webClientProfilePath
 	r.Header.Set("Cookie", fmt.Sprintf("%v=%v", oidcCookieKey, tokenCookie))
 	server.router.ServeHTTP(rr, r)
-	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Equal(t, http.StatusOK, rr.Code)
 	// the user can access the allowed pages
 	rr = httptest.NewRecorder()
 	r, err = http.NewRequest(http.MethodGet, webClientFilesPath, nil)

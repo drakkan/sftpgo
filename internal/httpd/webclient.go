@@ -94,25 +94,24 @@ func isZeroTime(t time.Time) bool {
 }
 
 type baseClientPage struct {
-	Title            string
-	CurrentURL       string
-	FilesURL         string
-	SharesURL        string
-	ShareURL         string
-	ProfileURL       string
-	ChangePwdURL     string
-	StaticURL        string
-	LogoutURL        string
-	MFAURL           string
-	MFATitle         string
-	FilesTitle       string
-	SharesTitle      string
-	ProfileTitle     string
-	Version          string
-	CSRFToken        string
-	HasExternalLogin bool
-	LoggedUser       *dataprovider.User
-	Branding         UIBranding
+	Title        string
+	CurrentURL   string
+	FilesURL     string
+	SharesURL    string
+	ShareURL     string
+	ProfileURL   string
+	ChangePwdURL string
+	StaticURL    string
+	LogoutURL    string
+	MFAURL       string
+	MFATitle     string
+	FilesTitle   string
+	SharesTitle  string
+	ProfileTitle string
+	Version      string
+	CSRFToken    string
+	LoggedUser   *dataprovider.User
+	Branding     UIBranding
 }
 
 type dirMapping struct {
@@ -351,25 +350,24 @@ func (s *httpdServer) getBaseClientPageData(title, currentURL string, r *http.Re
 	v := version.Get()
 
 	return baseClientPage{
-		Title:            title,
-		CurrentURL:       currentURL,
-		FilesURL:         webClientFilesPath,
-		SharesURL:        webClientSharesPath,
-		ShareURL:         webClientSharePath,
-		ProfileURL:       webClientProfilePath,
-		ChangePwdURL:     webChangeClientPwdPath,
-		StaticURL:        webStaticFilesPath,
-		LogoutURL:        webClientLogoutPath,
-		MFAURL:           webClientMFAPath,
-		MFATitle:         pageClient2FATitle,
-		FilesTitle:       pageClientFilesTitle,
-		SharesTitle:      pageClientSharesTitle,
-		ProfileTitle:     pageClientProfileTitle,
-		Version:          fmt.Sprintf("%v-%v", v.Version, v.CommitHash),
-		CSRFToken:        csrfToken,
-		HasExternalLogin: isLoggedInWithOIDC(r),
-		LoggedUser:       getUserFromToken(r),
-		Branding:         s.binding.Branding.WebClient,
+		Title:        title,
+		CurrentURL:   currentURL,
+		FilesURL:     webClientFilesPath,
+		SharesURL:    webClientSharesPath,
+		ShareURL:     webClientSharePath,
+		ProfileURL:   webClientProfilePath,
+		ChangePwdURL: webChangeClientPwdPath,
+		StaticURL:    webStaticFilesPath,
+		LogoutURL:    webClientLogoutPath,
+		MFAURL:       webClientMFAPath,
+		MFATitle:     pageClient2FATitle,
+		FilesTitle:   pageClientFilesTitle,
+		SharesTitle:  pageClientSharesTitle,
+		ProfileTitle: pageClientProfileTitle,
+		Version:      fmt.Sprintf("%v-%v", v.Version, v.CommitHash),
+		CSRFToken:    csrfToken,
+		LoggedUser:   getUserFromToken(r),
+		Branding:     s.binding.Branding.WebClient,
 	}
 }
 
