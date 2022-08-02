@@ -639,13 +639,16 @@ type SetupConfig struct {
 
 // CorsConfig defines the CORS configuration
 type CorsConfig struct {
-	AllowedOrigins   []string `json:"allowed_origins" mapstructure:"allowed_origins"`
-	AllowedMethods   []string `json:"allowed_methods" mapstructure:"allowed_methods"`
-	AllowedHeaders   []string `json:"allowed_headers" mapstructure:"allowed_headers"`
-	ExposedHeaders   []string `json:"exposed_headers" mapstructure:"exposed_headers"`
-	AllowCredentials bool     `json:"allow_credentials" mapstructure:"allow_credentials"`
-	Enabled          bool     `json:"enabled" mapstructure:"enabled"`
-	MaxAge           int      `json:"max_age" mapstructure:"max_age"`
+	AllowedOrigins       []string `json:"allowed_origins" mapstructure:"allowed_origins"`
+	AllowedMethods       []string `json:"allowed_methods" mapstructure:"allowed_methods"`
+	AllowedHeaders       []string `json:"allowed_headers" mapstructure:"allowed_headers"`
+	ExposedHeaders       []string `json:"exposed_headers" mapstructure:"exposed_headers"`
+	AllowCredentials     bool     `json:"allow_credentials" mapstructure:"allow_credentials"`
+	Enabled              bool     `json:"enabled" mapstructure:"enabled"`
+	MaxAge               int      `json:"max_age" mapstructure:"max_age"`
+	OptionsPassthrough   bool     `json:"options_passthrough" mapstructure:"options_passthrough"`
+	OptionsSuccessStatus int      `json:"options_success_status" mapstructure:"options_success_status"`
+	AllowPrivateNetwork  bool     `json:"allow_private_network" mapstructure:"allow_private_network"`
 }
 
 // Conf httpd daemon configuration

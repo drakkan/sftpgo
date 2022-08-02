@@ -194,6 +194,9 @@ The configuration file contains the following sections:
     - `exposed_headers`, list of strings.
     - `allow_credentials` boolean.
     - `max_age`, integer.
+    - `options_passthrough`, boolean.
+    - `options_success_status`, integer.
+    - `allow_private_network`, boolean.
   - `cache` struct containing cache configuration for the authenticated users.
     - `enabled`, boolean, set to true to enable user caching. Default: true.
     - `expiration_time`, integer. Expiration time, in minutes, for the cached users. 0 means unlimited. Default: 0.
@@ -326,6 +329,9 @@ The configuration file contains the following sections:
     - `exposed_headers`, list of strings.
     - `allow_credentials` boolean.
     - `max_age`, integer.
+    - `options_passthrough`, boolean.
+    - `options_success_status`, integer.
+    - `allow_private_network`, boolean.
   - `setup` struct containing configurations for the initial setup screen
     - `installation_code`, string. If set, this installation code will be required when creating the first admin account. Please note that even if set using an environment variable this field is read at SFTPGo startup and not at runtime. This is not a license key or similar, the purpose here is to prevent anyone who can access to the initial setup screen from creating an admin user. Default: blank.
     - `installation_code_hint`, string. Description for the installation code input field. Default: `Installation code`.

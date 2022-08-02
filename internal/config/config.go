@@ -285,13 +285,16 @@ func Init() {
 			CACertificates:     []string{},
 			CARevocationLists:  []string{},
 			Cors: webdavd.CorsConfig{
-				Enabled:          false,
-				AllowedOrigins:   []string{},
-				AllowedMethods:   []string{},
-				AllowedHeaders:   []string{},
-				ExposedHeaders:   []string{},
-				AllowCredentials: false,
-				MaxAge:           0,
+				Enabled:              false,
+				AllowedOrigins:       []string{},
+				AllowedMethods:       []string{},
+				AllowedHeaders:       []string{},
+				ExposedHeaders:       []string{},
+				AllowCredentials:     false,
+				MaxAge:               0,
+				OptionsPassthrough:   false,
+				OptionsSuccessStatus: 0,
+				AllowPrivateNetwork:  false,
 			},
 			Cache: webdavd.Cache{
 				Users: webdavd.UsersCacheConfig{
@@ -373,13 +376,16 @@ func Init() {
 			TokenValidation:    0,
 			MaxUploadFileSize:  1048576000,
 			Cors: httpd.CorsConfig{
-				Enabled:          false,
-				AllowedOrigins:   []string{},
-				AllowedMethods:   []string{},
-				AllowedHeaders:   []string{},
-				ExposedHeaders:   []string{},
-				AllowCredentials: false,
-				MaxAge:           0,
+				Enabled:              false,
+				AllowedOrigins:       []string{},
+				AllowedMethods:       []string{},
+				AllowedHeaders:       []string{},
+				ExposedHeaders:       []string{},
+				AllowCredentials:     false,
+				MaxAge:               0,
+				OptionsPassthrough:   false,
+				OptionsSuccessStatus: 0,
+				AllowPrivateNetwork:  false,
 			},
 			Setup: httpd.SetupConfig{
 				InstallationCode:     "",
@@ -1899,6 +1905,9 @@ func setViperDefaults() {
 	viper.SetDefault("webdavd.cors.allowed_headers", globalConf.WebDAVD.Cors.AllowedHeaders)
 	viper.SetDefault("webdavd.cors.exposed_headers", globalConf.WebDAVD.Cors.ExposedHeaders)
 	viper.SetDefault("webdavd.cors.allow_credentials", globalConf.WebDAVD.Cors.AllowCredentials)
+	viper.SetDefault("webdavd.cors.options_passthrough", globalConf.WebDAVD.Cors.OptionsPassthrough)
+	viper.SetDefault("webdavd.cors.options_success_status", globalConf.WebDAVD.Cors.OptionsSuccessStatus)
+	viper.SetDefault("webdavd.cors.allow_private_network", globalConf.WebDAVD.Cors.AllowPrivateNetwork)
 	viper.SetDefault("webdavd.cors.max_age", globalConf.WebDAVD.Cors.MaxAge)
 	viper.SetDefault("webdavd.cache.users.expiration_time", globalConf.WebDAVD.Cache.Users.ExpirationTime)
 	viper.SetDefault("webdavd.cache.users.max_size", globalConf.WebDAVD.Cache.Users.MaxSize)
@@ -1961,6 +1970,9 @@ func setViperDefaults() {
 	viper.SetDefault("httpd.cors.exposed_headers", globalConf.HTTPDConfig.Cors.ExposedHeaders)
 	viper.SetDefault("httpd.cors.allow_credentials", globalConf.HTTPDConfig.Cors.AllowCredentials)
 	viper.SetDefault("httpd.cors.max_age", globalConf.HTTPDConfig.Cors.MaxAge)
+	viper.SetDefault("httpd.cors.options_passthrough", globalConf.HTTPDConfig.Cors.OptionsPassthrough)
+	viper.SetDefault("httpd.cors.options_success_status", globalConf.HTTPDConfig.Cors.OptionsSuccessStatus)
+	viper.SetDefault("httpd.cors.allow_private_network", globalConf.HTTPDConfig.Cors.AllowPrivateNetwork)
 	viper.SetDefault("httpd.setup.installation_code", globalConf.HTTPDConfig.Setup.InstallationCode)
 	viper.SetDefault("httpd.setup.installation_code_hint", globalConf.HTTPDConfig.Setup.InstallationCodeHint)
 	viper.SetDefault("httpd.hide_support_link", globalConf.HTTPDConfig.HideSupportLink)

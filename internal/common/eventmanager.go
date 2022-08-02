@@ -747,6 +747,11 @@ func (j *eventCronJob) Run() {
 		ticker := time.NewTicker(updateInterval)
 		done := make(chan bool)
 
+		defer func() {
+			done <- true
+			ticker.Stop()
+		}()
+
 		go func(taskName string) {
 			eventManagerLog(logger.LevelDebug, "update task %q timestamp worker started", taskName)
 			for {
@@ -762,9 +767,6 @@ func (j *eventCronJob) Run() {
 		}(task.Name)
 
 		executeRuleAsyncActions(rule, EventParams{}, nil)
-
-		done <- true
-		ticker.Stop()
 	} else {
 		executeRuleAsyncActions(rule, EventParams{}, nil)
 	}

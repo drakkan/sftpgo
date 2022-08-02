@@ -165,7 +165,10 @@
       "allowed_headers": [],
       "exposed_headers": [],
       "allow_credentials": false,
-      "max_age": 0
+      "max_age": 0,
+      "options_passthrough": false,
+      "options_success_status": 0,
+      "allow_private_network": false
     },
     "cache": {
       "users": {
@@ -330,7 +333,10 @@
       "allowed_headers": [],
       "exposed_headers": [],
       "allow_credentials": false,
-      "max_age": 0
+      "max_age": 0,
+      "options_passthrough": false,
+      "options_success_status": 0,
+      "allow_private_network": false
     },
     "setup": {
       "installation_code": "",

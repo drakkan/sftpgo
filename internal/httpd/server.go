@@ -1138,12 +1138,15 @@ func (s *httpdServer) initializeRouter() {
 	}
 	if s.cors.Enabled {
 		c := cors.New(cors.Options{
-			AllowedOrigins:   util.RemoveDuplicates(s.cors.AllowedOrigins, true),
-			AllowedMethods:   util.RemoveDuplicates(s.cors.AllowedMethods, true),
-			AllowedHeaders:   util.RemoveDuplicates(s.cors.AllowedHeaders, true),
-			ExposedHeaders:   util.RemoveDuplicates(s.cors.ExposedHeaders, true),
-			MaxAge:           s.cors.MaxAge,
-			AllowCredentials: s.cors.AllowCredentials,
+			AllowedOrigins:       util.RemoveDuplicates(s.cors.AllowedOrigins, true),
+			AllowedMethods:       util.RemoveDuplicates(s.cors.AllowedMethods, true),
+			AllowedHeaders:       util.RemoveDuplicates(s.cors.AllowedHeaders, true),
+			ExposedHeaders:       util.RemoveDuplicates(s.cors.ExposedHeaders, true),
+			MaxAge:               s.cors.MaxAge,
+			AllowCredentials:     s.cors.AllowCredentials,
+			OptionsPassthrough:   s.cors.OptionsPassthrough,
+			OptionsSuccessStatus: s.cors.OptionsSuccessStatus,
+			AllowPrivateNetwork:  s.cors.AllowPrivateNetwork,
 		})
 		s.router.Use(c.Handler)
 	}
