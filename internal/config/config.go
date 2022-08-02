@@ -81,18 +81,19 @@ var (
 		Debug:                      false,
 	}
 	defaultWebDAVDBinding = webdavd.Binding{
-		Address:             "",
-		Port:                0,
-		EnableHTTPS:         false,
-		CertificateFile:     "",
-		CertificateKeyFile:  "",
-		MinTLSVersion:       12,
-		ClientAuthType:      0,
-		TLSCipherSuites:     nil,
-		Prefix:              "",
-		ProxyAllowed:        nil,
-		ClientIPProxyHeader: "",
-		ClientIPHeaderDepth: 0,
+		Address:              "",
+		Port:                 0,
+		EnableHTTPS:          false,
+		CertificateFile:      "",
+		CertificateKeyFile:   "",
+		MinTLSVersion:        12,
+		ClientAuthType:       0,
+		TLSCipherSuites:      nil,
+		Prefix:               "",
+		ProxyAllowed:         nil,
+		ClientIPProxyHeader:  "",
+		ClientIPHeaderDepth:  0,
+		DisableWWWAuthHeader: false,
 	}
 	defaultHTTPDBinding = httpd.Binding{
 		Address:               "",
@@ -1193,6 +1194,12 @@ func getWebDAVDBindingFromEnv(idx int) {
 		isSet = true
 	}
 
+	enableHTTPS, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__ENABLE_HTTPS", idx))
+	if ok {
+		binding.EnableHTTPS = enableHTTPS
+		isSet = true
+	}
+
 	certificateFile, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__CERTIFICATE_FILE", idx))
 	if ok {
 		binding.CertificateFile = certificateFile
@@ -1202,12 +1209,6 @@ func getWebDAVDBindingFromEnv(idx int) {
 	certificateKeyFile, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__CERTIFICATE_KEY_FILE", idx))
 	if ok {
 		binding.CertificateKeyFile = certificateKeyFile
-		isSet = true
-	}
-
-	enableHTTPS, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__ENABLE_HTTPS", idx))
-	if ok {
-		binding.EnableHTTPS = enableHTTPS
 		isSet = true
 	}
 
@@ -1229,13 +1230,19 @@ func getWebDAVDBindingFromEnv(idx int) {
 		isSet = true
 	}
 
+	prefix, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__PREFIX", idx))
+	if ok {
+		binding.Prefix = prefix
+		isSet = true
+	}
+
 	if getWebDAVDBindingProxyConfigsFromEnv(idx, &binding) {
 		isSet = true
 	}
 
-	prefix, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__PREFIX", idx))
+	disableWWWAuth, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__DISABLE_WWW_AUTH_HEADER", idx))
 	if ok {
-		binding.Prefix = prefix
+		binding.DisableWWWAuthHeader = disableWWWAuth
 		isSet = true
 	}
 

@@ -943,6 +943,7 @@ func TestWebDAVBindingsFromEnv(t *testing.T) {
 	os.Setenv("SFTPGO_WEBDAVD__BINDINGS__2__PREFIX", "/dav2")
 	os.Setenv("SFTPGO_WEBDAVD__BINDINGS__2__CERTIFICATE_FILE", "webdav.crt")
 	os.Setenv("SFTPGO_WEBDAVD__BINDINGS__2__CERTIFICATE_KEY_FILE", "webdav.key")
+	os.Setenv("SFTPGO_WEBDAVD__BINDINGS__2__DISABLE_WWW_AUTH_HEADER", "1")
 
 	t.Cleanup(func() {
 		os.Unsetenv("SFTPGO_WEBDAVD__BINDINGS__1__ADDRESS")
@@ -960,6 +961,7 @@ func TestWebDAVBindingsFromEnv(t *testing.T) {
 		os.Unsetenv("SFTPGO_WEBDAVD__BINDINGS__2__PREFIX")
 		os.Unsetenv("SFTPGO_WEBDAVD__BINDINGS__2__CERTIFICATE_FILE")
 		os.Unsetenv("SFTPGO_WEBDAVD__BINDINGS__2__CERTIFICATE_KEY_FILE")
+		os.Unsetenv("SFTPGO_WEBDAVD__BINDINGS__2__DISABLE_WWW_AUTH_HEADER")
 	})
 
 	err := config.LoadConfig(configDir, "")
@@ -973,6 +975,7 @@ func TestWebDAVBindingsFromEnv(t *testing.T) {
 	require.Len(t, bindings[0].TLSCipherSuites, 0)
 	require.Empty(t, bindings[0].Prefix)
 	require.Equal(t, 0, bindings[0].ClientIPHeaderDepth)
+	require.False(t, bindings[0].DisableWWWAuthHeader)
 	require.Equal(t, 8000, bindings[1].Port)
 	require.Equal(t, "127.0.0.1", bindings[1].Address)
 	require.False(t, bindings[1].EnableHTTPS)
@@ -984,6 +987,7 @@ func TestWebDAVBindingsFromEnv(t *testing.T) {
 	require.Equal(t, "X-Forwarded-For", bindings[1].ClientIPProxyHeader)
 	require.Equal(t, 2, bindings[1].ClientIPHeaderDepth)
 	require.Empty(t, bindings[1].Prefix)
+	require.False(t, bindings[1].DisableWWWAuthHeader)
 	require.Equal(t, 9000, bindings[2].Port)
 	require.Equal(t, "127.0.1.1", bindings[2].Address)
 	require.True(t, bindings[2].EnableHTTPS)
@@ -994,6 +998,7 @@ func TestWebDAVBindingsFromEnv(t *testing.T) {
 	require.Equal(t, "webdav.crt", bindings[2].CertificateFile)
 	require.Equal(t, "webdav.key", bindings[2].CertificateKeyFile)
 	require.Equal(t, 0, bindings[2].ClientIPHeaderDepth)
+	require.True(t, bindings[2].DisableWWWAuthHeader)
 }
 
 func TestHTTPDBindingsFromEnv(t *testing.T) {

@@ -151,7 +151,8 @@
         "prefix": "",
         "proxy_allowed": [],
         "client_ip_proxy_header": "",
-        "client_ip_header_depth": 0
+        "client_ip_header_depth": 0,
+        "disable_www_auth_header": false
       }
     ],
     "certificate_file": "",
