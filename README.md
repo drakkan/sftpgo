@@ -26,7 +26,13 @@ If you just take and don't return anything back, the project will die in the lon
 
 More [info](https://github.com/drakkan/sftpgo/issues/452).
 
-Thank you to our sponsors!
+### Thank you to our sponsors
+
+#### Platinum sponsors
+
+[<img src="./img/Aledade_logo.png" alt="Aledade logo" width="202" height="70">](https://www.aledade.com/)
+
+#### Bronze sponsors
 
 [<img src="https://www.7digital.com/wp-content/themes/sevendigital/images/top_logo.png" alt="7digital logo">](https://www.7digital.com/)
 
