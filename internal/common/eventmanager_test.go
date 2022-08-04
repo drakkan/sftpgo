@@ -265,6 +265,48 @@ func TestEventManagerErrors(t *testing.T) {
 	assert.Error(t, err)
 	err = executeTransferQuotaResetRuleAction(dataprovider.ConditionOptions{})
 	assert.Error(t, err)
+	err = executeQuotaResetForUser(dataprovider.User{
+		Groups: []sdk.GroupMapping{
+			{
+				Name: "agroup",
+				Type: sdk.GroupTypePrimary,
+			},
+		},
+	})
+	assert.Error(t, err)
+	err = executeDataRetentionCheckForUser(dataprovider.User{
+		Groups: []sdk.GroupMapping{
+			{
+				Name: "agroup",
+				Type: sdk.GroupTypePrimary,
+			},
+		},
+	}, nil)
+	assert.Error(t, err)
+
+	dataRetentionAction := dataprovider.BaseEventAction{
+		Type: dataprovider.ActionTypeDataRetentionCheck,
+		Options: dataprovider.BaseEventActionOptions{
+			RetentionConfig: dataprovider.EventActionDataRetentionConfig{
+				Folders: []dataprovider.FolderRetention{
+					{
+						Path:      "/",
+						Retention: 24,
+					},
+				},
+			},
+		},
+	}
+	err = executeRuleAction(dataRetentionAction, EventParams{}, dataprovider.ConditionOptions{
+		Names: []dataprovider.ConditionPattern{
+			{
+				Pattern: "username1",
+			},
+		},
+	})
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "unable to get users")
+	}
 
 	eventManager.loadRules()
 
@@ -446,6 +488,88 @@ func TestEventRuleActions(t *testing.T) {
 	})
 	assert.Error(t, err)
 	assert.True(t, QuotaScans.RemoveUserQuotaScan(username1))
+
+	dataRetentionAction := dataprovider.BaseEventAction{
+		Type: dataprovider.ActionTypeDataRetentionCheck,
+		Options: dataprovider.BaseEventActionOptions{
+			RetentionConfig: dataprovider.EventActionDataRetentionConfig{
+				Folders: []dataprovider.FolderRetention{
+					{
+						Path:      "",
+						Retention: 24,
+					},
+				},
+			},
+		},
+	}
+	err = executeRuleAction(dataRetentionAction, EventParams{}, dataprovider.ConditionOptions{
+		Names: []dataprovider.ConditionPattern{
+			{
+				Pattern: username1,
+			},
+		},
+	})
+	assert.Error(t, err) // invalid config, no folder path specified
+	retentionDir := "testretention"
+	dataRetentionAction = dataprovider.BaseEventAction{
+		Type: dataprovider.ActionTypeDataRetentionCheck,
+		Options: dataprovider.BaseEventActionOptions{
+			RetentionConfig: dataprovider.EventActionDataRetentionConfig{
+				Folders: []dataprovider.FolderRetention{
+					{
+						Path:            path.Join("/", retentionDir),
+						Retention:       24,
+						DeleteEmptyDirs: true,
+					},
+				},
+			},
+		},
+	}
+	// create some test files
+	file1 := filepath.Join(user1.GetHomeDir(), "file1.txt")
+	file2 := filepath.Join(user1.GetHomeDir(), retentionDir, "file2.txt")
+	file3 := filepath.Join(user1.GetHomeDir(), retentionDir, "file3.txt")
+	file4 := filepath.Join(user1.GetHomeDir(), retentionDir, "sub", "file4.txt")
+
+	err = os.MkdirAll(filepath.Dir(file4), os.ModePerm)
+	assert.NoError(t, err)
+
+	for _, f := range []string{file1, file2, file3, file4} {
+		err = os.WriteFile(f, []byte(""), 0666)
+		assert.NoError(t, err)
+	}
+	timeBeforeRetention := time.Now().Add(-48 * time.Hour)
+	err = os.Chtimes(file1, timeBeforeRetention, timeBeforeRetention)
+	assert.NoError(t, err)
+	err = os.Chtimes(file2, timeBeforeRetention, timeBeforeRetention)
+	assert.NoError(t, err)
+	err = os.Chtimes(file4, timeBeforeRetention, timeBeforeRetention)
+	assert.NoError(t, err)
+
+	err = executeRuleAction(dataRetentionAction, EventParams{}, dataprovider.ConditionOptions{
+		Names: []dataprovider.ConditionPattern{
+			{
+				Pattern: username1,
+			},
+		},
+	})
+	assert.NoError(t, err)
+	assert.FileExists(t, file1)
+	assert.NoFileExists(t, file2)
+	assert.FileExists(t, file3)
+	assert.NoDirExists(t, filepath.Dir(file4))
+	// simulate another check in progress
+	c := RetentionChecks.Add(RetentionCheck{}, &user1)
+	assert.NotNil(t, c)
+	err = executeRuleAction(dataRetentionAction, EventParams{}, dataprovider.ConditionOptions{
+		Names: []dataprovider.ConditionPattern{
+			{
+				Pattern: username1,
+			},
+		},
+	})
+	assert.Error(t, err)
+	RetentionChecks.remove(user1.Username)
 
 	err = os.RemoveAll(user1.GetHomeDir())
 	assert.NoError(t, err)

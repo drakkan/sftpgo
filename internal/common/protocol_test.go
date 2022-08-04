@@ -3454,7 +3454,7 @@ func TestRetentionAPI(t *testing.T) {
 		err = writeSFTPFile(uploadPath, 32, client)
 		assert.NoError(t, err)
 
-		folderRetention := []common.FolderRetention{
+		folderRetention := []dataprovider.FolderRetention{
 			{
 				Path:            "/",
 				Retention:       24,
@@ -3535,7 +3535,7 @@ func TestRetentionAPI(t *testing.T) {
 		err = client.Chtimes(innerUploadFilePath, time.Now().Add(-48*time.Hour), time.Now().Add(-48*time.Hour))
 		assert.NoError(t, err)
 
-		folderRetention := []common.FolderRetention{
+		folderRetention := []dataprovider.FolderRetention{
 			{
 				Path:      "/missing",
 				Retention: 24,
@@ -3576,7 +3576,7 @@ func TestRetentionAPI(t *testing.T) {
 		_, err = client.Stat(innerUploadFilePath)
 		assert.NoError(t, err)
 
-		folderRetention = []common.FolderRetention{
+		folderRetention = []dataprovider.FolderRetention{
 
 			{
 				Path:                  "/" + testDir,
@@ -3611,7 +3611,7 @@ func TestRetentionAPI(t *testing.T) {
 		err = os.Chmod(dirPath, 0001)
 		assert.NoError(t, err)
 
-		folderRetention := []common.FolderRetention{
+		folderRetention := []dataprovider.FolderRetention{
 
 			{
 				Path:                  "/adir",

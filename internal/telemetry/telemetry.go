@@ -13,9 +13,9 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 // Package telemetry provides telemetry information for SFTPGo, such as:
-//		- health information (for health checks)
-//		- metrics
-// 		- profiling information
+//   - health information (for health checks)
+//   - metrics
+//   - profiling information
 package telemetry
 
 import (

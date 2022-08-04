@@ -920,7 +920,7 @@ func GetRetentionChecks(expectedStatusCode int) ([]common.ActiveRetentionChecks,
 }
 
 // StartRetentionCheck starts a new retention check
-func StartRetentionCheck(username string, retention []common.FolderRetention, expectedStatusCode int) ([]byte, error) {
+func StartRetentionCheck(username string, retention []dataprovider.FolderRetention, expectedStatusCode int) ([]byte, error) {
 	var body []byte
 	asJSON, _ := json.Marshal(retention)
 	resp, err := sendHTTPRequest(http.MethodPost, buildURLRelativeToBase(retentionBasePath, username, "check"),
@@ -1344,6 +1344,9 @@ func checkEventAction(expected, actual dataprovider.BaseEventAction) error {
 		return err
 	}
 	if err := compareEventActionEmailConfigFields(expected.Options.EmailConfig, actual.Options.EmailConfig); err != nil {
+		return err
+	}
+	if err := compareEventActionDataRetentionFields(expected.Options.RetentionConfig, actual.Options.RetentionConfig); err != nil {
 		return err
 	}
 	return compareEventActionHTTPConfigFields(expected.Options.HTTPConfig, actual.Options.HTTPConfig)
@@ -2244,6 +2247,34 @@ func compareEventActionCmdConfigFields(expected, actual dataprovider.EventAction
 	}
 	if err := compareKeyValues(expected.EnvVars, actual.EnvVars); err != nil {
 		return errors.New("cmd env vars mismatch")
+	}
+	return nil
+}
+
+func compareEventActionDataRetentionFields(expected, actual dataprovider.EventActionDataRetentionConfig) error {
+	if len(expected.Folders) != len(actual.Folders) {
+		return errors.New("retention folders mismatch")
+	}
+	for _, f1 := range expected.Folders {
+		found := false
+		for _, f2 := range actual.Folders {
+			if f1.Path == f2.Path {
+				found = true
+				if f1.Retention != f2.Retention {
+					return fmt.Errorf("retention mismatch for folder %s", f1.Path)
+				}
+				if f1.DeleteEmptyDirs != f2.DeleteEmptyDirs {
+					return fmt.Errorf("delete_empty_dirs mismatch for folder %s", f1.Path)
+				}
+				if f1.IgnoreUserPermissions != f2.IgnoreUserPermissions {
+					return fmt.Errorf("ignore_user_permissions mismatch for folder %s", f1.Path)
+				}
+				break
+			}
+		}
+		if !found {
+			return errors.New("retention folders mismatch")
+		}
 	}
 	return nil
 }

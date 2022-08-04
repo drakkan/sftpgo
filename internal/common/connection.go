@@ -622,7 +622,7 @@ func (c *BaseConnection) DoStat(virtualPath string, mode int, checkFilePatterns 
 		info, err = fs.Stat(c.getRealFsPath(fsPath))
 	}
 	if err != nil {
-		c.Log(logger.LevelError, "stat error for path %#v: %+v", virtualPath, err)
+		c.Log(logger.LevelWarn, "stat error for path %#v: %+v", virtualPath, err)
 		return info, c.GetFsError(fs, err)
 	}
 	if vfs.IsCryptOsFs(fs) {

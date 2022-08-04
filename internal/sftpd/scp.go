@@ -635,8 +635,10 @@ func (c *scpCommand) readProtocolMessage() (string, error) {
 	return command.String(), err
 }
 
-// send an error message and close the channel
-//nolint:errcheck // we don't check write errors here, we have to close the channel anyway
+// sendErrorMessage sends an error message and close the channel
+// we don't check write errors here, we have to close the channel anyway
+//
+//nolint:errcheck
 func (c *scpCommand) sendErrorMessage(fs vfs.Fs, err error) {
 	c.connection.channel.Write(errMsg)
 	if fs != nil {

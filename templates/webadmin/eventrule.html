@@ -520,7 +520,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         {{- range .Actions}}
         $("#idActionName"+index).append($('<option>').val('{{.Name}}').text('{{.Name}}'));
         {{- end}}
-        console.log("index "+index);
         $("#idActionName"+index).selectpicker({'liveSearch': true});
         $("#idActionOptions"+index).selectpicker();
     });

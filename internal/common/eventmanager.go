@@ -495,6 +495,31 @@ func executeEmailRuleAction(c dataprovider.EventActionEmailConfig, params EventP
 	return err
 }
 
+func executeQuotaResetForUser(user dataprovider.User) error {
+	if err := user.LoadAndApplyGroupSettings(); err != nil {
+		eventManagerLog(logger.LevelDebug, "skipping scheduled quota reset for user %s, cannot apply group settings: %v",
+			user.Username, err)
+		return err
+	}
+	if !QuotaScans.AddUserQuotaScan(user.Username) {
+		eventManagerLog(logger.LevelError, "another quota scan is already in progress for user %s", user.Username)
+		return fmt.Errorf("another quota scan is in progress for user %s", user.Username)
+	}
+	defer QuotaScans.RemoveUserQuotaScan(user.Username)
+
+	numFiles, size, err := user.ScanQuota()
+	if err != nil {
+		eventManagerLog(logger.LevelError, "error scanning quota for user %s: %v", user.Username, err)
+		return err
+	}
+	err = dataprovider.UpdateUserQuota(&user, numFiles, size, true)
+	if err != nil {
+		eventManagerLog(logger.LevelError, "error updating quota for user %s: %v", user.Username, err)
+		return err
+	}
+	return nil
+}
+
 func executeUsersQuotaResetRuleAction(conditions dataprovider.ConditionOptions) error {
 	users, err := dataprovider.DumpUsers()
 	if err != nil {
@@ -507,21 +532,7 @@ func executeUsersQuotaResetRuleAction(conditions dataprovider.ConditionOptions) 
 				user.Username)
 			continue
 		}
-		if !QuotaScans.AddUserQuotaScan(user.Username) {
-			eventManagerLog(logger.LevelError, "another quota scan is already in progress for user %s", user.Username)
-			failedResets = append(failedResets, user.Username)
-			continue
-		}
-		numFiles, size, err := user.ScanQuota()
-		QuotaScans.RemoveUserQuotaScan(user.Username)
-		if err != nil {
-			eventManagerLog(logger.LevelError, "error scanning quota for user %s: %v", user.Username, err)
-			failedResets = append(failedResets, user.Username)
-			continue
-		}
-		err = dataprovider.UpdateUserQuota(&user, numFiles, size, true)
-		if err != nil {
-			eventManagerLog(logger.LevelError, "error updating quota for user %s: %v", user.Username, err)
+		if err = executeQuotaResetForUser(user); err != nil {
 			failedResets = append(failedResets, user.Username)
 			continue
 		}
@@ -564,7 +575,6 @@ func executeFoldersQuotaResetRuleAction(conditions dataprovider.ConditionOptions
 		if err != nil {
 			eventManagerLog(logger.LevelError, "error updating quota for folder %s: %v", folder.Name, err)
 			failedResets = append(failedResets, folder.Name)
-			continue
 		}
 	}
 	if len(failedResets) > 0 {
@@ -589,11 +599,56 @@ func executeTransferQuotaResetRuleAction(conditions dataprovider.ConditionOption
 		if err != nil {
 			eventManagerLog(logger.LevelError, "error updating transfer quota for user %s: %v", user.Username, err)
 			failedResets = append(failedResets, user.Username)
-			continue
 		}
 	}
 	if len(failedResets) > 0 {
 		return fmt.Errorf("transfer quota reset failed for users: %+v", failedResets)
+	}
+	return nil
+}
+
+func executeDataRetentionCheckForUser(user dataprovider.User, folders []dataprovider.FolderRetention) error {
+	if err := user.LoadAndApplyGroupSettings(); err != nil {
+		eventManagerLog(logger.LevelDebug, "skipping scheduled retention check for user %s, cannot apply group settings: %v",
+			user.Username, err)
+		return err
+	}
+	check := RetentionCheck{
+		Folders: folders,
+	}
+	c := RetentionChecks.Add(check, &user)
+	if c == nil {
+		eventManagerLog(logger.LevelError, "another retention check is already in progress for user %s", user.Username)
+		return fmt.Errorf("another retention check is in progress for user %s", user.Username)
+	}
+	if err := c.Start(); err != nil {
+		eventManagerLog(logger.LevelError, "error checking retention for user %s: %v", user.Username, err)
+		return err
+	}
+	return nil
+}
+
+func executeDataRetentionCheckRuleAction(config dataprovider.EventActionDataRetentionConfig,
+	conditions dataprovider.ConditionOptions,
+) error {
+	users, err := dataprovider.DumpUsers()
+	if err != nil {
+		return fmt.Errorf("unable to get users: %w", err)
+	}
+	var failedChecks []string
+	for _, user := range users {
+		if !checkEventConditionPatterns(user.Username, conditions.Names) {
+			eventManagerLog(logger.LevelDebug, "skipping scheduled retention check for user %s, name conditions don't match",
+				user.Username)
+			continue
+		}
+		if err = executeDataRetentionCheckForUser(user, config.Folders); err != nil {
+			failedChecks = append(failedChecks, user.Username)
+			continue
+		}
+	}
+	if len(failedChecks) > 0 {
+		return fmt.Errorf("retention check failed for users: %+v", failedChecks)
 	}
 	return nil
 }
@@ -614,6 +669,8 @@ func executeRuleAction(action dataprovider.BaseEventAction, params EventParams, 
 		return executeFoldersQuotaResetRuleAction(conditions)
 	case dataprovider.ActionTypeTransferQuotaReset:
 		return executeTransferQuotaResetRuleAction(conditions)
+	case dataprovider.ActionTypeDataRetentionCheck:
+		return executeDataRetentionCheckRuleAction(action.Options.RetentionConfig, conditions)
 	default:
 		return fmt.Errorf("unsupported action type: %d", action.Type)
 	}

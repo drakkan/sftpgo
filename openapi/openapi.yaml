@@ -6024,6 +6024,13 @@ components:
           type: string
         body:
           type: string
+    EventActionDataRetentionConfig:
+      type: object
+      properties:
+        folders:
+          type: array
+          items:
+            $ref: '#/components/schemas/FolderRetention'
     BaseEventActionOptions:
       type: object
       properties:
@@ -6033,6 +6040,8 @@ components:
           $ref: '#/components/schemas/EventActionCommandConfig'
         email_config:
           $ref: '#/components/schemas/EventActionEmailConfig'
+        retention_config:
+          $ref: '#/components/schemas/EventActionDataRetentionConfig'
     BaseEventAction:
       type: object
       properties:

@@ -71,6 +71,6 @@ func startRetentionCheck(w http.ResponseWriter, r *http.Request) {
 			http.StatusConflict)
 		return
 	}
-	go c.Start()
+	go c.Start() //nolint:errcheck
 	sendAPIResponse(w, r, err, "Check started", http.StatusAccepted)
 }

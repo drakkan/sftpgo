@@ -32,25 +32,17 @@ import (
 
 func TestRetentionValidation(t *testing.T) {
 	check := RetentionCheck{}
-	check.Folders = append(check.Folders, FolderRetention{
-		Path:      "relative",
-		Retention: 10,
-	})
-	err := check.Validate()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "please specify an absolute POSIX path")
-
-	check.Folders = []FolderRetention{
+	check.Folders = []dataprovider.FolderRetention{
 		{
 			Path:      "/",
 			Retention: -1,
 		},
 	}
-	err = check.Validate()
+	err := check.Validate()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid folder retention")
 
-	check.Folders = []FolderRetention{
+	check.Folders = []dataprovider.FolderRetention{
 		{
 			Path:      "/ab/..",
 			Retention: 0,
@@ -61,7 +53,7 @@ func TestRetentionValidation(t *testing.T) {
 	assert.Contains(t, err.Error(), "nothing to delete")
 	assert.Equal(t, "/", check.Folders[0].Path)
 
-	check.Folders = append(check.Folders, FolderRetention{
+	check.Folders = append(check.Folders, dataprovider.FolderRetention{
 		Path:      "/../..",
 		Retention: 24,
 	})
@@ -69,7 +61,7 @@ func TestRetentionValidation(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `duplicated folder path "/"`)
 
-	check.Folders = []FolderRetention{
+	check.Folders = []dataprovider.FolderRetention{
 		{
 			Path:      "/dir1",
 			Retention: 48,
@@ -240,7 +232,7 @@ func TestRetentionPermissionsAndGetFolder(t *testing.T) {
 	user.Permissions["/dir2/sub2"] = []string{dataprovider.PermDelete}
 
 	check := RetentionCheck{
-		Folders: []FolderRetention{
+		Folders: []dataprovider.FolderRetention{
 			{
 				Path:                  "/dir2",
 				Retention:             24 * 7,
@@ -300,7 +292,7 @@ func TestRetentionCheckAddRemove(t *testing.T) {
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
 	check := RetentionCheck{
-		Folders: []FolderRetention{
+		Folders: []dataprovider.FolderRetention{
 			{
 				Path:      "/",
 				Retention: 48,
@@ -334,7 +326,7 @@ func TestCleanupErrors(t *testing.T) {
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
 	check := &RetentionCheck{
-		Folders: []FolderRetention{
+		Folders: []dataprovider.FolderRetention{
 			{
 				Path:      "/path",
 				Retention: 48,

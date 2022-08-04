@@ -767,7 +767,7 @@ func TestRetentionInvalidTokenClaims(t *testing.T) {
 	user.Filters.AllowAPIKeyAuth = true
 	err := dataprovider.AddUser(&user, "", "")
 	assert.NoError(t, err)
-	folderRetention := []common.FolderRetention{
+	folderRetention := []dataprovider.FolderRetention{
 		{
 			Path:            "/",
 			Retention:       0,

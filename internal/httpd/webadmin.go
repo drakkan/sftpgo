@@ -1836,6 +1836,30 @@ func getKeyValsFromPostFields(r *http.Request, key, val string) []dataprovider.K
 	return res
 }
 
+func getFoldersRetentionFromPostFields(r *http.Request) ([]dataprovider.FolderRetention, error) {
+	var res []dataprovider.FolderRetention
+	for k := range r.Form {
+		if strings.HasPrefix(k, "folder_retention_path") {
+			folderPath := r.Form.Get(k)
+			if folderPath != "" {
+				idx := strings.TrimPrefix(k, "folder_retention_path")
+				retention, err := strconv.Atoi(r.Form.Get(fmt.Sprintf("folder_retention_val%s", idx)))
+				if err != nil {
+					return nil, fmt.Errorf("invalid retention for path %q: %w", folderPath, err)
+				}
+				options := r.Form[fmt.Sprintf("folder_retention_options%s", idx)]
+				res = append(res, dataprovider.FolderRetention{
+					Path:                  folderPath,
+					Retention:             retention,
+					DeleteEmptyDirs:       util.Contains(options, "1"),
+					IgnoreUserPermissions: util.Contains(options, "2"),
+				})
+			}
+		}
+	}
+	return res, nil
+}
+
 func getEventActionOptionsFromPostFields(r *http.Request) (dataprovider.BaseEventActionOptions, error) {
 	httpTimeout, err := strconv.Atoi(r.Form.Get("http_timeout"))
 	if err != nil {
@@ -1844,6 +1868,10 @@ func getEventActionOptionsFromPostFields(r *http.Request) (dataprovider.BaseEven
 	cmdTimeout, err := strconv.Atoi(r.Form.Get("cmd_timeout"))
 	if err != nil {
 		return dataprovider.BaseEventActionOptions{}, fmt.Errorf("invalid command timeout: %w", err)
+	}
+	foldersRetention, err := getFoldersRetentionFromPostFields(r)
+	if err != nil {
+		return dataprovider.BaseEventActionOptions{}, err
 	}
 	options := dataprovider.BaseEventActionOptions{
 		HTTPConfig: dataprovider.EventActionHTTPConfig{
@@ -1866,6 +1894,9 @@ func getEventActionOptionsFromPostFields(r *http.Request) (dataprovider.BaseEven
 			Recipients: strings.Split(strings.ReplaceAll(r.Form.Get("email_recipients"), " ", ""), ","),
 			Subject:    r.Form.Get("email_subject"),
 			Body:       r.Form.Get("email_body"),
+		},
+		RetentionConfig: dataprovider.EventActionDataRetentionConfig{
+			Folders: foldersRetention,
 		},
 	}
 	return options, nil

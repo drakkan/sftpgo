@@ -11,6 +11,7 @@ The following actions are supported:
 - `User quota reset`. The quota used by users will be updated based on current usage.
 - `Folder quota reset`. The quota used by virtual folders will be updated based on current usage.
 - `Transfer quota reset`. The transfer quota values will be reset to `0`.
+- `Data retention check`. You can define per-folder retention policies.
 
 The following placeholders are supported:
 

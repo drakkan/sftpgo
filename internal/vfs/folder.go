@@ -15,6 +15,7 @@
 package vfs
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -156,6 +157,24 @@ func (v *BaseVirtualFolder) HasRedactedSecret() bool {
 	return v.FsConfig.HasRedactedSecret()
 }
 
+// hasPathPlaceholder returns true if the folder has a path placeholder
+func (v *BaseVirtualFolder) hasPathPlaceholder() bool {
+	placeholder := "%username%"
+	switch v.FsConfig.Provider {
+	case sdk.S3FilesystemProvider:
+		return strings.Contains(v.FsConfig.S3Config.KeyPrefix, placeholder)
+	case sdk.GCSFilesystemProvider:
+		return strings.Contains(v.FsConfig.GCSConfig.KeyPrefix, placeholder)
+	case sdk.AzureBlobFilesystemProvider:
+		return strings.Contains(v.FsConfig.AzBlobConfig.KeyPrefix, placeholder)
+	case sdk.SFTPFilesystemProvider:
+		return strings.Contains(v.FsConfig.SFTPConfig.Prefix, placeholder)
+	case sdk.LocalFilesystemProvider, sdk.CryptedFilesystemProvider:
+		return strings.Contains(v.MappedPath, placeholder)
+	}
+	return false
+}
+
 // VirtualFolder defines a mapping between an SFTPGo exposed virtual path and a
 // filesystem path outside the user home directory.
 // The specified paths must be absolute and the virtual path cannot be "/",
@@ -205,6 +224,9 @@ func (v *VirtualFolder) CheckMetadataConsistency() error {
 
 // ScanQuota scans the folder and returns the number of files and their size
 func (v *VirtualFolder) ScanQuota() (int, int64, error) {
+	if v.hasPathPlaceholder() {
+		return 0, 0, errors.New("cannot scan quota: this folder has a path placeholder")
+	}
 	fs, err := v.GetFilesystem("", nil)
 	if err != nil {
 		return 0, 0, err

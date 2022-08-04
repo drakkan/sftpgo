@@ -1100,6 +1100,27 @@ func TestBasicActionRulesHandling(t *testing.T) {
 	}
 	assert.True(t, found)
 	a.Description = "new description"
+	a.Type = dataprovider.ActionTypeDataRetentionCheck
+	a.Options = dataprovider.BaseEventActionOptions{
+		RetentionConfig: dataprovider.EventActionDataRetentionConfig{
+			Folders: []dataprovider.FolderRetention{
+				{
+					Path:      "/",
+					Retention: 144,
+				},
+				{
+					Path:      "/p1",
+					Retention: 0,
+				},
+				{
+					Path:      "/p2",
+					Retention: 12,
+				},
+			},
+		},
+	}
+	_, _, err = httpdtest.UpdateEventAction(a, http.StatusOK)
+	assert.NoError(t, err)
 	a.Type = dataprovider.ActionTypeCommand
 	a.Options = dataprovider.BaseEventActionOptions{
 		CmdConfig: dataprovider.EventActionCommandConfig{
@@ -1526,6 +1547,51 @@ func TestEventActionValidation(t *testing.T) {
 	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
 	assert.NoError(t, err)
 	assert.Contains(t, string(resp), "email body is required")
+
+	action.Type = dataprovider.ActionTypeDataRetentionCheck
+	action.Options.RetentionConfig = dataprovider.EventActionDataRetentionConfig{
+		Folders: nil,
+	}
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "nothing to delete")
+	action.Options.RetentionConfig = dataprovider.EventActionDataRetentionConfig{
+		Folders: []dataprovider.FolderRetention{
+			{
+				Path:      "/",
+				Retention: 0,
+			},
+		},
+	}
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "nothing to delete")
+	action.Options.RetentionConfig = dataprovider.EventActionDataRetentionConfig{
+		Folders: []dataprovider.FolderRetention{
+			{
+				Path:      "../path",
+				Retention: 1,
+			},
+			{
+				Path:      "/path",
+				Retention: 10,
+			},
+		},
+	}
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "duplicated folder path")
+	action.Options.RetentionConfig = dataprovider.EventActionDataRetentionConfig{
+		Folders: []dataprovider.FolderRetention{
+			{
+				Path:      "p",
+				Retention: -1,
+			},
+		},
+	}
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "invalid folder retention")
 }
 
 func TestEventRuleValidation(t *testing.T) {
@@ -3235,7 +3301,7 @@ func TestRetentionAPI(t *testing.T) {
 	err = os.WriteFile(localFilePath, []byte("test data"), os.ModePerm)
 	assert.NoError(t, err)
 
-	folderRetention := []common.FolderRetention{
+	folderRetention := []dataprovider.FolderRetention{
 		{
 			Path:            "/",
 			Retention:       0,
@@ -3282,7 +3348,8 @@ func TestRetentionAPI(t *testing.T) {
 	_, err = httpdtest.StartRetentionCheck(user.Username, folderRetention, http.StatusConflict)
 	assert.NoError(t, err)
 
-	c.Start()
+	err = c.Start()
+	assert.NoError(t, err)
 	assert.Len(t, common.RetentionChecks.Get(), 0)
 
 	admin := getTestAdmin()
@@ -18692,6 +18759,53 @@ func TestWebEventAction(t *testing.T) {
 	assert.Empty(t, actionGet.Options.CmdConfig.Cmd)
 	assert.Equal(t, 0, actionGet.Options.CmdConfig.Timeout)
 	assert.Len(t, actionGet.Options.CmdConfig.EnvVars, 0)
+	// change action type to data retention check
+	action.Type = dataprovider.ActionTypeDataRetentionCheck
+	form.Set("type", fmt.Sprintf("%d", action.Type))
+	form.Set("folder_retention_path10", "p1")
+	form.Set("folder_retention_val10", "a")
+	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminEventActionPath, action.Name),
+		bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "invalid retention for path")
+	form.Set("folder_retention_val10", "24")
+	form.Set("folder_retention_options10", "1")
+	form.Add("folder_retention_options10", "2")
+	form.Set("folder_retention_path11", "../p2")
+	form.Set("folder_retention_val11", "48")
+	form.Set("folder_retention_options11", "1")
+	form.Add("folder_retention_options12", "2") // ignored
+	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminEventActionPath, action.Name),
+		bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+	// check the update
+	actionGet, _, err = httpdtest.GetEventActionByName(action.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, action.Type, actionGet.Type)
+	if assert.Len(t, actionGet.Options.RetentionConfig.Folders, 2) {
+		for _, folder := range actionGet.Options.RetentionConfig.Folders {
+			switch folder.Path {
+			case "/p1":
+				assert.Equal(t, 24, folder.Retention)
+				assert.True(t, folder.DeleteEmptyDirs)
+				assert.True(t, folder.IgnoreUserPermissions)
+			case "/p2":
+				assert.Equal(t, 48, folder.Retention)
+				assert.True(t, folder.DeleteEmptyDirs)
+				assert.False(t, folder.IgnoreUserPermissions)
+			default:
+				t.Errorf("unexpected folder path %v", folder.Path)
+			}
+		}
+	}
 
 	req, err = http.NewRequest(http.MethodDelete, path.Join(webAdminEventActionPath, action.Name), nil)
 	assert.NoError(t, err)

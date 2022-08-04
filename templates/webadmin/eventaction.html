@@ -342,6 +342,67 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 </div>
             </div>
 
+            <div class="card bg-light mb-3 action-type action-dataretention">
+                <div class="card-header">
+                    <b>Data retention</b>
+                </div>
+                <div class="card-body">
+                    <h6 class="card-title mb-4">Set the data retention, as hours, per path. Retention applies recursively. Setting 0 as retention means excluding the specified path. "Ignore user permissions" defines whether to delete files even if the user does not have the "delete" permission, by default files will be skipped if the user does not have the "delete" permission.</h6>
+                    <div class="form-group row">
+                        <div class="col-md-12 form_field_data_retention_outer">
+                            {{range $idx, $val := .Action.Options.RetentionConfig.Folders}}
+                            <div class="row form_field_data_retention_outer_row">
+                                <div class="form-group col-md-4">
+                                    <input type="text" class="form-control" id="idFolderRetentionPath{{$idx}}" name="folder_retention_path{{$idx}}" placeholder="path, i.e. /dir" value="{{$val.Path}}">
+                                </div>
+                                <div class="form-group col-md-2">
+                                    <input type="number" min="0" class="form-control" id="idFolderRetentionVal{{$idx}}" name="folder_retention_val{{$idx}}" placeholder="Hours" value="{{$val.Retention}}">
+                                </div>
+                                <div class="form-group col-md-4">
+                                    <select class="form-control selectpicker" id="idFolderRetentionOptions{{$idx}}" name="folder_retention_options{{$idx}}" multiple>
+                                        <option value="1" {{if $val.DeleteEmptyDirs}}selected{{end}}>Delete empty dirs</option>
+                                        <option value="2" {{if $val.IgnoreUserPermissions}}selected{{end}}>Ignore user permissions</option>
+                                    </select>
+                                </div>
+                                <div class="form-group col-md-1"></div>
+                                <div class="form-group col-md-1">
+                                    <button class="btn btn-circle btn-danger remove_data_retention_btn_frm_field">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {{else}}
+                            <div class="row form_field_data_retention_outer_row">
+                                <div class="form-group col-md-4">
+                                    <input type="text" class="form-control" id="idFolderRetentionPath0" name="folder_retention_path0" placeholder="path, i.e. /dir" value="">
+                                </div>
+                                <div class="form-group col-md-2">
+                                    <input type="number" min="0" class="form-control" id="idFolderRetentionVal0" name="folder_retention_val0" placeholder="Hours" value="">
+                                </div>
+                                <div class="form-group col-md-4">
+                                    <select class="form-control selectpicker" id="idFolderRetentionOptions0" name="folder_retention_options0" multiple>
+                                        <option value="1">Delete empty dirs</option>
+                                        <option value="2">Ignore user permissions</option>
+                                    </select>
+                                </div>
+                                <div class="form-group col-md-1"></div>
+                                <div class="form-group col-md-1">
+                                    <button class="btn btn-circle btn-danger remove_data_retention_btn_frm_field">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {{end}}
+                        </div>
+                    </div>
+
+                    <div class="row mx-1">
+                        <button type="button" class="btn btn-secondary add_new_data_retention_field_btn">
+                            <i class="fas fa-plus"></i> Add new path
+                        </button>
+                    </div>
+                </div>
+            </div>
 
             <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
             <div class="col-sm-12 text-right px-0">
@@ -501,6 +562,40 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         $(this).closest(".form_field_cmd_env_outer_row").remove();
     });
 
+    $("body").on("click", ".add_new_data_retention_field_btn", function () {
+        var index = $(".form_field_data_retention_outer").find(".form_field_data_retention_outer_row").length;
+        while (document.getElementById("idFolderRetentionPath"+index) != null){
+            index++;
+        }
+        $(".form_field_data_retention_outer").append(`
+            <div class="row form_field_data_retention_outer_row">
+                <div class="form-group col-md-4">
+                    <input type="text" class="form-control" id="idFolderRetentionPath${index}" name="folder_retention_path${index}" placeholder="path, i.e. /dir" value="">
+                </div>
+                <div class="form-group col-md-2">
+                    <input type="number" min="0" class="form-control" id="idFolderRetentionVal${index}" name="folder_retention_val${index}" placeholder="Hours" value="">
+                </div>
+                <div class="form-group col-md-4">
+                    <select class="form-control" id="idFolderRetentionOptions${index}" name="folder_retention_options${index}" multiple>
+                        <option value="1">Delete empty dirs</option>
+                        <option value="2">Ignore user permissions</option>
+                    </select>
+                </div>
+                <div class="form-group col-md-1"></div>
+                <div class="form-group col-md-1">
+                    <button class="btn btn-circle btn-danger remove_data_retention_btn_frm_field">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+            `);
+        $("#idFolderRetentionOptions"+index).selectpicker();
+    });
+
+    $("body").on("click", ".remove_data_retention_btn_frm_field", function () {
+        $(this).closest(".form_field_data_retention_outer_row").remove();
+    });
+
     function onTypeChanged(val){
         $('.action-type').hide();
         switch (val) {
@@ -515,6 +610,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             case '3':
             case 3:
                 $('.action-smtp').show();
+                break;
+            case '8':
+            case 8:
+                $('.action-dataretention').show();
                 break;
         }
     }

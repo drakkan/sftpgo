@@ -40,11 +40,13 @@ const (
 	ActionTypeUserQuotaReset
 	ActionTypeFolderQuotaReset
 	ActionTypeTransferQuotaReset
+	ActionTypeDataRetentionCheck
 )
 
 var (
 	supportedEventActions = []int{ActionTypeHTTP, ActionTypeCommand, ActionTypeEmail, ActionTypeBackup,
-		ActionTypeUserQuotaReset, ActionTypeFolderQuotaReset, ActionTypeTransferQuotaReset}
+		ActionTypeUserQuotaReset, ActionTypeFolderQuotaReset, ActionTypeTransferQuotaReset,
+		ActionTypeDataRetentionCheck}
 )
 
 func isActionTypeValid(action int) bool {
@@ -65,6 +67,8 @@ func getActionTypeAsString(action int) string {
 		return "Folder quota reset"
 	case ActionTypeTransferQuotaReset:
 		return "Transfer quota reset"
+	case ActionTypeDataRetentionCheck:
+		return "Data retention check"
 	default:
 		return "Command"
 	}
@@ -149,13 +153,13 @@ type KeyValue struct {
 
 // EventActionHTTPConfig defines the configuration for an HTTP event target
 type EventActionHTTPConfig struct {
-	Endpoint        string      `json:"endpoint"`
+	Endpoint        string      `json:"endpoint,omitempty"`
 	Username        string      `json:"username,omitempty"`
 	Password        *kms.Secret `json:"password,omitempty"`
 	Headers         []KeyValue  `json:"headers,omitempty"`
-	Timeout         int         `json:"timeout"`
+	Timeout         int         `json:"timeout,omitempty"`
 	SkipTLSVerify   bool        `json:"skip_tls_verify,omitempty"`
-	Method          string      `json:"method"`
+	Method          string      `json:"method,omitempty"`
 	QueryParameters []KeyValue  `json:"query_parameters,omitempty"`
 	Body            string      `json:"post_body,omitempty"`
 }
@@ -218,9 +222,9 @@ func (c *EventActionHTTPConfig) GetHTTPClient() *http.Client {
 
 // EventActionCommandConfig defines the configuration for a command event target
 type EventActionCommandConfig struct {
-	Cmd     string     `json:"cmd"`
-	Timeout int        `json:"timeout"`
-	EnvVars []KeyValue `json:"env_vars"`
+	Cmd     string     `json:"cmd,omitempty"`
+	Timeout int        `json:"timeout,omitempty"`
+	EnvVars []KeyValue `json:"env_vars,omitempty"`
 }
 
 func (c *EventActionCommandConfig) validate() error {
@@ -243,46 +247,111 @@ func (c *EventActionCommandConfig) validate() error {
 
 // EventActionEmailConfig defines the configuration options for SMTP event actions
 type EventActionEmailConfig struct {
-	Recipients []string `json:"recipients"`
-	Subject    string   `json:"subject"`
-	Body       string   `json:"body"`
+	Recipients []string `json:"recipients,omitempty"`
+	Subject    string   `json:"subject,omitempty"`
+	Body       string   `json:"body,omitempty"`
 }
 
 // GetRecipientsAsString returns the list of recipients as comma separated string
-func (o EventActionEmailConfig) GetRecipientsAsString() string {
-	return strings.Join(o.Recipients, ",")
+func (c EventActionEmailConfig) GetRecipientsAsString() string {
+	return strings.Join(c.Recipients, ",")
 }
 
-func (o *EventActionEmailConfig) validate() error {
-	if len(o.Recipients) == 0 {
+func (c *EventActionEmailConfig) validate() error {
+	if len(c.Recipients) == 0 {
 		return util.NewValidationError("at least one email recipient is required")
 	}
-	o.Recipients = util.RemoveDuplicates(o.Recipients, false)
-	for _, r := range o.Recipients {
+	c.Recipients = util.RemoveDuplicates(c.Recipients, false)
+	for _, r := range c.Recipients {
 		if r == "" {
 			return util.NewValidationError("invalid email recipients")
 		}
 	}
-	if o.Subject == "" {
+	if c.Subject == "" {
 		return util.NewValidationError("email subject is required")
 	}
-	if o.Body == "" {
+	if c.Body == "" {
 		return util.NewValidationError("email body is required")
+	}
+	return nil
+}
+
+// FolderRetention defines a folder retention configuration
+type FolderRetention struct {
+	// Path is the exposed virtual directory path, if no other specific retention is defined,
+	// the retention applies for sub directories too. For example if retention is defined
+	// for the paths "/" and "/sub" then the retention for "/" is applied for any file outside
+	// the "/sub" directory
+	Path string `json:"path"`
+	// Retention time in hours. 0 means exclude this path
+	Retention int `json:"retention"`
+	// DeleteEmptyDirs defines if empty directories will be deleted.
+	// The user need the delete permission
+	DeleteEmptyDirs bool `json:"delete_empty_dirs,omitempty"`
+	// IgnoreUserPermissions defines whether to delete files even if the user does not have the delete permission.
+	// The default is "false" which means that files will be skipped if the user does not have the permission
+	// to delete them. This applies to sub directories too.
+	IgnoreUserPermissions bool `json:"ignore_user_permissions,omitempty"`
+}
+
+// Validate returns an error if the configuration is not valid
+func (f *FolderRetention) Validate() error {
+	f.Path = util.CleanPath(f.Path)
+	if f.Retention < 0 {
+		return util.NewValidationError(fmt.Sprintf("invalid folder retention %v, it must be greater or equal to zero",
+			f.Retention))
+	}
+	return nil
+}
+
+// EventActionDataRetentionConfig defines the configuration for a data retention check
+type EventActionDataRetentionConfig struct {
+	Folders []FolderRetention `json:"folders,omitempty"`
+}
+
+func (c *EventActionDataRetentionConfig) validate() error {
+	folderPaths := make(map[string]bool)
+	nothingToDo := true
+	for idx := range c.Folders {
+		f := &c.Folders[idx]
+		if err := f.Validate(); err != nil {
+			return err
+		}
+		if f.Retention > 0 {
+			nothingToDo = false
+		}
+		if _, ok := folderPaths[f.Path]; ok {
+			return util.NewValidationError(fmt.Sprintf("duplicated folder path %#v", f.Path))
+		}
+		folderPaths[f.Path] = true
+	}
+	if nothingToDo {
+		return util.NewValidationError("nothing to delete!")
 	}
 	return nil
 }
 
 // BaseEventActionOptions defines the supported configuration options for a base event actions
 type BaseEventActionOptions struct {
-	HTTPConfig  EventActionHTTPConfig    `json:"http_config"`
-	CmdConfig   EventActionCommandConfig `json:"cmd_config"`
-	EmailConfig EventActionEmailConfig   `json:"email_config"`
+	HTTPConfig      EventActionHTTPConfig          `json:"http_config"`
+	CmdConfig       EventActionCommandConfig       `json:"cmd_config"`
+	EmailConfig     EventActionEmailConfig         `json:"email_config"`
+	RetentionConfig EventActionDataRetentionConfig `json:"retention_config"`
 }
 
 func (o *BaseEventActionOptions) getACopy() BaseEventActionOptions {
 	o.SetEmptySecretsIfNil()
 	emailRecipients := make([]string, len(o.EmailConfig.Recipients))
 	copy(emailRecipients, o.EmailConfig.Recipients)
+	folders := make([]FolderRetention, 0, len(o.RetentionConfig.Folders))
+	for _, folder := range o.RetentionConfig.Folders {
+		folders = append(folders, FolderRetention{
+			Path:                  folder.Path,
+			Retention:             folder.Retention,
+			DeleteEmptyDirs:       folder.DeleteEmptyDirs,
+			IgnoreUserPermissions: folder.IgnoreUserPermissions,
+		})
+	}
 
 	return BaseEventActionOptions{
 		HTTPConfig: EventActionHTTPConfig{
@@ -305,6 +374,9 @@ func (o *BaseEventActionOptions) getACopy() BaseEventActionOptions {
 			Recipients: emailRecipients,
 			Subject:    o.EmailConfig.Subject,
 			Body:       o.EmailConfig.Body,
+		},
+		RetentionConfig: EventActionDataRetentionConfig{
+			Folders: folders,
 		},
 	}
 }
@@ -334,19 +406,28 @@ func (o *BaseEventActionOptions) validate(action int, name string) error {
 	case ActionTypeHTTP:
 		o.CmdConfig = EventActionCommandConfig{}
 		o.EmailConfig = EventActionEmailConfig{}
+		o.RetentionConfig = EventActionDataRetentionConfig{}
 		return o.HTTPConfig.validate(name)
 	case ActionTypeCommand:
 		o.HTTPConfig = EventActionHTTPConfig{}
 		o.EmailConfig = EventActionEmailConfig{}
+		o.RetentionConfig = EventActionDataRetentionConfig{}
 		return o.CmdConfig.validate()
 	case ActionTypeEmail:
 		o.HTTPConfig = EventActionHTTPConfig{}
 		o.CmdConfig = EventActionCommandConfig{}
+		o.RetentionConfig = EventActionDataRetentionConfig{}
 		return o.EmailConfig.validate()
+	case ActionTypeDataRetentionCheck:
+		o.HTTPConfig = EventActionHTTPConfig{}
+		o.CmdConfig = EventActionCommandConfig{}
+		o.EmailConfig = EventActionEmailConfig{}
+		return o.RetentionConfig.validate()
 	default:
 		o.HTTPConfig = EventActionHTTPConfig{}
 		o.CmdConfig = EventActionCommandConfig{}
 		o.EmailConfig = EventActionEmailConfig{}
+		o.RetentionConfig = EventActionDataRetentionConfig{}
 	}
 	return nil
 }
