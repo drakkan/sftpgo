@@ -46,7 +46,7 @@ require (
 	github.com/pires/go-proxyproto v0.6.2
 	github.com/pkg/sftp v1.13.5
 	github.com/pquerna/otp v1.3.0
-	github.com/prometheus/client_golang v1.12.2
+	github.com/prometheus/client_golang v1.13.0
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rs/cors v1.8.3-0.20220619195839-da52b0701de5
 	github.com/rs/xid v1.4.0
