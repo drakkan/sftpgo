@@ -9,10 +9,10 @@ require (
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/alexedwards/argon2id v0.0.0-20211130144151-3585854a6387
 	github.com/aws/aws-sdk-go-v2 v1.16.10
-	github.com/aws/aws-sdk-go-v2/config v1.15.17
+	github.com/aws/aws-sdk-go-v2/config v1.16.0
 	github.com/aws/aws-sdk-go-v2/credentials v1.12.12
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.11
-	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.23
+	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.24
 	github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.13.11
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.27.4
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.15.16

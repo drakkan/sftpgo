@@ -1156,12 +1156,66 @@ func TestOIDCIsAdmin(t *testing.T) {
 		{input: append(emptySlice, 1), want: false},
 		{input: 1, want: false},
 		{input: nil, want: false},
+		{input: map[string]string{"admin": "admin"}, want: false},
 	}
 	for _, tc := range tests {
 		token := oidcToken{
 			Role: tc.input,
 		}
 		assert.Equal(t, tc.want, token.isAdmin(), "%v should return %t", tc.input, tc.want)
+	}
+}
+
+func TestParseAdminRole(t *testing.T) {
+	claims := make(map[string]any)
+	rawClaims := []byte(`{
+		"sub": "35666371",
+		"email": "example@example.com",
+		"preferred_username": "Sally",
+		"name": "Sally Tyler",
+		"updated_at": "2018-04-13T22:08:45Z",
+		"given_name": "Sally",
+		"family_name": "Tyler",
+		"params": {
+		  "sftpgo_role": "admin",
+		  "subparams": {
+			"sftpgo_role": "admin",
+			"inner": {
+				"sftpgo_role": ["user","admin"]
+			}
+		  }
+		},
+		"at_hash": "lPLhxI2wjEndc-WfyroDZA",
+		"rt_hash": "mCmxPtA04N-55AxlEUbq-A",
+		"aud": "78d1d040-20c9-0136-5146-067351775fae92920",
+		"exp": 1523664997,
+		"iat": 1523657797
+	  }`)
+	err := json.Unmarshal(rawClaims, &claims)
+	assert.NoError(t, err)
+
+	type test struct {
+		input string
+		want  bool
+	}
+
+	tests := []test{
+		{input: "sftpgo_role", want: false},
+		{input: "params.sftpgo_role", want: true},
+		{input: "params.subparams.sftpgo_role", want: true},
+		{input: "params.subparams.inner.sftpgo_role", want: true},
+		{input: "email", want: false},
+		{input: "missing", want: false},
+		{input: "params.email", want: false},
+		{input: "missing.sftpgo_role", want: false},
+		{input: "params", want: false},
+		{input: "params.subparams.inner.sftpgo_role.missing", want: false},
+	}
+
+	for _, tc := range tests {
+		token := oidcToken{}
+		token.getRoleFromField(claims, tc.input)
+		assert.Equal(t, tc.want, token.isAdmin(), "%q should return %t", tc.input, tc.want)
 	}
 }
 

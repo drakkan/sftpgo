@@ -225,12 +225,7 @@ func (t *oidcToken) parseClaims(claims map[string]any, usernameField, roleField 
 	if forcedRole != "" {
 		t.Role = forcedRole
 	} else {
-		if roleField != "" {
-			role, ok := claims[roleField]
-			if ok {
-				t.Role = role
-			}
-		}
+		t.getRoleFromField(claims, roleField)
 	}
 	t.CustomFields = nil
 	if len(customFields) > 0 {
@@ -252,6 +247,41 @@ func (t *oidcToken) parseClaims(claims map[string]any, usernameField, roleField 
 		t.SessionID = sid
 	}
 	return nil
+}
+
+func (t *oidcToken) getRoleFromField(claims map[string]any, roleField string) {
+	if roleField != "" {
+		role, ok := claims[roleField]
+		if ok {
+			t.Role = role
+			return
+		}
+		if !strings.Contains(roleField, ".") {
+			return
+		}
+
+		getStructValue := func(outer any, field string) (any, bool) {
+			switch val := outer.(type) {
+			case map[string]any:
+				res, ok := val[field]
+				return res, ok
+			}
+			return nil, false
+		}
+
+		for idx, field := range strings.Split(roleField, ".") {
+			if idx == 0 {
+				role, ok = getStructValue(claims, field)
+			} else {
+				role, ok = getStructValue(role, field)
+			}
+			if !ok {
+				return
+			}
+		}
+
+		t.Role = role
+	}
 }
 
 func (t *oidcToken) isAdmin() bool {
