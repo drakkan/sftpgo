@@ -1592,6 +1592,56 @@ func TestEventActionValidation(t *testing.T) {
 	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
 	assert.NoError(t, err)
 	assert.Contains(t, string(resp), "invalid folder retention")
+	action.Type = dataprovider.ActionTypeFilesystem
+	action.Options.FsConfig = dataprovider.EventActionFilesystemConfig{
+		Type: dataprovider.FilesystemActionRename,
+	}
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "no items to rename specified")
+	action.Options.FsConfig.Renames = []dataprovider.KeyValue{
+		{
+			Key:   "",
+			Value: "/adir",
+		},
+	}
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "invalid items to rename")
+	action.Options.FsConfig.Renames = []dataprovider.KeyValue{
+		{
+			Key:   "adir",
+			Value: "/adir",
+		},
+	}
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "rename source and target cannot be equal")
+	action.Options.FsConfig.Renames = []dataprovider.KeyValue{
+		{
+			Key:   "/",
+			Value: "/dir",
+		},
+	}
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "renaming the root directory is not allowed")
+	action.Options.FsConfig.Type = dataprovider.FilesystemActionMkdirs
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "no directory to create specified")
+	action.Options.FsConfig.MkDirs = []string{"dir1", ""}
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "invalid directory to create")
+	action.Options.FsConfig.Type = dataprovider.FilesystemActionDelete
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "no item to delete specified")
+	action.Options.FsConfig.Deletes = []string{"item1", ""}
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "invalid item to delete")
 }
 
 func TestEventRuleValidation(t *testing.T) {
@@ -18550,6 +18600,7 @@ func TestWebEventAction(t *testing.T) {
 	form := make(url.Values)
 	form.Set("name", action.Name)
 	form.Set("description", action.Description)
+	form.Set("fs_action_type", "0")
 	form.Set("type", "a")
 	req, err := http.NewRequest(http.MethodPost, webAdminEventActionPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
@@ -18803,6 +18854,45 @@ func TestWebEventAction(t *testing.T) {
 				assert.False(t, folder.IgnoreUserPermissions)
 			default:
 				t.Errorf("unexpected folder path %v", folder.Path)
+			}
+		}
+	}
+	action.Type = dataprovider.ActionTypeFilesystem
+	action.Options.FsConfig = dataprovider.EventActionFilesystemConfig{
+		Type:   dataprovider.FilesystemActionMkdirs,
+		MkDirs: []string{"a ", " a/b"},
+	}
+	form.Set("type", fmt.Sprintf("%d", action.Type))
+	form.Set("fs_mkdir_paths", strings.Join(action.Options.FsConfig.MkDirs, ","))
+	form.Set("fs_action_type", "invalid")
+	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminEventActionPath, action.Name),
+		bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "invalid fs action type")
+
+	form.Set("fs_action_type", fmt.Sprintf("%d", action.Options.FsConfig.Type))
+	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminEventActionPath, action.Name),
+		bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+	// check the update
+	actionGet, _, err = httpdtest.GetEventActionByName(action.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, action.Type, actionGet.Type)
+	if assert.Len(t, actionGet.Options.FsConfig.MkDirs, 2) {
+		for _, dir := range actionGet.Options.FsConfig.MkDirs {
+			switch dir {
+			case "/a":
+			case "/a/b":
+			default:
+				t.Errorf("unexpected dir path %v", dir)
 			}
 		}
 	}

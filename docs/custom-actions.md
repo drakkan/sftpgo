@@ -43,7 +43,7 @@ If the `hook` defines a path to an external program, then this program can read 
 - `SFTPGO_ACTION_BUCKET`, non-empty for S3, GCS and Azure backends
 - `SFTPGO_ACTION_ENDPOINT`, non-empty for S3, SFTP and Azure backend if configured
 - `SFTPGO_ACTION_STATUS`, integer. Status for `upload`, `download` and `ssh_cmd` actions. 1 means no error, 2 means a generic error occurred, 3 means quota exceeded error
-- `SFTPGO_ACTION_PROTOCOL`, string. Possible values are `SSH`, `SFTP`, `SCP`, `FTP`, `DAV`, `HTTP`, `HTTPShare`, `OIDC`, `DataRetention`
+- `SFTPGO_ACTION_PROTOCOL`, string. Possible values are `SSH`, `SFTP`, `SCP`, `FTP`, `DAV`, `HTTP`, `HTTPShare`, `OIDC`, `DataRetention`, `EventAction`
 - `SFTPGO_ACTION_IP`, the action was executed from this IP address
 - `SFTPGO_ACTION_SESSION_ID`, string. Unique protocol session identifier. For stateless protocols such as HTTP the session id will change for each request
 - `SFTPGO_ACTION_OPEN_FLAGS`, integer. File open flags, can be non-zero for `pre-upload` action. If `SFTPGO_ACTION_FILE_SIZE` is greater than zero and `SFTPGO_ACTION_OPEN_FLAGS&512 == 0` the target file will not be truncated
@@ -66,7 +66,7 @@ If the `hook` defines an HTTP URL then this URL will be invoked as HTTP POST. Th
 - `bucket`, string, included for S3, GCS and Azure backends
 - `endpoint`, string, included for S3, SFTP and Azure backend if configured
 - `status`, integer. Status for `upload`, `download` and `ssh_cmd` actions. 1 means no error, 2 means a generic error occurred, 3 means quota exceeded error
-- `protocol`, string. Possible values are `SSH`, `SFTP`, `SCP`, `FTP`, `DAV`, `HTTP`, `HTTPShare`, `OIDC`, `DataRetention`
+- `protocol`, string. Possible values are `SSH`, `SFTP`, `SCP`, `FTP`, `DAV`, `HTTP`, `HTTPShare`, `OIDC`, `DataRetention`, `EventAction`
 - `ip`, string. The action was executed from this IP address
 - `session_id`, string. Unique protocol session identifier. For stateless protocols such as HTTP the session id will change for each request
 - `open_flags`, integer. File open flags, can be non-zero for `pre-upload` action. If `file_size` is greater than zero and `file_size&512 == 0` the target file will not be truncated

@@ -3272,6 +3272,264 @@ func TestEventRuleProviderEvents(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestEventRuleFsActions(t *testing.T) {
+	dirsToCreate := []string{
+		"/basedir/1",
+		"/basedir/sub/2",
+		"/basedir/3",
+	}
+	a1 := dataprovider.BaseEventAction{
+		Name: "a1",
+		Type: dataprovider.ActionTypeFilesystem,
+		Options: dataprovider.BaseEventActionOptions{
+			FsConfig: dataprovider.EventActionFilesystemConfig{
+				Type:   dataprovider.FilesystemActionMkdirs,
+				MkDirs: dirsToCreate,
+			},
+		},
+	}
+	a2 := dataprovider.BaseEventAction{
+		Name: "a2",
+		Type: dataprovider.ActionTypeFilesystem,
+		Options: dataprovider.BaseEventActionOptions{
+			FsConfig: dataprovider.EventActionFilesystemConfig{
+				Type: dataprovider.FilesystemActionRename,
+				Renames: []dataprovider.KeyValue{
+					{
+						Key:   "/{{VirtualPath}}",
+						Value: "/{{ObjectName}}_renamed",
+					},
+				},
+			},
+		},
+	}
+	a3 := dataprovider.BaseEventAction{
+		Name: "a3",
+		Type: dataprovider.ActionTypeFilesystem,
+		Options: dataprovider.BaseEventActionOptions{
+			FsConfig: dataprovider.EventActionFilesystemConfig{
+				Type:    dataprovider.FilesystemActionDelete,
+				Deletes: []string{"/{{ObjectName}}_renamed"},
+			},
+		},
+	}
+	a4 := dataprovider.BaseEventAction{
+		Name: "a4",
+		Type: dataprovider.ActionTypeFolderQuotaReset,
+	}
+	a5 := dataprovider.BaseEventAction{
+		Name: "a5",
+		Type: dataprovider.ActionTypeUserQuotaReset,
+	}
+	action1, resp, err := httpdtest.AddEventAction(a1, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	action2, resp, err := httpdtest.AddEventAction(a2, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	action3, resp, err := httpdtest.AddEventAction(a3, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	action4, resp, err := httpdtest.AddEventAction(a4, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	action5, resp, err := httpdtest.AddEventAction(a5, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+
+	r1 := dataprovider.EventRule{
+		Name:    "r1",
+		Trigger: dataprovider.EventTriggerProviderEvent,
+		Conditions: dataprovider.EventConditions{
+			ProviderEvents: []string{"add"},
+		},
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action1.Name,
+				},
+				Order: 1,
+			},
+		},
+	}
+	r2 := dataprovider.EventRule{
+		Name:    "r2",
+		Trigger: dataprovider.EventTriggerFsEvent,
+		Conditions: dataprovider.EventConditions{
+			FsEvents: []string{"upload"},
+		},
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action2.Name,
+				},
+				Order: 1,
+				Options: dataprovider.EventActionOptions{
+					ExecuteSync: true,
+				},
+			},
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action5.Name,
+				},
+				Order: 2,
+			},
+		},
+	}
+	r3 := dataprovider.EventRule{
+		Name:    "r3",
+		Trigger: dataprovider.EventTriggerFsEvent,
+		Conditions: dataprovider.EventConditions{
+			FsEvents: []string{"mkdir"},
+		},
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action3.Name,
+				},
+				Order: 1,
+			},
+		},
+	}
+	r4 := dataprovider.EventRule{
+		Name:    "r4",
+		Trigger: dataprovider.EventTriggerFsEvent,
+		Conditions: dataprovider.EventConditions{
+			FsEvents: []string{"rmdir"},
+		},
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action4.Name,
+				},
+				Order: 1,
+			},
+		},
+	}
+	r5 := dataprovider.EventRule{
+		Name:    "r5",
+		Trigger: dataprovider.EventTriggerProviderEvent,
+		Conditions: dataprovider.EventConditions{
+			ProviderEvents: []string{"add"},
+		},
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action4.Name,
+				},
+				Order: 1,
+			},
+		},
+	}
+	rule1, _, err := httpdtest.AddEventRule(r1, http.StatusCreated)
+	assert.NoError(t, err)
+	rule2, _, err := httpdtest.AddEventRule(r2, http.StatusCreated)
+	assert.NoError(t, err)
+	rule3, _, err := httpdtest.AddEventRule(r3, http.StatusCreated)
+	assert.NoError(t, err)
+	rule4, _, err := httpdtest.AddEventRule(r4, http.StatusCreated)
+	assert.NoError(t, err)
+	rule5, _, err := httpdtest.AddEventRule(r5, http.StatusCreated)
+	assert.NoError(t, err)
+
+	folderMappedPath := filepath.Join(os.TempDir(), "folder")
+	err = os.MkdirAll(folderMappedPath, os.ModePerm)
+	assert.NoError(t, err)
+	err = os.WriteFile(filepath.Join(folderMappedPath, "file.txt"), []byte("1"), 0666)
+	assert.NoError(t, err)
+
+	folder, _, err := httpdtest.AddFolder(vfs.BaseVirtualFolder{
+		Name:       "test folder",
+		MappedPath: folderMappedPath,
+	}, http.StatusCreated)
+	assert.NoError(t, err)
+	assert.Eventually(t, func() bool {
+		folderGet, _, err := httpdtest.GetFolderByName(folder.Name, http.StatusOK)
+		if err != nil {
+			return false
+		}
+		return folderGet.UsedQuotaFiles == 1 && folderGet.UsedQuotaSize == 1
+	}, 2*time.Second, 100*time.Millisecond)
+
+	u := getTestUser()
+	u.Filters.DisableFsChecks = true
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	conn, client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		// check initial directories creation
+		for _, dir := range dirsToCreate {
+			assert.Eventually(t, func() bool {
+				_, err := client.Stat(dir)
+				return err == nil
+			}, 2*time.Second, 100*time.Millisecond)
+		}
+		// upload a file and check the sync rename
+		size := int64(32768)
+		err = writeSFTPFileNoCheck(path.Join("basedir", testFileName), size, client)
+		assert.NoError(t, err)
+		_, err = client.Stat(path.Join("basedir", testFileName))
+		assert.Error(t, err)
+		info, err := client.Stat(testFileName + "_renamed")
+		if assert.NoError(t, err) {
+			assert.Equal(t, size, info.Size())
+		}
+		assert.NoError(t, err)
+		assert.Eventually(t, func() bool {
+			userGet, _, err := httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+			if err != nil {
+				return false
+			}
+			return userGet.UsedQuotaFiles == 1 && userGet.UsedQuotaSize == size
+		}, 2*time.Second, 100*time.Millisecond)
+
+		for i := 0; i < 2; i++ {
+			err = client.Mkdir(testFileName)
+			assert.NoError(t, err)
+			assert.Eventually(t, func() bool {
+				_, err = client.Stat(testFileName + "_renamed")
+				return err != nil
+			}, 2*time.Second, 100*time.Millisecond)
+			err = client.RemoveDirectory(testFileName)
+			assert.NoError(t, err)
+		}
+		err = client.Mkdir(testFileName + "_renamed")
+		assert.NoError(t, err)
+		err = client.Mkdir(testFileName)
+		assert.NoError(t, err)
+		assert.Eventually(t, func() bool {
+			_, err = client.Stat(testFileName + "_renamed")
+			return err != nil
+		}, 2*time.Second, 100*time.Millisecond)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(folder, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(folderMappedPath)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventRule(rule1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventRule(rule2, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventRule(rule3, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventRule(rule4, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventRule(rule5, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action2, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action3, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action4, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action5, http.StatusOK)
+	assert.NoError(t, err)
+}
+
 func TestSyncUploadAction(t *testing.T) {
 	if runtime.GOOS == osWindows {
 		t.Skip("this test is not available on Windows")

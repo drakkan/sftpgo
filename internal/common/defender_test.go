@@ -366,7 +366,7 @@ func TestLoadHostListFromFile(t *testing.T) {
 	assert.Len(t, hostList.IPAddresses, 0)
 	assert.Equal(t, 0, hostList.Ranges.Len())
 
-	if runtime.GOOS != "windows" {
+	if runtime.GOOS != osWindows {
 		err = os.Chmod(hostsFilePath, 0111)
 		assert.NoError(t, err)
 

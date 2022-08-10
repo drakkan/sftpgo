@@ -20,6 +20,8 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -259,11 +261,19 @@ func TestEventManagerErrors(t *testing.T) {
 	err := dataprovider.Close()
 	assert.NoError(t, err)
 
-	err = executeUsersQuotaResetRuleAction(dataprovider.ConditionOptions{})
+	params := EventParams{
+		sender: "sender",
+	}
+	_, err = params.getUsers()
 	assert.Error(t, err)
-	err = executeFoldersQuotaResetRuleAction(dataprovider.ConditionOptions{})
+	_, err = params.getFolders()
 	assert.Error(t, err)
-	err = executeTransferQuotaResetRuleAction(dataprovider.ConditionOptions{})
+
+	err = executeUsersQuotaResetRuleAction(dataprovider.ConditionOptions{}, EventParams{})
+	assert.Error(t, err)
+	err = executeFoldersQuotaResetRuleAction(dataprovider.ConditionOptions{}, EventParams{})
+	assert.Error(t, err)
+	err = executeTransferQuotaResetRuleAction(dataprovider.ConditionOptions{}, EventParams{})
 	assert.Error(t, err)
 	err = executeQuotaResetForUser(dataprovider.User{
 		Groups: []sdk.GroupMapping{
@@ -488,6 +498,17 @@ func TestEventRuleActions(t *testing.T) {
 	})
 	assert.Error(t, err)
 	assert.True(t, QuotaScans.RemoveUserQuotaScan(username1))
+	// non matching pattern
+	err = executeRuleAction(action, EventParams{}, dataprovider.ConditionOptions{
+		Names: []dataprovider.ConditionPattern{
+			{
+				Pattern: "don't match",
+			},
+		},
+	})
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "no user quota reset executed")
+	}
 
 	dataRetentionAction := dataprovider.BaseEventAction{
 		Type: dataprovider.ActionTypeDataRetentionCheck,
@@ -571,6 +592,17 @@ func TestEventRuleActions(t *testing.T) {
 	assert.Error(t, err)
 	RetentionChecks.remove(user1.Username)
 
+	err = executeRuleAction(dataRetentionAction, EventParams{}, dataprovider.ConditionOptions{
+		Names: []dataprovider.ConditionPattern{
+			{
+				Pattern: "no match",
+			},
+		},
+	})
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "no retention check executed")
+	}
+
 	err = os.RemoveAll(user1.GetHomeDir())
 	assert.NoError(t, err)
 
@@ -590,6 +622,17 @@ func TestEventRuleActions(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, int64(0), userGet.UsedDownloadDataTransfer)
 	assert.Equal(t, int64(0), userGet.UsedUploadDataTransfer)
+
+	err = executeRuleAction(action, EventParams{}, dataprovider.ConditionOptions{
+		Names: []dataprovider.ConditionPattern{
+			{
+				Pattern: "no match",
+			},
+		},
+	})
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "no transfer quota reset executed")
+	}
 
 	err = dataprovider.DeleteUser(username1, "", "")
 	assert.NoError(t, err)
@@ -649,11 +692,118 @@ func TestEventRuleActions(t *testing.T) {
 	assert.Error(t, err)
 	assert.True(t, QuotaScans.RemoveVFolderQuotaScan(foldername1))
 
+	err = executeRuleAction(action, EventParams{}, dataprovider.ConditionOptions{
+		Names: []dataprovider.ConditionPattern{
+			{
+				Pattern: "no folder match",
+			},
+		},
+	})
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "no folder quota reset executed")
+	}
+
 	err = os.RemoveAll(folder1.MappedPath)
 	assert.NoError(t, err)
 	err = dataprovider.DeleteFolder(foldername1, "", "")
 	assert.NoError(t, err)
 	err = dataprovider.DeleteFolder(foldername2, "", "")
+	assert.NoError(t, err)
+}
+
+func TestFilesystemActionErrors(t *testing.T) {
+	err := executeFsRuleAction(dataprovider.EventActionFilesystemConfig{}, EventParams{})
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "unsupported filesystem action")
+	}
+	username := "test_user_for_actions"
+	testReplacer := strings.NewReplacer("old", "new")
+	err = executeDeleteFsAction(nil, testReplacer, username)
+	assert.Error(t, err)
+	err = executeMkDirsFsAction(nil, testReplacer, username)
+	assert.Error(t, err)
+	err = executeRenameFsAction(nil, testReplacer, username)
+	assert.Error(t, err)
+
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username: username,
+			Permissions: map[string][]string{
+				"/": {dataprovider.PermAny},
+			},
+			HomeDir: filepath.Join(os.TempDir(), username),
+		},
+		FsConfig: vfs.Filesystem{
+			Provider: sdk.SFTPFilesystemProvider,
+			SFTPConfig: vfs.SFTPFsConfig{
+				BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
+					Endpoint: "127.0.0.1:4022",
+					Username: username,
+				},
+				Password: kms.NewPlainSecret("pwd"),
+			},
+		},
+	}
+	conn := NewBaseConnection("", protocolEventAction, "", "", user)
+	err = executeDeleteFileFsAction(conn, "", nil)
+	assert.Error(t, err)
+	err = dataprovider.AddUser(&user, "", "")
+	assert.NoError(t, err)
+	// check root fs fails
+	err = executeDeleteFsAction(nil, testReplacer, username)
+	assert.Error(t, err)
+	err = executeMkDirsFsAction(nil, testReplacer, username)
+	assert.Error(t, err)
+	err = executeRenameFsAction(nil, testReplacer, username)
+	assert.Error(t, err)
+
+	user.FsConfig.Provider = sdk.LocalFilesystemProvider
+	user.Permissions["/"] = []string{dataprovider.PermUpload}
+	err = dataprovider.DeleteUser(username, "", "")
+	assert.NoError(t, err)
+	err = dataprovider.AddUser(&user, "", "")
+	assert.NoError(t, err)
+	err = executeRenameFsAction([]dataprovider.KeyValue{
+		{
+			Key:   "/p1",
+			Value: "/p1",
+		},
+	}, testReplacer, username)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "the rename source and target cannot be the same")
+	}
+
+	if runtime.GOOS != osWindows {
+		dirPath := filepath.Join(user.HomeDir, "adir", "sub")
+		err := os.MkdirAll(dirPath, os.ModePerm)
+		assert.NoError(t, err)
+		filePath := filepath.Join(dirPath, "f.dat")
+		err = os.WriteFile(filePath, nil, 0666)
+		assert.NoError(t, err)
+		err = os.Chmod(dirPath, 0001)
+		assert.NoError(t, err)
+
+		err = executeDeleteFsAction([]string{"/adir/sub"}, testReplacer, username)
+		assert.Error(t, err)
+		err = executeDeleteFsAction([]string{"/adir/sub/f.dat"}, testReplacer, username)
+		assert.Error(t, err)
+		err = os.Chmod(dirPath, 0555)
+		assert.NoError(t, err)
+		err = executeDeleteFsAction([]string{"/adir/sub/f.dat"}, testReplacer, username)
+		assert.Error(t, err)
+
+		err = executeMkDirsFsAction([]string{"/adir/sub"}, testReplacer, username)
+		assert.Error(t, err)
+		err = executeMkDirsFsAction([]string{"/adir/sub/sub/sub"}, testReplacer, username)
+		assert.Error(t, err)
+
+		err = os.Chmod(dirPath, os.ModePerm)
+		assert.NoError(t, err)
+	}
+
+	err = dataprovider.DeleteUser(username, "", "")
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
 
@@ -787,6 +937,17 @@ func TestScheduledActions(t *testing.T) {
 
 	job.Run()
 	assert.DirExists(t, backupsPath)
+
+	action.Type = dataprovider.ActionTypeFilesystem
+	action.Options = dataprovider.BaseEventActionOptions{
+		FsConfig: dataprovider.EventActionFilesystemConfig{
+			Type:   dataprovider.FilesystemActionMkdirs,
+			MkDirs: []string{"/dir"},
+		},
+	}
+	err = dataprovider.UpdateEventAction(action, "", "")
+	assert.NoError(t, err)
+	job.Run() // action is not compatible with a scheduled rule
 
 	err = dataprovider.DeleteEventRule(rule.Name, "", "")
 	assert.NoError(t, err)

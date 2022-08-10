@@ -96,35 +96,37 @@ type Manager struct {
 	closed int32
 	done   chan bool
 	// List of configured plugins
-	Configs       []Config `json:"plugins" mapstructure:"plugins"`
-	notifLock     sync.RWMutex
-	notifiers     []*notifierPlugin
-	kmsLock       sync.RWMutex
-	kms           []*kmsPlugin
-	authLock      sync.RWMutex
-	auths         []*authPlugin
-	searcherLock  sync.RWMutex
-	searcher      *searcherPlugin
-	metadaterLock sync.RWMutex
-	metadater     *metadataPlugin
-	ipFilterLock  sync.RWMutex
-	filter        *ipFilterPlugin
-	authScopes    int
-	hasSearcher   bool
-	hasMetadater  bool
-	hasNotifiers  bool
-	hasAuths      bool
-	hasIPFilter   bool
+	Configs          []Config `json:"plugins" mapstructure:"plugins"`
+	notifLock        sync.RWMutex
+	notifiers        []*notifierPlugin
+	kmsLock          sync.RWMutex
+	kms              []*kmsPlugin
+	authLock         sync.RWMutex
+	auths            []*authPlugin
+	searcherLock     sync.RWMutex
+	searcher         *searcherPlugin
+	metadaterLock    sync.RWMutex
+	metadater        *metadataPlugin
+	ipFilterLock     sync.RWMutex
+	filter           *ipFilterPlugin
+	authScopes       int
+	hasSearcher      bool
+	hasMetadater     bool
+	hasNotifiers     bool
+	hasAuths         bool
+	hasIPFilter      bool
+	concurrencyGuard chan struct{}
 }
 
 // Initialize initializes the configured plugins
 func Initialize(configs []Config, logLevel string) error {
 	logger.Debug(logSender, "", "initialize")
 	Handler = Manager{
-		Configs:    configs,
-		done:       make(chan bool),
-		closed:     0,
-		authScopes: -1,
+		Configs:          configs,
+		done:             make(chan bool),
+		closed:           0,
+		authScopes:       -1,
+		concurrencyGuard: make(chan struct{}, 250),
 	}
 	setLogLevel(logLevel)
 	if len(configs) == 0 {
@@ -697,6 +699,14 @@ func (m *Manager) restartIPFilterPlugin(config Config) {
 	m.ipFilterLock.Lock()
 	m.filter = plugin
 	m.ipFilterLock.Unlock()
+}
+
+func (m *Manager) addTask() {
+	m.concurrencyGuard <- struct{}{}
+}
+
+func (m *Manager) removeTask() {
+	<-m.concurrencyGuard
 }
 
 // Cleanup releases all the active plugins

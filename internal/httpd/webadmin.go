@@ -304,6 +304,7 @@ type eventActionPage struct {
 	basePage
 	Action         dataprovider.BaseEventAction
 	ActionTypes    []dataprovider.EnumMapping
+	FsActions      []dataprovider.EnumMapping
 	HTTPMethods    []string
 	RedactedSecret string
 	Error          string
@@ -905,6 +906,7 @@ func (s *httpdServer) renderEventActionPage(w http.ResponseWriter, r *http.Reque
 		basePage:       s.getBasePageData(title, currentURL, r),
 		Action:         action,
 		ActionTypes:    dataprovider.EventActionTypes,
+		FsActions:      dataprovider.FsActionTypes,
 		HTTPMethods:    dataprovider.SupportedHTTPActionMethods,
 		RedactedSecret: redactedSecret,
 		Error:          error,
@@ -1873,6 +1875,10 @@ func getEventActionOptionsFromPostFields(r *http.Request) (dataprovider.BaseEven
 	if err != nil {
 		return dataprovider.BaseEventActionOptions{}, err
 	}
+	fsActionType, err := strconv.Atoi(r.Form.Get("fs_action_type"))
+	if err != nil {
+		return dataprovider.BaseEventActionOptions{}, fmt.Errorf("invalid fs action type: %w", err)
+	}
 	options := dataprovider.BaseEventActionOptions{
 		HTTPConfig: dataprovider.EventActionHTTPConfig{
 			Endpoint:        r.Form.Get("http_endpoint"),
@@ -1897,6 +1903,12 @@ func getEventActionOptionsFromPostFields(r *http.Request) (dataprovider.BaseEven
 		},
 		RetentionConfig: dataprovider.EventActionDataRetentionConfig{
 			Folders: foldersRetention,
+		},
+		FsConfig: dataprovider.EventActionFilesystemConfig{
+			Type:    fsActionType,
+			Renames: getKeyValsFromPostFields(r, "fs_rename_source", "fs_rename_target"),
+			Deletes: strings.Split(strings.ReplaceAll(r.Form.Get("fs_delete_paths"), " ", ""), ","),
+			MkDirs:  strings.Split(strings.ReplaceAll(r.Form.Get("fs_mkdir_paths"), " ", ""), ","),
 		},
 	}
 	return options, nil

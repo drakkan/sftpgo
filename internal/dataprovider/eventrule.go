@@ -41,12 +41,13 @@ const (
 	ActionTypeFolderQuotaReset
 	ActionTypeTransferQuotaReset
 	ActionTypeDataRetentionCheck
+	ActionTypeFilesystem
 )
 
 var (
 	supportedEventActions = []int{ActionTypeHTTP, ActionTypeCommand, ActionTypeEmail, ActionTypeBackup,
 		ActionTypeUserQuotaReset, ActionTypeFolderQuotaReset, ActionTypeTransferQuotaReset,
-		ActionTypeDataRetentionCheck}
+		ActionTypeDataRetentionCheck, ActionTypeFilesystem}
 )
 
 func isActionTypeValid(action int) bool {
@@ -69,6 +70,8 @@ func getActionTypeAsString(action int) string {
 		return "Transfer quota reset"
 	case ActionTypeDataRetentionCheck:
 		return "Data retention check"
+	case ActionTypeFilesystem:
+		return "Filesystem"
 	default:
 		return "Command"
 	}
@@ -102,6 +105,32 @@ func getTriggerTypeAsString(trigger int) string {
 	}
 }
 
+// Supported filesystem actions
+const (
+	FilesystemActionRename = iota + 1
+	FilesystemActionDelete
+	FilesystemActionMkdirs
+)
+
+var (
+	supportedFsActions = []int{FilesystemActionRename, FilesystemActionDelete, FilesystemActionMkdirs}
+)
+
+func isFilesystemActionValid(value int) bool {
+	return util.Contains(supportedFsActions, value)
+}
+
+func getFsActionTypeAsString(value int) string {
+	switch value {
+	case FilesystemActionRename:
+		return "Rename"
+	case FilesystemActionDelete:
+		return "Delete"
+	default:
+		return "Create directories"
+	}
+}
+
 // TODO: replace the copied strings with shared constants
 var (
 	// SupportedFsEvents defines the supported filesystem events
@@ -112,8 +141,8 @@ var (
 	SupportedRuleConditionProtocols = []string{"SFTP", "SCP", "SSH", "FTP", "DAV", "HTTP", "HTTPShare",
 		"OIDC"}
 	// SupporteRuleConditionProviderObjects defines the supported provider objects for rule conditions
-	SupporteRuleConditionProviderObjects = []string{actionObjectUser, actionObjectGroup, actionObjectAdmin,
-		actionObjectAPIKey, actionObjectShare, actionObjectEventRule, actionObjectEventAction}
+	SupporteRuleConditionProviderObjects = []string{actionObjectUser, actionObjectFolder, actionObjectGroup,
+		actionObjectAdmin, actionObjectAPIKey, actionObjectShare, actionObjectEventRule, actionObjectEventAction}
 	// SupportedHTTPActionMethods defines the supported methods for HTTP actions
 	SupportedHTTPActionMethods = []string{http.MethodPost, http.MethodGet, http.MethodPut}
 )
@@ -122,6 +151,7 @@ var (
 var (
 	EventActionTypes  []EnumMapping
 	EventTriggerTypes []EnumMapping
+	FsActionTypes     []EnumMapping
 )
 
 func init() {
@@ -135,6 +165,12 @@ func init() {
 		EventTriggerTypes = append(EventTriggerTypes, EnumMapping{
 			Value: t,
 			Name:  getTriggerTypeAsString(t),
+		})
+	}
+	for _, t := range supportedFsActions {
+		FsActionTypes = append(FsActionTypes, EnumMapping{
+			Value: t,
+			Name:  getFsActionTypeAsString(t),
 		})
 	}
 }
@@ -331,12 +367,120 @@ func (c *EventActionDataRetentionConfig) validate() error {
 	return nil
 }
 
+// EventActionFilesystemConfig defines the configuration for filesystem actions
+type EventActionFilesystemConfig struct {
+	// Filesystem actions, see the above enum
+	Type int `json:"type,omitempty"`
+	// files/dirs to rename, key is the source and target the value
+	Renames []KeyValue `json:"renames,omitempty"`
+	// directories to create
+	MkDirs []string `json:"mkdirs,omitempty"`
+	// files/dirs to delete
+	Deletes []string `json:"deletes,omitempty"`
+}
+
+// GetDeletesAsString returns the list of items to delete as comma separated string.
+// Using a pointer receiver will not work in web templates
+func (c EventActionFilesystemConfig) GetDeletesAsString() string {
+	return strings.Join(c.Deletes, ",")
+}
+
+// GetMkDirsAsString returns the list of directories to create as comma separated string.
+// Using a pointer receiver will not work in web templates
+func (c EventActionFilesystemConfig) GetMkDirsAsString() string {
+	return strings.Join(c.MkDirs, ",")
+}
+
+func (c *EventActionFilesystemConfig) validateRenames() error {
+	if len(c.Renames) == 0 {
+		return util.NewValidationError("no items to rename specified")
+	}
+	for idx, kv := range c.Renames {
+		key := strings.TrimSpace(kv.Key)
+		value := strings.TrimSpace(kv.Value)
+		if key == "" || value == "" {
+			return util.NewValidationError("invalid items to rename")
+		}
+		key = util.CleanPath(key)
+		value = util.CleanPath(value)
+		if key == value {
+			return util.NewValidationError("rename source and target cannot be equal")
+		}
+		if key == "/" || value == "/" {
+			return util.NewValidationError("renaming the root directory is not allowed")
+		}
+		c.Renames[idx] = KeyValue{
+			Key:   key,
+			Value: value,
+		}
+	}
+	return nil
+}
+
+func (c *EventActionFilesystemConfig) validate() error {
+	if !isFilesystemActionValid(c.Type) {
+		return util.NewValidationError(fmt.Sprintf("invalid filesystem action type: %d", c.Type))
+	}
+	switch c.Type {
+	case FilesystemActionRename:
+		c.MkDirs = nil
+		c.Deletes = nil
+		if err := c.validateRenames(); err != nil {
+			return err
+		}
+	case FilesystemActionDelete:
+		c.Renames = nil
+		c.MkDirs = nil
+		if len(c.Deletes) == 0 {
+			return util.NewValidationError("no item to delete specified")
+		}
+		for idx, val := range c.Deletes {
+			val = strings.TrimSpace(val)
+			if val == "" {
+				return util.NewValidationError("invalid item to delete")
+			}
+			c.Deletes[idx] = util.CleanPath(val)
+		}
+		c.Deletes = util.RemoveDuplicates(c.Deletes, false)
+	case FilesystemActionMkdirs:
+		c.Renames = nil
+		c.Deletes = nil
+		if len(c.MkDirs) == 0 {
+			return util.NewValidationError("no directory to create specified")
+		}
+		for idx, val := range c.MkDirs {
+			val = strings.TrimSpace(val)
+			if val == "" {
+				return util.NewValidationError("invalid directory to create")
+			}
+			c.MkDirs[idx] = util.CleanPath(val)
+		}
+		c.MkDirs = util.RemoveDuplicates(c.MkDirs, false)
+	}
+	return nil
+}
+
+func (c *EventActionFilesystemConfig) getACopy() EventActionFilesystemConfig {
+	mkdirs := make([]string, len(c.MkDirs))
+	copy(mkdirs, c.MkDirs)
+	deletes := make([]string, len(c.Deletes))
+	copy(deletes, c.Deletes)
+
+	return EventActionFilesystemConfig{
+		Type:    c.Type,
+		Renames: cloneKeyValues(c.Renames),
+		MkDirs:  mkdirs,
+		Deletes: deletes,
+	}
+}
+
 // BaseEventActionOptions defines the supported configuration options for a base event actions
 type BaseEventActionOptions struct {
 	HTTPConfig      EventActionHTTPConfig          `json:"http_config"`
 	CmdConfig       EventActionCommandConfig       `json:"cmd_config"`
 	EmailConfig     EventActionEmailConfig         `json:"email_config"`
 	RetentionConfig EventActionDataRetentionConfig `json:"retention_config"`
+	FsConfig        EventActionFilesystemConfig    `json:"fs_config"`
 }
 
 func (o *BaseEventActionOptions) getACopy() BaseEventActionOptions {
@@ -378,6 +522,7 @@ func (o *BaseEventActionOptions) getACopy() BaseEventActionOptions {
 		RetentionConfig: EventActionDataRetentionConfig{
 			Folders: folders,
 		},
+		FsConfig: o.FsConfig.getACopy(),
 	}
 }
 
@@ -407,27 +552,38 @@ func (o *BaseEventActionOptions) validate(action int, name string) error {
 		o.CmdConfig = EventActionCommandConfig{}
 		o.EmailConfig = EventActionEmailConfig{}
 		o.RetentionConfig = EventActionDataRetentionConfig{}
+		o.FsConfig = EventActionFilesystemConfig{}
 		return o.HTTPConfig.validate(name)
 	case ActionTypeCommand:
 		o.HTTPConfig = EventActionHTTPConfig{}
 		o.EmailConfig = EventActionEmailConfig{}
 		o.RetentionConfig = EventActionDataRetentionConfig{}
+		o.FsConfig = EventActionFilesystemConfig{}
 		return o.CmdConfig.validate()
 	case ActionTypeEmail:
 		o.HTTPConfig = EventActionHTTPConfig{}
 		o.CmdConfig = EventActionCommandConfig{}
 		o.RetentionConfig = EventActionDataRetentionConfig{}
+		o.FsConfig = EventActionFilesystemConfig{}
 		return o.EmailConfig.validate()
 	case ActionTypeDataRetentionCheck:
 		o.HTTPConfig = EventActionHTTPConfig{}
 		o.CmdConfig = EventActionCommandConfig{}
 		o.EmailConfig = EventActionEmailConfig{}
+		o.FsConfig = EventActionFilesystemConfig{}
 		return o.RetentionConfig.validate()
+	case ActionTypeFilesystem:
+		o.HTTPConfig = EventActionHTTPConfig{}
+		o.CmdConfig = EventActionCommandConfig{}
+		o.EmailConfig = EventActionEmailConfig{}
+		o.RetentionConfig = EventActionDataRetentionConfig{}
+		return o.FsConfig.validate()
 	default:
 		o.HTTPConfig = EventActionHTTPConfig{}
 		o.CmdConfig = EventActionCommandConfig{}
 		o.EmailConfig = EventActionEmailConfig{}
 		o.RetentionConfig = EventActionDataRetentionConfig{}
+		o.FsConfig = EventActionFilesystemConfig{}
 	}
 	return nil
 }
@@ -840,6 +996,45 @@ func (r *EventRule) validate() error {
 	}
 	if len(r.Actions) == failureActions {
 		return util.NewValidationError("at least a non-failure action is required")
+	}
+	return nil
+}
+
+// CheckActionsConsistency returns an error if the actions cannot be executed
+func (r *EventRule) CheckActionsConsistency(providerObjectType string) error {
+	switch r.Trigger {
+	case EventTriggerProviderEvent:
+		// user quota reset, transfer quota reset, data retention check and filesystem actions
+		// can be executed only if we modify a user. They will be executed for the
+		// affected user. Folder quota reset can be executed only for folders.
+		userSpecificActions := []int{ActionTypeUserQuotaReset, ActionTypeTransferQuotaReset,
+			ActionTypeDataRetentionCheck, ActionTypeFilesystem}
+		for _, action := range r.Actions {
+			if util.Contains(userSpecificActions, action.Type) && providerObjectType != actionObjectUser {
+				return fmt.Errorf("action %q, type %q is only supported for provider user events",
+					action.Name, getActionTypeAsString(action.Type))
+			}
+			if action.Type == ActionTypeFolderQuotaReset && providerObjectType != actionObjectFolder {
+				return fmt.Errorf("action %q, type %q is only supported for provider folder events",
+					action.Name, getActionTypeAsString(action.Type))
+			}
+		}
+	case EventTriggerFsEvent:
+		// folder quota reset cannot be executed
+		for _, action := range r.Actions {
+			if action.Type == ActionTypeFolderQuotaReset {
+				return fmt.Errorf("action %q, type %q is not supported for filesystem events",
+					action.Name, getActionTypeAsString(action.Type))
+			}
+		}
+	case EventTriggerSchedule:
+		// to execute a filesystem action we need a user
+		for _, action := range r.Actions {
+			if action.Type == ActionTypeFilesystem {
+				return fmt.Errorf("action %q, type %q is not supported for scheduled events",
+					action.Name, getActionTypeAsString(action.Type))
+			}
+		}
 	}
 	return nil
 }

@@ -253,7 +253,7 @@ func (c *BaseConnection) getRealFsPath(fsPath string) string {
 	defer c.RUnlock()
 
 	for _, t := range c.activeTransfers {
-		if p := t.GetRealFsPath(fsPath); len(p) > 0 {
+		if p := t.GetRealFsPath(fsPath); p != "" {
 			return p
 		}
 	}
@@ -858,7 +858,7 @@ func (c *BaseConnection) isRenamePermitted(fsSrc, fsDst vfs.Fs, fsSourcePath, fs
 		c.Log(logger.LevelWarn, "renaming to a directory mapped as virtual folder is not allowed: %#v", fsTargetPath)
 		return false
 	}
-	if fsSrc.GetRelativePath(fsSourcePath) == "/" {
+	if virtualSourcePath == "/" || virtualTargetPath == "/" || fsSrc.GetRelativePath(fsSourcePath) == "/" {
 		c.Log(logger.LevelWarn, "renaming root dir is not allowed")
 		return false
 	}

@@ -12,6 +12,10 @@ The following actions are supported:
 - `Folder quota reset`. The quota used by virtual folders will be updated based on current usage.
 - `Transfer quota reset`. The transfer quota values will be reset to `0`.
 - `Data retention check`. You can define per-folder retention policies.
+- `Filesystem`. For these actions, the required permissions are automatically granted. This is the same as executing the actions from an SFTP client and the same restrictions applies. Supported actions:
+  - `Rename`. You can rename one or more files or directories.
+  - `Delete`. You can delete one or more files and directories.
+  - `Create directories`. You can create one or more directories including sub-directories.
 
 The following placeholders are supported:
 
@@ -34,15 +38,23 @@ Event rules are based on the premise that an event occours. To each rule you can
 The following trigger events are supported:
 
 - `Filesystem events`, for example `upload`, `download` etc.
-- `Provider events`, for example add/update/delete user.
+- `Provider events`, for example `add`, `update`, `delete` user or other resources.
 - `Schedules`.
 
 You can further restrict a rule by specifying additional conditions that must be met before the rule’s actions are taken. For example you can react to uploads only if they are performed by a particular user or using a specified protocol.
 
-Actions are executed in a sequential order. For each action associated to a rule you can define the following settings:
+Actions such as user quota reset, transfer quota reset, data retention check and folder quota reset are executed for all matching users if the trigger is a schedule or for the affected user if the trigger is a provider event or a filesystem action.
+
+Actions are executed in a sequential order except for sync actions that are executed before the others. For each action associated to a rule you can define the following settings:
 
 - `Stop on failure`, the next action will not be executed if the current one fails.
 - `Failure action`, this action will be executed only if at least another one fails.
 - `Execute sync`, for upload events, you can execute the action synchronously. Executing an action synchronously means that SFTPGo will not return a result code to the client (which is waiting for it) until your action have completed its execution. If your acion takes a long time to complete this could cause a timeout on the client side, which wouldn't receive the server response in a timely manner and eventually drop the connection.
 
 If you are running multiple SFTPGo instances connected to the same data provider, you can choose whether to allow simultaneous execution for scheduled actions.
+
+Some actions are not supported for some triggers, rules containing incompatible actions are skipped at runtime:
+
+- `Filesystem events`, folder quota reset cannot be executed, we don't have a direct way to get the affected folder.
+- `Provider events`, user quota reset, transfer quota reset, data retention check and filesystem actions can be executed only if we modify a user. They will be executed for the affected user. Folder quota reset can be executed only for folders. Filesystem actions are not executed for `delete` user events because the actions is executed after the user deletion.
+- `Schedules`, filesystem actions cannot be executed, they require a user.

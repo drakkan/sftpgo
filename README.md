@@ -96,8 +96,10 @@ SFTPGo is developed and tested on Linux. After each commit, the code is automati
 ## Requirements
 
 - Go as build only dependency. We support the Go version(s) used in [continuous integration workflows](./.github/workflows).
-- A suitable SQL server to use as data provider: PostgreSQL 9.4+, MySQL 5.6+, SQLite 3.x, CockroachDB stable.
-- The SQL server is optional: you can choose to use an embedded bolt database as key/value store or an in memory data provider.
+- A suitable SQL server to use as data provider:
+  - upstream supported versions of PostgreSQL, MySQL and MariaDB.
+  - CockroachDB stable.
+- The SQL server is optional: you can choose to use an embedded SQLite, bolt or in memory data provider.
 
 ## Installation
 
@@ -238,16 +240,18 @@ The `revertprovider` command is not supported for the memory provider.
 
 Please note that we only support the current release branch and the current main branch, if you find a bug it is better to report it rather than downgrading to an older unsupported version.
 
-## Users and folders management
+## Users, groups and folders management
 
-After starting SFTPGo you can manage users and folders using:
+After starting SFTPGo you can manage users, groups, folders and other resources using:
 
 - the [web based administration interface](./docs/web-admin.md)
 - the [REST API](./docs/rest-api.md)
 
-To support embedded data providers like `bolt` and `SQLite` we can't have a CLI that directly write users and folders to the data provider, we always have to use the REST API.
+To support embedded data providers like `bolt` and `SQLite`, which do not support concurrent connections, we can't have a CLI that directly write users and other resources to the data provider, we always have to use the REST API.
 
-Full details for users, folders, admins and other resources are documented in the [OpenAPI](./openapi/openapi.yaml) schema. If you want to render the schema without importing it manually, you can explore it on [Stoplight](https://sftpgo.stoplight.io/docs/sftpgo/openapi.yaml).
+Full details for users, groups, folders, admins and other resources are documented in the [OpenAPI](./openapi/openapi.yaml) schema. If you want to render the schema without importing it manually, you can explore it on [Stoplight](https://sftpgo.stoplight.io/docs/sftpgo/openapi.yaml).
+
+:warning: SFTPGo users, groups and folders are virtual and therefore unrelated to the system ones. There is no need to create system-wide users and groups.
 
 ## Tutorials
 

@@ -3591,6 +3591,11 @@ func ExecutePostLoginHook(user *User, loginMethod, ip, protocol string, err erro
 	}
 
 	go func() {
+		actionsConcurrencyGuard <- struct{}{}
+		defer func() {
+			<-actionsConcurrencyGuard
+		}()
+
 		status := "0"
 		if err == nil {
 			status = "1"

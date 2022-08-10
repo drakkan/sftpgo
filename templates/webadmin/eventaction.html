@@ -404,6 +404,89 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 </div>
             </div>
 
+            <div class="form-group row action-type action-fs">
+                <label for="idFsActionType" class="col-sm-2 col-form-label">Fs action</label>
+                <div class="col-sm-10">
+                    <select class="form-control selectpicker" id="idFsActionType" name="fs_action_type" onchange="onFsActionChanged(this.value)">
+                        {{- range .FsActions}}
+                        <option value="{{.Value}}" {{if eq $.Action.Options.FsConfig.Type .Value }}selected{{end}}>{{.Name}}</option>
+                        {{- end}}
+                    </select>
+                </div>
+            </div>
+
+            <div class="card bg-light mb-3 action-type action-fs-type action-fs-rename">
+                <div class="card-header">
+                    <b>Rename</b>
+                </div>
+                <div class="card-body">
+                    <h6 class="card-title mb-4">Paths to rename as seen by SFTPGo users. Placeholders are supported. The required permissions are granted automatically</h6>
+                    <div class="form-group row">
+                        <div class="col-md-12 form_field_fs_rename_outer">
+                            {{range $idx, $val := .Action.Options.FsConfig.Renames}}
+                            <div class="row form_field_fs_rename_outer_row">
+                                <div class="form-group col-md-5">
+                                    <input type="text" class="form-control" id="idFsRenameSource{{$idx}}" name="fs_rename_source{{$idx}}" placeholder="Source path" value="{{$val.Key}}">
+                                </div>
+                                <div class="form-group col-md-5">
+                                    <input type="text" class="form-control" id="idFsRenameTarget{{$idx}}" name="fs_rename_target{{$idx}}" placeholder="Target path" value="{{$val.Value}}">
+                                </div>
+                                <div class="form-group col-md-1"></div>
+                                <div class="form-group col-md-1">
+                                    <button class="btn btn-circle btn-danger remove_fs_rename_btn_frm_field">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {{else}}
+                            <div class="row form_field_fs_rename_outer_row">
+                                <div class="form-group col-md-5">
+                                    <input type="text" class="form-control" id="idFsRenameSource0" name="fs_rename_source0" placeholder="Source path" value="">
+                                </div>
+                                <div class="form-group col-md-5">
+                                    <input type="text" class="form-control" id="idFsRenameTarget0" name="fs_rename_target0" placeholder="Target path" value="">
+                                </div>
+                                <div class="form-group col-md-1"></div>
+                                <div class="form-group col-md-1">
+                                    <button class="btn btn-circle btn-danger remove_fs_rename_btn_frm_field">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {{end}}
+                        </div>
+                    </div>
+
+                    <div class="row mx-1">
+                        <button type="button" class="btn btn-secondary add_new_fs_rename_field_btn">
+                            <i class="fas fa-plus"></i> Add new
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group row action-type action-fs-type action-fs-delete">
+                <label for="idFsDelete" class="col-sm-2 col-form-label">Paths</label>
+                <div class="col-sm-10">
+                    <textarea class="form-control" id="idFsDelete" name="fs_delete_paths" rows="2"
+                        aria-describedby="fsDeleteHelpBlock">{{.Action.Options.FsConfig.GetDeletesAsString}}</textarea>
+                    <small id="fsDeleteHelpBlock" class="form-text text-muted">
+                        Comma separated paths to delete as seen by SFTPGo users. Placeholders are supported. The required permissions are granted automatically
+                    </small>
+                </div>
+            </div>
+
+            <div class="form-group row action-type action-fs-type action-fs-mkdir">
+                <label for="idFsMkdir" class="col-sm-2 col-form-label">Paths</label>
+                <div class="col-sm-10">
+                    <textarea class="form-control" id="idFsMkdir" name="fs_mkdir_paths" rows="2"
+                        aria-describedby="fsMkdirHelpBlock">{{.Action.Options.FsConfig.GetMkDirsAsString}}</textarea>
+                    <small id="fsMkdirHelpBlock" class="form-text text-muted">
+                        Comma separated directories paths to create as seen by SFTPGo users. Placeholders are supported. The required permissions are granted automatically
+                    </small>
+                </div>
+            </div>
+
             <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
             <div class="col-sm-12 text-right px-0">
                 <button type="submit" class="btn btn-primary mt-3 ml-3 px-5" name="form_action" value="submit">Submit</button>
@@ -596,6 +679,33 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         $(this).closest(".form_field_data_retention_outer_row").remove();
     });
 
+    $("body").on("click", ".add_new_fs_rename_field_btn", function () {
+        var index = $(".form_field_fs_rename_outer").find(".form_field_fs_rename_outer_row").length;
+        while (document.getElementById("idFsRenameSource"+index) != null){
+            index++;
+        }
+        $(".form_field_fs_rename_outer").append(`
+            <div class="row form_field_fs_rename_outer_row">
+                <div class="form-group col-md-5">
+                    <input type="text" class="form-control" id="idFsRenameSource${index}" name="fs_rename_source${index}" placeholder="Source path" value="">
+                </div>
+                <div class="form-group col-md-5">
+                    <input type="text" class="form-control" id="idFsRenameTarget${index}" name="fs_rename_target${index}" placeholder="Target path" value="">
+                </div>
+                <div class="form-group col-md-1"></div>
+                <div class="form-group col-md-1">
+                    <button class="btn btn-circle btn-danger remove_fs_rename_btn_frm_field">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+            `);
+        });
+
+    $("body").on("click", ".remove_fs_rename_btn_frm_field", function () {
+        $(this).closest(".form_field_fs_rename_outer_row").remove();
+    });
+
     function onTypeChanged(val){
         $('.action-type').hide();
         switch (val) {
@@ -615,11 +725,35 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             case 8:
                 $('.action-dataretention').show();
                 break;
+            case '9':
+            case 9:
+                $('.action-fs').show();
+                onFsActionChanged($("#idFsActionType").val());
+                break;
+        }
+    }
+
+    function onFsActionChanged(val){
+        $('.action-fs-type').hide();
+        switch (val) {
+            case '1':
+            case 1:
+                $('.action-fs-rename').show();
+                break;
+            case '2':
+            case 2:
+                $('.action-fs-delete').show();
+                break;
+            case '3':
+            case 3:
+                $('.action-fs-mkdir').show();
+                break;
         }
     }
 
     $(document).ready(function () {
         onTypeChanged('{{.Action.Type}}');
+        onFsActionChanged('{{.Action.Options.FsConfig.Type}}');
     });
 </script>
 {{end}}

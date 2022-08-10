@@ -1349,6 +1349,9 @@ func checkEventAction(expected, actual dataprovider.BaseEventAction) error {
 	if err := compareEventActionDataRetentionFields(expected.Options.RetentionConfig, actual.Options.RetentionConfig); err != nil {
 		return err
 	}
+	if err := compareEventActionFsConfigFields(expected.Options.FsConfig, actual.Options.FsConfig); err != nil {
+		return err
+	}
 	return compareEventActionHTTPConfigFields(expected.Options.HTTPConfig, actual.Options.HTTPConfig)
 }
 
@@ -2234,6 +2237,32 @@ func compareEventActionEmailConfigFields(expected, actual dataprovider.EventActi
 	}
 	if expected.Body != actual.Body {
 		return errors.New("email body mismatch")
+	}
+	return nil
+}
+
+func compareEventActionFsConfigFields(expected, actual dataprovider.EventActionFilesystemConfig) error {
+	if expected.Type != actual.Type {
+		return errors.New("fs type mismatch")
+	}
+	if err := compareKeyValues(expected.Renames, actual.Renames); err != nil {
+		return errors.New("fs renames mismatch")
+	}
+	if len(expected.Deletes) != len(actual.Deletes) {
+		return errors.New("fs deletes mismatch")
+	}
+	for _, v := range expected.Deletes {
+		if !util.Contains(actual.Deletes, v) {
+			return errors.New("fs deletes content mismatch")
+		}
+	}
+	if len(expected.MkDirs) != len(actual.MkDirs) {
+		return errors.New("fs mkdirs mismatch")
+	}
+	for _, v := range expected.MkDirs {
+		if !util.Contains(actual.MkDirs, v) {
+			return errors.New("fs mkdir content mismatch")
+		}
 	}
 	return nil
 }
