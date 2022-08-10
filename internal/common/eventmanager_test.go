@@ -790,12 +790,18 @@ func TestFilesystemActionErrors(t *testing.T) {
 		err = os.Chmod(dirPath, 0555)
 		assert.NoError(t, err)
 		err = executeDeleteFsAction([]string{"/adir/sub/f.dat"}, testReplacer, username)
-		assert.Error(t, err)
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), "unable to remove file")
+		}
 
-		err = executeMkDirsFsAction([]string{"/adir/sub"}, testReplacer, username)
-		assert.Error(t, err)
+		err = executeMkDirsFsAction([]string{"/adir/sub/sub"}, testReplacer, username)
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), "unable to create dir")
+		}
 		err = executeMkDirsFsAction([]string{"/adir/sub/sub/sub"}, testReplacer, username)
-		assert.Error(t, err)
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), "unable to check parent dirs")
+		}
 
 		err = os.Chmod(dirPath, os.ModePerm)
 		assert.NoError(t, err)

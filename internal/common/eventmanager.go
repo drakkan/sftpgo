@@ -589,17 +589,18 @@ func executeDeleteFsAction(deletes []string, replacer *strings.Replacer, usernam
 			if conn.IsNotExistError(err) {
 				continue
 			}
-			return err
+			return fmt.Errorf("unable to check item to delete %q, user %q: %w", item, user.Username, err)
 		}
 		if info.IsDir() {
 			if err = conn.RemoveDir(item); err != nil {
-				return err
+				return fmt.Errorf("unable to remove dir %q, user %q: %w", item, user.Username, err)
 			}
 		} else {
 			if err = executeDeleteFileFsAction(conn, item, info); err != nil {
-				return err
+				return fmt.Errorf("unable to remove file %q, user %q: %w", item, user.Username, err)
 			}
 		}
+		eventManagerLog(logger.LevelDebug, "item %q removed for user %q", item, user.Username)
 	}
 	return nil
 }
@@ -619,11 +620,12 @@ func executeMkDirsFsAction(dirs []string, replacer *strings.Replacer, username s
 	for _, item := range dirs {
 		item = replaceWithReplacer(item, replacer)
 		if err = conn.CheckParentDirs(path.Dir(item)); err != nil {
-			return err
+			return fmt.Errorf("unable to check parent dirs for %q, user %q: %w", item, user.Username, err)
 		}
-		if err = conn.CreateDir(item, false); err != nil {
-			return err
+		if err = conn.createDirIfMissing(item); err != nil {
+			return fmt.Errorf("unable to create dir %q, user %q: %w", item, user.Username, err)
 		}
+		eventManagerLog(logger.LevelDebug, "directory %q created for user %q", item, user.Username)
 	}
 	return nil
 }
@@ -644,8 +646,9 @@ func executeRenameFsAction(renames []dataprovider.KeyValue, replacer *strings.Re
 		source := replaceWithReplacer(item.Key, replacer)
 		target := replaceWithReplacer(item.Value, replacer)
 		if err = conn.Rename(source, target); err != nil {
-			return err
+			return fmt.Errorf("unable to rename %q->%q, user %q: %w", source, target, user.Username, err)
 		}
+		eventManagerLog(logger.LevelDebug, "rename %q->%q ok, user %q", source, target, user.Username)
 	}
 	return nil
 }
