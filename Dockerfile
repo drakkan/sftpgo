@@ -23,6 +23,11 @@ RUN set -xe && \
     export COMMIT_SHA=${COMMIT_SHA:-$(git describe --always --dirty)} && \
     go build $(if [ -n "${FEATURES}" ]; then echo "-tags ${FEATURES}"; fi) -trimpath -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=${COMMIT_SHA} -X github.com/drakkan/sftpgo/v2/internal/version.date=`date -u +%FT%TZ`" -v -o sftpgo
 
+# Set to "true" to download the "official" plugins in /usr/local/bin
+ARG DOWNLOAD_PLUGINS=false
+
+RUN if [ "${DOWNLOAD_PLUGINS}" = "true" ]; then apt-get update && apt-get install --no-install-recommends -y curl && ./docker/scripts/download-plugins.sh; fi
+
 FROM debian:bullseye-slim
 
 # Set to "true" to install jq and the optional git and rsync dependencies
@@ -43,7 +48,7 @@ COPY --from=builder /workspace/sftpgo.json /etc/sftpgo/sftpgo.json
 COPY --from=builder /workspace/templates /usr/share/sftpgo/templates
 COPY --from=builder /workspace/static /usr/share/sftpgo/static
 COPY --from=builder /workspace/openapi /usr/share/sftpgo/openapi
-COPY --from=builder /workspace/sftpgo /usr/local/bin/
+COPY --from=builder /workspace/sftpgo /usr/local/bin/sftpgo-plugin-* /usr/local/bin/
 
 # Log to the stdout so the logs will be available using docker logs
 ENV SFTPGO_LOG_FILE_PATH=""
