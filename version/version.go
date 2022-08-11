@@ -16,7 +16,7 @@ package version
 
 import "strings"
 
-const version = "2.3.3"
+const version = "2.3.3-dev"
 
 var (
 	commit = ""

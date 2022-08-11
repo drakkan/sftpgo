@@ -28,6 +28,9 @@ jobs:
           - os: ubuntu-latest
             docker_pkg: distroless
             optional_deps: false
+          - os: ubuntu-latest
+            docker_pkg: debian-plugins
+            optional_deps: true
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -64,6 +67,9 @@ jobs:
             VERSION="${VERSION}-distroless"
             VERSION_SLIM="${VERSION}-slim"
             DOCKERFILE=Dockerfile.distroless
+          elif [[ $DOCKER_PKG == debian-plugins ]]; then
+            VERSION="${VERSION}-plugins"
+            VERSION_SLIM="${VERSION}-slim"
           fi
           DOCKER_IMAGES=("drakkan/sftpgo" "ghcr.io/drakkan/sftpgo")
           TAGS="${DOCKER_IMAGES[0]}:${VERSION}"
@@ -109,6 +115,11 @@ jobs:
             echo ::set-output name=tags::${TAGS_SLIM}
             echo ::set-output name=full::false
           fi
+          if [[ $DOCKER_PKG == debian-plugins ]]; then
+            echo ::set-output name=plugins::true
+          else
+            echo ::set-output name=plugins::false
+          fi
           echo ::set-output name=dockerfile::${DOCKERFILE}
           echo ::set-output name=created::$(date -u +'%Y-%m-%dT%H:%M:%SZ')
           echo ::set-output name=sha::${GITHUB_SHA::8}
@@ -150,6 +161,7 @@ jobs:
           build-args: |
             COMMIT_SHA=${{ steps.info.outputs.sha }}
             INSTALL_OPTIONAL_PACKAGES=${{ steps.info.outputs.full }}
+            DOWNLOAD_PLUGINS=${{ steps.info.outputs.plugins }}
           labels: |
             org.opencontainers.image.title=SFTPGo
             org.opencontainers.image.description=Fully featured and highly configurable SFTP server with optional HTTP, FTP/S and WebDAV support
