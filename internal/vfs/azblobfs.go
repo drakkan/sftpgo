@@ -56,12 +56,11 @@ type AzureBlobFs struct {
 	connectionID string
 	localTempDir string
 	// if not empty this fs is mouted as virtual folder in the specified path
-	mountPath          string
-	config             *AzBlobFsConfig
-	hasContainerAccess bool
-	containerClient    *azblob.ContainerClient
-	ctxTimeout         time.Duration
-	ctxLongTimeout     time.Duration
+	mountPath       string
+	config          *AzBlobFsConfig
+	containerClient *azblob.ContainerClient
+	ctxTimeout      time.Duration
+	ctxLongTimeout  time.Duration
 }
 
 func init() {
@@ -124,7 +123,6 @@ func NewAzBlobFs(connectionID, localTempDir, mountPath string, config AzBlobFsCo
 			}
 			fs.containerClient, err = svc.NewContainerClient(fs.config.Container)
 		}
-		fs.hasContainerAccess = false
 		return fs, err
 	}
 
@@ -142,7 +140,6 @@ func NewAzBlobFs(connectionID, localTempDir, mountPath string, config AzBlobFsCo
 	if err != nil {
 		return fs, fmt.Errorf("invalid credentials: %v", err)
 	}
-	fs.hasContainerAccess = true
 	fs.containerClient, err = svc.NewContainerClient(fs.config.Container)
 	return fs, err
 }
@@ -162,13 +159,7 @@ func (fs *AzureBlobFs) ConnectionID() string {
 
 // Stat returns a FileInfo describing the named file
 func (fs *AzureBlobFs) Stat(name string) (os.FileInfo, error) {
-	if name == "" || name == "." {
-		if fs.hasContainerAccess {
-			err := fs.checkIfBucketExists()
-			if err != nil {
-				return nil, err
-			}
-		}
+	if name == "" || name == "/" || name == "." {
 		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, 0, time.Now(), false))
 	}
 	if fs.config.KeyPrefix == name+"/" {
@@ -833,15 +824,6 @@ func (fs *AzureBlobFs) setConfigDefaults() {
 	if fs.config.DownloadConcurrency == 0 {
 		fs.config.DownloadConcurrency = 5
 	}
-}
-
-func (fs *AzureBlobFs) checkIfBucketExists() error {
-	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
-	defer cancelFn()
-
-	_, err := fs.containerClient.GetProperties(ctx, &azblob.ContainerGetPropertiesOptions{})
-	metric.AZHeadContainerCompleted(err)
-	return err
 }
 
 func (fs *AzureBlobFs) hasContents(name string) (bool, error) {

@@ -151,14 +151,10 @@ func (fs *S3Fs) ConnectionID() string {
 func (fs *S3Fs) Stat(name string) (os.FileInfo, error) {
 	var result *FileInfo
 	if name == "" || name == "/" || name == "." {
-		err := fs.checkIfBucketExists()
-		if err != nil {
-			return result, err
-		}
 		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, 0, time.Now(), false))
 	}
 	if fs.config.KeyPrefix == name+"/" {
-		return NewFileInfo(name, true, 0, time.Now(), false), nil
+		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, 0, time.Now(), false))
 	}
 	obj, err := fs.headObject(name)
 	if err == nil {
@@ -753,17 +749,6 @@ func (fs *S3Fs) resolve(name *string, prefix string) (string, bool) {
 		result = strings.TrimSuffix(result, "/")
 	}
 	return result, isDir
-}
-
-func (fs *S3Fs) checkIfBucketExists() error {
-	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
-	defer cancelFn()
-
-	_, err := fs.svc.HeadBucket(ctx, &s3.HeadBucketInput{
-		Bucket: aws.String(fs.config.Bucket),
-	})
-	metric.S3HeadBucketCompleted(err)
-	return err
 }
 
 func (fs *S3Fs) setConfigDefaults() {

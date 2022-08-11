@@ -114,11 +114,7 @@ func (fs *GCSFs) ConnectionID() string {
 
 // Stat returns a FileInfo describing the named file
 func (fs *GCSFs) Stat(name string) (os.FileInfo, error) {
-	if name == "" || name == "." {
-		err := fs.checkIfBucketExists()
-		if err != nil {
-			return nil, err
-		}
+	if name == "" || name == "/" || name == "." {
 		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, 0, time.Now(), false))
 	}
 	if fs.config.KeyPrefix == name+"/" {
@@ -760,16 +756,6 @@ func (fs *GCSFs) getObjectStat(name string) (string, os.FileInfo, error) {
 	}
 	info, err = updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, attrs.Size, attrs.Updated, false))
 	return name + "/", info, err
-}
-
-func (fs *GCSFs) checkIfBucketExists() error {
-	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
-	defer cancelFn()
-
-	bkt := fs.svc.Bucket(fs.config.Bucket)
-	_, err := bkt.Attrs(ctx)
-	metric.GCSHeadBucketCompleted(err)
-	return err
 }
 
 func (fs *GCSFs) hasContents(name string) (bool, error) {

@@ -70,7 +70,7 @@ require (
 	golang.org/x/oauth2 v0.0.0-20220808172628-8227340efae7
 	golang.org/x/sys v0.0.0-20220808155132-1c4a2a72c664
 	golang.org/x/time v0.0.0-20220722155302-e5dcc9cfc0b9
-	google.golang.org/api v0.91.0
+	google.golang.org/api v0.92.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
 

@@ -399,18 +399,6 @@ var (
 		Help: "The total number of S3 head object errors",
 	})
 
-	// totalS3HeadBucket is the metric that reports the total successful S3 head bucket requests
-	totalS3HeadBucket = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "sftpgo_s3_head_bucket",
-		Help: "The total number of successful S3 head bucket requests",
-	})
-
-	// totalS3HeadBucketErrors is the metric that reports the total S3 head bucket errors
-	totalS3HeadBucketErrors = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "sftpgo_s3_head_bucket_errors",
-		Help: "The total number of S3 head bucket errors",
-	})
-
 	// totalGCSUploads is the metric that reports the total number of successful GCS uploads
 	totalGCSUploads = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "sftpgo_gcs_uploads_total",
@@ -495,18 +483,6 @@ var (
 		Help: "The total number of GCS head object errors",
 	})
 
-	// totalGCSHeadBucket is the metric that reports the total successful GCS head bucket requests
-	totalGCSHeadBucket = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "sftpgo_gcs_head_bucket",
-		Help: "The total number of successful GCS head bucket requests",
-	})
-
-	// totalGCSHeadBucketErrors is the metric that reports the total GCS head bucket errors
-	totalGCSHeadBucketErrors = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "sftpgo_gcs_head_bucket_errors",
-		Help: "The total number of GCS head bucket errors",
-	})
-
 	// totalAZUploads is the metric that reports the total number of successful Azure uploads
 	totalAZUploads = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "sftpgo_az_uploads_total",
@@ -589,18 +565,6 @@ var (
 	totalAZHeadObjectErrors = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "sftpgo_az_head_object_errors",
 		Help: "The total number of Azure head object errors",
-	})
-
-	// totalAZHeadContainer is the metric that reports the total successful Azure head container requests
-	totalAZHeadContainer = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "sftpgo_az_head_container",
-		Help: "The total number of successful Azure head container requests",
-	})
-
-	// totalAZHeadContainerErrors is the metric that reports the total Azure head container errors
-	totalAZHeadContainerErrors = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "sftpgo_az_head_container_errors",
-		Help: "The total number of Azure head container errors",
 	})
 
 	// totalSFTPFsUploads is the metric that reports the total number of successful SFTPFs uploads
@@ -766,15 +730,6 @@ func S3HeadObjectCompleted(err error) {
 	}
 }
 
-// S3HeadBucketCompleted updates metrics after a S3 head bucket request terminates
-func S3HeadBucketCompleted(err error) {
-	if err == nil {
-		totalS3HeadBucket.Inc()
-	} else {
-		totalS3HeadBucketErrors.Inc()
-	}
-}
-
 // GCSTransferCompleted updates metrics after a GCS upload or a download
 func GCSTransferCompleted(bytes int64, transferKind int, err error) {
 	if transferKind == 0 {
@@ -832,15 +787,6 @@ func GCSHeadObjectCompleted(err error) {
 	}
 }
 
-// GCSHeadBucketCompleted updates metrics after a GCS head bucket request terminates
-func GCSHeadBucketCompleted(err error) {
-	if err == nil {
-		totalGCSHeadBucket.Inc()
-	} else {
-		totalGCSHeadBucketErrors.Inc()
-	}
-}
-
 // AZTransferCompleted updates metrics after a Azure upload or a download
 func AZTransferCompleted(bytes int64, transferKind int, err error) {
 	if transferKind == 0 {
@@ -895,15 +841,6 @@ func AZHeadObjectCompleted(err error) {
 		totalAZHeadObject.Inc()
 	} else {
 		totalAZHeadObjectErrors.Inc()
-	}
-}
-
-// AZHeadContainerCompleted updates metrics after a Azure head container request terminates
-func AZHeadContainerCompleted(err error) {
-	if err == nil {
-		totalAZHeadContainer.Inc()
-	} else {
-		totalAZHeadContainerErrors.Inc()
 	}
 }
 
