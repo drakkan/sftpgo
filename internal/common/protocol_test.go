@@ -3530,6 +3530,129 @@ func TestEventRuleFsActions(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestEventRuleIPBlocked(t *testing.T) {
+	oldConfig := config.GetCommonConfig()
+
+	cfg := config.GetCommonConfig()
+	cfg.DefenderConfig.Enabled = true
+	cfg.DefenderConfig.Threshold = 3
+	cfg.DefenderConfig.ScoreLimitExceeded = 2
+
+	err := common.Initialize(cfg, 0)
+	assert.NoError(t, err)
+
+	smtpCfg := smtp.Config{
+		Host:          "127.0.0.1",
+		Port:          2525,
+		From:          "notification@example.com",
+		TemplatesPath: "templates",
+	}
+	err = smtpCfg.Initialize(configDir)
+	require.NoError(t, err)
+
+	a1 := dataprovider.BaseEventAction{
+		Name: "action1",
+		Type: dataprovider.ActionTypeEmail,
+		Options: dataprovider.BaseEventActionOptions{
+			EmailConfig: dataprovider.EventActionEmailConfig{
+				Recipients: []string{"test3@example.com", "test4@example.com"},
+				Subject:    `New "{{Event}}"`,
+				Body:       "IP: {{IP}} Timestamp: {{Timestamp}}",
+			},
+		},
+	}
+	action1, _, err := httpdtest.AddEventAction(a1, http.StatusCreated)
+	assert.NoError(t, err)
+
+	a2 := dataprovider.BaseEventAction{
+		Name: "action2",
+		Type: dataprovider.ActionTypeFolderQuotaReset,
+	}
+	action2, _, err := httpdtest.AddEventAction(a2, http.StatusCreated)
+	assert.NoError(t, err)
+
+	r1 := dataprovider.EventRule{
+		Name:    "test rule ip blocked",
+		Trigger: dataprovider.EventTriggerIPBlocked,
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action1.Name,
+				},
+				Order: 1,
+			},
+		},
+	}
+	rule1, _, err := httpdtest.AddEventRule(r1, http.StatusCreated)
+	assert.NoError(t, err)
+	r2 := dataprovider.EventRule{
+		Name:    "test rule 2",
+		Trigger: dataprovider.EventTriggerIPBlocked,
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action1.Name,
+				},
+				Order: 1,
+			},
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action2.Name,
+				},
+				Order: 2,
+			},
+		},
+	}
+	rule2, _, err := httpdtest.AddEventRule(r2, http.StatusCreated)
+	assert.NoError(t, err)
+
+	u := getTestUser()
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	lastReceivedEmail.reset()
+	time.Sleep(300 * time.Millisecond)
+	assert.Empty(t, lastReceivedEmail.get().From, string(lastReceivedEmail.get().Data))
+
+	for i := 0; i < 3; i++ {
+		user.Password = "wrong_pwd"
+		_, _, err = getSftpClient(user)
+		assert.Error(t, err)
+	}
+	// the client is now banned
+	user.Password = defaultPassword
+	_, _, err = getSftpClient(user)
+	assert.Error(t, err)
+	// check the email notification
+	assert.Eventually(t, func() bool {
+		return lastReceivedEmail.get().From != ""
+	}, 3000*time.Millisecond, 100*time.Millisecond)
+	email := lastReceivedEmail.get()
+	assert.Len(t, email.To, 2)
+	assert.True(t, util.Contains(email.To, "test3@example.com"))
+	assert.True(t, util.Contains(email.To, "test4@example.com"))
+	assert.Contains(t, string(email.Data), `Subject: New "IP Blocked"`)
+
+	err = dataprovider.DeleteEventRule(rule1.Name, "", "")
+	assert.NoError(t, err)
+	err = dataprovider.DeleteEventRule(rule2.Name, "", "")
+	assert.NoError(t, err)
+	err = dataprovider.DeleteEventAction(action1.Name, "", "")
+	assert.NoError(t, err)
+	err = dataprovider.DeleteEventAction(action2.Name, "", "")
+	assert.NoError(t, err)
+	err = dataprovider.DeleteUser(user.Username, "", "")
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	smtpCfg = smtp.Config{}
+	err = smtpCfg.Initialize(configDir)
+	require.NoError(t, err)
+
+	err = common.Initialize(oldConfig, 0)
+	assert.NoError(t, err)
+}
+
 func TestSyncUploadAction(t *testing.T) {
 	if runtime.GOOS == osWindows {
 		t.Skip("this test is not available on Windows")

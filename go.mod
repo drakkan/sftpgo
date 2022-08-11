@@ -3,7 +3,7 @@ module github.com/drakkan/sftpgo/v2
 go 1.19
 
 require (
-	cloud.google.com/go/storage v1.24.0
+	cloud.google.com/go/storage v1.25.0
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.1.2
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v0.4.1
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
@@ -66,9 +66,9 @@ require (
 	go.uber.org/automaxprocs v1.5.1
 	gocloud.dev v0.26.0
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa
-	golang.org/x/net v0.0.0-20220805013720-a33c5aa5df48
+	golang.org/x/net v0.0.0-20220809184613-07c6da5e1ced
 	golang.org/x/oauth2 v0.0.0-20220808172628-8227340efae7
-	golang.org/x/sys v0.0.0-20220808155132-1c4a2a72c664
+	golang.org/x/sys v0.0.0-20220811171246-fbc7d0a398ab
 	golang.org/x/time v0.0.0-20220722155302-e5dcc9cfc0b9
 	google.golang.org/api v0.92.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
@@ -168,5 +168,5 @@ replace (
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
 	github.com/pkg/sftp => github.com/drakkan/sftp v0.0.0-20220716075551-51a5aa4e044d
 	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20220723143649-81550382d55e
-	golang.org/x/net => github.com/drakkan/net v0.0.0-20220805164234-d1ea7e8d1b71
+	golang.org/x/net => github.com/drakkan/net v0.0.0-20220811173512-bde04f9047cc
 )

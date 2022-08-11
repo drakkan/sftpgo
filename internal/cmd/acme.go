@@ -46,7 +46,7 @@ renewed by the SFTPGo service
 			configDir = util.CleanDirInput(configDir)
 			err := config.LoadConfig(configDir, configFile)
 			if err != nil {
-				logger.ErrorToConsole("Unable to initialize data provider, config load error: %v", err)
+				logger.ErrorToConsole("Unable to initialize ACME, config load error: %v", err)
 				return
 			}
 			acmeConfig := config.GetACMEConfig()

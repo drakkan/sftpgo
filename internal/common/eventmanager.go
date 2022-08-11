@@ -41,6 +41,10 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/vfs"
 )
 
+const (
+	ipBlockedEventName = "IP Blocked"
+)
+
 var (
 	// eventManager handle the supported event rules actions
 	eventManager eventRulesContainer
@@ -71,11 +75,12 @@ func init() {
 // eventRulesContainer stores event rules by trigger
 type eventRulesContainer struct {
 	sync.RWMutex
+	lastLoad         int64
 	FsEvents         []dataprovider.EventRule
 	ProviderEvents   []dataprovider.EventRule
 	Schedules        []dataprovider.EventRule
+	IPBlockedEvents  []dataprovider.EventRule
 	schedulesMapping map[string][]cron.EntryID
-	lastLoad         int64
 	concurrencyGuard chan struct{}
 }
 
@@ -124,6 +129,15 @@ func (r *eventRulesContainer) removeRuleInternal(name string) {
 			return
 		}
 	}
+	for idx := range r.IPBlockedEvents {
+		if r.IPBlockedEvents[idx].Name == name {
+			lastIdx := len(r.IPBlockedEvents) - 1
+			r.IPBlockedEvents[idx] = r.IPBlockedEvents[lastIdx]
+			r.IPBlockedEvents = r.IPBlockedEvents[:lastIdx]
+			eventManagerLog(logger.LevelDebug, "removed rule %q from IP blocked events", name)
+			return
+		}
+	}
 	for idx := range r.Schedules {
 		if r.Schedules[idx].Name == name {
 			if schedules, ok := r.schedulesMapping[name]; ok {
@@ -160,6 +174,9 @@ func (r *eventRulesContainer) addUpdateRuleInternal(rule dataprovider.EventRule)
 	case dataprovider.EventTriggerProviderEvent:
 		r.ProviderEvents = append(r.ProviderEvents, rule)
 		eventManagerLog(logger.LevelDebug, "added rule %q to provider events", rule.Name)
+	case dataprovider.EventTriggerIPBlocked:
+		r.IPBlockedEvents = append(r.IPBlockedEvents, rule)
+		eventManagerLog(logger.LevelDebug, "added rule %q to IP blocked events", rule.Name)
 	case dataprovider.EventTriggerSchedule:
 		for _, schedule := range rule.Conditions.Schedules {
 			cronSpec := schedule.GetCronSpec()
@@ -200,8 +217,8 @@ func (r *eventRulesContainer) loadRules() {
 			r.addUpdateRuleInternal(rule)
 		}
 	}
-	eventManagerLog(logger.LevelDebug, "event rules updated, fs events: %d, provider events: %d, schedules: %d",
-		len(r.FsEvents), len(r.ProviderEvents), len(r.Schedules))
+	eventManagerLog(logger.LevelDebug, "event rules updated, fs events: %d, provider events: %d, schedules: %d, ip blocked events: %d",
+		len(r.FsEvents), len(r.ProviderEvents), len(r.Schedules), len(r.IPBlockedEvents))
 
 	r.setLastLoadTime(modTime)
 }
@@ -319,6 +336,28 @@ func (r *eventRulesContainer) handleProviderEvent(params EventParams) {
 
 	if len(rules) > 0 {
 		params.sender = params.ObjectName
+		go executeAsyncRulesActions(rules, params)
+	}
+}
+
+func (r *eventRulesContainer) handleIPBlockedEvent(params EventParams) {
+	r.RLock()
+	defer r.RUnlock()
+
+	if len(r.IPBlockedEvents) == 0 {
+		return
+	}
+	var rules []dataprovider.EventRule
+	for _, rule := range r.IPBlockedEvents {
+		if err := rule.CheckActionsConsistency(""); err == nil {
+			rules = append(rules, rule)
+		} else {
+			eventManagerLog(logger.LevelWarn, "rule %q skipped: %v, event %q",
+				rule.Name, err, params.Event)
+		}
+	}
+
+	if len(rules) > 0 {
 		go executeAsyncRulesActions(rules, params)
 	}
 }

@@ -107,6 +107,13 @@ func (d *dbDefender) AddEvent(ip string, event HostEvent) {
 	if host.Score > d.config.Threshold {
 		banTime := time.Now().Add(time.Duration(d.config.BanTime) * time.Minute)
 		err = dataprovider.SetDefenderBanTime(ip, util.GetTimeAsMsSinceEpoch(banTime))
+		if err == nil {
+			eventManager.handleIPBlockedEvent(EventParams{
+				Event:     ipBlockedEventName,
+				IP:        ip,
+				Timestamp: time.Now().UnixNano(),
+			})
+		}
 	}
 
 	if err == nil {

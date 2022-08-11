@@ -198,7 +198,7 @@ We only provide the slim variant and so the optional `git` dependency is not ava
 
 ### `sftpgo:<suite>-slim`
 
-These tags provide a slimmer image that does not include the optional `git`, `rsync` and `jq` dependencies.
+These tags provide a slimmer image that does not include `jq` and the optional `git` and `rsync` dependencies.
 
 ### `sftpgo:<suite>-plugins`
 

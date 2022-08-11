@@ -84,10 +84,12 @@ const (
 	// Provider events such as add, update, delete
 	EventTriggerProviderEvent
 	EventTriggerSchedule
+	EventTriggerIPBlocked
 )
 
 var (
-	supportedEventTriggers = []int{EventTriggerFsEvent, EventTriggerProviderEvent, EventTriggerSchedule}
+	supportedEventTriggers = []int{EventTriggerFsEvent, EventTriggerProviderEvent, EventTriggerSchedule,
+		EventTriggerIPBlocked}
 )
 
 func isEventTriggerValid(trigger int) bool {
@@ -100,6 +102,8 @@ func getTriggerTypeAsString(trigger int) string {
 		return "Filesystem event"
 	case EventTriggerProviderEvent:
 		return "Provider event"
+	case EventTriggerIPBlocked:
+		return "IP blocked"
 	default:
 		return "Schedule"
 	}
@@ -881,6 +885,15 @@ func (c *EventConditions) validate(trigger int) error {
 				return err
 			}
 		}
+	case EventTriggerIPBlocked:
+		c.FsEvents = nil
+		c.ProviderEvents = nil
+		c.Options.Names = nil
+		c.Options.FsPaths = nil
+		c.Options.Protocols = nil
+		c.Options.MinFileSize = 0
+		c.Options.MaxFileSize = 0
+		c.Schedules = nil
 	default:
 		c.FsEvents = nil
 		c.ProviderEvents = nil
@@ -1000,24 +1013,43 @@ func (r *EventRule) validate() error {
 	return nil
 }
 
+func (r *EventRule) checkIPBlockedActions() error {
+	unavailableActions := []int{ActionTypeUserQuotaReset, ActionTypeFolderQuotaReset, ActionTypeTransferQuotaReset,
+		ActionTypeDataRetentionCheck, ActionTypeFilesystem}
+	for _, action := range r.Actions {
+		if util.Contains(unavailableActions, action.Type) {
+			return fmt.Errorf("action %q, type %q is not supported for IP blocked events",
+				action.Name, getActionTypeAsString(action.Type))
+		}
+	}
+	return nil
+}
+
+func (r *EventRule) checkProviderEventActions(providerObjectType string) error {
+	// user quota reset, transfer quota reset, data retention check and filesystem actions
+	// can be executed only if we modify a user. They will be executed for the
+	// affected user. Folder quota reset can be executed only for folders.
+	userSpecificActions := []int{ActionTypeUserQuotaReset, ActionTypeTransferQuotaReset,
+		ActionTypeDataRetentionCheck, ActionTypeFilesystem}
+	for _, action := range r.Actions {
+		if util.Contains(userSpecificActions, action.Type) && providerObjectType != actionObjectUser {
+			return fmt.Errorf("action %q, type %q is only supported for provider user events",
+				action.Name, getActionTypeAsString(action.Type))
+		}
+		if action.Type == ActionTypeFolderQuotaReset && providerObjectType != actionObjectFolder {
+			return fmt.Errorf("action %q, type %q is only supported for provider folder events",
+				action.Name, getActionTypeAsString(action.Type))
+		}
+	}
+	return nil
+}
+
 // CheckActionsConsistency returns an error if the actions cannot be executed
 func (r *EventRule) CheckActionsConsistency(providerObjectType string) error {
 	switch r.Trigger {
 	case EventTriggerProviderEvent:
-		// user quota reset, transfer quota reset, data retention check and filesystem actions
-		// can be executed only if we modify a user. They will be executed for the
-		// affected user. Folder quota reset can be executed only for folders.
-		userSpecificActions := []int{ActionTypeUserQuotaReset, ActionTypeTransferQuotaReset,
-			ActionTypeDataRetentionCheck, ActionTypeFilesystem}
-		for _, action := range r.Actions {
-			if util.Contains(userSpecificActions, action.Type) && providerObjectType != actionObjectUser {
-				return fmt.Errorf("action %q, type %q is only supported for provider user events",
-					action.Name, getActionTypeAsString(action.Type))
-			}
-			if action.Type == ActionTypeFolderQuotaReset && providerObjectType != actionObjectFolder {
-				return fmt.Errorf("action %q, type %q is only supported for provider folder events",
-					action.Name, getActionTypeAsString(action.Type))
-			}
+		if err := r.checkProviderEventActions(providerObjectType); err != nil {
+			return err
 		}
 	case EventTriggerFsEvent:
 		// folder quota reset cannot be executed
@@ -1034,6 +1066,10 @@ func (r *EventRule) CheckActionsConsistency(providerObjectType string) error {
 				return fmt.Errorf("action %q, type %q is not supported for scheduled events",
 					action.Name, getActionTypeAsString(action.Type))
 			}
+		}
+	case EventTriggerIPBlocked:
+		if err := r.checkIPBlockedActions(); err != nil {
+			return err
 		}
 	}
 	return nil
