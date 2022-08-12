@@ -3530,6 +3530,125 @@ func TestEventRuleFsActions(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestEventRuleCertificate(t *testing.T) {
+	smtpCfg := smtp.Config{
+		Host:          "127.0.0.1",
+		Port:          2525,
+		From:          "notify@example.com",
+		TemplatesPath: "templates",
+	}
+	err := smtpCfg.Initialize(configDir)
+	require.NoError(t, err)
+	lastReceivedEmail.reset()
+
+	a1 := dataprovider.BaseEventAction{
+		Name: "action1",
+		Type: dataprovider.ActionTypeEmail,
+		Options: dataprovider.BaseEventActionOptions{
+			EmailConfig: dataprovider.EventActionEmailConfig{
+				Recipients: []string{"test@example.com"},
+				Subject:    `"{{Event}}"`,
+				Body:       "Domain: {{Name}} Timestamp: {{Timestamp}}",
+			},
+		},
+	}
+	action1, _, err := httpdtest.AddEventAction(a1, http.StatusCreated)
+	assert.NoError(t, err)
+
+	a2 := dataprovider.BaseEventAction{
+		Name: "action2",
+		Type: dataprovider.ActionTypeFolderQuotaReset,
+	}
+	action2, _, err := httpdtest.AddEventAction(a2, http.StatusCreated)
+	assert.NoError(t, err)
+
+	r1 := dataprovider.EventRule{
+		Name:    "test rule certificate",
+		Trigger: dataprovider.EventTriggerCertificate,
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action1.Name,
+				},
+				Order: 1,
+			},
+		},
+	}
+	rule1, _, err := httpdtest.AddEventRule(r1, http.StatusCreated)
+	assert.NoError(t, err)
+	r2 := dataprovider.EventRule{
+		Name:    "test rule 2",
+		Trigger: dataprovider.EventTriggerCertificate,
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action1.Name,
+				},
+				Order: 1,
+			},
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action2.Name,
+				},
+				Order: 2,
+			},
+		},
+	}
+	rule2, _, err := httpdtest.AddEventRule(r2, http.StatusCreated)
+	assert.NoError(t, err)
+
+	common.HandleCertificateEvent(common.EventParams{
+		Name:      "example.com",
+		Timestamp: time.Now().UnixNano(),
+		Status:    1,
+		Event:     "Successful certificate renewal",
+	})
+	assert.Eventually(t, func() bool {
+		return lastReceivedEmail.get().From != ""
+	}, 3000*time.Millisecond, 100*time.Millisecond)
+	email := lastReceivedEmail.get()
+	assert.Len(t, email.To, 1)
+	assert.True(t, util.Contains(email.To, "test@example.com"))
+	assert.Contains(t, string(email.Data), `Subject: "Successful certificate renewal"`)
+	assert.Contains(t, string(email.Data), `Domain: example.com Timestamp`)
+
+	lastReceivedEmail.reset()
+	common.HandleCertificateEvent(common.EventParams{
+		Name:      "example.com",
+		Timestamp: time.Now().UnixNano(),
+		Status:    2,
+		Event:     "Certificate renewal failed",
+	})
+	assert.Eventually(t, func() bool {
+		return lastReceivedEmail.get().From != ""
+	}, 3000*time.Millisecond, 100*time.Millisecond)
+	email = lastReceivedEmail.get()
+	assert.Len(t, email.To, 1)
+	assert.True(t, util.Contains(email.To, "test@example.com"))
+	assert.Contains(t, string(email.Data), `Subject: "Certificate renewal failed"`)
+	assert.Contains(t, string(email.Data), `Domain: example.com Timestamp`)
+
+	_, err = httpdtest.RemoveEventRule(rule1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventRule(rule2, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action2, http.StatusOK)
+	assert.NoError(t, err)
+	// ignored no more certificate rules
+	common.HandleCertificateEvent(common.EventParams{
+		Name:      "example.com",
+		Timestamp: time.Now().UnixNano(),
+		Status:    1,
+		Event:     "Successful certificate renewal",
+	})
+
+	smtpCfg = smtp.Config{}
+	err = smtpCfg.Initialize(configDir)
+	require.NoError(t, err)
+}
+
 func TestEventRuleIPBlocked(t *testing.T) {
 	oldConfig := config.GetCommonConfig()
 

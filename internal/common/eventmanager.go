@@ -72,16 +72,22 @@ func init() {
 		})
 }
 
+// HandleCertificateEvent checks and executes action rules for certificate events
+func HandleCertificateEvent(params EventParams) {
+	eventManager.handleCertificateEvent(params)
+}
+
 // eventRulesContainer stores event rules by trigger
 type eventRulesContainer struct {
 	sync.RWMutex
-	lastLoad         int64
-	FsEvents         []dataprovider.EventRule
-	ProviderEvents   []dataprovider.EventRule
-	Schedules        []dataprovider.EventRule
-	IPBlockedEvents  []dataprovider.EventRule
-	schedulesMapping map[string][]cron.EntryID
-	concurrencyGuard chan struct{}
+	lastLoad          int64
+	FsEvents          []dataprovider.EventRule
+	ProviderEvents    []dataprovider.EventRule
+	Schedules         []dataprovider.EventRule
+	IPBlockedEvents   []dataprovider.EventRule
+	CertificateEvents []dataprovider.EventRule
+	schedulesMapping  map[string][]cron.EntryID
+	concurrencyGuard  chan struct{}
 }
 
 func (r *eventRulesContainer) addAsyncTask() {
@@ -138,6 +144,15 @@ func (r *eventRulesContainer) removeRuleInternal(name string) {
 			return
 		}
 	}
+	for idx := range r.CertificateEvents {
+		if r.CertificateEvents[idx].Name == name {
+			lastIdx := len(r.CertificateEvents) - 1
+			r.CertificateEvents[idx] = r.CertificateEvents[lastIdx]
+			r.CertificateEvents = r.CertificateEvents[:lastIdx]
+			eventManagerLog(logger.LevelDebug, "removed rule %q from certificate events", name)
+			return
+		}
+	}
 	for idx := range r.Schedules {
 		if r.Schedules[idx].Name == name {
 			if schedules, ok := r.schedulesMapping[name]; ok {
@@ -177,6 +192,9 @@ func (r *eventRulesContainer) addUpdateRuleInternal(rule dataprovider.EventRule)
 	case dataprovider.EventTriggerIPBlocked:
 		r.IPBlockedEvents = append(r.IPBlockedEvents, rule)
 		eventManagerLog(logger.LevelDebug, "added rule %q to IP blocked events", rule.Name)
+	case dataprovider.EventTriggerCertificate:
+		r.CertificateEvents = append(r.CertificateEvents, rule)
+		eventManagerLog(logger.LevelDebug, "added rule %q to certificate events", rule.Name)
 	case dataprovider.EventTriggerSchedule:
 		for _, schedule := range rule.Conditions.Schedules {
 			cronSpec := schedule.GetCronSpec()
@@ -217,8 +235,8 @@ func (r *eventRulesContainer) loadRules() {
 			r.addUpdateRuleInternal(rule)
 		}
 	}
-	eventManagerLog(logger.LevelDebug, "event rules updated, fs events: %d, provider events: %d, schedules: %d, ip blocked events: %d",
-		len(r.FsEvents), len(r.ProviderEvents), len(r.Schedules), len(r.IPBlockedEvents))
+	eventManagerLog(logger.LevelDebug, "event rules updated, fs events: %d, provider events: %d, schedules: %d, ip blocked events: %d, certificate events: %d",
+		len(r.FsEvents), len(r.ProviderEvents), len(r.Schedules), len(r.IPBlockedEvents), len(r.CertificateEvents))
 
 	r.setLastLoadTime(modTime)
 }
@@ -349,6 +367,28 @@ func (r *eventRulesContainer) handleIPBlockedEvent(params EventParams) {
 	}
 	var rules []dataprovider.EventRule
 	for _, rule := range r.IPBlockedEvents {
+		if err := rule.CheckActionsConsistency(""); err == nil {
+			rules = append(rules, rule)
+		} else {
+			eventManagerLog(logger.LevelWarn, "rule %q skipped: %v, event %q",
+				rule.Name, err, params.Event)
+		}
+	}
+
+	if len(rules) > 0 {
+		go executeAsyncRulesActions(rules, params)
+	}
+}
+
+func (r *eventRulesContainer) handleCertificateEvent(params EventParams) {
+	r.RLock()
+	defer r.RUnlock()
+
+	if len(r.CertificateEvents) == 0 {
+		return
+	}
+	var rules []dataprovider.EventRule
+	for _, rule := range r.CertificateEvents {
 		if err := rule.CheckActionsConsistency(""); err == nil {
 			rules = append(rules, rule)
 		} else {

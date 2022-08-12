@@ -45,6 +45,7 @@ import (
 	"github.com/go-acme/lego/v4/registration"
 	"github.com/robfig/cron/v3"
 
+	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/ftpd"
 	"github.com/drakkan/sftpgo/v2/internal/httpd"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
@@ -561,6 +562,24 @@ func (c *Configuration) getCertificates() error {
 	return nil
 }
 
+func (c *Configuration) notifyCertificateRenewal(domain string, err error) {
+	if domain == "" {
+		domain = strings.Join(c.Domains, ",")
+	}
+	params := common.EventParams{
+		Name:      domain,
+		Timestamp: time.Now().UnixNano(),
+	}
+	if err != nil {
+		params.Status = 2
+		params.Event = "Certificate renewal failed"
+	} else {
+		params.Status = 1
+		params.Event = "Successful certificate renewal"
+	}
+	common.HandleCertificateEvent(params)
+}
+
 func (c *Configuration) renewCertificates() error {
 	lockTime, err := c.getLockTime()
 	if err != nil {
@@ -573,22 +592,28 @@ func (c *Configuration) renewCertificates() error {
 	}
 	err = c.setLockTime()
 	if err != nil {
+		c.notifyCertificateRenewal("", err)
 		return err
 	}
 	account, client, err := c.setup()
 	if err != nil {
+		c.notifyCertificateRenewal("", err)
 		return err
 	}
 	if account.Registration == nil {
 		acmeLog(logger.LevelError, "cannot renew certificates, your account is not registered")
-		return fmt.Errorf("cannot renew certificates, your account is not registered")
+		err = errors.New("cannot renew certificates, your account is not registered")
+		c.notifyCertificateRenewal("", err)
+		return err
 	}
 	var errRenew error
 	needReload := false
 	for _, domain := range c.Domains {
 		certificates, err := c.loadCertificatesForDomain(domain)
 		if err != nil {
-			return err
+			c.notifyCertificateRenewal(domain, err)
+			errRenew = err
+			continue
 		}
 		cert := certificates[0]
 		if !c.needRenewal(cert, domain) {
@@ -596,8 +621,10 @@ func (c *Configuration) renewCertificates() error {
 		}
 		err = c.obtainAndSaveCertificate(client, domain)
 		if err != nil {
+			c.notifyCertificateRenewal(domain, err)
 			errRenew = err
 		} else {
+			c.notifyCertificateRenewal(domain, nil)
 			needReload = true
 		}
 	}

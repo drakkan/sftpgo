@@ -213,6 +213,7 @@ func (d *memoryDefender) AddEvent(ip string, event HostEvent) {
 				Event:     ipBlockedEventName,
 				IP:        ip,
 				Timestamp: time.Now().UnixNano(),
+				Status:    1,
 			})
 		} else {
 			d.hosts[ip] = hs

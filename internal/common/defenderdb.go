@@ -112,6 +112,7 @@ func (d *dbDefender) AddEvent(ip string, event HostEvent) {
 				Event:     ipBlockedEventName,
 				IP:        ip,
 				Timestamp: time.Now().UnixNano(),
+				Status:    1,
 			})
 		}
 	}

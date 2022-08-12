@@ -85,11 +85,12 @@ const (
 	EventTriggerProviderEvent
 	EventTriggerSchedule
 	EventTriggerIPBlocked
+	EventTriggerCertificate
 )
 
 var (
 	supportedEventTriggers = []int{EventTriggerFsEvent, EventTriggerProviderEvent, EventTriggerSchedule,
-		EventTriggerIPBlocked}
+		EventTriggerIPBlocked, EventTriggerCertificate}
 )
 
 func isEventTriggerValid(trigger int) bool {
@@ -104,6 +105,8 @@ func getTriggerTypeAsString(trigger int) string {
 		return "Provider event"
 	case EventTriggerIPBlocked:
 		return "IP blocked"
+	case EventTriggerCertificate:
+		return "Certificate renewal"
 	default:
 		return "Schedule"
 	}
@@ -885,7 +888,7 @@ func (c *EventConditions) validate(trigger int) error {
 				return err
 			}
 		}
-	case EventTriggerIPBlocked:
+	case EventTriggerIPBlocked, EventTriggerCertificate:
 		c.FsEvents = nil
 		c.ProviderEvents = nil
 		c.Options.Names = nil
@@ -1013,13 +1016,13 @@ func (r *EventRule) validate() error {
 	return nil
 }
 
-func (r *EventRule) checkIPBlockedActions() error {
+func (r *EventRule) checkIPBlockedAndCertificateActions() error {
 	unavailableActions := []int{ActionTypeUserQuotaReset, ActionTypeFolderQuotaReset, ActionTypeTransferQuotaReset,
 		ActionTypeDataRetentionCheck, ActionTypeFilesystem}
 	for _, action := range r.Actions {
 		if util.Contains(unavailableActions, action.Type) {
-			return fmt.Errorf("action %q, type %q is not supported for IP blocked events",
-				action.Name, getActionTypeAsString(action.Type))
+			return fmt.Errorf("action %q, type %q is not supported for event trigger %q",
+				action.Name, getActionTypeAsString(action.Type), getTriggerTypeAsString(r.Trigger))
 		}
 	}
 	return nil
@@ -1067,8 +1070,8 @@ func (r *EventRule) CheckActionsConsistency(providerObjectType string) error {
 					action.Name, getActionTypeAsString(action.Type))
 			}
 		}
-	case EventTriggerIPBlocked:
-		if err := r.checkIPBlockedActions(); err != nil {
+	case EventTriggerIPBlocked, EventTriggerCertificate:
+		if err := r.checkIPBlockedAndCertificateActions(); err != nil {
 			return err
 		}
 	}
