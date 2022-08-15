@@ -4300,6 +4300,7 @@ func TestUserSFTPFs(t *testing.T) {
 	user.FsConfig.SFTPConfig.PrivateKey = kms.NewPlainSecret(sftpPrivateKey)
 	user.FsConfig.SFTPConfig.Fingerprints = []string{sftpPkeyFingerprint}
 	user.FsConfig.SFTPConfig.BufferSize = 2
+	user.FsConfig.SFTPConfig.EqualityCheckMode = 1
 	_, resp, err := httpdtest.UpdateUser(user, http.StatusBadRequest, "")
 	assert.NoError(t, err)
 	assert.Contains(t, string(resp), "invalid endpoint")
@@ -18070,6 +18071,7 @@ func TestWebUserHTTPFsMock(t *testing.T) {
 	form.Set("patterns1", "*.zip")
 	form.Set("pattern_type1", "denied")
 	form.Set("max_upload_file_size", "0")
+	form.Set("http_equality_check_mode", "true")
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
 	setJWTCookieForReq(req, webToken)
@@ -18097,7 +18099,9 @@ func TestWebUserHTTPFsMock(t *testing.T) {
 	assert.NotEmpty(t, updateUser.FsConfig.HTTPConfig.APIKey.GetPayload())
 	assert.Empty(t, updateUser.FsConfig.HTTPConfig.APIKey.GetKey())
 	assert.Empty(t, updateUser.FsConfig.HTTPConfig.APIKey.GetAdditionalData())
+	assert.Equal(t, 1, updateUser.FsConfig.HTTPConfig.EqualityCheckMode)
 	// now check that a redacted password is not saved
+	form.Set("http_equality_check_mode", "")
 	form.Set("http_password", " "+redactedSecret+" ")
 	form.Set("http_api_key", redactedSecret)
 	b, contentType, _ = getMultipartFormData(form, "", "")
@@ -18121,6 +18125,7 @@ func TestWebUserHTTPFsMock(t *testing.T) {
 	assert.Equal(t, updateUser.FsConfig.HTTPConfig.APIKey.GetPayload(), lastUpdatedUser.FsConfig.HTTPConfig.APIKey.GetPayload())
 	assert.Empty(t, lastUpdatedUser.FsConfig.HTTPConfig.APIKey.GetKey())
 	assert.Empty(t, lastUpdatedUser.FsConfig.HTTPConfig.APIKey.GetAdditionalData())
+	assert.Equal(t, 0, lastUpdatedUser.FsConfig.HTTPConfig.EqualityCheckMode)
 
 	req, err = http.NewRequest(http.MethodDelete, path.Join(userPath, user.Username), nil)
 	assert.NoError(t, err)
@@ -18491,6 +18496,7 @@ func TestWebUserSFTPFsMock(t *testing.T) {
 	form.Set("sftp_fingerprints", user.FsConfig.SFTPConfig.Fingerprints[0])
 	form.Set("sftp_prefix", user.FsConfig.SFTPConfig.Prefix)
 	form.Set("sftp_disable_concurrent_reads", "true")
+	form.Set("sftp_equality_check_mode", "true")
 	form.Set("sftp_buffer_size", strconv.FormatInt(user.FsConfig.SFTPConfig.BufferSize, 10))
 	b, contentType, _ = getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
@@ -18526,10 +18532,12 @@ func TestWebUserSFTPFsMock(t *testing.T) {
 	assert.Len(t, updateUser.FsConfig.SFTPConfig.Fingerprints, 1)
 	assert.Equal(t, user.FsConfig.SFTPConfig.BufferSize, updateUser.FsConfig.SFTPConfig.BufferSize)
 	assert.Contains(t, updateUser.FsConfig.SFTPConfig.Fingerprints, sftpPkeyFingerprint)
+	assert.Equal(t, 1, updateUser.FsConfig.SFTPConfig.EqualityCheckMode)
 	// now check that a redacted credentials are not saved
 	form.Set("sftp_password", redactedSecret+" ")
 	form.Set("sftp_private_key", redactedSecret)
 	form.Set("sftp_key_passphrase", redactedSecret)
+	form.Set("sftp_equality_check_mode", "")
 	b, contentType, _ = getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
 	setJWTCookieForReq(req, webToken)
@@ -18555,6 +18563,7 @@ func TestWebUserSFTPFsMock(t *testing.T) {
 	assert.Equal(t, updateUser.FsConfig.SFTPConfig.KeyPassphrase.GetPayload(), lastUpdatedUser.FsConfig.SFTPConfig.KeyPassphrase.GetPayload())
 	assert.Empty(t, lastUpdatedUser.FsConfig.SFTPConfig.KeyPassphrase.GetKey())
 	assert.Empty(t, lastUpdatedUser.FsConfig.SFTPConfig.KeyPassphrase.GetAdditionalData())
+	assert.Equal(t, 0, lastUpdatedUser.FsConfig.SFTPConfig.EqualityCheckMode)
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(userPath, user.Username), nil)
 	setBearerForReq(req, apiToken)
 	rr = executeRequest(req)

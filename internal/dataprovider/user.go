@@ -300,7 +300,7 @@ func (u *User) isFsEqual(other *User) bool {
 	if u.FsConfig.Provider == sdk.LocalFilesystemProvider && u.GetHomeDir() != other.GetHomeDir() {
 		return false
 	}
-	if !u.FsConfig.IsEqual(&other.FsConfig) {
+	if !u.FsConfig.IsEqual(other.FsConfig) {
 		return false
 	}
 	if u.Filters.StartDirectory != other.Filters.StartDirectory {
@@ -319,7 +319,7 @@ func (u *User) isFsEqual(other *User) bool {
 				if f.FsConfig.Provider == sdk.LocalFilesystemProvider && f.MappedPath != f1.MappedPath {
 					return false
 				}
-				if !f.FsConfig.IsEqual(&f1.FsConfig) {
+				if !f.FsConfig.IsEqual(f1.FsConfig) {
 					return false
 				}
 			}

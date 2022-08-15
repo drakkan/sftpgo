@@ -5224,8 +5224,9 @@ func TestSFTPLoopVirtualFolders(t *testing.T) {
 				Provider: sdk.SFTPFilesystemProvider,
 				SFTPConfig: vfs.SFTPFsConfig{
 					BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
-						Endpoint: sftpServerAddr,
-						Username: user2.Username,
+						Endpoint:          sftpServerAddr,
+						Username:          user2.Username,
+						EqualityCheckMode: 1,
 					},
 					Password: kms.NewPlainSecret(defaultPassword),
 				},

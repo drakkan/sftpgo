@@ -55,6 +55,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/kms"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/mfa"
+	"github.com/drakkan/sftpgo/v2/internal/sftpd"
 	"github.com/drakkan/sftpgo/v2/internal/smtp"
 	"github.com/drakkan/sftpgo/v2/internal/util"
 	"github.com/drakkan/sftpgo/v2/internal/vfs"
@@ -132,6 +133,9 @@ func TestMain(m *testing.M) {
 
 	sftpdConf := config.GetSFTPDConfig()
 	sftpdConf.Bindings[0].Port = 4022
+	sftpdConf.Bindings = append(sftpdConf.Bindings, sftpd.Binding{
+		Port: 4024,
+	})
 	sftpdConf.KeyboardInteractiveAuthentication = true
 
 	httpdConf := config.GetHTTPDConfig()
@@ -2307,6 +2311,216 @@ func TestVirtualFoldersLink(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(mappedPath2)
 	assert.NoError(t, err)
+}
+
+func TestCrossFolderRename(t *testing.T) {
+	folder1 := "folder1"
+	folder2 := "folder2"
+	folder3 := "folder3"
+	folder4 := "folder4"
+	folder5 := "folder5"
+	folder6 := "folder6"
+	folder7 := "folder7"
+
+	baseUser, resp, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+
+	u := getCryptFsUser()
+	u.Username += "_crypt"
+	u.VirtualFolders = []vfs.VirtualFolder{
+		{
+			BaseVirtualFolder: vfs.BaseVirtualFolder{
+				Name:       folder1,
+				MappedPath: filepath.Join(os.TempDir(), folder1),
+				FsConfig: vfs.Filesystem{
+					Provider: sdk.CryptedFilesystemProvider,
+					CryptConfig: vfs.CryptFsConfig{
+						Passphrase: kms.NewPlainSecret(defaultPassword),
+					},
+				},
+			},
+			VirtualPath: path.Join("/", folder1),
+			QuotaSize:   -1,
+			QuotaFiles:  -1,
+		},
+		{
+			BaseVirtualFolder: vfs.BaseVirtualFolder{
+				Name:       folder2,
+				MappedPath: filepath.Join(os.TempDir(), folder2),
+				FsConfig: vfs.Filesystem{
+					Provider: sdk.CryptedFilesystemProvider,
+					CryptConfig: vfs.CryptFsConfig{
+						Passphrase: kms.NewPlainSecret(defaultPassword),
+					},
+				},
+			},
+			VirtualPath: path.Join("/", folder2),
+			QuotaSize:   -1,
+			QuotaFiles:  -1,
+		},
+		{
+			BaseVirtualFolder: vfs.BaseVirtualFolder{
+				Name:       folder3,
+				MappedPath: filepath.Join(os.TempDir(), folder3),
+				FsConfig: vfs.Filesystem{
+					Provider: sdk.CryptedFilesystemProvider,
+					CryptConfig: vfs.CryptFsConfig{
+						Passphrase: kms.NewPlainSecret(defaultPassword + "mod"),
+					},
+				},
+			},
+			VirtualPath: path.Join("/", folder3),
+			QuotaSize:   -1,
+			QuotaFiles:  -1,
+		},
+		{
+			BaseVirtualFolder: vfs.BaseVirtualFolder{
+				Name:       folder4,
+				MappedPath: filepath.Join(os.TempDir(), folder4),
+				FsConfig: vfs.Filesystem{
+					Provider: sdk.SFTPFilesystemProvider,
+					SFTPConfig: vfs.SFTPFsConfig{
+						BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
+							Endpoint: sftpServerAddr,
+							Username: baseUser.Username,
+							Prefix:   path.Join("/", folder4),
+						},
+						Password: kms.NewPlainSecret(defaultPassword),
+					},
+				},
+			},
+			VirtualPath: path.Join("/", folder4),
+			QuotaSize:   -1,
+			QuotaFiles:  -1,
+		},
+		{
+			BaseVirtualFolder: vfs.BaseVirtualFolder{
+				Name:       folder5,
+				MappedPath: filepath.Join(os.TempDir(), folder5),
+				FsConfig: vfs.Filesystem{
+					Provider: sdk.SFTPFilesystemProvider,
+					SFTPConfig: vfs.SFTPFsConfig{
+						BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
+							Endpoint: sftpServerAddr,
+							Username: baseUser.Username,
+							Prefix:   path.Join("/", folder5),
+						},
+						Password: kms.NewPlainSecret(defaultPassword),
+					},
+				},
+			},
+			VirtualPath: path.Join("/", folder5),
+			QuotaSize:   -1,
+			QuotaFiles:  -1,
+		},
+		{
+			BaseVirtualFolder: vfs.BaseVirtualFolder{
+				Name:       folder6,
+				MappedPath: filepath.Join(os.TempDir(), folder6),
+				FsConfig: vfs.Filesystem{
+					Provider: sdk.SFTPFilesystemProvider,
+					SFTPConfig: vfs.SFTPFsConfig{
+						BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
+							Endpoint: "127.0.0.1:4024",
+							Username: baseUser.Username,
+							Prefix:   path.Join("/", folder6),
+						},
+						Password: kms.NewPlainSecret(defaultPassword),
+					},
+				},
+			},
+			VirtualPath: path.Join("/", folder6),
+			QuotaSize:   -1,
+			QuotaFiles:  -1,
+		},
+		{
+			BaseVirtualFolder: vfs.BaseVirtualFolder{
+				Name:       folder7,
+				MappedPath: filepath.Join(os.TempDir(), folder7),
+				FsConfig: vfs.Filesystem{
+					Provider: sdk.SFTPFilesystemProvider,
+					SFTPConfig: vfs.SFTPFsConfig{
+						BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
+							Endpoint: sftpServerAddr,
+							Username: baseUser.Username,
+							Prefix:   path.Join("/", folder4),
+						},
+						Password: kms.NewPlainSecret(defaultPassword),
+					},
+				},
+			},
+			VirtualPath: path.Join("/", folder7),
+			QuotaSize:   -1,
+			QuotaFiles:  -1,
+		},
+	}
+
+	user, resp, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	conn, client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		subDir := "testSubDir"
+		err = client.Mkdir(subDir)
+		assert.NoError(t, err)
+		err = writeSFTPFile(path.Join(subDir, "afile.bin"), 64, client)
+		assert.NoError(t, err)
+		err = client.Rename(subDir, path.Join("/", folder1, subDir))
+		assert.NoError(t, err)
+		_, err = client.Stat(path.Join("/", folder1, subDir))
+		assert.NoError(t, err)
+		_, err = client.Stat(path.Join("/", folder1, subDir, "afile.bin"))
+		assert.NoError(t, err)
+		err = client.Rename(path.Join("/", folder1, subDir), path.Join("/", folder2, subDir))
+		assert.NoError(t, err)
+		_, err = client.Stat(path.Join("/", folder2, subDir))
+		assert.NoError(t, err)
+		_, err = client.Stat(path.Join("/", folder2, subDir, "afile.bin"))
+		assert.NoError(t, err)
+		err = client.Rename(path.Join("/", folder2, subDir), path.Join("/", folder3, subDir))
+		assert.ErrorIs(t, err, os.ErrPermission)
+		err = writeSFTPFile(path.Join("/", folder3, "file.bin"), 64, client)
+		assert.NoError(t, err)
+		err = client.Rename(path.Join("/", folder3, "file.bin"), "/renamed.bin")
+		assert.ErrorIs(t, err, os.ErrPermission)
+		err = client.Rename(path.Join("/", folder3, "file.bin"), path.Join("/", folder2, "/renamed.bin"))
+		assert.ErrorIs(t, err, os.ErrPermission)
+		err = client.Rename(path.Join("/", folder3, "file.bin"), path.Join("/", folder3, "/renamed.bin"))
+		assert.NoError(t, err)
+		err = writeSFTPFile("/afile.bin", 64, client)
+		assert.NoError(t, err)
+		err = client.Rename("afile.bin", path.Join("/", folder4, "afile_renamed.bin"))
+		assert.ErrorIs(t, err, os.ErrPermission)
+		err = writeSFTPFile(path.Join("/", folder4, "afile.bin"), 64, client)
+		assert.NoError(t, err)
+		err = client.Rename(path.Join("/", folder4, "afile.bin"), path.Join("/", folder5, "afile_renamed.bin"))
+		assert.NoError(t, err)
+		err = client.Rename(path.Join("/", folder5, "afile_renamed.bin"), path.Join("/", folder6, "afile_renamed.bin"))
+		assert.ErrorIs(t, err, os.ErrPermission)
+		err = writeSFTPFile(path.Join("/", folder4, "afile.bin"), 64, client)
+		assert.NoError(t, err)
+		_, err = client.Stat(path.Join("/", folder7, "afile.bin"))
+		assert.NoError(t, err)
+		err = client.Rename(path.Join("/", folder4, "afile.bin"), path.Join("/", folder7, "afile.bin"))
+		assert.NoError(t, err)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(baseUser, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(baseUser.GetHomeDir())
+	assert.NoError(t, err)
+	for _, folderName := range []string{folder1, folder2, folder3, folder4, folder5, folder6, folder7} {
+		_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName}, http.StatusOK)
+		assert.NoError(t, err)
+		err = os.RemoveAll(filepath.Join(os.TempDir(), folderName))
+		assert.NoError(t, err)
+	}
 }
 
 func TestDirs(t *testing.T) {

@@ -116,6 +116,9 @@ func (*OsFs) Create(name string, flag int) (File, *PipeWriter, func(), error) {
 
 // Rename renames (moves) source to target
 func (fs *OsFs) Rename(source, target string) error {
+	if source == target {
+		return nil
+	}
 	err := os.Rename(source, target)
 	if err != nil && isCrossDeviceError(err) {
 		fsLog(fs, logger.LevelError, "cross device error detected while renaming %#v -> %#v. Trying a copy and remove, this could take a long time",

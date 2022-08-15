@@ -481,6 +481,17 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             </div>
         </div>
 
+        <div class="form-group fsconfig fsconfig-sftpfs">
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="idSFTPEqualityCheckMode" aria-describedby="SFTPEqualityCheckHelpBlock"
+                    name="sftp_equality_check_mode" {{if eq .SFTPConfig.EqualityCheckMode 1}}checked{{end}}>
+                <label for="idSFTPEqualityCheckMode" class="form-check-label">Relaxed equality check mode</label>
+                <small id="SFTPEqualityCheckHelpBlock" class="form-text text-muted">
+                    Enable to consider only the endpoint to determine if different configs point to the same server. By default, both the endpoint and the username must match. Renaming between different configs is allowed if they point to the same server
+                </small>
+            </div>
+        </div>
+
         <div class="form-group row fsconfig fsconfig-httpfs">
             <label for="idHTTPEndpoint" class="col-sm-2 col-form-label">Endpoint</label>
             <div class="col-sm-10">
@@ -516,6 +527,17 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 <input type="checkbox" class="form-check-input" id="idHTTPSkipTLSVerify"
                     name="http_skip_tls_verify" {{if .HTTPConfig.SkipTLSVerify}}checked{{end}}>
                 <label for="idHTTPSkipTLSVerify" class="form-check-label">Skip TLS verify</label>
+            </div>
+        </div>
+
+        <div class="form-group fsconfig fsconfig-httpfs">
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="idHTTPEqualityCheckMode" aria-describedby="HTTPEqualityCheckHelpBlock"
+                    name="http_equality_check_mode" {{if eq .HTTPConfig.EqualityCheckMode 1}}checked{{end}}>
+                <label for="idHTTPEqualityCheckMode" class="form-check-label">Relaxed equality check mode</label>
+                <small id="HTTPEqualityCheckHelpBlock" class="form-text text-muted">
+                    Enable to consider only the endpoint to determine if different configs point to the same server. By default, both the endpoint and the username must match. Renaming between different configs is allowed if they point to the same server
+                </small>
             </div>
         </div>
     </div>

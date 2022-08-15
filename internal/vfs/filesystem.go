@@ -104,23 +104,46 @@ func (f *Filesystem) SetNilSecretsIfEmpty() {
 }
 
 // IsEqual returns true if the fs is equal to other
-func (f *Filesystem) IsEqual(other *Filesystem) bool {
+func (f *Filesystem) IsEqual(other Filesystem) bool {
 	if f.Provider != other.Provider {
 		return false
 	}
 	switch f.Provider {
 	case sdk.S3FilesystemProvider:
-		return f.S3Config.isEqual(&other.S3Config)
+		return f.S3Config.isEqual(other.S3Config)
 	case sdk.GCSFilesystemProvider:
-		return f.GCSConfig.isEqual(&other.GCSConfig)
+		return f.GCSConfig.isEqual(other.GCSConfig)
 	case sdk.AzureBlobFilesystemProvider:
-		return f.AzBlobConfig.isEqual(&other.AzBlobConfig)
+		return f.AzBlobConfig.isEqual(other.AzBlobConfig)
 	case sdk.CryptedFilesystemProvider:
-		return f.CryptConfig.isEqual(&other.CryptConfig)
+		return f.CryptConfig.isEqual(other.CryptConfig)
 	case sdk.SFTPFilesystemProvider:
-		return f.SFTPConfig.isEqual(&other.SFTPConfig)
+		return f.SFTPConfig.isEqual(other.SFTPConfig)
 	case sdk.HTTPFilesystemProvider:
-		return f.HTTPConfig.isEqual(&other.HTTPConfig)
+		return f.HTTPConfig.isEqual(other.HTTPConfig)
+	default:
+		return true
+	}
+}
+
+// IsSameResource returns true if fs point to the same resource as other
+func (f *Filesystem) IsSameResource(other Filesystem) bool {
+	if f.Provider != other.Provider {
+		return false
+	}
+	switch f.Provider {
+	case sdk.S3FilesystemProvider:
+		return f.S3Config.isSameResource(other.S3Config)
+	case sdk.GCSFilesystemProvider:
+		return f.GCSConfig.isSameResource(other.GCSConfig)
+	case sdk.AzureBlobFilesystemProvider:
+		return f.AzBlobConfig.isSameResource(other.AzBlobConfig)
+	case sdk.CryptedFilesystemProvider:
+		return f.CryptConfig.isSameResource(other.CryptConfig)
+	case sdk.SFTPFilesystemProvider:
+		return f.SFTPConfig.isSameResource(other.SFTPConfig)
+	case sdk.HTTPFilesystemProvider:
+		return f.HTTPConfig.isSameResource(other.HTTPConfig)
 	default:
 		return true
 	}
@@ -314,6 +337,7 @@ func (f *Filesystem) GetACopy() Filesystem {
 				Prefix:                  f.SFTPConfig.Prefix,
 				DisableCouncurrentReads: f.SFTPConfig.DisableCouncurrentReads,
 				BufferSize:              f.SFTPConfig.BufferSize,
+				EqualityCheckMode:       f.SFTPConfig.EqualityCheckMode,
 			},
 			Password:      f.SFTPConfig.Password.Clone(),
 			PrivateKey:    f.SFTPConfig.PrivateKey.Clone(),
@@ -321,9 +345,10 @@ func (f *Filesystem) GetACopy() Filesystem {
 		},
 		HTTPConfig: HTTPFsConfig{
 			BaseHTTPFsConfig: sdk.BaseHTTPFsConfig{
-				Endpoint:      f.HTTPConfig.Endpoint,
-				Username:      f.HTTPConfig.Username,
-				SkipTLSVerify: f.HTTPConfig.SkipTLSVerify,
+				Endpoint:          f.HTTPConfig.Endpoint,
+				Username:          f.HTTPConfig.Username,
+				SkipTLSVerify:     f.HTTPConfig.SkipTLSVerify,
+				EqualityCheckMode: f.HTTPConfig.EqualityCheckMode,
 			},
 			Password: f.HTTPConfig.Password.Clone(),
 			APIKey:   f.HTTPConfig.APIKey.Clone(),

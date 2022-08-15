@@ -169,7 +169,7 @@ func (c *S3FsConfig) HideConfidentialData() {
 	}
 }
 
-func (c *S3FsConfig) isEqual(other *S3FsConfig) bool {
+func (c *S3FsConfig) isEqual(other S3FsConfig) bool {
 	if c.Bucket != other.Bucket {
 		return false
 	}
@@ -204,7 +204,7 @@ func (c *S3FsConfig) isEqual(other *S3FsConfig) bool {
 	return c.isSecretEqual(other)
 }
 
-func (c *S3FsConfig) areMultipartFieldsEqual(other *S3FsConfig) bool {
+func (c *S3FsConfig) areMultipartFieldsEqual(other S3FsConfig) bool {
 	if c.UploadPartSize != other.UploadPartSize {
 		return false
 	}
@@ -226,7 +226,7 @@ func (c *S3FsConfig) areMultipartFieldsEqual(other *S3FsConfig) bool {
 	return true
 }
 
-func (c *S3FsConfig) isSecretEqual(other *S3FsConfig) bool {
+func (c *S3FsConfig) isSecretEqual(other S3FsConfig) bool {
 	if c.AccessSecret == nil {
 		c.AccessSecret = kms.NewEmptySecret()
 	}
@@ -281,6 +281,16 @@ func (c *S3FsConfig) checkPartSizeAndConcurrency() error {
 		return fmt.Errorf("invalid download concurrency: %v", c.DownloadConcurrency)
 	}
 	return nil
+}
+
+func (c *S3FsConfig) isSameResource(other S3FsConfig) bool {
+	if c.Bucket != other.Bucket {
+		return false
+	}
+	if c.Endpoint != other.Endpoint {
+		return false
+	}
+	return c.Region == other.Region
 }
 
 // validate returns an error if the configuration is not valid
@@ -341,7 +351,7 @@ func (c *GCSFsConfig) ValidateAndEncryptCredentials(additionalData string) error
 	return nil
 }
 
-func (c *GCSFsConfig) isEqual(other *GCSFsConfig) bool {
+func (c *GCSFsConfig) isEqual(other GCSFsConfig) bool {
 	if c.Bucket != other.Bucket {
 		return false
 	}
@@ -364,6 +374,10 @@ func (c *GCSFsConfig) isEqual(other *GCSFsConfig) bool {
 		other.Credentials = kms.NewEmptySecret()
 	}
 	return c.Credentials.IsEqual(other.Credentials)
+}
+
+func (c *GCSFsConfig) isSameResource(other GCSFsConfig) bool {
+	return c.Bucket == other.Bucket
 }
 
 // validate returns an error if the configuration is not valid
@@ -414,7 +428,7 @@ func (c *AzBlobFsConfig) HideConfidentialData() {
 	}
 }
 
-func (c *AzBlobFsConfig) isEqual(other *AzBlobFsConfig) bool {
+func (c *AzBlobFsConfig) isEqual(other AzBlobFsConfig) bool {
 	if c.Container != other.Container {
 		return false
 	}
@@ -457,7 +471,7 @@ func (c *AzBlobFsConfig) isEqual(other *AzBlobFsConfig) bool {
 	return c.isSecretEqual(other)
 }
 
-func (c *AzBlobFsConfig) isSecretEqual(other *AzBlobFsConfig) bool {
+func (c *AzBlobFsConfig) isSecretEqual(other AzBlobFsConfig) bool {
 	if c.AccountKey == nil {
 		c.AccountKey = kms.NewEmptySecret()
 	}
@@ -533,6 +547,16 @@ func (c *AzBlobFsConfig) tryDecrypt() error {
 	return nil
 }
 
+func (c *AzBlobFsConfig) isSameResource(other AzBlobFsConfig) bool {
+	if c.AccountName != other.AccountName {
+		return false
+	}
+	if c.Endpoint != other.Endpoint {
+		return false
+	}
+	return c.SASURL.GetPayload() == other.SASURL.GetPayload()
+}
+
 // validate returns an error if the configuration is not valid
 func (c *AzBlobFsConfig) validate() error {
 	if c.AccountKey == nil {
@@ -578,7 +602,7 @@ func (c *CryptFsConfig) HideConfidentialData() {
 	}
 }
 
-func (c *CryptFsConfig) isEqual(other *CryptFsConfig) bool {
+func (c *CryptFsConfig) isEqual(other CryptFsConfig) bool {
 	if c.Passphrase == nil {
 		c.Passphrase = kms.NewEmptySecret()
 	}
@@ -600,6 +624,10 @@ func (c *CryptFsConfig) ValidateAndEncryptCredentials(additionalData string) err
 		}
 	}
 	return nil
+}
+
+func (c *CryptFsConfig) isSameResource(other CryptFsConfig) bool {
+	return c.Passphrase.GetPayload() == other.Passphrase.GetPayload()
 }
 
 // validate returns an error if the configuration is not valid
@@ -654,6 +682,10 @@ func (p *PipeWriter) WriteAt(data []byte, off int64) (int, error) {
 // Write is a wrapper for pipeat Write
 func (p *PipeWriter) Write(data []byte) (int, error) {
 	return p.writer.Write(data)
+}
+
+func isEqualityCheckModeValid(mode int) bool {
+	return mode >= 0 || mode <= 1
 }
 
 // IsDirectory checks if a path exists and is a directory

@@ -526,7 +526,7 @@ func (c *BaseConnection) Rename(virtualSourcePath, virtualTargetPath string) err
 		c.Log(logger.LevelInfo, "denying cross rename due to space limit")
 		return c.GetGenericError(ErrQuotaExceeded)
 	}
-	if err := fsSrc.Rename(fsSourcePath, fsTargetPath); err != nil {
+	if err := fsDst.Rename(fsSourcePath, fsTargetPath); err != nil {
 		c.Log(logger.LevelError, "failed to rename %#v -> %#v: %+v", fsSourcePath, fsTargetPath, err)
 		return c.GetFsError(fsSrc, err)
 	}
@@ -845,8 +845,8 @@ func (c *BaseConnection) hasRenamePerms(virtualSourcePath, virtualTargetPath str
 func (c *BaseConnection) isRenamePermitted(fsSrc, fsDst vfs.Fs, fsSourcePath, fsTargetPath, virtualSourcePath,
 	virtualTargetPath string, fi os.FileInfo,
 ) bool {
-	if !c.isLocalOrSameFolderRename(virtualSourcePath, virtualTargetPath) {
-		c.Log(logger.LevelInfo, "rename %#v->%#v is not allowed: the paths must be local or on the same virtual folder",
+	if !c.isSameResourceRename(virtualSourcePath, virtualTargetPath) {
+		c.Log(logger.LevelInfo, "rename %#v->%#v is not allowed: the paths must be on the same resource",
 			virtualSourcePath, virtualTargetPath)
 		return false
 	}
@@ -1088,8 +1088,7 @@ func (c *BaseConnection) HasSpace(checkFiles, getUsage bool, requestPath string)
 	return result, transferQuota
 }
 
-// returns true if this is a rename on the same fs or local virtual folders
-func (c *BaseConnection) isLocalOrSameFolderRename(virtualSourcePath, virtualTargetPath string) bool {
+func (c *BaseConnection) isSameResourceRename(virtualSourcePath, virtualTargetPath string) bool {
 	sourceFolder, errSrc := c.User.GetVirtualFolderForPath(virtualSourcePath)
 	dstFolder, errDst := c.User.GetVirtualFolderForPath(virtualTargetPath)
 	if errSrc != nil && errDst != nil {
@@ -1099,27 +1098,13 @@ func (c *BaseConnection) isLocalOrSameFolderRename(virtualSourcePath, virtualTar
 		if sourceFolder.Name == dstFolder.Name {
 			return true
 		}
-		// we have different folders, only local fs is supported
-		if sourceFolder.FsConfig.Provider == sdk.LocalFilesystemProvider &&
-			dstFolder.FsConfig.Provider == sdk.LocalFilesystemProvider {
-			return true
-		}
-		return false
-	}
-	if c.User.FsConfig.Provider != sdk.LocalFilesystemProvider {
-		return false
+		// we have different folders, check if they point to the same resource
+		return sourceFolder.FsConfig.IsSameResource(dstFolder.FsConfig)
 	}
 	if errSrc == nil {
-		if sourceFolder.FsConfig.Provider == sdk.LocalFilesystemProvider {
-			return true
-		}
+		return sourceFolder.FsConfig.IsSameResource(c.User.FsConfig)
 	}
-	if errDst == nil {
-		if dstFolder.FsConfig.Provider == sdk.LocalFilesystemProvider {
-			return true
-		}
-	}
-	return false
+	return dstFolder.FsConfig.IsSameResource(c.User.FsConfig)
 }
 
 func (c *BaseConnection) isCrossFoldersRequest(virtualSourcePath, virtualTargetPath string) bool {

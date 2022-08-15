@@ -90,7 +90,7 @@ func (c *HTTPFsConfig) setEmptyCredentialsIfNil() {
 	}
 }
 
-func (c *HTTPFsConfig) isEqual(other *HTTPFsConfig) bool {
+func (c *HTTPFsConfig) isEqual(other HTTPFsConfig) bool {
 	if c.Endpoint != other.Endpoint {
 		return false
 	}
@@ -106,6 +106,15 @@ func (c *HTTPFsConfig) isEqual(other *HTTPFsConfig) bool {
 		return false
 	}
 	return c.APIKey.IsEqual(other.APIKey)
+}
+
+func (c *HTTPFsConfig) isSameResource(other HTTPFsConfig) bool {
+	if c.EqualityCheckMode > 0 || other.EqualityCheckMode > 0 {
+		if c.Username != other.Username {
+			return false
+		}
+	}
+	return c.Endpoint == other.Endpoint
 }
 
 // validate returns an error if the configuration is not valid
@@ -127,6 +136,9 @@ func (c *HTTPFsConfig) validate() error {
 		if !filepath.IsAbs(socketPath) {
 			return fmt.Errorf("httpfs: invalid unix domain socket path: %q", socketPath)
 		}
+	}
+	if !isEqualityCheckModeValid(c.EqualityCheckMode) {
+		return errors.New("invalid equality_check_mode")
 	}
 	if c.Password.IsEncrypted() && !c.Password.IsValid() {
 		return errors.New("httpfs: invalid encrypted password")
@@ -357,6 +369,9 @@ func (fs *HTTPFs) Create(name string, flag int) (File, *PipeWriter, func(), erro
 
 // Rename renames (moves) source to target.
 func (fs *HTTPFs) Rename(source, target string) error {
+	if source == target {
+		return nil
+	}
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
 	defer cancelFn()
 

@@ -83,7 +83,7 @@ func (c *SFTPFsConfig) setNilSecretsIfEmpty() {
 	}
 }
 
-func (c *SFTPFsConfig) isEqual(other *SFTPFsConfig) bool {
+func (c *SFTPFsConfig) isEqual(other SFTPFsConfig) bool {
 	if c.Endpoint != other.Endpoint {
 		return false
 	}
@@ -130,6 +130,15 @@ func (c *SFTPFsConfig) setEmptyCredentialsIfNil() {
 	}
 }
 
+func (c *SFTPFsConfig) isSameResource(other SFTPFsConfig) bool {
+	if c.EqualityCheckMode > 0 || other.EqualityCheckMode > 0 {
+		if c.Username != other.Username {
+			return false
+		}
+	}
+	return c.Endpoint == other.Endpoint
+}
+
 // validate returns an error if the configuration is not valid
 func (c *SFTPFsConfig) validate() error {
 	c.setEmptyCredentialsIfNil()
@@ -145,6 +154,9 @@ func (c *SFTPFsConfig) validate() error {
 	}
 	if c.BufferSize < 0 || c.BufferSize > 16 {
 		return errors.New("invalid buffer_size, valid range is 0-16")
+	}
+	if !isEqualityCheckModeValid(c.EqualityCheckMode) {
+		return errors.New("invalid equality_check_mode")
 	}
 	if err := c.validateCredentials(); err != nil {
 		return err
@@ -378,6 +390,9 @@ func (fs *SFTPFs) Create(name string, flag int) (File, *PipeWriter, func(), erro
 
 // Rename renames (moves) source to target.
 func (fs *SFTPFs) Rename(source, target string) error {
+	if source == target {
+		return nil
+	}
 	if err := fs.checkConnection(); err != nil {
 		return err
 	}

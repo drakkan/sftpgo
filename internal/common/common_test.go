@@ -1061,6 +1061,135 @@ func TestUserRecentActivity(t *testing.T) {
 	assert.True(t, res)
 }
 
+func TestVfsSameResource(t *testing.T) {
+	fs := vfs.Filesystem{}
+	other := vfs.Filesystem{}
+	res := fs.IsSameResource(other)
+	assert.True(t, res)
+	fs = vfs.Filesystem{
+		Provider: sdk.S3FilesystemProvider,
+		S3Config: vfs.S3FsConfig{
+			BaseS3FsConfig: sdk.BaseS3FsConfig{
+				Bucket: "a",
+				Region: "b",
+			},
+		},
+	}
+	other = vfs.Filesystem{
+		Provider: sdk.S3FilesystemProvider,
+		S3Config: vfs.S3FsConfig{
+			BaseS3FsConfig: sdk.BaseS3FsConfig{
+				Bucket: "a",
+				Region: "c",
+			},
+		},
+	}
+	res = fs.IsSameResource(other)
+	assert.False(t, res)
+	other = vfs.Filesystem{
+		Provider: sdk.S3FilesystemProvider,
+		S3Config: vfs.S3FsConfig{
+			BaseS3FsConfig: sdk.BaseS3FsConfig{
+				Bucket: "a",
+				Region: "b",
+			},
+		},
+	}
+	res = fs.IsSameResource(other)
+	assert.True(t, res)
+	fs = vfs.Filesystem{
+		Provider: sdk.GCSFilesystemProvider,
+		GCSConfig: vfs.GCSFsConfig{
+			BaseGCSFsConfig: sdk.BaseGCSFsConfig{
+				Bucket: "b",
+			},
+		},
+	}
+	other = vfs.Filesystem{
+		Provider: sdk.GCSFilesystemProvider,
+		GCSConfig: vfs.GCSFsConfig{
+			BaseGCSFsConfig: sdk.BaseGCSFsConfig{
+				Bucket: "c",
+			},
+		},
+	}
+	res = fs.IsSameResource(other)
+	assert.False(t, res)
+	other = vfs.Filesystem{
+		Provider: sdk.GCSFilesystemProvider,
+		GCSConfig: vfs.GCSFsConfig{
+			BaseGCSFsConfig: sdk.BaseGCSFsConfig{
+				Bucket: "b",
+			},
+		},
+	}
+	res = fs.IsSameResource(other)
+	assert.True(t, res)
+	sasURL := kms.NewPlainSecret("http://127.0.0.1/sasurl")
+	fs = vfs.Filesystem{
+		Provider: sdk.AzureBlobFilesystemProvider,
+		AzBlobConfig: vfs.AzBlobFsConfig{
+			BaseAzBlobFsConfig: sdk.BaseAzBlobFsConfig{
+				AccountName: "a",
+			},
+			SASURL: sasURL,
+		},
+	}
+	err := fs.Validate("data1")
+	assert.NoError(t, err)
+	other = vfs.Filesystem{
+		Provider: sdk.AzureBlobFilesystemProvider,
+		AzBlobConfig: vfs.AzBlobFsConfig{
+			BaseAzBlobFsConfig: sdk.BaseAzBlobFsConfig{
+				AccountName: "a",
+			},
+			SASURL: sasURL,
+		},
+	}
+	err = other.Validate("data2")
+	assert.NoError(t, err)
+	err = fs.AzBlobConfig.SASURL.TryDecrypt()
+	assert.NoError(t, err)
+	err = other.AzBlobConfig.SASURL.TryDecrypt()
+	assert.NoError(t, err)
+	res = fs.IsSameResource(other)
+	assert.True(t, res)
+	fs.AzBlobConfig.AccountName = "b"
+	res = fs.IsSameResource(other)
+	assert.False(t, res)
+	fs.AzBlobConfig.AccountName = "a"
+	other.AzBlobConfig.SASURL = kms.NewPlainSecret("http://127.1.1.1/sasurl")
+	err = other.Validate("data2")
+	assert.NoError(t, err)
+	err = other.AzBlobConfig.SASURL.TryDecrypt()
+	assert.NoError(t, err)
+	res = fs.IsSameResource(other)
+	assert.False(t, res)
+	fs = vfs.Filesystem{
+		Provider: sdk.HTTPFilesystemProvider,
+		HTTPConfig: vfs.HTTPFsConfig{
+			BaseHTTPFsConfig: sdk.BaseHTTPFsConfig{
+				Endpoint: "http://127.0.0.1/httpfs",
+				Username: "a",
+			},
+		},
+	}
+	other = vfs.Filesystem{
+		Provider: sdk.HTTPFilesystemProvider,
+		HTTPConfig: vfs.HTTPFsConfig{
+			BaseHTTPFsConfig: sdk.BaseHTTPFsConfig{
+				Endpoint: "http://127.0.0.1/httpfs",
+				Username: "b",
+			},
+		},
+	}
+	res = fs.IsSameResource(other)
+	assert.True(t, res)
+	fs.HTTPConfig.EqualityCheckMode = 1
+	res = fs.IsSameResource(other)
+	assert.False(t, res)
+}
+
 func BenchmarkBcryptHashing(b *testing.B) {
 	bcryptPassword := "bcryptpassword"
 	for i := 0; i < b.N; i++ {

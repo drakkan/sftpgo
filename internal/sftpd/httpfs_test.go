@@ -198,8 +198,9 @@ func TestHTTPFsVirtualFolder(t *testing.T) {
 				Provider: sdk.HTTPFilesystemProvider,
 				HTTPConfig: vfs.HTTPFsConfig{
 					BaseHTTPFsConfig: sdk.BaseHTTPFsConfig{
-						Endpoint: fmt.Sprintf("http://127.0.0.1:%d/api/v1", httpFsPort),
-						Username: defaultHTTPFsUsername,
+						Endpoint:          fmt.Sprintf("http://127.0.0.1:%d/api/v1", httpFsPort),
+						Username:          defaultHTTPFsUsername,
+						EqualityCheckMode: 1,
 					},
 				},
 			},
@@ -240,6 +241,7 @@ func TestHTTPFsVirtualFolder(t *testing.T) {
 
 func TestHTTPFsWalk(t *testing.T) {
 	user := getTestUserWithHTTPFs(false)
+	user.FsConfig.HTTPConfig.EqualityCheckMode = 1
 	httpFs, err := user.GetFilesystem("")
 	require.NoError(t, err)
 	basePath := filepath.Join(os.TempDir(), "httpfs", user.FsConfig.HTTPConfig.Username)

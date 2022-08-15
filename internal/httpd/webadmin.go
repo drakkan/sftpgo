@@ -1414,6 +1414,11 @@ func getSFTPConfig(r *http.Request) (vfs.SFTPFsConfig, error) {
 	config.Prefix = r.Form.Get("sftp_prefix")
 	config.DisableCouncurrentReads = r.Form.Get("sftp_disable_concurrent_reads") != ""
 	config.BufferSize, err = strconv.ParseInt(r.Form.Get("sftp_buffer_size"), 10, 64)
+	if r.Form.Get("sftp_equality_check_mode") != "" {
+		config.EqualityCheckMode = 1
+	} else {
+		config.EqualityCheckMode = 0
+	}
 	if err != nil {
 		return config, fmt.Errorf("invalid SFTP buffer size: %w", err)
 	}
@@ -1427,6 +1432,11 @@ func getHTTPFsConfig(r *http.Request) vfs.HTTPFsConfig {
 	config.SkipTLSVerify = r.Form.Get("http_skip_tls_verify") != ""
 	config.Password = getSecretFromFormField(r, "http_password")
 	config.APIKey = getSecretFromFormField(r, "http_api_key")
+	if r.Form.Get("http_equality_check_mode") != "" {
+		config.EqualityCheckMode = 1
+	} else {
+		config.EqualityCheckMode = 0
+	}
 	return config
 }
 

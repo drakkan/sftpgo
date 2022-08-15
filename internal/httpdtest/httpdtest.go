@@ -1867,6 +1867,9 @@ func compareHTTPFsConfig(expected *vfs.Filesystem, actual *vfs.Filesystem) error
 	if expected.HTTPConfig.SkipTLSVerify != actual.HTTPConfig.SkipTLSVerify {
 		return errors.New("HTTPFs skip_tls_verify mismatch")
 	}
+	if expected.SFTPConfig.EqualityCheckMode != actual.SFTPConfig.EqualityCheckMode {
+		return errors.New("HTTPFs equality_check_mode mismatch")
+	}
 	if err := checkEncryptedSecret(expected.HTTPConfig.Password, actual.HTTPConfig.Password); err != nil {
 		return fmt.Errorf("HTTPFs password mismatch: %v", err)
 	}
@@ -1888,6 +1891,9 @@ func compareSFTPFsConfig(expected *vfs.Filesystem, actual *vfs.Filesystem) error
 	}
 	if expected.SFTPConfig.BufferSize != actual.SFTPConfig.BufferSize {
 		return errors.New("SFTPFs buffer_size mismatch")
+	}
+	if expected.SFTPConfig.EqualityCheckMode != actual.SFTPConfig.EqualityCheckMode {
+		return errors.New("SFTPFs equality_check_mode mismatch")
 	}
 	if err := checkEncryptedSecret(expected.SFTPConfig.Password, actual.SFTPConfig.Password); err != nil {
 		return fmt.Errorf("SFTPFs password mismatch: %v", err)
