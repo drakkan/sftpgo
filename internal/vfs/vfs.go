@@ -688,8 +688,8 @@ func isEqualityCheckModeValid(mode int) bool {
 	return mode >= 0 || mode <= 1
 }
 
-// IsDirectory checks if a path exists and is a directory
-func IsDirectory(fs Fs, path string) (bool, error) {
+// isDirectory checks if a path exists and is a directory
+func isDirectory(fs Fs, path string) (bool, error) {
 	fileInfo, err := fs.Stat(path)
 	if err != nil {
 		return false, err

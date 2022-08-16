@@ -600,7 +600,7 @@ func (c *BaseConnection) DoStat(virtualPath string, mode int, checkFilePatterns 
 	// if virtualPath is a virtual folder
 	vfolders := c.User.GetVirtualFoldersInPath(path.Dir(virtualPath))
 	if _, ok := vfolders[virtualPath]; ok {
-		return vfs.NewFileInfo(virtualPath, true, 0, time.Now(), false), nil
+		return vfs.NewFileInfo(virtualPath, true, 0, time.Unix(0, 0), false), nil
 	}
 	if checkFilePatterns {
 		ok, policy := c.User.IsFileAllowed(virtualPath)

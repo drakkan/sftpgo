@@ -124,7 +124,7 @@ func (f *webDavFile) Stat() (os.FileInfo, error) {
 	f.Unlock()
 	if f.GetType() == common.TransferUpload && errUpload == nil {
 		info := &webDavFileInfo{
-			FileInfo:    vfs.NewFileInfo(f.GetFsPath(), false, atomic.LoadInt64(&f.BytesReceived), time.Now(), false),
+			FileInfo:    vfs.NewFileInfo(f.GetFsPath(), false, atomic.LoadInt64(&f.BytesReceived), time.Unix(0, 0), false),
 			Fs:          f.Fs,
 			virtualPath: f.GetVirtualPath(),
 			fsPath:      f.GetFsPath(),

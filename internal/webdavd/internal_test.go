@@ -637,15 +637,15 @@ func TestFileAccessErrors(t *testing.T) {
 	if assert.Error(t, err) {
 		assert.EqualError(t, err, os.ErrNotExist.Error())
 	}
-	_, err = connection.handleUploadToExistingFile(fs, p, p, 0, path.Join("adir", missingPath))
+	_, err = connection.handleUploadToExistingFile(fs, p, "_"+p, 0, path.Join("adir", missingPath))
 	if assert.Error(t, err) {
-		assert.EqualError(t, err, os.ErrNotExist.Error())
+		assert.ErrorIs(t, err, os.ErrNotExist)
 	}
 
 	fs = newMockOsFs(nil, false, fs.ConnectionID(), user.HomeDir, nil)
 	_, err = connection.handleUploadToExistingFile(fs, p, p, 0, path.Join("adir", missingPath))
 	if assert.Error(t, err) {
-		assert.EqualError(t, err, os.ErrNotExist.Error())
+		assert.ErrorIs(t, err, os.ErrNotExist)
 	}
 
 	f, err := os.CreateTemp("", "temp")

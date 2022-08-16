@@ -115,10 +115,10 @@ func (fs *GCSFs) ConnectionID() string {
 // Stat returns a FileInfo describing the named file
 func (fs *GCSFs) Stat(name string) (os.FileInfo, error) {
 	if name == "" || name == "/" || name == "." {
-		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, 0, time.Now(), false))
+		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, 0, time.Unix(0, 0), false))
 	}
 	if fs.config.KeyPrefix == name+"/" {
-		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, 0, time.Now(), false))
+		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, 0, time.Unix(0, 0), false))
 	}
 	_, info, err := fs.getObjectStat(name)
 	return info, err
@@ -404,7 +404,7 @@ func (fs *GCSFs) ReadDir(dirname string) ([]os.FileInfo, error) {
 				if _, ok := prefixes[name]; ok {
 					continue
 				}
-				result = append(result, NewFileInfo(name, true, 0, time.Now(), false))
+				result = append(result, NewFileInfo(name, true, 0, time.Unix(0, 0), false))
 				prefixes[name] = true
 			} else {
 				name, isDir := fs.resolve(attrs.Name, prefix, attrs.ContentType)
@@ -688,7 +688,7 @@ func (fs *GCSFs) Walk(root string, walkFn filepath.WalkFunc) error {
 		}
 	}
 
-	walkFn(root, NewFileInfo(root, true, 0, time.Now(), false), err) //nolint:errcheck
+	walkFn(root, NewFileInfo(root, true, 0, time.Unix(0, 0), false), err) //nolint:errcheck
 	metric.GCSListObjectsCompleted(err)
 	return err
 }
@@ -746,7 +746,7 @@ func (fs *GCSFs) getObjectStat(name string) (string, os.FileInfo, error) {
 		return "", nil, err
 	}
 	if hasContents {
-		info, err = updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, 0, time.Now(), false))
+		info, err = updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, 0, time.Unix(0, 0), false))
 		return name, info, err
 	}
 	// finally check if this is an object with a trailing /

@@ -1322,14 +1322,14 @@ func (p *MemoryProvider) updateFolder(folder *vfs.BaseVirtualFolder) error {
 	return nil
 }
 
-func (p *MemoryProvider) deleteFolder(folder vfs.BaseVirtualFolder) error {
+func (p *MemoryProvider) deleteFolder(f vfs.BaseVirtualFolder) error {
 	p.dbHandle.Lock()
 	defer p.dbHandle.Unlock()
 	if p.dbHandle.isClosed {
 		return errMemoryProviderClosed
 	}
 
-	_, err := p.folderExistsInternal(folder.Name)
+	folder, err := p.folderExistsInternal(f.Name)
 	if err != nil {
 		return err
 	}

@@ -67,7 +67,7 @@ func (p *prefixMiddleware) Lstat(request *sftp.Request) (sftp.ListerAt, error) {
 		return p.next.Lstat(request)
 	case pathIsPrefixParent:
 		return listerAt([]os.FileInfo{
-			vfs.NewFileInfo(request.Filepath, true, 0, time.Now(), false),
+			vfs.NewFileInfo(request.Filepath, true, 0, time.Unix(0, 0), false),
 		}), nil
 	default:
 		return nil, sftp.ErrSSHFxPermissionDenied
@@ -92,18 +92,18 @@ func (p *prefixMiddleware) Filelist(request *sftp.Request) (sftp.ListerAt, error
 	case pathIsPrefixParent:
 		switch request.Method {
 		case methodList:
-			now := time.Now()
+			modTime := time.Unix(0, 0)
 			fileName := p.nextListFolder(request.Filepath)
 			files := make([]os.FileInfo, 0, 3)
-			files = append(files, vfs.NewFileInfo(".", true, 0, now, false))
+			files = append(files, vfs.NewFileInfo(".", true, 0, modTime, false))
 			if request.Filepath != "/" {
-				files = append(files, vfs.NewFileInfo("..", true, 0, now, false))
+				files = append(files, vfs.NewFileInfo("..", true, 0, modTime, false))
 			}
-			files = append(files, vfs.NewFileInfo(fileName, true, 0, now, false))
+			files = append(files, vfs.NewFileInfo(fileName, true, 0, modTime, false))
 			return listerAt(files), nil
 		case methodStat:
 			return listerAt([]os.FileInfo{
-				vfs.NewFileInfo(request.Filepath, true, 0, time.Now(), false),
+				vfs.NewFileInfo(request.Filepath, true, 0, time.Unix(0, 0), false),
 			}), nil
 		default:
 			return nil, sftp.ErrSSHFxOpUnsupported

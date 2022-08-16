@@ -722,7 +722,7 @@ func (u *User) FilterListDir(dirContents []os.FileInfo, virtualPath string) []os
 		for dir := range vdirs {
 			if fi.Name() == dir {
 				if !fi.IsDir() {
-					fi = vfs.NewFileInfo(dir, true, 0, time.Now(), false)
+					fi = vfs.NewFileInfo(dir, true, 0, time.Unix(0, 0), false)
 					dirContents[index] = fi
 				}
 				delete(vdirs, dir)
@@ -744,7 +744,7 @@ func (u *User) FilterListDir(dirContents []os.FileInfo, virtualPath string) []os
 	}
 
 	for dir := range vdirs {
-		fi := vfs.NewFileInfo(dir, true, 0, time.Now(), false)
+		fi := vfs.NewFileInfo(dir, true, 0, time.Unix(0, 0), false)
 		dirContents = append(dirContents, fi)
 	}
 	return dirContents

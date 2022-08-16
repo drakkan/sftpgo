@@ -56,7 +56,7 @@ CzgWkxiz7XE4lgUwX44FCXZM3+JeUbI=
 func TestInitialization(t *testing.T) {
 	c := Conf{
 		BindPort:       10000,
-		BindAddress:    "invalid",
+		BindAddress:    "invalid address",
 		EnableProfiler: false,
 	}
 	err := c.Initialize(".")

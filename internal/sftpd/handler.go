@@ -223,11 +223,11 @@ func (c *Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 		if err != nil {
 			return nil, err
 		}
-		now := time.Now()
+		modTime := time.Unix(0, 0)
 		if request.Filepath != "/" || c.folderPrefix != "" {
-			files = util.PrependFileInfo(files, vfs.NewFileInfo("..", true, 0, now, false))
+			files = util.PrependFileInfo(files, vfs.NewFileInfo("..", true, 0, modTime, false))
 		}
-		files = util.PrependFileInfo(files, vfs.NewFileInfo(".", true, 0, now, false))
+		files = util.PrependFileInfo(files, vfs.NewFileInfo(".", true, 0, modTime, false))
 		return listerAt(files), nil
 	case "Stat":
 		if !c.User.HasPerm(dataprovider.PermListItems, path.Dir(request.Filepath)) {
@@ -260,7 +260,7 @@ func (c *Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 			return nil, err
 		}
 
-		return listerAt([]os.FileInfo{vfs.NewFileInfo(s, false, 0, time.Now(), true)}), nil
+		return listerAt([]os.FileInfo{vfs.NewFileInfo(s, false, 0, time.Unix(0, 0), true)}), nil
 	default:
 		return nil, sftp.ErrSSHFxOpUnsupported
 	}

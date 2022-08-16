@@ -1104,7 +1104,7 @@ func (p *BoltProvider) deleteFolderMappings(folder vfs.BaseVirtualFolder, usersB
 	return nil
 }
 
-func (p *BoltProvider) deleteFolder(folder vfs.BaseVirtualFolder) error {
+func (p *BoltProvider) deleteFolder(baseFolder vfs.BaseVirtualFolder) error {
 	return p.dbHandle.Update(func(tx *bolt.Tx) error {
 		bucket, err := p.getFoldersBucket(tx)
 		if err != nil {
@@ -1120,8 +1120,8 @@ func (p *BoltProvider) deleteFolder(folder vfs.BaseVirtualFolder) error {
 		}
 
 		var f []byte
-		if f = bucket.Get([]byte(folder.Name)); f == nil {
-			return util.NewRecordNotFoundError(fmt.Sprintf("folder %v does not exist", folder.Name))
+		if f = bucket.Get([]byte(baseFolder.Name)); f == nil {
+			return util.NewRecordNotFoundError(fmt.Sprintf("folder %v does not exist", baseFolder.Name))
 		}
 		var folder vfs.BaseVirtualFolder
 		err = json.Unmarshal(f, &folder)

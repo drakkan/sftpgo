@@ -151,10 +151,10 @@ func (fs *S3Fs) ConnectionID() string {
 func (fs *S3Fs) Stat(name string) (os.FileInfo, error) {
 	var result *FileInfo
 	if name == "" || name == "/" || name == "." {
-		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, 0, time.Now(), false))
+		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, 0, time.Unix(0, 0), false))
 	}
 	if fs.config.KeyPrefix == name+"/" {
-		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, 0, time.Now(), false))
+		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, 0, time.Unix(0, 0), false))
 	}
 	obj, err := fs.headObject(name)
 	if err == nil {
@@ -168,7 +168,7 @@ func (fs *S3Fs) Stat(name string) (os.FileInfo, error) {
 	// now check if this is a prefix (virtual directory)
 	hasContents, err := fs.hasContents(name)
 	if err == nil && hasContents {
-		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, 0, time.Now(), false))
+		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, 0, time.Unix(0, 0), false))
 	} else if err != nil {
 		return nil, err
 	}
@@ -484,7 +484,7 @@ func (fs *S3Fs) ReadDir(dirname string) ([]os.FileInfo, error) {
 			if _, ok := prefixes[name]; ok {
 				continue
 			}
-			result = append(result, NewFileInfo(name, true, 0, time.Now(), false))
+			result = append(result, NewFileInfo(name, true, 0, time.Unix(0, 0), false))
 			prefixes[name] = true
 		}
 		for _, fileObject := range page.Contents {
@@ -700,7 +700,7 @@ func (fs *S3Fs) Walk(root string, walkFn filepath.WalkFunc) error {
 		page, err := paginator.NextPage(ctx)
 		if err != nil {
 			metric.S3ListObjectsCompleted(err)
-			walkFn(root, NewFileInfo(root, true, 0, time.Now(), false), err) //nolint:errcheck
+			walkFn(root, NewFileInfo(root, true, 0, time.Unix(0, 0), false), err) //nolint:errcheck
 			return err
 		}
 		for _, fileObject := range page.Contents {
@@ -717,7 +717,7 @@ func (fs *S3Fs) Walk(root string, walkFn filepath.WalkFunc) error {
 	}
 
 	metric.S3ListObjectsCompleted(nil)
-	walkFn(root, NewFileInfo(root, true, 0, time.Now(), false), nil) //nolint:errcheck
+	walkFn(root, NewFileInfo(root, true, 0, time.Unix(0, 0), false), nil) //nolint:errcheck
 	return nil
 }
 

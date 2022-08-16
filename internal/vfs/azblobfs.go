@@ -160,10 +160,10 @@ func (fs *AzureBlobFs) ConnectionID() string {
 // Stat returns a FileInfo describing the named file
 func (fs *AzureBlobFs) Stat(name string) (os.FileInfo, error) {
 	if name == "" || name == "/" || name == "." {
-		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, 0, time.Now(), false))
+		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, 0, time.Unix(0, 0), false))
 	}
 	if fs.config.KeyPrefix == name+"/" {
-		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, 0, time.Now(), false))
+		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, 0, time.Unix(0, 0), false))
 	}
 
 	attrs, err := fs.headObject(name)
@@ -184,7 +184,7 @@ func (fs *AzureBlobFs) Stat(name string) (os.FileInfo, error) {
 		return nil, err
 	}
 	if hasContents {
-		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, 0, time.Now(), false))
+		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, 0, time.Unix(0, 0), false))
 	}
 	return nil, os.ErrNotExist
 }
@@ -455,7 +455,7 @@ func (fs *AzureBlobFs) ReadDir(dirname string) ([]os.FileInfo, error) {
 				if _, ok := prefixes[strings.TrimSuffix(name, "/")]; ok {
 					continue
 				}
-				result = append(result, NewFileInfo(name, true, 0, time.Now(), false))
+				result = append(result, NewFileInfo(name, true, 0, time.Unix(0, 0), false))
 				prefixes[strings.TrimSuffix(name, "/")] = true
 			}
 
@@ -464,7 +464,7 @@ func (fs *AzureBlobFs) ReadDir(dirname string) ([]os.FileInfo, error) {
 				name = strings.TrimPrefix(name, prefix)
 				size := int64(0)
 				isDir := false
-				modTime := time.Now()
+				modTime := time.Unix(0, 0)
 				if blobItem.Properties != nil {
 					size = util.GetIntFromPointer(blobItem.Properties.ContentLength)
 					modTime = util.GetTimeFromPointer(blobItem.Properties.LastModified)
@@ -697,7 +697,7 @@ func (fs *AzureBlobFs) Walk(root string, walkFn filepath.WalkFunc) error {
 					continue
 				}
 				blobSize := int64(0)
-				lastModified := time.Now()
+				lastModified := time.Unix(0, 0)
 				isDir := false
 				if blobItem.Properties != nil {
 					contentType := util.GetStringFromPointer(blobItem.Properties.ContentType)
@@ -720,7 +720,7 @@ func (fs *AzureBlobFs) Walk(root string, walkFn filepath.WalkFunc) error {
 	}
 
 	metric.AZListObjectsCompleted(nil)
-	return walkFn(root, NewFileInfo(root, true, 0, time.Now(), false), nil)
+	return walkFn(root, NewFileInfo(root, true, 0, time.Unix(0, 0), false), nil)
 }
 
 // Join joins any number of path elements into a single path

@@ -16,7 +16,6 @@ package sftpd
 
 import (
 	"testing"
-	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/sftp"
@@ -209,7 +208,7 @@ func (Suite *PrefixMiddlewareSuite) TestFileList() {
 					Suite.Equal(".", directList[0].Name())
 				}
 				Suite.Equal(test.ExpectedPath, directList[test.ExpectedItems-1].Name())
-				Suite.InDelta(time.Now().Unix(), directList[test.ExpectedItems-1].ModTime().Unix(), 1)
+				Suite.Equal(int64(0), directList[test.ExpectedItems-1].ModTime().Unix())
 				Suite.True(directList[test.ExpectedItems-1].IsDir())
 			}
 		}
@@ -224,7 +223,7 @@ func (Suite *PrefixMiddlewareSuite) TestLstat() {
 	if directList, ok := ListerAt.(listerAt); ok {
 		Suite.Len(directList, 1)
 		Suite.Equal(`/`, directList[0].Name())
-		Suite.InDelta(time.Now().Unix(), directList[0].ModTime().Unix(), 1)
+		Suite.Equal(int64(0), directList[0].ModTime().Unix())
 		Suite.True(directList[0].IsDir())
 	}
 

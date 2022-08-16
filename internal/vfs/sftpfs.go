@@ -726,7 +726,7 @@ func (fs *SFTPFs) GetDirSize(dirname string) (int, int64, error) {
 	if err := fs.checkConnection(); err != nil {
 		return numFiles, size, err
 	}
-	isDir, err := IsDirectory(fs, dirname)
+	isDir, err := isDirectory(fs, dirname)
 	if err == nil && isDir {
 		walker := fs.sftpClient.Walk(dirname)
 		for walker.Step() {

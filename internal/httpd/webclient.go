@@ -745,7 +745,7 @@ func (s *httpdServer) handleShareGetFiles(w http.ResponseWriter, r *http.Request
 
 	var info os.FileInfo
 	if name == "/" {
-		info = vfs.NewFileInfo(name, true, 0, time.Now(), false)
+		info = vfs.NewFileInfo(name, true, 0, time.Unix(0, 0), false)
 	} else {
 		info, err = connection.Stat(name, 1)
 	}
@@ -879,7 +879,7 @@ func (s *httpdServer) handleClientGetFiles(w http.ResponseWriter, r *http.Reques
 	name := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
 	var info os.FileInfo
 	if name == "/" {
-		info = vfs.NewFileInfo(name, true, 0, time.Now(), false)
+		info = vfs.NewFileInfo(name, true, 0, time.Unix(0, 0), false)
 	} else {
 		info, err = connection.Stat(name, 0)
 	}

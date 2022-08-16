@@ -165,7 +165,7 @@ func (c *Connection) Stat(name string) (os.FileInfo, error) {
 	if err != nil {
 		if c.isListDirWithWildcards(path.Base(name)) {
 			c.doWildcardListDir = true
-			return vfs.NewFileInfo(name, true, 0, time.Now(), false), nil
+			return vfs.NewFileInfo(name, true, 0, time.Unix(0, 0), false), nil
 		}
 		return nil, err
 	}
