@@ -200,6 +200,9 @@ func (p *notifierPlugin) notifyFsAction(event *notifier.FsEvent) {
 	}
 
 	go func() {
+		Handler.addTask()
+		defer Handler.removeTask()
+
 		p.sendFsEvent(event)
 	}()
 }
@@ -211,6 +214,9 @@ func (p *notifierPlugin) notifyProviderAction(event *notifier.ProviderEvent, obj
 	}
 
 	go func() {
+		Handler.addTask()
+		defer Handler.removeTask()
+
 		objectAsJSON, err := object.RenderAsJSON(event.Action != "delete")
 		if err != nil {
 			logger.Warn(logSender, "", "unable to render user as json for action %v: %v", event.Action, err)

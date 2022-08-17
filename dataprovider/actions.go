@@ -50,6 +50,10 @@ const (
 	actionObjectShare  = "share"
 )
 
+var (
+	actionsConcurrencyGuard = make(chan struct{}, 100)
+)
+
 func executeAction(operation, executor, ip, objectType, objectName string, object plugin.Renderer) {
 	if plugin.Handler.HasNotifiers() {
 		plugin.Handler.NotifyProviderEvent(&notifier.ProviderEvent{
@@ -70,6 +74,11 @@ func executeAction(operation, executor, ip, objectType, objectName string, objec
 	}
 
 	go func() {
+		actionsConcurrencyGuard <- struct{}{}
+		defer func() {
+			<-actionsConcurrencyGuard
+		}()
+
 		dataAsJSON, err := object.RenderAsJSON(operation != operationDelete)
 		if err != nil {
 			providerLog(logger.LevelError, "unable to serialize user as JSON for operation %#v: %v", operation, err)

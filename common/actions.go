@@ -42,7 +42,16 @@ var (
 	errUnconfiguredAction    = errors.New("no hook is configured for this action")
 	errNoHook                = errors.New("unable to execute action, no hook defined")
 	errUnexpectedHTTResponse = errors.New("unexpected HTTP response code")
+	hooksConcurrencyGuard    = make(chan struct{}, 150)
 )
+
+func startNewHook() {
+	hooksConcurrencyGuard <- struct{}{}
+}
+
+func hookEnded() {
+	<-hooksConcurrencyGuard
+}
 
 // ProtocolActions defines the action to execute on file operations and SSH commands
 type ProtocolActions struct {
@@ -116,7 +125,12 @@ func ExecuteActionNotification(conn *BaseConnection, operation, filePath, virtua
 			return
 		}
 
-		go actionHandler.Handle(notification) //nolint:errcheck
+		go func() {
+			startNewHook()
+			defer hookEnded()
+
+			actionHandler.Handle(notification) //nolint:errcheck
+		}()
 	}
 }
 

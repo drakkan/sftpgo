@@ -607,6 +607,9 @@ func (c *Configuration) ExecuteStartupHook() error {
 }
 
 func (c *Configuration) executePostDisconnectHook(remoteAddr, protocol, username, connID string, connectionTime time.Time) {
+	startNewHook()
+	defer hookEnded()
+
 	ipAddr := util.GetIPFromRemoteAddress(remoteAddr)
 	connDuration := int64(time.Since(connectionTime) / time.Millisecond)
 

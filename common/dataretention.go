@@ -414,6 +414,9 @@ func (c *RetentionCheck) sendEmailNotification(elapsed time.Duration, errCheck e
 }
 
 func (c *RetentionCheck) sendHookNotification(elapsed time.Duration, errCheck error) error {
+	startNewHook()
+	defer hookEnded()
+
 	data := make(map[string]any)
 	totalDeletedFiles := 0
 	totalDeletedSize := int64(0)
