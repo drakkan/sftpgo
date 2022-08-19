@@ -1062,14 +1062,6 @@ func (r *EventRule) CheckActionsConsistency(providerObjectType string) error {
 					action.Name, getActionTypeAsString(action.Type))
 			}
 		}
-	case EventTriggerSchedule:
-		// to execute a filesystem action we need a user
-		for _, action := range r.Actions {
-			if action.Type == ActionTypeFilesystem {
-				return fmt.Errorf("action %q, type %q is not supported for scheduled events",
-					action.Name, getActionTypeAsString(action.Type))
-			}
-		}
 	case EventTriggerIPBlocked, EventTriggerCertificate:
 		if err := r.checkIPBlockedAndCertificateActions(); err != nil {
 			return err

@@ -628,8 +628,8 @@ func executeEmailRuleAction(c dataprovider.EventActionEmailConfig, params EventP
 	return err
 }
 
-func getUserForEventAction(username string) (dataprovider.User, error) {
-	user, err := dataprovider.GetUserWithGroupSettings(username)
+func getUserForEventAction(user dataprovider.User) (dataprovider.User, error) {
+	err := user.LoadAndApplyGroupSettings()
 	if err != nil {
 		return dataprovider.User{}, err
 	}
@@ -649,8 +649,8 @@ func executeDeleteFileFsAction(conn *BaseConnection, item string, info os.FileIn
 	return conn.RemoveFile(fs, fsPath, item, info)
 }
 
-func executeDeleteFsAction(deletes []string, replacer *strings.Replacer, username string) error {
-	user, err := getUserForEventAction(username)
+func executeDeleteFsActionForUser(deletes []string, replacer *strings.Replacer, user dataprovider.User) error {
+	user, err := getUserForEventAction(user)
 	if err != nil {
 		return err
 	}
@@ -684,8 +684,40 @@ func executeDeleteFsAction(deletes []string, replacer *strings.Replacer, usernam
 	return nil
 }
 
-func executeMkDirsFsAction(dirs []string, replacer *strings.Replacer, username string) error {
-	user, err := getUserForEventAction(username)
+func executeDeleteFsRuleAction(deletes []string, replacer *strings.Replacer,
+	conditions dataprovider.ConditionOptions, params EventParams,
+) error {
+	users, err := params.getUsers()
+	if err != nil {
+		return fmt.Errorf("unable to get users: %w", err)
+	}
+	var failures []string
+	executed := 0
+	for _, user := range users {
+		// if sender is set, the conditions have already been evaluated
+		if params.sender == "" && !checkEventConditionPatterns(user.Username, conditions.Names) {
+			eventManagerLog(logger.LevelDebug, "skipping fs delete for user %s, name conditions don't match",
+				user.Username)
+			continue
+		}
+		executed++
+		if err = executeDeleteFsActionForUser(deletes, replacer, user); err != nil {
+			failures = append(failures, user.Username)
+			continue
+		}
+	}
+	if len(failures) > 0 {
+		return fmt.Errorf("fs delete failed for users: %+v", failures)
+	}
+	if executed == 0 {
+		eventManagerLog(logger.LevelError, "no delete executed")
+		return errors.New("no delete executed")
+	}
+	return nil
+}
+
+func executeMkDirsFsActionForUser(dirs []string, replacer *strings.Replacer, user dataprovider.User) error {
+	user, err := getUserForEventAction(user)
 	if err != nil {
 		return err
 	}
@@ -709,8 +741,42 @@ func executeMkDirsFsAction(dirs []string, replacer *strings.Replacer, username s
 	return nil
 }
 
-func executeRenameFsAction(renames []dataprovider.KeyValue, replacer *strings.Replacer, username string) error {
-	user, err := getUserForEventAction(username)
+func executeMkdirFsRuleAction(dirs []string, replacer *strings.Replacer,
+	conditions dataprovider.ConditionOptions, params EventParams,
+) error {
+	users, err := params.getUsers()
+	if err != nil {
+		return fmt.Errorf("unable to get users: %w", err)
+	}
+	var failures []string
+	executed := 0
+	for _, user := range users {
+		// if sender is set, the conditions have already been evaluated
+		if params.sender == "" && !checkEventConditionPatterns(user.Username, conditions.Names) {
+			eventManagerLog(logger.LevelDebug, "skipping fs mkdir for user %s, name conditions don't match",
+				user.Username)
+			continue
+		}
+		executed++
+		if err = executeMkDirsFsActionForUser(dirs, replacer, user); err != nil {
+			failures = append(failures, user.Username)
+			continue
+		}
+	}
+	if len(failures) > 0 {
+		return fmt.Errorf("fs mkdir failed for users: %+v", failures)
+	}
+	if executed == 0 {
+		eventManagerLog(logger.LevelError, "no mkdir executed")
+		return errors.New("no mkdir executed")
+	}
+	return nil
+}
+
+func executeRenameFsActionForUser(renames []dataprovider.KeyValue, replacer *strings.Replacer,
+	user dataprovider.User,
+) error {
+	user, err := getUserForEventAction(user)
 	if err != nil {
 		return err
 	}
@@ -732,17 +798,51 @@ func executeRenameFsAction(renames []dataprovider.KeyValue, replacer *strings.Re
 	return nil
 }
 
-func executeFsRuleAction(c dataprovider.EventActionFilesystemConfig, params EventParams) error {
+func executeRenameFsRuleAction(renames []dataprovider.KeyValue, replacer *strings.Replacer,
+	conditions dataprovider.ConditionOptions, params EventParams,
+) error {
+	users, err := params.getUsers()
+	if err != nil {
+		return fmt.Errorf("unable to get users: %w", err)
+	}
+	var failures []string
+	executed := 0
+	for _, user := range users {
+		// if sender is set, the conditions have already been evaluated
+		if params.sender == "" && !checkEventConditionPatterns(user.Username, conditions.Names) {
+			eventManagerLog(logger.LevelDebug, "skipping fs rename for user %s, name conditions don't match",
+				user.Username)
+			continue
+		}
+		executed++
+		if err = executeRenameFsActionForUser(renames, replacer, user); err != nil {
+			failures = append(failures, user.Username)
+			continue
+		}
+	}
+	if len(failures) > 0 {
+		return fmt.Errorf("fs rename failed for users: %+v", failures)
+	}
+	if executed == 0 {
+		eventManagerLog(logger.LevelError, "no rename executed")
+		return errors.New("no rename executed")
+	}
+	return nil
+}
+
+func executeFsRuleAction(c dataprovider.EventActionFilesystemConfig, conditions dataprovider.ConditionOptions,
+	params EventParams,
+) error {
 	addObjectData := false
 	replacements := params.getStringReplacements(addObjectData)
 	replacer := strings.NewReplacer(replacements...)
 	switch c.Type {
 	case dataprovider.FilesystemActionRename:
-		return executeRenameFsAction(c.Renames, replacer, params.sender)
+		return executeRenameFsRuleAction(c.Renames, replacer, conditions, params)
 	case dataprovider.FilesystemActionDelete:
-		return executeDeleteFsAction(c.Deletes, replacer, params.sender)
+		return executeDeleteFsRuleAction(c.Deletes, replacer, conditions, params)
 	case dataprovider.FilesystemActionMkdirs:
-		return executeMkDirsFsAction(c.MkDirs, replacer, params.sender)
+		return executeMkdirFsRuleAction(c.MkDirs, replacer, conditions, params)
 	default:
 		return fmt.Errorf("unsupported filesystem action %d", c.Type)
 	}
@@ -953,7 +1053,7 @@ func executeRuleAction(action dataprovider.BaseEventAction, params EventParams, 
 	case dataprovider.ActionTypeDataRetentionCheck:
 		return executeDataRetentionCheckRuleAction(action.Options.RetentionConfig, conditions, params)
 	case dataprovider.ActionTypeFilesystem:
-		return executeFsRuleAction(action.Options.FsConfig, params)
+		return executeFsRuleAction(action.Options.FsConfig, conditions, params)
 	default:
 		return fmt.Errorf("unsupported action type: %d", action.Type)
 	}
@@ -1068,10 +1168,6 @@ func (j *eventCronJob) Run() {
 	rule, err := dataprovider.EventRuleExists(j.ruleName)
 	if err != nil {
 		eventManagerLog(logger.LevelError, "unable to load rule with name %q", j.ruleName)
-		return
-	}
-	if err = rule.CheckActionsConsistency(""); err != nil {
-		eventManagerLog(logger.LevelWarn, "scheduled rule %q skipped: %v", rule.Name, err)
 		return
 	}
 	task, err := j.getTask(rule)

@@ -275,10 +275,18 @@ func TestEventManagerErrors(t *testing.T) {
 	assert.Error(t, err)
 	err = executeTransferQuotaResetRuleAction(dataprovider.ConditionOptions{}, EventParams{})
 	assert.Error(t, err)
+	err = executeDeleteFsRuleAction(nil, nil, dataprovider.ConditionOptions{}, EventParams{})
+	assert.Error(t, err)
+	err = executeMkdirFsRuleAction(nil, nil, dataprovider.ConditionOptions{}, EventParams{})
+	assert.Error(t, err)
+	err = executeRenameFsRuleAction(nil, nil, dataprovider.ConditionOptions{}, EventParams{})
+	assert.Error(t, err)
+
+	groupName := "agroup"
 	err = executeQuotaResetForUser(dataprovider.User{
 		Groups: []sdk.GroupMapping{
 			{
-				Name: "agroup",
+				Name: groupName,
 				Type: sdk.GroupTypePrimary,
 			},
 		},
@@ -287,11 +295,38 @@ func TestEventManagerErrors(t *testing.T) {
 	err = executeDataRetentionCheckForUser(dataprovider.User{
 		Groups: []sdk.GroupMapping{
 			{
-				Name: "agroup",
+				Name: groupName,
 				Type: sdk.GroupTypePrimary,
 			},
 		},
 	}, nil)
+	assert.Error(t, err)
+	err = executeDeleteFsActionForUser(nil, nil, dataprovider.User{
+		Groups: []sdk.GroupMapping{
+			{
+				Name: groupName,
+				Type: sdk.GroupTypePrimary,
+			},
+		},
+	})
+	assert.Error(t, err)
+	err = executeMkDirsFsActionForUser(nil, nil, dataprovider.User{
+		Groups: []sdk.GroupMapping{
+			{
+				Name: groupName,
+				Type: sdk.GroupTypePrimary,
+			},
+		},
+	})
+	assert.Error(t, err)
+	err = executeRenameFsActionForUser(nil, nil, dataprovider.User{
+		Groups: []sdk.GroupMapping{
+			{
+				Name: groupName,
+				Type: sdk.GroupTypePrimary,
+			},
+		},
+	})
 	assert.Error(t, err)
 
 	dataRetentionAction := dataprovider.BaseEventAction{
@@ -633,6 +668,60 @@ func TestEventRuleActions(t *testing.T) {
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "no transfer quota reset executed")
 	}
+	action.Type = dataprovider.ActionTypeFilesystem
+	action.Options = dataprovider.BaseEventActionOptions{
+		FsConfig: dataprovider.EventActionFilesystemConfig{
+			Type: dataprovider.FilesystemActionRename,
+			Renames: []dataprovider.KeyValue{
+				{
+					Key:   "/source",
+					Value: "/target",
+				},
+			},
+		},
+	}
+	err = executeRuleAction(action, EventParams{}, dataprovider.ConditionOptions{
+		Names: []dataprovider.ConditionPattern{
+			{
+				Pattern: "no match",
+			},
+		},
+	})
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "no rename executed")
+	}
+	action.Options = dataprovider.BaseEventActionOptions{
+		FsConfig: dataprovider.EventActionFilesystemConfig{
+			Type:    dataprovider.FilesystemActionDelete,
+			Deletes: []string{"/dir1"},
+		},
+	}
+	err = executeRuleAction(action, EventParams{}, dataprovider.ConditionOptions{
+		Names: []dataprovider.ConditionPattern{
+			{
+				Pattern: "no match",
+			},
+		},
+	})
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "no delete executed")
+	}
+	action.Options = dataprovider.BaseEventActionOptions{
+		FsConfig: dataprovider.EventActionFilesystemConfig{
+			Type:    dataprovider.FilesystemActionMkdirs,
+			Deletes: []string{"/dir1"},
+		},
+	}
+	err = executeRuleAction(action, EventParams{}, dataprovider.ConditionOptions{
+		Names: []dataprovider.ConditionPattern{
+			{
+				Pattern: "no match",
+			},
+		},
+	})
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "no mkdir executed")
+	}
 
 	err = dataprovider.DeleteUser(username1, "", "")
 	assert.NoError(t, err)
@@ -712,19 +801,12 @@ func TestEventRuleActions(t *testing.T) {
 }
 
 func TestFilesystemActionErrors(t *testing.T) {
-	err := executeFsRuleAction(dataprovider.EventActionFilesystemConfig{}, EventParams{})
+	err := executeFsRuleAction(dataprovider.EventActionFilesystemConfig{}, dataprovider.ConditionOptions{}, EventParams{})
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "unsupported filesystem action")
 	}
 	username := "test_user_for_actions"
 	testReplacer := strings.NewReplacer("old", "new")
-	err = executeDeleteFsAction(nil, testReplacer, username)
-	assert.Error(t, err)
-	err = executeMkDirsFsAction(nil, testReplacer, username)
-	assert.Error(t, err)
-	err = executeRenameFsAction(nil, testReplacer, username)
-	assert.Error(t, err)
-
 	user := dataprovider.User{
 		BaseUser: sdk.BaseUser{
 			Username: username,
@@ -750,11 +832,11 @@ func TestFilesystemActionErrors(t *testing.T) {
 	err = dataprovider.AddUser(&user, "", "")
 	assert.NoError(t, err)
 	// check root fs fails
-	err = executeDeleteFsAction(nil, testReplacer, username)
+	err = executeDeleteFsActionForUser(nil, testReplacer, user)
 	assert.Error(t, err)
-	err = executeMkDirsFsAction(nil, testReplacer, username)
+	err = executeMkDirsFsActionForUser(nil, testReplacer, user)
 	assert.Error(t, err)
-	err = executeRenameFsAction(nil, testReplacer, username)
+	err = executeRenameFsActionForUser(nil, testReplacer, user)
 	assert.Error(t, err)
 
 	user.FsConfig.Provider = sdk.LocalFilesystemProvider
@@ -763,15 +845,36 @@ func TestFilesystemActionErrors(t *testing.T) {
 	assert.NoError(t, err)
 	err = dataprovider.AddUser(&user, "", "")
 	assert.NoError(t, err)
-	err = executeRenameFsAction([]dataprovider.KeyValue{
+	err = executeRenameFsActionForUser([]dataprovider.KeyValue{
 		{
 			Key:   "/p1",
 			Value: "/p1",
 		},
-	}, testReplacer, username)
+	}, testReplacer, user)
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "the rename source and target cannot be the same")
 	}
+	err = executeRuleAction(dataprovider.BaseEventAction{
+		Type: dataprovider.ActionTypeFilesystem,
+		Options: dataprovider.BaseEventActionOptions{
+			FsConfig: dataprovider.EventActionFilesystemConfig{
+				Type: dataprovider.FilesystemActionRename,
+				Renames: []dataprovider.KeyValue{
+					{
+						Key:   "/p2",
+						Value: "/p2",
+					},
+				},
+			},
+		},
+	}, EventParams{}, dataprovider.ConditionOptions{
+		Names: []dataprovider.ConditionPattern{
+			{
+				Pattern: username,
+			},
+		},
+	})
+	assert.Error(t, err)
 
 	if runtime.GOOS != osWindows {
 		dirPath := filepath.Join(user.HomeDir, "adir", "sub")
@@ -783,25 +886,58 @@ func TestFilesystemActionErrors(t *testing.T) {
 		err = os.Chmod(dirPath, 0001)
 		assert.NoError(t, err)
 
-		err = executeDeleteFsAction([]string{"/adir/sub"}, testReplacer, username)
+		err = executeDeleteFsActionForUser([]string{"/adir/sub"}, testReplacer, user)
 		assert.Error(t, err)
-		err = executeDeleteFsAction([]string{"/adir/sub/f.dat"}, testReplacer, username)
+		err = executeDeleteFsActionForUser([]string{"/adir/sub/f.dat"}, testReplacer, user)
 		assert.Error(t, err)
 		err = os.Chmod(dirPath, 0555)
 		assert.NoError(t, err)
-		err = executeDeleteFsAction([]string{"/adir/sub/f.dat"}, testReplacer, username)
+		err = executeDeleteFsActionForUser([]string{"/adir/sub/f.dat"}, testReplacer, user)
 		if assert.Error(t, err) {
 			assert.Contains(t, err.Error(), "unable to remove file")
 		}
+		err = executeRuleAction(dataprovider.BaseEventAction{
+			Type: dataprovider.ActionTypeFilesystem,
+			Options: dataprovider.BaseEventActionOptions{
+				FsConfig: dataprovider.EventActionFilesystemConfig{
+					Type:    dataprovider.FilesystemActionDelete,
+					Deletes: []string{"/adir/sub/f.dat"},
+				},
+			},
+		}, EventParams{}, dataprovider.ConditionOptions{
+			Names: []dataprovider.ConditionPattern{
+				{
+					Pattern: username,
+				},
+			},
+		})
+		assert.Error(t, err)
 
-		err = executeMkDirsFsAction([]string{"/adir/sub/sub"}, testReplacer, username)
+		err = executeMkDirsFsActionForUser([]string{"/adir/sub/sub"}, testReplacer, user)
 		if assert.Error(t, err) {
 			assert.Contains(t, err.Error(), "unable to create dir")
 		}
-		err = executeMkDirsFsAction([]string{"/adir/sub/sub/sub"}, testReplacer, username)
+		err = executeMkDirsFsActionForUser([]string{"/adir/sub/sub/sub"}, testReplacer, user)
 		if assert.Error(t, err) {
 			assert.Contains(t, err.Error(), "unable to check parent dirs")
 		}
+
+		err = executeRuleAction(dataprovider.BaseEventAction{
+			Type: dataprovider.ActionTypeFilesystem,
+			Options: dataprovider.BaseEventActionOptions{
+				FsConfig: dataprovider.EventActionFilesystemConfig{
+					Type:   dataprovider.FilesystemActionMkdirs,
+					MkDirs: []string{"/adir/sub/sub1"},
+				},
+			},
+		}, EventParams{}, dataprovider.ConditionOptions{
+			Names: []dataprovider.ConditionPattern{
+				{
+					Pattern: username,
+				},
+			},
+		})
+		assert.Error(t, err)
 
 		err = os.Chmod(dirPath, os.ModePerm)
 		assert.NoError(t, err)
@@ -943,17 +1079,6 @@ func TestScheduledActions(t *testing.T) {
 
 	job.Run()
 	assert.DirExists(t, backupsPath)
-
-	action.Type = dataprovider.ActionTypeFilesystem
-	action.Options = dataprovider.BaseEventActionOptions{
-		FsConfig: dataprovider.EventActionFilesystemConfig{
-			Type:   dataprovider.FilesystemActionMkdirs,
-			MkDirs: []string{"/dir"},
-		},
-	}
-	err = dataprovider.UpdateEventAction(action, "", "")
-	assert.NoError(t, err)
-	job.Run() // action is not compatible with a scheduled rule
 
 	err = dataprovider.DeleteEventRule(rule.Name, "", "")
 	assert.NoError(t, err)

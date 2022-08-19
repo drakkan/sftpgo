@@ -45,7 +45,7 @@ The following trigger events are supported:
 
 You can further restrict a rule by specifying additional conditions that must be met before the rule’s actions are taken. For example you can react to uploads only if they are performed by a particular user or using a specified protocol.
 
-Actions such as user quota reset, transfer quota reset, data retention check and folder quota reset are executed for all matching users if the trigger is a schedule or for the affected user if the trigger is a provider event or a filesystem action.
+Actions such as user quota reset, transfer quota reset, data retention check, folder quota reset and filesystem events are executed for all matching users if the trigger is a schedule or for the affected user if the trigger is a provider event or a filesystem action.
 
 Actions are executed in a sequential order except for sync actions that are executed before the others. For each action associated to a rule you can define the following settings:
 
@@ -59,6 +59,5 @@ Some actions are not supported for some triggers, rules containing incompatible 
 
 - `Filesystem events`, folder quota reset cannot be executed, we don't have a direct way to get the affected folder.
 - `Provider events`, user quota reset, transfer quota reset, data retention check and filesystem actions can be executed only if we modify a user. They will be executed for the affected user. Folder quota reset can be executed only for folders. Filesystem actions are not executed for `delete` user events because the actions is executed after the user deletion.
-- `Schedules`, filesystem actions cannot be executed, they require a user.
 - `IP Blocked`, user quota reset, folder quota reset, transfer quota reset, data retention check and filesystem actions cannot be executed, we only have an IP.
 - `Certificate`, user quota reset, folder quota reset, transfer quota reset, data retention check and filesystem actions cannot be executed.
