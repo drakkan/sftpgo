@@ -4356,6 +4356,19 @@ components:
           * `7` - Transfer quota reset
           * `8` - Data retention check
           * `9` - Filesystem
+    FilesystemActionTypes:
+      type: integer
+      enum:
+        - 1
+        - 2
+        - 3
+        - 4
+      description: |
+        Supported filesystem action types:
+          * `1` - Rename
+          * `2` - Delete
+          * `3` - Mkdis
+          * `4` - Exist
     EventTriggerTypes:
       type: integer
       enum:
@@ -6057,6 +6070,27 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/FolderRetention'
+    EventActionFilesystemConfig:
+      type: object
+      properties:
+        type:
+          $ref: '#/components/schemas/FilesystemActionTypes'
+        renames:
+          type: array
+          items:
+            $ref: '#/components/schemas/KeyValue'
+        mkdirs:
+          type: array
+          items:
+            type: string
+        deletes:
+          type: array
+          items:
+            type: string
+        exist:
+          type: array
+          items:
+            type: string
     BaseEventActionOptions:
       type: object
       properties:
@@ -6068,6 +6102,8 @@ components:
           $ref: '#/components/schemas/EventActionEmailConfig'
         retention_config:
           $ref: '#/components/schemas/EventActionDataRetentionConfig'
+        fs_config:
+          $ref: '#/components/schemas/EventActionFilesystemConfig'
     BaseEventAction:
       type: object
       properties:

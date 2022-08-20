@@ -2270,6 +2270,14 @@ func compareEventActionFsConfigFields(expected, actual dataprovider.EventActionF
 			return errors.New("fs mkdir content mismatch")
 		}
 	}
+	if len(expected.Exist) != len(actual.Exist) {
+		return errors.New("fs exist mismatch")
+	}
+	for _, v := range expected.Exist {
+		if !util.Contains(actual.Exist, v) {
+			return errors.New("fs exist content mismatch")
+		}
+	}
 	return nil
 }
 

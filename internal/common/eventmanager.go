@@ -662,7 +662,7 @@ func executeDeleteFsActionForUser(deletes []string, replacer *strings.Replacer, 
 	}
 	conn := NewBaseConnection(connectionID, protocolEventAction, "", "", user)
 	for _, item := range deletes {
-		item = replaceWithReplacer(item, replacer)
+		item = util.CleanPath(replaceWithReplacer(item, replacer))
 		info, err := conn.DoStat(item, 0, false)
 		if err != nil {
 			if conn.IsNotExistError(err) {
@@ -729,7 +729,7 @@ func executeMkDirsFsActionForUser(dirs []string, replacer *strings.Replacer, use
 	}
 	conn := NewBaseConnection(connectionID, protocolEventAction, "", "", user)
 	for _, item := range dirs {
-		item = replaceWithReplacer(item, replacer)
+		item = util.CleanPath(replaceWithReplacer(item, replacer))
 		if err = conn.CheckParentDirs(path.Dir(item)); err != nil {
 			return fmt.Errorf("unable to check parent dirs for %q, user %q: %w", item, user.Username, err)
 		}
@@ -788,12 +788,36 @@ func executeRenameFsActionForUser(renames []dataprovider.KeyValue, replacer *str
 	}
 	conn := NewBaseConnection(connectionID, protocolEventAction, "", "", user)
 	for _, item := range renames {
-		source := replaceWithReplacer(item.Key, replacer)
-		target := replaceWithReplacer(item.Value, replacer)
+		source := util.CleanPath(replaceWithReplacer(item.Key, replacer))
+		target := util.CleanPath(replaceWithReplacer(item.Value, replacer))
 		if err = conn.Rename(source, target); err != nil {
 			return fmt.Errorf("unable to rename %q->%q, user %q: %w", source, target, user.Username, err)
 		}
 		eventManagerLog(logger.LevelDebug, "rename %q->%q ok, user %q", source, target, user.Username)
+	}
+	return nil
+}
+
+func executeExistFsActionForUser(exist []string, replacer *strings.Replacer,
+	user dataprovider.User,
+) error {
+	user, err := getUserForEventAction(user)
+	if err != nil {
+		return err
+	}
+	connectionID := fmt.Sprintf("%s_%s", protocolEventAction, xid.New().String())
+	err = user.CheckFsRoot(connectionID)
+	defer user.CloseFs() //nolint:errcheck
+	if err != nil {
+		return err
+	}
+	conn := NewBaseConnection(connectionID, protocolEventAction, "", "", user)
+	for _, item := range exist {
+		item = util.CleanPath(replaceWithReplacer(item, replacer))
+		if _, err = conn.DoStat(item, 0, false); err != nil {
+			return fmt.Errorf("error checking existence for path %q, user %q: %w", item, user.Username, err)
+		}
+		eventManagerLog(logger.LevelDebug, "path %q exists for user %q", item, user.Username)
 	}
 	return nil
 }
@@ -830,6 +854,38 @@ func executeRenameFsRuleAction(renames []dataprovider.KeyValue, replacer *string
 	return nil
 }
 
+func executeExistFsRuleAction(exist []string, replacer *strings.Replacer, conditions dataprovider.ConditionOptions,
+	params EventParams,
+) error {
+	users, err := params.getUsers()
+	if err != nil {
+		return fmt.Errorf("unable to get users: %w", err)
+	}
+	var failures []string
+	executed := 0
+	for _, user := range users {
+		// if sender is set, the conditions have already been evaluated
+		if params.sender == "" && !checkEventConditionPatterns(user.Username, conditions.Names) {
+			eventManagerLog(logger.LevelDebug, "skipping fs exist for user %s, name conditions don't match",
+				user.Username)
+			continue
+		}
+		executed++
+		if err = executeExistFsActionForUser(exist, replacer, user); err != nil {
+			failures = append(failures, user.Username)
+			continue
+		}
+	}
+	if len(failures) > 0 {
+		return fmt.Errorf("fs existence check failed for users: %+v", failures)
+	}
+	if executed == 0 {
+		eventManagerLog(logger.LevelError, "no existence check executed")
+		return errors.New("no existence check executed")
+	}
+	return nil
+}
+
 func executeFsRuleAction(c dataprovider.EventActionFilesystemConfig, conditions dataprovider.ConditionOptions,
 	params EventParams,
 ) error {
@@ -843,6 +899,8 @@ func executeFsRuleAction(c dataprovider.EventActionFilesystemConfig, conditions 
 		return executeDeleteFsRuleAction(c.Deletes, replacer, conditions, params)
 	case dataprovider.FilesystemActionMkdirs:
 		return executeMkdirFsRuleAction(c.MkDirs, replacer, conditions, params)
+	case dataprovider.FilesystemActionExist:
+		return executeExistFsRuleAction(c.Exist, replacer, conditions, params)
 	default:
 		return fmt.Errorf("unsupported filesystem action %d", c.Type)
 	}

@@ -487,6 +487,17 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 </div>
             </div>
 
+            <div class="form-group row action-type action-fs-type action-fs-exist">
+                <label for="idFsExist" class="col-sm-2 col-form-label">Paths</label>
+                <div class="col-sm-10">
+                    <textarea class="form-control" id="idFsExist" name="fs_exist_paths" rows="2"
+                        aria-describedby="fsExistHelpBlock">{{.Action.Options.FsConfig.GetExistAsString}}</textarea>
+                    <small id="fsExistHelpBlock" class="form-text text-muted">
+                        Comma separated paths to check for existence as seen by SFTPGo users. Placeholders are supported. The required permissions are granted automatically
+                    </small>
+                </div>
+            </div>
+
             <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
             <div class="col-sm-12 text-right px-0">
                 <button type="submit" class="btn btn-primary mt-3 ml-3 px-5" name="form_action" value="submit">Submit</button>
@@ -747,6 +758,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             case '3':
             case 3:
                 $('.action-fs-mkdir').show();
+                break;
+            case '4':
+            case 4:
+                $('.action-fs-exist').show();
                 break;
         }
     }

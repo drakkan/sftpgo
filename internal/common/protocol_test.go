@@ -3535,6 +3535,16 @@ func TestEventRuleFsActions(t *testing.T) {
 		Name: "a5",
 		Type: dataprovider.ActionTypeUserQuotaReset,
 	}
+	a6 := dataprovider.BaseEventAction{
+		Name: "a6",
+		Type: dataprovider.ActionTypeFilesystem,
+		Options: dataprovider.BaseEventActionOptions{
+			FsConfig: dataprovider.EventActionFilesystemConfig{
+				Type:  dataprovider.FilesystemActionExist,
+				Exist: []string{"/{{VirtualPath}}"},
+			},
+		},
+	}
 	action1, resp, err := httpdtest.AddEventAction(a1, http.StatusCreated)
 	assert.NoError(t, err, string(resp))
 	action2, resp, err := httpdtest.AddEventAction(a2, http.StatusCreated)
@@ -3544,6 +3554,8 @@ func TestEventRuleFsActions(t *testing.T) {
 	action4, resp, err := httpdtest.AddEventAction(a4, http.StatusCreated)
 	assert.NoError(t, err, string(resp))
 	action5, resp, err := httpdtest.AddEventAction(a5, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	action6, resp, err := httpdtest.AddEventAction(a6, http.StatusCreated)
 	assert.NoError(t, err, string(resp))
 
 	r1 := dataprovider.EventRule{
@@ -3597,6 +3609,12 @@ func TestEventRuleFsActions(t *testing.T) {
 					Name: action3.Name,
 				},
 				Order: 1,
+			},
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action6.Name,
+				},
+				Order: 2,
 			},
 		},
 	}
@@ -3741,6 +3759,8 @@ func TestEventRuleFsActions(t *testing.T) {
 	_, err = httpdtest.RemoveEventAction(action4, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveEventAction(action5, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action6, http.StatusOK)
 	assert.NoError(t, err)
 }
 

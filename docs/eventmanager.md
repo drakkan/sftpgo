@@ -16,6 +16,7 @@ The following actions are supported:
   - `Rename`. You can rename one or more files or directories.
   - `Delete`. You can delete one or more files and directories.
   - `Create directories`. You can create one or more directories including sub-directories.
+  - `Path exists`. Check if the specified path exists.
 
 The following placeholders are supported:
 

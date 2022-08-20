@@ -281,6 +281,8 @@ func TestEventManagerErrors(t *testing.T) {
 	assert.Error(t, err)
 	err = executeRenameFsRuleAction(nil, nil, dataprovider.ConditionOptions{}, EventParams{})
 	assert.Error(t, err)
+	err = executeExistFsRuleAction(nil, nil, dataprovider.ConditionOptions{}, EventParams{})
+	assert.Error(t, err)
 
 	groupName := "agroup"
 	err = executeQuotaResetForUser(dataprovider.User{
@@ -320,6 +322,15 @@ func TestEventManagerErrors(t *testing.T) {
 	})
 	assert.Error(t, err)
 	err = executeRenameFsActionForUser(nil, nil, dataprovider.User{
+		Groups: []sdk.GroupMapping{
+			{
+				Name: groupName,
+				Type: sdk.GroupTypePrimary,
+			},
+		},
+	})
+	assert.Error(t, err)
+	err = executeExistFsActionForUser(nil, nil, dataprovider.User{
 		Groups: []sdk.GroupMapping{
 			{
 				Name: groupName,
@@ -637,6 +648,43 @@ func TestEventRuleActions(t *testing.T) {
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "no retention check executed")
 	}
+	// test file exists action
+	action = dataprovider.BaseEventAction{
+		Type: dataprovider.ActionTypeFilesystem,
+		Options: dataprovider.BaseEventActionOptions{
+			FsConfig: dataprovider.EventActionFilesystemConfig{
+				Type:  dataprovider.FilesystemActionExist,
+				Exist: []string{"/file1.txt", path.Join("/", retentionDir, "file3.txt")},
+			},
+		},
+	}
+	err = executeRuleAction(action, EventParams{}, dataprovider.ConditionOptions{
+		Names: []dataprovider.ConditionPattern{
+			{
+				Pattern: "no match",
+			},
+		},
+	})
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "no existence check executed")
+	}
+	err = executeRuleAction(action, EventParams{}, dataprovider.ConditionOptions{
+		Names: []dataprovider.ConditionPattern{
+			{
+				Pattern: username1,
+			},
+		},
+	})
+	assert.NoError(t, err)
+	action.Options.FsConfig.Exist = []string{"/file1.txt", path.Join("/", retentionDir, "file2.txt")}
+	err = executeRuleAction(action, EventParams{}, dataprovider.ConditionOptions{
+		Names: []dataprovider.ConditionPattern{
+			{
+				Pattern: username1,
+			},
+		},
+	})
+	assert.Error(t, err)
 
 	err = os.RemoveAll(user1.GetHomeDir())
 	assert.NoError(t, err)
@@ -837,6 +885,8 @@ func TestFilesystemActionErrors(t *testing.T) {
 	err = executeMkDirsFsActionForUser(nil, testReplacer, user)
 	assert.Error(t, err)
 	err = executeRenameFsActionForUser(nil, testReplacer, user)
+	assert.Error(t, err)
+	err = executeExistFsActionForUser(nil, testReplacer, user)
 	assert.Error(t, err)
 
 	user.FsConfig.Provider = sdk.LocalFilesystemProvider

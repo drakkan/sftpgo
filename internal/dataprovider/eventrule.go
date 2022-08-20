@@ -117,10 +117,12 @@ const (
 	FilesystemActionRename = iota + 1
 	FilesystemActionDelete
 	FilesystemActionMkdirs
+	FilesystemActionExist
 )
 
 var (
-	supportedFsActions = []int{FilesystemActionRename, FilesystemActionDelete, FilesystemActionMkdirs}
+	supportedFsActions = []int{FilesystemActionRename, FilesystemActionDelete, FilesystemActionMkdirs,
+		FilesystemActionExist}
 )
 
 func isFilesystemActionValid(value int) bool {
@@ -133,6 +135,8 @@ func getFsActionTypeAsString(value int) string {
 		return "Rename"
 	case FilesystemActionDelete:
 		return "Delete"
+	case FilesystemActionExist:
+		return "Paths exist"
 	default:
 		return "Create directories"
 	}
@@ -384,6 +388,8 @@ type EventActionFilesystemConfig struct {
 	MkDirs []string `json:"mkdirs,omitempty"`
 	// files/dirs to delete
 	Deletes []string `json:"deletes,omitempty"`
+	// file/dirs to check for existence
+	Exist []string `json:"exist,omitempty"`
 }
 
 // GetDeletesAsString returns the list of items to delete as comma separated string.
@@ -398,15 +404,21 @@ func (c EventActionFilesystemConfig) GetMkDirsAsString() string {
 	return strings.Join(c.MkDirs, ",")
 }
 
+// GetExistAsString returns the list of items to check for existence as comma separated string.
+// Using a pointer receiver will not work in web templates
+func (c EventActionFilesystemConfig) GetExistAsString() string {
+	return strings.Join(c.Exist, ",")
+}
+
 func (c *EventActionFilesystemConfig) validateRenames() error {
 	if len(c.Renames) == 0 {
-		return util.NewValidationError("no items to rename specified")
+		return util.NewValidationError("no path to rename specified")
 	}
 	for idx, kv := range c.Renames {
 		key := strings.TrimSpace(kv.Key)
 		value := strings.TrimSpace(kv.Value)
 		if key == "" || value == "" {
-			return util.NewValidationError("invalid items to rename")
+			return util.NewValidationError("invalid paths to rename")
 		}
 		key = util.CleanPath(key)
 		value = util.CleanPath(value)
@@ -424,6 +436,51 @@ func (c *EventActionFilesystemConfig) validateRenames() error {
 	return nil
 }
 
+func (c *EventActionFilesystemConfig) validateDeletes() error {
+	if len(c.Deletes) == 0 {
+		return util.NewValidationError("no path to delete specified")
+	}
+	for idx, val := range c.Deletes {
+		val = strings.TrimSpace(val)
+		if val == "" {
+			return util.NewValidationError("invalid path to delete")
+		}
+		c.Deletes[idx] = util.CleanPath(val)
+	}
+	c.Deletes = util.RemoveDuplicates(c.Deletes, false)
+	return nil
+}
+
+func (c *EventActionFilesystemConfig) validateMkdirs() error {
+	if len(c.MkDirs) == 0 {
+		return util.NewValidationError("no directory to create specified")
+	}
+	for idx, val := range c.MkDirs {
+		val = strings.TrimSpace(val)
+		if val == "" {
+			return util.NewValidationError("invalid directory to create")
+		}
+		c.MkDirs[idx] = util.CleanPath(val)
+	}
+	c.MkDirs = util.RemoveDuplicates(c.MkDirs, false)
+	return nil
+}
+
+func (c *EventActionFilesystemConfig) validateExist() error {
+	if len(c.Exist) == 0 {
+		return util.NewValidationError("no path to check for existence specified")
+	}
+	for idx, val := range c.Exist {
+		val = strings.TrimSpace(val)
+		if val == "" {
+			return util.NewValidationError("invalid path to check for existence")
+		}
+		c.Exist[idx] = util.CleanPath(val)
+	}
+	c.Exist = util.RemoveDuplicates(c.Exist, false)
+	return nil
+}
+
 func (c *EventActionFilesystemConfig) validate() error {
 	if !isFilesystemActionValid(c.Type) {
 		return util.NewValidationError(fmt.Sprintf("invalid filesystem action type: %d", c.Type))
@@ -432,37 +489,31 @@ func (c *EventActionFilesystemConfig) validate() error {
 	case FilesystemActionRename:
 		c.MkDirs = nil
 		c.Deletes = nil
+		c.Exist = nil
 		if err := c.validateRenames(); err != nil {
 			return err
 		}
 	case FilesystemActionDelete:
 		c.Renames = nil
 		c.MkDirs = nil
-		if len(c.Deletes) == 0 {
-			return util.NewValidationError("no item to delete specified")
+		c.Exist = nil
+		if err := c.validateDeletes(); err != nil {
+			return err
 		}
-		for idx, val := range c.Deletes {
-			val = strings.TrimSpace(val)
-			if val == "" {
-				return util.NewValidationError("invalid item to delete")
-			}
-			c.Deletes[idx] = util.CleanPath(val)
-		}
-		c.Deletes = util.RemoveDuplicates(c.Deletes, false)
 	case FilesystemActionMkdirs:
 		c.Renames = nil
 		c.Deletes = nil
-		if len(c.MkDirs) == 0 {
-			return util.NewValidationError("no directory to create specified")
+		c.Exist = nil
+		if err := c.validateMkdirs(); err != nil {
+			return err
 		}
-		for idx, val := range c.MkDirs {
-			val = strings.TrimSpace(val)
-			if val == "" {
-				return util.NewValidationError("invalid directory to create")
-			}
-			c.MkDirs[idx] = util.CleanPath(val)
+	case FilesystemActionExist:
+		c.Renames = nil
+		c.Deletes = nil
+		c.MkDirs = nil
+		if err := c.validateExist(); err != nil {
+			return err
 		}
-		c.MkDirs = util.RemoveDuplicates(c.MkDirs, false)
 	}
 	return nil
 }
@@ -472,12 +523,15 @@ func (c *EventActionFilesystemConfig) getACopy() EventActionFilesystemConfig {
 	copy(mkdirs, c.MkDirs)
 	deletes := make([]string, len(c.Deletes))
 	copy(deletes, c.Deletes)
+	exist := make([]string, len(c.Exist))
+	copy(exist, c.Exist)
 
 	return EventActionFilesystemConfig{
 		Type:    c.Type,
 		Renames: cloneKeyValues(c.Renames),
 		MkDirs:  mkdirs,
 		Deletes: deletes,
+		Exist:   exist,
 	}
 }
 

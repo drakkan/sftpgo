@@ -1919,6 +1919,7 @@ func getEventActionOptionsFromPostFields(r *http.Request) (dataprovider.BaseEven
 			Renames: getKeyValsFromPostFields(r, "fs_rename_source", "fs_rename_target"),
 			Deletes: strings.Split(strings.ReplaceAll(r.Form.Get("fs_delete_paths"), " ", ""), ","),
 			MkDirs:  strings.Split(strings.ReplaceAll(r.Form.Get("fs_mkdir_paths"), " ", ""), ","),
+			Exist:   strings.Split(strings.ReplaceAll(r.Form.Get("fs_exist_paths"), " ", ""), ","),
 		},
 	}
 	return options, nil

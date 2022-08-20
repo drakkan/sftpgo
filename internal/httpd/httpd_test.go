@@ -1598,7 +1598,7 @@ func TestEventActionValidation(t *testing.T) {
 	}
 	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
 	assert.NoError(t, err)
-	assert.Contains(t, string(resp), "no items to rename specified")
+	assert.Contains(t, string(resp), "no path to rename specified")
 	action.Options.FsConfig.Renames = []dataprovider.KeyValue{
 		{
 			Key:   "",
@@ -1607,7 +1607,7 @@ func TestEventActionValidation(t *testing.T) {
 	}
 	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
 	assert.NoError(t, err)
-	assert.Contains(t, string(resp), "invalid items to rename")
+	assert.Contains(t, string(resp), "invalid paths to rename")
 	action.Options.FsConfig.Renames = []dataprovider.KeyValue{
 		{
 			Key:   "adir",
@@ -1637,11 +1637,19 @@ func TestEventActionValidation(t *testing.T) {
 	action.Options.FsConfig.Type = dataprovider.FilesystemActionDelete
 	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
 	assert.NoError(t, err)
-	assert.Contains(t, string(resp), "no item to delete specified")
+	assert.Contains(t, string(resp), "no path to delete specified")
 	action.Options.FsConfig.Deletes = []string{"item1", ""}
 	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
 	assert.NoError(t, err)
-	assert.Contains(t, string(resp), "invalid item to delete")
+	assert.Contains(t, string(resp), "invalid path to delete")
+	action.Options.FsConfig.Type = dataprovider.FilesystemActionExist
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "no path to check for existence specified")
+	action.Options.FsConfig.Exist = []string{"item1", ""}
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "invalid path to check for existence")
 }
 
 func TestEventRuleValidation(t *testing.T) {
@@ -18906,6 +18914,34 @@ func TestWebEventAction(t *testing.T) {
 		}
 	}
 
+	action.Options.FsConfig = dataprovider.EventActionFilesystemConfig{
+		Type:  dataprovider.FilesystemActionExist,
+		Exist: []string{"b ", " c/d"},
+	}
+	form.Set("fs_action_type", fmt.Sprintf("%d", action.Options.FsConfig.Type))
+	form.Set("fs_exist_paths", strings.Join(action.Options.FsConfig.Exist, ","))
+	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminEventActionPath, action.Name),
+		bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+	// check the update
+	actionGet, _, err = httpdtest.GetEventActionByName(action.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, action.Type, actionGet.Type)
+	if assert.Len(t, actionGet.Options.FsConfig.Exist, 2) {
+		for _, p := range actionGet.Options.FsConfig.Exist {
+			switch p {
+			case "/b":
+			case "/c/d":
+			default:
+				t.Errorf("unexpected path %v", p)
+			}
+		}
+	}
+
 	req, err = http.NewRequest(http.MethodDelete, path.Join(webAdminEventActionPath, action.Name), nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, apiToken)
@@ -18929,7 +18965,13 @@ func TestWebEventRule(t *testing.T) {
 	assert.NoError(t, err)
 	a := dataprovider.BaseEventAction{
 		Name: "web_action",
-		Type: dataprovider.ActionTypeBackup,
+		Type: dataprovider.ActionTypeFilesystem,
+		Options: dataprovider.BaseEventActionOptions{
+			FsConfig: dataprovider.EventActionFilesystemConfig{
+				Type:  dataprovider.FilesystemActionExist,
+				Exist: []string{"/dir1"},
+			},
+		},
 	}
 	action, _, err := httpdtest.AddEventAction(a, http.StatusCreated)
 	assert.NoError(t, err)
