@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	boltDatabaseVersion = 20
+	boltDatabaseVersion = 21
 )
 
 var (
@@ -570,6 +570,8 @@ func (p *BoltProvider) addUser(user *User) error {
 		user.UsedUploadDataTransfer = 0
 		user.UsedDownloadDataTransfer = 0
 		user.LastLogin = 0
+		user.FirstDownload = 0
+		user.FirstUpload = 0
 		user.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 		user.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 		for idx := range user.VirtualFolders {
@@ -621,6 +623,8 @@ func (p *BoltProvider) updateUser(user *User) error {
 		user.UsedUploadDataTransfer = oldUser.UsedUploadDataTransfer
 		user.UsedDownloadDataTransfer = oldUser.UsedDownloadDataTransfer
 		user.LastLogin = oldUser.LastLogin
+		user.FirstDownload = oldUser.FirstDownload
+		user.FirstUpload = oldUser.FirstUpload
 		user.CreatedAt = oldUser.CreatedAt
 		user.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 		buf, err := json.Marshal(user)
@@ -2433,6 +2437,63 @@ func (p *BoltProvider) updateTaskTimestamp(name string) error {
 	return ErrNotImplemented
 }
 
+func (p *BoltProvider) setFirstDownloadTimestamp(username string) error {
+	return p.dbHandle.Update(func(tx *bolt.Tx) error {
+		bucket, err := p.getUsersBucket(tx)
+		if err != nil {
+			return err
+		}
+		var u []byte
+		if u = bucket.Get([]byte(username)); u == nil {
+			return util.NewRecordNotFoundError(fmt.Sprintf("username %#v does not exist, unable to set download timestamp",
+				username))
+		}
+		var user User
+		err = json.Unmarshal(u, &user)
+		if err != nil {
+			return err
+		}
+		if user.FirstDownload > 0 {
+			return util.NewGenericError(fmt.Sprintf("first download already set to %v",
+				util.GetTimeFromMsecSinceEpoch(user.FirstDownload)))
+		}
+		user.FirstDownload = util.GetTimeAsMsSinceEpoch(time.Now())
+		buf, err := json.Marshal(user)
+		if err != nil {
+			return err
+		}
+		return bucket.Put([]byte(username), buf)
+	})
+}
+
+func (p *BoltProvider) setFirstUploadTimestamp(username string) error {
+	return p.dbHandle.Update(func(tx *bolt.Tx) error {
+		bucket, err := p.getUsersBucket(tx)
+		if err != nil {
+			return err
+		}
+		var u []byte
+		if u = bucket.Get([]byte(username)); u == nil {
+			return util.NewRecordNotFoundError(fmt.Sprintf("username %#v does not exist, unable to set upload timestamp",
+				username))
+		}
+		var user User
+		if err = json.Unmarshal(u, &user); err != nil {
+			return err
+		}
+		if user.FirstUpload > 0 {
+			return util.NewGenericError(fmt.Sprintf("first upload already set to %v",
+				util.GetTimeFromMsecSinceEpoch(user.FirstUpload)))
+		}
+		user.FirstUpload = util.GetTimeAsMsSinceEpoch(time.Now())
+		buf, err := json.Marshal(user)
+		if err != nil {
+			return err
+		}
+		return bucket.Put([]byte(username), buf)
+	})
+}
+
 func (p *BoltProvider) close() error {
 	return p.dbHandle.Close()
 }
@@ -2460,10 +2521,10 @@ func (p *BoltProvider) migrateDatabase() error {
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
-	case version == 19:
-		logger.InfoToConsole(fmt.Sprintf("updating database version: %d -> 20", version))
-		providerLog(logger.LevelInfo, "updating database version: %d -> 20", version)
-		return updateBoltDatabaseVersion(p.dbHandle, 20)
+	case version == 19, version == 20:
+		logger.InfoToConsole(fmt.Sprintf("updating database version: %d -> 21", version))
+		providerLog(logger.LevelInfo, "updating database version: %d -> 21", version)
+		return updateBoltDatabaseVersion(p.dbHandle, 21)
 	default:
 		if version > boltDatabaseVersion {
 			providerLog(logger.LevelError, "database version %v is newer than the supported one: %v", version,
@@ -2485,9 +2546,9 @@ func (p *BoltProvider) revertDatabase(targetVersion int) error {
 		return errors.New("current version match target version, nothing to do")
 	}
 	switch dbVersion.Version {
-	case 20:
-		logger.InfoToConsole("downgrading database version: 20 -> 19")
-		providerLog(logger.LevelInfo, "downgrading database version: 20 -> 19")
+	case 20, 21:
+		logger.InfoToConsole("downgrading database version: %d -> 19", dbVersion.Version)
+		providerLog(logger.LevelInfo, "downgrading database version: %d -> 19", dbVersion.Version)
 		err := p.dbHandle.Update(func(tx *bolt.Tx) error {
 			for _, bucketName := range [][]byte{actionsBucket, rulesBucket} {
 				err := tx.DeleteBucket(bucketName)

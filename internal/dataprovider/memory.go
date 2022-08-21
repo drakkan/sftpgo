@@ -326,6 +326,8 @@ func (p *MemoryProvider) addUser(user *User) error {
 	user.UsedUploadDataTransfer = 0
 	user.UsedDownloadDataTransfer = 0
 	user.LastLogin = 0
+	user.FirstUpload = 0
+	user.FirstDownload = 0
 	user.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 	user.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 	user.VirtualFolders = p.joinUserVirtualFoldersFields(user)
@@ -378,6 +380,8 @@ func (p *MemoryProvider) updateUser(user *User) error {
 	user.UsedUploadDataTransfer = u.UsedUploadDataTransfer
 	user.UsedDownloadDataTransfer = u.UsedDownloadDataTransfer
 	user.LastLogin = u.LastLogin
+	user.FirstDownload = u.FirstDownload
+	user.FirstUpload = u.FirstUpload
 	user.CreatedAt = u.CreatedAt
 	user.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 	user.ID = u.ID
@@ -2201,6 +2205,44 @@ func (p *MemoryProvider) updateTask(name string, version int64) error {
 
 func (p *MemoryProvider) updateTaskTimestamp(name string) error {
 	return ErrNotImplemented
+}
+
+func (p *MemoryProvider) setFirstDownloadTimestamp(username string) error {
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return errMemoryProviderClosed
+	}
+	user, err := p.userExistsInternal(username)
+	if err != nil {
+		return err
+	}
+	if user.FirstDownload > 0 {
+		return util.NewGenericError(fmt.Sprintf("first download already set to %v",
+			util.GetTimeFromMsecSinceEpoch(user.FirstDownload)))
+	}
+	user.FirstDownload = util.GetTimeAsMsSinceEpoch(time.Now())
+	p.dbHandle.users[user.Username] = user
+	return nil
+}
+
+func (p *MemoryProvider) setFirstUploadTimestamp(username string) error {
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return errMemoryProviderClosed
+	}
+	user, err := p.userExistsInternal(username)
+	if err != nil {
+		return err
+	}
+	if user.FirstUpload > 0 {
+		return util.NewGenericError(fmt.Sprintf("first upload already set to %v",
+			util.GetTimeFromMsecSinceEpoch(user.FirstUpload)))
+	}
+	user.FirstUpload = util.GetTimeAsMsSinceEpoch(time.Now())
+	p.dbHandle.users[user.Username] = user
+	return nil
 }
 
 func (p *MemoryProvider) getNextID() int64 {

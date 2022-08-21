@@ -526,9 +526,17 @@ func TestBasicHandling(t *testing.T) {
 		expectedQuotaFiles := 1
 		err = createTestFile(testFilePath, testFileSize)
 		assert.NoError(t, err)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, int64(0), user.FirstUpload)
+		assert.Equal(t, int64(0), user.FirstDownload)
 		err = uploadFileWithRawClient(testFilePath, testFileName, user.Username, defaultPassword,
 			true, testFileSize, client)
 		assert.NoError(t, err)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Greater(t, user.FirstUpload, int64(0))
+		assert.Greater(t, user.FirstDownload, int64(0)) // webdav read the mime type
 		// overwrite an existing file
 		err = uploadFileWithRawClient(testFilePath, testFileName, user.Username, defaultPassword,
 			true, testFileSize, client)
@@ -544,6 +552,8 @@ func TestBasicHandling(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
 		assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
+		assert.Greater(t, user.FirstUpload, int64(0))
+		assert.Greater(t, user.FirstDownload, int64(0))
 		err = client.Rename(testFileName, testFileName+"1", false)
 		assert.NoError(t, err)
 		_, err = client.Stat(testFileName)
@@ -563,6 +573,7 @@ func TestBasicHandling(t *testing.T) {
 		assert.Equal(t, expectedQuotaSize-testFileSize, user.UsedQuotaSize)
 		err = downloadFile(testFileName, localDownloadPath, testFileSize, client)
 		assert.Error(t, err)
+
 		testDir := "testdir"
 		err = client.Mkdir(testDir, os.ModePerm)
 		assert.NoError(t, err)

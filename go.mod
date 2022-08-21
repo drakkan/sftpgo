@@ -20,7 +20,7 @@ require (
 	github.com/cockroachdb/cockroach-go/v2 v2.2.15
 	github.com/coreos/go-oidc/v3 v3.2.0
 	github.com/eikenb/pipeat v0.0.0-20210730190139-06b3e6902001
-	github.com/fclairamb/ftpserverlib v0.19.0
+	github.com/fclairamb/ftpserverlib v0.19.1
 	github.com/fclairamb/go-log v0.4.1
 	github.com/go-acme/lego/v4 v4.8.0
 	github.com/go-chi/chi/v5 v5.0.8-0.20220512131524-9e71a0d4b3d6
@@ -51,7 +51,7 @@ require (
 	github.com/rs/cors v1.8.3-0.20220619195839-da52b0701de5
 	github.com/rs/xid v1.4.0
 	github.com/rs/zerolog v1.27.0
-	github.com/sftpgo/sdk v0.1.2-0.20220815185512-a4dc48b3993e
+	github.com/sftpgo/sdk v0.1.2-0.20220821164353-a9b95497604e
 	github.com/shirou/gopsutil/v3 v3.22.7
 	github.com/spf13/afero v1.9.2
 	github.com/spf13/cobra v1.5.0

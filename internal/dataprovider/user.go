@@ -1878,6 +1878,8 @@ func (u *User) getACopy() User {
 			Status:                   u.Status,
 			ExpirationDate:           u.ExpirationDate,
 			LastLogin:                u.LastLogin,
+			FirstDownload:            u.FirstDownload,
+			FirstUpload:              u.FirstUpload,
 			AdditionalInfo:           u.AdditionalInfo,
 			Description:              u.Description,
 			CreatedAt:                u.CreatedAt,

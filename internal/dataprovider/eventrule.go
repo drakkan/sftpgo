@@ -145,7 +145,8 @@ func getFsActionTypeAsString(value int) string {
 // TODO: replace the copied strings with shared constants
 var (
 	// SupportedFsEvents defines the supported filesystem events
-	SupportedFsEvents = []string{"upload", "download", "delete", "rename", "mkdir", "rmdir", "ssh_cmd"}
+	SupportedFsEvents = []string{"upload", "first-upload", "download", "first-download", "delete", "rename",
+		"mkdir", "rmdir", "ssh_cmd"}
 	// SupportedProviderEvents defines the supported provider events
 	SupportedProviderEvents = []string{operationAdd, operationUpdate, operationDelete}
 	// SupportedRuleConditionProtocols defines the supported protcols for rule conditions

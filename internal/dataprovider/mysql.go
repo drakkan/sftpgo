@@ -164,6 +164,12 @@ const (
 		"DROP TABLE `{{events_actions}}` CASCADE;" +
 		"DROP TABLE `{{tasks}}` CASCADE;" +
 		"ALTER TABLE `{{users}}` DROP COLUMN `deleted_at`;"
+	mysqlV21SQL = "ALTER TABLE `{{users}}` ADD COLUMN `first_download` bigint DEFAULT 0 NOT NULL; " +
+		"ALTER TABLE `{{users}}` ALTER COLUMN `first_download` DROP DEFAULT; " +
+		"ALTER TABLE `{{users}}` ADD COLUMN `first_upload` bigint DEFAULT 0 NOT NULL; " +
+		"ALTER TABLE `{{users}}` ALTER COLUMN `first_upload` DROP DEFAULT;"
+	mysqlV21DownSQL = "ALTER TABLE `{{users}}` DROP COLUMN `first_upload`; " +
+		"ALTER TABLE `{{users}}` DROP COLUMN `first_download`;"
 )
 
 // MySQLProvider defines the auth provider for MySQL/MariaDB database
@@ -616,6 +622,14 @@ func (p *MySQLProvider) updateTaskTimestamp(name string) error {
 	return sqlCommonUpdateTaskTimestamp(name, p.dbHandle)
 }
 
+func (p *MySQLProvider) setFirstDownloadTimestamp(username string) error {
+	return sqlCommonSetFirstDownloadTimestamp(username, p.dbHandle)
+}
+
+func (p *MySQLProvider) setFirstUploadTimestamp(username string) error {
+	return sqlCommonSetFirstUploadTimestamp(username, p.dbHandle)
+}
+
 func (p *MySQLProvider) close() error {
 	return p.dbHandle.Close()
 }
@@ -657,6 +671,8 @@ func (p *MySQLProvider) migrateDatabase() error { //nolint:dupl
 		return err
 	case version == 19:
 		return updateMySQLDatabaseFromV19(p.dbHandle)
+	case version == 20:
+		return updateMySQLDatabaseFromV20(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database version %v is newer than the supported one: %v", version,
@@ -681,6 +697,8 @@ func (p *MySQLProvider) revertDatabase(targetVersion int) error {
 	switch dbVersion.Version {
 	case 20:
 		return downgradeMySQLDatabaseFromV20(p.dbHandle)
+	case 21:
+		return downgradeMySQLDatabaseFromV21(p.dbHandle)
 	default:
 		return fmt.Errorf("database version not handled: %v", dbVersion.Version)
 	}
@@ -692,11 +710,25 @@ func (p *MySQLProvider) resetDatabase() error {
 }
 
 func updateMySQLDatabaseFromV19(dbHandle *sql.DB) error {
-	return updateMySQLDatabaseFrom19To20(dbHandle)
+	if err := updateMySQLDatabaseFrom19To20(dbHandle); err != nil {
+		return err
+	}
+	return updateMySQLDatabaseFromV20(dbHandle)
+}
+
+func updateMySQLDatabaseFromV20(dbHandle *sql.DB) error {
+	return updateMySQLDatabaseFrom20To21(dbHandle)
 }
 
 func downgradeMySQLDatabaseFromV20(dbHandle *sql.DB) error {
 	return downgradeMySQLDatabaseFrom20To19(dbHandle)
+}
+
+func downgradeMySQLDatabaseFromV21(dbHandle *sql.DB) error {
+	if err := downgradeMySQLDatabaseFrom21To20(dbHandle); err != nil {
+		return err
+	}
+	return downgradeMySQLDatabaseFromV20(dbHandle)
 }
 
 func updateMySQLDatabaseFrom19To20(dbHandle *sql.DB) error {
@@ -711,6 +743,13 @@ func updateMySQLDatabaseFrom19To20(dbHandle *sql.DB) error {
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 20, true)
 }
 
+func updateMySQLDatabaseFrom20To21(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 20 -> 21")
+	providerLog(logger.LevelInfo, "updating database version: 20 -> 21")
+	sql := strings.ReplaceAll(mysqlV21SQL, "{{users}}", sqlTableUsers)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 21, true)
+}
+
 func downgradeMySQLDatabaseFrom20To19(dbHandle *sql.DB) error {
 	logger.InfoToConsole("downgrading database version: 20 -> 19")
 	providerLog(logger.LevelInfo, "downgrading database version: 20 -> 19")
@@ -720,4 +759,11 @@ func downgradeMySQLDatabaseFrom20To19(dbHandle *sql.DB) error {
 	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
 	sql = strings.ReplaceAll(sql, "{{tasks}}", sqlTableTasks)
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 19, false)
+}
+
+func downgradeMySQLDatabaseFrom21To20(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 21 -> 20")
+	providerLog(logger.LevelInfo, "downgrading database version: 21 -> 20")
+	sql := strings.ReplaceAll(mysqlV21DownSQL, "{{users}}", sqlTableUsers)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 20, false)
 }

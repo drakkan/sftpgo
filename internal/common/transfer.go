@@ -386,19 +386,20 @@ func (t *BaseTransfer) Close() error {
 		}
 	}
 	elapsed := time.Since(t.start).Nanoseconds() / 1000000
+	var uploadFileSize int64
 	if t.transferType == TransferDownload {
 		logger.TransferLog(downloadLogSender, t.fsPath, elapsed, atomic.LoadInt64(&t.BytesSent), t.Connection.User.Username,
 			t.Connection.ID, t.Connection.protocol, t.Connection.localAddr, t.Connection.remoteAddr, t.ftpMode)
 		ExecuteActionNotification(t.Connection, operationDownload, t.fsPath, t.requestPath, "", "", "", //nolint:errcheck
 			atomic.LoadInt64(&t.BytesSent), t.ErrTransfer)
 	} else {
-		fileSize := atomic.LoadInt64(&t.BytesReceived) + t.MinWriteOffset
+		uploadFileSize = atomic.LoadInt64(&t.BytesReceived) + t.MinWriteOffset
 		if statSize, errStat := t.getUploadFileSize(); errStat == nil {
-			fileSize = statSize
+			uploadFileSize = statSize
 		}
-		t.Connection.Log(logger.LevelDebug, "uploaded file size %v", fileSize)
-		numFiles, fileSize = t.executeUploadHook(numFiles, fileSize)
-		t.updateQuota(numFiles, fileSize)
+		t.Connection.Log(logger.LevelDebug, "upload file size %v", uploadFileSize)
+		numFiles, uploadFileSize = t.executeUploadHook(numFiles, uploadFileSize)
+		t.updateQuota(numFiles, uploadFileSize)
 		t.updateTimes()
 		logger.TransferLog(uploadLogSender, t.fsPath, elapsed, atomic.LoadInt64(&t.BytesReceived), t.Connection.User.Username,
 			t.Connection.ID, t.Connection.protocol, t.Connection.localAddr, t.Connection.remoteAddr, t.ftpMode)
@@ -409,7 +410,31 @@ func (t *BaseTransfer) Close() error {
 			err = t.ErrTransfer
 		}
 	}
+	t.updateTransferTimestamps(uploadFileSize)
 	return err
+}
+
+func (t *BaseTransfer) updateTransferTimestamps(uploadFileSize int64) {
+	if t.ErrTransfer != nil {
+		return
+	}
+	if t.transferType == TransferUpload {
+		if t.Connection.User.FirstUpload == 0 && !t.Connection.uploadDone.Load() {
+			if err := dataprovider.UpdateUserTransferTimestamps(t.Connection.User.Username, true); err == nil {
+				t.Connection.uploadDone.Store(true)
+				ExecuteActionNotification(t.Connection, operationFirstUpload, t.fsPath, t.requestPath, "", //nolint:errcheck
+					"", "", uploadFileSize, t.ErrTransfer)
+			}
+		}
+		return
+	}
+	if t.Connection.User.FirstDownload == 0 && !t.Connection.downloadDone.Load() && atomic.LoadInt64(&t.BytesSent) > 0 {
+		if err := dataprovider.UpdateUserTransferTimestamps(t.Connection.User.Username, false); err == nil {
+			t.Connection.downloadDone.Store(true)
+			ExecuteActionNotification(t.Connection, operationFirstDownload, t.fsPath, t.requestPath, "", //nolint:errcheck
+				"", "", atomic.LoadInt64(&t.BytesSent), t.ErrTransfer)
+		}
+	}
 }
 
 func (t *BaseTransfer) executeUploadHook(numFiles int, fileSize int64) (int, int64) {

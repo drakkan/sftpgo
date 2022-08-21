@@ -160,7 +160,13 @@ CREATE INDEX "{{prefix}}users_deleted_at_idx" ON "{{users}}" ("deleted_at");
 DROP TABLE "{{events_rules}}";
 DROP TABLE "{{events_actions}}";
 DROP TABLE "{{tasks}}";
+DROP INDEX IF EXISTS "{{prefix}}users_deleted_at_idx";
 ALTER TABLE "{{users}}" DROP COLUMN "deleted_at";
+`
+	sqliteV21SQL = `ALTER TABLE "{{users}}" ADD COLUMN "first_download" bigint DEFAULT 0 NOT NULL;
+ALTER TABLE "{{users}}" ADD COLUMN "first_upload" bigint DEFAULT 0 NOT NULL;`
+	sqliteV21DownSQL = `ALTER TABLE "{{users}}" DROP COLUMN "first_upload";
+ALTER TABLE "{{users}}" DROP COLUMN "first_download";
 `
 )
 
@@ -563,6 +569,14 @@ func (p *SQLiteProvider) updateTaskTimestamp(name string) error {
 	return sqlCommonUpdateTaskTimestamp(name, p.dbHandle)
 }
 
+func (p *SQLiteProvider) setFirstDownloadTimestamp(username string) error {
+	return sqlCommonSetFirstDownloadTimestamp(username, p.dbHandle)
+}
+
+func (p *SQLiteProvider) setFirstUploadTimestamp(username string) error {
+	return sqlCommonSetFirstUploadTimestamp(username, p.dbHandle)
+}
+
 func (p *SQLiteProvider) close() error {
 	return p.dbHandle.Close()
 }
@@ -604,6 +618,8 @@ func (p *SQLiteProvider) migrateDatabase() error { //nolint:dupl
 		return err
 	case version == 19:
 		return updateSQLiteDatabaseFromV19(p.dbHandle)
+	case version == 20:
+		return updateSQLiteDatabaseFromV20(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database version %v is newer than the supported one: %v", version,
@@ -628,6 +644,8 @@ func (p *SQLiteProvider) revertDatabase(targetVersion int) error {
 	switch dbVersion.Version {
 	case 20:
 		return downgradeSQLiteDatabaseFromV20(p.dbHandle)
+	case 21:
+		return downgradeSQLiteDatabaseFromV21(p.dbHandle)
 	default:
 		return fmt.Errorf("database version not handled: %v", dbVersion.Version)
 	}
@@ -639,11 +657,25 @@ func (p *SQLiteProvider) resetDatabase() error {
 }
 
 func updateSQLiteDatabaseFromV19(dbHandle *sql.DB) error {
-	return updateSQLiteDatabaseFrom19To20(dbHandle)
+	if err := updateSQLiteDatabaseFrom19To20(dbHandle); err != nil {
+		return err
+	}
+	return updateSQLiteDatabaseFromV20(dbHandle)
+}
+
+func updateSQLiteDatabaseFromV20(dbHandle *sql.DB) error {
+	return updateSQLiteDatabaseFrom20To21(dbHandle)
 }
 
 func downgradeSQLiteDatabaseFromV20(dbHandle *sql.DB) error {
 	return downgradeSQLiteDatabaseFrom20To19(dbHandle)
+}
+
+func downgradeSQLiteDatabaseFromV21(dbHandle *sql.DB) error {
+	if err := downgradeSQLiteDatabaseFrom21To20(dbHandle); err != nil {
+		return err
+	}
+	return downgradeSQLiteDatabaseFromV20(dbHandle)
 }
 
 func updateSQLiteDatabaseFrom19To20(dbHandle *sql.DB) error {
@@ -658,6 +690,13 @@ func updateSQLiteDatabaseFrom19To20(dbHandle *sql.DB) error {
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 20, true)
 }
 
+func updateSQLiteDatabaseFrom20To21(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 20 -> 21")
+	providerLog(logger.LevelInfo, "updating database version: 20 -> 21")
+	sql := strings.ReplaceAll(sqliteV21SQL, "{{users}}", sqlTableUsers)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 21, true)
+}
+
 func downgradeSQLiteDatabaseFrom20To19(dbHandle *sql.DB) error {
 	logger.InfoToConsole("downgrading database version: 20 -> 19")
 	providerLog(logger.LevelInfo, "downgrading database version: 20 -> 19")
@@ -666,7 +705,15 @@ func downgradeSQLiteDatabaseFrom20To19(dbHandle *sql.DB) error {
 	sql = strings.ReplaceAll(sql, "{{rules_actions_mapping}}", sqlTableRulesActionsMapping)
 	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
 	sql = strings.ReplaceAll(sql, "{{tasks}}", sqlTableTasks)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 19, false)
+}
+
+func downgradeSQLiteDatabaseFrom21To20(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 21 -> 20")
+	providerLog(logger.LevelInfo, "downgrading database version: 21 -> 20")
+	sql := strings.ReplaceAll(sqliteV21DownSQL, "{{users}}", sqlTableUsers)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 20, false)
 }
 
 /*func setPragmaFK(dbHandle *sql.DB, value string) error {

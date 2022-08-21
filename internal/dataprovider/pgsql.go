@@ -176,6 +176,14 @@ DROP TABLE "{{events_actions}}" CASCADE;
 DROP TABLE "{{tasks}}" CASCADE;
 ALTER TABLE "{{users}}" DROP COLUMN "deleted_at" CASCADE;
 `
+	pgsqlV21SQL = `ALTER TABLE "{{users}}" ADD COLUMN "first_download" bigint DEFAULT 0 NOT NULL;
+ALTER TABLE "{{users}}" ALTER COLUMN "first_download" DROP DEFAULT;
+ALTER TABLE "{{users}}" ADD COLUMN "first_upload" bigint DEFAULT 0 NOT NULL;
+ALTER TABLE "{{users}}" ALTER COLUMN "first_upload" DROP DEFAULT;
+`
+	pgsqlV21DownSQL = `ALTER TABLE "{{users}}" DROP COLUMN "first_upload" CASCADE;
+ALTER TABLE "{{users}}" DROP COLUMN "first_download" CASCADE;
+`
 )
 
 // PGSQLProvider defines the auth provider for PostgreSQL database
@@ -591,6 +599,14 @@ func (p *PGSQLProvider) updateTaskTimestamp(name string) error {
 	return sqlCommonUpdateTaskTimestamp(name, p.dbHandle)
 }
 
+func (p *PGSQLProvider) setFirstDownloadTimestamp(username string) error {
+	return sqlCommonSetFirstDownloadTimestamp(username, p.dbHandle)
+}
+
+func (p *PGSQLProvider) setFirstUploadTimestamp(username string) error {
+	return sqlCommonSetFirstUploadTimestamp(username, p.dbHandle)
+}
+
 func (p *PGSQLProvider) close() error {
 	return p.dbHandle.Close()
 }
@@ -632,6 +648,8 @@ func (p *PGSQLProvider) migrateDatabase() error { //nolint:dupl
 		return err
 	case version == 19:
 		return updatePgSQLDatabaseFromV19(p.dbHandle)
+	case version == 20:
+		return updatePgSQLDatabaseFromV20(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database version %v is newer than the supported one: %v", version,
@@ -656,6 +674,8 @@ func (p *PGSQLProvider) revertDatabase(targetVersion int) error {
 	switch dbVersion.Version {
 	case 20:
 		return downgradePgSQLDatabaseFromV20(p.dbHandle)
+	case 21:
+		return downgradePgSQLDatabaseFromV21(p.dbHandle)
 	default:
 		return fmt.Errorf("database version not handled: %v", dbVersion.Version)
 	}
@@ -667,11 +687,25 @@ func (p *PGSQLProvider) resetDatabase() error {
 }
 
 func updatePgSQLDatabaseFromV19(dbHandle *sql.DB) error {
-	return updatePgSQLDatabaseFrom19To20(dbHandle)
+	if err := updatePgSQLDatabaseFrom19To20(dbHandle); err != nil {
+		return err
+	}
+	return updatePgSQLDatabaseFromV20(dbHandle)
+}
+
+func updatePgSQLDatabaseFromV20(dbHandle *sql.DB) error {
+	return updatePgSQLDatabaseFrom20To21(dbHandle)
 }
 
 func downgradePgSQLDatabaseFromV20(dbHandle *sql.DB) error {
 	return downgradePgSQLDatabaseFrom20To19(dbHandle)
+}
+
+func downgradePgSQLDatabaseFromV21(dbHandle *sql.DB) error {
+	if err := downgradePgSQLDatabaseFrom21To20(dbHandle); err != nil {
+		return err
+	}
+	return downgradePgSQLDatabaseFromV20(dbHandle)
 }
 
 func updatePgSQLDatabaseFrom19To20(dbHandle *sql.DB) error {
@@ -686,6 +720,13 @@ func updatePgSQLDatabaseFrom19To20(dbHandle *sql.DB) error {
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 20, true)
 }
 
+func updatePgSQLDatabaseFrom20To21(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database version: 20 -> 21")
+	providerLog(logger.LevelInfo, "updating database version: 20 -> 21")
+	sql := strings.ReplaceAll(pgsqlV21SQL, "{{users}}", sqlTableUsers)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 21, true)
+}
+
 func downgradePgSQLDatabaseFrom20To19(dbHandle *sql.DB) error {
 	logger.InfoToConsole("downgrading database version: 20 -> 19")
 	providerLog(logger.LevelInfo, "downgrading database version: 20 -> 19")
@@ -695,4 +736,11 @@ func downgradePgSQLDatabaseFrom20To19(dbHandle *sql.DB) error {
 	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
 	sql = strings.ReplaceAll(sql, "{{tasks}}", sqlTableTasks)
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 19, false)
+}
+
+func downgradePgSQLDatabaseFrom21To20(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database version: 21 -> 20")
+	providerLog(logger.LevelInfo, "downgrading database version: 21 -> 20")
+	sql := strings.ReplaceAll(pgsqlV21DownSQL, "{{users}}", sqlTableUsers)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 20, false)
 }

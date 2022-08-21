@@ -5201,6 +5201,14 @@ components:
           type: integer
           format: int64
           description: Last user login as unix timestamp in milliseconds. It is saved at most once every 10 minutes
+        first_download:
+          type: integer
+          format: int64
+          description: first download time as unix timestamp in milliseconds
+        first_upload:
+          type: integer
+          format: int64
+          description: first upload time as unix timestamp in milliseconds
         filters:
           $ref: '#/components/schemas/UserFilters'
         filesystem:

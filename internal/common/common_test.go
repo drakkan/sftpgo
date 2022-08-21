@@ -1190,6 +1190,45 @@ func TestVfsSameResource(t *testing.T) {
 	assert.False(t, res)
 }
 
+func TestUpdateTransferTimestamps(t *testing.T) {
+	username := "user_test_timestamps"
+	user := &dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username: username,
+			HomeDir:  filepath.Join(os.TempDir(), username),
+			Status:   1,
+			Permissions: map[string][]string{
+				"/": {dataprovider.PermAny},
+			},
+		},
+	}
+	err := dataprovider.AddUser(user, "", "")
+	assert.NoError(t, err)
+	assert.Equal(t, int64(0), user.FirstUpload)
+	assert.Equal(t, int64(0), user.FirstDownload)
+
+	err = dataprovider.UpdateUserTransferTimestamps(username, true)
+	assert.NoError(t, err)
+	userGet, err := dataprovider.UserExists(username)
+	assert.NoError(t, err)
+	assert.Greater(t, userGet.FirstUpload, int64(0))
+	assert.Equal(t, int64(0), user.FirstDownload)
+	err = dataprovider.UpdateUserTransferTimestamps(username, false)
+	assert.NoError(t, err)
+	userGet, err = dataprovider.UserExists(username)
+	assert.NoError(t, err)
+	assert.Greater(t, userGet.FirstUpload, int64(0))
+	assert.Greater(t, userGet.FirstDownload, int64(0))
+	// updating again must fail
+	err = dataprovider.UpdateUserTransferTimestamps(username, true)
+	assert.Error(t, err)
+	err = dataprovider.UpdateUserTransferTimestamps(username, false)
+	assert.Error(t, err)
+	// cleanup
+	err = dataprovider.DeleteUser(username, "", "")
+	assert.NoError(t, err)
+}
+
 func BenchmarkBcryptHashing(b *testing.B) {
 	bcryptPassword := "bcryptpassword"
 	for i := 0; i < b.N; i++ {

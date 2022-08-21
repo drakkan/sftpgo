@@ -768,6 +768,8 @@ type Provider interface {
 	addTask(name string) error
 	updateTask(name string, version int64) error
 	updateTaskTimestamp(name string) error
+	setFirstDownloadTimestamp(username string) error
+	setFirstUploadTimestamp(username string) error
 	checkAvailability() error
 	close() error
 	reloadConfig() error
@@ -1397,6 +1399,22 @@ func UpdateUserTransferQuota(user *User, uploadSize, downloadSize int64, reset b
 	}
 	delayedQuotaUpdater.updateUserTransferQuota(user.Username, uploadSize, downloadSize)
 	return nil
+}
+
+// UpdateUserTransferTimestamps updates the first download/upload fields if unset
+func UpdateUserTransferTimestamps(username string, isUpload bool) error {
+	if isUpload {
+		err := provider.setFirstUploadTimestamp(username)
+		if err != nil {
+			providerLog(logger.LevelWarn, "unable to set first upload: %v", err)
+		}
+		return err
+	}
+	err := provider.setFirstDownloadTimestamp(username)
+	if err != nil {
+		providerLog(logger.LevelWarn, "unable to set first download: %v", err)
+	}
+	return err
 }
 
 // GetUsedQuota returns the used quota for the given SFTPGo user.
@@ -3538,6 +3556,8 @@ func executePreLoginHook(username, loginMethod, ip, protocol string, oidcTokenFi
 	userUsedUploadTransfer := u.UsedUploadDataTransfer
 	userLastQuotaUpdate := u.LastQuotaUpdate
 	userLastLogin := u.LastLogin
+	userFirstDownload := u.FirstDownload
+	userFirstUpload := u.FirstUpload
 	userCreatedAt := u.CreatedAt
 	totpConfig := u.Filters.TOTPConfig
 	recoveryCodes := u.Filters.RecoveryCodes
@@ -3552,6 +3572,8 @@ func executePreLoginHook(username, loginMethod, ip, protocol string, oidcTokenFi
 	u.UsedDownloadDataTransfer = userUsedDownloadTransfer
 	u.LastQuotaUpdate = userLastQuotaUpdate
 	u.LastLogin = userLastLogin
+	u.FirstDownload = userFirstDownload
+	u.FirstUpload = userFirstUpload
 	u.CreatedAt = userCreatedAt
 	if userID == 0 {
 		err = provider.addUser(&u)
@@ -3787,6 +3809,8 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 		user.UsedDownloadDataTransfer = u.UsedDownloadDataTransfer
 		user.LastQuotaUpdate = u.LastQuotaUpdate
 		user.LastLogin = u.LastLogin
+		user.FirstDownload = u.FirstDownload
+		user.FirstUpload = u.FirstUpload
 		user.CreatedAt = u.CreatedAt
 		user.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 		// preserve TOTP config and recovery codes
@@ -3859,6 +3883,8 @@ func doPluginAuth(username, password string, pubKey []byte, ip, protocol string,
 		user.UsedDownloadDataTransfer = u.UsedDownloadDataTransfer
 		user.LastQuotaUpdate = u.LastQuotaUpdate
 		user.LastLogin = u.LastLogin
+		user.FirstDownload = u.FirstDownload
+		user.FirstUpload = u.FirstUpload
 		// preserve TOTP config and recovery codes
 		user.Filters.TOTPConfig = u.Filters.TOTPConfig
 		user.Filters.RecoveryCodes = u.Filters.RecoveryCodes

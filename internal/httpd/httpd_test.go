@@ -1995,6 +1995,8 @@ func TestUserTimestamps(t *testing.T) {
 	createdAt := user.CreatedAt
 	updatedAt := user.UpdatedAt
 	assert.Equal(t, int64(0), user.LastLogin)
+	assert.Equal(t, int64(0), user.FirstDownload)
+	assert.Equal(t, int64(0), user.FirstUpload)
 	assert.Greater(t, createdAt, int64(0))
 	assert.Greater(t, updatedAt, int64(0))
 	mappedPath := filepath.Join(os.TempDir(), "mapped_dir")
@@ -2010,6 +2012,8 @@ func TestUserTimestamps(t *testing.T) {
 	user, resp, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err, string(resp))
 	assert.Equal(t, int64(0), user.LastLogin)
+	assert.Equal(t, int64(0), user.FirstDownload)
+	assert.Equal(t, int64(0), user.FirstUpload)
 	assert.Equal(t, createdAt, user.CreatedAt)
 	assert.Greater(t, user.UpdatedAt, updatedAt)
 	updatedAt = user.UpdatedAt
@@ -2023,6 +2027,8 @@ func TestUserTimestamps(t *testing.T) {
 	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(0), user.LastLogin)
+	assert.Equal(t, int64(0), user.FirstDownload)
+	assert.Equal(t, int64(0), user.FirstUpload)
 	assert.Equal(t, createdAt, user.CreatedAt)
 	assert.Greater(t, user.UpdatedAt, updatedAt)
 	updatedAt = user.UpdatedAt
@@ -2032,6 +2038,8 @@ func TestUserTimestamps(t *testing.T) {
 	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(0), user.LastLogin)
+	assert.Equal(t, int64(0), user.FirstDownload)
+	assert.Equal(t, int64(0), user.FirstUpload)
 	assert.Equal(t, createdAt, user.CreatedAt)
 	assert.Greater(t, user.UpdatedAt, updatedAt)
 
@@ -13266,6 +13274,10 @@ func TestWebFilesAPI(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "Unable to parse multipart form")
 	_, err = reader.Seek(0, io.SeekStart)
 	assert.NoError(t, err)
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(0), user.FirstUpload)
+	assert.Equal(t, int64(0), user.FirstDownload)
 	// set the proper content type
 	req, err = http.NewRequest(http.MethodPost, userFilesPath, reader)
 	assert.NoError(t, err)
@@ -13273,6 +13285,10 @@ func TestWebFilesAPI(t *testing.T) {
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusCreated, rr)
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Greater(t, user.FirstUpload, int64(0))
+	assert.Equal(t, int64(0), user.FirstDownload)
 	// check we have 2 files
 	req, err = http.NewRequest(http.MethodGet, userDirsPath, nil)
 	assert.NoError(t, err)
@@ -13283,6 +13299,17 @@ func TestWebFilesAPI(t *testing.T) {
 	err = json.NewDecoder(rr.Body).Decode(&contents)
 	assert.NoError(t, err)
 	assert.Len(t, contents, 2)
+	// download a file
+	req, err = http.NewRequest(http.MethodGet, userFilesPath+"?path=file1.txt", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Equal(t, "file1 content", rr.Body.String())
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Greater(t, user.FirstUpload, int64(0))
+	assert.Greater(t, user.FirstDownload, int64(0))
 	// overwrite the existing files
 	_, err = reader.Seek(0, io.SeekStart)
 	assert.NoError(t, err)

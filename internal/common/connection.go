@@ -39,6 +39,8 @@ type BaseConnection struct {
 	// last activity for this connection.
 	// Since this field is accessed atomically we put it as first element of the struct to achieve 64 bit alignment
 	lastActivity int64
+	uploadDone   atomic.Bool
+	downloadDone atomic.Bool
 	// unique ID for a transfer.
 	// This field is accessed atomically so we put it at the beginning of the struct to achieve 64 bit alignment
 	transferID int64

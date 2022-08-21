@@ -10,8 +10,10 @@ The `hook` can be defined as the absolute path of your program or an HTTP URL.
 The following `actions` are supported:
 
 - `download`
+- `first-download`
 - `pre-download`
 - `upload`
+- `first-upload`
 - `pre-upload`
 - `delete`
 - `pre-delete`
@@ -20,7 +22,7 @@ The following `actions` are supported:
 - `rmdir`
 - `ssh_cmd`
 
-The `upload` condition includes both uploads to new files and overwrite of existing ones. If an upload is aborted for quota limits SFTPGo tries to remove the partial file, so if the notification reports a zero size file and a quota exceeded error the file has been deleted. The `ssh_cmd` condition will be triggered after a command is successfully executed via SSH. `scp` will trigger the `download` and `upload` conditions and not `ssh_cmd`.
+The `upload` condition includes both uploads to new files and overwrite of existing ones. If an upload is aborted for quota limits SFTPGo tries to remove the partial file, so if the notification reports a zero size file and a quota exceeded error the file has been deleted. The `ssh_cmd` condition will be triggered after a command is successfully executed via SSH. `scp` will trigger the `download` and `upload` conditions and not `ssh_cmd`. The `first-download` and `first-upload` action are executed only if no error occour and they don't exclude the `download` and `upload` notifications, so you will get both the `first-upload` and `upload` notification after the first successful upload and the same for the first successful download.
 For cloud backends directories are virtual, they are created implicitly when you upload a file and are implicitly removed when the last file within a directory is removed. The `mkdir` and `rmdir` notifications are sent only when a directory is explicitly created or removed.
 
 The notification will indicate if an error is detected and so, for example, a partial file is uploaded.
