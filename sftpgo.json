@@ -257,6 +257,7 @@
         "hide_login_url": 0,
         "render_openapi": true,
         "web_client_integrations": [],
+        "share_expiration_days": 0,
         "oidc": {
           "client_id": "",
           "client_secret": "",

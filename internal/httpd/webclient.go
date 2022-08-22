@@ -36,6 +36,7 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
+	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/mfa"
 	"github.com/drakkan/sftpgo/v2/internal/smtp"
 	"github.com/drakkan/sftpgo/v2/internal/util"
@@ -501,6 +502,15 @@ func (s *httpdServer) renderAddUpdateSharePage(w http.ResponseWriter, r *http.Re
 		currentURL = fmt.Sprintf("%v/%v", webClientSharePath, url.PathEscape(share.ShareID))
 		title = "Update share"
 	}
+
+	if share.ExpiresAt == 0 && s.binding.ShareExpirationDays > 0 {
+		if expiration_days, error := time.ParseDuration(fmt.Sprintf("%vh", s.binding.ShareExpirationDays * 24)); error != nil {
+			logger.Error(logSender, "", fmt.Sprintf("Failed to parse expiration days: %v", error))
+		} else {
+			share.ExpiresAt = util.GetTimeAsMsSinceEpoch(time.Now().Add(expiration_days))
+		}
+	}
+
 	data := clientSharePage{
 		baseClientPage: s.getBaseClientPageData(title, currentURL, r),
 		Share:          share,
