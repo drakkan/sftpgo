@@ -1889,6 +1889,10 @@ func getEventActionOptionsFromPostFields(r *http.Request) (dataprovider.BaseEven
 	if err != nil {
 		return dataprovider.BaseEventActionOptions{}, fmt.Errorf("invalid fs action type: %w", err)
 	}
+	var emailAttachments []string
+	if r.Form.Get("email_attachments") != "" {
+		emailAttachments = strings.Split(strings.ReplaceAll(r.Form.Get("email_attachments"), " ", ""), ",")
+	}
 	options := dataprovider.BaseEventActionOptions{
 		HTTPConfig: dataprovider.EventActionHTTPConfig{
 			Endpoint:        r.Form.Get("http_endpoint"),
@@ -1910,7 +1914,7 @@ func getEventActionOptionsFromPostFields(r *http.Request) (dataprovider.BaseEven
 			Recipients:  strings.Split(strings.ReplaceAll(r.Form.Get("email_recipients"), " ", ""), ","),
 			Subject:     r.Form.Get("email_subject"),
 			Body:        r.Form.Get("email_body"),
-			Attachments: strings.Split(strings.ReplaceAll(r.Form.Get("email_attachments"), " ", ""), ","),
+			Attachments: emailAttachments,
 		},
 		RetentionConfig: dataprovider.EventActionDataRetentionConfig{
 			Folders: foldersRetention,
