@@ -1907,9 +1907,10 @@ func getEventActionOptionsFromPostFields(r *http.Request) (dataprovider.BaseEven
 			EnvVars: getKeyValsFromPostFields(r, "cmd_env_key", "cmd_env_val"),
 		},
 		EmailConfig: dataprovider.EventActionEmailConfig{
-			Recipients: strings.Split(strings.ReplaceAll(r.Form.Get("email_recipients"), " ", ""), ","),
-			Subject:    r.Form.Get("email_subject"),
-			Body:       r.Form.Get("email_body"),
+			Recipients:  strings.Split(strings.ReplaceAll(r.Form.Get("email_recipients"), " ", ""), ","),
+			Subject:     r.Form.Get("email_subject"),
+			Body:        r.Form.Get("email_body"),
+			Attachments: strings.Split(strings.ReplaceAll(r.Form.Get("email_attachments"), " ", ""), ","),
 		},
 		RetentionConfig: dataprovider.EventActionDataRetentionConfig{
 			Folders: foldersRetention,

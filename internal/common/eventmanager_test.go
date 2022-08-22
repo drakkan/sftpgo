@@ -15,6 +15,7 @@
 package common
 
 import (
+	"crypto/rand"
 	"fmt"
 	"net/http"
 	"os"
@@ -338,6 +339,14 @@ func TestEventManagerErrors(t *testing.T) {
 			},
 		},
 	})
+	assert.Error(t, err)
+	_, err = getMailAttachments(dataprovider.User{
+		Groups: []sdk.GroupMapping{
+			{
+				Name: groupName,
+				Type: sdk.GroupTypePrimary,
+			},
+		}}, []string{"/a", "/b"}, nil)
 	assert.Error(t, err)
 
 	dataRetentionAction := dataprovider.BaseEventAction{
@@ -848,6 +857,68 @@ func TestEventRuleActions(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestGetFileContent(t *testing.T) {
+	username := "test_user_get_file_content"
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username: username,
+			Permissions: map[string][]string{
+				"/": {dataprovider.PermAny},
+			},
+			HomeDir: filepath.Join(os.TempDir(), username),
+		},
+	}
+	err := dataprovider.AddUser(&user, "", "")
+	assert.NoError(t, err)
+	err = os.MkdirAll(user.GetHomeDir(), os.ModePerm)
+	assert.NoError(t, err)
+	fileContent := []byte("test file content")
+	err = os.WriteFile(filepath.Join(user.GetHomeDir(), "file.txt"), fileContent, 0666)
+	assert.NoError(t, err)
+	replacer := strings.NewReplacer("old", "new")
+	files, err := getMailAttachments(user, []string{"/file.txt"}, replacer)
+	assert.NoError(t, err)
+	if assert.Len(t, files, 1) {
+		assert.Equal(t, fileContent, files[0].Data)
+	}
+	// missing file
+	_, err = getMailAttachments(user, []string{"/file1.txt"}, replacer)
+	assert.Error(t, err)
+	// directory
+	_, err = getMailAttachments(user, []string{"/"}, replacer)
+	assert.Error(t, err)
+	// files too large
+	content := make([]byte, emailAttachmentsMaxSize/2+1)
+	_, err = rand.Read(content)
+	assert.NoError(t, err)
+	err = os.WriteFile(filepath.Join(user.GetHomeDir(), "file1.txt"), content, 0666)
+	assert.NoError(t, err)
+	err = os.WriteFile(filepath.Join(user.GetHomeDir(), "file2.txt"), content, 0666)
+	assert.NoError(t, err)
+	files, err = getMailAttachments(user, []string{"/file1.txt"}, replacer)
+	assert.NoError(t, err)
+	if assert.Len(t, files, 1) {
+		assert.Equal(t, content, files[0].Data)
+	}
+	_, err = getMailAttachments(user, []string{"/file1.txt", "/file2.txt"}, replacer)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "size too large")
+	}
+	// change the filesystem provider
+	user.FsConfig.Provider = sdk.CryptedFilesystemProvider
+	user.FsConfig.CryptConfig.Passphrase = kms.NewPlainSecret("pwd")
+	err = dataprovider.UpdateUser(&user, "", "")
+	assert.NoError(t, err)
+	// the file is not encrypted so reading the encryption header will fail
+	_, err = getMailAttachments(user, []string{"/file.txt"}, replacer)
+	assert.Error(t, err)
+
+	err = dataprovider.DeleteUser(username, "", "")
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestFilesystemActionErrors(t *testing.T) {
 	err := executeFsRuleAction(dataprovider.EventActionFilesystemConfig{}, dataprovider.ConditionOptions{}, EventParams{})
 	if assert.Error(t, err) {
@@ -874,6 +945,15 @@ func TestFilesystemActionErrors(t *testing.T) {
 			},
 		},
 	}
+	err = executeEmailRuleAction(dataprovider.EventActionEmailConfig{
+		Recipients:  []string{"test@example.net"},
+		Subject:     "subject",
+		Body:        "body",
+		Attachments: []string{"/file.txt"},
+	}, EventParams{
+		sender: username,
+	})
+	assert.Error(t, err)
 	conn := NewBaseConnection("", protocolEventAction, "", "", user)
 	err = executeDeleteFileFsAction(conn, "", nil)
 	assert.Error(t, err)
@@ -887,6 +967,17 @@ func TestFilesystemActionErrors(t *testing.T) {
 	err = executeRenameFsActionForUser(nil, testReplacer, user)
 	assert.Error(t, err)
 	err = executeExistFsActionForUser(nil, testReplacer, user)
+	assert.Error(t, err)
+	err = executeEmailRuleAction(dataprovider.EventActionEmailConfig{
+		Recipients:  []string{"test@example.net"},
+		Subject:     "subject",
+		Body:        "body",
+		Attachments: []string{"/file1.txt"},
+	}, EventParams{
+		sender: username,
+	})
+	assert.Error(t, err)
+	_, err = getFileContent(NewBaseConnection("", protocolEventAction, "", "", user), "/f.txt", 1234)
 	assert.Error(t, err)
 
 	user.FsConfig.Provider = sdk.LocalFilesystemProvider
@@ -1129,6 +1220,19 @@ func TestScheduledActions(t *testing.T) {
 
 	job.Run()
 	assert.DirExists(t, backupsPath)
+
+	action.Type = dataprovider.ActionTypeEmail
+	action.Options = dataprovider.BaseEventActionOptions{
+		EmailConfig: dataprovider.EventActionEmailConfig{
+			Recipients:  []string{"example@example.com"},
+			Subject:     "test with attachments",
+			Body:        "body",
+			Attachments: []string{"/file1.txt"},
+		},
+	}
+	err = dataprovider.UpdateEventAction(action, "", "")
+	assert.NoError(t, err)
+	job.Run() // action is not compatible with a scheduled rule
 
 	err = dataprovider.DeleteEventRule(rule.Name, "", "")
 	assert.NoError(t, err)

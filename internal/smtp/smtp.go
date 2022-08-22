@@ -183,7 +183,7 @@ func RenderPasswordResetTemplate(buf *bytes.Buffer, data any) error {
 }
 
 // SendEmail tries to send an email using the specified parameters.
-func SendEmail(to []string, subject, body string, contentType EmailContentType) error {
+func SendEmail(to []string, subject, body string, contentType EmailContentType, attachments ...mail.File) error {
 	if smtpServer == nil {
 		return errors.New("smtp: not configured")
 	}
@@ -206,6 +206,9 @@ func SendEmail(to []string, subject, body string, contentType EmailContentType) 
 		email.SetBody(mail.TextHTML, body)
 	default:
 		return fmt.Errorf("smtp: unsupported body content type %v", contentType)
+	}
+	for _, attachment := range attachments {
+		email.Attach(&attachment)
 	}
 	if email.Error != nil {
 		return fmt.Errorf("smtp: email error: %w", email.Error)

@@ -17,6 +17,7 @@ package dataprovider
 import (
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"path"
@@ -295,14 +296,20 @@ func (c *EventActionCommandConfig) validate() error {
 
 // EventActionEmailConfig defines the configuration options for SMTP event actions
 type EventActionEmailConfig struct {
-	Recipients []string `json:"recipients,omitempty"`
-	Subject    string   `json:"subject,omitempty"`
-	Body       string   `json:"body,omitempty"`
+	Recipients  []string `json:"recipients,omitempty"`
+	Subject     string   `json:"subject,omitempty"`
+	Body        string   `json:"body,omitempty"`
+	Attachments []string `json:"attachments,omitempty"`
 }
 
 // GetRecipientsAsString returns the list of recipients as comma separated string
 func (c EventActionEmailConfig) GetRecipientsAsString() string {
 	return strings.Join(c.Recipients, ",")
+}
+
+// GetAttachmentsAsString returns the list of attachments as comma separated string
+func (c EventActionEmailConfig) GetAttachmentsAsString() string {
+	return strings.Join(c.Attachments, ",")
 }
 
 func (c *EventActionEmailConfig) validate() error {
@@ -321,6 +328,14 @@ func (c *EventActionEmailConfig) validate() error {
 	if c.Body == "" {
 		return util.NewValidationError("email body is required")
 	}
+	for idx, val := range c.Attachments {
+		val = strings.TrimSpace(val)
+		if val == "" {
+			return util.NewValidationError("invalid path to attach")
+		}
+		c.Attachments[idx] = util.CleanPath(val)
+	}
+	c.Attachments = util.RemoveDuplicates(c.Attachments, false)
 	return nil
 }
 
@@ -549,6 +564,8 @@ func (o *BaseEventActionOptions) getACopy() BaseEventActionOptions {
 	o.SetEmptySecretsIfNil()
 	emailRecipients := make([]string, len(o.EmailConfig.Recipients))
 	copy(emailRecipients, o.EmailConfig.Recipients)
+	emailAttachments := make([]string, len(o.EmailConfig.Attachments))
+	copy(emailAttachments, o.EmailConfig.Attachments)
 	folders := make([]FolderRetention, 0, len(o.RetentionConfig.Folders))
 	for _, folder := range o.RetentionConfig.Folders {
 		folders = append(folders, FolderRetention{
@@ -577,9 +594,10 @@ func (o *BaseEventActionOptions) getACopy() BaseEventActionOptions {
 			EnvVars: cloneKeyValues(o.CmdConfig.EnvVars),
 		},
 		EmailConfig: EventActionEmailConfig{
-			Recipients: emailRecipients,
-			Subject:    o.EmailConfig.Subject,
-			Body:       o.EmailConfig.Body,
+			Recipients:  emailRecipients,
+			Subject:     o.EmailConfig.Subject,
+			Body:        o.EmailConfig.Body,
+			Attachments: emailAttachments,
 		},
 		RetentionConfig: EventActionDataRetentionConfig{
 			Folders: folders,
@@ -1102,6 +1120,16 @@ func (r *EventRule) checkProviderEventActions(providerObjectType string) error {
 	return nil
 }
 
+func (r *EventRule) hasUserAssociated(providerObjectType string) bool {
+	switch r.Trigger {
+	case EventTriggerProviderEvent:
+		return providerObjectType == actionObjectUser
+	case EventTriggerFsEvent:
+		return true
+	}
+	return false
+}
+
 // CheckActionsConsistency returns an error if the actions cannot be executed
 func (r *EventRule) CheckActionsConsistency(providerObjectType string) error {
 	switch r.Trigger {
@@ -1120,6 +1148,13 @@ func (r *EventRule) CheckActionsConsistency(providerObjectType string) error {
 	case EventTriggerIPBlocked, EventTriggerCertificate:
 		if err := r.checkIPBlockedAndCertificateActions(); err != nil {
 			return err
+		}
+	}
+	for _, action := range r.Actions {
+		if action.Type == ActionTypeEmail && len(action.BaseEventAction.Options.EmailConfig.Attachments) > 0 {
+			if !r.hasUserAssociated(providerObjectType) {
+				return errors.New("cannot send an email with attachments for a rule with no user associated")
+			}
 		}
 	}
 	return nil

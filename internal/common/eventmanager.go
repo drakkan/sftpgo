@@ -32,6 +32,7 @@ import (
 
 	"github.com/robfig/cron/v3"
 	"github.com/rs/xid"
+	mail "github.com/xhit/go-simple-mail/v2"
 
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
@@ -42,7 +43,8 @@ import (
 )
 
 const (
-	ipBlockedEventName = "IP Blocked"
+	ipBlockedEventName      = "IP Blocked"
+	emailAttachmentsMaxSize = int64(10 * 1024 * 1024)
 )
 
 var (
@@ -426,11 +428,19 @@ func (p *EventParams) getUsers() ([]dataprovider.User, error) {
 	if p.sender == "" {
 		return dataprovider.DumpUsers()
 	}
-	user, err := dataprovider.UserExists(p.sender)
+	user, err := p.getUserFromSender()
 	if err != nil {
-		return nil, fmt.Errorf("error getting user %q: %w", p.sender, err)
+		return nil, err
 	}
 	return []dataprovider.User{user}, nil
+}
+
+func (p *EventParams) getUserFromSender() (dataprovider.User, error) {
+	user, err := dataprovider.UserExists(p.sender)
+	if err != nil {
+		return user, fmt.Errorf("error getting user %q: %w", p.sender, err)
+	}
+	return user, nil
 }
 
 func (p *EventParams) getFolders() ([]vfs.BaseVirtualFolder, error) {
@@ -467,6 +477,72 @@ func (p *EventParams) getStringReplacements(addObjectData bool) []string {
 		}
 	}
 	return replacements
+}
+
+func getFileContent(conn *BaseConnection, virtualPath string, expectedSize int) ([]byte, error) {
+	fs, fsPath, err := conn.GetFsAndResolvedPath(virtualPath)
+	if err != nil {
+		return nil, err
+	}
+	f, r, cancelFn, err := fs.Open(fsPath, 0)
+	if err != nil {
+		return nil, err
+	}
+	if cancelFn == nil {
+		cancelFn = func() {}
+	}
+	defer cancelFn()
+
+	var reader io.ReadCloser
+	if f != nil {
+		reader = f
+	} else {
+		reader = r
+	}
+	defer reader.Close()
+
+	data := make([]byte, expectedSize)
+	_, err = io.ReadFull(reader, data)
+	return data, err
+}
+
+func getMailAttachments(user dataprovider.User, attachments []string, replacer *strings.Replacer) ([]mail.File, error) {
+	var files []mail.File
+	user, err := getUserForEventAction(user)
+	if err != nil {
+		return nil, err
+	}
+	connectionID := fmt.Sprintf("%s_%s", protocolEventAction, xid.New().String())
+	err = user.CheckFsRoot(connectionID)
+	defer user.CloseFs() //nolint:errcheck
+	if err != nil {
+		return nil, err
+	}
+	conn := NewBaseConnection(connectionID, protocolEventAction, "", "", user)
+	totalSize := int64(0)
+	for _, virtualPath := range attachments {
+		virtualPath = util.CleanPath(replaceWithReplacer(virtualPath, replacer))
+		info, err := conn.DoStat(virtualPath, 0, false)
+		if err != nil {
+			return nil, fmt.Errorf("unable to get info for file %q, user %q: %w", virtualPath, conn.User.Username, err)
+		}
+		if !info.Mode().IsRegular() {
+			return nil, fmt.Errorf("cannot attach non regular file %q", virtualPath)
+		}
+		totalSize += info.Size()
+		if totalSize > emailAttachmentsMaxSize {
+			return nil, fmt.Errorf("unable to send files as attachment, size too large: %s", util.ByteCountIEC(totalSize))
+		}
+		data, err := getFileContent(conn, virtualPath, int(info.Size()))
+		if err != nil {
+			return nil, fmt.Errorf("unable to get content for file %q, user %q: %w", virtualPath, conn.User.Username, err)
+		}
+		files = append(files, mail.File{
+			Name: path.Base(virtualPath),
+			Data: data,
+		})
+	}
+	return files, nil
 }
 
 func replaceWithReplacer(input string, replacer *strings.Replacer) string {
@@ -622,10 +698,24 @@ func executeEmailRuleAction(c dataprovider.EventActionEmailConfig, params EventP
 	body := replaceWithReplacer(c.Body, replacer)
 	subject := replaceWithReplacer(c.Subject, replacer)
 	startTime := time.Now()
-	err := smtp.SendEmail(c.Recipients, subject, body, smtp.EmailContentTypeTextPlain)
+	var files []mail.File
+	if len(c.Attachments) > 0 {
+		user, err := params.getUserFromSender()
+		if err != nil {
+			return err
+		}
+		files, err = getMailAttachments(user, c.Attachments, replacer)
+		if err != nil {
+			return err
+		}
+	}
+	err := smtp.SendEmail(c.Recipients, subject, body, smtp.EmailContentTypeTextPlain, files...)
 	eventManagerLog(logger.LevelDebug, "executed email notification action, elapsed: %s, error: %v",
 		time.Since(startTime), err)
-	return err
+	if err != nil {
+		return fmt.Errorf("unable to send email: %w", err)
+	}
+	return nil
 }
 
 func getUserForEventAction(user dataprovider.User) (dataprovider.User, error) {
@@ -1226,6 +1316,10 @@ func (j *eventCronJob) Run() {
 	rule, err := dataprovider.EventRuleExists(j.ruleName)
 	if err != nil {
 		eventManagerLog(logger.LevelError, "unable to load rule with name %q", j.ruleName)
+		return
+	}
+	if err = rule.CheckActionsConsistency(""); err != nil {
+		eventManagerLog(logger.LevelWarn, "scheduled rule %q skipped: %v", rule.Name, err)
 		return
 	}
 	task, err := j.getTask(rule)

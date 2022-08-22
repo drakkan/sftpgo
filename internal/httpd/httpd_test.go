@@ -1144,9 +1144,10 @@ func TestBasicActionRulesHandling(t *testing.T) {
 	a.Type = dataprovider.ActionTypeEmail
 	a.Options = dataprovider.BaseEventActionOptions{
 		EmailConfig: dataprovider.EventActionEmailConfig{
-			Recipients: []string{"email@example.com"},
-			Subject:    "Event: {{Event}}",
-			Body:       "test mail body",
+			Recipients:  []string{"email@example.com"},
+			Subject:     "Event: {{Event}}",
+			Body:        "test mail body",
+			Attachments: []string{"/{{VirtualPath}}"},
 		},
 	}
 
@@ -18828,14 +18829,16 @@ func TestWebEventAction(t *testing.T) {
 	// change action type again
 	action.Type = dataprovider.ActionTypeEmail
 	action.Options.EmailConfig = dataprovider.EventActionEmailConfig{
-		Recipients: []string{"address1@example.com", "address2@example.com"},
-		Subject:    "subject",
-		Body:       "body",
+		Recipients:  []string{"address1@example.com", "address2@example.com"},
+		Subject:     "subject",
+		Body:        "body",
+		Attachments: []string{"/file1.txt", "/file2.txt"},
 	}
 	form.Set("type", fmt.Sprintf("%d", action.Type))
 	form.Set("email_recipients", "address1@example.com,  address2@example.com")
 	form.Set("email_subject", action.Options.EmailConfig.Subject)
 	form.Set("email_body", action.Options.EmailConfig.Body)
+	form.Set("email_attachments", "file1.txt, file2.txt")
 	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminEventActionPath, action.Name),
 		bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
@@ -18850,6 +18853,7 @@ func TestWebEventAction(t *testing.T) {
 	assert.Equal(t, action.Options.EmailConfig.Recipients, actionGet.Options.EmailConfig.Recipients)
 	assert.Equal(t, action.Options.EmailConfig.Subject, actionGet.Options.EmailConfig.Subject)
 	assert.Equal(t, action.Options.EmailConfig.Body, actionGet.Options.EmailConfig.Body)
+	assert.Equal(t, action.Options.EmailConfig.Attachments, actionGet.Options.EmailConfig.Attachments)
 	assert.Equal(t, dataprovider.EventActionHTTPConfig{}, actionGet.Options.HTTPConfig)
 	assert.Empty(t, actionGet.Options.CmdConfig.Cmd)
 	assert.Equal(t, 0, actionGet.Options.CmdConfig.Timeout)

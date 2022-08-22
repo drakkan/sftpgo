@@ -408,7 +408,6 @@ func TestChtimesOpenHandle(t *testing.T) {
 	sftpUser, _, err := httpdtest.AddUser(getTestSFTPUser(), http.StatusCreated)
 	assert.NoError(t, err)
 	u := getCryptFsUser()
-	u.Username += "_crypt"
 	cryptFsUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 
@@ -2326,7 +2325,6 @@ func TestCrossFolderRename(t *testing.T) {
 	assert.NoError(t, err, string(resp))
 
 	u := getCryptFsUser()
-	u.Username += "_crypt"
 	u.VirtualFolders = []vfs.VirtualFolder{
 		{
 			BaseVirtualFolder: vfs.BaseVirtualFolder{
@@ -3764,6 +3762,99 @@ func TestEventRuleFsActions(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestEventActionEmailAttachments(t *testing.T) {
+	smtpCfg := smtp.Config{
+		Host:          "127.0.0.1",
+		Port:          2525,
+		From:          "notify@example.com",
+		TemplatesPath: "templates",
+	}
+	err := smtpCfg.Initialize(configDir)
+	require.NoError(t, err)
+
+	a1 := dataprovider.BaseEventAction{
+		Name: "action1",
+		Type: dataprovider.ActionTypeEmail,
+		Options: dataprovider.BaseEventActionOptions{
+			EmailConfig: dataprovider.EventActionEmailConfig{
+				Recipients:  []string{"test@example.com"},
+				Subject:     `"{{Event}}" from "{{Name}}"`,
+				Body:        "Fs path {{FsPath}}, size: {{FileSize}}, protocol: {{Protocol}}, IP: {{IP}}",
+				Attachments: []string{"/{{VirtualPath}}"},
+			},
+		},
+	}
+	action1, _, err := httpdtest.AddEventAction(a1, http.StatusCreated)
+	assert.NoError(t, err)
+	r1 := dataprovider.EventRule{
+		Name:    "test email with attachment",
+		Trigger: dataprovider.EventTriggerFsEvent,
+		Conditions: dataprovider.EventConditions{
+			FsEvents: []string{"upload"},
+		},
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action1.Name,
+				},
+				Order: 1,
+			},
+		},
+	}
+	rule1, _, err := httpdtest.AddEventRule(r1, http.StatusCreated)
+	assert.NoError(t, err)
+	localUser, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	u := getTestSFTPUser()
+	u.FsConfig.SFTPConfig.BufferSize = 1
+	sftpUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	cryptFsUser, _, err := httpdtest.AddUser(getCryptFsUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	for _, user := range []dataprovider.User{localUser, sftpUser, cryptFsUser} {
+		conn, client, err := getSftpClient(user)
+		if assert.NoError(t, err) {
+			defer conn.Close()
+			defer client.Close()
+
+			lastReceivedEmail.reset()
+			f, err := client.Create(testFileName)
+			assert.NoError(t, err)
+			_, err = f.Write(testFileContent)
+			assert.NoError(t, err)
+			err = f.Close()
+			assert.NoError(t, err)
+			assert.Eventually(t, func() bool {
+				return lastReceivedEmail.get().From != ""
+			}, 1500*time.Millisecond, 100*time.Millisecond)
+			email := lastReceivedEmail.get()
+			assert.Len(t, email.To, 1)
+			assert.True(t, util.Contains(email.To, "test@example.com"))
+			assert.Contains(t, string(email.Data), fmt.Sprintf(`Subject: "upload" from "%s"`, user.Username))
+			assert.Contains(t, string(email.Data), "Content-Disposition: attachment")
+		}
+	}
+
+	_, err = httpdtest.RemoveEventRule(rule1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(localUser.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(cryptFsUser, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(cryptFsUser.GetHomeDir())
+	assert.NoError(t, err)
+
+	smtpCfg = smtp.Config{}
+	err = smtpCfg.Initialize(configDir)
+	require.NoError(t, err)
+}
+
 func TestEventRuleFirstUploadDownloadActions(t *testing.T) {
 	smtpCfg := smtp.Config{
 		Host:          "127.0.0.1",
@@ -5112,6 +5203,7 @@ func getTestSFTPUser() dataprovider.User {
 
 func getCryptFsUser() dataprovider.User {
 	u := getTestUser()
+	u.Username += "_crypt"
 	u.FsConfig.Provider = sdk.CryptedFilesystemProvider
 	u.FsConfig.CryptConfig.Passphrase = kms.NewPlainSecret(defaultPassword)
 	return u

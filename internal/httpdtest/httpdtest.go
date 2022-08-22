@@ -2244,6 +2244,14 @@ func compareEventActionEmailConfigFields(expected, actual dataprovider.EventActi
 	if expected.Body != actual.Body {
 		return errors.New("email body mismatch")
 	}
+	if len(expected.Attachments) != len(actual.Attachments) {
+		return errors.New("email attachments mismatch")
+	}
+	for _, v := range expected.Attachments {
+		if !util.Contains(actual.Attachments, v) {
+			return errors.New("email attachments content mismatch")
+		}
+	}
 	return nil
 }
 

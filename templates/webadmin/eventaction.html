@@ -342,6 +342,17 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 </div>
             </div>
 
+            <div class="form-group row action-type action-smtp">
+                <label for="idEmailAttachments" class="col-sm-2 col-form-label">Email attachments</label>
+                <div class="col-sm-10">
+                    <textarea class="form-control" id="idEmailAttachments" name="email_attachments" rows="2" placeholder=""
+                        aria-describedby="smtpAttachmentsHelpBlock">{{.Action.Options.EmailConfig.GetAttachmentsAsString}}</textarea>
+                    <small id="smtpAttachmentsHelpBlock" class="form-text text-muted">
+                        Comma separated paths to attach. Placeholders are supported. The total size is limited to 10 MB.
+                    </small>
+                </div>
+            </div>
+
             <div class="card bg-light mb-3 action-type action-dataretention">
                 <div class="card-header">
                     <b>Data retention</b>

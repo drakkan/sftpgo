@@ -59,6 +59,7 @@ If you are running multiple SFTPGo instances connected to the same data provider
 Some actions are not supported for some triggers, rules containing incompatible actions are skipped at runtime:
 
 - `Filesystem events`, folder quota reset cannot be executed, we don't have a direct way to get the affected folder.
-- `Provider events`, user quota reset, transfer quota reset, data retention check and filesystem actions can be executed only if we modify a user. They will be executed for the affected user. Folder quota reset can be executed only for folders. Filesystem actions are not executed for `delete` user events because the actions is executed after the user deletion.
+- `Provider events`, user quota reset, transfer quota reset, data retention check and filesystem actions can be executed only if  a user is updated. They will be executed for the affected user. Folder quota reset can be executed only for folders. Filesystem actions are not executed for `delete` user events because the actions is executed after the user deletion.
 - `IP Blocked`, user quota reset, folder quota reset, transfer quota reset, data retention check and filesystem actions cannot be executed, we only have an IP.
 - `Certificate`, user quota reset, folder quota reset, transfer quota reset, data retention check and filesystem actions cannot be executed.
+- `Email with attachments` are supported for filesystem events and provider events if a user is updated. We need a user to get the files to attach.

@@ -4978,7 +4978,7 @@ components:
           description: |
              Defines how to check if this config points to the same server as another config. If different configs point to the same server the renaming between the fs configs is allowed:
               * `0` username and endpoint must match. This is the default
-              * `1` only the endpoint must match  
+              * `1` only the endpoint must match
     HTTPFsConfig:
       type: object
       properties:
@@ -6071,6 +6071,11 @@ components:
           type: string
         body:
           type: string
+        attachments:
+          type: array
+          items:
+            type: string
+          description: 'list of file paths to attach. The total size is limited to 10 MB'
     EventActionDataRetentionConfig:
       type: object
       properties:
