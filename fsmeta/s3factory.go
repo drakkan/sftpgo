@@ -6,6 +6,7 @@ import (
 
 var (
 	Enabled        bool
+	Buckets        []string
 	DefaultFactory S3Factory
 )
 
@@ -23,4 +24,19 @@ type Key struct {
 type Meta struct {
 	Key          Key       `json:"key"`
 	LastModified time.Time `json:"mtime"`
+}
+
+func EnabledForBucket(v string) bool {
+	if !Enabled {
+		return false
+	}
+	if len(Buckets) == 0 {
+		return true
+	}
+	for _, Bucket := range Buckets {
+		if v == Bucket {
+			return true
+		}
+	}
+	return false
 }

@@ -43,6 +43,8 @@ type Config struct {
 	Username string `json:"username" mapstructure:"username"`
 	// Database password
 	Password string `json:"password" mapstructure:"password"`
+	// Buckets to enable functionality for
+	Buckets []string `json:"buckets" mapstructure:"buckets"`
 	// Used for drivers mysql and postgresql.
 	// 0 disable SSL/TLS connections.
 	// 1 require ssl.
@@ -129,6 +131,7 @@ func Initialize(cnf Config) error {
 		}
 	}
 	Enabled = cnf.Enabled
+	Buckets = cnf.Buckets
 	return nil
 }
 

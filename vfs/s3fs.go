@@ -137,7 +137,7 @@ func (fs *S3Fs) Stat(name string) (os.FileInfo, error) {
 		// a "dir" has a trailing "/" so we cannot have a directory here
 		objSize := *obj.ContentLength
 		objectModTime := *obj.LastModified
-		if fsmeta.Enabled {
+		if fsmeta.EnabledForBucket(fs.config.Bucket) {
 			if MetaLastModified, metaErr := fsmeta.MetaHelper(obj.Metadata).GetTime(fsmeta.S3MetaKey); metaErr == nil {
 				if !MetaLastModified.IsZero() {
 					objectModTime = MetaLastModified
@@ -385,7 +385,7 @@ func (fs *S3Fs) ReadDir(dirname string) ([]os.FileInfo, error) {
 		if obj, err := fs.headObject(dirname); err == nil {
 			objSize := *obj.ContentLength
 			objectModTime := *obj.LastModified
-			if fsmeta.Enabled {
+			if fsmeta.EnabledForBucket(fs.config.Bucket) {
 				if MetaLastModified, metaErr := fsmeta.MetaHelper(obj.Metadata).GetTime(fsmeta.S3MetaKey); metaErr == nil {
 					if !MetaLastModified.IsZero() {
 						objectModTime = MetaLastModified
@@ -467,7 +467,7 @@ func (fs *S3Fs) ReadDir(dirname string) ([]os.FileInfo, error) {
 }
 
 func (fs *S3Fs) preloadFSMetaData(ctx context.Context, Prefix string) (fsmeta.Provider, error) {
-	if fsmeta.Enabled {
+	if fsmeta.EnabledForBucket(fs.config.Bucket) {
 		Provider := fsmeta.DefaultFactory.New(fs.svc, fs.config.Bucket)
 		err := Provider.Preload(ctx, Prefix)
 		return Provider, err

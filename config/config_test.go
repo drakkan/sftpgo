@@ -804,6 +804,7 @@ func TestFSMetaFromEnv(t *testing.T) {
 	os.Setenv("SFTPGO_FSMETA__PASSWORD", "pass1")
 	os.Setenv("SFTPGO_FSMETA__SSLMODE", "1")
 	os.Setenv("SFTPGO_FSMETA__POOL_SIZE", "3")
+	os.Setenv(`SFTPGO_FSMETA__BUCKETS`, `bucket1,bucket2`)
 
 	t.Cleanup(func() {
 		os.Unsetenv("SFTPGO_FSMETA__ENABLED")
@@ -815,6 +816,7 @@ func TestFSMetaFromEnv(t *testing.T) {
 		os.Unsetenv("SFTPGO_FSMETA__PASSWORD")
 		os.Unsetenv("SFTPGO_FSMETA__SSLMODE")
 		os.Unsetenv("SFTPGO_FSMETA__POOL_SIZE")
+		os.Unsetenv("SFTPGO_FSMETA__BUCKETS")
 	})
 
 	err := config.LoadConfig(".", "invalid config")
@@ -829,6 +831,7 @@ func TestFSMetaFromEnv(t *testing.T) {
 	assert.Equal(t, "pass1", fsMetaConfig.Password)
 	assert.Equal(t, 1, fsMetaConfig.SSLMode)
 	assert.Equal(t, 3, fsMetaConfig.PoolSize)
+	assert.Equal(t, []string{`bucket1`, `bucket2`}, fsMetaConfig.Buckets)
 
 	extraValues := url.Values{}
 	extraValues.Set(`x-migrations-table`, `fsmeta_schema_migrations`)

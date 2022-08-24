@@ -934,6 +934,7 @@ func setViperDefaults() {
 	viper.SetDefault("fsmeta.password", globalConf.FSMetaConfig.Password)
 	viper.SetDefault("fsmeta.sslmode", globalConf.FSMetaConfig.SSLMode)
 	viper.SetDefault("fsmeta.pool_size", globalConf.FSMetaConfig.PoolSize)
+	viper.SetDefault("fsmeta.buckets", globalConf.FSMetaConfig.Buckets)
 }
 
 func lookupBoolFromEnv(envName string) (bool, bool) {
