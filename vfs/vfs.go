@@ -138,8 +138,12 @@ type S3FsConfig struct {
 	// and if this value is set to zero, the default value (5MB) for the AWS SDK will be used.
 	// The minimum allowed value is 5.
 	DownloadPartSize int64 `json:"download_part_size,omitempty"`
+	// UploadPartMaxTime defines the maximum time allowed, in seconds, to upload a single chunk.
+	UploadPartMaxTime int `json:"upload_part_max_time,omitempty"`
 	// How many parts are downloaded in parallel
 	DownloadConcurrency int `json:"download_concurrency,omitempty"`
+	// DownloadPartMaxTime defines the maximum time allowed, in seconds, to download a single chunk.
+	DownloadPartMaxTime int `json:"download_part_max_time,omitempty"`
 }
 
 func (c *S3FsConfig) checkCredentials() error {

@@ -5180,8 +5180,10 @@ func TestUserTemplateMock(t *testing.T) {
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	form.Set("s3_upload_part_size", strconv.FormatInt(user.FsConfig.S3Config.UploadPartSize, 10))
 	form.Set("s3_upload_concurrency", strconv.Itoa(user.FsConfig.S3Config.UploadConcurrency))
+	form.Set("s3_upload_part_max_time", strconv.Itoa(user.FsConfig.S3Config.UploadPartMaxTime))
 	form.Set("s3_download_part_size", strconv.FormatInt(user.FsConfig.S3Config.DownloadPartSize, 10))
 	form.Set("s3_download_concurrency", strconv.Itoa(user.FsConfig.S3Config.DownloadConcurrency))
+	form.Set("s3_download_part_max_time", strconv.Itoa(user.FsConfig.S3Config.DownloadPartMaxTime))
 
 	b, contentType, _ = getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, webTemplateUser, &b)
@@ -5335,8 +5337,10 @@ func TestWebUserS3Mock(t *testing.T) {
 	user.FsConfig.S3Config.KeyPrefix = "somedir/subdir/"
 	user.FsConfig.S3Config.UploadPartSize = 5
 	user.FsConfig.S3Config.UploadConcurrency = 4
+	user.FsConfig.S3Config.UploadPartMaxTime = 8
 	user.FsConfig.S3Config.DownloadPartSize = 6
 	user.FsConfig.S3Config.DownloadConcurrency = 7
+	user.FsConfig.S3Config.DownloadPartMaxTime = 9
 	form := make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("username", user.Username)
@@ -5366,6 +5370,8 @@ func TestWebUserS3Mock(t *testing.T) {
 	form.Set("allowed_extensions", "/dir1::.jpg,.png")
 	form.Set("denied_extensions", "/dir2::.zip")
 	form.Set("max_upload_file_size", "0")
+	form.Set(`s3_upload_part_max_time`, strconv.Itoa(user.FsConfig.S3Config.UploadPartMaxTime))
+	form.Set(`s3_download_part_max_time`, strconv.Itoa(user.FsConfig.S3Config.DownloadPartMaxTime))
 	// test invalid s3_upload_part_size
 	form.Set("s3_upload_part_size", "a")
 	b, contentType, _ := getMultipartFormData(form, "", "")

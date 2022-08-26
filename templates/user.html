@@ -405,18 +405,6 @@
                     </small>
                 </div>
                 <div class="col-sm-2"></div>
-                <label for="idS3UploadConcurrency" class="col-sm-2 col-form-label">UL Concurrency</label>
-                <div class="col-sm-3">
-                    <input type="number" class="form-control" id="idS3UploadConcurrency" name="s3_upload_concurrency"
-                        placeholder="" value="{{.User.FsConfig.S3Config.UploadConcurrency}}" min="0"
-                        aria-describedby="S3ConcurrencyHelpBlock">
-                    <small id="S3ConcurrencyHelpBlock" class="form-text text-muted">
-                        How many parts are uploaded in parallel. Zero means the default (2)
-                    </small>
-                </div>
-            </div>
-
-            <div class="form-group row s3">
                 <label for="idS3PartSizeDL" class="col-sm-2 col-form-label">DL Part Size (MB)</label>
                 <div class="col-sm-3">
                     <input type="number" class="form-control" id="idS3PartSizeDL" name="s3_download_part_size"
@@ -424,6 +412,18 @@
                            aria-describedby="S3PartSizeHelpBlockDL">
                     <small id="S3PartSizeHelpBlockDL" class="form-text text-muted">
                         The range size for downloads. Zero means the default (5 MB). Minimum is 5
+                    </small>
+                </div>
+            </div>
+
+            <div class="form-group row s3">
+                <label for="idS3UploadConcurrency" class="col-sm-2 col-form-label">UL Concurrency</label>
+                <div class="col-sm-3">
+                    <input type="number" class="form-control" id="idS3UploadConcurrency" name="s3_upload_concurrency"
+                           placeholder="" value="{{.User.FsConfig.S3Config.UploadConcurrency}}" min="0"
+                           aria-describedby="S3ConcurrencyHelpBlock">
+                    <small id="S3ConcurrencyHelpBlock" class="form-text text-muted">
+                        How many parts are uploaded in parallel. Zero means the default (2)
                     </small>
                 </div>
                 <div class="col-sm-2"></div>
@@ -434,6 +434,28 @@
                            aria-describedby="S3ConcurrencyHelpBlockDL">
                     <small id="S3ConcurrencyHelpBlockDL" class="form-text text-muted">
                         How many parts are downloaded in parallel. Zero means the default (5)
+                    </small>
+                </div>
+            </div>
+
+            <div class="form-group row fsconfig fsconfig-s3fs">
+                <label for="idS3UploadTimeout" class="col-sm-2 col-form-label">UL Part Timeout (secs)</label>
+                <div class="col-sm-3">
+                    <input type="number" class="form-control" id="idS3UploadTimeout" name="s3_upload_part_max_time"
+                           placeholder="" value="{{.User.FsConfig.S3Config.UploadPartMaxTime}}" min="0"
+                           aria-describedby="S3UploadTimeoutHelpBlock">
+                    <small id="S3UploadTimeoutHelpBlock" class="form-text text-muted">
+                        Max time limit, in seconds, to upload a single part. 0 means no limit
+                    </small>
+                </div>
+                <div class="col-sm-2"></div>
+                <label for="idS3DownloadTimeout" class="col-sm-2 col-form-label">DL Part Timeout (secs)</label>
+                <div class="col-sm-3">
+                    <input type="number" class="form-control" id="idS3DownloadTimeout" name="s3_download_part_max_time"
+                           placeholder="" value="{{.User.FsConfig.S3Config.DownloadPartMaxTime}}" min="0"
+                           aria-describedby="S3DownloadTimeoutHelpBlock">
+                    <small id="S3DownloadTimeoutHelpBlock" class="form-text text-muted">
+                        Max time limit, in seconds, to download a single part. 0 means no limit
                     </small>
                 </div>
             </div>

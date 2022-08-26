@@ -96,6 +96,9 @@ func NewS3Fs(connectionID, localTempDir string, config S3FsConfig) (Fs, error) {
 	if fs.config.DownloadConcurrency <= 0 {
 		fs.config.DownloadConcurrency = s3manager.DefaultDownloadConcurrency
 	}
+	if fs.config.DownloadPartMaxTime <= 0 {
+		fs.config.DownloadPartMaxTime = 60
+	}
 
 	sessOpts := session.Options{
 		Config:            *awsConfig,
@@ -187,7 +190,7 @@ func (fs *S3Fs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, fun
 	}
 	ctx, cancelFn := context.WithCancel(context.Background())
 	downloader := s3manager.NewDownloaderWithClient(fs.svc)
-	downloader.PerChunkTimeout = time.Second * 60
+	downloader.PerChunkTimeout = time.Second * time.Duration(fs.config.DownloadPartMaxTime)
 	downloader.PartSize = fs.config.DownloadPartSize
 	downloader.Concurrency = fs.config.DownloadConcurrency
 	var streamRange *string

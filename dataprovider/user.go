@@ -880,8 +880,10 @@ func (u *User) getACopy() User {
 			KeyPrefix:           u.FsConfig.S3Config.KeyPrefix,
 			UploadPartSize:      u.FsConfig.S3Config.UploadPartSize,
 			UploadConcurrency:   u.FsConfig.S3Config.UploadConcurrency,
+			UploadPartMaxTime:   u.FsConfig.S3Config.UploadPartMaxTime,
 			DownloadPartSize:    u.FsConfig.S3Config.DownloadPartSize,
 			DownloadConcurrency: u.FsConfig.S3Config.DownloadConcurrency,
+			DownloadPartMaxTime: u.FsConfig.S3Config.DownloadPartMaxTime,
 		},
 		GCSConfig: vfs.GCSFsConfig{
 			Bucket:               u.FsConfig.GCSConfig.Bucket,
