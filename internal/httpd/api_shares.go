@@ -22,6 +22,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/go-chi/render"
 	"github.com/rs/xid"
@@ -78,7 +79,15 @@ func addShare(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
 	}
+	user, err := dataprovider.GetUserWithGroupSettings(claims.Username)
+	if err != nil {
+		sendAPIResponse(w, r, err, "Unable to retrieve your user", getRespStatus(err))
+		return
+	}
 	var share dataprovider.Share
+	if user.Filters.DefaultSharesExpiration > 0 {
+		share.ExpiresAt = util.GetTimeAsMsSinceEpoch(time.Now().Add(24 * time.Hour * time.Duration(user.Filters.DefaultSharesExpiration)))
+	}
 	err = render.DecodeJSON(r.Body, &share)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)

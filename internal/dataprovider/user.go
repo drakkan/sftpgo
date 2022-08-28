@@ -1729,6 +1729,9 @@ func (u *User) mergePrimaryGroupFilters(filters sdk.BaseUserFilters, replacer *s
 	if u.Filters.StartDirectory == "" {
 		u.Filters.StartDirectory = u.replacePlaceholder(filters.StartDirectory, replacer)
 	}
+	if u.Filters.DefaultSharesExpiration == 0 {
+		u.Filters.DefaultSharesExpiration = filters.DefaultSharesExpiration
+	}
 }
 
 func (u *User) mergeAdditiveProperties(group Group, groupType int, replacer *strings.Replacer) {

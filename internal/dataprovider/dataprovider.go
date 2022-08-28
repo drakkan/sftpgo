@@ -2194,6 +2194,7 @@ func copyBaseUserFilters(in sdk.BaseUserFilters) sdk.BaseUserFilters {
 	filters.IsAnonymous = in.IsAnonymous
 	filters.AllowAPIKeyAuth = in.AllowAPIKeyAuth
 	filters.ExternalAuthCacheTime = in.ExternalAuthCacheTime
+	filters.DefaultSharesExpiration = in.DefaultSharesExpiration
 	filters.WebClient = make([]string, len(in.WebClient))
 	copy(filters.WebClient, in.WebClient)
 	filters.BandwidthLimits = make([]sdk.BandwidthLimit, 0, len(in.BandwidthLimits))

@@ -2050,7 +2050,7 @@ func compareUserFiltersEqualFields(expected sdk.BaseUserFilters, actual sdk.Base
 	return nil
 }
 
-func compareUserFilters(expected sdk.BaseUserFilters, actual sdk.BaseUserFilters) error {
+func compareBaseUserFilters(expected sdk.BaseUserFilters, actual sdk.BaseUserFilters) error {
 	if len(expected.AllowedIP) != len(actual.AllowedIP) {
 		return errors.New("allowed IP mismatch")
 	}
@@ -2083,6 +2083,16 @@ func compareUserFilters(expected sdk.BaseUserFilters, actual sdk.BaseUserFilters
 	}
 	if expected.IsAnonymous != actual.IsAnonymous {
 		return errors.New("is_anonymous mismatch")
+	}
+	if expected.DefaultSharesExpiration != actual.DefaultSharesExpiration {
+		return errors.New("default_shares_expiration mismatch")
+	}
+	return nil
+}
+
+func compareUserFilters(expected sdk.BaseUserFilters, actual sdk.BaseUserFilters) error {
+	if err := compareBaseUserFilters(expected, actual); err != nil {
+		return err
 	}
 	if err := compareUserFilterSubStructs(expected, actual); err != nil {
 		return err

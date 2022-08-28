@@ -4777,6 +4777,9 @@ components:
         is_anonymous:
           type: boolean
           description: 'If enabled the user can login with any password or no password at all. Anonymous users are supported for FTP and WebDAV protocols and permissions will be automatically set to "list" and "download" (read only)'
+        default_shares_expiration:
+          type: integer
+          description: 'Defines the default expiration for newly created shares as number of days. 0 means no expiration'
       description: Additional user options
     UserFilters:
       allOf:

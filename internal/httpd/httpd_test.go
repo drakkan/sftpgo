@@ -5676,7 +5676,11 @@ func TestProviderErrors(t *testing.T) {
 	setBearerForReq(req, userAPIToken)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusInternalServerError, rr)
-
+	req, err = http.NewRequest(http.MethodPost, userSharesPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, userAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
 	// password reset errors
 	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
 	assert.NoError(t, err)
@@ -5692,6 +5696,11 @@ func TestProviderErrors(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "Error retrieving your account, please try again later")
 
 	req, err = http.NewRequest(http.MethodGet, webClientSharesPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, userWebToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+	req, err = http.NewRequest(http.MethodGet, webClientSharePath, nil)
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, userWebToken)
 	rr = executeRequest(req)
@@ -11616,6 +11625,9 @@ func TestShareUncompressed(t *testing.T) {
 	checkResponseCode(t, http.StatusCreated, rr)
 	objectID := rr.Header().Get("X-Object-ID")
 	assert.NotEmpty(t, objectID)
+	s, err := dataprovider.ShareExists(objectID, defaultUsername)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(0), s.ExpiresAt)
 
 	req, err = http.NewRequest(http.MethodGet, webClientPubSharesPath+"/"+objectID, nil)
 	assert.NoError(t, err)
@@ -11702,6 +11714,7 @@ func TestShareUncompressed(t *testing.T) {
 func TestDownloadFromShareError(t *testing.T) {
 	u := getTestUser()
 	u.DownloadDataTransfer = 1
+	u.Filters.DefaultSharesExpiration = 10
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	user.UsedDownloadDataTransfer = 1024*1024 - 32768
@@ -11733,6 +11746,9 @@ func TestDownloadFromShareError(t *testing.T) {
 	checkResponseCode(t, http.StatusCreated, rr)
 	objectID := rr.Header().Get("X-Object-ID")
 	assert.NotEmpty(t, objectID)
+	s, err := dataprovider.ShareExists(objectID, defaultUsername)
+	assert.NoError(t, err)
+	assert.Greater(t, s.ExpiresAt, int64(0))
 
 	defer func() {
 		rcv := recover()
@@ -15078,7 +15094,11 @@ func TestWebUserShare(t *testing.T) {
 func TestWebUserShareNoPasswordDisabled(t *testing.T) {
 	u := getTestUser()
 	u.Filters.WebClient = []string{sdk.WebClientShareNoPasswordDisabled}
+	u.Filters.DefaultSharesExpiration = 15
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	user.Filters.DefaultSharesExpiration = 30
+	user, _, err = httpdtest.UpdateUser(u, http.StatusOK, "")
 	assert.NoError(t, err)
 	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
 	assert.NoError(t, err)
@@ -15115,6 +15135,12 @@ func TestWebUserShareNoPasswordDisabled(t *testing.T) {
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusSeeOther, rr)
+
+	req, err = http.NewRequest(http.MethodGet, webClientSharePath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
 
 	req, err = http.NewRequest(http.MethodGet, userSharesPath, nil)
 	assert.NoError(t, err)
@@ -16585,6 +16611,16 @@ func TestWebUserAddMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	form.Set("max_upload_file_size", "1000")
+	// test invalid default shares expiration
+	form.Set("default_shares_expiration", "a")
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "invalid default shares expiration")
+	form.Set("default_shares_expiration", "10")
 	// test invalid tls username
 	form.Set("tls_username", "username")
 	b, contentType, _ = getMultipartFormData(form, "", "")
@@ -16732,6 +16768,7 @@ func TestWebUserAddMock(t *testing.T) {
 	assert.Equal(t, user.Email, newUser.Email)
 	assert.Equal(t, "/start/dir", newUser.Filters.StartDirectory)
 	assert.Equal(t, 0, newUser.Filters.FTPSecurity)
+	assert.Equal(t, 10, newUser.Filters.DefaultSharesExpiration)
 	assert.True(t, util.Contains(newUser.PublicKeys, testPubKey))
 	if val, ok := newUser.Permissions["/subdir"]; ok {
 		assert.True(t, util.Contains(val, dataprovider.PermListItems))
@@ -16929,6 +16966,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	form.Set("denied_login_methods", dataprovider.SSHLoginMethodKeyboardInteractive)
 	form.Set("denied_protocols", common.ProtocolFTP)
 	form.Set("max_upload_file_size", "100")
+	form.Set("default_shares_expiration", "30")
 	form.Set("disconnect", "1")
 	form.Set("additional_info", user.AdditionalInfo)
 	form.Set("description", user.Description)
@@ -17006,6 +17044,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	assert.Equal(t, int64(0), updateUser.DownloadDataTransfer)
 	assert.Equal(t, int64(0), updateUser.UploadDataTransfer)
 	assert.Equal(t, int64(0), updateUser.Filters.ExternalAuthCacheTime)
+	assert.Equal(t, 30, updateUser.Filters.DefaultSharesExpiration)
 	if val, ok := updateUser.Permissions["/otherdir"]; ok {
 		assert.True(t, util.Contains(val, dataprovider.PermListItems))
 		assert.True(t, util.Contains(val, dataprovider.PermUpload))
@@ -17116,6 +17155,7 @@ func TestUserTemplateWithFoldersMock(t *testing.T) {
 	form.Set("expiration_date", "2020-01-01 00:00:00")
 	form.Set("fs_provider", "0")
 	form.Set("max_upload_file_size", "0")
+	form.Set("default_shares_expiration", "0")
 	form.Set("ftp_security", "1")
 	form.Set("external_auth_cache_time", "0")
 	form.Set("description", "desc %username% %password%")
@@ -17177,6 +17217,7 @@ func TestUserTemplateWithFoldersMock(t *testing.T) {
 	assert.Equal(t, filepath.Join(os.TempDir(), user2.Username), user2.HomeDir)
 	assert.Equal(t, path.Join("/base", user1.Username), user1.Filters.StartDirectory)
 	assert.Equal(t, path.Join("/base", user2.Username), user2.Filters.StartDirectory)
+	assert.Equal(t, 0, user2.Filters.DefaultSharesExpiration)
 	assert.Equal(t, folder.Name, folder1.Name)
 	assert.Equal(t, folder.MappedPath, folder1.MappedPath)
 	assert.Equal(t, folder.Description, folder1.Description)
@@ -17218,6 +17259,7 @@ func TestUserSaveFromTemplateMock(t *testing.T) {
 	form.Set("expiration_date", "")
 	form.Set("fs_provider", "0")
 	form.Set("max_upload_file_size", "0")
+	form.Set("default_shares_expiration", "0")
 	form.Set("external_auth_cache_time", "0")
 	form.Add("tpl_username", user1)
 	form.Add("tpl_password", "password1")
@@ -17306,6 +17348,7 @@ func TestUserTemplateMock(t *testing.T) {
 	form.Set("allowed_extensions", "/dir1::.jpg,.png")
 	form.Set("denied_extensions", "/dir2::.zip")
 	form.Set("max_upload_file_size", "0")
+	form.Set("default_shares_expiration", "0")
 	form.Add("hooks", "external_auth_disabled")
 	form.Add("hooks", "check_password_disabled")
 	form.Set("disable_fs_checks", "checked")
@@ -17436,6 +17479,7 @@ func TestUserPlaceholders(t *testing.T) {
 	form.Set("download_data_transfer", "0")
 	form.Set("external_auth_cache_time", "0")
 	form.Set("max_upload_file_size", "0")
+	form.Set("default_shares_expiration", "0")
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	req, _ := http.NewRequest(http.MethodPost, webUserPath, &b)
 	setJWTCookieForReq(req, token)
@@ -17775,6 +17819,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	form.Set("pattern_type1", "denied")
 	form.Set("pattern_policy1", "1")
 	form.Set("max_upload_file_size", "0")
+	form.Set("default_shares_expiration", "0")
 	form.Set("ftp_security", "1")
 	form.Set("s3_force_path_style", "checked")
 	form.Set("description", user.Description)
@@ -17983,6 +18028,7 @@ func TestWebUserGCSMock(t *testing.T) {
 	form.Set("patterns0", "*.jpg,*.png")
 	form.Set("pattern_type0", "allowed")
 	form.Set("max_upload_file_size", "0")
+	form.Set("default_shares_expiration", "0")
 	form.Set("ftp_security", "1")
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
@@ -18107,6 +18153,7 @@ func TestWebUserHTTPFsMock(t *testing.T) {
 	form.Set("patterns1", "*.zip")
 	form.Set("pattern_type1", "denied")
 	form.Set("max_upload_file_size", "0")
+	form.Set("default_shares_expiration", "0")
 	form.Set("http_equality_check_mode", "true")
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
@@ -18231,6 +18278,7 @@ func TestWebUserAzureBlobMock(t *testing.T) {
 	form.Set("patterns1", "*.zip")
 	form.Set("pattern_type1", "denied")
 	form.Set("max_upload_file_size", "0")
+	form.Set("default_shares_expiration", "0")
 	// test invalid az_upload_part_size
 	form.Set("az_upload_part_size", "a")
 	b, contentType, _ := getMultipartFormData(form, "", "")
@@ -18410,6 +18458,7 @@ func TestWebUserCryptMock(t *testing.T) {
 	form.Set("patterns1", "*.zip")
 	form.Set("pattern_type1", "denied")
 	form.Set("max_upload_file_size", "0")
+	form.Set("default_shares_expiration", "0")
 	// passphrase cannot be empty
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
@@ -18517,6 +18566,7 @@ func TestWebUserSFTPFsMock(t *testing.T) {
 	form.Set("patterns1", "*.zip")
 	form.Set("pattern_type1", "denied")
 	form.Set("max_upload_file_size", "0")
+	form.Set("default_shares_expiration", "0")
 	// empty sftpconfig
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
@@ -19326,6 +19376,7 @@ func TestAddWebGroup(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Contains(t, rr.Body.String(), "invalid max upload file size")
 	form.Set("max_upload_file_size", "0")
+	form.Set("default_shares_expiration", "0")
 	b, contentType, err = getMultipartFormData(form, "", "")
 	assert.NoError(t, err)
 	req, err = http.NewRequest(http.MethodPost, webGroupPath, &b)
@@ -19757,6 +19808,7 @@ func TestUpdateWebGroupMock(t *testing.T) {
 	form.Set("download_data_transfer", "0")
 	form.Set("total_data_transfer", "0")
 	form.Set("max_upload_file_size", "0")
+	form.Set("default_shares_expiration", "0")
 	form.Set("external_auth_cache_time", "0")
 	form.Set("fs_provider", strconv.FormatInt(int64(group.UserSettings.FsConfig.Provider), 10))
 	form.Set("sftp_endpoint", group.UserSettings.FsConfig.SFTPConfig.Endpoint)

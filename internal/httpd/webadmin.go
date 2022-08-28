@@ -1281,6 +1281,10 @@ func getFiltersFromUserPostFields(r *http.Request) (sdk.BaseUserFilters, error) 
 	if err != nil {
 		return filters, fmt.Errorf("invalid max upload file size: %w", err)
 	}
+	defaultSharesExpiration, err := strconv.ParseInt(r.Form.Get("default_shares_expiration"), 10, 64)
+	if err != nil {
+		return filters, fmt.Errorf("invalid default shares expiration: %w", err)
+	}
 	if r.Form.Get("ftp_security") == "1" {
 		filters.FTPSecurity = 1
 	}
@@ -1294,6 +1298,7 @@ func getFiltersFromUserPostFields(r *http.Request) (sdk.BaseUserFilters, error) 
 	filters.FilePatterns = getFilePatternsFromPostField(r)
 	filters.TLSUsername = sdk.TLSUsername(r.Form.Get("tls_username"))
 	filters.WebClient = r.Form["web_client_options"]
+	filters.DefaultSharesExpiration = int(defaultSharesExpiration)
 	hooks := r.Form["hooks"]
 	if util.Contains(hooks, "external_auth_disabled") {
 		filters.Hooks.ExternalAuthDisabled = true
@@ -2588,8 +2593,8 @@ func (s *httpdServer) handleWebAddUserGet(w http.ResponseWriter, r *http.Request
 		Status: 1,
 		Permissions: map[string][]string{
 			"/": {dataprovider.PermAny},
-		},
-	}}
+		}},
+	}
 	s.renderUserPage(w, r, &user, userPageModeAdd, "")
 }
 

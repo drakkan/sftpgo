@@ -90,7 +90,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                     <b>Schedules</b>
                 </div>
                 <div class="card-body">
-                    <h6 class="card-title mb-4">Hours: 0-23. Day of week: 0-6 (Sun-Sat). Day of month: 1-31. Month: 1-12. Asterisk (*) indicates a match for all the values of the field. e.g. every day of week, every day of month and so on. More <a href="https://pkg.go.dev/github.com/robfig/cron/v3#hdr-CRON_Expression_Format" target="_blank">info</a>.</h6>
+                    <h6 class="card-title mb-4">The scheduler uses UTC time. Hours: 0-23. Day of week: 0-6 (Sun-Sat). Day of month: 1-31. Month: 1-12. Asterisk (*) indicates a match for all the values of the field. e.g. every day of week, every day of month and so on. More <a href="https://pkg.go.dev/github.com/robfig/cron/v3#hdr-CRON_Expression_Format" target="_blank">info</a>.</h6>
                     <div class="form-group row">
                         <div class="col-md-12 form_field_schedules_outer">
                             {{range $idx, $val := .Rule.Conditions.Schedules}}

@@ -975,7 +975,20 @@ func (s *httpdServer) handleClientEditFile(w http.ResponseWriter, r *http.Reques
 
 func (s *httpdServer) handleClientAddShareGet(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		s.renderClientForbiddenPage(w, r, "Invalid token claims")
+		return
+	}
+	user, err := dataprovider.GetUserWithGroupSettings(claims.Username)
+	if err != nil {
+		s.renderClientMessagePage(w, r, "Unable to retrieve your user", "", getRespStatus(err), nil, "")
+		return
+	}
 	share := &dataprovider.Share{Scope: dataprovider.ShareScopeRead}
+	if user.Filters.DefaultSharesExpiration > 0 {
+		share.ExpiresAt = util.GetTimeAsMsSinceEpoch(time.Now().Add(24 * time.Hour * time.Duration(user.Filters.DefaultSharesExpiration)))
+	}
 	dirName := "/"
 	if _, ok := r.URL.Query()["path"]; ok {
 		dirName = util.CleanPath(r.URL.Query().Get("path"))

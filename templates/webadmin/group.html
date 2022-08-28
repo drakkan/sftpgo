@@ -704,6 +704,17 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                             </div>
 
                             <div class="form-group row">
+                                <label for="idDefaultSharesExpiration" class="col-sm-2 col-form-label">Default shares expiration</label>
+                                <div class="col-sm-10">
+                                    <input type="number" class="form-control" id="idDefaultSharesExpiration" name="default_shares_expiration"
+                                        value="{{.Group.UserSettings.Filters.DefaultSharesExpiration}}" min="0" aria-describedby="defaultSharesExpirationHelpBlock">
+                                    <small id="defaultSharesExpirationHelpBlock" class="form-text text-muted">
+                                        Default expiration for newly created shares as number of days
+                                    </small>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
                                 <label for="idHooks" class="col-sm-2 col-form-label">Hooks</label>
                                 <div class="col-sm-10">
                                     <select class="form-control selectpicker" id="idHooks" name="hooks" multiple>

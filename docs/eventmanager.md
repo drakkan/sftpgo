@@ -40,7 +40,7 @@ The following trigger events are supported:
 
 - `Filesystem events`, for example `upload`, `download` etc.
 - `Provider events`, for example `add`, `update`, `delete` user or other resources.
-- `Schedules`.
+- `Schedules`. The scheduler uses UTC time.
 - `IP Blocked`, this event can be generated if you enable the [defender](./defender.md).
 - `Certificate`, this event is generated when a certificate is renewed using the built-in ACME protocol. Both successful and failed renewals are notified.
 
