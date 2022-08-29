@@ -568,14 +568,14 @@ func (c *Configuration) notifyCertificateRenewal(domain string, err error) {
 	}
 	params := common.EventParams{
 		Name:      domain,
+		Event:     "Certificate renewal",
 		Timestamp: time.Now().UnixNano(),
 	}
 	if err != nil {
 		params.Status = 2
-		params.Event = "Certificate renewal failed"
+		params.AddError(err)
 	} else {
 		params.Status = 1
-		params.Event = "Successful certificate renewal"
 	}
 	common.HandleCertificateEvent(params)
 }

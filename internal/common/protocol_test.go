@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -3064,8 +3065,8 @@ func TestEventRule(t *testing.T) {
 		Options: dataprovider.BaseEventActionOptions{
 			EmailConfig: dataprovider.EventActionEmailConfig{
 				Recipients: []string{"test1@example.com", "test2@example.com"},
-				Subject:    `New "{{Event}}" from "{{Name}}"`,
-				Body:       "Fs path {{FsPath}}, size: {{FileSize}}, protocol: {{Protocol}}, IP: {{IP}} Data: {{ObjectData}}",
+				Subject:    `New "{{Event}}" from "{{Name}}" status {{StatusString}}`,
+				Body:       "Fs path {{FsPath}}, size: {{FileSize}}, protocol: {{Protocol}}, IP: {{IP}} Data: {{ObjectData}} {{ErrorString}}",
 			},
 		},
 	}
@@ -3076,7 +3077,7 @@ func TestEventRule(t *testing.T) {
 			EmailConfig: dataprovider.EventActionEmailConfig{
 				Recipients: []string{"failure@example.com"},
 				Subject:    `Failed "{{Event}}" from "{{Name}}"`,
-				Body:       "Fs path {{FsPath}}, protocol: {{Protocol}}, IP: {{IP}}",
+				Body:       "Fs path {{FsPath}}, protocol: {{Protocol}}, IP: {{IP}} {{ErrorString}}",
 			},
 		},
 	}
@@ -3187,6 +3188,7 @@ func TestEventRule(t *testing.T) {
 
 	uploadScriptPath := filepath.Join(os.TempDir(), "upload.sh")
 	u := getTestUser()
+	u.DownloadDataTransfer = 1
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	movedFileName := "moved.dat"
@@ -3230,6 +3232,8 @@ func TestEventRule(t *testing.T) {
 		dirName := "subdir"
 		err = client.Mkdir(dirName)
 		assert.NoError(t, err)
+		err = client.Mkdir("subdir1")
+		assert.NoError(t, err)
 		// rule conditions match
 		lastReceivedEmail.reset()
 		err = writeSFTPFileNoCheck(path.Join(dirName, testFileName), size, client)
@@ -3247,7 +3251,32 @@ func TestEventRule(t *testing.T) {
 		assert.Len(t, email.To, 2)
 		assert.True(t, util.Contains(email.To, "test1@example.com"))
 		assert.True(t, util.Contains(email.To, "test2@example.com"))
-		assert.Contains(t, string(email.Data), fmt.Sprintf(`Subject: New "upload" from "%s"`, user.Username))
+		assert.Contains(t, email.Data, fmt.Sprintf(`Subject: New "upload" from "%s" status OK`, user.Username))
+		// test the failure action, we download a file that exceeds the transfer quota limit
+		err = writeSFTPFileNoCheck(path.Join("subdir1", testFileName), 1*1024*1024+65535, client)
+		assert.NoError(t, err)
+		lastReceivedEmail.reset()
+		f, err := client.Open(path.Join("subdir1", testFileName))
+		assert.NoError(t, err)
+		_, err = io.ReadAll(f)
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), common.ErrReadQuotaExceeded.Error())
+		}
+		err = f.Close()
+		assert.Error(t, err)
+		assert.Eventually(t, func() bool {
+			return lastReceivedEmail.get().From != ""
+		}, 3000*time.Millisecond, 100*time.Millisecond)
+		email = lastReceivedEmail.get()
+		assert.Len(t, email.To, 2)
+		assert.True(t, util.Contains(email.To, "test1@example.com"))
+		assert.True(t, util.Contains(email.To, "test2@example.com"))
+		assert.Contains(t, email.Data, fmt.Sprintf(`Subject: New "download" from "%s" status KO`, user.Username))
+		assert.Contains(t, email.Data, `"download" failed`)
+		assert.Contains(t, email.Data, common.ErrReadQuotaExceeded.Error())
+		_, err = httpdtest.UpdateTransferQuotaUsage(user, "", http.StatusOK)
+		assert.NoError(t, err)
+
 		// remove the upload script to test the failure action
 		err = os.Remove(uploadScriptPath)
 		assert.NoError(t, err)
@@ -3260,10 +3289,11 @@ func TestEventRule(t *testing.T) {
 		email = lastReceivedEmail.get()
 		assert.Len(t, email.To, 1)
 		assert.True(t, util.Contains(email.To, "failure@example.com"))
-		assert.Contains(t, string(email.Data), fmt.Sprintf(`Subject: Failed "upload" from "%s"`, user.Username))
+		assert.Contains(t, email.Data, fmt.Sprintf(`Subject: Failed "upload" from "%s"`, user.Username))
+		assert.Contains(t, email.Data, fmt.Sprintf(`action %q failed`, action1.Name))
 		// now test the download rule
 		lastReceivedEmail.reset()
-		f, err := client.Open(movedFileName)
+		f, err = client.Open(movedFileName)
 		assert.NoError(t, err)
 		contents, err := io.ReadAll(f)
 		assert.NoError(t, err)
@@ -3277,7 +3307,7 @@ func TestEventRule(t *testing.T) {
 		assert.Len(t, email.To, 2)
 		assert.True(t, util.Contains(email.To, "test1@example.com"))
 		assert.True(t, util.Contains(email.To, "test2@example.com"))
-		assert.Contains(t, string(email.Data), fmt.Sprintf(`Subject: New "download" from "%s"`, user.Username))
+		assert.Contains(t, email.Data, fmt.Sprintf(`Subject: New "download" from "%s"`, user.Username))
 	}
 
 	_, err = httpdtest.RemoveEventRule(rule1, http.StatusOK)
@@ -3291,7 +3321,7 @@ func TestEventRule(t *testing.T) {
 	assert.Len(t, email.To, 2)
 	assert.True(t, util.Contains(email.To, "test1@example.com"))
 	assert.True(t, util.Contains(email.To, "test2@example.com"))
-	assert.Contains(t, string(email.Data), `Subject: New "delete" from "admin"`)
+	assert.Contains(t, email.Data, `Subject: New "delete" from "admin"`)
 	_, err = httpdtest.RemoveEventRule(rule3, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveEventAction(action1, http.StatusOK)
@@ -3443,7 +3473,7 @@ func TestEventRuleProviderEvents(t *testing.T) {
 		email := lastReceivedEmail.get()
 		assert.Len(t, email.To, 1)
 		assert.True(t, util.Contains(email.To, "test3@example.com"))
-		assert.Contains(t, string(email.Data), `Subject: New "update" from "admin"`)
+		assert.Contains(t, email.Data, `Subject: New "update" from "admin"`)
 	}
 	// now delete the script to generate an error
 	lastReceivedEmail.reset()
@@ -3458,8 +3488,8 @@ func TestEventRuleProviderEvents(t *testing.T) {
 	email := lastReceivedEmail.get()
 	assert.Len(t, email.To, 1)
 	assert.True(t, util.Contains(email.To, "failure@example.com"))
-	assert.Contains(t, string(email.Data), `Subject: Failed "update" from "admin"`)
-	assert.Contains(t, string(email.Data), fmt.Sprintf("Object name: %s object type: folder", folder.Name))
+	assert.Contains(t, email.Data, `Subject: Failed "update" from "admin"`)
+	assert.Contains(t, email.Data, fmt.Sprintf("Object name: %s object type: folder", folder.Name))
 	lastReceivedEmail.reset()
 	// generate an error for the failure action
 	smtpCfg = smtp.Config{}
@@ -3830,8 +3860,8 @@ func TestEventActionEmailAttachments(t *testing.T) {
 			email := lastReceivedEmail.get()
 			assert.Len(t, email.To, 1)
 			assert.True(t, util.Contains(email.To, "test@example.com"))
-			assert.Contains(t, string(email.Data), fmt.Sprintf(`Subject: "upload" from "%s"`, user.Username))
-			assert.Contains(t, string(email.Data), "Content-Disposition: attachment")
+			assert.Contains(t, email.Data, fmt.Sprintf(`Subject: "upload" from "%s"`, user.Username))
+			assert.Contains(t, email.Data, "Content-Disposition: attachment")
 		}
 	}
 
@@ -3929,7 +3959,7 @@ func TestEventRuleFirstUploadDownloadActions(t *testing.T) {
 		email := lastReceivedEmail.get()
 		assert.Len(t, email.To, 1)
 		assert.True(t, util.Contains(email.To, "test@example.com"))
-		assert.Contains(t, string(email.Data), fmt.Sprintf(`Subject: "first-upload" from "%s"`, user.Username))
+		assert.Contains(t, email.Data, fmt.Sprintf(`Subject: "first-upload" from "%s"`, user.Username))
 		lastReceivedEmail.reset()
 		// a new upload will not produce a new notification
 		err = writeSFTPFileNoCheck(testFileName+"_1", 32768, client)
@@ -3952,7 +3982,7 @@ func TestEventRuleFirstUploadDownloadActions(t *testing.T) {
 		email = lastReceivedEmail.get()
 		assert.Len(t, email.To, 1)
 		assert.True(t, util.Contains(email.To, "test@example.com"))
-		assert.Contains(t, string(email.Data), fmt.Sprintf(`Subject: "first-download" from "%s"`, user.Username))
+		assert.Contains(t, email.Data, fmt.Sprintf(`Subject: "first-download" from "%s"`, user.Username))
 		// download again
 		lastReceivedEmail.reset()
 		f, err = client.Open(testFileName)
@@ -4001,8 +4031,8 @@ func TestEventRuleCertificate(t *testing.T) {
 		Options: dataprovider.BaseEventActionOptions{
 			EmailConfig: dataprovider.EventActionEmailConfig{
 				Recipients: []string{"test@example.com"},
-				Subject:    `"{{Event}}"`,
-				Body:       "Domain: {{Name}} Timestamp: {{Timestamp}}",
+				Subject:    `"{{Event}} {{StatusString}}"`,
+				Body:       "Domain: {{Name}} Timestamp: {{Timestamp}} {{ErrorString}}",
 			},
 		},
 	}
@@ -4051,11 +4081,13 @@ func TestEventRuleCertificate(t *testing.T) {
 	rule2, _, err := httpdtest.AddEventRule(r2, http.StatusCreated)
 	assert.NoError(t, err)
 
+	renewalEvent := "Certificate renewal"
+
 	common.HandleCertificateEvent(common.EventParams{
 		Name:      "example.com",
 		Timestamp: time.Now().UnixNano(),
 		Status:    1,
-		Event:     "Successful certificate renewal",
+		Event:     renewalEvent,
 	})
 	assert.Eventually(t, func() bool {
 		return lastReceivedEmail.get().From != ""
@@ -4063,24 +4095,28 @@ func TestEventRuleCertificate(t *testing.T) {
 	email := lastReceivedEmail.get()
 	assert.Len(t, email.To, 1)
 	assert.True(t, util.Contains(email.To, "test@example.com"))
-	assert.Contains(t, string(email.Data), `Subject: "Successful certificate renewal"`)
-	assert.Contains(t, string(email.Data), `Domain: example.com Timestamp`)
+	assert.Contains(t, email.Data, fmt.Sprintf(`Subject: "%s OK"`, renewalEvent))
+	assert.Contains(t, email.Data, `Domain: example.com Timestamp`)
 
 	lastReceivedEmail.reset()
-	common.HandleCertificateEvent(common.EventParams{
+	params := common.EventParams{
 		Name:      "example.com",
 		Timestamp: time.Now().UnixNano(),
 		Status:    2,
-		Event:     "Certificate renewal failed",
-	})
+		Event:     renewalEvent,
+	}
+	errRenew := errors.New("generic renew error")
+	params.AddError(errRenew)
+	common.HandleCertificateEvent(params)
 	assert.Eventually(t, func() bool {
 		return lastReceivedEmail.get().From != ""
 	}, 3000*time.Millisecond, 100*time.Millisecond)
 	email = lastReceivedEmail.get()
 	assert.Len(t, email.To, 1)
 	assert.True(t, util.Contains(email.To, "test@example.com"))
-	assert.Contains(t, string(email.Data), `Subject: "Certificate renewal failed"`)
-	assert.Contains(t, string(email.Data), `Domain: example.com Timestamp`)
+	assert.Contains(t, email.Data, fmt.Sprintf(`Subject: "%s KO"`, renewalEvent))
+	assert.Contains(t, email.Data, `Domain: example.com Timestamp`)
+	assert.Contains(t, email.Data, errRenew.Error())
 
 	_, err = httpdtest.RemoveEventRule(rule1, http.StatusOK)
 	assert.NoError(t, err)
@@ -4095,7 +4131,7 @@ func TestEventRuleCertificate(t *testing.T) {
 		Name:      "example.com",
 		Timestamp: time.Now().UnixNano(),
 		Status:    1,
-		Event:     "Successful certificate renewal",
+		Event:     renewalEvent,
 	})
 
 	smtpCfg = smtp.Config{}
@@ -4184,7 +4220,7 @@ func TestEventRuleIPBlocked(t *testing.T) {
 	assert.NoError(t, err)
 	lastReceivedEmail.reset()
 	time.Sleep(300 * time.Millisecond)
-	assert.Empty(t, lastReceivedEmail.get().From, string(lastReceivedEmail.get().Data))
+	assert.Empty(t, lastReceivedEmail.get().From, lastReceivedEmail.get().Data)
 
 	for i := 0; i < 3; i++ {
 		user.Password = "wrong_pwd"
@@ -4203,7 +4239,7 @@ func TestEventRuleIPBlocked(t *testing.T) {
 	assert.Len(t, email.To, 2)
 	assert.True(t, util.Contains(email.To, "test3@example.com"))
 	assert.True(t, util.Contains(email.To, "test4@example.com"))
-	assert.Contains(t, string(email.Data), `Subject: New "IP Blocked"`)
+	assert.Contains(t, email.Data, `Subject: New "IP Blocked"`)
 
 	err = dataprovider.DeleteEventRule(rule1.Name, "", "")
 	assert.NoError(t, err)
@@ -5305,7 +5341,7 @@ type receivedEmail struct {
 	sync.RWMutex
 	From string
 	To   []string
-	Data []byte
+	Data string
 }
 
 func (e *receivedEmail) set(from string, to []string, data []byte) {
@@ -5314,7 +5350,7 @@ func (e *receivedEmail) set(from string, to []string, data []byte) {
 
 	e.From = from
 	e.To = to
-	e.Data = data
+	e.Data = strings.ReplaceAll(string(data), "=\r\n", "")
 }
 
 func (e *receivedEmail) reset() {
@@ -5323,7 +5359,7 @@ func (e *receivedEmail) reset() {
 
 	e.From = ""
 	e.To = nil
-	e.Data = nil
+	e.Data = ""
 }
 
 func (e *receivedEmail) get() receivedEmail {

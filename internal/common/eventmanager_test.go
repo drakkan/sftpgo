@@ -270,19 +270,19 @@ func TestEventManagerErrors(t *testing.T) {
 	_, err = params.getFolders()
 	assert.Error(t, err)
 
-	err = executeUsersQuotaResetRuleAction(dataprovider.ConditionOptions{}, EventParams{})
+	err = executeUsersQuotaResetRuleAction(dataprovider.ConditionOptions{}, &EventParams{})
 	assert.Error(t, err)
-	err = executeFoldersQuotaResetRuleAction(dataprovider.ConditionOptions{}, EventParams{})
+	err = executeFoldersQuotaResetRuleAction(dataprovider.ConditionOptions{}, &EventParams{})
 	assert.Error(t, err)
-	err = executeTransferQuotaResetRuleAction(dataprovider.ConditionOptions{}, EventParams{})
+	err = executeTransferQuotaResetRuleAction(dataprovider.ConditionOptions{}, &EventParams{})
 	assert.Error(t, err)
-	err = executeDeleteFsRuleAction(nil, nil, dataprovider.ConditionOptions{}, EventParams{})
+	err = executeDeleteFsRuleAction(nil, nil, dataprovider.ConditionOptions{}, &EventParams{})
 	assert.Error(t, err)
-	err = executeMkdirFsRuleAction(nil, nil, dataprovider.ConditionOptions{}, EventParams{})
+	err = executeMkdirFsRuleAction(nil, nil, dataprovider.ConditionOptions{}, &EventParams{})
 	assert.Error(t, err)
-	err = executeRenameFsRuleAction(nil, nil, dataprovider.ConditionOptions{}, EventParams{})
+	err = executeRenameFsRuleAction(nil, nil, dataprovider.ConditionOptions{}, &EventParams{})
 	assert.Error(t, err)
-	err = executeExistFsRuleAction(nil, nil, dataprovider.ConditionOptions{}, EventParams{})
+	err = executeExistFsRuleAction(nil, nil, dataprovider.ConditionOptions{}, &EventParams{})
 	assert.Error(t, err)
 
 	groupName := "agroup"
@@ -362,7 +362,7 @@ func TestEventManagerErrors(t *testing.T) {
 			},
 		},
 	}
-	err = executeRuleAction(dataRetentionAction, EventParams{}, dataprovider.ConditionOptions{
+	err = executeRuleAction(dataRetentionAction, &EventParams{}, dataprovider.ConditionOptions{
 		Names: []dataprovider.ConditionPattern{
 			{
 				Pattern: "username1",
@@ -421,10 +421,10 @@ func TestEventRuleActions(t *testing.T) {
 		Name: actionName,
 		Type: dataprovider.ActionTypeBackup,
 	}
-	err := executeRuleAction(action, EventParams{}, dataprovider.ConditionOptions{})
+	err := executeRuleAction(action, &EventParams{}, dataprovider.ConditionOptions{})
 	assert.NoError(t, err)
 	action.Type = -1
-	err = executeRuleAction(action, EventParams{}, dataprovider.ConditionOptions{})
+	err = executeRuleAction(action, &EventParams{}, dataprovider.ConditionOptions{})
 	assert.Error(t, err)
 
 	action = dataprovider.BaseEventAction{
@@ -454,12 +454,12 @@ func TestEventRuleActions(t *testing.T) {
 		},
 	}
 	action.Options.SetEmptySecretsIfNil()
-	err = executeRuleAction(action, EventParams{}, dataprovider.ConditionOptions{})
+	err = executeRuleAction(action, &EventParams{}, dataprovider.ConditionOptions{})
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "invalid endpoint")
 	}
 	action.Options.HTTPConfig.Endpoint = fmt.Sprintf("http://%v", httpAddr)
-	params := EventParams{
+	params := &EventParams{
 		Name: "a",
 		Object: &dataprovider.User{
 			BaseUser: sdk.BaseUser{
@@ -472,7 +472,7 @@ func TestEventRuleActions(t *testing.T) {
 	action.Options.HTTPConfig.Endpoint = fmt.Sprintf("http://%v/404", httpAddr)
 	err = executeRuleAction(action, params, dataprovider.ConditionOptions{})
 	if assert.Error(t, err) {
-		assert.Equal(t, err.Error(), "unexpected status code: 404")
+		assert.Contains(t, err.Error(), "unexpected status code: 404")
 	}
 	action.Options.HTTPConfig.Endpoint = "http://invalid:1234"
 	err = executeRuleAction(action, params, dataprovider.ConditionOptions{})
@@ -517,7 +517,7 @@ func TestEventRuleActions(t *testing.T) {
 	action = dataprovider.BaseEventAction{
 		Type: dataprovider.ActionTypeUserQuotaReset,
 	}
-	err = executeRuleAction(action, EventParams{}, dataprovider.ConditionOptions{
+	err = executeRuleAction(action, &EventParams{}, dataprovider.ConditionOptions{
 		Names: []dataprovider.ConditionPattern{
 			{
 				Pattern: username1,
@@ -530,7 +530,7 @@ func TestEventRuleActions(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.WriteFile(filepath.Join(user1.GetHomeDir(), "file.txt"), []byte("user"), 0666)
 	assert.NoError(t, err)
-	err = executeRuleAction(action, EventParams{}, dataprovider.ConditionOptions{
+	err = executeRuleAction(action, &EventParams{}, dataprovider.ConditionOptions{
 		Names: []dataprovider.ConditionPattern{
 			{
 				Pattern: username1,
@@ -544,7 +544,7 @@ func TestEventRuleActions(t *testing.T) {
 	assert.Equal(t, int64(4), userGet.UsedQuotaSize)
 	// simulate another quota scan in progress
 	assert.True(t, QuotaScans.AddUserQuotaScan(username1))
-	err = executeRuleAction(action, EventParams{}, dataprovider.ConditionOptions{
+	err = executeRuleAction(action, &EventParams{}, dataprovider.ConditionOptions{
 		Names: []dataprovider.ConditionPattern{
 			{
 				Pattern: username1,
@@ -554,7 +554,7 @@ func TestEventRuleActions(t *testing.T) {
 	assert.Error(t, err)
 	assert.True(t, QuotaScans.RemoveUserQuotaScan(username1))
 	// non matching pattern
-	err = executeRuleAction(action, EventParams{}, dataprovider.ConditionOptions{
+	err = executeRuleAction(action, &EventParams{}, dataprovider.ConditionOptions{
 		Names: []dataprovider.ConditionPattern{
 			{
 				Pattern: "don't match",
@@ -578,7 +578,7 @@ func TestEventRuleActions(t *testing.T) {
 			},
 		},
 	}
-	err = executeRuleAction(dataRetentionAction, EventParams{}, dataprovider.ConditionOptions{
+	err = executeRuleAction(dataRetentionAction, &EventParams{}, dataprovider.ConditionOptions{
 		Names: []dataprovider.ConditionPattern{
 			{
 				Pattern: username1,
@@ -622,7 +622,7 @@ func TestEventRuleActions(t *testing.T) {
 	err = os.Chtimes(file4, timeBeforeRetention, timeBeforeRetention)
 	assert.NoError(t, err)
 
-	err = executeRuleAction(dataRetentionAction, EventParams{}, dataprovider.ConditionOptions{
+	err = executeRuleAction(dataRetentionAction, &EventParams{}, dataprovider.ConditionOptions{
 		Names: []dataprovider.ConditionPattern{
 			{
 				Pattern: username1,
@@ -637,7 +637,7 @@ func TestEventRuleActions(t *testing.T) {
 	// simulate another check in progress
 	c := RetentionChecks.Add(RetentionCheck{}, &user1)
 	assert.NotNil(t, c)
-	err = executeRuleAction(dataRetentionAction, EventParams{}, dataprovider.ConditionOptions{
+	err = executeRuleAction(dataRetentionAction, &EventParams{}, dataprovider.ConditionOptions{
 		Names: []dataprovider.ConditionPattern{
 			{
 				Pattern: username1,
@@ -647,7 +647,7 @@ func TestEventRuleActions(t *testing.T) {
 	assert.Error(t, err)
 	RetentionChecks.remove(user1.Username)
 
-	err = executeRuleAction(dataRetentionAction, EventParams{}, dataprovider.ConditionOptions{
+	err = executeRuleAction(dataRetentionAction, &EventParams{}, dataprovider.ConditionOptions{
 		Names: []dataprovider.ConditionPattern{
 			{
 				Pattern: "no match",
@@ -667,7 +667,7 @@ func TestEventRuleActions(t *testing.T) {
 			},
 		},
 	}
-	err = executeRuleAction(action, EventParams{}, dataprovider.ConditionOptions{
+	err = executeRuleAction(action, &EventParams{}, dataprovider.ConditionOptions{
 		Names: []dataprovider.ConditionPattern{
 			{
 				Pattern: "no match",
@@ -677,7 +677,7 @@ func TestEventRuleActions(t *testing.T) {
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "no existence check executed")
 	}
-	err = executeRuleAction(action, EventParams{}, dataprovider.ConditionOptions{
+	err = executeRuleAction(action, &EventParams{}, dataprovider.ConditionOptions{
 		Names: []dataprovider.ConditionPattern{
 			{
 				Pattern: username1,
@@ -686,7 +686,7 @@ func TestEventRuleActions(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	action.Options.FsConfig.Exist = []string{"/file1.txt", path.Join("/", retentionDir, "file2.txt")}
-	err = executeRuleAction(action, EventParams{}, dataprovider.ConditionOptions{
+	err = executeRuleAction(action, &EventParams{}, dataprovider.ConditionOptions{
 		Names: []dataprovider.ConditionPattern{
 			{
 				Pattern: username1,
@@ -702,7 +702,7 @@ func TestEventRuleActions(t *testing.T) {
 	assert.NoError(t, err)
 
 	action.Type = dataprovider.ActionTypeTransferQuotaReset
-	err = executeRuleAction(action, EventParams{}, dataprovider.ConditionOptions{
+	err = executeRuleAction(action, &EventParams{}, dataprovider.ConditionOptions{
 		Names: []dataprovider.ConditionPattern{
 			{
 				Pattern: username1,
@@ -715,7 +715,7 @@ func TestEventRuleActions(t *testing.T) {
 	assert.Equal(t, int64(0), userGet.UsedDownloadDataTransfer)
 	assert.Equal(t, int64(0), userGet.UsedUploadDataTransfer)
 
-	err = executeRuleAction(action, EventParams{}, dataprovider.ConditionOptions{
+	err = executeRuleAction(action, &EventParams{}, dataprovider.ConditionOptions{
 		Names: []dataprovider.ConditionPattern{
 			{
 				Pattern: "no match",
@@ -737,7 +737,7 @@ func TestEventRuleActions(t *testing.T) {
 			},
 		},
 	}
-	err = executeRuleAction(action, EventParams{}, dataprovider.ConditionOptions{
+	err = executeRuleAction(action, &EventParams{}, dataprovider.ConditionOptions{
 		Names: []dataprovider.ConditionPattern{
 			{
 				Pattern: "no match",
@@ -753,7 +753,7 @@ func TestEventRuleActions(t *testing.T) {
 			Deletes: []string{"/dir1"},
 		},
 	}
-	err = executeRuleAction(action, EventParams{}, dataprovider.ConditionOptions{
+	err = executeRuleAction(action, &EventParams{}, dataprovider.ConditionOptions{
 		Names: []dataprovider.ConditionPattern{
 			{
 				Pattern: "no match",
@@ -769,7 +769,7 @@ func TestEventRuleActions(t *testing.T) {
 			Deletes: []string{"/dir1"},
 		},
 	}
-	err = executeRuleAction(action, EventParams{}, dataprovider.ConditionOptions{
+	err = executeRuleAction(action, &EventParams{}, dataprovider.ConditionOptions{
 		Names: []dataprovider.ConditionPattern{
 			{
 				Pattern: "no match",
@@ -802,7 +802,7 @@ func TestEventRuleActions(t *testing.T) {
 	action = dataprovider.BaseEventAction{
 		Type: dataprovider.ActionTypeFolderQuotaReset,
 	}
-	err = executeRuleAction(action, EventParams{}, dataprovider.ConditionOptions{
+	err = executeRuleAction(action, &EventParams{}, dataprovider.ConditionOptions{
 		Names: []dataprovider.ConditionPattern{
 			{
 				Pattern: foldername1,
@@ -814,7 +814,7 @@ func TestEventRuleActions(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.WriteFile(filepath.Join(folder1.MappedPath, "file.txt"), []byte("folder"), 0666)
 	assert.NoError(t, err)
-	err = executeRuleAction(action, EventParams{}, dataprovider.ConditionOptions{
+	err = executeRuleAction(action, &EventParams{}, dataprovider.ConditionOptions{
 		Names: []dataprovider.ConditionPattern{
 			{
 				Pattern: foldername1,
@@ -828,7 +828,7 @@ func TestEventRuleActions(t *testing.T) {
 	assert.Equal(t, int64(6), folderGet.UsedQuotaSize)
 	// simulate another quota scan in progress
 	assert.True(t, QuotaScans.AddVFolderQuotaScan(foldername1))
-	err = executeRuleAction(action, EventParams{}, dataprovider.ConditionOptions{
+	err = executeRuleAction(action, &EventParams{}, dataprovider.ConditionOptions{
 		Names: []dataprovider.ConditionPattern{
 			{
 				Pattern: foldername1,
@@ -838,7 +838,7 @@ func TestEventRuleActions(t *testing.T) {
 	assert.Error(t, err)
 	assert.True(t, QuotaScans.RemoveVFolderQuotaScan(foldername1))
 
-	err = executeRuleAction(action, EventParams{}, dataprovider.ConditionOptions{
+	err = executeRuleAction(action, &EventParams{}, dataprovider.ConditionOptions{
 		Names: []dataprovider.ConditionPattern{
 			{
 				Pattern: "no folder match",
@@ -920,7 +920,7 @@ func TestGetFileContent(t *testing.T) {
 }
 
 func TestFilesystemActionErrors(t *testing.T) {
-	err := executeFsRuleAction(dataprovider.EventActionFilesystemConfig{}, dataprovider.ConditionOptions{}, EventParams{})
+	err := executeFsRuleAction(dataprovider.EventActionFilesystemConfig{}, dataprovider.ConditionOptions{}, &EventParams{})
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "unsupported filesystem action")
 	}
@@ -950,7 +950,7 @@ func TestFilesystemActionErrors(t *testing.T) {
 		Subject:     "subject",
 		Body:        "body",
 		Attachments: []string{"/file.txt"},
-	}, EventParams{
+	}, &EventParams{
 		sender: username,
 	})
 	assert.Error(t, err)
@@ -973,7 +973,7 @@ func TestFilesystemActionErrors(t *testing.T) {
 		Subject:     "subject",
 		Body:        "body",
 		Attachments: []string{"/file1.txt"},
-	}, EventParams{
+	}, &EventParams{
 		sender: username,
 	})
 	assert.Error(t, err)
@@ -1008,7 +1008,7 @@ func TestFilesystemActionErrors(t *testing.T) {
 				},
 			},
 		},
-	}, EventParams{}, dataprovider.ConditionOptions{
+	}, &EventParams{}, dataprovider.ConditionOptions{
 		Names: []dataprovider.ConditionPattern{
 			{
 				Pattern: username,
@@ -1045,7 +1045,7 @@ func TestFilesystemActionErrors(t *testing.T) {
 					Deletes: []string{"/adir/sub/f.dat"},
 				},
 			},
-		}, EventParams{}, dataprovider.ConditionOptions{
+		}, &EventParams{}, dataprovider.ConditionOptions{
 			Names: []dataprovider.ConditionPattern{
 				{
 					Pattern: username,
@@ -1071,7 +1071,7 @@ func TestFilesystemActionErrors(t *testing.T) {
 					MkDirs: []string{"/adir/sub/sub1"},
 				},
 			},
-		}, EventParams{}, dataprovider.ConditionOptions{
+		}, &EventParams{}, dataprovider.ConditionOptions{
 			Names: []dataprovider.ConditionPattern{
 				{
 					Pattern: username,
@@ -1119,7 +1119,7 @@ func TestQuotaActionsWithQuotaTrackDisabled(t *testing.T) {
 	err = os.MkdirAll(user.GetHomeDir(), os.ModePerm)
 	assert.NoError(t, err)
 	err = executeRuleAction(dataprovider.BaseEventAction{Type: dataprovider.ActionTypeUserQuotaReset},
-		EventParams{}, dataprovider.ConditionOptions{
+		&EventParams{}, dataprovider.ConditionOptions{
 			Names: []dataprovider.ConditionPattern{
 				{
 					Pattern: username,
@@ -1129,7 +1129,7 @@ func TestQuotaActionsWithQuotaTrackDisabled(t *testing.T) {
 	assert.Error(t, err)
 
 	err = executeRuleAction(dataprovider.BaseEventAction{Type: dataprovider.ActionTypeTransferQuotaReset},
-		EventParams{}, dataprovider.ConditionOptions{
+		&EventParams{}, dataprovider.ConditionOptions{
 			Names: []dataprovider.ConditionPattern{
 				{
 					Pattern: username,
@@ -1154,7 +1154,7 @@ func TestQuotaActionsWithQuotaTrackDisabled(t *testing.T) {
 	assert.NoError(t, err)
 
 	err = executeRuleAction(dataprovider.BaseEventAction{Type: dataprovider.ActionTypeFolderQuotaReset},
-		EventParams{}, dataprovider.ConditionOptions{
+		&EventParams{}, dataprovider.ConditionOptions{
 			Names: []dataprovider.ConditionPattern{
 				{
 					Pattern: foldername,
@@ -1241,4 +1241,38 @@ func TestScheduledActions(t *testing.T) {
 	err = os.RemoveAll(backupsPath)
 	assert.NoError(t, err)
 	stopEventScheduler()
+}
+
+func TestEventParamsCopy(t *testing.T) {
+	params := EventParams{
+		Name:   "name",
+		Event:  "event",
+		Status: 1,
+		errors: []string{"error1"},
+	}
+	paramsCopy := params.getACopy()
+	assert.Equal(t, params, *paramsCopy)
+	params.Name = "name mod"
+	paramsCopy.Event = "event mod"
+	paramsCopy.Status = 2
+	params.errors = append(params.errors, "error2")
+	paramsCopy.errors = append(paramsCopy.errors, "error3")
+	assert.Equal(t, []string{"error1", "error3"}, paramsCopy.errors)
+	assert.Equal(t, []string{"error1", "error2"}, params.errors)
+	assert.Equal(t, "name mod", params.Name)
+	assert.Equal(t, "name", paramsCopy.Name)
+	assert.Equal(t, "event", params.Event)
+	assert.Equal(t, "event mod", paramsCopy.Event)
+	assert.Equal(t, 1, params.Status)
+	assert.Equal(t, 2, paramsCopy.Status)
+}
+
+func TestEventParamsStatusFromError(t *testing.T) {
+	params := EventParams{Status: 1}
+	params.AddError(os.ErrNotExist)
+	assert.Equal(t, 1, params.Status)
+
+	params = EventParams{Status: 1, updateStatusFromError: true}
+	params.AddError(os.ErrNotExist)
+	assert.Equal(t, 2, params.Status)
 }

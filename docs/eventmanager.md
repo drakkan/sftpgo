@@ -23,6 +23,8 @@ The following placeholders are supported:
 - `{{Name}}`. Username, folder name or admin username for provider actions.
 - `{{Event}}`. Event name, for example `upload`, `download` for filesystem events or `add`, `update` for provider events.
 - `{{Status}}`. Status for `upload`, `download` and `ssh_cmd` events. 1 means no error, 2 means a generic error occurred, 3 means quota exceeded error.
+- `{{StatusString}}`. Status as string. Possible values "OK", "KO".
+- `{{ErrorString}}`. Error details. Replaced with an empty string if no errors occur.
 - `{{VirtualPath}}`. Path seen by SFTPGo users, for example `/adir/afile.txt`.
 - `{{FsPath}}`. Full filesystem path, for example `/user/homedir/adir/afile.txt` or `C:/data/user/homedir/adir/afile.txt` on Windows.
 - `{{ObjectName}}`. File/directory name, for example `afile.txt` or provider object name.
@@ -51,7 +53,7 @@ Actions such as user quota reset, transfer quota reset, data retention check, fo
 Actions are executed in a sequential order except for sync actions that are executed before the others. For each action associated to a rule you can define the following settings:
 
 - `Stop on failure`, the next action will not be executed if the current one fails.
-- `Failure action`, this action will be executed only if at least another one fails.
+- `Failure action`, this action will be executed only if at least another one fails. :warning: Please note that a failure action isn't executed if the event fails, for example if a download fails the main action is executed. The failure action is executed only if one of the non-failure actions associated to a rule fails.
 - `Execute sync`, for upload events, you can execute the action synchronously. Executing an action synchronously means that SFTPGo will not return a result code to the client (which is waiting for it) until your action have completed its execution. If your acion takes a long time to complete this could cause a timeout on the client side, which wouldn't receive the server response in a timely manner and eventually drop the connection.
 
 If you are running multiple SFTPGo instances connected to the same data provider, you can choose whether to allow simultaneous execution for scheduled actions.

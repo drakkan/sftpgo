@@ -122,7 +122,7 @@ func ExecuteActionNotification(conn *BaseConnection, operation, filePath, virtua
 	}
 	var errRes error
 	if hasRules {
-		errRes = eventManager.handleFsEvent(EventParams{
+		params := EventParams{
 			Name:              notification.Username,
 			Event:             notification.Action,
 			Status:            notification.Status,
@@ -136,7 +136,11 @@ func ExecuteActionNotification(conn *BaseConnection, operation, filePath, virtua
 			IP:                notification.IP,
 			Timestamp:         notification.Timestamp,
 			Object:            nil,
-		})
+		}
+		if err != nil {
+			params.AddError(fmt.Errorf("%q failed: %w", params.Event, err))
+		}
+		errRes = eventManager.handleFsEvent(params)
 	}
 	if hasHook {
 		if util.Contains(Config.Actions.ExecuteSync, operation) {

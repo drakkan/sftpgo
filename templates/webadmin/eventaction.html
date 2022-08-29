@@ -542,6 +542,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                     <span class="shortcut"><b>{{`{{Status}}`}}</b></span> => Status for "upload", "download" and "ssh_cmd" events. 1 means no error, 2 means a generic error occurred, 3 means quota exceeded error.
                 </p>
                 <p>
+                    <span class="shortcut"><b>{{`{{StatusString}}`}}</b></span> => Status as string. Possible values "OK", "KO".
+                </p>
+                <p>
+                    <span class="shortcut"><b>{{`{{ErrorString}}`}}</b></span> => Error details. Replaced with an empty string if no errors occur.
+                </p>
+                <p>
                     <span class="shortcut"><b>{{`{{VirtualPath}}`}}</b></span> => Path seen by SFTPGo users, for example "/adir/afile.txt".
                 </p>
                 <p>
