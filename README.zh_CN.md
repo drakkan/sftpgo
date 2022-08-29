@@ -11,6 +11,39 @@
 功能齐全、高度可配置化、支持自定义 HTTP/S，FTP/S 和 WebDAV 的 SFTP 服务。
 一些存储后端支持：本地文件系统、加密本地文件系统、S3（兼容）对象存储，Google Cloud 存储，Azure Blob 存储，SFTP。
 
+## 赞助商
+
+如果你觉得 SFTPGo 有用，请考虑支持这个开源项目。
+
+维护和发展 SFTPGo 对我来说是很多工作——很容易相当于一份全职工作。
+
+我想让 SFTPGo 成为一个可持续的长期项目，并且不想引入双重许可选项并将某些功能仅限于专有版本。
+
+如果您使用 SFTPGo，确保您所依赖的项目保持健康和维护良好符合您的最大利益。
+这只能通过您的捐款和[赞助](https://github.com/sponsors/drakkan) 发生：heart：
+
+如果您只是拿走任何东西而不返回任何东西，从长远来看，该项目将失败，您将被迫为类似的专有解决方案付费。
+
+[更多信息](https://github.com/drakkan/sftpgo/issues/452)。
+
+### 感谢我们的赞助商
+
+#### 白金赞助商
+
+[<img src="./img/Aledade_logo.png" alt="Aledade logo" width="202" height="70">](https://www.aledade.com/)
+
+#### 铜牌赞助商
+
+[<img src="https://www.7digital.com/wp-content/themes/sevendigital/images/top_logo.png" alt="7digital logo">](https://www.7digital.com/)
+
+## 支持政策
+
+SFTPGo 是一个开源项目，您当然可以免费使用它，但也请不要要求免费支持。
+
+我们将检查报告的问题以查看您是否遇到错误，如果是，我们将修复它，但只会为项目赞助商/捐助者提供支持。
+
+如果您报告无效问题或要求逐步支持，您的问题将保持打开状态而没有答案，或者将被关闭为无效而无需进一步解释。 感谢您的理解。
+
 ## 特性
 
 - 支持服务本地文件系统、加密本地文件系统、S3 兼容对象存储、Google Cloud 存储、Azure Blob 存储或其它基于 SFTP/SCP/FTP/WebDAV 协议的 SFTP 账户。
@@ -115,7 +148,7 @@ SFTPGo 在 [AWS Marketplace](https://aws.amazon.com/marketplace/seller-profile?i
 
 可以完整的配置项方法说明可以参考 [配置项](./docs/full-configuration.md)。
 
-请确保按需运行之前，[初始化数据提供程序](#data-provider-initialization-and-management)。
+请确保按需运行之前，[初始化数据提供程序](#数据提供程序初始化和管理)。
 
 默认配置启动 STFPGo，运行：
 

@@ -36,6 +36,14 @@ More [info](https://github.com/drakkan/sftpgo/issues/452).
 
 [<img src="https://www.7digital.com/wp-content/themes/sevendigital/images/top_logo.png" alt="7digital logo">](https://www.7digital.com/)
 
+## Support policy
+
+SFTPGo is an Open Source project and you can of course use it for free but please don't ask for free support as well.
+
+We will check the reported issues to see if you are experiencing a bug and if so we'll will fix it, but will only provide support to project sponsors/donors.
+
+If you report an invalid issue or ask for step-by-step support, your issue will remain open with no answer or will be closed as invalid without further explanation. Thanks for understanding.
+
 ## Features
 
 - Support for serving local filesystem, encrypted local filesystem, S3 Compatible Object Storage, Google Cloud Storage, Azure Blob Storage or other SFTP accounts over SFTP/SCP/FTP/WebDAV.
