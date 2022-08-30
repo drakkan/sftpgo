@@ -6055,6 +6055,11 @@ components:
         cmd:
           type: string
           description: absolute path to the command to execute
+        args:
+          type: array
+          items:
+            type: string
+          description: 'command line arguments'
         timeout:
           type: integer
           minimum: 1

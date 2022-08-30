@@ -705,11 +705,15 @@ func executeCommandRuleAction(c dataprovider.EventActionCommandConfig, params *E
 	for _, keyVal := range c.EnvVars {
 		envVars = append(envVars, fmt.Sprintf("%s=%s", keyVal.Key, replaceWithReplacer(keyVal.Value, replacer)))
 	}
+	args := make([]string, 0, len(c.Args))
+	for _, arg := range c.Args {
+		args = append(args, replaceWithReplacer(arg, replacer))
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(c.Timeout)*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, c.Cmd)
+	cmd := exec.CommandContext(ctx, c.Cmd, args...)
 	cmd.Env = append(cmd.Env, os.Environ()...)
 	cmd.Env = append(cmd.Env, envVars...)
 
@@ -1318,6 +1322,7 @@ func executeRuleAsyncActions(rule dataprovider.EventRule, params *EventParams, f
 		}
 	}
 	if len(failedActions) > 0 {
+		params.updateStatusFromError = false
 		// execute failure actions
 		for _, action := range rule.Actions {
 			if action.Options.IsFailureAction {

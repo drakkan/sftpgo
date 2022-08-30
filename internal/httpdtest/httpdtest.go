@@ -2306,6 +2306,14 @@ func compareEventActionCmdConfigFields(expected, actual dataprovider.EventAction
 	if expected.Timeout != actual.Timeout {
 		return errors.New("cmd timeout mismatch")
 	}
+	if len(expected.Args) != len(actual.Args) {
+		return errors.New("cmd args mismatch")
+	}
+	for _, v := range expected.Args {
+		if !util.Contains(actual.Args, v) {
+			return errors.New("cmd args content mismatch")
+		}
+	}
 	if err := compareKeyValues(expected.EnvVars, actual.EnvVars); err != nil {
 		return errors.New("cmd env vars mismatch")
 	}

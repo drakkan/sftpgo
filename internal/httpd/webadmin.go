@@ -1898,6 +1898,10 @@ func getEventActionOptionsFromPostFields(r *http.Request) (dataprovider.BaseEven
 	if r.Form.Get("email_attachments") != "" {
 		emailAttachments = strings.Split(strings.ReplaceAll(r.Form.Get("email_attachments"), " ", ""), ",")
 	}
+	var cmdArgs []string
+	if r.Form.Get("cmd_arguments") != "" {
+		cmdArgs = strings.Split(strings.ReplaceAll(r.Form.Get("cmd_arguments"), " ", ""), ",")
+	}
 	options := dataprovider.BaseEventActionOptions{
 		HTTPConfig: dataprovider.EventActionHTTPConfig{
 			Endpoint:        r.Form.Get("http_endpoint"),
@@ -1912,6 +1916,7 @@ func getEventActionOptionsFromPostFields(r *http.Request) (dataprovider.BaseEven
 		},
 		CmdConfig: dataprovider.EventActionCommandConfig{
 			Cmd:     r.Form.Get("cmd_path"),
+			Args:    cmdArgs,
 			Timeout: cmdTimeout,
 			EnvVars: getKeyValsFromPostFields(r, "cmd_env_key", "cmd_env_val"),
 		},

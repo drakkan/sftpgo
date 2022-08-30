@@ -3193,7 +3193,7 @@ func TestEventRule(t *testing.T) {
 	assert.NoError(t, err)
 	movedFileName := "moved.dat"
 	movedPath := filepath.Join(user.HomeDir, movedFileName)
-	err = os.WriteFile(uploadScriptPath, getUploadScriptContent(movedPath, 0), 0755)
+	err = os.WriteFile(uploadScriptPath, getUploadScriptContent(movedPath, "", 0), 0755)
 	assert.NoError(t, err)
 
 	action1.Type = dataprovider.ActionTypeCommand
@@ -3216,6 +3216,7 @@ func TestEventRule(t *testing.T) {
 	action1, _, err = httpdtest.UpdateEventAction(action1, http.StatusOK)
 	assert.NoError(t, err)
 
+	dirName := "subdir"
 	conn, client, err := getSftpClient(user)
 	if assert.NoError(t, err) {
 		defer conn.Close()
@@ -3229,7 +3230,6 @@ func TestEventRule(t *testing.T) {
 		if assert.NoError(t, err) {
 			assert.Equal(t, size, info.Size())
 		}
-		dirName := "subdir"
 		err = client.Mkdir(dirName)
 		assert.NoError(t, err)
 		err = client.Mkdir("subdir1")
@@ -3308,6 +3308,29 @@ func TestEventRule(t *testing.T) {
 		assert.True(t, util.Contains(email.To, "test1@example.com"))
 		assert.True(t, util.Contains(email.To, "test2@example.com"))
 		assert.Contains(t, email.Data, fmt.Sprintf(`Subject: New "download" from "%s"`, user.Username))
+	}
+	// test upload action command with arguments
+	action1.Options.CmdConfig.Args = []string{"{{Event}}", "{{VirtualPath}}", "custom_arg"}
+	action1, _, err = httpdtest.UpdateEventAction(action1, http.StatusOK)
+	assert.NoError(t, err)
+	uploadLogFilePath := filepath.Join(os.TempDir(), "upload.log")
+	err = os.WriteFile(uploadScriptPath, getUploadScriptContent(movedPath, uploadLogFilePath, 0), 0755)
+	assert.NoError(t, err)
+	conn, client, err = getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		err = writeSFTPFileNoCheck(path.Join(dirName, testFileName), 123, client)
+		assert.NoError(t, err)
+
+		logContent, err := os.ReadFile(uploadLogFilePath)
+		assert.NoError(t, err)
+		assert.Equal(t, fmt.Sprintf("upload %s custom_arg", util.CleanPath(path.Join(dirName, testFileName))),
+			strings.TrimSpace(string(logContent)))
+
+		err = os.Remove(uploadLogFilePath)
+		assert.NoError(t, err)
 	}
 
 	_, err = httpdtest.RemoveEventRule(rule1, http.StatusOK)
@@ -4277,7 +4300,7 @@ func TestSyncUploadAction(t *testing.T) {
 	assert.NoError(t, err)
 	movedFileName := "moved.dat"
 	movedPath := filepath.Join(user.HomeDir, movedFileName)
-	err = os.WriteFile(uploadScriptPath, getUploadScriptContent(movedPath, 0), 0755)
+	err = os.WriteFile(uploadScriptPath, getUploadScriptContent(movedPath, "", 0), 0755)
 	assert.NoError(t, err)
 	conn, client, err := getSftpClient(user)
 	if assert.NoError(t, err) {
@@ -4299,7 +4322,7 @@ func TestSyncUploadAction(t *testing.T) {
 		assert.Equal(t, size, user.UsedQuotaSize)
 		// test some hook failure
 		// the uploaded file is moved and the hook fails, it will be not removed from the quota
-		err = os.WriteFile(uploadScriptPath, getUploadScriptContent(movedPath, 1), 0755)
+		err = os.WriteFile(uploadScriptPath, getUploadScriptContent(movedPath, "", 1), 0755)
 		assert.NoError(t, err)
 		err = writeSFTPFileNoCheck(testFileName+"_1", size, client)
 		assert.Error(t, err)
@@ -4311,7 +4334,7 @@ func TestSyncUploadAction(t *testing.T) {
 		// the uploaded file is not moved and the hook fails, the uploaded file will be deleted
 		// and removed from the quota
 		movedPath = filepath.Join(user.HomeDir, "missing dir", movedFileName)
-		err = os.WriteFile(uploadScriptPath, getUploadScriptContent(movedPath, 1), 0755)
+		err = os.WriteFile(uploadScriptPath, getUploadScriptContent(movedPath, "", 1), 0755)
 		assert.NoError(t, err)
 		err = writeSFTPFileNoCheck(testFileName+"_2", size, client)
 		assert.Error(t, err)
@@ -5278,9 +5301,12 @@ func writeSFTPFileNoCheck(name string, size int64, client *sftp.Client) error {
 	return f.Close()
 }
 
-func getUploadScriptContent(movedPath string, exitStatus int) []byte {
+func getUploadScriptContent(movedPath, logFilePath string, exitStatus int) []byte {
 	content := []byte("#!/bin/sh\n\n")
 	content = append(content, []byte("sleep 1\n")...)
+	if logFilePath != "" {
+		content = append(content, []byte(fmt.Sprintf("echo $@ > %v\n", logFilePath))...)
+	}
 	content = append(content, []byte(fmt.Sprintf("mv ${SFTPGO_ACTION_PATH} %v\n", movedPath))...)
 	content = append(content, []byte(fmt.Sprintf("exit %d", exitStatus))...)
 	return content

@@ -272,6 +272,7 @@ func (c *EventActionHTTPConfig) GetHTTPClient() *http.Client {
 // EventActionCommandConfig defines the configuration for a command event target
 type EventActionCommandConfig struct {
 	Cmd     string     `json:"cmd,omitempty"`
+	Args    []string   `json:"args,omitempty"`
 	Timeout int        `json:"timeout,omitempty"`
 	EnvVars []KeyValue `json:"env_vars,omitempty"`
 }
@@ -291,7 +292,18 @@ func (c *EventActionCommandConfig) validate() error {
 			return util.NewValidationError("invalid command env vars")
 		}
 	}
+	c.Args = util.RemoveDuplicates(c.Args, true)
+	for _, arg := range c.Args {
+		if arg == "" {
+			return util.NewValidationError("invalid command args")
+		}
+	}
 	return nil
+}
+
+// GetArgumentsAsString returns the list of command arguments as comma separated string
+func (c EventActionCommandConfig) GetArgumentsAsString() string {
+	return strings.Join(c.Args, ",")
 }
 
 // EventActionEmailConfig defines the configuration options for SMTP event actions
@@ -566,6 +578,8 @@ func (o *BaseEventActionOptions) getACopy() BaseEventActionOptions {
 	copy(emailRecipients, o.EmailConfig.Recipients)
 	emailAttachments := make([]string, len(o.EmailConfig.Attachments))
 	copy(emailAttachments, o.EmailConfig.Attachments)
+	cmdArgs := make([]string, len(o.CmdConfig.Args))
+	copy(cmdArgs, o.CmdConfig.Args)
 	folders := make([]FolderRetention, 0, len(o.RetentionConfig.Folders))
 	for _, folder := range o.RetentionConfig.Folders {
 		folders = append(folders, FolderRetention{
@@ -590,6 +604,7 @@ func (o *BaseEventActionOptions) getACopy() BaseEventActionOptions {
 		},
 		CmdConfig: EventActionCommandConfig{
 			Cmd:     o.CmdConfig.Cmd,
+			Args:    cmdArgs,
 			Timeout: o.CmdConfig.Timeout,
 			EnvVars: cloneKeyValues(o.CmdConfig.EnvVars),
 		},

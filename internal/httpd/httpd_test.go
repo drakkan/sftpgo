@@ -1531,6 +1531,11 @@ func TestEventActionValidation(t *testing.T) {
 	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
 	assert.NoError(t, err)
 	assert.Contains(t, string(resp), "invalid command env vars")
+	action.Options.CmdConfig.EnvVars = nil
+	action.Options.CmdConfig.Args = []string{"arg1", ""}
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "invalid command args")
 
 	action.Type = dataprovider.ActionTypeEmail
 	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
@@ -18812,6 +18817,7 @@ func TestWebEventAction(t *testing.T) {
 	action.Type = dataprovider.ActionTypeCommand
 	action.Options.CmdConfig = dataprovider.EventActionCommandConfig{
 		Cmd:     filepath.Join(os.TempDir(), "cmd"),
+		Args:    []string{"arg1", "arg2"},
 		Timeout: 20,
 		EnvVars: []dataprovider.KeyValue{
 			{
@@ -18842,6 +18848,7 @@ func TestWebEventAction(t *testing.T) {
 	form.Set("cmd_timeout", fmt.Sprintf("%d", action.Options.CmdConfig.Timeout))
 	form.Set("cmd_env_key0", action.Options.CmdConfig.EnvVars[0].Key)
 	form.Set("cmd_env_val0", action.Options.CmdConfig.EnvVars[0].Value)
+	form.Set("cmd_arguments", "arg1  ,arg2  ")
 	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminEventActionPath, action.Name),
 		bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
@@ -18873,6 +18880,7 @@ func TestWebEventAction(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, action.Type, actionGet.Type)
 	assert.Equal(t, action.Options.CmdConfig.Cmd, actionGet.Options.CmdConfig.Cmd)
+	assert.Equal(t, action.Options.CmdConfig.Args, actionGet.Options.CmdConfig.Args)
 	assert.Equal(t, action.Options.CmdConfig.Timeout, actionGet.Options.CmdConfig.Timeout)
 	assert.Equal(t, action.Options.CmdConfig.EnvVars, actionGet.Options.CmdConfig.EnvVars)
 	assert.Equal(t, dataprovider.EventActionHTTPConfig{}, actionGet.Options.HTTPConfig)
