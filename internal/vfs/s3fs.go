@@ -835,7 +835,7 @@ func (fs *S3Fs) doMultipartCopy(source, target, contentType string, fileSize int
 	var completedParts []types.CompletedPart
 	var partMutex sync.Mutex
 	var wg sync.WaitGroup
-	var hasError int32
+	var hasError atomic.Bool
 	var errOnce sync.Once
 	var copyError error
 	var partNumber int32
@@ -854,7 +854,7 @@ func (fs *S3Fs) doMultipartCopy(source, target, contentType string, fileSize int
 		offset = end
 
 		guard <- struct{}{}
-		if atomic.LoadInt32(&hasError) == 1 {
+		if hasError.Load() {
 			fsLog(fs, logger.LevelDebug, "previous multipart copy error, copy for part %d not started", partNumber)
 			break
 		}
@@ -880,7 +880,7 @@ func (fs *S3Fs) doMultipartCopy(source, target, contentType string, fileSize int
 			if err != nil {
 				errOnce.Do(func() {
 					fsLog(fs, logger.LevelError, "unable to copy part number %d: %+v", partNum, err)
-					atomic.StoreInt32(&hasError, 1)
+					hasError.Store(true)
 					copyError = fmt.Errorf("error copying part number %d: %w", partNum, err)
 					opCancel()
 

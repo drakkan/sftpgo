@@ -82,7 +82,7 @@ func HandleCertificateEvent(params EventParams) {
 // eventRulesContainer stores event rules by trigger
 type eventRulesContainer struct {
 	sync.RWMutex
-	lastLoad          int64
+	lastLoad          atomic.Int64
 	FsEvents          []dataprovider.EventRule
 	ProviderEvents    []dataprovider.EventRule
 	Schedules         []dataprovider.EventRule
@@ -101,11 +101,11 @@ func (r *eventRulesContainer) removeAsyncTask() {
 }
 
 func (r *eventRulesContainer) getLastLoadTime() int64 {
-	return atomic.LoadInt64(&r.lastLoad)
+	return r.lastLoad.Load()
 }
 
 func (r *eventRulesContainer) setLastLoadTime(modTime int64) {
-	atomic.StoreInt64(&r.lastLoad, modTime)
+	r.lastLoad.Store(modTime)
 }
 
 // RemoveRule deletes the rule with the specified name

@@ -186,16 +186,16 @@ func (rl *rateLimiter) Wait(source string) (time.Duration, error) {
 }
 
 type sourceRateLimiter struct {
-	lastActivity int64
+	lastActivity *atomic.Int64
 	bucket       *rate.Limiter
 }
 
 func (s *sourceRateLimiter) updateLastActivity() {
-	atomic.StoreInt64(&s.lastActivity, time.Now().UnixNano())
+	s.lastActivity.Store(time.Now().UnixNano())
 }
 
 func (s *sourceRateLimiter) getLastActivity() int64 {
-	return atomic.LoadInt64(&s.lastActivity)
+	return s.lastActivity.Load()
 }
 
 type sourceBuckets struct {
@@ -224,7 +224,8 @@ func (b *sourceBuckets) addAndReserve(r *rate.Limiter, source string) *rate.Rese
 	b.cleanup()
 
 	src := sourceRateLimiter{
-		bucket: r,
+		lastActivity: new(atomic.Int64),
+		bucket:       r,
 	}
 	src.updateLastActivity()
 	b.buckets[source] = src

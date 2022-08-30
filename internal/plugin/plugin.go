@@ -93,7 +93,7 @@ func (c *Config) newKMSPluginSecretProvider(base kms.BaseSecret, url, masterKey 
 
 // Manager handles enabled plugins
 type Manager struct {
-	closed int32
+	closed atomic.Bool
 	done   chan bool
 	// List of configured plugins
 	Configs          []Config `json:"plugins" mapstructure:"plugins"`
@@ -124,10 +124,10 @@ func Initialize(configs []Config, logLevel string) error {
 	Handler = Manager{
 		Configs:          configs,
 		done:             make(chan bool),
-		closed:           0,
 		authScopes:       -1,
 		concurrencyGuard: make(chan struct{}, 250),
 	}
+	Handler.closed.Store(false)
 	setLogLevel(logLevel)
 	if len(configs) == 0 {
 		return nil
@@ -604,7 +604,7 @@ func (m *Manager) checkCrashedPlugins() {
 }
 
 func (m *Manager) restartNotifierPlugin(config Config, idx int) {
-	if atomic.LoadInt32(&m.closed) == 1 {
+	if m.closed.Load() {
 		return
 	}
 	logger.Info(logSender, "", "try to restart crashed notifier plugin %#v, idx: %v", config.Cmd, idx)
@@ -622,7 +622,7 @@ func (m *Manager) restartNotifierPlugin(config Config, idx int) {
 }
 
 func (m *Manager) restartKMSPlugin(config Config, idx int) {
-	if atomic.LoadInt32(&m.closed) == 1 {
+	if m.closed.Load() {
 		return
 	}
 	logger.Info(logSender, "", "try to restart crashed kms plugin %#v, idx: %v", config.Cmd, idx)
@@ -638,7 +638,7 @@ func (m *Manager) restartKMSPlugin(config Config, idx int) {
 }
 
 func (m *Manager) restartAuthPlugin(config Config, idx int) {
-	if atomic.LoadInt32(&m.closed) == 1 {
+	if m.closed.Load() {
 		return
 	}
 	logger.Info(logSender, "", "try to restart crashed auth plugin %#v, idx: %v", config.Cmd, idx)
@@ -654,7 +654,7 @@ func (m *Manager) restartAuthPlugin(config Config, idx int) {
 }
 
 func (m *Manager) restartSearcherPlugin(config Config) {
-	if atomic.LoadInt32(&m.closed) == 1 {
+	if m.closed.Load() {
 		return
 	}
 	logger.Info(logSender, "", "try to restart crashed searcher plugin %#v", config.Cmd)
@@ -670,7 +670,7 @@ func (m *Manager) restartSearcherPlugin(config Config) {
 }
 
 func (m *Manager) restartMetadaterPlugin(config Config) {
-	if atomic.LoadInt32(&m.closed) == 1 {
+	if m.closed.Load() {
 		return
 	}
 	logger.Info(logSender, "", "try to restart crashed metadater plugin %#v", config.Cmd)
@@ -686,7 +686,7 @@ func (m *Manager) restartMetadaterPlugin(config Config) {
 }
 
 func (m *Manager) restartIPFilterPlugin(config Config) {
-	if atomic.LoadInt32(&m.closed) == 1 {
+	if m.closed.Load() {
 		return
 	}
 	logger.Info(logSender, "", "try to restart crashed IP filter plugin %#v", config.Cmd)
@@ -712,7 +712,7 @@ func (m *Manager) removeTask() {
 // Cleanup releases all the active plugins
 func (m *Manager) Cleanup() {
 	logger.Debug(logSender, "", "cleanup")
-	atomic.StoreInt32(&m.closed, 1)
+	m.closed.Store(true)
 	close(m.done)
 	m.notifLock.Lock()
 	for _, n := range m.notifiers {

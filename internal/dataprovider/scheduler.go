@@ -28,11 +28,11 @@ import (
 
 var (
 	scheduler           *cron.Cron
-	lastUserCacheUpdate int64
+	lastUserCacheUpdate atomic.Int64
 	// used for bolt and memory providers, so we avoid iterating all users/rules
 	// to find recently modified ones
-	lastUserUpdate int64
-	lastRuleUpdate int64
+	lastUserUpdate atomic.Int64
+	lastRuleUpdate atomic.Int64
 )
 
 func stopScheduler() {
@@ -62,7 +62,7 @@ func startScheduler() error {
 }
 
 func addScheduledCacheUpdates() error {
-	lastUserCacheUpdate = util.GetTimeAsMsSinceEpoch(time.Now())
+	lastUserCacheUpdate.Store(util.GetTimeAsMsSinceEpoch(time.Now()))
 	_, err := scheduler.AddFunc("@every 10m", checkCacheUpdates)
 	if err != nil {
 		return fmt.Errorf("unable to schedule cache updates: %w", err)
@@ -79,9 +79,9 @@ func checkDataprovider() {
 }
 
 func checkCacheUpdates() {
-	providerLog(logger.LevelDebug, "start user cache check, update time %v", util.GetTimeFromMsecSinceEpoch(lastUserCacheUpdate))
+	providerLog(logger.LevelDebug, "start user cache check, update time %v", util.GetTimeFromMsecSinceEpoch(lastUserCacheUpdate.Load()))
 	checkTime := util.GetTimeAsMsSinceEpoch(time.Now())
-	users, err := provider.getRecentlyUpdatedUsers(lastUserCacheUpdate)
+	users, err := provider.getRecentlyUpdatedUsers(lastUserCacheUpdate.Load())
 	if err != nil {
 		providerLog(logger.LevelError, "unable to get recently updated users: %v", err)
 		return
@@ -102,22 +102,22 @@ func checkCacheUpdates() {
 		cachedPasswords.Remove(user.Username)
 	}
 
-	lastUserCacheUpdate = checkTime
-	providerLog(logger.LevelDebug, "end user cache check, new update time %v", util.GetTimeFromMsecSinceEpoch(lastUserCacheUpdate))
+	lastUserCacheUpdate.Store(checkTime)
+	providerLog(logger.LevelDebug, "end user cache check, new update time %v", util.GetTimeFromMsecSinceEpoch(lastUserCacheUpdate.Load()))
 }
 
 func setLastUserUpdate() {
-	atomic.StoreInt64(&lastUserUpdate, util.GetTimeAsMsSinceEpoch(time.Now()))
+	lastUserUpdate.Store(util.GetTimeAsMsSinceEpoch(time.Now()))
 }
 
 func getLastUserUpdate() int64 {
-	return atomic.LoadInt64(&lastUserUpdate)
+	return lastUserUpdate.Load()
 }
 
 func setLastRuleUpdate() {
-	atomic.StoreInt64(&lastRuleUpdate, util.GetTimeAsMsSinceEpoch(time.Now()))
+	lastRuleUpdate.Store(util.GetTimeAsMsSinceEpoch(time.Now()))
 }
 
 func getLastRuleUpdate() int64 {
-	return atomic.LoadInt64(&lastRuleUpdate)
+	return lastRuleUpdate.Load()
 }

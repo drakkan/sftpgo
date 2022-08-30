@@ -16,7 +16,6 @@ package httpd
 
 import (
 	"io"
-	"sync/atomic"
 
 	"github.com/eikenb/pipeat"
 
@@ -52,7 +51,7 @@ func newHTTPDFile(baseTransfer *common.BaseTransfer, pipeWriter *vfs.PipeWriter,
 
 // Read reads the contents to downloads.
 func (f *httpdFile) Read(p []byte) (n int, err error) {
-	if atomic.LoadInt32(&f.AbortTransfer) == 1 {
+	if f.AbortTransfer.Load() {
 		err := f.GetAbortError()
 		f.TransferError(err)
 		return 0, err
@@ -61,7 +60,7 @@ func (f *httpdFile) Read(p []byte) (n int, err error) {
 	f.Connection.UpdateLastActivity()
 
 	n, err = f.reader.Read(p)
-	atomic.AddInt64(&f.BytesSent, int64(n))
+	f.BytesSent.Add(int64(n))
 
 	if err == nil {
 		err = f.CheckRead()
@@ -76,7 +75,7 @@ func (f *httpdFile) Read(p []byte) (n int, err error) {
 
 // Write writes the contents to upload
 func (f *httpdFile) Write(p []byte) (n int, err error) {
-	if atomic.LoadInt32(&f.AbortTransfer) == 1 {
+	if f.AbortTransfer.Load() {
 		err := f.GetAbortError()
 		f.TransferError(err)
 		return 0, err
@@ -85,7 +84,7 @@ func (f *httpdFile) Write(p []byte) (n int, err error) {
 	f.Connection.UpdateLastActivity()
 
 	n, err = f.writer.Write(p)
-	atomic.AddInt64(&f.BytesReceived, int64(n))
+	f.BytesReceived.Add(int64(n))
 
 	if err == nil {
 		err = f.CheckWrite()

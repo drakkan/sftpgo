@@ -17,7 +17,6 @@ package sftpd
 import (
 	"fmt"
 	"io"
-	"sync/atomic"
 
 	"github.com/eikenb/pipeat"
 
@@ -107,7 +106,7 @@ func (t *transfer) ReadAt(p []byte, off int64) (n int, err error) {
 	t.Connection.UpdateLastActivity()
 
 	n, err = t.readerAt.ReadAt(p, off)
-	atomic.AddInt64(&t.BytesSent, int64(n))
+	t.BytesSent.Add(int64(n))
 
 	if err == nil {
 		err = t.CheckRead()
@@ -133,7 +132,7 @@ func (t *transfer) WriteAt(p []byte, off int64) (n int, err error) {
 	}
 
 	n, err = t.writerAt.WriteAt(p, off)
-	atomic.AddInt64(&t.BytesReceived, int64(n))
+	t.BytesReceived.Add(int64(n))
 
 	if err == nil {
 		err = t.CheckWrite()
@@ -213,13 +212,13 @@ func (t *transfer) copyFromReaderToWriter(dst io.Writer, src io.Reader) (int64, 
 			if nw > 0 {
 				written += int64(nw)
 				if isDownload {
-					atomic.StoreInt64(&t.BytesSent, written)
+					t.BytesSent.Store(written)
 					if errCheck := t.CheckRead(); errCheck != nil {
 						err = errCheck
 						break
 					}
 				} else {
-					atomic.StoreInt64(&t.BytesReceived, written)
+					t.BytesReceived.Store(written)
 					if errCheck := t.CheckWrite(); errCheck != nil {
 						err = errCheck
 						break
@@ -245,7 +244,7 @@ func (t *transfer) copyFromReaderToWriter(dst io.Writer, src io.Reader) (int64, 
 	}
 	t.ErrTransfer = err
 	if written > 0 || err != nil {
-		metric.TransferCompleted(atomic.LoadInt64(&t.BytesSent), atomic.LoadInt64(&t.BytesReceived), t.GetType(),
+		metric.TransferCompleted(t.BytesSent.Load(), t.BytesReceived.Load(), t.GetType(),
 			t.ErrTransfer, vfs.IsSFTPFs(t.Fs))
 	}
 	return written, err

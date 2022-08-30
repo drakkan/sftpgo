@@ -1114,12 +1114,12 @@ func TestConcurrency(t *testing.T) {
 	err = createTestFile(testFilePath, testFileSize)
 	assert.NoError(t, err)
 
-	closedConns := int32(0)
+	var closedConns atomic.Int32
 	for i := 0; i < numLogins; i++ {
 		wg.Add(1)
 		go func(counter int) {
 			defer wg.Done()
-			defer atomic.AddInt32(&closedConns, 1)
+			defer closedConns.Add(1)
 
 			conn, client, err := getSftpClient(user, usePubKey)
 			if assert.NoError(t, err) {
@@ -1139,7 +1139,7 @@ func TestConcurrency(t *testing.T) {
 		maxConns := 0
 		maxSessions := 0
 		for {
-			servedReqs := atomic.LoadInt32(&closedConns)
+			servedReqs := closedConns.Load()
 			if servedReqs > 0 {
 				stats := common.Connections.GetStats()
 				if len(stats) > maxConns {

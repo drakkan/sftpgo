@@ -23,13 +23,13 @@ import (
 
 // clienstMap is a struct containing the map of the connected clients
 type clientsMap struct {
-	totalConnections int32
+	totalConnections atomic.Int32
 	mu               sync.RWMutex
 	clients          map[string]int
 }
 
 func (c *clientsMap) add(source string) {
-	atomic.AddInt32(&c.totalConnections, 1)
+	c.totalConnections.Add(1)
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -42,7 +42,7 @@ func (c *clientsMap) remove(source string) {
 	defer c.mu.Unlock()
 
 	if val, ok := c.clients[source]; ok {
-		atomic.AddInt32(&c.totalConnections, -1)
+		c.totalConnections.Add(-1)
 		c.clients[source]--
 		if val > 1 {
 			return
@@ -54,7 +54,7 @@ func (c *clientsMap) remove(source string) {
 }
 
 func (c *clientsMap) getTotal() int32 {
-	return atomic.LoadInt32(&c.totalConnections)
+	return c.totalConnections.Load()
 }
 
 func (c *clientsMap) getTotalFrom(source string) int {

@@ -17,7 +17,6 @@ package ftpd
 import (
 	"errors"
 	"io"
-	"sync/atomic"
 
 	"github.com/eikenb/pipeat"
 
@@ -61,7 +60,7 @@ func (t *transfer) Read(p []byte) (n int, err error) {
 	t.Connection.UpdateLastActivity()
 
 	n, err = t.reader.Read(p)
-	atomic.AddInt64(&t.BytesSent, int64(n))
+	t.BytesSent.Add(int64(n))
 
 	if err == nil {
 		err = t.CheckRead()
@@ -79,7 +78,7 @@ func (t *transfer) Write(p []byte) (n int, err error) {
 	t.Connection.UpdateLastActivity()
 
 	n, err = t.writer.Write(p)
-	atomic.AddInt64(&t.BytesReceived, int64(n))
+	t.BytesReceived.Add(int64(n))
 
 	if err == nil {
 		err = t.CheckWrite()

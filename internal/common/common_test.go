@@ -24,7 +24,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -498,14 +497,14 @@ func TestIdleConnections(t *testing.T) {
 		},
 	}
 	c := NewBaseConnection(sshConn1.id+"_1", ProtocolSFTP, "", "", user)
-	c.lastActivity = time.Now().Add(-24 * time.Hour).UnixNano()
+	c.lastActivity.Store(time.Now().Add(-24 * time.Hour).UnixNano())
 	fakeConn := &fakeConnection{
 		BaseConnection: c,
 	}
 	// both ssh connections are expired but they should get removed only
 	// if there is no associated connection
-	sshConn1.lastActivity = c.lastActivity
-	sshConn2.lastActivity = c.lastActivity
+	sshConn1.lastActivity.Store(c.lastActivity.Load())
+	sshConn2.lastActivity.Store(c.lastActivity.Load())
 	Connections.AddSSHConnection(sshConn1)
 	err = Connections.Add(fakeConn)
 	assert.NoError(t, err)
@@ -520,7 +519,7 @@ func TestIdleConnections(t *testing.T) {
 	assert.Equal(t, Connections.GetActiveSessions(username), 2)
 
 	cFTP := NewBaseConnection("id2", ProtocolFTP, "", "", dataprovider.User{})
-	cFTP.lastActivity = time.Now().UnixNano()
+	cFTP.lastActivity.Store(time.Now().UnixNano())
 	fakeConn = &fakeConnection{
 		BaseConnection: cFTP,
 	}
@@ -541,9 +540,9 @@ func TestIdleConnections(t *testing.T) {
 	}, 1*time.Second, 200*time.Millisecond)
 	stopEventScheduler()
 	assert.Len(t, Connections.GetStats(), 2)
-	c.lastActivity = time.Now().Add(-24 * time.Hour).UnixNano()
-	cFTP.lastActivity = time.Now().Add(-24 * time.Hour).UnixNano()
-	sshConn2.lastActivity = c.lastActivity
+	c.lastActivity.Store(time.Now().Add(-24 * time.Hour).UnixNano())
+	cFTP.lastActivity.Store(time.Now().Add(-24 * time.Hour).UnixNano())
+	sshConn2.lastActivity.Store(c.lastActivity.Load())
 	startPeriodicChecks(100 * time.Millisecond)
 	assert.Eventually(t, func() bool { return len(Connections.GetStats()) == 0 }, 2*time.Second, 200*time.Millisecond)
 	assert.Eventually(t, func() bool {
@@ -646,9 +645,9 @@ func TestConnectionStatus(t *testing.T) {
 		BaseConnection: c1,
 	}
 	t1 := NewBaseTransfer(nil, c1, nil, "/p1", "/p1", "/r1", TransferUpload, 0, 0, 0, 0, true, fs, dataprovider.TransferQuota{})
-	t1.BytesReceived = 123
+	t1.BytesReceived.Store(123)
 	t2 := NewBaseTransfer(nil, c1, nil, "/p2", "/p2", "/r2", TransferDownload, 0, 0, 0, 0, true, fs, dataprovider.TransferQuota{})
-	t2.BytesSent = 456
+	t2.BytesSent.Store(456)
 	c2 := NewBaseConnection("id2", ProtocolSSH, "", "", user)
 	fakeConn2 := &fakeConnection{
 		BaseConnection: c2,
@@ -698,7 +697,7 @@ func TestConnectionStatus(t *testing.T) {
 
 	err = fakeConn3.SignalTransfersAbort()
 	assert.NoError(t, err)
-	assert.Equal(t, int32(1), atomic.LoadInt32(&t3.AbortTransfer))
+	assert.True(t, t3.AbortTransfer.Load())
 	err = t3.Close()
 	assert.NoError(t, err)
 	err = fakeConn3.SignalTransfersAbort()

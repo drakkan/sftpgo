@@ -1785,7 +1785,7 @@ func TestUploadError(t *testing.T) {
 	if assert.Error(t, transfer.ErrTransfer) {
 		assert.EqualError(t, transfer.ErrTransfer, errFake.Error())
 	}
-	assert.Equal(t, int64(0), transfer.BytesReceived)
+	assert.Equal(t, int64(0), transfer.BytesReceived.Load())
 
 	assert.NoFileExists(t, testfile)
 	assert.NoFileExists(t, fileTempName)

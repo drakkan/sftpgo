@@ -704,16 +704,17 @@ func (c *Configuration) ExecutePostConnectHook(ipAddr, protocol string) error {
 type SSHConnection struct {
 	id           string
 	conn         net.Conn
-	lastActivity int64
+	lastActivity atomic.Int64
 }
 
 // NewSSHConnection returns a new SSHConnection
 func NewSSHConnection(id string, conn net.Conn) *SSHConnection {
-	return &SSHConnection{
-		id:           id,
-		conn:         conn,
-		lastActivity: time.Now().UnixNano(),
+	c := &SSHConnection{
+		id:   id,
+		conn: conn,
 	}
+	c.lastActivity.Store(time.Now().UnixNano())
+	return c
 }
 
 // GetID returns the ID for this SSHConnection
@@ -723,12 +724,12 @@ func (c *SSHConnection) GetID() string {
 
 // UpdateLastActivity updates last activity for this connection
 func (c *SSHConnection) UpdateLastActivity() {
-	atomic.StoreInt64(&c.lastActivity, time.Now().UnixNano())
+	c.lastActivity.Store(time.Now().UnixNano())
 }
 
 // GetLastActivity returns the last connection activity
 func (c *SSHConnection) GetLastActivity() time.Time {
-	return time.Unix(0, atomic.LoadInt64(&c.lastActivity))
+	return time.Unix(0, c.lastActivity.Load())
 }
 
 // Close closes the underlying network connection
@@ -741,7 +742,7 @@ type ActiveConnections struct {
 	// clients contains both authenticated and estabilished connections and the ones waiting
 	// for authentication
 	clients              clientsMap
-	transfersCheckStatus int32
+	transfersCheckStatus atomic.Bool
 	sync.RWMutex
 	connections    []ActiveConnection
 	sshConnections []*SSHConnection
@@ -953,12 +954,12 @@ func (conns *ActiveConnections) checkIdles() {
 }
 
 func (conns *ActiveConnections) checkTransfers() {
-	if atomic.LoadInt32(&conns.transfersCheckStatus) == 1 {
+	if conns.transfersCheckStatus.Load() {
 		logger.Warn(logSender, "", "the previous transfer check is still running, skipping execution")
 		return
 	}
-	atomic.StoreInt32(&conns.transfersCheckStatus, 1)
-	defer atomic.StoreInt32(&conns.transfersCheckStatus, 0)
+	conns.transfersCheckStatus.Store(true)
+	defer conns.transfersCheckStatus.Store(false)
 
 	conns.RLock()
 

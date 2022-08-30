@@ -238,24 +238,24 @@ func (c *Connection) handleUploadFile(fs vfs.Fs, resolvedPath, filePath, request
 
 func newThrottledReader(r io.ReadCloser, limit int64, conn *Connection) *throttledReader {
 	t := &throttledReader{
-		bytesRead:     0,
-		id:            conn.GetTransferID(),
-		limit:         limit,
-		r:             r,
-		abortTransfer: 0,
-		start:         time.Now(),
-		conn:          conn,
+		id:    conn.GetTransferID(),
+		limit: limit,
+		r:     r,
+		start: time.Now(),
+		conn:  conn,
 	}
+	t.bytesRead.Store(0)
+	t.abortTransfer.Store(false)
 	conn.AddTransfer(t)
 	return t
 }
 
 type throttledReader struct {
-	bytesRead     int64
+	bytesRead     atomic.Int64
 	id            int64
 	limit         int64
 	r             io.ReadCloser
-	abortTransfer int32
+	abortTransfer atomic.Bool
 	start         time.Time
 	conn          *Connection
 	mu            sync.Mutex
@@ -271,7 +271,7 @@ func (t *throttledReader) GetType() int {
 }
 
 func (t *throttledReader) GetSize() int64 {
-	return atomic.LoadInt64(&t.bytesRead)
+	return t.bytesRead.Load()
 }
 
 func (t *throttledReader) GetDownloadedSize() int64 {
@@ -279,7 +279,7 @@ func (t *throttledReader) GetDownloadedSize() int64 {
 }
 
 func (t *throttledReader) GetUploadedSize() int64 {
-	return atomic.LoadInt64(&t.bytesRead)
+	return t.bytesRead.Load()
 }
 
 func (t *throttledReader) GetVirtualPath() string {
@@ -304,7 +304,7 @@ func (t *throttledReader) SignalClose(err error) {
 	t.mu.Lock()
 	t.errAbort = err
 	t.mu.Unlock()
-	atomic.StoreInt32(&(t.abortTransfer), 1)
+	t.abortTransfer.Store(true)
 }
 
 func (t *throttledReader) GetTruncatedSize() int64 {
@@ -328,15 +328,15 @@ func (t *throttledReader) SetTimes(fsPath string, atime time.Time, mtime time.Ti
 }
 
 func (t *throttledReader) Read(p []byte) (n int, err error) {
-	if atomic.LoadInt32(&t.abortTransfer) == 1 {
+	if t.abortTransfer.Load() {
 		return 0, t.GetAbortError()
 	}
 
 	t.conn.UpdateLastActivity()
 	n, err = t.r.Read(p)
 	if t.limit > 0 {
-		atomic.AddInt64(&t.bytesRead, int64(n))
-		trasferredBytes := atomic.LoadInt64(&t.bytesRead)
+		t.bytesRead.Add(int64(n))
+		trasferredBytes := t.bytesRead.Load()
 		elapsed := time.Since(t.start).Nanoseconds() / 1000000
 		wantedElapsed := 1000 * (trasferredBytes / 1024) / t.limit
 		if wantedElapsed > elapsed {

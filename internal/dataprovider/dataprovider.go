@@ -155,7 +155,7 @@ var (
 	ErrInvalidCredentials = errors.New("invalid credentials")
 	// ErrLoginNotAllowedFromIP defines the error to return if login is denied from the current IP
 	ErrLoginNotAllowedFromIP = errors.New("login is not allowed from this IP")
-	isAdminCreated           = int32(0)
+	isAdminCreated           atomic.Bool
 	validTLSUsernames        = []string{string(sdk.TLSUsernameNone), string(sdk.TLSUsernameCN)}
 	config                   Config
 	provider                 Provider
@@ -844,7 +844,7 @@ func Initialize(cnf Config, basePath string, checkAdmins bool) error {
 	if err != nil {
 		return err
 	}
-	atomic.StoreInt32(&isAdminCreated, int32(len(admins)))
+	isAdminCreated.Store(len(admins) > 0)
 	delayedQuotaUpdater.start()
 	return startScheduler()
 }
@@ -1722,7 +1722,7 @@ func UpdateTaskTimestamp(name string) error {
 // HasAdmin returns true if the first admin has been created
 // and so SFTPGo is ready to be used
 func HasAdmin() bool {
-	return atomic.LoadInt32(&isAdminCreated) > 0
+	return isAdminCreated.Load()
 }
 
 // AddAdmin adds a new SFTPGo admin
@@ -1734,7 +1734,7 @@ func AddAdmin(admin *Admin, executor, ipAddress string) error {
 	admin.Username = config.convertName(admin.Username)
 	err := provider.addAdmin(admin)
 	if err == nil {
-		atomic.StoreInt32(&isAdminCreated, 1)
+		isAdminCreated.Store(true)
 		executeAction(operationAdd, executor, ipAddress, actionObjectAdmin, admin.Username, admin)
 	}
 	return err

@@ -38,12 +38,12 @@ import (
 type BaseConnection struct {
 	// last activity for this connection.
 	// Since this field is accessed atomically we put it as first element of the struct to achieve 64 bit alignment
-	lastActivity int64
+	lastActivity atomic.Int64
 	uploadDone   atomic.Bool
 	downloadDone atomic.Bool
 	// unique ID for a transfer.
 	// This field is accessed atomically so we put it at the beginning of the struct to achieve 64 bit alignment
-	transferID int64
+	transferID atomic.Int64
 	// Unique identifier for the connection
 	ID string
 	// user associated with this connection if any
@@ -64,16 +64,18 @@ func NewBaseConnection(id, protocol, localAddr, remoteAddr string, user dataprov
 		connID = fmt.Sprintf("%s_%s", protocol, id)
 	}
 	user.UploadBandwidth, user.DownloadBandwidth = user.GetBandwidthForIP(util.GetIPFromRemoteAddress(remoteAddr), connID)
-	return &BaseConnection{
-		ID:           connID,
-		User:         user,
-		startTime:    time.Now(),
-		protocol:     protocol,
-		localAddr:    localAddr,
-		remoteAddr:   remoteAddr,
-		lastActivity: time.Now().UnixNano(),
-		transferID:   0,
+	c := &BaseConnection{
+		ID:         connID,
+		User:       user,
+		startTime:  time.Now(),
+		protocol:   protocol,
+		localAddr:  localAddr,
+		remoteAddr: remoteAddr,
 	}
+	c.transferID.Store(0)
+	c.lastActivity.Store(time.Now().UnixNano())
+
+	return c
 }
 
 // Log outputs a log entry to the configured logger
@@ -83,7 +85,7 @@ func (c *BaseConnection) Log(level logger.LogLevel, format string, v ...any) {
 
 // GetTransferID returns an unique transfer ID for this connection
 func (c *BaseConnection) GetTransferID() int64 {
-	return atomic.AddInt64(&c.transferID, 1)
+	return c.transferID.Add(1)
 }
 
 // GetID returns the connection ID
@@ -126,12 +128,12 @@ func (c *BaseConnection) GetConnectionTime() time.Time {
 
 // UpdateLastActivity updates last activity for this connection
 func (c *BaseConnection) UpdateLastActivity() {
-	atomic.StoreInt64(&c.lastActivity, time.Now().UnixNano())
+	c.lastActivity.Store(time.Now().UnixNano())
 }
 
 // GetLastActivity returns the last connection activity
 func (c *BaseConnection) GetLastActivity() time.Time {
-	return time.Unix(0, atomic.LoadInt64(&c.lastActivity))
+	return time.Unix(0, c.lastActivity.Load())
 }
 
 // CloseFS closes the underlying fs

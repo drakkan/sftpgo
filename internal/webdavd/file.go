@@ -42,7 +42,7 @@ type webDavFile struct {
 	info        os.FileInfo
 	startOffset int64
 	isFinished  bool
-	readTryed   int32
+	readTryed   atomic.Bool
 }
 
 func newWebDavFile(baseTransfer *common.BaseTransfer, pipeWriter *vfs.PipeWriter, pipeReader *pipeat.PipeReaderAt) *webDavFile {
@@ -56,15 +56,16 @@ func newWebDavFile(baseTransfer *common.BaseTransfer, pipeWriter *vfs.PipeWriter
 	} else if pipeReader != nil {
 		reader = pipeReader
 	}
-	return &webDavFile{
+	f := &webDavFile{
 		BaseTransfer: baseTransfer,
 		writer:       writer,
 		reader:       reader,
 		isFinished:   false,
 		startOffset:  0,
 		info:         nil,
-		readTryed:    0,
 	}
+	f.readTryed.Store(false)
+	return f
 }
 
 type webDavFileInfo struct {
@@ -124,7 +125,7 @@ func (f *webDavFile) Stat() (os.FileInfo, error) {
 	f.Unlock()
 	if f.GetType() == common.TransferUpload && errUpload == nil {
 		info := &webDavFileInfo{
-			FileInfo:    vfs.NewFileInfo(f.GetFsPath(), false, atomic.LoadInt64(&f.BytesReceived), time.Unix(0, 0), false),
+			FileInfo:    vfs.NewFileInfo(f.GetFsPath(), false, f.BytesReceived.Load(), time.Unix(0, 0), false),
 			Fs:          f.Fs,
 			virtualPath: f.GetVirtualPath(),
 			fsPath:      f.GetFsPath(),
@@ -149,10 +150,10 @@ func (f *webDavFile) Stat() (os.FileInfo, error) {
 
 // Read reads the contents to downloads.
 func (f *webDavFile) Read(p []byte) (n int, err error) {
-	if atomic.LoadInt32(&f.AbortTransfer) == 1 {
+	if f.AbortTransfer.Load() {
 		return 0, errTransferAborted
 	}
-	if atomic.LoadInt32(&f.readTryed) == 0 {
+	if !f.readTryed.Load() {
 		if !f.Connection.User.HasPerm(dataprovider.PermDownload, path.Dir(f.GetVirtualPath())) {
 			return 0, f.Connection.GetPermissionDeniedError()
 		}
@@ -171,7 +172,7 @@ func (f *webDavFile) Read(p []byte) (n int, err error) {
 			f.Connection.Log(logger.LevelDebug, "download for file %#v denied by pre action: %v", f.GetVirtualPath(), err)
 			return 0, f.Connection.GetPermissionDeniedError()
 		}
-		atomic.StoreInt32(&f.readTryed, 1)
+		f.readTryed.Store(true)
 	}
 
 	f.Connection.UpdateLastActivity()
@@ -198,7 +199,7 @@ func (f *webDavFile) Read(p []byte) (n int, err error) {
 	}
 
 	n, err = f.reader.Read(p)
-	atomic.AddInt64(&f.BytesSent, int64(n))
+	f.BytesSent.Add(int64(n))
 	if err == nil {
 		err = f.CheckRead()
 	}
@@ -212,14 +213,14 @@ func (f *webDavFile) Read(p []byte) (n int, err error) {
 
 // Write writes the uploaded contents.
 func (f *webDavFile) Write(p []byte) (n int, err error) {
-	if atomic.LoadInt32(&f.AbortTransfer) == 1 {
+	if f.AbortTransfer.Load() {
 		return 0, errTransferAborted
 	}
 
 	f.Connection.UpdateLastActivity()
 
 	n, err = f.writer.Write(p)
-	atomic.AddInt64(&f.BytesReceived, int64(n))
+	f.BytesReceived.Add(int64(n))
 
 	if err == nil {
 		err = f.CheckWrite()
@@ -252,7 +253,7 @@ func (f *webDavFile) updateTransferQuotaOnSeek() {
 	if transferQuota.HasSizeLimits() {
 		go func(ulSize, dlSize int64, user dataprovider.User) {
 			dataprovider.UpdateUserTransferQuota(&user, ulSize, dlSize, false) //nolint:errcheck
-		}(atomic.LoadInt64(&f.BytesReceived), atomic.LoadInt64(&f.BytesSent), f.Connection.User)
+		}(f.BytesReceived.Load(), f.BytesSent.Load(), f.Connection.User)
 	}
 }
 
@@ -270,7 +271,7 @@ func (f *webDavFile) Seek(offset int64, whence int) (int64, error) {
 		return ret, err
 	}
 	if f.GetType() == common.TransferDownload {
-		readOffset := f.startOffset + atomic.LoadInt64(&f.BytesSent)
+		readOffset := f.startOffset + f.BytesSent.Load()
 		if offset == 0 && readOffset == 0 {
 			if whence == io.SeekStart {
 				return 0, nil
@@ -288,8 +289,8 @@ func (f *webDavFile) Seek(offset int64, whence int) (int64, error) {
 			f.reader = nil
 		}
 		startByte := int64(0)
-		atomic.StoreInt64(&f.BytesReceived, 0)
-		atomic.StoreInt64(&f.BytesSent, 0)
+		f.BytesReceived.Store(0)
+		f.BytesSent.Store(0)
 		f.updateTransferQuotaOnSeek()
 
 		switch whence {
@@ -369,7 +370,7 @@ func (f *webDavFile) setFinished() error {
 
 func (f *webDavFile) isTransfer() bool {
 	if f.GetType() == common.TransferDownload {
-		return atomic.LoadInt32(&f.readTryed) > 0
+		return f.readTryed.Load()
 	}
 	return true
 }
