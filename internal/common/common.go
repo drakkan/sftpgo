@@ -843,6 +843,15 @@ func (conns *ActiveConnections) Remove(connectionID string) {
 			conns.connections[lastIdx] = nil
 			conns.connections = conns.connections[:lastIdx]
 			conns.removeUserConnection(conn.GetUsername())
+			if conn.GetProtocol() == ProtocolFTP && conn.GetUsername() == "" {
+				ip := util.GetIPFromRemoteAddress(conn.GetRemoteAddress())
+				logger.ConnectionFailedLog("", ip, dataprovider.LoginMethodNoAuthTryed, conn.GetProtocol(),
+					dataprovider.ErrNoAuthTryed.Error())
+				metric.AddNoAuthTryed()
+				AddDefenderEvent(ip, HostEventNoLoginTried)
+				dataprovider.ExecutePostLoginHook(&dataprovider.User{}, dataprovider.LoginMethodNoAuthTryed, ip,
+					conn.GetProtocol(), dataprovider.ErrNoAuthTryed)
+			}
 			metric.UpdateActiveConnectionsSize(lastIdx)
 			logger.Debug(conn.GetProtocol(), conn.GetID(), "connection removed, local address %#v, remote address %#v close fs error: %v, num open connections: %v",
 				conn.GetLocalAddress(), conn.GetRemoteAddress(), err, lastIdx)
@@ -934,19 +943,11 @@ func (conns *ActiveConnections) checkIdles() {
 		isUnauthenticatedFTPUser := (c.GetProtocol() == ProtocolFTP && c.GetUsername() == "")
 
 		if idleTime > Config.idleTimeoutAsDuration || (isUnauthenticatedFTPUser && idleTime > Config.idleLoginTimeout) {
-			defer func(conn ActiveConnection, isFTPNoAuth bool) {
+			defer func(conn ActiveConnection) {
 				err := conn.Disconnect()
 				logger.Debug(conn.GetProtocol(), conn.GetID(), "close idle connection, idle time: %v, username: %#v close err: %v",
 					time.Since(conn.GetLastActivity()), conn.GetUsername(), err)
-				if isFTPNoAuth {
-					ip := util.GetIPFromRemoteAddress(c.GetRemoteAddress())
-					logger.ConnectionFailedLog("", ip, dataprovider.LoginMethodNoAuthTryed, c.GetProtocol(), "client idle")
-					metric.AddNoAuthTryed()
-					AddDefenderEvent(ip, HostEventNoLoginTried)
-					dataprovider.ExecutePostLoginHook(&dataprovider.User{}, dataprovider.LoginMethodNoAuthTryed, ip, c.GetProtocol(),
-						dataprovider.ErrNoAuthTryed)
-				}
-			}(c, isUnauthenticatedFTPUser)
+			}(c)
 		}
 	}
 
