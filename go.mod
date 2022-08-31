@@ -9,14 +9,14 @@ require (
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/alexedwards/argon2id v0.0.0-20211130144151-3585854a6387
 	github.com/aws/aws-sdk-go-v2 v1.16.12
-	github.com/aws/aws-sdk-go-v2/config v1.17.2
-	github.com/aws/aws-sdk-go-v2/credentials v1.12.15
+	github.com/aws/aws-sdk-go-v2/config v1.17.3
+	github.com/aws/aws-sdk-go-v2/credentials v1.12.16
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.13
-	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.28
-	github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.13.14
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.27.6
-	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.15.19
-	github.com/aws/aws-sdk-go-v2/service/sts v1.16.14
+	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.29
+	github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.13.15
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.27.7
+	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.15.20
+	github.com/aws/aws-sdk-go-v2/service/sts v1.16.15
 	github.com/cockroachdb/cockroach-go/v2 v2.2.15
 	github.com/coreos/go-oidc/v3 v3.2.0
 	github.com/eikenb/pipeat v0.0.0-20210730190139-06b3e6902001
@@ -65,7 +65,7 @@ require (
 	go.etcd.io/bbolt v1.3.6
 	go.uber.org/automaxprocs v1.5.1
 	gocloud.dev v0.26.0
-	golang.org/x/crypto v0.0.0-20220826181053-bd7e27e6170d
+	golang.org/x/crypto v0.0.0-20220829220503-c86fa9a7ed90
 	golang.org/x/net v0.0.0-20220826154423-83b083e8dc8b
 	golang.org/x/oauth2 v0.0.0-20220822191816-0ebed06d0094
 	golang.org/x/sys v0.0.0-20220829200755-d48e67d00261
@@ -89,7 +89,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.1.14 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.13 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.13.13 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.11.18 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.11.19 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.13.1 // indirect
 	github.com/aws/smithy-go v1.13.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -168,6 +168,6 @@ require (
 replace (
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
 	github.com/pkg/sftp => github.com/drakkan/sftp v0.0.0-20220716075551-51a5aa4e044d
-	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20220828084757-61f5262cc94f
+	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20220831070132-e3c36f2ab82b
 	golang.org/x/net => github.com/drakkan/net v0.0.0-20220828084259-1562d1fb0fc5
 )

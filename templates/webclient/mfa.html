@@ -106,6 +106,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     </div>
 </div>
 
+{{if .TOTPConfig.Enabled }}
 <div class="card shadow mb-4">
     <div class="card-header py-3">
         <h6 class="m-0 font-weight-bold text-primary">Recovery codes</h6>
@@ -141,6 +142,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         </div>
     </div>
 </div>
+{{end}}
 {{end}}
 
 {{define "dialog"}}
@@ -416,7 +418,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 $('#errorRecCodesMsg').show();
                 setTimeout(function () {
                     $('#errorRecCodesMsg').hide();
-                }, 5000);
+                }, 8000);
             }
         });
     }
@@ -460,7 +462,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 $('#errorRecCodesMsg').show();
                 setTimeout(function () {
                     $('#errorRecCodesMsg').hide();
-                }, 5000);
+                }, 8000);
             }
         });
     }

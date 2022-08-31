@@ -843,6 +843,9 @@ func (conns *ActiveConnections) Remove(connectionID string) {
 			conns.connections[lastIdx] = nil
 			conns.connections = conns.connections[:lastIdx]
 			conns.removeUserConnection(conn.GetUsername())
+			metric.UpdateActiveConnectionsSize(lastIdx)
+			logger.Debug(conn.GetProtocol(), conn.GetID(), "connection removed, local address %#v, remote address %#v close fs error: %v, num open connections: %v",
+				conn.GetLocalAddress(), conn.GetRemoteAddress(), err, lastIdx)
 			if conn.GetProtocol() == ProtocolFTP && conn.GetUsername() == "" {
 				ip := util.GetIPFromRemoteAddress(conn.GetRemoteAddress())
 				logger.ConnectionFailedLog("", ip, dataprovider.LoginMethodNoAuthTryed, conn.GetProtocol(),
@@ -852,9 +855,6 @@ func (conns *ActiveConnections) Remove(connectionID string) {
 				dataprovider.ExecutePostLoginHook(&dataprovider.User{}, dataprovider.LoginMethodNoAuthTryed, ip,
 					conn.GetProtocol(), dataprovider.ErrNoAuthTryed)
 			}
-			metric.UpdateActiveConnectionsSize(lastIdx)
-			logger.Debug(conn.GetProtocol(), conn.GetID(), "connection removed, local address %#v, remote address %#v close fs error: %v, num open connections: %v",
-				conn.GetLocalAddress(), conn.GetRemoteAddress(), err, lastIdx)
 			Config.checkPostDisconnectHook(conn.GetRemoteAddress(), conn.GetProtocol(), conn.GetUsername(),
 				conn.GetID(), conn.GetConnectionTime())
 			return

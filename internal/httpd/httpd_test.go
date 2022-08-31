@@ -2307,25 +2307,17 @@ func TestPermMFADisabled(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 
-	user.Filters.RecoveryCodes = []dataprovider.RecoveryCode{
-		{
-			Secret: kms.NewPlainSecret(util.GenerateUniqueID()),
-		},
-	}
-	user, resp, err = httpdtest.UpdateUser(user, http.StatusOK, "")
-	assert.NoError(t, err, string(resp))
-	assert.Contains(t, user.Filters.WebClient, sdk.WebClientMFADisabled)
-	assert.Len(t, user.Filters.RecoveryCodes, 12)
-
 	req, err = http.NewRequest(http.MethodGet, user2FARecoveryCodesPath, nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusOK, rr)
-	var recCodes []recoveryCode
-	err = json.Unmarshal(rr.Body.Bytes(), &recCodes)
+	checkResponseCode(t, http.StatusForbidden, rr)
+
+	req, err = http.NewRequest(http.MethodPost, user2FARecoveryCodesPath, nil)
 	assert.NoError(t, err)
-	assert.Len(t, recCodes, 12)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -2538,6 +2530,11 @@ func TestLoginAdminAPITOTP(t *testing.T) {
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 
+	admin, _, err = httpdtest.GetAdminByUsername(admin.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.True(t, admin.Filters.TOTPConfig.Enabled)
+	assert.Len(t, admin.Filters.RecoveryCodes, 12)
+
 	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("%v%v", httpBaseURL, tokenPath), nil)
 	assert.NoError(t, err)
 	req.SetBasicAuth(altAdminUsername, altAdminPassword)
@@ -2582,6 +2579,46 @@ func TestLoginAdminAPITOTP(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	err = resp.Body.Close()
 	assert.NoError(t, err)
+	// get/set recovery codes
+	req, err = http.NewRequest(http.MethodGet, admin2FARecoveryCodesPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, altToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodPost, admin2FARecoveryCodesPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, altToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	// disable two-factor auth
+	saveReq := make(map[string]bool)
+	saveReq["enabled"] = false
+	asJSON, err = json.Marshal(saveReq)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, adminTOTPSavePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, altToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	admin, _, err = httpdtest.GetAdminByUsername(admin.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.False(t, admin.Filters.TOTPConfig.Enabled)
+	assert.Len(t, admin.Filters.RecoveryCodes, 0)
+	// get/set recovery codes will not work
+	req, err = http.NewRequest(http.MethodGet, admin2FARecoveryCodesPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, altToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+
+	req, err = http.NewRequest(http.MethodPost, admin2FARecoveryCodesPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, altToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
 
 	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
 	assert.NoError(t, err)
@@ -5225,6 +5262,62 @@ func TestCloseConnectionAfterUserUpdateDelete(t *testing.T) {
 	assert.Len(t, common.Connections.GetStats(), 0)
 }
 
+func TestAdminGenerateRecoveryCodesSaveError(t *testing.T) {
+	err := dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf := config.GetProviderConf()
+	providerConf.NamingRules = 7
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+
+	a := getTestAdmin()
+	a.Username = "adMiN@example.com "
+	admin, _, err := httpdtest.AddAdmin(a, http.StatusCreated)
+	assert.NoError(t, err)
+	configName, _, secret, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], admin.Username)
+	assert.NoError(t, err)
+	admin.Filters.TOTPConfig = dataprovider.AdminTOTPConfig{
+		Enabled:    true,
+		ConfigName: configName,
+		Secret:     kms.NewPlainSecret(secret),
+	}
+	admin.Password = defaultTokenAuthPass
+	err = dataprovider.UpdateAdmin(&admin, "", "")
+	assert.NoError(t, err)
+	admin, _, err = httpdtest.GetAdminByUsername(a.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.True(t, admin.Filters.TOTPConfig.Enabled)
+
+	passcode, err := generateTOTPPasscode(secret)
+	assert.NoError(t, err)
+	adminAPIToken, err := getJWTAPITokenFromTestServerWithPasscode(a.Username, defaultTokenAuthPass, passcode)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, adminAPIToken)
+
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf = config.GetProviderConf()
+	providerConf.BackupsPath = backupsPath
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+	if config.GetProviderConf().Driver == dataprovider.MemoryDataProviderName {
+		return
+	}
+	req, err := http.NewRequest(http.MethodPost, admin2FARecoveryCodesPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, adminAPIToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "the following characters are allowed")
+
+	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+}
+
 func TestNamingRules(t *testing.T) {
 	smtpCfg := smtp.Config{
 		Host:          "127.0.0.1",
@@ -5248,12 +5341,24 @@ func TestNamingRules(t *testing.T) {
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	assert.Equal(t, "user@user.me", user.Username)
+	configName, _, secret, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
+	assert.NoError(t, err)
+	user.Filters.TOTPConfig = dataprovider.UserTOTPConfig{
+		Enabled:    true,
+		ConfigName: configName,
+		Secret:     kms.NewPlainSecret(secret),
+		Protocols:  []string{common.ProtocolSSH},
+	}
+	user.Password = u.Password
+	err = dataprovider.UpdateUser(&user, "", "")
+	assert.NoError(t, err)
 	user.Username = u.Username
 	user.AdditionalInfo = "info"
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	user, _, err = httpdtest.GetUserByUsername(u.Username, http.StatusOK)
 	assert.NoError(t, err)
+	assert.True(t, user.Filters.TOTPConfig.Enabled)
 
 	a := getTestAdmin()
 	a.Username = "admiN@example.com "
@@ -5403,12 +5508,6 @@ func TestNamingRules(t *testing.T) {
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	assert.Contains(t, rr.Body.String(), "the following characters are allowed")
 
-	req, err = http.NewRequest(http.MethodPost, admin2FARecoveryCodesPath, nil)
-	assert.NoError(t, err)
-	setBearerForReq(req, adminAPIToken)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusBadRequest, rr)
-	assert.Contains(t, rr.Body.String(), "the following characters are allowed")
 	// test admin reset password
 	form = make(url.Values)
 	form.Set("username", admin.Username)
@@ -7610,23 +7709,24 @@ func TestAdminTOTP(t *testing.T) {
 	assert.NoError(t, err, string(resp))
 	assert.True(t, admin.Filters.TOTPConfig.Enabled)
 	assert.Len(t, admin.Filters.RecoveryCodes, 12)
-	// if we use token we should get no recovery codes
+	// if we use token we cannot get or generate recovery codes
 	req, err = http.NewRequest(http.MethodGet, admin2FARecoveryCodesPath, nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusOK, rr)
-	var recCodes []recoveryCode
-	err = json.Unmarshal(rr.Body.Bytes(), &recCodes)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	req, err = http.NewRequest(http.MethodPost, admin2FARecoveryCodesPath, nil)
 	assert.NoError(t, err)
-	assert.Len(t, recCodes, 0)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
 	// now the same but with altToken
 	req, err = http.NewRequest(http.MethodGet, admin2FARecoveryCodesPath, nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, altToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	recCodes = nil
+	var recCodes []recoveryCode
 	err = json.Unmarshal(rr.Body.Bytes(), &recCodes)
 	assert.NoError(t, err)
 	assert.Len(t, recCodes, 12)
@@ -20947,8 +21047,15 @@ func setJWTCookieForReq(req *http.Request, jwtToken string) {
 }
 
 func getJWTAPITokenFromTestServer(username, password string) (string, error) {
+	return getJWTAPITokenFromTestServerWithPasscode(username, password, "")
+}
+
+func getJWTAPITokenFromTestServerWithPasscode(username, password, passcode string) (string, error) {
 	req, _ := http.NewRequest(http.MethodGet, tokenPath, nil)
 	req.SetBasicAuth(username, password)
+	if passcode != "" {
+		req.Header.Set("X-SFTPGO-OTP", passcode)
+	}
 	rr := executeRequest(req)
 	if rr.Code != http.StatusOK {
 		return "", fmt.Errorf("unexpected  status code %v", rr.Code)
