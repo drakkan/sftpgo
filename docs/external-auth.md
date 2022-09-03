@@ -18,7 +18,7 @@ The program can inspect the SFTPGo user, if it exists, using the `SFTPGO_AUTHD_U
 The program must write, on its standard output:
 
 - a valid SFTPGo user serialized as JSON if the authentication succeeds. The user will be added/updated within the defined data provider
-- an empty string, or no response at all, if authentication succeeds and the existing SFTPGo user does not need to be updated. Please note that in versions 2.0.x and earlier an empty response was interpreted as an authentication error
+- an empty string, or no response at all, if authentication succeeds and the existing SFTPGo user does not need to be updated. This means that the credentials already stored in SFTPGo must match those used for the current authentication.
 - a user with an empty username if the authentication fails
 
 If the hook is an HTTP URL then it will be invoked as HTTP POST. The request body will contain a JSON serialized struct with the following fields:
