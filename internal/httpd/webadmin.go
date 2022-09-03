@@ -23,6 +23,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -1877,6 +1878,46 @@ func getFoldersRetentionFromPostFields(r *http.Request) ([]dataprovider.FolderRe
 	return res, nil
 }
 
+func getHTTPPartsFromPostFields(r *http.Request) []dataprovider.HTTPPart {
+	var result []dataprovider.HTTPPart
+	for k := range r.Form {
+		if strings.HasPrefix(k, "http_part_name") {
+			partName := r.Form.Get(k)
+			if partName != "" {
+				idx := strings.TrimPrefix(k, "http_part_name")
+				order, err := strconv.Atoi(idx)
+				if err != nil {
+					continue
+				}
+				filePath := r.Form.Get(fmt.Sprintf("http_part_file%s", idx))
+				body := r.Form.Get(fmt.Sprintf("http_part_body%s", idx))
+				concatHeaders := getSliceFromDelimitedValues(r.Form.Get(fmt.Sprintf("http_part_headers%s", idx)), "\n")
+				var headers []dataprovider.KeyValue
+				for _, h := range concatHeaders {
+					values := strings.SplitN(h, ":", 2)
+					if len(values) > 1 {
+						headers = append(headers, dataprovider.KeyValue{
+							Key:   strings.TrimSpace(values[0]),
+							Value: strings.TrimSpace(values[1]),
+						})
+					}
+				}
+				result = append(result, dataprovider.HTTPPart{
+					Name:     partName,
+					Filepath: filePath,
+					Headers:  headers,
+					Body:     body,
+					Order:    order,
+				})
+			}
+		}
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Order < result[j].Order
+	})
+	return result
+}
+
 func getEventActionOptionsFromPostFields(r *http.Request) (dataprovider.BaseEventActionOptions, error) {
 	httpTimeout, err := strconv.Atoi(r.Form.Get("http_timeout"))
 	if err != nil {
@@ -1913,6 +1954,7 @@ func getEventActionOptionsFromPostFields(r *http.Request) (dataprovider.BaseEven
 			Method:          r.Form.Get("http_method"),
 			QueryParameters: getKeyValsFromPostFields(r, "http_query_key", "http_query_val"),
 			Body:            r.Form.Get("http_body"),
+			Parts:           getHTTPPartsFromPostFields(r),
 		},
 		CmdConfig: dataprovider.EventActionCommandConfig{
 			Cmd:     r.Form.Get("cmd_path"),

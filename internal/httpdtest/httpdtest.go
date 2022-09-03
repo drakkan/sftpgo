@@ -2208,6 +2208,27 @@ func compareKeyValues(expected, actual []dataprovider.KeyValue) error {
 	return nil
 }
 
+func compareHTTPparts(expected, actual []dataprovider.HTTPPart) error {
+	for _, p1 := range expected {
+		found := false
+		for _, p2 := range actual {
+			if p1.Name == p2.Name {
+				found = true
+				if err := compareKeyValues(p1.Headers, p2.Headers); err != nil {
+					return fmt.Errorf("http headers mismatch for part %q", p1.Name)
+				}
+				if p1.Body != p2.Body || p1.Filepath != p2.Filepath {
+					return fmt.Errorf("http part %q mismatch", p1.Name)
+				}
+			}
+		}
+		if !found {
+			return fmt.Errorf("expected http part %q not found", p1.Name)
+		}
+	}
+	return nil
+}
+
 func compareEventActionHTTPConfigFields(expected, actual dataprovider.EventActionHTTPConfig) error {
 	if expected.Endpoint != actual.Endpoint {
 		return errors.New("http endpoint mismatch")
@@ -2236,7 +2257,10 @@ func compareEventActionHTTPConfigFields(expected, actual dataprovider.EventActio
 	if expected.Body != actual.Body {
 		return errors.New("http body mismatch")
 	}
-	return nil
+	if len(expected.Parts) != len(actual.Parts) {
+		return errors.New("http parts mismatch")
+	}
+	return compareHTTPparts(expected.Parts, actual.Parts)
 }
 
 func compareEventActionEmailConfigFields(expected, actual dataprovider.EventActionEmailConfig) error {

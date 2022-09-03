@@ -95,6 +95,13 @@ jobs:
                 fi
                 TAGS="${TAGS},${DOCKER_IMAGE}:distroless"
                 TAGS_SLIM="${TAGS_SLIM},${DOCKER_IMAGE}:distroless-slim"
+              elif [[ $DOCKER_PKG == debian-plugins ]]; then
+                if [[ -n $MAJOR && -n $MINOR ]]; then
+                  TAGS="${TAGS},${DOCKER_IMAGE}:${MINOR}-plugins,${DOCKER_IMAGE}:${MAJOR}-plugins"
+                  TAGS_SLIM="${TAGS_SLIM},${DOCKER_IMAGE}:${MINOR}-plugins-slim,${DOCKER_IMAGE}:${MAJOR}-plugins-slim"
+                fi
+                TAGS="${TAGS},${DOCKER_IMAGE}:plugins"
+                TAGS_SLIM="${TAGS_SLIM},${DOCKER_IMAGE}:plugins-slim"
               else
                 if [[ -n $MAJOR && -n $MINOR ]]; then
                   TAGS="${TAGS},${DOCKER_IMAGE}:${MINOR}-alpine,${DOCKER_IMAGE}:${MAJOR}-alpine"

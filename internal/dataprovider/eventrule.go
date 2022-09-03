@@ -15,6 +15,7 @@
 package dataprovider
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -200,6 +201,39 @@ type KeyValue struct {
 	Value string `json:"value"`
 }
 
+func (k *KeyValue) isNotValid() bool {
+	return k.Key == "" || k.Value == ""
+}
+
+// HTTPPart defines a part for HTTP multipart requests
+type HTTPPart struct {
+	Name     string     `json:"name,omitempty"`
+	Filepath string     `json:"filepath,omitempty"`
+	Headers  []KeyValue `json:"headers,omitempty"`
+	Body     string     `json:"body,omitempty"`
+	Order    int        `json:"-"`
+}
+
+func (p *HTTPPart) validate() error {
+	if p.Name == "" {
+		return util.NewValidationError("HTTP part name is required")
+	}
+	for _, kv := range p.Headers {
+		if kv.isNotValid() {
+			return util.NewValidationError("invalid HTTP part headers")
+		}
+	}
+	if p.Filepath == "" {
+		if p.Body == "" {
+			return util.NewValidationError("HTTP part body is required if no file path is provided")
+		}
+	} else {
+		p.Body = ""
+		p.Filepath = util.CleanPath(p.Filepath)
+	}
+	return nil
+}
+
 // EventActionHTTPConfig defines the configuration for an HTTP event target
 type EventActionHTTPConfig struct {
 	Endpoint        string      `json:"endpoint,omitempty"`
@@ -210,7 +244,34 @@ type EventActionHTTPConfig struct {
 	SkipTLSVerify   bool        `json:"skip_tls_verify,omitempty"`
 	Method          string      `json:"method,omitempty"`
 	QueryParameters []KeyValue  `json:"query_parameters,omitempty"`
-	Body            string      `json:"post_body,omitempty"`
+	Body            string      `json:"body,omitempty"`
+	Parts           []HTTPPart  `json:"parts,omitempty"`
+}
+
+func (c *EventActionHTTPConfig) isTimeoutNotValid() bool {
+	if c.HasMultipartFile() {
+		return false
+	}
+	return c.Timeout < 1 || c.Timeout > 120
+}
+
+func (c *EventActionHTTPConfig) validateMultiparts() error {
+	for idx := range c.Parts {
+		if err := c.Parts[idx].validate(); err != nil {
+			return err
+		}
+	}
+	if len(c.Parts) > 0 {
+		if c.Body != "" {
+			return util.NewValidationError("multipart requests require no body. The request body is build from the specified parts")
+		}
+		for _, k := range c.Headers {
+			if strings.ToLower(k.Key) == "content-type" {
+				return util.NewValidationError("content type is automatically set for multipart requests")
+			}
+		}
+	}
+	return nil
 }
 
 func (c *EventActionHTTPConfig) validate(additionalData string) error {
@@ -220,13 +281,16 @@ func (c *EventActionHTTPConfig) validate(additionalData string) error {
 	if !util.IsStringPrefixInSlice(c.Endpoint, []string{"http://", "https://"}) {
 		return util.NewValidationError("invalid HTTP endpoint schema: http and https are supported")
 	}
-	if c.Timeout < 1 || c.Timeout > 120 {
+	if c.isTimeoutNotValid() {
 		return util.NewValidationError(fmt.Sprintf("invalid HTTP timeout %d", c.Timeout))
 	}
 	for _, kv := range c.Headers {
-		if kv.Key == "" || kv.Value == "" {
+		if kv.isNotValid() {
 			return util.NewValidationError("invalid HTTP headers")
 		}
+	}
+	if err := c.validateMultiparts(); err != nil {
+		return err
 	}
 	if c.Password.IsRedacted() {
 		return util.NewValidationError("cannot save HTTP configuration with a redacted secret")
@@ -242,8 +306,49 @@ func (c *EventActionHTTPConfig) validate(additionalData string) error {
 		return util.NewValidationError(fmt.Sprintf("unsupported HTTP method: %s", c.Method))
 	}
 	for _, kv := range c.QueryParameters {
-		if kv.Key == "" || kv.Value == "" {
+		if kv.isNotValid() {
 			return util.NewValidationError("invalid HTTP query parameters")
+		}
+	}
+	return nil
+}
+
+// GetContext returns the context and the cancel func to use for the HTTP request
+func (c *EventActionHTTPConfig) GetContext() (context.Context, context.CancelFunc) {
+	if c.HasMultipartFile() {
+		return context.WithCancel(context.Background())
+	}
+	return context.WithTimeout(context.Background(), time.Duration(c.Timeout)*time.Second)
+}
+
+// HasObjectData returns true if the {{ObjectData}} placeholder is defined
+func (c *EventActionHTTPConfig) HasObjectData() bool {
+	if strings.Contains(c.Body, "{{ObjectData}}") {
+		return true
+	}
+	for _, part := range c.Parts {
+		if strings.Contains(part.Body, "{{ObjectData}}") {
+			return true
+		}
+	}
+	return false
+}
+
+// HasMultipartFile returns true if a file must be uploaded via a multipart request
+func (c *EventActionHTTPConfig) HasMultipartFile() bool {
+	for _, part := range c.Parts {
+		if part.Filepath != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// TryDecryptPassword decrypts the password if encryptet
+func (c *EventActionHTTPConfig) TryDecryptPassword() error {
+	if c.Password != nil && !c.Password.IsEmpty() {
+		if err := c.Password.TryDecrypt(); err != nil {
+			return fmt.Errorf("unable to decrypt HTTP password: %w", err)
 		}
 	}
 	return nil
@@ -251,9 +356,7 @@ func (c *EventActionHTTPConfig) validate(additionalData string) error {
 
 // GetHTTPClient returns an HTTP client based on the config
 func (c *EventActionHTTPConfig) GetHTTPClient() *http.Client {
-	client := &http.Client{
-		Timeout: time.Duration(c.Timeout) * time.Second,
-	}
+	client := &http.Client{}
 	if c.SkipTLSVerify {
 		transport := http.DefaultTransport.(*http.Transport).Clone()
 		if transport.TLSClientConfig != nil {
@@ -288,7 +391,7 @@ func (c *EventActionCommandConfig) validate() error {
 		return util.NewValidationError(fmt.Sprintf("invalid command action timeout %d", c.Timeout))
 	}
 	for _, kv := range c.EnvVars {
-		if kv.Key == "" || kv.Value == "" {
+		if kv.isNotValid() {
 			return util.NewValidationError("invalid command env vars")
 		}
 	}
@@ -589,6 +692,15 @@ func (o *BaseEventActionOptions) getACopy() BaseEventActionOptions {
 			IgnoreUserPermissions: folder.IgnoreUserPermissions,
 		})
 	}
+	httpParts := make([]HTTPPart, 0, len(o.HTTPConfig.Parts))
+	for _, part := range o.HTTPConfig.Parts {
+		httpParts = append(httpParts, HTTPPart{
+			Name:     part.Name,
+			Filepath: part.Filepath,
+			Headers:  cloneKeyValues(part.Headers),
+			Body:     part.Body,
+		})
+	}
 
 	return BaseEventActionOptions{
 		HTTPConfig: EventActionHTTPConfig{
@@ -601,6 +713,7 @@ func (o *BaseEventActionOptions) getACopy() BaseEventActionOptions {
 			Method:          o.HTTPConfig.Method,
 			QueryParameters: cloneKeyValues(o.HTTPConfig.QueryParameters),
 			Body:            o.HTTPConfig.Body,
+			Parts:           httpParts,
 		},
 		CmdConfig: EventActionCommandConfig{
 			Cmd:     o.CmdConfig.Cmd,
@@ -1169,6 +1282,11 @@ func (r *EventRule) CheckActionsConsistency(providerObjectType string) error {
 		if action.Type == ActionTypeEmail && len(action.BaseEventAction.Options.EmailConfig.Attachments) > 0 {
 			if !r.hasUserAssociated(providerObjectType) {
 				return errors.New("cannot send an email with attachments for a rule with no user associated")
+			}
+		}
+		if action.Type == ActionTypeHTTP && action.BaseEventAction.Options.HTTPConfig.HasMultipartFile() {
+			if !r.hasUserAssociated(providerObjectType) {
+				return errors.New("cannot upload file/s for a rule with no user associated")
 			}
 		}
 	}

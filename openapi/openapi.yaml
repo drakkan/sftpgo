@@ -27,7 +27,7 @@ info:
     SFTPGo supports groups to simplify the administration of multiple accounts by letting you assign settings once to a group, instead of multiple times to each individual user.
     The SFTPGo WebClient allows end users to change their credentials, browse and manage their files in the browser and setup two-factor authentication which works with Authy, Google Authenticator and other compatible apps.
     From the WebClient each authorized user can also create HTTP/S links to externally share files and folders securely, by setting limits to the number of downloads/uploads, protecting the share with a password, limiting access by source IP address, setting an automatic expiration date.
-  version: 2.3.3-dev
+  version: 2.3.4-dev
   contact:
     name: API support
     url: 'https://github.com/drakkan/sftpgo'
@@ -6013,6 +6013,21 @@ components:
           type: string
         value:
           type: string
+    HTTPPart:
+      type: object
+      properties:
+        name:
+          type: string
+        headers:
+          type: array
+          items:
+            $ref: '#/components/schemas/KeyValue'
+          description: 'Additional headers. Content-Disposition header is automatically set. Content-Type header is automatically detect for files to attach'
+        filepath:
+          type: string
+          description: 'path to the file to be sent as an attachment'
+        body:
+          type: string
     EventActionHTTPConfig:
       type: object
       properties:
@@ -6033,6 +6048,7 @@ components:
           type: integer
           minimum: 1
           maximum: 120
+          description: 'Ignored for multipart requests with files as attachments'
         skip_tls_verify:
           type: boolean
           description: 'if enabled the HTTP client accepts any TLS certificate presented by the server and any host name in that certificate. In this mode, TLS is susceptible to man-in-the-middle attacks. This should be used only for testing.'
@@ -6049,6 +6065,11 @@ components:
         body:
           type: string
           description: HTTP POST/PUT body
+        parts:
+          type: array
+          items:
+            $ref: '#/components/schemas/HTTPPart'
+          description: 'Multipart requests allow to combine one or more sets of data into a single body. For each part, you can set a file path or a body as text. Placeholders are supported in file path, body, header values.'
     EventActionCommandConfig:
       type: object
       properties:

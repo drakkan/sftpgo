@@ -17,6 +17,8 @@ package common
 import (
 	"crypto/rand"
 	"fmt"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path"
@@ -349,6 +351,26 @@ func TestEventManagerErrors(t *testing.T) {
 		}}, []string{"/a", "/b"}, nil)
 	assert.Error(t, err)
 
+	_, _, err = getHTTPRuleActionBody(dataprovider.EventActionHTTPConfig{
+		Method: http.MethodPost,
+		Parts: []dataprovider.HTTPPart{
+			{
+				Name: "p1",
+			},
+		},
+	}, nil, nil, dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username: "u",
+		},
+		Groups: []sdk.GroupMapping{
+			{
+				Name: groupName,
+				Type: sdk.GroupTypePrimary,
+			},
+		},
+	})
+	assert.Error(t, err)
+
 	dataRetentionAction := dataprovider.BaseEventAction{
 		Type: dataprovider.ActionTypeDataRetentionCheck,
 		Options: dataprovider.BaseEventActionOptions{
@@ -469,6 +491,9 @@ func TestEventRuleActions(t *testing.T) {
 	}
 	err = executeRuleAction(action, params, dataprovider.ConditionOptions{})
 	assert.NoError(t, err)
+	action.Options.HTTPConfig.Method = http.MethodGet
+	err = executeRuleAction(action, params, dataprovider.ConditionOptions{})
+	assert.NoError(t, err)
 	action.Options.HTTPConfig.Endpoint = fmt.Sprintf("http://%v/404", httpAddr)
 	err = executeRuleAction(action, params, dataprovider.ConditionOptions{})
 	if assert.Error(t, err) {
@@ -484,8 +509,22 @@ func TestEventRuleActions(t *testing.T) {
 	action.Options.HTTPConfig.Password = kms.NewSecret(sdkkms.SecretStatusSecretBox, "payload", "key", "data")
 	err = executeRuleAction(action, params, dataprovider.ConditionOptions{})
 	if assert.Error(t, err) {
-		assert.Contains(t, err.Error(), "unable to decrypt password")
+		assert.Contains(t, err.Error(), "unable to decrypt HTTP password")
 	}
+	action.Options.HTTPConfig.Password = kms.NewEmptySecret()
+	action.Options.HTTPConfig.Body = ""
+	action.Options.HTTPConfig.Parts = []dataprovider.HTTPPart{
+		{
+			Name:     "p1",
+			Filepath: "path",
+		},
+	}
+	err = executeRuleAction(action, params, dataprovider.ConditionOptions{})
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "error getting user")
+	}
+	action.Options.HTTPConfig.Parts = nil
+	action.Options.HTTPConfig.Body = "{{ObjectData}}"
 	// test disk and transfer quota reset
 	username1 := "user1"
 	username2 := "user2"
@@ -849,6 +888,12 @@ func TestEventRuleActions(t *testing.T) {
 		assert.Contains(t, err.Error(), "no folder quota reset executed")
 	}
 
+	body, _, err := getHTTPRuleActionBody(dataprovider.EventActionHTTPConfig{
+		Method: http.MethodPost,
+	}, nil, nil, dataprovider.User{})
+	assert.NoError(t, err)
+	assert.Nil(t, body)
+
 	err = os.RemoveAll(folder1.MappedPath)
 	assert.NoError(t, err)
 	err = dataprovider.DeleteFolder(foldername1, "", "")
@@ -979,7 +1024,19 @@ func TestFilesystemActionErrors(t *testing.T) {
 	assert.Error(t, err)
 	_, err = getFileContent(NewBaseConnection("", protocolEventAction, "", "", user), "/f.txt", 1234)
 	assert.Error(t, err)
-
+	err = executeHTTPRuleAction(dataprovider.EventActionHTTPConfig{
+		Endpoint: "http://127.0.0.1:9999/",
+		Method:   http.MethodPost,
+		Parts: []dataprovider.HTTPPart{
+			{
+				Name:     "p1",
+				Filepath: "/filepath",
+			},
+		},
+	}, &EventParams{
+		sender: username,
+	})
+	assert.Error(t, err)
 	user.FsConfig.Provider = sdk.LocalFilesystemProvider
 	user.Permissions["/"] = []string{dataprovider.PermUpload}
 	err = dataprovider.DeleteUser(username, "", "")
@@ -1275,4 +1332,35 @@ func TestEventParamsStatusFromError(t *testing.T) {
 	params = EventParams{Status: 1, updateStatusFromError: true}
 	params.AddError(os.ErrNotExist)
 	assert.Equal(t, 2, params.Status)
+}
+
+type testWriter struct {
+	errTest  error
+	sentinel string
+}
+
+func (w *testWriter) Write(p []byte) (int, error) {
+	if w.errTest != nil {
+		return 0, w.errTest
+	}
+	if w.sentinel == string(p) {
+		return 0, io.ErrUnexpectedEOF
+	}
+	return len(p), nil
+}
+
+func TestWriteHTTPPartsError(t *testing.T) {
+	m := multipart.NewWriter(&testWriter{
+		errTest: io.ErrShortWrite,
+	})
+
+	err := writeHTTPPart(m, dataprovider.HTTPPart{}, nil, nil, nil)
+	assert.ErrorIs(t, err, io.ErrShortWrite)
+
+	body := "test body"
+	m = multipart.NewWriter(&testWriter{sentinel: body})
+	err = writeHTTPPart(m, dataprovider.HTTPPart{
+		Body: body,
+	}, nil, nil, nil)
+	assert.ErrorIs(t, err, io.ErrUnexpectedEOF)
 }

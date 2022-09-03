@@ -214,21 +214,13 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             </div>
 
             <div class="form-group row action-type action-http">
-                <label for="idHTTPBody" class="col-sm-2 col-form-label">Body</label>
-                <div class="col-sm-10">
-                    <textarea class="form-control" id="idHTTPBody" name="http_body" rows="4" placeholder=""
-                        aria-describedby="httpBodyHelpBlock">{{.Action.Options.HTTPConfig.Body}}</textarea>
-                    <small id="httpBodyHelpBlock" class="form-text text-muted">
-                        Placeholders are supported
-                    </small>
-                </div>
-            </div>
-
-            <div class="form-group row action-type action-http">
                 <label for="idHTTPTimeout" class="col-sm-2 col-form-label">Timeout</label>
                 <div class="col-sm-10">
                     <input type="number" min="1" max="120" class="form-control" id="idHTTPTimeout" name="http_timeout" placeholder=""
-                        value="{{.Action.Options.HTTPConfig.Timeout}}">
+                        aria-describedby="httpTimeoutHelpBlock" value="{{.Action.Options.HTTPConfig.Timeout}}">
+                    <small id="httpTimeoutHelpBlock" class="form-text text-muted">
+                        Ignored for multipart requests with files as attachments.
+                    </small>
                 </div>
             </div>
 
@@ -237,6 +229,100 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                     <input type="checkbox" class="form-check-input" id="idHTTPSkipTLSVerify" name="http_skip_tls_verify"
                         {{if .Action.Options.HTTPConfig.SkipTLSVerify}}checked{{end}}>
                     <label for="idHTTPSkipTLSVerify" class="form-check-label">Skip TLS verify</label>
+                </div>
+            </div>
+
+            <div class="form-group row action-type action-http">
+                <label for="idHTTPBody" class="col-sm-2 col-form-label">Body</label>
+                <div class="col-sm-10">
+                    <textarea class="form-control" id="idHTTPBody" name="http_body" rows="4" placeholder=""
+                        aria-describedby="httpBodyHelpBlock">{{.Action.Options.HTTPConfig.Body}}</textarea>
+                    <small id="httpBodyHelpBlock" class="form-text text-muted">
+                        Placeholders are supported. Ignored for HTTP get requested. Leave empty for multipart requests.
+                    </small>
+                </div>
+            </div>
+
+            <div class="card bg-light mb-3 action-type action-http">
+                <div class="card-header">
+                    <b>Multipart body</b>
+                </div>
+                <div class="card-body">
+                    <h6 class="card-title mb-4">Multipart requests allow to combine one or more sets of data into a single body. For each part, you can set a file path or a body as text. Placeholders are supported in file path, body, header values.</h6>
+                    <div class="form-group row">
+                        <div class="col-md-12 form_field_http_part_outer">
+                            {{range $idx, $val := .Action.Options.HTTPConfig.Parts}}
+                            <div class="row form_field_http_part_outer_row">
+                                <div class="col-md-12">
+                                    <div class="row">
+                                        <div class="form-group col-md-2">
+                                            <input type="text" class="form-control" id="idHTTPPartName{{$idx}}" name="http_part_name{{$idx}}" placeholder="Part name" value="{{$val.Name}}">
+                                        </div>
+                                        <div class="form-group col-md-3">
+                                            <input type="text" class="form-control" id="idHTTPPartFile{{$idx}}" name="http_part_file{{$idx}}" placeholder="File path" value="{{$val.Filepath}}">
+                                        </div>
+                                        <div class="form-group col-md-5">
+                                            <textarea class="form-control" id="idHTTPPartHeaders{{$idx}}" name="http_part_headers{{$idx}}" rows="2" placeholder="Additional part headers"
+                                                            aria-describedby="httpPartHeadersHelpBlock{{$idx}}">{{range $val.Headers}}{{.Key}}: {{.Value}}&#010;{{end}}</textarea>
+                                            <small id="httpPartHeadersHelpBlock{{$idx}}" class="form-text text-muted">
+                                                One header per line as "key: value", example: "Content-Type: application/json", without quotes. Content type for files is automatically detected
+                                            </small>
+                                        </div>
+                                        <div class="form-group col-md-1"></div>
+                                        <div class="form-group col-md-1">
+                                            <button class="btn btn-circle btn-danger remove_http_part_btn_frm_field">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="form-group col-md-10">
+                                            <textarea class="form-control" id="idHTTPPartBody{{$idx}}" name="http_part_body{{$idx}}" rows="3" placeholder="Part body">{{$val.Body}}</textarea>
+                                        </div>
+                                    </div>
+                                    <hr>
+                                </div>
+                            </div>
+                            {{else}}
+                            <div class="row form_field_http_part_outer_row">
+                                <div class="col-md-12">
+                                    <div class="row">
+                                        <div class="form-group col-md-2">
+                                            <input type="text" class="form-control" id="idHTTPPartName0" name="http_part_name0" placeholder="Part name" value="">
+                                        </div>
+                                        <div class="form-group col-md-3">
+                                            <input type="text" class="form-control" id="idHTTPPartFile0" name="http_part_file0" placeholder="File path" value="">
+                                        </div>
+                                        <div class="form-group col-md-5">
+                                            <textarea class="form-control" id="idHTTPPartHeaders0" name="http_part_headers0" rows="2" placeholder="Additional part headers"
+                                                            aria-describedby="httpPartHeadersHelpBlock0"></textarea>
+                                            <small id="httpPartHeadersHelpBlock0" class="form-text text-muted">
+                                                One header per line as "key: value", example: "Content-Type: application/json", without quotes. Content type for files is automatically detected
+                                            </small>
+                                        </div>
+                                        <div class="form-group col-md-1"></div>
+                                        <div class="form-group col-md-1">
+                                            <button class="btn btn-circle btn-danger remove_http_part_btn_frm_field">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="form-group col-md-10">
+                                            <textarea class="form-control" id="idHTTPPartBody0" name="http_part_body0" rows="3" placeholder="Part body"></textarea>
+                                        </div>
+                                    </div>
+                                    <hr>
+                                </div>
+                            </div>
+                            {{end}}
+                        </div>
+                    </div>
+                    <div class="row mx-1">
+                        <button type="button" class="btn btn-secondary add_new_http_part_field_btn">
+                            <i class="fas fa-plus"></i> Add new HTTP part
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -743,6 +829,50 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
     $("body").on("click", ".remove_fs_rename_btn_frm_field", function () {
         $(this).closest(".form_field_fs_rename_outer_row").remove();
+    });
+
+    $("body").on("click", ".add_new_http_part_field_btn", function () {
+        var index = $(".form_field_http_part_outer").find(".form_field_http_part_outer_row").length;
+        while (document.getElementById("idHTTPPartName"+index) != null){
+            index++;
+        }
+        $(".form_field_http_part_outer").append(`
+            <div class="row form_field_http_part_outer_row">
+                <div class="col-md-12">
+                    <div class="row">
+                        <div class="form-group col-md-2">
+                            <input type="text" class="form-control" id="idHTTPPartName${index}" name="http_part_name${index}" placeholder="Part name" value="">
+                        </div>
+                        <div class="form-group col-md-3">
+                            <input type="text" class="form-control" id="idHTTPPartFile${index}" name="http_part_file${index}" placeholder="File path" value="">
+                        </div>
+                        <div class="form-group col-md-5">
+                            <textarea class="form-control" id="idHTTPPartHeaders${index}" name="http_part_headers${index}" rows="2" placeholder="Additional part headers"
+                                        aria-describedby="httpPartHeadersHelpBlock${index}"></textarea>
+                            <small id="httpPartHeadersHelpBlock${index}" class="form-text text-muted">
+                                One header per line as "key: value", example: "Content-Type: application/json", without quotes. Content type for files is automatically detected
+                            </small>
+                        </div>
+                        <div class="form-group col-md-1"></div>
+                        <div class="form-group col-md-1">
+                            <button class="btn btn-circle btn-danger remove_http_part_btn_frm_field">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="form-group col-md-10">
+                            <textarea class="form-control" id="idHTTPPartBody${index}" name="http_part_body${index}" rows="3" placeholder="Part body"></textarea>
+                        </div>
+                    </div>
+                    <hr>
+                </div>
+            </div>
+            `);
+        });
+
+    $("body").on("click", ".remove_http_part_btn_frm_field", function () {
+        $(this).closest(".form_field_http_part_outer_row").remove();
     });
 
     function onTypeChanged(val){

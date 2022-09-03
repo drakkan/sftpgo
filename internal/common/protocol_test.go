@@ -169,6 +169,16 @@ func TestMain(m *testing.M) {
 			w.WriteHeader(http.StatusNotFound)
 			fmt.Fprintf(w, "Not found\n")
 		})
+		http.HandleFunc("/multipart", func(w http.ResponseWriter, r *http.Request) {
+			err := r.ParseMultipartForm(1048576)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				fmt.Fprintf(w, "KO\n")
+				return
+			}
+			defer r.MultipartForm.RemoveAll() //nolint:errcheck
+			fmt.Fprintf(w, "OK\n")
+		})
 		if err := http.ListenAndServe(httpAddr, nil); err != nil {
 			logger.ErrorToConsole("could not start HTTP notification server: %v", err)
 			os.Exit(1)
@@ -3812,6 +3822,94 @@ func TestEventRuleFsActions(t *testing.T) {
 	_, err = httpdtest.RemoveEventAction(action5, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveEventAction(action6, http.StatusOK)
+	assert.NoError(t, err)
+}
+
+func TestEventActionHTTPMultipart(t *testing.T) {
+	a1 := dataprovider.BaseEventAction{
+		Name: "action1",
+		Type: dataprovider.ActionTypeHTTP,
+		Options: dataprovider.BaseEventActionOptions{
+			HTTPConfig: dataprovider.EventActionHTTPConfig{
+				Endpoint: fmt.Sprintf("http://%s/multipart", httpAddr),
+				Method:   http.MethodPut,
+				Parts: []dataprovider.HTTPPart{
+					{
+						Name: "part1",
+						Headers: []dataprovider.KeyValue{
+							{
+								Key:   "Content-Type",
+								Value: "application/json",
+							},
+						},
+						Body: `{"FilePath": "{{VirtualPath}}"}`,
+					},
+					{
+						Name:     "file",
+						Filepath: "/{{VirtualPath}}",
+					},
+				},
+			},
+		},
+	}
+	action1, resp, err := httpdtest.AddEventAction(a1, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	r1 := dataprovider.EventRule{
+		Name:    "test http multipart",
+		Trigger: dataprovider.EventTriggerFsEvent,
+		Conditions: dataprovider.EventConditions{
+			FsEvents: []string{"upload"},
+		},
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action1.Name,
+				},
+				Options: dataprovider.EventActionOptions{
+					ExecuteSync: true,
+				},
+				Order: 1,
+			},
+		},
+	}
+	rule1, _, err := httpdtest.AddEventRule(r1, http.StatusCreated)
+	assert.NoError(t, err)
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	conn, client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		f, err := client.Create(testFileName)
+		assert.NoError(t, err)
+		_, err = f.Write(testFileContent)
+		assert.NoError(t, err)
+		err = f.Close()
+		assert.NoError(t, err)
+		// now add an missing file to the http multipart action
+		action1.Options.HTTPConfig.Parts = append(action1.Options.HTTPConfig.Parts, dataprovider.HTTPPart{
+			Name:     "file1",
+			Filepath: "/missing",
+		})
+		_, resp, err = httpdtest.UpdateEventAction(action1, http.StatusOK)
+		assert.NoError(t, err, string(resp))
+
+		f, err = client.Create("testfile.txt")
+		assert.NoError(t, err)
+		_, err = f.Write(testFileContent)
+		assert.NoError(t, err)
+		err = f.Close()
+		assert.Error(t, err)
+	}
+
+	_, err = httpdtest.RemoveEventRule(rule1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
 

@@ -20,7 +20,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime"
+	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"net/url"
 	"os"
 	"os/exec"
@@ -49,7 +52,8 @@ const (
 
 var (
 	// eventManager handle the supported event rules actions
-	eventManager eventRulesContainer
+	eventManager          eventRulesContainer
+	multipartQuoteEscaper = strings.NewReplacer("\\", "\\\\", `"`, "\\\"")
 )
 
 func init() {
@@ -455,7 +459,12 @@ func (p *EventParams) getStatusString() string {
 // getUsers returns users with group settings not applied
 func (p *EventParams) getUsers() ([]dataprovider.User, error) {
 	if p.sender == "" {
-		return dataprovider.DumpUsers()
+		users, err := dataprovider.DumpUsers()
+		if err != nil {
+			eventManagerLog(logger.LevelError, "unable to get users: %+v", err)
+			return users, errors.New("unable to get users")
+		}
+		return users, nil
 	}
 	user, err := p.getUserFromSender()
 	if err != nil {
@@ -467,7 +476,8 @@ func (p *EventParams) getUsers() ([]dataprovider.User, error) {
 func (p *EventParams) getUserFromSender() (dataprovider.User, error) {
 	user, err := dataprovider.UserExists(p.sender)
 	if err != nil {
-		return user, fmt.Errorf("error getting user %q: %w", p.sender, err)
+		eventManagerLog(logger.LevelError, "unable to get user %q: %+v", p.sender, err)
+		return user, fmt.Errorf("error getting user %q", p.sender)
 	}
 	return user, nil
 }
@@ -515,26 +525,45 @@ func (p *EventParams) getStringReplacements(addObjectData bool) []string {
 	return replacements
 }
 
-func getFileContent(conn *BaseConnection, virtualPath string, expectedSize int) ([]byte, error) {
+func getFileReader(conn *BaseConnection, virtualPath string) (io.ReadCloser, func(), error) {
 	fs, fsPath, err := conn.GetFsAndResolvedPath(virtualPath)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	f, r, cancelFn, err := fs.Open(fsPath, 0)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if cancelFn == nil {
 		cancelFn = func() {}
 	}
-	defer cancelFn()
 
-	var reader io.ReadCloser
 	if f != nil {
-		reader = f
-	} else {
-		reader = r
+		return f, cancelFn, nil
 	}
+	return r, cancelFn, nil
+}
+
+func writeFileContent(conn *BaseConnection, virtualPath string, w io.Writer) error {
+	reader, cancelFn, err := getFileReader(conn, virtualPath)
+	if err != nil {
+		return err
+	}
+
+	defer cancelFn()
+	defer reader.Close()
+
+	_, err = io.Copy(w, reader)
+	return err
+}
+
+func getFileContent(conn *BaseConnection, virtualPath string, expectedSize int) ([]byte, error) {
+	reader, cancelFn, err := getFileReader(conn, virtualPath)
+	if err != nil {
+		return nil, err
+	}
+
+	defer cancelFn()
 	defer reader.Close()
 
 	data := make([]byte, expectedSize)
@@ -632,19 +661,103 @@ func getHTTPRuleActionEndpoint(c dataprovider.EventActionHTTPConfig, replacer *s
 	return c.Endpoint, nil
 }
 
-func executeHTTPRuleAction(c dataprovider.EventActionHTTPConfig, params *EventParams) error {
-	if !c.Password.IsEmpty() {
-		if err := c.Password.TryDecrypt(); err != nil {
-			return fmt.Errorf("unable to decrypt password: %w", err)
+func writeHTTPPart(m *multipart.Writer, part dataprovider.HTTPPart, h textproto.MIMEHeader,
+	conn *BaseConnection, replacer *strings.Replacer,
+) error {
+	partWriter, err := m.CreatePart(h)
+	if err != nil {
+		eventManagerLog(logger.LevelError, "unable to create part %q, err: %v", part.Name, err)
+		return err
+	}
+	if part.Body != "" {
+		_, err = partWriter.Write([]byte(replaceWithReplacer(part.Body, replacer)))
+		if err != nil {
+			eventManagerLog(logger.LevelError, "unable to write part %q, err: %v", part.Name, err)
+			return err
 		}
+		return nil
+	}
+	err = writeFileContent(conn, util.CleanPath(replacer.Replace(part.Filepath)), partWriter)
+	if err != nil {
+		eventManagerLog(logger.LevelError, "unable to write file part %q, err: %v", part.Name, err)
+		return err
+	}
+	return nil
+}
+
+func getHTTPRuleActionBody(c dataprovider.EventActionHTTPConfig, replacer *strings.Replacer,
+	cancel context.CancelFunc, user dataprovider.User,
+) (io.ReadCloser, string, error) {
+	var body io.ReadCloser
+	if c.Method == http.MethodGet {
+		return body, "", nil
+	}
+	if c.Body != "" {
+		return io.NopCloser(bytes.NewBufferString(replaceWithReplacer(c.Body, replacer))), "", nil
+	}
+	if len(c.Parts) > 0 {
+		r, w := io.Pipe()
+		m := multipart.NewWriter(w)
+
+		var conn *BaseConnection
+		if user.Username != "" {
+			var err error
+			user, err = getUserForEventAction(user)
+			if err != nil {
+				return body, "", err
+			}
+			connectionID := fmt.Sprintf("%s_%s", protocolEventAction, xid.New().String())
+			err = user.CheckFsRoot(connectionID)
+			if err != nil {
+				user.CloseFs() //nolint:errcheck
+				return body, "", fmt.Errorf("error getting multipart file/s, unable to check root fs for user %q: %w",
+					user.Username, err)
+			}
+			conn = NewBaseConnection(connectionID, protocolEventAction, "", "", user)
+		}
+
+		go func() {
+			defer w.Close()
+			defer user.CloseFs() //nolint:errcheck
+
+			for _, part := range c.Parts {
+				h := make(textproto.MIMEHeader)
+				if part.Body != "" {
+					h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"`, multipartQuoteEscaper.Replace(part.Name)))
+				} else {
+					filePath := util.CleanPath(replacer.Replace(part.Filepath))
+					h.Set("Content-Disposition",
+						fmt.Sprintf(`form-data; name="%s"; filename="%s"`,
+							multipartQuoteEscaper.Replace(part.Name), multipartQuoteEscaper.Replace(path.Base(filePath))))
+					contentType := mime.TypeByExtension(path.Ext(filePath))
+					if contentType == "" {
+						contentType = "application/octet-stream"
+					}
+					h.Set("Content-Type", contentType)
+				}
+				for _, keyVal := range part.Headers {
+					h.Set(keyVal.Key, replaceWithReplacer(keyVal.Value, replacer))
+				}
+				if err := writeHTTPPart(m, part, h, conn, replacer); err != nil {
+					cancel()
+					return
+				}
+			}
+			m.Close()
+		}()
+
+		return r, m.FormDataContentType(), nil
+	}
+	return body, "", nil
+}
+
+func executeHTTPRuleAction(c dataprovider.EventActionHTTPConfig, params *EventParams) error {
+	if err := c.TryDecryptPassword(); err != nil {
+		return err
 	}
 	addObjectData := false
 	if params.Object != nil {
-		if !addObjectData {
-			if strings.Contains(c.Body, "{{ObjectData}}") {
-				addObjectData = true
-			}
-		}
+		addObjectData = c.HasObjectData()
 	}
 
 	replacements := params.getStringReplacements(addObjectData)
@@ -654,16 +767,32 @@ func executeHTTPRuleAction(c dataprovider.EventActionHTTPConfig, params *EventPa
 		return err
 	}
 
-	var body io.Reader
-	if c.Body != "" && c.Method != http.MethodGet {
-		body = bytes.NewBufferString(replaceWithReplacer(c.Body, replacer))
+	ctx, cancel := c.GetContext()
+	defer cancel()
+
+	var user dataprovider.User
+	if c.HasMultipartFile() {
+		user, err = params.getUserFromSender()
+		if err != nil {
+			return err
+		}
 	}
-	req, err := http.NewRequest(c.Method, endpoint, body)
+	body, contentType, err := getHTTPRuleActionBody(c, replacer, cancel, user)
 	if err != nil {
 		return err
 	}
+	if body != nil {
+		defer body.Close()
+	}
+	req, err := http.NewRequestWithContext(ctx, c.Method, endpoint, body)
+	if err != nil {
+		return err
+	}
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
 	if c.Username != "" {
-		req.SetBasicAuth(replaceWithReplacer(c.Username, replacer), c.Password.GetAdditionalData())
+		req.SetBasicAuth(replaceWithReplacer(c.Username, replacer), c.Password.GetPayload())
 	}
 	for _, keyVal := range c.Headers {
 		req.Header.Set(keyVal.Key, replaceWithReplacer(keyVal.Value, replacer))
@@ -676,11 +805,11 @@ func executeHTTPRuleAction(c dataprovider.EventActionHTTPConfig, params *EventPa
 	if err != nil {
 		eventManagerLog(logger.LevelDebug, "unable to send http notification, endpoint: %s, elapsed: %s, err: %v",
 			endpoint, time.Since(startTime), err)
-		return err
+		return fmt.Errorf("error sending HTTP request: %w", err)
 	}
 	defer resp.Body.Close()
 
-	eventManagerLog(logger.LevelDebug, "http notification sent, endopoint: %s, elapsed: %s, status code: %d",
+	eventManagerLog(logger.LevelDebug, "http notification sent, endpoint: %s, elapsed: %s, status code: %d",
 		endpoint, time.Since(startTime), resp.StatusCode)
 	if resp.StatusCode < http.StatusOK || resp.StatusCode > http.StatusNoContent {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
@@ -761,14 +890,15 @@ func executeEmailRuleAction(c dataprovider.EventActionEmailConfig, params *Event
 func getUserForEventAction(user dataprovider.User) (dataprovider.User, error) {
 	err := user.LoadAndApplyGroupSettings()
 	if err != nil {
-		return dataprovider.User{}, err
+		eventManagerLog(logger.LevelError, "unable to get group for user %q: %+v", user.Username, err)
+		return dataprovider.User{}, fmt.Errorf("unable to get groups for user %q", user.Username)
 	}
 	user.Filters.DisableFsChecks = false
 	user.Filters.FilePatterns = nil
 	for k := range user.Permissions {
 		user.Permissions[k] = []string{dataprovider.PermAny}
 	}
-	return user, err
+	return user, nil
 }
 
 func executeDeleteFileFsAction(conn *BaseConnection, item string, info os.FileInfo) error {

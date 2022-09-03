@@ -1490,7 +1490,7 @@ func TestEventActionValidation(t *testing.T) {
 			Value: "application/json",
 		},
 	}
-	action.Options.HTTPConfig.Password = kms.NewSecret(sdkkms.SecretStatusRedacted, "paylod", "", "")
+	action.Options.HTTPConfig.Password = kms.NewSecret(sdkkms.SecretStatusRedacted, "payload", "", "")
 	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
 	assert.NoError(t, err)
 	assert.Contains(t, string(resp), "cannot save HTTP configuration with a redacted secret")
@@ -1509,6 +1509,43 @@ func TestEventActionValidation(t *testing.T) {
 	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
 	assert.NoError(t, err)
 	assert.Contains(t, string(resp), "invalid HTTP query parameters")
+	action.Options.HTTPConfig.QueryParameters = nil
+	action.Options.HTTPConfig.Parts = []dataprovider.HTTPPart{
+		{
+			Name: "",
+		},
+	}
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "HTTP part name is required")
+	action.Options.HTTPConfig.Parts = []dataprovider.HTTPPart{
+		{
+			Name: "p1",
+		},
+	}
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "HTTP part body is required if no file path is provided")
+	action.Options.HTTPConfig.Parts = []dataprovider.HTTPPart{
+		{
+			Name:     "p1",
+			Filepath: "p",
+		},
+	}
+	action.Options.HTTPConfig.Body = "b"
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "multipart requests require no body")
+	action.Options.HTTPConfig.Body = ""
+	action.Options.HTTPConfig.Headers = []dataprovider.KeyValue{
+		{
+			Key:   "Content-Type",
+			Value: "application/json",
+		},
+	}
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "content type is automatically set for multipart requests")
 
 	action.Type = dataprovider.ActionTypeCommand
 	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
@@ -18899,8 +18936,23 @@ func TestWebEventAction(t *testing.T) {
 	assert.NotEmpty(t, actionGet.Options.HTTPConfig.Password.GetPayload())
 	assert.Empty(t, actionGet.Options.HTTPConfig.Password.GetKey())
 	assert.Empty(t, actionGet.Options.HTTPConfig.Password.GetAdditionalData())
-	// update and check that the password is preserved
+	// update and check that the password is preserved and the multipart fields
 	form.Set("http_password", redactedSecret)
+	form.Set("http_body", "")
+	form.Set("http_timeout", "0")
+	form.Del("http_header_key0")
+	form.Del("http_header_val0")
+	form.Set("http_part_name0", "part1")
+	form.Set("http_part_file0", "{{VirtualPath}}")
+	form.Set("http_part_headers0", "X-MyHeader: a:b,c")
+	form.Set("http_part_body0", "")
+	form.Set("http_part_namea", "ignored")
+	form.Set("http_part_filea", "{{VirtualPath}}")
+	form.Set("http_part_headersa", "X-MyHeader: a:b,c")
+	form.Set("http_part_bodya", "")
+	form.Set("http_part_name12", "part2")
+	form.Set("http_part_headers12", "Content-Type:application/json \r\n")
+	form.Set("http_part_body12", "{{ObjectData}}")
 	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminEventActionPath, action.Name),
 		bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
@@ -18913,6 +18965,20 @@ func TestWebEventAction(t *testing.T) {
 	err = dbAction.Options.HTTPConfig.Password.Decrypt()
 	assert.NoError(t, err)
 	assert.Equal(t, defaultPassword, dbAction.Options.HTTPConfig.Password.GetPayload())
+	assert.Empty(t, dbAction.Options.HTTPConfig.Body)
+	assert.Equal(t, 0, dbAction.Options.HTTPConfig.Timeout)
+	if assert.Len(t, dbAction.Options.HTTPConfig.Parts, 2) {
+		assert.Equal(t, "part1", dbAction.Options.HTTPConfig.Parts[0].Name)
+		assert.Equal(t, "/{{VirtualPath}}", dbAction.Options.HTTPConfig.Parts[0].Filepath)
+		assert.Empty(t, dbAction.Options.HTTPConfig.Parts[0].Body)
+		assert.Equal(t, "X-MyHeader", dbAction.Options.HTTPConfig.Parts[0].Headers[0].Key)
+		assert.Equal(t, "a:b,c", dbAction.Options.HTTPConfig.Parts[0].Headers[0].Value)
+		assert.Equal(t, "part2", dbAction.Options.HTTPConfig.Parts[1].Name)
+		assert.Equal(t, "{{ObjectData}}", dbAction.Options.HTTPConfig.Parts[1].Body)
+		assert.Empty(t, dbAction.Options.HTTPConfig.Parts[1].Filepath)
+		assert.Equal(t, "Content-Type", dbAction.Options.HTTPConfig.Parts[1].Headers[0].Key)
+		assert.Equal(t, "application/json", dbAction.Options.HTTPConfig.Parts[1].Headers[0].Value)
+	}
 	// change action type
 	action.Type = dataprovider.ActionTypeCommand
 	action.Options.CmdConfig = dataprovider.EventActionCommandConfig{
