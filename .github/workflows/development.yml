@@ -412,6 +412,12 @@ jobs:
           gzip output/man/man1/*
           cp sftpgo output/
 
+      - name: Get commit SHA
+        if: ${{ matrix.arch != 'amd64' }}
+        id: get_commit
+        run: echo ::set-output name=COMMIT::${GITHUB_SHA::8}
+        shell: bash
+
       - uses: uraimo/run-on-arch-action@v2
         if: ${{ matrix.arch != 'amd64' }}
         name: Build for ${{ matrix.arch }}
@@ -426,7 +432,7 @@ jobs:
           shell: /bin/bash
           install: |
             apt-get update -q -y
-            apt-get install -q -y curl gcc git
+            apt-get install -q -y curl gcc
             if [ ${{ matrix.go }} == 'latest' ]
             then
               GO_VERSION=$(curl -L https://go.dev/VERSION?m=text)
@@ -446,7 +452,7 @@ jobs:
             then
               export GOARM=7
             fi
-            go build -buildvcs=false -trimpath -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/version.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/v2/version.date=`date -u +%FT%TZ`" -o sftpgo
+            go build -buildvcs=false -trimpath -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/version.commit=${{ steps.get_commit.outputs.COMMIT }} -X github.com/drakkan/sftpgo/v2/version.date=`date -u +%FT%TZ`" -o sftpgo
             mkdir -p output/{init,bash_completion,zsh_completion}
             cp sftpgo.json output/
             cp -r templates output/

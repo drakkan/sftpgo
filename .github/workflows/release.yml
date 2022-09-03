@@ -326,6 +326,12 @@ jobs:
         env:
           SFTPGO_VERSION: ${{ steps.get_version.outputs.SFTPGO_VERSION }}
 
+      - name: Get commit SHA
+        if: ${{ matrix.arch != 'amd64' }}
+        id: get_commit
+        run: echo ::set-output name=COMMIT::${GITHUB_SHA::8}
+        shell: bash
+
       - uses: uraimo/run-on-arch-action@v2
         if: ${{ matrix.arch != 'amd64' }}
         name: Build for ${{ matrix.arch }}
@@ -340,7 +346,7 @@ jobs:
           shell: /bin/bash
           install: |
             apt-get update -q -y
-            apt-get install -q -y curl gcc git xz-utils
+            apt-get install -q -y curl gcc xz-utils
             GO_DOWNLOAD_ARCH=${{ matrix.go-arch }}
             if [ ${{ matrix.arch}} == 'armv7' ]
             then
@@ -350,7 +356,7 @@ jobs:
             tar -C /usr/local -xzf go.tar.gz
           run: |
             export PATH=$PATH:/usr/local/go/bin
-            go build -buildvcs=false -trimpath -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/version.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/v2/version.date=`date -u +%FT%TZ`" -o sftpgo
+            go build -buildvcs=false -trimpath -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/version.commit=${{ steps.get_commit.outputs.COMMIT }} -X github.com/drakkan/sftpgo/v2/version.date=`date -u +%FT%TZ`" -o sftpgo
             mkdir -p output/{init,sqlite,bash_completion,zsh_completion}
             echo "For documentation please take a look here:" > output/README.txt
             echo "" >> output/README.txt
