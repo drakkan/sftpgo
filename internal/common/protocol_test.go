@@ -3825,6 +3825,136 @@ func TestEventRuleFsActions(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestEventFsActionsGroupFilters(t *testing.T) {
+	smtpCfg := smtp.Config{
+		Host:          "127.0.0.1",
+		Port:          2525,
+		From:          "notification@example.com",
+		TemplatesPath: "templates",
+	}
+	err := smtpCfg.Initialize(configDir)
+	require.NoError(t, err)
+
+	a1 := dataprovider.BaseEventAction{
+		Name: "a1",
+		Type: dataprovider.ActionTypeEmail,
+		Options: dataprovider.BaseEventActionOptions{
+			EmailConfig: dataprovider.EventActionEmailConfig{
+				Recipients: []string{"example@example.net"},
+				Subject:    `New "{{Event}}" from "{{Name}}" status {{StatusString}}`,
+				Body:       "Fs path {{FsPath}}, size: {{FileSize}}, protocol: {{Protocol}}, IP: {{IP}} {{ErrorString}}",
+			},
+		},
+	}
+	action1, _, err := httpdtest.AddEventAction(a1, http.StatusCreated)
+	assert.NoError(t, err)
+
+	r1 := dataprovider.EventRule{
+		Name:    "rule1",
+		Trigger: dataprovider.EventTriggerFsEvent,
+		Conditions: dataprovider.EventConditions{
+			FsEvents: []string{"upload"},
+			Options: dataprovider.ConditionOptions{
+				GroupNames: []dataprovider.ConditionPattern{
+					{
+						Pattern: "group*",
+					},
+				},
+			},
+		},
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action1.Name,
+				},
+				Order: 1,
+				Options: dataprovider.EventActionOptions{
+					ExecuteSync: true,
+				},
+			},
+		},
+	}
+	rule1, _, err := httpdtest.AddEventRule(r1, http.StatusCreated)
+	assert.NoError(t, err)
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	conn, client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		// the user has no group, so the rule does not match
+		lastReceivedEmail.reset()
+		err = writeSFTPFile(testFileName, 32, client)
+		assert.NoError(t, err)
+		assert.Empty(t, lastReceivedEmail.get().From)
+	}
+	g1 := dataprovider.Group{
+		BaseGroup: sdk.BaseGroup{
+			Name: "agroup1",
+		},
+	}
+	group1, _, err := httpdtest.AddGroup(g1, http.StatusCreated)
+	assert.NoError(t, err)
+
+	g2 := dataprovider.Group{
+		BaseGroup: sdk.BaseGroup{
+			Name: "group2",
+		},
+	}
+	group2, _, err := httpdtest.AddGroup(g2, http.StatusCreated)
+	assert.NoError(t, err)
+	user.Groups = []sdk.GroupMapping{
+		{
+			Name: group1.Name,
+			Type: sdk.GroupTypePrimary,
+		},
+	}
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	conn, client, err = getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		// the group does not match
+		lastReceivedEmail.reset()
+		err = writeSFTPFile(testFileName, 32, client)
+		assert.NoError(t, err)
+		assert.Empty(t, lastReceivedEmail.get().From)
+	}
+	user.Groups = append(user.Groups, sdk.GroupMapping{
+		Name: group2.Name,
+		Type: sdk.GroupTypeSecondary,
+	})
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	conn, client, err = getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		// the group matches
+		lastReceivedEmail.reset()
+		err = writeSFTPFile(testFileName, 32, client)
+		assert.NoError(t, err)
+		assert.NotEmpty(t, lastReceivedEmail.get().From)
+	}
+	_, err = httpdtest.RemoveEventRule(rule1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveGroup(group1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveGroup(group2, http.StatusOK)
+	assert.NoError(t, err)
+
+	smtpCfg = smtp.Config{}
+	err = smtpCfg.Initialize(configDir)
+	require.NoError(t, err)
+}
+
 func TestEventActionHTTPMultipart(t *testing.T) {
 	a1 := dataprovider.BaseEventAction{
 		Name: "action1",

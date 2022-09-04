@@ -19250,6 +19250,12 @@ func TestWebEventRule(t *testing.T) {
 						InverseMatch: true,
 					},
 				},
+				GroupNames: []dataprovider.ConditionPattern{
+					{
+						Pattern:      "g*",
+						InverseMatch: true,
+					},
+				},
 			},
 		},
 		Actions: []dataprovider.EventAction{
@@ -19279,6 +19285,8 @@ func TestWebEventRule(t *testing.T) {
 	form.Set("schedule_month0", rule.Conditions.Schedules[0].Month)
 	form.Set("name_pattern0", rule.Conditions.Options.Names[0].Pattern)
 	form.Set("type_name_pattern0", "inverse")
+	form.Set("group_name_pattern0", rule.Conditions.Options.GroupNames[0].Pattern)
+	form.Set("type_group_name_pattern0", "inverse")
 	req, err = http.NewRequest(http.MethodPost, webAdminEventRulePath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -19368,6 +19376,12 @@ func TestWebEventRule(t *testing.T) {
 			Names: []dataprovider.ConditionPattern{
 				{
 					Pattern:      "u*",
+					InverseMatch: true,
+				},
+			},
+			GroupNames: []dataprovider.ConditionPattern{
+				{
+					Pattern:      "g*",
 					InverseMatch: true,
 				},
 			},

@@ -930,6 +930,8 @@ func (p *ConditionPattern) validate() error {
 type ConditionOptions struct {
 	// Usernames or folder names
 	Names []ConditionPattern `json:"names,omitempty"`
+	// Group names
+	GroupNames []ConditionPattern `json:"group_names,omitempty"`
 	// Virtual paths
 	FsPaths         []ConditionPattern `json:"fs_paths,omitempty"`
 	Protocols       []string           `json:"protocols,omitempty"`
@@ -948,6 +950,7 @@ func (f *ConditionOptions) getACopy() ConditionOptions {
 
 	return ConditionOptions{
 		Names:               cloneConditionPatterns(f.Names),
+		GroupNames:          cloneConditionPatterns(f.GroupNames),
 		FsPaths:             cloneConditionPatterns(f.FsPaths),
 		Protocols:           protocols,
 		ProviderObjects:     providerObjects,
@@ -959,6 +962,11 @@ func (f *ConditionOptions) getACopy() ConditionOptions {
 
 func (f *ConditionOptions) validate() error {
 	for _, name := range f.Names {
+		if err := name.validate(); err != nil {
+			return err
+		}
+	}
+	for _, name := range f.GroupNames {
 		if err := name.validate(); err != nil {
 			return err
 		}
@@ -1061,6 +1069,7 @@ func (c *EventConditions) validate(trigger int) error {
 	case EventTriggerProviderEvent:
 		c.FsEvents = nil
 		c.Schedules = nil
+		c.Options.GroupNames = nil
 		c.Options.FsPaths = nil
 		c.Options.Protocols = nil
 		c.Options.MinFileSize = 0
@@ -1093,6 +1102,7 @@ func (c *EventConditions) validate(trigger int) error {
 		c.FsEvents = nil
 		c.ProviderEvents = nil
 		c.Options.Names = nil
+		c.Options.GroupNames = nil
 		c.Options.FsPaths = nil
 		c.Options.Protocols = nil
 		c.Options.MinFileSize = 0
@@ -1101,6 +1111,7 @@ func (c *EventConditions) validate(trigger int) error {
 	default:
 		c.FsEvents = nil
 		c.ProviderEvents = nil
+		c.Options.GroupNames = nil
 		c.Options.FsPaths = nil
 		c.Options.Protocols = nil
 		c.Options.MinFileSize = 0

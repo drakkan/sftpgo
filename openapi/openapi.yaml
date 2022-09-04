@@ -6211,6 +6211,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ConditionPattern'
+        group_names:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConditionPattern'
         fs_paths:
           type: array
           items:

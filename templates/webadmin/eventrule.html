@@ -188,7 +188,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                     <b>Name filters</b>
                 </div>
                 <div class="card-body">
-                    <h6 class="card-title mb-4">Shell-like pattern filters for usernames, folder names. For example "user*"" will match names starting with "user"</h6>
+                    <h6 class="card-title mb-4">Shell-like pattern filters for usernames, folder names. For example "user*"" will match names starting with "user". For provider events, this filter is applied to the username of the admin executing the event.</h6>
                     <div class="form-group row">
                         <div class="col-md-12 form_field_names_outer">
                             {{range $idx, $val := .Rule.Conditions.Options.Names}}
@@ -231,6 +231,60 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
                     <div class="row mx-1">
                         <button type="button" class="btn btn-secondary add_new_name_pattern_field_btn">
+                            <i class="fas fa-plus"></i> Add new filter
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card bg-light mb-3 trigger trigger-fs trigger-schedule">
+                <div class="card-header">
+                    <b>Group name filters</b>
+                </div>
+                <div class="card-body">
+                    <h6 class="card-title mb-4">Shell-like pattern filters for group names. For example "group*"" will match group names starting with "group".</h6>
+                    <div class="form-group row">
+                        <div class="col-md-12 form_field_group_names_outer">
+                            {{range $idx, $val := .Rule.Conditions.Options.GroupNames}}
+                            <div class="row form_field_group_names_outer_row">
+                                <div class="form-group col-md-8">
+                                    <input type="text" class="form-control" id="idGroupNamePattern{{$idx}}" name="group_name_pattern{{$idx}}" placeholder="" value="{{$val.Pattern}}" maxlength="255">
+                                </div>
+                                <div class="form-group col-md-3">
+                                    <select class="form-control selectpicker" id="idGroupNamePatternType{{$idx}}" name="type_group_name_pattern{{$idx}}">
+                                        <option value=""></option>
+                                        <option value="inverse" {{if $val.InverseMatch}}selected{{end}}>Inverse match</option>
+                                    </select>
+                                </div>
+                                <div class="form-group col-md-1">
+                                    <button class="btn btn-circle btn-danger remove_group_name_pattern_btn_frm_field">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {{else}}
+                            <div class="row form_field_group_names_outer_row">
+                                <div class="form-group col-md-8">
+                                    <input type="text" class="form-control" id="idGroupNamePattern0" name="group_name_pattern0" placeholder="" value="" maxlength="255">
+                                </div>
+                                <div class="form-group col-md-3">
+                                    <select class="form-control selectpicker" id="idGroupNamePatternType0" name="type_group_name_pattern0">
+                                        <option value=""></option>
+                                        <option value="inverse">Inverse match</option>
+                                    </select>
+                                </div>
+                                <div class="form-group col-md-1">
+                                    <button class="btn btn-circle btn-danger remove_group_name_pattern_btn_frm_field">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {{end}}
+                        </div>
+                    </div>
+
+                    <div class="row mx-1">
+                        <button type="button" class="btn btn-secondary add_new_group_name_pattern_field_btn">
                             <i class="fas fa-plus"></i> Add new filter
                         </button>
                     </div>
@@ -456,6 +510,36 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
     $("body").on("click", ".remove_name_pattern_btn_frm_field", function () {
         $(this).closest(".form_field_names_outer_row").remove();
+    });
+
+    $("body").on("click", ".add_new_group_name_pattern_field_btn", function () {
+        var index = $(".form_field_group_names_outer").find(".form_field_group_names_outer_row").length;
+        while (document.getElementById("idGroupNamePattern"+index) != null){
+            index++;
+        }
+        $(".form_field_group_names_outer").append(`
+            <div class="row form_field_group_names_outer_row">
+                <div class="form-group col-md-8">
+                    <input type="text" class="form-control" id="idGroupNamePattern${index}" name="group_name_pattern${index}" placeholder="" value="" maxlength="255">
+                </div>
+                <div class="form-group col-md-3">
+                    <select class="form-control" id="idGroupNamePatternType${index}" name="type_group_name_pattern${index}">
+                        <option value=""></option>
+                        <option value="inverse">Inverse match</option>
+                    </select>
+                </div>
+                <div class="form-group col-md-1">
+                    <button class="btn btn-circle btn-danger remove_group_name_pattern_btn_frm_field">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `);
+        $("#idGroupNamePatternType"+index).selectpicker();
+    });
+
+    $("body").on("click", ".remove_group_name_pattern_btn_frm_field", function () {
+        $(this).closest(".form_field_group_names_outer_row").remove();
     });
 
     $("body").on("click", ".add_new_fs_path_pattern_field_btn", function () {

@@ -109,6 +109,7 @@ const (
 	pageResetPwdTitle        = "SFTPGo Admin - Reset password"
 	pageSetupTitle           = "Create first admin user"
 	defaultQueryLimit        = 500
+	inversePatternType       = "inverse"
 )
 
 var (
@@ -2006,7 +2007,7 @@ func getEventActionFromPostFields(r *http.Request) (dataprovider.BaseEventAction
 
 func getEventRuleConditionsFromPostFields(r *http.Request) (dataprovider.EventConditions, error) {
 	var schedules []dataprovider.Schedule
-	var names, fsPaths []dataprovider.ConditionPattern
+	var names, groupNames, fsPaths []dataprovider.ConditionPattern
 	for k := range r.Form {
 		if strings.HasPrefix(k, "schedule_hour") {
 			hour := r.Form.Get(k)
@@ -2030,7 +2031,18 @@ func getEventRuleConditionsFromPostFields(r *http.Request) (dataprovider.EventCo
 				patternType := r.Form.Get(fmt.Sprintf("type_name_pattern%s", idx))
 				names = append(names, dataprovider.ConditionPattern{
 					Pattern:      pattern,
-					InverseMatch: patternType == "inverse",
+					InverseMatch: patternType == inversePatternType,
+				})
+			}
+		}
+		if strings.HasPrefix(k, "group_name_pattern") {
+			pattern := r.Form.Get(k)
+			if pattern != "" {
+				idx := strings.TrimPrefix(k, "group_name_pattern")
+				patternType := r.Form.Get(fmt.Sprintf("type_group_name_pattern%s", idx))
+				groupNames = append(groupNames, dataprovider.ConditionPattern{
+					Pattern:      pattern,
+					InverseMatch: patternType == inversePatternType,
 				})
 			}
 		}
@@ -2041,7 +2053,7 @@ func getEventRuleConditionsFromPostFields(r *http.Request) (dataprovider.EventCo
 				patternType := r.Form.Get(fmt.Sprintf("type_fs_path_pattern%s", idx))
 				fsPaths = append(fsPaths, dataprovider.ConditionPattern{
 					Pattern:      pattern,
-					InverseMatch: patternType == "inverse",
+					InverseMatch: patternType == inversePatternType,
 				})
 			}
 		}
@@ -2060,6 +2072,7 @@ func getEventRuleConditionsFromPostFields(r *http.Request) (dataprovider.EventCo
 		Schedules:      schedules,
 		Options: dataprovider.ConditionOptions{
 			Names:               names,
+			GroupNames:          groupNames,
 			FsPaths:             fsPaths,
 			Protocols:           r.Form["fs_protocols"],
 			ProviderObjects:     r.Form["provider_objects"],

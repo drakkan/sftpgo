@@ -20,7 +20,7 @@ The following actions are supported:
 
 The following placeholders are supported:
 
-- `{{Name}}`. Username, folder name or admin username for provider actions.
+- `{{Name}}`. Username, folder name or admin username for provider events.
 - `{{Event}}`. Event name, for example `upload`, `download` for filesystem events or `add`, `update` for provider events.
 - `{{Status}}`. Status for `upload`, `download` and `ssh_cmd` events. 1 means no error, 2 means a generic error occurred, 3 means quota exceeded error.
 - `{{StatusString}}`. Status as string. Possible values "OK", "KO".
@@ -64,4 +64,5 @@ Some actions are not supported for some triggers, rules containing incompatible 
 - `Provider events`, user quota reset, transfer quota reset, data retention check and filesystem actions can be executed only if  a user is updated. They will be executed for the affected user. Folder quota reset can be executed only for folders. Filesystem actions are not executed for `delete` user events because the actions is executed after the user deletion.
 - `IP Blocked`, user quota reset, folder quota reset, transfer quota reset, data retention check and filesystem actions cannot be executed, we only have an IP.
 - `Certificate`, user quota reset, folder quota reset, transfer quota reset, data retention check and filesystem actions cannot be executed.
-- `Email with attachments` are supported for filesystem events and provider events if a user is updated. We need a user to get the files to attach.
+- `Email with attachments` are supported for filesystem events and provider events if a user is added/updated. We need a user to get the files to attach.
+- `HTTP multipart requests with files as attachments` are supported for filesystem events and provider events if a user is added/updated. We need a user to get the files to attach.

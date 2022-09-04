@@ -148,6 +148,50 @@ func TestEventRuleMatch(t *testing.T) {
 	}
 	res = eventManager.checkFsEventMatch(conditions, params)
 	assert.False(t, res)
+	// check fs events with group name filters
+	conditions = dataprovider.EventConditions{
+		FsEvents: []string{operationUpload, operationDownload},
+		Options: dataprovider.ConditionOptions{
+			GroupNames: []dataprovider.ConditionPattern{
+				{
+					Pattern: "group*",
+				},
+				{
+					Pattern: "testgroup*",
+				},
+			},
+		},
+	}
+	params = EventParams{
+		Name:  "user1",
+		Event: operationUpload,
+	}
+	res = eventManager.checkFsEventMatch(conditions, params)
+	assert.False(t, res)
+	params.Groups = []sdk.GroupMapping{
+		{
+			Name: "g1",
+			Type: sdk.GroupTypePrimary,
+		},
+		{
+			Name: "g2",
+			Type: sdk.GroupTypeSecondary,
+		},
+	}
+	res = eventManager.checkFsEventMatch(conditions, params)
+	assert.False(t, res)
+	params.Groups = []sdk.GroupMapping{
+		{
+			Name: "testgroup2",
+			Type: sdk.GroupTypePrimary,
+		},
+		{
+			Name: "g2",
+			Type: sdk.GroupTypeSecondary,
+		},
+	}
+	res = eventManager.checkFsEventMatch(conditions, params)
+	assert.True(t, res)
 }
 
 func TestEventManager(t *testing.T) {
@@ -899,6 +943,62 @@ func TestEventRuleActions(t *testing.T) {
 	err = dataprovider.DeleteFolder(foldername1, "", "")
 	assert.NoError(t, err)
 	err = dataprovider.DeleteFolder(foldername2, "", "")
+	assert.NoError(t, err)
+}
+
+func TestEventRuleActionsNoGroupMatching(t *testing.T) {
+	username := "test_user_action_group_matching"
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username: username,
+			Permissions: map[string][]string{
+				"/": {dataprovider.PermAny},
+			},
+			HomeDir: filepath.Join(os.TempDir(), username),
+		},
+	}
+	err := dataprovider.AddUser(&user, "", "")
+	assert.NoError(t, err)
+
+	conditions := dataprovider.ConditionOptions{
+		GroupNames: []dataprovider.ConditionPattern{
+			{
+				Pattern: "agroup",
+			},
+		},
+	}
+	err = executeDeleteFsRuleAction(nil, nil, conditions, &EventParams{})
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "no delete executed")
+	}
+	err = executeMkdirFsRuleAction(nil, nil, conditions, &EventParams{})
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "no mkdir executed")
+	}
+	err = executeRenameFsRuleAction(nil, nil, conditions, &EventParams{})
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "no rename executed")
+	}
+	err = executeExistFsRuleAction(nil, nil, conditions, &EventParams{})
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "no existence check executed")
+	}
+	err = executeUsersQuotaResetRuleAction(conditions, &EventParams{})
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "no user quota reset executed")
+	}
+	err = executeTransferQuotaResetRuleAction(conditions, &EventParams{})
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "no transfer quota reset executed")
+	}
+	err = executeDataRetentionCheckRuleAction(dataprovider.EventActionDataRetentionConfig{}, conditions, &EventParams{})
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "no retention check executed")
+	}
+
+	err = dataprovider.DeleteUser(username, "", "")
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
 

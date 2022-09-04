@@ -35,6 +35,7 @@ import (
 
 	"github.com/robfig/cron/v3"
 	"github.com/rs/xid"
+	"github.com/sftpgo/sdk"
 	mail "github.com/xhit/go-simple-mail/v2"
 
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
@@ -267,6 +268,9 @@ func (r *eventRulesContainer) checkFsEventMatch(conditions dataprovider.EventCon
 	if !checkEventConditionPatterns(params.Name, conditions.Options.Names) {
 		return false
 	}
+	if !checkEventGroupConditionPatters(params.Groups, conditions.Options.GroupNames) {
+		return false
+	}
 	if !checkEventConditionPatterns(params.VirtualPath, conditions.Options.FsPaths) {
 		if !checkEventConditionPatterns(params.ObjectName, conditions.Options.FsPaths) {
 			return false
@@ -411,6 +415,7 @@ func (r *eventRulesContainer) handleCertificateEvent(params EventParams) {
 // EventParams defines the supported event parameters
 type EventParams struct {
 	Name                  string
+	Groups                []sdk.GroupMapping
 	Event                 string
 	Status                int
 	VirtualPath           string
@@ -637,6 +642,21 @@ func checkEventConditionPatterns(name string, patterns []dataprovider.ConditionP
 	for _, p := range patterns {
 		if checkEventConditionPattern(p, name) {
 			return true
+		}
+	}
+
+	return false
+}
+
+func checkEventGroupConditionPatters(groups []sdk.GroupMapping, patterns []dataprovider.ConditionPattern) bool {
+	if len(patterns) == 0 {
+		return true
+	}
+	for _, group := range groups {
+		for _, p := range patterns {
+			if checkEventConditionPattern(p, group.Name) {
+				return true
+			}
 		}
 	}
 
@@ -955,10 +975,17 @@ func executeDeleteFsRuleAction(deletes []string, replacer *strings.Replacer,
 	executed := 0
 	for _, user := range users {
 		// if sender is set, the conditions have already been evaluated
-		if params.sender == "" && !checkEventConditionPatterns(user.Username, conditions.Names) {
-			eventManagerLog(logger.LevelDebug, "skipping fs delete for user %s, name conditions don't match",
-				user.Username)
-			continue
+		if params.sender == "" {
+			if !checkEventConditionPatterns(user.Username, conditions.Names) {
+				eventManagerLog(logger.LevelDebug, "skipping fs delete for user %s, name conditions don't match",
+					user.Username)
+				continue
+			}
+			if !checkEventGroupConditionPatters(user.Groups, conditions.GroupNames) {
+				eventManagerLog(logger.LevelDebug, "skipping fs delete for user %s, group name conditions don't match",
+					user.Username)
+				continue
+			}
 		}
 		executed++
 		if err = executeDeleteFsActionForUser(deletes, replacer, user); err != nil {
@@ -1013,10 +1040,17 @@ func executeMkdirFsRuleAction(dirs []string, replacer *strings.Replacer,
 	executed := 0
 	for _, user := range users {
 		// if sender is set, the conditions have already been evaluated
-		if params.sender == "" && !checkEventConditionPatterns(user.Username, conditions.Names) {
-			eventManagerLog(logger.LevelDebug, "skipping fs mkdir for user %s, name conditions don't match",
-				user.Username)
-			continue
+		if params.sender == "" {
+			if !checkEventConditionPatterns(user.Username, conditions.Names) {
+				eventManagerLog(logger.LevelDebug, "skipping fs mkdir for user %s, name conditions don't match",
+					user.Username)
+				continue
+			}
+			if !checkEventGroupConditionPatters(user.Groups, conditions.GroupNames) {
+				eventManagerLog(logger.LevelDebug, "skipping fs mkdir for user %s, group name conditions don't match",
+					user.Username)
+				continue
+			}
 		}
 		executed++
 		if err = executeMkDirsFsActionForUser(dirs, replacer, user); err != nil {
@@ -1094,10 +1128,17 @@ func executeRenameFsRuleAction(renames []dataprovider.KeyValue, replacer *string
 	executed := 0
 	for _, user := range users {
 		// if sender is set, the conditions have already been evaluated
-		if params.sender == "" && !checkEventConditionPatterns(user.Username, conditions.Names) {
-			eventManagerLog(logger.LevelDebug, "skipping fs rename for user %s, name conditions don't match",
-				user.Username)
-			continue
+		if params.sender == "" {
+			if !checkEventConditionPatterns(user.Username, conditions.Names) {
+				eventManagerLog(logger.LevelDebug, "skipping fs rename for user %s, name conditions don't match",
+					user.Username)
+				continue
+			}
+			if !checkEventGroupConditionPatters(user.Groups, conditions.GroupNames) {
+				eventManagerLog(logger.LevelDebug, "skipping fs rename for user %s, group name conditions don't match",
+					user.Username)
+				continue
+			}
 		}
 		executed++
 		if err = executeRenameFsActionForUser(renames, replacer, user); err != nil {
@@ -1127,10 +1168,17 @@ func executeExistFsRuleAction(exist []string, replacer *strings.Replacer, condit
 	executed := 0
 	for _, user := range users {
 		// if sender is set, the conditions have already been evaluated
-		if params.sender == "" && !checkEventConditionPatterns(user.Username, conditions.Names) {
-			eventManagerLog(logger.LevelDebug, "skipping fs exist for user %s, name conditions don't match",
-				user.Username)
-			continue
+		if params.sender == "" {
+			if !checkEventConditionPatterns(user.Username, conditions.Names) {
+				eventManagerLog(logger.LevelDebug, "skipping fs exist for user %s, name conditions don't match",
+					user.Username)
+				continue
+			}
+			if !checkEventGroupConditionPatters(user.Groups, conditions.GroupNames) {
+				eventManagerLog(logger.LevelDebug, "skipping fs exist for user %s, group name conditions don't match",
+					user.Username)
+				continue
+			}
 		}
 		executed++
 		if err = executeExistFsActionForUser(exist, replacer, user); err != nil {
@@ -1203,10 +1251,17 @@ func executeUsersQuotaResetRuleAction(conditions dataprovider.ConditionOptions, 
 	executed := 0
 	for _, user := range users {
 		// if sender is set, the conditions have already been evaluated
-		if params.sender == "" && !checkEventConditionPatterns(user.Username, conditions.Names) {
-			eventManagerLog(logger.LevelDebug, "skipping quota reset for user %q, name conditions don't match",
-				user.Username)
-			continue
+		if params.sender == "" {
+			if !checkEventConditionPatterns(user.Username, conditions.Names) {
+				eventManagerLog(logger.LevelDebug, "skipping quota reset for user %q, name conditions don't match",
+					user.Username)
+				continue
+			}
+			if !checkEventGroupConditionPatters(user.Groups, conditions.GroupNames) {
+				eventManagerLog(logger.LevelDebug, "skipping quota reset for user %q, group name conditions don't match",
+					user.Username)
+				continue
+			}
 		}
 		executed++
 		if err = executeQuotaResetForUser(user); err != nil {
@@ -1284,10 +1339,17 @@ func executeTransferQuotaResetRuleAction(conditions dataprovider.ConditionOption
 	executed := 0
 	for _, user := range users {
 		// if sender is set, the conditions have already been evaluated
-		if params.sender == "" && !checkEventConditionPatterns(user.Username, conditions.Names) {
-			eventManagerLog(logger.LevelDebug, "skipping scheduled transfer quota reset for user %s, name conditions don't match",
-				user.Username)
-			continue
+		if params.sender == "" {
+			if !checkEventConditionPatterns(user.Username, conditions.Names) {
+				eventManagerLog(logger.LevelDebug, "skipping scheduled transfer quota reset for user %s, name conditions don't match",
+					user.Username)
+				continue
+			}
+			if !checkEventGroupConditionPatters(user.Groups, conditions.GroupNames) {
+				eventManagerLog(logger.LevelDebug, "skipping scheduled transfer quota reset for user %s, group name conditions don't match",
+					user.Username)
+				continue
+			}
 		}
 		executed++
 		err = dataprovider.UpdateUserTransferQuota(&user, 0, 0, true)
@@ -1339,10 +1401,17 @@ func executeDataRetentionCheckRuleAction(config dataprovider.EventActionDataRete
 	executed := 0
 	for _, user := range users {
 		// if sender is set, the conditions have already been evaluated
-		if params.sender == "" && !checkEventConditionPatterns(user.Username, conditions.Names) {
-			eventManagerLog(logger.LevelDebug, "skipping scheduled retention check for user %s, name conditions don't match",
-				user.Username)
-			continue
+		if params.sender == "" {
+			if !checkEventConditionPatterns(user.Username, conditions.Names) {
+				eventManagerLog(logger.LevelDebug, "skipping scheduled retention check for user %s, name conditions don't match",
+					user.Username)
+				continue
+			}
+			if !checkEventGroupConditionPatters(user.Groups, conditions.GroupNames) {
+				eventManagerLog(logger.LevelDebug, "skipping scheduled retention check for user %s, group name conditions don't match",
+					user.Username)
+				continue
+			}
 		}
 		executed++
 		if err = executeDataRetentionCheckForUser(user, config.Folders); err != nil {

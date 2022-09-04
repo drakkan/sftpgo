@@ -124,6 +124,7 @@ func ExecuteActionNotification(conn *BaseConnection, operation, filePath, virtua
 	if hasRules {
 		params := EventParams{
 			Name:              notification.Username,
+			Groups:            conn.User.Groups,
 			Event:             notification.Action,
 			Status:            notification.Status,
 			VirtualPath:       notification.VirtualPath,
