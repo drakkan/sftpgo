@@ -36,7 +36,7 @@ The following placeholders are supported:
 - `{{IP}}`. Client IP address.
 - `{{Timestamp}}`. Event timestamp as nanoseconds since epoch.
 - `{{ObjectData}}`. Provider object data serialized as JSON with sensitive fields removed.
-- `{{RetentionReports}}`. Data retention reports as zip compressed CSV files. Supported as email attachment, file path for multipart HTTP request and as single parameter for HTTP requests body.
+- `{{RetentionReports}}`. Data retention reports as zip compressed CSV files. Supported as email attachment, file path for multipart HTTP request and as single parameter for HTTP requests body. Data retention reports contain details on the number of files deleted and the total size deleted for each folder.
 
 Event rules are based on the premise that an event occours. To each rule you can associate one or more actions.
 The following trigger events are supported:
