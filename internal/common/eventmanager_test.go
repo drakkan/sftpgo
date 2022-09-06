@@ -31,6 +31,7 @@ import (
 	"github.com/sftpgo/sdk"
 	sdkkms "github.com/sftpgo/sdk/kms"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/kms"
@@ -348,7 +349,7 @@ func TestEventManagerErrors(t *testing.T) {
 				Type: sdk.GroupTypePrimary,
 			},
 		},
-	}, nil)
+	}, nil, &EventParams{}, "")
 	assert.Error(t, err)
 	err = executeDeleteFsActionForUser(nil, nil, dataprovider.User{
 		Groups: []sdk.GroupMapping{
@@ -412,7 +413,7 @@ func TestEventManagerErrors(t *testing.T) {
 				Type: sdk.GroupTypePrimary,
 			},
 		},
-	})
+	}, &EventParams{})
 	assert.Error(t, err)
 
 	dataRetentionAction := dataprovider.BaseEventAction{
@@ -934,7 +935,7 @@ func TestEventRuleActions(t *testing.T) {
 
 	body, _, err := getHTTPRuleActionBody(dataprovider.EventActionHTTPConfig{
 		Method: http.MethodPost,
-	}, nil, nil, dataprovider.User{})
+	}, nil, nil, dataprovider.User{}, &EventParams{})
 	assert.NoError(t, err)
 	assert.Nil(t, body)
 
@@ -991,7 +992,7 @@ func TestEventRuleActionsNoGroupMatching(t *testing.T) {
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "no transfer quota reset executed")
 	}
-	err = executeDataRetentionCheckRuleAction(dataprovider.EventActionDataRetentionConfig{}, conditions, &EventParams{})
+	err = executeDataRetentionCheckRuleAction(dataprovider.EventActionDataRetentionConfig{}, conditions, &EventParams{}, "")
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "no retention check executed")
 	}
@@ -1033,7 +1034,7 @@ func TestGetFileContent(t *testing.T) {
 	_, err = getMailAttachments(user, []string{"/"}, replacer)
 	assert.Error(t, err)
 	// files too large
-	content := make([]byte, emailAttachmentsMaxSize/2+1)
+	content := make([]byte, maxAttachmentsSize/2+1)
 	_, err = rand.Read(content)
 	assert.NoError(t, err)
 	err = os.WriteFile(filepath.Join(user.GetHomeDir(), "file1.txt"), content, 0666)
@@ -1402,10 +1403,11 @@ func TestScheduledActions(t *testing.T) {
 
 func TestEventParamsCopy(t *testing.T) {
 	params := EventParams{
-		Name:   "name",
-		Event:  "event",
-		Status: 1,
-		errors: []string{"error1"},
+		Name:            "name",
+		Event:           "event",
+		Status:          1,
+		errors:          []string{"error1"},
+		retentionChecks: []executedRetentionCheck{},
 	}
 	paramsCopy := params.getACopy()
 	assert.Equal(t, params, *paramsCopy)
@@ -1422,6 +1424,35 @@ func TestEventParamsCopy(t *testing.T) {
 	assert.Equal(t, "event mod", paramsCopy.Event)
 	assert.Equal(t, 1, params.Status)
 	assert.Equal(t, 2, paramsCopy.Status)
+	params = EventParams{
+		retentionChecks: []executedRetentionCheck{
+			{
+				Username:   "u",
+				ActionName: "a",
+				Results: []folderRetentionCheckResult{
+					{
+						Path:      "p",
+						Retention: 1,
+					},
+				},
+			},
+		},
+	}
+	paramsCopy = params.getACopy()
+	require.Len(t, paramsCopy.retentionChecks, 1)
+	paramsCopy.retentionChecks[0].Username = "u_copy"
+	paramsCopy.retentionChecks[0].ActionName = "a_copy"
+	require.Len(t, paramsCopy.retentionChecks[0].Results, 1)
+	paramsCopy.retentionChecks[0].Results[0].Path = "p_copy"
+	paramsCopy.retentionChecks[0].Results[0].Retention = 2
+	assert.Equal(t, "u", params.retentionChecks[0].Username)
+	assert.Equal(t, "a", params.retentionChecks[0].ActionName)
+	assert.Equal(t, "p", params.retentionChecks[0].Results[0].Path)
+	assert.Equal(t, 1, params.retentionChecks[0].Results[0].Retention)
+	assert.Equal(t, "u_copy", paramsCopy.retentionChecks[0].Username)
+	assert.Equal(t, "a_copy", paramsCopy.retentionChecks[0].ActionName)
+	assert.Equal(t, "p_copy", paramsCopy.retentionChecks[0].Results[0].Path)
+	assert.Equal(t, 2, paramsCopy.retentionChecks[0].Results[0].Retention)
 }
 
 func TestEventParamsStatusFromError(t *testing.T) {
@@ -1454,13 +1485,13 @@ func TestWriteHTTPPartsError(t *testing.T) {
 		errTest: io.ErrShortWrite,
 	})
 
-	err := writeHTTPPart(m, dataprovider.HTTPPart{}, nil, nil, nil)
+	err := writeHTTPPart(m, dataprovider.HTTPPart{}, nil, nil, nil, &EventParams{})
 	assert.ErrorIs(t, err, io.ErrShortWrite)
 
 	body := "test body"
 	m = multipart.NewWriter(&testWriter{sentinel: body})
 	err = writeHTTPPart(m, dataprovider.HTTPPart{
 		Body: body,
-	}, nil, nil, nil)
+	}, nil, nil, nil, &EventParams{})
 	assert.ErrorIs(t, err, io.ErrUnexpectedEOF)
 }

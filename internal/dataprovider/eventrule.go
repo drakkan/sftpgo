@@ -122,6 +122,11 @@ const (
 	FilesystemActionExist
 )
 
+const (
+	// RetentionReportPlaceHolder defines the placeholder for data retention reports
+	RetentionReportPlaceHolder = "{{RetentionReports}}"
+)
+
 var (
 	supportedFsActions = []int{FilesystemActionRename, FilesystemActionDelete, FilesystemActionMkdirs,
 		FilesystemActionExist}
@@ -229,7 +234,9 @@ func (p *HTTPPart) validate() error {
 		}
 	} else {
 		p.Body = ""
-		p.Filepath = util.CleanPath(p.Filepath)
+		if p.Filepath != RetentionReportPlaceHolder {
+			p.Filepath = util.CleanPath(p.Filepath)
+		}
 	}
 	return nil
 }
@@ -249,16 +256,23 @@ type EventActionHTTPConfig struct {
 }
 
 func (c *EventActionHTTPConfig) isTimeoutNotValid() bool {
-	if c.HasMultipartFile() {
+	if c.HasMultipartFiles() {
 		return false
 	}
-	return c.Timeout < 1 || c.Timeout > 120
+	return c.Timeout < 1 || c.Timeout > 180
 }
 
 func (c *EventActionHTTPConfig) validateMultiparts() error {
+	filePaths := make(map[string]bool)
 	for idx := range c.Parts {
 		if err := c.Parts[idx].validate(); err != nil {
 			return err
+		}
+		if filePath := c.Parts[idx].Filepath; filePath != "" {
+			if filePaths[filePath] {
+				return fmt.Errorf("filepath %q is duplicated", filePath)
+			}
+			filePaths[filePath] = true
 		}
 	}
 	if len(c.Parts) > 0 {
@@ -315,7 +329,7 @@ func (c *EventActionHTTPConfig) validate(additionalData string) error {
 
 // GetContext returns the context and the cancel func to use for the HTTP request
 func (c *EventActionHTTPConfig) GetContext() (context.Context, context.CancelFunc) {
-	if c.HasMultipartFile() {
+	if c.HasMultipartFiles() {
 		return context.WithCancel(context.Background())
 	}
 	return context.WithTimeout(context.Background(), time.Duration(c.Timeout)*time.Second)
@@ -334,10 +348,10 @@ func (c *EventActionHTTPConfig) HasObjectData() bool {
 	return false
 }
 
-// HasMultipartFile returns true if a file must be uploaded via a multipart request
-func (c *EventActionHTTPConfig) HasMultipartFile() bool {
+// HasMultipartFiles returns true if at least a file must be uploaded via a multipart request
+func (c *EventActionHTTPConfig) HasMultipartFiles() bool {
 	for _, part := range c.Parts {
-		if part.Filepath != "" {
+		if part.Filepath != "" && part.Filepath != RetentionReportPlaceHolder {
 			return true
 		}
 	}
@@ -427,6 +441,15 @@ func (c EventActionEmailConfig) GetAttachmentsAsString() string {
 	return strings.Join(c.Attachments, ",")
 }
 
+func (c *EventActionEmailConfig) hasFilesAttachments() bool {
+	for _, a := range c.Attachments {
+		if a != RetentionReportPlaceHolder {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *EventActionEmailConfig) validate() error {
 	if len(c.Recipients) == 0 {
 		return util.NewValidationError("at least one email recipient is required")
@@ -448,7 +471,11 @@ func (c *EventActionEmailConfig) validate() error {
 		if val == "" {
 			return util.NewValidationError("invalid path to attach")
 		}
-		c.Attachments[idx] = util.CleanPath(val)
+		if val == RetentionReportPlaceHolder {
+			c.Attachments[idx] = val
+		} else {
+			c.Attachments[idx] = util.CleanPath(val)
+		}
 	}
 	c.Attachments = util.RemoveDuplicates(c.Attachments, false)
 	return nil
@@ -1290,12 +1317,12 @@ func (r *EventRule) CheckActionsConsistency(providerObjectType string) error {
 		}
 	}
 	for _, action := range r.Actions {
-		if action.Type == ActionTypeEmail && len(action.BaseEventAction.Options.EmailConfig.Attachments) > 0 {
+		if action.Type == ActionTypeEmail && action.BaseEventAction.Options.EmailConfig.hasFilesAttachments() {
 			if !r.hasUserAssociated(providerObjectType) {
 				return errors.New("cannot send an email with attachments for a rule with no user associated")
 			}
 		}
-		if action.Type == ActionTypeHTTP && action.BaseEventAction.Options.HTTPConfig.HasMultipartFile() {
+		if action.Type == ActionTypeHTTP && action.BaseEventAction.Options.HTTPConfig.HasMultipartFiles() {
 			if !r.hasUserAssociated(providerObjectType) {
 				return errors.New("cannot upload file/s for a rule with no user associated")
 			}

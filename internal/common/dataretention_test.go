@@ -131,7 +131,7 @@ func TestRetentionEmailNotifications(t *testing.T) {
 	check := RetentionCheck{
 		Notifications: []RetentionCheckNotification{RetentionCheckNotificationEmail},
 		Email:         "notification@example.com",
-		results: []*folderRetentionCheckResult{
+		results: []folderRetentionCheckResult{
 			{
 				Path:         "/",
 				Retention:    24,
@@ -177,7 +177,7 @@ func TestRetentionHookNotifications(t *testing.T) {
 	user.Permissions["/"] = []string{dataprovider.PermAny}
 	check := RetentionCheck{
 		Notifications: []RetentionCheckNotification{RetentionCheckNotificationHook},
-		results: []*folderRetentionCheckResult{
+		results: []folderRetentionCheckResult{
 			{
 				Path:         "/",
 				Retention:    24,

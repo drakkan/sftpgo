@@ -6047,7 +6047,7 @@ components:
         timeout:
           type: integer
           minimum: 1
-          maximum: 120
+          maximum: 180
           description: 'Ignored for multipart requests with files as attachments'
         skip_tls_verify:
           type: boolean

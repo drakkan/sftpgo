@@ -120,7 +120,7 @@ func (c *Config) Initialize(configDir string) error {
 	smtpServer.Encryption = c.getEncryption()
 	smtpServer.KeepAlive = false
 	smtpServer.ConnectTimeout = 10 * time.Second
-	smtpServer.SendTimeout = 30 * time.Second
+	smtpServer.SendTimeout = 120 * time.Second
 	if c.Domain != "" {
 		smtpServer.Helo = c.Domain
 	}

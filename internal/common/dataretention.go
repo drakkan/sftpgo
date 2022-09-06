@@ -147,7 +147,7 @@ type RetentionCheck struct {
 	// email to use if the notification method is set to email
 	Email string `json:"email,omitempty"`
 	// Cleanup results
-	results []*folderRetentionCheckResult `json:"-"`
+	results []folderRetentionCheckResult `json:"-"`
 	conn    *BaseConnection
 }
 
@@ -223,10 +223,12 @@ func (c *RetentionCheck) removeFile(virtualPath string, info os.FileInfo) error 
 func (c *RetentionCheck) cleanupFolder(folderPath string) error {
 	deleteFilesPerms := []string{dataprovider.PermDelete, dataprovider.PermDeleteFiles}
 	startTime := time.Now()
-	result := &folderRetentionCheckResult{
+	result := folderRetentionCheckResult{
 		Path: folderPath,
 	}
-	c.results = append(c.results, result)
+	defer func() {
+		c.results = append(c.results, result)
+	}()
 	if !c.conn.User.HasPerm(dataprovider.PermListItems, folderPath) || !c.conn.User.HasAnyPerm(deleteFilesPerms, folderPath) {
 		result.Elapsed = time.Since(startTime)
 		result.Info = "data retention check skipped: no permissions"
@@ -301,7 +303,15 @@ func (c *RetentionCheck) cleanupFolder(folderPath string) error {
 }
 
 func (c *RetentionCheck) checkEmptyDirRemoval(folderPath string) {
-	if folderPath != "/" && c.conn.User.HasAnyPerm([]string{
+	if folderPath == "/" {
+		return
+	}
+	for _, folder := range c.Folders {
+		if folderPath == folder.Path {
+			return
+		}
+	}
+	if c.conn.User.HasAnyPerm([]string{
 		dataprovider.PermDelete,
 		dataprovider.PermDeleteDirs,
 	}, path.Dir(folderPath),

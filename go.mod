@@ -55,10 +55,10 @@ require (
 	github.com/shirou/gopsutil/v3 v3.22.8
 	github.com/spf13/afero v1.9.2
 	github.com/spf13/cobra v1.5.0
-	github.com/spf13/viper v1.12.0
+	github.com/spf13/viper v1.13.0
 	github.com/stretchr/testify v1.8.0
 	github.com/studio-b12/gowebdav v0.0.0-20220128162035-c7b1ff8a5e62
-	github.com/unrolled/secure v1.12.0
+	github.com/unrolled/secure v1.13.0
 	github.com/wagslane/go-password-validator v0.3.0
 	github.com/xhit/go-simple-mail/v2 v2.11.0
 	github.com/yl2chen/cidranger v1.0.3-0.20210928021809-d1cb2c52f37a
@@ -68,7 +68,7 @@ require (
 	golang.org/x/crypto v0.0.0-20220829220503-c86fa9a7ed90
 	golang.org/x/net v0.0.0-20220826154423-83b083e8dc8b
 	golang.org/x/oauth2 v0.0.0-20220822191816-0ebed06d0094
-	golang.org/x/sys v0.0.0-20220829200755-d48e67d00261
+	golang.org/x/sys v0.0.0-20220906135438-9e1f76180b77
 	golang.org/x/time v0.0.0-20220722155302-e5dcc9cfc0b9
 	google.golang.org/api v0.94.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
@@ -77,7 +77,7 @@ require (
 require (
 	cloud.google.com/go v0.104.0 // indirect
 	cloud.google.com/go/compute v1.9.0 // indirect
-	cloud.google.com/go/iam v0.3.0 // indirect
+	cloud.google.com/go/iam v0.4.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.0.1 // indirect
 	github.com/ajg/form v1.5.1 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.4.7 // indirect
