@@ -25,6 +25,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -219,37 +220,8 @@ func getMySQLConnectionString(redactedPwd bool) (string, error) {
 		}
 		sslMode := getSSLMode()
 		if sslMode == "custom" && !redactedPwd {
-			tlsConfig := &tls.Config{}
-			if config.RootCert != "" {
-				rootCAs, err := x509.SystemCertPool()
-				if err != nil {
-					rootCAs = x509.NewCertPool()
-				}
-				rootCrt, err := os.ReadFile(config.RootCert)
-				if err != nil {
-					return "", fmt.Errorf("unable to load root certificate %#v: %v", config.RootCert, err)
-				}
-				if !rootCAs.AppendCertsFromPEM(rootCrt) {
-					return "", fmt.Errorf("unable to parse root certificate %#v", config.RootCert)
-				}
-				tlsConfig.RootCAs = rootCAs
-			}
-			if config.ClientCert != "" && config.ClientKey != "" {
-				clientCert := make([]tls.Certificate, 0, 1)
-				tlsCert, err := tls.LoadX509KeyPair(config.ClientCert, config.ClientKey)
-				if err != nil {
-					return "", fmt.Errorf("unable to load key pair %#v, %#v: %v", config.ClientCert, config.ClientKey, err)
-				}
-				clientCert = append(clientCert, tlsCert)
-				tlsConfig.Certificates = clientCert
-			}
-			if config.SSLMode == 2 {
-				tlsConfig.InsecureSkipVerify = true
-			}
-			providerLog(logger.LevelInfo, "registering custom TLS config, root cert %#v, client cert %#v, client key %#v",
-				config.RootCert, config.ClientCert, config.ClientKey)
-			if err := mysql.RegisterTLSConfig("custom", tlsConfig); err != nil {
-				return "", fmt.Errorf("unable to register tls config: %v", err)
+			if err := registerMySQLCustomTLSConfig(); err != nil {
+				return "", err
 			}
 		}
 		connectionString = fmt.Sprintf("%v:%v@tcp([%v]:%v)/%v?charset=utf8mb4&interpolateParams=true&timeout=10s&parseTime=true&tls=%v&writeTimeout=60s&readTimeout=60s",
@@ -258,6 +230,45 @@ func getMySQLConnectionString(redactedPwd bool) (string, error) {
 		connectionString = config.ConnectionString
 	}
 	return connectionString, nil
+}
+
+func registerMySQLCustomTLSConfig() error {
+	tlsConfig := &tls.Config{}
+	if config.RootCert != "" {
+		rootCAs, err := x509.SystemCertPool()
+		if err != nil {
+			rootCAs = x509.NewCertPool()
+		}
+		rootCrt, err := os.ReadFile(config.RootCert)
+		if err != nil {
+			return fmt.Errorf("unable to load root certificate %#v: %v", config.RootCert, err)
+		}
+		if !rootCAs.AppendCertsFromPEM(rootCrt) {
+			return fmt.Errorf("unable to parse root certificate %#v", config.RootCert)
+		}
+		tlsConfig.RootCAs = rootCAs
+	}
+	if config.ClientCert != "" && config.ClientKey != "" {
+		clientCert := make([]tls.Certificate, 0, 1)
+		tlsCert, err := tls.LoadX509KeyPair(config.ClientCert, config.ClientKey)
+		if err != nil {
+			return fmt.Errorf("unable to load key pair %#v, %#v: %v", config.ClientCert, config.ClientKey, err)
+		}
+		clientCert = append(clientCert, tlsCert)
+		tlsConfig.Certificates = clientCert
+	}
+	if config.SSLMode == 2 || config.SSLMode == 3 {
+		tlsConfig.InsecureSkipVerify = true
+	}
+	if !filepath.IsAbs(config.Host) && !config.DisableSNI {
+		tlsConfig.ServerName = config.Host
+	}
+	providerLog(logger.LevelInfo, "registering custom TLS config, root cert %#v, client cert %#v, client key %#v, disable SNI? %v",
+		config.RootCert, config.ClientCert, config.ClientKey, config.DisableSNI)
+	if err := mysql.RegisterTLSConfig("custom", tlsConfig); err != nil {
+		return fmt.Errorf("unable to register tls config: %v", err)
+	}
+	return nil
 }
 
 func (p *MySQLProvider) checkAvailability() error {

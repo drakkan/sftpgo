@@ -231,6 +231,9 @@ func getPGSQLConnectionString(redactedPwd bool) string {
 		if config.ClientCert != "" && config.ClientKey != "" {
 			connectionString += fmt.Sprintf(" sslcert='%v' sslkey='%v'", config.ClientCert, config.ClientKey)
 		}
+		if config.DisableSNI {
+			connectionString += " sslsni=0"
+		}
 	} else {
 		connectionString = config.ConnectionString
 	}

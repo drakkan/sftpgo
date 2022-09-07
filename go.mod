@@ -37,7 +37,7 @@ require (
 	github.com/jlaffaye/ftp v0.0.0-20201112195030-9aae4d151126
 	github.com/klauspost/compress v1.15.9
 	github.com/lestrrat-go/jwx v1.2.25
-	github.com/lib/pq v1.10.6
+	github.com/lib/pq v1.10.7
 	github.com/lithammer/shortuuid/v3 v3.0.7
 	github.com/mattn/go-sqlite3 v1.14.15
 	github.com/mhale/smtpd v0.8.0
@@ -68,9 +68,9 @@ require (
 	golang.org/x/crypto v0.0.0-20220829220503-c86fa9a7ed90
 	golang.org/x/net v0.0.0-20220826154423-83b083e8dc8b
 	golang.org/x/oauth2 v0.0.0-20220822191816-0ebed06d0094
-	golang.org/x/sys v0.0.0-20220906135438-9e1f76180b77
+	golang.org/x/sys v0.0.0-20220907062415-87db552b00fd
 	golang.org/x/time v0.0.0-20220722155302-e5dcc9cfc0b9
-	google.golang.org/api v0.94.0
+	google.golang.org/api v0.95.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
 

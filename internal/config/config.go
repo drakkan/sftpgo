@@ -318,6 +318,7 @@ func Init() {
 			ConnectionString: "",
 			SQLTablesPrefix:  "",
 			SSLMode:          0,
+			DisableSNI:       false,
 			RootCert:         "",
 			ClientCert:       "",
 			ClientKey:        "",
@@ -1927,6 +1928,7 @@ func setViperDefaults() {
 	viper.SetDefault("data_provider.username", globalConf.ProviderConf.Username)
 	viper.SetDefault("data_provider.password", globalConf.ProviderConf.Password)
 	viper.SetDefault("data_provider.sslmode", globalConf.ProviderConf.SSLMode)
+	viper.SetDefault("data_provider.disable_sni", globalConf.ProviderConf.DisableSNI)
 	viper.SetDefault("data_provider.root_cert", globalConf.ProviderConf.RootCert)
 	viper.SetDefault("data_provider.client_cert", globalConf.ProviderConf.ClientCert)
 	viper.SetDefault("data_provider.client_key", globalConf.ProviderConf.ClientKey)

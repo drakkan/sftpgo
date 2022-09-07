@@ -330,6 +330,8 @@ type Config struct {
 	// 2 set ssl mode to verify-ca for driver postgresql and skip-verify for driver mysql.
 	// 3 set ssl mode to verify-full for driver postgresql and preferred for driver mysql.
 	SSLMode int `json:"sslmode" mapstructure:"sslmode"`
+	// Used for drivers mysql and postgresql. Set to true to disable SNI
+	DisableSNI bool `json:"disable_sni" mapstructure:"disable_sni"`
 	// Path to the root certificate authority used to verify that the server certificate was signed by a trusted CA
 	RootCert string `json:"root_cert" mapstructure:"root_cert"`
 	// Path to the client certificate for two-way TLS authentication
@@ -493,6 +495,9 @@ func (c *Config) IsDefenderSupported() bool {
 }
 
 func (c *Config) requireCustomTLSForMySQL() bool {
+	if config.DisableSNI {
+		return config.SSLMode != 0
+	}
 	if config.RootCert != "" && util.IsFileInputValid(config.RootCert) {
 		return config.SSLMode != 0
 	}

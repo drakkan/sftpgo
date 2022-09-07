@@ -190,6 +190,7 @@
     "username": "",
     "password": "",
     "sslmode": 0,
+    "disable_sni": false,
     "root_cert": "",
     "client_cert": "",
     "client_key": "",
