@@ -462,7 +462,8 @@ type Config struct {
 	BackupsPath string `json:"backups_path" mapstructure:"backups_path"`
 }
 
-// GetShared returns the provider share mode
+// GetShared returns the provider share mode.
+// This method is called before the provider is initialized
 func (c *Config) GetShared() int {
 	if !util.Contains(sharedProviders, c.Driver) {
 		return 0

@@ -96,6 +96,7 @@ func createUserDir(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	connection.User.CheckFsRoot(connection.ID) //nolint:errcheck
 	err = connection.CreateDir(name, true)
 	if err != nil {
 		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to create directory %#v", name), getMappedStatusCode(err))
@@ -225,6 +226,7 @@ func uploadUserFile(w http.ResponseWriter, r *http.Request) {
 }
 
 func doUploadFile(w http.ResponseWriter, r *http.Request, connection *Connection, filePath string) error {
+	connection.User.CheckFsRoot(connection.ID) //nolint:errcheck
 	writer, err := connection.getFileWriter(filePath)
 	if err != nil {
 		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to write file %#v", filePath), getMappedStatusCode(err))
@@ -294,6 +296,7 @@ func uploadUserFiles(w http.ResponseWriter, r *http.Request) {
 func doUploadFiles(w http.ResponseWriter, r *http.Request, connection *Connection, parentDir string,
 	files []*multipart.FileHeader,
 ) int {
+	connection.User.CheckFsRoot(connection.ID) //nolint:errcheck
 	uploaded := 0
 	connection.User.UploadBandwidth = 0
 	for _, f := range files {

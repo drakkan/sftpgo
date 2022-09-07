@@ -232,6 +232,7 @@ func getCompressedFileName(username string, files []string) string {
 func renderCompressedFiles(w http.ResponseWriter, conn *Connection, baseDir string, files []string,
 	share *dataprovider.Share,
 ) {
+	conn.User.CheckFsRoot(conn.ID) //nolint:errcheck
 	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("Accept-Ranges", "none")
 	w.Header().Set("Content-Transfer-Encoding", "binary")
@@ -326,6 +327,7 @@ func checkDownloadFileFromShare(share *dataprovider.Share, info os.FileInfo) err
 func downloadFile(w http.ResponseWriter, r *http.Request, connection *Connection, name string,
 	info os.FileInfo, inline bool, share *dataprovider.Share,
 ) (int, error) {
+	connection.User.CheckFsRoot(connection.ID) //nolint:errcheck
 	err := checkDownloadFileFromShare(share, info)
 	if err != nil {
 		return http.StatusBadRequest, err
