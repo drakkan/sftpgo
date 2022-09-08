@@ -26,6 +26,7 @@ jobs:
         run: |
           go mod vendor
           echo "${SFTPGO_VERSION}" > VERSION.txt
+          echo "${GITHUB_SHA::8}" >> VERSION.txt
           tar cJvf sftpgo_${SFTPGO_VERSION}_src_with_deps.tar.xz *
         env:
           SFTPGO_VERSION: ${{ steps.get_version.outputs.VERSION }}
