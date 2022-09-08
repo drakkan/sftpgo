@@ -954,6 +954,7 @@ func (s *httpdServer) handleClientEditFile(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	connection.User.CheckFsRoot(connection.ID) //nolint:errcheck
 	reader, err := connection.getFileReader(name, 0, r.Method)
 	if err != nil {
 		s.renderClientMessagePage(w, r, fmt.Sprintf("Unable to get a reader for the file %#v", name), "",
