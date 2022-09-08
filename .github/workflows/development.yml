@@ -32,7 +32,7 @@ jobs:
       - name: Build for Linux/macOS x86_64
         if: startsWith(matrix.os, 'windows-') != true
         run: |
-          go build -trimpath -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/v2/internal/version.date=`date -u +%FT%TZ`" -o sftpgo
+          go build -trimpath -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=`git describe --always --abbrev=8 --dirty` -X github.com/drakkan/sftpgo/v2/internal/version.date=`date -u +%FT%TZ`" -o sftpgo
           cd tests/eventsearcher
           go build -trimpath -ldflags "-s -w" -o eventsearcher
           cd -
@@ -44,12 +44,12 @@ jobs:
 
       - name: Build for macOS arm64
         if: startsWith(matrix.os, 'macos-') == true
-        run: CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 SDKROOT=$(xcrun --sdk macosx --show-sdk-path) go build -trimpath -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/v2/internal/version.date=`date -u +%FT%TZ`" -o sftpgo_arm64
+        run: CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 SDKROOT=$(xcrun --sdk macosx --show-sdk-path) go build -trimpath -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=`git describe --always --abbrev=8 --dirty` -X github.com/drakkan/sftpgo/v2/internal/version.date=`date -u +%FT%TZ`" -o sftpgo_arm64
 
       - name: Build for Windows
         if: startsWith(matrix.os, 'windows-')
         run: |
-          $GIT_COMMIT = (git describe --always --dirty) | Out-String
+          $GIT_COMMIT = (git describe --always --abbrev=8 --dirty) | Out-String
           $DATE_TIME = ([datetime]::Now.ToUniversalTime().toString("yyyy-MM-ddTHH:mm:ssZ")) | Out-String
           $LATEST_TAG = ((git describe --tags $(git rev-list --tags --max-count=1)) | Out-String).Trim()
           $REV_LIST=$LATEST_TAG+"..HEAD"
@@ -310,7 +310,7 @@ jobs:
 
       - name: Build
         run: |
-          go build -trimpath -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/v2/internal/version.date=`date -u +%FT%TZ`" -o sftpgo
+          go build -trimpath -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=`git describe --always --abbrev=8 --dirty` -X github.com/drakkan/sftpgo/v2/internal/version.date=`date -u +%FT%TZ`" -o sftpgo
           cd tests/eventsearcher
           go build -trimpath -ldflags "-s -w" -o eventsearcher
           cd -
