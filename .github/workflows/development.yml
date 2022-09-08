@@ -32,7 +32,7 @@ jobs:
       - name: Build for Linux/macOS x86_64
         if: startsWith(matrix.os, 'windows-') != true
         run: |
-          go build -trimpath -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/version.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/v2/version.date=`date -u +%FT%TZ`" -o sftpgo
+          go build -trimpath -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/version.commit=`git describe --always --abbrev=8 --dirty` -X github.com/drakkan/sftpgo/v2/version.date=`date -u +%FT%TZ`" -o sftpgo
           cd tests/eventsearcher
           go build -trimpath -ldflags "-s -w" -o eventsearcher
           cd -
@@ -42,12 +42,12 @@ jobs:
 
       - name: Build for macOS arm64
         if: startsWith(matrix.os, 'macos-') == true
-        run: CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 SDKROOT=$(xcrun --sdk macosx --show-sdk-path) go build -trimpath -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/version.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/v2/version.date=`date -u +%FT%TZ`" -o sftpgo_arm64
+        run: CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 SDKROOT=$(xcrun --sdk macosx --show-sdk-path) go build -trimpath -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/version.commit=`git describe --always --abbrev=8 --dirty` -X github.com/drakkan/sftpgo/v2/version.date=`date -u +%FT%TZ`" -o sftpgo_arm64
 
       - name: Build for Windows
         if: startsWith(matrix.os, 'windows-')
         run: |
-          $GIT_COMMIT = (git describe --always --dirty) | Out-String
+          $GIT_COMMIT = (git describe --always --abbrev=8 --dirty) | Out-String
           $DATE_TIME = ([datetime]::Now.ToUniversalTime().toString("yyyy-MM-ddTHH:mm:ssZ")) | Out-String
           $LATEST_TAG = ((git describe --tags $(git rev-list --tags --max-count=1)) | Out-String).Trim()
           $REV_LIST=$LATEST_TAG+"..HEAD"
@@ -367,12 +367,13 @@ jobs:
 
   build-linux-packages:
     name: Build Linux packages
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         include:
           - arch: amd64
-            go: 1.18
+            distro: ubuntu:18.04
+            go: latest
             go-arch: amd64
           - arch: aarch64
             distro: ubuntu18.04
@@ -390,16 +391,36 @@ jobs:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: Set up Go
-        if: ${{ matrix.arch == 'amd64' }}
-        uses: actions/setup-go@v3
-        with:
-          go-version: ${{ matrix.go }}
+
+      - name: Get commit SHA
+        id: get_commit
+        run: echo ::set-output name=COMMIT::${GITHUB_SHA::8}
+        shell: bash
 
       - name: Build on amd64
         if: ${{ matrix.arch == 'amd64' }}
         run: |
-          go build -trimpath -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/version.commit=`git describe --always --dirty` -X github.com/drakkan/sftpgo/v2/version.date=`date -u +%FT%TZ`" -o sftpgo
+          echo '#!/bin/bash' > build.sh
+          echo '' >> build.sh
+          echo 'set -e' >> build.sh
+          echo 'apt-get update -q -y' >> build.sh
+          echo 'apt-get install -q -y curl gcc' >> build.sh
+          if [ ${{ matrix.go }} == 'latest' ]
+          then
+            echo 'GO_VERSION=$(curl -L https://go.dev/VERSION?m=text)' >> build.sh
+          else
+            echo 'GO_VERSION=${{ matrix.go }}' >> build.sh
+          fi
+          echo 'GO_DOWNLOAD_ARCH=${{ matrix.go-arch }}' >> build.sh
+          echo 'curl --retry 5 --retry-delay 2 --connect-timeout 10 -o go.tar.gz -L https://go.dev/dl/${GO_VERSION}.linux-${GO_DOWNLOAD_ARCH}.tar.gz' >> build.sh
+          echo 'tar -C /usr/local -xzf go.tar.gz' >> build.sh
+          echo 'export PATH=$PATH:/usr/local/go/bin' >> build.sh
+          echo 'go version' >> build.sh
+          echo 'cd /usr/local/src' >> build.sh
+          echo 'go build -buildvcs=false -trimpath -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/version.commit=${{ steps.get_commit.outputs.COMMIT }} -X github.com/drakkan/sftpgo/v2/version.date=`date -u +%FT%TZ`" -o sftpgo' >> build.sh
+
+          chmod 755 build.sh
+          docker run --rm --name ubuntu-build --mount type=bind,source=`pwd`,target=/usr/local/src ${{ matrix.distro }} /usr/local/src/build.sh
           mkdir -p output/{init,bash_completion,zsh_completion}
           cp sftpgo.json output/
           cp -r templates output/
@@ -411,12 +432,6 @@ jobs:
           ./sftpgo gen man -d output/man/man1
           gzip output/man/man1/*
           cp sftpgo output/
-
-      - name: Get commit SHA
-        if: ${{ matrix.arch != 'amd64' }}
-        id: get_commit
-        run: echo ::set-output name=COMMIT::${GITHUB_SHA::8}
-        shell: bash
 
       - uses: uraimo/run-on-arch-action@v2
         if: ${{ matrix.arch != 'amd64' }}
@@ -448,6 +463,7 @@ jobs:
             tar -C /usr/local -xzf go.tar.gz
           run: |
             export PATH=$PATH:/usr/local/go/bin
+            go version
             if [ ${{ matrix.arch}} == 'armv7' ]
             then
               export GOARM=7
