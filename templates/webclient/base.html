@@ -228,6 +228,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         function replaceSlash(str){
             return str.replace(/\//g,'\u2215');
         }
+
+        var escapeHTML = function ( t ) {
+		    return t
+			    .replace( /&/g, '&amp;' )
+			    .replace( /</g, '&lt;' )
+			    .replace( />/g, '&gt;' )
+			    .replace( /"/g, '&quot;' );
+	        };
     </script>
 
     <!-- Page level plugins -->

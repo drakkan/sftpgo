@@ -433,25 +433,17 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     var player;
     var playerKeepAlive;
 
-    var escapeHTML = function ( t ) {
-		return t
-			.replace( /&/g, '&amp;' )
-			.replace( /</g, '&lt;' )
-			.replace( />/g, '&gt;' )
-			.replace( /"/g, '&quot;' );
-	};
-
     function shortenData(d, cutoff) {
         if ( typeof d !== 'string' ) {
 			return d;
 		}
 
 		if ( d.length <= cutoff ) {
-			return d;
+			return escapeHTML(d);
 		}
 
         var shortened = d.substr(0, cutoff-1);
-        return shortened+'&#8230;';
+        return escapeHTML(shortened)+'&#8230;';
     }
 
     function openVideoPlayer(name, url, videoType){
