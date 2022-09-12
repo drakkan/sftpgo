@@ -240,8 +240,8 @@ github.com/cncf/xds/go v0.0.0-20211011173535-cb28da3451f1/go.mod h1:eXthEFrGJvWH
 github.com/cockroachdb/apd v1.1.0/go.mod h1:8Sl8LxpKi29FqWXR16WEFZRNSz3SoPzUzeMeY4+DwBQ=
 github.com/cockroachdb/cockroach-go/v2 v2.2.15 h1:6TeTC1JLSlHJWJCswWZ7mQyT16kY5mQSs53C2coQISI=
 github.com/cockroachdb/cockroach-go/v2 v2.2.15/go.mod h1:xZ2VHjUEb/cySv0scXBx7YsBnHtLHkR1+w/w73b5i3M=
-github.com/coreos/go-oidc/v3 v3.3.0 h1:Y1LV3mP+QT3MEycATZpAiwfyN+uxZLqVbAHJUuOJEe4=
-github.com/coreos/go-oidc/v3 v3.3.0/go.mod h1:eHUXhZtXPQLgEaDrOVTgwbgmz1xGOkJNye6h3zkD2Pw=
+github.com/coreos/go-oidc/v3 v3.4.0 h1:xz7elHb/LDwm/ERpwHd+5nb7wFHL32rsr6bBOgaeu6g=
+github.com/coreos/go-oidc/v3 v3.4.0/go.mod h1:eHUXhZtXPQLgEaDrOVTgwbgmz1xGOkJNye6h3zkD2Pw=
 github.com/coreos/go-systemd v0.0.0-20190321100706-95778dfbb74e/go.mod h1:F5haX7vjVVG0kc13fIWeqUViNPyEJxv/OmvnBo0Yme4=
 github.com/coreos/go-systemd v0.0.0-20190719114852-fd7a80b32e1f/go.mod h1:F5haX7vjVVG0kc13fIWeqUViNPyEJxv/OmvnBo0Yme4=
 github.com/coreos/go-systemd/v22 v22.3.2/go.mod h1:Y58oyj3AT4RCenI/lSvhwexgC+NSVTIJ3seZv2GcEnc=

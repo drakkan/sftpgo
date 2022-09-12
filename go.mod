@@ -18,7 +18,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.15.22
 	github.com/aws/aws-sdk-go-v2/service/sts v1.16.17
 	github.com/cockroachdb/cockroach-go/v2 v2.2.15
-	github.com/coreos/go-oidc/v3 v3.3.0
+	github.com/coreos/go-oidc/v3 v3.4.0
 	github.com/eikenb/pipeat v0.0.0-20210730190139-06b3e6902001
 	github.com/fclairamb/ftpserverlib v0.19.1
 	github.com/fclairamb/go-log v0.4.1
