@@ -219,8 +219,30 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     <script src="{{.StaticURL}}/js/sb-admin-2.min.js"></script>
 
     <script type="text/javascript">
+        function escapeHTML(str) {
+            var div = document.createElement('div');
+            div.appendChild(document.createTextNode(str));
+            return div.innerHTML;
+        }
+
+        function unescapeHTML(escapedStr) {
+            var div = document.createElement('div');
+            div.innerHTML = escapedStr;
+            var child = div.childNodes[0];
+            return child ? child.nodeValue : '';
+        }
+
+        function escapeHTMLForceSafe(str) {
+            return str
+                .replace(/&/g, '_')
+                .replace(/</g, '_')
+                .replace(/>/g, '_')
+                .replace(/\"/g, '_')
+                .replace(/\'/g, '_');
+        }
+
         function fixedEncodeURIComponent(str) {
-            return encodeURIComponent(str).replace(/[!'()*]/g, function (c) {
+            return encodeURIComponent(unescapeHTML(str)).replace(/[!'()*]/g, function (c) {
                 return '%' + c.charCodeAt(0).toString(16);
             });
         }
@@ -229,13 +251,13 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             return str.replace(/\//g,'\u2215');
         }
 
-        var escapeHTML = function ( t ) {
-		    return t
-			    .replace( /&/g, '&amp;' )
-			    .replace( /</g, '&lt;' )
-			    .replace( />/g, '&gt;' )
-			    .replace( /"/g, '&quot;' );
-	        };
+        function b64EncodeUnicode(str) {
+            return btoa(encodeURIComponent(str));
+        }
+
+        function UnicodeDecodeB64(str) {
+            return decodeURIComponent(atob(str));
+        }
     </script>
 
     <!-- Page level plugins -->

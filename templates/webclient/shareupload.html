@@ -99,7 +99,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                     let response;
                     try {
                         var f = files[index];
-                        var uploadPath = '{{.UploadBasePath}}/'+fixedEncodeURIComponent(f.name);
+                        var uploadPath = '{{.UploadBasePath}}/'+fixedEncodeURIComponent(escapeHTML(f.name));
                         var lastModified;
                         try {
                             lastModified = f.lastModified;
