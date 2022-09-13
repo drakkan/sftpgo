@@ -572,6 +572,18 @@ func getAddUserGroupMappingQuery() string {
 		sqlPlaceholders[1], sqlPlaceholders[2])
 }
 
+func getClearAdminGroupMappingQuery() string {
+	return fmt.Sprintf(`DELETE FROM %s WHERE admin_id = (SELECT id FROM %s WHERE username = %s)`, sqlTableAdminsGroupsMapping,
+		sqlTableAdmins, sqlPlaceholders[0])
+}
+
+func getAddAdminGroupMappingQuery() string {
+	return fmt.Sprintf(`INSERT INTO %s (admin_id,group_id,options) VALUES ((SELECT id FROM %s WHERE username = %s),
+		(SELECT id FROM %s WHERE name = %s),%s)`,
+		sqlTableAdminsGroupsMapping, sqlTableAdmins, sqlPlaceholders[0], getSQLQuotedName(sqlTableGroups),
+		sqlPlaceholders[1], sqlPlaceholders[2])
+}
+
 func getClearGroupFolderMappingQuery() string {
 	return fmt.Sprintf(`DELETE FROM %s WHERE group_id = (SELECT id FROM %s WHERE name = %s)`, sqlTableGroupsFoldersMapping,
 		getSQLQuotedName(sqlTableGroups), sqlPlaceholders[0])
@@ -636,6 +648,23 @@ func getRelatedGroupsForUsersQuery(users []User) string {
 	}
 	return fmt.Sprintf(`SELECT g.name,ug.group_type,ug.user_id FROM %s g INNER JOIN %s ug ON g.id = ug.group_id WHERE
 		ug.user_id IN %s ORDER BY ug.user_id`, getSQLQuotedName(sqlTableGroups), sqlTableUsersGroupsMapping, sb.String())
+}
+
+func getRelatedGroupsForAdminsQuery(admins []Admin) string {
+	var sb strings.Builder
+	for _, a := range admins {
+		if sb.Len() == 0 {
+			sb.WriteString("(")
+		} else {
+			sb.WriteString(",")
+		}
+		sb.WriteString(strconv.FormatInt(a.ID, 10))
+	}
+	if sb.Len() > 0 {
+		sb.WriteString(")")
+	}
+	return fmt.Sprintf(`SELECT g.name,ag.options,ag.admin_id FROM %s g INNER JOIN %s ag ON g.id = ag.group_id WHERE
+		ag.admin_id IN %s ORDER BY ag.admin_id`, getSQLQuotedName(sqlTableGroups), sqlTableAdminsGroupsMapping, sb.String())
 }
 
 func getRelatedFoldersForUsersQuery(users []User) string {
@@ -706,6 +735,23 @@ func getRelatedUsersForGroupsQuery(groups []Group) string {
 	}
 	return fmt.Sprintf(`SELECT um.group_id,u.username FROM %s um INNER JOIN %s u ON um.user_id = u.id
 		WHERE um.group_id IN %s ORDER BY um.group_id`, sqlTableUsersGroupsMapping, sqlTableUsers, sb.String())
+}
+
+func getRelatedAdminsForGroupsQuery(groups []Group) string {
+	var sb strings.Builder
+	for _, g := range groups {
+		if sb.Len() == 0 {
+			sb.WriteString("(")
+		} else {
+			sb.WriteString(",")
+		}
+		sb.WriteString(strconv.FormatInt(g.ID, 10))
+	}
+	if sb.Len() > 0 {
+		sb.WriteString(")")
+	}
+	return fmt.Sprintf(`SELECT am.group_id,a.username FROM %s am INNER JOIN %s a ON am.admin_id = a.id
+		WHERE am.group_id IN %s ORDER BY am.group_id`, sqlTableAdminsGroupsMapping, sqlTableAdmins, sb.String())
 }
 
 func getRelatedFoldersForGroupsQuery(groups []Group) string {

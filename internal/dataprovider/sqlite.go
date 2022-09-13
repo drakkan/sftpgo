@@ -41,6 +41,7 @@ const (
 DROP TABLE IF EXISTS "{{folders_mapping}}";
 DROP TABLE IF EXISTS "{{users_folders_mapping}}";
 DROP TABLE IF EXISTS "{{users_groups_mapping}}";
+DROP TABLE IF EXISTS "{{admins_groups_mapping}}";
 DROP TABLE IF EXISTS "{{groups_folders_mapping}}";
 DROP TABLE IF EXISTS "{{admins}}";
 DROP TABLE IF EXISTS "{{folders}}";
@@ -167,6 +168,15 @@ ALTER TABLE "{{users}}" DROP COLUMN "deleted_at";
 ALTER TABLE "{{users}}" ADD COLUMN "first_upload" bigint DEFAULT 0 NOT NULL;`
 	sqliteV21DownSQL = `ALTER TABLE "{{users}}" DROP COLUMN "first_upload";
 ALTER TABLE "{{users}}" DROP COLUMN "first_download";
+`
+	sqliteV22SQL = `CREATE TABLE "{{admins_groups_mapping}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+"admin_id" integer NOT NULL REFERENCES "{{admins}}" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
+"group_id" integer NOT NULL REFERENCES "{{groups}}" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
+"options" text NOT NULL, CONSTRAINT "{{prefix}}unique_admin_group_mapping" UNIQUE ("admin_id", "group_id"));
+CREATE INDEX "{{prefix}}admins_groups_mapping_admin_id_idx" ON "{{admins_groups_mapping}}" ("admin_id");
+CREATE INDEX "{{prefix}}admins_groups_mapping_group_id_idx" ON "{{admins_groups_mapping}}" ("group_id");
+`
+	sqliteV22DownSQL = `DROP TABLE "{{admins_groups_mapping}}";
 `
 )
 
@@ -612,7 +622,7 @@ func (p *SQLiteProvider) migrateDatabase() error { //nolint:dupl
 		providerLog(logger.LevelDebug, "sql database is up to date, current version: %v", version)
 		return ErrNoInitRequired
 	case version < 19:
-		err = fmt.Errorf("database version %v is too old, please see the upgrading docs", version)
+		err = fmt.Errorf("database schema version %v is too old, please see the upgrading docs", version)
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
@@ -620,15 +630,17 @@ func (p *SQLiteProvider) migrateDatabase() error { //nolint:dupl
 		return updateSQLiteDatabaseFromV19(p.dbHandle)
 	case version == 20:
 		return updateSQLiteDatabaseFromV20(p.dbHandle)
+	case version == 21:
+		return updateSQLiteDatabaseFromV21(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
-			providerLog(logger.LevelError, "database version %v is newer than the supported one: %v", version,
+			providerLog(logger.LevelError, "database schema version %v is newer than the supported one: %v", version,
 				sqlDatabaseVersion)
-			logger.WarnToConsole("database version %v is newer than the supported one: %v", version,
+			logger.WarnToConsole("database schema version %v is newer than the supported one: %v", version,
 				sqlDatabaseVersion)
 			return nil
 		}
-		return fmt.Errorf("database version not handled: %v", version)
+		return fmt.Errorf("database schema version not handled: %v", version)
 	}
 }
 
@@ -646,8 +658,10 @@ func (p *SQLiteProvider) revertDatabase(targetVersion int) error {
 		return downgradeSQLiteDatabaseFromV20(p.dbHandle)
 	case 21:
 		return downgradeSQLiteDatabaseFromV21(p.dbHandle)
+	case 22:
+		return downgradeSQLiteDatabaseFromV22(p.dbHandle)
 	default:
-		return fmt.Errorf("database version not handled: %v", dbVersion.Version)
+		return fmt.Errorf("database schema version not handled: %v", dbVersion.Version)
 	}
 }
 
@@ -664,7 +678,14 @@ func updateSQLiteDatabaseFromV19(dbHandle *sql.DB) error {
 }
 
 func updateSQLiteDatabaseFromV20(dbHandle *sql.DB) error {
-	return updateSQLiteDatabaseFrom20To21(dbHandle)
+	if err := updateSQLiteDatabaseFrom20To21(dbHandle); err != nil {
+		return err
+	}
+	return updateSQLiteDatabaseFromV21(dbHandle)
+}
+
+func updateSQLiteDatabaseFromV21(dbHandle *sql.DB) error {
+	return updateSQLiteDatabaseFrom21To22(dbHandle)
 }
 
 func downgradeSQLiteDatabaseFromV20(dbHandle *sql.DB) error {
@@ -678,9 +699,16 @@ func downgradeSQLiteDatabaseFromV21(dbHandle *sql.DB) error {
 	return downgradeSQLiteDatabaseFromV20(dbHandle)
 }
 
+func downgradeSQLiteDatabaseFromV22(dbHandle *sql.DB) error {
+	if err := downgradeSQLiteDatabaseFrom22To21(dbHandle); err != nil {
+		return err
+	}
+	return downgradeSQLiteDatabaseFromV21(dbHandle)
+}
+
 func updateSQLiteDatabaseFrom19To20(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database version: 19 -> 20")
-	providerLog(logger.LevelInfo, "updating database version: 19 -> 20")
+	logger.InfoToConsole("updating database schema version: 19 -> 20")
+	providerLog(logger.LevelInfo, "updating database schema version: 19 -> 20")
 	sql := strings.ReplaceAll(sqliteV20SQL, "{{events_actions}}", sqlTableEventsActions)
 	sql = strings.ReplaceAll(sql, "{{events_rules}}", sqlTableEventsRules)
 	sql = strings.ReplaceAll(sql, "{{rules_actions_mapping}}", sqlTableRulesActionsMapping)
@@ -691,15 +719,25 @@ func updateSQLiteDatabaseFrom19To20(dbHandle *sql.DB) error {
 }
 
 func updateSQLiteDatabaseFrom20To21(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database version: 20 -> 21")
-	providerLog(logger.LevelInfo, "updating database version: 20 -> 21")
+	logger.InfoToConsole("updating database schema version: 20 -> 21")
+	providerLog(logger.LevelInfo, "updating database schema version: 20 -> 21")
 	sql := strings.ReplaceAll(sqliteV21SQL, "{{users}}", sqlTableUsers)
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 21, true)
 }
 
+func updateSQLiteDatabaseFrom21To22(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database schema version: 21 -> 22")
+	providerLog(logger.LevelInfo, "updating database schema version: 21 -> 22")
+	sql := strings.ReplaceAll(sqliteV22SQL, "{{admins_groups_mapping}}", sqlTableAdminsGroupsMapping)
+	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
+	sql = strings.ReplaceAll(sql, "{{groups}}", sqlTableGroups)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 22, true)
+}
+
 func downgradeSQLiteDatabaseFrom20To19(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database version: 20 -> 19")
-	providerLog(logger.LevelInfo, "downgrading database version: 20 -> 19")
+	logger.InfoToConsole("downgrading database schema version: 20 -> 19")
+	providerLog(logger.LevelInfo, "downgrading database schema version: 20 -> 19")
 	sql := strings.ReplaceAll(sqliteV20DownSQL, "{{events_actions}}", sqlTableEventsActions)
 	sql = strings.ReplaceAll(sql, "{{events_rules}}", sqlTableEventsRules)
 	sql = strings.ReplaceAll(sql, "{{rules_actions_mapping}}", sqlTableRulesActionsMapping)
@@ -710,10 +748,17 @@ func downgradeSQLiteDatabaseFrom20To19(dbHandle *sql.DB) error {
 }
 
 func downgradeSQLiteDatabaseFrom21To20(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database version: 21 -> 20")
-	providerLog(logger.LevelInfo, "downgrading database version: 21 -> 20")
+	logger.InfoToConsole("downgrading database schema version: 21 -> 20")
+	providerLog(logger.LevelInfo, "downgrading database schema version: 21 -> 20")
 	sql := strings.ReplaceAll(sqliteV21DownSQL, "{{users}}", sqlTableUsers)
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 20, false)
+}
+
+func downgradeSQLiteDatabaseFrom22To21(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database schema version: 22 -> 21")
+	providerLog(logger.LevelInfo, "downgrading database schema version: 22 -> 21")
+	sql := strings.ReplaceAll(sqliteV22DownSQL, "{{admins_groups_mapping}}", sqlTableAdminsGroupsMapping)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 21, false)
 }
 
 /*func setPragmaFK(dbHandle *sql.DB, value string) error {

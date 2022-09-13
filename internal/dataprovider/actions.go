@@ -54,6 +54,7 @@ const (
 
 var (
 	actionsConcurrencyGuard = make(chan struct{}, 100)
+	reservedUsers           = []string{ActionExecutorSelf, ActionExecutorSystem}
 )
 
 func executeAction(operation, executor, ip, objectType, objectName string, object plugin.Renderer) {

@@ -330,12 +330,18 @@ func (p *MemoryProvider) addUser(user *User) error {
 	user.FirstDownload = 0
 	user.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 	user.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
-	user.VirtualFolders = p.joinUserVirtualFoldersFields(user)
+	var mappedGroups []string
 	for idx := range user.Groups {
-		if err = p.addUserFromGroupMapping(user.Username, user.Groups[idx].Name); err != nil {
+		if err = p.addUserToGroupMapping(user.Username, user.Groups[idx].Name); err != nil {
+			// try to remove group mapping
+			for _, g := range mappedGroups {
+				p.removeUserFromGroupMapping(user.Username, g)
+			}
 			return err
 		}
+		mappedGroups = append(mappedGroups, user.Groups[idx].Name)
 	}
+	user.VirtualFolders = p.joinUserVirtualFoldersFields(user)
 	p.dbHandle.users[user.Username] = user.getACopy()
 	p.dbHandle.usernames = append(p.dbHandle.usernames, user.Username)
 	sort.Strings(p.dbHandle.usernames)
@@ -360,20 +366,25 @@ func (p *MemoryProvider) updateUser(user *User) error {
 	if err != nil {
 		return err
 	}
+	for idx := range u.Groups {
+		p.removeUserFromGroupMapping(u.Username, u.Groups[idx].Name)
+	}
+	for idx := range user.Groups {
+		if err = p.addUserToGroupMapping(user.Username, user.Groups[idx].Name); err != nil {
+			// try to add old mapping
+			for _, g := range u.Groups {
+				if errRollback := p.addUserToGroupMapping(user.Username, g.Name); errRollback != nil {
+					providerLog(logger.LevelError, "unable to rollback old group mapping %q for user %q, error: %v",
+						g.Name, user.Username, errRollback)
+				}
+			}
+			return err
+		}
+	}
 	for _, oldFolder := range u.VirtualFolders {
 		p.removeRelationFromFolderMapping(oldFolder.Name, u.Username, "")
 	}
-	for idx := range u.Groups {
-		if err = p.removeUserFromGroupMapping(u.Username, u.Groups[idx].Name); err != nil {
-			return err
-		}
-	}
 	user.VirtualFolders = p.joinUserVirtualFoldersFields(user)
-	for idx := range user.Groups {
-		if err = p.addUserFromGroupMapping(user.Username, user.Groups[idx].Name); err != nil {
-			return err
-		}
-	}
 	user.LastQuotaUpdate = u.LastQuotaUpdate
 	user.UsedQuotaSize = u.UsedQuotaSize
 	user.UsedQuotaFiles = u.UsedQuotaFiles
@@ -405,9 +416,7 @@ func (p *MemoryProvider) deleteUser(user User, softDelete bool) error {
 		p.removeRelationFromFolderMapping(oldFolder.Name, u.Username, "")
 	}
 	for idx := range u.Groups {
-		if err = p.removeUserFromGroupMapping(u.Username, u.Groups[idx].Name); err != nil {
-			return err
-		}
+		p.removeUserFromGroupMapping(u.Username, u.Groups[idx].Name)
 	}
 	delete(p.dbHandle.users, user.Username)
 	// this could be more efficient
@@ -644,6 +653,17 @@ func (p *MemoryProvider) addAdmin(admin *Admin) error {
 	admin.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 	admin.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 	admin.LastLogin = 0
+	var mappedAdmins []string
+	for idx := range admin.Groups {
+		if err = p.addAdminToGroupMapping(admin.Username, admin.Groups[idx].Name); err != nil {
+			// try to remove group mapping
+			for _, g := range mappedAdmins {
+				p.removeAdminFromGroupMapping(admin.Username, g)
+			}
+			return err
+		}
+		mappedAdmins = append(mappedAdmins, admin.Groups[idx].Name)
+	}
 	p.dbHandle.admins[admin.Username] = admin.getACopy()
 	p.dbHandle.adminsUsernames = append(p.dbHandle.adminsUsernames, admin.Username)
 	sort.Strings(p.dbHandle.adminsUsernames)
@@ -664,6 +684,21 @@ func (p *MemoryProvider) updateAdmin(admin *Admin) error {
 	if err != nil {
 		return err
 	}
+	for idx := range a.Groups {
+		p.removeAdminFromGroupMapping(a.Username, a.Groups[idx].Name)
+	}
+	for idx := range admin.Groups {
+		if err = p.addAdminToGroupMapping(admin.Username, admin.Groups[idx].Name); err != nil {
+			// try to add old mapping
+			for _, oldGroup := range a.Groups {
+				if errRollback := p.addAdminToGroupMapping(a.Username, oldGroup.Name); errRollback != nil {
+					providerLog(logger.LevelError, "unable to rollback old group mapping %q for admin %q, error: %v",
+						oldGroup.Name, a.Username, errRollback)
+				}
+			}
+			return err
+		}
+	}
 	admin.ID = a.ID
 	admin.CreatedAt = a.CreatedAt
 	admin.LastLogin = a.LastLogin
@@ -678,9 +713,12 @@ func (p *MemoryProvider) deleteAdmin(admin Admin) error {
 	if p.dbHandle.isClosed {
 		return errMemoryProviderClosed
 	}
-	_, err := p.adminExistsInternal(admin.Username)
+	a, err := p.adminExistsInternal(admin.Username)
 	if err != nil {
 		return err
+	}
+	for idx := range a.Groups {
+		p.removeAdminFromGroupMapping(a.Username, a.Groups[idx].Name)
 	}
 
 	delete(p.dbHandle.admins, admin.Username)
@@ -906,6 +944,8 @@ func (p *MemoryProvider) addGroup(group *Group) error {
 	group.ID = p.getNextGroupID()
 	group.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 	group.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+	group.Users = nil
+	group.Admins = nil
 	group.VirtualFolders = p.joinGroupVirtualFoldersFields(group)
 	p.dbHandle.groups[group.Name] = group.getACopy()
 	p.dbHandle.groupnames = append(p.dbHandle.groupnames, group.Name)
@@ -933,6 +973,8 @@ func (p *MemoryProvider) updateGroup(group *Group) error {
 	group.CreatedAt = g.CreatedAt
 	group.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 	group.ID = g.ID
+	group.Users = g.Users
+	group.Admins = g.Admins
 	p.dbHandle.groups[group.Name] = group.getACopy()
 	return nil
 }
@@ -952,6 +994,9 @@ func (p *MemoryProvider) deleteGroup(group Group) error {
 	}
 	for _, oldFolder := range g.VirtualFolders {
 		p.removeRelationFromFolderMapping(oldFolder.Name, "", g.Name)
+	}
+	for _, a := range g.Admins {
+		p.removeGroupFromAdminMapping(g.Name, a)
 	}
 	delete(p.dbHandle.groups, group.Name)
 	// this could be more efficient
@@ -1050,11 +1095,11 @@ func (p *MemoryProvider) addRuleToActionMapping(ruleName, actionName string) err
 	return nil
 }
 
-func (p *MemoryProvider) removeRuleFromActionMapping(ruleName, actionName string) error {
+func (p *MemoryProvider) removeRuleFromActionMapping(ruleName, actionName string) {
 	a, err := p.actionExistsInternal(actionName)
 	if err != nil {
 		providerLog(logger.LevelWarn, "action %q does not exist, cannot remove from mapping", actionName)
-		return nil
+		return
 	}
 	if util.Contains(a.Rules, ruleName) {
 		var rules []string
@@ -1066,10 +1111,52 @@ func (p *MemoryProvider) removeRuleFromActionMapping(ruleName, actionName string
 		a.Rules = rules
 		p.dbHandle.actions[actionName] = a
 	}
+}
+
+func (p *MemoryProvider) addAdminToGroupMapping(username, groupname string) error {
+	g, err := p.groupExistsInternal(groupname)
+	if err != nil {
+		return err
+	}
+	if !util.Contains(g.Admins, username) {
+		g.Admins = append(g.Admins, username)
+		p.dbHandle.groups[groupname] = g
+	}
 	return nil
 }
 
-func (p *MemoryProvider) addUserFromGroupMapping(username, groupname string) error {
+func (p *MemoryProvider) removeAdminFromGroupMapping(username, groupname string) {
+	g, err := p.groupExistsInternal(groupname)
+	if err != nil {
+		return
+	}
+	var admins []string
+	for _, a := range g.Admins {
+		if a != username {
+			admins = append(admins, a)
+		}
+	}
+	g.Admins = admins
+	p.dbHandle.groups[groupname] = g
+}
+
+func (p *MemoryProvider) removeGroupFromAdminMapping(groupname, username string) {
+	admin, err := p.adminExistsInternal(username)
+	if err != nil {
+		// the admin does not exist so there is no associated group
+		return
+	}
+	var newGroups []AdminGroupMapping
+	for _, g := range admin.Groups {
+		if g.Name != groupname {
+			newGroups = append(newGroups, g)
+		}
+	}
+	admin.Groups = newGroups
+	p.dbHandle.admins[admin.Username] = admin
+}
+
+func (p *MemoryProvider) addUserToGroupMapping(username, groupname string) error {
 	g, err := p.groupExistsInternal(groupname)
 	if err != nil {
 		return err
@@ -1081,22 +1168,19 @@ func (p *MemoryProvider) addUserFromGroupMapping(username, groupname string) err
 	return nil
 }
 
-func (p *MemoryProvider) removeUserFromGroupMapping(username, groupname string) error {
+func (p *MemoryProvider) removeUserFromGroupMapping(username, groupname string) {
 	g, err := p.groupExistsInternal(groupname)
 	if err != nil {
-		return err
+		return
 	}
-	if util.Contains(g.Users, username) {
-		var users []string
-		for _, u := range g.Users {
-			if u != username {
-				users = append(users, u)
-			}
+	var users []string
+	for _, u := range g.Users {
+		if u != username {
+			users = append(users, u)
 		}
-		g.Users = users
-		p.dbHandle.groups[groupname] = g
 	}
-	return nil
+	g.Users = users
+	p.dbHandle.groups[groupname] = g
 }
 
 func (p *MemoryProvider) joinUserVirtualFoldersFields(user *User) []vfs.VirtualFolder {
@@ -1280,6 +1364,7 @@ func (p *MemoryProvider) addFolder(folder *vfs.BaseVirtualFolder) error {
 	}
 	folder.ID = p.getNextFolderID()
 	folder.Users = nil
+	folder.Groups = nil
 	p.dbHandle.vfolders[folder.Name] = folder.GetACopy()
 	p.dbHandle.vfoldersNames = append(p.dbHandle.vfoldersNames, folder.Name)
 	sort.Strings(p.dbHandle.vfoldersNames)
@@ -1306,6 +1391,7 @@ func (p *MemoryProvider) updateFolder(folder *vfs.BaseVirtualFolder) error {
 	folder.UsedQuotaFiles = f.UsedQuotaFiles
 	folder.UsedQuotaSize = f.UsedQuotaSize
 	folder.Users = f.Users
+	folder.Groups = f.Groups
 	p.dbHandle.vfolders[folder.Name] = folder.GetACopy()
 	// now update the related users
 	for _, username := range folder.Users {
@@ -2115,10 +2201,16 @@ func (p *MemoryProvider) addEventRule(rule *EventRule) error {
 	rule.ID = p.getNextRuleID()
 	rule.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 	rule.UpdatedAt = rule.CreatedAt
+	var mappedActions []string
 	for idx := range rule.Actions {
 		if err := p.addRuleToActionMapping(rule.Name, rule.Actions[idx].Name); err != nil {
+			// try to remove action mapping
+			for _, a := range mappedActions {
+				p.removeRuleFromActionMapping(rule.Name, a)
+			}
 			return err
 		}
+		mappedActions = append(mappedActions, rule.Actions[idx].Name)
 	}
 	sort.Slice(rule.Actions, func(i, j int) bool {
 		return rule.Actions[i].Order < rule.Actions[j].Order
@@ -2144,12 +2236,17 @@ func (p *MemoryProvider) updateEventRule(rule *EventRule) error {
 		return err
 	}
 	for idx := range oldRule.Actions {
-		if err = p.removeRuleFromActionMapping(rule.Name, oldRule.Actions[idx].Name); err != nil {
-			return err
-		}
+		p.removeRuleFromActionMapping(rule.Name, oldRule.Actions[idx].Name)
 	}
 	for idx := range rule.Actions {
 		if err = p.addRuleToActionMapping(rule.Name, rule.Actions[idx].Name); err != nil {
+			// try to add old mapping
+			for _, oldAction := range oldRule.Actions {
+				if errRollback := p.addRuleToActionMapping(oldRule.Name, oldAction.Name); errRollback != nil {
+					providerLog(logger.LevelError, "unable to rollback old action mapping %q for rule %q, error: %v",
+						oldAction.Name, oldRule.Name, errRollback)
+				}
+			}
 			return err
 		}
 	}
@@ -2176,9 +2273,7 @@ func (p *MemoryProvider) deleteEventRule(rule EventRule, softDelete bool) error 
 	}
 	if len(oldRule.Actions) > 0 {
 		for idx := range oldRule.Actions {
-			if err = p.removeRuleFromActionMapping(rule.Name, oldRule.Actions[idx].Name); err != nil {
-				return err
-			}
+			p.removeRuleFromActionMapping(rule.Name, oldRule.Actions[idx].Name)
 		}
 	}
 	delete(p.dbHandle.rules, rule.Name)

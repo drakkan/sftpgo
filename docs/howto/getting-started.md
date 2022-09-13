@@ -278,7 +278,7 @@ Confirm that the database connection works by initializing the data provider.
 ```shell
 $ sudo su - sftpgo -s /bin/bash -c 'sftpgo initprovider -c /etc/sftpgo'
 2021-05-19T22:21:54.000 INF Initializing provider: "postgresql" config file: "/etc/sftpgo/sftpgo.json"
-2021-05-19T22:21:54.000 INF updating database version: 8 -> 9
+2021-05-19T22:21:54.000 INF updating database schema version: 8 -> 9
 2021-05-19T22:21:54.000 INF Data provider successfully initialized/updated
 ```
 
@@ -332,7 +332,7 @@ Confirm that the database connection works by initializing the data provider.
 ```shell
 $ sudo su - sftpgo -s /bin/bash -c 'sftpgo initprovider -c /etc/sftpgo'
 2021-05-19T22:29:30.000 INF Initializing provider: "mysql" config file: "/etc/sftpgo/sftpgo.json"
-2021-05-19T22:29:30.000 INF updating database version: 8 -> 9
+2021-05-19T22:29:30.000 INF updating database schema version: 8 -> 9
 2021-05-19T22:29:30.000 INF Data provider successfully initialized/updated
 ```
 
@@ -428,10 +428,10 @@ Confirm that the database connection works by initializing the data provider.
 $ sudo su - sftpgo -s /bin/bash -c 'sftpgo initprovider -c /etc/sftpgo'
 2022-06-02T14:54:04.510 INF Initializing provider: "cockroachdb" config file: "/etc/sftpgo/sftpgo.json"
 2022-06-02T14:54:04.554 INF creating initial database schema, version 15
-2022-06-02T14:54:04.698 INF updating database version: 15 -> 16
-2022-06-02T14:54:07.093 INF updating database version: 16 -> 17
-2022-06-02T14:54:07.672 INF updating database version: 17 -> 18
-2022-06-02T14:54:07.699 INF updating database version: 18 -> 19
+2022-06-02T14:54:04.698 INF updating database schema version: 15 -> 16
+2022-06-02T14:54:07.093 INF updating database schema version: 16 -> 17
+2022-06-02T14:54:07.672 INF updating database schema version: 17 -> 18
+2022-06-02T14:54:07.699 INF updating database schema version: 18 -> 19
 2022-06-02T14:54:07.721 INF Data provider successfully initialized/updated
 ```
 

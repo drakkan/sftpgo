@@ -231,9 +231,10 @@ type userPage struct {
 
 type adminPage struct {
 	basePage
-	Admin *dataprovider.Admin
-	Error string
-	IsAdd bool
+	Admin  *dataprovider.Admin
+	Groups []dataprovider.Group
+	Error  string
+	IsAdd  bool
 }
 
 type profilePage struct {
@@ -767,6 +768,10 @@ func (s *httpdServer) renderAdminSetupPage(w http.ResponseWriter, r *http.Reques
 
 func (s *httpdServer) renderAddUpdateAdminPage(w http.ResponseWriter, r *http.Request, admin *dataprovider.Admin,
 	error string, isAdd bool) {
+	groups, err := s.getWebGroups(w, r, defaultQueryLimit, true)
+	if err != nil {
+		return
+	}
 	currentURL := webAdminPath
 	title := "Add a new admin"
 	if !isAdd {
@@ -776,6 +781,7 @@ func (s *httpdServer) renderAddUpdateAdminPage(w http.ResponseWriter, r *http.Re
 	data := adminPage{
 		basePage: s.getBasePageData(title, currentURL, r),
 		Admin:    admin,
+		Groups:   groups,
 		Error:    error,
 		IsAdd:    isAdd,
 	}
@@ -816,8 +822,22 @@ func (s *httpdServer) renderUserPage(w http.ResponseWriter, r *http.Request, use
 		}
 	}
 	user.FsConfig.RedactedSecret = redactedSecret
+	basePage := s.getBasePageData(title, currentURL, r)
+	if (mode == userPageModeAdd || mode == userPageModeTemplate) && len(user.Groups) == 0 {
+		admin, err := dataprovider.AdminExists(basePage.LoggedAdmin.Username)
+		if err != nil {
+			s.renderInternalServerErrorPage(w, r, err)
+			return
+		}
+		for _, group := range admin.Groups {
+			user.Groups = append(user.Groups, sdk.GroupMapping{
+				Name: group.Name,
+				Type: group.Options.GetUserGroupType(),
+			})
+		}
+	}
 	data := userPage{
-		basePage:           s.getBasePageData(title, currentURL, r),
+		basePage:           basePage,
 		Mode:               mode,
 		Error:              error,
 		User:               user,
@@ -1265,7 +1285,13 @@ func getGroupsFromUserPostFields(r *http.Request) []sdk.GroupMapping {
 			Type: sdk.GroupTypeSecondary,
 		})
 	}
-
+	membershipGroups := r.Form["membership_groups"]
+	for _, name := range membershipGroups {
+		groups = append(groups, sdk.GroupMapping{
+			Name: name,
+			Type: sdk.GroupTypeMembership,
+		})
+	}
 	return groups
 }
 
@@ -1532,6 +1558,27 @@ func getAdminFromPostFields(r *http.Request) (dataprovider.Admin, error) {
 	admin.Filters.AllowAPIKeyAuth = r.Form.Get("allow_api_key_auth") != ""
 	admin.AdditionalInfo = r.Form.Get("additional_info")
 	admin.Description = r.Form.Get("description")
+	for k := range r.Form {
+		if strings.HasPrefix(k, "group") {
+			groupName := strings.TrimSpace(r.Form.Get(k))
+			if groupName != "" {
+				idx := strings.TrimPrefix(k, "group")
+				addAsGroupType := r.Form.Get(fmt.Sprintf("add_as_group_type%s", idx))
+				group := dataprovider.AdminGroupMapping{
+					Name: groupName,
+				}
+				switch addAsGroupType {
+				case "1":
+					group.Options.AddToUsersAs = dataprovider.GroupAddToUsersAsPrimary
+				case "2":
+					group.Options.AddToUsersAs = dataprovider.GroupAddToUsersAsSecondary
+				default:
+					group.Options.AddToUsersAs = dataprovider.GroupAddToUsersAsMembership
+				}
+				admin.Groups = append(admin.Groups, group)
+			}
+		}
+	}
 	return admin, nil
 }
 

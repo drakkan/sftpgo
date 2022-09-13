@@ -96,6 +96,72 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 </div>
             </div>
 
+            <div class="card bg-light mb-3">
+                <div class="card-header">
+                    <b>Groups for users</b>
+                </div>
+                <div class="card-body">
+                    <h6 class="card-title mb-4">Groups automatically selected for new users created by this admin. The admin will still be able to choose different groups. These settings are only used for this admin UI and they will be ignored in REST API/hooks.</h6>
+                    <div class="form-group row">
+                        <div class="col-md-12 form_field_groups_outer">
+                            {{range $idx, $val := .Admin.Groups}}
+                            <div class="row form_field_groups_outer_row">
+                                <div class="form-group col-md-7">
+                                    <select class="form-control selectpicker" data-live-search="true" id="idGroup{{$idx}}" name="group{{$idx}}">
+                                        <option value=""></option>
+                                        {{- range $.Groups}}
+                                        <option value="{{.Name}}" {{if eq $val.Name .Name}}selected{{end}}>{{.Name}}</option>
+                                        {{- end}}
+                                    </select>
+                                </div>
+                                <div class="form-group col-md-4">
+                                    <select class="form-control selectpicker" id="idAddAsGroupType{{$idx}}" name="add_as_group_type{{$idx}}">
+                                        <option value="0" {{if eq $val.Options.AddToUsersAs 0}}selected{{end}}>Add as membership</option>
+                                        <option value="1" {{if eq $val.Options.AddToUsersAs 1}}selected{{end}}>Add as primary</option>
+                                        <option value="2" {{if eq $val.Options.AddToUsersAs 2}}selected{{end}}>Add as secondary</option>
+                                    </select>
+                                </div>
+                                <div class="form-group col-md-1">
+                                    <button class="btn btn-circle btn-danger remove_group_btn_frm_field">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {{else}}
+                            <div class="row form_field_groups_outer_row">
+                                <div class="form-group col-md-7">
+                                    <select class="form-control selectpicker" data-live-search="true" id="idGroup0" name="group0">
+                                        <option value=""></option>
+                                        {{- range .Groups}}
+                                        <option value="{{.Name}}">{{.Name}}</option>
+                                        {{- end}}
+                                    </select>
+                                </div>
+                                <div class="form-group col-md-4">
+                                    <select class="form-control selectpicker" id="idAddAsGroupType0" name="add_as_group_type0">
+                                        <option value="0">Add as membership</option>
+                                        <option value="1">Add as primary</option>
+                                        <option value="2">Add as secondary</option>
+                                    </select>
+                                </div>
+                                <div class="form-group col-md-1">
+                                    <button class="btn btn-circle btn-danger remove_group_btn_frm_field">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {{end}}
+                        </div>
+                    </div>
+
+                    <div class="row mx-1">
+                        <button type="button" class="btn btn-secondary add_new_group_field_btn">
+                            <i class="fas fa-plus"></i> Add group
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <div class="form-group row">
                 <label for="idAllowedIP" class="col-sm-2 col-form-label">Allowed IP/Mask</label>
                 <div class="col-sm-10">
@@ -138,4 +204,43 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 {{define "extra_js"}}
 <script src="{{.StaticURL}}/vendor/bootstrap-select/js/bootstrap-select.min.js"></script>
+<script type="text/javascript">
+    $("body").on("click", ".add_new_group_field_btn", function () {
+        var index = $(".form_field_groups_outer").find("form_field_groups_outer_row").length;
+        while (document.getElementById("idGroup"+index) != null){
+            index++;
+        }
+        $(".form_field_groups_outer").append(`
+            <div class="row form_field_groups_outer_row">
+                <div class="form-group col-md-7">
+                    <select class="form-control" id="idGroup${index}" name="group${index}">
+                        <option value=""></option>
+                    </select>
+                </div>
+                <div class="form-group col-md-4">
+                    <select class="form-control" id="idAddAsGroupType${index}" name="add_as_group_type${index}">
+                        <option value="0">Add as membership</option>
+                        <option value="1">Add as primary</option>
+                        <option value="2">Add as secondary</option>
+                    </select>
+                </div>
+                <div class="form-group col-md-1">
+                    <button class="btn btn-circle btn-danger remove_group_btn_frm_field">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `);
+        {{- range .Groups}}
+        $("#idGroup"+index).append($('<option>').val('{{.Name}}').text('{{.Name}}'));
+        {{- end}}
+        $("#idGroup"+index).selectpicker({'liveSearch': true});
+        $("#idAddAsGroupType"+index).selectpicker();
+    });
+
+    $("body").on("click", ".remove_group_btn_frm_field", function () {
+        $(this).closest(".form_field_groups_outer_row").remove();
+    });
+
+</script>
 {{end}}

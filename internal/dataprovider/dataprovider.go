@@ -180,6 +180,7 @@ var (
 	sqlTableActiveTransfers      string
 	sqlTableGroups               string
 	sqlTableUsersGroupsMapping   string
+	sqlTableAdminsGroupsMapping  string
 	sqlTableGroupsFoldersMapping string
 	sqlTableSharedSessions       string
 	sqlTableEventsActions        string
@@ -209,6 +210,7 @@ func initSQLTables() {
 	sqlTableGroups = "groups"
 	sqlTableUsersGroupsMapping = "users_groups_mapping"
 	sqlTableGroupsFoldersMapping = "groups_folders_mapping"
+	sqlTableAdminsGroupsMapping = "admins_groups_mapping"
 	sqlTableSharedSessions = "shared_sessions"
 	sqlTableEventsActions = "events_actions"
 	sqlTableEventsRules = "events_rules"
@@ -928,6 +930,7 @@ func validateSQLTablesPrefix() error {
 		sqlTableActiveTransfers = config.SQLTablesPrefix + sqlTableActiveTransfers
 		sqlTableGroups = config.SQLTablesPrefix + sqlTableGroups
 		sqlTableUsersGroupsMapping = config.SQLTablesPrefix + sqlTableUsersGroupsMapping
+		sqlTableAdminsGroupsMapping = config.SQLTablesPrefix + sqlTableAdminsGroupsMapping
 		sqlTableGroupsFoldersMapping = config.SQLTablesPrefix + sqlTableGroupsFoldersMapping
 		sqlTableSharedSessions = config.SQLTablesPrefix + sqlTableSharedSessions
 		sqlTableEventsActions = config.SQLTablesPrefix + sqlTableEventsActions
@@ -937,12 +940,12 @@ func validateSQLTablesPrefix() error {
 		sqlTableSchemaVersion = config.SQLTablesPrefix + sqlTableSchemaVersion
 		providerLog(logger.LevelDebug, "sql table for users %q, folders %q users folders mapping %q admins %q "+
 			"api keys %q shares %q defender hosts %q defender events %q transfers %q  groups %q "+
-			"users groups mapping %q groups folders mapping %q shared sessions %q schema version %q"+
-			"events actions %q events rules %q rules actions mapping %q tasks %q",
+			"users groups mapping %q admins groups mapping %q groups folders mapping %q shared sessions %q "+
+			"schema version %q events actions %q events rules %q rules actions mapping %q tasks %q",
 			sqlTableUsers, sqlTableFolders, sqlTableUsersFoldersMapping, sqlTableAdmins, sqlTableAPIKeys,
 			sqlTableShares, sqlTableDefenderHosts, sqlTableDefenderEvents, sqlTableActiveTransfers, sqlTableGroups,
-			sqlTableUsersGroupsMapping, sqlTableGroupsFoldersMapping, sqlTableSharedSessions, sqlTableSchemaVersion,
-			sqlTableEventsActions, sqlTableEventsRules, sqlTableRulesActionsMapping, sqlTableTasks)
+			sqlTableUsersGroupsMapping, sqlTableAdminsGroupsMapping, sqlTableGroupsFoldersMapping, sqlTableSharedSessions,
+			sqlTableSchemaVersion, sqlTableEventsActions, sqlTableEventsRules, sqlTableRulesActionsMapping, sqlTableTasks)
 	}
 	return nil
 }
@@ -2309,7 +2312,7 @@ func validateUserGroups(user *User) error {
 	groupNames := make(map[string]bool)
 
 	for _, g := range user.Groups {
-		if g.Type < sdk.GroupTypePrimary && g.Type > sdk.GroupTypeSecondary {
+		if g.Type < sdk.GroupTypePrimary && g.Type > sdk.GroupTypeMembership {
 			return util.NewValidationError(fmt.Sprintf("invalid group type: %v", g.Type))
 		}
 		if g.Type == sdk.GroupTypePrimary {
@@ -2677,6 +2680,9 @@ func validateBaseFilters(filters *sdk.BaseUserFilters) error {
 func validateBaseParams(user *User) error {
 	if user.Username == "" {
 		return util.NewValidationError("username is mandatory")
+	}
+	if err := checkReservedUsernames(user.Username); err != nil {
+		return err
 	}
 	if user.Email != "" && !util.IsEmailValid(user.Email) {
 		return util.NewValidationError(fmt.Sprintf("email %#v is not valid", user.Email))
@@ -3961,6 +3967,13 @@ func getConfigPath(name, configDir string) string {
 		return filepath.Join(configDir, name)
 	}
 	return name
+}
+
+func checkReservedUsernames(username string) error {
+	if util.Contains(reservedUsers, username) {
+		return util.NewValidationError("this username is reserved")
+	}
+	return nil
 }
 
 func providerLog(level logger.LogLevel, format string, v ...any) {

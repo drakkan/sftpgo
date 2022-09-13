@@ -54,6 +54,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                         <th>Allow list</th>
                         <th>Email</th>
                         <th>Description</th>
+                        <th>Groups for users</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -68,6 +69,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                         <td>{{.GetAllowedIPAsString}}</td>
                         <td>{{.Email}}</td>
                         <td>{{.Description}}</td>
+                        <td>{{.GetGroupsAsString}}</td>
                     </tr>
                     {{end}}
 
@@ -232,6 +234,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 },
                 {
                     "targets": [5,7,8],
+                    "visible": false,
+                },
+                {
+                    "targets": [9],
+                    "render": $.fn.dataTable.render.ellipsis(50, true),
                     "visible": false,
                 }
             ],

@@ -34,7 +34,7 @@ import (
 )
 
 const (
-	sqlDatabaseVersion     = 21
+	sqlDatabaseVersion     = 22
 	defaultSQLQueryTimeout = 10 * time.Second
 	longSQLQueryTimeout    = 60 * time.Second
 )
@@ -65,6 +65,7 @@ func sqlReplaceAll(sql string) string {
 	sql = strings.ReplaceAll(sql, "{{groups}}", sqlTableGroups)
 	sql = strings.ReplaceAll(sql, "{{users_folders_mapping}}", sqlTableUsersFoldersMapping)
 	sql = strings.ReplaceAll(sql, "{{users_groups_mapping}}", sqlTableUsersGroupsMapping)
+	sql = strings.ReplaceAll(sql, "{{admins_groups_mapping}}", sqlTableAdminsGroupsMapping)
 	sql = strings.ReplaceAll(sql, "{{groups_folders_mapping}}", sqlTableGroupsFoldersMapping)
 	sql = strings.ReplaceAll(sql, "{{api_keys}}", sqlTableAPIKeys)
 	sql = strings.ReplaceAll(sql, "{{shares}}", sqlTableShares)
@@ -392,7 +393,11 @@ func sqlCommonGetAdminByUsername(username string, dbHandle sqlQuerier) (Admin, e
 	q := getAdminByUsernameQuery()
 	row := dbHandle.QueryRowContext(ctx, q, username)
 
-	return getAdminFromDbRow(row)
+	admin, err := getAdminFromDbRow(row)
+	if err != nil {
+		return admin, err
+	}
+	return getAdminWithGroups(ctx, admin, dbHandle)
 }
 
 func sqlCommonValidateAdminAndPass(username, password, ip string, dbHandle *sql.DB) (Admin, error) {
@@ -411,10 +416,6 @@ func sqlCommonAddAdmin(admin *Admin, dbHandle *sql.DB) error {
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
-	defer cancel()
-
-	q := getAddAdminQuery()
 	perms, err := json.Marshal(admin.Permissions)
 	if err != nil {
 		return err
@@ -425,10 +426,19 @@ func sqlCommonAddAdmin(admin *Admin, dbHandle *sql.DB) error {
 		return err
 	}
 
-	_, err = dbHandle.ExecContext(ctx, q, admin.Username, admin.Password, admin.Status, admin.Email, string(perms),
-		string(filters), admin.AdditionalInfo, admin.Description, util.GetTimeAsMsSinceEpoch(time.Now()),
-		util.GetTimeAsMsSinceEpoch(time.Now()))
-	return err
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+
+	return sqlCommonExecuteTx(ctx, dbHandle, func(tx *sql.Tx) error {
+		q := getAddAdminQuery()
+		_, err = tx.ExecContext(ctx, q, admin.Username, admin.Password, admin.Status, admin.Email, string(perms),
+			string(filters), admin.AdditionalInfo, admin.Description, util.GetTimeAsMsSinceEpoch(time.Now()),
+			util.GetTimeAsMsSinceEpoch(time.Now()))
+		if err != nil {
+			return err
+		}
+		return generateAdminGroupMapping(ctx, admin, tx)
+	})
 }
 
 func sqlCommonUpdateAdmin(admin *Admin, dbHandle *sql.DB) error {
@@ -437,10 +447,6 @@ func sqlCommonUpdateAdmin(admin *Admin, dbHandle *sql.DB) error {
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
-	defer cancel()
-
-	q := getUpdateAdminQuery()
 	perms, err := json.Marshal(admin.Permissions)
 	if err != nil {
 		return err
@@ -451,9 +457,18 @@ func sqlCommonUpdateAdmin(admin *Admin, dbHandle *sql.DB) error {
 		return err
 	}
 
-	_, err = dbHandle.ExecContext(ctx, q, admin.Password, admin.Status, admin.Email, string(perms), string(filters),
-		admin.AdditionalInfo, admin.Description, util.GetTimeAsMsSinceEpoch(time.Now()), admin.Username)
-	return err
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+
+	return sqlCommonExecuteTx(ctx, dbHandle, func(tx *sql.Tx) error {
+		q := getUpdateAdminQuery()
+		_, err = tx.ExecContext(ctx, q, admin.Password, admin.Status, admin.Email, string(perms), string(filters),
+			admin.AdditionalInfo, admin.Description, util.GetTimeAsMsSinceEpoch(time.Now()), admin.Username)
+		if err != nil {
+			return err
+		}
+		return generateAdminGroupMapping(ctx, admin, tx)
+	})
 }
 
 func sqlCommonDeleteAdmin(admin Admin, dbHandle *sql.DB) error {
@@ -488,8 +503,11 @@ func sqlCommonGetAdmins(limit, offset int, order string, dbHandle sqlQuerier) ([
 		a.HideConfidentialData()
 		admins = append(admins, a)
 	}
-
-	return admins, rows.Err()
+	err = rows.Err()
+	if err != nil {
+		return admins, err
+	}
+	return getAdminsWithGroups(ctx, admins, dbHandle)
 }
 
 func sqlCommonDumpAdmins(dbHandle sqlQuerier) ([]Admin, error) {
@@ -511,8 +529,11 @@ func sqlCommonDumpAdmins(dbHandle sqlQuerier) ([]Admin, error) {
 		}
 		admins = append(admins, a)
 	}
-
-	return admins, rows.Err()
+	err = rows.Err()
+	if err != nil {
+		return admins, err
+	}
+	return getAdminsWithGroups(ctx, admins, dbHandle)
 }
 
 func sqlCommonGetGroupByName(name string, dbHandle sqlQuerier) (Group, error) {
@@ -530,7 +551,11 @@ func sqlCommonGetGroupByName(name string, dbHandle sqlQuerier) (Group, error) {
 	if err != nil {
 		return group, err
 	}
-	return getGroupWithUsers(ctx, group, dbHandle)
+	group, err = getGroupWithUsers(ctx, group, dbHandle)
+	if err != nil {
+		return group, err
+	}
+	return getGroupWithAdmins(ctx, group, dbHandle)
 }
 
 func sqlCommonDumpGroups(dbHandle sqlQuerier) ([]Group, error) {
@@ -661,6 +686,10 @@ func sqlCommonGetGroups(limit int, offset int, order string, minimal bool, dbHan
 		return groups, err
 	}
 	groups, err = getGroupsWithUsers(ctx, groups, dbHandle)
+	if err != nil {
+		return groups, err
+	}
+	groups, err = getGroupsWithAdmins(ctx, groups, dbHandle)
 	if err != nil {
 		return groups, err
 	}
@@ -2040,6 +2069,12 @@ func sqlCommonAddUserFolderMapping(ctx context.Context, user *User, folder *vfs.
 	return err
 }
 
+func sqlCommonClearAdminGroupMapping(ctx context.Context, admin *Admin, dbHandle sqlQuerier) error {
+	q := getClearAdminGroupMappingQuery()
+	_, err := dbHandle.ExecContext(ctx, q, admin.Username)
+	return err
+}
+
 func sqlCommonAddGroupFolderMapping(ctx context.Context, group *Group, folder *vfs.VirtualFolder, dbHandle sqlQuerier) error {
 	q := getAddGroupFolderMappingQuery()
 	_, err := dbHandle.ExecContext(ctx, q, folder.VirtualPath, folder.QuotaSize, folder.QuotaFiles, folder.Name, group.Name)
@@ -2049,6 +2084,18 @@ func sqlCommonAddGroupFolderMapping(ctx context.Context, group *Group, folder *v
 func sqlCommonAddUserGroupMapping(ctx context.Context, username, groupName string, groupType int, dbHandle sqlQuerier) error {
 	q := getAddUserGroupMappingQuery()
 	_, err := dbHandle.ExecContext(ctx, q, username, groupName, groupType)
+	return err
+}
+
+func sqlCommonAddAdminGroupMapping(ctx context.Context, username, groupName string, mappingOptions AdminGroupMappingOptions,
+	dbHandle sqlQuerier,
+) error {
+	options, err := json.Marshal(mappingOptions)
+	if err != nil {
+		return err
+	}
+	q := getAddAdminGroupMappingQuery()
+	_, err = dbHandle.ExecContext(ctx, q, username, groupName, string(options))
 	return err
 }
 
@@ -2104,6 +2151,20 @@ func generateUserGroupMapping(ctx context.Context, user *User, dbHandle sqlQueri
 	return err
 }
 
+func generateAdminGroupMapping(ctx context.Context, admin *Admin, dbHandle sqlQuerier) error {
+	err := sqlCommonClearAdminGroupMapping(ctx, admin, dbHandle)
+	if err != nil {
+		return err
+	}
+	for _, group := range admin.Groups {
+		err = sqlCommonAddAdminGroupMapping(ctx, admin.Username, group.Name, group.Options, dbHandle)
+		if err != nil {
+			return err
+		}
+	}
+	return err
+}
+
 func getDefenderHostsWithScores(ctx context.Context, hosts []DefenderEntry, from int64, idForScores []int64,
 	dbHandle sqlQuerier) (
 	[]DefenderEntry,
@@ -2150,6 +2211,57 @@ func getDefenderHostsWithScores(ctx context.Context, hosts []DefenderEntry, from
 	}
 
 	return result, nil
+}
+
+func getAdminWithGroups(ctx context.Context, admin Admin, dbHandle sqlQuerier) (Admin, error) {
+	admins, err := getAdminsWithGroups(ctx, []Admin{admin}, dbHandle)
+	if err != nil {
+		return admin, err
+	}
+	if len(admins) == 0 {
+		return admin, errSQLGroupsAssociation
+	}
+	return admins[0], err
+}
+
+func getAdminsWithGroups(ctx context.Context, admins []Admin, dbHandle sqlQuerier) ([]Admin, error) {
+	if len(admins) == 0 {
+		return admins, nil
+	}
+	adminsGroups := make(map[int64][]AdminGroupMapping)
+	q := getRelatedGroupsForAdminsQuery(admins)
+	rows, err := dbHandle.QueryContext(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var group AdminGroupMapping
+		var adminID int64
+		var options []byte
+		err = rows.Scan(&group.Name, &options, &adminID)
+		if err != nil {
+			return admins, err
+		}
+		err = json.Unmarshal(options, &group.Options)
+		if err != nil {
+			return admins, err
+		}
+		adminsGroups[adminID] = append(adminsGroups[adminID], group)
+	}
+	err = rows.Err()
+	if err != nil {
+		return admins, err
+	}
+	if len(adminsGroups) == 0 {
+		return admins, err
+	}
+	for idx := range admins {
+		ref := &admins[idx]
+		ref.Groups = adminsGroups[ref.ID]
+	}
+	return admins, err
 }
 
 func getUserWithVirtualFolders(ctx context.Context, user User, dbHandle sqlQuerier) (User, error) {
@@ -2271,6 +2383,17 @@ func getGroupWithUsers(ctx context.Context, group Group, dbHandle sqlQuerier) (G
 	return groups[0], err
 }
 
+func getGroupWithAdmins(ctx context.Context, group Group, dbHandle sqlQuerier) (Group, error) {
+	groups, err := getGroupsWithAdmins(ctx, []Group{group}, dbHandle)
+	if err != nil {
+		return group, err
+	}
+	if len(groups) == 0 {
+		return group, errSQLUsersAssociation
+	}
+	return groups[0], err
+}
+
 func getGroupWithVirtualFolders(ctx context.Context, group Group, dbHandle sqlQuerier) (Group, error) {
 	groups, err := getGroupsWithVirtualFolders(ctx, []Group{group}, dbHandle)
 	if err != nil {
@@ -2366,6 +2489,40 @@ func getGroupsWithUsers(ctx context.Context, groups []Group, dbHandle sqlQuerier
 		ref.Users = groupsUsers[ref.ID]
 	}
 	return groups, err
+}
+
+func getGroupsWithAdmins(ctx context.Context, groups []Group, dbHandle sqlQuerier) ([]Group, error) {
+	if len(groups) == 0 {
+		return groups, nil
+	}
+	q := getRelatedAdminsForGroupsQuery(groups)
+	rows, err := dbHandle.QueryContext(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	groupsAdmins := make(map[int64][]string)
+	for rows.Next() {
+		var groupID int64
+		var username string
+		err = rows.Scan(&groupID, &username)
+		if err != nil {
+			return groups, err
+		}
+		groupsAdmins[groupID] = append(groupsAdmins[groupID], username)
+	}
+	err = rows.Err()
+	if err != nil {
+		return groups, err
+	}
+	if len(groupsAdmins) > 0 {
+		for idx := range groups {
+			ref := &groups[idx]
+			ref.Admins = groupsAdmins[ref.ID]
+		}
+	}
+	return groups, nil
 }
 
 func getVirtualFoldersWithGroups(folders []vfs.BaseVirtualFolder, dbHandle sqlQuerier) ([]vfs.BaseVirtualFolder, error) {

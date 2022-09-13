@@ -187,6 +187,8 @@ func (g *Group) validateUserSettings() error {
 func (g *Group) getACopy() Group {
 	users := make([]string, len(g.Users))
 	copy(users, g.Users)
+	admins := make([]string, len(g.Admins))
+	copy(admins, g.Admins)
 	virtualFolders := make([]vfs.VirtualFolder, 0, len(g.VirtualFolders))
 	for idx := range g.VirtualFolders {
 		vfolder := g.VirtualFolders[idx].GetACopy()
@@ -207,6 +209,7 @@ func (g *Group) getACopy() Group {
 			CreatedAt:   g.CreatedAt,
 			UpdatedAt:   g.UpdatedAt,
 			Users:       users,
+			Admins:      admins,
 		},
 		UserSettings: GroupUserSettings{
 			BaseGroupUserSettings: sdk.BaseGroupUserSettings{

@@ -5285,6 +5285,11 @@ components:
         additional_info:
           type: string
           description: Free form text field
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminGroupMapping'
+          description: 'Groups automatically selected for new users created by this admin. The admin will still be able to choose different groups. These settings are only used for this admin UI and they will be ignored in REST API/hooks.'
         created_at:
           type: integer
           format: int64
@@ -5870,6 +5875,11 @@ components:
           items:
             type: string
           description: list of usernames associated with this group
+        admins:
+          type: array
+          items:
+            type: string
+          description: list of admins usernames associated with this group
     GroupMapping:
       type: object
       properties:
@@ -5880,10 +5890,33 @@ components:
           enum:
             - 1
             - 2
+            - 3
           description: |
             Group type:
               * `1` - Primary group
-              * `2` - Secondaru group
+              * `2` - Secondary group
+              * `3` - Membership only, no settings are inherited from this group type
+    AdminGroupMappingOptions:
+      type: object
+      properties:
+        add_to_users_as:
+          enum:
+            - 0
+            - 1
+            - 2
+          description: |
+            Add to new users as:
+              * `0` - the admin's group will be added as membership group for new users
+              * `1` - the admin's group will be added as primary group for new users
+              * `2` - the admin's group will be added as secondary group for new users
+    AdminGroupMapping:
+      type: object
+      properties:
+        name:
+          type: string
+          description: group name
+        options:
+          $ref: '#/components/schemas/AdminGroupMappingOptions'
     BackupData:
       type: object
       properties:

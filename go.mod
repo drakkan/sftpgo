@@ -17,8 +17,8 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.27.9
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.15.22
 	github.com/aws/aws-sdk-go-v2/service/sts v1.16.17
-	github.com/cockroachdb/cockroach-go/v2 v2.2.15
-	github.com/coreos/go-oidc/v3 v3.3.0
+	github.com/cockroachdb/cockroach-go/v2 v2.2.16
+	github.com/coreos/go-oidc/v3 v3.4.0
 	github.com/eikenb/pipeat v0.0.0-20210730190139-06b3e6902001
 	github.com/fclairamb/ftpserverlib v0.19.1
 	github.com/fclairamb/go-log v0.4.1
@@ -51,7 +51,7 @@ require (
 	github.com/rs/cors v1.8.3-0.20220619195839-da52b0701de5
 	github.com/rs/xid v1.4.0
 	github.com/rs/zerolog v1.28.0
-	github.com/sftpgo/sdk v0.1.2-0.20220828084006-f9e2fffac657
+	github.com/sftpgo/sdk v0.1.2-0.20220913155952-81743fa5ded5
 	github.com/shirou/gopsutil/v3 v3.22.8
 	github.com/spf13/afero v1.9.2
 	github.com/spf13/cobra v1.5.0
@@ -66,9 +66,9 @@ require (
 	go.uber.org/automaxprocs v1.5.1
 	gocloud.dev v0.26.0
 	golang.org/x/crypto v0.0.0-20220829220503-c86fa9a7ed90
-	golang.org/x/net v0.0.0-20220907135653-1e95f45603a7
-	golang.org/x/oauth2 v0.0.0-20220822191816-0ebed06d0094
-	golang.org/x/sys v0.0.0-20220907062415-87db552b00fd
+	golang.org/x/net v0.0.0-20220909164309-bea034e7d591
+	golang.org/x/oauth2 v0.0.0-20220909003341-f21342109be1
+	golang.org/x/sys v0.0.0-20220913153101-76c7481b5158
 	golang.org/x/time v0.0.0-20220722155302-e5dcc9cfc0b9
 	google.golang.org/api v0.95.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
@@ -123,7 +123,7 @@ require (
 	github.com/lestrrat-go/httpcc v1.0.1 // indirect
 	github.com/lestrrat-go/iter v1.0.2 // indirect
 	github.com/lestrrat-go/option v1.0.0 // indirect
-	github.com/lufia/plan9stats v0.0.0-20220517141722-cf486979b281 // indirect
+	github.com/lufia/plan9stats v0.0.0-20220913051719-115f729f3c8c // indirect
 	github.com/magiconair/properties v1.8.6 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.16 // indirect
@@ -156,7 +156,7 @@ require (
 	golang.org/x/tools v0.1.12 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20220902135211-223410557253 // indirect
+	google.golang.org/genproto v0.0.0-20220909194730-69f6226f97e5 // indirect
 	google.golang.org/grpc v1.49.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
@@ -168,5 +168,5 @@ require (
 replace (
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
 	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20220831070132-e3c36f2ab82b
-	golang.org/x/net => github.com/drakkan/net v0.0.0-20220908074131-65c0cd1ffa8a
+	golang.org/x/net => github.com/drakkan/net v0.0.0-20220913160159-a08dc61b7895
 )

@@ -1636,7 +1636,7 @@ func checkAdmin(expected, actual *dataprovider.Admin) error {
 		}
 	}
 
-	return nil
+	return compareAdminGroups(expected, actual)
 }
 
 func compareAdminEqualFields(expected *dataprovider.Admin, actual *dataprovider.Admin) error {
@@ -1711,6 +1711,27 @@ func compareUserPermissions(expected map[string][]string, actual map[string][]st
 			}
 		} else {
 			return errors.New("permissions directories mismatch")
+		}
+	}
+	return nil
+}
+
+func compareAdminGroups(expected *dataprovider.Admin, actual *dataprovider.Admin) error {
+	if len(actual.Groups) != len(expected.Groups) {
+		return errors.New("groups len mismatch")
+	}
+	for _, g := range actual.Groups {
+		found := false
+		for _, g1 := range expected.Groups {
+			if g1.Name == g.Name {
+				found = true
+				if g1.Options.AddToUsersAs != g.Options.AddToUsersAs {
+					return fmt.Errorf("add to users as field mismatch for group %s", g.Name)
+				}
+			}
+		}
+		if !found {
+			return errors.New("groups mismatch")
 		}
 	}
 	return nil

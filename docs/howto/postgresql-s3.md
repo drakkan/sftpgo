@@ -155,9 +155,9 @@ Next, initialize the data provider with the following command.
 ```shell
 $ sudo su - sftpgo -s /bin/bash -c 'sftpgo initprovider -c /etc/sftpgo'
 2020-10-09T21:07:50.000 INF Initializing provider: "postgresql" config file: "/etc/sftpgo/sftpgo.json"
-2020-10-09T21:07:50.000 INF updating database version: 1 -> 2
-2020-10-09T21:07:50.000 INF updating database version: 2 -> 3
-2020-10-09T21:07:50.000 INF updating database version: 3 -> 4
+2020-10-09T21:07:50.000 INF updating database schema version: 1 -> 2
+2020-10-09T21:07:50.000 INF updating database schema version: 2 -> 3
+2020-10-09T21:07:50.000 INF updating database schema version: 3 -> 4
 2020-10-09T21:07:50.000 INF Data provider successfully initialized/updated
 ```
 

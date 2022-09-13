@@ -2742,6 +2742,102 @@ func TestBasicAdminHandling(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestAdminGroups(t *testing.T) {
+	group1 := getTestGroup()
+	group1.Name += "_1"
+	group1, _, err := httpdtest.AddGroup(group1, http.StatusCreated)
+	assert.NoError(t, err)
+	group2 := getTestGroup()
+	group2.Name += "_2"
+	group2, _, err = httpdtest.AddGroup(group2, http.StatusCreated)
+	assert.NoError(t, err)
+	group3 := getTestGroup()
+	group3.Name += "_3"
+	group3, _, err = httpdtest.AddGroup(group3, http.StatusCreated)
+	assert.NoError(t, err)
+
+	a := getTestAdmin()
+	a.Username = altAdminUsername
+	a.Groups = []dataprovider.AdminGroupMapping{
+		{
+			Name: group1.Name,
+			Options: dataprovider.AdminGroupMappingOptions{
+				AddToUsersAs: dataprovider.GroupAddToUsersAsPrimary,
+			},
+		},
+		{
+			Name: group2.Name,
+			Options: dataprovider.AdminGroupMappingOptions{
+				AddToUsersAs: dataprovider.GroupAddToUsersAsSecondary,
+			},
+		},
+		{
+			Name: group3.Name,
+			Options: dataprovider.AdminGroupMappingOptions{
+				AddToUsersAs: dataprovider.GroupAddToUsersAsMembership,
+			},
+		},
+	}
+	admin, _, err := httpdtest.AddAdmin(a, http.StatusCreated)
+	assert.NoError(t, err)
+	assert.Len(t, admin.Groups, 3)
+
+	groups, _, err := httpdtest.GetGroups(0, 0, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, groups, 3)
+	for _, g := range groups {
+		if assert.Len(t, g.Admins, 1) {
+			assert.Equal(t, admin.Username, g.Admins[0])
+		}
+	}
+
+	admin, _, err = httpdtest.UpdateAdmin(a, http.StatusOK)
+	assert.NoError(t, err)
+
+	_, err = httpdtest.RemoveGroup(group1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveGroup(group2, http.StatusOK)
+	assert.NoError(t, err)
+	admin, _, err = httpdtest.GetAdminByUsername(admin.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, admin.Groups, 1)
+
+	// try to add a missing group
+	admin.Groups = []dataprovider.AdminGroupMapping{
+		{
+			Name: group1.Name,
+			Options: dataprovider.AdminGroupMappingOptions{
+				AddToUsersAs: dataprovider.GroupAddToUsersAsPrimary,
+			},
+		},
+		{
+			Name: group2.Name,
+			Options: dataprovider.AdminGroupMappingOptions{
+				AddToUsersAs: dataprovider.GroupAddToUsersAsSecondary,
+			},
+		},
+	}
+
+	group3, _, err = httpdtest.GetGroupByName(group3.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, group3.Admins, 1)
+
+	_, _, err = httpdtest.UpdateAdmin(admin, http.StatusOK)
+	assert.Error(t, err)
+	group3, _, err = httpdtest.GetGroupByName(group3.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, group3.Admins, 1)
+
+	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+	group3, _, err = httpdtest.GetGroupByName(group3.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, group3.Admins, 0)
+
+	_, err = httpdtest.RemoveGroup(group3, http.StatusOK)
+	assert.NoError(t, err)
+}
+
 func TestChangeAdminPassword(t *testing.T) {
 	_, err := httpdtest.ChangeAdminPassword("wrong", defaultTokenAuthPass, http.StatusBadRequest)
 	assert.NoError(t, err)
@@ -6001,6 +6097,11 @@ func TestProviderErrors(t *testing.T) {
 	setJWTCookieForReq(req, testServerToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusInternalServerError, rr)
+	req, err = http.NewRequest(http.MethodGet, webAdminPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, testServerToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
 	req, err = http.NewRequest(http.MethodGet, webGroupsPath+"?qlimit=a", nil)
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, testServerToken)
@@ -6529,6 +6630,11 @@ func TestLoaddata(t *testing.T) {
 	admin := getTestAdmin()
 	admin.ID = 1
 	admin.Username = "test_admin_restore"
+	admin.Groups = []dataprovider.AdminGroupMapping{
+		{
+			Name: group.Name,
+		},
+	}
 	apiKey := dataprovider.APIKey{
 		Name:  util.GenerateUniqueID(),
 		Scope: dataprovider.APIKeyScopeAdmin,
@@ -6638,8 +6744,7 @@ func TestLoaddata(t *testing.T) {
 
 	admin, _, err = httpdtest.GetAdminByUsername(admin.Username, http.StatusOK)
 	assert.NoError(t, err)
-	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
-	assert.NoError(t, err)
+	assert.Len(t, admin.Groups, 1)
 
 	apiKey, _, err = httpdtest.GetAPIKeyByID(apiKey.KeyID, http.StatusOK)
 	assert.NoError(t, err)
@@ -6672,6 +6777,16 @@ func TestLoaddata(t *testing.T) {
 				found = true
 				assert.Equal(t, len(user.VirtualFolders), len(u.VirtualFolders))
 				assert.Equal(t, len(user.Groups), len(u.Groups))
+			}
+		}
+	}
+	assert.True(t, found)
+	found = false
+	if assert.GreaterOrEqual(t, len(dumpedData.Admins), 1) {
+		for _, a := range dumpedData.Admins {
+			if a.Username == admin.Username {
+				found = true
+				assert.Equal(t, len(admin.Groups), len(a.Groups))
 			}
 		}
 	}
@@ -6713,6 +6828,8 @@ func TestLoaddata(t *testing.T) {
 	_, err = httpdtest.RemoveEventRule(rule, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveEventAction(action, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
 	assert.NoError(t, err)
 
 	err = os.Remove(backupFilePath)
@@ -16315,6 +16432,86 @@ func TestWebAdminBasicMock(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "Invalid token")
 }
 
+func TestWebAdminGroupsMock(t *testing.T) {
+	group1 := getTestGroup()
+	group1.Name += "_1"
+	group1, _, err := httpdtest.AddGroup(group1, http.StatusCreated)
+	assert.NoError(t, err)
+	group2 := getTestGroup()
+	group2.Name += "_2"
+	group2, _, err = httpdtest.AddGroup(group2, http.StatusCreated)
+	assert.NoError(t, err)
+	group3 := getTestGroup()
+	group3.Name += "_3"
+	group3, _, err = httpdtest.AddGroup(group3, http.StatusCreated)
+	assert.NoError(t, err)
+	token, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	admin := getTestAdmin()
+	admin.Username = altAdminUsername
+	admin.Password = altAdminPassword
+	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	assert.NoError(t, err)
+	form := make(url.Values)
+	form.Set(csrfFormToken, csrfToken)
+	form.Set("username", admin.Username)
+	form.Set("password", "")
+	form.Set("status", "1")
+	form.Set("permissions", "*")
+	form.Set("description", admin.Description)
+	form.Set("password", admin.Password)
+	form.Set("group1", group1.Name)
+	form.Set("add_as_group_type1", "1")
+	form.Set("group2", group2.Name)
+	form.Set("add_as_group_type2", "2")
+	form.Set("group3", group3.Name)
+	req, err := http.NewRequest(http.MethodPost, webAdminPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+	admin, _, err = httpdtest.GetAdminByUsername(admin.Username, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, admin.Groups, 3) {
+		for _, g := range admin.Groups {
+			switch g.Name {
+			case group1.Name:
+				assert.Equal(t, dataprovider.GroupAddToUsersAsPrimary, g.Options.AddToUsersAs)
+			case group2.Name:
+				assert.Equal(t, dataprovider.GroupAddToUsersAsSecondary, g.Options.AddToUsersAs)
+			case group3.Name:
+				assert.Equal(t, dataprovider.GroupAddToUsersAsMembership, g.Options.AddToUsersAs)
+			default:
+				t.Errorf("unexpected group %q", g.Name)
+			}
+		}
+	}
+	adminToken, err := getJWTWebTokenFromTestServer(altAdminUsername, altAdminPassword)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodGet, webUserPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, adminToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodGet, webUserPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, adminToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+
+	_, err = httpdtest.RemoveGroup(group1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveGroup(group2, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveGroup(group3, http.StatusOK)
+	assert.NoError(t, err)
+}
+
 func TestWebAdminPermissions(t *testing.T) {
 	admin := getTestAdmin()
 	admin.Username = altAdminUsername
@@ -16554,6 +16751,10 @@ func TestWebUserAddMock(t *testing.T) {
 	group2.Name += "_2"
 	group2, _, err = httpdtest.AddGroup(group2, http.StatusCreated)
 	assert.NoError(t, err)
+	group3 := getTestGroup()
+	group3.Name += "_3"
+	group3, _, err = httpdtest.AddGroup(group3, http.StatusCreated)
+	assert.NoError(t, err)
 	user := getTestUser()
 	user.UploadBandwidth = 32
 	user.DownloadBandwidth = 64
@@ -16584,6 +16785,7 @@ func TestWebUserAddMock(t *testing.T) {
 	form.Set("password", user.Password)
 	form.Set("primary_group", group1.Name)
 	form.Set("secondary_groups", group2.Name)
+	form.Set("membership_groups", group3.Name)
 	form.Set("status", strconv.Itoa(user.Status))
 	form.Set("expiration_date", "")
 	form.Set("permissions", "*")
@@ -16988,7 +17190,7 @@ func TestWebUserAddMock(t *testing.T) {
 			}
 		}
 	}
-	assert.Len(t, newUser.Groups, 2)
+	assert.Len(t, newUser.Groups, 3)
 	assert.Equal(t, sdk.TLSUsernameNone, newUser.Filters.TLSUsername)
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(userPath, newUser.Username), nil)
 	setBearerForReq(req, apiToken)
@@ -17001,6 +17203,8 @@ func TestWebUserAddMock(t *testing.T) {
 	_, err = httpdtest.RemoveGroup(group1, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveGroup(group2, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveGroup(group3, http.StatusOK)
 	assert.NoError(t, err)
 }
 

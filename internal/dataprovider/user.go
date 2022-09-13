@@ -1568,8 +1568,27 @@ func (u *User) HasSecondaryGroup(name string) bool {
 	return false
 }
 
+// HasMembershipGroup returns true if the user has the specified membership group
+func (u *User) HasMembershipGroup(name string) bool {
+	for _, g := range u.Groups {
+		if g.Name == name {
+			return g.Type == sdk.GroupTypeMembership
+		}
+	}
+	return false
+}
+
+func (u *User) hasSettingsFromGroups() bool {
+	for _, g := range u.Groups {
+		if g.Type != sdk.GroupTypeMembership {
+			return true
+		}
+	}
+	return false
+}
+
 func (u *User) applyGroupSettings(groupsMapping map[string]Group) {
-	if len(u.Groups) == 0 {
+	if !u.hasSettingsFromGroups() {
 		return
 	}
 	if u.groupSettingsApplied {
@@ -1600,7 +1619,7 @@ func (u *User) applyGroupSettings(groupsMapping map[string]Group) {
 
 // LoadAndApplyGroupSettings update the user by loading and applying the group settings
 func (u *User) LoadAndApplyGroupSettings() error {
-	if len(u.Groups) == 0 {
+	if !u.hasSettingsFromGroups() {
 		return nil
 	}
 	if u.groupSettingsApplied {
@@ -1612,7 +1631,9 @@ func (u *User) LoadAndApplyGroupSettings() error {
 		if g.Type == sdk.GroupTypePrimary {
 			primaryGroupName = g.Name
 		}
-		names = append(names, g.Name)
+		if g.Type != sdk.GroupTypeMembership {
+			names = append(names, g.Name)
+		}
 	}
 	groups, err := provider.getGroupsWithNames(names)
 	if err != nil {

@@ -22,9 +22,11 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/alexedwards/argon2id"
+	"github.com/sftpgo/sdk"
 	passwordvalidator "github.com/wagslane/go-password-validator"
 	"golang.org/x/crypto/bcrypt"
 
@@ -55,6 +57,15 @@ const (
 	PermAdminMetadataChecks   = "metadata_checks"
 	PermAdminViewEvents       = "view_events"
 	PermAdminManageEventRules = "manage_event_rules"
+)
+
+const (
+	// GroupAddToUsersAsMembership defines that the admin's group will be added as membership group for new users
+	GroupAddToUsersAsMembership = iota
+	// GroupAddToUsersAsPrimary defines that the admin's group will be added as primary group for new users
+	GroupAddToUsersAsPrimary
+	// GroupAddToUsersAsSecondary defines that the admin's group will be added as secondary group for new users
+	GroupAddToUsersAsSecondary
 )
 
 var (
@@ -113,6 +124,36 @@ type AdminFilters struct {
 	RecoveryCodes []RecoveryCode `json:"recovery_codes,omitempty"`
 }
 
+// AdminGroupMappingOptions defines the options for admin/group mapping
+type AdminGroupMappingOptions struct {
+	AddToUsersAs int `json:"add_to_users_as,omitempty"`
+}
+
+func (o *AdminGroupMappingOptions) validate() error {
+	if o.AddToUsersAs < GroupAddToUsersAsMembership || o.AddToUsersAs > GroupAddToUsersAsSecondary {
+		return util.NewValidationError(fmt.Sprintf("Invalid mode to add groups to new users: %d", o.AddToUsersAs))
+	}
+	return nil
+}
+
+// GetUserGroupType returns the type for the matching user group
+func (o *AdminGroupMappingOptions) GetUserGroupType() int {
+	switch o.AddToUsersAs {
+	case GroupAddToUsersAsPrimary:
+		return sdk.GroupTypePrimary
+	case GroupAddToUsersAsSecondary:
+		return sdk.GroupTypeSecondary
+	default:
+		return sdk.GroupTypeMembership
+	}
+}
+
+// AdminGroupMapping defines the mapping between an SFTPGo admin and a group
+type AdminGroupMapping struct {
+	Name    string                   `json:"name"`
+	Options AdminGroupMappingOptions `json:"options"`
+}
+
 // Admin defines a SFTPGo admin
 type Admin struct {
 	// Database unique identifier
@@ -127,6 +168,8 @@ type Admin struct {
 	Filters        AdminFilters `json:"filters,omitempty"`
 	Description    string       `json:"description,omitempty"`
 	AdditionalInfo string       `json:"additional_info,omitempty"`
+	// Groups membership
+	Groups []AdminGroupMapping `json:"groups,omitempty"`
 	// Creation time as unix timestamp in milliseconds. It will be 0 for admins created before v2.2.0
 	CreatedAt int64 `json:"created_at"`
 	// last update time as unix timestamp in milliseconds
@@ -206,10 +249,32 @@ func (a *Admin) validatePermissions() error {
 	return nil
 }
 
+func (a *Admin) validateGroups() error {
+	hasPrimary := false
+	for _, g := range a.Groups {
+		if g.Name == "" {
+			return util.NewValidationError("group name is mandatory")
+		}
+		if err := g.Options.validate(); err != nil {
+			return err
+		}
+		if g.Options.AddToUsersAs == GroupAddToUsersAsPrimary {
+			if hasPrimary {
+				return util.NewValidationError("only one primary group is allowed")
+			}
+			hasPrimary = true
+		}
+	}
+	return nil
+}
+
 func (a *Admin) validate() error {
 	a.SetEmptySecretsIfNil()
 	if a.Username == "" {
 		return util.NewValidationError("username is mandatory")
+	}
+	if err := checkReservedUsernames(a.Username); err != nil {
+		return err
 	}
 	if a.Password == "" {
 		return util.NewValidationError("please set a password")
@@ -243,7 +308,20 @@ func (a *Admin) validate() error {
 		}
 	}
 
-	return nil
+	return a.validateGroups()
+}
+
+// GetGroupsAsString returns the user's groups as a string
+func (a *Admin) GetGroupsAsString() string {
+	if len(a.Groups) == 0 {
+		return ""
+	}
+	var groups []string
+	for _, g := range a.Groups {
+		groups = append(groups, g.Name)
+	}
+	sort.Strings(groups)
+	return strings.Join(groups, ",")
 }
 
 // CheckPassword verifies the admin password
@@ -422,6 +500,15 @@ func (a *Admin) getACopy() Admin {
 			Used:   code.Used,
 		})
 	}
+	groups := make([]AdminGroupMapping, 0, len(a.Groups))
+	for _, g := range a.Groups {
+		groups = append(groups, AdminGroupMapping{
+			Name: g.Name,
+			Options: AdminGroupMappingOptions{
+				AddToUsersAs: g.Options.AddToUsersAs,
+			},
+		})
+	}
 
 	return Admin{
 		ID:             a.ID,
@@ -430,6 +517,7 @@ func (a *Admin) getACopy() Admin {
 		Password:       a.Password,
 		Email:          a.Email,
 		Permissions:    permissions,
+		Groups:         groups,
 		Filters:        filters,
 		AdditionalInfo: a.AdditionalInfo,
 		Description:    a.Description,
