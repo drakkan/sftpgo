@@ -94,26 +94,17 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 <script src="{{.StaticURL}}/vendor/datatables/dataTables.responsive.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/responsive.bootstrap4.min.js"></script>
 <script type="text/javascript">
-
-    var escapeHTML = function ( t ) {
-		return t
-			.replace( /&/g, '&amp;' )
-			.replace( /</g, '&lt;' )
-			.replace( />/g, '&gt;' )
-			.replace( /"/g, '&quot;' );
-	};
-
     function shortenData(d, cutoff) {
         if ( typeof d !== 'string' ) {
 			return d;
 		}
 
 		if ( d.length <= cutoff ) {
-			return d;
+			return escapeHTML(d);
 		}
 
         var shortened = d.substr(0, cutoff-1);
-        return shortened+'&#8230;';
+        return escapeHTML(shortened)+'&#8230;';
     }
 
     function getIconForFile(filename) {
@@ -250,7 +241,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                     let response;
                     try {
                         var f = files[index];
-                        var uploadPath = '{{.UploadBaseURL}}'+fixedEncodeURIComponent("/"+f.name);
+                        var uploadPath = '{{.UploadBaseURL}}'+fixedEncodeURIComponent("/"+escapeHTML(f.name));
                         var lastModified;
                         try {
                             lastModified = f.lastModified;
@@ -384,6 +375,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                             var title = "";
                             var cssClass = "";
                             var shortened = shortenData(data, 70);
+                            data = escapeHTML(data);
                             if (shortened != data){
                                 title = escapeHTML(data);
                                 cssClass = "ellipsis";

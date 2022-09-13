@@ -239,7 +239,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         if (childReference == null || childReference.closed) {
             childProps.set('link', fileLink);
             childProps.set('url', url);
-            childProps.set('file_name', fileName);
+            childProps.set('file_name', UnicodeDecodeB64(fileName));
             childReference = window.open(url, '_blank');
             if (!checkerStarted){
                 keepAlive();
@@ -366,7 +366,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
                 async function saveBlob() {
                     var errorMessage = "Error saving external file";
-                    var uploadPath = '{{.FileURL}}?path={{.CurrentDir}}'+encodeURIComponent("/"+childProps.get('file_name'));
+                    var uploadPath = '{{.FileURL}}?path={{.CurrentDir}}'+encodeURIComponent("/"+unescapeHTML(childProps.get('file_name')));
                     let response;
                     try {
                         response = await fetch(uploadPath, {
@@ -433,29 +433,21 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     var player;
     var playerKeepAlive;
 
-    var escapeHTML = function ( t ) {
-		return t
-			.replace( /&/g, '&amp;' )
-			.replace( /</g, '&lt;' )
-			.replace( />/g, '&gt;' )
-			.replace( /"/g, '&quot;' );
-	};
-
     function shortenData(d, cutoff) {
         if ( typeof d !== 'string' ) {
 			return d;
 		}
 
 		if ( d.length <= cutoff ) {
-			return d;
+			return escapeHTML(d);
 		}
 
         var shortened = d.substr(0, cutoff-1);
-        return shortened+'&#8230;';
+        return escapeHTML(shortened)+'&#8230;';
     }
 
     function openVideoPlayer(name, url, videoType){
-        $("#video_title").text(name);
+        $("#video_title").text(UnicodeDecodeB64(name));
         $('#videoModal').modal('show');
         player.src({
             type: videoType,
@@ -1003,8 +995,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                             var title = "";
                             var cssClass = "";
                             var shortened = shortenData(data, 70);
+                            data = escapeHTML(data);
                             if (shortened != data){
-                                title = escapeHTML(data);
+                                title = data;
                                 cssClass = "ellipsis";
                             }
 
@@ -1025,7 +1018,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 { "data": "edit_url",
                     "render": function (data, type, row) {
                         if (type === 'display') {
-                            var filename = row["name"];
+                            var filename = escapeHTML(row["name"]);
                             var extension = filename.slice((filename.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase();
                             if (data){
                                 if (extension == "csv" || extension == "bat" || CodeMirror.findModeByExtension(extension) != null){
@@ -1047,15 +1040,19 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                                     case "svg":
                                     case "ico":
                                         var view_url = row['url']+"&inline=1";
-                                        return `<a href="${view_url}" data-lightbox="image-gallery" data-title="${filename}"><i class="fas fa-eye"></i></a>`;
+                                        var title = escapeHTMLForceSafe(row["name"])
+                                        return `<a href="${view_url}" data-lightbox="image-gallery" data-title="${title}"><i class="fas fa-eye"></i></a>`;
                                     case "mp4":
                                     case "mov":
-                                        return `<a href="#" onclick="openVideoPlayer('${row["name"]}', '${row['url']}', 'video/mp4');"><i class="fas fa-eye"></i></a>`;
+                                        var name = b64EncodeUnicode(row["name"]);
+                                        return `<a href="#" onclick="openVideoPlayer('${name}', '${row['url']}', 'video/mp4');"><i class="fas fa-eye"></i></a>`;
                                     case "webm":
-                                        return `<a href="#" onclick="openVideoPlayer('${row["name"]}', '${row['url']}', 'video/webm');"><i class="fas fa-eye"></i></a>`;
+                                        var name = b64EncodeUnicode(row["name"]);
+                                        return `<a href="#" onclick="openVideoPlayer('${name}', '${row['url']}', 'video/webm');"><i class="fas fa-eye"></i></a>`;
                                     case "ogv":
                                     case "ogg":
-                                        return `<a href="#" onclick="openVideoPlayer('${row["name"]}', '${row['url']}', 'video/ogg');"><i class="fas fa-eye"></i></a>`;
+                                        var name = b64EncodeUnicode(row["name"]);
+                                        return `<a href="#" onclick="openVideoPlayer('${name}}', '${row['url']}', 'video/ogg');"><i class="fas fa-eye"></i></a>`;
                                     case "pdf":
                                         if (PDFObject.supportsPDFs){
                                             var view_url = row['url'];
@@ -1073,7 +1070,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                         {{if .HasIntegrations}}
                         if (type === 'display') {
                             if (data){
-                                return `<a href="#" onclick="openExternalURL('${data}', '${row["ext_link"]}', '${row["name"]}');"><i class="fas fa-external-link-alt"></i></a>`;
+                                var name = b64EncodeUnicode(escapeHTML(row["name"]));
+                                return `<a href="#" onclick="openExternalURL('${data}', '${row["ext_link"]}', '${name}');"><i class="fas fa-external-link-alt"></i></a>`;
                             }
                         }
                         {{end}}

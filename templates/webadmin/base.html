@@ -282,8 +282,21 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     <script src="{{.StaticURL}}/js/sb-admin-2.min.js"></script>
 
     <script type="text/javascript">
+        function escapeHTML(str) {
+            var div = document.createElement('div');
+            div.appendChild(document.createTextNode(str));
+            return div.innerHTML;
+        }
+
+        function unescapeHTML(escapedStr) {
+            var div = document.createElement('div');
+            div.innerHTML = escapedStr;
+            var child = div.childNodes[0];
+            return child ? child.nodeValue : '';
+        }
+
         function fixedEncodeURIComponent(str) {
-            return encodeURIComponent(str).replace(/[!'()*]/g, function (c) {
+            return encodeURIComponent(unescapeHTML(str)).replace(/[!'()*]/g, function (c) {
                 return '%' + c.charCodeAt(0).toString(16);
             });
         }
