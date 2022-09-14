@@ -29,6 +29,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -37,8 +38,10 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/google/uuid"
 	"github.com/lithammer/shortuuid/v3"
@@ -58,6 +61,59 @@ var (
 	// this can be set at build time
 	additionalSharedDataSearchPath = ""
 )
+
+// IEC Sizes.
+// kibis of bits
+const (
+	oneByte = 1 << (iota * 10)
+	kiByte
+	miByte
+	giByte
+	tiByte
+	piByte
+	eiByte
+)
+
+// SI Sizes.
+const (
+	iByte  = 1
+	kbByte = iByte * 1000
+	mByte  = kbByte * 1000
+	gByte  = mByte * 1000
+	tByte  = gByte * 1000
+	pByte  = tByte * 1000
+	eByte  = pByte * 1000
+)
+
+var bytesSizeTable = map[string]uint64{
+	"b":   oneByte,
+	"kib": kiByte,
+	"kb":  kbByte,
+	"mib": miByte,
+	"mb":  mByte,
+	"gib": giByte,
+	"gb":  gByte,
+	"tib": tiByte,
+	"tb":  tByte,
+	"pib": piByte,
+	"pb":  pByte,
+	"eib": eiByte,
+	"eb":  eByte,
+	// Without suffix
+	"":   oneByte,
+	"ki": kiByte,
+	"k":  kbByte,
+	"mi": miByte,
+	"m":  mByte,
+	"gi": giByte,
+	"g":  gByte,
+	"ti": tiByte,
+	"t":  tByte,
+	"pi": piByte,
+	"p":  pByte,
+	"ei": eiByte,
+	"e":  eByte,
+}
 
 // Contains reports whether v is present in elems.
 func Contains[T comparable](elems []T, v T) bool {
@@ -135,6 +191,9 @@ func ByteCountIEC(b int64) string {
 }
 
 func byteCount(b int64, unit int64) string {
+	if b <= 0 {
+		return strconv.FormatInt(b, 10)
+	}
 	if b < unit {
 		return fmt.Sprintf("%d B", b)
 	}
@@ -143,12 +202,61 @@ func byteCount(b int64, unit int64) string {
 		div *= unit
 		exp++
 	}
+	val := strconv.FormatFloat(float64(b)/float64(div), 'f', -1, 64)
 	if unit == 1000 {
-		return fmt.Sprintf("%.1f %cB",
-			float64(b)/float64(div), "KMGTPE"[exp])
+		return fmt.Sprintf("%s %cB", val, "KMGTPE"[exp])
 	}
-	return fmt.Sprintf("%.1f %ciB",
-		float64(b)/float64(div), "KMGTPE"[exp])
+	return fmt.Sprintf("%s %ciB", val, "KMGTPE"[exp])
+}
+
+// ParseBytes parses a string representation of bytes into the number
+// of bytes it represents.
+//
+// ParseBytes("42 MB") -> 42000000, nil
+// ParseBytes("42 mib") -> 44040192, nil
+//
+// copied from here:
+//
+// https://github.com/dustin/go-humanize/blob/master/bytes.go
+//
+// with minor modifications
+func ParseBytes(s string) (int64, error) {
+	s = strings.TrimSpace(s)
+	lastDigit := 0
+	hasComma := false
+	for _, r := range s {
+		if !(unicode.IsDigit(r) || r == '.' || r == ',') {
+			break
+		}
+		if r == ',' {
+			hasComma = true
+		}
+		lastDigit++
+	}
+
+	num := s[:lastDigit]
+	if hasComma {
+		num = strings.Replace(num, ",", "", -1)
+	}
+
+	f, err := strconv.ParseFloat(num, 64)
+	if err != nil {
+		return 0, err
+	}
+
+	extra := strings.ToLower(strings.TrimSpace(s[lastDigit:]))
+	if m, ok := bytesSizeTable[extra]; ok {
+		f *= float64(m)
+		if f >= math.MaxInt64 {
+			return 0, fmt.Errorf("value too large: %v", s)
+		}
+		if f < 0 {
+			return 0, fmt.Errorf("negative value not allowed: %v", s)
+		}
+		return int64(f), nil
+	}
+
+	return 0, fmt.Errorf("unhandled size name: %v", extra)
 }
 
 // GetIPFromRemoteAddress returns the IP from the remote address.

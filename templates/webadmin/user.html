@@ -203,7 +203,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                     <b>Virtual folders</b>
                 </div>
                 <div class="card-body">
-                    <h6 class="card-title mb-4">Quota -1 means included within user quota, 0 unlimited. Don't set -1 for shared folders</h6>
+                    <h6 class="card-title mb-4">Quota size -1 means included within user quota, 0 unlimited. Don't set -1 for shared folders. You can use MB/GB/TB suffix. With no suffix we assume bytes</h6>
                     <div class="form-group row">
                         <div class="col-md-12 form_field_vfolders_outer">
                             {{range $idx, $val := .User.VirtualFolders}}
@@ -220,10 +220,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                                     </select>
                                 </div>
                                 <div class="form-group col-md-3">
-                                    <input type="number" class="form-control" id="idVfolderQuotaSize{{$idx}}" name="vfolder_quota_size"
-                                        value="{{$val.QuotaSize}}" min="-1" aria-describedby="vqsHelpBlock{{$idx}}">
+                                    <input type="text" class="form-control" id="idVfolderQuotaSize{{$idx}}" name="vfolder_quota_size"
+                                        value="{{HumanizeBytes $val.QuotaSize}}" aria-describedby="vqsHelpBlock{{$idx}}">
                                     <small id="vqsHelpBlock{{$idx}}" class="form-text text-muted">
-                                        Quota size (bytes)
+                                        Quota size
                                     </small>
                                 </div>
                                 <div class="form-group col-md-2">
@@ -253,10 +253,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                                     </select>
                                 </div>
                                 <div class="form-group col-md-3">
-                                    <input type="number" class="form-control" id="idVfolderQuotaSize0" name="vfolder_quota_size"
-                                        value="" min="-1" aria-describedby="vqsHelpBlock0">
+                                    <input type="text" class="form-control" id="idVfolderQuotaSize0" name="vfolder_quota_size"
+                                        value="" aria-describedby="vqsHelpBlock0">
                                     <small id="vqsHelpBlock0" class="form-text text-muted">
-                                        Quota size (bytes)
+                                        Quota size
                                     </small>
                                 </div>
                                 <div class="form-group col-md-2">
@@ -603,12 +603,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                         <div class="card-body">
 
                             <div class="form-group row">
-                                <label for="idQuotaSize" class="col-sm-2 col-form-label">Quota size (bytes)</label>
+                                <label for="idQuotaSize" class="col-sm-2 col-form-label">Quota size</label>
                                 <div class="col-sm-3">
-                                    <input type="number" class="form-control" id="idQuotaSize" name="quota_size" placeholder=""
-                                        value="{{.User.QuotaSize}}" min="0" aria-describedby="qsHelpBlock">
+                                    <input type="text" class="form-control" id="idQuotaSize" name="quota_size" placeholder=""
+                                        value="{{HumanizeBytes .User.QuotaSize}}" aria-describedby="qsHelpBlock">
                                     <small id="qsHelpBlock" class="form-text text-muted">
-                                        0 means no limit
+                                        0 means no limit. You can use MB/GB/TB suffix
                                     </small>
                                 </div>
                                 <div class="col-sm-2"></div>
@@ -623,13 +623,13 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                             </div>
 
                             <div class="form-group row">
-                                <label for="idMaxUploadSize" class="col-sm-2 col-form-label">Max file upload size (bytes)</label>
+                                <label for="idMaxUploadSize" class="col-sm-2 col-form-label">Max file upload size</label>
                                 <div class="col-sm-10">
-                                    <input type="number" class="form-control" id="idMaxUploadSize" name="max_upload_file_size"
-                                        placeholder="" value="{{.User.Filters.MaxUploadFileSize}}" min="0"
+                                    <input type="text" class="form-control" id="idMaxUploadSize" name="max_upload_file_size"
+                                        placeholder="" value="{{HumanizeBytes .User.Filters.MaxUploadFileSize}}"
                                         aria-describedby="fqsHelpBlock">
                                     <small id="fqsHelpBlock" class="form-text text-muted">
-                                        Maximum upload size for a single file. 0 means no limit
+                                        Maximum upload size for a single file. 0 means no limit. You can use MB/GB/TB suffix
                                     </small>
                                 </div>
                             </div>

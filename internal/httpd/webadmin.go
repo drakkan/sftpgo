@@ -482,6 +482,7 @@ func loadAdminTemplates(templatesPath string) {
 				sdk.SFTPFilesystemProvider, sdk.HTTPFilesystemProvider,
 			}
 		},
+		"HumanizeBytes": util.ByteCountSI,
 	})
 	usersTmpl := util.LoadTemplate(nil, usersPaths...)
 	userTmpl := util.LoadTemplate(fsBaseTpl, userPaths...)
@@ -1079,7 +1080,7 @@ func getVirtualFoldersFromPostFields(r *http.Request) []vfs.VirtualFolder {
 				QuotaSize:   -1,
 			}
 			if len(folderQuotaSizes) > idx {
-				quotaSize, err := strconv.ParseInt(strings.TrimSpace(folderQuotaSizes[idx]), 10, 64)
+				quotaSize, err := util.ParseBytes(folderQuotaSizes[idx])
 				if err == nil {
 					vfolder.QuotaSize = quotaSize
 				}
@@ -1305,7 +1306,7 @@ func getFiltersFromUserPostFields(r *http.Request) (sdk.BaseUserFilters, error) 
 	if err != nil {
 		return filters, err
 	}
-	maxFileSize, err := strconv.ParseInt(r.Form.Get("max_upload_file_size"), 10, 64)
+	maxFileSize, err := util.ParseBytes(r.Form.Get("max_upload_file_size"))
 	if err != nil {
 		return filters, fmt.Errorf("invalid max upload file size: %w", err)
 	}
@@ -1722,7 +1723,7 @@ func getTransferLimits(r *http.Request) (int64, int64, int64, error) {
 }
 
 func getQuotaLimits(r *http.Request) (int64, int, error) {
-	quotaSize, err := strconv.ParseInt(r.Form.Get("quota_size"), 10, 64)
+	quotaSize, err := util.ParseBytes(r.Form.Get("quota_size"))
 	if err != nil {
 		return 0, 0, fmt.Errorf("invalid quota size: %w", err)
 	}

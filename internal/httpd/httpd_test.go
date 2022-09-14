@@ -16954,7 +16954,7 @@ func TestWebUserAddMock(t *testing.T) {
 	req.Header.Set("Content-Type", contentType)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	form.Set("max_upload_file_size", "1000")
+	form.Set("max_upload_file_size", "1 KB")
 	// test invalid default shares expiration
 	form.Set("default_shares_expiration", "a")
 	b, contentType, _ = getMultipartFormData(form, "", "")
@@ -17277,7 +17277,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	assert.NoError(t, err)
 	user.MaxSessions = 1
 	user.QuotaFiles = 2
-	user.QuotaSize = 3
+	user.QuotaSize = 1000 * 1000 * 1000
 	user.GID = 1000
 	user.Filters.AllowAPIKeyAuth = true
 	user.AdditionalInfo = "new additional info"
@@ -17291,7 +17291,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	form.Set("uid", "0")
 	form.Set("gid", strconv.FormatInt(int64(user.GID), 10))
 	form.Set("max_sessions", strconv.FormatInt(int64(user.MaxSessions), 10))
-	form.Set("quota_size", strconv.FormatInt(user.QuotaSize, 10))
+	form.Set("quota_size", "1 GB")
 	form.Set("quota_files", strconv.FormatInt(int64(user.QuotaFiles), 10))
 	form.Set("upload_bandwidth", "0")
 	form.Set("download_bandwidth", "0")
