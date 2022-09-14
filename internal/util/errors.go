@@ -18,6 +18,12 @@ import (
 	"fmt"
 )
 
+const (
+	templateLoadErrorHints = "Try setting the absolute templates path in your configuration file " +
+		"or specifying the config directory adding the `-c` flag to the serve options. For example: " +
+		"sftpgo serve -c \"<path to dir containing the default config file and templates directory>\""
+)
+
 // ValidationError raised if input data is not valid
 type ValidationError struct {
 	err string

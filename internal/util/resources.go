@@ -74,8 +74,9 @@ func LoadTemplate(base *template.Template, paths ...string) *template.Template {
 
 	if err != nil {
 		logger.ErrorToConsole("error loading required template: %v", err)
+		logger.ErrorToConsole(templateLoadErrorHints)
 		logger.Error(logSender, "", "error loading required template: %v", err)
-		panic(err)
+		os.Exit(1)
 	}
 	return t
 }
