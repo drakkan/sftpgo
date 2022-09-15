@@ -1170,7 +1170,7 @@ func (u *User) GetBandwidthForIP(clientIP, connectionID string) (int64, int64) {
 // IsLoginFromAddrAllowed returns true if the login is allowed from the specified remoteAddr.
 // If AllowedIP is defined only the specified IP/Mask can login.
 // If DeniedIP is defined the specified IP/Mask cannot login.
-// If an IP is both allowed and denied then login will be denied
+// If an IP is both allowed and denied then login will be allowed
 func (u *User) IsLoginFromAddrAllowed(remoteAddr string) bool {
 	if len(u.Filters.AllowedIP) == 0 && len(u.Filters.DeniedIP) == 0 {
 		return true
@@ -1181,15 +1181,6 @@ func (u *User) IsLoginFromAddrAllowed(remoteAddr string) bool {
 		logger.Warn(logSender, "", "login allowed for invalid IP. remote address: %#v", remoteAddr)
 		return true
 	}
-	for _, IPMask := range u.Filters.DeniedIP {
-		_, IPNet, err := net.ParseCIDR(IPMask)
-		if err != nil {
-			return false
-		}
-		if IPNet.Contains(remoteIP) {
-			return false
-		}
-	}
 	for _, IPMask := range u.Filters.AllowedIP {
 		_, IPNet, err := net.ParseCIDR(IPMask)
 		if err != nil {
@@ -1197,6 +1188,15 @@ func (u *User) IsLoginFromAddrAllowed(remoteAddr string) bool {
 		}
 		if IPNet.Contains(remoteIP) {
 			return true
+		}
+	}
+	for _, IPMask := range u.Filters.DeniedIP {
+		_, IPNet, err := net.ParseCIDR(IPMask)
+		if err != nil {
+			return false
+		}
+		if IPNet.Contains(remoteIP) {
+			return false
 		}
 	}
 	return len(u.Filters.AllowedIP) == 0

@@ -8370,8 +8370,9 @@ func TestUserFiltersIPMaskConditions(t *testing.T) {
 	assert.True(t, user.IsLoginFromAddrAllowed("192.168.2.6"))
 
 	user.Filters.AllowedIP = append(user.Filters.AllowedIP, "192.168.1.5/32")
-	// if the same ip/mask is both denied and allowed then login must be denied
-	assert.False(t, user.IsLoginFromAddrAllowed("192.168.1.5"))
+	// if the same ip/mask is both denied and allowed then login must be allowed
+	assert.True(t, user.IsLoginFromAddrAllowed("192.168.1.5"))
+	assert.False(t, user.IsLoginFromAddrAllowed("192.168.1.3"))
 	assert.False(t, user.IsLoginFromAddrAllowed("192.168.3.6"))
 
 	user.Filters.DeniedIP = []string{}
