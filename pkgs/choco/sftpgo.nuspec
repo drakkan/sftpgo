@@ -3,17 +3,17 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
 	<metadata>
 		<id>sftpgo</id>
-		<version>2.3.4</version>
+		<version>2.3.5</version>
 		<packageSourceUrl>https://github.com/drakkan/sftpgo/tree/main/pkgs/choco</packageSourceUrl>
 		<owners>asheroto</owners>
 		<title>SFTPGo</title>
 		<authors>Nicola Murino</authors>
 		<projectUrl>https://github.com/drakkan/sftpgo</projectUrl>
-		<iconUrl>https://cdn.statically.io/gh/drakkan/sftpgo/v2.3.4/static/img/logo.png</iconUrl>
+		<iconUrl>https://cdn.statically.io/gh/drakkan/sftpgo/v2.3.5/static/img/logo.png</iconUrl>
 		<licenseUrl>https://github.com/drakkan/sftpgo/blob/main/LICENSE</licenseUrl>
 		<requireLicenseAcceptance>false</requireLicenseAcceptance>
 		<projectSourceUrl>https://github.com/drakkan/sftpgo</projectSourceUrl>
-		<docsUrl>https://github.com/drakkan/sftpgo/tree/v2.3.4/docs</docsUrl>
+		<docsUrl>https://github.com/drakkan/sftpgo/tree/v2.3.5/docs</docsUrl>
 		<bugTrackerUrl>https://github.com/drakkan/sftpgo/issues</bugTrackerUrl>
 		<tags>sftp sftp-server ftp webdav s3 azure-blob google-cloud-storage cloud-storage scp data-at-rest-encryption multi-factor-authentication multi-step-authentication</tags>
 		<summary>Fully featured and highly configurable SFTP server with optional HTTP/S,FTP/S and WebDAV support.</summary>
@@ -32,7 +32,7 @@ You can find more info [here](https://github.com/drakkan/sftpgo).
 
 * This package installs SFTPGo as Windows Service.
 * After the first installation please take a look at the [Getting Started Guide](https://github.com/drakkan/sftpgo/blob/main/docs/howto/getting-started.md).</description>
-		<releaseNotes>https://github.com/drakkan/sftpgo/releases/tag/v2.3.4</releaseNotes>
+		<releaseNotes>https://github.com/drakkan/sftpgo/releases/tag/v2.3.5</releaseNotes>
 	</metadata>
 	<files>
 		<file src="**" exclude="**\*.md;**\icon.png;**\icon.jpg;**\icon.svg" />

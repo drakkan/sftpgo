@@ -300,7 +300,9 @@ func (c *Connection) ReadDir(name string) ([]os.FileInfo, error) {
 		// we only support wildcards for the last path level, for example:
 		// - *.xml is supported
 		// - dir*/*.xml is not supported
-		return c.getListDirWithWildcards(path.Dir(name), baseName)
+		name = path.Dir(name)
+		c.clientContext.SetListPath(name)
+		return c.getListDirWithWildcards(name, baseName)
 	}
 
 	return c.ListDir(name)
@@ -510,7 +512,10 @@ func (c *Connection) getListDirWithWildcards(dirName, pattern string) ([]os.File
 		return files, err
 	}
 	validIdx := 0
-	relativeBase := getPathRelativeTo(c.clientContext.Path(), dirName)
+	var relativeBase string
+	if c.clientContext.GetLastCommand() != "NLST" {
+		relativeBase = getPathRelativeTo(c.clientContext.Path(), dirName)
+	}
 	for _, fi := range files {
 		match, err := path.Match(pattern, fi.Name())
 		if err != nil {

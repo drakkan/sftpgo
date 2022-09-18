@@ -182,15 +182,15 @@ func GetDurationAsString(d time.Duration) string {
 
 // ByteCountSI returns humanized size in SI (decimal) format
 func ByteCountSI(b int64) string {
-	return byteCount(b, 1000)
+	return byteCount(b, 1000, true)
 }
 
 // ByteCountIEC returns humanized size in IEC (binary) format
 func ByteCountIEC(b int64) string {
-	return byteCount(b, 1024)
+	return byteCount(b, 1024, false)
 }
 
-func byteCount(b int64, unit int64) string {
+func byteCount(b int64, unit int64, maxPrecision bool) string {
 	if b <= 0 {
 		return strconv.FormatInt(b, 10)
 	}
@@ -202,7 +202,12 @@ func byteCount(b int64, unit int64) string {
 		div *= unit
 		exp++
 	}
-	val := strconv.FormatFloat(float64(b)/float64(div), 'f', -1, 64)
+	var val string
+	if maxPrecision {
+		val = strconv.FormatFloat(float64(b)/float64(div), 'f', -1, 64)
+	} else {
+		val = fmt.Sprintf("%.1f", float64(b)/float64(div))
+	}
 	if unit == 1000 {
 		return fmt.Sprintf("%s %cB", val, "KMGTPE"[exp])
 	}

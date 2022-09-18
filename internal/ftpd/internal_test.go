@@ -283,6 +283,8 @@ func (cc mockFTPClientContext) Path() string {
 
 func (cc mockFTPClientContext) SetPath(name string) {}
 
+func (cc mockFTPClientContext) SetListPath(name string) {}
+
 func (cc mockFTPClientContext) SetDebug(debug bool) {}
 
 func (cc mockFTPClientContext) Debug() bool {

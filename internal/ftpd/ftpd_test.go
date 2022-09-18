@@ -672,8 +672,18 @@ func TestListDirWithWildcards(t *testing.T) {
 	assert.NoError(t, err)
 	sftpUser, _, err := httpdtest.AddUser(getTestSFTPUser(), http.StatusCreated)
 	assert.NoError(t, err)
+
+	defer func() {
+		_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
+		assert.NoError(t, err)
+		_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
+		assert.NoError(t, err)
+		err = os.RemoveAll(localUser.GetHomeDir())
+		assert.NoError(t, err)
+	}()
+
 	for _, user := range []dataprovider.User{localUser, sftpUser} {
-		client, err := getFTPClient(user, true, nil)
+		client, err := getFTPClient(user, true, nil, ftp.DialWithDisabledMLSD(true))
 		if assert.NoError(t, err) {
 			dir1 := "test.dir"
 			dir2 := "test.dir1"
@@ -691,33 +701,61 @@ func TestListDirWithWildcards(t *testing.T) {
 			localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
 			err = ftpDownloadFile(fileName, localDownloadPath, testFileSize, client, 0)
 			assert.NoError(t, err)
-			entries, err := client.NameList(fileName)
-			if assert.NoError(t, err) {
-				assert.Len(t, entries, 1)
-				assert.Contains(t, entries, fileName)
+			entries, err := client.List(fileName)
+			require.NoError(t, err)
+			require.Len(t, entries, 1)
+			assert.Equal(t, fileName, entries[0].Name)
+			nListEntries, err := client.NameList(fileName)
+			require.NoError(t, err)
+			require.Len(t, entries, 1)
+			assert.Contains(t, nListEntries, fileName)
+			entries, err = client.List(".")
+			require.NoError(t, err)
+			require.Len(t, entries, 3)
+			nListEntries, err = client.NameList(".")
+			require.NoError(t, err)
+			require.Len(t, nListEntries, 3)
+			entries, err = client.List("/test.*")
+			require.NoError(t, err)
+			require.Len(t, entries, 2)
+			found := 0
+			for _, e := range entries {
+				switch e.Name {
+				case dir1, dir2:
+					found++
+				}
 			}
-			entries, err = client.NameList(".")
-			assert.NoError(t, err)
-			assert.Len(t, entries, 3)
-			entries, err = client.NameList("/test.*")
-			if assert.NoError(t, err) {
-				assert.Len(t, entries, 2)
-				assert.Contains(t, entries, dir1)
-				assert.Contains(t, entries, dir2)
-			}
-			entries, err = client.NameList("/*.dir?")
-			if assert.NoError(t, err) {
-				assert.Len(t, entries, 1)
-				assert.Contains(t, entries, dir2)
-			}
-			entries, err = client.NameList("/test.???")
-			if assert.NoError(t, err) {
-				assert.Len(t, entries, 1)
-				assert.Contains(t, entries, dir1)
-			}
+			assert.Equal(t, 2, found)
+			nListEntries, err = client.NameList("/test.*")
+			require.NoError(t, err)
+			require.Len(t, entries, 2)
+			assert.Contains(t, nListEntries, dir1)
+			assert.Contains(t, nListEntries, dir2)
+			entries, err = client.List("/*.dir?")
+			require.NoError(t, err)
+			assert.Len(t, entries, 1)
+			assert.Equal(t, dir2, entries[0].Name)
+			nListEntries, err = client.NameList("/*.dir?")
+			require.NoError(t, err)
+			require.Len(t, entries, 1)
+			assert.Contains(t, nListEntries, dir2)
+			entries, err = client.List("/test.???")
+			require.NoError(t, err)
+			require.Len(t, entries, 1)
+			assert.Equal(t, dir1, entries[0].Name)
+			nListEntries, err = client.NameList("/test.???")
+			require.NoError(t, err)
+			require.Len(t, entries, 1)
+			assert.Contains(t, nListEntries, dir1)
 			_, err = client.NameList("/missingdir/test.*")
 			assert.Error(t, err)
+			_, err = client.List("/missingdir/test.*")
+			assert.Error(t, err)
 			_, err = client.NameList("test[-]")
+			if assert.Error(t, err) {
+				assert.Contains(t, err.Error(), path.ErrBadPattern.Error())
+			}
+			_, err = client.List("test[-]")
 			if assert.Error(t, err) {
 				assert.Contains(t, err.Error(), path.ErrBadPattern.Error())
 			}
@@ -726,23 +764,33 @@ func TestListDirWithWildcards(t *testing.T) {
 			assert.NoError(t, err)
 			err = client.ChangeDir(path.Dir(subDir))
 			assert.NoError(t, err)
-			entries, err = client.NameList("sub.?")
-			if assert.NoError(t, err) {
-				assert.Len(t, entries, 1)
-				assert.Contains(t, entries, path.Base(subDir))
-			}
-			entries, err = client.NameList("../*.dir?")
-			if assert.NoError(t, err) {
-				assert.Len(t, entries, 1)
-				assert.Contains(t, entries, path.Join("../", dir2))
-			}
+			entries, err = client.List("sub.?")
+			require.NoError(t, err)
+			require.Len(t, entries, 1)
+			assert.Contains(t, path.Base(subDir), entries[0].Name)
+			nListEntries, err = client.NameList("sub.?")
+			require.NoError(t, err)
+			require.Len(t, entries, 1)
+			assert.Contains(t, nListEntries, path.Base(subDir))
+			entries, err = client.List("../*.dir?")
+			require.NoError(t, err)
+			require.Len(t, entries, 1)
+			assert.Equal(t, path.Join("../", dir2), entries[0].Name)
+			nListEntries, err = client.NameList("../*.dir?")
+			require.NoError(t, err)
+			require.Len(t, entries, 1)
+			assert.Contains(t, nListEntries, path.Join("../", dir2))
+
 			err = client.ChangeDir("/")
 			assert.NoError(t, err)
-			entries, err = client.NameList(path.Join(dir1, "sub.*"))
-			if assert.NoError(t, err) {
-				assert.Len(t, entries, 1)
-				assert.Contains(t, entries, path.Join(dir1, "sub.d"))
-			}
+			entries, err = client.List(path.Join(dir1, "sub.*"))
+			require.NoError(t, err)
+			require.Len(t, entries, 1)
+			assert.Equal(t, path.Join(dir1, "sub.d"), entries[0].Name)
+			nListEntries, err = client.NameList(path.Join(dir1, "sub.*"))
+			require.NoError(t, err)
+			require.Len(t, entries, 1)
+			assert.Contains(t, nListEntries, path.Join(dir1, "sub.d"))
 			err = client.RemoveDir(subDir)
 			assert.NoError(t, err)
 			err = client.RemoveDir(dir1)
@@ -757,13 +805,6 @@ func TestListDirWithWildcards(t *testing.T) {
 			assert.NoError(t, err)
 		}
 	}
-
-	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
-	assert.NoError(t, err)
-	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
-	assert.NoError(t, err)
-	err = os.RemoveAll(localUser.GetHomeDir())
-	assert.NoError(t, err)
 }
 
 func TestStartDirectory(t *testing.T) {
@@ -3710,8 +3751,10 @@ func getFTPClientImplicitTLS(user dataprovider.User) (*ftp.ServerConn, error) {
 	return client, err
 }
 
-func getFTPClient(user dataprovider.User, useTLS bool, tlsConfig *tls.Config) (*ftp.ServerConn, error) {
+func getFTPClient(user dataprovider.User, useTLS bool, tlsConfig *tls.Config, dialOptions ...ftp.DialOption,
+) (*ftp.ServerConn, error) {
 	ftpOptions := []ftp.DialOption{ftp.DialWithTimeout(5 * time.Second)}
+	ftpOptions = append(ftpOptions, dialOptions...)
 	if useTLS {
 		if tlsConfig == nil {
 			tlsConfig = &tls.Config{
