@@ -65,6 +65,8 @@ type ProtocolActions struct {
 	ExecuteSync []string `json:"execute_sync" mapstructure:"execute_sync"`
 	// Absolute path to an external program or an HTTP URL
 	Hook string `json:"hook" mapstructure:"hook"`
+	// Arguments for the external program.
+	HookArgs []string `json:"hook_args" mapstructure:"hook_args"`
 }
 
 var actionHandler ActionHandler = &defaultActionHandler{}
@@ -276,7 +278,7 @@ func (h *defaultActionHandler) handleCommand(event *notifier.FsEvent) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, Config.Actions.Hook)
+	cmd := exec.CommandContext(ctx, Config.Actions.Hook, Config.Actions.HookArgs...)
 	cmd.Env = append(env, notificationAsEnvVars(event)...)
 
 	startTime := time.Now()

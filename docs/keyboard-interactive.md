@@ -4,7 +4,7 @@ Keyboard interactive authentication is, in general, a series of questions asked 
 This authentication method is typically used for multi-factor authentication.
 There are no restrictions on the number of questions asked on a particular authentication stage; there are also no restrictions on the number of stages involving different sets of questions.
 
-To enable keyboard interactive authentication, you must set the absolute path of your authentication program or an HTTP URL using the  `keyboard_interactive_auth_hook` key in your configuration file.
+To enable keyboard interactive authentication, you must set the absolute path of your authentication program or an HTTP URL using the  `keyboard_interactive_auth_hook` key in your configuration file. If you're using a program you may set arguments using the `keyboard_interactive_auth_hook_args` key.
 
 The external program can read the following environment variables to get info about the user trying to authenticate:
 

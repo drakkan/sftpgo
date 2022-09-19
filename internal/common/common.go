@@ -484,16 +484,24 @@ type Configuration struct {
 	// Please note that SFTPGo services may not yet be available when this hook is run.
 	// Leave empty do disable.
 	StartupHook string `json:"startup_hook" mapstructure:"startup_hook"`
+	// Arguments for the external program.
+	StartupHookArgs []string `json:"startup_hook_args" mapstructure:"startup_hook_args"`
 	// Absolute path to an external program or an HTTP URL to invoke after a user connects
 	// and before he tries to login. It allows you to reject the connection based on the source
 	// ip address. Leave empty do disable.
 	PostConnectHook string `json:"post_connect_hook" mapstructure:"post_connect_hook"`
+	// Arguments for the external program.
+	PostConnectHookArgs []string `json:"post_connect_hook_args" mapstructure:"post_connect_hook_args"`
 	// Absolute path to an external program or an HTTP URL to invoke after an SSH/FTP connection ends.
 	// Leave empty do disable.
 	PostDisconnectHook string `json:"post_disconnect_hook" mapstructure:"post_disconnect_hook"`
+	// Arguments for the external program.
+	PostDisconnectHookArgs []string `json:"post_disconnect_hook_args" mapstructure:"post_disconnect_hook_args"`
 	// Absolute path to an external program or an HTTP URL to invoke after a data retention check completes.
 	// Leave empty do disable.
 	DataRetentionHook string `json:"data_retention_hook" mapstructure:"data_retention_hook"`
+	// Arguments for the external program.
+	DataRetentionHookArgs []string `json:"data_retention_hook_args" mapstructure:"data_retention_hook_args"`
 	// Maximum number of concurrent client connections. 0 means unlimited
 	MaxTotalConnections int `json:"max_total_connections" mapstructure:"max_total_connections"`
 	// Maximum number of concurrent client connections from the same host (IP). 0 means unlimited
@@ -582,7 +590,7 @@ func (c *Configuration) ExecuteStartupHook() error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, c.StartupHook)
+	cmd := exec.CommandContext(ctx, c.StartupHook, c.StartupHookArgs...)
 	cmd.Env = env
 	err := cmd.Run()
 	logger.Debug(logSender, "", "Startup hook executed, elapsed: %v, error: %v", time.Since(startTime), err)
@@ -629,7 +637,7 @@ func (c *Configuration) executePostDisconnectHook(remoteAddr, protocol, username
 	defer cancel()
 
 	startTime := time.Now()
-	cmd := exec.CommandContext(ctx, c.PostDisconnectHook)
+	cmd := exec.CommandContext(ctx, c.PostDisconnectHook, c.PostDisconnectHookArgs...)
 	cmd.Env = append(env,
 		fmt.Sprintf("SFTPGO_CONNECTION_IP=%v", ipAddr),
 		fmt.Sprintf("SFTPGO_CONNECTION_USERNAME=%v", username),
@@ -688,7 +696,7 @@ func (c *Configuration) ExecutePostConnectHook(ipAddr, protocol string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, c.PostConnectHook)
+	cmd := exec.CommandContext(ctx, c.PostConnectHook, c.PostConnectHookArgs...)
 	cmd.Env = append(env,
 		fmt.Sprintf("SFTPGO_CONNECTION_IP=%v", ipAddr),
 		fmt.Sprintf("SFTPGO_CONNECTION_PROTOCOL=%v", protocol))

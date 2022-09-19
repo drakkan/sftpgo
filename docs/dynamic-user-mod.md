@@ -1,7 +1,7 @@
 # Dynamic user creation or modification
 
 Dynamic user creation or modification is supported via an external program or an HTTP URL that can be invoked just before the user login.
-To enable dynamic user modification, you must set the absolute path of your program or an HTTP URL using the `pre_login_hook` key in your configuration file.
+To enable dynamic user modification, you must set the absolute path of your program or an HTTP URL using the `pre_login_hook` key in your configuration file. If you're using a program you may set arguments using the `pre_login_hook_args` key.
 
 The external program can read the following environment variables to get info about the user trying to login:
 

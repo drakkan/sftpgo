@@ -5,16 +5,21 @@
     "actions": {
       "execute_on": [],
       "execute_sync": [],
-      "hook": ""
+      "hook": "",
+      "hook_args": []
     },
     "setstat_mode": 0,
     "temp_path": "",
     "proxy_protocol": 0,
     "proxy_allowed": [],
     "startup_hook": "",
+    "startup_hook_args": [],
     "post_connect_hook": "",
+    "post_connect_hook_args": [],
     "post_disconnect_hook": "",
+    "post_disconnect_hook_args": [],
     "data_retention_hook": "",
+    "data_retention_hook_args": [],
     "max_total_connections": 0,
     "max_per_host_connections": 20,
     "whitelist_file": "",
@@ -99,6 +104,7 @@
     ],
     "keyboard_interactive_authentication": false,
     "keyboard_interactive_auth_hook": "",
+    "keyboard_interactive_auth_hook_args": [],
     "password_authentication": true,
     "folder_prefix": ""
   },
@@ -203,14 +209,19 @@
     "actions": {
       "execute_on": [],
       "execute_for": [],
-      "hook": ""
+      "hook": "",
+      "hook_args": []
     },
     "external_auth_hook": "",
+    "external_auth_hook_args": [],
     "external_auth_scope": 0,
     "pre_login_hook": "",
+    "pre_login_hook_args": [],
     "post_login_hook": "",
+    "post_login_hook_args": [],
     "post_login_scope": 0,
     "check_password_hook": "",
+    "check_password_hook_args": [],
     "check_password_scope": 0,
     "password_hashing": {
       "bcrypt_options": {

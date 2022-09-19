@@ -189,6 +189,8 @@ type Configuration struct {
 	// Absolute path to an external program or an HTTP URL to invoke for keyboard interactive authentication.
 	// Leave empty to disable this authentication mode.
 	KeyboardInteractiveHook string `json:"keyboard_interactive_auth_hook" mapstructure:"keyboard_interactive_auth_hook"`
+	// Arguments for the external program.
+	KeyboardInteractiveHookArgs []string `json:"keyboard_interactive_auth_hook_args" mapstructure:"keyboard_interactive_auth_hook_args"`
 	// PasswordAuthentication specifies whether password authentication is allowed.
 	PasswordAuthentication bool `json:"password_authentication" mapstructure:"password_authentication"`
 	// Virtual root folder prefix to include in all file operations (ex: /files).
@@ -1082,7 +1084,7 @@ func (c *Configuration) validateKeyboardInteractiveCredentials(conn ssh.ConnMeta
 		method = dataprovider.SSHLoginMethodKeyAndKeyboardInt
 	}
 	ipAddr := util.GetIPFromRemoteAddress(conn.RemoteAddr().String())
-	if user, err = dataprovider.CheckKeyboardInteractiveAuth(conn.User(), c.KeyboardInteractiveHook, client,
+	if user, err = dataprovider.CheckKeyboardInteractiveAuth(conn.User(), c.KeyboardInteractiveHook, c.KeyboardInteractiveHookArgs, client,
 		ipAddr, common.ProtocolSSH); err == nil {
 		sshPerm, err = loginUser(&user, method, "", conn)
 	}

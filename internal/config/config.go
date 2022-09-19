@@ -196,17 +196,21 @@ func Init() {
 				ExecuteOn:   []string{},
 				ExecuteSync: []string{},
 				Hook:        "",
+				HookArgs:    []string{},
 			},
-			SetstatMode:           0,
-			TempPath:              "",
-			ProxyProtocol:         0,
-			ProxyAllowed:          []string{},
-			PostConnectHook:       "",
-			PostDisconnectHook:    "",
-			DataRetentionHook:     "",
-			MaxTotalConnections:   0,
-			MaxPerHostConnections: 20,
-			WhiteListFile:         "",
+			SetstatMode:            0,
+			TempPath:               "",
+			ProxyProtocol:          0,
+			ProxyAllowed:           []string{},
+			PostConnectHook:        "",
+			PostConnectHookArgs:    []string{},
+			PostDisconnectHook:     "",
+			PostDisconnectHookArgs: []string{},
+			DataRetentionHook:      "",
+			DataRetentionHookArgs:  []string{},
+			MaxTotalConnections:    0,
+			MaxPerHostConnections:  20,
+			WhiteListFile:          "",
 			DefenderConfig: common.DefenderConfig{
 				Enabled:            false,
 				Driver:             common.DefenderDriverMemory,
@@ -258,6 +262,7 @@ func Init() {
 			EnabledSSHCommands:                []string{},
 			KeyboardInteractiveAuthentication: false,
 			KeyboardInteractiveHook:           "",
+			KeyboardInteractiveHookArgs:       []string{},
 			PasswordAuthentication:            true,
 			FolderPrefix:                      "",
 		},
@@ -329,14 +334,19 @@ func Init() {
 				ExecuteOn:  []string{},
 				ExecuteFor: []string{},
 				Hook:       "",
+				HookArgs:   []string{},
 			},
-			ExternalAuthHook:   "",
-			ExternalAuthScope:  0,
-			PreLoginHook:       "",
-			PostLoginHook:      "",
-			PostLoginScope:     0,
-			CheckPasswordHook:  "",
-			CheckPasswordScope: 0,
+			ExternalAuthHook:      "",
+			ExternalAuthHookArgs:  []string{},
+			ExternalAuthScope:     0,
+			PreLoginHook:          "",
+			PreLoginHookArgs:      []string{},
+			PostLoginHook:         "",
+			PostLoginHookArgs:     []string{},
+			PostLoginScope:        0,
+			CheckPasswordHook:     "",
+			CheckPasswordHookArgs: []string{},
+			CheckPasswordScope:    0,
 			PasswordHashing: dataprovider.PasswordHashing{
 				Argon2Options: dataprovider.Argon2Options{
 					Memory:      65536,
@@ -1839,13 +1849,19 @@ func setViperDefaults() {
 	viper.SetDefault("common.actions.execute_on", globalConf.Common.Actions.ExecuteOn)
 	viper.SetDefault("common.actions.execute_sync", globalConf.Common.Actions.ExecuteSync)
 	viper.SetDefault("common.actions.hook", globalConf.Common.Actions.Hook)
+	viper.SetDefault("common.actions.hook_args", globalConf.Common.Actions.HookArgs)
 	viper.SetDefault("common.setstat_mode", globalConf.Common.SetstatMode)
 	viper.SetDefault("common.temp_path", globalConf.Common.TempPath)
 	viper.SetDefault("common.proxy_protocol", globalConf.Common.ProxyProtocol)
 	viper.SetDefault("common.proxy_allowed", globalConf.Common.ProxyAllowed)
+	viper.SetDefault("common.startup_hook", globalConf.Common.StartupHook)
+	viper.SetDefault("common.startup_hook_args", globalConf.Common.StartupHookArgs)
 	viper.SetDefault("common.post_connect_hook", globalConf.Common.PostConnectHook)
+	viper.SetDefault("common.post_connect_hook_args", globalConf.Common.PostConnectHookArgs)
 	viper.SetDefault("common.post_disconnect_hook", globalConf.Common.PostDisconnectHook)
+	viper.SetDefault("common.post_disconnect_hook_args", globalConf.Common.PostDisconnectHookArgs)
 	viper.SetDefault("common.data_retention_hook", globalConf.Common.DataRetentionHook)
+	viper.SetDefault("common.data_retention_hook_args", globalConf.Common.DataRetentionHookArgs)
 	viper.SetDefault("common.max_total_connections", globalConf.Common.MaxTotalConnections)
 	viper.SetDefault("common.max_per_host_connections", globalConf.Common.MaxPerHostConnections)
 	viper.SetDefault("common.whitelist_file", globalConf.Common.WhiteListFile)
@@ -1888,6 +1904,7 @@ func setViperDefaults() {
 	viper.SetDefault("sftpd.enabled_ssh_commands", sftpd.GetDefaultSSHCommands())
 	viper.SetDefault("sftpd.keyboard_interactive_authentication", globalConf.SFTPD.KeyboardInteractiveAuthentication)
 	viper.SetDefault("sftpd.keyboard_interactive_auth_hook", globalConf.SFTPD.KeyboardInteractiveHook)
+	viper.SetDefault("sftpd.keyboard_interactive_auth_hook_args", globalConf.SFTPD.KeyboardInteractiveHookArgs)
 	viper.SetDefault("sftpd.password_authentication", globalConf.SFTPD.PasswordAuthentication)
 	viper.SetDefault("sftpd.folder_prefix", globalConf.SFTPD.FolderPrefix)
 	viper.SetDefault("ftpd.banner", globalConf.FTPD.Banner)
@@ -1940,12 +1957,17 @@ func setViperDefaults() {
 	viper.SetDefault("data_provider.actions.execute_on", globalConf.ProviderConf.Actions.ExecuteOn)
 	viper.SetDefault("data_provider.actions.execute_for", globalConf.ProviderConf.Actions.ExecuteFor)
 	viper.SetDefault("data_provider.actions.hook", globalConf.ProviderConf.Actions.Hook)
+	viper.SetDefault("data_provider.actions.hook_args", globalConf.ProviderConf.Actions.HookArgs)
 	viper.SetDefault("data_provider.external_auth_hook", globalConf.ProviderConf.ExternalAuthHook)
+	viper.SetDefault("data_provider.external_auth_hook_args", globalConf.ProviderConf.ExternalAuthHookArgs)
 	viper.SetDefault("data_provider.external_auth_scope", globalConf.ProviderConf.ExternalAuthScope)
 	viper.SetDefault("data_provider.pre_login_hook", globalConf.ProviderConf.PreLoginHook)
+	viper.SetDefault("data_provider.pre_login_hook_args", globalConf.ProviderConf.PreLoginHookArgs)
 	viper.SetDefault("data_provider.post_login_hook", globalConf.ProviderConf.PostLoginHook)
+	viper.SetDefault("data_provider.post_login_hook_args", globalConf.ProviderConf.PostLoginHookArgs)
 	viper.SetDefault("data_provider.post_login_scope", globalConf.ProviderConf.PostLoginScope)
 	viper.SetDefault("data_provider.check_password_hook", globalConf.ProviderConf.CheckPasswordHook)
+	viper.SetDefault("data_provider.check_password_hook_args", globalConf.ProviderConf.CheckPasswordHookArgs)
 	viper.SetDefault("data_provider.check_password_scope", globalConf.ProviderConf.CheckPasswordScope)
 	viper.SetDefault("data_provider.password_hashing.bcrypt_options.cost", globalConf.ProviderConf.PasswordHashing.BcryptOptions.Cost)
 	viper.SetDefault("data_provider.password_hashing.argon2_options.memory", globalConf.ProviderConf.PasswordHashing.Argon2Options.Memory)

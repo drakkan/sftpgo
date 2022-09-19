@@ -4,7 +4,7 @@ This hook is executed as soon as a SSH/FTP connection is closed. SSH is a multip
 
 The hook is not executed for stateless protocols such as HTTP and WebDAV.
 
-The `post_disconnect_hook` can be defined as the absolute path of your program or an HTTP URL.
+The `post_disconnect_hook` can be defined as the absolute path of your program or an HTTP URL. If you're using a program you may set arguments using the `post_disconnect_hook_args` key.
 
 If the hook defines an external program it can read the following environment variables:
 

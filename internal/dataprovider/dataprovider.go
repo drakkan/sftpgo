@@ -302,6 +302,8 @@ type ObjectsActions struct {
 	ExecuteFor []string `json:"execute_for" mapstructure:"execute_for"`
 	// Absolute path to an external program or an HTTP URL
 	Hook string `json:"hook" mapstructure:"hook"`
+	// Arguments for the external program
+	HookArgs []string `json:"hook_args" mapstructure:"hook_args"`
 }
 
 // ProviderStatus defines the provider status
@@ -372,6 +374,8 @@ type Config struct {
 	// This method is slower than built-in authentication methods, but it's very flexible as anyone can
 	// easily write his own authentication hooks.
 	ExternalAuthHook string `json:"external_auth_hook" mapstructure:"external_auth_hook"`
+	// Arguments for the external program.
+	ExternalAuthHookArgs []string `json:"external_auth_hook_args" mapstructure:"external_auth_hook_args"`
 	// ExternalAuthScope defines the scope for the external authentication hook.
 	// - 0 means all supported authentication scopes, the external hook will be executed for password,
 	//     public key, keyboard interactive authentication and TLS certificates
@@ -394,10 +398,14 @@ type Config struct {
 	// PreLoginHook and ExternalAuthHook are mutally exclusive.
 	// Leave empty to disable.
 	PreLoginHook string `json:"pre_login_hook" mapstructure:"pre_login_hook"`
+	// Arguments for the external program.
+	PreLoginHookArgs []string `json:"pre_login_hook_args" mapstructure:"pre_login_hook_args"`
 	// Absolute path to an external program or an HTTP URL to invoke after the user login.
 	// Based on the configured scope you can choose if notify failed or successful logins
 	// or both
 	PostLoginHook string `json:"post_login_hook" mapstructure:"post_login_hook"`
+	// Arguments for the external program.
+	PostLoginHookArgs []string `json:"post_login_hook_args" mapstructure:"post_login_hook_args"`
 	// PostLoginScope defines the scope for the post-login hook.
 	// - 0 means notify both failed and successful logins
 	// - 1 means notify failed logins
@@ -410,6 +418,8 @@ type Config struct {
 	// to login using a string consisting of a fixed password and a One Time Token, you
 	// can verify the token inside the hook and ask to SFTPGo to verify the fixed part.
 	CheckPasswordHook string `json:"check_password_hook" mapstructure:"check_password_hook"`
+	// Arguments for the external program.
+	CheckPasswordHookArgs []string `json:"check_password_hook_args" mapstructure:"check_password_hook_args"`
 	// CheckPasswordScope defines the scope for the check password hook.
 	// - 0 means all protocols
 	// - 1 means SSH
@@ -1212,7 +1222,7 @@ func CheckUserAndPubKey(username string, pubKey []byte, ip, protocol string, isS
 
 // CheckKeyboardInteractiveAuth checks the keyboard interactive authentication and returns
 // the authenticated user or an error
-func CheckKeyboardInteractiveAuth(username, authHook string, client ssh.KeyboardInteractiveChallenge, ip, protocol string) (User, error) {
+func CheckKeyboardInteractiveAuth(username, authHook string, authHookArgs []string, client ssh.KeyboardInteractiveChallenge, ip, protocol string) (User, error) {
 	var user User
 	var err error
 	username = config.convertName(username)
@@ -1228,7 +1238,7 @@ func CheckKeyboardInteractiveAuth(username, authHook string, client ssh.Keyboard
 	if err != nil {
 		return user, err
 	}
-	return doKeyboardInteractiveAuth(&user, authHook, client, ip, protocol)
+	return doKeyboardInteractiveAuth(&user, authHook, authHookArgs, client, ip, protocol)
 }
 
 // GetFTPPreAuthUser returns the SFTPGo user with the specified username
@@ -3327,13 +3337,13 @@ func handleProgramInteractiveQuestions(client ssh.KeyboardInteractiveChallenge, 
 	return nil
 }
 
-func executeKeyboardInteractiveProgram(user *User, authHook string, client ssh.KeyboardInteractiveChallenge, ip, protocol string) (int, error) {
+func executeKeyboardInteractiveProgram(user *User, authHook string, authHookArgs []string, client ssh.KeyboardInteractiveChallenge, ip, protocol string) (int, error) {
 	authResult := 0
 	timeout, env := command.GetConfig(authHook)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, authHook)
+	cmd := exec.CommandContext(ctx, authHook, authHookArgs...)
 	cmd.Env = append(env,
 		fmt.Sprintf("SFTPGO_AUTHD_USERNAME=%v", user.Username),
 		fmt.Sprintf("SFTPGO_AUTHD_IP=%v", ip),
@@ -3388,7 +3398,7 @@ func executeKeyboardInteractiveProgram(user *User, authHook string, client ssh.K
 	return authResult, err
 }
 
-func doKeyboardInteractiveAuth(user *User, authHook string, client ssh.KeyboardInteractiveChallenge, ip, protocol string) (User, error) {
+func doKeyboardInteractiveAuth(user *User, authHook string, authHookArgs []string, client ssh.KeyboardInteractiveChallenge, ip, protocol string) (User, error) {
 	var authResult int
 	var err error
 	if plugin.Handler.HasAuthScope(plugin.AuthScopeKeyboardInteractive) {
@@ -3397,7 +3407,7 @@ func doKeyboardInteractiveAuth(user *User, authHook string, client ssh.KeyboardI
 		if strings.HasPrefix(authHook, "http") {
 			authResult, err = executeKeyboardInteractiveHTTPHook(user, authHook, client, ip, protocol)
 		} else {
-			authResult, err = executeKeyboardInteractiveProgram(user, authHook, client, ip, protocol)
+			authResult, err = executeKeyboardInteractiveProgram(user, authHook, authHookArgs, client, ip, protocol)
 		}
 	} else {
 		authResult, err = doBuiltinKeyboardInteractiveAuth(user, client, ip, protocol)
@@ -3466,7 +3476,7 @@ func getPasswordHookResponse(username, password, ip, protocol string) ([]byte, e
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, config.CheckPasswordHook)
+	cmd := exec.CommandContext(ctx, config.CheckPasswordHook, config.CheckPasswordHookArgs...)
 	cmd.Env = append(env,
 		fmt.Sprintf("SFTPGO_AUTHD_USERNAME=%v", username),
 		fmt.Sprintf("SFTPGO_AUTHD_PASSWORD=%v", password),
@@ -3527,7 +3537,7 @@ func getPreLoginHookResponse(loginMethod, ip, protocol string, userAsJSON []byte
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, config.PreLoginHook)
+	cmd := exec.CommandContext(ctx, config.PreLoginHook, config.PreLoginHookArgs...)
 	cmd.Env = append(env,
 		fmt.Sprintf("SFTPGO_LOGIND_USER=%v", string(userAsJSON)),
 		fmt.Sprintf("SFTPGO_LOGIND_METHOD=%v", loginMethod),
@@ -3671,7 +3681,7 @@ func ExecutePostLoginHook(user *User, loginMethod, ip, protocol string, err erro
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 
-		cmd := exec.CommandContext(ctx, config.PostLoginHook)
+		cmd := exec.CommandContext(ctx, config.PostLoginHook, config.PostLoginHookArgs...)
 		cmd.Env = append(env,
 			fmt.Sprintf("SFTPGO_LOGIND_USER=%v", string(userAsJSON)),
 			fmt.Sprintf("SFTPGO_LOGIND_IP=%v", ip),
@@ -3739,7 +3749,7 @@ func getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, config.ExternalAuthHook)
+	cmd := exec.CommandContext(ctx, config.ExternalAuthHook, config.ExternalAuthHookArgs...)
 	cmd.Env = append(env,
 		fmt.Sprintf("SFTPGO_AUTHD_USERNAME=%v", username),
 		fmt.Sprintf("SFTPGO_AUTHD_USER=%v", string(userAsJSON)),

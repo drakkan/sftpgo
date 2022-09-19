@@ -68,6 +68,7 @@ Please take a look at the usage below to customize the options.`,
 			providerConf := config.GetProviderConf()
 			// ignore actions
 			providerConf.Actions.Hook = ""
+			providerConf.Actions.HookArgs = []string{}
 			providerConf.Actions.ExecuteFor = nil
 			providerConf.Actions.ExecuteOn = nil
 			logger.InfoToConsole("Initializing provider: %#v config file: %#v", providerConf.Driver, viper.ConfigFileUsed())

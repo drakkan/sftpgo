@@ -2,7 +2,7 @@
 
 This hook runs after a data retention check completes if you specify `Hook` between notifications methods when you start the check.
 
-The `data_retention_hook` can be defined as the absolute path of your program or an HTTP URL.
+The `data_retention_hook` can be defined as the absolute path of your program or an HTTP URL. If you're using a program you may set arguments using the `data_retention_hook_args` key.
 
 If the hook defines an external program it can read the following environment variable:
 

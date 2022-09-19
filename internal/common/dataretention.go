@@ -452,7 +452,7 @@ func (c *RetentionCheck) sendHookNotification(elapsed time.Duration, errCheck er
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, Config.DataRetentionHook)
+	cmd := exec.CommandContext(ctx, Config.DataRetentionHook, Config.DataRetentionHookArgs...)
 	cmd.Env = append(env,
 		fmt.Sprintf("SFTPGO_DATA_RETENTION_RESULT=%v", string(jsonData)))
 	err := cmd.Run()
