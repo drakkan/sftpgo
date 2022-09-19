@@ -191,7 +191,7 @@ func ByteCountIEC(b int64) string {
 }
 
 func byteCount(b int64, unit int64, maxPrecision bool) string {
-	if b <= 0 {
+	if b <= 0 && maxPrecision {
 		return strconv.FormatInt(b, 10)
 	}
 	if b < unit {

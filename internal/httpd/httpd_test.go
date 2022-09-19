@@ -11555,8 +11555,8 @@ func TestShareUsage(t *testing.T) {
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 
-	share.Scope = dataprovider.ShareScopeReadWrite
-	share.Paths = []string{"/missing"}
+	share.Scope = dataprovider.ShareScopeRead
+	share.Paths = []string{"/missing1", "/missing2"}
 	err = dataprovider.UpdateShare(&share, user.Username, "")
 	assert.NoError(t, err)
 

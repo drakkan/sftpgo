@@ -1811,6 +1811,11 @@ func TestZipErrors(t *testing.T) {
 		assert.Contains(t, err.Error(), "write error")
 	}
 
+	err = addZipEntry(wr, connection, "/"+filepath.Base(testDir), path.Join("/", filepath.Base(testDir), "dir"))
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "is outside base dir")
+	}
+
 	testFilePath := filepath.Join(testDir, "ziptest.zip")
 	err = os.WriteFile(testFilePath, util.GenerateRandomBytes(65535), os.ModePerm)
 	assert.NoError(t, err)

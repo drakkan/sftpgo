@@ -271,13 +271,13 @@ func (s *httpdServer) downloadFromShare(w http.ResponseWriter, r *http.Request) 
 
 	compress := true
 	var info os.FileInfo
-	if len(share.Paths) == 1 && r.URL.Query().Get("compress") == "false" {
+	if len(share.Paths) == 1 {
 		info, err = connection.Stat(share.Paths[0], 1)
 		if err != nil {
 			sendAPIResponse(w, r, err, "", getRespStatus(err))
 			return
 		}
-		if info.Mode().IsRegular() {
+		if info.Mode().IsRegular() && r.URL.Query().Get("compress") == "false" {
 			compress = false
 		}
 	}
@@ -289,9 +289,16 @@ func (s *httpdServer) downloadFromShare(w http.ResponseWriter, r *http.Request) 
 			err = connection.GetReadQuotaExceededError()
 			connection.Log(logger.LevelInfo, "denying share read due to quota limits")
 			sendAPIResponse(w, r, err, "", getMappedStatusCode(err))
+			dataprovider.UpdateShareLastUse(&share, -1) //nolint:errcheck
+			return
+		}
+		baseDir := "/"
+		if info != nil && info.IsDir() {
+			baseDir = share.Paths[0]
+			share.Paths[0] = "/"
 		}
 		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"share-%v.zip\"", share.Name))
-		renderCompressedFiles(w, connection, "/", share.Paths, &share)
+		renderCompressedFiles(w, connection, baseDir, share.Paths, &share)
 		return
 	}
 	if status, err := downloadFile(w, r, connection, share.Paths[0], info, false, &share); err != nil {
