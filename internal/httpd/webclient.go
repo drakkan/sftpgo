@@ -36,6 +36,7 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
+	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/mfa"
 	"github.com/drakkan/sftpgo/v2/internal/smtp"
 	"github.com/drakkan/sftpgo/v2/internal/util"
@@ -403,16 +404,17 @@ func renderClientTemplate(w http.ResponseWriter, tmplName string, data any) {
 }
 
 func (s *httpdServer) renderClientMessagePage(w http.ResponseWriter, r *http.Request, title, body string, statusCode int, err error, message string) {
-	var errorString string
+	var errorString strings.Builder
 	if body != "" {
-		errorString = body + " "
+		errorString.WriteString(body)
+		errorString.WriteString(" ")
 	}
 	if err != nil {
-		errorString += err.Error()
+		errorString.WriteString(err.Error())
 	}
 	data := clientMessagePage{
 		baseClientPage: s.getBaseClientPageData(title, "", r),
-		Error:          errorString,
+		Error:          errorString.String(),
 		Success:        message,
 	}
 	w.WriteHeader(statusCode)
@@ -541,7 +543,7 @@ func (s *httpdServer) renderSharedFilesPage(w http.ResponseWriter, r *http.Reque
 		CurrentDir:     url.QueryEscape(dirName),
 		DirsURL:        path.Join(webClientPubSharesPath, share.ShareID, "dirs"),
 		FilesURL:       currentURL,
-		DownloadURL:    path.Join(webClientPubSharesPath, share.ShareID),
+		DownloadURL:    path.Join(webClientPubSharesPath, share.ShareID, "partial"),
 		UploadBaseURL:  path.Join(webClientPubSharesPath, share.ShareID, url.PathEscape(dirName)),
 		Error:          error,
 		Paths:          getDirMapping(dirName, currentURL),
@@ -656,6 +658,49 @@ func (s *httpdServer) handleWebClientDownloadZip(w http.ResponseWriter, r *http.
 	renderCompressedFiles(w, connection, name, filesList, nil)
 }
 
+func (s *httpdServer) handleClientSharePartialDownload(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	validScopes := []dataprovider.ShareScope{dataprovider.ShareScopeRead, dataprovider.ShareScopeReadWrite}
+	share, connection, err := s.checkPublicShare(w, r, validScopes, true)
+	if err != nil {
+		return
+	}
+	if err := validateBrowsableShare(share, connection); err != nil {
+		s.renderClientMessagePage(w, r, "Unable to validate share", "", getRespStatus(err), err, "")
+		return
+	}
+	name, err := getBrowsableSharedPath(share, r)
+	if err != nil {
+		s.renderClientMessagePage(w, r, "Invalid share path", "", getRespStatus(err), err, "")
+		return
+	}
+	if err = common.Connections.Add(connection); err != nil {
+		s.renderClientMessagePage(w, r, "Unable to add connection", "", http.StatusTooManyRequests, err, "")
+		return
+	}
+	defer common.Connections.Remove(connection.GetID())
+
+	transferQuota := connection.GetTransferQuota()
+	if !transferQuota.HasDownloadSpace() {
+		err = connection.GetReadQuotaExceededError()
+		connection.Log(logger.LevelInfo, "denying share read due to quota limits")
+		s.renderClientMessagePage(w, r, "Denying share read due to quota limits", "", getMappedStatusCode(err), err, "")
+		return
+	}
+	files := r.URL.Query().Get("files")
+	var filesList []string
+	err = json.Unmarshal([]byte(files), &filesList)
+	if err != nil {
+		s.renderClientMessagePage(w, r, "Unable to get files list", "", http.StatusInternalServerError, err, "")
+		return
+	}
+
+	dataprovider.UpdateShareLastUse(&share, 1) //nolint:errcheck
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"",
+		getCompressedFileName(fmt.Sprintf("share-%s", share.Name), filesList)))
+	renderCompressedFiles(w, connection, name, filesList, &share)
+}
+
 func (s *httpdServer) handleShareGetDirContents(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	validScopes := []dataprovider.ShareScope{dataprovider.ShareScopeRead, dataprovider.ShareScopeReadWrite}
@@ -696,6 +741,7 @@ func (s *httpdServer) handleShareGetDirContents(w http.ResponseWriter, r *http.R
 			res["type"] = "2"
 			res["size"] = util.ByteCountIEC(info.Size())
 		}
+		res["meta"] = fmt.Sprintf("%v_%v", res["type"], info.Name())
 		res["name"] = info.Name()
 		res["url"] = getFileObjectURL(share.GetRelativePath(name), info.Name(),
 			path.Join(webClientPubSharesPath, share.ShareID, "browse"))

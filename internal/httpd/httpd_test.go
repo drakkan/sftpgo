@@ -11639,6 +11639,12 @@ func TestShareMaxSessions(t *testing.T) {
 	checkResponseCode(t, http.StatusTooManyRequests, rr)
 	assert.Contains(t, rr.Body.String(), "too many open sessions")
 
+	req, err = http.NewRequest(http.MethodGet, webClientPubSharesPath+"/"+objectID+"/partial", nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusTooManyRequests, rr)
+	assert.Contains(t, rr.Body.String(), "too many open sessions")
+
 	req, err = http.NewRequest(http.MethodGet, sharesPath+"/"+objectID, nil)
 	assert.NoError(t, err)
 	rr = executeRequest(req)
@@ -11832,6 +11838,30 @@ func TestShareReadWrite(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 	contentDisposition := rr.Header().Get("Content-Disposition")
 	assert.NotEmpty(t, contentDisposition)
+
+	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, objectID, "partial?files="+
+		url.QueryEscape(fmt.Sprintf(`["%v"]`, testFileName))), nil)
+	assert.NoError(t, err)
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	contentDisposition = rr.Header().Get("Content-Disposition")
+	assert.NotEmpty(t, contentDisposition)
+	assert.Equal(t, "application/zip", rr.Header().Get("Content-Type"))
+	// invalid files list
+	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, objectID, "partial?files="+testFileName), nil)
+	assert.NoError(t, err)
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+	assert.Contains(t, rr.Body.String(), "Unable to get files list")
+	// missing directory
+	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, objectID, "partial?path=missing"), nil)
+	assert.NoError(t, err)
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+	assert.Contains(t, rr.Body.String(), "Unable to get files list")
 
 	req, err = http.NewRequest(http.MethodPost, path.Join(sharesPath, objectID)+"/"+url.PathEscape("../"+testFileName),
 		bytes.NewBuffer(content))
@@ -12137,6 +12167,12 @@ func TestBrowseShares(t *testing.T) {
 	contentDisposition := rr.Header().Get("Content-Disposition")
 	assert.NotEmpty(t, contentDisposition)
 
+	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, objectID, "partial?path=%2F.."), nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "Invalid share path")
+
 	req, err = http.NewRequest(http.MethodGet, path.Join(sharesPath, objectID, "files?path="+testFileName), nil)
 	assert.NoError(t, err)
 	rr = executeRequest(req)
@@ -12212,6 +12248,12 @@ func TestBrowseShares(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
 
+	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, objectID, "partial"), nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "Unable to validate share")
+
 	req, err = http.NewRequest(http.MethodGet, path.Join(sharesPath, objectID, "files?path="+testFileName), nil)
 	assert.NoError(t, err)
 	rr = executeRequest(req)
@@ -12247,6 +12289,11 @@ func TestBrowseShares(t *testing.T) {
 	checkResponseCode(t, http.StatusNotFound, rr)
 
 	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, objectID, "browse?path=%2F"), nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, objectID, "partial?path=%2F"), nil)
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
@@ -13987,6 +14034,12 @@ func TestWebFilesTransferQuotaLimits(t *testing.T) {
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
+
+	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, objectID, "/partial"), nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "Denying share read due to quota limits")
 
 	share2 := dataprovider.Share{
 		Name:  "share2",

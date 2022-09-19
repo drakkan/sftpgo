@@ -1423,6 +1423,7 @@ func (s *httpdServer) setupWebClientRoutes() {
 		}
 		// share API exposed to external users
 		s.router.Get(webClientPubSharesPath+"/{id}", s.downloadFromShare)
+		s.router.Get(webClientPubSharesPath+"/{id}/partial", s.handleClientSharePartialDownload)
 		s.router.Get(webClientPubSharesPath+"/{id}/browse", s.handleShareGetFiles)
 		s.router.Get(webClientPubSharesPath+"/{id}/upload", s.handleClientUploadToShare)
 		s.router.With(compressor.Handler).Get(webClientPubSharesPath+"/{id}/dirs", s.handleShareGetDirContents)

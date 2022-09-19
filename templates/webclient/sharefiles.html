@@ -22,6 +22,13 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 <link href="{{.StaticURL}}/vendor/datatables/buttons.bootstrap4.min.css" rel="stylesheet">
 <link href="{{.StaticURL}}/vendor/datatables/fixedHeader.bootstrap4.min.css" rel="stylesheet">
 <link href="{{.StaticURL}}/vendor/datatables/responsive.bootstrap4.min.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/datatables/dataTables.checkboxes.css" rel="stylesheet">
+<style>
+    div.dataTables_wrapper span.selected-info,
+    div.dataTables_wrapper span.selected-item {
+        margin-left: 0.5em;
+    }
+</style>
 {{end}}
 
 {{define "page_body"}}
@@ -42,6 +49,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             <table class="table table-hover nowrap" id="dataTable" width="100%" cellspacing="0">
                 <thead>
                     <tr>
+                        <th></th>
                         <th>Type</th>
                         <th>Name</th>
                         <th>Size</th>
@@ -93,7 +101,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 <script src="{{.StaticURL}}/vendor/datatables/dataTables.fixedHeader.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/dataTables.responsive.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/responsive.bootstrap4.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/dataTables.checkboxes.min.js"></script>
 <script type="text/javascript">
+    var spinnerDone = false;
+
     function shortenData(d, cutoff) {
         if ( typeof d !== 'string' ) {
 			return d;
@@ -208,6 +219,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         }
     }
 
+    function getNameFromMeta(meta) {
+        return meta.split('_').slice(1).join('_');
+    }
+
     $(document).ready(function () {
         $('#spinnerModal').on('shown.bs.modal', function () {
             if (spinnerDone){
@@ -309,12 +324,20 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         $.fn.dataTable.ext.buttons.download = {
             text: '<i class="fas fa-download"></i>',
             name: 'download',
-            titleAttr: "Download the whole share as zip",
+            titleAttr: "Download zip",
             action: function (e, dt, node, config) {
+                var filesArray = [];
+                var selected = dt.column(0).checkboxes.selected();
+                for (i = 0; i < selected.length; i++) {
+                    filesArray.push(getNameFromMeta(selected[i]));
+                }
+                var files = encodeURIComponent(JSON.stringify(filesArray));
                 var downloadURL = '{{.DownloadURL}}';
+                var currentDir = '{{.CurrentDir}}';
                 var ts = new Date().getTime().toString();
-                window.location = `${downloadURL}?_=${ts}`;
-            }
+                window.location = `${downloadURL}?path=${currentDir}&files=${files}&_=${ts}`;
+            },
+            enabled: false
         };
 
         $.fn.dataTable.ext.buttons.addFiles = {
@@ -365,8 +388,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                     data.start = 0;
                     data.search.search = "";
                 }
+                data.checkboxes = [];
             },
             "columns": [
+                { "data": "meta" },
                 { "data": "type" },
                 {
                     "data": "name",
@@ -401,11 +426,30 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             "columnDefs": [
                 {
                     "targets": [0],
+                    "checkboxes": {
+                        "selectCallback": function (nodes, selected) {
+                            var selectedItems = table.column(0).checkboxes.selected().length;
+                            var selectedText = "";
+                            if (selectedItems == 1) {
+                                selectedText = "1 item selected";
+                            } else if (selectedItems > 1) {
+                                selectedText = `${selectedItems} items selected`;
+                            }
+                            table.button('download:name').enable(selectedItems > 0);
+                            $('#dataTable_info').find('span').remove();
+                            $("#dataTable_info").append('<span class="selected-info"><span class="selected-item">' + selectedText + '</span></span>');
+                        }
+                    },
+                    "orderable": false,
+                    "searchable": false
+                },
+                {
+                    "targets": [1],
                     "visible": false,
                     "searchable": false
                 },
                 {
-                    "targets": [2, 3],
+                    "targets": [3, 4],
                     "searchable": false
                 }
             ],
@@ -425,8 +469,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 {{end}}
                 table.buttons().container().appendTo('.col-md-6:eq(0)', table.table().container());
             },
-            "orderFixed": [0, 'asc'],
-            "order": [1, 'asc']
+            "orderFixed": [1, 'asc'],
+            "order": [2, 'asc']
         });
 
         new $.fn.dataTable.FixedHeader(table);
