@@ -128,11 +128,11 @@ func executeNotificationCommand(operation, executor, ip, objectType, objectName 
 		return err
 	}
 
-	timeout, env := command.GetConfig(config.Actions.Hook)
+	timeout, env, args := command.GetConfig(config.Actions.Hook, command.HookProviderActions)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, config.Actions.Hook)
+	cmd := exec.CommandContext(ctx, config.Actions.Hook, args...)
 	cmd.Env = append(env,
 		fmt.Sprintf("SFTPGO_PROVIDER_ACTION=%vs", operation),
 		fmt.Sprintf("SFTPGO_PROVIDER_OBJECT_TYPE=%s", objectType),

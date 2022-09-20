@@ -3329,11 +3329,11 @@ func handleProgramInteractiveQuestions(client ssh.KeyboardInteractiveChallenge, 
 
 func executeKeyboardInteractiveProgram(user *User, authHook string, client ssh.KeyboardInteractiveChallenge, ip, protocol string) (int, error) {
 	authResult := 0
-	timeout, env := command.GetConfig(authHook)
+	timeout, env, args := command.GetConfig(authHook, command.HookKeyboardInteractive)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, authHook)
+	cmd := exec.CommandContext(ctx, authHook, args...)
 	cmd.Env = append(env,
 		fmt.Sprintf("SFTPGO_AUTHD_USERNAME=%v", user.Username),
 		fmt.Sprintf("SFTPGO_AUTHD_IP=%v", ip),
@@ -3462,11 +3462,11 @@ func getPasswordHookResponse(username, password, ip, protocol string) ([]byte, e
 		}
 		return io.ReadAll(io.LimitReader(resp.Body, maxHookResponseSize))
 	}
-	timeout, env := command.GetConfig(config.CheckPasswordHook)
+	timeout, env, args := command.GetConfig(config.CheckPasswordHook, command.HookCheckPassword)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, config.CheckPasswordHook)
+	cmd := exec.CommandContext(ctx, config.CheckPasswordHook, args...)
 	cmd.Env = append(env,
 		fmt.Sprintf("SFTPGO_AUTHD_USERNAME=%v", username),
 		fmt.Sprintf("SFTPGO_AUTHD_PASSWORD=%v", password),
@@ -3523,11 +3523,11 @@ func getPreLoginHookResponse(loginMethod, ip, protocol string, userAsJSON []byte
 		}
 		return io.ReadAll(io.LimitReader(resp.Body, maxHookResponseSize))
 	}
-	timeout, env := command.GetConfig(config.PreLoginHook)
+	timeout, env, args := command.GetConfig(config.PreLoginHook, command.HookPreLogin)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, config.PreLoginHook)
+	cmd := exec.CommandContext(ctx, config.PreLoginHook, args...)
 	cmd.Env = append(env,
 		fmt.Sprintf("SFTPGO_LOGIND_USER=%v", string(userAsJSON)),
 		fmt.Sprintf("SFTPGO_LOGIND_METHOD=%v", loginMethod),
@@ -3667,11 +3667,11 @@ func ExecutePostLoginHook(user *User, loginMethod, ip, protocol string, err erro
 				user.Username, ip, protocol, respCode, time.Since(startTime), err)
 			return
 		}
-		timeout, env := command.GetConfig(config.PostLoginHook)
+		timeout, env, args := command.GetConfig(config.PostLoginHook, command.HookPostLogin)
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 
-		cmd := exec.CommandContext(ctx, config.PostLoginHook)
+		cmd := exec.CommandContext(ctx, config.PostLoginHook, args...)
 		cmd.Env = append(env,
 			fmt.Sprintf("SFTPGO_LOGIND_USER=%v", string(userAsJSON)),
 			fmt.Sprintf("SFTPGO_LOGIND_IP=%v", ip),
@@ -3735,11 +3735,11 @@ func getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, 
 			return nil, fmt.Errorf("unable to serialize user as JSON: %w", err)
 		}
 	}
-	timeout, env := command.GetConfig(config.ExternalAuthHook)
+	timeout, env, args := command.GetConfig(config.ExternalAuthHook, command.HookExternalAuth)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, config.ExternalAuthHook)
+	cmd := exec.CommandContext(ctx, config.ExternalAuthHook, args...)
 	cmd.Env = append(env,
 		fmt.Sprintf("SFTPGO_AUTHD_USERNAME=%v", username),
 		fmt.Sprintf("SFTPGO_AUTHD_USER=%v", string(userAsJSON)),

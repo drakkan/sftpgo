@@ -367,7 +367,9 @@ The configuration file contains the following sections:
   - `commands`, list of structs. Allow to customize configuration per-command. Each struct has the following fields:
     - `path`, string. Define the command path as defined in the hook configuration
     - `timeout`, integer. This value overrides the global timeout if set
-    - `env`, list of strings. These values are added to the environment variables defined for all commands, if any
+    - `env`, list of strings. These values are added to the environment variables defined for all commands, if any. Default: empty
+    - `args`, list of strings. Arguments to pass to the command identified by `path`. Default: empty
+    - `hook`, string. If not empty this configuration only apply to the specified hook name. Supported hook names: `fs_actions`, `provider_actions`, `startup`, `post_connect`, `post_disconnect`, `data_retention`, `check_password`, `pre_login`, `post_login`, `external_auth`, `keyboard_interactive`. Default: empty
 - **kms**, configuration for the Key Management Service, more details can be found [here](./kms.md)
   - `secrets`
     - `url`, string. Defines the URI to the KMS service. Default: blank.

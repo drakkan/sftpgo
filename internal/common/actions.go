@@ -272,11 +272,11 @@ func (h *defaultActionHandler) handleCommand(event *notifier.FsEvent) error {
 		return err
 	}
 
-	timeout, env := command.GetConfig(Config.Actions.Hook)
+	timeout, env, args := command.GetConfig(Config.Actions.Hook, command.HookFsActions)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, Config.Actions.Hook)
+	cmd := exec.CommandContext(ctx, Config.Actions.Hook, args...)
 	cmd.Env = append(env, notificationAsEnvVars(event)...)
 
 	startTime := time.Now()

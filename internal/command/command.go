@@ -20,6 +20,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/drakkan/sftpgo/v2/internal/util"
 )
 
 const (
@@ -28,8 +30,25 @@ const (
 	defaultTimeout = 30
 )
 
+// Supported hook names
+const (
+	HookFsActions           = "fs_actions"
+	HookProviderActions     = "provider_actions"
+	HookStartup             = "startup"
+	HookPostConnect         = "post_connect"
+	HookPostDisconnect      = "post_disconnect"
+	HookDataRetention       = "data_retention"
+	HookCheckPassword       = "check_password"
+	HookPreLogin            = "pre_login"
+	HookPostLogin           = "post_login"
+	HookExternalAuth        = "external_auth"
+	HookKeyboardInteractive = "keyboard_interactive"
+)
+
 var (
-	config Config
+	config         Config
+	supportedHooks = []string{HookFsActions, HookProviderActions, HookStartup, HookPostConnect, HookPostDisconnect,
+		HookDataRetention, HookCheckPassword, HookPreLogin, HookPostLogin, HookExternalAuth, HookKeyboardInteractive}
 )
 
 // Command define the configuration for a specific commands
@@ -41,10 +60,14 @@ type Command struct {
 	// Do not use variables with the SFTPGO_ prefix to avoid conflicts with env
 	// vars that SFTPGo sets
 	Timeout int `json:"timeout" mapstructure:"timeout"`
-	// Env defines additional environment variable for the commands.
+	// Env defines additional environment variable for the command.
 	// Each entry is of the form "key=value".
 	// These values are added to the global environment variables if any
 	Env []string `json:"env" mapstructure:"env"`
+	// Args defines arguments to pass to the specified command
+	Args []string `json:"args" mapstructure:"args"`
+	// if not empty both command path and hook name must match
+	Hook string `json:"hook" mapstructure:"hook"`
 }
 
 // Config defines the configuration for external commands such as
@@ -93,23 +116,33 @@ func (c Config) Initialize() error {
 				return fmt.Errorf("invalid env var %#v for command %#v", env, cmd.Path)
 			}
 		}
+		// don't validate args, we allow to pass empty arguments
+		if cmd.Hook != "" {
+			if !util.Contains(supportedHooks, cmd.Hook) {
+				return fmt.Errorf("invalid hook name %q, supported values: %+v", cmd.Hook, supportedHooks)
+			}
+		}
 	}
 	config = c
 	return nil
 }
 
 // GetConfig returns the configuration for the specified command
-func GetConfig(command string) (time.Duration, []string) {
+func GetConfig(command, hook string) (time.Duration, []string, []string) {
 	env := os.Environ()
+	var args []string
 	timeout := time.Duration(config.Timeout) * time.Second
 	env = append(env, config.Env...)
 	for _, cmd := range config.Commands {
 		if cmd.Path == command {
-			timeout = time.Duration(cmd.Timeout) * time.Second
-			env = append(env, cmd.Env...)
-			break
+			if cmd.Hook == "" || cmd.Hook == hook {
+				timeout = time.Duration(cmd.Timeout) * time.Second
+				env = append(env, cmd.Env...)
+				args = cmd.Args
+				break
+			}
 		}
 	}
 
-	return timeout, env
+	return timeout, env, args
 }

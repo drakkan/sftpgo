@@ -33,15 +33,17 @@ func TestCommandConfig(t *testing.T) {
 	assert.Equal(t, cfg.Timeout, config.Timeout)
 	assert.Equal(t, cfg.Env, config.Env)
 	assert.Len(t, cfg.Commands, 0)
-	timeout, env := GetConfig("cmd")
+	timeout, env, args := GetConfig("cmd", "")
 	assert.Equal(t, time.Duration(config.Timeout)*time.Second, timeout)
 	assert.Contains(t, env, "a=b")
+	assert.Len(t, args, 0)
 
 	cfg.Commands = []Command{
 		{
 			Path:    "cmd1",
 			Timeout: 30,
 			Env:     []string{"c=d"},
+			Args:    []string{"1", "", "2"},
 		},
 		{
 			Path:    "cmd2",
@@ -57,20 +59,68 @@ func TestCommandConfig(t *testing.T) {
 		assert.Equal(t, cfg.Commands[0].Path, config.Commands[0].Path)
 		assert.Equal(t, cfg.Commands[0].Timeout, config.Commands[0].Timeout)
 		assert.Equal(t, cfg.Commands[0].Env, config.Commands[0].Env)
+		assert.Equal(t, cfg.Commands[0].Args, config.Commands[0].Args)
 		assert.Equal(t, cfg.Commands[1].Path, config.Commands[1].Path)
 		assert.Equal(t, cfg.Timeout, config.Commands[1].Timeout)
 		assert.Equal(t, cfg.Commands[1].Env, config.Commands[1].Env)
+		assert.Equal(t, cfg.Commands[1].Args, config.Commands[1].Args)
 	}
-	timeout, env = GetConfig("cmd1")
+	timeout, env, args = GetConfig("cmd1", "")
 	assert.Equal(t, time.Duration(config.Commands[0].Timeout)*time.Second, timeout)
 	assert.Contains(t, env, "a=b")
 	assert.Contains(t, env, "c=d")
 	assert.NotContains(t, env, "e=f")
-	timeout, env = GetConfig("cmd2")
+	if assert.Len(t, args, 3) {
+		assert.Equal(t, "1", args[0])
+		assert.Empty(t, args[1])
+		assert.Equal(t, "2", args[2])
+	}
+	timeout, env, args = GetConfig("cmd2", "")
 	assert.Equal(t, time.Duration(config.Timeout)*time.Second, timeout)
 	assert.Contains(t, env, "a=b")
 	assert.NotContains(t, env, "c=d")
 	assert.Contains(t, env, "e=f")
+	assert.Len(t, args, 0)
+
+	cfg.Commands = []Command{
+		{
+			Path:    "cmd1",
+			Timeout: 30,
+			Env:     []string{"c=d"},
+			Args:    []string{"1", "", "2"},
+			Hook:    HookCheckPassword,
+		},
+		{
+			Path:    "cmd1",
+			Timeout: 0,
+			Env:     []string{"e=f"},
+			Hook:    HookExternalAuth,
+		},
+	}
+	err = cfg.Initialize()
+	require.NoError(t, err)
+	timeout, env, args = GetConfig("cmd1", "")
+	assert.Equal(t, time.Duration(config.Timeout)*time.Second, timeout)
+	assert.Contains(t, env, "a=b")
+	assert.NotContains(t, env, "c=d")
+	assert.NotContains(t, env, "e=f")
+	assert.Len(t, args, 0)
+	timeout, env, args = GetConfig("cmd1", HookCheckPassword)
+	assert.Equal(t, time.Duration(config.Commands[0].Timeout)*time.Second, timeout)
+	assert.Contains(t, env, "a=b")
+	assert.Contains(t, env, "c=d")
+	assert.NotContains(t, env, "e=f")
+	if assert.Len(t, args, 3) {
+		assert.Equal(t, "1", args[0])
+		assert.Empty(t, args[1])
+		assert.Equal(t, "2", args[2])
+	}
+	timeout, env, args = GetConfig("cmd1", HookExternalAuth)
+	assert.Equal(t, time.Duration(cfg.Timeout)*time.Second, timeout)
+	assert.Contains(t, env, "a=b")
+	assert.NotContains(t, env, "c=d")
+	assert.Contains(t, env, "e=f")
+	assert.Len(t, args, 0)
 }
 
 func TestConfigErrors(t *testing.T) {
@@ -115,5 +165,17 @@ func TestConfigErrors(t *testing.T) {
 	err = c.Initialize()
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "invalid env var")
+	}
+	c.Commands = []Command{
+		{
+			Path:    "path",
+			Timeout: 30,
+			Env:     []string{"a=b"},
+			Hook:    "invali",
+		},
+	}
+	err = c.Initialize()
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "invalid hook name")
 	}
 }

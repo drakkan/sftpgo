@@ -578,11 +578,11 @@ func (c *Configuration) ExecuteStartupHook() error {
 		return err
 	}
 	startTime := time.Now()
-	timeout, env := command.GetConfig(c.StartupHook)
+	timeout, env, args := command.GetConfig(c.StartupHook, command.HookStartup)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, c.StartupHook)
+	cmd := exec.CommandContext(ctx, c.StartupHook, args...)
 	cmd.Env = env
 	err := cmd.Run()
 	logger.Debug(logSender, "", "Startup hook executed, elapsed: %v, error: %v", time.Since(startTime), err)
@@ -624,12 +624,12 @@ func (c *Configuration) executePostDisconnectHook(remoteAddr, protocol, username
 		logger.Debug(protocol, connID, "invalid post disconnect hook %#v", c.PostDisconnectHook)
 		return
 	}
-	timeout, env := command.GetConfig(c.PostDisconnectHook)
+	timeout, env, args := command.GetConfig(c.PostDisconnectHook, command.HookPostDisconnect)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	startTime := time.Now()
-	cmd := exec.CommandContext(ctx, c.PostDisconnectHook)
+	cmd := exec.CommandContext(ctx, c.PostDisconnectHook, args...)
 	cmd.Env = append(env,
 		fmt.Sprintf("SFTPGO_CONNECTION_IP=%v", ipAddr),
 		fmt.Sprintf("SFTPGO_CONNECTION_USERNAME=%v", username),
@@ -684,11 +684,11 @@ func (c *Configuration) ExecutePostConnectHook(ipAddr, protocol string) error {
 		logger.Warn(protocol, "", "Login from ip %#v denied: %v", ipAddr, err)
 		return err
 	}
-	timeout, env := command.GetConfig(c.PostConnectHook)
+	timeout, env, args := command.GetConfig(c.PostConnectHook, command.HookPostConnect)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, c.PostConnectHook)
+	cmd := exec.CommandContext(ctx, c.PostConnectHook, args...)
 	cmd.Env = append(env,
 		fmt.Sprintf("SFTPGO_CONNECTION_IP=%v", ipAddr),
 		fmt.Sprintf("SFTPGO_CONNECTION_PROTOCOL=%v", protocol))
