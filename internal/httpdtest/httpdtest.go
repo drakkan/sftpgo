@@ -1624,19 +1624,28 @@ func checkAdmin(expected, actual *dataprovider.Admin) error {
 			return errors.New("permissions content mismatch")
 		}
 	}
-	if expected.Filters.AllowAPIKeyAuth != actual.Filters.AllowAPIKeyAuth {
+	if err := compareAdminFilters(expected.Filters, actual.Filters); err != nil {
+		return err
+	}
+	return compareAdminGroups(expected, actual)
+}
+
+func compareAdminFilters(expected, actual dataprovider.AdminFilters) error {
+	if expected.AllowAPIKeyAuth != actual.AllowAPIKeyAuth {
 		return errors.New("allow_api_key_auth mismatch")
 	}
-	if len(expected.Filters.AllowList) != len(actual.Filters.AllowList) {
+	if len(expected.AllowList) != len(actual.AllowList) {
 		return errors.New("allow list mismatch")
 	}
-	for _, v := range expected.Filters.AllowList {
-		if !util.Contains(actual.Filters.AllowList, v) {
+	for _, v := range expected.AllowList {
+		if !util.Contains(actual.AllowList, v) {
 			return errors.New("allow list content mismatch")
 		}
 	}
-
-	return compareAdminGroups(expected, actual)
+	if expected.Preferences.HideUserPageSections != actual.Preferences.HideUserPageSections {
+		return errors.New("hide user page sections mismatch")
+	}
+	return nil
 }
 
 func compareAdminEqualFields(expected *dataprovider.Admin, actual *dataprovider.Admin) error {

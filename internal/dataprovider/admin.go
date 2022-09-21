@@ -107,6 +107,82 @@ func (c *AdminTOTPConfig) validate(username string) error {
 	return nil
 }
 
+// AdminPreferences defines the admin preferences
+type AdminPreferences struct {
+	// Allow to hide some sections from the user page.
+	// These are not security settings and are not enforced server side
+	// in any way. They are only intended to simplify the user page in
+	// the WebAdmin UI.
+	//
+	// 1 means hide groups section
+	// 2 means hide filesystem section, "users_base_dir" must be set in the config file otherwise this setting is ignored
+	// 4 means hide virtual folders section
+	// 8 means hide profile section
+	// 16 means hide ACLs section
+	// 32 means hide disk and bandwidth quota limits section
+	// 64 means hide advanced settings section
+	//
+	// The settings can be combined
+	HideUserPageSections int `json:"hide_user_page_sections,omitempty"`
+}
+
+// HideGroups returns true if the groups section should be hidden
+func (p *AdminPreferences) HideGroups() bool {
+	return p.HideUserPageSections&1 != 0
+}
+
+// HideFilesystem returns true if the filesystem section should be hidden
+func (p *AdminPreferences) HideFilesystem() bool {
+	return config.UsersBaseDir != "" && p.HideUserPageSections&2 != 0
+}
+
+// HideVirtualFolders returns true if the virtual folder section should be hidden
+func (p *AdminPreferences) HideVirtualFolders() bool {
+	return p.HideUserPageSections&4 != 0
+}
+
+// HideProfile returns true if the profile section should be hidden
+func (p *AdminPreferences) HideProfile() bool {
+	return p.HideUserPageSections&8 != 0
+}
+
+// HideACLs returns true if the ACLs section should be hidden
+func (p *AdminPreferences) HideACLs() bool {
+	return p.HideUserPageSections&16 != 0
+}
+
+// HideDiskQuotaAndBandwidthLimits returns true if the disk quota and bandwidth limits
+// section should be hidden
+func (p *AdminPreferences) HideDiskQuotaAndBandwidthLimits() bool {
+	return p.HideUserPageSections&32 != 0
+}
+
+// HideAdvancedSettings returns true if the advanced settings section should be hidden
+func (p *AdminPreferences) HideAdvancedSettings() bool {
+	return p.HideUserPageSections&64 != 0
+}
+
+// VisibleUserPageSections returns the number of visible sections
+// in the user page
+func (p *AdminPreferences) VisibleUserPageSections() int {
+	var result int
+
+	if !p.HideProfile() {
+		result++
+	}
+	if !p.HideACLs() {
+		result++
+	}
+	if !p.HideDiskQuotaAndBandwidthLimits() {
+		result++
+	}
+	if !p.HideAdvancedSettings() {
+		result++
+	}
+
+	return result
+}
+
 // AdminFilters defines additional restrictions for SFTPGo admins
 // TODO: rename to AdminOptions in v3
 type AdminFilters struct {
@@ -121,7 +197,8 @@ type AdminFilters struct {
 	// Recovery codes to use if the user loses access to their second factor auth device.
 	// Each code can only be used once, you should use these codes to login and disable or
 	// reset 2FA for your account
-	RecoveryCodes []RecoveryCode `json:"recovery_codes,omitempty"`
+	RecoveryCodes []RecoveryCode   `json:"recovery_codes,omitempty"`
+	Preferences   AdminPreferences `json:"preferences"`
 }
 
 // AdminGroupMappingOptions defines the options for admin/group mapping
@@ -499,6 +576,9 @@ func (a *Admin) getACopy() Admin {
 			Secret: code.Secret.Clone(),
 			Used:   code.Used,
 		})
+	}
+	filters.Preferences = AdminPreferences{
+		HideUserPageSections: a.Filters.Preferences.HideUserPageSections,
 	}
 	groups := make([]AdminGroupMapping, 0, len(a.Groups))
 	for _, g := range a.Groups {

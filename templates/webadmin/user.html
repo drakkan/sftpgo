@@ -156,7 +156,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             </div>
             {{end}}
 
-            <div class="card bg-light mb-3">
+            {{if .Groups}}
+            <div class="card bg-light mb-3 {{if .LoggedAdmin.Filters.Preferences.HideGroups}}d-none{{end}}">
                 <div class="card-header">
                     <b>Groups</b>
                 </div>
@@ -195,10 +196,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                     </div>
                 </div>
             </div>
+            {{end}}
 
             {{template "fshtml" .FsWrapper}}
             {{if .VirtualFolders}}
-            <div class="card bg-light mb-3">
+            <div class="card bg-light mb-3 {{if .LoggedAdmin.Filters.Preferences.HideVirtualFolders}}d-none{{end}}">
                 <div class="card-header">
                     <b>Virtual folders</b>
                 </div>
@@ -285,8 +287,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             </div>
             {{end}}
 
-            <div class="accordion" id="accordionUser">
-                <div class="card">
+            <div class="accordion {{if eq .LoggedAdmin.Filters.Preferences.VisibleUserPageSections 0}}d-none{{end}}" id="accordionUser">
+                <div class="card {{if .LoggedAdmin.Filters.Preferences.HideProfile}}d-none{{end}}">
                     <div class="card-header" id="headingProfile">
                         <h2 class="mb-0">
                             <button class="btn btn-link btn-block text-left" type="button" data-toggle="collapse"
@@ -352,7 +354,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                         </div>
                     </div>
                 </div>
-                <div class="card">
+                <div class="card {{if .LoggedAdmin.Filters.Preferences.HideACLs}}d-none{{end}}">
                     <div class="card-header" id="headingPermissions">
                         <h2 class="mb-0">
                             <button class="btn btn-link btn-block text-left" type="button" data-toggle="collapse"
@@ -590,7 +592,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                         </div>
                     </div>
                 </div>
-                <div class="card">
+                <div class="card {{if .LoggedAdmin.Filters.Preferences.HideDiskQuotaAndBandwidthLimits}}d-none{{end}}">
                     <div class="card-header" id="headingQuota">
                         <h2 class="mb-0">
                             <button class="btn btn-link btn-block text-left collapsed" type="button" data-toggle="collapse"
@@ -599,7 +601,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                             </button>
                         </h2>
                     </div>
-                    <div id="collapseQuota" class="collapse" aria-labelledby="headingTwo" data-parent="#accordionUser">
+                    <div id="collapseQuota" class="collapse" aria-labelledby="headingQuota" data-parent="#accordionUser">
                         <div class="card-body">
 
                             <div class="form-group row">
@@ -871,7 +873,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                     </div>
                 </div>
 
-                <div class="card">
+                <div class="card {{if .LoggedAdmin.Filters.Preferences.HideAdvancedSettings}}d-none{{end}}">
                     <div class="card-header" id="headingAdvanced">
                         <h2 class="mb-0">
                             <button class="btn btn-link btn-block text-left collapsed" type="button" data-toggle="collapse"
@@ -880,7 +882,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                             </button>
                         </h2>
                     </div>
-                    <div id="collapseAdvanced" class="collapse" aria-labelledby="headingTwo" data-parent="#accordionUser">
+                    <div id="collapseAdvanced" class="collapse" aria-labelledby="headingAdvanced" data-parent="#accordionUser">
                         <div class="card-body">
 
                             <div class="form-group row">
@@ -1044,9 +1046,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 <script src="{{.StaticURL}}/vendor/bootstrap-select/js/bootstrap-select.min.js"></script>
 <script type="text/javascript">
     $(document).ready(function () {
-        $.fn.selectpicker.Constructor.BootstrapVersion = '4';
         {{if .Error}}
+        {{if ne .LoggedAdmin.Filters.Preferences.VisibleUserPageSections 0}}
         $('#accordionUser .collapse').removeAttr("data-parent").collapse('show');
+        {{end}}
         {{end}}
         $('#expirationDatePicker').datetimepicker({
             format: 'YYYY-MM-DD',

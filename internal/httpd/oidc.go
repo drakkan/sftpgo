@@ -190,19 +190,20 @@ func newOIDCPendingAuth(audience tokenAudience) oidcPendingAuth {
 }
 
 type oidcToken struct {
-	AccessToken  string          `json:"access_token"`
-	TokenType    string          `json:"token_type,omitempty"`
-	RefreshToken string          `json:"refresh_token,omitempty"`
-	ExpiresAt    int64           `json:"expires_at,omitempty"`
-	SessionID    string          `json:"session_id"`
-	IDToken      string          `json:"id_token"`
-	Nonce        string          `json:"nonce"`
-	Username     string          `json:"username"`
-	Permissions  []string        `json:"permissions"`
-	Role         any             `json:"role"`
-	CustomFields *map[string]any `json:"custom_fields,omitempty"`
-	Cookie       string          `json:"cookie"`
-	UsedAt       int64           `json:"used_at"`
+	AccessToken          string          `json:"access_token"`
+	TokenType            string          `json:"token_type,omitempty"`
+	RefreshToken         string          `json:"refresh_token,omitempty"`
+	ExpiresAt            int64           `json:"expires_at,omitempty"`
+	SessionID            string          `json:"session_id"`
+	IDToken              string          `json:"id_token"`
+	Nonce                string          `json:"nonce"`
+	Username             string          `json:"username"`
+	Permissions          []string        `json:"permissions"`
+	HideUserPageSections int             `json:"hide_user_page_sections,omitempty"`
+	Role                 any             `json:"role"`
+	CustomFields         *map[string]any `json:"custom_fields,omitempty"`
+	Cookie               string          `json:"cookie"`
+	UsedAt               int64           `json:"used_at"`
 }
 
 func (t *oidcToken) parseClaims(claims map[string]any, usernameField, roleField string, customFields []string,
@@ -378,6 +379,7 @@ func (t *oidcToken) getUser(r *http.Request) error {
 			return err
 		}
 		t.Permissions = admin.Permissions
+		t.HideUserPageSections = admin.Filters.Preferences.HideUserPageSections
 		dataprovider.UpdateAdminLastLogin(&admin)
 		return nil
 	}
@@ -474,8 +476,9 @@ func (s *httpdServer) oidcTokenAuthenticator(audience tokenAudience) func(next h
 				return
 			}
 			jwtTokenClaims := jwtTokenClaims{
-				Username:    token.Username,
-				Permissions: token.Permissions,
+				Username:             token.Username,
+				Permissions:          token.Permissions,
+				HideUserPageSections: token.HideUserPageSections,
 			}
 			_, tokenString, err := jwtTokenClaims.createToken(s.tokenAuth, audience, util.GetIPFromRemoteAddress(r.RemoteAddr))
 			if err != nil {

@@ -2707,16 +2707,32 @@ func TestBasicAdminHandling(t *testing.T) {
 	assert.NoError(t, err)
 
 	admin.Username = altAdminUsername
+	admin.Filters.Preferences.HideUserPageSections = 1 + 4 + 8
 	admin, _, err = httpdtest.AddAdmin(admin, http.StatusCreated)
 	assert.NoError(t, err)
 
 	admin, _, err = httpdtest.GetAdminByUsername(admin.Username, http.StatusOK)
 	assert.NoError(t, err)
+	assert.True(t, admin.Filters.Preferences.HideGroups())
+	assert.False(t, admin.Filters.Preferences.HideFilesystem())
+	assert.True(t, admin.Filters.Preferences.HideVirtualFolders())
+	assert.True(t, admin.Filters.Preferences.HideProfile())
+	assert.False(t, admin.Filters.Preferences.HideACLs())
+	assert.False(t, admin.Filters.Preferences.HideDiskQuotaAndBandwidthLimits())
+	assert.False(t, admin.Filters.Preferences.HideAdvancedSettings())
 
 	admin.AdditionalInfo = "test info"
+	admin.Filters.Preferences.HideUserPageSections = 16 + 32 + 64
 	admin, _, err = httpdtest.UpdateAdmin(admin, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Equal(t, "test info", admin.AdditionalInfo)
+	assert.False(t, admin.Filters.Preferences.HideGroups())
+	assert.False(t, admin.Filters.Preferences.HideFilesystem())
+	assert.False(t, admin.Filters.Preferences.HideVirtualFolders())
+	assert.False(t, admin.Filters.Preferences.HideProfile())
+	assert.True(t, admin.Filters.Preferences.HideACLs())
+	assert.True(t, admin.Filters.Preferences.HideDiskQuotaAndBandwidthLimits())
+	assert.True(t, admin.Filters.Preferences.HideAdvancedSettings())
 
 	admins, _, err = httpdtest.GetAdmins(1, 0, http.StatusOK)
 	assert.NoError(t, err)
@@ -15722,6 +15738,7 @@ func TestWebAdminPwdChange(t *testing.T) {
 	admin := getTestAdmin()
 	admin.Username = altAdminUsername
 	admin.Password = altAdminPassword
+	admin.Filters.Preferences.HideUserPageSections = 16 + 32
 	admin, _, err := httpdtest.AddAdmin(admin, http.StatusCreated)
 	assert.NoError(t, err)
 
@@ -16270,6 +16287,13 @@ func TestWebAdminBasicMock(t *testing.T) {
 	form.Set("status", "1")
 	form.Set("permissions", "*")
 	form.Set("description", admin.Description)
+	form.Set("user_page_hidden_sections", "1")
+	form.Add("user_page_hidden_sections", "2")
+	form.Add("user_page_hidden_sections", "3")
+	form.Add("user_page_hidden_sections", "4")
+	form.Add("user_page_hidden_sections", "5")
+	form.Add("user_page_hidden_sections", "6")
+	form.Add("user_page_hidden_sections", "7")
 	req, _ := http.NewRequest(http.MethodPost, webAdminPath, bytes.NewBuffer([]byte(form.Encode())))
 	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -16337,6 +16361,7 @@ func TestWebAdminBasicMock(t *testing.T) {
 	assert.True(t, admin.Filters.TOTPConfig.Enabled)
 	secretPayload := admin.Filters.TOTPConfig.Secret.GetPayload()
 	assert.NotEmpty(t, secretPayload)
+	assert.Equal(t, 1+2+4+8+16+32+64, admin.Filters.Preferences.HideUserPageSections)
 
 	adminTOTPConfig = dataprovider.AdminTOTPConfig{
 		Enabled:    true,

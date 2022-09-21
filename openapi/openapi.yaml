@@ -5227,6 +5227,12 @@ components:
           type: object
           additionalProperties: true
           description: 'This field is passed to the pre-login hook if custom OIDC token fields have been configured. Field values can be of any type (this is a free form object) and depend on the type of the configured OIDC token fields'
+    AdminPreferences:
+      type: object
+      properties:
+        hide_user_page_sections:
+          type: integer
+          description: 'Allow to hide some sections from the user page. These are not security settings and are not enforced server side in any way. They are only intended to simplify the user page in the WebAdmin UI. 1 means hide groups section, 2 means hide filesystem section, "users_base_dir" must be set in the config file otherwise this setting is ignored, 4 means hide virtual folders section, 8 means hide profile section, 16 means hide ACLs section, 32 means hide disk and bandwidth quota limits section, 64 means hide advanced settings section. The settings can be combined'
     AdminFilters:
       type: object
       properties:
@@ -5247,6 +5253,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/RecoveryCode'
+        preferences:
+          $ref: '#/components/schemas/AdminPreferences'
     Admin:
       type: object
       properties:

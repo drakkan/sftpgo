@@ -231,7 +231,14 @@ func (g *Group) getACopy() Group {
 	}
 }
 
-// GetUsersAsString returns the list of users as comma separated string
-func (g *Group) GetUsersAsString() string {
-	return strings.Join(g.Users, ",")
+// GetMembersAsString returns a string representation for the group members
+func (g *Group) GetMembersAsString() string {
+	var sb strings.Builder
+	if len(g.Users) > 0 {
+		sb.WriteString(fmt.Sprintf("Users: %d. ", len(g.Users)))
+	}
+	if len(g.Admins) > 0 {
+		sb.WriteString(fmt.Sprintf("Admins: %d. ", len(g.Admins)))
+	}
+	return sb.String()
 }

@@ -41,6 +41,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                     <tr>
                         <th>Name</th>
                         <th>Description</th>
+                        <th>Members</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -48,6 +49,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                     <tr>
                         <td>{{.Name}}</td>
                         <td>{{.Description}}</td>
+                        <td>{{.GetMembersAsString}}</td>
                     </tr>
                     {{end}}
                 </tbody>
@@ -183,7 +185,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 {
                     "targets": [0],
                     "className": "noVis"
-                }
+                },
+                {
+                    "targets": [2],
+                    "render": $.fn.dataTable.render.ellipsis(100, true)
+                },
             ],
             "scrollX": false,
             "scrollY": false,

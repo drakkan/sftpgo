@@ -207,6 +207,7 @@ type fsWrapper struct {
 	vfs.Filesystem
 	IsUserPage      bool
 	IsGroupPage     bool
+	IsHidden        bool
 	HasUsersBaseDir bool
 	DirPath         string
 }
@@ -855,6 +856,7 @@ func (s *httpdServer) renderUserPage(w http.ResponseWriter, r *http.Request, use
 			Filesystem:      user.FsConfig,
 			IsUserPage:      true,
 			IsGroupPage:     false,
+			IsHidden:        basePage.LoggedAdmin.Filters.Preferences.HideFilesystem(),
 			HasUsersBaseDir: dataprovider.HasUsersBaseDir(),
 			DirPath:         user.HomeDir,
 		},
@@ -1540,6 +1542,31 @@ func getFsConfigFromPostFields(r *http.Request) (vfs.Filesystem, error) {
 	return fs, nil
 }
 
+func getAdminHiddenUserPageSections(r *http.Request) int {
+	var result int
+
+	for _, val := range r.Form["user_page_hidden_sections"] {
+		switch val {
+		case "1":
+			result++
+		case "2":
+			result += 2
+		case "3":
+			result += 4
+		case "4":
+			result += 8
+		case "5":
+			result += 16
+		case "6":
+			result += 32
+		case "7":
+			result += 64
+		}
+	}
+
+	return result
+}
+
 func getAdminFromPostFields(r *http.Request) (dataprovider.Admin, error) {
 	var admin dataprovider.Admin
 	err := r.ParseForm()
@@ -1559,6 +1586,7 @@ func getAdminFromPostFields(r *http.Request) (dataprovider.Admin, error) {
 	admin.Filters.AllowAPIKeyAuth = r.Form.Get("allow_api_key_auth") != ""
 	admin.AdditionalInfo = r.Form.Get("additional_info")
 	admin.Description = r.Form.Get("description")
+	admin.Filters.Preferences.HideUserPageSections = getAdminHiddenUserPageSections(r)
 	for k := range r.Form {
 		if strings.HasPrefix(k, "group") {
 			groupName := strings.TrimSpace(r.Form.Get(k))

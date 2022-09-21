@@ -53,7 +53,8 @@ const (
 	claimPermissionsKey             = "permissions"
 	claimAPIKey                     = "api_key"
 	claimMustSetSecondFactorKey     = "2fa_required"
-	claimRequiredTwoFactorProtocols = "2fa_protocols"
+	claimRequiredTwoFactorProtocols = "2fa_protos"
+	claimHideUserPageSection        = "hus"
 	basicRealm                      = "Basic realm=\"SFTPGo\""
 	jwtCookieKey                    = "jwt"
 )
@@ -75,6 +76,7 @@ type jwtTokenClaims struct {
 	APIKeyID                   string
 	MustSetTwoFactorAuth       bool
 	RequiredTwoFactorProtocols []string
+	HideUserPageSections       int
 }
 
 func (c *jwtTokenClaims) hasUserAudience() bool {
@@ -96,10 +98,33 @@ func (c *jwtTokenClaims) asMap() map[string]any {
 		claims[claimAPIKey] = c.APIKeyID
 	}
 	claims[jwt.SubjectKey] = c.Signature
-	claims[claimMustSetSecondFactorKey] = c.MustSetTwoFactorAuth
-	claims[claimRequiredTwoFactorProtocols] = c.RequiredTwoFactorProtocols
+	if c.MustSetTwoFactorAuth {
+		claims[claimMustSetSecondFactorKey] = c.MustSetTwoFactorAuth
+	}
+	if len(c.RequiredTwoFactorProtocols) > 0 {
+		claims[claimRequiredTwoFactorProtocols] = c.RequiredTwoFactorProtocols
+	}
+	if c.HideUserPageSections > 0 {
+		claims[claimHideUserPageSection] = c.HideUserPageSections
+	}
 
 	return claims
+}
+
+func (c *jwtTokenClaims) decodeSliceString(val any) []string {
+	var result []string
+
+	switch v := val.(type) {
+	case []any:
+		for _, elem := range v {
+			switch elemValue := elem.(type) {
+			case string:
+				result = append(result, elemValue)
+			}
+		}
+	}
+
+	return result
 }
 
 func (c *jwtTokenClaims) Decode(token map[string]any) {
@@ -133,30 +158,23 @@ func (c *jwtTokenClaims) Decode(token map[string]any) {
 	}
 
 	permissions := token[claimPermissionsKey]
-	switch v := permissions.(type) {
-	case []any:
-		for _, elem := range v {
-			switch elemValue := elem.(type) {
-			case string:
-				c.Permissions = append(c.Permissions, elemValue)
-			}
+	c.Permissions = c.decodeSliceString(permissions)
+
+	if val, ok := token[claimMustSetSecondFactorKey]; ok {
+		switch v := val.(type) {
+		case bool:
+			c.MustSetTwoFactorAuth = v
 		}
 	}
 
-	secondFactorRequired := token[claimMustSetSecondFactorKey]
-	switch v := secondFactorRequired.(type) {
-	case bool:
-		c.MustSetTwoFactorAuth = v
+	if val, ok := token[claimRequiredTwoFactorProtocols]; ok {
+		c.RequiredTwoFactorProtocols = c.decodeSliceString(val)
 	}
 
-	secondFactorProtocols := token[claimRequiredTwoFactorProtocols]
-	switch v := secondFactorProtocols.(type) {
-	case []any:
-		for _, elem := range v {
-			switch elemValue := elem.(type) {
-			case string:
-				c.RequiredTwoFactorProtocols = append(c.RequiredTwoFactorProtocols, elemValue)
-			}
+	if val, ok := token[claimHideUserPageSection]; ok {
+		switch v := val.(type) {
+		case float64:
+			c.HideUserPageSections = int(v)
 		}
 	}
 }
@@ -319,6 +337,7 @@ func getAdminFromToken(r *http.Request) *dataprovider.Admin {
 	tokenClaims.Decode(claims)
 	admin.Username = tokenClaims.Username
 	admin.Permissions = tokenClaims.Permissions
+	admin.Filters.Preferences.HideUserPageSections = tokenClaims.HideUserPageSections
 	return admin
 }
 

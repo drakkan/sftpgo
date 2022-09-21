@@ -715,9 +715,10 @@ func (s *httpdServer) loginAdmin(
 	ipAddr string,
 ) {
 	c := jwtTokenClaims{
-		Username:    admin.Username,
-		Permissions: admin.Permissions,
-		Signature:   admin.GetSignature(),
+		Username:             admin.Username,
+		Permissions:          admin.Permissions,
+		Signature:            admin.GetSignature(),
+		HideUserPageSections: admin.Filters.Preferences.HideUserPageSections,
 	}
 
 	audience := tokenAudienceWebAdmin
@@ -973,6 +974,7 @@ func (s *httpdServer) refreshAdminToken(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 	tokenClaims.Permissions = admin.Permissions
+	tokenClaims.HideUserPageSections = admin.Filters.Preferences.HideUserPageSections
 	logger.Debug(logSender, "", "cookie refreshed for admin %#v", admin.Username)
 	tokenClaims.createAndSetCookie(w, r, s.tokenAuth, tokenAudienceWebAdmin, ipAddr) //nolint:errcheck
 }

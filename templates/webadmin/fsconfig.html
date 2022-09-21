@@ -14,7 +14,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 -->
 {{define "fshtml"}}
-<div class="card bg-light mb-3">
+<div class="card bg-light mb-3 {{if .IsHidden}}d-none{{end}}">
     <div class="card-header">
         <b>Filesystem</b>
     </div>
