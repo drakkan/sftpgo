@@ -1427,7 +1427,7 @@ func (s *httpdServer) setupWebClientRoutes() {
 				s.jwtAuthenticatorPartial(tokenAudienceWebClientPartial)).
 				Post(webClientTwoFactorRecoveryPath, s.handleWebClientTwoFactorRecoveryPost)
 		}
-		// share API exposed to external users
+		// share routes exposed to external users
 		s.router.Get(webClientPubSharesPath+"/{id}", s.downloadFromShare)
 		s.router.Get(webClientPubSharesPath+"/{id}/partial", s.handleClientSharePartialDownload)
 		s.router.Get(webClientPubSharesPath+"/{id}/browse", s.handleShareGetFiles)
@@ -1446,6 +1446,7 @@ func (s *httpdServer) setupWebClientRoutes() {
 			router.Get(webClientLogoutPath, s.handleWebClientLogout)
 			router.With(s.checkSecondFactorRequirement, s.refreshCookie).Get(webClientFilesPath, s.handleClientGetFiles)
 			router.With(s.checkSecondFactorRequirement, s.refreshCookie).Get(webClientViewPDFPath, s.handleClientViewPDF)
+			router.With(s.checkSecondFactorRequirement, s.refreshCookie).Get(webClientGetPDFPath, s.handleClientGetPDF)
 			router.With(s.checkSecondFactorRequirement, s.refreshCookie, verifyCSRFHeader).Get(webClientFilePath, getUserFile)
 			router.With(s.checkSecondFactorRequirement, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
 				Post(webClientFilePath, uploadUserFile)

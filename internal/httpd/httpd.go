@@ -159,6 +159,7 @@ const (
 	webClientForgotPwdPathDefault         = "/web/client/forgot-password"
 	webClientResetPwdPathDefault          = "/web/client/reset-password"
 	webClientViewPDFPathDefault           = "/web/client/viewpdf"
+	webClientGetPDFPathDefault            = "/web/client/getpdf"
 	webStaticFilesPathDefault             = "/static"
 	webOpenAPIPathDefault                 = "/openapi"
 	// MaxRestoreSize defines the max size for the loaddata input file
@@ -244,6 +245,7 @@ var (
 	webClientForgotPwdPath         string
 	webClientResetPwdPath          string
 	webClientViewPDFPath           string
+	webClientGetPDFPath            string
 	webStaticFilesPath             string
 	webOpenAPIPath                 string
 	// max upload size for http clients, 1GB by default
@@ -967,6 +969,7 @@ func updateWebClientURLs(baseURL string) {
 	webClientForgotPwdPath = path.Join(baseURL, webClientForgotPwdPathDefault)
 	webClientResetPwdPath = path.Join(baseURL, webClientResetPwdPathDefault)
 	webClientViewPDFPath = path.Join(baseURL, webClientViewPDFPathDefault)
+	webClientGetPDFPath = path.Join(baseURL, webClientGetPDFPathDefault)
 }
 
 func updateWebAdminURLs(baseURL string) {
