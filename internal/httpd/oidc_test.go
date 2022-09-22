@@ -528,12 +528,16 @@ func TestOIDCLoginLogout(t *testing.T) {
 func TestOIDCRefreshToken(t *testing.T) {
 	oidcMgr, ok := oidcMgr.(*memoryOIDCManager)
 	require.True(t, ok)
+	r, err := http.NewRequest(http.MethodGet, webUsersPath, nil)
+	assert.NoError(t, err)
 	token := oidcToken{
 		Cookie:      xid.New().String(),
 		AccessToken: xid.New().String(),
 		TokenType:   "Bearer",
 		ExpiresAt:   util.GetTimeAsMsSinceEpoch(time.Now().Add(-1 * time.Minute)),
 		Nonce:       xid.New().String(),
+		Role:        adminRoleFieldValue,
+		Username:    defaultAdminUsername,
 	}
 	config := mockOAuth2Config{
 		tokenSource: &mockTokenSource{
@@ -543,12 +547,12 @@ func TestOIDCRefreshToken(t *testing.T) {
 	verifier := mockOIDCVerifier{
 		err: common.ErrGenericFailure,
 	}
-	err := token.refresh(&config, &verifier)
+	err = token.refresh(&config, &verifier, r)
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "refresh token not set")
 	}
 	token.RefreshToken = xid.New().String()
-	err = token.refresh(&config, &verifier)
+	err = token.refresh(&config, &verifier, r)
 	assert.ErrorIs(t, err, common.ErrGenericFailure)
 
 	newToken := &oauth2.Token{
@@ -564,7 +568,7 @@ func TestOIDCRefreshToken(t *testing.T) {
 	verifier = mockOIDCVerifier{
 		token: &oidc.IDToken{},
 	}
-	err = token.refresh(&config, &verifier)
+	err = token.refresh(&config, &verifier, r)
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "the refreshed token has no id token")
 	}
@@ -580,7 +584,7 @@ func TestOIDCRefreshToken(t *testing.T) {
 	verifier = mockOIDCVerifier{
 		err: common.ErrGenericFailure,
 	}
-	err = token.refresh(&config, &verifier)
+	err = token.refresh(&config, &verifier, r)
 	assert.ErrorIs(t, err, common.ErrGenericFailure)
 
 	newToken = newToken.WithExtra(map[string]any{
@@ -595,7 +599,7 @@ func TestOIDCRefreshToken(t *testing.T) {
 	verifier = mockOIDCVerifier{
 		token: &oidc.IDToken{},
 	}
-	err = token.refresh(&config, &verifier)
+	err = token.refresh(&config, &verifier, r)
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "the refreshed token nonce mismatch")
 	}
@@ -604,7 +608,7 @@ func TestOIDCRefreshToken(t *testing.T) {
 			Nonce: token.Nonce,
 		},
 	}
-	err = token.refresh(&config, &verifier)
+	err = token.refresh(&config, &verifier, r)
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "oidc: claims not set")
 	}
@@ -615,11 +619,112 @@ func TestOIDCRefreshToken(t *testing.T) {
 	verifier = mockOIDCVerifier{
 		token: idToken,
 	}
-	err = token.refresh(&config, &verifier)
+	err = token.refresh(&config, &verifier, r)
 	assert.NoError(t, err)
+	assert.Len(t, token.Permissions, 1)
+	token.Role = nil
+	// user does not exist
+	err = token.refresh(&config, &verifier, r)
+	assert.Error(t, err)
 	require.Len(t, oidcMgr.tokens, 1)
 	oidcMgr.removeToken(token.Cookie)
 	require.Len(t, oidcMgr.tokens, 0)
+}
+
+func TestOIDCRefreshUser(t *testing.T) {
+	token := oidcToken{
+		Cookie:      xid.New().String(),
+		AccessToken: xid.New().String(),
+		TokenType:   "Bearer",
+		ExpiresAt:   util.GetTimeAsMsSinceEpoch(time.Now().Add(1 * time.Minute)),
+		Nonce:       xid.New().String(),
+		Role:        adminRoleFieldValue,
+		Username:    "missing username",
+	}
+	r, err := http.NewRequest(http.MethodGet, webUsersPath, nil)
+	assert.NoError(t, err)
+	err = token.refreshUser(r)
+	assert.Error(t, err)
+	admin := dataprovider.Admin{
+		Username:    "test_oidc_admin_refresh",
+		Password:    "p",
+		Permissions: []string{dataprovider.PermAdminAny},
+		Status:      0,
+		Filters: dataprovider.AdminFilters{
+			Preferences: dataprovider.AdminPreferences{
+				HideUserPageSections: 1 + 2 + 4,
+			},
+		},
+	}
+	err = dataprovider.AddAdmin(&admin, "", "")
+	assert.NoError(t, err)
+
+	token.Username = admin.Username
+	err = token.refreshUser(r)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "is disabled")
+	}
+
+	admin.Status = 1
+	err = dataprovider.UpdateAdmin(&admin, "", "")
+	assert.NoError(t, err)
+	err = token.refreshUser(r)
+	assert.NoError(t, err)
+	assert.Equal(t, admin.Permissions, token.Permissions)
+	assert.Equal(t, admin.Filters.Preferences.HideUserPageSections, token.HideUserPageSections)
+
+	err = dataprovider.DeleteAdmin(admin.Username, "", "")
+	assert.NoError(t, err)
+
+	username := "test_oidc_user_refresh_token"
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username: username,
+			Password: "p",
+			HomeDir:  filepath.Join(os.TempDir(), username),
+			Status:   0,
+			Permissions: map[string][]string{
+				"/": {dataprovider.PermAny},
+			},
+		},
+		Filters: dataprovider.UserFilters{
+			BaseUserFilters: sdk.BaseUserFilters{
+				DeniedProtocols: []string{common.ProtocolHTTP},
+				WebClient:       []string{sdk.WebClientSharesDisabled, sdk.WebClientWriteDisabled},
+			},
+		},
+	}
+	err = dataprovider.AddUser(&user, "", "")
+	assert.NoError(t, err)
+
+	r, err = http.NewRequest(http.MethodGet, webClientFilesPath, nil)
+	assert.NoError(t, err)
+	token.Role = nil
+	token.Username = username
+	assert.False(t, token.isAdmin())
+	err = token.refreshUser(r)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "is disabled")
+	}
+	user, err = dataprovider.UserExists(username)
+	assert.NoError(t, err)
+	user.Status = 1
+	err = dataprovider.UpdateUser(&user, "", "")
+	assert.NoError(t, err)
+	err = token.refreshUser(r)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "protocol HTTP is not allowed")
+	}
+
+	user.Filters.DeniedProtocols = []string{common.ProtocolFTP}
+	err = dataprovider.UpdateUser(&user, "", "")
+	assert.NoError(t, err)
+	err = token.refreshUser(r)
+	assert.NoError(t, err)
+	assert.Equal(t, user.Filters.WebClient, token.Permissions)
+
+	err = dataprovider.DeleteUser(username, "", "")
+	assert.NoError(t, err)
 }
 
 func TestValidateOIDCToken(t *testing.T) {

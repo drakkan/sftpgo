@@ -308,7 +308,7 @@ func (t *oidcToken) isExpired() bool {
 	return t.ExpiresAt < util.GetTimeAsMsSinceEpoch(time.Now())
 }
 
-func (t *oidcToken) refresh(config OAuth2Config, verifier OIDCTokenVerifier) error {
+func (t *oidcToken) refresh(config OAuth2Config, verifier OIDCTokenVerifier, r *http.Request) error {
 	if t.RefreshToken == "" {
 		logger.Debug(logSender, "", "refresh token not set, unable to refresh cookie %#v", t.Cookie)
 		return errors.New("refresh token not set")
@@ -363,9 +363,41 @@ func (t *oidcToken) refresh(config OAuth2Config, verifier OIDCTokenVerifier) err
 	if ok {
 		t.SessionID = sid
 	}
+	err = t.refreshUser(r)
+	if err != nil {
+		logger.Debug(logSender, "", "unable to refresh user after token refresh for cookie %#v: %v", t.Cookie, err)
+		return err
+	}
 	logger.Debug(logSender, "", "oidc token refreshed for user %#v, cookie %#v", t.Username, t.Cookie)
 	oidcMgr.addToken(*t)
 
+	return nil
+}
+
+func (t *oidcToken) refreshUser(r *http.Request) error {
+	if t.isAdmin() {
+		admin, err := dataprovider.AdminExists(t.Username)
+		if err != nil {
+			return err
+		}
+		if err := admin.CanLogin(util.GetIPFromRemoteAddress(r.RemoteAddr)); err != nil {
+			return err
+		}
+		t.Permissions = admin.Permissions
+		t.HideUserPageSections = admin.Filters.Preferences.HideUserPageSections
+		return nil
+	}
+	user, err := dataprovider.GetUserWithGroupSettings(t.Username)
+	if err != nil {
+		return err
+	}
+	if err := user.CheckLoginConditions(); err != nil {
+		return err
+	}
+	if err := checkHTTPClientUser(&user, r, xid.New().String(), true); err != nil {
+		return err
+	}
+	t.Permissions = user.Filters.WebClient
 	return nil
 }
 
@@ -438,7 +470,7 @@ func (s *httpdServer) validateOIDCToken(w http.ResponseWriter, r *http.Request, 
 	}
 	if token.isExpired() {
 		logger.Debug(logSender, "", "oidc token associated with cookie %#v is expired", token.Cookie)
-		if err = token.refresh(s.binding.OIDC.oauth2Config, s.binding.OIDC.verifier); err != nil {
+		if err = token.refresh(s.binding.OIDC.oauth2Config, s.binding.OIDC.verifier, r); err != nil {
 			setFlashMessage(w, r, "Your OpenID token is expired, please log-in again")
 			doRedirect()
 			return oidcToken{}, errInvalidToken
