@@ -309,6 +309,8 @@ func TestShouldBind(t *testing.T) {
 			},
 		},
 	}
+	require.False(t, c.ShouldBind())
+	c.Bindings[0].EnableRESTAPI = true
 	require.True(t, c.ShouldBind())
 
 	c.Bindings[0].Port = 0
@@ -833,6 +835,7 @@ func TestCSRFToken(t *testing.T) {
 		Port:            8080,
 		EnableWebAdmin:  true,
 		EnableWebClient: true,
+		EnableRESTAPI:   true,
 		RenderOpenAPI:   true,
 	})
 	fn := verifyCSRFHeader(r)
@@ -1080,6 +1083,7 @@ func TestAPIKeyAuthForbidden(t *testing.T) {
 		Port:            8080,
 		EnableWebAdmin:  true,
 		EnableWebClient: true,
+		EnableRESTAPI:   true,
 		RenderOpenAPI:   true,
 	})
 	fn := forbidAPIKeyAuthentication(r)
@@ -1104,6 +1108,7 @@ func TestJWTTokenValidation(t *testing.T) {
 			Port:            8080,
 			EnableWebAdmin:  true,
 			EnableWebClient: true,
+			EnableRESTAPI:   true,
 			RenderOpenAPI:   true,
 		},
 	}
@@ -1648,6 +1653,7 @@ func TestProxyHeaders(t *testing.T) {
 		Port:                8080,
 		EnableWebAdmin:      true,
 		EnableWebClient:     false,
+		EnableRESTAPI:       true,
 		ProxyAllowed:        []string{testIP, "10.8.0.0/30"},
 		ClientIPProxyHeader: "x-forwarded-for",
 	}
@@ -1739,6 +1745,7 @@ func TestRecoverer(t *testing.T) {
 		Port:            8080,
 		EnableWebAdmin:  true,
 		EnableWebClient: false,
+		EnableRESTAPI:   true,
 	}
 	server := newHttpdServer(b, "../static", "", CorsConfig{}, "../openapi")
 	server.initializeRouter()
@@ -1859,6 +1866,7 @@ func TestWebAdminRedirect(t *testing.T) {
 		Port:            8080,
 		EnableWebAdmin:  true,
 		EnableWebClient: false,
+		EnableRESTAPI:   true,
 	}
 	server := newHttpdServer(b, "../static", "", CorsConfig{}, "../openapi")
 	server.initializeRouter()
@@ -2323,16 +2331,19 @@ func TestLoginLinks(t *testing.T) {
 	b := Binding{
 		EnableWebAdmin:  true,
 		EnableWebClient: false,
+		EnableRESTAPI:   true,
 	}
 	assert.False(t, b.showClientLoginURL())
 	b = Binding{
 		EnableWebAdmin:  false,
 		EnableWebClient: true,
+		EnableRESTAPI:   true,
 	}
 	assert.False(t, b.showAdminLoginURL())
 	b = Binding{
 		EnableWebAdmin:  true,
 		EnableWebClient: true,
+		EnableRESTAPI:   true,
 	}
 	assert.True(t, b.showAdminLoginURL())
 	assert.True(t, b.showClientLoginURL())
@@ -2489,6 +2500,7 @@ func TestSecureMiddlewareIntegration(t *testing.T) {
 		},
 		enableWebAdmin:  true,
 		enableWebClient: true,
+		enableRESTAPI:   true,
 	}
 	server.binding.Security.updateProxyHeaders()
 	err := server.binding.parseAllowedProxy()
@@ -2560,6 +2572,27 @@ func TestGetCompressedFileName(t *testing.T) {
 	require.Equal(t, fmt.Sprintf("%s-file1.zip", username), res)
 }
 
+func TestRESTAPIDisabled(t *testing.T) {
+	server := httpdServer{
+		enableWebAdmin:  true,
+		enableWebClient: true,
+		enableRESTAPI:   false,
+	}
+	server.initializeRouter()
+	assert.False(t, server.enableRESTAPI)
+	rr := httptest.NewRecorder()
+	r, err := http.NewRequest(http.MethodGet, healthzPath, nil)
+	assert.NoError(t, err)
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	rr = httptest.NewRecorder()
+	r, err = http.NewRequest(http.MethodGet, tokenPath, nil)
+	assert.NoError(t, err)
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusNotFound, rr.Code)
+}
+
 func TestWebAdminSetupWithInstallCode(t *testing.T) {
 	installationCode = "1234"
 	// delete all the admins
@@ -2580,6 +2613,7 @@ func TestWebAdminSetupWithInstallCode(t *testing.T) {
 	server := httpdServer{
 		enableWebAdmin:  true,
 		enableWebClient: true,
+		enableRESTAPI:   true,
 	}
 	server.initializeRouter()
 

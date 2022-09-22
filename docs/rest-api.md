@@ -20,6 +20,8 @@ If you define multiple bindings, each binding will sign JWT tokens with a differ
 
 If, instead, you want to use a persistent signing key for JWT tokens, you can define a signing passphrase via configuration file or environment variable.
 
+REST API can be disabled within the `httpd` configuration via the `enable_rest_api` key.
+
 You can create other administrator and assign them the following permissions:
 
 - add users
@@ -35,8 +37,11 @@ You can create other administrator and assign them the following permissions:
 - manage API keys
 - manage system
 - manage admins
+- manage groups
 - manage data retention
+- manage metadata
 - view events
+- manage event rules
 
 You can also restrict administrator access based on the source IP address. If you are running SFTPGo behind a reverse proxy you need to allow both the proxy IP address and the real client IP.
 

@@ -100,6 +100,7 @@ var (
 		Port:                  8080,
 		EnableWebAdmin:        true,
 		EnableWebClient:       true,
+		EnableRESTAPI:         true,
 		EnabledLoginMethods:   0,
 		EnableHTTPS:           false,
 		CertificateFile:       "",
@@ -1682,6 +1683,12 @@ func getHTTPDBindingFromEnv(idx int) { //nolint:gocyclo
 	enableWebClient, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__ENABLE_WEB_CLIENT", idx))
 	if ok {
 		binding.EnableWebClient = enableWebClient
+		isSet = true
+	}
+
+	enableRESTAPI, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__ENABLE_REST_API", idx))
+	if ok {
+		binding.EnableRESTAPI = enableRESTAPI
 		isSet = true
 	}
 

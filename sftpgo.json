@@ -245,6 +245,7 @@
         "address": "",
         "enable_web_admin": true,
         "enable_web_client": true,
+        "enable_rest_api": true,
         "enabled_login_methods": 0,
         "enable_https": false,
         "certificate_file": "",
