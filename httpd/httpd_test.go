@@ -180,6 +180,7 @@ const (
 	webClientForgotPwdPath          = "/web/client/forgot-password"
 	webClientResetPwdPath           = "/web/client/reset-password"
 	webClientViewPDFPath            = "/web/client/viewpdf"
+	webClientGetPDFPath             = "/web/client/getpdf"
 	httpBaseURL                     = "http://127.0.0.1:8081"
 	defaultRemoteAddr               = "127.0.0.1:1234"
 	sftpServerAddr                  = "127.0.0.1:8022"
@@ -9706,6 +9707,13 @@ func TestMaxSessions(t *testing.T) {
 	checkResponseCode(t, http.StatusTooManyRequests, rr)
 	assert.Contains(t, rr.Body.String(), "too many open sessions")
 
+	req, err = http.NewRequest(http.MethodGet, webClientGetPDFPath+"?path=file", nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusTooManyRequests, rr)
+	assert.Contains(t, rr.Body.String(), "too many open sessions")
+
 	// test reset password
 	smtpCfg := smtp.Config{
 		Host:          "127.0.0.1",
@@ -11740,16 +11748,105 @@ func TestWebClientViewPDF(t *testing.T) {
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
 
+	req, err = http.NewRequest(http.MethodGet, webClientGetPDFPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
 	req, err = http.NewRequest(http.MethodGet, webClientViewPDFPath+"?path=test.pdf", nil)
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 
+	req, err = http.NewRequest(http.MethodGet, webClientGetPDFPath+"?path=test.pdf", nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "Unable to get file")
+
+	req, err = http.NewRequest(http.MethodGet, webClientGetPDFPath+"?path=%2F", nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "Invalid file")
+
+	err = os.WriteFile(filepath.Join(user.GetHomeDir(), "test.pdf"), []byte("some text data"), 0666)
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodGet, webClientGetPDFPath+"?path=%2Ftest.pdf", nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "Invalid PDF file")
+
+	err = createTestFile(filepath.Join(user.GetHomeDir(), "test.pdf"), 1024)
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodGet, webClientGetPDFPath+"?path=%2Ftest.pdf", nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "does not look like a PDF")
+
+	fakePDF := []byte(`%PDF-1.6`)
+	for i := 0; i < 128; i++ {
+		fakePDF = append(fakePDF, []byte(fmt.Sprintf("%d", i))...)
+	}
+	err = os.WriteFile(filepath.Join(user.GetHomeDir(), "test.pdf"), fakePDF, 0666)
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodGet, webClientGetPDFPath+"?path=%2Ftest.pdf", nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	user.Filters.FilePatterns = []sdk.PatternsFilter{
+		{
+			Path:           "/",
+			DeniedPatterns: []string{"*.pdf"},
+		},
+	}
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodGet, webClientGetPDFPath+"?path=%2Ftest.pdf", nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "Unable to get a reader for the file")
+
+	user.Filters.FilePatterns = []sdk.PatternsFilter{
+		{
+			Path:           "/",
+			DeniedPatterns: []string{"*.txt"},
+		},
+	}
+	user.Filters.DeniedProtocols = []string{common.ProtocolHTTP}
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodGet, webClientGetPDFPath+"?path=%2Ftest.pdf", nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodGet, webClientGetPDFPath+"?path=%2Ftest.pdf", nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
 }
 
 func TestWebEditFile(t *testing.T) {

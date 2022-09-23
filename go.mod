@@ -3,24 +3,24 @@ module github.com/drakkan/sftpgo/v2
 go 1.18
 
 require (
-	cloud.google.com/go/storage v1.26.0
+	cloud.google.com/go/storage v1.27.0
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.1.3
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v0.4.1
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/alexedwards/argon2id v0.0.0-20211130144151-3585854a6387
-	github.com/aws/aws-sdk-go-v2 v1.16.15
-	github.com/aws/aws-sdk-go-v2/config v1.17.6
-	github.com/aws/aws-sdk-go-v2/credentials v1.12.19
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.16
-	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.32
-	github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.13.18
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.27.10
-	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.16.0
-	github.com/aws/aws-sdk-go-v2/service/sts v1.16.18
+	github.com/aws/aws-sdk-go-v2 v1.16.16
+	github.com/aws/aws-sdk-go-v2/config v1.17.7
+	github.com/aws/aws-sdk-go-v2/credentials v1.12.20
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.17
+	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.33
+	github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.13.19
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.27.11
+	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.16.1
+	github.com/aws/aws-sdk-go-v2/service/sts v1.16.19
 	github.com/cockroachdb/cockroach-go/v2 v2.2.16
 	github.com/coreos/go-oidc/v3 v3.4.0
 	github.com/eikenb/pipeat v0.0.0-20210730190139-06b3e6902001
-	github.com/fclairamb/ftpserverlib v0.19.1
+	github.com/fclairamb/ftpserverlib v0.20.0
 	github.com/fclairamb/go-log v0.4.1
 	github.com/go-acme/lego/v4 v4.8.0
 	github.com/go-chi/chi/v5 v5.0.8-0.20220512131524-9e71a0d4b3d6
@@ -31,7 +31,7 @@ require (
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/google/uuid v1.3.0
 	github.com/grandcat/zeroconf v1.0.0
-	github.com/hashicorp/go-hclog v1.3.0
+	github.com/hashicorp/go-hclog v1.3.1
 	github.com/hashicorp/go-plugin v1.4.5
 	github.com/hashicorp/go-retryablehttp v0.7.1
 	github.com/jlaffaye/ftp v0.0.0-20201112195030-9aae4d151126
@@ -68,9 +68,9 @@ require (
 	golang.org/x/crypto v0.0.0-20220829220503-c86fa9a7ed90
 	golang.org/x/net v0.0.0-20220909164309-bea034e7d591
 	golang.org/x/oauth2 v0.0.0-20220909003341-f21342109be1
-	golang.org/x/sys v0.0.0-20220915200043-7b5979e65e41
-	golang.org/x/time v0.0.0-20220722155302-e5dcc9cfc0b9
-	google.golang.org/api v0.96.0
+	golang.org/x/sys v0.0.0-20220919091848-fb04ddd9f9c8
+	golang.org/x/time v0.0.0-20220922220347-f3bd1da661af
+	google.golang.org/api v0.97.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
 
@@ -81,16 +81,16 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.0.1 // indirect
 	github.com/ajg/form v1.5.1 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.4.8 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.22 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.16 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/ini v1.3.23 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/v4a v1.0.13 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.23 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.17 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/ini v1.3.24 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/v4a v1.0.14 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.9.9 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.1.17 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.16 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.13.16 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.11.22 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.13.4 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.1.18 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.17 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.13.17 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.11.23 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.13.5 // indirect
 	github.com/aws/smithy-go v1.13.3 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/boombuler/barcode v1.0.1 // indirect
@@ -156,7 +156,7 @@ require (
 	golang.org/x/tools v0.1.12 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20220916172020-2692e8806bfa // indirect
+	google.golang.org/genproto v0.0.0-20220921223823-23cae91e6737 // indirect
 	google.golang.org/grpc v1.49.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
@@ -166,7 +166,6 @@ require (
 )
 
 replace (
-	github.com/fclairamb/ftpserverlib => github.com/drakkan/ftpserverlib v0.0.0-20220917142547-394d5e183aeb
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
 	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20220831070616-b69bc2ec2993
 	golang.org/x/net => github.com/drakkan/net v0.0.0-20220916171046-9879e3f5b22a

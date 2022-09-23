@@ -2154,6 +2154,13 @@ func TestWebUserInvalidClaims(t *testing.T) {
 	server.handleClientGetShares(rr, req)
 	assert.Equal(t, http.StatusForbidden, rr.Code)
 	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	req, _ = http.NewRequest(http.MethodGet, webClientViewPDFPath, nil)
+	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", token["access_token"]))
+	server.handleClientGetPDF(rr, req)
+	assert.Equal(t, http.StatusForbidden, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
 }
 
 func TestInvalidClaims(t *testing.T) {
