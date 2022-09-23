@@ -74,7 +74,6 @@ type Config struct {
 	// Headers defines a list of http headers to add to each request
 	Headers         []Header `json:"headers" mapstructure:"headers"`
 	customTransport *http.Transport
-	tlsConfig       *tls.Config
 }
 
 const logSender = "httpclient"
@@ -83,6 +82,9 @@ var httpConfig Config
 
 // Initialize configures HTTP clients
 func (c *Config) Initialize(configDir string) error {
+	if c.Timeout <= 0 {
+		return fmt.Errorf("invalid timeout: %v", c.Timeout)
+	}
 	rootCAs, err := c.loadCACerts(configDir)
 	if err != nil {
 		return err
@@ -98,7 +100,6 @@ func (c *Config) Initialize(configDir string) error {
 	}
 	customTransport.TLSClientConfig.InsecureSkipVerify = c.SkipTLSVerify
 	c.customTransport = customTransport
-	c.tlsConfig = customTransport.TLSClientConfig
 
 	err = c.loadCertificates(configDir)
 	if err != nil {
@@ -170,13 +171,18 @@ func (c *Config) loadCertificates(configDir string) error {
 		if err != nil {
 			return fmt.Errorf("unable to load key pair %#v, %#v: %v", cert, key, err)
 		}
+		x509Cert, err := x509.ParseCertificate(tlsCert.Certificate[0])
+		if err == nil {
+			logger.Debug(logSender, "", "adding leaf certificate for key pair %q, %q", cert, key)
+			tlsCert.Leaf = x509Cert
+		}
 		logger.Debug(logSender, "", "client certificate %#v and key %#v successfully loaded", cert, key)
-		c.tlsConfig.Certificates = append(c.tlsConfig.Certificates, tlsCert)
+		c.customTransport.TLSClientConfig.Certificates = append(c.customTransport.TLSClientConfig.Certificates, tlsCert)
 	}
 	return nil
 }
 
-// GetHTTPClient returns an HTTP client with the configured parameters
+// GetHTTPClient returns a new HTTP client with the configured parameters
 func GetHTTPClient() *http.Client {
 	return &http.Client{
 		Timeout:   time.Duration(httpConfig.Timeout * float64(time.Second)),
@@ -189,7 +195,7 @@ func GetHTTPClient() *http.Client {
 func GetRetraybleHTTPClient() *retryablehttp.Client {
 	client := retryablehttp.NewClient()
 	client.HTTPClient.Timeout = time.Duration(httpConfig.Timeout * float64(time.Second))
-	client.HTTPClient.Transport.(*http.Transport).TLSClientConfig = httpConfig.tlsConfig
+	client.HTTPClient.Transport.(*http.Transport).TLSClientConfig = httpConfig.customTransport.TLSClientConfig
 	client.Logger = &logger.LeveledLogger{Sender: "RetryableHTTPClient"}
 	client.RetryWaitMin = time.Duration(httpConfig.RetryWaitMin) * time.Second
 	client.RetryWaitMax = time.Duration(httpConfig.RetryWaitMax) * time.Second

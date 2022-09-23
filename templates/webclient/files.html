@@ -1039,9 +1039,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                                     case "bmp":
                                     case "svg":
                                     case "ico":
-                                        var view_url = row['url']+"&inline=1";
                                         var title = escapeHTMLForceSafe(row["name"])
-                                        return `<a href="${view_url}" data-lightbox="image-gallery" data-title="${title}"><i class="fas fa-eye"></i></a>`;
+                                        return `<a href="${row['url']}" data-lightbox="image-gallery" data-title="${title}"><i class="fas fa-eye"></i></a>`;
                                     case "mp4":
                                     case "mov":
                                         var name = b64EncodeUnicode(row["name"]);
