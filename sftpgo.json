@@ -236,6 +236,11 @@
     "create_default_admin": false,
     "naming_rules": 1,
     "is_shared": 0,
+    "node": {
+      "host": "",
+      "port": 0,
+      "proto": "http"
+    },
     "backups_path": "backups"
   },
   "httpd": {

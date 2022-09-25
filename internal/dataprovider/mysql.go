@@ -56,6 +56,7 @@ const (
 		"DROP TABLE IF EXISTS `{{events_actions}}` CASCADE;" +
 		"DROP TABLE IF EXISTS `{{events_rules}}` CASCADE;" +
 		"DROP TABLE IF EXISTS `{{tasks}}` CASCADE;" +
+		"DROP TABLE IF EXISTS `{{nodes}}` CASCADE;" +
 		"DROP TABLE IF EXISTS `{{schema_version}}` CASCADE;"
 	mysqlInitialSQL = "CREATE TABLE `{{schema_version}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `version` integer NOT NULL);" +
 		"CREATE TABLE `{{admins}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `username` varchar(255) NOT NULL UNIQUE, " +
@@ -182,6 +183,10 @@ const (
 		"FOREIGN KEY (`group_id`) REFERENCES `{{groups}}` (`id`) ON DELETE CASCADE;"
 	mysqlV22DownSQL = "ALTER TABLE `{{admins_groups_mapping}}` DROP INDEX `{{prefix}}unique_admin_group_mapping`;" +
 		"DROP TABLE `{{admins_groups_mapping}}` CASCADE;"
+	mysqlV23SQL = "CREATE TABLE `{{nodes}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, " +
+		"`name` varchar(255) NOT NULL UNIQUE, `data` longtext NOT NULL, `created_at` bigint NOT NULL, " +
+		"`updated_at` bigint NOT NULL);"
+	mysqlV23DownSQL = "DROP TABLE `{{nodes}}` CASCADE;"
 )
 
 // MySQLProvider defines the auth provider for MySQL/MariaDB database
@@ -644,6 +649,26 @@ func (p *MySQLProvider) updateTaskTimestamp(name string) error {
 	return sqlCommonUpdateTaskTimestamp(name, p.dbHandle)
 }
 
+func (p *MySQLProvider) addNode() error {
+	return sqlCommonAddNode(p.dbHandle)
+}
+
+func (p *MySQLProvider) getNodeByName(name string) (Node, error) {
+	return sqlCommonGetNodeByName(name, p.dbHandle)
+}
+
+func (p *MySQLProvider) getNodes() ([]Node, error) {
+	return sqlCommonGetNodes(p.dbHandle)
+}
+
+func (p *MySQLProvider) updateNodeTimestamp() error {
+	return sqlCommonUpdateNodeTimestamp(p.dbHandle)
+}
+
+func (p *MySQLProvider) cleanupNodes() error {
+	return sqlCommonCleanupNodes(p.dbHandle)
+}
+
 func (p *MySQLProvider) setFirstDownloadTimestamp(username string) error {
 	return sqlCommonSetFirstDownloadTimestamp(username, p.dbHandle)
 }
@@ -697,6 +722,8 @@ func (p *MySQLProvider) migrateDatabase() error { //nolint:dupl
 		return updateMySQLDatabaseFromV20(p.dbHandle)
 	case version == 21:
 		return updateMySQLDatabaseFromV21(p.dbHandle)
+	case version == 22:
+		return updateMySQLDatabaseFromV22(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %v is newer than the supported one: %v", version,
@@ -725,6 +752,8 @@ func (p *MySQLProvider) revertDatabase(targetVersion int) error {
 		return downgradeMySQLDatabaseFromV21(p.dbHandle)
 	case 22:
 		return downgradeMySQLDatabaseFromV22(p.dbHandle)
+	case 23:
+		return downgradeMySQLDatabaseFromV23(p.dbHandle)
 	default:
 		return fmt.Errorf("database schema version not handled: %v", dbVersion.Version)
 	}
@@ -750,7 +779,14 @@ func updateMySQLDatabaseFromV20(dbHandle *sql.DB) error {
 }
 
 func updateMySQLDatabaseFromV21(dbHandle *sql.DB) error {
-	return updateMySQLDatabaseFrom21To22(dbHandle)
+	if err := updateMySQLDatabaseFrom21To22(dbHandle); err != nil {
+		return err
+	}
+	return updateMySQLDatabaseFromV22(dbHandle)
+}
+
+func updateMySQLDatabaseFromV22(dbHandle *sql.DB) error {
+	return updateMySQLDatabaseFrom22To23(dbHandle)
 }
 
 func downgradeMySQLDatabaseFromV20(dbHandle *sql.DB) error {
@@ -769,6 +805,13 @@ func downgradeMySQLDatabaseFromV22(dbHandle *sql.DB) error {
 		return err
 	}
 	return downgradeMySQLDatabaseFromV21(dbHandle)
+}
+
+func downgradeMySQLDatabaseFromV23(dbHandle *sql.DB) error {
+	if err := downgradeMySQLDatabaseFrom23To22(dbHandle); err != nil {
+		return err
+	}
+	return downgradeMySQLDatabaseFromV22(dbHandle)
 }
 
 func updateMySQLDatabaseFrom19To20(dbHandle *sql.DB) error {
@@ -800,6 +843,13 @@ func updateMySQLDatabaseFrom21To22(dbHandle *sql.DB) error {
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 22, true)
 }
 
+func updateMySQLDatabaseFrom22To23(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database schema version: 22 -> 23")
+	providerLog(logger.LevelInfo, "updating database schema version: 22 -> 23")
+	sql := strings.ReplaceAll(mysqlV23SQL, "{{nodes}}", sqlTableNodes)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 23, true)
+}
+
 func downgradeMySQLDatabaseFrom20To19(dbHandle *sql.DB) error {
 	logger.InfoToConsole("downgrading database schema version: 20 -> 19")
 	providerLog(logger.LevelInfo, "downgrading database schema version: 20 -> 19")
@@ -824,4 +874,11 @@ func downgradeMySQLDatabaseFrom22To21(dbHandle *sql.DB) error {
 	sql := strings.ReplaceAll(mysqlV22DownSQL, "{{admins_groups_mapping}}", sqlTableAdminsGroupsMapping)
 	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 21, false)
+}
+
+func downgradeMySQLDatabaseFrom23To22(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database schema version: 23 -> 22")
+	providerLog(logger.LevelInfo, "downgrading database schema version: 23 -> 22")
+	sql := strings.ReplaceAll(mysqlV23DownSQL, "{{nodes}}", sqlTableNodes)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 22, false)
 }

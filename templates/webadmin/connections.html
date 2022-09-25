@@ -40,6 +40,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 <thead>
                     <tr>
                         <th>ID</th>
+                        <th>Node</th>
                         <th>Username</th>
                         <th>Time</th>
                         <th>Info</th>
@@ -50,6 +51,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                     {{range .Connections}}
                     <tr>
                         <td>{{.ConnectionID}}</td>
+                        <td>{{.Node}}</td>
                         <td>{{.Username}}</td>
                         <td>{{.GetConnectionDuration}}</td>
                         <td>{{.GetConnectionInfo}}</td>
@@ -105,8 +107,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     function disconnectAction() {
         var table = $('#dataTable').DataTable();
         table.button('disconnect:name').enable(false);
-        var connectionID = table.row({ selected: true }).data()[0];
-        var path = '{{.ConnectionsURL}}' + "/" + connectionID;
+        var selectedData = table.row({ selected: true }).data()
+        var connectionID = selectedData[0];
+        var nodeID = selectedData[1];
+        var path = '{{.ConnectionsURL}}' + "/" + fixedEncodeURIComponent(connectionID)+"?node="+encodeURIComponent(nodeID);
         $('#disconnectModal').modal('hide');
         $.ajax({
             url: path,
@@ -174,13 +178,13 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             "lengthChange": true,
             "columnDefs": [
                 {
-                    "targets": [0],
+                    "targets": [0, 1],
                     "visible": false,
                     "searchable": false,
                     "className": "noVis"
                 },
                 {
-                    "targets": [1],
+                    "targets": [2],
                     "className": "noVis"
                 }
             ],
@@ -190,7 +194,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             "language": {
                 "emptyTable": "No user connected"
             },
-            "order": [[1, 'asc']]
+            "order": [[2, 'asc']]
         });
 
         new $.fn.dataTable.FixedHeader( table );

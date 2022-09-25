@@ -950,6 +950,36 @@ func getDeleteTaskQuery() string {
 	return fmt.Sprintf(`DELETE FROM %s WHERE name = %s`, sqlTableTasks, sqlPlaceholders[0])
 }
 
+func getAddNodeQuery() string {
+	if config.Driver == MySQLDataProviderName {
+		return fmt.Sprintf("INSERT INTO %s (`name`,`data`,created_at,`updated_at`) VALUES (%s,%s,%s,%s) ON DUPLICATE KEY UPDATE "+
+			"`data`=VALUES(`data`), `created_at`=VALUES(`created_at`), `updated_at`=VALUES(`updated_at`)",
+			sqlTableNodes, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3])
+	}
+	return fmt.Sprintf(`INSERT INTO %s (name,data,created_at,updated_at) VALUES (%s,%s,%s,%s) ON CONFLICT(name)
+		DO UPDATE SET data=EXCLUDED.data, created_at=EXCLUDED.created_at, updated_at=EXCLUDED.updated_at`,
+		sqlTableNodes, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3])
+}
+
+func getUpdateNodeTimestampQuery() string {
+	return fmt.Sprintf(`UPDATE %s SET updated_at=%s WHERE name = %s`,
+		sqlTableNodes, sqlPlaceholders[0], sqlPlaceholders[1])
+}
+
+func getNodeByNameQuery() string {
+	return fmt.Sprintf(`SELECT name,data,created_at,updated_at FROM %s WHERE name = %s AND updated_at > %s`,
+		sqlTableNodes, sqlPlaceholders[0], sqlPlaceholders[1])
+}
+
+func getNodesQuery() string {
+	return fmt.Sprintf(`SELECT name,data,created_at,updated_at FROM %s WHERE name != %s AND updated_at > %s`,
+		sqlTableNodes, sqlPlaceholders[0], sqlPlaceholders[1])
+}
+
+func getCleanupNodesQuery() string {
+	return fmt.Sprintf(`DELETE FROM %s WHERE updated_at < %s`, sqlTableNodes, sqlPlaceholders[0])
+}
+
 func getDatabaseVersionQuery() string {
 	return fmt.Sprintf("SELECT version from %s LIMIT 1", sqlTableSchemaVersion)
 }

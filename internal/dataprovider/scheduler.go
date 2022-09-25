@@ -46,7 +46,7 @@ func startScheduler() error {
 	stopScheduler()
 
 	scheduler = cron.New(cron.WithLocation(time.UTC))
-	_, err := scheduler.AddFunc("@every 60s", checkDataprovider)
+	_, err := scheduler.AddFunc("@every 55s", checkDataprovider)
 	if err != nil {
 		return fmt.Errorf("unable to schedule dataprovider availability check: %w", err)
 	}
@@ -56,6 +56,19 @@ func startScheduler() error {
 	}
 	if fnReloadRules != nil {
 		fnReloadRules()
+	}
+	if currentNode != nil {
+		_, err = scheduler.AddFunc("@every 30m", func() {
+			err := provider.cleanupNodes()
+			if err != nil {
+				providerLog(logger.LevelError, "unable to cleanup nodes: %v", err)
+			} else {
+				providerLog(logger.LevelDebug, "cleanup nodes ok")
+			}
+		})
+	}
+	if err != nil {
+		return fmt.Errorf("unable to schedule nodes cleanup: %w", err)
 	}
 	scheduler.Start()
 	return nil
@@ -71,6 +84,13 @@ func addScheduledCacheUpdates() error {
 }
 
 func checkDataprovider() {
+	if currentNode != nil {
+		if err := provider.updateNodeTimestamp(); err != nil {
+			providerLog(logger.LevelError, "unable to update node timestamp: %v", err)
+		} else {
+			providerLog(logger.LevelDebug, "node timestamp updated")
+		}
+	}
 	err := provider.checkAvailability()
 	if err != nil {
 		providerLog(logger.LevelError, "check availability error: %v", err)

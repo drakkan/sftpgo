@@ -28,6 +28,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -152,6 +153,20 @@ func getBoolQueryParam(r *http.Request, param string) bool {
 	return r.URL.Query().Get(param) == "true"
 }
 
+func getActiveConnections(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+		return
+	}
+	stats := common.Connections.GetStats()
+	if claims.NodeID == "" {
+		stats = append(stats, getNodesConnections()...)
+	}
+	render.JSON(w, r, stats)
+}
+
 func handleCloseConnection(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	connectionID := getURLParam(r, "connectionID")
@@ -159,11 +174,61 @@ func handleCloseConnection(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, nil, "connectionID is mandatory", http.StatusBadRequest)
 		return
 	}
-	if common.Connections.Close(connectionID) {
-		sendAPIResponse(w, r, nil, "Connection closed", http.StatusOK)
-	} else {
-		sendAPIResponse(w, r, nil, "Not Found", http.StatusNotFound)
+	node := r.URL.Query().Get("node")
+	if node == "" || node == dataprovider.GetNodeName() {
+		if common.Connections.Close(connectionID) {
+			sendAPIResponse(w, r, nil, "Connection closed", http.StatusOK)
+		} else {
+			sendAPIResponse(w, r, nil, "Not Found", http.StatusNotFound)
+		}
+		return
 	}
+	n, err := dataprovider.GetNodeByName(node)
+	if err != nil {
+		logger.Warn(logSender, "", "unable to get node with name %q: %v", node, err)
+		status := getRespStatus(err)
+		sendAPIResponse(w, r, nil, http.StatusText(status), status)
+		return
+	}
+	if err := n.SendDeleteRequest(fmt.Sprintf("%s/%s", activeConnectionsPath, connectionID)); err != nil {
+		logger.Warn(logSender, "", "unable to delete connection id %q from node %q: %v", connectionID, n.Name, err)
+		sendAPIResponse(w, r, nil, "Not Found", http.StatusNotFound)
+		return
+	}
+	sendAPIResponse(w, r, nil, "Connection closed", http.StatusOK)
+}
+
+// getNodesConnections returns the active connections from other nodes.
+// Errors are silently ignored
+func getNodesConnections() []common.ConnectionStatus {
+	nodes, err := dataprovider.GetNodes()
+	if err != nil || len(nodes) == 0 {
+		return nil
+	}
+	var results []common.ConnectionStatus
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
+	for _, n := range nodes {
+		wg.Add(1)
+
+		go func(node dataprovider.Node) {
+			defer wg.Done()
+
+			var stats []common.ConnectionStatus
+			if err := node.SendGetRequest(activeConnectionsPath, &stats); err != nil {
+				logger.Warn(logSender, "", "unable to get connections from node %s: %v", node.Name, err)
+				return
+			}
+
+			mu.Lock()
+			results = append(results, stats...)
+			mu.Unlock()
+		}(n)
+	}
+	wg.Wait()
+
+	return results
 }
 
 func getSearchFilters(w http.ResponseWriter, r *http.Request) (int, int, string, error) {

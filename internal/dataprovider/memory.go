@@ -2286,19 +2286,39 @@ func (p *MemoryProvider) deleteEventRule(rule EventRule, softDelete bool) error 
 	return nil
 }
 
-func (p *MemoryProvider) getTaskByName(name string) (Task, error) {
+func (*MemoryProvider) getTaskByName(name string) (Task, error) {
 	return Task{}, ErrNotImplemented
 }
 
-func (p *MemoryProvider) addTask(name string) error {
+func (*MemoryProvider) addTask(name string) error {
 	return ErrNotImplemented
 }
 
-func (p *MemoryProvider) updateTask(name string, version int64) error {
+func (*MemoryProvider) updateTask(name string, version int64) error {
 	return ErrNotImplemented
 }
 
-func (p *MemoryProvider) updateTaskTimestamp(name string) error {
+func (*MemoryProvider) updateTaskTimestamp(name string) error {
+	return ErrNotImplemented
+}
+
+func (*MemoryProvider) addNode() error {
+	return ErrNotImplemented
+}
+
+func (*MemoryProvider) getNodeByName(name string) (Node, error) {
+	return Node{}, ErrNotImplemented
+}
+
+func (*MemoryProvider) getNodes() ([]Node, error) {
+	return nil, ErrNotImplemented
+}
+
+func (*MemoryProvider) updateNodeTimestamp() error {
+	return ErrNotImplemented
+}
+
+func (*MemoryProvider) cleanupNodes() error {
 	return ErrNotImplemented
 }
 

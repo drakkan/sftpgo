@@ -1195,6 +1195,7 @@ func (s *httpdServer) initializeRouter() {
 		s.router.Post(userPath+"/{username}/reset-password", resetUserPassword)
 
 		s.router.Group(func(router chi.Router) {
+			router.Use(checkNodeToken(s.tokenAuth))
 			router.Use(checkAPIKeyAuth(s.tokenAuth, dataprovider.APIKeyScopeAdmin))
 			router.Use(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromHeader))
 			router.Use(jwtAuthenticatorAPI)
@@ -1222,12 +1223,7 @@ func (s *httpdServer) initializeRouter() {
 					render.JSON(w, r, getServicesStatus())
 				})
 
-			router.With(s.checkPerm(dataprovider.PermAdminViewConnections)).
-				Get(activeConnectionsPath, func(w http.ResponseWriter, r *http.Request) {
-					r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-					render.JSON(w, r, common.Connections.GetStats())
-				})
-
+			router.With(s.checkPerm(dataprovider.PermAdminViewConnections)).Get(activeConnectionsPath, getActiveConnections)
 			router.With(s.checkPerm(dataprovider.PermAdminCloseConnections)).
 				Delete(activeConnectionsPath+"/{connectionID}", handleCloseConnection)
 			router.With(s.checkPerm(dataprovider.PermAdminQuotaScans)).Get(quotasBasePath+"/users/scans", getUsersQuotaScans)

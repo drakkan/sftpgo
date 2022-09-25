@@ -309,6 +309,41 @@ func verifyCSRFHeader(next http.Handler) http.Handler {
 	})
 }
 
+func checkNodeToken(tokenAuth *jwtauth.JWTAuth) func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			token := r.Header.Get(dataprovider.NodeTokenHeader)
+			if token == "" {
+				next.ServeHTTP(w, r)
+				return
+			}
+			if len(token) > 7 && strings.ToUpper(token[0:6]) == "BEARER" {
+				token = token[7:]
+			}
+			if err := dataprovider.AuthenticateNodeToken(token); err != nil {
+				logger.Debug(logSender, "", "unable to authenticate node token %q: %v", token, err)
+				sendAPIResponse(w, r, fmt.Errorf("the provided token cannot be authenticated"), "", http.StatusUnauthorized)
+				return
+			}
+
+			c := jwtTokenClaims{
+				Username:    fmt.Sprintf("node %s", dataprovider.GetNodeName()),
+				Permissions: []string{dataprovider.PermAdminViewConnections, dataprovider.PermAdminCloseConnections},
+				NodeID:      dataprovider.GetNodeName(),
+			}
+
+			resp, err := c.createTokenResponse(tokenAuth, tokenAudienceAPI, util.GetIPFromRemoteAddress(r.RemoteAddr))
+			if err != nil {
+				sendAPIResponse(w, r, err, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+				return
+			}
+			r.Header.Set("Authorization", fmt.Sprintf("Bearer %v", resp["access_token"]))
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 func checkAPIKeyAuth(tokenAuth *jwtauth.JWTAuth, scope dataprovider.APIKeyScope) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -337,7 +372,7 @@ func checkAPIKeyAuth(tokenAuth *jwtauth.JWTAuth, scope dataprovider.APIKeyScope)
 				return
 			}
 			if err := k.Authenticate(key); err != nil {
-				logger.Debug(logSender, "unable to authenticate api key %#v: %v", apiKey, err)
+				logger.Debug(logSender, "", "unable to authenticate api key %#v: %v", apiKey, err)
 				sendAPIResponse(w, r, fmt.Errorf("the provided api key cannot be authenticated"), "", http.StatusUnauthorized)
 				return
 			}

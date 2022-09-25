@@ -10342,6 +10342,15 @@ func TestDeleteActiveConnectionMock(t *testing.T) {
 	setBearerForReq(req, token)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
+	req.Header.Set(dataprovider.NodeTokenHeader, "Bearer abc")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusUnauthorized, rr)
+	assert.Contains(t, rr.Body.String(), "the provided token cannot be authenticated")
+	req, err = http.NewRequest(http.MethodDelete, activeConnectionsPath+"/connectionID?node=node1", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
 }
 
 func TestNotFoundMock(t *testing.T) {

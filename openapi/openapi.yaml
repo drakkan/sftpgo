@@ -5459,6 +5459,9 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Transfer'
+        node:
+          type: string
+          description: 'Node identifier, omitted for single node installations'
     FolderRetention:
       type: object
       properties:

@@ -552,6 +552,11 @@ func TestInvalidToken(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "Invalid token claims")
 
 	rr = httptest.NewRecorder()
+	getActiveConnections(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
 	server.handleWebRestore(rr, req)
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), "invalid token claims")

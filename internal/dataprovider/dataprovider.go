@@ -187,6 +187,7 @@ var (
 	sqlTableEventsRules          string
 	sqlTableRulesActionsMapping  string
 	sqlTableTasks                string
+	sqlTableNodes                string
 	sqlTableSchemaVersion        string
 	argon2Params                 *argon2id.Params
 	lastLoginMinDelay            = 10 * time.Minute
@@ -216,6 +217,7 @@ func initSQLTables() {
 	sqlTableEventsRules = "events_rules"
 	sqlTableRulesActionsMapping = "rules_actions_mapping"
 	sqlTableTasks = "tasks"
+	sqlTableNodes = "nodes"
 	sqlTableSchemaVersion = "schema_version"
 }
 
@@ -311,7 +313,7 @@ type ProviderStatus struct {
 	Error    string `json:"error"`
 }
 
-// Config provider configuration
+// Config defines the provider configuration
 type Config struct {
 	// Driver name, must be one of the SupportedProviders
 	Driver string `json:"driver" mapstructure:"driver"`
@@ -460,6 +462,9 @@ type Config struct {
 	// For shared data providers, active transfers are persisted in the database and thus
 	// quota checks between ongoing transfers will work cross multiple instances
 	IsShared int `json:"is_shared" mapstructure:"is_shared"`
+	// Node defines the configuration for this cluster node.
+	// Ignored if the provider is not shared/shareable
+	Node NodeConfig `json:"node" mapstructure:"node"`
 	// Path to the backup directory. This can be an absolute path or a path relative to the config dir
 	BackupsPath string `json:"backups_path" mapstructure:"backups_path"`
 }
@@ -778,6 +783,11 @@ type Provider interface {
 	updateTaskTimestamp(name string) error
 	setFirstDownloadTimestamp(username string) error
 	setFirstUploadTimestamp(username string) error
+	addNode() error
+	getNodeByName(name string) (Node, error)
+	getNodes() ([]Node, error)
+	updateNodeTimestamp() error
+	cleanupNodes() error
 	checkAvailability() error
 	close() error
 	reloadConfig() error
@@ -801,7 +811,6 @@ func checkSharedMode() {
 // Initialize the data provider.
 // An error is returned if the configured driver is invalid or if the data provider cannot be initialized
 func Initialize(cnf Config, basePath string, checkAdmins bool) error {
-	var err error
 	config = cnf
 	checkSharedMode()
 	config.Actions.ExecuteOn = util.RemoveDuplicates(config.Actions.ExecuteOn, true)
@@ -812,19 +821,33 @@ func Initialize(cnf Config, basePath string, checkAdmins bool) error {
 		return fmt.Errorf("required directory is invalid, backup path %#v", cnf.BackupsPath)
 	}
 
-	if err = initializeHashingAlgo(&cnf); err != nil {
+	if err := initializeHashingAlgo(&cnf); err != nil {
 		return err
 	}
-
-	if err = validateHooks(); err != nil {
+	if err := validateHooks(); err != nil {
 		return err
 	}
-	err = createProvider(basePath)
+	if err := createProvider(basePath); err != nil {
+		return err
+	}
+	if err := checkDatabase(checkAdmins); err != nil {
+		return err
+	}
+	admins, err := provider.getAdmins(1, 0, OrderASC)
 	if err != nil {
 		return err
 	}
-	if cnf.UpdateMode == 0 {
-		err = provider.initializeDatabase()
+	isAdminCreated.Store(len(admins) > 0)
+	if err := config.Node.validate(); err != nil {
+		return err
+	}
+	delayedQuotaUpdater.start()
+	return startScheduler()
+}
+
+func checkDatabase(checkAdmins bool) error {
+	if config.UpdateMode == 0 {
+		err := provider.initializeDatabase()
 		if err != nil && err != ErrNoInitRequired {
 			logger.WarnToConsole("Unable to initialize data provider: %v", err)
 			providerLog(logger.LevelError, "Unable to initialize data provider: %v", err)
@@ -838,7 +861,7 @@ func Initialize(cnf Config, basePath string, checkAdmins bool) error {
 			providerLog(logger.LevelError, "database migration error: %v", err)
 			return err
 		}
-		if checkAdmins && cnf.CreateDefaultAdmin {
+		if checkAdmins && config.CreateDefaultAdmin {
 			err = checkDefaultAdmin()
 			if err != nil {
 				providerLog(logger.LevelError, "erro checking the default admin: %v", err)
@@ -848,13 +871,7 @@ func Initialize(cnf Config, basePath string, checkAdmins bool) error {
 	} else {
 		providerLog(logger.LevelInfo, "database initialization/migration skipped, manual mode is configured")
 	}
-	admins, err := provider.getAdmins(1, 0, OrderASC)
-	if err != nil {
-		return err
-	}
-	isAdminCreated.Store(len(admins) > 0)
-	delayedQuotaUpdater.start()
-	return startScheduler()
+	return nil
 }
 
 func validateHooks() error {
@@ -937,15 +954,17 @@ func validateSQLTablesPrefix() error {
 		sqlTableEventsRules = config.SQLTablesPrefix + sqlTableEventsRules
 		sqlTableRulesActionsMapping = config.SQLTablesPrefix + sqlTableRulesActionsMapping
 		sqlTableTasks = config.SQLTablesPrefix + sqlTableTasks
+		sqlTableNodes = config.SQLTablesPrefix + sqlTableNodes
 		sqlTableSchemaVersion = config.SQLTablesPrefix + sqlTableSchemaVersion
 		providerLog(logger.LevelDebug, "sql table for users %q, folders %q users folders mapping %q admins %q "+
 			"api keys %q shares %q defender hosts %q defender events %q transfers %q  groups %q "+
 			"users groups mapping %q admins groups mapping %q groups folders mapping %q shared sessions %q "+
-			"schema version %q events actions %q events rules %q rules actions mapping %q tasks %q",
+			"schema version %q events actions %q events rules %q rules actions mapping %q tasks %q nodes %q",
 			sqlTableUsers, sqlTableFolders, sqlTableUsersFoldersMapping, sqlTableAdmins, sqlTableAPIKeys,
 			sqlTableShares, sqlTableDefenderHosts, sqlTableDefenderEvents, sqlTableActiveTransfers, sqlTableGroups,
 			sqlTableUsersGroupsMapping, sqlTableAdminsGroupsMapping, sqlTableGroupsFoldersMapping, sqlTableSharedSessions,
-			sqlTableSchemaVersion, sqlTableEventsActions, sqlTableEventsRules, sqlTableRulesActionsMapping, sqlTableTasks)
+			sqlTableSchemaVersion, sqlTableEventsActions, sqlTableEventsRules, sqlTableRulesActionsMapping,
+			sqlTableTasks, sqlTableNodes)
 	}
 	return nil
 }
@@ -1726,6 +1745,29 @@ func UpdateTask(name string, version int64) error {
 // UpdateTaskTimestamp updates the timestamp for the task with the specified name
 func UpdateTaskTimestamp(name string) error {
 	return provider.updateTaskTimestamp(name)
+}
+
+// GetNodes returns the other cluster nodes
+func GetNodes() ([]Node, error) {
+	if currentNode == nil {
+		return nil, nil
+	}
+	nodes, err := provider.getNodes()
+	if err != nil {
+		providerLog(logger.LevelError, "unable to get other cluster nodes %v", err)
+	}
+	return nodes, err
+}
+
+// GetNodeByName returns a node, different from the current one, by name
+func GetNodeByName(name string) (Node, error) {
+	if currentNode == nil {
+		return Node{}, util.NewRecordNotFoundError(errNoClusterNodes.Error())
+	}
+	if name == currentNode.Name {
+		return Node{}, util.NewValidationError(fmt.Sprintf("%s is the current node, it must refer to other nodes", name))
+	}
+	return provider.getNodeByName(name)
 }
 
 // HasAdmin returns true if the first admin has been created

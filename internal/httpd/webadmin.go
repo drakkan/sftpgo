@@ -2845,6 +2845,7 @@ func (s *httpdServer) handleWebGetStatus(w http.ResponseWriter, r *http.Request)
 func (s *httpdServer) handleWebGetConnections(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	connectionStats := common.Connections.GetStats()
+	connectionStats = append(connectionStats, getNodesConnections()...)
 	data := connectionsPage{
 		basePage:    s.getBasePageData(pageConnectionsTitle, webConnectionsPath, r),
 		Connections: connectionStats,

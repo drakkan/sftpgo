@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	boltDatabaseVersion = 22
+	boltDatabaseVersion = 23
 )
 
 var (
@@ -2483,19 +2483,39 @@ func (p *BoltProvider) deleteEventRule(rule EventRule, softDelete bool) error {
 	})
 }
 
-func (p *BoltProvider) getTaskByName(name string) (Task, error) {
+func (*BoltProvider) getTaskByName(name string) (Task, error) {
 	return Task{}, ErrNotImplemented
 }
 
-func (p *BoltProvider) addTask(name string) error {
+func (*BoltProvider) addTask(name string) error {
 	return ErrNotImplemented
 }
 
-func (p *BoltProvider) updateTask(name string, version int64) error {
+func (*BoltProvider) updateTask(name string, version int64) error {
 	return ErrNotImplemented
 }
 
-func (p *BoltProvider) updateTaskTimestamp(name string) error {
+func (*BoltProvider) updateTaskTimestamp(name string) error {
+	return ErrNotImplemented
+}
+
+func (*BoltProvider) addNode() error {
+	return ErrNotImplemented
+}
+
+func (*BoltProvider) getNodeByName(name string) (Node, error) {
+	return Node{}, ErrNotImplemented
+}
+
+func (*BoltProvider) getNodes() ([]Node, error) {
+	return nil, ErrNotImplemented
+}
+
+func (*BoltProvider) updateNodeTimestamp() error {
+	return ErrNotImplemented
+}
+
+func (*BoltProvider) cleanupNodes() error {
 	return ErrNotImplemented
 }
 
@@ -2583,10 +2603,10 @@ func (p *BoltProvider) migrateDatabase() error {
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
-	case version == 19, version == 20, version == 21:
-		logger.InfoToConsole(fmt.Sprintf("updating database schema version: %d -> 22", version))
-		providerLog(logger.LevelInfo, "updating database schema version: %d -> 22", version)
-		return updateBoltDatabaseVersion(p.dbHandle, 22)
+	case version == 19, version == 20, version == 21, version == 22:
+		logger.InfoToConsole(fmt.Sprintf("updating database schema version: %d -> 23", version))
+		providerLog(logger.LevelInfo, "updating database schema version: %d -> 23", version)
+		return updateBoltDatabaseVersion(p.dbHandle, 23)
 	default:
 		if version > boltDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %v is newer than the supported one: %v", version,
@@ -2608,7 +2628,7 @@ func (p *BoltProvider) revertDatabase(targetVersion int) error {
 		return errors.New("current version match target version, nothing to do")
 	}
 	switch dbVersion.Version {
-	case 20, 21:
+	case 20, 21, 22, 23:
 		logger.InfoToConsole("downgrading database schema version: %d -> 19", dbVersion.Version)
 		providerLog(logger.LevelInfo, "downgrading database schema version: %d -> 19", dbVersion.Version)
 		err := p.dbHandle.Update(func(tx *bolt.Tx) error {

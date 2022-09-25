@@ -54,6 +54,7 @@ DROP TABLE IF EXISTS "{{rules_actions_mapping}}" CASCADE;
 DROP TABLE IF EXISTS "{{events_actions}}" CASCADE;
 DROP TABLE IF EXISTS "{{events_rules}}" CASCADE;
 DROP TABLE IF EXISTS "{{tasks}}" CASCADE;
+DROP TABLE IF EXISTS "{{nodes}}" CASCADE;
 DROP TABLE IF EXISTS "{{schema_version}}" CASCADE;
 `
 	pgsqlInitial = `CREATE TABLE "{{schema_version}}" ("id" serial NOT NULL PRIMARY KEY, "version" integer NOT NULL);
@@ -198,6 +199,9 @@ CREATE INDEX "{{prefix}}admins_groups_mapping_group_id_idx" ON "{{admins_groups_
 	pgsqlV22DownSQL = `ALTER TABLE "{{admins_groups_mapping}}" DROP CONSTRAINT "{{prefix}}unique_admin_group_mapping";
 DROP TABLE "{{admins_groups_mapping}}" CASCADE;
 `
+	pgsqlV23SQL = `CREATE TABLE "{{nodes}}" ("id" serial NOT NULL PRIMARY KEY, "name" varchar(255) NOT NULL UNIQUE,
+"data" text NOT NULL, "created_at" bigint NOT NULL, "updated_at" bigint NOT NULL);`
+	pgsqlV23DownSQL = `DROP TABLE "{{nodes}}" CASCADE;`
 )
 
 // PGSQLProvider defines the auth provider for PostgreSQL database
@@ -616,6 +620,26 @@ func (p *PGSQLProvider) updateTaskTimestamp(name string) error {
 	return sqlCommonUpdateTaskTimestamp(name, p.dbHandle)
 }
 
+func (p *PGSQLProvider) addNode() error {
+	return sqlCommonAddNode(p.dbHandle)
+}
+
+func (p *PGSQLProvider) getNodeByName(name string) (Node, error) {
+	return sqlCommonGetNodeByName(name, p.dbHandle)
+}
+
+func (p *PGSQLProvider) getNodes() ([]Node, error) {
+	return sqlCommonGetNodes(p.dbHandle)
+}
+
+func (p *PGSQLProvider) updateNodeTimestamp() error {
+	return sqlCommonUpdateNodeTimestamp(p.dbHandle)
+}
+
+func (p *PGSQLProvider) cleanupNodes() error {
+	return sqlCommonCleanupNodes(p.dbHandle)
+}
+
 func (p *PGSQLProvider) setFirstDownloadTimestamp(username string) error {
 	return sqlCommonSetFirstDownloadTimestamp(username, p.dbHandle)
 }
@@ -669,6 +693,8 @@ func (p *PGSQLProvider) migrateDatabase() error { //nolint:dupl
 		return updatePgSQLDatabaseFromV20(p.dbHandle)
 	case version == 21:
 		return updatePgSQLDatabaseFromV21(p.dbHandle)
+	case version == 22:
+		return updatePgSQLDatabaseFromV21(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %v is newer than the supported one: %v", version,
@@ -697,6 +723,8 @@ func (p *PGSQLProvider) revertDatabase(targetVersion int) error {
 		return downgradePgSQLDatabaseFromV21(p.dbHandle)
 	case 22:
 		return downgradePgSQLDatabaseFromV22(p.dbHandle)
+	case 23:
+		return downgradePgSQLDatabaseFromV23(p.dbHandle)
 	default:
 		return fmt.Errorf("database schema version not handled: %v", dbVersion.Version)
 	}
@@ -722,7 +750,14 @@ func updatePgSQLDatabaseFromV20(dbHandle *sql.DB) error {
 }
 
 func updatePgSQLDatabaseFromV21(dbHandle *sql.DB) error {
-	return updatePgSQLDatabaseFrom21To22(dbHandle)
+	if err := updatePgSQLDatabaseFrom21To22(dbHandle); err != nil {
+		return err
+	}
+	return updatePgSQLDatabaseFromV22(dbHandle)
+}
+
+func updatePgSQLDatabaseFromV22(dbHandle *sql.DB) error {
+	return updatePgSQLDatabaseFrom22To23(dbHandle)
 }
 
 func downgradePgSQLDatabaseFromV20(dbHandle *sql.DB) error {
@@ -741,6 +776,13 @@ func downgradePgSQLDatabaseFromV22(dbHandle *sql.DB) error {
 		return err
 	}
 	return downgradePgSQLDatabaseFromV21(dbHandle)
+}
+
+func downgradePgSQLDatabaseFromV23(dbHandle *sql.DB) error {
+	if err := downgradePgSQLDatabaseFrom23To22(dbHandle); err != nil {
+		return err
+	}
+	return downgradePgSQLDatabaseFromV22(dbHandle)
 }
 
 func updatePgSQLDatabaseFrom19To20(dbHandle *sql.DB) error {
@@ -772,6 +814,13 @@ func updatePgSQLDatabaseFrom21To22(dbHandle *sql.DB) error {
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 22, true)
 }
 
+func updatePgSQLDatabaseFrom22To23(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database schema version: 22 -> 23")
+	providerLog(logger.LevelInfo, "updating database schema version: 22 -> 23")
+	sql := strings.ReplaceAll(pgsqlV23SQL, "{{nodes}}", sqlTableNodes)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 23, true)
+}
+
 func downgradePgSQLDatabaseFrom20To19(dbHandle *sql.DB) error {
 	logger.InfoToConsole("downgrading database schema version: 20 -> 19")
 	providerLog(logger.LevelInfo, "downgrading database schema version: 20 -> 19")
@@ -796,4 +845,11 @@ func downgradePgSQLDatabaseFrom22To21(dbHandle *sql.DB) error {
 	sql := strings.ReplaceAll(pgsqlV22DownSQL, "{{admins_groups_mapping}}", sqlTableAdminsGroupsMapping)
 	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 21, false)
+}
+
+func downgradePgSQLDatabaseFrom23To22(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database schema version: 23 -> 22")
+	providerLog(logger.LevelInfo, "downgrading database schema version: 23 -> 22")
+	sql := strings.ReplaceAll(pgsqlV23DownSQL, "{{nodes}}", sqlTableNodes)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 22, false)
 }

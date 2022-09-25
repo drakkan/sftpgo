@@ -56,6 +56,7 @@ DROP TABLE IF EXISTS "{{rules_actions_mapping}}";
 DROP TABLE IF EXISTS "{{events_rules}}";
 DROP TABLE IF EXISTS "{{events_actions}}";
 DROP TABLE IF EXISTS "{{tasks}}";
+DROP TABLE IF EXISTS "{{nodes}}";
 DROP TABLE IF EXISTS "{{schema_version}}";
 `
 	sqliteInitialSQL = `CREATE TABLE "{{schema_version}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "version" integer NOT NULL);
@@ -176,8 +177,11 @@ ALTER TABLE "{{users}}" DROP COLUMN "first_download";
 CREATE INDEX "{{prefix}}admins_groups_mapping_admin_id_idx" ON "{{admins_groups_mapping}}" ("admin_id");
 CREATE INDEX "{{prefix}}admins_groups_mapping_group_id_idx" ON "{{admins_groups_mapping}}" ("group_id");
 `
-	sqliteV22DownSQL = `DROP TABLE "{{admins_groups_mapping}}";
-`
+	sqliteV22DownSQL = `DROP TABLE "{{admins_groups_mapping}}";`
+	sqliteV23SQL     = `CREATE TABLE "{{nodes}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+"name" varchar(255) NOT NULL UNIQUE, "data" text NOT NULL, "created_at" bigint NOT NULL,
+"updated_at" bigint NOT NULL);`
+	sqliteV23DownSQL = `DROP TABLE "{{nodes}}";`
 )
 
 // SQLiteProvider defines the auth provider for SQLite database
@@ -579,6 +583,26 @@ func (p *SQLiteProvider) updateTaskTimestamp(name string) error {
 	return sqlCommonUpdateTaskTimestamp(name, p.dbHandle)
 }
 
+func (p *SQLiteProvider) addNode() error {
+	return sqlCommonAddNode(p.dbHandle)
+}
+
+func (p *SQLiteProvider) getNodeByName(name string) (Node, error) {
+	return sqlCommonGetNodeByName(name, p.dbHandle)
+}
+
+func (p *SQLiteProvider) getNodes() ([]Node, error) {
+	return sqlCommonGetNodes(p.dbHandle)
+}
+
+func (p *SQLiteProvider) updateNodeTimestamp() error {
+	return sqlCommonUpdateNodeTimestamp(p.dbHandle)
+}
+
+func (p *SQLiteProvider) cleanupNodes() error {
+	return sqlCommonCleanupNodes(p.dbHandle)
+}
+
 func (p *SQLiteProvider) setFirstDownloadTimestamp(username string) error {
 	return sqlCommonSetFirstDownloadTimestamp(username, p.dbHandle)
 }
@@ -632,6 +656,8 @@ func (p *SQLiteProvider) migrateDatabase() error { //nolint:dupl
 		return updateSQLiteDatabaseFromV20(p.dbHandle)
 	case version == 21:
 		return updateSQLiteDatabaseFromV21(p.dbHandle)
+	case version == 22:
+		return updateSQLiteDatabaseFromV22(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %v is newer than the supported one: %v", version,
@@ -660,6 +686,8 @@ func (p *SQLiteProvider) revertDatabase(targetVersion int) error {
 		return downgradeSQLiteDatabaseFromV21(p.dbHandle)
 	case 22:
 		return downgradeSQLiteDatabaseFromV22(p.dbHandle)
+	case 23:
+		return downgradeSQLiteDatabaseFromV23(p.dbHandle)
 	default:
 		return fmt.Errorf("database schema version not handled: %v", dbVersion.Version)
 	}
@@ -685,7 +713,14 @@ func updateSQLiteDatabaseFromV20(dbHandle *sql.DB) error {
 }
 
 func updateSQLiteDatabaseFromV21(dbHandle *sql.DB) error {
-	return updateSQLiteDatabaseFrom21To22(dbHandle)
+	if err := updateSQLiteDatabaseFrom21To22(dbHandle); err != nil {
+		return err
+	}
+	return updateSQLiteDatabaseFromV22(dbHandle)
+}
+
+func updateSQLiteDatabaseFromV22(dbHandle *sql.DB) error {
+	return updateSQLiteDatabaseFrom22To23(dbHandle)
 }
 
 func downgradeSQLiteDatabaseFromV20(dbHandle *sql.DB) error {
@@ -704,6 +739,13 @@ func downgradeSQLiteDatabaseFromV22(dbHandle *sql.DB) error {
 		return err
 	}
 	return downgradeSQLiteDatabaseFromV21(dbHandle)
+}
+
+func downgradeSQLiteDatabaseFromV23(dbHandle *sql.DB) error {
+	if err := downgradeSQLiteDatabaseFrom23To22(dbHandle); err != nil {
+		return err
+	}
+	return downgradeSQLiteDatabaseFromV22(dbHandle)
 }
 
 func updateSQLiteDatabaseFrom19To20(dbHandle *sql.DB) error {
@@ -735,6 +777,13 @@ func updateSQLiteDatabaseFrom21To22(dbHandle *sql.DB) error {
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 22, true)
 }
 
+func updateSQLiteDatabaseFrom22To23(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database schema version: 22 -> 23")
+	providerLog(logger.LevelInfo, "updating database schema version: 22 -> 23")
+	sql := strings.ReplaceAll(sqliteV23SQL, "{{nodes}}", sqlTableNodes)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 23, true)
+}
+
 func downgradeSQLiteDatabaseFrom20To19(dbHandle *sql.DB) error {
 	logger.InfoToConsole("downgrading database schema version: 20 -> 19")
 	providerLog(logger.LevelInfo, "downgrading database schema version: 20 -> 19")
@@ -759,6 +808,13 @@ func downgradeSQLiteDatabaseFrom22To21(dbHandle *sql.DB) error {
 	providerLog(logger.LevelInfo, "downgrading database schema version: 22 -> 21")
 	sql := strings.ReplaceAll(sqliteV22DownSQL, "{{admins_groups_mapping}}", sqlTableAdminsGroupsMapping)
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 21, false)
+}
+
+func downgradeSQLiteDatabaseFrom23To22(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database schema version: 23 -> 22")
+	providerLog(logger.LevelInfo, "downgrading database schema version: 23 -> 22")
+	sql := strings.ReplaceAll(sqliteV23DownSQL, "{{nodes}}", sqlTableNodes)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 22, false)
 }
 
 /*func setPragmaFK(dbHandle *sql.DB, value string) error {

@@ -1076,6 +1076,7 @@ func (conns *ActiveConnections) GetStats() []ConnectionStatus {
 	defer conns.RUnlock()
 
 	stats := make([]ConnectionStatus, 0, len(conns.connections))
+	node := dataprovider.GetNodeName()
 	for _, c := range conns.connections {
 		stat := ConnectionStatus{
 			Username:       c.GetUsername(),
@@ -1087,6 +1088,7 @@ func (conns *ActiveConnections) GetStats() []ConnectionStatus {
 			Protocol:       c.GetProtocol(),
 			Command:        c.GetCommand(),
 			Transfers:      c.GetTransfers(),
+			Node:           node,
 		}
 		stats = append(stats, stat)
 	}
@@ -1113,6 +1115,8 @@ type ConnectionStatus struct {
 	Transfers []ConnectionTransfer `json:"active_transfers,omitempty"`
 	// SSH command or WebDAV method
 	Command string `json:"command,omitempty"`
+	// Node identifier, omitted for single node installations
+	Node string `json:"node,omitempty"`
 }
 
 // GetConnectionDuration returns the connection duration as string

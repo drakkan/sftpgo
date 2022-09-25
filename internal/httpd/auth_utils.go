@@ -52,6 +52,7 @@ const (
 	claimUsernameKey                = "username"
 	claimPermissionsKey             = "permissions"
 	claimAPIKey                     = "api_key"
+	claimNodeID                     = "node_id"
 	claimMustSetSecondFactorKey     = "2fa_required"
 	claimRequiredTwoFactorProtocols = "2fa_protos"
 	claimHideUserPageSection        = "hus"
@@ -74,6 +75,7 @@ type jwtTokenClaims struct {
 	Signature                  string
 	Audience                   []string
 	APIKeyID                   string
+	NodeID                     string
 	MustSetTwoFactorAuth       bool
 	RequiredTwoFactorProtocols []string
 	HideUserPageSections       int
@@ -96,6 +98,9 @@ func (c *jwtTokenClaims) asMap() map[string]any {
 	claims[claimPermissionsKey] = c.Permissions
 	if c.APIKeyID != "" {
 		claims[claimAPIKey] = c.APIKeyID
+	}
+	if c.NodeID != "" {
+		claims[claimNodeID] = c.NodeID
 	}
 	claims[jwt.SubjectKey] = c.Signature
 	if c.MustSetTwoFactorAuth {
@@ -154,6 +159,13 @@ func (c *jwtTokenClaims) Decode(token map[string]any) {
 		switch v := val.(type) {
 		case string:
 			c.APIKeyID = v
+		}
+	}
+
+	if val, ok := token[claimNodeID]; ok {
+		switch v := val.(type) {
+		case string:
+			c.NodeID = v
 		}
 	}
 
