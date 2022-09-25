@@ -264,12 +264,12 @@ github.com/dimchansky/utfbom v1.1.0/go.mod h1:rO41eb7gLfo8SF1jd9F8HplJm1Fewwi4mQ
 github.com/dimchansky/utfbom v1.1.1/go.mod h1:SxdoEBH5qIqFocHMyGOXVAybYJdr71b1Q/j0mACtrfE=
 github.com/dnaeon/go-vcr v1.2.0 h1:zHCHvJYTMh1N7xnV7zf1m1GPBF9Ad0Jk/whtQ1663qI=
 github.com/dnaeon/go-vcr v1.2.0/go.mod h1:R4UdLID7HZT3taECzJs4YgbbH6PIGXB6W/sc5OLb6RQ=
-github.com/drakkan/crypto v0.0.0-20220831070132-e3c36f2ab82b h1:kCNBtUFKfhiUaE1ZMgh83pXFVP2ZIHktwV15lmgD0Ok=
-github.com/drakkan/crypto v0.0.0-20220831070132-e3c36f2ab82b/go.mod h1:SiM6ypd8Xu1xldObYtbDztuUU7xUzMnUULfphXFZmro=
+github.com/drakkan/crypto v0.0.0-20220925175854-fd2128ac8ea8 h1:3VrLY3sbiilkjtMAWeYbM+KyGJiJi18UP2Rif4ZLU1Q=
+github.com/drakkan/crypto v0.0.0-20220925175854-fd2128ac8ea8/go.mod h1:SiM6ypd8Xu1xldObYtbDztuUU7xUzMnUULfphXFZmro=
 github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9 h1:LPH1dEblAOO/LoG7yHPMtBLXhQmjaga91/DDjWk9jWA=
 github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9/go.mod h1:2lmrmq866uF2tnje75wQHzmPXhmSWUt7Gyx2vgK1RCU=
-github.com/drakkan/net v0.0.0-20220913160159-a08dc61b7895 h1:YZkDIISo8YO7PAOX85GYxGCayjBqAutIAjL+XsdEgkc=
-github.com/drakkan/net v0.0.0-20220913160159-a08dc61b7895/go.mod h1:YDH+HFinaLZZlnHAfSS6ZXJJ9M9t4Dl22yv3iI2vPwk=
+github.com/drakkan/net v0.0.0-20220925175748-018cd5f6a745 h1:Lgtp3izEEJFPxMLJfLWxc1htWNMZhK7EkBo0/dmEX4E=
+github.com/drakkan/net v0.0.0-20220925175748-018cd5f6a745/go.mod h1:YDH+HFinaLZZlnHAfSS6ZXJJ9M9t4Dl22yv3iI2vPwk=
 github.com/eikenb/pipeat v0.0.0-20210730190139-06b3e6902001 h1:/ZshrfQzayqRSBDodmp3rhNCHJCff+utvgBuWRbiqu4=
 github.com/eikenb/pipeat v0.0.0-20210730190139-06b3e6902001/go.mod h1:kltMsfRMTHSFdMbK66XdS8mfMW77+FZA1fGY1xYMF84=
 github.com/envoyproxy/go-control-plane v0.9.0/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=

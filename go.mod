@@ -65,8 +65,8 @@ require (
 	go.etcd.io/bbolt v1.3.6
 	go.uber.org/automaxprocs v1.5.1
 	gocloud.dev v0.26.0
-	golang.org/x/crypto v0.0.0-20220829220503-c86fa9a7ed90
-	golang.org/x/net v0.0.0-20220909164309-bea034e7d591
+	golang.org/x/crypto v0.0.0-20220924013350-4ba4fb4dd9e7
+	golang.org/x/net v0.0.0-20220923203811-8be639271d50
 	golang.org/x/oauth2 v0.0.0-20220909003341-f21342109be1
 	golang.org/x/sys v0.0.0-20220919091848-fb04ddd9f9c8
 	golang.org/x/time v0.0.0-20220922220347-f3bd1da661af
@@ -167,6 +167,6 @@ require (
 
 replace (
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
-	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20220831070132-e3c36f2ab82b
-	golang.org/x/net => github.com/drakkan/net v0.0.0-20220913160159-a08dc61b7895
+	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20220925175854-fd2128ac8ea8
+	golang.org/x/net => github.com/drakkan/net v0.0.0-20220925175748-018cd5f6a745
 )

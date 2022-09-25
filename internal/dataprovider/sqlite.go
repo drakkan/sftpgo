@@ -56,7 +56,6 @@ DROP TABLE IF EXISTS "{{rules_actions_mapping}}";
 DROP TABLE IF EXISTS "{{events_rules}}";
 DROP TABLE IF EXISTS "{{events_actions}}";
 DROP TABLE IF EXISTS "{{tasks}}";
-DROP TABLE IF EXISTS "{{nodes}}";
 DROP TABLE IF EXISTS "{{schema_version}}";
 `
 	sqliteInitialSQL = `CREATE TABLE "{{schema_version}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "version" integer NOT NULL);
@@ -178,10 +177,6 @@ CREATE INDEX "{{prefix}}admins_groups_mapping_admin_id_idx" ON "{{admins_groups_
 CREATE INDEX "{{prefix}}admins_groups_mapping_group_id_idx" ON "{{admins_groups_mapping}}" ("group_id");
 `
 	sqliteV22DownSQL = `DROP TABLE "{{admins_groups_mapping}}";`
-	sqliteV23SQL     = `CREATE TABLE "{{nodes}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
-"name" varchar(255) NOT NULL UNIQUE, "data" text NOT NULL, "created_at" bigint NOT NULL,
-"updated_at" bigint NOT NULL);`
-	sqliteV23DownSQL = `DROP TABLE "{{nodes}}";`
 )
 
 // SQLiteProvider defines the auth provider for SQLite database
@@ -583,24 +578,24 @@ func (p *SQLiteProvider) updateTaskTimestamp(name string) error {
 	return sqlCommonUpdateTaskTimestamp(name, p.dbHandle)
 }
 
-func (p *SQLiteProvider) addNode() error {
-	return sqlCommonAddNode(p.dbHandle)
+func (*SQLiteProvider) addNode() error {
+	return ErrNotImplemented
 }
 
-func (p *SQLiteProvider) getNodeByName(name string) (Node, error) {
-	return sqlCommonGetNodeByName(name, p.dbHandle)
+func (*SQLiteProvider) getNodeByName(name string) (Node, error) {
+	return Node{}, ErrNotImplemented
 }
 
-func (p *SQLiteProvider) getNodes() ([]Node, error) {
-	return sqlCommonGetNodes(p.dbHandle)
+func (*SQLiteProvider) getNodes() ([]Node, error) {
+	return nil, ErrNotImplemented
 }
 
-func (p *SQLiteProvider) updateNodeTimestamp() error {
-	return sqlCommonUpdateNodeTimestamp(p.dbHandle)
+func (*SQLiteProvider) updateNodeTimestamp() error {
+	return ErrNotImplemented
 }
 
-func (p *SQLiteProvider) cleanupNodes() error {
-	return sqlCommonCleanupNodes(p.dbHandle)
+func (*SQLiteProvider) cleanupNodes() error {
+	return ErrNotImplemented
 }
 
 func (p *SQLiteProvider) setFirstDownloadTimestamp(username string) error {
@@ -780,8 +775,8 @@ func updateSQLiteDatabaseFrom21To22(dbHandle *sql.DB) error {
 func updateSQLiteDatabaseFrom22To23(dbHandle *sql.DB) error {
 	logger.InfoToConsole("updating database schema version: 22 -> 23")
 	providerLog(logger.LevelInfo, "updating database schema version: 22 -> 23")
-	sql := strings.ReplaceAll(sqliteV23SQL, "{{nodes}}", sqlTableNodes)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 23, true)
+
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{`SELECT 1`}, 23, true)
 }
 
 func downgradeSQLiteDatabaseFrom20To19(dbHandle *sql.DB) error {
@@ -813,8 +808,7 @@ func downgradeSQLiteDatabaseFrom22To21(dbHandle *sql.DB) error {
 func downgradeSQLiteDatabaseFrom23To22(dbHandle *sql.DB) error {
 	logger.InfoToConsole("downgrading database schema version: 23 -> 22")
 	providerLog(logger.LevelInfo, "downgrading database schema version: 23 -> 22")
-	sql := strings.ReplaceAll(sqliteV23DownSQL, "{{nodes}}", sqlTableNodes)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 22, false)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{`SELECT 1`}, 22, false)
 }
 
 /*func setPragmaFK(dbHandle *sql.DB, value string) error {
