@@ -2895,7 +2895,8 @@ func TestHTTPSConnection(t *testing.T) {
 	resp, err := client.Get("https://localhost:8443" + healthzPath)
 	if assert.Error(t, err) {
 		if !strings.Contains(err.Error(), "certificate is not valid") &&
-			!strings.Contains(err.Error(), "certificate signed by unknown authority") {
+			!strings.Contains(err.Error(), "certificate signed by unknown authority") &&
+			!strings.Contains(err.Error(), "certificate is not standards compliant") {
 			assert.Fail(t, err.Error())
 		}
 	} else {

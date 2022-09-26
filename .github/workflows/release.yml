@@ -5,7 +5,7 @@ on:
     tags: 'v*'
 
 env:
-  GO_VERSION: 1.17.8
+  GO_VERSION: 1.19.1
 
 jobs:
   prepare-sources-with-deps:
@@ -171,18 +171,6 @@ jobs:
             deb-arch: amd64
             rpm-arch: x86_64
             tar-arch: x86_64
-          - arch: aarch64
-            distro: ubuntu18.04
-            go-arch: arm64
-            deb-arch: arm64
-            rpm-arch: aarch64
-            tar-arch: arm64
-          - arch: ppc64le
-            distro: ubuntu18.04
-            go-arch: ppc64le
-            deb-arch: ppc64el
-            rpm-arch: ppc64le
-            tar-arch: ppc64le
 
     steps:
       - uses: actions/checkout@v2
@@ -314,27 +302,12 @@ jobs:
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_x86_64.tar.xz
 
-      - name: Download arm64 artifact
-        uses: actions/download-artifact@v2
-        with:
-          name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_arm64.tar.xz
-
-      - name: Download ppc64le artifact
-        uses: actions/download-artifact@v2
-        with:
-          name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_ppc64le.tar.xz
-
       - name: Build bundle
         shell: bash
         run: |
           mkdir -p bundle/{arm64,ppc64le}
           cd bundle
           tar xvf ../sftpgo_${SFTPGO_VERSION}_linux_x86_64.tar.xz
-          cd arm64
-          tar xvf ../../sftpgo_${SFTPGO_VERSION}_linux_arm64.tar.xz sftpgo
-          cd ../ppc64le
-          tar xvf ../../sftpgo_${SFTPGO_VERSION}_linux_ppc64le.tar.xz sftpgo
-          cd ..
           tar cJvf sftpgo_${SFTPGO_VERSION}_linux_bundle.tar.xz *
           cd ..
         env:
@@ -368,15 +341,15 @@ jobs:
         with:
           name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_x86_64.tar.xz
 
-      - name: Download arm64 artifact
-        uses: actions/download-artifact@v2
-        with:
-          name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_arm64.tar.xz
-
-      - name: Download ppc64le artifact
-        uses: actions/download-artifact@v2
-        with:
-          name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_ppc64le.tar.xz
+#      - name: Download arm64 artifact
+#        uses: actions/download-artifact@v2
+#        with:
+#          name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_arm64.tar.xz
+#
+#      - name: Download ppc64le artifact
+#        uses: actions/download-artifact@v2
+#        with:
+#          name: sftpgo_${{ steps.get_version.outputs.SFTPGO_VERSION }}_linux_ppc64le.tar.xz
 
       - name: Download Linux bundle artifact
         uses: actions/download-artifact@v2
