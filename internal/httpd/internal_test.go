@@ -2402,7 +2402,7 @@ func TestUserCanResetPassword(t *testing.T) {
 
 func TestMetadataAPI(t *testing.T) {
 	username := "metadatauser"
-	assert.False(t, activeMetadataChecks.remove(username))
+	assert.False(t, common.ActiveMetadataChecks.Remove(username))
 
 	user := dataprovider.User{
 		BaseUser: sdk.BaseUser{
@@ -2417,7 +2417,7 @@ func TestMetadataAPI(t *testing.T) {
 	err := dataprovider.AddUser(&user, "", "")
 	assert.NoError(t, err)
 
-	assert.True(t, activeMetadataChecks.add(username))
+	assert.True(t, common.ActiveMetadataChecks.Add(username))
 
 	req, err := http.NewRequest(http.MethodPost, path.Join(metadataBasePath, username, "check"), nil)
 	assert.NoError(t, err)
@@ -2429,8 +2429,8 @@ func TestMetadataAPI(t *testing.T) {
 	startMetadataCheck(rr, req)
 	assert.Equal(t, http.StatusConflict, rr.Code)
 
-	assert.True(t, activeMetadataChecks.remove(username))
-	assert.Len(t, activeMetadataChecks.get(), 0)
+	assert.True(t, common.ActiveMetadataChecks.Remove(username))
+	assert.Len(t, common.ActiveMetadataChecks.Get(), 0)
 	err = dataprovider.DeleteUser(username, "", "")
 	assert.NoError(t, err)
 

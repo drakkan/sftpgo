@@ -5345,6 +5345,15 @@ func TestSplittedRenamePerms(t *testing.T) {
 }
 
 func TestSFTPLoopError(t *testing.T) {
+	smtpCfg := smtp.Config{
+		Host:          "127.0.0.1",
+		Port:          2525,
+		From:          "notification@example.com",
+		TemplatesPath: "templates",
+	}
+	err := smtpCfg.Initialize(configDir)
+	require.NoError(t, err)
+
 	user1 := getTestUser()
 	user2 := getTestUser()
 	user1.Username += "1"
@@ -5381,6 +5390,63 @@ func TestSFTPLoopError(t *testing.T) {
 	assert.NoError(t, err, string(resp))
 	user2, resp, err = httpdtest.AddUser(user2, http.StatusCreated)
 	assert.NoError(t, err, string(resp))
+	// test metadata check event error
+	a1 := dataprovider.BaseEventAction{
+		Name: "a1",
+		Type: dataprovider.ActionTypeMetadataCheck,
+	}
+	action1, _, err := httpdtest.AddEventAction(a1, http.StatusCreated)
+	assert.NoError(t, err)
+	a2 := dataprovider.BaseEventAction{
+		Name: "a2",
+		Type: dataprovider.ActionTypeEmail,
+		Options: dataprovider.BaseEventActionOptions{
+			EmailConfig: dataprovider.EventActionEmailConfig{
+				Recipients: []string{"failure@example.com"},
+				Subject:    `Failed action"`,
+				Body:       "Test body",
+			},
+		},
+	}
+	action2, _, err := httpdtest.AddEventAction(a2, http.StatusCreated)
+	assert.NoError(t, err)
+	r1 := dataprovider.EventRule{
+		Name:    "rule1",
+		Trigger: dataprovider.EventTriggerProviderEvent,
+		Conditions: dataprovider.EventConditions{
+			ProviderEvents: []string{"update"},
+		},
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action1.Name,
+				},
+				Order: 1,
+			},
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action2.Name,
+				},
+				Order: 2,
+				Options: dataprovider.EventActionOptions{
+					IsFailureAction: true,
+				},
+			},
+		},
+	}
+	rule1, _, err := httpdtest.AddEventRule(r1, http.StatusCreated)
+	assert.NoError(t, err)
+
+	lastReceivedEmail.reset()
+	_, _, err = httpdtest.UpdateUser(user2, http.StatusOK, "")
+	assert.NoError(t, err)
+	assert.Eventually(t, func() bool {
+		return lastReceivedEmail.get().From != ""
+	}, 3000*time.Millisecond, 100*time.Millisecond)
+	email := lastReceivedEmail.get()
+	assert.Len(t, email.To, 1)
+	assert.True(t, util.Contains(email.To, "failure@example.com"))
+	assert.Contains(t, email.Data, `Subject: Failed action`)
 
 	user1.VirtualFolders[0].FsConfig.SFTPConfig.Password = kms.NewPlainSecret(defaultPassword)
 	user2.FsConfig.SFTPConfig.Password = kms.NewPlainSecret(defaultPassword)
@@ -5399,6 +5465,13 @@ func TestSFTPLoopError(t *testing.T) {
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "SFTP loop")
 	}
+
+	_, err = httpdtest.RemoveEventRule(rule1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action2, http.StatusOK)
+	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user1, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user1.GetHomeDir())
@@ -5409,6 +5482,10 @@ func TestSFTPLoopError(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: "sftp"}, http.StatusOK)
 	assert.NoError(t, err)
+
+	smtpCfg = smtp.Config{}
+	err = smtpCfg.Initialize(configDir)
+	require.NoError(t, err)
 }
 
 func TestNonLocalCrossRename(t *testing.T) {

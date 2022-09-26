@@ -1228,6 +1228,21 @@ func TestUpdateTransferTimestamps(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestMetadataAPI(t *testing.T) {
+	username := "metadatauser"
+	require.False(t, ActiveMetadataChecks.Remove(username))
+	require.True(t, ActiveMetadataChecks.Add(username))
+	require.False(t, ActiveMetadataChecks.Add(username))
+	checks := ActiveMetadataChecks.Get()
+	require.Len(t, checks, 1)
+	checks[0].Username = username + "a"
+	checks = ActiveMetadataChecks.Get()
+	require.Len(t, checks, 1)
+	require.Equal(t, username, checks[0].Username)
+	require.True(t, ActiveMetadataChecks.Remove(username))
+	require.Len(t, ActiveMetadataChecks.Get(), 0)
+}
+
 func BenchmarkBcryptHashing(b *testing.B) {
 	bcryptPassword := "bcryptpassword"
 	for i := 0; i < b.N; i++ {

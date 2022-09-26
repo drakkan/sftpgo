@@ -44,12 +44,13 @@ const (
 	ActionTypeTransferQuotaReset
 	ActionTypeDataRetentionCheck
 	ActionTypeFilesystem
+	ActionTypeMetadataCheck
 )
 
 var (
 	supportedEventActions = []int{ActionTypeHTTP, ActionTypeCommand, ActionTypeEmail, ActionTypeBackup,
 		ActionTypeUserQuotaReset, ActionTypeFolderQuotaReset, ActionTypeTransferQuotaReset,
-		ActionTypeDataRetentionCheck, ActionTypeFilesystem}
+		ActionTypeDataRetentionCheck, ActionTypeMetadataCheck, ActionTypeFilesystem}
 )
 
 func isActionTypeValid(action int) bool {
@@ -72,6 +73,8 @@ func getActionTypeAsString(action int) string {
 		return "Transfer quota reset"
 	case ActionTypeDataRetentionCheck:
 		return "Data retention check"
+	case ActionTypeMetadataCheck:
+		return "Metadata check"
 	case ActionTypeFilesystem:
 		return "Filesystem"
 	default:
@@ -1257,7 +1260,7 @@ func (r *EventRule) validate() error {
 
 func (r *EventRule) checkIPBlockedAndCertificateActions() error {
 	unavailableActions := []int{ActionTypeUserQuotaReset, ActionTypeFolderQuotaReset, ActionTypeTransferQuotaReset,
-		ActionTypeDataRetentionCheck, ActionTypeFilesystem}
+		ActionTypeDataRetentionCheck, ActionTypeMetadataCheck, ActionTypeFilesystem}
 	for _, action := range r.Actions {
 		if util.Contains(unavailableActions, action.Type) {
 			return fmt.Errorf("action %q, type %q is not supported for event trigger %q",
@@ -1272,7 +1275,7 @@ func (r *EventRule) checkProviderEventActions(providerObjectType string) error {
 	// can be executed only if we modify a user. They will be executed for the
 	// affected user. Folder quota reset can be executed only for folders.
 	userSpecificActions := []int{ActionTypeUserQuotaReset, ActionTypeTransferQuotaReset,
-		ActionTypeDataRetentionCheck, ActionTypeFilesystem}
+		ActionTypeDataRetentionCheck, ActionTypeMetadataCheck, ActionTypeFilesystem}
 	for _, action := range r.Actions {
 		if util.Contains(userSpecificActions, action.Type) && providerObjectType != actionObjectUser {
 			return fmt.Errorf("action %q, type %q is only supported for provider user events",
