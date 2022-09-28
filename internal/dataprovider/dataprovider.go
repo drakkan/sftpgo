@@ -51,6 +51,7 @@ import (
 	"github.com/GehirnInc/crypt"
 	"github.com/GehirnInc/crypt/apr1_crypt"
 	"github.com/GehirnInc/crypt/md5_crypt"
+	"github.com/GehirnInc/crypt/sha256_crypt"
 	"github.com/GehirnInc/crypt/sha512_crypt"
 	"github.com/alexedwards/argon2id"
 	"github.com/go-chi/render"
@@ -96,6 +97,7 @@ const (
 	pbkdf2SHA256B64SaltPrefix = "$pbkdf2-b64salt-sha256$"
 	md5cryptPwdPrefix         = "$1$"
 	md5cryptApr1PwdPrefix     = "$apr1$"
+	sha256cryptPwdPrefix      = "$5$"
 	sha512cryptPwdPrefix      = "$6$"
 	md5LDAPPwdPrefix          = "{MD5}"
 	trackQuotaDisabledError   = "please enable track_quota in your configuration to use this method"
@@ -163,10 +165,10 @@ var (
 	internalHashPwdPrefixes  = []string{argonPwdPrefix, bcryptPwdPrefix}
 	hashPwdPrefixes          = []string{argonPwdPrefix, bcryptPwdPrefix, pbkdf2SHA1Prefix, pbkdf2SHA256Prefix,
 		pbkdf2SHA512Prefix, pbkdf2SHA256B64SaltPrefix, md5cryptPwdPrefix, md5cryptApr1PwdPrefix, md5LDAPPwdPrefix,
-		sha512cryptPwdPrefix}
+		sha256cryptPwdPrefix, sha512cryptPwdPrefix}
 	pbkdfPwdPrefixes             = []string{pbkdf2SHA1Prefix, pbkdf2SHA256Prefix, pbkdf2SHA512Prefix, pbkdf2SHA256B64SaltPrefix}
 	pbkdfPwdB64SaltPrefixes      = []string{pbkdf2SHA256B64SaltPrefix}
-	unixPwdPrefixes              = []string{md5cryptPwdPrefix, md5cryptApr1PwdPrefix, sha512cryptPwdPrefix}
+	unixPwdPrefixes              = []string{md5cryptPwdPrefix, md5cryptApr1PwdPrefix, sha256cryptPwdPrefix, sha512cryptPwdPrefix}
 	sharedProviders              = []string{PGSQLDataProviderName, MySQLDataProviderName, CockroachDataProviderName}
 	logSender                    = "dataprovider"
 	sqlTableUsers                string
@@ -3067,6 +3069,8 @@ func compareUnixPasswordAndHash(user *User, password string) (bool, error) {
 	var crypter crypt.Crypter
 	if strings.HasPrefix(user.Password, sha512cryptPwdPrefix) {
 		crypter = sha512_crypt.New()
+	} else if strings.HasPrefix(user.Password, sha256cryptPwdPrefix) {
+		crypter = sha256_crypt.New()
 	} else if strings.HasPrefix(user.Password, md5cryptPwdPrefix) {
 		crypter = md5_crypt.New()
 	} else if strings.HasPrefix(user.Password, md5cryptApr1PwdPrefix) {

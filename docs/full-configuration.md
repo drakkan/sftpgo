@@ -502,6 +502,7 @@ Supported hash algorithms:
 - PBKDF2 sha256 with base64 salt, prefix `$pbkdf2-b64salt-sha256$`
 - MD5 crypt, prefix `$1$`
 - MD5 crypt APR1, prefix `$apr1$`
+- SHA256 crypt, prefix `$5$`
 - SHA512 crypt, prefix `$6$`
 - LDAP MD5, prefix `{MD5}`
 

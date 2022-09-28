@@ -7231,6 +7231,7 @@ func TestHashedPasswords(t *testing.T) {
 	pwdMapping["$1$b5caebda$VODr/nyhGWgZaY8sJ4x05."] = plainPwd
 	pwdMapping["$2a$14$ajq8Q7fbtFRQvXpdCq7Jcuy.Rx1h/L4J60Otx.gyNLbAYctGMJ9tK"] = "secret"
 	pwdMapping["$6$459ead56b72e44bc$uog86fUxscjt28BZxqFBE2pp2QD8P/1e98MNF75Z9xJfQvOckZnQ/1YJqiq1XeytPuDieHZvDAMoP7352ELkO1"] = "secret"
+	pwdMapping["$5$h4Aalt0fJdGX8sgv$Rd2ew0fvgzUN.DzAVlKa9QL4q/DZWo4SsKpB9.3AyZ/"] = plainPwd
 	pwdMapping["$apr1$OBWLeSme$WoJbB736e7kKxMBIAqilb1"] = plainPwd
 	pwdMapping["{MD5}5f4dcc3b5aa765d61d8327deb882cf99"] = plainPwd
 
