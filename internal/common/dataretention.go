@@ -29,6 +29,8 @@ import (
 	"sync"
 	"time"
 
+	mail "github.com/xhit/go-simple-mail/v2"
+
 	"github.com/drakkan/sftpgo/v2/internal/command"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/httpclient"
@@ -350,41 +352,41 @@ func (c *RetentionCheck) sendNotifications(elapsed time.Duration, err error) {
 	for _, notification := range c.Notifications {
 		switch notification {
 		case RetentionCheckNotificationEmail:
-			c.sendEmailNotification(elapsed, err) //nolint:errcheck
+			c.sendEmailNotification(err) //nolint:errcheck
 		case RetentionCheckNotificationHook:
 			c.sendHookNotification(elapsed, err) //nolint:errcheck
 		}
 	}
 }
 
-func (c *RetentionCheck) sendEmailNotification(elapsed time.Duration, errCheck error) error {
-	body := new(bytes.Buffer)
-	data := make(map[string]any)
-	data["Results"] = c.results
-	totalDeletedFiles := 0
-	totalDeletedSize := int64(0)
-	for _, result := range c.results {
-		totalDeletedFiles += result.DeletedFiles
-		totalDeletedSize += result.DeletedSize
+func (c *RetentionCheck) sendEmailNotification(errCheck error) error {
+	params := EventParams{}
+	if len(c.results) > 0 || errCheck != nil {
+		params.retentionChecks = append(params.retentionChecks, executedRetentionCheck{
+			Username:   c.conn.User.Username,
+			ActionName: "Retention check",
+			Results:    c.results,
+		})
 	}
-	data["HumanizeSize"] = util.ByteCountIEC
-	data["TotalFiles"] = totalDeletedFiles
-	data["TotalSize"] = totalDeletedSize
-	data["Elapsed"] = elapsed
-	data["Username"] = c.conn.User.Username
-	data["StartTime"] = util.GetTimeFromMsecSinceEpoch(c.StartTime)
-	if errCheck == nil {
-		data["Status"] = "Succeeded"
-	} else {
-		data["Status"] = "Failed"
-	}
-	if err := smtp.RenderRetentionReportTemplate(body, data); err != nil {
-		c.conn.Log(logger.LevelError, "unable to render retention check template: %v", err)
+	var files []mail.File
+	f, err := params.getRetentionReportsAsMailAttachment()
+	if err != nil {
+		c.conn.Log(logger.LevelError, "unable to get retention report as mail attachment: %v", err)
 		return err
 	}
+	f.Name = "retention-report.zip"
+	files = append(files, f)
+
 	startTime := time.Now()
-	subject := fmt.Sprintf("Retention check completed for user %#v", c.conn.User.Username)
-	if err := smtp.SendEmail([]string{c.Email}, subject, body.String(), smtp.EmailContentTypeTextHTML); err != nil {
+	var subject string
+	if errCheck == nil {
+		subject = fmt.Sprintf("Successful retention check for user %q", c.conn.User.Username)
+	} else {
+		subject = fmt.Sprintf("Retention check failed for user %q", c.conn.User.Username)
+	}
+	body := "Further details attached."
+	err = smtp.SendEmail([]string{c.Email}, subject, body, smtp.EmailContentTypeTextPlain, files...)
+	if err != nil {
 		c.conn.Log(logger.LevelError, "unable to notify retention check result via email: %v, elapsed: %v", err,
 			time.Since(startTime))
 		return err

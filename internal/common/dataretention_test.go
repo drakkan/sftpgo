@@ -146,21 +146,36 @@ func TestRetentionEmailNotifications(t *testing.T) {
 	conn.ID = fmt.Sprintf("data_retention_%v", user.Username)
 	check.conn = conn
 	check.sendNotifications(1*time.Second, nil)
-	err = check.sendEmailNotification(1*time.Second, nil)
+	err = check.sendEmailNotification(nil)
 	assert.NoError(t, err)
-	err = check.sendEmailNotification(1*time.Second, errors.New("test error"))
+	err = check.sendEmailNotification(errors.New("test error"))
 	assert.NoError(t, err)
+
+	check.results = nil
+	err = check.sendEmailNotification(nil)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "no data retention report available")
+	}
 
 	smtpCfg.Port = 2626
 	err = smtpCfg.Initialize(configDir)
 	require.NoError(t, err)
-	err = check.sendEmailNotification(1*time.Second, nil)
+	err = check.sendEmailNotification(nil)
 	assert.Error(t, err)
+	check.results = []folderRetentionCheckResult{
+		{
+			Path:         "/",
+			Retention:    24,
+			DeletedFiles: 20,
+			DeletedSize:  456789,
+			Elapsed:      12 * time.Second,
+		},
+	}
 
 	smtpCfg = smtp.Config{}
 	err = smtpCfg.Initialize(configDir)
 	require.NoError(t, err)
-	err = check.sendEmailNotification(1*time.Second, nil)
+	err = check.sendEmailNotification(nil)
 	assert.Error(t, err)
 }
 
