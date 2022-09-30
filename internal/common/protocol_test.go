@@ -313,6 +313,71 @@ func TestBaseConnection(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestRelativeSymlinks(t *testing.T) {
+	u := getTestUser()
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	conn, client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		linkName := testFileName + "_link"
+		err = client.Symlink("non-existent-file", linkName)
+		assert.NoError(t, err)
+		err = client.Remove(linkName)
+		assert.NoError(t, err)
+		testDir := "sub"
+		err = client.Mkdir(testDir)
+		assert.NoError(t, err)
+		f, err := client.Create(path.Join(testDir, testFileName))
+		assert.NoError(t, err)
+		_, err = f.Write(testFileContent)
+		assert.NoError(t, err)
+		err = f.Close()
+		assert.NoError(t, err)
+		err = client.Symlink(path.Join(testDir, testFileName), linkName)
+		assert.NoError(t, err)
+		_, err = client.Stat(linkName)
+		assert.NoError(t, err)
+		p, err := client.ReadLink(linkName)
+		assert.NoError(t, err)
+		assert.Equal(t, path.Join("/", testDir, testFileName), p)
+		err = client.Remove(linkName)
+		assert.NoError(t, err)
+
+		err = client.Symlink(testFileName, path.Join(testDir, linkName))
+		assert.NoError(t, err)
+		_, err = client.Stat(path.Join(testDir, linkName))
+		assert.NoError(t, err)
+		p, err = client.ReadLink(path.Join(testDir, linkName))
+		assert.NoError(t, err)
+		assert.Equal(t, path.Join("/", testDir, testFileName), p)
+
+		f, err = client.Create(testFileName)
+		assert.NoError(t, err)
+		_, err = f.Write(testFileContent)
+		assert.NoError(t, err)
+		err = f.Close()
+		assert.NoError(t, err)
+
+		err = client.Symlink(testFileName, linkName)
+		assert.NoError(t, err)
+		_, err = client.Stat(linkName)
+		assert.NoError(t, err)
+		p, err = client.ReadLink(linkName)
+		assert.NoError(t, err)
+		assert.Equal(t, path.Join("/", testFileName), p)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestCheckFsAfterUpdate(t *testing.T) {
 	u := getTestUser()
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
@@ -2264,19 +2329,19 @@ func TestVirtualFoldersLink(t *testing.T) {
 		assert.NoError(t, err)
 		err = client.Symlink(path.Join(vdirPath2, testFileName), path.Join(vdirPath2, testDir, testFileName+".link"))
 		assert.NoError(t, err)
-		err = client.Symlink(testFileName, path.Join(vdirPath1, testFileName+".link1"))
+		err = client.Symlink(path.Join("/", testFileName), path.Join(vdirPath1, testFileName+".link1"))
 		if assert.Error(t, err) {
 			assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
 		}
-		err = client.Symlink(testFileName, path.Join(vdirPath1, testDir, testFileName+".link1"))
+		err = client.Symlink(path.Join("/", testFileName), path.Join(vdirPath1, testDir, testFileName+".link1"))
 		if assert.Error(t, err) {
 			assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
 		}
-		err = client.Symlink(testFileName, path.Join(vdirPath2, testFileName+".link1"))
+		err = client.Symlink(path.Join("/", testFileName), path.Join(vdirPath2, testFileName+".link1"))
 		if assert.Error(t, err) {
 			assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
 		}
-		err = client.Symlink(testFileName, path.Join(vdirPath2, testDir, testFileName+".link1"))
+		err = client.Symlink(path.Join("/", testFileName), path.Join(vdirPath2, testDir, testFileName+".link1"))
 		if assert.Error(t, err) {
 			assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
 		}

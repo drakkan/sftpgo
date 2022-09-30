@@ -546,6 +546,13 @@ func (c *BaseConnection) Rename(virtualSourcePath, virtualTargetPath string) err
 
 // CreateSymlink creates fsTargetPath as a symbolic link to fsSourcePath
 func (c *BaseConnection) CreateSymlink(virtualSourcePath, virtualTargetPath string) error {
+	var relativePath string
+	if !path.IsAbs(virtualSourcePath) {
+		relativePath = virtualSourcePath
+		virtualSourcePath = path.Join(path.Dir(virtualTargetPath), relativePath)
+		c.Log(logger.LevelDebug, "link relative path %q resolved as %q, target path %q",
+			relativePath, virtualSourcePath, virtualTargetPath)
+	}
 	if c.isCrossFoldersRequest(virtualSourcePath, virtualTargetPath) {
 		c.Log(logger.LevelWarn, "cross folder symlink is not supported, src: %v dst: %v", virtualSourcePath, virtualTargetPath)
 		return c.GetOpUnsupportedError()
@@ -578,6 +585,9 @@ func (c *BaseConnection) CreateSymlink(virtualSourcePath, virtualTargetPath stri
 	if ok, _ = c.User.IsFileAllowed(virtualTargetPath); !ok {
 		c.Log(logger.LevelError, "symlink target path %#v is not allowed", virtualTargetPath)
 		return c.GetPermissionDeniedError()
+	}
+	if relativePath != "" {
+		fsSourcePath = relativePath
 	}
 	if err := fs.Symlink(fsSourcePath, fsTargetPath); err != nil {
 		c.Log(logger.LevelError, "failed to create symlink %#v -> %#v: %+v", fsSourcePath, fsTargetPath, err)

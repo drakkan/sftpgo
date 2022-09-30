@@ -15,7 +15,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.33
 	github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.13.19
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.27.11
-	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.16.1
+	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.16.2
 	github.com/aws/aws-sdk-go-v2/service/sts v1.16.19
 	github.com/cockroachdb/cockroach-go/v2 v2.2.16
 	github.com/coreos/go-oidc/v3 v3.4.0
@@ -109,7 +109,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
-	github.com/googleapis/enterprise-certificate-proxy v0.1.0 // indirect
+	github.com/googleapis/enterprise-certificate-proxy v0.2.0 // indirect
 	github.com/googleapis/gax-go/v2 v2.5.1 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
@@ -156,7 +156,7 @@ require (
 	golang.org/x/tools v0.1.12 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20220927151529-dcaddaf36704 // indirect
+	google.golang.org/genproto v0.0.0-20220929141241-1ce7b20da813 // indirect
 	google.golang.org/grpc v1.49.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
@@ -167,6 +167,7 @@ require (
 
 replace (
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
+	github.com/pkg/sftp => github.com/drakkan/sftp v0.0.0-20220930161944-e8c89afc13a7
 	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20220925175854-fd2128ac8ea8
 	golang.org/x/net => github.com/drakkan/net v0.0.0-20220925175748-018cd5f6a745
 )
