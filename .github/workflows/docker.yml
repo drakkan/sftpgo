@@ -169,6 +169,7 @@ jobs:
             COMMIT_SHA=${{ steps.info.outputs.sha }}
             INSTALL_OPTIONAL_PACKAGES=${{ steps.info.outputs.full }}
             DOWNLOAD_PLUGINS=${{ steps.info.outputs.plugins }}
+            FEATURES=nopgxregisterdefaulttypes
           labels: |
             org.opencontainers.image.title=SFTPGo
             org.opencontainers.image.description=Fully featured and highly configurable SFTP server with optional HTTP, FTP/S and WebDAV support

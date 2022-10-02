@@ -205,13 +205,14 @@ The configuration file contains the following sections:
 - **"data_provider"**, the configuration for the data provider
   - `driver`, string. Supported drivers are `sqlite`, `mysql`, `postgresql`, `cockroachdb`, `bolt`, `memory`
   - `name`, string. Database name. For driver `sqlite` this can be the database name relative to the config dir or the absolute path to the SQLite database. For driver `memory` this is the (optional) path relative to the config dir or the absolute path to the provider dump, obtained using the `dumpdata` REST API, to load. This dump will be loaded at startup and can be reloaded on demand sending a `SIGHUP` signal on Unix based systems and a `paramchange` request to the running service on Windows. The `memory` provider will not modify the provided file so quota usage and last login will not be persisted. If you plan to use a SQLite database over a `cifs` network share (this is not recommended in general) you must use the `nobrl` mount option otherwise you will get the `database is locked` error. Some users reported that the `bolt` provider works fine over `cifs` shares.
-  - `host`, string. Database host. Leave empty for drivers `sqlite`, `bolt` and `memory`
+  - `host`, string. Database host. For `postgresql` and `cockroachdb` drivers you can specify multiple hosts separated by commas. Leave empty for drivers `sqlite`, `bolt` and `memory`
   - `port`, integer. Database port. Leave empty for drivers `sqlite`, `bolt` and `memory`
   - `username`, string. Database user. Leave empty for drivers `sqlite`, `bolt` and `memory`
   - `password`, string. Database password. Leave empty for drivers `sqlite`, `bolt` and `memory`
   - `sslmode`, integer. Used for drivers `mysql` and `postgresql`. 0 disable TLS connections, 1 require TLS, 2 set TLS mode to `verify-ca` for driver `postgresql` and `skip-verify` for driver `mysql`, 3 set TLS mode to `verify-full` for driver `postgresql` and `preferred` for driver `mysql`
   - `root_cert`, string. Path to the root certificate authority used to verify that the server certificate was signed by a trusted CA
   - `disable_sni`, boolean. Allows to opt out Server Name Indication (SNI) for TLS connections. Default: `false`
+  - `target_session_attrs`, string. This is a `postgresql` and `cockroachdb` specific option. It determines whether the session must have certain properties to be acceptable. It's typically used in combination with multiple host names to select the first acceptable alternative among several hosts. Supported values: `any`, `read-write`, `read-only`, `primary`, `standby`, `prefer-standby`. If empty, `any` is assumed.
   - `client_cert`, string. Path to the client certificate for two-way TLS authentication
   - `client_key`,string. Path to the client key for two-way TLS authentication
   - `connection_string`, string. Provide a custom database connection string. If not empty, this connection string will be used instead of building one using the previous parameters. Leave empty for drivers `bolt` and `memory`

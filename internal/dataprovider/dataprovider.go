@@ -322,7 +322,7 @@ type Config struct {
 	// Database name. For driver sqlite this can be the database name relative to the config dir
 	// or the absolute path to the SQLite database.
 	Name string `json:"name" mapstructure:"name"`
-	// Database host
+	// Database host. For postgresql and cockroachdb driver you can specify multiple hosts separated by commas
 	Host string `json:"host" mapstructure:"host"`
 	// Database port
 	Port int `json:"port" mapstructure:"port"`
@@ -336,8 +336,13 @@ type Config struct {
 	// 2 set ssl mode to verify-ca for driver postgresql and skip-verify for driver mysql.
 	// 3 set ssl mode to verify-full for driver postgresql and preferred for driver mysql.
 	SSLMode int `json:"sslmode" mapstructure:"sslmode"`
-	// Used for drivers mysql and postgresql. Set to true to disable SNI
+	// Used for drivers mysql, postgresql and cockroachdb. Set to true to disable SNI
 	DisableSNI bool `json:"disable_sni" mapstructure:"disable_sni"`
+	// TargetSessionAttrs is a postgresql and cockroachdb specific option.
+	// It determines whether the session must have certain properties to be acceptable.
+	// It's typically used in combination with multiple host names to select the first
+	// acceptable alternative among several hosts
+	TargetSessionAttrs string `json:"target_session_attrs" mapstructure:"target_session_attrs"`
 	// Path to the root certificate authority used to verify that the server certificate was signed by a trusted CA
 	RootCert string `json:"root_cert" mapstructure:"root_cert"`
 	// Path to the client certificate for two-way TLS authentication

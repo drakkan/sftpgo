@@ -191,6 +191,7 @@
     "password": "",
     "sslmode": 0,
     "disable_sni": false,
+    "target_session_attrs": "",
     "root_cert": "",
     "client_cert": "",
     "client_key": "",

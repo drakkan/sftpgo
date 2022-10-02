@@ -310,22 +310,23 @@ func Init() {
 			},
 		},
 		ProviderConf: dataprovider.Config{
-			Driver:           "sqlite",
-			Name:             "sftpgo.db",
-			Host:             "",
-			Port:             0,
-			Username:         "",
-			Password:         "",
-			ConnectionString: "",
-			SQLTablesPrefix:  "",
-			SSLMode:          0,
-			DisableSNI:       false,
-			RootCert:         "",
-			ClientCert:       "",
-			ClientKey:        "",
-			TrackQuota:       2,
-			PoolSize:         0,
-			UsersBaseDir:     "",
+			Driver:             "sqlite",
+			Name:               "sftpgo.db",
+			Host:               "",
+			Port:               0,
+			Username:           "",
+			Password:           "",
+			ConnectionString:   "",
+			SQLTablesPrefix:    "",
+			SSLMode:            0,
+			DisableSNI:         false,
+			TargetSessionAttrs: "",
+			RootCert:           "",
+			ClientCert:         "",
+			ClientKey:          "",
+			TrackQuota:         2,
+			PoolSize:           0,
+			UsersBaseDir:       "",
 			Actions: dataprovider.ObjectsActions{
 				ExecuteOn:  []string{},
 				ExecuteFor: []string{},
@@ -1941,6 +1942,7 @@ func setViperDefaults() {
 	viper.SetDefault("data_provider.password", globalConf.ProviderConf.Password)
 	viper.SetDefault("data_provider.sslmode", globalConf.ProviderConf.SSLMode)
 	viper.SetDefault("data_provider.disable_sni", globalConf.ProviderConf.DisableSNI)
+	viper.SetDefault("data_provider.target_session_attrs", globalConf.ProviderConf.TargetSessionAttrs)
 	viper.SetDefault("data_provider.root_cert", globalConf.ProviderConf.RootCert)
 	viper.SetDefault("data_provider.client_cert", globalConf.ProviderConf.ClientCert)
 	viper.SetDefault("data_provider.client_key", globalConf.ProviderConf.ClientKey)

@@ -26,8 +26,8 @@ import (
 	"strings"
 	"time"
 
-	// we import lib/pq here to be able to disable PostgreSQL support using a build tag
-	_ "github.com/lib/pq"
+	// we import pgx here to be able to disable PostgreSQL support using a build tag
+	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/version"
@@ -215,7 +215,7 @@ func init() {
 
 func initializePGSQLProvider() error {
 	var err error
-	dbHandle, err := sql.Open("postgres", getPGSQLConnectionString(false))
+	dbHandle, err := sql.Open("pgx", getPGSQLConnectionString(false))
 	if err == nil {
 		providerLog(logger.LevelDebug, "postgres database handle created, connection string: %#v, pool size: %v",
 			getPGSQLConnectionString(true), config.PoolSize)
@@ -251,6 +251,9 @@ func getPGSQLConnectionString(redactedPwd bool) string {
 		}
 		if config.DisableSNI {
 			connectionString += " sslsni=0"
+		}
+		if config.TargetSessionAttrs != "" {
+			connectionString += fmt.Sprintf(" target_session_attrs='%s'", config.TargetSessionAttrs)
 		}
 	} else {
 		connectionString = config.ConnectionString
@@ -788,7 +791,11 @@ func downgradePgSQLDatabaseFromV23(dbHandle *sql.DB) error {
 func updatePgSQLDatabaseFrom19To20(dbHandle *sql.DB) error {
 	logger.InfoToConsole("updating database schema version: 19 -> 20")
 	providerLog(logger.LevelInfo, "updating database schema version: 19 -> 20")
-	sql := strings.ReplaceAll(pgsqlV20SQL, "{{events_actions}}", sqlTableEventsActions)
+	sql := pgsqlV20SQL
+	if config.Driver == CockroachDataProviderName {
+		sql = strings.ReplaceAll(sql, `ALTER TABLE "{{users}}" ALTER COLUMN "deleted_at" DROP DEFAULT;`, "")
+	}
+	sql = strings.ReplaceAll(sql, "{{events_actions}}", sqlTableEventsActions)
 	sql = strings.ReplaceAll(sql, "{{events_rules}}", sqlTableEventsRules)
 	sql = strings.ReplaceAll(sql, "{{rules_actions_mapping}}", sqlTableRulesActionsMapping)
 	sql = strings.ReplaceAll(sql, "{{tasks}}", sqlTableTasks)
@@ -800,7 +807,12 @@ func updatePgSQLDatabaseFrom19To20(dbHandle *sql.DB) error {
 func updatePgSQLDatabaseFrom20To21(dbHandle *sql.DB) error {
 	logger.InfoToConsole("updating database schema version: 20 -> 21")
 	providerLog(logger.LevelInfo, "updating database schema version: 20 -> 21")
-	sql := strings.ReplaceAll(pgsqlV21SQL, "{{users}}", sqlTableUsers)
+	sql := pgsqlV21SQL
+	if config.Driver == CockroachDataProviderName {
+		sql = strings.ReplaceAll(sql, `ALTER TABLE "{{users}}" ALTER COLUMN "first_download" DROP DEFAULT;`, "")
+		sql = strings.ReplaceAll(sql, `ALTER TABLE "{{users}}" ALTER COLUMN "first_upload" DROP DEFAULT;`, "")
+	}
+	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 21, true)
 }
 
@@ -842,7 +854,12 @@ func downgradePgSQLDatabaseFrom21To20(dbHandle *sql.DB) error {
 func downgradePgSQLDatabaseFrom22To21(dbHandle *sql.DB) error {
 	logger.InfoToConsole("downgrading database schema version: 22 -> 21")
 	providerLog(logger.LevelInfo, "downgrading database schema version: 22 -> 21")
-	sql := strings.ReplaceAll(pgsqlV22DownSQL, "{{admins_groups_mapping}}", sqlTableAdminsGroupsMapping)
+	sql := pgsqlV22DownSQL
+	if config.Driver == CockroachDataProviderName {
+		sql = strings.ReplaceAll(sql, `ALTER TABLE "{{admins_groups_mapping}}" DROP CONSTRAINT "{{prefix}}unique_admin_group_mapping";`,
+			`DROP INDEX "{{prefix}}unique_admin_group_mapping" CASCADE;`)
+	}
+	sql = strings.ReplaceAll(sql, "{{admins_groups_mapping}}", sqlTableAdminsGroupsMapping)
 	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 21, false)
 }
