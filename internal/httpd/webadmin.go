@@ -2844,8 +2844,13 @@ func (s *httpdServer) handleWebGetStatus(w http.ResponseWriter, r *http.Request)
 
 func (s *httpdServer) handleWebGetConnections(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		return
+	}
 	connectionStats := common.Connections.GetStats()
-	connectionStats = append(connectionStats, getNodesConnections()...)
+	connectionStats = append(connectionStats, getNodesConnections(claims.Username)...)
 	data := connectionsPage{
 		basePage:    s.getBasePageData(pageConnectionsTitle, webConnectionsPath, r),
 		Connections: connectionStats,

@@ -557,6 +557,11 @@ func TestInvalidToken(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "Invalid token claims")
 
 	rr = httptest.NewRecorder()
+	handleCloseConnection(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
 	server.handleWebRestore(rr, req)
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), "invalid token claims")
@@ -603,6 +608,11 @@ func TestInvalidToken(t *testing.T) {
 
 	rr = httptest.NewRecorder()
 	server.handleWebUpdateFolderPost(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "invalid token claims")
+
+	rr = httptest.NewRecorder()
+	server.handleWebGetConnections(rr, req)
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), "invalid token claims")
 
@@ -1398,13 +1408,22 @@ func TestRenderUnexistingFolder(t *testing.T) {
 }
 
 func TestCloseConnectionHandler(t *testing.T) {
-	req, _ := http.NewRequest(http.MethodDelete, activeConnectionsPath+"/connectionID", nil)
+	tokenAuth := jwtauth.New(jwa.HS256.String(), util.GenerateRandomBytes(32), nil)
+	claims := make(map[string]any)
+	claims["username"] = defaultAdminUsername
+	claims[jwt.ExpirationKey] = time.Now().UTC().Add(1 * time.Hour)
+	token, _, err := tokenAuth.Encode(claims)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodDelete, activeConnectionsPath+"/connectionID", nil)
+	assert.NoError(t, err)
 	rctx := chi.NewRouteContext()
 	rctx.URLParams.Add("connectionID", "")
 	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+	req = req.WithContext(context.WithValue(req.Context(), jwtauth.TokenCtxKey, token))
 	rr := httptest.NewRecorder()
 	handleCloseConnection(rr, req)
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "connectionID is mandatory")
 }
 
 func TestRenderInvalidTemplate(t *testing.T) {

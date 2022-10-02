@@ -1,3 +1,17 @@
+// Copyright (C) 2019-2022  Nicola Murino
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published
+// by the Free Software Foundation, version 3.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package dataprovider
 
 import (
@@ -106,22 +120,27 @@ func (n *Node) validate() error {
 	return n.Data.validate()
 }
 
-func (n *Node) authenticate(token string) error {
+func (n *Node) authenticate(token string) (string, error) {
 	if err := n.Data.Key.TryDecrypt(); err != nil {
 		providerLog(logger.LevelError, "unable to decrypt node key: %v", err)
-		return err
+		return "", err
 	}
 	if token == "" {
-		return ErrInvalidCredentials
+		return "", ErrInvalidCredentials
 	}
 	t, err := jwt.Parse([]byte(token), jwt.WithVerify(jwa.HS256, []byte(n.Data.Key.GetPayload())))
 	if err != nil {
-		return fmt.Errorf("unable to parse token: %v", err)
+		return "", fmt.Errorf("unable to parse token: %v", err)
 	}
 	if err := jwt.Validate(t); err != nil {
-		return fmt.Errorf("unable to validate token: %v", err)
+		return "", fmt.Errorf("unable to validate token: %v", err)
 	}
-	return nil
+	if admin, ok := t.Get("admin"); ok {
+		if val, ok := admin.(string); ok && val != "" {
+			return val, nil
+		}
+	}
+	return "", errors.New("no admin username associated with node token")
 }
 
 // getBaseURL returns the base URL for this node
@@ -138,13 +157,14 @@ func (n *Node) getBaseURL() string {
 }
 
 // generateAuthToken generates a new auth token
-func (n *Node) generateAuthToken() (string, error) {
+func (n *Node) generateAuthToken(username string) (string, error) {
 	if err := n.Data.Key.TryDecrypt(); err != nil {
 		return "", fmt.Errorf("unable to decrypt node key: %w", err)
 	}
 	now := time.Now().UTC()
 
 	t := jwt.New()
+	t.Set("admin", username)                          //nolint:errcheck
 	t.Set(jwt.JwtIDKey, xid.New().String())           //nolint:errcheck
 	t.Set(jwt.NotBeforeKey, now.Add(-30*time.Second)) //nolint:errcheck
 	t.Set(jwt.ExpirationKey, now.Add(1*time.Minute))  //nolint:errcheck
@@ -156,13 +176,15 @@ func (n *Node) generateAuthToken() (string, error) {
 	return string(payload), nil
 }
 
-func (n *Node) prepareRequest(ctx context.Context, relativeURL, method string, body io.Reader) (*http.Request, error) {
+func (n *Node) prepareRequest(ctx context.Context, username, relativeURL, method string,
+	body io.Reader,
+) (*http.Request, error) {
 	url := fmt.Sprintf("%s%s", n.getBaseURL(), relativeURL)
 	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		return nil, err
 	}
-	token, err := n.generateAuthToken()
+	token, err := n.generateAuthToken(username)
 	if err != nil {
 		return nil, err
 	}
@@ -172,11 +194,11 @@ func (n *Node) prepareRequest(ctx context.Context, relativeURL, method string, b
 
 // SendGetRequest sends an HTTP GET request to this node.
 // The responseHolder must be a pointer
-func (n *Node) SendGetRequest(relativeURL string, responseHolder any) error {
+func (n *Node) SendGetRequest(username, relativeURL string, responseHolder any) error {
 	ctx, cancel := context.WithTimeout(context.Background(), nodeReqTimeout)
 	defer cancel()
 
-	req, err := n.prepareRequest(ctx, relativeURL, http.MethodGet, nil)
+	req, err := n.prepareRequest(ctx, username, relativeURL, http.MethodGet, nil)
 	if err != nil {
 		return err
 	}
@@ -200,11 +222,11 @@ func (n *Node) SendGetRequest(relativeURL string, responseHolder any) error {
 }
 
 // SendDeleteRequest sends an HTTP DELETE request to this node
-func (n *Node) SendDeleteRequest(relativeURL string) error {
+func (n *Node) SendDeleteRequest(username, relativeURL string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), nodeReqTimeout)
 	defer cancel()
 
-	req, err := n.prepareRequest(ctx, relativeURL, http.MethodDelete, nil)
+	req, err := n.prepareRequest(ctx, username, relativeURL, http.MethodDelete, nil)
 	if err != nil {
 		return err
 	}
@@ -224,9 +246,9 @@ func (n *Node) SendDeleteRequest(relativeURL string) error {
 }
 
 // AuthenticateNodeToken check the validity of the provided token
-func AuthenticateNodeToken(token string) error {
+func AuthenticateNodeToken(token string) (string, error) {
 	if currentNode == nil {
-		return errNoClusterNodes
+		return "", errNoClusterNodes
 	}
 	return currentNode.authenticate(token)
 }

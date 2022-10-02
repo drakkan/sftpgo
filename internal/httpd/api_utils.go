@@ -162,13 +162,18 @@ func getActiveConnections(w http.ResponseWriter, r *http.Request) {
 	}
 	stats := common.Connections.GetStats()
 	if claims.NodeID == "" {
-		stats = append(stats, getNodesConnections()...)
+		stats = append(stats, getNodesConnections(claims.Username)...)
 	}
 	render.JSON(w, r, stats)
 }
 
 func handleCloseConnection(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+		return
+	}
 	connectionID := getURLParam(r, "connectionID")
 	if connectionID == "" {
 		sendAPIResponse(w, r, nil, "connectionID is mandatory", http.StatusBadRequest)
@@ -190,7 +195,7 @@ func handleCloseConnection(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, nil, http.StatusText(status), status)
 		return
 	}
-	if err := n.SendDeleteRequest(fmt.Sprintf("%s/%s", activeConnectionsPath, connectionID)); err != nil {
+	if err := n.SendDeleteRequest(claims.Username, fmt.Sprintf("%s/%s", activeConnectionsPath, connectionID)); err != nil {
 		logger.Warn(logSender, "", "unable to delete connection id %q from node %q: %v", connectionID, n.Name, err)
 		sendAPIResponse(w, r, nil, "Not Found", http.StatusNotFound)
 		return
@@ -200,7 +205,7 @@ func handleCloseConnection(w http.ResponseWriter, r *http.Request) {
 
 // getNodesConnections returns the active connections from other nodes.
 // Errors are silently ignored
-func getNodesConnections() []common.ConnectionStatus {
+func getNodesConnections(admin string) []common.ConnectionStatus {
 	nodes, err := dataprovider.GetNodes()
 	if err != nil || len(nodes) == 0 {
 		return nil
@@ -216,7 +221,7 @@ func getNodesConnections() []common.ConnectionStatus {
 			defer wg.Done()
 
 			var stats []common.ConnectionStatus
-			if err := node.SendGetRequest(activeConnectionsPath, &stats); err != nil {
+			if err := node.SendGetRequest(admin, activeConnectionsPath, &stats); err != nil {
 				logger.Warn(logSender, "", "unable to get connections from node %s: %v", node.Name, err)
 				return
 			}

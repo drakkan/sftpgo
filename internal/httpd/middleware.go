@@ -320,18 +320,17 @@ func checkNodeToken(tokenAuth *jwtauth.JWTAuth) func(next http.Handler) http.Han
 			if len(token) > 7 && strings.ToUpper(token[0:6]) == "BEARER" {
 				token = token[7:]
 			}
-			if err := dataprovider.AuthenticateNodeToken(token); err != nil {
+			admin, err := dataprovider.AuthenticateNodeToken(token)
+			if err != nil {
 				logger.Debug(logSender, "", "unable to authenticate node token %q: %v", token, err)
 				sendAPIResponse(w, r, fmt.Errorf("the provided token cannot be authenticated"), "", http.StatusUnauthorized)
 				return
 			}
-
 			c := jwtTokenClaims{
-				Username:    fmt.Sprintf("node %s", dataprovider.GetNodeName()),
+				Username:    admin,
 				Permissions: []string{dataprovider.PermAdminViewConnections, dataprovider.PermAdminCloseConnections},
 				NodeID:      dataprovider.GetNodeName(),
 			}
-
 			resp, err := c.createTokenResponse(tokenAuth, tokenAudienceAPI, util.GetIPFromRemoteAddress(r.RemoteAddr))
 			if err != nil {
 				sendAPIResponse(w, r, err, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
