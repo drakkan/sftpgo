@@ -100,7 +100,7 @@ func NewAzBlobFs(connectionID, localTempDir, mountPath string, config AzBlobFsCo
 	fs.setConfigDefaults()
 
 	if fs.config.SASURL.GetPayload() != "" {
-		return fs.initFsFromSASURL()
+		return fs.initFromSASURL()
 	}
 
 	credential, err := azblob.NewSharedKeyCredential(fs.config.AccountName, fs.config.AccountKey.GetPayload())
@@ -122,7 +122,7 @@ func NewAzBlobFs(connectionID, localTempDir, mountPath string, config AzBlobFsCo
 	return fs, err
 }
 
-func (fs *AzureBlobFs) initFsFromSASURL() (Fs, error) {
+func (fs *AzureBlobFs) initFromSASURL() (Fs, error) {
 	parts, err := azblob.ParseURL(fs.config.SASURL.GetPayload())
 	if err != nil {
 		return fs, fmt.Errorf("invalid SAS URL: %w", err)
@@ -132,7 +132,7 @@ func (fs *AzureBlobFs) initFsFromSASURL() (Fs, error) {
 	}
 	if parts.ContainerName != "" {
 		if fs.config.Container != "" && fs.config.Container != parts.ContainerName {
-			return fs, fmt.Errorf("container name in SAS URL %#v and container provided %#v do not match",
+			return fs, fmt.Errorf("container name in SAS URL %q and container provided %q do not match",
 				parts.ContainerName, fs.config.Container)
 		}
 		svc, err := container.NewClientWithNoCredential(fs.config.SASURL.GetPayload(), getAzContainerClientOptions())
