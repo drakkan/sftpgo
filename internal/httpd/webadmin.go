@@ -2054,6 +2054,10 @@ func getEventActionOptionsFromPostFields(r *http.Request) (dataprovider.BaseEven
 			Deletes: strings.Split(strings.ReplaceAll(r.Form.Get("fs_delete_paths"), " ", ""), ","),
 			MkDirs:  strings.Split(strings.ReplaceAll(r.Form.Get("fs_mkdir_paths"), " ", ""), ","),
 			Exist:   strings.Split(strings.ReplaceAll(r.Form.Get("fs_exist_paths"), " ", ""), ","),
+			Compress: dataprovider.EventActionFsCompress{
+				Name:  r.Form.Get("fs_compress_name"),
+				Paths: strings.Split(strings.ReplaceAll(r.Form.Get("fs_compress_paths"), " ", ""), ","),
+			},
 		},
 	}
 	return options, nil

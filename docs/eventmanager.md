@@ -18,6 +18,7 @@ The following actions are supported:
   - `Delete`. You can delete one or more files and directories.
   - `Create directories`. You can create one or more directories including sub-directories.
   - `Path exists`. Check if the specified path exists.
+  - `Compress paths`. You can compress (currently as zip) ore or more files and directories.
 
 The following placeholders are supported:
 

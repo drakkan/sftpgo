@@ -1694,6 +1694,18 @@ func TestEventActionValidation(t *testing.T) {
 	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
 	assert.NoError(t, err)
 	assert.Contains(t, string(resp), "invalid path to check for existence")
+	action.Options.FsConfig.Type = dataprovider.FilesystemActionCompress
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "archive name is mandatory")
+	action.Options.FsConfig.Compress.Name = "archive.zip"
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "no path to compress specified")
+	action.Options.FsConfig.Compress.Paths = []string{"item1", ""}
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "invalid path to compress")
 }
 
 func TestEventRuleValidation(t *testing.T) {

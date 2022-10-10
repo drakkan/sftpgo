@@ -606,6 +606,28 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 </div>
             </div>
 
+            <div class="form-group row action-type action-fs-type action-fs-compress">
+                <label for="idFsCompressName" class="col-sm-2 col-form-label">Archive path</label>
+                <div class="col-sm-10">
+                    <input type="text" class="form-control" id="idFsCompressName" name="fs_compress_name" placeholder=""
+                            value="{{.Action.Options.FsConfig.Compress.Name}}" maxlength="255"  aria-describedby="fsCompressNameHelpBlock">
+                    <small id="fsCompressPathsHelpBlock" class="form-text text-muted">
+                        Full path, as seen by SFTPGo users, to the zip archive to create. Placeholders are supported. If the specified file already exists, it is overwritten
+                    </small>
+                </div>
+            </div>
+
+            <div class="form-group row action-type action-fs-type action-fs-compress">
+                <label for="idFsCompressPaths" class="col-sm-2 col-form-label">Paths</label>
+                <div class="col-sm-10">
+                    <textarea class="form-control" id="idFsCompressPaths" name="fs_compress_paths" rows="2"
+                        aria-describedby="fsCompressPathsHelpBlock">{{.Action.Options.FsConfig.GetCompressPathsAsString}}</textarea>
+                    <small id="fsCompressPathsHelpBlock" class="form-text text-muted">
+                        Comma separated paths to compress (zip) as seen by SFTPGo users. Placeholders are supported. The required permissions are granted automatically
+                    </small>
+                </div>
+            </div>
+
             <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
             <div class="col-sm-12 text-right px-0">
                 <button type="submit" class="btn btn-primary mt-3 ml-3 px-5" name="form_action" value="submit">Submit</button>
@@ -923,6 +945,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             case '4':
             case 4:
                 $('.action-fs-exist').show();
+                break;
+            case '5':
+            case 5:
+                $('.action-fs-compress').show();
                 break;
         }
     }

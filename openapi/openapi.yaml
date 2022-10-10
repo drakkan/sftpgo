@@ -6156,6 +6156,17 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/FolderRetention'
+    EventActionFsCompress:
+      type: object
+      properties:
+        name:
+          type: string
+          description: 'Full path to the (zip) archive to create. The parent dir must exist'
+        paths:
+          type: array
+          items:
+            type: string
+          description: 'paths to add the archive'
     EventActionFilesystemConfig:
       type: object
       properties:
@@ -6177,6 +6188,8 @@ components:
           type: array
           items:
             type: string
+        compress:
+          $ref: '#/components/schemas/EventActionFsCompress'
     BaseEventActionOptions:
       type: object
       properties:

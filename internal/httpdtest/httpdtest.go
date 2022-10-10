@@ -2322,6 +2322,21 @@ func compareEventActionEmailConfigFields(expected, actual dataprovider.EventActi
 	return nil
 }
 
+func compareEventActionFsCompressFields(expected, actual dataprovider.EventActionFsCompress) error {
+	if expected.Name != actual.Name {
+		return errors.New("fs compress name mismatch")
+	}
+	if len(expected.Paths) != len(actual.Paths) {
+		return errors.New("fs compress paths mismatch")
+	}
+	for _, v := range expected.Paths {
+		if !util.Contains(actual.Paths, v) {
+			return errors.New("fs compress paths content mismatch")
+		}
+	}
+	return nil
+}
+
 func compareEventActionFsConfigFields(expected, actual dataprovider.EventActionFilesystemConfig) error {
 	if expected.Type != actual.Type {
 		return errors.New("fs type mismatch")
@@ -2353,7 +2368,7 @@ func compareEventActionFsConfigFields(expected, actual dataprovider.EventActionF
 			return errors.New("fs exist content mismatch")
 		}
 	}
-	return nil
+	return compareEventActionFsCompressFields(expected.Compress, actual.Compress)
 }
 
 func compareEventActionCmdConfigFields(expected, actual dataprovider.EventActionCommandConfig) error {

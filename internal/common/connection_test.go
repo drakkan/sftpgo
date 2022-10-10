@@ -319,7 +319,7 @@ func TestErrorsMapping(t *testing.T) {
 	fs := vfs.NewOsFs("", os.TempDir(), "")
 	conn := NewBaseConnection("", ProtocolSFTP, "", "", dataprovider.User{BaseUser: sdk.BaseUser{HomeDir: os.TempDir()}})
 	osErrorsProtocols := []string{ProtocolWebDAV, ProtocolFTP, ProtocolHTTP, ProtocolHTTPShare,
-		ProtocolDataRetention, ProtocolOIDC}
+		ProtocolDataRetention, ProtocolOIDC, protocolEventAction}
 	for _, protocol := range supportedProtocols {
 		conn.SetProtocol(protocol)
 		err := conn.GetFsError(fs, os.ErrNotExist)
