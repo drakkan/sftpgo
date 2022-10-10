@@ -479,6 +479,71 @@ func TestSetStat(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestCryptFsUserUploadErrorOverwrite(t *testing.T) {
+	u := getCryptFsUser()
+	u.QuotaSize = 6000
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	var buf []byte
+	for i := 0; i < 4000; i++ {
+		buf = append(buf, []byte("a")...)
+	}
+	bufSize := int64(len(buf))
+	reader := bytes.NewReader(buf)
+	conn, client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		f, err := client.Create(testFileName + "_big")
+		assert.NoError(t, err)
+		n, err := io.Copy(f, reader)
+		assert.NoError(t, err)
+		assert.Equal(t, bufSize, n)
+		err = f.Close()
+		assert.NoError(t, err)
+		encryptedSize, err := getEncryptedFileSize(bufSize)
+		assert.NoError(t, err)
+		expectedSize := encryptedSize
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, user.UsedQuotaFiles)
+		assert.Equal(t, expectedSize, user.UsedQuotaSize)
+		// now write a small file
+		f, err = client.Create(testFileName)
+		assert.NoError(t, err)
+		_, err = f.Write(testFileContent)
+		assert.NoError(t, err)
+		err = f.Close()
+		assert.NoError(t, err)
+		encryptedSize, err = getEncryptedFileSize(int64(len(testFileContent)))
+		assert.NoError(t, err)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 2, user.UsedQuotaFiles)
+		assert.Equal(t, expectedSize+encryptedSize, user.UsedQuotaSize)
+		// try to overwrite this file with a big one, this cause an overquota error
+		// the partial file is deleted and the quota updated
+		_, err = reader.Seek(0, io.SeekStart)
+		assert.NoError(t, err)
+		f, err = client.Create(testFileName)
+		assert.NoError(t, err)
+		_, err = io.Copy(f, reader)
+		assert.Error(t, err)
+		err = f.Close()
+		assert.Error(t, err)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, user.UsedQuotaFiles)
+		assert.Equal(t, expectedSize, user.UsedQuotaSize)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestChtimesOpenHandle(t *testing.T) {
 	localUser, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)

@@ -54,6 +54,7 @@ import (
 
 const (
 	azureDefaultEndpoint = "blob.core.windows.net"
+	azBlobFsName         = "AzureBlobFs"
 )
 
 // AzureBlobFs is a Fs implementation for Azure Blob storage.
@@ -158,9 +159,9 @@ func (fs *AzureBlobFs) initFromSASURL() (Fs, error) {
 // Name returns the name for the Fs implementation
 func (fs *AzureBlobFs) Name() string {
 	if !fs.config.SASURL.IsEmpty() {
-		return fmt.Sprintf("Azure Blob with SAS URL, container %#v", fs.config.Container)
+		return fmt.Sprintf("%s with SAS URL, container %q", azBlobFsName, fs.config.Container)
 	}
-	return fmt.Sprintf("Azure Blob container %#v", fs.config.Container)
+	return fmt.Sprintf("%s container %q", azBlobFsName, fs.config.Container)
 }
 
 // ConnectionID returns the connection ID associated to this Fs implementation

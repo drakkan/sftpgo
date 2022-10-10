@@ -37,10 +37,14 @@ import (
 type MockOsFs struct {
 	vfs.Fs
 	hasVirtualFolders bool
+	name              string
 }
 
 // Name returns the name for the Fs implementation
 func (fs *MockOsFs) Name() string {
+	if fs.name != "" {
+		return fs.name
+	}
 	return "mockOsFs"
 }
 
@@ -57,9 +61,10 @@ func (fs *MockOsFs) Chtimes(name string, atime, mtime time.Time, isUploading boo
 	return vfs.ErrVfsUnsupported
 }
 
-func newMockOsFs(hasVirtualFolders bool, connectionID, rootDir string) vfs.Fs {
+func newMockOsFs(hasVirtualFolders bool, connectionID, rootDir, name string) vfs.Fs {
 	return &MockOsFs{
 		Fs:                vfs.NewOsFs(connectionID, rootDir, ""),
+		name:              name,
 		hasVirtualFolders: hasVirtualFolders,
 	}
 }
@@ -108,7 +113,7 @@ func TestSetStatMode(t *testing.T) {
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
-	fs := newMockOsFs(true, "", user.GetHomeDir())
+	fs := newMockOsFs(true, "", user.GetHomeDir(), "")
 	conn := NewBaseConnection("", ProtocolWebDAV, "", "", user)
 	err := conn.handleChmod(fs, fakePath, fakePath, nil)
 	assert.NoError(t, err)
@@ -429,7 +434,7 @@ func TestMaxWriteSize(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, int64(90), size)
 
-	fs = newMockOsFs(true, fs.ConnectionID(), user.GetHomeDir())
+	fs = newMockOsFs(true, fs.ConnectionID(), user.GetHomeDir(), "")
 	size, err = conn.GetMaxWriteSize(quotaResult, true, 100, fs.IsUploadResumeSupported())
 	assert.EqualError(t, err, ErrOpUnsupported.Error())
 	assert.Equal(t, int64(0), size)

@@ -45,6 +45,7 @@ import (
 
 const (
 	defaultGCSPageSize = 5000
+	gcsfsName          = "GCSFs"
 )
 
 var (
@@ -104,7 +105,7 @@ func NewGCSFs(connectionID, localTempDir, mountPath string, config GCSFsConfig) 
 
 // Name returns the name for the Fs implementation
 func (fs *GCSFs) Name() string {
-	return fmt.Sprintf("GCSFs bucket %#v", fs.config.Bucket)
+	return fmt.Sprintf("%s bucket %q", gcsfsName, fs.config.Bucket)
 }
 
 // ConnectionID returns the connection ID associated to this Fs implementation

@@ -496,15 +496,6 @@ func (u *User) GetPermissionsForPath(p string) []string {
 	return permissions
 }
 
-// HasBufferedSFTP returns true if the user has a SFTP filesystem with buffering enabled
-func (u *User) HasBufferedSFTP(name string) bool {
-	fs := u.GetFsConfigForPath(name)
-	if fs.Provider == sdk.SFTPFilesystemProvider {
-		return fs.SFTPConfig.BufferSize > 0
-	}
-	return false
-}
-
 func (u *User) getForbiddenSFTPSelfUsers(username string) ([]string, error) {
 	sftpUser, err := UserExists(username)
 	if err == nil {

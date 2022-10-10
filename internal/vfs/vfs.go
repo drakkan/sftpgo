@@ -746,6 +746,20 @@ func HasTruncateSupport(fs Fs) bool {
 	return IsLocalOsFs(fs) || IsSFTPFs(fs) || IsHTTPFs(fs)
 }
 
+// HasImplicitAtomicUploads returns true if the fs don't persists partial files on error
+func HasImplicitAtomicUploads(fs Fs) bool {
+	if strings.HasPrefix(fs.Name(), s3fsName) {
+		return true
+	}
+	if strings.HasPrefix(fs.Name(), gcsfsName) {
+		return true
+	}
+	if strings.HasPrefix(fs.Name(), azBlobFsName) {
+		return true
+	}
+	return false
+}
+
 // HasOpenRWSupport returns true if the fs can open a file
 // for reading and writing at the same time
 func HasOpenRWSupport(fs Fs) bool {

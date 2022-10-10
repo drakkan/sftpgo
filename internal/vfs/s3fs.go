@@ -57,6 +57,7 @@ const (
 	// using this mime type for directories improves compatibility with s3fs-fuse
 	s3DirMimeType        = "application/x-directory"
 	s3TransferBufferSize = 256 * 1024
+	s3fsName             = "S3Fs"
 )
 
 // S3Fs is a Fs implementation for AWS S3 compatible object storages
@@ -139,7 +140,7 @@ func NewS3Fs(connectionID, localTempDir, mountPath string, s3Config S3FsConfig) 
 
 // Name returns the name for the Fs implementation
 func (fs *S3Fs) Name() string {
-	return fmt.Sprintf("S3Fs bucket %#v", fs.config.Bucket)
+	return fmt.Sprintf("%s bucket %q", s3fsName, fs.config.Bucket)
 }
 
 // ConnectionID returns the connection ID associated to this Fs implementation

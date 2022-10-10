@@ -40,7 +40,6 @@ func TestTransferUpdateQuota(t *testing.T) {
 	transfer.BytesReceived.Store(123)
 	errFake := errors.New("fake error")
 	transfer.TransferError(errFake)
-	assert.False(t, transfer.updateQuota(1, 0))
 	err := transfer.Close()
 	if assert.Error(t, err) {
 		assert.EqualError(t, err, errFake.Error())
@@ -61,6 +60,10 @@ func TestTransferUpdateQuota(t *testing.T) {
 	assert.True(t, transfer.updateQuota(1, 0))
 	err = transfer.Close()
 	assert.NoError(t, err)
+
+	transfer.ErrTransfer = errFake
+	transfer.Fs = newMockOsFs(true, "", "", "S3Fs fake")
+	assert.False(t, transfer.updateQuota(1, 0))
 }
 
 func TestTransferThrottling(t *testing.T) {
@@ -297,13 +300,14 @@ func TestRemovePartialCryptoFile(t *testing.T) {
 	transfer := NewBaseTransfer(nil, conn, nil, testFile, testFile, "/transfer_test_file", TransferUpload,
 		0, 0, 0, 0, true, fs, dataprovider.TransferQuota{})
 	transfer.ErrTransfer = errors.New("test error")
-	_, err = transfer.getUploadFileSize()
+	_, _, err = transfer.getUploadFileSize()
 	assert.Error(t, err)
 	err = os.WriteFile(testFile, []byte("test data"), os.ModePerm)
 	assert.NoError(t, err)
-	size, err := transfer.getUploadFileSize()
+	size, deletedFiles, err := transfer.getUploadFileSize()
 	assert.NoError(t, err)
-	assert.Equal(t, int64(9), size)
+	assert.Equal(t, int64(0), size)
+	assert.Equal(t, 1, deletedFiles)
 	assert.NoFileExists(t, testFile)
 }
 

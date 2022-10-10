@@ -306,19 +306,26 @@ func (t *BaseTransfer) TransferError(err error) {
 		t.BytesReceived.Load(), elapsed)
 }
 
-func (t *BaseTransfer) getUploadFileSize() (int64, error) {
+func (t *BaseTransfer) getUploadFileSize() (int64, int, error) {
 	var fileSize int64
+	var deletedFiles int
+
 	info, err := t.Fs.Stat(t.fsPath)
 	if err == nil {
 		fileSize = info.Size()
 	}
-	if vfs.IsCryptOsFs(t.Fs) && t.ErrTransfer != nil {
+	if t.ErrTransfer != nil && vfs.IsCryptOsFs(t.Fs) {
 		errDelete := t.Fs.Remove(t.fsPath, false)
 		if errDelete != nil {
 			t.Connection.Log(logger.LevelWarn, "error removing partial crypto file %#v: %v", t.fsPath, errDelete)
+		} else {
+			fileSize = 0
+			deletedFiles = 1
+			t.BytesReceived.Store(0)
+			t.MinWriteOffset = 0
 		}
 	}
-	return fileSize, err
+	return fileSize, deletedFiles, err
 }
 
 // return 1 if the file is outside the user home dir
@@ -347,10 +354,7 @@ func (t *BaseTransfer) Close() error {
 	defer t.Connection.RemoveTransfer(t)
 
 	var err error
-	numFiles := 0
-	if t.isNewFile {
-		numFiles = 1
-	}
+	numFiles := t.getUploadedFiles()
 	metric.TransferCompleted(t.BytesSent.Load(), t.BytesReceived.Load(),
 		t.transferType, t.ErrTransfer, vfs.IsSFTPFs(t.Fs))
 	if t.transferQuota.HasSizeLimits() {
@@ -361,7 +365,6 @@ func (t *BaseTransfer) Close() error {
 		// if quota is exceeded we try to remove the partial file for uploads to local filesystem
 		err = t.Fs.Remove(t.File.Name(), false)
 		if err == nil {
-			numFiles--
 			t.BytesReceived.Store(0)
 			t.MinWriteOffset = 0
 		}
@@ -373,13 +376,12 @@ func (t *BaseTransfer) Close() error {
 			t.Connection.Log(logger.LevelDebug, "atomic upload completed, rename: %#v -> %#v, error: %v",
 				t.effectiveFsPath, t.fsPath, err)
 			// the file must be removed if it is uploaded to a path outside the home dir and cannot be renamed
-			numFiles -= t.checkUploadOutsideHomeDir(err)
+			t.checkUploadOutsideHomeDir(err)
 		} else {
 			err = t.Fs.Remove(t.effectiveFsPath, false)
 			t.Connection.Log(logger.LevelWarn, "atomic upload completed with error: \"%v\", delete temporary file: %#v, deletion error: %v",
 				t.ErrTransfer, t.effectiveFsPath, err)
 			if err == nil {
-				numFiles--
 				t.BytesReceived.Store(0)
 				t.MinWriteOffset = 0
 			}
@@ -393,11 +395,19 @@ func (t *BaseTransfer) Close() error {
 		ExecuteActionNotification(t.Connection, operationDownload, t.fsPath, t.requestPath, "", "", "", //nolint:errcheck
 			t.BytesSent.Load(), t.ErrTransfer)
 	} else {
-		uploadFileSize = t.BytesReceived.Load() + t.MinWriteOffset
-		if statSize, errStat := t.getUploadFileSize(); errStat == nil {
+		statSize, deletedFiles, errStat := t.getUploadFileSize()
+		if errStat == nil {
 			uploadFileSize = statSize
+		} else {
+			uploadFileSize = t.BytesReceived.Load() + t.MinWriteOffset
+			if t.Fs.IsNotExist(errStat) {
+				uploadFileSize = 0
+				numFiles--
+			}
 		}
-		t.Connection.Log(logger.LevelDebug, "upload file size %v", uploadFileSize)
+		numFiles -= deletedFiles
+		t.Connection.Log(logger.LevelDebug, "upload file size %d, num files %d, deleted files %d, fs path %q",
+			uploadFileSize, numFiles, deletedFiles, t.fsPath)
 		numFiles, uploadFileSize = t.executeUploadHook(numFiles, uploadFileSize)
 		t.updateQuota(numFiles, uploadFileSize)
 		t.updateTimes()
@@ -458,6 +468,14 @@ func (t *BaseTransfer) executeUploadHook(numFiles int, fileSize int64) (int, int
 	return numFiles, fileSize
 }
 
+func (t *BaseTransfer) getUploadedFiles() int {
+	numFiles := 0
+	if t.isNewFile {
+		numFiles = 1
+	}
+	return numFiles
+}
+
 func (t *BaseTransfer) updateTimes() {
 	if !t.aTime.IsZero() && !t.mTime.IsZero() {
 		err := t.Fs.Chtimes(t.fsPath, t.aTime, t.mTime, true)
@@ -467,12 +485,12 @@ func (t *BaseTransfer) updateTimes() {
 }
 
 func (t *BaseTransfer) updateQuota(numFiles int, fileSize int64) bool {
-	// S3 uploads are atomic, if there is an error nothing is uploaded
-	if t.File == nil && t.ErrTransfer != nil && !t.Connection.User.HasBufferedSFTP(t.GetVirtualPath()) {
+	// Uploads on some filesystem (S3 and similar) are atomic, if there is an error nothing is uploaded
+	if t.File == nil && t.ErrTransfer != nil && vfs.HasImplicitAtomicUploads(t.Fs) {
 		return false
 	}
 	sizeDiff := fileSize - t.InitialSize
-	if t.transferType == TransferUpload && (numFiles != 0 || sizeDiff > 0) {
+	if t.transferType == TransferUpload && (numFiles != 0 || sizeDiff != 0) {
 		vfolder, err := t.Connection.User.GetVirtualFolderForPath(path.Dir(t.requestPath))
 		if err == nil {
 			dataprovider.UpdateVirtualFolderQuota(&vfolder.BaseVirtualFolder, numFiles, //nolint:errcheck
