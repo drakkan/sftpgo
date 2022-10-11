@@ -29,6 +29,8 @@ Know issues:
 - if a file or a directory cannot be accessed, for example due to OS permissions issues or because a mapped path for a virtual folder is a missing, it will be omitted from the directory listing. If there is a different error then the whole directory listing will fail. This behavior is different from SFTP/FTP where you will be able to see the problematic file/directory in the directory listing, you will only get an error if you try to access it
 - if you use the native Windows client please check its usage and pay particular attention to the [registry settings](https://docs.microsoft.com/en-us/iis/publish/using-webdav/using-the-webdav-redirector#webdav-redirector-registry-settings). The default file size limit is 50MB and if you don't configure SFTPGo to use HTTPS you have to set `BasicAuthLevel` to `2`
 
-We plan to add [Dead Properties](https://tools.ietf.org/html/rfc4918#section-3) support in future releases. We need a design decision here, probably the best solution is to store dead properties inside the data provider but this could increase a lot its size. Alternately we could store them on disk for local filesystem and add as metadata for Cloud Storage, this means that we need to do a separate `HEAD` request to retrieve dead properties for an S3 file. For big folders will do a lot of requests to the Cloud Provider, I don't like this solution. Another option is to expose a hook and allow you to implement `dead properties` outside SFTPGo.
+SFTPGo has a minimal implementation for [Dead Properties](https://tools.ietf.org/html/rfc4918#section-3). We support setting the last modification time and we return the value in the "live" properties, so basically we don't store anything.
+
+To properly support dead properties we need a design decision, probably the best solution is to write a plugin and store them inside a supported data provider.
 
 If you find any other quirks or problems please let us know opening a GitHub issue, thank you!

@@ -18,6 +18,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
@@ -663,10 +664,46 @@ func TestFileAccessErrors(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, 0, len(connection.GetTransfers()))
 		}
-	}
+		// test PROPPATCH date parsing error
+		pstats, err := transfer.Patch([]webdav.Proppatch{
+			{
+				Props: []webdav.Property{
+					{
+						XMLName: xml.Name{
+							Space: "DAV",
+							Local: "getlastmodified",
+						},
+						InnerXML: []byte(`Wid, 04 Nov 2020 13:25:51 GMT`),
+					},
+				},
+			},
+		})
+		assert.NoError(t, err)
+		for _, pstat := range pstats {
+			assert.Equal(t, http.StatusForbidden, pstat.Status)
+		}
 
-	err = os.Remove(f.Name())
-	assert.NoError(t, err)
+		err = os.Remove(f.Name())
+		assert.NoError(t, err)
+		// the file is deleted PROPPATCH should fail
+		pstats, err = transfer.Patch([]webdav.Proppatch{
+			{
+				Props: []webdav.Property{
+					{
+						XMLName: xml.Name{
+							Space: "DAV",
+							Local: "getlastmodified",
+						},
+						InnerXML: []byte(`Wed, 04 Nov 2020 13:25:51 GMT`),
+					},
+				},
+			},
+		})
+		assert.NoError(t, err)
+		for _, pstat := range pstats {
+			assert.Equal(t, http.StatusForbidden, pstat.Status)
+		}
+	}
 }
 
 func TestRemoveDirTree(t *testing.T) {

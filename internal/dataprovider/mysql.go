@@ -220,6 +220,7 @@ func initializeMySQLProvider() error {
 			dbHandle.SetMaxIdleConns(2)
 		}
 		dbHandle.SetConnMaxLifetime(240 * time.Second)
+		dbHandle.SetConnMaxIdleTime(120 * time.Second)
 		provider = &MySQLProvider{dbHandle: dbHandle}
 	} else {
 		providerLog(logger.LevelError, "error creating mysql database handler, connection string: %#v, error: %v",

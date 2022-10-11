@@ -16,9 +16,11 @@ package webdavd
 
 import (
 	"context"
+	"encoding/xml"
 	"errors"
 	"io"
 	"mime"
+	"net/http"
 	"os"
 	"path"
 	"sync/atomic"
@@ -30,10 +32,14 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
+	"github.com/drakkan/sftpgo/v2/internal/util"
 	"github.com/drakkan/sftpgo/v2/internal/vfs"
 )
 
-var errTransferAborted = errors.New("transfer aborted")
+var (
+	errTransferAborted = errors.New("transfer aborted")
+	lastModifiedProps  = []string{"Win32LastModifiedTime", "getlastmodified"}
+)
 
 type webDavFile struct {
 	*common.BaseTransfer
@@ -373,4 +379,54 @@ func (f *webDavFile) isTransfer() bool {
 		return f.readTryed.Load()
 	}
 	return true
+}
+
+// DeadProps returns a copy of the dead properties held.
+// We always return nil for now, we only support the last modification time
+// and it is already included in "live" properties
+func (f *webDavFile) DeadProps() (map[xml.Name]webdav.Property, error) {
+	return nil, nil
+}
+
+// Patch patches the dead properties held.
+// In our minimal implementation we just support Win32LastModifiedTime and
+// getlastmodified to set the the modification time.
+// We ignore any other property and just return an OK response if the patch sets
+// the modification time, otherwise a Forbidden response
+func (f *webDavFile) Patch(patches []webdav.Proppatch) ([]webdav.Propstat, error) {
+	resp := make([]webdav.Propstat, 0, len(patches))
+	hasError := false
+	for _, patch := range patches {
+		status := http.StatusForbidden
+		pstat := webdav.Propstat{}
+		for _, p := range patch.Props {
+			if status == http.StatusForbidden && !hasError {
+				if !patch.Remove && util.Contains(lastModifiedProps, p.XMLName.Local) {
+					parsed, err := http.ParseTime(string(p.InnerXML))
+					if err != nil {
+						f.Connection.Log(logger.LevelWarn, "unsupported last modification time: %q, err: %v",
+							string(p.InnerXML), err)
+						hasError = true
+						continue
+					}
+					attrs := &common.StatAttributes{
+						Flags: common.StatAttrTimes,
+						Atime: parsed,
+						Mtime: parsed,
+					}
+					if err := f.Connection.SetStat(f.GetVirtualPath(), attrs); err != nil {
+						f.Connection.Log(logger.LevelWarn, "unable to set modification time for %q, err :%v",
+							f.GetVirtualPath(), err)
+						hasError = true
+						continue
+					}
+					status = http.StatusOK
+				}
+			}
+			pstat.Props = append(pstat.Props, webdav.Property{XMLName: p.XMLName})
+		}
+		pstat.Status = status
+		resp = append(resp, pstat)
+	}
+	return resp, nil
 }

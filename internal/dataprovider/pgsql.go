@@ -226,6 +226,7 @@ func initializePGSQLProvider() error {
 			dbHandle.SetMaxIdleConns(2)
 		}
 		dbHandle.SetConnMaxLifetime(240 * time.Second)
+		dbHandle.SetConnMaxIdleTime(120 * time.Second)
 		provider = &PGSQLProvider{dbHandle: dbHandle}
 	} else {
 		providerLog(logger.LevelError, "error creating postgres database handler, connection string: %#v, error: %v",

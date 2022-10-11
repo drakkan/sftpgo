@@ -895,13 +895,26 @@ func TestPropPatch(t *testing.T) {
 		req.SetBasicAuth(u.Username, u.Password)
 		resp, err := httpClient.Do(req)
 		assert.NoError(t, err)
-		assert.Equal(t, 207, resp.StatusCode)
+		assert.Equal(t, http.StatusMultiStatus, resp.StatusCode)
 		err = resp.Body.Close()
 		assert.NoError(t, err)
 		info, err := client.Stat(testFileName)
 		if assert.NoError(t, err) {
+			expected, err := http.ParseTime("Wed, 04 Nov 2020 13:25:51 GMT")
+			assert.NoError(t, err)
 			assert.Equal(t, testFileSize, info.Size())
+			assert.Equal(t, expected.Format(http.TimeFormat), info.ModTime().Format(http.TimeFormat))
 		}
+		// wrong date
+		propatchBody = `<?xml version="1.0" encoding="utf-8" ?><D:propertyupdate xmlns:D="DAV:" xmlns:Z="urn:schemas-microsoft-com:"><D:set><D:prop><Z:Win32CreationTime>Wed, 04 Nov 2020 13:25:51 GMT</Z:Win32CreationTime><Z:Win32LastAccessTime>Sat, 05 Dec 2020 21:16:12 GMT</Z:Win32LastAccessTime><Z:Win32LastModifiedTime>Wid, 04 Nov 2020 13:25:51 GMT</Z:Win32LastModifiedTime><Z:Win32FileAttributes>00000000</Z:Win32FileAttributes></D:prop></D:set></D:propertyupdate>`
+		req, err = http.NewRequest("PROPPATCH", fmt.Sprintf("http://%v/%v", webDavServerAddr, testFileName), bytes.NewReader([]byte(propatchBody)))
+		assert.NoError(t, err)
+		req.SetBasicAuth(u.Username, u.Password)
+		resp, err = httpClient.Do(req)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusMultiStatus, resp.StatusCode)
+		err = resp.Body.Close()
+		assert.NoError(t, err)
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
 		_, err = httpdtest.RemoveUser(user, http.StatusOK)
