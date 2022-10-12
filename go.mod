@@ -57,7 +57,7 @@ require (
 	github.com/spf13/cobra v1.6.0
 	github.com/spf13/viper v1.13.0
 	github.com/stretchr/testify v1.8.0
-	github.com/studio-b12/gowebdav v0.0.0-20220128162035-c7b1ff8a5e62
+	github.com/studio-b12/gowebdav v0.0.0-20221012160928-e70a598e946e
 	github.com/unrolled/secure v1.13.0
 	github.com/wagslane/go-password-validator v0.3.0
 	github.com/xhit/go-simple-mail/v2 v2.12.0
