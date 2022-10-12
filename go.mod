@@ -20,7 +20,7 @@ require (
 	github.com/cockroachdb/cockroach-go/v2 v2.2.16
 	github.com/coreos/go-oidc/v3 v3.4.0
 	github.com/eikenb/pipeat v0.0.0-20210730190139-06b3e6902001
-	github.com/fclairamb/ftpserverlib v0.20.0
+	github.com/fclairamb/ftpserverlib v0.20.1-0.20221012093027-95be4ae0c9a6
 	github.com/fclairamb/go-log v0.4.1
 	github.com/go-acme/lego/v4 v4.9.0
 	github.com/go-chi/chi/v5 v5.0.8-0.20220512131524-9e71a0d4b3d6
