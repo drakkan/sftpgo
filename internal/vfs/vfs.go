@@ -45,10 +45,16 @@ var (
 	// ErrStorageSizeUnavailable is returned if the storage backend does not support getting the size
 	ErrStorageSizeUnavailable = errors.New("unable to get available size for this storage backend")
 	// ErrVfsUnsupported defines the error for an unsupported VFS operation
-	ErrVfsUnsupported = errors.New("not supported")
-	tempPath          string
-	sftpFingerprints  []string
+	ErrVfsUnsupported    = errors.New("not supported")
+	tempPath             string
+	sftpFingerprints     []string
+	allowSelfConnections int
 )
+
+// SetAllowSelfConnections sets the desired behaviour for self connections
+func SetAllowSelfConnections(value int) {
+	allowSelfConnections = value
+}
 
 // SetTempPath sets the path for temporary files
 func SetTempPath(fsPath string) {

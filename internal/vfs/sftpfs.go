@@ -843,8 +843,12 @@ func (fs *SFTPFs) createConnection() error {
 		HostKeyCallback: func(_ string, _ net.Addr, key ssh.PublicKey) error {
 			fp := ssh.FingerprintSHA256(key)
 			if util.Contains(sftpFingerprints, fp) {
+				if allowSelfConnections == 0 {
+					fsLog(fs, logger.LevelError, "SFTP self connections not allowed")
+					return ErrSFTPLoop
+				}
 				if util.Contains(fs.config.forbiddenSelfUsernames, fs.config.Username) {
-					fsLog(fs, logger.LevelError, "SFTP loop or nested local SFTP folders detected, mount path %#v, username %#v, forbidden usernames: %+v",
+					fsLog(fs, logger.LevelError, "SFTP loop or nested local SFTP folders detected, mount path %q, username %q, forbidden usernames: %+v",
 						fs.mountPath, fs.config.Username, fs.config.forbiddenSelfUsernames)
 					return ErrSFTPLoop
 				}

@@ -195,6 +195,7 @@ var (
 	lastLoginMinDelay            = 10 * time.Minute
 	usernameRegex                = regexp.MustCompile("^[a-zA-Z0-9-_.~]+$")
 	tempPath                     string
+	allowSelfConnections         int
 	fnReloadRules                FnReloadRules
 	fnRemoveRule                 FnRemoveRule
 	fnHandleRuleForProviderEvent FnHandleRuleForProviderEvent
@@ -802,6 +803,11 @@ type Provider interface {
 	migrateDatabase() error
 	revertDatabase(targetVersion int) error
 	resetDatabase() error
+}
+
+// SetAllowSelfConnections sets the desired behaviour for self connections
+func SetAllowSelfConnections(value int) {
+	allowSelfConnections = value
 }
 
 // SetTempPath sets the path for temporary files

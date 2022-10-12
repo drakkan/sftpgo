@@ -212,6 +212,8 @@ func Initialize(c Configuration, isShared int) error {
 	}
 	vfs.SetTempPath(c.TempPath)
 	dataprovider.SetTempPath(c.TempPath)
+	vfs.SetAllowSelfConnections(c.AllowSelfConnections)
+	dataprovider.SetAllowSelfConnections(c.AllowSelfConnections)
 	transfersChecker = getTransfersChecker(isShared)
 	return nil
 }
@@ -504,6 +506,9 @@ type Configuration struct {
 	// Only the listed IPs/networks can access the configured services, all other client connections
 	// will be dropped before they even try to authenticate.
 	WhiteListFile string `json:"whitelist_file" mapstructure:"whitelist_file"`
+	// Allow users on this instance to use other users/virtual folders on this instance as storage backend.
+	// Enable this setting if you know what you are doing.
+	AllowSelfConnections int `json:"allow_self_connections" mapstructure:"allow_self_connections"`
 	// Defender configuration
 	DefenderConfig DefenderConfig `json:"defender" mapstructure:"defender"`
 	// Rate limiter configurations

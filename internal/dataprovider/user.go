@@ -497,6 +497,9 @@ func (u *User) GetPermissionsForPath(p string) []string {
 }
 
 func (u *User) getForbiddenSFTPSelfUsers(username string) ([]string, error) {
+	if allowSelfConnections == 0 {
+		return nil, nil
+	}
 	sftpUser, err := UserExists(username)
 	if err == nil {
 		err = sftpUser.LoadAndApplyGroupSettings()
