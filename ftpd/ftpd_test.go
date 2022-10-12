@@ -1706,6 +1706,23 @@ func TestResume(t *testing.T) {
 				expected := append(data, data...)
 				assert.Equal(t, expected, readed)
 			}
+			// append to a new file
+			srcFile, err = os.Open(testFilePath)
+			if assert.NoError(t, err) {
+				newFileName := testFileName + "_new"
+				err = client.Append(newFileName, srcFile)
+				assert.NoError(t, err)
+				err = srcFile.Close()
+				assert.NoError(t, err)
+				size, err := client.FileSize(newFileName)
+				assert.NoError(t, err)
+				assert.Equal(t, int64(len(data)), size)
+				err = ftpDownloadFile(newFileName, localDownloadPath, int64(len(data)), client, 0)
+				assert.NoError(t, err)
+				readed, err = os.ReadFile(localDownloadPath)
+				assert.NoError(t, err)
+				assert.Equal(t, data, readed)
+			}
 			err = client.Quit()
 			assert.NoError(t, err)
 			err = os.Remove(testFilePath)
