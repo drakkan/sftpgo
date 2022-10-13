@@ -405,7 +405,7 @@ jobs:
 
       - name: Get commit SHA
         id: get_commit
-        run: echo ::set-output name=COMMIT::${GITHUB_SHA::8}
+        run: echo "COMMIT=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
         shell: bash
 
       - name: Build on amd64
@@ -505,7 +505,7 @@ jobs:
           cd pkgs
           ./build.sh
           PKG_VERSION=$(cat dist/version)
-          echo "::set-output name=pkg-version::${PKG_VERSION}"
+          echo "pkg-version=${PKG_VERSION}" >> $GITHUB_OUTPUT
 
       - name: Upload Debian Package
         uses: actions/upload-artifact@v3

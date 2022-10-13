@@ -114,22 +114,22 @@ jobs:
           done
 
           if [[ $OPTIONAL_DEPS == true ]]; then
-            echo ::set-output name=version::${VERSION}
-            echo ::set-output name=tags::${TAGS}
-            echo ::set-output name=full::true
+            echo "version=${VERSION}" >> $GITHUB_OUTPUT
+            echo "tags=${TAGS}" >> $GITHUB_OUTPUT
+            echo "full=true" >> $GITHUB_OUTPUT
           else
-            echo ::set-output name=version::${VERSION_SLIM}
-            echo ::set-output name=tags::${TAGS_SLIM}
-            echo ::set-output name=full::false
+            echo "version=${VERSION_SLIM}" >> $GITHUB_OUTPUT
+            echo "tags=${TAGS_SLIM}" >> $GITHUB_OUTPUT
+            echo "full=false" >> $GITHUB_OUTPUT
           fi
           if [[ $DOCKER_PKG == debian-plugins ]]; then
-            echo ::set-output name=plugins::true
+            echo "plugins=true" >> $GITHUB_OUTPUT
           else
-            echo ::set-output name=plugins::false
+            echo "plugins=false" >> $GITHUB_OUTPUT
           fi
-          echo ::set-output name=dockerfile::${DOCKERFILE}
-          echo ::set-output name=created::$(date -u +'%Y-%m-%dT%H:%M:%SZ')
-          echo ::set-output name=sha::${GITHUB_SHA::8}
+          echo "dockerfile=${DOCKERFILE}" >> $GITHUB_OUTPUT
+          echo "created=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+          echo "sha=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
         env:
           DOCKER_PKG: ${{ matrix.docker_pkg }}
           OPTIONAL_DEPS: ${{ matrix.optional_deps }}

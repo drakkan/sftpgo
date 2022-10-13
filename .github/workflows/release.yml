@@ -20,7 +20,7 @@ jobs:
 
       - name: Get SFTPGo version
         id: get_version
-        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+        run: echo "VERSION=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_OUTPUT
 
       - name: Prepare release
         run: |
@@ -54,7 +54,7 @@ jobs:
 
       - name: Get SFTPGo version
         id: get_version
-        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+        run: echo "VERSION=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_OUTPUT
         shell: bash
 
       - name: Get OS name
@@ -62,9 +62,9 @@ jobs:
         run: |
           if [[ $MATRIX_OS =~ ^macos.* ]]
           then
-            echo ::set-output name=OS::macOS
+            echo "OS=macOS" >> $GITHUB_OUTPUT
           else
-            echo ::set-output name=OS::windows
+            echo "OS=windows" >> $GITHUB_OUTPUT
           fi
         shell: bash
         env:
@@ -290,9 +290,9 @@ jobs:
       - name: Get versions
         id: get_version
         run: |
-          echo ::set-output name=SFTPGO_VERSION::${GITHUB_REF/refs\/tags\//}
-          echo ::set-output name=GO_VERSION::${GO_VERSION}
-          echo ::set-output name=COMMIT::${GITHUB_SHA::8}
+          echo "SFTPGO_VERSION=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_OUTPUT
+          echo "GO_VERSION=${GO_VERSION}" >> $GITHUB_OUTPUT
+          echo "COMMIT=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
         shell: bash
         env:
           GO_VERSION: ${{ env.GO_VERSION }}
@@ -398,7 +398,7 @@ jobs:
           cd pkgs
           ./build.sh
           PKG_VERSION=${SFTPGO_VERSION:1}
-          echo "::set-output name=pkg-version::${PKG_VERSION}"
+          echo "pkg-version=${PKG_VERSION}" >> $GITHUB_OUTPUT
         env:
           SFTPGO_VERSION: ${{ steps.get_version.outputs.SFTPGO_VERSION }}
 
@@ -425,7 +425,7 @@ jobs:
       - name: Get versions
         id: get_version
         run: |
-          echo ::set-output name=SFTPGO_VERSION::${GITHUB_REF/refs\/tags\//}
+          echo "SFTPGO_VERSION=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_OUTPUT
         shell: bash
 
       - name: Download amd64 artifact
@@ -485,8 +485,8 @@ jobs:
         run: |
           SFTPGO_VERSION=${GITHUB_REF/refs\/tags\//}
           PKG_VERSION=${SFTPGO_VERSION:1}
-          echo ::set-output name=SFTPGO_VERSION::${SFTPGO_VERSION}
-          echo "::set-output name=PKG_VERSION::${PKG_VERSION}"
+          echo "SFTPGO_VERSION=${SFTPGO_VERSION}" >> $GITHUB_OUTPUT
+          echo "PKG_VERSION=${PKG_VERSION}" >> $GITHUB_OUTPUT
         shell: bash
 
       - name: Download amd64 artifact
