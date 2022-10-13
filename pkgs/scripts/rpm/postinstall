@@ -17,14 +17,19 @@ if [ $1 -eq 1 ]; then
   /usr/bin/sftpgo initprovider -c /etc/sftpgo
   # ensure files and folders have the appropriate permissions
   /usr/bin/chown -R sftpgo:sftpgo /etc/sftpgo /var/lib/sftpgo /srv/sftpgo
-  /usr/bin/chmod 750 /etc/sftpgo /var/lib/sftpgo /srv/sftpgo
+  /usr/bin/chmod 750 /etc/sftpgo /etc/sftpgo/env.d /var/lib/sftpgo /srv/sftpgo
   /usr/bin/chmod 640 /etc/sftpgo/sftpgo.json
 fi
 
-# adjust permissions for /srv/sftpgo and /var/lib/sftpgo
+# adjust permissions for /srv/sftpgo, /etc/sftpgo/env.d and /var/lib/sftpgo
 if [ -d /srv/sftpgo ]; then
     /usr/bin/chown sftpgo:sftpgo /srv/sftpgo
     /usr/bin/chmod 750 /srv/sftpgo
+fi
+
+if [ -d /etc/sftpgo/env.d ]; then
+    /usr/bin/chown sftpgo:sftpgo /etc/sftpgo/env.d
+    /usr/bin/chmod 750 /etc/sftpgo/env.d
 fi
 
 if [ -d /var/lib/sftpgo ]; then

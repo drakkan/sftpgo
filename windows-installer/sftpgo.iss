@@ -73,7 +73,7 @@ Source: "README.txt"; DestDir: "{app}"; Flags: ignoreversion isreadme
 [Dirs]
 Name: "{commonappdata}\{#MyAppName}\logs"; Permissions: everyone-full
 Name: "{commonappdata}\{#MyAppName}\backups"; Permissions: everyone-full
-Name: "{commonappdata}\{#MyAppName}\credentials"; Permissions: everyone-full
+Name: "{commonappdata}\{#MyAppName}\env.d"; Permissions: everyone-full
 Name: "{commonappdata}\{#MyAppName}\certs"; Permissions: everyone-full
 
 [Icons]

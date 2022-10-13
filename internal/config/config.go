@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/spf13/viper"
+	"github.com/subosito/gotenv"
 
 	"github.com/drakkan/sftpgo/v2/internal/acme"
 	"github.com/drakkan/sftpgo/v2/internal/command"
@@ -634,6 +635,30 @@ func setConfigFile(configDir, configFile string) {
 	viper.SetConfigFile(configFile)
 }
 
+// readEnvFiles reads files inside the "env.d" directory relative to configDir
+// and then export the valid variables into environment variables if they do
+// not exist
+func readEnvFiles(configDir string) {
+	envd := filepath.Join(configDir, "env.d")
+	entries, err := os.ReadDir(envd)
+	if err != nil {
+		logger.Info(logSender, "", "unable to read env files from %q: %v", envd, err)
+		return
+	}
+	for _, entry := range entries {
+		info, err := entry.Info()
+		if err == nil && info.Mode().IsRegular() {
+			envFile := filepath.Join(envd, entry.Name())
+			err = gotenv.Load(envFile)
+			if err != nil {
+				logger.Error(logSender, "", "unable to load env vars from file %q, err: %v", envFile, err)
+			} else {
+				logger.Info(logSender, "", "set env vars from file %q", envFile)
+			}
+		}
+	}
+}
+
 // LoadConfig loads the configuration
 // configDir will be added to the configuration search paths.
 // The search path contains by default the current directory and on linux it contains
@@ -641,6 +666,7 @@ func setConfigFile(configDir, configFile string) {
 // configFile is an absolute or relative path (to the config dir) to the configuration file.
 func LoadConfig(configDir, configFile string) error {
 	var err error
+	readEnvFiles(configDir)
 	viper.AddConfigPath(configDir)
 	setViperAdditionalConfigPaths()
 	viper.AddConfigPath(".")

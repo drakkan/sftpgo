@@ -89,6 +89,29 @@ func TestLoadConfigFileNotFound(t *testing.T) {
 	assert.Len(t, mfaConf.TOTP, 1)
 }
 
+func TestReadEnvFiles(t *testing.T) {
+	reset()
+
+	envd := filepath.Join(configDir, "env.d")
+	err := os.Mkdir(envd, os.ModePerm)
+	assert.NoError(t, err)
+
+	err = os.WriteFile(filepath.Join(envd, "env1"), []byte("SFTPGO_SFTPD__MAX_AUTH_TRIES = 10"), 0666)
+	assert.NoError(t, err)
+	err = os.WriteFile(filepath.Join(envd, "env2"), []byte(`{"invalid env": "value"}`), 0666)
+	assert.NoError(t, err)
+
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	assert.Equal(t, 10, config.GetSFTPDConfig().MaxAuthTries)
+
+	_, ok := os.LookupEnv("SFTPGO_SFTPD__MAX_AUTH_TRIES")
+	assert.True(t, ok)
+	err = os.Unsetenv("SFTPGO_SFTPD__MAX_AUTH_TRIES")
+	assert.NoError(t, err)
+	os.RemoveAll(envd)
+}
+
 func TestEmptyBanner(t *testing.T) {
 	reset()
 

@@ -465,6 +465,12 @@ You can select `sha256-simd` setting the environment variable `SFTPGO_MINIO_SHA2
 
  `sha256-simd` is particularly useful if you have an Intel CPU with SHA extensions or an ARM CPU with Cryptography Extensions.
 
+The SFTPGo configuration file can change between different versions and merging your custom settings with the default config file may be time-consuming. For this reason we suggest to set your custom settings using environment variables. This eliminates the need to merge your changes with the default configuration file after each update, you have to just check that your configuration key still exists.
+Setting configuration options from environment variables is natural in Docker/Kubernetes.
+If you install SFTPGo on Linux using the official deb/rpm packages you can set your custom environment variables in the file `/etc/sftpgo/sftpgo.env` (create this file if it does not exist).
+SFTPGo also reads files inside the `env.d` directory relative to config dir and then export the valid variables into environment variables if they are not already set. With this method you can override any configuration options, set environment variables for SFTPGo plugins but you cannot set command flags because these files are read after that SFTPGo starts and the config dir must already be set.
+Of course you can also set environment variables with the method provided by the operating system of your choice.
+
 </details>
 
 <details><summary><font size=5>Binding to privileged ports</font></summary>

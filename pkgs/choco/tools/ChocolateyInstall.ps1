@@ -22,6 +22,7 @@ Install-ChocolateyPackage @packageArgs
 
 $DefaultDataPath = Join-Path -Path $ENV:ProgramData -ChildPath "SFTPGo"
 $DefaultConfigurationFilePath = Join-Path -Path $DefaultDataPath -ChildPath "sftpgo.json"
+$EnvDirPath = Join-Path -Path $DefaultDataPath -ChildPath "env.d"
 
 # `t = tab
 Write-Output "---------------------------"
@@ -38,7 +39,8 @@ Write-Output "Default data location:"
 Write-Output "`t$DefaultDataPath"
 Write-Output "Default configuration file location:"
 Write-Output "`t$DefaultConfigurationFilePath"
-Write-Output ""
+Write-Output "Directory to create environment variable files to set configuration options:"
+Write-Output "`t$EnvDirPath"
 Write-Output "If the SFTPGo service does not start, make sure that TCP ports 2022 and 8080 are"
 Write-Output "not used by other services or change the SFTPGo configuration to suit your needs."
 Write-Output ""

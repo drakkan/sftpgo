@@ -24,15 +24,15 @@ if [ "$1" = "configure" ]; then
     sftpgo initprovider -c /etc/sftpgo
     # ensure files and folders have the appropriate permissions
     chown -R sftpgo:sftpgo /etc/sftpgo /var/lib/sftpgo /srv/sftpgo
-    chmod 750 /etc/sftpgo /var/lib/sftpgo /srv/sftpgo
+    chmod 750 /etc/sftpgo /etc/sftpgo/env.d /var/lib/sftpgo /srv/sftpgo
     chmod 640 /etc/sftpgo/sftpgo.json
   fi
 
-  # we added /srv/sftpgo after 1.1.0, we should check if we are upgrading
-  # from this version but a non-recursive chmod/chown shouldn't hurt
-  if [ -d /srv/sftpgo ]; then
-    chown sftpgo:sftpgo /srv/sftpgo
-    chmod 750 /srv/sftpgo
+  # we added /etc/sftpgo/env.d in v2.4.0, we should check if we are upgrading
+  # from a previous version but a non-recursive chmod/chown shouldn't hurt
+  if [ -d /etc/sftpgo/env.d ]; then
+    chown sftpgo:sftpgo /etc/sftpgo/env.d
+    chmod 750 /etc/sftpgo/env.d
   fi
 
   # set the cap_net_bind_service capability so the service can bind to privileged ports

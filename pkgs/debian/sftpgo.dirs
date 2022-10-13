@@ -1,2 +1,3 @@
 /var/lib/sftpgo
 /srv/sftpgo
+/etc/sftpgo/env.d

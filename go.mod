@@ -58,6 +58,7 @@ require (
 	github.com/spf13/viper v1.13.0
 	github.com/stretchr/testify v1.8.0
 	github.com/studio-b12/gowebdav v0.0.0-20221012160928-e70a598e946e
+	github.com/subosito/gotenv v1.4.1
 	github.com/unrolled/secure v1.13.0
 	github.com/wagslane/go-password-validator v0.3.0
 	github.com/xhit/go-simple-mail/v2 v2.12.0
@@ -148,7 +149,6 @@ require (
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/subosito/gotenv v1.4.1 // indirect
 	github.com/tklauser/go-sysconf v0.3.10 // indirect
 	github.com/tklauser/numcpus v0.5.0 // indirect
 	github.com/toorop/go-dkim v0.0.0-20201103131630-e1cd1a0a5208 // indirect

@@ -93,6 +93,9 @@ contents:
   - dst: "/var/lib/sftpgo"
     type: dir
 
+  - dst: "/etc/sftpgo/env.d"
+    type: dir
+
 overrides:
   deb:
     recommends:
