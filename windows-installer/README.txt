@@ -21,6 +21,10 @@ Configuration file location:
 
 C:\ProgramData\SFTPGo\sftpgo.json
 
+Directory to create environment variable files to set configuration options:
+
+C:\ProgramData\SFTPGo\env.d
+
 Getting started guide:
 
 https://github.com/drakkan/sftpgo/blob/main/docs/howto/getting-started.md

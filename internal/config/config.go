@@ -427,7 +427,7 @@ func Init() {
 			},
 		},
 		MFAConfig: mfa.Config{
-			TOTP: nil,
+			TOTP: []mfa.TOTPConfig{defaultTOTP},
 		},
 		TelemetryConfig: telemetry.Conf{
 			BindPort:           0,
@@ -659,6 +659,40 @@ func readEnvFiles(configDir string) {
 	}
 }
 
+func checkOverrideDefaultSettings() {
+	// for slices we need to set the defaults to nil if the key is set in the config file,
+	// otherwise the values are merged and not replaced as expected
+	rateLimiters := viper.Get("common.rate_limiters")
+	if val, ok := rateLimiters.([]any); ok {
+		if len(val) > 0 {
+			if rl, ok := val[0].(map[string]any); ok {
+				if _, ok := rl["protocols"]; ok {
+					globalConf.Common.RateLimitersConfig[0].Protocols = nil
+				}
+			}
+		}
+	}
+
+	httpdBindings := viper.Get("httpd.bindings")
+	if val, ok := httpdBindings.([]any); ok {
+		if len(val) > 0 {
+			if binding, ok := val[0].(map[string]any); ok {
+				if val, ok := binding["oidc"]; ok {
+					if oidc, ok := val.(map[string]any); ok {
+						if _, ok := oidc["scopes"]; ok {
+							globalConf.HTTPDConfig.Bindings[0].OIDC.Scopes = nil
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if util.Contains(viper.AllKeys(), "mfa.totp") {
+		globalConf.MFAConfig.TOTP = nil
+	}
+}
+
 // LoadConfig loads the configuration
 // configDir will be added to the configuration search paths.
 // The search path contains by default the current directory and on linux it contains
@@ -682,8 +716,8 @@ func LoadConfig(configDir, configFile string) error {
 			logger.Warn(logSender, "", "error loading configuration file: %v", err)
 			logger.WarnToConsole("error loading configuration file: %v", err)
 		}
-		globalConf.MFAConfig.TOTP = []mfa.TOTPConfig{defaultTOTP}
 	}
+	checkOverrideDefaultSettings()
 	err = viper.Unmarshal(&globalConf)
 	if err != nil {
 		logger.Warn(logSender, "", "error parsing configuration file: %v", err)

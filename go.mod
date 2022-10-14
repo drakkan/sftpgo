@@ -66,10 +66,10 @@ require (
 	go.etcd.io/bbolt v1.3.6
 	go.uber.org/automaxprocs v1.5.1
 	gocloud.dev v0.27.0
-	golang.org/x/crypto v0.0.0-20221010152910-d6f0a8c073c2
-	golang.org/x/net v0.0.0-20221004154528-8021a29435af
+	golang.org/x/crypto v0.0.0-20221012134737-56aed061732a
+	golang.org/x/net v0.0.0-20221014081412-f15817d10f9b
 	golang.org/x/oauth2 v0.0.0-20221006150949-b44042a4b9c1
-	golang.org/x/sys v0.0.0-20221010170243-090e33056c14
+	golang.org/x/sys v0.0.0-20221013171732-95e765b1cc43
 	golang.org/x/time v0.0.0-20220922220347-f3bd1da661af
 	google.golang.org/api v0.98.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
@@ -159,7 +159,7 @@ require (
 	golang.org/x/tools v0.1.12 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20221010155953-15ba04fc1c0e // indirect
+	google.golang.org/genproto v0.0.0-20221013201013-33fc6f83cba4 // indirect
 	google.golang.org/grpc v1.50.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
@@ -171,6 +171,6 @@ require (
 replace (
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
 	github.com/pkg/sftp => github.com/drakkan/sftp v0.0.0-20220930161944-e8c89afc13a7
-	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20221011170652-7c454d6a47a0
-	golang.org/x/net => github.com/drakkan/net v0.0.0-20221011170324-793589996ca2
+	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20221014140914-137f4b1d754c
+	golang.org/x/net => github.com/drakkan/net v0.0.0-20221014140113-499335f62da1
 )

@@ -84,9 +84,13 @@ func TestLoadConfigFileNotFound(t *testing.T) {
 
 	viper.SetConfigName("configfile")
 	err := config.LoadConfig(os.TempDir(), "")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	mfaConf := config.GetMFAConfig()
-	assert.Len(t, mfaConf.TOTP, 1)
+	require.Len(t, mfaConf.TOTP, 1)
+	require.Len(t, config.GetCommonConfig().RateLimitersConfig, 1)
+	require.Len(t, config.GetCommonConfig().RateLimitersConfig[0].Protocols, 4)
+	require.Len(t, config.GetHTTPDConfig().Bindings, 1)
+	require.Len(t, config.GetHTTPDConfig().Bindings[0].OIDC.Scopes, 3)
 }
 
 func TestReadEnvFiles(t *testing.T) {
@@ -487,6 +491,81 @@ func TestDisabledMFAConfig(t *testing.T) {
 	assert.Len(t, mfaConf.TOTP, 0)
 	err = os.Remove(configFilePath)
 	assert.NoError(t, err)
+}
+
+func TestOverrideSliceValues(t *testing.T) {
+	reset()
+
+	confName := tempConfigName + ".json"
+	configFilePath := filepath.Join(configDir, confName)
+	c := make(map[string]any)
+	c["common"] = common.Configuration{
+		RateLimitersConfig: []common.RateLimiterConfig{
+			{
+				Type:      1,
+				Protocols: []string{"HTTP"},
+			},
+		},
+	}
+	jsonConf, err := json.Marshal(c)
+	assert.NoError(t, err)
+	err = os.WriteFile(configFilePath, jsonConf, os.ModePerm)
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, confName)
+	assert.NoError(t, err)
+	require.Len(t, config.GetCommonConfig().RateLimitersConfig, 1)
+	require.Equal(t, []string{"HTTP"}, config.GetCommonConfig().RateLimitersConfig[0].Protocols)
+
+	reset()
+
+	// empty ratelimiters, default value should be used
+	c["common"] = common.Configuration{}
+	jsonConf, err = json.Marshal(c)
+	assert.NoError(t, err)
+	err = os.WriteFile(configFilePath, jsonConf, os.ModePerm)
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, confName)
+	assert.NoError(t, err)
+	require.Len(t, config.GetCommonConfig().RateLimitersConfig, 1)
+	rl := config.GetCommonConfig().RateLimitersConfig[0]
+	require.Equal(t, []string{"SSH", "FTP", "DAV", "HTTP"}, rl.Protocols)
+	require.Equal(t, int64(1000), rl.Period)
+
+	reset()
+
+	c = make(map[string]any)
+	c["httpd"] = httpd.Conf{
+		Bindings: []httpd.Binding{
+			{
+				OIDC: httpd.OIDC{
+					Scopes: []string{"scope1"},
+				},
+			},
+		},
+	}
+	jsonConf, err = json.Marshal(c)
+	assert.NoError(t, err)
+	err = os.WriteFile(configFilePath, jsonConf, os.ModePerm)
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, confName)
+	assert.NoError(t, err)
+	require.Len(t, config.GetHTTPDConfig().Bindings, 1)
+	require.Equal(t, []string{"scope1"}, config.GetHTTPDConfig().Bindings[0].OIDC.Scopes)
+
+	reset()
+
+	c = make(map[string]any)
+	c["httpd"] = httpd.Conf{
+		Bindings: []httpd.Binding{},
+	}
+	jsonConf, err = json.Marshal(c)
+	assert.NoError(t, err)
+	err = os.WriteFile(configFilePath, jsonConf, os.ModePerm)
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, confName)
+	assert.NoError(t, err)
+	require.Len(t, config.GetHTTPDConfig().Bindings, 1)
+	require.Equal(t, []string{"openid", "profile", "email"}, config.GetHTTPDConfig().Bindings[0].OIDC.Scopes)
 }
 
 func TestFTPDOverridesFromEnv(t *testing.T) {
