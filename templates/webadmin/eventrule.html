@@ -347,20 +347,20 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
             <div class="card bg-light mb-3 trigger trigger-fs">
                 <div class="card-header">
-                    <b>File size limits. 0 means no limit</b>
+                    <b>File size limits. 0 means no limit. You can use MB/GB suffix</b>
                 </div>
                 <div class="card-body">
                     <div class="form-group row">
                         <label for="idFsMinSize" class="col-sm-2 col-form-label">Min size</label>
                         <div class="col-sm-3">
-                            <input type="number" class="form-control" id="idFsMinSize" name="fs_min_size" placeholder=""
-                                value="{{.Rule.Conditions.Options.MinFileSize}}" min="0">
+                            <input type="text" class="form-control" id="idFsMinSize" name="fs_min_size" placeholder=""
+                                value="{{HumanizeBytes .Rule.Conditions.Options.MinFileSize}}">
                         </div>
                         <div class="col-sm-2"></div>
                         <label for="idFsMaxSize" class="col-sm-2 col-form-label">Max size</label>
                         <div class="col-sm-3">
-                            <input type="number" class="form-control" id="idFsMaxSize" name="fs_max_size" placeholder=""
-                                value="{{.Rule.Conditions.Options.MaxFileSize}}" min="0">
+                            <input type="text" class="form-control" id="idFsMaxSize" name="fs_max_size" placeholder=""
+                                value="{{HumanizeBytes .Rule.Conditions.Options.MaxFileSize}}">
                         </div>
                     </div>
                 </div>

@@ -1598,6 +1598,16 @@ func TestWriteHTTPPartsError(t *testing.T) {
 	assert.ErrorIs(t, err, io.ErrUnexpectedEOF)
 }
 
+func TestReplacePathsPlaceholders(t *testing.T) {
+	replacer := strings.NewReplacer("{{VirtualPath}}", "/path1")
+	paths := []string{"{{VirtualPath}}", "/path1"}
+	paths = replacePathsPlaceholders(paths, replacer)
+	assert.Equal(t, []string{"/path1"}, paths)
+	paths = []string{"{{VirtualPath}}", "/path2"}
+	paths = replacePathsPlaceholders(paths, replacer)
+	assert.Equal(t, []string{"/path1", "/path2"}, paths)
+}
+
 func getErrorString(err error) string {
 	if err == nil {
 		return ""

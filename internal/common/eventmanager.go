@@ -836,8 +836,7 @@ func getMailAttachments(user dataprovider.User, attachments []string, replacer *
 	}
 	conn := NewBaseConnection(connectionID, protocolEventAction, "", "", user)
 	totalSize := int64(0)
-	for _, virtualPath := range attachments {
-		virtualPath = util.CleanPath(replaceWithReplacer(virtualPath, replacer))
+	for _, virtualPath := range replacePathsPlaceholders(attachments, replacer) {
 		info, err := conn.DoStat(virtualPath, 0, false)
 		if err != nil {
 			return nil, fmt.Errorf("unable to get info for file %q, user %q: %w", virtualPath, conn.User.Username, err)
@@ -1203,6 +1202,13 @@ func getUserForEventAction(user dataprovider.User) (dataprovider.User, error) {
 	return user, nil
 }
 
+func replacePathsPlaceholders(paths []string, replacer *strings.Replacer) []string {
+	for idx := range paths {
+		paths[idx] = util.CleanPath(replaceWithReplacer(paths[idx], replacer))
+	}
+	return util.RemoveDuplicates(paths, false)
+}
+
 func executeDeleteFileFsAction(conn *BaseConnection, item string, info os.FileInfo) error {
 	fs, fsPath, err := conn.GetFsAndResolvedPath(item)
 	if err != nil {
@@ -1223,8 +1229,7 @@ func executeDeleteFsActionForUser(deletes []string, replacer *strings.Replacer, 
 		return fmt.Errorf("delete error, unable to check root fs for user %q: %w", user.Username, err)
 	}
 	conn := NewBaseConnection(connectionID, protocolEventAction, "", "", user)
-	for _, item := range deletes {
-		item = util.CleanPath(replaceWithReplacer(item, replacer))
+	for _, item := range replacePathsPlaceholders(deletes, replacer) {
 		info, err := conn.DoStat(item, 0, false)
 		if err != nil {
 			if conn.IsNotExistError(err) {
@@ -1298,8 +1303,7 @@ func executeMkDirsFsActionForUser(dirs []string, replacer *strings.Replacer, use
 		return fmt.Errorf("mkdir error, unable to check root fs for user %q: %w", user.Username, err)
 	}
 	conn := NewBaseConnection(connectionID, protocolEventAction, "", "", user)
-	for _, item := range dirs {
-		item = util.CleanPath(replaceWithReplacer(item, replacer))
+	for _, item := range replacePathsPlaceholders(dirs, replacer) {
 		if err = conn.CheckParentDirs(path.Dir(item)); err != nil {
 			return fmt.Errorf("unable to check parent dirs for %q, user %q: %w", item, user.Username, err)
 		}
@@ -1389,8 +1393,7 @@ func executeExistFsActionForUser(exist []string, replacer *strings.Replacer,
 		return fmt.Errorf("existence check error, unable to check root fs for user %q: %w", user.Username, err)
 	}
 	conn := NewBaseConnection(connectionID, protocolEventAction, "", "", user)
-	for _, item := range exist {
-		item = util.CleanPath(replaceWithReplacer(item, replacer))
+	for _, item := range replacePathsPlaceholders(exist, replacer) {
 		if _, err = conn.DoStat(item, 0, false); err != nil {
 			return fmt.Errorf("error checking existence for path %q, user %q: %w", item, user.Username, err)
 		}

@@ -1077,8 +1077,8 @@ func (f *ConditionOptions) validate() error {
 	}
 	if f.MinFileSize > 0 && f.MaxFileSize > 0 {
 		if f.MaxFileSize <= f.MinFileSize {
-			return util.NewValidationError(fmt.Sprintf("invalid max file size %d, it is lesser or equal than min file size %d",
-				f.MaxFileSize, f.MinFileSize))
+			return util.NewValidationError(fmt.Sprintf("invalid max file size %s, it is lesser or equal than min file size %s",
+				util.ByteCountSI(f.MaxFileSize), util.ByteCountSI(f.MinFileSize)))
 		}
 	}
 	if config.IsShared == 0 {

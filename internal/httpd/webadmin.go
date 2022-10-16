@@ -496,7 +496,7 @@ func loadAdminTemplates(templatesPath string) {
 	foldersTmpl := util.LoadTemplate(nil, foldersPaths...)
 	folderTmpl := util.LoadTemplate(fsBaseTpl, folderPaths...)
 	eventRulesTmpl := util.LoadTemplate(nil, eventRulesPaths...)
-	eventRuleTmpl := util.LoadTemplate(nil, eventRulePaths...)
+	eventRuleTmpl := util.LoadTemplate(fsBaseTpl, eventRulePaths...)
 	eventActionsTmpl := util.LoadTemplate(nil, eventActionsPaths...)
 	eventActionTmpl := util.LoadTemplate(nil, eventActionPaths...)
 	statusTmpl := util.LoadTemplate(nil, statusPaths...)
@@ -2138,11 +2138,11 @@ func getEventRuleConditionsFromPostFields(r *http.Request) (dataprovider.EventCo
 			}
 		}
 	}
-	minFileSize, err := strconv.ParseInt(r.Form.Get("fs_min_size"), 10, 64)
+	minFileSize, err := util.ParseBytes(r.Form.Get("fs_min_size"))
 	if err != nil {
 		return dataprovider.EventConditions{}, fmt.Errorf("invalid min file size: %w", err)
 	}
-	maxFileSize, err := strconv.ParseInt(r.Form.Get("fs_max_size"), 10, 64)
+	maxFileSize, err := util.ParseBytes(r.Form.Get("fs_max_size"))
 	if err != nil {
 		return dataprovider.EventConditions{}, fmt.Errorf("invalid max file size: %w", err)
 	}
