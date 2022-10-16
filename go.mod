@@ -44,7 +44,7 @@ require (
 	github.com/minio/sio v0.3.0
 	github.com/otiai10/copy v1.7.0
 	github.com/pires/go-proxyproto v0.6.2
-	github.com/pkg/sftp v1.13.6-0.20220831160757-628507938ec6
+	github.com/pkg/sftp v1.13.6-0.20221016140646-c4323ce9f25f
 	github.com/pquerna/otp v1.3.0
 	github.com/prometheus/client_golang v1.13.0
 	github.com/robfig/cron/v3 v3.0.1
@@ -170,7 +170,6 @@ require (
 
 replace (
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
-	github.com/pkg/sftp => github.com/drakkan/sftp v0.0.0-20220930161944-e8c89afc13a7
 	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20221014140914-137f4b1d754c
 	golang.org/x/net => github.com/drakkan/net v0.0.0-20221014140113-499335f62da1
 )

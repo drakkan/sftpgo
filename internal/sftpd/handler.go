@@ -240,30 +240,32 @@ func (c *Connection) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 		}
 
 		return listerAt([]os.FileInfo{s}), nil
-	case "Readlink":
-		if err := c.canReadLink(request.Filepath); err != nil {
-			return nil, err
-		}
-
-		fs, p, err := c.GetFsAndResolvedPath(request.Filepath)
-		if err != nil {
-			return nil, err
-		}
-
-		s, err := fs.Readlink(p)
-		if err != nil {
-			c.Log(logger.LevelDebug, "error running readlink on path %#v: %+v", p, err)
-			return nil, c.GetFsError(fs, err)
-		}
-
-		if err := c.canReadLink(s); err != nil {
-			return nil, err
-		}
-
-		return listerAt([]os.FileInfo{vfs.NewFileInfo(s, false, 0, time.Unix(0, 0), true)}), nil
 	default:
 		return nil, sftp.ErrSSHFxOpUnsupported
 	}
+}
+
+// Readlink implements the ReadlinkFileLister interface
+func (c *Connection) Readlink(filePath string) (string, error) {
+	if err := c.canReadLink(filePath); err != nil {
+		return "", err
+	}
+
+	fs, p, err := c.GetFsAndResolvedPath(filePath)
+	if err != nil {
+		return "", err
+	}
+
+	s, err := fs.Readlink(p)
+	if err != nil {
+		c.Log(logger.LevelDebug, "error running readlink on path %#v: %+v", p, err)
+		return "", c.GetFsError(fs, err)
+	}
+
+	if err := c.canReadLink(s); err != nil {
+		return "", err
+	}
+	return s, nil
 }
 
 // Lstat implements LstatFileLister interface
