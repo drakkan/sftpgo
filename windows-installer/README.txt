@@ -25,6 +25,13 @@ Directory to create environment variable files to set configuration options:
 
 C:\ProgramData\SFTPGo\env.d
 
+It is recommended that you set custom configurations as environment variables by creating files in
+the env.d directory.
+This eliminates the need to merge your changes with the default configuration file after each update.
+You can simply replace the configuration file with the default one after updating SFTPGo.
+
+https://github.com/drakkan/sftpgo/blob/main/docs/full-configuration.md
+
 Getting started guide:
 
 https://github.com/drakkan/sftpgo/blob/main/docs/howto/getting-started.md

@@ -144,6 +144,17 @@ Search for the `data_provider` section and change it as follow.
 }
 ```
 
+Alternatively (recommended), you can use environment variables by creating the file `/etc/sftpgo/env.d/postgresql.env` with the following content.
+
+```shell
+SFTPGO_DATA_PROVIDER__DRIVER=postgresql
+SFTPGO_DATA_PROVIDER__NAME="sftpgo.db"
+SFTPGO_DATA_PROVIDER__HOST=127.0.0.1
+SFTPGO_DATA_PROVIDER__PORT=5432
+SFTPGO_DATA_PROVIDER__USERNAME=sftpgo
+SFTPGO_DATA_PROVIDER__PASSWORD=sftpgo_pg_pwd
+```
+
 This way we set the PostgreSQL connection parameters.
 
 If you want to connect to PostgreSQL over a Unix Domain socket you have to set the value `/var/run/postgresql` for the `host` configuration key instead of `127.0.0.1`.

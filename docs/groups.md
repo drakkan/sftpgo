@@ -7,7 +7,7 @@ SFTPGo supports two types of groups:
 - primary groups
 - secondary groups
 
-A user can be a member of a primary group and many secondary groups. Depending on the group type, the settings are inherited differently.
+A user can be a member of a primary group and many secondary and membership groups. Depending on the group type, the settings are inherited differently.
 
 :warning: SFTPGo groups are completely unrelated to system groups. Therefore, it is not necessary to add Linux/Windows groups to use SFTPGo groups.
 
@@ -29,7 +29,7 @@ The following settings are inherited from the primary and secondary groups:
 - two factor auth protocols
 - web client/REST API permissions
 
-The settings from the primary group are always merged first.
+The settings from the primary group are always merged first. no setting is inherited from "membership" groups.
 
 The final settings are a combination of the user settings and the group ones.
 For example you can define the following groups:

@@ -117,7 +117,7 @@ When the certificate is renewed you should see SFTPGo logs like the following to
 
 ## Obtaining a certificate using the ACME protocol built into SFTPGo
 
-Open the SFTPGo configuration file, search for the `acme` section and change it as follow.
+You can open the SFTPGo configuration file, search for the `acme` section and change it as follow.
 
 ```json
   "acme": {
@@ -138,6 +138,14 @@ Open the SFTPGo configuration file, search for the `acme` section and change it 
   }
 ```
 
+Alternatively (recommended), you can use environment variables by creating the file `/etc/sftpgo/env.d/acme.env` with the following content.
+
+```shell
+SFTPGO_ACME__DOMAINS="sftpgo.com"
+SFTPGO_ACME__EMAIL="<you email address here>"
+SFTPGO_ACME__HTTP01_CHALLENGE__WEBROOT="/var/www/sftpgo.com"
+```
+
 Make sure that the `sftpgo` user can write to the `/var/www/sftpgo.com` directory or pre-create the `/var/www/sftpgo.com/.well-known/acme-challenge` directory with the appropriate permissions.
 This directory must be publicly served by your web server.
 
@@ -151,7 +159,7 @@ If this command completes successfully, you are done. The SFTPGo service will ta
 
 ## Enable HTTPS for SFTPGo Web UI and REST API
 
-Open the SFTPGo configuration file, search for the `httpd` section and change it as follow.
+You can open the SFTPGo configuration file, search for the `httpd` section and change it as follow.
 
 ```json
   "httpd": {
@@ -161,17 +169,27 @@ Open the SFTPGo configuration file, search for the `httpd` section and change it
         "address": "",
         "enable_web_admin": true,
         "enable_web_client": true,
+        "enable_rest_api": true,
         "enable_https": true,
         "certificate_file": "/var/lib/sftpgo/certs/sftpgo.com.crt",
         "certificate_key_file": "/var/lib/sftpgo/certs/sftpgo.com.key",
         .....
 ```
 
+Alternatively (recommended), you can use environment variables by creating the file `/etc/sftpgo/env.d/httpd.env` with the following content.
+
+```shell
+SFTPGO_HTTPD__BINDINGS__0__PORT=9443
+SFTPGO_HTTPD__BINDINGS__0__ENABLE_HTTPS=1
+SFTPGO_HTTPD__BINDINGS__0__CERTIFICATE_FILE="/var/lib/sftpgo/certs/sftpgo.com.crt"
+SFTPGO_HTTPD__BINDINGS__0__CERTIFICATE_KEY_FILE="/var/lib/sftpgo/certs/sftpgo.com.key"
+```
+
 Restart SFTPGo to apply the changes. The HTTPS service is now available on port `9443`.
 
 ## Enable HTTPS for WebDAV service
 
-Open the SFTPGo configuration file, search for the `webdavd` section and change it as follow.
+You can open the SFTPGo configuration file, search for the `webdavd` section and change it as follow.
 
 ```json
   "webdavd": {
@@ -185,11 +203,20 @@ Open the SFTPGo configuration file, search for the `webdavd` section and change 
         ...
 ```
 
+Alternatively (recommended), you can use environment variables by creating the file `/etc/sftpgo/env.d/webdavd.env` with the following content.
+
+```shell
+SFTPGO_WEBDAVD__BINDINGS__0__PORT=10443
+SFTPGO_WEBDAVD__BINDINGS__0__ENABLE_HTTPS=1
+SFTPGO_WEBDAVD__CERTIFICATE_FILE="/var/lib/sftpgo/certs/sftpgo.com.crt"
+SFTPGO_WEBDAVD__CERTIFICATE_KEY_FILE="/var/lib/sftpgo/certs/sftpgo.com.key"
+```
+
 Restart SFTPGo to apply the changes. WebDAV is now availble over HTTPS on port `10443`.
 
 ## Enable explicit FTP over TLS
 
-Open the SFTPGo configuration file, search for the `ftpd` section and change it as follow.
+You can open the SFTPGo configuration file, search for the `ftpd` section and change it as follow.
 
 ```json
   "ftpd": {
@@ -202,6 +229,15 @@ Open the SFTPGo configuration file, search for the `ftpd` section and change it 
         "certificate_file": "/var/lib/sftpgo/certs/sftpgo.com.crt",
         "certificate_key_file": "/var/lib/sftpgo/certs/sftpgo.com.key",
         ...
+```
+
+Alternatively (recommended), you can use environment variables by creating the file `/etc/sftpgo/env.d/ftpd.env` with the following content.
+
+```shell
+SFTPGO_FTPD__BINDINGS__0__PORT=2121
+SFTPGO_FTPD__BINDINGS__0__TLS_MODE=1
+SFTPGO_FTPD__BINDINGS__0__CERTIFICATE_FILE="/var/lib/sftpgo/certs/sftpgo.com.crt"
+SFTPGO_FTPD__BINDINGS__0__CERTIFICATE_KEY_FILE="/var/lib/sftpgo/certs/sftpgo.com.key"
 ```
 
 Restart SFTPGo to apply the changes. FTPES service is now available on port `2121` and TLS is required for both control and data connection (`tls_mode` is 1).

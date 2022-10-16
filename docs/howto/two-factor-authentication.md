@@ -42,6 +42,8 @@ SFTPGo can use 2FA for `HTTP`, `SSH` (SFTP, SCP) and `FTP` protocols. If you pla
     ...
 ```
 
+Or setting the environment variable `SFTPGO_SFTPD__KEYBOARD_INTERACTIVE_AUTHENTICATION=1`.
+
 ## Enable 2FA for admins
 
 Each admin can view/change his/her two-factor authentication by selecting the `Two-Factor Auth` link from the top-right web UI menu.
