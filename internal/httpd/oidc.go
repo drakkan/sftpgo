@@ -90,6 +90,10 @@ type OIDC struct {
 	Scopes []string `json:"scopes" mapstructure:"scopes"`
 	// Custom token claims fields to pass to the pre-login hook
 	CustomFields []string `json:"custom_fields" mapstructure:"custom_fields"`
+	// InsecureSkipSignatureCheck causes SFTPGo to skip JWT signature validation.
+	// It's intended for special cases where providers, such as Azure, use the "none"
+	// algorithm. Skipping the signature validation can cause security issues
+	InsecureSkipSignatureCheck bool `json:"insecure_skip_signature_check" mapstructure:"insecure_skip_signature_check"`
 	// Debug enables the OIDC debug mode. In debug mode, the received id_token will be logged
 	// at the debug level
 	Debug             bool `json:"debug" mapstructure:"debug"`
@@ -160,7 +164,8 @@ func (o *OIDC) initialize() error {
 	}
 	o.provider = provider
 	o.verifier = provider.Verifier(&oidc.Config{
-		ClientID: o.ClientID,
+		ClientID:                   o.ClientID,
+		InsecureSkipSignatureCheck: o.InsecureSkipSignatureCheck,
 	})
 	o.oauth2Config = &oauth2.Config{
 		ClientID:     o.ClientID,

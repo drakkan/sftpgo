@@ -116,16 +116,17 @@ var (
 		RenderOpenAPI:         true,
 		WebClientIntegrations: nil,
 		OIDC: httpd.OIDC{
-			ClientID:        "",
-			ClientSecret:    "",
-			ConfigURL:       "",
-			RedirectBaseURL: "",
-			UsernameField:   "",
-			RoleField:       "",
-			ImplicitRoles:   false,
-			Scopes:          []string{"openid", "profile", "email"},
-			CustomFields:    []string{},
-			Debug:           false,
+			ClientID:                   "",
+			ClientSecret:               "",
+			ConfigURL:                  "",
+			RedirectBaseURL:            "",
+			UsernameField:              "",
+			RoleField:                  "",
+			ImplicitRoles:              false,
+			Scopes:                     []string{"openid", "profile", "email"},
+			CustomFields:               []string{},
+			InsecureSkipSignatureCheck: false,
+			Debug:                      false,
 		},
 		Security: httpd.SecurityConf{
 			Enabled:                 false,
@@ -1517,6 +1518,12 @@ func getHTTPDOIDCFromEnv(idx int) (httpd.OIDC, bool) {
 	customFields, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__OIDC__CUSTOM_FIELDS", idx))
 	if ok {
 		result.CustomFields = customFields
+		isSet = true
+	}
+
+	skipSignatureCheck, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__OIDC__INSECURE_SKIP_SIGNATURE_CHECK", idx))
+	if ok {
+		result.InsecureSkipSignatureCheck = skipSignatureCheck
 		isSet = true
 	}
 

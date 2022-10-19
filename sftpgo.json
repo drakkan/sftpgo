@@ -280,6 +280,7 @@
           "role_field": "",
           "implicit_roles": false,
           "custom_fields": [],
+          "insecure_skip_signature_check": false,
           "debug": false
         },
         "security": {

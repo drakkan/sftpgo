@@ -292,6 +292,7 @@ The configuration file contains the following sections:
       - `role_field`, string. Defines the optional ID token claims field to map to a SFTPGo role. If the defined ID token claims field is set to `admin` the authenticated user is mapped to an SFTPGo admin. You don't need to specify this field if you want to use OpenID only for the Web Client UI. If the field is inside a nested structure, you can use the dot notation to traverse the structures. Default: blank.
       - `implicit_roles`, boolean. If set, the `role_field` is ignored and the SFTPGo role is assumed based on the login link used. Default: `false`.
       - `custom_fields`, list of strings. Custom token claims fields to pass to the pre-login hook. Default: empty.
+      - `insecure_skip_signature_check`, boolean. This setting causes SFTPGo to skip JWT signature validation. It's intended for special cases where providers, such as Azure, use the `none` algorithm. Skipping the signature validation can cause security issues. Default: `false`.
       - `debug`, boolean. If set, the received id tokens will be logged at debug level. Default: `false`.
     - `security`, struct. Defines security headers to add to HTTP responses and allows to restrict allowed hosts. The following parameters are supported:
       - `enabled`, boolean. Set to `true` to enable security configurations. Default: `false`.
