@@ -17,7 +17,6 @@ package command
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -60,7 +59,7 @@ type Command struct {
 	// Do not use variables with the SFTPGO_ prefix to avoid conflicts with env
 	// vars that SFTPGo sets
 	Timeout int `json:"timeout" mapstructure:"timeout"`
-	// Env defines additional environment variable for the command.
+	// Env defines environment variable for the command.
 	// Each entry is of the form "key=value".
 	// These values are added to the global environment variables if any
 	Env []string `json:"env" mapstructure:"env"`
@@ -75,7 +74,7 @@ type Command struct {
 type Config struct {
 	// Timeout specifies a global time limit, in seconds, for the external commands execution
 	Timeout int `json:"timeout" mapstructure:"timeout"`
-	// Env defines additional environment variable for the commands.
+	// Env defines environment variable for the commands.
 	// Each entry is of the form "key=value".
 	// Do not use variables with the SFTPGO_ prefix to avoid conflicts with env
 	// vars that SFTPGo sets
@@ -96,7 +95,7 @@ func (c Config) Initialize() error {
 		return fmt.Errorf("invalid timeout %v", c.Timeout)
 	}
 	for _, env := range c.Env {
-		if len(strings.Split(env, "=")) != 2 {
+		if len(strings.SplitN(env, "=", 2)) != 2 {
 			return fmt.Errorf("invalid env var %#v", env)
 		}
 	}
@@ -112,7 +111,7 @@ func (c Config) Initialize() error {
 			}
 		}
 		for _, env := range cmd.Env {
-			if len(strings.Split(env, "=")) != 2 {
+			if len(strings.SplitN(env, "=", 2)) != 2 {
 				return fmt.Errorf("invalid env var %#v for command %#v", env, cmd.Path)
 			}
 		}
@@ -129,7 +128,7 @@ func (c Config) Initialize() error {
 
 // GetConfig returns the configuration for the specified command
 func GetConfig(command, hook string) (time.Duration, []string, []string) {
-	env := os.Environ()
+	env := []string{}
 	var args []string
 	timeout := time.Duration(config.Timeout) * time.Second
 	env = append(env, config.Env...)

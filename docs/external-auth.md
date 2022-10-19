@@ -13,7 +13,7 @@ The external program can read the following environment variables to get info ab
 - `SFTPGO_AUTHD_KEYBOARD_INTERACTIVE`, not empty for keyboard interactive authentication
 - `SFTPGO_AUTHD_TLS_CERT`, TLS client certificate PEM encoded. Not empty for TLS certificate authentication
 
-Previous global environment variables aren't cleared when the script is called. The content of these variables is _not_ quoted. They may contain special characters. They are under the control of a possibly malicious remote user.
+Global environment variables are cleared, for security reasons, when the script is called. You can set additional environment variables in the "command" configuration section.
 The program can inspect the SFTPGo user, if it exists, using the `SFTPGO_AUTHD_USER` environment variable.
 The program must write, on its standard output:
 

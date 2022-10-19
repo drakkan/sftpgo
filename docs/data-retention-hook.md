@@ -8,7 +8,7 @@ If the hook defines an external program it can read the following environment va
 
 - `SFTPGO_DATA_RETENTION_RESULT`, it contains the data retention check result JSON serialized.
 
-Previous global environment variables aren't cleared when the script is called.
+Global environment variables are cleared, for security reasons, when the script is called. You can set additional environment variables in the "command" configuration section.
 The program must finish within 20 seconds.
 
 If the hook defines an HTTP URL then this URL will be invoked as HTTP POST and the POST body contains the data retention check result JSON serialized.

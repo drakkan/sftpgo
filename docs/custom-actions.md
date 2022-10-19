@@ -51,7 +51,7 @@ If the `hook` defines a path to an external program, then this program can read 
 - `SFTPGO_ACTION_OPEN_FLAGS`, integer. File open flags, can be non-zero for `pre-upload` action. If `SFTPGO_ACTION_FILE_SIZE` is greater than zero and `SFTPGO_ACTION_OPEN_FLAGS&512 == 0` the target file will not be truncated
 - `SFTPGO_ACTION_TIMESTAMP`, int64. Event timestamp as nanoseconds since epoch
 
-Previous global environment variables aren't cleared when the script is called.
+Global environment variables are cleared, for security reasons, when the script is called. You can set additional environment variables in the "command" configuration section.
 The program must finish within 30 seconds.
 
 If the `hook` defines an HTTP URL then this URL will be invoked as HTTP POST. The request body will contain a JSON serialized struct with the following fields:
@@ -107,7 +107,7 @@ If the `hook` defines a path to an external program, then this program can read 
 - `SFTPGO_PROVIDER_TIMESTAMP`, event timestamp as nanoseconds since epoch
 - `SFTPGO_PROVIDER_OBJECT`, object serialized as JSON with sensitive fields removed
 
-Previous global environment variables aren't cleared when the script is called.
+Global environment variables are cleared, for security reasons, when the script is called. You can set additional environment variables in the "command" configuration section.
 The program must finish within 15 seconds.
 
 If the `hook` defines an HTTP URL then this URL will be invoked as HTTP POST. The action, username, ip, object_type and object_name and timestamp are added to the query string, for example `<hook>?action=update&username=admin&ip=127.0.0.1&object_type=user&object_name=user1&timestamp=1633860803249`, and the full object is sent serialized as JSON inside the POST body with sensitive fields removed.

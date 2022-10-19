@@ -14,7 +14,7 @@ If the hook defines an external program it can reads the following environment v
 - `SFTPGO_LOGIND_STATUS`, 1 means login OK, 0 login KO
 - `SFTPGO_LOGIND_PROTOCOL`, possible values are `SSH`, `FTP`, `DAV`, `HTTP`, `OIDC` (OpenID Connect)
 
-Previous global environment variables aren't cleared when the script is called.
+Global environment variables are cleared, for security reasons, when the script is called. You can set additional environment variables in the "command" configuration section.
 The program must finish within 20 seconds.
 
 If the hook is an HTTP URL then it will be invoked as HTTP POST. The login method, the used protocol, the ip address and the status of the user are added to the query string, for example `<http_url>?login_method=password&ip=1.2.3.4&protocol=SSH&status=1`.

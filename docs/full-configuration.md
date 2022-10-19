@@ -370,7 +370,7 @@ The configuration file contains the following sections:
     - `url`, string, optional. If not empty, the header will be added only if the request URL starts with the one specified here
 - **command**, configuration for external commands such as program based hooks
   - `timeout`, integer. Timeout specifies a time limit, in seconds, to execute external commands. Valid range: `1-300`. Default: `30`
-  - `env`, list of strings. Additional environment variable to pass to all the external commands. Each entry is of the form `key=value`. Do not use environment variables prefixed with `SFTPGO_` to avoid conflicts with environment variables that SFTPGo hooks can set. Default: empty
+  - `env`, list of strings. Environment variables to pass to all the external commands. Global environment variables are cleared, for security reasons, you have to explicitly set any environment variable such as `PATH` etc. if you need them. Each entry is of the form `key=value`. Do not use environment variables prefixed with `SFTPGO_` to avoid conflicts with environment variables that SFTPGo hooks can set. Default: empty
   - `commands`, list of structs. Allow to customize configuration per-command. Each struct has the following fields:
     - `path`, string. Define the command path as defined in the hook configuration
     - `timeout`, integer. This value overrides the global timeout if set

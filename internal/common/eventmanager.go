@@ -1102,7 +1102,6 @@ func executeHTTPRuleAction(c dataprovider.EventActionHTTPConfig, params *EventPa
 }
 
 func executeCommandRuleAction(c dataprovider.EventActionCommandConfig, params *EventParams) error {
-	envVars := make([]string, 0, len(c.EnvVars))
 	addObjectData := false
 	if params.Object != nil {
 		for _, k := range c.EnvVars {
@@ -1114,9 +1113,7 @@ func executeCommandRuleAction(c dataprovider.EventActionCommandConfig, params *E
 	}
 	replacements := params.getStringReplacements(addObjectData)
 	replacer := strings.NewReplacer(replacements...)
-	for _, keyVal := range c.EnvVars {
-		envVars = append(envVars, fmt.Sprintf("%s=%s", keyVal.Key, replaceWithReplacer(keyVal.Value, replacer)))
-	}
+
 	args := make([]string, 0, len(c.Args))
 	for _, arg := range c.Args {
 		args = append(args, replaceWithReplacer(arg, replacer))
@@ -1126,8 +1123,10 @@ func executeCommandRuleAction(c dataprovider.EventActionCommandConfig, params *E
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, c.Cmd, args...)
-	cmd.Env = append(cmd.Env, os.Environ()...)
-	cmd.Env = append(cmd.Env, envVars...)
+	cmd.Env = []string{}
+	for _, keyVal := range c.EnvVars {
+		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", keyVal.Key, replaceWithReplacer(keyVal.Value, replacer)))
+	}
 
 	startTime := time.Now()
 	err := cmd.Run()

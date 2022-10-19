@@ -12,7 +12,7 @@ The external program can read the following environment variables to get info ab
 - `SFTPGO_AUTHD_IP`
 - `SFTPGO_AUTHD_PASSWORD`, this is the hashed password as stored inside the data provider
 
-Previous global environment variables aren't cleared when the script is called. The content of these variables is _not_ quoted. They may contain special characters.
+Global environment variables are cleared, for security reasons, when the script is called. You can set additional environment variables in the "command" configuration section.
 
 The program must write the questions on its standard output, in a single line, using the following struct JSON serialized:
 
