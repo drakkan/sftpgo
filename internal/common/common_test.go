@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -98,6 +99,122 @@ func (c *customNetConn) Close() error {
 	return c.Conn.Close()
 }
 
+func TestConnections(t *testing.T) {
+	c1 := &fakeConnection{
+		BaseConnection: NewBaseConnection("id1", ProtocolSFTP, "", "", dataprovider.User{
+			BaseUser: sdk.BaseUser{
+				Username: userTestUsername,
+			},
+		}),
+	}
+	c2 := &fakeConnection{
+		BaseConnection: NewBaseConnection("id2", ProtocolSFTP, "", "", dataprovider.User{
+			BaseUser: sdk.BaseUser{
+				Username: userTestUsername,
+			},
+		}),
+	}
+	c3 := &fakeConnection{
+		BaseConnection: NewBaseConnection("id3", ProtocolSFTP, "", "", dataprovider.User{
+			BaseUser: sdk.BaseUser{
+				Username: userTestUsername,
+			},
+		}),
+	}
+	c4 := &fakeConnection{
+		BaseConnection: NewBaseConnection("id4", ProtocolSFTP, "", "", dataprovider.User{
+			BaseUser: sdk.BaseUser{
+				Username: userTestUsername,
+			},
+		}),
+	}
+	assert.Equal(t, "SFTP_id1", c1.GetID())
+	assert.Equal(t, "SFTP_id2", c2.GetID())
+	assert.Equal(t, "SFTP_id3", c3.GetID())
+	assert.Equal(t, "SFTP_id4", c4.GetID())
+	err := Connections.Add(c1)
+	assert.NoError(t, err)
+	err = Connections.Add(c2)
+	assert.NoError(t, err)
+	err = Connections.Add(c3)
+	assert.NoError(t, err)
+	err = Connections.Add(c4)
+	assert.NoError(t, err)
+
+	Connections.RLock()
+	assert.Len(t, Connections.connections, 4)
+	assert.Len(t, Connections.mapping, 4)
+	_, ok := Connections.mapping[c1.GetID()]
+	assert.True(t, ok)
+	assert.Equal(t, 0, Connections.mapping[c1.GetID()])
+	assert.Equal(t, 1, Connections.mapping[c2.GetID()])
+	assert.Equal(t, 2, Connections.mapping[c3.GetID()])
+	assert.Equal(t, 3, Connections.mapping[c4.GetID()])
+	Connections.RUnlock()
+
+	c2 = &fakeConnection{
+		BaseConnection: NewBaseConnection("id2", ProtocolSFTP, "", "", dataprovider.User{
+			BaseUser: sdk.BaseUser{
+				Username: userTestUsername + "_mod",
+			},
+		}),
+	}
+	err = Connections.Swap(c2)
+	assert.NoError(t, err)
+
+	Connections.RLock()
+	assert.Len(t, Connections.connections, 4)
+	assert.Len(t, Connections.mapping, 4)
+	_, ok = Connections.mapping[c1.GetID()]
+	assert.True(t, ok)
+	assert.Equal(t, 0, Connections.mapping[c1.GetID()])
+	assert.Equal(t, 1, Connections.mapping[c2.GetID()])
+	assert.Equal(t, 2, Connections.mapping[c3.GetID()])
+	assert.Equal(t, 3, Connections.mapping[c4.GetID()])
+	assert.Equal(t, userTestUsername+"_mod", Connections.connections[1].GetUsername())
+	Connections.RUnlock()
+
+	Connections.Remove(c2.GetID())
+
+	Connections.RLock()
+	assert.Len(t, Connections.connections, 3)
+	assert.Len(t, Connections.mapping, 3)
+	_, ok = Connections.mapping[c1.GetID()]
+	assert.True(t, ok)
+	assert.Equal(t, 0, Connections.mapping[c1.GetID()])
+	assert.Equal(t, 1, Connections.mapping[c4.GetID()])
+	assert.Equal(t, 2, Connections.mapping[c3.GetID()])
+	Connections.RUnlock()
+
+	Connections.Remove(c3.GetID())
+
+	Connections.RLock()
+	assert.Len(t, Connections.connections, 2)
+	assert.Len(t, Connections.mapping, 2)
+	_, ok = Connections.mapping[c1.GetID()]
+	assert.True(t, ok)
+	assert.Equal(t, 0, Connections.mapping[c1.GetID()])
+	assert.Equal(t, 1, Connections.mapping[c4.GetID()])
+	Connections.RUnlock()
+
+	Connections.Remove(c1.GetID())
+
+	Connections.RLock()
+	assert.Len(t, Connections.connections, 1)
+	assert.Len(t, Connections.mapping, 1)
+	_, ok = Connections.mapping[c4.GetID()]
+	assert.True(t, ok)
+	assert.Equal(t, 0, Connections.mapping[c4.GetID()])
+	Connections.RUnlock()
+
+	Connections.Remove(c4.GetID())
+
+	Connections.RLock()
+	assert.Len(t, Connections.connections, 0)
+	assert.Len(t, Connections.mapping, 0)
+	Connections.RUnlock()
+}
+
 func TestSSHConnections(t *testing.T) {
 	conn1, conn2 := net.Pipe()
 	now := time.Now()
@@ -114,27 +231,44 @@ func TestSSHConnections(t *testing.T) {
 	Connections.AddSSHConnection(sshConn3)
 	Connections.RLock()
 	assert.Len(t, Connections.sshConnections, 3)
+	_, ok := Connections.sshMapping[sshConn1.GetID()]
+	assert.True(t, ok)
+	assert.Equal(t, 0, Connections.sshMapping[sshConn1.GetID()])
+	assert.Equal(t, 1, Connections.sshMapping[sshConn2.GetID()])
+	assert.Equal(t, 2, Connections.sshMapping[sshConn3.GetID()])
 	Connections.RUnlock()
 	Connections.RemoveSSHConnection(sshConn1.id)
 	Connections.RLock()
 	assert.Len(t, Connections.sshConnections, 2)
 	assert.Equal(t, sshConn3.id, Connections.sshConnections[0].id)
 	assert.Equal(t, sshConn2.id, Connections.sshConnections[1].id)
+	_, ok = Connections.sshMapping[sshConn3.GetID()]
+	assert.True(t, ok)
+	assert.Equal(t, 0, Connections.sshMapping[sshConn3.GetID()])
+	assert.Equal(t, 1, Connections.sshMapping[sshConn2.GetID()])
 	Connections.RUnlock()
 	Connections.RemoveSSHConnection(sshConn1.id)
 	Connections.RLock()
 	assert.Len(t, Connections.sshConnections, 2)
 	assert.Equal(t, sshConn3.id, Connections.sshConnections[0].id)
 	assert.Equal(t, sshConn2.id, Connections.sshConnections[1].id)
+	_, ok = Connections.sshMapping[sshConn3.GetID()]
+	assert.True(t, ok)
+	assert.Equal(t, 0, Connections.sshMapping[sshConn3.GetID()])
+	assert.Equal(t, 1, Connections.sshMapping[sshConn2.GetID()])
 	Connections.RUnlock()
 	Connections.RemoveSSHConnection(sshConn2.id)
 	Connections.RLock()
 	assert.Len(t, Connections.sshConnections, 1)
 	assert.Equal(t, sshConn3.id, Connections.sshConnections[0].id)
+	_, ok = Connections.sshMapping[sshConn3.GetID()]
+	assert.True(t, ok)
+	assert.Equal(t, 0, Connections.sshMapping[sshConn3.GetID()])
 	Connections.RUnlock()
 	Connections.RemoveSSHConnection(sshConn3.id)
 	Connections.RLock()
 	assert.Len(t, Connections.sshConnections, 0)
+	assert.Len(t, Connections.sshMapping, 0)
 	Connections.RUnlock()
 	assert.NoError(t, sshConn1.Close())
 	assert.NoError(t, sshConn2.Close())
@@ -1281,4 +1415,53 @@ func BenchmarkCompareArgon2Password(b *testing.B) {
 			panic(err)
 		}
 	}
+}
+
+func BenchmarkAddRemoveConnections(b *testing.B) {
+	var conns []ActiveConnection
+	for i := 0; i < 100; i++ {
+		conns = append(conns, &fakeConnection{
+			BaseConnection: NewBaseConnection(fmt.Sprintf("id%d", i), ProtocolSFTP, "", "", dataprovider.User{
+				BaseUser: sdk.BaseUser{
+					Username: userTestUsername,
+				},
+			}),
+		})
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for _, c := range conns {
+			if err := Connections.Add(c); err != nil {
+				panic(err)
+			}
+		}
+		var wg sync.WaitGroup
+		for idx := len(conns) - 1; idx >= 0; idx-- {
+			wg.Add(1)
+			go func(index int) {
+				defer wg.Done()
+				Connections.Remove(conns[index].GetID())
+			}(idx)
+		}
+		wg.Wait()
+	}
+}
+
+func BenchmarkAddRemoveSSHConnections(b *testing.B) {
+	conn1, conn2 := net.Pipe()
+	var conns []*SSHConnection
+	for i := 0; i < 2000; i++ {
+		conns = append(conns, NewSSHConnection(fmt.Sprintf("id%d", i), conn1))
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for _, c := range conns {
+			Connections.AddSSHConnection(c)
+		}
+		for idx := len(conns) - 1; idx >= 0; idx-- {
+			Connections.RemoveSSHConnection(conns[idx].GetID())
+		}
+	}
+	conn1.Close()
+	conn2.Close()
 }

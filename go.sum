@@ -607,8 +607,8 @@ github.com/gin-gonic/gin v1.7.7/go.mod h1:axIBovoeJpVj8S3BwE0uPMTeReE4+AfFtqpqaZ
 github.com/go-acme/lego/v4 v4.9.0 h1:8Hjj44IqRS7cigshMyFQ+0pIZvwgkG/+9A0UnNh7G8A=
 github.com/go-acme/lego/v4 v4.9.0/go.mod h1:g3JRUyWS3L/VObpp4bCxzJftKyf/Wba8QrSSnoiqjg4=
 github.com/go-chi/chi/v5 v5.0.4/go.mod h1:DslCQbL2OYiznFReuXYUmQ2hGd1aDpCnlMNITLSKoi8=
-github.com/go-chi/chi/v5 v5.0.8-0.20220512131524-9e71a0d4b3d6 h1:+fT7oFUOersdx+u7uIxOjabDVGxg+qqNV6kRdAXIvaQ=
-github.com/go-chi/chi/v5 v5.0.8-0.20220512131524-9e71a0d4b3d6/go.mod h1:DslCQbL2OYiznFReuXYUmQ2hGd1aDpCnlMNITLSKoi8=
+github.com/go-chi/chi/v5 v5.0.8-0.20221018120124-e5529d9db4d3 h1:qzwVVqrbdP93ZaSHy0yWQRYnig+t+j1OxnVtEs8SFuQ=
+github.com/go-chi/chi/v5 v5.0.8-0.20221018120124-e5529d9db4d3/go.mod h1:DslCQbL2OYiznFReuXYUmQ2hGd1aDpCnlMNITLSKoi8=
 github.com/go-chi/jwtauth/v5 v5.0.2 h1:CSKtr+b6Jnfy5T27sMaiBPxaVE/bjnjS3ramFQ0526w=
 github.com/go-chi/jwtauth/v5 v5.0.2/go.mod h1:TeA7vmPe3uYThvHw8O8W13HOOpOd4MTgToxL41gZyjs=
 github.com/go-chi/render v1.0.2 h1:4ER/udB0+fMWB2Jlf15RV3F4A2FDuYi/9f+lFttR/Lg=

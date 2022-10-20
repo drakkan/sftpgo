@@ -23,7 +23,7 @@ require (
 	github.com/fclairamb/ftpserverlib v0.20.1-0.20221012093027-95be4ae0c9a6
 	github.com/fclairamb/go-log v0.4.1
 	github.com/go-acme/lego/v4 v4.9.0
-	github.com/go-chi/chi/v5 v5.0.8-0.20220512131524-9e71a0d4b3d6
+	github.com/go-chi/chi/v5 v5.0.8-0.20221018120124-e5529d9db4d3
 	github.com/go-chi/jwtauth/v5 v5.0.2
 	github.com/go-chi/render v1.0.2
 	github.com/go-sql-driver/mysql v1.6.0
