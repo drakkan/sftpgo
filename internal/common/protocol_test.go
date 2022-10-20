@@ -4643,7 +4643,7 @@ func TestEventActionEmailAttachments(t *testing.T) {
 			email := lastReceivedEmail.get()
 			assert.Len(t, email.To, 1)
 			assert.True(t, util.Contains(email.To, "test@example.com"))
-			assert.Contains(t, email.Data, fmt.Sprintf(`Subject: "upload" from "%s"`, user.Username))
+			assert.Contains(t, email.Data, `Subject: "upload" from`)
 			assert.Contains(t, email.Data, "Content-Disposition: attachment")
 		}
 	}
