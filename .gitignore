@@ -1,4 +1,5 @@
 # compilation output
 sftpgo
 sftpgo.exe
-data
+/data
+/data/*
