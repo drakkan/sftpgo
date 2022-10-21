@@ -1,0 +1,22 @@
+version: '3'
+
+services:
+  sftpgo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sftp-go
+    ports:
+      - 8080:8080
+      - 2022:2022
+      - 2121:2121
+      - 50000-50100:50000-50100
+      - 10080:10080
+    environment:
+      - SFTPGO_FTPD__BINDINGS__0__PORT=2121
+      - SFTPGO_FTPD__BINDINGS__0__FORCE_PASSIVE_IP=143.244.147.57
+      - SFTPGO_WEBDAVD__BINDINGS__0__PORT=10080
+
+    volumes:
+      - ./data/sftpgodata:/srv/sftpg
+      - ./data/sftpgohome:/var/lib/sftpgo
