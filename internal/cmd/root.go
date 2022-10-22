@@ -52,6 +52,8 @@ const (
 	loadDataQuotaScanKey     = "loaddata_scan"
 	loadDataCleanFlag        = "loaddata-clean"
 	loadDataCleanKey         = "loaddata_clean"
+	graceTimeFlag            = "grace-time"
+	graceTimeKey             = "grace_time"
 	defaultConfigDir         = "."
 	defaultConfigFile        = ""
 	defaultLogFile           = "sftpgo.log"
@@ -65,6 +67,7 @@ const (
 	defaultLoadDataMode      = 1
 	defaultLoadDataQuotaScan = 0
 	defaultLoadDataClean     = false
+	defaultGraceTime         = 0
 )
 
 var (
@@ -81,6 +84,7 @@ var (
 	loadDataMode      int
 	loadDataQuotaScan int
 	loadDataClean     bool
+	graceTime         int
 	// used if awscontainer build tag is enabled
 	disableAWSInstallationCode bool
 
@@ -262,4 +266,20 @@ This flag can be set using SFTPGO_LOADDATA_QUOTA_SCAN
 env var too.
 (default 0)`)
 	viper.BindPFlag(loadDataQuotaScanKey, cmd.Flags().Lookup(loadDataQuotaScanFlag)) //nolint:errcheck
+
+	viper.SetDefault(graceTimeKey, defaultGraceTime)
+	viper.BindEnv(graceTimeKey, "SFTPGO_GRACE_TIME") //nolint:errcheck
+	cmd.Flags().IntVar(&graceTime, graceTimeFlag, viper.GetInt(graceTimeKey),
+		`Graceful shutdown is an option to initiate a
+shutdown without abrupt cancellation of the
+currently ongoing client-initiated transfer
+sessions.
+This grace time defines the number of seconds
+allowed for existing transfers to get
+completed before shutting down.
+A graceful shutdown is triggered by an
+interrupt signal.
+This flag can be set using SFTPGO_GRACE_TIME env
+var too. 0 means disabled. (default 0)`)
+	viper.BindPFlag(graceTimeKey, cmd.Flags().Lookup(graceTimeFlag)) //nolint:errcheck
 }

@@ -615,6 +615,15 @@ func TestSSHCommandErrors(t *testing.T) {
 		err = os.Remove(tmpFile)
 		assert.NoError(t, err)
 	}
+
+	common.WaitForTransfers(1)
+	_, err = cmd.getSystemCommand()
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), common.ErrShuttingDown.Error())
+	}
+
+	err = common.Initialize(common.Config, 0)
+	assert.NoError(t, err)
 }
 
 func TestCommandsWithExtensionsFilter(t *testing.T) {

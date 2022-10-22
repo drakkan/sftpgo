@@ -711,8 +711,10 @@ func (m *Manager) removeTask() {
 
 // Cleanup releases all the active plugins
 func (m *Manager) Cleanup() {
+	if m.closed.Swap(true) {
+		return
+	}
 	logger.Debug(logSender, "", "cleanup")
-	m.closed.Store(true)
 	close(m.done)
 	m.notifLock.Lock()
 	for _, n := range m.notifiers {

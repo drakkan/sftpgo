@@ -482,6 +482,9 @@ func (c *sshCommand) getSystemCommand() (systemCommand, error) {
 		fsPath:         "",
 		quotaCheckPath: "",
 	}
+	if err := common.CheckClosing(); err != nil {
+		return command, err
+	}
 	args := make([]string, len(c.args))
 	copy(args, c.args)
 	var fsPath, quotaPath string

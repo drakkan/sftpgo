@@ -164,9 +164,9 @@ func (s *Server) ClientConnected(cc ftpserver.ClientContext) (string, error) {
 		logger.Log(logger.LevelDebug, common.ProtocolFTP, "", "connection refused, ip %#v is banned", ipAddr)
 		return "Access denied: banned client IP", common.ErrConnectionDenied
 	}
-	if !common.Connections.IsNewConnectionAllowed(ipAddr) {
-		logger.Log(logger.LevelDebug, common.ProtocolFTP, "", fmt.Sprintf("connection not allowed from ip %#v", ipAddr))
-		return "Access denied", common.ErrConnectionDenied
+	if err := common.Connections.IsNewConnectionAllowed(ipAddr); err != nil {
+		logger.Log(logger.LevelDebug, common.ProtocolFTP, "", "connection not allowed from ip %q: %v", ipAddr, err)
+		return "Access denied", err
 	}
 	_, err := common.LimitRate(common.ProtocolFTP, ipAddr)
 	if err != nil {

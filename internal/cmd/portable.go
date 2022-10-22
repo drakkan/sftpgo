@@ -169,6 +169,7 @@ Please take a look at the usage below to customize the serving parameters`,
 					os.Exit(1)
 				}
 			}
+			service.SetGraceTime(graceTime)
 			service := service.Service{
 				ConfigDir:     filepath.Clean(defaultConfigDir),
 				ConfigFile:    defaultConfigFile,
@@ -257,8 +258,10 @@ Please take a look at the usage below to customize the serving parameters`,
 					},
 				},
 			}
-			if err := service.StartPortableMode(portableSFTPDPort, portableFTPDPort, portableWebDAVPort, portableSSHCommands, portableAdvertiseService,
-				portableAdvertiseCredentials, portableFTPSCert, portableFTPSKey, portableWebDAVCert, portableWebDAVKey); err == nil {
+			err := service.StartPortableMode(portableSFTPDPort, portableFTPDPort, portableWebDAVPort, portableSSHCommands,
+				portableAdvertiseService, portableAdvertiseCredentials, portableFTPSCert, portableFTPSKey, portableWebDAVCert,
+				portableWebDAVKey)
+			if err == nil {
 				service.Wait()
 				if service.Error == nil {
 					os.Exit(0)
@@ -403,6 +406,13 @@ multiple concurrent requests and this
 allows data to be transferred at a
 faster rate, over high latency networks,
 by overlapping round-trip times`)
+	portableCmd.Flags().IntVar(&graceTime, graceTimeFlag, 0,
+		`This grace time defines the number of
+seconds allowed for existing transfers
+to get completed before shutting down.
+A graceful shutdown is triggered by an
+interrupt signal.
+`)
 	rootCmd.AddCommand(portableCmd)
 }
 

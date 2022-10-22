@@ -10741,7 +10741,7 @@ func TestWebClientMaxConnections(t *testing.T) {
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
-	assert.Contains(t, rr.Body.String(), "connection not allowed from your ip")
+	assert.Contains(t, rr.Body.String(), common.ErrConnectionDenied.Error())
 
 	common.Connections.Remove(connection.GetID())
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
@@ -15136,7 +15136,7 @@ func TestWhitelist(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodGet, webLoginPath, nil)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
-	assert.Contains(t, rr.Body.String(), "connection not allowed from your ip")
+	assert.Contains(t, rr.Body.String(), common.ErrConnectionDenied.Error())
 
 	req.RemoteAddr = "172.120.1.1"
 	rr = executeRequest(req)
@@ -15145,7 +15145,7 @@ func TestWhitelist(t *testing.T) {
 	req.RemoteAddr = "172.120.1.3"
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
-	assert.Contains(t, rr.Body.String(), "connection not allowed from your ip")
+	assert.Contains(t, rr.Body.String(), common.ErrConnectionDenied.Error())
 
 	req.RemoteAddr = "192.8.7.1"
 	rr = executeRequest(req)

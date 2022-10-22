@@ -93,5 +93,6 @@ func handleSIGUSR1() {
 func handleInterrupt() {
 	logger.Debug(logSender, "", "Received interrupt request")
 	plugin.Handler.Cleanup()
+	common.WaitForTransfers(graceTime)
 	os.Exit(0)
 }

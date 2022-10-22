@@ -1030,9 +1030,9 @@ func (s *httpdServer) checkConnection(next http.Handler) http.Handler {
 		common.Connections.AddClientConnection(ipAddr)
 		defer common.Connections.RemoveClientConnection(ipAddr)
 
-		if !common.Connections.IsNewConnectionAllowed(ipAddr) {
-			logger.Log(logger.LevelDebug, common.ProtocolHTTP, "", fmt.Sprintf("connection not allowed from ip %#v", ipAddr))
-			s.sendForbiddenResponse(w, r, "connection not allowed from your ip")
+		if err := common.Connections.IsNewConnectionAllowed(ipAddr); err != nil {
+			logger.Log(logger.LevelDebug, common.ProtocolHTTP, "", "connection not allowed from ip %q: %v", ipAddr, err)
+			s.sendForbiddenResponse(w, r, err.Error())
 			return
 		}
 		if common.IsBanned(ipAddr) {

@@ -34,6 +34,7 @@ var (
 			if !filepath.IsAbs(logFilePath) && util.IsFileInputValid(logFilePath) {
 				logFilePath = filepath.Join(configDir, logFilePath)
 			}
+			service.SetGraceTime(graceTime)
 			s := service.Service{
 				ConfigDir:     configDir,
 				ConfigFile:    configFile,

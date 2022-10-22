@@ -109,5 +109,9 @@ func getCustomServeFlags() []string {
 	if logCompress != defaultLogCompress {
 		result = append(result, "--"+logCompressFlag+"=true")
 	}
+	if graceTime != defaultGraceTime {
+		result = append(result, "--"+graceTimeFlag)
+		result = append(result, strconv.Itoa(graceTime))
+	}
 	return result
 }

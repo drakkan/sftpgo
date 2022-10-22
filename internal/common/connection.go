@@ -1362,6 +1362,9 @@ func (c *BaseConnection) GetGenericError(err error) error {
 		if err == vfs.ErrStorageSizeUnavailable {
 			return fmt.Errorf("%w: %v", sftp.ErrSSHFxOpUnsupported, err.Error())
 		}
+		if err == ErrShuttingDown {
+			return fmt.Errorf("%w: %v", sftp.ErrSSHFxFailure, err.Error())
+		}
 		if err != nil {
 			if e, ok := err.(*os.PathError); ok {
 				c.Log(logger.LevelError, "generic path error: %+v", e)
@@ -1373,7 +1376,7 @@ func (c *BaseConnection) GetGenericError(err error) error {
 		return sftp.ErrSSHFxFailure
 	default:
 		if err == ErrPermissionDenied || err == ErrNotExist || err == ErrOpUnsupported ||
-			err == ErrQuotaExceeded || err == vfs.ErrStorageSizeUnavailable {
+			err == ErrQuotaExceeded || err == vfs.ErrStorageSizeUnavailable || err == ErrShuttingDown {
 			return err
 		}
 		return ErrGenericFailure
@@ -1404,6 +1407,10 @@ func (c *BaseConnection) GetFsAndResolvedPath(virtualPath string) (vfs.Fs, strin
 			return nil, "", c.GetPermissionDeniedError()
 		}
 		return nil, "", err
+	}
+
+	if isShuttingDown.Load() {
+		return nil, "", c.GetFsError(fs, ErrShuttingDown)
 	}
 
 	fsPath, err := fs.ResolvePath(virtualPath)

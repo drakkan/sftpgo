@@ -101,10 +101,12 @@ type eventRulesContainer struct {
 }
 
 func (r *eventRulesContainer) addAsyncTask() {
+	activeHooks.Add(1)
 	r.concurrencyGuard <- struct{}{}
 }
 
 func (r *eventRulesContainer) removeAsyncTask() {
+	activeHooks.Add(-1)
 	<-r.concurrencyGuard
 }
 

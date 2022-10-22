@@ -165,9 +165,9 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	common.Connections.AddClientConnection(ipAddr)
 	defer common.Connections.RemoveClientConnection(ipAddr)
 
-	if !common.Connections.IsNewConnectionAllowed(ipAddr) {
-		logger.Log(logger.LevelDebug, common.ProtocolWebDAV, "", fmt.Sprintf("connection not allowed from ip %#v", ipAddr))
-		http.Error(w, common.ErrConnectionDenied.Error(), http.StatusServiceUnavailable)
+	if err := common.Connections.IsNewConnectionAllowed(ipAddr); err != nil {
+		logger.Log(logger.LevelDebug, common.ProtocolWebDAV, "", "connection not allowed from ip %q: %v", ipAddr, err)
+		http.Error(w, err.Error(), http.StatusServiceUnavailable)
 		return
 	}
 	if common.IsBanned(ipAddr) {

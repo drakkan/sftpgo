@@ -129,6 +129,7 @@ loop:
 			wasStopped <- true
 			s.Service.Stop()
 			plugin.Handler.Cleanup()
+			common.WaitForTransfers(graceTime)
 			break loop
 		case svc.ParamChange:
 			logger.Debug(logSender, "", "Received reload request")

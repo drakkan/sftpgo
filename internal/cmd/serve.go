@@ -34,6 +34,7 @@ $ sftpgo serve
 
 Please take a look at the usage below to customize the startup options`,
 		Run: func(_ *cobra.Command, _ []string) {
+			service.SetGraceTime(graceTime)
 			service := service.Service{
 				ConfigDir:         util.CleanDirInput(configDir),
 				ConfigFile:        configFile,

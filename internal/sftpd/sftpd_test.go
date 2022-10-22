@@ -7890,7 +7890,8 @@ func TestOpenUnhandledChannel(t *testing.T) {
 		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
 			return nil
 		},
-		Auth: []ssh.AuthMethod{ssh.Password(defaultPassword)},
+		Auth:    []ssh.AuthMethod{ssh.Password(defaultPassword)},
+		Timeout: 5 * time.Second,
 	}
 	conn, err := ssh.Dial("tcp", sftpServerAddr, config)
 	if assert.NoError(t, err) {
@@ -10667,6 +10668,7 @@ func runSSHCommand(command string, user dataprovider.User, usePubKey bool) ([]by
 		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
 			return nil
 		},
+		Timeout: 5 * time.Second,
 	}
 	if usePubKey {
 		key, err := ssh.ParsePrivateKey([]byte(testPrivateKey))
@@ -10715,6 +10717,7 @@ func getSftpClientWithAddr(user dataprovider.User, usePubKey bool, addr string) 
 		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
 			return nil
 		},
+		Timeout: 5 * time.Second,
 	}
 	if usePubKey {
 		signer, err := ssh.ParsePrivateKey([]byte(testPrivateKey))
@@ -10760,6 +10763,7 @@ func getKeyboardInteractiveSftpClient(user dataprovider.User, answers []string) 
 				return answers, nil
 			}),
 		},
+		Timeout: 5 * time.Second,
 	}
 	conn, err := ssh.Dial("tcp", sftpServerAddr, config)
 	if err != nil {
@@ -10779,7 +10783,8 @@ func getCustomAuthSftpClient(user dataprovider.User, authMethods []ssh.AuthMetho
 		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
 			return nil
 		},
-		Auth: authMethods,
+		Auth:    authMethods,
+		Timeout: 5 * time.Second,
 	}
 	var err error
 	var conn *ssh.Client

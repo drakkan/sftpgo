@@ -74,6 +74,12 @@ Flags:
                                         virtual folder identified by this
                                         prefix and its contents
       --gcs-storage-class string
+      --grace-time int                  This grace time defines the number of
+                                        seconds allowed for existing transfers
+                                        to get completed before shutting down.
+                                        A graceful shutdown is triggered by an
+                                        interrupt signal.
+
   -h, --help                            help for portable
   -l, --log-file-path string            Leave empty to disable logging
       --log-level string                Set the log level.

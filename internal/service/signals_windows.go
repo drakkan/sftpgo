@@ -18,6 +18,7 @@ import (
 	"os"
 	"os/signal"
 
+	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/plugin"
 )
@@ -29,6 +30,7 @@ func registerSignals() {
 		for range c {
 			logger.Debug(logSender, "", "Received interrupt request")
 			plugin.Handler.Cleanup()
+			common.WaitForTransfers(graceTime)
 			os.Exit(0)
 		}
 	}()

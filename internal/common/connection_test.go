@@ -385,6 +385,13 @@ func TestErrorsMapping(t *testing.T) {
 		} else {
 			assert.EqualError(t, err, ErrOpUnsupported.Error())
 		}
+		err = conn.GetFsError(fs, ErrShuttingDown)
+		if protocol == ProtocolSFTP {
+			assert.ErrorIs(t, err, sftp.ErrSSHFxFailure)
+			assert.Contains(t, err.Error(), ErrShuttingDown.Error())
+		} else {
+			assert.EqualError(t, err, ErrShuttingDown.Error())
+		}
 	}
 }
 

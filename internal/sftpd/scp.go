@@ -496,18 +496,10 @@ func (c *scpCommand) handleDownload(filePath string) error {
 	}
 	var err error
 
-	fs, err := c.connection.User.GetFilesystemForPath(filePath, c.connection.ID)
+	fs, p, err := c.connection.GetFsAndResolvedPath(filePath)
 	if err != nil {
-		c.connection.Log(logger.LevelError, "error downloading file %#v: %+v", filePath, err)
-		c.sendErrorMessage(nil, fmt.Errorf("unable to get fs for path %#v", filePath))
-		return err
-	}
-
-	p, err := fs.ResolvePath(filePath)
-	if err != nil {
-		err := fmt.Errorf("invalid file path %#v", filePath)
-		c.connection.Log(logger.LevelError, "error downloading file: %#v, invalid file path", filePath)
-		c.sendErrorMessage(fs, err)
+		c.connection.Log(logger.LevelError, "error downloading file %q: %+v", filePath, err)
+		c.sendErrorMessage(nil, fmt.Errorf("unable to download file %q: %w", filePath, err))
 		return err
 	}
 

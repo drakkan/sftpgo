@@ -29,11 +29,13 @@ import (
 	"github.com/grandcat/zeroconf"
 	"github.com/sftpgo/sdk"
 
+	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/config"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/ftpd"
 	"github.com/drakkan/sftpgo/v2/internal/kms"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
+	"github.com/drakkan/sftpgo/v2/internal/plugin"
 	"github.com/drakkan/sftpgo/v2/internal/sftpd"
 	"github.com/drakkan/sftpgo/v2/internal/util"
 	"github.com/drakkan/sftpgo/v2/internal/version"
@@ -238,6 +240,8 @@ func (s *Service) advertiseServices(advertiseService, advertiseCredentials bool)
 			logger.InfoToConsole("unregistering multicast DNS WebDAV service")
 			mDNSServiceDAV.Shutdown()
 		}
+		plugin.Handler.Cleanup()
+		common.WaitForTransfers(graceTime)
 		s.Stop()
 	}()
 }

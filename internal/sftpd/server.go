@@ -474,8 +474,8 @@ func canAcceptConnection(ip string) bool {
 		logger.Log(logger.LevelDebug, common.ProtocolSSH, "", "connection refused, ip %#v is banned", ip)
 		return false
 	}
-	if !common.Connections.IsNewConnectionAllowed(ip) {
-		logger.Log(logger.LevelDebug, common.ProtocolSSH, "", fmt.Sprintf("connection not allowed from ip %#v", ip))
+	if err := common.Connections.IsNewConnectionAllowed(ip); err != nil {
+		logger.Log(logger.LevelDebug, common.ProtocolSSH, "", "connection not allowed from ip %q: %v", ip, err)
 		return false
 	}
 	_, err := common.LimitRate(common.ProtocolSSH, ip)

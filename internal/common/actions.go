@@ -26,6 +26,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/sftpgo/sdk"
@@ -44,13 +45,16 @@ var (
 	errNoHook                = errors.New("unable to execute action, no hook defined")
 	errUnexpectedHTTResponse = errors.New("unexpected HTTP hook response code")
 	hooksConcurrencyGuard    = make(chan struct{}, 150)
+	activeHooks              atomic.Int32
 )
 
 func startNewHook() {
+	activeHooks.Add(1)
 	hooksConcurrencyGuard <- struct{}{}
 }
 
 func hookEnded() {
+	activeHooks.Add(-1)
 	<-hooksConcurrencyGuard
 }
 

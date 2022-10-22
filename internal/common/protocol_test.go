@@ -596,6 +596,92 @@ func TestChtimesOpenHandle(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestWaitForConnections(t *testing.T) {
+	u := getTestUser()
+	u.UploadBandwidth = 128
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	testFileSize := int64(524288)
+	conn, client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		err = common.CheckClosing()
+		assert.NoError(t, err)
+
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			time.Sleep(1 * time.Second)
+			common.WaitForTransfers(10)
+			common.WaitForTransfers(0)
+			common.WaitForTransfers(10)
+		}()
+
+		err = writeSFTPFileNoCheck(testFileName, testFileSize, client)
+		assert.NoError(t, err)
+		wg.Wait()
+
+		err = common.CheckClosing()
+		assert.EqualError(t, err, common.ErrShuttingDown.Error())
+
+		_, err = client.Stat(testFileName)
+		if assert.Error(t, err) {
+			assert.Contains(t, err.Error(), common.ErrShuttingDown.Error())
+		}
+	}
+
+	_, _, err = getSftpClient(user)
+	assert.Error(t, err)
+
+	err = common.Initialize(common.Config, 0)
+	assert.NoError(t, err)
+
+	conn, client, err = getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		info, err := client.Stat(testFileName)
+		if assert.NoError(t, err) {
+			assert.Equal(t, testFileSize, info.Size())
+		}
+		err = client.Remove(testFileName)
+		assert.NoError(t, err)
+
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			time.Sleep(1 * time.Second)
+			common.WaitForTransfers(1)
+		}()
+
+		err = writeSFTPFileNoCheck(testFileName, testFileSize, client)
+		// we don't have an error here because the service won't really stop
+		assert.NoError(t, err)
+		wg.Wait()
+	}
+
+	err = common.Initialize(common.Config, 0)
+	assert.NoError(t, err)
+
+	common.WaitForTransfers(1)
+
+	err = common.Initialize(common.Config, 0)
+	assert.NoError(t, err)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestCheckParentDirs(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
@@ -6283,7 +6369,8 @@ func getCustomAuthSftpClient(user dataprovider.User, authMethods []ssh.AuthMetho
 		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
 			return nil
 		},
-		Auth: authMethods,
+		Auth:    authMethods,
+		Timeout: 5 * time.Second,
 	}
 	conn, err := ssh.Dial("tcp", sftpServerAddr, config)
 	if err != nil {
@@ -6303,6 +6390,7 @@ func getSftpClient(user dataprovider.User) (*ssh.Client, *sftp.Client, error) {
 		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
 			return nil
 		},
+		Timeout: 5 * time.Second,
 	}
 	if user.Password != "" {
 		config.Auth = []ssh.AuthMethod{ssh.Password(user.Password)}
