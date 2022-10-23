@@ -34,7 +34,7 @@ require (
 	github.com/hashicorp/go-hclog v1.3.1
 	github.com/hashicorp/go-plugin v1.4.5
 	github.com/hashicorp/go-retryablehttp v0.7.1
-	github.com/jackc/pgx/v5 v5.0.3
+	github.com/jackc/pgx/v5 v5.0.4-0.20221022150232-3e825ec8982f
 	github.com/jlaffaye/ftp v0.0.0-20201112195030-9aae4d151126
 	github.com/klauspost/compress v1.15.11
 	github.com/lestrrat-go/jwx v1.2.25
@@ -51,7 +51,7 @@ require (
 	github.com/rs/cors v1.8.3-0.20220619195839-da52b0701de5
 	github.com/rs/xid v1.4.0
 	github.com/rs/zerolog v1.28.0
-	github.com/sftpgo/sdk v0.1.2-0.20220913155952-81743fa5ded5
+	github.com/sftpgo/sdk v0.1.2
 	github.com/shirou/gopsutil/v3 v3.22.9
 	github.com/spf13/afero v1.9.2
 	github.com/spf13/cobra v1.6.0

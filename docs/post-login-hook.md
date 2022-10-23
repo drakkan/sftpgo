@@ -2,8 +2,6 @@
 
 This hook is executed after a login or after closing a connection for authentication timeout. Defining an appropriate `post_login_scope` you can get notifications for failed logins, successful logins or both.
 
-Please keep in mind that executing a hook after each login can be heavy.
-
 The `post-login-hook` can be defined as the absolute path of your program or an HTTP URL.
 
 If the hook defines an external program it can reads the following environment variables:

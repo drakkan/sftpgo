@@ -70,6 +70,8 @@ sudo mkdir /home/username/test
 sudo chown sftpgo:sftpgo /home/username/test
 ```
 
+You also need to make sure that the `sftpgo` system user has at least the read permission for any parent directory, so in the example above `/home/username` and `/home` must not have `0700` permissions.
+
 Now test the new user, we use the `sftp` CLI here, you can use any SFTP client.
 
 ```shell
