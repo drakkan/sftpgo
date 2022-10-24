@@ -56,7 +56,7 @@ require (
 	github.com/spf13/afero v1.9.2
 	github.com/spf13/cobra v1.6.0
 	github.com/spf13/viper v1.13.0
-	github.com/stretchr/testify v1.8.0
+	github.com/stretchr/testify v1.8.1
 	github.com/studio-b12/gowebdav v0.0.0-20221015232716-17255f2e7423
 	github.com/subosito/gotenv v1.4.1
 	github.com/unrolled/secure v1.13.0
