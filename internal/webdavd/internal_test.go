@@ -19,7 +19,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/xml"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -272,11 +271,6 @@ xr5cb9VBRBtB9aOKVfuRhpatAfS2Pzm2Htae9lFn7slGPUmu2hkjDw==
 -----END RSA PRIVATE KEY-----`
 )
 
-var (
-	errWalkDir  = errors.New("err walk dir")
-	errWalkFile = errors.New("err walk file")
-)
-
 // MockOsFs mockable OsFs
 type MockOsFs struct {
 	vfs.Fs
@@ -315,21 +309,7 @@ func (fs *MockOsFs) Remove(name string, isDir bool) error {
 
 // Rename renames (moves) source to target
 func (fs *MockOsFs) Rename(source, target string) error {
-	if fs.err != nil {
-		return fs.err
-	}
 	return os.Rename(source, target)
-}
-
-// Walk returns a duplicate path for testing
-func (fs *MockOsFs) Walk(root string, walkFn filepath.WalkFunc) error {
-	if fs.err == errWalkDir {
-		walkFn("fsdpath", vfs.NewFileInfo("dpath", true, 0, time.Now(), false), nil) //nolint:errcheck
-		walkFn("fsdpath", vfs.NewFileInfo("dpath", true, 0, time.Now(), false), nil) //nolint:errcheck
-		return nil
-	}
-	walkFn("fsfpath", vfs.NewFileInfo("fpath", false, 0, time.Now(), false), nil) //nolint:errcheck
-	return fs.err
 }
 
 // GetMimeType returns the content type
@@ -337,61 +317,11 @@ func (fs *MockOsFs) GetMimeType(name string) (string, error) {
 	return "application/custom-mime", nil
 }
 
-func newMockOsFs(err error, atomicUpload bool, connectionID, rootDir string, reader *pipeat.PipeReaderAt) vfs.Fs {
+func newMockOsFs(atomicUpload bool, connectionID, rootDir string, reader *pipeat.PipeReaderAt) vfs.Fs {
 	return &MockOsFs{
 		Fs:                      vfs.NewOsFs(connectionID, rootDir, ""),
-		err:                     err,
 		isAtomicUploadSupported: atomicUpload,
 		reader:                  reader,
-	}
-}
-
-func TestOrderDirsToRemove(t *testing.T) {
-	user := dataprovider.User{}
-	fs := vfs.NewOsFs("id", os.TempDir(), "")
-	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolWebDAV, "", "", user),
-		request:        nil,
-	}
-	dirsToRemove := []objectMapping{}
-
-	orderedDirs := connection.orderDirsToRemove(fs, dirsToRemove)
-	assert.Equal(t, len(dirsToRemove), len(orderedDirs))
-
-	dirsToRemove = []objectMapping{
-		{
-			fsPath:      "dir1",
-			virtualPath: "",
-		},
-	}
-	orderedDirs = connection.orderDirsToRemove(fs, dirsToRemove)
-	assert.Equal(t, len(dirsToRemove), len(orderedDirs))
-
-	dirsToRemove = []objectMapping{
-		{
-			fsPath:      "dir1",
-			virtualPath: "",
-		},
-		{
-			fsPath:      "dir12",
-			virtualPath: "",
-		},
-		{
-			fsPath:      filepath.Join("dir1", "a", "b"),
-			virtualPath: "",
-		},
-		{
-			fsPath:      filepath.Join("dir1", "a"),
-			virtualPath: "",
-		},
-	}
-
-	orderedDirs = connection.orderDirsToRemove(fs, dirsToRemove)
-	if assert.Equal(t, len(dirsToRemove), len(orderedDirs)) {
-		assert.Equal(t, "dir12", orderedDirs[0].fsPath)
-		assert.Equal(t, filepath.Join("dir1", "a", "b"), orderedDirs[1].fsPath)
-		assert.Equal(t, filepath.Join("dir1", "a"), orderedDirs[2].fsPath)
-		assert.Equal(t, "dir1", orderedDirs[3].fsPath)
 	}
 }
 
@@ -643,7 +573,7 @@ func TestFileAccessErrors(t *testing.T) {
 		assert.ErrorIs(t, err, os.ErrNotExist)
 	}
 
-	fs = newMockOsFs(nil, false, fs.ConnectionID(), user.HomeDir, nil)
+	fs = newMockOsFs(false, fs.ConnectionID(), user.HomeDir, nil)
 	_, err = connection.handleUploadToExistingFile(fs, p, p, 0, path.Join("adir", missingPath))
 	if assert.Error(t, err) {
 		assert.ErrorIs(t, err, os.ErrNotExist)
@@ -706,59 +636,6 @@ func TestFileAccessErrors(t *testing.T) {
 	}
 }
 
-func TestRemoveDirTree(t *testing.T) {
-	user := dataprovider.User{
-		BaseUser: sdk.BaseUser{
-			HomeDir: filepath.Clean(os.TempDir()),
-		},
-	}
-	user.Permissions = make(map[string][]string)
-	user.Permissions["/"] = []string{dataprovider.PermAny}
-	fs := vfs.NewOsFs("connID", user.HomeDir, "")
-	connection := &Connection{
-		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolWebDAV, "", "", user),
-	}
-
-	vpath := path.Join("adir", "missing")
-	p := filepath.Join(user.HomeDir, "adir", "missing")
-	err := connection.removeDirTree(fs, p, vpath)
-	if assert.Error(t, err) {
-		assert.True(t, fs.IsNotExist(err))
-	}
-
-	fs = newMockOsFs(nil, false, "mockID", user.HomeDir, nil)
-	err = connection.removeDirTree(fs, p, vpath)
-	if assert.Error(t, err) {
-		assert.True(t, fs.IsNotExist(err), "unexpected error: %v", err)
-	}
-
-	errFake := errors.New("fake err")
-	fs = newMockOsFs(errFake, false, "mockID", user.HomeDir, nil)
-	err = connection.removeDirTree(fs, p, vpath)
-	if assert.Error(t, err) {
-		assert.EqualError(t, err, errFake.Error())
-	}
-
-	fs = newMockOsFs(errWalkDir, true, "mockID", user.HomeDir, nil)
-	err = connection.removeDirTree(fs, p, vpath)
-	if assert.Error(t, err) {
-		assert.True(t, fs.IsPermission(err), "unexpected error: %v", err)
-	}
-
-	fs = newMockOsFs(errWalkFile, false, "mockID", user.HomeDir, nil)
-	err = connection.removeDirTree(fs, p, vpath)
-	if assert.Error(t, err) {
-		assert.EqualError(t, err, errWalkFile.Error())
-	}
-
-	connection.User.Permissions["/"] = []string{dataprovider.PermListItems}
-	fs = newMockOsFs(nil, false, "mockID", user.HomeDir, nil)
-	err = connection.removeDirTree(fs, p, vpath)
-	if assert.Error(t, err) {
-		assert.EqualError(t, err, common.ErrPermissionDenied.Error())
-	}
-}
-
 func TestContentType(t *testing.T) {
 	user := dataprovider.User{
 		BaseUser: sdk.BaseUser{
@@ -775,7 +652,7 @@ func TestContentType(t *testing.T) {
 	ctx := context.Background()
 	baseTransfer := common.NewBaseTransfer(nil, connection.BaseConnection, nil, testFilePath, testFilePath, testFile,
 		common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{})
-	fs = newMockOsFs(nil, false, fs.ConnectionID(), user.GetHomeDir(), nil)
+	fs = newMockOsFs(false, fs.ConnectionID(), user.GetHomeDir(), nil)
 	err := os.WriteFile(testFilePath, []byte(""), os.ModePerm)
 	assert.NoError(t, err)
 	davFile := newWebDavFile(baseTransfer, nil, nil)
@@ -873,7 +750,7 @@ func TestTransferReadWriteErrors(t *testing.T) {
 
 	r, w, err = pipeat.Pipe()
 	assert.NoError(t, err)
-	mockFs := newMockOsFs(nil, false, fs.ConnectionID(), user.HomeDir, r)
+	mockFs := newMockOsFs(false, fs.ConnectionID(), user.HomeDir, r)
 	baseTransfer = common.NewBaseTransfer(nil, connection.BaseConnection, nil, testFilePath, testFilePath, testFile,
 		common.TransferDownload, 0, 0, 0, 0, false, mockFs, dataprovider.TransferQuota{})
 	davFile = newWebDavFile(baseTransfer, nil, nil)
@@ -974,13 +851,13 @@ func TestTransferSeek(t *testing.T) {
 		common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{AllowedTotalSize: 100})
 	davFile = newWebDavFile(baseTransfer, nil, nil)
 	davFile.reader = f
-	davFile.Fs = newMockOsFs(nil, true, fs.ConnectionID(), user.GetHomeDir(), nil)
+	davFile.Fs = newMockOsFs(true, fs.ConnectionID(), user.GetHomeDir(), nil)
 	res, err = davFile.Seek(2, io.SeekStart)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(2), res)
 
 	davFile = newWebDavFile(baseTransfer, nil, nil)
-	davFile.Fs = newMockOsFs(nil, true, fs.ConnectionID(), user.GetHomeDir(), nil)
+	davFile.Fs = newMockOsFs(true, fs.ConnectionID(), user.GetHomeDir(), nil)
 	res, err = davFile.Seek(2, io.SeekEnd)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(5), res)
@@ -989,7 +866,7 @@ func TestTransferSeek(t *testing.T) {
 		common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{AllowedTotalSize: 100})
 
 	davFile = newWebDavFile(baseTransfer, nil, nil)
-	davFile.Fs = newMockOsFs(nil, true, fs.ConnectionID(), user.GetHomeDir(), nil)
+	davFile.Fs = newMockOsFs(true, fs.ConnectionID(), user.GetHomeDir(), nil)
 	res, err = davFile.Seek(2, io.SeekEnd)
 	assert.True(t, fs.IsNotExist(err))
 	assert.Equal(t, int64(0), res)

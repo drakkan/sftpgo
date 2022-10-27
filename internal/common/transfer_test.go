@@ -62,7 +62,7 @@ func TestTransferUpdateQuota(t *testing.T) {
 	assert.NoError(t, err)
 
 	transfer.ErrTransfer = errFake
-	transfer.Fs = newMockOsFs(true, "", "", "S3Fs fake")
+	transfer.Fs = newMockOsFs(true, "", "", "S3Fs fake", nil)
 	assert.False(t, transfer.updateQuota(1, 0))
 }
 

@@ -594,8 +594,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             var itemType = getTypeFromMeta(selected);
             var itemName = getNameFromMeta(selected);
             var path;
+            var reqTimeout = 15000;
             if (itemType == "1"){
                 path = '{{.DirsURL}}';
+                reqTimeout = 90000
             } else {
                 path = '{{.FilesURL}}';
             }
@@ -606,7 +608,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 type: 'DELETE',
                 dataType: 'json',
                 headers: { 'X-CSRF-TOKEN': '{{.CSRFToken}}' },
-                timeout: 60000,
+                timeout: reqTimeout,
                 success: function (result) {
                     index++;
                     success++;

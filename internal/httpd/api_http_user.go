@@ -119,12 +119,12 @@ func deleteUserDir(w http.ResponseWriter, r *http.Request) {
 	defer common.Connections.Remove(connection.GetID())
 
 	name := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
-	err = connection.RemoveDir(name)
+	err = connection.RemoveAll(name)
 	if err != nil {
-		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to delete directory %#v", name), getMappedStatusCode(err))
+		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to delete directory %q", name), getMappedStatusCode(err))
 		return
 	}
-	sendAPIResponse(w, r, nil, fmt.Sprintf("Directory %#v deleted", name), http.StatusOK)
+	sendAPIResponse(w, r, nil, fmt.Sprintf("Directory %q deleted", name), http.StatusOK)
 }
 
 func getUserFile(w http.ResponseWriter, r *http.Request) {

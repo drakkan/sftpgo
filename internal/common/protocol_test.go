@@ -47,6 +47,7 @@ import (
 	"github.com/sftpgo/sdk"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/studio-b12/gowebdav"
 	"golang.org/x/crypto/ssh"
 
 	"github.com/drakkan/sftpgo/v2/internal/common"
@@ -61,6 +62,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/smtp"
 	"github.com/drakkan/sftpgo/v2/internal/util"
 	"github.com/drakkan/sftpgo/v2/internal/vfs"
+	"github.com/drakkan/sftpgo/v2/internal/webdavd"
 )
 
 const (
@@ -68,6 +70,7 @@ const (
 	httpProxyAddr       = "127.0.0.1:7777"
 	sftpServerAddr      = "127.0.0.1:4022"
 	smtpServerAddr      = "127.0.0.1:2525"
+	webDavServerPort    = 9191
 	defaultUsername     = "test_common_sftp"
 	defaultPassword     = "test_password"
 	defaultSFTPUsername = "test_common_sftpfs_user"
@@ -145,6 +148,13 @@ func TestMain(m *testing.M) {
 	httpdConf.Bindings[0].Port = 4080
 	httpdtest.SetBaseURL("http://127.0.0.1:4080")
 
+	webDavConf := config.GetWebDAVDConfig()
+	webDavConf.Bindings = []webdavd.Binding{
+		{
+			Port: webDavServerPort,
+		},
+	}
+
 	go func() {
 		if err := sftpdConf.Initialize(configDir); err != nil {
 			logger.ErrorToConsole("could not start SFTP server: %v", err)
@@ -159,8 +169,16 @@ func TestMain(m *testing.M) {
 		}
 	}()
 
+	go func() {
+		if err := webDavConf.Initialize(configDir); err != nil {
+			logger.ErrorToConsole("could not start WebDAV server: %v", err)
+			os.Exit(1)
+		}
+	}()
+
 	waitTCPListening(sftpdConf.Bindings[0].GetAddress())
 	waitTCPListening(httpdConf.Bindings[0].GetAddress())
+	waitTCPListening(webDavConf.Bindings[0].GetAddress())
 
 	go func() {
 		// start a test HTTP server to receive action notifications
@@ -307,6 +325,50 @@ func TestBaseConnection(t *testing.T) {
 		assert.Error(t, err)
 	} else {
 		printLatestLogs(10)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestRemoveAll(t *testing.T) {
+	u := getTestUser()
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	webDavClient := getWebDavClient(user)
+	err = webDavClient.RemoveAll("/")
+	if assert.Error(t, err) {
+		assert.True(t, gowebdav.IsErrCode(err, http.StatusForbidden))
+	}
+
+	testDir := "baseDir"
+	err = webDavClient.RemoveAll(testDir)
+	assert.NoError(t, err)
+
+	conn, client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		err = client.Mkdir(testDir)
+		assert.NoError(t, err)
+		err = writeSFTPFile(path.Join(testDir, testFileName), 1234, client)
+		assert.NoError(t, err)
+
+		err = webDavClient.RemoveAll(path.Join(testDir, testFileName))
+		assert.NoError(t, err)
+		_, err = client.Stat(path.Join(testDir, testFileName))
+		assert.Error(t, err)
+
+		err = writeSFTPFile(path.Join(testDir, testFileName), 1234, client)
+		assert.NoError(t, err)
+		err = webDavClient.RemoveAll(testDir)
+		assert.NoError(t, err)
+		_, err = client.Stat(testDir)
+		assert.Error(t, err)
 	}
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
@@ -2950,6 +3012,8 @@ func TestResolvePathError(t *testing.T) {
 	err = conn.CreateSymlink(testPath, testPath+".sym")
 	assert.Error(t, err)
 	_, err = conn.DoStat(testPath, 0, false)
+	assert.Error(t, err)
+	err = conn.RemoveAll(testPath)
 	assert.Error(t, err)
 	err = conn.SetStat(testPath, &common.StatAttributes{
 		Atime: time.Now(),
@@ -6407,6 +6471,17 @@ func getSftpClient(user dataprovider.User) (*ssh.Client, *sftp.Client, error) {
 		conn.Close()
 	}
 	return conn, sftpClient, err
+}
+
+func getWebDavClient(user dataprovider.User) *gowebdav.Client {
+	rootPath := fmt.Sprintf("http://localhost:%d/", webDavServerPort)
+	pwd := defaultPassword
+	if user.Password != "" {
+		pwd = user.Password
+	}
+	client := gowebdav.NewClient(rootPath, user.Username, pwd)
+	client.SetTimeout(10 * time.Second)
+	return client
 }
 
 func getTestUser() dataprovider.User {
