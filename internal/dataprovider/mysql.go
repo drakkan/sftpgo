@@ -92,7 +92,8 @@ const (
 		"`created_at` bigint NOT NULL, `updated_at` bigint NOT NULL, `email` varchar(255) NULL, " +
 		"`upload_data_transfer` integer NOT NULL, `download_data_transfer` integer NOT NULL, " +
 		"`total_data_transfer` integer NOT NULL, `used_upload_data_transfer` integer NOT NULL, " +
-		"`used_download_data_transfer` integer NOT NULL);" +
+		"`used_download_data_transfer` integer NOT NULL, `deleted_at` bigint NOT NULL, `first_download` bigint NOT NULL, " +
+		"`first_upload` bigint NOT NULL);" +
 		"CREATE TABLE `{{groups_folders_mapping}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, " +
 		"`group_id` integer NOT NULL, `folder_id` integer NOT NULL, " +
 		"`virtual_path` longtext NOT NULL, `quota_size` bigint NOT NULL, `quota_files` integer NOT NULL);" +
@@ -129,18 +130,7 @@ const (
 		"`expires_at` bigint NOT NULL, `description` longtext NULL, `admin_id` integer NULL, `user_id` integer NULL);" +
 		"ALTER TABLE `{{api_keys}}` ADD CONSTRAINT `{{prefix}}api_keys_admin_id_fk_admins_id` FOREIGN KEY (`admin_id`) REFERENCES `{{admins}}` (`id`) ON DELETE CASCADE;" +
 		"ALTER TABLE `{{api_keys}}` ADD CONSTRAINT `{{prefix}}api_keys_user_id_fk_users_id` FOREIGN KEY (`user_id`) REFERENCES `{{users}}` (`id`) ON DELETE CASCADE;" +
-		"CREATE INDEX `{{prefix}}users_updated_at_idx` ON `{{users}}` (`updated_at`);" +
-		"CREATE INDEX `{{prefix}}defender_hosts_updated_at_idx` ON `{{defender_hosts}}` (`updated_at`);" +
-		"CREATE INDEX `{{prefix}}defender_hosts_ban_time_idx` ON `{{defender_hosts}}` (`ban_time`);" +
-		"CREATE INDEX `{{prefix}}defender_events_date_time_idx` ON `{{defender_events}}` (`date_time`);" +
-		"CREATE INDEX `{{prefix}}active_transfers_connection_id_idx` ON `{{active_transfers}}` (`connection_id`);" +
-		"CREATE INDEX `{{prefix}}active_transfers_transfer_id_idx` ON `{{active_transfers}}` (`transfer_id`);" +
-		"CREATE INDEX `{{prefix}}active_transfers_updated_at_idx` ON `{{active_transfers}}` (`updated_at`);" +
-		"CREATE INDEX `{{prefix}}groups_updated_at_idx` ON `{{groups}}` (`updated_at`);" +
-		"CREATE INDEX `{{prefix}}shared_sessions_type_idx` ON `{{shared_sessions}}` (`type`);" +
-		"CREATE INDEX `{{prefix}}shared_sessions_timestamp_idx` ON `{{shared_sessions}}` (`timestamp`);" +
-		"INSERT INTO {{schema_version}} (version) VALUES (19);"
-	mysqlV20SQL = "CREATE TABLE `{{events_rules}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, " +
+		"CREATE TABLE `{{events_rules}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, " +
 		"`name` varchar(255) NOT NULL UNIQUE, `description` varchar(512) NULL, `created_at` bigint NOT NULL, " +
 		"`updated_at` bigint NOT NULL, `trigger` integer NOT NULL, `conditions` longtext NOT NULL, `deleted_at` bigint NOT NULL);" +
 		"CREATE TABLE `{{events_actions}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, " +
@@ -155,38 +145,32 @@ const (
 		"FOREIGN KEY (`rule_id`) REFERENCES `{{events_rules}}` (`id`) ON DELETE CASCADE;" +
 		"ALTER TABLE `{{rules_actions_mapping}}` ADD CONSTRAINT `{{prefix}}rules_actions_mapping_action_id_fk_events_targets_id` " +
 		"FOREIGN KEY (`action_id`) REFERENCES `{{events_actions}}` (`id`) ON DELETE NO ACTION;" +
-		"ALTER TABLE `{{users}}` ADD COLUMN `deleted_at` bigint DEFAULT 0 NOT NULL;" +
-		"ALTER TABLE `{{users}}` ALTER COLUMN `deleted_at` DROP DEFAULT;" +
-		"CREATE INDEX `{{prefix}}events_rules_updated_at_idx` ON `{{events_rules}}` (`updated_at`);" +
-		"CREATE INDEX `{{prefix}}events_rules_deleted_at_idx` ON `{{events_rules}}` (`deleted_at`);" +
-		"CREATE INDEX `{{prefix}}events_rules_trigger_idx` ON `{{events_rules}}` (`trigger`);" +
-		"CREATE INDEX `{{prefix}}rules_actions_mapping_order_idx` ON `{{rules_actions_mapping}}` (`order`);" +
-		"CREATE INDEX `{{prefix}}users_deleted_at_idx` ON `{{users}}` (`deleted_at`);"
-	mysqlV20DownSQL = "DROP TABLE `{{rules_actions_mapping}}` CASCADE;" +
-		"DROP TABLE `{{events_rules}}` CASCADE;" +
-		"DROP TABLE `{{events_actions}}` CASCADE;" +
-		"DROP TABLE `{{tasks}}` CASCADE;" +
-		"ALTER TABLE `{{users}}` DROP COLUMN `deleted_at`;"
-	mysqlV21SQL = "ALTER TABLE `{{users}}` ADD COLUMN `first_download` bigint DEFAULT 0 NOT NULL; " +
-		"ALTER TABLE `{{users}}` ALTER COLUMN `first_download` DROP DEFAULT; " +
-		"ALTER TABLE `{{users}}` ADD COLUMN `first_upload` bigint DEFAULT 0 NOT NULL; " +
-		"ALTER TABLE `{{users}}` ALTER COLUMN `first_upload` DROP DEFAULT;"
-	mysqlV21DownSQL = "ALTER TABLE `{{users}}` DROP COLUMN `first_upload`; " +
-		"ALTER TABLE `{{users}}` DROP COLUMN `first_download`;"
-	mysqlV22SQL = "CREATE TABLE `{{admins_groups_mapping}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, " +
+		"CREATE TABLE `{{admins_groups_mapping}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, " +
 		" `admin_id` integer NOT NULL, `group_id` integer NOT NULL, `options` longtext NOT NULL);" +
 		"ALTER TABLE `{{admins_groups_mapping}}` ADD CONSTRAINT `{{prefix}}unique_admin_group_mapping` " +
 		"UNIQUE (`admin_id`, `group_id`);" +
 		"ALTER TABLE `{{admins_groups_mapping}}` ADD CONSTRAINT `{{prefix}}admins_groups_mapping_admin_id_fk_admins_id` " +
 		"FOREIGN KEY (`admin_id`) REFERENCES `{{admins}}` (`id`) ON DELETE CASCADE;" +
 		"ALTER TABLE `{{admins_groups_mapping}}` ADD CONSTRAINT `{{prefix}}admins_groups_mapping_group_id_fk_groups_id` " +
-		"FOREIGN KEY (`group_id`) REFERENCES `{{groups}}` (`id`) ON DELETE CASCADE;"
-	mysqlV22DownSQL = "ALTER TABLE `{{admins_groups_mapping}}` DROP INDEX `{{prefix}}unique_admin_group_mapping`;" +
-		"DROP TABLE `{{admins_groups_mapping}}` CASCADE;"
-	mysqlV23SQL = "CREATE TABLE `{{nodes}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, " +
+		"FOREIGN KEY (`group_id`) REFERENCES `{{groups}}` (`id`) ON DELETE CASCADE;" +
+		"CREATE TABLE `{{nodes}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, " +
 		"`name` varchar(255) NOT NULL UNIQUE, `data` longtext NOT NULL, `created_at` bigint NOT NULL, " +
-		"`updated_at` bigint NOT NULL);"
-	mysqlV23DownSQL = "DROP TABLE `{{nodes}}` CASCADE;"
+		"`updated_at` bigint NOT NULL);" +
+		"CREATE INDEX `{{prefix}}users_updated_at_idx` ON `{{users}}` (`updated_at`);" +
+		"CREATE INDEX `{{prefix}}users_deleted_at_idx` ON `{{users}}` (`deleted_at`);" +
+		"CREATE INDEX `{{prefix}}defender_hosts_updated_at_idx` ON `{{defender_hosts}}` (`updated_at`);" +
+		"CREATE INDEX `{{prefix}}defender_hosts_ban_time_idx` ON `{{defender_hosts}}` (`ban_time`);" +
+		"CREATE INDEX `{{prefix}}defender_events_date_time_idx` ON `{{defender_events}}` (`date_time`);" +
+		"CREATE INDEX `{{prefix}}active_transfers_connection_id_idx` ON `{{active_transfers}}` (`connection_id`);" +
+		"CREATE INDEX `{{prefix}}active_transfers_transfer_id_idx` ON `{{active_transfers}}` (`transfer_id`);" +
+		"CREATE INDEX `{{prefix}}active_transfers_updated_at_idx` ON `{{active_transfers}}` (`updated_at`);" +
+		"CREATE INDEX `{{prefix}}shared_sessions_type_idx` ON `{{shared_sessions}}` (`type`);" +
+		"CREATE INDEX `{{prefix}}shared_sessions_timestamp_idx` ON `{{shared_sessions}}` (`timestamp`);" +
+		"CREATE INDEX `{{prefix}}events_rules_updated_at_idx` ON `{{events_rules}}` (`updated_at`);" +
+		"CREATE INDEX `{{prefix}}events_rules_deleted_at_idx` ON `{{events_rules}}` (`deleted_at`);" +
+		"CREATE INDEX `{{prefix}}events_rules_trigger_idx` ON `{{events_rules}}` (`trigger`);" +
+		"CREATE INDEX `{{prefix}}rules_actions_mapping_order_idx` ON `{{rules_actions_mapping}}` (`order`);" +
+		"INSERT INTO {{schema_version}} (version) VALUES (23);"
 )
 
 // MySQLProvider defines the auth provider for MySQL/MariaDB database
@@ -695,11 +679,11 @@ func (p *MySQLProvider) initializeDatabase() error {
 	if errors.Is(err, sql.ErrNoRows) {
 		return errSchemaVersionEmpty
 	}
-	logger.InfoToConsole("creating initial database schema, version 19")
-	providerLog(logger.LevelInfo, "creating initial database schema, version 19")
+	logger.InfoToConsole("creating initial database schema, version 23")
+	providerLog(logger.LevelInfo, "creating initial database schema, version 23")
 	initialSQL := sqlReplaceAll(mysqlInitialSQL)
 
-	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, strings.Split(initialSQL, ";"), 19, true)
+	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, strings.Split(initialSQL, ";"), 23, true)
 }
 
 func (p *MySQLProvider) migrateDatabase() error { //nolint:dupl
@@ -710,30 +694,22 @@ func (p *MySQLProvider) migrateDatabase() error { //nolint:dupl
 
 	switch version := dbVersion.Version; {
 	case version == sqlDatabaseVersion:
-		providerLog(logger.LevelDebug, "sql database is up to date, current version: %v", version)
+		providerLog(logger.LevelDebug, "sql database is up to date, current version: %d", version)
 		return ErrNoInitRequired
-	case version < 19:
-		err = fmt.Errorf("database schema version %v is too old, please see the upgrading docs", version)
+	case version < 23:
+		err = fmt.Errorf("database schema version %d is too old, please see the upgrading docs", version)
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
-	case version == 19:
-		return updateMySQLDatabaseFromV19(p.dbHandle)
-	case version == 20:
-		return updateMySQLDatabaseFromV20(p.dbHandle)
-	case version == 21:
-		return updateMySQLDatabaseFromV21(p.dbHandle)
-	case version == 22:
-		return updateMySQLDatabaseFromV22(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
-			providerLog(logger.LevelError, "database schema version %v is newer than the supported one: %v", version,
+			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
 				sqlDatabaseVersion)
-			logger.WarnToConsole("database schema version %v is newer than the supported one: %v", version,
+			logger.WarnToConsole("database schema version %d is newer than the supported one: %d", version,
 				sqlDatabaseVersion)
 			return nil
 		}
-		return fmt.Errorf("database schema version not handled: %v", version)
+		return fmt.Errorf("database schema version not handled: %d", version)
 	}
 }
 
@@ -747,139 +723,12 @@ func (p *MySQLProvider) revertDatabase(targetVersion int) error {
 	}
 
 	switch dbVersion.Version {
-	case 20:
-		return downgradeMySQLDatabaseFromV20(p.dbHandle)
-	case 21:
-		return downgradeMySQLDatabaseFromV21(p.dbHandle)
-	case 22:
-		return downgradeMySQLDatabaseFromV22(p.dbHandle)
-	case 23:
-		return downgradeMySQLDatabaseFromV23(p.dbHandle)
 	default:
-		return fmt.Errorf("database schema version not handled: %v", dbVersion.Version)
+		return fmt.Errorf("database schema version not handled: %d", dbVersion.Version)
 	}
 }
 
 func (p *MySQLProvider) resetDatabase() error {
 	sql := sqlReplaceAll(mysqlResetSQL)
 	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, strings.Split(sql, ";"), 0, false)
-}
-
-func updateMySQLDatabaseFromV19(dbHandle *sql.DB) error {
-	if err := updateMySQLDatabaseFrom19To20(dbHandle); err != nil {
-		return err
-	}
-	return updateMySQLDatabaseFromV20(dbHandle)
-}
-
-func updateMySQLDatabaseFromV20(dbHandle *sql.DB) error {
-	if err := updateMySQLDatabaseFrom20To21(dbHandle); err != nil {
-		return err
-	}
-	return updateMySQLDatabaseFromV21(dbHandle)
-}
-
-func updateMySQLDatabaseFromV21(dbHandle *sql.DB) error {
-	if err := updateMySQLDatabaseFrom21To22(dbHandle); err != nil {
-		return err
-	}
-	return updateMySQLDatabaseFromV22(dbHandle)
-}
-
-func updateMySQLDatabaseFromV22(dbHandle *sql.DB) error {
-	return updateMySQLDatabaseFrom22To23(dbHandle)
-}
-
-func downgradeMySQLDatabaseFromV20(dbHandle *sql.DB) error {
-	return downgradeMySQLDatabaseFrom20To19(dbHandle)
-}
-
-func downgradeMySQLDatabaseFromV21(dbHandle *sql.DB) error {
-	if err := downgradeMySQLDatabaseFrom21To20(dbHandle); err != nil {
-		return err
-	}
-	return downgradeMySQLDatabaseFromV20(dbHandle)
-}
-
-func downgradeMySQLDatabaseFromV22(dbHandle *sql.DB) error {
-	if err := downgradeMySQLDatabaseFrom22To21(dbHandle); err != nil {
-		return err
-	}
-	return downgradeMySQLDatabaseFromV21(dbHandle)
-}
-
-func downgradeMySQLDatabaseFromV23(dbHandle *sql.DB) error {
-	if err := downgradeMySQLDatabaseFrom23To22(dbHandle); err != nil {
-		return err
-	}
-	return downgradeMySQLDatabaseFromV22(dbHandle)
-}
-
-func updateMySQLDatabaseFrom19To20(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database schema version: 19 -> 20")
-	providerLog(logger.LevelInfo, "updating database schema version: 19 -> 20")
-	sql := strings.ReplaceAll(mysqlV20SQL, "{{events_actions}}", sqlTableEventsActions)
-	sql = strings.ReplaceAll(sql, "{{events_rules}}", sqlTableEventsRules)
-	sql = strings.ReplaceAll(sql, "{{rules_actions_mapping}}", sqlTableRulesActionsMapping)
-	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
-	sql = strings.ReplaceAll(sql, "{{tasks}}", sqlTableTasks)
-	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 20, true)
-}
-
-func updateMySQLDatabaseFrom20To21(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database schema version: 20 -> 21")
-	providerLog(logger.LevelInfo, "updating database schema version: 20 -> 21")
-	sql := strings.ReplaceAll(mysqlV21SQL, "{{users}}", sqlTableUsers)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 21, true)
-}
-
-func updateMySQLDatabaseFrom21To22(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database schema version: 21 -> 22")
-	providerLog(logger.LevelInfo, "updating database schema version: 21 -> 22")
-	sql := strings.ReplaceAll(mysqlV22SQL, "{{admins_groups_mapping}}", sqlTableAdminsGroupsMapping)
-	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
-	sql = strings.ReplaceAll(sql, "{{groups}}", sqlTableGroups)
-	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 22, true)
-}
-
-func updateMySQLDatabaseFrom22To23(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database schema version: 22 -> 23")
-	providerLog(logger.LevelInfo, "updating database schema version: 22 -> 23")
-	sql := strings.ReplaceAll(mysqlV23SQL, "{{nodes}}", sqlTableNodes)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 23, true)
-}
-
-func downgradeMySQLDatabaseFrom20To19(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database schema version: 20 -> 19")
-	providerLog(logger.LevelInfo, "downgrading database schema version: 20 -> 19")
-	sql := strings.ReplaceAll(mysqlV20DownSQL, "{{events_actions}}", sqlTableEventsActions)
-	sql = strings.ReplaceAll(sql, "{{events_rules}}", sqlTableEventsRules)
-	sql = strings.ReplaceAll(sql, "{{rules_actions_mapping}}", sqlTableRulesActionsMapping)
-	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
-	sql = strings.ReplaceAll(sql, "{{tasks}}", sqlTableTasks)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 19, false)
-}
-
-func downgradeMySQLDatabaseFrom21To20(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database schema version: 21 -> 20")
-	providerLog(logger.LevelInfo, "downgrading database schema version: 21 -> 20")
-	sql := strings.ReplaceAll(mysqlV21DownSQL, "{{users}}", sqlTableUsers)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 20, false)
-}
-
-func downgradeMySQLDatabaseFrom22To21(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database schema version: 22 -> 21")
-	providerLog(logger.LevelInfo, "downgrading database schema version: 22 -> 21")
-	sql := strings.ReplaceAll(mysqlV22DownSQL, "{{admins_groups_mapping}}", sqlTableAdminsGroupsMapping)
-	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 21, false)
-}
-
-func downgradeMySQLDatabaseFrom23To22(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database schema version: 23 -> 22")
-	providerLog(logger.LevelInfo, "downgrading database schema version: 23 -> 22")
-	sql := strings.ReplaceAll(mysqlV23DownSQL, "{{nodes}}", sqlTableNodes)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 22, false)
 }
