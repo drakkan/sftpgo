@@ -727,3 +727,19 @@ func PanicOnError(err error) {
 		panic(fmt.Errorf("unexpected error: %w", err))
 	}
 }
+
+// GetAbsolutePath returns an absolute path using the current dir as base
+// if name defines a relative path
+func GetAbsolutePath(name string) (string, error) {
+	if name == "" {
+		return name, errors.New("input path cannot be empty")
+	}
+	if filepath.IsAbs(name) {
+		return name, nil
+	}
+	curDir, err := os.Getwd()
+	if err != nil {
+		return name, err
+	}
+	return filepath.Join(curDir, name), nil
+}

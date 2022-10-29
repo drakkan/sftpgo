@@ -1354,6 +1354,12 @@ func (r *EventRule) hasUserAssociated(providerObjectType string) bool {
 		return providerObjectType == actionObjectUser
 	case EventTriggerFsEvent:
 		return true
+	default:
+		if len(r.Actions) > 0 {
+			// should we allow schedules where backup is not the first action?
+			// maybe we could pass the action index and check before that index
+			return r.Actions[0].Type == ActionTypeBackup
+		}
 	}
 	return false
 }
