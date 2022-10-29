@@ -29,6 +29,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -476,6 +477,15 @@ func (p *EventParams) AddError(err error) {
 	p.errors = append(p.errors, err.Error())
 }
 
+func (p *EventParams) setBackupParams(backupPath string) {
+	if p.sender != "" {
+		return
+	}
+	p.sender = dataprovider.ActionExecutorSystem
+	p.FsPath = backupPath
+	p.VirtualPath = filepath.Base(backupPath)
+}
+
 func (p *EventParams) getStatusString() string {
 	switch p.Status {
 	case 1:
@@ -503,6 +513,18 @@ func (p *EventParams) getUsers() ([]dataprovider.User, error) {
 }
 
 func (p *EventParams) getUserFromSender() (dataprovider.User, error) {
+	if p.sender == dataprovider.ActionExecutorSystem {
+		return dataprovider.User{
+			BaseUser: sdk.BaseUser{
+				Status:   1,
+				Username: p.sender,
+				HomeDir:  dataprovider.GetBackupsPath(),
+				Permissions: map[string][]string{
+					"/": {dataprovider.PermAny},
+				},
+			},
+		}, nil
+	}
 	user, err := dataprovider.UserExists(p.sender)
 	if err != nil {
 		eventManagerLog(logger.LevelError, "unable to get user %q: %+v", p.sender, err)
@@ -1903,7 +1925,11 @@ func executeRuleAction(action dataprovider.BaseEventAction, params *EventParams,
 	case dataprovider.ActionTypeEmail:
 		err = executeEmailRuleAction(action.Options.EmailConfig, params)
 	case dataprovider.ActionTypeBackup:
-		err = dataprovider.ExecuteBackup()
+		var backupPath string
+		backupPath, err = dataprovider.ExecuteBackup()
+		if err == nil {
+			params.setBackupParams(backupPath)
+		}
 	case dataprovider.ActionTypeUserQuotaReset:
 		err = executeUsersQuotaResetRuleAction(conditions, params)
 	case dataprovider.ActionTypeFolderQuotaReset:

@@ -524,36 +524,36 @@ func (c *Config) requireCustomTLSForMySQL() bool {
 	return false
 }
 
-func (c *Config) doBackup() error {
+func (c *Config) doBackup() (string, error) {
 	now := time.Now().UTC()
 	outputFile := filepath.Join(c.BackupsPath, fmt.Sprintf("backup_%s_%d.json", now.Weekday(), now.Hour()))
 	providerLog(logger.LevelDebug, "starting backup to file %q", outputFile)
 	err := os.MkdirAll(filepath.Dir(outputFile), 0700)
 	if err != nil {
 		providerLog(logger.LevelError, "unable to create backup dir %q: %v", outputFile, err)
-		return fmt.Errorf("unable to create backup dir: %w", err)
+		return outputFile, fmt.Errorf("unable to create backup dir: %w", err)
 	}
 	backup, err := DumpData()
 	if err != nil {
 		providerLog(logger.LevelError, "unable to execute backup: %v", err)
-		return fmt.Errorf("unable to dump backup data: %w", err)
+		return outputFile, fmt.Errorf("unable to dump backup data: %w", err)
 	}
 	dump, err := json.Marshal(backup)
 	if err != nil {
 		providerLog(logger.LevelError, "unable to marshal backup as JSON: %v", err)
-		return fmt.Errorf("unable to marshal backup data as JSON: %w", err)
+		return outputFile, fmt.Errorf("unable to marshal backup data as JSON: %w", err)
 	}
 	err = os.WriteFile(outputFile, dump, 0600)
 	if err != nil {
 		providerLog(logger.LevelError, "unable to save backup: %v", err)
-		return fmt.Errorf("unable to save backup: %w", err)
+		return outputFile, fmt.Errorf("unable to save backup: %w", err)
 	}
 	providerLog(logger.LevelDebug, "backup saved to %q", outputFile)
-	return nil
+	return outputFile, nil
 }
 
 // ExecuteBackup executes a backup
-func ExecuteBackup() error {
+func ExecuteBackup() (string, error) {
 	return config.doBackup()
 }
 
@@ -833,6 +833,12 @@ func Initialize(cnf Config, basePath string, checkAdmins bool) error {
 	if cnf.BackupsPath == "" {
 		return fmt.Errorf("required directory is invalid, backup path %#v", cnf.BackupsPath)
 	}
+	absoluteBackupPath, err := util.GetAbsolutePath(cnf.BackupsPath)
+	if err != nil {
+		return fmt.Errorf("unable to get absolute backup path: %w", err)
+	}
+	config.BackupsPath = absoluteBackupPath
+	providerLog(logger.LevelDebug, "absolute backup path %q", config.BackupsPath)
 
 	if err := initializeHashingAlgo(&cnf); err != nil {
 		return err
