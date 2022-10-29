@@ -670,6 +670,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                     <span class="shortcut"><b>{{`{{VirtualPath}}`}}</b></span> => Path seen by SFTPGo users, for example "/adir/afile.txt".
                 </p>
                 <p>
+                    <span class="shortcut"><b>{{`{{VirtualDirPath}}`}}</b></span> => Parent directory for VirtualPath, for example if VirtualPath is "/adir/afile.txt", VirtualDirPath is "/adir".
+                </p>
+                <p>
                     <span class="shortcut"><b>{{`{{FsPath}}`}}</b></span> => Full filesystem path, for example "/user/homedir/adir/afile.txt" or "C:/data/user/homedir/adir/afile.txt" on Windows.
                 </p>
                 <p>
@@ -680,6 +683,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 </p>
                 <p>
                     <span class="shortcut"><b>{{`{{VirtualTargetPath}}`}}</b></span> => Virtual target path for renames.
+                </p>
+                <p>
+                    <span class="shortcut"><b>{{`{{VirtualTargetDirPath}}`}}</b></span> => Parent directory for VirtualTargetPath.
+                </p>
+                <p>
+                    <span class="shortcut"><b>{{`{{TargetName}}`}}</b></span> => Target object name for renames.
                 </p>
                 <p>
                     <span class="shortcut"><b>{{`{{FsTargetPath}}`}}</b></span> => Full filesystem target path for renames.

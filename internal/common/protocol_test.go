@@ -3868,7 +3868,7 @@ func TestEventRuleFsActions(t *testing.T) {
 				Type: dataprovider.FilesystemActionRename,
 				Renames: []dataprovider.KeyValue{
 					{
-						Key:   "/{{VirtualPath}}",
+						Key:   "/{{VirtualDirPath}}/{{ObjectName}}",
 						Value: "/{{ObjectName}}_renamed",
 					},
 				},
@@ -5281,6 +5281,86 @@ func TestEventRuleFirstUploadDownloadActions(t *testing.T) {
 	_, err = httpdtest.RemoveEventRule(rule1, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveEventRule(rule2, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	smtpCfg = smtp.Config{}
+	err = smtpCfg.Initialize(configDir)
+	require.NoError(t, err)
+}
+
+func TestEventRuleRenameEvent(t *testing.T) {
+	smtpCfg := smtp.Config{
+		Host:          "127.0.0.1",
+		Port:          2525,
+		From:          "notify@example.com",
+		TemplatesPath: "templates",
+	}
+	err := smtpCfg.Initialize(configDir)
+	require.NoError(t, err)
+
+	a1 := dataprovider.BaseEventAction{
+		Name: "action1",
+		Type: dataprovider.ActionTypeEmail,
+		Options: dataprovider.BaseEventActionOptions{
+			EmailConfig: dataprovider.EventActionEmailConfig{
+				Recipients: []string{"test@example.com"},
+				Subject:    `"{{Event}}" from "{{Name}}"`,
+				Body:       `Fs path {{FsPath}}, Target path "{{VirtualTargetDirPath}}/{{TargetName}}", size: {{FileSize}}`,
+			},
+		},
+	}
+	action1, _, err := httpdtest.AddEventAction(a1, http.StatusCreated)
+	assert.NoError(t, err)
+	r1 := dataprovider.EventRule{
+		Name:    "test rename rule",
+		Trigger: dataprovider.EventTriggerFsEvent,
+		Conditions: dataprovider.EventConditions{
+			FsEvents: []string{"rename"},
+		},
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action1.Name,
+				},
+				Order: 1,
+			},
+		},
+	}
+	rule1, _, err := httpdtest.AddEventRule(r1, http.StatusCreated)
+	assert.NoError(t, err)
+
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	conn, client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		testFileSize := int64(32768)
+		lastReceivedEmail.reset()
+		err = writeSFTPFileNoCheck(testFileName, testFileSize, client)
+		assert.NoError(t, err)
+		err = client.Mkdir("subdir")
+		assert.NoError(t, err)
+		err = client.Rename(testFileName, path.Join("/subdir", testFileName))
+		assert.NoError(t, err)
+		assert.Eventually(t, func() bool {
+			return lastReceivedEmail.get().From != ""
+		}, 1500*time.Millisecond, 100*time.Millisecond)
+		email := lastReceivedEmail.get()
+		assert.Len(t, email.To, 1)
+		assert.True(t, util.Contains(email.To, "test@example.com"))
+		assert.Contains(t, email.Data, fmt.Sprintf(`Subject: "rename" from "%s"`, user.Username))
+		assert.Contains(t, email.Data, fmt.Sprintf("Target path %q", path.Join("/subdir", testFileName)))
+	}
+
+	_, err = httpdtest.RemoveEventRule(rule1, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveEventAction(action1, http.StatusOK)
 	assert.NoError(t, err)
