@@ -28,10 +28,13 @@ The following placeholders are supported:
 - `{{StatusString}}`. Status as string. Possible values "OK", "KO".
 - `{{ErrorString}}`. Error details. Replaced with an empty string if no errors occur.
 - `{{VirtualPath}}`. Path seen by SFTPGo users, for example `/adir/afile.txt`.
+- `{{VirtualDirPath}}`. Parent directory for VirtualPath, for example if VirtualPath is "/adir/afile.txt", VirtualDirPath is "/adir".
 - `{{FsPath}}`. Full filesystem path, for example `/user/homedir/adir/afile.txt` or `C:/data/user/homedir/adir/afile.txt` on Windows.
 - `{{ObjectName}}`. File/directory name, for example `afile.txt` or provider object name.
 - `{{ObjectType}}`. Object type for provider events: `user`, `group`, `admin`, etc.
 - `{{VirtualTargetPath}}`. Virtual target path for renames.
+- `{{VirtualTargetDirPath}}`. Parent directory for VirtualTargetPath.
+- `{{TargetName}}`. Target object name for renames.
 - `{{FsTargetPath}}`. Full filesystem target path for renames.
 - `{{FileSize}}`. File size.
 - `{{Protocol}}`. Used protocol, for example `SFTP`, `FTP`.

@@ -483,7 +483,13 @@ func (p *EventParams) setBackupParams(backupPath string) {
 	}
 	p.sender = dataprovider.ActionExecutorSystem
 	p.FsPath = backupPath
-	p.VirtualPath = filepath.Base(backupPath)
+	p.ObjectName = filepath.Base(backupPath)
+	p.VirtualPath = "/" + p.ObjectName
+	p.Timestamp = time.Now().UnixNano()
+	info, err := os.Stat(backupPath)
+	if err == nil {
+		p.FileSize = info.Size()
+	}
 }
 
 func (p *EventParams) getStatusString() string {
@@ -606,6 +612,13 @@ func (p *EventParams) getStringReplacements(addObjectData bool) []string {
 		"{{IP}}", p.IP,
 		"{{Timestamp}}", fmt.Sprintf("%d", p.Timestamp),
 		"{{StatusString}}", p.getStatusString(),
+	}
+	if p.VirtualPath != "" {
+		replacements = append(replacements, "{{VirtualDirPath}}", path.Dir(p.VirtualPath))
+	}
+	if p.VirtualTargetPath != "" {
+		replacements = append(replacements, "{{VirtualTargetDirPath}}", path.Dir(p.VirtualTargetPath))
+		replacements = append(replacements, "{{TargetName}}", path.Base(p.VirtualTargetPath))
 	}
 	if len(p.errors) > 0 {
 		replacements = append(replacements, "{{ErrorString}}", strings.Join(p.errors, ", "))
