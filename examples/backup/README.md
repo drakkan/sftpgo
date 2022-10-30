@@ -1,5 +1,7 @@
 # Data Backup
 
+:warning: Since v2.4.0 you can use the [EventManager](../../docs/eventmanager.md) to schedule backups.
+
 The `backup` example script shows how to use the SFTPGo REST API to backup your data.
 
 The script is written in Python and has the following requirements:
