@@ -1,5 +1,7 @@
 # Update user quota
 
+:warning: Since v2.4.0 you can use the [EventManager](../../docs/eventmanager.md) to schedule quota scans.
+
 The `scanuserquota` example script shows how to use the SFTPGo REST API to update the users' quota.
 
 The stored quota may be incorrect for several reasons, such as an unexpected shutdown while uploading files, temporary provider failures, files copied outside of SFTPGo, and so on.

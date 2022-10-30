@@ -1,5 +1,7 @@
 # File retention policies
 
+:warning: Since v2.4.0 you can use the [EventManager](../../docs/eventmanager.md) to schedule data retention checks.
+
 The `checkretention` example script shows how to use the SFTPGo REST API to manage data retention.
 
 :warning: Deleting files is an irreversible action, please make sure you fully understand what you are doing before using this feature, you may have users with overlapping home directories or virtual folders shared between multiple users, it is relatively easy to inadvertently delete files you need.
