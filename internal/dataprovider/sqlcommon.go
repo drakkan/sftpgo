@@ -3133,6 +3133,12 @@ func sqlCommonAddEventRule(rule *EventRule, dbHandle *sql.DB) error {
 	defer cancel()
 
 	return sqlCommonExecuteTx(ctx, dbHandle, func(tx *sql.Tx) error {
+		if config.IsShared == 1 {
+			_, err := tx.ExecContext(ctx, getRemoveSoftDeletedRuleQuery(), rule.Name)
+			if err != nil {
+				return err
+			}
+		}
 		q := getAddEventRuleQuery()
 		_, err := tx.ExecContext(ctx, q, rule.Name, rule.Description, util.GetTimeAsMsSinceEpoch(time.Now()),
 			util.GetTimeAsMsSinceEpoch(time.Now()), rule.Trigger, string(conditions))

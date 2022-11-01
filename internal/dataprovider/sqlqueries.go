@@ -895,6 +895,10 @@ func getDeleteEventRuleQuery(softDelete bool) string {
 	return fmt.Sprintf(`DELETE FROM %s WHERE name = %s`, sqlTableEventsRules, sqlPlaceholders[0])
 }
 
+func getRemoveSoftDeletedRuleQuery() string {
+	return fmt.Sprintf(`DELETE FROM %s WHERE name = %s AND deleted_at > 0`, sqlTableEventsRules, sqlPlaceholders[0])
+}
+
 func getClearRuleActionMappingQuery() string {
 	return fmt.Sprintf(`DELETE FROM %s WHERE rule_id = (SELECT id FROM %s WHERE name = %s)`, sqlTableRulesActionsMapping,
 		sqlTableEventsRules, sqlPlaceholders[0])
