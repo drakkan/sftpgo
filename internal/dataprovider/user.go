@@ -15,8 +15,6 @@
 package dataprovider
 
 import (
-	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -24,9 +22,11 @@ import (
 	"net"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/rs/xid"
 	"github.com/sftpgo/sdk"
 
 	"github.com/drakkan/sftpgo/v2/internal/kms"
@@ -600,7 +600,7 @@ func (u *User) GetVirtualFolderForPath(virtualPath string) (vfs.VirtualFolder, e
 // CheckMetadataConsistency checks the consistency between the metadata stored
 // in the configured metadata plugin and the filesystem
 func (u *User) CheckMetadataConsistency() error {
-	fs, err := u.getRootFs("")
+	fs, err := u.getRootFs(xid.New().String())
 	if err != nil {
 		return err
 	}
@@ -621,7 +621,7 @@ func (u *User) CheckMetadataConsistency() error {
 // ScanQuota scans the user home dir and virtual folders, included in its quota,
 // and returns the number of files and their size
 func (u *User) ScanQuota() (int, int64, error) {
-	fs, err := u.getRootFs("")
+	fs, err := u.getRootFs(xid.New().String())
 	if err != nil {
 		return 0, 0, err
 	}
@@ -1131,12 +1131,9 @@ func (u *User) MustSetSecondFactorForProtocol(protocol string) bool {
 }
 
 // GetSignature returns a signature for this admin.
-// It could change after an update
+// It will change after an update
 func (u *User) GetSignature() string {
-	data := []byte(fmt.Sprintf("%v_%v_%v", u.Username, u.Status, u.ExpirationDate))
-	data = append(data, []byte(u.Password)...)
-	signature := sha256.Sum256(data)
-	return base64.StdEncoding.EncodeToString(signature[:])
+	return strconv.FormatInt(u.UpdatedAt, 10)
 }
 
 // GetBandwidthForIP returns the upload and download bandwidth for the specified IP

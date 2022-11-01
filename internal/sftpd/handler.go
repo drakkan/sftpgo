@@ -182,9 +182,6 @@ func (c *Connection) handleFilewrite(request *sftp.Request) (sftp.WriterAtReader
 func (c *Connection) Filecmd(request *sftp.Request) error {
 	c.UpdateLastActivity()
 
-	c.Log(logger.LevelDebug, "new cmd, method: %v, sourcePath: %#v, targetPath: %#v", request.Method,
-		request.Filepath, request.Target)
-
 	switch request.Method {
 	case "Setstat":
 		return c.handleSFTPSetstat(request)

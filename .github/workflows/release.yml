@@ -5,7 +5,7 @@ on:
     tags: 'v*'
 
 env:
-  GO_VERSION: 1.19.2
+  GO_VERSION: 1.19.3
 
 jobs:
   prepare-sources-with-deps:

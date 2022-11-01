@@ -5279,9 +5279,7 @@ func TestSFTPLoopVirtualFolders(t *testing.T) {
 		defer client.Close()
 		assert.NoError(t, checkBasicSFTP(client))
 		_, err = client.ReadDir("/vdir")
-		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), "SFTP loop")
-		}
+		assert.Error(t, err)
 	}
 	// now make user2 a local account with an SFTP virtual folder to user1.
 	// So we have:
@@ -5316,9 +5314,7 @@ func TestSFTPLoopVirtualFolders(t *testing.T) {
 		defer client.Close()
 		assert.NoError(t, checkBasicSFTP(client))
 		_, err = client.ReadDir("/vdir")
-		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), "SFTP loop")
-		}
+		assert.Error(t, err)
 	}
 
 	_, err = httpdtest.RemoveUser(user1, http.StatusOK)
@@ -10080,7 +10076,7 @@ func TestSCPNestedFolders(t *testing.T) {
 
 	// now change the password for the base user, so SFTP folder will not work
 	baseUser.Password = defaultPassword + "_mod"
-	_, _, err = httpdtest.UpdateUser(baseUser, http.StatusOK, "")
+	_, _, err = httpdtest.UpdateUser(baseUser, http.StatusOK, "1")
 	assert.NoError(t, err)
 
 	err = scpUpload(filepath.Join(baseDir, "vdir"), remoteRootPath, true, false)

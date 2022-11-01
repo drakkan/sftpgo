@@ -382,6 +382,9 @@ func (fs *OsFs) GetDirSize(dirname string) (int, int64, error) {
 			if info != nil && info.Mode().IsRegular() {
 				size += info.Size()
 				numFiles++
+				if numFiles%1000 == 0 {
+					fsLog(fs, logger.LevelDebug, "dirname %q scan in progress, files: %d, size: %d", dirname, numFiles, size)
+				}
 			}
 			return err
 		})

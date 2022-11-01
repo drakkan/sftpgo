@@ -6319,14 +6319,10 @@ func TestSFTPLoopError(t *testing.T) {
 
 	conn = common.NewBaseConnection("", common.ProtocolSFTP, "", "", user1)
 	_, _, err = conn.GetFsAndResolvedPath(user1.VirtualFolders[0].VirtualPath)
-	if assert.Error(t, err) {
-		assert.Contains(t, err.Error(), "SFTP loop")
-	}
+	assert.Error(t, err)
 	conn = common.NewBaseConnection("", common.ProtocolFTP, "", "", user1)
 	_, _, err = conn.GetFsAndResolvedPath(user1.VirtualFolders[0].VirtualPath)
-	if assert.Error(t, err) {
-		assert.Contains(t, err.Error(), "SFTP loop")
-	}
+	assert.Error(t, err)
 
 	_, err = httpdtest.RemoveEventRule(rule1, http.StatusOK)
 	assert.NoError(t, err)

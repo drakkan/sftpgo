@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/rs/xid"
 	"github.com/sftpgo/sdk"
 
 	"github.com/drakkan/sftpgo/v2/internal/util"
@@ -213,7 +214,7 @@ func (v *VirtualFolder) GetFilesystem(connectionID string, forbiddenSelfUsers []
 // CheckMetadataConsistency checks the consistency between the metadata stored
 // in the configured metadata plugin and the filesystem
 func (v *VirtualFolder) CheckMetadataConsistency() error {
-	fs, err := v.GetFilesystem("", nil)
+	fs, err := v.GetFilesystem(xid.New().String(), nil)
 	if err != nil {
 		return err
 	}
@@ -227,7 +228,7 @@ func (v *VirtualFolder) ScanQuota() (int, int64, error) {
 	if v.hasPathPlaceholder() {
 		return 0, 0, errors.New("cannot scan quota: this folder has a path placeholder")
 	}
-	fs, err := v.GetFilesystem("", nil)
+	fs, err := v.GetFilesystem(xid.New().String(), nil)
 	if err != nil {
 		return 0, 0, err
 	}

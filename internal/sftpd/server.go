@@ -527,13 +527,11 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 	loginType := sconn.Permissions.Extensions["sftpgo_login_method"]
 	connectionID := hex.EncodeToString(sconn.SessionID())
 
+	defer user.CloseFs() //nolint:errcheck
 	if err = user.CheckFsRoot(connectionID); err != nil {
-		errClose := user.CloseFs()
-		logger.Warn(logSender, connectionID, "unable to check fs root: %v close fs error: %v", err, errClose)
+		logger.Warn(logSender, connectionID, "unable to check fs root: %v", err)
 		return
 	}
-
-	defer user.CloseFs() //nolint:errcheck
 
 	logger.Log(logger.LevelInfo, common.ProtocolSSH, connectionID,
 		"User %#v logged in with %#v, from ip %#v, client version %#v", user.Username, loginType,

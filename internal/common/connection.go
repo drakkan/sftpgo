@@ -309,7 +309,7 @@ func (c *BaseConnection) ListDir(virtualPath string) ([]os.FileInfo, error) {
 
 // CheckParentDirs tries to create the specified directory and any missing parent dirs
 func (c *BaseConnection) CheckParentDirs(virtualPath string) error {
-	fs, err := c.User.GetFilesystemForPath(virtualPath, "")
+	fs, err := c.User.GetFilesystemForPath(virtualPath, c.GetID())
 	if err != nil {
 		return err
 	}
@@ -321,7 +321,7 @@ func (c *BaseConnection) CheckParentDirs(virtualPath string) error {
 	}
 	dirs := util.GetDirsForVirtualPath(virtualPath)
 	for idx := len(dirs) - 1; idx >= 0; idx-- {
-		fs, err = c.User.GetFilesystemForPath(dirs[idx], "")
+		fs, err = c.User.GetFilesystemForPath(dirs[idx], c.GetID())
 		if err != nil {
 			return err
 		}
@@ -1509,6 +1509,7 @@ func (c *BaseConnection) GetGenericError(err error) error {
 			err == ErrQuotaExceeded || err == vfs.ErrStorageSizeUnavailable || err == ErrShuttingDown {
 			return err
 		}
+		c.Log(logger.LevelError, "generic error: %+v", err)
 		return ErrGenericFailure
 	}
 }
@@ -1536,7 +1537,7 @@ func (c *BaseConnection) GetFsAndResolvedPath(virtualPath string) (vfs.Fs, strin
 			// will not be listed
 			return nil, "", c.GetPermissionDeniedError()
 		}
-		return nil, "", err
+		return nil, "", c.GetGenericError(err)
 	}
 
 	if isShuttingDown.Load() {
