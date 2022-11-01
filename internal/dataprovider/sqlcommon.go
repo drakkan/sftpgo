@@ -987,6 +987,12 @@ func sqlCommonAddUser(user *User, dbHandle *sql.DB) error {
 	defer cancel()
 
 	return sqlCommonExecuteTx(ctx, dbHandle, func(tx *sql.Tx) error {
+		if config.IsShared == 1 {
+			_, err := tx.ExecContext(ctx, getRemoveSoftDeletedUserQuery(), user.Username)
+			if err != nil {
+				return err
+			}
+		}
 		q := getAddUserQuery()
 		_, err := tx.ExecContext(ctx, q, user.Username, user.Password, string(publicKeys), user.HomeDir, user.UID, user.GID,
 			user.MaxSessions, user.QuotaSize, user.QuotaFiles, string(permissions), user.UploadBandwidth,
