@@ -527,6 +527,10 @@ func getDeleteUserQuery(softDelete bool) string {
 	return fmt.Sprintf(`DELETE FROM %s WHERE id = %s`, sqlTableUsers, sqlPlaceholders[0])
 }
 
+func getRemoveSoftDeletedUserQuery() string {
+	return fmt.Sprintf(`DELETE FROM %s WHERE username = %s AND deleted_at > 0`, sqlTableUsers, sqlPlaceholders[0])
+}
+
 func getFolderByNameQuery() string {
 	return fmt.Sprintf(`SELECT %s FROM %s WHERE name = %s`, selectFolderFields, sqlTableFolders, sqlPlaceholders[0])
 }
