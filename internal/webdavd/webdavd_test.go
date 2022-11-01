@@ -620,7 +620,8 @@ func TestBasicHandling(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
-	assert.Len(t, common.Connections.GetStats(), 0)
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 },
+		1*time.Second, 100*time.Millisecond)
 	status := webdavd.GetStatus()
 	assert.True(t, status.IsActive)
 }
@@ -701,7 +702,8 @@ func TestBasicHandlingCryptFs(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	assert.Len(t, common.Connections.GetStats(), 0)
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 },
+		1*time.Second, 100*time.Millisecond)
 }
 
 func TestLoginEmptyPassword(t *testing.T) {
@@ -1309,7 +1311,8 @@ func TestPreDownloadHook(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	assert.Len(t, common.Connections.GetStats(), 0)
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 },
+		1*time.Second, 100*time.Millisecond)
 
 	common.Config.Actions.ExecuteOn = []string{common.OperationPreDownload}
 	common.Config.Actions.Hook = preDownloadPath
@@ -1358,7 +1361,8 @@ func TestPreUploadHook(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	assert.Len(t, common.Connections.GetStats(), 0)
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 },
+		1*time.Second, 100*time.Millisecond)
 
 	common.Config.Actions.ExecuteOn = oldExecuteOn
 	common.Config.Actions.Hook = oldHook
@@ -1420,7 +1424,8 @@ func TestMaxConnections(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	assert.Len(t, common.Connections.GetStats(), 0)
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 },
+		1*time.Second, 100*time.Millisecond)
 
 	common.Config.MaxTotalConnections = oldValue
 }
@@ -1451,7 +1456,8 @@ func TestMaxPerHostConnections(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	assert.Len(t, common.Connections.GetStats(), 0)
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 },
+		1*time.Second, 100*time.Millisecond)
 
 	common.Config.MaxPerHostConnections = oldValue
 }
@@ -1476,7 +1482,8 @@ func TestMaxSessions(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	assert.Len(t, common.Connections.GetStats(), 0)
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 },
+		1*time.Second, 100*time.Millisecond)
 }
 
 func TestLoginWithIPilters(t *testing.T) {
@@ -2928,7 +2935,8 @@ func TestNestedVirtualFolders(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
-	assert.Len(t, common.Connections.GetStats(), 0)
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 },
+		1*time.Second, 100*time.Millisecond)
 }
 
 func checkBasicFunc(client *gowebdav.Client) error {
