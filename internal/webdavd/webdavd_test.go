@@ -922,12 +922,13 @@ func TestPropPatch(t *testing.T) {
 		assert.NoError(t, err)
 		err = os.RemoveAll(user.GetHomeDir())
 		assert.NoError(t, err)
-		assert.Len(t, common.Connections.GetStats(), 0)
 	}
 	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 },
+		1*time.Second, 100*time.Millisecond)
 }
 
 func TestLoginInvalidPwd(t *testing.T) {
@@ -1898,6 +1899,11 @@ func TestClientClose(t *testing.T) {
 			common.Connections.Close(stat.ConnectionID)
 		}
 		wg.Wait()
+		// for the sftp user a stat is done after the failed upload and
+		// this triggers a new connection
+		for _, stat := range common.Connections.GetStats() {
+			common.Connections.Close(stat.ConnectionID)
+		}
 		assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 },
 			1*time.Second, 100*time.Millisecond)
 

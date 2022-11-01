@@ -15,14 +15,13 @@
 package dataprovider
 
 import (
-	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/alexedwards/argon2id"
@@ -548,12 +547,9 @@ func (a *Admin) CanManageMFA() bool {
 }
 
 // GetSignature returns a signature for this admin.
-// It could change after an update
+// It will change after an update
 func (a *Admin) GetSignature() string {
-	data := []byte(a.Username)
-	data = append(data, []byte(a.Password)...)
-	signature := sha256.Sum256(data)
-	return base64.StdEncoding.EncodeToString(signature[:])
+	return strconv.FormatInt(a.UpdatedAt, 10)
 }
 
 func (a *Admin) getACopy() Admin {

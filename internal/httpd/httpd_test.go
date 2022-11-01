@@ -4516,7 +4516,7 @@ func TestUserSFTPFs(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
 	user.FsConfig.Provider = sdk.SFTPFilesystemProvider
-	user.FsConfig.SFTPConfig.Endpoint = "127.0.0.1" // missing port
+	user.FsConfig.SFTPConfig.Endpoint = "[::1]:22:22" // invalid endpoint
 	user.FsConfig.SFTPConfig.Username = "sftp_user"
 	user.FsConfig.SFTPConfig.Password = kms.NewPlainSecret("sftp_pwd")
 	user.FsConfig.SFTPConfig.PrivateKey = kms.NewPlainSecret(sftpPrivateKey)
@@ -4526,6 +4526,13 @@ func TestUserSFTPFs(t *testing.T) {
 	_, resp, err := httpdtest.UpdateUser(user, http.StatusBadRequest, "")
 	assert.NoError(t, err)
 	assert.Contains(t, string(resp), "invalid endpoint")
+
+	user.FsConfig.SFTPConfig.Endpoint = "127.0.0.1"
+	_, _, err = httpdtest.UpdateUser(user, http.StatusBadRequest, "")
+	assert.Error(t, err)
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, "127.0.0.1:22", user.FsConfig.SFTPConfig.Endpoint)
 
 	user.FsConfig.SFTPConfig.Endpoint = "127.0.0.1:2022"
 	user.FsConfig.SFTPConfig.DisableCouncurrentReads = true

@@ -600,6 +600,9 @@ func (fs *S3Fs) ScanRootDirContents() (int, int64, error) {
 			}
 			numFiles++
 			size += fileObject.Size
+			if numFiles%1000 == 0 {
+				fsLog(fs, logger.LevelDebug, "root dir scan in progress, files: %d, size: %d", numFiles, size)
+			}
 		}
 	}
 
