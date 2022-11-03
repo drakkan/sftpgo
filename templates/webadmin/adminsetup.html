@@ -73,11 +73,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                                         </div>
                                         <div class="form-group">
                                             <input type="password" class="form-control form-control-user-custom" id="inputPassword"
-                                                name="password" placeholder="Password" required>
+                                                name="password" placeholder="Password" autocomplete="new-password" required>
                                         </div>
                                         <div class="form-group">
                                             <input type="password" class="form-control form-control-user-custom" id="inputConfirmPassword"
-                                                name="confirm_password" placeholder="Repeat password" required>
+                                                name="confirm_password" placeholder="Repeat password" autocomplete="new-password" required>
                                         </div>
                                         <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
                                         <button type="submit" class="btn btn-primary btn-user-custom btn-block">

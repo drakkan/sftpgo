@@ -76,7 +76,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             <div class="col-sm-2"></div>
             <label for="idS3AccessSecret" class="col-sm-2 col-form-label">Access Secret</label>
             <div class="col-sm-3">
-                <input type="password" class="form-control" id="idS3AccessSecret" name="s3_access_secret" placeholder=""
+                <input type="password" class="form-control" id="idS3AccessSecret" name="s3_access_secret" placeholder="" autocomplete="new-password"
                     value="{{if .S3Config.AccessSecret.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.S3Config.AccessSecret.GetPayload}}{{end}}">
             </div>
         </div>
@@ -285,7 +285,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         <div class="form-group row fsconfig fsconfig-azblobfs">
             <label for="idAzAccountKey" class="col-sm-2 col-form-label">Account Key</label>
             <div class="col-sm-10">
-                <input type="password" class="form-control" id="idAzAccountKey" name="az_account_key" placeholder=""
+                <input type="password" class="form-control" id="idAzAccountKey" name="az_account_key" placeholder="" autocomplete="new-password"
                     value="{{if .AzBlobConfig.AccountKey.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.AzBlobConfig.AccountKey.GetPayload}}{{end}}">
             </div>
         </div>
@@ -294,7 +294,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             <label for="idAzSASURL" class="col-sm-2 col-form-label">SAS URL</label>
             <div class="col-sm-10">
                 <input type="password" class="form-control" id="idAzSASURL" name="az_sas_url" placeholder="" aria-describedby="AzSASURLHelpBlock"
-                    value="{{if .AzBlobConfig.SASURL.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.AzBlobConfig.SASURL.GetPayload}}{{end}}">
+                    autocomplete="new-password" value="{{if .AzBlobConfig.SASURL.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.AzBlobConfig.SASURL.GetPayload}}{{end}}">
                 <small id="AzSASURLHelpBlock" class="form-text text-muted">
                     Shared Access Signature URL can be used instead of account name/key
                 </small>
@@ -389,7 +389,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             <label for="idCryptPassphrase" class="col-sm-2 col-form-label">Passphrase</label>
             <div class="col-sm-10">
                 <input type="password" class="form-control" id="idCryptPassphrase" name="crypt_passphrase"
-                    placeholder="" aria-describedby="CryptPassphraseHelpBlock"
+                    placeholder="" autocomplete="new-password" aria-describedby="CryptPassphraseHelpBlock"
                     value="{{if .CryptConfig.Passphrase.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.CryptConfig.Passphrase.GetPayload}}{{end}}">
                 <small id="CryptPassphraseHelpBlock" class="form-text text-muted">
                     Passphrase to derive the per-object encryption key
@@ -426,7 +426,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             <div class="col-sm-2"></div>
             <label for="idSFTPPassword" class="col-sm-2 col-form-label">Password</label>
             <div class="col-sm-3">
-                <input type="password" class="form-control" id="idSFTPPassword" name="sftp_password" placeholder=""
+                <input type="password" class="form-control" id="idSFTPPassword" name="sftp_password" placeholder="" autocomplete="new-password"
                     value="{{if .SFTPConfig.Password.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.SFTPConfig.Password.GetPayload}}{{end}}">
             </div>
         </div>
@@ -442,7 +442,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         <div class="form-group row fsconfig fsconfig-sftpfs">
             <label for="idSFTPPassphrase" class="col-sm-2 col-form-label">Key Passphrase</label>
             <div class="col-sm-10">
-                <input type="password" class="form-control" id="idSFTPPassphrase" name="sftp_key_passphrase" placeholder=""
+                <input type="password" class="form-control" id="idSFTPPassphrase" name="sftp_key_passphrase" autocomplete="new-password" placeholder=""
                     value="{{if .SFTPConfig.KeyPassphrase.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.SFTPConfig.KeyPassphrase.GetPayload}}{{end}}"
                     aria-describedby="SFTPPassphraseHelpBlock">
                 <small id="SFTPPassphraseHelpBlock" class="form-text text-muted">
@@ -509,7 +509,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             <div class="col-sm-2"></div>
             <label for="idHTTPPassword" class="col-sm-2 col-form-label">Password</label>
             <div class="col-sm-3">
-                <input type="password" class="form-control" id="idHTTPPassword" name="http_password" placeholder=""
+                <input type="password" class="form-control" id="idHTTPPassword" name="http_password" autocomplete="new-password" placeholder=""
                     value="{{if .HTTPConfig.Password.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.HTTPConfig.Password.GetPayload}}{{end}}">
             </div>
         </div>
@@ -517,7 +517,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         <div class="form-group row fsconfig fsconfig-httpfs">
             <label for="idHTTPAPIKey" class="col-sm-2 col-form-label">API Key</label>
             <div class="col-sm-10">
-                <input type="password" class="form-control" id="idHTTPAPIKey" name="http_api_key" placeholder=""
+                <input type="password" class="form-control" id="idHTTPAPIKey" name="http_api_key" autocomplete="new-password" placeholder=""
                     value="{{if .HTTPConfig.APIKey.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.HTTPConfig.APIKey.GetPayload}}{{end}}">
             </div>
         </div>
