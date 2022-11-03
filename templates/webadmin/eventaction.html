@@ -97,7 +97,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 <div class="col-sm-2"></div>
                 <label for="idHTTPPassword" class="col-sm-2 col-form-label">Password</label>
                 <div class="col-sm-3">
-                    <input type="password" class="form-control" id="idHTTPPassword" name="http_password" placeholder=""
+                    <input type="password" class="form-control" id="idHTTPPassword" name="http_password" placeholder="" autocomplete="new-password"
                         value="{{if .Action.Options.HTTPConfig.Password.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.Action.Options.HTTPConfig.Password.GetPayload}}{{end}}">
                 </div>
             </div>
