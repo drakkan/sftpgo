@@ -28,10 +28,10 @@ import (
 	"runtime/debug"
 	"time"
 
+	"github.com/drakkan/webdav"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/rs/cors"
 	"github.com/rs/xid"
-	"golang.org/x/net/webdav"
 
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"

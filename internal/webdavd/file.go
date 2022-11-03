@@ -26,8 +26,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/drakkan/webdav"
 	"github.com/eikenb/pipeat"
-	"golang.org/x/net/webdav"
 
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
@@ -84,6 +84,9 @@ type webDavFileInfo struct {
 // ContentType implements webdav.ContentTyper interface
 func (fi *webDavFileInfo) ContentType(ctx context.Context) (string, error) {
 	extension := path.Ext(fi.virtualPath)
+	if extension == "" || extension == ".dat" {
+		return "application/octet-stream", nil
+	}
 	contentType := mime.TypeByExtension(extension)
 	if contentType != "" {
 		return contentType, nil
@@ -105,20 +108,19 @@ func (f *webDavFile) Readdir(count int) ([]os.FileInfo, error) {
 	if !f.Connection.User.HasPerm(dataprovider.PermListItems, f.GetVirtualPath()) {
 		return nil, f.Connection.GetPermissionDeniedError()
 	}
-	fileInfos, err := f.Connection.ListDir(f.GetVirtualPath())
+	entries, err := f.Connection.ListDir(f.GetVirtualPath())
 	if err != nil {
 		return nil, err
 	}
-	result := make([]os.FileInfo, 0, len(fileInfos))
-	for _, fileInfo := range fileInfos {
-		result = append(result, &webDavFileInfo{
-			FileInfo:    fileInfo,
+	for idx, info := range entries {
+		entries[idx] = &webDavFileInfo{
+			FileInfo:    info,
 			Fs:          f.Fs,
-			virtualPath: path.Join(f.GetVirtualPath(), fileInfo.Name()),
-			fsPath:      f.Fs.Join(f.GetFsPath(), fileInfo.Name()),
-		})
+			virtualPath: path.Join(f.GetVirtualPath(), info.Name()),
+			fsPath:      f.Fs.Join(f.GetFsPath(), info.Name()),
+		}
 	}
-	return result, nil
+	return entries, nil
 }
 
 // Stat the handle
@@ -131,7 +133,7 @@ func (f *webDavFile) Stat() (os.FileInfo, error) {
 	f.Unlock()
 	if f.GetType() == common.TransferUpload && errUpload == nil {
 		info := &webDavFileInfo{
-			FileInfo:    vfs.NewFileInfo(f.GetFsPath(), false, f.BytesReceived.Load(), time.Unix(0, 0), false),
+			FileInfo:    vfs.NewFileInfo(f.GetFsPath(), false, f.BytesReceived.Load(), time.Now(), false),
 			Fs:          f.Fs,
 			virtualPath: f.GetVirtualPath(),
 			fsPath:      f.GetFsPath(),
@@ -154,33 +156,38 @@ func (f *webDavFile) Stat() (os.FileInfo, error) {
 	return fi, nil
 }
 
+func (f *webDavFile) checkFirstRead() error {
+	if !f.Connection.User.HasPerm(dataprovider.PermDownload, path.Dir(f.GetVirtualPath())) {
+		return f.Connection.GetPermissionDeniedError()
+	}
+	transferQuota := f.BaseTransfer.GetTransferQuota()
+	if !transferQuota.HasDownloadSpace() {
+		f.Connection.Log(logger.LevelInfo, "denying file read due to quota limits")
+		return f.Connection.GetReadQuotaExceededError()
+	}
+	if ok, policy := f.Connection.User.IsFileAllowed(f.GetVirtualPath()); !ok {
+		f.Connection.Log(logger.LevelWarn, "reading file %#v is not allowed", f.GetVirtualPath())
+		return f.Connection.GetErrorForDeniedFile(policy)
+	}
+	err := common.ExecutePreAction(f.Connection, common.OperationPreDownload, f.GetFsPath(), f.GetVirtualPath(), 0, 0)
+	if err != nil {
+		f.Connection.Log(logger.LevelDebug, "download for file %#v denied by pre action: %v", f.GetVirtualPath(), err)
+		return f.Connection.GetPermissionDeniedError()
+	}
+	f.readTryed.Store(true)
+	return nil
+}
+
 // Read reads the contents to downloads.
 func (f *webDavFile) Read(p []byte) (n int, err error) {
 	if f.AbortTransfer.Load() {
 		return 0, errTransferAborted
 	}
 	if !f.readTryed.Load() {
-		if !f.Connection.User.HasPerm(dataprovider.PermDownload, path.Dir(f.GetVirtualPath())) {
-			return 0, f.Connection.GetPermissionDeniedError()
+		if err := f.checkFirstRead(); err != nil {
+			return 0, err
 		}
-		transferQuota := f.BaseTransfer.GetTransferQuota()
-		if !transferQuota.HasDownloadSpace() {
-			f.Connection.Log(logger.LevelInfo, "denying file read due to quota limits")
-			return 0, f.Connection.GetReadQuotaExceededError()
-		}
-
-		if ok, policy := f.Connection.User.IsFileAllowed(f.GetVirtualPath()); !ok {
-			f.Connection.Log(logger.LevelWarn, "reading file %#v is not allowed", f.GetVirtualPath())
-			return 0, f.Connection.GetErrorForDeniedFile(policy)
-		}
-		err := common.ExecutePreAction(f.Connection, common.OperationPreDownload, f.GetFsPath(), f.GetVirtualPath(), 0, 0)
-		if err != nil {
-			f.Connection.Log(logger.LevelDebug, "download for file %#v denied by pre action: %v", f.GetVirtualPath(), err)
-			return 0, f.Connection.GetPermissionDeniedError()
-		}
-		f.readTryed.Store(true)
 	}
-
 	f.Connection.UpdateLastActivity()
 
 	// the file is read sequentially we don't need to check for concurrent reads and so
@@ -190,10 +197,16 @@ func (f *webDavFile) Read(p []byte) (n int, err error) {
 			f.TransferError(common.ErrOpUnsupported)
 			return 0, common.ErrOpUnsupported
 		}
-		_, r, cancelFn, e := f.Fs.Open(f.GetFsPath(), 0)
+		file, r, cancelFn, e := f.Fs.Open(f.GetFsPath(), 0)
 		f.Lock()
 		if e == nil {
-			f.reader = r
+			if file != nil {
+				f.File = file
+				f.writer = f.File
+				f.reader = f.File
+			} else if r != nil {
+				f.reader = r
+			}
 			f.BaseTransfer.SetCancelFn(cancelFn)
 		}
 		f.ErrTransfer = e
@@ -263,18 +276,41 @@ func (f *webDavFile) updateTransferQuotaOnSeek() {
 	}
 }
 
+func (f *webDavFile) checkFile() error {
+	if f.File == nil && vfs.IsLocalOrUnbufferedSFTPFs(f.Fs) {
+		file, _, _, err := f.Fs.Open(f.GetFsPath(), 0)
+		if err != nil {
+			f.Connection.Log(logger.LevelWarn, "could not open file %q for seeking: %v",
+				f.GetFsPath(), err)
+			f.TransferError(err)
+			return err
+		}
+		f.File = file
+		f.reader = file
+		f.writer = file
+	}
+	return nil
+}
+
+func (f *webDavFile) seekFile(offset int64, whence int) (int64, error) {
+	ret, err := f.File.Seek(offset, whence)
+	if err != nil {
+		f.TransferError(err)
+	}
+	return ret, err
+}
+
 // Seek sets the offset for the next Read or Write on the writer to offset,
 // interpreted according to whence: 0 means relative to the origin of the file,
 // 1 means relative to the current offset, and 2 means relative to the end.
 // It returns the new offset and an error, if any.
 func (f *webDavFile) Seek(offset int64, whence int) (int64, error) {
 	f.Connection.UpdateLastActivity()
+	if err := f.checkFile(); err != nil {
+		return 0, err
+	}
 	if f.File != nil {
-		ret, err := f.File.Seek(offset, whence)
-		if err != nil {
-			f.TransferError(err)
-		}
-		return ret, err
+		return f.seekFile(offset, whence)
 	}
 	if f.GetType() == common.TransferDownload {
 		readOffset := f.startOffset + f.BytesSent.Load()

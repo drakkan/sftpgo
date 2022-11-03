@@ -18,7 +18,7 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/net/webdav"
+	"github.com/drakkan/webdav"
 
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/util"
