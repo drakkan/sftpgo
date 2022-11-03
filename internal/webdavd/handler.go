@@ -21,8 +21,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/eikenb/pipeat"
-	"golang.org/x/net/webdav"
+	"github.com/drakkan/webdav"
 
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
@@ -134,25 +133,13 @@ func (c *Connection) OpenFile(ctx context.Context, name string, flag int, perm o
 }
 
 func (c *Connection) getFile(fs vfs.Fs, fsPath, virtualPath string) (webdav.File, error) {
-	var err error
-	var file vfs.File
-	var r *pipeat.PipeReaderAt
 	var cancelFn func()
 
-	// for cloud fs we open the file when we receive the first read to avoid to download the first part of
-	// the file if it was opened only to do a stat or a readdir and so it is not a real download
-	if vfs.IsLocalOrUnbufferedSFTPFs(fs) {
-		file, r, cancelFn, err = fs.Open(fsPath, 0)
-		if err != nil {
-			c.Log(logger.LevelError, "could not open file %#v for reading: %+v", fsPath, err)
-			return nil, c.GetFsError(fs, err)
-		}
-	}
-
-	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, fsPath, fsPath, virtualPath,
+	// we open the file when we receive the first read so we only open the file if necessary
+	baseTransfer := common.NewBaseTransfer(nil, c.BaseConnection, cancelFn, fsPath, fsPath, virtualPath,
 		common.TransferDownload, 0, 0, 0, 0, false, fs, c.GetTransferQuota())
 
-	return newWebDavFile(baseTransfer, nil, r), nil
+	return newWebDavFile(baseTransfer, nil, nil), nil
 }
 
 func (c *Connection) putFile(fs vfs.Fs, fsPath, virtualPath string) (webdav.File, error) {

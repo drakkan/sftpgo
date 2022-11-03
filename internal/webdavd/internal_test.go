@@ -30,10 +30,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/drakkan/webdav"
 	"github.com/eikenb/pipeat"
 	"github.com/sftpgo/sdk"
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/net/webdav"
 
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
@@ -286,7 +286,10 @@ func (fs *MockOsFs) Name() string {
 
 // Open returns nil
 func (fs *MockOsFs) Open(name string, offset int64) (vfs.File, *pipeat.PipeReaderAt, func(), error) {
-	return nil, fs.reader, nil, nil
+	if fs.reader != nil {
+		return nil, fs.reader, nil, nil
+	}
+	return fs.Fs.Open(name, offset)
 }
 
 // IsUploadResumeSupported returns true if resuming uploads is supported
@@ -314,14 +317,18 @@ func (fs *MockOsFs) Rename(source, target string) error {
 
 // GetMimeType returns the content type
 func (fs *MockOsFs) GetMimeType(name string) (string, error) {
+	if fs.err != nil {
+		return "", fs.err
+	}
 	return "application/custom-mime", nil
 }
 
-func newMockOsFs(atomicUpload bool, connectionID, rootDir string, reader *pipeat.PipeReaderAt) vfs.Fs {
+func newMockOsFs(atomicUpload bool, connectionID, rootDir string, reader *pipeat.PipeReaderAt, err error) vfs.Fs {
 	return &MockOsFs{
 		Fs:                      vfs.NewOsFs(connectionID, rootDir, ""),
 		isAtomicUploadSupported: atomicUpload,
 		reader:                  reader,
+		err:                     err,
 	}
 }
 
@@ -552,38 +559,31 @@ func TestFileAccessErrors(t *testing.T) {
 	missingPath := "missing path"
 	fsMissingPath := filepath.Join(user.HomeDir, missingPath)
 	err := connection.RemoveAll(ctx, missingPath)
-	if assert.Error(t, err) {
-		assert.EqualError(t, err, os.ErrNotExist.Error())
-	}
-	_, err = connection.getFile(fs, fsMissingPath, missingPath)
-	if assert.Error(t, err) {
-		assert.EqualError(t, err, os.ErrNotExist.Error())
-	}
-	_, err = connection.getFile(fs, fsMissingPath, missingPath)
-	if assert.Error(t, err) {
-		assert.EqualError(t, err, os.ErrNotExist.Error())
-	}
+	assert.ErrorIs(t, err, os.ErrNotExist)
+	davFile, err := connection.getFile(fs, fsMissingPath, missingPath)
+	assert.NoError(t, err)
+	buf := make([]byte, 64)
+	_, err = davFile.Read(buf)
+	assert.ErrorIs(t, err, os.ErrNotExist)
+	err = davFile.Close()
+	assert.ErrorIs(t, err, os.ErrNotExist)
 	p := filepath.Join(user.HomeDir, "adir", missingPath)
 	_, err = connection.handleUploadToNewFile(fs, p, p, path.Join("adir", missingPath))
-	if assert.Error(t, err) {
-		assert.EqualError(t, err, os.ErrNotExist.Error())
-	}
+	assert.ErrorIs(t, err, os.ErrNotExist)
 	_, err = connection.handleUploadToExistingFile(fs, p, "_"+p, 0, path.Join("adir", missingPath))
 	if assert.Error(t, err) {
 		assert.ErrorIs(t, err, os.ErrNotExist)
 	}
 
-	fs = newMockOsFs(false, fs.ConnectionID(), user.HomeDir, nil)
+	fs = newMockOsFs(false, fs.ConnectionID(), user.HomeDir, nil, nil)
 	_, err = connection.handleUploadToExistingFile(fs, p, p, 0, path.Join("adir", missingPath))
-	if assert.Error(t, err) {
-		assert.ErrorIs(t, err, os.ErrNotExist)
-	}
+	assert.ErrorIs(t, err, os.ErrNotExist)
 
 	f, err := os.CreateTemp("", "temp")
 	assert.NoError(t, err)
 	err = f.Close()
 	assert.NoError(t, err)
-	davFile, err := connection.handleUploadToExistingFile(fs, f.Name(), f.Name(), 123, f.Name())
+	davFile, err = connection.handleUploadToExistingFile(fs, f.Name(), f.Name(), 123, f.Name())
 	if assert.NoError(t, err) {
 		transfer := davFile.(*webDavFile)
 		transfers := connection.GetTransfers()
@@ -650,9 +650,9 @@ func TestContentType(t *testing.T) {
 	}
 	testFilePath := filepath.Join(user.HomeDir, testFile)
 	ctx := context.Background()
-	baseTransfer := common.NewBaseTransfer(nil, connection.BaseConnection, nil, testFilePath, testFilePath, testFile,
+	baseTransfer := common.NewBaseTransfer(nil, connection.BaseConnection, nil, testFilePath, testFilePath, testFile+".unknown",
 		common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{})
-	fs = newMockOsFs(false, fs.ConnectionID(), user.GetHomeDir(), nil)
+	fs = newMockOsFs(false, fs.ConnectionID(), user.GetHomeDir(), nil, nil)
 	err := os.WriteFile(testFilePath, []byte(""), os.ModePerm)
 	assert.NoError(t, err)
 	davFile := newWebDavFile(baseTransfer, nil, nil)
@@ -668,6 +668,8 @@ func TestContentType(t *testing.T) {
 	err = davFile.Close()
 	assert.NoError(t, err)
 
+	baseTransfer = common.NewBaseTransfer(nil, connection.BaseConnection, nil, testFilePath, testFilePath, testFile+".unknown1",
+		common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{})
 	davFile = newWebDavFile(baseTransfer, nil, nil)
 	davFile.Fs = vfs.NewOsFs("id", user.HomeDir, "")
 	fi, err = davFile.Stat()
@@ -679,9 +681,53 @@ func TestContentType(t *testing.T) {
 	err = davFile.Close()
 	assert.NoError(t, err)
 
-	fi.(*webDavFileInfo).fsPath = "missing"
-	_, err = fi.(*webDavFileInfo).ContentType(ctx)
-	assert.EqualError(t, err, webdav.ErrNotImplemented.Error())
+	baseTransfer = common.NewBaseTransfer(nil, connection.BaseConnection, nil, testFilePath, testFilePath, testFile,
+		common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{})
+	davFile = newWebDavFile(baseTransfer, nil, nil)
+	davFile.Fs = vfs.NewOsFs("id", user.HomeDir, "")
+	fi, err = davFile.Stat()
+	if assert.NoError(t, err) {
+		ctype, err := fi.(*webDavFileInfo).ContentType(ctx)
+		assert.NoError(t, err)
+		assert.Equal(t, "application/octet-stream", ctype)
+	}
+	err = davFile.Close()
+	assert.NoError(t, err)
+
+	for i := 0; i < 2; i++ {
+		// the second time the cache will be used
+		baseTransfer = common.NewBaseTransfer(nil, connection.BaseConnection, nil, testFilePath, testFilePath, testFile+".custom",
+			common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{})
+		davFile = newWebDavFile(baseTransfer, nil, nil)
+		davFile.Fs = vfs.NewOsFs("id", user.HomeDir, "")
+		fi, err = davFile.Stat()
+		if assert.NoError(t, err) {
+			ctype, err := fi.(*webDavFileInfo).ContentType(ctx)
+			assert.NoError(t, err)
+			assert.Equal(t, "text/plain; charset=utf-8", ctype)
+		}
+		err = davFile.Close()
+		assert.NoError(t, err)
+	}
+
+	baseTransfer = common.NewBaseTransfer(nil, connection.BaseConnection, nil, testFilePath, testFilePath, testFile+".unknown2",
+		common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{})
+	fs = newMockOsFs(false, fs.ConnectionID(), user.GetHomeDir(), nil, os.ErrInvalid)
+	davFile = newWebDavFile(baseTransfer, nil, nil)
+	davFile.Fs = fs
+	fi, err = davFile.Stat()
+	if assert.NoError(t, err) {
+		ctype, err := fi.(*webDavFileInfo).ContentType(ctx)
+		assert.EqualError(t, err, webdav.ErrNotImplemented.Error(), "unexpected content type %q", ctype)
+	}
+	cache := mimeCache{
+		maxSize:   10,
+		mimeTypes: map[string]string{},
+	}
+	cache.addMimeToCache("", "")
+	cache.RLock()
+	assert.Len(t, cache.mimeTypes, 0)
+	cache.RUnlock()
 
 	err = os.Remove(testFilePath)
 	assert.NoError(t, err)
@@ -750,7 +796,7 @@ func TestTransferReadWriteErrors(t *testing.T) {
 
 	r, w, err = pipeat.Pipe()
 	assert.NoError(t, err)
-	mockFs := newMockOsFs(false, fs.ConnectionID(), user.HomeDir, r)
+	mockFs := newMockOsFs(false, fs.ConnectionID(), user.HomeDir, r, nil)
 	baseTransfer = common.NewBaseTransfer(nil, connection.BaseConnection, nil, testFilePath, testFilePath, testFile,
 		common.TransferDownload, 0, 0, 0, 0, false, mockFs, dataprovider.TransferQuota{})
 	davFile = newWebDavFile(baseTransfer, nil, nil)
@@ -790,7 +836,7 @@ func TestTransferSeek(t *testing.T) {
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
-	fs := vfs.NewOsFs("connID", user.HomeDir, "")
+	fs := newMockOsFs(true, "connID", user.HomeDir, nil, nil)
 	connection := &Connection{
 		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolWebDAV, "", "", user),
 	}
@@ -831,6 +877,8 @@ func TestTransferSeek(t *testing.T) {
 	res, err := davFile.Seek(0, io.SeekStart)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(0), res)
+	err = davFile.Close()
+	assert.NoError(t, err)
 	davFile.Connection.RemoveTransfer(davFile.BaseTransfer)
 
 	davFile = newWebDavFile(baseTransfer, nil, nil)
@@ -838,8 +886,18 @@ func TestTransferSeek(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, int64(len(testFileContents)), res)
 	err = davFile.updateStatInfo()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
+	err = davFile.Close()
+	assert.NoError(t, err)
 
+	baseTransfer = common.NewBaseTransfer(nil, connection.BaseConnection, nil, testFilePath+"1", testFilePath+"1", testFile,
+		common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{AllowedTotalSize: 100})
+	davFile = newWebDavFile(baseTransfer, nil, nil)
+	_, err = davFile.Seek(0, io.SeekEnd)
+	assert.True(t, fs.IsNotExist(err))
+	davFile.Connection.RemoveTransfer(davFile.BaseTransfer)
+
+	fs = vfs.NewOsFs(fs.ConnectionID(), user.GetHomeDir(), "")
 	baseTransfer = common.NewBaseTransfer(nil, connection.BaseConnection, nil, testFilePath+"1", testFilePath+"1", testFile,
 		common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{AllowedTotalSize: 100})
 	davFile = newWebDavFile(baseTransfer, nil, nil)
@@ -851,22 +909,30 @@ func TestTransferSeek(t *testing.T) {
 		common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{AllowedTotalSize: 100})
 	davFile = newWebDavFile(baseTransfer, nil, nil)
 	davFile.reader = f
-	davFile.Fs = newMockOsFs(true, fs.ConnectionID(), user.GetHomeDir(), nil)
+	r, _, err := pipeat.Pipe()
+	assert.NoError(t, err)
+	davFile.Fs = newMockOsFs(true, fs.ConnectionID(), user.GetHomeDir(), r, nil)
 	res, err = davFile.Seek(2, io.SeekStart)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(2), res)
+	err = davFile.Close()
+	assert.NoError(t, err)
 
+	r, _, err = pipeat.Pipe()
+	assert.NoError(t, err)
 	davFile = newWebDavFile(baseTransfer, nil, nil)
-	davFile.Fs = newMockOsFs(true, fs.ConnectionID(), user.GetHomeDir(), nil)
+	davFile.Fs = newMockOsFs(true, fs.ConnectionID(), user.GetHomeDir(), r, nil)
 	res, err = davFile.Seek(2, io.SeekEnd)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(5), res)
+	err = davFile.Close()
+	assert.NoError(t, err)
 
 	baseTransfer = common.NewBaseTransfer(nil, connection.BaseConnection, nil, testFilePath+"1", testFilePath+"1", testFile,
 		common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{AllowedTotalSize: 100})
 
 	davFile = newWebDavFile(baseTransfer, nil, nil)
-	davFile.Fs = newMockOsFs(true, fs.ConnectionID(), user.GetHomeDir(), nil)
+	davFile.Fs = newMockOsFs(true, fs.ConnectionID(), user.GetHomeDir(), nil, nil)
 	res, err = davFile.Seek(2, io.SeekEnd)
 	assert.True(t, fs.IsNotExist(err))
 	assert.Equal(t, int64(0), res)

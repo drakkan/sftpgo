@@ -2117,6 +2117,19 @@ func TestBytesRangeRequests(t *testing.T) {
 				assert.Equal(t, "file", string(bodyBytes))
 			}
 		}
+		// seek on a missing file
+		remotePath = fmt.Sprintf("http://%v/%v", webDavServerAddr, testFileName+"_missing")
+		req, err = http.NewRequest(http.MethodGet, remotePath, nil)
+		if assert.NoError(t, err) {
+			httpClient := httpclient.GetHTTPClient()
+			req.SetBasicAuth(user.Username, defaultPassword)
+			req.Header.Set("Range", "bytes=5-")
+			resp, err := httpClient.Do(req)
+			if assert.NoError(t, err) {
+				defer resp.Body.Close()
+				assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+			}
+		}
 
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
@@ -2339,28 +2352,24 @@ func TestOsErrors(t *testing.T) {
 	info, err := client.Stat(vdir)
 	assert.NoError(t, err)
 	assert.True(t, info.IsDir())
-	// now remove the folder mapped to vdir. It should not appear in directory listing
+	// now remove the folder mapped to vdir. It still appear in directory listing
+	// virtual folders are automatically added
 	err = os.RemoveAll(mappedPath)
 	assert.NoError(t, err)
 	files, err = client.ReadDir(".")
 	assert.NoError(t, err)
-	assert.Len(t, files, 0)
+	assert.Len(t, files, 1)
 	err = createTestFile(filepath.Join(user.GetHomeDir(), testFileName), 32768)
 	assert.NoError(t, err)
 	files, err = client.ReadDir(".")
 	assert.NoError(t, err)
-	if assert.Len(t, files, 1) {
-		assert.Equal(t, testFileName, files[0].Name())
-	}
-	if runtime.GOOS != osWindows {
-		// if the file cannot be accessed it should not appear in directory listing
-		err = os.Chmod(filepath.Join(user.GetHomeDir(), testFileName), 0001)
-		assert.NoError(t, err)
-		files, err = client.ReadDir(".")
-		assert.NoError(t, err)
-		assert.Len(t, files, 0)
-		err = os.Chmod(filepath.Join(user.GetHomeDir(), testFileName), os.ModePerm)
-		assert.NoError(t, err)
+	if assert.Len(t, files, 2) {
+		var names []string
+		for _, info := range files {
+			names = append(names, info.Name())
+		}
+		assert.Contains(t, names, testFileName)
+		assert.Contains(t, names, "vdir")
 	}
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
@@ -2816,9 +2825,18 @@ func TestSFTPLoopVirtualFolders(t *testing.T) {
 
 	contents, err := client.ReadDir("/")
 	assert.NoError(t, err)
-	if assert.Len(t, contents, 1) {
-		assert.Equal(t, testDir, contents[0].Name())
-		assert.True(t, contents[0].IsDir())
+	if assert.Len(t, contents, 2) {
+		expected := 0
+		for _, info := range contents {
+			switch info.Name() {
+			case testDir, "vdir":
+				assert.True(t, info.IsDir())
+				expected++
+			default:
+				t.Errorf("unexpected file/dir %q", info.Name())
+			}
+		}
+		assert.Equal(t, expected, 2)
 	}
 
 	_, err = httpdtest.RemoveUser(user1, http.StatusOK)
