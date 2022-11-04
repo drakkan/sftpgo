@@ -1016,17 +1016,18 @@ func (c *sftpConnection) getClient() (*sftp.Client, error) {
 }
 
 func (c *sftpConnection) Wait() {
-	waitEnd := make(chan struct{})
-	ticker := time.NewTicker(30 * time.Second)
+	done := make(chan struct{})
 
 	go func() {
 		var watchdogInProgress atomic.Bool
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+
 		for {
 			select {
 			case <-ticker.C:
 				if watchdogInProgress.Load() {
 					logger.Error(c.logSender, "", "watchdog still in progress, closing hanging connection")
-					ticker.Stop()
 					c.sshClient.Close()
 					return
 				}
@@ -1039,9 +1040,8 @@ func (c *sftpConnection) Wait() {
 						logger.Error(c.logSender, "", "watchdog error: %v", err)
 					}
 				}()
-			case <-waitEnd:
+			case <-done:
 				logger.Debug(c.logSender, "", "quitting watchdog")
-				ticker.Stop()
 				return
 			}
 		}
@@ -1051,7 +1051,7 @@ func (c *sftpConnection) Wait() {
 	// we don't detect the event.
 	err := c.sftpClient.Wait()
 	logger.Log(logger.LevelDebug, c.logSender, "", "sftp channel closed: %v", err)
-	close(waitEnd)
+	close(done)
 
 	c.mu.Lock()
 	defer c.mu.Unlock()

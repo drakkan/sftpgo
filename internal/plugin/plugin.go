@@ -16,7 +16,9 @@
 package plugin
 
 import (
+	"crypto/sha256"
 	"crypto/x509"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"sync"
@@ -24,6 +26,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/go-plugin"
 	"github.com/sftpgo/sdk/plugin/auth"
 	"github.com/sftpgo/sdk/plugin/eventsearcher"
 	"github.com/sftpgo/sdk/plugin/ipfilter"
@@ -80,6 +83,20 @@ type Config struct {
 	AutoMTLS bool `json:"auto_mtls" mapstructure:"auto_mtls"`
 	// unique identifier for kms plugins
 	kmsID int
+}
+
+func (c *Config) getSecureConfig() (*plugin.SecureConfig, error) {
+	if c.SHA256Sum != "" {
+		checksum, err := hex.DecodeString(c.SHA256Sum)
+		if err != nil {
+			return nil, fmt.Errorf("invalid sha256 hash %q: %w", c.SHA256Sum, err)
+		}
+		return &plugin.SecureConfig{
+			Checksum: checksum,
+			Hash:     sha256.New(),
+		}, nil
+	}
+	return nil, nil
 }
 
 func (c *Config) newKMSPluginSecretProvider(base kms.BaseSecret, url, masterKey string) kms.SecretProvider {
@@ -774,16 +791,17 @@ func setLogLevel(logLevel string) {
 
 func startCheckTicker() {
 	logger.Debug(logSender, "", "start plugins checker")
-	checker := time.NewTicker(30 * time.Second)
 
 	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+
 		for {
 			select {
 			case <-Handler.done:
 				logger.Debug(logSender, "", "handler done, stop plugins checker")
-				checker.Stop()
 				return
-			case <-checker.C:
+			case <-ticker.C:
 				Handler.checkCrashedPlugins()
 			}
 		}

@@ -15,7 +15,6 @@
 package plugin
 
 import (
-	"crypto/sha256"
 	"fmt"
 	"os/exec"
 
@@ -54,10 +53,9 @@ func (p *searcherPlugin) cleanup() {
 func (p *searcherPlugin) initialize() error {
 	killProcess(p.config.Cmd)
 	logger.Debug(logSender, "", "create new searcher plugin %#v", p.config.Cmd)
-	var secureConfig *plugin.SecureConfig
-	if p.config.SHA256Sum != "" {
-		secureConfig.Checksum = []byte(p.config.SHA256Sum)
-		secureConfig.Hash = sha256.New()
+	secureConfig, err := p.config.getSecureConfig()
+	if err != nil {
+		return err
 	}
 	client := plugin.NewClient(&plugin.ClientConfig{
 		HandshakeConfig: eventsearcher.Handshake,

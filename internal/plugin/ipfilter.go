@@ -15,7 +15,6 @@
 package plugin
 
 import (
-	"crypto/sha256"
 	"fmt"
 	"os/exec"
 
@@ -54,10 +53,9 @@ func (p *ipFilterPlugin) cleanup() {
 func (p *ipFilterPlugin) initialize() error {
 	logger.Debug(logSender, "", "create new IP filter plugin %#v", p.config.Cmd)
 	killProcess(p.config.Cmd)
-	var secureConfig *plugin.SecureConfig
-	if p.config.SHA256Sum != "" {
-		secureConfig.Checksum = []byte(p.config.SHA256Sum)
-		secureConfig.Hash = sha256.New()
+	secureConfig, err := p.config.getSecureConfig()
+	if err != nil {
+		return err
 	}
 	client := plugin.NewClient(&plugin.ClientConfig{
 		HandshakeConfig: ipfilter.Handshake,

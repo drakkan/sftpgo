@@ -15,7 +15,6 @@
 package plugin
 
 import (
-	"crypto/sha256"
 	"fmt"
 	"os/exec"
 	"path/filepath"
@@ -75,10 +74,9 @@ func (p *kmsPlugin) initialize() error {
 	if err := p.config.KMSOptions.validate(); err != nil {
 		return fmt.Errorf("invalid options for kms plugin %#v: %v", p.config.Cmd, err)
 	}
-	var secureConfig *plugin.SecureConfig
-	if p.config.SHA256Sum != "" {
-		secureConfig.Checksum = []byte(p.config.SHA256Sum)
-		secureConfig.Hash = sha256.New()
+	secureConfig, err := p.config.getSecureConfig()
+	if err != nil {
+		return err
 	}
 	client := plugin.NewClient(&plugin.ClientConfig{
 		HandshakeConfig: kmsplugin.Handshake,
