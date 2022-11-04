@@ -15,7 +15,6 @@
 package plugin
 
 import (
-	"crypto/sha256"
 	"errors"
 	"fmt"
 	"os/exec"
@@ -113,10 +112,9 @@ func (p *authPlugin) initialize() error {
 		return fmt.Errorf("invalid options for auth plugin %#v: %v", p.config.Cmd, err)
 	}
 
-	var secureConfig *plugin.SecureConfig
-	if p.config.SHA256Sum != "" {
-		secureConfig.Checksum = []byte(p.config.SHA256Sum)
-		secureConfig.Hash = sha256.New()
+	secureConfig, err := p.config.getSecureConfig()
+	if err != nil {
+		return err
 	}
 	client := plugin.NewClient(&plugin.ClientConfig{
 		HandshakeConfig: auth.Handshake,

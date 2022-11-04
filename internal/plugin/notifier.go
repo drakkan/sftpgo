@@ -15,7 +15,6 @@
 package plugin
 
 import (
-	"crypto/sha256"
 	"fmt"
 	"os/exec"
 	"sync"
@@ -138,10 +137,9 @@ func (p *notifierPlugin) initialize() error {
 	if !p.config.NotifierOptions.hasActions() {
 		return fmt.Errorf("no actions defined for the notifier plugin %#v", p.config.Cmd)
 	}
-	var secureConfig *plugin.SecureConfig
-	if p.config.SHA256Sum != "" {
-		secureConfig.Checksum = []byte(p.config.SHA256Sum)
-		secureConfig.Hash = sha256.New()
+	secureConfig, err := p.config.getSecureConfig()
+	if err != nil {
+		return err
 	}
 	client := plugin.NewClient(&plugin.ClientConfig{
 		HandshakeConfig: notifier.Handshake,
