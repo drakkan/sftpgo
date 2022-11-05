@@ -39,8 +39,6 @@ import (
 var (
 	directoryToServe                   string
 	portableSFTPDPort                  int
-	portableAdvertiseService           bool
-	portableAdvertiseCredentials       bool
 	portableUsername                   string
 	portablePassword                   string
 	portableStartDir                   string
@@ -259,7 +257,7 @@ Please take a look at the usage below to customize the serving parameters`,
 				},
 			}
 			err := service.StartPortableMode(portableSFTPDPort, portableFTPDPort, portableWebDAVPort, portableSSHCommands,
-				portableAdvertiseService, portableAdvertiseCredentials, portableFTPSCert, portableFTPSKey, portableWebDAVCert,
+				portableFTPSCert, portableFTPSKey, portableWebDAVCert,
 				portableWebDAVKey)
 			if err == nil {
 				service.Wait()
@@ -318,14 +316,6 @@ For example: "/somedir::*.jpg,a*b?.png"`)
 The format is:
 /dir::pattern1,pattern2.
 For example: "/somedir::*.jpg,a*b?.png"`)
-	portableCmd.Flags().BoolVarP(&portableAdvertiseService, "advertise-service", "S", false,
-		`Advertise configured services using
-multicast DNS`)
-	portableCmd.Flags().BoolVarP(&portableAdvertiseCredentials, "advertise-credentials", "C", false,
-		`If the SFTP/FTP service is
-advertised via multicast DNS, this
-flag allows to put username/password
-inside the advertised TXT record`)
 	portableCmd.Flags().StringVarP(&portableFsProvider, "fs-provider", "f", "osfs", `osfs => local filesystem (legacy value: 0)
 s3fs => AWS S3 compatible (legacy: 1)
 gcsfs => Google Cloud Storage (legacy: 2)

@@ -20,22 +20,16 @@ package service
 import (
 	"fmt"
 	"math/rand"
-	"os"
-	"os/signal"
 	"strings"
-	"syscall"
 	"time"
 
-	"github.com/grandcat/zeroconf"
 	"github.com/sftpgo/sdk"
 
-	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/config"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/ftpd"
 	"github.com/drakkan/sftpgo/v2/internal/kms"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/plugin"
 	"github.com/drakkan/sftpgo/v2/internal/sftpd"
 	"github.com/drakkan/sftpgo/v2/internal/util"
 	"github.com/drakkan/sftpgo/v2/internal/version"
@@ -43,8 +37,8 @@ import (
 )
 
 // StartPortableMode starts the service in portable mode
-func (s *Service) StartPortableMode(sftpdPort, ftpPort, webdavPort int, enabledSSHCommands []string, advertiseService,
-	advertiseCredentials bool, ftpsCert, ftpsKey, webDavCert, webDavKey string) error {
+func (s *Service) StartPortableMode(sftpdPort, ftpPort, webdavPort int, enabledSSHCommands []string,
+	ftpsCert, ftpsKey, webDavCert, webDavKey string) error {
 	if s.PortableMode != 1 {
 		return fmt.Errorf("service is not configured for portable mode")
 	}
@@ -125,8 +119,6 @@ func (s *Service) StartPortableMode(sftpdPort, ftpPort, webdavPort int, enabledS
 		return err
 	}
 
-	s.advertiseServices(advertiseService, advertiseCredentials)
-
 	logger.InfoToConsole("Portable mode ready, user: %#v, password: %#v, public keys: %v, directory: %#v, "+
 		"permissions: %+v, enabled ssh commands: %v file patterns filters: %+v %v", s.PortableUser.Username,
 		printablePassword, s.PortableUser.PublicKeys, s.getPortableDirToServe(), s.PortableUser.Permissions,
@@ -150,100 +142,6 @@ func (s *Service) getServiceOptionalInfoString() string {
 		info.WriteString(fmt.Sprintf("WebDAV URL: %v://<your IP>:%v/", scheme, config.GetWebDAVDConfig().Bindings[0].Port))
 	}
 	return info.String()
-}
-
-func (s *Service) advertiseServices(advertiseService, advertiseCredentials bool) {
-	var mDNSServiceSFTP *zeroconf.Server
-	var mDNSServiceFTP *zeroconf.Server
-	var mDNSServiceDAV *zeroconf.Server
-	var err error
-
-	if advertiseService {
-		meta := []string{
-			fmt.Sprintf("version=%v", version.Get().Version),
-		}
-		if advertiseCredentials {
-			logger.InfoToConsole("Advertising credentials via multicast DNS")
-			meta = append(meta, fmt.Sprintf("user=%v", s.PortableUser.Username))
-			if len(s.PortableUser.Password) > 0 {
-				meta = append(meta, fmt.Sprintf("password=%v", s.PortableUser.Password))
-			} else {
-				logger.InfoToConsole("Unable to advertise key based credentials via multicast DNS, we don't have the private key")
-			}
-		}
-		sftpdConf := config.GetSFTPDConfig()
-		if sftpdConf.Bindings[0].IsValid() {
-			mDNSServiceSFTP, err = zeroconf.Register(
-				fmt.Sprintf("SFTPGo portable %v", sftpdConf.Bindings[0].Port), // service instance name
-				"_sftp-ssh._tcp",           // service type and protocol
-				"local.",                   // service domain
-				sftpdConf.Bindings[0].Port, // service port
-				meta,                       // service metadata
-				nil,                        // register on all network interfaces
-			)
-			if err != nil {
-				mDNSServiceSFTP = nil
-				logger.WarnToConsole("Unable to advertise SFTP service via multicast DNS: %v", err)
-			} else {
-				logger.InfoToConsole("SFTP service advertised via multicast DNS")
-			}
-		}
-		ftpdConf := config.GetFTPDConfig()
-		if ftpdConf.Bindings[0].IsValid() {
-			port := ftpdConf.Bindings[0].Port
-			mDNSServiceFTP, err = zeroconf.Register(
-				fmt.Sprintf("SFTPGo portable %v", port),
-				"_ftp._tcp",
-				"local.",
-				port,
-				meta,
-				nil,
-			)
-			if err != nil {
-				mDNSServiceFTP = nil
-				logger.WarnToConsole("Unable to advertise FTP service via multicast DNS: %v", err)
-			} else {
-				logger.InfoToConsole("FTP service advertised via multicast DNS")
-			}
-		}
-		webdavConf := config.GetWebDAVDConfig()
-		if webdavConf.Bindings[0].IsValid() {
-			mDNSServiceDAV, err = zeroconf.Register(
-				fmt.Sprintf("SFTPGo portable %v", webdavConf.Bindings[0].Port),
-				"_http._tcp",
-				"local.",
-				webdavConf.Bindings[0].Port,
-				meta,
-				nil,
-			)
-			if err != nil {
-				mDNSServiceDAV = nil
-				logger.WarnToConsole("Unable to advertise WebDAV service via multicast DNS: %v", err)
-			} else {
-				logger.InfoToConsole("WebDAV service advertised via multicast DNS")
-			}
-		}
-	}
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-sig
-		if mDNSServiceSFTP != nil {
-			logger.InfoToConsole("unregistering multicast DNS SFTP service")
-			mDNSServiceSFTP.Shutdown()
-		}
-		if mDNSServiceFTP != nil {
-			logger.InfoToConsole("unregistering multicast DNS FTP service")
-			mDNSServiceFTP.Shutdown()
-		}
-		if mDNSServiceDAV != nil {
-			logger.InfoToConsole("unregistering multicast DNS WebDAV service")
-			mDNSServiceDAV.Shutdown()
-		}
-		plugin.Handler.Cleanup()
-		common.WaitForTransfers(graceTime)
-		s.Stop()
-	}()
 }
 
 func (s *Service) getPortableDirToServe() string {
