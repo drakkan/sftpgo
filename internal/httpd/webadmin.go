@@ -792,7 +792,7 @@ func (s *httpdServer) renderAddUpdateAdminPage(w http.ResponseWriter, r *http.Re
 }
 
 func (s *httpdServer) renderUserPage(w http.ResponseWriter, r *http.Request, user *dataprovider.User,
-	mode userPageMode, error string,
+	mode userPageMode, error string, admin *dataprovider.Admin,
 ) {
 	folders, err := s.getWebVirtualFolders(w, r, defaultQueryLimit, true)
 	if err != nil {
@@ -825,12 +825,7 @@ func (s *httpdServer) renderUserPage(w http.ResponseWriter, r *http.Request, use
 	}
 	user.FsConfig.RedactedSecret = redactedSecret
 	basePage := s.getBasePageData(title, currentURL, r)
-	if (mode == userPageModeAdd || mode == userPageModeTemplate) && len(user.Groups) == 0 {
-		admin, err := dataprovider.AdminExists(basePage.LoggedAdmin.Username)
-		if err != nil {
-			s.renderInternalServerErrorPage(w, r, err)
-			return
-		}
+	if (mode == userPageModeAdd || mode == userPageModeTemplate) && len(user.Groups) == 0 && admin != nil {
 		for _, group := range admin.Groups {
 			user.Groups = append(user.Groups, sdk.GroupMapping{
 				Name: group.Name,
@@ -1587,6 +1582,14 @@ func getAdminFromPostFields(r *http.Request) (dataprovider.Admin, error) {
 	admin.AdditionalInfo = r.Form.Get("additional_info")
 	admin.Description = r.Form.Get("description")
 	admin.Filters.Preferences.HideUserPageSections = getAdminHiddenUserPageSections(r)
+	admin.Filters.Preferences.DefaultUsersExpiration = 0
+	if val := r.Form.Get("default_users_expiration"); val != "" {
+		defaultUsersExpiration, err := strconv.ParseInt(r.Form.Get("default_users_expiration"), 10, 64)
+		if err != nil {
+			return admin, fmt.Errorf("invalid default users expiration: %w", err)
+		}
+		admin.Filters.Preferences.DefaultUsersExpiration = int(defaultUsersExpiration)
+	}
 	for k := range r.Form {
 		if strings.HasPrefix(k, "group") {
 			groupName := strings.TrimSpace(r.Form.Get(k))
@@ -2646,6 +2649,12 @@ func (s *httpdServer) handleWebTemplateFolderPost(w http.ResponseWriter, r *http
 
 func (s *httpdServer) handleWebTemplateUserGet(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	tokenAdmin := getAdminFromToken(r)
+	admin, err := dataprovider.AdminExists(tokenAdmin.Username)
+	if err != nil {
+		s.renderInternalServerErrorPage(w, r, fmt.Errorf("unable to get the admin %q: %w", tokenAdmin.Username, err))
+		return
+	}
 	if r.URL.Query().Get("from") != "" {
 		username := r.URL.Query().Get("from")
 		user, err := dataprovider.UserExists(username)
@@ -2654,7 +2663,10 @@ func (s *httpdServer) handleWebTemplateUserGet(w http.ResponseWriter, r *http.Re
 			user.PublicKeys = nil
 			user.Email = ""
 			user.Description = ""
-			s.renderUserPage(w, r, &user, userPageModeTemplate, "")
+			if user.ExpirationDate == 0 && admin.Filters.Preferences.DefaultUsersExpiration > 0 {
+				user.ExpirationDate = util.GetTimeAsMsSinceEpoch(time.Now().Add(24 * time.Hour * time.Duration(admin.Filters.Preferences.DefaultUsersExpiration)))
+			}
+			s.renderUserPage(w, r, &user, userPageModeTemplate, "", &admin)
 		} else if _, ok := err.(*util.RecordNotFoundError); ok {
 			s.renderNotFoundPage(w, r, err)
 		} else {
@@ -2667,7 +2679,10 @@ func (s *httpdServer) handleWebTemplateUserGet(w http.ResponseWriter, r *http.Re
 				"/": {dataprovider.PermAny},
 			},
 		}}
-		s.renderUserPage(w, r, &user, userPageModeTemplate, "")
+		if admin.Filters.Preferences.DefaultUsersExpiration > 0 {
+			user.ExpirationDate = util.GetTimeAsMsSinceEpoch(time.Now().Add(24 * time.Hour * time.Duration(admin.Filters.Preferences.DefaultUsersExpiration)))
+		}
+		s.renderUserPage(w, r, &user, userPageModeTemplate, "", &admin)
 	}
 }
 
@@ -2729,13 +2744,22 @@ func (s *httpdServer) handleWebTemplateUserPost(w http.ResponseWriter, r *http.R
 
 func (s *httpdServer) handleWebAddUserGet(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	tokenAdmin := getAdminFromToken(r)
+	admin, err := dataprovider.AdminExists(tokenAdmin.Username)
+	if err != nil {
+		s.renderInternalServerErrorPage(w, r, fmt.Errorf("unable to get the admin %q: %w", tokenAdmin.Username, err))
+		return
+	}
 	user := dataprovider.User{BaseUser: sdk.BaseUser{
 		Status: 1,
 		Permissions: map[string][]string{
 			"/": {dataprovider.PermAny},
 		}},
 	}
-	s.renderUserPage(w, r, &user, userPageModeAdd, "")
+	if admin.Filters.Preferences.DefaultUsersExpiration > 0 {
+		user.ExpirationDate = util.GetTimeAsMsSinceEpoch(time.Now().Add(24 * time.Hour * time.Duration(admin.Filters.Preferences.DefaultUsersExpiration)))
+	}
+	s.renderUserPage(w, r, &user, userPageModeAdd, "", &admin)
 }
 
 func (s *httpdServer) handleWebUpdateUserGet(w http.ResponseWriter, r *http.Request) {
@@ -2743,7 +2767,7 @@ func (s *httpdServer) handleWebUpdateUserGet(w http.ResponseWriter, r *http.Requ
 	username := getURLParam(r, "username")
 	user, err := dataprovider.UserExists(username)
 	if err == nil {
-		s.renderUserPage(w, r, &user, userPageModeUpdate, "")
+		s.renderUserPage(w, r, &user, userPageModeUpdate, "", nil)
 	} else if _, ok := err.(*util.RecordNotFoundError); ok {
 		s.renderNotFoundPage(w, r, err)
 	} else {
@@ -2760,7 +2784,7 @@ func (s *httpdServer) handleWebAddUserPost(w http.ResponseWriter, r *http.Reques
 	}
 	user, err := getUserFromPostFields(r)
 	if err != nil {
-		s.renderUserPage(w, r, &user, userPageModeAdd, err.Error())
+		s.renderUserPage(w, r, &user, userPageModeAdd, err.Error(), nil)
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
@@ -2775,7 +2799,7 @@ func (s *httpdServer) handleWebAddUserPost(w http.ResponseWriter, r *http.Reques
 	})
 	err = dataprovider.AddUser(&user, claims.Username, ipAddr)
 	if err != nil {
-		s.renderUserPage(w, r, &user, userPageModeAdd, err.Error())
+		s.renderUserPage(w, r, &user, userPageModeAdd, err.Error(), nil)
 		return
 	}
 	http.Redirect(w, r, webUsersPath, http.StatusSeeOther)
@@ -2799,7 +2823,7 @@ func (s *httpdServer) handleWebUpdateUserPost(w http.ResponseWriter, r *http.Req
 	}
 	updatedUser, err := getUserFromPostFields(r)
 	if err != nil {
-		s.renderUserPage(w, r, &user, userPageModeUpdate, err.Error())
+		s.renderUserPage(w, r, &user, userPageModeUpdate, err.Error(), nil)
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
@@ -2828,7 +2852,7 @@ func (s *httpdServer) handleWebUpdateUserPost(w http.ResponseWriter, r *http.Req
 
 	err = dataprovider.UpdateUser(&updatedUser, claims.Username, ipAddr)
 	if err != nil {
-		s.renderUserPage(w, r, &updatedUser, userPageModeUpdate, err.Error())
+		s.renderUserPage(w, r, &updatedUser, userPageModeUpdate, err.Error(), nil)
 		return
 	}
 	if r.Form.Get("disconnect") != "" {

@@ -123,6 +123,9 @@ type AdminPreferences struct {
 	//
 	// The settings can be combined
 	HideUserPageSections int `json:"hide_user_page_sections,omitempty"`
+	// Defines the default expiration for newly created users as number of days.
+	// 0 means no expiration
+	DefaultUsersExpiration int `json:"default_users_expiration,omitempty"`
 }
 
 // HideGroups returns true if the groups section should be hidden
@@ -365,7 +368,7 @@ func (a *Admin) validate() error {
 		return err
 	}
 	if config.NamingRules&1 == 0 && !usernameRegex.MatchString(a.Username) {
-		return util.NewValidationError(fmt.Sprintf("username %#v is not valid, the following characters are allowed: a-zA-Z0-9-_.~", a.Username))
+		return util.NewValidationError(fmt.Sprintf("username %q is not valid, the following characters are allowed: a-zA-Z0-9-_.~", a.Username))
 	}
 	if err := a.hashPassword(); err != nil {
 		return err
@@ -574,7 +577,8 @@ func (a *Admin) getACopy() Admin {
 		})
 	}
 	filters.Preferences = AdminPreferences{
-		HideUserPageSections: a.Filters.Preferences.HideUserPageSections,
+		HideUserPageSections:   a.Filters.Preferences.HideUserPageSections,
+		DefaultUsersExpiration: a.Filters.Preferences.DefaultUsersExpiration,
 	}
 	groups := make([]AdminGroupMapping, 0, len(a.Groups))
 	for _, g := range a.Groups {

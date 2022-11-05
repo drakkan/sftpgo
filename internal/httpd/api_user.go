@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/render"
 	"github.com/sftpgo/sdk"
@@ -75,7 +76,15 @@ func addUser(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
 	}
+	admin, err := dataprovider.AdminExists(claims.Username)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
+	}
 	var user dataprovider.User
+	if admin.Filters.Preferences.DefaultUsersExpiration > 0 {
+		user.ExpirationDate = util.GetTimeAsMsSinceEpoch(time.Now().Add(24 * time.Hour * time.Duration(admin.Filters.Preferences.DefaultUsersExpiration)))
+	}
 	err = render.DecodeJSON(r.Body, &user)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)

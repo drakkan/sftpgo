@@ -758,6 +758,7 @@ func TestUpdateWebAdminInvalidClaims(t *testing.T) {
 	form := make(url.Values)
 	form.Set(csrfFormToken, createCSRFToken(""))
 	form.Set("status", "1")
+	form.Set("default_users_expiration", "30")
 	req, _ := http.NewRequest(http.MethodPost, path.Join(webAdminPath, "admin"), bytes.NewBuffer([]byte(form.Encode())))
 	rctx := chi.NewRouteContext()
 	rctx.URLParams.Add("username", "admin")

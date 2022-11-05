@@ -1645,6 +1645,9 @@ func compareAdminFilters(expected, actual dataprovider.AdminFilters) error {
 	if expected.Preferences.HideUserPageSections != actual.Preferences.HideUserPageSections {
 		return errors.New("hide user page sections mismatch")
 	}
+	if expected.Preferences.DefaultUsersExpiration != actual.Preferences.DefaultUsersExpiration {
+		return errors.New("default users expiration mismatch")
+	}
 	return nil
 }
 

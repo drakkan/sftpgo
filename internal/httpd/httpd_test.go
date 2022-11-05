@@ -2722,6 +2722,7 @@ func TestBasicAdminHandling(t *testing.T) {
 
 	admin.Username = altAdminUsername
 	admin.Filters.Preferences.HideUserPageSections = 1 + 4 + 8
+	admin.Filters.Preferences.DefaultUsersExpiration = 30
 	admin, _, err = httpdtest.AddAdmin(admin, http.StatusCreated)
 	assert.NoError(t, err)
 
@@ -2970,6 +2971,74 @@ func TestAdminPasswordHashing(t *testing.T) {
 	assert.NoError(t, err)
 	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
+}
+
+func TestDefaultUsersExpiration(t *testing.T) {
+	a := getTestAdmin()
+	a.Username = altAdminUsername
+	a.Password = altAdminPassword
+	a.Filters.Preferences.DefaultUsersExpiration = 30
+	admin, _, err := httpdtest.AddAdmin(a, http.StatusCreated)
+	assert.NoError(t, err)
+
+	token, _, err := httpdtest.GetToken(altAdminUsername, altAdminPassword)
+	assert.NoError(t, err)
+	httpdtest.SetJWTToken(token)
+
+	_, _, err = httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.Error(t, err)
+
+	user, _, err := httpdtest.GetUserByUsername(defaultUsername, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Greater(t, user.ExpirationDate, int64(0))
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+
+	u := getTestUser()
+	u.ExpirationDate = util.GetTimeAsMsSinceEpoch(time.Now().Add(1 * time.Minute))
+
+	_, _, err = httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	user, _, err = httpdtest.GetUserByUsername(defaultUsername, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, u.ExpirationDate, user.ExpirationDate)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+
+	httpdtest.SetJWTToken("")
+	_, _, err = httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+
+	// render the user template page
+	webToken, err := getJWTWebTokenFromTestServer(altAdminUsername, altAdminPassword)
+	assert.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodGet, webTemplateUser, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodGet, webTemplateUser+fmt.Sprintf("?from=%s", user.Username), nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+
+	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+
+	httpdtest.SetJWTToken(token)
+	_, _, err = httpdtest.AddUser(u, http.StatusNotFound)
+	assert.NoError(t, err)
+
+	httpdtest.SetJWTToken("")
 }
 
 func TestAdminInvalidCredentials(t *testing.T) {
@@ -6135,6 +6204,11 @@ func TestProviderErrors(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusInternalServerError, rr)
 	req, err = http.NewRequest(http.MethodGet, webAdminPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, testServerToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+	req, err = http.NewRequest(http.MethodGet, webTemplateUser, nil)
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, testServerToken)
 	rr = executeRequest(req)
@@ -16420,6 +16494,7 @@ func TestWebAdminBasicMock(t *testing.T) {
 	form.Add("user_page_hidden_sections", "5")
 	form.Add("user_page_hidden_sections", "6")
 	form.Add("user_page_hidden_sections", "7")
+	form.Set("default_users_expiration", "10")
 	req, _ := http.NewRequest(http.MethodPost, webAdminPath, bytes.NewBuffer([]byte(form.Encode())))
 	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -16438,6 +16513,16 @@ func TestWebAdminBasicMock(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 
 	form.Set("status", "1")
+	form.Set("default_users_expiration", "a")
+	req, _ = http.NewRequest(http.MethodPost, webAdminPath, bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "invalid default users expiration")
+
+	form.Set("default_users_expiration", "10")
 	req, _ = http.NewRequest(http.MethodPost, webAdminPath, bytes.NewBuffer([]byte(form.Encode())))
 	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -16488,6 +16573,7 @@ func TestWebAdminBasicMock(t *testing.T) {
 	secretPayload := admin.Filters.TOTPConfig.Secret.GetPayload()
 	assert.NotEmpty(t, secretPayload)
 	assert.Equal(t, 1+2+4+8+16+32+64, admin.Filters.Preferences.HideUserPageSections)
+	assert.Equal(t, 10, admin.Filters.Preferences.DefaultUsersExpiration)
 
 	adminTOTPConfig = dataprovider.AdminTOTPConfig{
 		Enabled:    true,
@@ -16610,12 +16696,25 @@ func TestWebAdminBasicMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
 
+	req, _ = http.NewRequest(http.MethodGet, webUserPath, nil)
+	req.RemoteAddr = defaultRemoteAddr
+	setJWTCookieForReq(req, altToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(webAdminPath, altAdminUsername), nil)
 	req.RemoteAddr = defaultRemoteAddr
 	setJWTCookieForReq(req, token)
 	setCSRFHeaderForReq(req, csrfToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
+
+	req, _ = http.NewRequest(http.MethodGet, webUserPath, nil)
+	req.RemoteAddr = defaultRemoteAddr
+	setJWTCookieForReq(req, altToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+	assert.Contains(t, rr.Body.String(), "unable to get the admin")
 
 	_, err = httpdtest.RemoveAdmin(admin, http.StatusNotFound)
 	assert.NoError(t, err)
