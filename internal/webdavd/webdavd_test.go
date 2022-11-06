@@ -2223,6 +2223,17 @@ func TestGETAsPROPFIND(t *testing.T) {
 	files, err = client.ReadDir(subDir1)
 	assert.NoError(t, err)
 	assert.Len(t, files, 1)
+	// PROPFIND with infinity depth is forbidden
+	req, err = http.NewRequest(http.MethodGet, rootPath, nil)
+	if assert.NoError(t, err) {
+		req.SetBasicAuth(u.Username, u.Password)
+		req.Header.Set("Depth", "infinity")
+		resp, err := httpClient.Do(req)
+		if assert.NoError(t, err) {
+			assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+			resp.Body.Close()
+		}
+	}
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
