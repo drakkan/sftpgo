@@ -1872,10 +1872,6 @@ func GetUserVariants(username string) (User, User, error) {
 
 // AddUser adds a new SFTPGo user.
 func AddUser(user *User, executor, ipAddress string) error {
-	user.Filters.RecoveryCodes = nil
-	user.Filters.TOTPConfig = UserTOTPConfig{
-		Enabled: false,
-	}
 	user.Username = config.convertName(user.Username)
 	err := provider.addUser(user)
 	if err == nil {

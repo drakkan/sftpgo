@@ -2773,6 +2773,10 @@ func (s *httpdServer) handleWebAddUserPost(w http.ResponseWriter, r *http.Reques
 		Password:   user.Password,
 		PublicKeys: user.PublicKeys,
 	})
+	user.Filters.RecoveryCodes = nil
+	user.Filters.TOTPConfig = dataprovider.UserTOTPConfig{
+		Enabled: false,
+	}
 	err = dataprovider.AddUser(&user, claims.Username, ipAddr)
 	if err != nil {
 		s.renderUserPage(w, r, &user, userPageModeAdd, err.Error())

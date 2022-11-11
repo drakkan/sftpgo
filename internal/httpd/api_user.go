@@ -81,6 +81,10 @@ func addUser(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
+	user.Filters.RecoveryCodes = nil
+	user.Filters.TOTPConfig = dataprovider.UserTOTPConfig{
+		Enabled: false,
+	}
 	err = dataprovider.AddUser(&user, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))

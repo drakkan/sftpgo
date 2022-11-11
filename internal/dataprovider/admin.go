@@ -70,9 +70,9 @@ const (
 var (
 	validAdminPerms = []string{PermAdminAny, PermAdminAddUsers, PermAdminChangeUsers, PermAdminDeleteUsers,
 		PermAdminViewUsers, PermAdminManageGroups, PermAdminViewConnections, PermAdminCloseConnections,
-		PermAdminViewServerStatus, PermAdminManageAdmins, PermAdminManageAPIKeys, PermAdminQuotaScans,
-		PermAdminManageSystem, PermAdminManageDefender, PermAdminViewDefender, PermAdminRetentionChecks,
-		PermAdminMetadataChecks, PermAdminViewEvents}
+		PermAdminViewServerStatus, PermAdminManageAdmins, PermAdminManageEventRules, PermAdminManageAPIKeys,
+		PermAdminQuotaScans, PermAdminManageSystem, PermAdminManageDefender, PermAdminViewDefender,
+		PermAdminRetentionChecks, PermAdminMetadataChecks, PermAdminViewEvents}
 )
 
 // AdminTOTPConfig defines the time-based one time password configuration
