@@ -159,8 +159,10 @@ func (fs *S3Fs) Stat(name string) (os.FileInfo, error) {
 	}
 	obj, err := fs.headObject(name)
 	if err == nil {
-		// a "dir" has a trailing "/" so we cannot have a directory here
-		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, false, obj.ContentLength,
+		// Some s3 providers (like seaweedfs) do not support traling '/' in object key.
+		// So We have to check Content-type of the object and detect that the object whether is an empty directory or an ordinary object.
+		isDir := util.GetStringFromPointer(obj.ContentType) == s3DirMimeType
+		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, isDir, obj.ContentLength,
 			util.GetTimeFromPointer(obj.LastModified), false))
 	}
 	if !fs.IsNotExist(err) {
