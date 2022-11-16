@@ -795,6 +795,32 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
             uploadFile();
         });
+	    
+	$(window).on('dragover', function (e) {
+	    e.preventDefault();
+	    $('#uploadFilesModal').modal('show');
+	});
+	$(window).on('dragend', function (e) {
+	    e.preventDefault();
+	    $('#uploadFilesModal').modal('hide');
+	});
+	$(window).on('drop', function (e) {
+	    e.preventDefault();
+	});
+
+	// Using vanilla document.querySelector() function because
+	// file input will not update otherwise
+	let dropContainer = $('#uploadFilesModal').first();
+	let fileInput = document.querySelector('#files_name');
+
+	dropContainer.on('dragover dragenter', function (evt) {
+	    evt.preventDefault();
+	});
+
+	dropContainer.on('drop', function (evt) {
+	    fileInput.files = evt.originalEvent.dataTransfer.files;
+	    evt.preventDefault();
+	});
 
         $("#rename_form").submit(function (event){
             event.preventDefault();
