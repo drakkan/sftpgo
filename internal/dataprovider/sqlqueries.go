@@ -23,17 +23,19 @@ import (
 )
 
 const (
-	selectUserFields = "id,username,password,public_keys,home_dir,uid,gid,max_sessions,quota_size,quota_files,permissions,used_quota_size," +
-		"used_quota_files,last_quota_update,upload_bandwidth,download_bandwidth,expiration_date,last_login,status,filters,filesystem," +
-		"additional_info,description,email,created_at,updated_at,upload_data_transfer,download_data_transfer,total_data_transfer," +
-		"used_upload_data_transfer,used_download_data_transfer,deleted_at,first_download,first_upload"
+	selectUserFields = "u.id,u.username,u.password,u.public_keys,u.home_dir,u.uid,u.gid,u.max_sessions,u.quota_size,u.quota_files," +
+		"u.permissions,u.used_quota_size,u.used_quota_files,u.last_quota_update,u.upload_bandwidth,u.download_bandwidth," +
+		"u.expiration_date,u.last_login,u.status,u.filters,u.filesystem,u.additional_info,u.description,u.email,u.created_at," +
+		"u.updated_at,u.upload_data_transfer,u.download_data_transfer,u.total_data_transfer," +
+		"u.used_upload_data_transfer,u.used_download_data_transfer,u.deleted_at,u.first_download,u.first_upload,r.name"
 	selectFolderFields = "id,path,used_quota_size,used_quota_files,last_quota_update,name,description,filesystem"
-	selectAdminFields  = "id,username,password,status,email,permissions,filters,additional_info,description,created_at,updated_at,last_login"
+	selectAdminFields  = "a.id,a.username,a.password,a.status,a.email,a.permissions,a.filters,a.additional_info,a.description,a.created_at,a.updated_at,a.last_login,r.name"
 	selectAPIKeyFields = "key_id,name,api_key,scope,created_at,updated_at,last_use_at,expires_at,description,user_id,admin_id"
 	selectShareFields  = "s.share_id,s.name,s.description,s.scope,s.paths,u.username,s.created_at,s.updated_at,s.last_use_at," +
 		"s.expires_at,s.password,s.max_tokens,s.used_tokens,s.allow_from"
 	selectGroupFields       = "id,name,description,created_at,updated_at,user_settings"
 	selectEventActionFields = "id,name,description,type,options"
+	selectRoleFields        = "id,name,description,created_at,updated_at"
 	selectMinimalFields     = "id,name"
 )
 
@@ -63,6 +65,13 @@ func getSelectEventRuleFields() string {
 	}
 
 	return `id,name,description,created_at,updated_at,"trigger",conditions,deleted_at`
+}
+
+func getCoalesceDefaultForRole(role string) string {
+	if role != "" {
+		return "0"
+	}
+	return "NULL"
 }
 
 func getAddSessionQuery() string {
@@ -170,6 +179,75 @@ func getDefenderEventsCleanupQuery() string {
 	return fmt.Sprintf(`DELETE FROM %s WHERE date_time < %s`, sqlTableDefenderEvents, sqlPlaceholders[0])
 }
 
+func getRoleByNameQuery() string {
+	return fmt.Sprintf(`SELECT %s FROM %s WHERE name = %s`, selectRoleFields, sqlTableRoles,
+		sqlPlaceholders[0])
+}
+
+func getRolesQuery(order string, minimal bool) string {
+	var fieldSelection string
+	if minimal {
+		fieldSelection = selectMinimalFields
+	} else {
+		fieldSelection = selectRoleFields
+	}
+	return fmt.Sprintf(`SELECT %s FROM %s ORDER BY name %s LIMIT %s OFFSET %s`, fieldSelection,
+		sqlTableRoles, order, sqlPlaceholders[0], sqlPlaceholders[1])
+}
+
+func getUsersWithRolesQuery(roles []Role) string {
+	var sb strings.Builder
+	for _, r := range roles {
+		if sb.Len() == 0 {
+			sb.WriteString("(")
+		} else {
+			sb.WriteString(",")
+		}
+		sb.WriteString(strconv.FormatInt(r.ID, 10))
+	}
+	if sb.Len() > 0 {
+		sb.WriteString(")")
+	}
+	return fmt.Sprintf(`SELECT r.id, u.username FROM %s u INNER JOIN %s r ON u.role_id = r.id WHERE u.role_id IN %s`,
+		sqlTableUsers, sqlTableRoles, sb.String())
+}
+
+func getAdminsWithRolesQuery(roles []Role) string {
+	var sb strings.Builder
+	for _, r := range roles {
+		if sb.Len() == 0 {
+			sb.WriteString("(")
+		} else {
+			sb.WriteString(",")
+		}
+		sb.WriteString(strconv.FormatInt(r.ID, 10))
+	}
+	if sb.Len() > 0 {
+		sb.WriteString(")")
+	}
+	return fmt.Sprintf(`SELECT r.id, a.username FROM %s a INNER JOIN %s r ON a.role_id = r.id WHERE a.role_id IN %s`,
+		sqlTableAdmins, sqlTableRoles, sb.String())
+}
+
+func getDumpRolesQuery() string {
+	return fmt.Sprintf(`SELECT %s FROM %s`, selectRoleFields, sqlTableRoles)
+}
+
+func getAddRoleQuery() string {
+	return fmt.Sprintf(`INSERT INTO %s (name,description,created_at,updated_at)
+		VALUES (%s,%s,%s,%s)`, sqlTableRoles, sqlPlaceholders[0], sqlPlaceholders[1],
+		sqlPlaceholders[2], sqlPlaceholders[3])
+}
+
+func getUpdateRoleQuery() string {
+	return fmt.Sprintf(`UPDATE %s SET description=%s,updated_at=%s
+		WHERE name = %s`, sqlTableRoles, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2])
+}
+
+func getDeleteRoleQuery() string {
+	return fmt.Sprintf(`DELETE FROM %s WHERE name = %s`, sqlTableRoles, sqlPlaceholders[0])
+}
+
 func getGroupByNameQuery() string {
 	return fmt.Sprintf(`SELECT %s FROM %s WHERE name = %s`, selectGroupFields, getSQLQuotedName(sqlTableGroups),
 		sqlPlaceholders[0])
@@ -244,29 +322,33 @@ func getDeleteGroupQuery() string {
 }
 
 func getAdminByUsernameQuery() string {
-	return fmt.Sprintf(`SELECT %s FROM %s WHERE username = %s`, selectAdminFields, sqlTableAdmins, sqlPlaceholders[0])
+	return fmt.Sprintf(`SELECT %s FROM %s a LEFT JOIN %s r on r.id = a.role_id WHERE a.username = %s`,
+		selectAdminFields, sqlTableAdmins, sqlTableRoles, sqlPlaceholders[0])
 }
 
 func getAdminsQuery(order string) string {
-	return fmt.Sprintf(`SELECT %s FROM %s ORDER BY username %s LIMIT %s OFFSET %s`, selectAdminFields, sqlTableAdmins,
-		order, sqlPlaceholders[0], sqlPlaceholders[1])
+	return fmt.Sprintf(`SELECT %s FROM %s a LEFT JOIN %s r on r.id = a.role_id ORDER BY a.username %s LIMIT %s OFFSET %s`,
+		selectAdminFields, sqlTableAdmins, sqlTableRoles, order, sqlPlaceholders[0], sqlPlaceholders[1])
 }
 
 func getDumpAdminsQuery() string {
-	return fmt.Sprintf(`SELECT %s FROM %s`, selectAdminFields, sqlTableAdmins)
+	return fmt.Sprintf(`SELECT %s FROM %s a LEFT JOIN %s r on r.id = a.role_id`,
+		selectAdminFields, sqlTableAdmins, sqlTableRoles)
 }
 
-func getAddAdminQuery() string {
-	return fmt.Sprintf(`INSERT INTO %s (username,password,status,email,permissions,filters,additional_info,description,created_at,updated_at,last_login)
-		VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,0)`, sqlTableAdmins, sqlPlaceholders[0], sqlPlaceholders[1],
-		sqlPlaceholders[2], sqlPlaceholders[3], sqlPlaceholders[4], sqlPlaceholders[5], sqlPlaceholders[6], sqlPlaceholders[7],
-		sqlPlaceholders[8], sqlPlaceholders[9])
+func getAddAdminQuery(role string) string {
+	return fmt.Sprintf(`INSERT INTO %s (username,password,status,email,permissions,filters,additional_info,description,created_at,updated_at,last_login,role_id)
+		VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,0,COALESCE((SELECT id from %s WHERE name = %s),%s))`,
+		sqlTableAdmins, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3], sqlPlaceholders[4],
+		sqlPlaceholders[5], sqlPlaceholders[6], sqlPlaceholders[7], sqlPlaceholders[8], sqlPlaceholders[9],
+		sqlTableRoles, sqlPlaceholders[10], getCoalesceDefaultForRole(role))
 }
 
-func getUpdateAdminQuery() string {
-	return fmt.Sprintf(`UPDATE %s SET password=%s,status=%s,email=%s,permissions=%s,filters=%s,additional_info=%s,description=%s,updated_at=%s
-		WHERE username = %s`, sqlTableAdmins, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2],
-		sqlPlaceholders[3], sqlPlaceholders[4], sqlPlaceholders[5], sqlPlaceholders[6], sqlPlaceholders[7], sqlPlaceholders[8])
+func getUpdateAdminQuery(role string) string {
+	return fmt.Sprintf(`UPDATE %s SET password=%s,status=%s,email=%s,permissions=%s,filters=%s,additional_info=%s,description=%s,updated_at=%s,
+		role_id=COALESCE((SELECT id from %s WHERE name = %s),%s) WHERE username = %s`, sqlTableAdmins, sqlPlaceholders[0],
+		sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3], sqlPlaceholders[4], sqlPlaceholders[5], sqlPlaceholders[6],
+		sqlPlaceholders[7], sqlTableRoles, sqlPlaceholders[8], getCoalesceDefaultForRole(role), sqlPlaceholders[9])
 }
 
 func getDeleteAdminQuery() string {
@@ -393,14 +475,25 @@ func getRelatedAdminsForAPIKeysQuery(apiKeys []APIKey) string {
 	return fmt.Sprintf(`SELECT id,username FROM %s WHERE id IN %s`, sqlTableAdmins, sb.String())
 }
 
-func getUserByUsernameQuery() string {
-	return fmt.Sprintf(`SELECT %s FROM %s WHERE username = %s AND deleted_at = 0`,
-		selectUserFields, sqlTableUsers, sqlPlaceholders[0])
+func getUserByUsernameQuery(role string) string {
+	if role == "" {
+		return fmt.Sprintf(`SELECT %s FROM %s u LEFT JOIN %s r on r.id = u.role_id WHERE u.username = %s AND u.deleted_at = 0`,
+			selectUserFields, sqlTableUsers, sqlTableRoles, sqlPlaceholders[0])
+	}
+	return fmt.Sprintf(`SELECT %s FROM %s u LEFT JOIN %s r on r.id = u.role_id WHERE u.username = %s AND u.deleted_at = 0
+		AND u.role_id is NOT NULL AND r.name = %s`,
+		selectUserFields, sqlTableUsers, sqlTableRoles, sqlPlaceholders[0], sqlPlaceholders[1])
 }
 
-func getUsersQuery(order string) string {
-	return fmt.Sprintf(`SELECT %s FROM %s WHERE deleted_at = 0 ORDER BY username %s LIMIT %s OFFSET %s`,
-		selectUserFields, sqlTableUsers, order, sqlPlaceholders[0], sqlPlaceholders[1])
+func getUsersQuery(order, role string) string {
+	if role == "" {
+		return fmt.Sprintf(`SELECT %s FROM %s u LEFT JOIN %s r on r.id = u.role_id WHERE
+			u.deleted_at = 0 ORDER BY u.username %s LIMIT %s OFFSET %s`,
+			selectUserFields, sqlTableUsers, sqlTableRoles, order, sqlPlaceholders[0], sqlPlaceholders[1])
+	}
+	return fmt.Sprintf(`SELECT %s FROM %s u LEFT JOIN %s r on r.id = u.role_id WHERE
+		u.deleted_at = 0 AND u.role_id is NOT NULL AND r.name = %s ORDER BY u.username %s LIMIT %s OFFSET %s`,
+		selectUserFields, sqlTableUsers, sqlTableRoles, sqlPlaceholders[0], order, sqlPlaceholders[1], sqlPlaceholders[2])
 }
 
 func getUsersForQuotaCheckQuery(numArgs int) string {
@@ -422,12 +515,13 @@ func getUsersForQuotaCheckQuery(numArgs int) string {
 }
 
 func getRecentlyUpdatedUsersQuery() string {
-	return fmt.Sprintf(`SELECT %s FROM %s WHERE updated_at >= %s OR deleted_at > 0`,
-		selectUserFields, sqlTableUsers, sqlPlaceholders[0])
+	return fmt.Sprintf(`SELECT %s FROM %s u LEFT JOIN %s r on r.id = u.role_id WHERE u.updated_at >= %s OR u.deleted_at > 0`,
+		selectUserFields, sqlTableUsers, sqlTableRoles, sqlPlaceholders[0])
 }
 
 func getDumpUsersQuery() string {
-	return fmt.Sprintf(`SELECT %s FROM %s WHERE deleted_at = 0`, selectUserFields, sqlTableUsers)
+	return fmt.Sprintf(`SELECT %s FROM %s u LEFT JOIN %s r on r.id = u.role_id WHERE u.deleted_at = 0`,
+		selectUserFields, sqlTableUsers, sqlTableRoles)
 }
 
 func getDumpFoldersQuery() string {
@@ -490,29 +584,32 @@ func getQuotaQuery() string {
 		sqlTableUsers, sqlPlaceholders[0])
 }
 
-func getAddUserQuery() string {
+func getAddUserQuery(role string) string {
 	return fmt.Sprintf(`INSERT INTO %s (username,password,public_keys,home_dir,uid,gid,max_sessions,quota_size,quota_files,permissions,
 		used_quota_size,used_quota_files,last_quota_update,upload_bandwidth,download_bandwidth,status,last_login,expiration_date,filters,
 		filesystem,additional_info,description,email,created_at,updated_at,upload_data_transfer,download_data_transfer,total_data_transfer,
-		used_upload_data_transfer,used_download_data_transfer,deleted_at,first_download,first_upload)
-		VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,0,0,0,%s,%s,%s,0,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,0,0,0,0,0)`,
+		used_upload_data_transfer,used_download_data_transfer,deleted_at,first_download,first_upload,role_id)
+		VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,0,0,0,%s,%s,%s,0,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,0,0,0,0,0,
+		COALESCE((SELECT id from %s WHERE name=%s),%s))`,
 		sqlTableUsers, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3], sqlPlaceholders[4],
 		sqlPlaceholders[5], sqlPlaceholders[6], sqlPlaceholders[7], sqlPlaceholders[8], sqlPlaceholders[9],
 		sqlPlaceholders[10], sqlPlaceholders[11], sqlPlaceholders[12], sqlPlaceholders[13], sqlPlaceholders[14],
 		sqlPlaceholders[15], sqlPlaceholders[16], sqlPlaceholders[17], sqlPlaceholders[18], sqlPlaceholders[19],
-		sqlPlaceholders[20], sqlPlaceholders[21], sqlPlaceholders[22], sqlPlaceholders[23])
+		sqlPlaceholders[20], sqlPlaceholders[21], sqlPlaceholders[22], sqlPlaceholders[23], sqlTableRoles,
+		sqlPlaceholders[24], getCoalesceDefaultForRole(role))
 }
 
-func getUpdateUserQuery() string {
+func getUpdateUserQuery(role string) string {
 	return fmt.Sprintf(`UPDATE %s SET password=%s,public_keys=%s,home_dir=%s,uid=%s,gid=%s,max_sessions=%s,quota_size=%s,
 		quota_files=%s,permissions=%s,upload_bandwidth=%s,download_bandwidth=%s,status=%s,expiration_date=%s,filters=%s,filesystem=%s,
 		additional_info=%s,description=%s,email=%s,updated_at=%s,upload_data_transfer=%s,download_data_transfer=%s,
-		total_data_transfer=%s WHERE id = %s`,
+		total_data_transfer=%s,role_id=COALESCE((SELECT id from %s WHERE name=%s),%s) WHERE id = %s`,
 		sqlTableUsers, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3], sqlPlaceholders[4],
 		sqlPlaceholders[5], sqlPlaceholders[6], sqlPlaceholders[7], sqlPlaceholders[8], sqlPlaceholders[9],
 		sqlPlaceholders[10], sqlPlaceholders[11], sqlPlaceholders[12], sqlPlaceholders[13], sqlPlaceholders[14],
 		sqlPlaceholders[15], sqlPlaceholders[16], sqlPlaceholders[17], sqlPlaceholders[18], sqlPlaceholders[19],
-		sqlPlaceholders[20], sqlPlaceholders[21], sqlPlaceholders[22])
+		sqlPlaceholders[20], sqlPlaceholders[21], sqlTableRoles, sqlPlaceholders[22], getCoalesceDefaultForRole(role),
+		sqlPlaceholders[23])
 }
 
 func getUpdateUserPasswordQuery() string {

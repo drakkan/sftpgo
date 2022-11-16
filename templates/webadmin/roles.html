@@ -23,64 +23,40 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 <link href="{{.StaticURL}}/vendor/datatables/fixedHeader.bootstrap4.min.css" rel="stylesheet">
 <link href="{{.StaticURL}}/vendor/datatables/responsive.bootstrap4.min.css" rel="stylesheet">
 <link href="{{.StaticURL}}/vendor/datatables/select.bootstrap4.min.css" rel="stylesheet">
-<link href="{{.StaticURL}}/vendor/datatables/colReorder.bootstrap4.min.css" rel="stylesheet">
 {{end}}
 
 {{define "page_body"}}
-
 <div id="errorMsg" class="card mb-4 border-left-warning" style="display: none;">
     <div id="errorTxt" class="card-body text-form-error"></div>
 </div>
 
-<div id="successMsg" class="card mb-4 border-left-success" style="display: none;">
-    <div id="successTxt" class="card-body"></div>
-</div>
-
 <div class="card shadow mb-4">
     <div class="card-header py-3">
-        <h6 class="m-0 font-weight-bold text-primary">View and manage admins</h6>
+        <h6 class="m-0 font-weight-bold text-primary">View and manage roles</h6>
     </div>
     <div class="card-body">
         <div class="table-responsive">
             <table class="table table-hover nowrap" id="dataTable" width="100%" cellspacing="0">
                 <thead>
                     <tr>
-                        <th>ID</th>
-                        <th>Username</th>
-                        <th>Status</th>
-                        <th>Permissions</th>
-                        <th>Last login</th>
-                        <th>MFA</th>
-                        <th>Allow list</th>
-                        <th>Email</th>
+                        <th>Name</th>
                         <th>Description</th>
-                        <th>Groups for users</th>
-                        <th>Role</th>
+                        <th>Members</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {{range .Admins}}
+                    {{range .Roles}}
                     <tr>
-                        <td>{{.ID}}</td>
-                        <td>{{.Username}}</td>
-                        <td>{{if eq .Status 1 }}Active{{else}}Inactive{{end}}</td>
-                        <td>{{.GetPermissionsAsString}}</td>
-                        <td>{{.GetLastLoginAsString}}</td>
-                        <td>{{if .Filters.TOTPConfig.Enabled }}Enabled{{else}}Disabled{{end}}</td>
-                        <td>{{.GetAllowedIPAsString}}</td>
-                        <td>{{.Email}}</td>
+                        <td>{{.Name}}</td>
                         <td>{{.Description}}</td>
-                        <td>{{.GetGroupsAsString}}</td>
-                        <td>{{.Role}}</td>
+                        <td>{{.GetMembersAsString}}</td>
                     </tr>
                     {{end}}
-
                 </tbody>
             </table>
         </div>
     </div>
 </div>
-
 {{end}}
 
 {{define "dialog"}}
@@ -96,7 +72,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
-            <div class="modal-body">Do you want to delete the selected admin?</div>
+            <div class="modal-body">Do you want to delete the selected role? It is not possible to remove a role that does contain administrators</div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" type="button" data-dismiss="modal">
                     Cancel
@@ -121,14 +97,13 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 <script src="{{.StaticURL}}/vendor/datatables/responsive.bootstrap4.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/dataTables.select.min.js"></script>
 <script src="{{.StaticURL}}/vendor/datatables/ellipsis.js"></script>
-<script src="{{.StaticURL}}/vendor/datatables/dataTables.colReorder.min.js"></script>
 <script type="text/javascript">
 
     function deleteAction() {
         var table = $('#dataTable').DataTable();
         table.button('delete:name').enable(false);
-        var username = table.row({ selected: true }).data()[1];
-        var path = '{{.AdminURL}}' + "/" + fixedEncodeURIComponent(username);
+        var roleName = table.row({ selected: true }).data()[0];
+        var path = '{{.RoleURL}}' + "/" + fixedEncodeURIComponent(roleName);
         $('#deleteModal').modal('hide');
         $.ajax({
             url: path,
@@ -137,10 +112,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             headers: {'X-CSRF-TOKEN' : '{{.CSRFToken}}'},
             timeout: 15000,
             success: function (result) {
-                window.location.href = '{{.AdminsURL}}';
+                window.location.href = '{{.RolesURL}}';
             },
             error: function ($xhr, textStatus, errorThrown) {
-                var txt = "Unable to delete the selected admin";
+                var txt = "Unable to delete the selected role";
                 if ($xhr) {
                     var json = $xhr.responseJSON;
                     if (json) {
@@ -166,7 +141,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             name: 'add',
             titleAttr: "Add",
             action: function (e, dt, node, config) {
-                window.location.href = '{{.AdminURL}}';
+                window.location.href = '{{.RoleURL}}';
             }
         };
 
@@ -175,8 +150,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             name: 'edit',
             titleAttr: "Edit",
             action: function (e, dt, node, config) {
-                var username = dt.row({ selected: true }).data()[1];
-                var path = '{{.AdminURL}}' + "/" + fixedEncodeURIComponent(username);
+                var roleName = table.row({ selected: true }).data()[0];
+                var path = '{{.RoleURL}}' + "/" + fixedEncodeURIComponent(roleName);
                 window.location.href = path;
             },
             enabled: false
@@ -197,10 +172,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 "style": "single",
                 "blurable": true
             },
-            "colReorder": {
-                "enable": true,
-                "fixedColumnsLeft": 2
-            },
             "stateSave": true,
             "stateDuration": 0,
             "buttons": [
@@ -213,46 +184,25 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             "columnDefs": [
                 {
                     "targets": [0],
-                    "visible": false,
-                    "searchable": false,
                     "className": "noVis"
                 },
                 {
-                    "targets": [1],
-                    "className": "noVis"
+                    "targets": [2],
+                    "render": $.fn.dataTable.render.ellipsis(100, true)
                 },
-                {
-                    "targets": [3],
-                    "render": $.fn.dataTable.render.ellipsis(70, true)
-                },
-                {
-                    "targets": [4],
-                    "render": $.fn.dataTable.render.datetime()
-                },
-                {
-                    "targets": [6],
-                    "render": $.fn.dataTable.render.ellipsis(60, true),
-                    "visible": false,
-                },
-                {
-                    "targets": [5,7,8,10],
-                    "visible": false,
-                },
-                {
-                    "targets": [9],
-                    "render": $.fn.dataTable.render.ellipsis(50, true),
-                    "visible": false,
-                }
             ],
             "scrollX": false,
             "scrollY": false,
             "responsive": true,
-            "order": [[1, 'asc']]
+            "language": {
+                "emptyTable": "No role defined"
+            },
+            "order": [[0, 'asc']]
         });
 
         new $.fn.dataTable.FixedHeader( table );
 
-        {{if .LoggedAdmin.HasPermission "manage_admins"}}
+        {{if .LoggedAdmin.HasPermission "manage_roles"}}
         table.button().add(0,'delete');
         table.button().add(0,'edit');
         table.button().add(0,'add');
@@ -261,10 +211,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
         table.on('select deselect', function () {
             var selectedRows = table.rows({ selected: true }).count();
-            table.button('edit:name').enable(selectedRows == 1);
             table.button('delete:name').enable(selectedRows == 1);
+            table.button('edit:name').enable(selectedRows == 1);
         });
         {{end}}
+
     });
+
 </script>
 {{end}}

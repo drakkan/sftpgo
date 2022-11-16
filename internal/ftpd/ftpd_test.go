@@ -519,9 +519,9 @@ func TestBasicFTPHandling(t *testing.T) {
 		client, err := getFTPClient(user, true, nil)
 		if assert.NoError(t, err) {
 			if user.Username == defaultUsername {
-				assert.Len(t, common.Connections.GetStats(), 1)
+				assert.Len(t, common.Connections.GetStats(""), 1)
 			} else {
-				assert.Len(t, common.Connections.GetStats(), 2)
+				assert.Len(t, common.Connections.GetStats(""), 2)
 			}
 			testFilePath := filepath.Join(homeBasePath, testFileName)
 			testFileSize := int64(65535)
@@ -619,7 +619,7 @@ func TestBasicFTPHandling(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
-	assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 }, 1*time.Second, 50*time.Millisecond)
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 }, 1*time.Second, 50*time.Millisecond)
 	assert.Eventually(t, func() bool { return common.Connections.GetClientConnections() == 0 }, 1000*time.Millisecond,
 		50*time.Millisecond)
 }
@@ -663,7 +663,7 @@ func TestHTTPFs(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 }, 1*time.Second, 50*time.Millisecond)
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 }, 1*time.Second, 50*time.Millisecond)
 	assert.Eventually(t, func() bool { return common.Connections.GetClientConnections() == 0 }, 1000*time.Millisecond,
 		50*time.Millisecond)
 }
@@ -1623,7 +1623,7 @@ func TestMaxConnections(t *testing.T) {
 		err = client.Quit()
 		assert.NoError(t, err)
 	}
-	err = dataprovider.DeleteUser(user.Username, "", "")
+	err = dataprovider.DeleteUser(user.Username, "", "", "")
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -1653,7 +1653,7 @@ func TestMaxPerHostConnections(t *testing.T) {
 		err = client.Quit()
 		assert.NoError(t, err)
 	}
-	err = dataprovider.DeleteUser(user.Username, "", "")
+	err = dataprovider.DeleteUser(user.Username, "", "", "")
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -1710,7 +1710,7 @@ func TestRateLimiter(t *testing.T) {
 		assert.Contains(t, err.Error(), "banned client IP")
 	}
 
-	err = dataprovider.DeleteUser(user.Username, "", "")
+	err = dataprovider.DeleteUser(user.Username, "", "", "")
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -1752,7 +1752,7 @@ func TestDefender(t *testing.T) {
 		assert.Contains(t, err.Error(), "banned client IP")
 	}
 
-	err = dataprovider.DeleteUser(user.Username, "", "")
+	err = dataprovider.DeleteUser(user.Username, "", "", "")
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -2387,10 +2387,10 @@ func TestClientClose(t *testing.T) {
 	if assert.NoError(t, err) {
 		err = checkBasicFTP(client)
 		assert.NoError(t, err)
-		stats := common.Connections.GetStats()
+		stats := common.Connections.GetStats("")
 		if assert.Len(t, stats, 1) {
-			common.Connections.Close(stats[0].ConnectionID)
-			assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 },
+			common.Connections.Close(stats[0].ConnectionID, "")
+			assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
 				1*time.Second, 50*time.Millisecond)
 		}
 	}
@@ -3671,7 +3671,7 @@ func TestNestedVirtualFolders(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
-	assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 }, 1*time.Second, 50*time.Millisecond)
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 }, 1*time.Second, 50*time.Millisecond)
 	assert.Eventually(t, func() bool { return common.Connections.GetClientConnections() == 0 }, 1000*time.Millisecond,
 		50*time.Millisecond)
 }
@@ -3818,7 +3818,7 @@ func waitTCPListening(address string) {
 
 func waitNoConnections() {
 	time.Sleep(50 * time.Millisecond)
-	for len(common.Connections.GetStats()) > 0 {
+	for len(common.Connections.GetStats("")) > 0 {
 		time.Sleep(50 * time.Millisecond)
 	}
 }

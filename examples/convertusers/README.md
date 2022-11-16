@@ -47,3 +47,5 @@ python convertusers proftpd.passwd proftpd pro_users.json
 The generated json file can be used as input for the `loaddata` REST API.
 
 Please note that when importing Linux/Unix users the input file is not required: `/etc/passwd` and `/etc/shadow` are automatically parsed. `/etc/shadow` read permission is typically granted to the `root` user only, so you need to execute `convertusers` as `root`.
+
+:warning: SFTPGo does not currently support `yescrypt` hashed passwords.

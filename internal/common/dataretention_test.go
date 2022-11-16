@@ -316,7 +316,7 @@ func TestRetentionCheckAddRemove(t *testing.T) {
 		Notifications: []RetentionCheckNotification{RetentionCheckNotificationHook},
 	}
 	assert.NotNil(t, RetentionChecks.Add(check, &user))
-	checks := RetentionChecks.Get()
+	checks := RetentionChecks.Get("")
 	require.Len(t, checks, 1)
 	assert.Equal(t, username, checks[0].Username)
 	assert.Greater(t, checks[0].StartTime, int64(0))
@@ -328,8 +328,43 @@ func TestRetentionCheckAddRemove(t *testing.T) {
 
 	assert.Nil(t, RetentionChecks.Add(check, &user))
 	assert.True(t, RetentionChecks.remove(username))
-	require.Len(t, RetentionChecks.Get(), 0)
+	require.Len(t, RetentionChecks.Get(""), 0)
 	assert.False(t, RetentionChecks.remove(username))
+}
+
+func TestRetentionCheckRole(t *testing.T) {
+	username := "retuser"
+	role1 := "retrole1"
+	role2 := "retrole2"
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username: username,
+			Role:     role1,
+		},
+	}
+	user.Permissions = make(map[string][]string)
+	user.Permissions["/"] = []string{dataprovider.PermAny}
+	check := RetentionCheck{
+		Folders: []dataprovider.FolderRetention{
+			{
+				Path:      "/",
+				Retention: 48,
+			},
+		},
+		Notifications: []RetentionCheckNotification{RetentionCheckNotificationHook},
+	}
+	assert.NotNil(t, RetentionChecks.Add(check, &user))
+	checks := RetentionChecks.Get("")
+	require.Len(t, checks, 1)
+	assert.Empty(t, checks[0].Role)
+	checks = RetentionChecks.Get(role1)
+	require.Len(t, checks, 1)
+	checks = RetentionChecks.Get(role2)
+	require.Len(t, checks, 0)
+	user.Role = ""
+	assert.Nil(t, RetentionChecks.Add(check, &user))
+	assert.True(t, RetentionChecks.remove(username))
+	require.Len(t, RetentionChecks.Get(""), 0)
 }
 
 func TestCleanupErrors(t *testing.T) {

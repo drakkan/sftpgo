@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/go-chi/jwtauth/v5"
-	"github.com/lestrrat-go/jwx/jwt"
+	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/rs/xid"
 
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
@@ -51,6 +51,7 @@ const (
 const (
 	claimUsernameKey                = "username"
 	claimPermissionsKey             = "permissions"
+	claimRole                       = "role"
 	claimAPIKey                     = "api_key"
 	claimNodeID                     = "node_id"
 	claimMustSetSecondFactorKey     = "2fa_required"
@@ -72,6 +73,7 @@ var (
 type jwtTokenClaims struct {
 	Username                   string
 	Permissions                []string
+	Role                       string
 	Signature                  string
 	Audience                   []string
 	APIKeyID                   string
@@ -96,6 +98,9 @@ func (c *jwtTokenClaims) asMap() map[string]any {
 
 	claims[claimUsernameKey] = c.Username
 	claims[claimPermissionsKey] = c.Permissions
+	if c.Role != "" {
+		claims[claimRole] = c.Role
+	}
 	if c.APIKeyID != "" {
 		claims[claimAPIKey] = c.APIKeyID
 	}
@@ -166,6 +171,13 @@ func (c *jwtTokenClaims) Decode(token map[string]any) {
 		switch v := val.(type) {
 		case string:
 			c.NodeID = v
+		}
+	}
+
+	if val, ok := token[claimRole]; ok {
+		switch v := val.(type) {
+		case string:
+			c.Role = v
 		}
 	}
 
@@ -350,6 +362,7 @@ func getAdminFromToken(r *http.Request) *dataprovider.Admin {
 	admin.Username = tokenClaims.Username
 	admin.Permissions = tokenClaims.Permissions
 	admin.Filters.Preferences.HideUserPageSections = tokenClaims.HideUserPageSections
+	admin.Role = tokenClaims.Role
 	return admin
 }
 

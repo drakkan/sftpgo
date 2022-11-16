@@ -43,7 +43,7 @@ func TestBasicFTPHandlingCryptFs(t *testing.T) {
 	assert.NoError(t, err)
 	client, err := getFTPClient(user, true, nil)
 	if assert.NoError(t, err) {
-		assert.Len(t, common.Connections.GetStats(), 1)
+		assert.Len(t, common.Connections.GetStats(""), 1)
 		testFilePath := filepath.Join(homeBasePath, testFileName)
 		testFileSize := int64(65535)
 		encryptedFileSize, err := getEncryptedFileSize(testFileSize)
@@ -131,7 +131,7 @@ func TestBasicFTPHandlingCryptFs(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 }, 1*time.Second, 50*time.Millisecond)
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 }, 1*time.Second, 50*time.Millisecond)
 	assert.Eventually(t, func() bool { return common.Connections.GetClientConnections() == 0 }, 1000*time.Millisecond,
 		50*time.Millisecond)
 }

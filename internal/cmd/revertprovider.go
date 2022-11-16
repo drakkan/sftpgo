@@ -40,8 +40,8 @@ Please take a look at the usage below to customize the options.`,
 		Run: func(_ *cobra.Command, _ []string) {
 			logger.DisableLogger()
 			logger.EnableConsoleLogger(zerolog.DebugLevel)
-			if revertProviderTargetVersion != 19 {
-				logger.WarnToConsole("Unsupported target version, 19 is the only supported one")
+			if revertProviderTargetVersion != 23 {
+				logger.WarnToConsole("Unsupported target version, 23 is the only supported one")
 				os.Exit(1)
 			}
 			configDir = util.CleanDirInput(configDir)
@@ -57,7 +57,7 @@ Please take a look at the usage below to customize the options.`,
 				os.Exit(1)
 			}
 			providerConf := config.GetProviderConf()
-			logger.InfoToConsole("Reverting provider: %#v config file: %#v target version %v", providerConf.Driver,
+			logger.InfoToConsole("Reverting provider: %q config file: %q target version %d", providerConf.Driver,
 				viper.ConfigFileUsed(), revertProviderTargetVersion)
 			err = dataprovider.RevertDatabase(providerConf, configDir, revertProviderTargetVersion)
 			if err != nil {
@@ -71,7 +71,7 @@ Please take a look at the usage below to customize the options.`,
 
 func init() {
 	addConfigFlags(revertProviderCmd)
-	revertProviderCmd.Flags().IntVar(&revertProviderTargetVersion, "to-version", 19, `19 means the version supported in v2.3.x`)
+	revertProviderCmd.Flags().IntVar(&revertProviderTargetVersion, "to-version", 23, `23 means the version supported in v2.4.x`)
 
 	rootCmd.AddCommand(revertProviderCmd)
 }

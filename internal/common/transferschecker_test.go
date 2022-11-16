@@ -83,7 +83,7 @@ func TestTransfersCheckerDiskQuota(t *testing.T) {
 	assert.Equal(t, int64(120), group.UserSettings.QuotaSize)
 	err = dataprovider.AddUser(&user, "", "")
 	assert.NoError(t, err)
-	user, err = dataprovider.GetUserWithGroupSettings(username)
+	user, err = dataprovider.GetUserWithGroupSettings(username, "")
 	assert.NoError(t, err)
 
 	connID1 := xid.New().String()
@@ -243,10 +243,10 @@ func TestTransfersCheckerDiskQuota(t *testing.T) {
 	Connections.Remove(fakeConn3.GetID())
 	Connections.Remove(fakeConn4.GetID())
 	Connections.Remove(fakeConn5.GetID())
-	stats := Connections.GetStats()
+	stats := Connections.GetStats("")
 	assert.Len(t, stats, 0)
 
-	err = dataprovider.DeleteUser(user.Username, "", "")
+	err = dataprovider.DeleteUser(user.Username, "", "", "")
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -366,10 +366,10 @@ func TestTransferCheckerTransferQuota(t *testing.T) {
 
 	Connections.Remove(fakeConn3.GetID())
 	Connections.Remove(fakeConn4.GetID())
-	stats := Connections.GetStats()
+	stats := Connections.GetStats("")
 	assert.Len(t, stats, 0)
 
-	err = dataprovider.DeleteUser(user.Username, "", "")
+	err = dataprovider.DeleteUser(user.Username, "", "", "")
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -671,7 +671,7 @@ func TestGetUsersForQuotaCheck(t *testing.T) {
 	}
 
 	for i := 0; i < 40; i++ {
-		err = dataprovider.DeleteUser(fmt.Sprintf("user%v", i), "", "")
+		err = dataprovider.DeleteUser(fmt.Sprintf("user%v", i), "", "", "")
 		assert.NoError(t, err)
 		err = dataprovider.DeleteFolder(fmt.Sprintf("f%v", i), "", "")
 		assert.NoError(t, err)

@@ -23,6 +23,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	// we import pgx here to be able to disable PostgreSQL support using a build tag
@@ -54,6 +55,7 @@ DROP TABLE IF EXISTS "{{events_actions}}" CASCADE;
 DROP TABLE IF EXISTS "{{events_rules}}" CASCADE;
 DROP TABLE IF EXISTS "{{tasks}}" CASCADE;
 DROP TABLE IF EXISTS "{{nodes}}" CASCADE;
+DROP TABLE IF EXISTS "{{roles}}" CASCADE;
 DROP TABLE IF EXISTS "{{schema_version}}" CASCADE;
 `
 	pgsqlInitial = `CREATE TABLE "{{schema_version}}" ("id" serial NOT NULL PRIMARY KEY, "version" integer NOT NULL);
@@ -179,6 +181,19 @@ CREATE INDEX "{{prefix}}admins_groups_mapping_admin_id_idx" ON "{{admins_groups_
 CREATE INDEX "{{prefix}}admins_groups_mapping_group_id_idx" ON "{{admins_groups_mapping}}" ("group_id");
 INSERT INTO {{schema_version}} (version) VALUES (23);
 `
+	pgsqlV24SQL = `CREATE TABLE "{{roles}}" ("id" serial NOT NULL PRIMARY KEY, "name" varchar(255) NOT NULL UNIQUE,
+"description" varchar(512) NULL, "created_at" bigint NOT NULL, "updated_at" bigint NOT NULL);
+ALTER TABLE "{{admins}}" ADD COLUMN "role_id" integer NULL CONSTRAINT "{{prefix}}admins_role_id_fk_roles_id"
+REFERENCES "{{roles}}"("id") ON DELETE NO ACTION;
+ALTER TABLE "{{users}}" ADD COLUMN "role_id" integer NULL CONSTRAINT "{{prefix}}users_role_id_fk_roles_id"
+REFERENCES "{{roles}}"("id") ON DELETE SET NULL;
+CREATE INDEX "{{prefix}}admins_role_id_idx" ON "{{admins}}" ("role_id");
+CREATE INDEX "{{prefix}}users_role_id_idx" ON "{{users}}" ("role_id");
+`
+	pgsqlV24DownSQL = `ALTER TABLE "{{users}}" DROP COLUMN "role_id" CASCADE;
+ALTER TABLE "{{admins}}" DROP COLUMN "role_id" CASCADE;
+DROP TABLE "{{roles}}" CASCADE;
+`
 )
 
 // PGSQLProvider defines the auth provider for PostgreSQL database
@@ -279,8 +294,8 @@ func (p *PGSQLProvider) updateAdminLastLogin(username string) error {
 	return sqlCommonUpdateAdminLastLogin(username, p.dbHandle)
 }
 
-func (p *PGSQLProvider) userExists(username string) (User, error) {
-	return sqlCommonGetUserByUsername(username, p.dbHandle)
+func (p *PGSQLProvider) userExists(username, role string) (User, error) {
+	return sqlCommonGetUserByUsername(username, role, p.dbHandle)
 }
 
 func (p *PGSQLProvider) addUser(user *User) error {
@@ -307,8 +322,8 @@ func (p *PGSQLProvider) getRecentlyUpdatedUsers(after int64) ([]User, error) {
 	return sqlCommonGetRecentlyUpdatedUsers(after, p.dbHandle)
 }
 
-func (p *PGSQLProvider) getUsers(limit int, offset int, order string) ([]User, error) {
-	return sqlCommonGetUsers(limit, offset, order, p.dbHandle)
+func (p *PGSQLProvider) getUsers(limit int, offset int, order, role string) ([]User, error) {
+	return sqlCommonGetUsers(limit, offset, order, role, p.dbHandle)
 }
 
 func (p *PGSQLProvider) getUsersForQuotaCheck(toFetch map[string]bool) ([]User, error) {
@@ -621,6 +636,30 @@ func (p *PGSQLProvider) cleanupNodes() error {
 	return sqlCommonCleanupNodes(p.dbHandle)
 }
 
+func (p *PGSQLProvider) roleExists(name string) (Role, error) {
+	return sqlCommonGetRoleByName(name, p.dbHandle)
+}
+
+func (p *PGSQLProvider) addRole(role *Role) error {
+	return sqlCommonAddRole(role, p.dbHandle)
+}
+
+func (p *PGSQLProvider) updateRole(role *Role) error {
+	return sqlCommonUpdateRole(role, p.dbHandle)
+}
+
+func (p *PGSQLProvider) deleteRole(role Role) error {
+	return sqlCommonDeleteRole(role, p.dbHandle)
+}
+
+func (p *PGSQLProvider) getRoles(limit int, offset int, order string, minimal bool) ([]Role, error) {
+	return sqlCommonGetRoles(limit, offset, order, minimal, p.dbHandle)
+}
+
+func (p *PGSQLProvider) dumpRoles() ([]Role, error) {
+	return sqlCommonDumpRoles(p.dbHandle)
+}
+
 func (p *PGSQLProvider) setFirstDownloadTimestamp(username string) error {
 	return sqlCommonSetFirstDownloadTimestamp(username, p.dbHandle)
 }
@@ -668,6 +707,8 @@ func (p *PGSQLProvider) migrateDatabase() error { //nolint:dupl
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
+	case version == 23:
+		return updatePgSQLDatabaseFromV23(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -690,6 +731,8 @@ func (p *PGSQLProvider) revertDatabase(targetVersion int) error {
 	}
 
 	switch dbVersion.Version {
+	case 24:
+		return downgradePgSQLDatabaseFromV24(p.dbHandle)
 	default:
 		return fmt.Errorf("database schema version not handled: %d", dbVersion.Version)
 	}
@@ -698,4 +741,32 @@ func (p *PGSQLProvider) revertDatabase(targetVersion int) error {
 func (p *PGSQLProvider) resetDatabase() error {
 	sql := sqlReplaceAll(pgsqlResetSQL)
 	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{sql}, 0, false)
+}
+
+func updatePgSQLDatabaseFromV23(dbHandle *sql.DB) error {
+	return updatePgSQLDatabaseFrom23To24(dbHandle)
+}
+
+func downgradePgSQLDatabaseFromV24(dbHandle *sql.DB) error {
+	return downgradePgSQLDatabaseFrom24To23(dbHandle)
+}
+
+func updatePgSQLDatabaseFrom23To24(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database schema version: 23 -> 24")
+	providerLog(logger.LevelInfo, "updating database schema version: 23 -> 24")
+	sql := strings.ReplaceAll(pgsqlV24SQL, "{{roles}}", sqlTableRoles)
+	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
+	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 24, true)
+}
+
+func downgradePgSQLDatabaseFrom24To23(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database schema version: 24 -> 23")
+	providerLog(logger.LevelInfo, "downgrading database schema version: 24 -> 23")
+	sql := strings.ReplaceAll(pgsqlV24DownSQL, "{{roles}}", sqlTableRoles)
+	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
+	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 23, false)
 }

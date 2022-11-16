@@ -50,6 +50,7 @@ const (
 	actionObjectShare       = "share"
 	actionObjectEventAction = "event_action"
 	actionObjectEventRule   = "event_rule"
+	actionObjectRole        = "role"
 )
 
 var (

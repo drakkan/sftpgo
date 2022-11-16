@@ -350,7 +350,11 @@ func (s *Service) LoadInitialData() error {
 }
 
 func (s *Service) restoreDump(dump *dataprovider.BackupData) error {
-	err := httpd.RestoreFolders(dump.Folders, s.LoadDataFrom, s.LoadDataMode, s.LoadDataQuotaScan, dataprovider.ActionExecutorSystem, "")
+	err := httpd.RestoreRoles(dump.Roles, s.LoadDataFrom, s.LoadDataMode, dataprovider.ActionExecutorSystem, "")
+	if err != nil {
+		return fmt.Errorf("unable to restore roles from file %#v: %v", s.LoadDataFrom, err)
+	}
+	err = httpd.RestoreFolders(dump.Folders, s.LoadDataFrom, s.LoadDataMode, s.LoadDataQuotaScan, dataprovider.ActionExecutorSystem, "")
 	if err != nil {
 		return fmt.Errorf("unable to restore folders from file %#v: %v", s.LoadDataFrom, err)
 	}

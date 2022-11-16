@@ -56,6 +56,7 @@ const (
 	PermAdminMetadataChecks   = "metadata_checks"
 	PermAdminViewEvents       = "view_events"
 	PermAdminManageEventRules = "manage_event_rules"
+	PermAdminManageRoles      = "manage_roles"
 )
 
 const (
@@ -70,9 +71,11 @@ const (
 var (
 	validAdminPerms = []string{PermAdminAny, PermAdminAddUsers, PermAdminChangeUsers, PermAdminDeleteUsers,
 		PermAdminViewUsers, PermAdminManageGroups, PermAdminViewConnections, PermAdminCloseConnections,
-		PermAdminViewServerStatus, PermAdminManageAdmins, PermAdminManageAPIKeys, PermAdminQuotaScans,
-		PermAdminManageSystem, PermAdminManageDefender, PermAdminViewDefender, PermAdminRetentionChecks,
-		PermAdminMetadataChecks, PermAdminViewEvents}
+		PermAdminViewServerStatus, PermAdminManageAdmins, PermAdminManageRoles, PermAdminManageEventRules,
+		PermAdminManageAPIKeys, PermAdminQuotaScans, PermAdminManageSystem, PermAdminManageDefender,
+		PermAdminViewDefender, PermAdminRetentionChecks, PermAdminMetadataChecks, PermAdminViewEvents}
+	forbiddenPermsForRoleAdmins = []string{PermAdminAny, PermAdminManageAdmins, PermAdminManageSystem,
+		PermAdminManageEventRules, PermAdminManageRoles, PermAdminViewEvents}
 )
 
 // AdminTOTPConfig defines the time-based one time password configuration
@@ -255,6 +258,14 @@ type Admin struct {
 	UpdatedAt int64 `json:"updated_at"`
 	// Last login as unix timestamp in milliseconds
 	LastLogin int64 `json:"last_login"`
+	// Role name. If set the admin can only administer users with the same role.
+	// Role admins cannot have the following permissions:
+	// - manage_admins
+	// - manage_apikeys
+	// - manage_system
+	// - manage_event_rules
+	// - manage_roles
+	Role string `json:"role,omitempty"`
 }
 
 // CountUnusedRecoveryCodes returns the number of unused recovery codes
@@ -322,7 +333,13 @@ func (a *Admin) validatePermissions() error {
 	}
 	for _, perm := range a.Permissions {
 		if !util.Contains(validAdminPerms, perm) {
-			return util.NewValidationError(fmt.Sprintf("invalid permission: %#v", perm))
+			return util.NewValidationError(fmt.Sprintf("invalid permission: %q", perm))
+		}
+		if a.Role != "" {
+			if util.Contains(forbiddenPermsForRoleAdmins, perm) {
+				return util.NewValidationError(fmt.Sprintf("a role admin cannot have the following permissions: %q",
+					strings.Join(forbiddenPermsForRoleAdmins, ",")))
+			}
 		}
 	}
 	return nil
@@ -604,6 +621,7 @@ func (a *Admin) getACopy() Admin {
 		LastLogin:      a.LastLogin,
 		CreatedAt:      a.CreatedAt,
 		UpdatedAt:      a.UpdatedAt,
+		Role:           a.Role,
 	}
 }
 

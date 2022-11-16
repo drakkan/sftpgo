@@ -40,8 +40,8 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/klauspost/compress/zip"
-	"github.com/lestrrat-go/jwx/jwa"
-	"github.com/lestrrat-go/jwx/jwt"
+	"github.com/lestrrat-go/jwx/v2/jwa"
+	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/rs/xid"
 	"github.com/sftpgo/sdk"
 	"github.com/stretchr/testify/assert"
@@ -687,6 +687,86 @@ func TestInvalidToken(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "Invalid token claims")
 
 	rr = httptest.NewRecorder()
+	getMetadataChecks(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	startMetadataCheck(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	getUsersQuotaScans(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	updateUserTransferQuotaUsage(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	doUpdateUserQuotaUsage(rr, req, "", quotaUsage{})
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	doStartUserQuotaScan(rr, req, "")
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	getRetentionChecks(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	addRole(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	updateRole(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	deleteRole(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	getUsers(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	getUserByUsername(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	server.handleGetWebUsers(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "invalid token claims")
+
+	rr = httptest.NewRecorder()
+	server.handleWebUpdateUserGet(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "invalid token claims")
+
+	rr = httptest.NewRecorder()
+	server.handleWebUpdateRolePost(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "invalid token claims")
+
+	rr = httptest.NewRecorder()
+	server.handleWebAddRolePost(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "invalid token claims")
+
+	rr = httptest.NewRecorder()
 	server.handleWebAddAdminPost(rr, req)
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), "invalid token claims")
@@ -806,7 +886,7 @@ func TestRetentionInvalidTokenClaims(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), "Invalid token claims")
 
-	err = dataprovider.DeleteUser(username, "", "")
+	err = dataprovider.DeleteUser(username, "", "", "")
 	assert.NoError(t, err)
 }
 
@@ -1030,6 +1110,13 @@ func TestCreateTokenError(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
 	assert.Contains(t, rr.Body.String(), "invalid URL escape")
 
+	req, _ = http.NewRequest(http.MethodPost, webAdminRolePath+"?a=a%C3%AO%JE", bytes.NewBuffer([]byte(form.Encode())))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = httptest.NewRecorder()
+	server.handleWebAddRolePost(rr, req)
+	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
+	assert.Contains(t, rr.Body.String(), "invalid URL escape")
+
 	req, _ = http.NewRequest(http.MethodPost, webClientResetPwdPath+"?a=a%C3%AO%JD", bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = httptest.NewRecorder()
@@ -1074,7 +1161,7 @@ func TestCreateTokenError(t *testing.T) {
 	err = authenticateUserWithAPIKey(username, "", server.tokenAuth, req)
 	assert.Error(t, err)
 
-	err = dataprovider.DeleteUser(username, "", "")
+	err = dataprovider.DeleteUser(username, "", "", "")
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.HomeDir)
 	assert.NoError(t, err)
@@ -1341,13 +1428,13 @@ func TestCookieExpiration(t *testing.T) {
 	cookie = rr.Header().Get("Set-Cookie")
 	assert.Empty(t, cookie)
 
-	user, err = dataprovider.UserExists(user.Username)
+	user, err = dataprovider.UserExists(user.Username, "")
 	assert.NoError(t, err)
 	user.Filters.AllowedIP = []string{"172.16.4.0/24"}
 	err = dataprovider.UpdateUser(&user, "", "")
 	assert.NoError(t, err)
 
-	user, err = dataprovider.UserExists(user.Username)
+	user, err = dataprovider.UserExists(user.Username, "")
 	assert.NoError(t, err)
 	claims = make(map[string]any)
 	claims[claimUsernameKey] = user.Username
@@ -1372,7 +1459,7 @@ func TestCookieExpiration(t *testing.T) {
 	cookie = rr.Header().Get("Set-Cookie")
 	assert.NotEmpty(t, cookie)
 
-	err = dataprovider.DeleteUser(user.Username, "", "")
+	err = dataprovider.DeleteUser(user.Username, "", "", "")
 	assert.NoError(t, err)
 }
 
@@ -1451,7 +1538,7 @@ func TestQuotaScanInvalidFs(t *testing.T) {
 			Provider: sdk.S3FilesystemProvider,
 		},
 	}
-	common.QuotaScans.AddUserQuotaScan(user.Username)
+	common.QuotaScans.AddUserQuotaScan(user.Username, "")
 	err := doUserQuotaScan(user)
 	assert.Error(t, err)
 }
@@ -2437,21 +2524,28 @@ func TestMetadataAPI(t *testing.T) {
 	err := dataprovider.AddUser(&user, "", "")
 	assert.NoError(t, err)
 
-	assert.True(t, common.ActiveMetadataChecks.Add(username))
+	assert.True(t, common.ActiveMetadataChecks.Add(username, ""))
 
+	tokenAuth := jwtauth.New(jwa.HS256.String(), util.GenerateRandomBytes(32), nil)
+	claims := make(map[string]any)
+	claims["username"] = defaultAdminUsername
+	claims[jwt.ExpirationKey] = time.Now().UTC().Add(1 * time.Hour)
+	token, _, err := tokenAuth.Encode(claims)
+	assert.NoError(t, err)
 	req, err := http.NewRequest(http.MethodPost, path.Join(metadataBasePath, username, "check"), nil)
 	assert.NoError(t, err)
 	rctx := chi.NewRouteContext()
 	rctx.URLParams.Add("username", username)
 	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+	req = req.WithContext(context.WithValue(req.Context(), jwtauth.TokenCtxKey, token))
 
 	rr := httptest.NewRecorder()
 	startMetadataCheck(rr, req)
-	assert.Equal(t, http.StatusConflict, rr.Code)
+	assert.Equal(t, http.StatusConflict, rr.Code, rr.Body.String())
 
 	assert.True(t, common.ActiveMetadataChecks.Remove(username))
-	assert.Len(t, common.ActiveMetadataChecks.Get(), 0)
-	err = dataprovider.DeleteUser(username, "", "")
+	assert.Len(t, common.ActiveMetadataChecks.Get(""), 0)
+	err = dataprovider.DeleteUser(username, "", "", "")
 	assert.NoError(t, err)
 
 	user.FsConfig.Provider = sdk.AzureBlobFilesystemProvider

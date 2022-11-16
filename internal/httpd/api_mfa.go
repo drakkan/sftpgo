@@ -152,7 +152,7 @@ func getRecoveryCodes(w http.ResponseWriter, r *http.Request) {
 	recoveryCodes := make([]recoveryCode, 0, 12)
 	var accountRecoveryCodes []dataprovider.RecoveryCode
 	if claims.hasUserAudience() {
-		user, err := dataprovider.UserExists(claims.Username)
+		user, err := dataprovider.UserExists(claims.Username, "")
 		if err != nil {
 			sendAPIResponse(w, r, err, "", getRespStatus(err))
 			return
@@ -203,7 +203,7 @@ func generateRecoveryCodes(w http.ResponseWriter, r *http.Request) {
 		accountRecoveryCodes = append(accountRecoveryCodes, dataprovider.RecoveryCode{Secret: kms.NewPlainSecret(code)})
 	}
 	if claims.hasUserAudience() {
-		user, err := dataprovider.UserExists(claims.Username)
+		user, err := dataprovider.UserExists(claims.Username, "")
 		if err != nil {
 			sendAPIResponse(w, r, err, "", getRespStatus(err))
 			return
@@ -242,7 +242,7 @@ func getNewRecoveryCode() string {
 }
 
 func saveUserTOTPConfig(username string, r *http.Request, recoveryCodes []dataprovider.RecoveryCode) error {
-	user, err := dataprovider.UserExists(username)
+	user, err := dataprovider.UserExists(username, "")
 	if err != nil {
 		return err
 	}

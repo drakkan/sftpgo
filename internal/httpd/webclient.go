@@ -472,7 +472,7 @@ func (s *httpdServer) renderClientMFAPage(w http.ResponseWriter, r *http.Request
 		RecCodesURL:     webClientRecoveryCodesPath,
 		Protocols:       dataprovider.MFAProtocols,
 	}
-	user, err := dataprovider.UserExists(data.LoggedUser.Username)
+	user, err := dataprovider.UserExists(data.LoggedUser.Username, "")
 	if err != nil {
 		s.renderInternalServerErrorPage(w, r, err)
 		return
@@ -590,7 +590,7 @@ func (s *httpdServer) renderClientProfilePage(w http.ResponseWriter, r *http.Req
 		baseClientPage: s.getBaseClientPageData(pageClientProfileTitle, webClientProfilePath, r),
 		Error:          error,
 	}
-	user, userMerged, err := dataprovider.GetUserVariants(data.LoggedUser.Username)
+	user, userMerged, err := dataprovider.GetUserVariants(data.LoggedUser.Username, "")
 	if err != nil {
 		s.renderClientInternalServerErrorPage(w, r, err)
 		return
@@ -620,7 +620,7 @@ func (s *httpdServer) handleWebClientDownloadZip(w http.ResponseWriter, r *http.
 		return
 	}
 
-	user, err := dataprovider.GetUserWithGroupSettings(claims.Username)
+	user, err := dataprovider.GetUserWithGroupSettings(claims.Username, "")
 	if err != nil {
 		s.renderClientMessagePage(w, r, "Unable to retrieve your user", "", getRespStatus(err), nil, "")
 		return
@@ -820,7 +820,7 @@ func (s *httpdServer) handleClientGetDirContents(w http.ResponseWriter, r *http.
 		return
 	}
 
-	user, err := dataprovider.GetUserWithGroupSettings(claims.Username)
+	user, err := dataprovider.GetUserWithGroupSettings(claims.Username, "")
 	if err != nil {
 		sendAPIResponse(w, r, nil, "Unable to retrieve your user", getRespStatus(err))
 		return
@@ -897,7 +897,7 @@ func (s *httpdServer) handleClientGetFiles(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	user, err := dataprovider.GetUserWithGroupSettings(claims.Username)
+	user, err := dataprovider.GetUserWithGroupSettings(claims.Username, "")
 	if err != nil {
 		s.renderClientMessagePage(w, r, "Unable to retrieve your user", "", getRespStatus(err), nil, "")
 		return
@@ -956,7 +956,7 @@ func (s *httpdServer) handleClientEditFile(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	user, err := dataprovider.GetUserWithGroupSettings(claims.Username)
+	user, err := dataprovider.GetUserWithGroupSettings(claims.Username, "")
 	if err != nil {
 		s.renderClientMessagePage(w, r, "Unable to retrieve your user", "", getRespStatus(err), nil, "")
 		return
@@ -1025,7 +1025,7 @@ func (s *httpdServer) handleClientAddShareGet(w http.ResponseWriter, r *http.Req
 		s.renderClientForbiddenPage(w, r, "Invalid token claims")
 		return
 	}
-	user, err := dataprovider.GetUserWithGroupSettings(claims.Username)
+	user, err := dataprovider.GetUserWithGroupSettings(claims.Username, "")
 	if err != nil {
 		s.renderClientMessagePage(w, r, "Unable to retrieve your user", "", getRespStatus(err), nil, "")
 		return
@@ -1218,7 +1218,7 @@ func (s *httpdServer) handleWebClientProfilePost(w http.ResponseWriter, r *http.
 		s.renderClientForbiddenPage(w, r, "Invalid token claims")
 		return
 	}
-	user, userMerged, err := dataprovider.GetUserVariants(claims.Username)
+	user, userMerged, err := dataprovider.GetUserVariants(claims.Username, "")
 	if err != nil {
 		s.renderClientProfilePage(w, r, err.Error())
 		return
@@ -1368,7 +1368,7 @@ func (s *httpdServer) handleClientGetPDF(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	name = util.CleanPath(name)
-	user, err := dataprovider.GetUserWithGroupSettings(claims.Username)
+	user, err := dataprovider.GetUserWithGroupSettings(claims.Username, "")
 	if err != nil {
 		s.renderClientMessagePage(w, r, "Unable to retrieve your user", "", getRespStatus(err), nil, "")
 		return

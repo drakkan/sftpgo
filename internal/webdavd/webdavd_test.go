@@ -620,7 +620,7 @@ func TestBasicHandling(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
-	assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 },
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
 		1*time.Second, 100*time.Millisecond)
 	status := webdavd.GetStatus()
 	assert.True(t, status.IsActive)
@@ -702,7 +702,7 @@ func TestBasicHandlingCryptFs(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 },
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
 		1*time.Second, 100*time.Millisecond)
 }
 
@@ -929,7 +929,7 @@ func TestPropPatch(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
-	assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 },
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
 		1*time.Second, 100*time.Millisecond)
 }
 
@@ -1311,7 +1311,7 @@ func TestPreDownloadHook(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 },
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
 		1*time.Second, 100*time.Millisecond)
 
 	common.Config.Actions.ExecuteOn = []string{common.OperationPreDownload}
@@ -1361,7 +1361,7 @@ func TestPreUploadHook(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 },
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
 		1*time.Second, 100*time.Millisecond)
 
 	common.Config.Actions.ExecuteOn = oldExecuteOn
@@ -1424,7 +1424,7 @@ func TestMaxConnections(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 },
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
 		1*time.Second, 100*time.Millisecond)
 
 	common.Config.MaxTotalConnections = oldValue
@@ -1456,7 +1456,7 @@ func TestMaxPerHostConnections(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 },
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
 		1*time.Second, 100*time.Millisecond)
 
 	common.Config.MaxPerHostConnections = oldValue
@@ -1482,7 +1482,7 @@ func TestMaxSessions(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 },
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
 		1*time.Second, 100*time.Millisecond)
 }
 
@@ -1894,7 +1894,7 @@ func TestClientClose(t *testing.T) {
 		}()
 
 		assert.Eventually(t, func() bool {
-			for _, stat := range common.Connections.GetStats() {
+			for _, stat := range common.Connections.GetStats("") {
 				if len(stat.Transfers) > 0 {
 					return true
 				}
@@ -1902,16 +1902,16 @@ func TestClientClose(t *testing.T) {
 			return false
 		}, 1*time.Second, 50*time.Millisecond)
 
-		for _, stat := range common.Connections.GetStats() {
-			common.Connections.Close(stat.ConnectionID)
+		for _, stat := range common.Connections.GetStats("") {
+			common.Connections.Close(stat.ConnectionID, "")
 		}
 		wg.Wait()
 		// for the sftp user a stat is done after the failed upload and
 		// this triggers a new connection
-		for _, stat := range common.Connections.GetStats() {
-			common.Connections.Close(stat.ConnectionID)
+		for _, stat := range common.Connections.GetStats("") {
+			common.Connections.Close(stat.ConnectionID, "")
 		}
-		assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 },
+		assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
 			1*time.Second, 100*time.Millisecond)
 
 		err = os.Remove(testFilePath)
@@ -1929,7 +1929,7 @@ func TestClientClose(t *testing.T) {
 		}()
 
 		assert.Eventually(t, func() bool {
-			for _, stat := range common.Connections.GetStats() {
+			for _, stat := range common.Connections.GetStats("") {
 				if len(stat.Transfers) > 0 {
 					return true
 				}
@@ -1937,11 +1937,11 @@ func TestClientClose(t *testing.T) {
 			return false
 		}, 1*time.Second, 50*time.Millisecond)
 
-		for _, stat := range common.Connections.GetStats() {
-			common.Connections.Close(stat.ConnectionID)
+		for _, stat := range common.Connections.GetStats("") {
+			common.Connections.Close(stat.ConnectionID, "")
 		}
 		wg.Wait()
-		assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 },
+		assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
 			1*time.Second, 100*time.Millisecond)
 
 		err = os.Remove(localDownloadPath)
@@ -2964,7 +2964,7 @@ func TestNestedVirtualFolders(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(localUser.GetHomeDir())
 	assert.NoError(t, err)
-	assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 },
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
 		1*time.Second, 100*time.Millisecond)
 }
 

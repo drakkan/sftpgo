@@ -3067,7 +3067,7 @@ func TestUserPasswordHashing(t *testing.T) {
 	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
 
-	currentUser, err := dataprovider.UserExists(user.Username)
+	currentUser, err := dataprovider.UserExists(user.Username, "")
 	assert.NoError(t, err)
 	assert.True(t, strings.HasPrefix(currentUser.Password, "$2a$"))
 
@@ -3088,7 +3088,7 @@ func TestUserPasswordHashing(t *testing.T) {
 	user, _, err = httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 
-	currentUser, err = dataprovider.UserExists(user.Username)
+	currentUser, err = dataprovider.UserExists(user.Username, "")
 	assert.NoError(t, err)
 	assert.True(t, strings.HasPrefix(currentUser.Password, "$argon2id$"))
 
@@ -3193,7 +3193,7 @@ func TestDelayedQuotaUpdater(t *testing.T) {
 	assert.Equal(t, int64(100), ulSize)
 	assert.Equal(t, int64(200), dlSize)
 
-	userGet, err := dataprovider.UserExists(user.Username)
+	userGet, err := dataprovider.UserExists(user.Username, "")
 	assert.NoError(t, err)
 	assert.Equal(t, 0, userGet.UsedQuotaFiles)
 	assert.Equal(t, int64(0), userGet.UsedQuotaSize)
@@ -3211,7 +3211,7 @@ func TestDelayedQuotaUpdater(t *testing.T) {
 	assert.Equal(t, int64(100), ulSize)
 	assert.Equal(t, int64(200), dlSize)
 
-	userGet, err = dataprovider.UserExists(user.Username)
+	userGet, err = dataprovider.UserExists(user.Username, "")
 	assert.NoError(t, err)
 	assert.Equal(t, 10, userGet.UsedQuotaFiles)
 	assert.Equal(t, int64(6000), userGet.UsedQuotaSize)
@@ -5609,7 +5609,7 @@ func TestEventRuleIPBlocked(t *testing.T) {
 	assert.NoError(t, err)
 	err = dataprovider.DeleteEventAction(action2.Name, "", "")
 	assert.NoError(t, err)
-	err = dataprovider.DeleteUser(user.Username, "", "")
+	err = dataprovider.DeleteUser(user.Username, "", "", "")
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -5815,7 +5815,7 @@ func TestRetentionAPI(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.Eventually(t, func() bool {
-			return len(common.RetentionChecks.Get()) == 0
+			return len(common.RetentionChecks.Get("")) == 0
 		}, 1000*time.Millisecond, 50*time.Millisecond)
 
 		_, err = client.Stat(uploadPath)
@@ -5828,7 +5828,7 @@ func TestRetentionAPI(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.Eventually(t, func() bool {
-			return len(common.RetentionChecks.Get()) == 0
+			return len(common.RetentionChecks.Get("")) == 0
 		}, 1000*time.Millisecond, 50*time.Millisecond)
 
 		_, err = client.Stat(uploadPath)
@@ -5850,7 +5850,7 @@ func TestRetentionAPI(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.Eventually(t, func() bool {
-			return len(common.RetentionChecks.Get()) == 0
+			return len(common.RetentionChecks.Get("")) == 0
 		}, 1000*time.Millisecond, 50*time.Millisecond)
 
 		_, err = client.Stat(uploadPath)
@@ -5905,7 +5905,7 @@ func TestRetentionAPI(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.Eventually(t, func() bool {
-			return len(common.RetentionChecks.Get()) == 0
+			return len(common.RetentionChecks.Get("")) == 0
 		}, 1000*time.Millisecond, 50*time.Millisecond)
 
 		_, err = client.Stat(uploadPath)
@@ -5918,7 +5918,7 @@ func TestRetentionAPI(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.Eventually(t, func() bool {
-			return len(common.RetentionChecks.Get()) == 0
+			return len(common.RetentionChecks.Get("")) == 0
 		}, 1000*time.Millisecond, 50*time.Millisecond)
 
 		_, err = client.Stat(uploadPath)
@@ -5940,7 +5940,7 @@ func TestRetentionAPI(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.Eventually(t, func() bool {
-			return len(common.RetentionChecks.Get()) == 0
+			return len(common.RetentionChecks.Get("")) == 0
 		}, 1000*time.Millisecond, 50*time.Millisecond)
 
 		_, err = client.Stat(innerUploadFilePath)
@@ -5975,7 +5975,7 @@ func TestRetentionAPI(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.Eventually(t, func() bool {
-			return len(common.RetentionChecks.Get()) == 0
+			return len(common.RetentionChecks.Get("")) == 0
 		}, 1000*time.Millisecond, 50*time.Millisecond)
 
 		err = os.Chmod(dirPath, 0555)
@@ -5985,7 +5985,7 @@ func TestRetentionAPI(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.Eventually(t, func() bool {
-			return len(common.RetentionChecks.Get()) == 0
+			return len(common.RetentionChecks.Get("")) == 0
 		}, 1000*time.Millisecond, 50*time.Millisecond)
 
 		err = os.Chmod(dirPath, os.ModePerm)
@@ -5995,7 +5995,7 @@ func TestRetentionAPI(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.Eventually(t, func() bool {
-			return len(common.RetentionChecks.Get()) == 0
+			return len(common.RetentionChecks.Get("")) == 0
 		}, 1000*time.Millisecond, 50*time.Millisecond)
 
 		assert.NoDirExists(t, dirPath)

@@ -65,6 +65,12 @@ Please take a look at the usage below to customize the options.`,
 				logger.ErrorToConsole("Unable to initialize KMS: %v", err)
 				os.Exit(1)
 			}
+			mfaConfig := config.GetMFAConfig()
+			err = mfaConfig.Initialize()
+			if err != nil {
+				logger.ErrorToConsole("Unable to initialize MFA: %v", err)
+				os.Exit(1)
+			}
 			providerConf := config.GetProviderConf()
 			// ignore actions
 			providerConf.Actions.Hook = ""

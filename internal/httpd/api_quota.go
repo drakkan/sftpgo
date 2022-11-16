@@ -44,7 +44,12 @@ type transferQuotaUsage struct {
 
 func getUsersQuotaScans(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	render.JSON(w, r, common.QuotaScans.GetUsersQuotaScans())
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+		return
+	}
+	render.JSON(w, r, common.QuotaScans.GetUsersQuotaScans(claims.Role))
 }
 
 func getFoldersQuotaScans(w http.ResponseWriter, r *http.Request) {
@@ -86,8 +91,13 @@ func startFolderQuotaScan(w http.ResponseWriter, r *http.Request) {
 
 func updateUserTransferQuotaUsage(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+		return
+	}
 	var usage transferQuotaUsage
-	err := render.DecodeJSON(r.Body, &usage)
+	err = render.DecodeJSON(r.Body, &usage)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
@@ -102,7 +112,7 @@ func updateUserTransferQuotaUsage(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
-	user, err := dataprovider.GetUserWithGroupSettings(getURLParam(r, "username"))
+	user, err := dataprovider.GetUserWithGroupSettings(getURLParam(r, "username"), claims.Role)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -122,6 +132,11 @@ func updateUserTransferQuotaUsage(w http.ResponseWriter, r *http.Request) {
 }
 
 func doUpdateUserQuotaUsage(w http.ResponseWriter, r *http.Request, username string, usage quotaUsage) {
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+		return
+	}
 	if usage.UsedQuotaFiles < 0 || usage.UsedQuotaSize < 0 {
 		sendAPIResponse(w, r, errors.New("invalid used quota parameters, negative values are not allowed"),
 			"", http.StatusBadRequest)
@@ -132,7 +147,7 @@ func doUpdateUserQuotaUsage(w http.ResponseWriter, r *http.Request, username str
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
-	user, err := dataprovider.GetUserWithGroupSettings(username)
+	user, err := dataprovider.GetUserWithGroupSettings(username, claims.Role)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -142,7 +157,7 @@ func doUpdateUserQuotaUsage(w http.ResponseWriter, r *http.Request, username str
 			"", http.StatusBadRequest)
 		return
 	}
-	if !common.QuotaScans.AddUserQuotaScan(user.Username) {
+	if !common.QuotaScans.AddUserQuotaScan(user.Username, user.Role) {
 		sendAPIResponse(w, r, err, "A quota scan is in progress for this user", http.StatusConflict)
 		return
 	}
@@ -189,12 +204,17 @@ func doStartUserQuotaScan(w http.ResponseWriter, r *http.Request, username strin
 		sendAPIResponse(w, r, nil, "Quota tracking is disabled!", http.StatusForbidden)
 		return
 	}
-	user, err := dataprovider.GetUserWithGroupSettings(username)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+		return
+	}
+	user, err := dataprovider.GetUserWithGroupSettings(username, claims.Role)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	if !common.QuotaScans.AddUserQuotaScan(user.Username) {
+	if !common.QuotaScans.AddUserQuotaScan(user.Username, user.Role) {
 		sendAPIResponse(w, r, nil, fmt.Sprintf("Another scan is already in progress for user %#v", username),
 			http.StatusConflict)
 		return

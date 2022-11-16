@@ -98,6 +98,26 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
             <div class="card bg-light mb-3">
                 <div class="card-header">
+                    <b>Role</b>
+                </div>
+                <div class="card-body">
+                    <h6 class="card-title mb-4">Setting a role limit the administrator to only manage users with the same role. Role administrators cannot have the following permissions: "manage_admins", "manage_roles", "manage_event_rules", "manage_apikeys", "manage_system"</h6>
+                    <div class="form-group row">
+                        <label for="idRole" class="col-sm-2 col-form-label">Role</label>
+                        <div class="col-sm-10">
+                            <select class="form-control selectpicker" data-live-search="true" id="idRole" name="role">
+                                <option value=""></option>
+                                {{- range .Roles}}
+                                <option value="{{.Name}}" {{if eq $.Admin.Role .Name}}selected{{end}}>{{.Name}}</option>
+                                {{- end}}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card bg-light mb-3">
+                <div class="card-header">
                     <b>Groups for users</b>
                 </div>
                 <div class="card-body">

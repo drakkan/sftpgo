@@ -2088,7 +2088,7 @@ func TestRecoverer(t *testing.T) {
 	}
 	err = scpCmd.handle()
 	assert.EqualError(t, err, common.ErrGenericFailure.Error())
-	assert.Len(t, common.Connections.GetStats(), 0)
+	assert.Len(t, common.Connections.GetStats(""), 0)
 }
 
 func TestListernerAcceptErrors(t *testing.T) {
@@ -2241,7 +2241,7 @@ func TestMaxUserSessions(t *testing.T) {
 		assert.Contains(t, err.Error(), "too many open sessions")
 	}
 	common.Connections.Remove(connection.GetID())
-	assert.Len(t, common.Connections.GetStats(), 0)
+	assert.Len(t, common.Connections.GetStats(""), 0)
 }
 
 func TestCanReadSymlink(t *testing.T) {

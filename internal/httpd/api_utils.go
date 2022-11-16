@@ -160,9 +160,9 @@ func getActiveConnections(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
 	}
-	stats := common.Connections.GetStats()
+	stats := common.Connections.GetStats(claims.Role)
 	if claims.NodeID == "" {
-		stats = append(stats, getNodesConnections(claims.Username)...)
+		stats = append(stats, getNodesConnections(claims.Username, claims.Role)...)
 	}
 	render.JSON(w, r, stats)
 }
@@ -181,7 +181,7 @@ func handleCloseConnection(w http.ResponseWriter, r *http.Request) {
 	}
 	node := r.URL.Query().Get("node")
 	if node == "" || node == dataprovider.GetNodeName() {
-		if common.Connections.Close(connectionID) {
+		if common.Connections.Close(connectionID, claims.Role) {
 			sendAPIResponse(w, r, nil, "Connection closed", http.StatusOK)
 		} else {
 			sendAPIResponse(w, r, nil, "Not Found", http.StatusNotFound)
@@ -195,7 +195,7 @@ func handleCloseConnection(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, nil, http.StatusText(status), status)
 		return
 	}
-	if err := n.SendDeleteRequest(claims.Username, fmt.Sprintf("%s/%s", activeConnectionsPath, connectionID)); err != nil {
+	if err := n.SendDeleteRequest(claims.Username, claims.Role, fmt.Sprintf("%s/%s", activeConnectionsPath, connectionID)); err != nil {
 		logger.Warn(logSender, "", "unable to delete connection id %q from node %q: %v", connectionID, n.Name, err)
 		sendAPIResponse(w, r, nil, "Not Found", http.StatusNotFound)
 		return
@@ -205,7 +205,7 @@ func handleCloseConnection(w http.ResponseWriter, r *http.Request) {
 
 // getNodesConnections returns the active connections from other nodes.
 // Errors are silently ignored
-func getNodesConnections(admin string) []common.ConnectionStatus {
+func getNodesConnections(admin, role string) []common.ConnectionStatus {
 	nodes, err := dataprovider.GetNodes()
 	if err != nil || len(nodes) == 0 {
 		return nil
@@ -221,7 +221,7 @@ func getNodesConnections(admin string) []common.ConnectionStatus {
 			defer wg.Done()
 
 			var stats []common.ConnectionStatus
-			if err := node.SendGetRequest(admin, activeConnectionsPath, &stats); err != nil {
+			if err := node.SendGetRequest(admin, role, activeConnectionsPath, &stats); err != nil {
 				logger.Warn(logSender, "", "unable to get connections from node %s: %v", node.Name, err)
 				return
 			}
@@ -647,7 +647,7 @@ func handleForgotPassword(r *http.Request, username string, isAdmin bool) error 
 		email = admin.Email
 		subject = fmt.Sprintf("Email Verification Code for admin %#v", username)
 	} else {
-		user, err = dataprovider.GetUserWithGroupSettings(username)
+		user, err = dataprovider.GetUserWithGroupSettings(username, "")
 		email = user.Email
 		subject = fmt.Sprintf("Email Verification Code for user %#v", username)
 		if err == nil {
@@ -719,7 +719,7 @@ func handleResetPassword(r *http.Request, code, newPassword string, isAdmin bool
 		err = resetCodesMgr.Delete(code)
 		return &admin, &user, err
 	}
-	user, err = dataprovider.GetUserWithGroupSettings(resetCode.Username)
+	user, err = dataprovider.GetUserWithGroupSettings(resetCode.Username, "")
 	if err != nil {
 		return &admin, &user, util.NewValidationError("Unable to associate the confirmation code with an existing user")
 	}

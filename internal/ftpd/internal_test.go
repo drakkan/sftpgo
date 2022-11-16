@@ -620,12 +620,12 @@ func TestClientVersion(t *testing.T) {
 	}
 	err := common.Connections.Add(connection)
 	assert.NoError(t, err)
-	stats := common.Connections.GetStats()
+	stats := common.Connections.GetStats("")
 	if assert.Len(t, stats, 1) {
 		assert.Equal(t, "mock version", stats[0].ClientVersion)
 		common.Connections.Remove(connection.GetID())
 	}
-	assert.Len(t, common.Connections.GetStats(), 0)
+	assert.Len(t, common.Connections.GetStats(""), 0)
 }
 
 func TestDriverMethodsNotImplemented(t *testing.T) {

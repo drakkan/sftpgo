@@ -87,7 +87,7 @@ const (
 	CockroachDataProviderName = "cockroachdb"
 	// DumpVersion defines the version for the dump.
 	// For restore/load we support the current version and the previous one
-	DumpVersion = 13
+	DumpVersion = 14
 
 	argonPwdPrefix            = "$argon2id$"
 	bcryptPwdPrefix           = "$2a$"
@@ -190,6 +190,7 @@ var (
 	sqlTableRulesActionsMapping  string
 	sqlTableTasks                string
 	sqlTableNodes                string
+	sqlTableRoles                string
 	sqlTableSchemaVersion        string
 	argon2Params                 *argon2id.Params
 	lastLoginMinDelay            = 10 * time.Minute
@@ -221,6 +222,7 @@ func initSQLTables() {
 	sqlTableRulesActionsMapping = "rules_actions_mapping"
 	sqlTableTasks = "tasks"
 	sqlTableNodes = "nodes"
+	sqlTableRoles = "roles"
 	sqlTableSchemaVersion = "schema_version"
 }
 
@@ -660,6 +662,7 @@ type BackupData struct {
 	Shares       []Share                 `json:"shares"`
 	EventActions []BaseEventAction       `json:"event_actions"`
 	EventRules   []EventRule             `json:"event_rules"`
+	Roles        []Role                  `json:"roles"`
 	Version      int                     `json:"version"`
 }
 
@@ -706,12 +709,12 @@ type Provider interface {
 	updateQuota(username string, filesAdd int, sizeAdd int64, reset bool) error
 	updateTransferQuota(username string, uploadSize, downloadSize int64, reset bool) error
 	getUsedQuota(username string) (int, int64, int64, int64, error)
-	userExists(username string) (User, error)
+	userExists(username, role string) (User, error)
 	addUser(user *User) error
 	updateUser(user *User) error
 	deleteUser(user User, softDelete bool) error
 	updateUserPassword(username, password string) error
-	getUsers(limit int, offset int, order string) ([]User, error)
+	getUsers(limit int, offset int, order, role string) ([]User, error)
 	dumpUsers() ([]User, error)
 	getRecentlyUpdatedUsers(after int64) ([]User, error)
 	getUsersForQuotaCheck(toFetch map[string]bool) ([]User, error)
@@ -796,6 +799,12 @@ type Provider interface {
 	getNodes() ([]Node, error)
 	updateNodeTimestamp() error
 	cleanupNodes() error
+	roleExists(name string) (Role, error)
+	addRole(role *Role) error
+	updateRole(role *Role) error
+	deleteRole(role Role) error
+	getRoles(limit int, offset int, order string, minimal bool) ([]Role, error)
+	dumpRoles() ([]Role, error)
 	checkAvailability() error
 	close() error
 	reloadConfig() error
@@ -974,16 +983,17 @@ func validateSQLTablesPrefix() error {
 		sqlTableRulesActionsMapping = config.SQLTablesPrefix + sqlTableRulesActionsMapping
 		sqlTableTasks = config.SQLTablesPrefix + sqlTableTasks
 		sqlTableNodes = config.SQLTablesPrefix + sqlTableNodes
+		sqlTableRoles = config.SQLTablesPrefix + sqlTableRoles
 		sqlTableSchemaVersion = config.SQLTablesPrefix + sqlTableSchemaVersion
 		providerLog(logger.LevelDebug, "sql table for users %q, folders %q users folders mapping %q admins %q "+
 			"api keys %q shares %q defender hosts %q defender events %q transfers %q  groups %q "+
 			"users groups mapping %q admins groups mapping %q groups folders mapping %q shared sessions %q "+
-			"schema version %q events actions %q events rules %q rules actions mapping %q tasks %q nodes %q",
+			"schema version %q events actions %q events rules %q rules actions mapping %q tasks %q nodes %q roles %q",
 			sqlTableUsers, sqlTableFolders, sqlTableUsersFoldersMapping, sqlTableAdmins, sqlTableAPIKeys,
 			sqlTableShares, sqlTableDefenderHosts, sqlTableDefenderEvents, sqlTableActiveTransfers, sqlTableGroups,
 			sqlTableUsersGroupsMapping, sqlTableAdminsGroupsMapping, sqlTableGroupsFoldersMapping, sqlTableSharedSessions,
 			sqlTableSchemaVersion, sqlTableEventsActions, sqlTableEventsRules, sqlTableRulesActionsMapping,
-			sqlTableTasks, sqlTableNodes)
+			sqlTableTasks, sqlTableNodes, sqlTableRoles)
 	}
 	return nil
 }
@@ -1158,7 +1168,7 @@ func CheckUserBeforeTLSAuth(username, ip, protocol string, tlsCert *x509.Certifi
 		err = user.LoadAndApplyGroupSettings()
 		return user, err
 	}
-	user, err := UserExists(username)
+	user, err := UserExists(username, "")
 	if err != nil {
 		return user, err
 	}
@@ -1261,7 +1271,7 @@ func CheckKeyboardInteractiveAuth(username, authHook string, client ssh.Keyboard
 	} else if config.PreLoginHook != "" {
 		user, err = executePreLoginHook(username, SSHLoginMethodKeyboardInteractive, ip, protocol, nil)
 	} else {
-		user, err = provider.userExists(username)
+		user, err = provider.userExists(username, "")
 	}
 	if err != nil {
 		return user, err
@@ -1279,7 +1289,7 @@ func GetFTPPreAuthUser(username, ip string) (User, error) {
 	if config.PreLoginHook != "" {
 		user, err = executePreLoginHook(username, "", ip, protocolFTP, nil)
 	} else {
-		user, err = UserExists(username)
+		user, err = UserExists(username, "")
 	}
 	if err != nil {
 		return user, err
@@ -1298,7 +1308,7 @@ func GetUserAfterIDPAuth(username, ip, protocol string, oidcTokenFields *map[str
 	if config.PreLoginHook != "" {
 		user, err = executePreLoginHook(username, LoginMethodIDP, ip, protocol, oidcTokenFields)
 	} else {
-		user, err = UserExists(username)
+		user, err = UserExists(username, "")
 	}
 	if err != nil {
 		return user, err
@@ -1532,6 +1542,57 @@ func ShareExists(shareID, username string) (Share, error) {
 	return provider.shareExists(shareID, username)
 }
 
+// AddRole adds a new role
+func AddRole(role *Role, executor, ipAddress string) error {
+	role.Name = config.convertName(role.Name)
+	err := provider.addRole(role)
+	if err == nil {
+		executeAction(operationAdd, executor, ipAddress, actionObjectRole, role.Name, role)
+	}
+	return err
+}
+
+// UpdateRole updates an existing Role
+func UpdateRole(role *Role, executor, ipAddress string) error {
+	err := provider.updateRole(role)
+	if err == nil {
+		executeAction(operationUpdate, executor, ipAddress, actionObjectRole, role.Name, role)
+	}
+	return err
+}
+
+// DeleteRole deletes an existing Role
+func DeleteRole(name string, executor, ipAddress string) error {
+	name = config.convertName(name)
+	role, err := provider.roleExists(name)
+	if err != nil {
+		return err
+	}
+	if len(role.Admins) > 0 {
+		errorString := fmt.Sprintf("the role %q is referenced, it cannot be removed", role.Name)
+		return util.NewValidationError(errorString)
+	}
+	err = provider.deleteRole(role)
+	if err == nil {
+		executeAction(operationDelete, executor, ipAddress, actionObjectRole, role.Name, &role)
+		for _, user := range role.Users {
+			provider.setUpdatedAt(user)
+			u, err := provider.userExists(user, "")
+			if err == nil {
+				webDAVUsersCache.swap(&u)
+				executeAction(operationUpdate, executor, ipAddress, actionObjectUser, u.Username, &u)
+			}
+		}
+	}
+	return err
+}
+
+// RoleExists returns the Role with the given name if it exists
+func RoleExists(name string) (Role, error) {
+	name = config.convertName(name)
+	return provider.roleExists(name)
+}
+
 // AddGroup adds a new group
 func AddGroup(group *Group, executor, ipAddress string) error {
 	group.Name = config.convertName(group.Name)
@@ -1548,7 +1609,7 @@ func UpdateGroup(group *Group, users []string, executor, ipAddress string) error
 	if err == nil {
 		for _, user := range users {
 			provider.setUpdatedAt(user)
-			u, err := provider.userExists(user)
+			u, err := provider.userExists(user, "")
 			if err == nil {
 				webDAVUsersCache.swap(&u)
 				executeAction(operationUpdate, executor, ipAddress, actionObjectUser, u.Username, &u)
@@ -1569,14 +1630,14 @@ func DeleteGroup(name string, executor, ipAddress string) error {
 		return err
 	}
 	if len(group.Users) > 0 {
-		errorString := fmt.Sprintf("the group %#v is referenced, it cannot be removed", group.Name)
+		errorString := fmt.Sprintf("the group %q is referenced, it cannot be removed", group.Name)
 		return util.NewValidationError(errorString)
 	}
 	err = provider.deleteGroup(group)
 	if err == nil {
 		for _, user := range group.Users {
 			provider.setUpdatedAt(user)
-			u, err := provider.userExists(user)
+			u, err := provider.userExists(user, "")
 			if err == nil {
 				executeAction(operationUpdate, executor, ipAddress, actionObjectUser, u.Username, &u)
 			}
@@ -1840,16 +1901,16 @@ func AdminExists(username string) (Admin, error) {
 }
 
 // UserExists checks if the given SFTPGo username exists, returns an error if no match is found
-func UserExists(username string) (User, error) {
+func UserExists(username, role string) (User, error) {
 	username = config.convertName(username)
-	return provider.userExists(username)
+	return provider.userExists(username, role)
 }
 
 // GetUserWithGroupSettings tries to return the user with the specified username
 // loading also the group settings
-func GetUserWithGroupSettings(username string) (User, error) {
+func GetUserWithGroupSettings(username, role string) (User, error) {
 	username = config.convertName(username)
-	user, err := provider.userExists(username)
+	user, err := provider.userExists(username, role)
 	if err != nil {
 		return user, err
 	}
@@ -1859,9 +1920,9 @@ func GetUserWithGroupSettings(username string) (User, error) {
 
 // GetUserVariants tries to return the user with the specified username with and without
 // group settings applied
-func GetUserVariants(username string) (User, User, error) {
+func GetUserVariants(username, role string) (User, User, error) {
 	username = config.convertName(username)
-	user, err := provider.userExists(username)
+	user, err := provider.userExists(username, role)
 	if err != nil {
 		return user, User{}, err
 	}
@@ -1872,10 +1933,6 @@ func GetUserVariants(username string) (User, User, error) {
 
 // AddUser adds a new SFTPGo user.
 func AddUser(user *User, executor, ipAddress string) error {
-	user.Filters.RecoveryCodes = nil
-	user.Filters.TOTPConfig = UserTOTPConfig{
-		Enabled: false,
-	}
 	user.Username = config.convertName(user.Username)
 	err := provider.addUser(user)
 	if err == nil {
@@ -1914,9 +1971,9 @@ func UpdateUser(user *User, executor, ipAddress string) error {
 }
 
 // DeleteUser deletes an existing SFTPGo user.
-func DeleteUser(username, executor, ipAddress string) error {
+func DeleteUser(username, executor, ipAddress, role string) error {
 	username = config.convertName(username)
-	user, err := provider.userExists(username)
+	user, err := provider.userExists(username, role)
 	if err != nil {
 		return err
 	}
@@ -2028,14 +2085,19 @@ func GetAdmins(limit, offset int, order string) ([]Admin, error) {
 	return provider.getAdmins(limit, offset, order)
 }
 
+// GetRoles returns an array of roles respecting limit and offset
+func GetRoles(limit, offset int, order string, minimal bool) ([]Role, error) {
+	return provider.getRoles(limit, offset, order, minimal)
+}
+
 // GetGroups returns an array of groups respecting limit and offset
 func GetGroups(limit, offset int, order string, minimal bool) ([]Group, error) {
 	return provider.getGroups(limit, offset, order, minimal)
 }
 
 // GetUsers returns an array of users respecting limit and offset
-func GetUsers(limit, offset int, order string) ([]User, error) {
-	return provider.getUsers(limit, offset, order)
+func GetUsers(limit, offset int, order, role string) ([]User, error) {
+	return provider.getUsers(limit, offset, order, role)
 }
 
 // GetUsersForQuotaCheck returns the users with the fields required for a quota check
@@ -2067,7 +2129,7 @@ func UpdateFolder(folder *vfs.BaseVirtualFolder, users []string, groups []string
 		}
 		for _, user := range users {
 			provider.setUpdatedAt(user)
-			u, err := provider.userExists(user)
+			u, err := provider.userExists(user, "")
 			if err == nil {
 				webDAVUsersCache.swap(&u)
 				executeAction(operationUpdate, executor, ipAddress, actionObjectUser, u.Username, &u)
@@ -2099,7 +2161,7 @@ func DeleteFolder(folderName, executor, ipAddress string) error {
 		}
 		for _, user := range users {
 			provider.setUpdatedAt(user)
-			u, err := provider.userExists(user)
+			u, err := provider.userExists(user, "")
 			if err == nil {
 				executeAction(operationUpdate, executor, ipAddress, actionObjectUser, u.Username, &u)
 			}
@@ -2166,6 +2228,10 @@ func DumpData() (BackupData, error) {
 	if err != nil {
 		return data, err
 	}
+	roles, err := provider.dumpRoles()
+	if err != nil {
+		return data, err
+	}
 	data.Users = users
 	data.Groups = groups
 	data.Folders = folders
@@ -2174,6 +2240,7 @@ func DumpData() (BackupData, error) {
 	data.Shares = shares
 	data.EventActions = actions
 	data.EventRules = rules
+	data.Roles = roles
 	data.Version = DumpVersion
 	return data, err
 }
@@ -2749,7 +2816,7 @@ func validateBaseParams(user *User) error {
 		return util.NewValidationError(fmt.Sprintf("email %#v is not valid", user.Email))
 	}
 	if config.NamingRules&1 == 0 && !usernameRegex.MatchString(user.Username) {
-		return util.NewValidationError(fmt.Sprintf("username %#v is not valid, the following characters are allowed: a-zA-Z0-9-_.~",
+		return util.NewValidationError(fmt.Sprintf("username %q is not valid, the following characters are allowed: a-zA-Z0-9-_.~",
 			user.Username))
 	}
 	if user.hasRedactedSecret() {
@@ -2821,7 +2888,7 @@ func ValidateFolder(folder *vfs.BaseVirtualFolder) error {
 		return util.NewValidationError("folder name is mandatory")
 	}
 	if config.NamingRules&1 == 0 && !usernameRegex.MatchString(folder.Name) {
-		return util.NewValidationError(fmt.Sprintf("folder name %#v is not valid, the following characters are allowed: a-zA-Z0-9-_.~",
+		return util.NewValidationError(fmt.Sprintf("folder name %q is not valid, the following characters are allowed: a-zA-Z0-9-_.~",
 			folder.Name))
 	}
 	if folder.FsConfig.Provider == sdk.LocalFilesystemProvider || folder.FsConfig.Provider == sdk.CryptedFilesystemProvider ||
@@ -3671,7 +3738,7 @@ func executePreLoginHook(username, loginMethod, ip, protocol string, oidcTokenFi
 	}
 	providerLog(logger.LevelDebug, "user %#v added/updated from pre-login hook response, id: %v", username, userID)
 	if userID == 0 {
-		return provider.userExists(username)
+		return provider.userExists(username, "")
 	}
 	return u, nil
 }
@@ -3875,7 +3942,7 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 	// returns "user" in both cases, so we use the username returned from
 	// external auth and not the one used to login
 	if user.Username != username {
-		u, err = provider.userExists(user.Username)
+		u, err = provider.userExists(user.Username, "")
 	}
 	if u.ID > 0 && err == nil {
 		user.ID = u.ID
@@ -3903,7 +3970,7 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 	if err != nil {
 		return user, err
 	}
-	return provider.userExists(user.Username)
+	return provider.userExists(user.Username, "")
 }
 
 func doPluginAuth(username, password string, pubKey []byte, ip, protocol string,
@@ -3975,11 +4042,11 @@ func doPluginAuth(username, password string, pubKey []byte, ip, protocol string,
 	if err != nil {
 		return user, err
 	}
-	return provider.userExists(user.Username)
+	return provider.userExists(user.Username, "")
 }
 
 func getUserForHook(username string, oidcTokenFields *map[string]any) (User, User, error) {
-	u, err := provider.userExists(username)
+	u, err := provider.userExists(username, "")
 	if err != nil {
 		if _, ok := err.(*util.RecordNotFoundError); !ok {
 			return u, u, err

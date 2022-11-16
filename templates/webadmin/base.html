@@ -121,6 +121,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             </li>
             {{end}}
 
+            {{ if .LoggedAdmin.HasPermission "manage_roles"}}
+            <li class="nav-item {{if eq .CurrentURL .RolesURL}}active{{end}}">
+                <a class="nav-link" href="{{.RolesURL}}">
+                    <i class="fas fa-user-lock"></i>
+                    <span>{{.RolesTitle}}</span></a>
+            </li>
+            {{end}}
+
             {{ if .LoggedAdmin.HasPermission "manage_admins"}}
             <li class="nav-item {{if eq .CurrentURL .AdminsURL}}active{{end}}">
                 <a class="nav-link" href="{{.AdminsURL}}">

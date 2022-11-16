@@ -25,8 +25,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lestrrat-go/jwx/jwa"
-	"github.com/lestrrat-go/jwx/jwt"
+	"github.com/lestrrat-go/jwx/v2/jwa"
+	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/rs/xid"
 
 	"github.com/drakkan/sftpgo/v2/internal/httpclient"
@@ -120,27 +120,33 @@ func (n *Node) validate() error {
 	return n.Data.validate()
 }
 
-func (n *Node) authenticate(token string) (string, error) {
+func (n *Node) authenticate(token string) (string, string, error) {
 	if err := n.Data.Key.TryDecrypt(); err != nil {
 		providerLog(logger.LevelError, "unable to decrypt node key: %v", err)
-		return "", err
+		return "", "", err
 	}
 	if token == "" {
-		return "", ErrInvalidCredentials
+		return "", "", ErrInvalidCredentials
 	}
-	t, err := jwt.Parse([]byte(token), jwt.WithVerify(jwa.HS256, []byte(n.Data.Key.GetPayload())))
+	t, err := jwt.Parse([]byte(token), jwt.WithKey(jwa.HS256, []byte(n.Data.Key.GetPayload())), jwt.WithValidate(true))
 	if err != nil {
-		return "", fmt.Errorf("unable to parse token: %v", err)
+		return "", "", fmt.Errorf("unable to parse and validate token: %v", err)
 	}
-	if err := jwt.Validate(t); err != nil {
-		return "", fmt.Errorf("unable to validate token: %v", err)
-	}
+	var adminUsername, role string
 	if admin, ok := t.Get("admin"); ok {
 		if val, ok := admin.(string); ok && val != "" {
-			return val, nil
+			adminUsername = val
 		}
 	}
-	return "", errors.New("no admin username associated with node token")
+	if adminUsername == "" {
+		return "", "", errors.New("no admin username associated with node token")
+	}
+	if r, ok := t.Get("role"); ok {
+		if val, ok := r.(string); ok && val != "" {
+			role = val
+		}
+	}
+	return adminUsername, role, nil
 }
 
 // getBaseURL returns the base URL for this node
@@ -157,7 +163,7 @@ func (n *Node) getBaseURL() string {
 }
 
 // generateAuthToken generates a new auth token
-func (n *Node) generateAuthToken(username string) (string, error) {
+func (n *Node) generateAuthToken(username, role string) (string, error) {
 	if err := n.Data.Key.TryDecrypt(); err != nil {
 		return "", fmt.Errorf("unable to decrypt node key: %w", err)
 	}
@@ -165,18 +171,19 @@ func (n *Node) generateAuthToken(username string) (string, error) {
 
 	t := jwt.New()
 	t.Set("admin", username)                          //nolint:errcheck
+	t.Set("role", role)                               //nolint:errcheck
 	t.Set(jwt.JwtIDKey, xid.New().String())           //nolint:errcheck
 	t.Set(jwt.NotBeforeKey, now.Add(-30*time.Second)) //nolint:errcheck
 	t.Set(jwt.ExpirationKey, now.Add(1*time.Minute))  //nolint:errcheck
 
-	payload, err := jwt.Sign(t, jwa.HS256, []byte(n.Data.Key.GetPayload()))
+	payload, err := jwt.Sign(t, jwt.WithKey(jwa.HS256, []byte(n.Data.Key.GetPayload())))
 	if err != nil {
 		return "", fmt.Errorf("unable to sign authentication token: %w", err)
 	}
 	return string(payload), nil
 }
 
-func (n *Node) prepareRequest(ctx context.Context, username, relativeURL, method string,
+func (n *Node) prepareRequest(ctx context.Context, username, role, relativeURL, method string,
 	body io.Reader,
 ) (*http.Request, error) {
 	url := fmt.Sprintf("%s%s", n.getBaseURL(), relativeURL)
@@ -184,7 +191,7 @@ func (n *Node) prepareRequest(ctx context.Context, username, relativeURL, method
 	if err != nil {
 		return nil, err
 	}
-	token, err := n.generateAuthToken(username)
+	token, err := n.generateAuthToken(username, role)
 	if err != nil {
 		return nil, err
 	}
@@ -194,11 +201,11 @@ func (n *Node) prepareRequest(ctx context.Context, username, relativeURL, method
 
 // SendGetRequest sends an HTTP GET request to this node.
 // The responseHolder must be a pointer
-func (n *Node) SendGetRequest(username, relativeURL string, responseHolder any) error {
+func (n *Node) SendGetRequest(username, role, relativeURL string, responseHolder any) error {
 	ctx, cancel := context.WithTimeout(context.Background(), nodeReqTimeout)
 	defer cancel()
 
-	req, err := n.prepareRequest(ctx, username, relativeURL, http.MethodGet, nil)
+	req, err := n.prepareRequest(ctx, username, role, relativeURL, http.MethodGet, nil)
 	if err != nil {
 		return err
 	}
@@ -222,11 +229,11 @@ func (n *Node) SendGetRequest(username, relativeURL string, responseHolder any) 
 }
 
 // SendDeleteRequest sends an HTTP DELETE request to this node
-func (n *Node) SendDeleteRequest(username, relativeURL string) error {
+func (n *Node) SendDeleteRequest(username, role, relativeURL string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), nodeReqTimeout)
 	defer cancel()
 
-	req, err := n.prepareRequest(ctx, username, relativeURL, http.MethodDelete, nil)
+	req, err := n.prepareRequest(ctx, username, role, relativeURL, http.MethodDelete, nil)
 	if err != nil {
 		return err
 	}
@@ -246,9 +253,9 @@ func (n *Node) SendDeleteRequest(username, relativeURL string) error {
 }
 
 // AuthenticateNodeToken check the validity of the provided token
-func AuthenticateNodeToken(token string) (string, error) {
+func AuthenticateNodeToken(token string) (string, string, error) {
 	if currentNode == nil {
-		return "", errNoClusterNodes
+		return "", "", errNoClusterNodes
 	}
 	return currentNode.authenticate(token)
 }
