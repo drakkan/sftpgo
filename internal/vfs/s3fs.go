@@ -60,6 +60,10 @@ const (
 	s3fsName             = "S3Fs"
 )
 
+var (
+	s3DirMimeTypes = []string{s3DirMimeType, "httpd/unix-directory"}
+)
+
 // S3Fs is a Fs implementation for AWS S3 compatible object storages
 type S3Fs struct {
 	connectionID string
@@ -159,9 +163,9 @@ func (fs *S3Fs) Stat(name string) (os.FileInfo, error) {
 	}
 	obj, err := fs.headObject(name)
 	if err == nil {
-		// Some s3 providers (like seaweedfs) do not support traling '/' in object key.
-		// So We have to check Content-type of the object and detect that the object whether is an empty directory or an ordinary object.
-		isDir := util.GetStringFromPointer(obj.ContentType) == s3DirMimeType
+		// Some S3 providers (like SeaweedFS) remove the trailing '/' from object keys.
+		// So we check some common content types to detect if this is a "directory".
+		isDir := util.Contains(s3DirMimeTypes, util.GetStringFromPointer(obj.ContentType))
 		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, isDir, obj.ContentLength,
 			util.GetTimeFromPointer(obj.LastModified), false))
 	}
