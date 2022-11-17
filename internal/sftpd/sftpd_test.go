@@ -401,6 +401,12 @@ func TestInitialization(t *testing.T) {
 	assert.True(t, sftpdConf.Bindings[0].HasProxy())
 	err = sftpdConf.Initialize(configDir)
 	assert.Error(t, err)
+	sftpdConf.Moduli = []string{"missing moduli file"}
+	err = sftpdConf.Initialize(configDir)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "unable to open moduli file")
+	}
+	sftpdConf.Moduli = nil
 	sftpdConf.HostKeys = []string{"missing key"}
 	err = sftpdConf.Initialize(configDir)
 	assert.Error(t, err)
