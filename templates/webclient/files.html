@@ -109,8 +109,19 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 </button>
             </div>
             <form id="upload_files_form" action="{{.FilesURL}}?path={{.CurrentDir}}" method="POST" enctype="multipart/form-data">
-                 <div class="modal-body">
-                    <input type="file" class="form-control-file" id="files_name" name="filenames" required multiple>
+                <div class="modal-body">
+                    <label for="files_name" class="w-100">
+                        <input type="file" class="form-control-file" id="files_name" name="filenames" style="display: none" required
+                            multiple />
+                        <div class="m-2 p-5 rounded d-flex flex-column align-items-center justify-content-center"
+                            style="border: dashed">
+                            <div class="user-select-none text-center">
+                                <h3 class="text-muted user-select-none m-0 p-0">Drop your files here</h3>
+                                <p class="m-0 p-0">or click to browse</p>
+                            </div>
+                        </div>
+                        <p id="files_names_display" class="m-2 text-center">No selected files.</p>
+                    </label>
                 </div>
                 <div class="modal-footer">
                     <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
@@ -795,32 +806,50 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
             uploadFile();
         });
-	    
-	$(window).on('dragover', function (e) {
-	    e.preventDefault();
-	    $('#uploadFilesModal').modal('show');
-	});
-	$(window).on('dragend', function (e) {
-	    e.preventDefault();
-	    $('#uploadFilesModal').modal('hide');
-	});
-	$(window).on('drop', function (e) {
-	    e.preventDefault();
-	});
+        
+        let dropContainer = $('#uploadFilesModal').first();
+        let dropzone = $('#dropzone').first();
+        let fileInput = document.querySelector('#files_name');
+        let dragOverTimeout;
 
-	// Using vanilla document.querySelector() function because
-	// file input will not update otherwise
-	let dropContainer = $('#uploadFilesModal').first();
-	let fileInput = document.querySelector('#files_name');
+        $(window).on('dragover', function (e) {
+            e.preventDefault();
+            $('#uploadFilesModal').modal('show');
+            clearTimeout(dragOverTimeout);
+            dragOverTimeout = setTimeout(() => {
+                $('#uploadFilesModal').modal('hide');
+            }, 100);
+        });
 
-	dropContainer.on('dragover dragenter', function (evt) {
-	    evt.preventDefault();
-	});
+        $(window).on('dragend drop', function (e) {
+            clearTimeout(dragOverTimeout);
+            e.preventDefault();
+        });
 
-	dropContainer.on('drop', function (evt) {
-	    fileInput.files = evt.originalEvent.dataTransfer.files;
-	    evt.preventDefault();
-	});
+        $(fileInput).on('change input', function (e) {
+            if (fileInput.files.length == 1) {
+                $('#files_names_display').text(`${fileInput.files[0].name}`);
+            } else if (fileInput.files.length > 1) {
+                $('#files_names_display').text(`${fileInput.files.length} files selected.`);
+            } else {
+                $('#files_names_display').text('No selected files.');
+            }
+        });
+
+        dropContainer.on('dragover dragenter', function (e) {
+            e.preventDefault();
+        });
+
+        dropContainer.on('drop', function (e) {
+            e.preventDefault();
+            fileInput.files = e.originalEvent.dataTransfer.files;
+            $(fileInput).trigger('change');
+        });
+
+        dropContainer.on('hidden.bs.modal', function (e) {
+            $(fileInput).val('');
+            $(fileInput).trigger('change');
+        });
 
         $("#rename_form").submit(function (event){
             event.preventDefault();
