@@ -62,6 +62,7 @@ const (
 	retentionChecksPath   = "/api/v2/retention/users/checks"
 	eventActionsPath      = "/api/v2/eventactions"
 	eventRulesPath        = "/api/v2/eventrules"
+	rolesPath             = "/api/v2/roles"
 )
 
 const (
@@ -366,6 +367,115 @@ func GetGroups(limit, offset int64, expectedStatusCode int) ([]dataprovider.Grou
 		body, _ = getResponseBody(resp)
 	}
 	return groups, body, err
+}
+
+// AddRole adds a new role and checks the received HTTP Status code against expectedStatusCode.
+func AddRole(role dataprovider.Role, expectedStatusCode int) (dataprovider.Role, []byte, error) {
+	var newRole dataprovider.Role
+	var body []byte
+	asJSON, _ := json.Marshal(role)
+	resp, err := sendHTTPRequest(http.MethodPost, buildURLRelativeToBase(rolesPath), bytes.NewBuffer(asJSON),
+		"application/json", getDefaultToken())
+	if err != nil {
+		return newRole, body, err
+	}
+	defer resp.Body.Close()
+	err = checkResponse(resp.StatusCode, expectedStatusCode)
+	if expectedStatusCode != http.StatusCreated {
+		body, _ = getResponseBody(resp)
+		return newRole, body, err
+	}
+	if err == nil {
+		err = render.DecodeJSON(resp.Body, &newRole)
+	} else {
+		body, _ = getResponseBody(resp)
+	}
+	if err == nil {
+		err = checkRole(role, newRole)
+	}
+	return newRole, body, err
+}
+
+// UpdateRole updates an existing role and checks the received HTTP Status code against expectedStatusCode
+func UpdateRole(role dataprovider.Role, expectedStatusCode int) (dataprovider.Role, []byte, error) {
+	var newRole dataprovider.Role
+	var body []byte
+
+	asJSON, _ := json.Marshal(role)
+	resp, err := sendHTTPRequest(http.MethodPut, buildURLRelativeToBase(rolesPath, url.PathEscape(role.Name)),
+		bytes.NewBuffer(asJSON), "application/json", getDefaultToken())
+	if err != nil {
+		return newRole, body, err
+	}
+	defer resp.Body.Close()
+	body, _ = getResponseBody(resp)
+	err = checkResponse(resp.StatusCode, expectedStatusCode)
+	if expectedStatusCode != http.StatusOK {
+		return newRole, body, err
+	}
+	if err == nil {
+		newRole, body, err = GetRoleByName(role.Name, expectedStatusCode)
+	}
+	if err == nil {
+		err = checkRole(role, newRole)
+	}
+	return newRole, body, err
+}
+
+// RemoveRole removes an existing role and checks the received HTTP Status code against expectedStatusCode.
+func RemoveRole(role dataprovider.Role, expectedStatusCode int) ([]byte, error) {
+	var body []byte
+	resp, err := sendHTTPRequest(http.MethodDelete, buildURLRelativeToBase(rolesPath, url.PathEscape(role.Name)),
+		nil, "", getDefaultToken())
+	if err != nil {
+		return body, err
+	}
+	defer resp.Body.Close()
+	body, _ = getResponseBody(resp)
+	return body, checkResponse(resp.StatusCode, expectedStatusCode)
+}
+
+// GetRoleByName gets a role by name and checks the received HTTP Status code against expectedStatusCode.
+func GetRoleByName(name string, expectedStatusCode int) (dataprovider.Role, []byte, error) {
+	var role dataprovider.Role
+	var body []byte
+	resp, err := sendHTTPRequest(http.MethodGet, buildURLRelativeToBase(rolesPath, url.PathEscape(name)),
+		nil, "", getDefaultToken())
+	if err != nil {
+		return role, body, err
+	}
+	defer resp.Body.Close()
+	err = checkResponse(resp.StatusCode, expectedStatusCode)
+	if err == nil && expectedStatusCode == http.StatusOK {
+		err = render.DecodeJSON(resp.Body, &role)
+	} else {
+		body, _ = getResponseBody(resp)
+	}
+	return role, body, err
+}
+
+// GetRoles returns a list of roles and checks the received HTTP Status code against expectedStatusCode.
+// The number of results can be limited specifying a limit.
+// Some results can be skipped specifying an offset.
+func GetRoles(limit, offset int64, expectedStatusCode int) ([]dataprovider.Role, []byte, error) {
+	var roles []dataprovider.Role
+	var body []byte
+	url, err := addLimitAndOffsetQueryParams(buildURLRelativeToBase(rolesPath), limit, offset)
+	if err != nil {
+		return roles, body, err
+	}
+	resp, err := sendHTTPRequest(http.MethodGet, url.String(), nil, "", getDefaultToken())
+	if err != nil {
+		return roles, body, err
+	}
+	defer resp.Body.Close()
+	err = checkResponse(resp.StatusCode, expectedStatusCode)
+	if err == nil && expectedStatusCode == http.StatusOK {
+		err = render.DecodeJSON(resp.Body, &roles)
+	} else {
+		body, _ = getResponseBody(resp)
+	}
+	return roles, body, err
 }
 
 // AddAdmin adds a new admin and checks the received HTTP Status code against expectedStatusCode.
@@ -1503,6 +1613,31 @@ func checkEventRule(expected, actual dataprovider.EventRule) error {
 	return checkEventRuleActions(expected.Actions, actual.Actions)
 }
 
+func checkRole(expected, actual dataprovider.Role) error {
+	if expected.ID <= 0 {
+		if actual.ID <= 0 {
+			return errors.New("actual role ID must be > 0")
+		}
+	} else {
+		if actual.ID != expected.ID {
+			return errors.New("role ID mismatch")
+		}
+	}
+	if dataprovider.ConvertName(expected.Name) != actual.Name {
+		return errors.New("name mismatch")
+	}
+	if expected.Description != actual.Description {
+		return errors.New("description mismatch")
+	}
+	if actual.CreatedAt == 0 {
+		return errors.New("created_at unset")
+	}
+	if actual.UpdatedAt == 0 {
+		return errors.New("updated_at unset")
+	}
+	return nil
+}
+
 func checkGroup(expected, actual dataprovider.Group) error {
 	if expected.ID <= 0 {
 		if actual.ID <= 0 {
@@ -1666,6 +1801,9 @@ func compareAdminEqualFields(expected *dataprovider.Admin, actual *dataprovider.
 	}
 	if expected.AdditionalInfo != actual.AdditionalInfo {
 		return errors.New("additional info mismatch")
+	}
+	if expected.Role != actual.Role {
+		return errors.New("role mismatch")
 	}
 	return nil
 }
@@ -2490,6 +2628,9 @@ func compareEqualsUserFields(expected *dataprovider.User, actual *dataprovider.U
 	}
 	if expected.Description != actual.Description {
 		return errors.New("description mismatch")
+	}
+	if expected.Role != actual.Role {
+		return errors.New("role mismatch")
 	}
 	return compareQuotaUserFields(expected, actual)
 }

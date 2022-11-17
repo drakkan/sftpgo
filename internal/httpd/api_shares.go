@@ -79,7 +79,7 @@ func addShare(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
 	}
-	user, err := dataprovider.GetUserWithGroupSettings(claims.Username)
+	user, err := dataprovider.GetUserWithGroupSettings(claims.Username, "")
 	if err != nil {
 		sendAPIResponse(w, r, err, "Unable to retrieve your user", getRespStatus(err))
 		return
@@ -461,7 +461,7 @@ func (s *httpdServer) checkPublicShare(w http.ResponseWriter, r *http.Request, v
 }
 
 func getUserForShare(share dataprovider.Share) (dataprovider.User, error) {
-	user, err := dataprovider.GetUserWithGroupSettings(share.Username)
+	user, err := dataprovider.GetUserWithGroupSettings(share.Username, "")
 	if err != nil {
 		return user, err
 	}

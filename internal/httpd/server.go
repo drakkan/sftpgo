@@ -31,7 +31,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/go-chi/render"
-	"github.com/lestrrat-go/jwx/jwa"
+	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/rs/cors"
 	"github.com/rs/xid"
 	"github.com/sftpgo/sdk"
@@ -329,7 +329,7 @@ func (s *httpdServer) handleWebClientTwoFactorRecoveryPost(w http.ResponseWriter
 		s.renderClientTwoFactorRecoveryPage(w, err.Error(), ipAddr)
 		return
 	}
-	user, userMerged, err := dataprovider.GetUserVariants(username)
+	user, userMerged, err := dataprovider.GetUserVariants(username, "")
 	if err != nil {
 		s.renderClientTwoFactorRecoveryPage(w, "Invalid credentials", ipAddr)
 		return
@@ -386,7 +386,7 @@ func (s *httpdServer) handleWebClientTwoFactorPost(w http.ResponseWriter, r *htt
 		s.renderClientTwoFactorPage(w, err.Error(), ipAddr)
 		return
 	}
-	user, err := dataprovider.GetUserWithGroupSettings(username)
+	user, err := dataprovider.GetUserWithGroupSettings(username, "")
 	if err != nil {
 		s.renderClientTwoFactorPage(w, "Invalid credentials", ipAddr)
 		return
@@ -719,6 +719,7 @@ func (s *httpdServer) loginAdmin(
 	c := jwtTokenClaims{
 		Username:             admin.Username,
 		Permissions:          admin.Permissions,
+		Role:                 admin.Role,
 		Signature:            admin.GetSignature(),
 		HideUserPageSections: admin.Filters.Preferences.HideUserPageSections,
 	}
@@ -901,6 +902,7 @@ func (s *httpdServer) generateAndSendToken(w http.ResponseWriter, r *http.Reques
 	c := jwtTokenClaims{
 		Username:    admin.Username,
 		Permissions: admin.Permissions,
+		Role:        admin.Role,
 		Signature:   admin.GetSignature(),
 	}
 
@@ -939,7 +941,7 @@ func (s *httpdServer) checkCookieExpiration(w http.ResponseWriter, r *http.Reque
 }
 
 func (s *httpdServer) refreshClientToken(w http.ResponseWriter, r *http.Request, tokenClaims jwtTokenClaims) {
-	user, err := dataprovider.GetUserWithGroupSettings(tokenClaims.Username)
+	user, err := dataprovider.GetUserWithGroupSettings(tokenClaims.Username, "")
 	if err != nil {
 		return
 	}
@@ -976,6 +978,7 @@ func (s *httpdServer) refreshAdminToken(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 	tokenClaims.Permissions = admin.Permissions
+	tokenClaims.Role = admin.Role
 	tokenClaims.HideUserPageSections = admin.Filters.Preferences.HideUserPageSections
 	logger.Debug(logSender, "", "cookie refreshed for admin %#v", admin.Username)
 	tokenClaims.createAndSetCookie(w, r, s.tokenAuth, tokenAudienceWebAdmin, ipAddr) //nolint:errcheck
@@ -1294,6 +1297,11 @@ func (s *httpdServer) initializeRouter() {
 			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Post(eventRulesPath, addEventRule)
 			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Put(eventRulesPath+"/{name}", updateEventRule)
 			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Delete(eventRulesPath+"/{name}", deleteEventRule)
+			router.With(s.checkPerm(dataprovider.PermAdminManageRoles)).Get(rolesPath, getRoles)
+			router.With(s.checkPerm(dataprovider.PermAdminManageRoles)).Get(rolesPath+"/{name}", getRoleByName)
+			router.With(s.checkPerm(dataprovider.PermAdminManageRoles)).Post(rolesPath, addRole)
+			router.With(s.checkPerm(dataprovider.PermAdminManageRoles)).Put(rolesPath+"/{name}", updateRole)
+			router.With(s.checkPerm(dataprovider.PermAdminManageRoles)).Delete(rolesPath+"/{name}", deleteRole)
 		})
 
 		s.router.Get(userTokenPath, s.getUserToken)
@@ -1640,6 +1648,17 @@ func (s *httpdServer) setupWebAdminRoutes() {
 				s.handleWebUpdateEventRulePost)
 			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules), verifyCSRFHeader).
 				Delete(webAdminEventRulePath+"/{name}", deleteEventRule)
+			router.With(s.checkPerm(dataprovider.PermAdminManageRoles), s.refreshCookie).
+				Get(webAdminRolesPath, s.handleWebGetRoles)
+			router.With(s.checkPerm(dataprovider.PermAdminManageRoles), s.refreshCookie).
+				Get(webAdminRolePath, s.handleWebAddRoleGet)
+			router.With(s.checkPerm(dataprovider.PermAdminManageRoles)).Post(webAdminRolePath, s.handleWebAddRolePost)
+			router.With(s.checkPerm(dataprovider.PermAdminManageRoles), s.refreshCookie).
+				Get(webAdminRolePath+"/{name}", s.handleWebUpdateRoleGet)
+			router.With(s.checkPerm(dataprovider.PermAdminManageRoles)).Post(webAdminRolePath+"/{name}",
+				s.handleWebUpdateRolePost)
+			router.With(s.checkPerm(dataprovider.PermAdminManageRoles), verifyCSRFHeader).
+				Delete(webAdminRolePath+"/{name}", deleteRole)
 		})
 	}
 }

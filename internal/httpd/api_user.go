@@ -38,8 +38,13 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+		return
+	}
 
-	users, err := dataprovider.GetUsers(limit, offset, order)
+	users, err := dataprovider.GetUsers(limit, offset, order, claims.Role)
 	if err == nil {
 		render.JSON(w, r, users)
 	} else {
@@ -49,12 +54,17 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 
 func getUserByUsername(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+		return
+	}
 	username := getURLParam(r, "username")
-	renderUser(w, r, username, http.StatusOK)
+	renderUser(w, r, username, claims.Role, http.StatusOK)
 }
 
-func renderUser(w http.ResponseWriter, r *http.Request, username string, status int) {
-	user, err := dataprovider.UserExists(username)
+func renderUser(w http.ResponseWriter, r *http.Request, username, role string, status int) {
+	user, err := dataprovider.UserExists(username, role)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -90,12 +100,19 @@ func addUser(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
+	if claims.Role != "" {
+		user.Role = claims.Role
+	}
+	user.Filters.RecoveryCodes = nil
+	user.Filters.TOTPConfig = dataprovider.UserTOTPConfig{
+		Enabled: false,
+	}
 	err = dataprovider.AddUser(&user, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	renderUser(w, r, user.Username, http.StatusCreated)
+	renderUser(w, r, user.Username, claims.Role, http.StatusCreated)
 }
 
 func disableUser2FA(w http.ResponseWriter, r *http.Request) {
@@ -106,7 +123,7 @@ func disableUser2FA(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	username := getURLParam(r, "username")
-	user, err := dataprovider.UserExists(username)
+	user, err := dataprovider.UserExists(username, claims.Role)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -140,7 +157,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	user, err := dataprovider.UserExists(username)
+	user, err := dataprovider.UserExists(username, claims.Role)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -188,6 +205,9 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	updateEncryptedSecrets(&user.FsConfig, currentS3AccessSecret, currentAzAccountKey, currentAzSASUrl,
 		currentGCSCredentials, currentCryptoPassphrase, currentSFTPPassword, currentSFTPKey, currentSFTPKeyPassphrase,
 		currentHTTPPassword, currentHTTPAPIKey)
+	if claims.Role != "" {
+		user.Role = claims.Role
+	}
 	err = dataprovider.UpdateUser(&user, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
@@ -207,7 +227,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	username := getURLParam(r, "username")
-	err = dataprovider.DeleteUser(username, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	err = dataprovider.DeleteUser(username, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -251,9 +271,9 @@ func resetUserPassword(w http.ResponseWriter, r *http.Request) {
 }
 
 func disconnectUser(username string) {
-	for _, stat := range common.Connections.GetStats() {
+	for _, stat := range common.Connections.GetStats("") {
 		if stat.Username == username {
-			common.Connections.Close(stat.ConnectionID)
+			common.Connections.Close(stat.ConnectionID, "")
 		}
 	}
 }

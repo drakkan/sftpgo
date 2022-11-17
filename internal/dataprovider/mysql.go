@@ -57,6 +57,7 @@ const (
 		"DROP TABLE IF EXISTS `{{events_rules}}` CASCADE;" +
 		"DROP TABLE IF EXISTS `{{tasks}}` CASCADE;" +
 		"DROP TABLE IF EXISTS `{{nodes}}` CASCADE;" +
+		"DROP TABLE IF EXISTS `{{roles}}` CASCADE;" +
 		"DROP TABLE IF EXISTS `{{schema_version}}` CASCADE;"
 	mysqlInitialSQL = "CREATE TABLE `{{schema_version}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `version` integer NOT NULL);" +
 		"CREATE TABLE `{{admins}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `username` varchar(255) NOT NULL UNIQUE, " +
@@ -171,6 +172,17 @@ const (
 		"CREATE INDEX `{{prefix}}events_rules_trigger_idx` ON `{{events_rules}}` (`trigger`);" +
 		"CREATE INDEX `{{prefix}}rules_actions_mapping_order_idx` ON `{{rules_actions_mapping}}` (`order`);" +
 		"INSERT INTO {{schema_version}} (version) VALUES (23);"
+	mysqlV24SQL = "CREATE TABLE `{{roles}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `name` varchar(255) NOT NULL UNIQUE, " +
+		"`description` varchar(512) NULL, `created_at` bigint NOT NULL, `updated_at` bigint NOT NULL);" +
+		"ALTER TABLE `{{admins}}` ADD COLUMN `role_id` integer NULL , " +
+		"ADD CONSTRAINT `{{prefix}}admins_role_id_fk_roles_id` FOREIGN KEY (`role_id`) REFERENCES `{{roles}}`(`id`) ON DELETE NO ACTION;" +
+		"ALTER TABLE `{{users}}` ADD COLUMN `role_id` integer NULL , " +
+		"ADD CONSTRAINT `{{prefix}}users_role_id_fk_roles_id` FOREIGN KEY (`role_id`) REFERENCES `{{roles}}`(`id`) ON DELETE SET NULL;"
+	mysqlV24DownSQL = "ALTER TABLE `{{users}}` DROP FOREIGN KEY `{{prefix}}users_role_id_fk_roles_id`;" +
+		"ALTER TABLE `{{admins}}` DROP FOREIGN KEY `{{prefix}}admins_role_id_fk_roles_id`;" +
+		"ALTER TABLE `{{users}}` DROP COLUMN `role_id`;" +
+		"ALTER TABLE `{{admins}}` DROP COLUMN `role_id`;" +
+		"DROP TABLE `{{roles}}` CASCADE;"
 )
 
 // MySQLProvider defines the auth provider for MySQL/MariaDB database
@@ -312,8 +324,8 @@ func (p *MySQLProvider) updateAdminLastLogin(username string) error {
 	return sqlCommonUpdateAdminLastLogin(username, p.dbHandle)
 }
 
-func (p *MySQLProvider) userExists(username string) (User, error) {
-	return sqlCommonGetUserByUsername(username, p.dbHandle)
+func (p *MySQLProvider) userExists(username, role string) (User, error) {
+	return sqlCommonGetUserByUsername(username, role, p.dbHandle)
 }
 
 func (p *MySQLProvider) addUser(user *User) error {
@@ -340,8 +352,8 @@ func (p *MySQLProvider) getRecentlyUpdatedUsers(after int64) ([]User, error) {
 	return sqlCommonGetRecentlyUpdatedUsers(after, p.dbHandle)
 }
 
-func (p *MySQLProvider) getUsers(limit int, offset int, order string) ([]User, error) {
-	return sqlCommonGetUsers(limit, offset, order, p.dbHandle)
+func (p *MySQLProvider) getUsers(limit int, offset int, order, role string) ([]User, error) {
+	return sqlCommonGetUsers(limit, offset, order, role, p.dbHandle)
 }
 
 func (p *MySQLProvider) getUsersForQuotaCheck(toFetch map[string]bool) ([]User, error) {
@@ -654,6 +666,30 @@ func (p *MySQLProvider) cleanupNodes() error {
 	return sqlCommonCleanupNodes(p.dbHandle)
 }
 
+func (p *MySQLProvider) roleExists(name string) (Role, error) {
+	return sqlCommonGetRoleByName(name, p.dbHandle)
+}
+
+func (p *MySQLProvider) addRole(role *Role) error {
+	return sqlCommonAddRole(role, p.dbHandle)
+}
+
+func (p *MySQLProvider) updateRole(role *Role) error {
+	return sqlCommonUpdateRole(role, p.dbHandle)
+}
+
+func (p *MySQLProvider) deleteRole(role Role) error {
+	return sqlCommonDeleteRole(role, p.dbHandle)
+}
+
+func (p *MySQLProvider) getRoles(limit int, offset int, order string, minimal bool) ([]Role, error) {
+	return sqlCommonGetRoles(limit, offset, order, minimal, p.dbHandle)
+}
+
+func (p *MySQLProvider) dumpRoles() ([]Role, error) {
+	return sqlCommonDumpRoles(p.dbHandle)
+}
+
 func (p *MySQLProvider) setFirstDownloadTimestamp(username string) error {
 	return sqlCommonSetFirstDownloadTimestamp(username, p.dbHandle)
 }
@@ -701,6 +737,8 @@ func (p *MySQLProvider) migrateDatabase() error { //nolint:dupl
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
+	case version == 23:
+		return updateMySQLDatabaseFromV23(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -723,6 +761,8 @@ func (p *MySQLProvider) revertDatabase(targetVersion int) error {
 	}
 
 	switch dbVersion.Version {
+	case 24:
+		return downgradeMySQLDatabaseFromV24(p.dbHandle)
 	default:
 		return fmt.Errorf("database schema version not handled: %d", dbVersion.Version)
 	}
@@ -731,4 +771,32 @@ func (p *MySQLProvider) revertDatabase(targetVersion int) error {
 func (p *MySQLProvider) resetDatabase() error {
 	sql := sqlReplaceAll(mysqlResetSQL)
 	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, strings.Split(sql, ";"), 0, false)
+}
+
+func updateMySQLDatabaseFromV23(dbHandle *sql.DB) error {
+	return updateMySQLDatabaseFrom23To24(dbHandle)
+}
+
+func downgradeMySQLDatabaseFromV24(dbHandle *sql.DB) error {
+	return downgradeMySQLDatabaseFrom24To23(dbHandle)
+}
+
+func updateMySQLDatabaseFrom23To24(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database schema version: 23 -> 24")
+	providerLog(logger.LevelInfo, "updating database schema version: 23 -> 24")
+	sql := strings.ReplaceAll(mysqlV24SQL, "{{roles}}", sqlTableRoles)
+	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
+	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 24, true)
+}
+
+func downgradeMySQLDatabaseFrom24To23(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database schema version: 24 -> 23")
+	providerLog(logger.LevelInfo, "downgrading database schema version: 24 -> 23")
+	sql := strings.ReplaceAll(mysqlV24DownSQL, "{{roles}}", sqlTableRoles)
+	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
+	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 23, false)
 }

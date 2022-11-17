@@ -137,7 +137,7 @@ Command-line flags should be specified in the Subsystem declaration.
 				logger.Error(logSender, connectionID, "unable to initialize commands configuration: %v", err)
 				os.Exit(1)
 			}
-			user, err := dataprovider.UserExists(username)
+			user, err := dataprovider.UserExists(username, "")
 			if err == nil {
 				if user.HomeDir != filepath.Clean(homedir) && !preserveHomeDir {
 					// update the user

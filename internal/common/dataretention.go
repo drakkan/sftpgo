@@ -62,23 +62,25 @@ type ActiveRetentionChecks struct {
 }
 
 // Get returns the active retention checks
-func (c *ActiveRetentionChecks) Get() []RetentionCheck {
+func (c *ActiveRetentionChecks) Get(role string) []RetentionCheck {
 	c.RLock()
 	defer c.RUnlock()
 
 	checks := make([]RetentionCheck, 0, len(c.Checks))
 	for _, check := range c.Checks {
-		foldersCopy := make([]dataprovider.FolderRetention, len(check.Folders))
-		copy(foldersCopy, check.Folders)
-		notificationsCopy := make([]string, len(check.Notifications))
-		copy(notificationsCopy, check.Notifications)
-		checks = append(checks, RetentionCheck{
-			Username:      check.Username,
-			StartTime:     check.StartTime,
-			Notifications: notificationsCopy,
-			Email:         check.Email,
-			Folders:       foldersCopy,
-		})
+		if role == "" || role == check.Role {
+			foldersCopy := make([]dataprovider.FolderRetention, len(check.Folders))
+			copy(foldersCopy, check.Folders)
+			notificationsCopy := make([]string, len(check.Notifications))
+			copy(notificationsCopy, check.Notifications)
+			checks = append(checks, RetentionCheck{
+				Username:      check.Username,
+				StartTime:     check.StartTime,
+				Notifications: notificationsCopy,
+				Email:         check.Email,
+				Folders:       foldersCopy,
+			})
+		}
 	}
 	return checks
 }
@@ -100,6 +102,7 @@ func (c *ActiveRetentionChecks) Add(check RetentionCheck, user *dataprovider.Use
 	conn.SetProtocol(ProtocolDataRetention)
 	conn.ID = fmt.Sprintf("data_retention_%v", user.Username)
 	check.Username = user.Username
+	check.Role = user.Role
 	check.StartTime = util.GetTimeAsMsSinceEpoch(time.Now())
 	check.conn = conn
 	check.updateUserPermissions()
@@ -148,6 +151,7 @@ type RetentionCheck struct {
 	Notifications []RetentionCheckNotification `json:"notifications,omitempty"`
 	// email to use if the notification method is set to email
 	Email string `json:"email,omitempty"`
+	Role  string `json:"-"`
 	// Cleanup results
 	results []folderRetentionCheckResult `json:"-"`
 	conn    *BaseConnection

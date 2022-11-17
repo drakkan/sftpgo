@@ -205,6 +205,7 @@ type oidcToken struct {
 	Username             string          `json:"username"`
 	Permissions          []string        `json:"permissions"`
 	HideUserPageSections int             `json:"hide_user_page_sections,omitempty"`
+	AdminRole            string          `json:"admin_role,omitempty"`
 	Role                 any             `json:"role"`
 	CustomFields         *map[string]any `json:"custom_fields,omitempty"`
 	Cookie               string          `json:"cookie"`
@@ -389,10 +390,11 @@ func (t *oidcToken) refreshUser(r *http.Request) error {
 			return err
 		}
 		t.Permissions = admin.Permissions
+		t.AdminRole = admin.Role
 		t.HideUserPageSections = admin.Filters.Preferences.HideUserPageSections
 		return nil
 	}
-	user, err := dataprovider.GetUserWithGroupSettings(t.Username)
+	user, err := dataprovider.GetUserWithGroupSettings(t.Username, "")
 	if err != nil {
 		return err
 	}
@@ -416,6 +418,7 @@ func (t *oidcToken) getUser(r *http.Request) error {
 			return err
 		}
 		t.Permissions = admin.Permissions
+		t.AdminRole = admin.Role
 		t.HideUserPageSections = admin.Filters.Preferences.HideUserPageSections
 		dataprovider.UpdateAdminLastLogin(&admin)
 		return nil
@@ -515,6 +518,7 @@ func (s *httpdServer) oidcTokenAuthenticator(audience tokenAudience) func(next h
 			jwtTokenClaims := jwtTokenClaims{
 				Username:             token.Username,
 				Permissions:          token.Permissions,
+				Role:                 token.AdminRole,
 				HideUserPageSections: token.HideUserPageSections,
 			}
 			_, tokenString, err := jwtTokenClaims.createToken(s.tokenAuth, audience, util.GetIPFromRemoteAddress(r.RemoteAddr))

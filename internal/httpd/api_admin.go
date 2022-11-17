@@ -147,6 +147,10 @@ func updateAdmin(w http.ResponseWriter, r *http.Request) {
 			sendAPIResponse(w, r, errors.New("you cannot disable yourself"), "", http.StatusBadRequest)
 			return
 		}
+		if admin.Role != claims.Role {
+			sendAPIResponse(w, r, errors.New("you cannot add/change your role"), "", http.StatusBadRequest)
+			return
+		}
 	}
 	admin.ID = adminID
 	admin.Username = username

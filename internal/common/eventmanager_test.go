@@ -645,12 +645,12 @@ func TestEventRuleActions(t *testing.T) {
 		},
 	})
 	assert.NoError(t, err)
-	userGet, err := dataprovider.UserExists(username1)
+	userGet, err := dataprovider.UserExists(username1, "")
 	assert.NoError(t, err)
 	assert.Equal(t, 1, userGet.UsedQuotaFiles)
 	assert.Equal(t, int64(4), userGet.UsedQuotaSize)
 	// simulate another quota scan in progress
-	assert.True(t, QuotaScans.AddUserQuotaScan(username1))
+	assert.True(t, QuotaScans.AddUserQuotaScan(username1, ""))
 	err = executeRuleAction(action, &EventParams{}, dataprovider.ConditionOptions{
 		Names: []dataprovider.ConditionPattern{
 			{
@@ -694,7 +694,7 @@ func TestEventRuleActions(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	// simulate another metadata check in progress
-	assert.True(t, ActiveMetadataChecks.Add(username1))
+	assert.True(t, ActiveMetadataChecks.Add(username1, ""))
 	err = executeRuleAction(action, &EventParams{}, dataprovider.ConditionOptions{
 		Names: []dataprovider.ConditionPattern{
 			{
@@ -850,7 +850,7 @@ func TestEventRuleActions(t *testing.T) {
 		},
 	})
 	assert.NoError(t, err)
-	userGet, err = dataprovider.UserExists(username1)
+	userGet, err = dataprovider.UserExists(username1, "")
 	assert.NoError(t, err)
 	assert.Equal(t, int64(0), userGet.UsedDownloadDataTransfer)
 	assert.Equal(t, int64(0), userGet.UsedUploadDataTransfer)
@@ -948,9 +948,9 @@ func TestEventRuleActions(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, getErrorString(err), "no file/folder compressed")
 
-	err = dataprovider.DeleteUser(username1, "", "")
+	err = dataprovider.DeleteUser(username1, "", "", "")
 	assert.NoError(t, err)
-	err = dataprovider.DeleteUser(username2, "", "")
+	err = dataprovider.DeleteUser(username2, "", "", "")
 	assert.NoError(t, err)
 	// test folder quota reset
 	foldername1 := "f1"
@@ -1085,7 +1085,7 @@ func TestEventRuleActionsNoGroupMatching(t *testing.T) {
 		assert.Contains(t, err.Error(), "no retention check executed")
 	}
 
-	err = dataprovider.DeleteUser(username, "", "")
+	err = dataprovider.DeleteUser(username, "", "", "")
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -1147,7 +1147,7 @@ func TestGetFileContent(t *testing.T) {
 	_, err = getMailAttachments(user, []string{"/file.txt"}, replacer)
 	assert.Error(t, err)
 
-	err = dataprovider.DeleteUser(username, "", "")
+	err = dataprovider.DeleteUser(username, "", "", "")
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -1232,7 +1232,7 @@ func TestFilesystemActionErrors(t *testing.T) {
 	assert.Error(t, err)
 	user.FsConfig.Provider = sdk.LocalFilesystemProvider
 	user.Permissions["/"] = []string{dataprovider.PermUpload}
-	err = dataprovider.DeleteUser(username, "", "")
+	err = dataprovider.DeleteUser(username, "", "", "")
 	assert.NoError(t, err)
 	err = dataprovider.AddUser(&user, "", "")
 	assert.NoError(t, err)
@@ -1344,7 +1344,7 @@ func TestFilesystemActionErrors(t *testing.T) {
 		assert.Contains(t, getErrorString(err), "is outside base dir")
 	}
 
-	err = dataprovider.DeleteUser(username, "", "")
+	err = dataprovider.DeleteUser(username, "", "", "")
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -1400,7 +1400,7 @@ func TestQuotaActionsWithQuotaTrackDisabled(t *testing.T) {
 
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	err = dataprovider.DeleteUser(username, "", "")
+	err = dataprovider.DeleteUser(username, "", "", "")
 	assert.NoError(t, err)
 
 	foldername := "f1"

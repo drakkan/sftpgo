@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	// we import go-sqlite3 here to be able to disable SQLite support using a build tag
@@ -55,6 +56,7 @@ DROP TABLE IF EXISTS "{{rules_actions_mapping}}";
 DROP TABLE IF EXISTS "{{events_rules}}";
 DROP TABLE IF EXISTS "{{events_actions}}";
 DROP TABLE IF EXISTS "{{tasks}}";
+DROP TABLE IF EXISTS "{{roles}}";
 DROP TABLE IF EXISTS "{{schema_version}}";
 `
 	sqliteInitialSQL = `CREATE TABLE "{{schema_version}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "version" integer NOT NULL);
@@ -160,6 +162,19 @@ CREATE INDEX "{{prefix}}admins_groups_mapping_admin_id_idx" ON "{{admins_groups_
 CREATE INDEX "{{prefix}}admins_groups_mapping_group_id_idx" ON "{{admins_groups_mapping}}" ("group_id");
 INSERT INTO {{schema_version}} (version) VALUES (23);
 `
+	sqliteV24SQL = `CREATE TABLE "{{roles}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "name" varchar(255) NOT NULL UNIQUE,
+"description" varchar(512) NULL, "created_at" bigint NOT NULL, "updated_at" bigint NOT NULL);
+ALTER TABLE "{{users}}" ADD COLUMN "role_id" integer NULL REFERENCES "{{roles}}" ("id") ON DELETE SET NULL;
+ALTER TABLE "{{admins}}" ADD COLUMN "role_id" integer NULL REFERENCES "{{roles}}" ("id") ON DELETE NO ACTION;
+CREATE INDEX "{{prefix}}users_role_id_idx" ON "{{users}}" ("role_id");
+CREATE INDEX "{{prefix}}admins_role_id_idx" ON "{{admins}}" ("role_id");
+`
+	sqliteV24DownSQL = `DROP INDEX "{{prefix}}users_role_id_idx";
+DROP INDEX "{{prefix}}admins_role_id_idx";
+ALTER TABLE "{{users}}" DROP COLUMN role_id;
+ALTER TABLE "{{admins}}" DROP COLUMN role_id;
+DROP TABLE "{{roles}}";
+`
 )
 
 // SQLiteProvider defines the auth provider for SQLite database
@@ -239,8 +254,8 @@ func (p *SQLiteProvider) updateAdminLastLogin(username string) error {
 	return sqlCommonUpdateAdminLastLogin(username, p.dbHandle)
 }
 
-func (p *SQLiteProvider) userExists(username string) (User, error) {
-	return sqlCommonGetUserByUsername(username, p.dbHandle)
+func (p *SQLiteProvider) userExists(username, role string) (User, error) {
+	return sqlCommonGetUserByUsername(username, role, p.dbHandle)
 }
 
 func (p *SQLiteProvider) addUser(user *User) error {
@@ -267,8 +282,8 @@ func (p *SQLiteProvider) getRecentlyUpdatedUsers(after int64) ([]User, error) {
 	return sqlCommonGetRecentlyUpdatedUsers(after, p.dbHandle)
 }
 
-func (p *SQLiteProvider) getUsers(limit int, offset int, order string) ([]User, error) {
-	return sqlCommonGetUsers(limit, offset, order, p.dbHandle)
+func (p *SQLiteProvider) getUsers(limit int, offset int, order, role string) ([]User, error) {
+	return sqlCommonGetUsers(limit, offset, order, role, p.dbHandle)
 }
 
 func (p *SQLiteProvider) getUsersForQuotaCheck(toFetch map[string]bool) ([]User, error) {
@@ -581,6 +596,30 @@ func (*SQLiteProvider) cleanupNodes() error {
 	return ErrNotImplemented
 }
 
+func (p *SQLiteProvider) roleExists(name string) (Role, error) {
+	return sqlCommonGetRoleByName(name, p.dbHandle)
+}
+
+func (p *SQLiteProvider) addRole(role *Role) error {
+	return sqlCommonAddRole(role, p.dbHandle)
+}
+
+func (p *SQLiteProvider) updateRole(role *Role) error {
+	return sqlCommonUpdateRole(role, p.dbHandle)
+}
+
+func (p *SQLiteProvider) deleteRole(role Role) error {
+	return sqlCommonDeleteRole(role, p.dbHandle)
+}
+
+func (p *SQLiteProvider) getRoles(limit int, offset int, order string, minimal bool) ([]Role, error) {
+	return sqlCommonGetRoles(limit, offset, order, minimal, p.dbHandle)
+}
+
+func (p *SQLiteProvider) dumpRoles() ([]Role, error) {
+	return sqlCommonDumpRoles(p.dbHandle)
+}
+
 func (p *SQLiteProvider) setFirstDownloadTimestamp(username string) error {
 	return sqlCommonSetFirstDownloadTimestamp(username, p.dbHandle)
 }
@@ -628,6 +667,8 @@ func (p *SQLiteProvider) migrateDatabase() error { //nolint:dupl
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
+	case version == 23:
+		return updateSQLiteDatabaseFromV23(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -650,6 +691,8 @@ func (p *SQLiteProvider) revertDatabase(targetVersion int) error {
 	}
 
 	switch dbVersion.Version {
+	case 24:
+		return downgradeSQLiteDatabaseFromV24(p.dbHandle)
 	default:
 		return fmt.Errorf("database schema version not handled: %d", dbVersion.Version)
 	}
@@ -658,6 +701,34 @@ func (p *SQLiteProvider) revertDatabase(targetVersion int) error {
 func (p *SQLiteProvider) resetDatabase() error {
 	sql := sqlReplaceAll(sqliteResetSQL)
 	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{sql}, 0, false)
+}
+
+func updateSQLiteDatabaseFromV23(dbHandle *sql.DB) error {
+	return updateSQLiteDatabaseFrom23To24(dbHandle)
+}
+
+func downgradeSQLiteDatabaseFromV24(dbHandle *sql.DB) error {
+	return downgradeSQLiteDatabaseFrom24To23(dbHandle)
+}
+
+func updateSQLiteDatabaseFrom23To24(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database schema version: 23 -> 24")
+	providerLog(logger.LevelInfo, "updating database schema version: 23 -> 24")
+	sql := strings.ReplaceAll(sqliteV24SQL, "{{roles}}", sqlTableRoles)
+	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
+	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 24, true)
+}
+
+func downgradeSQLiteDatabaseFrom24To23(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database schema version: 24 -> 23")
+	providerLog(logger.LevelInfo, "downgrading database schema version: 24 -> 23")
+	sql := strings.ReplaceAll(sqliteV24DownSQL, "{{roles}}", sqlTableRoles)
+	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
+	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 23, false)
 }
 
 /*func setPragmaFK(dbHandle *sql.DB, value string) error {

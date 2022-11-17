@@ -21,7 +21,7 @@ import (
 	"strings"
 
 	"github.com/go-chi/jwtauth/v5"
-	"github.com/lestrrat-go/jwx/jwt"
+	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/rs/xid"
 	"github.com/sftpgo/sdk"
 
@@ -320,7 +320,7 @@ func checkNodeToken(tokenAuth *jwtauth.JWTAuth) func(next http.Handler) http.Han
 			if len(token) > 7 && strings.ToUpper(token[0:6]) == "BEARER" {
 				token = token[7:]
 			}
-			admin, err := dataprovider.AuthenticateNodeToken(token)
+			admin, role, err := dataprovider.AuthenticateNodeToken(token)
 			if err != nil {
 				logger.Debug(logSender, "", "unable to authenticate node token %q: %v", token, err)
 				sendAPIResponse(w, r, fmt.Errorf("the provided token cannot be authenticated"), "", http.StatusUnauthorized)
@@ -330,6 +330,7 @@ func checkNodeToken(tokenAuth *jwtauth.JWTAuth) func(next http.Handler) http.Han
 				Username:    admin,
 				Permissions: []string{dataprovider.PermAdminViewConnections, dataprovider.PermAdminCloseConnections},
 				NodeID:      dataprovider.GetNodeName(),
+				Role:        role,
 			}
 			resp, err := c.createTokenResponse(tokenAuth, tokenAudienceAPI, util.GetIPFromRemoteAddress(r.RemoteAddr))
 			if err != nil {
@@ -468,7 +469,7 @@ func authenticateUserWithAPIKey(username, keyID string, tokenAuth *jwtauth.JWTAu
 	if err := common.Config.ExecutePostConnectHook(ipAddr, protocol); err != nil {
 		return err
 	}
-	user, err := dataprovider.GetUserWithGroupSettings(username)
+	user, err := dataprovider.GetUserWithGroupSettings(username, "")
 	if err != nil {
 		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}},
 			dataprovider.LoginMethodPassword, ipAddr, err)

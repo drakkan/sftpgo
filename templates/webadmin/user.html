@@ -104,6 +104,23 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             </div>
             {{end}}
 
+            {{if .Roles}}
+            <div class="form-group row">
+                <label for="idRole" class="col-sm-2 col-form-label">Role</label>
+                <div class="col-sm-10">
+                    <select class="form-control selectpicker" data-live-search="true" id="idRole" name="role" aria-describedby="roleHelpBlock">
+                        <option value=""></option>
+                        {{- range .Roles}}
+                        <option value="{{.Name}}" {{if eq $.User.Role .Name}}selected{{end}}>{{.Name}}</option>
+                        {{- end}}
+                    </select>
+                    <small id="roleHelpBlock" class="form-text text-muted">
+                        Users with a role can be managed by global administrators and administrators with the same role
+                    </small>
+                </div>
+            </div>
+            {{end}}
+
             {{if ne .Mode 3}}
             <div class="form-group row">
                 <label for="idPassword" class="col-sm-2 col-form-label">Password</label>

@@ -56,6 +56,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                         <th>MFA</th>
                         <th>Bandwidth</th>
                         <th>Quota</th>
+                        <th>Role</th>
                         <th>Other</th>
                         <th></th>
                     </tr>
@@ -74,6 +75,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                         <td>{{.GetMFAStatusAsString}}</td>
                         <td>{{.GetBandwidthAsString}}</td>
                         <td>{{.GetQuotaSummary}}</td>
+                        <td>{{.Role}}</td>
                         <td>{{.GetInfoString}}</td>
                         <td>{{.GetLastQuotaUpdateAsString}}</td>
                     </tr>
@@ -281,7 +283,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             ],
             "columnDefs": [
                 {
-                    "targets": [0,12],
+                    "targets": [0,13],
                     "visible": false,
                     "searchable": false,
                     "className": "noVis"
@@ -295,7 +297,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                     "render": $.fn.dataTable.render.datetime()
                 },
                 {
-                    "targets": [4,5,8],
+                    "targets": [4,5,8,11],
                     "visible": false
                 },
                 {
@@ -325,7 +327,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                     }
                 },
                 {
-                    "targets": [11],
+                    "targets": [12],
                     "visible": false,
                     "render": $.fn.dataTable.render.ellipsis(100, true)
                 }
@@ -349,7 +351,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         table.button().add(0,'delete');
         {{end}}
 
-        {{if .LoggedAdmin.HasPermission "add_users"}}
+        {{if .LoggedAdmin.HasPermission "manage_system"}}
         table.button().add(0,'template');
         {{end}}
 

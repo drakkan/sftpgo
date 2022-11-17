@@ -64,6 +64,7 @@ If you report an invalid issue or ask for step-by-step support, your issue will 
 - Per-user authentication methods.
 - [Two-factor authentication](./docs/howto/two-factor-authentication.md) based on time-based one time passwords (RFC 6238) which works with Authy, Google Authenticator and other compatible apps.
 - Simplified user administrations using [groups](./docs/groups.md).
+- [Roles](./docs/roles.md) allow you to create limited administrators who can only create and manage users with their role.
 - Custom authentication via [external programs/HTTP API](./docs/external-auth.md).
 - Web Client and Web Admin user interfaces support [OpenID Connect](https://openid.net/connect/) authentication and so they can be integrated with identity providers such as [Keycloak](https://www.keycloak.org/). You can find more details [here](./docs/oidc.md).
 - [Data At Rest Encryption](./docs/dare.md).
@@ -134,7 +135,7 @@ APT and YUM repositories are [available](./docs/repo.md).
 SFTPGo is also available on some marketplaces:
 
 - [AWS Marketplace](https://aws.amazon.com/marketplace/seller-profile?id=6e849ab8-70a6-47de-9a43-13c3fa849335)
-- [Azure Marketplace](https://azuremarketplace.microsoft.com/en-us/marketplace/apps/prasselsrl1645470739547.sftpgo_linux)
+- [Azure Marketplace](https://azuremarketplace.microsoft.com/en-us/marketplace/apps/eliamarzia1667381463185.sftpgo_linux)
 - [Elest.io](https://elest.io/open-source/sftpgo)
 
 Purchasing from there will help keep SFTPGo a long-term sustainable project.

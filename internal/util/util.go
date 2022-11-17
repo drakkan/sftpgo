@@ -617,8 +617,8 @@ func GetSSHPublicKeyAsString(pubKey []byte) (string, error) {
 	return string(ssh.MarshalAuthorizedKey(k)), nil
 }
 
-// GetRealIP returns the ip address as result of parsing either the
-// X-Real-IP header or the X-Forwarded-For header
+// GetRealIP returns the ip address as result of parsing the specified
+// header and using the specified depth
 func GetRealIP(r *http.Request, header string, depth int) string {
 	if header == "" {
 		return ""

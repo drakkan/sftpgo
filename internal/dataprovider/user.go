@@ -390,7 +390,7 @@ func (u *User) setAnonymousSettings() {
 // RenderAsJSON implements the renderer interface used within plugins
 func (u *User) RenderAsJSON(reload bool) ([]byte, error) {
 	if reload {
-		user, err := provider.userExists(u.Username)
+		user, err := provider.userExists(u.Username, "")
 		if err != nil {
 			providerLog(logger.LevelError, "unable to reload user before rendering as json: %v", err)
 			return nil, err
@@ -500,7 +500,7 @@ func (u *User) getForbiddenSFTPSelfUsers(username string) ([]string, error) {
 	if allowSelfConnections == 0 {
 		return nil, nil
 	}
-	sftpUser, err := UserExists(username)
+	sftpUser, err := UserExists(username, "")
 	if err == nil {
 		err = sftpUser.LoadAndApplyGroupSettings()
 	}
@@ -1825,6 +1825,13 @@ func (u *User) removeDuplicatesAfterGroupMerge() {
 	u.groupSettingsApplied = true
 }
 
+func (u *User) hasRole(role string) bool {
+	if role == "" {
+		return true
+	}
+	return role == u.Role
+}
+
 func (u *User) getACopy() User {
 	u.SetEmptySecretsIfNil()
 	pubKeys := make([]string, len(u.PublicKeys))
@@ -1899,6 +1906,7 @@ func (u *User) getACopy() User {
 			Description:              u.Description,
 			CreatedAt:                u.CreatedAt,
 			UpdatedAt:                u.UpdatedAt,
+			Role:                     u.Role,
 		},
 		Filters:              filters,
 		VirtualFolders:       virtualFolders,

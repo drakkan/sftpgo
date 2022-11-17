@@ -138,7 +138,7 @@ func (g *Group) validate() error {
 		return util.NewValidationError("name is mandatory")
 	}
 	if config.NamingRules&1 == 0 && !usernameRegex.MatchString(g.Name) {
-		return util.NewValidationError(fmt.Sprintf("name %#v is not valid, the following characters are allowed: a-zA-Z0-9-_.~", g.Name))
+		return util.NewValidationError(fmt.Sprintf("name %q is not valid, the following characters are allowed: a-zA-Z0-9-_.~", g.Name))
 	}
 	if g.hasRedactedSecret() {
 		return util.NewValidationError("cannot save a user with a redacted secret")

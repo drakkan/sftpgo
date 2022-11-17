@@ -180,6 +180,10 @@ func restoreBackup(content []byte, inputFile string, scanQuota, mode int, execut
 		return util.NewValidationError(fmt.Sprintf("unable to parse backup content: %v", err))
 	}
 
+	if err = RestoreRoles(dump.Roles, inputFile, mode, executor, ipAddress); err != nil {
+		return err
+	}
+
 	if err = RestoreFolders(dump.Folders, inputFile, mode, scanQuota, executor, ipAddress); err != nil {
 		return err
 	}
@@ -404,6 +408,30 @@ func RestoreAdmins(admins []dataprovider.Admin, inputFile string, mode int, exec
 	return nil
 }
 
+// RestoreRoles restores the specified roles
+func RestoreRoles(roles []dataprovider.Role, inputFile string, mode int, executor, ipAddress string) error {
+	for _, role := range roles {
+		role := role // pin
+		r, err := dataprovider.RoleExists(role.Name)
+		if err == nil {
+			if mode == 1 {
+				logger.Debug(logSender, "", "loaddata mode 1, existing role %q not updated", r.Name)
+				continue
+			}
+			role.ID = r.ID
+			err = dataprovider.UpdateRole(&role, executor, ipAddress)
+			logger.Debug(logSender, "", "restoring existing role: %q, dump file: %#v, error: %v", role.Name, inputFile, err)
+		} else {
+			err = dataprovider.AddRole(&role, executor, ipAddress)
+			logger.Debug(logSender, "", "adding new role: %q, dump file: %q, error: %v", role.Name, inputFile, err)
+		}
+		if err != nil {
+			return fmt.Errorf("unable to restore role %#v: %w", role.Name, err)
+		}
+	}
+	return nil
+}
+
 // RestoreGroups restores the specified groups
 func RestoreGroups(groups []dataprovider.Group, inputFile string, mode int, executor, ipAddress string) error {
 	for _, group := range groups {
@@ -433,7 +461,7 @@ func RestoreGroups(groups []dataprovider.Group, inputFile string, mode int, exec
 func RestoreUsers(users []dataprovider.User, inputFile string, mode, scanQuota int, executor, ipAddress string) error {
 	for _, user := range users {
 		user := user // pin
-		u, err := dataprovider.UserExists(user.Username)
+		u, err := dataprovider.UserExists(user.Username, "")
 		if err == nil {
 			if mode == 1 {
 				logger.Debug(logSender, "", "loaddata mode 1, existing user %#v not updated", u.Username)
@@ -454,7 +482,7 @@ func RestoreUsers(users []dataprovider.User, inputFile string, mode, scanQuota i
 			return fmt.Errorf("unable to restore user %#v: %w", user.Username, err)
 		}
 		if scanQuota == 1 || (scanQuota == 2 && user.HasQuotaRestrictions()) {
-			if common.QuotaScans.AddUserQuotaScan(user.Username) {
+			if common.QuotaScans.AddUserQuotaScan(user.Username, user.Role) {
 				logger.Debug(logSender, "", "starting quota scan for restored user: %#v", user.Username)
 				go doUserQuotaScan(user) //nolint:errcheck
 			}

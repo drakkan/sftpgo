@@ -985,7 +985,7 @@ func TestDefender(t *testing.T) {
 	_, _, err = getSftpClient(user, usePubKey)
 	assert.Error(t, err)
 
-	err = dataprovider.DeleteUser(user.Username, "", "")
+	err = dataprovider.DeleteUser(user.Username, "", "", "")
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -1144,7 +1144,7 @@ func TestConcurrency(t *testing.T) {
 		for {
 			servedReqs := closedConns.Load()
 			if servedReqs > 0 {
-				stats := common.Connections.GetStats()
+				stats := common.Connections.GetStats("")
 				if len(stats) > maxConns {
 					maxConns = len(stats)
 				}
@@ -1178,7 +1178,7 @@ func TestConcurrency(t *testing.T) {
 	}, 1*time.Second, 50*time.Millisecond)
 
 	assert.Eventually(t, func() bool {
-		return len(common.Connections.GetStats()) == 0
+		return len(common.Connections.GetStats("")) == 0
 	}, 1*time.Second, 50*time.Millisecond)
 
 	err = os.Remove(testFilePath)
@@ -4284,7 +4284,7 @@ func TestMaxConnections(t *testing.T) {
 		err = conn.Close()
 		assert.NoError(t, err)
 	}
-	err = dataprovider.DeleteUser(user.Username, "", "")
+	err = dataprovider.DeleteUser(user.Username, "", "", "")
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -4319,7 +4319,7 @@ func TestMaxPerHostConnections(t *testing.T) {
 		err = conn.Close()
 		assert.NoError(t, err)
 	}
-	err = dataprovider.DeleteUser(user.Username, "", "")
+	err = dataprovider.DeleteUser(user.Username, "", "", "")
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -4603,12 +4603,12 @@ func TestQuotaScan(t *testing.T) {
 }
 
 func TestMultipleQuotaScans(t *testing.T) {
-	res := common.QuotaScans.AddUserQuotaScan(defaultUsername)
+	res := common.QuotaScans.AddUserQuotaScan(defaultUsername, "")
 	assert.True(t, res)
-	res = common.QuotaScans.AddUserQuotaScan(defaultUsername)
+	res = common.QuotaScans.AddUserQuotaScan(defaultUsername, "")
 	assert.False(t, res, "add quota must fail if another scan is already active")
 	assert.True(t, common.QuotaScans.RemoveUserQuotaScan(defaultUsername))
-	activeScans := common.QuotaScans.GetUsersQuotaScans()
+	activeScans := common.QuotaScans.GetUsersQuotaScans("")
 	assert.Equal(t, 0, len(activeScans))
 	assert.False(t, common.QuotaScans.RemoveUserQuotaScan(defaultUsername))
 }
@@ -4866,13 +4866,13 @@ func TestBandwidthAndConnections(t *testing.T) {
 		waitForActiveTransfers(t)
 		time.Sleep(100 * time.Millisecond)
 
-		for _, stat := range common.Connections.GetStats() {
-			common.Connections.Close(stat.ConnectionID)
+		for _, stat := range common.Connections.GetStats("") {
+			common.Connections.Close(stat.ConnectionID, "")
 		}
 		err = <-c
 		assert.Error(t, err, "connection closed while uploading: the upload must fail")
 		assert.Eventually(t, func() bool {
-			return len(common.Connections.GetStats()) == 0
+			return len(common.Connections.GetStats("")) == 0
 		}, 10*time.Second, 200*time.Millisecond)
 		err = os.Remove(testFilePath)
 		assert.NoError(t, err)
@@ -7242,7 +7242,7 @@ func TestHashedPasswords(t *testing.T) {
 		user.Password = ""
 		userGetInitial, _, err := httpdtest.UpdateUser(user, http.StatusOK, "")
 		assert.NoError(t, err)
-		user, err = dataprovider.UserExists(user.Username)
+		user, err = dataprovider.UserExists(user.Username, "")
 		assert.NoError(t, err)
 		assert.Equal(t, pwd, user.Password)
 		user.Password = clearPwd
@@ -7259,7 +7259,7 @@ func TestHashedPasswords(t *testing.T) {
 			conn.Close()
 		}
 		// the password must converted to bcrypt and we should still be able to login
-		user, err = dataprovider.UserExists(user.Username)
+		user, err = dataprovider.UserExists(user.Username, "")
 		assert.NoError(t, err)
 		assert.True(t, strings.HasPrefix(user.Password, "$2a$"))
 		// update the user to invalidate the cached password and force a new check
@@ -10576,7 +10576,7 @@ func TestSCPErrors(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	err = cmd.Process.Kill()
 	assert.NoError(t, err)
-	assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 }, 2*time.Second, 100*time.Millisecond)
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 }, 2*time.Second, 100*time.Millisecond)
 	cmd = getScpUploadCommand(testFilePath, remoteUpPath, false, false)
 	go func() {
 		err := cmd.Run()
@@ -10588,7 +10588,7 @@ func TestSCPErrors(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	err = cmd.Process.Kill()
 	assert.NoError(t, err)
-	assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 }, 2*time.Second, 100*time.Millisecond)
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 }, 2*time.Second, 100*time.Millisecond)
 	err = os.Remove(testFilePath)
 	assert.NoError(t, err)
 	os.Remove(localPath)
@@ -11076,7 +11076,7 @@ func computeHashForFile(hasher hash.Hash, path string) (string, error) {
 
 func waitForActiveTransfers(t *testing.T) {
 	assert.Eventually(t, func() bool {
-		for _, stat := range common.Connections.GetStats() {
+		for _, stat := range common.Connections.GetStats("") {
 			if len(stat.Transfers) > 0 {
 				return true
 			}

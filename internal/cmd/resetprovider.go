@@ -56,7 +56,7 @@ Please take a look at the usage below to customize the options.`,
 			}
 			providerConf := config.GetProviderConf()
 			if !resetProviderForce {
-				logger.WarnToConsole("You are about to delete all the SFTPGo data for provider %#v, config file: %#v",
+				logger.WarnToConsole("You are about to delete all the SFTPGo data for provider %q, config file: %q",
 					providerConf.Driver, viper.ConfigFileUsed())
 				logger.WarnToConsole("Are you sure? (Y/n)")
 				reader := bufio.NewReader(os.Stdin)
@@ -70,7 +70,7 @@ Please take a look at the usage below to customize the options.`,
 					os.Exit(1)
 				}
 			}
-			logger.InfoToConsole("Resetting provider: %#v, config file: %#v", providerConf.Driver, viper.ConfigFileUsed())
+			logger.InfoToConsole("Resetting provider: %q, config file: %q", providerConf.Driver, viper.ConfigFileUsed())
 			err = dataprovider.ResetDatabase(providerConf, configDir)
 			if err != nil {
 				logger.WarnToConsole("Error resetting provider: %v", err)

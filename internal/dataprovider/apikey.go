@@ -165,7 +165,7 @@ func (k *APIKey) validate() error {
 		k.Admin = ""
 	}
 	if k.User != "" {
-		_, err := provider.userExists(k.User)
+		_, err := provider.userExists(k.User, "")
 		if err != nil {
 			return util.NewValidationError(fmt.Sprintf("unable to check API key user %v: %v", k.User, err))
 		}

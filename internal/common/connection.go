@@ -98,6 +98,11 @@ func (c *BaseConnection) GetUsername() string {
 	return c.User.Username
 }
 
+// GetRole returns the role for the user associated with this connection
+func (c *BaseConnection) GetRole() string {
+	return c.User.Role
+}
+
 // GetMaxSessions returns the maximum number of concurrent sessions allowed
 func (c *BaseConnection) GetMaxSessions() int {
 	return c.User.MaxSessions

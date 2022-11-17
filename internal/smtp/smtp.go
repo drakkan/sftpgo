@@ -181,6 +181,7 @@ func SendEmail(to []string, subject, body string, contentType EmailContentType, 
 	}
 
 	email := mail.NewMSG()
+	email.AllowDuplicateAddress = true
 	if from != "" {
 		email.SetFrom(from)
 	} else {

@@ -531,7 +531,7 @@ func (p *EventParams) getUserFromSender() (dataprovider.User, error) {
 			},
 		}, nil
 	}
-	user, err := dataprovider.UserExists(p.sender)
+	user, err := dataprovider.UserExists(p.sender, "")
 	if err != nil {
 		eventManagerLog(logger.LevelError, "unable to get user %q: %+v", p.sender, err)
 		return user, fmt.Errorf("error getting user %q", p.sender)
@@ -1652,7 +1652,7 @@ func executeQuotaResetForUser(user dataprovider.User) error {
 			user.Username, err)
 		return err
 	}
-	if !QuotaScans.AddUserQuotaScan(user.Username) {
+	if !QuotaScans.AddUserQuotaScan(user.Username, user.Role) {
 		eventManagerLog(logger.LevelError, "another quota scan is already in progress for user %q", user.Username)
 		return fmt.Errorf("another quota scan is in progress for user %q", user.Username)
 	}
@@ -1874,7 +1874,7 @@ func executeMetadataCheckForUser(user dataprovider.User) error {
 			user.Username, err)
 		return err
 	}
-	if !ActiveMetadataChecks.Add(user.Username) {
+	if !ActiveMetadataChecks.Add(user.Username, user.Role) {
 		eventManagerLog(logger.LevelError, "another metadata check is already in progress for user %q", user.Username)
 		return fmt.Errorf("another metadata check is in progress for user %q", user.Username)
 	}

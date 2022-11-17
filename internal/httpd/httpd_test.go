@@ -125,6 +125,7 @@ const (
 	sharesPath                     = "/api/v2/shares"
 	eventActionsPath               = "/api/v2/eventactions"
 	eventRulesPath                 = "/api/v2/eventrules"
+	rolesPath                      = "/api/v2/roles"
 	healthzPath                    = "/healthz"
 	robotsTxtPath                  = "/robots.txt"
 	webBasePath                    = "/web"
@@ -155,6 +156,12 @@ const (
 	webAdminTOTPSavePath           = "/web/admin/totp/save"
 	webAdminForgotPwdPath          = "/web/admin/forgot-password"
 	webAdminResetPwdPath           = "/web/admin/reset-password"
+	webAdminEventRulesPath         = "/web/admin/eventrules"
+	webAdminEventRulePath          = "/web/admin/eventrule"
+	webAdminEventActionsPath       = "/web/admin/eventactions"
+	webAdminEventActionPath        = "/web/admin/eventaction"
+	webAdminRolesPath              = "/web/admin/roles"
+	webAdminRolePath               = "/web/admin/role"
 	webBasePathClient              = "/web/client"
 	webClientLoginPath             = "/web/client/login"
 	webClientFilesPath             = "/web/client/files"
@@ -175,10 +182,6 @@ const (
 	webClientResetPwdPath          = "/web/client/reset-password"
 	webClientViewPDFPath           = "/web/client/viewpdf"
 	webClientGetPDFPath            = "/web/client/getpdf"
-	webAdminEventRulesPath         = "/web/admin/eventrules"
-	webAdminEventRulePath          = "/web/admin/eventrule"
-	webAdminEventActionsPath       = "/web/admin/eventactions"
-	webAdminEventActionPath        = "/web/admin/eventaction"
 	httpBaseURL                    = "http://127.0.0.1:8081"
 	defaultRemoteAddr              = "127.0.0.1:1234"
 	sftpServerAddr                 = "127.0.0.1:8022"
@@ -597,6 +600,187 @@ func TestBasicUserHandling(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestBasicRoleHandling(t *testing.T) {
+	r := getTestRole()
+	role, resp, err := httpdtest.AddRole(r, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	assert.Greater(t, role.CreatedAt, int64(0))
+	assert.Greater(t, role.UpdatedAt, int64(0))
+	roleGet, _, err := httpdtest.GetRoleByName(role.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, role, roleGet)
+
+	roles, _, err := httpdtest.GetRoles(0, 0, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.GreaterOrEqual(t, len(roles), 1) {
+		found := false
+		for _, ro := range roles {
+			if ro.Name == r.Name {
+				assert.Equal(t, role, ro)
+				found = true
+			}
+		}
+		assert.True(t, found)
+	}
+	roles, _, err = httpdtest.GetRoles(0, int64(len(roles)), http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, roles, 0)
+
+	role.Description = "updated desc"
+	_, _, err = httpdtest.UpdateRole(role, http.StatusOK)
+	assert.NoError(t, err)
+	roleGet, _, err = httpdtest.GetRoleByName(role.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, role.Description, roleGet.Description)
+
+	_, _, err = httpdtest.GetRoleByName(role.Name+"_", http.StatusNotFound)
+	assert.NoError(t, err)
+	// adding the same role again should fail
+	_, _, err = httpdtest.AddRole(r, http.StatusInternalServerError)
+	assert.NoError(t, err)
+
+	_, err = httpdtest.RemoveRole(role, http.StatusOK)
+	assert.NoError(t, err)
+}
+
+func TestRoleRelations(t *testing.T) {
+	r := getTestRole()
+	role, resp, err := httpdtest.AddRole(r, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	a := getTestAdmin()
+	a.Username = altAdminUsername
+	a.Password = altAdminPassword
+	a.Role = role.Name
+	_, resp, err = httpdtest.AddAdmin(a, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "a role admin cannot have the following permissions")
+
+	a.Permissions = []string{dataprovider.PermAdminAddUsers, dataprovider.PermAdminChangeUsers,
+		dataprovider.PermAdminDeleteUsers, dataprovider.PermAdminViewUsers}
+	a.Role = "missing admin role"
+	_, _, err = httpdtest.AddAdmin(a, http.StatusInternalServerError)
+	assert.NoError(t, err)
+	a.Role = role.Name
+	admin, _, err := httpdtest.AddAdmin(a, http.StatusCreated)
+	assert.NoError(t, err)
+	admin.Role = "invalid role"
+	_, _, err = httpdtest.UpdateAdmin(admin, http.StatusInternalServerError)
+	assert.NoError(t, err)
+	admin, _, err = httpdtest.GetAdminByUsername(admin.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, role.Name, admin.Role)
+
+	resp, err = httpdtest.RemoveRole(role, http.StatusOK)
+	assert.Error(t, err, "removing a referenced role should fail")
+	assert.Contains(t, string(resp), "is referenced")
+
+	role, _, err = httpdtest.GetRoleByName(role.Name, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, role.Admins, 1) {
+		assert.Equal(t, admin.Username, role.Admins[0])
+	}
+
+	u1 := getTestUser()
+	u1.Username = defaultUsername + "1"
+	u1.Role = "missing role"
+	_, _, err = httpdtest.AddUser(u1, http.StatusInternalServerError)
+	assert.NoError(t, err)
+	u1.Role = role.Name
+	user1, _, err := httpdtest.AddUser(u1, http.StatusCreated)
+	assert.NoError(t, err)
+	assert.Equal(t, role.Name, user1.Role)
+	user1.Role = "missing"
+	_, _, err = httpdtest.UpdateUser(user1, http.StatusInternalServerError, "")
+	assert.NoError(t, err)
+	user1, _, err = httpdtest.GetUserByUsername(user1.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, role.Name, user1.Role)
+
+	role, _, err = httpdtest.GetRoleByName(role.Name, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, role.Admins, 1) {
+		assert.Equal(t, admin.Username, role.Admins[0])
+	}
+	if assert.Len(t, role.Users, 1) {
+		assert.Equal(t, user1.Username, role.Users[0])
+	}
+	roles, _, err := httpdtest.GetRoles(0, 0, http.StatusOK)
+	assert.NoError(t, err)
+	for _, r := range roles {
+		if r.Name == role.Name {
+			if assert.Len(t, role.Admins, 1) {
+				assert.Equal(t, admin.Username, role.Admins[0])
+			}
+			if assert.Len(t, role.Users, 1) {
+				assert.Equal(t, user1.Username, role.Users[0])
+			}
+		}
+	}
+
+	u2 := getTestUser()
+	user2, _, err := httpdtest.AddUser(u2, http.StatusCreated)
+	assert.NoError(t, err)
+
+	// the global admin can list all users
+	users, _, err := httpdtest.GetUsers(0, 0, http.StatusOK)
+	assert.NoError(t, err)
+	assert.GreaterOrEqual(t, len(users), 2)
+	_, _, err = httpdtest.GetUserByUsername(user1.Username, http.StatusOK)
+	assert.NoError(t, err)
+	_, _, err = httpdtest.GetUserByUsername(user2.Username, http.StatusOK)
+	assert.NoError(t, err)
+	// the role admin can only list users with its role
+	token, _, err := httpdtest.GetToken(altAdminUsername, altAdminPassword)
+	assert.NoError(t, err)
+	httpdtest.SetJWTToken(token)
+	users, _, err = httpdtest.GetUsers(0, 0, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, users, 1)
+	_, _, err = httpdtest.GetUserByUsername(user1.Username, http.StatusOK)
+	assert.NoError(t, err)
+	_, _, err = httpdtest.GetUserByUsername(user2.Username, http.StatusNotFound)
+	assert.NoError(t, err)
+	// the role admin can only update/delete users with its role
+	_, _, err = httpdtest.UpdateUser(user1, http.StatusOK, "")
+	assert.NoError(t, err)
+	_, _, err = httpdtest.UpdateUser(user2, http.StatusNotFound, "")
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user2, http.StatusNotFound)
+	assert.NoError(t, err)
+	// new users created by a role admin have the same role
+	u3 := getTestUser()
+	u3.Username = defaultUsername + "3"
+	_, _, err = httpdtest.AddUser(u3, http.StatusCreated)
+	if assert.Error(t, err) {
+		assert.Equal(t, err.Error(), "role mismatch")
+	}
+
+	user3, _, err := httpdtest.GetUserByUsername(u3.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, role.Name, user3.Role)
+
+	_, err = httpdtest.RemoveUser(user3, http.StatusOK)
+	assert.NoError(t, err)
+
+	httpdtest.SetJWTToken("")
+
+	role, _, err = httpdtest.GetRoleByName(role.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, role.Admins, []string{altAdminUsername})
+
+	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveRole(role, http.StatusOK)
+	assert.NoError(t, err)
+	user1, _, err = httpdtest.GetUserByUsername(user1.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Empty(t, user1.Role)
+	_, err = httpdtest.RemoveUser(user1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user2, http.StatusOK)
+	assert.NoError(t, err)
+}
+
 func TestBasicGroupHandling(t *testing.T) {
 	g := getTestGroup()
 	group, _, err := httpdtest.AddGroup(g, http.StatusCreated)
@@ -971,7 +1155,7 @@ func TestGroupSettingsOverride(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, user.VirtualFolders, 3)
 
-	user1, user2, err := dataprovider.GetUserVariants(defaultUsername)
+	user1, user2, err := dataprovider.GetUserVariants(defaultUsername, "")
 	assert.NoError(t, err)
 	assert.Len(t, user1.VirtualFolders, 0)
 	assert.Len(t, user2.VirtualFolders, 3)
@@ -3582,7 +3766,7 @@ func TestUserType(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestMetadataAPI(t *testing.T) {
+func TestMetadataAPIMock(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
 
@@ -3662,7 +3846,7 @@ func TestRetentionAPI(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Eventually(t, func() bool {
-		return len(common.RetentionChecks.Get()) == 0
+		return len(common.RetentionChecks.Get("")) == 0
 	}, 1000*time.Millisecond, 50*time.Millisecond)
 
 	assert.FileExists(t, localFilePath)
@@ -3674,7 +3858,7 @@ func TestRetentionAPI(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Eventually(t, func() bool {
-		return len(common.RetentionChecks.Get()) == 0
+		return len(common.RetentionChecks.Get("")) == 0
 	}, 1000*time.Millisecond, 50*time.Millisecond)
 
 	assert.NoFileExists(t, localFilePath)
@@ -3691,7 +3875,7 @@ func TestRetentionAPI(t *testing.T) {
 
 	err = c.Start()
 	assert.NoError(t, err)
-	assert.Len(t, common.RetentionChecks.Get(), 0)
+	assert.Len(t, common.RetentionChecks.Get(""), 0)
 
 	admin := getTestAdmin()
 	admin.Username = altAdminUsername
@@ -3837,7 +4021,7 @@ func TestUserPublicKey(t *testing.T) {
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 
-	dbUser, err := dataprovider.UserExists(u.Username)
+	dbUser, err := dataprovider.UserExists(u.Username, "")
 	assert.NoError(t, err)
 	assert.Empty(t, dbUser.Password)
 	assert.False(t, dbUser.IsPasswordHashed())
@@ -3850,7 +4034,7 @@ func TestUserPublicKey(t *testing.T) {
 	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 
-	dbUser, err = dataprovider.UserExists(u.Username)
+	dbUser, err = dataprovider.UserExists(u.Username, "")
 	assert.NoError(t, err)
 	assert.NotEmpty(t, dbUser.Password)
 	assert.True(t, dbUser.IsPasswordHashed())
@@ -3866,7 +4050,7 @@ func TestUpdateUserEmptyPassword(t *testing.T) {
 	assert.NoError(t, err)
 
 	// the password is not empty
-	dbUser, err := dataprovider.UserExists(u.Username)
+	dbUser, err := dataprovider.UserExists(u.Username, "")
 	assert.NoError(t, err)
 	assert.NotEmpty(t, dbUser.Password)
 	assert.True(t, dbUser.IsPasswordHashed())
@@ -3879,7 +4063,7 @@ func TestUpdateUserEmptyPassword(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, user.Password, userNoPwd.Password) // the password is hidden
 	// check the password within the data provider
-	dbUser, err = dataprovider.UserExists(u.Username)
+	dbUser, err = dataprovider.UserExists(u.Username, "")
 	assert.NoError(t, err)
 	assert.Empty(t, dbUser.Password)
 	assert.False(t, dbUser.IsPasswordHashed())
@@ -4802,7 +4986,7 @@ func TestUserHiddenFields(t *testing.T) {
 	assert.NotEmpty(t, user6.FsConfig.HTTPConfig.APIKey.GetPayload())
 
 	// finally check that we have all the data inside the data provider
-	user1, err = dataprovider.UserExists(user1.Username)
+	user1, err = dataprovider.UserExists(user1.Username, "")
 	assert.NoError(t, err)
 	assert.NotEmpty(t, user1.Password)
 	assert.NotEmpty(t, user1.FsConfig.S3Config.AccessSecret.GetKey())
@@ -4816,7 +5000,7 @@ func TestUserHiddenFields(t *testing.T) {
 	assert.Empty(t, user1.FsConfig.S3Config.AccessSecret.GetKey())
 	assert.Empty(t, user1.FsConfig.S3Config.AccessSecret.GetAdditionalData())
 
-	user2, err = dataprovider.UserExists(user2.Username)
+	user2, err = dataprovider.UserExists(user2.Username, "")
 	assert.NoError(t, err)
 	assert.NotEmpty(t, user2.Password)
 	assert.NotEmpty(t, user2.FsConfig.GCSConfig.Credentials.GetKey())
@@ -4830,7 +5014,7 @@ func TestUserHiddenFields(t *testing.T) {
 	assert.Empty(t, user2.FsConfig.GCSConfig.Credentials.GetKey())
 	assert.Empty(t, user2.FsConfig.GCSConfig.Credentials.GetAdditionalData())
 
-	user3, err = dataprovider.UserExists(user3.Username)
+	user3, err = dataprovider.UserExists(user3.Username, "")
 	assert.NoError(t, err)
 	assert.NotEmpty(t, user3.Password)
 	assert.NotEmpty(t, user3.FsConfig.AzBlobConfig.AccountKey.GetKey())
@@ -4844,7 +5028,7 @@ func TestUserHiddenFields(t *testing.T) {
 	assert.Empty(t, user3.FsConfig.AzBlobConfig.AccountKey.GetKey())
 	assert.Empty(t, user3.FsConfig.AzBlobConfig.AccountKey.GetAdditionalData())
 
-	user4, err = dataprovider.UserExists(user4.Username)
+	user4, err = dataprovider.UserExists(user4.Username, "")
 	assert.NoError(t, err)
 	assert.NotEmpty(t, user4.Password)
 	assert.NotEmpty(t, user4.FsConfig.CryptConfig.Passphrase.GetKey())
@@ -4858,7 +5042,7 @@ func TestUserHiddenFields(t *testing.T) {
 	assert.Empty(t, user4.FsConfig.CryptConfig.Passphrase.GetKey())
 	assert.Empty(t, user4.FsConfig.CryptConfig.Passphrase.GetAdditionalData())
 
-	user5, err = dataprovider.UserExists(user5.Username)
+	user5, err = dataprovider.UserExists(user5.Username, "")
 	assert.NoError(t, err)
 	assert.NotEmpty(t, user5.Password)
 	assert.NotEmpty(t, user5.FsConfig.SFTPConfig.Password.GetKey())
@@ -4882,7 +5066,7 @@ func TestUserHiddenFields(t *testing.T) {
 	assert.Empty(t, user5.FsConfig.SFTPConfig.PrivateKey.GetKey())
 	assert.Empty(t, user5.FsConfig.SFTPConfig.PrivateKey.GetAdditionalData())
 
-	user6, err = dataprovider.UserExists(user6.Username)
+	user6, err = dataprovider.UserExists(user6.Username, "")
 	assert.NoError(t, err)
 	assert.NotEmpty(t, user6.Password)
 	assert.NotEmpty(t, user6.FsConfig.HTTPConfig.Password.GetKey())
@@ -5466,7 +5650,7 @@ func TestCloseActiveConnection(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = httpdtest.CloseConnection(c.GetID(), http.StatusOK)
 	assert.NoError(t, err)
-	assert.Len(t, common.Connections.GetStats(), 0)
+	assert.Len(t, common.Connections.GetStats(""), 0)
 }
 
 func TestCloseConnectionAfterUserUpdateDelete(t *testing.T) {
@@ -5486,19 +5670,19 @@ func TestCloseConnectionAfterUserUpdateDelete(t *testing.T) {
 	assert.NoError(t, err)
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "0")
 	assert.NoError(t, err)
-	assert.Len(t, common.Connections.GetStats(), 2)
+	assert.Len(t, common.Connections.GetStats(""), 2)
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "1")
 	assert.NoError(t, err)
-	assert.Len(t, common.Connections.GetStats(), 0)
+	assert.Len(t, common.Connections.GetStats(""), 0)
 
 	err = common.Connections.Add(fakeConn)
 	assert.NoError(t, err)
 	err = common.Connections.Add(fakeConn1)
 	assert.NoError(t, err)
-	assert.Len(t, common.Connections.GetStats(), 2)
+	assert.Len(t, common.Connections.GetStats(""), 2)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
-	assert.Len(t, common.Connections.GetStats(), 0)
+	assert.Len(t, common.Connections.GetStats(""), 0)
 }
 
 func TestAdminGenerateRecoveryCodesSaveError(t *testing.T) {
@@ -5598,6 +5782,11 @@ func TestNamingRules(t *testing.T) {
 	user, _, err = httpdtest.GetUserByUsername(u.Username, http.StatusOK)
 	assert.NoError(t, err)
 	assert.True(t, user.Filters.TOTPConfig.Enabled)
+
+	r := getTestRole()
+	r.Name = "role@mycompany"
+	role, _, err := httpdtest.AddRole(r, http.StatusCreated)
+	assert.NoError(t, err)
 
 	a := getTestAdmin()
 	a.Username = "admiN@example.com "
@@ -5729,6 +5918,14 @@ func TestNamingRules(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Contains(t, rr.Body.String(), "the following characters are allowed")
 
+	req, _ = http.NewRequest(http.MethodPost, path.Join(webAdminRolePath, role.Name), bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "the following characters are allowed")
+
 	apiKeyAuthReq = make(map[string]bool)
 	apiKeyAuthReq["allow_api_key_auth"] = true
 	asJSON, err = json.Marshal(apiKeyAuthReq)
@@ -5772,6 +5969,8 @@ func TestNamingRules(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "unable to set the new password")
 
 	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveRole(role, http.StatusOK)
 	assert.NoError(t, err)
 
 	smtpCfg = smtp.Config{}
@@ -5841,6 +6040,11 @@ func TestSaveErrors(t *testing.T) {
 	assert.True(t, admin.Filters.TOTPConfig.Enabled)
 	assert.Len(t, admin.Filters.RecoveryCodes, 1)
 
+	r := getTestRole()
+	r.Name = "role@mycompany"
+	role, _, err := httpdtest.AddRole(r, http.StatusCreated)
+	assert.NoError(t, err)
+
 	err = dataprovider.Close()
 	assert.NoError(t, err)
 	err = config.LoadConfig(configDir, "")
@@ -5852,6 +6056,10 @@ func TestSaveErrors(t *testing.T) {
 	if config.GetProviderConf().Driver == dataprovider.MemoryDataProviderName {
 		return
 	}
+
+	_, resp, err := httpdtest.UpdateRole(role, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "the following characters are allowed")
 
 	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
 	assert.NoError(t, err)
@@ -5909,6 +6117,8 @@ func TestSaveErrors(t *testing.T) {
 	assert.NoError(t, err)
 
 	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveRole(role, http.StatusOK)
 	assert.NoError(t, err)
 }
 
@@ -6013,6 +6223,10 @@ func TestProviderErrors(t *testing.T) {
 	_, _, err = httpdtest.GetEventActions(1, 0, http.StatusInternalServerError)
 	assert.NoError(t, err)
 	_, _, err = httpdtest.GetEventRules(1, 0, http.StatusInternalServerError)
+	assert.NoError(t, err)
+	_, _, err = httpdtest.GetRoles(1, 0, http.StatusInternalServerError)
+	assert.NoError(t, err)
+	_, _, err = httpdtest.UpdateRole(getTestRole(), http.StatusInternalServerError)
 	assert.NoError(t, err)
 	req, err := http.NewRequest(http.MethodGet, userSharesPath, nil)
 	assert.NoError(t, err)
@@ -6176,6 +6390,19 @@ func TestProviderErrors(t *testing.T) {
 						Order: 1,
 					},
 				},
+			},
+		},
+	}
+	backupContent, err = json.Marshal(backupData)
+	assert.NoError(t, err)
+	err = os.WriteFile(backupFilePath, backupContent, os.ModePerm)
+	assert.NoError(t, err)
+	_, _, err = httpdtest.Loaddata(backupFilePath, "", "", http.StatusInternalServerError)
+	assert.NoError(t, err)
+	backupData = dataprovider.BackupData{
+		Roles: []dataprovider.Role{
+			{
+				Name: "role1",
 			},
 		},
 	}
@@ -6608,6 +6835,9 @@ func TestRestoreShares(t *testing.T) {
 func TestLoaddataFromPostBody(t *testing.T) {
 	mappedPath := filepath.Join(os.TempDir(), "restored_folder")
 	folderName := filepath.Base(mappedPath)
+	role := getTestRole()
+	role.ID = 1
+	role.Name = "test_restored_role"
 	group := getTestGroup()
 	group.ID = 1
 	group.Name = "test_group_restored"
@@ -6620,13 +6850,18 @@ func TestLoaddataFromPostBody(t *testing.T) {
 			Type: sdk.GroupTypePrimary,
 		},
 	}
+	user.Role = role.Name
 	admin := getTestAdmin()
 	admin.ID = 1
 	admin.Username = "test_admin_restored"
+	admin.Permissions = []string{dataprovider.PermAdminAddUsers, dataprovider.PermAdminChangeUsers,
+		dataprovider.PermAdminDeleteUsers, dataprovider.PermAdminViewUsers}
+	admin.Role = role.Name
 	backupData := dataprovider.BackupData{}
 	backupData.Users = append(backupData.Users, user)
 	backupData.Groups = append(backupData.Groups, group)
 	backupData.Admins = append(backupData.Admins, admin)
+	backupData.Roles = append(backupData.Roles, role)
 	backupData.Folders = []vfs.BaseVirtualFolder{
 		{
 			Name:            folderName,
@@ -6674,14 +6909,19 @@ func TestLoaddataFromPostBody(t *testing.T) {
 	}
 	backupContent, err = json.Marshal(backupData)
 	assert.NoError(t, err)
-	_, _, err = httpdtest.LoaddataFromPostBody(backupContent, "0", "0", http.StatusOK)
-	assert.NoError(t, err)
+	_, resp, err := httpdtest.LoaddataFromPostBody(backupContent, "0", "0", http.StatusOK)
+	assert.NoError(t, err, string(resp))
 	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 	assert.NoError(t, err)
+	assert.Equal(t, role.Name, user.Role)
 	if assert.Len(t, user.Groups, 1) {
 		assert.Equal(t, sdk.GroupTypePrimary, user.Groups[0].Type)
 		assert.Equal(t, group.Name, user.Groups[0].Name)
 	}
+	role, _, err = httpdtest.GetRoleByName(role.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, role.Admins, 1)
+	assert.Len(t, role.Users, 1)
 	_, err = dataprovider.ShareExists(keyID, user.Username)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
@@ -6694,7 +6934,14 @@ func TestLoaddataFromPostBody(t *testing.T) {
 
 	admin, _, err = httpdtest.GetAdminByUsername(admin.Username, http.StatusOK)
 	assert.NoError(t, err)
+	assert.Equal(t, role.Name, admin.Role)
 	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+	role, _, err = httpdtest.GetRoleByName(role.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, role.Admins, 0)
+	assert.Len(t, role.Users, 0)
+	_, err = httpdtest.RemoveRole(role, http.StatusOK)
 	assert.NoError(t, err)
 	apiKey, _, err := httpdtest.GetAPIKeyByID(keyID, http.StatusOK)
 	assert.NoError(t, err)
@@ -6715,7 +6962,7 @@ func TestLoaddataFromPostBody(t *testing.T) {
 func TestLoaddata(t *testing.T) {
 	mappedPath := filepath.Join(os.TempDir(), "restored_folder")
 	folderName := filepath.Base(mappedPath)
-	foldeDesc := "restored folder desc"
+	folderDesc := "restored folder desc"
 	user := getTestUser()
 	user.ID = 1
 	user.Username = "test_user_restore"
@@ -6734,6 +6981,9 @@ func TestLoaddata(t *testing.T) {
 		},
 		VirtualPath: "/vgrouppath",
 	})
+	role := getTestRole()
+	role.ID = 1
+	role.Name = "test_role_restore"
 	user.Groups = append(user.Groups, sdk.GroupMapping{
 		Name: group.Name,
 		Type: sdk.GroupTypePrimary,
@@ -6794,6 +7044,7 @@ func TestLoaddata(t *testing.T) {
 	}
 	backupData := dataprovider.BackupData{}
 	backupData.Users = append(backupData.Users, user)
+	backupData.Roles = append(backupData.Roles, role)
 	backupData.Groups = append(backupData.Groups, group)
 	backupData.Admins = append(backupData.Admins, admin)
 	backupData.Folders = []vfs.BaseVirtualFolder{
@@ -6808,7 +7059,7 @@ func TestLoaddata(t *testing.T) {
 		{
 			MappedPath:  mappedPath,
 			Name:        folderName,
-			Description: foldeDesc,
+			Description: folderDesc,
 		},
 	}
 	backupData.APIKeys = append(backupData.APIKeys, apiKey)
@@ -6847,6 +7098,9 @@ func TestLoaddata(t *testing.T) {
 	assert.Len(t, user.VirtualFolders, 1)
 	assert.Len(t, user.Groups, 1)
 	_, err = dataprovider.ShareExists(share.ShareID, user.Username)
+	assert.NoError(t, err)
+
+	role, _, err = httpdtest.GetRoleByName(role.Name, http.StatusOK)
 	assert.NoError(t, err)
 
 	group, _, err = httpdtest.GetGroupByName(group.Name, http.StatusOK)
@@ -6905,18 +7159,17 @@ func TestLoaddata(t *testing.T) {
 	if assert.Len(t, dumpedData.Groups, 1) {
 		assert.Equal(t, len(group.VirtualFolders), len(dumpedData.Groups[0].VirtualFolders))
 	}
-	found = false
-	for _, a := range dumpedData.EventActions {
-		if a.Name == action.Name {
-			found = true
-		}
+	if assert.Len(t, dumpedData.EventActions, 1) {
+		assert.Equal(t, action.Name, dumpedData.EventActions[0].Name)
 	}
-	assert.True(t, found)
+	if assert.Len(t, dumpedData.EventRules, 1) {
+		assert.Equal(t, rule.Name, dumpedData.EventRules[0].Name)
+		assert.Len(t, dumpedData.EventRules[0].Actions, 1)
+	}
 	found = false
-	for _, r := range dumpedData.EventRules {
-		if r.Name == rule.Name {
+	for _, r := range dumpedData.Roles {
+		if r.Name == role.Name {
 			found = true
-			assert.Len(t, r.Actions, 1)
 		}
 	}
 	assert.True(t, found)
@@ -6926,7 +7179,7 @@ func TestLoaddata(t *testing.T) {
 	assert.Equal(t, int64(123), folder.UsedQuotaSize)
 	assert.Equal(t, 456, folder.UsedQuotaFiles)
 	assert.Equal(t, int64(789), folder.LastQuotaUpdate)
-	assert.Equal(t, foldeDesc, folder.Description)
+	assert.Equal(t, folderDesc, folder.Description)
 	assert.Len(t, folder.Users, 1)
 	_, err = httpdtest.RemoveFolder(folder, http.StatusOK)
 	assert.NoError(t, err)
@@ -6941,6 +7194,8 @@ func TestLoaddata(t *testing.T) {
 	_, err = httpdtest.RemoveEventAction(action, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveRole(role, http.StatusOK)
 	assert.NoError(t, err)
 
 	err = os.Remove(backupFilePath)
@@ -6962,9 +7217,14 @@ func TestLoaddata(t *testing.T) {
 func TestLoaddataMode(t *testing.T) {
 	mappedPath := filepath.Join(os.TempDir(), "restored_fold")
 	folderName := filepath.Base(mappedPath)
+	role := getTestRole()
+	role.ID = 1
+	role.Name = "test_role_load"
+	role.Description = ""
 	user := getTestUser()
 	user.ID = 1
 	user.Username = "test_user_restore"
+	user.Role = role.Name
 	group := getTestGroup()
 	group.ID = 1
 	group.Name = "test_group_restore"
@@ -7031,6 +7291,7 @@ func TestLoaddataMode(t *testing.T) {
 	backupData.Admins = append(backupData.Admins, admin)
 	backupData.EventActions = append(backupData.EventActions, action)
 	backupData.EventRules = append(backupData.EventRules, rule)
+	backupData.Roles = append(backupData.Roles, role)
 	backupData.Folders = []vfs.BaseVirtualFolder{
 		{
 			Name:            folderName,
@@ -7062,10 +7323,20 @@ func TestLoaddataMode(t *testing.T) {
 	assert.Len(t, folder.Users, 0)
 	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 	assert.NoError(t, err)
+	assert.Equal(t, role.Name, user.Role)
 	oldUploadBandwidth := user.UploadBandwidth
 	user.UploadBandwidth = oldUploadBandwidth + 128
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
+	role, _, err = httpdtest.GetRoleByName(role.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, role.Users, 1)
+	assert.Len(t, role.Admins, 0)
+	assert.Empty(t, role.Description)
+	role.Description = "role desc"
+	_, _, err = httpdtest.UpdateRole(role, http.StatusOK)
+	assert.NoError(t, err)
+	role.Description = ""
 	group, _, err = httpdtest.GetGroupByName(group.Name, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Len(t, group.Users, 1)
@@ -7137,7 +7408,7 @@ func TestLoaddataMode(t *testing.T) {
 	}
 	err = common.Connections.Add(fakeConn)
 	assert.NoError(t, err)
-	assert.Len(t, common.Connections.GetStats(), 1)
+	assert.Len(t, common.Connections.GetStats(""), 1)
 	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 	assert.NoError(t, err)
 	assert.NotEqual(t, oldUploadBandwidth, user.UploadBandwidth)
@@ -7155,10 +7426,16 @@ func TestLoaddataMode(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotEmpty(t, share.Description)
 
+	role, _, err = httpdtest.GetRoleByName(role.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, role.Users, 1)
+	assert.Len(t, role.Admins, 0)
+	assert.NotEmpty(t, role.Description)
+
 	_, _, err = httpdtest.Loaddata(backupFilePath, "0", "2", http.StatusOK)
 	assert.NoError(t, err)
 	// mode 2 will update the user and close the previous connection
-	assert.Len(t, common.Connections.GetStats(), 0)
+	assert.Len(t, common.Connections.GetStats(""), 0)
 	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Equal(t, oldUploadBandwidth, user.UploadBandwidth)
@@ -7178,6 +7455,8 @@ func TestLoaddataMode(t *testing.T) {
 	_, err = httpdtest.RemoveEventRule(rule, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveEventAction(action, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveRole(role, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.Remove(backupFilePath)
 	assert.NoError(t, err)
@@ -7357,6 +7636,45 @@ func TestAddEventRuleInvalidJsonMock(t *testing.T) {
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
+}
+
+func TestAddRoleInvalidJsonMock(t *testing.T) {
+	token, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	req, _ := http.NewRequest(http.MethodPost, rolesPath, bytes.NewBuffer([]byte("{")))
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+}
+
+func TestRoleErrorsMock(t *testing.T) {
+	token, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	reqBody := bytes.NewBuffer([]byte("{"))
+	req, err := http.NewRequest(http.MethodGet, rolesPath+"?limit=a", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	role, _, err := httpdtest.AddRole(getTestRole(), http.StatusCreated)
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodPut, path.Join(rolesPath, role.Name), reqBody)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	req, err = http.NewRequest(http.MethodPut, path.Join(rolesPath, "missing_role"), reqBody)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	_, err = httpdtest.RemoveRole(role, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveRole(role, http.StatusNotFound)
+	assert.NoError(t, err)
 }
 
 func TestEventRuleErrorsMock(t *testing.T) {
@@ -9517,6 +9835,7 @@ func TestUpdateAdminMock(t *testing.T) {
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "you cannot disable yourself")
 	admin.Status = 1
 	admin.Permissions = []string{dataprovider.PermAdminAddUsers}
 	asJSON, err = json.Marshal(admin)
@@ -9525,6 +9844,17 @@ func TestUpdateAdminMock(t *testing.T) {
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "you cannot remove these permissions to yourself")
+	admin.Permissions = []string{dataprovider.PermAdminAny}
+	admin.Role = "missing role"
+	asJSON, err = json.Marshal(admin)
+	assert.NoError(t, err)
+	req, _ = http.NewRequest(http.MethodPut, path.Join(adminPath, defaultTokenAuthUser), bytes.NewBuffer(asJSON))
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "you cannot add/change your role")
+	admin.Role = ""
 
 	altToken, err := getJWTAPITokenFromTestServer(altAdminUsername, defaultTokenAuthPass)
 	assert.NoError(t, err)
@@ -9865,7 +10195,7 @@ func TestUpdateUserQuotaUsageMock(t *testing.T) {
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
-	assert.True(t, common.QuotaScans.AddUserQuotaScan(user.Username))
+	assert.True(t, common.QuotaScans.AddUserQuotaScan(user.Username, ""))
 	req, _ = http.NewRequest(http.MethodPut, path.Join(quotasBasePath, "users", u.Username, "usage"), bytes.NewBuffer(userAsJSON))
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
@@ -10142,7 +10472,7 @@ func TestStartQuotaScanMock(t *testing.T) {
 		assert.NoError(t, err)
 	}
 	// simulate a duplicate quota scan
-	common.QuotaScans.AddUserQuotaScan(user.Username)
+	common.QuotaScans.AddUserQuotaScan(user.Username, "")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(quotasBasePath, "users", user.Username, "scan"), nil)
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
@@ -10829,7 +11159,7 @@ func TestWebClientMaxConnections(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	assert.Len(t, common.Connections.GetStats(), 0)
+	assert.Len(t, common.Connections.GetStats(""), 0)
 
 	common.Config.MaxTotalConnections = oldValue
 }
@@ -11095,7 +11425,7 @@ func TestMaxSessions(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	assert.Len(t, common.Connections.GetStats(), 0)
+	assert.Len(t, common.Connections.GetStats(""), 0)
 }
 
 func TestSFTPLoopError(t *testing.T) {
@@ -11827,7 +12157,7 @@ func TestShareMaxSessions(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	assert.Len(t, common.Connections.GetStats(), 0)
+	assert.Len(t, common.Connections.GetStats(""), 0)
 }
 
 func TestShareUploadSingle(t *testing.T) {
@@ -15043,7 +15373,7 @@ func TestClientUserClose(t *testing.T) {
 	}()
 	// wait for the transfers
 	assert.Eventually(t, func() bool {
-		stats := common.Connections.GetStats()
+		stats := common.Connections.GetStats("")
 		if len(stats) == 3 {
 			if len(stats[0].Transfers) > 0 && len(stats[1].Transfers) > 0 {
 				return true
@@ -15052,12 +15382,12 @@ func TestClientUserClose(t *testing.T) {
 		return false
 	}, 1*time.Second, 50*time.Millisecond)
 
-	for _, stat := range common.Connections.GetStats() {
+	for _, stat := range common.Connections.GetStats("") {
 		// close all the active transfers
-		common.Connections.Close(stat.ConnectionID)
+		common.Connections.Close(stat.ConnectionID, "")
 	}
 	wg.Wait()
-	assert.Eventually(t, func() bool { return len(common.Connections.GetStats()) == 0 },
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
 		1*time.Second, 100*time.Millisecond)
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
@@ -16916,6 +17246,16 @@ func TestAdminUpdateSelfMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Contains(t, rr.Body.String(), "You cannot disable yourself")
+
+	form.Set("status", "1")
+	form.Set("role", "my role")
+	req, _ = http.NewRequest(http.MethodPost, path.Join(webAdminPath, defaultTokenAuthUser), bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "You cannot add/change your role")
 }
 
 func TestWebMaintenanceMock(t *testing.T) {
@@ -17380,7 +17720,7 @@ func TestWebUserAddMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusSeeOther, rr)
 
-	dbUser, err := dataprovider.UserExists(user.Username)
+	dbUser, err := dataprovider.UserExists(user.Username, "")
 	assert.NoError(t, err)
 	assert.NotEmpty(t, dbUser.Password)
 	assert.True(t, dbUser.IsPasswordHashed())
@@ -17572,7 +17912,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 		assert.Equal(t, int64(512), user.Filters.BandwidthLimits[0].DownloadBandwidth)
 	}
 
-	dbUser, err := dataprovider.UserExists(user.Username)
+	dbUser, err := dataprovider.UserExists(user.Username, "")
 	assert.NoError(t, err)
 	assert.NotEmpty(t, dbUser.Password)
 	assert.True(t, dbUser.IsPasswordHashed())
@@ -17637,7 +17977,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	req.Header.Set("Content-Type", contentType)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusSeeOther, rr)
-	dbUser, err = dataprovider.UserExists(user.Username)
+	dbUser, err = dataprovider.UserExists(user.Username, "")
 	assert.NoError(t, err)
 	assert.Empty(t, dbUser.Password)
 	assert.False(t, dbUser.IsPasswordHashed())
@@ -17649,7 +17989,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	req.Header.Set("Content-Type", contentType)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusSeeOther, rr)
-	dbUser, err = dataprovider.UserExists(user.Username)
+	dbUser, err = dataprovider.UserExists(user.Username, "")
 	assert.NoError(t, err)
 	assert.NotEmpty(t, dbUser.Password)
 	assert.True(t, dbUser.IsPasswordHashed())
@@ -17662,7 +18002,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	req.Header.Set("Content-Type", contentType)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusSeeOther, rr)
-	dbUser, err = dataprovider.UserExists(user.Username)
+	dbUser, err = dataprovider.UserExists(user.Username, "")
 	assert.NoError(t, err)
 	assert.NotEmpty(t, dbUser.Password)
 	assert.True(t, dbUser.IsPasswordHashed())
@@ -17824,7 +18164,7 @@ func TestUserTemplateWithFoldersMock(t *testing.T) {
 	form.Add("tpl_public_keys", "")
 	form.Set("form_action", "export_from_template")
 	b, contentType, _ := getMultipartFormData(form, "", "")
-	req, _ := http.NewRequest(http.MethodPost, path.Join(webTemplateUser), &b)
+	req, _ := http.NewRequest(http.MethodPost, webTemplateUser, &b)
 	setJWTCookieForReq(req, token)
 	req.Header.Set("Content-Type", contentType)
 	rr := executeRequest(req)
@@ -17833,7 +18173,7 @@ func TestUserTemplateWithFoldersMock(t *testing.T) {
 
 	form.Set(csrfFormToken, csrfToken)
 	b, contentType, _ = getMultipartFormData(form, "", "")
-	req, _ = http.NewRequest(http.MethodPost, path.Join(webTemplateUser), &b)
+	req, _ = http.NewRequest(http.MethodPost, webTemplateUser, &b)
 	setJWTCookieForReq(req, token)
 	req.Header.Set("Content-Type", contentType)
 	rr = executeRequest(req)
@@ -17844,7 +18184,7 @@ func TestUserTemplateWithFoldersMock(t *testing.T) {
 	assert.NoError(t, err, string(resp))
 
 	b, contentType, _ = getMultipartFormData(form, "", "")
-	req, _ = http.NewRequest(http.MethodPost, path.Join(webTemplateUser), &b)
+	req, _ = http.NewRequest(http.MethodPost, webTemplateUser, &b)
 	setJWTCookieForReq(req, token)
 	req.Header.Set("Content-Type", contentType)
 	rr = executeRequest(req)
@@ -18140,7 +18480,7 @@ func TestUserPlaceholders(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, filepath.Join(os.TempDir(), fmt.Sprintf("%v_%v", defaultUsername, defaultPassword)), user.HomeDir)
 
-	dbUser, err := dataprovider.UserExists(defaultUsername)
+	dbUser, err := dataprovider.UserExists(defaultUsername, "")
 	assert.NoError(t, err)
 	assert.True(t, dbUser.IsPasswordHashed())
 	hashedPwd := dbUser.Password
@@ -18158,7 +18498,7 @@ func TestUserPlaceholders(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, filepath.Join(os.TempDir(), defaultUsername+"_%password%"), user.HomeDir)
 	// check that the password was unchanged
-	dbUser, err = dataprovider.UserExists(defaultUsername)
+	dbUser, err = dataprovider.UserExists(defaultUsername, "")
 	assert.NoError(t, err)
 	assert.True(t, dbUser.IsPasswordHashed())
 	assert.Equal(t, hashedPwd, dbUser.Password)
@@ -19305,6 +19645,74 @@ func TestWebUserSFTPFsMock(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 }
 
+func TestWebUserRole(t *testing.T) {
+	role, resp, err := httpdtest.AddRole(getTestRole(), http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	a := getTestAdmin()
+	a.Username = altAdminUsername
+	a.Password = altAdminPassword
+	a.Role = role.Name
+	a.Permissions = []string{dataprovider.PermAdminAddUsers, dataprovider.PermAdminChangeUsers,
+		dataprovider.PermAdminDeleteUsers, dataprovider.PermAdminViewUsers}
+	admin, _, err := httpdtest.AddAdmin(a, http.StatusCreated)
+	assert.NoError(t, err)
+	webToken, err := getJWTWebTokenFromTestServer(altAdminUsername, altAdminPassword)
+	assert.NoError(t, err)
+	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	assert.NoError(t, err)
+	user := getTestUser()
+	form := make(url.Values)
+	form.Set(csrfFormToken, csrfToken)
+	form.Set("username", user.Username)
+	form.Set("home_dir", user.HomeDir)
+	form.Set("password", user.Password)
+	form.Set("status", strconv.Itoa(user.Status))
+	form.Set("permissions", "*")
+	form.Set("external_auth_cache_time", "0")
+	form.Set("uid", "0")
+	form.Set("gid", "0")
+	form.Set("max_sessions", "0")
+	form.Set("quota_size", "0")
+	form.Set("quota_files", "0")
+	form.Set("upload_bandwidth", strconv.FormatInt(user.UploadBandwidth, 10))
+	form.Set("download_bandwidth", strconv.FormatInt(user.DownloadBandwidth, 10))
+	form.Set("upload_data_transfer", strconv.FormatInt(user.UploadDataTransfer, 10))
+	form.Set("download_data_transfer", strconv.FormatInt(user.DownloadDataTransfer, 10))
+	form.Set("total_data_transfer", strconv.FormatInt(user.TotalDataTransfer, 10))
+	form.Set("max_upload_file_size", "0")
+	form.Set("default_shares_expiration", "10")
+	b, contentType, _ := getMultipartFormData(form, "", "")
+	req, err := http.NewRequest(http.MethodPost, webUserPath, &b)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, role.Name, user.Role)
+
+	form.Set("role", "")
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, role.Name, user.Role)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveRole(role, http.StatusOK)
+	assert.NoError(t, err)
+}
+
 func TestWebEventAction(t *testing.T) {
 	webToken, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
@@ -19983,6 +20391,110 @@ func TestWebEventRule(t *testing.T) {
 	setCSRFHeaderForReq(req, csrfToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
+}
+
+func TestWebRole(t *testing.T) {
+	webToken, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	assert.NoError(t, err)
+	role := getTestRole()
+	form := make(url.Values)
+	form.Set("name", "")
+	form.Set("description", role.Description)
+	req, err := http.NewRequest(http.MethodPost, webAdminRolePath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "unable to verify form token")
+
+	form.Set(csrfFormToken, csrfToken)
+	req, err = http.NewRequest(http.MethodPost, webAdminRolePath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "name is mandatory")
+	form.Set("name", role.Name)
+	req, err = http.NewRequest(http.MethodPost, webAdminRolePath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+	// a new add will fail
+	req, err = http.NewRequest(http.MethodPost, webAdminRolePath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// list roles
+	req, err = http.NewRequest(http.MethodGet, webAdminRolesPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// render the new role page
+	req, err = http.NewRequest(http.MethodGet, webAdminRolePath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	req, err = http.NewRequest(http.MethodGet, path.Join(webAdminRolePath, role.Name), nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	req, err = http.NewRequest(http.MethodGet, path.Join(webAdminRolePath, "missing_role"), nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+	// parse form error
+	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminRolePath, role.Name)+"?param=p%C4%AO%GH",
+		bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "invalid URL escape")
+	// update role
+	form.Set("description", "new desc")
+	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminRolePath, role.Name), bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+	// check the changes
+	role, _, err = httpdtest.GetRoleByName(role.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, "new desc", role.Description)
+	// no CSRF token
+	form.Set(csrfFormToken, "")
+	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminRolePath, role.Name), bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "unable to verify form token")
+	// missing role
+	form.Set(csrfFormToken, csrfToken)
+	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminRolePath, "missing"), bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	_, err = httpdtest.RemoveRole(role, http.StatusOK)
+	assert.NoError(t, err)
 }
 
 func TestAddWebGroup(t *testing.T) {
@@ -21187,7 +21699,7 @@ func TestAPIForgotPassword(t *testing.T) {
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	assert.Contains(t, rr.Body.String(), "confirmation code not found")
 
-	user, err = dataprovider.UserExists(defaultUsername)
+	user, err = dataprovider.UserExists(defaultUsername, "")
 	assert.NoError(t, err)
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(altAdminPassword))
 	assert.NoError(t, err)
@@ -21254,6 +21766,20 @@ func TestProviderClosedMock(t *testing.T) {
 	assert.NoError(t, err)
 	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
 	assert.NoError(t, err)
+	// create a role admin
+	role, resp, err := httpdtest.AddRole(getTestRole(), http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	a := getTestAdmin()
+	a.Username = altAdminUsername
+	a.Password = altAdminPassword
+	a.Role = role.Name
+	a.Permissions = []string{dataprovider.PermAdminAddUsers, dataprovider.PermAdminChangeUsers,
+		dataprovider.PermAdminDeleteUsers, dataprovider.PermAdminViewUsers}
+	admin, _, err := httpdtest.AddAdmin(a, http.StatusCreated)
+	assert.NoError(t, err)
+	altToken, err := getJWTWebTokenFromTestServer(altAdminUsername, altAdminPassword)
+	assert.NoError(t, err)
+
 	dataprovider.Close()
 	req, _ := http.NewRequest(http.MethodGet, webFoldersPath, nil)
 	setJWTCookieForReq(req, token)
@@ -21299,12 +21825,46 @@ func TestProviderClosedMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusInternalServerError, rr)
 
+	req, _ = http.NewRequest(http.MethodPost, webUserPath, strings.NewReader(form.Encode()))
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+
+	req, _ = http.NewRequest(http.MethodPost, webUserPath, strings.NewReader(form.Encode()))
+	setJWTCookieForReq(req, altToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+
+	req, err = http.NewRequest(http.MethodGet, webAdminRolesPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+
+	req, err = http.NewRequest(http.MethodGet, path.Join(webAdminRolePath, role.Name), nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+
+	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminRolePath, role.Name), strings.NewReader(form.Encode()))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
 	providerConf.BackupsPath = backupsPath
 	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
+	if config.GetProviderConf().Driver != dataprovider.MemoryDataProviderName {
+		_, err = httpdtest.RemoveAdmin(admin, http.StatusOK)
+		assert.NoError(t, err)
+		_, err = httpdtest.RemoveRole(role, http.StatusOK)
+		assert.NoError(t, err)
+	}
 }
 
 func TestWebConnectionsMock(t *testing.T) {
@@ -21510,6 +22070,13 @@ func getTestGroup() dataprovider.Group {
 			Name:        "test_group",
 			Description: "test group description",
 		},
+	}
+}
+
+func getTestRole() dataprovider.Role {
+	return dataprovider.Role{
+		Name:        "test_role",
+		Description: "test role description",
 	}
 }
 

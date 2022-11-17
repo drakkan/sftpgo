@@ -937,7 +937,7 @@ func TestTransferSeek(t *testing.T) {
 	assert.True(t, fs.IsNotExist(err))
 	assert.Equal(t, int64(0), res)
 
-	assert.Len(t, common.Connections.GetStats(), 0)
+	assert.Len(t, common.Connections.GetStats(""), 0)
 
 	err = os.Remove(testFilePath)
 	assert.NoError(t, err)
@@ -959,7 +959,7 @@ func TestBasicUsersCache(t *testing.T) {
 	u.Permissions["/"] = []string{dataprovider.PermAny}
 	err := dataprovider.AddUser(&u, "", "")
 	assert.NoError(t, err)
-	user, err := dataprovider.UserExists(u.Username)
+	user, err := dataprovider.UserExists(u.Username, "")
 	assert.NoError(t, err)
 
 	c := &Configuration{
@@ -1054,7 +1054,7 @@ func TestBasicUsersCache(t *testing.T) {
 	_, ok = dataprovider.GetCachedWebDAVUser(username)
 	assert.True(t, ok)
 	// cache is invalidated after user deletion
-	err = dataprovider.DeleteUser(user.Username, "", "")
+	err = dataprovider.DeleteUser(user.Username, "", "", "")
 	assert.NoError(t, err)
 	_, ok = dataprovider.GetCachedWebDAVUser(username)
 	assert.False(t, ok)
@@ -1090,7 +1090,7 @@ func TestCachedUserWithFolders(t *testing.T) {
 	})
 	err := dataprovider.AddUser(&u, "", "")
 	assert.NoError(t, err)
-	user, err := dataprovider.UserExists(u.Username)
+	user, err := dataprovider.UserExists(u.Username, "")
 	assert.NoError(t, err)
 
 	c := &Configuration{
@@ -1177,7 +1177,7 @@ func TestCachedUserWithFolders(t *testing.T) {
 		assert.False(t, cachedUser.IsExpired())
 	}
 
-	err = dataprovider.DeleteUser(user.Username, "", "")
+	err = dataprovider.DeleteUser(user.Username, "", "", "")
 	assert.NoError(t, err)
 	_, ok = dataprovider.GetCachedWebDAVUser(username)
 	assert.False(t, ok)
@@ -1205,25 +1205,25 @@ func TestUsersCacheSizeAndExpiration(t *testing.T) {
 	u.Permissions["/"] = []string{dataprovider.PermAny}
 	err := dataprovider.AddUser(&u, "", "")
 	assert.NoError(t, err)
-	user1, err := dataprovider.UserExists(u.Username)
+	user1, err := dataprovider.UserExists(u.Username, "")
 	assert.NoError(t, err)
 	u.Username = username + "2"
 	u.Password = password + "2"
 	err = dataprovider.AddUser(&u, "", "")
 	assert.NoError(t, err)
-	user2, err := dataprovider.UserExists(u.Username)
+	user2, err := dataprovider.UserExists(u.Username, "")
 	assert.NoError(t, err)
 	u.Username = username + "3"
 	u.Password = password + "3"
 	err = dataprovider.AddUser(&u, "", "")
 	assert.NoError(t, err)
-	user3, err := dataprovider.UserExists(u.Username)
+	user3, err := dataprovider.UserExists(u.Username, "")
 	assert.NoError(t, err)
 	u.Username = username + "4"
 	u.Password = password + "4"
 	err = dataprovider.AddUser(&u, "", "")
 	assert.NoError(t, err)
-	user4, err := dataprovider.UserExists(u.Username)
+	user4, err := dataprovider.UserExists(u.Username, "")
 	assert.NoError(t, err)
 
 	c := &Configuration{
@@ -1385,13 +1385,13 @@ func TestUsersCacheSizeAndExpiration(t *testing.T) {
 	_, ok = dataprovider.GetCachedWebDAVUser(user4.Username)
 	assert.True(t, ok)
 
-	err = dataprovider.DeleteUser(user1.Username, "", "")
+	err = dataprovider.DeleteUser(user1.Username, "", "", "")
 	assert.NoError(t, err)
-	err = dataprovider.DeleteUser(user2.Username, "", "")
+	err = dataprovider.DeleteUser(user2.Username, "", "", "")
 	assert.NoError(t, err)
-	err = dataprovider.DeleteUser(user3.Username, "", "")
+	err = dataprovider.DeleteUser(user3.Username, "", "", "")
 	assert.NoError(t, err)
-	err = dataprovider.DeleteUser(user4.Username, "", "")
+	err = dataprovider.DeleteUser(user4.Username, "", "", "")
 	assert.NoError(t, err)
 
 	err = os.RemoveAll(u.GetHomeDir())
@@ -1415,7 +1415,7 @@ func TestUserCacheIsolation(t *testing.T) {
 	u.Permissions["/"] = []string{dataprovider.PermAny}
 	err := dataprovider.AddUser(&u, "", "")
 	assert.NoError(t, err)
-	user, err := dataprovider.UserExists(u.Username)
+	user, err := dataprovider.UserExists(u.Username, "")
 	assert.NoError(t, err)
 	cachedUser := &dataprovider.CachedUser{
 		User:       user,
@@ -1449,7 +1449,7 @@ func TestUserCacheIsolation(t *testing.T) {
 		assert.False(t, cachedUser.User.FsConfig.S3Config.AccessSecret.IsEncrypted())
 	}
 
-	err = dataprovider.DeleteUser(username, "", "")
+	err = dataprovider.DeleteUser(username, "", "", "")
 	assert.NoError(t, err)
 	_, ok = dataprovider.GetCachedWebDAVUser(username)
 	assert.False(t, ok)

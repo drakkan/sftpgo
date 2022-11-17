@@ -27,18 +27,28 @@ import (
 
 func getMetadataChecks(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	render.JSON(w, r, common.ActiveMetadataChecks.Get())
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+		return
+	}
+	render.JSON(w, r, common.ActiveMetadataChecks.Get(claims.Role))
 }
 
 func startMetadataCheck(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+		return
+	}
 
-	user, err := dataprovider.GetUserWithGroupSettings(getURLParam(r, "username"))
+	user, err := dataprovider.GetUserWithGroupSettings(getURLParam(r, "username"), claims.Role)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	if !common.ActiveMetadataChecks.Add(user.Username) {
+	if !common.ActiveMetadataChecks.Add(user.Username, user.Role) {
 		sendAPIResponse(w, r, err, fmt.Sprintf("Another check is already in progress for user %#v", user.Username),
 			http.StatusConflict)
 		return

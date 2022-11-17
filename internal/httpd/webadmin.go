@@ -84,6 +84,8 @@ const (
 	templateEventRule        = "eventrule.html"
 	templateEventActions     = "eventactions.html"
 	templateEventAction      = "eventaction.html"
+	templateRoles            = "roles.html"
+	templateRole             = "role.html"
 	templateMessage          = "message.html"
 	templateStatus           = "status.html"
 	templateLogin            = "login.html"
@@ -101,6 +103,7 @@ const (
 	pageGroupsTitle          = "Groups"
 	pageEventRulesTitle      = "Event rules"
 	pageEventActionsTitle    = "Event actions"
+	pageRolesTitle           = "Roles"
 	pageProfileTitle         = "My profile"
 	pageChangePwdTitle       = "Change password"
 	pageMaintenanceTitle     = "Maintenance"
@@ -140,6 +143,8 @@ type basePage struct {
 	EventRuleURL       string
 	EventActionsURL    string
 	EventActionURL     string
+	RolesURL           string
+	RoleURL            string
 	FolderQuotaScanURL string
 	StatusURL          string
 	MaintenanceURL     string
@@ -151,6 +156,7 @@ type basePage struct {
 	GroupsTitle        string
 	EventRulesTitle    string
 	EventActionsTitle  string
+	RolesTitle         string
 	StatusTitle        string
 	MaintenanceTitle   string
 	DefenderTitle      string
@@ -181,6 +187,11 @@ type foldersPage struct {
 type groupsPage struct {
 	basePage
 	Groups []dataprovider.Group
+}
+
+type rolesPage struct {
+	basePage
+	Roles []dataprovider.Role
 }
 
 type eventRulesPage struct {
@@ -226,6 +237,7 @@ type userPage struct {
 	Mode               userPageMode
 	VirtualFolders     []vfs.BaseVirtualFolder
 	Groups             []dataprovider.Group
+	Roles              []dataprovider.Role
 	CanImpersonate     bool
 	FsWrapper          fsWrapper
 }
@@ -234,6 +246,7 @@ type adminPage struct {
 	basePage
 	Admin  *dataprovider.Admin
 	Groups []dataprovider.Group
+	Roles  []dataprovider.Role
 	Error  string
 	IsAdd  bool
 }
@@ -302,6 +315,13 @@ type groupPage struct {
 	WebClientOptions   []string
 	VirtualFolders     []vfs.BaseVirtualFolder
 	FsWrapper          fsWrapper
+}
+
+type rolePage struct {
+	basePage
+	Role  *dataprovider.Role
+	Error string
+	Mode  genericPageMode
 }
 
 type eventActionPage struct {
@@ -475,6 +495,16 @@ func loadAdminTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
 		filepath.Join(templatesPath, templateCommonDir, templateResetPassword),
 	}
+	rolesPaths := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
+		filepath.Join(templatesPath, templateAdminDir, templateBase),
+		filepath.Join(templatesPath, templateAdminDir, templateRoles),
+	}
+	rolePaths := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
+		filepath.Join(templatesPath, templateAdminDir, templateBase),
+		filepath.Join(templatesPath, templateAdminDir, templateRole),
+	}
 
 	fsBaseTpl := template.New("fsBaseTemplate").Funcs(template.FuncMap{
 		"ListFSProviders": func() []sdk.FilesystemProvider {
@@ -511,6 +541,8 @@ func loadAdminTemplates(templatesPath string) {
 	setupTmpl := util.LoadTemplate(nil, setupPaths...)
 	forgotPwdTmpl := util.LoadTemplate(nil, forgotPwdPaths...)
 	resetPwdTmpl := util.LoadTemplate(nil, resetPwdPaths...)
+	rolesTmpl := util.LoadTemplate(nil, rolesPaths...)
+	roleTmpl := util.LoadTemplate(nil, rolePaths...)
 
 	adminTemplates[templateUsers] = usersTmpl
 	adminTemplates[templateUser] = userTmpl
@@ -538,6 +570,8 @@ func loadAdminTemplates(templatesPath string) {
 	adminTemplates[templateSetup] = setupTmpl
 	adminTemplates[templateForgotPassword] = forgotPwdTmpl
 	adminTemplates[templateResetPassword] = resetPwdTmpl
+	adminTemplates[templateRoles] = rolesTmpl
+	adminTemplates[templateRole] = roleTmpl
 }
 
 func isEventManagerResource(currentURL string) bool {
@@ -583,6 +617,8 @@ func (s *httpdServer) getBasePageData(title, currentURL string, r *http.Request)
 		EventRuleURL:       webAdminEventRulePath,
 		EventActionsURL:    webAdminEventActionsPath,
 		EventActionURL:     webAdminEventActionPath,
+		RolesURL:           webAdminRolesPath,
+		RoleURL:            webAdminRolePath,
 		QuotaScanURL:       webQuotaScanPath,
 		ConnectionsURL:     webConnectionsPath,
 		StatusURL:          webStatusPath,
@@ -596,6 +632,7 @@ func (s *httpdServer) getBasePageData(title, currentURL string, r *http.Request)
 		GroupsTitle:        pageGroupsTitle,
 		EventRulesTitle:    pageEventRulesTitle,
 		EventActionsTitle:  pageEventActionsTitle,
+		RolesTitle:         pageRolesTitle,
 		StatusTitle:        pageStatusTitle,
 		MaintenanceTitle:   pageMaintenanceTitle,
 		DefenderTitle:      pageDefenderTitle,
@@ -774,6 +811,10 @@ func (s *httpdServer) renderAddUpdateAdminPage(w http.ResponseWriter, r *http.Re
 	if err != nil {
 		return
 	}
+	roles, err := s.getWebRoles(w, r, 10, true)
+	if err != nil {
+		return
+	}
 	currentURL := webAdminPath
 	title := "Add a new admin"
 	if !isAdd {
@@ -784,6 +825,7 @@ func (s *httpdServer) renderAddUpdateAdminPage(w http.ResponseWriter, r *http.Re
 		basePage: s.getBasePageData(title, currentURL, r),
 		Admin:    admin,
 		Groups:   groups,
+		Roles:    roles,
 		Error:    error,
 		IsAdd:    isAdd,
 	}
@@ -791,18 +833,7 @@ func (s *httpdServer) renderAddUpdateAdminPage(w http.ResponseWriter, r *http.Re
 	renderAdminTemplate(w, templateAdmin, data)
 }
 
-func (s *httpdServer) renderUserPage(w http.ResponseWriter, r *http.Request, user *dataprovider.User,
-	mode userPageMode, error string, admin *dataprovider.Admin,
-) {
-	folders, err := s.getWebVirtualFolders(w, r, defaultQueryLimit, true)
-	if err != nil {
-		return
-	}
-	groups, err := s.getWebGroups(w, r, defaultQueryLimit, true)
-	if err != nil {
-		return
-	}
-	user.SetEmptySecretsIfNil()
+func (s *httpdServer) getUserPageTitleAndURL(mode userPageMode, username string) (string, string) {
 	var title, currentURL string
 	switch mode {
 	case userPageModeAdd:
@@ -810,11 +841,19 @@ func (s *httpdServer) renderUserPage(w http.ResponseWriter, r *http.Request, use
 		currentURL = webUserPath
 	case userPageModeUpdate:
 		title = "Update user"
-		currentURL = fmt.Sprintf("%v/%v", webUserPath, url.PathEscape(user.Username))
+		currentURL = fmt.Sprintf("%v/%v", webUserPath, url.PathEscape(username))
 	case userPageModeTemplate:
 		title = "User template"
 		currentURL = webTemplateUser
 	}
+	return title, currentURL
+}
+
+func (s *httpdServer) renderUserPage(w http.ResponseWriter, r *http.Request, user *dataprovider.User,
+	mode userPageMode, errorString string, admin *dataprovider.Admin,
+) {
+	user.SetEmptySecretsIfNil()
+	title, currentURL := s.getUserPageTitleAndURL(mode, user.Username)
 	if user.Password != "" && user.IsPasswordHashed() {
 		switch mode {
 		case userPageModeUpdate:
@@ -833,10 +872,26 @@ func (s *httpdServer) renderUserPage(w http.ResponseWriter, r *http.Request, use
 			})
 		}
 	}
+	var roles []dataprovider.Role
+	if basePage.LoggedAdmin.Role == "" {
+		var err error
+		roles, err = s.getWebRoles(w, r, 10, true)
+		if err != nil {
+			return
+		}
+	}
+	folders, err := s.getWebVirtualFolders(w, r, defaultQueryLimit, true)
+	if err != nil {
+		return
+	}
+	groups, err := s.getWebGroups(w, r, defaultQueryLimit, true)
+	if err != nil {
+		return
+	}
 	data := userPage{
 		basePage:           basePage,
 		Mode:               mode,
-		Error:              error,
+		Error:              errorString,
 		User:               user,
 		ValidPerms:         dataprovider.ValidPerms,
 		ValidLoginMethods:  dataprovider.ValidLoginMethods,
@@ -846,6 +901,7 @@ func (s *httpdServer) renderUserPage(w http.ResponseWriter, r *http.Request, use
 		RootDirPerms:       user.GetPermissionsForPath("/"),
 		VirtualFolders:     folders,
 		Groups:             groups,
+		Roles:              roles,
 		CanImpersonate:     os.Getuid() == 0,
 		FsWrapper: fsWrapper{
 			Filesystem:      user.FsConfig,
@@ -857,6 +913,27 @@ func (s *httpdServer) renderUserPage(w http.ResponseWriter, r *http.Request, use
 		},
 	}
 	renderAdminTemplate(w, templateUser, data)
+}
+
+func (s *httpdServer) renderRolePage(w http.ResponseWriter, r *http.Request, role dataprovider.Role,
+	mode genericPageMode, error string,
+) {
+	var title, currentURL string
+	switch mode {
+	case genericPageModeAdd:
+		title = "Add a new role"
+		currentURL = webAdminRolePath
+	case genericPageModeUpdate:
+		title = "Update role"
+		currentURL = fmt.Sprintf("%s/%s", webAdminRolePath, url.PathEscape(role.Name))
+	}
+	data := rolePage{
+		basePage: s.getBasePageData(title, currentURL, r),
+		Error:    error,
+		Role:     &role,
+		Mode:     mode,
+	}
+	renderAdminTemplate(w, templateRole, data)
 }
 
 func (s *httpdServer) renderGroupPage(w http.ResponseWriter, r *http.Request, group dataprovider.Group,
@@ -1577,6 +1654,7 @@ func getAdminFromPostFields(r *http.Request) (dataprovider.Admin, error) {
 	admin.Permissions = r.Form["permissions"]
 	admin.Email = r.Form.Get("email")
 	admin.Status = status
+	admin.Role = r.Form.Get("role")
 	admin.Filters.AllowList = getSliceFromDelimitedValues(r.Form.Get("allowed_ip"), ",")
 	admin.Filters.AllowAPIKeyAuth = r.Form.Get("allow_api_key_auth") != ""
 	admin.AdditionalInfo = r.Form.Get("additional_info")
@@ -1843,6 +1921,7 @@ func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 			ExpirationDate:       expirationDateMillis,
 			AdditionalInfo:       r.Form.Get("additional_info"),
 			Description:          r.Form.Get("description"),
+			Role:                 r.Form.Get("role"),
 		},
 		Filters: dataprovider.UserFilters{
 			BaseUserFilters: filters,
@@ -2223,6 +2302,18 @@ func getEventRuleFromPostFields(r *http.Request) (dataprovider.EventRule, error)
 	return rule, nil
 }
 
+func getRoleFromPostFields(r *http.Request) (dataprovider.Role, error) {
+	err := r.ParseForm()
+	if err != nil {
+		return dataprovider.Role{}, err
+	}
+
+	return dataprovider.Role{
+		Name:        r.Form.Get("name"),
+		Description: r.Form.Get("description"),
+	}, nil
+}
+
 func (s *httpdServer) handleWebAdminForgotPwd(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	if !smtp.IsEnabled() {
@@ -2515,10 +2606,14 @@ func (s *httpdServer) handleWebUpdateAdminPost(w http.ResponseWriter, r *http.Re
 			s.renderAddUpdateAdminPage(w, r, &updatedAdmin, "You cannot disable yourself", false)
 			return
 		}
+		if updatedAdmin.Role != claims.Role {
+			s.renderAddUpdateAdminPage(w, r, &updatedAdmin, "You cannot add/change your role", false)
+			return
+		}
 	}
 	err = dataprovider.UpdateAdmin(&updatedAdmin, claims.Username, ipAddr)
 	if err != nil {
-		s.renderAddUpdateAdminPage(w, r, &admin, err.Error(), false)
+		s.renderAddUpdateAdminPage(w, r, &updatedAdmin, err.Error(), false)
 		return
 	}
 	http.Redirect(w, r, webAdminsPath, http.StatusSeeOther)
@@ -2536,6 +2631,11 @@ func (s *httpdServer) handleWebDefenderPage(w http.ResponseWriter, r *http.Reque
 
 func (s *httpdServer) handleGetWebUsers(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		return
+	}
 	var limit int
 	if _, ok := r.URL.Query()["qlimit"]; ok {
 		var err error
@@ -2548,7 +2648,7 @@ func (s *httpdServer) handleGetWebUsers(w http.ResponseWriter, r *http.Request) 
 	}
 	users := make([]dataprovider.User, 0, limit)
 	for {
-		u, err := dataprovider.GetUsers(limit, len(users), dataprovider.OrderASC)
+		u, err := dataprovider.GetUsers(limit, len(users), dataprovider.OrderASC, claims.Role)
 		if err != nil {
 			s.renderInternalServerErrorPage(w, r, err)
 			return
@@ -2657,7 +2757,7 @@ func (s *httpdServer) handleWebTemplateUserGet(w http.ResponseWriter, r *http.Re
 	}
 	if r.URL.Query().Get("from") != "" {
 		username := r.URL.Query().Get("from")
-		user, err := dataprovider.UserExists(username)
+		user, err := dataprovider.UserExists(username, admin.Role)
 		if err == nil {
 			user.SetEmptySecrets()
 			user.PublicKeys = nil
@@ -2715,6 +2815,8 @@ func (s *httpdServer) handleWebTemplateUserPost(w http.ResponseWriter, r *http.R
 				http.StatusBadRequest, err, "")
 			return
 		}
+		// to create a template the "manage_system" permission is required, so role admins cannot use
+		// this method, we don't need to force the role
 		dump.Users = append(dump.Users, u)
 		for _, folder := range u.VirtualFolders {
 			if !dump.HasFolder(folder.Name) {
@@ -2764,8 +2866,13 @@ func (s *httpdServer) handleWebAddUserGet(w http.ResponseWriter, r *http.Request
 
 func (s *httpdServer) handleWebUpdateUserGet(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		return
+	}
 	username := getURLParam(r, "username")
-	user, err := dataprovider.UserExists(username)
+	user, err := dataprovider.UserExists(username, claims.Role)
 	if err == nil {
 		s.renderUserPage(w, r, &user, userPageModeUpdate, "", nil)
 	} else if _, ok := err.(*util.RecordNotFoundError); ok {
@@ -2797,6 +2904,13 @@ func (s *httpdServer) handleWebAddUserPost(w http.ResponseWriter, r *http.Reques
 		Password:   user.Password,
 		PublicKeys: user.PublicKeys,
 	})
+	if claims.Role != "" {
+		user.Role = claims.Role
+	}
+	user.Filters.RecoveryCodes = nil
+	user.Filters.TOTPConfig = dataprovider.UserTOTPConfig{
+		Enabled: false,
+	}
 	err = dataprovider.AddUser(&user, claims.Username, ipAddr)
 	if err != nil {
 		s.renderUserPage(w, r, &user, userPageModeAdd, err.Error(), nil)
@@ -2813,7 +2927,7 @@ func (s *httpdServer) handleWebUpdateUserPost(w http.ResponseWriter, r *http.Req
 		return
 	}
 	username := getURLParam(r, "username")
-	user, err := dataprovider.UserExists(username)
+	user, err := dataprovider.UserExists(username, claims.Role)
 	if _, ok := err.(*util.RecordNotFoundError); ok {
 		s.renderNotFoundPage(w, r, err)
 		return
@@ -2849,6 +2963,9 @@ func (s *httpdServer) handleWebUpdateUserPost(w http.ResponseWriter, r *http.Req
 		Password:   updatedUser.Password,
 		PublicKeys: updatedUser.PublicKeys,
 	})
+	if claims.Role != "" {
+		updatedUser.Role = claims.Role
+	}
 
 	err = dataprovider.UpdateUser(&updatedUser, claims.Username, ipAddr)
 	if err != nil {
@@ -2877,8 +2994,8 @@ func (s *httpdServer) handleWebGetConnections(w http.ResponseWriter, r *http.Req
 		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
 		return
 	}
-	connectionStats := common.Connections.GetStats()
-	connectionStats = append(connectionStats, getNodesConnections(claims.Username)...)
+	connectionStats := common.Connections.GetStats(claims.Role)
+	connectionStats = append(connectionStats, getNodesConnections(claims.Username, claims.Role)...)
 	data := connectionsPage{
 		basePage:    s.getBasePageData(pageConnectionsTitle, webConnectionsPath, r),
 		Connections: connectionStats,
@@ -3399,4 +3516,111 @@ func (s *httpdServer) handleWebUpdateEventRulePost(w http.ResponseWriter, r *htt
 		return
 	}
 	http.Redirect(w, r, webAdminEventRulesPath, http.StatusSeeOther)
+}
+
+func (s *httpdServer) getWebRoles(w http.ResponseWriter, r *http.Request, limit int, minimal bool) ([]dataprovider.Role, error) {
+	roles := make([]dataprovider.Role, 0, limit)
+	for {
+		res, err := dataprovider.GetRoles(limit, len(roles), dataprovider.OrderASC, minimal)
+		if err != nil {
+			s.renderInternalServerErrorPage(w, r, err)
+			return roles, err
+		}
+		roles = append(roles, res...)
+		if len(res) < limit {
+			break
+		}
+	}
+	return roles, nil
+}
+
+func (s *httpdServer) handleWebGetRoles(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	roles, err := s.getWebRoles(w, r, 10, false)
+	if err != nil {
+		return
+	}
+	data := rolesPage{
+		basePage: s.getBasePageData(pageRolesTitle, webAdminRolesPath, r),
+		Roles:    roles,
+	}
+	renderAdminTemplate(w, templateRoles, data)
+}
+
+func (s *httpdServer) handleWebAddRoleGet(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	s.renderRolePage(w, r, dataprovider.Role{}, genericPageModeAdd, "")
+}
+
+func (s *httpdServer) handleWebAddRolePost(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	role, err := getRoleFromPostFields(r)
+	if err != nil {
+		s.renderRolePage(w, r, role, genericPageModeAdd, err.Error())
+		return
+	}
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		return
+	}
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
+		s.renderForbiddenPage(w, r, err.Error())
+		return
+	}
+	err = dataprovider.AddRole(&role, claims.Username, ipAddr)
+	if err != nil {
+		s.renderRolePage(w, r, role, genericPageModeAdd, err.Error())
+		return
+	}
+	http.Redirect(w, r, webAdminRolesPath, http.StatusSeeOther)
+}
+
+func (s *httpdServer) handleWebUpdateRoleGet(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	role, err := dataprovider.RoleExists(getURLParam(r, "name"))
+	if err == nil {
+		s.renderRolePage(w, r, role, genericPageModeUpdate, "")
+	} else if _, ok := err.(*util.RecordNotFoundError); ok {
+		s.renderNotFoundPage(w, r, err)
+	} else {
+		s.renderInternalServerErrorPage(w, r, err)
+	}
+}
+
+func (s *httpdServer) handleWebUpdateRolePost(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		return
+	}
+	role, err := dataprovider.RoleExists(getURLParam(r, "name"))
+	if _, ok := err.(*util.RecordNotFoundError); ok {
+		s.renderNotFoundPage(w, r, err)
+		return
+	} else if err != nil {
+		s.renderInternalServerErrorPage(w, r, err)
+		return
+	}
+
+	updatedRole, err := getRoleFromPostFields(r)
+	if err != nil {
+		s.renderRolePage(w, r, role, genericPageModeAdd, err.Error())
+		return
+	}
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
+		s.renderForbiddenPage(w, r, err.Error())
+		return
+	}
+	updatedRole.ID = role.ID
+	updatedRole.Name = role.Name
+	err = dataprovider.UpdateRole(&updatedRole, claims.Username, ipAddr)
+	if err != nil {
+		s.renderRolePage(w, r, updatedRole, genericPageModeUpdate, err.Error())
+		return
+	}
+	http.Redirect(w, r, webAdminRolesPath, http.StatusSeeOther)
 }

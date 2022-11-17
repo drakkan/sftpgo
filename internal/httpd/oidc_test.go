@@ -32,7 +32,7 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-chi/jwtauth/v5"
-	"github.com/lestrrat-go/jwx/jwa"
+	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/rs/xid"
 	"github.com/sftpgo/sdk"
 	"github.com/stretchr/testify/assert"
@@ -521,7 +521,7 @@ func TestOIDCLoginLogout(t *testing.T) {
 
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	err = dataprovider.DeleteUser(username, "", "")
+	err = dataprovider.DeleteUser(username, "", "", "")
 	assert.NoError(t, err)
 }
 
@@ -706,7 +706,7 @@ func TestOIDCRefreshUser(t *testing.T) {
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "is disabled")
 	}
-	user, err = dataprovider.UserExists(username)
+	user, err = dataprovider.UserExists(username, "")
 	assert.NoError(t, err)
 	user.Status = 1
 	err = dataprovider.UpdateUser(&user, "", "")
@@ -723,7 +723,7 @@ func TestOIDCRefreshUser(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, user.Filters.WebClient, token.Permissions)
 
-	err = dataprovider.DeleteUser(username, "", "")
+	err = dataprovider.DeleteUser(username, "", "", "")
 	assert.NoError(t, err)
 }
 
@@ -877,7 +877,7 @@ func TestOIDCToken(t *testing.T) {
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "is disabled")
 	}
-	user, err = dataprovider.UserExists(username)
+	user, err = dataprovider.UserExists(username, "")
 	assert.NoError(t, err)
 	user.Status = 1
 	user.Password = "np"
@@ -916,7 +916,7 @@ func TestOIDCToken(t *testing.T) {
 
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	err = dataprovider.DeleteUser(username, "", "")
+	err = dataprovider.DeleteUser(username, "", "", "")
 	assert.NoError(t, err)
 }
 
@@ -1039,7 +1039,7 @@ func TestOIDCImplicitRoles(t *testing.T) {
 
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	err = dataprovider.DeleteUser(username, "", "")
+	err = dataprovider.DeleteUser(username, "", "", "")
 	assert.NoError(t, err)
 }
 
@@ -1164,7 +1164,7 @@ func TestOIDCPreLoginHook(t *testing.T) {
 	assert.NoError(t, err)
 	server.initializeRouter()
 
-	_, err = dataprovider.UserExists(username)
+	_, err = dataprovider.UserExists(username, "")
 	_, ok = err.(*util.RecordNotFoundError)
 	assert.True(t, ok)
 	// now login with OIDC
@@ -1197,10 +1197,10 @@ func TestOIDCPreLoginHook(t *testing.T) {
 	server.router.ServeHTTP(rr, r)
 	assert.Equal(t, http.StatusFound, rr.Code)
 	assert.Equal(t, webClientFilesPath, rr.Header().Get("Location"))
-	_, err = dataprovider.UserExists(username)
+	_, err = dataprovider.UserExists(username, "")
 	assert.NoError(t, err)
 
-	err = dataprovider.DeleteUser(username, "", "")
+	err = dataprovider.DeleteUser(username, "", "", "")
 	assert.NoError(t, err)
 	err = os.RemoveAll(u.HomeDir)
 	assert.NoError(t, err)
@@ -1225,7 +1225,7 @@ func TestOIDCPreLoginHook(t *testing.T) {
 	server.router.ServeHTTP(rr, r)
 	assert.Equal(t, http.StatusFound, rr.Code)
 	assert.Equal(t, webClientLoginPath, rr.Header().Get("Location"))
-	_, err = dataprovider.UserExists(username)
+	_, err = dataprovider.UserExists(username, "")
 	_, ok = err.(*util.RecordNotFoundError)
 	assert.True(t, ok)
 	if assert.Len(t, oidcMgr.tokens, 1) {

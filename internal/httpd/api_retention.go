@@ -26,13 +26,23 @@ import (
 
 func getRetentionChecks(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	render.JSON(w, r, common.RetentionChecks.Get())
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+		return
+	}
+	render.JSON(w, r, common.RetentionChecks.Get(claims.Role))
 }
 
 func startRetentionCheck(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+		return
+	}
 	username := getURLParam(r, "username")
-	user, err := dataprovider.GetUserWithGroupSettings(username)
+	user, err := dataprovider.GetUserWithGroupSettings(username, claims.Role)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -48,11 +58,6 @@ func startRetentionCheck(w http.ResponseWriter, r *http.Request) {
 	check.Notifications = getCommaSeparatedQueryParam(r, "notifications")
 	for _, notification := range check.Notifications {
 		if notification == common.RetentionCheckNotificationEmail {
-			claims, err := getTokenClaims(r)
-			if err != nil {
-				sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
-				return
-			}
 			admin, err := dataprovider.AdminExists(claims.Username)
 			if err != nil {
 				sendAPIResponse(w, r, err, "", getRespStatus(err))

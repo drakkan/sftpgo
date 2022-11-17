@@ -70,6 +70,10 @@ type memoryProviderHandle struct {
 	rules map[string]EventRule
 	// slice with ordered rules
 	rulesNames []string
+	// map for roles, name is the key
+	roles map[string]Role
+	// slice with ordered roles
+	roleNames []string
 }
 
 // MemoryProvider defines the auth provider for a memory store
@@ -104,6 +108,8 @@ func initializeMemoryProvider(basePath string) {
 			actionsNames:    []string{},
 			rules:           make(map[string]EventRule),
 			rulesNames:      []string{},
+			roles:           map[string]Role{},
+			roleNames:       []string{},
 			configFile:      configFile,
 		},
 	}
@@ -137,7 +143,7 @@ func (p *MemoryProvider) validateUserAndTLSCert(username, protocol string, tlsCe
 	if tlsCert == nil {
 		return user, errors.New("TLS certificate cannot be null or empty")
 	}
-	user, err := p.userExists(username)
+	user, err := p.userExists(username, "")
 	if err != nil {
 		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)
 		return user, err
@@ -146,7 +152,7 @@ func (p *MemoryProvider) validateUserAndTLSCert(username, protocol string, tlsCe
 }
 
 func (p *MemoryProvider) validateUserAndPass(username, password, ip, protocol string) (User, error) {
-	user, err := p.userExists(username)
+	user, err := p.userExists(username, "")
 	if err != nil {
 		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)
 		return user, err
@@ -159,7 +165,7 @@ func (p *MemoryProvider) validateUserAndPubKey(username string, pubKey []byte, i
 	if len(pubKey) == 0 {
 		return user, "", errors.New("credentials cannot be null or empty")
 	}
-	user, err := p.userExists(username)
+	user, err := p.userExists(username, "")
 	if err != nil {
 		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)
 		return user, "", err
@@ -317,7 +323,7 @@ func (p *MemoryProvider) addUser(user *User) error {
 
 	_, err = p.userExistsInternal(user.Username)
 	if err == nil {
-		return fmt.Errorf("username %#v already exists", user.Username)
+		return fmt.Errorf("username %q already exists", user.Username)
 	}
 	user.ID = p.getNextID()
 	user.LastQuotaUpdate = 0
@@ -330,6 +336,9 @@ func (p *MemoryProvider) addUser(user *User) error {
 	user.FirstDownload = 0
 	user.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 	user.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+	if err := p.addUserToRole(user.Username, user.Role); err != nil {
+		return err
+	}
 	var mappedGroups []string
 	for idx := range user.Groups {
 		if err = p.addUserToGroupMapping(user.Username, user.Groups[idx].Name); err != nil {
@@ -364,6 +373,15 @@ func (p *MemoryProvider) updateUser(user *User) error {
 
 	u, err := p.userExistsInternal(user.Username)
 	if err != nil {
+		return err
+	}
+	p.removeUserFromRole(u.Username, u.Role)
+	if err := p.addUserToRole(user.Username, user.Role); err != nil {
+		// try ro add old role
+		if errRollback := p.addUserToRole(u.Username, u.Role); errRollback != nil {
+			providerLog(logger.LevelError, "unable to rollback old role %q for user %q, error: %v",
+				u.Role, u.Username, errRollback)
+		}
 		return err
 	}
 	for idx := range u.Groups {
@@ -412,6 +430,7 @@ func (p *MemoryProvider) deleteUser(user User, softDelete bool) error {
 	if err != nil {
 		return err
 	}
+	p.removeUserFromRole(u.Username, u.Role)
 	for _, oldFolder := range u.VirtualFolders {
 		p.removeRelationFromFolderMapping(oldFolder.Name, u.Username, "")
 	}
@@ -546,7 +565,7 @@ func (p *MemoryProvider) getUsersForQuotaCheck(toFetch map[string]bool) ([]User,
 	return users, nil
 }
 
-func (p *MemoryProvider) getUsers(limit int, offset int, order string) ([]User, error) {
+func (p *MemoryProvider) getUsers(limit int, offset int, order, role string) ([]User, error) {
 	users := make([]User, 0, limit)
 	var err error
 	p.dbHandle.Lock()
@@ -566,6 +585,9 @@ func (p *MemoryProvider) getUsers(limit int, offset int, order string) ([]User, 
 			}
 			u := p.dbHandle.users[username]
 			user := u.getACopy()
+			if !user.hasRole(role) {
+				continue
+			}
 			p.addVirtualFoldersToUser(&user)
 			user.PrepareForRendering()
 			users = append(users, user)
@@ -582,6 +604,9 @@ func (p *MemoryProvider) getUsers(limit int, offset int, order string) ([]User, 
 			username := p.dbHandle.usernames[i]
 			u := p.dbHandle.users[username]
 			user := u.getACopy()
+			if !user.hasRole(role) {
+				continue
+			}
 			p.addVirtualFoldersToUser(&user)
 			user.PrepareForRendering()
 			users = append(users, user)
@@ -593,7 +618,7 @@ func (p *MemoryProvider) getUsers(limit int, offset int, order string) ([]User, 
 	return users, err
 }
 
-func (p *MemoryProvider) userExists(username string) (User, error) {
+func (p *MemoryProvider) userExists(username, role string) (User, error) {
 	p.dbHandle.Lock()
 	defer p.dbHandle.Unlock()
 	if p.dbHandle.isClosed {
@@ -602,6 +627,9 @@ func (p *MemoryProvider) userExists(username string) (User, error) {
 	user, err := p.userExistsInternal(username)
 	if err != nil {
 		return user, err
+	}
+	if !user.hasRole(role) {
+		return User{}, util.NewRecordNotFoundError(fmt.Sprintf("username %q does not exist", username))
 	}
 	p.addVirtualFoldersToUser(&user)
 	return user, nil
@@ -635,6 +663,13 @@ func (p *MemoryProvider) ruleExistsInternal(name string) (EventRule, error) {
 	return EventRule{}, util.NewRecordNotFoundError(fmt.Sprintf("event rule %q does not exist", name))
 }
 
+func (p *MemoryProvider) roleExistsInternal(name string) (Role, error) {
+	if val, ok := p.dbHandle.roles[name]; ok {
+		return val.getACopy(), nil
+	}
+	return Role{}, util.NewRecordNotFoundError(fmt.Sprintf("role %q does not exist", name))
+}
+
 func (p *MemoryProvider) addAdmin(admin *Admin) error {
 	p.dbHandle.Lock()
 	defer p.dbHandle.Unlock()
@@ -653,6 +688,9 @@ func (p *MemoryProvider) addAdmin(admin *Admin) error {
 	admin.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 	admin.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 	admin.LastLogin = 0
+	if err := p.addAdminToRole(admin.Username, admin.Role); err != nil {
+		return err
+	}
 	var mappedAdmins []string
 	for idx := range admin.Groups {
 		if err = p.addAdminToGroupMapping(admin.Username, admin.Groups[idx].Name); err != nil {
@@ -682,6 +720,15 @@ func (p *MemoryProvider) updateAdmin(admin *Admin) error {
 	}
 	a, err := p.adminExistsInternal(admin.Username)
 	if err != nil {
+		return err
+	}
+	p.removeAdminFromRole(a.Username, a.Role)
+	if err := p.addAdminToRole(admin.Username, admin.Role); err != nil {
+		// try ro add old role
+		if errRollback := p.addAdminToRole(a.Username, a.Role); errRollback != nil {
+			providerLog(logger.LevelError, "unable to rollback old role %q for admin %q, error: %v",
+				a.Role, a.Username, errRollback)
+		}
 		return err
 	}
 	for idx := range a.Groups {
@@ -717,6 +764,7 @@ func (p *MemoryProvider) deleteAdmin(admin Admin) error {
 	if err != nil {
 		return err
 	}
+	p.removeAdminFromRole(a.Username, a.Role)
 	for idx := range a.Groups {
 		p.removeAdminFromGroupMapping(a.Username, a.Groups[idx].Name)
 	}
@@ -1181,6 +1229,74 @@ func (p *MemoryProvider) removeUserFromGroupMapping(username, groupname string) 
 	}
 	g.Users = users
 	p.dbHandle.groups[groupname] = g
+}
+
+func (p *MemoryProvider) addAdminToRole(username, role string) error {
+	if role == "" {
+		return nil
+	}
+	r, err := p.roleExistsInternal(role)
+	if err != nil {
+		return util.NewGenericError(fmt.Sprintf("role %q does not exist", role))
+	}
+	if !util.Contains(r.Admins, username) {
+		r.Admins = append(r.Admins, username)
+		p.dbHandle.roles[role] = r
+	}
+	return nil
+}
+
+func (p *MemoryProvider) removeAdminFromRole(username, role string) {
+	if role == "" {
+		return
+	}
+	r, err := p.roleExistsInternal(role)
+	if err != nil {
+		providerLog(logger.LevelWarn, "role %q does not exist, cannot remove admin %q", role, username)
+		return
+	}
+	var admins []string
+	for _, a := range r.Admins {
+		if a != username {
+			admins = append(admins, a)
+		}
+	}
+	r.Admins = admins
+	p.dbHandle.roles[role] = r
+}
+
+func (p *MemoryProvider) addUserToRole(username, role string) error {
+	if role == "" {
+		return nil
+	}
+	r, err := p.roleExistsInternal(role)
+	if err != nil {
+		return util.NewGenericError(fmt.Sprintf("role %q does not exist", role))
+	}
+	if !util.Contains(r.Users, username) {
+		r.Users = append(r.Users, username)
+		p.dbHandle.roles[role] = r
+	}
+	return nil
+}
+
+func (p *MemoryProvider) removeUserFromRole(username, role string) {
+	if role == "" {
+		return
+	}
+	r, err := p.roleExistsInternal(role)
+	if err != nil {
+		providerLog(logger.LevelWarn, "role %q does not exist, cannot remove user %q", role, username)
+		return
+	}
+	var users []string
+	for _, u := range r.Users {
+		if u != username {
+			users = append(users, u)
+		}
+	}
+	r.Users = users
+	p.dbHandle.roles[role] = r
 }
 
 func (p *MemoryProvider) joinUserVirtualFoldersFields(user *User) []vfs.VirtualFolder {
@@ -1714,7 +1830,7 @@ func (p *MemoryProvider) addShare(share *Share) error {
 
 	_, err = p.shareExistsInternal(share.ShareID, share.Username)
 	if err == nil {
-		return fmt.Errorf("share %#v already exists", share.ShareID)
+		return fmt.Errorf("share %q already exists", share.ShareID)
 	}
 	if _, err := p.userExistsInternal(share.Username); err != nil {
 		return util.NewValidationError(fmt.Sprintf("related user %#v does not exists", share.Username))
@@ -1753,7 +1869,7 @@ func (p *MemoryProvider) updateShare(share *Share) error {
 		return err
 	}
 	if _, err := p.userExistsInternal(share.Username); err != nil {
-		return util.NewValidationError(fmt.Sprintf("related user %#v does not exists", share.Username))
+		return util.NewValidationError(fmt.Sprintf("related user %q does not exists", share.Username))
 	}
 	share.ID = s.ID
 	share.ShareID = s.ShareID
@@ -2322,6 +2438,158 @@ func (*MemoryProvider) cleanupNodes() error {
 	return ErrNotImplemented
 }
 
+func (p *MemoryProvider) roleExists(name string) (Role, error) {
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return Role{}, errMemoryProviderClosed
+	}
+	role, err := p.roleExistsInternal(name)
+	if err != nil {
+		return role, err
+	}
+	return role, nil
+}
+
+func (p *MemoryProvider) addRole(role *Role) error {
+	if err := role.validate(); err != nil {
+		return err
+	}
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return errMemoryProviderClosed
+	}
+
+	_, err := p.roleExistsInternal(role.Name)
+	if err == nil {
+		return fmt.Errorf("role %q already exists", role.Name)
+	}
+	role.ID = p.getNextRoleID()
+	role.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+	role.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+	role.Users = nil
+	role.Admins = nil
+	p.dbHandle.roles[role.Name] = role.getACopy()
+	p.dbHandle.roleNames = append(p.dbHandle.roleNames, role.Name)
+	sort.Strings(p.dbHandle.roleNames)
+	return nil
+}
+
+func (p *MemoryProvider) updateRole(role *Role) error {
+	if err := role.validate(); err != nil {
+		return err
+	}
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return errMemoryProviderClosed
+	}
+	oldRole, err := p.roleExistsInternal(role.Name)
+	if err != nil {
+		return err
+	}
+	role.ID = oldRole.ID
+	role.CreatedAt = oldRole.CreatedAt
+	role.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+	role.Users = oldRole.Users
+	role.Admins = oldRole.Admins
+	p.dbHandle.roles[role.Name] = role.getACopy()
+	return nil
+}
+
+func (p *MemoryProvider) deleteRole(role Role) error {
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return errMemoryProviderClosed
+	}
+	oldRole, err := p.roleExistsInternal(role.Name)
+	if err != nil {
+		return err
+	}
+	if len(oldRole.Admins) > 0 {
+		return util.NewValidationError(fmt.Sprintf("the role %q is referenced, it cannot be removed", oldRole.Name))
+	}
+	for _, username := range oldRole.Users {
+		user, err := p.userExistsInternal(username)
+		if err != nil {
+			continue
+		}
+		if user.Role == role.Name {
+			user.Role = ""
+			p.dbHandle.users[username] = user
+		} else {
+			providerLog(logger.LevelError, "user %q does not have the expected role %q, actual %q", username, role.Name, user.Role)
+		}
+	}
+	delete(p.dbHandle.roles, role.Name)
+	p.dbHandle.roleNames = make([]string, 0, len(p.dbHandle.roles))
+	for name := range p.dbHandle.roles {
+		p.dbHandle.roleNames = append(p.dbHandle.roleNames, name)
+	}
+	sort.Strings(p.dbHandle.roleNames)
+	return nil
+}
+
+func (p *MemoryProvider) getRoles(limit int, offset int, order string, minimal bool) ([]Role, error) {
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+
+	if p.dbHandle.isClosed {
+		return nil, errMemoryProviderClosed
+	}
+	if limit <= 0 {
+		return nil, nil
+	}
+	roles := make([]Role, 0, 10)
+	itNum := 0
+	if order == OrderASC {
+		for _, name := range p.dbHandle.roleNames {
+			itNum++
+			if itNum <= offset {
+				continue
+			}
+			r := p.dbHandle.roles[name]
+			role := r.getACopy()
+			roles = append(roles, role)
+			if len(roles) >= limit {
+				break
+			}
+		}
+	} else {
+		for i := len(p.dbHandle.roleNames) - 1; i >= 0; i-- {
+			itNum++
+			if itNum <= offset {
+				continue
+			}
+			name := p.dbHandle.roleNames[i]
+			r := p.dbHandle.roles[name]
+			role := r.getACopy()
+			roles = append(roles, role)
+			if len(roles) >= limit {
+				break
+			}
+		}
+	}
+	return roles, nil
+}
+
+func (p *MemoryProvider) dumpRoles() ([]Role, error) {
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return nil, errMemoryProviderClosed
+	}
+
+	roles := make([]Role, 0, len(p.dbHandle.roles))
+	for _, name := range p.dbHandle.roleNames {
+		r := p.dbHandle.roles[name]
+		roles = append(roles, r.getACopy())
+	}
+	return roles, nil
+}
+
 func (p *MemoryProvider) setFirstDownloadTimestamp(username string) error {
 	p.dbHandle.Lock()
 	defer p.dbHandle.Unlock()
@@ -2333,7 +2601,7 @@ func (p *MemoryProvider) setFirstDownloadTimestamp(username string) error {
 		return err
 	}
 	if user.FirstDownload > 0 {
-		return util.NewGenericError(fmt.Sprintf("first download already set to %v",
+		return util.NewGenericError(fmt.Sprintf("first download already set to %s",
 			util.GetTimeFromMsecSinceEpoch(user.FirstDownload)))
 	}
 	user.FirstDownload = util.GetTimeAsMsSinceEpoch(time.Now())
@@ -2352,7 +2620,7 @@ func (p *MemoryProvider) setFirstUploadTimestamp(username string) error {
 		return err
 	}
 	if user.FirstUpload > 0 {
-		return util.NewGenericError(fmt.Sprintf("first upload already set to %v",
+		return util.NewGenericError(fmt.Sprintf("first upload already set to %s",
 			util.GetTimeFromMsecSinceEpoch(user.FirstUpload)))
 	}
 	user.FirstUpload = util.GetTimeAsMsSinceEpoch(time.Now())
@@ -2420,11 +2688,24 @@ func (p *MemoryProvider) getNextRuleID() int64 {
 	return nextID
 }
 
+func (p *MemoryProvider) getNextRoleID() int64 {
+	nextID := int64(1)
+	for _, r := range p.dbHandle.roles {
+		if r.ID >= nextID {
+			nextID = r.ID + 1
+		}
+	}
+	return nextID
+}
+
 func (p *MemoryProvider) clear() {
 	p.dbHandle.Lock()
 	defer p.dbHandle.Unlock()
+
 	p.dbHandle.usernames = []string{}
 	p.dbHandle.users = make(map[string]User)
+	p.dbHandle.groupnames = []string{}
+	p.dbHandle.groups = map[string]Group{}
 	p.dbHandle.vfoldersNames = []string{}
 	p.dbHandle.vfolders = make(map[string]vfs.BaseVirtualFolder)
 	p.dbHandle.admins = make(map[string]Admin)
@@ -2433,6 +2714,12 @@ func (p *MemoryProvider) clear() {
 	p.dbHandle.apiKeysIDs = []string{}
 	p.dbHandle.shares = make(map[string]Share)
 	p.dbHandle.sharesIDs = []string{}
+	p.dbHandle.actions = map[string]BaseEventAction{}
+	p.dbHandle.actionsNames = []string{}
+	p.dbHandle.rules = map[string]EventRule{}
+	p.dbHandle.rulesNames = []string{}
+	p.dbHandle.roles = map[string]Role{}
+	p.dbHandle.roleNames = []string{}
 }
 
 func (p *MemoryProvider) reloadConfig() error {
@@ -2466,7 +2753,15 @@ func (p *MemoryProvider) reloadConfig() error {
 		providerLog(logger.LevelError, "error loading dump: %v", err)
 		return err
 	}
+	return p.restoreDump(dump)
+}
+
+func (p *MemoryProvider) restoreDump(dump BackupData) error {
 	p.clear()
+
+	if err := p.restoreRoles(dump); err != nil {
+		return err
+	}
 
 	if err := p.restoreFolders(dump); err != nil {
 		return err
@@ -2619,6 +2914,31 @@ func (p *MemoryProvider) restoreAdmins(dump BackupData) error {
 	return nil
 }
 
+func (p *MemoryProvider) restoreRoles(dump BackupData) error {
+	for _, role := range dump.Roles {
+		role := role // pin
+		role.Name = config.convertName(role.Name)
+		r, err := p.roleExists(role.Name)
+		if err == nil {
+			role.ID = r.ID
+			err = UpdateRole(&role, ActionExecutorSystem, "")
+			if err != nil {
+				providerLog(logger.LevelError, "error updating role %q: %v", role.Name, err)
+				return err
+			}
+		} else {
+			role.Admins = nil
+			role.Users = nil
+			err = AddRole(&role, ActionExecutorSystem, "")
+			if err != nil {
+				providerLog(logger.LevelError, "error adding role %q: %v", role.Name, err)
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (p *MemoryProvider) restoreGroups(dump BackupData) error {
 	for _, group := range dump.Groups {
 		group := group // pin
@@ -2671,7 +2991,7 @@ func (p *MemoryProvider) restoreUsers(dump BackupData) error {
 	for _, user := range dump.Users {
 		user := user // pin
 		user.Username = config.convertName(user.Username)
-		u, err := p.userExists(user.Username)
+		u, err := p.userExists(user.Username, "")
 		if err == nil {
 			user.ID = u.ID
 			err = UpdateUser(&user, ActionExecutorSystem, "")

@@ -32,7 +32,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/jwtauth/v5"
-	"github.com/lestrrat-go/jwx/jwa"
+	"github.com/lestrrat-go/jwx/v2/jwa"
 
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
@@ -91,6 +91,7 @@ const (
 	sharesPath                            = "/api/v2/shares"
 	eventActionsPath                      = "/api/v2/eventactions"
 	eventRulesPath                        = "/api/v2/eventrules"
+	rolesPath                             = "/api/v2/roles"
 	healthzPath                           = "/healthz"
 	robotsTxtPath                         = "/robots.txt"
 	webRootPathDefault                    = "/"
@@ -128,6 +129,8 @@ const (
 	webAdminEventRulePathDefault          = "/web/admin/eventrule"
 	webAdminEventActionsPathDefault       = "/web/admin/eventactions"
 	webAdminEventActionPathDefault        = "/web/admin/eventaction"
+	webAdminRolesPathDefault              = "/web/admin/roles"
+	webAdminRolePathDefault               = "/web/admin/role"
 	webAdminTOTPGeneratePathDefault       = "/web/admin/totp/generate"
 	webAdminTOTPValidatePathDefault       = "/web/admin/totp/validate"
 	webAdminTOTPSavePathDefault           = "/web/admin/totp/save"
@@ -211,6 +214,8 @@ var (
 	webAdminEventRulePath          string
 	webAdminEventActionsPath       string
 	webAdminEventActionPath        string
+	webAdminRolesPath              string
+	webAdminRolePath               string
 	webAdminTOTPGeneratePath       string
 	webAdminTOTPValidatePath       string
 	webAdminTOTPSavePath           string
@@ -1010,6 +1015,8 @@ func updateWebAdminURLs(baseURL string) {
 	webAdminEventRulePath = path.Join(baseURL, webAdminEventRulePathDefault)
 	webAdminEventActionsPath = path.Join(baseURL, webAdminEventActionsPathDefault)
 	webAdminEventActionPath = path.Join(baseURL, webAdminEventActionPathDefault)
+	webAdminRolesPath = path.Join(baseURL, webAdminRolesPathDefault)
+	webAdminRolePath = path.Join(baseURL, webAdminRolePathDefault)
 	webAdminTOTPGeneratePath = path.Join(baseURL, webAdminTOTPGeneratePathDefault)
 	webAdminTOTPValidatePath = path.Join(baseURL, webAdminTOTPValidatePathDefault)
 	webAdminTOTPSavePath = path.Join(baseURL, webAdminTOTPSavePathDefault)
