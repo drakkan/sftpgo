@@ -748,7 +748,7 @@ func (c *BaseConnection) doStatInternal(virtualPath string, mode int, checkFileP
 	if _, ok := vfolders[virtualPath]; ok {
 		return vfs.NewFileInfo(virtualPath, true, 0, time.Unix(0, 0), false), nil
 	}
-	if checkFilePatterns {
+	if checkFilePatterns && virtualPath != "/" {
 		ok, policy := c.User.IsFileAllowed(virtualPath)
 		if !ok && policy == sdk.DenyPolicyHide {
 			return nil, c.GetNotExistError()
