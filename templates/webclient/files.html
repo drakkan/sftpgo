@@ -49,7 +49,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             <div class="card-body text-form-error">{{.Error}}</div>
         </div>
         {{end}}
-        <div class="table-responsive">
+        <div id="tableContainer" class="table-responsive">
             <table class="table table-hover nowrap" id="dataTable" width="100%" cellspacing="0">
                 <thead>
                     <tr>
@@ -110,7 +110,13 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 </button>
             </div>
             <div class="modal-body">
-                <div id="upload_dropzone" class="dropzone">
+                <div id="upload_dropzone" class="dropzone" style="border: dashed;">
+                    <div class="dz-default dz-message d-flex flex-column align-items-center">
+                        <button class="dz-button" type="button">
+                            <h4>Drop files here to upload</h4>
+                            <p>or click to <span class="btn btn-primary btn-sm">browse</span></p>
+                        </button>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -644,6 +650,75 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         deleteItem();
     }
 
+    {{if .CanAddFiles}}
+        let uploadDropzone = new Dropzone('#upload_dropzone', {
+            url: '{{.FilesURL}}?path={{.CurrentDir}}',
+            clickable: true,
+            paramName: 'filenames',
+            init: function () {
+                this.on('processing', function (file) {
+                    var lastModified;
+                    try {
+                        lastModified = file.lastModified;
+                    } catch (e) {
+                        console.log('unable to get last modified time from file: ' + e.message);
+                        lastModified = '';
+                    }
+                    this.options.headers['X-SFTPGO-MTIME'] = lastModified;
+                });
+                this.on('error', function(file, message) {
+                    if (file.previewElement) {
+                        file.previewElement.classList.add('dz-error');
+                        if (typeof message !== 'string' && message.error) {
+                            message = message.error;
+                        }
+                        for (let node of file.previewElement.querySelectorAll(
+                            '[data-dz-errormessage]'
+                        )) {
+                            node.textContent = message['message'];
+                        }
+                    }
+                });
+            },
+            headers: {
+                'X-CSRF-TOKEN': '{{.CSRFToken}}',
+            }
+        });
+
+        $('#tableContainer').on('dragover', function(ev){
+            ev.preventDefault();
+            $('#tableContainer').css('opacity','0.5');
+        });
+
+        $('#tableContainer').on('dragend dragleave', function(ev){
+            ev.preventDefault();
+            $('#tableContainer').css('opacity','1');
+        });
+
+        $('#tableContainer').on('drop', function(ev){
+            ev.preventDefault();
+            let filesDropped = false;
+
+            if (ev.originalEvent.dataTransfer.items) {
+                [...ev.originalEvent.dataTransfer.items].forEach((item, i) => {
+                    if (item.kind === 'file') {
+                        uploadDropzone.addFile(item.getAsFile());
+                        filesDropped = true;
+                    }
+                });
+            } else {
+                [...ev.originalEvent.dataTransfer.files].forEach((file, i) => {
+                    uploadDropzone.addFile(file);
+                    filesDropped = true;
+                });
+            }
+
+            if (filesDropped && !$('#uploadFilesModal').hasClass('show')){
+                $('#uploadFilesModal').modal('show');
+            }
+        });
+    {{end}}
+
     function keepAlive() {
         $.ajax({
             url: '{{.ProfileURL}}',
@@ -705,121 +780,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 }
             });
         });
-
-        // $("#upload_files_form").submit(function (event){
-        //     event.preventDefault();
-        //     keepAlive();
-        //     var keepAliveTimer = setInterval(keepAlive, 300000);
-
-        //     var files = $("#files_name")[0].files;
-        //     var has_errors = false;
-        //     var index = 0;
-        //     var success = 0;
-        //     spinnerDone = false;
-
-        //     $('#uploadFilesModal').modal('hide');
-        //     $('#spinnerModal').modal('show');
-
-        //     function uploadFile() {
-        //         if (index >= files.length || has_errors){
-        //             //console.log("upload done, index: "+index+" has errors: "+has_errors+" ok: "+success);
-        //             clearInterval(keepAliveTimer);
-        //             $('#spinnerModal').modal('hide');
-        //             spinnerDone = true;
-        //             if (!has_errors){
-        //                 location.reload();
-        //             }
-        //             return;
-        //         }
-
-        //         async function saveFile() {
-        //             //console.log("save file, index: "+index);
-        //             var errorMessage = "Error uploading files";
-        //             let response;
-        //             try {
-        //                 var f = files[index];
-        //                 var uploadPath = '{{.FileURL}}?path={{.CurrentDir}}'+encodeURIComponent("/"+f.name);
-        //                 var lastModified;
-        //                 try {
-        //                     lastModified = f.lastModified;
-        //                 } catch (e) {
-        //                     console.log("unable to get last modified time from file: "+e.message);
-        //                     lastModified = "";
-        //                 }
-        //                 response = await fetch(uploadPath, {
-        //                     method: 'POST',
-        //                     headers: {
-        //                         'X-SFTPGO-MTIME': lastModified,
-        //                         'X-CSRF-TOKEN': '{{.CSRFToken}}'
-        //                     },
-        //                     credentials: 'same-origin',
-        //                     redirect: 'error',
-        //                     body: f
-        //                 });
-        //             } catch (e){
-        //                 throw Error(errorMessage+": " +e.message);
-        //             }
-        //             if (response.status == 201){
-        //                 index++;
-        //                 success++;
-        //                 uploadFile();
-        //             } else {
-        //                 let jsonResponse;
-        //                 try {
-        //                     jsonResponse = await response.json();
-        //                 } catch(e){
-        //                     throw Error(errorMessage);
-        //                 }
-        //                 if (jsonResponse.message) {
-        //                     errorMessage = jsonResponse.message;
-        //                 }
-        //                 if (jsonResponse.error) {
-        //                     errorMessage += ": " + jsonResponse.error;
-        //                 }
-        //                 throw Error(errorMessage);
-        //             }
-        //         }
-
-        //         saveFile().catch(function(error){
-        //             index++;
-        //             has_errors = true;
-        //             $('#errorTxt').text(error.message);
-        //             $('#errorMsg').show();
-        //             setTimeout(function () {
-        //                 $('#errorMsg').hide();
-        //             }, 10000);
-        //             uploadFile();
-        //         });
-        //     }
-
-        //     uploadFile();
-        // });
-        
-        let uploadDropzone = new Dropzone('#upload_dropzone', {
-            url: '#',
-            addRemoveLinks: true,
-            parallelUploads: 1,
-            init: function () {
-                this.on('processing', function (file) {
-                    this.options.url = '{{.FileURL}}?path={{.CurrentDir}}' + encodeURIComponent('/' + file.name);
-                    var lastModified;
-                    try {
-                        lastModified = f.lastModified;
-                    } catch (e) {
-                        console.log('unable to get last modified time from file: ' + e.message);
-                        lastModified = '';
-                    }
-                    this.options.headers['X-SFTPGO-MTIME'] = lastModified;
-                });
-            },
-            headers: {
-                'X-CSRF-TOKEN': '{{.CSRFToken}}',
-            },
-            withCredentials: true,
-        }); 
-
-
-
 
         $("#rename_form").submit(function (event){
             event.preventDefault();

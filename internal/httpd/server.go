@@ -1454,6 +1454,8 @@ func (s *httpdServer) setupWebClientRoutes() {
 			router.With(s.checkSecondFactorRequirement, s.refreshCookie, verifyCSRFHeader).Get(webClientFilePath, getUserFile)
 			router.With(s.checkSecondFactorRequirement, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
 				Post(webClientFilePath, uploadUserFile)
+			router.With(s.checkSecondFactorRequirement, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
+				Post(webClientFilesPath, uploadUserFiles)
 			router.With(s.checkSecondFactorRequirement, s.refreshCookie).Get(webClientEditFilePath, s.handleClientEditFile)
 			router.With(s.checkSecondFactorRequirement, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
 				Patch(webClientFilesPath, renameUserFile)

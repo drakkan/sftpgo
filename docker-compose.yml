@@ -1,18 +1,11 @@
 version: "3.9"
 services:
-  drag-n-drop:
-    container_name: drag-n-drop
-    image: drag-n-drop
+  sftpgo:
+    container_name: sftpgo
+    image: drakken/sftpgo:latest
     build:
       context: ./
-      dockerfile: Dockerfile
-    volumes:
-      - type: bind
-        source: ./templates
-        target: /usr/share/sftpgo/templates
-      - type: bind
-        source: ./static
-        target: /usr/share/sftpgo/static
+      dockerfile: dockerfile
     ports:
       - "8080:8080"
       - "2022:2022"
