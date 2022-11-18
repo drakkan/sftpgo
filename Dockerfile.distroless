@@ -28,7 +28,7 @@ RUN sed -i 's|"users_base_dir": "",|"users_base_dir": "/srv/sftpgo/data",|' sftp
     sed -i 's|"backups"|"/srv/sftpgo/backups"|' sftpgo.json && \
     sed -i 's|"sqlite"|"bolt"|' sftpgo.json
 
-RUN apt-get update && apt-get install --no-install-recommends -y media-types && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install --no-install-recommends -y media-types openssh-server && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir /etc/sftpgo /var/lib/sftpgo /srv/sftpgo
 
@@ -38,6 +38,7 @@ COPY --from=builder --chown=1000:1000 /etc/sftpgo /etc/sftpgo
 COPY --from=builder --chown=1000:1000 /srv/sftpgo /srv/sftpgo
 COPY --from=builder --chown=1000:1000 /var/lib/sftpgo /var/lib/sftpgo
 COPY --from=builder --chown=1000:1000 /workspace/sftpgo.json /etc/sftpgo/sftpgo.json
+COPY --from=builder --chown=1000:1000 /etc/ssh/moduli /etc/sftpgo/moduli
 COPY --from=builder /workspace/templates /usr/share/sftpgo/templates
 COPY --from=builder /workspace/static /usr/share/sftpgo/static
 COPY --from=builder /workspace/openapi /usr/share/sftpgo/openapi

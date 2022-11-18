@@ -28,6 +28,8 @@ ARG DOWNLOAD_PLUGINS=false
 
 RUN if [ "${DOWNLOAD_PLUGINS}" = "true" ]; then apt-get update && apt-get install --no-install-recommends -y curl && ./docker/scripts/download-plugins.sh; fi
 
+RUN apt-get update && apt-get install --no-install-recommends -y openssh-server && rm -rf /var/lib/apt/lists/*
+
 FROM debian:bullseye-slim
 
 # Set to "true" to install jq and the optional git and rsync dependencies
@@ -45,6 +47,7 @@ RUN groupadd --system -g 1000 sftpgo && \
     --comment "SFTPGo user" --uid 1000 sftpgo
 
 COPY --from=builder /workspace/sftpgo.json /etc/sftpgo/sftpgo.json
+COPY --from=builder /etc/ssh/moduli /etc/sftpgo/moduli
 COPY --from=builder /workspace/templates /usr/share/sftpgo/templates
 COPY --from=builder /workspace/static /usr/share/sftpgo/static
 COPY --from=builder /workspace/openapi /usr/share/sftpgo/openapi
