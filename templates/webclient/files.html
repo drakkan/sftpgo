@@ -25,6 +25,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 <link href="{{.StaticURL}}/vendor/datatables/dataTables.checkboxes.css" rel="stylesheet">
 <link href="{{.StaticURL}}/vendor/lightbox2/css/lightbox.min.css" rel="stylesheet">
 <link href="{{.StaticURL}}/vendor/video-js/video-js.min.css" rel="stylesheet" />
+<link href="{{.StaticURL}}/vendor/dropzone-js/dropzone.css" rel="stylesheet" />
 <style>
     div.dataTables_wrapper span.selected-info,
     div.dataTables_wrapper span.selected-item {
@@ -108,27 +109,13 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
-            <form id="upload_files_form" action="{{.FilesURL}}?path={{.CurrentDir}}" method="POST" enctype="multipart/form-data">
-                <div class="modal-body">
-                    <label for="files_name" class="w-100">
-                        <input type="file" class="form-control-file" id="files_name" name="filenames" style="display: none" required
-                            multiple />
-                        <div class="m-2 p-5 rounded d-flex flex-column align-items-center justify-content-center"
-                            style="border: dashed">
-                            <div class="user-select-none text-center">
-                                <h3 class="text-muted user-select-none m-0 p-0">Drop your files here</h3>
-                                <p class="m-0 p-0">or click to browse</p>
-                            </div>
-                        </div>
-                        <p id="files_names_display" class="m-2 text-center">No selected files.</p>
-                    </label>
+            <div class="modal-body">
+                <div id="upload_dropzone" class="dropzone">
                 </div>
-                <div class="modal-footer">
-                    <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
-                    <button class="btn btn-secondary" type="button" data-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Submit</button>
-                </div>
-            </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" type="button" data-dismiss="modal" onclick="location.reload()">Done</button>
+            </div>
         </div>
     </div>
 </div>
@@ -240,6 +227,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 <script src="{{.StaticURL}}/vendor/codemirror/codemirror.js"></script>
 <script src="{{.StaticURL}}/vendor/codemirror/meta.js"></script>
 <script src="{{.StaticURL}}/vendor/video-js/video.min.js"></script>
+<script src="{{.StaticURL}}/vendor/dropzone-js/dropzone-min.js"></script>
 {{if .HasIntegrations}}
 <script type="text/javascript">
     var childReference = null;
@@ -718,138 +706,120 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             });
         });
 
-        $("#upload_files_form").submit(function (event){
-            event.preventDefault();
-            keepAlive();
-            var keepAliveTimer = setInterval(keepAlive, 300000);
+        // $("#upload_files_form").submit(function (event){
+        //     event.preventDefault();
+        //     keepAlive();
+        //     var keepAliveTimer = setInterval(keepAlive, 300000);
 
-            var files = $("#files_name")[0].files;
-            var has_errors = false;
-            var index = 0;
-            var success = 0;
-            spinnerDone = false;
+        //     var files = $("#files_name")[0].files;
+        //     var has_errors = false;
+        //     var index = 0;
+        //     var success = 0;
+        //     spinnerDone = false;
 
-            $('#uploadFilesModal').modal('hide');
-            $('#spinnerModal').modal('show');
+        //     $('#uploadFilesModal').modal('hide');
+        //     $('#spinnerModal').modal('show');
 
-            function uploadFile() {
-                if (index >= files.length || has_errors){
-                    //console.log("upload done, index: "+index+" has errors: "+has_errors+" ok: "+success);
-                    clearInterval(keepAliveTimer);
-                    $('#spinnerModal').modal('hide');
-                    spinnerDone = true;
-                    if (!has_errors){
-                        location.reload();
-                    }
-                    return;
-                }
+        //     function uploadFile() {
+        //         if (index >= files.length || has_errors){
+        //             //console.log("upload done, index: "+index+" has errors: "+has_errors+" ok: "+success);
+        //             clearInterval(keepAliveTimer);
+        //             $('#spinnerModal').modal('hide');
+        //             spinnerDone = true;
+        //             if (!has_errors){
+        //                 location.reload();
+        //             }
+        //             return;
+        //         }
 
-                async function saveFile() {
-                    //console.log("save file, index: "+index);
-                    var errorMessage = "Error uploading files";
-                    let response;
-                    try {
-                        var f = files[index];
-                        var uploadPath = '{{.FileURL}}?path={{.CurrentDir}}'+encodeURIComponent("/"+f.name);
-                        var lastModified;
-                        try {
-                            lastModified = f.lastModified;
-                        } catch (e) {
-                            console.log("unable to get last modified time from file: "+e.message);
-                            lastModified = "";
-                        }
-                        response = await fetch(uploadPath, {
-                            method: 'POST',
-                            headers: {
-                                'X-SFTPGO-MTIME': lastModified,
-                                'X-CSRF-TOKEN': '{{.CSRFToken}}'
-                            },
-                            credentials: 'same-origin',
-                            redirect: 'error',
-                            body: f
-                        });
-                    } catch (e){
-                        throw Error(errorMessage+": " +e.message);
-                    }
-                    if (response.status == 201){
-                        index++;
-                        success++;
-                        uploadFile();
-                    } else {
-                        let jsonResponse;
-                        try {
-                            jsonResponse = await response.json();
-                        } catch(e){
-                            throw Error(errorMessage);
-                        }
-                        if (jsonResponse.message) {
-                            errorMessage = jsonResponse.message;
-                        }
-                        if (jsonResponse.error) {
-                            errorMessage += ": " + jsonResponse.error;
-                        }
-                        throw Error(errorMessage);
-                    }
-                }
+        //         async function saveFile() {
+        //             //console.log("save file, index: "+index);
+        //             var errorMessage = "Error uploading files";
+        //             let response;
+        //             try {
+        //                 var f = files[index];
+        //                 var uploadPath = '{{.FileURL}}?path={{.CurrentDir}}'+encodeURIComponent("/"+f.name);
+        //                 var lastModified;
+        //                 try {
+        //                     lastModified = f.lastModified;
+        //                 } catch (e) {
+        //                     console.log("unable to get last modified time from file: "+e.message);
+        //                     lastModified = "";
+        //                 }
+        //                 response = await fetch(uploadPath, {
+        //                     method: 'POST',
+        //                     headers: {
+        //                         'X-SFTPGO-MTIME': lastModified,
+        //                         'X-CSRF-TOKEN': '{{.CSRFToken}}'
+        //                     },
+        //                     credentials: 'same-origin',
+        //                     redirect: 'error',
+        //                     body: f
+        //                 });
+        //             } catch (e){
+        //                 throw Error(errorMessage+": " +e.message);
+        //             }
+        //             if (response.status == 201){
+        //                 index++;
+        //                 success++;
+        //                 uploadFile();
+        //             } else {
+        //                 let jsonResponse;
+        //                 try {
+        //                     jsonResponse = await response.json();
+        //                 } catch(e){
+        //                     throw Error(errorMessage);
+        //                 }
+        //                 if (jsonResponse.message) {
+        //                     errorMessage = jsonResponse.message;
+        //                 }
+        //                 if (jsonResponse.error) {
+        //                     errorMessage += ": " + jsonResponse.error;
+        //                 }
+        //                 throw Error(errorMessage);
+        //             }
+        //         }
 
-                saveFile().catch(function(error){
-                    index++;
-                    has_errors = true;
-                    $('#errorTxt').text(error.message);
-                    $('#errorMsg').show();
-                    setTimeout(function () {
-                        $('#errorMsg').hide();
-                    }, 10000);
-                    uploadFile();
-                });
-            }
+        //         saveFile().catch(function(error){
+        //             index++;
+        //             has_errors = true;
+        //             $('#errorTxt').text(error.message);
+        //             $('#errorMsg').show();
+        //             setTimeout(function () {
+        //                 $('#errorMsg').hide();
+        //             }, 10000);
+        //             uploadFile();
+        //         });
+        //     }
 
-            uploadFile();
-        });
+        //     uploadFile();
+        // });
         
-        let dropContainer = $('#uploadFilesModal').first();
-        let dropzone = $('#dropzone').first();
-        let fileInput = document.querySelector('#files_name');
-        let dragOverTimeout;
+        let uploadDropzone = new Dropzone('#upload_dropzone', {
+            url: '#',
+            addRemoveLinks: true,
+            parallelUploads: 1,
+            init: function () {
+                this.on('processing', function (file) {
+                    this.options.url = '{{.FileURL}}?path={{.CurrentDir}}' + encodeURIComponent('/' + file.name);
+                    var lastModified;
+                    try {
+                        lastModified = f.lastModified;
+                    } catch (e) {
+                        console.log('unable to get last modified time from file: ' + e.message);
+                        lastModified = '';
+                    }
+                    this.options.headers['X-SFTPGO-MTIME'] = lastModified;
+                });
+            },
+            headers: {
+                'X-CSRF-TOKEN': '{{.CSRFToken}}',
+            },
+            withCredentials: true,
+        }); 
 
-        $(window).on('dragover', function (e) {
-            e.preventDefault();
-            $('#uploadFilesModal').modal('show');
-            clearTimeout(dragOverTimeout);
-            dragOverTimeout = setTimeout(() => {
-                $('#uploadFilesModal').modal('hide');
-            }, 100);
-        });
 
-        $(window).on('dragend drop', function (e) {
-            clearTimeout(dragOverTimeout);
-            e.preventDefault();
-        });
 
-        $(fileInput).on('change input', function (e) {
-            if (fileInput.files.length == 1) {
-                $('#files_names_display').text(`${fileInput.files[0].name}`);
-            } else if (fileInput.files.length > 1) {
-                $('#files_names_display').text(`${fileInput.files.length} files selected.`);
-            } else {
-                $('#files_names_display').text('No selected files.');
-            }
-        });
-
-        dropContainer.on('dragover dragenter', function (e) {
-            e.preventDefault();
-        });
-
-        dropContainer.on('drop', function (e) {
-            e.preventDefault();
-            fileInput.files = e.originalEvent.dataTransfer.files;
-            $(fileInput).trigger('change');
-        });
-
-        dropContainer.on('hidden.bs.modal', function (e) {
-            $(fileInput).val('');
-            $(fileInput).trigger('change');
-        });
 
         $("#rename_form").submit(function (event){
             event.preventDefault();
@@ -942,7 +912,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             name: 'addFiles',
             titleAttr: "Upload files",
             action: function (e, dt, node, config) {
-                document.getElementById("files_name").value = null;
                 $('#uploadFilesModal').modal('show');
             },
             enabled: true
