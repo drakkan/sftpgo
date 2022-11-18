@@ -651,6 +651,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     }
 
     {{if .CanAddFiles}}
+        let filesDropped = false;
         let uploadDropzone = new Dropzone('#upload_dropzone', {
             url: '{{.FilesURL}}?path={{.CurrentDir}}',
             clickable: true,
@@ -697,7 +698,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
         $('#tableContainer').on('drop', function(ev){
             ev.preventDefault();
-            let filesDropped = false;
 
             if (ev.originalEvent.dataTransfer.items) {
                 [...ev.originalEvent.dataTransfer.items].forEach((item, i) => {
@@ -715,6 +715,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
             if (filesDropped && !$('#uploadFilesModal').hasClass('show')){
                 $('#uploadFilesModal').modal('show');
+            }
+        });
+
+        $('#uploadFilesModal').on('hidden.bs.modal', function (e) {
+            if (filesDropped){
+                filesDropped = false;
+                uploadDropzone.removeAllFiles();
+                location.reload()
             }
         });
     {{end}}
