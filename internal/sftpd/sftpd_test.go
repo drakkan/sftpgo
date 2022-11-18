@@ -182,7 +182,7 @@ func TestMain(m *testing.M) {
 	logFilePath = filepath.Join(configDir, "sftpgo_sftpd_test.log")
 	loginBannerFileName := "login_banner"
 	loginBannerFile := filepath.Join(configDir, loginBannerFileName)
-	logger.InitLogger(logFilePath, 5, 1, 28, false, false, zerolog.DebugLevel)
+	logger.InitLogger(logFilePath, 10, 1, 28, false, false, zerolog.DebugLevel)
 	err := os.WriteFile(loginBannerFile, []byte("simple login banner\n"), os.ModePerm)
 	if err != nil {
 		logger.ErrorToConsole("error creating login banner: %v", err)
@@ -8180,6 +8180,32 @@ func TestUserPerms(t *testing.T) {
 	assert.True(t, user.HasPerm(dataprovider.PermListItems, "/p34/p1/file.dat"))
 	assert.True(t, user.HasPerm(dataprovider.PermChtimes, "/p/3/4/5/6"))
 	assert.True(t, user.HasPerm(dataprovider.PermDownload, "/p/1/test/file.dat"))
+}
+
+func TestWildcardPermissions(t *testing.T) {
+	user := getTestUser(true)
+	user.Permissions = make(map[string][]string)
+	user.Permissions["/"] = []string{dataprovider.PermListItems}
+	user.Permissions["/p*"] = []string{dataprovider.PermDelete}
+	user.Permissions["/p/*"] = []string{dataprovider.PermDownload, dataprovider.PermUpload}
+	user.Permissions["/p/2"] = []string{dataprovider.PermCreateDirs}
+	user.Permissions["/pa"] = []string{dataprovider.PermChmod}
+	user.Permissions["/p/3/4"] = []string{dataprovider.PermChtimes}
+	assert.True(t, user.HasPerm(dataprovider.PermListItems, "/"))
+	assert.True(t, user.HasPerm(dataprovider.PermDelete, "/p1"))
+	assert.True(t, user.HasPerm(dataprovider.PermDelete, "/ppppp"))
+	assert.False(t, user.HasPerm(dataprovider.PermDelete, "/pa"))
+	assert.True(t, user.HasPerm(dataprovider.PermChmod, "/pa"))
+	assert.True(t, user.HasPerm(dataprovider.PermUpload, "/p/1"))
+	assert.True(t, user.HasPerm(dataprovider.PermUpload, "/p/p"))
+	assert.False(t, user.HasPerm(dataprovider.PermUpload, "/p/2"))
+	assert.True(t, user.HasPerm(dataprovider.PermDownload, "/p/3"))
+	assert.True(t, user.HasPerm(dataprovider.PermDownload, "/p/a/a/a"))
+	assert.False(t, user.HasPerm(dataprovider.PermDownload, "/p/3/4"))
+	assert.True(t, user.HasPerm(dataprovider.PermChtimes, "/p/3/4"))
+	assert.True(t, user.HasPerm(dataprovider.PermDelete, "/pb/a/a/a"))
+	assert.False(t, user.HasPerm(dataprovider.PermDelete, "/abc/a/a/a"))
+	assert.True(t, user.HasPerm(dataprovider.PermListItems, "/abc/a/a/a/b"))
 }
 
 func TestFilterFilePatterns(t *testing.T) {

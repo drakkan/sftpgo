@@ -532,7 +532,7 @@ func (c *Connection) getListDirWithWildcards(dirName, pattern string) ([]os.File
 }
 
 func (c *Connection) isListDirWithWildcards(name string) bool {
-	if strings.ContainsAny(name, "*?[]") {
+	if strings.ContainsAny(name, "*?[]^") {
 		lastCommand := c.clientContext.GetLastCommand()
 		return lastCommand == "LIST" || lastCommand == "NLST"
 	}

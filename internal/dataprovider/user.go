@@ -489,8 +489,12 @@ func (u *User) GetPermissionsForPath(p string) []string {
 	// so the first match is the one we are interested to
 	for idx := range dirsForPath {
 		if perms, ok := u.Permissions[dirsForPath[idx]]; ok {
-			permissions = perms
-			break
+			return perms
+		}
+		for dir, perms := range u.Permissions {
+			if match, err := path.Match(dir, dirsForPath[idx]); err == nil && match {
+				return perms
+			}
 		}
 	}
 	return permissions
