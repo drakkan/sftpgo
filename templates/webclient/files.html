@@ -25,6 +25,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 <link href="{{.StaticURL}}/vendor/datatables/dataTables.checkboxes.css" rel="stylesheet">
 <link href="{{.StaticURL}}/vendor/lightbox2/css/lightbox.min.css" rel="stylesheet">
 <link href="{{.StaticURL}}/vendor/video-js/video-js.min.css" rel="stylesheet" />
+<link href="{{.StaticURL}}/vendor/filepond/filepond.min.css" rel="stylesheet" />
 <style>
     div.dataTables_wrapper span.selected-info,
     div.dataTables_wrapper span.selected-item {
@@ -48,7 +49,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             <div class="card-body text-form-error">{{.Error}}</div>
         </div>
         {{end}}
-        <div class="table-responsive">
+        <div id="tableContainer" class="table-responsive">
             <table class="table table-hover nowrap" id="dataTable" width="100%" cellspacing="0">
                 <thead>
                     <tr>
@@ -110,7 +111,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             </div>
             <form id="upload_files_form" action="{{.FilesURL}}?path={{.CurrentDir}}" method="POST" enctype="multipart/form-data">
                  <div class="modal-body">
-                    <input type="file" class="form-control-file" id="files_name" name="filenames" required multiple>
+                    <div id="uploadErrorMsg" class="card mb-4 border-left-warning" style="display: none;">
+                        <div id="uploadErrorTxt" class="card-body text-form-error"></div>
+                    </div>
+                    <input type="file" id="files_name" name="filenames" required multiple>
                 </div>
                 <div class="modal-footer">
                     <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
@@ -229,6 +233,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 <script src="{{.StaticURL}}/vendor/codemirror/codemirror.js"></script>
 <script src="{{.StaticURL}}/vendor/codemirror/meta.js"></script>
 <script src="{{.StaticURL}}/vendor/video-js/video.min.js"></script>
+<script src="{{.StaticURL}}/vendor/filepond/filepond.min.js"></script>
 {{if .HasIntegrations}}
 <script type="text/javascript">
     var childReference = null;
@@ -530,6 +535,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 return "far fa-file-code";
             case "zip":
             case "zipx":
+            case "7z":
             case "rar":
             case "tar":
             case "gz":
@@ -652,6 +658,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         });
     }
 
+    const isDirectoryEntry = item => isEntry(item) && (getAsEntry(item) || {}).isDirectory;
+    const isEntry = item => 'webkitGetAsEntry' in item;
+    const getAsEntry = item => item.webkitGetAsEntry();
+
     $(document).ready(function () {
         player = videojs('video_player', {
             controls: true,
@@ -671,6 +681,72 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 $('#spinnerModal').modal('hide');
             }
         });
+
+        {{if .CanAddFiles}}
+        FilePond.create(document.getElementById("files_name"),{
+            allowMultiple: true,
+            name: 'filenames',
+            maxFiles: 30,
+            credits: false,
+            required: true,
+            onwarning: function(error){
+                if (error.code == 0){
+                    $('#uploadErrorTxt').text('You can upload a maximum of 30 files');
+                    $('#uploadErrorMsg').show();
+                    setTimeout(function () {
+                        $('#uploadErrorMsg').hide();
+                        }, 10000);
+                }
+            },
+            beforeAddFile: (fileItem) => new Promise(resolve => {
+                let num = 0;
+                FilePond.find(document.getElementById("files_name")).getFiles().forEach(function(val){
+                    if (val.filename == fileItem.filename){
+                        num++;
+                    }
+                });
+                resolve(num == 1);
+            })
+        });
+
+        $('#tableContainer').on("dragover", function(ev){
+            ev.preventDefault();
+            $('#tableContainer').css('opacity','0.5');
+        });
+
+        $('#tableContainer').on("dragend dragleave", function(ev){
+            ev.preventDefault();
+            $('#tableContainer').css('opacity','1');
+        });
+
+        $('#tableContainer').on("drop", function(ev){
+            ev.preventDefault();
+            $('#tableContainer').css('opacity','1');
+            let filesDropped = false;
+
+            if (ev.originalEvent.dataTransfer.items) {
+                [...ev.originalEvent.dataTransfer.items].forEach((item, i) => {
+                    if (item.kind === 'file') {
+                        // if this is a directory just open the upload dialog
+                        if (!isDirectoryEntry(item)){
+                            FilePond.find(document.getElementById("files_name")).addFile(item.getAsFile());
+                        }
+                        filesDropped = true;
+                    }
+                });
+            } else {
+                [...ev.originalEvent.dataTransfer.files].forEach((file, i) => {
+                    FilePond.find(document.getElementById("files_name")).addFile(file);
+                    filesDropped = true;
+                });
+            }
+
+            if (filesDropped && !$('#uploadFilesModal').hasClass('show')){
+                $('#uploadFilesModal').modal('show');
+            }
+        });
+        {{end}}
+
         $("#create_dir_form").submit(function (event) {
             event.preventDefault();
             $('#createDirModal').modal('hide');
@@ -712,7 +788,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             keepAlive();
             var keepAliveTimer = setInterval(keepAlive, 300000);
 
-            var files = $("#files_name")[0].files;
+            var files = FilePond.find(document.getElementById("files_name")).getFiles();
             var has_errors = false;
             var index = 0;
             var success = 0;
@@ -738,7 +814,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                     var errorMessage = "Error uploading files";
                     let response;
                     try {
-                        var f = files[index];
+                        var f = files[index].file;
                         var uploadPath = '{{.FileURL}}?path={{.CurrentDir}}'+encodeURIComponent("/"+f.name);
                         var lastModified;
                         try {
@@ -887,7 +963,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             name: 'addFiles',
             titleAttr: "Upload files",
             action: function (e, dt, node, config) {
-                document.getElementById("files_name").value = null;
+                //FilePond.find(document.getElementById("files_name")).removeFiles();
                 $('#uploadFilesModal').modal('show');
             },
             enabled: true
