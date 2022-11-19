@@ -19,7 +19,9 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/drakkan/webdav"
 
@@ -34,6 +36,18 @@ import (
 type Connection struct {
 	*common.BaseConnection
 	request *http.Request
+}
+
+func (c *Connection) getModificationTime() time.Time {
+	if c.request == nil {
+		return time.Time{}
+	}
+	if val := c.request.Header.Get("X-OC-Mtime"); val != "" {
+		if unixTime, err := strconv.ParseInt(val, 10, 64); err == nil {
+			return time.Unix(unixTime, 0)
+		}
+	}
+	return time.Time{}
 }
 
 // GetClientVersion returns the connected client's version.
@@ -85,7 +99,19 @@ func (c *Connection) Rename(ctx context.Context, oldName, newName string) error 
 	oldName = util.CleanPath(oldName)
 	newName = util.CleanPath(newName)
 
-	return c.BaseConnection.Rename(oldName, newName)
+	err := c.BaseConnection.Rename(oldName, newName)
+	if err == nil {
+		if mtime := c.getModificationTime(); !mtime.IsZero() {
+			attrs := &common.StatAttributes{
+				Flags: common.StatAttrTimes,
+				Atime: mtime,
+				Mtime: mtime,
+			}
+			setStatErr := c.SetStat(newName, attrs)
+			c.Log(logger.LevelDebug, "mtime header found for %q, value: %s, err: %v", newName, mtime, setStatErr)
+		}
+	}
+	return err
 }
 
 // Stat returns a FileInfo describing the named file/directory, or an error,
@@ -202,6 +228,8 @@ func (c *Connection) handleUploadToNewFile(fs vfs.Fs, resolvedPath, filePath, re
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, filePath, requestPath,
 		common.TransferUpload, 0, 0, maxWriteSize, 0, true, fs, transferQuota)
+	mtime := c.getModificationTime()
+	baseTransfer.SetTimes(resolvedPath, mtime, mtime)
 
 	return newWebDavFile(baseTransfer, w, nil), nil
 }
@@ -260,6 +288,8 @@ func (c *Connection) handleUploadToExistingFile(fs vfs.Fs, resolvedPath, filePat
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, filePath, requestPath,
 		common.TransferUpload, 0, initialSize, maxWriteSize, truncatedSize, false, fs, transferQuota)
+	mtime := c.getModificationTime()
+	baseTransfer.SetTimes(resolvedPath, mtime, mtime)
 
 	return newWebDavFile(baseTransfer, w, nil), nil
 }

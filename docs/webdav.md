@@ -32,4 +32,6 @@ SFTPGo has a minimal implementation for [Dead Properties](https://tools.ietf.org
 
 To properly support dead properties we need a design decision, probably the best solution is to write a plugin and store them inside a supported data provider.
 
+SFTPGo also supports setting the modification time using the `X-OC-Mtime` header. Nextcloud compatible clients set this header.
+
 If you find any other quirks or problems please let us know opening a GitHub issue, thank you!

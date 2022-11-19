@@ -470,6 +470,7 @@ func TestConnWithNilRequest(t *testing.T) {
 	assert.Empty(t, c.GetClientVersion())
 	assert.Empty(t, c.GetCommand())
 	assert.Empty(t, c.GetRemoteAddress())
+	assert.True(t, c.getModificationTime().IsZero())
 }
 
 func TestResolvePathErrors(t *testing.T) {

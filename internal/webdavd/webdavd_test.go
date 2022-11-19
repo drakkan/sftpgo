@@ -245,6 +245,7 @@ XMf5HU3ThYqYn3bYypZZ8nQ7BXVh4LqGNqG29wR4v6l+dLO6odXnLzfApGD9e+d4
 	tlsClient1Username  = "client1"
 	tlsClient2Username  = "client2"
 	emptyPwdPlaceholder = "empty"
+	ocMtimeHeader       = "X-OC-Mtime"
 )
 
 var (
@@ -813,6 +814,66 @@ func TestLockAfterDelete(t *testing.T) {
 	assert.Equal(t, http.StatusCreated, resp.StatusCode)
 	err = resp.Body.Close()
 	assert.NoError(t, err)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestMtimeHeader(t *testing.T) {
+	u := getTestUser()
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	client := getWebDavClient(user, false, nil)
+	assert.NoError(t, checkBasicFunc(client))
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	testFileSize := int64(65535)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+	err = uploadFileWithRawClient(testFilePath, testFileName, user.Username, defaultPassword,
+		false, testFileSize, client, dataprovider.KeyValue{Key: ocMtimeHeader, Value: "1668879480"})
+	assert.NoError(t, err)
+	// check the modification time
+	info, err := client.Stat(testFileName)
+	if assert.NoError(t, err) {
+		assert.Equal(t, time.Unix(1668879480, 0).UTC(), info.ModTime().UTC())
+	}
+	// test on overwrite
+	err = uploadFileWithRawClient(testFilePath, testFileName, user.Username, defaultPassword,
+		false, testFileSize, client, dataprovider.KeyValue{Key: ocMtimeHeader, Value: "1667879480"})
+	assert.NoError(t, err)
+	info, err = client.Stat(testFileName)
+	if assert.NoError(t, err) {
+		assert.Equal(t, time.Unix(1667879480, 0).UTC(), info.ModTime().UTC())
+	}
+	// invalid time will be silently ignored and the time set to now
+	err = uploadFileWithRawClient(testFilePath, testFileName, user.Username, defaultPassword,
+		false, testFileSize, client, dataprovider.KeyValue{Key: ocMtimeHeader, Value: "not unix time"})
+	assert.NoError(t, err)
+	info, err = client.Stat(testFileName)
+	if assert.NoError(t, err) {
+		assert.NotEqual(t, time.Unix(1667879480, 0).UTC(), info.ModTime().UTC())
+	}
+
+	req, err := http.NewRequest("MOVE", fmt.Sprintf("http://%v/%v", webDavServerAddr, testFileName), nil)
+	assert.NoError(t, err)
+	req.Header.Set("Overwrite", "T")
+	req.Header.Set("Destination", path.Join("/", testFileName+"rename"))
+	req.Header.Set(ocMtimeHeader, "1666779480")
+	req.SetBasicAuth(u.Username, u.Password)
+	httpClient := httpclient.GetHTTPClient()
+	resp, err := httpClient.Do(req)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusCreated, resp.StatusCode)
+	err = resp.Body.Close()
+	assert.NoError(t, err)
+	// check the modification time
+	info, err = client.Stat(testFileName + "rename")
+	if assert.NoError(t, err) {
+		assert.Equal(t, time.Unix(1666779480, 0).UTC(), info.ModTime().UTC())
+	}
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -2989,7 +3050,7 @@ func checkFileSize(remoteDestPath string, expectedSize int64, client *gowebdav.C
 }
 
 func uploadFileWithRawClient(localSourcePath string, remoteDestPath string, username, password string,
-	useTLS bool, expectedSize int64, client *gowebdav.Client,
+	useTLS bool, expectedSize int64, client *gowebdav.Client, headers ...dataprovider.KeyValue,
 ) error {
 	srcFile, err := os.Open(localSourcePath)
 	if err != nil {
@@ -3012,6 +3073,9 @@ func uploadFileWithRawClient(localSourcePath string, remoteDestPath string, user
 		return err
 	}
 	req.SetBasicAuth(username, password)
+	for _, kv := range headers {
+		req.Header.Set(kv.Key, kv.Value)
+	}
 	httpClient := &http.Client{Timeout: 10 * time.Second}
 	if tlsConfig != nil {
 		customTransport := http.DefaultTransport.(*http.Transport).Clone()
