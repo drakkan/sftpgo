@@ -25,8 +25,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lestrrat-go/jwx/jwa"
-	"github.com/lestrrat-go/jwx/jwt"
+	"github.com/lestrrat-go/jwx/v2/jwa"
+	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/rs/xid"
 
 	"github.com/drakkan/sftpgo/v2/internal/httpclient"
@@ -128,12 +128,9 @@ func (n *Node) authenticate(token string) (string, error) {
 	if token == "" {
 		return "", ErrInvalidCredentials
 	}
-	t, err := jwt.Parse([]byte(token), jwt.WithVerify(jwa.HS256, []byte(n.Data.Key.GetPayload())))
+	t, err := jwt.Parse([]byte(token), jwt.WithKey(jwa.HS256, []byte(n.Data.Key.GetPayload())), jwt.WithValidate(true))
 	if err != nil {
-		return "", fmt.Errorf("unable to parse token: %v", err)
-	}
-	if err := jwt.Validate(t); err != nil {
-		return "", fmt.Errorf("unable to validate token: %v", err)
+		return "", fmt.Errorf("unable to parse and validate token: %v", err)
 	}
 	if admin, ok := t.Get("admin"); ok {
 		if val, ok := admin.(string); ok && val != "" {
@@ -169,7 +166,7 @@ func (n *Node) generateAuthToken(username string) (string, error) {
 	t.Set(jwt.NotBeforeKey, now.Add(-30*time.Second)) //nolint:errcheck
 	t.Set(jwt.ExpirationKey, now.Add(1*time.Minute))  //nolint:errcheck
 
-	payload, err := jwt.Sign(t, jwa.HS256, []byte(n.Data.Key.GetPayload()))
+	payload, err := jwt.Sign(t, jwt.WithKey(jwa.HS256, []byte(n.Data.Key.GetPayload())))
 	if err != nil {
 		return "", fmt.Errorf("unable to sign authentication token: %w", err)
 	}

@@ -31,7 +31,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/go-chi/render"
-	"github.com/lestrrat-go/jwx/jwa"
+	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/rs/cors"
 	"github.com/rs/xid"
 	"github.com/sftpgo/sdk"

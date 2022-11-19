@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/go-chi/jwtauth/v5"
-	"github.com/lestrrat-go/jwx/jwt"
+	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/rs/xid"
 
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"

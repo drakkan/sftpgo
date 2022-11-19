@@ -1366,14 +1366,14 @@ func getSecretFromFormField(r *http.Request, field string) *kms.Secret {
 func getS3Config(r *http.Request) (vfs.S3FsConfig, error) {
 	var err error
 	config := vfs.S3FsConfig{}
-	config.Bucket = r.Form.Get("s3_bucket")
-	config.Region = r.Form.Get("s3_region")
-	config.AccessKey = r.Form.Get("s3_access_key")
-	config.RoleARN = r.Form.Get("s3_role_arn")
+	config.Bucket = strings.TrimSpace(r.Form.Get("s3_bucket"))
+	config.Region = strings.TrimSpace(r.Form.Get("s3_region"))
+	config.AccessKey = strings.TrimSpace(r.Form.Get("s3_access_key"))
+	config.RoleARN = strings.TrimSpace(r.Form.Get("s3_role_arn"))
 	config.AccessSecret = getSecretFromFormField(r, "s3_access_secret")
-	config.Endpoint = r.Form.Get("s3_endpoint")
-	config.StorageClass = r.Form.Get("s3_storage_class")
-	config.ACL = r.Form.Get("s3_acl")
+	config.Endpoint = strings.TrimSpace(r.Form.Get("s3_endpoint"))
+	config.StorageClass = strings.TrimSpace(r.Form.Get("s3_storage_class"))
+	config.ACL = strings.TrimSpace(r.Form.Get("s3_acl"))
 	config.KeyPrefix = r.Form.Get("s3_key_prefix")
 	config.UploadPartSize, err = strconv.ParseInt(r.Form.Get("s3_upload_part_size"), 10, 64)
 	if err != nil {
@@ -1407,9 +1407,9 @@ func getGCSConfig(r *http.Request) (vfs.GCSFsConfig, error) {
 	var err error
 	config := vfs.GCSFsConfig{}
 
-	config.Bucket = r.Form.Get("gcs_bucket")
-	config.StorageClass = r.Form.Get("gcs_storage_class")
-	config.ACL = r.Form.Get("gcs_acl")
+	config.Bucket = strings.TrimSpace(r.Form.Get("gcs_bucket"))
+	config.StorageClass = strings.TrimSpace(r.Form.Get("gcs_storage_class"))
+	config.ACL = strings.TrimSpace(r.Form.Get("gcs_acl"))
 	config.KeyPrefix = r.Form.Get("gcs_key_prefix")
 	autoCredentials := r.Form.Get("gcs_auto_credentials")
 	if autoCredentials != "" {
@@ -1440,7 +1440,7 @@ func getGCSConfig(r *http.Request) (vfs.GCSFsConfig, error) {
 func getSFTPConfig(r *http.Request) (vfs.SFTPFsConfig, error) {
 	var err error
 	config := vfs.SFTPFsConfig{}
-	config.Endpoint = r.Form.Get("sftp_endpoint")
+	config.Endpoint = strings.TrimSpace(r.Form.Get("sftp_endpoint"))
 	config.Username = r.Form.Get("sftp_username")
 	config.Password = getSecretFromFormField(r, "sftp_password")
 	config.PrivateKey = getSecretFromFormField(r, "sftp_private_key")
@@ -1463,7 +1463,7 @@ func getSFTPConfig(r *http.Request) (vfs.SFTPFsConfig, error) {
 
 func getHTTPFsConfig(r *http.Request) vfs.HTTPFsConfig {
 	config := vfs.HTTPFsConfig{}
-	config.Endpoint = r.Form.Get("http_endpoint")
+	config.Endpoint = strings.TrimSpace(r.Form.Get("http_endpoint"))
 	config.Username = r.Form.Get("http_username")
 	config.SkipTLSVerify = r.Form.Get("http_skip_tls_verify") != ""
 	config.Password = getSecretFromFormField(r, "http_password")
@@ -1479,13 +1479,13 @@ func getHTTPFsConfig(r *http.Request) vfs.HTTPFsConfig {
 func getAzureConfig(r *http.Request) (vfs.AzBlobFsConfig, error) {
 	var err error
 	config := vfs.AzBlobFsConfig{}
-	config.Container = r.Form.Get("az_container")
-	config.AccountName = r.Form.Get("az_account_name")
+	config.Container = strings.TrimSpace(r.Form.Get("az_container"))
+	config.AccountName = strings.TrimSpace(r.Form.Get("az_account_name"))
 	config.AccountKey = getSecretFromFormField(r, "az_account_key")
 	config.SASURL = getSecretFromFormField(r, "az_sas_url")
-	config.Endpoint = r.Form.Get("az_endpoint")
+	config.Endpoint = strings.TrimSpace(r.Form.Get("az_endpoint"))
 	config.KeyPrefix = r.Form.Get("az_key_prefix")
-	config.AccessTier = r.Form.Get("az_access_tier")
+	config.AccessTier = strings.TrimSpace(r.Form.Get("az_access_tier"))
 	config.UseEmulator = r.Form.Get("az_use_emulator") != ""
 	config.UploadPartSize, err = strconv.ParseInt(r.Form.Get("az_upload_part_size"), 10, 64)
 	if err != nil {

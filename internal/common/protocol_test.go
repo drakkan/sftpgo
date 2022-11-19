@@ -951,6 +951,74 @@ func TestHiddenPatternFilter(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestHiddenRoot(t *testing.T) {
+	// only the "/ftp" directory is allowed and visibile in the "/" path
+	// within /ftp any file/directory is allowed and visibile
+	u := getTestUser()
+	u.Filters.FilePatterns = []sdk.PatternsFilter{
+		{
+			Path:            "/",
+			AllowedPatterns: []string{"ftp"},
+			DenyPolicy:      sdk.DenyPolicyHide,
+		},
+		{
+			Path:            "/ftp",
+			AllowedPatterns: []string{"*"},
+		},
+	}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	for i := 0; i < 10; i++ {
+		err = os.MkdirAll(filepath.Join(user.HomeDir, fmt.Sprintf("ftp%d", i)), os.ModePerm)
+		assert.NoError(t, err)
+	}
+	err = os.WriteFile(filepath.Join(user.HomeDir, testFileName), []byte(""), 0666)
+	assert.NoError(t, err)
+	err = os.WriteFile(filepath.Join(user.HomeDir, "ftp.txt"), []byte(""), 0666)
+	assert.NoError(t, err)
+	conn, client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		err = client.Mkdir("ftp")
+		assert.NoError(t, err)
+		entries, err := client.ReadDir("/")
+		assert.NoError(t, err)
+		if assert.Len(t, entries, 1) {
+			assert.Equal(t, "ftp", entries[0].Name())
+		}
+		_, err = client.Stat(".")
+		assert.NoError(t, err)
+		for _, name := range []string{testFileName, "ftp.txt"} {
+			_, err = client.Stat(name)
+			assert.ErrorIs(t, err, os.ErrNotExist)
+		}
+		for i := 0; i < 10; i++ {
+			_, err = client.Stat(fmt.Sprintf("ftp%d", i))
+			assert.ErrorIs(t, err, os.ErrNotExist)
+		}
+		err = writeSFTPFile(testFileName, 4096, client)
+		assert.ErrorIs(t, err, os.ErrPermission)
+		err = writeSFTPFile("ftp123", 4096, client)
+		assert.ErrorIs(t, err, os.ErrPermission)
+		err = client.Rename(testFileName, testFileName+"_rename")
+		assert.ErrorIs(t, err, os.ErrPermission)
+		err = writeSFTPFile(path.Join("/ftp", testFileName), 4096, client)
+		assert.NoError(t, err)
+		err = client.Mkdir("/ftp/dir")
+		assert.NoError(t, err)
+		err = client.Rename(path.Join("/ftp", testFileName), path.Join("/ftp/dir", testFileName))
+		assert.NoError(t, err)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestFileNotAllowedErrors(t *testing.T) {
 	deniedDir := "/denied"
 	u := getTestUser()

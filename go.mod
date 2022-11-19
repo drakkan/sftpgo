@@ -9,15 +9,15 @@ require (
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/alexedwards/argon2id v0.0.0-20211130144151-3585854a6387
 	github.com/aws/aws-sdk-go-v2 v1.17.1
-	github.com/aws/aws-sdk-go-v2/config v1.18.0
-	github.com/aws/aws-sdk-go-v2/credentials v1.13.0
+	github.com/aws/aws-sdk-go-v2/config v1.18.2
+	github.com/aws/aws-sdk-go-v2/credentials v1.13.2
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.19
-	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.39
-	github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.13.22
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.29.2
-	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.16.5
-	github.com/aws/aws-sdk-go-v2/service/sts v1.17.2
-	github.com/cockroachdb/cockroach-go/v2 v2.2.17
+	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.41
+	github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.13.23
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.29.3
+	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.16.7
+	github.com/aws/aws-sdk-go-v2/service/sts v1.17.4
+	github.com/cockroachdb/cockroach-go/v2 v2.2.18
 	github.com/coreos/go-oidc/v3 v3.4.0
 	github.com/drakkan/webdav v0.0.0-20221101181759-17ed21f9337b
 	github.com/eikenb/pipeat v0.0.0-20210730190139-06b3e6902001
@@ -25,7 +25,7 @@ require (
 	github.com/fclairamb/go-log v0.4.1
 	github.com/go-acme/lego/v4 v4.9.0
 	github.com/go-chi/chi/v5 v5.0.8-0.20221018120124-e5529d9db4d3
-	github.com/go-chi/jwtauth/v5 v5.0.2
+	github.com/go-chi/jwtauth/v5 v5.1.0
 	github.com/go-chi/render v1.0.2
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/golang/mock v1.6.0
@@ -35,10 +35,10 @@ require (
 	github.com/hashicorp/go-hclog v1.3.1
 	github.com/hashicorp/go-plugin v1.4.6
 	github.com/hashicorp/go-retryablehttp v0.7.1
-	github.com/jackc/pgx/v5 v5.0.4
+	github.com/jackc/pgx/v5 v5.1.1
 	github.com/jlaffaye/ftp v0.0.0-20201112195030-9aae4d151126
 	github.com/klauspost/compress v1.15.12
-	github.com/lestrrat-go/jwx v1.2.25
+	github.com/lestrrat-go/jwx/v2 v2.0.7
 	github.com/lithammer/shortuuid/v3 v3.0.7
 	github.com/mattn/go-sqlite3 v1.14.16
 	github.com/mhale/smtpd v0.8.0
@@ -54,7 +54,7 @@ require (
 	github.com/rs/zerolog v1.28.0
 	github.com/sftpgo/sdk v0.1.2
 	github.com/shirou/gopsutil/v3 v3.22.10
-	github.com/spf13/afero v1.9.2
+	github.com/spf13/afero v1.9.3
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/viper v1.14.0
 	github.com/stretchr/testify v1.8.1
@@ -77,7 +77,7 @@ require (
 )
 
 require (
-	cloud.google.com/go v0.106.0 // indirect
+	cloud.google.com/go v0.107.0 // indirect
 	cloud.google.com/go/compute v1.12.1 // indirect
 	cloud.google.com/go/compute/metadata v0.2.1 // indirect
 	cloud.google.com/go/iam v0.7.0 // indirect
@@ -121,11 +121,11 @@ require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20200714003250-2b9c44734f2b // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
-	github.com/klauspost/cpuid/v2 v2.2.0 // indirect
+	github.com/klauspost/cpuid/v2 v2.2.1 // indirect
 	github.com/kr/fs v0.1.0 // indirect
-	github.com/lestrrat-go/backoff/v2 v2.0.8 // indirect
 	github.com/lestrrat-go/blackmagic v1.0.1 // indirect
 	github.com/lestrrat-go/httpcc v1.0.1 // indirect
+	github.com/lestrrat-go/httprc v1.0.4 // indirect
 	github.com/lestrrat-go/iter v1.0.2 // indirect
 	github.com/lestrrat-go/option v1.0.0 // indirect
 	github.com/lib/pq v1.10.7 // indirect
@@ -140,8 +140,7 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/oklog/run v1.1.0 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
-	github.com/pelletier/go-toml/v2 v2.0.5 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
+	github.com/pelletier/go-toml/v2 v2.0.6 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20220216144756-c35f1ee13d7c // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
@@ -161,8 +160,8 @@ require (
 	golang.org/x/tools v0.3.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20221111202108-142d8a6fa32e // indirect
-	google.golang.org/grpc v1.50.1 // indirect
+	google.golang.org/genproto v0.0.0-20221118155620-16455021b5e6 // indirect
+	google.golang.org/grpc v1.51.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect

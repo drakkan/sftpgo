@@ -2423,8 +2423,11 @@ func (p *MemoryProvider) getNextRuleID() int64 {
 func (p *MemoryProvider) clear() {
 	p.dbHandle.Lock()
 	defer p.dbHandle.Unlock()
+
 	p.dbHandle.usernames = []string{}
 	p.dbHandle.users = make(map[string]User)
+	p.dbHandle.groupnames = []string{}
+	p.dbHandle.groups = map[string]Group{}
 	p.dbHandle.vfoldersNames = []string{}
 	p.dbHandle.vfolders = make(map[string]vfs.BaseVirtualFolder)
 	p.dbHandle.admins = make(map[string]Admin)
@@ -2433,6 +2436,10 @@ func (p *MemoryProvider) clear() {
 	p.dbHandle.apiKeysIDs = []string{}
 	p.dbHandle.shares = make(map[string]Share)
 	p.dbHandle.sharesIDs = []string{}
+	p.dbHandle.actions = map[string]BaseEventAction{}
+	p.dbHandle.actionsNames = []string{}
+	p.dbHandle.rules = map[string]EventRule{}
+	p.dbHandle.rulesNames = []string{}
 }
 
 func (p *MemoryProvider) reloadConfig() error {

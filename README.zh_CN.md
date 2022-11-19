@@ -125,7 +125,7 @@ SFTPGo 基于 Linux 开发和创建。在每一次提交之后，代码会自动
 
 </details>
 
-SFTPGo 在 [AWS Marketplace](https://aws.amazon.com/marketplace/seller-profile?id=6e849ab8-70a6-47de-9a43-13c3fa849335) 和 [Azure Marketplace](https://azuremarketplace.microsoft.com/en-us/marketplace/apps/prasselsrl1645470739547.sftpgo_linux) 同样可用，在此付费可以帮助 SFTPGo 成为一个可持续发展的长期项目。
+SFTPGo 在 [AWS Marketplace](https://aws.amazon.com/marketplace/seller-profile?id=6e849ab8-70a6-47de-9a43-13c3fa849335) 和 [Azure Marketplace](https://azuremarketplace.microsoft.com/en-us/marketplace/apps/eliamarzia1667381463185.sftpgo_linux) 同样可用，在此付费可以帮助 SFTPGo 成为一个可持续发展的长期项目。
 
 <details><summary>Windows 包</summary>
 
