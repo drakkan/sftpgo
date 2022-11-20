@@ -1,6 +1,6 @@
 #!/bin/bash
 
-NFPM_VERSION=2.22.0
+NFPM_VERSION=2.22.1
 NFPM_ARCH=${NFPM_ARCH:-amd64}
 if [ -z ${SFTPGO_VERSION} ]
 then
@@ -75,13 +75,13 @@ contents:
     dst: "/lib/systemd/system/sftpgo.service"
 
   - src: "${BASE_DIR}/templates/*"
-    dst: "/usr/share/sftpgo/templates/"
+    dst: "/usr/share/sftpgo/templates"
 
   - src: "${BASE_DIR}/static/*"
-    dst: "/usr/share/sftpgo/static/"
+    dst: "/usr/share/sftpgo/static"
 
   - src: "${BASE_DIR}/openapi/*"
-    dst: "/usr/share/sftpgo/openapi/"
+    dst: "/usr/share/sftpgo/openapi"
 
   - src: "./sftpgo.json"
     dst: "/etc/sftpgo/sftpgo.json"
