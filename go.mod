@@ -9,15 +9,15 @@ require (
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/alexedwards/argon2id v0.0.0-20211130144151-3585854a6387
 	github.com/aws/aws-sdk-go-v2 v1.17.1
-	github.com/aws/aws-sdk-go-v2/config v1.18.2
-	github.com/aws/aws-sdk-go-v2/credentials v1.13.2
+	github.com/aws/aws-sdk-go-v2/config v1.18.3
+	github.com/aws/aws-sdk-go-v2/credentials v1.13.3
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.19
-	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.41
-	github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.13.23
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.29.3
-	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.16.7
-	github.com/aws/aws-sdk-go-v2/service/sts v1.17.4
-	github.com/cockroachdb/cockroach-go/v2 v2.2.18
+	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.42
+	github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.13.24
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.29.4
+	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.16.8
+	github.com/aws/aws-sdk-go-v2/service/sts v1.17.5
+	github.com/cockroachdb/cockroach-go/v2 v2.2.19
 	github.com/coreos/go-oidc/v3 v3.4.0
 	github.com/drakkan/webdav v0.0.0-20221101181759-17ed21f9337b
 	github.com/eikenb/pipeat v0.0.0-20210730190139-06b3e6902001
@@ -98,7 +98,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/boombuler/barcode v1.0.1 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
-	github.com/cenkalti/backoff/v4 v4.1.3 // indirect
+	github.com/cenkalti/backoff/v4 v4.2.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
