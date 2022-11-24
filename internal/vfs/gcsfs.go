@@ -226,38 +226,32 @@ func (fs *GCSFs) Rename(source, target string) error {
 		if hasContents {
 			return fmt.Errorf("cannot rename non empty directory: %#v", source)
 		}
-		if !strings.HasSuffix(target, "/") {
-			target += "/"
+		if err := fs.mkdirInternal(target); err != nil {
+			return err
 		}
-	}
-	src := fs.svc.Bucket(fs.config.Bucket).Object(realSourceName)
-	dst := fs.svc.Bucket(fs.config.Bucket).Object(target)
-	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
-	defer cancelFn()
-
-	copier := dst.CopierFrom(src)
-	if fs.config.StorageClass != "" {
-		copier.StorageClass = fs.config.StorageClass
-	}
-	if fs.config.ACL != "" {
-		copier.PredefinedACL = fs.config.ACL
-	}
-	var contentType string
-	if fi.IsDir() {
-		contentType = dirMimeType
 	} else {
-		contentType = mime.TypeByExtension(path.Ext(source))
-	}
-	if contentType != "" {
-		copier.ContentType = contentType
-	}
-	_, err = copier.Run(ctx)
-	metric.GCSCopyObjectCompleted(err)
-	if err != nil {
-		return err
-	}
-	if plugin.Handler.HasMetadater() {
-		if !fi.IsDir() {
+		src := fs.svc.Bucket(fs.config.Bucket).Object(realSourceName)
+		dst := fs.svc.Bucket(fs.config.Bucket).Object(target)
+		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
+		defer cancelFn()
+
+		copier := dst.CopierFrom(src)
+		if fs.config.StorageClass != "" {
+			copier.StorageClass = fs.config.StorageClass
+		}
+		if fs.config.ACL != "" {
+			copier.PredefinedACL = fs.config.ACL
+		}
+		contentType := mime.TypeByExtension(path.Ext(source))
+		if contentType != "" {
+			copier.ContentType = contentType
+		}
+		_, err = copier.Run(ctx)
+		metric.GCSCopyObjectCompleted(err)
+		if err != nil {
+			return err
+		}
+		if plugin.Handler.HasMetadater() {
 			err = plugin.Handler.SetModificationTime(fs.getStorageID(), ensureAbsPath(target),
 				util.GetTimeAsMsSinceEpoch(fi.ModTime()))
 			if err != nil {
@@ -306,14 +300,7 @@ func (fs *GCSFs) Mkdir(name string) error {
 	if !fs.IsNotExist(err) {
 		return err
 	}
-	if !strings.HasSuffix(name, "/") {
-		name += "/"
-	}
-	_, w, _, err := fs.Create(name, -1)
-	if err != nil {
-		return err
-	}
-	return w.Close()
+	return fs.mkdirInternal(name)
 }
 
 // Symlink creates source as a symbolic link to target.
@@ -760,6 +747,17 @@ func (fs *GCSFs) getObjectStat(name string) (string, os.FileInfo, error) {
 	}
 	info, err = updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, attrs.Size, attrs.Updated, false))
 	return name + "/", info, err
+}
+
+func (fs *GCSFs) mkdirInternal(name string) error {
+	if !strings.HasSuffix(name, "/") {
+		name += "/"
+	}
+	_, w, _, err := fs.Create(name, -1)
+	if err != nil {
+		return err
+	}
+	return w.Close()
 }
 
 func (fs *GCSFs) hasContents(name string) (bool, error) {
