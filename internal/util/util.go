@@ -125,6 +125,18 @@ func Contains[T comparable](elems []T, v T) bool {
 	return false
 }
 
+// Remove removes an element from a string slice and
+// returns the modified slice
+func Remove(elems []string, val string) []string {
+	for idx, v := range elems {
+		if v == val {
+			elems[idx] = elems[len(elems)-1]
+			return elems[:len(elems)-1]
+		}
+	}
+	return elems
+}
+
 // IsStringPrefixInSlice searches a string prefix in a slice and returns true
 // if a matching prefix is found
 func IsStringPrefixInSlice(obj string, list []string) bool {

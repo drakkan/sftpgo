@@ -38,7 +38,7 @@ require (
 	github.com/jackc/pgx/v5 v5.1.1
 	github.com/jlaffaye/ftp v0.0.0-20201112195030-9aae4d151126
 	github.com/klauspost/compress v1.15.12
-	github.com/lestrrat-go/jwx/v2 v2.0.7
+	github.com/lestrrat-go/jwx/v2 v2.0.8
 	github.com/lithammer/shortuuid/v3 v3.0.7
 	github.com/mattn/go-sqlite3 v1.14.16
 	github.com/mhale/smtpd v0.8.0
@@ -67,7 +67,7 @@ require (
 	go.etcd.io/bbolt v1.3.6
 	go.uber.org/automaxprocs v1.5.1
 	gocloud.dev v0.27.0
-	golang.org/x/crypto v0.2.0
+	golang.org/x/crypto v0.3.0
 	golang.org/x/net v0.2.0
 	golang.org/x/oauth2 v0.2.0
 	golang.org/x/sys v0.2.0
@@ -171,5 +171,5 @@ require (
 
 replace (
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
-	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20221112084010-a38283b153a8
+	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20221117111000-a0321143587c
 )

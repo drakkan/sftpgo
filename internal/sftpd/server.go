@@ -141,6 +141,12 @@ type Configuration struct {
 	// HostKeyAlgorithms lists the public key algorithms that the server will accept for host
 	// key authentication.
 	HostKeyAlgorithms []string `json:"host_key_algorithms" mapstructure:"host_key_algorithms"`
+	// Diffie-Hellman moduli files.
+	// Each moduli file can be defined as a path relative to the configuration directory or an absolute one.
+	// If set, "diffie-hellman-group-exchange-sha256" and "diffie-hellman-group-exchange-sha1" KEX algorithms
+	// will be available, `diffie-hellman-group-exchange-sha256` will be enabled by default if you
+	// don't explicitly set KEXs
+	Moduli []string `json:"moduli" mapstructure:"moduli"`
 	// KexAlgorithms specifies the available KEX (Key Exchange) algorithms in
 	// preference order.
 	KexAlgorithms []string `json:"kex_algorithms" mapstructure:"kex_algorithms"`
@@ -291,6 +297,10 @@ func (c *Configuration) Initialize(configDir string) error {
 	}
 
 	if err := c.initializeCertChecker(configDir); err != nil {
+		return err
+	}
+
+	if err := c.loadModuli(configDir); err != nil {
 		return err
 	}
 
@@ -836,6 +846,29 @@ func (c *Configuration) checkHostKeyAutoGeneration(configDir string) error {
 		if err := c.generateDefaultHostKeys(configDir); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func (c *Configuration) loadModuli(configDir string) error {
+	supportedKexAlgos = util.Remove(supportedKexAlgos, "diffie-hellman-group-exchange-sha1")
+	supportedKexAlgos = util.Remove(supportedKexAlgos, "diffie-hellman-group-exchange-sha256")
+	for _, m := range c.Moduli {
+		m = strings.TrimSpace(m)
+		if !util.IsFileInputValid(m) {
+			logger.Warn(logSender, "", "unable to load invalid moduli file %q", m)
+			logger.WarnToConsole("unable to load invalid host moduli file %q", m)
+			continue
+		}
+		if !filepath.IsAbs(m) {
+			m = filepath.Join(configDir, m)
+		}
+		logger.Info(logSender, "", "loading moduli file %q", m)
+		if err := ssh.ParseModuli(m); err != nil {
+			return err
+		}
+		supportedKexAlgos = append(supportedKexAlgos, "diffie-hellman-group-exchange-sha1",
+			"diffie-hellman-group-exchange-sha256")
 	}
 	return nil
 }

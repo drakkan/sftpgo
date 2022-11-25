@@ -182,7 +182,7 @@ func TestMain(m *testing.M) {
 	logFilePath = filepath.Join(configDir, "sftpgo_sftpd_test.log")
 	loginBannerFileName := "login_banner"
 	loginBannerFile := filepath.Join(configDir, loginBannerFileName)
-	logger.InitLogger(logFilePath, 5, 1, 28, false, false, zerolog.DebugLevel)
+	logger.InitLogger(logFilePath, 10, 1, 28, false, false, zerolog.DebugLevel)
 	err := os.WriteFile(loginBannerFile, []byte("simple login banner\n"), os.ModePerm)
 	if err != nil {
 		logger.ErrorToConsole("error creating login banner: %v", err)
@@ -401,6 +401,12 @@ func TestInitialization(t *testing.T) {
 	assert.True(t, sftpdConf.Bindings[0].HasProxy())
 	err = sftpdConf.Initialize(configDir)
 	assert.Error(t, err)
+	sftpdConf.Moduli = []string{"missing moduli file"}
+	err = sftpdConf.Initialize(configDir)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "unable to open moduli file")
+	}
+	sftpdConf.Moduli = nil
 	sftpdConf.HostKeys = []string{"missing key"}
 	err = sftpdConf.Initialize(configDir)
 	assert.Error(t, err)

@@ -84,6 +84,7 @@
     "host_keys": [],
     "host_certificates": [],
     "host_key_algorithms": [],
+    "moduli": [],
     "kex_algorithms": [],
     "ciphers": [],
     "macs": [],
