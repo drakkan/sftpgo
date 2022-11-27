@@ -23,7 +23,7 @@ require (
 	github.com/eikenb/pipeat v0.0.0-20210730190139-06b3e6902001
 	github.com/fclairamb/ftpserverlib v0.20.1-0.20221012093027-95be4ae0c9a6
 	github.com/fclairamb/go-log v0.4.1
-	github.com/go-acme/lego/v4 v4.9.0
+	github.com/go-acme/lego/v4 v4.9.1
 	github.com/go-chi/chi/v5 v5.0.8-0.20221018120124-e5529d9db4d3
 	github.com/go-chi/jwtauth/v5 v5.1.0
 	github.com/go-chi/render v1.0.2
@@ -37,7 +37,7 @@ require (
 	github.com/jackc/pgx/v5 v5.1.1
 	github.com/jlaffaye/ftp v0.0.0-20201112195030-9aae4d151126
 	github.com/klauspost/compress v1.15.12
-	github.com/lestrrat-go/jwx/v2 v2.0.7
+	github.com/lestrrat-go/jwx/v2 v2.0.8
 	github.com/lithammer/shortuuid/v3 v3.0.7
 	github.com/mattn/go-sqlite3 v1.14.16
 	github.com/mhale/smtpd v0.8.0
