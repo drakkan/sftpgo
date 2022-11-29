@@ -949,6 +949,9 @@ func (u *User) IsPartialAuth(loginMethod string) bool {
 			method == SSHLoginMethodPassword {
 			continue
 		}
+		if method == LoginMethodPassword && util.Contains(u.Filters.DeniedLoginMethods, SSHLoginMethodPassword) {
+			continue
+		}
 		if !util.Contains(SSHMultiStepsLoginMethods, method) {
 			return false
 		}
