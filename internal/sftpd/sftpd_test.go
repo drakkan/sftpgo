@@ -8270,6 +8270,12 @@ func TestUserPartialAuth(t *testing.T) {
 		dataprovider.SSHLoginMethodPublicKey,
 	}
 	assert.False(t, user.IsPartialAuth(dataprovider.SSHLoginMethodPublicKey))
+	user.Filters.DeniedLoginMethods = []string{
+		dataprovider.SSHLoginMethodPassword,
+		dataprovider.SSHLoginMethodPublicKey,
+		dataprovider.SSHLoginMethodKeyboardInteractive,
+	}
+	assert.True(t, user.IsPartialAuth(dataprovider.SSHLoginMethodPublicKey))
 }
 
 func TestUserGetNextAuthMethods(t *testing.T) {
