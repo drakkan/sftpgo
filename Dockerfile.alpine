@@ -1,4 +1,4 @@
-FROM golang:1.19-alpine3.16 AS builder
+FROM golang:1.19-alpine3.17 AS builder
 
 ENV GOFLAGS="-mod=readonly"
 
@@ -27,7 +27,7 @@ RUN set -xe && \
 
 RUN apk add --update --no-cache openssh-client-common
 
-FROM alpine:3.16
+FROM alpine:3.17
 
 # Set to "true" to install jq and the optional git and rsync dependencies
 ARG INSTALL_OPTIONAL_PACKAGES=false
