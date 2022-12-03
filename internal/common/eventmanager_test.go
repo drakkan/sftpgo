@@ -42,6 +42,7 @@ import (
 )
 
 func TestEventRuleMatch(t *testing.T) {
+	role := "role1"
 	conditions := dataprovider.EventConditions{
 		ProviderEvents: []string{"add", "update"},
 		Options: dataprovider.ConditionOptions{
@@ -51,20 +52,28 @@ func TestEventRuleMatch(t *testing.T) {
 					InverseMatch: true,
 				},
 			},
+			RoleNames: []dataprovider.ConditionPattern{
+				{
+					Pattern: role,
+				},
+			},
 		},
 	}
 	res := eventManager.checkProviderEventMatch(conditions, EventParams{
 		Name:  "user1",
+		Role:  role,
 		Event: "add",
 	})
 	assert.False(t, res)
 	res = eventManager.checkProviderEventMatch(conditions, EventParams{
 		Name:  "user2",
+		Role:  role,
 		Event: "update",
 	})
 	assert.True(t, res)
 	res = eventManager.checkProviderEventMatch(conditions, EventParams{
 		Name:  "user2",
+		Role:  role,
 		Event: "delete",
 	})
 	assert.False(t, res)
@@ -72,15 +81,24 @@ func TestEventRuleMatch(t *testing.T) {
 	res = eventManager.checkProviderEventMatch(conditions, EventParams{
 		Name:       "user2",
 		Event:      "update",
+		Role:       role,
 		ObjectType: "share",
 	})
 	assert.False(t, res)
 	res = eventManager.checkProviderEventMatch(conditions, EventParams{
 		Name:       "user2",
 		Event:      "update",
+		Role:       role,
 		ObjectType: "api_key",
 	})
 	assert.True(t, res)
+	res = eventManager.checkProviderEventMatch(conditions, EventParams{
+		Name:       "user2",
+		Event:      "update",
+		Role:       role + "1",
+		ObjectType: "api_key",
+	})
+	assert.False(t, res)
 	// now test fs events
 	conditions = dataprovider.EventConditions{
 		FsEvents: []string{operationUpload, operationDownload},
@@ -91,6 +109,12 @@ func TestEventRuleMatch(t *testing.T) {
 				},
 				{
 					Pattern: "tester*",
+				},
+			},
+			RoleNames: []dataprovider.ConditionPattern{
+				{
+					Pattern:      role,
+					InverseMatch: true,
 				},
 			},
 			FsPaths: []dataprovider.ConditionPattern{
@@ -116,6 +140,10 @@ func TestEventRuleMatch(t *testing.T) {
 	params.Event = operationDownload
 	res = eventManager.checkFsEventMatch(conditions, params)
 	assert.True(t, res)
+	params.Role = role
+	res = eventManager.checkFsEventMatch(conditions, params)
+	assert.False(t, res)
+	params.Role = ""
 	params.Name = "name"
 	res = eventManager.checkFsEventMatch(conditions, params)
 	assert.False(t, res)
@@ -195,6 +223,49 @@ func TestEventRuleMatch(t *testing.T) {
 	}
 	res = eventManager.checkFsEventMatch(conditions, params)
 	assert.True(t, res)
+	// check user conditions
+	user := dataprovider.User{}
+	user.Username = "u1"
+	res = checkUserConditionOptions(&user, &dataprovider.ConditionOptions{})
+	assert.True(t, res)
+	res = checkUserConditionOptions(&user, &dataprovider.ConditionOptions{
+		Names: []dataprovider.ConditionPattern{
+			{
+				Pattern: "user",
+			},
+		},
+	})
+	assert.False(t, res)
+	res = checkUserConditionOptions(&user, &dataprovider.ConditionOptions{
+		RoleNames: []dataprovider.ConditionPattern{
+			{
+				Pattern: role,
+			},
+		},
+	})
+	assert.False(t, res)
+	user.Role = role
+	res = checkUserConditionOptions(&user, &dataprovider.ConditionOptions{
+		RoleNames: []dataprovider.ConditionPattern{
+			{
+				Pattern: role,
+			},
+		},
+	})
+	assert.True(t, res)
+	res = checkUserConditionOptions(&user, &dataprovider.ConditionOptions{
+		GroupNames: []dataprovider.ConditionPattern{
+			{
+				Pattern: "group",
+			},
+		},
+		RoleNames: []dataprovider.ConditionPattern{
+			{
+				Pattern: role,
+			},
+		},
+	})
+	assert.False(t, res)
 }
 
 func TestEventManager(t *testing.T) {

@@ -1541,6 +1541,14 @@ func TestActionRuleRelations(t *testing.T) {
 					Month:      "*",
 				},
 			},
+			Options: dataprovider.ConditionOptions{
+				RoleNames: []dataprovider.ConditionPattern{
+					{
+						Pattern:      "g*",
+						InverseMatch: true,
+					},
+				},
+			},
 		},
 		Actions: []dataprovider.EventAction{
 			{
@@ -2008,6 +2016,16 @@ func TestEventRuleValidation(t *testing.T) {
 	_, resp, err = httpdtest.AddEventRule(rule, http.StatusBadRequest)
 	assert.NoError(t, err)
 	assert.Contains(t, string(resp), "unsupported provider event")
+	rule.Conditions.ProviderEvents = []string{"add"}
+	rule.Conditions.Options.RoleNames = []dataprovider.ConditionPattern{
+		{
+			Pattern: "",
+		},
+	}
+	_, resp, err = httpdtest.AddEventRule(rule, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "empty condition pattern not allowed")
+	rule.Conditions.Options.RoleNames = nil
 	rule.Trigger = dataprovider.EventTriggerSchedule
 	_, resp, err = httpdtest.AddEventRule(rule, http.StatusBadRequest)
 	assert.NoError(t, err)
@@ -2026,8 +2044,8 @@ func TestEventRuleValidation(t *testing.T) {
 			Month:      "*",
 		},
 	}
-	_, _, err = httpdtest.AddEventRule(rule, http.StatusInternalServerError)
-	assert.NoError(t, err)
+	_, resp, err = httpdtest.AddEventRule(rule, http.StatusInternalServerError)
+	assert.NoError(t, err, string(resp))
 }
 
 func TestUserTransferLimits(t *testing.T) {
@@ -20180,6 +20198,12 @@ func TestWebEventRule(t *testing.T) {
 						InverseMatch: true,
 					},
 				},
+				RoleNames: []dataprovider.ConditionPattern{
+					{
+						Pattern:      "g*",
+						InverseMatch: true,
+					},
+				},
 			},
 		},
 		Actions: []dataprovider.EventAction{
@@ -20211,6 +20235,8 @@ func TestWebEventRule(t *testing.T) {
 	form.Set("type_name_pattern0", "inverse")
 	form.Set("group_name_pattern0", rule.Conditions.Options.GroupNames[0].Pattern)
 	form.Set("type_group_name_pattern0", "inverse")
+	form.Set("role_name_pattern0", rule.Conditions.Options.RoleNames[0].Pattern)
+	form.Set("type_role_name_pattern0", "inverse")
 	req, err = http.NewRequest(http.MethodPost, webAdminEventRulePath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -20304,6 +20330,12 @@ func TestWebEventRule(t *testing.T) {
 				},
 			},
 			GroupNames: []dataprovider.ConditionPattern{
+				{
+					Pattern:      "g*",
+					InverseMatch: true,
+				},
+			},
+			RoleNames: []dataprovider.ConditionPattern{
 				{
 					Pattern:      "g*",
 					InverseMatch: true,

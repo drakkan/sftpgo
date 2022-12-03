@@ -2169,7 +2169,7 @@ func getEventActionFromPostFields(r *http.Request) (dataprovider.BaseEventAction
 
 func getEventRuleConditionsFromPostFields(r *http.Request) (dataprovider.EventConditions, error) {
 	var schedules []dataprovider.Schedule
-	var names, groupNames, fsPaths []dataprovider.ConditionPattern
+	var names, groupNames, roleNames, fsPaths []dataprovider.ConditionPattern
 	for k := range r.Form {
 		if strings.HasPrefix(k, "schedule_hour") {
 			hour := r.Form.Get(k)
@@ -2208,6 +2208,17 @@ func getEventRuleConditionsFromPostFields(r *http.Request) (dataprovider.EventCo
 				})
 			}
 		}
+		if strings.HasPrefix(k, "role_name_pattern") {
+			pattern := r.Form.Get(k)
+			if pattern != "" {
+				idx := strings.TrimPrefix(k, "role_name_pattern")
+				patternType := r.Form.Get(fmt.Sprintf("type_role_name_pattern%s", idx))
+				roleNames = append(roleNames, dataprovider.ConditionPattern{
+					Pattern:      pattern,
+					InverseMatch: patternType == inversePatternType,
+				})
+			}
+		}
 		if strings.HasPrefix(k, "fs_path_pattern") {
 			pattern := r.Form.Get(k)
 			if pattern != "" {
@@ -2235,6 +2246,7 @@ func getEventRuleConditionsFromPostFields(r *http.Request) (dataprovider.EventCo
 		Options: dataprovider.ConditionOptions{
 			Names:               names,
 			GroupNames:          groupNames,
+			RoleNames:           roleNames,
 			FsPaths:             fsPaths,
 			Protocols:           r.Form["fs_protocols"],
 			ProviderObjects:     r.Form["provider_objects"],

@@ -1510,6 +1510,9 @@ func checkEventConditionOptions(expected, actual dataprovider.ConditionOptions) 
 	if err := compareConditionPatternOptions(expected.GroupNames, actual.GroupNames); err != nil {
 		return errors.New("condition group names mismatch")
 	}
+	if err := compareConditionPatternOptions(expected.RoleNames, actual.RoleNames); err != nil {
+		return errors.New("condition role names mismatch")
+	}
 	if err := compareConditionPatternOptions(expected.FsPaths, actual.FsPaths); err != nil {
 		return errors.New("condition fs_paths mismatch")
 	}

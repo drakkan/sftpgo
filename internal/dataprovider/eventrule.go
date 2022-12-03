@@ -1021,6 +1021,8 @@ type ConditionOptions struct {
 	Names []ConditionPattern `json:"names,omitempty"`
 	// Group names
 	GroupNames []ConditionPattern `json:"group_names,omitempty"`
+	// Role names
+	RoleNames []ConditionPattern `json:"role_names,omitempty"`
 	// Virtual paths
 	FsPaths         []ConditionPattern `json:"fs_paths,omitempty"`
 	Protocols       []string           `json:"protocols,omitempty"`
@@ -1040,6 +1042,7 @@ func (f *ConditionOptions) getACopy() ConditionOptions {
 	return ConditionOptions{
 		Names:               cloneConditionPatterns(f.Names),
 		GroupNames:          cloneConditionPatterns(f.GroupNames),
+		RoleNames:           cloneConditionPatterns(f.RoleNames),
 		FsPaths:             cloneConditionPatterns(f.FsPaths),
 		Protocols:           protocols,
 		ProviderObjects:     providerObjects,
@@ -1050,21 +1053,19 @@ func (f *ConditionOptions) getACopy() ConditionOptions {
 }
 
 func (f *ConditionOptions) validate() error {
-	for _, name := range f.Names {
-		if err := name.validate(); err != nil {
-			return err
-		}
+	if err := validateConditionPatterns(f.Names); err != nil {
+		return err
 	}
-	for _, name := range f.GroupNames {
-		if err := name.validate(); err != nil {
-			return err
-		}
+	if err := validateConditionPatterns(f.GroupNames); err != nil {
+		return err
 	}
-	for _, fsPath := range f.FsPaths {
-		if err := fsPath.validate(); err != nil {
-			return err
-		}
+	if err := validateConditionPatterns(f.RoleNames); err != nil {
+		return err
 	}
+	if err := validateConditionPatterns(f.FsPaths); err != nil {
+		return err
+	}
+
 	for _, p := range f.Protocols {
 		if !util.Contains(SupportedRuleConditionProtocols, p) {
 			return util.NewValidationError(fmt.Sprintf("unsupported rule condition protocol: %q", p))
@@ -1192,6 +1193,7 @@ func (c *EventConditions) validate(trigger int) error {
 		c.ProviderEvents = nil
 		c.Options.Names = nil
 		c.Options.GroupNames = nil
+		c.Options.RoleNames = nil
 		c.Options.FsPaths = nil
 		c.Options.Protocols = nil
 		c.Options.MinFileSize = 0
@@ -1201,6 +1203,7 @@ func (c *EventConditions) validate(trigger int) error {
 		c.FsEvents = nil
 		c.ProviderEvents = nil
 		c.Options.GroupNames = nil
+		c.Options.RoleNames = nil
 		c.Options.FsPaths = nil
 		c.Options.Protocols = nil
 		c.Options.MinFileSize = 0
@@ -1443,6 +1446,15 @@ func cloneConditionPatterns(patterns []ConditionPattern) []ConditionPattern {
 		})
 	}
 	return res
+}
+
+func validateConditionPatterns(patterns []ConditionPattern) error {
+	for _, name := range patterns {
+		if err := name.validate(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Task stores the state for a scheduled task
