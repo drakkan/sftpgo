@@ -541,6 +541,8 @@ github.com/drakkan/crypto v0.0.0-20221117111000-a0321143587c h1:3lJRXQcGw8fnheQ9
 github.com/drakkan/crypto v0.0.0-20221117111000-a0321143587c/go.mod h1:z/3TjBrBT/Dch7NfsgFg7f07WiGYZVYQgnxGHacCvRc=
 github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9 h1:LPH1dEblAOO/LoG7yHPMtBLXhQmjaga91/DDjWk9jWA=
 github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9/go.mod h1:2lmrmq866uF2tnje75wQHzmPXhmSWUt7Gyx2vgK1RCU=
+github.com/drakkan/ftpserverlib v0.0.0-20221203115213-ba73c775a9fd h1:wu/ys+33GwD9PyRO8QDCUpI2WBZtwFiDk8QkFPW8rhQ=
+github.com/drakkan/ftpserverlib v0.0.0-20221203115213-ba73c775a9fd/go.mod h1:FHiqwx5L+7z3o7EXRtT6asSd1uO4yTqEljqFU9L+zVA=
 github.com/drakkan/webdav v0.0.0-20221101181759-17ed21f9337b h1:B9z7XyDoVxLO4yEvnXgdvZ+0Uw9NA1qdD4KTSGmKcoQ=
 github.com/drakkan/webdav v0.0.0-20221101181759-17ed21f9337b/go.mod h1:8opebuqUyBXrvl7Vo/S1Zzl9U0G1X2Ceud440eVuhUE=
 github.com/dustin/go-humanize v0.0.0-20171111073723-bb3d318650d4/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=
@@ -577,8 +579,6 @@ github.com/fatih/color v1.9.0/go.mod h1:eQcE1qtQxscV5RaZvpXrrb8Drkc3/DdQ+uUYCNjL
 github.com/fatih/color v1.10.0/go.mod h1:ELkj/draVOlAH/xkhN6mQ50Qd0MPOk5AAr3maGEBuJM=
 github.com/fatih/color v1.13.0 h1:8LOYc1KYPPmyKMuN8QV2DNRWNbLo6LZ0iLs8+mlH53w=
 github.com/fatih/color v1.13.0/go.mod h1:kLAiJbzzSOZDVNGyDpeOxJ47H46qBXwg5ILebYFFOfk=
-github.com/fclairamb/ftpserverlib v0.20.1-0.20221012093027-95be4ae0c9a6 h1:rnwZJ/8Y6yX9ZxsWy+9kyvUWPgc66HGr2Kyumb4Uvs0=
-github.com/fclairamb/ftpserverlib v0.20.1-0.20221012093027-95be4ae0c9a6/go.mod h1:VN4BIwbu4XeC2cyPFtuVDwXtpoDtsr+5+doTuOfdXKY=
 github.com/fclairamb/go-log v0.4.1 h1:rLtdSG9x2pK41AIAnE8WYpl05xBJfw1ZyYxZaXFcBsM=
 github.com/fclairamb/go-log v0.4.1/go.mod h1:sw1KvnkZ4wKCYkvy4SL3qVZcJSWFP8Ure4pM3z+KNn4=
 github.com/felixge/httpsnoop v1.0.1/go.mod h1:m8KPJKqk1gH5J9DgRY2ASl2lWCfGKXixSwevea8zH2U=
