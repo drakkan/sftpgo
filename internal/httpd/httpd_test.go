@@ -3065,7 +3065,7 @@ func TestChangeAdminPassword(t *testing.T) {
 	admin, err := dataprovider.AdminExists(defaultTokenAuthUser)
 	assert.NoError(t, err)
 	admin.Password = defaultTokenAuthPass
-	err = dataprovider.UpdateAdmin(&admin, "", "")
+	err = dataprovider.UpdateAdmin(&admin, "", "", "")
 	assert.NoError(t, err)
 }
 
@@ -3717,7 +3717,7 @@ func TestUserRedactedPassword(t *testing.T) {
 	_, resp, err := httpdtest.AddUser(u, http.StatusBadRequest)
 	assert.NoError(t, err, string(resp))
 	assert.Contains(t, string(resp), "cannot save a user with a redacted secret")
-	err = dataprovider.AddUser(&u, "", "")
+	err = dataprovider.AddUser(&u, "", "", "")
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "cannot save a user with a redacted secret")
 	}
@@ -3742,7 +3742,7 @@ func TestUserRedactedPassword(t *testing.T) {
 
 	user.Password = defaultPassword
 	user.VirtualFolders = append(user.VirtualFolders, vfolder)
-	err = dataprovider.UpdateUser(&user, "", "")
+	err = dataprovider.UpdateUser(&user, "", "", "")
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "cannot save a user with a redacted secret")
 	}
@@ -5707,7 +5707,7 @@ func TestAdminGenerateRecoveryCodesSaveError(t *testing.T) {
 		Secret:     kms.NewPlainSecret(secret),
 	}
 	admin.Password = defaultTokenAuthPass
-	err = dataprovider.UpdateAdmin(&admin, "", "")
+	err = dataprovider.UpdateAdmin(&admin, "", "", "")
 	assert.NoError(t, err)
 	admin, _, err = httpdtest.GetAdminByUsername(a.Username, http.StatusOK)
 	assert.NoError(t, err)
@@ -5773,7 +5773,7 @@ func TestNamingRules(t *testing.T) {
 		Protocols:  []string{common.ProtocolSSH},
 	}
 	user.Password = u.Password
-	err = dataprovider.UpdateUser(&user, "", "")
+	err = dataprovider.UpdateUser(&user, "", "", "")
 	assert.NoError(t, err)
 	user.Username = u.Username
 	user.AdditionalInfo = "info"
@@ -6012,7 +6012,7 @@ func TestSaveErrors(t *testing.T) {
 		Protocols:  []string{common.ProtocolSSH, common.ProtocolHTTP},
 	}
 	user.Filters.RecoveryCodes = recoveryCodes
-	err = dataprovider.UpdateUser(&user, "", "")
+	err = dataprovider.UpdateUser(&user, "", "", "")
 	assert.NoError(t, err)
 	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 	assert.NoError(t, err)
@@ -6033,7 +6033,7 @@ func TestSaveErrors(t *testing.T) {
 		Secret:     kms.NewPlainSecret(secret),
 	}
 	admin.Filters.RecoveryCodes = recoveryCodes
-	err = dataprovider.UpdateAdmin(&admin, "", "")
+	err = dataprovider.UpdateAdmin(&admin, "", "", "")
 	assert.NoError(t, err)
 	admin, _, err = httpdtest.GetAdminByUsername(admin.Username, http.StatusOK)
 	assert.NoError(t, err)
@@ -7360,7 +7360,7 @@ func TestLoaddataMode(t *testing.T) {
 	apiKey, _, err = httpdtest.UpdateAPIKey(apiKey, http.StatusOK)
 	assert.NoError(t, err)
 	share.Description = "test desc"
-	err = dataprovider.UpdateShare(&share, "", "")
+	err = dataprovider.UpdateShare(&share, "", "", "")
 	assert.NoError(t, err)
 
 	action, _, err = httpdtest.GetEventActionByName(action.Name, http.StatusOK)
@@ -8785,11 +8785,20 @@ func TestSearchEvents(t *testing.T) {
 	if assert.Len(t, events, 1) {
 		ev := events[0]
 		for _, field := range []string{"id", "timestamp", "action", "username", "fs_path", "status", "protocol",
-			"ip", "session_id", "fs_provider", "bucket", "endpoint", "open_flags", "instance_id"} {
+			"ip", "session_id", "fs_provider", "bucket", "endpoint", "open_flags", "role", "instance_id"} {
 			_, ok := ev[field]
 			assert.True(t, ok, field)
 		}
 	}
+	req, err = http.NewRequest(http.MethodGet, fsEventsPath+"?limit=10&order=ASC&role=role1", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	events = nil
+	err = json.Unmarshal(rr.Body.Bytes(), &events)
+	assert.NoError(t, err)
+	assert.Len(t, events, 1)
 
 	// the test eventsearcher plugin returns error if start_timestamp < 0
 	req, err = http.NewRequest(http.MethodGet, fsEventsPath+"?start_timestamp=-1&end_timestamp=123456&statuses=1,2", nil)
@@ -8815,7 +8824,7 @@ func TestSearchEvents(t *testing.T) {
 	if assert.Len(t, events, 1) {
 		ev := events[0]
 		for _, field := range []string{"id", "timestamp", "action", "username", "object_type", "object_name",
-			"object_data", "instance_id"} {
+			"object_data", "role", "instance_id"} {
 			_, ok := ev[field]
 			assert.True(t, ok, field)
 		}
@@ -9047,7 +9056,7 @@ func TestMFAInvalidSecret(t *testing.T) {
 		Used:   false,
 		Secret: kms.NewSecret(sdkkms.SecretStatusSecretBox, "payload", "key", user.Username),
 	})
-	err = dataprovider.UpdateUser(&user, "", "")
+	err = dataprovider.UpdateUser(&user, "", "", "")
 	assert.NoError(t, err)
 
 	req, err := http.NewRequest(http.MethodGet, user2FARecoveryCodesPath, nil)
@@ -9122,7 +9131,7 @@ func TestMFAInvalidSecret(t *testing.T) {
 		Used:   false,
 		Secret: kms.NewSecret(sdkkms.SecretStatusSecretBox, "payload", "key", user.Username),
 	})
-	err = dataprovider.UpdateAdmin(&admin, "", "")
+	err = dataprovider.UpdateAdmin(&admin, "", "", "")
 	assert.NoError(t, err)
 
 	csrfToken, err = getCSRFToken(httpBaseURL + webLoginPath)
@@ -10025,7 +10034,7 @@ func TestAdminHandlingWithAPIKeys(t *testing.T) {
 	dbAdmin, err := dataprovider.AdminExists(defaultTokenAuthUser)
 	assert.NoError(t, err)
 	dbAdmin.Filters.AllowAPIKeyAuth = false
-	err = dataprovider.UpdateAdmin(&dbAdmin, "", "")
+	err = dataprovider.UpdateAdmin(&dbAdmin, "", "", "")
 	assert.NoError(t, err)
 	sysAdmin, _, err = httpdtest.GetAdminByUsername(defaultTokenAuthUser, http.StatusOK)
 	assert.NoError(t, err)
@@ -11943,7 +11952,7 @@ func TestShareUsage(t *testing.T) {
 	checkResponseCode(t, http.StatusNotFound, rr)
 
 	share.MaxTokens = 0
-	err = dataprovider.UpdateShare(&share, user.Username, "")
+	err = dataprovider.UpdateShare(&share, user.Username, "", "")
 	assert.NoError(t, err)
 
 	user.Permissions["/"] = []string{dataprovider.PermListItems, dataprovider.PermDownload}
@@ -11997,7 +12006,7 @@ func TestShareUsage(t *testing.T) {
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	share.Password = ""
-	err = dataprovider.UpdateShare(&share, user.Username, "")
+	err = dataprovider.UpdateShare(&share, user.Username, "", "")
 	assert.NoError(t, err)
 
 	req, err = http.NewRequest(http.MethodPost, sharesPath+"/"+objectID, reader)
@@ -12014,7 +12023,7 @@ func TestShareUsage(t *testing.T) {
 
 	share.Scope = dataprovider.ShareScopeRead
 	share.Paths = []string{"/missing1", "/missing2"}
-	err = dataprovider.UpdateShare(&share, user.Username, "")
+	err = dataprovider.UpdateShare(&share, user.Username, "", "")
 	assert.NoError(t, err)
 
 	defer func() {
@@ -15406,7 +15415,7 @@ func TestWebAdminSetupMock(t *testing.T) {
 	admins, err := dataprovider.GetAdmins(100, 0, dataprovider.OrderASC)
 	assert.NoError(t, err)
 	for _, admin := range admins {
-		err = dataprovider.DeleteAdmin(admin.Username, "", "")
+		err = dataprovider.DeleteAdmin(admin.Username, "", "", "")
 		assert.NoError(t, err)
 	}
 	// close the provider and initializes it without creating the default admin

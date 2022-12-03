@@ -53,7 +53,7 @@ func addRole(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
-	err = dataprovider.AddRole(&role, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	err = dataprovider.AddRole(&role, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -84,7 +84,7 @@ func updateRole(w http.ResponseWriter, r *http.Request) {
 	}
 	role.ID = roleID
 	role.Name = name
-	err = dataprovider.UpdateRole(&role, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	err = dataprovider.UpdateRole(&role, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -120,7 +120,7 @@ func deleteRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name := getURLParam(r, "name")
-	err = dataprovider.DeleteRole(name, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	err = dataprovider.DeleteRole(name, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return

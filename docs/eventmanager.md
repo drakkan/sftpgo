@@ -39,6 +39,7 @@ The following placeholders are supported:
 - `{{FileSize}}`. File size.
 - `{{Protocol}}`. Used protocol, for example `SFTP`, `FTP`.
 - `{{IP}}`. Client IP address.
+- `{{Role}}`. User or admin role.
 - `{{Timestamp}}`. Event timestamp as nanoseconds since epoch.
 - `{{ObjectData}}`. Provider object data serialized as JSON with sensitive fields removed.
 - `{{RetentionReports}}`. Data retention reports as zip compressed CSV files. Supported as email attachment, file path for multipart HTTP request and as single parameter for HTTP requests body. Data retention reports contain details on the number of files deleted and the total size deleted for each folder.

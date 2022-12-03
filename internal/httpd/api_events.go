@@ -119,12 +119,18 @@ func getProviderSearchParamsFromRequest(r *http.Request) (eventsearcher.Provider
 
 func searchFsEvents(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+		return
+	}
 
 	filters, err := getFsSearchParamsFromRequest(r)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
+	filters.Role = getRoleFilterForEventSearch(r, claims.Role)
 
 	data, _, _, err := plugin.Handler.SearchFsEvents(&filters)
 	if err != nil {
@@ -138,12 +144,18 @@ func searchFsEvents(w http.ResponseWriter, r *http.Request) {
 
 func searchProviderEvents(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+		return
+	}
 
 	filters, err := getProviderSearchParamsFromRequest(r)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
+	filters.Role = getRoleFilterForEventSearch(r, claims.Role)
 
 	data, _, _, err := plugin.Handler.SearchProviderEvents(&filters)
 	if err != nil {
@@ -153,4 +165,11 @@ func searchProviderEvents(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Write(data) //nolint:errcheck
+}
+
+func getRoleFilterForEventSearch(r *http.Request, defaultValue string) string {
+	if defaultValue != "" {
+		return defaultValue
+	}
+	return r.URL.Query().Get("role")
 }

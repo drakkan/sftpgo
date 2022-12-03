@@ -76,7 +76,7 @@ func addAdmin(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
-	err = dataprovider.AddAdmin(&admin, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	err = dataprovider.AddAdmin(&admin, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -100,7 +100,7 @@ func disableAdmin2FA(w http.ResponseWriter, r *http.Request) {
 	admin.Filters.TOTPConfig = dataprovider.AdminTOTPConfig{
 		Enabled: false,
 	}
-	if err := dataprovider.UpdateAdmin(&admin, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr)); err != nil {
+	if err := dataprovider.UpdateAdmin(&admin, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role); err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
@@ -156,7 +156,7 @@ func updateAdmin(w http.ResponseWriter, r *http.Request) {
 	admin.Username = username
 	admin.Filters.TOTPConfig = totpConfig
 	admin.Filters.RecoveryCodes = recoveryCodes
-	if err := dataprovider.UpdateAdmin(&admin, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr)); err != nil {
+	if err := dataprovider.UpdateAdmin(&admin, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role); err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
@@ -176,7 +176,7 @@ func deleteAdmin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = dataprovider.DeleteAdmin(username, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	err = dataprovider.DeleteAdmin(username, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -227,7 +227,7 @@ func updateAdminProfile(w http.ResponseWriter, r *http.Request) {
 	admin.Email = req.Email
 	admin.Description = req.Description
 	admin.Filters.AllowAPIKeyAuth = req.AllowAPIKeyAuth
-	if err := dataprovider.UpdateAdmin(&admin, dataprovider.ActionExecutorSelf, util.GetIPFromRemoteAddress(r.RemoteAddr)); err != nil {
+	if err := dataprovider.UpdateAdmin(&admin, dataprovider.ActionExecutorSelf, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role); err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
@@ -309,7 +309,7 @@ func doChangeAdminPassword(r *http.Request, currentPassword, newPassword, confir
 
 	admin.Password = newPassword
 
-	return dataprovider.UpdateAdmin(&admin, dataprovider.ActionExecutorSelf, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	return dataprovider.UpdateAdmin(&admin, dataprovider.ActionExecutorSelf, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
 }
 
 func getTokenClaims(r *http.Request) (jwtTokenClaims, error) {

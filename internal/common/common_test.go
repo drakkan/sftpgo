@@ -1380,7 +1380,7 @@ func TestUpdateTransferTimestamps(t *testing.T) {
 			},
 		},
 	}
-	err := dataprovider.AddUser(user, "", "")
+	err := dataprovider.AddUser(user, "", "", "")
 	assert.NoError(t, err)
 	assert.Equal(t, int64(0), user.FirstUpload)
 	assert.Equal(t, int64(0), user.FirstDownload)

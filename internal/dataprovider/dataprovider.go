@@ -233,7 +233,7 @@ type FnReloadRules func()
 type FnRemoveRule func(name string)
 
 // FnHandleRuleForProviderEvent define the callback to handle event rules for provider events
-type FnHandleRuleForProviderEvent func(operation, executor, ip, objectType, objectName string, object plugin.Renderer)
+type FnHandleRuleForProviderEvent func(operation, executor, ip, objectType, objectName, role string, object plugin.Renderer)
 
 // SetEventRulesCallbacks sets the event rules callbacks
 func SetEventRulesCallbacks(reload FnReloadRules, remove FnRemoveRule, handle FnHandleRuleForProviderEvent) {
@@ -1504,32 +1504,32 @@ func GetUsedVirtualFolderQuota(name string) (int, int64, error) {
 }
 
 // AddShare adds a new share
-func AddShare(share *Share, executor, ipAddress string) error {
+func AddShare(share *Share, executor, ipAddress, role string) error {
 	err := provider.addShare(share)
 	if err == nil {
-		executeAction(operationAdd, executor, ipAddress, actionObjectShare, share.ShareID, share)
+		executeAction(operationAdd, executor, ipAddress, actionObjectShare, share.ShareID, role, share)
 	}
 	return err
 }
 
 // UpdateShare updates an existing share
-func UpdateShare(share *Share, executor, ipAddress string) error {
+func UpdateShare(share *Share, executor, ipAddress, role string) error {
 	err := provider.updateShare(share)
 	if err == nil {
-		executeAction(operationUpdate, executor, ipAddress, actionObjectShare, share.ShareID, share)
+		executeAction(operationUpdate, executor, ipAddress, actionObjectShare, share.ShareID, role, share)
 	}
 	return err
 }
 
 // DeleteShare deletes an existing share
-func DeleteShare(shareID string, executor, ipAddress string) error {
+func DeleteShare(shareID string, executor, ipAddress, role string) error {
 	share, err := provider.shareExists(shareID, executor)
 	if err != nil {
 		return err
 	}
 	err = provider.deleteShare(share)
 	if err == nil {
-		executeAction(operationDelete, executor, ipAddress, actionObjectShare, shareID, &share)
+		executeAction(operationDelete, executor, ipAddress, actionObjectShare, shareID, role, &share)
 	}
 	return err
 }
@@ -1543,26 +1543,26 @@ func ShareExists(shareID, username string) (Share, error) {
 }
 
 // AddRole adds a new role
-func AddRole(role *Role, executor, ipAddress string) error {
+func AddRole(role *Role, executor, ipAddress, executorRole string) error {
 	role.Name = config.convertName(role.Name)
 	err := provider.addRole(role)
 	if err == nil {
-		executeAction(operationAdd, executor, ipAddress, actionObjectRole, role.Name, role)
+		executeAction(operationAdd, executor, ipAddress, actionObjectRole, role.Name, executorRole, role)
 	}
 	return err
 }
 
 // UpdateRole updates an existing Role
-func UpdateRole(role *Role, executor, ipAddress string) error {
+func UpdateRole(role *Role, executor, ipAddress, executorRole string) error {
 	err := provider.updateRole(role)
 	if err == nil {
-		executeAction(operationUpdate, executor, ipAddress, actionObjectRole, role.Name, role)
+		executeAction(operationUpdate, executor, ipAddress, actionObjectRole, role.Name, executorRole, role)
 	}
 	return err
 }
 
 // DeleteRole deletes an existing Role
-func DeleteRole(name string, executor, ipAddress string) error {
+func DeleteRole(name string, executor, ipAddress, executorRole string) error {
 	name = config.convertName(name)
 	role, err := provider.roleExists(name)
 	if err != nil {
@@ -1574,13 +1574,13 @@ func DeleteRole(name string, executor, ipAddress string) error {
 	}
 	err = provider.deleteRole(role)
 	if err == nil {
-		executeAction(operationDelete, executor, ipAddress, actionObjectRole, role.Name, &role)
+		executeAction(operationDelete, executor, ipAddress, actionObjectRole, role.Name, executorRole, &role)
 		for _, user := range role.Users {
 			provider.setUpdatedAt(user)
 			u, err := provider.userExists(user, "")
 			if err == nil {
 				webDAVUsersCache.swap(&u)
-				executeAction(operationUpdate, executor, ipAddress, actionObjectUser, u.Username, &u)
+				executeAction(operationUpdate, executor, ipAddress, actionObjectUser, u.Username, u.Role, &u)
 			}
 		}
 	}
@@ -1594,17 +1594,17 @@ func RoleExists(name string) (Role, error) {
 }
 
 // AddGroup adds a new group
-func AddGroup(group *Group, executor, ipAddress string) error {
+func AddGroup(group *Group, executor, ipAddress, role string) error {
 	group.Name = config.convertName(group.Name)
 	err := provider.addGroup(group)
 	if err == nil {
-		executeAction(operationAdd, executor, ipAddress, actionObjectGroup, group.Name, group)
+		executeAction(operationAdd, executor, ipAddress, actionObjectGroup, group.Name, role, group)
 	}
 	return err
 }
 
 // UpdateGroup updates an existing Group
-func UpdateGroup(group *Group, users []string, executor, ipAddress string) error {
+func UpdateGroup(group *Group, users []string, executor, ipAddress, role string) error {
 	err := provider.updateGroup(group)
 	if err == nil {
 		for _, user := range users {
@@ -1612,18 +1612,17 @@ func UpdateGroup(group *Group, users []string, executor, ipAddress string) error
 			u, err := provider.userExists(user, "")
 			if err == nil {
 				webDAVUsersCache.swap(&u)
-				executeAction(operationUpdate, executor, ipAddress, actionObjectUser, u.Username, &u)
 			} else {
 				RemoveCachedWebDAVUser(user)
 			}
 		}
-		executeAction(operationUpdate, executor, ipAddress, actionObjectGroup, group.Name, group)
+		executeAction(operationUpdate, executor, ipAddress, actionObjectGroup, group.Name, role, group)
 	}
 	return err
 }
 
 // DeleteGroup deletes an existing Group
-func DeleteGroup(name string, executor, ipAddress string) error {
+func DeleteGroup(name string, executor, ipAddress, role string) error {
 	name = config.convertName(name)
 	group, err := provider.groupExists(name)
 	if err != nil {
@@ -1639,11 +1638,11 @@ func DeleteGroup(name string, executor, ipAddress string) error {
 			provider.setUpdatedAt(user)
 			u, err := provider.userExists(user, "")
 			if err == nil {
-				executeAction(operationUpdate, executor, ipAddress, actionObjectUser, u.Username, &u)
+				executeAction(operationUpdate, executor, ipAddress, actionObjectUser, u.Username, u.Role, &u)
 			}
 			RemoveCachedWebDAVUser(user)
 		}
-		executeAction(operationDelete, executor, ipAddress, actionObjectGroup, group.Name, &group)
+		executeAction(operationDelete, executor, ipAddress, actionObjectGroup, group.Name, role, &group)
 	}
 	return err
 }
@@ -1655,32 +1654,32 @@ func GroupExists(name string) (Group, error) {
 }
 
 // AddAPIKey adds a new API key
-func AddAPIKey(apiKey *APIKey, executor, ipAddress string) error {
+func AddAPIKey(apiKey *APIKey, executor, ipAddress, role string) error {
 	err := provider.addAPIKey(apiKey)
 	if err == nil {
-		executeAction(operationAdd, executor, ipAddress, actionObjectAPIKey, apiKey.KeyID, apiKey)
+		executeAction(operationAdd, executor, ipAddress, actionObjectAPIKey, apiKey.KeyID, role, apiKey)
 	}
 	return err
 }
 
 // UpdateAPIKey updates an existing API key
-func UpdateAPIKey(apiKey *APIKey, executor, ipAddress string) error {
+func UpdateAPIKey(apiKey *APIKey, executor, ipAddress, role string) error {
 	err := provider.updateAPIKey(apiKey)
 	if err == nil {
-		executeAction(operationUpdate, executor, ipAddress, actionObjectAPIKey, apiKey.KeyID, apiKey)
+		executeAction(operationUpdate, executor, ipAddress, actionObjectAPIKey, apiKey.KeyID, role, apiKey)
 	}
 	return err
 }
 
 // DeleteAPIKey deletes an existing API key
-func DeleteAPIKey(keyID string, executor, ipAddress string) error {
+func DeleteAPIKey(keyID string, executor, ipAddress, role string) error {
 	apiKey, err := provider.apiKeyExists(keyID)
 	if err != nil {
 		return err
 	}
 	err = provider.deleteAPIKey(apiKey)
 	if err == nil {
-		executeAction(operationDelete, executor, ipAddress, actionObjectAPIKey, apiKey.KeyID, &apiKey)
+		executeAction(operationDelete, executor, ipAddress, actionObjectAPIKey, apiKey.KeyID, role, &apiKey)
 	}
 	return err
 }
@@ -1705,29 +1704,29 @@ func EventActionExists(name string) (BaseEventAction, error) {
 }
 
 // AddEventAction adds a new event action
-func AddEventAction(action *BaseEventAction, executor, ipAddress string) error {
+func AddEventAction(action *BaseEventAction, executor, ipAddress, role string) error {
 	action.Name = config.convertName(action.Name)
 	err := provider.addEventAction(action)
 	if err == nil {
-		executeAction(operationAdd, executor, ipAddress, actionObjectEventAction, action.Name, action)
+		executeAction(operationAdd, executor, ipAddress, actionObjectEventAction, action.Name, role, action)
 	}
 	return err
 }
 
 // UpdateEventAction updates an existing event action
-func UpdateEventAction(action *BaseEventAction, executor, ipAddress string) error {
+func UpdateEventAction(action *BaseEventAction, executor, ipAddress, role string) error {
 	err := provider.updateEventAction(action)
 	if err == nil {
 		if fnReloadRules != nil {
 			fnReloadRules()
 		}
-		executeAction(operationUpdate, executor, ipAddress, actionObjectEventAction, action.Name, action)
+		executeAction(operationUpdate, executor, ipAddress, actionObjectEventAction, action.Name, role, action)
 	}
 	return err
 }
 
 // DeleteEventAction deletes an existing event action
-func DeleteEventAction(name string, executor, ipAddress string) error {
+func DeleteEventAction(name string, executor, ipAddress, role string) error {
 	name = config.convertName(name)
 	action, err := provider.eventActionExists(name)
 	if err != nil {
@@ -1739,7 +1738,7 @@ func DeleteEventAction(name string, executor, ipAddress string) error {
 	}
 	err = provider.deleteEventAction(action)
 	if err == nil {
-		executeAction(operationDelete, executor, ipAddress, actionObjectEventAction, action.Name, &action)
+		executeAction(operationDelete, executor, ipAddress, actionObjectEventAction, action.Name, role, &action)
 	}
 	return err
 }
@@ -1761,32 +1760,32 @@ func EventRuleExists(name string) (EventRule, error) {
 }
 
 // AddEventRule adds a new event rule
-func AddEventRule(rule *EventRule, executor, ipAddress string) error {
+func AddEventRule(rule *EventRule, executor, ipAddress, role string) error {
 	rule.Name = config.convertName(rule.Name)
 	err := provider.addEventRule(rule)
 	if err == nil {
 		if fnReloadRules != nil {
 			fnReloadRules()
 		}
-		executeAction(operationAdd, executor, ipAddress, actionObjectEventRule, rule.Name, rule)
+		executeAction(operationAdd, executor, ipAddress, actionObjectEventRule, rule.Name, role, rule)
 	}
 	return err
 }
 
 // UpdateEventRule updates an existing event rule
-func UpdateEventRule(rule *EventRule, executor, ipAddress string) error {
+func UpdateEventRule(rule *EventRule, executor, ipAddress, role string) error {
 	err := provider.updateEventRule(rule)
 	if err == nil {
 		if fnReloadRules != nil {
 			fnReloadRules()
 		}
-		executeAction(operationUpdate, executor, ipAddress, actionObjectEventRule, rule.Name, rule)
+		executeAction(operationUpdate, executor, ipAddress, actionObjectEventRule, rule.Name, role, rule)
 	}
 	return err
 }
 
 // DeleteEventRule deletes an existing event rule
-func DeleteEventRule(name string, executor, ipAddress string) error {
+func DeleteEventRule(name string, executor, ipAddress, role string) error {
 	name = config.convertName(name)
 	rule, err := provider.eventRuleExists(name)
 	if err != nil {
@@ -1797,7 +1796,7 @@ func DeleteEventRule(name string, executor, ipAddress string) error {
 		if fnRemoveRule != nil {
 			fnRemoveRule(rule.Name)
 		}
-		executeAction(operationDelete, executor, ipAddress, actionObjectEventRule, rule.Name, &rule)
+		executeAction(operationDelete, executor, ipAddress, actionObjectEventRule, rule.Name, role, &rule)
 	}
 	return err
 }
@@ -1857,7 +1856,7 @@ func HasAdmin() bool {
 }
 
 // AddAdmin adds a new SFTPGo admin
-func AddAdmin(admin *Admin, executor, ipAddress string) error {
+func AddAdmin(admin *Admin, executor, ipAddress, role string) error {
 	admin.Filters.RecoveryCodes = nil
 	admin.Filters.TOTPConfig = AdminTOTPConfig{
 		Enabled: false,
@@ -1866,22 +1865,22 @@ func AddAdmin(admin *Admin, executor, ipAddress string) error {
 	err := provider.addAdmin(admin)
 	if err == nil {
 		isAdminCreated.Store(true)
-		executeAction(operationAdd, executor, ipAddress, actionObjectAdmin, admin.Username, admin)
+		executeAction(operationAdd, executor, ipAddress, actionObjectAdmin, admin.Username, role, admin)
 	}
 	return err
 }
 
 // UpdateAdmin updates an existing SFTPGo admin
-func UpdateAdmin(admin *Admin, executor, ipAddress string) error {
+func UpdateAdmin(admin *Admin, executor, ipAddress, role string) error {
 	err := provider.updateAdmin(admin)
 	if err == nil {
-		executeAction(operationUpdate, executor, ipAddress, actionObjectAdmin, admin.Username, admin)
+		executeAction(operationUpdate, executor, ipAddress, actionObjectAdmin, admin.Username, role, admin)
 	}
 	return err
 }
 
 // DeleteAdmin deletes an existing SFTPGo admin
-func DeleteAdmin(username, executor, ipAddress string) error {
+func DeleteAdmin(username, executor, ipAddress, role string) error {
 	username = config.convertName(username)
 	admin, err := provider.adminExists(username)
 	if err != nil {
@@ -1889,7 +1888,7 @@ func DeleteAdmin(username, executor, ipAddress string) error {
 	}
 	err = provider.deleteAdmin(admin)
 	if err == nil {
-		executeAction(operationDelete, executor, ipAddress, actionObjectAdmin, admin.Username, &admin)
+		executeAction(operationDelete, executor, ipAddress, actionObjectAdmin, admin.Username, role, &admin)
 	}
 	return err
 }
@@ -1932,17 +1931,17 @@ func GetUserVariants(username, role string) (User, User, error) {
 }
 
 // AddUser adds a new SFTPGo user.
-func AddUser(user *User, executor, ipAddress string) error {
+func AddUser(user *User, executor, ipAddress, role string) error {
 	user.Username = config.convertName(user.Username)
 	err := provider.addUser(user)
 	if err == nil {
-		executeAction(operationAdd, executor, ipAddress, actionObjectUser, user.Username, user)
+		executeAction(operationAdd, executor, ipAddress, actionObjectUser, user.Username, role, user)
 	}
 	return err
 }
 
 // UpdateUserPassword updates the user password
-func UpdateUserPassword(username, plainPwd, executor, ipAddress string) error {
+func UpdateUserPassword(username, plainPwd, executor, ipAddress, role string) error {
 	hashedPwd, err := hashPlainPassword(plainPwd)
 	if err != nil {
 		return util.NewGenericError(fmt.Sprintf("unable to set the new password: %v", err))
@@ -1952,12 +1951,12 @@ func UpdateUserPassword(username, plainPwd, executor, ipAddress string) error {
 		return util.NewGenericError(fmt.Sprintf("unable to set the new password: %v", err))
 	}
 	cachedPasswords.Remove(username)
-	executeAction(operationUpdate, executor, ipAddress, actionObjectUser, username, &User{})
+	executeAction(operationUpdate, executor, ipAddress, actionObjectUser, username, role, &User{})
 	return nil
 }
 
 // UpdateUser updates an existing SFTPGo user.
-func UpdateUser(user *User, executor, ipAddress string) error {
+func UpdateUser(user *User, executor, ipAddress, role string) error {
 	if user.groupSettingsApplied {
 		return errors.New("cannot save a user with group settings applied")
 	}
@@ -1965,7 +1964,7 @@ func UpdateUser(user *User, executor, ipAddress string) error {
 	if err == nil {
 		webDAVUsersCache.swap(user)
 		cachedPasswords.Remove(user.Username)
-		executeAction(operationUpdate, executor, ipAddress, actionObjectUser, user.Username, user)
+		executeAction(operationUpdate, executor, ipAddress, actionObjectUser, user.Username, role, user)
 	}
 	return err
 }
@@ -1982,7 +1981,7 @@ func DeleteUser(username, executor, ipAddress, role string) error {
 		RemoveCachedWebDAVUser(user.Username)
 		delayedQuotaUpdater.resetUserQuota(user.Username)
 		cachedPasswords.Remove(username)
-		executeAction(operationDelete, executor, ipAddress, actionObjectUser, user.Username, &user)
+		executeAction(operationDelete, executor, ipAddress, actionObjectUser, user.Username, role, &user)
 	}
 	return err
 }
@@ -2106,20 +2105,20 @@ func GetUsersForQuotaCheck(toFetch map[string]bool) ([]User, error) {
 }
 
 // AddFolder adds a new virtual folder.
-func AddFolder(folder *vfs.BaseVirtualFolder, executor, ipAddress string) error {
+func AddFolder(folder *vfs.BaseVirtualFolder, executor, ipAddress, role string) error {
 	folder.Name = config.convertName(folder.Name)
 	err := provider.addFolder(folder)
 	if err == nil {
-		executeAction(operationAdd, executor, ipAddress, actionObjectFolder, folder.Name, &wrappedFolder{Folder: *folder})
+		executeAction(operationAdd, executor, ipAddress, actionObjectFolder, folder.Name, role, &wrappedFolder{Folder: *folder})
 	}
 	return err
 }
 
 // UpdateFolder updates the specified virtual folder
-func UpdateFolder(folder *vfs.BaseVirtualFolder, users []string, groups []string, executor, ipAddress string) error {
+func UpdateFolder(folder *vfs.BaseVirtualFolder, users []string, groups []string, executor, ipAddress, role string) error {
 	err := provider.updateFolder(folder)
 	if err == nil {
-		executeAction(operationUpdate, executor, ipAddress, actionObjectFolder, folder.Name, &wrappedFolder{Folder: *folder})
+		executeAction(operationUpdate, executor, ipAddress, actionObjectFolder, folder.Name, role, &wrappedFolder{Folder: *folder})
 		usersInGroups, errGrp := provider.getUsersInGroups(groups)
 		if errGrp == nil {
 			users = append(users, usersInGroups...)
@@ -2132,7 +2131,7 @@ func UpdateFolder(folder *vfs.BaseVirtualFolder, users []string, groups []string
 			u, err := provider.userExists(user, "")
 			if err == nil {
 				webDAVUsersCache.swap(&u)
-				executeAction(operationUpdate, executor, ipAddress, actionObjectUser, u.Username, &u)
+				executeAction(operationUpdate, executor, ipAddress, actionObjectUser, u.Username, u.Role, &u)
 			} else {
 				RemoveCachedWebDAVUser(user)
 			}
@@ -2142,7 +2141,7 @@ func UpdateFolder(folder *vfs.BaseVirtualFolder, users []string, groups []string
 }
 
 // DeleteFolder deletes an existing folder.
-func DeleteFolder(folderName, executor, ipAddress string) error {
+func DeleteFolder(folderName, executor, ipAddress, role string) error {
 	folderName = config.convertName(folderName)
 	folder, err := provider.getFolderByName(folderName)
 	if err != nil {
@@ -2150,7 +2149,7 @@ func DeleteFolder(folderName, executor, ipAddress string) error {
 	}
 	err = provider.deleteFolder(folder)
 	if err == nil {
-		executeAction(operationDelete, executor, ipAddress, actionObjectFolder, folder.Name, &wrappedFolder{Folder: folder})
+		executeAction(operationDelete, executor, ipAddress, actionObjectFolder, folder.Name, role, &wrappedFolder{Folder: folder})
 		users := folder.Users
 		usersInGroups, errGrp := provider.getUsersInGroups(folder.Groups)
 		if errGrp == nil {
@@ -2163,7 +2162,7 @@ func DeleteFolder(folderName, executor, ipAddress string) error {
 			provider.setUpdatedAt(user)
 			u, err := provider.userExists(user, "")
 			if err == nil {
-				executeAction(operationUpdate, executor, ipAddress, actionObjectUser, u.Username, &u)
+				executeAction(operationUpdate, executor, ipAddress, actionObjectUser, u.Username, u.Role, &u)
 			}
 			RemoveCachedWebDAVUser(user)
 		}

@@ -445,6 +445,7 @@ func authenticateAdminWithAPIKey(username, keyID string, tokenAuth *jwtauth.JWTA
 		Username:    admin.Username,
 		Permissions: admin.Permissions,
 		Signature:   admin.GetSignature(),
+		Role:        admin.Role,
 		APIKeyID:    keyID,
 	}
 
@@ -499,6 +500,7 @@ func authenticateUserWithAPIKey(username, keyID string, tokenAuth *jwtauth.JWTAu
 		Username:    user.Username,
 		Permissions: user.Filters.WebClient,
 		Signature:   user.GetSignature(),
+		Role:        user.Role,
 		APIKeyID:    keyID,
 	}
 

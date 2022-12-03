@@ -349,7 +349,7 @@ func (s *httpdServer) handleWebClientTwoFactorRecoveryPost(w http.ResponseWriter
 				return
 			}
 			user.Filters.RecoveryCodes[idx].Used = true
-			err = dataprovider.UpdateUser(&user, dataprovider.ActionExecutorSelf, ipAddr)
+			err = dataprovider.UpdateUser(&user, dataprovider.ActionExecutorSelf, ipAddr, user.Role)
 			if err != nil {
 				logger.Warn(logSender, "", "unable to set the recovery code %#v as used: %v", recoveryCode, err)
 				s.renderClientInternalServerErrorPage(w, r, errors.New("unable to set the recovery code as used"))
@@ -453,7 +453,7 @@ func (s *httpdServer) handleWebAdminTwoFactorRecoveryPost(w http.ResponseWriter,
 				return
 			}
 			admin.Filters.RecoveryCodes[idx].Used = true
-			err = dataprovider.UpdateAdmin(&admin, dataprovider.ActionExecutorSelf, ipAddr)
+			err = dataprovider.UpdateAdmin(&admin, dataprovider.ActionExecutorSelf, ipAddr, admin.Role)
 			if err != nil {
 				logger.Warn(logSender, "", "unable to set the recovery code %#v as used: %v", recoveryCode, err)
 				s.renderInternalServerErrorPage(w, r, errors.New("unable to set the recovery code as used"))
@@ -666,7 +666,7 @@ func (s *httpdServer) handleWebAdminSetupPost(w http.ResponseWriter, r *http.Req
 		Status:      1,
 		Permissions: []string{dataprovider.PermAdminAny},
 	}
-	err = dataprovider.AddAdmin(&admin, username, ipAddr)
+	err = dataprovider.AddAdmin(&admin, username, ipAddr, "")
 	if err != nil {
 		s.renderAdminSetupPage(w, r, username, err.Error())
 		return
@@ -682,6 +682,7 @@ func (s *httpdServer) loginUser(
 		Username:                   user.Username,
 		Permissions:                user.Filters.WebClient,
 		Signature:                  user.GetSignature(),
+		Role:                       user.Role,
 		MustSetTwoFactorAuth:       user.MustSetSecondFactor(),
 		RequiredTwoFactorProtocols: user.Filters.TwoFactorAuthProtocols,
 	}
@@ -839,6 +840,7 @@ func (s *httpdServer) generateAndSendUserToken(w http.ResponseWriter, r *http.Re
 		Username:                   user.Username,
 		Permissions:                user.Filters.WebClient,
 		Signature:                  user.GetSignature(),
+		Role:                       user.Role,
 		MustSetTwoFactorAuth:       user.MustSetSecondFactor(),
 		RequiredTwoFactorProtocols: user.Filters.TwoFactorAuthProtocols,
 	}
@@ -946,16 +948,17 @@ func (s *httpdServer) refreshClientToken(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	if user.GetSignature() != tokenClaims.Signature {
-		logger.Debug(logSender, "", "signature mismatch for user %#v, unable to refresh cookie", user.Username)
+		logger.Debug(logSender, "", "signature mismatch for user %q, unable to refresh cookie", user.Username)
 		return
 	}
 	if err := checkHTTPClientUser(&user, r, xid.New().String(), true); err != nil {
-		logger.Debug(logSender, "", "unable to refresh cookie for user %#v: %v", user.Username, err)
+		logger.Debug(logSender, "", "unable to refresh cookie for user %q: %v", user.Username, err)
 		return
 	}
 
 	tokenClaims.Permissions = user.Filters.WebClient
-	logger.Debug(logSender, "", "cookie refreshed for user %#v", user.Username)
+	tokenClaims.Role = user.Role
+	logger.Debug(logSender, "", "cookie refreshed for user %q", user.Username)
 	tokenClaims.createAndSetCookie(w, r, s.tokenAuth, tokenAudienceWebClient, util.GetIPFromRemoteAddress(r.RemoteAddr)) //nolint:errcheck
 }
 

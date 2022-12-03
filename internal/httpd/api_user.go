@@ -107,7 +107,7 @@ func addUser(w http.ResponseWriter, r *http.Request) {
 	user.Filters.TOTPConfig = dataprovider.UserTOTPConfig{
 		Enabled: false,
 	}
-	err = dataprovider.AddUser(&user, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	err = dataprovider.AddUser(&user, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -132,7 +132,7 @@ func disableUser2FA(w http.ResponseWriter, r *http.Request) {
 	user.Filters.TOTPConfig = dataprovider.UserTOTPConfig{
 		Enabled: false,
 	}
-	if err := dataprovider.UpdateUser(&user, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr)); err != nil {
+	if err := dataprovider.UpdateUser(&user, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role); err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
@@ -208,7 +208,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	if claims.Role != "" {
 		user.Role = claims.Role
 	}
-	err = dataprovider.UpdateUser(&user, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	err = dataprovider.UpdateUser(&user, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return

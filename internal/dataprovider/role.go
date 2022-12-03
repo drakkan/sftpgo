@@ -58,6 +58,9 @@ func (r *Role) validate() error {
 	if r.Name == "" {
 		return util.NewValidationError("name is mandatory")
 	}
+	if len(r.Name) > 255 {
+		return util.NewValidationError("name is too long, 255 is the maximum length allowed")
+	}
 	if config.NamingRules&1 == 0 && !usernameRegex.MatchString(r.Name) {
 		return util.NewValidationError(fmt.Sprintf("name %q is not valid, the following characters are allowed: a-zA-Z0-9-_.~", r.Name))
 	}

@@ -31,6 +31,7 @@ type fsEvent struct {
 	Bucket            string `json:"bucket,omitempty"`
 	Endpoint          string `json:"endpoint,omitempty"`
 	OpenFlags         int    `json:"open_flags,omitempty"`
+	Role              string `json:"role,omitempty"`
 	InstanceID        string `json:"instance_id,omitempty"`
 }
 
@@ -43,6 +44,7 @@ type providerEvent struct {
 	ObjectType string `json:"object_type"`
 	ObjectName string `json:"object_name"`
 	ObjectData []byte `json:"object_data"`
+	Role       string `json:"role,omitempty"`
 	InstanceID string `json:"instance_id,omitempty"`
 }
 
@@ -74,6 +76,7 @@ func (s *Searcher) SearchFsEvents(filters *eventsearcher.FsEventSearch) ([]byte,
 			Bucket:            "bucket",
 			Endpoint:          "endpoint",
 			OpenFlags:         512,
+			Role:              "role1",
 		},
 	}
 
@@ -100,6 +103,7 @@ func (s *Searcher) SearchProviderEvents(filters *eventsearcher.ProviderEventSear
 			ObjectType: "api_key",
 			ObjectName: "123",
 			ObjectData: []byte("data"),
+			Role:       "role2",
 			InstanceID: "instance1",
 		},
 	}

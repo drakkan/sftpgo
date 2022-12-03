@@ -2805,13 +2805,13 @@ func (p *MemoryProvider) restoreEventActions(dump BackupData) error {
 		action := action // pin
 		if err == nil {
 			action.ID = a.ID
-			err = UpdateEventAction(&action, ActionExecutorSystem, "")
+			err = UpdateEventAction(&action, ActionExecutorSystem, "", "")
 			if err != nil {
 				providerLog(logger.LevelError, "error updating event action %q: %v", action.Name, err)
 				return err
 			}
 		} else {
-			err = AddEventAction(&action, ActionExecutorSystem, "")
+			err = AddEventAction(&action, ActionExecutorSystem, "", "")
 			if err != nil {
 				providerLog(logger.LevelError, "error adding event action %q: %v", action.Name, err)
 				return err
@@ -2827,13 +2827,13 @@ func (p *MemoryProvider) restoreEventRules(dump BackupData) error {
 		rule := rule // pin
 		if err == nil {
 			rule.ID = r.ID
-			err = UpdateEventRule(&rule, ActionExecutorSystem, "")
+			err = UpdateEventRule(&rule, ActionExecutorSystem, "", "")
 			if err != nil {
 				providerLog(logger.LevelError, "error updating event rule %q: %v", rule.Name, err)
 				return err
 			}
 		} else {
-			err = AddEventRule(&rule, ActionExecutorSystem, "")
+			err = AddEventRule(&rule, ActionExecutorSystem, "", "")
 			if err != nil {
 				providerLog(logger.LevelError, "error adding event rule %q: %v", rule.Name, err)
 				return err
@@ -2850,13 +2850,13 @@ func (p *MemoryProvider) restoreShares(dump BackupData) error {
 		share.IsRestore = true
 		if err == nil {
 			share.ID = s.ID
-			err = UpdateShare(&share, ActionExecutorSystem, "")
+			err = UpdateShare(&share, ActionExecutorSystem, "", "")
 			if err != nil {
 				providerLog(logger.LevelError, "error updating share %#v: %v", share.ShareID, err)
 				return err
 			}
 		} else {
-			err = AddShare(&share, ActionExecutorSystem, "")
+			err = AddShare(&share, ActionExecutorSystem, "", "")
 			if err != nil {
 				providerLog(logger.LevelError, "error adding share %#v: %v", share.ShareID, err)
 				return err
@@ -2875,13 +2875,13 @@ func (p *MemoryProvider) restoreAPIKeys(dump BackupData) error {
 		apiKey := apiKey // pin
 		if err == nil {
 			apiKey.ID = k.ID
-			err = UpdateAPIKey(&apiKey, ActionExecutorSystem, "")
+			err = UpdateAPIKey(&apiKey, ActionExecutorSystem, "", "")
 			if err != nil {
 				providerLog(logger.LevelError, "error updating API key %#v: %v", apiKey.KeyID, err)
 				return err
 			}
 		} else {
-			err = AddAPIKey(&apiKey, ActionExecutorSystem, "")
+			err = AddAPIKey(&apiKey, ActionExecutorSystem, "", "")
 			if err != nil {
 				providerLog(logger.LevelError, "error adding API key %#v: %v", apiKey.KeyID, err)
 				return err
@@ -2898,13 +2898,13 @@ func (p *MemoryProvider) restoreAdmins(dump BackupData) error {
 		a, err := p.adminExists(admin.Username)
 		if err == nil {
 			admin.ID = a.ID
-			err = UpdateAdmin(&admin, ActionExecutorSystem, "")
+			err = UpdateAdmin(&admin, ActionExecutorSystem, "", "")
 			if err != nil {
 				providerLog(logger.LevelError, "error updating admin %#v: %v", admin.Username, err)
 				return err
 			}
 		} else {
-			err = AddAdmin(&admin, ActionExecutorSystem, "")
+			err = AddAdmin(&admin, ActionExecutorSystem, "", "")
 			if err != nil {
 				providerLog(logger.LevelError, "error adding admin %#v: %v", admin.Username, err)
 				return err
@@ -2921,7 +2921,7 @@ func (p *MemoryProvider) restoreRoles(dump BackupData) error {
 		r, err := p.roleExists(role.Name)
 		if err == nil {
 			role.ID = r.ID
-			err = UpdateRole(&role, ActionExecutorSystem, "")
+			err = UpdateRole(&role, ActionExecutorSystem, "", "")
 			if err != nil {
 				providerLog(logger.LevelError, "error updating role %q: %v", role.Name, err)
 				return err
@@ -2929,7 +2929,7 @@ func (p *MemoryProvider) restoreRoles(dump BackupData) error {
 		} else {
 			role.Admins = nil
 			role.Users = nil
-			err = AddRole(&role, ActionExecutorSystem, "")
+			err = AddRole(&role, ActionExecutorSystem, "", "")
 			if err != nil {
 				providerLog(logger.LevelError, "error adding role %q: %v", role.Name, err)
 				return err
@@ -2946,14 +2946,14 @@ func (p *MemoryProvider) restoreGroups(dump BackupData) error {
 		g, err := p.groupExists(group.Name)
 		if err == nil {
 			group.ID = g.ID
-			err = UpdateGroup(&group, g.Users, ActionExecutorSystem, "")
+			err = UpdateGroup(&group, g.Users, ActionExecutorSystem, "", "")
 			if err != nil {
 				providerLog(logger.LevelError, "error updating group %#v: %v", group.Name, err)
 				return err
 			}
 		} else {
 			group.Users = nil
-			err = AddGroup(&group, ActionExecutorSystem, "")
+			err = AddGroup(&group, ActionExecutorSystem, "", "")
 			if err != nil {
 				providerLog(logger.LevelError, "error adding group %#v: %v", group.Name, err)
 				return err
@@ -2970,14 +2970,14 @@ func (p *MemoryProvider) restoreFolders(dump BackupData) error {
 		f, err := p.getFolderByName(folder.Name)
 		if err == nil {
 			folder.ID = f.ID
-			err = UpdateFolder(&folder, f.Users, f.Groups, ActionExecutorSystem, "")
+			err = UpdateFolder(&folder, f.Users, f.Groups, ActionExecutorSystem, "", "")
 			if err != nil {
 				providerLog(logger.LevelError, "error updating folder %#v: %v", folder.Name, err)
 				return err
 			}
 		} else {
 			folder.Users = nil
-			err = AddFolder(&folder, ActionExecutorSystem, "")
+			err = AddFolder(&folder, ActionExecutorSystem, "", "")
 			if err != nil {
 				providerLog(logger.LevelError, "error adding folder %#v: %v", folder.Name, err)
 				return err
@@ -2994,13 +2994,13 @@ func (p *MemoryProvider) restoreUsers(dump BackupData) error {
 		u, err := p.userExists(user.Username, "")
 		if err == nil {
 			user.ID = u.ID
-			err = UpdateUser(&user, ActionExecutorSystem, "")
+			err = UpdateUser(&user, ActionExecutorSystem, "", "")
 			if err != nil {
 				providerLog(logger.LevelError, "error updating user %#v: %v", user.Username, err)
 				return err
 			}
 		} else {
-			err = AddUser(&user, ActionExecutorSystem, "")
+			err = AddUser(&user, ActionExecutorSystem, "", "")
 			if err != nil {
 				providerLog(logger.LevelError, "error adding user %#v: %v", user.Username, err)
 				return err

@@ -205,8 +205,8 @@ type oidcToken struct {
 	Username             string          `json:"username"`
 	Permissions          []string        `json:"permissions"`
 	HideUserPageSections int             `json:"hide_user_page_sections,omitempty"`
-	AdminRole            string          `json:"admin_role,omitempty"`
-	Role                 any             `json:"role"`
+	TokenRole            string          `json:"token_role,omitempty"` // SFTPGo role name
+	Role                 any             `json:"role"`                 // oidc user role: SFTPGo user or admin
 	CustomFields         *map[string]any `json:"custom_fields,omitempty"`
 	Cookie               string          `json:"cookie"`
 	UsedAt               int64           `json:"used_at"`
@@ -390,7 +390,7 @@ func (t *oidcToken) refreshUser(r *http.Request) error {
 			return err
 		}
 		t.Permissions = admin.Permissions
-		t.AdminRole = admin.Role
+		t.TokenRole = admin.Role
 		t.HideUserPageSections = admin.Filters.Preferences.HideUserPageSections
 		return nil
 	}
@@ -405,6 +405,7 @@ func (t *oidcToken) refreshUser(r *http.Request) error {
 		return err
 	}
 	t.Permissions = user.Filters.WebClient
+	t.TokenRole = user.Role
 	return nil
 }
 
@@ -418,7 +419,7 @@ func (t *oidcToken) getUser(r *http.Request) error {
 			return err
 		}
 		t.Permissions = admin.Permissions
-		t.AdminRole = admin.Role
+		t.TokenRole = admin.Role
 		t.HideUserPageSections = admin.Filters.Preferences.HideUserPageSections
 		dataprovider.UpdateAdminLastLogin(&admin)
 		return nil
@@ -451,6 +452,7 @@ func (t *oidcToken) getUser(r *http.Request) error {
 	updateLoginMetrics(&user, dataprovider.LoginMethodIDP, ipAddr, nil)
 	dataprovider.UpdateLastLogin(&user)
 	t.Permissions = user.Filters.WebClient
+	t.TokenRole = user.Role
 	return nil
 }
 
@@ -518,7 +520,7 @@ func (s *httpdServer) oidcTokenAuthenticator(audience tokenAudience) func(next h
 			jwtTokenClaims := jwtTokenClaims{
 				Username:             token.Username,
 				Permissions:          token.Permissions,
-				Role:                 token.AdminRole,
+				Role:                 token.TokenRole,
 				HideUserPageSections: token.HideUserPageSections,
 			}
 			_, tokenString, err := jwtTokenClaims.createToken(s.tokenAuth, audience, util.GetIPFromRemoteAddress(r.RemoteAddr))

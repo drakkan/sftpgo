@@ -348,6 +348,7 @@ func getUserFromToken(r *http.Request) *dataprovider.User {
 	tokenClaims.Decode(claims)
 	user.Username = tokenClaims.Username
 	user.Filters.WebClient = tokenClaims.Permissions
+	user.Role = tokenClaims.Role
 	return user
 }
 

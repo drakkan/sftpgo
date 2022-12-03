@@ -444,7 +444,7 @@ func TestOIDCLoginLogout(t *testing.T) {
 			},
 		},
 	}
-	err = dataprovider.AddUser(&user, "", "")
+	err = dataprovider.AddUser(&user, "", "", "")
 	assert.NoError(t, err)
 
 	authReq = newOIDCPendingAuth(tokenAudienceWebClient)
@@ -656,7 +656,7 @@ func TestOIDCRefreshUser(t *testing.T) {
 			},
 		},
 	}
-	err = dataprovider.AddAdmin(&admin, "", "")
+	err = dataprovider.AddAdmin(&admin, "", "", "")
 	assert.NoError(t, err)
 
 	token.Username = admin.Username
@@ -666,14 +666,14 @@ func TestOIDCRefreshUser(t *testing.T) {
 	}
 
 	admin.Status = 1
-	err = dataprovider.UpdateAdmin(&admin, "", "")
+	err = dataprovider.UpdateAdmin(&admin, "", "", "")
 	assert.NoError(t, err)
 	err = token.refreshUser(r)
 	assert.NoError(t, err)
 	assert.Equal(t, admin.Permissions, token.Permissions)
 	assert.Equal(t, admin.Filters.Preferences.HideUserPageSections, token.HideUserPageSections)
 
-	err = dataprovider.DeleteAdmin(admin.Username, "", "")
+	err = dataprovider.DeleteAdmin(admin.Username, "", "", "")
 	assert.NoError(t, err)
 
 	username := "test_oidc_user_refresh_token"
@@ -694,7 +694,7 @@ func TestOIDCRefreshUser(t *testing.T) {
 			},
 		},
 	}
-	err = dataprovider.AddUser(&user, "", "")
+	err = dataprovider.AddUser(&user, "", "", "")
 	assert.NoError(t, err)
 
 	r, err = http.NewRequest(http.MethodGet, webClientFilesPath, nil)
@@ -709,7 +709,7 @@ func TestOIDCRefreshUser(t *testing.T) {
 	user, err = dataprovider.UserExists(username, "")
 	assert.NoError(t, err)
 	user.Status = 1
-	err = dataprovider.UpdateUser(&user, "", "")
+	err = dataprovider.UpdateUser(&user, "", "", "")
 	assert.NoError(t, err)
 	err = token.refreshUser(r)
 	if assert.Error(t, err) {
@@ -717,7 +717,7 @@ func TestOIDCRefreshUser(t *testing.T) {
 	}
 
 	user.Filters.DeniedProtocols = []string{common.ProtocolFTP}
-	err = dataprovider.UpdateUser(&user, "", "")
+	err = dataprovider.UpdateUser(&user, "", "", "")
 	assert.NoError(t, err)
 	err = token.refreshUser(r)
 	assert.NoError(t, err)
@@ -830,7 +830,7 @@ func TestOIDCToken(t *testing.T) {
 		Permissions: []string{dataprovider.PermAdminAny},
 		Status:      0,
 	}
-	err := dataprovider.AddAdmin(&admin, "", "")
+	err := dataprovider.AddAdmin(&admin, "", "", "")
 	assert.NoError(t, err)
 
 	token := oidcToken{
@@ -843,7 +843,7 @@ func TestOIDCToken(t *testing.T) {
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "is disabled")
 	}
-	err = dataprovider.DeleteAdmin(admin.Username, "", "")
+	err = dataprovider.DeleteAdmin(admin.Username, "", "", "")
 	assert.NoError(t, err)
 
 	username := "test_oidc_user"
@@ -871,7 +871,7 @@ func TestOIDCToken(t *testing.T) {
 			},
 		},
 	}
-	err = dataprovider.AddUser(&user, "", "")
+	err = dataprovider.AddUser(&user, "", "", "")
 	assert.NoError(t, err)
 	err = token.getUser(req)
 	if assert.Error(t, err) {
@@ -881,7 +881,7 @@ func TestOIDCToken(t *testing.T) {
 	assert.NoError(t, err)
 	user.Status = 1
 	user.Password = "np"
-	err = dataprovider.UpdateUser(&user, "", "")
+	err = dataprovider.UpdateUser(&user, "", "", "")
 	assert.NoError(t, err)
 
 	err = token.getUser(req)
@@ -898,7 +898,7 @@ func TestOIDCToken(t *testing.T) {
 		},
 		Password: kms.NewPlainSecret("np"),
 	}
-	err = dataprovider.UpdateUser(&user, "", "")
+	err = dataprovider.UpdateUser(&user, "", "", "")
 	assert.NoError(t, err)
 	err = token.getUser(req)
 	if assert.Error(t, err) {
@@ -1001,7 +1001,7 @@ func TestOIDCImplicitRoles(t *testing.T) {
 			},
 		},
 	}
-	err = dataprovider.AddUser(&user, "", "")
+	err = dataprovider.AddUser(&user, "", "", "")
 	assert.NoError(t, err)
 
 	authReq = newOIDCPendingAuth(tokenAudienceWebClient)
@@ -1390,7 +1390,7 @@ func TestOIDCWithLoginFormsDisabled(t *testing.T) {
 	assert.Equal(t, http.StatusSeeOther, rr.Code)
 	_, err = dataprovider.AdminExists(adminUsername)
 	assert.NoError(t, err)
-	err = dataprovider.DeleteAdmin(adminUsername, "", "")
+	err = dataprovider.DeleteAdmin(adminUsername, "", "", "")
 	assert.NoError(t, err)
 	// login and password related routes are disabled
 	rr = httptest.NewRecorder()

@@ -2407,7 +2407,7 @@ func (s *httpdServer) handleWebAdminProfilePost(w http.ResponseWriter, r *http.R
 	admin.Filters.AllowAPIKeyAuth = r.Form.Get("allow_api_key_auth") != ""
 	admin.Email = r.Form.Get("email")
 	admin.Description = r.Form.Get("description")
-	err = dataprovider.UpdateAdmin(&admin, dataprovider.ActionExecutorSelf, ipAddr)
+	err = dataprovider.UpdateAdmin(&admin, dataprovider.ActionExecutorSelf, ipAddr, admin.Role)
 	if err != nil {
 		s.renderProfilePage(w, r, err.Error())
 		return
@@ -2466,7 +2466,7 @@ func (s *httpdServer) handleWebRestore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := restoreBackup(backupContent, "", scanQuota, restoreMode, claims.Username, ipAddr); err != nil {
+	if err := restoreBackup(backupContent, "", scanQuota, restoreMode, claims.Username, ipAddr, claims.Role); err != nil {
 		s.renderMaintenancePage(w, r, err.Error())
 		return
 	}
@@ -2554,7 +2554,7 @@ func (s *httpdServer) handleWebAddAdminPost(w http.ResponseWriter, r *http.Reque
 		s.renderForbiddenPage(w, r, err.Error())
 		return
 	}
-	err = dataprovider.AddAdmin(&admin, claims.Username, ipAddr)
+	err = dataprovider.AddAdmin(&admin, claims.Username, ipAddr, claims.Role)
 	if err != nil {
 		s.renderAddUpdateAdminPage(w, r, &admin, err.Error(), true)
 		return
@@ -2611,7 +2611,7 @@ func (s *httpdServer) handleWebUpdateAdminPost(w http.ResponseWriter, r *http.Re
 			return
 		}
 	}
-	err = dataprovider.UpdateAdmin(&updatedAdmin, claims.Username, ipAddr)
+	err = dataprovider.UpdateAdmin(&updatedAdmin, claims.Username, ipAddr, claims.Role)
 	if err != nil {
 		s.renderAddUpdateAdminPage(w, r, &updatedAdmin, err.Error(), false)
 		return
@@ -2739,7 +2739,7 @@ func (s *httpdServer) handleWebTemplateFolderPost(w http.ResponseWriter, r *http
 		render.JSON(w, r, dump)
 		return
 	}
-	if err = RestoreFolders(dump.Folders, "", 1, 0, claims.Username, ipAddr); err != nil {
+	if err = RestoreFolders(dump.Folders, "", 1, 0, claims.Username, ipAddr, claims.Role); err != nil {
 		s.renderMessagePage(w, r, "Unable to save folders", "Cannot save the defined folders:",
 			getRespStatus(err), err, "")
 		return
@@ -2836,7 +2836,7 @@ func (s *httpdServer) handleWebTemplateUserPost(w http.ResponseWriter, r *http.R
 		render.JSON(w, r, dump)
 		return
 	}
-	if err = RestoreUsers(dump.Users, "", 1, 0, claims.Username, ipAddr); err != nil {
+	if err = RestoreUsers(dump.Users, "", 1, 0, claims.Username, ipAddr, claims.Role); err != nil {
 		s.renderMessagePage(w, r, "Unable to save users", "Cannot save the defined users:",
 			getRespStatus(err), err, "")
 		return
@@ -2911,7 +2911,7 @@ func (s *httpdServer) handleWebAddUserPost(w http.ResponseWriter, r *http.Reques
 	user.Filters.TOTPConfig = dataprovider.UserTOTPConfig{
 		Enabled: false,
 	}
-	err = dataprovider.AddUser(&user, claims.Username, ipAddr)
+	err = dataprovider.AddUser(&user, claims.Username, ipAddr, claims.Role)
 	if err != nil {
 		s.renderUserPage(w, r, &user, userPageModeAdd, err.Error(), nil)
 		return
@@ -2967,7 +2967,7 @@ func (s *httpdServer) handleWebUpdateUserPost(w http.ResponseWriter, r *http.Req
 		updatedUser.Role = claims.Role
 	}
 
-	err = dataprovider.UpdateUser(&updatedUser, claims.Username, ipAddr)
+	err = dataprovider.UpdateUser(&updatedUser, claims.Username, ipAddr, claims.Role)
 	if err != nil {
 		s.renderUserPage(w, r, &updatedUser, userPageModeUpdate, err.Error(), nil)
 		return
@@ -3039,7 +3039,7 @@ func (s *httpdServer) handleWebAddFolderPost(w http.ResponseWriter, r *http.Requ
 	folder.FsConfig = fsConfig
 	folder = getFolderFromTemplate(folder, folder.Name)
 
-	err = dataprovider.AddFolder(&folder, claims.Username, ipAddr)
+	err = dataprovider.AddFolder(&folder, claims.Username, ipAddr, claims.Role)
 	if err == nil {
 		http.Redirect(w, r, webFoldersPath, http.StatusSeeOther)
 	} else {
@@ -3109,7 +3109,7 @@ func (s *httpdServer) handleWebUpdateFolderPost(w http.ResponseWriter, r *http.R
 
 	updatedFolder = getFolderFromTemplate(updatedFolder, updatedFolder.Name)
 
-	err = dataprovider.UpdateFolder(&updatedFolder, folder.Users, folder.Groups, claims.Username, ipAddr)
+	err = dataprovider.UpdateFolder(&updatedFolder, folder.Users, folder.Groups, claims.Username, ipAddr, claims.Role)
 	if err != nil {
 		s.renderFolderPage(w, r, updatedFolder, folderPageModeUpdate, err.Error())
 		return
@@ -3215,7 +3215,7 @@ func (s *httpdServer) handleWebAddGroupPost(w http.ResponseWriter, r *http.Reque
 		s.renderForbiddenPage(w, r, err.Error())
 		return
 	}
-	err = dataprovider.AddGroup(&group, claims.Username, ipAddr)
+	err = dataprovider.AddGroup(&group, claims.Username, ipAddr, claims.Role)
 	if err != nil {
 		s.renderGroupPage(w, r, group, genericPageModeAdd, err.Error())
 		return
@@ -3273,7 +3273,7 @@ func (s *httpdServer) handleWebUpdateGroupPost(w http.ResponseWriter, r *http.Re
 		group.UserSettings.FsConfig.SFTPConfig.KeyPassphrase, group.UserSettings.FsConfig.HTTPConfig.Password,
 		group.UserSettings.FsConfig.HTTPConfig.APIKey)
 
-	err = dataprovider.UpdateGroup(&updatedGroup, group.Users, claims.Username, ipAddr)
+	err = dataprovider.UpdateGroup(&updatedGroup, group.Users, claims.Username, ipAddr, claims.Role)
 	if err != nil {
 		s.renderGroupPage(w, r, updatedGroup, genericPageModeUpdate, err.Error())
 		return
@@ -3345,7 +3345,7 @@ func (s *httpdServer) handleWebAddEventActionPost(w http.ResponseWriter, r *http
 		s.renderForbiddenPage(w, r, err.Error())
 		return
 	}
-	if err = dataprovider.AddEventAction(&action, claims.Username, ipAddr); err != nil {
+	if err = dataprovider.AddEventAction(&action, claims.Username, ipAddr, claims.Role); err != nil {
 		s.renderEventActionPage(w, r, action, genericPageModeAdd, err.Error())
 		return
 	}
@@ -3400,7 +3400,7 @@ func (s *httpdServer) handleWebUpdateEventActionPost(w http.ResponseWriter, r *h
 			updatedAction.Options.HTTPConfig.Password = action.Options.HTTPConfig.Password
 		}
 	}
-	err = dataprovider.UpdateEventAction(&updatedAction, claims.Username, ipAddr)
+	err = dataprovider.UpdateEventAction(&updatedAction, claims.Username, ipAddr, claims.Role)
 	if err != nil {
 		s.renderEventActionPage(w, r, updatedAction, genericPageModeUpdate, err.Error())
 		return
@@ -3462,7 +3462,7 @@ func (s *httpdServer) handleWebAddEventRulePost(w http.ResponseWriter, r *http.R
 		s.renderForbiddenPage(w, r, err.Error())
 		return
 	}
-	if err = dataprovider.AddEventRule(&rule, claims.Username, ipAddr); err != nil {
+	if err = dataprovider.AddEventRule(&rule, claims.Username, ipAddr, claims.Role); err != nil {
 		s.renderEventRulePage(w, r, rule, genericPageModeAdd, err.Error())
 		return
 	}
@@ -3510,7 +3510,7 @@ func (s *httpdServer) handleWebUpdateEventRulePost(w http.ResponseWriter, r *htt
 	}
 	updatedRule.ID = rule.ID
 	updatedRule.Name = rule.Name
-	err = dataprovider.UpdateEventRule(&updatedRule, claims.Username, ipAddr)
+	err = dataprovider.UpdateEventRule(&updatedRule, claims.Username, ipAddr, claims.Role)
 	if err != nil {
 		s.renderEventRulePage(w, r, updatedRule, genericPageModeUpdate, err.Error())
 		return
@@ -3569,7 +3569,7 @@ func (s *httpdServer) handleWebAddRolePost(w http.ResponseWriter, r *http.Reques
 		s.renderForbiddenPage(w, r, err.Error())
 		return
 	}
-	err = dataprovider.AddRole(&role, claims.Username, ipAddr)
+	err = dataprovider.AddRole(&role, claims.Username, ipAddr, claims.Role)
 	if err != nil {
 		s.renderRolePage(w, r, role, genericPageModeAdd, err.Error())
 		return
@@ -3617,7 +3617,7 @@ func (s *httpdServer) handleWebUpdateRolePost(w http.ResponseWriter, r *http.Req
 	}
 	updatedRole.ID = role.ID
 	updatedRole.Name = role.Name
-	err = dataprovider.UpdateRole(&updatedRole, claims.Username, ipAddr)
+	err = dataprovider.UpdateRole(&updatedRole, claims.Username, ipAddr, claims.Role)
 	if err != nil {
 		s.renderRolePage(w, r, updatedRole, genericPageModeUpdate, err.Error())
 		return

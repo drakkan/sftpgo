@@ -139,6 +139,7 @@ func ExecuteActionNotification(conn *BaseConnection, operation, filePath, virtua
 			FileSize:          notification.FileSize,
 			Protocol:          notification.Protocol,
 			IP:                notification.IP,
+			Role:              notification.Role,
 			Timestamp:         notification.Timestamp,
 			Object:            nil,
 		}
@@ -214,6 +215,7 @@ func newActionNotification(
 		IP:                ip,
 		SessionID:         sessionID,
 		OpenFlags:         openFlags,
+		Role:              user.Role,
 		Timestamp:         time.Now().UnixNano(),
 	}
 }
@@ -311,6 +313,7 @@ func notificationAsEnvVars(event *notifier.FsEvent) []string {
 		fmt.Sprintf("SFTPGO_ACTION_SESSION_ID=%s", event.SessionID),
 		fmt.Sprintf("SFTPGO_ACTION_OPEN_FLAGS=%d", event.OpenFlags),
 		fmt.Sprintf("SFTPGO_ACTION_TIMESTAMP=%d", event.Timestamp),
+		fmt.Sprintf("SFTPGO_ACTION_ROLE=%s", event.Role),
 	}
 }
 

@@ -69,7 +69,7 @@ func init() {
 		concurrencyGuard: make(chan struct{}, 200),
 	}
 	dataprovider.SetEventRulesCallbacks(eventManager.loadRules, eventManager.RemoveRule,
-		func(operation, executor, ip, objectType, objectName string, object plugin.Renderer) {
+		func(operation, executor, ip, objectType, objectName, role string, object plugin.Renderer) {
 			eventManager.handleProviderEvent(EventParams{
 				Name:       executor,
 				ObjectName: objectName,
@@ -77,6 +77,7 @@ func init() {
 				Status:     1,
 				ObjectType: objectType,
 				IP:         ip,
+				Role:       role,
 				Timestamp:  time.Now().UnixNano(),
 				Object:     object,
 			})
@@ -439,6 +440,7 @@ type EventParams struct {
 	FileSize              int64
 	Protocol              string
 	IP                    string
+	Role                  string
 	Timestamp             int64
 	Object                plugin.Renderer
 	sender                string
@@ -610,6 +612,7 @@ func (p *EventParams) getStringReplacements(addObjectData bool) []string {
 		"{{FileSize}}", fmt.Sprintf("%d", p.FileSize),
 		"{{Protocol}}", p.Protocol,
 		"{{IP}}", p.IP,
+		"{{Role}}", p.Role,
 		"{{Timestamp}}", fmt.Sprintf("%d", p.Timestamp),
 		"{{StatusString}}", p.getStatusString(),
 	}

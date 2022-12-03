@@ -213,7 +213,7 @@ func generateRecoveryCodes(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		user.Filters.RecoveryCodes = accountRecoveryCodes
-		if err := dataprovider.UpdateUser(&user, dataprovider.ActionExecutorSelf, util.GetIPFromRemoteAddress(r.RemoteAddr)); err != nil {
+		if err := dataprovider.UpdateUser(&user, dataprovider.ActionExecutorSelf, util.GetIPFromRemoteAddress(r.RemoteAddr), user.Role); err != nil {
 			sendAPIResponse(w, r, err, "", getRespStatus(err))
 			return
 		}
@@ -228,7 +228,7 @@ func generateRecoveryCodes(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		admin.Filters.RecoveryCodes = accountRecoveryCodes
-		if err := dataprovider.UpdateAdmin(&admin, dataprovider.ActionExecutorSelf, util.GetIPFromRemoteAddress(r.RemoteAddr)); err != nil {
+		if err := dataprovider.UpdateAdmin(&admin, dataprovider.ActionExecutorSelf, util.GetIPFromRemoteAddress(r.RemoteAddr), admin.Role); err != nil {
 			sendAPIResponse(w, r, err, "", getRespStatus(err))
 			return
 		}
@@ -271,7 +271,7 @@ func saveUserTOTPConfig(username string, r *http.Request, recoveryCodes []datapr
 	} else {
 		user.Filters.RecoveryCodes = nil
 	}
-	return dataprovider.UpdateUser(&user, dataprovider.ActionExecutorSelf, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	return dataprovider.UpdateUser(&user, dataprovider.ActionExecutorSelf, util.GetIPFromRemoteAddress(r.RemoteAddr), user.Role)
 }
 
 func saveAdminTOTPConfig(username string, r *http.Request, recoveryCodes []dataprovider.RecoveryCode) error {
@@ -295,5 +295,5 @@ func saveAdminTOTPConfig(username string, r *http.Request, recoveryCodes []datap
 	if admin.Filters.TOTPConfig.Secret == nil || !admin.Filters.TOTPConfig.Secret.IsPlain() {
 		admin.Filters.TOTPConfig.Secret = currentTOTPSecret
 	}
-	return dataprovider.UpdateAdmin(&admin, dataprovider.ActionExecutorSelf, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	return dataprovider.UpdateAdmin(&admin, dataprovider.ActionExecutorSelf, util.GetIPFromRemoteAddress(r.RemoteAddr), admin.Role)
 }

@@ -70,7 +70,7 @@ func addAPIKey(w http.ResponseWriter, r *http.Request) {
 	apiKey.KeyID = ""
 	apiKey.Key = ""
 	apiKey.LastUseAt = 0
-	err = dataprovider.AddAPIKey(&apiKey, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	err = dataprovider.AddAPIKey(&apiKey, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -105,7 +105,7 @@ func updateAPIKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	apiKey.KeyID = keyID
-	if err := dataprovider.UpdateAPIKey(&apiKey, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr)); err != nil {
+	if err := dataprovider.UpdateAPIKey(&apiKey, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role); err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
@@ -121,7 +121,7 @@ func deleteAPIKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = dataprovider.DeleteAPIKey(keyID, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	err = dataprovider.DeleteAPIKey(keyID, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return

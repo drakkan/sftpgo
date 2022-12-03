@@ -75,7 +75,7 @@ var (
 		PermAdminManageAPIKeys, PermAdminQuotaScans, PermAdminManageSystem, PermAdminManageDefender,
 		PermAdminViewDefender, PermAdminRetentionChecks, PermAdminMetadataChecks, PermAdminViewEvents}
 	forbiddenPermsForRoleAdmins = []string{PermAdminAny, PermAdminManageAdmins, PermAdminManageSystem,
-		PermAdminManageEventRules, PermAdminManageRoles, PermAdminViewEvents}
+		PermAdminManageEventRules, PermAdminManageRoles}
 )
 
 // AdminTOTPConfig defines the time-based one time password configuration

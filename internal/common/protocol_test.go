@@ -3295,7 +3295,7 @@ func TestDelayedQuotaUpdater(t *testing.T) {
 		Name:       "folder",
 		MappedPath: filepath.Join(os.TempDir(), "p"),
 	}
-	err = dataprovider.AddFolder(&folder, "", "")
+	err = dataprovider.AddFolder(&folder, "", "", "")
 	assert.NoError(t, err)
 
 	err = dataprovider.UpdateVirtualFolderQuota(&folder, 10, 6000, false)
@@ -3322,7 +3322,7 @@ func TestDelayedQuotaUpdater(t *testing.T) {
 	assert.Equal(t, 10, folderGet.UsedQuotaFiles)
 	assert.Equal(t, int64(6000), folderGet.UsedQuotaSize)
 
-	err = dataprovider.DeleteFolder(folder.Name, "", "")
+	err = dataprovider.DeleteFolder(folder.Name, "", "", "")
 	assert.NoError(t, err)
 
 	err = dataprovider.Close()
@@ -5669,13 +5669,13 @@ func TestEventRuleIPBlocked(t *testing.T) {
 	assert.True(t, util.Contains(email.To, "test4@example.com"))
 	assert.Contains(t, email.Data, `Subject: New "IP Blocked"`)
 
-	err = dataprovider.DeleteEventRule(rule1.Name, "", "")
+	err = dataprovider.DeleteEventRule(rule1.Name, "", "", "")
 	assert.NoError(t, err)
-	err = dataprovider.DeleteEventRule(rule2.Name, "", "")
+	err = dataprovider.DeleteEventRule(rule2.Name, "", "", "")
 	assert.NoError(t, err)
-	err = dataprovider.DeleteEventAction(action1.Name, "", "")
+	err = dataprovider.DeleteEventAction(action1.Name, "", "", "")
 	assert.NoError(t, err)
-	err = dataprovider.DeleteEventAction(action2.Name, "", "")
+	err = dataprovider.DeleteEventAction(action2.Name, "", "", "")
 	assert.NoError(t, err)
 	err = dataprovider.DeleteUser(user.Username, "", "", "")
 	assert.NoError(t, err)
@@ -6125,7 +6125,7 @@ func TestBuiltinKeyboardInteractiveAuthentication(t *testing.T) {
 		Secret:     kms.NewPlainSecret(secret),
 		Protocols:  []string{common.ProtocolSSH},
 	}
-	err = dataprovider.UpdateUser(&user, "", "")
+	err = dataprovider.UpdateUser(&user, "", "", "")
 	assert.NoError(t, err)
 	passcode, err := generateTOTPPasscode(secret, otp.AlgorithmSHA1)
 	assert.NoError(t, err)

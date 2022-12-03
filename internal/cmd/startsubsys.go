@@ -142,7 +142,7 @@ Command-line flags should be specified in the Subsystem declaration.
 				if user.HomeDir != filepath.Clean(homedir) && !preserveHomeDir {
 					// update the user
 					user.HomeDir = filepath.Clean(homedir)
-					err = dataprovider.UpdateUser(&user, dataprovider.ActionExecutorSystem, "")
+					err = dataprovider.UpdateUser(&user, dataprovider.ActionExecutorSystem, "", "")
 					if err != nil {
 						logger.Error(logSender, connectionID, "unable to update user %#v: %v", username, err)
 						os.Exit(1)
@@ -159,7 +159,7 @@ Command-line flags should be specified in the Subsystem declaration.
 				user.Password = connectionID
 				user.Permissions = make(map[string][]string)
 				user.Permissions["/"] = []string{dataprovider.PermAny}
-				err = dataprovider.AddUser(&user, dataprovider.ActionExecutorSystem, "")
+				err = dataprovider.AddUser(&user, dataprovider.ActionExecutorSystem, "", "")
 				if err != nil {
 					logger.Error(logSender, connectionID, "unable to add user %#v: %v", username, err)
 					os.Exit(1)

@@ -74,7 +74,7 @@ func addEventAction(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
-	err = dataprovider.AddEventAction(&action, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	err = dataprovider.AddEventAction(&action, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -116,7 +116,7 @@ func updateEventAction(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	err = dataprovider.UpdateEventAction(&action, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	err = dataprovider.UpdateEventAction(&action, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -132,7 +132,7 @@ func deleteEventAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name := getURLParam(r, "name")
-	err = dataprovider.DeleteEventAction(name, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	err = dataprovider.DeleteEventAction(name, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -190,7 +190,7 @@ func addEventRule(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
-	err = dataprovider.AddEventRule(&rule, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	err = dataprovider.AddEventRule(&rule, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -224,7 +224,7 @@ func updateEventRule(w http.ResponseWriter, r *http.Request) {
 	rule.ID = ruleID
 	rule.Name = name
 
-	err = dataprovider.UpdateEventRule(&rule, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	err = dataprovider.UpdateEventRule(&rule, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -240,7 +240,7 @@ func deleteEventRule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name := getURLParam(r, "name")
-	err = dataprovider.DeleteEventRule(name, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	err = dataprovider.DeleteEventRule(name, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return

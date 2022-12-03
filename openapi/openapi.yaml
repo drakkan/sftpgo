@@ -2300,6 +2300,12 @@ paths:
           explode: false
           required: false
         - in: query
+          name: role
+          schema:
+            type: string
+          description: 'User role. Empty or missing means omit this filter. Ignored if the admin has a role'
+          required: false
+        - in: query
           name: limit
           schema:
             type: integer
@@ -2416,6 +2422,12 @@ paths:
               type: string
           description: 'the event id must not be included among those specified. This is useful for cursor based pagination. Empty or missing means omit this filter. Values must be specified comma separated'
           explode: false
+          required: false
+        - in: query
+          name: role
+          schema:
+            type: string
+          description: 'Admin role. Empty or missing means omit this filter. Ignored if the admin has a role'
           required: false
         - in: query
           name: limit
@@ -5482,7 +5494,7 @@ components:
           description: Last user login as unix timestamp in milliseconds. It is saved at most once every 10 minutes
         role:
           type: string
-          description: 'If set the admin can only administer users with the same role. Role admins cannot have the following permissions: "manage_admins", "manage_apikeys", "manage_system", "manage_event_rules", "manage_roles", "view_events"'
+          description: 'If set the admin can only administer users with the same role. Role admins cannot have the following permissions: "manage_admins", "manage_apikeys", "manage_system", "manage_event_rules", "manage_roles"'
     AdminProfile:
       type: object
       properties:

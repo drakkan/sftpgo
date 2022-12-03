@@ -58,7 +58,7 @@ var (
 	reservedUsers           = []string{ActionExecutorSelf, ActionExecutorSystem}
 )
 
-func executeAction(operation, executor, ip, objectType, objectName string, object plugin.Renderer) {
+func executeAction(operation, executor, ip, objectType, objectName, role string, object plugin.Renderer) {
 	if plugin.Handler.HasNotifiers() {
 		plugin.Handler.NotifyProviderEvent(&notifier.ProviderEvent{
 			Action:     operation,
@@ -66,11 +66,12 @@ func executeAction(operation, executor, ip, objectType, objectName string, objec
 			ObjectType: objectType,
 			ObjectName: objectName,
 			IP:         ip,
+			Role:       role,
 			Timestamp:  time.Now().UnixNano(),
 		}, object)
 	}
 	if fnHandleRuleForProviderEvent != nil {
-		fnHandleRuleForProviderEvent(operation, executor, ip, objectType, objectName, object)
+		fnHandleRuleForProviderEvent(operation, executor, ip, objectType, objectName, role, object)
 	}
 	if config.Actions.Hook == "" {
 		return
@@ -105,6 +106,9 @@ func executeAction(operation, executor, ip, objectType, objectName string, objec
 			q.Add("ip", ip)
 			q.Add("object_type", objectType)
 			q.Add("object_name", objectName)
+			if role != "" {
+				q.Add("role", role)
+			}
 			q.Add("timestamp", fmt.Sprintf("%d", time.Now().UnixNano()))
 			url.RawQuery = q.Encode()
 			startTime := time.Now()
@@ -114,15 +118,15 @@ func executeAction(operation, executor, ip, objectType, objectName string, objec
 				respCode = resp.StatusCode
 				resp.Body.Close()
 			}
-			providerLog(logger.LevelDebug, "notified operation %#v to URL: %v status code: %v, elapsed: %v err: %v",
+			providerLog(logger.LevelDebug, "notified operation %q to URL: %s status code: %d, elapsed: %s err: %v",
 				operation, url.Redacted(), respCode, time.Since(startTime), err)
-		} else {
-			executeNotificationCommand(operation, executor, ip, objectType, objectName, dataAsJSON) //nolint:errcheck // the error is used in test cases only
+			return
 		}
+		executeNotificationCommand(operation, executor, ip, objectType, objectName, role, dataAsJSON) //nolint:errcheck // the error is used in test cases only
 	}()
 }
 
-func executeNotificationCommand(operation, executor, ip, objectType, objectName string, objectAsJSON []byte) error {
+func executeNotificationCommand(operation, executor, ip, objectType, objectName, role string, objectAsJSON []byte) error {
 	if !filepath.IsAbs(config.Actions.Hook) {
 		err := fmt.Errorf("invalid notification command %#v", config.Actions.Hook)
 		logger.Warn(logSender, "", "unable to execute notification command: %v", err)
@@ -140,6 +144,7 @@ func executeNotificationCommand(operation, executor, ip, objectType, objectName 
 		fmt.Sprintf("SFTPGO_PROVIDER_OBJECT_NAME=%s", objectName),
 		fmt.Sprintf("SFTPGO_PROVIDER_USERNAME=%s", executor),
 		fmt.Sprintf("SFTPGO_PROVIDER_IP=%s", ip),
+		fmt.Sprintf("SFTPGO_PROVIDER_ROLE=%s", role),
 		fmt.Sprintf("SFTPGO_PROVIDER_TIMESTAMP=%d", util.GetTimeAsMsSinceEpoch(time.Now())),
 		fmt.Sprintf("SFTPGO_PROVIDER_OBJECT=%s", string(objectAsJSON)))
 

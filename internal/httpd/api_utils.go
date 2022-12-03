@@ -712,7 +712,7 @@ func handleResetPassword(r *http.Request, code, newPassword string, isAdmin bool
 			return &admin, &user, util.NewValidationError("unable to associate the confirmation code with an existing admin")
 		}
 		admin.Password = newPassword
-		err = dataprovider.UpdateAdmin(&admin, dataprovider.ActionExecutorSelf, util.GetIPFromRemoteAddress(r.RemoteAddr))
+		err = dataprovider.UpdateAdmin(&admin, dataprovider.ActionExecutorSelf, util.GetIPFromRemoteAddress(r.RemoteAddr), admin.Role)
 		if err != nil {
 			return &admin, &user, util.NewGenericError(fmt.Sprintf("unable to set the new password: %v", err))
 		}
@@ -729,7 +729,7 @@ func handleResetPassword(r *http.Request, code, newPassword string, isAdmin bool
 		}
 	}
 	err = dataprovider.UpdateUserPassword(user.Username, newPassword, dataprovider.ActionExecutorSelf,
-		util.GetIPFromRemoteAddress(r.RemoteAddr))
+		util.GetIPFromRemoteAddress(r.RemoteAddr), user.Role)
 	if err == nil {
 		err = resetCodesMgr.Delete(code)
 	}

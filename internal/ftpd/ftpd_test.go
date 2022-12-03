@@ -1024,7 +1024,7 @@ func TestMultiFactorAuth(t *testing.T) {
 		Secret:     kms.NewPlainSecret(secret),
 		Protocols:  []string{common.ProtocolFTP},
 	}
-	err = dataprovider.UpdateUser(&user, "", "")
+	err = dataprovider.UpdateUser(&user, "", "", "")
 	assert.NoError(t, err)
 
 	user.Password = defaultPassword
@@ -1073,7 +1073,7 @@ func TestSecondFactorRequirement(t *testing.T) {
 		Secret:     kms.NewPlainSecret(secret),
 		Protocols:  []string{common.ProtocolFTP},
 	}
-	err = dataprovider.UpdateUser(&user, "", "")
+	err = dataprovider.UpdateUser(&user, "", "", "")
 	assert.NoError(t, err)
 	passcode, err := generateTOTPPasscode(secret, otp.AlgorithmSHA1)
 	assert.NoError(t, err)
@@ -1611,7 +1611,7 @@ func TestMaxConnections(t *testing.T) {
 	}, 1000*time.Millisecond, 50*time.Millisecond)
 
 	user := getTestUser()
-	err := dataprovider.AddUser(&user, "", "")
+	err := dataprovider.AddUser(&user, "", "", "")
 	assert.NoError(t, err)
 	user.Password = ""
 	client, err := getFTPClient(user, true, nil)
@@ -1641,7 +1641,7 @@ func TestMaxPerHostConnections(t *testing.T) {
 	}, 1000*time.Millisecond, 50*time.Millisecond)
 
 	user := getTestUser()
-	err := dataprovider.AddUser(&user, "", "")
+	err := dataprovider.AddUser(&user, "", "", "")
 	assert.NoError(t, err)
 	user.Password = ""
 	client, err := getFTPClient(user, true, nil)

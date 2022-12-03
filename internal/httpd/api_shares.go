@@ -107,7 +107,7 @@ func addShare(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	err = dataprovider.AddShare(&share, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	err = dataprovider.AddShare(&share, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -150,7 +150,7 @@ func updateShare(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if err := dataprovider.UpdateShare(&share, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr)); err != nil {
+	if err := dataprovider.UpdateShare(&share, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role); err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
@@ -166,7 +166,7 @@ func deleteShare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = dataprovider.DeleteShare(shareID, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	err = dataprovider.DeleteShare(shareID, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return

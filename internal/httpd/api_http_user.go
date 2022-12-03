@@ -453,7 +453,7 @@ func updateUserProfile(w http.ResponseWriter, r *http.Request) {
 		user.Email = req.Email
 		user.Description = req.Description
 	}
-	if err := dataprovider.UpdateUser(&user, dataprovider.ActionExecutorSelf, util.GetIPFromRemoteAddress(r.RemoteAddr)); err != nil {
+	if err := dataprovider.UpdateUser(&user, dataprovider.ActionExecutorSelf, util.GetIPFromRemoteAddress(r.RemoteAddr), user.Role); err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
@@ -498,7 +498,7 @@ func doChangeUserPassword(r *http.Request, currentPassword, newPassword, confirm
 	}
 
 	return dataprovider.UpdateUserPassword(claims.Username, newPassword, dataprovider.ActionExecutorSelf,
-		util.GetIPFromRemoteAddress(r.RemoteAddr))
+		util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
 }
 
 func setModificationTimeFromHeader(r *http.Request, c *Connection, filePath string) {

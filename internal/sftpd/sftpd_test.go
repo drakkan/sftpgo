@@ -2790,7 +2790,7 @@ func TestInteractiveLoginWithPasscode(t *testing.T) {
 		Secret:     kms.NewPlainSecret(secret),
 		Protocols:  []string{common.ProtocolSSH},
 	}
-	err = dataprovider.UpdateUser(&user, "", "")
+	err = dataprovider.UpdateUser(&user, "", "", "")
 	assert.NoError(t, err)
 
 	passcode, err := totp.GenerateCodeCustom(secret, time.Now(), totp.ValidateOpts{
@@ -2839,7 +2839,7 @@ func TestInteractiveLoginWithPasscode(t *testing.T) {
 		Secret:     kms.NewPlainSecret(secret),
 		Protocols:  []string{common.ProtocolSSH},
 	}
-	err = dataprovider.UpdateUser(&user, "", "")
+	err = dataprovider.UpdateUser(&user, "", "", "")
 	assert.NoError(t, err)
 	passcode, err = totp.GenerateCodeCustom(secret, time.Now(), totp.ValidateOpts{
 		Period:    30,
@@ -2897,7 +2897,7 @@ func TestSecondFactorRequirement(t *testing.T) {
 		Secret:     kms.NewPlainSecret(secret),
 		Protocols:  []string{common.ProtocolSSH},
 	}
-	err = dataprovider.UpdateUser(&user, "", "")
+	err = dataprovider.UpdateUser(&user, "", "", "")
 	assert.NoError(t, err)
 
 	conn, client, err := getSftpClient(user, usePubKey)
@@ -3111,7 +3111,7 @@ func TestPreLoginHookPreserveMFAConfig(t *testing.T) {
 			Secret: kms.NewPlainSecret(fmt.Sprintf("RC-%v", strings.ToUpper(util.GenerateUniqueID()))),
 		})
 	}
-	err = dataprovider.UpdateUser(&user, "", "")
+	err = dataprovider.UpdateUser(&user, "", "", "")
 	assert.NoError(t, err)
 
 	conn, client, err = getSftpClient(u, usePubKey)
@@ -4166,7 +4166,7 @@ func TestExternalAuthPreserveMFAConfig(t *testing.T) {
 			Secret: kms.NewPlainSecret(fmt.Sprintf("RC-%v", strings.ToUpper(util.GenerateUniqueID()))),
 		})
 	}
-	err = dataprovider.UpdateUser(&user, "", "")
+	err = dataprovider.UpdateUser(&user, "", "", "")
 	assert.NoError(t, err)
 	// login again and check that the MFA configs are preserved
 	conn, client, err = getSftpClient(u, usePubKey)
@@ -4274,7 +4274,7 @@ func TestMaxConnections(t *testing.T) {
 
 	usePubKey := true
 	user := getTestUser(usePubKey)
-	err := dataprovider.AddUser(&user, "", "")
+	err := dataprovider.AddUser(&user, "", "", "")
 	assert.NoError(t, err)
 	user.Password = ""
 	conn, client, err := getSftpClient(user, usePubKey)
@@ -4309,7 +4309,7 @@ func TestMaxPerHostConnections(t *testing.T) {
 
 	usePubKey := true
 	user := getTestUser(usePubKey)
-	err := dataprovider.AddUser(&user, "", "")
+	err := dataprovider.AddUser(&user, "", "", "")
 	assert.NoError(t, err)
 	user.Password = ""
 	conn, client, err := getSftpClient(user, usePubKey)

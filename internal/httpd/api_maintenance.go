@@ -130,7 +130,7 @@ func loadDataFromRequest(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	if err := restoreBackup(content, "", scanQuota, mode, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr)); err != nil {
+	if err := restoreBackup(content, "", scanQuota, mode, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role); err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 	}
 	sendAPIResponse(w, r, err, "Data restored", http.StatusOK)
@@ -168,51 +168,51 @@ func loadData(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	if err := restoreBackup(content, inputFile, scanQuota, mode, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr)); err != nil {
+	if err := restoreBackup(content, inputFile, scanQuota, mode, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role); err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 	}
 	sendAPIResponse(w, r, err, "Data restored", http.StatusOK)
 }
 
-func restoreBackup(content []byte, inputFile string, scanQuota, mode int, executor, ipAddress string) error {
+func restoreBackup(content []byte, inputFile string, scanQuota, mode int, executor, ipAddress, role string) error {
 	dump, err := dataprovider.ParseDumpData(content)
 	if err != nil {
 		return util.NewValidationError(fmt.Sprintf("unable to parse backup content: %v", err))
 	}
 
-	if err = RestoreRoles(dump.Roles, inputFile, mode, executor, ipAddress); err != nil {
+	if err = RestoreRoles(dump.Roles, inputFile, mode, executor, ipAddress, role); err != nil {
 		return err
 	}
 
-	if err = RestoreFolders(dump.Folders, inputFile, mode, scanQuota, executor, ipAddress); err != nil {
+	if err = RestoreFolders(dump.Folders, inputFile, mode, scanQuota, executor, ipAddress, role); err != nil {
 		return err
 	}
 
-	if err = RestoreGroups(dump.Groups, inputFile, mode, executor, ipAddress); err != nil {
+	if err = RestoreGroups(dump.Groups, inputFile, mode, executor, ipAddress, role); err != nil {
 		return err
 	}
 
-	if err = RestoreUsers(dump.Users, inputFile, mode, scanQuota, executor, ipAddress); err != nil {
+	if err = RestoreUsers(dump.Users, inputFile, mode, scanQuota, executor, ipAddress, role); err != nil {
 		return err
 	}
 
-	if err = RestoreAdmins(dump.Admins, inputFile, mode, executor, ipAddress); err != nil {
+	if err = RestoreAdmins(dump.Admins, inputFile, mode, executor, ipAddress, role); err != nil {
 		return err
 	}
 
-	if err = RestoreAPIKeys(dump.APIKeys, inputFile, mode, executor, ipAddress); err != nil {
+	if err = RestoreAPIKeys(dump.APIKeys, inputFile, mode, executor, ipAddress, role); err != nil {
 		return err
 	}
 
-	if err = RestoreShares(dump.Shares, inputFile, mode, executor, ipAddress); err != nil {
+	if err = RestoreShares(dump.Shares, inputFile, mode, executor, ipAddress, role); err != nil {
 		return err
 	}
 
-	if err = RestoreEventActions(dump.EventActions, inputFile, mode, executor, ipAddress); err != nil {
+	if err = RestoreEventActions(dump.EventActions, inputFile, mode, executor, ipAddress, role); err != nil {
 		return err
 	}
 
-	if err = RestoreEventRules(dump.EventRules, inputFile, mode, executor, ipAddress); err != nil {
+	if err = RestoreEventRules(dump.EventRules, inputFile, mode, executor, ipAddress, role); err != nil {
 		return err
 	}
 
@@ -248,7 +248,7 @@ func getLoaddataOptions(r *http.Request) (string, int, int, error) {
 }
 
 // RestoreFolders restores the specified folders
-func RestoreFolders(folders []vfs.BaseVirtualFolder, inputFile string, mode, scanQuota int, executor, ipAddress string) error {
+func RestoreFolders(folders []vfs.BaseVirtualFolder, inputFile string, mode, scanQuota int, executor, ipAddress, role string) error {
 	for _, folder := range folders {
 		folder := folder // pin
 		f, err := dataprovider.GetFolderByName(folder.Name)
@@ -259,11 +259,11 @@ func RestoreFolders(folders []vfs.BaseVirtualFolder, inputFile string, mode, sca
 			}
 			folder.ID = f.ID
 			folder.Name = f.Name
-			err = dataprovider.UpdateFolder(&folder, f.Users, f.Groups, executor, ipAddress)
+			err = dataprovider.UpdateFolder(&folder, f.Users, f.Groups, executor, ipAddress, role)
 			logger.Debug(logSender, "", "restoring existing folder %#v, dump file: %#v, error: %v", folder.Name, inputFile, err)
 		} else {
 			folder.Users = nil
-			err = dataprovider.AddFolder(&folder, executor, ipAddress)
+			err = dataprovider.AddFolder(&folder, executor, ipAddress, role)
 			logger.Debug(logSender, "", "adding new folder %#v, dump file: %#v, error: %v", folder.Name, inputFile, err)
 		}
 		if err != nil {
@@ -281,7 +281,7 @@ func RestoreFolders(folders []vfs.BaseVirtualFolder, inputFile string, mode, sca
 
 // RestoreShares restores the specified shares
 func RestoreShares(shares []dataprovider.Share, inputFile string, mode int, executor,
-	ipAddress string,
+	ipAddress, role string,
 ) error {
 	for _, share := range shares {
 		share := share // pin
@@ -293,10 +293,10 @@ func RestoreShares(shares []dataprovider.Share, inputFile string, mode int, exec
 				continue
 			}
 			share.ID = s.ID
-			err = dataprovider.UpdateShare(&share, executor, ipAddress)
+			err = dataprovider.UpdateShare(&share, executor, ipAddress, role)
 			logger.Debug(logSender, "", "restoring existing share %#v, dump file: %#v, error: %v", share.ShareID, inputFile, err)
 		} else {
-			err = dataprovider.AddShare(&share, executor, ipAddress)
+			err = dataprovider.AddShare(&share, executor, ipAddress, role)
 			logger.Debug(logSender, "", "adding new share %#v, dump file: %#v, error: %v", share.ShareID, inputFile, err)
 		}
 		if err != nil {
@@ -307,7 +307,7 @@ func RestoreShares(shares []dataprovider.Share, inputFile string, mode int, exec
 }
 
 // RestoreEventActions restores the specified event actions
-func RestoreEventActions(actions []dataprovider.BaseEventAction, inputFile string, mode int, executor, ipAddress string) error {
+func RestoreEventActions(actions []dataprovider.BaseEventAction, inputFile string, mode int, executor, ipAddress, role string) error {
 	for _, action := range actions {
 		action := action // pin
 		a, err := dataprovider.EventActionExists(action.Name)
@@ -317,10 +317,10 @@ func RestoreEventActions(actions []dataprovider.BaseEventAction, inputFile strin
 				continue
 			}
 			action.ID = a.ID
-			err = dataprovider.UpdateEventAction(&action, executor, ipAddress)
+			err = dataprovider.UpdateEventAction(&action, executor, ipAddress, role)
 			logger.Debug(logSender, "", "restoring event action %q, dump file: %q, error: %v", action.Name, inputFile, err)
 		} else {
-			err = dataprovider.AddEventAction(&action, executor, ipAddress)
+			err = dataprovider.AddEventAction(&action, executor, ipAddress, role)
 			logger.Debug(logSender, "", "adding new event action %q, dump file: %q, error: %v", action.Name, inputFile, err)
 		}
 		if err != nil {
@@ -331,7 +331,7 @@ func RestoreEventActions(actions []dataprovider.BaseEventAction, inputFile strin
 }
 
 // RestoreEventRules restores the specified event rules
-func RestoreEventRules(rules []dataprovider.EventRule, inputFile string, mode int, executor, ipAddress string) error {
+func RestoreEventRules(rules []dataprovider.EventRule, inputFile string, mode int, executor, ipAddress, role string) error {
 	for _, rule := range rules {
 		rule := rule // pin
 		r, err := dataprovider.EventRuleExists(rule.Name)
@@ -341,10 +341,10 @@ func RestoreEventRules(rules []dataprovider.EventRule, inputFile string, mode in
 				continue
 			}
 			rule.ID = r.ID
-			err = dataprovider.UpdateEventRule(&rule, executor, ipAddress)
+			err = dataprovider.UpdateEventRule(&rule, executor, ipAddress, role)
 			logger.Debug(logSender, "", "restoring event rule %q, dump file: %q, error: %v", rule.Name, inputFile, err)
 		} else {
-			err = dataprovider.AddEventRule(&rule, executor, ipAddress)
+			err = dataprovider.AddEventRule(&rule, executor, ipAddress, role)
 			logger.Debug(logSender, "", "adding new event rule %q, dump file: %q, error: %v", rule.Name, inputFile, err)
 		}
 		if err != nil {
@@ -355,7 +355,7 @@ func RestoreEventRules(rules []dataprovider.EventRule, inputFile string, mode in
 }
 
 // RestoreAPIKeys restores the specified API keys
-func RestoreAPIKeys(apiKeys []dataprovider.APIKey, inputFile string, mode int, executor, ipAddress string) error {
+func RestoreAPIKeys(apiKeys []dataprovider.APIKey, inputFile string, mode int, executor, ipAddress, role string) error {
 	for _, apiKey := range apiKeys {
 		apiKey := apiKey // pin
 		if apiKey.Key == "" {
@@ -369,10 +369,10 @@ func RestoreAPIKeys(apiKeys []dataprovider.APIKey, inputFile string, mode int, e
 				continue
 			}
 			apiKey.ID = k.ID
-			err = dataprovider.UpdateAPIKey(&apiKey, executor, ipAddress)
+			err = dataprovider.UpdateAPIKey(&apiKey, executor, ipAddress, role)
 			logger.Debug(logSender, "", "restoring existing API key %#v, dump file: %#v, error: %v", apiKey.KeyID, inputFile, err)
 		} else {
-			err = dataprovider.AddAPIKey(&apiKey, executor, ipAddress)
+			err = dataprovider.AddAPIKey(&apiKey, executor, ipAddress, role)
 			logger.Debug(logSender, "", "adding new API key %#v, dump file: %#v, error: %v", apiKey.KeyID, inputFile, err)
 		}
 		if err != nil {
@@ -383,7 +383,7 @@ func RestoreAPIKeys(apiKeys []dataprovider.APIKey, inputFile string, mode int, e
 }
 
 // RestoreAdmins restores the specified admins
-func RestoreAdmins(admins []dataprovider.Admin, inputFile string, mode int, executor, ipAddress string) error {
+func RestoreAdmins(admins []dataprovider.Admin, inputFile string, mode int, executor, ipAddress, role string) error {
 	for _, admin := range admins {
 		admin := admin // pin
 		a, err := dataprovider.AdminExists(admin.Username)
@@ -394,10 +394,10 @@ func RestoreAdmins(admins []dataprovider.Admin, inputFile string, mode int, exec
 			}
 			admin.ID = a.ID
 			admin.Username = a.Username
-			err = dataprovider.UpdateAdmin(&admin, executor, ipAddress)
+			err = dataprovider.UpdateAdmin(&admin, executor, ipAddress, role)
 			logger.Debug(logSender, "", "restoring existing admin %#v, dump file: %#v, error: %v", admin.Username, inputFile, err)
 		} else {
-			err = dataprovider.AddAdmin(&admin, executor, ipAddress)
+			err = dataprovider.AddAdmin(&admin, executor, ipAddress, role)
 			logger.Debug(logSender, "", "adding new admin %#v, dump file: %#v, error: %v", admin.Username, inputFile, err)
 		}
 		if err != nil {
@@ -409,7 +409,7 @@ func RestoreAdmins(admins []dataprovider.Admin, inputFile string, mode int, exec
 }
 
 // RestoreRoles restores the specified roles
-func RestoreRoles(roles []dataprovider.Role, inputFile string, mode int, executor, ipAddress string) error {
+func RestoreRoles(roles []dataprovider.Role, inputFile string, mode int, executor, ipAddress, executorRole string) error {
 	for _, role := range roles {
 		role := role // pin
 		r, err := dataprovider.RoleExists(role.Name)
@@ -419,10 +419,10 @@ func RestoreRoles(roles []dataprovider.Role, inputFile string, mode int, executo
 				continue
 			}
 			role.ID = r.ID
-			err = dataprovider.UpdateRole(&role, executor, ipAddress)
+			err = dataprovider.UpdateRole(&role, executor, ipAddress, executorRole)
 			logger.Debug(logSender, "", "restoring existing role: %q, dump file: %#v, error: %v", role.Name, inputFile, err)
 		} else {
-			err = dataprovider.AddRole(&role, executor, ipAddress)
+			err = dataprovider.AddRole(&role, executor, ipAddress, executorRole)
 			logger.Debug(logSender, "", "adding new role: %q, dump file: %q, error: %v", role.Name, inputFile, err)
 		}
 		if err != nil {
@@ -433,7 +433,7 @@ func RestoreRoles(roles []dataprovider.Role, inputFile string, mode int, executo
 }
 
 // RestoreGroups restores the specified groups
-func RestoreGroups(groups []dataprovider.Group, inputFile string, mode int, executor, ipAddress string) error {
+func RestoreGroups(groups []dataprovider.Group, inputFile string, mode int, executor, ipAddress, role string) error {
 	for _, group := range groups {
 		group := group // pin
 		g, err := dataprovider.GroupExists(group.Name)
@@ -444,10 +444,10 @@ func RestoreGroups(groups []dataprovider.Group, inputFile string, mode int, exec
 			}
 			group.ID = g.ID
 			group.Name = g.Name
-			err = dataprovider.UpdateGroup(&group, g.Users, executor, ipAddress)
+			err = dataprovider.UpdateGroup(&group, g.Users, executor, ipAddress, role)
 			logger.Debug(logSender, "", "restoring existing group: %#v, dump file: %#v, error: %v", group.Name, inputFile, err)
 		} else {
-			err = dataprovider.AddGroup(&group, executor, ipAddress)
+			err = dataprovider.AddGroup(&group, executor, ipAddress, role)
 			logger.Debug(logSender, "", "adding new group: %#v, dump file: %#v, error: %v", group.Name, inputFile, err)
 		}
 		if err != nil {
@@ -458,7 +458,7 @@ func RestoreGroups(groups []dataprovider.Group, inputFile string, mode int, exec
 }
 
 // RestoreUsers restores the specified users
-func RestoreUsers(users []dataprovider.User, inputFile string, mode, scanQuota int, executor, ipAddress string) error {
+func RestoreUsers(users []dataprovider.User, inputFile string, mode, scanQuota int, executor, ipAddress, role string) error {
 	for _, user := range users {
 		user := user // pin
 		u, err := dataprovider.UserExists(user.Username, "")
@@ -469,13 +469,13 @@ func RestoreUsers(users []dataprovider.User, inputFile string, mode, scanQuota i
 			}
 			user.ID = u.ID
 			user.Username = u.Username
-			err = dataprovider.UpdateUser(&user, executor, ipAddress)
+			err = dataprovider.UpdateUser(&user, executor, ipAddress, role)
 			logger.Debug(logSender, "", "restoring existing user: %#v, dump file: %#v, error: %v", user.Username, inputFile, err)
 			if mode == 2 && err == nil {
 				disconnectUser(user.Username)
 			}
 		} else {
-			err = dataprovider.AddUser(&user, executor, ipAddress)
+			err = dataprovider.AddUser(&user, executor, ipAddress, role)
 			logger.Debug(logSender, "", "adding new user: %#v, dump file: %#v, error: %v", user.Username, inputFile, err)
 		}
 		if err != nil {

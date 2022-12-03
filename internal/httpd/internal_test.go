@@ -747,6 +747,16 @@ func TestInvalidToken(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "Invalid token claims")
 
 	rr = httptest.NewRecorder()
+	searchFsEvents(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	searchProviderEvents(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
 	server.handleGetWebUsers(rr, req)
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), "invalid token claims")
@@ -863,7 +873,7 @@ func TestRetentionInvalidTokenClaims(t *testing.T) {
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
 	user.Filters.AllowAPIKeyAuth = true
-	err := dataprovider.AddUser(&user, "", "")
+	err := dataprovider.AddUser(&user, "", "", "")
 	assert.NoError(t, err)
 	folderRetention := []dataprovider.FolderRetention{
 		{
@@ -1144,7 +1154,7 @@ func TestCreateTokenError(t *testing.T) {
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
 	user.Filters.AllowAPIKeyAuth = true
-	err = dataprovider.AddUser(&user, "", "")
+	err = dataprovider.AddUser(&user, "", "", "")
 	assert.NoError(t, err)
 
 	rr = httptest.NewRecorder()
@@ -1170,13 +1180,13 @@ func TestCreateTokenError(t *testing.T) {
 	admin.Status = 1
 	admin.Filters.AllowAPIKeyAuth = true
 	admin.Permissions = []string{dataprovider.PermAdminAny}
-	err = dataprovider.AddAdmin(&admin, "", "")
+	err = dataprovider.AddAdmin(&admin, "", "", "")
 	assert.NoError(t, err)
 
 	err = authenticateAdminWithAPIKey(admin.Username, "", server.tokenAuth, req)
 	assert.Error(t, err)
 
-	err = dataprovider.DeleteAdmin(admin.Username, "", "")
+	err = dataprovider.DeleteAdmin(admin.Username, "", "", "")
 	assert.NoError(t, err)
 }
 
@@ -1346,7 +1356,7 @@ func TestCookieExpiration(t *testing.T) {
 	assert.Empty(t, cookie)
 
 	admin.Status = 0
-	err = dataprovider.AddAdmin(&admin, "", "")
+	err = dataprovider.AddAdmin(&admin, "", "", "")
 	assert.NoError(t, err)
 	req, _ = http.NewRequest(http.MethodGet, tokenPath, nil)
 	ctx = jwtauth.NewContext(req.Context(), token, nil)
@@ -1356,7 +1366,7 @@ func TestCookieExpiration(t *testing.T) {
 
 	admin.Status = 1
 	admin.Filters.AllowList = []string{"172.16.1.0/24"}
-	err = dataprovider.UpdateAdmin(&admin, "", "")
+	err = dataprovider.UpdateAdmin(&admin, "", "", "")
 	assert.NoError(t, err)
 	req, _ = http.NewRequest(http.MethodGet, tokenPath, nil)
 	ctx = jwtauth.NewContext(req.Context(), token, nil)
@@ -1388,7 +1398,7 @@ func TestCookieExpiration(t *testing.T) {
 	cookie = rr.Header().Get("Set-Cookie")
 	assert.True(t, strings.HasPrefix(cookie, "jwt="))
 
-	err = dataprovider.DeleteAdmin(admin.Username, "", "")
+	err = dataprovider.DeleteAdmin(admin.Username, "", "", "")
 	assert.NoError(t, err)
 	// now check client cookie expiration
 	username := "client"
@@ -1420,7 +1430,7 @@ func TestCookieExpiration(t *testing.T) {
 	cookie = rr.Header().Get("Set-Cookie")
 	assert.Empty(t, cookie)
 	// the password will be hashed and so the signature will change
-	err = dataprovider.AddUser(&user, "", "")
+	err = dataprovider.AddUser(&user, "", "", "")
 	assert.NoError(t, err)
 	req, _ = http.NewRequest(http.MethodGet, webClientFilesPath, nil)
 	ctx = jwtauth.NewContext(req.Context(), token, nil)
@@ -1431,7 +1441,7 @@ func TestCookieExpiration(t *testing.T) {
 	user, err = dataprovider.UserExists(user.Username, "")
 	assert.NoError(t, err)
 	user.Filters.AllowedIP = []string{"172.16.4.0/24"}
-	err = dataprovider.UpdateUser(&user, "", "")
+	err = dataprovider.UpdateUser(&user, "", "", "")
 	assert.NoError(t, err)
 
 	user, err = dataprovider.UserExists(user.Username, "")
@@ -1755,7 +1765,7 @@ func TestProxyHeaders(t *testing.T) {
 		},
 	}
 
-	err := dataprovider.AddAdmin(&admin, "", "")
+	err := dataprovider.AddAdmin(&admin, "", "", "")
 	assert.NoError(t, err)
 
 	testIP := "10.29.1.9"
@@ -1846,7 +1856,7 @@ func TestProxyHeaders(t *testing.T) {
 	cookie = rr.Header().Get("Set-Cookie")
 	assert.NotContains(t, cookie, "Secure")
 
-	err = dataprovider.DeleteAdmin(username, "", "")
+	err = dataprovider.DeleteAdmin(username, "", "", "")
 	assert.NoError(t, err)
 }
 
@@ -2521,7 +2531,7 @@ func TestMetadataAPI(t *testing.T) {
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
-	err := dataprovider.AddUser(&user, "", "")
+	err := dataprovider.AddUser(&user, "", "", "")
 	assert.NoError(t, err)
 
 	assert.True(t, common.ActiveMetadataChecks.Add(username, ""))
@@ -2725,7 +2735,7 @@ func TestWebAdminSetupWithInstallCode(t *testing.T) {
 	admins, err := dataprovider.GetAdmins(100, 0, dataprovider.OrderASC)
 	assert.NoError(t, err)
 	for _, admin := range admins {
-		err = dataprovider.DeleteAdmin(admin.Username, "", "")
+		err = dataprovider.DeleteAdmin(admin.Username, "", "", "")
 		assert.NoError(t, err)
 	}
 	// close the provider and initializes it without creating the default admin
@@ -2787,7 +2797,7 @@ func TestWebAdminSetupWithInstallCode(t *testing.T) {
 	assert.NoError(t, err)
 
 	// delete the admin and test the installation code resolver
-	err = dataprovider.DeleteAdmin(defaultAdminUsername, "", "")
+	err = dataprovider.DeleteAdmin(defaultAdminUsername, "", "", "")
 	assert.NoError(t, err)
 
 	err = dataprovider.Close()
@@ -2889,6 +2899,16 @@ func TestDbResetCodeManager(t *testing.T) {
 		_, err = dbMgr.decodeData("astring")
 		assert.Error(t, err)
 	}
+}
+
+func TestEventRoleFilter(t *testing.T) {
+	defaultVal := "default"
+	req, err := http.NewRequest(http.MethodGet, fsEventsPath+"?role=role1", nil)
+	require.NoError(t, err)
+	role := getRoleFilterForEventSearch(req, defaultVal)
+	assert.Equal(t, defaultVal, role)
+	role = getRoleFilterForEventSearch(req, "")
+	assert.Equal(t, "role1", role)
 }
 
 func isSharedProviderSupported() bool {

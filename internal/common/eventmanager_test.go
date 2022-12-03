@@ -210,7 +210,7 @@ func TestEventManager(t *testing.T) {
 			},
 		},
 	}
-	err := dataprovider.AddEventAction(action, "", "")
+	err := dataprovider.AddEventAction(action, "", "", "")
 	assert.NoError(t, err)
 	rule := &dataprovider.EventRule{
 		Name:    "rule",
@@ -228,7 +228,7 @@ func TestEventManager(t *testing.T) {
 		},
 	}
 
-	err = dataprovider.AddEventRule(rule, "", "")
+	err = dataprovider.AddEventRule(rule, "", "", "")
 	assert.NoError(t, err)
 
 	eventManager.RLock()
@@ -242,7 +242,7 @@ func TestEventManager(t *testing.T) {
 	rule.Conditions = dataprovider.EventConditions{
 		ProviderEvents: []string{"add"},
 	}
-	err = dataprovider.UpdateEventRule(rule, "", "")
+	err = dataprovider.UpdateEventRule(rule, "", "", "")
 	assert.NoError(t, err)
 
 	eventManager.RLock()
@@ -280,7 +280,7 @@ func TestEventManager(t *testing.T) {
 	}, 2*time.Second, 100*time.Millisecond)
 
 	rule.DeletedAt = 0
-	err = dataprovider.AddEventRule(rule, "", "")
+	err = dataprovider.AddEventRule(rule, "", "", "")
 	assert.NoError(t, err)
 
 	eventManager.RLock()
@@ -290,7 +290,7 @@ func TestEventManager(t *testing.T) {
 	assert.Len(t, eventManager.schedulesMapping, 1)
 	eventManager.RUnlock()
 
-	err = dataprovider.DeleteEventRule(rule.Name, "", "")
+	err = dataprovider.DeleteEventRule(rule.Name, "", "", "")
 	assert.NoError(t, err)
 
 	eventManager.RLock()
@@ -300,7 +300,7 @@ func TestEventManager(t *testing.T) {
 	assert.Len(t, eventManager.schedulesMapping, 0)
 	eventManager.RUnlock()
 
-	err = dataprovider.DeleteEventAction(action.Name, "", "")
+	err = dataprovider.DeleteEventAction(action.Name, "", "", "")
 	assert.NoError(t, err)
 	stopEventScheduler()
 }
@@ -616,9 +616,9 @@ func TestEventRuleActions(t *testing.T) {
 			},
 		},
 	}
-	err = dataprovider.AddUser(&user1, "", "")
+	err = dataprovider.AddUser(&user1, "", "", "")
 	assert.NoError(t, err)
-	err = dataprovider.AddUser(&user2, "", "")
+	err = dataprovider.AddUser(&user2, "", "", "")
 	assert.NoError(t, err)
 
 	action = dataprovider.BaseEventAction{
@@ -963,9 +963,9 @@ func TestEventRuleActions(t *testing.T) {
 		Name:       foldername2,
 		MappedPath: filepath.Join(os.TempDir(), foldername2),
 	}
-	err = dataprovider.AddFolder(&folder1, "", "")
+	err = dataprovider.AddFolder(&folder1, "", "", "")
 	assert.NoError(t, err)
-	err = dataprovider.AddFolder(&folder2, "", "")
+	err = dataprovider.AddFolder(&folder2, "", "", "")
 	assert.NoError(t, err)
 	action = dataprovider.BaseEventAction{
 		Type: dataprovider.ActionTypeFolderQuotaReset,
@@ -1025,9 +1025,9 @@ func TestEventRuleActions(t *testing.T) {
 
 	err = os.RemoveAll(folder1.MappedPath)
 	assert.NoError(t, err)
-	err = dataprovider.DeleteFolder(foldername1, "", "")
+	err = dataprovider.DeleteFolder(foldername1, "", "", "")
 	assert.NoError(t, err)
-	err = dataprovider.DeleteFolder(foldername2, "", "")
+	err = dataprovider.DeleteFolder(foldername2, "", "", "")
 	assert.NoError(t, err)
 }
 
@@ -1042,7 +1042,7 @@ func TestEventRuleActionsNoGroupMatching(t *testing.T) {
 			HomeDir: filepath.Join(os.TempDir(), username),
 		},
 	}
-	err := dataprovider.AddUser(&user, "", "")
+	err := dataprovider.AddUser(&user, "", "", "")
 	assert.NoError(t, err)
 
 	conditions := dataprovider.ConditionOptions{
@@ -1102,7 +1102,7 @@ func TestGetFileContent(t *testing.T) {
 			HomeDir: filepath.Join(os.TempDir(), username),
 		},
 	}
-	err := dataprovider.AddUser(&user, "", "")
+	err := dataprovider.AddUser(&user, "", "", "")
 	assert.NoError(t, err)
 	err = os.MkdirAll(user.GetHomeDir(), os.ModePerm)
 	assert.NoError(t, err)
@@ -1141,7 +1141,7 @@ func TestGetFileContent(t *testing.T) {
 	// change the filesystem provider
 	user.FsConfig.Provider = sdk.CryptedFilesystemProvider
 	user.FsConfig.CryptConfig.Passphrase = kms.NewPlainSecret("pwd")
-	err = dataprovider.UpdateUser(&user, "", "")
+	err = dataprovider.UpdateUser(&user, "", "", "")
 	assert.NoError(t, err)
 	// the file is not encrypted so reading the encryption header will fail
 	_, err = getMailAttachments(user, []string{"/file.txt"}, replacer)
@@ -1191,7 +1191,7 @@ func TestFilesystemActionErrors(t *testing.T) {
 	conn := NewBaseConnection("", protocolEventAction, "", "", user)
 	err = executeDeleteFileFsAction(conn, "", nil)
 	assert.Error(t, err)
-	err = dataprovider.AddUser(&user, "", "")
+	err = dataprovider.AddUser(&user, "", "", "")
 	assert.NoError(t, err)
 	// check root fs fails
 	err = executeDeleteFsActionForUser(nil, testReplacer, user)
@@ -1234,7 +1234,7 @@ func TestFilesystemActionErrors(t *testing.T) {
 	user.Permissions["/"] = []string{dataprovider.PermUpload}
 	err = dataprovider.DeleteUser(username, "", "", "")
 	assert.NoError(t, err)
-	err = dataprovider.AddUser(&user, "", "")
+	err = dataprovider.AddUser(&user, "", "", "")
 	assert.NoError(t, err)
 	err = executeRenameFsActionForUser([]dataprovider.KeyValue{
 		{
@@ -1373,7 +1373,7 @@ func TestQuotaActionsWithQuotaTrackDisabled(t *testing.T) {
 			Provider: sdk.LocalFilesystemProvider,
 		},
 	}
-	err = dataprovider.AddUser(&user, "", "")
+	err = dataprovider.AddUser(&user, "", "", "")
 	assert.NoError(t, err)
 
 	err = os.MkdirAll(user.GetHomeDir(), os.ModePerm)
@@ -1408,7 +1408,7 @@ func TestQuotaActionsWithQuotaTrackDisabled(t *testing.T) {
 		Name:       foldername,
 		MappedPath: filepath.Join(os.TempDir(), foldername),
 	}
-	err = dataprovider.AddFolder(&folder, "", "")
+	err = dataprovider.AddFolder(&folder, "", "", "")
 	assert.NoError(t, err)
 	err = os.MkdirAll(folder.MappedPath, os.ModePerm)
 	assert.NoError(t, err)
@@ -1425,7 +1425,7 @@ func TestQuotaActionsWithQuotaTrackDisabled(t *testing.T) {
 
 	err = os.RemoveAll(folder.MappedPath)
 	assert.NoError(t, err)
-	err = dataprovider.DeleteFolder(foldername, "", "")
+	err = dataprovider.DeleteFolder(foldername, "", "", "")
 	assert.NoError(t, err)
 
 	err = dataprovider.Close()
@@ -1444,7 +1444,7 @@ func TestScheduledActions(t *testing.T) {
 		Name: "action",
 		Type: dataprovider.ActionTypeBackup,
 	}
-	err = dataprovider.AddEventAction(action, "", "")
+	err = dataprovider.AddEventAction(action, "", "", "")
 	assert.NoError(t, err)
 	rule := &dataprovider.EventRule{
 		Name:    "rule",
@@ -1475,7 +1475,7 @@ func TestScheduledActions(t *testing.T) {
 	job.Run() // rule not found
 	assert.NoDirExists(t, backupsPath)
 
-	err = dataprovider.AddEventRule(rule, "", "")
+	err = dataprovider.AddEventRule(rule, "", "", "")
 	assert.NoError(t, err)
 
 	job.Run()
@@ -1490,13 +1490,13 @@ func TestScheduledActions(t *testing.T) {
 			Attachments: []string{"/file1.txt"},
 		},
 	}
-	err = dataprovider.UpdateEventAction(action, "", "")
+	err = dataprovider.UpdateEventAction(action, "", "", "")
 	assert.NoError(t, err)
 	job.Run() // action is not compatible with a scheduled rule
 
-	err = dataprovider.DeleteEventRule(rule.Name, "", "")
+	err = dataprovider.DeleteEventRule(rule.Name, "", "", "")
 	assert.NoError(t, err)
-	err = dataprovider.DeleteEventAction(action.Name, "", "")
+	err = dataprovider.DeleteEventAction(action.Name, "", "", "")
 	assert.NoError(t, err)
 	err = os.RemoveAll(backupsPath)
 	assert.NoError(t, err)

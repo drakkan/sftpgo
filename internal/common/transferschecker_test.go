@@ -76,12 +76,12 @@ func TestTransfersCheckerDiskQuota(t *testing.T) {
 			},
 		},
 	}
-	err := dataprovider.AddGroup(&group, "", "")
+	err := dataprovider.AddGroup(&group, "", "", "")
 	assert.NoError(t, err)
 	group, err = dataprovider.GroupExists(groupName)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(120), group.UserSettings.QuotaSize)
-	err = dataprovider.AddUser(&user, "", "")
+	err = dataprovider.AddUser(&user, "", "", "")
 	assert.NoError(t, err)
 	user, err = dataprovider.GetUserWithGroupSettings(username, "")
 	assert.NoError(t, err)
@@ -154,7 +154,7 @@ func TestTransfersCheckerDiskQuota(t *testing.T) {
 	assert.True(t, conn3.IsQuotaExceededError(transfer3.GetAbortError()))
 	// update the user quota size
 	group.UserSettings.QuotaSize = 1000
-	err = dataprovider.UpdateGroup(&group, []string{username}, "", "")
+	err = dataprovider.UpdateGroup(&group, []string{username}, "", "", "")
 	assert.NoError(t, err)
 	transfer1.errAbort = nil
 	transfer2.errAbort = nil
@@ -164,7 +164,7 @@ func TestTransfersCheckerDiskQuota(t *testing.T) {
 	assert.Nil(t, transfer3.errAbort)
 
 	group.UserSettings.QuotaSize = 0
-	err = dataprovider.UpdateGroup(&group, []string{username}, "", "")
+	err = dataprovider.UpdateGroup(&group, []string{username}, "", "", "")
 	assert.NoError(t, err)
 	Connections.checkTransfers()
 	assert.Nil(t, transfer1.errAbort)
@@ -251,11 +251,11 @@ func TestTransfersCheckerDiskQuota(t *testing.T) {
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 
-	err = dataprovider.DeleteFolder(folderName, "", "")
+	err = dataprovider.DeleteFolder(folderName, "", "", "")
 	assert.NoError(t, err)
 	err = os.RemoveAll(filepath.Join(os.TempDir(), folderName))
 	assert.NoError(t, err)
-	err = dataprovider.DeleteGroup(groupName, "", "")
+	err = dataprovider.DeleteGroup(groupName, "", "", "")
 	assert.NoError(t, err)
 }
 
@@ -273,7 +273,7 @@ func TestTransferCheckerTransferQuota(t *testing.T) {
 			},
 		},
 	}
-	err := dataprovider.AddUser(&user, "", "")
+	err := dataprovider.AddUser(&user, "", "", "")
 	assert.NoError(t, err)
 
 	connID1 := xid.New().String()
@@ -634,7 +634,7 @@ func TestGetUsersForQuotaCheck(t *testing.T) {
 				},
 			},
 		}
-		err = dataprovider.AddUser(&user, "", "")
+		err = dataprovider.AddUser(&user, "", "", "")
 		assert.NoError(t, err)
 		err = dataprovider.UpdateVirtualFolderQuota(&vfs.BaseVirtualFolder{Name: fmt.Sprintf("f%v", i)}, 1, 50, false)
 		assert.NoError(t, err)
@@ -673,7 +673,7 @@ func TestGetUsersForQuotaCheck(t *testing.T) {
 	for i := 0; i < 40; i++ {
 		err = dataprovider.DeleteUser(fmt.Sprintf("user%v", i), "", "", "")
 		assert.NoError(t, err)
-		err = dataprovider.DeleteFolder(fmt.Sprintf("f%v", i), "", "")
+		err = dataprovider.DeleteFolder(fmt.Sprintf("f%v", i), "", "", "")
 		assert.NoError(t, err)
 	}
 

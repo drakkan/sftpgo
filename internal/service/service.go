@@ -162,7 +162,7 @@ func (s *Service) initializeServices(disableAWSInstallationCode bool) error {
 
 	if s.PortableMode == 1 {
 		// create the user for portable mode
-		err = dataprovider.AddUser(&s.PortableUser, dataprovider.ActionExecutorSystem, "")
+		err = dataprovider.AddUser(&s.PortableUser, dataprovider.ActionExecutorSystem, "", "")
 		if err != nil {
 			logger.ErrorToConsole("error adding portable user: %v", err)
 			return err
@@ -350,39 +350,39 @@ func (s *Service) LoadInitialData() error {
 }
 
 func (s *Service) restoreDump(dump *dataprovider.BackupData) error {
-	err := httpd.RestoreRoles(dump.Roles, s.LoadDataFrom, s.LoadDataMode, dataprovider.ActionExecutorSystem, "")
+	err := httpd.RestoreRoles(dump.Roles, s.LoadDataFrom, s.LoadDataMode, dataprovider.ActionExecutorSystem, "", "")
 	if err != nil {
 		return fmt.Errorf("unable to restore roles from file %#v: %v", s.LoadDataFrom, err)
 	}
-	err = httpd.RestoreFolders(dump.Folders, s.LoadDataFrom, s.LoadDataMode, s.LoadDataQuotaScan, dataprovider.ActionExecutorSystem, "")
+	err = httpd.RestoreFolders(dump.Folders, s.LoadDataFrom, s.LoadDataMode, s.LoadDataQuotaScan, dataprovider.ActionExecutorSystem, "", "")
 	if err != nil {
 		return fmt.Errorf("unable to restore folders from file %#v: %v", s.LoadDataFrom, err)
 	}
-	err = httpd.RestoreGroups(dump.Groups, s.LoadDataFrom, s.LoadDataMode, dataprovider.ActionExecutorSystem, "")
+	err = httpd.RestoreGroups(dump.Groups, s.LoadDataFrom, s.LoadDataMode, dataprovider.ActionExecutorSystem, "", "")
 	if err != nil {
 		return fmt.Errorf("unable to restore groups from file %#v: %v", s.LoadDataFrom, err)
 	}
-	err = httpd.RestoreUsers(dump.Users, s.LoadDataFrom, s.LoadDataMode, s.LoadDataQuotaScan, dataprovider.ActionExecutorSystem, "")
+	err = httpd.RestoreUsers(dump.Users, s.LoadDataFrom, s.LoadDataMode, s.LoadDataQuotaScan, dataprovider.ActionExecutorSystem, "", "")
 	if err != nil {
 		return fmt.Errorf("unable to restore users from file %#v: %v", s.LoadDataFrom, err)
 	}
-	err = httpd.RestoreAdmins(dump.Admins, s.LoadDataFrom, s.LoadDataMode, dataprovider.ActionExecutorSystem, "")
+	err = httpd.RestoreAdmins(dump.Admins, s.LoadDataFrom, s.LoadDataMode, dataprovider.ActionExecutorSystem, "", "")
 	if err != nil {
 		return fmt.Errorf("unable to restore admins from file %#v: %v", s.LoadDataFrom, err)
 	}
-	err = httpd.RestoreAPIKeys(dump.APIKeys, s.LoadDataFrom, s.LoadDataMode, dataprovider.ActionExecutorSystem, "")
+	err = httpd.RestoreAPIKeys(dump.APIKeys, s.LoadDataFrom, s.LoadDataMode, dataprovider.ActionExecutorSystem, "", "")
 	if err != nil {
 		return fmt.Errorf("unable to restore API keys from file %#v: %v", s.LoadDataFrom, err)
 	}
-	err = httpd.RestoreShares(dump.Shares, s.LoadDataFrom, s.LoadDataMode, dataprovider.ActionExecutorSystem, "")
+	err = httpd.RestoreShares(dump.Shares, s.LoadDataFrom, s.LoadDataMode, dataprovider.ActionExecutorSystem, "", "")
 	if err != nil {
 		return fmt.Errorf("unable to restore API keys from file %#v: %v", s.LoadDataFrom, err)
 	}
-	err = httpd.RestoreEventActions(dump.EventActions, s.LoadDataFrom, s.LoadDataMode, dataprovider.ActionExecutorSystem, "")
+	err = httpd.RestoreEventActions(dump.EventActions, s.LoadDataFrom, s.LoadDataMode, dataprovider.ActionExecutorSystem, "", "")
 	if err != nil {
 		return fmt.Errorf("unable to restore event actions from file %#v: %v", s.LoadDataFrom, err)
 	}
-	err = httpd.RestoreEventRules(dump.EventRules, s.LoadDataFrom, s.LoadDataMode, dataprovider.ActionExecutorSystem, "")
+	err = httpd.RestoreEventRules(dump.EventRules, s.LoadDataFrom, s.LoadDataMode, dataprovider.ActionExecutorSystem, "", "")
 	if err != nil {
 		return fmt.Errorf("unable to restore event rules from file %#v: %v", s.LoadDataFrom, err)
 	}

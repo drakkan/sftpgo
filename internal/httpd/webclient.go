@@ -1103,7 +1103,7 @@ func (s *httpdServer) handleClientAddSharePost(w http.ResponseWriter, r *http.Re
 			return
 		}
 	}
-	err = dataprovider.AddShare(share, claims.Username, ipAddr)
+	err = dataprovider.AddShare(share, claims.Username, ipAddr, claims.Role)
 	if err == nil {
 		http.Redirect(w, r, webClientSharesPath, http.StatusSeeOther)
 	} else {
@@ -1148,7 +1148,7 @@ func (s *httpdServer) handleClientUpdateSharePost(w http.ResponseWriter, r *http
 			return
 		}
 	}
-	err = dataprovider.UpdateShare(updatedShare, claims.Username, ipAddr)
+	err = dataprovider.UpdateShare(updatedShare, claims.Username, ipAddr, claims.Role)
 	if err == nil {
 		http.Redirect(w, r, webClientSharesPath, http.StatusSeeOther)
 	} else {
@@ -1237,7 +1237,7 @@ func (s *httpdServer) handleWebClientProfilePost(w http.ResponseWriter, r *http.
 		user.Email = r.Form.Get("email")
 		user.Description = r.Form.Get("description")
 	}
-	err = dataprovider.UpdateUser(&user, dataprovider.ActionExecutorSelf, ipAddr)
+	err = dataprovider.UpdateUser(&user, dataprovider.ActionExecutorSelf, ipAddr, user.Role)
 	if err != nil {
 		s.renderClientProfilePage(w, r, err.Error())
 		return
