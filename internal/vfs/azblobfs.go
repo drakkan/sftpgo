@@ -54,7 +54,6 @@ import (
 
 const (
 	azureDefaultEndpoint = "blob.core.windows.net"
-	azBlobFsName         = "AzureBlobFs"
 	azFolderKey          = "hdi_isfolder"
 )
 
