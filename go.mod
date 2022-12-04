@@ -170,6 +170,7 @@ require (
 )
 
 replace (
+	github.com/fclairamb/ftpserverlib => github.com/drakkan/ftpserverlib v0.0.0-20221203115213-ba73c775a9fd
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
 	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20221117111000-a0321143587c
 )

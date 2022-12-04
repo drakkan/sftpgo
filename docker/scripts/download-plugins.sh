@@ -17,9 +17,16 @@ esac
 
 echo "download plugins for arch ${SUFFIX}"
 
-for PLUGIN in geoipfilter kms pubsub eventstore eventsearch metadata
+for PLUGIN in geoipfilter kms metadata
 do
     echo "download plugin from https://github.com/sftpgo/sftpgo-plugin-${PLUGIN}/releases/latest/download/sftpgo-plugin-${PLUGIN}-linux-${SUFFIX}"
     curl -L "https://github.com/sftpgo/sftpgo-plugin-${PLUGIN}/releases/latest/download/sftpgo-plugin-${PLUGIN}-linux-${SUFFIX}" --output "/usr/local/bin/sftpgo-plugin-${PLUGIN}"
+    chmod 755 "/usr/local/bin/sftpgo-plugin-${PLUGIN}"
+done
+
+for PLUGIN in pubsub eventstore eventsearch
+do
+    echo "download plugin from https://github.com/sftpgo/sftpgo-plugin-${PLUGIN}/releases/download/v1.0.4/sftpgo-plugin-${PLUGIN}-linux-${SUFFIX}"
+    curl -L "https://github.com/sftpgo/sftpgo-plugin-${PLUGIN}/releases/download/v1.0.4/sftpgo-plugin-${PLUGIN}-linux-${SUFFIX}" --output "/usr/local/bin/sftpgo-plugin-${PLUGIN}"
     chmod 755 "/usr/local/bin/sftpgo-plugin-${PLUGIN}"
 done
