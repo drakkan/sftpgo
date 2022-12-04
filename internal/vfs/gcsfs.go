@@ -45,7 +45,6 @@ import (
 
 const (
 	defaultGCSPageSize = 5000
-	gcsfsName          = "GCSFs"
 )
 
 var (

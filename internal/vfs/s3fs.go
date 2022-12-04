@@ -57,7 +57,6 @@ const (
 	// using this mime type for directories improves compatibility with s3fs-fuse
 	s3DirMimeType        = "application/x-directory"
 	s3TransferBufferSize = 256 * 1024
-	s3fsName             = "S3Fs"
 )
 
 var (

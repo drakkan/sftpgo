@@ -38,7 +38,12 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/util"
 )
 
-const dirMimeType = "inode/directory"
+const (
+	dirMimeType  = "inode/directory"
+	s3fsName     = "S3Fs"
+	gcsfsName    = "GCSFs"
+	azBlobFsName = "AzureBlobFs"
+)
 
 var (
 	validAzAccessTier = []string{"", "Archive", "Hot", "Cool"}
