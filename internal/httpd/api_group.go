@@ -79,6 +79,7 @@ func updateGroup(w http.ResponseWriter, r *http.Request) {
 	users := group.Users
 	groupID := group.ID
 	name = group.Name
+	currentPermissions := group.UserSettings.Permissions
 	currentS3AccessSecret := group.UserSettings.FsConfig.S3Config.AccessSecret
 	currentAzAccountKey := group.UserSettings.FsConfig.AzBlobConfig.AccountKey
 	currentAzSASUrl := group.UserSettings.FsConfig.AzBlobConfig.SASURL
@@ -90,6 +91,7 @@ func updateGroup(w http.ResponseWriter, r *http.Request) {
 	currentHTTPPassword := group.UserSettings.FsConfig.HTTPConfig.Password
 	currentHTTPAPIKey := group.UserSettings.FsConfig.HTTPConfig.APIKey
 
+	group.UserSettings.Permissions = make(map[string][]string)
 	group.UserSettings.FsConfig.S3Config = vfs.S3FsConfig{}
 	group.UserSettings.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
 	group.UserSettings.FsConfig.GCSConfig = vfs.GCSFsConfig{}
@@ -104,6 +106,10 @@ func updateGroup(w http.ResponseWriter, r *http.Request) {
 	group.ID = groupID
 	group.Name = name
 	group.UserSettings.FsConfig.SetEmptySecretsIfNil()
+	// we use new Permissions if passed otherwise the old ones
+	if len(group.UserSettings.Permissions) == 0 {
+		group.UserSettings.Permissions = currentPermissions
+	}
 	updateEncryptedSecrets(&group.UserSettings.FsConfig, currentS3AccessSecret, currentAzAccountKey, currentAzSASUrl,
 		currentGCSCredentials, currentCryptoPassphrase, currentSFTPPassword, currentSFTPKey, currentSFTPKeyPassphrase,
 		currentHTTPPassword, currentHTTPAPIKey)
