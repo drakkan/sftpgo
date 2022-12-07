@@ -137,6 +137,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             </li>
             {{end}}
 
+            {{ if and .HasSearcher (.LoggedAdmin.HasPermission "view_events")}}
+            <li class="nav-item {{if eq .CurrentURL .EventsURL}}active{{end}}">
+                <a class="nav-link" href="{{.EventsURL}}">
+                    <i class="fas fa-clipboard-list"></i>
+                    <span>{{.EventsTitle}}</span></a>
+            </li>
+            {{end}}
+
             {{ if .LoggedAdmin.HasPermission "manage_system"}}
             <li class="nav-item {{if eq .CurrentURL .MaintenanceURL}}active{{end}}">
                 <a class="nav-link" href="{{.MaintenanceURL}}">

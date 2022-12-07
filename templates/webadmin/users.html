@@ -263,7 +263,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             enabled: false
         };
 
-        var table = $('#dataTable').DataTable({
+        let dateFn = $.fn.dataTable.render.datetime();
+        let table = $('#dataTable').DataTable({
             "select": {
                 "style": "single",
                 "blurable": true
@@ -318,11 +319,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 			                return data;
 		                }
                         if (row[12] !== ""){
-                            var dateFn = $.fn.dataTable.render.datetime();
                             var formattedDate = dateFn(row[12], type);
                             data = `${data}. Updated at: ${formattedDate}`;
                         }
-                        var ellipsisFn = $.fn.dataTable.render.ellipsis(70, true);
+                        let ellipsisFn = $.fn.dataTable.render.ellipsis(70, true);
                         return ellipsisFn(data, type);
                     }
                 },

@@ -15,9 +15,13 @@
 package httpd
 
 import (
+	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/sftpgo/sdk/plugin/eventsearcher"
 
@@ -88,7 +92,6 @@ func getFsSearchParamsFromRequest(r *http.Request) (eventsearcher.FsEventSearch,
 		}
 		s.FsProvider = val
 	}
-	s.IP = r.URL.Query().Get("ip")
 	s.SSHCmd = r.URL.Query().Get("ssh_cmd")
 	s.Bucket = r.URL.Query().Get("bucket")
 	s.Endpoint = r.URL.Query().Get("endpoint")
@@ -132,6 +135,14 @@ func searchFsEvents(w http.ResponseWriter, r *http.Request) {
 	}
 	filters.Role = getRoleFilterForEventSearch(r, claims.Role)
 
+	if getBoolQueryParam(r, "csv_export") {
+		filters.Limit = 100
+		if err := exportFsEvents(w, &filters); err != nil {
+			panic(http.ErrAbortHandler)
+		}
+		return
+	}
+
 	data, _, _, err := plugin.Handler.SearchFsEvents(&filters)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
@@ -150,12 +161,20 @@ func searchProviderEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filters, err := getProviderSearchParamsFromRequest(r)
-	if err != nil {
+	var filters eventsearcher.ProviderEventSearch
+	if filters, err = getProviderSearchParamsFromRequest(r); err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
 	filters.Role = getRoleFilterForEventSearch(r, claims.Role)
+
+	if getBoolQueryParam(r, "csv_export") {
+		filters.Limit = 100
+		if err := exportProviderEvents(w, &filters); err != nil {
+			panic(http.ErrAbortHandler)
+		}
+		return
+	}
 
 	data, _, _, err := plugin.Handler.SearchProviderEvents(&filters)
 	if err != nil {
@@ -167,9 +186,159 @@ func searchProviderEvents(w http.ResponseWriter, r *http.Request) {
 	w.Write(data) //nolint:errcheck
 }
 
+func exportFsEvents(w http.ResponseWriter, filters *eventsearcher.FsEventSearch) error {
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=fslogs-%s.csv", time.Now().Format("2006-01-02T15-04-05")))
+	w.Header().Set("Content-Type", "text/csv")
+	w.Header().Set("Accept-Ranges", "none")
+	w.WriteHeader(http.StatusOK)
+
+	csvWriter := csv.NewWriter(w)
+	ev := fsEvent{}
+	err := csvWriter.Write(ev.getCSVHeader())
+	if err != nil {
+		return err
+	}
+	results := make([]fsEvent, 0, filters.Limit)
+	for {
+		data, _, _, err := plugin.Handler.SearchFsEvents(filters)
+		if err != nil {
+			return err
+		}
+		if err := json.Unmarshal(data, &results); err != nil {
+			return err
+		}
+		for _, event := range results {
+			if err := csvWriter.Write(event.getCSVData()); err != nil {
+				return err
+			}
+		}
+		if len(results) == 0 || len(results) < filters.Limit {
+			break
+		}
+		filters.StartTimestamp = results[len(results)-1].Timestamp
+		filters.ExcludeIDs = []string{results[len(results)-1].ID}
+		results = nil
+	}
+	csvWriter.Flush()
+	return csvWriter.Error()
+}
+
+func exportProviderEvents(w http.ResponseWriter, filters *eventsearcher.ProviderEventSearch) error {
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=providerlogs-%s.csv", time.Now().Format("2006-01-02T15-04-05")))
+	w.Header().Set("Content-Type", "text/csv")
+	w.Header().Set("Accept-Ranges", "none")
+	w.WriteHeader(http.StatusOK)
+
+	ev := providerEvent{}
+	csvWriter := csv.NewWriter(w)
+	err := csvWriter.Write(ev.getCSVHeader())
+	if err != nil {
+		return err
+	}
+	results := make([]providerEvent, 0, filters.Limit)
+	for {
+		data, _, _, err := plugin.Handler.SearchProviderEvents(filters)
+		if err != nil {
+			return err
+		}
+		if err := json.Unmarshal(data, &results); err != nil {
+			return err
+		}
+		for _, event := range results {
+			if err := csvWriter.Write(event.getCSVData()); err != nil {
+				return err
+			}
+		}
+		if len(results) == 0 || len(results) < filters.Limit {
+			break
+		}
+		filters.StartTimestamp = results[len(results)-1].Timestamp
+		filters.ExcludeIDs = []string{results[len(results)-1].ID}
+		results = nil
+	}
+	csvWriter.Flush()
+	return csvWriter.Error()
+}
+
 func getRoleFilterForEventSearch(r *http.Request, defaultValue string) string {
 	if defaultValue != "" {
 		return defaultValue
 	}
 	return r.URL.Query().Get("role")
+}
+
+type fsEvent struct {
+	ID                string `json:"id"`
+	Timestamp         int64  `json:"timestamp"`
+	Action            string `json:"action"`
+	Username          string `json:"username"`
+	FsPath            string `json:"fs_path"`
+	FsTargetPath      string `json:"fs_target_path,omitempty"`
+	VirtualPath       string `json:"virtual_path"`
+	VirtualTargetPath string `json:"virtual_target_path,omitempty"`
+	SSHCmd            string `json:"ssh_cmd,omitempty"`
+	FileSize          int64  `json:"file_size,omitempty"`
+	Status            int    `json:"status"`
+	Protocol          string `json:"protocol"`
+	IP                string `json:"ip,omitempty"`
+	SessionID         string `json:"session_id"`
+	FsProvider        int    `json:"fs_provider"`
+	Bucket            string `json:"bucket,omitempty"`
+	Endpoint          string `json:"endpoint,omitempty"`
+	OpenFlags         int    `json:"open_flags,omitempty"`
+	Role              string `json:"role,omitempty"`
+	InstanceID        string `json:"instance_id,omitempty"`
+}
+
+func (e *fsEvent) getCSVHeader() []string {
+	return []string{"Time", "Action", "Path", "Size", "Status", "User", "Protocol",
+		"IP", "SSH command"}
+}
+
+func (e *fsEvent) getCSVData() []string {
+	timestamp := time.Unix(0, e.Timestamp).UTC()
+	var pathInfo strings.Builder
+	pathInfo.Write([]byte(e.VirtualPath))
+	if e.VirtualTargetPath != "" {
+		pathInfo.WriteString(" => ")
+		pathInfo.WriteString(e.VirtualTargetPath)
+	}
+	var status string
+	switch e.Status {
+	case 1:
+		status = "OK"
+	case 2:
+		status = "KO"
+	case 3:
+		status = "Quota exceeded"
+	}
+	var fileSize string
+	if e.FileSize > 0 {
+		fileSize = util.ByteCountIEC(e.FileSize)
+	}
+	return []string{timestamp.Format(time.RFC3339), e.Action, pathInfo.String(),
+		fileSize, status, e.Username, e.Protocol, e.IP, e.SSHCmd}
+}
+
+type providerEvent struct {
+	ID         string `json:"id"`
+	Timestamp  int64  `json:"timestamp"`
+	Action     string `json:"action"`
+	Username   string `json:"username"`
+	IP         string `json:"ip,omitempty"`
+	ObjectType string `json:"object_type"`
+	ObjectName string `json:"object_name"`
+	ObjectData []byte `json:"object_data"`
+	Role       string `json:"role,omitempty"`
+	InstanceID string `json:"instance_id,omitempty"`
+}
+
+func (e *providerEvent) getCSVHeader() []string {
+	return []string{"Time", "Action", "Object Type", "Object Name", "User", "IP"}
+}
+
+func (e *providerEvent) getCSVData() []string {
+	timestamp := time.Unix(0, e.Timestamp).UTC()
+	return []string{timestamp.Format(time.RFC3339), e.Action, e.ObjectType, e.ObjectName,
+		e.Username, e.IP}
 }

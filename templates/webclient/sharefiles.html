@@ -410,7 +410,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 var downloadURL = '{{.DownloadURL}}';
                 var currentDir = '{{.CurrentDir}}';
                 var ts = new Date().getTime().toString();
-                window.location = `${downloadURL}?path=${currentDir}&files=${files}&_=${ts}`;
+                window.open(`${downloadURL}?path=${currentDir}&files=${files}&_=${ts}`);
             },
             enabled: false
         };

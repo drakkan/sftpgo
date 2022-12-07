@@ -162,6 +162,7 @@ const (
 	webAdminEventActionPath        = "/web/admin/eventaction"
 	webAdminRolesPath              = "/web/admin/roles"
 	webAdminRolePath               = "/web/admin/role"
+	webEventsPath                  = "/web/admin/events"
 	webBasePathClient              = "/web/client"
 	webClientLoginPath             = "/web/client/login"
 	webClientFilesPath             = "/web/client/files"
@@ -8791,6 +8792,8 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 func TestSearchEvents(t *testing.T) {
 	token, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
+	webToken, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
 
 	req, err := http.NewRequest(http.MethodGet, fsEventsPath+"?limit=10&order=ASC&fs_provider=0", nil)
 	assert.NoError(t, err)
@@ -8817,13 +8820,32 @@ func TestSearchEvents(t *testing.T) {
 	err = json.Unmarshal(rr.Body.Bytes(), &events)
 	assert.NoError(t, err)
 	assert.Len(t, events, 1)
-
+	// CSV export
+	req, err = http.NewRequest(http.MethodGet, fsEventsPath+"?limit=10&order=ASC&csv_export=true", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Equal(t, "text/csv", rr.Header().Get("Content-Type"))
 	// the test eventsearcher plugin returns error if start_timestamp < 0
 	req, err = http.NewRequest(http.MethodGet, fsEventsPath+"?start_timestamp=-1&end_timestamp=123456&statuses=1,2", nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusInternalServerError, rr)
+	// CSV export with error
+	exportFunc := func() {
+		defer func() {
+			rcv := recover()
+			assert.Equal(t, http.ErrAbortHandler, rcv)
+		}()
+
+		req, err = http.NewRequest(http.MethodGet, fsEventsPath+"?start_timestamp=-1&csv_export=true", nil)
+		assert.NoError(t, err)
+		setBearerForReq(req, token)
+		rr = executeRequest(req)
+	}
+	exportFunc()
 
 	req, err = http.NewRequest(http.MethodGet, fsEventsPath+"?limit=a", nil)
 	assert.NoError(t, err)
@@ -8847,6 +8869,13 @@ func TestSearchEvents(t *testing.T) {
 			assert.True(t, ok, field)
 		}
 	}
+	// CSV export
+	req, err = http.NewRequest(http.MethodGet, providerEventsPath+"?csv_export=true", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Equal(t, "text/csv", rr.Header().Get("Content-Type"))
 
 	// the test eventsearcher plugin returns error if start_timestamp < 0
 	req, err = http.NewRequest(http.MethodGet, providerEventsPath+"?start_timestamp=-1", nil)
@@ -8854,6 +8883,19 @@ func TestSearchEvents(t *testing.T) {
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusInternalServerError, rr)
+	// CSV export with error
+	exportFunc = func() {
+		defer func() {
+			rcv := recover()
+			assert.Equal(t, http.ErrAbortHandler, rcv)
+		}()
+
+		req, err = http.NewRequest(http.MethodGet, providerEventsPath+"?start_timestamp=-1&csv_export=true", nil)
+		assert.NoError(t, err)
+		setBearerForReq(req, token)
+		rr = executeRequest(req)
+	}
+	exportFunc()
 
 	req, err = http.NewRequest(http.MethodGet, providerEventsPath+"?limit=2000", nil)
 	assert.NoError(t, err)
@@ -8890,6 +8932,12 @@ func TestSearchEvents(t *testing.T) {
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	req, err = http.NewRequest(http.MethodGet, webEventsPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
 }
 
 func TestMFAErrors(t *testing.T) {

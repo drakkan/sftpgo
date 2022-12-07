@@ -139,6 +139,9 @@ const (
 	webTemplateFolderDefault              = "/web/admin/template/folder"
 	webDefenderPathDefault                = "/web/admin/defender"
 	webDefenderHostsPathDefault           = "/web/admin/defender/hosts"
+	webEventsPathDefault                  = "/web/admin/events"
+	webEventsFsSearchPathDefault          = "/web/admin/events/fs"
+	webEventsProviderSearchPathDefault    = "/web/admin/events/provider"
 	webClientLoginPathDefault             = "/web/client/login"
 	webClientOIDCLoginPathDefault         = "/web/client/oidclogin"
 	webClientTwoFactorPathDefault         = "/web/client/twofactor"
@@ -226,6 +229,9 @@ var (
 	webTemplateUser                string
 	webTemplateFolder              string
 	webDefenderPath                string
+	webEventsPath                  string
+	webEventsFsSearchPath          string
+	webEventsProviderSearchPath    string
 	webDefenderHostsPath           string
 	webClientLoginPath             string
 	webClientOIDCLoginPath         string
@@ -1025,6 +1031,9 @@ func updateWebAdminURLs(baseURL string) {
 	webTemplateFolder = path.Join(baseURL, webTemplateFolderDefault)
 	webDefenderHostsPath = path.Join(baseURL, webDefenderHostsPathDefault)
 	webDefenderPath = path.Join(baseURL, webDefenderPathDefault)
+	webEventsPath = path.Join(baseURL, webEventsPathDefault)
+	webEventsFsSearchPath = path.Join(baseURL, webEventsFsSearchPathDefault)
+	webEventsProviderSearchPath = path.Join(baseURL, webEventsProviderSearchPathDefault)
 	webStaticFilesPath = path.Join(baseURL, webStaticFilesPathDefault)
 	webOpenAPIPath = path.Join(baseURL, webOpenAPIPathDefault)
 }

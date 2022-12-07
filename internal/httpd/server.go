@@ -1662,6 +1662,12 @@ func (s *httpdServer) setupWebAdminRoutes() {
 				s.handleWebUpdateRolePost)
 			router.With(s.checkPerm(dataprovider.PermAdminManageRoles), verifyCSRFHeader).
 				Delete(webAdminRolePath+"/{name}", deleteRole)
+			router.With(s.checkPerm(dataprovider.PermAdminViewEvents), s.refreshCookie).Get(webEventsPath,
+				s.handleWebGetEvents)
+			router.With(s.checkPerm(dataprovider.PermAdminViewEvents), compressor.Handler, s.refreshCookie).
+				Get(webEventsFsSearchPath, searchFsEvents)
+			router.With(s.checkPerm(dataprovider.PermAdminViewEvents), compressor.Handler, s.refreshCookie).
+				Get(webEventsProviderSearchPath, searchProviderEvents)
 		})
 	}
 }

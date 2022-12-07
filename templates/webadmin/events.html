@@ -1,0 +1,607 @@
+<!--
+Copyright (C) 2019-2022  Nicola Murino
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published
+by the Free Software Foundation, version 3.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+-->
+{{template "base" .}}
+
+{{define "title"}}{{.Title}}{{end}}
+
+{{define "extra_css"}}
+<link href="{{.StaticURL}}/vendor/datatables/dataTables.bootstrap4.min.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/datatables/buttons.bootstrap4.min.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/datatables/fixedHeader.bootstrap4.min.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/datatables/responsive.bootstrap4.min.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/datatables/select.bootstrap4.min.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/bootstrap-select/css/bootstrap-select.min.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/daterangepicker/daterangepicker.css" rel="stylesheet">
+{{end}}
+
+{{define "page_body"}}
+<div id="errorMsg" class="card mb-4 border-left-warning" style="display: none;">
+    <div id="errorTxt" class="card-body text-form-error"></div>
+</div>
+<div class="card shadow mb-4">
+    <div class="card-header py-3">
+        <h6 class="m-0 font-weight-bold text-primary">Search logs</h6>
+    </div>
+    <div class="card-body">
+        <div class="form-row">
+            <div class="form-group col-md-3">
+                <select class="form-control selectpicker" id="idEventType" name="events_type" onchange="onEventChanged(this.value)">
+                    <option value="1" selected>Fs events</option>
+                    <option value="2">Provider events</option>
+                </select>
+            </div>
+            <div class="form-group col-md-3">
+                <select class="form-control selectpicker" id="idActions" name="actions" title="Actions" multiple>
+                </select>
+            </div>
+            <div class="form-group col-md-3">
+                <input type="text" class="form-control" id="idUsername" name="username" placeholder="Username">
+            </div>
+            <div class="form-group col-md-3">
+                <input type="text" class="form-control" id="idIp" name="ip" placeholder="IP address">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group col-md-4">
+                <select class="form-control selectpicker fs-events" id="idProtocols" name="protocols" title="Protocols" multiple>
+                    <option value="SFTP">SFTP</option>
+                    <option value="SCP">SCP</option>
+                    <option value="SSH">SSH</option>
+                    <option value="FTP">FTP</option>
+                    <option value="DAV">DAV</option>
+                    <option value="HTTP">HTTP</option>
+                    <option value="OIDC">OIDC</option>
+                    <option value="HTTPShare">HTTPShare</option>
+                    <option value="DataRetention">DataRetention</option>
+                    <option value="EventAction">EventAction</option>
+                </select>
+            </div>
+            <div class="form-group col-md-4">
+                <select class="form-control selectpicker fs-events" id="idStatuses" name="statuses" title="Statuses" multiple>
+                    <option value="1">OK</option>
+                    <option value="2">KO</option>
+                    <option value="3">Quota exceeded</option>
+                </select>
+            </div>
+            <div class="form-group col-md-4">
+                <div class="input-group">
+                    <input type="text" id="dateTimeRange" class="form-control bg-light border-0" aria-describedby="search-button">
+                    <div class="input-group-append">
+                        <button id="search-button" class="btn btn-primary" type="button" onclick="onSearchClicked()">
+                            <i class="fas fa-search fa-sm"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group col-md-12">
+                <button class="btn btn-secondary mt-1 mb-1 px-5" type="button" onclick="onExportClicked()">Export</button>
+            </div>
+        </div>
+
+        <div class="table-responsive fs-events">
+            <table class="table table-hover nowrap" id="dataTableFs" width="100%" cellspacing="0">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Time</th>
+                        <th>Action</th>
+                        <th>Path</th>
+                        <th>User</th>
+                        <th>Proto</th>
+                        <th>IP</th>
+                        <th>Info</th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+
+        <div class="table-responsive provider-events">
+            <table class="table table-hover nowrap" id="dataTableProvider" width="100%" cellspacing="0">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Time</th>
+                        <th>Action</th>
+                        <th>Object</th>
+                        <th>User</th>
+                        <th>IP</th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+
+        <div id="paginationContainer" class="m-4 d-none">
+            <nav aria-label="Pagination">
+                <ul class="pagination justify-content-end">
+                    <li id="pageItemPrev" class="page-item disabled"><a id="pagePrevious" class="page-link" href="#" onclick="prevClicked()">Previous</a></li>
+                    <li id="pageItemNext" class="page-item disabled"><a id="pageNext" class="page-link" href="#" onclick="nextClicked()">Next</a></li>
+                </ul>
+            </nav>
+        </div>
+
+    </div>
+</div>
+{{end}}
+
+{{define "extra_js"}}
+<script src="{{.StaticURL}}/vendor/datatables/jquery.dataTables.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/dataTables.bootstrap4.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/dataTables.buttons.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/buttons.bootstrap4.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/buttons.colVis.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/dataTables.fixedHeader.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/dataTables.responsive.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/responsive.bootstrap4.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/dataTables.select.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/ellipsis.js"></script>
+<script src="{{.StaticURL}}/vendor/bootstrap-select/js/bootstrap-select.min.js"></script>
+<script src="{{.StaticURL}}/vendor/moment/js/moment.min.js"></script>
+<script src="{{.StaticURL}}/vendor/daterangepicker/daterangepicker.min.js"></script>
+<script type="text/javascript">
+    let dateFn = $.fn.dataTable.render.datetime();
+    let isFsDataTableInitialized = false;
+    let isProviderDataTableInitialized = false;
+    let pageSize = 20;
+    const paginationData = new Map();
+
+    function fileSizeIEC(a,b,c,d,e){
+        return (b=Math,c=b.log,d=1024,e=c(a)/c(d)|0,a/b.pow(d,e)).toFixed(1)
+            +' '+(e?'KMGTPEZY'[--e]+'iB':'Bytes')
+    }
+
+    function resetPagination() {
+        $('#pageItemPrev').addClass("disabled");
+        $('#pageItemNext').addClass("disabled");
+        $('#paginationContainer').addClass("d-none");
+        paginationData.delete("firstId");
+        paginationData.delete("firstTs");
+        paginationData.delete("lastId");
+        paginationData.delete("lastTs");
+        paginationData.set("prevClicked",false);
+        paginationData.set("nextClicked",false);
+    }
+
+    function prevClicked(){
+        paginationData.set("prevClicked",true);
+        paginationData.set("nextClicked",false);
+        doSearch();
+    }
+
+    function nextClicked(){
+        paginationData.set("prevClicked",false);
+        paginationData.set("nextClicked",true);
+        doSearch();
+    }
+
+    function handleResponseData(data) {
+        let length = data.length;
+        let isNext = paginationData.get("nextClicked");
+        let isPrev = paginationData.get("prevClicked");
+
+        if (length > pageSize) {
+            data.pop();
+            length--;
+            if (isPrev || isNext){
+                $('#pageItemPrev').removeClass("disabled");
+            }
+            $('#pageItemNext').removeClass("disabled");
+        } else {
+            if (isPrev){
+                $('#pageItemPrev').addClass("disabled");
+                $('#pageItemNext').removeClass("disabled");
+            } else if (isNext){
+                $('#pageItemPrev').removeClass("disabled");
+                $('#pageItemNext').addClass("disabled");
+            } else {
+                $('#pageItemNext').addClass("disabled");
+            }
+        }
+        if (isPrev){
+            data = data.reverse();
+        }
+        if (length > 0){
+            paginationData.set("lastId",data[0].id);
+            paginationData.set("lastTs",data[0].timestamp);
+            paginationData.set("firstId",data[length-1].id);
+            paginationData.set("firstTs",data[length-1].timestamp);
+            $('#paginationContainer').removeClass("d-none");
+        } else {
+            resetPagination();
+        }
+        return data;
+    }
+
+    function onExportClicked() {
+        paginationData.set("prevClicked",false);
+        paginationData.set("nextClicked",false);
+        let exportURL = getSearchURL(true);
+        var ts = new Date().getTime().toString();
+        window.open(`${exportURL}&_=${ts}`);
+    }
+
+    function onSearchClicked() {
+        resetPagination();
+        doSearch();
+    }
+
+    function doSearch() {
+        let eventType = $('#idEventType').val();
+        let table;
+        if (eventType == 1){
+            if (!isFsDataTableInitialized){
+                initFsDatatable();
+                return;
+            }
+            table = $('#dataTableFs').DataTable();
+        } else {
+            if (!isProviderDataTableInitialized){
+                initProviderDatatable();
+                return;
+            }
+            table = $('#dataTableProvider').DataTable();
+        }
+        table.clear().draw();
+        table.ajax.url(getSearchURL(false)).load();
+    }
+
+    function getSearchURL(csvExport) {
+        let url = "";
+        let eventType = $('#idEventType').val();
+        let order = "DESC";
+        let limit = pageSize + 1;
+        if (csvExport){
+            order = "ASC";
+        }
+        if (eventType == 1){
+            url = "{{.FsEventsSearchURL}}?limit="+limit;
+            let protocols = [];
+            $('#idProtocols').find('option:selected').each(function(){
+                protocols.push($(this).val());
+            });
+            if (protocols.length > 0){
+                url+="&protocols="+encodeURIComponent(String(protocols));
+            }
+            let statuses = [];
+            $('#idStatuses').find('option:selected').each(function(){
+                statuses.push($(this).val());
+            });
+            if (statuses.length > 0){
+                url+="&statuses="+encodeURIComponent(String(statuses));
+            }
+        } else {
+            url = "{{.ProviderEventsSearchURL}}?limit="+limit;
+        }
+        let actions = [];
+        $('#idActions').find('option:selected').each(function(){
+            actions.push($(this).val());
+        });
+        if (actions.length > 0){
+            url+="&actions="+encodeURIComponent(String(actions));
+        }
+        let username = $('#idUsername').val();
+        if (username){
+            url+="&username="+encodeURIComponent(username);
+        }
+        let ip = $('#idIp').val();
+        if (ip){
+            url+="&ip="+encodeURIComponent(ip);
+        }
+        let drp = $('#dateTimeRange').data('daterangepicker');
+        let excludeIds = [];
+        let start_ts;
+        if (!csvExport && paginationData.get("prevClicked") && paginationData.has("lastId") && paginationData.has("lastTs")){
+            order = "ASC";
+            start_ts = paginationData.get("lastTs");
+            excludeIds.push(paginationData.get("lastId"));
+        } else {
+            start_ts = drp.startDate.valueOf()*1000000;
+        }
+        let end_ts;
+        if (!csvExport && paginationData.get("nextClicked") && paginationData.has("firstId") && paginationData.has("firstTs")){
+            end_ts = paginationData.get("firstTs");
+            excludeIds.push(paginationData.get("firstId"));
+        } else {
+            end_ts = drp.endDate.valueOf()*1000000;
+        }
+        url+="&start_timestamp="+encodeURIComponent(start_ts);
+        url+="&end_timestamp="+encodeURIComponent(end_ts);
+        if (excludeIds.length > 0){
+            url+="&exclude_ids="+encodeURIComponent(String(excludeIds));
+        }
+        url+="&order="+order;
+        if (csvExport){
+            url+="&csv_export=true";
+        }
+        return url;
+    }
+
+    function initProviderDatatable(){
+        let tableProvider = $('#dataTableProvider').DataTable({
+            "ajax": {
+                "url": getSearchURL(false),
+                "dataSrc": handleResponseData,
+                "error": function ($xhr, textStatus, errorThrown) {
+                    $(".dataTables_processing").hide();
+                    var txt = "Failed to get provider events";
+                    if ($xhr) {
+                        var json = $xhr.responseJSON;
+                        if (json) {
+                            if (json.message){
+                                txt += ": " + json.message;
+                            } else {
+                                txt += ": " + json.error;
+                            }
+                        }
+                    }
+                    $('#errorTxt').text(txt);
+                    $('#errorMsg').show();
+                    setTimeout(function () {
+                        $('#errorMsg').hide();
+                    }, 10000);
+                }
+            },
+            "deferRender": true,
+            "processing": true,
+            "columns": [
+                { "data": "id" },
+                {
+                    "data": "timestamp",
+                    "render": function (data, type, row) {
+                        if (type === 'display') {
+                            return dateFn(data/1000000,type);
+                        }
+                        return data;
+                    }
+                },
+                {
+                    "data": "action"
+                },
+                {
+                    "data": "object_type",
+                    "render": function (data, type, row) {
+                        if (type === 'display') {
+                            let ellipsisFn = $.fn.dataTable.render.ellipsis(70, true);
+                            return ellipsisFn(`${data}: ${row["object_name"]}`,type);
+                        }
+                        return data;
+                    }
+                },
+                {
+                    "data": "username",
+                    "defaultContent": ""
+                },
+                {
+                    "data": "ip",
+                    "defaultContent": ""
+                }
+            ],
+            "buttons": [],
+            "lengthChange": false,
+            "columnDefs": [
+                {
+                    "targets": [0],
+                    "visible": false,
+                    "searchable": false
+                },
+            ],
+            "responsive": true,
+            "searching": false,
+            "paging": false,
+            "info": false,
+            "ordering": false,
+            "language": {
+                "loadingRecords": "",
+                "emptyTable": "No logs found"
+            }
+        });
+
+        new $.fn.dataTable.FixedHeader(tableProvider);
+
+        isProviderDataTableInitialized = true;
+    }
+
+    function initFsDatatable(){
+        let tableFs = $('#dataTableFs').DataTable({
+            "ajax": {
+                "url": getSearchURL(false),
+                "dataSrc": handleResponseData,
+                "error": function ($xhr, textStatus, errorThrown) {
+                    $(".dataTables_processing").hide();
+                    var txt = "Failed to get filesystem events";
+                    if ($xhr) {
+                        let json = $xhr.responseJSON;
+                        if (json) {
+                            if (json.message){
+                                txt += ": " + json.message;
+                            } else {
+                                txt += ": " + json.error;
+                            }
+                        }
+                    }
+                    $('#errorTxt').text(txt);
+                    $('#errorMsg').show();
+                    setTimeout(function () {
+                        $('#errorMsg').hide();
+                    }, 10000);
+                }
+            },
+            "deferRender": true,
+            "processing": true,
+            "columns": [
+                { "data": "id" },
+                {
+                    "data": "timestamp",
+                    "render": function (data, type, row) {
+                        if (type === 'display') {
+                            return dateFn(data/1000000,type);
+                        }
+                        return data;
+                    }
+                },
+                {
+                    "data": "action"
+                },
+                {
+                    "data": "virtual_path",
+                    "render": function (data, type, row) {
+                        if (type === 'display') {
+                            let ellipsisFn = $.fn.dataTable.render.ellipsis(70, true);
+                            if (row["virtual_target_path"]){
+                                return ellipsisFn(`${data} => ${row["virtual_target_path"]}`,type);
+                            }
+                            return ellipsisFn(data,type);
+                        }
+                        return data;
+                    }
+                },
+                {
+                    "data": "username",
+                    "defaultContent": ""
+                },
+                {
+                    "data": "protocol",
+                    "defaultContent": ""
+                },
+                {
+                    "data": "ip",
+                    "defaultContent": ""
+                },
+                {
+                    "data": "status",
+                    "render": function (data, type, row) {
+                        if (type === 'display') {
+                            let info = 'OK';
+                            if (data == 2){
+                                info = 'KO';
+                            } else if (data == 3){
+                                info = 'Quota exceeded'
+                            }
+                            if (row["file_size"]){
+                                let humanSize = fileSizeIEC(row["file_size"]);
+                                info+=`. ${humanSize}`
+                            }
+                            if (row["ssh_cmd"]){
+                                info+=`. Command: ${row["ssh_cmd"]}`
+                            }
+                            return info;
+                        }
+                        return data;
+                    }
+                }
+            ],
+            "buttons": [],
+            "lengthChange": false,
+            "columnDefs": [
+                {
+                    "targets": [0],
+                    "visible": false,
+                    "searchable": false
+                },
+            ],
+            "responsive": true,
+            "searching": false,
+            "paging": false,
+            "info": false,
+            "ordering": false,
+            "language": {
+                "loadingRecords": "",
+                "emptyTable": "No logs found"
+            }
+        });
+
+        new $.fn.dataTable.FixedHeader(tableFs);
+        isFsDataTableInitialized = true;
+    }
+
+    function selectFsEvents(){
+        let idActions = $('#idActions');
+        idActions.selectpicker('deselectAll');
+        idActions.find('option').remove();
+        idActions.find('li').remove();
+        idActions.append($('<option>').val('upload').text('Upload'));
+        idActions.append($('<option>').val('download').text('Download'));
+        idActions.append($('<option>').val('mkdir').text('Mkdir'));
+        idActions.append($('<option>').val('rmdir').text('Rmdir'));
+        idActions.append($('<option>').val('rename').text('Rename'));
+        idActions.append($('<option>').val('delete').text('Delete'));
+        idActions.append($('<option>').val('first-upload').text('First upload'));
+        idActions.append($('<option>').val('first-download').text('First download'));
+        idActions.append($('<option>').val('pre-upload').text('Pre-upload'));
+        idActions.append($('<option>').val('pre-download').text('Pre-download'));
+        idActions.append($('<option>').val('pre-delete').text('Pre-delete'));
+        idActions.append($('<option>').val('ssh_cmd').text('SSH command'));
+        idActions.selectpicker('refresh');
+
+        $('#idUsername').val("");
+        $('#idIp').val("");
+        $('.provider-events').hide();
+        $('.fs-events').show();
+        onSearchClicked();
+    }
+
+    function selectProviderEvents(){
+        let idActions = $('#idActions');
+        idActions.selectpicker('deselectAll');
+        idActions.find('option').remove();
+        idActions.find('li').remove();
+        idActions.append($('<option>').val('add').text('Add'));
+        idActions.append($('<option>').val('update').text('Update'));
+        idActions.append($('<option>').val('delete').text('Delete'));
+        idActions.selectpicker('refresh');
+
+        $('#idUsername').val("");
+        $('#idIp').val("");
+        $('.fs-events').hide();
+        $('.provider-events').show();
+        onSearchClicked();
+    }
+
+    function onEventChanged(val){
+        switch (val){
+            case '1':
+            case 1:
+                selectFsEvents();
+                break;
+            case '2':
+            case 2:
+                selectProviderEvents();
+                break;
+            default:
+                console.log(`unsupported event type: ${val}`);
+        }
+    }
+
+    $(document).ready(function () {
+        $('#dateTimeRange').daterangepicker({
+            timePicker: true,
+            timePicker24Hour: true,
+            opens: 'left',
+            startDate: moment().add(-1,'hour'),
+            endDate: moment(),
+            locale: {
+                format: 'DD/MM HH:mm'
+            }
+        });
+
+        $.fn.dataTable.ext.errMode = 'none';
+
+        onEventChanged('1');
+    });
+</script>
+{{end}}

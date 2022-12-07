@@ -2911,6 +2911,20 @@ func TestEventRoleFilter(t *testing.T) {
 	assert.Equal(t, "role1", role)
 }
 
+func TestEventsCSV(t *testing.T) {
+	e := fsEvent{
+		Status: 1,
+	}
+	data := e.getCSVData()
+	assert.Equal(t, "OK", data[4])
+	e.Status = 2
+	data = e.getCSVData()
+	assert.Equal(t, "KO", data[4])
+	e.Status = 3
+	data = e.getCSVData()
+	assert.Equal(t, "Quota exceeded", data[4])
+}
+
 func isSharedProviderSupported() bool {
 	// SQLite shares the implementation with other SQL-based provider but it makes no sense
 	// to use it outside test cases
