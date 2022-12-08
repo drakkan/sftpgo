@@ -285,7 +285,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 url+="&statuses="+encodeURIComponent(String(statuses));
             }
         } else {
-            url = "{{.ProviderEventsSearchURL}}?limit="+limit;
+            url = "{{.ProviderEventsSearchURL}}?omit_object_data=true&limit="+limit;
         }
         let actions = [];
         $('#idActions').find('option:selected').each(function(){
@@ -542,9 +542,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         idActions.append($('<option>').val('delete').text('Delete'));
         idActions.append($('<option>').val('first-upload').text('First upload'));
         idActions.append($('<option>').val('first-download').text('First download'));
-        idActions.append($('<option>').val('pre-upload').text('Pre-upload'));
-        idActions.append($('<option>').val('pre-download').text('Pre-download'));
-        idActions.append($('<option>').val('pre-delete').text('Pre-delete'));
         idActions.append($('<option>').val('ssh_cmd').text('SSH command'));
         idActions.selectpicker('refresh');
 

@@ -167,9 +167,11 @@ func searchProviderEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	filters.Role = getRoleFilterForEventSearch(r, claims.Role)
+	filters.OmitObjectData = getBoolQueryParam(r, "omit_object_data")
 
 	if getBoolQueryParam(r, "csv_export") {
 		filters.Limit = 100
+		filters.OmitObjectData = true
 		if err := exportProviderEvents(w, &filters); err != nil {
 			panic(http.ErrAbortHandler)
 		}
@@ -316,7 +318,7 @@ func (e *fsEvent) getCSVData() []string {
 	if e.FileSize > 0 {
 		fileSize = util.ByteCountIEC(e.FileSize)
 	}
-	return []string{timestamp.Format(time.RFC3339), e.Action, pathInfo.String(),
+	return []string{timestamp.Format(time.RFC3339Nano), e.Action, pathInfo.String(),
 		fileSize, status, e.Username, e.Protocol, e.IP, e.SSHCmd}
 }
 
@@ -339,6 +341,6 @@ func (e *providerEvent) getCSVHeader() []string {
 
 func (e *providerEvent) getCSVData() []string {
 	timestamp := time.Unix(0, e.Timestamp).UTC()
-	return []string{timestamp.Format(time.RFC3339), e.Action, e.ObjectType, e.ObjectName,
+	return []string{timestamp.Format(time.RFC3339Nano), e.Action, e.ObjectType, e.ObjectName,
 		e.Username, e.IP}
 }

@@ -8869,6 +8869,20 @@ func TestSearchEvents(t *testing.T) {
 			assert.True(t, ok, field)
 		}
 	}
+	req, err = http.NewRequest(http.MethodGet, providerEventsPath+"?omit_object_data=true", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	events = make([]map[string]any, 0)
+	err = json.Unmarshal(rr.Body.Bytes(), &events)
+	assert.NoError(t, err)
+	if assert.Len(t, events, 1) {
+		ev := events[0]
+		field := "object_data"
+		_, ok := ev[field]
+		assert.False(t, ok, field)
+	}
 	// CSV export
 	req, err = http.NewRequest(http.MethodGet, providerEventsPath+"?csv_export=true", nil)
 	assert.NoError(t, err)

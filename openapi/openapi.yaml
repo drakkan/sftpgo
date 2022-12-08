@@ -2447,6 +2447,13 @@ paths:
           required: false
           description: 'If enabled, events are exported as a CSV file'
         - in: query
+          name: omit_object_data
+          schema:
+            type: boolean
+            default: false
+          required: false
+          description: 'If enabled, returned events will not contain the `object_data` field'
+        - in: query
           name: limit
           schema:
             type: integer
@@ -4729,8 +4736,9 @@ components:
       type: string
       enum:
         - download
-        - pre-upload
         - upload
+        - first-upload
+        - first-download
         - delete
         - rename
         - mkdir
@@ -6299,6 +6307,9 @@ components:
           $ref: '#/components/schemas/ProviderEventObjectType'
         object_name:
           type: string
+        object_data:
+          type: byte
+          description: 'base64 of the JSON serialized object with sensitive fields removed'
         instance_id:
           type: string
     KeyValue:

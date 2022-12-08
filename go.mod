@@ -32,7 +32,7 @@ require (
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/go-hclog v1.4.0
-	github.com/hashicorp/go-plugin v1.4.6
+	github.com/hashicorp/go-plugin v1.4.8
 	github.com/hashicorp/go-retryablehttp v0.7.1
 	github.com/jackc/pgx/v5 v5.2.0
 	github.com/jlaffaye/ftp v0.0.0-20201112195030-9aae4d151126
@@ -51,7 +51,7 @@ require (
 	github.com/rs/cors v1.8.3-0.20220619195839-da52b0701de5
 	github.com/rs/xid v1.4.0
 	github.com/rs/zerolog v1.28.0
-	github.com/sftpgo/sdk v0.1.3-0.20221205110949-c15308d4236e
+	github.com/sftpgo/sdk v0.1.3-0.20221208080405-e682ae869318
 	github.com/shirou/gopsutil/v3 v3.22.11
 	github.com/spf13/afero v1.9.3
 	github.com/spf13/cobra v1.6.1
@@ -110,7 +110,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
-	github.com/googleapis/enterprise-certificate-proxy v0.2.0 // indirect
+	github.com/googleapis/enterprise-certificate-proxy v0.2.1 // indirect
 	github.com/googleapis/gax-go/v2 v2.7.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect

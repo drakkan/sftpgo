@@ -3,8 +3,8 @@ module github.com/drakkan/sftpgo/tests/ipfilter
 go 1.19
 
 require (
-	github.com/hashicorp/go-plugin v1.4.6
-	github.com/sftpgo/sdk v0.1.3-0.20221205110949-c15308d4236e
+	github.com/hashicorp/go-plugin v1.4.8
+	github.com/sftpgo/sdk v0.1.3-0.20221208080405-e682ae869318
 )
 
 require (
@@ -19,7 +19,7 @@ require (
 	golang.org/x/net v0.4.0 // indirect
 	golang.org/x/sys v0.3.0 // indirect
 	golang.org/x/text v0.5.0 // indirect
-	google.golang.org/genproto v0.0.0-20221206210731-b1a01be3a5f6 // indirect
+	google.golang.org/genproto v0.0.0-20221207170731-23e4bf6bdc37 // indirect
 	google.golang.org/grpc v1.51.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 )

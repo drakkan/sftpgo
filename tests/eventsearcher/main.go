@@ -43,7 +43,7 @@ type providerEvent struct {
 	IP         string `json:"ip,omitempty"`
 	ObjectType string `json:"object_type"`
 	ObjectName string `json:"object_name"`
-	ObjectData []byte `json:"object_data"`
+	ObjectData []byte `json:"object_data,omitempty"`
 	Role       string `json:"role,omitempty"`
 	InstanceID string `json:"instance_id,omitempty"`
 }
@@ -93,6 +93,11 @@ func (s *Searcher) SearchProviderEvents(filters *eventsearcher.ProviderEventSear
 		return nil, nil, nil, errNotSupported
 	}
 
+	var objectData []byte
+	if !filters.OmitObjectData {
+		objectData = []byte("data")
+	}
+
 	results := []providerEvent{
 		{
 			ID:         "1",
@@ -102,7 +107,7 @@ func (s *Searcher) SearchProviderEvents(filters *eventsearcher.ProviderEventSear
 			IP:         "127.0.0.1",
 			ObjectType: "api_key",
 			ObjectName: "123",
-			ObjectData: []byte("data"),
+			ObjectData: objectData,
 			Role:       "role2",
 			InstanceID: "instance1",
 		},
