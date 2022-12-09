@@ -1882,6 +1882,11 @@ func AddUser(user *User, executor, ipAddress string) error {
 
 // UpdateUserPassword updates the user password
 func UpdateUserPassword(username, plainPwd, executor, ipAddress string) error {
+	if config.PasswordValidation.Users.MinEntropy > 0 {
+		if err := passwordvalidator.Validate(plainPwd, config.PasswordValidation.Users.MinEntropy); err != nil {
+			return util.NewValidationError(err.Error())
+		}
+	}
 	hashedPwd, err := hashPlainPassword(plainPwd)
 	if err != nil {
 		return util.NewGenericError(fmt.Sprintf("unable to set the new password: %v", err))
