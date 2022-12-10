@@ -112,8 +112,8 @@ github.com/Azure/azure-sdk-for-go/sdk/internal v1.1.1 h1:Oj853U9kG+RLTCQXpjvOnrv
 github.com/Azure/azure-sdk-for-go/sdk/internal v1.1.1/go.mod h1:eWRD7oawr1Mu1sLCawqVc0CUiF43ia3qQMxLscsKQ9w=
 github.com/Azure/azure-sdk-for-go/sdk/messaging/azservicebus v1.0.2/go.mod h1:LH9XQnMr2ZYxQdVdCrzLO9mxeDyrDFa6wbSI3x5zCZk=
 github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v0.4.1/go.mod h1:eZ4g6GUvXiGulfIbbhh1Xr4XwUYaYaWMqzGD/284wCA=
-github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v0.5.1 h1:BMTdr+ib5ljLa9MxTJK8x/Ds0MbBb4MfuW5BL0zMJnI=
-github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v0.5.1/go.mod h1:c6WvOhtmjNUWbLfOG1qxM/q0SPvQNSVJvolm+C52dIU=
+github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v0.6.1 h1:YvQv9Mz6T8oR5ypQOL6erY0Z5t71ak1uHV4QFokCOZk=
+github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v0.6.1/go.mod h1:c6WvOhtmjNUWbLfOG1qxM/q0SPvQNSVJvolm+C52dIU=
 github.com/Azure/go-amqp v0.17.0/go.mod h1:9YJ3RhxRT1gquYnzpZO1vcYMMpAdJT+QEg6fwmw9Zlg=
 github.com/Azure/go-amqp v0.17.5/go.mod h1:9YJ3RhxRT1gquYnzpZO1vcYMMpAdJT+QEg6fwmw9Zlg=
 github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78/go.mod h1:LmzpDX56iTiv29bbRTIsUNlaFfuhWRQBWjQdVyAevI8=

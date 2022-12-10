@@ -26,7 +26,6 @@ import (
 	"io"
 	"mime"
 	"net/http"
-	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -225,7 +224,7 @@ func (fs *AzureBlobFs) Open(name string, offset int64) (File, *pipeat.PipeReader
 	go func() {
 		defer cancelFn()
 
-		blockBlob := fs.containerClient.NewBlockBlobClient(url.PathEscape(name))
+		blockBlob := fs.containerClient.NewBlockBlobClient(name)
 		err := fs.handleMultipartDownload(ctx, blockBlob, offset, w)
 		w.CloseWithError(err) //nolint:errcheck
 		fsLog(fs, logger.LevelDebug, "download completed, path: %#v size: %v, err: %+v", name, w.GetWrittenBytes(), err)
@@ -262,7 +261,7 @@ func (fs *AzureBlobFs) Create(name string, flag int) (File, *PipeWriter, func(),
 	go func() {
 		defer cancelFn()
 
-		blockBlob := fs.containerClient.NewBlockBlobClient(url.PathEscape(name))
+		blockBlob := fs.containerClient.NewBlockBlobClient(name)
 		err := fs.handleMultipartUpload(ctx, r, blockBlob, &headers, metadata)
 		r.CloseWithError(err) //nolint:errcheck
 		p.Done(err)
@@ -301,8 +300,8 @@ func (fs *AzureBlobFs) Rename(source, target string) error {
 		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxLongTimeout))
 		defer cancelFn()
 
-		srcBlob := fs.containerClient.NewBlockBlobClient(url.PathEscape(source))
-		dstBlob := fs.containerClient.NewBlockBlobClient(url.PathEscape(target))
+		srcBlob := fs.containerClient.NewBlockBlobClient(source)
+		dstBlob := fs.containerClient.NewBlockBlobClient(target)
 		resp, err := dstBlob.StartCopyFromURL(ctx, srcBlob.URL(), fs.getCopyOptions())
 		if err != nil {
 			metric.AZCopyObjectCompleted(err)
@@ -353,7 +352,7 @@ func (fs *AzureBlobFs) Remove(name string, isDir bool) error {
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
 	defer cancelFn()
 
-	blobBlock := fs.containerClient.NewBlockBlobClient(url.PathEscape(name))
+	blobBlock := fs.containerClient.NewBlockBlobClient(name)
 	var deletSnapshots blob.DeleteSnapshotsOptionType
 	if !isDir {
 		deletSnapshots = blob.DeleteSnapshotsOptionTypeInclude
@@ -766,7 +765,7 @@ func (fs *AzureBlobFs) headObject(name string) (blob.GetPropertiesResponse, erro
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
 	defer cancelFn()
 
-	resp, err := fs.containerClient.NewBlockBlobClient(url.PathEscape(name)).GetProperties(ctx, &blob.GetPropertiesOptions{})
+	resp, err := fs.containerClient.NewBlockBlobClient(name).GetProperties(ctx, &blob.GetPropertiesOptions{})
 
 	metric.AZHeadObjectCompleted(err)
 	return resp, err

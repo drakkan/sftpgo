@@ -5,7 +5,7 @@ go 1.19
 require (
 	cloud.google.com/go/storage v1.28.1
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.2.0
-	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v0.5.1
+	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v0.6.1
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/alexedwards/argon2id v0.0.0-20211130144151-3585854a6387
 	github.com/aws/aws-sdk-go-v2 v1.17.2
