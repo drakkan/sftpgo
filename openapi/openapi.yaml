@@ -4988,12 +4988,18 @@ components:
         default_shares_expiration:
           type: integer
           description: 'Defines the default expiration for newly created shares as number of days. 0 means no expiration'
+        password_expiration:
+          type: integer
+          description: 'The password expires after the defined number of days. 0 means no expiration'
       description: Additional user options
     UserFilters:
       allOf:
         - $ref: '#/components/schemas/BaseUserFilters'
         - type: object
           properties:
+            require_password_change:
+              type: boolean
+              description: 'User must change password from WebClient/REST API at next login'
             totp_config:
               $ref: '#/components/schemas/UserTOTPConfig'
             recovery_codes:
@@ -5420,6 +5426,10 @@ components:
           type: integer
           format: int64
           description: first upload time as unix timestamp in milliseconds
+        last_password_change:
+          type: integer
+          format: int64
+          description: last password change time as unix timestamp in milliseconds
         filters:
           $ref: '#/components/schemas/UserFilters'
         filesystem:
@@ -6308,7 +6318,8 @@ components:
         object_name:
           type: string
         object_data:
-          type: byte
+          type: string
+          format: byte
           description: 'base64 of the JSON serialized object with sensitive fields removed'
         instance_id:
           type: string
