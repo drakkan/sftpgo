@@ -119,6 +119,8 @@ type UserTOTPConfig struct {
 // TODO: rename to UserOptions in v3
 type UserFilters struct {
 	sdk.BaseUserFilters
+	// User must change password from WebClient/REST API at next login.
+	RequirePasswordChange bool `json:"require_password_change,omitempty"`
 	// Time-based one time passwords configuration
 	TOTPConfig UserTOTPConfig `json:"totp_config,omitempty"`
 	// Recovery codes to use if the user loses access to their second factor auth device.
@@ -1108,6 +1110,18 @@ func (u *User) CanDeleteFromWeb(target string) bool {
 	return u.HasAnyPerm(permsDeleteAny, target)
 }
 
+// MustChangePassword returns true if the user must change the password
+func (u *User) MustChangePassword() bool {
+	if u.Filters.RequirePasswordChange {
+		return true
+	}
+	if u.Filters.PasswordExpiration == 0 {
+		return false
+	}
+	lastPwdChange := util.GetTimeFromMsecSinceEpoch(u.LastPasswordChange)
+	return lastPwdChange.Add(time.Duration(u.Filters.PasswordExpiration) * 24 * time.Hour).Before(time.Now())
+}
+
 // MustSetSecondFactor returns true if the user must set a second factor authentication
 func (u *User) MustSetSecondFactor() bool {
 	if len(u.Filters.TwoFactorAuthProtocols) > 0 {
@@ -1751,6 +1765,9 @@ func (u *User) mergePrimaryGroupFilters(filters sdk.BaseUserFilters, replacer *s
 	if u.Filters.DefaultSharesExpiration == 0 {
 		u.Filters.DefaultSharesExpiration = filters.DefaultSharesExpiration
 	}
+	if u.Filters.PasswordExpiration == 0 {
+		u.Filters.PasswordExpiration = filters.PasswordExpiration
+	}
 }
 
 func (u *User) mergeAdditiveProperties(group Group, groupType int, replacer *strings.Replacer) {
@@ -1864,6 +1881,7 @@ func (u *User) getACopy() User {
 	filters := UserFilters{
 		BaseUserFilters: copyBaseUserFilters(u.Filters.BaseUserFilters),
 	}
+	filters.RequirePasswordChange = u.Filters.RequirePasswordChange
 	filters.TOTPConfig.Enabled = u.Filters.TOTPConfig.Enabled
 	filters.TOTPConfig.ConfigName = u.Filters.TOTPConfig.ConfigName
 	filters.TOTPConfig.Secret = u.Filters.TOTPConfig.Secret.Clone()
@@ -1909,6 +1927,7 @@ func (u *User) getACopy() User {
 			LastLogin:                u.LastLogin,
 			FirstDownload:            u.FirstDownload,
 			FirstUpload:              u.FirstUpload,
+			LastPasswordChange:       u.LastPasswordChange,
 			AdditionalInfo:           u.AdditionalInfo,
 			Description:              u.Description,
 			CreatedAt:                u.CreatedAt,

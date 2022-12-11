@@ -1523,6 +1523,27 @@ func TestMaxPerHostConnections(t *testing.T) {
 	common.Config.MaxPerHostConnections = oldValue
 }
 
+func TestMustChangePasswordRequirement(t *testing.T) {
+	u := getTestUser()
+	u.Filters.RequirePasswordChange = true
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	client := getWebDavClient(user, false, nil)
+	assert.Error(t, checkBasicFunc(client))
+
+	err = dataprovider.UpdateUserPassword(user.Username, defaultPassword, "", "", "")
+	assert.NoError(t, err)
+
+	client = getWebDavClient(user, false, nil)
+	assert.NoError(t, checkBasicFunc(client))
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestMaxSessions(t *testing.T) {
 	u := getTestUser()
 	u.MaxSessions = 1

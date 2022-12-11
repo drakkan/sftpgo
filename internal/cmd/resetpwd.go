@@ -68,10 +68,6 @@ Please take a look at the usage below to customize the options.`,
 				logger.ErrorToConsole("memory provider is not supported")
 				os.Exit(1)
 			}
-			// ignore actions
-			providerConf.Actions.Hook = ""
-			providerConf.Actions.ExecuteFor = nil
-			providerConf.Actions.ExecuteOn = nil
 			logger.InfoToConsole("Initializing provider: %q config file: %q", providerConf.Driver, viper.ConfigFileUsed())
 			err = dataprovider.Initialize(providerConf, configDir, false)
 			if err != nil {

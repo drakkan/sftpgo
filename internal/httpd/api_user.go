@@ -103,6 +103,7 @@ func addUser(w http.ResponseWriter, r *http.Request) {
 	if claims.Role != "" {
 		user.Role = claims.Role
 	}
+	user.LastPasswordChange = 0
 	user.Filters.RecoveryCodes = nil
 	user.Filters.TOTPConfig = dataprovider.UserTOTPConfig{
 		Enabled: false,
@@ -164,6 +165,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	userID := user.ID
 	username = user.Username
+	lastPwdChange := user.LastPasswordChange
 	totpConfig := user.Filters.TOTPConfig
 	recoveryCodes := user.Filters.RecoveryCodes
 	currentPermissions := user.Permissions
@@ -197,6 +199,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	user.Username = username
 	user.Filters.TOTPConfig = totpConfig
 	user.Filters.RecoveryCodes = recoveryCodes
+	user.LastPasswordChange = lastPwdChange
 	user.SetEmptySecretsIfNil()
 	// we use new Permissions if passed otherwise the old ones
 	if len(user.Permissions) == 0 {

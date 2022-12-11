@@ -34,7 +34,7 @@ import (
 )
 
 const (
-	sqlDatabaseVersion     = 24
+	sqlDatabaseVersion     = 25
 	defaultSQLQueryTimeout = 10 * time.Second
 	longSQLQueryTimeout    = 60 * time.Second
 )
@@ -1119,7 +1119,7 @@ func sqlCommonAddUser(user *User, dbHandle *sql.DB) error {
 			user.MaxSessions, user.QuotaSize, user.QuotaFiles, string(permissions), user.UploadBandwidth,
 			user.DownloadBandwidth, user.Status, user.ExpirationDate, string(filters), string(fsConfig), user.AdditionalInfo,
 			user.Description, user.Email, util.GetTimeAsMsSinceEpoch(time.Now()), util.GetTimeAsMsSinceEpoch(time.Now()),
-			user.UploadDataTransfer, user.DownloadDataTransfer, user.TotalDataTransfer, user.Role)
+			user.UploadDataTransfer, user.DownloadDataTransfer, user.TotalDataTransfer, user.Role, user.LastPasswordChange)
 		if err != nil {
 			return err
 		}
@@ -1170,7 +1170,7 @@ func sqlCommonUpdateUser(user *User, dbHandle *sql.DB) error {
 			user.QuotaSize, user.QuotaFiles, string(permissions), user.UploadBandwidth, user.DownloadBandwidth, user.Status,
 			user.ExpirationDate, string(filters), string(fsConfig), user.AdditionalInfo, user.Description, user.Email,
 			util.GetTimeAsMsSinceEpoch(time.Now()), user.UploadDataTransfer, user.DownloadDataTransfer, user.TotalDataTransfer,
-			user.Role, user.ID)
+			user.Role, user.LastPasswordChange, user.ID)
 		if err != nil {
 			return err
 		}
@@ -1926,7 +1926,7 @@ func getUserFromDbRow(row sqlScanner) (User, error) {
 		&user.UploadBandwidth, &user.DownloadBandwidth, &user.ExpirationDate, &user.LastLogin, &user.Status, &filters, &fsConfig,
 		&additionalInfo, &description, &email, &user.CreatedAt, &user.UpdatedAt, &user.UploadDataTransfer, &user.DownloadDataTransfer,
 		&user.TotalDataTransfer, &user.UsedUploadDataTransfer, &user.UsedDownloadDataTransfer, &user.DeletedAt, &user.FirstDownload,
-		&user.FirstUpload, &role)
+		&user.FirstUpload, &role, &user.LastPasswordChange)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return user, util.NewRecordNotFoundError(err.Error())

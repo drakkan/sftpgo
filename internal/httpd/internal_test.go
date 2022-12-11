@@ -1284,7 +1284,7 @@ func TestJWTTokenValidation(t *testing.T) {
 	fn.ServeHTTP(rr, req.WithContext(ctx))
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 
-	fn = server.checkSecondFactorRequirement(r)
+	fn = server.checkAuthRequirements(r)
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest(http.MethodPost, webClientProfilePath, nil)
 	req.RequestURI = webClientProfilePath
@@ -2899,6 +2899,37 @@ func TestDbResetCodeManager(t *testing.T) {
 		_, err = dbMgr.decodeData("astring")
 		assert.Error(t, err)
 	}
+}
+
+func TestDecodeToken(t *testing.T) {
+	nodeID := "nodeID"
+	token := map[string]any{
+		claimUsernameKey:            defaultAdminUsername,
+		claimPermissionsKey:         []string{dataprovider.PermAdminAny},
+		jwt.SubjectKey:              "",
+		claimNodeID:                 nodeID,
+		claimMustChangePasswordKey:  false,
+		claimMustSetSecondFactorKey: true,
+	}
+	c := jwtTokenClaims{}
+	c.Decode(token)
+	assert.Equal(t, defaultAdminUsername, c.Username)
+	assert.Equal(t, nodeID, c.NodeID)
+	assert.False(t, c.MustChangePassword)
+	assert.True(t, c.MustSetTwoFactorAuth)
+
+	token[claimMustChangePasswordKey] = 10
+	c = jwtTokenClaims{}
+	c.Decode(token)
+	assert.False(t, c.MustChangePassword)
+
+	token[claimMustChangePasswordKey] = true
+	c = jwtTokenClaims{}
+	c.Decode(token)
+	assert.True(t, c.MustChangePassword)
+
+	claims := c.asMap()
+	assert.Equal(t, token, claims)
 }
 
 func TestEventRoleFilter(t *testing.T) {

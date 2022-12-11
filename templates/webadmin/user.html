@@ -129,6 +129,17 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 </div>
             </div>
 
+            <div class="form-group">
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="idRequirePasswordChange" name="require_password_change"
+                    {{if .User.Filters.RequirePasswordChange}}checked{{end}} aria-describedby="requireChangePwdHelpBlock">
+                    <label for="idRequirePasswordChange" class="form-check-label">Require password change</label>
+                    <small id="requireChangePwdHelpBlock" class="form-text text-muted">
+                        User must change password from WebClient/REST API at next login
+                    </small>
+                </div>
+            </div>
+
             <div class="card bg-light mb-3">
                 <div class="card-header">
                     <b>Public keys</b>
@@ -935,6 +946,17 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                                     </select>
                                     <small id="ftpSecurityHelpBlock" class="form-text text-muted">
                                         Ignored if TLS is globally required for all FTP users
+                                    </small>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="idPasswordExpiration" class="col-sm-2 col-form-label">Password expiration</label>
+                                <div class="col-sm-10">
+                                    <input type="number" class="form-control" id="idPasswordExpiration" name="password_expiration"
+                                        value="{{.User.Filters.PasswordExpiration}}" min="0" aria-describedby="passwordExpirationHelpBlock">
+                                    <small id="passwordExpirationHelpBlock" class="form-text text-muted">
+                                        Password expiration as number of days. 0 means no expiration
                                     </small>
                                 </div>
                             </div>
