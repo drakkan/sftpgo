@@ -32,6 +32,7 @@ import (
 	"github.com/rs/xid"
 
 	"github.com/drakkan/sftpgo/v2/internal/logger"
+	"github.com/drakkan/sftpgo/v2/internal/util"
 )
 
 const (
@@ -406,6 +407,9 @@ func (fs *OsFs) findNonexistentDirs(filePath string) ([]string, error) {
 	for fs.IsNotExist(err) {
 		results = append(results, parent)
 		parent = filepath.Dir(parent)
+		if util.Contains(results, parent) {
+			break
+		}
 		_, err = os.Stat(parent)
 	}
 	if err != nil {
