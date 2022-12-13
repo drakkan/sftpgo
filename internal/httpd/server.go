@@ -684,6 +684,7 @@ func (s *httpdServer) loginUser(
 		Signature:                  user.GetSignature(),
 		Role:                       user.Role,
 		MustSetTwoFactorAuth:       user.MustSetSecondFactor(),
+		MustChangePassword:         user.MustChangePassword(),
 		RequiredTwoFactorProtocols: user.Filters.TwoFactorAuthProtocols,
 	}
 
@@ -842,6 +843,7 @@ func (s *httpdServer) generateAndSendUserToken(w http.ResponseWriter, r *http.Re
 		Signature:                  user.GetSignature(),
 		Role:                       user.Role,
 		MustSetTwoFactorAuth:       user.MustSetSecondFactor(),
+		MustChangePassword:         user.MustChangePassword(),
 		RequiredTwoFactorProtocols: user.Filters.TwoFactorAuthProtocols,
 	}
 
@@ -1315,10 +1317,10 @@ func (s *httpdServer) initializeRouter() {
 			router.Use(jwtAuthenticatorAPIUser)
 
 			router.With(forbidAPIKeyAuthentication).Get(userLogoutPath, s.logout)
-			router.With(forbidAPIKeyAuthentication, s.checkSecondFactorRequirement,
-				s.checkHTTPUserPerm(sdk.WebClientPasswordChangeDisabled)).Put(userPwdPath, changeUserPassword)
+			router.With(forbidAPIKeyAuthentication, s.checkHTTPUserPerm(sdk.WebClientPasswordChangeDisabled)).
+				Put(userPwdPath, changeUserPassword)
 			router.With(forbidAPIKeyAuthentication).Get(userProfilePath, getUserProfile)
-			router.With(forbidAPIKeyAuthentication, s.checkSecondFactorRequirement).Put(userProfilePath, updateUserProfile)
+			router.With(forbidAPIKeyAuthentication, s.checkAuthRequirements).Put(userProfilePath, updateUserProfile)
 			// user TOTP APIs
 			router.With(forbidAPIKeyAuthentication, s.checkHTTPUserPerm(sdk.WebClientMFADisabled)).
 				Get(userTOTPConfigsPath, getTOTPConfigs)
@@ -1333,34 +1335,34 @@ func (s *httpdServer) initializeRouter() {
 			router.With(forbidAPIKeyAuthentication, s.checkHTTPUserPerm(sdk.WebClientMFADisabled)).
 				Post(user2FARecoveryCodesPath, generateRecoveryCodes)
 
-			router.With(s.checkSecondFactorRequirement, compressor.Handler).Get(userDirsPath, readUserFolder)
-			router.With(s.checkSecondFactorRequirement, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled)).
+			router.With(s.checkAuthRequirements, compressor.Handler).Get(userDirsPath, readUserFolder)
+			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled)).
 				Post(userDirsPath, createUserDir)
-			router.With(s.checkSecondFactorRequirement, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled)).
+			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled)).
 				Patch(userDirsPath, renameUserDir)
-			router.With(s.checkSecondFactorRequirement, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled)).
+			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled)).
 				Delete(userDirsPath, deleteUserDir)
-			router.With(s.checkSecondFactorRequirement).Get(userFilesPath, getUserFile)
-			router.With(s.checkSecondFactorRequirement, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled)).
+			router.With(s.checkAuthRequirements).Get(userFilesPath, getUserFile)
+			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled)).
 				Post(userFilesPath, uploadUserFiles)
-			router.With(s.checkSecondFactorRequirement, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled)).
+			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled)).
 				Patch(userFilesPath, renameUserFile)
-			router.With(s.checkSecondFactorRequirement, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled)).
+			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled)).
 				Delete(userFilesPath, deleteUserFile)
-			router.With(s.checkSecondFactorRequirement).Post(userStreamZipPath, getUserFilesAsZipStream)
-			router.With(s.checkSecondFactorRequirement, s.checkHTTPUserPerm(sdk.WebClientSharesDisabled)).
+			router.With(s.checkAuthRequirements).Post(userStreamZipPath, getUserFilesAsZipStream)
+			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientSharesDisabled)).
 				Get(userSharesPath, getShares)
-			router.With(s.checkSecondFactorRequirement, s.checkHTTPUserPerm(sdk.WebClientSharesDisabled)).
+			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientSharesDisabled)).
 				Post(userSharesPath, addShare)
-			router.With(s.checkSecondFactorRequirement, s.checkHTTPUserPerm(sdk.WebClientSharesDisabled)).
+			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientSharesDisabled)).
 				Get(userSharesPath+"/{id}", getShareByID)
-			router.With(s.checkSecondFactorRequirement, s.checkHTTPUserPerm(sdk.WebClientSharesDisabled)).
+			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientSharesDisabled)).
 				Put(userSharesPath+"/{id}", updateShare)
-			router.With(s.checkSecondFactorRequirement, s.checkHTTPUserPerm(sdk.WebClientSharesDisabled)).
+			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientSharesDisabled)).
 				Delete(userSharesPath+"/{id}", deleteShare)
-			router.With(s.checkSecondFactorRequirement, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled)).
+			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled)).
 				Post(userUploadFilePath, uploadUserFile)
-			router.With(s.checkSecondFactorRequirement, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled)).
+			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled)).
 				Patch(userFilesDirsMetadataPath, setFileDirMetadata)
 		})
 
@@ -1451,33 +1453,33 @@ func (s *httpdServer) setupWebClientRoutes() {
 			router.Use(jwtAuthenticatorWebClient)
 
 			router.Get(webClientLogoutPath, s.handleWebClientLogout)
-			router.With(s.checkSecondFactorRequirement, s.refreshCookie).Get(webClientFilesPath, s.handleClientGetFiles)
-			router.With(s.checkSecondFactorRequirement, s.refreshCookie).Get(webClientViewPDFPath, s.handleClientViewPDF)
-			router.With(s.checkSecondFactorRequirement, s.refreshCookie).Get(webClientGetPDFPath, s.handleClientGetPDF)
-			router.With(s.checkSecondFactorRequirement, s.refreshCookie, verifyCSRFHeader).Get(webClientFilePath, getUserFile)
-			router.With(s.checkSecondFactorRequirement, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
+			router.With(s.checkAuthRequirements, s.refreshCookie).Get(webClientFilesPath, s.handleClientGetFiles)
+			router.With(s.checkAuthRequirements, s.refreshCookie).Get(webClientViewPDFPath, s.handleClientViewPDF)
+			router.With(s.checkAuthRequirements, s.refreshCookie).Get(webClientGetPDFPath, s.handleClientGetPDF)
+			router.With(s.checkAuthRequirements, s.refreshCookie, verifyCSRFHeader).Get(webClientFilePath, getUserFile)
+			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
 				Post(webClientFilePath, uploadUserFile)
-			router.With(s.checkSecondFactorRequirement, s.refreshCookie).Get(webClientEditFilePath, s.handleClientEditFile)
-			router.With(s.checkSecondFactorRequirement, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
+			router.With(s.checkAuthRequirements, s.refreshCookie).Get(webClientEditFilePath, s.handleClientEditFile)
+			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
 				Patch(webClientFilesPath, renameUserFile)
-			router.With(s.checkSecondFactorRequirement, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
+			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
 				Delete(webClientFilesPath, deleteUserFile)
-			router.With(s.checkSecondFactorRequirement, compressor.Handler, s.refreshCookie).
+			router.With(s.checkAuthRequirements, compressor.Handler, s.refreshCookie).
 				Get(webClientDirsPath, s.handleClientGetDirContents)
-			router.With(s.checkSecondFactorRequirement, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
+			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
 				Post(webClientDirsPath, createUserDir)
-			router.With(s.checkSecondFactorRequirement, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
+			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
 				Patch(webClientDirsPath, renameUserDir)
-			router.With(s.checkSecondFactorRequirement, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
+			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
 				Delete(webClientDirsPath, deleteUserDir)
-			router.With(s.checkSecondFactorRequirement, s.refreshCookie).
+			router.With(s.checkAuthRequirements, s.refreshCookie).
 				Get(webClientDownloadZipPath, s.handleWebClientDownloadZip)
-			router.With(s.checkSecondFactorRequirement, s.refreshCookie).Get(webClientProfilePath,
+			router.With(s.checkAuthRequirements, s.refreshCookie).Get(webClientProfilePath,
 				s.handleClientGetProfile)
-			router.With(s.checkSecondFactorRequirement).Post(webClientProfilePath, s.handleWebClientProfilePost)
-			router.With(s.checkSecondFactorRequirement, s.checkHTTPUserPerm(sdk.WebClientPasswordChangeDisabled)).
+			router.With(s.checkAuthRequirements).Post(webClientProfilePath, s.handleWebClientProfilePost)
+			router.With(s.checkHTTPUserPerm(sdk.WebClientPasswordChangeDisabled)).
 				Get(webChangeClientPwdPath, s.handleWebClientChangePwd)
-			router.With(s.checkSecondFactorRequirement, s.checkHTTPUserPerm(sdk.WebClientPasswordChangeDisabled)).
+			router.With(s.checkHTTPUserPerm(sdk.WebClientPasswordChangeDisabled)).
 				Post(webChangeClientPwdPath, s.handleWebClientChangePwdPost)
 			router.With(s.checkHTTPUserPerm(sdk.WebClientMFADisabled), s.refreshCookie).
 				Get(webClientMFAPath, s.handleWebClientMFA)
@@ -1491,17 +1493,17 @@ func (s *httpdServer) setupWebClientRoutes() {
 				Get(webClientRecoveryCodesPath, getRecoveryCodes)
 			router.With(s.checkHTTPUserPerm(sdk.WebClientMFADisabled), verifyCSRFHeader).
 				Post(webClientRecoveryCodesPath, generateRecoveryCodes)
-			router.With(s.checkSecondFactorRequirement, s.checkHTTPUserPerm(sdk.WebClientSharesDisabled), s.refreshCookie).
+			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientSharesDisabled), s.refreshCookie).
 				Get(webClientSharesPath, s.handleClientGetShares)
-			router.With(s.checkSecondFactorRequirement, s.checkHTTPUserPerm(sdk.WebClientSharesDisabled), s.refreshCookie).
+			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientSharesDisabled), s.refreshCookie).
 				Get(webClientSharePath, s.handleClientAddShareGet)
-			router.With(s.checkSecondFactorRequirement, s.checkHTTPUserPerm(sdk.WebClientSharesDisabled)).
+			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientSharesDisabled)).
 				Post(webClientSharePath, s.handleClientAddSharePost)
-			router.With(s.checkSecondFactorRequirement, s.checkHTTPUserPerm(sdk.WebClientSharesDisabled), s.refreshCookie).
+			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientSharesDisabled), s.refreshCookie).
 				Get(webClientSharePath+"/{id}", s.handleClientUpdateShareGet)
-			router.With(s.checkSecondFactorRequirement, s.checkHTTPUserPerm(sdk.WebClientSharesDisabled)).
+			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientSharesDisabled)).
 				Post(webClientSharePath+"/{id}", s.handleClientUpdateSharePost)
-			router.With(s.checkSecondFactorRequirement, s.checkHTTPUserPerm(sdk.WebClientSharesDisabled), verifyCSRFHeader).
+			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientSharesDisabled), verifyCSRFHeader).
 				Delete(webClientSharePath+"/{id}", deleteShare)
 		})
 	}
@@ -1662,6 +1664,12 @@ func (s *httpdServer) setupWebAdminRoutes() {
 				s.handleWebUpdateRolePost)
 			router.With(s.checkPerm(dataprovider.PermAdminManageRoles), verifyCSRFHeader).
 				Delete(webAdminRolePath+"/{name}", deleteRole)
+			router.With(s.checkPerm(dataprovider.PermAdminViewEvents), s.refreshCookie).Get(webEventsPath,
+				s.handleWebGetEvents)
+			router.With(s.checkPerm(dataprovider.PermAdminViewEvents), compressor.Handler, s.refreshCookie).
+				Get(webEventsFsSearchPath, searchFsEvents)
+			router.With(s.checkPerm(dataprovider.PermAdminViewEvents), compressor.Handler, s.refreshCookie).
+				Get(webEventsProviderSearchPath, searchProviderEvents)
 		})
 	}
 }

@@ -2878,6 +2878,38 @@ func TestInteractiveLoginWithPasscode(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestMustChangePasswordRequirement(t *testing.T) {
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	u.Filters.RequirePasswordChange = true
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	// public key auth works even if the user must change password
+	conn, client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		assert.NoError(t, checkBasicSFTP(client))
+	}
+	// password auth does not work
+	_, _, err = getSftpClient(user, false)
+	assert.Error(t, err)
+	// change password
+	err = dataprovider.UpdateUserPassword(user.Username, defaultPassword, "", "", "")
+	assert.NoError(t, err)
+	conn, client, err = getSftpClient(user, false)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		assert.NoError(t, checkBasicSFTP(client))
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestSecondFactorRequirement(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)
@@ -4105,6 +4137,7 @@ func TestExternalAuthReturningAnonymousUser(t *testing.T) {
 	updatedUser, _, err := httpdtest.GetUserByUsername(defaultUsername, http.StatusOK)
 	assert.NoError(t, err)
 	user.UpdatedAt = updatedUser.UpdatedAt
+	user.LastPasswordChange = updatedUser.LastPasswordChange
 	assert.Equal(t, user, updatedUser)
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)

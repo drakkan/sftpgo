@@ -27,7 +27,7 @@ const (
 		"u.permissions,u.used_quota_size,u.used_quota_files,u.last_quota_update,u.upload_bandwidth,u.download_bandwidth," +
 		"u.expiration_date,u.last_login,u.status,u.filters,u.filesystem,u.additional_info,u.description,u.email,u.created_at," +
 		"u.updated_at,u.upload_data_transfer,u.download_data_transfer,u.total_data_transfer," +
-		"u.used_upload_data_transfer,u.used_download_data_transfer,u.deleted_at,u.first_download,u.first_upload,r.name"
+		"u.used_upload_data_transfer,u.used_download_data_transfer,u.deleted_at,u.first_download,u.first_upload,r.name,u.last_password_change"
 	selectFolderFields = "id,path,used_quota_size,used_quota_files,last_quota_update,name,description,filesystem"
 	selectAdminFields  = "a.id,a.username,a.password,a.status,a.email,a.permissions,a.filters,a.additional_info,a.description,a.created_at,a.updated_at,a.last_login,r.name"
 	selectAPIKeyFields = "key_id,name,api_key,scope,created_at,updated_at,last_use_at,expires_at,description,user_id,admin_id"
@@ -588,32 +588,33 @@ func getAddUserQuery(role string) string {
 	return fmt.Sprintf(`INSERT INTO %s (username,password,public_keys,home_dir,uid,gid,max_sessions,quota_size,quota_files,permissions,
 		used_quota_size,used_quota_files,last_quota_update,upload_bandwidth,download_bandwidth,status,last_login,expiration_date,filters,
 		filesystem,additional_info,description,email,created_at,updated_at,upload_data_transfer,download_data_transfer,total_data_transfer,
-		used_upload_data_transfer,used_download_data_transfer,deleted_at,first_download,first_upload,role_id)
+		used_upload_data_transfer,used_download_data_transfer,deleted_at,first_download,first_upload,role_id,last_password_change)
 		VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,0,0,0,%s,%s,%s,0,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,0,0,0,0,0,
-		COALESCE((SELECT id from %s WHERE name=%s),%s))`,
+		COALESCE((SELECT id from %s WHERE name=%s),%s),%s)`,
 		sqlTableUsers, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3], sqlPlaceholders[4],
 		sqlPlaceholders[5], sqlPlaceholders[6], sqlPlaceholders[7], sqlPlaceholders[8], sqlPlaceholders[9],
 		sqlPlaceholders[10], sqlPlaceholders[11], sqlPlaceholders[12], sqlPlaceholders[13], sqlPlaceholders[14],
 		sqlPlaceholders[15], sqlPlaceholders[16], sqlPlaceholders[17], sqlPlaceholders[18], sqlPlaceholders[19],
 		sqlPlaceholders[20], sqlPlaceholders[21], sqlPlaceholders[22], sqlPlaceholders[23], sqlTableRoles,
-		sqlPlaceholders[24], getCoalesceDefaultForRole(role))
+		sqlPlaceholders[24], getCoalesceDefaultForRole(role), sqlPlaceholders[25])
 }
 
 func getUpdateUserQuery(role string) string {
 	return fmt.Sprintf(`UPDATE %s SET password=%s,public_keys=%s,home_dir=%s,uid=%s,gid=%s,max_sessions=%s,quota_size=%s,
 		quota_files=%s,permissions=%s,upload_bandwidth=%s,download_bandwidth=%s,status=%s,expiration_date=%s,filters=%s,filesystem=%s,
 		additional_info=%s,description=%s,email=%s,updated_at=%s,upload_data_transfer=%s,download_data_transfer=%s,
-		total_data_transfer=%s,role_id=COALESCE((SELECT id from %s WHERE name=%s),%s) WHERE id = %s`,
+		total_data_transfer=%s,role_id=COALESCE((SELECT id from %s WHERE name=%s),%s),last_password_change=%s WHERE id = %s`,
 		sqlTableUsers, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3], sqlPlaceholders[4],
 		sqlPlaceholders[5], sqlPlaceholders[6], sqlPlaceholders[7], sqlPlaceholders[8], sqlPlaceholders[9],
 		sqlPlaceholders[10], sqlPlaceholders[11], sqlPlaceholders[12], sqlPlaceholders[13], sqlPlaceholders[14],
 		sqlPlaceholders[15], sqlPlaceholders[16], sqlPlaceholders[17], sqlPlaceholders[18], sqlPlaceholders[19],
 		sqlPlaceholders[20], sqlPlaceholders[21], sqlTableRoles, sqlPlaceholders[22], getCoalesceDefaultForRole(role),
-		sqlPlaceholders[23])
+		sqlPlaceholders[23], sqlPlaceholders[24])
 }
 
 func getUpdateUserPasswordQuery() string {
-	return fmt.Sprintf(`UPDATE %s SET password=%s WHERE username = %s`, sqlTableUsers, sqlPlaceholders[0], sqlPlaceholders[1])
+	return fmt.Sprintf(`UPDATE %s SET password=%s WHERE username = %s`,
+		sqlTableUsers, sqlPlaceholders[0], sqlPlaceholders[1])
 }
 
 func getDeleteUserQuery(softDelete bool) string {

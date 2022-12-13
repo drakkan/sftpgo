@@ -36,6 +36,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/kms"
 	"github.com/drakkan/sftpgo/v2/internal/mfa"
+	"github.com/drakkan/sftpgo/v2/internal/plugin"
 	"github.com/drakkan/sftpgo/v2/internal/smtp"
 	"github.com/drakkan/sftpgo/v2/internal/util"
 	"github.com/drakkan/sftpgo/v2/internal/version"
@@ -86,6 +87,7 @@ const (
 	templateEventAction      = "eventaction.html"
 	templateRoles            = "roles.html"
 	templateRole             = "role.html"
+	templateEvents           = "events.html"
 	templateMessage          = "message.html"
 	templateStatus           = "status.html"
 	templateLogin            = "login.html"
@@ -108,6 +110,7 @@ const (
 	pageChangePwdTitle       = "Change password"
 	pageMaintenanceTitle     = "Maintenance"
 	pageDefenderTitle        = "Defender"
+	pageEventsTitle          = "Logs"
 	pageForgotPwdTitle       = "SFTPGo Admin - Forgot password"
 	pageResetPwdTitle        = "SFTPGo Admin - Reset password"
 	pageSetupTitle           = "Create first admin user"
@@ -135,6 +138,7 @@ type basePage struct {
 	FolderURL          string
 	FolderTemplateURL  string
 	DefenderURL        string
+	EventsURL          string
 	LogoutURL          string
 	ProfileURL         string
 	ChangePwdURL       string
@@ -160,10 +164,12 @@ type basePage struct {
 	StatusTitle        string
 	MaintenanceTitle   string
 	DefenderTitle      string
+	EventsTitle        string
 	Version            string
 	CSRFToken          string
 	IsEventManagerPage bool
 	HasDefender        bool
+	HasSearcher        bool
 	HasExternalLogin   bool
 	LoggedAdmin        *dataprovider.Admin
 	Branding           UIBranding
@@ -349,6 +355,12 @@ type eventRulePage struct {
 	IsShared        bool
 }
 
+type eventsPage struct {
+	basePage
+	FsEventsSearchURL       string
+	ProviderEventsSearchURL string
+}
+
 type messagePage struct {
 	basePage
 	Error   string
@@ -505,6 +517,11 @@ func loadAdminTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateRole),
 	}
+	eventsPaths := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
+		filepath.Join(templatesPath, templateAdminDir, templateBase),
+		filepath.Join(templatesPath, templateAdminDir, templateEvents),
+	}
 
 	fsBaseTpl := template.New("fsBaseTemplate").Funcs(template.FuncMap{
 		"ListFSProviders": func() []sdk.FilesystemProvider {
@@ -543,6 +560,7 @@ func loadAdminTemplates(templatesPath string) {
 	resetPwdTmpl := util.LoadTemplate(nil, resetPwdPaths...)
 	rolesTmpl := util.LoadTemplate(nil, rolesPaths...)
 	roleTmpl := util.LoadTemplate(nil, rolePaths...)
+	eventsTmpl := util.LoadTemplate(nil, eventsPaths...)
 
 	adminTemplates[templateUsers] = usersTmpl
 	adminTemplates[templateUser] = userTmpl
@@ -572,6 +590,7 @@ func loadAdminTemplates(templatesPath string) {
 	adminTemplates[templateResetPassword] = resetPwdTmpl
 	adminTemplates[templateRoles] = rolesTmpl
 	adminTemplates[templateRole] = roleTmpl
+	adminTemplates[templateEvents] = eventsTmpl
 }
 
 func isEventManagerResource(currentURL string) bool {
@@ -609,6 +628,7 @@ func (s *httpdServer) getBasePageData(title, currentURL string, r *http.Request)
 		FolderURL:          webFolderPath,
 		FolderTemplateURL:  webTemplateFolder,
 		DefenderURL:        webDefenderPath,
+		EventsURL:          webEventsPath,
 		LogoutURL:          webLogoutPath,
 		ProfileURL:         webAdminProfilePath,
 		ChangePwdURL:       webChangeAdminPwdPath,
@@ -636,10 +656,12 @@ func (s *httpdServer) getBasePageData(title, currentURL string, r *http.Request)
 		StatusTitle:        pageStatusTitle,
 		MaintenanceTitle:   pageMaintenanceTitle,
 		DefenderTitle:      pageDefenderTitle,
+		EventsTitle:        pageEventsTitle,
 		Version:            version.GetAsString(),
 		LoggedAdmin:        getAdminFromToken(r),
 		IsEventManagerPage: isEventManagerResource(currentURL),
 		HasDefender:        common.Config.DefenderConfig.Enabled,
+		HasSearcher:        plugin.Handler.HasSearcher(),
 		HasExternalLogin:   isLoggedInWithOIDC(r),
 		CSRFToken:          csrfToken,
 		Branding:           s.binding.Branding.WebAdmin,
@@ -1388,6 +1410,10 @@ func getFiltersFromUserPostFields(r *http.Request) (sdk.BaseUserFilters, error) 
 	if err != nil {
 		return filters, fmt.Errorf("invalid default shares expiration: %w", err)
 	}
+	passwordExpiration, err := strconv.ParseInt(r.Form.Get("password_expiration"), 10, 64)
+	if err != nil {
+		return filters, fmt.Errorf("invalid password expiration: %w", err)
+	}
 	if r.Form.Get("ftp_security") == "1" {
 		filters.FTPSecurity = 1
 	}
@@ -1402,6 +1428,7 @@ func getFiltersFromUserPostFields(r *http.Request) (sdk.BaseUserFilters, error) 
 	filters.TLSUsername = sdk.TLSUsername(r.Form.Get("tls_username"))
 	filters.WebClient = r.Form["web_client_options"]
 	filters.DefaultSharesExpiration = int(defaultSharesExpiration)
+	filters.PasswordExpiration = int(passwordExpiration)
 	hooks := r.Form["hooks"]
 	if util.Contains(hooks, "external_auth_disabled") {
 		filters.Hooks.ExternalAuthDisabled = true
@@ -1924,7 +1951,8 @@ func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 			Role:                 r.Form.Get("role"),
 		},
 		Filters: dataprovider.UserFilters{
-			BaseUserFilters: filters,
+			BaseUserFilters:       filters,
+			RequirePasswordChange: r.Form.Get("require_password_change") != "",
 		},
 		VirtualFolders: getVirtualFoldersFromPostFields(r),
 		FsConfig:       fsConfig,
@@ -2961,6 +2989,7 @@ func (s *httpdServer) handleWebUpdateUserPost(w http.ResponseWriter, r *http.Req
 	updatedUser.Username = user.Username
 	updatedUser.Filters.RecoveryCodes = user.Filters.RecoveryCodes
 	updatedUser.Filters.TOTPConfig = user.Filters.TOTPConfig
+	updatedUser.LastPasswordChange = user.LastPasswordChange
 	updatedUser.SetEmptySecretsIfNil()
 	if updatedUser.Password == redactedSecret {
 		updatedUser.Password = user.Password
@@ -3635,4 +3664,15 @@ func (s *httpdServer) handleWebUpdateRolePost(w http.ResponseWriter, r *http.Req
 		return
 	}
 	http.Redirect(w, r, webAdminRolesPath, http.StatusSeeOther)
+}
+
+func (s *httpdServer) handleWebGetEvents(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+
+	data := eventsPage{
+		basePage:                s.getBasePageData(pageEventsTitle, webEventsPath, r),
+		FsEventsSearchURL:       webEventsFsSearchPath,
+		ProviderEventsSearchURL: webEventsProviderSearchPath,
+	}
+	renderAdminTemplate(w, templateEvents, data)
 }

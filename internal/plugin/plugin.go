@@ -291,6 +291,11 @@ func (m *Manager) NotifyProviderEvent(event *notifier.ProviderEvent, object Rend
 	}
 }
 
+// HasSearcher returns true if an event searcher plugin is defined
+func (m *Manager) HasSearcher() bool {
+	return m.hasSearcher
+}
+
 // SearchFsEvents returns the filesystem events matching the specified filters
 func (m *Manager) SearchFsEvents(searchFilters *eventsearcher.FsEventSearch) ([]byte, []string, []string, error) {
 	if !m.hasSearcher {

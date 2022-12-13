@@ -54,6 +54,7 @@ const (
 	claimRole                       = "role"
 	claimAPIKey                     = "api_key"
 	claimNodeID                     = "node_id"
+	claimMustChangePasswordKey      = "chpwd"
 	claimMustSetSecondFactorKey     = "2fa_required"
 	claimRequiredTwoFactorProtocols = "2fa_protos"
 	claimHideUserPageSection        = "hus"
@@ -79,6 +80,7 @@ type jwtTokenClaims struct {
 	APIKeyID                   string
 	NodeID                     string
 	MustSetTwoFactorAuth       bool
+	MustChangePassword         bool
 	RequiredTwoFactorProtocols []string
 	HideUserPageSections       int
 }
@@ -108,6 +110,9 @@ func (c *jwtTokenClaims) asMap() map[string]any {
 		claims[claimNodeID] = c.NodeID
 	}
 	claims[jwt.SubjectKey] = c.Signature
+	if c.MustChangePassword {
+		claims[claimMustChangePasswordKey] = c.MustChangePassword
+	}
 	if c.MustSetTwoFactorAuth {
 		claims[claimMustSetSecondFactorKey] = c.MustSetTwoFactorAuth
 	}
@@ -122,73 +127,73 @@ func (c *jwtTokenClaims) asMap() map[string]any {
 }
 
 func (c *jwtTokenClaims) decodeSliceString(val any) []string {
-	var result []string
-
 	switch v := val.(type) {
 	case []any:
+		result := make([]string, 0, len(v))
 		for _, elem := range v {
 			switch elemValue := elem.(type) {
 			case string:
 				result = append(result, elemValue)
 			}
 		}
+		return result
+	case []string:
+		return v
+	default:
+		return nil
 	}
+}
 
-	return result
+func (c *jwtTokenClaims) decodeBoolean(val any) bool {
+	switch v := val.(type) {
+	case bool:
+		return v
+	default:
+		return false
+	}
+}
+
+func (c *jwtTokenClaims) decodeString(val any) string {
+	switch v := val.(type) {
+	case string:
+		return v
+	default:
+		return ""
+	}
 }
 
 func (c *jwtTokenClaims) Decode(token map[string]any) {
 	c.Permissions = nil
-	username := token[claimUsernameKey]
-
-	switch v := username.(type) {
-	case string:
-		c.Username = v
-	}
-
-	signature := token[jwt.SubjectKey]
-
-	switch v := signature.(type) {
-	case string:
-		c.Signature = v
-	}
+	c.Username = c.decodeString(token[claimUsernameKey])
+	c.Signature = c.decodeString(token[jwt.SubjectKey])
 
 	audience := token[jwt.AudienceKey]
-
 	switch v := audience.(type) {
 	case []string:
 		c.Audience = v
 	}
 
 	if val, ok := token[claimAPIKey]; ok {
-		switch v := val.(type) {
-		case string:
-			c.APIKeyID = v
-		}
+		c.APIKeyID = c.decodeString(val)
 	}
 
 	if val, ok := token[claimNodeID]; ok {
-		switch v := val.(type) {
-		case string:
-			c.NodeID = v
-		}
+		c.NodeID = c.decodeString(val)
 	}
 
 	if val, ok := token[claimRole]; ok {
-		switch v := val.(type) {
-		case string:
-			c.Role = v
-		}
+		c.Role = c.decodeString(val)
 	}
 
 	permissions := token[claimPermissionsKey]
 	c.Permissions = c.decodeSliceString(permissions)
 
+	if val, ok := token[claimMustChangePasswordKey]; ok {
+		c.MustChangePassword = c.decodeBoolean(val)
+	}
+
 	if val, ok := token[claimMustSetSecondFactorKey]; ok {
-		switch v := val.(type) {
-		case bool:
-			c.MustSetTwoFactorAuth = v
-		}
+		c.MustSetTwoFactorAuth = c.decodeBoolean(val)
 	}
 
 	if val, ok := token[claimRequiredTwoFactorProtocols]; ok {

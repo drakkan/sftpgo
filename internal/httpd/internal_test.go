@@ -1284,7 +1284,7 @@ func TestJWTTokenValidation(t *testing.T) {
 	fn.ServeHTTP(rr, req.WithContext(ctx))
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 
-	fn = server.checkSecondFactorRequirement(r)
+	fn = server.checkAuthRequirements(r)
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest(http.MethodPost, webClientProfilePath, nil)
 	req.RequestURI = webClientProfilePath
@@ -2901,6 +2901,37 @@ func TestDbResetCodeManager(t *testing.T) {
 	}
 }
 
+func TestDecodeToken(t *testing.T) {
+	nodeID := "nodeID"
+	token := map[string]any{
+		claimUsernameKey:            defaultAdminUsername,
+		claimPermissionsKey:         []string{dataprovider.PermAdminAny},
+		jwt.SubjectKey:              "",
+		claimNodeID:                 nodeID,
+		claimMustChangePasswordKey:  false,
+		claimMustSetSecondFactorKey: true,
+	}
+	c := jwtTokenClaims{}
+	c.Decode(token)
+	assert.Equal(t, defaultAdminUsername, c.Username)
+	assert.Equal(t, nodeID, c.NodeID)
+	assert.False(t, c.MustChangePassword)
+	assert.True(t, c.MustSetTwoFactorAuth)
+
+	token[claimMustChangePasswordKey] = 10
+	c = jwtTokenClaims{}
+	c.Decode(token)
+	assert.False(t, c.MustChangePassword)
+
+	token[claimMustChangePasswordKey] = true
+	c = jwtTokenClaims{}
+	c.Decode(token)
+	assert.True(t, c.MustChangePassword)
+
+	claims := c.asMap()
+	assert.Equal(t, token, claims)
+}
+
 func TestEventRoleFilter(t *testing.T) {
 	defaultVal := "default"
 	req, err := http.NewRequest(http.MethodGet, fsEventsPath+"?role=role1", nil)
@@ -2909,6 +2940,20 @@ func TestEventRoleFilter(t *testing.T) {
 	assert.Equal(t, defaultVal, role)
 	role = getRoleFilterForEventSearch(req, "")
 	assert.Equal(t, "role1", role)
+}
+
+func TestEventsCSV(t *testing.T) {
+	e := fsEvent{
+		Status: 1,
+	}
+	data := e.getCSVData()
+	assert.Equal(t, "OK", data[4])
+	e.Status = 2
+	data = e.getCSVData()
+	assert.Equal(t, "KO", data[4])
+	e.Status = 3
+	data = e.getCSVData()
+	assert.Equal(t, "Quota exceeded", data[4])
 }
 
 func isSharedProviderSupported() bool {

@@ -212,7 +212,8 @@ func (s *httpdServer) checkHTTPUserPerm(perm string) func(next http.Handler) htt
 	}
 }
 
-func (s *httpdServer) checkSecondFactorRequirement(next http.Handler) http.Handler {
+// checkAuthRequirements checks if the user must set a second factor auth or change the password
+func (s *httpdServer) checkAuthRequirements(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, claims, err := jwtauth.FromContext(r.Context())
 		if err != nil {
@@ -225,9 +226,14 @@ func (s *httpdServer) checkSecondFactorRequirement(next http.Handler) http.Handl
 		}
 		tokenClaims := jwtTokenClaims{}
 		tokenClaims.Decode(claims)
-		if tokenClaims.MustSetTwoFactorAuth {
-			message := fmt.Sprintf("Two-factor authentication requirements not met, please configure two-factor authentication for the following protocols: %v",
-				strings.Join(tokenClaims.RequiredTwoFactorProtocols, ", "))
+		if tokenClaims.MustSetTwoFactorAuth || tokenClaims.MustChangePassword {
+			var message string
+			if tokenClaims.MustSetTwoFactorAuth {
+				message = fmt.Sprintf("Two-factor authentication requirements not met, please configure two-factor authentication for the following protocols: %v",
+					strings.Join(tokenClaims.RequiredTwoFactorProtocols, ", "))
+			} else {
+				message = "Password change required. Please set a new password to continue to use your account"
+			}
 			if isWebRequest(r) {
 				s.renderClientForbiddenPage(w, r, message)
 			} else {

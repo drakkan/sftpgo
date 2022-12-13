@@ -162,6 +162,7 @@ const (
 	webAdminEventActionPath        = "/web/admin/eventaction"
 	webAdminRolesPath              = "/web/admin/roles"
 	webAdminRolePath               = "/web/admin/role"
+	webEventsPath                  = "/web/admin/events"
 	webBasePathClient              = "/web/client"
 	webClientLoginPath             = "/web/client/login"
 	webClientFilesPath             = "/web/client/files"
@@ -568,6 +569,8 @@ func TestBasicUserHandling(t *testing.T) {
 	u.Email = "user@user.com"
 	user, resp, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err, string(resp))
+	lastPwdChange := user.LastPasswordChange
+	assert.Greater(t, lastPwdChange, int64(0))
 	user.MaxSessions = 10
 	user.QuotaSize = 4096
 	user.QuotaFiles = 2
@@ -586,6 +589,7 @@ func TestBasicUserHandling(t *testing.T) {
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	assert.Equal(t, originalUser.ID, user.ID)
+	assert.Equal(t, lastPwdChange, user.LastPasswordChange)
 
 	user, _, err = httpdtest.GetUserByUsername(defaultUsername, http.StatusOK)
 	assert.NoError(t, err)
@@ -2571,6 +2575,115 @@ func TestPermMFADisabled(t *testing.T) {
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestMustChangePasswordRequirement(t *testing.T) {
+	u := getTestUser()
+	u.Filters.RequirePasswordChange = true
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	assert.True(t, user.Filters.RequirePasswordChange)
+
+	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+	webToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodGet, userFilesPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "Password change required. Please set a new password to continue to use your account")
+
+	req, err = http.NewRequest(http.MethodGet, webClientFilesPath, nil)
+	assert.NoError(t, err)
+	req.RequestURI = webClientFilesPath
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "Password change required. Please set a new password to continue to use your account")
+	// change pwd
+	pwd := make(map[string]string)
+	pwd["current_password"] = defaultPassword
+	pwd["new_password"] = altAdminPassword
+	asJSON, err := json.Marshal(pwd)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPut, userPwdPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// check that the change pwd bool is changed
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.False(t, user.Filters.RequirePasswordChange)
+	// get a new token
+	token, err = getJWTAPIUserTokenFromTestServer(defaultUsername, altAdminPassword)
+	assert.NoError(t, err)
+	webToken, err = getJWTWebClientTokenFromTestServer(defaultUsername, altAdminPassword)
+	assert.NoError(t, err)
+	// the new token should work
+	req, err = http.NewRequest(http.MethodGet, userDirsPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	req, err = http.NewRequest(http.MethodGet, webClientFilesPath, nil)
+	assert.NoError(t, err)
+	req.RequestURI = webClientFilesPath
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// check the same as above but changing password from the WebClient UI
+	user.Filters.RequirePasswordChange = true
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	webToken, err = getJWTWebClientTokenFromTestServer(defaultUsername, altAdminPassword)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodGet, webClientFilesPath, nil)
+	assert.NoError(t, err)
+	req.RequestURI = webClientFilesPath
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+
+	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
+	assert.NoError(t, err)
+	form := make(url.Values)
+	form.Set(csrfFormToken, csrfToken)
+	form.Set("current_password", altAdminPassword)
+	form.Set("new_password1", defaultPassword)
+	form.Set("new_password2", defaultPassword)
+	req, err = http.NewRequest(http.MethodPost, webChangeClientPwdPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusFound, rr)
+	assert.Equal(t, webClientLoginPath, rr.Header().Get("Location"))
+
+	token, err = getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+	webToken, err = getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodGet, userDirsPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	req, err = http.NewRequest(http.MethodGet, webClientFilesPath, nil)
+	assert.NoError(t, err)
+	req.RequestURI = webClientFilesPath
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -5865,7 +5978,7 @@ func TestNamingRules(t *testing.T) {
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Contains(t, rr.Body.String(), "the following characters are allowed")
-	// test user reset password
+	// test user reset password. Setting the new password will fail because the username is not valid
 	form = make(url.Values)
 	form.Set("username", user.Username)
 	form.Set(csrfFormToken, csrfToken)
@@ -5886,7 +5999,8 @@ func TestNamingRules(t *testing.T) {
 	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
-	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), "the following characters are allowed")
 
 	adminAPIToken, err = getJWTAPITokenFromTestServer(admin.Username, defaultTokenAuthPass)
 	assert.NoError(t, err)
@@ -8791,6 +8905,8 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 func TestSearchEvents(t *testing.T) {
 	token, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
+	webToken, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
 
 	req, err := http.NewRequest(http.MethodGet, fsEventsPath+"?limit=10&order=ASC&fs_provider=0", nil)
 	assert.NoError(t, err)
@@ -8817,13 +8933,32 @@ func TestSearchEvents(t *testing.T) {
 	err = json.Unmarshal(rr.Body.Bytes(), &events)
 	assert.NoError(t, err)
 	assert.Len(t, events, 1)
-
+	// CSV export
+	req, err = http.NewRequest(http.MethodGet, fsEventsPath+"?limit=10&order=ASC&csv_export=true", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Equal(t, "text/csv", rr.Header().Get("Content-Type"))
 	// the test eventsearcher plugin returns error if start_timestamp < 0
 	req, err = http.NewRequest(http.MethodGet, fsEventsPath+"?start_timestamp=-1&end_timestamp=123456&statuses=1,2", nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusInternalServerError, rr)
+	// CSV export with error
+	exportFunc := func() {
+		defer func() {
+			rcv := recover()
+			assert.Equal(t, http.ErrAbortHandler, rcv)
+		}()
+
+		req, err = http.NewRequest(http.MethodGet, fsEventsPath+"?start_timestamp=-1&csv_export=true", nil)
+		assert.NoError(t, err)
+		setBearerForReq(req, token)
+		rr = executeRequest(req)
+	}
+	exportFunc()
 
 	req, err = http.NewRequest(http.MethodGet, fsEventsPath+"?limit=a", nil)
 	assert.NoError(t, err)
@@ -8847,6 +8982,27 @@ func TestSearchEvents(t *testing.T) {
 			assert.True(t, ok, field)
 		}
 	}
+	req, err = http.NewRequest(http.MethodGet, providerEventsPath+"?omit_object_data=true", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	events = make([]map[string]any, 0)
+	err = json.Unmarshal(rr.Body.Bytes(), &events)
+	assert.NoError(t, err)
+	if assert.Len(t, events, 1) {
+		ev := events[0]
+		field := "object_data"
+		_, ok := ev[field]
+		assert.False(t, ok, field)
+	}
+	// CSV export
+	req, err = http.NewRequest(http.MethodGet, providerEventsPath+"?csv_export=true", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Equal(t, "text/csv", rr.Header().Get("Content-Type"))
 
 	// the test eventsearcher plugin returns error if start_timestamp < 0
 	req, err = http.NewRequest(http.MethodGet, providerEventsPath+"?start_timestamp=-1", nil)
@@ -8854,6 +9010,19 @@ func TestSearchEvents(t *testing.T) {
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusInternalServerError, rr)
+	// CSV export with error
+	exportFunc = func() {
+		defer func() {
+			rcv := recover()
+			assert.Equal(t, http.ErrAbortHandler, rcv)
+		}()
+
+		req, err = http.NewRequest(http.MethodGet, providerEventsPath+"?start_timestamp=-1&csv_export=true", nil)
+		assert.NoError(t, err)
+		setBearerForReq(req, token)
+		rr = executeRequest(req)
+	}
+	exportFunc()
 
 	req, err = http.NewRequest(http.MethodGet, providerEventsPath+"?limit=2000", nil)
 	assert.NoError(t, err)
@@ -8890,6 +9059,12 @@ func TestSearchEvents(t *testing.T) {
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	req, err = http.NewRequest(http.MethodGet, webEventsPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
 }
 
 func TestMFAErrors(t *testing.T) {
@@ -17489,6 +17664,7 @@ func TestWebUserAddMock(t *testing.T) {
 	form.Set("total_data_transfer", "0")
 	form.Set("external_auth_cache_time", "0")
 	form.Set("start_directory", "start/dir")
+	form.Set("require_password_change", "1")
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	// test invalid url escape
 	req, _ = http.NewRequest(http.MethodPost, webUserPath+"?a=%2", &b)
@@ -17635,6 +17811,16 @@ func TestWebUserAddMock(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Contains(t, rr.Body.String(), "invalid default shares expiration")
 	form.Set("default_shares_expiration", "10")
+	// test invalid password expiration
+	form.Set("password_expiration", "a")
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "invalid password expiration")
+	form.Set("password_expiration", "90")
 	// test invalid tls username
 	form.Set("tls_username", "username")
 	b, contentType, _ = getMultipartFormData(form, "", "")
@@ -17783,6 +17969,9 @@ func TestWebUserAddMock(t *testing.T) {
 	assert.Equal(t, "/start/dir", newUser.Filters.StartDirectory)
 	assert.Equal(t, 0, newUser.Filters.FTPSecurity)
 	assert.Equal(t, 10, newUser.Filters.DefaultSharesExpiration)
+	assert.Equal(t, 90, newUser.Filters.PasswordExpiration)
+	assert.Greater(t, newUser.LastPasswordChange, int64(0))
+	assert.True(t, newUser.Filters.RequirePasswordChange)
 	assert.True(t, util.Contains(newUser.PublicKeys, testPubKey))
 	if val, ok := newUser.Permissions["/subdir"]; ok {
 		assert.True(t, util.Contains(val, dataprovider.PermListItems))
@@ -17899,6 +18088,10 @@ func TestWebUserUpdateMock(t *testing.T) {
 	setBearerForReq(req, apiToken)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusCreated, rr)
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	lastPwdChange := user.LastPasswordChange
+	assert.Greater(t, lastPwdChange, int64(0))
 	// add TOTP config
 	configName, _, secret, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
 	assert.NoError(t, err)
@@ -17930,6 +18123,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, user.Filters.TOTPConfig.Enabled)
 	assert.Equal(t, int64(4000), user.TotalDataTransfer)
+	assert.Equal(t, lastPwdChange, user.LastPasswordChange)
 	if assert.Len(t, user.Filters.BandwidthLimits, 1) {
 		if assert.Len(t, user.Filters.BandwidthLimits[0].Sources, 2) {
 			assert.Equal(t, "10.8.0.0/16", user.Filters.BandwidthLimits[0].Sources[0])
@@ -17983,11 +18177,13 @@ func TestWebUserUpdateMock(t *testing.T) {
 	form.Set("denied_protocols", common.ProtocolFTP)
 	form.Set("max_upload_file_size", "100")
 	form.Set("default_shares_expiration", "30")
+	form.Set("password_expiration", "60")
 	form.Set("disconnect", "1")
 	form.Set("additional_info", user.AdditionalInfo)
 	form.Set("description", user.Description)
 	form.Set("tls_username", string(sdk.TLSUsernameCN))
 	form.Set("allow_api_key_auth", "1")
+	form.Set("require_password_change", "1")
 	form.Set("external_auth_cache_time", "120")
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
@@ -18061,6 +18257,8 @@ func TestWebUserUpdateMock(t *testing.T) {
 	assert.Equal(t, int64(0), updateUser.UploadDataTransfer)
 	assert.Equal(t, int64(0), updateUser.Filters.ExternalAuthCacheTime)
 	assert.Equal(t, 30, updateUser.Filters.DefaultSharesExpiration)
+	assert.Equal(t, 60, updateUser.Filters.PasswordExpiration)
+	assert.True(t, updateUser.Filters.RequirePasswordChange)
 	if val, ok := updateUser.Permissions["/otherdir"]; ok {
 		assert.True(t, util.Contains(val, dataprovider.PermListItems))
 		assert.True(t, util.Contains(val, dataprovider.PermUpload))
@@ -18172,6 +18370,7 @@ func TestUserTemplateWithFoldersMock(t *testing.T) {
 	form.Set("fs_provider", "0")
 	form.Set("max_upload_file_size", "0")
 	form.Set("default_shares_expiration", "0")
+	form.Set("password_expiration", "0")
 	form.Set("ftp_security", "1")
 	form.Set("external_auth_cache_time", "0")
 	form.Set("description", "desc %username% %password%")
@@ -18276,6 +18475,7 @@ func TestUserSaveFromTemplateMock(t *testing.T) {
 	form.Set("fs_provider", "0")
 	form.Set("max_upload_file_size", "0")
 	form.Set("default_shares_expiration", "0")
+	form.Set("password_expiration", "0")
 	form.Set("external_auth_cache_time", "0")
 	form.Add("tpl_username", user1)
 	form.Add("tpl_password", "password1")
@@ -18365,6 +18565,7 @@ func TestUserTemplateMock(t *testing.T) {
 	form.Set("denied_extensions", "/dir2::.zip")
 	form.Set("max_upload_file_size", "0")
 	form.Set("default_shares_expiration", "0")
+	form.Set("password_expiration", "0")
 	form.Add("hooks", "external_auth_disabled")
 	form.Add("hooks", "check_password_disabled")
 	form.Set("disable_fs_checks", "checked")
@@ -18496,6 +18697,7 @@ func TestUserPlaceholders(t *testing.T) {
 	form.Set("external_auth_cache_time", "0")
 	form.Set("max_upload_file_size", "0")
 	form.Set("default_shares_expiration", "0")
+	form.Set("password_expiration", "0")
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	req, _ := http.NewRequest(http.MethodPost, webUserPath, &b)
 	setJWTCookieForReq(req, token)
@@ -18777,6 +18979,8 @@ func TestWebUserS3Mock(t *testing.T) {
 	checkResponseCode(t, http.StatusCreated, rr)
 	err = render.DecodeJSON(rr.Body, &user)
 	assert.NoError(t, err)
+	lastPwdChange := user.LastPasswordChange
+	assert.Greater(t, lastPwdChange, int64(0))
 	user.FsConfig.Provider = sdk.S3FilesystemProvider
 	user.FsConfig.S3Config.Bucket = "test"
 	user.FsConfig.S3Config.Region = "eu-west-1"
@@ -18836,6 +19040,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	form.Set("pattern_policy1", "1")
 	form.Set("max_upload_file_size", "0")
 	form.Set("default_shares_expiration", "0")
+	form.Set("password_expiration", "0")
 	form.Set("ftp_security", "1")
 	form.Set("s3_force_path_style", "checked")
 	form.Set("description", user.Description)
@@ -18924,6 +19129,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	assert.Equal(t, updateUser.FsConfig.S3Config.UploadPartMaxTime, user.FsConfig.S3Config.UploadPartMaxTime)
 	assert.Equal(t, updateUser.FsConfig.S3Config.DownloadPartSize, user.FsConfig.S3Config.DownloadPartSize)
 	assert.Equal(t, updateUser.FsConfig.S3Config.DownloadConcurrency, user.FsConfig.S3Config.DownloadConcurrency)
+	assert.Equal(t, lastPwdChange, updateUser.LastPasswordChange)
 	assert.True(t, updateUser.FsConfig.S3Config.ForcePathStyle)
 	if assert.Equal(t, 2, len(updateUser.Filters.FilePatterns)) {
 		for _, filter := range updateUser.Filters.FilePatterns {
@@ -18966,6 +19172,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	assert.Equal(t, updateUser.FsConfig.S3Config.AccessSecret.GetPayload(), lastUpdatedUser.FsConfig.S3Config.AccessSecret.GetPayload())
 	assert.Empty(t, lastUpdatedUser.FsConfig.S3Config.AccessSecret.GetKey())
 	assert.Empty(t, lastUpdatedUser.FsConfig.S3Config.AccessSecret.GetAdditionalData())
+	assert.Equal(t, lastPwdChange, lastUpdatedUser.LastPasswordChange)
 	// now clear credentials
 	form.Set("s3_access_key", "")
 	form.Set("s3_access_secret", "")
@@ -19045,6 +19252,7 @@ func TestWebUserGCSMock(t *testing.T) {
 	form.Set("pattern_type0", "allowed")
 	form.Set("max_upload_file_size", "0")
 	form.Set("default_shares_expiration", "0")
+	form.Set("password_expiration", "0")
 	form.Set("ftp_security", "1")
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
@@ -19170,6 +19378,7 @@ func TestWebUserHTTPFsMock(t *testing.T) {
 	form.Set("pattern_type1", "denied")
 	form.Set("max_upload_file_size", "0")
 	form.Set("default_shares_expiration", "0")
+	form.Set("password_expiration", "0")
 	form.Set("http_equality_check_mode", "true")
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
@@ -19295,6 +19504,7 @@ func TestWebUserAzureBlobMock(t *testing.T) {
 	form.Set("pattern_type1", "denied")
 	form.Set("max_upload_file_size", "0")
 	form.Set("default_shares_expiration", "0")
+	form.Set("password_expiration", "0")
 	// test invalid az_upload_part_size
 	form.Set("az_upload_part_size", "a")
 	b, contentType, _ := getMultipartFormData(form, "", "")
@@ -19475,6 +19685,7 @@ func TestWebUserCryptMock(t *testing.T) {
 	form.Set("pattern_type1", "denied")
 	form.Set("max_upload_file_size", "0")
 	form.Set("default_shares_expiration", "0")
+	form.Set("password_expiration", "0")
 	// passphrase cannot be empty
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
@@ -19583,6 +19794,7 @@ func TestWebUserSFTPFsMock(t *testing.T) {
 	form.Set("pattern_type1", "denied")
 	form.Set("max_upload_file_size", "0")
 	form.Set("default_shares_expiration", "0")
+	form.Set("password_expiration", "0")
 	// empty sftpconfig
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
@@ -19708,6 +19920,7 @@ func TestWebUserRole(t *testing.T) {
 	form.Set("total_data_transfer", strconv.FormatInt(user.TotalDataTransfer, 10))
 	form.Set("max_upload_file_size", "0")
 	form.Set("default_shares_expiration", "10")
+	form.Set("password_expiration", "0")
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	req, err := http.NewRequest(http.MethodPost, webUserPath, &b)
 	assert.NoError(t, err)
@@ -20625,6 +20838,7 @@ func TestAddWebGroup(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "invalid max upload file size")
 	form.Set("max_upload_file_size", "0")
 	form.Set("default_shares_expiration", "0")
+	form.Set("password_expiration", "0")
 	b, contentType, err = getMultipartFormData(form, "", "")
 	assert.NoError(t, err)
 	req, err = http.NewRequest(http.MethodPost, webGroupPath, &b)
@@ -21057,6 +21271,7 @@ func TestUpdateWebGroupMock(t *testing.T) {
 	form.Set("total_data_transfer", "0")
 	form.Set("max_upload_file_size", "0")
 	form.Set("default_shares_expiration", "0")
+	form.Set("password_expiration", "0")
 	form.Set("external_auth_cache_time", "0")
 	form.Set("fs_provider", strconv.FormatInt(int64(group.UserSettings.FsConfig.Provider), 10))
 	form.Set("sftp_endpoint", group.UserSettings.FsConfig.SFTPConfig.Endpoint)
@@ -21979,6 +22194,22 @@ func TestStaticFilesMock(t *testing.T) {
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
+}
+
+func TestPasswordChangeRequired(t *testing.T) {
+	user := getTestUser()
+	assert.False(t, user.MustChangePassword())
+	user.Filters.RequirePasswordChange = true
+	assert.True(t, user.MustChangePassword())
+	user.Filters.RequirePasswordChange = false
+	assert.False(t, user.MustChangePassword())
+	user.Filters.PasswordExpiration = 2
+	user.LastPasswordChange = util.GetTimeAsMsSinceEpoch(time.Now())
+	assert.False(t, user.MustChangePassword())
+	user.LastPasswordChange = util.GetTimeAsMsSinceEpoch(time.Now().Add(49 * time.Hour))
+	assert.False(t, user.MustChangePassword())
+	user.LastPasswordChange = util.GetTimeAsMsSinceEpoch(time.Now().Add(-49 * time.Hour))
+	assert.True(t, user.MustChangePassword())
 }
 
 func TestSecondFactorRequirements(t *testing.T) {

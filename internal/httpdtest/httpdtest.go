@@ -1833,6 +1833,9 @@ func checkUser(expected *dataprovider.User, actual *dataprovider.User) error {
 	if expected.Email != actual.Email {
 		return errors.New("email mismatch")
 	}
+	if expected.Filters.RequirePasswordChange != actual.Filters.RequirePasswordChange {
+		return errors.New("require_password_change mismatch")
+	}
 	if err := compareUserPermissions(expected.Permissions, actual.Permissions); err != nil {
 		return err
 	}
@@ -2263,6 +2266,9 @@ func compareBaseUserFilters(expected sdk.BaseUserFilters, actual sdk.BaseUserFil
 	}
 	if expected.DefaultSharesExpiration != actual.DefaultSharesExpiration {
 		return errors.New("default_shares_expiration mismatch")
+	}
+	if expected.PasswordExpiration != actual.PasswordExpiration {
+		return errors.New("password_expiration mismatch")
 	}
 	return nil
 }

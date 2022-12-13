@@ -183,6 +183,9 @@ const (
 		"ALTER TABLE `{{users}}` DROP COLUMN `role_id`;" +
 		"ALTER TABLE `{{admins}}` DROP COLUMN `role_id`;" +
 		"DROP TABLE `{{roles}}` CASCADE;"
+	mysqlV25SQL = "ALTER TABLE `{{users}}` ADD COLUMN `last_password_change` bigint DEFAULT 0 NOT NULL; " +
+		"ALTER TABLE `{{users}}` ALTER COLUMN `last_password_change` DROP DEFAULT; "
+	mysqlV25DownSQL = "ALTER TABLE `{{users}}` DROP COLUMN `last_password_change`; "
 )
 
 // MySQLProvider defines the auth provider for MySQL/MariaDB database
@@ -739,6 +742,8 @@ func (p *MySQLProvider) migrateDatabase() error { //nolint:dupl
 		return err
 	case version == 23:
 		return updateMySQLDatabaseFromV23(p.dbHandle)
+	case version == 24:
+		return updateMySQLDatabaseFromV24(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -763,6 +768,8 @@ func (p *MySQLProvider) revertDatabase(targetVersion int) error {
 	switch dbVersion.Version {
 	case 24:
 		return downgradeMySQLDatabaseFromV24(p.dbHandle)
+	case 25:
+		return downgradeMySQLDatabaseFromV25(p.dbHandle)
 	default:
 		return fmt.Errorf("database schema version not handled: %d", dbVersion.Version)
 	}
@@ -774,11 +781,25 @@ func (p *MySQLProvider) resetDatabase() error {
 }
 
 func updateMySQLDatabaseFromV23(dbHandle *sql.DB) error {
-	return updateMySQLDatabaseFrom23To24(dbHandle)
+	if err := updateMySQLDatabaseFrom23To24(dbHandle); err != nil {
+		return err
+	}
+	return updateMySQLDatabaseFromV24(dbHandle)
+}
+
+func updateMySQLDatabaseFromV24(dbHandle *sql.DB) error {
+	return updateMySQLDatabaseFrom24To25(dbHandle)
 }
 
 func downgradeMySQLDatabaseFromV24(dbHandle *sql.DB) error {
 	return downgradeMySQLDatabaseFrom24To23(dbHandle)
+}
+
+func downgradeMySQLDatabaseFromV25(dbHandle *sql.DB) error {
+	if err := downgradeMySQLDatabaseFrom25To24(dbHandle); err != nil {
+		return err
+	}
+	return downgradeMySQLDatabaseFromV24(dbHandle)
 }
 
 func updateMySQLDatabaseFrom23To24(dbHandle *sql.DB) error {
@@ -791,6 +812,13 @@ func updateMySQLDatabaseFrom23To24(dbHandle *sql.DB) error {
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 24, true)
 }
 
+func updateMySQLDatabaseFrom24To25(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database schema version: 24 -> 25")
+	providerLog(logger.LevelInfo, "updating database schema version: 24 -> 25")
+	sql := strings.ReplaceAll(mysqlV25SQL, "{{users}}", sqlTableUsers)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 25, true)
+}
+
 func downgradeMySQLDatabaseFrom24To23(dbHandle *sql.DB) error {
 	logger.InfoToConsole("downgrading database schema version: 24 -> 23")
 	providerLog(logger.LevelInfo, "downgrading database schema version: 24 -> 23")
@@ -799,4 +827,11 @@ func downgradeMySQLDatabaseFrom24To23(dbHandle *sql.DB) error {
 	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
 	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 23, false)
+}
+
+func downgradeMySQLDatabaseFrom25To24(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database schema version: 25 -> 24")
+	providerLog(logger.LevelInfo, "downgrading database schema version: 25 -> 24")
+	sql := strings.ReplaceAll(mysqlV25DownSQL, "{{users}}", sqlTableUsers)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 24, false)
 }

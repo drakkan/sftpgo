@@ -1054,6 +1054,31 @@ func TestMultiFactorAuth(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestMustChangePasswordRequirement(t *testing.T) {
+	u := getTestUser()
+	u.Filters.RequirePasswordChange = true
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	_, err = getFTPClient(user, true, nil)
+	assert.Error(t, err)
+
+	err = dataprovider.UpdateUserPassword(user.Username, defaultPassword, "", "", "")
+	assert.NoError(t, err)
+
+	client, err := getFTPClient(user, true, nil)
+	if assert.NoError(t, err) {
+		err = checkBasicFTP(client)
+		assert.NoError(t, err)
+		err := client.Quit()
+		assert.NoError(t, err)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestSecondFactorRequirement(t *testing.T) {
 	u := getTestUser()
 	u.Filters.TwoFactorAuthProtocols = []string{common.ProtocolFTP}

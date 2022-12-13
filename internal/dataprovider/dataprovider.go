@@ -713,7 +713,7 @@ type Provider interface {
 	addUser(user *User) error
 	updateUser(user *User) error
 	deleteUser(user User, softDelete bool) error
-	updateUserPassword(username, password string) error
+	updateUserPassword(username, password string) error // used internally when converting passwords from other hash
 	getUsers(limit int, offset int, order, role string) ([]User, error)
 	dumpUsers() ([]User, error)
 	getRecentlyUpdatedUsers(after int64) ([]User, error)
@@ -1307,6 +1307,7 @@ func GetUserAfterIDPAuth(username, ip, protocol string, oidcTokenFields *map[str
 	var err error
 	if config.PreLoginHook != "" {
 		user, err = executePreLoginHook(username, LoginMethodIDP, ip, protocol, oidcTokenFields)
+		user.Filters.RequirePasswordChange = false
 	} else {
 		user, err = UserExists(username, "")
 	}
@@ -1942,16 +1943,19 @@ func AddUser(user *User, executor, ipAddress, role string) error {
 
 // UpdateUserPassword updates the user password
 func UpdateUserPassword(username, plainPwd, executor, ipAddress, role string) error {
-	hashedPwd, err := hashPlainPassword(plainPwd)
+	user, err := provider.userExists(username, role)
 	if err != nil {
-		return util.NewGenericError(fmt.Sprintf("unable to set the new password: %v", err))
+		return err
 	}
-	err = provider.updateUserPassword(username, hashedPwd)
-	if err != nil {
-		return util.NewGenericError(fmt.Sprintf("unable to set the new password: %v", err))
+	user.Password = plainPwd
+	user.Filters.RequirePasswordChange = false
+	// the last password change is set when validating the user
+	if err := provider.updateUser(&user); err != nil {
+		return err
 	}
+	webDAVUsersCache.swap(&user)
 	cachedPasswords.Remove(username)
-	executeAction(operationUpdate, executor, ipAddress, actionObjectUser, username, role, &User{})
+	executeAction(operationUpdate, executor, ipAddress, actionObjectUser, username, role, &user)
 	return nil
 }
 
@@ -2331,6 +2335,7 @@ func copyBaseUserFilters(in sdk.BaseUserFilters) sdk.BaseUserFilters {
 	filters.AllowAPIKeyAuth = in.AllowAPIKeyAuth
 	filters.ExternalAuthCacheTime = in.ExternalAuthCacheTime
 	filters.DefaultSharesExpiration = in.DefaultSharesExpiration
+	filters.PasswordExpiration = in.PasswordExpiration
 	filters.WebClient = make([]string, len(in.WebClient))
 	copy(filters.WebClient, in.WebClient)
 	filters.BandwidthLimits = make([]sdk.BandwidthLimit, 0, len(in.BandwidthLimits))
@@ -2804,6 +2809,16 @@ func validateBaseFilters(filters *sdk.BaseUserFilters) error {
 	return validateFiltersPatternExtensions(filters)
 }
 
+func validateCombinedUserFilters(user *User) error {
+	if user.Filters.TOTPConfig.Enabled && util.Contains(user.Filters.WebClient, sdk.WebClientMFADisabled) {
+		return util.NewValidationError("two-factor authentication cannot be disabled for a user with an active configuration")
+	}
+	if user.Filters.RequirePasswordChange && util.Contains(user.Filters.WebClient, sdk.WebClientPasswordChangeDisabled) {
+		return util.NewValidationError("you cannot require password change and at the same time disallow it")
+	}
+	return nil
+}
+
 func validateBaseParams(user *User) error {
 	if user.Username == "" {
 		return util.NewValidationError("username is mandatory")
@@ -2875,6 +2890,7 @@ func createUserPasswordHash(user *User) error {
 			return err
 		}
 		user.Password = hashedPwd
+		user.LastPasswordChange = util.GetTimeAsMsSinceEpoch(time.Now())
 	}
 	return nil
 }
@@ -2945,10 +2961,7 @@ func ValidateUser(user *User) error {
 	if !user.HasExternalAuth() {
 		user.Filters.ExternalAuthCacheTime = 0
 	}
-	if user.Filters.TOTPConfig.Enabled && util.Contains(user.Filters.WebClient, sdk.WebClientMFADisabled) {
-		return util.NewValidationError("two-factor authentication cannot be disabled for a user with an active configuration")
-	}
-	return nil
+	return validateCombinedUserFilters(user)
 }
 
 func isPasswordOK(user *User, password string) (bool, error) {
@@ -3042,6 +3055,9 @@ func checkUserAndPass(user *User, password, ip, protocol string) (User, error) {
 	err = user.CheckLoginConditions()
 	if err != nil {
 		return *user, err
+	}
+	if protocol != protocolHTTP && user.MustChangePassword() {
+		return *user, errors.New("login not allowed, password change required")
 	}
 	if user.Filters.IsAnonymous {
 		user.setAnonymousSettings()
@@ -3700,6 +3716,7 @@ func executePreLoginHook(username, loginMethod, ip, protocol string, oidcTokenFi
 	userLastLogin := u.LastLogin
 	userFirstDownload := u.FirstDownload
 	userFirstUpload := u.FirstUpload
+	userLastPwdChange := u.LastPasswordChange
 	userCreatedAt := u.CreatedAt
 	totpConfig := u.Filters.TOTPConfig
 	recoveryCodes := u.Filters.RecoveryCodes
@@ -3714,6 +3731,7 @@ func executePreLoginHook(username, loginMethod, ip, protocol string, oidcTokenFi
 	u.UsedDownloadDataTransfer = userUsedDownloadTransfer
 	u.LastQuotaUpdate = userLastQuotaUpdate
 	u.LastLogin = userLastLogin
+	u.LastPasswordChange = userLastPwdChange
 	u.FirstDownload = userFirstDownload
 	u.FirstUpload = userFirstUpload
 	u.CreatedAt = userCreatedAt
@@ -3888,6 +3906,7 @@ func updateUserFromExtAuthResponse(user *User, password, pkey string) {
 	if pkey != "" && !util.IsStringPrefixInSlice(pkey, user.PublicKeys) {
 		user.PublicKeys = append(user.PublicKeys, pkey)
 	}
+	user.LastPasswordChange = 0
 }
 
 func doExternalAuth(username, password string, pubKey []byte, keyboardInteractive, ip, protocol string,
@@ -3951,6 +3970,7 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 		user.UsedDownloadDataTransfer = u.UsedDownloadDataTransfer
 		user.LastQuotaUpdate = u.LastQuotaUpdate
 		user.LastLogin = u.LastLogin
+		user.LastPasswordChange = u.LastPasswordChange
 		user.FirstDownload = u.FirstDownload
 		user.FirstUpload = u.FirstUpload
 		user.CreatedAt = u.CreatedAt
@@ -4025,6 +4045,7 @@ func doPluginAuth(username, password string, pubKey []byte, ip, protocol string,
 		user.UsedDownloadDataTransfer = u.UsedDownloadDataTransfer
 		user.LastQuotaUpdate = u.LastQuotaUpdate
 		user.LastLogin = u.LastLogin
+		user.LastPasswordChange = u.LastPasswordChange
 		user.FirstDownload = u.FirstDownload
 		user.FirstUpload = u.FirstUpload
 		// preserve TOTP config and recovery codes
