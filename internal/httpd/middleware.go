@@ -305,10 +305,12 @@ func verifyCSRFHeader(next http.Handler) http.Handler {
 			return
 		}
 
-		if !util.Contains(token.Audience(), util.GetIPFromRemoteAddress(r.RemoteAddr)) {
-			logger.Debug(logSender, "", "error validating CSRF header IP audience")
-			sendAPIResponse(w, r, errors.New("the token is not valid"), "", http.StatusForbidden)
-			return
+		if tokenValidationMode != tokenValidationNoIPMatch {
+			if !util.Contains(token.Audience(), util.GetIPFromRemoteAddress(r.RemoteAddr)) {
+				logger.Debug(logSender, "", "error validating CSRF header IP audience")
+				sendAPIResponse(w, r, errors.New("the token is not valid"), "", http.StatusForbidden)
+				return
+			}
 		}
 
 		next.ServeHTTP(w, r)
