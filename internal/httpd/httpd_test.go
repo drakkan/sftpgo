@@ -1903,6 +1903,11 @@ func TestEventActionValidation(t *testing.T) {
 	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
 	assert.NoError(t, err)
 	assert.Contains(t, string(resp), "invalid path to compress")
+	action.Type = dataprovider.ActionTypePasswordExpirationCheck
+	action.Options.PwdExpirationConfig.Threshold = 0
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "threshold must be greater than 0")
 }
 
 func TestEventRuleValidation(t *testing.T) {
@@ -20011,6 +20016,7 @@ func TestWebEventAction(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Contains(t, rr.Body.String(), "invalid http timeout")
 	form.Set("cmd_timeout", "20")
+	form.Set("pwd_expiration_threshold", "10")
 	form.Set("http_timeout", fmt.Sprintf("%d", action.Options.HTTPConfig.Timeout))
 	form.Set("http_header_key0", action.Options.HTTPConfig.Headers[0].Key)
 	form.Set("http_header_val0", action.Options.HTTPConfig.Headers[0].Value)
@@ -20205,6 +20211,7 @@ func TestWebEventAction(t *testing.T) {
 	assert.Equal(t, action.Options.CmdConfig.Timeout, actionGet.Options.CmdConfig.Timeout)
 	assert.Equal(t, action.Options.CmdConfig.EnvVars, actionGet.Options.CmdConfig.EnvVars)
 	assert.Equal(t, dataprovider.EventActionHTTPConfig{}, actionGet.Options.HTTPConfig)
+	assert.Equal(t, dataprovider.EventActionPasswordExpiration{}, actionGet.Options.PwdExpirationConfig)
 	// change action type again
 	action.Type = dataprovider.ActionTypeEmail
 	action.Options.EmailConfig = dataprovider.EventActionEmailConfig{
@@ -20351,6 +20358,33 @@ func TestWebEventAction(t *testing.T) {
 			}
 		}
 	}
+
+	action.Type = dataprovider.ActionTypePasswordExpirationCheck
+	action.Options.PwdExpirationConfig.Threshold = 15
+	form.Set("type", fmt.Sprintf("%d", action.Type))
+	form.Set("pwd_expiration_threshold", "a")
+	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminEventActionPath, action.Name),
+		bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "invalid password expiration threshold")
+	form.Set("pwd_expiration_threshold", strconv.Itoa(action.Options.PwdExpirationConfig.Threshold))
+	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminEventActionPath, action.Name),
+		bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+	actionGet, _, err = httpdtest.GetEventActionByName(action.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, action.Type, actionGet.Type)
+	assert.Equal(t, action.Options.PwdExpirationConfig.Threshold, actionGet.Options.PwdExpirationConfig.Threshold)
+	assert.Equal(t, 0, actionGet.Options.CmdConfig.Timeout)
+	assert.Len(t, actionGet.Options.CmdConfig.EnvVars, 0)
 
 	req, err = http.NewRequest(http.MethodDelete, path.Join(webAdminEventActionPath, action.Name), nil)
 	assert.NoError(t, err)
@@ -22210,6 +22244,23 @@ func TestPasswordChangeRequired(t *testing.T) {
 	assert.False(t, user.MustChangePassword())
 	user.LastPasswordChange = util.GetTimeAsMsSinceEpoch(time.Now().Add(-49 * time.Hour))
 	assert.True(t, user.MustChangePassword())
+}
+
+func TestPasswordExpiresIn(t *testing.T) {
+	user := getTestUser()
+	user.Filters.PasswordExpiration = 30
+	user.LastPasswordChange = util.GetTimeAsMsSinceEpoch(time.Now().Add(-15*24*time.Hour + 1*time.Hour))
+	res := user.PasswordExpiresIn()
+	assert.Equal(t, 15, res)
+	user.Filters.PasswordExpiration = 15
+	res = user.PasswordExpiresIn()
+	assert.Equal(t, 1, res)
+	user.LastPasswordChange = util.GetTimeAsMsSinceEpoch(time.Now().Add(-15*24*time.Hour - 1*time.Hour))
+	res = user.PasswordExpiresIn()
+	assert.Equal(t, 0, res)
+	user.Filters.PasswordExpiration = 5
+	res = user.PasswordExpiresIn()
+	assert.Equal(t, -10, res)
 }
 
 func TestSecondFactorRequirements(t *testing.T) {

@@ -13,6 +13,7 @@ The following actions are supported:
 - `Transfer quota reset`. The transfer quota values will be reset to `0`.
 - `Data retention check`. You can define per-folder retention policies.
 - `Metadata check`. A metadata check requires a metadata plugin such as [this one](https://github.com/sftpgo/sftpgo-plugin-metadata) and removes the metadata associated to missing items (for example objects deleted outside SFTPGo). A metadata check does nothing is no metadata plugin is installed or external metadata are not supported for a filesystem.
+- `Password expiration check`. You can send an email notification to users whose password is about to expire.
 - `Filesystem`. For these actions, the required permissions are automatically granted. This is the same as executing the actions from an SFTP client and the same restrictions applies. Supported actions:
   - `Rename`. You can rename one or more files or directories.
   - `Delete`. You can delete one or more files and directories.

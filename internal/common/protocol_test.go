@@ -5690,6 +5690,209 @@ func TestEventRuleIPBlocked(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestEventRulePasswordExpiration(t *testing.T) {
+	smtpCfg := smtp.Config{
+		Host:          "127.0.0.1",
+		Port:          2525,
+		From:          "notification@example.com",
+		TemplatesPath: "templates",
+	}
+	err := smtpCfg.Initialize(configDir)
+	require.NoError(t, err)
+
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	a1 := dataprovider.BaseEventAction{
+		Name: "a1",
+		Type: dataprovider.ActionTypeEmail,
+		Options: dataprovider.BaseEventActionOptions{
+			EmailConfig: dataprovider.EventActionEmailConfig{
+				Recipients: []string{"failure@example.net"},
+				Subject:    `Failure`,
+				Body:       "Failure action",
+			},
+		},
+	}
+	action1, _, err := httpdtest.AddEventAction(a1, http.StatusCreated)
+	assert.NoError(t, err)
+	a2 := dataprovider.BaseEventAction{
+		Name: "a2",
+		Type: dataprovider.ActionTypePasswordExpirationCheck,
+		Options: dataprovider.BaseEventActionOptions{
+			PwdExpirationConfig: dataprovider.EventActionPasswordExpiration{
+				Threshold: 10,
+			},
+		},
+	}
+	action2, _, err := httpdtest.AddEventAction(a2, http.StatusCreated)
+	assert.NoError(t, err)
+	a3 := dataprovider.BaseEventAction{
+		Name: "a3",
+		Type: dataprovider.ActionTypeEmail,
+		Options: dataprovider.BaseEventActionOptions{
+			EmailConfig: dataprovider.EventActionEmailConfig{
+				Recipients: []string{"success@example.net"},
+				Subject:    `OK`,
+				Body:       "OK action",
+			},
+		},
+	}
+	action3, _, err := httpdtest.AddEventAction(a3, http.StatusCreated)
+	assert.NoError(t, err)
+
+	r1 := dataprovider.EventRule{
+		Name:    "rule1",
+		Trigger: dataprovider.EventTriggerFsEvent,
+		Conditions: dataprovider.EventConditions{
+			FsEvents: []string{"mkdir"},
+		},
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action2.Name,
+				},
+				Order: 1,
+			},
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action3.Name,
+				},
+				Order: 2,
+			},
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action1.Name,
+				},
+				Options: dataprovider.EventActionOptions{
+					IsFailureAction: true,
+				},
+			},
+		},
+	}
+	rule1, resp, err := httpdtest.AddEventRule(r1, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	dirName := "aTestDir"
+
+	conn, client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		lastReceivedEmail.reset()
+		err := client.Mkdir(dirName)
+		assert.NoError(t, err)
+		// the user has no password expiration, the check will be skipped and the ok action executed
+		assert.Eventually(t, func() bool {
+			return lastReceivedEmail.get().From != ""
+		}, 1500*time.Millisecond, 100*time.Millisecond)
+		email := lastReceivedEmail.get()
+		assert.Len(t, email.To, 1)
+		assert.Contains(t, email.To, "success@example.net")
+		err = client.RemoveDirectory(dirName)
+		assert.NoError(t, err)
+	}
+	user.Filters.PasswordExpiration = 20
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	conn, client, err = getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		lastReceivedEmail.reset()
+		err := client.Mkdir(dirName)
+		assert.NoError(t, err)
+		// the passowrd is not about to expire, the check will be skipped and the ok action executed
+		assert.Eventually(t, func() bool {
+			return lastReceivedEmail.get().From != ""
+		}, 1500*time.Millisecond, 100*time.Millisecond)
+		email := lastReceivedEmail.get()
+		assert.Len(t, email.To, 1)
+		assert.Contains(t, email.To, "success@example.net")
+		err = client.RemoveDirectory(dirName)
+		assert.NoError(t, err)
+	}
+	user.Filters.PasswordExpiration = 5
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	conn, client, err = getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		lastReceivedEmail.reset()
+		err := client.Mkdir(dirName)
+		assert.NoError(t, err)
+		// the passowrd is about to expire, the user has no email, the failure action will be executed
+		assert.Eventually(t, func() bool {
+			return lastReceivedEmail.get().From != ""
+		}, 1500*time.Millisecond, 100*time.Millisecond)
+		email := lastReceivedEmail.get()
+		assert.Len(t, email.To, 1)
+		assert.Contains(t, email.To, "failure@example.net")
+		err = client.RemoveDirectory(dirName)
+		assert.NoError(t, err)
+	}
+	// remove the success action
+	rule1.Actions = []dataprovider.EventAction{
+		{
+			BaseEventAction: dataprovider.BaseEventAction{
+				Name: action2.Name,
+			},
+			Order: 1,
+		},
+		{
+			BaseEventAction: dataprovider.BaseEventAction{
+				Name: action1.Name,
+			},
+			Options: dataprovider.EventActionOptions{
+				IsFailureAction: true,
+			},
+		},
+	}
+	_, _, err = httpdtest.UpdateEventRule(rule1, http.StatusOK)
+	assert.NoError(t, err)
+	user.Email = "user@example.net"
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	conn, client, err = getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		lastReceivedEmail.reset()
+		err := client.Mkdir(dirName)
+		assert.NoError(t, err)
+		// the passowrd expiration will be notified
+		assert.Eventually(t, func() bool {
+			return lastReceivedEmail.get().From != ""
+		}, 1500*time.Millisecond, 100*time.Millisecond)
+		email := lastReceivedEmail.get()
+		assert.Len(t, email.To, 1)
+		assert.Contains(t, email.To, user.Email)
+		assert.Contains(t, email.Data, "Your SFTPGo password expires in 5 days")
+		err = client.RemoveDirectory(dirName)
+		assert.NoError(t, err)
+	}
+
+	_, err = httpdtest.RemoveEventRule(rule1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action2, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action3, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	smtpCfg = smtp.Config{}
+	err = smtpCfg.Initialize(configDir)
+	require.NoError(t, err)
+}
+
 func TestSyncUploadAction(t *testing.T) {
 	if runtime.GOOS == osWindows {
 		t.Skip("this test is not available on Windows")

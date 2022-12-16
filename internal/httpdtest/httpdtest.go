@@ -1450,6 +1450,9 @@ func checkEventAction(expected, actual dataprovider.BaseEventAction) error {
 	if expected.Type != actual.Type {
 		return errors.New("type mismatch")
 	}
+	if expected.Options.PwdExpirationConfig.Threshold != actual.Options.PwdExpirationConfig.Threshold {
+		return errors.New("password expiration threshold mismatch")
+	}
 	if err := compareEventActionCmdConfigFields(expected.Options.CmdConfig, actual.Options.CmdConfig); err != nil {
 		return err
 	}

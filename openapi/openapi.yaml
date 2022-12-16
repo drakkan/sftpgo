@@ -6463,6 +6463,12 @@ components:
             type: string
         compress:
           $ref: '#/components/schemas/EventActionFsCompress'
+    EventActionPasswordExpiration:
+      type: object
+      properties:
+        threshold:
+          type: integer
+          description: 'An email notification will be generated for users whose password expires in a number of days less than or equal to this threshold'
     BaseEventActionOptions:
       type: object
       properties:
@@ -6476,6 +6482,8 @@ components:
           $ref: '#/components/schemas/EventActionDataRetentionConfig'
         fs_config:
           $ref: '#/components/schemas/EventActionFilesystemConfig'
+        pwd_expiration_config:
+          $ref: '#/components/schemas/EventActionPasswordExpiration'
     BaseEventAction:
       type: object
       properties:

@@ -43,8 +43,9 @@ const (
 )
 
 const (
-	templateEmailDir      = "email"
-	templatePasswordReset = "reset-password.html"
+	templateEmailDir           = "email"
+	templatePasswordReset      = "reset-password.html"
+	templatePasswordExpiration = "password-expiration.html"
 )
 
 var (
@@ -158,8 +159,11 @@ func loadTemplates(templatesPath string) {
 
 	passwordResetPath := filepath.Join(templatesPath, templatePasswordReset)
 	pwdResetTmpl := util.LoadTemplate(nil, passwordResetPath)
+	passwordExpirationPath := filepath.Join(templatesPath, templatePasswordExpiration)
+	pwdExpirationTmpl := util.LoadTemplate(nil, passwordExpirationPath)
 
 	emailTemplates[templatePasswordReset] = pwdResetTmpl
+	emailTemplates[templatePasswordExpiration] = pwdExpirationTmpl
 }
 
 // RenderPasswordResetTemplate executes the password reset template
@@ -170,10 +174,21 @@ func RenderPasswordResetTemplate(buf *bytes.Buffer, data any) error {
 	return emailTemplates[templatePasswordReset].Execute(buf, data)
 }
 
+// RenderPasswordExpirationTemplate executes the password expiration template
+func RenderPasswordExpirationTemplate(buf *bytes.Buffer, data any) error {
+	if smtpServer == nil {
+		return errors.New("smtp: not configured")
+	}
+	return emailTemplates[templatePasswordExpiration].Execute(buf, data)
+}
+
 // SendEmail tries to send an email using the specified parameters.
 func SendEmail(to []string, subject, body string, contentType EmailContentType, attachments ...mail.File) error {
 	if smtpServer == nil {
 		return errors.New("smtp: not configured")
+	}
+	if len(to) == 0 {
+		return errors.New("smtp: cannot send an email without recipients")
 	}
 	smtpClient, err := smtpServer.Connect()
 	if err != nil {

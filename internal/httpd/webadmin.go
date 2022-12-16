@@ -1012,13 +1012,16 @@ func (s *httpdServer) renderEventActionPage(w http.ResponseWriter, r *http.Reque
 		currentURL = webAdminEventActionPath
 	case genericPageModeUpdate:
 		title = "Update event action"
-		currentURL = fmt.Sprintf("%v/%v", webAdminEventActionPath, url.PathEscape(action.Name))
+		currentURL = fmt.Sprintf("%s/%s", webAdminEventActionPath, url.PathEscape(action.Name))
 	}
 	if action.Options.HTTPConfig.Timeout == 0 {
 		action.Options.HTTPConfig.Timeout = 20
 	}
 	if action.Options.CmdConfig.Timeout == 0 {
 		action.Options.CmdConfig.Timeout = 20
+	}
+	if action.Options.PwdExpirationConfig.Threshold == 0 {
+		action.Options.PwdExpirationConfig.Threshold = 10
 	}
 
 	data := eventActionPage{
@@ -2122,6 +2125,10 @@ func getEventActionOptionsFromPostFields(r *http.Request) (dataprovider.BaseEven
 	if err != nil {
 		return dataprovider.BaseEventActionOptions{}, fmt.Errorf("invalid fs action type: %w", err)
 	}
+	pwdExpirationThreshold, err := strconv.Atoi(r.Form.Get("pwd_expiration_threshold"))
+	if err != nil {
+		return dataprovider.BaseEventActionOptions{}, fmt.Errorf("invalid password expiration threshold: %w", err)
+	}
 	var emailAttachments []string
 	if r.Form.Get("email_attachments") != "" {
 		emailAttachments = strings.Split(strings.ReplaceAll(r.Form.Get("email_attachments"), " ", ""), ",")
@@ -2168,6 +2175,9 @@ func getEventActionOptionsFromPostFields(r *http.Request) (dataprovider.BaseEven
 				Name:  r.Form.Get("fs_compress_name"),
 				Paths: strings.Split(strings.ReplaceAll(r.Form.Get("fs_compress_paths"), " ", ""), ","),
 			},
+		},
+		PwdExpirationConfig: dataprovider.EventActionPasswordExpiration{
+			Threshold: pwdExpirationThreshold,
 		},
 	}
 	return options, nil

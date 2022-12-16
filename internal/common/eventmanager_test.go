@@ -408,9 +408,12 @@ func TestEventManagerErrors(t *testing.T) {
 	assert.Error(t, err)
 	err = executeCompressFsRuleAction(dataprovider.EventActionFsCompress{}, nil, dataprovider.ConditionOptions{}, &EventParams{})
 	assert.Error(t, err)
+	err = executePwdExpirationCheckRuleAction(dataprovider.EventActionPasswordExpiration{},
+		dataprovider.ConditionOptions{}, &EventParams{})
+	assert.Error(t, err)
 
 	groupName := "agroup"
-	err = executeQuotaResetForUser(dataprovider.User{
+	err = executeQuotaResetForUser(&dataprovider.User{
 		Groups: []sdk.GroupMapping{
 			{
 				Name: groupName,
@@ -419,7 +422,7 @@ func TestEventManagerErrors(t *testing.T) {
 		},
 	})
 	assert.Error(t, err)
-	err = executeMetadataCheckForUser(dataprovider.User{
+	err = executeMetadataCheckForUser(&dataprovider.User{
 		Groups: []sdk.GroupMapping{
 			{
 				Name: groupName,
@@ -489,6 +492,14 @@ func TestEventManagerErrors(t *testing.T) {
 				Type: sdk.GroupTypePrimary,
 			},
 		}}, []string{"/a", "/b"}, nil)
+	assert.Error(t, err)
+	err = executePwdExpirationCheckForUser(&dataprovider.User{
+		Groups: []sdk.GroupMapping{
+			{
+				Name: groupName,
+				Type: sdk.GroupTypePrimary,
+			},
+		}}, dataprovider.EventActionPasswordExpiration{})
 	assert.Error(t, err)
 
 	_, _, err = getHTTPRuleActionBody(dataprovider.EventActionHTTPConfig{
@@ -687,10 +698,23 @@ func TestEventRuleActions(t *testing.T) {
 			},
 		},
 	}
+	user2.Filters.PasswordExpiration = 10
 	err = dataprovider.AddUser(&user1, "", "", "")
 	assert.NoError(t, err)
 	err = dataprovider.AddUser(&user2, "", "", "")
 	assert.NoError(t, err)
+
+	err = executePwdExpirationCheckRuleAction(dataprovider.EventActionPasswordExpiration{
+		Threshold: 20,
+	}, dataprovider.ConditionOptions{
+		Names: []dataprovider.ConditionPattern{
+			{
+				Pattern: user2.Username,
+			},
+		},
+	}, &EventParams{})
+	// smtp not configured
+	assert.Error(t, err)
 
 	action = dataprovider.BaseEventAction{
 		Type: dataprovider.ActionTypeUserQuotaReset,

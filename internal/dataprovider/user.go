@@ -1110,6 +1110,19 @@ func (u *User) CanDeleteFromWeb(target string) bool {
 	return u.HasAnyPerm(permsDeleteAny, target)
 }
 
+// PasswordExpiresIn returns the number of days before the password expires.
+// The returned value is negative if the password is expired.
+// The caller must ensure that a PasswordExpiration is set
+func (u *User) PasswordExpiresIn() int {
+	lastPwdChange := util.GetTimeFromMsecSinceEpoch(u.LastPasswordChange)
+	pwdExpiration := lastPwdChange.Add(time.Duration(u.Filters.PasswordExpiration) * 24 * time.Hour)
+	res := int(math.Round(float64(time.Until(pwdExpiration)) / float64(24*time.Hour)))
+	if res == 0 && pwdExpiration.After(time.Now()) {
+		res = 1
+	}
+	return res
+}
+
 // MustChangePassword returns true if the user must change the password
 func (u *User) MustChangePassword() bool {
 	if u.Filters.RequirePasswordChange {

@@ -45,12 +45,13 @@ const (
 	ActionTypeDataRetentionCheck
 	ActionTypeFilesystem
 	ActionTypeMetadataCheck
+	ActionTypePasswordExpirationCheck
 )
 
 var (
 	supportedEventActions = []int{ActionTypeHTTP, ActionTypeCommand, ActionTypeEmail, ActionTypeFilesystem,
 		ActionTypeBackup, ActionTypeUserQuotaReset, ActionTypeFolderQuotaReset, ActionTypeTransferQuotaReset,
-		ActionTypeDataRetentionCheck, ActionTypeMetadataCheck}
+		ActionTypeDataRetentionCheck, ActionTypeMetadataCheck, ActionTypePasswordExpirationCheck}
 )
 
 func isActionTypeValid(action int) bool {
@@ -77,6 +78,8 @@ func getActionTypeAsString(action int) string {
 		return "Metadata check"
 	case ActionTypeFilesystem:
 		return "Filesystem"
+	case ActionTypePasswordExpirationCheck:
+		return "Password expiration check"
 	default:
 		return "Command"
 	}
@@ -755,13 +758,28 @@ func (c *EventActionFilesystemConfig) getACopy() EventActionFilesystemConfig {
 	}
 }
 
+// EventActionPasswordExpiration defines the configuration for password expiration actions
+type EventActionPasswordExpiration struct {
+	// An email notification will be generated for users whose password expires in a number
+	// of days less than or equal to this threshold
+	Threshold int `json:"threshold,omitempty"`
+}
+
+func (c *EventActionPasswordExpiration) validate() error {
+	if c.Threshold <= 0 {
+		return util.NewValidationError("threshold must be greater than 0")
+	}
+	return nil
+}
+
 // BaseEventActionOptions defines the supported configuration options for a base event actions
 type BaseEventActionOptions struct {
-	HTTPConfig      EventActionHTTPConfig          `json:"http_config"`
-	CmdConfig       EventActionCommandConfig       `json:"cmd_config"`
-	EmailConfig     EventActionEmailConfig         `json:"email_config"`
-	RetentionConfig EventActionDataRetentionConfig `json:"retention_config"`
-	FsConfig        EventActionFilesystemConfig    `json:"fs_config"`
+	HTTPConfig          EventActionHTTPConfig          `json:"http_config"`
+	CmdConfig           EventActionCommandConfig       `json:"cmd_config"`
+	EmailConfig         EventActionEmailConfig         `json:"email_config"`
+	RetentionConfig     EventActionDataRetentionConfig `json:"retention_config"`
+	FsConfig            EventActionFilesystemConfig    `json:"fs_config"`
+	PwdExpirationConfig EventActionPasswordExpiration  `json:"pwd_expiration_config"`
 }
 
 func (o *BaseEventActionOptions) getACopy() BaseEventActionOptions {
@@ -819,6 +837,9 @@ func (o *BaseEventActionOptions) getACopy() BaseEventActionOptions {
 		RetentionConfig: EventActionDataRetentionConfig{
 			Folders: folders,
 		},
+		PwdExpirationConfig: EventActionPasswordExpiration{
+			Threshold: o.PwdExpirationConfig.Threshold,
+		},
 		FsConfig: o.FsConfig.getACopy(),
 	}
 }
@@ -850,37 +871,50 @@ func (o *BaseEventActionOptions) validate(action int, name string) error {
 		o.EmailConfig = EventActionEmailConfig{}
 		o.RetentionConfig = EventActionDataRetentionConfig{}
 		o.FsConfig = EventActionFilesystemConfig{}
+		o.PwdExpirationConfig = EventActionPasswordExpiration{}
 		return o.HTTPConfig.validate(name)
 	case ActionTypeCommand:
 		o.HTTPConfig = EventActionHTTPConfig{}
 		o.EmailConfig = EventActionEmailConfig{}
 		o.RetentionConfig = EventActionDataRetentionConfig{}
 		o.FsConfig = EventActionFilesystemConfig{}
+		o.PwdExpirationConfig = EventActionPasswordExpiration{}
 		return o.CmdConfig.validate()
 	case ActionTypeEmail:
 		o.HTTPConfig = EventActionHTTPConfig{}
 		o.CmdConfig = EventActionCommandConfig{}
 		o.RetentionConfig = EventActionDataRetentionConfig{}
 		o.FsConfig = EventActionFilesystemConfig{}
+		o.PwdExpirationConfig = EventActionPasswordExpiration{}
 		return o.EmailConfig.validate()
 	case ActionTypeDataRetentionCheck:
 		o.HTTPConfig = EventActionHTTPConfig{}
 		o.CmdConfig = EventActionCommandConfig{}
 		o.EmailConfig = EventActionEmailConfig{}
 		o.FsConfig = EventActionFilesystemConfig{}
+		o.PwdExpirationConfig = EventActionPasswordExpiration{}
 		return o.RetentionConfig.validate()
 	case ActionTypeFilesystem:
 		o.HTTPConfig = EventActionHTTPConfig{}
 		o.CmdConfig = EventActionCommandConfig{}
 		o.EmailConfig = EventActionEmailConfig{}
 		o.RetentionConfig = EventActionDataRetentionConfig{}
+		o.PwdExpirationConfig = EventActionPasswordExpiration{}
 		return o.FsConfig.validate()
+	case ActionTypePasswordExpirationCheck:
+		o.HTTPConfig = EventActionHTTPConfig{}
+		o.CmdConfig = EventActionCommandConfig{}
+		o.EmailConfig = EventActionEmailConfig{}
+		o.RetentionConfig = EventActionDataRetentionConfig{}
+		o.FsConfig = EventActionFilesystemConfig{}
+		return o.PwdExpirationConfig.validate()
 	default:
 		o.HTTPConfig = EventActionHTTPConfig{}
 		o.CmdConfig = EventActionCommandConfig{}
 		o.EmailConfig = EventActionEmailConfig{}
 		o.RetentionConfig = EventActionDataRetentionConfig{}
 		o.FsConfig = EventActionFilesystemConfig{}
+		o.PwdExpirationConfig = EventActionPasswordExpiration{}
 	}
 	return nil
 }
@@ -1322,7 +1356,7 @@ func (r *EventRule) validate() error {
 
 func (r *EventRule) checkIPBlockedAndCertificateActions() error {
 	unavailableActions := []int{ActionTypeUserQuotaReset, ActionTypeFolderQuotaReset, ActionTypeTransferQuotaReset,
-		ActionTypeDataRetentionCheck, ActionTypeMetadataCheck, ActionTypeFilesystem}
+		ActionTypeDataRetentionCheck, ActionTypeMetadataCheck, ActionTypeFilesystem, ActionTypePasswordExpirationCheck}
 	for _, action := range r.Actions {
 		if util.Contains(unavailableActions, action.Type) {
 			return fmt.Errorf("action %q, type %q is not supported for event trigger %q",
@@ -1337,7 +1371,7 @@ func (r *EventRule) checkProviderEventActions(providerObjectType string) error {
 	// can be executed only if we modify a user. They will be executed for the
 	// affected user. Folder quota reset can be executed only for folders.
 	userSpecificActions := []int{ActionTypeUserQuotaReset, ActionTypeTransferQuotaReset,
-		ActionTypeDataRetentionCheck, ActionTypeMetadataCheck, ActionTypeFilesystem}
+		ActionTypeDataRetentionCheck, ActionTypeMetadataCheck, ActionTypeFilesystem, ActionTypePasswordExpirationCheck}
 	for _, action := range r.Actions {
 		if util.Contains(userSpecificActions, action.Type) && providerObjectType != actionObjectUser {
 			return fmt.Errorf("action %q, type %q is only supported for provider user events",

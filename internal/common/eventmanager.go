@@ -1643,9 +1643,9 @@ func executeFsRuleAction(c dataprovider.EventActionFilesystemConfig, conditions 
 	}
 }
 
-func executeQuotaResetForUser(user dataprovider.User) error {
+func executeQuotaResetForUser(user *dataprovider.User) error {
 	if err := user.LoadAndApplyGroupSettings(); err != nil {
-		eventManagerLog(logger.LevelDebug, "skipping scheduled quota reset for user %s, cannot apply group settings: %v",
+		eventManagerLog(logger.LevelError, "skipping scheduled quota reset for user %s, cannot apply group settings: %v",
 			user.Username, err)
 		return err
 	}
@@ -1660,7 +1660,7 @@ func executeQuotaResetForUser(user dataprovider.User) error {
 		eventManagerLog(logger.LevelError, "error scanning quota for user %q: %v", user.Username, err)
 		return fmt.Errorf("error scanning quota for user %q: %w", user.Username, err)
 	}
-	err = dataprovider.UpdateUserQuota(&user, numFiles, size, true)
+	err = dataprovider.UpdateUserQuota(user, numFiles, size, true)
 	if err != nil {
 		eventManagerLog(logger.LevelError, "error updating quota for user %q: %v", user.Username, err)
 		return fmt.Errorf("error updating quota for user %q: %w", user.Username, err)
@@ -1685,7 +1685,7 @@ func executeUsersQuotaResetRuleAction(conditions dataprovider.ConditionOptions, 
 			}
 		}
 		executed++
-		if err = executeQuotaResetForUser(user); err != nil {
+		if err = executeQuotaResetForUser(&user); err != nil {
 			params.AddError(err)
 			failedResets = append(failedResets, user.Username)
 			continue
@@ -1789,7 +1789,7 @@ func executeDataRetentionCheckForUser(user dataprovider.User, folders []dataprov
 	params *EventParams, actionName string,
 ) error {
 	if err := user.LoadAndApplyGroupSettings(); err != nil {
-		eventManagerLog(logger.LevelDebug, "skipping scheduled retention check for user %s, cannot apply group settings: %v",
+		eventManagerLog(logger.LevelError, "skipping scheduled retention check for user %s, cannot apply group settings: %v",
 			user.Username, err)
 		return err
 	}
@@ -1850,9 +1850,9 @@ func executeDataRetentionCheckRuleAction(config dataprovider.EventActionDataRete
 	return nil
 }
 
-func executeMetadataCheckForUser(user dataprovider.User) error {
+func executeMetadataCheckForUser(user *dataprovider.User) error {
 	if err := user.LoadAndApplyGroupSettings(); err != nil {
-		eventManagerLog(logger.LevelDebug, "skipping scheduled quota reset for user %s, cannot apply group settings: %v",
+		eventManagerLog(logger.LevelError, "skipping scheduled quota reset for user %s, cannot apply group settings: %v",
 			user.Username, err)
 		return err
 	}
@@ -1886,7 +1886,7 @@ func executeMetadataCheckRuleAction(conditions dataprovider.ConditionOptions, pa
 			}
 		}
 		executed++
-		if err = executeMetadataCheckForUser(user); err != nil {
+		if err = executeMetadataCheckForUser(&user); err != nil {
 			params.AddError(err)
 			failures = append(failures, user.Username)
 			continue
@@ -1899,6 +1899,72 @@ func executeMetadataCheckRuleAction(conditions dataprovider.ConditionOptions, pa
 		eventManagerLog(logger.LevelError, "no metadata check executed")
 		return errors.New("no metadata check executed")
 	}
+	return nil
+}
+
+func executePwdExpirationCheckForUser(user *dataprovider.User, config dataprovider.EventActionPasswordExpiration) error {
+	if err := user.LoadAndApplyGroupSettings(); err != nil {
+		eventManagerLog(logger.LevelError, "skipping password expiration check for user %s, cannot apply group settings: %v",
+			user.Username, err)
+		return err
+	}
+	if user.Filters.PasswordExpiration == 0 {
+		eventManagerLog(logger.LevelDebug, "password expiration not set for user %q skipping check", user.Username)
+		return nil
+	}
+	days := user.PasswordExpiresIn()
+	if days > config.Threshold {
+		eventManagerLog(logger.LevelDebug, "password for user %q expires in %d days, threshold %d, no need to notify",
+			user.Username, days, config.Threshold)
+		return nil
+	}
+	body := new(bytes.Buffer)
+	data := make(map[string]any)
+	data["Username"] = user.Username
+	data["Days"] = days
+	if err := smtp.RenderPasswordExpirationTemplate(body, data); err != nil {
+		eventManagerLog(logger.LevelError, "unable to notify password expiration for user %s: %v",
+			user.Username, err)
+		return err
+	}
+	subject := "SFTPGo password expiration notification"
+	startTime := time.Now()
+	if err := smtp.SendEmail([]string{user.Email}, subject, body.String(), smtp.EmailContentTypeTextHTML); err != nil {
+		eventManagerLog(logger.LevelError, "unable to notify password expiration for user %s: %v, elapsed: %s",
+			user.Username, err, time.Since(startTime))
+		return err
+	}
+	eventManagerLog(logger.LevelDebug, "password expiration email sent to user %s, days: %d, elapsed: %s",
+		user.Username, days, time.Since(startTime))
+	return nil
+}
+
+func executePwdExpirationCheckRuleAction(config dataprovider.EventActionPasswordExpiration, conditions dataprovider.ConditionOptions,
+	params *EventParams) error {
+	users, err := params.getUsers()
+	if err != nil {
+		return fmt.Errorf("unable to get users: %w", err)
+	}
+	var failures []string
+	for _, user := range users {
+		// if sender is set, the conditions have already been evaluated
+		if params.sender == "" {
+			if !checkUserConditionOptions(&user, &conditions) {
+				eventManagerLog(logger.LevelDebug, "skipping password check for user %q, condition options don't match",
+					user.Username)
+				continue
+			}
+		}
+		if err = executePwdExpirationCheckForUser(&user, config); err != nil {
+			params.AddError(err)
+			failures = append(failures, user.Username)
+			continue
+		}
+	}
+	if len(failures) > 0 {
+		return fmt.Errorf("password expiration check failed for users: %+v", failures)
+	}
+
 	return nil
 }
 
@@ -1932,6 +1998,8 @@ func executeRuleAction(action dataprovider.BaseEventAction, params *EventParams,
 		err = executeMetadataCheckRuleAction(conditions, params)
 	case dataprovider.ActionTypeFilesystem:
 		err = executeFsRuleAction(action.Options.FsConfig, conditions, params)
+	case dataprovider.ActionTypePasswordExpirationCheck:
+		err = executePwdExpirationCheckRuleAction(action.Options.PwdExpirationConfig, conditions, params)
 	default:
 		err = fmt.Errorf("unsupported action type: %d", action.Type)
 	}

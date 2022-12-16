@@ -74,6 +74,17 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 </div>
             </div>
 
+            <div class="form-group row action-type action-pwd-expiration">
+                <label for="idPwdExpirationThreshold" class="col-sm-2 col-form-label">Threshold</label>
+                <div class="col-sm-10">
+                    <input type="number" min="1" class="form-control" id="idPwdExpirationThreshold" name="pwd_expiration_threshold" placeholder=""
+                        aria-describedby="PwdExpirationThresholdHelpBlock" value="{{.Action.Options.PwdExpirationConfig.Threshold}}">
+                    <small id="PwdExpirationThresholdHelpBlock" class="form-text text-muted">
+                        An email notification will be generated for users whose password expires in a number of days less than or equal to this threshold.
+                    </small>
+                </div>
+            </div>
+
             <div class="form-group row action-type action-http">
                 <label for="idHTTPEndpoint" class="col-sm-2 col-form-label">Endpoint</label>
                 <div class="col-sm-10">
@@ -916,25 +927,23 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         $('.action-type').hide();
         switch (val) {
             case '1':
-            case 1:
                 $('.action-http').show();
                 break;
             case '2':
-            case 2:
                 $('.action-cmd').show();
                 break;
             case '3':
-            case 3:
                 $('.action-smtp').show();
                 break;
             case '8':
-            case 8:
                 $('.action-dataretention').show();
                 break;
             case '9':
-            case 9:
                 $('.action-fs').show();
                 onFsActionChanged($("#idFsActionType").val());
+                break;
+            case '11':
+                $('.action-pwd-expiration').show();
                 break;
         }
     }
@@ -943,23 +952,18 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         $('.action-fs-type').hide();
         switch (val) {
             case '1':
-            case 1:
                 $('.action-fs-rename').show();
                 break;
             case '2':
-            case 2:
                 $('.action-fs-delete').show();
                 break;
             case '3':
-            case 3:
                 $('.action-fs-mkdir').show();
                 break;
             case '4':
-            case 4:
                 $('.action-fs-exist').show();
                 break;
             case '5':
-            case 5:
                 $('.action-fs-compress').show();
                 break;
         }
