@@ -15,7 +15,7 @@ ARG COMMIT_SHA
 # This ARG allows to disable some optional features and it might be useful if you build the image yourself.
 # For this variant we disable SQLite support since it requires CGO and so a C runtime which is not installed
 # in distroless/static-* images
-ARG FEATURES=nosqlite
+ARG FEATURES
 
 COPY . .
 
