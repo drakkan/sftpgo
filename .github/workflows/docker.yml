@@ -42,6 +42,7 @@ jobs:
           DOCKERFILE=Dockerfile
           MINOR=""
           MAJOR=""
+          FEATURES="nopgxregisterdefaulttypes"
           if [ "${{ github.event_name }}" = "schedule" ]; then
             VERSION=nightly
           elif [[ $GITHUB_REF == refs/tags/* ]]; then
@@ -67,6 +68,7 @@ jobs:
             VERSION="${VERSION}-distroless"
             VERSION_SLIM="${VERSION}-slim"
             DOCKERFILE=Dockerfile.distroless
+            FEATURES="${FEATURES},nosqlite"
           elif [[ $DOCKER_PKG == debian-plugins ]]; then
             VERSION="${VERSION}-plugins"
             VERSION_SLIM="${VERSION}-slim"
@@ -128,6 +130,7 @@ jobs:
             echo "plugins=false" >> $GITHUB_OUTPUT
           fi
           echo "dockerfile=${DOCKERFILE}" >> $GITHUB_OUTPUT
+          echo "features=${FEATURES}" >> $GITHUB_OUTPUT
           echo "created=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
           echo "sha=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
         env:
@@ -169,7 +172,7 @@ jobs:
             COMMIT_SHA=${{ steps.info.outputs.sha }}
             INSTALL_OPTIONAL_PACKAGES=${{ steps.info.outputs.full }}
             DOWNLOAD_PLUGINS=${{ steps.info.outputs.plugins }}
-            FEATURES=nopgxregisterdefaulttypes
+            FEATURES=${{ steps.info.outputs.features }}
           labels: |
             org.opencontainers.image.title=SFTPGo
             org.opencontainers.image.description=Fully featured and highly configurable SFTP server with optional HTTP, FTP/S and WebDAV support
