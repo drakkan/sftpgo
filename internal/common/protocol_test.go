@@ -5870,7 +5870,7 @@ func TestEventRulePasswordExpiration(t *testing.T) {
 		email := lastReceivedEmail.get()
 		assert.Len(t, email.To, 1)
 		assert.Contains(t, email.To, user.Email)
-		assert.Contains(t, email.Data, "Your SFTPGo password expires in 5 days")
+		assert.Contains(t, email.Data, "your SFTPGo password expires in 5 days")
 		err = client.RemoveDirectory(dirName)
 		assert.NoError(t, err)
 	}

@@ -308,6 +308,8 @@ func (f *Filesystem) GetACopy() Filesystem {
 				StorageClass:         f.GCSConfig.StorageClass,
 				ACL:                  f.GCSConfig.ACL,
 				KeyPrefix:            f.GCSConfig.KeyPrefix,
+				UploadPartSize:       f.GCSConfig.UploadPartSize,
+				UploadPartMaxTime:    f.GCSConfig.UploadPartMaxTime,
 			},
 			Credentials: f.GCSConfig.Credentials.Clone(),
 		},

@@ -378,6 +378,12 @@ func (c *GCSFsConfig) isEqual(other GCSFsConfig) bool {
 	if c.ACL != other.ACL {
 		return false
 	}
+	if c.UploadPartSize != other.UploadPartSize {
+		return false
+	}
+	if c.UploadPartMaxTime != other.UploadPartMaxTime {
+		return false
+	}
 	if c.Credentials == nil {
 		c.Credentials = kms.NewEmptySecret()
 	}
@@ -416,6 +422,12 @@ func (c *GCSFsConfig) validate() error {
 	}
 	c.StorageClass = strings.TrimSpace(c.StorageClass)
 	c.ACL = strings.TrimSpace(c.ACL)
+	if c.UploadPartSize < 0 {
+		c.UploadPartSize = 0
+	}
+	if c.UploadPartMaxTime < 0 {
+		c.UploadPartMaxTime = 0
+	}
 	return nil
 }
 

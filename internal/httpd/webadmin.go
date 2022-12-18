@@ -1513,6 +1513,14 @@ func getGCSConfig(r *http.Request) (vfs.GCSFsConfig, error) {
 	config.StorageClass = strings.TrimSpace(r.Form.Get("gcs_storage_class"))
 	config.ACL = strings.TrimSpace(r.Form.Get("gcs_acl"))
 	config.KeyPrefix = r.Form.Get("gcs_key_prefix")
+	uploadPartSize, err := strconv.ParseInt(r.Form.Get("gcs_upload_part_size"), 10, 64)
+	if err == nil {
+		config.UploadPartSize = uploadPartSize
+	}
+	uploadPartMaxTime, err := strconv.Atoi(r.Form.Get("gcs_upload_part_max_time"))
+	if err == nil {
+		config.UploadPartMaxTime = uploadPartMaxTime
+	}
 	autoCredentials := r.Form.Get("gcs_auto_credentials")
 	if autoCredentials != "" {
 		config.AutomaticCredentials = 1

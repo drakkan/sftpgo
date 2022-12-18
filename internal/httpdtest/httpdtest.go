@@ -2037,6 +2037,13 @@ func compareGCSConfig(expected *vfs.Filesystem, actual *vfs.Filesystem) error {
 	if expected.GCSConfig.AutomaticCredentials != actual.GCSConfig.AutomaticCredentials {
 		return errors.New("GCS automatic credentials mismatch")
 	}
+	if expected.GCSConfig.UploadPartSize != actual.GCSConfig.UploadPartSize {
+		return errors.New("GCS upload part size mismatch")
+	}
+	if expected.GCSConfig.UploadPartMaxTime != actual.GCSConfig.UploadPartMaxTime {
+		fmt.Printf("aaaaaaaaaa %v, %v", expected.GCSConfig.UploadPartMaxTime, actual.GCSConfig.UploadPartMaxTime)
+		return errors.New("GCS upload part max time mismatch")
+	}
 	return nil
 }
 

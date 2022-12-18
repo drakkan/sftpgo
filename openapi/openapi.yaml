@@ -5107,6 +5107,12 @@ components:
           type: string
           description: 'key_prefix is similar to a chroot directory for a local filesystem. If specified the user will only see contents that starts with this prefix and so you can restrict access to a specific virtual folder. The prefix, if not empty, must not start with "/" and must end with "/". If empty the whole bucket contents will be available'
           example: folder/subfolder/
+        upload_part_size:
+          type: integer
+          description: 'The buffer size (in MB) to use for multipart uploads. The default value is 16MB. 0 means use the default'
+        upload_part_max_time:
+          type: integer
+          description: 'The maximum time allowed, in seconds, to upload a single chunk. The default value is 32. 0 means use the default'
       description: 'Google Cloud Storage configuration details. The "credentials" field must be populated only when adding/updating a user. It will be always omitted, since there are sensitive data, when you search/get users'
     AzureBlobFsConfig:
       type: object

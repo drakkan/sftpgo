@@ -5015,6 +5015,8 @@ func TestUserHiddenFields(t *testing.T) {
 	u2.FsConfig.GCSConfig.Bucket = "test"
 	u2.FsConfig.GCSConfig.Credentials = kms.NewPlainSecret("fake credentials")
 	u2.FsConfig.GCSConfig.ACL = "bucketOwnerRead"
+	u2.FsConfig.GCSConfig.UploadPartSize = 5
+	u2.FsConfig.GCSConfig.UploadPartMaxTime = 20
 	user2, _, err := httpdtest.AddUser(u2, http.StatusCreated)
 	assert.NoError(t, err)
 
@@ -11719,6 +11721,8 @@ func TestLoginInvalidFs(t *testing.T) {
 	u.Filters.AllowAPIKeyAuth = true
 	u.FsConfig.Provider = sdk.GCSFilesystemProvider
 	u.FsConfig.GCSConfig.Bucket = "test"
+	u.FsConfig.GCSConfig.UploadPartSize = 1
+	u.FsConfig.GCSConfig.UploadPartMaxTime = 10
 	u.FsConfig.GCSConfig.Credentials = kms.NewPlainSecret("invalid JSON for credentials")
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
@@ -19226,6 +19230,8 @@ func TestWebUserGCSMock(t *testing.T) {
 	user.FsConfig.GCSConfig.KeyPrefix = "somedir/subdir/"
 	user.FsConfig.GCSConfig.StorageClass = "standard"
 	user.FsConfig.GCSConfig.ACL = "publicReadWrite"
+	user.FsConfig.GCSConfig.UploadPartSize = 16
+	user.FsConfig.GCSConfig.UploadPartMaxTime = 32
 	form := make(url.Values)
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("username", user.Username)
@@ -19252,6 +19258,8 @@ func TestWebUserGCSMock(t *testing.T) {
 	form.Set("gcs_storage_class", user.FsConfig.GCSConfig.StorageClass)
 	form.Set("gcs_acl", user.FsConfig.GCSConfig.ACL)
 	form.Set("gcs_key_prefix", user.FsConfig.GCSConfig.KeyPrefix)
+	form.Set("gcs_upload_part_size", strconv.FormatInt(user.FsConfig.GCSConfig.UploadPartSize, 10))
+	form.Set("gcs_upload_part_max_time", strconv.FormatInt(int64(user.FsConfig.GCSConfig.UploadPartMaxTime), 10))
 	form.Set("pattern_path0", "/dir1")
 	form.Set("patterns0", "*.jpg,*.png")
 	form.Set("pattern_type0", "allowed")
@@ -19292,6 +19300,8 @@ func TestWebUserGCSMock(t *testing.T) {
 	assert.Equal(t, user.FsConfig.GCSConfig.StorageClass, updateUser.FsConfig.GCSConfig.StorageClass)
 	assert.Equal(t, user.FsConfig.GCSConfig.ACL, updateUser.FsConfig.GCSConfig.ACL)
 	assert.Equal(t, user.FsConfig.GCSConfig.KeyPrefix, updateUser.FsConfig.GCSConfig.KeyPrefix)
+	assert.Equal(t, user.FsConfig.GCSConfig.UploadPartSize, updateUser.FsConfig.GCSConfig.UploadPartSize)
+	assert.Equal(t, user.FsConfig.GCSConfig.UploadPartMaxTime, updateUser.FsConfig.GCSConfig.UploadPartMaxTime)
 	if assert.Len(t, updateUser.Filters.FilePatterns, 1) {
 		assert.Equal(t, "/dir1", updateUser.Filters.FilePatterns[0].Path)
 		assert.Len(t, updateUser.Filters.FilePatterns[0].AllowedPatterns, 2)
