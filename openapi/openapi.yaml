@@ -54,7 +54,7 @@ paths:
         '200':
           description: successful operation
           content:
-            text/plain:
+            text/plain; charset=utf-8:
               schema:
                 type: string
                 example: ok
