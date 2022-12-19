@@ -125,7 +125,7 @@ paths:
         '201':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 type: array
                 items:
@@ -222,7 +222,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 type: array
                 items:
@@ -291,7 +291,7 @@ paths:
         '201':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 type: array
                 items:
@@ -328,7 +328,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/Token'
         '401':
@@ -352,7 +352,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
         '401':
@@ -383,7 +383,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/Token'
         '401':
@@ -407,7 +407,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
         '401':
@@ -429,7 +429,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/VersionInfo'
         '401':
@@ -452,14 +452,14 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          application/json; charset=utf-8:
             schema:
               $ref: '#/components/schemas/PwdChange'
       responses:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
         '401':
@@ -483,7 +483,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/AdminProfile'
         '401':
@@ -505,14 +505,14 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          application/json; charset=utf-8:
             schema:
               $ref: '#/components/schemas/AdminProfile'
       responses:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
         '400':
@@ -538,7 +538,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 type: array
                 items:
@@ -563,7 +563,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 type: array
                 items:
@@ -591,7 +591,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 type: array
                 items:
@@ -616,7 +616,7 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          application/json; charset=utf-8:
             schema:
               type: object
               properties:
@@ -627,7 +627,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 type: object
                 properties:
@@ -663,7 +663,7 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          application/json; charset=utf-8:
             schema:
               type: object
               properties:
@@ -680,7 +680,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
               example:
@@ -707,14 +707,14 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          application/json; charset=utf-8:
             schema:
               $ref: '#/components/schemas/AdminTOTPConfig'
       responses:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
               example:
@@ -740,7 +740,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 type: array
                 items:
@@ -771,7 +771,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
               example:
@@ -797,7 +797,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 type: array
                 items:
@@ -830,7 +830,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/DefenderEntry'
         '401':
@@ -853,7 +853,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
         '401':
@@ -877,7 +877,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 type: array
                 items:
@@ -908,7 +908,7 @@ paths:
         '202':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
               example:
@@ -938,7 +938,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 type: array
                 items:
@@ -977,7 +977,7 @@ paths:
         required: true
         description: 'Defines virtual paths to check and their retention time in hours'
         content:
-          application/json:
+          application/json; charset=utf-8:
             schema:
               type: array
               items:
@@ -986,7 +986,7 @@ paths:
         '202':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
               example:
@@ -1016,7 +1016,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 type: array
                 items:
@@ -1047,7 +1047,7 @@ paths:
         '202':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
               example:
@@ -1098,14 +1098,14 @@ paths:
         required: true
         description: 'If used_quota_size and used_quota_files are missing they will default to 0, this means that if mode is "add" the current value, for the missing field, will remain unchanged, if mode is "reset" the missing field is set to 0'
         content:
-          application/json:
+          application/json; charset=utf-8:
             schema:
               $ref: '#/components/schemas/QuotaUsage'
       responses:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
               example:
@@ -1156,14 +1156,14 @@ paths:
         required: true
         description: 'If used_upload_data_transfer and used_download_data_transfer are missing they will default to 0, this means that if mode is "add" the current value, for the missing field, will remain unchanged, if mode is "reset" the missing field is set to 0'
         content:
-          application/json:
+          application/json; charset=utf-8:
             schema:
               $ref: '#/components/schemas/TransferQuotaUsage'
       responses:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
               example:
@@ -1193,7 +1193,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 type: array
                 items:
@@ -1224,7 +1224,7 @@ paths:
         '202':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
               example:
@@ -1290,14 +1290,14 @@ paths:
         required: true
         description: 'If used_quota_size and used_quota_files are missing they will default to 0, this means that if mode is "add" the current value, for the missing field, will remain unchanged, if mode is "reset" the missing field is set to 0'
         content:
-          application/json:
+          application/json; charset=utf-8:
             schema:
               $ref: '#/components/schemas/QuotaUsage'
       responses:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
               example:
@@ -1354,7 +1354,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 type: array
                 items:
@@ -1378,14 +1378,14 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          application/json; charset=utf-8:
             schema:
               $ref: '#/components/schemas/BaseVirtualFolder'
       responses:
         '201':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/BaseVirtualFolder'
         '400':
@@ -1416,7 +1416,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/BaseVirtualFolder'
         '400':
@@ -1440,14 +1440,14 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          application/json; charset=utf-8:
             schema:
               $ref: '#/components/schemas/BaseVirtualFolder'
       responses:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
               example:
@@ -1474,7 +1474,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
               example:
@@ -1529,7 +1529,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 type: array
                 items:
@@ -1553,14 +1553,14 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          application/json; charset=utf-8:
             schema:
               $ref: '#/components/schemas/Group'
       responses:
         '201':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/Group'
         '400':
@@ -1591,7 +1591,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/Group'
         '400':
@@ -1615,14 +1615,14 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          application/json; charset=utf-8:
             schema:
               $ref: '#/components/schemas/Group'
       responses:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
               example:
@@ -1649,7 +1649,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
               example:
@@ -1704,7 +1704,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 type: array
                 items:
@@ -1728,14 +1728,14 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          application/json; charset=utf-8:
             schema:
               $ref: '#/components/schemas/BaseEventAction'
       responses:
         '201':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/BaseEventAction'
         '400':
@@ -1766,7 +1766,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/BaseEventAction'
         '400':
@@ -1790,14 +1790,14 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          application/json; charset=utf-8:
             schema:
               $ref: '#/components/schemas/BaseEventAction'
       responses:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
               example:
@@ -1824,7 +1824,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
               example:
@@ -1879,7 +1879,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 type: array
                 items:
@@ -1903,14 +1903,14 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          application/json; charset=utf-8:
             schema:
               $ref: '#/components/schemas/EventRuleMinimal'
       responses:
         '201':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/EventRule'
         '400':
@@ -1941,7 +1941,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/EventRule'
         '400':
@@ -1965,14 +1965,14 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          application/json; charset=utf-8:
             schema:
               $ref: '#/components/schemas/EventRuleMinimal'
       responses:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
               example:
@@ -1999,7 +1999,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
               example:
@@ -2146,7 +2146,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 type: array
                 items:
@@ -2264,7 +2264,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 type: array
                 items:
@@ -2319,7 +2319,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 type: array
                 items:
@@ -2345,7 +2345,7 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          application/json; charset=utf-8:
             schema:
               $ref: '#/components/schemas/APIKey'
       responses:
@@ -2361,7 +2361,7 @@ paths:
                 type: string
               description: URL to retrieve the details for the new created API key
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 type: object
                 properties:
@@ -2401,7 +2401,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/APIKey'
         '400':
@@ -2427,14 +2427,14 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          application/json; charset=utf-8:
             schema:
               $ref: '#/components/schemas/APIKey'
       responses:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
               example:
@@ -2463,7 +2463,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
               example:
@@ -2518,7 +2518,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 type: array
                 items:
@@ -2542,7 +2542,7 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          application/json; charset=utf-8:
             schema:
               $ref: '#/components/schemas/Admin'
             examples:
@@ -2565,7 +2565,7 @@ paths:
         '201':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/Admin'
         '400':
@@ -2596,7 +2596,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/Admin'
         '400':
@@ -2620,14 +2620,14 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          application/json; charset=utf-8:
             schema:
               $ref: '#/components/schemas/Admin'
       responses:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
               example:
@@ -2654,7 +2654,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
               example:
@@ -2689,7 +2689,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
               example:
@@ -2725,7 +2725,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
         '400':
@@ -2757,7 +2757,7 @@ paths:
       operationId: admin_reset_password
       requestBody:
         content:
-          application/json:
+          application/json; charset=utf-8:
             schema:
               type: object
               properties:
@@ -2770,7 +2770,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
         '400':
@@ -2823,7 +2823,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 type: array
                 items:
@@ -2847,14 +2847,14 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          application/json; charset=utf-8:
             schema:
               $ref: '#/components/schemas/User'
       responses:
         '201':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/User'
         '400':
@@ -2885,7 +2885,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/User'
         '400':
@@ -2921,14 +2921,14 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          application/json; charset=utf-8:
             schema:
               $ref: '#/components/schemas/User'
       responses:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
               example:
@@ -2955,7 +2955,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
               example:
@@ -2990,7 +2990,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
               example:
@@ -3026,7 +3026,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
         '400':
@@ -3058,7 +3058,7 @@ paths:
       operationId: user_reset_password
       requestBody:
         content:
-          application/json:
+          application/json; charset=utf-8:
             schema:
               type: object
               properties:
@@ -3071,7 +3071,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
         '400':
@@ -3097,7 +3097,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ServicesStatus'
         '400':
@@ -3149,7 +3149,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 oneOf:
                   - $ref: '#/components/schemas/ApiResponse'
@@ -3210,7 +3210,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
               example:
@@ -3234,14 +3234,14 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          application/json; charset=utf-8:
             schema:
               $ref: '#/components/schemas/BackupData'
       responses:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
               example:
@@ -3268,14 +3268,14 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          application/json; charset=utf-8:
             schema:
               $ref: '#/components/schemas/PwdChange'
       responses:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
         '401':
@@ -3299,7 +3299,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/UserProfile'
         '401':
@@ -3321,14 +3321,14 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          application/json; charset=utf-8:
             schema:
               $ref: '#/components/schemas/UserProfile'
       responses:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
         '400':
@@ -3354,7 +3354,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 type: array
                 items:
@@ -3379,7 +3379,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 type: array
                 items:
@@ -3407,7 +3407,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 type: array
                 items:
@@ -3432,7 +3432,7 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          application/json; charset=utf-8:
             schema:
               type: object
               properties:
@@ -3443,7 +3443,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 type: object
                 properties:
@@ -3479,7 +3479,7 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          application/json; charset=utf-8:
             schema:
               type: object
               properties:
@@ -3496,7 +3496,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
               example:
@@ -3523,14 +3523,14 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          application/json; charset=utf-8:
             schema:
               $ref: '#/components/schemas/UserTOTPConfig'
       responses:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
               example:
@@ -3583,7 +3583,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 type: array
                 items:
@@ -3607,7 +3607,7 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          application/json; charset=utf-8:
             schema:
               $ref: '#/components/schemas/Share'
       responses:
@@ -3623,7 +3623,7 @@ paths:
                 type: string
               description: URL to retrieve the details for the new created share
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
         '400':
@@ -3654,7 +3654,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/Share'
         '400':
@@ -3678,14 +3678,14 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          application/json; charset=utf-8:
             schema:
               $ref: '#/components/schemas/Share'
       responses:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
               example:
@@ -3712,7 +3712,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
               example:
@@ -3746,7 +3746,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 type: array
                 items:
@@ -3784,7 +3784,7 @@ paths:
         '201':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 type: array
                 items:
@@ -3822,7 +3822,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 type: array
                 items:
@@ -3854,7 +3854,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 type: array
                 items:
@@ -3950,7 +3950,7 @@ paths:
         '201':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 type: array
                 items:
@@ -3990,7 +3990,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 type: array
                 items:
@@ -4022,7 +4022,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 type: array
                 items:
@@ -4089,7 +4089,7 @@ paths:
         '201':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 type: array
                 items:
@@ -4122,7 +4122,7 @@ paths:
           required: true
       requestBody:
         content:
-          application/json:
+          application/json; charset=utf-8:
             schema:
               type: object
               properties:
@@ -4134,7 +4134,7 @@ paths:
         '200':
           description: successful operation
           content:
-            application/json:
+            application/json; charset=utf-8:
               schema:
                 type: array
                 items:
@@ -4161,7 +4161,7 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          application/json; charset=utf-8:
             schema:
               type: array
               items:
@@ -4190,49 +4190,49 @@ components:
     BadRequest:
       description: Bad Request
       content:
-        application/json:
+        application/json; charset=utf-8:
           schema:
             $ref: '#/components/schemas/ApiResponse'
     Unauthorized:
       description: Unauthorized
       content:
-        application/json:
+        application/json; charset=utf-8:
           schema:
             $ref: '#/components/schemas/ApiResponse'
     Forbidden:
       description: Forbidden
       content:
-        application/json:
+        application/json; charset=utf-8:
           schema:
             $ref: '#/components/schemas/ApiResponse'
     NotFound:
       description: Not Found
       content:
-        application/json:
+        application/json; charset=utf-8:
           schema:
             $ref: '#/components/schemas/ApiResponse'
     Conflict:
       description: Conflict
       content:
-        application/json:
+        application/json; charset=utf-8:
           schema:
             $ref: '#/components/schemas/ApiResponse'
     RequestEntityTooLarge:
       description: Request Entity Too Large, max allowed size exceeded
       content:
-        application/json:
+        application/json; charset=utf-8:
           schema:
             $ref: '#/components/schemas/ApiResponse'
     InternalServerError:
       description: Internal Server Error
       content:
-        application/json:
+        application/json; charset=utf-8:
           schema:
             $ref: '#/components/schemas/ApiResponse'
     DefaultResponse:
       description: Unexpected Error
       content:
-        application/json:
+        application/json; charset=utf-8:
           schema:
             $ref: '#/components/schemas/ApiResponse'
   schemas:
