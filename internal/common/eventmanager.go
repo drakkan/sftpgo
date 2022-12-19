@@ -2096,20 +2096,22 @@ type eventCronJob struct {
 func (j *eventCronJob) getTask(rule dataprovider.EventRule) (dataprovider.Task, error) {
 	if rule.GuardFromConcurrentExecution() {
 		task, err := dataprovider.GetTaskByName(rule.Name)
-		if _, ok := err.(*util.RecordNotFoundError); ok {
-			eventManagerLog(logger.LevelDebug, "adding task for rule %q", rule.Name)
-			task = dataprovider.Task{
-				Name:     rule.Name,
-				UpdateAt: 0,
-				Version:  0,
+		if err != nil {
+			if _, ok := err.(*util.RecordNotFoundError); ok {
+				eventManagerLog(logger.LevelDebug, "adding task for rule %q", rule.Name)
+				task = dataprovider.Task{
+					Name:     rule.Name,
+					UpdateAt: 0,
+					Version:  0,
+				}
+				err = dataprovider.AddTask(rule.Name)
+				if err != nil {
+					eventManagerLog(logger.LevelWarn, "unable to add task for rule %q: %v", rule.Name, err)
+					return task, err
+				}
+			} else {
+				eventManagerLog(logger.LevelWarn, "unable to get task for rule %q: %v", rule.Name, err)
 			}
-			err = dataprovider.AddTask(rule.Name)
-			if err != nil {
-				eventManagerLog(logger.LevelWarn, "unable to add task for rule %q: %v", rule.Name, err)
-				return task, err
-			}
-		} else {
-			eventManagerLog(logger.LevelWarn, "unable to get task for rule %q: %v", rule.Name, err)
 		}
 		return task, err
 	}
