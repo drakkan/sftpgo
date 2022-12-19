@@ -6728,4 +6728,3 @@ components:
       in: header
       name: X-SFTPGO-API-KEY
       description: 'API key to use for authentication. API key authentication is intrinsically less secure than using a short lived JWT token. You should prefer API key authentication only for machine-to-machine communications in trusted environments. If no admin/user is associated to the provided key you need to add ".username" at the end of the key. For example if your API key is "6ajKLwswLccVBGpZGv596G.ySAXc8vtp9hMiwAuaLtzof" and you want to impersonate the admin with username "myadmin" you have to use "6ajKLwswLccVBGpZGv596G.ySAXc8vtp9hMiwAuaLtzof.myadmin" as API key. When using API key authentication you cannot manage API keys, update the impersonated admin, change password or public keys for the impersonated user.'
-
