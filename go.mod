@@ -9,10 +9,10 @@ require (
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/alexedwards/argon2id v0.0.0-20211130144151-3585854a6387
 	github.com/aws/aws-sdk-go-v2 v1.17.3
-	github.com/aws/aws-sdk-go-v2/config v1.18.5
-	github.com/aws/aws-sdk-go-v2/credentials v1.13.5
+	github.com/aws/aws-sdk-go-v2/config v1.18.6
+	github.com/aws/aws-sdk-go-v2/credentials v1.13.6
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.21
-	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.44
+	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.45
 	github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.13.26
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.29.6
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.16.10
@@ -66,7 +66,7 @@ require (
 	go.etcd.io/bbolt v1.3.6
 	go.uber.org/automaxprocs v1.5.1
 	gocloud.dev v0.27.0
-	golang.org/x/crypto v0.3.0
+	golang.org/x/crypto v0.4.0
 	golang.org/x/net v0.4.0
 	golang.org/x/oauth2 v0.3.0
 	golang.org/x/sys v0.3.0
@@ -93,7 +93,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.21 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.13.21 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.11.27 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.13.10 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.13.11 // indirect
 	github.com/aws/smithy-go v1.13.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/boombuler/barcode v1.0.1 // indirect
@@ -171,5 +171,5 @@ require (
 replace (
 	github.com/fclairamb/ftpserverlib => github.com/drakkan/ftpserverlib v0.0.0-20221203115213-ba73c775a9fd
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
-	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20221117111000-a0321143587c
+	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20221220153730-5f47589cce28
 )
