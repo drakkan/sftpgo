@@ -50,11 +50,15 @@ If you don't configure any private host key, the daemon will use `id_rsa`, `id_e
 
 The `gen` command allows to generate completion scripts for your shell and man pages.
 
+## Configuration file
+
 </details>
 
 <details><summary><font size=5> Configuration file</font></summary>
 
 The configuration file contains the following sections:
+
+<details><summary><font size=4>common</font></summary>
 
 - **"common"**, configuration parameters shared among all the supported protocols
   - `idle_timeout`, integer. Time in minutes after which an idle client will be disconnected. 0 means disabled. Default: 15
@@ -106,6 +110,10 @@ The configuration file contains the following sections:
     - `generate_defender_events`, boolean. If `true`, the defender is enabled, and this is not a global rate limiter, a new defender event will be generated each time the configured limit is exceeded. Default `false`
     - `entries_soft_limit`, integer.
     - `entries_hard_limit`, integer. The number of per-ip rate limiters kept in memory will vary between the soft and hard limit
+
+</details>
+<details><summary><font size=4>acme</font></summary>
+
 - **"acme"**, Automatic Certificate Management Environment (ACME) protocol configuration. To obtain the certificates the first time you have to configure the ACME protocol and execute the `sftpgo acme run` command. The SFTPGo service will take care of the automatic renewal of certificates for the configured domains.
   - `domains`, list of domains for which to obtain certificates. If a single certificate is to be valid for multiple domains specify the names separated by commas, for example: `example.com,www.example.com`. An empty list means that ACME protocol is disabled. Default: empty.
   - `email`, string. Email used for registration and recovery contact. Default: empty.
@@ -119,6 +127,10 @@ The configuration file contains the following sections:
     - `webroot`, string. Set the absolute path to the webroot folder to use for HTTP based challenges to write directly in a file in `.well-known/acme-challenge`. Setting a `webroot` disables the built-in server (the `port` setting is ignored) and expects the given directory to be publicly served, on port `80`, with access to `.well-known/acme-challenge`. If `webroot` is empty and `port` is `0` the `HTTP-01` challenge is disabled. Default: empty.
   - `tls_alpn01_challenge`, configuration for `TLS-ALPN-01` challenge type, the following fields are supported:
     - `port`, integer. This challenge is expected to run on port `443`. `0` means `TLS-ALPN-01` is disabled. Default: `0`.
+
+</details>
+<details><summary><font size=4>sftpd</font></summary>
+
 - **"sftpd"**, the configuration for the SFTP server
   - `bindings`, list of structs. Each struct has the following fields:
     - `port`, integer. The port used for serving SFTP requests. 0 means disabled. Default: 2022
@@ -141,6 +153,10 @@ The configuration file contains the following sections:
   - `keyboard_interactive_auth_hook`, string. Absolute path to an external program or an HTTP URL to invoke for keyboard interactive authentication. See [Keyboard Interactive Authentication](./keyboard-interactive.md) for more details.
   - `password_authentication`, boolean. Set to false to disable password authentication. This setting will disable multi-step authentication method using public key + password too. It is useful for public key only configurations if you need to manage old clients that will not attempt to authenticate with public keys if the password login method is advertised. Default: `true`.
   - `folder_prefix`, string. Virtual root folder prefix to include in all file operations (ex: `/files`). The virtual paths used for per-directory permissions, file patterns etc. must not include the folder prefix. The prefix is only applied to SFTP requests (in SFTP server mode), SCP and other SSH commands will be automatically disabled if you configure a prefix.  The prefix is ignored while running as OpenSSH's SFTP subsystem. This setting can help some specific migrations from SFTP servers based on OpenSSH and it is not recommended for general usage. Default: blank.
+
+</details>
+<details><summary><font size=4>ftpd</font></summary>
+
 - **"ftpd"**, the configuration for the FTP server
   - `bindings`, list of structs. Each struct has the following fields:
     - `port`, integer. The port used for serving FTP requests. 0 means disabled. Default: 0.
@@ -171,6 +187,10 @@ The configuration file contains the following sections:
   - `certificate_key_file`, string. Private key matching the above certificate. This can be an absolute path or a path relative to the config dir. A certificate and the private key are required to enable explicit and implicit TLS. Certificate and key files can be reloaded on demand sending a `SIGHUP` signal on Unix based systems and a `paramchange` request to the running service on Windows.
   - `ca_certificates`, list of strings. Set of root certificate authorities to be used to verify client certificates.
   - `ca_revocation_lists`, list of strings. Set a revocation lists, one for each root CA, to be used to check if a client certificate has been revoked. The revocation lists can be reloaded on demand sending a `SIGHUP` signal on Unix based systems and a `paramchange` request to the running service on Windows.
+
+</details>
+<details><summary><font size=4>webdavd</font></summary>
+
 - **"webdavd"**, the configuration for the WebDAV server, more info [here](./webdav.md)
   - `bindings`, list of structs. Each struct has the following fields:
     - `port`, integer. The port used for serving WebDAV requests. 0 means disabled. Default: 0.
@@ -205,6 +225,10 @@ The configuration file contains the following sections:
     - `enabled`, boolean, set to true to enable user caching. Default: true.
     - `expiration_time`, integer. Expiration time, in minutes, for the cached users. 0 means unlimited. Default: 0.
     - `max_size`, integer. Maximum number of users to cache. 0 means unlimited. Default: 50.
+
+</details>
+<details><summary><font size=4>data_provider</font></summary>
+
 - **"data_provider"**, the configuration for the data provider
   - `driver`, string. Supported drivers are `sqlite`, `mysql`, `postgresql`, `cockroachdb`, `bolt`, `memory`
   - `name`, string. Database name. For driver `sqlite` this can be the database name relative to the config dir or the absolute path to the SQLite database. For driver `memory` this is the (optional) path relative to the config dir or the absolute path to the provider dump, obtained using the `dumpdata` REST API, to load. This dump will be loaded at startup and can be reloaded on demand sending a `SIGHUP` signal on Unix based systems and a `paramchange` request to the running service on Windows. The `memory` provider will not modify the provided file so quota usage and last login will not be persisted. If you plan to use a SQLite database over a `cifs` network share (this is not recommended in general) you must use the `nobrl` mount option otherwise you will get the `database is locked` error. Some users reported that the `bolt` provider works fine over `cifs` shares.
@@ -262,6 +286,10 @@ The configuration file contains the following sections:
     - `port`, integer. The port that other nodes can use to connect to this node via REST API. Default: `0`
     - `proto`, string. Supported values `http` or `https`. For `https` the configurations for http clients is used, so you can, for example, enable mutual TLS authentication. Default: `http`
   - `backups_path`, string. Path to the backup directory. This can be an absolute path or a path relative to the config dir. We don't allow backups in arbitrary paths for security reasons.
+
+  </details>
+<details><summary><font size=4>httpd</font></summary>
+
 - **"httpd"**, the configuration for the HTTP server used to serve REST API and to expose the built-in web interface
   - `bindings`, list of structs. Each struct has the following fields:
     - `port`, integer. The port used for serving HTTP requests. Default: 8080.
@@ -348,6 +376,10 @@ The configuration file contains the following sections:
     - `installation_code`, string. If set, this installation code will be required when creating the first admin account. Please note that even if set using an environment variable this field is read at SFTPGo startup and not at runtime. This is not a license key or similar, the purpose here is to prevent anyone who can access to the initial setup screen from creating an admin user. Default: blank.
     - `installation_code_hint`, string. Description for the installation code input field. Default: `Installation code`.
   - `hide_support_link`, boolean. If set, the link to the [sponsors section](../README.md#sponsors) will not appear on the setup screen page. Default: `false`.
+
+</details>
+<details><summary><font size=4>telemetry</font></summary>
+
 - **"telemetry"**, the configuration for the telemetry server, more details [below](#telemetry-server)
   - `bind_port`, integer. The port used for serving HTTP requests. Set to 0 to disable HTTP server. Default: 0
   - `bind_address`, string. Leave blank to listen on all available network interfaces. On \*NIX you can specify an absolute path to listen on a Unix-domain socket. Default: `127.0.0.1`
@@ -357,6 +389,10 @@ The configuration file contains the following sections:
   - `certificate_key_file`, string. Private key matching the above certificate. This can be an absolute path or a path relative to the config dir. If both the certificate and the private key are provided, the server will expect HTTPS connections. Certificate and key files can be reloaded on demand sending a `SIGHUP` signal on Unix based systems and a `paramchange` request to the running service on Windows.
   - `min_tls_version`, integer. Defines the minimum version of TLS to be enabled. `12` means TLS 1.2 (and therefore TLS 1.2 and TLS 1.3 will be enabled),`13` means TLS 1.3. Default: `12`.
   - `tls_cipher_suites`, list of strings. List of supported cipher suites for TLS version 1.2. If empty, a default list of secure cipher suites is used, with a preference order based on hardware performance. Note that TLS 1.3 ciphersuites are not configurable. The supported ciphersuites names are defined [here](https://github.com/golang/go/blob/master/src/crypto/tls/cipher_suites.go#L52). Any invalid name will be silently ignored. The order matters, the ciphers listed first will be the preferred ones. Default: empty.
+
+  </details>
+<details><summary><font size=4>http</font></summary>
+
 - **"http"**, the configuration for HTTP clients. HTTP clients are used for executing hooks. Some hooks use a retryable HTTP client, for these hooks you can configure the time between retries and the number of retries. Please check the hook specific documentation to understand which hooks use a retryable HTTP client.
   - `timeout`, float. Timeout specifies a time limit, in seconds, for requests. For requests with retries this is the timeout for a single request
   - `retry_wait_min`, integer. Defines the minimum waiting time between attempts in seconds.
@@ -371,6 +407,10 @@ The configuration file contains the following sections:
     - `key`, string
     - `value`, string. The header is silently ignored if `key` or `value` are empty
     - `url`, string, optional. If not empty, the header will be added only if the request URL starts with the one specified here
+
+</details>
+<details><summary><font size=4>command</font></summary>
+
 - **command**, configuration for external commands such as program based hooks
   - `timeout`, integer. Timeout specifies a time limit, in seconds, to execute external commands. Valid range: `1-300`. Default: `30`
   - `env`, list of strings. Environment variables to pass to all the external commands. Global environment variables are cleared, for security reasons, you have to explicitly set any environment variable such as `PATH` etc. if you need them. Each entry is of the form `key=value`. Do not use environment variables prefixed with `SFTPGO_` to avoid conflicts with environment variables that SFTPGo hooks can set. Default: empty
@@ -380,16 +420,28 @@ The configuration file contains the following sections:
     - `env`, list of strings. These values are added to the environment variables defined for all commands, if any. Default: empty
     - `args`, list of strings. Arguments to pass to the command identified by `path`. Default: empty
     - `hook`, string. If not empty this configuration only apply to the specified hook name. Supported hook names: `fs_actions`, `provider_actions`, `startup`, `post_connect`, `post_disconnect`, `data_retention`, `check_password`, `pre_login`, `post_login`, `external_auth`, `keyboard_interactive`. Default: empty
+
+</details>
+<details><summary><font size=4>kms</font></summary>
+
 - **kms**, configuration for the Key Management Service, more details can be found [here](./kms.md)
   - `secrets`
     - `url`, string. Defines the URI to the KMS service. Default: blank.
     - `master_key`, string. Defines the master encryption key as string. If not empty, it takes precedence over `master_key_path`. Default: blank.
     - `master_key_path`, string. Defines the absolute path to a file containing the master encryption key. Default: blank.
+
+</details>
+<details><summary><font size=4>mfa</font></summary>
+
 - **mfa**, multi-factor authentication settings
   - `totp`, list of struct that define settings for time-based one time passwords (RFC 6238). Each struct has the following fields:
     - `name`, string. Unique configuration name. This name should not be changed if there are users or admins using the configuration. The name is not exposed to the authentication apps. Default: `Default`.
     - `issuer`, string. Name of the issuing Organization/Company. Default: `SFTPGo`.
     - `algo`, string. Algorithm to use for HMAC. The supported algorithms are: `sha1`, `sha256`, `sha512`. Currently Google Authenticator app on iPhone seems to only support `sha1`, please check the compatibility with your target apps/device before setting a different algorithm. You can also define multiple configurations, for example one that uses `sha256` or `sha512` and another one that uses `sha1` and instruct your users to use the appropriate configuration for their devices/apps. The algorithm should not be changed if there are users or admins using the configuration. Default: `sha1`.
+
+</details>
+<details><summary><font size=4>smtp</font></summary>
+
 - **smtp**, SMTP configuration enables SFTPGo email sending capabilities
   - `host`, string. Location of SMTP email server. Leave empty to disable email sending capabilities. Default: blank.
   - `port`, integer. Port of SMTP email server.
@@ -400,6 +452,10 @@ The configuration file contains the following sections:
   - `encryption`, integer. 0 means no encryption, 1 means `TLS`, 2 means `STARTTLS`. Default: `0`.
   - `domain`, string. Domain to use for `HELO` command, if empty `localhost` will be used. Default: blank.
   - `templates_path`, string. Path to the email templates. This can be an absolute path or a path relative to the config dir. Templates are searched within a subdirectory named "email" in the specified path. You can customize the email templates by simply specifying an alternate path and putting your custom templates there.
+
+</details>
+<details><summary><font size=4>plugins</font></summary>
+
 - **plugins**, list of external plugins. Each plugin is configured using a struct with the following fields:
   - `type`, string. Defines the plugin type. Supported types: `notifier`, `kms`, `auth`, `metadata`.
   - `notifier_options`, struct. Defines the options for notifier plugins.
@@ -450,6 +506,11 @@ The configuration can be read from JSON, TOML, YAML, HCL, envfile and Java prope
 
 </details>
 
+## Environment variables
+
+</details>
+
+
 <details><summary><font size=5>  Environment variables</font></summary>
 
 You can also override all the available configuration options using environment variables. SFTPGo will check for environment variables with a name matching the key uppercased and prefixed with the `SFTPGO_`. You need to use `__` to traverse a struct.
@@ -475,6 +536,8 @@ If you install SFTPGo on Linux using the official deb/rpm packages you can set y
 SFTPGo also reads files inside the `env.d` directory relative to config dir and then exports the valid variables into environment variables if they are not already set. With this method you can override any configuration options, set environment variables for SFTPGo plugins but you cannot set command flags because these files are read after that SFTPGo starts and the config dir must already be set.
 Of course you can also set environment variables with the method provided by the operating system of your choice.
 
+## Binding to privileged ports
+
 </details>
 
 <details><summary><font size=5>Binding to privileged ports</font></summary>
@@ -498,6 +561,8 @@ An alternative method is to use `iptables`, for example you run the SFTP service
 sudo iptables -t nat -A PREROUTING -d <ip> -p tcp --dport 22 -m addrtype --dst-type LOCAL -j DNAT --to-destination <ip>:2022
 sudo iptables -t nat -A OUTPUT     -d <ip> -p tcp --dport 22 -m addrtype --dst-type LOCAL -j DNAT --to-destination <ip>:2022
 ```
+
+## Supported Password Hashing Algorithms
 
 </details>
 
