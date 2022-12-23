@@ -16,6 +16,7 @@ package httpd
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/go-chi/render"
@@ -74,11 +75,13 @@ func addEventAction(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
-	err = dataprovider.AddEventAction(&action, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	err = dataprovider.AddEventAction(&action, claims.Username, ipAddr, claims.Role)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
+	w.Header().Add("Location", fmt.Sprintf("%s/%s", eventActionsPath, action.Name))
 	renderEventAction(w, r, action.Name, http.StatusCreated)
 }
 
@@ -188,11 +191,12 @@ func addEventRule(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
-	err = dataprovider.AddEventRule(&rule, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
-	if err != nil {
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	if err := dataprovider.AddEventRule(&rule, claims.Username, ipAddr, claims.Role); err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
+	w.Header().Add("Location", fmt.Sprintf("%s/%s", eventRulesPath, rule.Name))
 	renderEventRule(w, r, rule.Name, http.StatusCreated)
 }
 

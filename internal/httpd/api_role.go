@@ -16,6 +16,7 @@ package httpd
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/go-chi/render"
@@ -47,6 +48,7 @@ func addRole(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
 	}
+
 	var role dataprovider.Role
 	err = render.DecodeJSON(r.Body, &role)
 	if err != nil {
@@ -56,9 +58,10 @@ func addRole(w http.ResponseWriter, r *http.Request) {
 	err = dataprovider.AddRole(&role, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
-		return
+	} else {
+		w.Header().Add("Location", fmt.Sprintf("%s/%s", rolesPath, role.Name))
+		renderRole(w, r, role.Name, http.StatusCreated)
 	}
-	renderRole(w, r, role.Name, http.StatusCreated)
 }
 
 func updateRole(w http.ResponseWriter, r *http.Request) {

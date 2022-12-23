@@ -16,6 +16,7 @@ package httpd
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/go-chi/render"
@@ -42,6 +43,7 @@ func getFolders(w http.ResponseWriter, r *http.Request) {
 
 func addFolder(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
@@ -54,11 +56,11 @@ func addFolder(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
-	err = dataprovider.AddFolder(&folder, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
-	if err != nil {
+	if err := dataprovider.AddFolder(&folder, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role); err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
+	w.Header().Add("Location", fmt.Sprintf("%s/%s", folderPath, folder.Name))
 	renderFolder(w, r, folder.Name, http.StatusCreated)
 }
 

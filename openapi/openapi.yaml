@@ -1385,6 +1385,11 @@ paths:
       responses:
         '201':
           description: successful operation
+          headers:
+            Location:
+              schema:
+                type: string
+              description: 'URI of the newly created object'
           content:
             application/json; charset=utf-8:
               schema:
@@ -1560,6 +1565,11 @@ paths:
       responses:
         '201':
           description: successful operation
+          headers:
+            Location:
+              schema:
+                type: string
+              description: 'URI of the newly created object'
           content:
             application/json; charset=utf-8:
               schema:
@@ -1735,6 +1745,11 @@ paths:
       responses:
         '201':
           description: successful operation
+          headers:
+            Location:
+              schema:
+                type: string
+              description: 'URI of the newly created object'
           content:
             application/json; charset=utf-8:
               schema:
@@ -1910,6 +1925,11 @@ paths:
       responses:
         '201':
           description: successful operation
+          headers:
+            Location:
+              schema:
+                type: string
+              description: 'URI of the newly created object'
           content:
             application/json; charset=utf-8:
               schema:
@@ -2085,6 +2105,11 @@ paths:
       responses:
         '201':
           description: successful operation
+          headers:
+            Location:
+              schema:
+                type: string
+              description: 'URI of the newly created object'
           content:
             application/json; charset=utf-8:
               schema:
@@ -2574,7 +2599,7 @@ paths:
             Location:
               schema:
                 type: string
-              description: URL to retrieve the details for the new created API key
+              description: URI to retrieve the details for the new created API key
           content:
             application/json; charset=utf-8:
               schema:
@@ -2763,6 +2788,11 @@ paths:
       responses:
         '201':
           description: successful operation
+          headers:
+            Location:
+              schema:
+                type: string
+              description: 'URI of the newly created object'
           content:
             application/json; charset=utf-8:
               schema:
@@ -3052,6 +3082,11 @@ paths:
       responses:
         '201':
           description: successful operation
+          headers:
+            Location:
+              schema:
+                type: string
+              description: 'URI of the newly created object'
           content:
             application/json; charset=utf-8:
               schema:
@@ -3820,7 +3855,7 @@ paths:
             Location:
               schema:
                 type: string
-              description: URL to retrieve the details for the new created share
+              description: URI to retrieve the details for the new created share
           content:
             application/json; charset=utf-8:
               schema:

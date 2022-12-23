@@ -17,6 +17,7 @@ package httpd
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/go-chi/jwtauth/v5"
@@ -65,12 +66,13 @@ func renderAdmin(w http.ResponseWriter, r *http.Request, username string, status
 
 func addAdmin(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+
 	claims, err := getTokenClaims(r)
 	if err != nil || claims.Username == "" {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
 	}
-	var admin dataprovider.Admin
+	admin := dataprovider.Admin{}
 	err = render.DecodeJSON(r.Body, &admin)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
@@ -81,6 +83,7 @@ func addAdmin(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
+	w.Header().Add("Location", fmt.Sprintf("%s/%s", adminPath, admin.Username))
 	renderAdmin(w, r, admin.Username, http.StatusCreated)
 }
 

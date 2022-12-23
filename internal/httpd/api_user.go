@@ -113,6 +113,7 @@ func addUser(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
+	w.Header().Add("Location", fmt.Sprintf("%s/%s", userPath, user.Username))
 	renderUser(w, r, user.Username, claims.Role, http.StatusCreated)
 }
 
