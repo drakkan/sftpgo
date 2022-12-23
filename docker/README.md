@@ -96,9 +96,9 @@ docker logs some-sftpgo
 ### Container graceful shutdown
 
 ```shell
-docker run --name sftpgo.example.net --host sftpgo.example.net \
+docker run --name some-sftpgo \
     -p 2022:2022 \
-	-e SFTPGO_GRACE_TIME=32 \
+    -e SFTPGO_GRACE_TIME=32 \
     -d "drakkan/sftpgo:tag"
 ```
 
