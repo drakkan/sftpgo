@@ -93,6 +93,44 @@ docker logs some-sftpgo
 
 **Note:** [distroless](../Dockerfile.distroless) image contains only a statically linked sftpgo binary and its minimal runtime dependencies. Shell is not available on this image.
 
+### Container graceful shutdown
+
+```shell
+docker run --name some-sftpgo \
+    -p 2022:2022 \
+    -e SFTPGO_GRACE_TIME=32 \
+    -d "drakkan/sftpgo:tag"
+```
+
+Setting the SFTPGO_GRACE_TIME environment variable to a non zero value when creating or running a container will enable a graceful shutdown period in seconds that will allow existing connections to hopefully complete before being forcibly closed when the time has passed.
+
+```shell
+echo "put 10G.dd" | sftp -P 2022 testuser@sftpgo.example.net
+
+Connected to sftpgo.example.net.
+sftp> put 10G.dd
+Uploading 10G.dd to /10G.dd
+10G.dd      17% 1758MB 100.9MB/s   01:24 ETA
+client_loop: send disconnect: Broken pipe
+Connection closed.
+```
+
+While the SFTPGO container is in graceful shutdown mode waiting for the last connection(s) to finish, no new connections will be allowed.
+
+```shell
+Fri 23 Dec 2022 08:47:41 AM UTC
+Connected to sftpgo.example.net.
+sftp> put d.txt
+Uploading d.txt to /d.txt
+d.txt       100%  323   216.9KB/s   00:00 
+Fri 23 Dec 2022 08:47:42 AM UTC
+kex_exchange_identification: Connection closed by remote host
+Connection closed.
+```
+
+If no connections are active or SFTPGO_GRACE_TIME=0 the container will shutdown immediately.
+
+
 ### Where to Store Data
 
 Important note: There are several ways to store data used by applications that run in Docker containers. We encourage users of the SFTPGo images to familiarize themselves with the options available, including:
