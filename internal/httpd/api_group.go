@@ -22,7 +22,6 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/util"
-	"github.com/drakkan/sftpgo/v2/internal/vfs"
 )
 
 func getGroups(w http.ResponseWriter, r *http.Request) {
@@ -76,9 +75,7 @@ func updateGroup(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	users := group.Users
-	groupID := group.ID
-	name = group.Name
+
 	currentS3AccessSecret := group.UserSettings.FsConfig.S3Config.AccessSecret
 	currentAzAccountKey := group.UserSettings.FsConfig.AzBlobConfig.AccountKey
 	currentAzSASUrl := group.UserSettings.FsConfig.AzBlobConfig.SASURL
@@ -90,24 +87,20 @@ func updateGroup(w http.ResponseWriter, r *http.Request) {
 	currentHTTPPassword := group.UserSettings.FsConfig.HTTPConfig.Password
 	currentHTTPAPIKey := group.UserSettings.FsConfig.HTTPConfig.APIKey
 
-	group.UserSettings.FsConfig.S3Config = vfs.S3FsConfig{}
-	group.UserSettings.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
-	group.UserSettings.FsConfig.GCSConfig = vfs.GCSFsConfig{}
-	group.UserSettings.FsConfig.CryptConfig = vfs.CryptFsConfig{}
-	group.UserSettings.FsConfig.SFTPConfig = vfs.SFTPFsConfig{}
-	group.UserSettings.FsConfig.HTTPConfig = vfs.HTTPFsConfig{}
-	err = render.DecodeJSON(r.Body, &group)
+	var updatedGroup dataprovider.Group
+	err = render.DecodeJSON(r.Body, &updatedGroup)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
-	group.ID = groupID
-	group.Name = name
-	group.UserSettings.FsConfig.SetEmptySecretsIfNil()
-	updateEncryptedSecrets(&group.UserSettings.FsConfig, currentS3AccessSecret, currentAzAccountKey, currentAzSASUrl,
+	updatedGroup.ID = group.ID
+	updatedGroup.Name = group.Name
+	updatedGroup.UserSettings.FsConfig.SetEmptySecretsIfNil()
+	updateEncryptedSecrets(&updatedGroup.UserSettings.FsConfig, currentS3AccessSecret, currentAzAccountKey, currentAzSASUrl,
 		currentGCSCredentials, currentCryptoPassphrase, currentSFTPPassword, currentSFTPKey, currentSFTPKeyPassphrase,
 		currentHTTPPassword, currentHTTPAPIKey)
-	err = dataprovider.UpdateGroup(&group, users, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
+	err = dataprovider.UpdateGroup(&updatedGroup, group.Users, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr),
+		claims.Role)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return

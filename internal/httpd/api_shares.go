@@ -131,26 +131,27 @@ func updateShare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	oldPassword := share.Password
-	err = render.DecodeJSON(r.Body, &share)
+	var updatedShare dataprovider.Share
+	err = render.DecodeJSON(r.Body, &updatedShare)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
 
-	share.ShareID = shareID
-	share.Username = claims.Username
-	if share.Password == redactedSecret {
-		share.Password = oldPassword
+	updatedShare.ShareID = shareID
+	updatedShare.Username = claims.Username
+	if updatedShare.Password == redactedSecret {
+		updatedShare.Password = share.Password
 	}
-	if share.Password == "" {
+	if updatedShare.Password == "" {
 		if util.Contains(claims.Permissions, sdk.WebClientShareNoPasswordDisabled) {
 			sendAPIResponse(w, r, nil, "You are not authorized to share files/folders without a password",
 				http.StatusForbidden)
 			return
 		}
 	}
-	if err := dataprovider.UpdateShare(&share, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role); err != nil {
+	err = dataprovider.UpdateShare(&updatedShare, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
+	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}

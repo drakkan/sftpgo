@@ -163,55 +163,28 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	userID := user.ID
-	username = user.Username
-	lastPwdChange := user.LastPasswordChange
-	totpConfig := user.Filters.TOTPConfig
-	recoveryCodes := user.Filters.RecoveryCodes
-	currentPermissions := user.Permissions
-	currentS3AccessSecret := user.FsConfig.S3Config.AccessSecret
-	currentAzAccountKey := user.FsConfig.AzBlobConfig.AccountKey
-	currentAzSASUrl := user.FsConfig.AzBlobConfig.SASURL
-	currentGCSCredentials := user.FsConfig.GCSConfig.Credentials
-	currentCryptoPassphrase := user.FsConfig.CryptConfig.Passphrase
-	currentSFTPPassword := user.FsConfig.SFTPConfig.Password
-	currentSFTPKey := user.FsConfig.SFTPConfig.PrivateKey
-	currentSFTPKeyPassphrase := user.FsConfig.SFTPConfig.KeyPassphrase
-	currentHTTPPassword := user.FsConfig.HTTPConfig.Password
-	currentHTTPAPIKey := user.FsConfig.HTTPConfig.APIKey
 
-	user.Permissions = make(map[string][]string)
-	user.FsConfig.S3Config = vfs.S3FsConfig{}
-	user.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
-	user.FsConfig.GCSConfig = vfs.GCSFsConfig{}
-	user.FsConfig.CryptConfig = vfs.CryptFsConfig{}
-	user.FsConfig.SFTPConfig = vfs.SFTPFsConfig{}
-	user.FsConfig.HTTPConfig = vfs.HTTPFsConfig{}
-	user.Filters.TOTPConfig = dataprovider.UserTOTPConfig{}
-	user.Filters.RecoveryCodes = nil
-	user.VirtualFolders = nil
-	err = render.DecodeJSON(r.Body, &user)
+	var updatedUser dataprovider.User
+	updatedUser.Password = user.Password
+	err = render.DecodeJSON(r.Body, &updatedUser)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
-	user.ID = userID
-	user.Username = username
-	user.Filters.TOTPConfig = totpConfig
-	user.Filters.RecoveryCodes = recoveryCodes
-	user.LastPasswordChange = lastPwdChange
-	user.SetEmptySecretsIfNil()
-	// we use new Permissions if passed otherwise the old ones
-	if len(user.Permissions) == 0 {
-		user.Permissions = currentPermissions
-	}
-	updateEncryptedSecrets(&user.FsConfig, currentS3AccessSecret, currentAzAccountKey, currentAzSASUrl,
-		currentGCSCredentials, currentCryptoPassphrase, currentSFTPPassword, currentSFTPKey, currentSFTPKeyPassphrase,
-		currentHTTPPassword, currentHTTPAPIKey)
+	updatedUser.ID = user.ID
+	updatedUser.Username = user.Username
+	updatedUser.Filters.RecoveryCodes = user.Filters.RecoveryCodes
+	updatedUser.Filters.TOTPConfig = user.Filters.TOTPConfig
+	updatedUser.LastPasswordChange = user.LastPasswordChange
+	updatedUser.SetEmptySecretsIfNil()
+	updateEncryptedSecrets(&updatedUser.FsConfig, user.FsConfig.S3Config.AccessSecret, user.FsConfig.AzBlobConfig.AccountKey,
+		user.FsConfig.AzBlobConfig.SASURL, user.FsConfig.GCSConfig.Credentials, user.FsConfig.CryptConfig.Passphrase,
+		user.FsConfig.SFTPConfig.Password, user.FsConfig.SFTPConfig.PrivateKey, user.FsConfig.SFTPConfig.KeyPassphrase,
+		user.FsConfig.HTTPConfig.Password, user.FsConfig.HTTPConfig.APIKey)
 	if claims.Role != "" {
-		user.Role = claims.Role
+		updatedUser.Role = claims.Role
 	}
-	err = dataprovider.UpdateUser(&user, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
+	err = dataprovider.UpdateUser(&updatedUser, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return

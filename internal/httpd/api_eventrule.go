@@ -96,32 +96,30 @@ func updateEventAction(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	actionID := action.ID
-	name = action.Name
-	currentHTTPPassword := action.Options.HTTPConfig.Password
-	action.Options = dataprovider.BaseEventActionOptions{}
 
-	err = render.DecodeJSON(r.Body, &action)
+	var updatedAction dataprovider.BaseEventAction
+	err = render.DecodeJSON(r.Body, &updatedAction)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
-	action.ID = actionID
-	action.Name = name
-	action.Options.SetEmptySecretsIfNil()
-	switch action.Type {
+	updatedAction.ID = action.ID
+	updatedAction.Name = action.Name
+	updatedAction.Options.SetEmptySecretsIfNil()
+
+	switch updatedAction.Type {
 	case dataprovider.ActionTypeHTTP:
-		if action.Options.HTTPConfig.Password.IsNotPlainAndNotEmpty() {
-			action.Options.HTTPConfig.Password = currentHTTPPassword
+		if updatedAction.Options.HTTPConfig.Password.IsNotPlainAndNotEmpty() {
+			updatedAction.Options.HTTPConfig.Password = action.Options.HTTPConfig.Password
 		}
 	}
 
-	err = dataprovider.UpdateEventAction(&action, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
+	err = dataprovider.UpdateEventAction(&updatedAction, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	sendAPIResponse(w, r, nil, "Event target updated", http.StatusOK)
+	sendAPIResponse(w, r, nil, "Event action updated", http.StatusOK)
 }
 
 func deleteEventAction(w http.ResponseWriter, r *http.Request) {
@@ -206,25 +204,22 @@ func updateEventRule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	name := getURLParam(r, "name")
-	rule, err := dataprovider.EventRuleExists(name)
+	rule, err := dataprovider.EventRuleExists(getURLParam(r, "name"))
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	ruleID := rule.ID
-	name = rule.Name
-	rule.Actions = nil
 
-	err = render.DecodeJSON(r.Body, &rule)
+	var updatedRule dataprovider.EventRule
+	err = render.DecodeJSON(r.Body, &updatedRule)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
-	rule.ID = ruleID
-	rule.Name = name
+	updatedRule.ID = rule.ID
+	updatedRule.Name = rule.Name
 
-	err = dataprovider.UpdateEventRule(&rule, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
+	err = dataprovider.UpdateEventRule(&updatedRule, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return

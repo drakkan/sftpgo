@@ -668,8 +668,8 @@ func TestRoleRelations(t *testing.T) {
 	admin, _, err := httpdtest.AddAdmin(a, http.StatusCreated)
 	assert.NoError(t, err)
 	admin.Role = "invalid role"
-	_, _, err = httpdtest.UpdateAdmin(admin, http.StatusInternalServerError)
-	assert.NoError(t, err)
+	_, resp, err = httpdtest.UpdateAdmin(admin, http.StatusInternalServerError)
+	assert.NoError(t, err, string(resp))
 	admin, _, err = httpdtest.GetAdminByUsername(admin.Username, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Equal(t, role.Name, admin.Role)
@@ -813,21 +813,38 @@ func TestBasicGroupHandling(t *testing.T) {
 	group.UserSettings.FsConfig.SFTPConfig.Endpoint = sftpServerAddr
 	group.UserSettings.FsConfig.SFTPConfig.Username = defaultUsername
 	group.UserSettings.FsConfig.SFTPConfig.Password = kms.NewPlainSecret(defaultPassword)
+	group.UserSettings.Permissions = map[string][]string{
+		"/": {dataprovider.PermAny},
+	}
+	group.UserSettings.Filters.AllowedIP = []string{"10.0.0.0/8"}
 	group, _, err = httpdtest.UpdateGroup(group, http.StatusOK)
 	assert.NoError(t, err)
+	groupGet, _, err = httpdtest.GetGroupByName(group.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, groupGet.UserSettings.Permissions, 1)
+	assert.Len(t, groupGet.UserSettings.Filters.AllowedIP, 1)
+
 	// update again and check that the password was preserved
 	dbGroup, err := dataprovider.GroupExists(group.Name)
 	assert.NoError(t, err)
 	group.UserSettings.FsConfig.SFTPConfig.Password = kms.NewSecret(
 		dbGroup.UserSettings.FsConfig.SFTPConfig.Password.GetStatus(),
 		dbGroup.UserSettings.FsConfig.SFTPConfig.Password.GetPayload(), "", "")
+	group.UserSettings.Permissions = nil
+	group.UserSettings.Filters.AllowedIP = nil
 	group, _, err = httpdtest.UpdateGroup(group, http.StatusOK)
 	assert.NoError(t, err)
+	assert.Len(t, group.UserSettings.Permissions, 0)
+	assert.Len(t, group.UserSettings.Filters.AllowedIP, 0)
 	dbGroup, err = dataprovider.GroupExists(group.Name)
 	assert.NoError(t, err)
 	err = dbGroup.UserSettings.FsConfig.SFTPConfig.Password.Decrypt()
 	assert.NoError(t, err)
 	assert.Equal(t, defaultPassword, dbGroup.UserSettings.FsConfig.SFTPConfig.Password.GetPayload())
+	// check the group permissions
+	groupGet, _, err = httpdtest.GetGroupByName(group.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Len(t, groupGet.UserSettings.Permissions, 0)
 
 	group.UserSettings.HomeDir = "relative path"
 	_, _, err = httpdtest.UpdateGroup(group, http.StatusBadRequest)
@@ -4191,7 +4208,11 @@ func TestUpdateUserEmptyPassword(t *testing.T) {
 	assert.NotEmpty(t, dbUser.Password)
 	assert.True(t, dbUser.IsPasswordHashed())
 	// now update the user and set an empty password
-	customUser := make(map[string]any)
+	data, err := json.Marshal(dbUser)
+	assert.NoError(t, err)
+	var customUser map[string]any
+	err = json.Unmarshal(data, &customUser)
+	assert.NoError(t, err)
 	customUser["password"] = ""
 	asJSON, err := json.Marshal(customUser)
 	assert.NoError(t, err)
@@ -4203,6 +4224,30 @@ func TestUpdateUserEmptyPassword(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Empty(t, dbUser.Password)
 	assert.False(t, dbUser.IsPasswordHashed())
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+}
+
+func TestUpdateUserNoPassword(t *testing.T) {
+	u := getTestUser()
+	u.PublicKeys = []string{testPubKey}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	// the password is not empty
+	dbUser, err := dataprovider.UserExists(u.Username, "")
+	assert.NoError(t, err)
+	assert.NotEmpty(t, dbUser.Password)
+	assert.True(t, dbUser.IsPasswordHashed())
+	// now update the user and remove the password field, old password should be preserved
+	user.Password = "" // password has the omitempty tag
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	// the password is preserved
+	dbUser, err = dataprovider.UserExists(u.Username, "")
+	assert.NoError(t, err)
+	assert.NotEmpty(t, dbUser.Password)
+	assert.True(t, dbUser.IsPasswordHashed())
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -5947,10 +5992,11 @@ func TestNamingRules(t *testing.T) {
 	assert.Equal(t, "文件夹ab", folder.Name)
 	folder.Name = f.Name
 	folder.Description = folder.Name
-	folder, resp, err = httpdtest.UpdateFolder(folder, http.StatusOK)
+	_, resp, err = httpdtest.UpdateFolder(folder, http.StatusOK)
 	assert.NoError(t, err, string(resp))
 	folder, resp, err = httpdtest.GetFolderByName(f.Name, http.StatusOK)
 	assert.NoError(t, err, string(resp))
+	assert.Equal(t, "文件夹AB", folder.Description)
 	_, err = httpdtest.RemoveFolder(f, http.StatusOK)
 	assert.NoError(t, err)
 	token, err := getJWTWebClientTokenFromTestServer(u.Username, defaultPassword)
@@ -9620,7 +9666,10 @@ func TestWebAPIChangeUserProfileMock(t *testing.T) {
 	assert.Equal(t, email, profileReq["email"].(string))
 	assert.Equal(t, description, profileReq["description"].(string))
 	assert.True(t, profileReq["allow_api_key_auth"].(bool))
-	assert.Len(t, profileReq["public_keys"].([]any), 2)
+	val, ok := profileReq["public_keys"].([]any)
+	if assert.True(t, ok, profileReq) {
+		assert.Len(t, val, 2)
+	}
 	// set an invalid email
 	profileReq = make(map[string]any)
 	profileReq["email"] = "notavalidemail"
@@ -9644,6 +9693,8 @@ func TestWebAPIChangeUserProfileMock(t *testing.T) {
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	assert.Contains(t, rr.Body.String(), "Validation error: could not parse key")
 
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
 	user.Filters.WebClient = []string{sdk.WebClientAPIKeyAuthChangeDisabled, sdk.WebClientPubKeyChangeDisabled}
 	user.Email = email
 	user.Description = description
@@ -9678,8 +9729,13 @@ func TestWebAPIChangeUserProfileMock(t *testing.T) {
 	assert.Equal(t, email, profileReq["email"].(string))
 	assert.Equal(t, description+"_mod", profileReq["description"].(string))
 	assert.True(t, profileReq["allow_api_key_auth"].(bool))
-	assert.Len(t, profileReq["public_keys"].([]any), 2)
+	val, ok = profileReq["public_keys"].([]any)
+	if assert.True(t, ok, profileReq) {
+		assert.Len(t, val, 2)
+	}
 
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
 	user.Filters.WebClient = []string{sdk.WebClientAPIKeyAuthChangeDisabled, sdk.WebClientInfoChangeDisabled}
 	user.Description = description + "_mod"
 	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
@@ -10297,47 +10353,6 @@ func TestUserHandlingWithAPIKey(t *testing.T) {
 	assert.NoError(t, err)
 	_, _, err = httpdtest.GetAPIKeyByID(apiKey.KeyID, http.StatusNotFound)
 	assert.NoError(t, err)
-}
-
-func TestUpdateUserMock(t *testing.T) {
-	token, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
-	assert.NoError(t, err)
-	user := getTestUser()
-	userAsJSON := getUserAsJSON(t, user)
-	req, _ := http.NewRequest(http.MethodPost, userPath, bytes.NewBuffer(userAsJSON))
-	setBearerForReq(req, token)
-	rr := executeRequest(req)
-	checkResponseCode(t, http.StatusCreated, rr)
-	err = render.DecodeJSON(rr.Body, &user)
-	assert.NoError(t, err)
-	// permissions should not change if empty or nil
-	permissions := user.Permissions
-	user.Permissions = make(map[string][]string)
-	userAsJSON = getUserAsJSON(t, user)
-	req, _ = http.NewRequest(http.MethodPut, userPath+"/"+user.Username, bytes.NewBuffer(userAsJSON))
-	setBearerForReq(req, token)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusOK, rr)
-	req, _ = http.NewRequest(http.MethodGet, userPath+"/"+user.Username, nil)
-	setBearerForReq(req, token)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusOK, rr)
-	var updatedUser dataprovider.User
-	err = render.DecodeJSON(rr.Body, &updatedUser)
-	assert.NoError(t, err)
-	for dir, perms := range permissions {
-		if actualPerms, ok := updatedUser.Permissions[dir]; ok {
-			for _, v := range actualPerms {
-				assert.True(t, util.Contains(perms, v))
-			}
-		} else {
-			assert.Fail(t, "Permissions directories mismatch")
-		}
-	}
-	req, _ = http.NewRequest(http.MethodDelete, path.Join(userPath, user.Username), nil)
-	setBearerForReq(req, token)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusOK, rr)
 }
 
 func TestUpdateUserQuotaUsageMock(t *testing.T) {

@@ -98,14 +98,17 @@ func updateAPIKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = render.DecodeJSON(r.Body, &apiKey)
+	var updatedAPIKey dataprovider.APIKey
+	err = render.DecodeJSON(r.Body, &updatedAPIKey)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
 
-	apiKey.KeyID = keyID
-	if err := dataprovider.UpdateAPIKey(&apiKey, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role); err != nil {
+	updatedAPIKey.KeyID = keyID
+	updatedAPIKey.Key = apiKey.Key
+	err = dataprovider.UpdateAPIKey(&updatedAPIKey, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
+	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}

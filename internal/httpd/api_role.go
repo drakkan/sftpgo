@@ -75,16 +75,17 @@ func updateRole(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	roleID := role.ID
-	name = role.Name
-	err = render.DecodeJSON(r.Body, &role)
+
+	var updatedRole dataprovider.Role
+	err = render.DecodeJSON(r.Body, &updatedRole)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
-	role.ID = roleID
-	role.Name = name
-	err = dataprovider.UpdateRole(&role, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
+
+	updatedRole.ID = role.ID
+	updatedRole.Name = role.Name
+	err = dataprovider.UpdateRole(&updatedRole, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return

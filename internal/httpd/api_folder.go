@@ -76,39 +76,23 @@ func updateFolder(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	users := folder.Users
-	groups := folder.Groups
-	folderID := folder.ID
-	name = folder.Name
-	currentS3AccessSecret := folder.FsConfig.S3Config.AccessSecret
-	currentAzAccountKey := folder.FsConfig.AzBlobConfig.AccountKey
-	currentAzSASUrl := folder.FsConfig.AzBlobConfig.SASURL
-	currentGCSCredentials := folder.FsConfig.GCSConfig.Credentials
-	currentCryptoPassphrase := folder.FsConfig.CryptConfig.Passphrase
-	currentSFTPPassword := folder.FsConfig.SFTPConfig.Password
-	currentSFTPKey := folder.FsConfig.SFTPConfig.PrivateKey
-	currentSFTPKeyPassphrase := folder.FsConfig.SFTPConfig.KeyPassphrase
-	currentHTTPPassword := folder.FsConfig.HTTPConfig.Password
-	currentHTTPAPIKey := folder.FsConfig.HTTPConfig.APIKey
 
-	folder.FsConfig.S3Config = vfs.S3FsConfig{}
-	folder.FsConfig.AzBlobConfig = vfs.AzBlobFsConfig{}
-	folder.FsConfig.GCSConfig = vfs.GCSFsConfig{}
-	folder.FsConfig.CryptConfig = vfs.CryptFsConfig{}
-	folder.FsConfig.SFTPConfig = vfs.SFTPFsConfig{}
-	folder.FsConfig.HTTPConfig = vfs.HTTPFsConfig{}
-	err = render.DecodeJSON(r.Body, &folder)
+	var updatedFolder vfs.BaseVirtualFolder
+	err = render.DecodeJSON(r.Body, &updatedFolder)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
-	folder.ID = folderID
-	folder.Name = name
-	folder.FsConfig.SetEmptySecretsIfNil()
-	updateEncryptedSecrets(&folder.FsConfig, currentS3AccessSecret, currentAzAccountKey, currentAzSASUrl, currentGCSCredentials,
-		currentCryptoPassphrase, currentSFTPPassword, currentSFTPKey, currentSFTPKeyPassphrase, currentHTTPPassword,
-		currentHTTPAPIKey)
-	err = dataprovider.UpdateFolder(&folder, users, groups, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
+	updatedFolder.ID = folder.ID
+	updatedFolder.Name = folder.Name
+	updatedFolder.FsConfig.SetEmptySecretsIfNil()
+	updateEncryptedSecrets(&updatedFolder.FsConfig, folder.FsConfig.S3Config.AccessSecret, folder.FsConfig.AzBlobConfig.AccountKey,
+		folder.FsConfig.AzBlobConfig.SASURL, folder.FsConfig.GCSConfig.Credentials, folder.FsConfig.CryptConfig.Passphrase,
+		folder.FsConfig.SFTPConfig.Password, folder.FsConfig.SFTPConfig.PrivateKey, folder.FsConfig.SFTPConfig.KeyPassphrase,
+		folder.FsConfig.HTTPConfig.Password, folder.FsConfig.HTTPConfig.APIKey)
+
+	err = dataprovider.UpdateFolder(&updatedFolder, folder.Users, folder.Groups, claims.Username,
+		util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return

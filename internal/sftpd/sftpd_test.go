@@ -2668,29 +2668,7 @@ func TestLoginAfterUserUpdateEmptyPwd(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
 	assert.NoError(t, err)
 	user.Password = ""
-	user.PublicKeys = []string{}
-	// password and public key should remain unchanged
-	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
-	assert.NoError(t, err)
-	conn, client, err := getSftpClient(user, usePubKey)
-	if assert.NoError(t, err) {
-		defer conn.Close()
-		defer client.Close()
-		assert.NoError(t, checkBasicSFTP(client))
-	}
-	_, err = httpdtest.RemoveUser(user, http.StatusOK)
-	assert.NoError(t, err)
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
-}
-
-func TestLoginAfterUserUpdateEmptyPubKey(t *testing.T) {
-	usePubKey := true
-	user, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
-	assert.NoError(t, err)
-	user.Password = ""
-	user.PublicKeys = []string{}
-	// password and public key should remain unchanged
+	// password should remain unchanged
 	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
 	conn, client, err := getSftpClient(user, usePubKey)

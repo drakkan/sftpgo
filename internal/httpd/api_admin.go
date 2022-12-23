@@ -116,13 +116,8 @@ func updateAdmin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	adminID := admin.ID
-	username = admin.Username
-	totpConfig := admin.Filters.TOTPConfig
-	recoveryCodes := admin.Filters.RecoveryCodes
-	admin.Filters.TOTPConfig = dataprovider.AdminTOTPConfig{}
-	admin.Filters.RecoveryCodes = nil
-	err = render.DecodeJSON(r.Body, &admin)
+	var updatedAdmin dataprovider.Admin
+	err = render.DecodeJSON(r.Body, &updatedAdmin)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
@@ -139,24 +134,28 @@ func updateAdmin(w http.ResponseWriter, r *http.Request) {
 				http.StatusBadRequest)
 			return
 		}
-		if claims.isCriticalPermRemoved(admin.Permissions) {
+		if claims.isCriticalPermRemoved(updatedAdmin.Permissions) {
 			sendAPIResponse(w, r, errors.New("you cannot remove these permissions to yourself"), "", http.StatusBadRequest)
 			return
 		}
-		if admin.Status == 0 {
+		if updatedAdmin.Status == 0 {
 			sendAPIResponse(w, r, errors.New("you cannot disable yourself"), "", http.StatusBadRequest)
 			return
 		}
-		if admin.Role != claims.Role {
+		if updatedAdmin.Role != claims.Role {
 			sendAPIResponse(w, r, errors.New("you cannot add/change your role"), "", http.StatusBadRequest)
 			return
 		}
 	}
-	admin.ID = adminID
-	admin.Username = username
-	admin.Filters.TOTPConfig = totpConfig
-	admin.Filters.RecoveryCodes = recoveryCodes
-	if err := dataprovider.UpdateAdmin(&admin, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role); err != nil {
+	updatedAdmin.ID = admin.ID
+	updatedAdmin.Username = admin.Username
+	if updatedAdmin.Password == "" {
+		updatedAdmin.Password = admin.Password
+	}
+	updatedAdmin.Filters.TOTPConfig = admin.Filters.TOTPConfig
+	updatedAdmin.Filters.RecoveryCodes = admin.Filters.RecoveryCodes
+	err = dataprovider.UpdateAdmin(&updatedAdmin, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
+	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
