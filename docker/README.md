@@ -102,11 +102,62 @@ docker run --name some-sftpgo \
     -d "drakkan/sftpgo:tag"
 ```
 
-Setting the `SFTPGO_GRACE_TIME` environment variable to a non zero value when creating or running a container will enable a graceful shutdown period in seconds that will allow existing connections to hopefully complete before being forcibly closed when the time has passed.
+Setting the SFTPGO_GRACE_TIME environment variable to a non zero value when creating or running a container will enable a graceful shutdown period in seconds that will allow existing connections to hopefully complete before being forcibly closed when the time has passed.
 
-While the SFTPGo container is in graceful shutdown mode waiting for the last connection(s) to finish, no new connections will be allowed.
+```shell
+# This example shows a big upload started before shutdown was initiated.
+# The upload is terminated at the end of the graceful period.
 
-If no connections are active or `SFTPGO_GRACE_TIME=0` (default value if unset) the container will shutdown immediately.
+echo "put 10G.dd" | sftp -P 2022 testuser@sftpgo.example.net
+
+Fri 23 Dec 2022 02:34:09 PM UTC
+Connected to sftpgo.example.net.
+sftp> put 10G.dd
+Uploading 10G.dd to /10G.dd
+10G.dd      17% 1758MB 100.9MB/s   01:24 ETA
+client_loop: send disconnect: Broken pipe
+Connection closed.  
+Connection closed
+Fri 23 Dec 2022 02:34:25 PM UTC
+```
+
+While the SFTPGO container is in graceful shutdown mode waiting for the last connection(s) to finish, no new connections will be allowed.
+
+```shell
+# This example shows a continuous upload of a small file to SFTPGO.
+# The output furthest below is only the last time it worked and then
+# the first time it failed because SFTPGO was doing a graceful shutdown.
+
+Bash script:
+
+while true; do
+  date -u
+  echo "put d.txt" | sftp -P 2022 testuser@sftpgo.example.net
+  sleep 1
+done
+
+Fri 23 Dec 2022 02:34:14 PM UTC
+Connected to sftpgo.example.net.
+sftp> put d.txt
+Uploading d.txt to /d.txt
+d.txt       100%  323   216.9KB/s   00:00 
+Fri 23 Dec 2022 02:34:15 PM UTC
+kex_exchange_identification: Connection closed by remote host
+Connection closed.
+```
+
+```shell
+# This example was the command used to produce the 2 example outputs above
+# Funny how the some-sftpgo container stopped after 9 seconds and not the expected 32?
+
+date -u; docker stop some-sftpgo ; date -u
+Fri 23 Dec 2022 02:34:14 PM UTC
+some-sftpgo
+Fri 23 Dec 2022 02:34:25 PM UTC
+```
+
+If no connections are active or SFTPGO_GRACE_TIME=0 the container will shutdown immediately.
+
 
 ### Where to Store Data
 
