@@ -108,6 +108,8 @@ While the SFTPGo container is in graceful shutdown mode waiting for the last con
 
 If no connections are active or `SFTPGO_GRACE_TIME=0` (default value if unset) the container will shutdown immediately.
 
+**Warning**: simply using `docker stop some-sftpgo` will not give you the full graceful shutdown period. To use SFTPGO's graceful period, then run this command: `docker exec some-sftpgo kill 1` which will trigger the graceful shutdown of SFTPGO. If you need to wait for the container to stop, then run `docker exec some-sftpgo kill 1 ; docker wait some-sftpgo`
+
 ### Where to Store Data
 
 Important note: There are several ways to store data used by applications that run in Docker containers. We encourage users of the SFTPGo images to familiarize themselves with the options available, including:
