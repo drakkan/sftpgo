@@ -237,7 +237,7 @@
     "password_caching": true,
     "update_mode": 0,
     "create_default_admin": false,
-    "naming_rules": 1,
+    "naming_rules": 5,
     "is_shared": 0,
     "node": {
       "host": "",
