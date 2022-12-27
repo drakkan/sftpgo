@@ -221,7 +221,7 @@ func (s *Share) validatePaths() error {
 				if idx == innerIdx {
 					continue
 				}
-				if isVirtualDirOverlapped(s.Paths[idx], s.Paths[innerIdx], true) {
+				if util.IsDirOverlapped(s.Paths[idx], s.Paths[innerIdx], true, "/") {
 					return util.NewGenericError("shared paths cannot be nested")
 				}
 			}

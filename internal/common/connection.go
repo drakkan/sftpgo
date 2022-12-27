@@ -17,6 +17,7 @@ package common
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"strings"
@@ -334,7 +335,7 @@ func (c *BaseConnection) CheckParentDirs(virtualPath string) error {
 			continue
 		}
 		if err = c.createDirIfMissing(dirs[idx]); err != nil {
-			return fmt.Errorf("unable to check/create missing parent dir %#v for virtual path %#v: %w",
+			return fmt.Errorf("unable to check/create missing parent dir %q for virtual path %q: %w",
 				dirs[idx], virtualPath, err)
 		}
 	}
@@ -352,7 +353,7 @@ func (c *BaseConnection) CreateDir(virtualPath string, checkFilePatterns bool) e
 		}
 	}
 	if c.User.IsVirtualFolder(virtualPath) {
-		c.Log(logger.LevelWarn, "mkdir not allowed %#v is a virtual folder", virtualPath)
+		c.Log(logger.LevelWarn, "mkdir not allowed %q is a virtual folder", virtualPath)
 		return c.GetPermissionDeniedError()
 	}
 	fs, fsPath, err := c.GetFsAndResolvedPath(virtualPath)
@@ -377,7 +378,7 @@ func (c *BaseConnection) IsRemoveFileAllowed(virtualPath string) error {
 		return c.GetPermissionDeniedError()
 	}
 	if ok, policy := c.User.IsFileAllowed(virtualPath); !ok {
-		c.Log(logger.LevelDebug, "removing file %#v is not allowed", virtualPath)
+		c.Log(logger.LevelDebug, "removing file %q is not allowed", virtualPath)
 		return c.GetErrorForDeniedFile(policy)
 	}
 	return nil
@@ -392,10 +393,10 @@ func (c *BaseConnection) RemoveFile(fs vfs.Fs, fsPath, virtualPath string, info 
 	size := info.Size()
 	actionErr := ExecutePreAction(c, operationPreDelete, fsPath, virtualPath, size, 0)
 	if actionErr == nil {
-		c.Log(logger.LevelDebug, "remove for path %#v handled by pre-delete action", fsPath)
+		c.Log(logger.LevelDebug, "remove for path %q handled by pre-delete action", fsPath)
 	} else {
 		if err := fs.Remove(fsPath, false); err != nil {
-			c.Log(logger.LevelError, "failed to remove file/symlink %#v: %+v", fsPath, err)
+			c.Log(logger.LevelError, "failed to remove file/symlink %q: %+v", fsPath, err)
 			return c.GetFsError(fs, err)
 		}
 	}
@@ -421,27 +422,28 @@ func (c *BaseConnection) RemoveFile(fs vfs.Fs, fsPath, virtualPath string, info 
 
 // IsRemoveDirAllowed returns an error if removing this directory is not allowed
 func (c *BaseConnection) IsRemoveDirAllowed(fs vfs.Fs, fsPath, virtualPath string) error {
-	if fs.GetRelativePath(fsPath) == "/" {
+	if virtualPath == "/" || fs.GetRelativePath(fsPath) == "/" {
 		c.Log(logger.LevelWarn, "removing root dir is not allowed")
 		return c.GetPermissionDeniedError()
 	}
 	if c.User.IsVirtualFolder(virtualPath) {
-		c.Log(logger.LevelWarn, "removing a virtual folder is not allowed: %#v", virtualPath)
-		return c.GetPermissionDeniedError()
+		c.Log(logger.LevelWarn, "removing a virtual folder is not allowed: %q", virtualPath)
+		return fmt.Errorf("removing virtual folders is not allowed: %w", c.GetPermissionDeniedError())
 	}
 	if c.User.HasVirtualFoldersInside(virtualPath) {
 		c.Log(logger.LevelWarn, "removing a directory with a virtual folder inside is not allowed: %#v", virtualPath)
-		return c.GetOpUnsupportedError()
+		return fmt.Errorf("cannot remove directory %q with virtual folders inside: %w", virtualPath, c.GetOpUnsupportedError())
 	}
 	if c.User.IsMappedPath(fsPath) {
-		c.Log(logger.LevelWarn, "removing a directory mapped as virtual folder is not allowed: %#v", fsPath)
-		return c.GetPermissionDeniedError()
+		c.Log(logger.LevelWarn, "removing a directory mapped as virtual folder is not allowed: %q", fsPath)
+		return fmt.Errorf("removing the directory %q mapped as virtual folder is not allowed: %w",
+			virtualPath, c.GetPermissionDeniedError())
 	}
 	if !c.User.HasAnyPerm([]string{dataprovider.PermDeleteDirs, dataprovider.PermDelete}, path.Dir(virtualPath)) {
 		return c.GetPermissionDeniedError()
 	}
 	if ok, policy := c.User.IsFileAllowed(virtualPath); !ok {
-		c.Log(logger.LevelDebug, "removing directory %#v is not allowed", virtualPath)
+		c.Log(logger.LevelDebug, "removing directory %q is not allowed", virtualPath)
 		return c.GetErrorForDeniedFile(policy)
 	}
 	return nil
@@ -482,112 +484,29 @@ func (c *BaseConnection) RemoveDir(virtualPath string) error {
 	return nil
 }
 
-type objectToRemoveMapping struct {
-	fsPath      string
-	virtualPath string
-	info        os.FileInfo
-}
-
-// orderDirsToRemove orders directories so that the empty ones will be at slice start
-func orderDirsToRemove(fs vfs.Fs, dirsToRemove []objectToRemoveMapping) []objectToRemoveMapping {
-	orderedDirs := make([]objectToRemoveMapping, 0, len(dirsToRemove))
-	removedDirs := make([]string, 0, len(dirsToRemove))
-
-	pathSeparator := "/"
-	if vfs.IsLocalOsFs(fs) {
-		pathSeparator = string(os.PathSeparator)
-	}
-
-	for len(orderedDirs) < len(dirsToRemove) {
-		for idx, d := range dirsToRemove {
-			if util.Contains(removedDirs, d.fsPath) {
-				continue
-			}
-			isEmpty := true
-			for idx1, d1 := range dirsToRemove {
-				if idx == idx1 {
-					continue
-				}
-				if util.Contains(removedDirs, d1.fsPath) {
-					continue
-				}
-				if strings.HasPrefix(d1.fsPath, d.fsPath+pathSeparator) {
-					isEmpty = false
-					break
-				}
-			}
-			if isEmpty {
-				orderedDirs = append(orderedDirs, d)
-				removedDirs = append(removedDirs, d.fsPath)
-			}
-		}
-	}
-
-	return orderedDirs
-}
-
-func (c *BaseConnection) removeDirTree(fs vfs.Fs, fsPath, virtualPath string) error {
-	var dirsToRemove []objectToRemoveMapping
-	var filesToRemove []objectToRemoveMapping
-
-	err := fs.Walk(fsPath, func(walkedPath string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		obj := objectToRemoveMapping{
-			fsPath:      walkedPath,
-			virtualPath: fs.GetRelativePath(walkedPath),
-			info:        info,
-		}
-		if info.IsDir() {
-			err = c.IsRemoveDirAllowed(fs, obj.fsPath, obj.virtualPath)
-			isDuplicated := false
-			for _, d := range dirsToRemove {
-				if d.fsPath == obj.fsPath {
-					isDuplicated = true
-					break
-				}
-			}
-			if !isDuplicated {
-				dirsToRemove = append(dirsToRemove, obj)
-			}
-		} else {
-			err = c.IsRemoveFileAllowed(obj.virtualPath)
-			filesToRemove = append(filesToRemove, obj)
-		}
-		if err != nil {
-			c.Log(logger.LevelError, "unable to remove dir tree, object %q->%q cannot be removed: %v",
-				virtualPath, fsPath, err)
-			return err
-		}
-
-		return nil
-	})
+func (c *BaseConnection) doRecursiveRemoveDirEntry(virtualPath string, info os.FileInfo) error {
+	fs, fsPath, err := c.GetFsAndResolvedPath(virtualPath)
 	if err != nil {
-		c.Log(logger.LevelError, "failed to remove dir tree %q->%q: error: %+v", virtualPath, fsPath, err)
-		return c.GetFsError(fs, err)
+		return err
 	}
+	return c.doRecursiveRemove(fs, fsPath, virtualPath, info)
+}
 
-	for _, fileObj := range filesToRemove {
-		err = c.RemoveFile(fs, fileObj.fsPath, fileObj.virtualPath, fileObj.info)
+func (c *BaseConnection) doRecursiveRemove(fs vfs.Fs, fsPath, virtualPath string, info os.FileInfo) error {
+	if info.IsDir() {
+		entries, err := c.ListDir(virtualPath)
 		if err != nil {
-			c.Log(logger.LevelError, "unable to remove dir tree, error removing file %q->%q: %v",
-				fileObj.virtualPath, fileObj.fsPath, err)
-			return err
+			return fmt.Errorf("unable to get contents for dir %q: %w", virtualPath, err)
 		}
-	}
-
-	for _, dirObj := range orderDirsToRemove(fs, dirsToRemove) {
-		err = c.RemoveDir(dirObj.virtualPath)
-		if err != nil {
-			c.Log(logger.LevelDebug, "unable to remove dir tree, error removing directory %q->%q: %v",
-				dirObj.virtualPath, dirObj.fsPath, err)
-			return err
+		for _, fi := range entries {
+			targetPath := path.Join(virtualPath, fi.Name())
+			if err := c.doRecursiveRemoveDirEntry(targetPath, fi); err != nil {
+				return err
+			}
 		}
+		return c.RemoveDir(virtualPath)
 	}
-
-	return err
+	return c.RemoveFile(fs, fsPath, virtualPath, info)
 }
 
 // RemoveAll removes the specified path and any children it contains
@@ -603,9 +522,148 @@ func (c *BaseConnection) RemoveAll(virtualPath string) error {
 		return c.GetFsError(fs, err)
 	}
 	if fi.IsDir() && fi.Mode()&os.ModeSymlink == 0 {
-		return c.removeDirTree(fs, fsPath, virtualPath)
+		if err := c.IsRemoveDirAllowed(fs, fsPath, virtualPath); err != nil {
+			return err
+		}
+		return c.doRecursiveRemove(fs, fsPath, virtualPath, fi)
 	}
 	return c.RemoveFile(fs, fsPath, virtualPath, fi)
+}
+
+func (c *BaseConnection) checkCopyFolder(srcInfo, dstInfo os.FileInfo, virtualSource, virtualTarget string) error {
+	if srcInfo.IsDir() {
+		if dstInfo != nil && !dstInfo.IsDir() {
+			return fmt.Errorf("cannot overwrite file %q with dir %q: %w", virtualTarget, virtualSource, c.GetOpUnsupportedError())
+		}
+		if util.IsDirOverlapped(virtualSource, virtualTarget, true, "/") {
+			return fmt.Errorf("nested copy %q => %q is not supported: %w", virtualSource, virtualTarget, c.GetOpUnsupportedError())
+		}
+		_, fsSourcePath, err := c.GetFsAndResolvedPath(virtualSource)
+		if err != nil {
+			return err
+		}
+		_, fsTargetPath, err := c.GetFsAndResolvedPath(virtualTarget)
+		if err != nil {
+			return err
+		}
+		if util.IsDirOverlapped(fsSourcePath, fsTargetPath, true, c.User.FsConfig.GetPathSeparator()) {
+			c.Log(logger.LevelWarn, "nested fs copy %q => %q not allowed", fsSourcePath, fsTargetPath)
+			return fmt.Errorf("nested fs copy is not supported: %w", c.GetOpUnsupportedError())
+		}
+		return nil
+	}
+	if dstInfo != nil && dstInfo.IsDir() {
+		return fmt.Errorf("cannot overwrite file %q with dir %q: %w", virtualSource, virtualTarget, c.GetOpUnsupportedError())
+	}
+	return nil
+}
+
+func (c *BaseConnection) copyFile(virtualSourcePath, virtualTargetPath string, srcSize int64) error {
+	if ok, _ := c.User.IsFileAllowed(virtualTargetPath); !ok {
+		return fmt.Errorf("file %q is not allowed: %w", virtualTargetPath, c.GetPermissionDeniedError())
+	}
+	reader, rCancelFn, err := getFileReader(c, virtualSourcePath)
+	if err != nil {
+		return fmt.Errorf("unable to get reader for path %q: %w", virtualSourcePath, err)
+	}
+	defer rCancelFn()
+	defer reader.Close()
+
+	writer, numFiles, truncatedSize, wCancelFn, err := getFileWriter(c, virtualTargetPath, srcSize)
+	if err != nil {
+		return fmt.Errorf("unable to get writer for path %q: %w", virtualTargetPath, err)
+	}
+	defer wCancelFn()
+
+	_, err = io.Copy(writer, reader)
+	return closeWriterAndUpdateQuota(writer, c, virtualSourcePath, virtualTargetPath, numFiles, truncatedSize, err, operationCopy)
+}
+
+func (c *BaseConnection) doRecursiveCopy(virtualSourcePath, virtualTargetPath string, srcInfo os.FileInfo,
+	createTargetDir bool,
+) error {
+	if srcInfo.IsDir() {
+		if createTargetDir {
+			if err := c.CreateDir(virtualTargetPath, false); err != nil {
+				return fmt.Errorf("unable to create directory %q: %w", virtualTargetPath, err)
+			}
+		}
+		entries, err := c.ListDir(virtualSourcePath)
+		if err != nil {
+			return fmt.Errorf("unable to get contents for dir %q: %w", virtualSourcePath, err)
+		}
+		for _, info := range entries {
+			sourcePath := path.Join(virtualSourcePath, info.Name())
+			targetPath := path.Join(virtualTargetPath, info.Name())
+			targetInfo, err := c.DoStat(targetPath, 1, false)
+			if err == nil {
+				if info.IsDir() && targetInfo.IsDir() {
+					c.Log(logger.LevelDebug, "target copy dir %q already exists", targetPath)
+					continue
+				}
+			}
+			if err != nil && !c.IsNotExistError(err) {
+				return err
+			}
+			if err := c.checkCopyFolder(info, targetInfo, sourcePath, targetPath); err != nil {
+				return err
+			}
+			if err := c.doRecursiveCopy(sourcePath, targetPath, info, true); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	if !srcInfo.Mode().IsRegular() {
+		c.Log(logger.LevelInfo, "skipping copy for non regular file %q", virtualSourcePath)
+		return nil
+	}
+
+	return c.copyFile(virtualSourcePath, virtualTargetPath, srcInfo.Size())
+}
+
+// Copy virtualSourcePath to virtualTargetPath
+func (c *BaseConnection) Copy(virtualSourcePath, virtualTargetPath string) error {
+	copyFromSource := strings.HasSuffix(virtualSourcePath, "/")
+	copyInTarget := strings.HasSuffix(virtualTargetPath, "/")
+	virtualSourcePath = path.Clean(virtualSourcePath)
+	virtualTargetPath = path.Clean(virtualTargetPath)
+	if virtualSourcePath == virtualTargetPath {
+		return fmt.Errorf("the copy source and target cannot be the same: %w", c.GetOpUnsupportedError())
+	}
+	srcInfo, err := c.DoStat(virtualSourcePath, 1, false)
+	if err != nil {
+		return err
+	}
+	if srcInfo.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("copying symlinks is not supported: %w", c.GetOpUnsupportedError())
+	}
+	dstInfo, err := c.DoStat(virtualTargetPath, 1, false)
+	if err == nil && !copyFromSource {
+		copyInTarget = dstInfo.IsDir()
+	}
+	if err != nil && !c.IsNotExistError(err) {
+		return err
+	}
+	destPath := virtualTargetPath
+	if copyInTarget {
+		destPath = path.Join(virtualTargetPath, path.Base(virtualSourcePath))
+		dstInfo, err = c.DoStat(destPath, 1, false)
+		if err != nil && !c.IsNotExistError(err) {
+			return err
+		}
+	}
+	createTargetDir := true
+	if dstInfo != nil && dstInfo.IsDir() {
+		createTargetDir = false
+	}
+	if err := c.checkCopyFolder(srcInfo, dstInfo, virtualSourcePath, destPath); err != nil {
+		return err
+	}
+	if err := c.CheckParentDirs(path.Dir(destPath)); err != nil {
+		return err
+	}
+	return c.doRecursiveCopy(virtualSourcePath, destPath, srcInfo, createTargetDir)
 }
 
 // Rename renames (moves) virtualSourcePath to virtualTargetPath
@@ -646,14 +704,7 @@ func (c *BaseConnection) Rename(virtualSourcePath, virtualTargetPath string) err
 		}
 	}
 	if srcInfo.IsDir() {
-		if c.User.HasVirtualFoldersInside(virtualSourcePath) {
-			c.Log(logger.LevelDebug, "renaming the folder %#v is not supported: it has virtual folders inside it",
-				virtualSourcePath)
-			return c.GetOpUnsupportedError()
-		}
-		if err = c.checkRecursiveRenameDirPermissions(fsSrc, fsDst, fsSourcePath, fsTargetPath,
-			virtualSourcePath, virtualTargetPath, srcInfo); err != nil {
-			c.Log(logger.LevelDebug, "error checking recursive permissions before renaming %#v: %+v", fsSourcePath, err)
+		if err := c.checkFolderRename(fsSrc, fsDst, fsSourcePath, fsTargetPath, virtualSourcePath, virtualTargetPath, srcInfo); err != nil {
 			return err
 		}
 	}
@@ -662,7 +713,7 @@ func (c *BaseConnection) Rename(virtualSourcePath, virtualTargetPath string) err
 		return c.GetGenericError(ErrQuotaExceeded)
 	}
 	if err := fsDst.Rename(fsSourcePath, fsTargetPath); err != nil {
-		c.Log(logger.LevelError, "failed to rename %#v -> %#v: %+v", fsSourcePath, fsTargetPath, err)
+		c.Log(logger.LevelError, "failed to rename %q -> %q: %+v", fsSourcePath, fsTargetPath, err)
 		return c.GetFsError(fsSrc, err)
 	}
 	vfs.SetPathPermissions(fsDst, fsTargetPath, c.User.GetUID(), c.User.GetGID())
@@ -768,7 +819,9 @@ func (c *BaseConnection) doStatInternal(virtualPath string, mode int, checkFileP
 		info, err = fs.Stat(c.getRealFsPath(fsPath))
 	}
 	if err != nil {
-		c.Log(logger.LevelWarn, "stat error for path %#v: %+v", virtualPath, err)
+		if !fs.IsNotExist(err) {
+			c.Log(logger.LevelWarn, "stat error for path %q: %+v", virtualPath, err)
+		}
 		return info, c.GetFsError(fs, err)
 	}
 	if convertResult && vfs.IsCryptOsFs(fs) {
@@ -995,6 +1048,31 @@ func (c *BaseConnection) hasRenamePerms(virtualSourcePath, virtualTargetPath str
 	}
 	return c.User.HasAnyPerm(perms, path.Dir(virtualSourcePath)) &&
 		c.User.HasAnyPerm(perms, path.Dir(virtualTargetPath))
+}
+
+func (c *BaseConnection) checkFolderRename(fsSrc, fsDst vfs.Fs, fsSourcePath, fsTargetPath, virtualSourcePath,
+	virtualTargetPath string, fi os.FileInfo) error {
+	if util.IsDirOverlapped(virtualSourcePath, virtualTargetPath, true, "/") {
+		c.Log(logger.LevelDebug, "renaming the folder %q->%q is not supported: nested folders",
+			virtualSourcePath, virtualTargetPath)
+		return c.GetOpUnsupportedError()
+	}
+	if util.IsDirOverlapped(fsSourcePath, fsTargetPath, true, c.User.FsConfig.GetPathSeparator()) {
+		c.Log(logger.LevelDebug, "renaming the folder %q->%q is not supported: nested fs folders",
+			fsSourcePath, fsTargetPath)
+		return c.GetOpUnsupportedError()
+	}
+	if c.User.HasVirtualFoldersInside(virtualSourcePath) {
+		c.Log(logger.LevelDebug, "renaming the folder %q is not supported: it has virtual folders inside it",
+			virtualSourcePath)
+		return c.GetOpUnsupportedError()
+	}
+	if err := c.checkRecursiveRenameDirPermissions(fsSrc, fsDst, fsSourcePath, fsTargetPath,
+		virtualSourcePath, virtualTargetPath, fi); err != nil {
+		c.Log(logger.LevelDebug, "error checking recursive permissions before renaming %q: %+v", fsSourcePath, err)
+		return err
+	}
+	return nil
 }
 
 func (c *BaseConnection) isRenamePermitted(fsSrc, fsDst vfs.Fs, fsSourcePath, fsTargetPath, virtualSourcePath,
@@ -1531,6 +1609,16 @@ func (c *BaseConnection) GetFsError(fs vfs.Fs, err error) error {
 		return c.GetGenericError(err)
 	}
 	return nil
+}
+
+func (c *BaseConnection) getNotificationStatus(err error) int {
+	if err == nil {
+		return 1
+	}
+	if c.IsQuotaExceededError(err) {
+		return 3
+	}
+	return 2
 }
 
 // GetFsAndResolvedPath returns the fs and the fs path matching virtualPath

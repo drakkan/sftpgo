@@ -15,6 +15,8 @@
 package vfs
 
 import (
+	"os"
+
 	"github.com/sftpgo/sdk"
 
 	"github.com/drakkan/sftpgo/v2/internal/kms"
@@ -146,6 +148,16 @@ func (f *Filesystem) IsSameResource(other Filesystem) bool {
 		return f.HTTPConfig.isSameResource(other.HTTPConfig)
 	default:
 		return true
+	}
+}
+
+// GetPathSeparator returns the path separator
+func (f *Filesystem) GetPathSeparator() string {
+	switch f.Provider {
+	case sdk.LocalFilesystemProvider, sdk.CryptedFilesystemProvider:
+		return string(os.PathSeparator)
+	default:
+		return "/"
 	}
 }
 

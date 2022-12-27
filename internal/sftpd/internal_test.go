@@ -533,7 +533,7 @@ func TestSSHCommandErrors(t *testing.T) {
 	user.QuotaFiles = 1
 	user.UsedQuotaFiles = 2
 	cmd.connection.User = user
-	fs, err := cmd.connection.User.GetFilesystem("123")
+	_, err = cmd.connection.User.GetFilesystem("123")
 	assert.NoError(t, err)
 	err = cmd.handle()
 	assert.EqualError(t, err, common.ErrQuotaExceeded.Error())
@@ -599,22 +599,6 @@ func TestSSHCommandErrors(t *testing.T) {
 
 	cmd.connection.User.Permissions = make(map[string][]string)
 	cmd.connection.User.Permissions["/"] = []string{dataprovider.PermAny}
-	if runtime.GOOS != osWindows {
-		aDir := filepath.Join(os.TempDir(), "adir")
-		err = os.MkdirAll(aDir, os.ModePerm)
-		assert.NoError(t, err)
-		tmpFile := filepath.Join(aDir, "testcopy")
-		err = os.WriteFile(tmpFile, []byte("aaa"), os.ModePerm)
-		assert.NoError(t, err)
-		err = os.Chmod(aDir, 0001)
-		assert.NoError(t, err)
-		err = cmd.checkCopyDestination(fs, tmpFile)
-		assert.Error(t, err)
-		err = os.Chmod(aDir, os.ModePerm)
-		assert.NoError(t, err)
-		err = os.Remove(tmpFile)
-		assert.NoError(t, err)
-	}
 
 	common.WaitForTransfers(1)
 	_, err = cmd.getSystemCommand()
@@ -743,8 +727,6 @@ func TestSSHCommandsRemoteFs(t *testing.T) {
 	}
 	err = cmd.handleSFTPGoRemove()
 	assert.Error(t, err)
-	// the user has no permissions
-	assert.False(t, cmd.hasCopyPermissions("", "", nil))
 }
 
 func TestSSHCmdGetFsErrors(t *testing.T) {
@@ -778,30 +760,10 @@ func TestSSHCmdGetFsErrors(t *testing.T) {
 		connection: connection,
 		args:       []string{"path1", "path2"},
 	}
-	_, _, _, _, _, _, err = cmd.getFsAndCopyPaths() //nolint:dogsled
-	assert.Error(t, err)
-	user = dataprovider.User{}
-	user.HomeDir = filepath.Join(os.TempDir(), "home")
-	user.VirtualFolders = append(connection.User.VirtualFolders, vfs.VirtualFolder{
-		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			MappedPath: "relative",
-		},
-		VirtualPath: "/vpath",
-	})
-	connection.User = user
-
-	err = os.MkdirAll(user.GetHomeDir(), os.ModePerm)
-	assert.NoError(t, err)
-
-	cmd = sshCommand{
-		command:    "sftpgo-copy",
-		connection: connection,
-		args:       []string{"path1", "/vpath/path2"},
-	}
-	_, _, _, _, _, _, err = cmd.getFsAndCopyPaths() //nolint:dogsled
+	err = cmd.handleSFTPGoCopy()
 	assert.Error(t, err)
 
-	err = os.Remove(user.GetHomeDir())
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
 
@@ -2019,41 +1981,6 @@ func TestCertCheckerInitErrors(t *testing.T) {
 	assert.Error(t, err)
 	err = os.Remove(testfile)
 	assert.NoError(t, err)
-}
-
-func TestRecursiveCopyErrors(t *testing.T) {
-	permissions := make(map[string][]string)
-	permissions["/"] = []string{dataprovider.PermAny}
-	user := dataprovider.User{
-		BaseUser: sdk.BaseUser{
-			Permissions: permissions,
-			HomeDir:     os.TempDir(),
-		},
-	}
-	fs, err := user.GetFilesystem("123")
-	assert.NoError(t, err)
-	conn := &Connection{
-		BaseConnection: common.NewBaseConnection("", common.ProtocolSFTP, "", "", user),
-	}
-	sshCmd := sshCommand{
-		command:    "sftpgo-copy",
-		connection: conn,
-		args:       []string{"adir", "another"},
-	}
-	// try to copy a missing directory
-	sshCmd.connection.User.Permissions["/another"] = []string{
-		dataprovider.PermCreateDirs,
-		dataprovider.PermCreateSymlinks,
-		dataprovider.PermListItems,
-	}
-	err = sshCmd.checkRecursiveCopyPermissions(fs, fs, "adir", "another/sub", "/adir", "/another/sub")
-	assert.Error(t, err)
-	sshCmd.connection.User.Permissions["/another"] = []string{
-		dataprovider.PermListItems,
-		dataprovider.PermCreateDirs,
-	}
-	err = sshCmd.checkRecursiveCopyPermissions(fs, fs, "adir", "another", "/adir/sub", "/another/sub/dir")
-	assert.Error(t, err)
 }
 
 func TestSFTPSubSystem(t *testing.T) {

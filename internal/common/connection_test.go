@@ -35,8 +35,7 @@ import (
 )
 
 var (
-	errWalkDir  = errors.New("err walk dir")
-	errWalkFile = errors.New("err walk file")
+	errWalkDir = errors.New("err walk dir")
 )
 
 // MockOsFs mockable OsFs
@@ -66,6 +65,13 @@ func (fs *MockOsFs) IsUploadResumeSupported() bool {
 
 func (fs *MockOsFs) Chtimes(name string, atime, mtime time.Time, isUploading bool) error {
 	return vfs.ErrVfsUnsupported
+}
+
+func (fs *MockOsFs) Lstat(name string) (os.FileInfo, error) {
+	if fs.err != nil {
+		return nil, fs.err
+	}
+	return fs.Fs.Lstat(name)
 }
 
 // Walk returns a duplicate path for testing
@@ -270,6 +276,17 @@ func TestRenamePerms(t *testing.T) {
 	assert.False(t, conn.hasRenamePerms(src, subTarget, info))
 	u.Permissions[sub] = []string{dataprovider.PermRenameFiles}
 	assert.True(t, conn.hasRenamePerms(src, subTarget, info))
+}
+
+func TestRenameNestedFolders(t *testing.T) {
+	u := dataprovider.User{}
+	conn := NewBaseConnection("", ProtocolSFTP, "", "", u)
+	err := conn.checkFolderRename(nil, nil, filepath.Clean(os.TempDir()), filepath.Join(os.TempDir(), "subdir"), "/src", "/dst", nil)
+	assert.Error(t, err)
+	err = conn.checkFolderRename(nil, nil, filepath.Join(os.TempDir(), "subdir"), filepath.Clean(os.TempDir()), "/src", "/dst", nil)
+	assert.Error(t, err)
+	err = conn.checkFolderRename(nil, nil, "", "", "/src/sub", "/src", nil)
+	assert.Error(t, err)
 }
 
 func TestUpdateQuotaAfterRename(t *testing.T) {
@@ -547,97 +564,43 @@ func TestCheckParentDirsErrors(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestRemoveDirTree(t *testing.T) {
-	user := dataprovider.User{
+func TestErrorResolvePath(t *testing.T) {
+	u := dataprovider.User{
 		BaseUser: sdk.BaseUser{
-			HomeDir: filepath.Clean(os.TempDir()),
+			HomeDir: filepath.Join(os.TempDir(), "u"),
+			Status:  1,
+			Permissions: map[string][]string{
+				"/": {dataprovider.PermAny},
+			},
 		},
 	}
-	user.Permissions = make(map[string][]string)
-	user.Permissions["/"] = []string{dataprovider.PermAny}
-	fs := vfs.NewOsFs("connID", user.HomeDir, "")
-	connection := NewBaseConnection(fs.ConnectionID(), ProtocolWebDAV, "", "", user)
-
-	vpath := path.Join("adir", "missing")
-	p := filepath.Join(user.HomeDir, "adir", "missing")
-	err := connection.removeDirTree(fs, p, vpath)
-	if assert.Error(t, err) {
-		assert.True(t, fs.IsNotExist(err))
-	}
-
-	fs = newMockOsFs(false, "mockID", user.HomeDir, "", nil)
-	err = connection.removeDirTree(fs, p, vpath)
-	if assert.Error(t, err) {
-		assert.True(t, fs.IsNotExist(err), "unexpected error: %v", err)
-	}
-
-	errFake := errors.New("fake err")
-	fs = newMockOsFs(false, "mockID", user.HomeDir, "", errFake)
-	err = connection.removeDirTree(fs, p, vpath)
-	if assert.Error(t, err) {
-		assert.EqualError(t, err, ErrGenericFailure.Error())
-	}
-
-	fs = newMockOsFs(true, "mockID", user.HomeDir, "", errWalkDir)
-	err = connection.removeDirTree(fs, p, vpath)
-	if assert.Error(t, err) {
-		assert.True(t, fs.IsPermission(err), "unexpected error: %v", err)
-	}
-
-	fs = newMockOsFs(false, "mockID", user.HomeDir, "", errWalkFile)
-	err = connection.removeDirTree(fs, p, vpath)
-	if assert.Error(t, err) {
-		assert.EqualError(t, err, ErrGenericFailure.Error())
-	}
-
-	connection.User.Permissions["/"] = []string{dataprovider.PermListItems}
-	fs = newMockOsFs(false, "mockID", user.HomeDir, "", nil)
-	err = connection.removeDirTree(fs, p, vpath)
-	if assert.Error(t, err) {
-		assert.EqualError(t, err, ErrPermissionDenied.Error())
-	}
-}
-
-func TestOrderDirsToRemove(t *testing.T) {
-	fs := vfs.NewOsFs("id", os.TempDir(), "")
-	dirsToRemove := []objectToRemoveMapping{}
-
-	orderedDirs := orderDirsToRemove(fs, dirsToRemove)
-	assert.Equal(t, len(dirsToRemove), len(orderedDirs))
-
-	dirsToRemove = []objectToRemoveMapping{
+	u.FsConfig.Provider = sdk.GCSFilesystemProvider
+	u.FsConfig.GCSConfig.Bucket = "test"
+	u.FsConfig.GCSConfig.Credentials = kms.NewPlainSecret("invalid JSON for credentials")
+	u.VirtualFolders = []vfs.VirtualFolder{
 		{
-			fsPath:      "dir1",
-			virtualPath: "",
-		},
-	}
-	orderedDirs = orderDirsToRemove(fs, dirsToRemove)
-	assert.Equal(t, len(dirsToRemove), len(orderedDirs))
-
-	dirsToRemove = []objectToRemoveMapping{
-		{
-			fsPath:      "dir1",
-			virtualPath: "",
-		},
-		{
-			fsPath:      "dir12",
-			virtualPath: "",
-		},
-		{
-			fsPath:      filepath.Join("dir1", "a", "b"),
-			virtualPath: "",
-		},
-		{
-			fsPath:      filepath.Join("dir1", "a"),
-			virtualPath: "",
+			BaseVirtualFolder: vfs.BaseVirtualFolder{
+				Name:       "f",
+				MappedPath: filepath.Join(os.TempDir(), "f"),
+			},
+			VirtualPath: "/f",
 		},
 	}
 
-	orderedDirs = orderDirsToRemove(fs, dirsToRemove)
-	if assert.Equal(t, len(dirsToRemove), len(orderedDirs)) {
-		assert.Equal(t, "dir12", orderedDirs[0].fsPath)
-		assert.Equal(t, filepath.Join("dir1", "a", "b"), orderedDirs[1].fsPath)
-		assert.Equal(t, filepath.Join("dir1", "a"), orderedDirs[2].fsPath)
-		assert.Equal(t, "dir1", orderedDirs[3].fsPath)
-	}
+	conn := NewBaseConnection("", ProtocolSFTP, "", "", u)
+	err := conn.doRecursiveRemoveDirEntry("/vpath", nil)
+	assert.Error(t, err)
+	err = conn.checkCopyFolder(vfs.NewFileInfo("name", true, 0, time.Unix(0, 0), false), nil, "/source", "/target")
+	assert.Error(t, err)
+	sourceFile := filepath.Join(os.TempDir(), "f", "source")
+	err = os.MkdirAll(filepath.Dir(sourceFile), os.ModePerm)
+	assert.NoError(t, err)
+	err = os.WriteFile(sourceFile, []byte(""), 0666)
+	assert.NoError(t, err)
+	err = conn.checkCopyFolder(vfs.NewFileInfo("name", true, 0, time.Unix(0, 0), false), nil, "/f/source", "/target")
+	assert.Error(t, err)
+	err = conn.checkCopyFolder(vfs.NewFileInfo("", false, 0, time.Unix(0, 0), false), vfs.NewFileInfo("", true, 0, time.Unix(0, 0), false), "", "")
+	assert.Error(t, err)
+	err = os.RemoveAll(filepath.Dir(sourceFile))
+	assert.NoError(t, err)
 }

@@ -21,6 +21,7 @@ The following `actions` are supported:
 - `mkdir`
 - `rmdir`
 - `ssh_cmd`
+- `copy`
 
 The `upload` condition includes both uploads to new files and overwrite of existing ones. If an upload is aborted for quota limits SFTPGo tries to remove the partial file, so if the notification reports a zero size file and a quota exceeded error the file has been deleted. The `ssh_cmd` condition will be triggered after a command is successfully executed via SSH. `scp` will trigger the `download` and `upload` conditions and not `ssh_cmd`. The `first-download` and `first-upload` action are executed only if no error occour and they don't exclude the `download` and `upload` notifications, so you will get both the `first-upload` and `upload` notification after the first successful upload and the same for the first successful download.
 For cloud backends directories are virtual, they are created implicitly when you upload a file and are implicitly removed when the last file within a directory is removed. The `mkdir` and `rmdir` notifications are sent only when a directory is explicitly created or removed.
@@ -40,7 +41,7 @@ If the `hook` defines a path to an external program, then this program can read 
 - `SFTPGO_ACTION_VIRTUAL_PATH`, virtual path, seen by SFTPGo users
 - `SFTPGO_ACTION_VIRTUAL_TARGET`, virtual target path, seen by SFTPGo users
 - `SFTPGO_ACTION_SSH_CMD`, non-empty for `ssh_cmd` `SFTPGO_ACTION`
-- `SFTPGO_ACTION_FILE_SIZE`, non-zero for `pre-upload`,`upload`, `download` and `delete` actions if the file size is greater than `0`
+- `SFTPGO_ACTION_FILE_SIZE`, non-zero for `pre-upload`, `upload`, `download`, `delete`, and `copy` actions if the file size is greater than `0`
 - `SFTPGO_ACTION_FS_PROVIDER`, `0` for local filesystem, `1` for S3 backend, `2` for Google Cloud Storage (GCS) backend, `3` for Azure Blob Storage backend, `4` for local encrypted backend, `5` for SFTP backend
 - `SFTPGO_ACTION_BUCKET`, non-empty for S3, GCS and Azure backends
 - `SFTPGO_ACTION_ENDPOINT`, non-empty for S3, SFTP and Azure backend if configured
@@ -64,7 +65,7 @@ If the `hook` defines an HTTP URL then this URL will be invoked as HTTP POST. Th
 - `virtual_path`, string, virtual path, seen by SFTPGo users
 - `virtual_target_path`, string, virtual target path, seen by SFTPGo users
 - `ssh_cmd`, string, included for `ssh_cmd` action
-- `file_size`, int64, included for `pre-upload`, `upload`, `download`, `delete` actions if the file size is greater than `0`
+- `file_size`, int64, included for `pre-upload`, `upload`, `download`, `delete` and `copy` actions if the file size is greater than `0`
 - `fs_provider`, integer, `0` for local filesystem, `1` for S3 backend, `2` for Google Cloud Storage (GCS) backend, `3` for Azure Blob Storage backend, `4` for local encrypted backend, `5` for SFTP backend, `6` for HTTPFs backend
 - `bucket`, string, included for S3, GCS and Azure backends
 - `endpoint`, string, included for S3, SFTP and Azure backend if configured

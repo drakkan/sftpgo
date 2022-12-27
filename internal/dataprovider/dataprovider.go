@@ -2383,25 +2383,6 @@ func buildUserHomeDir(user *User) {
 	}
 }
 
-func isVirtualDirOverlapped(dir1, dir2 string, fullCheck bool) bool {
-	if dir1 == dir2 {
-		return true
-	}
-	if fullCheck {
-		if len(dir1) > len(dir2) {
-			if strings.HasPrefix(dir1, dir2+"/") {
-				return true
-			}
-		}
-		if len(dir2) > len(dir1) {
-			if strings.HasPrefix(dir2, dir1+"/") {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 func validateFolderQuotaLimits(folder vfs.VirtualFolder) error {
 	if folder.QuotaSize < -1 {
 		return util.NewValidationError(fmt.Sprintf("invalid quota_size: %v folder path %#v", folder.QuotaSize, folder.MappedPath))
@@ -2481,11 +2462,11 @@ func validateAssociatedVirtualFolders(vfolders []vfs.VirtualFolder) ([]vfs.Virtu
 			return nil, err
 		}
 		if folderNames[folder.Name] {
-			return nil, util.NewValidationError(fmt.Sprintf("the folder %#v is duplicated", folder.Name))
+			return nil, util.NewValidationError(fmt.Sprintf("the folder %q is duplicated", folder.Name))
 		}
 		for _, vFolder := range virtualFolders {
-			if isVirtualDirOverlapped(vFolder.VirtualPath, cleanedVPath, false) {
-				return nil, util.NewValidationError(fmt.Sprintf("invalid virtual folder %#v, it overlaps with virtual folder %#v",
+			if util.IsDirOverlapped(vFolder.VirtualPath, cleanedVPath, false, "/") {
+				return nil, util.NewValidationError(fmt.Sprintf("invalid virtual folder %q, it overlaps with virtual folder %q",
 					v.VirtualPath, vFolder.VirtualPath))
 			}
 		}

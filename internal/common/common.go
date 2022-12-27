@@ -56,12 +56,14 @@ const (
 	chownLogSender         = "Chown"
 	chmodLogSender         = "Chmod"
 	chtimesLogSender       = "Chtimes"
+	copyLogSender          = "Copy"
 	truncateLogSender      = "Truncate"
 	operationDownload      = "download"
 	operationUpload        = "upload"
 	operationFirstDownload = "first-download"
 	operationFirstUpload   = "first-upload"
 	operationDelete        = "delete"
+	operationCopy          = "copy"
 	// Pre-download action name
 	OperationPreDownload = "pre-download"
 	// Pre-upload action name

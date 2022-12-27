@@ -127,6 +127,7 @@ const (
 	FilesystemActionMkdirs
 	FilesystemActionExist
 	FilesystemActionCompress
+	FilesystemActionCopy
 )
 
 const (
@@ -136,7 +137,7 @@ const (
 
 var (
 	supportedFsActions = []int{FilesystemActionRename, FilesystemActionDelete, FilesystemActionMkdirs,
-		FilesystemActionCompress, FilesystemActionExist}
+		FilesystemActionCopy, FilesystemActionCompress, FilesystemActionExist}
 )
 
 func isFilesystemActionValid(value int) bool {
@@ -153,6 +154,8 @@ func getFsActionTypeAsString(value int) string {
 		return "Paths exist"
 	case FilesystemActionCompress:
 		return "Compress"
+	case FilesystemActionCopy:
+		return "Copy"
 	default:
 		return "Create directories"
 	}
@@ -162,7 +165,7 @@ func getFsActionTypeAsString(value int) string {
 var (
 	// SupportedFsEvents defines the supported filesystem events
 	SupportedFsEvents = []string{"upload", "first-upload", "download", "first-download", "delete", "rename",
-		"mkdir", "rmdir", "ssh_cmd"}
+		"mkdir", "rmdir", "copy", "ssh_cmd"}
 	// SupportedProviderEvents defines the supported provider events
 	SupportedProviderEvents = []string{operationAdd, operationUpdate, operationDelete}
 	// SupportedRuleConditionProtocols defines the supported protcols for rule conditions
@@ -587,6 +590,8 @@ type EventActionFilesystemConfig struct {
 	Deletes []string `json:"deletes,omitempty"`
 	// file/dirs to check for existence
 	Exist []string `json:"exist,omitempty"`
+	// files/dirs to copy, key is the source and target the value
+	Copy []KeyValue `json:"copy,omitempty"`
 	// paths to compress and archive name
 	Compress EventActionFsCompress `json:"compress"`
 }
@@ -634,6 +639,38 @@ func (c *EventActionFilesystemConfig) validateRenames() error {
 			return util.NewValidationError("renaming the root directory is not allowed")
 		}
 		c.Renames[idx] = KeyValue{
+			Key:   key,
+			Value: value,
+		}
+	}
+	return nil
+}
+
+func (c *EventActionFilesystemConfig) validateCopy() error {
+	if len(c.Copy) == 0 {
+		return util.NewValidationError("no path to copy specified")
+	}
+	for idx, kv := range c.Copy {
+		key := strings.TrimSpace(kv.Key)
+		value := strings.TrimSpace(kv.Value)
+		if key == "" || value == "" {
+			return util.NewValidationError("invalid paths to copy")
+		}
+		key = util.CleanPath(key)
+		value = util.CleanPath(value)
+		if key == value {
+			return util.NewValidationError("copy source and target cannot be equal")
+		}
+		if key == "/" || value == "/" {
+			return util.NewValidationError("copying the root directory is not allowed")
+		}
+		if strings.HasSuffix(c.Copy[idx].Key, "/") {
+			key += "/"
+		}
+		if strings.HasSuffix(c.Copy[idx].Value, "/") {
+			value += "/"
+		}
+		c.Copy[idx] = KeyValue{
 			Key:   key,
 			Value: value,
 		}
@@ -695,6 +732,7 @@ func (c *EventActionFilesystemConfig) validate() error {
 		c.MkDirs = nil
 		c.Deletes = nil
 		c.Exist = nil
+		c.Copy = nil
 		c.Compress = EventActionFsCompress{}
 		if err := c.validateRenames(); err != nil {
 			return err
@@ -703,6 +741,7 @@ func (c *EventActionFilesystemConfig) validate() error {
 		c.Renames = nil
 		c.MkDirs = nil
 		c.Exist = nil
+		c.Copy = nil
 		c.Compress = EventActionFsCompress{}
 		if err := c.validateDeletes(); err != nil {
 			return err
@@ -711,6 +750,7 @@ func (c *EventActionFilesystemConfig) validate() error {
 		c.Renames = nil
 		c.Deletes = nil
 		c.Exist = nil
+		c.Copy = nil
 		c.Compress = EventActionFsCompress{}
 		if err := c.validateMkdirs(); err != nil {
 			return err
@@ -719,6 +759,7 @@ func (c *EventActionFilesystemConfig) validate() error {
 		c.Renames = nil
 		c.Deletes = nil
 		c.MkDirs = nil
+		c.Copy = nil
 		c.Compress = EventActionFsCompress{}
 		if err := c.validateExist(); err != nil {
 			return err
@@ -728,7 +769,17 @@ func (c *EventActionFilesystemConfig) validate() error {
 		c.MkDirs = nil
 		c.Deletes = nil
 		c.Exist = nil
+		c.Copy = nil
 		if err := c.Compress.validate(); err != nil {
+			return err
+		}
+	case FilesystemActionCopy:
+		c.Renames = nil
+		c.Deletes = nil
+		c.MkDirs = nil
+		c.Exist = nil
+		c.Compress = EventActionFsCompress{}
+		if err := c.validateCopy(); err != nil {
 			return err
 		}
 	}
@@ -751,6 +802,7 @@ func (c *EventActionFilesystemConfig) getACopy() EventActionFilesystemConfig {
 		MkDirs:  mkdirs,
 		Deletes: deletes,
 		Exist:   exist,
+		Copy:    cloneKeyValues(c.Copy),
 		Compress: EventActionFsCompress{
 			Paths: compressPaths,
 			Name:  c.Compress.Name,

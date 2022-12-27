@@ -6502,6 +6502,10 @@ components:
           type: array
           items:
             type: string
+        copy:
+          type: array
+          items:
+            $ref: '#/components/schemas/KeyValue'
         compress:
           $ref: '#/components/schemas/EventActionFsCompress'
     EventActionPasswordExpiration:
@@ -6661,6 +6665,7 @@ components:
               - rename
               - mkdir
               - rmdir
+              - copy
               - ssh_cmd
         provider_events:
           type: array

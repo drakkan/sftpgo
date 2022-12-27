@@ -20,10 +20,10 @@ The logs can be divided into the following categories:
   - `username`, string
   - `file_path` string
   - `connection_id` string. Unique connection identifier
-  - `protocol` string. `SFTP`, `SCP`, `SSH`, `FTP`, `HTTP`, `DAV`, `DataRetention`
+  - `protocol` string. `SFTP`, `SCP`, `SSH`, `FTP`, `HTTP`, `DAV`, `DataRetention`, `EventAction`
   - `ftp_mode`, string. `active` or `passive`. Included only for `FTP` protocol
 - **"command logs"**, SFTP/SCP command logs:
-  - `sender` string. `Rename`, `Rmdir`, `Mkdir`, `Symlink`, `Remove`, `Chmod`, `Chown`, `Chtimes`, `Truncate`, `SSHCommand`
+  - `sender` string. `Rename`, `Rmdir`, `Mkdir`, `Symlink`, `Remove`, `Chmod`, `Chown`, `Chtimes`, `Truncate`, `Copy`, `SSHCommand`
   - `level` string
   - `local_addr` string. IP/port of the local address the connection arrived on. For example `127.0.0.1:1234`
   - `remote_addr` string. IP and, optionally, port of the remote client. For example `127.0.0.1:1234` or `127.0.0.1`
@@ -38,7 +38,7 @@ The logs can be divided into the following categories:
   - `size` int64. Valid for sender `Truncate` otherwise -1
   - `ssh_command`, string. Valid for sender `SSHCommand` otherwise empty
   - `connection_id` string. Unique connection identifier
-  - `protocol` string. `SFTP`, `SCP` or `SSH`
+  - `protocol` string. `SFTP`, `SCP`, `SSH`, `FTP`, `HTTP`, `DAV`, `DataRetention`, `EventAction`
 - **"http logs"**, REST API logs:
   - `sender` string. `httpd`
   - `level` string

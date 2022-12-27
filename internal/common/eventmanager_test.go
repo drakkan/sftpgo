@@ -406,6 +406,8 @@ func TestEventManagerErrors(t *testing.T) {
 	assert.Error(t, err)
 	err = executeExistFsRuleAction(nil, nil, dataprovider.ConditionOptions{}, &EventParams{})
 	assert.Error(t, err)
+	err = executeCopyFsRuleAction(nil, nil, dataprovider.ConditionOptions{}, &EventParams{})
+	assert.Error(t, err)
 	err = executeCompressFsRuleAction(dataprovider.EventActionFsCompress{}, nil, dataprovider.ConditionOptions{}, &EventParams{})
 	assert.Error(t, err)
 	err = executePwdExpirationCheckRuleAction(dataprovider.EventActionPasswordExpiration{},
@@ -468,6 +470,15 @@ func TestEventManagerErrors(t *testing.T) {
 	})
 	assert.Error(t, err)
 	err = executeExistFsActionForUser(nil, nil, dataprovider.User{
+		Groups: []sdk.GroupMapping{
+			{
+				Name: groupName,
+				Type: sdk.GroupTypePrimary,
+			},
+		},
+	})
+	assert.Error(t, err)
+	err = executeCopyFsActionForUser(nil, nil, dataprovider.User{
 		Groups: []sdk.GroupMapping{
 			{
 				Name: groupName,
@@ -1163,6 +1174,10 @@ func TestEventRuleActionsNoGroupMatching(t *testing.T) {
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "no existence check executed")
 	}
+	err = executeCopyFsRuleAction(nil, nil, conditions, &EventParams{})
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "no copy executed")
+	}
 	err = executeUsersQuotaResetRuleAction(conditions, &EventParams{})
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "no user quota reset executed")
@@ -1297,9 +1312,11 @@ func TestFilesystemActionErrors(t *testing.T) {
 	assert.Error(t, err)
 	err = executeExistFsActionForUser(nil, testReplacer, user)
 	assert.Error(t, err)
+	err = executeCopyFsActionForUser(nil, testReplacer, user)
+	assert.Error(t, err)
 	err = executeCompressFsActionForUser(dataprovider.EventActionFsCompress{}, testReplacer, user)
 	assert.Error(t, err)
-	_, _, _, _, err = getFileWriter(conn, "/path.txt") //nolint:dogsled
+	_, _, _, _, err = getFileWriter(conn, "/path.txt", -1) //nolint:dogsled
 	assert.Error(t, err)
 	err = executeEmailRuleAction(dataprovider.EventActionEmailConfig{
 		Recipients:  []string{"test@example.net"},

@@ -422,6 +422,26 @@ func GenerateEd25519Keys(file string) error {
 	return os.WriteFile(file+".pub", ssh.MarshalAuthorizedKey(pub), 0600)
 }
 
+// IsDirOverlapped returns true if dir1 and dir2 overlap
+func IsDirOverlapped(dir1, dir2 string, fullCheck bool, separator string) bool {
+	if dir1 == dir2 {
+		return true
+	}
+	if fullCheck {
+		if len(dir1) > len(dir2) {
+			if strings.HasPrefix(dir1, dir2+separator) {
+				return true
+			}
+		}
+		if len(dir2) > len(dir1) {
+			if strings.HasPrefix(dir2, dir1+separator) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // GetDirsForVirtualPath returns all the directory for the given path in reverse order
 // for example if the path is: /1/2/3/4 it returns:
 // [ "/1/2/3/4", "/1/2/3", "/1/2", "/1", "/" ]

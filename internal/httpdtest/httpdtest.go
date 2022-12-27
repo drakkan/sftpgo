@@ -2504,6 +2504,9 @@ func compareEventActionFsConfigFields(expected, actual dataprovider.EventActionF
 	if err := compareKeyValues(expected.Renames, actual.Renames); err != nil {
 		return errors.New("fs renames mismatch")
 	}
+	if err := compareKeyValues(expected.Copy, actual.Copy); err != nil {
+		return errors.New("fs copy mismatch")
+	}
 	if len(expected.Deletes) != len(actual.Deletes) {
 		return errors.New("fs deletes mismatch")
 	}

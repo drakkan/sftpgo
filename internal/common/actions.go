@@ -99,7 +99,7 @@ func ExecutePreAction(conn *BaseConnection, operation, filePath, virtualPath str
 		return handleUnconfiguredPreAction(operation)
 	}
 	event = newActionNotification(&conn.User, operation, filePath, virtualPath, "", "", "",
-		conn.protocol, conn.GetRemoteIP(), conn.ID, fileSize, openFlags, nil)
+		conn.protocol, conn.GetRemoteIP(), conn.ID, fileSize, openFlags, conn.getNotificationStatus(nil))
 	if hasNotifiersPlugin {
 		plugin.Handler.NotifyFsEvent(event)
 	}
@@ -120,7 +120,7 @@ func ExecuteActionNotification(conn *BaseConnection, operation, filePath, virtua
 		return nil
 	}
 	notification := newActionNotification(&conn.User, operation, filePath, virtualPath, target, virtualTarget, sshCmd,
-		conn.protocol, conn.GetRemoteIP(), conn.ID, fileSize, 0, err)
+		conn.protocol, conn.GetRemoteIP(), conn.ID, fileSize, 0, conn.getNotificationStatus(err))
 	if hasNotifiersPlugin {
 		plugin.Handler.NotifyFsEvent(notification)
 	}
@@ -174,8 +174,7 @@ func newActionNotification(
 	user *dataprovider.User,
 	operation, filePath, virtualPath, target, virtualTarget, sshCmd, protocol, ip, sessionID string,
 	fileSize int64,
-	openFlags int,
-	err error,
+	openFlags, status int,
 ) *notifier.FsEvent {
 	var bucket, endpoint string
 
@@ -210,7 +209,7 @@ func newActionNotification(
 		FsProvider:        int(fsConfig.Provider),
 		Bucket:            bucket,
 		Endpoint:          endpoint,
-		Status:            getNotificationStatus(err),
+		Status:            status,
 		Protocol:          protocol,
 		IP:                ip,
 		SessionID:         sessionID,
@@ -315,14 +314,4 @@ func notificationAsEnvVars(event *notifier.FsEvent) []string {
 		fmt.Sprintf("SFTPGO_ACTION_TIMESTAMP=%d", event.Timestamp),
 		fmt.Sprintf("SFTPGO_ACTION_ROLE=%s", event.Role),
 	}
-}
-
-func getNotificationStatus(err error) int {
-	status := 1
-	if err == ErrQuotaExceeded {
-		status = 3
-	} else if err != nil {
-		status = 2
-	}
-	return status
 }

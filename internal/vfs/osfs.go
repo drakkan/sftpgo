@@ -448,7 +448,7 @@ func (fs *OsFs) findFirstExistingDir(path string) (string, error) {
 		return "", err
 	}
 	if !fileInfo.IsDir() {
-		return "", fmt.Errorf("resolved path is not a dir: %#v", p)
+		return "", fmt.Errorf("resolved path is not a dir: %q", p)
 	}
 	err = fs.isSubDir(p)
 	return p, err

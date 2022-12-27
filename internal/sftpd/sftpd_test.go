@@ -8805,13 +8805,13 @@ func TestSSHCopy(t *testing.T) {
 
 		_, err = client.Stat(testDir1)
 		assert.Error(t, err)
-		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v", path.Join(vdirPath1, testDir1)), user, usePubKey)
+		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %s", path.Join(vdirPath1, testDir1)), user, usePubKey)
 		assert.Error(t, err)
 		_, err = runSSHCommand("sftpgo-copy", user, usePubKey)
 		assert.Error(t, err)
-		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", testFileName, testFileName+".linkcopy"), user, usePubKey)
+		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %s %s", testFileName, testFileName+".linkcopy"), user, usePubKey)
 		assert.Error(t, err)
-		out, err := runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath1, testDir1), "."), user, usePubKey)
+		out, err := runSSHCommand(fmt.Sprintf("sftpgo-copy %s %s", path.Join(vdirPath1, testDir1), "."), user, usePubKey)
 		if assert.NoError(t, err) {
 			assert.Equal(t, "OK\n", string(out))
 			fi, err := client.Stat(testDir1)
@@ -8826,7 +8826,13 @@ func TestSSHCopy(t *testing.T) {
 		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", "missing\\ dir", "."), user, usePubKey)
 		assert.Error(t, err)
 		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath1, testDir1), "."), user, usePubKey)
-		assert.Error(t, err)
+		if assert.NoError(t, err) {
+			// all files are overwritten, quota must remain unchanged
+			user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+			assert.NoError(t, err)
+			assert.Equal(t, 6, user.UsedQuotaFiles)
+			assert.Equal(t, 3*testFileSize+3*testFileSize1, user.UsedQuotaSize)
+		}
 		out, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath2, testDir1, testFileName), testFileName+".copy"),
 			user, usePubKey)
 		if assert.NoError(t, err) {
@@ -8872,9 +8878,13 @@ func TestSSHCopy(t *testing.T) {
 			assert.Equal(t, 2*testFileSize+2*testFileSize1, f.UsedQuotaSize)
 			assert.Equal(t, 4, f.UsedQuotaFiles)
 		}
-
-		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath2, ".."), "newdir"), user, usePubKey)
-		assert.Error(t, err)
+		// cross folder copy
+		newDir := "newdir"
+		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath2, ".."), newDir), user, usePubKey)
+		assert.NoError(t, err)
+		_, err = client.Stat(newDir)
+		assert.NoError(t, err)
+		// denied pattern
 		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(testDir, testFileName), testFileName+".denied"), user, usePubKey)
 		assert.Error(t, err)
 		if runtime.GOOS != osWindows {
@@ -8883,9 +8893,8 @@ func TestSSHCopy(t *testing.T) {
 			assert.NoError(t, err)
 			err = os.Chmod(subPath, 0001)
 			assert.NoError(t, err)
-			// c.connection.fs.GetDirSize(fsSourcePath) will fail scanning subdirs
-			// checkRecursiveCopyPermissions will work since it will skip subdirs with no permissions
-			_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", vdirPath1, "newdir"), user, usePubKey)
+			// listing contents for subdirs with no permissions will fail
+			_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", vdirPath1, "newdir1"), user, usePubKey)
 			assert.Error(t, err)
 			err = os.Chmod(subPath, os.ModePerm)
 			assert.NoError(t, err)
@@ -8897,12 +8906,6 @@ func TestSSHCopy(t *testing.T) {
 			err = os.Chmod(filepath.Join(user.GetHomeDir(), testDir1), os.ModePerm)
 			assert.NoError(t, err)
 
-			err = os.RemoveAll(filepath.Join(user.GetHomeDir(), "vdir1"))
-			assert.NoError(t, err)
-			err = os.Chmod(user.GetHomeDir(), 0555)
-			assert.NoError(t, err)
-			_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath2), "/vdir1"), user, usePubKey)
-			assert.Error(t, err)
 			err = os.Chmod(user.GetHomeDir(), os.ModePerm)
 			assert.NoError(t, err)
 		}
@@ -8967,16 +8970,17 @@ func TestSSHCopyPermissions(t *testing.T) {
 		if assert.NoError(t, err) {
 			assert.True(t, info.Mode().IsRegular())
 		}
-		// now create a symlink, dir2 has no create symlink permission
+		// now create a symlink, dir2 has no create symlink permission, but symlinks will be ignored
 		err = client.Symlink(path.Join("/", testDir, testFileName), path.Join("/", testDir, testFileName+".link"))
 		assert.NoError(t, err)
 		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join("/", testDir), "/dir2/sub"), user, usePubKey)
-		assert.Error(t, err)
+		assert.NoError(t, err)
 		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join("/", testDir), "/newdir"), user, usePubKey)
 		assert.NoError(t, err)
 		// now delete the file and copy inside /dir3
 		err = client.Remove(path.Join("/", testDir, testFileName))
 		assert.NoError(t, err)
+		// the symlink will be skipped, so no errors
 		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join("/", testDir), "/dir3"), user, usePubKey)
 		assert.NoError(t, err)
 
@@ -9073,6 +9077,11 @@ func TestSSHCopyQuotaLimits(t *testing.T) {
 		assert.NoError(t, err)
 		_, err = runSSHCommand(fmt.Sprintf("sftpgo-remove %v", path.Join(vdirPath2, testDir)), user, usePubKey)
 		assert.NoError(t, err)
+		// remove partially copied dirs
+		_, err = runSSHCommand(fmt.Sprintf("sftpgo-remove %v", testDir+"_copy"), user, usePubKey)
+		assert.NoError(t, err)
+		_, err = runSSHCommand(fmt.Sprintf("sftpgo-remove %v", path.Join(vdirPath2, testDir+"_copy")), user, usePubKey)
+		assert.NoError(t, err)
 		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Equal(t, 0, user.UsedQuotaFiles)
@@ -9150,33 +9159,6 @@ func TestSSHCopyQuotaLimits(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestSSHCopyRemoveNonLocalFs(t *testing.T) {
-	usePubKey := true
-	localUser, _, err := httpdtest.AddUser(getTestUser(usePubKey), http.StatusCreated)
-	assert.NoError(t, err)
-	sftpUser, _, err := httpdtest.AddUser(getTestSFTPUser(usePubKey), http.StatusCreated)
-	assert.NoError(t, err)
-	conn, client, err := getSftpClient(sftpUser, usePubKey)
-	if assert.NoError(t, err) {
-		defer conn.Close()
-		defer client.Close()
-		testDir := "test"
-		err = client.Mkdir(testDir)
-		assert.NoError(t, err)
-		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", testDir, testDir+"_copy"), sftpUser, usePubKey)
-		assert.Error(t, err)
-		_, err = runSSHCommand(fmt.Sprintf("sftpgo-remove %v", testDir), sftpUser, usePubKey)
-		assert.Error(t, err)
-	}
-
-	_, err = httpdtest.RemoveUser(sftpUser, http.StatusOK)
-	assert.NoError(t, err)
-	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
-	assert.NoError(t, err)
-	err = os.RemoveAll(localUser.GetHomeDir())
-	assert.NoError(t, err)
-}
-
 func TestSSHRemove(t *testing.T) {
 	usePubKey := false
 	u := getTestUser(usePubKey)
@@ -9244,7 +9226,7 @@ func TestSSHRemove(t *testing.T) {
 		err = client.Symlink(testFileName, testFileName+".link")
 		assert.NoError(t, err)
 		_, err = runSSHCommand(fmt.Sprintf("sftpgo-remove %v", testFileName+".link"), user, usePubKey)
-		assert.Error(t, err)
+		assert.NoError(t, err)
 		_, err = runSSHCommand("sftpgo-remove /vdir1", user, usePubKey)
 		assert.Error(t, err)
 		_, err = runSSHCommand("sftpgo-remove /", user, usePubKey)
@@ -9490,6 +9472,67 @@ func TestBasicGitCommands(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestGitIncludedVirtualFolders(t *testing.T) {
+	if len(gitPath) == 0 || len(sshPath) == 0 || runtime.GOOS == osWindows {
+		t.Skip("git and/or ssh command not found or OS is windows, unable to execute this test")
+	}
+	usePubKey := true
+	repoName := "trepo"
+	u := getTestUser(usePubKey)
+	u.QuotaFiles = 10000
+	mappedPath := filepath.Join(os.TempDir(), "repo")
+	folderName := filepath.Base(mappedPath)
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName,
+			MappedPath: mappedPath,
+		},
+		VirtualPath: "/" + repoName,
+		QuotaFiles:  -1,
+		QuotaSize:   -1,
+	})
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	clonePath := filepath.Join(homeBasePath, repoName)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(filepath.Join(homeBasePath, repoName))
+	assert.NoError(t, err)
+	out, err := initGitRepo(mappedPath)
+	assert.NoError(t, err, "unexpected error, out: %v", string(out))
+
+	out, err = cloneGitRepo(homeBasePath, "/"+repoName, user.Username)
+	assert.NoError(t, err, "unexpected error, out: %v", string(out))
+
+	out, err = addFileToGitRepo(clonePath, 128)
+	assert.NoError(t, err, "unexpected error, out: %v", string(out))
+
+	out, err = pushToGitRepo(clonePath)
+	assert.NoError(t, err, "unexpected error, out: %v", string(out))
+
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Greater(t, user.UsedQuotaFiles, 0)
+	assert.Greater(t, user.UsedQuotaSize, int64(0))
+
+	folder, _, err := httpdtest.GetFolderByName(folderName, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, user.UsedQuotaFiles, folder.UsedQuotaFiles)
+	assert.Equal(t, user.UsedQuotaSize, folder.UsedQuotaSize)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName}, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath)
+	assert.NoError(t, err)
+	err = os.RemoveAll(clonePath)
+	assert.NoError(t, err)
+}
+
 func TestGitQuotaVirtualFolders(t *testing.T) {
 	if len(gitPath) == 0 || len(sshPath) == 0 || runtime.GOOS == osWindows {
 		t.Skip("git and/or ssh command not found or OS is windows, unable to execute this test")
@@ -9547,7 +9590,6 @@ func TestGitQuotaVirtualFolders(t *testing.T) {
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
-
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName}, http.StatusOK)

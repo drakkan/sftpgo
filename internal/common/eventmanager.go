@@ -667,22 +667,40 @@ func getCSVRetentionReport(results []folderRetentionCheckResult) ([]byte, error)
 	return b.Bytes(), err
 }
 
-func closeWriterAndUpdateQuota(w io.WriteCloser, conn *BaseConnection, virtualPath string, numFiles int,
-	truncatedSize int64, errTransfer error,
+func closeWriterAndUpdateQuota(w io.WriteCloser, conn *BaseConnection, virtualSourcePath, virtualTargetPath string,
+	numFiles int, truncatedSize int64, errTransfer error, operation string,
 ) error {
 	errWrite := w.Close()
-	info, err := conn.doStatInternal(virtualPath, 0, false, false)
+	targetPath := virtualSourcePath
+	if virtualTargetPath != "" {
+		targetPath = virtualTargetPath
+	}
+	info, err := conn.doStatInternal(targetPath, 0, false, false)
 	if err == nil {
-		updateUserQuotaAfterFileWrite(conn, virtualPath, numFiles, info.Size()-truncatedSize)
-		_, fsPath, errFs := conn.GetFsAndResolvedPath(virtualPath)
-		if errFs == nil {
+		updateUserQuotaAfterFileWrite(conn, targetPath, numFiles, info.Size()-truncatedSize)
+		var fsSrcPath, fsDstPath string
+		var errSrcFs, errDstFs error
+		if virtualSourcePath != "" {
+			_, fsSrcPath, errSrcFs = conn.GetFsAndResolvedPath(virtualSourcePath)
+		}
+		if virtualTargetPath != "" {
+			_, fsDstPath, errDstFs = conn.GetFsAndResolvedPath(virtualTargetPath)
+		}
+		if errSrcFs == nil && errDstFs == nil {
 			if errTransfer == nil {
 				errTransfer = errWrite
 			}
-			ExecuteActionNotification(conn, operationUpload, fsPath, virtualPath, "", "", "", info.Size(), errTransfer) //nolint:errcheck
+			if operation == operationCopy {
+				logger.CommandLog(copyLogSender, fsSrcPath, fsDstPath, conn.User.Username, "", conn.ID, conn.protocol, -1, -1,
+					"", "", "", info.Size(), conn.localAddr, conn.remoteAddr)
+			}
+			ExecuteActionNotification(conn, operation, fsSrcPath, virtualSourcePath, fsDstPath, virtualTargetPath, "", info.Size(), errTransfer) //nolint:errcheck
 		}
 	} else {
-		eventManagerLog(logger.LevelWarn, "unable to update quota after writing %q: %v", virtualPath, err)
+		eventManagerLog(logger.LevelWarn, "unable to update quota after writing %q: %v", targetPath, err)
+	}
+	if errTransfer != nil {
+		return errTransfer
 	}
 	return errWrite
 }
@@ -699,7 +717,33 @@ func updateUserQuotaAfterFileWrite(conn *BaseConnection, virtualPath string, num
 	}
 }
 
-func getFileWriter(conn *BaseConnection, virtualPath string) (io.WriteCloser, int, int64, func(), error) {
+func checkWriterPermsAndQuota(conn *BaseConnection, virtualPath string, numFiles int, expectedSize, truncatedSize int64) error {
+	if numFiles == 0 {
+		if !conn.User.HasPerm(dataprovider.PermOverwrite, path.Dir(virtualPath)) {
+			return conn.GetPermissionDeniedError()
+		}
+	} else {
+		if !conn.User.HasPerm(dataprovider.PermUpload, path.Dir(virtualPath)) {
+			return conn.GetPermissionDeniedError()
+		}
+	}
+	q, _ := conn.HasSpace(numFiles > 0, false, virtualPath)
+	if !q.HasSpace {
+		return conn.GetQuotaExceededError()
+	}
+	if expectedSize != -1 {
+		sizeDiff := expectedSize - truncatedSize
+		if sizeDiff > 0 {
+			remainingSize := q.GetRemainingSize()
+			if remainingSize > 0 && remainingSize < sizeDiff {
+				return conn.GetQuotaExceededError()
+			}
+		}
+	}
+	return nil
+}
+
+func getFileWriter(conn *BaseConnection, virtualPath string, expectedSize int64) (io.WriteCloser, int, int64, func(), error) {
 	fs, fsPath, err := conn.GetFsAndResolvedPath(virtualPath)
 	if err != nil {
 		return nil, 0, 0, nil, err
@@ -723,6 +767,10 @@ func getFileWriter(conn *BaseConnection, virtualPath string) (io.WriteCloser, in
 	if err != nil && !fs.IsNotExist(err) {
 		return nil, numFiles, truncatedSize, nil, conn.GetFsError(fs, err)
 	}
+	if err := checkWriterPermsAndQuota(conn, virtualPath, numFiles, expectedSize, truncatedSize); err != nil {
+		return nil, numFiles, truncatedSize, nil, err
+	}
+
 	f, w, cancelFn, err := fs.Create(fsPath, 0)
 	if err != nil {
 		return nil, numFiles, truncatedSize, nil, conn.GetFsError(fs, err)
@@ -823,6 +871,9 @@ func getZipEntryName(entryPath, baseDir string) (string, error) {
 }
 
 func getFileReader(conn *BaseConnection, virtualPath string) (io.ReadCloser, func(), error) {
+	if !conn.User.HasPerm(dataprovider.PermDownload, path.Dir(virtualPath)) {
+		return nil, nil, conn.GetPermissionDeniedError()
+	}
 	fs, fsPath, err := conn.GetFsAndResolvedPath(virtualPath)
 	if err != nil {
 		return nil, nil, err
@@ -1427,6 +1478,37 @@ func executeRenameFsActionForUser(renames []dataprovider.KeyValue, replacer *str
 	return nil
 }
 
+func executeCopyFsActionForUser(copy []dataprovider.KeyValue, replacer *strings.Replacer,
+	user dataprovider.User,
+) error {
+	user, err := getUserForEventAction(user)
+	if err != nil {
+		return err
+	}
+	connectionID := fmt.Sprintf("%s_%s", protocolEventAction, xid.New().String())
+	err = user.CheckFsRoot(connectionID)
+	defer user.CloseFs() //nolint:errcheck
+	if err != nil {
+		return fmt.Errorf("copy error, unable to check root fs for user %q: %w", user.Username, err)
+	}
+	conn := NewBaseConnection(connectionID, protocolEventAction, "", "", user)
+	for _, item := range copy {
+		source := util.CleanPath(replaceWithReplacer(item.Key, replacer))
+		target := util.CleanPath(replaceWithReplacer(item.Value, replacer))
+		if strings.HasSuffix(item.Key, "/") {
+			source += "/"
+		}
+		if strings.HasSuffix(item.Value, "/") {
+			target += "/"
+		}
+		if err = conn.Copy(source, target); err != nil {
+			return fmt.Errorf("unable to copy %q->%q, user %q: %w", source, target, user.Username, err)
+		}
+		eventManagerLog(logger.LevelDebug, "copy %q->%q ok, user %q", source, target, user.Username)
+	}
+	return nil
+}
+
 func executeExistFsActionForUser(exist []string, replacer *strings.Replacer,
 	user dataprovider.User,
 ) error {
@@ -1485,6 +1567,41 @@ func executeRenameFsRuleAction(renames []dataprovider.KeyValue, replacer *string
 	return nil
 }
 
+func executeCopyFsRuleAction(copy []dataprovider.KeyValue, replacer *strings.Replacer,
+	conditions dataprovider.ConditionOptions, params *EventParams,
+) error {
+	users, err := params.getUsers()
+	if err != nil {
+		return fmt.Errorf("unable to get users: %w", err)
+	}
+	var failures []string
+	var executed int
+	for _, user := range users {
+		// if sender is set, the conditions have already been evaluated
+		if params.sender == "" {
+			if !checkUserConditionOptions(&user, &conditions) {
+				eventManagerLog(logger.LevelDebug, "skipping fs copy for user %s, condition options don't match",
+					user.Username)
+				continue
+			}
+		}
+		executed++
+		if err = executeCopyFsActionForUser(copy, replacer, user); err != nil {
+			failures = append(failures, user.Username)
+			params.AddError(err)
+			continue
+		}
+	}
+	if len(failures) > 0 {
+		return fmt.Errorf("fs copy failed for users: %+v", failures)
+	}
+	if executed == 0 {
+		eventManagerLog(logger.LevelError, "no copy executed")
+		return errors.New("no copy executed")
+	}
+	return nil
+}
+
 func getArchiveBaseDir(paths []string) string {
 	var parentDirs []string
 	for _, p := range paths {
@@ -1521,7 +1638,7 @@ func executeCompressFsActionForUser(c dataprovider.EventActionFsCompress, replac
 		}
 		paths = append(paths, p)
 	}
-	writer, numFiles, truncatedSize, cancelFn, err := getFileWriter(conn, name)
+	writer, numFiles, truncatedSize, cancelFn, err := getFileWriter(conn, name, -1)
 	if err != nil {
 		eventManagerLog(logger.LevelError, "unable to create archive %q: %v", name, err)
 		return fmt.Errorf("unable to create archive: %w", err)
@@ -1539,16 +1656,16 @@ func executeCompressFsActionForUser(c dataprovider.EventActionFsCompress, replac
 	}
 	for _, item := range paths {
 		if err := addZipEntry(zipWriter, conn, item, baseDir); err != nil {
-			closeWriterAndUpdateQuota(writer, conn, name, numFiles, truncatedSize, err) //nolint:errcheck
+			closeWriterAndUpdateQuota(writer, conn, name, "", numFiles, truncatedSize, err, operationUpload) //nolint:errcheck
 			return err
 		}
 	}
 	if err := zipWriter.Writer.Close(); err != nil {
 		eventManagerLog(logger.LevelError, "unable to close zip file %q: %v", name, err)
-		closeWriterAndUpdateQuota(writer, conn, name, numFiles, truncatedSize, err) //nolint:errcheck
+		closeWriterAndUpdateQuota(writer, conn, name, "", numFiles, truncatedSize, err, operationUpload) //nolint:errcheck
 		return fmt.Errorf("unable to close zip file %q: %w", name, err)
 	}
-	return closeWriterAndUpdateQuota(writer, conn, name, numFiles, truncatedSize, err)
+	return closeWriterAndUpdateQuota(writer, conn, name, "", numFiles, truncatedSize, err, operationUpload)
 }
 
 func executeExistFsRuleAction(exist []string, replacer *strings.Replacer, conditions dataprovider.ConditionOptions,
@@ -1638,6 +1755,8 @@ func executeFsRuleAction(c dataprovider.EventActionFilesystemConfig, conditions 
 		return executeExistFsRuleAction(c.Exist, replacer, conditions, params)
 	case dataprovider.FilesystemActionCompress:
 		return executeCompressFsRuleAction(c.Compress, replacer, conditions, params)
+	case dataprovider.FilesystemActionCopy:
+		return executeCopyFsRuleAction(c.Copy, replacer, conditions, params)
 	default:
 		return fmt.Errorf("unsupported filesystem action %d", c.Type)
 	}
