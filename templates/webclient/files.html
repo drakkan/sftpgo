@@ -126,6 +126,45 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     </div>
 </div>
 
+<div class="modal fade" id="copyModal" tabindex="-1" role="dialog" aria-labelledby="copyModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="copyModalLabel">
+                    Copy the selected item
+                </h5>
+                <button class="close" type="button" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form id="copy_form" action="" method="POST">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="copy_old_name" class="col-form-label">Source</label>
+                        <input type="text" class="form-control" id="copy_old_name" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="copy_new_dir" class="col-form-label">New base dir</label>
+                        <input type="text" class="form-control" id="copy_new_dir" required aria-describedby="copyNewDirHelpBlock">
+                        <small id="copyNewDirHelpBlock" class="form-text text-muted">
+                            Setting a directory other than the current one will copy the item there. This directory will be created if it doesn't exist
+                        </small>
+                    </div>
+                    <div class="form-group">
+                        <label for="copy_new_name" class="col-form-label">Target</label>
+                        <input type="text" class="form-control" id="copy_new_name" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" type="button" data-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Submit</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <div class="modal fade" id="renameModal" tabindex="-1" role="dialog" aria-labelledby="renameModalLabel"
     aria-hidden="true">
     <div class="modal-dialog" role="document">
@@ -447,7 +486,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 			return escapeHTML(d);
 		}
 
-        var shortened = d.substr(0, cutoff-1);
+        let shortened = d.substr(0, cutoff-1);
         return escapeHTML(shortened)+'&#8230;';
     }
 
@@ -463,7 +502,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     }
 
     function getIconForFile(filename) {
-        var extension = filename.slice((filename.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase();
+        let extension = filename.slice((filename.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase();
         switch (extension) {
             case "doc":
             case "docx":
@@ -573,13 +612,13 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     }
 
     function deleteAction() {
-        var table = $('#dataTable').DataTable();
+        let table = $('#dataTable').DataTable();
         table.button('delete:name').enable(false);
 
-        var selectedItems = table.column(0).checkboxes.selected()
-        var has_errors = false;
-        var index = 0;
-        var success = 0;
+        let selectedItems = table.column(0).checkboxes.selected()
+        let has_errors = false;
+        let index = 0;
+        let success = 0;
         spinnerDone = false;
 
         $('#deleteModal').modal('hide');
@@ -596,14 +635,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 }
                 return;
             }
-            var selected = selectedItems[index];
-            var itemType = getTypeFromMeta(selected);
-            var itemName = getNameFromMeta(selected);
-            var path;
-            var reqTimeout = 15000;
+            let selected = selectedItems[index];
+            let itemType = getTypeFromMeta(selected);
+            let itemName = getNameFromMeta(selected);
+            let path;
+            let reqTimeout = 15000;
             if (itemType == "1"){
                 path = '{{.DirsURL}}';
-                reqTimeout = 90000
+                reqTimeout = 120000
             } else {
                 path = '{{.FilesURL}}';
             }
@@ -623,12 +662,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 error: function ($xhr, textStatus, errorThrown) {
                     index++;
                     has_errors = true;
-                    var txt = "Unable to delete the selected item/s";
+                    let txt = "Unable to delete the selected item/s";
                     if (success > 0){
                         txt = "Not all the selected items have been deleted, please reload the page";
                     }
                     if ($xhr) {
-                        var json = $xhr.responseJSON;
+                        let json = $xhr.responseJSON;
                         if (json) {
                             if (json.message) {
                                 txt = json.message;
@@ -750,8 +789,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         $("#create_dir_form").submit(function (event) {
             event.preventDefault();
             $('#createDirModal').modal('hide');
-            var dirName = replaceSlash($("#directory_name").val());
-            var path = '{{.DirsURL}}?path={{.CurrentDir}}' + encodeURIComponent("/"+dirName);
+            let dirName = replaceSlash($("#directory_name").val());
+            let path = '{{.DirsURL}}?path={{.CurrentDir}}' + encodeURIComponent("/"+dirName);
             $.ajax({
                 url: path,
                 type: 'POST',
@@ -762,9 +801,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                     location.reload();
                 },
                 error: function ($xhr, textStatus, errorThrown) {
-                    var txt = "Unable to create the requested directory";
+                    let txt = "Unable to create the requested directory";
                     if ($xhr) {
-                        var json = $xhr.responseJSON;
+                        let json = $xhr.responseJSON;
                         if (json) {
                             if (json.message) {
                                 txt = json.message;
@@ -778,7 +817,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                     $('#errorMsg').show();
                     setTimeout(function () {
                         $('#errorMsg').hide();
-                    }, 5000);
+                    }, 8000);
                 }
             });
         });
@@ -811,12 +850,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
                 async function saveFile() {
                     //console.log("save file, index: "+index);
-                    var errorMessage = "Error uploading files";
+                    let errorMessage = "Error uploading files";
                     let response;
                     try {
-                        var f = files[index].file;
-                        var uploadPath = '{{.FileURL}}?path={{.CurrentDir}}'+encodeURIComponent("/"+f.name);
-                        var lastModified;
+                        let f = files[index].file;
+                        let uploadPath = '{{.FileURL}}?path={{.CurrentDir}}'+encodeURIComponent("/"+f.name);
+                        let lastModified;
                         try {
                             lastModified = f.lastModified;
                         } catch (e) {
@@ -874,13 +913,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
         $("#rename_form").submit(function (event){
             event.preventDefault();
-            var table = $('#dataTable').DataTable();
+            let table = $('#dataTable').DataTable();
             table.button('rename:name').enable(false);
-            var selected = table.column(0).checkboxes.selected()[0];
-            var itemType = getTypeFromMeta(selected);
-            var itemName = getNameFromMeta(selected);
-            var targetName = replaceSlash($("#rename_new_name").val());
-            var targetDir = $("#rename_new_dir").val();
+            let selected = table.column(0).checkboxes.selected()[0];
+            let itemName = getNameFromMeta(selected);
+            let targetName = replaceSlash($("#rename_new_name").val());
+            let targetDir = $("#rename_new_dir").val();
             if (targetDir != "/") {
                 targetDir = targetDir.endsWith('/') ? targetDir.slice(0, -1) : targetDir;
             }
@@ -889,17 +927,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             } else {
                 targetDir = encodeURIComponent(targetDir);
             }
-            var path;
-            if (itemType == "1"){
-                path = '{{.DirsURL}}';
-            } else {
-                path = '{{.FilesURL}}';
-            }
+            let path = '{{.FileActionsURL}}/move';
             path+='?path={{.CurrentDir}}'+encodeURIComponent("/"+itemName)+'&target='+targetDir+encodeURIComponent("/"+targetName);
             $('#renameModal').modal('hide');
             $.ajax({
                 url: path,
-                type: 'PATCH',
+                type: 'POST',
                 dataType: 'json',
                 headers: { 'X-CSRF-TOKEN': '{{.CSRFToken}}' },
                 timeout: 15000,
@@ -907,9 +940,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                     location.reload();
                 },
                 error: function ($xhr, textStatus, errorThrown) {
-                    var txt = "Error renaming item";
+                    let txt = "Error renaming item";
                     if ($xhr) {
-                        var json = $xhr.responseJSON;
+                        let json = $xhr.responseJSON;
                         if (json) {
                             if (json.message) {
                                 txt = json.message;
@@ -924,8 +957,68 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                     setTimeout(function () {
                         $('#errorMsg').hide();
                     }, 8000);
-                    var selectedItems = table.column(0).checkboxes.selected().length;
+                    let selectedItems = table.column(0).checkboxes.selected().length;
                     table.button('rename:name').enable(selectedItems == 1);
+                }
+            });
+        });
+
+        $("#copy_form").submit(function (event){
+            event.preventDefault();
+            let table = $('#dataTable').DataTable();
+            table.button('copy:name').enable(false);
+            let selected = table.column(0).checkboxes.selected()[0];
+            let itemName = getNameFromMeta(selected);
+            let targetName = $("#copy_new_name").val();
+            let targetDir = $("#copy_new_dir").val();
+            if (targetDir != "/") {
+                targetDir = targetDir.endsWith('/') ? targetDir.slice(0, -1) : targetDir;
+            }
+            if (targetDir.trim() == ""){
+                targetDir = "{{.CurrentDir}}";
+            } else {
+                targetDir = encodeURIComponent(targetDir);
+            }
+            let path = '{{.FileActionsURL}}/copy';
+            path+='?path={{.CurrentDir}}'+encodeURIComponent("/"+itemName)+'&target='+targetDir+encodeURIComponent("/"+targetName);
+
+            spinnerDone = false;
+            $('#copyModal').modal('hide');
+            $('#spinnerModal').modal('show');
+
+            $.ajax({
+                url: path,
+                type: 'POST',
+                dataType: 'json',
+                headers: { 'X-CSRF-TOKEN': '{{.CSRFToken}}' },
+                timeout: 120000,
+                success: function (result) {
+                    $('#spinnerModal').modal('hide');
+                    spinnerDone = true;
+                    location.reload();
+                },
+                error: function ($xhr, textStatus, errorThrown) {
+                    let txt = "Error copying item";
+                    if ($xhr) {
+                        let json = $xhr.responseJSON;
+                        if (json) {
+                            if (json.message) {
+                                txt = json.message;
+                            }
+                            if (json.error) {
+                                txt += ": " + json.error;
+                            }
+                        }
+                    }
+                    $('#errorTxt').text(txt);
+                    $('#errorMsg').show();
+                    setTimeout(function () {
+                        $('#errorMsg').hide();
+                    }, 10000);
+                    $('#spinnerModal').modal('hide');
+                    spinnerDone = true;
+                    let selectedItems = table.column(0).checkboxes.selected().length;
+                    table.button('copy:name').enable(selectedItems == 1);
                 }
             });
         });
@@ -944,15 +1037,15 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             name: 'download',
             titleAttr: "Download Zip",
             action: function (e, dt, node, config) {
-                var filesArray = [];
-                var selected = dt.column(0).checkboxes.selected();
+                let filesArray = [];
+                let selected = dt.column(0).checkboxes.selected();
                 for (i = 0; i < selected.length; i++) {
                     filesArray.push(getNameFromMeta(selected[i]));
                 }
-                var files = encodeURIComponent(JSON.stringify(filesArray));
-                var downloadURL = '{{.DownloadURL}}';
-                var currentDir = '{{.CurrentDir}}';
-                var ts = new Date().getTime().toString();
+                let files = encodeURIComponent(JSON.stringify(filesArray));
+                let downloadURL = '{{.DownloadURL}}';
+                let currentDir = '{{.CurrentDir}}';
+                let ts = new Date().getTime().toString();
                 window.open(`${downloadURL}?path=${currentDir}&files=${files}&_=${ts}`);
             },
             enabled: false
@@ -985,12 +1078,27 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             name: 'rename',
             titleAttr: "Rename",
             action: function (e, dt, node, config) {
-                var selected = table.column(0).checkboxes.selected()[0];
-                var itemName = getNameFromMeta(selected);
+                let selected = table.column(0).checkboxes.selected()[0];
+                let itemName = getNameFromMeta(selected);
                 $("#rename_old_name").val(itemName);
                 $("#rename_new_dir").val(decodeURIComponent("{{.CurrentDir}}".replace(/\+/g, '%20')));
                 $("#rename_new_name").val("");
                 $('#renameModal').modal('show');
+            },
+            enabled: false
+        };
+
+        $.fn.dataTable.ext.buttons.copy = {
+            text: '<i class="fas fa-copy"></i>',
+            name: 'copy',
+            titleAttr: "Copy",
+            action: function (e, dt, node, config) {
+                let selected = table.column(0).checkboxes.selected()[0];
+                let itemName = getNameFromMeta(selected);
+                $("#copy_old_name").val(itemName);
+                $("#copy_new_dir").val(decodeURIComponent("{{.CurrentDir}}".replace(/\+/g, '%20')));
+                $("#copy_new_name").val("");
+                $('#copyModal').modal('show');
             },
             enabled: false
         };
@@ -1010,29 +1118,29 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
             name: 'share',
             titleAttr: "Share",
             action: function (e, dt, node, config) {
-                var filesArray = [];
-                var selected = dt.column(0).checkboxes.selected();
+                let filesArray = [];
+                let selected = dt.column(0).checkboxes.selected();
                 for (i = 0; i < selected.length; i++) {
                     filesArray.push(getNameFromMeta(selected[i]));
                 }
-                var files = encodeURIComponent(JSON.stringify(filesArray));
-                var shareURL = '{{.ShareURL}}';
-                var currentDir = '{{.CurrentDir}}';
-                var ts = new Date().getTime().toString();
+                let files = encodeURIComponent(JSON.stringify(filesArray));
+                let shareURL = '{{.ShareURL}}';
+                let currentDir = '{{.CurrentDir}}';
+                let ts = new Date().getTime().toString();
                 window.open(`${shareURL}?path=${currentDir}&files=${files}&_=${ts}`,'_blank');
             },
             enabled: false
         };
 
-        var table = $('#dataTable').DataTable({
+        let table = $('#dataTable').DataTable({
             "ajax": {
                 "url": "{{.DirsURL}}?path={{.CurrentDir}}",
                 "dataSrc": "",
                 "error": function ($xhr, textStatus, errorThrown) {
                     $(".dataTables_processing").hide();
-                    var txt = "Failed to get directory listing";
+                    let txt = "Failed to get directory listing";
                     if ($xhr) {
-                        var json = $xhr.responseJSON;
+                        let json = $xhr.responseJSON;
                         if (json) {
                             if (json.message){
                                 txt += ": " + json.message;
@@ -1070,9 +1178,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                     "data": "name",
                     "render": function (data, type, row) {
                         if (type === 'display') {
-                            var title = "";
-                            var cssClass = "";
-                            var shortened = shortenData(data, 70);
+                            let title = "";
+                            let cssClass = "";
+                            let shortened = shortenData(data, 70);
                             data = escapeHTML(data);
                             if (shortened != data){
                                 title = data;
@@ -1085,7 +1193,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                             if (row["size"] == "") {
                                 return `<i class="fas fa-external-link-alt"></i>&nbsp;<a class="${cssClass}" href="${row['url']}" title="${title}">${shortened}</a>`;
                             }
-                            var icon = getIconForFile(data);
+                            let icon = getIconForFile(data);
                             return `<i class="${icon}"></i>&nbsp;<a class="${cssClass}" href="${row['url']}" title="${title}">${shortened}</a>`;
                         }
                         return data;
@@ -1096,8 +1204,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 { "data": "edit_url",
                     "render": function (data, type, row) {
                         if (type === 'display') {
-                            var filename = escapeHTML(row["name"]);
-                            var extension = filename.slice((filename.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase();
+                            let filename = escapeHTML(row["name"]);
+                            let extension = filename.slice((filename.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase();
                             if (data){
                                 if (extension == "csv" || extension == "bat" || CodeMirror.findModeByExtension(extension) != null){
                                     {{if .CanAddFiles}}
@@ -1117,7 +1225,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                                     case "bmp":
                                     case "svg":
                                     case "ico":
-                                        var title = escapeHTMLForceSafe(row["name"])
+                                        let title = escapeHTMLForceSafe(row["name"])
                                         return `<a href="${row['url']}" data-lightbox="image-gallery" data-title="${title}"><i class="fas fa-eye"></i></a>`;
                                     case "mp4":
                                     case "mov":
@@ -1132,7 +1240,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                                         return `<a href="#" onclick="openVideoPlayer('${name}}', '${row['url']}', 'video/ogg');"><i class="fas fa-eye"></i></a>`;
                                     case "pdf":
                                         if (PDFObject.supportsPDFs){
-                                            var view_url = row['url'];
+                                            let view_url = row['url'];
                                             view_url = view_url.replace('{{.FilesURL}}','{{.ViewPDFURL}}');
                                             return `<a href="${view_url}" target="_blank"><i class="fas fa-eye"></i></a>`;
                                         }
@@ -1147,7 +1255,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                         {{if .HasIntegrations}}
                         if (type === 'display') {
                             if (data){
-                                var name = b64EncodeUnicode(escapeHTML(row["name"]));
+                                let name = b64EncodeUnicode(escapeHTML(row["name"]));
                                 return `<a href="#" onclick="openExternalURL('${data}', '${row["ext_link"]}', '${name}');"><i class="fas fa-external-link-alt"></i></a>`;
                             }
                         }
@@ -1163,8 +1271,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                     "targets": [0],
                     "checkboxes": {
                         "selectCallback": function (nodes, selected) {
-                            var selectedItems = table.column(0).checkboxes.selected().length;
-                            var selectedText = "";
+                            let selectedItems = table.column(0).checkboxes.selected().length;
+                            let selectedText = "";
                             if (selectedItems == 1) {
                                 selectedText = "1 item selected";
                             } else if (selectedItems > 1) {
@@ -1175,6 +1283,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                             {{end}}
                             {{if .CanRename}}
                             table.button('rename:name').enable(selectedItems == 1);
+                            {{end}}
+                            {{if .CanAddFiles}}
+                            table.button('copy:name').enable(selectedItems == 1);
                             {{end}}
                             {{if .CanDelete}}
                             table.button('delete:name').enable(selectedItems > 0);
@@ -1222,6 +1333,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                 {{end}}
                 {{if .CanDelete}}
                 table.button().add(0, 'delete');
+                {{end}}
+                {{if .CanAddFiles}}
+                table.button().add(0, 'copy');
                 {{end}}
                 {{if .CanRename}}
                 table.button().add(0, 'rename');

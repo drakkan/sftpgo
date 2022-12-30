@@ -15,7 +15,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.46
 	github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.13.26
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.29.6
-	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.16.11
+	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.17.0
 	github.com/aws/aws-sdk-go-v2/service/sts v1.17.7
 	github.com/cockroachdb/cockroach-go/v2 v2.2.19
 	github.com/coreos/go-oidc/v3 v3.4.0
@@ -120,7 +120,7 @@ require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
-	github.com/klauspost/cpuid/v2 v2.2.2 // indirect
+	github.com/klauspost/cpuid/v2 v2.2.3 // indirect
 	github.com/kr/fs v0.1.0 // indirect
 	github.com/lestrrat-go/blackmagic v1.0.1 // indirect
 	github.com/lestrrat-go/httpcc v1.0.1 // indirect
@@ -131,7 +131,7 @@ require (
 	github.com/lufia/plan9stats v0.0.0-20220913051719-115f729f3c8c // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
-	github.com/mattn/go-isatty v0.0.16 // indirect
+	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/miekg/dns v1.1.50 // indirect
 	github.com/minio/sha256-simd v1.0.0 // indirect

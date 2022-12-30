@@ -66,6 +66,7 @@ const (
 	userPwdPath                           = "/api/v2/user/changepwd"
 	userDirsPath                          = "/api/v2/user/dirs"
 	userFilesPath                         = "/api/v2/user/files"
+	userFileActionsPath                   = "/api/v2/user/file-actions"
 	userStreamZipPath                     = "/api/v2/user/streamzip"
 	userUploadFilePath                    = "/api/v2/user/files/upload"
 	userFilesDirsMetadataPath             = "/api/v2/user/files/metadata"
@@ -148,6 +149,7 @@ const (
 	webClientTwoFactorRecoveryPathDefault = "/web/client/twofactor-recovery"
 	webClientFilesPathDefault             = "/web/client/files"
 	webClientFilePathDefault              = "/web/client/file"
+	webClientFileActionsPathDefault       = "/web/client/file-actions"
 	webClientSharesPathDefault            = "/web/client/shares"
 	webClientSharePathDefault             = "/web/client/share"
 	webClientEditFilePathDefault          = "/web/client/editfile"
@@ -239,6 +241,7 @@ var (
 	webClientTwoFactorRecoveryPath string
 	webClientFilesPath             string
 	webClientFilePath              string
+	webClientFileActionsPath       string
 	webClientSharesPath            string
 	webClientSharePath             string
 	webClientEditFilePath          string
@@ -963,6 +966,7 @@ func updateWebClientURLs(baseURL string) {
 	webClientTwoFactorRecoveryPath = path.Join(baseURL, webClientTwoFactorRecoveryPathDefault)
 	webClientFilesPath = path.Join(baseURL, webClientFilesPathDefault)
 	webClientFilePath = path.Join(baseURL, webClientFilePathDefault)
+	webClientFileActionsPath = path.Join(baseURL, webClientFileActionsPathDefault)
 	webClientSharesPath = path.Join(baseURL, webClientSharesPathDefault)
 	webClientPubSharesPath = path.Join(baseURL, webClientPubSharesPathDefault)
 	webClientSharePath = path.Join(baseURL, webClientSharePathDefault)

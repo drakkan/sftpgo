@@ -530,21 +530,21 @@ func (c *BaseConnection) RemoveAll(virtualPath string) error {
 	return c.RemoveFile(fs, fsPath, virtualPath, fi)
 }
 
-func (c *BaseConnection) checkCopyFolder(srcInfo, dstInfo os.FileInfo, virtualSource, virtualTarget string) error {
+func (c *BaseConnection) checkCopy(srcInfo, dstInfo os.FileInfo, virtualSource, virtualTarget string) error {
+	_, fsSourcePath, err := c.GetFsAndResolvedPath(virtualSource)
+	if err != nil {
+		return err
+	}
+	_, fsTargetPath, err := c.GetFsAndResolvedPath(virtualTarget)
+	if err != nil {
+		return err
+	}
 	if srcInfo.IsDir() {
 		if dstInfo != nil && !dstInfo.IsDir() {
 			return fmt.Errorf("cannot overwrite file %q with dir %q: %w", virtualTarget, virtualSource, c.GetOpUnsupportedError())
 		}
 		if util.IsDirOverlapped(virtualSource, virtualTarget, true, "/") {
 			return fmt.Errorf("nested copy %q => %q is not supported: %w", virtualSource, virtualTarget, c.GetOpUnsupportedError())
-		}
-		_, fsSourcePath, err := c.GetFsAndResolvedPath(virtualSource)
-		if err != nil {
-			return err
-		}
-		_, fsTargetPath, err := c.GetFsAndResolvedPath(virtualTarget)
-		if err != nil {
-			return err
 		}
 		if util.IsDirOverlapped(fsSourcePath, fsTargetPath, true, c.User.FsConfig.GetPathSeparator()) {
 			c.Log(logger.LevelWarn, "nested fs copy %q => %q not allowed", fsSourcePath, fsTargetPath)
@@ -554,6 +554,9 @@ func (c *BaseConnection) checkCopyFolder(srcInfo, dstInfo os.FileInfo, virtualSo
 	}
 	if dstInfo != nil && dstInfo.IsDir() {
 		return fmt.Errorf("cannot overwrite file %q with dir %q: %w", virtualSource, virtualTarget, c.GetOpUnsupportedError())
+	}
+	if fsSourcePath == fsTargetPath {
+		return fmt.Errorf("the copy source and target cannot be the same: %w", c.GetOpUnsupportedError())
 	}
 	return nil
 }
@@ -605,7 +608,7 @@ func (c *BaseConnection) doRecursiveCopy(virtualSourcePath, virtualTargetPath st
 			if err != nil && !c.IsNotExistError(err) {
 				return err
 			}
-			if err := c.checkCopyFolder(info, targetInfo, sourcePath, targetPath); err != nil {
+			if err := c.checkCopy(info, targetInfo, sourcePath, targetPath); err != nil {
 				return err
 			}
 			if err := c.doRecursiveCopy(sourcePath, targetPath, info, true); err != nil {
@@ -657,7 +660,7 @@ func (c *BaseConnection) Copy(virtualSourcePath, virtualTargetPath string) error
 	if dstInfo != nil && dstInfo.IsDir() {
 		createTargetDir = false
 	}
-	if err := c.checkCopyFolder(srcInfo, dstInfo, virtualSourcePath, destPath); err != nil {
+	if err := c.checkCopy(srcInfo, dstInfo, virtualSourcePath, destPath); err != nil {
 		return err
 	}
 	if err := c.CheckParentDirs(path.Dir(destPath)); err != nil {

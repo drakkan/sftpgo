@@ -1339,16 +1339,20 @@ func (s *httpdServer) initializeRouter() {
 			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled)).
 				Post(userDirsPath, createUserDir)
 			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled)).
-				Patch(userDirsPath, renameUserDir)
+				Patch(userDirsPath, renameUserFsEntry)
 			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled)).
 				Delete(userDirsPath, deleteUserDir)
 			router.With(s.checkAuthRequirements).Get(userFilesPath, getUserFile)
 			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled)).
 				Post(userFilesPath, uploadUserFiles)
 			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled)).
-				Patch(userFilesPath, renameUserFile)
+				Patch(userFilesPath, renameUserFsEntry)
 			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled)).
 				Delete(userFilesPath, deleteUserFile)
+			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled)).
+				Post(userFileActionsPath+"/move", renameUserFsEntry)
+			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled)).
+				Post(userFileActionsPath+"/copy", copyUserFsEntry)
 			router.With(s.checkAuthRequirements).Post(userStreamZipPath, getUserFilesAsZipStream)
 			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientSharesDisabled)).
 				Get(userSharesPath, getShares)
@@ -1461,17 +1465,17 @@ func (s *httpdServer) setupWebClientRoutes() {
 				Post(webClientFilePath, uploadUserFile)
 			router.With(s.checkAuthRequirements, s.refreshCookie).Get(webClientEditFilePath, s.handleClientEditFile)
 			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
-				Patch(webClientFilesPath, renameUserFile)
-			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
 				Delete(webClientFilesPath, deleteUserFile)
 			router.With(s.checkAuthRequirements, compressor.Handler, s.refreshCookie).
 				Get(webClientDirsPath, s.handleClientGetDirContents)
 			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
 				Post(webClientDirsPath, createUserDir)
 			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
-				Patch(webClientDirsPath, renameUserDir)
-			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
 				Delete(webClientDirsPath, deleteUserDir)
+			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
+				Post(webClientFileActionsPath+"/move", renameUserFsEntry)
+			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
+				Post(webClientFileActionsPath+"/copy", copyUserFsEntry)
 			router.With(s.checkAuthRequirements, s.refreshCookie).
 				Get(webClientDownloadZipPath, s.handleWebClientDownloadZip)
 			router.With(s.checkAuthRequirements, s.refreshCookie).Get(webClientProfilePath,

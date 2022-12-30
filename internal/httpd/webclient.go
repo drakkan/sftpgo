@@ -141,6 +141,7 @@ type filesPage struct {
 	baseClientPage
 	CurrentDir      string
 	DirsURL         string
+	FileActionsURL  string
 	DownloadURL     string
 	ViewPDFURL      string
 	FileURL         string
@@ -573,6 +574,7 @@ func (s *httpdServer) renderFilesPage(w http.ResponseWriter, r *http.Request, di
 		ViewPDFURL:      webClientViewPDFPath,
 		DirsURL:         webClientDirsPath,
 		FileURL:         webClientFilePath,
+		FileActionsURL:  webClientFileActionsPath,
 		CanAddFiles:     user.CanAddFilesFromWeb(dirName),
 		CanCreateDirs:   user.CanAddDirsFromWeb(dirName),
 		CanRename:       user.CanRenameFromWeb(dirName, dirName),

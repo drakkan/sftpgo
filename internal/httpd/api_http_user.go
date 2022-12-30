@@ -24,6 +24,7 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/render"
 	"github.com/rs/xid"
@@ -105,11 +106,6 @@ func createUserDir(w http.ResponseWriter, r *http.Request) {
 	sendAPIResponse(w, r, nil, fmt.Sprintf("Directory %#v created", name), http.StatusCreated)
 }
 
-func renameUserDir(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	renameItem(w, r)
-}
-
 func deleteUserDir(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	connection, err := getUserConnection(w, r)
@@ -125,6 +121,56 @@ func deleteUserDir(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sendAPIResponse(w, r, nil, fmt.Sprintf("Directory %q deleted", name), http.StatusOK)
+}
+
+func renameUserFsEntry(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+
+	connection, err := getUserConnection(w, r)
+	if err != nil {
+		return
+	}
+	defer common.Connections.Remove(connection.GetID())
+
+	oldName := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
+	newName := connection.User.GetCleanedPath(r.URL.Query().Get("target"))
+	err = connection.Rename(oldName, newName)
+	if err != nil {
+		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to rename %q -> %q", oldName, newName),
+			getMappedStatusCode(err))
+		return
+	}
+	sendAPIResponse(w, r, nil, fmt.Sprintf("%q renamed to %q", oldName, newName), http.StatusOK)
+}
+
+func copyUserFsEntry(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+
+	connection, err := getUserConnection(w, r)
+	if err != nil {
+		return
+	}
+	defer common.Connections.Remove(connection.GetID())
+
+	source := r.URL.Query().Get("path")
+	target := r.URL.Query().Get("target")
+	copyFromSource := strings.HasSuffix(source, "/")
+	copyInTarget := strings.HasSuffix(target, "/")
+	source = connection.User.GetCleanedPath(source)
+	target = connection.User.GetCleanedPath(target)
+	if copyFromSource {
+		source += "/"
+	}
+	if copyInTarget {
+		target += "/"
+	}
+	err = connection.Copy(source, target)
+	if err != nil {
+		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to copy %q -> %q", source, target),
+			getMappedStatusCode(err))
+		return
+	}
+	sendAPIResponse(w, r, nil, fmt.Sprintf("%q copied to %q", source, target), http.StatusOK)
 }
 
 func getUserFile(w http.ResponseWriter, r *http.Request) {
@@ -330,11 +376,6 @@ func doUploadFiles(w http.ResponseWriter, r *http.Request, connection *Connectio
 	return uploaded
 }
 
-func renameUserFile(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	renameItem(w, r)
-}
-
 func deleteUserFile(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	connection, err := getUserConnection(w, r)
@@ -359,13 +400,13 @@ func deleteUserFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if fi.IsDir() && fi.Mode()&os.ModeSymlink == 0 {
-		connection.Log(logger.LevelDebug, "cannot remove %#v is not a file/symlink", p)
-		sendAPIResponse(w, r, err, fmt.Sprintf("Unable delete %#v, it is not a file/symlink", name), http.StatusBadRequest)
+		connection.Log(logger.LevelDebug, "cannot remove %q is not a file/symlink", p)
+		sendAPIResponse(w, r, err, fmt.Sprintf("Unable delete %q, it is not a file/symlink", name), http.StatusBadRequest)
 		return
 	}
 	err = connection.RemoveFile(fs, p, name, fi)
 	if err != nil {
-		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to delete file %#v", name), getMappedStatusCode(err))
+		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to delete file %q", name), getMappedStatusCode(err))
 		return
 	}
 	sendAPIResponse(w, r, nil, fmt.Sprintf("File %#v deleted", name), http.StatusOK)
@@ -519,22 +560,4 @@ func setModificationTimeFromHeader(r *http.Request, c *Connection, filePath stri
 			c.Log(logger.LevelInfo, "invalid modification time header was ignored: %v", mTimeString)
 		}
 	}
-}
-
-func renameItem(w http.ResponseWriter, r *http.Request) {
-	connection, err := getUserConnection(w, r)
-	if err != nil {
-		return
-	}
-	defer common.Connections.Remove(connection.GetID())
-
-	oldName := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
-	newName := connection.User.GetCleanedPath(r.URL.Query().Get("target"))
-	err = connection.Rename(oldName, newName)
-	if err != nil {
-		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to rename %#v -> %#v", oldName, newName),
-			getMappedStatusCode(err))
-		return
-	}
-	sendAPIResponse(w, r, nil, fmt.Sprintf("%#v renamed to %#v", oldName, newName), http.StatusOK)
 }

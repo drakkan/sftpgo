@@ -101,6 +101,7 @@ const (
 	userPwdPath                    = "/api/v2/user/changepwd"
 	userDirsPath                   = "/api/v2/user/dirs"
 	userFilesPath                  = "/api/v2/user/files"
+	userFileActionsPath            = "/api/v2/user/file-actions"
 	userStreamZipPath              = "/api/v2/user/streamzip"
 	userUploadFilePath             = "/api/v2/user/files/upload"
 	userFilesDirsMetadataPath      = "/api/v2/user/files/metadata"
@@ -14109,7 +14110,13 @@ func TestWebDirsAPI(t *testing.T) {
 	assert.Len(t, contents, 0)
 
 	// rename a missing folder
-	req, err = http.NewRequest(http.MethodPatch, userDirsPath+"?path="+testDir+"&target="+testDir+"new", nil)
+	req, err = http.NewRequest(http.MethodPost, userFileActionsPath+"/move?path="+testDir+"&target="+testDir+"new", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+	// copy a missing folder
+	req, err = http.NewRequest(http.MethodPost, userFileActionsPath+"/copy?path="+testDir+"%2F&target="+testDir+"new%2F", nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
@@ -14139,13 +14146,20 @@ func TestWebDirsAPI(t *testing.T) {
 		assert.Equal(t, testDir, contents[0]["name"])
 	}
 	// rename a dir with the same source and target name
-	req, err = http.NewRequest(http.MethodPatch, userDirsPath+"?path="+testDir+"&target="+testDir, nil)
+	req, err = http.NewRequest(http.MethodPost, userFileActionsPath+"/move?path="+testDir+"&target="+testDir, nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	assert.Contains(t, rr.Body.String(), "operation unsupported")
-	req, err = http.NewRequest(http.MethodPatch, userDirsPath+"?path="+testDir+"&target=%2F"+testDir+"%2F", nil)
+	req, err = http.NewRequest(http.MethodPost, userFileActionsPath+"/move?path="+testDir+"&target=%2F"+testDir+"%2F", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "operation unsupported")
+	// copy a dir with the same source and target name
+	req, err = http.NewRequest(http.MethodPost, userFileActionsPath+"/copy?path="+testDir+"&target="+testDir, nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
@@ -14163,14 +14177,25 @@ func TestWebDirsAPI(t *testing.T) {
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusCreated, rr)
+	// copy the dir
+	req, err = http.NewRequest(http.MethodPost, userFileActionsPath+"/copy?path="+testDir+"&target="+testDir+"copy", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
 	// rename the dir
-	req, err = http.NewRequest(http.MethodPatch, userDirsPath+"?path="+testDir+"&target="+testDir+"new", nil)
+	req, err = http.NewRequest(http.MethodPost, userFileActionsPath+"/move?path="+testDir+"&target="+testDir+"new", nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	// delete the dir
 	req, err = http.NewRequest(http.MethodDelete, userDirsPath+"?path="+testDir+"new", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	req, err = http.NewRequest(http.MethodDelete, userDirsPath+"?path="+testDir+"copy", nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
@@ -14204,7 +14229,13 @@ func TestWebDirsAPI(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
 
-	req, err = http.NewRequest(http.MethodPatch, userDirsPath+"?path="+testDir+"&target="+testDir+"new", nil)
+	req, err = http.NewRequest(http.MethodPost, userFileActionsPath+"/move?path="+testDir+"&target="+testDir+"new", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodPost, userFileActionsPath+"/copy?path="+testDir+"&target="+testDir+"new", nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
@@ -14474,20 +14505,26 @@ func TestWebFilesAPI(t *testing.T) {
 	err = json.NewDecoder(rr.Body).Decode(&contents)
 	assert.NoError(t, err)
 	assert.Len(t, contents, 2)
+	// copy a file
+	req, err = http.NewRequest(http.MethodPost, userFileActionsPath+"/copy?path=file1.txt&target=%2Ftdir%2Ffile_copy.txt", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
 	// rename a file
-	req, err = http.NewRequest(http.MethodPatch, userFilesPath+"?path=file1.txt&target=%2Ftdir%2Ffile3.txt", nil)
+	req, err = http.NewRequest(http.MethodPost, userFileActionsPath+"/move?path=file1.txt&target=%2Ftdir%2Ffile3.txt", nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	// rename a missing file
-	req, err = http.NewRequest(http.MethodPatch, userFilesPath+"?path=file1.txt&target=%2Ftdir%2Ffile3.txt", nil)
+	req, err = http.NewRequest(http.MethodPost, userFileActionsPath+"/move?path=file1.txt&target=%2Ftdir%2Ffile3.txt", nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
 	// rename a file with target name equal to source name
-	req, err = http.NewRequest(http.MethodPatch, userFilesPath+"?path=file1.txt&target=file1.txt", nil)
+	req, err = http.NewRequest(http.MethodPost, userFileActionsPath+"/move?path=file1.txt&target=file1.txt", nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
@@ -14557,7 +14594,7 @@ func TestWebFilesAPI(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
 
-	req, err = http.NewRequest(http.MethodPatch, userFilesPath+"?path=file1.txt&target=%2Ftdir%2Ffile3.txt", nil)
+	req, err = http.NewRequest(http.MethodPost, userFileActionsPath+"/move?path=file1.txt&target=%2Ftdir%2Ffile3.txt", nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
@@ -14622,7 +14659,7 @@ func TestStartDirectory(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusCreated, rr)
 
-	req, err = http.NewRequest(http.MethodPatch, userDirsPath+"?path=testdir&target=testdir1", nil)
+	req, err = http.NewRequest(http.MethodPost, userFileActionsPath+"/move?path=testdir&target=testdir1", nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
@@ -15129,7 +15166,7 @@ func TestWebAPIWritePermission(t *testing.T) {
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
 
-	req, err = http.NewRequest(http.MethodPatch, userFilesPath+"?path=a&target=b", nil)
+	req, err = http.NewRequest(http.MethodPost, userFileActionsPath+"/move?path=a&target=b", nil)
 	assert.NoError(t, err)
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	setBearerForReq(req, webAPIToken)
@@ -15164,7 +15201,7 @@ func TestWebAPIWritePermission(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
 
-	req, err = http.NewRequest(http.MethodPatch, userDirsPath+"?path=dir&target=dir1", nil)
+	req, err = http.NewRequest(http.MethodPost, userFileActionsPath+"/move?path=dir&target=dir1", nil)
 	assert.NoError(t, err)
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	setBearerForReq(req, webAPIToken)

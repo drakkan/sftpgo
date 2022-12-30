@@ -128,9 +128,7 @@ paths:
           content:
             application/json; charset=utf-8:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ApiResponse'
+                $ref: '#/components/schemas/ApiResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -294,9 +292,7 @@ paths:
           content:
             application/json; charset=utf-8:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ApiResponse'
+                $ref: '#/components/schemas/ApiResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -3963,6 +3959,76 @@ paths:
           $ref: '#/components/responses/InternalServerError'
         default:
           $ref: '#/components/responses/DefaultResponse'
+  /user/file-actions/copy:
+    parameters:
+      - in: query
+        name: path
+        description: Path to the file/folder to copy. It must be URL encoded, for example the path "my dir/àdir" must be sent as "my%20dir%2F%C3%A0dir"
+        schema:
+          type: string
+        required: true
+      - in: query
+        name: target
+        description: New name. It must be URL encoded, for example the path "my dir/àdir" must be sent as "my%20dir%2F%C3%A0dir"
+        schema:
+          type: string
+        required: true
+    post:
+      tags:
+        - user APIs
+      summary: 'Copy a file or a directory'
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json; charset=utf-8:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /user/file-actions/move:
+    parameters:
+      - in: query
+        name: path
+        description: Path to the file/folder to rename. It must be URL encoded, for example the path "my dir/àdir" must be sent as "my%20dir%2F%C3%A0dir"
+        schema:
+          type: string
+        required: true
+      - in: query
+        name: target
+        description: New name. It must be URL encoded, for example the path "my dir/àdir" must be sent as "my%20dir%2F%C3%A0dir"
+        schema:
+          type: string
+        required: true
+    post:
+      tags:
+        - user APIs
+      summary: 'Move (rename) a file or a directory'
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json; charset=utf-8:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
   /user/dirs:
     get:
       tags:
@@ -4020,9 +4086,7 @@ paths:
           content:
             application/json; charset=utf-8:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ApiResponse'
+                $ref: '#/components/schemas/ApiResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -4036,7 +4100,8 @@ paths:
     patch:
       tags:
         - user APIs
-      summary: Rename a directory
+      deprecated: true
+      summary: 'Rename a directory. Deprecated, use "file-actions/move"'
       description: Rename a directory for the logged in user. The rename is allowed for empty directory or for non empty local directories, with no virtual folders inside
       operationId: rename_user_dir
       parameters:
@@ -4058,9 +4123,7 @@ paths:
           content:
             application/json; charset=utf-8:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ApiResponse'
+                $ref: '#/components/schemas/ApiResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -4075,7 +4138,7 @@ paths:
       tags:
         - user APIs
       summary: Delete a directory
-      description: Delete a directory for the logged in user. Only empty directories can be deleted
+      description: Delete a directory and any children it contains for the logged in user
       operationId: delete_user_dir
       parameters:
         - in: query
@@ -4090,9 +4153,7 @@ paths:
           content:
             application/json; charset=utf-8:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ApiResponse'
+                $ref: '#/components/schemas/ApiResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -4186,9 +4247,7 @@ paths:
           content:
             application/json; charset=utf-8:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ApiResponse'
+                $ref: '#/components/schemas/ApiResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -4204,8 +4263,9 @@ paths:
     patch:
       tags:
         - user APIs
+      deprecated: true
       summary: Rename a file
-      description: Rename a file for the logged in user
+      description: 'Rename a file for the logged in user. Deprecated, use "file-actions/move"'
       operationId: rename_user_file
       parameters:
         - in: query
@@ -4226,9 +4286,7 @@ paths:
           content:
             application/json; charset=utf-8:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ApiResponse'
+                $ref: '#/components/schemas/ApiResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -4258,9 +4316,7 @@ paths:
           content:
             application/json; charset=utf-8:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ApiResponse'
+                $ref: '#/components/schemas/ApiResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -4325,9 +4381,7 @@ paths:
           content:
             application/json; charset=utf-8:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ApiResponse'
+                $ref: '#/components/schemas/ApiResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -4370,9 +4424,7 @@ paths:
           content:
             application/json; charset=utf-8:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ApiResponse'
+                $ref: '#/components/schemas/ApiResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':

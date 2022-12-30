@@ -6920,6 +6920,9 @@ func TestCopyAndRemoveSSHCommands(t *testing.T) {
 		testFileNameCopy := testFileName + "_copy"
 		out, err := runSSHCommand(fmt.Sprintf("sftpgo-copy %s %s", testFileName, testFileNameCopy), user)
 		assert.NoError(t, err, string(out))
+		// the resolved destination path match the source path
+		out, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %s %s", testFileName, path.Dir(testFileName)), user)
+		assert.Error(t, err, string(out))
 
 		info, err := client.Stat(testFileNameCopy)
 		if assert.NoError(t, err) {
