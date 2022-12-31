@@ -1720,6 +1720,43 @@ func TestReplacePathsPlaceholders(t *testing.T) {
 	assert.Equal(t, []string{"/path1", "/path2"}, paths)
 }
 
+func TestEstimateZipSizeErrors(t *testing.T) {
+	u := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username: "u",
+			HomeDir:  filepath.Join(os.TempDir(), "u"),
+			Status:   1,
+			Permissions: map[string][]string{
+				"/": {dataprovider.PermAny},
+			},
+			QuotaSize: 1000,
+		},
+	}
+	err := dataprovider.AddUser(&u, "", "", "")
+	assert.NoError(t, err)
+	err = os.MkdirAll(u.GetHomeDir(), os.ModePerm)
+	assert.NoError(t, err)
+	conn := NewBaseConnection("", ProtocolFTP, "", "", u)
+	_, err = getSizeForPath(conn, "/missing", vfs.NewFileInfo("missing", true, 0, time.Now(), false))
+	assert.True(t, conn.IsNotExistError(err))
+	if runtime.GOOS != osWindows {
+		err = os.MkdirAll(filepath.Join(u.HomeDir, "d1", "d2", "sub"), os.ModePerm)
+		assert.NoError(t, err)
+		err = os.WriteFile(filepath.Join(u.HomeDir, "d1", "d2", "sub", "file.txt"), []byte("data"), 0666)
+		assert.NoError(t, err)
+		err = os.Chmod(filepath.Join(u.HomeDir, "d1", "d2"), 0001)
+		assert.NoError(t, err)
+		size, err := estimateZipSize(conn, "/archive.zip", []string{"/d1"})
+		assert.Error(t, err, "size %d", size)
+		err = os.Chmod(filepath.Join(u.HomeDir, "d1", "d2"), os.ModePerm)
+		assert.NoError(t, err)
+	}
+	err = dataprovider.DeleteUser(u.Username, "", "", "")
+	assert.NoError(t, err)
+	err = os.RemoveAll(u.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func getErrorString(err error) string {
 	if err == nil {
 		return ""

@@ -1615,6 +1615,50 @@ func getArchiveBaseDir(paths []string) string {
 	return baseDir
 }
 
+func getSizeForPath(conn *BaseConnection, p string, info os.FileInfo) (int64, error) {
+	if info.IsDir() {
+		var dirSize int64
+		entries, err := conn.ListDir(p)
+		if err != nil {
+			return 0, err
+		}
+		for _, entry := range entries {
+			size, err := getSizeForPath(conn, path.Join(p, entry.Name()), entry)
+			if err != nil {
+				return 0, err
+			}
+			dirSize += size
+		}
+		return dirSize, nil
+	}
+	if info.Mode().IsRegular() {
+		return info.Size(), nil
+	}
+	return 0, nil
+}
+
+func estimateZipSize(conn *BaseConnection, zipPath string, paths []string) (int64, error) {
+	q, _ := conn.HasSpace(false, false, zipPath)
+	if q.HasSpace && q.GetRemainingSize() > 0 {
+		var size int64
+		for _, item := range paths {
+			info, err := conn.DoStat(item, 1, false)
+			if err != nil {
+				return size, err
+			}
+			itemSize, err := getSizeForPath(conn, item, info)
+			if err != nil {
+				return size, err
+			}
+			size += itemSize
+		}
+		eventManagerLog(logger.LevelDebug, "archive paths %v, archive name %q, size: %d", paths, zipPath, size)
+		// we assume the zip size will be half of the real size
+		return size / 2, nil
+	}
+	return -1, nil
+}
+
 func executeCompressFsActionForUser(c dataprovider.EventActionFsCompress, replacer *strings.Replacer,
 	user dataprovider.User,
 ) error {
@@ -1638,14 +1682,19 @@ func executeCompressFsActionForUser(c dataprovider.EventActionFsCompress, replac
 		}
 		paths = append(paths, p)
 	}
-	writer, numFiles, truncatedSize, cancelFn, err := getFileWriter(conn, name, -1)
+	paths = util.RemoveDuplicates(paths, false)
+	estimatedSize, err := estimateZipSize(conn, name, paths)
+	if err != nil {
+		eventManagerLog(logger.LevelError, "unable to estimate size for archive %q: %v", name, err)
+		return fmt.Errorf("unable to estimate archive size: %w", err)
+	}
+	writer, numFiles, truncatedSize, cancelFn, err := getFileWriter(conn, name, estimatedSize)
 	if err != nil {
 		eventManagerLog(logger.LevelError, "unable to create archive %q: %v", name, err)
 		return fmt.Errorf("unable to create archive: %w", err)
 	}
 	defer cancelFn()
 
-	paths = util.RemoveDuplicates(paths, false)
 	baseDir := getArchiveBaseDir(paths)
 	eventManagerLog(logger.LevelDebug, "creating archive %q for paths %+v", name, paths)
 

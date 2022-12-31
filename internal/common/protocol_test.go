@@ -4714,6 +4714,174 @@ func TestEventActionCompress(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestEventActionCompressQuotaErrors(t *testing.T) {
+	smtpCfg := smtp.Config{
+		Host:          "127.0.0.1",
+		Port:          2525,
+		From:          "notify@example.com",
+		TemplatesPath: "templates",
+	}
+	err := smtpCfg.Initialize(configDir)
+	require.NoError(t, err)
+
+	testDir := "archiveDir"
+	zipPath := "/archive.zip"
+	a1 := dataprovider.BaseEventAction{
+		Name: "action1",
+		Type: dataprovider.ActionTypeFilesystem,
+		Options: dataprovider.BaseEventActionOptions{
+			FsConfig: dataprovider.EventActionFilesystemConfig{
+				Type: dataprovider.FilesystemActionCompress,
+				Compress: dataprovider.EventActionFsCompress{
+					Name:  zipPath,
+					Paths: []string{"/" + testDir},
+				},
+			},
+		},
+	}
+	action1, _, err := httpdtest.AddEventAction(a1, http.StatusCreated)
+	assert.NoError(t, err)
+	a2 := dataprovider.BaseEventAction{
+		Name: "action2",
+		Type: dataprovider.ActionTypeEmail,
+		Options: dataprovider.BaseEventActionOptions{
+			EmailConfig: dataprovider.EventActionEmailConfig{
+				Recipients: []string{"test@example.com"},
+				Subject:    `"Compress failed"`,
+				Body:       "Error: {{ErrorString}}",
+			},
+		},
+	}
+	action2, _, err := httpdtest.AddEventAction(a2, http.StatusCreated)
+	assert.NoError(t, err)
+	r1 := dataprovider.EventRule{
+		Name:    "test compress",
+		Trigger: dataprovider.EventTriggerFsEvent,
+		Conditions: dataprovider.EventConditions{
+			FsEvents: []string{"rename"},
+		},
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action1.Name,
+				},
+				Order: 1,
+			},
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action2.Name,
+				},
+				Options: dataprovider.EventActionOptions{
+					IsFailureAction: true,
+				},
+				Order: 2,
+			},
+		},
+	}
+	rule1, _, err := httpdtest.AddEventRule(r1, http.StatusCreated)
+	assert.NoError(t, err)
+	fileSize := int64(100)
+	u := getTestUser()
+	u.QuotaSize = 10 * fileSize
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	conn, client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		err = client.MkdirAll(path.Join(testDir, "1", "1"))
+		assert.NoError(t, err)
+		err = writeSFTPFile(path.Join(testDir, "1", testFileName), fileSize, client)
+		assert.NoError(t, err)
+		err = client.MkdirAll(path.Join(testDir, "2", "2"))
+		assert.NoError(t, err)
+		err = writeSFTPFile(path.Join(testDir, "2", testFileName), fileSize, client)
+		assert.NoError(t, err)
+		err = client.Symlink(path.Join(testDir, "2", testFileName), path.Join(testDir, "2", testFileName+"_link"))
+		assert.NoError(t, err)
+		// trigger the compress action
+		err = client.Mkdir("a")
+		assert.NoError(t, err)
+		err = client.Rename("a", "b")
+		assert.NoError(t, err)
+		assert.Eventually(t, func() bool {
+			_, err := client.Stat(zipPath)
+			return err == nil
+		}, 3*time.Second, 100*time.Millisecond)
+		err = client.Remove(zipPath)
+		assert.NoError(t, err)
+		// add other 6 file, the compress action should fail with a quota error
+		err = writeSFTPFile(path.Join(testDir, "1", "1", testFileName), fileSize, client)
+		assert.NoError(t, err)
+		err = writeSFTPFile(path.Join(testDir, "2", "2", testFileName), fileSize, client)
+		assert.NoError(t, err)
+		err = writeSFTPFile(path.Join(testDir, "1", "1", testFileName+"1"), fileSize, client)
+		assert.NoError(t, err)
+		err = writeSFTPFile(path.Join(testDir, "2", "2", testFileName+"2"), fileSize, client)
+		assert.NoError(t, err)
+		err = writeSFTPFile(path.Join(testDir, "1", testFileName+"1"), fileSize, client)
+		assert.NoError(t, err)
+		err = writeSFTPFile(path.Join(testDir, "2", testFileName+"2"), fileSize, client)
+		assert.NoError(t, err)
+		lastReceivedEmail.reset()
+		err = client.Rename("b", "a")
+		assert.NoError(t, err)
+		assert.Eventually(t, func() bool {
+			return lastReceivedEmail.get().From != ""
+		}, 3*time.Second, 100*time.Millisecond)
+		email := lastReceivedEmail.get()
+		assert.Len(t, email.To, 1)
+		assert.True(t, util.Contains(email.To, "test@example.com"))
+		assert.Contains(t, email.Data, `Subject: "Compress failed"`)
+		assert.Contains(t, email.Data, common.ErrQuotaExceeded.Error())
+		// update quota size so the user is already overquota
+		user.QuotaSize = 7 * fileSize
+		_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+		assert.NoError(t, err)
+		lastReceivedEmail.reset()
+		err = client.Rename("a", "b")
+		assert.NoError(t, err)
+		assert.Eventually(t, func() bool {
+			return lastReceivedEmail.get().From != ""
+		}, 3*time.Second, 100*time.Millisecond)
+		email = lastReceivedEmail.get()
+		assert.Len(t, email.To, 1)
+		assert.True(t, util.Contains(email.To, "test@example.com"))
+		assert.Contains(t, email.Data, `Subject: "Compress failed"`)
+		assert.Contains(t, email.Data, common.ErrQuotaExceeded.Error())
+		// remove the path to compress to trigger an error for size estimation
+		out, err := runSSHCommand(fmt.Sprintf("sftpgo-remove %s", testDir), user)
+		assert.NoError(t, err, string(out))
+		lastReceivedEmail.reset()
+		err = client.Rename("b", "a")
+		assert.NoError(t, err)
+		assert.Eventually(t, func() bool {
+			return lastReceivedEmail.get().From != ""
+		}, 3*time.Second, 100*time.Millisecond)
+		email = lastReceivedEmail.get()
+		assert.Len(t, email.To, 1)
+		assert.True(t, util.Contains(email.To, "test@example.com"))
+		assert.Contains(t, email.Data, `Subject: "Compress failed"`)
+		assert.Contains(t, email.Data, "unable to estimate archive size")
+	}
+
+	_, err = httpdtest.RemoveEventRule(rule1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action2, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	smtpCfg = smtp.Config{}
+	err = smtpCfg.Initialize(configDir)
+	require.NoError(t, err)
+}
+
 func TestEventActionCompressQuotaFolder(t *testing.T) {
 	testDir := "/folder"
 	a1 := dataprovider.BaseEventAction{

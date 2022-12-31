@@ -17,7 +17,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.29.6
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.17.0
 	github.com/aws/aws-sdk-go-v2/service/sts v1.17.7
-	github.com/cockroachdb/cockroach-go/v2 v2.2.19
+	github.com/cockroachdb/cockroach-go/v2 v2.2.20
 	github.com/coreos/go-oidc/v3 v3.4.0
 	github.com/drakkan/webdav v0.0.0-20221101181759-17ed21f9337b
 	github.com/eikenb/pipeat v0.0.0-20210730190139-06b3e6902001
