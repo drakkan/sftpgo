@@ -229,7 +229,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 <script src="{{.StaticURL}}/vendor/bootstrap-select/js/bootstrap-select.min.js"></script>
 <script type="text/javascript">
     $("body").on("click", ".add_new_group_field_btn", function () {
-        var index = $(".form_field_groups_outer").find("form_field_groups_outer_row").length;
+        var index = $(".form_field_groups_outer").find(".form_field_groups_outer_row").length;
         while (document.getElementById("idGroup"+index) != null){
             index++;
         }

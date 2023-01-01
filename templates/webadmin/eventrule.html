@@ -543,7 +543,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     });
 
     $("body").on("click", ".add_new_fs_path_pattern_field_btn", function () {
-        var index = $(".form_field_fs_paths_outer").find("form_field_fs_paths_outer_row").length;
+        var index = $(".form_field_fs_paths_outer").find(".form_field_fs_paths_outer_row").length;
         while (document.getElementById("idFsPathPattern"+index) != null){
             index++;
         }
@@ -573,7 +573,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     });
 
     $("body").on("click", ".add_new_action_field_btn", function () {
-        var index = $(".form_field_action_outer").find("form_field_action_outer_row").length;
+        var index = $(".form_field_action_outer").find(".form_field_action_outer_row").length;
         while (document.getElementById("idActionName"+index) != null){
             index++;
         }

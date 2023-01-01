@@ -1239,10 +1239,11 @@ func getUserForEventAction(user dataprovider.User) (dataprovider.User, error) {
 }
 
 func replacePathsPlaceholders(paths []string, replacer *strings.Replacer) []string {
-	for idx := range paths {
-		paths[idx] = util.CleanPath(replaceWithReplacer(paths[idx], replacer))
+	results := make([]string, 0, len(paths))
+	for _, p := range paths {
+		results = append(results, util.CleanPath(replaceWithReplacer(p, replacer)))
 	}
-	return util.RemoveDuplicates(paths, false)
+	return util.RemoveDuplicates(results, false)
 }
 
 func executeDeleteFileFsAction(conn *BaseConnection, item string, info os.FileInfo) error {
