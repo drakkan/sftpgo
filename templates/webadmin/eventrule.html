@@ -425,7 +425,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                     <b>Actions</b>
                 </div>
                 <div class="card-body">
-                    <h6 class="card-title mb-4">One or more actions to execute. The "Execute sync" options is only supported for upload events</h6>
+                    <h6 class="card-title mb-4">One or more actions to execute. The "Execute sync" options is supported for upload events and required for pre-* events</h6>
                     <div class="form-group row">
                         <div class="col-md-12 form_field_action_outer">
                             {{range $idx, $val := .Rule.Actions}}
@@ -505,7 +505,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 <script src="{{.StaticURL}}/vendor/bootstrap-select/js/bootstrap-select.min.js"></script>
 <script type="text/javascript">
     $("body").on("click", ".add_new_schedule_field_btn", function () {
-        var index = $(".form_field_schedules_outer").find(".form_field_schedules_outer_row").length;
+        let index = $(".form_field_schedules_outer").find(".form_field_schedules_outer_row").length;
         while (document.getElementById("idScheduleHour"+index) != null){
             index++;
         }
@@ -537,7 +537,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     });
 
     $("body").on("click", ".add_new_name_pattern_field_btn", function () {
-        var index = $(".form_field_names_outer").find(".form_field_names_outer_row").length;
+        let index = $(".form_field_names_outer").find(".form_field_names_outer_row").length;
         while (document.getElementById("idNamePattern"+index) != null){
             index++;
         }
@@ -567,7 +567,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     });
 
     $("body").on("click", ".add_new_group_name_pattern_field_btn", function () {
-        var index = $(".form_field_group_names_outer").find(".form_field_group_names_outer_row").length;
+        let index = $(".form_field_group_names_outer").find(".form_field_group_names_outer_row").length;
         while (document.getElementById("idGroupNamePattern"+index) != null){
             index++;
         }
@@ -597,7 +597,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     });
 
     $("body").on("click", ".add_new_role_name_pattern_field_btn", function () {
-        var index = $(".form_field_role_names_outer").find(".form_field_role_names_outer_row").length;
+        let index = $(".form_field_role_names_outer").find(".form_field_role_names_outer_row").length;
         while (document.getElementById("idRoleNamePattern"+index) != null){
             index++;
         }
@@ -627,7 +627,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     });
 
     $("body").on("click", ".add_new_fs_path_pattern_field_btn", function () {
-        var index = $(".form_field_fs_paths_outer").find("form_field_fs_paths_outer_row").length;
+        let index = $(".form_field_fs_paths_outer").find(".form_field_fs_paths_outer_row").length;
         while (document.getElementById("idFsPathPattern"+index) != null){
             index++;
         }
@@ -657,7 +657,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     });
 
     $("body").on("click", ".add_new_action_field_btn", function () {
-        var index = $(".form_field_action_outer").find("form_field_action_outer_row").length;
+        let index = $(".form_field_action_outer").find(".form_field_action_outer_row").length;
         while (document.getElementById("idActionName"+index) != null){
             index++;
         }

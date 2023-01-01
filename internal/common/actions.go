@@ -95,13 +95,37 @@ func ExecutePreAction(conn *BaseConnection, operation, filePath, virtualPath str
 	var event *notifier.FsEvent
 	hasNotifiersPlugin := plugin.Handler.HasNotifiers()
 	hasHook := util.Contains(Config.Actions.ExecuteOn, operation)
-	if !hasHook && !hasNotifiersPlugin {
+	hasRules := eventManager.hasFsRules()
+	if !hasHook && !hasNotifiersPlugin && !hasRules {
 		return handleUnconfiguredPreAction(operation)
 	}
 	event = newActionNotification(&conn.User, operation, filePath, virtualPath, "", "", "",
 		conn.protocol, conn.GetRemoteIP(), conn.ID, fileSize, openFlags, conn.getNotificationStatus(nil))
 	if hasNotifiersPlugin {
 		plugin.Handler.NotifyFsEvent(event)
+	}
+	if hasRules {
+		params := EventParams{
+			Name:              event.Username,
+			Groups:            conn.User.Groups,
+			Event:             event.Action,
+			Status:            event.Status,
+			VirtualPath:       event.VirtualPath,
+			FsPath:            event.Path,
+			VirtualTargetPath: event.VirtualTargetPath,
+			FsTargetPath:      event.TargetPath,
+			ObjectName:        path.Base(event.VirtualPath),
+			FileSize:          event.FileSize,
+			Protocol:          event.Protocol,
+			IP:                event.IP,
+			Role:              event.Role,
+			Timestamp:         event.Timestamp,
+			Object:            nil,
+		}
+		executedSync, err := eventManager.handleFsEvent(params)
+		if executedSync {
+			return err
+		}
 	}
 	if !hasHook {
 		return handleUnconfiguredPreAction(operation)
@@ -124,7 +148,6 @@ func ExecuteActionNotification(conn *BaseConnection, operation, filePath, virtua
 	if hasNotifiersPlugin {
 		plugin.Handler.NotifyFsEvent(notification)
 	}
-	var errRes error
 	if hasRules {
 		params := EventParams{
 			Name:              notification.Username,
@@ -146,23 +169,23 @@ func ExecuteActionNotification(conn *BaseConnection, operation, filePath, virtua
 		if err != nil {
 			params.AddError(fmt.Errorf("%q failed: %w", params.Event, err))
 		}
-		errRes = eventManager.handleFsEvent(params)
+		executedSync, err := eventManager.handleFsEvent(params)
+		if executedSync {
+			return err
+		}
 	}
 	if hasHook {
 		if util.Contains(Config.Actions.ExecuteSync, operation) {
-			if errHook := actionHandler.Handle(notification); errHook != nil {
-				errRes = errHook
-			}
-		} else {
-			go func() {
-				startNewHook()
-				defer hookEnded()
-
-				actionHandler.Handle(notification) //nolint:errcheck
-			}()
+			return actionHandler.Handle(notification)
 		}
+		go func() {
+			startNewHook()
+			defer hookEnded()
+
+			actionHandler.Handle(notification) //nolint:errcheck
+		}()
 	}
-	return errRes
+	return nil
 }
 
 // ActionHandler handles a notification for a Protocol Action.

@@ -28,9 +28,9 @@ For cloud backends directories are virtual, they are created implicitly when you
 
 The notification will indicate if an error is detected and so, for example, a partial file is uploaded.
 
-The `pre-delete` action, if defined, will be called just before files deletion. If the external command completes with a zero exit status or the HTTP notification response code is `200` then SFTPGo will assume that the file was already deleted/moved and so it will not try to remove the file and it will not execute the hook defined for the `delete` action.
+The `pre-delete` action, if defined, will be called just before files deletion. If the external command completes with a zero exit status or the HTTP notification response code is `200`, SFTPGo will assume that the file was already deleted/moved and so it will not try to remove the file and it will not execute the hook defined for the `delete` action.
 
-The `pre-download` and `pre-upload` actions, will be called before downloads and uploads. If the external command completes with a zero exit status or the HTTP notification response code is `200` then SFTPGo allows the operation, otherwise the client will get a permission denied error.
+The `pre-download` and `pre-upload` actions, will be called before downloads and uploads. If the external command completes with a zero exit status or the HTTP notification response code is `200`, SFTPGo will allow the operation, otherwise the client will get a permission denied error.
 
 If the `hook` defines a path to an external program, then this program can read the following environment variables:
 

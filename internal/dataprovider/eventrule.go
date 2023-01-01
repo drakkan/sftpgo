@@ -164,8 +164,8 @@ func getFsActionTypeAsString(value int) string {
 // TODO: replace the copied strings with shared constants
 var (
 	// SupportedFsEvents defines the supported filesystem events
-	SupportedFsEvents = []string{"upload", "first-upload", "download", "first-download", "delete", "rename",
-		"mkdir", "rmdir", "copy", "ssh_cmd"}
+	SupportedFsEvents = []string{"upload", "pre-upload", "first-upload", "download", "pre-download",
+		"first-download", "delete", "pre-delete", "rename", "mkdir", "rmdir", "copy", "ssh_cmd"}
 	// SupportedProviderEvents defines the supported provider events
 	SupportedProviderEvents = []string{operationAdd, operationUpdate, operationDelete}
 	// SupportedRuleConditionProtocols defines the supported protcols for rule conditions
@@ -176,6 +176,8 @@ var (
 		actionObjectAdmin, actionObjectAPIKey, actionObjectShare, actionObjectEventRule, actionObjectEventAction}
 	// SupportedHTTPActionMethods defines the supported methods for HTTP actions
 	SupportedHTTPActionMethods = []string{http.MethodPost, http.MethodGet, http.MethodPut}
+	allowedSyncFsEvents        = []string{"upload", "pre-upload", "pre-download", "pre-delete"}
+	mandatorySyncFsEvents      = []string{"pre-upload", "pre-download", "pre-delete"}
 )
 
 // enum mappings
@@ -1076,9 +1078,14 @@ func (a *EventAction) validateAssociation(trigger int, fsEvents []string) error 
 			return util.NewValidationError("sync execution is not supported for failure actions")
 		}
 	}
-	if trigger != EventTriggerFsEvent || !util.Contains(fsEvents, "upload") {
-		if a.Options.ExecuteSync {
-			return util.NewValidationError("sync execution is only supported for upload event")
+	if a.Options.ExecuteSync {
+		if trigger != EventTriggerFsEvent {
+			return util.NewValidationError("sync execution is only supported for some filesystem events")
+		}
+		for _, ev := range fsEvents {
+			if !util.Contains(allowedSyncFsEvents, ev) {
+				return util.NewValidationError("sync execution is only supported for upload and pre-* events")
+			}
 		}
 	}
 	return nil
@@ -1380,6 +1387,7 @@ func (r *EventRule) validate() error {
 	actionNames := make(map[string]bool)
 	actionOrders := make(map[int]bool)
 	failureActions := 0
+	hasSyncAction := false
 	for idx := range r.Actions {
 		if r.Actions[idx].Name == "" {
 			return util.NewValidationError(fmt.Sprintf("invalid action at position %d, name not specified", idx))
@@ -1397,11 +1405,29 @@ func (r *EventRule) validate() error {
 		if r.Actions[idx].Options.IsFailureAction {
 			failureActions++
 		}
+		if r.Actions[idx].Options.ExecuteSync {
+			hasSyncAction = true
+		}
 		actionNames[r.Actions[idx].Name] = true
 		actionOrders[r.Actions[idx].Order] = true
 	}
 	if len(r.Actions) == failureActions {
 		return util.NewValidationError("at least a non-failure action is required")
+	}
+	if !hasSyncAction {
+		return r.validateMandatorySyncActions()
+	}
+	return nil
+}
+
+func (r *EventRule) validateMandatorySyncActions() error {
+	if r.Trigger != EventTriggerFsEvent {
+		return nil
+	}
+	for _, ev := range r.Conditions.FsEvents {
+		if util.Contains(mandatorySyncFsEvents, ev) {
+			return util.NewValidationError(fmt.Sprintf("event %s requires at least a sync action", ev))
+		}
 	}
 	return nil
 }

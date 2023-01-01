@@ -117,7 +117,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         onFilesystemChanged('{{.Folder.FsConfig.Provider.Name}}');
 
         $("body").on("click", ".add_new_tpl_folder_field_btn", function () {
-            var index = $(".form_field_tpl_folders_outer").find(".form_field_tpl_folder_outer_row").length;
+            let index = $(".form_field_tpl_folders_outer").find(".form_field_tpl_folder_outer_row").length;
             while (document.getElementById("idTplFolder"+index) != null){
                 index++;
             }

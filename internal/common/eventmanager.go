@@ -315,10 +315,11 @@ func (r *eventRulesContainer) hasFsRules() bool {
 	return len(r.FsEvents) > 0
 }
 
-// handleFsEvent executes the rules actions defined for the specified event
-func (r *eventRulesContainer) handleFsEvent(params EventParams) error {
+// handleFsEvent executes the rules actions defined for the specified event.
+// The boolean parameter indicates whether a sync action was executed
+func (r *eventRulesContainer) handleFsEvent(params EventParams) (bool, error) {
 	if params.Protocol == protocolEventAction {
-		return nil
+		return false, nil
 	}
 	r.RLock()
 
@@ -353,9 +354,9 @@ func (r *eventRulesContainer) handleFsEvent(params EventParams) error {
 	}
 
 	if len(rulesWithSyncActions) > 0 {
-		return executeSyncRulesActions(rulesWithSyncActions, params)
+		return true, executeSyncRulesActions(rulesWithSyncActions, params)
 	}
-	return nil
+	return false, nil
 }
 
 // username is populated for user objects
@@ -1312,10 +1313,11 @@ func getUserForEventAction(user dataprovider.User) (dataprovider.User, error) {
 }
 
 func replacePathsPlaceholders(paths []string, replacer *strings.Replacer) []string {
-	for idx := range paths {
-		paths[idx] = util.CleanPath(replaceWithReplacer(paths[idx], replacer))
+	results := make([]string, 0, len(paths))
+	for _, p := range paths {
+		results = append(results, util.CleanPath(replaceWithReplacer(p, replacer)))
 	}
-	return util.RemoveDuplicates(paths, false)
+	return util.RemoveDuplicates(results, false)
 }
 
 func executeDeleteFileFsAction(conn *BaseConnection, item string, info os.FileInfo) error {

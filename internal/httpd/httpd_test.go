@@ -2024,6 +2024,51 @@ func TestEventRuleValidation(t *testing.T) {
 	_, resp, err = httpdtest.AddEventRule(rule, http.StatusBadRequest)
 	assert.NoError(t, err)
 	assert.Contains(t, string(resp), "at least a non-failure action is required")
+	rule.Conditions.FsEvents = []string{"upload", "download"}
+	rule.Actions = []dataprovider.EventAction{
+		{
+			BaseEventAction: dataprovider.BaseEventAction{
+				Name: "action111",
+			},
+			Order: 1,
+			Options: dataprovider.EventActionOptions{
+				ExecuteSync: true,
+			},
+		},
+	}
+	_, resp, err = httpdtest.AddEventRule(rule, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "sync execution is only supported for upload and pre-* events")
+	rule.Conditions.FsEvents = []string{"pre-upload", "download"}
+	rule.Actions = []dataprovider.EventAction{
+		{
+			BaseEventAction: dataprovider.BaseEventAction{
+				Name: "action",
+			},
+			Order: 1,
+			Options: dataprovider.EventActionOptions{
+				ExecuteSync: false,
+			},
+		},
+	}
+	_, resp, err = httpdtest.AddEventRule(rule, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "event pre-upload requires at least a sync action")
+	rule.Actions = []dataprovider.EventAction{
+		{
+			BaseEventAction: dataprovider.BaseEventAction{
+				Name: "action",
+			},
+			Order: 1,
+			Options: dataprovider.EventActionOptions{
+				ExecuteSync: true,
+			},
+		},
+	}
+	_, resp, err = httpdtest.AddEventRule(rule, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "sync execution is only supported for upload and pre-* events")
+	rule.Trigger = dataprovider.EventTriggerProviderEvent
 	rule.Actions = []dataprovider.EventAction{
 		{
 			BaseEventAction: dataprovider.BaseEventAction{
@@ -2035,7 +2080,6 @@ func TestEventRuleValidation(t *testing.T) {
 			},
 		},
 	}
-	rule.Trigger = dataprovider.EventTriggerProviderEvent
 	_, resp, err = httpdtest.AddEventRule(rule, http.StatusBadRequest)
 	assert.NoError(t, err)
 	assert.Contains(t, string(resp), "at least one provider event is required")

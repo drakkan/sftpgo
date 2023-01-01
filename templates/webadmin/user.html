@@ -1129,7 +1129,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     });
 
     $("body").on("click", ".add_new_pk_field_btn", function () {
-        var index = $(".form_field_pk_outer").find(".form_field_pk_outer_row").length;
+        let index = $(".form_field_pk_outer").find(".form_field_pk_outer_row").length;
         while (document.getElementById("idPublicKey"+index) != null){
             index++;
         }
@@ -1153,7 +1153,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     });
 
     $("body").on("click", ".add_new_tpl_user_field_btn", function () {
-        var index = $(".form_field_tpl_users_outer").find(".form_field_tpl_user_outer_row").length;
+        let index = $(".form_field_tpl_users_outer").find(".form_field_tpl_user_outer_row").length;
         while (document.getElementById("idTplUsername"+index) != null){
             index++;
         }

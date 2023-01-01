@@ -788,7 +788,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 <script src="{{.StaticURL}}/vendor/bootstrap-select/js/bootstrap-select.min.js"></script>
 <script type="text/javascript">
     $("body").on("click", ".add_new_header_field_btn", function () {
-        var index = $(".form_field_http_headers_outer").find(".form_field_http_headers_outer_row").length;
+        let index = $(".form_field_http_headers_outer").find(".form_field_http_headers_outer_row").length;
         while (document.getElementById("idHTTPHeaderKey"+index) != null){
             index++;
         }
@@ -815,7 +815,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     });
 
     $("body").on("click", ".add_new_query_field_btn", function () {
-        var index = $(".form_field_http_query_outer").find(".form_field_http_query_outer_row").length;
+        let index = $(".form_field_http_query_outer").find(".form_field_http_query_outer_row").length;
         while (document.getElementById("idHTTPQueryKey"+index) != null){
             index++;
         }
@@ -842,7 +842,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     });
 
     $("body").on("click", ".add_new_cmd_env_field_btn", function () {
-        var index = $(".form_field_cmd_env_outer").find(".form_field_cmd_env_outer_row").length;
+        let index = $(".form_field_cmd_env_outer").find(".form_field_cmd_env_outer_row").length;
         while (document.getElementById("idCMDEnvKey"+index) != null){
             index++;
         }
@@ -869,7 +869,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     });
 
     $("body").on("click", ".add_new_data_retention_field_btn", function () {
-        var index = $(".form_field_data_retention_outer").find(".form_field_data_retention_outer_row").length;
+        let index = $(".form_field_data_retention_outer").find(".form_field_data_retention_outer_row").length;
         while (document.getElementById("idFolderRetentionPath"+index) != null){
             index++;
         }
@@ -903,7 +903,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     });
 
     $("body").on("click", ".add_new_fs_rename_field_btn", function () {
-        var index = $(".form_field_fs_rename_outer").find(".form_field_fs_rename_outer_row").length;
+        let index = $(".form_field_fs_rename_outer").find(".form_field_fs_rename_outer_row").length;
         while (document.getElementById("idFsRenameSource"+index) != null){
             index++;
         }
@@ -930,7 +930,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     });
 
     $("body").on("click", ".add_new_fs_copy_field_btn", function () {
-        var index = $(".form_field_fs_copy_outer").find(".form_field_fs_copy_outer_row").length;
+        let index = $(".form_field_fs_copy_outer").find(".form_field_fs_copy_outer_row").length;
         while (document.getElementById("idFsCopySource"+index) != null){
             index++;
         }
@@ -957,7 +957,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     });
 
     $("body").on("click", ".add_new_http_part_field_btn", function () {
-        var index = $(".form_field_http_part_outer").find(".form_field_http_part_outer_row").length;
+        let index = $(".form_field_http_part_outer").find(".form_field_http_part_outer_row").length;
         while (document.getElementById("idHTTPPartName"+index) != null){
             index++;
         }

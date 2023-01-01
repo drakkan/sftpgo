@@ -4195,6 +4195,213 @@ func TestEventRuleFsActions(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestEventRulePreDelete(t *testing.T) {
+	movePath := "recycle bin"
+	a1 := dataprovider.BaseEventAction{
+		Name: "a1",
+		Type: dataprovider.ActionTypeFilesystem,
+		Options: dataprovider.BaseEventActionOptions{
+			FsConfig: dataprovider.EventActionFilesystemConfig{
+				Type:   dataprovider.FilesystemActionMkdirs,
+				MkDirs: []string{fmt.Sprintf("/%s/{{VirtualDirPath}}", movePath)},
+			},
+		},
+	}
+	action1, resp, err := httpdtest.AddEventAction(a1, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	a2 := dataprovider.BaseEventAction{
+		Name: "a2",
+		Type: dataprovider.ActionTypeFilesystem,
+		Options: dataprovider.BaseEventActionOptions{
+			FsConfig: dataprovider.EventActionFilesystemConfig{
+				Type: dataprovider.FilesystemActionRename,
+				Renames: []dataprovider.KeyValue{
+					{
+						Key:   "/{{VirtualPath}}",
+						Value: fmt.Sprintf("/%s/{{VirtualPath}}", movePath),
+					},
+				},
+			},
+		},
+	}
+	action2, resp, err := httpdtest.AddEventAction(a2, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	r1 := dataprovider.EventRule{
+		Name:    "rule1",
+		Trigger: dataprovider.EventTriggerFsEvent,
+		Conditions: dataprovider.EventConditions{
+			FsEvents: []string{"pre-delete"},
+		},
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action1.Name,
+				},
+				Order: 1,
+				Options: dataprovider.EventActionOptions{
+					ExecuteSync: true,
+				},
+			},
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action2.Name,
+				},
+				Order: 2,
+				Options: dataprovider.EventActionOptions{
+					ExecuteSync: true,
+				},
+			},
+		},
+	}
+	rule1, _, err := httpdtest.AddEventRule(r1, http.StatusCreated)
+	assert.NoError(t, err)
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	conn, client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		testDir := "sub dir"
+		err = client.MkdirAll(testDir)
+		assert.NoError(t, err)
+		err = writeSFTPFile(testFileName, 100, client)
+		assert.NoError(t, err)
+		err = writeSFTPFile(path.Join(testDir, testFileName), 100, client)
+		assert.NoError(t, err)
+		err = client.Remove(testFileName)
+		assert.NoError(t, err)
+		err = client.Remove(path.Join(testDir, testFileName))
+		assert.NoError(t, err)
+		// check
+		_, err = client.Stat(testFileName)
+		assert.ErrorIs(t, err, os.ErrNotExist)
+		_, err = client.Stat(path.Join(testDir, testFileName))
+		assert.ErrorIs(t, err, os.ErrNotExist)
+		_, err = client.Stat(path.Join("/", movePath, testFileName))
+		assert.NoError(t, err)
+		_, err = client.Stat(path.Join("/", movePath, testDir, testFileName))
+		assert.NoError(t, err)
+	}
+
+	_, err = httpdtest.RemoveEventRule(rule1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action2, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestEventRulePreDownloadUpload(t *testing.T) {
+	testDir := "/d"
+	a1 := dataprovider.BaseEventAction{
+		Name: "a1",
+		Type: dataprovider.ActionTypeFilesystem,
+		Options: dataprovider.BaseEventActionOptions{
+			FsConfig: dataprovider.EventActionFilesystemConfig{
+				Type:   dataprovider.FilesystemActionMkdirs,
+				MkDirs: []string{testDir},
+			},
+		},
+	}
+	action1, resp, err := httpdtest.AddEventAction(a1, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	a2 := dataprovider.BaseEventAction{
+		Name: "a2",
+		Type: dataprovider.ActionTypeFilesystem,
+		Options: dataprovider.BaseEventActionOptions{
+			FsConfig: dataprovider.EventActionFilesystemConfig{
+				Type: dataprovider.FilesystemActionRename,
+				Renames: []dataprovider.KeyValue{
+					{
+						Key:   "/missing source",
+						Value: "/missing target",
+					},
+				},
+			},
+		},
+	}
+	action2, resp, err := httpdtest.AddEventAction(a2, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	r1 := dataprovider.EventRule{
+		Name:    "rule1",
+		Trigger: dataprovider.EventTriggerFsEvent,
+		Conditions: dataprovider.EventConditions{
+			FsEvents: []string{"pre-download", "pre-upload"},
+		},
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action1.Name,
+				},
+				Order: 1,
+				Options: dataprovider.EventActionOptions{
+					ExecuteSync: true,
+				},
+			},
+		},
+	}
+	rule1, _, err := httpdtest.AddEventRule(r1, http.StatusCreated)
+	assert.NoError(t, err)
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	conn, client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		// the rule will always succeed, so uploads/downloads will work
+		err = writeSFTPFile(testFileName, 100, client)
+		assert.NoError(t, err)
+		_, err = client.Stat(testDir)
+		assert.NoError(t, err)
+		err = client.RemoveDirectory(testDir)
+		assert.NoError(t, err)
+		f, err := client.Open(testFileName)
+		assert.NoError(t, err)
+		contents := make([]byte, 100)
+		n, err := io.ReadFull(f, contents)
+		assert.NoError(t, err)
+		assert.Equal(t, int(100), n)
+		err = f.Close()
+		assert.NoError(t, err)
+		// now update the rule so that it will always fail
+		rule1.Actions = []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action2.Name,
+				},
+				Order: 1,
+				Options: dataprovider.EventActionOptions{
+					ExecuteSync: true,
+				},
+			},
+		}
+		_, _, err = httpdtest.UpdateEventRule(rule1, http.StatusOK)
+		assert.NoError(t, err)
+		_, err = client.Open(testFileName)
+		assert.ErrorIs(t, err, os.ErrPermission)
+		err = client.Remove(testFileName)
+		assert.NoError(t, err)
+		err = writeSFTPFile(testFileName, 100, client)
+		assert.ErrorIs(t, err, os.ErrPermission)
+	}
+
+	_, err = httpdtest.RemoveEventRule(rule1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action2, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestFsActionCopy(t *testing.T) {
 	a1 := dataprovider.BaseEventAction{
 		Name: "a1",

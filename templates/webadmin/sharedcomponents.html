@@ -16,7 +16,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 {{define "shared_user_group"}}
 <script type="text/javascript">
     $("body").on("click", ".add_new_dirperms_field_btn", function () {
-        var index = $(".form_field_dirperms_outer").find(".form_field_dirperms_outer_row").length;
+        let index = $(".form_field_dirperms_outer").find(".form_field_dirperms_outer_row").length;
         while (document.getElementById("idSubDirPermsPath"+index) != null){
             index++;
         }
@@ -48,7 +48,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     });
 
     $("body").on("click", ".add_new_vfolder_field_btn", function () {
-        var index = $(".form_field_vfolders_outer").find(".form_field_vfolder_outer_row").length;
+        let index = $(".form_field_vfolders_outer").find(".form_field_vfolder_outer_row").length;
         while (document.getElementById("idVolderPath" + index) != null) {
             index++;
         }
@@ -95,7 +95,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     });
 
     $("body").on("click", ".add_new_bwlimit_field_btn", function () {
-        var index = $(".form_field_bwlimits_outer").find(".form_field_bwlimits_outer_row").length;
+        let index = $(".form_field_bwlimits_outer").find(".form_field_bwlimits_outer_row").length;
         while (document.getElementById("idBandwidthLimitSources"+index) != null){
             index++;
         }
@@ -138,7 +138,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     });
 
     $("body").on("click", ".add_new_dtlimit_field_btn", function () {
-        var index = $(".form_field_dtlimits_outer").find(".form_field_dtlimits_outer_row").length;
+        let index = $(".form_field_dtlimits_outer").find(".form_field_dtlimits_outer_row").length;
         while (document.getElementById("idDataTransferLimitSources"+index) != null){
             index++;
         }
@@ -190,7 +190,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
     });
 
     $("body").on("click", ".add_new_pattern_field_btn", function () {
-        var index = $(".form_field_patterns_outer").find(".form_field_patterns_outer_row").length;
+        let index = $(".form_field_patterns_outer").find(".form_field_patterns_outer_row").length;
         while (document.getElementById("idPatternPath"+index) != null){
             index++;
         }

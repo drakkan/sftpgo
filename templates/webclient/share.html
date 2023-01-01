@@ -199,7 +199,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
         });
 
         $("body").on("click", ".add_new_path_field_btn", function () {
-            var index = $(".form_field_path_outer").find(".form_field_path_outer_row").length;
+            let index = $(".form_field_path_outer").find(".form_field_path_outer_row").length;
             while (document.getElementById("idPath"+index) != null){
                 index++;
             }
