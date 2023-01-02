@@ -81,7 +81,7 @@ Done! Create a new user and check that the defined directories are automatically
 Let's see how you can receive an email notification after each upload and, optionally, the uploaded file as well.
 
 From the WebAdmin expand the `Event Manager` section, select `Event actions` and add a new action.
-Create an action named `upload notification`, with the settings you can see in the following screen.
+Create an action named `upload notification` with the settings you can see in the following screen.
 
 ![Upload notification action](./img/upload-notification.png)
 
@@ -94,3 +94,42 @@ You can also filters events based on protocol, user and group name, filepath she
 
 As actions, select `upload notification`.
 Done! Try uploading a new file and you will receive the configured email notification.
+
+## Recycle Bin
+
+Let's see how we can configure a Recycle Bin style function where files are not deleted strait away, but instead moved to a separate folder.
+
+To easily apply the Recycle Bin to multiple users we will create a virtual folder and a group, this way all users who belong to the group will have a Recycle Bin.
+
+Create a virtual folder named `recycle` with the settings you can see in the following screen.
+
+![Recycle folder](./img/recycle-folder.png)
+
+Create a group named `recycle` with the settings you can see in the following screen.
+
+![Recycle group](./img/recycle-group.png)
+
+Make your users members of the `recycle` group.
+
+From the WebAdmin expand the `Event Manager` section, select `Event actions` and add a new action.
+Create an action named `move to recycle` with the settings you can see in the following screen.
+
+![Recycle move action](./img/recycle-move-action.png)
+
+Add another action, named `create move folder`, to create the parent directory for the move destination.
+
+![Recycle create move folder action](./img/recycle-move-folder-action.png)
+
+Now select `Event rules` and create a rule named `Recycle rule`, select `Filesystem events` as trigger, `pre-delete` as filesystem event and exclude the `/recycle` path.
+
+![Recycle rule](./img/recycle-rule.png)
+
+![Recycle rule exclude path](./img/recycle-rule-path.png)
+
+As actions, select `create move folder` and `move to recycle` and for both set `Execute sync`.
+
+![Recycle rule actions](./img/recycle-rule-actions.png)
+
+Done! Try deleting a file, it will be moved to the Recycle Bin.
+
+You can also add a scheduled event rule to automatically delete files older than a configurable time from the `recycle` folder.
