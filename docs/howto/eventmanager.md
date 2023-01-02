@@ -8,6 +8,7 @@ Let's see some common use cases.
 - [Daily backups](#daily-backups)
 - [Automatically create a folder structure](#automatically-create-a-folder-structure)
 - [Upload notifications](#upload-notifications)
+- [Recycle Bin](#recycle-bin)
 
 ## Preliminary Note
 
@@ -132,4 +133,4 @@ As actions, select `create move folder` and `move to recycle` and for both set `
 
 Done! Try deleting a file, it will be moved to the Recycle Bin.
 
-You can also add a scheduled event rule to automatically delete files older than a configurable time from the `recycle` folder.
+You can also add a scheduled event rule to automatically delete files older than a configurable time from the `/recycle` folder.
