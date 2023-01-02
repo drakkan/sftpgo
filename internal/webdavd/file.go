@@ -169,7 +169,7 @@ func (f *webDavFile) checkFirstRead() error {
 		f.Connection.Log(logger.LevelWarn, "reading file %#v is not allowed", f.GetVirtualPath())
 		return f.Connection.GetErrorForDeniedFile(policy)
 	}
-	err := common.ExecutePreAction(f.Connection, common.OperationPreDownload, f.GetFsPath(), f.GetVirtualPath(), 0, 0)
+	_, err := common.ExecutePreAction(f.Connection, common.OperationPreDownload, f.GetFsPath(), f.GetVirtualPath(), 0, 0)
 	if err != nil {
 		f.Connection.Log(logger.LevelDebug, "download for file %#v denied by pre action: %v", f.GetVirtualPath(), err)
 		return f.Connection.GetPermissionDeniedError()

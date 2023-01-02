@@ -136,18 +136,21 @@ func TestActionHTTP(t *testing.T) {
 	}
 	a := newActionNotification(user, operationDownload, "path", "vpath", "target", "", "", ProtocolSFTP, "",
 		xid.New().String(), 123, 0, 1)
-	err := actionHandler.Handle(a)
+	status, err := actionHandler.Handle(a)
 	assert.NoError(t, err)
+	assert.Equal(t, 1, status)
 
 	Config.Actions.Hook = "http://invalid:1234"
-	err = actionHandler.Handle(a)
+	status, err = actionHandler.Handle(a)
 	assert.Error(t, err)
+	assert.Equal(t, 1, status)
 
 	Config.Actions.Hook = fmt.Sprintf("http://%v/404", httpAddr)
-	err = actionHandler.Handle(a)
+	status, err = actionHandler.Handle(a)
 	if assert.Error(t, err) {
 		assert.EqualError(t, err, errUnexpectedHTTResponse.Error())
 	}
+	assert.Equal(t, 1, status)
 
 	Config.Actions = actionsCopy
 }
@@ -173,8 +176,9 @@ func TestActionCMD(t *testing.T) {
 	sessionID := shortuuid.New()
 	a := newActionNotification(user, operationDownload, "path", "vpath", "target", "", "", ProtocolSFTP, "", sessionID,
 		123, 0, 1)
-	err = actionHandler.Handle(a)
+	status, err := actionHandler.Handle(a)
 	assert.NoError(t, err)
+	assert.Equal(t, 1, status)
 
 	c := NewBaseConnection("id", ProtocolSFTP, "", "", *user)
 	err = ExecuteActionNotification(c, OperationSSHCmd, "path", "vpath", "target", "vtarget", "sha1sum", 0, nil)
@@ -205,29 +209,32 @@ func TestWrongActions(t *testing.T) {
 
 	a := newActionNotification(user, operationUpload, "", "", "", "", "", ProtocolSFTP, "", xid.New().String(),
 		123, 0, 1)
-	err := actionHandler.Handle(a)
+	status, err := actionHandler.Handle(a)
 	assert.Error(t, err, "action with bad command must fail")
+	assert.Equal(t, 1, status)
 
 	a.Action = operationDelete
-	err = actionHandler.Handle(a)
-	assert.EqualError(t, err, errUnconfiguredAction.Error())
+	status, err = actionHandler.Handle(a)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, status)
 
 	Config.Actions.Hook = "http://foo\x7f.com/"
 	a.Action = operationUpload
-	err = actionHandler.Handle(a)
+	status, err = actionHandler.Handle(a)
 	assert.Error(t, err, "action with bad url must fail")
+	assert.Equal(t, 1, status)
 
 	Config.Actions.Hook = ""
-	err = actionHandler.Handle(a)
-	if assert.Error(t, err) {
-		assert.EqualError(t, err, errNoHook.Error())
-	}
+	status, err = actionHandler.Handle(a)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, status)
 
 	Config.Actions.Hook = "relative path"
-	err = actionHandler.Handle(a)
+	status, err = actionHandler.Handle(a)
 	if assert.Error(t, err) {
-		assert.EqualError(t, err, fmt.Sprintf("invalid notification command %#v", Config.Actions.Hook))
+		assert.EqualError(t, err, fmt.Sprintf("invalid notification command %q", Config.Actions.Hook))
 	}
+	assert.Equal(t, 1, status)
 
 	Config.Actions = actionsCopy
 }
@@ -242,7 +249,7 @@ func TestPreDeleteAction(t *testing.T) {
 	assert.NoError(t, err)
 	Config.Actions = ProtocolActions{
 		ExecuteOn: []string{operationPreDelete},
-		Hook:      hookCmd,
+		Hook:      "missing hook",
 	}
 	homeDir := filepath.Join(os.TempDir(), "test_user")
 	err = os.MkdirAll(homeDir, os.ModePerm)
@@ -264,8 +271,12 @@ func TestPreDeleteAction(t *testing.T) {
 	info, err := os.Stat(testfile)
 	assert.NoError(t, err)
 	err = c.RemoveFile(fs, testfile, "testfile", info)
-	assert.NoError(t, err)
+	assert.ErrorIs(t, err, c.GetPermissionDeniedError())
 	assert.FileExists(t, testfile)
+	Config.Actions.Hook = hookCmd
+	err = c.RemoveFile(fs, testfile, "testfile", info)
+	assert.NoError(t, err)
+	assert.NoFileExists(t, testfile)
 
 	os.RemoveAll(homeDir)
 
@@ -289,10 +300,12 @@ func TestUnconfiguredHook(t *testing.T) {
 	assert.True(t, plugin.Handler.HasNotifiers())
 
 	c := NewBaseConnection("id", ProtocolSFTP, "", "", dataprovider.User{})
-	err = ExecutePreAction(c, OperationPreDownload, "", "", 0, 0)
+	status, err := ExecutePreAction(c, OperationPreDownload, "", "", 0, 0)
 	assert.NoError(t, err)
-	err = ExecutePreAction(c, operationPreDelete, "", "", 0, 0)
-	assert.ErrorIs(t, err, errUnconfiguredAction)
+	assert.Equal(t, status, 0)
+	status, err = ExecutePreAction(c, operationPreDelete, "", "", 0, 0)
+	assert.NoError(t, err)
+	assert.Equal(t, status, 0)
 
 	err = ExecuteActionNotification(c, operationDownload, "", "", "", "", "", 0, nil)
 	assert.NoError(t, err)
@@ -308,10 +321,10 @@ type actionHandlerStub struct {
 	called bool
 }
 
-func (h *actionHandlerStub) Handle(event *notifier.FsEvent) error {
+func (h *actionHandlerStub) Handle(event *notifier.FsEvent) (int, error) {
 	h.called = true
 
-	return nil
+	return 1, nil
 }
 
 func TestInitializeActionHandler(t *testing.T) {
@@ -322,8 +335,8 @@ func TestInitializeActionHandler(t *testing.T) {
 		InitializeActionHandler(&defaultActionHandler{})
 	})
 
-	err := actionHandler.Handle(&notifier.FsEvent{})
-
+	status, err := actionHandler.Handle(&notifier.FsEvent{})
 	assert.NoError(t, err)
 	assert.True(t, handler.called)
+	assert.Equal(t, 1, status)
 }

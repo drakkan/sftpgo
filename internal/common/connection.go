@@ -391,11 +391,18 @@ func (c *BaseConnection) RemoveFile(fs vfs.Fs, fsPath, virtualPath string, info 
 	}
 
 	size := info.Size()
-	actionErr := ExecutePreAction(c, operationPreDelete, fsPath, virtualPath, size, 0)
-	if actionErr == nil {
-		c.Log(logger.LevelDebug, "remove for path %q handled by pre-delete action", fsPath)
-	} else {
-		if err := fs.Remove(fsPath, false); err != nil {
+	status, err := ExecutePreAction(c, operationPreDelete, fsPath, virtualPath, size, 0)
+	if err != nil {
+		c.Log(logger.LevelDebug, "delete for file %q denied by pre action: %v", virtualPath, err)
+		return c.GetPermissionDeniedError()
+	}
+	updateQuota := true
+	if err := fs.Remove(fsPath, false); err != nil {
+		if status > 0 && fs.IsNotExist(err) {
+			// file removed in the pre-action, if the file was deleted from the EventManager the quota is already updated
+			c.Log(logger.LevelDebug, "file deleted from the hook, status: %d", status)
+			updateQuota = (status == 1)
+		} else {
 			c.Log(logger.LevelError, "failed to remove file/symlink %q: %+v", fsPath, err)
 			return c.GetFsError(fs, err)
 		}
@@ -403,7 +410,7 @@ func (c *BaseConnection) RemoveFile(fs vfs.Fs, fsPath, virtualPath string, info 
 
 	logger.CommandLog(removeLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", -1,
 		c.localAddr, c.remoteAddr)
-	if info.Mode()&os.ModeSymlink == 0 {
+	if updateQuota && info.Mode()&os.ModeSymlink == 0 {
 		vfolder, err := c.User.GetVirtualFolderForPath(path.Dir(virtualPath))
 		if err == nil {
 			dataprovider.UpdateVirtualFolderQuota(&vfolder.BaseVirtualFolder, -1, -size, false) //nolint:errcheck
@@ -414,9 +421,7 @@ func (c *BaseConnection) RemoveFile(fs vfs.Fs, fsPath, virtualPath string, info 
 			dataprovider.UpdateUserQuota(&c.User, -1, -size, false) //nolint:errcheck
 		}
 	}
-	if actionErr != nil {
-		ExecuteActionNotification(c, operationDelete, fsPath, virtualPath, "", "", "", size, nil) //nolint:errcheck
-	}
+	ExecuteActionNotification(c, operationDelete, fsPath, virtualPath, "", "", "", size, nil) //nolint:errcheck
 	return nil
 }
 

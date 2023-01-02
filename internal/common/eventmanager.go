@@ -36,6 +36,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/bmatcuk/doublestar/v4"
 	"github.com/klauspost/compress/zip"
 	"github.com/robfig/cron/v3"
 	"github.com/rs/xid"
@@ -285,9 +286,7 @@ func (r *eventRulesContainer) checkFsEventMatch(conditions dataprovider.EventCon
 		return false
 	}
 	if !checkEventConditionPatterns(params.VirtualPath, conditions.Options.FsPaths) {
-		if !checkEventConditionPatterns(params.ObjectName, conditions.Options.FsPaths) {
-			return false
-		}
+		return false
 	}
 	if len(conditions.Options.Protocols) > 0 && !util.Contains(conditions.Options.Protocols, params.Protocol) {
 		return false
@@ -966,7 +965,13 @@ func replaceWithReplacer(input string, replacer *strings.Replacer) string {
 }
 
 func checkEventConditionPattern(p dataprovider.ConditionPattern, name string) bool {
-	matched, err := path.Match(p.Pattern, name)
+	var matched bool
+	var err error
+	if strings.Contains(p.Pattern, "**") {
+		matched, err = doublestar.Match(p.Pattern, name)
+	} else {
+		matched, err = path.Match(p.Pattern, name)
+	}
 	if err != nil {
 		eventManagerLog(logger.LevelError, "pattern matching error %q, err: %v", p.Pattern, err)
 		return false

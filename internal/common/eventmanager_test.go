@@ -119,7 +119,7 @@ func TestEventRuleMatch(t *testing.T) {
 			},
 			FsPaths: []dataprovider.ConditionPattern{
 				{
-					Pattern: "*.txt",
+					Pattern: "/**/*.txt",
 				},
 			},
 			Protocols:   []string{ProtocolSFTP},
@@ -266,6 +266,40 @@ func TestEventRuleMatch(t *testing.T) {
 		},
 	})
 	assert.False(t, res)
+}
+
+func TestDoubleStarMatching(t *testing.T) {
+	c := dataprovider.ConditionPattern{
+		Pattern: "/mydir/**",
+	}
+	res := checkEventConditionPattern(c, "/mydir")
+	assert.True(t, res)
+	res = checkEventConditionPattern(c, "/mydirname")
+	assert.False(t, res)
+	res = checkEventConditionPattern(c, "/mydir/sub")
+	assert.True(t, res)
+	res = checkEventConditionPattern(c, "/mydir/sub/dir")
+	assert.True(t, res)
+
+	c.Pattern = "/**/*"
+	res = checkEventConditionPattern(c, "/mydir")
+	assert.True(t, res)
+	res = checkEventConditionPattern(c, "/mydirname")
+	assert.True(t, res)
+	res = checkEventConditionPattern(c, "/mydir/sub/dir/file.txt")
+	assert.True(t, res)
+
+	c.Pattern = "/mydir/**/*.txt"
+	res = checkEventConditionPattern(c, "/mydir")
+	assert.False(t, res)
+	res = checkEventConditionPattern(c, "/mydirname/f.txt")
+	assert.False(t, res)
+	res = checkEventConditionPattern(c, "/mydir/sub")
+	assert.False(t, res)
+	res = checkEventConditionPattern(c, "/mydir/sub/dir")
+	assert.False(t, res)
+	res = checkEventConditionPattern(c, "/mydir/sub/dir/a.txt")
+	assert.True(t, res)
 }
 
 func TestEventManager(t *testing.T) {

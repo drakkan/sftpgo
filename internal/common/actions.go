@@ -41,8 +41,6 @@ import (
 )
 
 var (
-	errUnconfiguredAction    = errors.New("no hook is configured for this action")
-	errNoHook                = errors.New("unable to execute action, no hook defined")
 	errUnexpectedHTTResponse = errors.New("unexpected HTTP hook response code")
 	hooksConcurrencyGuard    = make(chan struct{}, 150)
 	activeHooks              atomic.Int32
@@ -80,24 +78,18 @@ func InitializeActionHandler(handler ActionHandler) {
 	actionHandler = handler
 }
 
-func handleUnconfiguredPreAction(operation string) error {
-	// for pre-delete we execute the internal handling on error, so we must return errUnconfiguredAction.
-	// Other pre action will deny the operation on error so if we have no configuration we must return
-	// a nil error
-	if operation == operationPreDelete {
-		return errUnconfiguredAction
-	}
-	return nil
-}
-
-// ExecutePreAction executes a pre-* action and returns the result
-func ExecutePreAction(conn *BaseConnection, operation, filePath, virtualPath string, fileSize int64, openFlags int) error {
+// ExecutePreAction executes a pre-* action and returns the result.
+// The returned status has the following meaning:
+// - 0 not executed
+// - 1 executed using an external hook
+// - 2 executed using the event manager
+func ExecutePreAction(conn *BaseConnection, operation, filePath, virtualPath string, fileSize int64, openFlags int) (int, error) {
 	var event *notifier.FsEvent
 	hasNotifiersPlugin := plugin.Handler.HasNotifiers()
 	hasHook := util.Contains(Config.Actions.ExecuteOn, operation)
 	hasRules := eventManager.hasFsRules()
 	if !hasHook && !hasNotifiersPlugin && !hasRules {
-		return handleUnconfiguredPreAction(operation)
+		return 0, nil
 	}
 	event = newActionNotification(&conn.User, operation, filePath, virtualPath, "", "", "",
 		conn.protocol, conn.GetRemoteIP(), conn.ID, fileSize, openFlags, conn.getNotificationStatus(nil))
@@ -124,11 +116,11 @@ func ExecutePreAction(conn *BaseConnection, operation, filePath, virtualPath str
 		}
 		executedSync, err := eventManager.handleFsEvent(params)
 		if executedSync {
-			return err
+			return 2, err
 		}
 	}
 	if !hasHook {
-		return handleUnconfiguredPreAction(operation)
+		return 0, nil
 	}
 	return actionHandler.Handle(event)
 }
@@ -176,7 +168,8 @@ func ExecuteActionNotification(conn *BaseConnection, operation, filePath, virtua
 	}
 	if hasHook {
 		if util.Contains(Config.Actions.ExecuteSync, operation) {
-			return actionHandler.Handle(notification)
+			_, err := actionHandler.Handle(notification)
+			return err
 		}
 		go func() {
 			startNewHook()
@@ -190,7 +183,7 @@ func ExecuteActionNotification(conn *BaseConnection, operation, filePath, virtua
 
 // ActionHandler handles a notification for a Protocol Action.
 type ActionHandler interface {
-	Handle(notification *notifier.FsEvent) error
+	Handle(notification *notifier.FsEvent) (int, error)
 }
 
 func newActionNotification(
@@ -244,28 +237,30 @@ func newActionNotification(
 
 type defaultActionHandler struct{}
 
-func (h *defaultActionHandler) Handle(event *notifier.FsEvent) error {
+func (h *defaultActionHandler) Handle(event *notifier.FsEvent) (int, error) {
 	if !util.Contains(Config.Actions.ExecuteOn, event.Action) {
-		return errUnconfiguredAction
+		return 0, nil
 	}
 
 	if Config.Actions.Hook == "" {
 		logger.Warn(event.Protocol, "", "Unable to send notification, no hook is defined")
 
-		return errNoHook
+		return 0, nil
 	}
 
 	if strings.HasPrefix(Config.Actions.Hook, "http") {
-		return h.handleHTTP(event)
+		err := h.handleHTTP(event)
+		return 1, err
 	}
 
-	return h.handleCommand(event)
+	err := h.handleCommand(event)
+	return 1, err
 }
 
 func (h *defaultActionHandler) handleHTTP(event *notifier.FsEvent) error {
 	u, err := url.Parse(Config.Actions.Hook)
 	if err != nil {
-		logger.Error(event.Protocol, "", "Invalid hook %#v for operation %#v: %v",
+		logger.Error(event.Protocol, "", "Invalid hook %q for operation %q: %v",
 			Config.Actions.Hook, event.Action, err)
 		return err
 	}
@@ -294,7 +289,7 @@ func (h *defaultActionHandler) handleHTTP(event *notifier.FsEvent) error {
 
 func (h *defaultActionHandler) handleCommand(event *notifier.FsEvent) error {
 	if !filepath.IsAbs(Config.Actions.Hook) {
-		err := fmt.Errorf("invalid notification command %#v", Config.Actions.Hook)
+		err := fmt.Errorf("invalid notification command %q", Config.Actions.Hook)
 		logger.Warn(event.Protocol, "", "unable to execute notification command: %v", err)
 
 		return err

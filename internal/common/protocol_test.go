@@ -3470,7 +3470,7 @@ func TestEventRule(t *testing.T) {
 						Pattern: "/subdir/*.dat",
 					},
 					{
-						Pattern: "*.txt",
+						Pattern: "/**/*.txt",
 					},
 				},
 			},
@@ -3520,7 +3520,7 @@ func TestEventRule(t *testing.T) {
 			Options: dataprovider.ConditionOptions{
 				FsPaths: []dataprovider.ConditionPattern{
 					{
-						Pattern: "*.dat",
+						Pattern: "/**/*.dat",
 					},
 				},
 			},
@@ -4231,6 +4231,14 @@ func TestEventRulePreDelete(t *testing.T) {
 		Trigger: dataprovider.EventTriggerFsEvent,
 		Conditions: dataprovider.EventConditions{
 			FsEvents: []string{"pre-delete"},
+			Options: dataprovider.ConditionOptions{
+				FsPaths: []dataprovider.ConditionPattern{
+					{
+						Pattern:      fmt.Sprintf("/%s/**", movePath),
+						InverseMatch: true,
+					},
+				},
+			},
 		},
 		Actions: []dataprovider.EventAction{
 			{
@@ -4255,7 +4263,19 @@ func TestEventRulePreDelete(t *testing.T) {
 	}
 	rule1, _, err := httpdtest.AddEventRule(r1, http.StatusCreated)
 	assert.NoError(t, err)
-	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	u := getTestUser()
+	u.QuotaFiles = 1000
+	u.VirtualFolders = []vfs.VirtualFolder{
+		{
+			BaseVirtualFolder: vfs.BaseVirtualFolder{
+				Name:       movePath,
+				MappedPath: filepath.Join(os.TempDir(), movePath),
+			},
+			VirtualPath: "/" + movePath,
+			QuotaFiles:  1000,
+		},
+	}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	conn, client, err := getSftpClient(user)
 	if assert.NoError(t, err) {
@@ -4273,7 +4293,7 @@ func TestEventRulePreDelete(t *testing.T) {
 		assert.NoError(t, err)
 		err = client.Remove(path.Join(testDir, testFileName))
 		assert.NoError(t, err)
-		// check
+		// check files
 		_, err = client.Stat(testFileName)
 		assert.ErrorIs(t, err, os.ErrNotExist)
 		_, err = client.Stat(path.Join(testDir, testFileName))
@@ -4282,6 +4302,23 @@ func TestEventRulePreDelete(t *testing.T) {
 		assert.NoError(t, err)
 		_, err = client.Stat(path.Join("/", movePath, testDir, testFileName))
 		assert.NoError(t, err)
+		// check quota
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 0, user.UsedQuotaFiles)
+		assert.Equal(t, int64(0), user.UsedQuotaSize)
+		folder, _, err := httpdtest.GetFolderByName(movePath, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 2, folder.UsedQuotaFiles)
+		assert.Equal(t, int64(200), folder.UsedQuotaSize)
+		// pre-delete action is not executed in movePath
+		err = client.Remove(path.Join("/", movePath, testFileName))
+		assert.NoError(t, err)
+		// check quota
+		folder, _, err = httpdtest.GetFolderByName(movePath, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, folder.UsedQuotaFiles)
+		assert.Equal(t, int64(100), folder.UsedQuotaSize)
 	}
 
 	_, err = httpdtest.RemoveEventRule(rule1, http.StatusOK)
@@ -4293,6 +4330,10 @@ func TestEventRulePreDelete(t *testing.T) {
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: movePath}, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(filepath.Join(os.TempDir(), movePath))
 	assert.NoError(t, err)
 }
 

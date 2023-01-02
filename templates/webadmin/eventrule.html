@@ -350,7 +350,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
                     <b>Path filters</b>
                 </div>
                 <div class="card-body">
-                    <h6 class="card-title mb-4">Shell-like pattern filters for filesystem events. For example "/adir/*.txt"" will match paths in the "/adir" directory ending with ".txt"</h6>
+                    <h6 class="card-title mb-4">Shell-like pattern filters for filesystem events. For example "/adir/*.txt"" will match paths in the "/adir" directory ending with ".txt". Double asterisk is supported, for example "/**/*.txt" will match any file ending with ".txt". "/mydir/**" will match any entry in "/mydir"</h6>
                     <div class="form-group row">
                         <div class="col-md-12 form_field_fs_paths_outer">
                             {{range $idx, $val := .Rule.Conditions.Options.FsPaths}}
