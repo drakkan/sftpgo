@@ -108,6 +108,9 @@ While the SFTPGo container is in graceful shutdown mode waiting for the last con
 
 If no connections are active or `SFTPGO_GRACE_TIME=0` (default value if unset) the container will shutdown immediately.
 
+:warning: The default docker grace time is 10 seconds, so if your SFTPGO_GRACE_TIME is larger than the docker grace time, then any `docker stop some-sftpgo` command will terminate your container once the docker grace time has passed. To ensure that the full SFTPGO_GRACE_TIME can be used, you either need to send a SIGINT or SIGTERM signal because only those 2 signals will trigger a graceful SFTPGo shutdown. Those signals can be sent using one of these commands: `docker kill --signal=SIGINT some-sftpgo` or `docker kill --signal=SIGTERM some-sftpgo`.
+Alternatively you can increase the default docker grace time to a value larger than your SFTPGO_GRACE_TIME. The default docker grace time can either be specified at creation/run time using `--stop-timeout <value>` or you can simply add `--time <value>` to the docker stop command like in this 60 seconds example `docker stop --time 60 some-sftpgo`.
+
 ### Where to Store Data
 
 Important note: There are several ways to store data used by applications that run in Docker containers. We encourage users of the SFTPGo images to familiarize themselves with the options available, including:
