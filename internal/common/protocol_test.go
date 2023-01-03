@@ -4202,18 +4202,6 @@ func TestEventRulePreDelete(t *testing.T) {
 		Type: dataprovider.ActionTypeFilesystem,
 		Options: dataprovider.BaseEventActionOptions{
 			FsConfig: dataprovider.EventActionFilesystemConfig{
-				Type:   dataprovider.FilesystemActionMkdirs,
-				MkDirs: []string{fmt.Sprintf("/%s/{{VirtualDirPath}}", movePath)},
-			},
-		},
-	}
-	action1, resp, err := httpdtest.AddEventAction(a1, http.StatusCreated)
-	assert.NoError(t, err, string(resp))
-	a2 := dataprovider.BaseEventAction{
-		Name: "a2",
-		Type: dataprovider.ActionTypeFilesystem,
-		Options: dataprovider.BaseEventActionOptions{
-			FsConfig: dataprovider.EventActionFilesystemConfig{
 				Type: dataprovider.FilesystemActionRename,
 				Renames: []dataprovider.KeyValue{
 					{
@@ -4224,7 +4212,7 @@ func TestEventRulePreDelete(t *testing.T) {
 			},
 		},
 	}
-	action2, resp, err := httpdtest.AddEventAction(a2, http.StatusCreated)
+	action1, resp, err := httpdtest.AddEventAction(a1, http.StatusCreated)
 	assert.NoError(t, err, string(resp))
 	r1 := dataprovider.EventRule{
 		Name:    "rule1",
@@ -4246,15 +4234,6 @@ func TestEventRulePreDelete(t *testing.T) {
 					Name: action1.Name,
 				},
 				Order: 1,
-				Options: dataprovider.EventActionOptions{
-					ExecuteSync: true,
-				},
-			},
-			{
-				BaseEventAction: dataprovider.BaseEventAction{
-					Name: action2.Name,
-				},
-				Order: 2,
 				Options: dataprovider.EventActionOptions{
 					ExecuteSync: true,
 				},
@@ -4324,8 +4303,6 @@ func TestEventRulePreDelete(t *testing.T) {
 	_, err = httpdtest.RemoveEventRule(rule1, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveEventAction(action1, http.StatusOK)
-	assert.NoError(t, err)
-	_, err = httpdtest.RemoveEventAction(action2, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)

@@ -117,19 +117,13 @@ Create an action named `move to recycle` with the settings you can see in the fo
 
 ![Recycle move action](./img/recycle-move-action.png)
 
-Add another action, named `create move folder`, to create the parent directory for the move destination.
-
-![Recycle create move folder action](./img/recycle-move-folder-action.png)
-
 Now select `Event rules` and create a rule named `Recycle rule`, select `Filesystem events` as trigger, `pre-delete` as filesystem event and exclude the `/recycle` path.
 
 ![Recycle rule](./img/recycle-rule.png)
 
 ![Recycle rule exclude path](./img/recycle-rule-path.png)
 
-As actions, select `create move folder` and `move to recycle` and for both set `Execute sync`.
-
-![Recycle rule actions](./img/recycle-rule-actions.png)
+As actions, select `move to recycle` and set `Execute sync`.
 
 Done! Try deleting a file, it will be moved to the Recycle Bin.
 

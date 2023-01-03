@@ -1477,7 +1477,7 @@ func executeRenameFsActionForUser(renames []dataprovider.KeyValue, replacer *str
 	for _, item := range renames {
 		source := util.CleanPath(replaceWithReplacer(item.Key, replacer))
 		target := util.CleanPath(replaceWithReplacer(item.Value, replacer))
-		if err = conn.Rename(source, target); err != nil {
+		if err = conn.renameInternal(source, target, true); err != nil {
 			return fmt.Errorf("unable to rename %q->%q, user %q: %w", source, target, user.Username, err)
 		}
 		eventManagerLog(logger.LevelDebug, "rename %q->%q ok, user %q", source, target, user.Username)

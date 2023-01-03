@@ -676,6 +676,10 @@ func (c *BaseConnection) Copy(virtualSourcePath, virtualTargetPath string) error
 
 // Rename renames (moves) virtualSourcePath to virtualTargetPath
 func (c *BaseConnection) Rename(virtualSourcePath, virtualTargetPath string) error {
+	return c.renameInternal(virtualSourcePath, virtualTargetPath, false)
+}
+
+func (c *BaseConnection) renameInternal(virtualSourcePath, virtualTargetPath string, checkParentDestination bool) error {
 	if virtualSourcePath == virtualTargetPath {
 		return fmt.Errorf("the rename source and target cannot be the same: %w", c.GetOpUnsupportedError())
 	}
@@ -696,6 +700,7 @@ func (c *BaseConnection) Rename(virtualSourcePath, virtualTargetPath string) err
 	}
 	initialSize := int64(-1)
 	if dstInfo, err := fsDst.Lstat(fsTargetPath); err == nil {
+		checkParentDestination = false
 		if dstInfo.IsDir() {
 			c.Log(logger.LevelWarn, "attempted to rename %q overwriting an existing directory %q",
 				fsSourcePath, fsTargetPath)
@@ -719,6 +724,9 @@ func (c *BaseConnection) Rename(virtualSourcePath, virtualTargetPath string) err
 	if !c.hasSpaceForRename(fsSrc, virtualSourcePath, virtualTargetPath, initialSize, fsSourcePath) {
 		c.Log(logger.LevelInfo, "denying cross rename due to space limit")
 		return c.GetGenericError(ErrQuotaExceeded)
+	}
+	if checkParentDestination {
+		c.CheckParentDirs(path.Dir(virtualTargetPath)) //nolint:errcheck
 	}
 	if err := fsDst.Rename(fsSourcePath, fsTargetPath); err != nil {
 		c.Log(logger.LevelError, "failed to rename %q -> %q: %+v", fsSourcePath, fsTargetPath, err)
