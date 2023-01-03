@@ -111,6 +111,30 @@ If no connections are active or `SFTPGO_GRACE_TIME=0` (default value if unset) t
 :warning: The default docker grace time is 10 seconds, so if your SFTPGO_GRACE_TIME is larger than the docker grace time, then any `docker stop some-sftpgo` command will terminate your container once the docker grace time has passed. To ensure that the full SFTPGO_GRACE_TIME can be used, you can send a SIGINT or SIGTERM signal. Those signals can be sent using one of these commands: `docker kill --signal=SIGINT some-sftpgo` or `docker kill --signal=SIGTERM some-sftpgo`.
 Alternatively you can increase the default docker grace time to a value larger than your SFTPGO_GRACE_TIME. The default docker grace time can either be specified at creation/run time using `--stop-timeout <value>` or you can simply add `--time <value>` to the docker stop command like in this 60 seconds example `docker stop --time 60 some-sftpgo`.
 
+### Container health check
+
+There are several methods to use the health check facility built into containers. One simple method is to check that the `sftpgo serve` command is running, which can be done using this command `ps aux | grep -v grep | grep 'sftpgo serve'` this health check can be enabled at create/run time like in this example:
+
+```shell
+docker run --name some-sftpgo \
+    --health-cmd="ps aux | grep -v grep | grep 'sftpgo serve'" \
+    -p 2022:2022 \
+    -d "drakkan/sftpgo:tag"
+```
+
+However just because the `sftpgo serve` command is running does not mean it is healthy. The telemetry server can be used to reveal the health. For details about enabling the telemetry server which is off by default, then look in [docs/full-configuration.dk](https://github.com/drakkan/sftpgo/blob/main/docs/full-configuration.md).
+
+The official SFTPGo docker images does not contain neither curl nor wget, and is even without telnet and nc, but if you enable SSL certificates for the telemetry server in [sftpgo.json](https://github.com/drakkan/sftpgo/blob/main/sftpgo.json) then you can use this built in openssl command to connect to it even if it is running on the default localhost:
+
+```shell
+echo -e "GET /healthz HTTP/1.0\r\nHost:localhost\r\n" \
+| openssl 2>&1 s_client -quiet -connect localhost:port
+```
+
+If you use the telemetry server without SSL, then maybe you can write a perl script that uses IO::Socket to connect and check the health, however maybe it's just easier to create or expand your own SFTPGo docker image with curl or wget?
+
+
+
 ### Where to Store Data
 
 Important note: There are several ways to store data used by applications that run in Docker containers. We encourage users of the SFTPGo images to familiarize themselves with the options available, including:
