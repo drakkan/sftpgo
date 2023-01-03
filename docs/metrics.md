@@ -17,4 +17,4 @@ Several counters and gauges are available, for example:
 
 Please check the `/metrics` page for more details.
 
-We expose the `/metrics` endpoint in both HTTP server and the telemetry server, you should use the one from the telemetry server. The HTTP server `/metrics` endpoint is deprecated and it will be removed in future releases.
+The telemetry server is disabled by default in the released [sftpgo.json](https://raw.githubusercontent.com/drakkan/sftpgo/main/sftpgo.json). To enable look in [docs/full-configuration.md](https://raw.githubusercontent.com/drakkan/sftpgo/main/docs/full-configuration.md) for configuration details.
