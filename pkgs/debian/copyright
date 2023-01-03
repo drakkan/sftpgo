@@ -3,7 +3,7 @@ Upstream-Name: SFTPGo
 Source: https://github.com/drakkan/sftpgo
 
 Files: *
-Copyright: 2019-2021 Nicola Murino <nicola.murino@gmail.com>
+Copyright: 2019-2023 Nicola Murino <nicola.murino@gmail.com>
 License: AGPL-3
 
 License: AGPL-3

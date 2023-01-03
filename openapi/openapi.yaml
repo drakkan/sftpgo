@@ -6719,6 +6719,9 @@ components:
               - rmdir
               - copy
               - ssh_cmd
+              - pre-upload
+              - pre-download
+              - pre-delete
         provider_events:
           type: array
           items:
