@@ -89,6 +89,8 @@ podman create --name dmz-clamav \
 
 ### SFTPGo container creation
 
+We could mount the same clamd.conf inside the SFTPGo container as we do inside the ClamAV container, but I chose to include it in my SFTPGo image creation above because it does not contain any secret or unique information and I like to keep the container creation as simple as possible.
+
 ```
 IMAGE="drakkan/sftpgo:plugins_clamdscan"
 podman create --name some-sftpgo \
@@ -106,6 +108,6 @@ Starting the pod with this command `podman pod start pod-sftpgo-clamav` will sta
 
 ## Using clamdscan inside SFTPGo
 
-To use clamdscan inside the
+To use clamdscan inside your SFTPGo container in the pod you just created you simply just run the clamdscan command just like in most other usecases `clamdscan /path/to/file` because inside the pod all containers share localhost so from inside the SFTPGo container you can easily access localhost inside the ClamAV container, but anyone outside the pod can not access the same localhost, and thus not ClamAV.
 
 ## Lifecycle management
