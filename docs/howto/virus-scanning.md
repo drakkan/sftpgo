@@ -73,11 +73,17 @@ SFTPGo container just call clamdscan with the path to the file, and then clamd i
 
 ### ClamAV container creation
 
+The default ClamAV container does not enable neither the `TCPSocket 3310` or the `TCPAddr localhost` by default,
+so I mount a new clamd.conf inside the ClamAV container. This is the same clamd.conf that I copied into my SFTPGo
+image above. The localhost that I bind clamd to is the localhost inside the ClamAV container, inside ANY ClamAV
+container I create. For more details of clamd.conf please consult your local `man clamd.conf` or simular documentation.
+
 ```shell
 IMAGE="docker.io/clamav/clamav:stable"
 podman create --name dmz-clamav \
 	--pod pod-sftpgo-clamav \
 	-v "srv_sftpgo:/srv/sftpgo/" \
+	-v "$(pwd)/clamd.conf:/etc/clamav/clamd.conf" \
 	"${IMAGE}"
 ```
 
@@ -94,8 +100,12 @@ podman create --name some-sftpgo \
 ### Starting the pod
 
 You should now have a pod which contains 3 containers: infra, ClamAV and SFTPGo. The details of the infra container is irrelevant to this document, but you can read a little more about it
-[here](https://developers.redhat.com/blog/2019/01/15/podman-managing-containers-pods)
+[here](https://developers.redhat.com/blog/2019/01/15/podman-managing-containers-pods).
+Starting the pod with this command `podman pod start pod-sftpgo-clamav` will start all 3 containers in the pod and SFTPGo should be accessible just like if it was running as a standalone container.
 
-Starting the pod with this command `podman pod start pod-sftpgo-clamav` will start all 3 containers in the pod.
 
+## Using clamdscan inside SFTPGo
 
+To use clamdscan inside the
+
+## Lifecycle management
