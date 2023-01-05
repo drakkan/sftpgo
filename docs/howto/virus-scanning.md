@@ -23,17 +23,12 @@ First you need a Dockerfile, and here is the bare essential version of my Docker
 
 ```
 FROM docker.io/drakkan/sftpgo:plugins
-
 USER root
-
 RUN apt-get update && apt-get install -y apt-utils && apt-get upgrade -y
 RUN apt-get install -y clamdscan file
 COPY clamd.conf /etc/clamav/
-COPY dummy-sftpgo.json /etc/sftpgo/sftpgo.json
-
 USER sftpgo
 ```
-
 ### podman build
 
 I use podman because I want the pod functionality and also to be able to run rootless containers. You can
