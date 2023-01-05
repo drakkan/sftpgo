@@ -120,3 +120,26 @@ It is beyond the scope of this document to get deep into details about how to cr
 documentation.
 
 ## Lifecycle management
+
+From time to time ClamAV needs to update it's virus definition. The default ClamAV container does that once pr. day, and it does not seem to have any downtime when clamd can not be accessed from inside the SFTPGo container.
+
+### 30 second startup time
+
+However if you want to upgrade the whole ClamAV container then you might experience a ~30 seconds delay after starting your ClamAV container until you can actually use clamdscan from within your SFTPGo container.
+
+Because my planned SFTPGo usecase can and do receive multiple files from multiple users almost on a pr. minute basis 365x7x24 then that 30 second startup time is not acceptable. What I do is then just to run multiple ClamAV containers inside the same pod, all of them on their own individual TCPSocket.
+
+```
+root@pod-sftpgo-clamav:~# grep TCPSocket /etc/clamav/*.clamd.conf
+/etc/clamav/3310.clamd.conf:TCPSocket 3310
+/etc/clamav/3311.clamd.conf:TCPSocket 3311
+/etc/clamav/3312.clamd.conf:TCPSocket 3312
+/etc/clamav/3313.clamd.conf:TCPSocket 3313
+/etc/clamav/3314.clamd.conf:TCPSocket 3314
+/etc/clamav/3315.clamd.conf:TCPSocket 3315
+/etc/clamav/3316.clamd.conf:TCPSocket 3316
+/etc/clamav/3317.clamd.conf:TCPSocket 3317
+/etc/clamav/3318.clamd.conf:TCPSocket 3318
+/etc/clamav/3319.clamd.conf:TCPSocket 3319
+```
+
