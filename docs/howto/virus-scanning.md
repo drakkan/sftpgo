@@ -145,7 +145,7 @@ To find a responding clamd from inside my SFTPGo container I simply run through 
 for port in $( seq 3310 3311 ); do
     clamdscan --quiet --config-file=/etc/clamav/${port}.clamd.conf -p 1:1 2> /dev/null \
     && clamdscan --no-summary --config-file=/etc/clamav/${port}.clamd.conf /bin/true \
-    ; break
+    && break
 done       
 
 ```
@@ -199,6 +199,8 @@ option on clamdscan does not seem attractive with the `up to 30 seconds` wait. O
 are down or has trouble starting?
 
 Well, in my planned usecase we have a very limited type of file we want to accept, so I simply use `/usr/bin/file -i`
-to test that the type of file is precisely as expected even down to the charset to expect. Why not just use file? because we also accept some binary picture files
+to test that the type of file is precisely as expected even down to the charset to expect. Why not just use file? because we also accept some binary picture files.
 
-### Positive scan
+## Positive scan policy
+
+What you do when and if you get a positive virus scan is a policy that you need to decide on your own.
