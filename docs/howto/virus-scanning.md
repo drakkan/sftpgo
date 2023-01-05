@@ -25,3 +25,31 @@ podman pod create \
 	-p 2022:2022 \
 	-p 2121:2121 
 ```
+
+### How ClamAV container accesses files in SFTPGo container
+
+Because ClamAV and SFTPGo does not run in the same container the default setup would not allow ClamAV to read the
+files in SFTPGo. The 2 obvious methods to give ClamAV access to the files is either a) to use `--stream` when calling
+clamdscan or b) simply mount the filesystem in both SFTPGo and ClamAV containers which is what I do in this example.
+Notice that I mount the filesystems on the same location in both ClamAV and SFTPGo.
+
+### ClamAV container creation
+
+```shell
+IMAGE="docker.io/clamav/clamav:stable"
+NAME="dmz-clamav"
+
+podman create --name ${NAME} \
+	--pod pod-sftpgo-clamav \
+	--restart=on-failure \
+	-v "srv_sftpgo:/srv/sftpgo/" \
+	-v "srv_sftpgo_bin:/srv/sftpgo/bin" \
+	"${IMAGE}"
+```
+
+### SFTPGo image creation
+
+The default SFTPGo docker image does not contain clamdscan, so you will have to build your own image.
+In this example I base my image on the official SFTPGo docker image, and I will not get into many
+details of image building or how to actually run SFTPGO in a container.
+
