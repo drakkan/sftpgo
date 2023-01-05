@@ -151,3 +151,45 @@ done
 ```
 
 In this case I use `seq 3310 3311` but if you have more ports you can just expand the seq command. If you use file different names, maybe an `ls /etc/clamav/*.clamd.conf` can give you a list of possible configuration files you can for-loop through.
+
+### When upgrading ClamAV
+
+When I need to upgrade my ClamAV container I simply create a new container using an unused port, and I use the same kind of seq and for-loop to find a free unused port in the allowed range. In this example it is either 3310 or 3311, but you could add more if you needed.
+
+Once created and started I wait and test that the new ClamAV container is available and ping responsive from inside my SFTPGo container, then I just stop the old ClamAV container and leave the new running. This means that in my planned usecase I would just transparently alternate between using the default port 3310 or port 3311 for accessing ClamAV from inside my SFTPGo container.
+
+I've tested with an aggressive while-loop with no sleep, and it seems like there is NO hickup at all when measured from inside my SFTPGo container.
+
+```
+while true; do
+    echo -ne "$(date -u )\t"
+    for port in $( seq 3310 3311 ); do
+        clamdscan --quiet --config-file=/etc/clamav/${port}.conf -p 1:1 2> /dev/null \
+        && echo -e "${port}\t$( clamdscan --no-summary --config-file=/etc/clamav/${port}.conf /bin/true )" \
+        && break
+    done
+done > /tmp/brute.clamav.test.txt 
+```
+When the changeover happens the txt file looks like generated with above command looks like this
+
+```
+DATE                            PORT    SCAN RESULT
+-----------------------------------------------------
+Wed Jan  4 13:20:16 UTC 2023    3311    /bin/true: OK
+Wed Jan  4 13:20:16 UTC 2023    3311    /bin/true: OK
+Wed Jan  4 13:20:16 UTC 2023    3311    /bin/true: OK
+Wed Jan  4 13:20:16 UTC 2023    3310    /bin/true: OK
+Wed Jan  4 13:20:16 UTC 2023    3310    /bin/true: OK
+Wed Jan  4 13:20:16 UTC 2023    3310    /bin/true: OK
+```
+
+It all happened within the same second, and there was no hickup, at all times clamdscan from inside my SFTPGo
+container just worked. Note that once port 3310 responded to ping my seq based for-loop just started using that
+even though the 3311 port using ClamAV container was still running, it was only a little later I stopped it.
+
+Going the other direction from 3310 to 3311, I started a new ClamAV container that uses port 3311, then simply 
+`podman stop` the ClamAV container that uses port 3310. As soon as the while-loop in the SFTPGo container
+detected that `clamdscan -p 1:1` no longer got a positive from port 3310, it simply continued to the next port
+in the for-loop and tested if that port responded to `clamdscan -p 1:1`. Again no hickup.
+
+### Positive scan
