@@ -136,3 +136,18 @@ root@pod-sftpgo-clamav:~# grep TCPSocket /etc/clamav/*.clamd.conf
 ```
 
 In the above example I run 2, but you can easily add more clamd.conf configuration files inside your SFTPGo container and just cycle through them until you find a clamd that responds. Note that inside the ClamAV container there is only 1 clamd.conf file, it just has to contain a different `TCPSocket` line than any of the other ClamAV containers and they all have to be a part of the same pod as SFTPGo. I name my ClamAV containers with a basename and then adds the port number to that basename so I can easily see the difference.
+
+### Finding and using a responding clamd
+
+To find a responding clamd from inside my SFTPGo container I simply run through all the configuration files and use that to ping clamd inside a ClamAV container. If I get a positive reply I just use that configuration file to scan the actual uploaded file and then break the for-loop. This happens at every upload.
+
+```Shell
+for port in $( seq 3310 3311 ); do
+    clamdscan --quiet --config-file=/etc/clamav/${port}.clamd.conf -p 1:1 2> /dev/null \
+    && clamdscan --no-summary --config-file=/etc/clamav/${port}.clamd.conf /bin/true \
+    ; break
+done       
+
+```
+
+In this case I use `seq 3310 3311` but if you have more ports you can just expand the seq command. If you use file different names, maybe an `ls /etc/clamav/*.clamd.conf` can give you a list of possible configuration files you can for-loop through.
