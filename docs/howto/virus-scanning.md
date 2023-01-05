@@ -133,13 +133,6 @@ Because my planned SFTPGo usecase can and do receive multiple files from multipl
 root@pod-sftpgo-clamav:~# grep TCPSocket /etc/clamav/*.clamd.conf
 /etc/clamav/3310.clamd.conf:TCPSocket 3310
 /etc/clamav/3311.clamd.conf:TCPSocket 3311
-/etc/clamav/3312.clamd.conf:TCPSocket 3312
-/etc/clamav/3313.clamd.conf:TCPSocket 3313
-/etc/clamav/3314.clamd.conf:TCPSocket 3314
-/etc/clamav/3315.clamd.conf:TCPSocket 3315
-/etc/clamav/3316.clamd.conf:TCPSocket 3316
-/etc/clamav/3317.clamd.conf:TCPSocket 3317
-/etc/clamav/3318.clamd.conf:TCPSocket 3318
-/etc/clamav/3319.clamd.conf:TCPSocket 3319
 ```
 
+In the above example I run 2, but you can easily add more clamd.conf configuration files inside your SFTPGo container and just cycle through them until you find a clamd that responds. Note that inside the ClamAV container there is only 1 clamd.conf file, it just has to contain a different `TCPSocket` line than any of the other ClamAV containers and they all have to be a part of the same pod as SFTPGo. I name my ClamAV containers with a basename and then adds the port number to that basename so I can easily see the difference.
