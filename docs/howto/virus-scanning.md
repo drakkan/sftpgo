@@ -110,4 +110,10 @@ Starting the pod with this command `podman pod start pod-sftpgo-clamav` will sta
 
 To use clamdscan inside your SFTPGo container in the pod you just created you simply just run the clamdscan command just like in most other usecases `clamdscan /path/to/file` because inside the pod all containers share localhost so from inside the SFTPGo container you can easily access localhost inside the ClamAV container, but anyone outside the pod can not access the same localhost, and thus not ClamAV.
 
+### Getting SFTPGo to clamdscan files when uploaded
+
+It is beyond the scope of this document to get deep into details about how to create an event in SFTPGo that triggers on Uploads and executes a shell script. For information about that, please consult the
+[Event Manager](https://github.com/drakkan/sftpgo/blob/main/docs/howto/eventmanager.md)
+documentation.
+
 ## Lifecycle management
