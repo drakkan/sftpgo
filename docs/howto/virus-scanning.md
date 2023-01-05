@@ -9,7 +9,10 @@ it is easy to scan all uploaded files on the fly immediately once they are uploa
 Before following this example you probably need to be able to run both ClamAV and SFTPGo in a container.
 Please look at the respective documentation for both
 [ClamAV](https://github.com/Cisco-Talos/clamav-documentation/blob/main/src/manual/Installing/Docker.md)
-and [SFTPGo](https://github.com/drakkan/sftpgo/blob/main/docker/README.md) 
+and [SFTPGo](https://github.com/drakkan/sftpgo/blob/main/docker/README.md).
+It is also a good idea to look at the
+[Event Manager](https://github.com/drakkan/sftpgo/blob/main/docs/howto/eventmanager.md)
+documentation for SFTPGo, but it is not needed for basic manually started virus scanning.
 
 ### Building your own SFTPGo image
 
