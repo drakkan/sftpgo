@@ -40,6 +40,7 @@ You should now have a SFTPGo image with clamdscan and you should be able to cont
 If not, please consult other documentation for how to build an image.
 
 
+
 ## podman pod example
 
 This example is based on my own setup which is podman pod based with podman containers both for SFTPGo and ClamAV,
@@ -67,19 +68,34 @@ podman pod create \
 Because ClamAV and SFTPGo does not run in the same container the default setup would not allow ClamAV to read the
 files in SFTPGo. The 2 obvious methods to give ClamAV access to the files is either a) to use `--stream` when calling
 clamdscan or b) simply mount the filesystem in both SFTPGo and ClamAV containers which is what I do in this example.
-Notice that I mount the filesystems on the same location in both ClamAV and SFTPGo.
+Notice that I mount the filesystems on the same location in both ClamAV and SFTPGo because then I can from inside the
+SFTPGo container just call clamdscan with the path to the file, and then clamd inside the ClamAV container can use that to access the same file directly inside it's own container.
 
 ### ClamAV container creation
 
 ```shell
 IMAGE="docker.io/clamav/clamav:stable"
-NAME="dmz-clamav"
-
-podman create --name ${NAME} \
+podman create --name dmz-clamav \
 	--pod pod-sftpgo-clamav \
-	--restart=on-failure \
 	-v "srv_sftpgo:/srv/sftpgo/" \
 	"${IMAGE}"
 ```
+
+### SFTPGo container creation
+
+```
+IMAGE="drakkan/sftpgo:plugins_clamdscan"
+podman create --name some-sftpgo \
+	--pod pod-sftpgo-clamav \
+	-v "srv_sftpgo:/srv/sftpgo/" \
+	"${IMAGE}" \
+```
+
+### Starting the pod
+
+You should now have a pod which contains 3 containers: infra, ClamAV and SFTPGo. The details of the infra container is irrelevant to this document, but you can read a little more about it
+[here](https://developers.redhat.com/blog/2019/01/15/podman-managing-containers-pods)
+
+Starting the pod with this command `podman pod start pod-sftpgo-clamav` will start all 3 containers in the pod.
 
 
