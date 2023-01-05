@@ -192,4 +192,13 @@ Going the other direction from 3310 to 3311, I started a new ClamAV container th
 detected that `clamdscan -p 1:1` no longer got a positive from port 3310, it simply continued to the next port
 in the for-loop and tested if that port responded to `clamdscan -p 1:1`. Again no hickup.
 
+### What if no clamdscan is available?
+
+In my planned usecase we need to get the files flowing through with as little delay as possible, so the `--wait`
+option on clamdscan does not seem attractive with the `up to 30 seconds` wait. Or what if all the ClamAV containers
+are down or has trouble starting?
+
+Well, in my planned usecase we have a very limited type of file we want to accept, so I simply use `/usr/bin/file -i`
+to test that the type of file is precisely as expected even down to the charset to expect. Why not just use file? because we also accept some binary picture files
+
 ### Positive scan
