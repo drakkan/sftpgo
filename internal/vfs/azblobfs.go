@@ -273,68 +273,15 @@ func (fs *AzureBlobFs) Create(name string, flag int) (File, *PipeWriter, func(),
 }
 
 // Rename renames (moves) source to target.
-// We don't support renaming non empty directories since we should
-// rename all the contents too and this could take long time: think
-// about directories with thousands of files, for each file we should
-// execute a StartCopyFromURL call.
-func (fs *AzureBlobFs) Rename(source, target string) error {
+func (fs *AzureBlobFs) Rename(source, target string) (int, int64, error) {
 	if source == target {
-		return nil
+		return -1, -1, nil
 	}
 	fi, err := fs.Stat(source)
 	if err != nil {
-		return err
+		return -1, -1, err
 	}
-	if fi.IsDir() {
-		hasContents, err := fs.hasContents(source)
-		if err != nil {
-			return err
-		}
-		if hasContents {
-			return fmt.Errorf("cannot rename non empty directory: %#v", source)
-		}
-		if err := fs.mkdirInternal(target); err != nil {
-			return err
-		}
-	} else {
-		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxLongTimeout))
-		defer cancelFn()
-
-		srcBlob := fs.containerClient.NewBlockBlobClient(source)
-		dstBlob := fs.containerClient.NewBlockBlobClient(target)
-		resp, err := dstBlob.StartCopyFromURL(ctx, srcBlob.URL(), fs.getCopyOptions())
-		if err != nil {
-			metric.AZCopyObjectCompleted(err)
-			return err
-		}
-		copyStatus := blob.CopyStatusType(util.GetStringFromPointer((*string)(resp.CopyStatus)))
-		nErrors := 0
-		for copyStatus == blob.CopyStatusTypePending {
-			// Poll until the copy is complete.
-			time.Sleep(500 * time.Millisecond)
-			resp, err := dstBlob.GetProperties(ctx, &blob.GetPropertiesOptions{})
-			if err != nil {
-				// A GetProperties failure may be transient, so allow a couple
-				// of them before giving up.
-				nErrors++
-				if ctx.Err() != nil || nErrors == 3 {
-					metric.AZCopyObjectCompleted(err)
-					return err
-				}
-			} else {
-				copyStatus = blob.CopyStatusType(util.GetStringFromPointer((*string)(resp.CopyStatus)))
-			}
-		}
-		if copyStatus != blob.CopyStatusTypeSuccess {
-			err := fmt.Errorf("copy failed with status: %s", copyStatus)
-			metric.AZCopyObjectCompleted(err)
-			return err
-		}
-
-		metric.AZCopyObjectCompleted(nil)
-		fs.preserveModificationTime(source, target, fi)
-	}
-	return fs.Remove(source, fi.IsDir())
+	return fs.renameInternal(source, target, fi)
 }
 
 // Remove removes the named file or (empty) directory.
@@ -575,44 +522,7 @@ func (fs *AzureBlobFs) CheckRootPath(username string, uid int, gid int) bool {
 // ScanRootDirContents returns the number of files contained in the bucket,
 // and their size
 func (fs *AzureBlobFs) ScanRootDirContents() (int, int64, error) {
-	numFiles := 0
-	size := int64(0)
-
-	pager := fs.containerClient.NewListBlobsFlatPager(&container.ListBlobsFlatOptions{
-		Include: container.ListBlobsInclude{
-			Metadata: true,
-		},
-		Prefix: &fs.config.KeyPrefix,
-	})
-
-	for pager.More() {
-		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
-		defer cancelFn()
-
-		resp, err := pager.NextPage(ctx)
-		if err != nil {
-			metric.AZListObjectsCompleted(err)
-			return numFiles, size, err
-		}
-		for _, blobItem := range resp.ListBlobsFlatSegmentResponse.Segment.BlobItems {
-			if blobItem.Properties != nil {
-				contentType := util.GetStringFromPointer(blobItem.Properties.ContentType)
-				isDir := checkDirectoryMarkers(contentType, blobItem.Metadata)
-				blobSize := util.GetIntFromPointer(blobItem.Properties.ContentLength)
-				if isDir && blobSize == 0 {
-					continue
-				}
-				numFiles++
-				size += blobSize
-				if numFiles%1000 == 0 {
-					fsLog(fs, logger.LevelDebug, "root dir scan in progress, files: %d, size: %d", numFiles, size)
-				}
-			}
-		}
-	}
-	metric.AZListObjectsCompleted(nil)
-
-	return numFiles, size, nil
+	return fs.GetDirSize(fs.config.KeyPrefix)
 }
 
 func (fs *AzureBlobFs) getFileNamesInPrefix(fsPrefix string) (map[string]bool, error) {
@@ -663,8 +573,46 @@ func (fs *AzureBlobFs) CheckMetadata() error {
 
 // GetDirSize returns the number of files and the size for a folder
 // including any subfolders
-func (*AzureBlobFs) GetDirSize(dirname string) (int, int64, error) {
-	return 0, 0, ErrVfsUnsupported
+func (fs *AzureBlobFs) GetDirSize(dirname string) (int, int64, error) {
+	numFiles := 0
+	size := int64(0)
+	prefix := fs.getPrefix(dirname)
+
+	pager := fs.containerClient.NewListBlobsFlatPager(&container.ListBlobsFlatOptions{
+		Include: container.ListBlobsInclude{
+			Metadata: true,
+		},
+		Prefix: &prefix,
+	})
+
+	for pager.More() {
+		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
+		defer cancelFn()
+
+		resp, err := pager.NextPage(ctx)
+		if err != nil {
+			metric.AZListObjectsCompleted(err)
+			return numFiles, size, err
+		}
+		for _, blobItem := range resp.ListBlobsFlatSegmentResponse.Segment.BlobItems {
+			if blobItem.Properties != nil {
+				contentType := util.GetStringFromPointer(blobItem.Properties.ContentType)
+				isDir := checkDirectoryMarkers(contentType, blobItem.Metadata)
+				blobSize := util.GetIntFromPointer(blobItem.Properties.ContentLength)
+				if isDir && blobSize == 0 {
+					continue
+				}
+				numFiles++
+				size += blobSize
+				if numFiles%1000 == 0 {
+					fsLog(fs, logger.LevelDebug, "dirname %q scan in progress, files: %d, size: %d", dirname, numFiles, size)
+				}
+			}
+		}
+	}
+	metric.AZListObjectsCompleted(nil)
+
+	return numFiles, size, nil
 }
 
 // GetAtomicUploadPath returns the path to use for an atomic upload.
@@ -836,6 +784,102 @@ func (fs *AzureBlobFs) setConfigDefaults() {
 	if fs.config.DownloadConcurrency == 0 {
 		fs.config.DownloadConcurrency = 5
 	}
+}
+
+func (fs *AzureBlobFs) copyFileInternal(source, target string) error {
+	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxLongTimeout))
+	defer cancelFn()
+
+	srcBlob := fs.containerClient.NewBlockBlobClient(source)
+	dstBlob := fs.containerClient.NewBlockBlobClient(target)
+	resp, err := dstBlob.StartCopyFromURL(ctx, srcBlob.URL(), fs.getCopyOptions())
+	if err != nil {
+		metric.AZCopyObjectCompleted(err)
+		return err
+	}
+	copyStatus := blob.CopyStatusType(util.GetStringFromPointer((*string)(resp.CopyStatus)))
+	nErrors := 0
+	for copyStatus == blob.CopyStatusTypePending {
+		// Poll until the copy is complete.
+		time.Sleep(500 * time.Millisecond)
+		resp, err := dstBlob.GetProperties(ctx, &blob.GetPropertiesOptions{})
+		if err != nil {
+			// A GetProperties failure may be transient, so allow a couple
+			// of them before giving up.
+			nErrors++
+			if ctx.Err() != nil || nErrors == 3 {
+				metric.AZCopyObjectCompleted(err)
+				return err
+			}
+		} else {
+			copyStatus = blob.CopyStatusType(util.GetStringFromPointer((*string)(resp.CopyStatus)))
+		}
+	}
+	if copyStatus != blob.CopyStatusTypeSuccess {
+		err := fmt.Errorf("copy failed with status: %s", copyStatus)
+		metric.AZCopyObjectCompleted(err)
+		return err
+	}
+
+	metric.AZCopyObjectCompleted(nil)
+	return nil
+}
+
+func (fs *AzureBlobFs) renameInternal(source, target string, fi os.FileInfo) (int, int64, error) {
+	var numFiles int
+	var filesSize int64
+
+	if fi.IsDir() {
+		if renameMode == 0 {
+			hasContents, err := fs.hasContents(source)
+			if err != nil {
+				return numFiles, filesSize, err
+			}
+			if hasContents {
+				return numFiles, filesSize, fmt.Errorf("cannot rename non empty directory: %q", source)
+			}
+		}
+		if err := fs.mkdirInternal(target); err != nil {
+			return numFiles, filesSize, err
+		}
+		if renameMode == 1 {
+			entries, err := fs.ReadDir(source)
+			if err != nil {
+				return numFiles, filesSize, err
+			}
+			for _, info := range entries {
+				sourceEntry := fs.Join(source, info.Name())
+				targetEntry := fs.Join(target, info.Name())
+				files, size, err := fs.renameInternal(sourceEntry, targetEntry, info)
+				if err != nil {
+					return numFiles, filesSize, err
+				}
+				numFiles += files
+				filesSize += size
+			}
+		}
+	} else {
+		if err := fs.copyFileInternal(source, target); err != nil {
+			return numFiles, filesSize, err
+		}
+		numFiles++
+		filesSize += fi.Size()
+		if plugin.Handler.HasMetadater() {
+			if !fi.IsDir() {
+				err := plugin.Handler.SetModificationTime(fs.getStorageID(), ensureAbsPath(target),
+					util.GetTimeAsMsSinceEpoch(fi.ModTime()))
+				if err != nil {
+					fsLog(fs, logger.LevelWarn, "unable to preserve modification time after renaming %q -> %q: %+v",
+						source, target, err)
+				}
+			}
+		}
+	}
+	err := fs.Remove(source, fi.IsDir())
+	if fs.IsNotExist(err) {
+		err = nil
+	}
+	return numFiles, filesSize, err
 }
 
 func (fs *AzureBlobFs) mkdirInternal(name string) error {
@@ -1102,19 +1146,6 @@ func (*AzureBlobFs) readFill(r io.Reader, buf []byte) (n int, err error) {
 		n += nn
 	}
 	return n, err
-}
-
-func (fs *AzureBlobFs) preserveModificationTime(source, target string, fi os.FileInfo) {
-	if plugin.Handler.HasMetadater() {
-		if !fi.IsDir() {
-			err := plugin.Handler.SetModificationTime(fs.getStorageID(), ensureAbsPath(target),
-				util.GetTimeAsMsSinceEpoch(fi.ModTime()))
-			if err != nil {
-				fsLog(fs, logger.LevelWarn, "unable to preserve modification time after renaming %#v -> %#v: %+v",
-					source, target, err)
-			}
-		}
-	}
 }
 
 func (fs *AzureBlobFs) getCopyOptions() *blob.StartCopyFromURLOptions {

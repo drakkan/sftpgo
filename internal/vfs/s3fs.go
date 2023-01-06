@@ -286,74 +286,15 @@ func (fs *S3Fs) Create(name string, flag int) (File, *PipeWriter, func(), error)
 }
 
 // Rename renames (moves) source to target.
-// We don't support renaming non empty directories since we should
-// rename all the contents too and this could take long time: think
-// about directories with thousands of files, for each file we should
-// execute a CopyObject call.
-func (fs *S3Fs) Rename(source, target string) error {
+func (fs *S3Fs) Rename(source, target string) (int, int64, error) {
 	if source == target {
-		return nil
+		return -1, -1, nil
 	}
 	fi, err := fs.Stat(source)
 	if err != nil {
-		return err
+		return -1, -1, err
 	}
-	if fi.IsDir() {
-		hasContents, err := fs.hasContents(source)
-		if err != nil {
-			return err
-		}
-		if hasContents {
-			return fmt.Errorf("cannot rename non empty directory: %q", source)
-		}
-		if err := fs.mkdirInternal(target); err != nil {
-			return err
-		}
-	} else {
-		contentType := mime.TypeByExtension(path.Ext(source))
-		copySource := pathEscape(fs.Join(fs.config.Bucket, source))
-
-		if fi.Size() > 500*1024*1024 {
-			fsLog(fs, logger.LevelDebug, "renaming file %q with size %d using multipart copy",
-				source, fi.Size())
-			err = fs.doMultipartCopy(copySource, target, contentType, fi.Size())
-		} else {
-			ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
-			defer cancelFn()
-
-			_, err = fs.svc.CopyObject(ctx, &s3.CopyObjectInput{
-				Bucket:       aws.String(fs.config.Bucket),
-				CopySource:   aws.String(copySource),
-				Key:          aws.String(target),
-				StorageClass: types.StorageClass(fs.config.StorageClass),
-				ACL:          types.ObjectCannedACL(fs.config.ACL),
-				ContentType:  util.NilIfEmpty(contentType),
-			})
-		}
-		if err != nil {
-			metric.S3CopyObjectCompleted(err)
-			return err
-		}
-
-		waiter := s3.NewObjectExistsWaiter(fs.svc)
-		err = waiter.Wait(context.Background(), &s3.HeadObjectInput{
-			Bucket: aws.String(fs.config.Bucket),
-			Key:    aws.String(target),
-		}, 10*time.Second)
-		metric.S3CopyObjectCompleted(err)
-		if err != nil {
-			return err
-		}
-		if plugin.Handler.HasMetadater() {
-			err = plugin.Handler.SetModificationTime(fs.getStorageID(), ensureAbsPath(target),
-				util.GetTimeAsMsSinceEpoch(fi.ModTime()))
-			if err != nil {
-				fsLog(fs, logger.LevelWarn, "unable to preserve modification time after renaming %#v -> %#v: %+v",
-					source, target, err)
-			}
-		}
-	}
-	return fs.Remove(source, fi.IsDir())
+	return fs.renameInternal(source, target, fi)
 }
 
 // Remove removes the named file or (empty) directory.
@@ -568,38 +509,7 @@ func (fs *S3Fs) CheckRootPath(username string, uid int, gid int) bool {
 // ScanRootDirContents returns the number of files contained in the bucket,
 // and their size
 func (fs *S3Fs) ScanRootDirContents() (int, int64, error) {
-	numFiles := 0
-	size := int64(0)
-
-	paginator := s3.NewListObjectsV2Paginator(fs.svc, &s3.ListObjectsV2Input{
-		Bucket: aws.String(fs.config.Bucket),
-		Prefix: aws.String(fs.config.KeyPrefix),
-	})
-
-	for paginator.HasMorePages() {
-		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
-		defer cancelFn()
-
-		page, err := paginator.NextPage(ctx)
-		if err != nil {
-			metric.S3ListObjectsCompleted(err)
-			return numFiles, size, err
-		}
-		for _, fileObject := range page.Contents {
-			isDir := strings.HasSuffix(util.GetStringFromPointer(fileObject.Key), "/")
-			if isDir && fileObject.Size == 0 {
-				continue
-			}
-			numFiles++
-			size += fileObject.Size
-			if numFiles%1000 == 0 {
-				fsLog(fs, logger.LevelDebug, "root dir scan in progress, files: %d, size: %d", numFiles, size)
-			}
-		}
-	}
-
-	metric.S3ListObjectsCompleted(nil)
-	return numFiles, size, nil
+	return fs.GetDirSize(fs.config.KeyPrefix)
 }
 
 func (fs *S3Fs) getFileNamesInPrefix(fsPrefix string) (map[string]bool, error) {
@@ -647,8 +557,40 @@ func (fs *S3Fs) CheckMetadata() error {
 
 // GetDirSize returns the number of files and the size for a folder
 // including any subfolders
-func (*S3Fs) GetDirSize(dirname string) (int, int64, error) {
-	return 0, 0, ErrVfsUnsupported
+func (fs *S3Fs) GetDirSize(dirname string) (int, int64, error) {
+	prefix := fs.getPrefix(dirname)
+	numFiles := 0
+	size := int64(0)
+
+	paginator := s3.NewListObjectsV2Paginator(fs.svc, &s3.ListObjectsV2Input{
+		Bucket: aws.String(fs.config.Bucket),
+		Prefix: aws.String(prefix),
+	})
+
+	for paginator.HasMorePages() {
+		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
+		defer cancelFn()
+
+		page, err := paginator.NextPage(ctx)
+		if err != nil {
+			metric.S3ListObjectsCompleted(err)
+			return numFiles, size, err
+		}
+		for _, fileObject := range page.Contents {
+			isDir := strings.HasSuffix(util.GetStringFromPointer(fileObject.Key), "/")
+			if isDir && fileObject.Size == 0 {
+				continue
+			}
+			numFiles++
+			size += fileObject.Size
+			if numFiles%1000 == 0 {
+				fsLog(fs, logger.LevelDebug, "dirname %q scan in progress, files: %d, size: %d", dirname, numFiles, size)
+			}
+		}
+	}
+
+	metric.S3ListObjectsCompleted(nil)
+	return numFiles, size, nil
 }
 
 // GetAtomicUploadPath returns the path to use for an atomic upload.
@@ -768,6 +710,88 @@ func (fs *S3Fs) setConfigDefaults() {
 	if fs.config.DownloadConcurrency == 0 {
 		fs.config.DownloadConcurrency = manager.DefaultDownloadConcurrency
 	}
+}
+
+func (fs *S3Fs) copyFileInternal(source, target string, fileSize int64) error {
+	contentType := mime.TypeByExtension(path.Ext(source))
+	copySource := pathEscape(fs.Join(fs.config.Bucket, source))
+
+	if fileSize > 500*1024*1024 {
+		fsLog(fs, logger.LevelDebug, "renaming file %q with size %d using multipart copy",
+			source, fileSize)
+		err := fs.doMultipartCopy(copySource, target, contentType, fileSize)
+		metric.S3CopyObjectCompleted(err)
+		return err
+	}
+	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
+	defer cancelFn()
+
+	_, err := fs.svc.CopyObject(ctx, &s3.CopyObjectInput{
+		Bucket:       aws.String(fs.config.Bucket),
+		CopySource:   aws.String(copySource),
+		Key:          aws.String(target),
+		StorageClass: types.StorageClass(fs.config.StorageClass),
+		ACL:          types.ObjectCannedACL(fs.config.ACL),
+		ContentType:  util.NilIfEmpty(contentType),
+	})
+
+	metric.S3CopyObjectCompleted(err)
+	return err
+}
+
+func (fs *S3Fs) renameInternal(source, target string, fi os.FileInfo) (int, int64, error) {
+	var numFiles int
+	var filesSize int64
+
+	if fi.IsDir() {
+		if renameMode == 0 {
+			hasContents, err := fs.hasContents(source)
+			if err != nil {
+				return numFiles, filesSize, err
+			}
+			if hasContents {
+				return numFiles, filesSize, fmt.Errorf("cannot rename non empty directory: %q", source)
+			}
+		}
+		if err := fs.mkdirInternal(target); err != nil {
+			return numFiles, filesSize, err
+		}
+		if renameMode == 1 {
+			entries, err := fs.ReadDir(source)
+			if err != nil {
+				return numFiles, filesSize, err
+			}
+			for _, info := range entries {
+				sourceEntry := fs.Join(source, info.Name())
+				targetEntry := fs.Join(target, info.Name())
+				files, size, err := fs.renameInternal(sourceEntry, targetEntry, info)
+				if err != nil {
+					return numFiles, filesSize, err
+				}
+				numFiles += files
+				filesSize += size
+			}
+		}
+	} else {
+		if err := fs.copyFileInternal(source, target, fi.Size()); err != nil {
+			return numFiles, filesSize, err
+		}
+		numFiles++
+		filesSize += fi.Size()
+		if plugin.Handler.HasMetadater() {
+			err := plugin.Handler.SetModificationTime(fs.getStorageID(), ensureAbsPath(target),
+				util.GetTimeAsMsSinceEpoch(fi.ModTime()))
+			if err != nil {
+				fsLog(fs, logger.LevelWarn, "unable to preserve modification time after renaming %q -> %q: %+v",
+					source, target, err)
+			}
+		}
+	}
+	err := fs.Remove(source, fi.IsDir())
+	if fs.IsNotExist(err) {
+		err = nil
+	}
+	return numFiles, filesSize, err
 }
 
 func (fs *S3Fs) mkdirInternal(name string) error {

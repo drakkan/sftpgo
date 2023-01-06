@@ -470,7 +470,7 @@ func (c *BaseConnection) RemoveDir(virtualPath string) error {
 		if fs.IsNotExist(err) && fs.HasVirtualFolders() {
 			return nil
 		}
-		c.Log(logger.LevelError, "failed to remove a dir %#v: stat error: %+v", fsPath, err)
+		c.Log(logger.LevelError, "failed to remove a dir %q: stat error: %+v", fsPath, err)
 		return c.GetFsError(fs, err)
 	}
 	if !fi.IsDir() || fi.Mode()&os.ModeSymlink != 0 {
@@ -671,6 +671,10 @@ func (c *BaseConnection) Copy(virtualSourcePath, virtualTargetPath string) error
 	if err := c.CheckParentDirs(path.Dir(destPath)); err != nil {
 		return err
 	}
+	done := make(chan bool)
+	defer close(done)
+	go keepConnectionAlive(c, done, 2*time.Minute)
+
 	return c.doRecursiveCopy(virtualSourcePath, destPath, srcInfo, createTargetDir)
 }
 
@@ -728,12 +732,17 @@ func (c *BaseConnection) renameInternal(virtualSourcePath, virtualTargetPath str
 	if checkParentDestination {
 		c.CheckParentDirs(path.Dir(virtualTargetPath)) //nolint:errcheck
 	}
-	if err := fsDst.Rename(fsSourcePath, fsTargetPath); err != nil {
+	done := make(chan bool)
+	defer close(done)
+	go keepConnectionAlive(c, done, 2*time.Minute)
+
+	files, size, err := fsDst.Rename(fsSourcePath, fsTargetPath)
+	if err != nil {
 		c.Log(logger.LevelError, "failed to rename %q -> %q: %+v", fsSourcePath, fsTargetPath, err)
 		return c.GetFsError(fsSrc, err)
 	}
 	vfs.SetPathPermissions(fsDst, fsTargetPath, c.User.GetUID(), c.User.GetGID())
-	c.updateQuotaAfterRename(fsDst, virtualSourcePath, virtualTargetPath, fsTargetPath, initialSize) //nolint:errcheck
+	c.updateQuotaAfterRename(fsDst, virtualSourcePath, virtualTargetPath, fsTargetPath, initialSize, files, size) //nolint:errcheck
 	logger.CommandLog(renameLogSender, fsSourcePath, fsTargetPath, c.User.Username, "", c.ID, c.protocol, -1, -1,
 		"", "", "", -1, c.localAddr, c.remoteAddr)
 	ExecuteActionNotification(c, operationRename, fsSourcePath, virtualSourcePath, fsTargetPath, //nolint:errcheck
@@ -1008,7 +1017,7 @@ func (c *BaseConnection) checkRecursiveRenameDirPermissions(fsSrc, fsDst vfs.Fs,
 	if !c.User.HasPermissionsInside(virtualSourcePath) &&
 		!c.User.HasPermissionsInside(virtualTargetPath) {
 		if !c.isRenamePermitted(fsSrc, fsDst, sourcePath, targetPath, virtualSourcePath, virtualTargetPath, fi) {
-			c.Log(logger.LevelInfo, "rename %#v -> %#v is not allowed, virtual destination path: %#v",
+			c.Log(logger.LevelInfo, "rename %q -> %q is not allowed, virtual destination path: %q",
 				sourcePath, targetPath, virtualTargetPath)
 			return c.GetPermissionDeniedError()
 		}
@@ -1024,7 +1033,7 @@ func (c *BaseConnection) checkRecursiveRenameDirPermissions(fsSrc, fsDst vfs.Fs,
 		if err != nil {
 			return c.GetFsError(fsSrc, err)
 		}
-		if walkedPath != sourcePath && vfs.HasImplicitAtomicUploads(fsSrc) {
+		if walkedPath != sourcePath && vfs.HasImplicitAtomicUploads(fsSrc) && Config.RenameMode == 0 {
 			c.Log(logger.LevelInfo, "cannot rename non empty directory %q on this filesystem", virtualSourcePath)
 			return c.GetOpUnsupportedError()
 		}
@@ -1083,6 +1092,11 @@ func (c *BaseConnection) checkFolderRename(fsSrc, fsDst vfs.Fs, fsSourcePath, fs
 			virtualSourcePath)
 		return c.GetOpUnsupportedError()
 	}
+	if c.User.HasVirtualFoldersInside(virtualTargetPath) {
+		c.Log(logger.LevelDebug, "renaming the folder %q is not supported, the target %q has virtual folders inside it",
+			virtualSourcePath, virtualTargetPath)
+		return c.GetOpUnsupportedError()
+	}
 	if err := c.checkRecursiveRenameDirPermissions(fsSrc, fsDst, fsSourcePath, fsTargetPath,
 		virtualSourcePath, virtualTargetPath, fi); err != nil {
 		c.Log(logger.LevelDebug, "error checking recursive permissions before renaming %q: %+v", fsSourcePath, err)
@@ -1118,7 +1132,7 @@ func (c *BaseConnection) isRenamePermitted(fsSrc, fsDst vfs.Fs, fsSourcePath, fs
 	isSrcAllowed, _ := c.User.IsFileAllowed(virtualSourcePath)
 	isDstAllowed, _ := c.User.IsFileAllowed(virtualTargetPath)
 	if !isSrcAllowed || !isDstAllowed {
-		c.Log(logger.LevelDebug, "renaming source: %#v to target: %#v not allowed", virtualSourcePath,
+		c.Log(logger.LevelDebug, "renaming source: %q to target: %q not allowed", virtualSourcePath,
 			virtualTargetPath)
 		return false
 	}
@@ -1147,7 +1161,15 @@ func (c *BaseConnection) hasSpaceForRename(fs vfs.Fs, virtualSourcePath, virtual
 		// rename between user root dir and a virtual folder included in user quota
 		return true
 	}
+	if errDst != nil && sourceFolder.IsIncludedInUserQuota() {
+		// rename between a virtual folder included in user quota and the user root dir
+		return true
+	}
 	quotaResult, _ := c.HasSpace(true, false, virtualTargetPath)
+	if quotaResult.HasSpace && quotaResult.QuotaSize == 0 && quotaResult.QuotaFiles == 0 {
+		// no quota restrictions
+		return true
+	}
 	return c.hasSpaceForCrossRename(fs, quotaResult, initialSize, fsSourcePath)
 }
 
@@ -1159,7 +1181,7 @@ func (c *BaseConnection) hasSpaceForCrossRename(fs vfs.Fs, quotaResult vfs.Quota
 	}
 	fi, err := fs.Lstat(sourcePath)
 	if err != nil {
-		c.Log(logger.LevelError, "cross rename denied, stat error for path %#v: %v", sourcePath, err)
+		c.Log(logger.LevelError, "cross rename denied, stat error for path %q: %v", sourcePath, err)
 		return false
 	}
 	var sizeDiff int64
@@ -1174,7 +1196,7 @@ func (c *BaseConnection) hasSpaceForCrossRename(fs vfs.Fs, quotaResult vfs.Quota
 	} else if fi.IsDir() {
 		filesDiff, sizeDiff, err = fs.GetDirSize(sourcePath)
 		if err != nil {
-			c.Log(logger.LevelError, "cross rename denied, error getting size for directory %#v: %v", sourcePath, err)
+			c.Log(logger.LevelError, "cross rename denied, error getting size for directory %q: %v", sourcePath, err)
 			return false
 		}
 	}
@@ -1183,14 +1205,14 @@ func (c *BaseConnection) hasSpaceForCrossRename(fs vfs.Fs, quotaResult vfs.Quota
 		if quotaResult.QuotaSize == 0 {
 			return true
 		}
-		c.Log(logger.LevelDebug, "cross rename overwrite, source %#v, used size %v, size to add %v",
+		c.Log(logger.LevelDebug, "cross rename overwrite, source %q, used size %d, size to add %d",
 			sourcePath, quotaResult.UsedSize, sizeDiff)
 		quotaResult.UsedSize += sizeDiff
 		return quotaResult.GetRemainingSize() >= 0
 	}
 	if quotaResult.QuotaFiles > 0 {
 		remainingFiles := quotaResult.GetRemainingFiles()
-		c.Log(logger.LevelDebug, "cross rename, source %#v remaining file %v to add %v", sourcePath,
+		c.Log(logger.LevelDebug, "cross rename, source %q remaining file %d to add %d", sourcePath,
 			remainingFiles, filesDiff)
 		if remainingFiles < filesDiff {
 			return false
@@ -1198,7 +1220,7 @@ func (c *BaseConnection) hasSpaceForCrossRename(fs vfs.Fs, quotaResult vfs.Quota
 	}
 	if quotaResult.QuotaSize > 0 {
 		remainingSize := quotaResult.GetRemainingSize()
-		c.Log(logger.LevelDebug, "cross rename, source %#v remaining size %v to add %v", sourcePath,
+		c.Log(logger.LevelDebug, "cross rename, source %q remaining size %d to add %d", sourcePath,
 			remainingSize, sizeDiff)
 		if remainingSize < sizeDiff {
 			return false
@@ -1329,7 +1351,7 @@ func (c *BaseConnection) HasSpace(checkFiles, getUsage bool, requestPath string)
 	result.AllowedSize = result.QuotaSize - result.UsedSize
 	if (checkFiles && result.QuotaFiles > 0 && result.UsedFiles >= result.QuotaFiles) ||
 		(result.QuotaSize > 0 && result.UsedSize >= result.QuotaSize) {
-		c.Log(logger.LevelDebug, "quota exceed for user %#v, request path %#v, num files: %v/%v, size: %v/%v check files: %v",
+		c.Log(logger.LevelDebug, "quota exceed for user %q, request path %q, num files: %d/%d, size: %d/%d check files: %t",
 			c.User.Username, requestPath, result.UsedFiles, result.QuotaFiles, result.UsedSize, result.QuotaSize, checkFiles)
 		result.HasSpace = false
 		return result, transferQuota
@@ -1430,7 +1452,9 @@ func (c *BaseConnection) updateQuotaMoveToVFolder(dstFolder *vfs.VirtualFolder, 
 	}
 }
 
-func (c *BaseConnection) updateQuotaAfterRename(fs vfs.Fs, virtualSourcePath, virtualTargetPath, targetPath string, initialSize int64) error {
+func (c *BaseConnection) updateQuotaAfterRename(fs vfs.Fs, virtualSourcePath, virtualTargetPath, targetPath string,
+	initialSize int64, numFiles int, filesSize int64,
+) error {
 	if dataprovider.GetQuotaTracking() == 0 {
 		return nil
 	}
@@ -1451,22 +1475,27 @@ func (c *BaseConnection) updateQuotaAfterRename(fs vfs.Fs, virtualSourcePath, vi
 		return nil
 	}
 
-	filesSize := int64(0)
-	numFiles := 1
-	if fi, err := fs.Stat(targetPath); err == nil {
-		if fi.Mode().IsDir() {
-			numFiles, filesSize, err = fs.GetDirSize(targetPath)
-			if err != nil {
-				c.Log(logger.LevelError, "failed to update quota after rename, error scanning moved folder %#v: %v",
-					targetPath, err)
-				return err
+	if filesSize == -1 {
+		// fs.Rename didn't return the affected files/sizes, we need to calculate them
+		numFiles = 1
+		if fi, err := fs.Stat(targetPath); err == nil {
+			if fi.Mode().IsDir() {
+				numFiles, filesSize, err = fs.GetDirSize(targetPath)
+				if err != nil {
+					c.Log(logger.LevelError, "failed to update quota after rename, error scanning moved folder %q: %+v",
+						targetPath, err)
+					return err
+				}
+			} else {
+				filesSize = fi.Size()
 			}
 		} else {
-			filesSize = fi.Size()
+			c.Log(logger.LevelError, "failed to update quota after renaming, file %q stat error: %+v", targetPath, err)
+			return err
 		}
+		c.Log(logger.LevelDebug, "calculated renamed files: %d, size: %d bytes", numFiles, filesSize)
 	} else {
-		c.Log(logger.LevelError, "failed to update quota after rename, file %#v stat error: %+v", targetPath, err)
-		return err
+		c.Log(logger.LevelDebug, "returned renamed files: %d, size: %d bytes", numFiles, filesSize)
 	}
 	if errSrc == nil && errDst == nil {
 		c.updateQuotaMoveBetweenVFolders(&sourceFolder, &dstFolder, initialSize, filesSize, numFiles)
@@ -1659,4 +1688,20 @@ func (c *BaseConnection) GetFsAndResolvedPath(virtualPath string) (vfs.Fs, strin
 	}
 
 	return fs, fsPath, nil
+}
+
+func keepConnectionAlive(c *BaseConnection, done chan bool, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer func() {
+		ticker.Stop()
+	}()
+
+	for {
+		select {
+		case <-done:
+			return
+		case <-ticker.C:
+			c.UpdateLastActivity()
+		}
+	}
 }

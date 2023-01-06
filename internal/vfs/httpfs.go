@@ -368,9 +368,9 @@ func (fs *HTTPFs) Create(name string, flag int) (File, *PipeWriter, func(), erro
 }
 
 // Rename renames (moves) source to target.
-func (fs *HTTPFs) Rename(source, target string) error {
+func (fs *HTTPFs) Rename(source, target string) (int, int64, error) {
 	if source == target {
-		return nil
+		return -1, -1, nil
 	}
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
 	defer cancelFn()
@@ -378,10 +378,10 @@ func (fs *HTTPFs) Rename(source, target string) error {
 	queryString := fmt.Sprintf("?target=%s", url.QueryEscape(target))
 	resp, err := fs.sendHTTPRequest(ctx, http.MethodPatch, "rename", source, queryString, "", nil)
 	if err != nil {
-		return err
+		return -1, -1, err
 	}
 	defer resp.Body.Close()
-	return nil
+	return -1, -1, nil
 }
 
 // Remove removes the named file or (empty) directory.

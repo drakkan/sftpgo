@@ -280,12 +280,21 @@ func TestRenamePerms(t *testing.T) {
 
 func TestRenameNestedFolders(t *testing.T) {
 	u := dataprovider.User{}
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       "vfolder",
+			MappedPath: filepath.Join(os.TempDir(), "f"),
+		},
+		VirtualPath: "/vdirs/f",
+	})
 	conn := NewBaseConnection("", ProtocolSFTP, "", "", u)
 	err := conn.checkFolderRename(nil, nil, filepath.Clean(os.TempDir()), filepath.Join(os.TempDir(), "subdir"), "/src", "/dst", nil)
 	assert.Error(t, err)
 	err = conn.checkFolderRename(nil, nil, filepath.Join(os.TempDir(), "subdir"), filepath.Clean(os.TempDir()), "/src", "/dst", nil)
 	assert.Error(t, err)
 	err = conn.checkFolderRename(nil, nil, "", "", "/src/sub", "/src", nil)
+	assert.Error(t, err)
+	err = conn.checkFolderRename(nil, nil, filepath.Join(os.TempDir(), "src"), filepath.Join(os.TempDir(), "vdirs"), "/src", "/vdirs", nil)
 	assert.Error(t, err)
 }
 
@@ -331,7 +340,7 @@ func TestUpdateQuotaAfterRename(t *testing.T) {
 		assert.NoError(t, err)
 		err = os.Chmod(testDirPath, 0001)
 		assert.NoError(t, err)
-		err = c.updateQuotaAfterRename(fs, request.Filepath, request.Target, testDirPath, 0)
+		err = c.updateQuotaAfterRename(fs, request.Filepath, request.Target, testDirPath, 0, -1, -1)
 		assert.Error(t, err)
 		err = os.Chmod(testDirPath, os.ModePerm)
 		assert.NoError(t, err)
@@ -339,23 +348,25 @@ func TestUpdateQuotaAfterRename(t *testing.T) {
 	testFile1 := "/testfile1"
 	request.Target = testFile1
 	request.Filepath = path.Join("/vdir", "file")
-	err = c.updateQuotaAfterRename(fs, request.Filepath, request.Target, filepath.Join(mappedPath, "file"), 0)
+	err = c.updateQuotaAfterRename(fs, request.Filepath, request.Target, filepath.Join(mappedPath, "file"), 0, -1, -1)
 	assert.Error(t, err)
 	err = os.WriteFile(filepath.Join(mappedPath, "file"), []byte("test content"), os.ModePerm)
 	assert.NoError(t, err)
 	request.Filepath = testFile1
 	request.Target = path.Join("/vdir", "file")
-	err = c.updateQuotaAfterRename(fs, request.Filepath, request.Target, filepath.Join(mappedPath, "file"), 12)
+	err = c.updateQuotaAfterRename(fs, request.Filepath, request.Target, filepath.Join(mappedPath, "file"), 12, -1, -1)
 	assert.NoError(t, err)
 	err = os.WriteFile(filepath.Join(user.GetHomeDir(), "testfile1"), []byte("test content"), os.ModePerm)
 	assert.NoError(t, err)
 	request.Target = testFile1
 	request.Filepath = path.Join("/vdir", "file")
-	err = c.updateQuotaAfterRename(fs, request.Filepath, request.Target, filepath.Join(mappedPath, "file"), 12)
+	err = c.updateQuotaAfterRename(fs, request.Filepath, request.Target, filepath.Join(mappedPath, "file"), 12, -1, -1)
 	assert.NoError(t, err)
 	request.Target = path.Join("/vdir1", "file")
 	request.Filepath = path.Join("/vdir", "file")
-	err = c.updateQuotaAfterRename(fs, request.Filepath, request.Target, filepath.Join(mappedPath, "file"), 12)
+	err = c.updateQuotaAfterRename(fs, request.Filepath, request.Target, filepath.Join(mappedPath, "file"), 12, -1, -1)
+	assert.NoError(t, err)
+	err = c.updateQuotaAfterRename(fs, request.Filepath, request.Target, filepath.Join(mappedPath, "file"), 12, 1, 100)
 	assert.NoError(t, err)
 
 	err = os.RemoveAll(mappedPath)
@@ -603,4 +614,16 @@ func TestErrorResolvePath(t *testing.T) {
 	assert.Error(t, err)
 	err = os.RemoveAll(filepath.Dir(sourceFile))
 	assert.NoError(t, err)
+}
+
+func TestConnectionKeepAlive(t *testing.T) {
+	conn := NewBaseConnection("", ProtocolWebDAV, "", "", dataprovider.User{})
+	lastActivity := conn.GetLastActivity()
+	done := make(chan bool)
+	go func() {
+		time.Sleep(200 * time.Millisecond)
+		close(done)
+	}()
+	keepConnectionAlive(conn, done, 50*time.Millisecond)
+	assert.Greater(t, conn.GetLastActivity(), lastActivity)
 }

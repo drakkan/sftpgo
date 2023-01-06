@@ -54,6 +54,7 @@ var (
 	tempPath             string
 	sftpFingerprints     []string
 	allowSelfConnections int
+	renameMode           int
 )
 
 // SetAllowSelfConnections sets the desired behaviour for self connections
@@ -76,6 +77,11 @@ func SetSFTPFingerprints(fp []string) {
 	sftpFingerprints = fp
 }
 
+// SetRenameMode sets the rename mode
+func SetRenameMode(val int) {
+	renameMode = val
+}
+
 // Fs defines the interface for filesystem backends
 type Fs interface {
 	Name() string
@@ -84,7 +90,7 @@ type Fs interface {
 	Lstat(name string) (os.FileInfo, error)
 	Open(name string, offset int64) (File, *pipeat.PipeReaderAt, func(), error)
 	Create(name string, flag int) (File, *PipeWriter, func(), error)
-	Rename(source, target string) error
+	Rename(source, target string) (int, int64, error)
 	Remove(name string, isDir bool) error
 	Mkdir(name string) error
 	Symlink(source, target string) error
@@ -873,7 +879,7 @@ func fsMetadataCheck(fs fsMetadataChecker, storageID, keyPrefix string) error {
 			}
 			if keyPrefix != "" {
 				if !strings.HasPrefix(fsPrefix, "/"+keyPrefix) {
-					fsLog(fs, logger.LevelDebug, "skip metadata check for folder %#v outside prefix %#v",
+					fsLog(fs, logger.LevelDebug, "skip metadata check for folder %q outside prefix %q",
 						folder, keyPrefix)
 					continue
 				}
@@ -898,9 +904,9 @@ func fsMetadataCheck(fs fsMetadataChecker, storageID, keyPrefix string) error {
 				if _, ok := fileNames[k]; !ok {
 					filePath := ensureAbsPath(path.Join(folder, k))
 					if err = plugin.Handler.RemoveMetadata(storageID, filePath); err != nil {
-						fsLog(fs, logger.LevelError, "unable to remove metadata for missing file %#v: %v", filePath, err)
+						fsLog(fs, logger.LevelError, "unable to remove metadata for missing file %q: %v", filePath, err)
 					} else {
-						fsLog(fs, logger.LevelDebug, "metadata removed for missing file %#v", filePath)
+						fsLog(fs, logger.LevelDebug, "metadata removed for missing file %q", filePath)
 					}
 				}
 			}

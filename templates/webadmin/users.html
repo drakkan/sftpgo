@@ -318,8 +318,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                         if (type !== 'display') {
 			                return data;
 		                }
-                        if (row[12] !== ""){
-                            var formattedDate = dateFn(row[12], type);
+                        if (row[13] !== ""){
+                            var formattedDate = dateFn(row[13], type);
                             data = `${data}. Updated at: ${formattedDate}`;
                         }
                         let ellipsisFn = $.fn.dataTable.render.ellipsis(70, true);

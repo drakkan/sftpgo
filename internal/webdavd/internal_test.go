@@ -311,8 +311,9 @@ func (fs *MockOsFs) Remove(name string, isDir bool) error {
 }
 
 // Rename renames (moves) source to target
-func (fs *MockOsFs) Rename(source, target string) error {
-	return os.Rename(source, target)
+func (fs *MockOsFs) Rename(source, target string) (int, int64, error) {
+	err := os.Rename(source, target)
+	return -1, -1, err
 }
 
 // GetMimeType returns the content type

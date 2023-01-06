@@ -220,6 +220,7 @@ func Initialize(c Configuration, isShared int) error {
 	vfs.SetTempPath(c.TempPath)
 	dataprovider.SetTempPath(c.TempPath)
 	vfs.SetAllowSelfConnections(c.AllowSelfConnections)
+	vfs.SetRenameMode(c.RenameMode)
 	dataprovider.SetAllowSelfConnections(c.AllowSelfConnections)
 	transfersChecker = getTransfersChecker(isShared)
 	return nil
@@ -529,6 +530,11 @@ type Configuration struct {
 	// silently ignored for cloud based filesystem such as S3, GCS, Azure Blob. Requests  for changing
 	// modification times are ignored for cloud based filesystem if they are not supported.
 	SetstatMode int `json:"setstat_mode" mapstructure:"setstat_mode"`
+	// RenameMode defines how to handle directory renames. By default, renaming of non-empty directories
+	// is not allowed for cloud storage providers (S3, GCS, Azure Blob). Set to 1 to enable recursive
+	// renames for these providers, they may be slow, there is no atomic rename API like for local
+	// filesystem, so SFTPGo will recursively list the directory contents and do a rename for each entry
+	RenameMode int `json:"rename_mode" mapstructure:"rename_mode"`
 	// TempPath defines the path for temporary files such as those used for atomic uploads or file pipes.
 	// If you set this option you must make sure that the defined path exists, is accessible for writing
 	// by the user running SFTPGo, and is on the same filesystem as the users home directories otherwise

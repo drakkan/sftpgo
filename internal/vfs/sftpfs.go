@@ -427,18 +427,20 @@ func (fs *SFTPFs) Create(name string, flag int) (File, *PipeWriter, func(), erro
 }
 
 // Rename renames (moves) source to target.
-func (fs *SFTPFs) Rename(source, target string) error {
+func (fs *SFTPFs) Rename(source, target string) (int, int64, error) {
 	if source == target {
-		return nil
+		return -1, -1, nil
 	}
 	client, err := fs.conn.getClient()
 	if err != nil {
-		return err
+		return -1, -1, err
 	}
 	if _, ok := client.HasExtension("posix-rename@openssh.com"); ok {
-		return client.PosixRename(source, target)
+		err := client.PosixRename(source, target)
+		return -1, -1, err
 	}
-	return client.Rename(source, target)
+	err = client.Rename(source, target)
+	return -1, -1, err
 }
 
 // Remove removes the named file or (empty) directory.

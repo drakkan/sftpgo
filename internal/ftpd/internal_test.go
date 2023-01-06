@@ -387,11 +387,12 @@ func (fs MockOsFs) Remove(name string, isDir bool) error {
 }
 
 // Rename renames (moves) source to target
-func (fs MockOsFs) Rename(source, target string) error {
+func (fs MockOsFs) Rename(source, target string) (int, int64, error) {
 	if fs.err != nil {
-		return fs.err
+		return -1, -1, fs.err
 	}
-	return os.Rename(source, target)
+	err := os.Rename(source, target)
+	return -1, -1, err
 }
 
 func newMockOsFs(err, statErr error, atomicUpload bool, connectionID, rootDir string) vfs.Fs {

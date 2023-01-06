@@ -116,13 +116,13 @@ func (*OsFs) Create(name string, flag int) (File, *PipeWriter, func(), error) {
 }
 
 // Rename renames (moves) source to target
-func (fs *OsFs) Rename(source, target string) error {
+func (fs *OsFs) Rename(source, target string) (int, int64, error) {
 	if source == target {
-		return nil
+		return -1, -1, nil
 	}
 	err := os.Rename(source, target)
 	if err != nil && isCrossDeviceError(err) {
-		fsLog(fs, logger.LevelError, "cross device error detected while renaming %#v -> %#v. Trying a copy and remove, this could take a long time",
+		fsLog(fs, logger.LevelError, "cross device error detected while renaming %q -> %q. Trying a copy and remove, this could take a long time",
 			source, target)
 		err = fscopy.Copy(source, target, fscopy.Options{
 			OnSymlink: func(src string) fscopy.SymlinkAction {
@@ -131,11 +131,12 @@ func (fs *OsFs) Rename(source, target string) error {
 		})
 		if err != nil {
 			fsLog(fs, logger.LevelError, "cross device copy error: %v", err)
-			return err
+			return -1, -1, err
 		}
-		return os.RemoveAll(source)
+		err = os.RemoveAll(source)
+		return -1, -1, err
 	}
-	return err
+	return -1, -1, err
 }
 
 // Remove removes the named file or (empty) directory.

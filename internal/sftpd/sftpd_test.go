@@ -5166,7 +5166,7 @@ func TestVirtualFoldersQuotaLimit(t *testing.T) {
 			err = client.Rename(path.Join(vdirPath1, testFileName+".rename"), path.Join(vdirPath2, testFileName))
 			assert.Error(t, err)
 			err = client.Rename(path.Join(vdirPath1, testFileName+".rename"), testFileName)
-			assert.Error(t, err)
+			assert.NoError(t, err)
 		}
 		_, err = httpdtest.RemoveUser(user, http.StatusOK)
 		assert.NoError(t, err)
