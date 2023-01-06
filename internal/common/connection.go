@@ -1048,7 +1048,15 @@ func (c *BaseConnection) hasSpaceForRename(fs vfs.Fs, virtualSourcePath, virtual
 		// rename between user root dir and a virtual folder included in user quota
 		return true
 	}
+	if errDst != nil && sourceFolder.IsIncludedInUserQuota() {
+		// rename between a virtual folder included in user quota and the user root dir
+		return true
+	}
 	quotaResult, _ := c.HasSpace(true, false, virtualTargetPath)
+	if quotaResult.HasSpace && quotaResult.QuotaSize == 0 && quotaResult.QuotaFiles == 0 {
+		// no quota restrictions
+		return true
+	}
 	return c.hasSpaceForCrossRename(fs, quotaResult, initialSize, fsSourcePath)
 }
 

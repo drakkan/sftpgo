@@ -520,51 +520,7 @@ func (fs *GCSFs) CheckRootPath(username string, uid int, gid int) bool {
 // ScanRootDirContents returns the number of files contained in the bucket,
 // and their size
 func (fs *GCSFs) ScanRootDirContents() (int, int64, error) {
-	numFiles := 0
-	size := int64(0)
-	query := &storage.Query{Prefix: fs.config.KeyPrefix}
-	err := query.SetAttrSelection(gcsDefaultFieldsSelection)
-	if err != nil {
-		return numFiles, size, err
-	}
-	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxLongTimeout))
-	defer cancelFn()
-
-	bkt := fs.svc.Bucket(fs.config.Bucket)
-	it := bkt.Objects(ctx, query)
-	pager := iterator.NewPager(it, defaultGCSPageSize, "")
-
-	for {
-		var objects []*storage.ObjectAttrs
-		pageToken, err := pager.NextPage(&objects)
-		if err != nil {
-			metric.GCSListObjectsCompleted(err)
-			return numFiles, size, err
-		}
-
-		for _, attrs := range objects {
-			if !attrs.Deleted.IsZero() {
-				continue
-			}
-			isDir := strings.HasSuffix(attrs.Name, "/") || attrs.ContentType == dirMimeType
-			if isDir && attrs.Size == 0 {
-				continue
-			}
-			numFiles++
-			size += attrs.Size
-			if numFiles%1000 == 0 {
-				fsLog(fs, logger.LevelDebug, "root dir scan in progress, files: %d, size: %d", numFiles, size)
-			}
-		}
-
-		objects = nil
-		if pageToken == "" {
-			break
-		}
-	}
-
-	metric.GCSListObjectsCompleted(nil)
-	return numFiles, size, err
+	return fs.GetDirSize(fs.config.KeyPrefix)
 }
 
 func (fs *GCSFs) getFileNamesInPrefix(fsPrefix string) (map[string]bool, error) {
@@ -630,8 +586,54 @@ func (fs *GCSFs) CheckMetadata() error {
 
 // GetDirSize returns the number of files and the size for a folder
 // including any subfolders
-func (*GCSFs) GetDirSize(dirname string) (int, int64, error) {
-	return 0, 0, ErrVfsUnsupported
+func (fs *GCSFs) GetDirSize(dirname string) (int, int64, error) {
+	prefix := fs.getPrefix(dirname)
+	numFiles := 0
+	size := int64(0)
+
+	query := &storage.Query{Prefix: prefix}
+	err := query.SetAttrSelection(gcsDefaultFieldsSelection)
+	if err != nil {
+		return numFiles, size, err
+	}
+	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxLongTimeout))
+	defer cancelFn()
+
+	bkt := fs.svc.Bucket(fs.config.Bucket)
+	it := bkt.Objects(ctx, query)
+	pager := iterator.NewPager(it, defaultGCSPageSize, "")
+
+	for {
+		var objects []*storage.ObjectAttrs
+		pageToken, err := pager.NextPage(&objects)
+		if err != nil {
+			metric.GCSListObjectsCompleted(err)
+			return numFiles, size, err
+		}
+
+		for _, attrs := range objects {
+			if !attrs.Deleted.IsZero() {
+				continue
+			}
+			isDir := strings.HasSuffix(attrs.Name, "/") || attrs.ContentType == dirMimeType
+			if isDir && attrs.Size == 0 {
+				continue
+			}
+			numFiles++
+			size += attrs.Size
+			if numFiles%1000 == 0 {
+				fsLog(fs, logger.LevelDebug, "dirname %q scan in progress, files: %d, size: %d", dirname, numFiles, size)
+			}
+		}
+
+		objects = nil
+		if pageToken == "" {
+			break
+		}
+	}
+
+	metric.GCSListObjectsCompleted(nil)
+	return numFiles, size, err
 }
 
 // GetAtomicUploadPath returns the path to use for an atomic upload.

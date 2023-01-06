@@ -575,44 +575,7 @@ func (fs *AzureBlobFs) CheckRootPath(username string, uid int, gid int) bool {
 // ScanRootDirContents returns the number of files contained in the bucket,
 // and their size
 func (fs *AzureBlobFs) ScanRootDirContents() (int, int64, error) {
-	numFiles := 0
-	size := int64(0)
-
-	pager := fs.containerClient.NewListBlobsFlatPager(&container.ListBlobsFlatOptions{
-		Include: container.ListBlobsInclude{
-			Metadata: true,
-		},
-		Prefix: &fs.config.KeyPrefix,
-	})
-
-	for pager.More() {
-		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
-		defer cancelFn()
-
-		resp, err := pager.NextPage(ctx)
-		if err != nil {
-			metric.AZListObjectsCompleted(err)
-			return numFiles, size, err
-		}
-		for _, blobItem := range resp.ListBlobsFlatSegmentResponse.Segment.BlobItems {
-			if blobItem.Properties != nil {
-				contentType := util.GetStringFromPointer(blobItem.Properties.ContentType)
-				isDir := checkDirectoryMarkers(contentType, blobItem.Metadata)
-				blobSize := util.GetIntFromPointer(blobItem.Properties.ContentLength)
-				if isDir && blobSize == 0 {
-					continue
-				}
-				numFiles++
-				size += blobSize
-				if numFiles%1000 == 0 {
-					fsLog(fs, logger.LevelDebug, "root dir scan in progress, files: %d, size: %d", numFiles, size)
-				}
-			}
-		}
-	}
-	metric.AZListObjectsCompleted(nil)
-
-	return numFiles, size, nil
+	return fs.GetDirSize(fs.config.KeyPrefix)
 }
 
 func (fs *AzureBlobFs) getFileNamesInPrefix(fsPrefix string) (map[string]bool, error) {
@@ -663,8 +626,46 @@ func (fs *AzureBlobFs) CheckMetadata() error {
 
 // GetDirSize returns the number of files and the size for a folder
 // including any subfolders
-func (*AzureBlobFs) GetDirSize(dirname string) (int, int64, error) {
-	return 0, 0, ErrVfsUnsupported
+func (fs *AzureBlobFs) GetDirSize(dirname string) (int, int64, error) {
+	numFiles := 0
+	size := int64(0)
+	prefix := fs.getPrefix(dirname)
+
+	pager := fs.containerClient.NewListBlobsFlatPager(&container.ListBlobsFlatOptions{
+		Include: container.ListBlobsInclude{
+			Metadata: true,
+		},
+		Prefix: &prefix,
+	})
+
+	for pager.More() {
+		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
+		defer cancelFn()
+
+		resp, err := pager.NextPage(ctx)
+		if err != nil {
+			metric.AZListObjectsCompleted(err)
+			return numFiles, size, err
+		}
+		for _, blobItem := range resp.ListBlobsFlatSegmentResponse.Segment.BlobItems {
+			if blobItem.Properties != nil {
+				contentType := util.GetStringFromPointer(blobItem.Properties.ContentType)
+				isDir := checkDirectoryMarkers(contentType, blobItem.Metadata)
+				blobSize := util.GetIntFromPointer(blobItem.Properties.ContentLength)
+				if isDir && blobSize == 0 {
+					continue
+				}
+				numFiles++
+				size += blobSize
+				if numFiles%1000 == 0 {
+					fsLog(fs, logger.LevelDebug, "dirname %q scan in progress, files: %d, size: %d", dirname, numFiles, size)
+				}
+			}
+		}
+	}
+	metric.AZListObjectsCompleted(nil)
+
+	return numFiles, size, nil
 }
 
 // GetAtomicUploadPath returns the path to use for an atomic upload.

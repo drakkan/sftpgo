@@ -9,21 +9,21 @@ require (
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/alexedwards/argon2id v0.0.0-20211130144151-3585854a6387
 	github.com/aws/aws-sdk-go-v2 v1.17.3
-	github.com/aws/aws-sdk-go-v2/config v1.18.7
-	github.com/aws/aws-sdk-go-v2/credentials v1.13.7
+	github.com/aws/aws-sdk-go-v2/config v1.18.8
+	github.com/aws/aws-sdk-go-v2/credentials v1.13.8
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.21
-	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.46
-	github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.13.26
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.29.6
-	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.17.0
-	github.com/aws/aws-sdk-go-v2/service/sts v1.17.7
+	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.47
+	github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.14.0
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.30.0
+	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.18.0
+	github.com/aws/aws-sdk-go-v2/service/sts v1.18.0
 	github.com/cockroachdb/cockroach-go/v2 v2.2.20
-	github.com/coreos/go-oidc/v3 v3.4.0
+	github.com/coreos/go-oidc/v3 v3.5.0
 	github.com/drakkan/webdav v0.0.0-20221101181759-17ed21f9337b
 	github.com/eikenb/pipeat v0.0.0-20210730190139-06b3e6902001
-	github.com/fclairamb/ftpserverlib v0.20.1-0.20221012093027-95be4ae0c9a6
+	github.com/fclairamb/ftpserverlib v0.20.1-0.20230104020606-0b1a04eec221
 	github.com/fclairamb/go-log v0.4.1
-	github.com/go-acme/lego/v4 v4.9.1
+	github.com/go-acme/lego/v4 v4.9.2-0.20230104103215-fd54758bba4c
 	github.com/go-chi/chi/v5 v5.0.8
 	github.com/go-chi/jwtauth/v5 v5.1.0
 	github.com/go-chi/render v1.0.2
@@ -34,10 +34,10 @@ require (
 	github.com/grandcat/zeroconf v1.0.0
 	github.com/hashicorp/go-hclog v1.4.0
 	github.com/hashicorp/go-plugin v1.4.8
-	github.com/hashicorp/go-retryablehttp v0.7.1
+	github.com/hashicorp/go-retryablehttp v0.7.2
 	github.com/jackc/pgx/v5 v5.2.0
 	github.com/jlaffaye/ftp v0.0.0-20201112195030-9aae4d151126
-	github.com/klauspost/compress v1.15.13
+	github.com/klauspost/compress v1.15.14
 	github.com/lestrrat-go/jwx/v2 v2.0.8
 	github.com/lithammer/shortuuid/v3 v3.0.7
 	github.com/mattn/go-sqlite3 v1.14.16
@@ -67,20 +67,20 @@ require (
 	go.etcd.io/bbolt v1.3.6
 	go.uber.org/automaxprocs v1.5.1
 	gocloud.dev v0.27.0
-	golang.org/x/crypto v0.3.0
-	golang.org/x/net v0.4.0
-	golang.org/x/oauth2 v0.3.0
-	golang.org/x/sys v0.3.0
+	golang.org/x/crypto v0.5.0
+	golang.org/x/net v0.5.0
+	golang.org/x/oauth2 v0.4.0
+	golang.org/x/sys v0.4.0
 	golang.org/x/time v0.3.0
-	google.golang.org/api v0.105.0
+	google.golang.org/api v0.106.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
 
 require (
 	cloud.google.com/go v0.107.0 // indirect
-	cloud.google.com/go/compute v1.14.0 // indirect
+	cloud.google.com/go/compute v1.15.0 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
-	cloud.google.com/go/iam v0.9.0 // indirect
+	cloud.google.com/go/iam v0.10.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.1.2 // indirect
 	github.com/ajg/form v1.5.1 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.4.10 // indirect
@@ -92,8 +92,8 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.1.22 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.21 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.13.21 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.11.28 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.13.11 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.12.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.14.0 // indirect
 	github.com/aws/smithy-go v1.13.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/boombuler/barcode v1.0.1 // indirect
@@ -106,6 +106,7 @@ require (
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.1.0 // indirect
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
+	github.com/go-jose/go-jose/v3 v3.0.0 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-test/deep v1.1.0 // indirect
 	github.com/goccy/go-json v0.10.0 // indirect
@@ -156,21 +157,19 @@ require (
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	golang.org/x/mod v0.7.0 // indirect
-	golang.org/x/text v0.5.0 // indirect
-	golang.org/x/tools v0.4.0 // indirect
+	golang.org/x/text v0.6.0 // indirect
+	golang.org/x/tools v0.5.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20221227171554-f9683d7f8bef // indirect
+	google.golang.org/genproto v0.0.0-20230106154932-a12b697841d9 // indirect
 	google.golang.org/grpc v1.51.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
-	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
 replace (
-	github.com/fclairamb/ftpserverlib => github.com/drakkan/ftpserverlib v0.0.0-20221203115213-ba73c775a9fd
 	github.com/jlaffaye/ftp => github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9
-	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20221117111000-a0321143587c
+	golang.org/x/crypto => github.com/drakkan/crypto v0.0.0-20230106095953-5417b4dfde62
 )
