@@ -49,7 +49,7 @@
 
 jQuery.fn.dataTable.render.ellipsis = function ( cutoff, wordbreak, escapeHtml ) {
 	var esc = function ( t ) {
-		return t
+		return ('' + t)
 			.replace( /&/g, '&amp;' )
 			.replace( /</g, '&lt;' )
 			.replace( />/g, '&gt;' )
@@ -63,12 +63,18 @@ jQuery.fn.dataTable.render.ellipsis = function ( cutoff, wordbreak, escapeHtml )
 		}
 
 		if ( typeof d !== 'number' && typeof d !== 'string' ) {
+			if ( escapeHtml ) {
+				return esc( d );
+			}
 			return d;
 		}
 
 		d = d.toString(); // cast numbers
 
 		if ( d.length <= cutoff ) {
+			if ( escapeHtml ) {
+				return esc( d );
+			}
 			return d;
 		}
 
