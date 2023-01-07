@@ -174,7 +174,7 @@ func (c *scpCommand) handleCreateDir(fs vfs.Fs, dirPath string) error {
 	if err != nil {
 		return err
 	}
-	c.connection.Log(logger.LevelDebug, "created dir %#v", dirPath)
+	c.connection.Log(logger.LevelDebug, "created dir %q", dirPath)
 	return nil
 }
 

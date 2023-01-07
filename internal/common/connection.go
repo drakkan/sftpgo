@@ -570,6 +570,20 @@ func (c *BaseConnection) copyFile(virtualSourcePath, virtualTargetPath string, s
 	if ok, _ := c.User.IsFileAllowed(virtualTargetPath); !ok {
 		return fmt.Errorf("file %q is not allowed: %w", virtualTargetPath, c.GetPermissionDeniedError())
 	}
+	if c.isSameResource(virtualSourcePath, virtualSourcePath) {
+		fs, fsTargetPath, err := c.GetFsAndResolvedPath(virtualTargetPath)
+		if err != nil {
+			return err
+		}
+		if copier, ok := fs.(vfs.FsFileCopier); ok {
+			_, fsSourcePath, err := c.GetFsAndResolvedPath(virtualSourcePath)
+			if err != nil {
+				return err
+			}
+			return copier.CopyFile(fsSourcePath, fsTargetPath, srcSize)
+		}
+	}
+
 	reader, rCancelFn, err := getFileReader(c, virtualSourcePath)
 	if err != nil {
 		return fmt.Errorf("unable to get reader for path %q: %w", virtualSourcePath, err)
@@ -835,7 +849,7 @@ func (c *BaseConnection) doStatInternal(virtualPath string, mode int, checkFileP
 
 	fs, fsPath, err := c.GetFsAndResolvedPath(virtualPath)
 	if err != nil {
-		return info, err
+		return nil, err
 	}
 
 	if mode == 1 {
@@ -847,7 +861,7 @@ func (c *BaseConnection) doStatInternal(virtualPath string, mode int, checkFileP
 		if !fs.IsNotExist(err) {
 			c.Log(logger.LevelWarn, "stat error for path %q: %+v", virtualPath, err)
 		}
-		return info, c.GetFsError(fs, err)
+		return nil, c.GetFsError(fs, err)
 	}
 	if convertResult && vfs.IsCryptOsFs(fs) {
 		info = fs.(*vfs.CryptFs).ConvertFileInfo(info)
@@ -1108,7 +1122,7 @@ func (c *BaseConnection) checkFolderRename(fsSrc, fsDst vfs.Fs, fsSourcePath, fs
 func (c *BaseConnection) isRenamePermitted(fsSrc, fsDst vfs.Fs, fsSourcePath, fsTargetPath, virtualSourcePath,
 	virtualTargetPath string, fi os.FileInfo,
 ) bool {
-	if !c.isSameResourceRename(virtualSourcePath, virtualTargetPath) {
+	if !c.isSameResource(virtualSourcePath, virtualTargetPath) {
 		c.Log(logger.LevelInfo, "rename %#q->%q is not allowed: the paths must be on the same resource",
 			virtualSourcePath, virtualTargetPath)
 		return false
@@ -1359,7 +1373,7 @@ func (c *BaseConnection) HasSpace(checkFiles, getUsage bool, requestPath string)
 	return result, transferQuota
 }
 
-func (c *BaseConnection) isSameResourceRename(virtualSourcePath, virtualTargetPath string) bool {
+func (c *BaseConnection) isSameResource(virtualSourcePath, virtualTargetPath string) bool {
 	sourceFolder, errSrc := c.User.GetVirtualFolderForPath(virtualSourcePath)
 	dstFolder, errDst := c.User.GetVirtualFolderForPath(virtualTargetPath)
 	if errSrc != nil && errDst != nil {

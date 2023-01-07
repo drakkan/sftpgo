@@ -133,6 +133,12 @@ type fsMetadataChecker interface {
 	getFileNamesInPrefix(fsPrefix string) (map[string]bool, error)
 }
 
+// FsFileCopier is a Fs that implements the CopyFile method.
+type FsFileCopier interface {
+	Fs
+	CopyFile(source, target string, srcSize int64) error
+}
+
 // File defines an interface representing a SFTPGo file
 type File interface {
 	io.Reader

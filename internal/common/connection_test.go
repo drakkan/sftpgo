@@ -627,3 +627,21 @@ func TestConnectionKeepAlive(t *testing.T) {
 	keepConnectionAlive(conn, done, 50*time.Millisecond)
 	assert.Greater(t, conn.GetLastActivity(), lastActivity)
 }
+
+func TestFsFileCopier(t *testing.T) {
+	fs := vfs.Fs(&vfs.AzureBlobFs{})
+	_, ok := fs.(vfs.FsFileCopier)
+	assert.True(t, ok)
+	fs = vfs.Fs(&vfs.OsFs{})
+	_, ok = fs.(vfs.FsFileCopier)
+	assert.False(t, ok)
+	fs = vfs.Fs(&vfs.SFTPFs{})
+	_, ok = fs.(vfs.FsFileCopier)
+	assert.False(t, ok)
+	fs = vfs.Fs(&vfs.GCSFs{})
+	_, ok = fs.(vfs.FsFileCopier)
+	assert.True(t, ok)
+	fs = vfs.Fs(&vfs.S3Fs{})
+	_, ok = fs.(vfs.FsFileCopier)
+	assert.True(t, ok)
+}

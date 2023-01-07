@@ -709,6 +709,11 @@ func (fs *AzureBlobFs) ResolvePath(virtualPath string) (string, error) {
 	return fs.Join(fs.config.KeyPrefix, strings.TrimPrefix(virtualPath, "/")), nil
 }
 
+// CopyFile implements the FsFileCopier interface
+func (fs *AzureBlobFs) CopyFile(source, target string, srcSize int64) error {
+	return fs.copyFileInternal(source, target)
+}
+
 func (fs *AzureBlobFs) headObject(name string) (blob.GetPropertiesResponse, error) {
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
 	defer cancelFn()

@@ -687,6 +687,11 @@ func (fs *GCSFs) ResolvePath(virtualPath string) (string, error) {
 	return fs.Join(fs.config.KeyPrefix, strings.TrimPrefix(virtualPath, "/")), nil
 }
 
+// CopyFile implements the FsFileCopier interface
+func (fs *GCSFs) CopyFile(source, target string, srcSize int64) error {
+	return fs.copyFileInternal(source, target)
+}
+
 func (fs *GCSFs) resolve(name, prefix, contentType string) (string, bool) {
 	result := strings.TrimPrefix(name, prefix)
 	isDir := strings.HasSuffix(result, "/")
