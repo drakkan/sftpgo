@@ -68,10 +68,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                         <div class="col-md-12 form_field_tpl_users_outer">
                             <div class="row form_field_tpl_user_outer_row">
                                 <div class="form-group col-md-3">
-                                    <input type="text" class="form-control" id="idTplUsername0" name="tpl_username" placeholder="Username" maxlength="255">
+                                    <input type="text" class="form-control" id="idTplUsername0" name="tpl_username" placeholder="Username" maxlength="255" spellcheck="false">
                                 </div>
                                 <div class="form-group col-md-3">
-                                    <input type="password" class="form-control" id="idTplPassword0" name="tpl_password" placeholder="Password" autocomplete="new-password">
+                                    <input type="password" class="form-control" id="idTplPassword0" name="tpl_password" placeholder="Password" autocomplete="new-password" spellcheck="false">
                                 </div>
                                 <div class="form-group col-md-5">
                                     <textarea class="form-control" id="idTplPublicKey0" name="tpl_public_keys" rows="5"
@@ -99,7 +99,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                 <label for="idUsername" class="col-sm-2 col-form-label">Username</label>
                 <div class="col-sm-10">
                     <input type="text" class="form-control" id="idUsername" name="username" placeholder=""
-                        value="{{.User.Username}}" maxlength="255" autocomplete="nope" required {{if ge .Mode 2}}readonly{{end}}>
+                        value="{{.User.Username}}" maxlength="255" autocomplete="nope" spellcheck="false" required {{if ge .Mode 2}}readonly{{end}}>
                 </div>
             </div>
             {{end}}
@@ -125,7 +125,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
             <div class="form-group row">
                 <label for="idPassword" class="col-sm-2 col-form-label">Password</label>
                 <div class="col-sm-10">
-                    <input type="password" class="form-control" id="idPassword" name="password" value="{{.User.Password}}" placeholder="" autocomplete="new-password">
+                    <input type="password" class="form-control" id="idPassword" name="password" value="{{.User.Password}}" placeholder="" autocomplete="new-password" spellcheck="false">
                 </div>
             </div>
 
@@ -353,7 +353,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                                 <label for="idEmail" class="col-sm-2 col-form-label">Email</label>
                                 <div class="col-sm-10">
                                     <input type="text" class="form-control" id="idEmail" name="email" placeholder=""
-                                        value="{{.User.Email}}" maxlength="255" autocomplete="nope">
+                                        value="{{.User.Email}}" maxlength="255" autocomplete="nope" spellcheck="false">
                                 </div>
                             </div>
 
@@ -1160,10 +1160,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
         $(".form_field_tpl_users_outer").append(`
                 <div class="row form_field_tpl_user_outer_row">
                     <div class="form-group col-md-3">
-                        <input type="text" class="form-control" id="idTplUsername${index}" name="tpl_username" placeholder="Username" maxlength="255">
+                        <input type="text" class="form-control" id="idTplUsername${index}" name="tpl_username" placeholder="Username" maxlength="255" spellcheck="false">
                     </div>
                     <div class="form-group col-md-3">
-                        <input type="password" class="form-control" id="idTplPassword${index}" name="tpl_password" placeholder="Password" autocomplete="new-password">
+                        <input type="password" class="form-control" id="idTplPassword${index}" name="tpl_password" placeholder="Password" autocomplete="new-password" spellcheck="false">
                     </div>
                     <div class="form-group col-md-5">
                         <textarea class="form-control" id="idTplPublicKey${index}" name="tpl_public_keys" rows="5"
