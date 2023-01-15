@@ -6172,6 +6172,8 @@ components:
           description: 'Maximum total data transfer as MB'
         filters:
           $ref: '#/components/schemas/BaseUserFilters'
+        filesystem:
+          $ref: '#/components/schemas/FilesystemConfig'
     Role:
       type: object
       properties:
