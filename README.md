@@ -324,7 +324,7 @@ HTTP/S backend allows you to write your own custom storage backend by implementi
 
 Adding new storage backends is quite easy:
 
-- implement the [Fs interface](./vfs/vfs.go#L28 "interface for filesystem backends").
+- implement the [Fs interface](./internal/vfs/vfs.go#L86 "interface for filesystem backends").
 - update the user method `GetFilesystem` to return the new backend
 - update the web interface and the REST API CLI
 - add the flags for the new storage backed to the `portable` mode
