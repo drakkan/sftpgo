@@ -100,7 +100,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                 <label for="idHTTPUsername" class="col-sm-2 col-form-label">Username</label>
                 <div class="col-sm-3">
                     <input type="text" class="form-control" id="idHTTPUsername" name="http_username" placeholder=""
-                    aria-describedby="usernameHelpBlock" value="{{.Action.Options.HTTPConfig.Username}}" maxlength="255">
+                    aria-describedby="usernameHelpBlock" value="{{.Action.Options.HTTPConfig.Username}}" maxlength="255" spellcheck="false">
                     <small id="httpBodyHelpBlock" class="form-text text-muted">
                         Placeholders are supported
                     </small>
@@ -108,7 +108,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                 <div class="col-sm-2"></div>
                 <label for="idHTTPPassword" class="col-sm-2 col-form-label">Password</label>
                 <div class="col-sm-3">
-                    <input type="password" class="form-control" id="idHTTPPassword" name="http_password" placeholder="" autocomplete="new-password"
+                    <input type="password" class="form-control" id="idHTTPPassword" name="http_password" placeholder="" autocomplete="new-password" spellcheck="false"
                         value="{{if .Action.Options.HTTPConfig.Password.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.Action.Options.HTTPConfig.Password.GetPayload}}{{end}}">
                 </div>
             </div>
@@ -124,10 +124,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                             {{range $idx, $val := .Action.Options.HTTPConfig.Headers}}
                             <div class="row form_field_http_headers_outer_row">
                                 <div class="form-group col-md-5">
-                                    <input type="text" class="form-control" id="idHTTPHeaderKey{{$idx}}" name="http_header_key{{$idx}}" placeholder="Enter key" value="{{$val.Key}}">
+                                    <input type="text" class="form-control" id="idHTTPHeaderKey{{$idx}}" name="http_header_key{{$idx}}" placeholder="Enter key" value="{{$val.Key}}" spellcheck="false">
                                 </div>
                                 <div class="form-group col-md-5">
-                                    <input type="text" class="form-control" id="idHTTPHeaderVal{{$idx}}" name="http_header_val{{$idx}}" placeholder="Enter value" value="{{$val.Value}}">
+                                    <input type="text" class="form-control" id="idHTTPHeaderVal{{$idx}}" name="http_header_val{{$idx}}" placeholder="Enter value" value="{{$val.Value}}" spellcheck="false">
                                 </div>
                                 <div class="form-group col-md-1"></div>
                                 <div class="form-group col-md-1">
@@ -139,10 +139,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                             {{else}}
                             <div class="row form_field_http_headers_outer_row">
                                 <div class="form-group col-md-5">
-                                    <input type="text" class="form-control" id="idHTTPHeaderKey0" name="http_header_key0" placeholder="Enter key" value="">
+                                    <input type="text" class="form-control" id="idHTTPHeaderKey0" name="http_header_key0" placeholder="Enter key" spellcheck="false" value="">
                                 </div>
                                 <div class="form-group col-md-5">
-                                    <input type="text" class="form-control" id="idHTTPHeaderVal0" name="http_header_val0" placeholder="Enter value" value="">
+                                    <input type="text" class="form-control" id="idHTTPHeaderVal0" name="http_header_val0" placeholder="Enter value" spellcheck="false" value="">
                                 </div>
                                 <div class="form-group col-md-1"></div>
                                 <div class="form-group col-md-1">
@@ -174,10 +174,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                             {{range $idx, $val := .Action.Options.HTTPConfig.QueryParameters}}
                             <div class="row form_field_http_query_outer_row">
                                 <div class="form-group col-md-5">
-                                    <input type="text" class="form-control" id="idHTTPQueryKey{{$idx}}" name="http_query_key{{$idx}}" placeholder="Enter key" value="{{$val.Key}}">
+                                    <input type="text" class="form-control" id="idHTTPQueryKey{{$idx}}" name="http_query_key{{$idx}}" placeholder="Enter key" spellcheck="false" value="{{$val.Key}}">
                                 </div>
                                 <div class="form-group col-md-5">
-                                    <input type="text" class="form-control" id="idHTTPQueryVal{{$idx}}" name="http_query_val{{$idx}}" placeholder="Enter value" value="{{$val.Value}}">
+                                    <input type="text" class="form-control" id="idHTTPQueryVal{{$idx}}" name="http_query_val{{$idx}}" placeholder="Enter value" spellcheck="false" value="{{$val.Value}}">
                                 </div>
                                 <div class="form-group col-md-1"></div>
                                 <div class="form-group col-md-1">
@@ -189,10 +189,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                             {{else}}
                             <div class="row form_field_http_query_outer_row">
                                 <div class="form-group col-md-5">
-                                    <input type="text" class="form-control" id="idHTTPQueryKey0" name="http_query_key0" placeholder="Enter key" value="">
+                                    <input type="text" class="form-control" id="idHTTPQueryKey0" name="http_query_key0" placeholder="Enter key" spellcheck="false" value="">
                                 </div>
                                 <div class="form-group col-md-5">
-                                    <input type="text" class="form-control" id="idHTTPQueryVal0" name="http_query_val0" placeholder="Enter value" value="">
+                                    <input type="text" class="form-control" id="idHTTPQueryVal0" name="http_query_val0" placeholder="Enter value" spellcheck="false" value="">
                                 </div>
                                 <div class="form-group col-md-1"></div>
                                 <div class="form-group col-md-1">
