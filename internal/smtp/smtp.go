@@ -17,13 +17,14 @@ package smtp
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"html/template"
 	"path/filepath"
 	"time"
 
-	mail "github.com/xhit/go-simple-mail/v2"
+	"github.com/wneessen/go-mail"
 
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/util"
@@ -49,14 +50,13 @@ const (
 )
 
 var (
-	smtpServer     *mail.SMTPServer
-	from           string
+	config         *Config
 	emailTemplates = make(map[string]*template.Template)
 )
 
 // IsEnabled returns true if an SMTP server is configured
 func IsEnabled() bool {
-	return smtpServer != nil
+	return config != nil
 }
 
 // Config defines the SMTP configuration to use to send emails
@@ -91,7 +91,7 @@ type Config struct {
 
 // Initialize initialized and validates the SMTP configuration
 func (c *Config) Initialize(configDir string) error {
-	smtpServer = nil
+	config = nil
 	if c.Host == "" {
 		logger.Debug(logSender, "", "configuration disabled, email capabilities will not be available")
 		return nil
@@ -105,53 +105,51 @@ func (c *Config) Initialize(configDir string) error {
 	if c.Encryption < 0 || c.Encryption > 2 {
 		return fmt.Errorf("smtp: invalid encryption %v", c.Encryption)
 	}
+	if c.From == "" && c.User == "" {
+		return fmt.Errorf(`smtp: from address and user cannot both be empty`)
+	}
 	templatesPath := util.FindSharedDataPath(c.TemplatesPath, configDir)
 	if templatesPath == "" {
 		return fmt.Errorf("smtp: invalid templates path %#v", templatesPath)
 	}
 	loadTemplates(filepath.Join(templatesPath, templateEmailDir))
-	from = c.From
-	smtpServer = mail.NewSMTPClient()
-	smtpServer.Host = c.Host
-	smtpServer.Port = c.Port
-	smtpServer.Username = c.User
-	smtpServer.Password = c.Password
-	smtpServer.Authentication = c.getAuthType()
-	smtpServer.Encryption = c.getEncryption()
-	smtpServer.KeepAlive = false
-	smtpServer.ConnectTimeout = 10 * time.Second
-	smtpServer.SendTimeout = 120 * time.Second
-	if c.Domain != "" {
-		smtpServer.Helo = c.Domain
-	}
-	logger.Debug(logSender, "", "configuration successfully initialized, host: %#v, port: %v, username: %#v, auth: %v, encryption: %v, helo: %#v",
-		smtpServer.Host, smtpServer.Port, smtpServer.Username, smtpServer.Authentication, smtpServer.Encryption, smtpServer.Helo)
+	config = c
+	logger.Debug(logSender, "", "configuration successfully initialized, host: %q, port: %d, username: %q, auth: %d, encryption: %d, helo: %q",
+		config.Host, config.Port, config.User, config.AuthType, config.Encryption, config.Domain)
 	return nil
 }
 
-func (c *Config) getEncryption() mail.Encryption {
+func (c *Config) getMailClientOptions() []mail.Option {
+	options := []mail.Option{mail.WithPort(c.Port)}
+
 	switch c.Encryption {
 	case 1:
-		return mail.EncryptionSSLTLS
+		options = append(options, mail.WithSSL())
 	case 2:
-		return mail.EncryptionSTARTTLS
+		options = append(options, mail.WithTLSPolicy(mail.TLSMandatory))
 	default:
-		return mail.EncryptionNone
+		options = append(options, mail.WithTLSPolicy(mail.NoTLS))
 	}
-}
-
-func (c *Config) getAuthType() mail.AuthType {
-	if c.User == "" && c.Password == "" {
-		return mail.AuthNone
+	if config.User != "" {
+		options = append(options, mail.WithUsername(config.User))
 	}
-	switch c.AuthType {
-	case 1:
-		return mail.AuthLogin
-	case 2:
-		return mail.AuthCRAMMD5
-	default:
-		return mail.AuthPlain
+	if config.Password != "" {
+		options = append(options, mail.WithPassword(config.Password))
 	}
+	if config.User != "" || config.Password != "" {
+		switch config.AuthType {
+		case 1:
+			options = append(options, mail.WithSMTPAuth(mail.SMTPAuthLogin))
+		case 2:
+			options = append(options, mail.WithSMTPAuth(mail.SMTPAuthCramMD5))
+		default:
+			options = append(options, mail.WithSMTPAuth(mail.SMTPAuthPlain))
+		}
+	}
+	if config.Domain != "" {
+		options = append(options, mail.WithHELO(config.Domain))
+	}
+	return options
 }
 
 func loadTemplates(templatesPath string) {
@@ -168,7 +166,7 @@ func loadTemplates(templatesPath string) {
 
 // RenderPasswordResetTemplate executes the password reset template
 func RenderPasswordResetTemplate(buf *bytes.Buffer, data any) error {
-	if smtpServer == nil {
+	if !IsEnabled() {
 		return errors.New("smtp: not configured")
 	}
 	return emailTemplates[templatePasswordReset].Execute(buf, data)
@@ -176,46 +174,51 @@ func RenderPasswordResetTemplate(buf *bytes.Buffer, data any) error {
 
 // RenderPasswordExpirationTemplate executes the password expiration template
 func RenderPasswordExpirationTemplate(buf *bytes.Buffer, data any) error {
-	if smtpServer == nil {
+	if !IsEnabled() {
 		return errors.New("smtp: not configured")
 	}
 	return emailTemplates[templatePasswordExpiration].Execute(buf, data)
 }
 
 // SendEmail tries to send an email using the specified parameters.
-func SendEmail(to []string, subject, body string, contentType EmailContentType, attachments ...mail.File) error {
-	if smtpServer == nil {
+func SendEmail(to []string, subject, body string, contentType EmailContentType, attachments ...*mail.File) error {
+	if !IsEnabled() {
 		return errors.New("smtp: not configured")
 	}
-	if len(to) == 0 {
-		return errors.New("smtp: cannot send an email without recipients")
-	}
-	smtpClient, err := smtpServer.Connect()
-	if err != nil {
-		return fmt.Errorf("smtp: unable to connect: %w", err)
-	}
+	m := mail.NewMsg()
 
-	email := mail.NewMSG()
-	email.AllowDuplicateAddress = true
-	if from != "" {
-		email.SetFrom(from)
+	var from string
+	if config.From != "" {
+		from = config.From
 	} else {
-		email.SetFrom(smtpServer.Username)
+		from = config.User
 	}
-	email.AddTo(to...).SetSubject(subject)
+	if err := m.From(from); err != nil {
+		return fmt.Errorf("invalid from address: %w", err)
+	}
+	if err := m.To(to...); err != nil {
+		return err
+	}
+	m.Subject(subject)
+	m.SetDate()
+	m.SetMessageID()
+	m.SetAttachements(attachments)
+
 	switch contentType {
 	case EmailContentTypeTextPlain:
-		email.SetBody(mail.TextPlain, body)
+		m.SetBodyString(mail.TypeTextPlain, body)
 	case EmailContentTypeTextHTML:
-		email.SetBody(mail.TextHTML, body)
+		m.SetBodyString(mail.TypeTextHTML, body)
 	default:
 		return fmt.Errorf("smtp: unsupported body content type %v", contentType)
 	}
-	for _, attachment := range attachments {
-		email.Attach(&attachment)
+
+	c, err := mail.NewClient(config.Host, config.getMailClientOptions()...)
+	if err != nil {
+		return fmt.Errorf("unable to create mail client: %w", err)
 	}
-	if email.Error != nil {
-		return fmt.Errorf("smtp: email error: %w", email.Error)
-	}
-	return email.Send(smtpClient)
+	ctx, cancelFn := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancelFn()
+
+	return c.DialAndSendWithContext(ctx, m)
 }

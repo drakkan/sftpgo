@@ -5973,6 +5973,7 @@ func TestNamingRules(t *testing.T) {
 	smtpCfg := smtp.Config{
 		Host:          "127.0.0.1",
 		Port:          3525,
+		From:          "notification@example.com",
 		TemplatesPath: "templates",
 	}
 	err := smtpCfg.Initialize(configDir)
@@ -11655,6 +11656,7 @@ func TestMaxSessions(t *testing.T) {
 	smtpCfg := smtp.Config{
 		Host:          "127.0.0.1",
 		Port:          3525,
+		From:          "notification@example.com",
 		TemplatesPath: "templates",
 	}
 	err = smtpCfg.Initialize(configDir)
@@ -11732,6 +11734,7 @@ func TestSFTPLoopError(t *testing.T) {
 	smtpCfg := smtp.Config{
 		Host:          "127.0.0.1",
 		Port:          3525,
+		From:          "notification@example.com",
 		TemplatesPath: "templates",
 	}
 	err = smtpCfg.Initialize(configDir)
@@ -21672,6 +21675,7 @@ func TestAdminForgotPassword(t *testing.T) {
 	smtpCfg := smtp.Config{
 		Host:          "127.0.0.1",
 		Port:          3525,
+		From:          "notification@example.com",
 		TemplatesPath: "templates",
 	}
 	err := smtpCfg.Initialize(configDir)
@@ -21777,6 +21781,7 @@ func TestAdminForgotPassword(t *testing.T) {
 	smtpCfg = smtp.Config{
 		Host:          "127.0.0.1",
 		Port:          3526,
+		From:          "notification@example.com",
 		TemplatesPath: "templates",
 	}
 	err = smtpCfg.Initialize(configDir)
@@ -21825,6 +21830,7 @@ func TestUserForgotPassword(t *testing.T) {
 	smtpCfg := smtp.Config{
 		Host:          "127.0.0.1",
 		Port:          3525,
+		From:          "notification@example.com",
 		TemplatesPath: "templates",
 	}
 	err := smtpCfg.Initialize(configDir)
@@ -21975,6 +21981,7 @@ func TestAPIForgotPassword(t *testing.T) {
 	smtpCfg := smtp.Config{
 		Host:          "127.0.0.1",
 		Port:          3525,
+		From:          "notification@example.com",
 		TemplatesPath: "templates",
 	}
 	err := smtpCfg.Initialize(configDir)

@@ -41,7 +41,7 @@ import (
 	"github.com/robfig/cron/v3"
 	"github.com/rs/xid"
 	"github.com/sftpgo/sdk"
-	mail "github.com/xhit/go-simple-mail/v2"
+	"github.com/wneessen/go-mail"
 
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
@@ -563,16 +563,30 @@ func (p *EventParams) getCompressedDataRetentionReport() ([]byte, error) {
 		return nil, errors.New("no data retention report available")
 	}
 	var b bytes.Buffer
-	wr := zip.NewWriter(&b)
+	if _, err := p.writeCompressedDataRetentionReports(&b); err != nil {
+		return nil, err
+	}
+	return b.Bytes(), nil
+}
+
+func (p *EventParams) writeCompressedDataRetentionReports(w io.Writer) (int64, error) {
+	var n int64
+	wr := zip.NewWriter(w)
+
 	for _, check := range p.retentionChecks {
-		if size := int64(len(b.Bytes())); size > maxAttachmentsSize {
-			eventManagerLog(logger.LevelError, "unable to get retention report, size too large: %s", util.ByteCountIEC(size))
-			return nil, fmt.Errorf("unable to get retention report, size too large: %s", util.ByteCountIEC(size))
-		}
 		data, err := getCSVRetentionReport(check.Results)
 		if err != nil {
-			return nil, fmt.Errorf("unable to get CSV report: %w", err)
+			return n, fmt.Errorf("unable to get CSV report: %w", err)
 		}
+		dataSize := int64(len(data))
+		n += dataSize
+		// we suppose a 3:1 compression ratio
+		if n > (maxAttachmentsSize * 3) {
+			eventManagerLog(logger.LevelError, "unable to get retention report, size too large: %s",
+				util.ByteCountIEC(n))
+			return n, fmt.Errorf("unable to get retention report, size too large: %s", util.ByteCountIEC(n))
+		}
+
 		fh := &zip.FileHeader{
 			Name:     fmt.Sprintf("%s-%s.csv", check.ActionName, check.Username),
 			Method:   zip.Deflate,
@@ -580,28 +594,28 @@ func (p *EventParams) getCompressedDataRetentionReport() ([]byte, error) {
 		}
 		f, err := wr.CreateHeader(fh)
 		if err != nil {
-			return nil, fmt.Errorf("unable to create zip header for file %q: %w", fh.Name, err)
+			return n, fmt.Errorf("unable to create zip header for file %q: %w", fh.Name, err)
 		}
-		_, err = io.Copy(f, bytes.NewBuffer(data))
+		_, err = io.CopyN(f, bytes.NewBuffer(data), dataSize)
 		if err != nil {
-			return nil, fmt.Errorf("unable to write content to zip file %q: %w", fh.Name, err)
+			return n, fmt.Errorf("unable to write content to zip file %q: %w", fh.Name, err)
 		}
 	}
 	if err := wr.Close(); err != nil {
-		return nil, fmt.Errorf("unable to close zip writer: %w", err)
+		return n, fmt.Errorf("unable to close zip writer: %w", err)
 	}
-	return b.Bytes(), nil
+	return n, nil
 }
 
-func (p *EventParams) getRetentionReportsAsMailAttachment() (mail.File, error) {
-	var result mail.File
-	data, err := p.getCompressedDataRetentionReport()
-	if err != nil {
-		return result, err
+func (p *EventParams) getRetentionReportsAsMailAttachment() (*mail.File, error) {
+	if len(p.retentionChecks) == 0 {
+		return nil, errors.New("no data retention report available")
 	}
-	result.Name = "retention-reports.zip"
-	result.Data = data
-	return result, nil
+	return &mail.File{
+		Name:   "retention-reports.zip",
+		Header: make(map[string][]string),
+		Writer: p.writeCompressedDataRetentionReports,
+	}, nil
 }
 
 func (p *EventParams) getStringReplacements(addObjectData bool) []string {
@@ -905,34 +919,24 @@ func writeFileContent(conn *BaseConnection, virtualPath string, w io.Writer) err
 	return err
 }
 
-func getFileContent(conn *BaseConnection, virtualPath string, expectedSize int) ([]byte, error) {
-	reader, cancelFn, err := getFileReader(conn, virtualPath)
-	if err != nil {
-		return nil, err
+func getFileContentFn(conn *BaseConnection, virtualPath string, size int64) func(w io.Writer) (int64, error) {
+	return func(w io.Writer) (int64, error) {
+		reader, cancelFn, err := getFileReader(conn, virtualPath)
+		if err != nil {
+			return 0, err
+		}
+
+		defer cancelFn()
+		defer reader.Close()
+
+		return io.CopyN(w, reader, size)
 	}
-
-	defer cancelFn()
-	defer reader.Close()
-
-	data := make([]byte, expectedSize)
-	_, err = io.ReadFull(reader, data)
-	return data, err
 }
 
-func getMailAttachments(user dataprovider.User, attachments []string, replacer *strings.Replacer) ([]mail.File, error) {
-	var files []mail.File
-	user, err := getUserForEventAction(user)
-	if err != nil {
-		return nil, err
-	}
-	connectionID := fmt.Sprintf("%s_%s", protocolEventAction, xid.New().String())
-	err = user.CheckFsRoot(connectionID)
-	defer user.CloseFs() //nolint:errcheck
-	if err != nil {
-		return nil, fmt.Errorf("error getting email attachments, unable to check root fs for user %q: %w", user.Username, err)
-	}
-	conn := NewBaseConnection(connectionID, protocolEventAction, "", "", user)
+func getMailAttachments(conn *BaseConnection, attachments []string, replacer *strings.Replacer) ([]*mail.File, error) {
+	var files []*mail.File
 	totalSize := int64(0)
+
 	for _, virtualPath := range replacePathsPlaceholders(attachments, replacer) {
 		info, err := conn.DoStat(virtualPath, 0, false)
 		if err != nil {
@@ -945,13 +949,10 @@ func getMailAttachments(user dataprovider.User, attachments []string, replacer *
 		if totalSize > maxAttachmentsSize {
 			return nil, fmt.Errorf("unable to send files as attachment, size too large: %s", util.ByteCountIEC(totalSize))
 		}
-		data, err := getFileContent(conn, virtualPath, int(info.Size()))
-		if err != nil {
-			return nil, fmt.Errorf("unable to get content for file %q, user %q: %w", virtualPath, conn.User.Username, err)
-		}
-		files = append(files, mail.File{
-			Name: path.Base(virtualPath),
-			Data: data,
+		files = append(files, &mail.File{
+			Name:   path.Base(virtualPath),
+			Header: make(map[string][]string),
+			Writer: getFileContentFn(conn, virtualPath, info.Size()),
 		})
 	}
 	return files, nil
@@ -1265,7 +1266,7 @@ func executeEmailRuleAction(c dataprovider.EventActionEmailConfig, params *Event
 	body := replaceWithReplacer(c.Body, replacer)
 	subject := replaceWithReplacer(c.Subject, replacer)
 	startTime := time.Now()
-	var files []mail.File
+	var files []*mail.File
 	fileAttachments := make([]string, 0, len(c.Attachments))
 	for _, attachment := range c.Attachments {
 		if attachment == dataprovider.RetentionReportPlaceHolder {
@@ -1283,7 +1284,18 @@ func executeEmailRuleAction(c dataprovider.EventActionEmailConfig, params *Event
 		if err != nil {
 			return err
 		}
-		res, err := getMailAttachments(user, fileAttachments, replacer)
+		user, err = getUserForEventAction(user)
+		if err != nil {
+			return err
+		}
+		connectionID := fmt.Sprintf("%s_%s", protocolEventAction, xid.New().String())
+		err = user.CheckFsRoot(connectionID)
+		defer user.CloseFs() //nolint:errcheck
+		if err != nil {
+			return fmt.Errorf("error getting email attachments, unable to check root fs for user %q: %w", user.Username, err)
+		}
+		conn := NewBaseConnection(connectionID, protocolEventAction, "", "", user)
+		res, err := getMailAttachments(conn, fileAttachments, replacer)
 		if err != nil {
 			return err
 		}

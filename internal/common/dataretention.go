@@ -29,7 +29,7 @@ import (
 	"sync"
 	"time"
 
-	mail "github.com/xhit/go-simple-mail/v2"
+	"github.com/wneessen/go-mail"
 
 	"github.com/drakkan/sftpgo/v2/internal/command"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
@@ -372,7 +372,7 @@ func (c *RetentionCheck) sendEmailNotification(errCheck error) error {
 			Results:    c.results,
 		})
 	}
-	var files []mail.File
+	var files []*mail.File
 	f, err := params.getRetentionReportsAsMailAttachment()
 	if err != nil {
 		c.conn.Log(logger.LevelError, "unable to get retention report as mail attachment: %v", err)
@@ -391,11 +391,11 @@ func (c *RetentionCheck) sendEmailNotification(errCheck error) error {
 	body := "Further details attached."
 	err = smtp.SendEmail([]string{c.Email}, subject, body, smtp.EmailContentTypeTextPlain, files...)
 	if err != nil {
-		c.conn.Log(logger.LevelError, "unable to notify retention check result via email: %v, elapsed: %v", err,
+		c.conn.Log(logger.LevelError, "unable to notify retention check result via email: %v, elapsed: %s", err,
 			time.Since(startTime))
 		return err
 	}
-	c.conn.Log(logger.LevelInfo, "retention check result successfully notified via email, elapsed: %v", time.Since(startTime))
+	c.conn.Log(logger.LevelInfo, "retention check result successfully notified via email, elapsed: %s", time.Since(startTime))
 	return nil
 }
 

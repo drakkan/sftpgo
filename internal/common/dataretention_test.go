@@ -84,6 +84,7 @@ func TestRetentionValidation(t *testing.T) {
 	smtpCfg := smtp.Config{
 		Host:          "mail.example.com",
 		Port:          25,
+		From:          "notification@example.com",
 		TemplatesPath: "templates",
 	}
 	err = smtpCfg.Initialize(configDir)
@@ -116,6 +117,7 @@ func TestRetentionEmailNotifications(t *testing.T) {
 	smtpCfg := smtp.Config{
 		Host:          "127.0.0.1",
 		Port:          2525,
+		From:          "notification@example.com",
 		TemplatesPath: "templates",
 	}
 	err := smtpCfg.Initialize(configDir)

@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/klauspost/compress/zip"
+	"github.com/rs/xid"
 	"github.com/sftpgo/sdk"
 	sdkkms "github.com/sftpgo/sdk/kms"
 	"github.com/stretchr/testify/assert"
@@ -529,14 +530,6 @@ func TestEventManagerErrors(t *testing.T) {
 			},
 		},
 	})
-	assert.Error(t, err)
-	_, err = getMailAttachments(dataprovider.User{
-		Groups: []sdk.GroupMapping{
-			{
-				Name: groupName,
-				Type: sdk.GroupTypePrimary,
-			},
-		}}, []string{"/a", "/b"}, nil)
 	assert.Error(t, err)
 	err = executePwdExpirationCheckForUser(&dataprovider.User{
 		Groups: []sdk.GroupMapping{
@@ -1253,17 +1246,21 @@ func TestGetFileContent(t *testing.T) {
 	fileContent := []byte("test file content")
 	err = os.WriteFile(filepath.Join(user.GetHomeDir(), "file.txt"), fileContent, 0666)
 	assert.NoError(t, err)
+	conn := NewBaseConnection(xid.New().String(), protocolEventAction, "", "", user)
 	replacer := strings.NewReplacer("old", "new")
-	files, err := getMailAttachments(user, []string{"/file.txt"}, replacer)
+	files, err := getMailAttachments(conn, []string{"/file.txt"}, replacer)
 	assert.NoError(t, err)
 	if assert.Len(t, files, 1) {
-		assert.Equal(t, fileContent, files[0].Data)
+		var b bytes.Buffer
+		_, err = files[0].Writer(&b)
+		assert.NoError(t, err)
+		assert.Equal(t, fileContent, b.Bytes())
 	}
 	// missing file
-	_, err = getMailAttachments(user, []string{"/file1.txt"}, replacer)
+	_, err = getMailAttachments(conn, []string{"/file1.txt"}, replacer)
 	assert.Error(t, err)
 	// directory
-	_, err = getMailAttachments(user, []string{"/"}, replacer)
+	_, err = getMailAttachments(conn, []string{"/"}, replacer)
 	assert.Error(t, err)
 	// files too large
 	content := make([]byte, maxAttachmentsSize/2+1)
@@ -1273,12 +1270,15 @@ func TestGetFileContent(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.WriteFile(filepath.Join(user.GetHomeDir(), "file2.txt"), content, 0666)
 	assert.NoError(t, err)
-	files, err = getMailAttachments(user, []string{"/file1.txt"}, replacer)
+	files, err = getMailAttachments(conn, []string{"/file1.txt"}, replacer)
 	assert.NoError(t, err)
 	if assert.Len(t, files, 1) {
-		assert.Equal(t, content, files[0].Data)
+		var b bytes.Buffer
+		_, err = files[0].Writer(&b)
+		assert.NoError(t, err)
+		assert.Equal(t, content, b.Bytes())
 	}
-	_, err = getMailAttachments(user, []string{"/file1.txt", "/file2.txt"}, replacer)
+	_, err = getMailAttachments(conn, []string{"/file1.txt", "/file2.txt"}, replacer)
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "size too large")
 	}
@@ -1287,9 +1287,15 @@ func TestGetFileContent(t *testing.T) {
 	user.FsConfig.CryptConfig.Passphrase = kms.NewPlainSecret("pwd")
 	err = dataprovider.UpdateUser(&user, "", "", "")
 	assert.NoError(t, err)
+	conn = NewBaseConnection(xid.New().String(), protocolEventAction, "", "", user)
 	// the file is not encrypted so reading the encryption header will fail
-	_, err = getMailAttachments(user, []string{"/file.txt"}, replacer)
-	assert.Error(t, err)
+	files, err = getMailAttachments(conn, []string{"/file.txt"}, replacer)
+	assert.NoError(t, err)
+	if assert.Len(t, files, 1) {
+		var b bytes.Buffer
+		_, err = files[0].Writer(&b)
+		assert.Error(t, err)
+	}
 
 	err = dataprovider.DeleteUser(username, "", "", "")
 	assert.NoError(t, err)
@@ -1361,7 +1367,9 @@ func TestFilesystemActionErrors(t *testing.T) {
 		sender: username,
 	})
 	assert.Error(t, err)
-	_, err = getFileContent(NewBaseConnection("", protocolEventAction, "", "", user), "/f.txt", 1234)
+	fn := getFileContentFn(NewBaseConnection("", protocolEventAction, "", "", user), "/f.txt", 1234)
+	var b bytes.Buffer
+	_, err = fn(&b)
 	assert.Error(t, err)
 	err = executeHTTPRuleAction(dataprovider.EventActionHTTPConfig{
 		Endpoint: "http://127.0.0.1:9999/",
