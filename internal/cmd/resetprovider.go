@@ -45,7 +45,7 @@ Please take a look at the usage below to customize the options.`,
 			configDir = util.CleanDirInput(configDir)
 			err := config.LoadConfig(configDir, configFile)
 			if err != nil {
-				logger.WarnToConsole("Unable to initialize data provider, config load error: %v", err)
+				logger.WarnToConsole("Unable to load configuration: %v", err)
 				os.Exit(1)
 			}
 			kmsConfig := config.GetKMSConfig()
