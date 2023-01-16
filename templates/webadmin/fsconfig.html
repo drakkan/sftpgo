@@ -299,7 +299,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
             <label for="idAzAccountName" class="col-sm-2 col-form-label">Account Name</label>
             <div class="col-sm-3">
                 <input type="text" class="form-control" id="idAzAccountName" name="az_account_name" placeholder=""
-                    value="{{.AzBlobConfig.AccountName}}" maxlength="255">
+                    spellcheck="false" value="{{.AzBlobConfig.AccountName}}" maxlength="255">
             </div>
         </div>
 
@@ -455,7 +455,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
         <div class="form-group row fsconfig fsconfig-sftpfs">
             <label for="idSFTPPrivateKey" class="col-sm-2 col-form-label">Private key</label>
             <div class="col-sm-10">
-                <textarea class="form-control" id="idSFTPPrivateKey" name="sftp_private_key"
+                <textarea class="form-control" id="idSFTPPrivateKey" name="sftp_private_key" spellcheck="false"
                     rows="3">{{if .SFTPConfig.PrivateKey.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.SFTPConfig.PrivateKey.GetPayload}}{{end}}</textarea>
             </div>
         </div>
