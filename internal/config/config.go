@@ -591,6 +591,9 @@ func HasServicesToStart() bool {
 	if globalConf.WebDAVD.ShouldBind() {
 		return true
 	}
+	if globalConf.HTTPDConfig.ShouldBind() {
+		return true
+	}
 	return false
 }
 
