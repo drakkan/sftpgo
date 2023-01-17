@@ -386,6 +386,10 @@ func TestServiceToStart(t *testing.T) {
 	sftpdConf := config.GetSFTPDConfig()
 	sftpdConf.Bindings[0].Port = 0
 	config.SetSFTPDConfig(sftpdConf)
+	// httpd service is enabled
+	assert.True(t, config.HasServicesToStart())
+	httpdConf := config.GetHTTPDConfig()
+	httpdConf.Bindings[0].Port = 0
 	assert.False(t, config.HasServicesToStart())
 	ftpdConf := config.GetFTPDConfig()
 	ftpdConf.Bindings[0].Port = 2121
