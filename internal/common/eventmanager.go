@@ -197,6 +197,9 @@ func (r *eventRulesContainer) addUpdateRuleInternal(rule dataprovider.EventRule)
 		}
 		return
 	}
+	if rule.Status != 1 {
+		return
+	}
 	switch rule.Trigger {
 	case dataprovider.EventTriggerFsEvent:
 		r.FsEvents = append(r.FsEvents, rule)

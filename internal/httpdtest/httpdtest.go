@@ -1601,6 +1601,9 @@ func checkEventRule(expected, actual dataprovider.EventRule) error {
 	if dataprovider.ConvertName(expected.Name) != actual.Name {
 		return errors.New("name mismatch")
 	}
+	if expected.Status != actual.Status {
+		return errors.New("status mismatch")
+	}
 	if expected.Description != actual.Description {
 		return errors.New("description mismatch")
 	}

@@ -34,7 +34,7 @@ import (
 )
 
 const (
-	sqlDatabaseVersion     = 25
+	sqlDatabaseVersion     = 26
 	defaultSQLQueryTimeout = 10 * time.Second
 	longSQLQueryTimeout    = 60 * time.Second
 )
@@ -1853,7 +1853,7 @@ func getEventRuleFromDbRow(row sqlScanner) (EventRule, error) {
 	var conditions []byte
 
 	err := row.Scan(&rule.ID, &rule.Name, &description, &rule.CreatedAt, &rule.UpdatedAt, &rule.Trigger,
-		&conditions, &rule.DeletedAt)
+		&conditions, &rule.DeletedAt, &rule.Status)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return rule, util.NewRecordNotFoundError(err.Error())
@@ -3353,7 +3353,7 @@ func sqlCommonAddEventRule(rule *EventRule, dbHandle *sql.DB) error {
 		}
 		q := getAddEventRuleQuery()
 		_, err := tx.ExecContext(ctx, q, rule.Name, rule.Description, util.GetTimeAsMsSinceEpoch(time.Now()),
-			util.GetTimeAsMsSinceEpoch(time.Now()), rule.Trigger, string(conditions))
+			util.GetTimeAsMsSinceEpoch(time.Now()), rule.Trigger, string(conditions), rule.Status)
 		if err != nil {
 			return err
 		}
@@ -3375,7 +3375,7 @@ func sqlCommonUpdateEventRule(rule *EventRule, dbHandle *sql.DB) error {
 	return sqlCommonExecuteTx(ctx, dbHandle, func(tx *sql.Tx) error {
 		q := getUpdateEventRuleQuery()
 		_, err := tx.ExecContext(ctx, q, rule.Description, util.GetTimeAsMsSinceEpoch(time.Now()),
-			rule.Trigger, string(conditions), rule.Name)
+			rule.Trigger, string(conditions), rule.Status, rule.Name)
 		if err != nil {
 			return err
 		}

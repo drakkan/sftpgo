@@ -198,6 +198,10 @@ DROP TABLE "{{roles}}" CASCADE;
 ALTER TABLE "{{users}}" ALTER COLUMN "last_password_change" DROP DEFAULT;
 `
 	pgsqlV25DownSQL = `ALTER TABLE "{{users}}" DROP COLUMN "last_password_change" CASCADE;`
+	pgsqlV26SQL     = `ALTER TABLE "{{events_rules}}" ADD COLUMN "status" integer DEFAULT 1 NOT NULL;
+ALTER TABLE "{{events_rules}}" ALTER COLUMN "status" DROP DEFAULT;
+`
+	pgsqlV26DownSQL = `ALTER TABLE "{{events_rules}}" DROP COLUMN "status" CASCADE;`
 )
 
 // PGSQLProvider defines the auth provider for PostgreSQL database
@@ -715,6 +719,8 @@ func (p *PGSQLProvider) migrateDatabase() error { //nolint:dupl
 		return updatePgSQLDatabaseFromV23(p.dbHandle)
 	case version == 24:
 		return updatePgSQLDatabaseFromV24(p.dbHandle)
+	case version == 25:
+		return updatePgSQLDatabaseFromV25(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -741,6 +747,8 @@ func (p *PGSQLProvider) revertDatabase(targetVersion int) error {
 		return downgradePgSQLDatabaseFromV24(p.dbHandle)
 	case 25:
 		return downgradePgSQLDatabaseFromV25(p.dbHandle)
+	case 26:
+		return downgradePgSQLDatabaseFromV26(p.dbHandle)
 	default:
 		return fmt.Errorf("database schema version not handled: %d", dbVersion.Version)
 	}
@@ -759,7 +767,14 @@ func updatePgSQLDatabaseFromV23(dbHandle *sql.DB) error {
 }
 
 func updatePgSQLDatabaseFromV24(dbHandle *sql.DB) error {
-	return updatePgSQLDatabaseFrom24To25(dbHandle)
+	if err := updatePgSQLDatabaseFrom24To25(dbHandle); err != nil {
+		return err
+	}
+	return updatePgSQLDatabaseFromV25(dbHandle)
+}
+
+func updatePgSQLDatabaseFromV25(dbHandle *sql.DB) error {
+	return updatePgSQLDatabaseFrom25To26(dbHandle)
 }
 
 func downgradePgSQLDatabaseFromV24(dbHandle *sql.DB) error {
@@ -771,6 +786,13 @@ func downgradePgSQLDatabaseFromV25(dbHandle *sql.DB) error {
 		return err
 	}
 	return downgradePgSQLDatabaseFromV24(dbHandle)
+}
+
+func downgradePgSQLDatabaseFromV26(dbHandle *sql.DB) error {
+	if err := downgradePgSQLDatabaseFrom26To25(dbHandle); err != nil {
+		return err
+	}
+	return downgradePgSQLDatabaseFromV25(dbHandle)
 }
 
 func updatePgSQLDatabaseFrom23To24(dbHandle *sql.DB) error {
@@ -794,6 +816,17 @@ func updatePgSQLDatabaseFrom24To25(dbHandle *sql.DB) error {
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 25, true)
 }
 
+func updatePgSQLDatabaseFrom25To26(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database schema version: 25 -> 26")
+	providerLog(logger.LevelInfo, "updating database schema version: 25 -> 26")
+	sql := pgsqlV26SQL
+	if config.Driver == CockroachDataProviderName {
+		sql = strings.ReplaceAll(sql, `ALTER TABLE "{{events_rules}}" ALTER COLUMN "status" DROP DEFAULT;`, "")
+	}
+	sql = strings.ReplaceAll(sql, "{{events_rules}}", sqlTableEventsRules)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 26, true)
+}
+
 func downgradePgSQLDatabaseFrom24To23(dbHandle *sql.DB) error {
 	logger.InfoToConsole("downgrading database schema version: 24 -> 23")
 	providerLog(logger.LevelInfo, "downgrading database schema version: 24 -> 23")
@@ -809,4 +842,11 @@ func downgradePgSQLDatabaseFrom25To24(dbHandle *sql.DB) error {
 	providerLog(logger.LevelInfo, "downgrading database schema version: 25 -> 24")
 	sql := strings.ReplaceAll(pgsqlV25DownSQL, "{{users}}", sqlTableUsers)
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 24, false)
+}
+
+func downgradePgSQLDatabaseFrom26To25(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database schema version: 26 -> 25")
+	providerLog(logger.LevelInfo, "downgrading database schema version: 26 -> 25")
+	sql := strings.ReplaceAll(pgsqlV26DownSQL, "{{events_rules}}", sqlTableEventsRules)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 25, false)
 }

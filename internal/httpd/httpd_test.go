@@ -1408,6 +1408,7 @@ func TestBasicActionRulesHandling(t *testing.T) {
 
 	r := dataprovider.EventRule{
 		Name:        "test rule name",
+		Status:      1,
 		Description: "",
 		Trigger:     dataprovider.EventTriggerFsEvent,
 		Conditions: dataprovider.EventConditions{
@@ -1629,6 +1630,7 @@ func TestActionRuleRelations(t *testing.T) {
 			Order: 10,
 		},
 	}
+	rule2.Status = 1
 	rule2, _, err = httpdtest.UpdateEventRule(r2, http.StatusOK)
 	assert.NoError(t, err)
 	if assert.Len(t, rule2.Actions, 1) {
@@ -1936,6 +1938,11 @@ func TestEventRuleValidation(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Contains(t, string(resp), "name is mandatory")
 	rule.Name = "r"
+	rule.Status = 100
+	_, resp, err = httpdtest.AddEventRule(rule, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "invalid event rule status")
+	rule.Status = 1
 	rule.Trigger = 1000
 	_, resp, err = httpdtest.AddEventRule(rule, http.StatusBadRequest)
 	assert.NoError(t, err)
@@ -6522,7 +6529,9 @@ func TestProviderErrors(t *testing.T) {
 	assert.NoError(t, err)
 	user = getTestUser()
 	user.ID = 1
-	backupData := dataprovider.BackupData{}
+	backupData := dataprovider.BackupData{
+		Version: dataprovider.DumpVersion,
+	}
 	backupData.Users = append(backupData.Users, user)
 	backupContent, err := json.Marshal(backupData)
 	assert.NoError(t, err)
@@ -6591,6 +6600,7 @@ func TestProviderErrors(t *testing.T) {
 				Type: dataprovider.ActionTypeFolderQuotaReset,
 			},
 		},
+		Version: dataprovider.DumpVersion,
 	}
 	backupContent, err = json.Marshal(backupData)
 	assert.NoError(t, err)
@@ -6623,6 +6633,7 @@ func TestProviderErrors(t *testing.T) {
 				},
 			},
 		},
+		Version: dataprovider.DumpVersion,
 	}
 	backupContent, err = json.Marshal(backupData)
 	assert.NoError(t, err)
@@ -6636,6 +6647,7 @@ func TestProviderErrors(t *testing.T) {
 				Name: "role1",
 			},
 		},
+		Version: dataprovider.DumpVersion,
 	}
 	backupContent, err = json.Marshal(backupData)
 	assert.NoError(t, err)
@@ -7036,7 +7048,9 @@ func TestRestoreShares(t *testing.T) {
 		UsedTokens:  8,
 		AllowFrom:   []string{"127.0.0.0/8"},
 	}
-	backupData := dataprovider.BackupData{}
+	backupData := dataprovider.BackupData{
+		Version: dataprovider.DumpVersion,
+	}
 	backupData.Shares = append(backupData.Shares, share)
 	backupContent, err := json.Marshal(backupData)
 	assert.NoError(t, err)
@@ -7088,7 +7102,9 @@ func TestLoaddataFromPostBody(t *testing.T) {
 	admin.Permissions = []string{dataprovider.PermAdminAddUsers, dataprovider.PermAdminChangeUsers,
 		dataprovider.PermAdminDeleteUsers, dataprovider.PermAdminViewUsers}
 	admin.Role = role.Name
-	backupData := dataprovider.BackupData{}
+	backupData := dataprovider.BackupData{
+		Version: dataprovider.DumpVersion,
+	}
 	backupData.Users = append(backupData.Users, user)
 	backupData.Groups = append(backupData.Groups, group)
 	backupData.Admins = append(backupData.Admins, admin)
@@ -7273,7 +7289,9 @@ func TestLoaddata(t *testing.T) {
 			},
 		},
 	}
-	backupData := dataprovider.BackupData{}
+	backupData := dataprovider.BackupData{
+		Version: 14,
+	}
 	backupData.Users = append(backupData.Users, user)
 	backupData.Roles = append(backupData.Roles, role)
 	backupData.Groups = append(backupData.Groups, group)
@@ -7350,6 +7368,7 @@ func TestLoaddata(t *testing.T) {
 
 	rule, _, err = httpdtest.GetEventRuleByName(rule.Name, http.StatusOK)
 	assert.NoError(t, err)
+	assert.Equal(t, 1, rule.Status)
 	if assert.Len(t, rule.Actions, 1) {
 		if assert.NotNil(t, rule.Actions[0].BaseEventAction.Options.HTTPConfig.Password) {
 			assert.Equal(t, sdkkms.SecretStatusSecretBox, rule.Actions[0].BaseEventAction.Options.HTTPConfig.Password.GetStatus())
@@ -7516,7 +7535,9 @@ func TestLoaddataMode(t *testing.T) {
 			},
 		},
 	}
-	backupData := dataprovider.BackupData{}
+	backupData := dataprovider.BackupData{
+		Version: dataprovider.DumpVersion,
+	}
 	backupData.Users = append(backupData.Users, user)
 	backupData.Groups = append(backupData.Groups, group)
 	backupData.Admins = append(backupData.Admins, admin)
@@ -7603,6 +7624,7 @@ func TestLoaddataMode(t *testing.T) {
 
 	rule, _, err = httpdtest.GetEventRuleByName(rule.Name, http.StatusOK)
 	assert.NoError(t, err)
+	assert.Equal(t, 0, rule.Status)
 	oldRuleDesc := rule.Description
 	rule.Description = "new rule description"
 	rule, _, err = httpdtest.UpdateEventRule(rule, http.StatusOK)
@@ -17653,7 +17675,9 @@ func TestWebMaintenanceMock(t *testing.T) {
 		Key:   fmt.Sprintf("%v.%v", util.GenerateUniqueID(), util.GenerateUniqueID()),
 		Scope: dataprovider.APIKeyScopeAdmin,
 	}
-	backupData := dataprovider.BackupData{}
+	backupData := dataprovider.BackupData{
+		Version: dataprovider.DumpVersion,
+	}
 	backupData.Users = append(backupData.Users, user)
 	backupData.Admins = append(backupData.Admins, admin)
 	backupData.APIKeys = append(backupData.APIKeys, apiKey)
@@ -19027,7 +19051,9 @@ func TestFolderTemplateMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 
-	dump = dataprovider.BackupData{}
+	dump = dataprovider.BackupData{
+		Version: dataprovider.DumpVersion,
+	}
 	err = json.Unmarshal(rr.Body.Bytes(), &dump)
 	require.NoError(t, err)
 	require.Len(t, dump.Users, 0)
@@ -20530,6 +20556,7 @@ func TestWebEventRule(t *testing.T) {
 	assert.NoError(t, err)
 	rule := dataprovider.EventRule{
 		Name:        "test_web_rule",
+		Status:      1,
 		Description: "rule added using web API",
 		Trigger:     dataprovider.EventTriggerSchedule,
 		Conditions: dataprovider.EventConditions{
@@ -20574,12 +20601,21 @@ func TestWebEventRule(t *testing.T) {
 	form := make(url.Values)
 	form.Set("name", rule.Name)
 	form.Set("description", rule.Description)
-	form.Set("trigger", "a")
+	form.Set("status", "a")
 	req, err := http.NewRequest(http.MethodPost, webAdminEventRulePath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, webToken)
 	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "invalid status")
+	form.Set("status", fmt.Sprintf("%d", rule.Status))
+	form.Set("trigger", "a")
+	req, err = http.NewRequest(http.MethodPost, webAdminEventRulePath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Contains(t, rr.Body.String(), "invalid trigger")
 	form.Set("trigger", fmt.Sprintf("%d", rule.Trigger))
@@ -20668,13 +20704,15 @@ func TestWebEventRule(t *testing.T) {
 	ruleGet, _, err := httpdtest.GetEventRuleByName(rule.Name, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Equal(t, rule.Trigger, ruleGet.Trigger)
+	assert.Equal(t, rule.Status, ruleGet.Status)
 	assert.Equal(t, rule.Description, ruleGet.Description)
 	assert.Equal(t, rule.Conditions, ruleGet.Conditions)
 	if assert.Len(t, ruleGet.Actions, 1) {
 		assert.Equal(t, rule.Actions[0].Name, ruleGet.Actions[0].Name)
 		assert.Equal(t, rule.Actions[0].Order, ruleGet.Actions[0].Order)
 	}
-	// change rule trigger
+	// change rule trigger and status
+	rule.Status = 0
 	rule.Trigger = dataprovider.EventTriggerFsEvent
 	rule.Conditions = dataprovider.EventConditions{
 		FsEvents: []string{"upload", "download"},
@@ -20707,6 +20745,7 @@ func TestWebEventRule(t *testing.T) {
 			MaxFileSize: 5 * 1024 * 1024,
 		},
 	}
+	form.Set("status", fmt.Sprintf("%d", rule.Status))
 	form.Set("trigger", fmt.Sprintf("%d", rule.Trigger))
 	for _, event := range rule.Conditions.FsEvents {
 		form.Add("fs_events", event)
@@ -20727,6 +20766,7 @@ func TestWebEventRule(t *testing.T) {
 	// check the rule
 	ruleGet, _, err = httpdtest.GetEventRuleByName(rule.Name, http.StatusOK)
 	assert.NoError(t, err)
+	assert.Equal(t, rule.Status, ruleGet.Status)
 	assert.Equal(t, rule.Trigger, ruleGet.Trigger)
 	assert.Equal(t, rule.Description, ruleGet.Description)
 	assert.Equal(t, rule.Conditions, ruleGet.Conditions)

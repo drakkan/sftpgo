@@ -6748,6 +6748,15 @@ components:
         name:
           type: string
           description: unique name
+        status:
+          type: integer
+          enum:
+            - 0
+            - 1
+          description: |
+            status:
+              * `0` disabled
+              * `1` enabled
         description:
           type: string
           description: optional description

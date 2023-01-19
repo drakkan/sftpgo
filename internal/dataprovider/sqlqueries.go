@@ -61,10 +61,10 @@ func getSQLQuotedName(name string) string {
 
 func getSelectEventRuleFields() string {
 	if config.Driver == MySQLDataProviderName {
-		return "id,name,description,created_at,updated_at,`trigger`,conditions,deleted_at"
+		return "id,name,description,created_at,updated_at,`trigger`,conditions,deleted_at,status"
 	}
 
-	return `id,name,description,created_at,updated_at,"trigger",conditions,deleted_at`
+	return `id,name,description,created_at,updated_at,"trigger",conditions,deleted_at,status`
 }
 
 func getCoalesceDefaultForRole(role string) string {
@@ -973,16 +973,16 @@ func getEventRulesByNameQuery() string {
 }
 
 func getAddEventRuleQuery() string {
-	return fmt.Sprintf(`INSERT INTO %s (name,description,created_at,updated_at,%s,conditions,deleted_at)
-		VALUES (%s,%s,%s,%s,%s,%s,0)`,
+	return fmt.Sprintf(`INSERT INTO %s (name,description,created_at,updated_at,%s,conditions,deleted_at,status)
+		VALUES (%s,%s,%s,%s,%s,%s,0,%s)`,
 		sqlTableEventsRules, getSQLQuotedName("trigger"), sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2],
-		sqlPlaceholders[3], sqlPlaceholders[4], sqlPlaceholders[5])
+		sqlPlaceholders[3], sqlPlaceholders[4], sqlPlaceholders[5], sqlPlaceholders[6])
 }
 
 func getUpdateEventRuleQuery() string {
-	return fmt.Sprintf(`UPDATE %s SET description=%s,updated_at=%s,%s=%s,conditions=%s WHERE name = %s`,
+	return fmt.Sprintf(`UPDATE %s SET description=%s,updated_at=%s,%s=%s,conditions=%s,status=%s WHERE name = %s`,
 		sqlTableEventsRules, sqlPlaceholders[0], sqlPlaceholders[1], getSQLQuotedName("trigger"), sqlPlaceholders[2],
-		sqlPlaceholders[3], sqlPlaceholders[4])
+		sqlPlaceholders[3], sqlPlaceholders[4], sqlPlaceholders[5])
 }
 
 func getDeleteEventRuleQuery(softDelete bool) string {

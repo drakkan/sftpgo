@@ -212,7 +212,7 @@ func restoreBackup(content []byte, inputFile string, scanQuota, mode int, execut
 		return err
 	}
 
-	if err = RestoreEventRules(dump.EventRules, inputFile, mode, executor, ipAddress, role); err != nil {
+	if err = RestoreEventRules(dump.EventRules, inputFile, mode, executor, ipAddress, role, dump.Version); err != nil {
 		return err
 	}
 
@@ -331,9 +331,14 @@ func RestoreEventActions(actions []dataprovider.BaseEventAction, inputFile strin
 }
 
 // RestoreEventRules restores the specified event rules
-func RestoreEventRules(rules []dataprovider.EventRule, inputFile string, mode int, executor, ipAddress, role string) error {
+func RestoreEventRules(rules []dataprovider.EventRule, inputFile string, mode int, executor, ipAddress,
+	role string, dumpVersion int,
+) error {
 	for _, rule := range rules {
 		rule := rule // pin
+		if dumpVersion < 15 {
+			rule.Status = 1
+		}
 		r, err := dataprovider.EventRuleExists(rule.Name)
 		if err == nil {
 			if mode == 1 {

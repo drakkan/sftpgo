@@ -39,6 +39,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                 <thead>
                     <tr>
                         <th>Name</th>
+                        <th>Status</th>
                         <th>Description</th>
                         <th>Trigger</th>
                         <th>Actions</th>
@@ -48,6 +49,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                     {{range .Rules}}
                     <tr>
                         <td>{{.Name}}</td>
+                        <td>{{if eq .Status 1 }}Active{{else}}Inactive{{end}}</td>
                         <td>{{.Description}}</td>
                         <td>{{.GetTriggerAsString}}</td>
                         <td>{{.GetActionsAsString}}</td>
@@ -184,11 +186,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
             ],
             "columnDefs": [
                 {
-                    "targets": [0],
+                    "targets": [0,1],
                     "className": "noVis"
                 },
                 {
-                    "targets": [3],
+                    "targets": [2],
+                    "visible": false
+                },
+                {
+                    "targets": [4],
                     "render": $.fn.dataTable.render.ellipsis(100, true)
                 },
             ],

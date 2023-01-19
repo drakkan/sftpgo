@@ -949,7 +949,7 @@ func (conns *ActiveConnections) Remove(connectionID string) {
 		return
 	}
 
-	logger.Warn(logSender, "", "connection id %q to remove not found!", connectionID)
+	logger.Debug(logSender, "", "connection id %q to remove not found!", connectionID)
 }
 
 // Close closes an active connection.

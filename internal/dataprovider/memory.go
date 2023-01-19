@@ -2825,6 +2825,9 @@ func (p *MemoryProvider) restoreEventRules(dump BackupData) error {
 	for _, rule := range dump.EventRules {
 		r, err := p.eventRuleExists(rule.Name)
 		rule := rule // pin
+		if dump.Version < 15 {
+			rule.Status = 1
+		}
 		if err == nil {
 			rule.ID = r.ID
 			err = UpdateEventRule(&rule, ActionExecutorSystem, "", "")

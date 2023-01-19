@@ -2339,6 +2339,10 @@ func getEventRuleFromPostFields(r *http.Request) (dataprovider.EventRule, error)
 	if err != nil {
 		return dataprovider.EventRule{}, err
 	}
+	status, err := strconv.Atoi(r.Form.Get("status"))
+	if err != nil {
+		return dataprovider.EventRule{}, fmt.Errorf("invalid status: %w", err)
+	}
 	trigger, err := strconv.Atoi(r.Form.Get("trigger"))
 	if err != nil {
 		return dataprovider.EventRule{}, fmt.Errorf("invalid trigger: %w", err)
@@ -2353,6 +2357,7 @@ func getEventRuleFromPostFields(r *http.Request) (dataprovider.EventRule, error)
 	}
 	rule := dataprovider.EventRule{
 		Name:        r.Form.Get("name"),
+		Status:      status,
 		Description: r.Form.Get("description"),
 		Trigger:     trigger,
 		Conditions:  conditions,
@@ -3499,6 +3504,7 @@ func (s *httpdServer) handleWebGetEventRules(w http.ResponseWriter, r *http.Requ
 func (s *httpdServer) handleWebAddEventRuleGet(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	rule := dataprovider.EventRule{
+		Status:  1,
 		Trigger: dataprovider.EventTriggerFsEvent,
 	}
 	s.renderEventRulePage(w, r, rule, genericPageModeAdd, "")

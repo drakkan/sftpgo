@@ -320,6 +320,7 @@ func TestEventManager(t *testing.T) {
 	assert.NoError(t, err)
 	rule := &dataprovider.EventRule{
 		Name:    "rule",
+		Status:  1,
 		Trigger: dataprovider.EventTriggerFsEvent,
 		Conditions: dataprovider.EventConditions{
 			FsEvents: []string{operationUpload},
@@ -595,6 +596,7 @@ func TestEventManagerErrors(t *testing.T) {
 	// rule with invalid trigger
 	eventManager.addUpdateRuleInternal(dataprovider.EventRule{
 		Name:    "test rule",
+		Status:  1,
 		Trigger: -1,
 	})
 
@@ -606,6 +608,7 @@ func TestEventManagerErrors(t *testing.T) {
 	// rule with invalid cronspec
 	eventManager.addUpdateRuleInternal(dataprovider.EventRule{
 		Name:    "test rule",
+		Status:  1,
 		Trigger: dataprovider.EventTriggerSchedule,
 		Conditions: dataprovider.EventConditions{
 			Schedules: []dataprovider.Schedule{
@@ -1602,6 +1605,7 @@ func TestScheduledActions(t *testing.T) {
 	assert.NoError(t, err)
 	rule := &dataprovider.EventRule{
 		Name:    "rule",
+		Status:  1,
 		Trigger: dataprovider.EventTriggerSchedule,
 		Conditions: dataprovider.EventConditions{
 			Schedules: []dataprovider.Schedule{

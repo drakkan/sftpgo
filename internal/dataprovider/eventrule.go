@@ -1313,6 +1313,8 @@ type EventRule struct {
 	ID int64 `json:"id"`
 	// Rule name
 	Name string `json:"name"`
+	// 1 enabled, 0 disabled
+	Status int `json:"status"`
 	// optional description
 	Description string `json:"description,omitempty"`
 	// Creation time as unix timestamp in milliseconds
@@ -1338,6 +1340,7 @@ func (r *EventRule) getACopy() EventRule {
 	return EventRule{
 		ID:          r.ID,
 		Name:        r.Name,
+		Status:      r.Status,
 		Description: r.Description,
 		CreatedAt:   r.CreatedAt,
 		UpdatedAt:   r.UpdatedAt,
@@ -1371,9 +1374,16 @@ func (r *EventRule) GetActionsAsString() string {
 	return strings.Join(actions, ",")
 }
 
+func (r *EventRule) isStatusValid() bool {
+	return r.Status >= 0 && r.Status <= 1
+}
+
 func (r *EventRule) validate() error {
 	if r.Name == "" {
 		return util.NewValidationError("name is mandatory")
+	}
+	if !r.isStatusValid() {
+		return util.NewValidationError(fmt.Sprintf("invalid event rule status: %d", r.Status))
 	}
 	if !isEventTriggerValid(r.Trigger) {
 		return util.NewValidationError(fmt.Sprintf("invalid event rule trigger: %d", r.Trigger))

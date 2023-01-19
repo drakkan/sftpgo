@@ -177,6 +177,8 @@ DROP TABLE "{{roles}}";
 `
 	sqliteV25SQL     = `ALTER TABLE "{{users}}" ADD COLUMN "last_password_change" bigint DEFAULT 0 NOT NULL;`
 	sqliteV25DownSQL = `ALTER TABLE "{{users}}" DROP COLUMN "last_password_change";`
+	sqliteV26SQL     = `ALTER TABLE "{{events_rules}}" ADD COLUMN "status" integer DEFAULT 1 NOT NULL;`
+	sqliteV26DownSQL = `ALTER TABLE "{{events_rules}}" DROP COLUMN "status";`
 )
 
 // SQLiteProvider defines the auth provider for SQLite database
@@ -673,6 +675,8 @@ func (p *SQLiteProvider) migrateDatabase() error { //nolint:dupl
 		return updateSQLiteDatabaseFromV23(p.dbHandle)
 	case version == 24:
 		return updateSQLiteDatabaseFromV24(p.dbHandle)
+	case version == 25:
+		return updateSQLiteDatabaseFromV25(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -699,6 +703,8 @@ func (p *SQLiteProvider) revertDatabase(targetVersion int) error {
 		return downgradeSQLiteDatabaseFromV24(p.dbHandle)
 	case 25:
 		return downgradeSQLiteDatabaseFromV25(p.dbHandle)
+	case 26:
+		return downgradeSQLiteDatabaseFromV26(p.dbHandle)
 	default:
 		return fmt.Errorf("database schema version not handled: %d", dbVersion.Version)
 	}
@@ -717,7 +723,14 @@ func updateSQLiteDatabaseFromV23(dbHandle *sql.DB) error {
 }
 
 func updateSQLiteDatabaseFromV24(dbHandle *sql.DB) error {
-	return updateSQLiteDatabaseFrom24To25(dbHandle)
+	if err := updateSQLiteDatabaseFrom24To25(dbHandle); err != nil {
+		return err
+	}
+	return updateSQLiteDatabaseFromV25(dbHandle)
+}
+
+func updateSQLiteDatabaseFromV25(dbHandle *sql.DB) error {
+	return updateSQLiteDatabaseFrom25To26(dbHandle)
 }
 
 func downgradeSQLiteDatabaseFromV24(dbHandle *sql.DB) error {
@@ -729,6 +742,13 @@ func downgradeSQLiteDatabaseFromV25(dbHandle *sql.DB) error {
 		return err
 	}
 	return downgradeSQLiteDatabaseFromV24(dbHandle)
+}
+
+func downgradeSQLiteDatabaseFromV26(dbHandle *sql.DB) error {
+	if err := downgradeSQLiteDatabaseFrom26To25(dbHandle); err != nil {
+		return err
+	}
+	return downgradeSQLiteDatabaseFromV25(dbHandle)
 }
 
 func updateSQLiteDatabaseFrom23To24(dbHandle *sql.DB) error {
@@ -748,6 +768,13 @@ func updateSQLiteDatabaseFrom24To25(dbHandle *sql.DB) error {
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 25, true)
 }
 
+func updateSQLiteDatabaseFrom25To26(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database schema version: 25 -> 26")
+	providerLog(logger.LevelInfo, "updating database schema version: 25 -> 26")
+	sql := strings.ReplaceAll(sqliteV26SQL, "{{events_rules}}", sqlTableEventsRules)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 26, true)
+}
+
 func downgradeSQLiteDatabaseFrom24To23(dbHandle *sql.DB) error {
 	logger.InfoToConsole("downgrading database schema version: 24 -> 23")
 	providerLog(logger.LevelInfo, "downgrading database schema version: 24 -> 23")
@@ -763,6 +790,13 @@ func downgradeSQLiteDatabaseFrom25To24(dbHandle *sql.DB) error {
 	providerLog(logger.LevelInfo, "downgrading database schema version: 25 -> 24")
 	sql := strings.ReplaceAll(sqliteV25DownSQL, "{{users}}", sqlTableUsers)
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 24, false)
+}
+
+func downgradeSQLiteDatabaseFrom26To25(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database schema version: 26 -> 25")
+	providerLog(logger.LevelInfo, "downgrading database schema version: 26 -> 25")
+	sql := strings.ReplaceAll(sqliteV26DownSQL, "{{events_rules}}", sqlTableEventsRules)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 25, false)
 }
 
 /*func setPragmaFK(dbHandle *sql.DB, value string) error {

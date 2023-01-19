@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"math"
 	"net"
 	"net/http"
@@ -3461,6 +3462,7 @@ func TestEventRule(t *testing.T) {
 
 	r1 := dataprovider.EventRule{
 		Name:    "test rule1",
+		Status:  1,
 		Trigger: dataprovider.EventTriggerFsEvent,
 		Conditions: dataprovider.EventConditions{
 			FsEvents: []string{"upload"},
@@ -3514,6 +3516,7 @@ func TestEventRule(t *testing.T) {
 
 	r2 := dataprovider.EventRule{
 		Name:    "test rule2",
+		Status:  1,
 		Trigger: dataprovider.EventTriggerFsEvent,
 		Conditions: dataprovider.EventConditions{
 			FsEvents: []string{"download"},
@@ -3548,6 +3551,7 @@ func TestEventRule(t *testing.T) {
 
 	r3 := dataprovider.EventRule{
 		Name:    "test rule3",
+		Status:  1,
 		Trigger: dataprovider.EventTriggerProviderEvent,
 		Conditions: dataprovider.EventConditions{
 			ProviderEvents: []string{"delete"},
@@ -3810,6 +3814,7 @@ func TestEventRuleProviderEvents(t *testing.T) {
 
 	r := dataprovider.EventRule{
 		Name:    "rule",
+		Status:  1,
 		Trigger: dataprovider.EventTriggerProviderEvent,
 		Conditions: dataprovider.EventConditions{
 			ProviderEvents: []string{"update"},
@@ -3991,6 +3996,7 @@ func TestEventRuleFsActions(t *testing.T) {
 
 	r1 := dataprovider.EventRule{
 		Name:    "r1",
+		Status:  1,
 		Trigger: dataprovider.EventTriggerProviderEvent,
 		Conditions: dataprovider.EventConditions{
 			ProviderEvents: []string{"add"},
@@ -4006,6 +4012,7 @@ func TestEventRuleFsActions(t *testing.T) {
 	}
 	r2 := dataprovider.EventRule{
 		Name:    "r2",
+		Status:  1,
 		Trigger: dataprovider.EventTriggerFsEvent,
 		Conditions: dataprovider.EventConditions{
 			FsEvents: []string{"upload"},
@@ -4030,6 +4037,7 @@ func TestEventRuleFsActions(t *testing.T) {
 	}
 	r3 := dataprovider.EventRule{
 		Name:    "r3",
+		Status:  1,
 		Trigger: dataprovider.EventTriggerFsEvent,
 		Conditions: dataprovider.EventConditions{
 			FsEvents: []string{"mkdir"},
@@ -4051,6 +4059,7 @@ func TestEventRuleFsActions(t *testing.T) {
 	}
 	r4 := dataprovider.EventRule{
 		Name:    "r4",
+		Status:  1,
 		Trigger: dataprovider.EventTriggerFsEvent,
 		Conditions: dataprovider.EventConditions{
 			FsEvents: []string{"rmdir"},
@@ -4066,6 +4075,7 @@ func TestEventRuleFsActions(t *testing.T) {
 	}
 	r5 := dataprovider.EventRule{
 		Name:    "r5",
+		Status:  1,
 		Trigger: dataprovider.EventTriggerProviderEvent,
 		Conditions: dataprovider.EventConditions{
 			ProviderEvents: []string{"add"},
@@ -4216,6 +4226,7 @@ func TestEventRulePreDelete(t *testing.T) {
 	assert.NoError(t, err, string(resp))
 	r1 := dataprovider.EventRule{
 		Name:    "rule1",
+		Status:  1,
 		Trigger: dataprovider.EventTriggerFsEvent,
 		Conditions: dataprovider.EventConditions{
 			FsEvents: []string{"pre-delete"},
@@ -4347,6 +4358,7 @@ func TestEventRulePreDownloadUpload(t *testing.T) {
 	assert.NoError(t, err, string(resp))
 	r1 := dataprovider.EventRule{
 		Name:    "rule1",
+		Status:  1,
 		Trigger: dataprovider.EventTriggerFsEvent,
 		Conditions: dataprovider.EventConditions{
 			FsEvents: []string{"pre-download", "pre-upload"},
@@ -4386,7 +4398,20 @@ func TestEventRulePreDownloadUpload(t *testing.T) {
 		assert.Equal(t, int(100), n)
 		err = f.Close()
 		assert.NoError(t, err)
+		// disable the rule
+		rule1.Status = 0
+		_, _, err = httpdtest.UpdateEventRule(rule1, http.StatusOK)
+		assert.NoError(t, err)
+		err = client.RemoveDirectory(testDir)
+		assert.NoError(t, err)
+		err = client.Remove(testFileName)
+		assert.NoError(t, err)
+		err = writeSFTPFile(testFileName, 100, client)
+		assert.NoError(t, err)
+		_, err = client.Stat(testDir)
+		assert.ErrorIs(t, err, fs.ErrNotExist)
 		// now update the rule so that it will always fail
+		rule1.Status = 1
 		rule1.Actions = []dataprovider.EventAction{
 			{
 				BaseEventAction: dataprovider.BaseEventAction{
@@ -4441,6 +4466,7 @@ func TestFsActionCopy(t *testing.T) {
 
 	r1 := dataprovider.EventRule{
 		Name:    "rule1",
+		Status:  1,
 		Trigger: dataprovider.EventTriggerFsEvent,
 		Conditions: dataprovider.EventConditions{
 			FsEvents: []string{"upload"},
@@ -4520,6 +4546,7 @@ func TestEventFsActionsGroupFilters(t *testing.T) {
 
 	r1 := dataprovider.EventRule{
 		Name:    "rule1",
+		Status:  1,
 		Trigger: dataprovider.EventTriggerFsEvent,
 		Conditions: dataprovider.EventConditions{
 			FsEvents: []string{"upload"},
@@ -4657,6 +4684,7 @@ func TestBackupAsAttachment(t *testing.T) {
 
 	r1 := dataprovider.EventRule{
 		Name:    "test rule certificate",
+		Status:  1,
 		Trigger: dataprovider.EventTriggerCertificate,
 		Actions: []dataprovider.EventAction{
 			{
@@ -4738,6 +4766,7 @@ func TestEventActionHTTPMultipart(t *testing.T) {
 	assert.NoError(t, err, string(resp))
 	r1 := dataprovider.EventRule{
 		Name:    "test http multipart",
+		Status:  1,
 		Trigger: dataprovider.EventTriggerFsEvent,
 		Conditions: dataprovider.EventConditions{
 			FsEvents: []string{"upload"},
@@ -4813,6 +4842,7 @@ func TestEventActionCompress(t *testing.T) {
 	assert.NoError(t, err)
 	r1 := dataprovider.EventRule{
 		Name:    "test compress",
+		Status:  1,
 		Trigger: dataprovider.EventTriggerFsEvent,
 		Conditions: dataprovider.EventConditions{
 			FsEvents: []string{"upload"},
@@ -4981,6 +5011,7 @@ func TestEventActionCompressQuotaErrors(t *testing.T) {
 	assert.NoError(t, err)
 	r1 := dataprovider.EventRule{
 		Name:    "test compress",
+		Status:  1,
 		Trigger: dataprovider.EventTriggerFsEvent,
 		Conditions: dataprovider.EventConditions{
 			FsEvents: []string{"rename"},
@@ -5126,6 +5157,7 @@ func TestEventActionCompressQuotaFolder(t *testing.T) {
 	assert.NoError(t, err)
 	r1 := dataprovider.EventRule{
 		Name:    "test compress",
+		Status:  1,
 		Trigger: dataprovider.EventTriggerFsEvent,
 		Conditions: dataprovider.EventConditions{
 			FsEvents: []string{"upload"},
@@ -5246,6 +5278,7 @@ func TestEventActionCompressErrors(t *testing.T) {
 	assert.NoError(t, err)
 	r1 := dataprovider.EventRule{
 		Name:    "test compress",
+		Status:  1,
 		Trigger: dataprovider.EventTriggerFsEvent,
 		Conditions: dataprovider.EventConditions{
 			FsEvents: []string{"upload"},
@@ -5383,6 +5416,7 @@ func TestEventActionEmailAttachments(t *testing.T) {
 	assert.NoError(t, err)
 	r1 := dataprovider.EventRule{
 		Name:    "test email with attachment",
+		Status:  1,
 		Trigger: dataprovider.EventTriggerFsEvent,
 		Conditions: dataprovider.EventConditions{
 			FsEvents: []string{"upload"},
@@ -5536,6 +5570,7 @@ func TestEventActionsRetentionReports(t *testing.T) {
 	assert.NoError(t, err)
 	r1 := dataprovider.EventRule{
 		Name:    "test rule1",
+		Status:  1,
 		Trigger: dataprovider.EventTriggerFsEvent,
 		Conditions: dataprovider.EventConditions{
 			FsEvents: []string{"upload"},
@@ -5729,6 +5764,7 @@ func TestEventRuleFirstUploadDownloadActions(t *testing.T) {
 	assert.NoError(t, err)
 	r1 := dataprovider.EventRule{
 		Name:    "test first upload rule",
+		Status:  1,
 		Trigger: dataprovider.EventTriggerFsEvent,
 		Conditions: dataprovider.EventConditions{
 			FsEvents: []string{"first-upload"},
@@ -5746,6 +5782,7 @@ func TestEventRuleFirstUploadDownloadActions(t *testing.T) {
 	assert.NoError(t, err)
 	r2 := dataprovider.EventRule{
 		Name:    "test first download rule",
+		Status:  1,
 		Trigger: dataprovider.EventTriggerFsEvent,
 		Conditions: dataprovider.EventConditions{
 			FsEvents: []string{"first-download"},
@@ -5859,6 +5896,7 @@ func TestEventRuleRenameEvent(t *testing.T) {
 	assert.NoError(t, err)
 	r1 := dataprovider.EventRule{
 		Name:    "test rename rule",
+		Status:  1,
 		Trigger: dataprovider.EventTriggerFsEvent,
 		Conditions: dataprovider.EventConditions{
 			FsEvents: []string{"rename"},
@@ -5948,6 +5986,7 @@ func TestEventRuleCertificate(t *testing.T) {
 
 	r1 := dataprovider.EventRule{
 		Name:    "test rule certificate",
+		Status:  1,
 		Trigger: dataprovider.EventTriggerCertificate,
 		Actions: []dataprovider.EventAction{
 			{
@@ -5962,6 +6001,7 @@ func TestEventRuleCertificate(t *testing.T) {
 	assert.NoError(t, err)
 	r2 := dataprovider.EventRule{
 		Name:    "test rule 2",
+		Status:  1,
 		Trigger: dataprovider.EventTriggerCertificate,
 		Actions: []dataprovider.EventAction{
 			{
@@ -6082,6 +6122,7 @@ func TestEventRuleIPBlocked(t *testing.T) {
 
 	r1 := dataprovider.EventRule{
 		Name:    "test rule ip blocked",
+		Status:  1,
 		Trigger: dataprovider.EventTriggerIPBlocked,
 		Actions: []dataprovider.EventAction{
 			{
@@ -6096,6 +6137,7 @@ func TestEventRuleIPBlocked(t *testing.T) {
 	assert.NoError(t, err)
 	r2 := dataprovider.EventRule{
 		Name:    "test rule 2",
+		Status:  1,
 		Trigger: dataprovider.EventTriggerIPBlocked,
 		Actions: []dataprovider.EventAction{
 			{
@@ -6214,6 +6256,7 @@ func TestEventRulePasswordExpiration(t *testing.T) {
 
 	r1 := dataprovider.EventRule{
 		Name:    "rule1",
+		Status:  1,
 		Trigger: dataprovider.EventTriggerFsEvent,
 		Conditions: dataprovider.EventConditions{
 			FsEvents: []string{"mkdir"},
@@ -7017,6 +7060,7 @@ func TestSFTPLoopError(t *testing.T) {
 	assert.NoError(t, err)
 	r1 := dataprovider.EventRule{
 		Name:    "rule1",
+		Status:  1,
 		Trigger: dataprovider.EventTriggerProviderEvent,
 		Conditions: dataprovider.EventConditions{
 			ProviderEvents: []string{"update"},

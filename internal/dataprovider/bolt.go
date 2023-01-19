@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	boltDatabaseVersion = 25
+	boltDatabaseVersion = 26
 )
 
 var (
@@ -2833,10 +2833,41 @@ func (p *BoltProvider) migrateDatabase() error {
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
-	case version == 23, version == 24:
-		logger.InfoToConsole(fmt.Sprintf("updating database schema version: %d -> 25", version))
-		providerLog(logger.LevelInfo, "updating database schema version: %d -> 25", version)
-		return updateBoltDatabaseVersion(p.dbHandle, 25)
+	case version == 23, version == 24, version == 25:
+		logger.InfoToConsole("updating database schema version: %d -> 26", version)
+		providerLog(logger.LevelInfo, "updating database schema version: %d -> 26", version)
+		err := p.dbHandle.Update(func(tx *bolt.Tx) error {
+			rules, err := p.dumpEventRules()
+			if err != nil {
+				return err
+			}
+			bucket, err := p.getRulesBucket(tx)
+			if err != nil {
+				return err
+			}
+			for _, rule := range rules {
+				rule := rule // pin
+				if rule.Status == 1 {
+					continue
+				}
+				logger.InfoToConsole("setting status to active for rule %q", rule.Name)
+				providerLog(logger.LevelInfo, "setting status to 1 for rule %q", rule.Name)
+				rule.Status = 1
+				rule.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+				buf, err := json.Marshal(rule)
+				if err != nil {
+					return err
+				}
+				if err := bucket.Put([]byte(rule.Name), buf); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		return updateBoltDatabaseVersion(p.dbHandle, 26)
 	default:
 		if version > boltDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -2858,7 +2889,7 @@ func (p *BoltProvider) revertDatabase(targetVersion int) error {
 		return errors.New("current version match target version, nothing to do")
 	}
 	switch dbVersion.Version {
-	case 24, 25:
+	case 24, 25, 26:
 		logger.InfoToConsole("downgrading database schema version: %d -> 23", dbVersion.Version)
 		providerLog(logger.LevelInfo, "downgrading database schema version: %d -> 23", dbVersion.Version)
 		err := p.dbHandle.Update(func(tx *bolt.Tx) error {
