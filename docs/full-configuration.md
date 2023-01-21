@@ -114,7 +114,7 @@ The configuration file contains the following sections:
 <details><summary><font size=4>ACME</font></summary>
 
 - **"acme"**, Automatic Certificate Management Environment (ACME) protocol configuration. To obtain the certificates the first time you have to configure the ACME protocol and execute the `sftpgo acme run` command. The SFTPGo service will take care of the automatic renewal of certificates for the configured domains.
-  - `domains`, list of domains for which to obtain certificates. If a single certificate is to be valid for multiple domains specify the names separated by commas, for example: `example.com,www.example.com`. An empty list means that ACME protocol is disabled. Default: empty.
+  - `domains`, list of domains for which to obtain certificates. If a single certificate is to be valid for multiple domains specify the names separated by commas or spaces, for example: `example.com,www.example.com` or `example.com www.example.com`. An empty list means that ACME protocol is disabled. Default: empty.
   - `email`, string. Email used for registration and recovery contact. Default: empty.
   - `key_type`, string. Key type to use for private keys. Supported values: `2048` (RSA 2048), `4096` (RSA 4096), `8192` (RSA 8192), `P256` (EC 256), `P384` (EC 384). Default: `4096`
   - `certs_path`, string. Directory, absolute or relative to the configuration directory, to use for storing certificates and related data.

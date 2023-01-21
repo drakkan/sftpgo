@@ -489,14 +489,7 @@ func (c *Configuration) tryRecoverRegistration(privateKey crypto.PrivateKey) (*r
 }
 
 func (c *Configuration) obtainAndSaveCertificate(client *lego.Client, domain string) error {
-	var domains []string
-
-	for _, d := range strings.Split(domain, ",") {
-		d = strings.TrimSpace(d)
-		if d != "" {
-			domains = append(domains, d)
-		}
-	}
+	domains := getDomains(domain)
 	acmeLog(logger.LevelInfo, "requesting certificates for domains %+v", domains)
 	request := certificate.ObtainRequest{
 		Domains:                        domains,
@@ -655,8 +648,25 @@ func isDomainValid(domain string) (string, bool) {
 	return domain, isValid
 }
 
+func getDomains(domain string) []string {
+	var domains []string
+
+	delimiter := ","
+	if !strings.Contains(domain, ",") && strings.Contains(domain, " ") {
+		delimiter = " "
+	}
+
+	for _, d := range strings.Split(domain, delimiter) {
+		d = strings.TrimSpace(d)
+		if d != "" {
+			domains = append(domains, d)
+		}
+	}
+	return domains
+}
+
 func sanitizedDomain(domain string) string {
-	return strings.NewReplacer(":", "_", "*", "_", ",", "_").Replace(domain)
+	return strings.NewReplacer(":", "_", "*", "_", ",", "_", " ", "_").Replace(domain)
 }
 
 func stopScheduler() {
