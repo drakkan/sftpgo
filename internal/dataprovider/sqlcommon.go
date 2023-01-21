@@ -108,7 +108,7 @@ func sqlCommonAddShare(share *Share, dbHandle *sql.DB) error {
 
 	user, err := provider.userExists(share.Username, "")
 	if err != nil {
-		return util.NewValidationError(fmt.Sprintf("unable to validate user %#v", share.Username))
+		return util.NewGenericError(fmt.Sprintf("unable to validate user %#v", share.Username))
 	}
 
 	paths, err := json.Marshal(share.Paths)
@@ -168,7 +168,7 @@ func sqlCommonUpdateShare(share *Share, dbHandle *sql.DB) error {
 
 	user, err := provider.userExists(share.Username, "")
 	if err != nil {
-		return util.NewValidationError(fmt.Sprintf("unable to validate user %#v", share.Username))
+		return util.NewGenericError(fmt.Sprintf("unable to validate user %#v", share.Username))
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
@@ -2915,7 +2915,7 @@ func sqlCommonGetAPIKeyRelatedIDs(apiKey *APIKey) (sql.NullInt64, sql.NullInt64,
 	if apiKey.User != "" {
 		u, err := provider.userExists(apiKey.User, "")
 		if err != nil {
-			return userID, adminID, util.NewValidationError(fmt.Sprintf("unable to validate user %v", apiKey.User))
+			return userID, adminID, util.NewGenericError(fmt.Sprintf("unable to validate user %v", apiKey.User))
 		}
 		userID.Valid = true
 		userID.Int64 = u.ID

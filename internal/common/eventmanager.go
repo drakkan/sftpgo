@@ -197,7 +197,7 @@ func (r *eventRulesContainer) addUpdateRuleInternal(rule dataprovider.EventRule)
 		}
 		return
 	}
-	if rule.Status != 1 {
+	if rule.Status != 1 || rule.Trigger == dataprovider.EventTriggerOnDemand {
 		return
 	}
 	switch rule.Trigger {
@@ -2283,7 +2283,7 @@ type eventCronJob struct {
 	ruleName string
 }
 
-func (j *eventCronJob) getTask(rule dataprovider.EventRule) (dataprovider.Task, error) {
+func (j *eventCronJob) getTask(rule *dataprovider.EventRule) (dataprovider.Task, error) {
 	if rule.GuardFromConcurrentExecution() {
 		task, err := dataprovider.GetTaskByName(rule.Name)
 		if err != nil {
@@ -2316,11 +2316,11 @@ func (j *eventCronJob) Run() {
 		eventManagerLog(logger.LevelError, "unable to load rule with name %q", j.ruleName)
 		return
 	}
-	if err = rule.CheckActionsConsistency(""); err != nil {
+	if err := rule.CheckActionsConsistency(""); err != nil {
 		eventManagerLog(logger.LevelWarn, "scheduled rule %q skipped: %v", rule.Name, err)
 		return
 	}
-	task, err := j.getTask(rule)
+	task, err := j.getTask(&rule)
 	if err != nil {
 		return
 	}
@@ -2364,6 +2364,31 @@ func (j *eventCronJob) Run() {
 		executeAsyncRulesActions([]dataprovider.EventRule{rule}, EventParams{Status: 1, updateStatusFromError: true})
 	}
 	eventManagerLog(logger.LevelDebug, "execution for scheduled rule %q finished", j.ruleName)
+}
+
+// RunOnDemandRule executes actions for a rule with on-demand trigger
+func RunOnDemandRule(name string) error {
+	eventManagerLog(logger.LevelDebug, "executing on demand rule %q", name)
+	rule, err := dataprovider.EventRuleExists(name)
+	if err != nil {
+		eventManagerLog(logger.LevelDebug, "unable to load rule with name %q", name)
+		return util.NewRecordNotFoundError(fmt.Sprintf("rule %q does not exist", name))
+	}
+	if rule.Trigger != dataprovider.EventTriggerOnDemand {
+		eventManagerLog(logger.LevelDebug, "cannot run rule %q as on demand, trigger: %d", name, rule.Trigger)
+		return util.NewValidationError(fmt.Sprintf("rule %q is not defined as on-demand", name))
+	}
+	if rule.Status != 1 {
+		eventManagerLog(logger.LevelDebug, "on-demand rule %q is inactive", name)
+		return util.NewValidationError(fmt.Sprintf("rule %q is inactive", name))
+	}
+	if err := rule.CheckActionsConsistency(""); err != nil {
+		eventManagerLog(logger.LevelError, "on-demand rule %q has incompatible actions: %v", name, err)
+		return util.NewValidationError(fmt.Sprintf("rule %q has incosistent actions", name))
+	}
+	eventManagerLog(logger.LevelDebug, "on-demand rule %q started", name)
+	go executeAsyncRulesActions([]dataprovider.EventRule{rule}, EventParams{Status: 1, updateStatusFromError: true})
+	return nil
 }
 
 type zipWriterWrapper struct {

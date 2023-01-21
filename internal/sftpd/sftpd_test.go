@@ -9118,16 +9118,23 @@ func TestSSHCopyQuotaLimits(t *testing.T) {
 		// now decrease the limits
 		user.QuotaFiles = 1
 		user.QuotaSize = testFileSize * 10
-		user.VirtualFolders[1].QuotaSize = testFileSize
-		user.VirtualFolders[1].QuotaFiles = 10
+		for idx, f := range user.VirtualFolders {
+			if f.Name == folderName2 {
+				user.VirtualFolders[idx].QuotaSize = testFileSize
+				user.VirtualFolders[idx].QuotaFiles = 10
+			}
+		}
 		user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 		assert.NoError(t, err)
 		assert.Equal(t, 1, user.QuotaFiles)
 		assert.Equal(t, testFileSize*10, user.QuotaSize)
 		if assert.Len(t, user.VirtualFolders, 2) {
-			f := user.VirtualFolders[1]
-			assert.Equal(t, testFileSize, f.QuotaSize)
-			assert.Equal(t, 10, f.QuotaFiles)
+			for _, f := range user.VirtualFolders {
+				if f.Name == folderName2 {
+					assert.Equal(t, testFileSize, f.QuotaSize)
+					assert.Equal(t, 10, f.QuotaFiles)
+				}
+			}
 		}
 		_, err = runSSHCommand(fmt.Sprintf("sftpgo-copy %v %v", path.Join(vdirPath1, testDir),
 			path.Join(vdirPath2, testDir+".copy")), user, usePubKey)

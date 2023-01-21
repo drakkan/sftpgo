@@ -21,6 +21,7 @@ import (
 
 	"github.com/go-chi/render"
 
+	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/util"
 )
@@ -244,5 +245,16 @@ func deleteEventRule(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	sendAPIResponse(w, r, err, "Event rule deleted", http.StatusOK)
+	sendAPIResponse(w, r, nil, "Event rule deleted", http.StatusOK)
+}
+
+func runOnDemandRule(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+
+	name := getURLParam(r, "name")
+	if err := common.RunOnDemandRule(name); err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
+	}
+	sendAPIResponse(w, r, nil, "Event rule started", http.StatusAccepted)
 }

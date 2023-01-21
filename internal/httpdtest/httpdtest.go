@@ -942,6 +942,25 @@ func GetEventRules(limit, offset int64, expectedStatusCode int) ([]dataprovider.
 	return rules, body, err
 }
 
+// RunOnDemandRule executes the specified on demand rule
+func RunOnDemandRule(name string, expectedStatusCode int) ([]byte, error) {
+	resp, err := sendHTTPRequest(http.MethodPost, buildURLRelativeToBase(eventRulesPath, "run", url.PathEscape(name)),
+		nil, "application/json", getDefaultToken())
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	b, err := getResponseBody(resp)
+	if err != nil {
+		return b, err
+	}
+	if err := checkResponse(resp.StatusCode, expectedStatusCode); err != nil {
+		return b, err
+	}
+	return b, nil
+}
+
 // GetQuotaScans gets active quota scans for users and checks the received HTTP Status code against expectedStatusCode.
 func GetQuotaScans(expectedStatusCode int) ([]common.ActiveQuotaScan, []byte, error) {
 	var quotaScans []common.ActiveQuotaScan

@@ -1666,6 +1666,47 @@ func TestActionRuleRelations(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestOnDemandEventRules(t *testing.T) {
+	ruleName := "test on demand rule"
+	a := dataprovider.BaseEventAction{
+		Name:    "a",
+		Type:    dataprovider.ActionTypeBackup,
+		Options: dataprovider.BaseEventActionOptions{},
+	}
+	action, _, err := httpdtest.AddEventAction(a, http.StatusCreated)
+	assert.NoError(t, err)
+	r := dataprovider.EventRule{
+		Name:    ruleName,
+		Status:  1,
+		Trigger: dataprovider.EventTriggerOnDemand,
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: a.Name,
+				},
+			},
+		},
+	}
+	rule, _, err := httpdtest.AddEventRule(r, http.StatusCreated)
+	assert.NoError(t, err)
+	_, err = httpdtest.RunOnDemandRule(ruleName, http.StatusAccepted)
+	assert.NoError(t, err)
+	rule.Status = 0
+	_, _, err = httpdtest.UpdateEventRule(rule, http.StatusOK)
+	assert.NoError(t, err)
+	resp, err := httpdtest.RunOnDemandRule(ruleName, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "is inactive")
+
+	_, err = httpdtest.RemoveEventRule(rule, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action, http.StatusOK)
+	assert.NoError(t, err)
+
+	_, err = httpdtest.RunOnDemandRule(ruleName, http.StatusNotFound)
+	assert.NoError(t, err)
+}
+
 func TestEventActionValidation(t *testing.T) {
 	action := dataprovider.BaseEventAction{
 		Name: "",
@@ -6591,8 +6632,8 @@ func TestProviderErrors(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.WriteFile(backupFilePath, backupContent, os.ModePerm)
 	assert.NoError(t, err)
-	_, _, err = httpdtest.Loaddata(backupFilePath, "", "", http.StatusInternalServerError)
-	assert.NoError(t, err)
+	_, resp, err := httpdtest.Loaddata(backupFilePath, "", "", http.StatusInternalServerError)
+	assert.NoError(t, err, string(resp))
 	backupData = dataprovider.BackupData{
 		EventActions: []dataprovider.BaseEventAction{
 			{

@@ -1803,6 +1803,87 @@ func TestEstimateZipSizeErrors(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestOnDemandRule(t *testing.T) {
+	a := &dataprovider.BaseEventAction{
+		Name:    "a",
+		Type:    dataprovider.ActionTypeBackup,
+		Options: dataprovider.BaseEventActionOptions{},
+	}
+	err := dataprovider.AddEventAction(a, "", "", "")
+	assert.NoError(t, err)
+	r := &dataprovider.EventRule{
+		Name:    "test on demand rule",
+		Status:  1,
+		Trigger: dataprovider.EventTriggerOnDemand,
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: a.Name,
+				},
+			},
+		},
+	}
+	err = dataprovider.AddEventRule(r, "", "", "")
+	assert.NoError(t, err)
+
+	err = RunOnDemandRule(r.Name)
+	assert.NoError(t, err)
+
+	r.Status = 0
+	err = dataprovider.UpdateEventRule(r, "", "", "")
+	assert.NoError(t, err)
+	err = RunOnDemandRule(r.Name)
+	assert.ErrorIs(t, err, util.ErrValidation)
+	assert.Contains(t, err.Error(), "is inactive")
+
+	r.Status = 1
+	r.Trigger = dataprovider.EventTriggerCertificate
+	err = dataprovider.UpdateEventRule(r, "", "", "")
+	assert.NoError(t, err)
+	err = RunOnDemandRule(r.Name)
+	assert.ErrorIs(t, err, util.ErrValidation)
+	assert.Contains(t, err.Error(), "is not defined as on-demand")
+
+	a1 := &dataprovider.BaseEventAction{
+		Name: "a1",
+		Type: dataprovider.ActionTypeEmail,
+		Options: dataprovider.BaseEventActionOptions{
+			EmailConfig: dataprovider.EventActionEmailConfig{
+				Recipients:  []string{"example@example.org"},
+				Subject:     "subject",
+				Body:        "body",
+				Attachments: []string{"/{{VirtualPath}}"},
+			},
+		},
+	}
+	err = dataprovider.AddEventAction(a1, "", "", "")
+	assert.NoError(t, err)
+
+	r.Trigger = dataprovider.EventTriggerOnDemand
+	r.Actions = []dataprovider.EventAction{
+		{
+			BaseEventAction: dataprovider.BaseEventAction{
+				Name: a1.Name,
+			},
+		},
+	}
+	err = dataprovider.UpdateEventRule(r, "", "", "")
+	assert.NoError(t, err)
+	err = RunOnDemandRule(r.Name)
+	assert.ErrorIs(t, err, util.ErrValidation)
+	assert.Contains(t, err.Error(), "incosistent actions")
+
+	err = dataprovider.DeleteEventRule(r.Name, "", "", "")
+	assert.NoError(t, err)
+	err = dataprovider.DeleteEventAction(a.Name, "", "", "")
+	assert.NoError(t, err)
+	err = dataprovider.DeleteEventAction(a1.Name, "", "", "")
+	assert.NoError(t, err)
+
+	err = RunOnDemandRule(r.Name)
+	assert.ErrorIs(t, err, util.ErrNotFound)
+}
+
 func getErrorString(err error) string {
 	if err == nil {
 		return ""

@@ -86,13 +86,13 @@ func sendAPIResponse(w http.ResponseWriter, r *http.Request, err error, message 
 }
 
 func getRespStatus(err error) int {
-	if _, ok := err.(*util.ValidationError); ok {
+	if errors.Is(err, util.ErrValidation) {
 		return http.StatusBadRequest
 	}
-	if _, ok := err.(*util.MethodDisabledError); ok {
+	if errors.Is(err, util.ErrMethodDisabled) {
 		return http.StatusForbidden
 	}
-	if _, ok := err.(*util.RecordNotFoundError); ok {
+	if errors.Is(err, util.ErrNotFound) {
 		return http.StatusNotFound
 	}
 	if errors.Is(err, fs.ErrNotExist) {

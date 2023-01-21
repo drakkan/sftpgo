@@ -29,6 +29,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 <div id="errorMsg" class="card mb-4 border-left-warning" style="display: none;">
     <div id="errorTxt" class="card-body text-form-error"></div>
 </div>
+<div id="successMsg" class="card mb-4 border-left-success" style="display: none;">
+    <div id="successTxt" class="card-body"></div>
+</div>
 <div class="card shadow mb-4">
     <div class="card-header py-3">
         <h6 class="m-0 font-weight-bold text-primary">View and manage event rules</h6>
@@ -38,6 +41,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
             <table class="table table-hover nowrap" id="dataTable" width="100%" cellspacing="0">
                 <thead>
                     <tr>
+                        <th></th>
                         <th>Name</th>
                         <th>Status</th>
                         <th>Description</th>
@@ -48,6 +52,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                 <tbody>
                     {{range .Rules}}
                     <tr>
+                        <td>{{.Trigger}}</td>
                         <td>{{.Name}}</td>
                         <td>{{if eq .Status 1 }}Active{{else}}Inactive{{end}}</td>
                         <td>{{.Description}}</td>
@@ -87,6 +92,31 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="runModal" tabindex="-1" role="dialog" aria-labelledby="runModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="runModalLabel">
+                    Confirmation required
+                </h5>
+                <button class="close" type="button" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">Do you want to execute the selected rule?</div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" type="button" data-dismiss="modal">
+                    Cancel
+                </button>
+                <a class="btn btn-warning" href="#" onclick="runAction()">
+                    Run
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
 {{end}}
 
 {{define "extra_js"}}
@@ -102,11 +132,51 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 <script src="{{.StaticURL}}/vendor/datatables/ellipsis.js"></script>
 <script type="text/javascript">
 
+    function runAction(){
+        let table = $('#dataTable').DataTable();
+        table.button('run:name').enable(false);
+        let name = table.row({ selected: true }).data()[1];
+        let path = '{{.EventRuleURL}}' + "/run/" + fixedEncodeURIComponent(name);
+        $('#runModal').modal('hide');
+        $.ajax({
+            url: path,
+            type: 'POST',
+            dataType: 'json',
+            headers: {'X-CSRF-TOKEN' : '{{.CSRFToken}}'},
+            timeout: 15000,
+            success: function (result) {
+                $('#successTxt').text("Rule actions started");
+                $('#successMsg').show();
+                setTimeout(function () {
+                    $('#successMsg').hide();
+                }, 8000);
+            },
+            error: function ($xhr, textStatus, errorThrown) {
+                var txt = "Unable to run the selected rule";
+                if ($xhr) {
+                    var json = $xhr.responseJSON;
+                    if (json) {
+                        if (json.message){
+                            txt += ": " + json.message;
+                        } else {
+                            txt += ": " + json.error;
+                        }
+                    }
+                }
+                $('#errorTxt').text(txt);
+                $('#errorMsg').show();
+                setTimeout(function () {
+                    $('#errorMsg').hide();
+                }, 8000);
+            }
+        });
+    }
+
     function deleteAction() {
-        var table = $('#dataTable').DataTable();
+        let table = $('#dataTable').DataTable();
         table.button('delete:name').enable(false);
-        var name = table.row({ selected: true }).data()[0];
-        var path = '{{.EventRuleURL}}' + "/" + fixedEncodeURIComponent(name);
+        let name = table.row({ selected: true }).data()[1];
+        let path = '{{.EventRuleURL}}' + "/" + fixedEncodeURIComponent(name);
         $('#deleteModal').modal('hide');
         $.ajax({
             url: path,
@@ -133,7 +203,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                 $('#errorMsg').show();
                 setTimeout(function () {
                     $('#errorMsg').hide();
-                }, 5000);
+                }, 8000);
             }
         });
     }
@@ -153,8 +223,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
             name: 'edit',
             titleAttr: "Edit",
             action: function (e, dt, node, config) {
-                var name = table.row({ selected: true }).data()[0];
-                var path = '{{.EventRuleURL}}' + "/" + fixedEncodeURIComponent(name);
+                let name = table.row({ selected: true }).data()[1];
+                let path = '{{.EventRuleURL}}' + "/" + fixedEncodeURIComponent(name);
                 window.location.href = path;
             },
             enabled: false
@@ -166,6 +236,16 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
             titleAttr: "Delete",
             action: function (e, dt, node, config) {
                 $('#deleteModal').modal('show');
+            },
+            enabled: false
+        };
+
+        $.fn.dataTable.ext.buttons.run = {
+            text: '<i class="fas fa-play"></i>',
+            name: 'run',
+            titleAttr: "Run",
+            action: function (e, dt, node, config) {
+                $('#runModal').modal('show');
             },
             enabled: false
         };
@@ -186,15 +266,21 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
             ],
             "columnDefs": [
                 {
-                    "targets": [0,1],
+                    "targets": [0],
+                    "visible": false,
+                    "searchable": false,
                     "className": "noVis"
                 },
                 {
-                    "targets": [2],
+                    "targets": [1,2],
+                    "className": "noVis"
+                },
+                {
+                    "targets": [3],
                     "visible": false
                 },
                 {
-                    "targets": [4],
+                    "targets": [5],
                     "render": $.fn.dataTable.render.ellipsis(100, true)
                 },
             ],
@@ -204,11 +290,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
             "language": {
                 "emptyTable": "No event rules defined"
             },
-            "order": [[0, 'asc']]
+            "order": [[1, 'asc']]
         });
 
         new $.fn.dataTable.FixedHeader( table );
 
+        table.button().add(0,'run');
         table.button().add(0,'delete');
         table.button().add(0,'edit');
         table.button().add(0,'add');
@@ -219,6 +306,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
             var selectedRows = table.rows({ selected: true }).count();
             table.button('delete:name').enable(selectedRows == 1);
             table.button('edit:name').enable(selectedRows == 1);
+            if (selectedRows == 1){
+                table.button('run:name').enable(table.row({ selected: true }).data()[0] == 6);
+            } else {
+                table.button('run:name').enable(false);
+            }
         });
 
     });

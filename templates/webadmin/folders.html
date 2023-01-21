@@ -204,15 +204,15 @@ function deleteAction() {
             titleAttr: 'Quota Scan',
             action: function (e, dt, node, config) {
                 dt.button('quota_scan:name').enable(false);
-                var folderName = dt.row({ selected: true }).data()[1];
-                var path = '{{.FolderQuotaScanURL}}'+ "/" + fixedEncodeURIComponent(folderName);
+                let folderName = dt.row({ selected: true }).data()[1];
+                let path = '{{.FolderQuotaScanURL}}'+ "/" + fixedEncodeURIComponent(folderName);
                 $.ajax({
                     url: path,
                     type: 'POST',
                     headers: {'X-CSRF-TOKEN' : '{{.CSRFToken}}'},
                     timeout: 15000,
                     success: function (result) {
-                        dt.button('quota_scan:name').enable(true);
+                        //dt.button('quota_scan:name').enable(true);
                         $('#successTxt').text("Quota scan started for the selected folder. Please reload the folders page to check when the scan ends");
                         $('#successMsg').show();
                         setTimeout(function () {

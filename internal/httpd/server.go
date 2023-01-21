@@ -1302,6 +1302,7 @@ func (s *httpdServer) initializeRouter() {
 			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Post(eventRulesPath, addEventRule)
 			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Put(eventRulesPath+"/{name}", updateEventRule)
 			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Delete(eventRulesPath+"/{name}", deleteEventRule)
+			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Post(eventRulesPath+"/run/{name}", runOnDemandRule)
 			router.With(s.checkPerm(dataprovider.PermAdminManageRoles)).Get(rolesPath, getRoles)
 			router.With(s.checkPerm(dataprovider.PermAdminManageRoles)).Get(rolesPath+"/{name}", getRoleByName)
 			router.With(s.checkPerm(dataprovider.PermAdminManageRoles)).Post(rolesPath, addRole)
@@ -1657,6 +1658,8 @@ func (s *httpdServer) setupWebAdminRoutes() {
 				s.handleWebUpdateEventRulePost)
 			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules), verifyCSRFHeader).
 				Delete(webAdminEventRulePath+"/{name}", deleteEventRule)
+			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules), verifyCSRFHeader).
+				Post(webAdminEventRulePath+"/run/{name}", runOnDemandRule)
 			router.With(s.checkPerm(dataprovider.PermAdminManageRoles), s.refreshCookie).
 				Get(webAdminRolesPath, s.handleWebGetRoles)
 			router.With(s.checkPerm(dataprovider.PermAdminManageRoles), s.refreshCookie).

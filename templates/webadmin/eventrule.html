@@ -193,7 +193,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                 </div>
             </div>
 
-            <div class="card bg-light mb-3 trigger trigger-fs trigger-provider trigger-schedule">
+            <div class="card bg-light mb-3 trigger trigger-fs trigger-provider trigger-schedule trigger-on-demand">
                 <div class="card-header">
                     <b>Name filters</b>
                 </div>
@@ -247,7 +247,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                 </div>
             </div>
 
-            <div class="card bg-light mb-3 trigger trigger-fs trigger-schedule">
+            <div class="card bg-light mb-3 trigger trigger-fs trigger-schedule trigger-on-demand">
                 <div class="card-header">
                     <b>Group name filters</b>
                 </div>
@@ -301,7 +301,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                 </div>
             </div>
 
-            <div class="card bg-light mb-3 trigger trigger-fs trigger-schedule trigger-provider">
+            <div class="card bg-light mb-3 trigger trigger-fs trigger-schedule trigger-provider trigger-on-demand">
                 <div class="card-header">
                     <b>Role name filters</b>
                 </div>
@@ -710,21 +710,19 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
         $('.trigger').hide();
         switch (val) {
             case '1':
-            case 1:
                 $('.trigger-fs').show();
                 break;
             case '2':
-            case 2:
                 $('.trigger-provider').show();
                 break;
             case '3':
-            case 3:
                 $('.trigger-schedule').show();
                 break;
             case '4':
-            case 4:
             case '5':
-            case 5:
+                break;
+            case '6':
+                $('.trigger-on-demand').show();
                 break;
             default:
                 console.log(`unsupported event trigger type: ${val}`);

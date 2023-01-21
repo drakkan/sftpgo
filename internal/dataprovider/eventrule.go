@@ -94,11 +94,12 @@ const (
 	EventTriggerSchedule
 	EventTriggerIPBlocked
 	EventTriggerCertificate
+	EventTriggerOnDemand
 )
 
 var (
 	supportedEventTriggers = []int{EventTriggerFsEvent, EventTriggerProviderEvent, EventTriggerSchedule,
-		EventTriggerIPBlocked, EventTriggerCertificate}
+		EventTriggerIPBlocked, EventTriggerCertificate, EventTriggerOnDemand}
 )
 
 func isEventTriggerValid(trigger int) bool {
@@ -115,6 +116,8 @@ func getTriggerTypeAsString(trigger int) string {
 		return "IP blocked"
 	case EventTriggerCertificate:
 		return "Certificate renewal"
+	case EventTriggerOnDemand:
+		return "On demand"
 	default:
 		return "Schedule"
 	}
@@ -1292,6 +1295,16 @@ func (c *EventConditions) validate(trigger int) error {
 		c.Options.MinFileSize = 0
 		c.Options.MaxFileSize = 0
 		c.Schedules = nil
+	case EventTriggerOnDemand:
+		c.FsEvents = nil
+		c.ProviderEvents = nil
+		c.Options.FsPaths = nil
+		c.Options.Protocols = nil
+		c.Options.MinFileSize = 0
+		c.Options.MaxFileSize = 0
+		c.Options.ProviderObjects = nil
+		c.Schedules = nil
+		c.Options.ConcurrentExecution = false
 	default:
 		c.FsEvents = nil
 		c.ProviderEvents = nil

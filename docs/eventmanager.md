@@ -54,6 +54,7 @@ The following trigger events are supported:
 - `Schedules`. The scheduler uses UTC time.
 - `IP Blocked`, this event can be generated if you enable the [defender](./defender.md).
 - `Certificate`, this event is generated when a certificate is renewed using the built-in ACME protocol. Both successful and failed renewals are notified.
+- `On demand`, this trigger is generated manually using the WebAdmin or the REST API.
 
 You can further restrict a rule by specifying additional conditions that must be met before the rule’s actions are taken. For example you can react to uploads only if they are performed by a particular user or using a specified protocol.
 
