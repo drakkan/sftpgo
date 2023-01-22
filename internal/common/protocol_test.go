@@ -114,6 +114,7 @@ func TestMain(m *testing.M) {
 		logger.WarnToConsole("error initializing common: %v", err)
 		os.Exit(1)
 	}
+	common.SetCertAutoReloadMode(true)
 
 	err = dataprovider.Initialize(providerConf, configDir, true)
 	if err != nil {

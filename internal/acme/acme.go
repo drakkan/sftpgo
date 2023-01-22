@@ -143,6 +143,7 @@ type Configuration struct {
 
 // Initialize validates and set the configuration
 func (c *Configuration) Initialize(configDir string, checkRenew bool) error {
+	common.SetCertAutoReloadMode(true)
 	config = nil
 	setLogMode(checkRenew)
 	c.checkDomains()
@@ -200,6 +201,7 @@ func (c *Configuration) Initialize(configDir string, checkRenew bool) error {
 	}
 
 	acmeLog(logger.LevelInfo, "configured domains: %+v", c.Domains)
+	common.SetCertAutoReloadMode(false)
 	config = c
 	if checkRenew {
 		return startScheduler()
@@ -679,9 +681,7 @@ func stopScheduler() {
 func startScheduler() error {
 	stopScheduler()
 
-	rand.Seed(time.Now().UnixNano())
 	randSecs := rand.Intn(59)
-
 	scheduler = cron.New()
 	_, err := scheduler.AddFunc(fmt.Sprintf("@every 12h0m%ds", randSecs), renewCertificates)
 	if err != nil {

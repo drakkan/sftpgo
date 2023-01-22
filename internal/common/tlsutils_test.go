@@ -20,8 +20,10 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -282,6 +284,7 @@ uaPG3o9EBDf5eFKi76o+pVtqxrwhY88M/Yw0ykEA6Nf7RCo2ucdemg==
 )
 
 func TestLoadCertificate(t *testing.T) {
+	startEventScheduler()
 	caCrtPath := filepath.Join(os.TempDir(), "testca.crt")
 	caCrlPath := filepath.Join(os.TempDir(), "testcrl.crt")
 	certPath := filepath.Join(os.TempDir(), "test.crt")
@@ -427,9 +430,11 @@ func TestLoadCertificate(t *testing.T) {
 
 	err = os.Remove(caCrtPath)
 	assert.NoError(t, err)
+	stopEventScheduler()
 }
 
 func TestLoadInvalidCert(t *testing.T) {
+	startEventScheduler()
 	certManager, err := NewCertManager(nil, configDir, logSenderTest)
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "no key pairs defined")
@@ -458,4 +463,62 @@ func TestLoadInvalidCert(t *testing.T) {
 		assert.Contains(t, err.Error(), "TLS certificate without ID")
 	}
 	assert.Nil(t, certManager)
+	stopEventScheduler()
+}
+
+func TestCertificateMonitor(t *testing.T) {
+	startEventScheduler()
+	defer stopEventScheduler()
+
+	certPath := filepath.Join(os.TempDir(), "test.crt")
+	keyPath := filepath.Join(os.TempDir(), "test.key")
+	caCrlPath := filepath.Join(os.TempDir(), "testcrl.crt")
+	err := os.WriteFile(certPath, []byte(serverCert), os.ModePerm)
+	assert.NoError(t, err)
+	err = os.WriteFile(keyPath, []byte(serverKey), os.ModePerm)
+	assert.NoError(t, err)
+	err = os.WriteFile(caCrlPath, []byte(caCRL), os.ModePerm)
+	assert.NoError(t, err)
+
+	keyPairs := []TLSKeyPair{
+		{
+			Cert: certPath,
+			Key:  keyPath,
+			ID:   DefaultTLSKeyPaidID,
+		},
+	}
+	certManager, err := NewCertManager(keyPairs, configDir, logSenderTest)
+	assert.NoError(t, err)
+	assert.Len(t, certManager.monitorList, 1)
+	require.Len(t, certManager.certsInfo, 1)
+	info := certManager.certsInfo[certPath]
+	require.NotNil(t, info)
+	certManager.SetCARevocationLists([]string{caCrlPath})
+	err = certManager.LoadCRLs()
+	assert.NoError(t, err)
+	assert.Len(t, certManager.monitorList, 2)
+	certManager.monitor()
+	require.Len(t, certManager.certsInfo, 2)
+
+	err = os.Remove(certPath)
+	assert.NoError(t, err)
+	certManager.monitor()
+
+	time.Sleep(100 * time.Millisecond)
+	err = os.WriteFile(certPath, []byte(serverCert), os.ModePerm)
+	assert.NoError(t, err)
+	certManager.monitor()
+	require.Len(t, certManager.certsInfo, 2)
+	newInfo := certManager.certsInfo[certPath]
+	require.NotNil(t, newInfo)
+	assert.Equal(t, info.Size(), newInfo.Size())
+	assert.NotEqual(t, info.ModTime(), newInfo.ModTime())
+
+	err = os.Remove(caCrlPath)
+	assert.NoError(t, err)
+
+	err = os.Remove(certPath)
+	assert.NoError(t, err)
+	err = os.Remove(keyPath)
+	assert.NoError(t, err)
 }

@@ -21,6 +21,8 @@ package main // import "github.com/drakkan/sftpgo"
 
 import (
 	"fmt"
+	"math/rand"
+	"time"
 
 	"go.uber.org/automaxprocs/maxprocs"
 
@@ -32,5 +34,6 @@ func main() {
 		fmt.Printf("error setting max procs: %v\n", err)
 		undo()
 	}
+	rand.Seed(time.Now().UnixNano())
 	cmd.Execute()
 }
