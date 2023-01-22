@@ -21,6 +21,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -703,6 +704,7 @@ func TestEventRuleActions(t *testing.T) {
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "unable to decrypt HTTP password")
 	}
+	action.Options.HTTPConfig.Endpoint = fmt.Sprintf("http://%v", httpAddr)
 	action.Options.HTTPConfig.Password = kms.NewEmptySecret()
 	action.Options.HTTPConfig.Body = ""
 	action.Options.HTTPConfig.Parts = []dataprovider.HTTPPart{
@@ -1889,4 +1891,34 @@ func getErrorString(err error) string {
 		return ""
 	}
 	return err.Error()
+}
+
+func TestHTTPEndpointWithPlaceholders(t *testing.T) {
+	c := dataprovider.EventActionHTTPConfig{
+		Endpoint: "http://127.0.0.1:8080/base/url/{{Name}}/{{VirtualPath}}/upload",
+		QueryParameters: []dataprovider.KeyValue{
+			{
+				Key:   "u",
+				Value: "{{Name}}",
+			},
+			{
+				Key:   "p",
+				Value: "{{VirtualPath}}",
+			},
+		},
+	}
+	name := "uname"
+	vPath := "/a dir/@ file.txt"
+	replacer := strings.NewReplacer("{{Name}}", name, "{{VirtualPath}}", vPath)
+	u, err := getHTTPRuleActionEndpoint(c, replacer)
+	assert.NoError(t, err)
+	expected := "http://127.0.0.1:8080/base/url/" + url.PathEscape(name) + "/" + url.PathEscape(vPath) +
+		"/upload?" + "p=" + url.QueryEscape(vPath) + "&u=" + url.QueryEscape(name)
+	assert.Equal(t, expected, u)
+
+	c.Endpoint = "http://127.0.0.1/upload"
+	u, err = getHTTPRuleActionEndpoint(c, replacer)
+	assert.NoError(t, err)
+	expected = c.Endpoint + "?p=" + url.QueryEscape(vPath) + "&u=" + url.QueryEscape(name)
+	assert.Equal(t, expected, u)
 }

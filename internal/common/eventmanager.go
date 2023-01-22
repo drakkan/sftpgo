@@ -1029,11 +1029,22 @@ func checkEventGroupConditionPatters(groups []sdk.GroupMapping, patterns []datap
 }
 
 func getHTTPRuleActionEndpoint(c dataprovider.EventActionHTTPConfig, replacer *strings.Replacer) (string, error) {
-	if len(c.QueryParameters) > 0 {
-		u, err := url.Parse(c.Endpoint)
-		if err != nil {
-			return "", fmt.Errorf("invalid endpoint: %w", err)
+	u, err := url.Parse(c.Endpoint)
+	if err != nil {
+		return "", fmt.Errorf("invalid endpoint: %w", err)
+	}
+	if strings.Contains(u.Path, "{{") {
+		pathComponents := strings.Split(u.Path, "/")
+		for idx := range pathComponents {
+			part := replaceWithReplacer(pathComponents[idx], replacer)
+			if part != pathComponents[idx] {
+				pathComponents[idx] = url.PathEscape(part)
+			}
 		}
+		u.Path = ""
+		u = u.JoinPath(pathComponents...)
+	}
+	if len(c.QueryParameters) > 0 {
 		q := u.Query()
 
 		for _, keyVal := range c.QueryParameters {
@@ -1041,9 +1052,8 @@ func getHTTPRuleActionEndpoint(c dataprovider.EventActionHTTPConfig, replacer *s
 		}
 
 		u.RawQuery = q.Encode()
-		return u.String(), nil
 	}
-	return c.Endpoint, nil
+	return u.String(), nil
 }
 
 func writeHTTPPart(m *multipart.Writer, part dataprovider.HTTPPart, h textproto.MIMEHeader,
