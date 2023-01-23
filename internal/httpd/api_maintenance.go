@@ -132,6 +132,7 @@ func loadDataFromRequest(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := restoreBackup(content, "", scanQuota, mode, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr)); err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
 	}
 	sendAPIResponse(w, r, err, "Data restored", http.StatusOK)
 }
@@ -170,6 +171,7 @@ func loadData(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := restoreBackup(content, inputFile, scanQuota, mode, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr)); err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
 	}
 	sendAPIResponse(w, r, err, "Data restored", http.StatusOK)
 }
