@@ -38,6 +38,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/sftpd"
 	"github.com/drakkan/sftpgo/v2/internal/smtp"
 	"github.com/drakkan/sftpgo/v2/internal/util"
+	"github.com/drakkan/sftpgo/v2/internal/webdavd"
 )
 
 const (
@@ -1029,6 +1030,72 @@ func TestFTPDBindingsFromEnv(t *testing.T) {
 	require.True(t, bindings[1].Debug)
 	require.Equal(t, "cert.crt", bindings[1].CertificateFile)
 	require.Equal(t, "cert.key", bindings[1].CertificateKeyFile)
+}
+
+func TestWebDAVMimeCache(t *testing.T) {
+	reset()
+
+	err := config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	webdavdConf := config.GetWebDAVDConfig()
+	webdavdConf.Cache.MimeTypes.CustomMappings = []webdavd.CustomMimeMapping{
+		{
+			Ext:  ".custom",
+			Mime: "application/custom",
+		},
+	}
+	cfg := map[string]any{
+		"webdavd": webdavdConf,
+	}
+	data, err := json.Marshal(cfg)
+	assert.NoError(t, err)
+	confName := tempConfigName + ".json"
+	configFilePath := filepath.Join(configDir, confName)
+	err = os.WriteFile(configFilePath, data, 0666)
+	assert.NoError(t, err)
+
+	reset()
+	err = config.LoadConfig(configDir, confName)
+	assert.NoError(t, err)
+	mappings := config.GetWebDAVDConfig().Cache.MimeTypes.CustomMappings
+	if assert.Len(t, mappings, 1) {
+		assert.Equal(t, ".custom", mappings[0].Ext)
+		assert.Equal(t, "application/custom", mappings[0].Mime)
+	}
+	// now add from env
+	os.Setenv("SFTPGO_WEBDAVD__CACHE__MIME_TYPES__CUSTOM_MAPPINGS__1__EXT", ".custom1")
+	os.Setenv("SFTPGO_WEBDAVD__CACHE__MIME_TYPES__CUSTOM_MAPPINGS__1__MIME", "application/custom1")
+	t.Cleanup(func() {
+		os.Unsetenv("SFTPGO_WEBDAVD__CACHE__MIME_TYPES__CUSTOM_MAPPINGS__0__EXT")
+		os.Unsetenv("SFTPGO_WEBDAVD__CACHE__MIME_TYPES__CUSTOM_MAPPINGS__0__MIME")
+		os.Unsetenv("SFTPGO_WEBDAVD__CACHE__MIME_TYPES__CUSTOM_MAPPINGS__1__EXT")
+		os.Unsetenv("SFTPGO_WEBDAVD__CACHE__MIME_TYPES__CUSTOM_MAPPINGS__1__MIME")
+	})
+	reset()
+	err = config.LoadConfig(configDir, confName)
+	assert.NoError(t, err)
+	mappings = config.GetWebDAVDConfig().Cache.MimeTypes.CustomMappings
+	if assert.Len(t, mappings, 2) {
+		assert.Equal(t, ".custom", mappings[0].Ext)
+		assert.Equal(t, "application/custom", mappings[0].Mime)
+		assert.Equal(t, ".custom1", mappings[1].Ext)
+		assert.Equal(t, "application/custom1", mappings[1].Mime)
+	}
+	// override from env
+	os.Setenv("SFTPGO_WEBDAVD__CACHE__MIME_TYPES__CUSTOM_MAPPINGS__0__EXT", ".custom0")
+	os.Setenv("SFTPGO_WEBDAVD__CACHE__MIME_TYPES__CUSTOM_MAPPINGS__0__MIME", "application/custom0")
+	reset()
+	err = config.LoadConfig(configDir, confName)
+	assert.NoError(t, err)
+	mappings = config.GetWebDAVDConfig().Cache.MimeTypes.CustomMappings
+	if assert.Len(t, mappings, 2) {
+		assert.Equal(t, ".custom0", mappings[0].Ext)
+		assert.Equal(t, "application/custom0", mappings[0].Mime)
+		assert.Equal(t, ".custom1", mappings[1].Ext)
+		assert.Equal(t, "application/custom1", mappings[1].Mime)
+	}
+	err = os.Remove(configFilePath)
+	assert.NoError(t, err)
 }
 
 func TestWebDAVBindingsFromEnv(t *testing.T) {

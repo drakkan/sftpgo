@@ -181,7 +181,8 @@
       },
       "mime_types": {
         "enabled": true,
-        "max_size": 1000
+        "max_size": 1000,
+        "custom_mappings": []
       }
     }
   },

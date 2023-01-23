@@ -220,10 +220,16 @@ The configuration file contains the following sections:
     - `options_passthrough`, boolean.
     - `options_success_status`, integer.
     - `allow_private_network`, boolean.
-  - `cache` struct containing cache configuration for the authenticated users.
-    - `enabled`, boolean, set to true to enable user caching. Default: true.
-    - `expiration_time`, integer. Expiration time, in minutes, for the cached users. 0 means unlimited. Default: 0.
-    - `max_size`, integer. Maximum number of users to cache. 0 means unlimited. Default: 50.
+  - `cache` struct containing cache configurations.
+    - `users`, cache configuration for the authenticated users.
+      - `expiration_time`, integer. Expiration time, in minutes, for the cached users. 0 means unlimited. Default: 0.
+      - `max_size`, integer. Maximum number of users to cache. 0 means unlimited. Default: 50.
+    - `mime_types`, cache configuration for mime types.
+      - `enabled`, boolean, set to true to enable mime types caching. Default: `true`.
+      - `max_size`, integer. Maximum number of mime types to cache. 0 means no cache. Default: 1000.
+      - `custom_mappings`, additional mime types mapping. This is a platform independet way to add few additional mappings. You can set a limited number of mappings here, if you want to add a large list use the method provided by the OS of your choice. List of struct, each struct has the following fields:
+        - `ext`, string, file extension including the dot, for example `.json`
+        - `mime`, string, mime type, for example `application/json`
 
 </details>
 <details><summary><font size=4>Data Provider</font></summary>

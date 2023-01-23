@@ -272,6 +272,8 @@ func TestMain(m *testing.M) {
 	os.Setenv("SFTPGO_COMMON__ALLOW_SELF_CONNECTIONS", "1")
 	os.Setenv("SFTPGO_DEFAULT_ADMIN_USERNAME", "admin")
 	os.Setenv("SFTPGO_DEFAULT_ADMIN_PASSWORD", "password")
+	os.Setenv("SFTPGO_WEBDAVD__CACHE__MIME_TYPES__CUSTOM_MAPPINGS__0__EXT", ".sftpgo")
+	os.Setenv("SFTPGO_WEBDAVD__CACHE__MIME_TYPES__CUSTOM_MAPPINGS__0__MIME", "application/sftpgo")
 	err := config.LoadConfig(configDir, "")
 	if err != nil {
 		logger.ErrorToConsole("error loading configuration: %v", err)
@@ -2223,6 +2225,39 @@ func TestBytesRangeRequests(t *testing.T) {
 	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(localUser.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestContentTypeGET(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	testFileSize := int64(64)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+	client := getWebDavClient(user, true, nil)
+	err = uploadFileWithRawClient(testFilePath, testFileName+".sftpgo", user.Username, defaultPassword,
+		true, testFileSize, client)
+	assert.NoError(t, err)
+	remotePath := fmt.Sprintf("http://%v/%v", webDavServerAddr, testFileName+".sftpgo")
+	req, err := http.NewRequest(http.MethodGet, remotePath, nil)
+	if assert.NoError(t, err) {
+		httpClient := httpclient.GetHTTPClient()
+		req.SetBasicAuth(user.Username, defaultPassword)
+		resp, err := httpClient.Do(req)
+		if assert.NoError(t, err) {
+			defer resp.Body.Close()
+			assert.Equal(t, http.StatusOK, resp.StatusCode)
+			assert.Equal(t, "application/sftpgo", resp.Header.Get("Content-Type"))
+		}
+	}
+
+	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
 

@@ -22,7 +22,10 @@ type mimeCache struct {
 	mimeTypes map[string]string
 }
 
-var mimeTypeCache mimeCache
+var (
+	mimeTypeCache         mimeCache
+	customMimeTypeMapping map[string]string
+)
 
 func (c *mimeCache) addMimeToCache(key, value string) {
 	c.Lock()

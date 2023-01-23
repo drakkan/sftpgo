@@ -64,6 +64,12 @@ type CorsConfig struct {
 	AllowPrivateNetwork  bool     `json:"allow_private_network" mapstructure:"allow_private_network"`
 }
 
+// CustomMimeMapping defines additional, user defined mime mappings
+type CustomMimeMapping struct {
+	Ext  string `json:"ext" mapstructure:"ext"`
+	Mime string `json:"mime" mapstructure:"mime"`
+}
+
 // UsersCacheConfig defines the cache configuration for users
 type UsersCacheConfig struct {
 	ExpirationTime int `json:"expiration_time" mapstructure:"expiration_time"`
@@ -72,8 +78,9 @@ type UsersCacheConfig struct {
 
 // MimeCacheConfig defines the cache configuration for mime types
 type MimeCacheConfig struct {
-	Enabled bool `json:"enabled" mapstructure:"enabled"`
-	MaxSize int  `json:"max_size" mapstructure:"max_size"`
+	Enabled        bool                `json:"enabled" mapstructure:"enabled"`
+	MaxSize        int                 `json:"max_size" mapstructure:"max_size"`
+	CustomMappings []CustomMimeMapping `json:"custom_mappings" mapstructure:"custom_mappings"`
 }
 
 // Cache configuration
@@ -228,7 +235,16 @@ func (c *Configuration) Initialize(configDir string) error {
 	}
 	if !c.Cache.MimeTypes.Enabled {
 		mimeTypeCache.maxSize = 0
+	} else {
+		customMimeTypeMapping = make(map[string]string)
+		for _, m := range c.Cache.MimeTypes.CustomMappings {
+			if m.Mime != "" {
+				logger.Debug(logSender, "", "adding custom mime mapping for extension %q, mime type %q", m.Ext, m.Mime)
+				customMimeTypeMapping[m.Ext] = m.Mime
+			}
+		}
 	}
+
 	if !c.ShouldBind() {
 		return common.ErrNoBinding
 	}

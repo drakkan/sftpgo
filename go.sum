@@ -851,8 +851,8 @@ github.com/drakkan/crypto v0.0.0-20230106095953-5417b4dfde62 h1:1Bk+GbTbF1PBu0id
 github.com/drakkan/crypto v0.0.0-20230106095953-5417b4dfde62/go.mod h1:eekSq7nI5pP2ZldL4867reOp0VL9TOfTaZa0DydSYk4=
 github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9 h1:LPH1dEblAOO/LoG7yHPMtBLXhQmjaga91/DDjWk9jWA=
 github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9/go.mod h1:2lmrmq866uF2tnje75wQHzmPXhmSWUt7Gyx2vgK1RCU=
-github.com/drakkan/webdav v0.0.0-20221101181759-17ed21f9337b h1:B9z7XyDoVxLO4yEvnXgdvZ+0Uw9NA1qdD4KTSGmKcoQ=
-github.com/drakkan/webdav v0.0.0-20221101181759-17ed21f9337b/go.mod h1:8opebuqUyBXrvl7Vo/S1Zzl9U0G1X2Ceud440eVuhUE=
+github.com/drakkan/webdav v0.0.0-20230123134431-a95c027a0038 h1:vQe1F4uoOg7fmli8L/MyzbeAhf6SfM3M1bTGcgHscAw=
+github.com/drakkan/webdav v0.0.0-20230123134431-a95c027a0038/go.mod h1:8opebuqUyBXrvl7Vo/S1Zzl9U0G1X2Ceud440eVuhUE=
 github.com/dustin/go-humanize v0.0.0-20171111073723-bb3d318650d4/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=
 github.com/dustin/go-humanize v1.0.0/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=
 github.com/eapache/go-resiliency v1.1.0/go.mod h1:kFI+JgMyC7bLPUVY133qvEBtVayf5mFgVsvEsIPBvNs=
@@ -887,8 +887,9 @@ github.com/evanphx/json-patch v4.12.0+incompatible/go.mod h1:50XU6AFN0ol/bzJsmQL
 github.com/fatih/color v1.7.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5KwzbycvMj4=
 github.com/fatih/color v1.9.0/go.mod h1:eQcE1qtQxscV5RaZvpXrrb8Drkc3/DdQ+uUYCNjL+zU=
 github.com/fatih/color v1.10.0/go.mod h1:ELkj/draVOlAH/xkhN6mQ50Qd0MPOk5AAr3maGEBuJM=
-github.com/fatih/color v1.13.0 h1:8LOYc1KYPPmyKMuN8QV2DNRWNbLo6LZ0iLs8+mlH53w=
 github.com/fatih/color v1.13.0/go.mod h1:kLAiJbzzSOZDVNGyDpeOxJ47H46qBXwg5ILebYFFOfk=
+github.com/fatih/color v1.14.1 h1:qfhVLaG5s+nCROl1zJsZRxFeYrHLqWroPOQ8BWiNb4w=
+github.com/fatih/color v1.14.1/go.mod h1:2oHN61fhTpgcxD3TSWCgKDiH1+x4OiDVVGH8WlgGZGg=
 github.com/fclairamb/ftpserverlib v0.20.1-0.20230104020606-0b1a04eec221 h1:oIEBdcX1yNS5F+rk0xaDXMkwu9cT6+YSBEih45Wptec=
 github.com/fclairamb/ftpserverlib v0.20.1-0.20230104020606-0b1a04eec221/go.mod h1:2PS2QXGtruTtfUszbKGOuuWhDiK5u/GD9DK2DdAW+S8=
 github.com/fclairamb/go-log v0.4.1 h1:rLtdSG9x2pK41AIAnE8WYpl05xBJfw1ZyYxZaXFcBsM=

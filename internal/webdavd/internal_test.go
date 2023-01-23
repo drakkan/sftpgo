@@ -712,6 +712,18 @@ func TestContentType(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
+	baseTransfer = common.NewBaseTransfer(nil, connection.BaseConnection, nil, testFilePath, testFilePath, testFile+".sftpgo",
+		common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{})
+	fs = newMockOsFs(false, fs.ConnectionID(), user.GetHomeDir(), nil, os.ErrInvalid)
+	davFile = newWebDavFile(baseTransfer, nil, nil)
+	davFile.Fs = fs
+	fi, err = davFile.Stat()
+	if assert.NoError(t, err) {
+		ctype, err := fi.(*webDavFileInfo).ContentType(ctx)
+		assert.NoError(t, err)
+		assert.Equal(t, "application/sftpgo", ctype)
+	}
+
 	baseTransfer = common.NewBaseTransfer(nil, connection.BaseConnection, nil, testFilePath, testFilePath, testFile+".unknown2",
 		common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{})
 	fs = newMockOsFs(false, fs.ConnectionID(), user.GetHomeDir(), nil, os.ErrInvalid)

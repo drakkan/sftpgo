@@ -84,6 +84,9 @@ type webDavFileInfo struct {
 // ContentType implements webdav.ContentTyper interface
 func (fi *webDavFileInfo) ContentType(ctx context.Context) (string, error) {
 	extension := path.Ext(fi.virtualPath)
+	if ctype, ok := customMimeTypeMapping[extension]; ok {
+		return ctype, nil
+	}
 	if extension == "" || extension == ".dat" {
 		return "application/octet-stream", nil
 	}

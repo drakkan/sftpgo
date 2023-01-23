@@ -309,8 +309,9 @@ func Init() {
 					MaxSize:        50,
 				},
 				MimeTypes: webdavd.MimeCacheConfig{
-					Enabled: true,
-					MaxSize: 1000,
+					Enabled:        true,
+					MaxSize:        1000,
+					CustomMappings: nil,
 				},
 			},
 		},
@@ -732,6 +733,7 @@ func LoadConfig(configDir, configFile string) error {
 	}
 	// viper only supports slice of strings from env vars, so we use our custom method
 	loadBindingsFromEnv()
+	loadWebDAVCacheMappingsFromEnv()
 	resetInvalidConfigs()
 	logger.Debug(logSender, "", "config file used: '%#v', config loaded: %+v", viper.ConfigFileUsed(), getRedactedGlobalConf())
 	return nil
@@ -1247,6 +1249,27 @@ func getWebDAVDBindingProxyConfigsFromEnv(idx int, binding *webdavd.Binding) boo
 	}
 
 	return isSet
+}
+
+func loadWebDAVCacheMappingsFromEnv() []webdavd.CustomMimeMapping {
+	for idx := 0; idx < 30; idx++ {
+		ext, extOK := os.LookupEnv(fmt.Sprintf("SFTPGO_WEBDAVD__CACHE__MIME_TYPES__CUSTOM_MAPPINGS__%d__EXT", idx))
+		mime, mimeOK := os.LookupEnv(fmt.Sprintf("SFTPGO_WEBDAVD__CACHE__MIME_TYPES__CUSTOM_MAPPINGS__%d__MIME", idx))
+		if extOK && mimeOK {
+			if len(globalConf.WebDAVD.Cache.MimeTypes.CustomMappings) > idx {
+				globalConf.WebDAVD.Cache.MimeTypes.CustomMappings[idx].Ext = ext
+				globalConf.WebDAVD.Cache.MimeTypes.CustomMappings[idx].Mime = mime
+			} else {
+				globalConf.WebDAVD.Cache.MimeTypes.CustomMappings = append(globalConf.WebDAVD.Cache.MimeTypes.CustomMappings,
+					webdavd.CustomMimeMapping{
+						Ext:  ext,
+						Mime: mime,
+					})
+			}
+		}
+	}
+
+	return globalConf.WebDAVD.Cache.MimeTypes.CustomMappings
 }
 
 func getWebDAVDBindingFromEnv(idx int) {
@@ -2010,6 +2033,7 @@ func setViperDefaults() {
 	viper.SetDefault("webdavd.cache.users.max_size", globalConf.WebDAVD.Cache.Users.MaxSize)
 	viper.SetDefault("webdavd.cache.mime_types.enabled", globalConf.WebDAVD.Cache.MimeTypes.Enabled)
 	viper.SetDefault("webdavd.cache.mime_types.max_size", globalConf.WebDAVD.Cache.MimeTypes.MaxSize)
+	viper.SetDefault("webdavd.cache.mime_types.custom_mappings", globalConf.WebDAVD.Cache.MimeTypes.CustomMappings)
 	viper.SetDefault("data_provider.driver", globalConf.ProviderConf.Driver)
 	viper.SetDefault("data_provider.name", globalConf.ProviderConf.Name)
 	viper.SetDefault("data_provider.host", globalConf.ProviderConf.Host)
