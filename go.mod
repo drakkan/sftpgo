@@ -9,19 +9,19 @@ require (
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/alexedwards/argon2id v0.0.0-20211130144151-3585854a6387
 	github.com/aws/aws-sdk-go-v2 v1.17.3
-	github.com/aws/aws-sdk-go-v2/config v1.18.8
-	github.com/aws/aws-sdk-go-v2/credentials v1.13.8
+	github.com/aws/aws-sdk-go-v2/config v1.18.9
+	github.com/aws/aws-sdk-go-v2/credentials v1.13.9
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.21
-	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.47
-	github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.14.0
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.30.0
-	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.18.1
-	github.com/aws/aws-sdk-go-v2/service/sts v1.18.0
+	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.48
+	github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.14.1
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.30.1
+	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.18.2
+	github.com/aws/aws-sdk-go-v2/service/sts v1.18.1
 	github.com/cockroachdb/cockroach-go/v2 v2.2.20
 	github.com/coreos/go-oidc/v3 v3.5.0
-	github.com/drakkan/webdav v0.0.0-20230123134431-a95c027a0038
+	github.com/drakkan/webdav v0.0.0-20230124152008-9aaec6ea77c9
 	github.com/eikenb/pipeat v0.0.0-20210730190139-06b3e6902001
-	github.com/fclairamb/ftpserverlib v0.20.1-0.20230104020606-0b1a04eec221
+	github.com/fclairamb/ftpserverlib v0.21.0
 	github.com/fclairamb/go-log v0.4.1
 	github.com/go-acme/lego/v4 v4.9.2-0.20230104103215-fd54758bba4c
 	github.com/go-chi/chi/v5 v5.0.8
@@ -159,7 +159,7 @@ require (
 	golang.org/x/tools v0.5.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20230119192704-9d59e20e5cd1 // indirect
+	google.golang.org/genproto v0.0.0-20230124163310-31e0e69b6fc2 // indirect
 	google.golang.org/grpc v1.52.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect

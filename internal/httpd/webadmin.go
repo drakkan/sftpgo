@@ -2836,7 +2836,7 @@ func (s *httpdServer) handleWebUpdateUserPost(w http.ResponseWriter, r *http.Req
 		return
 	}
 	if r.Form.Get("disconnect") != "" {
-		disconnectUser(user.Username)
+		disconnectUser(user.Username, claims.Username)
 	}
 	http.Redirect(w, r, webUsersPath, http.StatusSeeOther)
 }
