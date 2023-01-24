@@ -27,6 +27,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/kms"
+	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/smtp"
 	"github.com/drakkan/sftpgo/v2/internal/util"
 	"github.com/drakkan/sftpgo/v2/internal/vfs"
@@ -192,7 +193,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	sendAPIResponse(w, r, err, "User updated", http.StatusOK)
 	if disconnect == 1 {
-		disconnectUser(user.Username)
+		disconnectUser(user.Username, claims.Username, claims.Role)
 	}
 }
 
@@ -210,7 +211,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sendAPIResponse(w, r, err, "User deleted", http.StatusOK)
-	disconnectUser(dataprovider.ConvertName(username))
+	disconnectUser(dataprovider.ConvertName(username), claims.Username, claims.Role)
 }
 
 func forgotUserPassword(w http.ResponseWriter, r *http.Request) {
@@ -247,10 +248,22 @@ func resetUserPassword(w http.ResponseWriter, r *http.Request) {
 	sendAPIResponse(w, r, err, "Password reset successful", http.StatusOK)
 }
 
-func disconnectUser(username string) {
+func disconnectUser(username string, admin, role string) {
 	for _, stat := range common.Connections.GetStats("") {
 		if stat.Username == username {
 			common.Connections.Close(stat.ConnectionID, "")
+		}
+	}
+	for _, stat := range getNodesConnections(admin, role) {
+		if stat.Username == username {
+			n, err := dataprovider.GetNodeByName(stat.Node)
+			if err != nil {
+				logger.Warn(logSender, "", "unable to disconnect user %q, error getting node %q: %v", username, stat.Node, err)
+				continue
+			}
+			if err := n.SendDeleteRequest(admin, role, fmt.Sprintf("%s/%s", activeConnectionsPath, stat.ConnectionID)); err != nil {
+				logger.Warn(logSender, "", "unable to disconnect user %q from node %q, error: %v", username, n.Name, err)
+			}
 		}
 	}
 }

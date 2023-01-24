@@ -479,7 +479,7 @@ func RestoreUsers(users []dataprovider.User, inputFile string, mode, scanQuota i
 			err = dataprovider.UpdateUser(&user, executor, ipAddress, role)
 			logger.Debug(logSender, "", "restoring existing user: %#v, dump file: %#v, error: %v", user.Username, inputFile, err)
 			if mode == 2 && err == nil {
-				disconnectUser(user.Username)
+				disconnectUser(user.Username, executor, role)
 			}
 		} else {
 			err = dataprovider.AddUser(&user, executor, ipAddress, role)
