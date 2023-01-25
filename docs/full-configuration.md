@@ -86,15 +86,16 @@ The configuration file contains the following sections:
   - `defender`, struct containing the defender configuration. See [Defender](./defender.md) for more details.
     - `enabled`, boolean. Default `false`.
     - `driver`, string. Supported drivers are `memory` and `provider`. The `provider` driver will use the configured data provider to store defender events and it is supported for `MySQL`, `PostgreSQL` and `CockroachDB` data providers. Using the `provider` driver you can share the defender events among multiple SFTPGO instances. For a single instance the `memory` driver will be much faster. Default: `memory`.
-    - `ban_time`, integer. Ban time in minutes.
-    - `ban_time_increment`, integer. Ban time increment, as a percentage, if a banned host tries to connect again.
-    - `threshold`, integer. Threshold value for banning a client.
-    - `score_invalid`, integer. Score for invalid login attempts, eg. non-existent user accounts or client disconnected for inactivity without authentication attempts.
-    - `score_valid`, integer. Score for valid login attempts, eg. user accounts that exist.
-    - `score_limit_exceeded`, integer. Score for hosts that exceeded the configured rate limits or the maximum, per-host, allowed connections.
-    - `observation_time`, integer. Defines the time window, in minutes, for tracking client errors. A host is banned if it has exceeded the defined threshold during the last observation time minutes.
-    - `entries_soft_limit`, integer. Ignored for `provider` driver. Default: 100.
-    - `entries_hard_limit`, integer. The number of banned IPs and host scores kept in memory will vary between the soft and hard limit for `memory` driver. If you use the `provider` driver, this setting will limit the number of entries to return when you ask for the entire host list from the defender. Default: 150.
+    - `ban_time`, integer. Ban time in minutes. Default: `30`.
+    - `ban_time_increment`, integer. Ban time increment, as a percentage, if a banned host tries to connect again. Default: `50`.
+    - `threshold`, integer. Threshold value for banning a client. Default: `15`.
+    - `score_invalid`, integer. Score for invalid login attempts, eg. non-existent user accounts. Default: `2`.
+    - `score_valid`, integer. Score for valid login attempts, eg. user accounts that exist. Default: `1`.
+    - `score_limit_exceeded`, integer. Score for hosts that exceeded the configured rate limits or the maximum, per-host, allowed connections. Default: `3`.
+    - `score_no_auth`, defines the score for clients disconnected without any authentication attempt. Default: `0`.
+    - `observation_time`, integer. Defines the time window, in minutes, for tracking client errors. A host is banned if it has exceeded the defined threshold during the last observation time minutes. Default: `30`.
+    - `entries_soft_limit`, integer. Ignored for `provider` driver. Default: `100`.
+    - `entries_hard_limit`, integer. The number of banned IPs and host scores kept in memory will vary between the soft and hard limit for `memory` driver. If you use the `provider` driver, this setting will limit the number of entries to return when you ask for the entire host list from the defender. Default: `150`.
     - `safelist_file`, string. Path to a file containing a list of ip addresses and/or networks to never ban.
     - `blocklist_file`, string. Path to a file containing a list of ip addresses and/or networks to always ban. The lists can be reloaded on demand sending a `SIGHUP` signal on Unix based systems and a `paramchange` request to the running service on Windows. An host that is already banned will not be automatically unbanned if you put it inside the safe list, you have to unban it using the REST API.
     - `safelist`, list of IP addresses and/or IP ranges and/or networks to never ban. Invalid entries will be silently ignored. For large lists prefer `safelist_file`. `safelist` and `safelist_file` will be merged so that you can set both.

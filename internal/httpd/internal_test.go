@@ -2570,8 +2570,7 @@ func TestBrowsableSharePaths(t *testing.T) {
 	}
 	_, err := getUserForShare(share)
 	if assert.Error(t, err) {
-		_, ok := err.(*util.RecordNotFoundError)
-		assert.True(t, ok)
+		assert.ErrorIs(t, err, util.ErrNotFound)
 	}
 	req, err := http.NewRequest(http.MethodGet, "/share", nil)
 	require.NoError(t, err)
@@ -2876,8 +2875,7 @@ func TestDbResetCodeManager(t *testing.T) {
 	assert.NoError(t, err)
 	err = mgr.Delete(resetCode.Code)
 	if assert.Error(t, err) {
-		_, ok := err.(*util.RecordNotFoundError)
-		assert.True(t, ok)
+		assert.ErrorIs(t, err, util.ErrNotFound)
 	}
 	_, err = mgr.Get(resetCode.Code)
 	assert.ErrorIs(t, err, sql.ErrNoRows)

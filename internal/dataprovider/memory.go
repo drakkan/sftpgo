@@ -1379,7 +1379,7 @@ func (p *MemoryProvider) addOrUpdateFolderInternal(baseFolder *vfs.BaseVirtualFo
 		p.updateFoldersMappingInternal(folder)
 		return folder, nil
 	}
-	if _, ok := err.(*util.RecordNotFoundError); ok {
+	if errors.Is(err, util.ErrNotFound) {
 		folder = baseFolder.GetACopy()
 		folder.ID = p.getNextFolderID()
 		folder.UsedQuotaSize = usedQuotaSize

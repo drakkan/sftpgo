@@ -156,8 +156,9 @@ var (
 		ProtocolHTTP, ProtocolHTTPShare, ProtocolOIDC}
 	disconnHookProtocols = []string{ProtocolSFTP, ProtocolSCP, ProtocolSSH, ProtocolFTP}
 	// the map key is the protocol, for each protocol we can have multiple rate limiters
-	rateLimiters   map[string][]*rateLimiter
-	isShuttingDown atomic.Bool
+	rateLimiters     map[string][]*rateLimiter
+	isShuttingDown   atomic.Bool
+	ftpLoginCommands = []string{"PASS", "USER"}
 )
 
 // Initialize sets the common configuration
@@ -191,7 +192,7 @@ func Initialize(c Configuration, isShared int) error {
 	}
 	if c.DefenderConfig.Enabled {
 		if !util.Contains(supportedDefenderDrivers, c.DefenderConfig.Driver) {
-			return fmt.Errorf("unsupported defender driver %#v", c.DefenderConfig.Driver)
+			return fmt.Errorf("unsupported defender driver %q", c.DefenderConfig.Driver)
 		}
 		var defender Defender
 		var err error
@@ -933,9 +934,9 @@ func (conns *ActiveConnections) Remove(connectionID string) {
 		}
 		conns.removeUserConnection(conn.GetUsername())
 		metric.UpdateActiveConnectionsSize(lastIdx)
-		logger.Debug(conn.GetProtocol(), conn.GetID(), "connection removed, local address %#v, remote address %#v close fs error: %v, num open connections: %v",
+		logger.Debug(conn.GetProtocol(), conn.GetID(), "connection removed, local address %q, remote address %q close fs error: %v, num open connections: %d",
 			conn.GetLocalAddress(), conn.GetRemoteAddress(), err, lastIdx)
-		if conn.GetProtocol() == ProtocolFTP && conn.GetUsername() == "" {
+		if conn.GetProtocol() == ProtocolFTP && conn.GetUsername() == "" && !util.Contains(ftpLoginCommands, conn.GetCommand()) {
 			ip := util.GetIPFromRemoteAddress(conn.GetRemoteAddress())
 			logger.ConnectionFailedLog("", ip, dataprovider.LoginMethodNoAuthTryed, conn.GetProtocol(),
 				dataprovider.ErrNoAuthTryed.Error())

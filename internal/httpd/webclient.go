@@ -1071,7 +1071,7 @@ func (s *httpdServer) handleClientUpdateShareGet(w http.ResponseWriter, r *http.
 	if err == nil {
 		share.HideConfidentialData()
 		s.renderAddUpdateSharePage(w, r, &share, "", false)
-	} else if _, ok := err.(*util.RecordNotFoundError); ok {
+	} else if errors.Is(err, util.ErrNotFound) {
 		s.renderClientNotFoundPage(w, r, err)
 	} else {
 		s.renderClientInternalServerErrorPage(w, r, err)
@@ -1122,7 +1122,7 @@ func (s *httpdServer) handleClientUpdateSharePost(w http.ResponseWriter, r *http
 	}
 	shareID := getURLParam(r, "id")
 	share, err := dataprovider.ShareExists(shareID, claims.Username)
-	if _, ok := err.(*util.RecordNotFoundError); ok {
+	if errors.Is(err, util.ErrNotFound) {
 		s.renderClientNotFoundPage(w, r, err)
 		return
 	} else if err != nil {

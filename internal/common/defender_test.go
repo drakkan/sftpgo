@@ -62,6 +62,7 @@ func TestBasicDefender(t *testing.T) {
 		Threshold:          5,
 		ScoreInvalid:       2,
 		ScoreValid:         1,
+		ScoreNoAuth:        2,
 		ScoreLimitExceeded: 3,
 		ObservationTime:    15,
 		EntriesSoftLimit:   1,
@@ -140,7 +141,7 @@ func TestBasicDefender(t *testing.T) {
 		assert.True(t, hosts[0].BanTime.IsZero())
 		assert.Empty(t, hosts[0].GetBanTime())
 	}
-	defender.AddEvent(testIP, HostEventNoLoginTried)
+	defender.AddEvent(testIP, HostEventUserNotFound)
 	defender.AddEvent(testIP, HostEventNoLoginTried)
 	assert.Equal(t, 0, defender.countHosts())
 	assert.Equal(t, 1, defender.countBanned())
@@ -511,6 +512,11 @@ func TestDefenderConfig(t *testing.T) {
 	require.Error(t, err)
 
 	c.ScoreValid = 1
+	c.ScoreNoAuth = 10
+	err = c.validate()
+	require.Error(t, err)
+
+	c.ScoreNoAuth = 2
 	c.BanTime = 0
 	err = c.validate()
 	require.Error(t, err)
@@ -540,6 +546,20 @@ func TestDefenderConfig(t *testing.T) {
 	c.EntriesHardLimit = 20
 	err = c.validate()
 	require.NoError(t, err)
+
+	c = DefenderConfig{
+		Enabled:            true,
+		ScoreInvalid:       -1,
+		ScoreLimitExceeded: -1,
+		ScoreNoAuth:        -1,
+		ScoreValid:         -1,
+	}
+	err = c.validate()
+	require.Error(t, err)
+	assert.Equal(t, 0, c.ScoreInvalid)
+	assert.Equal(t, 0, c.ScoreValid)
+	assert.Equal(t, 0, c.ScoreLimitExceeded)
+	assert.Equal(t, 0, c.ScoreNoAuth)
 }
 
 func BenchmarkDefenderBannedSearch(b *testing.B) {

@@ -72,7 +72,7 @@ type userProfile struct {
 
 func sendAPIResponse(w http.ResponseWriter, r *http.Request, err error, message string, code int) {
 	var errorString string
-	if _, ok := err.(*util.RecordNotFoundError); ok {
+	if errors.Is(err, util.ErrNotFound) {
 		errorString = http.StatusText(http.StatusNotFound)
 	} else if err != nil {
 		errorString = err.Error()
@@ -600,7 +600,7 @@ func updateLoginMetrics(user *dataprovider.User, loginMethod, ip string, err err
 	if err != nil && err != common.ErrInternalFailure && err != common.ErrNoCredentials {
 		logger.ConnectionFailedLog(user.Username, ip, loginMethod, protocol, err.Error())
 		event := common.HostEventLoginFailed
-		if _, ok := err.(*util.RecordNotFoundError); ok {
+		if errors.Is(err, util.ErrNotFound) {
 			event = common.HostEventUserNotFound
 		}
 		common.AddDefenderEvent(ip, event)
@@ -657,7 +657,7 @@ func handleForgotPassword(r *http.Request, username string, isAdmin bool) error 
 		}
 	}
 	if err != nil {
-		if _, ok := err.(*util.RecordNotFoundError); ok {
+		if errors.Is(err, util.ErrNotFound) {
 			logger.Debug(logSender, middleware.GetReqID(r.Context()), "username %#v does not exists, reset password request silently ignored, is admin? %v",
 				username, isAdmin)
 			return nil

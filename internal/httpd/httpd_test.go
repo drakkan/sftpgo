@@ -6959,6 +6959,7 @@ func TestDefenderAPI(t *testing.T) {
 		cfg.DefenderConfig.Driver = driver
 		cfg.DefenderConfig.Threshold = 3
 		cfg.DefenderConfig.ScoreLimitExceeded = 2
+		cfg.DefenderConfig.ScoreNoAuth = 0
 
 		err := common.Initialize(cfg, 0)
 		assert.NoError(t, err)
@@ -6975,6 +6976,10 @@ func TestDefenderAPI(t *testing.T) {
 		common.AddDefenderEvent(ip, common.HostEventNoLoginTried)
 		hosts, _, err = httpdtest.GetDefenderHosts(http.StatusOK)
 		assert.NoError(t, err)
+		assert.Len(t, hosts, 0)
+		common.AddDefenderEvent(ip, common.HostEventUserNotFound)
+		hosts, _, err = httpdtest.GetDefenderHosts(http.StatusOK)
+		assert.NoError(t, err)
 		if assert.Len(t, hosts, 1) {
 			host := hosts[0]
 			assert.Empty(t, host.GetBanTime())
@@ -6986,7 +6991,7 @@ func TestDefenderAPI(t *testing.T) {
 		assert.Empty(t, host.GetBanTime())
 		assert.Equal(t, 2, host.Score)
 
-		common.AddDefenderEvent(ip, common.HostEventNoLoginTried)
+		common.AddDefenderEvent(ip, common.HostEventUserNotFound)
 		hosts, _, err = httpdtest.GetDefenderHosts(http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, hosts, 1) {
@@ -7006,8 +7011,8 @@ func TestDefenderAPI(t *testing.T) {
 		_, _, err = httpdtest.GetDefenderHostByIP(ip, http.StatusNotFound)
 		assert.NoError(t, err)
 
-		common.AddDefenderEvent(ip, common.HostEventNoLoginTried)
-		common.AddDefenderEvent(ip, common.HostEventNoLoginTried)
+		common.AddDefenderEvent(ip, common.HostEventUserNotFound)
+		common.AddDefenderEvent(ip, common.HostEventUserNotFound)
 		hosts, _, err = httpdtest.GetDefenderHosts(http.StatusOK)
 		assert.NoError(t, err)
 		assert.Len(t, hosts, 1)

@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"os"
 	"path/filepath"
@@ -2225,4 +2226,22 @@ func TestCanReadSymlink(t *testing.T) {
 
 	err = connection.canReadLink("/denied/file.txt")
 	assert.ErrorIs(t, err, sftp.ErrSSHFxNoSuchFile)
+}
+
+func TestAuthenticationErrors(t *testing.T) {
+	err := newAuthenticationError(fmt.Errorf("cannot validate credentials: %w", util.NewRecordNotFoundError("not found")))
+	assert.ErrorIs(t, err, sftpAuthError)
+	assert.ErrorIs(t, err, util.ErrNotFound)
+	err = newAuthenticationError(fmt.Errorf("cannot validate credentials: %w", fs.ErrPermission))
+	assert.ErrorIs(t, err, sftpAuthError)
+	assert.NotErrorIs(t, err, util.ErrNotFound)
+	err = newAuthenticationError(fmt.Errorf("cert has wrong type %d", ssh.HostCert))
+	assert.ErrorIs(t, err, sftpAuthError)
+	assert.NotErrorIs(t, err, util.ErrNotFound)
+	err = newAuthenticationError(errors.New("ssh: certificate signed by unrecognized authority"))
+	assert.ErrorIs(t, err, sftpAuthError)
+	assert.NotErrorIs(t, err, util.ErrNotFound)
+	err = newAuthenticationError(nil)
+	assert.ErrorIs(t, err, sftpAuthError)
+	assert.NotErrorIs(t, err, util.ErrNotFound)
 }

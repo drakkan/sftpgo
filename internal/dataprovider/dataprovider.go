@@ -4049,7 +4049,7 @@ func doPluginAuth(username, password string, pubKey []byte, ip, protocol string,
 func getUserForHook(username string, oidcTokenFields *map[string]any) (User, User, error) {
 	u, err := provider.userExists(username, "")
 	if err != nil {
-		if _, ok := err.(*util.RecordNotFoundError); !ok {
+		if !errors.Is(err, util.ErrNotFound) {
 			return u, u, err
 		}
 		u = User{

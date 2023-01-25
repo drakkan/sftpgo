@@ -188,7 +188,6 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	user, isCached, lockSystem, loginMethod, err := s.authenticate(r, ipAddr)
 	if err != nil {
-		updateLoginMetrics(&user, ipAddr, loginMethod, err)
 		if !s.binding.DisableWWWAuthHeader {
 			w.Header().Set("WWW-Authenticate", "Basic realm=\"SFTPGo WebDAV\"")
 		}
@@ -411,7 +410,7 @@ func updateLoginMetrics(user *dataprovider.User, ip, loginMethod string, err err
 	if err != nil && err != common.ErrInternalFailure && err != common.ErrNoCredentials {
 		logger.ConnectionFailedLog(user.Username, ip, loginMethod, common.ProtocolWebDAV, err.Error())
 		event := common.HostEventLoginFailed
-		if _, ok := err.(*util.RecordNotFoundError); ok {
+		if errors.Is(err, util.ErrNotFound) {
 			event = common.HostEventUserNotFound
 		}
 		common.AddDefenderEvent(ip, event)

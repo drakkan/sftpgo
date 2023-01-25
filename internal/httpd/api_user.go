@@ -248,7 +248,7 @@ func resetUserPassword(w http.ResponseWriter, r *http.Request) {
 	sendAPIResponse(w, r, err, "Password reset successful", http.StatusOK)
 }
 
-func disconnectUser(username string, admin, role string) {
+func disconnectUser(username, admin, role string) {
 	for _, stat := range common.Connections.GetStats("") {
 		if stat.Username == username {
 			common.Connections.Close(stat.ConnectionID, "")

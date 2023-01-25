@@ -221,6 +221,7 @@ func Init() {
 				ScoreInvalid:       2,
 				ScoreValid:         1,
 				ScoreLimitExceeded: 3,
+				ScoreNoAuth:        2,
 				ObservationTime:    30,
 				EntriesSoftLimit:   100,
 				EntriesHardLimit:   150,
@@ -1968,6 +1969,7 @@ func setViperDefaults() {
 	viper.SetDefault("common.defender.score_invalid", globalConf.Common.DefenderConfig.ScoreInvalid)
 	viper.SetDefault("common.defender.score_valid", globalConf.Common.DefenderConfig.ScoreValid)
 	viper.SetDefault("common.defender.score_limit_exceeded", globalConf.Common.DefenderConfig.ScoreLimitExceeded)
+	viper.SetDefault("common.defender.score_no_auth", globalConf.Common.DefenderConfig.ScoreNoAuth)
 	viper.SetDefault("common.defender.observation_time", globalConf.Common.DefenderConfig.ObservationTime)
 	viper.SetDefault("common.defender.entries_soft_limit", globalConf.Common.DefenderConfig.EntriesSoftLimit)
 	viper.SetDefault("common.defender.entries_hard_limit", globalConf.Common.DefenderConfig.EntriesHardLimit)

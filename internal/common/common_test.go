@@ -324,6 +324,7 @@ func TestDefenderIntegration(t *testing.T) {
 		Threshold:        0,
 		ScoreInvalid:     2,
 		ScoreValid:       1,
+		ScoreNoAuth:      2,
 		ObservationTime:  15,
 		EntriesSoftLimit: 100,
 		EntriesHardLimit: 150,

@@ -78,14 +78,16 @@ type DefenderConfig struct {
 	BanTimeIncrement int `json:"ban_time_increment" mapstructure:"ban_time_increment"`
 	// Threshold value for banning a client
 	Threshold int `json:"threshold" mapstructure:"threshold"`
-	// Score for invalid login attempts, eg. non-existent user accounts or
-	// client disconnected for inactivity without authentication attempts
+	// Score for invalid login attempts, eg. non-existent user accounts
 	ScoreInvalid int `json:"score_invalid" mapstructure:"score_invalid"`
 	// Score for valid login attempts, eg. user accounts that exist
 	ScoreValid int `json:"score_valid" mapstructure:"score_valid"`
 	// Score for limit exceeded events, generated from the rate limiters or for max connections
 	// per-host exceeded
 	ScoreLimitExceeded int `json:"score_limit_exceeded" mapstructure:"score_limit_exceeded"`
+	// ScoreNoAuth defines the score for clients disconnected without authentication
+	// attempts
+	ScoreNoAuth int `json:"score_no_auth" mapstructure:"score_no_auth"`
 	// Defines the time window, in minutes, for tracking client errors.
 	// A host is banned if it has exceeded the defined threshold during
 	// the last observation time minutes
@@ -157,8 +159,10 @@ func (d *baseDefender) getScore(event HostEvent) int {
 		score = d.config.ScoreValid
 	case HostEventLimitExceeded:
 		score = d.config.ScoreLimitExceeded
-	case HostEventUserNotFound, HostEventNoLoginTried:
+	case HostEventUserNotFound:
 		score = d.config.ScoreInvalid
+	case HostEventNoLoginTried:
+		score = d.config.ScoreNoAuth
 	}
 	return score
 }
@@ -198,19 +202,44 @@ type hostScore struct {
 	Events     []hostEvent
 }
 
+func (c *DefenderConfig) checkScores() error {
+	if c.ScoreInvalid < 0 {
+		c.ScoreInvalid = 0
+	}
+	if c.ScoreValid < 0 {
+		c.ScoreValid = 0
+	}
+	if c.ScoreLimitExceeded < 0 {
+		c.ScoreLimitExceeded = 0
+	}
+	if c.ScoreNoAuth < 0 {
+		c.ScoreNoAuth = 0
+	}
+	if c.ScoreInvalid == 0 && c.ScoreValid == 0 && c.ScoreLimitExceeded == 0 && c.ScoreNoAuth == 0 {
+		return fmt.Errorf("invalid defender configuration: all scores are disabled")
+	}
+	return nil
+}
+
 // validate returns an error if the configuration is invalid
 func (c *DefenderConfig) validate() error {
 	if !c.Enabled {
 		return nil
 	}
+	if err := c.checkScores(); err != nil {
+		return err
+	}
 	if c.ScoreInvalid >= c.Threshold {
-		return fmt.Errorf("score_invalid %v cannot be greater than threshold %v", c.ScoreInvalid, c.Threshold)
+		return fmt.Errorf("score_invalid %d cannot be greater than threshold %d", c.ScoreInvalid, c.Threshold)
 	}
 	if c.ScoreValid >= c.Threshold {
-		return fmt.Errorf("score_valid %v cannot be greater than threshold %v", c.ScoreValid, c.Threshold)
+		return fmt.Errorf("score_valid %d cannot be greater than threshold %d", c.ScoreValid, c.Threshold)
 	}
 	if c.ScoreLimitExceeded >= c.Threshold {
-		return fmt.Errorf("score_limit_exceeded %v cannot be greater than threshold %v", c.ScoreLimitExceeded, c.Threshold)
+		return fmt.Errorf("score_limit_exceeded %d cannot be greater than threshold %d", c.ScoreLimitExceeded, c.Threshold)
+	}
+	if c.ScoreNoAuth >= c.Threshold {
+		return fmt.Errorf("score_no_auth %d cannot be greater than threshold %d", c.ScoreNoAuth, c.Threshold)
 	}
 	if c.BanTime <= 0 {
 		return fmt.Errorf("invalid ban_time %v", c.BanTime)

@@ -2297,7 +2297,7 @@ func (j *eventCronJob) getTask(rule *dataprovider.EventRule) (dataprovider.Task,
 	if rule.GuardFromConcurrentExecution() {
 		task, err := dataprovider.GetTaskByName(rule.Name)
 		if err != nil {
-			if _, ok := err.(*util.RecordNotFoundError); ok {
+			if errors.Is(err, util.ErrNotFound) {
 				eventManagerLog(logger.LevelDebug, "adding task for rule %q", rule.Name)
 				task = dataprovider.Task{
 					Name:     rule.Name,

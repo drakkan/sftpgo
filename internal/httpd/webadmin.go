@@ -2591,7 +2591,7 @@ func (s *httpdServer) handleWebUpdateAdminGet(w http.ResponseWriter, r *http.Req
 	admin, err := dataprovider.AdminExists(username)
 	if err == nil {
 		s.renderAddUpdateAdminPage(w, r, &admin, "", false)
-	} else if _, ok := err.(*util.RecordNotFoundError); ok {
+	} else if errors.Is(err, util.ErrNotFound) {
 		s.renderNotFoundPage(w, r, err)
 	} else {
 		s.renderInternalServerErrorPage(w, r, err)
@@ -2631,7 +2631,7 @@ func (s *httpdServer) handleWebUpdateAdminPost(w http.ResponseWriter, r *http.Re
 
 	username := getURLParam(r, "username")
 	admin, err := dataprovider.AdminExists(username)
-	if _, ok := err.(*util.RecordNotFoundError); ok {
+	if errors.Is(err, util.ErrNotFound) {
 		s.renderNotFoundPage(w, r, err)
 		return
 	} else if err != nil {
@@ -2737,7 +2737,7 @@ func (s *httpdServer) handleWebTemplateFolderGet(w http.ResponseWriter, r *http.
 		if err == nil {
 			folder.FsConfig.SetEmptySecrets()
 			s.renderFolderPage(w, r, folder, folderPageModeTemplate, "")
-		} else if _, ok := err.(*util.RecordNotFoundError); ok {
+		} else if errors.Is(err, util.ErrNotFound) {
 			s.renderNotFoundPage(w, r, err)
 		} else {
 			s.renderInternalServerErrorPage(w, r, err)
@@ -2831,7 +2831,7 @@ func (s *httpdServer) handleWebTemplateUserGet(w http.ResponseWriter, r *http.Re
 				user.ExpirationDate = util.GetTimeAsMsSinceEpoch(time.Now().Add(24 * time.Hour * time.Duration(admin.Filters.Preferences.DefaultUsersExpiration)))
 			}
 			s.renderUserPage(w, r, &user, userPageModeTemplate, "", &admin)
-		} else if _, ok := err.(*util.RecordNotFoundError); ok {
+		} else if errors.Is(err, util.ErrNotFound) {
 			s.renderNotFoundPage(w, r, err)
 		} else {
 			s.renderInternalServerErrorPage(w, r, err)
@@ -2939,7 +2939,7 @@ func (s *httpdServer) handleWebUpdateUserGet(w http.ResponseWriter, r *http.Requ
 	user, err := dataprovider.UserExists(username, claims.Role)
 	if err == nil {
 		s.renderUserPage(w, r, &user, userPageModeUpdate, "", nil)
-	} else if _, ok := err.(*util.RecordNotFoundError); ok {
+	} else if errors.Is(err, util.ErrNotFound) {
 		s.renderNotFoundPage(w, r, err)
 	} else {
 		s.renderInternalServerErrorPage(w, r, err)
@@ -2992,7 +2992,7 @@ func (s *httpdServer) handleWebUpdateUserPost(w http.ResponseWriter, r *http.Req
 	}
 	username := getURLParam(r, "username")
 	user, err := dataprovider.UserExists(username, claims.Role)
-	if _, ok := err.(*util.RecordNotFoundError); ok {
+	if errors.Is(err, util.ErrNotFound) {
 		s.renderNotFoundPage(w, r, err)
 		return
 	} else if err != nil {
@@ -3118,7 +3118,7 @@ func (s *httpdServer) handleWebUpdateFolderGet(w http.ResponseWriter, r *http.Re
 	folder, err := dataprovider.GetFolderByName(name)
 	if err == nil {
 		s.renderFolderPage(w, r, folder, folderPageModeUpdate, "")
-	} else if _, ok := err.(*util.RecordNotFoundError); ok {
+	} else if errors.Is(err, util.ErrNotFound) {
 		s.renderNotFoundPage(w, r, err)
 	} else {
 		s.renderInternalServerErrorPage(w, r, err)
@@ -3134,7 +3134,7 @@ func (s *httpdServer) handleWebUpdateFolderPost(w http.ResponseWriter, r *http.R
 	}
 	name := getURLParam(r, "name")
 	folder, err := dataprovider.GetFolderByName(name)
-	if _, ok := err.(*util.RecordNotFoundError); ok {
+	if errors.Is(err, util.ErrNotFound) {
 		s.renderNotFoundPage(w, r, err)
 		return
 	} else if err != nil {
@@ -3294,7 +3294,7 @@ func (s *httpdServer) handleWebUpdateGroupGet(w http.ResponseWriter, r *http.Req
 	group, err := dataprovider.GroupExists(name)
 	if err == nil {
 		s.renderGroupPage(w, r, group, genericPageModeUpdate, "")
-	} else if _, ok := err.(*util.RecordNotFoundError); ok {
+	} else if errors.Is(err, util.ErrNotFound) {
 		s.renderNotFoundPage(w, r, err)
 	} else {
 		s.renderInternalServerErrorPage(w, r, err)
@@ -3310,7 +3310,7 @@ func (s *httpdServer) handleWebUpdateGroupPost(w http.ResponseWriter, r *http.Re
 	}
 	name := getURLParam(r, "name")
 	group, err := dataprovider.GroupExists(name)
-	if _, ok := err.(*util.RecordNotFoundError); ok {
+	if errors.Is(err, util.ErrNotFound) {
 		s.renderNotFoundPage(w, r, err)
 		return
 	} else if err != nil {
@@ -3423,7 +3423,7 @@ func (s *httpdServer) handleWebUpdateEventActionGet(w http.ResponseWriter, r *ht
 	action, err := dataprovider.EventActionExists(name)
 	if err == nil {
 		s.renderEventActionPage(w, r, action, genericPageModeUpdate, "")
-	} else if _, ok := err.(*util.RecordNotFoundError); ok {
+	} else if errors.Is(err, util.ErrNotFound) {
 		s.renderNotFoundPage(w, r, err)
 	} else {
 		s.renderInternalServerErrorPage(w, r, err)
@@ -3439,7 +3439,7 @@ func (s *httpdServer) handleWebUpdateEventActionPost(w http.ResponseWriter, r *h
 	}
 	name := getURLParam(r, "name")
 	action, err := dataprovider.EventActionExists(name)
-	if _, ok := err.(*util.RecordNotFoundError); ok {
+	if errors.Is(err, util.ErrNotFound) {
 		s.renderNotFoundPage(w, r, err)
 		return
 	} else if err != nil {
@@ -3541,7 +3541,7 @@ func (s *httpdServer) handleWebUpdateEventRuleGet(w http.ResponseWriter, r *http
 	rule, err := dataprovider.EventRuleExists(name)
 	if err == nil {
 		s.renderEventRulePage(w, r, rule, genericPageModeUpdate, "")
-	} else if _, ok := err.(*util.RecordNotFoundError); ok {
+	} else if errors.Is(err, util.ErrNotFound) {
 		s.renderNotFoundPage(w, r, err)
 	} else {
 		s.renderInternalServerErrorPage(w, r, err)
@@ -3557,7 +3557,7 @@ func (s *httpdServer) handleWebUpdateEventRulePost(w http.ResponseWriter, r *htt
 	}
 	name := getURLParam(r, "name")
 	rule, err := dataprovider.EventRuleExists(name)
-	if _, ok := err.(*util.RecordNotFoundError); ok {
+	if errors.Is(err, util.ErrNotFound) {
 		s.renderNotFoundPage(w, r, err)
 		return
 	} else if err != nil {
@@ -3648,7 +3648,7 @@ func (s *httpdServer) handleWebUpdateRoleGet(w http.ResponseWriter, r *http.Requ
 	role, err := dataprovider.RoleExists(getURLParam(r, "name"))
 	if err == nil {
 		s.renderRolePage(w, r, role, genericPageModeUpdate, "")
-	} else if _, ok := err.(*util.RecordNotFoundError); ok {
+	} else if errors.Is(err, util.ErrNotFound) {
 		s.renderNotFoundPage(w, r, err)
 	} else {
 		s.renderInternalServerErrorPage(w, r, err)
@@ -3663,7 +3663,7 @@ func (s *httpdServer) handleWebUpdateRolePost(w http.ResponseWriter, r *http.Req
 		return
 	}
 	role, err := dataprovider.RoleExists(getURLParam(r, "name"))
-	if _, ok := err.(*util.RecordNotFoundError); ok {
+	if errors.Is(err, util.ErrNotFound) {
 		s.renderNotFoundPage(w, r, err)
 		return
 	} else if err != nil {

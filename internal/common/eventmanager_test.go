@@ -17,6 +17,7 @@ package common
 import (
 	"bytes"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -383,7 +384,7 @@ func TestEventManager(t *testing.T) {
 
 	assert.Eventually(t, func() bool {
 		_, err = dataprovider.EventRuleExists(rule.Name)
-		_, ok := err.(*util.RecordNotFoundError)
+		ok := errors.Is(err, util.ErrNotFound)
 		return ok
 	}, 2*time.Second, 100*time.Millisecond)
 

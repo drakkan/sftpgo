@@ -851,8 +851,7 @@ func TestOIDCToken(t *testing.T) {
 	token.Role = ""
 	err = token.getUser(req)
 	if assert.Error(t, err) {
-		_, ok := err.(*util.RecordNotFoundError)
-		assert.True(t, ok)
+		assert.ErrorIs(t, err, util.ErrNotFound)
 	}
 
 	user := dataprovider.User{
@@ -1165,8 +1164,7 @@ func TestOIDCPreLoginHook(t *testing.T) {
 	server.initializeRouter()
 
 	_, err = dataprovider.UserExists(username, "")
-	_, ok = err.(*util.RecordNotFoundError)
-	assert.True(t, ok)
+	assert.ErrorIs(t, err, util.ErrNotFound)
 	// now login with OIDC
 	authReq := newOIDCPendingAuth(tokenAudienceWebClient)
 	oidcMgr.addPendingAuth(authReq)
@@ -1226,8 +1224,7 @@ func TestOIDCPreLoginHook(t *testing.T) {
 	assert.Equal(t, http.StatusFound, rr.Code)
 	assert.Equal(t, webClientLoginPath, rr.Header().Get("Location"))
 	_, err = dataprovider.UserExists(username, "")
-	_, ok = err.(*util.RecordNotFoundError)
-	assert.True(t, ok)
+	assert.ErrorIs(t, err, util.ErrNotFound)
 	if assert.Len(t, oidcMgr.tokens, 1) {
 		for k := range oidcMgr.tokens {
 			oidcMgr.removeToken(k)

@@ -231,7 +231,7 @@ func (s *Server) PreAuthUser(cc ftpserver.ClientContext, username string) error 
 			}
 			return nil
 		}
-		if _, ok := err.(*util.RecordNotFoundError); !ok {
+		if !errors.Is(err, util.ErrNotFound) {
 			logger.Error(logSender, fmt.Sprintf("%v_%v_%v", common.ProtocolFTP, s.ID, cc.ID()),
 				"unable to get user on pre auth: %v", err)
 			return common.ErrInternalFailure
@@ -426,7 +426,7 @@ func updateLoginMetrics(user *dataprovider.User, ip, loginMethod string, err err
 		logger.ConnectionFailedLog(user.Username, ip, loginMethod,
 			common.ProtocolFTP, err.Error())
 		event := common.HostEventLoginFailed
-		if _, ok := err.(*util.RecordNotFoundError); ok {
+		if errors.Is(err, util.ErrNotFound) {
 			event = common.HostEventUserNotFound
 		}
 		common.AddDefenderEvent(ip, event)

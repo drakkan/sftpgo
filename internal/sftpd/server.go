@@ -92,6 +92,8 @@ var (
 	revokedCertManager = revokedCertificates{
 		certs: map[string]bool{},
 	}
+
+	sftpAuthError = newAuthenticationError(nil)
 )
 
 // Binding defines the configuration for a network listener
@@ -208,11 +210,26 @@ type Configuration struct {
 }
 
 type authenticationError struct {
-	err string
+	err error
 }
 
 func (e *authenticationError) Error() string {
-	return fmt.Sprintf("Authentication error: %s", e.err)
+	return fmt.Sprintf("Authentication error: %v", e.err)
+}
+
+// Is reports if target matches
+func (e *authenticationError) Is(target error) bool {
+	_, ok := target.(*authenticationError)
+	return ok
+}
+
+// Unwrap returns the wrapped error
+func (e *authenticationError) Unwrap() error {
+	return e.err
+}
+
+func newAuthenticationError(err error) *authenticationError {
+	return &authenticationError{err: err}
 }
 
 // ShouldBind returns true if there is at least a valid binding
@@ -236,7 +253,7 @@ func (c *Configuration) getServerConfig() *ssh.ServerConfig {
 				return sp, err
 			}
 			if err != nil {
-				return nil, &authenticationError{err: fmt.Sprintf("could not validate public key credentials: %v", err)}
+				return nil, newAuthenticationError(fmt.Errorf("could not validate public key credentials: %w", err))
 			}
 
 			return sp, nil
@@ -256,7 +273,7 @@ func (c *Configuration) getServerConfig() *ssh.ServerConfig {
 		serverConfig.PasswordCallback = func(conn ssh.ConnMetadata, pass []byte) (*ssh.Permissions, error) {
 			sp, err := c.validatePasswordCredentials(conn, pass)
 			if err != nil {
-				return nil, &authenticationError{err: fmt.Sprintf("could not validate password credentials: %v", err)}
+				return nil, newAuthenticationError(fmt.Errorf("could not validate password credentials: %w", err))
 			}
 
 			return sp, nil
@@ -453,9 +470,9 @@ func (c *Configuration) configureKeyboardInteractiveAuth(serverConfig *ssh.Serve
 	if c.KeyboardInteractiveHook != "" {
 		if !strings.HasPrefix(c.KeyboardInteractiveHook, "http") {
 			if !filepath.IsAbs(c.KeyboardInteractiveHook) {
-				logger.WarnToConsole("invalid keyboard interactive authentication program: %#v must be an absolute path",
+				logger.WarnToConsole("invalid keyboard interactive authentication program: %q must be an absolute path",
 					c.KeyboardInteractiveHook)
-				logger.Warn(logSender, "", "invalid keyboard interactive authentication program: %#v must be an absolute path",
+				logger.Warn(logSender, "", "invalid keyboard interactive authentication program: %q must be an absolute path",
 					c.KeyboardInteractiveHook)
 				return
 			}
@@ -470,7 +487,7 @@ func (c *Configuration) configureKeyboardInteractiveAuth(serverConfig *ssh.Serve
 	serverConfig.KeyboardInteractiveCallback = func(conn ssh.ConnMetadata, client ssh.KeyboardInteractiveChallenge) (*ssh.Permissions, error) {
 		sp, err := c.validateKeyboardInteractiveCredentials(conn, client)
 		if err != nil {
-			return nil, &authenticationError{err: fmt.Sprintf("could not validate keyboard interactive credentials: %v", err)}
+			return nil, newAuthenticationError(fmt.Errorf("could not validate keyboard interactive credentials: %w", err))
 		}
 
 		return sp, nil
@@ -666,20 +683,16 @@ func (c *Configuration) createHandlers(connection *Connection) sftp.Handlers {
 
 func checkAuthError(ip string, err error) {
 	if authErrors, ok := err.(*ssh.ServerAuthError); ok {
-		// check public key auth errors here
+		event := common.HostEventLoginFailed
 		for _, err := range authErrors.Errors {
-			if err != nil {
-				// these checks should be improved, we should check for error type and not error strings
-				if strings.Contains(err.Error(), "public key credentials") {
-					event := common.HostEventLoginFailed
-					if strings.Contains(err.Error(), "not found") {
-						event = common.HostEventUserNotFound
-					}
-					common.AddDefenderEvent(ip, event)
-					break
+			if errors.Is(err, sftpAuthError) {
+				if errors.Is(err, util.ErrNotFound) {
+					event = common.HostEventUserNotFound
 				}
+				break
 			}
 		}
+		common.AddDefenderEvent(ip, event)
 	} else {
 		logger.ConnectionFailedLog("", ip, dataprovider.LoginMethodNoAuthTryed, common.ProtocolSSH, err.Error())
 		metric.AddNoAuthTryed()
@@ -1131,7 +1144,7 @@ func updateLoginMetrics(user *dataprovider.User, ip, method string, err error) {
 			// record failed login key auth only once for session if the
 			// authentication fails in checkAuthError
 			event := common.HostEventLoginFailed
-			if _, ok := err.(*util.RecordNotFoundError); ok {
+			if errors.Is(err, util.ErrNotFound) {
 				event = common.HostEventUserNotFound
 			}
 			common.AddDefenderEvent(ip, event)
