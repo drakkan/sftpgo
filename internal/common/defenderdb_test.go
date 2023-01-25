@@ -39,6 +39,7 @@ func TestBasicDbDefender(t *testing.T) {
 		Threshold:          5,
 		ScoreInvalid:       2,
 		ScoreValid:         1,
+		ScoreNoAuth:        2,
 		ScoreLimitExceeded: 3,
 		ObservationTime:    15,
 		EntriesSoftLimit:   1,
@@ -161,9 +162,9 @@ func TestBasicDbDefender(t *testing.T) {
 	testIP2 := "123.45.67.91"
 	testIP3 := "123.45.67.92"
 	for i := 0; i < 3; i++ {
-		defender.AddEvent(testIP, HostEventNoLoginTried)
+		defender.AddEvent(testIP, HostEventUserNotFound)
 		defender.AddEvent(testIP1, HostEventNoLoginTried)
-		defender.AddEvent(testIP2, HostEventNoLoginTried)
+		defender.AddEvent(testIP2, HostEventUserNotFound)
 	}
 	hosts, err = defender.GetHosts()
 	assert.NoError(t, err)

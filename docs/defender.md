@@ -2,13 +2,16 @@
 
 The built-in `defender` allows you to configure an auto-blocking policy for SFTPGo and thus helps to prevent DoS (Denial of Service) and brute force password guessing.
 
-If enabled it will protect SFTP, HTTP, FTP and WebDAV services and it will automatically block hosts (IP addresses) that continually fail to log in or attempt to connect.
+If enabled it will protect SFTP, HTTP (WebClient and user API), FTP and WebDAV services and it will automatically block hosts (IP addresses) that continually fail to log in or attempt to connect.
 
 You can configure a score for the following events:
 
 - `score_valid`, defines the score for valid login attempts, eg. user accounts that exist. Default `1`.
-- `score_invalid`, defines the score for invalid login attempts, eg. non-existent user accounts or client disconnected for inactivity without authentication attempts. Default `2`.
+- `score_invalid`, defines the score for invalid login attempts, eg. non-existent user accounts. Default `2`.
+- `score_no_auth`, defines the score for clients disconnected without any authentication attempt. Default `0`.
 - `score_limit_exceeded`, defines the score for hosts that exceeded the configured rate limits or the configured max connections per host. Default `3`.
+
+You can set the score to `0` to not penalize some events.
 
 And then you can configure:
 

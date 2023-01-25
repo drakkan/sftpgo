@@ -154,8 +154,9 @@ var (
 		ProtocolHTTP, ProtocolHTTPShare, ProtocolOIDC}
 	disconnHookProtocols = []string{ProtocolSFTP, ProtocolSCP, ProtocolSSH, ProtocolFTP}
 	// the map key is the protocol, for each protocol we can have multiple rate limiters
-	rateLimiters   map[string][]*rateLimiter
-	isShuttingDown atomic.Bool
+	rateLimiters     map[string][]*rateLimiter
+	isShuttingDown   atomic.Bool
+	ftpLoginCommands = []string{"PASS", "USER"}
 )
 
 // Initialize sets the common configuration
@@ -926,7 +927,7 @@ func (conns *ActiveConnections) Remove(connectionID string) {
 		metric.UpdateActiveConnectionsSize(lastIdx)
 		logger.Debug(conn.GetProtocol(), conn.GetID(), "connection removed, local address %#v, remote address %#v close fs error: %v, num open connections: %v",
 			conn.GetLocalAddress(), conn.GetRemoteAddress(), err, lastIdx)
-		if conn.GetProtocol() == ProtocolFTP && conn.GetUsername() == "" {
+		if conn.GetProtocol() == ProtocolFTP && conn.GetUsername() == "" && !util.Contains(ftpLoginCommands, conn.GetCommand()) {
 			ip := util.GetIPFromRemoteAddress(conn.GetRemoteAddress())
 			logger.ConnectionFailedLog("", ip, dataprovider.LoginMethodNoAuthTryed, conn.GetProtocol(),
 				dataprovider.ErrNoAuthTryed.Error())

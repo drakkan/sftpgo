@@ -28,6 +28,7 @@
       "score_invalid": 2,
       "score_valid": 1,
       "score_limit_exceeded": 3,
+      "score_no_auth": 2,
       "observation_time": 30,
       "entries_soft_limit": 100,
       "entries_hard_limit": 150,

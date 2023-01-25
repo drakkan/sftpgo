@@ -24,6 +24,11 @@ const (
 		"sftpgo serve -c \"<path to dir containing the default config file and templates directory>\""
 )
 
+// errors definitions
+var (
+	ErrNotFound = NewRecordNotFoundError("")
+)
+
 // ValidationError raised if input data is not valid
 type ValidationError struct {
 	err string
@@ -53,6 +58,12 @@ type RecordNotFoundError struct {
 
 func (e *RecordNotFoundError) Error() string {
 	return fmt.Sprintf("not found: %s", e.err)
+}
+
+// Is reports if target matches
+func (e *RecordNotFoundError) Is(target error) bool {
+	_, ok := target.(*RecordNotFoundError)
+	return ok
 }
 
 // NewRecordNotFoundError returns a not found error

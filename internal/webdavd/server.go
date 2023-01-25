@@ -188,7 +188,6 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	user, isCached, lockSystem, loginMethod, err := s.authenticate(r, ipAddr)
 	if err != nil {
-		updateLoginMetrics(&user, ipAddr, loginMethod, err)
 		if !s.binding.DisableWWWAuthHeader {
 			w.Header().Set("WWW-Authenticate", "Basic realm=\"SFTPGo WebDAV\"")
 		}
