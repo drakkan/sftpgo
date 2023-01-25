@@ -966,6 +966,7 @@ func TestDefender(t *testing.T) {
 	cfg.DefenderConfig.Enabled = true
 	cfg.DefenderConfig.Threshold = 3
 	cfg.DefenderConfig.ScoreLimitExceeded = 2
+	cfg.DefenderConfig.ScoreValid = 1
 
 	err := common.Initialize(cfg, 0)
 	assert.NoError(t, err)
@@ -977,12 +978,23 @@ func TestDefender(t *testing.T) {
 	if assert.NoError(t, err) {
 		defer conn.Close()
 		defer client.Close()
+
 		err = checkBasicSFTP(client)
 		assert.NoError(t, err)
 	}
 
-	for i := 0; i < 3; i++ {
-		user.Password = "wrong_pwd"
+	user.Password = "wrong_pwd"
+	_, _, err = getSftpClient(user, usePubKey)
+	assert.Error(t, err)
+	hosts, _, err := httpdtest.GetDefenderHosts(http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, hosts, 1) {
+		host := hosts[0]
+		assert.Empty(t, host.GetBanTime())
+		assert.Equal(t, 1, host.Score)
+	}
+
+	for i := 0; i < 2; i++ {
 		_, _, err = getSftpClient(user, usePubKey)
 		assert.Error(t, err)
 	}
