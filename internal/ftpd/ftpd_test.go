@@ -1724,8 +1724,10 @@ func TestDefender(t *testing.T) {
 
 	cfg := config.GetCommonConfig()
 	cfg.DefenderConfig.Enabled = true
-	cfg.DefenderConfig.Threshold = 3
+	cfg.DefenderConfig.Threshold = 4
 	cfg.DefenderConfig.ScoreLimitExceeded = 2
+	cfg.DefenderConfig.ScoreNoAuth = 1
+	cfg.DefenderConfig.ScoreValid = 1
 
 	err := common.Initialize(cfg, 0)
 	assert.NoError(t, err)
@@ -1739,9 +1741,31 @@ func TestDefender(t *testing.T) {
 		err = client.Quit()
 		assert.NoError(t, err)
 	}
+	// just dial without login
+	ftpOptions := []ftp.DialOption{ftp.DialWithTimeout(5 * time.Second)}
+	client, err = ftp.Dial(ftpServerAddr, ftpOptions...)
+	assert.NoError(t, err)
+	err = client.Quit()
+	assert.NoError(t, err)
+	hosts, _, err := httpdtest.GetDefenderHosts(http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, hosts, 1) {
+		host := hosts[0]
+		assert.Empty(t, host.GetBanTime())
+		assert.Equal(t, 1, host.Score)
+	}
+	user.Password = "wrong_pwd"
+	_, err = getFTPClient(user, false, nil)
+	assert.Error(t, err)
+	hosts, _, err = httpdtest.GetDefenderHosts(http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, hosts, 1) {
+		host := hosts[0]
+		assert.Empty(t, host.GetBanTime())
+		assert.Equal(t, 2, host.Score)
+	}
 
-	for i := 0; i < 3; i++ {
-		user.Password = "wrong_pwd"
+	for i := 0; i < 2; i++ {
 		_, err = getFTPClient(user, false, nil)
 		assert.Error(t, err)
 	}

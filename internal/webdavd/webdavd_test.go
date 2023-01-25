@@ -995,6 +995,7 @@ func TestDefender(t *testing.T) {
 	cfg.DefenderConfig.Enabled = true
 	cfg.DefenderConfig.Threshold = 3
 	cfg.DefenderConfig.ScoreLimitExceeded = 2
+	cfg.DefenderConfig.ScoreValid = 1
 
 	err := common.Initialize(cfg, 0)
 	assert.NoError(t, err)
@@ -1004,8 +1005,18 @@ func TestDefender(t *testing.T) {
 	client := getWebDavClient(user, true, nil)
 	assert.NoError(t, checkBasicFunc(client))
 
-	for i := 0; i < 3; i++ {
-		user.Password = "wrong_pwd"
+	user.Password = "wrong_pwd"
+	client = getWebDavClient(user, false, nil)
+	assert.Error(t, checkBasicFunc(client))
+	hosts, _, err := httpdtest.GetDefenderHosts(http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Len(t, hosts, 1) {
+		host := hosts[0]
+		assert.Empty(t, host.GetBanTime())
+		assert.Equal(t, 1, host.Score)
+	}
+
+	for i := 0; i < 2; i++ {
 		client = getWebDavClient(user, false, nil)
 		assert.Error(t, checkBasicFunc(client))
 	}

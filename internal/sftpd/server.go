@@ -93,7 +93,7 @@ var (
 		certs: map[string]bool{},
 	}
 
-	sftpAuthError = newAuthenticationError(nil)
+	sftpAuthError = newAuthenticationError(nil, "")
 )
 
 // Binding defines the configuration for a network listener
@@ -210,7 +210,8 @@ type Configuration struct {
 }
 
 type authenticationError struct {
-	err error
+	err         error
+	loginMethod string
 }
 
 func (e *authenticationError) Error() string {
@@ -228,8 +229,12 @@ func (e *authenticationError) Unwrap() error {
 	return e.err
 }
 
-func newAuthenticationError(err error) *authenticationError {
-	return &authenticationError{err: err}
+func (e *authenticationError) getLoginMethod() string {
+	return e.loginMethod
+}
+
+func newAuthenticationError(err error, loginMethod string) *authenticationError {
+	return &authenticationError{err: err, loginMethod: loginMethod}
 }
 
 // ShouldBind returns true if there is at least a valid binding
@@ -253,7 +258,8 @@ func (c *Configuration) getServerConfig() *ssh.ServerConfig {
 				return sp, err
 			}
 			if err != nil {
-				return nil, newAuthenticationError(fmt.Errorf("could not validate public key credentials: %w", err))
+				return nil, newAuthenticationError(fmt.Errorf("could not validate public key credentials: %w", err),
+					dataprovider.SSHLoginMethodPublicKey)
 			}
 
 			return sp, nil
@@ -273,7 +279,8 @@ func (c *Configuration) getServerConfig() *ssh.ServerConfig {
 		serverConfig.PasswordCallback = func(conn ssh.ConnMetadata, pass []byte) (*ssh.Permissions, error) {
 			sp, err := c.validatePasswordCredentials(conn, pass)
 			if err != nil {
-				return nil, newAuthenticationError(fmt.Errorf("could not validate password credentials: %w", err))
+				return nil, newAuthenticationError(fmt.Errorf("could not validate password credentials: %w", err),
+					dataprovider.SSHLoginMethodPassword)
 			}
 
 			return sp, nil
@@ -487,7 +494,8 @@ func (c *Configuration) configureKeyboardInteractiveAuth(serverConfig *ssh.Serve
 	serverConfig.KeyboardInteractiveCallback = func(conn ssh.ConnMetadata, client ssh.KeyboardInteractiveChallenge) (*ssh.Permissions, error) {
 		sp, err := c.validateKeyboardInteractiveCredentials(conn, client)
 		if err != nil {
-			return nil, newAuthenticationError(fmt.Errorf("could not validate keyboard interactive credentials: %w", err))
+			return nil, newAuthenticationError(fmt.Errorf("could not validate keyboard interactive credentials: %w", err),
+				dataprovider.SSHLoginMethodKeyboardInteractive)
 		}
 
 		return sp, nil
@@ -561,7 +569,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 	}
 
 	logger.Log(logger.LevelInfo, common.ProtocolSSH, connectionID,
-		"User %#v logged in with %#v, from ip %#v, client version %#v", user.Username, loginType,
+		"User %q logged in with %q, from ip %q, client version %q", user.Username, loginType,
 		ipAddr, string(sconn.ClientVersion()))
 	dataprovider.UpdateLastLogin(&user)
 
@@ -683,16 +691,20 @@ func (c *Configuration) createHandlers(connection *Connection) sftp.Handlers {
 
 func checkAuthError(ip string, err error) {
 	if authErrors, ok := err.(*ssh.ServerAuthError); ok {
-		event := common.HostEventLoginFailed
+		// check public key auth errors here
 		for _, err := range authErrors.Errors {
-			if errors.Is(err, sftpAuthError) {
-				if errors.Is(err, util.ErrNotFound) {
-					event = common.HostEventUserNotFound
+			var sftpAuthErr *authenticationError
+			if errors.As(err, &sftpAuthErr) {
+				if sftpAuthErr.getLoginMethod() == dataprovider.SSHLoginMethodPublicKey {
+					event := common.HostEventLoginFailed
+					if errors.Is(err, util.ErrNotFound) {
+						event = common.HostEventUserNotFound
+					}
+					common.AddDefenderEvent(ip, event)
+					return
 				}
-				break
 			}
 		}
-		common.AddDefenderEvent(ip, event)
 	} else {
 		logger.ConnectionFailedLog("", ip, dataprovider.LoginMethodNoAuthTryed, common.ProtocolSSH, err.Error())
 		metric.AddNoAuthTryed()
@@ -1078,7 +1090,7 @@ func (c *Configuration) validatePublicKeyCredentials(conn ssh.ConnMetadata, pubK
 				cert.KeyId, cert.Serial, cert.Type(), ssh.FingerprintSHA256(cert.SignatureKey))
 		}
 		if user.IsPartialAuth(method) {
-			logger.Debug(logSender, connectionID, "user %#v authenticated with partial success", conn.User())
+			logger.Debug(logSender, connectionID, "user %q authenticated with partial success", conn.User())
 			return certPerm, ssh.ErrPartialSuccess
 		}
 		sshPerm, err = loginUser(&user, method, keyID, conn)
