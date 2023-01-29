@@ -221,7 +221,7 @@ func Init() {
 				ScoreInvalid:       2,
 				ScoreValid:         1,
 				ScoreLimitExceeded: 3,
-				ScoreNoAuth:        2,
+				ScoreNoAuth:        0,
 				ObservationTime:    30,
 				EntriesSoftLimit:   100,
 				EntriesHardLimit:   150,
