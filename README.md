@@ -32,6 +32,10 @@ More [info](https://github.com/drakkan/sftpgo/issues/452).
 
 [<img src="./img/Aledade_logo.png" alt="Aledade logo" width="202" height="70">](https://www.aledade.com/)
 
+#### Silver sponsors
+
+[<img src="./img/Dendi_logo.png" alt="Dendi logo" width="202" height="63">](https://dendisoftware.com/)
+
 #### Bronze sponsors
 
 [<img src="https://www.7digital.com/wp-content/themes/sevendigital/images/top_logo.png" alt="7digital logo">](https://www.7digital.com/)
