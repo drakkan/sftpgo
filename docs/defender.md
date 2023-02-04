@@ -8,7 +8,7 @@ You can configure a score for the following events:
 
 - `score_valid`, defines the score for valid login attempts, eg. user accounts that exist. Default `1`.
 - `score_invalid`, defines the score for invalid login attempts, eg. non-existent user accounts. Default `2`.
-- `score_no_auth`, defines the score for clients disconnected without any authentication attempt. Default `0`.
+- `score_no_auth`, defines the score for clients disconnected without any authentication attempt. Default `2`.
 - `score_limit_exceeded`, defines the score for hosts that exceeded the configured rate limits or the configured max connections per host. Default `3`.
 
 You can set the score to `0` to not penalize some events.

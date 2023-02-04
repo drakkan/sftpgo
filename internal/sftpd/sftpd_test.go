@@ -3056,7 +3056,7 @@ func TestPreLoginUserCreation(t *testing.T) {
 	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
 
-	user, _, err := httpdtest.GetUserByUsername(defaultUsername, http.StatusNotFound)
+	_, _, err = httpdtest.GetUserByUsername(defaultUsername, http.StatusNotFound)
 	assert.NoError(t, err)
 	conn, client, err := getSftpClient(u, usePubKey)
 	if assert.NoError(t, err) {
@@ -3064,7 +3064,7 @@ func TestPreLoginUserCreation(t *testing.T) {
 		defer client.Close()
 		assert.NoError(t, checkBasicSFTP(client))
 	}
-	user, _, err = httpdtest.GetUserByUsername(defaultUsername, http.StatusOK)
+	user, _, err := httpdtest.GetUserByUsername(defaultUsername, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)

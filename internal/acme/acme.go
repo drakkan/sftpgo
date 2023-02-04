@@ -669,7 +669,7 @@ func stopScheduler() {
 func startScheduler() error {
 	stopScheduler()
 
-	rand.Seed(time.Now().UnixNano())
+	rand.Seed(time.Now().UnixNano()) //nolint:staticcheck
 	randSecs := rand.Intn(59)
 
 	scheduler = cron.New()

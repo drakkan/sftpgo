@@ -106,7 +106,8 @@ func checkCacheUpdates() {
 		providerLog(logger.LevelError, "unable to get recently updated users: %v", err)
 		return
 	}
-	for _, user := range users {
+	for idx := range users {
+		user := users[idx]
 		providerLog(logger.LevelDebug, "invalidate caches for user %q", user.Username)
 		if user.DeletedAt > 0 {
 			deletedAt := util.GetTimeFromMsecSinceEpoch(user.DeletedAt)

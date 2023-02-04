@@ -89,7 +89,7 @@ The configuration file contains the following sections:
     - `score_invalid`, integer. Score for invalid login attempts, eg. non-existent user accounts. Default: `2`.
     - `score_valid`, integer. Score for valid login attempts, eg. user accounts that exist. Default: `1`.
     - `score_limit_exceeded`, integer. Score for hosts that exceeded the configured rate limits or the maximum, per-host, allowed connections. Default: `3`.
-    - `score_no_auth`, defines the score for clients disconnected without any authentication attempt. Default: `0`.
+    - `score_no_auth`, defines the score for clients disconnected without any authentication attempt. Default: `2`.
     - `observation_time`, integer. Defines the time window, in minutes, for tracking client errors. A host is banned if it has exceeded the defined threshold during the last observation time minutes. Default: `30`.
     - `entries_soft_limit`, integer. Ignored for `provider` driver. Default: `100`.
     - `entries_hard_limit`, integer. The number of banned IPs and host scores kept in memory will vary between the soft and hard limit for `memory` driver. If you use the `provider` driver, this setting will limit the number of entries to return when you ask for the entire host list from the defender. Default: `150`.
