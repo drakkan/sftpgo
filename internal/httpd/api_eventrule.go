@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/go-chi/render"
 
@@ -82,7 +83,7 @@ func addEventAction(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	w.Header().Add("Location", fmt.Sprintf("%s/%s", eventActionsPath, action.Name))
+	w.Header().Add("Location", fmt.Sprintf("%s/%s", eventActionsPath, url.PathEscape(action.Name)))
 	renderEventAction(w, r, action.Name, http.StatusCreated)
 }
 
@@ -197,7 +198,7 @@ func addEventRule(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	w.Header().Add("Location", fmt.Sprintf("%s/%s", eventRulesPath, rule.Name))
+	w.Header().Add("Location", fmt.Sprintf("%s/%s", eventRulesPath, url.PathEscape(rule.Name)))
 	renderEventRule(w, r, rule.Name, http.StatusCreated)
 }
 

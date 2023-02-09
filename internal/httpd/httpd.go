@@ -13,7 +13,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 // Package httpd implements REST API and Web interface for SFTPGo.
-// The OpenAPI 3 schema for the exposed API can be found inside the source tree:
+// The OpenAPI 3 schema for the supported API can be found inside the source tree:
 // https://github.com/drakkan/sftpgo/blob/main/openapi/openapi.yaml
 package httpd
 
@@ -93,6 +93,7 @@ const (
 	eventActionsPath                      = "/api/v2/eventactions"
 	eventRulesPath                        = "/api/v2/eventrules"
 	rolesPath                             = "/api/v2/roles"
+	ipListsPath                           = "/api/v2/iplists"
 	healthzPath                           = "/healthz"
 	robotsTxtPath                         = "/robots.txt"
 	webRootPathDefault                    = "/"
@@ -139,6 +140,8 @@ const (
 	webTemplateUserDefault                = "/web/admin/template/user"
 	webTemplateFolderDefault              = "/web/admin/template/folder"
 	webDefenderPathDefault                = "/web/admin/defender"
+	webIPListsPathDefault                 = "/web/admin/ip-lists"
+	webIPListPathDefault                  = "/web/admin/ip-list"
 	webDefenderHostsPathDefault           = "/web/admin/defender/hosts"
 	webEventsPathDefault                  = "/web/admin/events"
 	webEventsFsSearchPathDefault          = "/web/admin/events/fs"
@@ -171,11 +174,11 @@ const (
 	webStaticFilesPathDefault             = "/static"
 	webOpenAPIPathDefault                 = "/openapi"
 	// MaxRestoreSize defines the max size for the loaddata input file
-	MaxRestoreSize       = 10485760 // 10 MB
-	maxRequestSize       = 1048576  // 1MB
-	maxLoginBodySize     = 262144   // 256 KB
-	httpdMaxEditFileSize = 1048576  // 1 MB
-	maxMultipartMem      = 10485760 // 10 MB
+	MaxRestoreSize       = 20 * 1048576 // 20 MB
+	maxRequestSize       = 1048576      // 1MB
+	maxLoginBodySize     = 262144       // 256 KB
+	httpdMaxEditFileSize = 1048576      // 1 MB
+	maxMultipartMem      = 10 * 1048576 // 10 MB
 	osWindows            = "windows"
 	otpHeaderCode        = "X-SFTPGO-OTP"
 	mTimeHeader          = "X-SFTPGO-MTIME"
@@ -231,6 +234,8 @@ var (
 	webTemplateUser                string
 	webTemplateFolder              string
 	webDefenderPath                string
+	webIPListPath                  string
+	webIPListsPath                 string
 	webEventsPath                  string
 	webEventsFsSearchPath          string
 	webEventsProviderSearchPath    string
@@ -636,6 +641,20 @@ type defenderStatus struct {
 	IsActive bool `json:"is_active"`
 }
 
+type allowListStatus struct {
+	IsActive bool `json:"is_active"`
+}
+
+type rateLimiters struct {
+	IsActive  bool     `json:"is_active"`
+	Protocols []string `json:"protocols"`
+}
+
+// GetProtocolsAsString returns the enabled protocols as comma separated string
+func (r *rateLimiters) GetProtocolsAsString() string {
+	return strings.Join(r.Protocols, ", ")
+}
+
 // ServicesStatus keep the state of the running services
 type ServicesStatus struct {
 	SSH          sftpd.ServiceStatus         `json:"ssh"`
@@ -644,6 +663,8 @@ type ServicesStatus struct {
 	DataProvider dataprovider.ProviderStatus `json:"data_provider"`
 	Defender     defenderStatus              `json:"defender"`
 	MFA          mfa.ServiceStatus           `json:"mfa"`
+	AllowList    allowListStatus             `json:"allow_list"`
+	RateLimiters rateLimiters                `json:"rate_limiters"`
 }
 
 // SetupConfig defines the configuration parameters for the initial web admin setup
@@ -924,6 +945,7 @@ func getConfigPath(name, configDir string) string {
 }
 
 func getServicesStatus() *ServicesStatus {
+	rtlEnabled, rtlProtocols := common.Config.GetRateLimitersStatus()
 	status := &ServicesStatus{
 		SSH:          sftpd.GetStatus(),
 		FTP:          ftpd.GetStatus(),
@@ -933,6 +955,13 @@ func getServicesStatus() *ServicesStatus {
 			IsActive: common.Config.DefenderConfig.Enabled,
 		},
 		MFA: mfa.GetStatus(),
+		AllowList: allowListStatus{
+			IsActive: common.Config.IsAllowListEnabled(),
+		},
+		RateLimiters: rateLimiters{
+			IsActive:  rtlEnabled,
+			Protocols: rtlProtocols,
+		},
 	}
 	return status
 }
@@ -1035,6 +1064,8 @@ func updateWebAdminURLs(baseURL string) {
 	webTemplateFolder = path.Join(baseURL, webTemplateFolderDefault)
 	webDefenderHostsPath = path.Join(baseURL, webDefenderHostsPathDefault)
 	webDefenderPath = path.Join(baseURL, webDefenderPathDefault)
+	webIPListPath = path.Join(baseURL, webIPListPathDefault)
+	webIPListsPath = path.Join(baseURL, webIPListsPathDefault)
 	webEventsPath = path.Join(baseURL, webEventsPathDefault)
 	webEventsFsSearchPath = path.Join(baseURL, webEventsFsSearchPathDefault)
 	webEventsProviderSearchPath = path.Join(baseURL, webEventsProviderSearchPathDefault)

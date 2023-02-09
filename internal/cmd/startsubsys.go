@@ -85,15 +85,6 @@ Command-line flags should be specified in the Subsystem declaration.
 				logger.Error(logSender, connectionID, "unable to load configuration: %v", err)
 				os.Exit(1)
 			}
-			dataProviderConf := config.GetProviderConf()
-			commonConfig := config.GetCommonConfig()
-			// idle connection are managed externally
-			commonConfig.IdleTimeout = 0
-			config.SetCommonConfig(commonConfig)
-			if err := common.Initialize(config.GetCommonConfig(), dataProviderConf.GetShared()); err != nil {
-				logger.Error(logSender, connectionID, "%v", err)
-				os.Exit(1)
-			}
 			kmsConfig := config.GetKMSConfig()
 			if err := kmsConfig.Initialize(); err != nil {
 				logger.Error(logSender, connectionID, "unable to initialize KMS: %v", err)
@@ -115,8 +106,9 @@ Command-line flags should be specified in the Subsystem declaration.
 				logger.Error(logSender, connectionID, "unable to initialize SMTP configuration: %v", err)
 				os.Exit(1)
 			}
+			dataProviderConf := config.GetProviderConf()
 			if dataProviderConf.Driver == dataprovider.SQLiteDataProviderName || dataProviderConf.Driver == dataprovider.BoltDataProviderName {
-				logger.Debug(logSender, connectionID, "data provider %#v not supported in subsystem mode, using %#v provider",
+				logger.Debug(logSender, connectionID, "data provider %q not supported in subsystem mode, using %q provider",
 					dataProviderConf.Driver, dataprovider.MemoryDataProviderName)
 				dataProviderConf.Driver = dataprovider.MemoryDataProviderName
 				dataProviderConf.Name = ""
@@ -125,6 +117,14 @@ Command-line flags should be specified in the Subsystem declaration.
 			err = dataprovider.Initialize(dataProviderConf, configDir, false)
 			if err != nil {
 				logger.Error(logSender, connectionID, "unable to initialize the data provider: %v", err)
+				os.Exit(1)
+			}
+			commonConfig := config.GetCommonConfig()
+			// idle connection are managed externally
+			commonConfig.IdleTimeout = 0
+			config.SetCommonConfig(commonConfig)
+			if err := common.Initialize(config.GetCommonConfig(), dataProviderConf.GetShared()); err != nil {
+				logger.Error(logSender, connectionID, "%v", err)
 				os.Exit(1)
 			}
 			httpConfig := config.GetHTTPConfig()

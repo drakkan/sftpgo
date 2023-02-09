@@ -34,7 +34,7 @@ More [info](https://github.com/drakkan/sftpgo/issues/452).
 
 #### Silver sponsors
 
-[<img src="./img/Dendi_logo.png" alt="Dendi logo" width="202" height="63">](https://dendisoftware.com/)
+[<img src="./img/Dendi_logo.png" alt="Dendi logo" width="212" height="66">](https://dendisoftware.com/)
 
 #### Bronze sponsors
 
@@ -51,12 +51,12 @@ If you report an invalid issue or ask for step-by-step support, your issue will 
 ## Features
 
 - Support for serving local filesystem, encrypted local filesystem, S3 Compatible Object Storage, Google Cloud Storage, Azure Blob Storage or other SFTP accounts over SFTP/SCP/FTP/WebDAV.
-- Virtual folders are supported: a virtual folder can use any of the supported storage backends. So you can have, for example, an S3 user that exposes a GCS bucket (or part of it) on a specified path and an encrypted local filesystem on another one. Virtual folders can be private or shared among multiple users, for shared virtual folders you can define different quota limits for each user.
+- Virtual folders are supported: a virtual folder can use any of the supported storage backends. So you can have, for example, a user with the S3 backend mapping a GCS bucket (or part of it) on a specified path and an encrypted local filesystem on another one. Virtual folders can be private or shared among multiple users, for shared virtual folders you can define different quota limits for each user.
 - Configurable [custom commands and/or HTTP hooks](./docs/custom-actions.md) on upload, pre-upload, download, pre-download, delete, pre-delete, rename, mkdir, rmdir on SSH commands and on user add, update and delete.
 - Virtual accounts stored within a "data provider".
 - SQLite, MySQL, PostgreSQL, CockroachDB, Bolt (key/value store in pure Go) and in-memory data providers are supported.
 - Chroot isolation for local accounts. Cloud-based accounts can be restricted to a certain base path.
-- Per-user and per-directory virtual permissions, for each exposed path you can allow or deny: directory listing, upload, overwrite, download, delete, rename, create directories, create symlinks, change owner/group/file mode and modification time.
+- Per-user and per-directory virtual permissions, for each path you can allow or deny: directory listing, upload, overwrite, download, delete, rename, create directories, create symlinks, change owner/group/file mode and modification time.
 - [REST API](./docs/rest-api.md) for users and folders management, data retention, backup, restore and real time reports of the active connections with possibility of forcibly closing a connection.
 - The [Event Manager](./docs/eventmanager.md) allows to define custom workflows based on server events or schedules.
 - [Web based administration interface](./docs/web-admin.md) to easily manage users, folders and connections.
@@ -92,7 +92,7 @@ If you report an invalid issue or ask for step-by-step support, your issue will 
 - ACME protocol is supported. SFTPGo can obtain and automatically renew TLS certificates for HTTPS, WebDAV and FTPS from `Let's Encrypt` or other ACME compliant certificate authorities, using the the `HTTP-01` or `TLS-ALPN-01` [challenge types](https://letsencrypt.org/docs/challenge-types/).
 - Two-Way TLS authentication, aka TLS with client certificate authentication, is supported for REST API/Web Admin, FTPS and WebDAV over HTTPS.
 - Per-user protocols restrictions. You can configure the allowed protocols (SSH/HTTP/FTP/WebDAV) for each user.
-- [Prometheus metrics](./docs/metrics.md) are exposed.
+- [Prometheus metrics](./docs/metrics.md) are supported.
 - Support for HAProxy PROXY protocol: you can proxy and/or load balance the SFTP/SCP/FTP service without losing the information about the client's address.
 - Easy [migration](./examples/convertusers) from Linux system user accounts.
 - [Portable mode](./docs/portable-mode.md): a convenient way to share a single directory on demand.
@@ -222,12 +222,12 @@ To start using SFTPGo you need to create an admin user, you can do it in several
 SFTPGo supports upgrading from the previous release branch to the current one.
 Some examples for supported upgrade paths are:
 
-- from 1.2.x to 2.0.x
-- from 2.0.x to 2.1.x and so on.
+- from 2.1.x to 2.2.x
+- from 2.2.x to 2.3.x and so on.
 
-For supported upgrade paths, the data and schema are migrated automatically, alternately you can use the `initprovider` command.
+For supported upgrade paths, the data and schema are migrated automatically when SFTPGo starts, alternatively you can use the `initprovider` command before starting SFTPGo.
 
-So if, for example, you want to upgrade from a version before 1.2.x to 2.0.x, you must first install version 1.2.x, update the data provider and finally install the version 2.0.x. It is recommended to always install the latest available minor version, ie do not install 1.2.0 if 1.2.2 is available.
+So if, for example, you want to upgrade from 2.0.x to 2.2.x, you must first install version 2.1.x, update the data provider (automatically, by starting SFTPGo or manually using the `initprovider` command) and finally install the version 2.2.x. It is recommended to always install the latest available minor version, ie do not install 2.1.0 if 2.1.2 is available.
 
 Loading data from a provider independent JSON dump is supported from the previous release branch to the current one too. After upgrading SFTPGo it is advisable to regenerate the JSON dump from the new version.
 
@@ -237,13 +237,13 @@ If for some reason you want to downgrade SFTPGo, you may need to downgrade your 
 
 As for upgrading, SFTPGo supports downgrading from the previous release branch to the current one.
 
-So, if you plan to downgrade from 2.0.x to 1.2.x, before uninstalling 2.0.x version, you can prepare your data provider executing the following command from the configuration directory:
+So, if you plan to downgrade from 2.3.x to 2.2.x, before uninstalling 2.3.x version, you can prepare your data provider executing the following command from the configuration directory:
 
 ```shell
-sftpgo revertprovider --to-version 4
+sftpgo revertprovider
 ```
 
-Take a look at the CLI usage to see the supported parameter for the `--to-version` argument and to learn how to specify a different configuration file:
+Take a look at the CLI usage to learn how to specify a configuration file:
 
 ```shell
 sftpgo revertprovider --help
@@ -253,11 +253,11 @@ The `revertprovider` command is not supported for the memory provider.
 
 Please note that we only support the current release branch and the current main branch, if you find a bug it is better to report it rather than downgrading to an older unsupported version.
 
-## Users, groups and folders management
+## Users, groups, folders and other resource management
 
 After starting SFTPGo you can manage users, groups, folders and other resources using:
 
-- the [web based administration interface](./docs/web-admin.md)
+- the [WebAdmin UI](./docs/web-admin.md)
 - the [REST API](./docs/rest-api.md)
 
 To support embedded data providers like `bolt` and `SQLite`, which do not support concurrent connections, we can't have a CLI that directly write users and other resources to the data provider, we always have to use the REST API.
@@ -299,7 +299,7 @@ More information about custom actions can be found [here](./docs/custom-actions.
 
 ## Virtual folders
 
-Directories outside the user home directory or based on a different storage provider can be exposed as virtual folders, more information [here](./docs/virtual-folders.md).
+Directories outside the user home directory or based on a different storage provider can be mapped as virtual folders, more information [here](./docs/virtual-folders.md).
 
 ## Other hooks
 
@@ -310,7 +310,7 @@ You can use your own hook to [check passwords](./docs/check-password-hook.md).
 
 ### S3/GCP/Azure
 
-Each user can be mapped with a [S3 Compatible Object Storage](./docs/s3.md) /[Google Cloud Storage](./docs/google-cloud-storage.md)/[Azure Blob Storage](./docs/azure-blob-storage.md) bucket or a bucket virtual folder that is exposed over SFTP/SCP/FTP/WebDAV.
+Each user can be mapped with a [S3 Compatible Object Storage](./docs/s3.md) /[Google Cloud Storage](./docs/google-cloud-storage.md)/[Azure Blob Storage](./docs/azure-blob-storage.md) bucket or a bucket virtual folder.
 
 ### SFTP backend
 

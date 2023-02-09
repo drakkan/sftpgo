@@ -20,8 +20,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/drakkan/sftpgo/v2/internal/util"
 )
 
 func TestRateLimiterConfig(t *testing.T) {
@@ -79,9 +77,9 @@ func TestRateLimiter(t *testing.T) {
 		Protocols: rateLimiterProtocolValues,
 	}
 	limiter := config.getLimiter()
-	_, err := limiter.Wait("")
+	_, err := limiter.Wait("", ProtocolFTP)
 	require.NoError(t, err)
-	_, err = limiter.Wait("")
+	_, err = limiter.Wait("", ProtocolSSH)
 	require.Error(t, err)
 
 	config.Type = int(rateLimiterTypeSource)
@@ -91,28 +89,17 @@ func TestRateLimiter(t *testing.T) {
 	limiter = config.getLimiter()
 
 	source := "192.168.1.2"
-	_, err = limiter.Wait(source)
+	_, err = limiter.Wait(source, ProtocolSSH)
 	require.NoError(t, err)
-	_, err = limiter.Wait(source)
+	_, err = limiter.Wait(source, ProtocolSSH)
 	require.Error(t, err)
 	// a different source should work
-	_, err = limiter.Wait(source + "1")
-	require.NoError(t, err)
-
-	allowList := []string{"192.168.1.0/24"}
-	allowFuncs, err := util.ParseAllowedIPAndRanges(allowList)
-	assert.NoError(t, err)
-	limiter.allowList = allowFuncs
-	for i := 0; i < 5; i++ {
-		_, err = limiter.Wait(source)
-		require.NoError(t, err)
-	}
-	_, err = limiter.Wait("not an ip")
+	_, err = limiter.Wait(source+"1", ProtocolSSH)
 	require.NoError(t, err)
 
 	config.Burst = 0
 	limiter = config.getLimiter()
-	_, err = limiter.Wait(source)
+	_, err = limiter.Wait(source, ProtocolSSH)
 	require.ErrorIs(t, err, errReserve)
 }
 
@@ -131,10 +118,10 @@ func TestLimiterCleanup(t *testing.T) {
 	source2 := "10.8.0.2"
 	source3 := "10.8.0.3"
 	source4 := "10.8.0.4"
-	_, err := limiter.Wait(source1)
+	_, err := limiter.Wait(source1, ProtocolSSH)
 	assert.NoError(t, err)
 	time.Sleep(20 * time.Millisecond)
-	_, err = limiter.Wait(source2)
+	_, err = limiter.Wait(source2, ProtocolSSH)
 	assert.NoError(t, err)
 	time.Sleep(20 * time.Millisecond)
 	assert.Len(t, limiter.buckets.buckets, 2)
@@ -142,7 +129,7 @@ func TestLimiterCleanup(t *testing.T) {
 	assert.True(t, ok)
 	_, ok = limiter.buckets.buckets[source2]
 	assert.True(t, ok)
-	_, err = limiter.Wait(source3)
+	_, err = limiter.Wait(source3, ProtocolSSH)
 	assert.NoError(t, err)
 	assert.Len(t, limiter.buckets.buckets, 3)
 	_, ok = limiter.buckets.buckets[source1]
@@ -152,7 +139,7 @@ func TestLimiterCleanup(t *testing.T) {
 	_, ok = limiter.buckets.buckets[source3]
 	assert.True(t, ok)
 	time.Sleep(20 * time.Millisecond)
-	_, err = limiter.Wait(source4)
+	_, err = limiter.Wait(source4, ProtocolSSH)
 	assert.NoError(t, err)
 	assert.Len(t, limiter.buckets.buckets, 2)
 	_, ok = limiter.buckets.buckets[source3]

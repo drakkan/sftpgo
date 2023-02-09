@@ -640,7 +640,7 @@ var (
 	})
 )
 
-// AddMetricsEndpoint exposes metrics to the specified endpoint
+// AddMetricsEndpoint publishes metrics to the specified endpoint
 func AddMetricsEndpoint(metricsPath string, handler chi.Router) {
 	handler.Handle(metricsPath, promhttp.Handler())
 }

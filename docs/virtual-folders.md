@@ -8,9 +8,9 @@ SFTPGo will try to automatically create any missing parent directory for the con
 
 For each virtual folder, the following properties can be configured:
 
-- `folder_name`, is the ID for an existing folder. The folder structure contains the absolute filesystem path to expose as virtual folder
+- `folder_name`, is the ID for an existing folder. The folder structure contains the absolute filesystem path to map as virtual folder
 - `filesystem`, this way you can map a local path or a Cloud backend to mount as virtual folders
-- `virtual_path`, the SFTPGo absolute path to use to expose the mapped path
+- `virtual_path`, absolute path seen by SFTPGo users where the mapped path is accessible
 - `quota_size`, maximum size allowed as bytes. 0 means unlimited, -1 included in user quota
 - `quota_files`, maximum number of files allowed. 0 means unlimited, -1 included in user quota
 

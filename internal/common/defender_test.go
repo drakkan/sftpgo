@@ -15,45 +15,88 @@
 package common
 
 import (
-	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"net"
-	"os"
-	"path/filepath"
-	"runtime"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/yl2chen/cidranger"
+
+	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 )
 
 func TestBasicDefender(t *testing.T) {
-	bl := HostListFile{
-		IPAddresses:  []string{"172.16.1.1", "172.16.1.2"},
-		CIDRNetworks: []string{"10.8.0.0/24"},
+	entries := []dataprovider.IPListEntry{
+		{
+			IPOrNet: "172.16.1.1/32",
+			Type:    dataprovider.IPListTypeDefender,
+			Mode:    dataprovider.ListModeDeny,
+		},
+		{
+			IPOrNet: "172.16.1.2/32",
+			Type:    dataprovider.IPListTypeDefender,
+			Mode:    dataprovider.ListModeDeny,
+		},
+		{
+			IPOrNet: "10.8.0.0/24",
+			Type:    dataprovider.IPListTypeDefender,
+			Mode:    dataprovider.ListModeDeny,
+		},
+		{
+			IPOrNet: "192.168.1.1/32",
+			Type:    dataprovider.IPListTypeDefender,
+			Mode:    dataprovider.ListModeDeny,
+		},
+		{
+			IPOrNet: "192.168.1.2/32",
+			Type:    dataprovider.IPListTypeDefender,
+			Mode:    dataprovider.ListModeDeny,
+		},
+		{
+			IPOrNet: "10.8.9.0/24",
+			Type:    dataprovider.IPListTypeDefender,
+			Mode:    dataprovider.ListModeDeny,
+		},
+		{
+			IPOrNet: "172.16.1.3/32",
+			Type:    dataprovider.IPListTypeDefender,
+			Mode:    dataprovider.ListModeAllow,
+		},
+		{
+			IPOrNet: "172.16.1.4/32",
+			Type:    dataprovider.IPListTypeDefender,
+			Mode:    dataprovider.ListModeAllow,
+		},
+		{
+			IPOrNet: "192.168.8.0/24",
+			Type:    dataprovider.IPListTypeDefender,
+			Mode:    dataprovider.ListModeAllow,
+		},
+		{
+			IPOrNet: "192.168.1.3/32",
+			Type:    dataprovider.IPListTypeDefender,
+			Mode:    dataprovider.ListModeAllow,
+		},
+		{
+			IPOrNet: "192.168.1.4/32",
+			Type:    dataprovider.IPListTypeDefender,
+			Mode:    dataprovider.ListModeAllow,
+		},
+		{
+			IPOrNet: "192.168.9.0/24",
+			Type:    dataprovider.IPListTypeDefender,
+			Mode:    dataprovider.ListModeAllow,
+		},
 	}
-	sl := HostListFile{
-		IPAddresses:  []string{"172.16.1.3", "172.16.1.4"},
-		CIDRNetworks: []string{"192.168.8.0/24"},
+
+	for idx := range entries {
+		e := entries[idx]
+		err := dataprovider.AddIPListEntry(&e, "", "", "")
+		assert.NoError(t, err)
 	}
-	blFile := filepath.Join(os.TempDir(), "bl.json")
-	slFile := filepath.Join(os.TempDir(), "sl.json")
-
-	data, err := json.Marshal(bl)
-	assert.NoError(t, err)
-
-	err = os.WriteFile(blFile, data, os.ModePerm)
-	assert.NoError(t, err)
-
-	data, err = json.Marshal(sl)
-	assert.NoError(t, err)
-
-	err = os.WriteFile(slFile, data, os.ModePerm)
-	assert.NoError(t, err)
 
 	config := &DefenderConfig{
 		Enabled:            true,
@@ -67,31 +110,21 @@ func TestBasicDefender(t *testing.T) {
 		ObservationTime:    15,
 		EntriesSoftLimit:   1,
 		EntriesHardLimit:   2,
-		SafeListFile:       "slFile",
-		BlockListFile:      "blFile",
-		SafeList:           []string{"192.168.1.3", "192.168.1.4", "192.168.9.0/24"},
-		BlockList:          []string{"192.168.1.1", "192.168.1.2", "10.8.9.0/24"},
 	}
 
-	_, err = newInMemoryDefender(config)
-	assert.Error(t, err)
-	config.BlockListFile = blFile
-	_, err = newInMemoryDefender(config)
-	assert.Error(t, err)
-	config.SafeListFile = slFile
 	d, err := newInMemoryDefender(config)
 	assert.NoError(t, err)
 
 	defender := d.(*memoryDefender)
-	assert.True(t, defender.IsBanned("172.16.1.1"))
-	assert.True(t, defender.IsBanned("192.168.1.1"))
-	assert.False(t, defender.IsBanned("172.16.1.10"))
-	assert.False(t, defender.IsBanned("192.168.1.10"))
-	assert.False(t, defender.IsBanned("10.8.2.3"))
-	assert.False(t, defender.IsBanned("10.9.2.3"))
-	assert.True(t, defender.IsBanned("10.8.0.3"))
-	assert.True(t, defender.IsBanned("10.8.9.3"))
-	assert.False(t, defender.IsBanned("invalid ip"))
+	assert.True(t, defender.IsBanned("172.16.1.1", ProtocolSSH))
+	assert.True(t, defender.IsBanned("192.168.1.1", ProtocolFTP))
+	assert.False(t, defender.IsBanned("172.16.1.10", ProtocolSSH))
+	assert.False(t, defender.IsBanned("192.168.1.10", ProtocolSSH))
+	assert.False(t, defender.IsBanned("10.8.2.3", ProtocolSSH))
+	assert.False(t, defender.IsBanned("10.9.2.3", ProtocolSSH))
+	assert.True(t, defender.IsBanned("10.8.0.3", ProtocolSSH))
+	assert.True(t, defender.IsBanned("10.8.9.3", ProtocolSSH))
+	assert.False(t, defender.IsBanned("invalid ip", ProtocolSSH))
 	assert.Equal(t, 0, defender.countBanned())
 	assert.Equal(t, 0, defender.countHosts())
 	hosts, err := defender.GetHosts()
@@ -100,15 +133,15 @@ func TestBasicDefender(t *testing.T) {
 	_, err = defender.GetHost("10.8.0.4")
 	assert.Error(t, err)
 
-	defender.AddEvent("172.16.1.4", HostEventLoginFailed)
-	defender.AddEvent("192.168.1.4", HostEventLoginFailed)
-	defender.AddEvent("192.168.8.4", HostEventUserNotFound)
-	defender.AddEvent("172.16.1.3", HostEventLimitExceeded)
-	defender.AddEvent("192.168.1.3", HostEventLimitExceeded)
+	defender.AddEvent("172.16.1.4", ProtocolSSH, HostEventLoginFailed)
+	defender.AddEvent("192.168.1.4", ProtocolSSH, HostEventLoginFailed)
+	defender.AddEvent("192.168.8.4", ProtocolSSH, HostEventUserNotFound)
+	defender.AddEvent("172.16.1.3", ProtocolSSH, HostEventLimitExceeded)
+	defender.AddEvent("192.168.1.3", ProtocolSSH, HostEventLimitExceeded)
 	assert.Equal(t, 0, defender.countHosts())
 
 	testIP := "12.34.56.78"
-	defender.AddEvent(testIP, HostEventLoginFailed)
+	defender.AddEvent(testIP, ProtocolSSH, HostEventLoginFailed)
 	assert.Equal(t, 1, defender.countHosts())
 	assert.Equal(t, 0, defender.countBanned())
 	score, err := defender.GetScore(testIP)
@@ -128,7 +161,7 @@ func TestBasicDefender(t *testing.T) {
 	banTime, err := defender.GetBanTime(testIP)
 	assert.NoError(t, err)
 	assert.Nil(t, banTime)
-	defender.AddEvent(testIP, HostEventLimitExceeded)
+	defender.AddEvent(testIP, ProtocolSSH, HostEventLimitExceeded)
 	assert.Equal(t, 1, defender.countHosts())
 	assert.Equal(t, 0, defender.countBanned())
 	score, err = defender.GetScore(testIP)
@@ -141,8 +174,8 @@ func TestBasicDefender(t *testing.T) {
 		assert.True(t, hosts[0].BanTime.IsZero())
 		assert.Empty(t, hosts[0].GetBanTime())
 	}
-	defender.AddEvent(testIP, HostEventUserNotFound)
-	defender.AddEvent(testIP, HostEventNoLoginTried)
+	defender.AddEvent(testIP, ProtocolSSH, HostEventUserNotFound)
+	defender.AddEvent(testIP, ProtocolSSH, HostEventNoLoginTried)
 	assert.Equal(t, 0, defender.countHosts())
 	assert.Equal(t, 1, defender.countBanned())
 	score, err = defender.GetScore(testIP)
@@ -169,11 +202,11 @@ func TestBasicDefender(t *testing.T) {
 	testIP2 := "12.34.56.80"
 	testIP3 := "12.34.56.81"
 
-	defender.AddEvent(testIP1, HostEventNoLoginTried)
-	defender.AddEvent(testIP2, HostEventNoLoginTried)
+	defender.AddEvent(testIP1, ProtocolSSH, HostEventNoLoginTried)
+	defender.AddEvent(testIP2, ProtocolSSH, HostEventNoLoginTried)
 	assert.Equal(t, 2, defender.countHosts())
 	time.Sleep(20 * time.Millisecond)
-	defender.AddEvent(testIP3, HostEventNoLoginTried)
+	defender.AddEvent(testIP3, ProtocolSSH, HostEventNoLoginTried)
 	assert.Equal(t, defender.config.EntriesSoftLimit, defender.countHosts())
 	// testIP1 and testIP2 should be removed
 	assert.Equal(t, defender.config.EntriesSoftLimit, defender.countHosts())
@@ -187,8 +220,8 @@ func TestBasicDefender(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 2, score)
 
-	defender.AddEvent(testIP3, HostEventNoLoginTried)
-	defender.AddEvent(testIP3, HostEventNoLoginTried)
+	defender.AddEvent(testIP3, ProtocolSSH, HostEventNoLoginTried)
+	defender.AddEvent(testIP3, ProtocolSSH, HostEventNoLoginTried)
 	// IP3 is now banned
 	banTime, err = defender.GetBanTime(testIP3)
 	assert.NoError(t, err)
@@ -197,7 +230,7 @@ func TestBasicDefender(t *testing.T) {
 
 	time.Sleep(20 * time.Millisecond)
 	for i := 0; i < 3; i++ {
-		defender.AddEvent(testIP1, HostEventNoLoginTried)
+		defender.AddEvent(testIP1, ProtocolSSH, HostEventNoLoginTried)
 	}
 	assert.Equal(t, 0, defender.countHosts())
 	assert.Equal(t, config.EntriesSoftLimit, defender.countBanned())
@@ -212,9 +245,9 @@ func TestBasicDefender(t *testing.T) {
 	assert.NotNil(t, banTime)
 
 	for i := 0; i < 3; i++ {
-		defender.AddEvent(testIP, HostEventNoLoginTried)
+		defender.AddEvent(testIP, ProtocolSSH, HostEventNoLoginTried)
 		time.Sleep(10 * time.Millisecond)
-		defender.AddEvent(testIP3, HostEventNoLoginTried)
+		defender.AddEvent(testIP3, ProtocolSSH, HostEventNoLoginTried)
 	}
 	assert.Equal(t, 0, defender.countHosts())
 	assert.Equal(t, defender.config.EntriesSoftLimit, defender.countBanned())
@@ -222,7 +255,7 @@ func TestBasicDefender(t *testing.T) {
 	banTime, err = defender.GetBanTime(testIP3)
 	assert.NoError(t, err)
 	if assert.NotNil(t, banTime) {
-		assert.True(t, defender.IsBanned(testIP3))
+		assert.True(t, defender.IsBanned(testIP3, ProtocolFTP))
 		// ban time should increase
 		newBanTime, err := defender.GetBanTime(testIP3)
 		assert.NoError(t, err)
@@ -232,10 +265,10 @@ func TestBasicDefender(t *testing.T) {
 	assert.True(t, defender.DeleteHost(testIP3))
 	assert.False(t, defender.DeleteHost(testIP3))
 
-	err = os.Remove(slFile)
-	assert.NoError(t, err)
-	err = os.Remove(blFile)
-	assert.NoError(t, err)
+	for _, e := range entries {
+		err := dataprovider.DeleteIPListEntry(e.IPOrNet, e.Type, "", "", "")
+		assert.NoError(t, err)
+	}
 }
 
 func TestExpiredHostBans(t *testing.T) {
@@ -265,14 +298,14 @@ func TestExpiredHostBans(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, res, 0)
 
-	assert.False(t, defender.IsBanned(testIP))
+	assert.False(t, defender.IsBanned(testIP, ProtocolFTP))
 	_, err = defender.GetHost(testIP)
 	assert.Error(t, err)
 	_, ok := defender.banned[testIP]
 	assert.True(t, ok)
 	// now add an event for an expired banned ip, it should be removed
-	defender.AddEvent(testIP, HostEventLoginFailed)
-	assert.False(t, defender.IsBanned(testIP))
+	defender.AddEvent(testIP, ProtocolFTP, HostEventLoginFailed)
+	assert.False(t, defender.IsBanned(testIP, ProtocolFTP))
 	entry, err := defender.GetHost(testIP)
 	assert.NoError(t, err)
 	assert.Equal(t, testIP, entry.IP)
@@ -312,94 +345,6 @@ func TestExpiredHostBans(t *testing.T) {
 	assert.Error(t, err)
 	_, ok = defender.hosts[testIP]
 	assert.True(t, ok)
-}
-
-func TestLoadHostListFromFile(t *testing.T) {
-	_, err := loadHostListFromFile(".")
-	assert.Error(t, err)
-
-	hostsFilePath := filepath.Join(os.TempDir(), "hostfile")
-	content := make([]byte, 1048576*6)
-	_, err = rand.Read(content)
-	assert.NoError(t, err)
-
-	err = os.WriteFile(hostsFilePath, content, os.ModePerm)
-	assert.NoError(t, err)
-
-	_, err = loadHostListFromFile(hostsFilePath)
-	assert.Error(t, err)
-
-	hl := HostListFile{
-		IPAddresses:  []string{},
-		CIDRNetworks: []string{},
-	}
-
-	asJSON, err := json.Marshal(hl)
-	assert.NoError(t, err)
-	err = os.WriteFile(hostsFilePath, asJSON, os.ModePerm)
-	assert.NoError(t, err)
-
-	hostList, err := loadHostListFromFile(hostsFilePath)
-	assert.NoError(t, err)
-	assert.Nil(t, hostList)
-
-	hl.IPAddresses = append(hl.IPAddresses, "invalidip")
-	asJSON, err = json.Marshal(hl)
-	assert.NoError(t, err)
-	err = os.WriteFile(hostsFilePath, asJSON, os.ModePerm)
-	assert.NoError(t, err)
-
-	hostList, err = loadHostListFromFile(hostsFilePath)
-	assert.NoError(t, err)
-	assert.Len(t, hostList.IPAddresses, 0)
-
-	hl.IPAddresses = nil
-	hl.CIDRNetworks = append(hl.CIDRNetworks, "invalid net")
-
-	asJSON, err = json.Marshal(hl)
-	assert.NoError(t, err)
-	err = os.WriteFile(hostsFilePath, asJSON, os.ModePerm)
-	assert.NoError(t, err)
-
-	hostList, err = loadHostListFromFile(hostsFilePath)
-	assert.NoError(t, err)
-	assert.NotNil(t, hostList)
-	assert.Len(t, hostList.IPAddresses, 0)
-	assert.Equal(t, 0, hostList.Ranges.Len())
-
-	if runtime.GOOS != osWindows {
-		err = os.Chmod(hostsFilePath, 0111)
-		assert.NoError(t, err)
-
-		_, err = loadHostListFromFile(hostsFilePath)
-		assert.Error(t, err)
-
-		err = os.Chmod(hostsFilePath, 0644)
-		assert.NoError(t, err)
-	}
-
-	err = os.WriteFile(hostsFilePath, []byte("non json content"), os.ModePerm)
-	assert.NoError(t, err)
-	_, err = loadHostListFromFile(hostsFilePath)
-	assert.Error(t, err)
-
-	err = os.Remove(hostsFilePath)
-	assert.NoError(t, err)
-}
-
-func TestAddEntriesToHostList(t *testing.T) {
-	name := "testList"
-	hostlist := addEntriesToList([]string{"192.168.6.1", "10.7.0.0/25"}, nil, name)
-	require.NotNil(t, hostlist)
-	assert.True(t, hostlist.isListed("192.168.6.1"))
-	assert.False(t, hostlist.isListed("192.168.6.2"))
-	assert.True(t, hostlist.isListed("10.7.0.28"))
-	assert.False(t, hostlist.isListed("10.7.0.129"))
-	// load invalid values
-	hostlist = addEntriesToList([]string{"invalidip", "invalidnet/24"}, nil, name)
-	require.NotNil(t, hostlist)
-	assert.Len(t, hostlist.IPAddresses, 0)
-	assert.Equal(t, 0, hostlist.Ranges.Len())
 }
 
 func TestDefenderCleanup(t *testing.T) {
@@ -577,7 +522,7 @@ func BenchmarkDefenderBannedSearch(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		d.IsBanned("192.168.1.1")
+		d.IsBanned("192.168.1.1", ProtocolSSH)
 	}
 }
 
@@ -593,7 +538,7 @@ func BenchmarkCleanup(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); inc(ip) {
-			d.AddEvent(ip.String(), HostEventLoginFailed)
+			d.AddEvent(ip.String(), ProtocolSSH, HostEventLoginFailed)
 			if d.countHosts() > d.config.EntriesHardLimit {
 				panic("too many hosts")
 			}
@@ -604,72 +549,10 @@ func BenchmarkCleanup(b *testing.B) {
 	}
 }
 
-func BenchmarkDefenderBannedSearchWithBlockList(b *testing.B) {
-	d := getDefenderForBench()
-
-	d.blockList = &HostList{
-		IPAddresses: make(map[string]bool),
-		Ranges:      cidranger.NewPCTrieRanger(),
-	}
-
-	ip, ipnet, err := net.ParseCIDR("129.8.0.0/12") // 1048574 ip addresses
-	if err != nil {
-		panic(err)
-	}
-
-	for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); inc(ip) {
-		d.banned[ip.String()] = time.Now().Add(10 * time.Minute)
-		d.blockList.IPAddresses[ip.String()] = true
-	}
-
-	for i := 0; i < 255; i++ {
-		cidr := fmt.Sprintf("10.8.%v.1/24", i)
-		_, network, _ := net.ParseCIDR(cidr)
-		if err := d.blockList.Ranges.Insert(cidranger.NewBasicRangerEntry(*network)); err != nil {
-			panic(err)
-		}
-	}
-
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		d.IsBanned("192.168.1.1")
-	}
-}
-
-func BenchmarkHostListSearch(b *testing.B) {
-	hostlist := &HostList{
-		IPAddresses: make(map[string]bool),
-		Ranges:      cidranger.NewPCTrieRanger(),
-	}
-
-	ip, ipnet, _ := net.ParseCIDR("172.16.0.0/16")
-
-	for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); inc(ip) {
-		hostlist.IPAddresses[ip.String()] = true
-	}
-
-	for i := 0; i < 255; i++ {
-		cidr := fmt.Sprintf("10.8.%v.1/24", i)
-		_, network, _ := net.ParseCIDR(cidr)
-		if err := hostlist.Ranges.Insert(cidranger.NewBasicRangerEntry(*network)); err != nil {
-			panic(err)
-		}
-	}
-
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		if hostlist.isListed("192.167.1.2") {
-			panic("should not be listed")
-		}
-	}
-}
-
 func BenchmarkCIDRanger(b *testing.B) {
 	ranger := cidranger.NewPCTrieRanger()
 	for i := 0; i < 255; i++ {
-		cidr := fmt.Sprintf("192.168.%v.1/24", i)
+		cidr := fmt.Sprintf("192.168.%d.1/24", i)
 		_, network, _ := net.ParseCIDR(cidr)
 		if err := ranger.Insert(cidranger.NewBasicRangerEntry(*network)); err != nil {
 			panic(err)
@@ -689,7 +572,7 @@ func BenchmarkCIDRanger(b *testing.B) {
 func BenchmarkNetContains(b *testing.B) {
 	var nets []*net.IPNet
 	for i := 0; i < 255; i++ {
-		cidr := fmt.Sprintf("192.168.%v.1/24", i)
+		cidr := fmt.Sprintf("192.168.%d.1/24", i)
 		_, network, _ := net.ParseCIDR(cidr)
 		nets = append(nets, network)
 	}

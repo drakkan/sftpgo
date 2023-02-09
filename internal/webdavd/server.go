@@ -165,12 +165,12 @@ func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	common.Connections.AddClientConnection(ipAddr)
 	defer common.Connections.RemoveClientConnection(ipAddr)
 
-	if err := common.Connections.IsNewConnectionAllowed(ipAddr); err != nil {
+	if err := common.Connections.IsNewConnectionAllowed(ipAddr, common.ProtocolWebDAV); err != nil {
 		logger.Log(logger.LevelDebug, common.ProtocolWebDAV, "", "connection not allowed from ip %q: %v", ipAddr, err)
 		http.Error(w, err.Error(), http.StatusServiceUnavailable)
 		return
 	}
-	if common.IsBanned(ipAddr) {
+	if common.IsBanned(ipAddr, common.ProtocolWebDAV) {
 		http.Error(w, common.ErrConnectionDenied.Error(), http.StatusForbidden)
 		return
 	}
@@ -413,7 +413,7 @@ func updateLoginMetrics(user *dataprovider.User, ip, loginMethod string, err err
 		if errors.Is(err, util.ErrNotFound) {
 			event = common.HostEventUserNotFound
 		}
-		common.AddDefenderEvent(ip, event)
+		common.AddDefenderEvent(ip, common.ProtocolWebDAV, event)
 	}
 	metric.AddLoginResult(loginMethod, err)
 	dataprovider.ExecutePostLoginHook(user, loginMethod, ip, common.ProtocolWebDAV, err)

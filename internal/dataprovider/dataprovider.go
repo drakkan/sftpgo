@@ -13,7 +13,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 // Package dataprovider provides data access.
-// It abstracts different data providers and exposes a common API.
+// It abstracts different data providers using a common API.
 package dataprovider
 
 import (
@@ -87,7 +87,7 @@ const (
 	CockroachDataProviderName = "cockroachdb"
 	// DumpVersion defines the version for the dump.
 	// For restore/load we support the current version and the previous one
-	DumpVersion = 15
+	DumpVersion = 16
 
 	argonPwdPrefix            = "$argon2id$"
 	bcryptPwdPrefix           = "$2a$"
@@ -191,6 +191,7 @@ var (
 	sqlTableTasks                string
 	sqlTableNodes                string
 	sqlTableRoles                string
+	sqlTableIPLists              string
 	sqlTableSchemaVersion        string
 	argon2Params                 *argon2id.Params
 	lastLoginMinDelay            = 10 * time.Minute
@@ -223,6 +224,7 @@ func initSQLTables() {
 	sqlTableTasks = "tasks"
 	sqlTableNodes = "nodes"
 	sqlTableRoles = "roles"
+	sqlTableIPLists = "ip_lists"
 	sqlTableSchemaVersion = "schema_version"
 }
 
@@ -663,6 +665,7 @@ type BackupData struct {
 	EventActions []BaseEventAction       `json:"event_actions"`
 	EventRules   []EventRule             `json:"event_rules"`
 	Roles        []Role                  `json:"roles"`
+	IPLists      []IPListEntry           `json:"ip_lists"`
 	Version      int                     `json:"version"`
 }
 
@@ -805,6 +808,15 @@ type Provider interface {
 	deleteRole(role Role) error
 	getRoles(limit int, offset int, order string, minimal bool) ([]Role, error)
 	dumpRoles() ([]Role, error)
+	ipListEntryExists(ipOrNet string, listType IPListType) (IPListEntry, error)
+	addIPListEntry(entry *IPListEntry) error
+	updateIPListEntry(entry *IPListEntry) error
+	deleteIPListEntry(entry IPListEntry, softDelete bool) error
+	getIPListEntries(listType IPListType, filter, from, order string, limit int) ([]IPListEntry, error)
+	getRecentlyUpdatedIPListEntries(after int64) ([]IPListEntry, error)
+	dumpIPListEntries() ([]IPListEntry, error)
+	countIPListEntries(listType IPListType) (int64, error)
+	getListEntriesForIP(ip string, listType IPListType) ([]IPListEntry, error)
 	checkAvailability() error
 	close() error
 	reloadConfig() error
@@ -984,16 +996,18 @@ func validateSQLTablesPrefix() error {
 		sqlTableTasks = config.SQLTablesPrefix + sqlTableTasks
 		sqlTableNodes = config.SQLTablesPrefix + sqlTableNodes
 		sqlTableRoles = config.SQLTablesPrefix + sqlTableRoles
+		sqlTableIPLists = config.SQLTablesPrefix + sqlTableIPLists
 		sqlTableSchemaVersion = config.SQLTablesPrefix + sqlTableSchemaVersion
 		providerLog(logger.LevelDebug, "sql table for users %q, folders %q users folders mapping %q admins %q "+
 			"api keys %q shares %q defender hosts %q defender events %q transfers %q  groups %q "+
 			"users groups mapping %q admins groups mapping %q groups folders mapping %q shared sessions %q "+
-			"schema version %q events actions %q events rules %q rules actions mapping %q tasks %q nodes %q roles %q",
+			"schema version %q events actions %q events rules %q rules actions mapping %q tasks %q nodes %q roles %q"+
+			"ip lists %q",
 			sqlTableUsers, sqlTableFolders, sqlTableUsersFoldersMapping, sqlTableAdmins, sqlTableAPIKeys,
 			sqlTableShares, sqlTableDefenderHosts, sqlTableDefenderEvents, sqlTableActiveTransfers, sqlTableGroups,
 			sqlTableUsersGroupsMapping, sqlTableAdminsGroupsMapping, sqlTableGroupsFoldersMapping, sqlTableSharedSessions,
 			sqlTableSchemaVersion, sqlTableEventsActions, sqlTableEventsRules, sqlTableRulesActionsMapping,
-			sqlTableTasks, sqlTableNodes, sqlTableRoles)
+			sqlTableTasks, sqlTableNodes, sqlTableRoles, sqlTableIPLists)
 	}
 	return nil
 }
@@ -1541,6 +1555,59 @@ func ShareExists(shareID, username string) (Share, error) {
 		return Share{}, util.NewRecordNotFoundError(fmt.Sprintf("Share %#v does not exist", shareID))
 	}
 	return provider.shareExists(shareID, username)
+}
+
+// AddIPListEntry adds a new IP list entry
+func AddIPListEntry(entry *IPListEntry, executor, ipAddress, executorRole string) error {
+	err := provider.addIPListEntry(entry)
+	if err == nil {
+		executeAction(operationAdd, executor, ipAddress, actionObjectIPListEntry, entry.getName(), executorRole, entry)
+		for _, l := range inMemoryLists {
+			l.addEntry(entry)
+		}
+	}
+	return err
+}
+
+// UpdateIPListEntry updates an existing IP list entry
+func UpdateIPListEntry(entry *IPListEntry, executor, ipAddress, executorRole string) error {
+	err := provider.updateIPListEntry(entry)
+	if err == nil {
+		executeAction(operationUpdate, executor, ipAddress, actionObjectIPListEntry, entry.getName(), executorRole, entry)
+		for _, l := range inMemoryLists {
+			l.updateEntry(entry)
+		}
+	}
+	return err
+}
+
+// DeleteIPListEntry deletes an existing IP list entry
+func DeleteIPListEntry(ipOrNet string, listType IPListType, executor, ipAddress, executorRole string) error {
+	entry, err := provider.ipListEntryExists(ipOrNet, listType)
+	if err != nil {
+		return err
+	}
+	err = provider.deleteIPListEntry(entry, config.IsShared == 1)
+	if err == nil {
+		executeAction(operationDelete, executor, ipAddress, actionObjectIPListEntry, entry.getName(), executorRole, &entry)
+		for _, l := range inMemoryLists {
+			l.removeEntry(&entry)
+		}
+	}
+	return err
+}
+
+// IPListEntryExists returns the IP list entry with the given IP/net and type if it exists
+func IPListEntryExists(ipOrNet string, listType IPListType) (IPListEntry, error) {
+	return provider.ipListEntryExists(ipOrNet, listType)
+}
+
+// GetIPListEntries returns the IP list entries applying the specified criteria and search limit
+func GetIPListEntries(listType IPListType, filter, from, order string, limit int) ([]IPListEntry, error) {
+	if !util.Contains(supportedIPListType, listType) {
+		return nil, util.NewValidationError(fmt.Sprintf("invalid list type %d", listType))
+	}
+	return provider.getIPListEntries(listType, filter, from, order, limit)
 }
 
 // AddRole adds a new role
@@ -2235,6 +2302,10 @@ func DumpData() (BackupData, error) {
 	if err != nil {
 		return data, err
 	}
+	ipLists, err := provider.dumpIPListEntries()
+	if err != nil {
+		return data, err
+	}
 	data.Users = users
 	data.Groups = groups
 	data.Folders = folders
@@ -2244,6 +2315,7 @@ func DumpData() (BackupData, error) {
 	data.EventActions = actions
 	data.EventRules = rules
 	data.Roles = roles
+	data.IPLists = ipLists
 	data.Version = DumpVersion
 	return data, err
 }

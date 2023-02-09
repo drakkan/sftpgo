@@ -18,7 +18,7 @@ The following plugin types are supported:
 
 Full configuration details can be found [here](./full-configuration.md).
 
-:warning: Please note that the plugin system is experimental, the exposed configuration parameters and interfaces may change in a backward incompatible way in future.
+:warning: Please note that the plugin system is experimental, the configuration parameters and interfaces may change in a backward incompatible way in future.
 
 ## Available plugins
 

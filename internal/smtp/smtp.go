@@ -120,7 +120,7 @@ func (c *Config) Initialize(configDir string) error {
 }
 
 func (c *Config) getMailClientOptions() []mail.Option {
-	options := []mail.Option{mail.WithPort(c.Port)}
+	options := []mail.Option{mail.WithPort(c.Port), mail.WithoutNoop()}
 
 	switch c.Encryption {
 	case 1:

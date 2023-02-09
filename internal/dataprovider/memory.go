@@ -15,9 +15,11 @@
 package dataprovider
 
 import (
+	"bytes"
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"sort"
@@ -74,6 +76,10 @@ type memoryProviderHandle struct {
 	roles map[string]Role
 	// slice with ordered roles
 	roleNames []string
+	// map for IP List entry
+	ipListEntries map[string]IPListEntry
+	// slice with ordered IP list entries
+	ipListEntriesKeys []string
 }
 
 // MemoryProvider defines the auth provider for a memory store
@@ -91,26 +97,28 @@ func initializeMemoryProvider(basePath string) {
 	}
 	provider = &MemoryProvider{
 		dbHandle: &memoryProviderHandle{
-			isClosed:        false,
-			usernames:       []string{},
-			users:           make(map[string]User),
-			groupnames:      []string{},
-			groups:          make(map[string]Group),
-			vfolders:        make(map[string]vfs.BaseVirtualFolder),
-			vfoldersNames:   []string{},
-			admins:          make(map[string]Admin),
-			adminsUsernames: []string{},
-			apiKeys:         make(map[string]APIKey),
-			apiKeysIDs:      []string{},
-			shares:          make(map[string]Share),
-			sharesIDs:       []string{},
-			actions:         make(map[string]BaseEventAction),
-			actionsNames:    []string{},
-			rules:           make(map[string]EventRule),
-			rulesNames:      []string{},
-			roles:           map[string]Role{},
-			roleNames:       []string{},
-			configFile:      configFile,
+			isClosed:          false,
+			usernames:         []string{},
+			users:             make(map[string]User),
+			groupnames:        []string{},
+			groups:            make(map[string]Group),
+			vfolders:          make(map[string]vfs.BaseVirtualFolder),
+			vfoldersNames:     []string{},
+			admins:            make(map[string]Admin),
+			adminsUsernames:   []string{},
+			apiKeys:           make(map[string]APIKey),
+			apiKeysIDs:        []string{},
+			shares:            make(map[string]Share),
+			sharesIDs:         []string{},
+			actions:           make(map[string]BaseEventAction),
+			actionsNames:      []string{},
+			rules:             make(map[string]EventRule),
+			rulesNames:        []string{},
+			roles:             map[string]Role{},
+			roleNames:         []string{},
+			ipListEntries:     map[string]IPListEntry{},
+			ipListEntriesKeys: []string{},
+			configFile:        configFile,
 		},
 	}
 	if err := provider.reloadConfig(); err != nil {
@@ -668,6 +676,13 @@ func (p *MemoryProvider) roleExistsInternal(name string) (Role, error) {
 		return val.getACopy(), nil
 	}
 	return Role{}, util.NewRecordNotFoundError(fmt.Sprintf("role %q does not exist", name))
+}
+
+func (p *MemoryProvider) ipListEntryExistsInternal(entry *IPListEntry) (IPListEntry, error) {
+	if val, ok := p.dbHandle.ipListEntries[entry.getKey()]; ok {
+		return val.getACopy(), nil
+	}
+	return IPListEntry{}, util.NewRecordNotFoundError(fmt.Sprintf("IP list entry %q does not exist", entry.getName()))
 }
 
 func (p *MemoryProvider) addAdmin(admin *Admin) error {
@@ -2590,6 +2605,198 @@ func (p *MemoryProvider) dumpRoles() ([]Role, error) {
 	return roles, nil
 }
 
+func (p *MemoryProvider) ipListEntryExists(ipOrNet string, listType IPListType) (IPListEntry, error) {
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return IPListEntry{}, errMemoryProviderClosed
+	}
+	entry, err := p.ipListEntryExistsInternal(&IPListEntry{IPOrNet: ipOrNet, Type: listType})
+	if err != nil {
+		return entry, err
+	}
+	entry.PrepareForRendering()
+	return entry, nil
+}
+
+func (p *MemoryProvider) addIPListEntry(entry *IPListEntry) error {
+	if err := entry.validate(); err != nil {
+		return err
+	}
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return errMemoryProviderClosed
+	}
+	_, err := p.ipListEntryExistsInternal(entry)
+	if err == nil {
+		return fmt.Errorf("entry %q already exists", entry.IPOrNet)
+	}
+	entry.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+	entry.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+	p.dbHandle.ipListEntries[entry.getKey()] = entry.getACopy()
+	p.dbHandle.ipListEntriesKeys = append(p.dbHandle.ipListEntriesKeys, entry.getKey())
+	sort.Strings(p.dbHandle.ipListEntriesKeys)
+	return nil
+}
+
+func (p *MemoryProvider) updateIPListEntry(entry *IPListEntry) error {
+	if err := entry.validate(); err != nil {
+		return err
+	}
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return errMemoryProviderClosed
+	}
+	oldEntry, err := p.ipListEntryExistsInternal(entry)
+	if err != nil {
+		return err
+	}
+	entry.CreatedAt = oldEntry.CreatedAt
+	entry.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+	p.dbHandle.ipListEntries[entry.getKey()] = entry.getACopy()
+	return nil
+}
+
+func (p *MemoryProvider) deleteIPListEntry(entry IPListEntry, softDelete bool) error {
+	if err := entry.validate(); err != nil {
+		return err
+	}
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return errMemoryProviderClosed
+	}
+	_, err := p.ipListEntryExistsInternal(&entry)
+	if err != nil {
+		return err
+	}
+	delete(p.dbHandle.ipListEntries, entry.getKey())
+	p.dbHandle.ipListEntriesKeys = make([]string, 0, len(p.dbHandle.ipListEntries))
+	for k := range p.dbHandle.ipListEntries {
+		p.dbHandle.ipListEntriesKeys = append(p.dbHandle.ipListEntriesKeys, k)
+	}
+	sort.Strings(p.dbHandle.ipListEntriesKeys)
+	return nil
+}
+
+func (p *MemoryProvider) getIPListEntries(listType IPListType, filter, from, order string, limit int) ([]IPListEntry, error) {
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+
+	if p.dbHandle.isClosed {
+		return nil, errMemoryProviderClosed
+	}
+	entries := make([]IPListEntry, 0, 15)
+	if order == OrderASC {
+		for _, k := range p.dbHandle.ipListEntriesKeys {
+			e := p.dbHandle.ipListEntries[k]
+			if e.Type == listType && e.satisfySearchConstraints(filter, from, order) {
+				entry := e.getACopy()
+				entry.PrepareForRendering()
+				entries = append(entries, entry)
+				if limit > 0 && len(entries) >= limit {
+					break
+				}
+			}
+		}
+	} else {
+		for i := len(p.dbHandle.ipListEntriesKeys) - 1; i >= 0; i-- {
+			e := p.dbHandle.ipListEntries[p.dbHandle.ipListEntriesKeys[i]]
+			if e.Type == listType && e.satisfySearchConstraints(filter, from, order) {
+				entry := e.getACopy()
+				entry.PrepareForRendering()
+				entries = append(entries, entry)
+				if limit > 0 && len(entries) >= limit {
+					break
+				}
+			}
+		}
+	}
+
+	return entries, nil
+}
+
+func (p *MemoryProvider) getRecentlyUpdatedIPListEntries(after int64) ([]IPListEntry, error) {
+	return nil, ErrNotImplemented
+}
+
+func (p *MemoryProvider) dumpIPListEntries() ([]IPListEntry, error) {
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+
+	if p.dbHandle.isClosed {
+		return nil, errMemoryProviderClosed
+	}
+	if count := len(p.dbHandle.ipListEntriesKeys); count > ipListMemoryLimit {
+		providerLog(logger.LevelInfo, "IP lists excluded from dump, too many entries: %d", count)
+		return nil, nil
+	}
+	entries := make([]IPListEntry, 0, len(p.dbHandle.ipListEntries))
+	for _, k := range p.dbHandle.ipListEntriesKeys {
+		e := p.dbHandle.ipListEntries[k]
+		entry := e.getACopy()
+		entry.PrepareForRendering()
+		entries = append(entries, entry)
+	}
+	return entries, nil
+}
+
+func (p *MemoryProvider) countIPListEntries(listType IPListType) (int64, error) {
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+
+	if p.dbHandle.isClosed {
+		return 0, errMemoryProviderClosed
+	}
+	if listType == 0 {
+		return int64(len(p.dbHandle.ipListEntriesKeys)), nil
+	}
+	var count int64
+	for _, k := range p.dbHandle.ipListEntriesKeys {
+		e := p.dbHandle.ipListEntries[k]
+		if e.Type == listType {
+			count++
+		}
+	}
+	return count, nil
+}
+
+func (p *MemoryProvider) getListEntriesForIP(ip string, listType IPListType) ([]IPListEntry, error) {
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+
+	if p.dbHandle.isClosed {
+		return nil, errMemoryProviderClosed
+	}
+	entries := make([]IPListEntry, 0, 3)
+	ipAddr, err := netip.ParseAddr(ip)
+	if err != nil {
+		return entries, fmt.Errorf("invalid ip address %s", ip)
+	}
+	var netType int
+	var ipBytes []byte
+	if ipAddr.Is4() || ipAddr.Is4In6() {
+		netType = ipTypeV4
+		as4 := ipAddr.As4()
+		ipBytes = as4[:]
+	} else {
+		netType = ipTypeV6
+		as16 := ipAddr.As16()
+		ipBytes = as16[:]
+	}
+	for _, k := range p.dbHandle.ipListEntriesKeys {
+		e := p.dbHandle.ipListEntries[k]
+		if e.Type == listType && e.IPType == netType && bytes.Compare(ipBytes, e.First) >= 0 && bytes.Compare(ipBytes, e.Last) <= 0 {
+			entry := e.getACopy()
+			entry.PrepareForRendering()
+			entries = append(entries, entry)
+		}
+	}
+	return entries, nil
+}
+
 func (p *MemoryProvider) setFirstDownloadTimestamp(username string) error {
 	p.dbHandle.Lock()
 	defer p.dbHandle.Unlock()
@@ -2720,6 +2927,8 @@ func (p *MemoryProvider) clear() {
 	p.dbHandle.rulesNames = []string{}
 	p.dbHandle.roles = map[string]Role{}
 	p.dbHandle.roleNames = []string{}
+	p.dbHandle.ipListEntries = map[string]IPListEntry{}
+	p.dbHandle.ipListEntriesKeys = []string{}
 }
 
 func (p *MemoryProvider) reloadConfig() error {
@@ -2738,8 +2947,8 @@ func (p *MemoryProvider) reloadConfig() error {
 		providerLog(logger.LevelError, "error loading dump: %v", err)
 		return err
 	}
-	if fi.Size() > 10485760 {
-		err = errors.New("dump configuration file is invalid, its size must be <= 10485760 bytes")
+	if fi.Size() > 20971520 {
+		err = errors.New("dump configuration file is invalid, its size must be <= 20971520 bytes")
 		providerLog(logger.LevelError, "error loading dump: %v", err)
 		return err
 	}
@@ -2753,11 +2962,15 @@ func (p *MemoryProvider) reloadConfig() error {
 		providerLog(logger.LevelError, "error loading dump: %v", err)
 		return err
 	}
-	return p.restoreDump(dump)
+	return p.restoreDump(&dump)
 }
 
-func (p *MemoryProvider) restoreDump(dump BackupData) error {
+func (p *MemoryProvider) restoreDump(dump *BackupData) error {
 	p.clear()
+
+	if err := p.restoreIPListEntries(*dump); err != nil {
+		return err
+	}
 
 	if err := p.restoreRoles(dump); err != nil {
 		return err
@@ -2799,10 +3012,10 @@ func (p *MemoryProvider) restoreDump(dump BackupData) error {
 	return nil
 }
 
-func (p *MemoryProvider) restoreEventActions(dump BackupData) error {
-	for _, action := range dump.EventActions {
+func (p *MemoryProvider) restoreEventActions(dump *BackupData) error {
+	for idx := range dump.EventActions {
+		action := dump.EventActions[idx]
 		a, err := p.eventActionExists(action.Name)
-		action := action // pin
 		if err == nil {
 			action.ID = a.ID
 			err = UpdateEventAction(&action, ActionExecutorSystem, "", "")
@@ -2821,10 +3034,10 @@ func (p *MemoryProvider) restoreEventActions(dump BackupData) error {
 	return nil
 }
 
-func (p *MemoryProvider) restoreEventRules(dump BackupData) error {
-	for _, rule := range dump.EventRules {
+func (p *MemoryProvider) restoreEventRules(dump *BackupData) error {
+	for idx := range dump.EventRules {
+		rule := dump.EventRules[idx]
 		r, err := p.eventRuleExists(rule.Name)
-		rule := rule // pin
 		if dump.Version < 15 {
 			rule.Status = 1
 		}
@@ -2846,10 +3059,10 @@ func (p *MemoryProvider) restoreEventRules(dump BackupData) error {
 	return nil
 }
 
-func (p *MemoryProvider) restoreShares(dump BackupData) error {
-	for _, share := range dump.Shares {
+func (p *MemoryProvider) restoreShares(dump *BackupData) error {
+	for idx := range dump.Shares {
+		share := dump.Shares[idx]
 		s, err := p.shareExists(share.ShareID, "")
-		share := share // pin
 		share.IsRestore = true
 		if err == nil {
 			share.ID = s.ID
@@ -2869,13 +3082,13 @@ func (p *MemoryProvider) restoreShares(dump BackupData) error {
 	return nil
 }
 
-func (p *MemoryProvider) restoreAPIKeys(dump BackupData) error {
-	for _, apiKey := range dump.APIKeys {
+func (p *MemoryProvider) restoreAPIKeys(dump *BackupData) error {
+	for idx := range dump.APIKeys {
+		apiKey := dump.APIKeys[idx]
 		if apiKey.Key == "" {
 			return fmt.Errorf("cannot restore an empty API key: %+v", apiKey)
 		}
 		k, err := p.apiKeyExists(apiKey.KeyID)
-		apiKey := apiKey // pin
 		if err == nil {
 			apiKey.ID = k.ID
 			err = UpdateAPIKey(&apiKey, ActionExecutorSystem, "", "")
@@ -2894,9 +3107,9 @@ func (p *MemoryProvider) restoreAPIKeys(dump BackupData) error {
 	return nil
 }
 
-func (p *MemoryProvider) restoreAdmins(dump BackupData) error {
-	for _, admin := range dump.Admins {
-		admin := admin // pin
+func (p *MemoryProvider) restoreAdmins(dump *BackupData) error {
+	for idx := range dump.Admins {
+		admin := dump.Admins[idx]
 		admin.Username = config.convertName(admin.Username)
 		a, err := p.adminExists(admin.Username)
 		if err == nil {
@@ -2917,9 +3130,30 @@ func (p *MemoryProvider) restoreAdmins(dump BackupData) error {
 	return nil
 }
 
-func (p *MemoryProvider) restoreRoles(dump BackupData) error {
-	for _, role := range dump.Roles {
-		role := role // pin
+func (p *MemoryProvider) restoreIPListEntries(dump BackupData) error {
+	for idx := range dump.IPLists {
+		entry := dump.IPLists[idx]
+		_, err := p.ipListEntryExists(entry.IPOrNet, entry.Type)
+		if err == nil {
+			err = UpdateIPListEntry(&entry, ActionExecutorSystem, "", "")
+			if err != nil {
+				providerLog(logger.LevelError, "error updating IP list entry %q: %v", entry.getName(), err)
+				return err
+			}
+		} else {
+			err = AddIPListEntry(&entry, ActionExecutorSystem, "", "")
+			if err != nil {
+				providerLog(logger.LevelError, "error adding IP list entry %q: %v", entry.getName(), err)
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (p *MemoryProvider) restoreRoles(dump *BackupData) error {
+	for idx := range dump.Roles {
+		role := dump.Roles[idx]
 		role.Name = config.convertName(role.Name)
 		r, err := p.roleExists(role.Name)
 		if err == nil {
@@ -2942,9 +3176,9 @@ func (p *MemoryProvider) restoreRoles(dump BackupData) error {
 	return nil
 }
 
-func (p *MemoryProvider) restoreGroups(dump BackupData) error {
-	for _, group := range dump.Groups {
-		group := group // pin
+func (p *MemoryProvider) restoreGroups(dump *BackupData) error {
+	for idx := range dump.Groups {
+		group := dump.Groups[idx]
 		group.Name = config.convertName(group.Name)
 		g, err := p.groupExists(group.Name)
 		if err == nil {
@@ -2966,9 +3200,9 @@ func (p *MemoryProvider) restoreGroups(dump BackupData) error {
 	return nil
 }
 
-func (p *MemoryProvider) restoreFolders(dump BackupData) error {
-	for _, folder := range dump.Folders {
-		folder := folder // pin
+func (p *MemoryProvider) restoreFolders(dump *BackupData) error {
+	for idx := range dump.Folders {
+		folder := dump.Folders[idx]
 		folder.Name = config.convertName(folder.Name)
 		f, err := p.getFolderByName(folder.Name)
 		if err == nil {
@@ -2990,9 +3224,9 @@ func (p *MemoryProvider) restoreFolders(dump BackupData) error {
 	return nil
 }
 
-func (p *MemoryProvider) restoreUsers(dump BackupData) error {
-	for _, user := range dump.Users {
-		user := user // pin
+func (p *MemoryProvider) restoreUsers(dump *BackupData) error {
+	for idx := range dump.Users {
+		user := dump.Users[idx]
 		user.Username = config.convertName(user.Username)
 		u, err := p.userExists(user.Username, "")
 		if err == nil {

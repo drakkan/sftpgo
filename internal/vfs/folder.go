@@ -176,7 +176,7 @@ func (v *BaseVirtualFolder) hasPathPlaceholder() bool {
 	return false
 }
 
-// VirtualFolder defines a mapping between an SFTPGo exposed virtual path and a
+// VirtualFolder defines a mapping between an SFTPGo virtual path and a
 // filesystem path outside the user home directory.
 // The specified paths must be absolute and the virtual path cannot be "/",
 // it must be a sub directory. The parent directory for the specified virtual

@@ -121,14 +121,8 @@ func (s *Service) Start(disableAWSInstallationCode bool) error {
 
 func (s *Service) initializeServices(disableAWSInstallationCode bool) error {
 	providerConf := config.GetProviderConf()
-	err := common.Initialize(config.GetCommonConfig(), providerConf.GetShared())
-	if err != nil {
-		logger.Error(logSender, "", "%v", err)
-		logger.ErrorToConsole("%v", err)
-		return err
-	}
 	kmsConfig := config.GetKMSConfig()
-	err = kmsConfig.Initialize()
+	err := kmsConfig.Initialize()
 	if err != nil {
 		logger.Error(logSender, "", "unable to initialize KMS: %v", err)
 		logger.ErrorToConsole("unable to initialize KMS: %v", err)
@@ -157,6 +151,12 @@ func (s *Service) initializeServices(disableAWSInstallationCode bool) error {
 	if err != nil {
 		logger.Error(logSender, "", "error initializing data provider: %v", err)
 		logger.ErrorToConsole("error initializing data provider: %v", err)
+		return err
+	}
+	err = common.Initialize(config.GetCommonConfig(), providerConf.GetShared())
+	if err != nil {
+		logger.Error(logSender, "", "%v", err)
+		logger.ErrorToConsole("%v", err)
 		return err
 	}
 
@@ -319,7 +319,7 @@ func (s *Service) LoadInitialData() error {
 		return fmt.Errorf("unable to stat file %#v: %w", s.LoadDataFrom, err)
 	}
 	if info.Size() > httpd.MaxRestoreSize {
-		return fmt.Errorf("unable to restore input file %#v size too big: %v/%v bytes",
+		return fmt.Errorf("unable to restore input file %q size too big: %d/%d bytes",
 			s.LoadDataFrom, info.Size(), httpd.MaxRestoreSize)
 	}
 	content, err := os.ReadFile(s.LoadDataFrom)
@@ -350,42 +350,46 @@ func (s *Service) LoadInitialData() error {
 }
 
 func (s *Service) restoreDump(dump *dataprovider.BackupData) error {
-	err := httpd.RestoreRoles(dump.Roles, s.LoadDataFrom, s.LoadDataMode, dataprovider.ActionExecutorSystem, "", "")
+	err := httpd.RestoreIPListEntries(dump.IPLists, s.LoadDataFrom, s.LoadDataMode, dataprovider.ActionExecutorSystem, "", "")
 	if err != nil {
-		return fmt.Errorf("unable to restore roles from file %#v: %v", s.LoadDataFrom, err)
+		return fmt.Errorf("unable to restore IP list entries from file %q: %v", s.LoadDataFrom, err)
+	}
+	err = httpd.RestoreRoles(dump.Roles, s.LoadDataFrom, s.LoadDataMode, dataprovider.ActionExecutorSystem, "", "")
+	if err != nil {
+		return fmt.Errorf("unable to restore roles from file %q: %v", s.LoadDataFrom, err)
 	}
 	err = httpd.RestoreFolders(dump.Folders, s.LoadDataFrom, s.LoadDataMode, s.LoadDataQuotaScan, dataprovider.ActionExecutorSystem, "", "")
 	if err != nil {
-		return fmt.Errorf("unable to restore folders from file %#v: %v", s.LoadDataFrom, err)
+		return fmt.Errorf("unable to restore folders from file %q: %v", s.LoadDataFrom, err)
 	}
 	err = httpd.RestoreGroups(dump.Groups, s.LoadDataFrom, s.LoadDataMode, dataprovider.ActionExecutorSystem, "", "")
 	if err != nil {
-		return fmt.Errorf("unable to restore groups from file %#v: %v", s.LoadDataFrom, err)
+		return fmt.Errorf("unable to restore groups from file %q: %v", s.LoadDataFrom, err)
 	}
 	err = httpd.RestoreUsers(dump.Users, s.LoadDataFrom, s.LoadDataMode, s.LoadDataQuotaScan, dataprovider.ActionExecutorSystem, "", "")
 	if err != nil {
-		return fmt.Errorf("unable to restore users from file %#v: %v", s.LoadDataFrom, err)
+		return fmt.Errorf("unable to restore users from file %q: %v", s.LoadDataFrom, err)
 	}
 	err = httpd.RestoreAdmins(dump.Admins, s.LoadDataFrom, s.LoadDataMode, dataprovider.ActionExecutorSystem, "", "")
 	if err != nil {
-		return fmt.Errorf("unable to restore admins from file %#v: %v", s.LoadDataFrom, err)
+		return fmt.Errorf("unable to restore admins from file %q: %v", s.LoadDataFrom, err)
 	}
 	err = httpd.RestoreAPIKeys(dump.APIKeys, s.LoadDataFrom, s.LoadDataMode, dataprovider.ActionExecutorSystem, "", "")
 	if err != nil {
-		return fmt.Errorf("unable to restore API keys from file %#v: %v", s.LoadDataFrom, err)
+		return fmt.Errorf("unable to restore API keys from file %q: %v", s.LoadDataFrom, err)
 	}
 	err = httpd.RestoreShares(dump.Shares, s.LoadDataFrom, s.LoadDataMode, dataprovider.ActionExecutorSystem, "", "")
 	if err != nil {
-		return fmt.Errorf("unable to restore API keys from file %#v: %v", s.LoadDataFrom, err)
+		return fmt.Errorf("unable to restore API keys from file %q: %v", s.LoadDataFrom, err)
 	}
 	err = httpd.RestoreEventActions(dump.EventActions, s.LoadDataFrom, s.LoadDataMode, dataprovider.ActionExecutorSystem, "", "")
 	if err != nil {
-		return fmt.Errorf("unable to restore event actions from file %#v: %v", s.LoadDataFrom, err)
+		return fmt.Errorf("unable to restore event actions from file %q: %v", s.LoadDataFrom, err)
 	}
 	err = httpd.RestoreEventRules(dump.EventRules, s.LoadDataFrom, s.LoadDataMode, dataprovider.ActionExecutorSystem,
 		"", "", dump.Version)
 	if err != nil {
-		return fmt.Errorf("unable to restore event rules from file %#v: %v", s.LoadDataFrom, err)
+		return fmt.Errorf("unable to restore event rules from file %q: %v", s.LoadDataFrom, err)
 	}
 	return nil
 }

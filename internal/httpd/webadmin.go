@@ -92,6 +92,8 @@ const (
 	templateStatus           = "status.html"
 	templateLogin            = "login.html"
 	templateDefender         = "defender.html"
+	templateIPLists          = "iplists.html"
+	templateIPList           = "iplist.html"
 	templateProfile          = "profile.html"
 	templateChangePwd        = "changepassword.html"
 	templateMaintenance      = "maintenance.html"
@@ -109,7 +111,8 @@ const (
 	pageProfileTitle         = "My profile"
 	pageChangePwdTitle       = "Change password"
 	pageMaintenanceTitle     = "Maintenance"
-	pageDefenderTitle        = "Defender"
+	pageDefenderTitle        = "Auto Blocklist"
+	pageIPListsTitle         = "IP Lists"
 	pageEventsTitle          = "Logs"
 	pageForgotPwdTitle       = "SFTPGo Admin - Forgot password"
 	pageResetPwdTitle        = "SFTPGo Admin - Reset password"
@@ -138,6 +141,8 @@ type basePage struct {
 	FolderURL          string
 	FolderTemplateURL  string
 	DefenderURL        string
+	IPListsURL         string
+	IPListURL          string
 	EventsURL          string
 	LogoutURL          string
 	ProfileURL         string
@@ -164,10 +169,12 @@ type basePage struct {
 	StatusTitle        string
 	MaintenanceTitle   string
 	DefenderTitle      string
+	IPListsTitle       string
 	EventsTitle        string
 	Version            string
 	CSRFToken          string
 	IsEventManagerPage bool
+	IsIPManagerPage    bool
 	HasDefender        bool
 	HasSearcher        bool
 	HasExternalLogin   bool
@@ -290,6 +297,21 @@ type maintenancePage struct {
 type defenderHostsPage struct {
 	basePage
 	DefenderHostsURL string
+}
+
+type ipListsPage struct {
+	basePage
+	IPListsSearchURL      string
+	RateLimitersStatus    bool
+	RateLimitersProtocols string
+	IsAllowListEnabled    bool
+}
+
+type ipListPage struct {
+	basePage
+	Entry *dataprovider.IPListEntry
+	Error string
+	Mode  genericPageMode
 }
 
 type setupPage struct {
@@ -479,6 +501,16 @@ func loadAdminTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateDefender),
 	}
+	ipListsPaths := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
+		filepath.Join(templatesPath, templateAdminDir, templateBase),
+		filepath.Join(templatesPath, templateAdminDir, templateIPLists),
+	}
+	ipListPaths := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
+		filepath.Join(templatesPath, templateAdminDir, templateBase),
+		filepath.Join(templatesPath, templateAdminDir, templateIPList),
+	}
 	mfaPaths := []string{
 		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
@@ -552,6 +584,8 @@ func loadAdminTemplates(templatesPath string) {
 	changePwdTmpl := util.LoadTemplate(nil, changePwdPaths...)
 	maintenanceTmpl := util.LoadTemplate(nil, maintenancePaths...)
 	defenderTmpl := util.LoadTemplate(nil, defenderPaths...)
+	ipListsTmpl := util.LoadTemplate(nil, ipListsPaths...)
+	ipListTmpl := util.LoadTemplate(nil, ipListPaths...)
 	mfaTmpl := util.LoadTemplate(nil, mfaPaths...)
 	twoFactorTmpl := util.LoadTemplate(nil, twoFactorPaths...)
 	twoFactorRecoveryTmpl := util.LoadTemplate(nil, twoFactorRecoveryPaths...)
@@ -582,6 +616,8 @@ func loadAdminTemplates(templatesPath string) {
 	adminTemplates[templateChangePwd] = changePwdTmpl
 	adminTemplates[templateMaintenance] = maintenanceTmpl
 	adminTemplates[templateDefender] = defenderTmpl
+	adminTemplates[templateIPLists] = ipListsTmpl
+	adminTemplates[templateIPList] = ipListTmpl
 	adminTemplates[templateMFA] = mfaTmpl
 	adminTemplates[templateTwoFactor] = twoFactorTmpl
 	adminTemplates[templateTwoFactorRecovery] = twoFactorRecoveryTmpl
@@ -609,6 +645,19 @@ func isEventManagerResource(currentURL string) bool {
 	return false
 }
 
+func isIPListsResource(currentURL string) bool {
+	if currentURL == webDefenderPath {
+		return true
+	}
+	if currentURL == webIPListsPath {
+		return true
+	}
+	if strings.HasPrefix(currentURL, webIPListPath+"/") {
+		return true
+	}
+	return false
+}
+
 func (s *httpdServer) getBasePageData(title, currentURL string, r *http.Request) basePage {
 	var csrfToken string
 	if currentURL != "" {
@@ -628,6 +677,8 @@ func (s *httpdServer) getBasePageData(title, currentURL string, r *http.Request)
 		FolderURL:          webFolderPath,
 		FolderTemplateURL:  webTemplateFolder,
 		DefenderURL:        webDefenderPath,
+		IPListsURL:         webIPListsPath,
+		IPListURL:          webIPListPath,
 		EventsURL:          webEventsPath,
 		LogoutURL:          webLogoutPath,
 		ProfileURL:         webAdminProfilePath,
@@ -656,10 +707,12 @@ func (s *httpdServer) getBasePageData(title, currentURL string, r *http.Request)
 		StatusTitle:        pageStatusTitle,
 		MaintenanceTitle:   pageMaintenanceTitle,
 		DefenderTitle:      pageDefenderTitle,
+		IPListsTitle:       pageIPListsTitle,
 		EventsTitle:        pageEventsTitle,
 		Version:            version.GetAsString(),
 		LoggedAdmin:        getAdminFromToken(r),
 		IsEventManagerPage: isEventManagerResource(currentURL),
+		IsIPManagerPage:    isIPListsResource(currentURL),
 		HasDefender:        common.Config.DefenderConfig.Enabled,
 		HasSearcher:        plugin.Handler.HasSearcher(),
 		HasExternalLogin:   isLoggedInWithOIDC(r),
@@ -935,6 +988,27 @@ func (s *httpdServer) renderUserPage(w http.ResponseWriter, r *http.Request, use
 		},
 	}
 	renderAdminTemplate(w, templateUser, data)
+}
+
+func (s *httpdServer) renderIPListPage(w http.ResponseWriter, r *http.Request, entry dataprovider.IPListEntry,
+	mode genericPageMode, error string,
+) {
+	var title, currentURL string
+	switch mode {
+	case genericPageModeAdd:
+		title = "Add a new IP List entry"
+		currentURL = fmt.Sprintf("%s/%d", webIPListPath, entry.Type)
+	case genericPageModeUpdate:
+		title = "Update IP List entry"
+		currentURL = fmt.Sprintf("%s/%d/%s", webIPListPath, entry.Type, url.PathEscape(entry.IPOrNet))
+	}
+	data := ipListPage{
+		basePage: s.getBasePageData(title, currentURL, r),
+		Error:    error,
+		Entry:    &entry,
+		Mode:     mode,
+	}
+	renderAdminTemplate(w, templateIPList, data)
 }
 
 func (s *httpdServer) renderRolePage(w http.ResponseWriter, r *http.Request, role dataprovider.Role,
@@ -2378,6 +2452,36 @@ func getRoleFromPostFields(r *http.Request) (dataprovider.Role, error) {
 	}, nil
 }
 
+func getIPListEntryFromPostFields(r *http.Request, listType dataprovider.IPListType) (dataprovider.IPListEntry, error) {
+	err := r.ParseForm()
+	if err != nil {
+		return dataprovider.IPListEntry{}, err
+	}
+	var mode int
+	if listType == dataprovider.IPListTypeDefender {
+		mode, err = strconv.Atoi(r.Form.Get("mode"))
+		if err != nil {
+			return dataprovider.IPListEntry{}, fmt.Errorf("invalid mode: %w", err)
+		}
+	} else {
+		mode = 1
+	}
+	protocols := 0
+	for _, proto := range r.Form["protocols"] {
+		p, err := strconv.Atoi(proto)
+		if err == nil {
+			protocols += p
+		}
+	}
+
+	return dataprovider.IPListEntry{
+		IPOrNet:     r.Form.Get("ipornet"),
+		Mode:        mode,
+		Protocols:   protocols,
+		Description: r.Form.Get("description"),
+	}, nil
+}
+
 func (s *httpdServer) handleWebAdminForgotPwd(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	if !smtp.IsEnabled() {
@@ -3673,7 +3777,7 @@ func (s *httpdServer) handleWebUpdateRolePost(w http.ResponseWriter, r *http.Req
 
 	updatedRole, err := getRoleFromPostFields(r)
 	if err != nil {
-		s.renderRolePage(w, r, role, genericPageModeAdd, err.Error())
+		s.renderRolePage(w, r, role, genericPageModeUpdate, err.Error())
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
@@ -3700,4 +3804,115 @@ func (s *httpdServer) handleWebGetEvents(w http.ResponseWriter, r *http.Request)
 		ProviderEventsSearchURL: webEventsProviderSearchPath,
 	}
 	renderAdminTemplate(w, templateEvents, data)
+}
+
+func (s *httpdServer) handleWebIPListsPage(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	rtlStatus, rtlProtocols := common.Config.GetRateLimitersStatus()
+	data := ipListsPage{
+		basePage:              s.getBasePageData(pageIPListsTitle, webIPListsPath, r),
+		RateLimitersStatus:    rtlStatus,
+		RateLimitersProtocols: strings.Join(rtlProtocols, ", "),
+		IsAllowListEnabled:    common.Config.IsAllowListEnabled(),
+	}
+
+	renderAdminTemplate(w, templateIPLists, data)
+}
+
+func (s *httpdServer) handleWebAddIPListEntryGet(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	listType, _, err := getIPListPathParams(r)
+	if err != nil {
+		s.renderBadRequestPage(w, r, err)
+		return
+	}
+	s.renderIPListPage(w, r, dataprovider.IPListEntry{Type: listType}, genericPageModeAdd, "")
+}
+
+func (s *httpdServer) handleWebAddIPListEntryPost(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	listType, _, err := getIPListPathParams(r)
+	if err != nil {
+		s.renderBadRequestPage(w, r, err)
+		return
+	}
+	entry, err := getIPListEntryFromPostFields(r, listType)
+	if err != nil {
+		s.renderIPListPage(w, r, entry, genericPageModeAdd, err.Error())
+		return
+	}
+	entry.Type = listType
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		return
+	}
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
+		s.renderForbiddenPage(w, r, err.Error())
+		return
+	}
+	err = dataprovider.AddIPListEntry(&entry, claims.Username, ipAddr, claims.Role)
+	if err != nil {
+		s.renderIPListPage(w, r, entry, genericPageModeAdd, err.Error())
+		return
+	}
+	http.Redirect(w, r, webIPListsPath, http.StatusSeeOther)
+}
+
+func (s *httpdServer) handleWebUpdateIPListEntryGet(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	listType, ipOrNet, err := getIPListPathParams(r)
+	if err != nil {
+		s.renderBadRequestPage(w, r, err)
+		return
+	}
+	entry, err := dataprovider.IPListEntryExists(ipOrNet, listType)
+	if err == nil {
+		s.renderIPListPage(w, r, entry, genericPageModeUpdate, "")
+	} else if errors.Is(err, util.ErrNotFound) {
+		s.renderNotFoundPage(w, r, err)
+	} else {
+		s.renderInternalServerErrorPage(w, r, err)
+	}
+}
+
+func (s *httpdServer) handleWebUpdateIPListEntryPost(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		return
+	}
+	listType, ipOrNet, err := getIPListPathParams(r)
+	if err != nil {
+		s.renderBadRequestPage(w, r, err)
+		return
+	}
+	entry, err := dataprovider.IPListEntryExists(ipOrNet, listType)
+	if errors.Is(err, util.ErrNotFound) {
+		s.renderNotFoundPage(w, r, err)
+		return
+	} else if err != nil {
+		s.renderInternalServerErrorPage(w, r, err)
+		return
+	}
+	updatedEntry, err := getIPListEntryFromPostFields(r, listType)
+	if err != nil {
+		s.renderIPListPage(w, r, entry, genericPageModeUpdate, err.Error())
+		return
+	}
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
+		s.renderForbiddenPage(w, r, err.Error())
+		return
+	}
+	updatedEntry.Type = listType
+	updatedEntry.IPOrNet = ipOrNet
+	err = dataprovider.UpdateIPListEntry(&updatedEntry, claims.Username, ipAddr, claims.Role)
+	if err != nil {
+		s.renderIPListPage(w, r, entry, genericPageModeUpdate, err.Error())
+		return
+	}
+	http.Redirect(w, r, webIPListsPath, http.StatusSeeOther)
 }

@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/go-chi/render"
 
@@ -60,7 +61,7 @@ func addFolder(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	w.Header().Add("Location", fmt.Sprintf("%s/%s", folderPath, folder.Name))
+	w.Header().Add("Location", fmt.Sprintf("%s/%s", folderPath, url.PathEscape(folder.Name)))
 	renderFolder(w, r, folder.Name, http.StatusCreated)
 }
 

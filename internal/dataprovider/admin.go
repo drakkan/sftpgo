@@ -57,6 +57,7 @@ const (
 	PermAdminViewEvents       = "view_events"
 	PermAdminManageEventRules = "manage_event_rules"
 	PermAdminManageRoles      = "manage_roles"
+	PermAdminManageIPLists    = "manage_ip_lists"
 )
 
 const (
@@ -73,9 +74,10 @@ var (
 		PermAdminViewUsers, PermAdminManageGroups, PermAdminViewConnections, PermAdminCloseConnections,
 		PermAdminViewServerStatus, PermAdminManageAdmins, PermAdminManageRoles, PermAdminManageEventRules,
 		PermAdminManageAPIKeys, PermAdminQuotaScans, PermAdminManageSystem, PermAdminManageDefender,
-		PermAdminViewDefender, PermAdminRetentionChecks, PermAdminMetadataChecks, PermAdminViewEvents}
+		PermAdminViewDefender, PermAdminManageIPLists, PermAdminRetentionChecks, PermAdminMetadataChecks,
+		PermAdminViewEvents}
 	forbiddenPermsForRoleAdmins = []string{PermAdminAny, PermAdminManageAdmins, PermAdminManageSystem,
-		PermAdminManageEventRules, PermAdminManageRoles}
+		PermAdminManageEventRules, PermAdminManageIPLists, PermAdminManageRoles}
 )
 
 // AdminTOTPConfig defines the time-based one time password configuration

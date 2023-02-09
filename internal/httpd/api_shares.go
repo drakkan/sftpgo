@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"strings"
@@ -112,7 +113,7 @@ func addShare(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	w.Header().Add("Location", fmt.Sprintf("%v/%v", userSharesPath, share.ShareID))
+	w.Header().Add("Location", fmt.Sprintf("%s/%s", userSharesPath, url.PathEscape(share.ShareID)))
 	w.Header().Add("X-Object-ID", share.ShareID)
 	sendAPIResponse(w, r, nil, "Share created", http.StatusCreated)
 }

@@ -79,9 +79,9 @@ The configuration file contains the following sections:
   - `post_connect_hook`, string. Absolute path to the command to execute or HTTP URL to notify. See [Post-connect hook](./post-connect-hook.md) for more details. Leave empty to disable
   - `post_disconnect_hook`, string. Absolute path to the command to execute or HTTP URL to notify. See [Post-disconnect hook](./post-disconnect-hook.md) for more details. Leave empty to disable
   - `data_retention_hook`, string. Absolute path to the command to execute or HTTP URL to notify. See [Data retention hook](./data-retention-hook.md) for more details. Leave empty to disable
-  - `max_total_connections`, integer. Maximum number of concurrent client connections. 0 means unlimited. Default: 0.
-  - `max_per_host_connections`, integer.  Maximum number of concurrent client connections from the same host (IP). If the defender is enabled, exceeding this limit will generate `score_limit_exceeded` events and thus hosts that repeatedly exceed the max allowed connections can be automatically blocked. 0 means unlimited. Default: 20.
-  - `whitelist_file`, string. Path to a file containing a list of IP addresses and/or networks to allow. Only the listed IPs/networks can access the configured services, all other client connections will be dropped before they even try to authenticate. The whitelist must be a JSON file with the same structure documented for the [defenders's list](./defender.md). The whitelist can be reloaded on demand sending a `SIGHUP` signal on Unix based systems and a `paramchange` request to the running service on Windows. Default: "".
+  - `max_total_connections`, integer. Maximum number of concurrent client connections. 0 means unlimited. Default: `0`.
+  - `max_per_host_connections`, integer.  Maximum number of concurrent client connections from the same host (IP). If the defender is enabled, exceeding this limit will generate `score_limit_exceeded` events and thus hosts that repeatedly exceed the max allowed connections can be automatically blocked. 0 means unlimited. Default: `20`.
+  - `allowlist_status`, integer. Set to `1` to enable the allow list. The allow list can be populated using the WebAdmin or the REST API. If enabled, only the listed IPs/networks can access the configured services, all other client connections will be dropped before they even try to authenticate. Ensure to populate your allow list before enabling this setting. In multi-nodes setups, the list entries propagation between nodes may take some minutes. Default: `0`.
   - `allow_self_connections`, integer. Allow users on this instance to use other users/virtual folders on this instance as storage backend. Enable this setting if you know what you are doing. Set to `1` to enable. Default: `0`.
   - `defender`, struct containing the defender configuration. See [Defender](./defender.md) for more details.
     - `enabled`, boolean. Default `false`.
@@ -96,17 +96,12 @@ The configuration file contains the following sections:
     - `observation_time`, integer. Defines the time window, in minutes, for tracking client errors. A host is banned if it has exceeded the defined threshold during the last observation time minutes. Default: `30`.
     - `entries_soft_limit`, integer. Ignored for `provider` driver. Default: `100`.
     - `entries_hard_limit`, integer. The number of banned IPs and host scores kept in memory will vary between the soft and hard limit for `memory` driver. If you use the `provider` driver, this setting will limit the number of entries to return when you ask for the entire host list from the defender. Default: `150`.
-    - `safelist_file`, string. Path to a file containing a list of ip addresses and/or networks to never ban.
-    - `blocklist_file`, string. Path to a file containing a list of ip addresses and/or networks to always ban. The lists can be reloaded on demand sending a `SIGHUP` signal on Unix based systems and a `paramchange` request to the running service on Windows. An host that is already banned will not be automatically unbanned if you put it inside the safe list, you have to unban it using the REST API.
-    - `safelist`, list of IP addresses and/or IP ranges and/or networks to never ban. Invalid entries will be silently ignored. For large lists prefer `safelist_file`. `safelist` and `safelist_file` will be merged so that you can set both.
-    - `blocklist`, list of IP addresses and/or IP ranges and/or networks to always ban. Invalid entries will be silently ignored.. For large lists prefer `blocklist_file`. `blocklist` and `blocklist_file` will be merged so that you can set both.
   - `rate_limiters`, list of structs containing the rate limiters configuration. Take a look [here](./rate-limiting.md) for more details. Each struct has the following fields:
     - `average`, integer. Average defines the maximum rate allowed. 0 means disabled. Default: 0
     - `period`, integer. Period defines the period as milliseconds. The rate is actually defined by dividing average by period Default: 1000 (1 second).
     - `burst`, integer. Burst defines the maximum number of requests allowed to go through in the same arbitrarily small period of time. Default: 1
     - `type`, integer. 1 means a global rate limiter, independent from the source host. 2 means a per-ip rate limiter. Default: 2
     - `protocols`, list of strings. Available protocols are `SSH`, `FTP`, `DAV`, `HTTP`. By default all supported protocols are enabled
-    - `allow_list`, list of IP addresses and IP ranges excluded from rate limiting. Default: empty
     - `generate_defender_events`, boolean. If `true`, the defender is enabled, and this is not a global rate limiter, a new defender event will be generated each time the configured limit is exceeded. Default `false`
     - `entries_soft_limit`, integer.
     - `entries_hard_limit`, integer. The number of per-ip rate limiters kept in memory will vary between the soft and hard limit
@@ -166,7 +161,7 @@ The configuration file contains the following sections:
     - `certificate_file`, string. Binding specific TLS certificate. This can be an absolute path or a path relative to the config dir.
     - `certificate_key_file`, string. Binding specific private key matching the above certificate. This can be an absolute path or a path relative to the config dir. If not set the global ones will be used, if any.
     - `min_tls_version`, integer. Defines the minimum version of TLS to be enabled. `12` means TLS 1.2 (and therefore TLS 1.2 and TLS 1.3 will be enabled),`13` means TLS 1.3. Default: `12`.
-    - `force_passive_ip`, ip address. External IP address to expose for passive connections. Leave empty to autodetect. If not empty, it must be a valid IPv4 address. Default: "".
+    - `force_passive_ip`, ip address. External IP address for passive connections. Leave empty to autodetect. If not empty, it must be a valid IPv4 address. Default: "".
     - `passive_ip_overrides`, list of struct that allows to return a different passive ip based on the client IP address. Each struct has the following fields:
       - `networks`, list of strings. Each string must define a network in CIDR notation, for example 192.168.1.0/24.
       - `ip`, string. Passive IP to return if the client IP address belongs to the defined networks. Empty means autodetect.
@@ -296,7 +291,7 @@ The configuration file contains the following sections:
 </details>
 <details><summary><font size=4>HTTP Server</font></summary>
 
-- **"httpd"**, the configuration for the HTTP server used to serve REST API and to expose the built-in web interface
+- **"httpd"**, the configuration for the HTTP server used to serve REST API and the built-in web interfaces
   - `bindings`, list of structs. Each struct has the following fields:
     - `port`, integer. The port used for serving HTTP requests. Default: 8080.
     - `address`, string. Leave blank to listen on all available network interfaces. On *NIX you can specify an absolute path to listen on a Unix-domain socket Default: blank.
@@ -441,7 +436,7 @@ The configuration file contains the following sections:
 
 - **mfa**, multi-factor authentication settings
   - `totp`, list of struct that define settings for time-based one time passwords (RFC 6238). Each struct has the following fields:
-    - `name`, string. Unique configuration name. This name should not be changed if there are users or admins using the configuration. The name is not exposed to the authentication apps. Default: `Default`.
+    - `name`, string. Unique configuration name. This name should not be changed if there are users or admins using the configuration. The name is not visible to the authentication apps. Default: `Default`.
     - `issuer`, string. Name of the issuing Organization/Company. Default: `SFTPGo`.
     - `algo`, string. Algorithm to use for HMAC. The supported algorithms are: `sha1`, `sha256`, `sha512`. Currently Google Authenticator app on iPhone seems to only support `sha1`, please check the compatibility with your target apps/device before setting a different algorithm. You can also define multiple configurations, for example one that uses `sha256` or `sha512` and another one that uses `sha1` and instruct your users to use the appropriate configuration for their devices/apps. The algorithm should not be changed if there are users or admins using the configuration. Default: `sha1`.
 
@@ -462,7 +457,7 @@ The configuration file contains the following sections:
 </details>
 <details><summary><font size=4>Plugins</font></summary>
 
-- **plugins**, list of external plugins. :warning: Please note that the plugin system is experimental, the exposed configuration parameters and interfaces may change in a backward incompatible way in future. Each plugin is configured using a struct with the following fields:
+- **plugins**, list of external plugins. :warning: Please note that the plugin system is experimental, the configuration parameters and interfaces may change in a backward incompatible way in future. Each plugin is configured using a struct with the following fields:
   - `type`, string. Defines the plugin type. Supported types: `notifier`, `kms`, `auth`, `metadata`.
   - `notifier_options`, struct. Defines the options for notifier plugins.
     - `fs_events`, list of strings. Defines the filesystem events that will be notified to this plugin.
@@ -587,7 +582,7 @@ When users log in, if their passwords are stored with anything other than the pr
 
 ## Telemetry Server
 
-The telemetry server exposes the following endpoints:
+The telemetry server publishes the following endpoints:
 
 - `/healthz`, health information (for health checks)
 - `/metrics`, Prometheus metrics

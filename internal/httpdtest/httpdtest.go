@@ -12,7 +12,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-// Package httpdtest provides utilities for testing the exposed REST API.
+// Package httpdtest provides utilities for testing the supported REST API.
 package httpdtest
 
 import (
@@ -63,6 +63,7 @@ const (
 	eventActionsPath      = "/api/v2/eventactions"
 	eventRulesPath        = "/api/v2/eventrules"
 	rolesPath             = "/api/v2/roles"
+	ipListsPath           = "/api/v2/iplists"
 )
 
 const (
@@ -476,6 +477,129 @@ func GetRoles(limit, offset int64, expectedStatusCode int) ([]dataprovider.Role,
 		body, _ = getResponseBody(resp)
 	}
 	return roles, body, err
+}
+
+// AddIPListEntry adds a new IP list entry and checks the received HTTP Status code against expectedStatusCode.
+func AddIPListEntry(entry dataprovider.IPListEntry, expectedStatusCode int) (dataprovider.IPListEntry, []byte, error) {
+	var newEntry dataprovider.IPListEntry
+	var body []byte
+
+	asJSON, _ := json.Marshal(entry)
+	resp, err := sendHTTPRequest(http.MethodPost, buildURLRelativeToBase(ipListsPath, strconv.Itoa(int(entry.Type))),
+		bytes.NewBuffer(asJSON), "application/json", getDefaultToken())
+	if err != nil {
+		return newEntry, body, err
+	}
+	defer resp.Body.Close()
+
+	err = checkResponse(resp.StatusCode, expectedStatusCode)
+	if expectedStatusCode != http.StatusCreated {
+		body, _ = getResponseBody(resp)
+		return newEntry, body, err
+	}
+	if err == nil {
+		newEntry, body, err = GetIPListEntry(entry.IPOrNet, entry.Type, http.StatusOK)
+	}
+	if err == nil {
+		err = checkIPListEntry(entry, newEntry)
+	}
+	return newEntry, body, err
+}
+
+// UpdateIPListEntry updates an existing IP list entry and checks the received HTTP Status code against expectedStatusCode
+func UpdateIPListEntry(entry dataprovider.IPListEntry, expectedStatusCode int) (dataprovider.IPListEntry, []byte, error) {
+	var newEntry dataprovider.IPListEntry
+	var body []byte
+
+	asJSON, _ := json.Marshal(entry)
+	resp, err := sendHTTPRequest(http.MethodPut, buildURLRelativeToBase(ipListsPath, fmt.Sprintf("%d", entry.Type),
+		url.PathEscape(entry.IPOrNet)), bytes.NewBuffer(asJSON),
+		"application/json", getDefaultToken())
+	if err != nil {
+		return newEntry, body, err
+	}
+	defer resp.Body.Close()
+
+	body, _ = getResponseBody(resp)
+	err = checkResponse(resp.StatusCode, expectedStatusCode)
+	if expectedStatusCode != http.StatusOK {
+		return newEntry, body, err
+	}
+	if err == nil {
+		newEntry, body, err = GetIPListEntry(entry.IPOrNet, entry.Type, http.StatusOK)
+	}
+	if err == nil {
+		err = checkIPListEntry(entry, newEntry)
+	}
+	return newEntry, body, err
+}
+
+// RemoveIPListEntry removes an existing IP list entry and checks the received HTTP Status code against expectedStatusCode.
+func RemoveIPListEntry(entry dataprovider.IPListEntry, expectedStatusCode int) ([]byte, error) {
+	var body []byte
+	resp, err := sendHTTPRequest(http.MethodDelete, buildURLRelativeToBase(ipListsPath, fmt.Sprintf("%d", entry.Type),
+		url.PathEscape(entry.IPOrNet)), nil, "", getDefaultToken())
+	if err != nil {
+		return body, err
+	}
+	defer resp.Body.Close()
+	body, _ = getResponseBody(resp)
+	return body, checkResponse(resp.StatusCode, expectedStatusCode)
+}
+
+// GetIPListEntry returns an IP list entry matching the specified parameters, if exists,
+// and checks the received HTTP Status code against expectedStatusCode.
+func GetIPListEntry(ipOrNet string, listType dataprovider.IPListType, expectedStatusCode int,
+) (dataprovider.IPListEntry, []byte, error) {
+	var entry dataprovider.IPListEntry
+	var body []byte
+	resp, err := sendHTTPRequest(http.MethodGet, buildURLRelativeToBase(ipListsPath, fmt.Sprintf("%d", listType), url.PathEscape(ipOrNet)),
+		nil, "", getDefaultToken())
+	if err != nil {
+		return entry, body, err
+	}
+	defer resp.Body.Close()
+	err = checkResponse(resp.StatusCode, expectedStatusCode)
+	if err == nil && expectedStatusCode == http.StatusOK {
+		err = render.DecodeJSON(resp.Body, &entry)
+	} else {
+		body, _ = getResponseBody(resp)
+	}
+	return entry, body, err
+}
+
+// GetIPListEntries returns a list of IP list entries and checks the received HTTP Status code against expectedStatusCode.
+func GetIPListEntries(listType dataprovider.IPListType, filter, from, order string, limit int64,
+	expectedStatusCode int,
+) ([]dataprovider.IPListEntry, []byte, error) {
+	var entries []dataprovider.IPListEntry
+	var body []byte
+
+	url, err := url.Parse(buildURLRelativeToBase(ipListsPath, strconv.Itoa(int(listType))))
+	if err != nil {
+		return entries, body, err
+	}
+	q := url.Query()
+	q.Add("filter", filter)
+	q.Add("from", from)
+	q.Add("order", order)
+	if limit > 0 {
+		q.Add("limit", strconv.FormatInt(limit, 10))
+	}
+	url.RawQuery = q.Encode()
+	resp, err := sendHTTPRequest(http.MethodGet, url.String(), nil, "", getDefaultToken())
+	if err != nil {
+		return entries, body, err
+	}
+	defer resp.Body.Close()
+
+	err = checkResponse(resp.StatusCode, expectedStatusCode)
+	if err == nil && expectedStatusCode == http.StatusOK {
+		err = render.DecodeJSON(resp.Body, &entries)
+	} else {
+		body, _ = getResponseBody(resp)
+	}
+	return entries, body, err
 }
 
 // AddAdmin adds a new admin and checks the received HTTP Status code against expectedStatusCode.
@@ -1639,6 +1763,31 @@ func checkEventRule(expected, actual dataprovider.EventRule) error {
 		return err
 	}
 	return checkEventRuleActions(expected.Actions, actual.Actions)
+}
+
+func checkIPListEntry(expected, actual dataprovider.IPListEntry) error {
+	if expected.IPOrNet != actual.IPOrNet {
+		return errors.New("ipornet mismatch")
+	}
+	if expected.Description != actual.Description {
+		return errors.New("description mismatch")
+	}
+	if expected.Type != actual.Type {
+		return errors.New("type mismatch")
+	}
+	if expected.Mode != actual.Mode {
+		return errors.New("mode mismatch")
+	}
+	if expected.Protocols != actual.Protocols {
+		return errors.New("protocols mismatch")
+	}
+	if actual.CreatedAt == 0 {
+		return errors.New("created_at unset")
+	}
+	if actual.UpdatedAt == 0 {
+		return errors.New("updated_at unset")
+	}
+	return nil
 }
 
 func checkRole(expected, actual dataprovider.Role) error {

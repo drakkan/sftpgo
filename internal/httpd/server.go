@@ -1038,12 +1038,12 @@ func (s *httpdServer) checkConnection(next http.Handler) http.Handler {
 		common.Connections.AddClientConnection(ipAddr)
 		defer common.Connections.RemoveClientConnection(ipAddr)
 
-		if err := common.Connections.IsNewConnectionAllowed(ipAddr); err != nil {
+		if err := common.Connections.IsNewConnectionAllowed(ipAddr, common.ProtocolHTTP); err != nil {
 			logger.Log(logger.LevelDebug, common.ProtocolHTTP, "", "connection not allowed from ip %q: %v", ipAddr, err)
 			s.sendForbiddenResponse(w, r, err.Error())
 			return
 		}
-		if common.IsBanned(ipAddr) {
+		if common.IsBanned(ipAddr, common.ProtocolHTTP) {
 			s.sendForbiddenResponse(w, r, "your IP address is banned")
 			return
 		}
@@ -1189,7 +1189,7 @@ func (s *httpdServer) initializeRouter() {
 	})
 
 	if s.enableRESTAPI {
-		// share API exposed to external users
+		// share API available to external users
 		s.router.Get(sharesPath+"/{id}", s.downloadFromShare)
 		s.router.Post(sharesPath+"/{id}", s.uploadFilesToShare)
 		s.router.Post(sharesPath+"/{id}/{name}", s.uploadFileToShare)
@@ -1304,10 +1304,15 @@ func (s *httpdServer) initializeRouter() {
 			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Delete(eventRulesPath+"/{name}", deleteEventRule)
 			router.With(s.checkPerm(dataprovider.PermAdminManageEventRules)).Post(eventRulesPath+"/run/{name}", runOnDemandRule)
 			router.With(s.checkPerm(dataprovider.PermAdminManageRoles)).Get(rolesPath, getRoles)
-			router.With(s.checkPerm(dataprovider.PermAdminManageRoles)).Get(rolesPath+"/{name}", getRoleByName)
 			router.With(s.checkPerm(dataprovider.PermAdminManageRoles)).Post(rolesPath, addRole)
+			router.With(s.checkPerm(dataprovider.PermAdminManageRoles)).Get(rolesPath+"/{name}", getRoleByName)
 			router.With(s.checkPerm(dataprovider.PermAdminManageRoles)).Put(rolesPath+"/{name}", updateRole)
 			router.With(s.checkPerm(dataprovider.PermAdminManageRoles)).Delete(rolesPath+"/{name}", deleteRole)
+			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists), compressor.Handler).Get(ipListsPath+"/{type}", getIPListEntries)
+			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists)).Post(ipListsPath+"/{type}", addIPListEntry)
+			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists)).Get(ipListsPath+"/{type}/{ipornet}", getIPListEntry)
+			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists)).Put(ipListsPath+"/{type}/{ipornet}", updateIPListEntry)
+			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists)).Delete(ipListsPath+"/{type}/{ipornet}", deleteIPListEntry)
 		})
 
 		s.router.Get(userTokenPath, s.getUserToken)
@@ -1441,7 +1446,7 @@ func (s *httpdServer) setupWebClientRoutes() {
 				s.jwtAuthenticatorPartial(tokenAudienceWebClientPartial)).
 				Post(webClientTwoFactorRecoveryPath, s.handleWebClientTwoFactorRecoveryPost)
 		}
-		// share routes exposed to external users
+		// share routes available to external users
 		s.router.Get(webClientPubSharesPath+"/{id}", s.downloadFromShare)
 		s.router.Get(webClientPubSharesPath+"/{id}/partial", s.handleClientSharePartialDownload)
 		s.router.Get(webClientPubSharesPath+"/{id}/browse", s.handleShareGetFiles)
@@ -1677,6 +1682,19 @@ func (s *httpdServer) setupWebAdminRoutes() {
 				Get(webEventsFsSearchPath, searchFsEvents)
 			router.With(s.checkPerm(dataprovider.PermAdminViewEvents), compressor.Handler, s.refreshCookie).
 				Get(webEventsProviderSearchPath, searchProviderEvents)
+			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists)).Get(webIPListsPath, s.handleWebIPListsPage)
+			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists), compressor.Handler, s.refreshCookie).
+				Get(webIPListsPath+"/{type}", getIPListEntries)
+			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists)).Get(webIPListPath+"/{type}",
+				s.handleWebAddIPListEntryGet)
+			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists)).Post(webIPListPath+"/{type}",
+				s.handleWebAddIPListEntryPost)
+			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists)).Get(webIPListPath+"/{type}/{ipornet}",
+				s.handleWebUpdateIPListEntryGet)
+			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists)).Post(webIPListPath+"/{type}/{ipornet}",
+				s.handleWebUpdateIPListEntryPost)
+			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists), verifyCSRFHeader).
+				Delete(webIPListPath+"/{type}/{ipornet}", deleteIPListEntry)
 		})
 	}
 }

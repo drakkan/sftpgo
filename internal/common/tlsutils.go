@@ -139,7 +139,7 @@ func (m *CertManager) IsRevoked(crt *x509.Certificate, caCrt *x509.Certificate) 
 	}
 
 	for _, crl := range m.crls {
-		if !crl.HasExpired(time.Now()) && caCrt.CheckCRLSignature(crl) == nil {
+		if !crl.HasExpired(time.Now()) && caCrt.CheckCRLSignature(crl) == nil { //nolint:staticcheck
 			for _, rc := range crl.TBSCertList.RevokedCertificates {
 				if rc.SerialNumber.Cmp(crt.SerialNumber) == 0 {
 					return true
@@ -171,7 +171,7 @@ func (m *CertManager) LoadCRLs() error {
 			logger.Warn(m.logSender, "", "unable to read revocation list %q", revocationList)
 			return err
 		}
-		crl, err := x509.ParseCRL(crlBytes)
+		crl, err := x509.ParseCRL(crlBytes) //nolint:staticcheck
 		if err != nil {
 			logger.Warn(m.logSender, "", "unable to parse revocation list %q", revocationList)
 			return err

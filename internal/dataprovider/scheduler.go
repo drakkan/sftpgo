@@ -27,8 +27,9 @@ import (
 )
 
 var (
-	scheduler           *cron.Cron
-	lastUserCacheUpdate atomic.Int64
+	scheduler              *cron.Cron
+	lastUserCacheUpdate    atomic.Int64
+	lastIPListsCacheUpdate atomic.Int64
 	// used for bolt and memory providers, so we avoid iterating all users/rules
 	// to find recently modified ones
 	lastUserUpdate atomic.Int64
@@ -54,9 +55,6 @@ func startScheduler() error {
 	if err != nil {
 		return err
 	}
-	if fnReloadRules != nil {
-		fnReloadRules()
-	}
 	if currentNode != nil {
 		_, err = scheduler.AddFunc("@every 30m", func() {
 			err := provider.cleanupNodes()
@@ -76,6 +74,7 @@ func startScheduler() error {
 
 func addScheduledCacheUpdates() error {
 	lastUserCacheUpdate.Store(util.GetTimeAsMsSinceEpoch(time.Now()))
+	lastIPListsCacheUpdate.Store(util.GetTimeAsMsSinceEpoch(time.Now()))
 	_, err := scheduler.AddFunc("@every 10m", checkCacheUpdates)
 	if err != nil {
 		return fmt.Errorf("unable to schedule cache updates: %w", err)
@@ -99,14 +98,24 @@ func checkDataprovider() {
 }
 
 func checkCacheUpdates() {
-	providerLog(logger.LevelDebug, "start user cache check, update time %v", util.GetTimeFromMsecSinceEpoch(lastUserCacheUpdate.Load()))
+	checkUserCache()
+	checkIPListEntryCache()
+}
+
+func checkUserCache() {
+	lastCheck := lastUserCacheUpdate.Load()
+	providerLog(logger.LevelDebug, "start user cache check, update time %v", util.GetTimeFromMsecSinceEpoch(lastCheck))
 	checkTime := util.GetTimeAsMsSinceEpoch(time.Now())
-	users, err := provider.getRecentlyUpdatedUsers(lastUserCacheUpdate.Load())
+	if config.IsShared == 1 {
+		lastCheck -= 5000
+	}
+	users, err := provider.getRecentlyUpdatedUsers(lastCheck)
 	if err != nil {
 		providerLog(logger.LevelError, "unable to get recently updated users: %v", err)
 		return
 	}
-	for _, user := range users {
+	for idx := range users {
+		user := users[idx]
 		providerLog(logger.LevelDebug, "invalidate caches for user %q", user.Username)
 		if user.DeletedAt > 0 {
 			deletedAt := util.GetTimeFromMsecSinceEpoch(user.DeletedAt)
@@ -121,9 +130,51 @@ func checkCacheUpdates() {
 		}
 		cachedPasswords.Remove(user.Username)
 	}
-
 	lastUserCacheUpdate.Store(checkTime)
 	providerLog(logger.LevelDebug, "end user cache check, new update time %v", util.GetTimeFromMsecSinceEpoch(lastUserCacheUpdate.Load()))
+}
+
+func checkIPListEntryCache() {
+	if config.IsShared != 1 {
+		return
+	}
+	hasMemoryLists := false
+	for _, l := range inMemoryLists {
+		if l.isInMemory.Load() {
+			hasMemoryLists = true
+			break
+		}
+	}
+	if !hasMemoryLists {
+		return
+	}
+	providerLog(logger.LevelDebug, "start IP list cache check, update time %v", util.GetTimeFromMsecSinceEpoch(lastIPListsCacheUpdate.Load()))
+	checkTime := util.GetTimeAsMsSinceEpoch(time.Now())
+	entries, err := provider.getRecentlyUpdatedIPListEntries(lastIPListsCacheUpdate.Load() - 5000)
+	if err != nil {
+		providerLog(logger.LevelError, "unable to get recently updated IP list entries: %v", err)
+		return
+	}
+	for idx := range entries {
+		e := entries[idx]
+		providerLog(logger.LevelDebug, "update cache for IP list entry %q", e.getName())
+		if e.DeletedAt > 0 {
+			deletedAt := util.GetTimeFromMsecSinceEpoch(e.DeletedAt)
+			if deletedAt.Add(30 * time.Minute).Before(time.Now()) {
+				providerLog(logger.LevelDebug, "removing IP list entry %q deleted at %s", e.getName(), deletedAt)
+				go provider.deleteIPListEntry(e, false) //nolint:errcheck
+			}
+			for _, l := range inMemoryLists {
+				l.removeEntry(&e)
+			}
+		} else {
+			for _, l := range inMemoryLists {
+				l.updateEntry(&e)
+			}
+		}
+	}
+	lastIPListsCacheUpdate.Store(checkTime)
+	providerLog(logger.LevelDebug, "end IP list entries cache check, new update time %v", util.GetTimeFromMsecSinceEpoch(lastIPListsCacheUpdate.Load()))
 }
 
 func setLastUserUpdate() {

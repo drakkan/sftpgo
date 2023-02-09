@@ -603,7 +603,7 @@ func updateLoginMetrics(user *dataprovider.User, loginMethod, ip string, err err
 		if errors.Is(err, util.ErrNotFound) {
 			event = common.HostEventUserNotFound
 		}
-		common.AddDefenderEvent(ip, event)
+		common.AddDefenderEvent(ip, common.ProtocolHTTP, event)
 	}
 	metric.AddLoginResult(loginMethod, err)
 	dataprovider.ExecutePostLoginHook(user, loginMethod, ip, protocol, err)

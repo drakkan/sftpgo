@@ -16,6 +16,7 @@ package common
 
 import (
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
@@ -24,6 +25,7 @@ import (
 
 type memoryDefender struct {
 	baseDefender
+	sync.RWMutex
 	// IP addresses of the clients trying to connected are stored inside hosts,
 	// they are added to banned once the thresold is reached.
 	// A violation from a banned host will increase the ban time
@@ -37,16 +39,17 @@ func newInMemoryDefender(config *DefenderConfig) (Defender, error) {
 	if err != nil {
 		return nil, err
 	}
+	ipList, err := dataprovider.NewIPList(dataprovider.IPListTypeDefender)
+	if err != nil {
+		return nil, err
+	}
 	defender := &memoryDefender{
 		baseDefender: baseDefender{
 			config: config,
+			ipList: ipList,
 		},
 		hosts:  make(map[string]hostScore),
 		banned: make(map[string]time.Time),
-	}
-
-	if err := defender.Reload(); err != nil {
-		return nil, err
 	}
 
 	return defender, nil
@@ -119,7 +122,7 @@ func (d *memoryDefender) GetHost(ip string) (dataprovider.DefenderEntry, error) 
 // IsBanned returns true if the specified IP is banned
 // and increase ban time if the IP is found.
 // This method must be called as soon as the client connects
-func (d *memoryDefender) IsBanned(ip string) bool {
+func (d *memoryDefender) IsBanned(ip, protocol string) bool {
 	d.RLock()
 
 	if banTime, ok := d.banned[ip]; ok {
@@ -145,7 +148,7 @@ func (d *memoryDefender) IsBanned(ip string) bool {
 
 	defer d.RUnlock()
 
-	return d.baseDefender.isBanned(ip)
+	return d.baseDefender.isBanned(ip, protocol)
 }
 
 // DeleteHost removes the specified IP from the defender lists
@@ -168,13 +171,13 @@ func (d *memoryDefender) DeleteHost(ip string) bool {
 
 // AddEvent adds an event for the given IP.
 // This method must be called for clients not yet banned
-func (d *memoryDefender) AddEvent(ip string, event HostEvent) {
-	d.Lock()
-	defer d.Unlock()
-
-	if d.safeList != nil && d.safeList.isListed(ip) {
+func (d *memoryDefender) AddEvent(ip, protocol string, event HostEvent) {
+	if d.IsSafe(ip, protocol) {
 		return
 	}
+
+	d.Lock()
+	defer d.Unlock()
 
 	// ignore events for already banned hosts
 	if v, ok := d.banned[ip]; ok {

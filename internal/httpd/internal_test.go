@@ -757,6 +757,21 @@ func TestInvalidToken(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "Invalid token claims")
 
 	rr = httptest.NewRecorder()
+	addIPListEntry(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	updateIPListEntry(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	deleteIPListEntry(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
 	server.handleGetWebUsers(rr, req)
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), "invalid token claims")
@@ -812,6 +827,11 @@ func TestInvalidToken(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "invalid token claims")
 
 	rr = httptest.NewRecorder()
+	server.handleWebUpdateIPListEntryPost(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "invalid token claims")
+
+	rr = httptest.NewRecorder()
 	server.handleWebClientTwoFactorRecoveryPost(rr, req)
 	assert.Equal(t, http.StatusNotFound, rr.Code)
 
@@ -826,6 +846,22 @@ func TestInvalidToken(t *testing.T) {
 	rr = httptest.NewRecorder()
 	server.handleWebAdminTwoFactorPost(rr, req)
 	assert.Equal(t, http.StatusNotFound, rr.Code)
+
+	rr = httptest.NewRecorder()
+	server.handleWebUpdateIPListEntryPost(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "invalid token claims")
+
+	form := make(url.Values)
+	req, _ = http.NewRequest(http.MethodPost, webIPListPath+"/1", bytes.NewBuffer([]byte(form.Encode())))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rctx = chi.NewRouteContext()
+	rctx.URLParams.Add("type", "1")
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+	rr = httptest.NewRecorder()
+	server.handleWebAddIPListEntryPost(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code, rr.Body.String())
+	assert.Contains(t, rr.Body.String(), "invalid token claims")
 }
 
 func TestUpdateWebAdminInvalidClaims(t *testing.T) {
@@ -1046,6 +1082,11 @@ func TestCreateTokenError(t *testing.T) {
 	_, err = getEventRuleFromPostFields(req)
 	assert.Error(t, err)
 
+	req, _ = http.NewRequest(http.MethodPost, webIPListPath+"/1?a=a%C3%AO%GG", nil)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	_, err = getIPListEntryFromPostFields(req, dataprovider.IPListTypeAllowList)
+	assert.Error(t, err)
+
 	req, _ = http.NewRequest(http.MethodPost, webClientLoginPath+"?a=a%C3%AO%GG", bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = httptest.NewRecorder()
@@ -1135,7 +1176,6 @@ func TestCreateTokenError(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "invalid URL escape")
 
 	req, _ = http.NewRequest(http.MethodPost, webChangeClientPwdPath+"?a=a%K3%AO%GA", bytes.NewBuffer([]byte(form.Encode())))
-
 	_, err = getShareFromPostFields(req)
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "invalid URL escape")

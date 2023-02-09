@@ -73,7 +73,17 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                     <i class="fas fa-users"></i>
                     <span>{{.UsersTitle}}</span></a>
             </li>
+            {{ end }}
 
+            {{ if .LoggedAdmin.HasPermission "manage_groups"}}
+            <li class="nav-item {{if eq .CurrentURL .GroupsURL}}active{{end}}">
+                <a class="nav-link" href="{{.GroupsURL}}">
+                    <i class="fas fa-user-friends"></i>
+                    <span>{{.GroupsTitle}}</span></a>
+            </li>
+            {{end}}
+
+            {{ if .LoggedAdmin.HasPermission "view_users"}}
             <li class="nav-item {{if eq .CurrentURL .FoldersURL}}active{{end}}">
                 <a class="nav-link" href="{{.FoldersURL}}">
                     <i class="fas fa-folder"></i>
@@ -81,11 +91,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
             </li>
             {{end}}
 
-            {{ if .LoggedAdmin.HasPermission "manage_groups"}}
-            <li class="nav-item {{if eq .CurrentURL .GroupsURL}}active{{end}}">
-                <a class="nav-link" href="{{.GroupsURL}}">
-                    <i class="fas fa-user-friends"></i>
-                    <span>{{.GroupsTitle}}</span></a>
+            {{ if .LoggedAdmin.HasPermission "view_conns"}}
+            <li class="nav-item {{if eq .CurrentURL .ConnectionsURL}}active{{end}}">
+                <a class="nav-link" href="{{.ConnectionsURL}}">
+                    <i class="fas fa-exchange-alt"></i>
+                    <span>{{.ConnectionsTitle}}</span></a>
             </li>
             {{end}}
 
@@ -105,27 +115,23 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
             </li>
             {{end}}
 
-            {{ if .LoggedAdmin.HasPermission "view_conns"}}
-            <li class="nav-item {{if eq .CurrentURL .ConnectionsURL}}active{{end}}">
-                <a class="nav-link" href="{{.ConnectionsURL}}">
-                    <i class="fas fa-exchange-alt"></i>
-                    <span>{{.ConnectionsTitle}}</span></a>
-            </li>
-            {{end}}
-
-            {{ if and .HasDefender (.LoggedAdmin.HasPermission "view_defender")}}
-            <li class="nav-item {{if eq .CurrentURL .DefenderURL}}active{{end}}">
-                <a class="nav-link" href="{{.DefenderURL}}">
+            {{ if or (.LoggedAdmin.HasPermission "manage_ip_lists") (and .HasDefender (.LoggedAdmin.HasPermission "view_defender"))}}
+            <li class="nav-item {{if .IsIPManagerPage}}active{{end}}">
+                <a class="nav-link {{if not .IsIPManagerPage}}collapsed{{end}}" href="#" data-toggle="collapse" data-target="#collapseIPManager"
+                    aria-expanded="true" aria-controls="collapseIPManager">
                     <i class="fas fa-shield-alt"></i>
-                    <span>{{.DefenderTitle}}</span></a>
-            </li>
-            {{end}}
-
-            {{ if .LoggedAdmin.HasPermission "manage_roles"}}
-            <li class="nav-item {{if eq .CurrentURL .RolesURL}}active{{end}}">
-                <a class="nav-link" href="{{.RolesURL}}">
-                    <i class="fas fa-user-lock"></i>
-                    <span>{{.RolesTitle}}</span></a>
+                    <span>IP Manager</span>
+                </a>
+                <div id="collapseIPManager" class="collapse {{if .IsIPManagerPage}}show{{end}}" aria-labelledby="headingIPManager" data-parent="#accordionSidebar">
+                    <div class="bg-white py-2 collapse-inner rounded">
+                        {{ if .LoggedAdmin.HasPermission "manage_ip_lists"}}
+                        <a class="collapse-item {{if eq .CurrentURL .IPListsURL}}active{{end}}"  href="{{.IPListsURL}}">{{.IPListsTitle}}</a>
+                        {{end}}
+                        {{ if and .HasDefender (.LoggedAdmin.HasPermission "view_defender")}}
+                        <a class="collapse-item {{if eq .CurrentURL .DefenderURL}}active{{end}}" href="{{.DefenderURL}}">{{.DefenderTitle}}</a>
+                        {{end}}
+                    </div>
+                </div>
             </li>
             {{end}}
 
@@ -134,6 +140,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                 <a class="nav-link" href="{{.AdminsURL}}">
                     <i class="fas fa-user-cog"></i>
                     <span>{{.AdminsTitle}}</span></a>
+            </li>
+            {{end}}
+
+            {{ if .LoggedAdmin.HasPermission "manage_roles"}}
+            <li class="nav-item {{if eq .CurrentURL .RolesURL}}active{{end}}">
+                <a class="nav-link" href="{{.RolesURL}}">
+                    <i class="fas fa-user-lock"></i>
+                    <span>{{.RolesTitle}}</span></a>
             </li>
             {{end}}
 

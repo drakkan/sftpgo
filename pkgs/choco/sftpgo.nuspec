@@ -3,24 +3,24 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
 	<metadata>
 		<id>sftpgo</id>
-		<version>2.4.3</version>
+		<version>2.4.4</version>
 		<packageSourceUrl>https://github.com/drakkan/sftpgo/tree/main/pkgs/choco</packageSourceUrl>
 		<owners>asheroto</owners>
 		<title>SFTPGo</title>
 		<authors>Nicola Murino</authors>
 		<projectUrl>https://github.com/drakkan/sftpgo</projectUrl>
-		<iconUrl>https://cdn.statically.io/gh/drakkan/sftpgo/v2.4.3/static/img/logo.png</iconUrl>
+		<iconUrl>https://cdn.statically.io/gh/drakkan/sftpgo/v2.4.4/static/img/logo.png</iconUrl>
 		<licenseUrl>https://github.com/drakkan/sftpgo/blob/main/LICENSE</licenseUrl>
 		<requireLicenseAcceptance>false</requireLicenseAcceptance>
 		<projectSourceUrl>https://github.com/drakkan/sftpgo</projectSourceUrl>
-		<docsUrl>https://github.com/drakkan/sftpgo/tree/v2.4.3/docs</docsUrl>
+		<docsUrl>https://github.com/drakkan/sftpgo/tree/v2.4.4/docs</docsUrl>
 		<bugTrackerUrl>https://github.com/drakkan/sftpgo/issues</bugTrackerUrl>
 		<tags>sftp sftp-server ftp webdav s3 azure-blob google-cloud-storage cloud-storage scp data-at-rest-encryption multi-factor-authentication multi-step-authentication</tags>
 		<summary>Fully featured and highly configurable SFTP server with optional HTTP/S,FTP/S and WebDAV support.</summary>
 		<description>SFTPGo allows you to securely share your files over SFTP and optionally over HTTP/S, FTP/S and WebDAV as well.
 Several storage backends are supported and they are configurable per-user, so you can serve a local directory for a user and an S3 bucket (or part of it) for another one.
 
-SFTPGo also supports virtual folders. A virtual folder can use any of the supported storage backends. So you can have, for example, an S3 user that exposes a GCS bucket (or part of it) on a specified path and an encrypted local filesystem on another one. Virtual folders can be private or shared among multiple users, for shared virtual folders you can define different quota limits for each user.
+SFTPGo also supports virtual folders. A virtual folder can use any of the supported storage backends. So you can have, for example, a user with the S3 backend mapping a GCS bucket (or part of it) on a specified path and an encrypted local filesystem on another one. Virtual folders can be private or shared among multiple users, for shared virtual folders you can define different quota limits for each user.
 
 SFTPGo allows to create HTTP/S links to externally share files and folders securely, by setting limits to the number of downloads/uploads, protecting the share with a password, limiting access by source IP address, setting an automatic expiration date.
 
@@ -32,7 +32,7 @@ You can find more info [here](https://github.com/drakkan/sftpgo).
 
 * This package installs SFTPGo as Windows Service.
 * After the first installation please take a look at the [Getting Started Guide](https://github.com/drakkan/sftpgo/blob/main/docs/howto/getting-started.md).</description>
-		<releaseNotes>https://github.com/drakkan/sftpgo/releases/tag/v2.4.3</releaseNotes>
+		<releaseNotes>https://github.com/drakkan/sftpgo/releases/tag/v2.4.4</releaseNotes>
 	</metadata>
 	<files>
 		<file src="**" exclude="**\*.md;**\icon.png;**\icon.jpg;**\icon.svg" />

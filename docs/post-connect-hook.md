@@ -1,6 +1,6 @@
 # Post-connect hook
 
-This hook is executed as soon as a new connection is established. It notifies the connection's IP address and protocol. Based on the received response, the connection is accepted or rejected. Combining this hook with the [Post-login hook](./post-login-hook.md) you can implement your own (even for Protocol) blacklist/whitelist of IP addresses.
+This hook is executed as soon as a new connection is established. It notifies the connection's IP address and protocol. Based on the received response, the connection is accepted or rejected. Combining this hook with the [Post-login hook](./post-login-hook.md) you can implement your own (even for Protocol) blocklist/allowlist of IP addresses.
 
 The `post_connect_hook` can be defined as the absolute path of your program or an HTTP URL.
 
@@ -17,7 +17,7 @@ The program must finish within 20 seconds.
 If the hook defines an HTTP URL then this URL will be invoked as HTTP GET with the following query parameters:
 
 - `ip`
-- `protocol`, possible values are `SSH`, `FTP`, `DAV`, `HTTP`, `OIDC` (OpenID Connect)
+- `protocol`, possible values are `SSH`, `FTP`, `DAV`, `HTTP`, `HTTPShare`, `OIDC` (OpenID Connect)
 
 The connection is accepted if the HTTP response code is `200` otherwise rejected.
 

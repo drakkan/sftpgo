@@ -505,11 +505,11 @@ func (c *Configuration) configureKeyboardInteractiveAuth(serverConfig *ssh.Serve
 }
 
 func canAcceptConnection(ip string) bool {
-	if common.IsBanned(ip) {
+	if common.IsBanned(ip, common.ProtocolSSH) {
 		logger.Log(logger.LevelDebug, common.ProtocolSSH, "", "connection refused, ip %#v is banned", ip)
 		return false
 	}
-	if err := common.Connections.IsNewConnectionAllowed(ip); err != nil {
+	if err := common.Connections.IsNewConnectionAllowed(ip, common.ProtocolSSH); err != nil {
 		logger.Log(logger.LevelDebug, common.ProtocolSSH, "", "connection not allowed from ip %q: %v", ip, err)
 		return false
 	}
@@ -700,7 +700,7 @@ func checkAuthError(ip string, err error) {
 					if errors.Is(err, util.ErrNotFound) {
 						event = common.HostEventUserNotFound
 					}
-					common.AddDefenderEvent(ip, event)
+					common.AddDefenderEvent(ip, common.ProtocolSSH, event)
 					return
 				}
 			}
@@ -708,7 +708,7 @@ func checkAuthError(ip string, err error) {
 	} else {
 		logger.ConnectionFailedLog("", ip, dataprovider.LoginMethodNoAuthTryed, common.ProtocolSSH, err.Error())
 		metric.AddNoAuthTryed()
-		common.AddDefenderEvent(ip, common.HostEventNoLoginTried)
+		common.AddDefenderEvent(ip, common.ProtocolSSH, common.HostEventNoLoginTried)
 		dataprovider.ExecutePostLoginHook(&dataprovider.User{}, dataprovider.LoginMethodNoAuthTryed, ip, common.ProtocolSSH, err)
 	}
 }
@@ -1159,7 +1159,7 @@ func updateLoginMetrics(user *dataprovider.User, ip, method string, err error) {
 			if errors.Is(err, util.ErrNotFound) {
 				event = common.HostEventUserNotFound
 			}
-			common.AddDefenderEvent(ip, event)
+			common.AddDefenderEvent(ip, common.ProtocolSSH, event)
 		}
 	}
 	metric.AddLoginResult(method, err)

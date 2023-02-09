@@ -36,6 +36,7 @@ const (
 	selectGroupFields       = "id,name,description,created_at,updated_at,user_settings"
 	selectEventActionFields = "id,name,description,type,options"
 	selectRoleFields        = "id,name,description,created_at,updated_at"
+	selectIPListEntryFields = "type,ipornet,mode,protocols,description,created_at,updated_at,deleted_at"
 	selectMinimalFields     = "id,name"
 )
 
@@ -177,6 +178,100 @@ func getDefenderHostsCleanupQuery() string {
 
 func getDefenderEventsCleanupQuery() string {
 	return fmt.Sprintf(`DELETE FROM %s WHERE date_time < %s`, sqlTableDefenderEvents, sqlPlaceholders[0])
+}
+
+func getIPListEntryQuery() string {
+	return fmt.Sprintf(`SELECT %s FROM %s WHERE type = %s AND ipornet = %s AND deleted_at = 0`,
+		selectIPListEntryFields, sqlTableIPLists, sqlPlaceholders[0], sqlPlaceholders[1])
+}
+
+func getIPListEntriesQuery(filter, from, order string, limit int) string {
+	var sb strings.Builder
+	var idx int
+
+	sb.WriteString("SELECT ")
+	sb.WriteString(selectIPListEntryFields)
+	sb.WriteString(" FROM ")
+	sb.WriteString(sqlTableIPLists)
+	sb.WriteString(" WHERE type = ")
+	sb.WriteString(sqlPlaceholders[idx])
+	idx++
+	if from != "" {
+		if order == OrderASC {
+			sb.WriteString(" AND ipornet > ")
+		} else {
+			sb.WriteString(" AND ipornet < ")
+		}
+		sb.WriteString(sqlPlaceholders[idx])
+		idx++
+	}
+	if filter != "" {
+		sb.WriteString(" AND ipornet LIKE ")
+		sb.WriteString(sqlPlaceholders[idx])
+		idx++
+	}
+	sb.WriteString(" AND deleted_at = 0 ")
+	sb.WriteString(" ORDER BY ipornet ")
+	sb.WriteString(order)
+	if limit > 0 {
+		sb.WriteString(" LIMIT ")
+		sb.WriteString(sqlPlaceholders[idx])
+	}
+	return sb.String()
+}
+
+func getCountIPListEntriesQuery() string {
+	return fmt.Sprintf(`SELECT count(ipornet) FROM %s WHERE type = %s AND deleted_at = 0`, sqlTableIPLists, sqlPlaceholders[0])
+}
+
+func getCountAllIPListEntriesQuery() string {
+	return fmt.Sprintf(`SELECT count(ipornet) FROM %s WHERE deleted_at = 0`, sqlTableIPLists)
+}
+
+func getIPListEntriesForIPQueryPg() string {
+	return fmt.Sprintf(`SELECT %s FROM %s WHERE type = %s AND deleted_at = 0 AND %s::inet BETWEEN first AND last`,
+		selectIPListEntryFields, sqlTableIPLists, sqlPlaceholders[0], sqlPlaceholders[1])
+}
+
+func getIPListEntriesForIPQueryNoPg() string {
+	return fmt.Sprintf(`SELECT %s FROM %s WHERE type = %s AND deleted_at = 0 AND ip_type = %s AND %s BETWEEN first AND last`,
+		selectIPListEntryFields, sqlTableIPLists, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2])
+}
+
+func getRecentlyUpdatedIPListQuery() string {
+	return fmt.Sprintf(`SELECT %s FROM %s WHERE updated_at >= %s OR deleted_at > 0`,
+		selectIPListEntryFields, sqlTableIPLists, sqlPlaceholders[0])
+}
+
+func getDumpListEntriesQuery() string {
+	return fmt.Sprintf(`SELECT %s FROM %s WHERE deleted_at = 0`, selectIPListEntryFields, sqlTableIPLists)
+}
+
+func getAddIPListEntryQuery() string {
+	return fmt.Sprintf(`INSERT INTO %s (type,ipornet,first,last,ip_type,protocols,description,mode,created_at,updated_at,deleted_at)
+		VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,0)`, sqlTableIPLists, sqlPlaceholders[0], sqlPlaceholders[1],
+		sqlPlaceholders[2], sqlPlaceholders[3], sqlPlaceholders[4], sqlPlaceholders[5],
+		sqlPlaceholders[6], sqlPlaceholders[7], sqlPlaceholders[8], sqlPlaceholders[9])
+}
+
+func getUpdateIPListEntryQuery() string {
+	return fmt.Sprintf(`UPDATE %s SET mode=%s,protocols=%s,description=%s,updated_at=%s WHERE type = %s AND ipornet = %s`,
+		sqlTableIPLists, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3],
+		sqlPlaceholders[4], sqlPlaceholders[5])
+}
+
+func getDeleteIPListEntryQuery(softDelete bool) string {
+	if softDelete {
+		return fmt.Sprintf(`UPDATE %s SET updated_at=%s,deleted_at=%s WHERE type = %s AND ipornet = %s`,
+			sqlTableIPLists, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3])
+	}
+	return fmt.Sprintf(`DELETE FROM %s WHERE type = %s AND ipornet = %s`,
+		sqlTableIPLists, sqlPlaceholders[0], sqlPlaceholders[1])
+}
+
+func getRemoveSoftDeletedIPListEntryQuery() string {
+	return fmt.Sprintf(`DELETE FROM %s WHERE type = %s AND ipornet = %s AND deleted_at > 0`,
+		sqlTableIPLists, sqlPlaceholders[0], sqlPlaceholders[1])
 }
 
 func getRoleByNameQuery() string {

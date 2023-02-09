@@ -4,12 +4,12 @@ SFTPGo provides an official Docker image, it is available on both [Docker Hub](h
 
 ## Supported tags and respective Dockerfile links
 
-- [v2.4.3, v2.4, v2, latest](https://github.com/drakkan/sftpgo/blob/v2.4.3/Dockerfile)
-- [v2.4.3-plugins, v2.4-plugins, v2-plugins, plugins](https://github.com/drakkan/sftpgo/blob/v2.4.3/Dockerfile)
-- [v2.4.3-alpine, v2.4-alpine, v2-alpine, alpine](https://github.com/drakkan/sftpgo/blob/v2.4.3/Dockerfile.alpine)
-- [v2.4.3-slim, v2.4-slim, v2-slim, slim](https://github.com/drakkan/sftpgo/blob/v2.4.3/Dockerfile)
-- [v2.4.3-alpine-slim, v2.4-alpine-slim, v2-alpine-slim, alpine-slim](https://github.com/drakkan/sftpgo/blob/v2.4.3/Dockerfile.alpine)
-- [v2.4.3-distroless-slim, v2.4-distroless-slim, v2-distroless-slim, distroless-slim](https://github.com/drakkan/sftpgo/blob/v2.4.3/Dockerfile.distroless)
+- [v2.4.4, v2.4, v2, latest](https://github.com/drakkan/sftpgo/blob/v2.4.4/Dockerfile)
+- [v2.4.4-plugins, v2.4-plugins, v2-plugins, plugins](https://github.com/drakkan/sftpgo/blob/v2.4.4/Dockerfile)
+- [v2.4.4-alpine, v2.4-alpine, v2-alpine, alpine](https://github.com/drakkan/sftpgo/blob/v2.4.4/Dockerfile.alpine)
+- [v2.4.4-slim, v2.4-slim, v2-slim, slim](https://github.com/drakkan/sftpgo/blob/v2.4.4/Dockerfile)
+- [v2.4.4-alpine-slim, v2.4-alpine-slim, v2-alpine-slim, alpine-slim](https://github.com/drakkan/sftpgo/blob/v2.4.4/Dockerfile.alpine)
+- [v2.4.4-distroless-slim, v2.4-distroless-slim, v2-distroless-slim, distroless-slim](https://github.com/drakkan/sftpgo/blob/v2.4.4/Dockerfile.distroless)
 - [edge](../Dockerfile)
 - [edge-plugins](../Dockerfile)
 - [edge-alpine](../Dockerfile.alpine)
@@ -58,7 +58,7 @@ The FTP service is now available on port 2121 and SFTP on port 2022.
 
 You can change the passive ports range (`50000-50100` by default) by setting the environment variables `SFTPGO_FTPD__PASSIVE_PORT_RANGE__START` and `SFTPGO_FTPD__PASSIVE_PORT_RANGE__END`.
 
-It is recommended that you provide a certificate and key file to expose FTP over TLS. You should prefer SFTP to FTP even if you configure TLS, please don't blindly enable the old FTP protocol.
+It is recommended that you provide a certificate and key file to enable FTP over TLS. You should prefer SFTP to FTP even if you configure TLS, please don't blindly enable the old FTP protocol.
 
 ### Enable WebDAV service
 
@@ -75,7 +75,7 @@ docker run --name some-sftpgo \
 
 The WebDAV service is now available on port 10080 and SFTP on port 2022.
 
-It is recommended that you provide a certificate and key file to expose WebDAV over https.
+It is recommended that you provide a certificate and key file to enable WebDAV over https.
 
 ### Container shell access and viewing SFTPGo logs
 
@@ -116,7 +116,7 @@ Alternatively you can increase the default docker grace time to a value larger t
 Important note: There are several ways to store data used by applications that run in Docker containers. We encourage users of the SFTPGo images to familiarize themselves with the options available, including:
 
 - Let Docker manage the storage for SFTPGo data by [writing them to disk on the host system using its own internal volume management](https://docs.docker.com/engine/tutorials/dockervolumes/#adding-a-data-volume). This is the default and is easy and fairly transparent to the user. The downside is that the files may be hard to locate for tools and applications that run directly on the host system, i.e. outside containers.
-- Create a data directory on the host system (outside the container) and [mount this to a directory visible from inside the container]((https://docs.docker.com/engine/tutorials/dockervolumes/#mount-a-host-directory-as-a-data-volume)). This places the SFTPGo files in a known location on the host system, and makes it easy for tools and applications on the host system to access the files. The downside is that the user needs to make sure that the directory exists, and that e.g. directory permissions and other security mechanisms on the host system are set up correctly. The SFTPGo image runs using `1000` as UID/GID by default.
+- Create a data directory on the host system (outside the container) and [mount this to a directory visible from inside the container](https://docs.docker.com/engine/tutorials/dockervolumes/#mount-a-host-directory-as-a-data-volume). This places the SFTPGo files in a known location on the host system, and makes it easy for tools and applications on the host system to access the files. The downside is that the user needs to make sure that the directory exists, and that e.g. directory permissions and other security mechanisms on the host system are set up correctly. The SFTPGo image runs using `1000` as UID/GID by default.
 
 The Docker documentation is a good starting point for understanding the different storage options and variations, and there are multiple blogs and forum postings that discuss and give advice in this area. We will simply show the basic procedure here for the latter option above:
 

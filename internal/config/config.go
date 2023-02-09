@@ -153,7 +153,6 @@ var (
 		Burst:                  1,
 		Type:                   2,
 		Protocols:              []string{common.ProtocolSSH, common.ProtocolFTP, common.ProtocolWebDAV, common.ProtocolHTTP},
-		AllowList:              []string{},
 		GenerateDefenderEvents: false,
 		EntriesSoftLimit:       100,
 		EntriesHardLimit:       150,
@@ -210,7 +209,7 @@ func Init() {
 			DataRetentionHook:     "",
 			MaxTotalConnections:   0,
 			MaxPerHostConnections: 20,
-			WhiteListFile:         "",
+			AllowListStatus:       0,
 			AllowSelfConnections:  0,
 			DefenderConfig: common.DefenderConfig{
 				Enabled:            false,
@@ -225,10 +224,6 @@ func Init() {
 				ObservationTime:    30,
 				EntriesSoftLimit:   100,
 				EntriesHardLimit:   150,
-				SafeListFile:       "",
-				BlockListFile:      "",
-				SafeList:           []string{},
-				BlockList:          []string{},
 			},
 			RateLimitersConfig: []common.RateLimiterConfig{defaultRateLimiter},
 		},
@@ -886,12 +881,6 @@ func getRateLimitersFromEnv(idx int) {
 	protocols, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_COMMON__RATE_LIMITERS__%v__PROTOCOLS", idx))
 	if ok {
 		rtlConfig.Protocols = protocols
-		isSet = true
-	}
-
-	allowList, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_COMMON__RATE_LIMITERS__%v__ALLOW_LIST", idx))
-	if ok {
-		rtlConfig.AllowList = allowList
 		isSet = true
 	}
 
@@ -1959,7 +1948,7 @@ func setViperDefaults() {
 	viper.SetDefault("common.data_retention_hook", globalConf.Common.DataRetentionHook)
 	viper.SetDefault("common.max_total_connections", globalConf.Common.MaxTotalConnections)
 	viper.SetDefault("common.max_per_host_connections", globalConf.Common.MaxPerHostConnections)
-	viper.SetDefault("common.whitelist_file", globalConf.Common.WhiteListFile)
+	viper.SetDefault("common.allowlist_status", globalConf.Common.AllowListStatus)
 	viper.SetDefault("common.allow_self_connections", globalConf.Common.AllowSelfConnections)
 	viper.SetDefault("common.defender.enabled", globalConf.Common.DefenderConfig.Enabled)
 	viper.SetDefault("common.defender.driver", globalConf.Common.DefenderConfig.Driver)
@@ -1973,10 +1962,6 @@ func setViperDefaults() {
 	viper.SetDefault("common.defender.observation_time", globalConf.Common.DefenderConfig.ObservationTime)
 	viper.SetDefault("common.defender.entries_soft_limit", globalConf.Common.DefenderConfig.EntriesSoftLimit)
 	viper.SetDefault("common.defender.entries_hard_limit", globalConf.Common.DefenderConfig.EntriesHardLimit)
-	viper.SetDefault("common.defender.safelist_file", globalConf.Common.DefenderConfig.SafeListFile)
-	viper.SetDefault("common.defender.blocklist_file", globalConf.Common.DefenderConfig.BlockListFile)
-	viper.SetDefault("common.defender.safelist", globalConf.Common.DefenderConfig.SafeList)
-	viper.SetDefault("common.defender.blocklist", globalConf.Common.DefenderConfig.BlockList)
 	viper.SetDefault("acme.email", globalConf.ACME.Email)
 	viper.SetDefault("acme.key_type", globalConf.ACME.KeyType)
 	viper.SetDefault("acme.certs_path", globalConf.ACME.CertsPath)

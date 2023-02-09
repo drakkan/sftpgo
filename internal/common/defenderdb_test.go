@@ -16,9 +16,6 @@ package common
 
 import (
 	"encoding/hex"
-	"encoding/json"
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -32,6 +29,45 @@ func TestBasicDbDefender(t *testing.T) {
 	if !isDbDefenderSupported() {
 		t.Skip("this test is not supported with the current database provider")
 	}
+	entries := []dataprovider.IPListEntry{
+		{
+			IPOrNet: "172.16.1.1/32",
+			Type:    dataprovider.IPListTypeDefender,
+			Mode:    dataprovider.ListModeDeny,
+		},
+		{
+			IPOrNet: "172.16.1.2/32",
+			Type:    dataprovider.IPListTypeDefender,
+			Mode:    dataprovider.ListModeDeny,
+		},
+		{
+			IPOrNet: "10.8.0.0/24",
+			Type:    dataprovider.IPListTypeDefender,
+			Mode:    dataprovider.ListModeDeny,
+		},
+		{
+			IPOrNet: "172.16.1.3/32",
+			Type:    dataprovider.IPListTypeDefender,
+			Mode:    dataprovider.ListModeAllow,
+		},
+		{
+			IPOrNet: "172.16.1.4/32",
+			Type:    dataprovider.IPListTypeDefender,
+			Mode:    dataprovider.ListModeAllow,
+		},
+		{
+			IPOrNet: "192.168.8.0/24",
+			Type:    dataprovider.IPListTypeDefender,
+			Mode:    dataprovider.ListModeAllow,
+		},
+	}
+
+	for idx := range entries {
+		e := entries[idx]
+		err := dataprovider.AddIPListEntry(&e, "", "", "")
+		assert.NoError(t, err)
+	}
+
 	config := &DefenderConfig{
 		Enabled:            true,
 		BanTime:            10,
@@ -44,61 +80,31 @@ func TestBasicDbDefender(t *testing.T) {
 		ObservationTime:    15,
 		EntriesSoftLimit:   1,
 		EntriesHardLimit:   10,
-		SafeListFile:       "slFile",
-		BlockListFile:      "blFile",
 	}
-	_, err := newDBDefender(config)
-	assert.Error(t, err)
-
-	bl := HostListFile{
-		IPAddresses:  []string{"172.16.1.1", "172.16.1.2"},
-		CIDRNetworks: []string{"10.8.0.0/24"},
-	}
-	sl := HostListFile{
-		IPAddresses:  []string{"172.16.1.3", "172.16.1.4"},
-		CIDRNetworks: []string{"192.168.8.0/24"},
-	}
-	blFile := filepath.Join(os.TempDir(), "bl.json")
-	slFile := filepath.Join(os.TempDir(), "sl.json")
-
-	data, err := json.Marshal(bl)
-	assert.NoError(t, err)
-	err = os.WriteFile(blFile, data, os.ModePerm)
-	assert.NoError(t, err)
-
-	data, err = json.Marshal(sl)
-	assert.NoError(t, err)
-	err = os.WriteFile(slFile, data, os.ModePerm)
-	assert.NoError(t, err)
-
-	config.BlockListFile = blFile
-	_, err = newDBDefender(config)
-	assert.Error(t, err)
-	config.SafeListFile = slFile
 	d, err := newDBDefender(config)
 	assert.NoError(t, err)
 	defender := d.(*dbDefender)
-	assert.True(t, defender.IsBanned("172.16.1.1"))
-	assert.False(t, defender.IsBanned("172.16.1.10"))
-	assert.False(t, defender.IsBanned("10.8.1.3"))
-	assert.True(t, defender.IsBanned("10.8.0.4"))
-	assert.False(t, defender.IsBanned("invalid ip"))
+	assert.True(t, defender.IsBanned("172.16.1.1", ProtocolFTP))
+	assert.False(t, defender.IsBanned("172.16.1.10", ProtocolSSH))
+	assert.False(t, defender.IsBanned("10.8.1.3", ProtocolHTTP))
+	assert.True(t, defender.IsBanned("10.8.0.4", ProtocolWebDAV))
+	assert.False(t, defender.IsBanned("invalid ip", ProtocolSSH))
 	hosts, err := defender.GetHosts()
 	assert.NoError(t, err)
 	assert.Len(t, hosts, 0)
 	_, err = defender.GetHost("10.8.0.3")
 	assert.Error(t, err)
 
-	defender.AddEvent("172.16.1.4", HostEventLoginFailed)
-	defender.AddEvent("192.168.8.4", HostEventUserNotFound)
-	defender.AddEvent("172.16.1.3", HostEventLimitExceeded)
+	defender.AddEvent("172.16.1.4", ProtocolSSH, HostEventLoginFailed)
+	defender.AddEvent("192.168.8.4", ProtocolSSH, HostEventUserNotFound)
+	defender.AddEvent("172.16.1.3", ProtocolSSH, HostEventLimitExceeded)
 	hosts, err = defender.GetHosts()
 	assert.NoError(t, err)
 	assert.Len(t, hosts, 0)
 	assert.True(t, defender.getLastCleanup().IsZero())
 
 	testIP := "123.45.67.89"
-	defender.AddEvent(testIP, HostEventLoginFailed)
+	defender.AddEvent(testIP, ProtocolSSH, HostEventLoginFailed)
 	lastCleanup := defender.getLastCleanup()
 	assert.False(t, lastCleanup.IsZero())
 	score, err := defender.GetScore(testIP)
@@ -118,7 +124,7 @@ func TestBasicDbDefender(t *testing.T) {
 	banTime, err := defender.GetBanTime(testIP)
 	assert.NoError(t, err)
 	assert.Nil(t, banTime)
-	defender.AddEvent(testIP, HostEventLimitExceeded)
+	defender.AddEvent(testIP, ProtocolSSH, HostEventLimitExceeded)
 	score, err = defender.GetScore(testIP)
 	assert.NoError(t, err)
 	assert.Equal(t, 4, score)
@@ -129,8 +135,8 @@ func TestBasicDbDefender(t *testing.T) {
 		assert.True(t, hosts[0].BanTime.IsZero())
 		assert.Empty(t, hosts[0].GetBanTime())
 	}
-	defender.AddEvent(testIP, HostEventNoLoginTried)
-	defender.AddEvent(testIP, HostEventNoLoginTried)
+	defender.AddEvent(testIP, ProtocolSSH, HostEventNoLoginTried)
+	defender.AddEvent(testIP, ProtocolSSH, HostEventNoLoginTried)
 	score, err = defender.GetScore(testIP)
 	assert.NoError(t, err)
 	assert.Equal(t, 0, score)
@@ -150,7 +156,7 @@ func TestBasicDbDefender(t *testing.T) {
 	assert.Equal(t, 0, host.Score)
 	assert.NotEmpty(t, host.GetBanTime())
 	// ban time should increase
-	assert.True(t, defender.IsBanned(testIP))
+	assert.True(t, defender.IsBanned(testIP, ProtocolSSH))
 	newBanTime, err := defender.GetBanTime(testIP)
 	assert.NoError(t, err)
 	assert.True(t, newBanTime.After(*banTime))
@@ -162,9 +168,9 @@ func TestBasicDbDefender(t *testing.T) {
 	testIP2 := "123.45.67.91"
 	testIP3 := "123.45.67.92"
 	for i := 0; i < 3; i++ {
-		defender.AddEvent(testIP, HostEventUserNotFound)
-		defender.AddEvent(testIP1, HostEventNoLoginTried)
-		defender.AddEvent(testIP2, HostEventUserNotFound)
+		defender.AddEvent(testIP, ProtocolSSH, HostEventUserNotFound)
+		defender.AddEvent(testIP1, ProtocolSSH, HostEventNoLoginTried)
+		defender.AddEvent(testIP2, ProtocolSSH, HostEventUserNotFound)
 	}
 	hosts, err = defender.GetHosts()
 	assert.NoError(t, err)
@@ -174,7 +180,7 @@ func TestBasicDbDefender(t *testing.T) {
 		assert.False(t, host.BanTime.IsZero())
 		assert.NotEmpty(t, host.GetBanTime())
 	}
-	defender.AddEvent(testIP3, HostEventLoginFailed)
+	defender.AddEvent(testIP3, ProtocolSSH, HostEventLoginFailed)
 	hosts, err = defender.GetHosts()
 	assert.NoError(t, err)
 	assert.Len(t, hosts, 4)
@@ -248,10 +254,10 @@ func TestBasicDbDefender(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, hosts, 0)
 
-	err = os.Remove(slFile)
-	assert.NoError(t, err)
-	err = os.Remove(blFile)
-	assert.NoError(t, err)
+	for _, e := range entries {
+		err := dataprovider.DeleteIPListEntry(e.IPOrNet, e.Type, "", "", "")
+		assert.NoError(t, err)
+	}
 }
 
 func TestDbDefenderCleanup(t *testing.T) {
@@ -280,6 +286,8 @@ func TestDbDefenderCleanup(t *testing.T) {
 	assert.False(t, lastCleanup.IsZero())
 	defender.cleanup()
 	assert.Equal(t, lastCleanup, defender.getLastCleanup())
+	defender.setLastCleanup(time.Time{})
+	assert.True(t, defender.getLastCleanup().IsZero())
 	defender.setLastCleanup(time.Now().Add(-time.Duration(config.ObservationTime) * time.Minute * 4))
 	time.Sleep(20 * time.Millisecond)
 	defender.cleanup()
@@ -289,7 +297,7 @@ func TestDbDefenderCleanup(t *testing.T) {
 	err = dataprovider.Close()
 	assert.NoError(t, err)
 
-	lastCleanup = time.Now().Add(-time.Duration(config.ObservationTime) * time.Minute * 4)
+	lastCleanup = util.GetTimeFromMsecSinceEpoch(time.Now().Add(-time.Duration(config.ObservationTime) * time.Minute * 4).UnixMilli())
 	defender.setLastCleanup(lastCleanup)
 	defender.cleanup()
 	// cleanup will fail and so last cleanup should be reset to the previous value

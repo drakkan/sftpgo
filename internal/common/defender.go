@@ -15,19 +15,10 @@
 package common
 
 import (
-	"encoding/json"
 	"fmt"
-	"net"
-	"os"
-	"strings"
-	"sync"
 	"time"
 
-	"github.com/yl2chen/cidranger"
-
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
-	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/util"
 )
 
 // HostEvent is the enumerable for the supported host events
@@ -55,12 +46,12 @@ var (
 type Defender interface {
 	GetHosts() ([]dataprovider.DefenderEntry, error)
 	GetHost(ip string) (dataprovider.DefenderEntry, error)
-	AddEvent(ip string, event HostEvent)
-	IsBanned(ip string) bool
+	AddEvent(ip, protocol string, event HostEvent)
+	IsBanned(ip, protocol string) bool
+	IsSafe(ip, protocol string) bool
 	GetBanTime(ip string) (*time.Time, error)
 	GetScore(ip string) (int, error)
 	DeleteHost(ip string) bool
-	Reload() error
 }
 
 // DefenderConfig defines the "defender" configuration
@@ -98,56 +89,30 @@ type DefenderConfig struct {
 	// to return when you request for the entire host list from the defender
 	EntriesSoftLimit int `json:"entries_soft_limit" mapstructure:"entries_soft_limit"`
 	EntriesHardLimit int `json:"entries_hard_limit" mapstructure:"entries_hard_limit"`
-	// Path to a file containing a list of IP addresses and/or networks to never ban
-	SafeListFile string `json:"safelist_file" mapstructure:"safelist_file"`
-	// Path to a file containing a list of IP addresses and/or networks to always ban
-	BlockListFile string `json:"blocklist_file" mapstructure:"blocklist_file"`
-	// List of IP addresses and/or networks to never ban.
-	// For large lists prefer SafeListFile
-	SafeList []string `json:"safelist" mapstructure:"safelist"`
-	// List of IP addresses and/or networks to always ban.
-	// For large lists prefer BlockListFile
-	BlockList []string `json:"blocklist" mapstructure:"blocklist"`
 }
 
 type baseDefender struct {
 	config *DefenderConfig
-	sync.RWMutex
-	safeList  *HostList
-	blockList *HostList
+	ipList *dataprovider.IPList
 }
 
-// Reload reloads block and safe lists
-func (d *baseDefender) Reload() error {
-	blockList, err := loadHostListFromFile(d.config.BlockListFile)
+func (d *baseDefender) isBanned(ip, protocol string) bool {
+	isListed, mode, err := d.ipList.IsListed(ip, protocol)
 	if err != nil {
-		return err
+		return false
 	}
-	blockList = addEntriesToList(d.config.BlockList, blockList, "blocklist")
-
-	d.Lock()
-	d.blockList = blockList
-	d.Unlock()
-
-	safeList, err := loadHostListFromFile(d.config.SafeListFile)
-	if err != nil {
-		return err
-	}
-	safeList = addEntriesToList(d.config.SafeList, safeList, "safelist")
-
-	d.Lock()
-	d.safeList = safeList
-	d.Unlock()
-
-	return nil
-}
-
-func (d *baseDefender) isBanned(ip string) bool {
-	if d.blockList != nil && d.blockList.isListed(ip) {
-		// permanent ban
+	if isListed && mode == dataprovider.ListModeDeny {
 		return true
 	}
 
+	return false
+}
+
+func (d *baseDefender) IsSafe(ip, protocol string) bool {
+	isListed, mode, err := d.ipList.IsListed(ip, protocol)
+	if err == nil && isListed && mode == dataprovider.ListModeAllow {
+		return true
+	}
 	return false
 }
 
@@ -165,31 +130,6 @@ func (d *baseDefender) getScore(event HostEvent) int {
 		score = d.config.ScoreNoAuth
 	}
 	return score
-}
-
-// HostListFile defines the structure expected for safe/block list files
-type HostListFile struct {
-	IPAddresses  []string `json:"addresses"`
-	CIDRNetworks []string `json:"networks"`
-}
-
-// HostList defines the structure used to keep the HostListFile in memory
-type HostList struct {
-	IPAddresses map[string]bool
-	Ranges      cidranger.Ranger
-}
-
-func (h *HostList) isListed(ip string) bool {
-	if _, ok := h.IPAddresses[ip]; ok {
-		return true
-	}
-
-	ok, err := h.Ranges.Contains(net.ParseIP(ip))
-	if err != nil {
-		return false
-	}
-
-	return ok
 }
 
 type hostEvent struct {
@@ -258,114 +198,4 @@ func (c *DefenderConfig) validate() error {
 	}
 
 	return nil
-}
-
-func loadHostListFromFile(name string) (*HostList, error) {
-	if name == "" {
-		return nil, nil
-	}
-	if !util.IsFileInputValid(name) {
-		return nil, fmt.Errorf("invalid host list file name %#v", name)
-	}
-
-	info, err := os.Stat(name)
-	if err != nil {
-		return nil, err
-	}
-
-	// opinionated max size, you should avoid big host lists
-	if info.Size() > 1048576*5 { // 5MB
-		return nil, fmt.Errorf("host list file %#v is too big: %v bytes", name, info.Size())
-	}
-
-	content, err := os.ReadFile(name)
-	if err != nil {
-		return nil, fmt.Errorf("unable to read input file %#v: %v", name, err)
-	}
-
-	var hostList HostListFile
-
-	err = json.Unmarshal(content, &hostList)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(hostList.CIDRNetworks) > 0 || len(hostList.IPAddresses) > 0 {
-		result := &HostList{
-			IPAddresses: make(map[string]bool),
-			Ranges:      cidranger.NewPCTrieRanger(),
-		}
-		ipCount := 0
-		cdrCount := 0
-		for _, ip := range hostList.IPAddresses {
-			if net.ParseIP(ip) == nil {
-				logger.Warn(logSender, "", "unable to parse IP %#v", ip)
-				continue
-			}
-			result.IPAddresses[ip] = true
-			ipCount++
-		}
-		for _, cidrNet := range hostList.CIDRNetworks {
-			_, network, err := net.ParseCIDR(cidrNet)
-			if err != nil {
-				logger.Warn(logSender, "", "unable to parse CIDR network %#v: %v", cidrNet, err)
-				continue
-			}
-			err = result.Ranges.Insert(cidranger.NewBasicRangerEntry(*network))
-			if err == nil {
-				cdrCount++
-			}
-		}
-
-		logger.Info(logSender, "", "list %#v loaded, ip addresses loaded: %v/%v networks loaded: %v/%v",
-			name, ipCount, len(hostList.IPAddresses), cdrCount, len(hostList.CIDRNetworks))
-		return result, nil
-	}
-
-	return nil, nil
-}
-
-func addEntriesToList(entries []string, hostList *HostList, listName string) *HostList {
-	if len(entries) == 0 {
-		return hostList
-	}
-
-	if hostList == nil {
-		hostList = &HostList{
-			IPAddresses: make(map[string]bool),
-			Ranges:      cidranger.NewPCTrieRanger(),
-		}
-	}
-	ipCount := 0
-	ipLoaded := 0
-	cdrCount := 0
-	cdrLoaded := 0
-
-	for _, entry := range entries {
-		entry = strings.TrimSpace(entry)
-		if strings.LastIndex(entry, "/") > 0 {
-			cdrCount++
-			_, network, err := net.ParseCIDR(entry)
-			if err != nil {
-				logger.Warn(logSender, "", "unable to parse CIDR network %#v: %v", entry, err)
-				continue
-			}
-			err = hostList.Ranges.Insert(cidranger.NewBasicRangerEntry(*network))
-			if err == nil {
-				cdrLoaded++
-			}
-		} else {
-			ipCount++
-			if net.ParseIP(entry) == nil {
-				logger.Warn(logSender, "", "unable to parse IP %#v", entry)
-				continue
-			}
-			hostList.IPAddresses[entry] = true
-			ipLoaded++
-		}
-	}
-	logger.Info(logSender, "", "%s from config loaded, ip addresses loaded: %v/%v networks loaded: %v/%v",
-		listName, ipLoaded, ipCount, cdrLoaded, cdrCount)
-
-	return hostList
 }

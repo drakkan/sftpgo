@@ -157,7 +157,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
     let dateFn = $.fn.dataTable.render.datetime();
     let isFsDataTableInitialized = false;
     let isProviderDataTableInitialized = false;
-    let pageSize = 20;
+    const pageSize = 20;
     const paginationData = new Map();
 
     function fileSizeIEC(a,b,c,d,e){
@@ -231,7 +231,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
         paginationData.set("prevClicked",false);
         paginationData.set("nextClicked",false);
         let exportURL = getSearchURL(true);
-        var ts = new Date().getTime().toString();
+        let ts = new Date().getTime().toString();
         window.open(`${exportURL}&_=${ts}`);
     }
 
@@ -338,9 +338,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                 "dataSrc": handleResponseData,
                 "error": function ($xhr, textStatus, errorThrown) {
                     $(".dataTables_processing").hide();
-                    var txt = "Failed to get provider events";
+                    let txt = "Failed to get provider events";
                     if ($xhr) {
-                        var json = $xhr.responseJSON;
+                        let json = $xhr.responseJSON;
                         if (json) {
                             if (json.message){
                                 txt += ": " + json.message;
@@ -423,7 +423,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                 "dataSrc": handleResponseData,
                 "error": function ($xhr, textStatus, errorThrown) {
                     $(".dataTables_processing").hide();
-                    var txt = "Failed to get filesystem events";
+                    let txt = "Failed to get filesystem events";
                     if ($xhr) {
                         let json = $xhr.responseJSON;
                         if (json) {

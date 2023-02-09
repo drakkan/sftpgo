@@ -109,18 +109,18 @@ func TestMain(m *testing.M) {
 	providerConf.BackupsPath = backupsPath
 	logger.InfoToConsole("Starting COMMON tests, provider: %v", providerConf.Driver)
 
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	if err != nil {
+		logger.ErrorToConsole("error initializing data provider: %v", err)
+		os.Exit(1)
+	}
+
 	err = common.Initialize(config.GetCommonConfig(), 0)
 	if err != nil {
 		logger.WarnToConsole("error initializing common: %v", err)
 		os.Exit(1)
 	}
 	common.SetCertAutoReloadMode(true)
-
-	err = dataprovider.Initialize(providerConf, configDir, true)
-	if err != nil {
-		logger.ErrorToConsole("error initializing data provider: %v", err)
-		os.Exit(1)
-	}
 
 	httpConfig := config.GetHTTPConfig()
 	httpConfig.Timeout = 5
@@ -3189,6 +3189,87 @@ func TestUserPasswordHashing(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestAllowList(t *testing.T) {
+	configCopy := common.Config
+
+	entries := []dataprovider.IPListEntry{
+		{
+			IPOrNet:   "172.18.1.1/32",
+			Type:      dataprovider.IPListTypeAllowList,
+			Mode:      dataprovider.ListModeAllow,
+			Protocols: 0,
+		},
+		{
+			IPOrNet:   "172.18.1.2/32",
+			Type:      dataprovider.IPListTypeAllowList,
+			Mode:      dataprovider.ListModeAllow,
+			Protocols: 0,
+		},
+		{
+			IPOrNet:   "10.8.7.0/24",
+			Type:      dataprovider.IPListTypeAllowList,
+			Mode:      dataprovider.ListModeAllow,
+			Protocols: 5,
+		},
+		{
+			IPOrNet:   "0.0.0.0/0",
+			Type:      dataprovider.IPListTypeAllowList,
+			Mode:      dataprovider.ListModeAllow,
+			Protocols: 8,
+		},
+		{
+			IPOrNet:   "::/0",
+			Type:      dataprovider.IPListTypeAllowList,
+			Mode:      dataprovider.ListModeAllow,
+			Protocols: 8,
+		},
+	}
+
+	for _, e := range entries {
+		_, resp, err := httpdtest.AddIPListEntry(e, http.StatusCreated)
+		assert.NoError(t, err, string(resp))
+	}
+
+	common.Config.AllowListStatus = 1
+	err := common.Initialize(common.Config, 0)
+	assert.NoError(t, err)
+	assert.True(t, common.Config.IsAllowListEnabled())
+
+	testIP := "172.18.1.1"
+	assert.NoError(t, common.Connections.IsNewConnectionAllowed(testIP, common.ProtocolFTP))
+	entry := entries[0]
+	entry.Protocols = 1
+	_, _, err = httpdtest.UpdateIPListEntry(entry, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Error(t, common.Connections.IsNewConnectionAllowed(testIP, common.ProtocolFTP))
+	assert.NoError(t, common.Connections.IsNewConnectionAllowed(testIP, common.ProtocolSSH))
+	_, err = httpdtest.RemoveIPListEntry(entry, http.StatusOK)
+	assert.NoError(t, err)
+	entries = entries[1:]
+	assert.Error(t, common.Connections.IsNewConnectionAllowed(testIP, common.ProtocolSSH))
+	assert.Error(t, common.Connections.IsNewConnectionAllowed("172.18.1.3", common.ProtocolSSH))
+	assert.NoError(t, common.Connections.IsNewConnectionAllowed("172.18.1.3", common.ProtocolHTTP))
+
+	assert.NoError(t, common.Connections.IsNewConnectionAllowed("10.8.7.3", common.ProtocolWebDAV))
+	assert.NoError(t, common.Connections.IsNewConnectionAllowed("10.8.7.4", common.ProtocolSSH))
+	assert.Error(t, common.Connections.IsNewConnectionAllowed("10.8.7.4", common.ProtocolFTP))
+	assert.NoError(t, common.Connections.IsNewConnectionAllowed("10.8.7.4", common.ProtocolHTTP))
+	assert.NoError(t, common.Connections.IsNewConnectionAllowed("2001:0db8::1428:57ab", common.ProtocolHTTP))
+	assert.Error(t, common.Connections.IsNewConnectionAllowed("2001:0db8::1428:57ab", common.ProtocolSSH))
+	assert.Error(t, common.Connections.IsNewConnectionAllowed("10.8.8.2", common.ProtocolWebDAV))
+	assert.Error(t, common.Connections.IsNewConnectionAllowed("invalid IP", common.ProtocolHTTP))
+
+	common.Config = configCopy
+	err = common.Initialize(common.Config, 0)
+	assert.NoError(t, err)
+	assert.False(t, common.Config.IsAllowListEnabled())
+
+	for _, e := range entries {
+		_, err := httpdtest.RemoveIPListEntry(e, http.StatusOK)
+		assert.NoError(t, err)
+	}
+}
+
 func TestDbDefenderErrors(t *testing.T) {
 	if !isDbDefenderSupported() {
 		t.Skip("this test is not supported with the current database provider")
@@ -3203,7 +3284,7 @@ func TestDbDefenderErrors(t *testing.T) {
 	hosts, err := common.GetDefenderHosts()
 	assert.NoError(t, err)
 	assert.Len(t, hosts, 0)
-	common.AddDefenderEvent(testIP, common.HostEventLimitExceeded)
+	common.AddDefenderEvent(testIP, common.ProtocolSSH, common.HostEventLimitExceeded)
 	hosts, err = common.GetDefenderHosts()
 	assert.NoError(t, err)
 	assert.Len(t, hosts, 1)
@@ -3217,7 +3298,7 @@ func TestDbDefenderErrors(t *testing.T) {
 	err = dataprovider.Close()
 	assert.NoError(t, err)
 
-	common.AddDefenderEvent(testIP, common.HostEventLimitExceeded)
+	common.AddDefenderEvent(testIP, common.ProtocolFTP, common.HostEventLimitExceeded)
 	_, err = common.GetDefenderHosts()
 	assert.Error(t, err)
 	_, err = common.GetDefenderHost(testIP)

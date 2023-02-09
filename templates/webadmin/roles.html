@@ -150,8 +150,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
             name: 'edit',
             titleAttr: "Edit",
             action: function (e, dt, node, config) {
-                var roleName = table.row({ selected: true }).data()[0];
-                var path = '{{.RoleURL}}' + "/" + fixedEncodeURIComponent(roleName);
+                let roleName = table.row({ selected: true }).data()[0];
+                let path = '{{.RoleURL}}' + "/" + fixedEncodeURIComponent(roleName);
                 window.location.href = path;
             },
             enabled: false

@@ -2,7 +2,7 @@
 
 SFTPGo allows to securely share your files over SFTP and optionally FTP/S and WebDAV too.
 Several storage backends are supported and they are configurable per user, so you can serve a local directory for a user and an S3 bucket (or part of it) for another one.
-SFTPGo also supports virtual folders, a virtual folder can use any of the supported storage backends. So you can have, for example, an S3 user that exposes a GCS bucket (or part of it) on a specified path and an encrypted local filesystem on another one.
+SFTPGo also supports virtual folders, a virtual folder can use any of the supported storage backends. So you can have, for example, a user with the S3 backend mapping a GCS bucket (or part of it) on a specified path and an encrypted local filesystem on another one.
 Virtual folders can be private or shared among multiple users, for shared virtual folders you can define different quota limits for each user.
 
 In this tutorial we explore the main features and concepts using the built-in web admin interface. Advanced users can also use the SFTPGo [REST API](https://sftpgo.stoplight.io/docs/sftpgo/openapi.yaml)
@@ -11,7 +11,7 @@ In this tutorial we explore the main features and concepts using the built-in we
 - [Initial configuration](#initial-configuration)
 - [Creating users](#creating-users)
   - [Creating users with a Cloud Storage backend](#creating-users-with-a-cloud-storage-backend)
-  - [Creating users with a local encrypted backend (Data At Rest Encryption)](#creating-users-with-a-local-encrypted-backend-data-at-rest-Encryption)
+  - [Creating users with a local encrypted backend (Data At Rest Encryption)](#creating-users-with-a-local-encrypted-backend-data-at-rest-encryption)
 - [Virtual permissions](#virtual-permissions)
 - [Virtual folders](#virtual-folders)
 - [Groups](#groups)
@@ -202,11 +202,11 @@ Suppose we created two virtual folders name `localfolder` and `minio` as you can
 
 Now, click `Users`, on the left menu, select a user and click the `Edit` icon, to update the user and associate the virtual folders.
 
-Virtual folders must be referenced using their unique name and you can expose them on a configurable virtual path. Take a look at the following screenshot.
+Virtual folders must be referenced using their unique name and you can map them on a configurable virtual path. Take a look at the following screenshot.
 
 ![Virtual Folders](./img/virtual-folders.png)
 
-We exposed the folder named `localfolder` on the path `/vdirlocal` (this must be an absolute UNIX path on Windows too) and the folder named `minio` on the path `/vdirminio`. For `localfolder` the quota usage is included within the user quota, while for the `minio` folder we defined separate quota limits: at most 2 files and at most 100MB, whichever is reached first.
+We mapped the folder named `localfolder` on the path `/vdirlocal` (this must be an absolute UNIX path on Windows too) and the folder named `minio` on the path `/vdirminio`. For `localfolder` the quota usage is included within the user quota, while for the `minio` folder we defined separate quota limits: at most 2 files and at most 100MB, whichever is reached first.
 
 The folder `minio` can be shared with other users and we can define different quota limits on a per-user basis. The folder `localfolder` is considered private since we have included its quota limits within those of the user, if we share them with other users we will break quota calculation.
 
@@ -621,7 +621,7 @@ Restart SFTPGo to apply the changes. The FTP service is now available on port `2
 
 You can also configure the passive ports range (`50000-50100` by default), these ports must be reachable for passive FTP to work. If your FTP server is on the private network side of a NAT configuration you have to set `force_passive_ip` to your external IP address. You may also need to open the passive port range on your firewall.
 
-It is recommended that you provide a certificate and key file to expose FTP over TLS. You should prefer SFTP to FTP even if you configure TLS, please don't blindly enable the old FTP protocol.
+It is recommended that you provide a certificate and key file to allow FTP over TLS. You should prefer SFTP to FTP even if you configure TLS, please don't blindly enable the old FTP protocol.
 
 ### Enable WebDAV service
 
@@ -656,4 +656,4 @@ Alternatively (recommended), you can use environment variables by creating the f
 SFTPGO_WEBDAVD__BINDINGS__0__PORT=10080
 ```
 
-Restart SFTPGo to apply the changes. The WebDAV service is now available on port `10080`. It is recommended that you provide a certificate and key file to expose WebDAV over https.
+Restart SFTPGo to apply the changes. The WebDAV service is now available on port `10080`. It is recommended that you provide a certificate and key file to allow WebDAV over https.

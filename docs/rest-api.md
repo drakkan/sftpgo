@@ -1,10 +1,10 @@
 # REST API
 
-SFTPGo exposes REST API to manage, backup, and restore users and folders, data retention, and to get real time reports of the active connections with the ability to forcibly close a connection.
+SFTPGo supports REST API to manage, backup, and restore users and folders, data retention, and to get real time reports of the active connections with the ability to forcibly close a connection.
 
 If quota tracking is enabled in the configuration file, then the used size and number of files are updated each time a file is added/removed. If files are added/removed not using SFTP/SCP, or if you change `track_quota` from `2` to `1`, you can rescan the users home dir and update the used quota using the REST API.
 
-REST API are protected using JSON Web Tokens (JWT) authentication and can be exposed over HTTPS. You can also configure client certificate authentication in addition to JWT.
+REST API are protected using JSON Web Tokens (JWT) authentication and can be served over HTTPS. You can also configure client certificate authentication in addition to JWT.
 
 You can get a JWT token using the `/api/v2/token` endpoint, you need to authenticate using HTTP Basic authentication and the credentials of an active administrator. Here is a sample response:
 
@@ -99,7 +99,7 @@ You can find an example script that shows how to manage data retention [here](..
 
 :warning: Deleting files is an irreversible action, please make sure you fully understand what you are doing before using this feature, you may have users with overlapping home directories or virtual folders shared between multiple users, it is relatively easy to inadvertently delete files you need.
 
-The OpenAPI 3 schema for the exposed API can be found inside the source tree: [openapi.yaml](../openapi/openapi.yaml "OpenAPI 3 specs"). You can render the schema and try the API using the `/openapi` endpoint. SFTPGo uses by default [Swagger UI](https://github.com/swagger-api/swagger-ui), you can use another renderer just by copying it to the defined OpenAPI path.
+The OpenAPI 3 schema for the supported APIs can be found inside the source tree: [openapi.yaml](../openapi/openapi.yaml "OpenAPI 3 specs"). You can render the schema and try the API using the `/openapi` endpoint. SFTPGo uses by default [Swagger UI](https://github.com/swagger-api/swagger-ui), you can use another renderer just by copying it to the defined OpenAPI path.
 
 You can also explore the schema on [Stoplight](https://sftpgo.stoplight.io/docs/sftpgo/openapi.yaml).
 

@@ -15,6 +15,7 @@
 package common
 
 import (
+	"sync/atomic"
 	"time"
 
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
@@ -24,7 +25,7 @@ import (
 
 type dbDefender struct {
 	baseDefender
-	lastCleanup time.Time
+	lastCleanup atomic.Int64
 }
 
 func newDBDefender(config *DefenderConfig) (Defender, error) {
@@ -32,16 +33,17 @@ func newDBDefender(config *DefenderConfig) (Defender, error) {
 	if err != nil {
 		return nil, err
 	}
+	ipList, err := dataprovider.NewIPList(dataprovider.IPListTypeDefender)
+	if err != nil {
+		return nil, err
+	}
 	defender := &dbDefender{
 		baseDefender: baseDefender{
 			config: config,
+			ipList: ipList,
 		},
-		lastCleanup: time.Time{},
 	}
-
-	if err := defender.Reload(); err != nil {
-		return nil, err
-	}
+	defender.lastCleanup.Store(0)
 
 	return defender, nil
 }
@@ -59,13 +61,10 @@ func (d *dbDefender) GetHost(ip string) (dataprovider.DefenderEntry, error) {
 // IsBanned returns true if the specified IP is banned
 // and increase ban time if the IP is found.
 // This method must be called as soon as the client connects
-func (d *dbDefender) IsBanned(ip string) bool {
-	d.RLock()
-	if d.baseDefender.isBanned(ip) {
-		d.RUnlock()
+func (d *dbDefender) IsBanned(ip, protocol string) bool {
+	if d.baseDefender.isBanned(ip, protocol) {
 		return true
 	}
-	d.RUnlock()
 
 	_, err := dataprovider.IsDefenderHostBanned(ip)
 	if err != nil {
@@ -90,13 +89,10 @@ func (d *dbDefender) DeleteHost(ip string) bool {
 
 // AddEvent adds an event for the given IP.
 // This method must be called for clients not yet banned
-func (d *dbDefender) AddEvent(ip string, event HostEvent) {
-	d.RLock()
-	if d.safeList != nil && d.safeList.isListed(ip) {
-		d.RUnlock()
+func (d *dbDefender) AddEvent(ip, protocol string, event HostEvent) {
+	if d.IsSafe(ip, protocol) {
 		return
 	}
-	d.RUnlock()
 
 	score := d.baseDefender.getScore(event)
 
@@ -165,15 +161,17 @@ func (d *dbDefender) getStartObservationTime() int64 {
 }
 
 func (d *dbDefender) getLastCleanup() time.Time {
-	d.RLock()
-	defer d.RUnlock()
-
-	return d.lastCleanup
+	val := d.lastCleanup.Load()
+	if val == 0 {
+		return time.Time{}
+	}
+	return util.GetTimeFromMsecSinceEpoch(val)
 }
 
 func (d *dbDefender) setLastCleanup(when time.Time) {
-	d.Lock()
-	defer d.Unlock()
-
-	d.lastCleanup = when
+	if when.IsZero() {
+		d.lastCleanup.Store(0)
+		return
+	}
+	d.lastCleanup.Store(util.GetTimeAsMsSinceEpoch(when))
 }

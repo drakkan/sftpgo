@@ -32,6 +32,7 @@ import (
 	"math"
 	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"os"
 	"path"
@@ -774,4 +775,27 @@ func GetAbsolutePath(name string) (string, error) {
 		return name, err
 	}
 	return filepath.Join(curDir, name), nil
+}
+
+// GetLastIPForPrefix returns the last IP for the given prefix
+// https://github.com/go4org/netipx/blob/8449b0a6169f5140fb0340cb4fc0de4c9b281ef6/netipx.go#L173
+func GetLastIPForPrefix(p netip.Prefix) netip.Addr {
+	if !p.IsValid() {
+		return netip.Addr{}
+	}
+	a16 := p.Addr().As16()
+	var off uint8
+	var bits uint8 = 128
+	if p.Addr().Is4() {
+		off = 12
+		bits = 32
+	}
+	for b := uint8(p.Bits()); b < bits; b++ {
+		byteNum, bitInByte := b/8, 7-(b%8)
+		a16[off+byteNum] |= 1 << uint(bitInByte)
+	}
+	if p.Addr().Is4() {
+		return netip.AddrFrom16(a16).Unmap()
+	}
+	return netip.AddrFrom16(a16) // doesn't unmap
 }

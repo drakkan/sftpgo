@@ -500,7 +500,7 @@ func (c *EventActionEmailConfig) validate() error {
 
 // FolderRetention defines a folder retention configuration
 type FolderRetention struct {
-	// Path is the exposed virtual directory path, if no other specific retention is defined,
+	// Path is the virtual directory path, if no other specific retention is defined,
 	// the retention applies for sub directories too. For example if retention is defined
 	// for the paths "/" and "/sub" then the retention for "/" is applied for any file outside
 	// the "/sub" directory

@@ -56,6 +56,7 @@ DROP TABLE IF EXISTS "{{events_rules}}" CASCADE;
 DROP TABLE IF EXISTS "{{tasks}}" CASCADE;
 DROP TABLE IF EXISTS "{{nodes}}" CASCADE;
 DROP TABLE IF EXISTS "{{roles}}" CASCADE;
+DROP TABLE IF EXISTS "{{ip_lists}}" CASCADE;
 DROP TABLE IF EXISTS "{{schema_version}}" CASCADE;
 `
 	pgsqlInitial = `CREATE TABLE "{{schema_version}}" ("id" serial NOT NULL PRIMARY KEY, "version" integer NOT NULL);
@@ -202,6 +203,19 @@ ALTER TABLE "{{users}}" ALTER COLUMN "last_password_change" DROP DEFAULT;
 ALTER TABLE "{{events_rules}}" ALTER COLUMN "status" DROP DEFAULT;
 `
 	pgsqlV26DownSQL = `ALTER TABLE "{{events_rules}}" DROP COLUMN "status" CASCADE;`
+	pgsqlV27SQL     = `CREATE TABLE "{{ip_lists}}" ("id" bigserial NOT NULL PRIMARY KEY, "type" integer NOT NULL,
+"ipornet" varchar(50) NOT NULL, "mode" integer NOT NULL, "description" varchar(512) NULL, "first" inet NOT NULL,
+"last" inet NOT NULL, "ip_type" integer NOT NULL, "protocols" integer NOT NULL,  "created_at" bigint NOT NULL,
+"updated_at" bigint NOT NULL, "deleted_at" bigint NOT NULL);
+ALTER TABLE "{{ip_lists}}" ADD CONSTRAINT "{{prefix}}unique_ipornet_type_mapping" UNIQUE ("type", "ipornet");
+CREATE INDEX "{{prefix}}ip_lists_type_idx" ON "{{ip_lists}}" ("type");
+CREATE INDEX "{{prefix}}ip_lists_ipornet_idx" ON "{{ip_lists}}" ("ipornet");
+CREATE INDEX "{{prefix}}ip_lists_ipornet_like_idx" ON "{{ip_lists}}" ("ipornet" varchar_pattern_ops);
+CREATE INDEX "{{prefix}}ip_lists_updated_at_idx" ON "{{ip_lists}}" ("updated_at");
+CREATE INDEX "{{prefix}}ip_lists_deleted_at_idx" ON "{{ip_lists}}" ("deleted_at");
+CREATE INDEX "{{prefix}}ip_lists_first_last_idx" ON "{{ip_lists}}" ("first", "last");
+`
+	pgsqlV27DownSQL = `DROP TABLE "{{ip_lists}}" CASCADE;`
 )
 
 // PGSQLProvider defines the auth provider for PostgreSQL database
@@ -668,6 +682,42 @@ func (p *PGSQLProvider) dumpRoles() ([]Role, error) {
 	return sqlCommonDumpRoles(p.dbHandle)
 }
 
+func (p *PGSQLProvider) ipListEntryExists(ipOrNet string, listType IPListType) (IPListEntry, error) {
+	return sqlCommonGetIPListEntry(ipOrNet, listType, p.dbHandle)
+}
+
+func (p *PGSQLProvider) addIPListEntry(entry *IPListEntry) error {
+	return sqlCommonAddIPListEntry(entry, p.dbHandle)
+}
+
+func (p *PGSQLProvider) updateIPListEntry(entry *IPListEntry) error {
+	return sqlCommonUpdateIPListEntry(entry, p.dbHandle)
+}
+
+func (p *PGSQLProvider) deleteIPListEntry(entry IPListEntry, softDelete bool) error {
+	return sqlCommonDeleteIPListEntry(entry, softDelete, p.dbHandle)
+}
+
+func (p *PGSQLProvider) getIPListEntries(listType IPListType, filter, from, order string, limit int) ([]IPListEntry, error) {
+	return sqlCommonGetIPListEntries(listType, filter, from, order, limit, p.dbHandle)
+}
+
+func (p *PGSQLProvider) getRecentlyUpdatedIPListEntries(after int64) ([]IPListEntry, error) {
+	return sqlCommonGetRecentlyUpdatedIPListEntries(after, p.dbHandle)
+}
+
+func (p *PGSQLProvider) dumpIPListEntries() ([]IPListEntry, error) {
+	return sqlCommonDumpIPListEntries(p.dbHandle)
+}
+
+func (p *PGSQLProvider) countIPListEntries(listType IPListType) (int64, error) {
+	return sqlCommonCountIPListEntries(listType, p.dbHandle)
+}
+
+func (p *PGSQLProvider) getListEntriesForIP(ip string, listType IPListType) ([]IPListEntry, error) {
+	return sqlCommonGetListEntriesForIP(ip, listType, p.dbHandle)
+}
+
 func (p *PGSQLProvider) setFirstDownloadTimestamp(username string) error {
 	return sqlCommonSetFirstDownloadTimestamp(username, p.dbHandle)
 }
@@ -721,6 +771,8 @@ func (p *PGSQLProvider) migrateDatabase() error { //nolint:dupl
 		return updatePgSQLDatabaseFromV24(p.dbHandle)
 	case version == 25:
 		return updatePgSQLDatabaseFromV25(p.dbHandle)
+	case version == 26:
+		return updatePgSQLDatabaseFromV26(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -749,6 +801,8 @@ func (p *PGSQLProvider) revertDatabase(targetVersion int) error {
 		return downgradePgSQLDatabaseFromV25(p.dbHandle)
 	case 26:
 		return downgradePgSQLDatabaseFromV26(p.dbHandle)
+	case 27:
+		return downgradePgSQLDatabaseFromV27(p.dbHandle)
 	default:
 		return fmt.Errorf("database schema version not handled: %d", dbVersion.Version)
 	}
@@ -774,7 +828,14 @@ func updatePgSQLDatabaseFromV24(dbHandle *sql.DB) error {
 }
 
 func updatePgSQLDatabaseFromV25(dbHandle *sql.DB) error {
-	return updatePgSQLDatabaseFrom25To26(dbHandle)
+	if err := updatePgSQLDatabaseFrom25To26(dbHandle); err != nil {
+		return err
+	}
+	return updatePgSQLDatabaseFromV26(dbHandle)
+}
+
+func updatePgSQLDatabaseFromV26(dbHandle *sql.DB) error {
+	return updatePgSQLDatabaseFrom26To27(dbHandle)
 }
 
 func downgradePgSQLDatabaseFromV24(dbHandle *sql.DB) error {
@@ -793,6 +854,13 @@ func downgradePgSQLDatabaseFromV26(dbHandle *sql.DB) error {
 		return err
 	}
 	return downgradePgSQLDatabaseFromV25(dbHandle)
+}
+
+func downgradePgSQLDatabaseFromV27(dbHandle *sql.DB) error {
+	if err := downgradePgSQLDatabaseFrom27To26(dbHandle); err != nil {
+		return err
+	}
+	return downgradePgSQLDatabaseFromV26(dbHandle)
 }
 
 func updatePgSQLDatabaseFrom23To24(dbHandle *sql.DB) error {
@@ -827,6 +895,18 @@ func updatePgSQLDatabaseFrom25To26(dbHandle *sql.DB) error {
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 26, true)
 }
 
+func updatePgSQLDatabaseFrom26To27(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database schema version: 26 -> 27")
+	providerLog(logger.LevelInfo, "updating database schema version: 26 -> 27")
+	sql := pgsqlV27SQL
+	if config.Driver == CockroachDataProviderName {
+		sql = strings.ReplaceAll(sql, `CREATE INDEX "{{prefix}}ip_lists_ipornet_like_idx" ON "{{ip_lists}}" ("ipornet" varchar_pattern_ops);`, "")
+	}
+	sql = strings.ReplaceAll(sql, "{{ip_lists}}", sqlTableIPLists)
+	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 27, true)
+}
+
 func downgradePgSQLDatabaseFrom24To23(dbHandle *sql.DB) error {
 	logger.InfoToConsole("downgrading database schema version: 24 -> 23")
 	providerLog(logger.LevelInfo, "downgrading database schema version: 24 -> 23")
@@ -849,4 +929,11 @@ func downgradePgSQLDatabaseFrom26To25(dbHandle *sql.DB) error {
 	providerLog(logger.LevelInfo, "downgrading database schema version: 26 -> 25")
 	sql := strings.ReplaceAll(pgsqlV26DownSQL, "{{events_rules}}", sqlTableEventsRules)
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 25, false)
+}
+
+func downgradePgSQLDatabaseFrom27To26(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database schema version: 27 -> 26")
+	providerLog(logger.LevelInfo, "downgrading database schema version: 27 -> 26")
+	sql := strings.ReplaceAll(pgsqlV27DownSQL, "{{ip_lists}}", sqlTableIPLists)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 26, false)
 }

@@ -13,7 +13,7 @@ func init() {
 	version.AddFeature("-metrics")
 }
 
-// AddMetricsEndpoint exposes metrics to the specified endpoint
+// AddMetricsEndpoint publishes metrics to the specified endpoint
 func AddMetricsEndpoint(_ string, _ chi.Router) {}
 
 // TransferCompleted updates metrics after an upload or a download

@@ -127,6 +127,7 @@ const (
 	eventActionsPath               = "/api/v2/eventactions"
 	eventRulesPath                 = "/api/v2/eventrules"
 	rolesPath                      = "/api/v2/roles"
+	ipListsPath                    = "/api/v2/iplists"
 	healthzPath                    = "/healthz"
 	robotsTxtPath                  = "/robots.txt"
 	webBasePath                    = "/web"
@@ -151,6 +152,8 @@ const (
 	webTemplateUser                = "/web/admin/template/user"
 	webTemplateFolder              = "/web/admin/template/folder"
 	webDefenderPath                = "/web/admin/defender"
+	webIPListsPath                 = "/web/admin/ip-lists"
+	webIPListPath                  = "/web/admin/ip-list"
 	webAdminTwoFactorPath          = "/web/admin/twofactor"
 	webAdminTwoFactorRecoveryPath  = "/web/admin/twofactor-recovery"
 	webAdminMFAPath                = "/web/admin/mfa"
@@ -330,12 +333,6 @@ func TestMain(m *testing.M) {
 	providerConf := config.GetProviderConf()
 	logger.InfoToConsole("Starting HTTPD tests, provider: %v", providerConf.Driver)
 
-	err = common.Initialize(config.GetCommonConfig(), 0)
-	if err != nil {
-		logger.WarnToConsole("error initializing common: %v", err)
-		os.Exit(1)
-	}
-
 	backupsPath = filepath.Join(os.TempDir(), "test_backups")
 	providerConf.BackupsPath = backupsPath
 	err = os.MkdirAll(backupsPath, os.ModePerm)
@@ -347,6 +344,12 @@ func TestMain(m *testing.M) {
 	err = dataprovider.Initialize(providerConf, configDir, true)
 	if err != nil {
 		logger.WarnToConsole("error initializing data provider: %v", err)
+		os.Exit(1)
+	}
+
+	err = common.Initialize(config.GetCommonConfig(), 0)
+	if err != nil {
+		logger.WarnToConsole("error initializing common: %v", err)
 		os.Exit(1)
 	}
 
@@ -1278,6 +1281,206 @@ func TestGroupSettingsOverride(t *testing.T) {
 	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName1}, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName2}, http.StatusOK)
+	assert.NoError(t, err)
+}
+
+func TestBasicIPListEntriesHandling(t *testing.T) {
+	entry := dataprovider.IPListEntry{
+		IPOrNet:     "::ffff:12.34.56.78",
+		Type:        dataprovider.IPListTypeAllowList,
+		Mode:        dataprovider.ListModeAllow,
+		Description: "test desc",
+	}
+	_, _, err := httpdtest.GetIPListEntry(entry.IPOrNet, -1, http.StatusBadRequest)
+	assert.NoError(t, err)
+	_, _, err = httpdtest.UpdateIPListEntry(entry, http.StatusNotFound)
+	assert.NoError(t, err)
+	_, _, err = httpdtest.AddIPListEntry(entry, http.StatusCreated)
+	assert.Error(t, err)
+	// IPv4 address in IPv6 will be converted to standard IPv4
+	entry1, _, err := httpdtest.GetIPListEntry("12.34.56.78/32", dataprovider.IPListTypeAllowList, http.StatusOK)
+	assert.NoError(t, err)
+
+	entry = dataprovider.IPListEntry{
+		IPOrNet: "192.168.0.0/24",
+		Type:    dataprovider.IPListTypeDefender,
+		Mode:    dataprovider.ListModeDeny,
+	}
+	entry2, _, err := httpdtest.AddIPListEntry(entry, http.StatusCreated)
+	assert.NoError(t, err)
+	// adding the same entry again should fail
+	_, _, err = httpdtest.AddIPListEntry(entry, http.StatusInternalServerError)
+	assert.NoError(t, err)
+	// adding an entry with an invalid IP should fail
+	entry.IPOrNet = "invalid"
+	_, _, err = httpdtest.AddIPListEntry(entry, http.StatusBadRequest)
+	assert.NoError(t, err)
+	// adding an entry with an incompatible mode should fail
+	entry.IPOrNet = entry2.IPOrNet
+	entry.Mode = -1
+	_, _, err = httpdtest.AddIPListEntry(entry, http.StatusBadRequest)
+	assert.NoError(t, err)
+	entry.Type = -1
+	_, _, err = httpdtest.UpdateIPListEntry(entry, http.StatusBadRequest)
+	assert.NoError(t, err)
+	entry = dataprovider.IPListEntry{
+		IPOrNet: "2001:4860:4860::8888/120",
+		Type:    dataprovider.IPListTypeRateLimiterSafeList,
+		Mode:    dataprovider.ListModeDeny,
+	}
+	_, _, err = httpdtest.AddIPListEntry(entry, http.StatusBadRequest)
+	assert.NoError(t, err)
+	entry.Mode = dataprovider.ListModeAllow
+	_, _, err = httpdtest.AddIPListEntry(entry, http.StatusCreated)
+	assert.NoError(t, err)
+	entry.Protocols = 3
+	entry3, _, err := httpdtest.UpdateIPListEntry(entry, http.StatusOK)
+	assert.NoError(t, err)
+	entry.Mode = dataprovider.ListModeDeny
+	_, _, err = httpdtest.UpdateIPListEntry(entry, http.StatusBadRequest)
+	assert.NoError(t, err)
+
+	for _, tt := range []dataprovider.IPListType{dataprovider.IPListTypeAllowList, dataprovider.IPListTypeDefender, dataprovider.IPListTypeRateLimiterSafeList} {
+		entries, _, err := httpdtest.GetIPListEntries(tt, "", "", dataprovider.OrderASC, 0, http.StatusOK)
+		assert.NoError(t, err)
+		if assert.Len(t, entries, 1) {
+			switch tt {
+			case dataprovider.IPListTypeAllowList:
+				assert.Equal(t, entry1, entries[0])
+			case dataprovider.IPListTypeDefender:
+				assert.Equal(t, entry2, entries[0])
+			case dataprovider.IPListTypeRateLimiterSafeList:
+				assert.Equal(t, entry3, entries[0])
+			}
+		}
+	}
+
+	_, _, err = httpdtest.GetIPListEntries(dataprovider.IPListTypeAllowList, "", "", "invalid order", 0, http.StatusBadRequest)
+	assert.NoError(t, err)
+	_, _, err = httpdtest.GetIPListEntries(-1, "", "", dataprovider.OrderASC, 0, http.StatusBadRequest)
+	assert.NoError(t, err)
+
+	_, err = httpdtest.RemoveIPListEntry(entry1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveIPListEntry(entry1, http.StatusNotFound)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveIPListEntry(entry2, http.StatusOK)
+	assert.NoError(t, err)
+	entry2.Type = -1
+	_, err = httpdtest.RemoveIPListEntry(entry2, http.StatusBadRequest)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveIPListEntry(entry3, http.StatusOK)
+	assert.NoError(t, err)
+}
+
+func TestSearchIPListEntries(t *testing.T) {
+	entries := []dataprovider.IPListEntry{
+		{
+			IPOrNet:   "192.168.0.0/24",
+			Type:      dataprovider.IPListTypeAllowList,
+			Mode:      dataprovider.ListModeAllow,
+			Protocols: 0,
+		},
+		{
+			IPOrNet:   "192.168.0.1/24",
+			Type:      dataprovider.IPListTypeAllowList,
+			Mode:      dataprovider.ListModeAllow,
+			Protocols: 0,
+		},
+		{
+			IPOrNet:   "192.168.0.2/24",
+			Type:      dataprovider.IPListTypeAllowList,
+			Mode:      dataprovider.ListModeAllow,
+			Protocols: 5,
+		},
+		{
+			IPOrNet:   "192.168.0.3/24",
+			Type:      dataprovider.IPListTypeAllowList,
+			Mode:      dataprovider.ListModeAllow,
+			Protocols: 8,
+		},
+		{
+			IPOrNet:   "10.8.0.0/24",
+			Type:      dataprovider.IPListTypeAllowList,
+			Mode:      dataprovider.ListModeAllow,
+			Protocols: 3,
+		},
+		{
+			IPOrNet:   "10.8.1.0/24",
+			Type:      dataprovider.IPListTypeAllowList,
+			Mode:      dataprovider.ListModeAllow,
+			Protocols: 8,
+		},
+		{
+			IPOrNet:   "10.8.2.0/24",
+			Type:      dataprovider.IPListTypeAllowList,
+			Mode:      dataprovider.ListModeAllow,
+			Protocols: 1,
+		},
+	}
+
+	for _, e := range entries {
+		_, _, err := httpdtest.AddIPListEntry(e, http.StatusCreated)
+		assert.NoError(t, err)
+	}
+
+	results, _, err := httpdtest.GetIPListEntries(dataprovider.IPListTypeAllowList, "", "", dataprovider.OrderASC, 20, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Equal(t, len(entries), len(results)) {
+		assert.Equal(t, "10.8.0.0/24", results[0].IPOrNet)
+	}
+	results, _, err = httpdtest.GetIPListEntries(dataprovider.IPListTypeAllowList, "", "", dataprovider.OrderDESC, 20, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Equal(t, len(entries), len(results)) {
+		assert.Equal(t, "192.168.0.3/24", results[0].IPOrNet)
+	}
+	results, _, err = httpdtest.GetIPListEntries(dataprovider.IPListTypeAllowList, "", "192.168.0.1/24", dataprovider.OrderASC, 1, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Equal(t, 1, len(results), results) {
+		assert.Equal(t, "192.168.0.2/24", results[0].IPOrNet)
+	}
+	results, _, err = httpdtest.GetIPListEntries(dataprovider.IPListTypeAllowList, "", "10.8.2.0/24", dataprovider.OrderDESC, 1, http.StatusOK)
+	assert.NoError(t, err)
+	if assert.Equal(t, 1, len(results), results) {
+		assert.Equal(t, "10.8.1.0/24", results[0].IPOrNet)
+	}
+	results, _, err = httpdtest.GetIPListEntries(dataprovider.IPListTypeAllowList, "10.", "", dataprovider.OrderASC, 20, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, 3, len(results))
+	results, _, err = httpdtest.GetIPListEntries(dataprovider.IPListTypeAllowList, "192", "", dataprovider.OrderASC, 20, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, 4, len(results))
+	results, _, err = httpdtest.GetIPListEntries(dataprovider.IPListTypeAllowList, "1", "", dataprovider.OrderASC, 20, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, 7, len(results))
+	results, _, err = httpdtest.GetIPListEntries(dataprovider.IPListTypeAllowList, "108", "", dataprovider.OrderASC, 20, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, len(results))
+
+	for _, e := range entries {
+		_, err := httpdtest.RemoveIPListEntry(e, http.StatusOK)
+		assert.NoError(t, err)
+	}
+}
+
+func TestIPListEntriesValidation(t *testing.T) {
+	entry := dataprovider.IPListEntry{
+		IPOrNet: "::ffff:34.56.78.90/120",
+		Type:    -1,
+		Mode:    dataprovider.ListModeDeny,
+	}
+	_, resp, err := httpdtest.AddIPListEntry(entry, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "invalid list type")
+	entry.Type = dataprovider.IPListTypeRateLimiterSafeList
+	_, resp, err = httpdtest.AddIPListEntry(entry, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "invalid list mode")
+	entry.Type = dataprovider.IPListTypeDefender
+	_, _, err = httpdtest.AddIPListEntry(entry, http.StatusCreated)
+	assert.Error(t, err)
+	entry.IPOrNet = "34.56.78.0/24"
+	_, err = httpdtest.RemoveIPListEntry(entry, http.StatusOK)
 	assert.NoError(t, err)
 }
 
@@ -6503,6 +6706,8 @@ func TestProviderErrors(t *testing.T) {
 	assert.NoError(t, err)
 	_, _, err = httpdtest.GetEventRules(1, 0, http.StatusInternalServerError)
 	assert.NoError(t, err)
+	_, _, err = httpdtest.GetIPListEntries(dataprovider.IPListTypeDefender, "", "", dataprovider.OrderASC, 10, http.StatusInternalServerError)
+	assert.NoError(t, err)
 	_, _, err = httpdtest.GetRoles(1, 0, http.StatusInternalServerError)
 	assert.NoError(t, err)
 	_, _, err = httpdtest.UpdateRole(getTestRole(), http.StatusInternalServerError)
@@ -6686,6 +6891,22 @@ func TestProviderErrors(t *testing.T) {
 		Roles: []dataprovider.Role{
 			{
 				Name: "role1",
+			},
+		},
+		Version: dataprovider.DumpVersion,
+	}
+	backupContent, err = json.Marshal(backupData)
+	assert.NoError(t, err)
+	err = os.WriteFile(backupFilePath, backupContent, os.ModePerm)
+	assert.NoError(t, err)
+	_, _, err = httpdtest.Loaddata(backupFilePath, "", "", http.StatusInternalServerError)
+	assert.NoError(t, err)
+	backupData = dataprovider.BackupData{
+		IPLists: []dataprovider.IPListEntry{
+			{
+				IPOrNet: "192.168.1.1/24",
+				Type:    dataprovider.IPListTypeRateLimiterSafeList,
+				Mode:    dataprovider.ListModeAllow,
 			},
 		},
 		Version: dataprovider.DumpVersion,
@@ -6973,11 +7194,11 @@ func TestDefenderAPI(t *testing.T) {
 		_, err = httpdtest.RemoveDefenderHostByIP(ip, http.StatusNotFound)
 		assert.NoError(t, err)
 
-		common.AddDefenderEvent(ip, common.HostEventNoLoginTried)
+		common.AddDefenderEvent(ip, common.ProtocolHTTP, common.HostEventNoLoginTried)
 		hosts, _, err = httpdtest.GetDefenderHosts(http.StatusOK)
 		assert.NoError(t, err)
 		assert.Len(t, hosts, 0)
-		common.AddDefenderEvent(ip, common.HostEventUserNotFound)
+		common.AddDefenderEvent(ip, common.ProtocolHTTP, common.HostEventUserNotFound)
 		hosts, _, err = httpdtest.GetDefenderHosts(http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, hosts, 1) {
@@ -6991,7 +7212,7 @@ func TestDefenderAPI(t *testing.T) {
 		assert.Empty(t, host.GetBanTime())
 		assert.Equal(t, 2, host.Score)
 
-		common.AddDefenderEvent(ip, common.HostEventUserNotFound)
+		common.AddDefenderEvent(ip, common.ProtocolHTTP, common.HostEventUserNotFound)
 		hosts, _, err = httpdtest.GetDefenderHosts(http.StatusOK)
 		assert.NoError(t, err)
 		if assert.Len(t, hosts, 1) {
@@ -7011,8 +7232,8 @@ func TestDefenderAPI(t *testing.T) {
 		_, _, err = httpdtest.GetDefenderHostByIP(ip, http.StatusNotFound)
 		assert.NoError(t, err)
 
-		common.AddDefenderEvent(ip, common.HostEventUserNotFound)
-		common.AddDefenderEvent(ip, common.HostEventUserNotFound)
+		common.AddDefenderEvent(ip, common.ProtocolHTTP, common.HostEventUserNotFound)
+		common.AddDefenderEvent(ip, common.ProtocolHTTP, common.HostEventUserNotFound)
 		hosts, _, err = httpdtest.GetDefenderHosts(http.StatusOK)
 		assert.NoError(t, err)
 		assert.Len(t, hosts, 1)
@@ -7289,6 +7510,13 @@ func TestLoaddata(t *testing.T) {
 			Name: group.Name,
 		},
 	}
+	ipListEntry := dataprovider.IPListEntry{
+		IPOrNet:     "172.16.2.4/32",
+		Description: "entry desc",
+		Type:        dataprovider.IPListTypeDefender,
+		Mode:        dataprovider.ListModeDeny,
+		Protocols:   3,
+	}
 	apiKey := dataprovider.APIKey{
 		Name:  util.GenerateUniqueID(),
 		Scope: dataprovider.APIKeyScopeAdmin,
@@ -7361,6 +7589,7 @@ func TestLoaddata(t *testing.T) {
 	backupData.Shares = append(backupData.Shares, share)
 	backupData.EventActions = append(backupData.EventActions, action)
 	backupData.EventRules = append(backupData.EventRules, rule)
+	backupData.IPLists = append(backupData.IPLists, ipListEntry)
 	backupContent, err := json.Marshal(backupData)
 	assert.NoError(t, err)
 	backupFilePath := filepath.Join(backupsPath, "backup.json")
@@ -7411,6 +7640,14 @@ func TestLoaddata(t *testing.T) {
 
 	action, _, err = httpdtest.GetEventActionByName(action.Name, http.StatusOK)
 	assert.NoError(t, err)
+
+	entry, _, err := httpdtest.GetIPListEntry(ipListEntry.IPOrNet, ipListEntry.Type, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Greater(t, entry.CreatedAt, int64(0))
+	assert.Greater(t, entry.UpdatedAt, int64(0))
+	assert.Equal(t, ipListEntry.Description, entry.Description)
+	assert.Equal(t, ipListEntry.Protocols, entry.Protocols)
+	assert.Equal(t, ipListEntry.Mode, entry.Mode)
 
 	rule, _, err = httpdtest.GetEventRuleByName(rule.Name, http.StatusOK)
 	assert.NoError(t, err)
@@ -7493,10 +7730,12 @@ func TestLoaddata(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveRole(role, http.StatusOK)
 	assert.NoError(t, err)
+	_, err = httpdtest.RemoveIPListEntry(entry, http.StatusOK)
+	assert.NoError(t, err)
 
 	err = os.Remove(backupFilePath)
 	assert.NoError(t, err)
-	err = createTestFile(backupFilePath, 10485761)
+	err = createTestFile(backupFilePath, 20*1048576+1)
 	assert.NoError(t, err)
 	_, _, err = httpdtest.Loaddata(backupFilePath, "1", "0", http.StatusBadRequest)
 	assert.NoError(t, err)
@@ -7581,6 +7820,13 @@ func TestLoaddataMode(t *testing.T) {
 			},
 		},
 	}
+	ipListEntry := dataprovider.IPListEntry{
+		IPOrNet:     "10.8.3.9/32",
+		Description: "note",
+		Type:        dataprovider.IPListTypeDefender,
+		Mode:        dataprovider.ListModeDeny,
+		Protocols:   7,
+	}
 	backupData := dataprovider.BackupData{
 		Version: dataprovider.DumpVersion,
 	}
@@ -7606,6 +7852,7 @@ func TestLoaddataMode(t *testing.T) {
 	}
 	backupData.APIKeys = append(backupData.APIKeys, apiKey)
 	backupData.Shares = append(backupData.Shares, share)
+	backupData.IPLists = append(backupData.IPLists, ipListEntry)
 	backupContent, _ := json.Marshal(backupData)
 	backupFilePath := filepath.Join(backupsPath, "backup.json")
 	err := os.WriteFile(backupFilePath, backupContent, os.ModePerm)
@@ -7676,6 +7923,13 @@ func TestLoaddataMode(t *testing.T) {
 	rule, _, err = httpdtest.UpdateEventRule(rule, http.StatusOK)
 	assert.NoError(t, err)
 
+	entry, _, err := httpdtest.GetIPListEntry(ipListEntry.IPOrNet, ipListEntry.Type, http.StatusOK)
+	assert.NoError(t, err)
+	oldEntryDesc := entry.Description
+	entry.Description = "new note"
+	entry, _, err = httpdtest.UpdateIPListEntry(entry, http.StatusOK)
+	assert.NoError(t, err)
+
 	backupData.Folders = []vfs.BaseVirtualFolder{
 		{
 			MappedPath: mappedPath,
@@ -7700,6 +7954,9 @@ func TestLoaddataMode(t *testing.T) {
 	rule, _, err = httpdtest.GetEventRuleByName(rule.Name, http.StatusOK)
 	assert.NoError(t, err)
 	assert.NotEqual(t, oldRuleDesc, rule.Description)
+	entry, _, err = httpdtest.GetIPListEntry(ipListEntry.IPOrNet, ipListEntry.Type, http.StatusOK)
+	assert.NoError(t, err)
+	assert.NotEqual(t, oldEntryDesc, entry.Description)
 
 	c := common.NewBaseConnection("connID", common.ProtocolFTP, "", "", user)
 	fakeConn := &fakeConnection{
@@ -7756,6 +8013,8 @@ func TestLoaddataMode(t *testing.T) {
 	_, err = httpdtest.RemoveEventAction(action, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveRole(role, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveIPListEntry(entry, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.Remove(backupFilePath)
 	assert.NoError(t, err)
@@ -7944,6 +8203,48 @@ func TestAddRoleInvalidJsonMock(t *testing.T) {
 	setBearerForReq(req, token)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
+}
+
+func TestIPListEntriesErrorsMock(t *testing.T) {
+	token, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodGet, ipListsPath+"/a/b", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "invalid list type")
+	req, err = http.NewRequest(http.MethodGet, ipListsPath+"/invalid", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "invalid list type")
+
+	reqBody := bytes.NewBuffer([]byte("{"))
+	req, err = http.NewRequest(http.MethodPost, ipListsPath+"/2", reqBody)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	entry := dataprovider.IPListEntry{
+		IPOrNet:   "172.120.1.1/32",
+		Type:      dataprovider.IPListTypeAllowList,
+		Mode:      dataprovider.ListModeAllow,
+		Protocols: 0,
+	}
+	_, _, err = httpdtest.AddIPListEntry(entry, http.StatusCreated)
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodPut, path.Join(ipListsPath, "1", url.PathEscape(entry.IPOrNet)), reqBody)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	_, err = httpdtest.RemoveIPListEntry(entry, http.StatusOK)
+	assert.NoError(t, err)
 }
 
 func TestRoleErrorsMock(t *testing.T) {
@@ -15903,23 +16204,38 @@ func TestWebAdminSetupMock(t *testing.T) {
 	os.Setenv("SFTPGO_DATA_PROVIDER__CREATE_DEFAULT_ADMIN", "1")
 }
 
-func TestWhitelist(t *testing.T) {
+func TestAllowList(t *testing.T) {
 	configCopy := common.Config
 
-	common.Config.MaxTotalConnections = 1
-	wlFile := filepath.Join(os.TempDir(), "wl.json")
-	common.Config.WhiteListFile = wlFile
-	wl := common.HostListFile{
-		IPAddresses:  []string{"172.120.1.1", "172.120.1.2"},
-		CIDRNetworks: []string{"192.8.7.0/22"},
+	entries := []dataprovider.IPListEntry{
+		{
+			IPOrNet:   "172.120.1.1/32",
+			Type:      dataprovider.IPListTypeAllowList,
+			Mode:      dataprovider.ListModeAllow,
+			Protocols: 0,
+		},
+		{
+			IPOrNet:   "172.120.1.2/32",
+			Type:      dataprovider.IPListTypeAllowList,
+			Mode:      dataprovider.ListModeAllow,
+			Protocols: 0,
+		},
+		{
+			IPOrNet:   "192.8.7.0/22",
+			Type:      dataprovider.IPListTypeAllowList,
+			Mode:      dataprovider.ListModeAllow,
+			Protocols: 8,
+		},
 	}
-	data, err := json.Marshal(wl)
-	assert.NoError(t, err)
-	err = os.WriteFile(wlFile, data, 0664)
-	assert.NoError(t, err)
-	defer os.Remove(wlFile)
 
-	err = common.Initialize(common.Config, 0)
+	for _, e := range entries {
+		_, _, err := httpdtest.AddIPListEntry(e, http.StatusCreated)
+		assert.NoError(t, err)
+	}
+
+	common.Config.MaxTotalConnections = 1
+	common.Config.AllowListStatus = 1
+	err := common.Initialize(common.Config, 0)
 	assert.NoError(t, err)
 
 	req, _ := http.NewRequest(http.MethodGet, webLoginPath, nil)
@@ -15931,7 +16247,8 @@ func TestWhitelist(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 
-	req.RemoteAddr = "172.120.1.3"
+	testIP := "172.120.1.3"
+	req.RemoteAddr = testIP
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
 	assert.Contains(t, rr.Body.String(), common.ErrConnectionDenied.Error())
@@ -15940,21 +16257,35 @@ func TestWhitelist(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 
-	wl.IPAddresses = append(wl.IPAddresses, "172.120.1.3")
-	data, err = json.Marshal(wl)
-	assert.NoError(t, err)
-	err = os.WriteFile(wlFile, data, 0664)
-	assert.NoError(t, err)
-	err = common.Reload()
+	entry := dataprovider.IPListEntry{
+		IPOrNet:   "172.120.1.3/32",
+		Type:      dataprovider.IPListTypeAllowList,
+		Mode:      dataprovider.ListModeAllow,
+		Protocols: 8,
+	}
+	err = dataprovider.AddIPListEntry(&entry, "", "", "")
 	assert.NoError(t, err)
 
-	req.RemoteAddr = "172.120.1.3"
+	req.RemoteAddr = testIP
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
+
+	err = dataprovider.DeleteIPListEntry(entry.IPOrNet, entry.Type, "", "", "")
+	assert.NoError(t, err)
+
+	req.RemoteAddr = testIP
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), common.ErrConnectionDenied.Error())
 
 	common.Config = configCopy
 	err = common.Initialize(common.Config, 0)
 	assert.NoError(t, err)
+
+	for _, e := range entries {
+		_, err := httpdtest.RemoveIPListEntry(e, http.StatusOK)
+		assert.NoError(t, err)
+	}
 }
 
 func TestWebAdminLoginMock(t *testing.T) {
@@ -17178,7 +17509,7 @@ func TestRenderDefenderPageMock(t *testing.T) {
 	setJWTCookieForReq(req, token)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Contains(t, rr.Body.String(), "View and manage blocklist")
+	assert.Contains(t, rr.Body.String(), "View and manage auto blocklist")
 }
 
 func TestWebAdminBasicMock(t *testing.T) {
@@ -20876,6 +21207,192 @@ func TestWebEventRule(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 }
 
+func TestWebIPListEntries(t *testing.T) {
+	webToken, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	assert.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodGet, webIPListPath+"/mode", nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	req, err = http.NewRequest(http.MethodGet, webIPListPath+"/mode/a", nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	req, err = http.NewRequest(http.MethodGet, webIPListPath+"/1/a", nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodGet, webIPListPath+"/1", nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodGet, webIPListsPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	entry := dataprovider.IPListEntry{
+		IPOrNet:     "12.34.56.78/20",
+		Type:        dataprovider.IPListTypeDefender,
+		Mode:        dataprovider.ListModeDeny,
+		Description: "note",
+		Protocols:   5,
+	}
+	form := make(url.Values)
+	form.Set("ipornet", entry.IPOrNet)
+	form.Set("description", entry.Description)
+	form.Set("mode", "a")
+	req, err = http.NewRequest(http.MethodPost, webIPListPath+"/mode", bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "invalid list type")
+
+	req, err = http.NewRequest(http.MethodPost, webIPListPath+"/1", bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "unable to verify form token")
+
+	form.Set(csrfFormToken, csrfToken)
+	req, err = http.NewRequest(http.MethodPost, webIPListPath+"/2", bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "invalid mode")
+
+	form.Set("mode", "2")
+	form.Set("protocols", "a")
+	form.Add("protocols", "1")
+	form.Add("protocols", "4")
+	req, err = http.NewRequest(http.MethodPost, webIPListPath+"/2", bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+
+	entry1, _, err := httpdtest.GetIPListEntry(entry.IPOrNet, dataprovider.IPListTypeDefender, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, entry.Description, entry1.Description)
+	assert.Equal(t, entry.Mode, entry1.Mode)
+	assert.Equal(t, entry.Protocols, entry1.Protocols)
+
+	form.Set("ipornet", "1111.11.11.11")
+	req, err = http.NewRequest(http.MethodPost, webIPListPath+"/1", bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "invalid IP")
+
+	form.Set("ipornet", entry.IPOrNet)
+	form.Set("mode", "invalid") // ignored for list type 1
+	req, err = http.NewRequest(http.MethodPost, webIPListPath+"/1", bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+
+	entry2, _, err := httpdtest.GetIPListEntry(entry.IPOrNet, dataprovider.IPListTypeAllowList, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, entry.Description, entry2.Description)
+	assert.Equal(t, dataprovider.ListModeAllow, entry2.Mode)
+	assert.Equal(t, entry.Protocols, entry2.Protocols)
+
+	req, err = http.NewRequest(http.MethodGet, webIPListPath+"/1/"+url.PathEscape(entry2.IPOrNet), nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	form.Set("protocols", "1")
+	req, err = http.NewRequest(http.MethodPost, webIPListPath+"/1/"+url.PathEscape(entry.IPOrNet),
+		bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+	entry2, _, err = httpdtest.GetIPListEntry(entry.IPOrNet, dataprovider.IPListTypeAllowList, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, entry.Description, entry2.Description)
+	assert.Equal(t, dataprovider.ListModeAllow, entry2.Mode)
+	assert.Equal(t, 1, entry2.Protocols)
+
+	form.Del(csrfFormToken)
+	req, err = http.NewRequest(http.MethodPost, webIPListPath+"/1/"+url.PathEscape(entry.IPOrNet),
+		bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "unable to verify form token")
+
+	form.Set(csrfFormToken, csrfToken)
+	req, err = http.NewRequest(http.MethodPost, webIPListPath+"/a/"+url.PathEscape(entry.IPOrNet),
+		bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	req, err = http.NewRequest(http.MethodPost, webIPListPath+"/1/"+url.PathEscape(entry.IPOrNet)+"a",
+		bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	form.Set("mode", "a")
+	req, err = http.NewRequest(http.MethodPost, webIPListPath+"/2/"+url.PathEscape(entry.IPOrNet),
+		bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "invalid mode")
+
+	form.Set("mode", "100")
+	req, err = http.NewRequest(http.MethodPost, webIPListPath+"/2/"+url.PathEscape(entry.IPOrNet),
+		bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "invalid list mode")
+
+	_, err = httpdtest.RemoveIPListEntry(entry1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveIPListEntry(entry2, http.StatusOK)
+	assert.NoError(t, err)
+}
+
 func TestWebRole(t *testing.T) {
 	webToken, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
@@ -22324,6 +22841,18 @@ func TestProviderClosedMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusInternalServerError, rr)
 
+	req, err = http.NewRequest(http.MethodGet, webIPListPath+"/1/a", nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+
+	req, err = http.NewRequest(http.MethodPost, webIPListPath+"/1/a", nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+
 	req, err = http.NewRequest(http.MethodGet, webAdminRolesPath, nil)
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, token)
@@ -22387,12 +22916,31 @@ func TestWebConnectionsMock(t *testing.T) {
 }
 
 func TestGetWebStatusMock(t *testing.T) {
+	oldConfig := config.GetCommonConfig()
+
+	cfg := config.GetCommonConfig()
+	cfg.RateLimitersConfig = []common.RateLimiterConfig{
+		{
+			Average:   1,
+			Period:    1000,
+			Burst:     1,
+			Type:      1,
+			Protocols: []string{common.ProtocolFTP},
+		},
+	}
+
+	err := common.Initialize(cfg, 0)
+	assert.NoError(t, err)
+
 	token, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
 	req, _ := http.NewRequest(http.MethodGet, webStatusPath, nil)
 	setJWTCookieForReq(req, token)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
+
+	err = common.Initialize(oldConfig, 0)
+	assert.NoError(t, err)
 }
 
 func TestStaticFilesMock(t *testing.T) {

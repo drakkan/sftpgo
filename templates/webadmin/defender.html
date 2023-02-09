@@ -31,7 +31,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 </div>
 <div class="card shadow mb-4">
     <div class="card-header py-3">
-        <h6 class="m-0 font-weight-bold text-primary">View and manage blocklist</h6>
+        <h6 class="m-0 font-weight-bold text-primary">View and manage auto blocklist</h6>
     </div>
     <div class="card-body">
         <div class="table-responsive">
@@ -63,7 +63,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
-            <div class="modal-body">Do you want to remoce the selected blocklist entry?</div>
+            <div class="modal-body">Do you want to remoce the selected entry?</div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" type="button" data-dismiss="modal">
                     Cancel
@@ -89,10 +89,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 <script type="text/javascript">
 
 function deleteAction() {
-        var table = $('#dataTable').DataTable();
+        let table = $('#dataTable').DataTable();
         table.button('delete:name').enable(false);
-        var id = table.row({ selected: true }).data()["id"];
-        var path = '{{.DefenderHostsURL}}' + "/" + fixedEncodeURIComponent(id);
+        let id = table.row({ selected: true }).data()["id"];
+        let path = '{{.DefenderHostsURL}}' + "/" + fixedEncodeURIComponent(id);
         $('#deleteModal').modal('hide');
         $.ajax({
             url: path,
@@ -104,9 +104,9 @@ function deleteAction() {
                 window.location.href = '{{.DefenderURL}}';
             },
             error: function ($xhr, textStatus, errorThrown) {
-                var txt = "Unable to delete the selected entry";
+                let txt = "Unable to delete the selected entry";
                 if ($xhr) {
-                    var json = $xhr.responseJSON;
+                    let json = $xhr.responseJSON;
                     if (json) {
                         if (json.message){
                             txt += ": " + json.message;
@@ -144,15 +144,15 @@ function deleteAction() {
             enabled: false
         };
 
-        var table = $('#dataTable').DataTable({
+        let table = $('#dataTable').DataTable({
             "ajax": {
                 "url": "{{.DefenderHostsURL}}",
                 "dataSrc": "",
                 "error": function ($xhr, textStatus, errorThrown) {
                     $(".dataTables_processing").hide();
-                    var txt = "Failed to get defender's list";
+                    let txt = "Failed to get auto blocklist";
                     if ($xhr) {
-                        var json = $xhr.responseJSON;
+                        let json = $xhr.responseJSON;
                         if (json) {
                             if (json.message){
                                 txt += ": " + json.message;
@@ -218,7 +218,7 @@ function deleteAction() {
 
         {{if .LoggedAdmin.HasPermission "manage_defender"}}
         table.on('select deselect', function () {
-            var selectedRows = table.rows({ selected: true }).count();
+            let selectedRows = table.rows({ selected: true }).count();
             table.button('delete:name').enable(selectedRows == 1);
         });
         {{end}}

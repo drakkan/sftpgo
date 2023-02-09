@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/go-chi/render"
@@ -83,7 +84,7 @@ func addAdmin(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	w.Header().Add("Location", fmt.Sprintf("%s/%s", adminPath, admin.Username))
+	w.Header().Add("Location", fmt.Sprintf("%s/%s", adminPath, url.PathEscape(admin.Username)))
 	renderAdmin(w, r, admin.Username, http.StatusCreated)
 }
 

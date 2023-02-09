@@ -319,15 +319,15 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	err = common.Initialize(commonConf, 0)
-	if err != nil {
-		logger.WarnToConsole("error initializing common: %v", err)
-		os.Exit(1)
-	}
-
 	err = dataprovider.Initialize(providerConf, configDir, true)
 	if err != nil {
 		logger.ErrorToConsole("error initializing data provider: %v", err)
+		os.Exit(1)
+	}
+
+	err = common.Initialize(commonConf, 0)
+	if err != nil {
+		logger.WarnToConsole("error initializing common: %v", err)
 		os.Exit(1)
 	}
 

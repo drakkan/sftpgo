@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/go-chi/render"
 
@@ -59,7 +60,7 @@ func addGroup(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	w.Header().Add("Location", fmt.Sprintf("%s/%s", groupPath, group.Name))
+	w.Header().Add("Location", fmt.Sprintf("%s/%s", groupPath, url.PathEscape(group.Name)))
 	renderGroup(w, r, group.Name, http.StatusCreated)
 }
 

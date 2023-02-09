@@ -11,6 +11,8 @@
 功能齐全、高度可配置化、支持自定义 HTTP/S，FTP/S 和 WebDAV 的 SFTP 服务。
 一些存储后端支持：本地文件系统、加密本地文件系统、S3（兼容）对象存储，Google Cloud 存储，Azure Blob 存储，SFTP。
 
+:warning: 我無法自己維護中文翻譯，這個文檔可能已經過時了
+
 ## 赞助商
 
 如果你觉得 SFTPGo 有用，请考虑支持这个开源项目。
@@ -31,6 +33,10 @@
 #### 白金赞助商
 
 [<img src="./img/Aledade_logo.png" alt="Aledade logo" width="202" height="70">](https://www.aledade.com/)
+
+#### 銀牌贊助商
+
+[<img src="./img/Dendi_logo.png" alt="Dendi logo" width="212" height="66">](https://dendisoftware.com/)
 
 #### 铜牌赞助商
 

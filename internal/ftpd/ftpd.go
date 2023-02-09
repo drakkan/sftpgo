@@ -68,9 +68,9 @@ type Binding struct {
 	CertificateKeyFile string `json:"certificate_key_file" mapstructure:"certificate_key_file"`
 	// Defines the minimum TLS version. 13 means TLS 1.3, default is TLS 1.2
 	MinTLSVersion int `json:"min_tls_version" mapstructure:"min_tls_version"`
-	// External IP address to expose for passive connections.
+	// External IP address for passive connections.
 	ForcePassiveIP string `json:"force_passive_ip" mapstructure:"force_passive_ip"`
-	// PassiveIPOverrides allows to define different IP addresses to expose for passive connections
+	// PassiveIPOverrides allows to define different IP addresses for passive connections
 	// based on the client IP address
 	PassiveIPOverrides []PassiveIPOverride `json:"passive_ip_overrides" mapstructure:"passive_ip_overrides"`
 	// Set to 1 to require client certificate authentication.

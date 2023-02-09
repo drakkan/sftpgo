@@ -18,10 +18,12 @@
 package dataprovider
 
 import (
+	"bytes"
 	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/netip"
 	"path/filepath"
 	"sort"
 	"time"
@@ -35,7 +37,7 @@ import (
 )
 
 const (
-	boltDatabaseVersion = 26
+	boltDatabaseVersion = 27
 )
 
 var (
@@ -48,10 +50,11 @@ var (
 	actionsBucket   = []byte("events_actions")
 	rulesBucket     = []byte("events_rules")
 	rolesBucket     = []byte("roles")
+	ipListsBucket   = []byte("ip_lists")
 	dbVersionBucket = []byte("db_version")
 	dbVersionKey    = []byte("version")
 	boltBuckets     = [][]byte{usersBucket, groupsBucket, foldersBucket, adminsBucket, apiKeysBucket,
-		sharesBucket, actionsBucket, rulesBucket, rolesBucket, dbVersionBucket}
+		sharesBucket, actionsBucket, rulesBucket, rolesBucket, ipListsBucket, dbVersionBucket}
 )
 
 // BoltProvider defines the auth provider for bolt key/value store
@@ -85,7 +88,7 @@ func initializeBoltProvider(basePath string) error {
 				_, e := tx.CreateBucketIfNotExists(bucket)
 				return e
 			}); err != nil {
-				providerLog(logger.LevelError, "error creating bucket %#v: %v", string(bucket), err)
+				providerLog(logger.LevelError, "error creating bucket %q: %v", string(bucket), err)
 			}
 		}
 
@@ -2749,6 +2752,231 @@ func (p *BoltProvider) dumpRoles() ([]Role, error) {
 	return roles, err
 }
 
+func (p *BoltProvider) ipListEntryExists(ipOrNet string, listType IPListType) (IPListEntry, error) {
+	entry := IPListEntry{
+		IPOrNet: ipOrNet,
+		Type:    listType,
+	}
+	err := p.dbHandle.View(func(tx *bolt.Tx) error {
+		bucket, err := p.getIPListsBucket(tx)
+		if err != nil {
+			return err
+		}
+		e := bucket.Get([]byte(entry.getKey()))
+		if e == nil {
+			return util.NewRecordNotFoundError(fmt.Sprintf("entry %q does not exist", entry.IPOrNet))
+		}
+		err = json.Unmarshal(e, &entry)
+		if err == nil {
+			entry.PrepareForRendering()
+		}
+		return err
+	})
+	return entry, err
+}
+
+func (p *BoltProvider) addIPListEntry(entry *IPListEntry) error {
+	if err := entry.validate(); err != nil {
+		return err
+	}
+	return p.dbHandle.Update(func(tx *bolt.Tx) error {
+		bucket, err := p.getIPListsBucket(tx)
+		if err != nil {
+			return err
+		}
+		if e := bucket.Get([]byte(entry.getKey())); e != nil {
+			return fmt.Errorf("entry %q already exists", entry.IPOrNet)
+		}
+		entry.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+		entry.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+		buf, err := json.Marshal(entry)
+		if err != nil {
+			return err
+		}
+		return bucket.Put([]byte(entry.getKey()), buf)
+	})
+}
+
+func (p *BoltProvider) updateIPListEntry(entry *IPListEntry) error {
+	if err := entry.validate(); err != nil {
+		return err
+	}
+	return p.dbHandle.Update(func(tx *bolt.Tx) error {
+		bucket, err := p.getIPListsBucket(tx)
+		if err != nil {
+			return err
+		}
+		var e []byte
+		if e = bucket.Get([]byte(entry.getKey())); e == nil {
+			return fmt.Errorf("entry %q does not exist", entry.IPOrNet)
+		}
+		var oldEntry IPListEntry
+		err = json.Unmarshal(e, &oldEntry)
+		if err != nil {
+			return err
+		}
+		entry.CreatedAt = oldEntry.CreatedAt
+		entry.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+		buf, err := json.Marshal(entry)
+		if err != nil {
+			return err
+		}
+		return bucket.Put([]byte(entry.getKey()), buf)
+	})
+}
+
+func (p *BoltProvider) deleteIPListEntry(entry IPListEntry, softDelete bool) error {
+	return p.dbHandle.Update(func(tx *bolt.Tx) error {
+		bucket, err := p.getIPListsBucket(tx)
+		if err != nil {
+			return err
+		}
+		if e := bucket.Get([]byte(entry.getKey())); e == nil {
+			return fmt.Errorf("entry %q does not exist", entry.IPOrNet)
+		}
+		return bucket.Delete([]byte(entry.getKey()))
+	})
+}
+
+func (p *BoltProvider) getIPListEntries(listType IPListType, filter, from, order string, limit int) ([]IPListEntry, error) {
+	entries := make([]IPListEntry, 0, 15)
+	err := p.dbHandle.View(func(tx *bolt.Tx) error {
+		bucket, err := p.getIPListsBucket(tx)
+		if err != nil {
+			return err
+		}
+		prefix := []byte(fmt.Sprintf("%d_", listType))
+		acceptKey := func(k []byte) bool {
+			return k != nil && bytes.HasPrefix(k, prefix)
+		}
+		cursor := bucket.Cursor()
+		if order == OrderASC {
+			for k, v := cursor.Seek(prefix); acceptKey(k); k, v = cursor.Next() {
+				var entry IPListEntry
+				err = json.Unmarshal(v, &entry)
+				if err != nil {
+					return err
+				}
+				if entry.satisfySearchConstraints(filter, from, order) {
+					entry.PrepareForRendering()
+					entries = append(entries, entry)
+					if limit > 0 && len(entries) >= limit {
+						break
+					}
+				}
+			}
+		} else {
+			for k, v := cursor.Last(); acceptKey(k); k, v = cursor.Prev() {
+				var entry IPListEntry
+				err = json.Unmarshal(v, &entry)
+				if err != nil {
+					return err
+				}
+				if entry.satisfySearchConstraints(filter, from, order) {
+					entry.PrepareForRendering()
+					entries = append(entries, entry)
+					if limit > 0 && len(entries) >= limit {
+						break
+					}
+				}
+			}
+		}
+		return nil
+	})
+	return entries, err
+}
+
+func (p *BoltProvider) getRecentlyUpdatedIPListEntries(after int64) ([]IPListEntry, error) {
+	return nil, ErrNotImplemented
+}
+
+func (p *BoltProvider) dumpIPListEntries() ([]IPListEntry, error) {
+	entries := make([]IPListEntry, 0, 10)
+	err := p.dbHandle.View(func(tx *bolt.Tx) error {
+		bucket, err := p.getIPListsBucket(tx)
+		if err != nil {
+			return err
+		}
+		if count := bucket.Stats().KeyN; count > ipListMemoryLimit {
+			providerLog(logger.LevelInfo, "IP lists excluded from dump, too many entries: %d", count)
+			return nil
+		}
+		cursor := bucket.Cursor()
+		for k, v := cursor.First(); k != nil; k, v = cursor.Next() {
+			var entry IPListEntry
+			err = json.Unmarshal(v, &entry)
+			if err != nil {
+				return err
+			}
+			entry.PrepareForRendering()
+			entries = append(entries, entry)
+		}
+		return nil
+	})
+	return entries, err
+}
+
+func (p *BoltProvider) countIPListEntries(listType IPListType) (int64, error) {
+	var count int64
+	err := p.dbHandle.View(func(tx *bolt.Tx) error {
+		bucket, err := p.getIPListsBucket(tx)
+		if err != nil {
+			return err
+		}
+		if listType == 0 {
+			count = int64(bucket.Stats().KeyN)
+			return nil
+		}
+		prefix := []byte(fmt.Sprintf("%d_", listType))
+		cursor := bucket.Cursor()
+		for k, _ := cursor.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = cursor.Next() {
+			count++
+		}
+		return nil
+	})
+	return count, err
+}
+
+func (p *BoltProvider) getListEntriesForIP(ip string, listType IPListType) ([]IPListEntry, error) {
+	entries := make([]IPListEntry, 0, 3)
+	ipAddr, err := netip.ParseAddr(ip)
+	if err != nil {
+		return entries, fmt.Errorf("invalid ip address %s", ip)
+	}
+	var netType int
+	var ipBytes []byte
+	if ipAddr.Is4() || ipAddr.Is4In6() {
+		netType = ipTypeV4
+		as4 := ipAddr.As4()
+		ipBytes = as4[:]
+	} else {
+		netType = ipTypeV6
+		as16 := ipAddr.As16()
+		ipBytes = as16[:]
+	}
+	err = p.dbHandle.View(func(tx *bolt.Tx) error {
+		bucket, err := p.getIPListsBucket(tx)
+		if err != nil {
+			return err
+		}
+		prefix := []byte(fmt.Sprintf("%d_", listType))
+		cursor := bucket.Cursor()
+		for k, v := cursor.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, v = cursor.Next() {
+			var entry IPListEntry
+			err = json.Unmarshal(v, &entry)
+			if err != nil {
+				return err
+			}
+			if entry.IPType == netType && bytes.Compare(ipBytes, entry.First) >= 0 && bytes.Compare(ipBytes, entry.Last) <= 0 {
+				entry.PrepareForRendering()
+				entries = append(entries, entry)
+			}
+		}
+		return nil
+	})
+	return entries, err
+}
+
 func (p *BoltProvider) setFirstDownloadTimestamp(username string) error {
 	return p.dbHandle.Update(func(tx *bolt.Tx) error {
 		bucket, err := p.getUsersBucket(tx)
@@ -2833,9 +3061,9 @@ func (p *BoltProvider) migrateDatabase() error {
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
-	case version == 23, version == 24, version == 25:
-		logger.InfoToConsole("updating database schema version: %d -> 26", version)
-		providerLog(logger.LevelInfo, "updating database schema version: %d -> 26", version)
+	case version == 23, version == 24, version == 25, version == 26:
+		logger.InfoToConsole("updating database schema version: %d -> 27", version)
+		providerLog(logger.LevelInfo, "updating database schema version: %d -> 27", version)
 		err := p.dbHandle.Update(func(tx *bolt.Tx) error {
 			rules, err := p.dumpEventRules()
 			if err != nil {
@@ -2845,8 +3073,8 @@ func (p *BoltProvider) migrateDatabase() error {
 			if err != nil {
 				return err
 			}
-			for _, rule := range rules {
-				rule := rule // pin
+			for idx := range rules {
+				rule := rules[idx]
 				if rule.Status == 1 {
 					continue
 				}
@@ -2867,7 +3095,7 @@ func (p *BoltProvider) migrateDatabase() error {
 		if err != nil {
 			return err
 		}
-		return updateBoltDatabaseVersion(p.dbHandle, 26)
+		return updateBoltDatabaseVersion(p.dbHandle, 27)
 	default:
 		if version > boltDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -3635,6 +3863,15 @@ func (p *BoltProvider) getRolesBucket(tx *bolt.Tx) (*bolt.Bucket, error) {
 	bucket := tx.Bucket(rolesBucket)
 	if bucket == nil {
 		err = fmt.Errorf("unable to find roles bucket, bolt database structure not correcly defined")
+	}
+	return bucket, err
+}
+
+func (p *BoltProvider) getIPListsBucket(tx *bolt.Tx) (*bolt.Bucket, error) {
+	var err error
+	bucket := tx.Bucket(rolesBucket)
+	if bucket == nil {
+		err = fmt.Errorf("unable to find IP lists bucket, bolt database structure not correcly defined")
 	}
 	return bucket, err
 }

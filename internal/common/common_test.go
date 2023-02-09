@@ -215,6 +215,66 @@ func TestConnections(t *testing.T) {
 	Connections.RUnlock()
 }
 
+func TestInitializationClosedProvider(t *testing.T) {
+	configCopy := Config
+
+	providerConf := dataprovider.GetProviderConfig()
+	err := dataprovider.Close()
+	assert.NoError(t, err)
+
+	config := Configuration{
+		AllowListStatus: 1,
+	}
+	err = Initialize(config, 0)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "unable to initialize the allow list")
+	}
+
+	config.AllowListStatus = 0
+	config.RateLimitersConfig = []RateLimiterConfig{
+		{
+			Average:   100,
+			Period:    1000,
+			Burst:     5,
+			Type:      int(rateLimiterTypeGlobal),
+			Protocols: rateLimiterProtocolValues,
+		},
+	}
+	err = Initialize(config, 0)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "unable to initialize ratelimiters list")
+	}
+
+	config.RateLimitersConfig = nil
+	config.DefenderConfig = DefenderConfig{
+		Enabled:          true,
+		Driver:           DefenderDriverProvider,
+		BanTime:          10,
+		BanTimeIncrement: 50,
+		Threshold:        10,
+		ScoreInvalid:     2,
+		ScoreValid:       1,
+		ScoreNoAuth:      2,
+		ObservationTime:  15,
+		EntriesSoftLimit: 100,
+		EntriesHardLimit: 150,
+	}
+	err = Initialize(config, 0)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "defender initialization error")
+	}
+	config.DefenderConfig.Driver = DefenderDriverMemory
+	err = Initialize(config, 0)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "defender initialization error")
+	}
+
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+
+	Config = configCopy
+}
+
 func TestSSHConnections(t *testing.T) {
 	conn1, conn2 := net.Pipe()
 	now := time.Now()
@@ -298,10 +358,10 @@ func TestDefenderIntegration(t *testing.T) {
 
 	assert.Nil(t, Reload())
 	// 192.168.1.12 is banned from the ipfilter plugin
-	assert.True(t, IsBanned("192.168.1.12"))
+	assert.True(t, IsBanned("192.168.1.12", ProtocolFTP))
 
-	AddDefenderEvent(ip, HostEventNoLoginTried)
-	assert.False(t, IsBanned(ip))
+	AddDefenderEvent(ip, ProtocolFTP, HostEventNoLoginTried)
+	assert.False(t, IsBanned(ip, ProtocolFTP))
 
 	banTime, err := GetDefenderBanTime(ip)
 	assert.NoError(t, err)
@@ -342,21 +402,13 @@ func TestDefenderIntegration(t *testing.T) {
 	// ScoreInvalid cannot be greater than threshold
 	assert.Error(t, err)
 	Config.DefenderConfig.Threshold = 3
-	Config.DefenderConfig.SafeListFile = filepath.Join(os.TempDir(), "sl.json")
-	err = os.WriteFile(Config.DefenderConfig.SafeListFile, []byte(`{}`), 0644)
-	assert.NoError(t, err)
-	defer os.Remove(Config.DefenderConfig.SafeListFile)
 
 	err = Initialize(Config, 0)
 	assert.NoError(t, err)
 	assert.Nil(t, Reload())
-	err = os.WriteFile(Config.DefenderConfig.SafeListFile, []byte(`{`), 0644)
-	assert.NoError(t, err)
-	err = Reload()
-	assert.Error(t, err)
 
-	AddDefenderEvent(ip, HostEventNoLoginTried)
-	assert.False(t, IsBanned(ip))
+	AddDefenderEvent(ip, ProtocolSSH, HostEventNoLoginTried)
+	assert.False(t, IsBanned(ip, ProtocolSSH))
 	score, err = GetDefenderScore(ip)
 	assert.NoError(t, err)
 	assert.Equal(t, 2, score)
@@ -370,9 +422,9 @@ func TestDefenderIntegration(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Nil(t, banTime)
 
-	AddDefenderEvent(ip, HostEventLoginFailed)
-	AddDefenderEvent(ip, HostEventNoLoginTried)
-	assert.True(t, IsBanned(ip))
+	AddDefenderEvent(ip, ProtocolHTTP, HostEventLoginFailed)
+	AddDefenderEvent(ip, ProtocolHTTP, HostEventNoLoginTried)
+	assert.True(t, IsBanned(ip, ProtocolHTTP))
 	score, err = GetDefenderScore(ip)
 	assert.NoError(t, err)
 	assert.Equal(t, 0, score)
@@ -398,8 +450,30 @@ func TestDefenderIntegration(t *testing.T) {
 }
 
 func TestRateLimitersIntegration(t *testing.T) {
-	// by default defender is nil
 	configCopy := Config
+
+	enabled, protocols := Config.GetRateLimitersStatus()
+	assert.False(t, enabled)
+	assert.Len(t, protocols, 0)
+
+	entries := []dataprovider.IPListEntry{
+		{
+			IPOrNet: "172.16.24.7/32",
+			Type:    dataprovider.IPListTypeRateLimiterSafeList,
+			Mode:    dataprovider.ListModeAllow,
+		},
+		{
+			IPOrNet: "172.16.0.0/16",
+			Type:    dataprovider.IPListTypeRateLimiterSafeList,
+			Mode:    dataprovider.ListModeAllow,
+		},
+	}
+
+	for idx := range entries {
+		e := entries[idx]
+		err := dataprovider.AddIPListEntry(&e, "", "", "")
+		assert.NoError(t, err)
+	}
 
 	Config.RateLimitersConfig = []RateLimiterConfig{
 		{
@@ -423,16 +497,10 @@ func TestRateLimitersIntegration(t *testing.T) {
 	err := Initialize(Config, 0)
 	assert.Error(t, err)
 	Config.RateLimitersConfig[0].Period = 1000
-	Config.RateLimitersConfig[0].AllowList = []string{"1.1.1", "1.1.1.2"}
-	err = Initialize(Config, 0)
-	if assert.Error(t, err) {
-		assert.Contains(t, err.Error(), "unable to parse rate limiter allow list")
-	}
-	Config.RateLimitersConfig[0].AllowList = []string{"172.16.24.7"}
-	Config.RateLimitersConfig[1].AllowList = []string{"172.16.0.0/16"}
 
 	err = Initialize(Config, 0)
 	assert.NoError(t, err)
+	assert.NotNil(t, Config.rateLimitersList)
 
 	assert.Len(t, rateLimiters, 4)
 	assert.Len(t, rateLimiters[ProtocolSSH], 1)
@@ -440,9 +508,17 @@ func TestRateLimitersIntegration(t *testing.T) {
 	assert.Len(t, rateLimiters[ProtocolWebDAV], 2)
 	assert.Len(t, rateLimiters[ProtocolHTTP], 1)
 
+	enabled, protocols = Config.GetRateLimitersStatus()
+	assert.True(t, enabled)
+	assert.Len(t, protocols, 4)
+	assert.Contains(t, protocols, ProtocolFTP)
+	assert.Contains(t, protocols, ProtocolSSH)
+	assert.Contains(t, protocols, ProtocolHTTP)
+	assert.Contains(t, protocols, ProtocolWebDAV)
+
 	source1 := "127.1.1.1"
 	source2 := "127.1.1.2"
-	source3 := "172.16.24.7" // whitelisted
+	source3 := "172.16.24.7" // in safelist
 
 	_, err = LimitRate(ProtocolSSH, source1)
 	assert.NoError(t, err)
@@ -465,59 +541,12 @@ func TestRateLimitersIntegration(t *testing.T) {
 		_, err = LimitRate(ProtocolWebDAV, source3)
 		assert.NoError(t, err)
 	}
-
-	Config = configCopy
-}
-
-func TestWhitelist(t *testing.T) {
-	configCopy := Config
-
-	Config.whitelist = &whitelist{}
-	err := Config.whitelist.reload()
-	if assert.Error(t, err) {
-		assert.Contains(t, err.Error(), "cannot accept a nil whitelist")
+	for _, e := range entries {
+		err := dataprovider.DeleteIPListEntry(e.IPOrNet, e.Type, "", "", "")
+		assert.NoError(t, err)
 	}
-	wlFile := filepath.Join(os.TempDir(), "wl.json")
-	Config.WhiteListFile = wlFile
 
-	err = os.WriteFile(wlFile, []byte(`invalid list file`), 0664)
-	assert.NoError(t, err)
-	err = Initialize(Config, 0)
-	assert.Error(t, err)
-
-	wl := HostListFile{
-		IPAddresses:  []string{"172.18.1.1", "172.18.1.2"},
-		CIDRNetworks: []string{"10.8.7.0/24"},
-	}
-	data, err := json.Marshal(wl)
-	assert.NoError(t, err)
-	err = os.WriteFile(wlFile, data, 0664)
-	assert.NoError(t, err)
-	defer os.Remove(wlFile)
-
-	err = Initialize(Config, 0)
-	assert.NoError(t, err)
-
-	assert.NoError(t, Connections.IsNewConnectionAllowed("172.18.1.1"))
-	assert.Error(t, Connections.IsNewConnectionAllowed("172.18.1.3"))
-	assert.NoError(t, Connections.IsNewConnectionAllowed("10.8.7.3"))
-	assert.Error(t, Connections.IsNewConnectionAllowed("10.8.8.2"))
-
-	wl.IPAddresses = append(wl.IPAddresses, "172.18.1.3")
-	wl.CIDRNetworks = append(wl.CIDRNetworks, "10.8.8.0/24")
-	data, err = json.Marshal(wl)
-	assert.NoError(t, err)
-	err = os.WriteFile(wlFile, data, 0664)
-	assert.NoError(t, err)
-	assert.Error(t, Connections.IsNewConnectionAllowed("10.8.8.3"))
-
-	err = Reload()
-	assert.NoError(t, err)
-	assert.NoError(t, Connections.IsNewConnectionAllowed("10.8.8.3"))
-	assert.NoError(t, Connections.IsNewConnectionAllowed("172.18.1.3"))
-	assert.NoError(t, Connections.IsNewConnectionAllowed("172.18.1.2"))
-	assert.Error(t, Connections.IsNewConnectionAllowed("172.18.1.12"))
-
+	assert.Nil(t, configCopy.rateLimitersList)
 	Config = configCopy
 }
 
@@ -551,12 +580,12 @@ func TestMaxConnections(t *testing.T) {
 	Config.MaxPerHostConnections = 0
 
 	ipAddr := "192.168.7.8"
-	assert.NoError(t, Connections.IsNewConnectionAllowed(ipAddr))
+	assert.NoError(t, Connections.IsNewConnectionAllowed(ipAddr, ProtocolFTP))
 
 	Config.MaxTotalConnections = 1
 	Config.MaxPerHostConnections = perHost
 
-	assert.NoError(t, Connections.IsNewConnectionAllowed(ipAddr))
+	assert.NoError(t, Connections.IsNewConnectionAllowed(ipAddr, ProtocolHTTP))
 	c := NewBaseConnection("id", ProtocolSFTP, "", "", dataprovider.User{})
 	fakeConn := &fakeConnection{
 		BaseConnection: c,
@@ -564,18 +593,18 @@ func TestMaxConnections(t *testing.T) {
 	err := Connections.Add(fakeConn)
 	assert.NoError(t, err)
 	assert.Len(t, Connections.GetStats(""), 1)
-	assert.Error(t, Connections.IsNewConnectionAllowed(ipAddr))
+	assert.Error(t, Connections.IsNewConnectionAllowed(ipAddr, ProtocolSSH))
 
 	res := Connections.Close(fakeConn.GetID(), "")
 	assert.True(t, res)
 	assert.Eventually(t, func() bool { return len(Connections.GetStats("")) == 0 }, 300*time.Millisecond, 50*time.Millisecond)
 
-	assert.NoError(t, Connections.IsNewConnectionAllowed(ipAddr))
+	assert.NoError(t, Connections.IsNewConnectionAllowed(ipAddr, ProtocolSSH))
 	Connections.AddClientConnection(ipAddr)
 	Connections.AddClientConnection(ipAddr)
-	assert.Error(t, Connections.IsNewConnectionAllowed(ipAddr))
+	assert.Error(t, Connections.IsNewConnectionAllowed(ipAddr, ProtocolSSH))
 	Connections.RemoveClientConnection(ipAddr)
-	assert.NoError(t, Connections.IsNewConnectionAllowed(ipAddr))
+	assert.NoError(t, Connections.IsNewConnectionAllowed(ipAddr, ProtocolWebDAV))
 	Connections.RemoveClientConnection(ipAddr)
 
 	Config.MaxTotalConnections = oldValue
@@ -615,13 +644,13 @@ func TestMaxConnectionPerHost(t *testing.T) {
 
 	ipAddr := "192.168.9.9"
 	Connections.AddClientConnection(ipAddr)
-	assert.NoError(t, Connections.IsNewConnectionAllowed(ipAddr))
+	assert.NoError(t, Connections.IsNewConnectionAllowed(ipAddr, ProtocolSSH))
 
 	Connections.AddClientConnection(ipAddr)
-	assert.NoError(t, Connections.IsNewConnectionAllowed(ipAddr))
+	assert.NoError(t, Connections.IsNewConnectionAllowed(ipAddr, ProtocolWebDAV))
 
 	Connections.AddClientConnection(ipAddr)
-	assert.Error(t, Connections.IsNewConnectionAllowed(ipAddr))
+	assert.Error(t, Connections.IsNewConnectionAllowed(ipAddr, ProtocolFTP))
 	assert.Equal(t, int32(3), Connections.GetClientConnections())
 
 	Connections.RemoveClientConnection(ipAddr)
@@ -725,7 +754,7 @@ func TestCloseConnection(t *testing.T) {
 	fakeConn := &fakeConnection{
 		BaseConnection: c,
 	}
-	assert.NoError(t, Connections.IsNewConnectionAllowed("127.0.0.1"))
+	assert.NoError(t, Connections.IsNewConnectionAllowed("127.0.0.1", ProtocolHTTP))
 	err := Connections.Add(fakeConn)
 	assert.NoError(t, err)
 	assert.Len(t, Connections.GetStats(""), 1)
@@ -1438,6 +1467,118 @@ func TestMetadataAPIRole(t *testing.T) {
 	require.Len(t, checks, 1)
 	require.True(t, ActiveMetadataChecks.Remove(username))
 	require.Len(t, ActiveMetadataChecks.Get(""), 0)
+}
+
+func TestIPList(t *testing.T) {
+	type test struct {
+		ip            string
+		protocol      string
+		expectedMatch bool
+		expectedMode  int
+		expectedErr   bool
+	}
+
+	entries := []dataprovider.IPListEntry{
+		{
+			IPOrNet: "192.168.0.0/25",
+			Type:    dataprovider.IPListTypeDefender,
+			Mode:    dataprovider.ListModeAllow,
+		},
+		{
+			IPOrNet:   "192.168.0.128/25",
+			Type:      dataprovider.IPListTypeDefender,
+			Mode:      dataprovider.ListModeDeny,
+			Protocols: 3,
+		},
+		{
+			IPOrNet:   "192.168.2.128/32",
+			Type:      dataprovider.IPListTypeDefender,
+			Mode:      dataprovider.ListModeAllow,
+			Protocols: 5,
+		},
+		{
+			IPOrNet:   "::/0",
+			Type:      dataprovider.IPListTypeDefender,
+			Mode:      dataprovider.ListModeDeny,
+			Protocols: 4,
+		},
+		{
+			IPOrNet:   "2001:4860:4860::8888/120",
+			Type:      dataprovider.IPListTypeDefender,
+			Mode:      dataprovider.ListModeDeny,
+			Protocols: 1,
+		},
+		{
+			IPOrNet:   "2001:4860:4860::8988/120",
+			Type:      dataprovider.IPListTypeDefender,
+			Mode:      dataprovider.ListModeAllow,
+			Protocols: 3,
+		},
+		{
+			IPOrNet:   "::1/128",
+			Type:      dataprovider.IPListTypeDefender,
+			Mode:      dataprovider.ListModeAllow,
+			Protocols: 0,
+		},
+	}
+	ipList, err := dataprovider.NewIPList(dataprovider.IPListTypeDefender)
+	require.NoError(t, err)
+	for idx := range entries {
+		e := entries[idx]
+		err := dataprovider.AddIPListEntry(&e, "", "", "")
+		assert.NoError(t, err)
+	}
+	tests := []test{
+		{ip: "1.1.1.1", protocol: ProtocolSSH, expectedMatch: false, expectedMode: 0, expectedErr: false},
+		{ip: "invalid ip", protocol: ProtocolSSH, expectedMatch: false, expectedMode: 0, expectedErr: true},
+		{ip: "192.168.0.1", protocol: ProtocolFTP, expectedMatch: true, expectedMode: dataprovider.ListModeAllow, expectedErr: false},
+		{ip: "192.168.0.2", protocol: ProtocolHTTP, expectedMatch: true, expectedMode: dataprovider.ListModeAllow, expectedErr: false},
+		{ip: "192.168.0.3", protocol: ProtocolWebDAV, expectedMatch: true, expectedMode: dataprovider.ListModeAllow, expectedErr: false},
+		{ip: "192.168.0.4", protocol: ProtocolSSH, expectedMatch: true, expectedMode: dataprovider.ListModeAllow, expectedErr: false},
+		{ip: "192.168.0.156", protocol: ProtocolSSH, expectedMatch: true, expectedMode: dataprovider.ListModeDeny, expectedErr: false},
+		{ip: "192.168.0.158", protocol: ProtocolFTP, expectedMatch: true, expectedMode: dataprovider.ListModeDeny, expectedErr: false},
+		{ip: "192.168.0.158", protocol: ProtocolHTTP, expectedMatch: false, expectedMode: 0, expectedErr: false},
+		{ip: "192.168.2.128", protocol: ProtocolHTTP, expectedMatch: false, expectedMode: 0, expectedErr: false},
+		{ip: "192.168.2.128", protocol: ProtocolSSH, expectedMatch: true, expectedMode: dataprovider.ListModeAllow, expectedErr: false},
+		{ip: "::2", protocol: ProtocolSSH, expectedMatch: false, expectedMode: 0, expectedErr: false},
+		{ip: "::2", protocol: ProtocolWebDAV, expectedMatch: true, expectedMode: dataprovider.ListModeDeny, expectedErr: false},
+		{ip: "::1", protocol: ProtocolSSH, expectedMatch: true, expectedMode: dataprovider.ListModeAllow, expectedErr: false},
+		{ip: "::1", protocol: ProtocolHTTP, expectedMatch: true, expectedMode: dataprovider.ListModeAllow, expectedErr: false},
+		{ip: "2001:4860:4860:0000:0000:0000:0000:8889", protocol: ProtocolSSH, expectedMatch: true, expectedMode: dataprovider.ListModeDeny, expectedErr: false},
+		{ip: "2001:4860:4860:0000:0000:0000:0000:8889", protocol: ProtocolFTP, expectedMatch: false, expectedMode: 0, expectedErr: false},
+		{ip: "2001:4860:4860:0000:0000:0000:0000:8989", protocol: ProtocolFTP, expectedMatch: true, expectedMode: dataprovider.ListModeAllow, expectedErr: false},
+		{ip: "2001:4860:4860:0000:0000:0000:0000:89F1", protocol: ProtocolSSH, expectedMatch: true, expectedMode: dataprovider.ListModeAllow, expectedErr: false},
+		{ip: "2001:4860:4860:0000:0000:0000:0000:89F1", protocol: ProtocolHTTP, expectedMatch: false, expectedMode: 0, expectedErr: false},
+	}
+
+	for _, tc := range tests {
+		match, mode, err := ipList.IsListed(tc.ip, tc.protocol)
+		if tc.expectedErr {
+			assert.Error(t, err, "ip %s, protocol %s", tc.ip, tc.protocol)
+		} else {
+			assert.NoError(t, err, "ip %s, protocol %s", tc.ip, tc.protocol)
+		}
+		assert.Equal(t, tc.expectedMatch, match, "ip %s, protocol %s", tc.ip, tc.protocol)
+		assert.Equal(t, tc.expectedMode, mode, "ip %s, protocol %s", tc.ip, tc.protocol)
+	}
+
+	ipList.DisableMemoryMode()
+
+	for _, tc := range tests {
+		match, mode, err := ipList.IsListed(tc.ip, tc.protocol)
+		if tc.expectedErr {
+			assert.Error(t, err, "ip %s, protocol %s", tc.ip, tc.protocol)
+		} else {
+			assert.NoError(t, err, "ip %s, protocol %s", tc.ip, tc.protocol)
+		}
+		assert.Equal(t, tc.expectedMatch, match, "ip %s, protocol %s", tc.ip, tc.protocol)
+		assert.Equal(t, tc.expectedMode, mode, "ip %s, protocol %s", tc.ip, tc.protocol)
+	}
+
+	for _, e := range entries {
+		err := dataprovider.DeleteIPListEntry(e.IPOrNet, e.Type, "", "", "")
+		assert.NoError(t, err)
+	}
 }
 
 func BenchmarkBcryptHashing(b *testing.B) {

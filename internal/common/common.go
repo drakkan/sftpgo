@@ -172,23 +172,26 @@ func Initialize(c Configuration, isShared int) error {
 	Config.idleTimeoutAsDuration = time.Duration(Config.IdleTimeout) * time.Minute
 	startPeriodicChecks(periodicTimeoutCheckInterval)
 	Config.defender = nil
-	Config.whitelist = nil
+	Config.allowList = nil
+	Config.rateLimitersList = nil
 	rateLimiters = make(map[string][]*rateLimiter)
 	for _, rlCfg := range c.RateLimitersConfig {
 		if rlCfg.isEnabled() {
 			if err := rlCfg.validate(); err != nil {
 				return fmt.Errorf("rate limiters initialization error: %w", err)
 			}
-			allowList, err := util.ParseAllowedIPAndRanges(rlCfg.AllowList)
-			if err != nil {
-				return fmt.Errorf("unable to parse rate limiter allow list %v: %v", rlCfg.AllowList, err)
-			}
 			rateLimiter := rlCfg.getLimiter()
-			rateLimiter.allowList = allowList
 			for _, protocol := range rlCfg.Protocols {
 				rateLimiters[protocol] = append(rateLimiters[protocol], rateLimiter)
 			}
 		}
+	}
+	if len(rateLimiters) > 0 {
+		rateLimitersList, err := dataprovider.NewIPList(dataprovider.IPListTypeRateLimiterSafeList)
+		if err != nil {
+			return fmt.Errorf("unable to initialize ratelimiters list: %w", err)
+		}
+		Config.rateLimitersList = rateLimitersList
 	}
 	if c.DefenderConfig.Enabled {
 		if !util.Contains(supportedDefenderDrivers, c.DefenderConfig.Driver) {
@@ -208,15 +211,13 @@ func Initialize(c Configuration, isShared int) error {
 		logger.Info(logSender, "", "defender initialized with config %+v", c.DefenderConfig)
 		Config.defender = defender
 	}
-	if c.WhiteListFile != "" {
-		whitelist := &whitelist{
-			fileName: c.WhiteListFile,
+	if c.AllowListStatus > 0 {
+		allowList, err := dataprovider.NewIPList(dataprovider.IPListTypeAllowList)
+		if err != nil {
+			return fmt.Errorf("unable to initialize the allow list: %w", err)
 		}
-		if err := whitelist.reload(); err != nil {
-			return fmt.Errorf("whitelist initialization error: %w", err)
-		}
-		logger.Info(logSender, "", "whitelist initialized from file: %#v", c.WhiteListFile)
-		Config.whitelist = whitelist
+		logger.Info(logSender, "", "allow list initialized")
+		Config.allowList = allowList
 	}
 	vfs.SetTempPath(c.TempPath)
 	dataprovider.SetTempPath(c.TempPath)
@@ -293,9 +294,15 @@ func getActiveConnections() int {
 // It returns an error if the time to wait exceeds the max
 // allowed delay
 func LimitRate(protocol, ip string) (time.Duration, error) {
+	if Config.rateLimitersList != nil {
+		isListed, _, err := Config.rateLimitersList.IsListed(ip, protocol)
+		if err == nil && isListed {
+			return 0, nil
+		}
+	}
 	for _, limiter := range rateLimiters[protocol] {
-		if delay, err := limiter.Wait(ip); err != nil {
-			logger.Debug(logSender, "", "protocol %v ip %v: %v", protocol, ip, err)
+		if delay, err := limiter.Wait(ip, protocol); err != nil {
+			logger.Debug(logSender, "", "protocol %s ip %s: %v", protocol, ip, err)
 			return delay, err
 		}
 	}
@@ -305,21 +312,11 @@ func LimitRate(protocol, ip string) (time.Duration, error) {
 // Reload reloads the whitelist, the IP filter plugin and the defender's block and safe lists
 func Reload() error {
 	plugin.Handler.ReloadFilter()
-	var errWithelist error
-	if Config.whitelist != nil {
-		errWithelist = Config.whitelist.reload()
-	}
-	if Config.defender == nil {
-		return errWithelist
-	}
-	if err := Config.defender.Reload(); err != nil {
-		return err
-	}
-	return errWithelist
+	return nil
 }
 
 // IsBanned returns true if the specified IP address is banned
-func IsBanned(ip string) bool {
+func IsBanned(ip, protocol string) bool {
 	if plugin.Handler.IsIPBanned(ip) {
 		return true
 	}
@@ -327,7 +324,7 @@ func IsBanned(ip string) bool {
 		return false
 	}
 
-	return Config.defender.IsBanned(ip)
+	return Config.defender.IsBanned(ip, protocol)
 }
 
 // GetDefenderBanTime returns the ban time for the given IP
@@ -377,12 +374,12 @@ func GetDefenderScore(ip string) (int, error) {
 }
 
 // AddDefenderEvent adds the specified defender event for the given IP
-func AddDefenderEvent(ip string, event HostEvent) {
+func AddDefenderEvent(ip, protocol string, event HostEvent) {
 	if Config.defender == nil {
 		return
 	}
 
-	Config.defender.AddEvent(ip, event)
+	Config.defender.AddEvent(ip, protocol, event)
 }
 
 func startPeriodicChecks(duration time.Duration) {
@@ -449,7 +446,7 @@ type StatAttributes struct {
 	Size  int64
 }
 
-// ConnectionTransfer defines the trasfer details to expose
+// ConnectionTransfer defines the trasfer details
 type ConnectionTransfer struct {
 	ID            int64  `json:"-"`
 	OperationType string `json:"operation_type"`
@@ -477,35 +474,6 @@ func (t *ConnectionTransfer) getConnectionTransferAsString() string {
 			util.GetDurationAsString(elapsed), speed)
 	}
 	return result
-}
-
-type whitelist struct {
-	fileName string
-	sync.RWMutex
-	list HostList
-}
-
-func (l *whitelist) reload() error {
-	list, err := loadHostListFromFile(l.fileName)
-	if err != nil {
-		return err
-	}
-	if list == nil {
-		return errors.New("cannot accept a nil whitelist")
-	}
-
-	l.Lock()
-	defer l.Unlock()
-
-	l.list = *list
-	return nil
-}
-
-func (l *whitelist) isAllowed(ip string) bool {
-	l.RLock()
-	defer l.RUnlock()
-
-	return l.list.isListed(ip)
 }
 
 // Configuration defines configuration parameters common to all supported protocols
@@ -578,10 +546,11 @@ type Configuration struct {
 	MaxTotalConnections int `json:"max_total_connections" mapstructure:"max_total_connections"`
 	// Maximum number of concurrent client connections from the same host (IP). 0 means unlimited
 	MaxPerHostConnections int `json:"max_per_host_connections" mapstructure:"max_per_host_connections"`
-	// Path to a file containing a list of IP addresses and/or networks to allow.
-	// Only the listed IPs/networks can access the configured services, all other client connections
-	// will be dropped before they even try to authenticate.
-	WhiteListFile string `json:"whitelist_file" mapstructure:"whitelist_file"`
+	// Defines the status of the global allow list. 0 means disabled, 1 enabled.
+	// If enabled, only the listed IPs/networks can access the configured services, all other
+	// client connections will be dropped before they even try to authenticate.
+	// Ensure to enable this setting only after adding some allowed ip/networks from the WebAdmin/REST API
+	AllowListStatus int `json:"allowlist_status" mapstructure:"allowlist_status"`
 	// Allow users on this instance to use other users/virtual folders on this instance as storage backend.
 	// Enable this setting if you know what you are doing.
 	AllowSelfConnections int `json:"allow_self_connections" mapstructure:"allow_self_connections"`
@@ -592,7 +561,8 @@ type Configuration struct {
 	idleTimeoutAsDuration time.Duration
 	idleLoginTimeout      time.Duration
 	defender              Defender
-	whitelist             *whitelist
+	allowList             *dataprovider.IPList
+	rateLimitersList      *dataprovider.IPList
 }
 
 // IsAtomicUploadEnabled returns true if atomic upload is enabled
@@ -631,6 +601,24 @@ func (c *Configuration) GetProxyListener(listener net.Listener) (*proxyproto.Lis
 		}, nil
 	}
 	return nil, errors.New("proxy protocol not configured")
+}
+
+// GetRateLimitersStatus returns the rate limiters status
+func (c *Configuration) GetRateLimitersStatus() (bool, []string) {
+	enabled := false
+	var protocols []string
+	for _, rlCfg := range c.RateLimitersConfig {
+		if rlCfg.isEnabled() {
+			enabled = true
+			protocols = append(protocols, rlCfg.Protocols...)
+		}
+	}
+	return enabled, util.RemoveDuplicates(protocols, false)
+}
+
+// IsAllowListEnabled returns true if the global allow list is enabled
+func (c *Configuration) IsAllowListEnabled() bool {
+	return c.AllowListStatus > 0
 }
 
 // ExecuteStartupHook runs the startup hook if defined
@@ -941,7 +929,7 @@ func (conns *ActiveConnections) Remove(connectionID string) {
 			logger.ConnectionFailedLog("", ip, dataprovider.LoginMethodNoAuthTryed, conn.GetProtocol(),
 				dataprovider.ErrNoAuthTryed.Error())
 			metric.AddNoAuthTryed()
-			AddDefenderEvent(ip, HostEventNoLoginTried)
+			AddDefenderEvent(ip, ProtocolFTP, HostEventNoLoginTried)
 			dataprovider.ExecutePostLoginHook(&dataprovider.User{}, dataprovider.LoginMethodNoAuthTryed, ip,
 				conn.GetProtocol(), dataprovider.ErrNoAuthTryed)
 		}
@@ -1130,12 +1118,18 @@ func (conns *ActiveConnections) GetClientConnections() int32 {
 // IsNewConnectionAllowed returns an error if the maximum number of concurrent allowed
 // connections is exceeded or a whitelist is defined and the specified ipAddr is not listed
 // or the service is shutting down
-func (conns *ActiveConnections) IsNewConnectionAllowed(ipAddr string) error {
+func (conns *ActiveConnections) IsNewConnectionAllowed(ipAddr, protocol string) error {
 	if isShuttingDown.Load() {
 		return ErrShuttingDown
 	}
-	if Config.whitelist != nil {
-		if !Config.whitelist.isAllowed(ipAddr) {
+	if Config.allowList != nil {
+		isListed, _, err := Config.allowList.IsListed(ipAddr, protocol)
+		if err != nil {
+			logger.Error(logSender, "", "unable to query allow list, connection denied, ip %q, protocol %s, err: %v",
+				ipAddr, protocol, err)
+			return ErrConnectionDenied
+		}
+		if !isListed {
 			return ErrConnectionDenied
 		}
 	}
@@ -1146,7 +1140,7 @@ func (conns *ActiveConnections) IsNewConnectionAllowed(ipAddr string) error {
 	if Config.MaxPerHostConnections > 0 {
 		if total := conns.clients.getTotalFrom(ipAddr); total > Config.MaxPerHostConnections {
 			logger.Info(logSender, "", "active connections from %s %d/%d", ipAddr, total, Config.MaxPerHostConnections)
-			AddDefenderEvent(ipAddr, HostEventLimitExceeded)
+			AddDefenderEvent(ipAddr, protocol, HostEventLimitExceeded)
 			return ErrConnectionDenied
 		}
 	}

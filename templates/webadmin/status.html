@@ -100,11 +100,33 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
             </div>
         </div>
 
+        <div class="card mb-4 {{ if .Status.AllowList.IsActive}}border-left-success{{else}}border-left-info{{end}}">
+            <div class="card-body">
+                <h6 class="card-title font-weight-bold">Allow list</h6>
+                <p class="card-text">
+                    Status: {{ if .Status.AllowList.IsActive}}"Enabled"{{else}}"Disabled"{{end}}
+                </p>
+            </div>
+        </div>
+
         <div class="card mb-4 {{ if .Status.Defender.IsActive}}border-left-success{{else}}border-left-info{{end}}">
             <div class="card-body">
                 <h6 class="card-title font-weight-bold">Defender</h6>
                 <p class="card-text">
                     Status: {{ if .Status.Defender.IsActive}}"Enabled"{{else}}"Disabled"{{end}}
+                </p>
+            </div>
+        </div>
+
+        <div class="card mb-4 {{ if .Status.RateLimiters.IsActive}}border-left-success{{else}}border-left-info{{end}}">
+            <div class="card-body">
+                <h6 class="card-title font-weight-bold">Rate limiters</h6>
+                <p class="card-text">
+                    Status: {{ if .Status.RateLimiters.IsActive}}"Enabled"{{else}}"Disabled"{{end}}
+                    {{if .Status.RateLimiters.IsActive}}
+                    <br>
+                    Protocols: {{.Status.RateLimiters.GetProtocolsAsString}}
+                    {{end}}
                 </p>
             </div>
         </div>

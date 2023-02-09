@@ -84,7 +84,7 @@ func (c *Connection) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 	}
 
 	if ok, policy := c.User.IsFileAllowed(request.Filepath); !ok {
-		c.Log(logger.LevelWarn, "reading file %#v is not allowed", request.Filepath)
+		c.Log(logger.LevelWarn, "reading file %q is not allowed", request.Filepath)
 		return nil, c.GetErrorForDeniedFile(policy)
 	}
 
@@ -94,13 +94,13 @@ func (c *Connection) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 	}
 
 	if _, err := common.ExecutePreAction(c.BaseConnection, common.OperationPreDownload, p, request.Filepath, 0, 0); err != nil {
-		c.Log(logger.LevelDebug, "download for file %#v denied by pre action: %v", request.Filepath, err)
+		c.Log(logger.LevelDebug, "download for file %q denied by pre action: %v", request.Filepath, err)
 		return nil, c.GetPermissionDeniedError()
 	}
 
 	file, r, cancelFn, err := fs.Open(p, 0)
 	if err != nil {
-		c.Log(logger.LevelError, "could not open file %#v for reading: %+v", p, err)
+		c.Log(logger.LevelError, "could not open file %q for reading: %+v", p, err)
 		return nil, c.GetFsError(fs, err)
 	}
 
@@ -125,7 +125,7 @@ func (c *Connection) handleFilewrite(request *sftp.Request) (sftp.WriterAtReader
 	c.UpdateLastActivity()
 
 	if ok, _ := c.User.IsFileAllowed(request.Filepath); !ok {
-		c.Log(logger.LevelWarn, "writing file %#v is not allowed", request.Filepath)
+		c.Log(logger.LevelWarn, "writing file %q is not allowed", request.Filepath)
 		return nil, c.GetPermissionDeniedError()
 	}
 
@@ -160,13 +160,13 @@ func (c *Connection) handleFilewrite(request *sftp.Request) (sftp.WriterAtReader
 	}
 
 	if statErr != nil {
-		c.Log(logger.LevelError, "error performing file stat %#v: %+v", p, statErr)
+		c.Log(logger.LevelError, "error performing file stat %q: %+v", p, statErr)
 		return nil, c.GetFsError(fs, statErr)
 	}
 
 	// This happen if we upload a file that has the same name of an existing directory
 	if stat.IsDir() {
-		c.Log(logger.LevelError, "attempted to open a directory for writing to: %#v", p)
+		c.Log(logger.LevelError, "attempted to open a directory for writing to: %q", p)
 		return nil, sftp.ErrSSHFxOpUnsupported
 	}
 
@@ -255,7 +255,7 @@ func (c *Connection) Readlink(filePath string) (string, error) {
 
 	s, err := fs.Readlink(p)
 	if err != nil {
-		c.Log(logger.LevelDebug, "error running readlink on path %#v: %+v", p, err)
+		c.Log(logger.LevelDebug, "error running readlink on path %q: %+v", p, err)
 		return "", c.GetFsError(fs, err)
 	}
 
@@ -383,11 +383,11 @@ func (c *Connection) handleSFTPRemove(request *sftp.Request) error {
 
 	var fi os.FileInfo
 	if fi, err = fs.Lstat(fsPath); err != nil {
-		c.Log(logger.LevelDebug, "failed to remove file %#v: stat error: %+v", fsPath, err)
+		c.Log(logger.LevelDebug, "failed to remove file %q: stat error: %+v", fsPath, err)
 		return c.GetFsError(fs, err)
 	}
 	if fi.IsDir() && fi.Mode()&os.ModeSymlink == 0 {
-		c.Log(logger.LevelDebug, "cannot remove %#v is not a file/symlink", fsPath)
+		c.Log(logger.LevelDebug, "cannot remove %q is not a file/symlink", fsPath)
 		return sftp.ErrSSHFxFailure
 	}
 
@@ -402,14 +402,14 @@ func (c *Connection) handleSFTPUploadToNewFile(fs vfs.Fs, pflags sftp.FileOpenFl
 	}
 
 	if _, err := common.ExecutePreAction(c.BaseConnection, common.OperationPreUpload, resolvedPath, requestPath, 0, 0); err != nil {
-		c.Log(logger.LevelDebug, "upload for file %#v denied by pre action: %v", requestPath, err)
+		c.Log(logger.LevelDebug, "upload for file %q denied by pre action: %v", requestPath, err)
 		return nil, c.GetPermissionDeniedError()
 	}
 
 	osFlags := getOSOpenFlags(pflags)
 	file, w, cancelFn, err := fs.Create(filePath, osFlags)
 	if err != nil {
-		c.Log(logger.LevelError, "error creating file %#vm os flags %v, pflags %+v: %+v", resolvedPath, osFlags, pflags, err)
+		c.Log(logger.LevelError, "error creating file %q, os flags %d, pflags %+v: %+v", resolvedPath, osFlags, pflags, err)
 		return nil, c.GetFsError(fs, err)
 	}
 
@@ -450,14 +450,14 @@ func (c *Connection) handleSFTPUploadToExistingFile(fs vfs.Fs, pflags sftp.FileO
 	}
 
 	if _, err := common.ExecutePreAction(c.BaseConnection, common.OperationPreUpload, resolvedPath, requestPath, fileSize, osFlags); err != nil {
-		c.Log(logger.LevelDebug, "upload for file %#v denied by pre action: %v", requestPath, err)
+		c.Log(logger.LevelDebug, "upload for file %q denied by pre action: %v", requestPath, err)
 		return nil, c.GetPermissionDeniedError()
 	}
 
 	if common.Config.IsAtomicUploadEnabled() && fs.IsAtomicUploadSupported() {
 		_, _, err = fs.Rename(resolvedPath, filePath)
 		if err != nil {
-			c.Log(logger.LevelError, "error renaming existing file for atomic upload, source: %#v, dest: %#v, err: %+v",
+			c.Log(logger.LevelError, "error renaming existing file for atomic upload, source: %q, dest: %q, err: %+v",
 				resolvedPath, filePath, err)
 			return nil, c.GetFsError(fs, err)
 		}
@@ -465,7 +465,7 @@ func (c *Connection) handleSFTPUploadToExistingFile(fs vfs.Fs, pflags sftp.FileO
 
 	file, w, cancelFn, err := fs.Create(filePath, osFlags)
 	if err != nil {
-		c.Log(logger.LevelError, "error opening existing file, os flags %v, pflags: %+v, source: %#v, err: %+v",
+		c.Log(logger.LevelError, "error opening existing file, os flags %v, pflags: %+v, source: %q, err: %+v",
 			osFlags, pflags, filePath, err)
 		return nil, c.GetFsError(fs, err)
 	}
@@ -473,7 +473,7 @@ func (c *Connection) handleSFTPUploadToExistingFile(fs vfs.Fs, pflags sftp.FileO
 	initialSize := int64(0)
 	truncatedSize := int64(0) // bytes truncated and not included in quota
 	if isResume {
-		c.Log(logger.LevelDebug, "resuming upload requested, file path %#v initial size: %v has append flag %v",
+		c.Log(logger.LevelDebug, "resuming upload requested, file path %q initial size: %d, has append flag %t",
 			filePath, fileSize, pflags.Append)
 		// enforce min write offset only if the client passed the APPEND flag
 		if pflags.Append {

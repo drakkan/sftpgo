@@ -1,0 +1,508 @@
+<!--
+Copyright (C) 2019-2023 Nicola Murino
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published
+by the Free Software Foundation, version 3.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+-->
+{{template "base" .}}
+
+{{define "title"}}{{.Title}}{{end}}
+
+{{define "extra_css"}}
+<link href="{{.StaticURL}}/vendor/datatables/dataTables.bootstrap4.min.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/datatables/buttons.bootstrap4.min.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/datatables/fixedHeader.bootstrap4.min.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/datatables/responsive.bootstrap4.min.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/datatables/select.bootstrap4.min.css" rel="stylesheet">
+<link href="{{.StaticURL}}/vendor/bootstrap-select/css/bootstrap-select.min.css" rel="stylesheet">
+{{end}}
+
+{{define "page_body"}}
+<div id="errorMsg" class="card mb-4 border-left-warning" style="display: none;">
+    <div id="errorTxt" class="card-body text-form-error"></div>
+</div>
+<div class="card shadow mb-4">
+    <div class="card-header py-3">
+        <h6 class="m-0 font-weight-bold text-primary">View and manage IP Lists</h6>
+    </div>
+    <div class="card-body">
+        {{if not .HasDefender}}
+        <div id="defender-info" class="card mb-3 border-left-info" style="display: none;">
+            <div class="card-body">Defender disabled in your configuration</div>
+        </div>
+        {{end}}
+        {{if not .IsAllowListEnabled}}
+        <div id="allowlist-info" class="card mb-3 border-left-info" style="display: none;">
+            <div class="card-body">Allowlist disabled in your configuration</div>
+        </div>
+        {{end}}
+        {{if not .RateLimitersStatus}}
+        <div id="ratelimited-info" class="card mb-3 border-left-info" style="display: none;">
+            <div class="card-body">Ratelimiters disabled in your configuration</div>
+        </div>
+        {{end}}
+        <div class="form-row">
+            <div class="form-group col-md-3">
+                <select class="form-control selectpicker" id="idListType" name="list_type" onchange="onListChanged(this.value)">
+                    <option value="2">Defender</option>
+                    <option value="1">Allow list</option>
+                    <option value="3">Rate limiters safe list</option>
+                </select>
+            </div>
+            <div class="form-group col-md-5">
+            </div>
+            <div class="form-group col-md-4">
+                <div class="input-group">
+                    <input type="text" class="form-control bg-light border-0" id="idIp" name="ip" placeholder="IP/Network or initial part" aria-describedby="search-button">
+                    <div class="input-group-append">
+                        <button id="search-button" class="btn btn-primary" type="button" onclick="onSearchClicked()">
+                            <i class="fas fa-search fa-sm"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover nowrap" id="dataTable" width="100%" cellspacing="0">
+                <thead>
+                    <tr>
+                        <th>IP/Network</th>
+                        <th>Protocols</th>
+                        <th>Mode</th>
+                        <th>Note</th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+
+        <div id="paginationContainer" class="m-4 d-none">
+            <nav aria-label="Pagination">
+                <ul class="pagination justify-content-end">
+                    <li id="pageItemPrev" class="page-item disabled"><a id="pagePrevious" class="page-link" href="#" onclick="prevClicked()">Previous</a></li>
+                    <li id="pageItemNext" class="page-item disabled"><a id="pageNext" class="page-link" href="#" onclick="nextClicked()">Next</a></li>
+                </ul>
+            </nav>
+        </div>
+
+    </div>
+</div>
+{{end}}
+
+{{define "dialog"}}
+<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog" aria-labelledby="deleteModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">
+                    Confirmation required
+                </h5>
+                <button class="close" type="button" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">Do you want to remoce the selected entry?</div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" type="button" data-dismiss="modal">
+                    Cancel
+                </button>
+                <a class="btn btn-warning" href="#" onclick="deleteAction()">
+                    Delete
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}
+
+{{define "extra_js"}}
+<script src="{{.StaticURL}}/vendor/datatables/jquery.dataTables.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/dataTables.bootstrap4.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/dataTables.buttons.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/buttons.bootstrap4.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/dataTables.fixedHeader.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/dataTables.responsive.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/responsive.bootstrap4.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/dataTables.select.min.js"></script>
+<script src="{{.StaticURL}}/vendor/datatables/ellipsis.js"></script>
+<script src="{{.StaticURL}}/vendor/bootstrap-select/js/bootstrap-select.min.js"></script>
+<script type="text/javascript">
+
+const prefListTypeName = 'sftpgo_pref_{{.LoggedAdmin.Username}}_iplist_type';
+const prefListFilter = 'sftpgo_pref_{{.LoggedAdmin.Username}}_iplist_search_filter';
+const listType = getListType();
+const listFilter = getSearchFilter();
+
+if (listType === '1' || listType === '3'){
+    $('#idListType').val(listType);
+} else {
+    $('#idListType').val('2');
+}
+
+if (listFilter){
+    $('#idIp').val(listFilter);
+} else {
+    $('#idIp').val('');
+}
+
+const pageSize = 15;
+const paginationData = new Map();
+
+function saveListType(val) {
+    localStorage.setItem(prefListTypeName, val);
+}
+
+function getListType() {
+    return localStorage.getItem(prefListTypeName);
+}
+
+function saveSearchFilter() {
+    let val = $("#idIp").val();
+    if (val){
+        localStorage.setItem(prefListFilter, val);
+    } else {
+        localStorage.removeItem(prefListFilter);
+    }
+}
+
+function getSearchFilter() {
+    return localStorage.getItem(prefListFilter);
+}
+
+function resetPagination() {
+    $('#pageItemPrev').addClass("disabled");
+    $('#pageItemNext').addClass("disabled");
+    $('#paginationContainer').addClass("d-none");
+    paginationData.delete("firstIpOrNet");
+    paginationData.delete("lastIpOrNet");
+    paginationData.set("prevClicked",false);
+    paginationData.set("nextClicked",false);
+}
+
+function prevClicked(){
+    paginationData.set("prevClicked",true);
+    paginationData.set("nextClicked",false);
+    doSearch();
+}
+
+function nextClicked(){
+    paginationData.set("prevClicked",false);
+    paginationData.set("nextClicked",true);
+    doSearch();
+}
+
+function handleResponseData(data) {
+    let length = data.length;
+    let isNext = paginationData.get("nextClicked");
+    let isPrev = paginationData.get("prevClicked");
+
+    if (length > pageSize) {
+        data.pop();
+        length--;
+        if (isPrev || isNext){
+            $('#pageItemPrev').removeClass("disabled");
+        }
+        $('#pageItemNext').removeClass("disabled");
+    } else {
+        if (isPrev){
+            $('#pageItemPrev').addClass("disabled");
+            $('#pageItemNext').removeClass("disabled");
+        } else if (isNext){
+            $('#pageItemPrev').removeClass("disabled");
+            $('#pageItemNext').addClass("disabled");
+        } else {
+            $('#pageItemNext').addClass("disabled");
+        }
+    }
+    if (isPrev){
+        data = data.reverse();
+    }
+    if (length > 0){
+        paginationData.set("firstIpOrNet",data[0].ipornet);
+        paginationData.set("lastIpOrNet",data[length-1].ipornet);
+        $('#paginationContainer').removeClass("d-none");
+    } else {
+        resetPagination();
+    }
+
+    return data;
+}
+
+function getSearchURL(){
+    let listType = fixedEncodeURIComponent($("#idListType").val());
+    let filter = encodeURIComponent($("#idIp").val());
+    let limit = pageSize + 1;
+    let from = "";
+    let order = "ASC"
+    if (paginationData.get("nextClicked") && paginationData.has("lastIpOrNet")){
+        from = encodeURIComponent(paginationData.get("lastIpOrNet"));
+    }
+    if (paginationData.get("prevClicked") && paginationData.has("firstIpOrNet")){
+        from = encodeURIComponent(paginationData.get("firstIpOrNet"));
+        order = "DESC";
+    }
+    return "{{.IPListsURL}}"+`/${listType}?filter=${filter}&from=${from}&limit=${limit}&order=${order}`;
+}
+
+function deleteAction() {
+    let table = $('#dataTable').DataTable();
+    table.button('delete:name').enable(false);
+    let selectedRow = table.row({ selected: true }).data();
+    let path = '{{.IPListURL}}' + "/" + fixedEncodeURIComponent(selectedRow["type"])+"/"+ fixedEncodeURIComponent(selectedRow["ipornet"]);
+    $('#deleteModal').modal('hide');
+    $.ajax({
+        url: path,
+        type: 'DELETE',
+        dataType: 'json',
+        headers: {'X-CSRF-TOKEN' : '{{.CSRFToken}}'},
+        timeout: 15000,
+        success: function (result) {
+            window.location.href = '{{.IPListsURL}}';
+        },
+        error: function ($xhr, textStatus, errorThrown) {
+            let txt = "Unable to delete the selected entry";
+            if ($xhr) {
+                let json = $xhr.responseJSON;
+                if (json) {
+                    if (json.message){
+                        txt += ": " + json.message;
+                    } else {
+                        txt += ": " + json.error;
+                    }
+                }
+            }
+            $('#errorTxt').text(txt);
+            $('#errorMsg').show();
+            setTimeout(function () {
+                $('#errorMsg').hide();
+            }, 5000);
+        }
+    });
+}
+
+function setTableColumnVisibility(val){
+    let column = $('#dataTable').DataTable().column(2);
+
+    switch (val){
+        case '2':
+            column.visible(true);
+            break;
+        default:
+            column.visible(false);
+    }
+}
+
+function updateListTypeInfo(val) {
+    let info1 = $('#allowlist-info');
+    let info2 = $('#defender-info');
+    let info3 = $('#ratelimited-info');
+    if (info1){
+        info1.hide();
+    }
+    if (info2){
+        info2.hide();
+    }
+    if (info3){
+        info3.hide();
+    }
+    switch (val){
+        case '1':
+            if (info1){
+                info1.show();
+            }
+            break;
+        case '2':
+            if (info2){
+                info2.show();
+            }
+            break;
+        case '3':
+            if (info3){
+                info3.show();
+            }
+            break;
+    }
+}
+
+function onListChanged(val){
+    saveListType(val);
+    updateListTypeInfo(val);
+    setTableColumnVisibility(val);
+    let table = $('#dataTable').DataTable();
+    table.clear().draw();
+    table.ajax.url(getSearchURL()).load();
+}
+
+function onSearchClicked(){
+    resetPagination();
+    doSearch();
+    saveSearchFilter();
+}
+
+function doSearch(){
+    let table = $('#dataTable').DataTable();
+    table.clear().draw();
+    table.ajax.url(getSearchURL()).load();
+}
+
+$(document).ready(function () {
+    $.fn.dataTable.ext.buttons.add = {
+        text: '<i class="fas fa-plus"></i>',
+        name: 'add',
+        titleAttr: "Add",
+        action: function (e, dt, node, config) {
+            window.location.href = '{{.IPListURL}}'+"/"+fixedEncodeURIComponent($("#idListType").val());
+        }
+    };
+
+    $.fn.dataTable.ext.buttons.edit = {
+        text: '<i class="fas fa-pen"></i>',
+        name: 'edit',
+        titleAttr: "Edit",
+        action: function (e, dt, node, config) {
+            let selectedRow = table.row({ selected: true }).data();
+            let path = '{{.IPListURL}}' + "/" + fixedEncodeURIComponent(selectedRow["type"])+"/"+ fixedEncodeURIComponent(selectedRow["ipornet"]);
+            window.location.href = path;
+        },
+        enabled: false
+    };
+
+    $.fn.dataTable.ext.buttons.delete = {
+        text: '<i class="fas fa-trash"></i>',
+        name: 'delete',
+        titleAttr: "Delete",
+        action: function (e, dt, node, config) {
+            $('#deleteModal').modal('show');
+        },
+        enabled: false
+    };
+
+    let table = $('#dataTable').DataTable({
+        "ajax": {
+            "url": getSearchURL(),
+            "dataSrc": handleResponseData,
+            "error": function ($xhr, textStatus, errorThrown) {
+                $(".dataTables_processing").hide();
+                let txt = "Failed to get IP list";
+                if ($xhr) {
+                    let json = $xhr.responseJSON;
+                    if (json) {
+                        if (json.message){
+                            txt += ": " + json.message;
+                        } else {
+                            txt += ": " + json.error;
+                        }
+                    }
+                }
+                $('#errorTxt').text(txt);
+                $('#errorMsg').show();
+                setTimeout(function () {
+                    $('#errorMsg').hide();
+                }, 10000);
+            }
+        },
+        "deferRender": true,
+        "processing": true,
+        "columns": [
+            { "data": "ipornet" },
+            {
+                "data": "protocols",
+                "render": function (data, type, row) {
+                    if (type === 'display') {
+                        if (data == 0){
+                            return "Any";
+                        }
+                        const protocols = [];
+                        if ((data & 1) != 0){
+                            protocols.push('SSH');
+                        }
+                        if ((data & 2) != 0){
+                            protocols.push('FTP');
+                        }
+                        if ((data & 4) != 0){
+                            protocols.push('DAV');
+                        }
+                        if ((data & 8) != 0){
+                            protocols.push('HTTP');
+                        }
+                        return protocols.join(', ');
+                    }
+                    return data;
+                }
+            },
+            {
+                "data": "mode",
+                "render": function (data, type, row) {
+                    if (type === 'display') {
+                        if (data == 1){
+                            return "Allow";
+                        }
+                        return "Deny";
+                    }
+                    return data;
+                }
+            },
+            {
+                "data": "description",
+                "render": function (data, type, row) {
+                    if (type === 'display') {
+                        let ellipsisFn = $.fn.dataTable.render.ellipsis(70, true);
+                        return ellipsisFn(data,type);
+                    }
+                    return data;
+                }
+            }
+        ],
+        "select": {
+            "style": "single",
+            "blurable": true
+        },
+        "buttons": [],
+        "lengthChange": false,
+        "columnDefs": [],
+        "responsive": true,
+        "searching": false,
+        "paging": false,
+        "info": false,
+        "ordering": false,
+        "language": {
+            "loadingRecords": "",
+            "emptyTable": "No entries found"
+        },
+        "initComplete": function (settings, json) {
+            table.button().add(0, 'delete');
+            table.button().add(0, 'edit');
+            table.button().add(0, 'add');
+
+            table.buttons().container().appendTo('.col-md-6:eq(0)', table.table().container());
+        }
+    });
+
+    new $.fn.dataTable.FixedHeader(table);
+    $.fn.dataTable.ext.errMode = 'none';
+
+    table.on('select deselect', function () {
+        let selectedRows = table.rows({ selected: true }).count();
+        table.button('delete:name').enable(selectedRows == 1);
+        table.button('edit:name').enable(selectedRows == 1);
+    });
+
+    resetPagination();
+
+    let listType = $('#idListType').val();
+    setTableColumnVisibility(listType);
+    updateListTypeInfo(listType);
+});
+
+</script>
+{{end}}

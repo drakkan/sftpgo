@@ -160,11 +160,11 @@ func (s *Server) ClientConnected(cc ftpserver.ClientContext) (string, error) {
 	cc.SetDebug(s.binding.Debug)
 	ipAddr := util.GetIPFromRemoteAddress(cc.RemoteAddr().String())
 	common.Connections.AddClientConnection(ipAddr)
-	if common.IsBanned(ipAddr) {
+	if common.IsBanned(ipAddr, common.ProtocolFTP) {
 		logger.Log(logger.LevelDebug, common.ProtocolFTP, "", "connection refused, ip %#v is banned", ipAddr)
 		return "Access denied: banned client IP", common.ErrConnectionDenied
 	}
-	if err := common.Connections.IsNewConnectionAllowed(ipAddr); err != nil {
+	if err := common.Connections.IsNewConnectionAllowed(ipAddr, common.ProtocolFTP); err != nil {
 		logger.Log(logger.LevelDebug, common.ProtocolFTP, "", "connection not allowed from ip %q: %v", ipAddr, err)
 		return "Access denied", err
 	}
@@ -429,7 +429,7 @@ func updateLoginMetrics(user *dataprovider.User, ip, loginMethod string, err err
 		if errors.Is(err, util.ErrNotFound) {
 			event = common.HostEventUserNotFound
 		}
-		common.AddDefenderEvent(ip, event)
+		common.AddDefenderEvent(ip, common.ProtocolFTP, event)
 	}
 	metric.AddLoginResult(loginMethod, err)
 	dataprovider.ExecutePostLoginHook(user, loginMethod, ip, common.ProtocolFTP, err)

@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/go-chi/render"
 
@@ -59,7 +60,7 @@ func addRole(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 	} else {
-		w.Header().Add("Location", fmt.Sprintf("%s/%s", rolesPath, role.Name))
+		w.Header().Add("Location", fmt.Sprintf("%s/%s", rolesPath, url.PathEscape(role.Name)))
 		renderRole(w, r, role.Name, http.StatusCreated)
 	}
 }

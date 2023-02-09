@@ -18,7 +18,7 @@
     "data_retention_hook": "",
     "max_total_connections": 0,
     "max_per_host_connections": 20,
-    "whitelist_file": "",
+    "allowlist_status": 0,
     "allow_self_connections": 0,
     "defender": {
       "enabled": false,
@@ -32,11 +32,7 @@
       "score_no_auth": 0,
       "observation_time": 30,
       "entries_soft_limit": 100,
-      "entries_hard_limit": 150,
-      "safelist_file": "",
-      "blocklist_file": "",
-      "safelist": [],
-      "blocklist": []
+      "entries_hard_limit": 150
     },
     "rate_limiters": [
       {
@@ -50,7 +46,6 @@
           "DAV",
           "HTTP"
         ],
-        "allow_list": [],
         "generate_defender_events": false,
         "entries_soft_limit": 100,
         "entries_hard_limit": 150

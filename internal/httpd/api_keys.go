@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/go-chi/render"
 
@@ -78,7 +79,7 @@ func addAPIKey(w http.ResponseWriter, r *http.Request) {
 	response := make(map[string]string)
 	response["message"] = "API key created. This is the only time the API key is visible, please save it."
 	response["key"] = apiKey.DisplayKey()
-	w.Header().Add("Location", fmt.Sprintf("%v/%v", apiKeysPath, apiKey.KeyID))
+	w.Header().Add("Location", fmt.Sprintf("%s/%s", apiKeysPath, url.PathEscape(apiKey.KeyID)))
 	w.Header().Add("X-Object-ID", apiKey.KeyID)
 	ctx := context.WithValue(r.Context(), render.StatusCtxKey, http.StatusCreated)
 	render.JSON(w, r.WithContext(ctx), response)

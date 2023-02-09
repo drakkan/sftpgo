@@ -51,6 +51,7 @@ const (
 	actionObjectEventAction = "event_action"
 	actionObjectEventRule   = "event_rule"
 	actionObjectRole        = "role"
+	actionObjectIPListEntry = "ip_list_entry"
 )
 
 var (

@@ -473,7 +473,7 @@ func (u *User) SetEmptySecrets() {
 }
 
 // GetPermissionsForPath returns the permissions for the given path.
-// The path must be a SFTPGo exposed path
+// The path must be a SFTPGo virtual path
 func (u *User) GetPermissionsForPath(p string) []string {
 	permissions := []string{}
 	if perms, ok := u.Permissions["/"]; ok {
