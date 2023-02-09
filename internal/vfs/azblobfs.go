@@ -180,15 +180,7 @@ func (fs *AzureBlobFs) Stat(name string) (os.FileInfo, error) {
 	attrs, err := fs.headObject(name)
 	if err == nil {
 		contentType := util.GetStringFromPointer(attrs.ContentType)
-		isDir := contentType == dirMimeType
-		if !isDir {
-			for k, v := range attrs.Metadata {
-				if strings.ToLower(k) == azFolderKey {
-					isDir = (v == "true")
-					break
-				}
-			}
-		}
+		isDir := checkDirectoryMarkers(contentType, attrs.Metadata)
 		metric.AZListObjectsCompleted(nil)
 		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, isDir,
 			util.GetIntFromPointer(attrs.ContentLength),
@@ -245,11 +237,11 @@ func (fs *AzureBlobFs) Create(name string, flag int) (File, *PipeWriter, func(),
 	p := NewPipeWriter(w)
 	headers := blob.HTTPHeaders{}
 	var contentType string
-	var metadata map[string]string
+	var metadata map[string]*string
 	if flag == -1 {
 		contentType = dirMimeType
-		metadata = map[string]string{
-			azFolderKey: "true",
+		metadata = map[string]*string{
+			azFolderKey: util.NilIfEmpty("true"),
 		}
 	} else {
 		contentType = mime.TypeByExtension(path.Ext(name))
@@ -938,9 +930,9 @@ func (fs *AzureBlobFs) downloadPart(ctx context.Context, blockBlob *blockblob.Cl
 	if err != nil {
 		return err
 	}
-	defer resp.BlobClientDownloadResponse.Body.Close()
+	defer resp.DownloadResponse.Body.Close()
 
-	_, err = io.ReadAtLeast(resp.BlobClientDownloadResponse.Body, buf, int(count))
+	_, err = io.ReadAtLeast(resp.DownloadResponse.Body, buf, int(count))
 	if err != nil {
 		return err
 	}
@@ -1031,7 +1023,7 @@ func (fs *AzureBlobFs) handleMultipartDownload(ctx context.Context, blockBlob *b
 }
 
 func (fs *AzureBlobFs) handleMultipartUpload(ctx context.Context, reader io.Reader,
-	blockBlob *blockblob.Client, httpHeaders *blob.HTTPHeaders, metadata map[string]string,
+	blockBlob *blockblob.Client, httpHeaders *blob.HTTPHeaders, metadata map[string]*string,
 ) error {
 	partSize := fs.config.UploadPartSize
 	guard := make(chan struct{}, fs.config.UploadConcurrency)
