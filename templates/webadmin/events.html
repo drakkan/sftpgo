@@ -28,8 +28,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 {{end}}
 
 {{define "page_body"}}
-<div id="errorMsg" class="card mb-4 border-left-warning" style="display: none;">
-    <div id="errorTxt" class="card-body text-form-error"></div>
+<div id="errorMsg" class="alert alert-warning alert-dismissible fade show" style="display: none;" role="alert">
+    <span id="errorTxt"></span>
+    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+      <span aria-hidden="true">&times;</span>
+    </button>
 </div>
 <div class="card shadow mb-4">
     <div class="card-header py-3">
@@ -332,6 +335,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
     }
 
     function initProviderDatatable(){
+        $('#errorMsg').hide();
         let tableProvider = $('#dataTableProvider').DataTable({
             "ajax": {
                 "url": getSearchURL(false),
@@ -351,9 +355,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                     }
                     $('#errorTxt').text(txt);
                     $('#errorMsg').show();
-                    setTimeout(function () {
-                        $('#errorMsg').hide();
-                    }, 10000);
                 }
             },
             "deferRender": true,
@@ -417,6 +418,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
     }
 
     function initFsDatatable(){
+        $('#errorMsg').hide();
         let tableFs = $('#dataTableFs').DataTable({
             "ajax": {
                 "url": getSearchURL(false),
@@ -436,9 +438,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                     }
                     $('#errorTxt').text(txt);
                     $('#errorMsg').show();
-                    setTimeout(function () {
-                        $('#errorMsg').hide();
-                    }, 10000);
                 }
             },
             "deferRender": true,

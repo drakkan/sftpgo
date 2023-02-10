@@ -1180,7 +1180,7 @@ func getAzContainerClientOptions() *container.ClientOptions {
 	return &container.ClientOptions{
 		ClientOptions: azcore.ClientOptions{
 			Telemetry: policy.TelemetryOptions{
-				ApplicationID: fmt.Sprintf("SFTPGo-%v_%v", version.Version, version.CommitHash),
+				ApplicationID: fmt.Sprintf("SFTPGo-%s", version.CommitHash),
 			},
 		},
 	}

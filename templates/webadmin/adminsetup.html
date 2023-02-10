@@ -55,8 +55,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                                         <h1 class="h5 text-gray-900 mb-4">To start using SFTPGo you need to create an admin user</h1>
                                     </div>
                                     {{if .Error}}
-                                    <div class="card mb-4 border-left-warning">
-                                        <div class="card-body text-form-error">{{.Error}}</div>
+                                    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                                        {{.Error}}
+                                        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                            <span aria-hidden="true">&times;</span>
+                                        </button>
                                     </div>
                                     {{end}}
                                     <form id="login_form" action="{{.CurrentURL}}" method="POST" autocomplete="off"

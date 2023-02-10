@@ -35,8 +35,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 {{end}}
 
 {{define "page_body"}}
-<div id="errorMsg" class="card mb-4 border-left-warning" style="display: none;">
-    <div id="errorTxt" class="card-body text-form-error"></div>
+<div id="errorMsg" class="alert alert-warning alert-dismissible fade show" style="display: none;" role="alert">
+    <span id="errorTxt"></span>
+    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+      <span aria-hidden="true">&times;</span>
+    </button>
 </div>
 
 <div class="card shadow mb-4">
@@ -45,8 +48,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
     </div>
     <div class="card-body">
         {{if .Error}}
-        <div class="card mb-4 border-left-warning">
-            <div class="card-body text-form-error">{{.Error}}</div>
+        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+            {{.Error}}
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
         </div>
         {{end}}
         <div id="tableContainer" class="table-responsive">
@@ -280,6 +286,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
     const childProps = new Map();
 
     function openExternalURL(url, fileLink, fileName){
+        $('#errorMsg').hide();
         if (childReference == null || childReference.closed) {
             childProps.set('link', fileLink);
             childProps.set('url', url);
@@ -293,9 +300,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
         } else {
             $('#errorTxt').text('An external window is already open, please close it before trying to open a new one');
             $('#errorMsg').show();
-            setTimeout(function () {
-                $('#errorMsg').hide();
-            }, 8000);
         }
     }
 
@@ -395,13 +399,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                     }
                 }
 
+                $('#errorMsg').hide();
                 downloadFileAsBlob().catch(function(error){
                     notifyBlobDownloadError(error.message);
                         $('#errorTxt').text(error.message);
                         $('#errorMsg').show();
-                        setTimeout(function () {
-                            $('#errorMsg').hide();
-                        }, 5000);
                 });
                 break;
             case 'saveBlob':
@@ -448,14 +450,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                     }
                 }
 
+                $('#errorMsg').hide();
                 saveBlob().catch(function(error){
                     $('#spinnerModal').modal('hide');
                     notifySave("KO", error.message);
                     $('#errorTxt').text(error.message);
                     $('#errorMsg').show();
-                    setTimeout(function () {
-                        $('#errorMsg').hide();
-                    }, 5000);
                 });
 
                 break;
@@ -623,6 +623,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
         $('#deleteModal').modal('hide');
         $('#spinnerModal').modal('show');
+        $('#errorMsg').hide();
 
         function deleteItem() {
             if (index >= selectedItems.length || has_errors){
@@ -679,9 +680,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                     }
                     $('#errorTxt').text(txt);
                     $('#errorMsg').show();
-                    setTimeout(function () {
-                        $('#errorMsg').hide();
-                    }, 10000);
                     deleteItem();
                 }
             });
@@ -789,6 +787,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
         $("#create_dir_form").submit(function (event) {
             event.preventDefault();
             $('#createDirModal').modal('hide');
+            $('#errorMsg').hide();
             let dirName = replaceSlash($("#directory_name").val());
             let path = '{{.DirsURL}}?path={{.CurrentDir}}' + encodeURIComponent("/"+dirName);
             $.ajax({
@@ -815,9 +814,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                     }
                     $('#errorTxt').text(txt);
                     $('#errorMsg').show();
-                    setTimeout(function () {
-                        $('#errorMsg').hide();
-                    }, 8000);
                 }
             });
         });
@@ -835,6 +831,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
             $('#uploadFilesModal').modal('hide');
             $('#spinnerModal').modal('show');
+            $('#errorMsg').hide();
 
             function uploadFile() {
                 if (index >= files.length || has_errors){
@@ -901,9 +898,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                     has_errors = true;
                     $('#errorTxt').text(error.message);
                     $('#errorMsg').show();
-                    setTimeout(function () {
-                        $('#errorMsg').hide();
-                    }, 10000);
                     uploadFile();
                 });
             }
@@ -930,6 +924,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
             let path = '{{.FileActionsURL}}/move';
             path+='?path={{.CurrentDir}}'+encodeURIComponent("/"+itemName)+'&target='+targetDir+encodeURIComponent("/"+targetName);
             $('#renameModal').modal('hide');
+            $('#errorMsg').hide();
+
             $.ajax({
                 url: path,
                 type: 'POST',
@@ -954,9 +950,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                     }
                     $('#errorTxt').text(txt);
                     $('#errorMsg').show();
-                    setTimeout(function () {
-                        $('#errorMsg').hide();
-                    }, 8000);
                     let selectedItems = table.column(0).checkboxes.selected().length;
                     table.button('rename:name').enable(selectedItems == 1);
                 }
@@ -985,6 +978,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
             spinnerDone = false;
             $('#copyModal').modal('hide');
             $('#spinnerModal').modal('show');
+            $('#errorMsg').hide();
 
             $.ajax({
                 url: path,
@@ -1012,9 +1006,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                     }
                     $('#errorTxt').text(txt);
                     $('#errorMsg').show();
-                    setTimeout(function () {
-                        $('#errorMsg').hide();
-                    }, 10000);
                     $('#spinnerModal').modal('hide');
                     spinnerDone = true;
                     let selectedItems = table.column(0).checkboxes.selected().length;
@@ -1149,11 +1140,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                             }
                         }
                     }
+                    $('#errorMsg').hide();
                     $('#errorTxt').text(txt);
                     $('#errorMsg').show();
-                    setTimeout(function () {
-                        $('#errorMsg').hide();
-                    }, 10000);
                 }
             },
             "deferRender": true,

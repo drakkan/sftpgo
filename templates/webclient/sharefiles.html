@@ -39,12 +39,18 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
     </div>
     <div class="card-body">
         {{if .Error}}
-        <div class="card mb-4 border-left-warning">
-            <div class="card-body text-form-error">{{.Error}}</div>
+        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+            {{.Error}}
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
         </div>
         {{end}}
-        <div id="errorMsg" class="card mb-4 border-left-warning" style="display: none;">
-            <div id="errorTxt" class="card-body text-form-error"></div>
+        <div id="errorMsg" class="alert alert-warning alert-dismissible fade show" style="display: none;" role="alert">
+            <span id="errorTxt"></span>
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
         </div>
         <div id="tableContainer" class="table-responsive">
             <table class="table table-hover nowrap" id="dataTable" width="100%" cellspacing="0">
@@ -307,14 +313,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
         $("#upload_files_form").submit(function (event){
             event.preventDefault();
-            var files = FilePond.find(document.getElementById("files_name")).getFiles();
-            var has_errors = false;
-            var index = 0;
-            var success = 0;
+            let files = FilePond.find(document.getElementById("files_name")).getFiles();
+            let has_errors = false;
+            let index = 0;
+            let success = 0;
             spinnerDone = false;
 
             $('#uploadFilesModal').modal('hide');
             $('#spinnerModal').modal('show');
+            $('#errorMsg').hide();
 
             function uploadFile() {
                 if (index >= files.length || has_errors){
@@ -327,12 +334,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                 }
 
                 async function saveFile() {
-                    var errorMessage = "Error uploading files";
+                    let errorMessage = "Error uploading files";
                     let response;
                     try {
-                        var f = files[index].file;
-                        var uploadPath = '{{.UploadBaseURL}}'+fixedEncodeURIComponent("/"+escapeHTML(f.name));
-                        var lastModified;
+                        let f = files[index].file;
+                        let uploadPath = '{{.UploadBaseURL}}'+fixedEncodeURIComponent("/"+escapeHTML(f.name));
+                        let lastModified;
                         try {
                             lastModified = f.lastModified;
                         } catch (e) {
@@ -377,9 +384,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                     has_errors = true;
                     $('#errorTxt').text(error.message);
                     $('#errorMsg').show();
-                    setTimeout(function () {
-                        $('#errorMsg').hide();
-                    }, 10000);
                     uploadFile();
                 });
             }
@@ -426,15 +430,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
             enabled: true
         };
 
-        var table = $('#dataTable').DataTable({
+        let table = $('#dataTable').DataTable({
             "ajax": {
                 "url": "{{.DirsURL}}?path={{.CurrentDir}}",
                 "dataSrc": "",
                 "error": function ($xhr, textStatus, errorThrown) {
                     $(".dataTables_processing").hide();
-                    var txt = "Failed to get directory listing";
+                    let txt = "Failed to get directory listing";
                     if ($xhr) {
-                        var json = $xhr.responseJSON;
+                        let json = $xhr.responseJSON;
                         if (json) {
                             if (json.message){
                                 txt += ": " + json.message;
@@ -445,9 +449,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                     }
                     $('#errorTxt').text(txt);
                     $('#errorMsg').show();
-                    setTimeout(function () {
-                        $('#errorMsg').hide();
-                    }, 10000);
                 }
             },
             "deferRender": true,

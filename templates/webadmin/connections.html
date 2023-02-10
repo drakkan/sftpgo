@@ -26,8 +26,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 {{end}}
 
 {{define "page_body"}}
-<div id="errorMsg" class="card mb-4 border-left-warning" style="display: none;">
-    <div id="errorTxt" class="card-body text-form-error"></div>
+<div id="errorMsg" class="alert alert-warning alert-dismissible fade show" style="display: none;" role="alert">
+    <span id="errorTxt"></span>
+    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+      <span aria-hidden="true">&times;</span>
+    </button>
 </div>
 
 <div class="card shadow mb-4">
@@ -105,13 +108,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 <script type="text/javascript">
 
     function disconnectAction() {
-        var table = $('#dataTable').DataTable();
+        let table = $('#dataTable').DataTable();
         table.button('disconnect:name').enable(false);
-        var selectedData = table.row({ selected: true }).data()
-        var connectionID = selectedData[0];
-        var nodeID = selectedData[1];
-        var path = '{{.ConnectionsURL}}' + "/" + fixedEncodeURIComponent(connectionID)+"?node="+encodeURIComponent(nodeID);
+        let selectedData = table.row({ selected: true }).data()
+        let connectionID = selectedData[0];
+        let nodeID = selectedData[1];
+        let path = '{{.ConnectionsURL}}' + "/" + fixedEncodeURIComponent(connectionID)+"?node="+encodeURIComponent(nodeID);
         $('#disconnectModal').modal('hide');
+        $('#errorMsg').hide();
+
         $.ajax({
             url: path,
             type: 'DELETE',
@@ -119,9 +124,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
             headers: {'X-CSRF-TOKEN' : '{{.CSRFToken}}'},
             timeout: 15000,
             success: function (result) {
-                setTimeout(function () {
-                    window.location.href = '{{.ConnectionsURL}}';
-                }, 1000);
+                window.location.href = '{{.ConnectionsURL}}';
             },
             error: function ($xhr, textStatus, errorThrown) {
                 var txt = "Failed to close the selected connection";
@@ -137,9 +140,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                 }
                 $('#errorTxt').text(txt);
                 $('#errorMsg').show();
-                setTimeout(function () {
-                    $('#errorMsg').hide();
-                }, 5000);
             }
         });
     }

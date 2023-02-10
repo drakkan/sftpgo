@@ -26,8 +26,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                 <h6 id="success_title" class="m-0 font-weight-bold text-primary" style="display: none;">Upload completed to share "{{.Share.Name}}", user "{{.Share.Username}}"</h6>
             </div>
             <div class="card-body">
-                <div id="errorMsg" class="card mb-4 border-left-warning" style="display: none;">
-                    <div id="errorTxt" class="card-body text-form-error"></div>
+                <div id="errorMsg" class="alert alert-warning alert-dismissible fade show" style="display: none;" role="alert">
+                    <span id="errorTxt"></span>
+                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                      <span aria-hidden="true">&times;</span>
+                    </button>
                 </div>
                 <div id="successMsg" class="card mb-4 border-left-success" style="display: none;">
                     <div id="successTxt" class="card-body">
@@ -72,13 +75,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
         $("#upload_files_form").submit(function (event){
             event.preventDefault();
-            var files = $("#files_name")[0].files;
-            var has_errors = false;
-            var index = 0;
-            var success = 0;
+            let files = $("#files_name")[0].files;
+            let has_errors = false;
+            let index = 0;
+            let success = 0;
             spinnerDone = false;
 
             $('#spinnerModal').modal('show');
+            $('#errorMsg').hide();
 
             function uploadFile() {
                 if (index >= files.length || has_errors){
@@ -95,12 +99,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                 }
 
                 async function saveFile() {
-                    var errorMessage = "Error uploading files";
+                    let errorMessage = "Error uploading files";
                     let response;
                     try {
-                        var f = files[index];
-                        var uploadPath = '{{.UploadBasePath}}/'+fixedEncodeURIComponent(escapeHTML(f.name));
-                        var lastModified;
+                        let f = files[index];
+                        let uploadPath = '{{.UploadBasePath}}/'+fixedEncodeURIComponent(escapeHTML(f.name));
+                        let lastModified;
                         try {
                             lastModified = f.lastModified;
                         } catch (e) {
@@ -145,9 +149,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                     has_errors = true;
                     $('#errorTxt').text(error.message);
                     $('#errorMsg').show();
-                    setTimeout(function () {
-                        $('#errorMsg').hide();
-                    }, 10000);
                     uploadFile();
                 });
             }

@@ -27,8 +27,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 {{end}}
 
 {{define "page_body"}}
-<div id="errorMsg" class="card mb-4 border-left-warning" style="display: none;">
-    <div id="errorTxt" class="card-body text-form-error"></div>
+<div id="errorMsg" class="alert alert-warning alert-dismissible fade show" style="display: none;" role="alert">
+    <span id="errorTxt"></span>
+    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+      <span aria-hidden="true">&times;</span>
+    </button>
 </div>
 
 <div id="successMsg" class="card mb-4 border-left-success" style="display: none;">
@@ -115,11 +118,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 <script type="text/javascript">
 
 function deleteAction() {
-        var table = $('#dataTable').DataTable();
+        let table = $('#dataTable').DataTable();
         table.button('delete:name').enable(false);
-        var folderName = table.row({ selected: true }).data()[1];
-        var path = '{{.FolderURL}}' + "/" + fixedEncodeURIComponent(folderName);
+        let folderName = table.row({ selected: true }).data()[1];
+        let path = '{{.FolderURL}}' + "/" + fixedEncodeURIComponent(folderName);
         $('#deleteModal').modal('hide');
+        $('#errorMsg').hide();
+
         $.ajax({
             url: path,
             type: 'DELETE',
@@ -143,9 +148,6 @@ function deleteAction() {
                 }
                 $('#errorTxt').text(txt);
                 $('#errorMsg').show();
-                setTimeout(function () {
-                    $('#errorMsg').hide();
-                }, 5000);
             }
         });
     }
@@ -217,7 +219,7 @@ function deleteAction() {
                         $('#successMsg').show();
                         setTimeout(function () {
                             $('#successMsg').hide();
-                        }, 5000);
+                        }, 15000);
                     },
                     error: function ($xhr, textStatus, errorThrown) {
                         dt.button('quota_scan:name').enable(true);
@@ -234,9 +236,6 @@ function deleteAction() {
                         }
                         $('#errorTxt').text(txt);
                         $('#errorMsg').show();
-                        setTimeout(function () {
-                            $('#errorMsg').hide();
-                        }, 5000);
                     }
                 });
             },

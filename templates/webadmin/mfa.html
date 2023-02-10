@@ -31,8 +31,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
         <div id="successTOTPMsg" class="card mb-4 border-left-success" style="display: none;">
             <div id="successTOTPTxt" class="card-body"></div>
         </div>
-        <div id="errorTOTPMsg" class="card mb-4 border-left-warning" style="display: none;">
-            <div id="errorTOTPTxt" class="card-body text-form-error"></div>
+        <div id="errorTOTPMsg" class="alert alert-warning alert-dismissible fade show" style="display: none;" role="alert">
+            <span id="errorTOTPTxt"></span>
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
         </div>
         <div>
             <p>Status: {{if .TOTPConfig.Enabled }}"Enabled". Current configuration: "{{.TOTPConfig.ConfigName}}"{{else}}"Disabled"{{end}}</p>
@@ -90,8 +93,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
         <div id="successRecCodesMsg" class="card mb-4 border-left-success" style="display: none;">
             <div id="successRecCodesTxt" class="card-body"></div>
         </div>
-        <div id="errorRecCodesMsg" class="card mb-4 border-left-warning" style="display: none;">
-            <div id="errorRecCodesTxt" class="card-body text-form-error"></div>
+        <div id="errorRecCodesMsg" class="alert alert-warning alert-dismissible fade show" style="display: none;" role="alert">
+            <span id="errorRecCodesTxt"></span>
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
         </div>
         <div>
             <p>Recovery codes are a set of one time use codes that can be used in place of the TOTP to login to the web UI. You can use them if you lose access to your phone to login to your account and disable or regenerate TOTP configuration.</p>
@@ -152,7 +158,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 <script type="text/javascript">
 
     function totpGenerate() {
-        var path = "{{.GenerateTOTPURL}}";
+        $('#errorTOTPMsg').hide();
+        let path = "{{.GenerateTOTPURL}}";
         $.ajax({
             url: path,
             type: 'POST',
@@ -170,9 +177,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                 window.scrollTo(0, $("#idTOTPDetails").offset().top);
             },
             error: function ($xhr, textStatus, errorThrown) {
-                var txt = "Failed to generate a new TOTP secret";
+                let txt = "Failed to generate a new TOTP secret";
                 if ($xhr) {
-                    var json = $xhr.responseJSON;
+                    let json = $xhr.responseJSON;
                     if (json) {
                         if (json.message){
                             txt += ": " + json.message;
@@ -183,21 +190,16 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                 }
                 $('#errorTOTPTxt').text(txt);
                 $('#errorTOTPMsg').show();
-                setTimeout(function () {
-                    $('#errorTOTPMsg').hide();
-                }, 5000);
             }
         });
     }
 
     function totpValidate() {
-        var passcode = $('#idPasscode').val();
+        $('#errorTOTPMsg').hide();
+        let passcode = $('#idPasscode').val();
         if (passcode == "") {
             $('#errorTOTPTxt').text("The verification code is required");
             $('#errorTOTPMsg').show();
-                setTimeout(function () {
-                    $('#errorTOTPMsg').hide();
-                }, 5000);
             return;
         }
         var path = "{{.ValidateTOTPURL}}";
@@ -226,15 +228,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                 }
                 $('#errorTOTPTxt').text(txt);
                 $('#errorTOTPMsg').show();
-                setTimeout(function () {
-                    $('#errorTOTPMsg').hide();
-                }, 5000);
             }
         });
     }
 
     function totpSave() {
-        var path = "{{.SaveTOTPURL}}";
+        let path = "{{.SaveTOTPURL}}";
+        $('#errorTOTPMsg').hide();
+
         $.ajax({
             url: path,
             type: 'POST',
@@ -251,9 +252,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                     }, 3000);
             },
             error: function ($xhr, textStatus, errorThrown) {
-                var txt = "Failed to save the new configuration";
+                let txt = "Failed to save the new configuration";
                 if ($xhr) {
-                    var json = $xhr.responseJSON;
+                    let json = $xhr.responseJSON;
                     if (json) {
                         if (json.message){
                             txt += ": " + json.message;
@@ -264,9 +265,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                 }
                 $('#errorTOTPTxt').text(txt);
                 $('#errorTOTPMsg').show();
-                setTimeout(function () {
-                    $('#errorTOTPMsg').hide();
-                }, 5000);
             }
         });
     }
@@ -277,7 +275,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
     function totpDisable() {
         $('#disableTOTPModal').modal('hide');
-        var path = "{{.SaveTOTPURL}}";
+        $('#errorTOTPMsg').hide();
+        let path = "{{.SaveTOTPURL}}";
+
         $.ajax({
             url: path,
             type: 'POST',
@@ -303,15 +303,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                 }
                 $('#errorTOTPTxt').text(txt);
                 $('#errorTOTPMsg').show();
-                setTimeout(function () {
-                    $('#errorTOTPMsg').hide();
-                }, 5000);
             }
         });
     }
 
     function getRecoveryCodes() {
-        var path = "{{.RecCodesURL}}";
+        $('#errorRecCodesMsg').hide();
+        let path = "{{.RecCodesURL}}";
+
         $.ajax({
             url: path,
             type: 'GET',
@@ -331,9 +330,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                 window.scrollTo(0, $("#idRecoveryCodesCard").offset().top);
             },
             error: function ($xhr, textStatus, errorThrown) {
-                var txt = "Failed to get your recovery codes";
+                let txt = "Failed to get your recovery codes";
                 if ($xhr) {
-                    var json = $xhr.responseJSON;
+                    let json = $xhr.responseJSON;
                     if (json) {
                         if (json.message){
                             txt += ": " + json.message;
@@ -344,15 +343,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                 }
                 $('#errorRecCodesTxt').text(txt);
                 $('#errorRecCodesMsg').show();
-                setTimeout(function () {
-                    $('#errorRecCodesMsg').hide();
-                }, 8000);
+                window.scrollTo(0, $("#idRecoveryCodesCard").offset().top);
             }
         });
     }
 
     function generateRecoveryCodes() {
-        var path = "{{.RecCodesURL}}";
+        $('#errorRecCodesMsg').hide();
+        let path = "{{.RecCodesURL}}";
+
         $.ajax({
             url: path,
             type: 'POST',
@@ -375,9 +374,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                 }, 5000);
             },
             error: function ($xhr, textStatus, errorThrown) {
-                var txt = "Failed to generate new recovery codes";
+                let txt = "Failed to generate new recovery codes";
                 if ($xhr) {
-                    var json = $xhr.responseJSON;
+                    let json = $xhr.responseJSON;
                     if (json) {
                         if (json.message){
                             txt += ": " + json.message;
@@ -388,9 +387,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                 }
                 $('#errorRecCodesTxt').text(txt);
                 $('#errorRecCodesMsg').show();
-                setTimeout(function () {
-                    $('#errorRecCodesMsg').hide();
-                }, 8000);
+                window.scrollTo(0, $("#idRecoveryCodesCard").offset().top);
             }
         });
     }

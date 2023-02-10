@@ -26,8 +26,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 {{end}}
 
 {{define "page_body"}}
-<div id="errorMsg" class="card mb-4 border-left-warning" style="display: none;">
-    <div id="errorTxt" class="card-body text-form-error"></div>
+<div id="errorMsg" class="alert alert-warning alert-dismissible fade show" style="display: none;" role="alert">
+    <span id="errorTxt"></span>
+    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+      <span aria-hidden="true">&times;</span>
+    </button>
 </div>
 <div class="card shadow mb-4">
     <div class="card-header py-3">
@@ -94,6 +97,8 @@ function deleteAction() {
         let id = table.row({ selected: true }).data()["id"];
         let path = '{{.DefenderHostsURL}}' + "/" + fixedEncodeURIComponent(id);
         $('#deleteModal').modal('hide');
+        $('#errorMsg').hide();
+
         $.ajax({
             url: path,
             type: 'DELETE',
@@ -117,9 +122,6 @@ function deleteAction() {
                 }
                 $('#errorTxt').text(txt);
                 $('#errorMsg').show();
-                setTimeout(function () {
-                    $('#errorMsg').hide();
-                }, 5000);
             }
         });
     }
@@ -163,9 +165,6 @@ function deleteAction() {
                     }
                     $('#errorTxt').text(txt);
                     $('#errorMsg').show();
-                    setTimeout(function () {
-                        $('#errorMsg').hide();
-                    }, 10000);
                 }
             },
             "deferRender": true,
