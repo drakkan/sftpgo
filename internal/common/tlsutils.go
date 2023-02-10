@@ -15,9 +15,10 @@
 package common
 
 import (
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
-	"crypto/x509/pkix"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -25,7 +26,6 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	"time"
 
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/util"
@@ -34,10 +34,12 @@ import (
 const (
 	// DefaultTLSKeyPaidID defines the id to use for non-binding specific key pairs
 	DefaultTLSKeyPaidID = "default"
+	pemCRLType          = "X509 CRL"
 )
 
 var (
 	certAutoReload bool
+	pemCRLPrefix   = []byte("-----BEGIN X509 CRL")
 )
 
 // SetCertAutoReloadMode sets if the certificate must be monitored for changes and
@@ -66,7 +68,7 @@ type CertManager struct {
 	certs             map[string]*tls.Certificate
 	certsInfo         map[string]fs.FileInfo
 	rootCAs           *x509.CertPool
-	crls              []*pkix.CertificateList
+	crls              []*x509.RevocationList
 }
 
 // Reload tries to reload certificate and CRLs
@@ -139,8 +141,8 @@ func (m *CertManager) IsRevoked(crt *x509.Certificate, caCrt *x509.Certificate) 
 	}
 
 	for _, crl := range m.crls {
-		if !crl.HasExpired(time.Now()) && caCrt.CheckCRLSignature(crl) == nil { //nolint:staticcheck
-			for _, rc := range crl.TBSCertList.RevokedCertificates {
+		if crl.CheckSignatureFrom(caCrt) == nil {
+			for _, rc := range crl.RevokedCertificates {
 				if rc.SerialNumber.Cmp(crt.SerialNumber) == 0 {
 					return true
 				}
@@ -157,7 +159,7 @@ func (m *CertManager) LoadCRLs() error {
 		return nil
 	}
 
-	var crls []*pkix.CertificateList
+	var crls []*x509.RevocationList
 
 	for _, revocationList := range m.caRevocationLists {
 		if !util.IsFileInputValid(revocationList) {
@@ -171,7 +173,13 @@ func (m *CertManager) LoadCRLs() error {
 			logger.Warn(m.logSender, "", "unable to read revocation list %q", revocationList)
 			return err
 		}
-		crl, err := x509.ParseCRL(crlBytes) //nolint:staticcheck
+		if bytes.HasPrefix(crlBytes, pemCRLPrefix) {
+			block, _ := pem.Decode(crlBytes)
+			if block != nil && block.Type == pemCRLType {
+				crlBytes = block.Bytes
+			}
+		}
+		crl, err := x509.ParseRevocationList(crlBytes)
 		if err != nil {
 			logger.Warn(m.logSender, "", "unable to parse revocation list %q", revocationList)
 			return err
