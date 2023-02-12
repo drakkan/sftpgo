@@ -60,6 +60,7 @@ const (
 	templateClientShare             = "share.html"
 	templateClientShares            = "shares.html"
 	templateClientViewPDF           = "viewpdf.html"
+	templateShareLogin              = "sharelogin.html"
 	templateShareFiles              = "sharefiles.html"
 	templateUploadToShare           = "shareupload.html"
 	pageClientFilesTitle            = "My Files"
@@ -154,6 +155,15 @@ type filesPage struct {
 	Error           string
 	Paths           []dirMapping
 	HasIntegrations bool
+}
+
+type shareLoginPage struct {
+	CurrentURL string
+	Version    string
+	Error      string
+	CSRFToken  string
+	StaticURL  string
+	Branding   UIBranding
 }
 
 type shareFilesPage struct {
@@ -298,6 +308,11 @@ func loadClientTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
 		filepath.Join(templatesPath, templateClientDir, templateClientViewPDF),
 	}
+	shareLoginPath := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
+		filepath.Join(templatesPath, templateClientDir, templateClientBaseLogin),
+		filepath.Join(templatesPath, templateClientDir, templateShareLogin),
+	}
 	shareFilesPath := []string{
 		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
 		filepath.Join(templatesPath, templateClientDir, templateClientBase),
@@ -318,6 +333,7 @@ func loadClientTemplates(templatesPath string) {
 	twoFactorTmpl := util.LoadTemplate(nil, twoFactorPath...)
 	twoFactorRecoveryTmpl := util.LoadTemplate(nil, twoFactorRecoveryPath...)
 	editFileTmpl := util.LoadTemplate(nil, editFilePath...)
+	shareLoginTmpl := util.LoadTemplate(nil, shareLoginPath...)
 	sharesTmpl := util.LoadTemplate(nil, sharesPaths...)
 	shareTmpl := util.LoadTemplate(nil, sharePaths...)
 	forgotPwdTmpl := util.LoadTemplate(nil, forgotPwdPaths...)
@@ -340,6 +356,7 @@ func loadClientTemplates(templatesPath string) {
 	clientTemplates[templateForgotPassword] = forgotPwdTmpl
 	clientTemplates[templateResetPassword] = resetPwdTmpl
 	clientTemplates[templateClientViewPDF] = viewPDFTmpl
+	clientTemplates[templateShareLogin] = shareLoginTmpl
 	clientTemplates[templateShareFiles] = shareFilesTmpl
 	clientTemplates[templateUploadToShare] = shareUploadTmpl
 }
@@ -395,6 +412,18 @@ func (s *httpdServer) renderClientResetPwdPage(w http.ResponseWriter, error, ip 
 		Branding:   s.binding.Branding.WebClient,
 	}
 	renderClientTemplate(w, templateResetPassword, data)
+}
+
+func (s *httpdServer) renderShareLoginPage(w http.ResponseWriter, currentURL, error, ip string) {
+	data := shareLoginPage{
+		CurrentURL: currentURL,
+		Version:    version.Get().Version,
+		Error:      error,
+		CSRFToken:  createCSRFToken(ip),
+		StaticURL:  webStaticFilesPath,
+		Branding:   s.binding.Branding.WebClient,
+	}
+	renderClientTemplate(w, templateShareLogin, data)
 }
 
 func renderClientTemplate(w http.ResponseWriter, tmplName string, data any) {
@@ -663,7 +692,7 @@ func (s *httpdServer) handleWebClientDownloadZip(w http.ResponseWriter, r *http.
 func (s *httpdServer) handleClientSharePartialDownload(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	validScopes := []dataprovider.ShareScope{dataprovider.ShareScopeRead, dataprovider.ShareScopeReadWrite}
-	share, connection, err := s.checkPublicShare(w, r, validScopes, true)
+	share, connection, err := s.checkPublicShare(w, r, validScopes)
 	if err != nil {
 		return
 	}
@@ -706,7 +735,7 @@ func (s *httpdServer) handleClientSharePartialDownload(w http.ResponseWriter, r 
 func (s *httpdServer) handleShareGetDirContents(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	validScopes := []dataprovider.ShareScope{dataprovider.ShareScopeRead, dataprovider.ShareScopeReadWrite}
-	share, connection, err := s.checkPublicShare(w, r, validScopes, true)
+	share, connection, err := s.checkPublicShare(w, r, validScopes)
 	if err != nil {
 		return
 	}
@@ -757,7 +786,7 @@ func (s *httpdServer) handleShareGetDirContents(w http.ResponseWriter, r *http.R
 func (s *httpdServer) handleClientUploadToShare(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	validScopes := []dataprovider.ShareScope{dataprovider.ShareScopeWrite, dataprovider.ShareScopeReadWrite}
-	share, _, err := s.checkPublicShare(w, r, validScopes, true)
+	share, _, err := s.checkPublicShare(w, r, validScopes)
 	if err != nil {
 		return
 	}
@@ -771,7 +800,7 @@ func (s *httpdServer) handleClientUploadToShare(w http.ResponseWriter, r *http.R
 func (s *httpdServer) handleShareGetFiles(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	validScopes := []dataprovider.ShareScope{dataprovider.ShareScopeRead, dataprovider.ShareScopeReadWrite}
-	share, connection, err := s.checkPublicShare(w, r, validScopes, true)
+	share, connection, err := s.checkPublicShare(w, r, validScopes)
 	if err != nil {
 		return
 	}
@@ -1426,4 +1455,47 @@ func (s *httpdServer) handleClientGetPDF(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	downloadFile(w, r, connection, name, info, true, nil) //nolint:errcheck
+}
+
+func (s *httpdServer) handleClientShareLoginGet(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
+	s.renderShareLoginPage(w, r.RequestURI, "", util.GetIPFromRemoteAddress(r.RemoteAddr))
+}
+
+func (s *httpdServer) handleClientShareLoginPost(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	if err := r.ParseForm(); err != nil {
+		s.renderShareLoginPage(w, r.RequestURI, err.Error(), ipAddr)
+		return
+	}
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
+		s.renderShareLoginPage(w, r.RequestURI, err.Error(), ipAddr)
+		return
+	}
+	shareID := getURLParam(r, "id")
+	share, err := dataprovider.ShareExists(shareID, "")
+	if err != nil {
+		s.renderShareLoginPage(w, r.RequestURI, dataprovider.ErrInvalidCredentials.Error(), ipAddr)
+		return
+	}
+	match, err := share.CheckCredentials(r.Form.Get("share_password"))
+	if !match || err != nil {
+		s.renderShareLoginPage(w, r.RequestURI, dataprovider.ErrInvalidCredentials.Error(), ipAddr)
+		return
+	}
+	c := jwtTokenClaims{
+		Username: shareID,
+	}
+	err = c.createAndSetCookie(w, r, s.tokenAuth, tokenAudienceWebShare, ipAddr)
+	if err != nil {
+		s.renderShareLoginPage(w, r.RequestURI, common.ErrInternalFailure.Error(), ipAddr)
+		return
+	}
+	next := r.URL.Query().Get("next")
+	if strings.HasPrefix(next, path.Join(webClientPubSharesPath, share.ShareID)) {
+		http.Redirect(w, r, next, http.StatusFound)
+	}
+	s.renderClientMessagePage(w, r, "Share Login OK", "Share login successful, you can now use your link",
+		http.StatusOK, nil, "")
 }

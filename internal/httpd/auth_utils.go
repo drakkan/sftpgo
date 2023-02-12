@@ -34,6 +34,7 @@ type tokenAudience = string
 const (
 	tokenAudienceWebAdmin         tokenAudience = "WebAdmin"
 	tokenAudienceWebClient        tokenAudience = "WebClient"
+	tokenAudienceWebShare         tokenAudience = "WebShare"
 	tokenAudienceWebAdminPartial  tokenAudience = "WebAdminPartial"
 	tokenAudienceWebClientPartial tokenAudience = "WebClientPartial"
 	tokenAudienceAPI              tokenAudience = "API"
@@ -63,7 +64,8 @@ const (
 )
 
 var (
-	tokenDuration = 20 * time.Minute
+	tokenDuration      = 20 * time.Minute
+	shareTokenDuration = 12 * time.Hour
 	// csrf token duration is greater than normal token duration to reduce issues
 	// with the login form
 	csrfTokenDuration     = 6 * time.Hour
@@ -267,12 +269,16 @@ func (c *jwtTokenClaims) createAndSetCookie(w http.ResponseWriter, r *http.Reque
 	} else {
 		basePath = webBaseClientPath
 	}
+	duration := tokenDuration
+	if audience == tokenAudienceWebShare {
+		duration = shareTokenDuration
+	}
 	http.SetCookie(w, &http.Cookie{
 		Name:     jwtCookieKey,
 		Value:    resp["access_token"].(string),
 		Path:     basePath,
-		Expires:  time.Now().Add(tokenDuration),
-		MaxAge:   int(tokenDuration / time.Second),
+		Expires:  time.Now().Add(duration),
+		MaxAge:   int(duration / time.Second),
 		HttpOnly: true,
 		Secure:   isTLS(r),
 		SameSite: http.SameSiteStrictMode,
@@ -403,6 +409,7 @@ func verifyCSRFToken(tokenString, ip string) error {
 
 	if tokenValidationMode != tokenValidationNoIPMatch {
 		if !util.Contains(token.Audience(), ip) {
+			fmt.Printf("ip %v audience %+v\n\n", ip, token.Audience())
 			logger.Debug(logSender, "", "error validating CSRF token IP audience")
 			return errors.New("the form token is not valid")
 		}

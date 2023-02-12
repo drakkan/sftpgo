@@ -273,14 +273,11 @@ func (s *Share) validate() error {
 }
 
 // CheckCredentials verifies the share credentials if a password if set
-func (s *Share) CheckCredentials(username, password string) (bool, error) {
+func (s *Share) CheckCredentials(password string) (bool, error) {
 	if s.Password == "" {
 		return true, nil
 	}
-	if username == "" || password == "" {
-		return false, ErrInvalidCredentials
-	}
-	if username != s.Username {
+	if password == "" {
 		return false, ErrInvalidCredentials
 	}
 	if strings.HasPrefix(s.Password, bcryptPwdPrefix) {

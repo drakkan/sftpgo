@@ -1009,6 +1009,56 @@ func TestCSRFToken(t *testing.T) {
 	csrfTokenAuth = jwtauth.New(jwa.HS256.String(), util.GenerateRandomBytes(32), nil)
 }
 
+func TestCreateShareCookieError(t *testing.T) {
+	username := "share_user"
+	pwd := "pwd"
+	user := &dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username: username,
+			Password: pwd,
+			HomeDir:  filepath.Join(os.TempDir(), username),
+			Status:   1,
+			Permissions: map[string][]string{
+				"/": {dataprovider.PermAny},
+			},
+		},
+	}
+	err := dataprovider.AddUser(user, "", "", "")
+	assert.NoError(t, err)
+	share := &dataprovider.Share{
+		Name:     "test share cookie error",
+		ShareID:  util.GenerateUniqueID(),
+		Scope:    dataprovider.ShareScopeRead,
+		Password: pwd,
+		Paths:    []string{"/"},
+		Username: username,
+	}
+	err = dataprovider.AddShare(share, "", "", "")
+	assert.NoError(t, err)
+
+	server := httpdServer{
+		tokenAuth: jwtauth.New("TS256", util.GenerateRandomBytes(32), nil),
+	}
+	form := make(url.Values)
+	form.Set("share_password", pwd)
+	form.Set(csrfFormToken, createCSRFToken("127.0.0.1"))
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("id", share.ShareID)
+	rr := httptest.NewRecorder()
+	req, err := http.NewRequest(http.MethodPost, path.Join(webClientPubSharesPath, share.ShareID, "login"),
+		bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.RemoteAddr = "127.0.0.1:2345"
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+	server.handleClientShareLoginPost(rr, req)
+	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
+	assert.Contains(t, rr.Body.String(), common.ErrInternalFailure.Error())
+
+	err = dataprovider.DeleteUser(username, "", "", "")
+	assert.NoError(t, err)
+}
+
 func TestCreateTokenError(t *testing.T) {
 	server := httpdServer{
 		tokenAuth: jwtauth.New("PS256", util.GenerateRandomBytes(32), nil),
@@ -1086,6 +1136,12 @@ func TestCreateTokenError(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	_, err = getIPListEntryFromPostFields(req, dataprovider.IPListTypeAllowList)
 	assert.Error(t, err)
+
+	req, _ = http.NewRequest(http.MethodPost, path.Join(webClientSharePath, "shareID", "login?a=a%C3%AO%GG"), bytes.NewBuffer([]byte(form.Encode())))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = httptest.NewRecorder()
+	server.handleClientShareLoginPost(rr, req)
+	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
 
 	req, _ = http.NewRequest(http.MethodPost, webClientLoginPath+"?a=a%C3%AO%GG", bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")

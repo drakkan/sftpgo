@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-chi/jwtauth/v5"
 	"github.com/go-chi/render"
 	"github.com/rs/xid"
 	"github.com/sftpgo/sdk"
@@ -179,7 +180,7 @@ func deleteShare(w http.ResponseWriter, r *http.Request) {
 func (s *httpdServer) readBrowsableShareContents(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	validScopes := []dataprovider.ShareScope{dataprovider.ShareScopeRead, dataprovider.ShareScopeReadWrite}
-	share, connection, err := s.checkPublicShare(w, r, validScopes, false)
+	share, connection, err := s.checkPublicShare(w, r, validScopes)
 	if err != nil {
 		return
 	}
@@ -210,7 +211,7 @@ func (s *httpdServer) readBrowsableShareContents(w http.ResponseWriter, r *http.
 func (s *httpdServer) downloadBrowsableSharedFile(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	validScopes := []dataprovider.ShareScope{dataprovider.ShareScopeRead, dataprovider.ShareScopeReadWrite}
-	share, connection, err := s.checkPublicShare(w, r, validScopes, false)
+	share, connection, err := s.checkPublicShare(w, r, validScopes)
 	if err != nil {
 		return
 	}
@@ -260,7 +261,7 @@ func (s *httpdServer) downloadBrowsableSharedFile(w http.ResponseWriter, r *http
 func (s *httpdServer) downloadFromShare(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	validScopes := []dataprovider.ShareScope{dataprovider.ShareScopeRead, dataprovider.ShareScopeReadWrite}
-	share, connection, err := s.checkPublicShare(w, r, validScopes, false)
+	share, connection, err := s.checkPublicShare(w, r, validScopes)
 	if err != nil {
 		return
 	}
@@ -323,7 +324,7 @@ func (s *httpdServer) uploadFileToShare(w http.ResponseWriter, r *http.Request) 
 	}
 	name := getURLParam(r, "name")
 	validScopes := []dataprovider.ShareScope{dataprovider.ShareScopeWrite, dataprovider.ShareScopeReadWrite}
-	share, connection, err := s.checkPublicShare(w, r, validScopes, false)
+	share, connection, err := s.checkPublicShare(w, r, validScopes)
 	if err != nil {
 		return
 	}
@@ -353,7 +354,7 @@ func (s *httpdServer) uploadFilesToShare(w http.ResponseWriter, r *http.Request)
 		r.Body = http.MaxBytesReader(w, r.Body, maxUploadFileSize)
 	}
 	validScopes := []dataprovider.ShareScope{dataprovider.ShareScopeWrite, dataprovider.ShareScopeReadWrite}
-	share, connection, err := s.checkPublicShare(w, r, validScopes, false)
+	share, connection, err := s.checkPublicShare(w, r, validScopes)
 	if err != nil {
 		return
 	}
@@ -402,9 +403,43 @@ func (s *httpdServer) uploadFilesToShare(w http.ResponseWriter, r *http.Request)
 	}
 }
 
+func (s *httpdServer) checkWebClientShareCredentials(w http.ResponseWriter, r *http.Request, share *dataprovider.Share) error {
+	doRedirect := func() {
+		redirectURL := path.Join(webClientPubSharesPath, share.ShareID, fmt.Sprintf("login?next=%s", url.QueryEscape(r.RequestURI)))
+		http.Redirect(w, r, redirectURL, http.StatusFound)
+	}
+
+	token, err := jwtauth.VerifyRequest(s.tokenAuth, r, jwtauth.TokenFromCookie)
+	if err != nil || token == nil {
+		doRedirect()
+		return errInvalidToken
+	}
+	if !util.Contains(token.Audience(), tokenAudienceWebShare) {
+		logger.Debug(logSender, "", "invalid token audience for share %q", share.ShareID)
+		doRedirect()
+		return errInvalidToken
+	}
+	if tokenValidationMode != tokenValidationNoIPMatch {
+		ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+		if !util.Contains(token.Audience(), ipAddr) {
+			logger.Debug(logSender, "", "token for share %q is not valid for the ip address %q", share.ShareID, ipAddr)
+			doRedirect()
+			return errInvalidToken
+		}
+	}
+	ctx := jwtauth.NewContext(r.Context(), token, nil)
+	claims, err := getTokenClaims(r.WithContext(ctx))
+	if err != nil || claims.Username != share.ShareID {
+		logger.Debug(logSender, "", "token not valid for share %q", share.ShareID)
+		doRedirect()
+		return errInvalidToken
+	}
+	return nil
+}
+
 func (s *httpdServer) checkPublicShare(w http.ResponseWriter, r *http.Request, validScopes []dataprovider.ShareScope,
-	isWebClient bool,
 ) (dataprovider.Share, *Connection, error) {
+	isWebClient := isWebClientRequest(r)
 	renderError := func(err error, message string, statusCode int) {
 		if isWebClient {
 			s.renderClientMessagePage(w, r, "Unable to access the share", message, statusCode, err, "")
@@ -434,17 +469,23 @@ func (s *httpdServer) checkPublicShare(w http.ResponseWriter, r *http.Request, v
 		return share, nil, err
 	}
 	if share.Password != "" {
-		username, password, ok := r.BasicAuth()
-		if !ok {
-			w.Header().Set(common.HTTPAuthenticationHeader, basicRealm)
-			renderError(dataprovider.ErrInvalidCredentials, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
-			return share, nil, dataprovider.ErrInvalidCredentials
-		}
-		match, err := share.CheckCredentials(username, password)
-		if !match || err != nil {
-			w.Header().Set(common.HTTPAuthenticationHeader, basicRealm)
-			renderError(dataprovider.ErrInvalidCredentials, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
-			return share, nil, dataprovider.ErrInvalidCredentials
+		if isWebClient {
+			if err := s.checkWebClientShareCredentials(w, r, &share); err != nil {
+				return share, nil, dataprovider.ErrInvalidCredentials
+			}
+		} else {
+			_, password, ok := r.BasicAuth()
+			if !ok {
+				w.Header().Set(common.HTTPAuthenticationHeader, basicRealm)
+				renderError(dataprovider.ErrInvalidCredentials, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+				return share, nil, dataprovider.ErrInvalidCredentials
+			}
+			match, err := share.CheckCredentials(password)
+			if !match || err != nil {
+				w.Header().Set(common.HTTPAuthenticationHeader, basicRealm)
+				renderError(dataprovider.ErrInvalidCredentials, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+				return share, nil, dataprovider.ErrInvalidCredentials
+			}
 		}
 	}
 	user, err := getUserForShare(share)

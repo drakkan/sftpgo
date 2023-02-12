@@ -1447,6 +1447,8 @@ func (s *httpdServer) setupWebClientRoutes() {
 				Post(webClientTwoFactorRecoveryPath, s.handleWebClientTwoFactorRecoveryPost)
 		}
 		// share routes available to external users
+		s.router.Get(webClientPubSharesPath+"/{id}/login", s.handleClientShareLoginGet)
+		s.router.Post(webClientPubSharesPath+"/{id}/login", s.handleClientShareLoginPost)
 		s.router.Get(webClientPubSharesPath+"/{id}", s.downloadFromShare)
 		s.router.Get(webClientPubSharesPath+"/{id}/partial", s.handleClientSharePartialDownload)
 		s.router.Get(webClientPubSharesPath+"/{id}/browse", s.handleShareGetFiles)

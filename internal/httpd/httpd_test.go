@@ -12471,6 +12471,13 @@ func TestShareUsage(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
 
+	req, err = http.NewRequest(http.MethodGet, webClientPubSharesPath+"/"+objectID+"_mod", nil)
+	assert.NoError(t, err)
+	req.RequestURI = webClientPubSharesPath + "/" + objectID + "_mod"
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
 	share.ExpiresAt = 0
 	jsonReq := make(map[string]any)
 	jsonReq["name"] = share.Name
@@ -12678,6 +12685,148 @@ func TestShareUsage(t *testing.T) {
 	assert.NoError(t, err)
 	req.SetBasicAuth(defaultUsername, defaultPassword)
 	executeRequest(req)
+}
+
+func TestWebClientShareCredentials(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	shareRead := dataprovider.Share{
+		Name:     "test share read",
+		Scope:    dataprovider.ShareScopeRead,
+		Password: defaultPassword,
+		Paths:    []string{"/"},
+	}
+
+	shareWrite := dataprovider.Share{
+		Name:     "test share write",
+		Scope:    dataprovider.ShareScopeReadWrite,
+		Password: defaultPassword,
+		Paths:    []string{"/"},
+	}
+
+	asJSON, err := json.Marshal(shareRead)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	shareReadID := rr.Header().Get("X-Object-ID")
+	assert.NotEmpty(t, shareReadID)
+
+	asJSON, err = json.Marshal(shareWrite)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	shareWriteID := rr.Header().Get("X-Object-ID")
+	assert.NotEmpty(t, shareWriteID)
+
+	uri := path.Join(webClientPubSharesPath, shareReadID, "browse")
+	req, err = http.NewRequest(http.MethodGet, uri, nil)
+	assert.NoError(t, err)
+	req.RequestURI = uri
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusFound, rr)
+	location := rr.Header().Get("Location")
+	assert.Contains(t, location, url.QueryEscape(uri))
+	// get the login form
+	req, err = http.NewRequest(http.MethodGet, location, nil)
+	assert.NoError(t, err)
+	req.RequestURI = uri
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// now set the user token, it is not valid for the share
+	req, err = http.NewRequest(http.MethodGet, uri, nil)
+	assert.NoError(t, err)
+	req.RequestURI = uri
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusFound, rr)
+	// get a share token
+	form := make(url.Values)
+	form.Set("share_password", defaultPassword)
+	loginURI := path.Join(webClientPubSharesPath, shareReadID, "login")
+	req, err = http.NewRequest(http.MethodPost, loginURI, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "unable to verify form token")
+	// set the CSRF token
+	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
+	assert.NoError(t, err)
+	form.Set(csrfFormToken, csrfToken)
+	req, err = http.NewRequest(http.MethodPost, loginURI, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "Share login successful")
+	cookie := rr.Header().Get("Set-Cookie")
+	cookie = strings.TrimPrefix(cookie, "jwt=")
+	assert.NotEmpty(t, cookie)
+	req, err = http.NewRequest(http.MethodGet, uri, nil)
+	assert.NoError(t, err)
+	req.RequestURI = uri
+	setJWTCookieForReq(req, cookie)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// the same cookie will not work for the other share
+	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, shareWriteID, "browse"), nil)
+	assert.NoError(t, err)
+	req.RequestURI = uri
+	setJWTCookieForReq(req, cookie)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusFound, rr)
+	// IP address does not match
+	req, err = http.NewRequest(http.MethodGet, uri, nil)
+	assert.NoError(t, err)
+	req.RequestURI = uri
+	setJWTCookieForReq(req, cookie)
+	req.RemoteAddr = "1.2.3.4:1234"
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusFound, rr)
+	// try to login with invalid credentials
+	form.Set("share_password", "")
+	req, err = http.NewRequest(http.MethodPost, loginURI, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), dataprovider.ErrInvalidCredentials.Error())
+	// login with the next param set
+	form.Set("share_password", defaultPassword)
+	nextURI := path.Join(webClientPubSharesPath, shareReadID, "browse")
+	loginURI = path.Join(webClientPubSharesPath, shareReadID, fmt.Sprintf("login?next=%s", url.QueryEscape(nextURI)))
+	req, err = http.NewRequest(http.MethodPost, loginURI, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusFound, rr)
+	assert.Equal(t, nextURI, rr.Header().Get("Location"))
+	// try to login to a missing share
+	loginURI = path.Join(webClientPubSharesPath, "missing", "login")
+	req, err = http.NewRequest(http.MethodPost, loginURI, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), dataprovider.ErrInvalidCredentials.Error())
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
 }
 
 func TestShareMaxSessions(t *testing.T) {
@@ -13716,13 +13865,10 @@ func TestUserAPIShares(t *testing.T) {
 
 	s, err := dataprovider.ShareExists(objectID, defaultUsername)
 	assert.NoError(t, err)
-	match, err := s.CheckCredentials(defaultUsername, defaultPassword)
+	match, err := s.CheckCredentials(defaultPassword)
 	assert.True(t, match)
 	assert.NoError(t, err)
-	match, err = s.CheckCredentials(defaultUsername, defaultPassword+"mod")
-	assert.False(t, match)
-	assert.Error(t, err)
-	match, err = s.CheckCredentials(altAdminUsername, defaultPassword)
+	match, err = s.CheckCredentials(defaultPassword + "mod")
 	assert.False(t, match)
 	assert.Error(t, err)
 
@@ -13737,10 +13883,10 @@ func TestUserAPIShares(t *testing.T) {
 
 	s, err = dataprovider.ShareExists(objectID, defaultUsername)
 	assert.NoError(t, err)
-	match, err = s.CheckCredentials(defaultUsername, defaultPassword)
+	match, err = s.CheckCredentials(defaultPassword)
 	assert.True(t, match)
 	assert.NoError(t, err)
-	match, err = s.CheckCredentials(defaultUsername, defaultPassword+"mod")
+	match, err = s.CheckCredentials(defaultPassword + "mod")
 	assert.False(t, match)
 	assert.Error(t, err)
 
@@ -16605,7 +16751,7 @@ func TestWebUserShare(t *testing.T) {
 	// check the password
 	s, err := dataprovider.ShareExists(share.ShareID, user.Username)
 	assert.NoError(t, err)
-	match, err := s.CheckCredentials(user.Username, defaultPassword)
+	match, err := s.CheckCredentials(defaultPassword)
 	assert.NoError(t, err)
 	assert.True(t, match)
 

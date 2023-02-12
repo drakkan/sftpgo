@@ -1,0 +1,40 @@
+<!--
+Copyright (C) 2019-2023 Nicola Murino
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published
+by the Free Software Foundation, version 3.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+-->
+{{template "baselogin" .}}
+
+{{define "title"}}Share login{{end}}
+
+{{define "content"}}
+                                    {{if .Error}}
+                                    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                                        {{.Error}}
+                                        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                            <span aria-hidden="true">&times;</span>
+                                        </button>
+                                    </div>
+                                    {{end}}
+                                    <form id="login_form" action="{{.CurrentURL}}" method="POST" autocomplete="off"
+                                        class="user-custom">
+                                        <div class="form-group">
+                                            <input type="password" class="form-control form-control-user-custom"
+                                                id="inputSharePassword" name="share_password" placeholder="Password" spellcheck="false" required>
+                                        </div>
+                                        <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
+                                        <button type="submit" class="btn btn-primary btn-user-custom btn-block">
+                                            Login
+                                        </button>
+                                    </form>
+{{end}}
