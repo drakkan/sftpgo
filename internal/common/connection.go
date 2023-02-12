@@ -360,15 +360,17 @@ func (c *BaseConnection) CreateDir(virtualPath string, checkFilePatterns bool) e
 	if err != nil {
 		return err
 	}
+	startTime := time.Now()
 	if err := fs.Mkdir(fsPath); err != nil {
 		c.Log(logger.LevelError, "error creating dir: %#v error: %+v", fsPath, err)
 		return c.GetFsError(fs, err)
 	}
 	vfs.SetPathPermissions(fs, fsPath, c.User.GetUID(), c.User.GetGID())
+	elapsed := time.Since(startTime).Nanoseconds() / 1000000
 
 	logger.CommandLog(mkdirLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", -1,
-		c.localAddr, c.remoteAddr)
-	ExecuteActionNotification(c, operationMkdir, fsPath, virtualPath, "", "", "", 0, nil) //nolint:errcheck
+		c.localAddr, c.remoteAddr, elapsed)
+	ExecuteActionNotification(c, operationMkdir, fsPath, virtualPath, "", "", "", 0, nil, elapsed) //nolint:errcheck
 	return nil
 }
 
@@ -397,6 +399,7 @@ func (c *BaseConnection) RemoveFile(fs vfs.Fs, fsPath, virtualPath string, info 
 		return c.GetPermissionDeniedError()
 	}
 	updateQuota := true
+	startTime := time.Now()
 	if err := fs.Remove(fsPath, false); err != nil {
 		if status > 0 && fs.IsNotExist(err) {
 			// file removed in the pre-action, if the file was deleted from the EventManager the quota is already updated
@@ -407,9 +410,10 @@ func (c *BaseConnection) RemoveFile(fs vfs.Fs, fsPath, virtualPath string, info 
 			return c.GetFsError(fs, err)
 		}
 	}
+	elapsed := time.Since(startTime).Nanoseconds() / 1000000
 
 	logger.CommandLog(removeLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", -1,
-		c.localAddr, c.remoteAddr)
+		c.localAddr, c.remoteAddr, elapsed)
 	if updateQuota && info.Mode()&os.ModeSymlink == 0 {
 		vfolder, err := c.User.GetVirtualFolderForPath(path.Dir(virtualPath))
 		if err == nil {
@@ -421,7 +425,7 @@ func (c *BaseConnection) RemoveFile(fs vfs.Fs, fsPath, virtualPath string, info 
 			dataprovider.UpdateUserQuota(&c.User, -1, -size, false) //nolint:errcheck
 		}
 	}
-	ExecuteActionNotification(c, operationDelete, fsPath, virtualPath, "", "", "", size, nil) //nolint:errcheck
+	ExecuteActionNotification(c, operationDelete, fsPath, virtualPath, "", "", "", size, nil, elapsed) //nolint:errcheck
 	return nil
 }
 
@@ -478,14 +482,16 @@ func (c *BaseConnection) RemoveDir(virtualPath string) error {
 		return c.GetGenericError(nil)
 	}
 
+	startTime := time.Now()
 	if err := fs.Remove(fsPath, true); err != nil {
 		c.Log(logger.LevelError, "failed to remove directory %#v: %+v", fsPath, err)
 		return c.GetFsError(fs, err)
 	}
+	elapsed := time.Since(startTime).Nanoseconds() / 1000000
 
 	logger.CommandLog(rmdirLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", -1,
-		c.localAddr, c.remoteAddr)
-	ExecuteActionNotification(c, operationRmdir, fsPath, virtualPath, "", "", "", 0, nil) //nolint:errcheck
+		c.localAddr, c.remoteAddr, elapsed)
+	ExecuteActionNotification(c, operationRmdir, fsPath, virtualPath, "", "", "", 0, nil, elapsed) //nolint:errcheck
 	return nil
 }
 
@@ -597,8 +603,10 @@ func (c *BaseConnection) copyFile(virtualSourcePath, virtualTargetPath string, s
 	}
 	defer wCancelFn()
 
+	startTime := time.Now()
 	_, err = io.Copy(writer, reader)
-	return closeWriterAndUpdateQuota(writer, c, virtualSourcePath, virtualTargetPath, numFiles, truncatedSize, err, operationCopy)
+	return closeWriterAndUpdateQuota(writer, c, virtualSourcePath, virtualTargetPath, numFiles, truncatedSize,
+		err, operationCopy, startTime)
 }
 
 func (c *BaseConnection) doRecursiveCopy(virtualSourcePath, virtualTargetPath string, srcInfo os.FileInfo,
@@ -709,6 +717,7 @@ func (c *BaseConnection) renameInternal(virtualSourcePath, virtualTargetPath str
 	if err != nil {
 		return err
 	}
+	startTime := time.Now()
 	srcInfo, err := fsSrc.Lstat(fsSourcePath)
 	if err != nil {
 		return c.GetFsError(fsSrc, err)
@@ -756,11 +765,12 @@ func (c *BaseConnection) renameInternal(virtualSourcePath, virtualTargetPath str
 		return c.GetFsError(fsSrc, err)
 	}
 	vfs.SetPathPermissions(fsDst, fsTargetPath, c.User.GetUID(), c.User.GetGID())
+	elapsed := time.Since(startTime).Nanoseconds() / 1000000
 	c.updateQuotaAfterRename(fsDst, virtualSourcePath, virtualTargetPath, fsTargetPath, initialSize, files, size) //nolint:errcheck
 	logger.CommandLog(renameLogSender, fsSourcePath, fsTargetPath, c.User.Username, "", c.ID, c.protocol, -1, -1,
-		"", "", "", -1, c.localAddr, c.remoteAddr)
+		"", "", "", -1, c.localAddr, c.remoteAddr, elapsed)
 	ExecuteActionNotification(c, operationRename, fsSourcePath, virtualSourcePath, fsTargetPath, //nolint:errcheck
-		virtualTargetPath, "", 0, nil)
+		virtualTargetPath, "", 0, nil, elapsed)
 
 	return nil
 }
@@ -810,12 +820,14 @@ func (c *BaseConnection) CreateSymlink(virtualSourcePath, virtualTargetPath stri
 	if relativePath != "" {
 		fsSourcePath = relativePath
 	}
+	startTime := time.Now()
 	if err := fs.Symlink(fsSourcePath, fsTargetPath); err != nil {
-		c.Log(logger.LevelError, "failed to create symlink %#v -> %#v: %+v", fsSourcePath, fsTargetPath, err)
+		c.Log(logger.LevelError, "failed to create symlink %q -> %q: %+v", fsSourcePath, fsTargetPath, err)
 		return c.GetFsError(fs, err)
 	}
+	elapsed := time.Since(startTime).Nanoseconds() / 1000000
 	logger.CommandLog(symlinkLogSender, fsSourcePath, fsTargetPath, c.User.Username, "", c.ID, c.protocol, -1, -1, "",
-		"", "", -1, c.localAddr, c.remoteAddr)
+		"", "", -1, c.localAddr, c.remoteAddr, elapsed)
 	return nil
 }
 
@@ -899,12 +911,14 @@ func (c *BaseConnection) handleChmod(fs vfs.Fs, fsPath, pathForPerms string, att
 	if c.ignoreSetStat(fs) {
 		return nil
 	}
+	startTime := time.Now()
 	if err := fs.Chmod(c.getRealFsPath(fsPath), attributes.Mode); err != nil {
 		c.Log(logger.LevelError, "failed to chmod path %#v, mode: %v, err: %+v", fsPath, attributes.Mode.String(), err)
 		return c.GetFsError(fs, err)
 	}
+	elapsed := time.Since(startTime).Nanoseconds() / 1000000
 	logger.CommandLog(chmodLogSender, fsPath, "", c.User.Username, attributes.Mode.String(), c.ID, c.protocol,
-		-1, -1, "", "", "", -1, c.localAddr, c.remoteAddr)
+		-1, -1, "", "", "", -1, c.localAddr, c.remoteAddr, elapsed)
 	return nil
 }
 
@@ -915,13 +929,15 @@ func (c *BaseConnection) handleChown(fs vfs.Fs, fsPath, pathForPerms string, att
 	if c.ignoreSetStat(fs) {
 		return nil
 	}
+	startTime := time.Now()
 	if err := fs.Chown(c.getRealFsPath(fsPath), attributes.UID, attributes.GID); err != nil {
 		c.Log(logger.LevelError, "failed to chown path %#v, uid: %v, gid: %v, err: %+v", fsPath, attributes.UID,
 			attributes.GID, err)
 		return c.GetFsError(fs, err)
 	}
+	elapsed := time.Since(startTime).Nanoseconds() / 1000000
 	logger.CommandLog(chownLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, attributes.UID, attributes.GID,
-		"", "", "", -1, c.localAddr, c.remoteAddr)
+		"", "", "", -1, c.localAddr, c.remoteAddr, elapsed)
 	return nil
 }
 
@@ -932,6 +948,7 @@ func (c *BaseConnection) handleChtimes(fs vfs.Fs, fsPath, pathForPerms string, a
 	if Config.SetstatMode == 1 {
 		return nil
 	}
+	startTime := time.Now()
 	isUploading := c.setTimes(fsPath, attributes.Atime, attributes.Mtime)
 	if err := fs.Chtimes(c.getRealFsPath(fsPath), attributes.Atime, attributes.Mtime, isUploading); err != nil {
 		c.setTimes(fsPath, time.Time{}, time.Time{})
@@ -942,10 +959,11 @@ func (c *BaseConnection) handleChtimes(fs vfs.Fs, fsPath, pathForPerms string, a
 			fsPath, attributes.Atime, attributes.Mtime, err)
 		return c.GetFsError(fs, err)
 	}
+	elapsed := time.Since(startTime).Nanoseconds() / 1000000
 	accessTimeString := attributes.Atime.Format(chtimesFormat)
 	modificationTimeString := attributes.Mtime.Format(chtimesFormat)
 	logger.CommandLog(chtimesLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1,
-		accessTimeString, modificationTimeString, "", -1, c.localAddr, c.remoteAddr)
+		accessTimeString, modificationTimeString, "", -1, c.localAddr, c.remoteAddr, elapsed)
 	return nil
 }
 
@@ -982,13 +1000,14 @@ func (c *BaseConnection) SetStat(virtualPath string, attributes *StatAttributes)
 		if !c.User.HasPerm(dataprovider.PermOverwrite, pathForPerms) {
 			return c.GetPermissionDeniedError()
 		}
-
+		startTime := time.Now()
 		if err = c.truncateFile(fs, fsPath, virtualPath, attributes.Size); err != nil {
 			c.Log(logger.LevelError, "failed to truncate path %#v, size: %v, err: %+v", fsPath, attributes.Size, err)
 			return c.GetFsError(fs, err)
 		}
+		elapsed := time.Since(startTime).Nanoseconds() / 1000000
 		logger.CommandLog(truncateLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "",
-			"", attributes.Size, c.localAddr, c.remoteAddr)
+			"", attributes.Size, c.localAddr, c.remoteAddr, elapsed)
 	}
 
 	return nil

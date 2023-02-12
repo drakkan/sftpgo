@@ -39,6 +39,7 @@ The following placeholders are supported:
 - `{{TargetName}}`. Target object name for renames.
 - `{{FsTargetPath}}`. Full filesystem target path for renames.
 - `{{FileSize}}`. File size.
+- `{{Elapsed}}`. Elapsed time as milliseconds for filesystem events.
 - `{{Protocol}}`. Used protocol, for example `SFTP`, `FTP`.
 - `{{IP}}`. Client IP address.
 - `{{Role}}`. User or admin role.

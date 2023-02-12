@@ -40,6 +40,7 @@ If the `hook` defines a path to an external program, then this program can read 
 - `SFTPGO_ACTION_VIRTUAL_TARGET`, virtual target path, seen by SFTPGo users
 - `SFTPGO_ACTION_SSH_CMD`, non-empty for `ssh_cmd` `SFTPGO_ACTION`
 - `SFTPGO_ACTION_FILE_SIZE`, non-zero for `pre-upload`, `upload`, `download`, `delete`, and `copy` actions if the file size is greater than `0`
+- `SFTPGO_ACTION_ELAPSED`, elapsed time as milliseconds
 - `SFTPGO_ACTION_FS_PROVIDER`, `0` for local filesystem, `1` for S3 backend, `2` for Google Cloud Storage (GCS) backend, `3` for Azure Blob Storage backend, `4` for local encrypted backend, `5` for SFTP backend
 - `SFTPGO_ACTION_BUCKET`, non-empty for S3, GCS and Azure backends
 - `SFTPGO_ACTION_ENDPOINT`, non-empty for S3, SFTP and Azure backend if configured
@@ -64,6 +65,7 @@ If the `hook` defines an HTTP URL then this URL will be invoked as HTTP POST. Th
 - `virtual_target_path`, string, virtual target path, seen by SFTPGo users
 - `ssh_cmd`, string, included for `ssh_cmd` action
 - `file_size`, int64, included for `pre-upload`, `upload`, `download`, `delete` and `copy` actions if the file size is greater than `0`
+- `elapsed`, int64, elapsed size as milliseconds
 - `fs_provider`, integer, `0` for local filesystem, `1` for S3 backend, `2` for Google Cloud Storage (GCS) backend, `3` for Azure Blob Storage backend, `4` for local encrypted backend, `5` for SFTP backend, `6` for HTTPFs backend
 - `bucket`, string, included for S3, GCS and Azure backends
 - `endpoint`, string, included for S3, SFTP and Azure backend if configured

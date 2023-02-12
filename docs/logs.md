@@ -36,6 +36,7 @@ The logs can be divided into the following categories:
   - `access_time` datetime as YYYY-MM-DDTHH:MM:SS. Valid for sender `Chtimes` otherwise empty
   - `modification_time` datetime as YYYY-MM-DDTHH:MM:SS. Valid for sender `Chtimes` otherwise empty
   - `size` int64. Valid for sender `Truncate` otherwise -1
+  - `elapsed`, int64. Elapsed time, as milliseconds
   - `ssh_command`, string. Valid for sender `SSHCommand` otherwise empty
   - `connection_id` string. Unique connection identifier
   - `protocol` string. `SFTP`, `SCP`, `SSH`, `FTP`, `HTTP`, `DAV`, `DataRetention`, `EventAction`

@@ -447,6 +447,7 @@ type EventParams struct {
 	ObjectName            string
 	ObjectType            string
 	FileSize              int64
+	Elapsed               int64
 	Protocol              string
 	IP                    string
 	Role                  string
@@ -633,6 +634,7 @@ func (p *EventParams) getStringReplacements(addObjectData bool) []string {
 		"{{ObjectName}}", p.ObjectName,
 		"{{ObjectType}}", p.ObjectType,
 		"{{FileSize}}", fmt.Sprintf("%d", p.FileSize),
+		"{{Elapsed}}", fmt.Sprintf("%d", p.Elapsed),
 		"{{Protocol}}", p.Protocol,
 		"{{IP}}", p.IP,
 		"{{Role}}", p.Role,
@@ -685,7 +687,7 @@ func getCSVRetentionReport(results []folderRetentionCheckResult) ([]byte, error)
 }
 
 func closeWriterAndUpdateQuota(w io.WriteCloser, conn *BaseConnection, virtualSourcePath, virtualTargetPath string,
-	numFiles int, truncatedSize int64, errTransfer error, operation string,
+	numFiles int, truncatedSize int64, errTransfer error, operation string, startTime time.Time,
 ) error {
 	errWrite := w.Close()
 	targetPath := virtualSourcePath
@@ -704,14 +706,15 @@ func closeWriterAndUpdateQuota(w io.WriteCloser, conn *BaseConnection, virtualSo
 			_, fsDstPath, errDstFs = conn.GetFsAndResolvedPath(virtualTargetPath)
 		}
 		if errSrcFs == nil && errDstFs == nil {
+			elapsed := time.Since(startTime).Nanoseconds() / 1000000
 			if errTransfer == nil {
 				errTransfer = errWrite
 			}
 			if operation == operationCopy {
 				logger.CommandLog(copyLogSender, fsSrcPath, fsDstPath, conn.User.Username, "", conn.ID, conn.protocol, -1, -1,
-					"", "", "", info.Size(), conn.localAddr, conn.remoteAddr)
+					"", "", "", info.Size(), conn.localAddr, conn.remoteAddr, elapsed)
 			}
-			ExecuteActionNotification(conn, operation, fsSrcPath, virtualSourcePath, fsDstPath, virtualTargetPath, "", info.Size(), errTransfer) //nolint:errcheck
+			ExecuteActionNotification(conn, operation, fsSrcPath, virtualSourcePath, fsDstPath, virtualTargetPath, "", info.Size(), errTransfer, elapsed) //nolint:errcheck
 		}
 	} else {
 		eventManagerLog(logger.LevelWarn, "unable to update quota after writing %q: %v", targetPath, err)
@@ -1735,18 +1738,19 @@ func executeCompressFsActionForUser(c dataprovider.EventActionFsCompress, replac
 		Writer:  zip.NewWriter(writer),
 		Entries: make(map[string]bool),
 	}
+	startTime := time.Now()
 	for _, item := range paths {
 		if err := addZipEntry(zipWriter, conn, item, baseDir); err != nil {
-			closeWriterAndUpdateQuota(writer, conn, name, "", numFiles, truncatedSize, err, operationUpload) //nolint:errcheck
+			closeWriterAndUpdateQuota(writer, conn, name, "", numFiles, truncatedSize, err, operationUpload, startTime) //nolint:errcheck
 			return err
 		}
 	}
 	if err := zipWriter.Writer.Close(); err != nil {
 		eventManagerLog(logger.LevelError, "unable to close zip file %q: %v", name, err)
-		closeWriterAndUpdateQuota(writer, conn, name, "", numFiles, truncatedSize, err, operationUpload) //nolint:errcheck
+		closeWriterAndUpdateQuota(writer, conn, name, "", numFiles, truncatedSize, err, operationUpload, startTime) //nolint:errcheck
 		return fmt.Errorf("unable to close zip file %q: %w", name, err)
 	}
-	return closeWriterAndUpdateQuota(writer, conn, name, "", numFiles, truncatedSize, err, operationUpload)
+	return closeWriterAndUpdateQuota(writer, conn, name, "", numFiles, truncatedSize, err, operationUpload, startTime)
 }
 
 func executeExistFsRuleAction(exist []string, replacer *strings.Replacer, conditions dataprovider.ConditionOptions,

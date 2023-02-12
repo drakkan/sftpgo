@@ -29,6 +29,7 @@ import (
 	"runtime/debug"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/google/shlex"
 	"github.com/sftpgo/sdk"
@@ -55,6 +56,7 @@ type sshCommand struct {
 	command    string
 	args       []string
 	connection *Connection
+	startTime  time.Time
 }
 
 type systemCommand struct {
@@ -97,6 +99,7 @@ func processSSHCommand(payload []byte, connection *Connection, enabledSSHCommand
 					sshCommand: sshCommand{
 						command:    name,
 						connection: connection,
+						startTime:  time.Now(),
 						args:       args},
 				}
 				go scpCommand.handle() //nolint:errcheck
@@ -107,6 +110,7 @@ func processSSHCommand(payload []byte, connection *Connection, enabledSSHCommand
 				sshCommand := sshCommand{
 					command:    name,
 					connection: connection,
+					startTime:  time.Now(),
 					args:       args,
 				}
 				go sshCommand.handle() //nolint:errcheck
@@ -549,6 +553,7 @@ func (c *sshCommand) sendExitStatus(err error) {
 	c.connection.channel.Close()
 	// for scp we notify single uploads/downloads
 	if c.command != scpCmdName {
+		elapsed := time.Since(c.startTime).Nanoseconds() / 1000000
 		metric.SSHCommandCompleted(err)
 		if vCmdPath != "" {
 			_, p, errFs := c.connection.GetFsAndResolvedPath(vCmdPath)
@@ -563,11 +568,11 @@ func (c *sshCommand) sendExitStatus(err error) {
 			}
 		}
 		common.ExecuteActionNotification(c.connection.BaseConnection, common.OperationSSHCmd, cmdPath, vCmdPath, //nolint:errcheck
-			targetPath, vTargetPath, c.command, 0, err)
+			targetPath, vTargetPath, c.command, 0, err, elapsed)
 		if err == nil {
 			logger.CommandLog(sshCommandLogSender, cmdPath, targetPath, c.connection.User.Username, "", c.connection.ID,
 				common.ProtocolSSH, -1, -1, "", "", c.connection.command, -1, c.connection.GetLocalAddress(),
-				c.connection.GetRemoteAddress())
+				c.connection.GetRemoteAddress(), elapsed)
 		}
 	}
 }

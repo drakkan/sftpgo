@@ -393,7 +393,7 @@ func (t *BaseTransfer) Close() error {
 		logger.TransferLog(downloadLogSender, t.fsPath, elapsed, t.BytesSent.Load(), t.Connection.User.Username,
 			t.Connection.ID, t.Connection.protocol, t.Connection.localAddr, t.Connection.remoteAddr, t.ftpMode)
 		ExecuteActionNotification(t.Connection, operationDownload, t.fsPath, t.requestPath, "", "", "", //nolint:errcheck
-			t.BytesSent.Load(), t.ErrTransfer)
+			t.BytesSent.Load(), t.ErrTransfer, elapsed)
 	} else {
 		statSize, deletedFiles, errStat := t.getUploadFileSize()
 		if errStat == nil {
@@ -408,7 +408,7 @@ func (t *BaseTransfer) Close() error {
 		numFiles -= deletedFiles
 		t.Connection.Log(logger.LevelDebug, "upload file size %d, num files %d, deleted files %d, fs path %q",
 			uploadFileSize, numFiles, deletedFiles, t.fsPath)
-		numFiles, uploadFileSize = t.executeUploadHook(numFiles, uploadFileSize)
+		numFiles, uploadFileSize = t.executeUploadHook(numFiles, uploadFileSize, elapsed)
 		t.updateQuota(numFiles, uploadFileSize)
 		t.updateTimes()
 		logger.TransferLog(uploadLogSender, t.fsPath, elapsed, t.BytesReceived.Load(), t.Connection.User.Username,
@@ -420,11 +420,11 @@ func (t *BaseTransfer) Close() error {
 			err = t.ErrTransfer
 		}
 	}
-	t.updateTransferTimestamps(uploadFileSize)
+	t.updateTransferTimestamps(uploadFileSize, elapsed)
 	return err
 }
 
-func (t *BaseTransfer) updateTransferTimestamps(uploadFileSize int64) {
+func (t *BaseTransfer) updateTransferTimestamps(uploadFileSize, elapsed int64) {
 	if t.ErrTransfer != nil {
 		return
 	}
@@ -433,7 +433,7 @@ func (t *BaseTransfer) updateTransferTimestamps(uploadFileSize int64) {
 			if err := dataprovider.UpdateUserTransferTimestamps(t.Connection.User.Username, true); err == nil {
 				t.Connection.uploadDone.Store(true)
 				ExecuteActionNotification(t.Connection, operationFirstUpload, t.fsPath, t.requestPath, "", //nolint:errcheck
-					"", "", uploadFileSize, t.ErrTransfer)
+					"", "", uploadFileSize, t.ErrTransfer, elapsed)
 			}
 		}
 		return
@@ -442,14 +442,14 @@ func (t *BaseTransfer) updateTransferTimestamps(uploadFileSize int64) {
 		if err := dataprovider.UpdateUserTransferTimestamps(t.Connection.User.Username, false); err == nil {
 			t.Connection.downloadDone.Store(true)
 			ExecuteActionNotification(t.Connection, operationFirstDownload, t.fsPath, t.requestPath, "", //nolint:errcheck
-				"", "", t.BytesSent.Load(), t.ErrTransfer)
+				"", "", t.BytesSent.Load(), t.ErrTransfer, elapsed)
 		}
 	}
 }
 
-func (t *BaseTransfer) executeUploadHook(numFiles int, fileSize int64) (int, int64) {
+func (t *BaseTransfer) executeUploadHook(numFiles int, fileSize, elapsed int64) (int, int64) {
 	err := ExecuteActionNotification(t.Connection, operationUpload, t.fsPath, t.requestPath, "", "", "",
-		fileSize, t.ErrTransfer)
+		fileSize, t.ErrTransfer, elapsed)
 	if err != nil {
 		if t.ErrTransfer == nil {
 			t.ErrTransfer = err
