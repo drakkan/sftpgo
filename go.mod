@@ -35,7 +35,7 @@ require (
 	github.com/hashicorp/go-hclog v1.4.0
 	github.com/hashicorp/go-plugin v1.4.8
 	github.com/hashicorp/go-retryablehttp v0.7.2
-	github.com/jackc/pgx/v5 v5.2.0
+	github.com/jackc/pgx/v5 v5.3.0
 	github.com/jlaffaye/ftp v0.0.0-20201112195030-9aae4d151126
 	github.com/klauspost/compress v1.15.15
 	github.com/lestrrat-go/jwx/v2 v2.0.8
@@ -67,7 +67,7 @@ require (
 	go.etcd.io/bbolt v1.3.7
 	go.uber.org/automaxprocs v1.5.1
 	gocloud.dev v0.28.0
-	golang.org/x/crypto v0.5.0
+	golang.org/x/crypto v0.6.0
 	golang.org/x/net v0.6.0
 	golang.org/x/oauth2 v0.5.0
 	golang.org/x/sys v0.5.0
@@ -156,7 +156,7 @@ require (
 	go.opencensus.io v0.24.0 // indirect
 	golang.org/x/mod v0.8.0 // indirect
 	golang.org/x/text v0.7.0 // indirect
-	golang.org/x/tools v0.5.0 // indirect
+	golang.org/x/tools v0.6.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20230209215440-0dfe4f8abfcc // indirect
