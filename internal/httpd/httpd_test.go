@@ -1184,6 +1184,8 @@ func TestGroupSettingsOverride(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, user1.VirtualFolders, 0)
 	assert.Len(t, user2.VirtualFolders, 3)
+	assert.Equal(t, int64(0), user1.ExpirationDate)
+	assert.Equal(t, int64(0), user2.ExpirationDate)
 
 	group2.UserSettings.FsConfig = vfs.Filesystem{
 		Provider: sdk.SFTPFilesystemProvider,
@@ -1230,6 +1232,7 @@ func TestGroupSettingsOverride(t *testing.T) {
 	group1.UserSettings.UploadBandwidth = 512
 	group1.UserSettings.DownloadBandwidth = 1024
 	group1.UserSettings.TotalDataTransfer = 2048
+	group1.UserSettings.ExpiresIn = 15
 	group1.UserSettings.Filters.MaxUploadFileSize = 1024 * 1024
 	group1.UserSettings.Filters.StartDirectory = "/startdir/%username%"
 	group1.UserSettings.Filters.WebClient = []string{sdk.WebClientInfoChangeDisabled}
@@ -1250,6 +1253,7 @@ func TestGroupSettingsOverride(t *testing.T) {
 	user, err = dataprovider.CheckUserAndPass(defaultUsername, defaultPassword, "", common.ProtocolHTTP)
 	assert.NoError(t, err)
 	assert.Len(t, user.VirtualFolders, 3)
+	assert.Equal(t, user.CreatedAt+int64(group1.UserSettings.ExpiresIn)*86400000, user.ExpirationDate)
 	assert.Equal(t, sdk.SFTPFilesystemProvider, user.FsConfig.Provider)
 	assert.Equal(t, altAdminUsername, user.FsConfig.SFTPConfig.Username)
 	assert.Equal(t, "/dirs/"+defaultUsername, user.FsConfig.SFTPConfig.Prefix)
@@ -21660,6 +21664,7 @@ func TestAddWebGroup(t *testing.T) {
 			QuotaFiles:        10,
 			UploadBandwidth:   128,
 			DownloadBandwidth: 256,
+			ExpiresIn:         10,
 		},
 	}
 	form := make(url.Values)
@@ -21719,6 +21724,16 @@ func TestAddWebGroup(t *testing.T) {
 	form.Set("upload_data_transfer", "0")
 	form.Set("download_data_transfer", "0")
 	form.Set("total_data_transfer", "0")
+	b, contentType, err = getMultipartFormData(form, "", "")
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, webGroupPath, &b)
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", contentType)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "invalid expires in")
+	form.Set("expires_in", strconv.Itoa(group.UserSettings.ExpiresIn))
 	b, contentType, err = getMultipartFormData(form, "", "")
 	assert.NoError(t, err)
 	req, err = http.NewRequest(http.MethodPost, webGroupPath, &b)
@@ -22163,6 +22178,7 @@ func TestUpdateWebGroupMock(t *testing.T) {
 	form.Set("total_data_transfer", "0")
 	form.Set("max_upload_file_size", "0")
 	form.Set("default_shares_expiration", "0")
+	form.Set("expires_in", "0")
 	form.Set("password_expiration", "0")
 	form.Set("external_auth_cache_time", "0")
 	form.Set("fs_provider", strconv.FormatInt(int64(group.UserSettings.FsConfig.Provider), 10))

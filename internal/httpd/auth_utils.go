@@ -409,7 +409,6 @@ func verifyCSRFToken(tokenString, ip string) error {
 
 	if tokenValidationMode != tokenValidationNoIPMatch {
 		if !util.Contains(token.Audience(), ip) {
-			fmt.Printf("ip %v audience %+v\n\n", ip, token.Audience())
 			logger.Debug(logSender, "", "error validating CSRF token IP audience")
 			return errors.New("the form token is not valid")
 		}

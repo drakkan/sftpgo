@@ -707,6 +707,17 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                             </div>
 
                             <div class="form-group row">
+                                <label for="idExpiresIn" class="col-sm-2 col-form-label">Expires in</label>
+                                <div class="col-sm-10">
+                                    <input type="number" class="form-control" id="idExpiresIn" name="expires_in"
+                                        value="{{.Group.UserSettings.ExpiresIn}}" min="0" aria-describedby="expiresInHelpBlock">
+                                    <small id="expiresInHelpBlock" class="form-text text-muted">
+                                        Account expiration as number of days from the creation. 0 means no expiration
+                                    </small>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
                                 <label for="idPasswordExpiration" class="col-sm-2 col-form-label">Password expiration</label>
                                 <div class="col-sm-10">
                                     <input type="number" class="form-control" id="idPasswordExpiration" name="password_expiration"

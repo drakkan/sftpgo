@@ -1737,6 +1737,9 @@ func (u *User) mergeWithPrimaryGroup(group Group, replacer *strings.Replacer) {
 		u.DownloadDataTransfer = group.UserSettings.DownloadDataTransfer
 		u.TotalDataTransfer = group.UserSettings.TotalDataTransfer
 	}
+	if u.ExpirationDate == 0 && group.UserSettings.ExpiresIn > 0 {
+		u.ExpirationDate = u.CreatedAt + int64(group.UserSettings.ExpiresIn)*86400000
+	}
 	u.mergePrimaryGroupFilters(group.UserSettings.Filters, replacer)
 	u.mergeAdditiveProperties(group, sdk.GroupTypePrimary, replacer)
 }

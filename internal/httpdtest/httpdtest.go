@@ -2212,7 +2212,6 @@ func compareGCSConfig(expected *vfs.Filesystem, actual *vfs.Filesystem) error {
 		return errors.New("GCS upload part size mismatch")
 	}
 	if expected.GCSConfig.UploadPartMaxTime != actual.GCSConfig.UploadPartMaxTime {
-		fmt.Printf("aaaaaaaaaa %v, %v", expected.GCSConfig.UploadPartMaxTime, actual.GCSConfig.UploadPartMaxTime)
 		return errors.New("GCS upload part max time mismatch")
 	}
 	return nil
@@ -2781,6 +2780,9 @@ func compareEqualGroupSettingsFields(expected sdk.BaseGroupUserSettings, actual 
 	}
 	if expected.TotalDataTransfer != actual.TotalDataTransfer {
 		return errors.New("total_data_transfer mismatch")
+	}
+	if expected.ExpiresIn != actual.ExpiresIn {
+		return errors.New("expires_in mismatch")
 	}
 	return compareUserPermissions(expected.Permissions, actual.Permissions)
 }

@@ -1281,6 +1281,10 @@ func executeEmailRuleAction(c dataprovider.EventActionEmailConfig, params *Event
 	replacer := strings.NewReplacer(replacements...)
 	body := replaceWithReplacer(c.Body, replacer)
 	subject := replaceWithReplacer(c.Subject, replacer)
+	recipients := make([]string, 0, len(c.Recipients))
+	for _, recipient := range c.Recipients {
+		recipients = append(recipients, replaceWithReplacer(recipient, replacer))
+	}
 	startTime := time.Now()
 	var files []*mail.File
 	fileAttachments := make([]string, 0, len(c.Attachments))
@@ -1317,7 +1321,7 @@ func executeEmailRuleAction(c dataprovider.EventActionEmailConfig, params *Event
 		}
 		files = append(files, res...)
 	}
-	err := smtp.SendEmail(c.Recipients, subject, body, smtp.EmailContentTypeTextPlain, files...)
+	err := smtp.SendEmail(recipients, subject, body, smtp.EmailContentTypeTextPlain, files...)
 	eventManagerLog(logger.LevelDebug, "executed email notification action, elapsed: %s, error: %v",
 		time.Since(startTime), err)
 	if err != nil {

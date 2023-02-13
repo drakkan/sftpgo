@@ -6443,6 +6443,9 @@ components:
         total_data_transfer:
           type: integer
           description: 'Maximum total data transfer as MB'
+        expires_in:
+          type: integer
+          description: 'Account expiration in number of days from creation. 0 means no expiration'
         filters:
           $ref: '#/components/schemas/BaseUserFilters'
         filesystem:

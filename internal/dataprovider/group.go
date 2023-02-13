@@ -223,6 +223,7 @@ func (g *Group) getACopy() Group {
 				UploadDataTransfer:   g.UserSettings.UploadDataTransfer,
 				DownloadDataTransfer: g.UserSettings.DownloadDataTransfer,
 				TotalDataTransfer:    g.UserSettings.TotalDataTransfer,
+				ExpiresIn:            g.UserSettings.ExpiresIn,
 				Filters:              copyBaseUserFilters(g.UserSettings.Filters),
 			},
 			FsConfig: g.UserSettings.FsConfig.GetACopy(),

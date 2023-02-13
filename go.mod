@@ -45,14 +45,14 @@ require (
 	github.com/minio/sio v0.3.0
 	github.com/otiai10/copy v1.9.0
 	github.com/pires/go-proxyproto v0.6.2
-	github.com/pkg/sftp v1.13.6-0.20230104082718-2489717da0f3
+	github.com/pkg/sftp v1.13.6-0.20230213180117-971c283182b6
 	github.com/pquerna/otp v1.4.0
 	github.com/prometheus/client_golang v1.14.0
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rs/cors v1.8.3
 	github.com/rs/xid v1.4.0
 	github.com/rs/zerolog v1.29.0
-	github.com/sftpgo/sdk v0.1.3-0.20230213120720-de3129520736
+	github.com/sftpgo/sdk v0.1.3-0.20230213182959-2d89540f8810
 	github.com/shirou/gopsutil/v3 v3.23.1
 	github.com/spf13/afero v1.9.3
 	github.com/spf13/cobra v1.6.1

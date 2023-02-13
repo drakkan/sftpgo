@@ -2074,6 +2074,10 @@ func getGroupFromPostFields(r *http.Request) (dataprovider.Group, error) {
 	if err != nil {
 		return group, err
 	}
+	expiresIn, err := strconv.ParseInt(r.Form.Get("expires_in"), 10, 64)
+	if err != nil {
+		return group, fmt.Errorf("invalid expires in: %w", err)
+	}
 	fsConfig, err := getFsConfigFromPostFields(r)
 	if err != nil {
 		return group, err
@@ -2099,6 +2103,7 @@ func getGroupFromPostFields(r *http.Request) (dataprovider.Group, error) {
 				UploadDataTransfer:   dataTransferUL,
 				DownloadDataTransfer: dataTransferDL,
 				TotalDataTransfer:    dataTransferTotal,
+				ExpiresIn:            int(expiresIn),
 				Filters:              filters,
 			},
 			FsConfig: fsConfig,
