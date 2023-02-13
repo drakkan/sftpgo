@@ -11,7 +11,7 @@ type Filter struct{}
 
 func (f *Filter) CheckIP(ip string) error {
 	if ip == "192.168.1.12" {
-		return fmt.Errorf("ip %#v is not allowed", ip)
+		return fmt.Errorf("ip %q is not allowed", ip)
 	}
 	return nil
 }

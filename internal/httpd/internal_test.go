@@ -3041,13 +3041,13 @@ func TestEventsCSV(t *testing.T) {
 		Status: 1,
 	}
 	data := e.getCSVData()
-	assert.Equal(t, "OK", data[4])
+	assert.Equal(t, "OK", data[5])
 	e.Status = 2
 	data = e.getCSVData()
-	assert.Equal(t, "KO", data[4])
+	assert.Equal(t, "KO", data[5])
 	e.Status = 3
 	data = e.getCSVData()
-	assert.Equal(t, "Quota exceeded", data[4])
+	assert.Equal(t, "Quota exceeded", data[5])
 }
 
 func isSharedProviderSupported() bool {

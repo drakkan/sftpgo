@@ -5112,7 +5112,7 @@ components:
         - 3
       description: >
         IP List types:
-          * `1` - allow list 
+          * `1` - allow list
           * `2` - defender
           * `3` - rate limiter safe list
     IPListMode:
@@ -6648,6 +6648,10 @@ components:
         file_size:
           type: integer
           format: int64
+        elapsed:
+          type: integer
+          format: int64
+          description: elapsed time as milliseconds
         status:
           $ref: '#/components/schemas/FsEventStatus'
         protocol:
@@ -7086,7 +7090,7 @@ components:
         updated_at:
           type: integer
           format: int64
-          description: last update time as unix timestamp in millisecond  
+          description: last update time as unix timestamp in millisecond
     ApiResponse:
       type: object
       properties:

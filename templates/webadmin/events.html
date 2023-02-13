@@ -168,6 +168,32 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
             +' '+(e?'KMGTPEZY'[--e]+'iB':'Bytes')
     }
 
+    function humanizeMilliseconds(val) {
+        if (val < 1000){
+            return val+"ms";
+        }
+        let secs = Math.floor(val/1000);
+        if (secs < 60){
+            return secs+"s";
+        }
+        if (secs < 3600){
+            let minutes = Math.floor(secs / 60);
+            let seconds = secs - (minutes * 60);
+            return minutes+"m"+seconds+"s";
+        }
+        if (secs < 86400){
+            let hours   = Math.floor(secs / 3600);
+            let minutes = Math.floor((secs - (hours * 3600)) / 60);
+            let seconds = secs - (hours * 3600) - (minutes * 60);
+            return hours+"h"+minutes+"m"+seconds+"s";
+        }
+        let days = Math.floor(secs / 86400);
+        let hours   = Math.floor((secs - (days * 86400)) / 3600);
+        let minutes = Math.floor((secs - (days * 86400) - (hours * 3600)) / 60);
+        let seconds = secs - (days * 86400) - (hours * 3600) - (minutes * 60);
+        return days+"d"+ hours+"h"+minutes+"m"+seconds+"s";
+    }
+
     function resetPagination() {
         $('#pageItemPrev').addClass("disabled");
         $('#pageItemNext').addClass("disabled");
@@ -489,14 +515,17 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                             if (data == 2){
                                 info = 'KO';
                             } else if (data == 3){
-                                info = 'Quota exceeded'
+                                info = 'Quota exceeded';
                             }
                             if (row["file_size"]){
                                 let humanSize = fileSizeIEC(row["file_size"]);
-                                info+=`. ${humanSize}`
+                                info+=`. ${humanSize}`;
+                            }
+                            if (row["elapsed"]){
+                                info+=". "+humanizeMilliseconds(row["elapsed"]);
                             }
                             if (row["ssh_cmd"]){
-                                info+=`. Command: ${row["ssh_cmd"]}`
+                                info+=`. Command: ${row["ssh_cmd"]}`;
                             }
                             return info;
                         }

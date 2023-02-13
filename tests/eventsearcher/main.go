@@ -23,6 +23,7 @@ type fsEvent struct {
 	VirtualTargetPath string `json:"virtual_target_path,omitempty"`
 	SSHCmd            string `json:"ssh_cmd,omitempty"`
 	FileSize          int64  `json:"file_size,omitempty"`
+	Elapsed           int64  `json:"elapsed,omitempty"`
 	Status            int    `json:"status"`
 	Protocol          string `json:"protocol"`
 	IP                string `json:"ip,omitempty"`
@@ -67,6 +68,7 @@ func (s *Searcher) SearchFsEvents(filters *eventsearcher.FsEventSearch) ([]byte,
 			VirtualTargetPath: "target.txt",
 			SSHCmd:            "scp",
 			FileSize:          123,
+			Elapsed:           1250,
 			Status:            1,
 			Protocol:          "SFTP",
 			IP:                "::1",

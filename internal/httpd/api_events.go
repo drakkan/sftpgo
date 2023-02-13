@@ -280,6 +280,7 @@ type fsEvent struct {
 	VirtualTargetPath string `json:"virtual_target_path,omitempty"`
 	SSHCmd            string `json:"ssh_cmd,omitempty"`
 	FileSize          int64  `json:"file_size,omitempty"`
+	Elapsed           int64  `json:"elapsed,omitempty"`
 	Status            int    `json:"status"`
 	Protocol          string `json:"protocol"`
 	IP                string `json:"ip,omitempty"`
@@ -293,7 +294,7 @@ type fsEvent struct {
 }
 
 func (e *fsEvent) getCSVHeader() []string {
-	return []string{"Time", "Action", "Path", "Size", "Status", "User", "Protocol",
+	return []string{"Time", "Action", "Path", "Size", "Elapsed", "Status", "User", "Protocol",
 		"IP", "SSH command"}
 }
 
@@ -318,8 +319,12 @@ func (e *fsEvent) getCSVData() []string {
 	if e.FileSize > 0 {
 		fileSize = util.ByteCountIEC(e.FileSize)
 	}
+	var elapsed string
+	if e.Elapsed > 0 {
+		elapsed = (time.Duration(e.Elapsed) * time.Millisecond).String()
+	}
 	return []string{timestamp.Format(time.RFC3339Nano), e.Action, pathInfo.String(),
-		fileSize, status, e.Username, e.Protocol, e.IP, e.SSHCmd}
+		fileSize, elapsed, status, e.Username, e.Protocol, e.IP, e.SSHCmd}
 }
 
 type providerEvent struct {
