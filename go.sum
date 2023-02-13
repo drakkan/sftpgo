@@ -1804,6 +1804,8 @@ github.com/sftpgo/sdk v0.1.3-0.20221217110036-383c1bb50fa0 h1:e1OQroqX8SWV06Z270
 github.com/sftpgo/sdk v0.1.3-0.20221217110036-383c1bb50fa0/go.mod h1:3GpW3Qy8IHH6kex0ny+Y6ayeYb9OJxz8Pxh3IZgAs2E=
 github.com/sftpgo/sdk v0.1.3-0.20230212154322-556375985d8c h1:SiWQZe99SZ/O4QSIsxzL91NgwFJNoo4IJ31cazUrYh4=
 github.com/sftpgo/sdk v0.1.3-0.20230212154322-556375985d8c/go.mod h1:B1lPGb05WtvvrX5IuhHrSjWdRT867qBaoxlS2Q9+1bA=
+github.com/sftpgo/sdk v0.1.3-0.20230213120720-de3129520736 h1:QFzoqYPIxuqDOe2NJfYI7J71bZrsfC0Aejc0ChblkcA=
+github.com/sftpgo/sdk v0.1.3-0.20230213120720-de3129520736/go.mod h1:B1lPGb05WtvvrX5IuhHrSjWdRT867qBaoxlS2Q9+1bA=
 github.com/shirou/gopsutil/v3 v3.23.1 h1:a9KKO+kGLKEvcPIs4W62v0nu3sciVDOOOPUD0Hz7z/4=
 github.com/shirou/gopsutil/v3 v3.23.1/go.mod h1:NN6mnm5/0k8jw4cBfCnJtr5L7ErOTg18tMNpgFkn0hA=
 github.com/shoenig/test v0.4.3/go.mod h1:xYtyGBC5Q3kzCNyJg/SjgNpfAa2kvmgA0i5+lQso8x0=

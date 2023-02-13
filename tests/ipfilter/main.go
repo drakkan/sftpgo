@@ -9,7 +9,7 @@ import (
 
 type Filter struct{}
 
-func (f *Filter) CheckIP(ip string) error {
+func (f *Filter) CheckIP(ip, protocol string) error {
 	if ip == "192.168.1.12" {
 		return fmt.Errorf("ip %q is not allowed", ip)
 	}

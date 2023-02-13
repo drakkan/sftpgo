@@ -317,7 +317,7 @@ func Reload() error {
 
 // IsBanned returns true if the specified IP address is banned
 func IsBanned(ip, protocol string) bool {
-	if plugin.Handler.IsIPBanned(ip) {
+	if plugin.Handler.IsIPBanned(ip, protocol) {
 		return true
 	}
 	if Config.defender == nil {

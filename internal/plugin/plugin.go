@@ -387,7 +387,7 @@ func (m *Manager) GetMetadataFolders(storageID, from string, limit int) ([]strin
 
 // IsIPBanned returns true if the IP filter plugin does not allow the specified ip.
 // If no IP filter plugin is defined this method returns false
-func (m *Manager) IsIPBanned(ip string) bool {
+func (m *Manager) IsIPBanned(ip, protocol string) bool {
 	if !m.hasIPFilter {
 		return false
 	}
@@ -401,7 +401,7 @@ func (m *Manager) IsIPBanned(ip string) bool {
 		return false
 	}
 
-	return plugin.filter.CheckIP(ip) != nil
+	return plugin.filter.CheckIP(ip, protocol) != nil
 }
 
 // ReloadFilter sends a reload request to the IP filter plugin
