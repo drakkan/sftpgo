@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/drakkan/sftpgo/ldapauthserver/logger"
-	"github.com/go-chi/chi/middleware"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
 	"github.com/go-ldap/ldap/v3"
 	"golang.org/x/crypto/ssh"
