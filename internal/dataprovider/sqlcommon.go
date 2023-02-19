@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	sqlDatabaseVersion     = 27
+	sqlDatabaseVersion     = 28
 	defaultSQLQueryTimeout = 10 * time.Second
 	longSQLQueryTimeout    = 60 * time.Second
 )
@@ -81,6 +81,7 @@ func sqlReplaceAll(sql string) string {
 	sql = strings.ReplaceAll(sql, "{{nodes}}", sqlTableNodes)
 	sql = strings.ReplaceAll(sql, "{{roles}}", sqlTableRoles)
 	sql = strings.ReplaceAll(sql, "{{ip_lists}}", sqlTableIPLists)
+	sql = strings.ReplaceAll(sql, "{{configs}}", sqlTableConfigs)
 	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
 	return sql
 }
@@ -3823,6 +3824,43 @@ func sqlCommonCleanupNodes(dbHandle *sql.DB) error {
 	q := getCleanupNodesQuery()
 	_, err := dbHandle.ExecContext(ctx, q, util.GetTimeAsMsSinceEpoch(time.Now().Add(10*activeNodeTimeDiff)))
 	return err
+}
+
+func sqlCommonGetConfigs(dbHandle sqlQuerier) (Configs, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+
+	var result Configs
+	var configs []byte
+	q := getConfigsQuery()
+	err := dbHandle.QueryRowContext(ctx, q).Scan(&configs)
+	if err != nil {
+		return result, err
+	}
+	err = json.Unmarshal(configs, &result)
+	return result, err
+}
+
+func sqlCommonSetConfigs(configs *Configs, dbHandle *sql.DB) error {
+	if err := configs.validate(); err != nil {
+		return err
+	}
+	asJSON, err := json.Marshal(configs)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+
+	q := getUpdateConfigsQuery()
+	res, err := dbHandle.ExecContext(ctx, q, asJSON)
+	if err != nil {
+		return err
+	}
+	if config.Driver == MySQLDataProviderName {
+		return nil
+	}
+	return sqlCommonRequireRowAffected(res)
 }
 
 func sqlCommonGetDatabaseVersion(dbHandle sqlQuerier, showInitWarn bool) (schemaVersion, error) {

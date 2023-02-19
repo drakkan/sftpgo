@@ -35,6 +35,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/kms"
+	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/mfa"
 	"github.com/drakkan/sftpgo/v2/internal/plugin"
 	"github.com/drakkan/sftpgo/v2/internal/smtp"
@@ -94,6 +95,7 @@ const (
 	templateDefender         = "defender.html"
 	templateIPLists          = "iplists.html"
 	templateIPList           = "iplist.html"
+	templateConfigs          = "configs.html"
 	templateProfile          = "profile.html"
 	templateChangePwd        = "changepassword.html"
 	templateMaintenance      = "maintenance.html"
@@ -114,6 +116,7 @@ const (
 	pageDefenderTitle        = "Auto Blocklist"
 	pageIPListsTitle         = "IP Lists"
 	pageEventsTitle          = "Logs"
+	pageConfigsTitle         = "Configurations"
 	pageForgotPwdTitle       = "SFTPGo Admin - Forgot password"
 	pageResetPwdTitle        = "SFTPGo Admin - Reset password"
 	pageSetupTitle           = "Create first admin user"
@@ -126,60 +129,63 @@ var (
 )
 
 type basePage struct {
-	Title              string
-	CurrentURL         string
-	UsersURL           string
-	UserURL            string
-	UserTemplateURL    string
-	AdminsURL          string
-	AdminURL           string
-	QuotaScanURL       string
-	ConnectionsURL     string
-	GroupsURL          string
-	GroupURL           string
-	FoldersURL         string
-	FolderURL          string
-	FolderTemplateURL  string
-	DefenderURL        string
-	IPListsURL         string
-	IPListURL          string
-	EventsURL          string
-	LogoutURL          string
-	ProfileURL         string
-	ChangePwdURL       string
-	MFAURL             string
-	EventRulesURL      string
-	EventRuleURL       string
-	EventActionsURL    string
-	EventActionURL     string
-	RolesURL           string
-	RoleURL            string
-	FolderQuotaScanURL string
-	StatusURL          string
-	MaintenanceURL     string
-	StaticURL          string
-	UsersTitle         string
-	AdminsTitle        string
-	ConnectionsTitle   string
-	FoldersTitle       string
-	GroupsTitle        string
-	EventRulesTitle    string
-	EventActionsTitle  string
-	RolesTitle         string
-	StatusTitle        string
-	MaintenanceTitle   string
-	DefenderTitle      string
-	IPListsTitle       string
-	EventsTitle        string
-	Version            string
-	CSRFToken          string
-	IsEventManagerPage bool
-	IsIPManagerPage    bool
-	HasDefender        bool
-	HasSearcher        bool
-	HasExternalLogin   bool
-	LoggedAdmin        *dataprovider.Admin
-	Branding           UIBranding
+	Title               string
+	CurrentURL          string
+	UsersURL            string
+	UserURL             string
+	UserTemplateURL     string
+	AdminsURL           string
+	AdminURL            string
+	QuotaScanURL        string
+	ConnectionsURL      string
+	GroupsURL           string
+	GroupURL            string
+	FoldersURL          string
+	FolderURL           string
+	FolderTemplateURL   string
+	DefenderURL         string
+	IPListsURL          string
+	IPListURL           string
+	EventsURL           string
+	ConfigsURL          string
+	LogoutURL           string
+	ProfileURL          string
+	ChangePwdURL        string
+	MFAURL              string
+	EventRulesURL       string
+	EventRuleURL        string
+	EventActionsURL     string
+	EventActionURL      string
+	RolesURL            string
+	RoleURL             string
+	FolderQuotaScanURL  string
+	StatusURL           string
+	MaintenanceURL      string
+	StaticURL           string
+	UsersTitle          string
+	AdminsTitle         string
+	ConnectionsTitle    string
+	FoldersTitle        string
+	GroupsTitle         string
+	EventRulesTitle     string
+	EventActionsTitle   string
+	RolesTitle          string
+	StatusTitle         string
+	MaintenanceTitle    string
+	DefenderTitle       string
+	IPListsTitle        string
+	EventsTitle         string
+	ConfigsTitle        string
+	Version             string
+	CSRFToken           string
+	IsEventManagerPage  bool
+	IsIPManagerPage     bool
+	IsServerManagerPage bool
+	HasDefender         bool
+	HasSearcher         bool
+	HasExternalLogin    bool
+	LoggedAdmin         *dataprovider.Admin
+	Branding            UIBranding
 }
 
 type usersPage struct {
@@ -383,6 +389,14 @@ type eventsPage struct {
 	ProviderEventsSearchURL string
 }
 
+type configsPage struct {
+	basePage
+	Configs        dataprovider.Configs
+	ConfigSection  int
+	RedactedSecret string
+	Error          string
+}
+
 type messagePage struct {
 	basePage
 	Error   string
@@ -554,6 +568,11 @@ func loadAdminTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateAdminDir, templateBase),
 		filepath.Join(templatesPath, templateAdminDir, templateEvents),
 	}
+	configsPaths := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
+		filepath.Join(templatesPath, templateAdminDir, templateBase),
+		filepath.Join(templatesPath, templateAdminDir, templateConfigs),
+	}
 
 	fsBaseTpl := template.New("fsBaseTemplate").Funcs(template.FuncMap{
 		"ListFSProviders": func() []sdk.FilesystemProvider {
@@ -595,6 +614,7 @@ func loadAdminTemplates(templatesPath string) {
 	rolesTmpl := util.LoadTemplate(nil, rolesPaths...)
 	roleTmpl := util.LoadTemplate(nil, rolePaths...)
 	eventsTmpl := util.LoadTemplate(nil, eventsPaths...)
+	configsTmpl := util.LoadTemplate(nil, configsPaths...)
 
 	adminTemplates[templateUsers] = usersTmpl
 	adminTemplates[templateUser] = userTmpl
@@ -627,6 +647,7 @@ func loadAdminTemplates(templatesPath string) {
 	adminTemplates[templateRoles] = rolesTmpl
 	adminTemplates[templateRole] = roleTmpl
 	adminTemplates[templateEvents] = eventsTmpl
+	adminTemplates[templateConfigs] = configsTmpl
 }
 
 func isEventManagerResource(currentURL string) bool {
@@ -658,66 +679,74 @@ func isIPListsResource(currentURL string) bool {
 	return false
 }
 
+func isServerManagerResource(currentURL string) bool {
+	return currentURL == webEventsPath || currentURL == webStatusPath || currentURL == webMaintenancePath ||
+		currentURL == webConfigsPath
+}
+
 func (s *httpdServer) getBasePageData(title, currentURL string, r *http.Request) basePage {
 	var csrfToken string
 	if currentURL != "" {
 		csrfToken = createCSRFToken(util.GetIPFromRemoteAddress(r.RemoteAddr))
 	}
 	return basePage{
-		Title:              title,
-		CurrentURL:         currentURL,
-		UsersURL:           webUsersPath,
-		UserURL:            webUserPath,
-		UserTemplateURL:    webTemplateUser,
-		AdminsURL:          webAdminsPath,
-		AdminURL:           webAdminPath,
-		GroupsURL:          webGroupsPath,
-		GroupURL:           webGroupPath,
-		FoldersURL:         webFoldersPath,
-		FolderURL:          webFolderPath,
-		FolderTemplateURL:  webTemplateFolder,
-		DefenderURL:        webDefenderPath,
-		IPListsURL:         webIPListsPath,
-		IPListURL:          webIPListPath,
-		EventsURL:          webEventsPath,
-		LogoutURL:          webLogoutPath,
-		ProfileURL:         webAdminProfilePath,
-		ChangePwdURL:       webChangeAdminPwdPath,
-		MFAURL:             webAdminMFAPath,
-		EventRulesURL:      webAdminEventRulesPath,
-		EventRuleURL:       webAdminEventRulePath,
-		EventActionsURL:    webAdminEventActionsPath,
-		EventActionURL:     webAdminEventActionPath,
-		RolesURL:           webAdminRolesPath,
-		RoleURL:            webAdminRolePath,
-		QuotaScanURL:       webQuotaScanPath,
-		ConnectionsURL:     webConnectionsPath,
-		StatusURL:          webStatusPath,
-		FolderQuotaScanURL: webScanVFolderPath,
-		MaintenanceURL:     webMaintenancePath,
-		StaticURL:          webStaticFilesPath,
-		UsersTitle:         pageUsersTitle,
-		AdminsTitle:        pageAdminsTitle,
-		ConnectionsTitle:   pageConnectionsTitle,
-		FoldersTitle:       pageFoldersTitle,
-		GroupsTitle:        pageGroupsTitle,
-		EventRulesTitle:    pageEventRulesTitle,
-		EventActionsTitle:  pageEventActionsTitle,
-		RolesTitle:         pageRolesTitle,
-		StatusTitle:        pageStatusTitle,
-		MaintenanceTitle:   pageMaintenanceTitle,
-		DefenderTitle:      pageDefenderTitle,
-		IPListsTitle:       pageIPListsTitle,
-		EventsTitle:        pageEventsTitle,
-		Version:            version.GetAsString(),
-		LoggedAdmin:        getAdminFromToken(r),
-		IsEventManagerPage: isEventManagerResource(currentURL),
-		IsIPManagerPage:    isIPListsResource(currentURL),
-		HasDefender:        common.Config.DefenderConfig.Enabled,
-		HasSearcher:        plugin.Handler.HasSearcher(),
-		HasExternalLogin:   isLoggedInWithOIDC(r),
-		CSRFToken:          csrfToken,
-		Branding:           s.binding.Branding.WebAdmin,
+		Title:               title,
+		CurrentURL:          currentURL,
+		UsersURL:            webUsersPath,
+		UserURL:             webUserPath,
+		UserTemplateURL:     webTemplateUser,
+		AdminsURL:           webAdminsPath,
+		AdminURL:            webAdminPath,
+		GroupsURL:           webGroupsPath,
+		GroupURL:            webGroupPath,
+		FoldersURL:          webFoldersPath,
+		FolderURL:           webFolderPath,
+		FolderTemplateURL:   webTemplateFolder,
+		DefenderURL:         webDefenderPath,
+		IPListsURL:          webIPListsPath,
+		IPListURL:           webIPListPath,
+		EventsURL:           webEventsPath,
+		ConfigsURL:          webConfigsPath,
+		LogoutURL:           webLogoutPath,
+		ProfileURL:          webAdminProfilePath,
+		ChangePwdURL:        webChangeAdminPwdPath,
+		MFAURL:              webAdminMFAPath,
+		EventRulesURL:       webAdminEventRulesPath,
+		EventRuleURL:        webAdminEventRulePath,
+		EventActionsURL:     webAdminEventActionsPath,
+		EventActionURL:      webAdminEventActionPath,
+		RolesURL:            webAdminRolesPath,
+		RoleURL:             webAdminRolePath,
+		QuotaScanURL:        webQuotaScanPath,
+		ConnectionsURL:      webConnectionsPath,
+		StatusURL:           webStatusPath,
+		FolderQuotaScanURL:  webScanVFolderPath,
+		MaintenanceURL:      webMaintenancePath,
+		StaticURL:           webStaticFilesPath,
+		UsersTitle:          pageUsersTitle,
+		AdminsTitle:         pageAdminsTitle,
+		ConnectionsTitle:    pageConnectionsTitle,
+		FoldersTitle:        pageFoldersTitle,
+		GroupsTitle:         pageGroupsTitle,
+		EventRulesTitle:     pageEventRulesTitle,
+		EventActionsTitle:   pageEventActionsTitle,
+		RolesTitle:          pageRolesTitle,
+		StatusTitle:         pageStatusTitle,
+		MaintenanceTitle:    pageMaintenanceTitle,
+		DefenderTitle:       pageDefenderTitle,
+		IPListsTitle:        pageIPListsTitle,
+		EventsTitle:         pageEventsTitle,
+		ConfigsTitle:        pageConfigsTitle,
+		Version:             version.GetAsString(),
+		LoggedAdmin:         getAdminFromToken(r),
+		IsEventManagerPage:  isEventManagerResource(currentURL),
+		IsIPManagerPage:     isIPListsResource(currentURL),
+		IsServerManagerPage: isServerManagerResource(currentURL),
+		HasDefender:         common.Config.DefenderConfig.Enabled,
+		HasSearcher:         plugin.Handler.HasSearcher(),
+		HasExternalLogin:    isLoggedInWithOIDC(r),
+		CSRFToken:           csrfToken,
+		Branding:            s.binding.Branding.WebAdmin,
 	}
 }
 
@@ -865,6 +894,24 @@ func (s *httpdServer) renderMaintenancePage(w http.ResponseWriter, r *http.Reque
 	}
 
 	renderAdminTemplate(w, templateMaintenance, data)
+}
+
+func (s *httpdServer) renderConfigsPage(w http.ResponseWriter, r *http.Request, configs dataprovider.Configs,
+	error string, section int,
+) {
+	configs.SetNilsToEmpty()
+	if configs.SMTP.Port == 0 {
+		configs.SMTP.Port = 587
+	}
+	data := configsPage{
+		basePage:       s.getBasePageData(pageConfigsTitle, webConfigsPath, r),
+		Configs:        configs,
+		ConfigSection:  section,
+		RedactedSecret: redactedSecret,
+		Error:          error,
+	}
+
+	renderAdminTemplate(w, templateConfigs, data)
 }
 
 func (s *httpdServer) renderAdminSetupPage(w http.ResponseWriter, r *http.Request, username, error string) {
@@ -2218,11 +2265,11 @@ func getEventActionOptionsFromPostFields(r *http.Request) (dataprovider.BaseEven
 	}
 	var emailAttachments []string
 	if r.Form.Get("email_attachments") != "" {
-		emailAttachments = strings.Split(strings.ReplaceAll(r.Form.Get("email_attachments"), " ", ""), ",")
+		emailAttachments = getSliceFromDelimitedValues(r.Form.Get("email_attachments"), ",")
 	}
 	var cmdArgs []string
 	if r.Form.Get("cmd_arguments") != "" {
-		cmdArgs = strings.Split(strings.ReplaceAll(r.Form.Get("cmd_arguments"), " ", ""), ",")
+		cmdArgs = getSliceFromDelimitedValues(r.Form.Get("cmd_arguments"), ",")
 	}
 	options := dataprovider.BaseEventActionOptions{
 		HTTPConfig: dataprovider.EventActionHTTPConfig{
@@ -2244,7 +2291,7 @@ func getEventActionOptionsFromPostFields(r *http.Request) (dataprovider.BaseEven
 			EnvVars: getKeyValsFromPostFields(r, "cmd_env_key", "cmd_env_val"),
 		},
 		EmailConfig: dataprovider.EventActionEmailConfig{
-			Recipients:  strings.Split(strings.ReplaceAll(r.Form.Get("email_recipients"), " ", ""), ","),
+			Recipients:  getSliceFromDelimitedValues(r.Form.Get("email_recipients"), ","),
 			Subject:     r.Form.Get("email_subject"),
 			Body:        r.Form.Get("email_body"),
 			Attachments: emailAttachments,
@@ -2255,13 +2302,13 @@ func getEventActionOptionsFromPostFields(r *http.Request) (dataprovider.BaseEven
 		FsConfig: dataprovider.EventActionFilesystemConfig{
 			Type:    fsActionType,
 			Renames: getKeyValsFromPostFields(r, "fs_rename_source", "fs_rename_target"),
-			Deletes: strings.Split(strings.ReplaceAll(r.Form.Get("fs_delete_paths"), " ", ""), ","),
-			MkDirs:  strings.Split(strings.ReplaceAll(r.Form.Get("fs_mkdir_paths"), " ", ""), ","),
-			Exist:   strings.Split(strings.ReplaceAll(r.Form.Get("fs_exist_paths"), " ", ""), ","),
+			Deletes: getSliceFromDelimitedValues(r.Form.Get("fs_delete_paths"), ","),
+			MkDirs:  getSliceFromDelimitedValues(r.Form.Get("fs_mkdir_paths"), ","),
+			Exist:   getSliceFromDelimitedValues(r.Form.Get("fs_exist_paths"), ","),
 			Copy:    getKeyValsFromPostFields(r, "fs_copy_source", "fs_copy_target"),
 			Compress: dataprovider.EventActionFsCompress{
 				Name:  r.Form.Get("fs_compress_name"),
-				Paths: strings.Split(strings.ReplaceAll(r.Form.Get("fs_compress_paths"), " ", ""), ","),
+				Paths: getSliceFromDelimitedValues(r.Form.Get("fs_compress_paths"), ","),
 			},
 		},
 		PwdExpirationConfig: dataprovider.EventActionPasswordExpiration{
@@ -2485,6 +2532,41 @@ func getIPListEntryFromPostFields(r *http.Request, listType dataprovider.IPListT
 		Protocols:   protocols,
 		Description: r.Form.Get("description"),
 	}, nil
+}
+
+func getSFTPConfigsFromPostFields(r *http.Request) *dataprovider.SFTPDConfigs {
+	return &dataprovider.SFTPDConfigs{
+		HostKeyAlgos:  r.Form["sftp_host_key_algos"],
+		Moduli:        getSliceFromDelimitedValues(r.Form.Get("sftp_moduli"), ","),
+		KexAlgorithms: r.Form["sftp_kex_algos"],
+		Ciphers:       r.Form["sftp_ciphers"],
+		MACs:          r.Form["sftp_macs"],
+	}
+}
+
+func getSMTPConfigsFromPostFields(r *http.Request) *dataprovider.SMTPConfigs {
+	port, err := strconv.Atoi(r.Form.Get("smtp_port"))
+	if err != nil {
+		port = 0
+	}
+	authType, err := strconv.Atoi(r.Form.Get("smtp_auth"))
+	if err != nil {
+		authType = 0
+	}
+	encryption, err := strconv.Atoi(r.Form.Get("smtp_encryption"))
+	if err != nil {
+		encryption = 0
+	}
+	return &dataprovider.SMTPConfigs{
+		Host:       r.Form.Get("smtp_host"),
+		Port:       port,
+		From:       r.Form.Get("smtp_from"),
+		User:       r.Form.Get("smtp_username"),
+		Password:   getSecretFromFormField(r, "smtp_password"),
+		AuthType:   authType,
+		Encryption: encryption,
+		Domain:     r.Form.Get("smtp_domain"),
+	}
 }
 
 func (s *httpdServer) handleWebAdminForgotPwd(w http.ResponseWriter, r *http.Request) {
@@ -3920,4 +4002,71 @@ func (s *httpdServer) handleWebUpdateIPListEntryPost(w http.ResponseWriter, r *h
 		return
 	}
 	http.Redirect(w, r, webIPListsPath, http.StatusSeeOther)
+}
+
+func (s *httpdServer) handleWebConfigs(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	configs, err := dataprovider.GetConfigs()
+	if err != nil {
+		s.renderInternalServerErrorPage(w, r, err)
+		return
+	}
+	s.renderConfigsPage(w, r, configs, "", 0)
+}
+
+func (s *httpdServer) handleWebConfigsPost(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		s.renderBadRequestPage(w, r, errors.New("invalid token claims"))
+		return
+	}
+	configs, err := dataprovider.GetConfigs()
+	if err != nil {
+		s.renderInternalServerErrorPage(w, r, err)
+		return
+	}
+	err = r.ParseForm()
+	if err != nil {
+		s.renderBadRequestPage(w, r, err)
+		return
+	}
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
+		s.renderForbiddenPage(w, r, err.Error())
+		return
+	}
+	var configSection int
+	switch r.Form.Get("form_action") {
+	case "sftp_submit":
+		configSection = 1
+		sftpConfigs := getSFTPConfigsFromPostFields(r)
+		configs.SFTPD = sftpConfigs
+	case "smtp_submit":
+		configSection = 2
+		smtpConfigs := getSMTPConfigsFromPostFields(r)
+		if smtpConfigs.Password.IsNotPlainAndNotEmpty() {
+			smtpConfigs.Password = configs.SMTP.Password
+		}
+		configs.SMTP = smtpConfigs
+	default:
+		s.renderBadRequestPage(w, r, errors.New("unsupported form action"))
+		return
+	}
+
+	err = dataprovider.UpdateConfigs(&configs, claims.Username, ipAddr, claims.Role)
+	if err != nil {
+		s.renderConfigsPage(w, r, configs, err.Error(), configSection)
+		return
+	}
+	if configSection == 2 {
+		err := configs.SMTP.Password.TryDecrypt()
+		if err == nil {
+			smtp.Activate(configs.SMTP)
+		} else {
+			logger.Error(logSender, "", "unable to decrypt SMTP password, cannot activate configuration")
+		}
+	}
+	s.renderMessagePage(w, r, "Configurations updated", "", http.StatusOK, nil,
+		"Configurations has been successfully updated")
 }

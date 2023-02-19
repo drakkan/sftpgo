@@ -219,6 +219,12 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
+	err = dataprovider.UpdateConfigs(nil, "", "", "")
+	if err != nil {
+		logger.ErrorToConsole("error resetting configs: %v", err)
+		os.Exit(1)
+	}
+
 	err = common.Initialize(commonConf, 0)
 	if err != nil {
 		logger.WarnToConsole("error initializing common: %v", err)
@@ -401,12 +407,6 @@ func TestInitialization(t *testing.T) {
 	assert.True(t, sftpdConf.Bindings[0].HasProxy())
 	err = sftpdConf.Initialize(configDir)
 	assert.Error(t, err)
-	sftpdConf.Moduli = []string{"missing moduli file"}
-	err = sftpdConf.Initialize(configDir)
-	if assert.Error(t, err) {
-		assert.Contains(t, err.Error(), "unable to open moduli file")
-	}
-	sftpdConf.Moduli = nil
 	sftpdConf.HostKeys = []string{"missing key"}
 	err = sftpdConf.Initialize(configDir)
 	assert.Error(t, err)
@@ -429,11 +429,13 @@ func TestInitialization(t *testing.T) {
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "unsupported MAC algorithm")
 	}
-	sftpdConf.KexAlgorithms = []string{"not a KEX"}
+	sftpdConf.MACs = nil
+	sftpdConf.KexAlgorithms = []string{"diffie-hellman-group-exchange-sha1", "not a KEX"}
 	err = sftpdConf.Initialize(configDir)
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "unsupported key-exchange algorithm")
 	}
+	sftpdConf.KexAlgorithms = nil
 	sftpdConf.HostKeyAlgorithms = []string{"not a host key algo"}
 	err = sftpdConf.Initialize(configDir)
 	if assert.Error(t, err) {
@@ -495,6 +497,17 @@ func TestInitialization(t *testing.T) {
 	assert.NoError(t, err)
 	err = sftpdConf.Initialize(configDir)
 	assert.Error(t, err)
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = sftpdConf.Initialize(configDir)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "unable to load configs from provider")
+	}
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf := config.GetProviderConf()
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
 }
 
 func TestBasicSFTPHandling(t *testing.T) {
@@ -562,6 +575,10 @@ func TestBasicSFTPHandling(t *testing.T) {
 	assert.NotEmpty(t, sshCommands)
 	sshAuths := status.GetSupportedAuthsAsString()
 	assert.NotEmpty(t, sshAuths)
+	assert.NotEmpty(t, status.GetHostKeyAlgosAsString())
+	assert.NotEmpty(t, status.GetMACsAsString())
+	assert.NotEmpty(t, status.GetKEXsAsString())
+	assert.NotEmpty(t, status.GetCiphersAsString())
 }
 
 func TestBasicSFTPFsHandling(t *testing.T) {

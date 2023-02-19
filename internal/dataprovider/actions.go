@@ -52,6 +52,7 @@ const (
 	actionObjectEventRule   = "event_rule"
 	actionObjectRole        = "role"
 	actionObjectIPListEntry = "ip_list_entry"
+	actionObjectConfigs     = "configs"
 )
 
 var (
@@ -90,14 +91,14 @@ func executeAction(operation, executor, ip, objectType, objectName, role string,
 
 		dataAsJSON, err := object.RenderAsJSON(operation != operationDelete)
 		if err != nil {
-			providerLog(logger.LevelError, "unable to serialize user as JSON for operation %#v: %v", operation, err)
+			providerLog(logger.LevelError, "unable to serialize user as JSON for operation %q: %v", operation, err)
 			return
 		}
 		if strings.HasPrefix(config.Actions.Hook, "http") {
 			var url *url.URL
 			url, err := url.Parse(config.Actions.Hook)
 			if err != nil {
-				providerLog(logger.LevelError, "Invalid http_notification_url %#v for operation %#v: %v",
+				providerLog(logger.LevelError, "Invalid http_notification_url %q for operation %q: %v",
 					config.Actions.Hook, operation, err)
 				return
 			}
@@ -129,7 +130,7 @@ func executeAction(operation, executor, ip, objectType, objectName, role string,
 
 func executeNotificationCommand(operation, executor, ip, objectType, objectName, role string, objectAsJSON []byte) error {
 	if !filepath.IsAbs(config.Actions.Hook) {
-		err := fmt.Errorf("invalid notification command %#v", config.Actions.Hook)
+		err := fmt.Errorf("invalid notification command %q", config.Actions.Hook)
 		logger.Warn(logSender, "", "unable to execute notification command: %v", err)
 		return err
 	}

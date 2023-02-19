@@ -58,6 +58,7 @@ DROP TABLE IF EXISTS "{{events_actions}}";
 DROP TABLE IF EXISTS "{{tasks}}";
 DROP TABLE IF EXISTS "{{roles}}";
 DROP TABLE IF EXISTS "{{ip_lists}}";
+DROP TABLE IF EXISTS "{{configs}}";
 DROP TABLE IF EXISTS "{{schema_version}}";
 `
 	sqliteInitialSQL = `CREATE TABLE "{{schema_version}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "version" integer NOT NULL);
@@ -193,6 +194,10 @@ CREATE INDEX "{{prefix}}ip_lists_ip_deleted_at_idx" ON "{{ip_lists}}" ("deleted_
 CREATE INDEX "{{prefix}}ip_lists_first_last_idx" ON "{{ip_lists}}" ("first", "last");
 `
 	sqliteV27DownSQL = `DROP TABLE "{{ip_lists}}";`
+	sqliteV28SQL     = `CREATE TABLE "{{configs}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "configs" text NOT NULL);
+INSERT INTO {{configs}} (configs) VALUES ('{}');
+`
+	sqliteV28DownSQL = `DROP TABLE "{{configs}}";`
 )
 
 // SQLiteProvider defines the auth provider for SQLite database
@@ -674,6 +679,14 @@ func (p *SQLiteProvider) getListEntriesForIP(ip string, listType IPListType) ([]
 	return sqlCommonGetListEntriesForIP(ip, listType, p.dbHandle)
 }
 
+func (p *SQLiteProvider) getConfigs() (Configs, error) {
+	return sqlCommonGetConfigs(p.dbHandle)
+}
+
+func (p *SQLiteProvider) setConfigs(configs *Configs) error {
+	return sqlCommonSetConfigs(configs, p.dbHandle)
+}
+
 func (p *SQLiteProvider) setFirstDownloadTimestamp(username string) error {
 	return sqlCommonSetFirstDownloadTimestamp(username, p.dbHandle)
 }
@@ -728,6 +741,8 @@ func (p *SQLiteProvider) migrateDatabase() error { //nolint:dupl
 		return updateSQLiteDatabaseFromV25(p.dbHandle)
 	case version == 26:
 		return updateSQLiteDatabaseFromV26(p.dbHandle)
+	case version == 27:
+		return updateSQLiteDatabaseFromV27(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -758,6 +773,8 @@ func (p *SQLiteProvider) revertDatabase(targetVersion int) error {
 		return downgradeSQLiteDatabaseFromV26(p.dbHandle)
 	case 27:
 		return downgradeSQLiteDatabaseFromV27(p.dbHandle)
+	case 28:
+		return downgradeSQLiteDatabaseFromV28(p.dbHandle)
 	default:
 		return fmt.Errorf("database schema version not handled: %d", dbVersion.Version)
 	}
@@ -790,7 +807,14 @@ func updateSQLiteDatabaseFromV25(dbHandle *sql.DB) error {
 }
 
 func updateSQLiteDatabaseFromV26(dbHandle *sql.DB) error {
-	return updateSQLiteDatabaseFrom26To27(dbHandle)
+	if err := updateSQLiteDatabaseFrom26To27(dbHandle); err != nil {
+		return err
+	}
+	return updateSQLiteDatabaseFromV27(dbHandle)
+}
+
+func updateSQLiteDatabaseFromV27(dbHandle *sql.DB) error {
+	return updateSQLiteDatabaseFrom27To28(dbHandle)
 }
 
 func downgradeSQLiteDatabaseFromV24(dbHandle *sql.DB) error {
@@ -816,6 +840,13 @@ func downgradeSQLiteDatabaseFromV27(dbHandle *sql.DB) error {
 		return err
 	}
 	return downgradeSQLiteDatabaseFromV26(dbHandle)
+}
+
+func downgradeSQLiteDatabaseFromV28(dbHandle *sql.DB) error {
+	if err := downgradeSQLiteDatabaseFrom28To27(dbHandle); err != nil {
+		return err
+	}
+	return downgradeSQLiteDatabaseFromV27(dbHandle)
 }
 
 func updateSQLiteDatabaseFrom23To24(dbHandle *sql.DB) error {
@@ -850,6 +881,13 @@ func updateSQLiteDatabaseFrom26To27(dbHandle *sql.DB) error {
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 27, true)
 }
 
+func updateSQLiteDatabaseFrom27To28(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database schema version: 27 -> 28")
+	providerLog(logger.LevelInfo, "updating database schema version: 27 -> 28")
+	sql := strings.ReplaceAll(sqliteV28SQL, "{{configs}}", sqlTableConfigs)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 28, true)
+}
+
 func downgradeSQLiteDatabaseFrom24To23(dbHandle *sql.DB) error {
 	logger.InfoToConsole("downgrading database schema version: 24 -> 23")
 	providerLog(logger.LevelInfo, "downgrading database schema version: 24 -> 23")
@@ -879,6 +917,13 @@ func downgradeSQLiteDatabaseFrom27To26(dbHandle *sql.DB) error {
 	providerLog(logger.LevelInfo, "downgrading database schema version: 27 -> 26")
 	sql := strings.ReplaceAll(sqliteV27DownSQL, "{{ip_lists}}", sqlTableIPLists)
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 26, false)
+}
+
+func downgradeSQLiteDatabaseFrom28To27(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database schema version: 28 -> 27")
+	providerLog(logger.LevelInfo, "downgrading database schema version: 28 -> 27")
+	sql := strings.ReplaceAll(sqliteV28DownSQL, "{{configs}}", sqlTableConfigs)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 27, false)
 }
 
 /*func setPragmaFK(dbHandle *sql.DB, value string) error {

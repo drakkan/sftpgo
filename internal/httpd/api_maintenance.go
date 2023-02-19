@@ -183,6 +183,10 @@ func restoreBackup(content []byte, inputFile string, scanQuota, mode int, execut
 		return util.NewValidationError(fmt.Sprintf("unable to parse backup content: %v", err))
 	}
 
+	if err = RestoreConfigs(dump.Configs, inputFile, mode, executor, ipAddress, role); err != nil {
+		return err
+	}
+
 	if err = RestoreIPListEntries(dump.IPLists, inputFile, mode, executor, ipAddress, role); err != nil {
 		return err
 	}
@@ -222,9 +226,7 @@ func restoreBackup(content []byte, inputFile string, scanQuota, mode int, execut
 	if err = RestoreEventRules(dump.EventRules, inputFile, mode, executor, ipAddress, role, dump.Version); err != nil {
 		return err
 	}
-
-	logger.Debug(logSender, "", "backup restored, users: %d, folders: %d, admins: %d",
-		len(dump.Users), len(dump.Folders), len(dump.Admins))
+	logger.Debug(logSender, "", "backup restored")
 
 	return nil
 }
@@ -418,6 +420,26 @@ func RestoreAdmins(admins []dataprovider.Admin, inputFile string, mode int, exec
 	}
 
 	return nil
+}
+
+// RestoreConfigs restores the specified provider configs
+func RestoreConfigs(configs *dataprovider.Configs, inputFile string, mode int, executor, ipAddress,
+	executorRole string,
+) error {
+	if configs == nil {
+		return nil
+	}
+	c, err := dataprovider.GetConfigs()
+	if err != nil {
+		return fmt.Errorf("unable to restore configs, error loading existing from db: %w", err)
+	}
+	if c.UpdatedAt > 0 {
+		if mode == 1 {
+			logger.Debug(logSender, "", "loaddata mode 1, existing configs not updated")
+			return nil
+		}
+	}
+	return dataprovider.UpdateConfigs(configs, executor, ipAddress, executorRole)
 }
 
 // RestoreIPListEntries restores the specified IP list entries

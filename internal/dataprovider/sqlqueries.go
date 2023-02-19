@@ -274,6 +274,14 @@ func getRemoveSoftDeletedIPListEntryQuery() string {
 		sqlTableIPLists, sqlPlaceholders[0], sqlPlaceholders[1])
 }
 
+func getConfigsQuery() string {
+	return fmt.Sprintf(`SELECT configs FROM %s LIMIT 1`, sqlTableConfigs)
+}
+
+func getUpdateConfigsQuery() string {
+	return fmt.Sprintf(`UPDATE %s SET configs = %s`, sqlTableConfigs, sqlPlaceholders[0])
+}
+
 func getRoleByNameQuery() string {
 	return fmt.Sprintf(`SELECT %s FROM %s WHERE name = %s`, selectRoleFields, sqlTableRoles,
 		sqlPlaceholders[0])

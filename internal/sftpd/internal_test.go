@@ -1862,6 +1862,44 @@ func TestConnectionStatusStruct(t *testing.T) {
 	assert.NotEqual(t, 0, len(connInfo))
 }
 
+func TestConfigsFromProvider(t *testing.T) {
+	err := dataprovider.UpdateConfigs(nil, "", "", "")
+	assert.NoError(t, err)
+	c := Configuration{}
+	err = c.loadFromProvider()
+	assert.NoError(t, err)
+	assert.Len(t, c.HostKeyAlgorithms, 0)
+	assert.Len(t, c.Moduli, 0)
+	assert.Len(t, c.KexAlgorithms, 0)
+	assert.Len(t, c.Ciphers, 0)
+	assert.Len(t, c.MACs, 0)
+	configs := dataprovider.Configs{
+		SFTPD: &dataprovider.SFTPDConfigs{
+			HostKeyAlgos:  []string{ssh.KeyAlgoRSA},
+			Moduli:        []string{"/etc/ssh/moduli"},
+			KexAlgorithms: []string{kexDHGroupExchangeSHA256},
+			Ciphers:       []string{"aes128-cbc", "aes192-cbc", "aes256-cbc"},
+			MACs:          []string{"hmac-sha2-512-etm@openssh.com"},
+		},
+	}
+	err = dataprovider.UpdateConfigs(&configs, "", "", "")
+	assert.NoError(t, err)
+	err = c.loadFromProvider()
+	assert.NoError(t, err)
+	expectedHostKeyAlgos := append(preferredHostKeyAlgos, configs.SFTPD.HostKeyAlgos...)
+	expectedKEXs := append(preferredKexAlgos, configs.SFTPD.KexAlgorithms...)
+	expectedCiphers := append(preferredCiphers, configs.SFTPD.Ciphers...)
+	expectedMACs := append(preferredMACs, configs.SFTPD.MACs...)
+	assert.Equal(t, expectedHostKeyAlgos, c.HostKeyAlgorithms)
+	assert.Equal(t, expectedKEXs, c.KexAlgorithms)
+	assert.Equal(t, expectedCiphers, c.Ciphers)
+	assert.Equal(t, expectedMACs, c.MACs)
+	assert.Equal(t, configs.SFTPD.Moduli, c.Moduli)
+
+	err = dataprovider.UpdateConfigs(nil, "", "", "")
+	assert.NoError(t, err)
+}
+
 func TestSupportedSecurityOptions(t *testing.T) {
 	c := Configuration{
 		KexAlgorithms: supportedKexAlgos,
@@ -1888,6 +1926,12 @@ func TestSupportedSecurityOptions(t *testing.T) {
 	assert.Equal(t, supportedCiphers, serverConfig.Ciphers)
 	assert.Equal(t, supportedMACs, serverConfig.MACs)
 	assert.Equal(t, supportedKexAlgos, serverConfig.KeyExchanges)
+	c.KexAlgorithms = append(preferredKexAlgos, kexDHGroupExchangeSHA256) // removed because no moduli is provided
+	err = c.configureSecurityOptions(serverConfig)
+	assert.NoError(t, err)
+	assert.Equal(t, supportedCiphers, serverConfig.Ciphers)
+	assert.Equal(t, supportedMACs, serverConfig.MACs)
+	assert.Equal(t, preferredKexAlgos, serverConfig.KeyExchanges)
 }
 
 func TestLoadModuli(t *testing.T) {
@@ -1895,20 +1939,22 @@ func TestLoadModuli(t *testing.T) {
 	dhGEXSha256 := "diffie-hellman-group-exchange-sha256"
 	c := Configuration{}
 	c.Moduli = []string{".", "missing file"}
-	err := c.loadModuli(configDir)
-	assert.Error(t, err)
+	c.loadModuli(configDir)
 	assert.NotContains(t, supportedKexAlgos, dhGEXSha1)
 	assert.NotContains(t, supportedKexAlgos, dhGEXSha256)
+	assert.NotContains(t, preferredKexAlgos, dhGEXSha1)
+	assert.NotContains(t, preferredKexAlgos, dhGEXSha256)
 	assert.Len(t, supportedKexAlgos, 10)
 	moduli := []byte("20220414072358 2 6 100 2047 5 F19C2D09AD49978F8A0C1B84168A4011A26F9CD516815934764A319FDC5975FA514AAF11B747D8CA6B3919532BEFB68FA118079473895674F3770F71FBB742F176883841EB3DE679BEF53C6AFE437A662F228B03C1E34B5A0D3909F608CEAA16C1F8131DE11E67878EFD918A89205E5E4DE323054010CA4711F25D466BB7727A016DD3F9F53BDBCE093055A4F2497ADEFB5A2500F9C5C3B0BCD88C6489F4C1CBC7CFB67BA6EABA0195794E4188CE9060F431041AD52FB9BAC4DF7FA536F585FBE67746CD57BFAD67567E9706C24D95C49BE95B759657C6BB5151E2AEA32F4CD557C40298A5C402101520EE8AAB8DFEED6FFC11AAF8036D6345923CFB5D1B922F")
 	moduliFile := filepath.Join(os.TempDir(), "moduli")
-	err = os.WriteFile(moduliFile, moduli, 0600)
+	err := os.WriteFile(moduliFile, moduli, 0600)
 	assert.NoError(t, err)
 	c.Moduli = []string{moduliFile}
-	err = c.loadModuli(configDir)
-	assert.NoError(t, err)
+	c.loadModuli(configDir)
 	assert.Contains(t, supportedKexAlgos, dhGEXSha1)
 	assert.Contains(t, supportedKexAlgos, dhGEXSha256)
+	assert.NotContains(t, preferredKexAlgos, dhGEXSha1)
+	assert.Contains(t, preferredKexAlgos, dhGEXSha256)
 	assert.Len(t, supportedKexAlgos, 12)
 	err = os.Remove(moduliFile)
 	assert.NoError(t, err)

@@ -6263,6 +6263,22 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SSHAuthentications'
+        host_key_algos:
+          type: array
+          items:
+            type: string
+        macs:
+          type: array
+          items:
+            type: string
+        kex_algorithms:
+          type: array
+          items:
+            type: string
+        ciphers:
+          type: array
+          items:
+            type: string
     FTPPassivePortRange:
       type: object
       properties:

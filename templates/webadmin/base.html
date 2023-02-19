@@ -125,7 +125,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                 <div id="collapseIPManager" class="collapse {{if .IsIPManagerPage}}show{{end}}" aria-labelledby="headingIPManager" data-parent="#accordionSidebar">
                     <div class="bg-white py-2 collapse-inner rounded">
                         {{ if .LoggedAdmin.HasPermission "manage_ip_lists"}}
-                        <a class="collapse-item {{if eq .CurrentURL .IPListsURL}}active{{end}}"  href="{{.IPListsURL}}">{{.IPListsTitle}}</a>
+                        <a class="collapse-item {{if eq .CurrentURL .IPListsURL}}active{{end}}" href="{{.IPListsURL}}">{{.IPListsTitle}}</a>
                         {{end}}
                         {{ if and .HasDefender (.LoggedAdmin.HasPermission "view_defender")}}
                         <a class="collapse-item {{if eq .CurrentURL .DefenderURL}}active{{end}}" href="{{.DefenderURL}}">{{.DefenderTitle}}</a>
@@ -151,27 +151,29 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
             </li>
             {{end}}
 
-            {{ if and .HasSearcher (.LoggedAdmin.HasPermission "view_events")}}
-            <li class="nav-item {{if eq .CurrentURL .EventsURL}}active{{end}}">
-                <a class="nav-link" href="{{.EventsURL}}">
-                    <i class="fas fa-clipboard-list"></i>
-                    <span>{{.EventsTitle}}</span></a>
-            </li>
-            {{end}}
-
-            {{ if .LoggedAdmin.HasPermission "manage_system"}}
-            <li class="nav-item {{if eq .CurrentURL .MaintenanceURL}}active{{end}}">
-                <a class="nav-link" href="{{.MaintenanceURL}}">
-                    <i class="fas fa-wrench"></i>
-                    <span>{{.MaintenanceTitle}}</span></a>
-            </li>
-            {{end}}
-
-            {{ if .LoggedAdmin.HasPermission "view_status"}}
-            <li class="nav-item {{if eq .CurrentURL .StatusURL}}active{{end}}">
-                <a class="nav-link" href="{{.StatusURL}}">
-                    <i class="fas fa-info-circle"></i>
-                    <span>{{.StatusTitle}}</span></a>
+            {{ if or (.LoggedAdmin.HasPermission "manage_system") (.LoggedAdmin.HasPermission "view_status") (and .HasSearcher (.LoggedAdmin.HasPermission "view_events"))}}
+            <li class="nav-item {{if .IsServerManagerPage}}active{{end}}">
+                <a class="nav-link {{if not .IsServerManagerPage}}collapsed{{end}}" href="#" data-toggle="collapse" data-target="#collapseServerManager"
+                    aria-expanded="true" aria-controls="collapseServerManager">
+                    <i class="fas fa-tools"></i>
+                    <span>Server Manager</span>
+                </a>
+                <div id="collapseServerManager" class="collapse {{if .IsServerManagerPage}}show{{end}}" aria-labelledby="headingServerManager" data-parent="#accordionSidebar">
+                    <div class="bg-white py-2 collapse-inner rounded">
+                        {{ if .LoggedAdmin.HasPermission "manage_system"}}
+                        <a class="collapse-item {{if eq .CurrentURL .ConfigsURL}}active{{end}}" href="{{.ConfigsURL}}">{{.ConfigsTitle}}</a>
+                        {{end}}
+                        {{ if and .HasSearcher (.LoggedAdmin.HasPermission "view_events")}}
+                        <a class="collapse-item {{if eq .CurrentURL .EventsURL}}active{{end}}" href="{{.EventsURL}}">{{.EventsTitle}}</a>
+                        {{end}}
+                        {{ if .LoggedAdmin.HasPermission "manage_system"}}
+                        <a class="collapse-item {{if eq .CurrentURL .MaintenanceURL}}active{{end}}" href="{{.MaintenanceURL}}">{{.MaintenanceTitle}}</a>
+                        {{end}}
+                        {{ if .LoggedAdmin.HasPermission "view_status"}}
+                        <a class="collapse-item {{if eq .CurrentURL .StatusURL}}active{{end}}" href="{{.StatusURL}}">{{.StatusTitle}}</a>
+                        {{end}}
+                    </div>
+                </div>
             </li>
             {{end}}
 

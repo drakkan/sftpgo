@@ -54,6 +54,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/crypto/ssh"
 	"golang.org/x/net/html"
 
 	"github.com/drakkan/sftpgo/v2/internal/common"
@@ -167,6 +168,7 @@ const (
 	webAdminRolesPath              = "/web/admin/roles"
 	webAdminRolePath               = "/web/admin/role"
 	webEventsPath                  = "/web/admin/events"
+	webConfigsPath                 = "/web/admin/configs"
 	webBasePathClient              = "/web/client"
 	webClientLoginPath             = "/web/client/login"
 	webClientFilesPath             = "/web/client/files"
@@ -1285,6 +1287,46 @@ func TestGroupSettingsOverride(t *testing.T) {
 	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName1}, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName2}, http.StatusOK)
+	assert.NoError(t, err)
+}
+
+func TestConfigs(t *testing.T) {
+	err := dataprovider.UpdateConfigs(nil, "", "", "")
+	assert.NoError(t, err)
+	configs, err := dataprovider.GetConfigs()
+	assert.NoError(t, err)
+	assert.Equal(t, int64(0), configs.UpdatedAt)
+	assert.Nil(t, configs.SFTPD)
+	assert.Nil(t, configs.SMTP)
+	configs = dataprovider.Configs{
+		SFTPD: &dataprovider.SFTPDConfigs{},
+		SMTP:  &dataprovider.SMTPConfigs{},
+	}
+	err = dataprovider.UpdateConfigs(&configs, "", "", "")
+	assert.NoError(t, err)
+	configs, err = dataprovider.GetConfigs()
+	assert.NoError(t, err)
+	assert.Greater(t, configs.UpdatedAt, int64(0))
+
+	configs = dataprovider.Configs{
+		SFTPD: &dataprovider.SFTPDConfigs{
+			Ciphers: []string{"unknown"},
+		},
+		SMTP: &dataprovider.SMTPConfigs{},
+	}
+	err = dataprovider.UpdateConfigs(&configs, "", "", "")
+	assert.ErrorIs(t, err, util.ErrValidation)
+	configs = dataprovider.Configs{
+		SFTPD: &dataprovider.SFTPDConfigs{},
+		SMTP: &dataprovider.SMTPConfigs{
+			Host: "smtp.example.com",
+			Port: -1,
+		},
+	}
+	err = dataprovider.UpdateConfigs(&configs, "", "", "")
+	assert.ErrorIs(t, err, util.ErrValidation)
+
+	err = dataprovider.UpdateConfigs(nil, "", "", "")
 	assert.NoError(t, err)
 }
 
@@ -6782,10 +6824,18 @@ func TestProviderErrors(t *testing.T) {
 	backupData := dataprovider.BackupData{
 		Version: dataprovider.DumpVersion,
 	}
+	backupData.Configs = &dataprovider.Configs{}
 	backupData.Users = append(backupData.Users, user)
 	backupContent, err := json.Marshal(backupData)
 	assert.NoError(t, err)
 	backupFilePath := filepath.Join(backupsPath, "backup.json")
+	err = os.WriteFile(backupFilePath, backupContent, os.ModePerm)
+	assert.NoError(t, err)
+	_, _, err = httpdtest.Loaddata(backupFilePath, "", "", http.StatusInternalServerError)
+	assert.NoError(t, err)
+	backupData.Configs = nil
+	backupContent, err = json.Marshal(backupData)
+	assert.NoError(t, err)
 	err = os.WriteFile(backupFilePath, backupContent, os.ModePerm)
 	assert.NoError(t, err)
 	_, _, err = httpdtest.Loaddata(backupFilePath, "", "", http.StatusInternalServerError)
@@ -7478,6 +7528,8 @@ func TestLoaddataFromPostBody(t *testing.T) {
 }
 
 func TestLoaddata(t *testing.T) {
+	err := dataprovider.UpdateConfigs(nil, "", "", "")
+	assert.NoError(t, err)
 	mappedPath := filepath.Join(os.TempDir(), "restored_folder")
 	folderName := filepath.Base(mappedPath)
 	folderDesc := "restored folder desc"
@@ -7567,9 +7619,20 @@ func TestLoaddata(t *testing.T) {
 			},
 		},
 	}
+	configs := dataprovider.Configs{
+		SFTPD: &dataprovider.SFTPDConfigs{
+			HostKeyAlgos: []string{ssh.KeyAlgoRSA, ssh.CertAlgoRSAv01},
+		},
+		SMTP: &dataprovider.SMTPConfigs{
+			Host: "mail.example.com",
+			Port: 587,
+			From: "from@example.net",
+		},
+	}
 	backupData := dataprovider.BackupData{
 		Version: 14,
 	}
+	backupData.Configs = &configs
 	backupData.Users = append(backupData.Users, user)
 	backupData.Roles = append(backupData.Roles, role)
 	backupData.Groups = append(backupData.Groups, group)
@@ -7621,6 +7684,15 @@ func TestLoaddata(t *testing.T) {
 	// update from backup
 	_, _, err = httpdtest.Loaddata(backupFilePath, "2", "", http.StatusOK)
 	assert.NoError(t, err)
+	configsGet, err := dataprovider.GetConfigs()
+	assert.NoError(t, err)
+	assert.Equal(t, configs.SMTP, configsGet.SMTP)
+	assert.Equal(t, configs.SFTPD.HostKeyAlgos, configsGet.SFTPD.HostKeyAlgos)
+	assert.Len(t, configsGet.SFTPD.Moduli, 0)
+	assert.Len(t, configsGet.SFTPD.KexAlgorithms, 0)
+	assert.Len(t, configsGet.SFTPD.Ciphers, 0)
+	assert.Len(t, configsGet.SFTPD.MACs, 0)
+	assert.Greater(t, configsGet.UpdatedAt, int64(0))
 	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Len(t, user.VirtualFolders, 1)
@@ -7751,11 +7823,20 @@ func TestLoaddata(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.Remove(backupFilePath)
 	assert.NoError(t, err)
+	err = dataprovider.UpdateConfigs(nil, "", "", "")
+	assert.NoError(t, err)
 }
 
 func TestLoaddataMode(t *testing.T) {
+	err := dataprovider.UpdateConfigs(nil, "", "", "")
+	assert.NoError(t, err)
 	mappedPath := filepath.Join(os.TempDir(), "restored_fold")
 	folderName := filepath.Base(mappedPath)
+	configs := dataprovider.Configs{
+		SFTPD: &dataprovider.SFTPDConfigs{
+			Moduli: []string{"/moduli"},
+		},
+	}
 	role := getTestRole()
 	role.ID = 1
 	role.Name = "test_role_load"
@@ -7834,6 +7915,7 @@ func TestLoaddataMode(t *testing.T) {
 	backupData := dataprovider.BackupData{
 		Version: dataprovider.DumpVersion,
 	}
+	backupData.Configs = &configs
 	backupData.Users = append(backupData.Users, user)
 	backupData.Groups = append(backupData.Groups, group)
 	backupData.Admins = append(backupData.Admins, admin)
@@ -7859,10 +7941,13 @@ func TestLoaddataMode(t *testing.T) {
 	backupData.IPLists = append(backupData.IPLists, ipListEntry)
 	backupContent, _ := json.Marshal(backupData)
 	backupFilePath := filepath.Join(backupsPath, "backup.json")
-	err := os.WriteFile(backupFilePath, backupContent, os.ModePerm)
+	err = os.WriteFile(backupFilePath, backupContent, os.ModePerm)
 	assert.NoError(t, err)
 	_, _, err = httpdtest.Loaddata(backupFilePath, "0", "0", http.StatusOK)
 	assert.NoError(t, err)
+	configs, err = dataprovider.GetConfigs()
+	assert.NoError(t, err)
+	assert.Len(t, configs.SFTPD.Moduli, 1)
 	folder, _, err := httpdtest.GetFolderByName(folderName, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Equal(t, mappedPath+"1", folder.MappedPath)
@@ -7934,6 +8019,10 @@ func TestLoaddataMode(t *testing.T) {
 	entry, _, err = httpdtest.UpdateIPListEntry(entry, http.StatusOK)
 	assert.NoError(t, err)
 
+	configs.SFTPD.Moduli = append(configs.SFTPD.Moduli, "/moduli_new")
+	err = dataprovider.UpdateConfigs(&configs, "", "", "")
+	assert.NoError(t, err)
+	backupData.Configs = &configs
 	backupData.Folders = []vfs.BaseVirtualFolder{
 		{
 			MappedPath: mappedPath,
@@ -7942,6 +8031,9 @@ func TestLoaddataMode(t *testing.T) {
 	}
 	_, _, err = httpdtest.Loaddata(backupFilePath, "0", "1", http.StatusOK)
 	assert.NoError(t, err)
+	configs, err = dataprovider.GetConfigs()
+	assert.NoError(t, err)
+	assert.Len(t, configs.SFTPD.Moduli, 2)
 	group, _, err = httpdtest.GetGroupByName(group.Name, http.StatusOK)
 	assert.NoError(t, err)
 	assert.NotEqual(t, oldGroupDesc, group.Description)
@@ -7999,6 +8091,9 @@ func TestLoaddataMode(t *testing.T) {
 	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Equal(t, oldUploadBandwidth, user.UploadBandwidth)
+	configs, err = dataprovider.GetConfigs()
+	assert.NoError(t, err)
+	assert.Len(t, configs.SFTPD.Moduli, 1)
 	// the group is referenced
 	_, err = httpdtest.RemoveGroup(group, http.StatusBadRequest)
 	assert.NoError(t, err)
@@ -8021,6 +8116,8 @@ func TestLoaddataMode(t *testing.T) {
 	_, err = httpdtest.RemoveIPListEntry(entry, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.Remove(backupFilePath)
+	assert.NoError(t, err)
+	err = dataprovider.UpdateConfigs(nil, "", "", "")
 	assert.NoError(t, err)
 }
 
@@ -8990,6 +9087,84 @@ func TestChangeAdminPwdInvalidJsonMock(t *testing.T) {
 	setBearerForReq(req, token)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
+}
+
+func TestSMTPConfig(t *testing.T) {
+	smtpCfg := smtp.Config{
+		Host:          "127.0.0.1",
+		Port:          3525,
+		From:          "notification@example.com",
+		TemplatesPath: "templates",
+	}
+	err := smtpCfg.Initialize(configDir)
+	require.NoError(t, err)
+
+	smtpTestURL := path.Join(webConfigsPath, "smtp", "test")
+	tokenHeader := "X-CSRF-TOKEN"
+	webToken, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, smtpTestURL, bytes.NewBuffer([]byte("{")))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+
+	req.Header.Set(tokenHeader, csrfToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	testReq := make(map[string]any)
+	testReq["host"] = smtpCfg.Host
+	testReq["port"] = 3525
+	testReq["from"] = "from@example.com"
+	asJSON, err := json.Marshal(testReq)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, smtpTestURL, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set(tokenHeader, csrfToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+
+	testReq["recipient"] = "example@example.com"
+	asJSON, err = json.Marshal(testReq)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, smtpTestURL, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set(tokenHeader, csrfToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	configs := dataprovider.Configs{
+		SMTP: &dataprovider.SMTPConfigs{
+			Host:     "127.0.0.1",
+			Port:     3535,
+			User:     "user@example.com",
+			Password: kms.NewPlainSecret(defaultPassword),
+		},
+	}
+	err = dataprovider.UpdateConfigs(&configs, "", "", "")
+	assert.NoError(t, err)
+
+	testReq["password"] = redactedSecret
+	asJSON, err = json.Marshal(testReq)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, smtpTestURL, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set(tokenHeader, csrfToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+	assert.Contains(t, rr.Body.String(), "server does not support SMTP AUTH")
+
+	err = dataprovider.UpdateConfigs(nil, "", "", "")
+	assert.NoError(t, err)
+	smtpCfg = smtp.Config{}
+	err = smtpCfg.Initialize(configDir)
+	require.NoError(t, err)
 }
 
 func TestMFAPermission(t *testing.T) {
@@ -12070,6 +12245,149 @@ func TestMaxSessions(t *testing.T) {
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 	assert.Len(t, common.Connections.GetStats(""), 0)
+}
+
+func TestWebConfigsMock(t *testing.T) {
+	err := dataprovider.UpdateConfigs(nil, "", "", "")
+	assert.NoError(t, err)
+	webToken, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
+	assert.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodGet, webConfigsPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	form := make(url.Values)
+	req, err = http.NewRequest(http.MethodPost, webConfigsPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	// parse form error
+	form.Set(csrfFormToken, csrfToken)
+	req, err = http.NewRequest(http.MethodPost, webConfigsPath+"?p=p%C3%AO%GH", bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	// save SFTP configs
+	form.Set("sftp_host_key_algos", ssh.KeyAlgoRSA)
+	form.Add("sftp_host_key_algos", ssh.CertAlgoDSAv01)
+	form.Set("sftp_moduli", "path 1 , path 2")
+	form.Set("form_action", "sftp_submit")
+	req, err = http.NewRequest(http.MethodPost, webConfigsPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), ssh.CertAlgoDSAv01) // invalid algo
+	form.Set("sftp_host_key_algos", ssh.KeyAlgoRSA)
+	form.Add("sftp_host_key_algos", ssh.CertAlgoRSAv01)
+	req, err = http.NewRequest(http.MethodPost, webConfigsPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "Configurations updated")
+	// check SFTP configs
+	configs, err := dataprovider.GetConfigs()
+	assert.NoError(t, err)
+	assert.Len(t, configs.SFTPD.HostKeyAlgos, 2)
+	assert.Contains(t, configs.SFTPD.HostKeyAlgos, ssh.KeyAlgoRSA)
+	assert.Contains(t, configs.SFTPD.HostKeyAlgos, ssh.CertAlgoRSAv01)
+	assert.Len(t, configs.SFTPD.Moduli, 2)
+	assert.Contains(t, configs.SFTPD.Moduli, "path 1")
+	assert.Contains(t, configs.SFTPD.Moduli, "path 2")
+	// invalid form action
+	form.Set("form_action", "")
+	req, err = http.NewRequest(http.MethodPost, webConfigsPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "unsupported form action")
+	// test SMTP configs
+	form.Set("form_action", "smtp_submit")
+	form.Set("smtp_host", "mail.example.net")
+	form.Set("smtp_from", "Example <info@example.net>")
+	form.Set("smtp_username", defaultUsername)
+	form.Set("smtp_password", defaultPassword)
+	form.Set("smtp_domain", "localdomain")
+	req, err = http.NewRequest(http.MethodPost, webConfigsPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "Validation error") // port is not passed so 0
+	// set valid parameters
+	form.Set("smtp_port", "465")
+	form.Set("smtp_auth", "1")
+	form.Set("smtp_encryption", "2")
+	req, err = http.NewRequest(http.MethodPost, webConfigsPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "Configurations updated")
+	// check
+	configs, err = dataprovider.GetConfigs()
+	assert.NoError(t, err)
+	assert.Len(t, configs.SFTPD.HostKeyAlgos, 2)
+	assert.Contains(t, configs.SFTPD.HostKeyAlgos, ssh.KeyAlgoRSA)
+	assert.Contains(t, configs.SFTPD.HostKeyAlgos, ssh.CertAlgoRSAv01)
+	assert.Len(t, configs.SFTPD.Moduli, 2)
+	assert.Equal(t, "mail.example.net", configs.SMTP.Host)
+	assert.Equal(t, 465, configs.SMTP.Port)
+	assert.Equal(t, "Example <info@example.net>", configs.SMTP.From)
+	assert.Equal(t, defaultUsername, configs.SMTP.User)
+	err = configs.SMTP.Password.Decrypt()
+	assert.NoError(t, err)
+	assert.Equal(t, defaultPassword, configs.SMTP.Password.GetPayload())
+	assert.Equal(t, 1, configs.SMTP.AuthType)
+	assert.Equal(t, 2, configs.SMTP.Encryption)
+	assert.Equal(t, "localdomain", configs.SMTP.Domain)
+	// set a redacted password, the current password must be preserved
+	form.Set("smtp_password", redactedSecret)
+	req, err = http.NewRequest(http.MethodPost, webConfigsPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "Configurations updated")
+	updatedConfigs, err := dataprovider.GetConfigs()
+	assert.NoError(t, err)
+	encryptedPayload := updatedConfigs.SMTP.Password.GetPayload()
+	secretKey := updatedConfigs.SMTP.Password.GetKey()
+	err = updatedConfigs.SMTP.Password.Decrypt()
+	assert.NoError(t, err)
+	assert.Equal(t, configs.SFTPD, updatedConfigs.SFTPD)
+	assert.Equal(t, configs.SMTP, updatedConfigs.SMTP)
+	// now set an undecryptable password
+	updatedConfigs.SMTP.Password = kms.NewSecret(sdkkms.SecretStatusSecretBox, encryptedPayload, secretKey, "")
+	err = dataprovider.UpdateConfigs(&updatedConfigs, "", "", "")
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, webConfigsPath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "Configurations updated")
+
+	err = dataprovider.UpdateConfigs(nil, "", "", "")
+	assert.NoError(t, err)
 }
 
 func TestSFTPLoopError(t *testing.T) {
@@ -22949,9 +23267,34 @@ func TestProviderClosedMock(t *testing.T) {
 	assert.NoError(t, err)
 
 	dataprovider.Close()
-	req, _ := http.NewRequest(http.MethodGet, webFoldersPath, nil)
+
+	testReq := make(map[string]any)
+	testReq["password"] = redactedSecret
+	asJSON, err := json.Marshal(testReq)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, path.Join(webConfigsPath, "smtp", "test"), bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
 	setJWTCookieForReq(req, token)
+	req.Header.Set("X-CSRF-TOKEN", csrfToken)
 	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+
+	req, err = http.NewRequest(http.MethodGet, webConfigsPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+
+	req, err = http.NewRequest(http.MethodPost, webConfigsPath, nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, token)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+
+	req, _ = http.NewRequest(http.MethodGet, webFoldersPath, nil)
+	setJWTCookieForReq(req, token)
+	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusInternalServerError, rr)
 	req, _ = http.NewRequest(http.MethodGet, webUsersPath, nil)
 	setJWTCookieForReq(req, token)

@@ -192,6 +192,7 @@ var (
 	sqlTableNodes                string
 	sqlTableRoles                string
 	sqlTableIPLists              string
+	sqlTableConfigs              string
 	sqlTableSchemaVersion        string
 	argon2Params                 *argon2id.Params
 	lastLoginMinDelay            = 10 * time.Minute
@@ -225,6 +226,7 @@ func initSQLTables() {
 	sqlTableNodes = "nodes"
 	sqlTableRoles = "roles"
 	sqlTableIPLists = "ip_lists"
+	sqlTableConfigs = "configurations"
 	sqlTableSchemaVersion = "schema_version"
 }
 
@@ -666,6 +668,7 @@ type BackupData struct {
 	EventRules   []EventRule             `json:"event_rules"`
 	Roles        []Role                  `json:"roles"`
 	IPLists      []IPListEntry           `json:"ip_lists"`
+	Configs      *Configs                `json:"configs"`
 	Version      int                     `json:"version"`
 }
 
@@ -817,6 +820,8 @@ type Provider interface {
 	dumpIPListEntries() ([]IPListEntry, error)
 	countIPListEntries(listType IPListType) (int64, error)
 	getListEntriesForIP(ip string, listType IPListType) ([]IPListEntry, error)
+	getConfigs() (Configs, error)
+	setConfigs(configs *Configs) error
 	checkAvailability() error
 	close() error
 	reloadConfig() error
@@ -997,17 +1002,18 @@ func validateSQLTablesPrefix() error {
 		sqlTableNodes = config.SQLTablesPrefix + sqlTableNodes
 		sqlTableRoles = config.SQLTablesPrefix + sqlTableRoles
 		sqlTableIPLists = config.SQLTablesPrefix + sqlTableIPLists
+		sqlTableConfigs = config.SQLTablesPrefix + sqlTableConfigs
 		sqlTableSchemaVersion = config.SQLTablesPrefix + sqlTableSchemaVersion
 		providerLog(logger.LevelDebug, "sql table for users %q, folders %q users folders mapping %q admins %q "+
 			"api keys %q shares %q defender hosts %q defender events %q transfers %q  groups %q "+
 			"users groups mapping %q admins groups mapping %q groups folders mapping %q shared sessions %q "+
 			"schema version %q events actions %q events rules %q rules actions mapping %q tasks %q nodes %q roles %q"+
-			"ip lists %q",
+			"ip lists %q configs %q",
 			sqlTableUsers, sqlTableFolders, sqlTableUsersFoldersMapping, sqlTableAdmins, sqlTableAPIKeys,
 			sqlTableShares, sqlTableDefenderHosts, sqlTableDefenderEvents, sqlTableActiveTransfers, sqlTableGroups,
 			sqlTableUsersGroupsMapping, sqlTableAdminsGroupsMapping, sqlTableGroupsFoldersMapping, sqlTableSharedSessions,
 			sqlTableSchemaVersion, sqlTableEventsActions, sqlTableEventsRules, sqlTableRulesActionsMapping,
-			sqlTableTasks, sqlTableNodes, sqlTableRoles, sqlTableIPLists)
+			sqlTableTasks, sqlTableNodes, sqlTableRoles, sqlTableIPLists, sqlTableConfigs)
 	}
 	return nil
 }
@@ -1516,6 +1522,25 @@ func GetUsedVirtualFolderQuota(name string) (int, int64, error) {
 	}
 	delayedFiles, delayedSize := delayedQuotaUpdater.getFolderPendingQuota(name)
 	return files + delayedFiles, size + delayedSize, err
+}
+
+// GetConfigs returns the configurations
+func GetConfigs() (Configs, error) {
+	return provider.getConfigs()
+}
+
+// UpdateConfigs updates configurations
+func UpdateConfigs(configs *Configs, executor, ipAddress, role string) error {
+	if configs == nil {
+		configs = &Configs{}
+	} else {
+		configs.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+	}
+	err := provider.setConfigs(configs)
+	if err == nil {
+		executeAction(operationUpdate, executor, ipAddress, actionObjectConfigs, "configs", role, configs)
+	}
+	return err
 }
 
 // AddShare adds a new share
@@ -2306,6 +2331,10 @@ func DumpData() (BackupData, error) {
 	if err != nil {
 		return data, err
 	}
+	configs, err := provider.getConfigs()
+	if err != nil {
+		return data, err
+	}
 	data.Users = users
 	data.Groups = groups
 	data.Folders = folders
@@ -2316,6 +2345,7 @@ func DumpData() (BackupData, error) {
 	data.EventRules = rules
 	data.Roles = roles
 	data.IPLists = ipLists
+	data.Configs = &configs
 	data.Version = DumpVersion
 	return data, err
 }

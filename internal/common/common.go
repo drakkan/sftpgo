@@ -39,6 +39,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/metric"
 	"github.com/drakkan/sftpgo/v2/internal/plugin"
+	"github.com/drakkan/sftpgo/v2/internal/smtp"
 	"github.com/drakkan/sftpgo/v2/internal/util"
 	"github.com/drakkan/sftpgo/v2/internal/vfs"
 )
@@ -170,7 +171,7 @@ func Initialize(c Configuration, isShared int) error {
 	Config.ProxyAllowed = util.RemoveDuplicates(Config.ProxyAllowed, true)
 	Config.idleLoginTimeout = 2 * time.Minute
 	Config.idleTimeoutAsDuration = time.Duration(Config.IdleTimeout) * time.Minute
-	startPeriodicChecks(periodicTimeoutCheckInterval)
+	startPeriodicChecks(periodicTimeoutCheckInterval, isShared)
 	Config.defender = nil
 	Config.allowList = nil
 	Config.rateLimitersList = nil
@@ -382,12 +383,17 @@ func AddDefenderEvent(ip, protocol string, event HostEvent) {
 	Config.defender.AddEvent(ip, protocol, event)
 }
 
-func startPeriodicChecks(duration time.Duration) {
+func startPeriodicChecks(duration time.Duration, isShared int) {
 	startEventScheduler()
 	spec := fmt.Sprintf("@every %s", duration)
 	_, err := eventScheduler.AddFunc(spec, Connections.checkTransfers)
 	util.PanicOnError(err)
 	logger.Info(logSender, "", "scheduled overquota transfers check, schedule %q", spec)
+	if isShared == 1 {
+		logger.Info(logSender, "", "add reload configs task")
+		_, err := eventScheduler.AddFunc("@every 10m", smtp.ReloadProviderConf)
+		util.PanicOnError(err)
+	}
 	if Config.IdleTimeout > 0 {
 		ratio := idleTimeoutCheckInterval / periodicTimeoutCheckInterval
 		spec = fmt.Sprintf("@every %s", duration*ratio)

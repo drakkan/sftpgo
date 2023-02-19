@@ -22,10 +22,12 @@ import (
 	"fmt"
 	"html/template"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/wneessen/go-mail"
 
+	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/util"
 )
@@ -47,16 +49,93 @@ const (
 	templateEmailDir           = "email"
 	templatePasswordReset      = "reset-password.html"
 	templatePasswordExpiration = "password-expiration.html"
+	dialTimeout                = 10 * time.Second
 )
 
 var (
-	config         *Config
+	config         = &activeConfig{}
+	initialConfig  *Config
 	emailTemplates = make(map[string]*template.Template)
 )
 
+type activeConfig struct {
+	sync.RWMutex
+	config *Config
+}
+
+func (c *activeConfig) isEnabled() bool {
+	c.RLock()
+	defer c.RUnlock()
+
+	return c.config != nil && c.config.Host != ""
+}
+
+func (c *activeConfig) Set(cfg *dataprovider.SMTPConfigs) {
+	var config *Config
+	if cfg != nil {
+		config = &Config{
+			Host:       cfg.Host,
+			Port:       cfg.Port,
+			From:       cfg.From,
+			User:       cfg.User,
+			Password:   cfg.Password.GetPayload(),
+			AuthType:   cfg.AuthType,
+			Encryption: cfg.Encryption,
+			Domain:     cfg.Domain,
+		}
+	}
+
+	c.Lock()
+	defer c.Unlock()
+
+	if config != nil && config.Host != "" {
+		if c.config != nil && c.config.isEqual(config) {
+			return
+		}
+		c.config = config
+		logger.Info(logSender, "", "activated new config, server %s:%d", c.config.Host, c.config.Port)
+	} else {
+		logger.Debug(logSender, "", "activating initial config")
+		c.config = initialConfig
+		if c.config == nil || c.config.Host == "" {
+			logger.Debug(logSender, "", "configuration disabled, email capabilities will not be available")
+		}
+	}
+}
+
+func (c *activeConfig) getSMTPClientAndMsg(to []string, subject, body string, contentType EmailContentType,
+	attachments ...*mail.File,
+) (*mail.Client, *mail.Msg, error) {
+	c.RLock()
+	defer c.RUnlock()
+
+	if c.config == nil || c.config.Host == "" {
+		return nil, nil, errors.New("smtp: not configured")
+	}
+
+	return c.config.getSMTPClientAndMsg(to, subject, body, contentType, attachments...)
+}
+
+func (c *activeConfig) sendEmail(to []string, subject, body string, contentType EmailContentType, attachments ...*mail.File) error {
+	client, msg, err := c.getSMTPClientAndMsg(to, subject, body, contentType, attachments...)
+	if err != nil {
+		return err
+	}
+
+	ctx, cancelFn := context.WithTimeout(context.Background(), dialTimeout)
+	defer cancelFn()
+
+	return client.DialAndSendWithContext(ctx, msg)
+}
+
 // IsEnabled returns true if an SMTP server is configured
 func IsEnabled() bool {
-	return config != nil
+	return config.isEnabled()
+}
+
+// Activate sets the specified config as active
+func Activate(c *dataprovider.SMTPConfigs) {
+	config.Set(c)
 }
 
 // Config defines the SMTP configuration to use to send emails
@@ -89,34 +168,65 @@ type Config struct {
 	TemplatesPath string `json:"templates_path" mapstructure:"templates_path"`
 }
 
+func (c *Config) isEqual(other *Config) bool {
+	if c.Host != other.Host {
+		return false
+	}
+	if c.Port != other.Port {
+		return false
+	}
+	if c.From != other.From {
+		return false
+	}
+	if c.User != other.User {
+		return false
+	}
+	if c.Password != other.Password {
+		return false
+	}
+	if c.AuthType != other.AuthType {
+		return false
+	}
+	if c.Encryption != other.Encryption {
+		return false
+	}
+	if c.Domain != other.Domain {
+		return false
+	}
+	return true
+}
+
 // Initialize initialized and validates the SMTP configuration
 func (c *Config) Initialize(configDir string) error {
-	config = nil
+	if c.TemplatesPath == "" {
+		logger.Debug(logSender, "", "templates path empty, using default")
+		c.TemplatesPath = "templates"
+	}
+	templatesPath := util.FindSharedDataPath(c.TemplatesPath, configDir)
+	if templatesPath == "" {
+		return fmt.Errorf("smtp: invalid templates path %q", templatesPath)
+	}
+	loadTemplates(filepath.Join(templatesPath, templateEmailDir))
 	if c.Host == "" {
-		logger.Debug(logSender, "", "configuration disabled, email capabilities will not be available")
-		return nil
+		return loadConfigFromProvider()
 	}
 	if c.Port <= 0 || c.Port > 65535 {
-		return fmt.Errorf("smtp: invalid port %v", c.Port)
+		return fmt.Errorf("smtp: invalid port %d", c.Port)
 	}
 	if c.AuthType < 0 || c.AuthType > 2 {
-		return fmt.Errorf("smtp: invalid auth type %v", c.AuthType)
+		return fmt.Errorf("smtp: invalid auth type %d", c.AuthType)
 	}
 	if c.Encryption < 0 || c.Encryption > 2 {
-		return fmt.Errorf("smtp: invalid encryption %v", c.Encryption)
+		return fmt.Errorf("smtp: invalid encryption %d", c.Encryption)
 	}
 	if c.From == "" && c.User == "" {
 		return fmt.Errorf(`smtp: from address and user cannot both be empty`)
 	}
-	templatesPath := util.FindSharedDataPath(c.TemplatesPath, configDir)
-	if templatesPath == "" {
-		return fmt.Errorf("smtp: invalid templates path %#v", templatesPath)
-	}
-	loadTemplates(filepath.Join(templatesPath, templateEmailDir))
-	config = c
+	initialConfig = c
+	config.Set(nil)
 	logger.Debug(logSender, "", "configuration successfully initialized, host: %q, port: %d, username: %q, auth: %d, encryption: %d, helo: %q",
-		config.Host, config.Port, config.User, config.AuthType, config.Encryption, config.Domain)
-	return nil
+		c.Host, c.Port, c.User, c.AuthType, c.Encryption, c.Domain)
+	return loadConfigFromProvider()
 }
 
 func (c *Config) getMailClientOptions() []mail.Option {
@@ -130,14 +240,14 @@ func (c *Config) getMailClientOptions() []mail.Option {
 	default:
 		options = append(options, mail.WithTLSPolicy(mail.NoTLS))
 	}
-	if config.User != "" {
-		options = append(options, mail.WithUsername(config.User))
+	if c.User != "" {
+		options = append(options, mail.WithUsername(c.User))
 	}
-	if config.Password != "" {
-		options = append(options, mail.WithPassword(config.Password))
+	if c.Password != "" {
+		options = append(options, mail.WithPassword(c.Password))
 	}
-	if config.User != "" || config.Password != "" {
-		switch config.AuthType {
+	if c.User != "" || c.Password != "" {
+		switch c.AuthType {
 		case 1:
 			options = append(options, mail.WithSMTPAuth(mail.SMTPAuthLogin))
 		case 2:
@@ -146,14 +256,63 @@ func (c *Config) getMailClientOptions() []mail.Option {
 			options = append(options, mail.WithSMTPAuth(mail.SMTPAuthPlain))
 		}
 	}
-	if config.Domain != "" {
-		options = append(options, mail.WithHELO(config.Domain))
+	if c.Domain != "" {
+		options = append(options, mail.WithHELO(c.Domain))
 	}
 	return options
 }
 
+func (c *Config) getSMTPClientAndMsg(to []string, subject, body string, contentType EmailContentType,
+	attachments ...*mail.File) (*mail.Client, *mail.Msg, error) {
+	msg := mail.NewMsg()
+
+	var from string
+	if c.From != "" {
+		from = c.From
+	} else {
+		from = c.User
+	}
+	if err := msg.From(from); err != nil {
+		return nil, nil, fmt.Errorf("invalid from address: %w", err)
+	}
+	if err := msg.To(to...); err != nil {
+		return nil, nil, err
+	}
+	msg.Subject(subject)
+	msg.SetDate()
+	msg.SetMessageID()
+	msg.SetAttachements(attachments)
+
+	switch contentType {
+	case EmailContentTypeTextPlain:
+		msg.SetBodyString(mail.TypeTextPlain, body)
+	case EmailContentTypeTextHTML:
+		msg.SetBodyString(mail.TypeTextHTML, body)
+	default:
+		return nil, nil, fmt.Errorf("smtp: unsupported body content type %v", contentType)
+	}
+
+	client, err := mail.NewClient(c.Host, c.getMailClientOptions()...)
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to create mail client: %w", err)
+	}
+	return client, msg, nil
+}
+
+// SendEmail tries to send an email using the specified parameters
+func (c *Config) SendEmail(to []string, subject, body string, contentType EmailContentType, attachments ...*mail.File) error {
+	client, msg, err := c.getSMTPClientAndMsg(to, subject, body, contentType, attachments...)
+	if err != nil {
+		return err
+	}
+	ctx, cancelFn := context.WithTimeout(context.Background(), dialTimeout)
+	defer cancelFn()
+
+	return client.DialAndSendWithContext(ctx, msg)
+}
+
 func loadTemplates(templatesPath string) {
-	logger.Debug(logSender, "", "loading templates from %#v", templatesPath)
+	logger.Debug(logSender, "", "loading templates from %q", templatesPath)
 
 	passwordResetPath := filepath.Join(templatesPath, templatePasswordReset)
 	pwdResetTmpl := util.LoadTemplate(nil, passwordResetPath)
@@ -182,43 +341,26 @@ func RenderPasswordExpirationTemplate(buf *bytes.Buffer, data any) error {
 
 // SendEmail tries to send an email using the specified parameters.
 func SendEmail(to []string, subject, body string, contentType EmailContentType, attachments ...*mail.File) error {
-	if !IsEnabled() {
-		return errors.New("smtp: not configured")
-	}
-	m := mail.NewMsg()
+	return config.sendEmail(to, subject, body, contentType, attachments...)
+}
 
-	var from string
-	if config.From != "" {
-		from = config.From
-	} else {
-		from = config.User
-	}
-	if err := m.From(from); err != nil {
-		return fmt.Errorf("invalid from address: %w", err)
-	}
-	if err := m.To(to...); err != nil {
-		return err
-	}
-	m.Subject(subject)
-	m.SetDate()
-	m.SetMessageID()
-	m.SetAttachements(attachments)
+// ReloadProviderConf reloads the configuration from the provider
+// and apply it if different from the active one
+func ReloadProviderConf() {
+	loadConfigFromProvider() //nolint:errcheck
+}
 
-	switch contentType {
-	case EmailContentTypeTextPlain:
-		m.SetBodyString(mail.TypeTextPlain, body)
-	case EmailContentTypeTextHTML:
-		m.SetBodyString(mail.TypeTextHTML, body)
-	default:
-		return fmt.Errorf("smtp: unsupported body content type %v", contentType)
-	}
-
-	c, err := mail.NewClient(config.Host, config.getMailClientOptions()...)
+func loadConfigFromProvider() error {
+	configs, err := dataprovider.GetConfigs()
 	if err != nil {
-		return fmt.Errorf("unable to create mail client: %w", err)
+		logger.Error(logSender, "", "unable to load config from provider: %v", err)
+		return fmt.Errorf("smtp: unable to load config from provider: %w", err)
 	}
-	ctx, cancelFn := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancelFn()
-
-	return c.DialAndSendWithContext(ctx, m)
+	configs.SetNilsToEmpty()
+	if err := configs.SMTP.Password.TryDecrypt(); err != nil {
+		logger.Error(logSender, "", "unable to decrypt password: %v", err)
+		return fmt.Errorf("smtp: unable to decrypt password: %w", err)
+	}
+	config.Set(configs.SMTP)
+	return nil
 }

@@ -21,6 +21,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/drakkan/sftpgo/v2/internal/config"
+	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/smtp"
 	"github.com/drakkan/sftpgo/v2/internal/util"
@@ -39,7 +40,13 @@ If the SMTP configuration is correct you should receive this email.`,
 			configDir = util.CleanDirInput(configDir)
 			err := config.LoadConfig(configDir, configFile)
 			if err != nil {
-				logger.WarnToConsole("Unable to load configuration: %v", err)
+				logger.ErrorToConsole("Unable to load configuration: %v", err)
+				os.Exit(1)
+			}
+			providerConf := config.GetProviderConf()
+			err = dataprovider.Initialize(providerConf, configDir, false)
+			if err != nil {
+				logger.ErrorToConsole("error initializing data provider: %v", err)
 				os.Exit(1)
 			}
 			smtpConfig := config.GetSMTPConfig()
@@ -54,7 +61,7 @@ If the SMTP configuration is correct you should receive this email.`,
 				logger.WarnToConsole("Error sending email: %v", err)
 				os.Exit(1)
 			}
-			logger.InfoToConsole("No errors were reported while sending an email. Please check your inbox to make sure.")
+			logger.InfoToConsole("No errors were reported while sending the test email. Please check your inbox to make sure.")
 		},
 	}
 )

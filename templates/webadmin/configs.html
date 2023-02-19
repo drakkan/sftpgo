@@ -1,0 +1,327 @@
+<!--
+Copyright (C) 2019-2023 Nicola Murino
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published
+by the Free Software Foundation, version 3.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+-->
+{{template "base" .}}
+
+{{define "title"}}{{.Title}}{{end}}
+
+{{define "extra_css"}}
+<link href="{{.StaticURL}}/vendor/bootstrap-select/css/bootstrap-select.min.css" rel="stylesheet">
+{{end}}
+
+{{define "page_body"}}
+<div class="card shadow mb-4">
+    <div class="card-header py-3">
+        <h6 class="m-0 font-weight-bold text-primary">{{.Title}}</h6>
+    </div>
+    <div class="card-body">
+        {{if .Error}}
+        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+            {{.Error}}
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+        {{end}}
+        <form id="configs_form" action="{{.CurrentURL}}" method="POST" autocomplete="off">
+            <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
+            <div class="accordion" id="accordionConfigs">
+                <div class="card">
+                    <div class="card-header" id="headingSFTPD">
+                        <h2 class="mb-0">
+                            <button class="btn btn-link btn-block text-left" type="button" data-toggle="collapse"
+                                data-target="#collapseSFTPD" aria-expanded="true" aria-controls="collapseSFTPD">
+                                <h6 class="m-0 font-weight-bold text-primary">SFTP</h6>
+                            </button>
+                        </h2>
+                    </div>
+
+                    <div id="collapseSFTPD" class="collapse {{if eq .ConfigSection 1}}show{{end}}" aria-labelledby="headingSFTPD" data-parent="#accordionConfigs">
+                        <div class="card-body">
+                            <div id="configs-sftp-info" class="card mb-3 border-left-info">
+                                <div class="card-body">Here you can enable algorithms disabled by default. You don't need to set values already defined using env vars or config file. A service restart is required to apply changes.</div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="idHostKeyAlgos" class="col-sm-2 col-form-label">Host Key Algos</label>
+                                <div class="col-sm-10">
+                                    <select class="form-control selectpicker" id="idHostKeyAlgos" name="sftp_host_key_algos" multiple>
+                                        {{range $val := .Configs.SFTPD.GetSupportedHostKeyAlgos}}
+                                        <option value="{{$val}}" {{range $algo :=$.Configs.SFTPD.HostKeyAlgos }}{{if eq $algo $val}}selected{{end}}{{end}}>{{$val}}</option>
+                                        {{end}}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="idModuli" class="col-sm-2 col-form-label">Moduli</label>
+                                <div class="col-sm-10">
+                                    <textarea class="form-control" id="idModuli" name="sftp_moduli" rows="2" placeholder=""
+                                        aria-describedby="moduliHelpBlock">{{.Configs.SFTPD.GetModuliAsString}}</textarea>
+                                    <small id="moduliHelpBlock" class="form-text text-muted">
+                                        Comma separated moduli file paths. Invalid/missing paths are silently ignored. Moduli are required to enable Diffie-Helmann Group Exchange KEX algos
+                                    </small>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="idKEXAlgos" class="col-sm-2 col-form-label">KEX Algos</label>
+                                <div class="col-sm-10">
+                                    <select class="form-control selectpicker" id="idKEXAlgos" name="sftp_kex_algos" multiple>
+                                        {{range $val := .Configs.SFTPD.GetSupportedKEXAlgos}}
+                                        <option value="{{$val}}" {{range $algo :=$.Configs.SFTPD.KexAlgorithms }}{{if eq $algo $val}}selected{{end}}{{end}}>{{$val}}</option>
+                                        {{end}}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="idCiphers" class="col-sm-2 col-form-label">Ciphers</label>
+                                <div class="col-sm-10">
+                                    <select class="form-control selectpicker" id="idCiphers" name="sftp_ciphers" multiple>
+                                        {{range $val := .Configs.SFTPD.GetSupportedCiphers}}
+                                        <option value="{{$val}}" {{range $algo :=$.Configs.SFTPD.Ciphers }}{{if eq $algo $val}}selected{{end}}{{end}}>{{$val}}</option>
+                                        {{end}}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="idMACAlgos" class="col-sm-2 col-form-label">MAC Algos</label>
+                                <div class="col-sm-10">
+                                    <select class="form-control selectpicker" id="idMACAlgos" name="sftp_macs" multiple>
+                                        {{range $val := .Configs.SFTPD.GetSupportedMACs}}
+                                        <option value="{{$val}}" {{range $algo :=$.Configs.SFTPD.MACs }}{{if eq $algo $val}}selected{{end}}{{end}}>{{$val}}</option>
+                                        {{end}}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="col-sm-12 text-right px-0">
+                                <button type="submit" class="btn btn-primary mt-3 ml-3 px-5" name="form_action" value="sftp_submit">Submit</button>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header" id="headingSMTP">
+                        <h2 class="mb-0">
+                            <button class="btn btn-link btn-block text-left" type="button" data-toggle="collapse"
+                                data-target="#collapseSMTP" aria-expanded="true" aria-controls="collapseSMTP">
+                                <h6 class="m-0 font-weight-bold text-primary">SMTP</h6>
+                            </button>
+                        </h2>
+                    </div>
+
+                    <div id="collapseSMTP" class="collapse {{if eq .ConfigSection 2}}show{{end}}" aria-labelledby="headingSMTP" data-parent="#accordionConfigs">
+                        <div class="card-body">
+                            <div id="configs-smtp-info" class="card mb-3 border-left-info">
+                                <div class="card-body">Set the SMTP configuration replacing the one defined using env vars or config file if any.</div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="idSMTPHost" class="col-sm-2 col-form-label">Server name</label>
+                                <div class="col-sm-5">
+                                    <input type="text" class="form-control" id="idSMTPHost" name="smtp_host" placeholder=""
+                                        value="{{.Configs.SMTP.Host}}" maxlength="512" spellcheck="false" aria-describedby="smtpHostHelpBlock">
+                                    <small id="smtpHostHelpBlock" class="form-text text-muted">
+                                        If empty the configuration is disabled
+                                    </small>
+                                </div>
+                                <div class="col-sm-1"></div>
+                                <label for="idSMTPPort" class="col-sm-2 col-form-label">Port</label>
+                                <div class="col-sm-2">
+                                    <input type="number" min="0" max="65535" class="form-control" id="idSMTPPort" name="smtp_port" placeholder=""
+                                        value="{{.Configs.SMTP.Port}}">
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="idSMTPUsername" class="col-sm-2 col-form-label">Username</label>
+                                <div class="col-sm-10">
+                                    <input type="text" class="form-control" id="idSMTPUsername" name="smtp_username" placeholder=""
+                                    value="{{.Configs.SMTP.User}}" maxlength="255" spellcheck="false">
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="idSMTPPassword" class="col-sm-2 col-form-label">Password</label>
+                                <div class="col-sm-10">
+                                    <input type="password" class="form-control" id="idSMTPPassword" name="smtp_password" placeholder="" autocomplete="new-password" spellcheck="false"
+                                        value="{{if .Configs.SMTP.Password.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.Configs.SMTP.Password.GetPayload}}{{end}}">
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="idSMTPAuth" class="col-sm-2 col-form-label">Auth</label>
+                                <div class="col-sm-3">
+                                    <select class="form-control selectpicker" id="idSMTPAuth" name="smtp_auth">
+                                        <option value="0" {{if eq .Configs.SMTP.AuthType 0}}selected{{end}}>Plain</option>
+                                        <option value="1" {{if eq .Configs.SMTP.AuthType 1}}selected{{end}}>Login</option>
+                                        <option value="2" {{if eq .Configs.SMTP.AuthType 2}}selected{{end}}>CRAM-MD5</option>
+                                    </select>
+                                </div>
+                                <div class="col-sm-2"></div>
+                                <label for="idSMTPEncryption" class="col-sm-2 col-form-label">Encryption</label>
+                                <div class="col-sm-3">
+                                    <select class="form-control selectpicker" id="idSMTPEncryption" name="smtp_encryption">
+                                        <option value="0" {{if eq .Configs.SMTP.Encryption 0}}selected{{end}}>None</option>
+                                        <option value="1" {{if eq .Configs.SMTP.Encryption 1}}selected{{end}}>TLS</option>
+                                        <option value="2" {{if eq .Configs.SMTP.Encryption 2}}selected{{end}}>STARTTLS</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="idSMTPFrom" class="col-sm-2 col-form-label">From</label>
+                                <div class="col-sm-10">
+                                    <input type="text" class="form-control" id="idSMTPFrom" name="smtp_from" placeholder=""
+                                        value="{{.Configs.SMTP.From}}" maxlength="512" spellcheck="false">
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="idSMTPDomain" class="col-sm-2 col-form-label">Domain</label>
+                                <div class="col-sm-10">
+                                    <input type="text" class="form-control" id="idSMTPDomain" name="smtp_domain" placeholder=""
+                                        value="{{.Configs.SMTP.Domain}}" aria-describedby="smtpDomainHelpBlock">
+                                    <small id="smtpDomainHelpBlock" class="form-text text-muted">
+                                        HELO domain. Leave blank to use the server hostname
+                                    </small>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <div class="col-sm-12">
+                                    <div class="input-group">
+                                        <input type="email" class="form-control float-right" id="idSMTPRecipient" placeholder="Test email recipient" aria-label="Test email recipient">
+                                        <div class="input-group-append">
+                                          <button class="btn btn-secondary px-5" onclick="testSMTP(event);">Test</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-sm-12 text-right px-0">
+                                <button type="submit" class="btn btn-primary mt-3 px-5" name="form_action" value="smtp_submit">Submit</button>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{{end}}
+{{define "dialog"}}
+<div class="modal fade" id="spinnerModal" tabindex="-1" role="dialog" data-keyboard="false" data-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered justify-content-center" role="document">
+        <span style="color: #333333;" class="fa fa-spinner fa-spin fa-3x"></span>
+    </div>
+</div>
+
+<div class="modal fade" id="smtpTestResultModal" tabindex="-1" role="dialog" aria-labelledby="smtpTestResultModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="smtpTestResultModal">
+                    SMTP test result
+                </h5>
+                <button class="close" type="button" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="smtpSuccessMsg" class="card mb-4 border-left-success" style="display: none;">
+                    <div id="successTxt" class="card-body">No errors were reported while sending the test email. Please check your inbox to make sure.</div>
+                </div>
+                <div id="smtpErrorMsg" class="card mb-4 border-left-warning" style="display: none;">
+                    <div id="smtpErrorTxt" class="card-body text-form-error"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" type="button" data-dismiss="modal">
+                    OK
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}
+{{define "extra_js"}}
+<script src="{{.StaticURL}}/vendor/bootstrap-select/js/bootstrap-select.min.js"></script>
+<script type="text/javascript">
+    var spinnerDone = false;
+
+    function testSMTP(event){
+        event.preventDefault();
+        let recipient = $('#idSMTPRecipient').val();
+        if (!recipient){
+            $('#smtpErrorTxt').text('Set a recipient to send the test mail to.');
+            $('#smtpErrorMsg').show();
+            $('#smtpTestResultModal').modal('show');
+            return;
+        }
+        $('#smtpSuccessMsg').hide();
+        $('#smtpErrorMsg').hide();
+        $('#spinnerModal').modal('show');
+
+        $.ajax({
+            url: "{{.ConfigsURL}}/smtp/test",
+            type: 'POST',
+            headers: {'X-CSRF-TOKEN' : '{{.CSRFToken}}'},
+            data: JSON.stringify({"host": $('#idSMTPHost').val(),"port": parseInt($('#idSMTPPort').val()),"from": $('#idSMTPFrom').val(),"user": $('#idSMTPUsername').val(),"password": $('#idSMTPPassword').val(),"auth_type": parseInt($('#idSMTPAuth').val()),"encryption": parseInt($('#idSMTPEncryption').val()), "domain": $('#idSMTPDomain').val(),"recipient": recipient}),
+            dataType: 'json',
+            contentType: 'application/json; charset=utf-8',
+            timeout: 15000,
+            success: function (result) {
+                $('#spinnerModal').modal('hide');
+                spinnerDone = true;
+                $('#smtpSuccessMsg').show();
+                $('#smtpTestResultModal').modal('show');
+            },
+            error: function ($xhr, textStatus, errorThrown) {
+                $('#spinnerModal').modal('hide');
+                spinnerDone = true;
+                let txt = "SMTP connection failed";
+                if ($xhr) {
+                    let json = $xhr.responseJSON;
+                    if (json) {
+                        if (json.message){
+                            txt += ": " + json.message;
+                        } else {
+                            txt += ": " + json.error;
+                        }
+                    }
+                }
+                $('#smtpErrorTxt').text(txt);
+                $('#smtpErrorMsg').show();
+                $('#smtpTestResultModal').modal('show');
+            }
+        });
+    }
+
+    $(document).ready(function () {
+        $('#spinnerModal').on('shown.bs.modal', function () {
+            if (spinnerDone){
+                $('#spinnerModal').modal('hide');
+            }
+        });
+    });
+</script>
+{{end}}

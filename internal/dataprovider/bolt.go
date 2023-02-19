@@ -37,7 +37,7 @@ import (
 )
 
 const (
-	boltDatabaseVersion = 27
+	boltDatabaseVersion = 28
 )
 
 var (
@@ -51,10 +51,12 @@ var (
 	rulesBucket     = []byte("events_rules")
 	rolesBucket     = []byte("roles")
 	ipListsBucket   = []byte("ip_lists")
+	configsBucket   = []byte("configs")
 	dbVersionBucket = []byte("db_version")
 	dbVersionKey    = []byte("version")
+	configsKey      = []byte("configs")
 	boltBuckets     = [][]byte{usersBucket, groupsBucket, foldersBucket, adminsBucket, apiKeysBucket,
-		sharesBucket, actionsBucket, rulesBucket, rolesBucket, ipListsBucket, dbVersionBucket}
+		sharesBucket, actionsBucket, rulesBucket, rolesBucket, ipListsBucket, configsBucket, dbVersionBucket}
 )
 
 // BoltProvider defines the auth provider for bolt key/value store
@@ -2977,6 +2979,39 @@ func (p *BoltProvider) getListEntriesForIP(ip string, listType IPListType) ([]IP
 	return entries, err
 }
 
+func (p *BoltProvider) getConfigs() (Configs, error) {
+	var configs Configs
+	err := p.dbHandle.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(configsBucket)
+		if bucket == nil {
+			return fmt.Errorf("unable to find configs bucket")
+		}
+		data := bucket.Get(configsKey)
+		if data != nil {
+			return json.Unmarshal(data, &configs)
+		}
+		return nil
+	})
+	return configs, err
+}
+
+func (p *BoltProvider) setConfigs(configs *Configs) error {
+	if err := configs.validate(); err != nil {
+		return err
+	}
+	return p.dbHandle.Update(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(configsBucket)
+		if bucket == nil {
+			return fmt.Errorf("unable to find configs bucket")
+		}
+		buf, err := json.Marshal(configs)
+		if err != nil {
+			return err
+		}
+		return bucket.Put(configsKey, buf)
+	})
+}
+
 func (p *BoltProvider) setFirstDownloadTimestamp(username string) error {
 	return p.dbHandle.Update(func(tx *bolt.Tx) error {
 		bucket, err := p.getUsersBucket(tx)
@@ -3061,9 +3096,9 @@ func (p *BoltProvider) migrateDatabase() error {
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
-	case version == 23, version == 24, version == 25, version == 26:
-		logger.InfoToConsole("updating database schema version: %d -> 27", version)
-		providerLog(logger.LevelInfo, "updating database schema version: %d -> 27", version)
+	case version == 23, version == 24, version == 25, version == 26, version == 27:
+		logger.InfoToConsole("updating database schema version: %d -> 28", version)
+		providerLog(logger.LevelInfo, "updating database schema version: %d -> 28", version)
 		err := p.dbHandle.Update(func(tx *bolt.Tx) error {
 			rules, err := p.dumpEventRules()
 			if err != nil {
@@ -3095,7 +3130,7 @@ func (p *BoltProvider) migrateDatabase() error {
 		if err != nil {
 			return err
 		}
-		return updateBoltDatabaseVersion(p.dbHandle, 27)
+		return updateBoltDatabaseVersion(p.dbHandle, 28)
 	default:
 		if version > boltDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -3108,7 +3143,7 @@ func (p *BoltProvider) migrateDatabase() error {
 	}
 }
 
-func (p *BoltProvider) revertDatabase(targetVersion int) error {
+func (p *BoltProvider) revertDatabase(targetVersion int) error { //nolint:gocyclo
 	dbVersion, err := getBoltDatabaseVersion(p.dbHandle)
 	if err != nil {
 		return err
@@ -3117,7 +3152,7 @@ func (p *BoltProvider) revertDatabase(targetVersion int) error {
 		return errors.New("current version match target version, nothing to do")
 	}
 	switch dbVersion.Version {
-	case 24, 25, 26:
+	case 24, 25, 26, 27, 28:
 		logger.InfoToConsole("downgrading database schema version: %d -> 23", dbVersion.Version)
 		providerLog(logger.LevelInfo, "downgrading database schema version: %d -> 23", dbVersion.Version)
 		err := p.dbHandle.Update(func(tx *bolt.Tx) error {
@@ -3145,9 +3180,11 @@ func (p *BoltProvider) revertDatabase(targetVersion int) error {
 					}
 				}
 			}
-			err = tx.DeleteBucket(rolesBucket)
-			if err != nil && !errors.Is(err, bolt.ErrBucketNotFound) {
-				return err
+			for _, b := range [][]byte{rolesBucket, configsBucket} {
+				err = tx.DeleteBucket(b)
+				if err != nil && !errors.Is(err, bolt.ErrBucketNotFound) {
+					return err
+				}
 			}
 			return nil
 		})

@@ -722,7 +722,7 @@ func TestIdleConnections(t *testing.T) {
 	assert.Len(t, Connections.sshConnections, 2)
 	Connections.RUnlock()
 
-	startPeriodicChecks(100 * time.Millisecond)
+	startPeriodicChecks(100*time.Millisecond, 0)
 	assert.Eventually(t, func() bool { return Connections.GetActiveSessions(username) == 1 }, 2*time.Second, 200*time.Millisecond)
 	assert.Eventually(t, func() bool {
 		Connections.RLock()
@@ -734,7 +734,7 @@ func TestIdleConnections(t *testing.T) {
 	c.lastActivity.Store(time.Now().Add(-24 * time.Hour).UnixNano())
 	cFTP.lastActivity.Store(time.Now().Add(-24 * time.Hour).UnixNano())
 	sshConn2.lastActivity.Store(c.lastActivity.Load())
-	startPeriodicChecks(100 * time.Millisecond)
+	startPeriodicChecks(100*time.Millisecond, 1)
 	assert.Eventually(t, func() bool { return len(Connections.GetStats("")) == 0 }, 2*time.Second, 200*time.Millisecond)
 	assert.Eventually(t, func() bool {
 		Connections.RLock()

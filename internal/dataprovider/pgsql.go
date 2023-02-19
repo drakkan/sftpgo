@@ -57,6 +57,7 @@ DROP TABLE IF EXISTS "{{tasks}}" CASCADE;
 DROP TABLE IF EXISTS "{{nodes}}" CASCADE;
 DROP TABLE IF EXISTS "{{roles}}" CASCADE;
 DROP TABLE IF EXISTS "{{ip_lists}}" CASCADE;
+DROP TABLE IF EXISTS "{{configs}}" CASCADE;
 DROP TABLE IF EXISTS "{{schema_version}}" CASCADE;
 `
 	pgsqlInitial = `CREATE TABLE "{{schema_version}}" ("id" serial NOT NULL PRIMARY KEY, "version" integer NOT NULL);
@@ -216,6 +217,10 @@ CREATE INDEX "{{prefix}}ip_lists_deleted_at_idx" ON "{{ip_lists}}" ("deleted_at"
 CREATE INDEX "{{prefix}}ip_lists_first_last_idx" ON "{{ip_lists}}" ("first", "last");
 `
 	pgsqlV27DownSQL = `DROP TABLE "{{ip_lists}}" CASCADE;`
+	pgsqlV28SQL     = `CREATE TABLE "{{configs}}" ("id" serial NOT NULL PRIMARY KEY, "configs" text NOT NULL);
+INSERT INTO {{configs}} (configs) VALUES ('{}');
+`
+	pgsqlV28DownSQL = `DROP TABLE "{{configs}}" CASCADE;`
 )
 
 // PGSQLProvider defines the auth provider for PostgreSQL database
@@ -718,6 +723,14 @@ func (p *PGSQLProvider) getListEntriesForIP(ip string, listType IPListType) ([]I
 	return sqlCommonGetListEntriesForIP(ip, listType, p.dbHandle)
 }
 
+func (p *PGSQLProvider) getConfigs() (Configs, error) {
+	return sqlCommonGetConfigs(p.dbHandle)
+}
+
+func (p *PGSQLProvider) setConfigs(configs *Configs) error {
+	return sqlCommonSetConfigs(configs, p.dbHandle)
+}
+
 func (p *PGSQLProvider) setFirstDownloadTimestamp(username string) error {
 	return sqlCommonSetFirstDownloadTimestamp(username, p.dbHandle)
 }
@@ -773,6 +786,8 @@ func (p *PGSQLProvider) migrateDatabase() error { //nolint:dupl
 		return updatePgSQLDatabaseFromV25(p.dbHandle)
 	case version == 26:
 		return updatePgSQLDatabaseFromV26(p.dbHandle)
+	case version == 27:
+		return updatePgSQLDatabaseFromV27(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -803,6 +818,8 @@ func (p *PGSQLProvider) revertDatabase(targetVersion int) error {
 		return downgradePgSQLDatabaseFromV26(p.dbHandle)
 	case 27:
 		return downgradePgSQLDatabaseFromV27(p.dbHandle)
+	case 28:
+		return downgradePgSQLDatabaseFromV28(p.dbHandle)
 	default:
 		return fmt.Errorf("database schema version not handled: %d", dbVersion.Version)
 	}
@@ -835,7 +852,14 @@ func updatePgSQLDatabaseFromV25(dbHandle *sql.DB) error {
 }
 
 func updatePgSQLDatabaseFromV26(dbHandle *sql.DB) error {
-	return updatePgSQLDatabaseFrom26To27(dbHandle)
+	if err := updatePgSQLDatabaseFrom26To27(dbHandle); err != nil {
+		return err
+	}
+	return updatePgSQLDatabaseFromV27(dbHandle)
+}
+
+func updatePgSQLDatabaseFromV27(dbHandle *sql.DB) error {
+	return updatePgSQLDatabaseFrom27To28(dbHandle)
 }
 
 func downgradePgSQLDatabaseFromV24(dbHandle *sql.DB) error {
@@ -861,6 +885,13 @@ func downgradePgSQLDatabaseFromV27(dbHandle *sql.DB) error {
 		return err
 	}
 	return downgradePgSQLDatabaseFromV26(dbHandle)
+}
+
+func downgradePgSQLDatabaseFromV28(dbHandle *sql.DB) error {
+	if err := downgradePgSQLDatabaseFrom28To27(dbHandle); err != nil {
+		return err
+	}
+	return downgradePgSQLDatabaseFromV27(dbHandle)
 }
 
 func updatePgSQLDatabaseFrom23To24(dbHandle *sql.DB) error {
@@ -907,6 +938,13 @@ func updatePgSQLDatabaseFrom26To27(dbHandle *sql.DB) error {
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 27, true)
 }
 
+func updatePgSQLDatabaseFrom27To28(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database schema version: 27 -> 28")
+	providerLog(logger.LevelInfo, "updating database schema version: 27 -> 28")
+	sql := strings.ReplaceAll(pgsqlV28SQL, "{{configs}}", sqlTableConfigs)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 28, true)
+}
+
 func downgradePgSQLDatabaseFrom24To23(dbHandle *sql.DB) error {
 	logger.InfoToConsole("downgrading database schema version: 24 -> 23")
 	providerLog(logger.LevelInfo, "downgrading database schema version: 24 -> 23")
@@ -936,4 +974,11 @@ func downgradePgSQLDatabaseFrom27To26(dbHandle *sql.DB) error {
 	providerLog(logger.LevelInfo, "downgrading database schema version: 27 -> 26")
 	sql := strings.ReplaceAll(pgsqlV27DownSQL, "{{ip_lists}}", sqlTableIPLists)
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 26, false)
+}
+
+func downgradePgSQLDatabaseFrom28To27(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database schema version: 28 -> 27")
+	providerLog(logger.LevelInfo, "downgrading database schema version: 28 -> 27")
+	sql := strings.ReplaceAll(pgsqlV28DownSQL, "{{configs}}", sqlTableConfigs)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 27, false)
 }

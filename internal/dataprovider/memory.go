@@ -80,6 +80,8 @@ type memoryProviderHandle struct {
 	ipListEntries map[string]IPListEntry
 	// slice with ordered IP list entries
 	ipListEntriesKeys []string
+	// configurations
+	configs Configs
 }
 
 // MemoryProvider defines the auth provider for a memory store
@@ -118,6 +120,7 @@ func initializeMemoryProvider(basePath string) {
 			roleNames:         []string{},
 			ipListEntries:     map[string]IPListEntry{},
 			ipListEntriesKeys: []string{},
+			configs:           Configs{},
 			configFile:        configFile,
 		},
 	}
@@ -2797,6 +2800,28 @@ func (p *MemoryProvider) getListEntriesForIP(ip string, listType IPListType) ([]
 	return entries, nil
 }
 
+func (p *MemoryProvider) getConfigs() (Configs, error) {
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return Configs{}, errMemoryProviderClosed
+	}
+	return p.dbHandle.configs.getACopy(), nil
+}
+
+func (p *MemoryProvider) setConfigs(configs *Configs) error {
+	if err := configs.validate(); err != nil {
+		return err
+	}
+	p.dbHandle.Lock()
+	defer p.dbHandle.Unlock()
+	if p.dbHandle.isClosed {
+		return errMemoryProviderClosed
+	}
+	p.dbHandle.configs = configs.getACopy()
+	return nil
+}
+
 func (p *MemoryProvider) setFirstDownloadTimestamp(username string) error {
 	p.dbHandle.Lock()
 	defer p.dbHandle.Unlock()
@@ -2929,6 +2954,7 @@ func (p *MemoryProvider) clear() {
 	p.dbHandle.roleNames = []string{}
 	p.dbHandle.ipListEntries = map[string]IPListEntry{}
 	p.dbHandle.ipListEntriesKeys = []string{}
+	p.dbHandle.configs = Configs{}
 }
 
 func (p *MemoryProvider) reloadConfig() error {
@@ -2968,7 +2994,11 @@ func (p *MemoryProvider) reloadConfig() error {
 func (p *MemoryProvider) restoreDump(dump *BackupData) error {
 	p.clear()
 
-	if err := p.restoreIPListEntries(*dump); err != nil {
+	if err := p.restoreConfigs(dump); err != nil {
+		return err
+	}
+
+	if err := p.restoreIPListEntries(dump); err != nil {
 		return err
 	}
 
@@ -3130,7 +3160,14 @@ func (p *MemoryProvider) restoreAdmins(dump *BackupData) error {
 	return nil
 }
 
-func (p *MemoryProvider) restoreIPListEntries(dump BackupData) error {
+func (p *MemoryProvider) restoreConfigs(dump *BackupData) error {
+	if dump.Configs != nil && dump.Configs.UpdatedAt > 0 {
+		return UpdateConfigs(dump.Configs, ActionExecutorSystem, "", "")
+	}
+	return nil
+}
+
+func (p *MemoryProvider) restoreIPListEntries(dump *BackupData) error {
 	for idx := range dump.IPLists {
 		entry := dump.IPLists[idx]
 		_, err := p.ipListEntryExists(entry.IPOrNet, entry.Type)

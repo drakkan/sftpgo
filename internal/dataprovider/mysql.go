@@ -59,6 +59,7 @@ const (
 		"DROP TABLE IF EXISTS `{{nodes}}` CASCADE;" +
 		"DROP TABLE IF EXISTS `{{roles}}` CASCADE;" +
 		"DROP TABLE IF EXISTS `{{ip_lists}}` CASCADE;" +
+		"DROP TABLE IF EXISTS `{{configs}}` CASCADE;" +
 		"DROP TABLE IF EXISTS `{{schema_version}}` CASCADE;"
 	mysqlInitialSQL = "CREATE TABLE `{{schema_version}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `version` integer NOT NULL);" +
 		"CREATE TABLE `{{admins}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `username` varchar(255) NOT NULL UNIQUE, " +
@@ -202,6 +203,9 @@ const (
 		"CREATE INDEX `{{prefix}}ip_lists_deleted_at_idx` ON `{{ip_lists}}` (`deleted_at`);" +
 		"CREATE INDEX `{{prefix}}ip_lists_first_last_idx` ON `{{ip_lists}}` (`first`, `last`);"
 	mysqlV27DownSQL = "DROP TABLE `{{ip_lists}}` CASCADE;"
+	mysqlV28SQL     = "CREATE TABLE `{{configs}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `configs` longtext NOT NULL);" +
+		"INSERT INTO {{configs}} (configs) VALUES ('{}');"
+	mysqlV28DownSQL = "DROP TABLE `{{configs}}` CASCADE;"
 )
 
 // MySQLProvider defines the auth provider for MySQL/MariaDB database
@@ -745,6 +749,14 @@ func (p *MySQLProvider) getListEntriesForIP(ip string, listType IPListType) ([]I
 	return sqlCommonGetListEntriesForIP(ip, listType, p.dbHandle)
 }
 
+func (p *MySQLProvider) getConfigs() (Configs, error) {
+	return sqlCommonGetConfigs(p.dbHandle)
+}
+
+func (p *MySQLProvider) setConfigs(configs *Configs) error {
+	return sqlCommonSetConfigs(configs, p.dbHandle)
+}
+
 func (p *MySQLProvider) setFirstDownloadTimestamp(username string) error {
 	return sqlCommonSetFirstDownloadTimestamp(username, p.dbHandle)
 }
@@ -800,6 +812,8 @@ func (p *MySQLProvider) migrateDatabase() error { //nolint:dupl
 		return updateMySQLDatabaseFromV25(p.dbHandle)
 	case version == 26:
 		return updateMySQLDatabaseFromV26(p.dbHandle)
+	case version == 27:
+		return updateMySQLDatabaseFromV27(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -830,6 +844,8 @@ func (p *MySQLProvider) revertDatabase(targetVersion int) error {
 		return downgradeMySQLDatabaseFromV26(p.dbHandle)
 	case 27:
 		return downgradeMySQLDatabaseFromV27(p.dbHandle)
+	case 28:
+		return downgradeMySQLDatabaseFromV28(p.dbHandle)
 	default:
 		return fmt.Errorf("database schema version not handled: %d", dbVersion.Version)
 	}
@@ -862,7 +878,14 @@ func updateMySQLDatabaseFromV25(dbHandle *sql.DB) error {
 }
 
 func updateMySQLDatabaseFromV26(dbHandle *sql.DB) error {
-	return updateMySQLDatabaseFrom26To27(dbHandle)
+	if err := updateMySQLDatabaseFrom26To27(dbHandle); err != nil {
+		return err
+	}
+	return updateMySQLDatabaseFromV27(dbHandle)
+}
+
+func updateMySQLDatabaseFromV27(dbHandle *sql.DB) error {
+	return updateMySQLDatabaseFrom27To28(dbHandle)
 }
 
 func downgradeMySQLDatabaseFromV24(dbHandle *sql.DB) error {
@@ -888,6 +911,13 @@ func downgradeMySQLDatabaseFromV27(dbHandle *sql.DB) error {
 		return err
 	}
 	return downgradeMySQLDatabaseFromV26(dbHandle)
+}
+
+func downgradeMySQLDatabaseFromV28(dbHandle *sql.DB) error {
+	if err := downgradeMySQLDatabaseFrom28To27(dbHandle); err != nil {
+		return err
+	}
+	return downgradeMySQLDatabaseFromV27(dbHandle)
 }
 
 func updateMySQLDatabaseFrom23To24(dbHandle *sql.DB) error {
@@ -922,6 +952,13 @@ func updateMySQLDatabaseFrom26To27(dbHandle *sql.DB) error {
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 27, true)
 }
 
+func updateMySQLDatabaseFrom27To28(dbHandle *sql.DB) error {
+	logger.InfoToConsole("updating database schema version: 27 -> 28")
+	providerLog(logger.LevelInfo, "updating database schema version: 27 -> 28")
+	sql := strings.ReplaceAll(mysqlV28SQL, "{{configs}}", sqlTableConfigs)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 28, true)
+}
+
 func downgradeMySQLDatabaseFrom24To23(dbHandle *sql.DB) error {
 	logger.InfoToConsole("downgrading database schema version: 24 -> 23")
 	providerLog(logger.LevelInfo, "downgrading database schema version: 24 -> 23")
@@ -951,4 +988,11 @@ func downgradeMySQLDatabaseFrom27To26(dbHandle *sql.DB) error {
 	providerLog(logger.LevelInfo, "downgrading database schema version: 27 -> 26")
 	sql := strings.ReplaceAll(mysqlV27DownSQL, "{{ip_lists}}", sqlTableIPLists)
 	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 26, false)
+}
+
+func downgradeMySQLDatabaseFrom28To27(dbHandle *sql.DB) error {
+	logger.InfoToConsole("downgrading database schema version: 28 -> 27")
+	providerLog(logger.LevelInfo, "downgrading database schema version: 28 -> 27")
+	sql := strings.ReplaceAll(mysqlV28DownSQL, "{{configs}}", sqlTableConfigs)
+	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 27, false)
 }

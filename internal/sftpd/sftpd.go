@@ -57,6 +57,10 @@ type ServiceStatus struct {
 	SSHCommands     []string  `json:"ssh_commands"`
 	HostKeys        []HostKey `json:"host_keys"`
 	Authentications []string  `json:"authentications"`
+	HostKeyAlgos    []string  `json:"host_key_algos"`
+	MACs            []string  `json:"macs"`
+	KexAlgorithms   []string  `json:"kex_algorithms"`
+	Ciphers         []string  `json:"ciphers"`
 }
 
 // GetSSHCommandsAsString returns enabled SSH commands as comma separated string
@@ -67,6 +71,26 @@ func (s *ServiceStatus) GetSSHCommandsAsString() string {
 // GetSupportedAuthsAsString returns the supported authentications as comma separated string
 func (s *ServiceStatus) GetSupportedAuthsAsString() string {
 	return strings.Join(s.Authentications, ", ")
+}
+
+// GetHostKeyAlgosAsString returns the enabled host keys algorithms as comma separated string
+func (s *ServiceStatus) GetHostKeyAlgosAsString() string {
+	return strings.Join(s.HostKeyAlgos, ", ")
+}
+
+// GetMACsAsString returns the enabled MAC algorithms as comma separated string
+func (s *ServiceStatus) GetMACsAsString() string {
+	return strings.Join(s.MACs, ", ")
+}
+
+// GetKEXsAsString returns the enabled KEX algorithms as comma separated string
+func (s *ServiceStatus) GetKEXsAsString() string {
+	return strings.Join(s.KexAlgorithms, ", ")
+}
+
+// GetCiphersAsString returns the enabled ciphers as comma separated string
+func (s *ServiceStatus) GetCiphersAsString() string {
+	return strings.Join(s.Ciphers, ", ")
 }
 
 // GetStatus returns the server status

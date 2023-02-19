@@ -19,12 +19,12 @@ In this tutorial we'll focus on `HTTP-01` challenge type and make the following 
 
 ## Overview
 
-- [Obtaining a certificate using the Lego CLI tool](#Obtaining-a-certificate-using-the-Lego-CLI-tool)
-  - [Automatic certificate renewal using the Lego CLI tool](#Automatic-certificate-renewal-using-the-Lego-CLI-tool)
-- [Obtaining a certificate using the ACME protocol built into SFTPGo](#Obtaining-a-certificate-using-the-ACME-protocol-built-into-SFTPGo)
-- [Enable HTTPS for SFTPGo Web UI and REST API](#Enable-HTTPS-for-SFTPGo-Web-UI-and-REST-API)
-- [Enable HTTPS for WebDAV service](#Enable-HTTPS-for-WebDAV-service)
-- [Enable explicit FTP over TLS](#Enable-explicit-FTP-over-TLS)
+- [Obtaining a certificate using the Lego CLI tool](#obtaining-a-certificate-using-the-lego-cli-tool)
+  - [Automatic certificate renewal using the Lego CLI tool](#automatic-certificate-renewal-using-the-lego-cli-tool)
+- [Obtaining a certificate using the ACME protocol built into SFTPGo](#obtaining-a-certificate-using-the-acme-protocol-built-into-sftpgo)
+- [Enable HTTPS for SFTPGo Web UI and REST API](#enable-https-for-sftpgo-web-ui-and-rest-api)
+- [Enable HTTPS for WebDAV service](#enable-https-for-webdav-service)
+- [Enable explicit FTP over TLS](#enable-explicit-ftp-over-tls)
 
 ## Obtaining a certificate using the Lego CLI tool
 
@@ -148,6 +148,8 @@ SFTPGO_ACME__HTTP01_CHALLENGE__WEBROOT="/var/www/sftpgo.com"
 
 Make sure that the `sftpgo` user can write to the `/var/www/sftpgo.com` directory or pre-create the `/var/www/sftpgo.com/.well-known/acme-challenge` directory with the appropriate permissions.
 This directory must be publicly served by your web server.
+
+:warning: in this example we assume you have an existing HTTP server. If not, you can leave the web root blank and SFTPGo will resolve the HTTP01 challenge by itself.
 
 Register your account and obtain certificates by running the following command.
 

@@ -135,6 +135,12 @@ func (s *Service) initializeServices(disableAWSInstallationCode bool) error {
 		logger.ErrorToConsole("unable to initialize MFA: %v", err)
 		return err
 	}
+	err = dataprovider.Initialize(providerConf, s.ConfigDir, s.PortableMode == 0)
+	if err != nil {
+		logger.Error(logSender, "", "error initializing data provider: %v", err)
+		logger.ErrorToConsole("error initializing data provider: %v", err)
+		return err
+	}
 	if err := plugin.Initialize(config.GetPluginsConfig(), s.LogLevel); err != nil {
 		logger.Error(logSender, "", "unable to initialize plugin system: %v", err)
 		logger.ErrorToConsole("unable to initialize plugin system: %v", err)
@@ -145,12 +151,6 @@ func (s *Service) initializeServices(disableAWSInstallationCode bool) error {
 	if err != nil {
 		logger.Error(logSender, "", "unable to initialize SMTP configuration: %v", err)
 		logger.ErrorToConsole("unable to initialize SMTP configuration: %v", err)
-		return err
-	}
-	err = dataprovider.Initialize(providerConf, s.ConfigDir, s.PortableMode == 0)
-	if err != nil {
-		logger.Error(logSender, "", "error initializing data provider: %v", err)
-		logger.ErrorToConsole("error initializing data provider: %v", err)
 		return err
 	}
 	err = common.Initialize(config.GetCommonConfig(), providerConf.GetShared())
@@ -350,7 +350,11 @@ func (s *Service) LoadInitialData() error {
 }
 
 func (s *Service) restoreDump(dump *dataprovider.BackupData) error {
-	err := httpd.RestoreIPListEntries(dump.IPLists, s.LoadDataFrom, s.LoadDataMode, dataprovider.ActionExecutorSystem, "", "")
+	err := httpd.RestoreConfigs(dump.Configs, s.LoadDataFrom, s.LoadDataMode, dataprovider.ActionExecutorSystem, "", "")
+	if err != nil {
+		return fmt.Errorf("unable to restore configs from file %q: %v", s.LoadDataFrom, err)
+	}
+	err = httpd.RestoreIPListEntries(dump.IPLists, s.LoadDataFrom, s.LoadDataMode, dataprovider.ActionExecutorSystem, "", "")
 	if err != nil {
 		return fmt.Errorf("unable to restore IP list entries from file %q: %v", s.LoadDataFrom, err)
 	}

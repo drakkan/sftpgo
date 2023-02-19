@@ -1687,16 +1687,20 @@ func (s *httpdServer) setupWebAdminRoutes() {
 			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists)).Get(webIPListsPath, s.handleWebIPListsPage)
 			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists), compressor.Handler, s.refreshCookie).
 				Get(webIPListsPath+"/{type}", getIPListEntries)
-			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists)).Get(webIPListPath+"/{type}",
+			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists), s.refreshCookie).Get(webIPListPath+"/{type}",
 				s.handleWebAddIPListEntryGet)
 			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists)).Post(webIPListPath+"/{type}",
 				s.handleWebAddIPListEntryPost)
-			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists)).Get(webIPListPath+"/{type}/{ipornet}",
+			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists), s.refreshCookie).Get(webIPListPath+"/{type}/{ipornet}",
 				s.handleWebUpdateIPListEntryGet)
 			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists)).Post(webIPListPath+"/{type}/{ipornet}",
 				s.handleWebUpdateIPListEntryPost)
 			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists), verifyCSRFHeader).
 				Delete(webIPListPath+"/{type}/{ipornet}", deleteIPListEntry)
+			router.With(s.checkPerm(dataprovider.PermAdminManageSystem), s.refreshCookie).Get(webConfigsPath, s.handleWebConfigs)
+			router.With(s.checkPerm(dataprovider.PermAdminManageSystem)).Post(webConfigsPath, s.handleWebConfigsPost)
+			router.With(s.checkPerm(dataprovider.PermAdminManageSystem), verifyCSRFHeader, s.refreshCookie).
+				Post(webConfigsPath+"/smtp/test", testSMTPConfig)
 		})
 	}
 }
