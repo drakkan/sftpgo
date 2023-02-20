@@ -230,7 +230,7 @@ func initializeMySQLProvider() error {
 	}
 	dbHandle, err := sql.Open("mysql", connString)
 	if err == nil {
-		providerLog(logger.LevelDebug, "mysql database handle created, connection string: %#v, pool size: %v",
+		providerLog(logger.LevelDebug, "mysql database handle created, connection string: %q, pool size: %v",
 			redactedConnString, config.PoolSize)
 		dbHandle.SetMaxOpenConns(config.PoolSize)
 		if config.PoolSize > 0 {
@@ -242,7 +242,7 @@ func initializeMySQLProvider() error {
 		dbHandle.SetConnMaxIdleTime(120 * time.Second)
 		provider = &MySQLProvider{dbHandle: dbHandle}
 	} else {
-		providerLog(logger.LevelError, "error creating mysql database handler, connection string: %#v, error: %v",
+		providerLog(logger.LevelError, "error creating mysql database handler, connection string: %q, error: %v",
 			redactedConnString, err)
 	}
 	return err
@@ -260,7 +260,7 @@ func getMySQLConnectionString(redactedPwd bool) (string, error) {
 				return "", err
 			}
 		}
-		connectionString = fmt.Sprintf("%v:%v@tcp([%v]:%v)/%v?charset=utf8mb4&interpolateParams=true&timeout=10s&parseTime=true&tls=%v&writeTimeout=60s&readTimeout=60s",
+		connectionString = fmt.Sprintf("%s:%s@tcp([%s]:%d)/%s?collation=utf8mb4_unicode_ci&interpolateParams=true&timeout=10s&parseTime=true&clientFoundRows=true&tls=%s&writeTimeout=60s&readTimeout=60s",
 			config.Username, password, config.Host, config.Port, config.Name, sslMode)
 	} else {
 		connectionString = config.ConnectionString

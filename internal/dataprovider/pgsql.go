@@ -236,7 +236,7 @@ func initializePGSQLProvider() error {
 	var err error
 	dbHandle, err := sql.Open("pgx", getPGSQLConnectionString(false))
 	if err == nil {
-		providerLog(logger.LevelDebug, "postgres database handle created, connection string: %#v, pool size: %v",
+		providerLog(logger.LevelDebug, "postgres database handle created, connection string: %q, pool size: %d",
 			getPGSQLConnectionString(true), config.PoolSize)
 		dbHandle.SetMaxOpenConns(config.PoolSize)
 		if config.PoolSize > 0 {
@@ -248,7 +248,7 @@ func initializePGSQLProvider() error {
 		dbHandle.SetConnMaxIdleTime(120 * time.Second)
 		provider = &PGSQLProvider{dbHandle: dbHandle}
 	} else {
-		providerLog(logger.LevelError, "error creating postgres database handler, connection string: %#v, error: %v",
+		providerLog(logger.LevelError, "error creating postgres database handler, connection string: %q, error: %v",
 			getPGSQLConnectionString(true), err)
 	}
 	return err
@@ -261,13 +261,13 @@ func getPGSQLConnectionString(redactedPwd bool) string {
 		if redactedPwd && password != "" {
 			password = "[redacted]"
 		}
-		connectionString = fmt.Sprintf("host='%v' port=%v dbname='%v' user='%v' password='%v' sslmode=%v connect_timeout=10",
+		connectionString = fmt.Sprintf("host='%s' port=%d dbname='%s' user='%s' password='%s' sslmode=%s connect_timeout=10",
 			config.Host, config.Port, config.Name, config.Username, password, getSSLMode())
 		if config.RootCert != "" {
-			connectionString += fmt.Sprintf(" sslrootcert='%v'", config.RootCert)
+			connectionString += fmt.Sprintf(" sslrootcert='%s'", config.RootCert)
 		}
 		if config.ClientCert != "" && config.ClientKey != "" {
-			connectionString += fmt.Sprintf(" sslcert='%v' sslkey='%v'", config.ClientCert, config.ClientKey)
+			connectionString += fmt.Sprintf(" sslcert='%s' sslkey='%s'", config.ClientCert, config.ClientKey)
 		}
 		if config.DisableSNI {
 			connectionString += " sslsni=0"

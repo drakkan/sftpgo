@@ -221,17 +221,17 @@ func initializeSQLiteProvider(basePath string) error {
 		if !filepath.IsAbs(dbPath) {
 			dbPath = filepath.Join(basePath, dbPath)
 		}
-		connectionString = fmt.Sprintf("file:%v?cache=shared&_foreign_keys=1", dbPath)
+		connectionString = fmt.Sprintf("file:%s?cache=shared&_foreign_keys=1", dbPath)
 	} else {
 		connectionString = config.ConnectionString
 	}
 	dbHandle, err := sql.Open("sqlite3", connectionString)
 	if err == nil {
-		providerLog(logger.LevelDebug, "sqlite database handle created, connection string: %#v", connectionString)
+		providerLog(logger.LevelDebug, "sqlite database handle created, connection string: %q", connectionString)
 		dbHandle.SetMaxOpenConns(1)
 		provider = &SQLiteProvider{dbHandle: dbHandle}
 	} else {
-		providerLog(logger.LevelError, "error creating sqlite database handler, connection string: %#v, error: %v",
+		providerLog(logger.LevelError, "error creating sqlite database handler, connection string: %q, error: %v",
 			connectionString, err)
 	}
 	return err
