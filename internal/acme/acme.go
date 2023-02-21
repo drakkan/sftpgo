@@ -682,7 +682,7 @@ func startScheduler() error {
 	stopScheduler()
 
 	randSecs := rand.Intn(59)
-	scheduler = cron.New()
+	scheduler = cron.New(cron.WithLocation(time.UTC), cron.WithLogger(cron.DiscardLogger))
 	_, err := scheduler.AddFunc(fmt.Sprintf("@every 12h0m%ds", randSecs), renewCertificates)
 	if err != nil {
 		return fmt.Errorf("unable to schedule certificates renewal: %w", err)

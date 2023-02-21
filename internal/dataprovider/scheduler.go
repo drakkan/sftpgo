@@ -46,7 +46,7 @@ func stopScheduler() {
 func startScheduler() error {
 	stopScheduler()
 
-	scheduler = cron.New(cron.WithLocation(time.UTC))
+	scheduler = cron.New(cron.WithLocation(time.UTC), cron.WithLogger(cron.DiscardLogger))
 	_, err := scheduler.AddFunc("@every 55s", checkDataprovider)
 	if err != nil {
 		return fmt.Errorf("unable to schedule dataprovider availability check: %w", err)

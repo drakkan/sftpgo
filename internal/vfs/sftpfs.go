@@ -1128,7 +1128,7 @@ type sftpConnectionsCache struct {
 
 func newSFTPConnectionCache() *sftpConnectionsCache {
 	c := &sftpConnectionsCache{
-		scheduler: cron.New(),
+		scheduler: cron.New(cron.WithLocation(time.UTC), cron.WithLogger(cron.DiscardLogger)),
 		items:     make(map[uint64]*sftpConnection),
 	}
 	_, err := c.scheduler.AddFunc("@every 1m", c.Cleanup)

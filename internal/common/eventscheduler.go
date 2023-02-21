@@ -36,7 +36,7 @@ func stopEventScheduler() {
 func startEventScheduler() {
 	stopEventScheduler()
 
-	eventScheduler = cron.New(cron.WithLocation(time.UTC))
+	eventScheduler = cron.New(cron.WithLocation(time.UTC), cron.WithLogger(cron.DiscardLogger))
 	eventManager.loadRules()
 	_, err := eventScheduler.AddFunc("@every 10m", eventManager.loadRules)
 	util.PanicOnError(err)
