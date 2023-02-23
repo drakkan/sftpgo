@@ -8,7 +8,7 @@ require (
 )
 
 require (
-	github.com/Azure/go-ntlmssp v0.0.0-20220621081337-cb9428e4ac1e // indirect
+	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
 	github.com/go-asn1-ber/asn1-ber v1.5.4 // indirect
 	golang.org/x/sys v0.5.0 // indirect
 )
