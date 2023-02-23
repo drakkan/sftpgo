@@ -120,7 +120,6 @@ func TestMain(m *testing.M) {
 		logger.WarnToConsole("error initializing common: %v", err)
 		os.Exit(1)
 	}
-	common.SetCertAutoReloadMode(true)
 
 	httpConfig := config.GetHTTPConfig()
 	httpConfig.Timeout = 5

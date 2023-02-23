@@ -22,6 +22,7 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/internal/acme"
 	"github.com/drakkan/sftpgo/v2/internal/config"
+	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/util"
 )
@@ -49,10 +50,29 @@ renewed by the SFTPGo service
 				logger.ErrorToConsole("Unable to initialize ACME, config load error: %v", err)
 				return
 			}
+			kmsConfig := config.GetKMSConfig()
+			err = kmsConfig.Initialize()
+			if err != nil {
+				logger.ErrorToConsole("unable to initialize KMS: %v", err)
+				os.Exit(1)
+			}
+			mfaConfig := config.GetMFAConfig()
+			err = mfaConfig.Initialize()
+			if err != nil {
+				logger.ErrorToConsole("Unable to initialize MFA: %v", err)
+				os.Exit(1)
+			}
+			providerConf := config.GetProviderConf()
+			err = dataprovider.Initialize(providerConf, configDir, false)
+			if err != nil {
+				logger.ErrorToConsole("error initializing data provider: %v", err)
+				os.Exit(1)
+			}
 			acmeConfig := config.GetACMEConfig()
-			err = acmeConfig.Initialize(configDir, false)
+			err = acme.Initialize(acmeConfig, configDir, false)
 			if err != nil {
 				logger.ErrorToConsole("Unable to initialize ACME configuration: %v", err)
+				os.Exit(1)
 			}
 			if err = acme.GetCertificates(); err != nil {
 				logger.ErrorToConsole("Cannot get certificates: %v", err)

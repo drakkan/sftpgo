@@ -36,6 +36,7 @@ import (
 
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
+	"github.com/drakkan/sftpgo/v2/internal/util"
 	"github.com/drakkan/sftpgo/v2/internal/vfs"
 )
 
@@ -1058,4 +1059,71 @@ func TestRelativePath(t *testing.T) {
 	assert.Equal(t, "/dir2", rel)
 	rel = getPathRelativeTo("/dir3", "dir3")
 	assert.Equal(t, "dir3", rel)
+}
+
+func TestConfigsFromProvider(t *testing.T) {
+	err := dataprovider.UpdateConfigs(nil, "", "", "")
+	assert.NoError(t, err)
+	c := Configuration{}
+	err = c.loadFromProvider()
+	assert.NoError(t, err)
+	assert.Empty(t, c.acmeDomain)
+	configs := dataprovider.Configs{
+		ACME: &dataprovider.ACMEConfigs{
+			Domain:          "domain.com",
+			Email:           "info@domain.com",
+			HTTP01Challenge: dataprovider.ACMEHTTP01Challenge{Port: 80},
+			Protocols:       2,
+		},
+	}
+	err = dataprovider.UpdateConfigs(&configs, "", "", "")
+	assert.NoError(t, err)
+	util.CertsBasePath = ""
+	// crt and key empty
+	err = c.loadFromProvider()
+	assert.NoError(t, err)
+	assert.Empty(t, c.acmeDomain)
+	util.CertsBasePath = filepath.Clean(os.TempDir())
+	// crt not found
+	err = c.loadFromProvider()
+	assert.NoError(t, err)
+	assert.Empty(t, c.acmeDomain)
+	keyPairs := c.getKeyPairs(configDir)
+	assert.Len(t, keyPairs, 0)
+	crtPath := filepath.Join(util.CertsBasePath, util.SanitizeDomain(configs.ACME.Domain)+".crt")
+	err = os.WriteFile(crtPath, nil, 0666)
+	assert.NoError(t, err)
+	// key not found
+	err = c.loadFromProvider()
+	assert.NoError(t, err)
+	assert.Empty(t, c.acmeDomain)
+	keyPairs = c.getKeyPairs(configDir)
+	assert.Len(t, keyPairs, 0)
+	keyPath := filepath.Join(util.CertsBasePath, util.SanitizeDomain(configs.ACME.Domain)+".key")
+	err = os.WriteFile(keyPath, nil, 0666)
+	assert.NoError(t, err)
+	// acme cert used
+	err = c.loadFromProvider()
+	assert.NoError(t, err)
+	assert.Equal(t, configs.ACME.Domain, c.acmeDomain)
+	keyPairs = c.getKeyPairs(configDir)
+	assert.Len(t, keyPairs, 1)
+	// protocols does not match
+	configs.ACME.Protocols = 5
+	err = dataprovider.UpdateConfigs(&configs, "", "", "")
+	assert.NoError(t, err)
+	c.acmeDomain = ""
+	err = c.loadFromProvider()
+	assert.NoError(t, err)
+	assert.Empty(t, c.acmeDomain)
+	keyPairs = c.getKeyPairs(configDir)
+	assert.Len(t, keyPairs, 0)
+
+	err = os.Remove(crtPath)
+	assert.NoError(t, err)
+	err = os.Remove(keyPath)
+	assert.NoError(t, err)
+	util.CertsBasePath = ""
+	err = dataprovider.UpdateConfigs(nil, "", "", "")
+	assert.NoError(t, err)
 }

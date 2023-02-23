@@ -503,6 +503,18 @@ func TestInitializationFailure(t *testing.T) {
 	ftpdConf.Bindings[1].ForcePassiveIP = ""
 	err = ftpdConf.Initialize(configDir)
 	require.Error(t, err)
+
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = ftpdConf.Initialize(configDir)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "unable to load config from provider")
+	}
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf := config.GetProviderConf()
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
 }
 
 func TestBasicFTPHandling(t *testing.T) {

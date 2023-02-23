@@ -903,6 +903,9 @@ func (s *httpdServer) renderConfigsPage(w http.ResponseWriter, r *http.Request, 
 	if configs.SMTP.Port == 0 {
 		configs.SMTP.Port = 587
 	}
+	if configs.ACME.HTTP01Challenge.Port == 0 {
+		configs.ACME.HTTP01Challenge.Port = 80
+	}
 	data := configsPage{
 		basePage:       s.getBasePageData(pageConfigsTitle, webConfigsPath, r),
 		Configs:        configs,
@@ -2544,10 +2547,35 @@ func getSFTPConfigsFromPostFields(r *http.Request) *dataprovider.SFTPDConfigs {
 	}
 }
 
+func getACMEConfigsFromPostFields(r *http.Request) *dataprovider.ACMEConfigs {
+	port, err := strconv.Atoi(r.Form.Get("acme_port"))
+	if err != nil {
+		port = 80
+	}
+	var protocols int
+	for _, val := range r.Form["acme_protocols"] {
+		switch val {
+		case "1":
+			protocols++
+		case "2":
+			protocols += 2
+		case "3":
+			protocols += 4
+		}
+	}
+
+	return &dataprovider.ACMEConfigs{
+		Domain:          strings.TrimSpace(r.Form.Get("acme_domain")),
+		Email:           strings.TrimSpace(r.Form.Get("acme_email")),
+		HTTP01Challenge: dataprovider.ACMEHTTP01Challenge{Port: port},
+		Protocols:       protocols,
+	}
+}
+
 func getSMTPConfigsFromPostFields(r *http.Request) *dataprovider.SMTPConfigs {
 	port, err := strconv.Atoi(r.Form.Get("smtp_port"))
 	if err != nil {
-		port = 0
+		port = 587
 	}
 	authType, err := strconv.Atoi(r.Form.Get("smtp_auth"))
 	if err != nil {
@@ -4042,8 +4070,16 @@ func (s *httpdServer) handleWebConfigsPost(w http.ResponseWriter, r *http.Reques
 		configSection = 1
 		sftpConfigs := getSFTPConfigsFromPostFields(r)
 		configs.SFTPD = sftpConfigs
-	case "smtp_submit":
+	case "acme_submit":
 		configSection = 2
+		acmeConfigs := getACMEConfigsFromPostFields(r)
+		configs.ACME = acmeConfigs
+		if err := getTLSCertificates(acmeConfigs); err != nil {
+			s.renderConfigsPage(w, r, configs, err.Error(), configSection)
+			return
+		}
+	case "smtp_submit":
+		configSection = 3
 		smtpConfigs := getSMTPConfigsFromPostFields(r)
 		if smtpConfigs.Password.IsNotPlainAndNotEmpty() {
 			smtpConfigs.Password = configs.SMTP.Password
@@ -4059,7 +4095,7 @@ func (s *httpdServer) handleWebConfigsPost(w http.ResponseWriter, r *http.Reques
 		s.renderConfigsPage(w, r, configs, err.Error(), configSection)
 		return
 	}
-	if configSection == 2 {
+	if configSection == 3 {
 		err := configs.SMTP.Password.TryDecrypt()
 		if err == nil {
 			smtp.Activate(configs.SMTP)

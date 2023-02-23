@@ -23,6 +23,7 @@ import (
 
 	"github.com/rs/zerolog"
 
+	"github.com/drakkan/sftpgo/v2/internal/acme"
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/config"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
@@ -169,7 +170,7 @@ func (s *Service) initializeServices(disableAWSInstallationCode bool) error {
 		}
 	} else {
 		acmeConfig := config.GetACMEConfig()
-		err = acmeConfig.Initialize(s.ConfigDir, true)
+		err = acme.Initialize(acmeConfig, s.ConfigDir, true)
 		if err != nil {
 			logger.Error(logSender, "", "error initializing ACME configuration: %v", err)
 			logger.ErrorToConsole("error initializing ACME configuration: %v", err)

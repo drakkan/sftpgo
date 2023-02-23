@@ -8,6 +8,7 @@ The logs can be divided into the following categories:
   - `sender` string. This is generally the package name that emits the log
   - `time` string. Date/time with millisecond precision
   - `level` string
+  - `connection_id`, string, optional
   - `message` string
 - **"transfer logs"**, SFTP/SCP transfer logs:
   - `sender` string. `Upload` or `Download`
@@ -20,7 +21,7 @@ The logs can be divided into the following categories:
   - `username`, string
   - `file_path` string
   - `connection_id` string. Unique connection identifier
-  - `protocol` string. `SFTP`, `SCP`, `SSH`, `FTP`, `HTTP`, `DAV`, `DataRetention`, `EventAction`
+  - `protocol` string. `SFTP`, `SCP`, `SSH`, `FTP`, `HTTP`, `HTTPShare`, `DAV`, `DataRetention`, `EventAction`
   - `ftp_mode`, string. `active` or `passive`. Included only for `FTP` protocol
 - **"command logs"**, SFTP/SCP command logs:
   - `sender` string. `Rename`, `Rmdir`, `Mkdir`, `Symlink`, `Remove`, `Chmod`, `Chown`, `Chtimes`, `Truncate`, `Copy`, `SSHCommand`
@@ -43,10 +44,12 @@ The logs can be divided into the following categories:
 - **"http logs"**, REST API logs:
   - `sender` string. `httpd`
   - `level` string
+  - `time` string. Date/time with millisecond precision
   - `local_addr` string. IP/port of the local address the connection arrived on. For example `127.0.0.1:1234`
   - `remote_addr` string. IP and, optionally, port of the remote client. For example `127.0.0.1:1234` or `127.0.0.1`
   - `proto` string, for example `HTTP/1.1`
   - `method` string. HTTP method (`GET`, `POST`, `PUT`, `DELETE` etc.)
+  - `request_id` string. Omitted in telemetry logs
   - `user_agent` string
   - `uri` string. Full uri
   - `resp_status` integer. HTTP response status code
@@ -56,6 +59,7 @@ The logs can be divided into the following categories:
 - **"connection failed logs"**, logs for failed attempts to initialize a connection. A connection can fail for an authentication error or other errors such as a client abort or a timeout if the login does not happen in two minutes
   - `sender` string. `connection_failed`
   - `level` string
+  - `time` string. Date/time with millisecond precision
   - `username`, string. Can be empty if the connection is closed before an authentication attempt
   - `client_ip` string.
   - `protocol` string. Possible values are `SSH`, `FTP`, `DAV`

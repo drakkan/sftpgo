@@ -61,6 +61,9 @@ var (
 	emailRegex = regexp.MustCompile("^(?:(?:(?:(?:[a-zA-Z]|\\d|[!#\\$%&'\\*\\+\\-\\/=\\?\\^_`{\\|}~]|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])+(?:\\.([a-zA-Z]|\\d|[!#\\$%&'\\*\\+\\-\\/=\\?\\^_`{\\|}~]|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])+)*)|(?:(?:\\x22)(?:(?:(?:(?:\\x20|\\x09)*(?:\\x0d\\x0a))?(?:\\x20|\\x09)+)?(?:(?:[\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x7f]|\\x21|[\\x23-\\x5b]|[\\x5d-\\x7e]|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])|(?:(?:[\\x01-\\x09\\x0b\\x0c\\x0d-\\x7f]|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}]))))*(?:(?:(?:\\x20|\\x09)*(?:\\x0d\\x0a))?(\\x20|\\x09)+)?(?:\\x22))))@(?:(?:(?:[a-zA-Z]|\\d|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])|(?:(?:[a-zA-Z]|\\d|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])(?:[a-zA-Z]|\\d|-|\\.|~|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])*(?:[a-zA-Z]|\\d|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])))\\.)+(?:(?:[a-zA-Z]|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])|(?:(?:[a-zA-Z]|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])(?:[a-zA-Z]|\\d|-|\\.|~|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])*(?:[a-zA-Z]|[\\x{00A0}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFEF}])))\\.?$")
 	// this can be set at build time
 	additionalSharedDataSearchPath = ""
+	// CertsBasePath defines base path for certificates obtained using the built-in ACME protocol.
+	// It is empty is ACME support is disabled
+	CertsBasePath string
 )
 
 // IEC Sizes.
@@ -754,6 +757,11 @@ func IsEmailValid(email string) bool {
 	return emailRegex.MatchString(email)
 }
 
+// SanitizeDomain return the specified domain name in a form suitable to save as file
+func SanitizeDomain(domain string) string {
+	return strings.NewReplacer(":", "_", "*", "_", ",", "_", " ", "_").Replace(domain)
+}
+
 // PanicOnError calls panic if err is not nil
 func PanicOnError(err error) {
 	if err != nil {
@@ -775,6 +783,15 @@ func GetAbsolutePath(name string) (string, error) {
 		return name, err
 	}
 	return filepath.Join(curDir, name), nil
+}
+
+// GetACMECertificateKeyPair returns the path to the ACME TLS crt and key for the specified domain
+func GetACMECertificateKeyPair(domain string) (string, string) {
+	if CertsBasePath == "" {
+		return "", ""
+	}
+	domain = SanitizeDomain(domain)
+	return filepath.Join(CertsBasePath, domain+".crt"), filepath.Join(CertsBasePath, domain+".key")
 }
 
 // GetLastIPForPrefix returns the last IP for the given prefix

@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"path"
 	"path/filepath"
 	"runtime"
@@ -275,6 +276,8 @@ var (
 	installationCode           string
 	installationCodeHint       string
 	fnInstallationCodeResolver FnInstallationCodeResolver
+	configurationDir           string
+	fnGetCetificates           FnGetCertificates
 )
 
 func init() {
@@ -285,6 +288,9 @@ func init() {
 // FnInstallationCodeResolver defines a method to get the installation code.
 // If the installation code cannot be resolved the provided default must be returned
 type FnInstallationCodeResolver func(defaultInstallationCode string) string
+
+// FnGetCertificates defines the method to call to get TLS certificates
+type FnGetCertificates func(*dataprovider.ACMEConfigs, string) error
 
 // HTTPSProxyHeader defines an HTTPS proxy header as key/value.
 // For example Key could be "X-Forwarded-Proto" and Value "https"
@@ -740,6 +746,7 @@ type Conf struct {
 	Setup SetupConfig `json:"setup" mapstructure:"setup"`
 	// If enabled, the link to the sponsors section will not appear on the setup screen page
 	HideSupportLink bool `json:"hide_support_link" mapstructure:"hide_support_link"`
+	acmeDomain      string
 }
 
 type apiResponse struct {
@@ -820,8 +827,13 @@ func (c *Conf) getKeyPairs(configDir string) []common.TLSKeyPair {
 			})
 		}
 	}
-	certificateFile := getConfigPath(c.CertificateFile, configDir)
-	certificateKeyFile := getConfigPath(c.CertificateKeyFile, configDir)
+	var certificateFile, certificateKeyFile string
+	if c.acmeDomain != "" {
+		certificateFile, certificateKeyFile = util.GetACMECertificateKeyPair(c.acmeDomain)
+	} else {
+		certificateFile = getConfigPath(c.CertificateFile, configDir)
+		certificateKeyFile = getConfigPath(c.CertificateKeyFile, configDir)
+	}
 	if certificateFile != "" && certificateKeyFile != "" {
 		keyPairs = append(keyPairs, common.TLSKeyPair{
 			Cert: certificateFile,
@@ -840,9 +852,42 @@ func (c *Conf) setTokenValidationMode() {
 	}
 }
 
+func (c *Conf) loadFromProvider() error {
+	configs, err := dataprovider.GetConfigs()
+	if err != nil {
+		return fmt.Errorf("unable to load config from provider: %w", err)
+	}
+	configs.SetNilsToEmpty()
+	if configs.ACME.Domain == "" || !configs.ACME.HasProtocol(common.ProtocolHTTP) {
+		return nil
+	}
+	crt, key := util.GetACMECertificateKeyPair(configs.ACME.Domain)
+	if crt != "" && key != "" {
+		if _, err := os.Stat(crt); err != nil {
+			logger.Error(logSender, "", "unable to load acme cert file %q: %v", crt, err)
+			return nil
+		}
+		if _, err := os.Stat(key); err != nil {
+			logger.Error(logSender, "", "unable to load acme key file %q: %v", key, err)
+			return nil
+		}
+		for idx := range c.Bindings {
+			c.Bindings[idx].EnableHTTPS = true
+		}
+		c.acmeDomain = configs.ACME.Domain
+		logger.Info(logSender, "", "acme domain set to %q", c.acmeDomain)
+		return nil
+	}
+	return nil
+}
+
 // Initialize configures and starts the HTTP server
 func (c *Conf) Initialize(configDir string, isShared int) error {
+	if err := c.loadFromProvider(); err != nil {
+		return err
+	}
 	logger.Info(logSender, "", "initializing HTTP server with config %+v", c.getRedacted())
+	configurationDir = configDir
 	resetCodesMgr = newResetCodeManager(isShared)
 	oidcMgr = newOIDCManager(isShared)
 	staticFilesPath := util.FindSharedDataPath(c.StaticFilesPath, configDir)
@@ -1143,4 +1188,16 @@ func resolveInstallationCode() string {
 		return fnInstallationCodeResolver(installationCode)
 	}
 	return installationCode
+}
+
+// SetCertificatesGetter sets the function to call to get TLS certificates
+func SetCertificatesGetter(fn FnGetCertificates) {
+	fnGetCetificates = fn
+}
+
+func getTLSCertificates(c *dataprovider.ACMEConfigs) error {
+	if fnGetCetificates == nil {
+		return errors.New("unable to get TLS certificates, callback not defined")
+	}
+	return fnGetCetificates(c, configurationDir)
 }

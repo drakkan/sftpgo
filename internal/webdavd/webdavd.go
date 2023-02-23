@@ -18,6 +18,7 @@ package webdavd
 import (
 	"fmt"
 	"net"
+	"os"
 	"path/filepath"
 
 	"github.com/go-chi/chi/v5/middleware"
@@ -181,7 +182,8 @@ type Configuration struct {
 	// CORS configuration
 	Cors CorsConfig `json:"cors" mapstructure:"cors"`
 	// Cache configuration
-	Cache Cache `json:"cache" mapstructure:"cache"`
+	Cache      Cache `json:"cache" mapstructure:"cache"`
+	acmeDomain string
 }
 
 // GetStatus returns the server status
@@ -214,8 +216,13 @@ func (c *Configuration) getKeyPairs(configDir string) []common.TLSKeyPair {
 			})
 		}
 	}
-	certificateFile := getConfigPath(c.CertificateFile, configDir)
-	certificateKeyFile := getConfigPath(c.CertificateKeyFile, configDir)
+	var certificateFile, certificateKeyFile string
+	if c.acmeDomain != "" {
+		certificateFile, certificateKeyFile = util.GetACMECertificateKeyPair(c.acmeDomain)
+	} else {
+		certificateFile = getConfigPath(c.CertificateFile, configDir)
+		certificateKeyFile = getConfigPath(c.CertificateKeyFile, configDir)
+	}
 	if certificateFile != "" && certificateKeyFile != "" {
 		keyPairs = append(keyPairs, common.TLSKeyPair{
 			Cert: certificateFile,
@@ -226,8 +233,40 @@ func (c *Configuration) getKeyPairs(configDir string) []common.TLSKeyPair {
 	return keyPairs
 }
 
+func (c *Configuration) loadFromProvider() error {
+	configs, err := dataprovider.GetConfigs()
+	if err != nil {
+		return fmt.Errorf("unable to load config from provider: %w", err)
+	}
+	configs.SetNilsToEmpty()
+	if configs.ACME.Domain == "" || !configs.ACME.HasProtocol(common.ProtocolWebDAV) {
+		return nil
+	}
+	crt, key := util.GetACMECertificateKeyPair(configs.ACME.Domain)
+	if crt != "" && key != "" {
+		if _, err := os.Stat(crt); err != nil {
+			logger.Error(logSender, "", "unable to load acme cert file %q: %v", crt, err)
+			return nil
+		}
+		if _, err := os.Stat(key); err != nil {
+			logger.Error(logSender, "", "unable to load acme key file %q: %v", key, err)
+			return nil
+		}
+		for idx := range c.Bindings {
+			c.Bindings[idx].EnableHTTPS = true
+		}
+		c.acmeDomain = configs.ACME.Domain
+		logger.Info(logSender, "", "acme domain set to %q", c.acmeDomain)
+		return nil
+	}
+	return nil
+}
+
 // Initialize configures and starts the WebDAV server
 func (c *Configuration) Initialize(configDir string) error {
+	if err := c.loadFromProvider(); err != nil {
+		return err
+	}
 	logger.Info(logSender, "", "initializing WebDAV server with config %+v", *c)
 	mimeTypeCache = mimeCache{
 		maxSize:   c.Cache.MimeTypes.MaxSize,

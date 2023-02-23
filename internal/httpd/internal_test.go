@@ -3055,6 +3055,80 @@ func TestEventsCSV(t *testing.T) {
 	assert.Equal(t, "Quota exceeded", data[5])
 }
 
+func TestConfigsFromProvider(t *testing.T) {
+	err := dataprovider.UpdateConfigs(nil, "", "", "")
+	assert.NoError(t, err)
+	c := Conf{
+		Bindings: []Binding{
+			{
+				Port: 1234,
+			},
+		},
+	}
+	err = c.loadFromProvider()
+	assert.NoError(t, err)
+	assert.Empty(t, c.acmeDomain)
+	configs := dataprovider.Configs{
+		ACME: &dataprovider.ACMEConfigs{
+			Domain:          "domain.com",
+			Email:           "info@domain.com",
+			HTTP01Challenge: dataprovider.ACMEHTTP01Challenge{Port: 80},
+			Protocols:       1,
+		},
+	}
+	err = dataprovider.UpdateConfigs(&configs, "", "", "")
+	assert.NoError(t, err)
+	util.CertsBasePath = ""
+	// crt and key empty
+	err = c.loadFromProvider()
+	assert.NoError(t, err)
+	assert.Empty(t, c.acmeDomain)
+	util.CertsBasePath = filepath.Clean(os.TempDir())
+	// crt not found
+	err = c.loadFromProvider()
+	assert.NoError(t, err)
+	assert.Empty(t, c.acmeDomain)
+	keyPairs := c.getKeyPairs(configDir)
+	assert.Len(t, keyPairs, 0)
+	crtPath := filepath.Join(util.CertsBasePath, util.SanitizeDomain(configs.ACME.Domain)+".crt")
+	err = os.WriteFile(crtPath, nil, 0666)
+	assert.NoError(t, err)
+	// key not found
+	err = c.loadFromProvider()
+	assert.NoError(t, err)
+	assert.Empty(t, c.acmeDomain)
+	keyPairs = c.getKeyPairs(configDir)
+	assert.Len(t, keyPairs, 0)
+	keyPath := filepath.Join(util.CertsBasePath, util.SanitizeDomain(configs.ACME.Domain)+".key")
+	err = os.WriteFile(keyPath, nil, 0666)
+	assert.NoError(t, err)
+	// acme cert used
+	err = c.loadFromProvider()
+	assert.NoError(t, err)
+	assert.Equal(t, configs.ACME.Domain, c.acmeDomain)
+	keyPairs = c.getKeyPairs(configDir)
+	assert.Len(t, keyPairs, 1)
+	assert.True(t, c.Bindings[0].EnableHTTPS)
+	// protocols does not match
+	configs.ACME.Protocols = 6
+	err = dataprovider.UpdateConfigs(&configs, "", "", "")
+	assert.NoError(t, err)
+	c.acmeDomain = ""
+	err = c.loadFromProvider()
+	assert.NoError(t, err)
+	assert.Empty(t, c.acmeDomain)
+	keyPairs = c.getKeyPairs(configDir)
+	assert.Len(t, keyPairs, 0)
+
+	err = os.Remove(crtPath)
+	assert.NoError(t, err)
+	err = os.Remove(keyPath)
+	assert.NoError(t, err)
+	util.CertsBasePath = ""
+	err = dataprovider.UpdateConfigs(nil, "", "", "")
+	assert.NoError(t, err)
+}
+
 func isSharedProviderSupported() bool {
 	// SQLite shares the implementation with other SQL-based provider but it makes no sense
 	// to use it outside test cases

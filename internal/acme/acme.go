@@ -46,6 +46,7 @@ import (
 	"github.com/robfig/cron/v3"
 
 	"github.com/drakkan/sftpgo/v2/internal/common"
+	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/ftpd"
 	"github.com/drakkan/sftpgo/v2/internal/httpd"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
@@ -60,17 +61,101 @@ const (
 )
 
 var (
-	config    *Configuration
-	scheduler *cron.Cron
-	logMode   int
+	config            *Configuration
+	initialConfig     Configuration
+	scheduler         *cron.Cron
+	logMode           int
+	supportedKeyTypes = []string{
+		string(certcrypto.EC256),
+		string(certcrypto.EC384),
+		string(certcrypto.RSA2048),
+		string(certcrypto.RSA4096),
+		string(certcrypto.RSA8192),
+	}
 )
 
-// GetCertificates tries to obtain the certificates for the configured domains
+func init() {
+	httpd.SetCertificatesGetter(getCertificatesForConfig)
+}
+
+// GetCertificates tries to obtain the certificates using the global configuration
 func GetCertificates() error {
 	if config == nil {
 		return errors.New("acme is disabled")
 	}
 	return config.getCertificates()
+}
+
+// getCertificatesForConfig tries to obtain the certificates using the provided
+// configuration override. This is a NOOP if we already have certificates
+func getCertificatesForConfig(c *dataprovider.ACMEConfigs, configDir string) error {
+	if c.Domain == "" {
+		acmeLog(logger.LevelDebug, "no domain configured, nothing to do")
+		return nil
+	}
+	config := mergeConfig(getConfiguration(), c)
+	if err := config.Initialize(configDir); err != nil {
+		return err
+	}
+	hasCerts, err := config.hasCertificates(c.Domain)
+	if err != nil {
+		return fmt.Errorf("unable to check if we already have certificates for domain %q: %w", c.Domain, err)
+	}
+	if hasCerts {
+		return nil
+	}
+	return config.getCertificates()
+}
+
+func mergeConfig(config Configuration, c *dataprovider.ACMEConfigs) Configuration {
+	config.Domains = []string{c.Domain}
+	config.Email = c.Email
+	config.HTTP01Challenge.Port = c.HTTP01Challenge.Port
+	config.TLSALPN01Challenge.Port = 0
+	return config
+}
+
+// getConfiguration returns the configuration set using config file and env vars
+func getConfiguration() Configuration {
+	return initialConfig
+}
+
+func loadProviderConf(c Configuration) (Configuration, error) {
+	configs, err := dataprovider.GetConfigs()
+	if err != nil {
+		return c, fmt.Errorf("unable to load config from provider: %w", err)
+	}
+	configs.SetNilsToEmpty()
+	if configs.ACME.Domain == "" {
+		return c, nil
+	}
+	return mergeConfig(c, configs.ACME), nil
+}
+
+// Initialize validates and set the configuration
+func Initialize(c Configuration, configDir string, checkRenew bool) error {
+	config = nil
+	initialConfig = c
+	c, err := loadProviderConf(c)
+	if err != nil {
+		return err
+	}
+	util.CertsBasePath = ""
+	setLogMode(checkRenew)
+
+	if err := c.Initialize(configDir); err != nil {
+		return err
+	}
+	if len(c.Domains) == 0 {
+		return nil
+	}
+	util.CertsBasePath = c.CertsPath
+	acmeLog(logger.LevelInfo, "configured domains: %+v, certs base path %q", c.Domains, c.CertsPath)
+	config = &c
+	if checkRenew {
+		return startScheduler()
+	}
+	return nil
 }
 
 // HTTP01Challenge defines the configuration for HTTP-01 challenge type
@@ -141,72 +226,52 @@ type Configuration struct {
 	tempDir            string
 }
 
-// Initialize validates and set the configuration
-func (c *Configuration) Initialize(configDir string, checkRenew bool) error {
-	common.SetCertAutoReloadMode(true)
-	config = nil
-	setLogMode(checkRenew)
+// Initialize validates and initialize the configuration
+func (c *Configuration) Initialize(configDir string) error {
 	c.checkDomains()
 	if len(c.Domains) == 0 {
 		acmeLog(logger.LevelInfo, "no domains configured, acme disabled")
 		return nil
 	}
 	if c.Email == "" || !util.IsEmailValid(c.Email) {
-		return fmt.Errorf("invalid email address %#v", c.Email)
+		return fmt.Errorf("invalid email address %q", c.Email)
 	}
 	if c.RenewDays < 1 {
 		return fmt.Errorf("invalid number of days remaining before renewal: %d", c.RenewDays)
 	}
-	supportedKeyTypes := []string{
-		string(certcrypto.EC256),
-		string(certcrypto.EC384),
-		string(certcrypto.RSA2048),
-		string(certcrypto.RSA4096),
-		string(certcrypto.RSA8192),
-	}
 	if !util.Contains(supportedKeyTypes, c.KeyType) {
-		return fmt.Errorf("invalid key type %#v", c.KeyType)
+		return fmt.Errorf("invalid key type %q", c.KeyType)
 	}
 	caURL, err := url.Parse(c.CAEndpoint)
 	if err != nil {
 		return fmt.Errorf("invalid CA endopoint: %w", err)
 	}
 	if !util.IsFileInputValid(c.CertsPath) {
-		return fmt.Errorf("invalid certs path %#v", c.CertsPath)
+		return fmt.Errorf("invalid certs path %q", c.CertsPath)
 	}
 	if !filepath.IsAbs(c.CertsPath) {
 		c.CertsPath = filepath.Join(configDir, c.CertsPath)
 	}
 	err = os.MkdirAll(c.CertsPath, 0700)
 	if err != nil {
-		return fmt.Errorf("unable to create certs path %#v: %w", c.CertsPath, err)
+		return fmt.Errorf("unable to create certs path %q: %w", c.CertsPath, err)
 	}
 	c.tempDir = filepath.Join(c.CertsPath, "temp")
 	err = os.MkdirAll(c.CertsPath, 0700)
 	if err != nil {
-		return fmt.Errorf("unable to create certs temp path %#v: %w", c.tempDir, err)
+		return fmt.Errorf("unable to create certs temp path %q: %w", c.tempDir, err)
 	}
 	serverPath := strings.NewReplacer(":", "_", "/", string(os.PathSeparator)).Replace(caURL.Host)
 	accountPath := filepath.Join(c.CertsPath, serverPath)
 	err = os.MkdirAll(accountPath, 0700)
 	if err != nil {
-		return fmt.Errorf("unable to create account path %#v: %w", accountPath, err)
+		return fmt.Errorf("unable to create account path %q: %w", accountPath, err)
 	}
 	c.accountConfigPath = filepath.Join(accountPath, c.Email+".json")
 	c.accountKeyPath = filepath.Join(accountPath, c.Email+".key")
 	c.lockPath = filepath.Join(c.CertsPath, "lock")
 
-	if err = c.validateChallenges(); err != nil {
-		return err
-	}
-
-	acmeLog(logger.LevelInfo, "configured domains: %+v", c.Domains)
-	common.SetCertAutoReloadMode(false)
-	config = c
-	if checkRenew {
-		return startScheduler()
-	}
-	return nil
+	return c.validateChallenges()
 }
 
 func (c *Configuration) validateChallenges() error {
@@ -240,10 +305,10 @@ func (c *Configuration) setLockTime() error {
 	lockTime := fmt.Sprintf("%v", util.GetTimeAsMsSinceEpoch(time.Now()))
 	err := os.WriteFile(c.lockPath, []byte(lockTime), 0600)
 	if err != nil {
-		acmeLog(logger.LevelError, "unable to save lock time to %#v: %v", c.lockPath, err)
+		acmeLog(logger.LevelError, "unable to save lock time to %q: %v", c.lockPath, err)
 		return fmt.Errorf("unable to save lock time: %w", err)
 	}
-	acmeLog(logger.LevelDebug, "lock time saved: %#v", lockTime)
+	acmeLog(logger.LevelDebug, "lock time saved: %q", lockTime)
 	return nil
 }
 
@@ -251,10 +316,10 @@ func (c *Configuration) getLockTime() (time.Time, error) {
 	content, err := os.ReadFile(c.lockPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			acmeLog(logger.LevelDebug, "lock file %#v not found", c.lockPath)
+			acmeLog(logger.LevelDebug, "lock file %q not found", c.lockPath)
 			return time.Time{}, nil
 		}
-		acmeLog(logger.LevelError, "unable to read lock file %#v: %v", c.lockPath, err)
+		acmeLog(logger.LevelError, "unable to read lock file %q: %v", c.lockPath, err)
 		return time.Time{}, err
 	}
 	msec, err := strconv.ParseInt(strings.TrimSpace(string(content)), 10, 64)
@@ -272,7 +337,7 @@ func (c *Configuration) saveAccount(account *account) error {
 	}
 	err = os.WriteFile(c.accountConfigPath, jsonBytes, 0600)
 	if err != nil {
-		acmeLog(logger.LevelError, "unable to save account to file %#v: %v", c.accountConfigPath, err)
+		acmeLog(logger.LevelError, "unable to save account to file %q: %v", c.accountConfigPath, err)
 		return fmt.Errorf("unable to save account: %w", err)
 	}
 	return nil
@@ -287,7 +352,7 @@ func (c *Configuration) getAccount(privateKey crypto.PrivateKey) (account, error
 	var account account
 	fileBytes, err := os.ReadFile(c.accountConfigPath)
 	if err != nil {
-		acmeLog(logger.LevelError, "unable to read account from file %#v: %v", c.accountConfigPath, err)
+		acmeLog(logger.LevelError, "unable to read account from file %q: %v", c.accountConfigPath, err)
 		return account, fmt.Errorf("unable to read account from file: %w", err)
 	}
 	err = json.Unmarshal(fileBytes, &account)
@@ -316,7 +381,7 @@ func (c *Configuration) getAccount(privateKey crypto.PrivateKey) (account, error
 func (c *Configuration) loadPrivateKey() (crypto.PrivateKey, error) {
 	keyBytes, err := os.ReadFile(c.accountKeyPath)
 	if err != nil {
-		acmeLog(logger.LevelError, "unable to read account key from file %#v: %v", c.accountKeyPath, err)
+		acmeLog(logger.LevelError, "unable to read account key from file %q: %v", c.accountKeyPath, err)
 		return nil, fmt.Errorf("unable to read account key: %w", err)
 	}
 
@@ -329,10 +394,10 @@ func (c *Configuration) loadPrivateKey() (crypto.PrivateKey, error) {
 	case "EC PRIVATE KEY":
 		privateKey, err = x509.ParseECPrivateKey(keyBlock.Bytes)
 	default:
-		err = fmt.Errorf("unknown private key type %#v", keyBlock.Type)
+		err = fmt.Errorf("unknown private key type %q", keyBlock.Type)
 	}
 	if err != nil {
-		acmeLog(logger.LevelError, "unable to parse private key from file %#v: %v", c.accountKeyPath, err)
+		acmeLog(logger.LevelError, "unable to parse private key from file %q: %v", c.accountKeyPath, err)
 		return privateKey, fmt.Errorf("unable to parse private key: %w", err)
 	}
 	return privateKey, nil
@@ -346,7 +411,7 @@ func (c *Configuration) generatePrivateKey() (crypto.PrivateKey, error) {
 	}
 	certOut, err := os.Create(c.accountKeyPath)
 	if err != nil {
-		acmeLog(logger.LevelError, "unable to save private key to file %#v: %v", c.accountKeyPath, err)
+		acmeLog(logger.LevelError, "unable to save private key to file %q: %v", c.accountKeyPath, err)
 		return nil, fmt.Errorf("unable to save private key: %w", err)
 	}
 	defer certOut.Close()
@@ -365,25 +430,25 @@ func (c *Configuration) generatePrivateKey() (crypto.PrivateKey, error) {
 func (c *Configuration) getPrivateKey() (crypto.PrivateKey, error) {
 	_, err := os.Stat(c.accountKeyPath)
 	if err != nil && os.IsNotExist(err) {
-		acmeLog(logger.LevelDebug, "private key file %#v does not exist, generating new private key", c.accountKeyPath)
+		acmeLog(logger.LevelDebug, "private key file %q does not exist, generating new private key", c.accountKeyPath)
 		return c.generatePrivateKey()
 	}
-	acmeLog(logger.LevelDebug, "loading private key from file %#v, stat error: %v", c.accountKeyPath, err)
+	acmeLog(logger.LevelDebug, "loading private key from file %q, stat error: %v", c.accountKeyPath, err)
 	return c.loadPrivateKey()
 }
 
 func (c *Configuration) loadCertificatesForDomain(domain string) ([]*x509.Certificate, error) {
-	domain = sanitizedDomain(domain)
-	acmeLog(logger.LevelDebug, "loading certificates for domain %#v", domain)
+	domain = util.SanitizeDomain(domain)
+	acmeLog(logger.LevelDebug, "loading certificates for domain %q", domain)
 	content, err := os.ReadFile(filepath.Join(c.CertsPath, domain+".crt"))
 	if err != nil {
-		acmeLog(logger.LevelError, "unable to load certificates for domain %#v: %v", domain, err)
-		return nil, fmt.Errorf("unable to load certificates for domain %#v: %w", domain, err)
+		acmeLog(logger.LevelError, "unable to load certificates for domain %q: %v", domain, err)
+		return nil, fmt.Errorf("unable to load certificates for domain %q: %w", domain, err)
 	}
 	certs, err := certcrypto.ParsePEMBundle(content)
 	if err != nil {
-		acmeLog(logger.LevelError, "unable to parse certificates for domain %#v: %v", domain, err)
-		return certs, fmt.Errorf("unable to parse certificates for domain %#v: %w", domain, err)
+		acmeLog(logger.LevelError, "unable to parse certificates for domain %q: %v", domain, err)
+		return certs, fmt.Errorf("unable to parse certificates for domain %q: %w", domain, err)
 	}
 	return certs, nil
 }
@@ -395,7 +460,7 @@ func (c *Configuration) needRenewal(x509Cert *x509.Certificate, domain string) b
 	}
 	notAfter := int(time.Until(x509Cert.NotAfter).Hours() / 24.0)
 	if notAfter > c.RenewDays {
-		acmeLog(logger.LevelDebug, "the certificate for domain %#v expires in %d days, no renewal", domain, notAfter)
+		acmeLog(logger.LevelDebug, "the certificate for domain %q expires in %d days, no renewal", domain, notAfter)
 		return false
 	}
 	return true
@@ -430,10 +495,10 @@ func (c *Configuration) setupChalleges(client *lego.Client) error {
 	client.Challenge.Remove(challenge.DNS01)
 	if c.HTTP01Challenge.isEnabled() {
 		if c.HTTP01Challenge.WebRoot != "" {
-			acmeLog(logger.LevelDebug, "configuring HTTP-01 web root challenge, path %#v", c.HTTP01Challenge.WebRoot)
+			acmeLog(logger.LevelDebug, "configuring HTTP-01 web root challenge, path %q", c.HTTP01Challenge.WebRoot)
 			providerServer, err := webroot.NewHTTPProvider(c.HTTP01Challenge.WebRoot)
 			if err != nil {
-				acmeLog(logger.LevelError, "unable to create HTTP-01 web root challenge provider from path %#v: %v",
+				acmeLog(logger.LevelError, "unable to create HTTP-01 web root challenge provider from path %q: %v",
 					c.HTTP01Challenge.WebRoot, err)
 				return fmt.Errorf("unable to create HTTP-01 web root challenge provider: %w", err)
 			}
@@ -490,6 +555,18 @@ func (c *Configuration) tryRecoverRegistration(privateKey crypto.PrivateKey) (*r
 	return client.Registration.ResolveAccountByKey()
 }
 
+func (c *Configuration) getCrtPath(domain string) string {
+	return filepath.Join(c.CertsPath, domain+".crt")
+}
+
+func (c *Configuration) getKeyPath(domain string) string {
+	return filepath.Join(c.CertsPath, domain+".key")
+}
+
+func (c *Configuration) getResourcePath(domain string) string {
+	return filepath.Join(c.CertsPath, domain+".json")
+}
+
 func (c *Configuration) obtainAndSaveCertificate(client *lego.Client, domain string) error {
 	domains := getDomains(domain)
 	acmeLog(logger.LevelInfo, "requesting certificates for domains %+v", domains)
@@ -505,15 +582,15 @@ func (c *Configuration) obtainAndSaveCertificate(client *lego.Client, domain str
 		acmeLog(logger.LevelError, "unable to obtain certificates for domains %+v: %v", domains, err)
 		return fmt.Errorf("unable to obtain certificates: %w", err)
 	}
-	domain = sanitizedDomain(domain)
-	err = os.WriteFile(filepath.Join(c.CertsPath, domain+".crt"), cert.Certificate, 0600)
+	domain = util.SanitizeDomain(domain)
+	err = os.WriteFile(c.getCrtPath(domain), cert.Certificate, 0600)
 	if err != nil {
-		acmeLog(logger.LevelError, "unable to save certificate for domain %v: %v", domain, err)
+		acmeLog(logger.LevelError, "unable to save certificate for domain %s: %v", domain, err)
 		return fmt.Errorf("unable to save certificate: %w", err)
 	}
-	err = os.WriteFile(filepath.Join(c.CertsPath, domain+".key"), cert.PrivateKey, 0600)
+	err = os.WriteFile(c.getKeyPath(domain), cert.PrivateKey, 0600)
 	if err != nil {
-		acmeLog(logger.LevelError, "unable to save private key for domain %v: %v", domain, err)
+		acmeLog(logger.LevelError, "unable to save private key for domain %s: %v", domain, err)
 		return fmt.Errorf("unable to save private key: %w", err)
 	}
 	jsonBytes, err := json.MarshalIndent(cert, "", "\t")
@@ -521,7 +598,7 @@ func (c *Configuration) obtainAndSaveCertificate(client *lego.Client, domain str
 		acmeLog(logger.LevelError, "unable to marshal certificate resources for domain %v: %v", domain, err)
 		return err
 	}
-	err = os.WriteFile(filepath.Join(c.CertsPath, domain+".json"), jsonBytes, 0600)
+	err = os.WriteFile(c.getResourcePath(domain), jsonBytes, 0600)
 	if err != nil {
 		acmeLog(logger.LevelError, "unable to save certificate resources for domain %v: %v", domain, err)
 		return fmt.Errorf("unable to save certificate resources: %w", err)
@@ -531,6 +608,25 @@ func (c *Configuration) obtainAndSaveCertificate(client *lego.Client, domain str
 	return nil
 }
 
+// hasCertificates returns true if certificates for the specified domain has already been issued
+func (c *Configuration) hasCertificates(domain string) (bool, error) {
+	domain = util.SanitizeDomain(domain)
+	if _, err := os.Stat(c.getCrtPath(domain)); err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	if _, err := os.Stat(c.getKeyPath(domain)); err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
+// getCertificates tries to obtain the certificates for the configured domains
 func (c *Configuration) getCertificates() error {
 	account, client, err := c.setup()
 	if err != nil {
@@ -664,11 +760,7 @@ func getDomains(domain string) []string {
 			domains = append(domains, d)
 		}
 	}
-	return domains
-}
-
-func sanitizedDomain(domain string) string {
-	return strings.NewReplacer(":", "_", "*", "_", ",", "_", " ", "_").Replace(domain)
+	return util.RemoveDuplicates(domains, false)
 }
 
 func stopScheduler() {

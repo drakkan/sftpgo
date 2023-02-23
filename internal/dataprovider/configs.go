@@ -218,11 +218,72 @@ func (c *SMTPConfigs) getACopy() *SMTPConfigs {
 	}
 }
 
+// ACMEHTTP01Challenge defines the configuration for HTTP-01 challenge type
+type ACMEHTTP01Challenge struct {
+	Port int `json:"port"`
+}
+
+// ACMEConfigs defines ACME related configuration
+type ACMEConfigs struct {
+	Domain          string              `json:"domain"`
+	Email           string              `json:"email"`
+	HTTP01Challenge ACMEHTTP01Challenge `json:"http01_challenge"`
+	// apply the certificate for the specified protocols:
+	//
+	// 1 means HTTP
+	// 2 means FTP
+	// 4 means WebDAV
+	//
+	// Protocols can be combined
+	Protocols int `json:"protocols"`
+}
+
+func (c *ACMEConfigs) isEmpty() bool {
+	return c.Domain == ""
+}
+
+func (c *ACMEConfigs) validate() error {
+	if c.Domain == "" {
+		return nil
+	}
+	if c.Email == "" && !util.IsEmailValid(c.Email) {
+		return util.NewValidationError(fmt.Sprintf("acme: invalid email %q", c.Email))
+	}
+	if c.HTTP01Challenge.Port <= 0 || c.HTTP01Challenge.Port > 65535 {
+		return util.NewValidationError(fmt.Sprintf("acme: invalid HTTP-01 challenge port %d", c.HTTP01Challenge.Port))
+	}
+	return nil
+}
+
+// HasProtocol returns true if the ACME certificate must be used for the specified protocol
+func (c *ACMEConfigs) HasProtocol(protocol string) bool {
+	switch protocol {
+	case protocolHTTP:
+		return c.Protocols&1 != 0
+	case protocolFTP:
+		return c.Protocols&2 != 0
+	case protocolWebDAV:
+		return c.Protocols&4 != 0
+	default:
+		return false
+	}
+}
+
+func (c *ACMEConfigs) getACopy() *ACMEConfigs {
+	return &ACMEConfigs{
+		Email:           c.Email,
+		Domain:          c.Domain,
+		HTTP01Challenge: ACMEHTTP01Challenge{Port: c.HTTP01Challenge.Port},
+		Protocols:       c.Protocols,
+	}
+}
+
 // Configs allows to set configuration keys disabled by default without
 // modifying the config file or setting env vars
 type Configs struct {
 	SFTPD     *SFTPDConfigs `json:"sftpd,omitempty"`
 	SMTP      *SMTPConfigs  `json:"smtp,omitempty"`
+	ACME      *ACMEConfigs  `json:"acme,omitempty"`
 	UpdatedAt int64         `json:"updated_at,omitempty"`
 }
 
@@ -234,6 +295,11 @@ func (c *Configs) validate() error {
 	}
 	if c.SMTP != nil {
 		if err := c.SMTP.validate(); err != nil {
+			return err
+		}
+	}
+	if c.ACME != nil {
+		if err := c.ACME.validate(); err != nil {
 			return err
 		}
 	}
@@ -249,6 +315,9 @@ func (c *Configs) PrepareForRendering() {
 	}
 	if c.SMTP != nil && c.SMTP.isEmpty() {
 		c.SMTP = nil
+	}
+	if c.ACME != nil && c.ACME.isEmpty() {
+		c.ACME = nil
 	}
 	if c.SMTP != nil && c.SMTP.Password != nil {
 		c.SMTP.Password.Hide()
@@ -268,6 +337,9 @@ func (c *Configs) SetNilsToEmpty() {
 	}
 	if c.SMTP.Password == nil {
 		c.SMTP.Password = kms.NewEmptySecret()
+	}
+	if c.ACME == nil {
+		c.ACME = &ACMEConfigs{}
 	}
 }
 
@@ -293,6 +365,9 @@ func (c *Configs) getACopy() Configs {
 	}
 	if c.SMTP != nil {
 		result.SMTP = c.SMTP.getACopy()
+	}
+	if c.ACME != nil {
+		result.ACME = c.ACME.getACopy()
 	}
 	result.UpdatedAt = c.UpdatedAt
 	return result

@@ -19,12 +19,14 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"path/filepath"
 	"strings"
 
 	ftpserver "github.com/fclairamb/ftpserverlib"
 
 	"github.com/drakkan/sftpgo/v2/internal/common"
+	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/util"
 )
@@ -267,6 +269,7 @@ type Configuration struct {
 	CombineSupport int `json:"combine_support" mapstructure:"combine_support"`
 	// Port Range for data connections. Random if not specified
 	PassivePortRange PortRange `json:"passive_port_range" mapstructure:"passive_port_range"`
+	acmeDomain       string
 }
 
 // ShouldBind returns true if there is at least a valid binding
@@ -294,8 +297,13 @@ func (c *Configuration) getKeyPairs(configDir string) []common.TLSKeyPair {
 			})
 		}
 	}
-	certificateFile := getConfigPath(c.CertificateFile, configDir)
-	certificateKeyFile := getConfigPath(c.CertificateKeyFile, configDir)
+	var certificateFile, certificateKeyFile string
+	if c.acmeDomain != "" {
+		certificateFile, certificateKeyFile = util.GetACMECertificateKeyPair(c.acmeDomain)
+	} else {
+		certificateFile = getConfigPath(c.CertificateFile, configDir)
+		certificateKeyFile = getConfigPath(c.CertificateKeyFile, configDir)
+	}
 	if certificateFile != "" && certificateKeyFile != "" {
 		keyPairs = append(keyPairs, common.TLSKeyPair{
 			Cert: certificateFile,
@@ -306,8 +314,37 @@ func (c *Configuration) getKeyPairs(configDir string) []common.TLSKeyPair {
 	return keyPairs
 }
 
+func (c *Configuration) loadFromProvider() error {
+	configs, err := dataprovider.GetConfigs()
+	if err != nil {
+		return fmt.Errorf("unable to load config from provider: %w", err)
+	}
+	configs.SetNilsToEmpty()
+	if configs.ACME.Domain == "" || !configs.ACME.HasProtocol(common.ProtocolFTP) {
+		return nil
+	}
+	crt, key := util.GetACMECertificateKeyPair(configs.ACME.Domain)
+	if crt != "" && key != "" {
+		if _, err := os.Stat(crt); err != nil {
+			logger.Error(logSender, "", "unable to load acme cert file %q: %v", crt, err)
+			return nil
+		}
+		if _, err := os.Stat(key); err != nil {
+			logger.Error(logSender, "", "unable to load acme key file %q: %v", key, err)
+			return nil
+		}
+		c.acmeDomain = configs.ACME.Domain
+		logger.Info(logSender, "", "acme domain set to %q", c.acmeDomain)
+		return nil
+	}
+	return nil
+}
+
 // Initialize configures and starts the FTP server
 func (c *Configuration) Initialize(configDir string) error {
+	if err := c.loadFromProvider(); err != nil {
+		return err
+	}
 	logger.Info(logSender, "", "initializing FTP server with config %+v", *c)
 	if !c.ShouldBind() {
 		return common.ErrNoBinding

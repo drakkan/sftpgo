@@ -1584,3 +1584,78 @@ func TestMisc(t *testing.T) {
 
 	certMgr = oldCertMgr
 }
+
+func TestConfigsFromProvider(t *testing.T) {
+	configDir := "."
+	err := dataprovider.UpdateConfigs(nil, "", "", "")
+	assert.NoError(t, err)
+	c := Configuration{
+		Bindings: []Binding{
+			{
+				Port: 1234,
+			},
+		},
+	}
+	err = c.loadFromProvider()
+	assert.NoError(t, err)
+	assert.Empty(t, c.acmeDomain)
+	configs := dataprovider.Configs{
+		ACME: &dataprovider.ACMEConfigs{
+			Domain:          "domain.com",
+			Email:           "info@domain.com",
+			HTTP01Challenge: dataprovider.ACMEHTTP01Challenge{Port: 80},
+			Protocols:       7,
+		},
+	}
+	err = dataprovider.UpdateConfigs(&configs, "", "", "")
+	assert.NoError(t, err)
+	util.CertsBasePath = ""
+	// crt and key empty
+	err = c.loadFromProvider()
+	assert.NoError(t, err)
+	assert.Empty(t, c.acmeDomain)
+	util.CertsBasePath = filepath.Clean(os.TempDir())
+	// crt not found
+	err = c.loadFromProvider()
+	assert.NoError(t, err)
+	assert.Empty(t, c.acmeDomain)
+	keyPairs := c.getKeyPairs(configDir)
+	assert.Len(t, keyPairs, 0)
+	crtPath := filepath.Join(util.CertsBasePath, util.SanitizeDomain(configs.ACME.Domain)+".crt")
+	err = os.WriteFile(crtPath, nil, 0666)
+	assert.NoError(t, err)
+	// key not found
+	err = c.loadFromProvider()
+	assert.NoError(t, err)
+	assert.Empty(t, c.acmeDomain)
+	keyPairs = c.getKeyPairs(configDir)
+	assert.Len(t, keyPairs, 0)
+	keyPath := filepath.Join(util.CertsBasePath, util.SanitizeDomain(configs.ACME.Domain)+".key")
+	err = os.WriteFile(keyPath, nil, 0666)
+	assert.NoError(t, err)
+	// acme cert used
+	err = c.loadFromProvider()
+	assert.NoError(t, err)
+	assert.Equal(t, configs.ACME.Domain, c.acmeDomain)
+	keyPairs = c.getKeyPairs(configDir)
+	assert.Len(t, keyPairs, 1)
+	assert.True(t, c.Bindings[0].EnableHTTPS)
+	// protocols does not match
+	configs.ACME.Protocols = 3
+	err = dataprovider.UpdateConfigs(&configs, "", "", "")
+	assert.NoError(t, err)
+	c.acmeDomain = ""
+	err = c.loadFromProvider()
+	assert.NoError(t, err)
+	assert.Empty(t, c.acmeDomain)
+	keyPairs = c.getKeyPairs(configDir)
+	assert.Len(t, keyPairs, 0)
+
+	err = os.Remove(crtPath)
+	assert.NoError(t, err)
+	err = os.Remove(keyPath)
+	assert.NoError(t, err)
+	util.CertsBasePath = ""
+	err = dataprovider.UpdateConfigs(nil, "", "", "")
+	assert.NoError(t, err)
+}

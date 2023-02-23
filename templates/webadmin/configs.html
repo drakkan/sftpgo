@@ -117,6 +117,77 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                     </div>
                 </div>
                 <div class="card">
+                    <div class="card-header" id="headingACME">
+                        <h2 class="mb-0">
+                            <button class="btn btn-link btn-block text-left" type="button" data-toggle="collapse"
+                                data-target="#collapseACME" aria-expanded="true" aria-controls="collapseACME">
+                                <h6 class="m-0 font-weight-bold text-primary">ACME</h6>
+                            </button>
+                        </h2>
+                    </div>
+
+                    <div id="collapseACME" class="collapse {{if eq .ConfigSection 2}}show{{end}}" aria-labelledby="headingACME" data-parent="#accordionConfigs">
+                        <div class="card-body">
+                            <div id="configs-acme-info" class="card mb-3 border-left-info">
+                                <div class="card-body">From this section you can request free TLS certificates for your SFTPGo services using the ACME protocol and the HTTP-01 challenge type. You must create a DNS entry under a custom domain that you own which resolves to your SFTPGo public IP address and the port 80 must be publicly reachable. You can set the configuration options for the most common use cases and single node setups here, for advanced configurations refer to the SFTPGo docs. A service restart is required to apply changes</div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="idACMEDomain" class="col-sm-2 col-form-label">Domain</label>
+                                <div class="col-sm-10">
+                                    <input type="text" class="form-control" id="idACMEDomain" name="acme_domain" placeholder=""
+                                        value="{{.Configs.ACME.Domain}}" aria-describedby="acmeDomainHelpBlock">
+                                    <small id="acmeDomainHelpBlock" class="form-text text-muted">
+                                        Multiple domains can be specified comma or space separated. They will be included in the same certificate
+                                    </small>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="idACMEEmail" class="col-sm-2 col-form-label">Email</label>
+                                <div class="col-sm-10">
+                                    <input type="text" class="form-control" id="idACMEEmail" name="acme_email" placeholder=""
+                                        value="{{.Configs.ACME.Email}}" spellcheck="false" aria-describedby="acmeEmailHelpBlock">
+                                    <small id="acmeEmailHelpBlock" class="form-text text-muted">
+                                        Email used for registration and recovery contact
+                                    </small>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="idACMEPort" class="col-sm-2 col-form-label">Port</label>
+                                <div class="col-sm-10">
+                                    <input type="number" min="1" max="65535" class="form-control" id="idACMEPort" name="acme_port" placeholder=""
+                                        value="{{.Configs.ACME.HTTP01Challenge.Port}}" aria-describedby="acmePortHelpBlock">
+                                    <small id="acmePortHelpBlock" class="form-text text-muted">
+                                        If different from 80 you have to configure a reverse proxy
+                                    </small>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="idACMEProtocols" class="col-sm-2 col-form-label">Protocols</label>
+                                <div class="col-sm-10">
+                                    <select class="form-control selectpicker" id="idACMEProtocols" name="acme_protocols" aria-describedby="acmeProtocolsHelpBlock" multiple>
+                                        <option value="1" {{if .Configs.ACME.HasProtocol "HTTP"}}selected{{end}}>HTTP</option>
+                                        <option value="2" {{if .Configs.ACME.HasProtocol "FTP"}}selected{{end}}>FTP</option>
+                                        <option value="3" {{if .Configs.ACME.HasProtocol "DAV"}}selected{{end}}>DAV</option>
+                                    </select>
+                                    <small id="acmePortHelpBlock" class="form-text text-muted">
+                                        Use the obtained certificates for the specified protocols
+                                    </small>
+                                </div>
+                            </div>
+
+                            <div class="col-sm-12 text-right px-0">
+                                <button type="submit" class="btn btn-primary mt-3 ml-3 px-5" name="form_action" value="acme_submit" onclick="showSpinner();">Submit</button>
+                            </div>
+
+                        </div>
+                    </div>
+
+                </div>
+                <div class="card">
                     <div class="card-header" id="headingSMTP">
                         <h2 class="mb-0">
                             <button class="btn btn-link btn-block text-left" type="button" data-toggle="collapse"
@@ -126,7 +197,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                         </h2>
                     </div>
 
-                    <div id="collapseSMTP" class="collapse {{if eq .ConfigSection 2}}show{{end}}" aria-labelledby="headingSMTP" data-parent="#accordionConfigs">
+                    <div id="collapseSMTP" class="collapse {{if eq .ConfigSection 3}}show{{end}}" aria-labelledby="headingSMTP" data-parent="#accordionConfigs">
                         <div class="card-body">
                             <div id="configs-smtp-info" class="card mb-3 border-left-info">
                                 <div class="card-body">Set the SMTP configuration replacing the one defined using env vars or config file if any.</div>
@@ -144,7 +215,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                                 <div class="col-sm-1"></div>
                                 <label for="idSMTPPort" class="col-sm-2 col-form-label">Port</label>
                                 <div class="col-sm-2">
-                                    <input type="number" min="0" max="65535" class="form-control" id="idSMTPPort" name="smtp_port" placeholder=""
+                                    <input type="number" min="1" max="65535" class="form-control" id="idSMTPPort" name="smtp_port" placeholder=""
                                         value="{{.Configs.SMTP.Port}}">
                                 </div>
                             </div>
@@ -268,6 +339,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 <script type="text/javascript">
     var spinnerDone = false;
 
+    function showSpinner(){
+        $('#spinnerModal').modal('show');
+    }
+
     function testSMTP(event){
         event.preventDefault();
         let recipient = $('#idSMTPRecipient').val();
@@ -279,7 +354,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
         }
         $('#smtpSuccessMsg').hide();
         $('#smtpErrorMsg').hide();
-        $('#spinnerModal').modal('show');
+        showSpinner();
 
         $.ajax({
             url: "{{.ConfigsURL}}/smtp/test",

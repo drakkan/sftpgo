@@ -38,16 +38,8 @@ const (
 )
 
 var (
-	certAutoReload bool
-	pemCRLPrefix   = []byte("-----BEGIN X509 CRL")
+	pemCRLPrefix = []byte("-----BEGIN X509 CRL")
 )
-
-// SetCertAutoReloadMode sets if the certificate must be monitored for changes and
-// automatically reloaded
-func SetCertAutoReloadMode(val bool) {
-	certAutoReload = val
-	logger.Debug(logSender, "", "is certificate monitoring enabled? %t", certAutoReload)
-}
 
 // TLSKeyPair defines the paths and the unique identifier for a TLS key pair
 type TLSKeyPair struct {
@@ -302,11 +294,11 @@ func NewCertManager(keyPairs []TLSKeyPair, configDir, logSender string) (*CertMa
 	if err != nil {
 		return nil, err
 	}
-	if certAutoReload {
-		randSecs := rand.Intn(59)
-		manager.monitor()
-		_, err := eventScheduler.AddFunc(fmt.Sprintf("@every 8h0m%ds", randSecs), manager.monitor)
-		util.PanicOnError(err)
+	randSecs := rand.Intn(59)
+	manager.monitor()
+	if eventScheduler != nil {
+		logger.Debug(manager.logSender, "", "starting certificates monitoring tasks")
+		_, err = eventScheduler.AddFunc(fmt.Sprintf("@every 8h0m%ds", randSecs), manager.monitor)
 	}
-	return manager, nil
+	return manager, err
 }

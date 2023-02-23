@@ -510,6 +510,17 @@ func TestInitialization(t *testing.T) {
 	cfg.Bindings[0].ProxyAllowed = nil
 	err = cfg.Initialize(configDir)
 	assert.Error(t, err)
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = cfg.Initialize(configDir)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "unable to load config from provider")
+	}
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf := config.GetProviderConf()
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
 }
 
 func TestBasicHandling(t *testing.T) {
