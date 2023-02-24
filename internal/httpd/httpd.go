@@ -35,6 +35,7 @@ import (
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/lestrrat-go/jwx/v2/jwa"
 
+	"github.com/drakkan/sftpgo/v2/internal/acme"
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/ftpd"
@@ -184,6 +185,7 @@ const (
 	osWindows            = "windows"
 	otpHeaderCode        = "X-SFTPGO-OTP"
 	mTimeHeader          = "X-SFTPGO-MTIME"
+	acmeChallengeURI     = "/.well-known/acme-challenge/"
 )
 
 var (
@@ -277,20 +279,17 @@ var (
 	installationCodeHint       string
 	fnInstallationCodeResolver FnInstallationCodeResolver
 	configurationDir           string
-	fnGetCetificates           FnGetCertificates
 )
 
 func init() {
 	updateWebAdminURLs("")
 	updateWebClientURLs("")
+	acme.SetReloadHTTPDCertsFn(ReloadCertificateMgr)
 }
 
 // FnInstallationCodeResolver defines a method to get the installation code.
 // If the installation code cannot be resolved the provided default must be returned
 type FnInstallationCodeResolver func(defaultInstallationCode string) string
-
-// FnGetCertificates defines the method to call to get TLS certificates
-type FnGetCertificates func(*dataprovider.ACMEConfigs, string) error
 
 // HTTPSProxyHeader defines an HTTPS proxy header as key/value.
 // For example Key could be "X-Forwarded-Proto" and Value "https"
@@ -356,6 +355,30 @@ func (s *SecurityConf) getHTTPSProxyHeaders() map[string]string {
 		headers[httpsProxyHeader.Key] = httpsProxyHeader.Value
 	}
 	return headers
+}
+
+func (s *SecurityConf) redirectHandler(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !isTLS(r) && !strings.HasPrefix(r.RequestURI, acmeChallengeURI) {
+			url := r.URL
+			url.Scheme = "https"
+			if s.HTTPSHost != "" {
+				url.Host = s.HTTPSHost
+			} else {
+				host := r.Host
+				for _, header := range s.HostsProxyHeaders {
+					if h := r.Header.Get(header); h != "" {
+						host = h
+						break
+					}
+				}
+				url.Host = host
+			}
+			http.Redirect(w, r, url.String(), http.StatusTemporaryRedirect)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // UIBranding defines the supported customizations for the web UIs
@@ -872,6 +895,9 @@ func (c *Conf) loadFromProvider() error {
 			return nil
 		}
 		for idx := range c.Bindings {
+			if c.Bindings[idx].Security.Enabled && c.Bindings[idx].Security.HTTPSRedirect {
+				continue
+			}
 			c.Bindings[idx].EnableHTTPS = true
 		}
 		c.acmeDomain = configs.ACME.Domain
@@ -1188,16 +1214,4 @@ func resolveInstallationCode() string {
 		return fnInstallationCodeResolver(installationCode)
 	}
 	return installationCode
-}
-
-// SetCertificatesGetter sets the function to call to get TLS certificates
-func SetCertificatesGetter(fn FnGetCertificates) {
-	fnGetCetificates = fn
-}
-
-func getTLSCertificates(c *dataprovider.ACMEConfigs) error {
-	if fnGetCetificates == nil {
-		return errors.New("unable to get TLS certificates, callback not defined")
-	}
-	return fnGetCetificates(c, configurationDir)
 }

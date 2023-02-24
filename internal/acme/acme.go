@@ -48,7 +48,6 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/ftpd"
-	"github.com/drakkan/sftpgo/v2/internal/httpd"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/telemetry"
 	"github.com/drakkan/sftpgo/v2/internal/util"
@@ -72,10 +71,12 @@ var (
 		string(certcrypto.RSA4096),
 		string(certcrypto.RSA8192),
 	}
+	fnReloadHTTPDCerts func() error
 )
 
-func init() {
-	httpd.SetCertificatesGetter(getCertificatesForConfig)
+// SetReloadHTTPDCertsFn set the function to call to reload HTTPD certificates
+func SetReloadHTTPDCertsFn(fn func() error) {
+	fnReloadHTTPDCerts = fn
 }
 
 // GetCertificates tries to obtain the certificates using the global configuration
@@ -86,9 +87,9 @@ func GetCertificates() error {
 	return config.getCertificates()
 }
 
-// getCertificatesForConfig tries to obtain the certificates using the provided
+// GetCertificatesForConfig tries to obtain the certificates using the provided
 // configuration override. This is a NOOP if we already have certificates
-func getCertificatesForConfig(c *dataprovider.ACMEConfigs, configDir string) error {
+func GetCertificatesForConfig(c *dataprovider.ACMEConfigs, configDir string) error {
 	if c.Domain == "" {
 		acmeLog(logger.LevelDebug, "no domain configured, nothing to do")
 		return nil
@@ -105,6 +106,11 @@ func getCertificatesForConfig(c *dataprovider.ACMEConfigs, configDir string) err
 		return nil
 	}
 	return config.getCertificates()
+}
+
+// GetHTTP01WebRoot returns the web root for HTTP-01 challenge
+func GetHTTP01WebRoot() string {
+	return initialConfig.HTTP01Challenge.WebRoot
 }
 
 func mergeConfig(config Configuration, c *dataprovider.ACMEConfigs) Configuration {
@@ -723,8 +729,10 @@ func (c *Configuration) renewCertificates() error {
 		// at least one certificate has been renewed, sends a reload to all services that may be using certificates
 		err = ftpd.ReloadCertificateMgr()
 		acmeLog(logger.LevelInfo, "ftpd certificate manager reloaded , error: %v", err)
-		err = httpd.ReloadCertificateMgr()
-		acmeLog(logger.LevelInfo, "httpd certificates manager reloaded , error: %v", err)
+		if fnReloadHTTPDCerts != nil {
+			err = fnReloadHTTPDCerts()
+			acmeLog(logger.LevelInfo, "httpd certificates manager reloaded , error: %v", err)
+		}
 		err = webdavd.ReloadCertificateMgr()
 		acmeLog(logger.LevelInfo, "webdav certificates manager reloaded , error: %v", err)
 		err = telemetry.ReloadCertificateMgr()

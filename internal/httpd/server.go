@@ -37,6 +37,7 @@ import (
 	"github.com/sftpgo/sdk"
 	"github.com/unrolled/secure"
 
+	"github.com/drakkan/sftpgo/v2/internal/acme"
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
@@ -1095,7 +1096,21 @@ func (s *httpdServer) badHostHandler(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
-	s.sendForbiddenResponse(w, r, fmt.Sprintf("The host %#v is not allowed", host))
+	s.sendForbiddenResponse(w, r, fmt.Sprintf("The host %q is not allowed", host))
+}
+
+func (s *httpdServer) notFoundHandler(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	if (s.enableWebAdmin || s.enableWebClient) && isWebRequest(r) {
+		r = s.updateContextFromCookie(r)
+		if s.enableWebClient && (isWebClientRequest(r) || !s.enableWebAdmin) {
+			s.renderClientNotFoundPage(w, r, nil)
+			return
+		}
+		s.renderNotFoundPage(w, r, nil)
+		return
+	}
+	sendAPIResponse(w, r, nil, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 }
 
 func (s *httpdServer) redirectToWebPath(w http.ResponseWriter, r *http.Request, webPath string) {
@@ -1120,6 +1135,7 @@ func (s *httpdServer) isStaticFileURL(r *http.Request) bool {
 }
 
 func (s *httpdServer) initializeRouter() {
+	var hasHTTPSRedirect bool
 	s.tokenAuth = jwtauth.New(jwa.HS256.String(), getSigningKey(s.signingPassphrase), nil)
 	s.router = chi.NewRouter()
 
@@ -1132,9 +1148,6 @@ func (s *httpdServer) initializeRouter() {
 			AllowedHosts:            s.binding.Security.AllowedHosts,
 			AllowedHostsAreRegex:    s.binding.Security.AllowedHostsAreRegex,
 			HostsProxyHeaders:       s.binding.Security.HostsProxyHeaders,
-			SSLRedirect:             s.binding.Security.HTTPSRedirect,
-			SSLHost:                 s.binding.Security.HTTPSHost,
-			SSLTemporaryRedirect:    true,
 			SSLProxyHeaders:         s.binding.Security.getHTTPSProxyHeaders(),
 			STSSeconds:              s.binding.Security.STSSeconds,
 			STSIncludeSubdomains:    s.binding.Security.STSIncludeSubdomains,
@@ -1147,6 +1160,10 @@ func (s *httpdServer) initializeRouter() {
 		})
 		secureMiddleware.SetBadHostHandler(http.HandlerFunc(s.badHostHandler))
 		s.router.Use(secureMiddleware.Handler)
+		if s.binding.Security.HTTPSRedirect {
+			s.router.Use(s.binding.Security.redirectHandler)
+			hasHTTPSRedirect = true
+		}
 	}
 	if s.cors.Enabled {
 		c := cors.New(cors.Options{
@@ -1166,19 +1183,7 @@ func (s *httpdServer) initializeRouter() {
 	// StripSlashes causes infinite redirects at the root path if used with http.FileServer
 	s.router.Use(middleware.Maybe(middleware.StripSlashes, s.isStaticFileURL))
 
-	s.router.NotFound(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-		if (s.enableWebAdmin || s.enableWebClient) && isWebRequest(r) {
-			r = s.updateContextFromCookie(r)
-			if s.enableWebClient && (isWebClientRequest(r) || !s.enableWebAdmin) {
-				s.renderClientNotFoundPage(w, r, nil)
-				return
-			}
-			s.renderNotFoundPage(w, r, nil)
-			return
-		}
-		sendAPIResponse(w, r, nil, http.StatusText(http.StatusNotFound), http.StatusNotFound)
-	}))
+	s.router.NotFound(s.notFoundHandler)
 
 	s.router.Get(healthzPath, func(w http.ResponseWriter, r *http.Request) {
 		render.PlainText(w, r, "ok")
@@ -1187,6 +1192,12 @@ func (s *httpdServer) initializeRouter() {
 	s.router.Get(robotsTxtPath, func(w http.ResponseWriter, r *http.Request) {
 		render.PlainText(w, r, "User-agent: *\nDisallow: /")
 	})
+
+	if hasHTTPSRedirect {
+		if p := acme.GetHTTP01WebRoot(); p != "" {
+			serveStaticDir(s.router, acmeChallengeURI, p)
+		}
+	}
 
 	if s.enableRESTAPI {
 		// share API available to external users

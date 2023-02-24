@@ -47,6 +47,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/drakkan/sftpgo/v2/internal/acme"
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/kms"
@@ -3063,6 +3064,13 @@ func TestConfigsFromProvider(t *testing.T) {
 			{
 				Port: 1234,
 			},
+			{
+				Port: 80,
+				Security: SecurityConf{
+					Enabled:       true,
+					HTTPSRedirect: true,
+				},
+			},
 		},
 	}
 	err = c.loadFromProvider()
@@ -3109,6 +3117,7 @@ func TestConfigsFromProvider(t *testing.T) {
 	keyPairs = c.getKeyPairs(configDir)
 	assert.Len(t, keyPairs, 1)
 	assert.True(t, c.Bindings[0].EnableHTTPS)
+	assert.False(t, c.Bindings[1].EnableHTTPS)
 	// protocols does not match
 	configs.ACME.Protocols = 6
 	err = dataprovider.UpdateConfigs(&configs, "", "", "")
@@ -3126,6 +3135,69 @@ func TestConfigsFromProvider(t *testing.T) {
 	assert.NoError(t, err)
 	util.CertsBasePath = ""
 	err = dataprovider.UpdateConfigs(nil, "", "", "")
+	assert.NoError(t, err)
+}
+
+func TestHTTPSRedirect(t *testing.T) {
+	acmeWebRoot := filepath.Join(os.TempDir(), "acme")
+	err := os.MkdirAll(acmeWebRoot, os.ModePerm)
+	assert.NoError(t, err)
+	tokenName := "token"
+	err = os.WriteFile(filepath.Join(acmeWebRoot, tokenName), []byte("val"), 0666)
+	assert.NoError(t, err)
+
+	acmeConfig := acme.Configuration{
+		HTTP01Challenge: acme.HTTP01Challenge{WebRoot: acmeWebRoot},
+	}
+	err = acme.Initialize(acmeConfig, configDir, true)
+	require.NoError(t, err)
+
+	forwardedHostHeader := "X-Forwarded-Host"
+	server := httpdServer{
+		binding: Binding{
+			Security: SecurityConf{
+				Enabled:           true,
+				HTTPSRedirect:     true,
+				HostsProxyHeaders: []string{forwardedHostHeader},
+			},
+		},
+	}
+	server.initializeRouter()
+
+	rr := httptest.NewRecorder()
+	r, err := http.NewRequest(http.MethodGet, path.Join(acmeChallengeURI, tokenName), nil)
+	assert.NoError(t, err)
+	r.Host = "localhost"
+	r.RequestURI = path.Join(acmeChallengeURI, tokenName)
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
+
+	rr = httptest.NewRecorder()
+	r, err = http.NewRequest(http.MethodGet, webAdminLoginPath, nil)
+	assert.NoError(t, err)
+	r.RequestURI = webAdminLoginPath
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusTemporaryRedirect, rr.Code, rr.Body.String())
+
+	rr = httptest.NewRecorder()
+	r, err = http.NewRequest(http.MethodGet, webAdminLoginPath, nil)
+	assert.NoError(t, err)
+	r.RequestURI = webAdminLoginPath
+	r.Header.Set(forwardedHostHeader, "sftpgo.com")
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusTemporaryRedirect, rr.Code, rr.Body.String())
+	assert.Contains(t, rr.Body.String(), "https://sftpgo.com")
+
+	server.binding.Security.HTTPSHost = "myhost:1044"
+	rr = httptest.NewRecorder()
+	r, err = http.NewRequest(http.MethodGet, webAdminLoginPath, nil)
+	assert.NoError(t, err)
+	r.RequestURI = webAdminLoginPath
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusTemporaryRedirect, rr.Code, rr.Body.String())
+	assert.Contains(t, rr.Body.String(), "https://myhost:1044")
+
+	err = os.RemoveAll(acmeWebRoot)
 	assert.NoError(t, err)
 }
 

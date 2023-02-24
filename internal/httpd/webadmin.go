@@ -32,6 +32,7 @@ import (
 	"github.com/sftpgo/sdk"
 	sdkkms "github.com/sftpgo/sdk/kms"
 
+	"github.com/drakkan/sftpgo/v2/internal/acme"
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/kms"
@@ -4074,7 +4075,7 @@ func (s *httpdServer) handleWebConfigsPost(w http.ResponseWriter, r *http.Reques
 		configSection = 2
 		acmeConfigs := getACMEConfigsFromPostFields(r)
 		configs.ACME = acmeConfigs
-		if err := getTLSCertificates(acmeConfigs); err != nil {
+		if err := acme.GetCertificatesForConfig(acmeConfigs, configurationDir); err != nil {
 			s.renderConfigsPage(w, r, configs, err.Error(), configSection)
 			return
 		}

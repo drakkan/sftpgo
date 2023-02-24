@@ -57,6 +57,7 @@ import (
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/net/html"
 
+	"github.com/drakkan/sftpgo/v2/internal/acme"
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/config"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
@@ -12259,7 +12260,11 @@ func TestMaxSessions(t *testing.T) {
 }
 
 func TestWebConfigsMock(t *testing.T) {
-	err := dataprovider.UpdateConfigs(nil, "", "", "")
+	acmeConfig := config.GetACMEConfig()
+	acmeConfig.CertsPath = filepath.Clean(os.TempDir())
+	err := acme.Initialize(acmeConfig, configDir, true)
+	require.NoError(t, err)
+	err = dataprovider.UpdateConfigs(nil, "", "", "")
 	assert.NoError(t, err)
 	webToken, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
@@ -12399,8 +12404,6 @@ func TestWebConfigsMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Contains(t, rr.Body.String(), "Configurations updated")
-	// test ACME configs, set a fake callback to avoid Let's encrypt calls
-	httpd.SetCertificatesGetter(func(a *dataprovider.ACMEConfigs, s string) error { return nil })
 	form.Set("form_action", "acme_submit")
 	form.Set("acme_port", "") // on error will be set to 80
 	form.Set("acme_protocols", "1")
@@ -12414,7 +12417,7 @@ func TestWebConfigsMock(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Contains(t, rr.Body.String(), "Validation error")
+	assert.Contains(t, rr.Body.String(), "invalid email address")
 	form.Set("acme_domain", "")
 	req, err = http.NewRequest(http.MethodPost, webConfigsPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
@@ -12437,11 +12440,18 @@ func TestWebConfigsMock(t *testing.T) {
 	assert.True(t, configs.ACME.HasProtocol(common.ProtocolFTP))
 	assert.True(t, configs.ACME.HasProtocol(common.ProtocolWebDAV))
 	assert.True(t, configs.ACME.HasProtocol(common.ProtocolHTTP))
-
+	// create certificate files, so no real ACME call is done
+	domain := "acme.example.com"
+	crtPath := filepath.Join(acmeConfig.CertsPath, util.SanitizeDomain(domain)+".crt")
+	keyPath := filepath.Join(acmeConfig.CertsPath, util.SanitizeDomain(domain)+".key")
+	err = os.WriteFile(crtPath, nil, 0666)
+	assert.NoError(t, err)
+	err = os.WriteFile(keyPath, nil, 0666)
+	assert.NoError(t, err)
 	form.Set("acme_port", "402")
 	form.Set("acme_protocols", "1")
 	form.Add("acme_protocols", "1000")
-	form.Set("acme_domain", "acme.example.com")
+	form.Set("acme_domain", domain)
 	form.Set("acme_email", "email@example.com")
 	req, err = http.NewRequest(http.MethodPost, webConfigsPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
@@ -12455,21 +12465,16 @@ func TestWebConfigsMock(t *testing.T) {
 	assert.Len(t, configs.SFTPD.HostKeyAlgos, 2)
 	assert.Equal(t, 402, configs.ACME.HTTP01Challenge.Port)
 	assert.Equal(t, 1, configs.ACME.Protocols)
-	assert.Equal(t, "acme.example.com", configs.ACME.Domain)
+	assert.Equal(t, domain, configs.ACME.Domain)
 	assert.Equal(t, "email@example.com", configs.ACME.Email)
 	assert.False(t, configs.ACME.HasProtocol(common.ProtocolFTP))
 	assert.False(t, configs.ACME.HasProtocol(common.ProtocolWebDAV))
 	assert.True(t, configs.ACME.HasProtocol(common.ProtocolHTTP))
-	// updates will fail, the get certificate fn will return error with nil callback
-	httpd.SetCertificatesGetter(nil)
-	req, err = http.NewRequest(http.MethodPost, webConfigsPath, bytes.NewBuffer([]byte(form.Encode())))
-	assert.NoError(t, err)
-	setJWTCookieForReq(req, webToken)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusOK, rr)
-	assert.Contains(t, rr.Body.String(), "unable to get TLS certificates")
 
+	err = os.Remove(crtPath)
+	assert.NoError(t, err)
+	err = os.Remove(keyPath)
+	assert.NoError(t, err)
 	err = dataprovider.UpdateConfigs(nil, "", "", "")
 	assert.NoError(t, err)
 }
