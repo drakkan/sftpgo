@@ -258,7 +258,7 @@ func Init() {
 			RevokedUserCertsFile:              "",
 			LoginBannerFile:                   "",
 			EnabledSSHCommands:                []string{},
-			KeyboardInteractiveAuthentication: false,
+			KeyboardInteractiveAuthentication: true,
 			KeyboardInteractiveHook:           "",
 			PasswordAuthentication:            true,
 			FolderPrefix:                      "",

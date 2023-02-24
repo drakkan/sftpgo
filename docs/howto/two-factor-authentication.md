@@ -33,16 +33,7 @@ The `issuer` and `algo` are visible/used in the authenticators apps. For example
 
 You can also define multiple configurations, for example one that uses `sha256` or `sha512` and another one that uses `sha1` and instruct your users to use the appropriate configuration for their devices/apps. The algorithm should not be changed if there are users or admins using the configuration. The `name` is visible to the users/admins when they select the 2FA configuration to use and it must be unique. A configuration name should not be changed if there are users or admins using it.
 
-SFTPGo can use 2FA for `HTTP`, `SSH` (SFTP, SCP) and `FTP` protocols. If you plan to use 2FA with `SSH` you have to enable the keyboard interactive authentication which is disabled by default.
-
-```json
-  "sftpd": {
-    ...
-    "keyboard_interactive_authentication": true,
-    ...
-```
-
-Or setting the environment variable `SFTPGO_SFTPD__KEYBOARD_INTERACTIVE_AUTHENTICATION=1`.
+SFTPGo can use 2FA for `HTTP`, `SSH` (SFTP, SCP) and `FTP` protocols.
 
 ## Enable 2FA for admins
 
