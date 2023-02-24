@@ -25,6 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/drakkan/sftpgo/v2/internal/common"
+	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 )
 
 const (
@@ -54,12 +55,22 @@ CzgWkxiz7XE4lgUwX44FCXZM3+JeUbI=
 )
 
 func TestInitialization(t *testing.T) {
+	configDir := filepath.Join(".", "..", "..")
+	providerConf := dataprovider.Config{
+		Driver:      dataprovider.MemoryDataProviderName,
+		BackupsPath: "backups",
+	}
+	err := dataprovider.Initialize(providerConf, configDir, false)
+	require.NoError(t, err)
+	commonConfig := common.Configuration{}
+	err = common.Initialize(commonConfig, 0)
+	require.NoError(t, err)
 	c := Conf{
 		BindPort:       10000,
 		BindAddress:    "invalid address",
 		EnableProfiler: false,
 	}
-	err := c.Initialize(".")
+	err = c.Initialize(configDir)
 	require.Error(t, err)
 
 	c.AuthUserFile = "missing"

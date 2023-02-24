@@ -86,11 +86,12 @@ func (m *CertManager) loadCertificates() error {
 		}
 		newCert, err := tls.LoadX509KeyPair(keyPair.Cert, keyPair.Key)
 		if err != nil {
-			logger.Warn(m.logSender, "", "unable to load X509 key pair, cert file %q key file %q error: %v",
+			logger.Error(m.logSender, "", "unable to load X509 key pair, cert file %q key file %q error: %v",
 				keyPair.Cert, keyPair.Key, err)
 			return err
 		}
 		if _, ok := certs[keyPair.ID]; ok {
+			logger.Error(m.logSender, "", "TLS certificate with id %q is duplicated", keyPair.ID)
 			return fmt.Errorf("TLS certificate with id %q is duplicated", keyPair.ID)
 		}
 		logger.Debug(m.logSender, "", "TLS certificate %q successfully loaded, id %v", keyPair.Cert, keyPair.ID)
@@ -115,7 +116,8 @@ func (m *CertManager) GetCertificateFunc(certID string) func(*tls.ClientHelloInf
 
 		val, ok := m.certs[certID]
 		if !ok {
-			return nil, fmt.Errorf("no certificate for id %v", certID)
+			logger.Error(m.logSender, "", "no certificate for id %s", certID)
+			return nil, fmt.Errorf("no certificate for id %s", certID)
 		}
 
 		return val, nil
@@ -128,7 +130,7 @@ func (m *CertManager) IsRevoked(crt *x509.Certificate, caCrt *x509.Certificate) 
 	defer m.RUnlock()
 
 	if crt == nil || caCrt == nil {
-		logger.Warn(m.logSender, "", "unable to verify crt %v, ca crt %v", crt, caCrt)
+		logger.Error(m.logSender, "", "unable to verify crt %v, ca crt %v", crt, caCrt)
 		return len(m.crls) > 0
 	}
 
@@ -162,7 +164,7 @@ func (m *CertManager) LoadCRLs() error {
 		}
 		crlBytes, err := os.ReadFile(revocationList)
 		if err != nil {
-			logger.Warn(m.logSender, "", "unable to read revocation list %q", revocationList)
+			logger.Error(m.logSender, "", "unable to read revocation list %q", revocationList)
 			return err
 		}
 		if bytes.HasPrefix(crlBytes, pemCRLPrefix) {
@@ -173,7 +175,7 @@ func (m *CertManager) LoadCRLs() error {
 		}
 		crl, err := x509.ParseRevocationList(crlBytes)
 		if err != nil {
-			logger.Warn(m.logSender, "", "unable to parse revocation list %q", revocationList)
+			logger.Error(m.logSender, "", "unable to parse revocation list %q", revocationList)
 			return err
 		}
 
@@ -218,13 +220,14 @@ func (m *CertManager) LoadRootCAs() error {
 		}
 		crt, err := os.ReadFile(rootCA)
 		if err != nil {
+			logger.Error(m.logSender, "", "unable to read root CA from file %q: %v", rootCA, err)
 			return err
 		}
 		if rootCAs.AppendCertsFromPEM(crt) {
 			logger.Debug(m.logSender, "", "TLS certificate authority %q successfully loaded", rootCA)
 		} else {
 			err := fmt.Errorf("unable to load TLS certificate authority %q", rootCA)
-			logger.Warn(m.logSender, "", "%v", err)
+			logger.Error(m.logSender, "", "%v", err)
 			return err
 		}
 	}
@@ -285,10 +288,10 @@ func (m *CertManager) monitor() {
 func NewCertManager(keyPairs []TLSKeyPair, configDir, logSender string) (*CertManager, error) {
 	manager := &CertManager{
 		keyPairs:  keyPairs,
-		certs:     make(map[string]*tls.Certificate),
-		certsInfo: make(map[string]fs.FileInfo),
 		configDir: configDir,
 		logSender: logSender,
+		certs:     make(map[string]*tls.Certificate),
+		certsInfo: make(map[string]fs.FileInfo),
 	}
 	err := manager.loadCertificates()
 	if err != nil {
@@ -296,9 +299,6 @@ func NewCertManager(keyPairs []TLSKeyPair, configDir, logSender string) (*CertMa
 	}
 	randSecs := rand.Intn(59)
 	manager.monitor()
-	if eventScheduler != nil {
-		logger.Debug(manager.logSender, "", "starting certificates monitoring tasks")
-		_, err = eventScheduler.AddFunc(fmt.Sprintf("@every 8h0m%ds", randSecs), manager.monitor)
-	}
+	_, err = eventScheduler.AddFunc(fmt.Sprintf("@every 8h0m%ds", randSecs), manager.monitor)
 	return manager, err
 }
