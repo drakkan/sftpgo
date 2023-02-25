@@ -1424,7 +1424,7 @@ func executeDeleteFsRuleAction(deletes []string, replacer *strings.Replacer,
 		}
 	}
 	if len(failures) > 0 {
-		return fmt.Errorf("fs delete failed for users: %+v", failures)
+		return fmt.Errorf("fs delete failed for users: %s", strings.Join(failures, ", "))
 	}
 	if executed == 0 {
 		eventManagerLog(logger.LevelError, "no delete executed")
@@ -1481,7 +1481,7 @@ func executeMkdirFsRuleAction(dirs []string, replacer *strings.Replacer,
 		}
 	}
 	if len(failures) > 0 {
-		return fmt.Errorf("fs mkdir failed for users: %+v", failures)
+		return fmt.Errorf("fs mkdir failed for users: %s", strings.Join(failures, ", "))
 	}
 	if executed == 0 {
 		eventManagerLog(logger.LevelError, "no mkdir executed")
@@ -1594,7 +1594,7 @@ func executeRenameFsRuleAction(renames []dataprovider.KeyValue, replacer *string
 		}
 	}
 	if len(failures) > 0 {
-		return fmt.Errorf("fs rename failed for users: %+v", failures)
+		return fmt.Errorf("fs rename failed for users: %s", strings.Join(failures, ", "))
 	}
 	if executed == 0 {
 		eventManagerLog(logger.LevelError, "no rename executed")
@@ -1628,7 +1628,7 @@ func executeCopyFsRuleAction(copy []dataprovider.KeyValue, replacer *strings.Rep
 		}
 	}
 	if len(failures) > 0 {
-		return fmt.Errorf("fs copy failed for users: %+v", failures)
+		return fmt.Errorf("fs copy failed for users: %s", strings.Join(failures, ", "))
 	}
 	if executed == 0 {
 		eventManagerLog(logger.LevelError, "no copy executed")
@@ -1778,7 +1778,7 @@ func executeExistFsRuleAction(exist []string, replacer *strings.Replacer, condit
 		}
 	}
 	if len(failures) > 0 {
-		return fmt.Errorf("fs existence check failed for users: %+v", failures)
+		return fmt.Errorf("fs existence check failed for users: %s", strings.Join(failures, ", "))
 	}
 	if executed == 0 {
 		eventManagerLog(logger.LevelError, "no existence check executed")
@@ -1812,7 +1812,7 @@ func executeCompressFsRuleAction(c dataprovider.EventActionFsCompress, replacer 
 		}
 	}
 	if len(failures) > 0 {
-		return fmt.Errorf("fs compress failed for users: %+v", failures)
+		return fmt.Errorf("fs compress failed for users: %s", strings.Join(failures, ","))
 	}
 	if executed == 0 {
 		eventManagerLog(logger.LevelError, "no file/folder compressed")
@@ -1875,7 +1875,7 @@ func executeUsersQuotaResetRuleAction(conditions dataprovider.ConditionOptions, 
 	if err != nil {
 		return fmt.Errorf("unable to get users: %w", err)
 	}
-	var failedResets []string
+	var failures []string
 	executed := 0
 	for _, user := range users {
 		// if sender is set, the conditions have already been evaluated
@@ -1889,11 +1889,11 @@ func executeUsersQuotaResetRuleAction(conditions dataprovider.ConditionOptions, 
 		executed++
 		if err = executeQuotaResetForUser(&user); err != nil {
 			params.AddError(err)
-			failedResets = append(failedResets, user.Username)
+			failures = append(failures, user.Username)
 		}
 	}
-	if len(failedResets) > 0 {
-		return fmt.Errorf("quota reset failed for users: %+v", failedResets)
+	if len(failures) > 0 {
+		return fmt.Errorf("quota reset failed for users: %s", strings.Join(failures, ", "))
 	}
 	if executed == 0 {
 		eventManagerLog(logger.LevelError, "no user quota reset executed")
@@ -1907,7 +1907,7 @@ func executeFoldersQuotaResetRuleAction(conditions dataprovider.ConditionOptions
 	if err != nil {
 		return fmt.Errorf("unable to get folders: %w", err)
 	}
-	var failedResets []string
+	var failures []string
 	executed := 0
 	for _, folder := range folders {
 		// if sender is set, the conditions have already been evaluated
@@ -1919,7 +1919,7 @@ func executeFoldersQuotaResetRuleAction(conditions dataprovider.ConditionOptions
 		if !QuotaScans.AddVFolderQuotaScan(folder.Name) {
 			eventManagerLog(logger.LevelError, "another quota scan is already in progress for folder %q", folder.Name)
 			params.AddError(fmt.Errorf("another quota scan is already in progress for folder %q", folder.Name))
-			failedResets = append(failedResets, folder.Name)
+			failures = append(failures, folder.Name)
 			continue
 		}
 		executed++
@@ -1932,18 +1932,18 @@ func executeFoldersQuotaResetRuleAction(conditions dataprovider.ConditionOptions
 		if err != nil {
 			eventManagerLog(logger.LevelError, "error scanning quota for folder %q: %v", folder.Name, err)
 			params.AddError(fmt.Errorf("error scanning quota for folder %q: %w", folder.Name, err))
-			failedResets = append(failedResets, folder.Name)
+			failures = append(failures, folder.Name)
 			continue
 		}
 		err = dataprovider.UpdateVirtualFolderQuota(&folder, numFiles, size, true)
 		if err != nil {
 			eventManagerLog(logger.LevelError, "error updating quota for folder %q: %v", folder.Name, err)
 			params.AddError(fmt.Errorf("error updating quota for folder %q: %w", folder.Name, err))
-			failedResets = append(failedResets, folder.Name)
+			failures = append(failures, folder.Name)
 		}
 	}
-	if len(failedResets) > 0 {
-		return fmt.Errorf("quota reset failed for folders: %+v", failedResets)
+	if len(failures) > 0 {
+		return fmt.Errorf("quota reset failed for folders: %s", strings.Join(failures, ", "))
 	}
 	if executed == 0 {
 		eventManagerLog(logger.LevelError, "no folder quota reset executed")
@@ -1957,7 +1957,7 @@ func executeTransferQuotaResetRuleAction(conditions dataprovider.ConditionOption
 	if err != nil {
 		return fmt.Errorf("unable to get users: %w", err)
 	}
-	var failedResets []string
+	var failures []string
 	executed := 0
 	for _, user := range users {
 		// if sender is set, the conditions have already been evaluated
@@ -1973,11 +1973,11 @@ func executeTransferQuotaResetRuleAction(conditions dataprovider.ConditionOption
 		if err != nil {
 			eventManagerLog(logger.LevelError, "error updating transfer quota for user %q: %v", user.Username, err)
 			params.AddError(fmt.Errorf("error updating transfer quota for user %q: %w", user.Username, err))
-			failedResets = append(failedResets, user.Username)
+			failures = append(failures, user.Username)
 		}
 	}
-	if len(failedResets) > 0 {
-		return fmt.Errorf("transfer quota reset failed for users: %+v", failedResets)
+	if len(failures) > 0 {
+		return fmt.Errorf("transfer quota reset failed for users: %s", strings.Join(failures, ", "))
 	}
 	if executed == 0 {
 		eventManagerLog(logger.LevelError, "no transfer quota reset executed")
@@ -2023,7 +2023,7 @@ func executeDataRetentionCheckRuleAction(config dataprovider.EventActionDataRete
 	if err != nil {
 		return fmt.Errorf("unable to get users: %w", err)
 	}
-	var failedChecks []string
+	var failures []string
 	executed := 0
 	for _, user := range users {
 		// if sender is set, the conditions have already been evaluated
@@ -2036,12 +2036,12 @@ func executeDataRetentionCheckRuleAction(config dataprovider.EventActionDataRete
 		}
 		executed++
 		if err = executeDataRetentionCheckForUser(user, config.Folders, params, actionName); err != nil {
-			failedChecks = append(failedChecks, user.Username)
+			failures = append(failures, user.Username)
 			params.AddError(err)
 		}
 	}
-	if len(failedChecks) > 0 {
-		return fmt.Errorf("retention check failed for users: %+v", failedChecks)
+	if len(failures) > 0 {
+		return fmt.Errorf("retention check failed for users: %s", strings.Join(failures, ", "))
 	}
 	if executed == 0 {
 		eventManagerLog(logger.LevelError, "no retention check executed")
@@ -2075,7 +2075,7 @@ func executeUserExpirationCheckRuleAction(conditions dataprovider.ConditionOptio
 		}
 	}
 	if len(failures) > 0 {
-		return fmt.Errorf("expired users: %+v", failures)
+		return fmt.Errorf("expired users: %s", strings.Join(failures, ", "))
 	}
 	if executed == 0 {
 		eventManagerLog(logger.LevelError, "no user expiration check executed")
@@ -2126,7 +2126,7 @@ func executeMetadataCheckRuleAction(conditions dataprovider.ConditionOptions, pa
 		}
 	}
 	if len(failures) > 0 {
-		return fmt.Errorf("metadata check failed for users: %+v", failures)
+		return fmt.Errorf("metadata check failed for users: %s", strings.Join(failures, ", "))
 	}
 	if executed == 0 {
 		eventManagerLog(logger.LevelError, "no metadata check executed")
@@ -2194,7 +2194,7 @@ func executePwdExpirationCheckRuleAction(config dataprovider.EventActionPassword
 		}
 	}
 	if len(failures) > 0 {
-		return fmt.Errorf("password expiration check failed for users: %+v", failures)
+		return fmt.Errorf("password expiration check failed for users: %s", strings.Join(failures, ", "))
 	}
 
 	return nil
