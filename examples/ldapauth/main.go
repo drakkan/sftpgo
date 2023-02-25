@@ -97,7 +97,7 @@ func main() {
 
 	// search the user trying to login and fetch some attributes, this search string is tested against 389ds using the default configuration
 	log.Printf("username=%s\n", username)
-	searchFilter := fmt.Sprintf("(uid=%s)", username)
+	searchFilter := fmt.Sprintf("(uid=%s)", ldap.EscapeFilter(username))
 	searchRequest := ldap.NewSearchRequest(
 		"ou=people," + rootDN,
 		ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 0, false,

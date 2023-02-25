@@ -78,7 +78,7 @@ func checkSFTPGoUserAuth(w http.ResponseWriter, r *http.Request) {
 	searchRequest := ldap.NewSearchRequest(
 		ldapConfig.BaseDN,
 		ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 0, false,
-		strings.Replace(ldapConfig.SearchFilter, "%s", authReq.Username, 1),
+		strings.Replace(ldapConfig.SearchFilter, "%s", ldap.EscapeFilter(authReq.Username), 1),
 		ldapConfig.SearchBaseAttrs,
 		nil,
 	)
