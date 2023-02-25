@@ -2137,9 +2137,16 @@ func executeMetadataCheckRuleAction(conditions dataprovider.ConditionOptions, pa
 
 func executePwdExpirationCheckForUser(user *dataprovider.User, config dataprovider.EventActionPasswordExpiration) error {
 	if err := user.LoadAndApplyGroupSettings(); err != nil {
-		eventManagerLog(logger.LevelError, "skipping password expiration check for user %s, cannot apply group settings: %v",
+		eventManagerLog(logger.LevelError, "skipping password expiration check for user %q, cannot apply group settings: %v",
 			user.Username, err)
 		return err
+	}
+	if user.ExpirationDate > 0 {
+		if expDate := util.GetTimeFromMsecSinceEpoch(user.ExpirationDate); expDate.Before(time.Now()) {
+			eventManagerLog(logger.LevelDebug, "skipping password expiration check for expired user %q, expiration date: %s",
+				user.Username, expDate)
+			return nil
+		}
 	}
 	if user.Filters.PasswordExpiration == 0 {
 		eventManagerLog(logger.LevelDebug, "password expiration not set for user %q skipping check", user.Username)

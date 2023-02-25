@@ -1207,13 +1207,24 @@ func TestUserExpirationCheck(t *testing.T) {
 			ExpirationDate: util.GetTimeAsMsSinceEpoch(time.Now().Add(-24 * time.Hour)),
 		},
 	}
+	user.Filters.PasswordExpiration = 5
 	err := dataprovider.AddUser(&user, "", "", "")
 	assert.NoError(t, err)
 
-	err = executeUserExpirationCheckRuleAction(dataprovider.ConditionOptions{}, &EventParams{})
+	conditions := dataprovider.ConditionOptions{
+		Names: []dataprovider.ConditionPattern{
+			{
+				Pattern: username,
+			},
+		},
+	}
+	err = executeUserExpirationCheckRuleAction(conditions, &EventParams{})
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "expired users")
 	}
+	// the check will be skipped, the user is expired
+	err = executePwdExpirationCheckRuleAction(dataprovider.EventActionPasswordExpiration{Threshold: 10}, conditions, &EventParams{})
+	assert.NoError(t, err)
 
 	err = dataprovider.DeleteUser(username, "", "", "")
 	assert.NoError(t, err)
