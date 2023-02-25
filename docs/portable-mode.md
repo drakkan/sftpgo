@@ -84,6 +84,9 @@ Flags:
       --log-utc-time                    Use UTC time for logging
   -p, --password string                 Leave empty to use an auto generated
                                         value
+      --password-file string            Read the password from the specified
+                                        file path. Leave empty to use an auto
+                                        generated value
   -g, --permissions strings             User's permissions. "*" means any
                                         permission (default [list,download])
   -k, --public-key strings

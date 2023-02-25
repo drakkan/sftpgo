@@ -41,6 +41,7 @@ var (
 	portableSFTPDPort                  int
 	portableUsername                   string
 	portablePassword                   string
+	portablePasswordFile               string
 	portableStartDir                   string
 	portableLogFile                    string
 	portableLogLevel                   string
@@ -167,6 +168,15 @@ Please take a look at the usage below to customize the serving parameters`,
 					os.Exit(1)
 				}
 			}
+			pwd := portablePassword
+			if portablePasswordFile != "" {
+				content, err := os.ReadFile(portablePasswordFile)
+				if err != nil {
+					fmt.Printf("Unable to read password file %q: %v", portablePasswordFile, err)
+					os.Exit(1)
+				}
+				pwd = strings.TrimSpace(string(content))
+			}
 			service.SetGraceTime(graceTime)
 			service := service.Service{
 				ConfigDir:     filepath.Clean(defaultConfigDir),
@@ -183,7 +193,7 @@ Please take a look at the usage below to customize the serving parameters`,
 				PortableUser: dataprovider.User{
 					BaseUser: sdk.BaseUser{
 						Username:    portableUsername,
-						Password:    portablePassword,
+						Password:    pwd,
 						PublicKeys:  portablePublicKeys,
 						Permissions: permissions,
 						HomeDir:     portableDir,
@@ -295,6 +305,9 @@ including scp
 value`)
 	portableCmd.Flags().StringVarP(&portablePassword, "password", "p", "", `Leave empty to use an auto generated
 value`)
+	portableCmd.Flags().StringVar(&portablePasswordFile, "password-file", "", `Read the password from the specified
+file path. Leave empty to use an auto
+generated value`)
 	portableCmd.Flags().StringVarP(&portableLogFile, logFilePathFlag, "l", "", "Leave empty to disable logging")
 	portableCmd.Flags().StringVar(&portableLogLevel, logLevelFlag, defaultLogLevel, `Set the log level.
 Supported values:
