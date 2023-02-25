@@ -3979,7 +3979,26 @@ func getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, 
 		fmt.Sprintf("SFTPGO_AUTHD_PROTOCOL=%v", protocol),
 		fmt.Sprintf("SFTPGO_AUTHD_TLS_CERT=%v", strings.ReplaceAll(tlsCert, "\n", "\\n")),
 		fmt.Sprintf("SFTPGO_AUTHD_KEYBOARD_INTERACTIVE=%v", keyboardInteractive))
-	return cmd.Output()
+
+	var stdout bytes.Buffer
+	cmd.Stdout = &stdout
+
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return nil, err
+	}
+
+	err = cmd.Start()
+	if err != nil {
+		return nil, err
+	}
+
+	in := bufio.NewScanner(stderr)
+	for in.Scan() {
+		logger.Log(logger.LevelWarn, "external_auth_hook", "", "%s", in.Text())
+	}
+
+	return stdout.Bytes(), cmd.Wait()
 }
 
 func updateUserFromExtAuthResponse(user *User, password, pkey string) {
