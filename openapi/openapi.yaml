@@ -4871,6 +4871,9 @@ components:
         - 7
         - 8
         - 9
+        - 10
+        - 11
+        - 12
       description: |
         Supported event action types:
           * `1` - HTTP
@@ -4882,6 +4885,9 @@ components:
           * `7` - Transfer quota reset
           * `8` - Data retention check
           * `9` - Filesystem
+          * `10` - Metadata check
+          * `11` - Password expiration check
+          * `12` - User expiration check
     FilesystemActionTypes:
       type: integer
       enum:

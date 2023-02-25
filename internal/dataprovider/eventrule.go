@@ -46,12 +46,14 @@ const (
 	ActionTypeFilesystem
 	ActionTypeMetadataCheck
 	ActionTypePasswordExpirationCheck
+	ActionTypeUserExpirationCheck
 )
 
 var (
 	supportedEventActions = []int{ActionTypeHTTP, ActionTypeCommand, ActionTypeEmail, ActionTypeFilesystem,
 		ActionTypeBackup, ActionTypeUserQuotaReset, ActionTypeFolderQuotaReset, ActionTypeTransferQuotaReset,
-		ActionTypeDataRetentionCheck, ActionTypeMetadataCheck, ActionTypePasswordExpirationCheck}
+		ActionTypeDataRetentionCheck, ActionTypeMetadataCheck, ActionTypePasswordExpirationCheck,
+		ActionTypeUserExpirationCheck}
 )
 
 func isActionTypeValid(action int) bool {
@@ -80,6 +82,8 @@ func getActionTypeAsString(action int) string {
 		return "Filesystem"
 	case ActionTypePasswordExpirationCheck:
 		return "Password expiration check"
+	case ActionTypeUserExpirationCheck:
+		return "User expiration check"
 	default:
 		return "Command"
 	}
@@ -1457,7 +1461,8 @@ func (r *EventRule) validateMandatorySyncActions() error {
 
 func (r *EventRule) checkIPBlockedAndCertificateActions() error {
 	unavailableActions := []int{ActionTypeUserQuotaReset, ActionTypeFolderQuotaReset, ActionTypeTransferQuotaReset,
-		ActionTypeDataRetentionCheck, ActionTypeMetadataCheck, ActionTypeFilesystem, ActionTypePasswordExpirationCheck}
+		ActionTypeDataRetentionCheck, ActionTypeMetadataCheck, ActionTypeFilesystem, ActionTypePasswordExpirationCheck,
+		ActionTypeUserExpirationCheck}
 	for _, action := range r.Actions {
 		if util.Contains(unavailableActions, action.Type) {
 			return fmt.Errorf("action %q, type %q is not supported for event trigger %q",
@@ -1472,7 +1477,8 @@ func (r *EventRule) checkProviderEventActions(providerObjectType string) error {
 	// can be executed only if we modify a user. They will be executed for the
 	// affected user. Folder quota reset can be executed only for folders.
 	userSpecificActions := []int{ActionTypeUserQuotaReset, ActionTypeTransferQuotaReset,
-		ActionTypeDataRetentionCheck, ActionTypeMetadataCheck, ActionTypeFilesystem, ActionTypePasswordExpirationCheck}
+		ActionTypeDataRetentionCheck, ActionTypeMetadataCheck, ActionTypeFilesystem,
+		ActionTypePasswordExpirationCheck, ActionTypeUserExpirationCheck}
 	for _, action := range r.Actions {
 		if util.Contains(userSpecificActions, action.Type) && providerObjectType != actionObjectUser {
 			return fmt.Errorf("action %q, type %q is only supported for provider user events",

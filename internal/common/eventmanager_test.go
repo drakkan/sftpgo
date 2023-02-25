@@ -436,6 +436,8 @@ func TestEventManagerErrors(t *testing.T) {
 	assert.Error(t, err)
 	err = executeMetadataCheckRuleAction(dataprovider.ConditionOptions{}, &EventParams{})
 	assert.Error(t, err)
+	err = executeUserExpirationCheckRuleAction(dataprovider.ConditionOptions{}, &EventParams{})
+	assert.Error(t, err)
 	err = executeDeleteFsRuleAction(nil, nil, dataprovider.ConditionOptions{}, &EventParams{})
 	assert.Error(t, err)
 	err = executeMkdirFsRuleAction(nil, nil, dataprovider.ConditionOptions{}, &EventParams{})
@@ -844,6 +846,29 @@ func TestEventRuleActions(t *testing.T) {
 	assert.Error(t, err)
 	assert.True(t, ActiveMetadataChecks.Remove(username1))
 
+	action = dataprovider.BaseEventAction{
+		Type: dataprovider.ActionTypeUserExpirationCheck,
+	}
+
+	err = executeRuleAction(action, &EventParams{}, dataprovider.ConditionOptions{
+		Names: []dataprovider.ConditionPattern{
+			{
+				Pattern: "don't match",
+			},
+		},
+	})
+	assert.Error(t, err)
+	assert.Contains(t, getErrorString(err), "no user expiration check executed")
+
+	err = executeRuleAction(action, &EventParams{}, dataprovider.ConditionOptions{
+		Names: []dataprovider.ConditionPattern{
+			{
+				Pattern: username1,
+			},
+		},
+	})
+	assert.NoError(t, err)
+
 	dataRetentionAction := dataprovider.BaseEventAction{
 		Type: dataprovider.ActionTypeDataRetentionCheck,
 		Options: dataprovider.BaseEventActionOptions{
@@ -1167,6 +1192,32 @@ func TestEventRuleActions(t *testing.T) {
 	err = dataprovider.DeleteFolder(foldername1, "", "", "")
 	assert.NoError(t, err)
 	err = dataprovider.DeleteFolder(foldername2, "", "", "")
+	assert.NoError(t, err)
+}
+
+func TestUserExpirationCheck(t *testing.T) {
+	username := "test_user_expiration_check"
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			Username: username,
+			Permissions: map[string][]string{
+				"/": {dataprovider.PermAny},
+			},
+			HomeDir:        filepath.Join(os.TempDir(), username),
+			ExpirationDate: util.GetTimeAsMsSinceEpoch(time.Now().Add(-24 * time.Hour)),
+		},
+	}
+	err := dataprovider.AddUser(&user, "", "", "")
+	assert.NoError(t, err)
+
+	err = executeUserExpirationCheckRuleAction(dataprovider.ConditionOptions{}, &EventParams{})
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "expired users")
+	}
+
+	err = dataprovider.DeleteUser(username, "", "", "")
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
 }
 

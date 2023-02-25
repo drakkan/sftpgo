@@ -1421,7 +1421,6 @@ func executeDeleteFsRuleAction(deletes []string, replacer *strings.Replacer,
 		if err = executeDeleteFsActionForUser(deletes, replacer, user); err != nil {
 			params.AddError(err)
 			failures = append(failures, user.Username)
-			continue
 		}
 	}
 	if len(failures) > 0 {
@@ -1479,7 +1478,6 @@ func executeMkdirFsRuleAction(dirs []string, replacer *strings.Replacer,
 		executed++
 		if err = executeMkDirsFsActionForUser(dirs, replacer, user); err != nil {
 			failures = append(failures, user.Username)
-			continue
 		}
 	}
 	if len(failures) > 0 {
@@ -1593,7 +1591,6 @@ func executeRenameFsRuleAction(renames []dataprovider.KeyValue, replacer *string
 		if err = executeRenameFsActionForUser(renames, replacer, user); err != nil {
 			failures = append(failures, user.Username)
 			params.AddError(err)
-			continue
 		}
 	}
 	if len(failures) > 0 {
@@ -1628,7 +1625,6 @@ func executeCopyFsRuleAction(copy []dataprovider.KeyValue, replacer *strings.Rep
 		if err = executeCopyFsActionForUser(copy, replacer, user); err != nil {
 			failures = append(failures, user.Username)
 			params.AddError(err)
-			continue
 		}
 	}
 	if len(failures) > 0 {
@@ -1779,7 +1775,6 @@ func executeExistFsRuleAction(exist []string, replacer *strings.Replacer, condit
 		if err = executeExistFsActionForUser(exist, replacer, user); err != nil {
 			failures = append(failures, user.Username)
 			params.AddError(err)
-			continue
 		}
 	}
 	if len(failures) > 0 {
@@ -1814,7 +1809,6 @@ func executeCompressFsRuleAction(c dataprovider.EventActionFsCompress, replacer 
 		if err = executeCompressFsActionForUser(c, replacer, user); err != nil {
 			failures = append(failures, user.Username)
 			params.AddError(err)
-			continue
 		}
 	}
 	if len(failures) > 0 {
@@ -1896,7 +1890,6 @@ func executeUsersQuotaResetRuleAction(conditions dataprovider.ConditionOptions, 
 		if err = executeQuotaResetForUser(&user); err != nil {
 			params.AddError(err)
 			failedResets = append(failedResets, user.Username)
-			continue
 		}
 	}
 	if len(failedResets) > 0 {
@@ -2045,7 +2038,6 @@ func executeDataRetentionCheckRuleAction(config dataprovider.EventActionDataRete
 		if err = executeDataRetentionCheckForUser(user, config.Folders, params, actionName); err != nil {
 			failedChecks = append(failedChecks, user.Username)
 			params.AddError(err)
-			continue
 		}
 	}
 	if len(failedChecks) > 0 {
@@ -2054,6 +2046,40 @@ func executeDataRetentionCheckRuleAction(config dataprovider.EventActionDataRete
 	if executed == 0 {
 		eventManagerLog(logger.LevelError, "no retention check executed")
 		return errors.New("no retention check executed")
+	}
+	return nil
+}
+
+func executeUserExpirationCheckRuleAction(conditions dataprovider.ConditionOptions, params *EventParams) error {
+	users, err := params.getUsers()
+	if err != nil {
+		return fmt.Errorf("unable to get users: %w", err)
+	}
+	var failures []string
+	var executed int
+	for _, user := range users {
+		// if sender is set, the conditions have already been evaluated
+		if params.sender == "" {
+			if !checkUserConditionOptions(&user, &conditions) {
+				eventManagerLog(logger.LevelDebug, "skipping expiration check for user %q, condition options don't match",
+					user.Username)
+				continue
+			}
+		}
+		executed++
+		if user.ExpirationDate > 0 {
+			expDate := util.GetTimeFromMsecSinceEpoch(user.ExpirationDate)
+			if expDate.Before(time.Now()) {
+				failures = append(failures, user.Username)
+			}
+		}
+	}
+	if len(failures) > 0 {
+		return fmt.Errorf("expired users: %+v", failures)
+	}
+	if executed == 0 {
+		eventManagerLog(logger.LevelError, "no user expiration check executed")
+		return errors.New("no user expiration check executed")
 	}
 	return nil
 }
@@ -2097,7 +2123,6 @@ func executeMetadataCheckRuleAction(conditions dataprovider.ConditionOptions, pa
 		if err = executeMetadataCheckForUser(&user); err != nil {
 			params.AddError(err)
 			failures = append(failures, user.Username)
-			continue
 		}
 	}
 	if len(failures) > 0 {
@@ -2166,7 +2191,6 @@ func executePwdExpirationCheckRuleAction(config dataprovider.EventActionPassword
 		if err = executePwdExpirationCheckForUser(&user, config); err != nil {
 			params.AddError(err)
 			failures = append(failures, user.Username)
-			continue
 		}
 	}
 	if len(failures) > 0 {
@@ -2208,6 +2232,8 @@ func executeRuleAction(action dataprovider.BaseEventAction, params *EventParams,
 		err = executeFsRuleAction(action.Options.FsConfig, conditions, params)
 	case dataprovider.ActionTypePasswordExpirationCheck:
 		err = executePwdExpirationCheckRuleAction(action.Options.PwdExpirationConfig, conditions, params)
+	case dataprovider.ActionTypeUserExpirationCheck:
+		err = executeUserExpirationCheckRuleAction(conditions, params)
 	default:
 		err = fmt.Errorf("unsupported action type: %d", action.Type)
 	}
