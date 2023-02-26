@@ -662,7 +662,7 @@ func (c *Configuration) ExecuteStartupHook() error {
 	cmd := exec.CommandContext(ctx, c.StartupHook, args...)
 	cmd.Env = env
 	err := cmd.Run()
-	logger.Debug(logSender, "", "Startup hook executed, elapsed: %v, error: %v", time.Since(startTime), err)
+	logger.Debug(logSender, "", "Startup hook executed, elapsed: %s, error: %v", time.Since(startTime), err)
 	return nil
 }
 
@@ -708,12 +708,12 @@ func (c *Configuration) executePostDisconnectHook(remoteAddr, protocol, username
 	startTime := time.Now()
 	cmd := exec.CommandContext(ctx, c.PostDisconnectHook, args...)
 	cmd.Env = append(env,
-		fmt.Sprintf("SFTPGO_CONNECTION_IP=%v", ipAddr),
-		fmt.Sprintf("SFTPGO_CONNECTION_USERNAME=%v", username),
-		fmt.Sprintf("SFTPGO_CONNECTION_DURATION=%v", connDuration),
-		fmt.Sprintf("SFTPGO_CONNECTION_PROTOCOL=%v", protocol))
+		fmt.Sprintf("SFTPGO_CONNECTION_IP=%s", ipAddr),
+		fmt.Sprintf("SFTPGO_CONNECTION_USERNAME=%s", username),
+		fmt.Sprintf("SFTPGO_CONNECTION_DURATION=%d", connDuration),
+		fmt.Sprintf("SFTPGO_CONNECTION_PROTOCOL=%s", protocol))
 	err := cmd.Run()
-	logger.Debug(protocol, connID, "Post disconnect hook executed, elapsed: %v error: %v", time.Since(startTime), err)
+	logger.Debug(protocol, connID, "Post disconnect hook executed, elapsed: %s error: %v", time.Since(startTime), err)
 }
 
 func (c *Configuration) checkPostDisconnectHook(remoteAddr, protocol, username, connID string, connectionTime time.Time) {
@@ -767,11 +767,11 @@ func (c *Configuration) ExecutePostConnectHook(ipAddr, protocol string) error {
 
 	cmd := exec.CommandContext(ctx, c.PostConnectHook, args...)
 	cmd.Env = append(env,
-		fmt.Sprintf("SFTPGO_CONNECTION_IP=%v", ipAddr),
-		fmt.Sprintf("SFTPGO_CONNECTION_PROTOCOL=%v", protocol))
+		fmt.Sprintf("SFTPGO_CONNECTION_IP=%s", ipAddr),
+		fmt.Sprintf("SFTPGO_CONNECTION_PROTOCOL=%s", protocol))
 	err := cmd.Run()
 	if err != nil {
-		logger.Warn(protocol, "", "Login from ip %#v denied, connect hook error: %v", ipAddr, err)
+		logger.Warn(protocol, "", "Login from ip %q denied, connect hook error: %v", ipAddr, err)
 	}
 	return err
 }

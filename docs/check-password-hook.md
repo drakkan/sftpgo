@@ -22,6 +22,8 @@ Global environment variables are cleared, for security reasons, when the script 
 
 The program must write, on its standard output, the expected JSON serialized response described above.
 
+Any output of the program on its standard error will be recorded in the SFTPGo logs with sender `check_password_hook` and level `warn`.
+
 If the hook is an HTTP URL then it will be invoked as HTTP POST. The request body will contain a JSON serialized struct with the following fields:
 
 - `username`

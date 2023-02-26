@@ -21,7 +21,7 @@ The program must write, on its standard output:
 - an empty string, or no response at all, if authentication succeeds and the existing SFTPGo user does not need to be updated. This means that the credentials already stored in SFTPGo must match those used for the current authentication.
 - a user with an empty username if the authentication fails
 
-Any output of the program on its standard error will be recorded in the sftpgo logs with sender `external_auth_hook`.
+Any output of the program on its standard error will be recorded in the SFTPGo logs with sender `external_auth_hook` and level `warn`.
 
 If the hook is an HTTP URL then it will be invoked as HTTP POST. The request body will contain a JSON serialized struct with the following fields:
 

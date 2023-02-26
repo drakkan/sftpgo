@@ -15,6 +15,8 @@ The program must write, on its standard output:
 - an empty string (or no response at all) if the user should not be created/updated
 - or the SFTPGo user, JSON serialized, if you want to create or update the given user
 
+Any output of the program on its standard error will be recorded in the SFTPGo logs with sender `pre_login_hook` and level `warn`.
+
 If the hook is an HTTP URL then it will be invoked as HTTP POST. The login method, the used protocol and the ip address of the user trying to login are added to the query string, for example `<http_url>?login_method=password&ip=1.2.3.4&protocol=SSH`.
 The request body will contain the user trying to login serialized as JSON. If no modification is needed the HTTP response code must be 204, otherwise the response code must be 200 and the response body a valid SFTPGo user serialized as JSON.
 

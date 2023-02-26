@@ -152,7 +152,7 @@ func executeNotificationCommand(operation, executor, ip, objectType, objectName,
 
 	startTime := time.Now()
 	err := cmd.Run()
-	providerLog(logger.LevelDebug, "executed command %#v, elapsed: %v, error: %v", config.Actions.Hook,
+	providerLog(logger.LevelDebug, "executed command %q, elapsed: %s, error: %v", config.Actions.Hook,
 		time.Since(startTime), err)
 	return err
 }

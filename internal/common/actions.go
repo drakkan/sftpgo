@@ -307,7 +307,7 @@ func (h *defaultActionHandler) handleCommand(event *notifier.FsEvent) error {
 	startTime := time.Now()
 	err := cmd.Run()
 
-	logger.Debug(event.Protocol, "", "executed command %#v, elapsed: %v, error: %v",
+	logger.Debug(event.Protocol, "", "executed command %q, elapsed: %s, error: %v",
 		Config.Actions.Hook, time.Since(startTime), err)
 
 	return err

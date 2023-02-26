@@ -857,7 +857,7 @@ func Initialize(cnf Config, basePath string, checkAdmins bool) error {
 
 	cnf.BackupsPath = getConfigPath(cnf.BackupsPath, basePath)
 	if cnf.BackupsPath == "" {
-		return fmt.Errorf("required directory is invalid, backup path %#v", cnf.BackupsPath)
+		return fmt.Errorf("required directory is invalid, backup path %q", cnf.BackupsPath)
 	}
 	absoluteBackupPath, err := util.GetAbsolutePath(cnf.BackupsPath)
 	if err != nil {
@@ -936,7 +936,7 @@ func validateHooks() error {
 
 	for _, hook := range hooks {
 		if !filepath.IsAbs(hook) {
-			return fmt.Errorf("invalid hook: %#v must be an absolute path", hook)
+			return fmt.Errorf("invalid hook: %q must be an absolute path", hook)
 		}
 		_, err := os.Stat(hook)
 		if err != nil {
@@ -1100,7 +1100,7 @@ func CheckCachedUserCredentials(user *CachedUser, password, loginMethod, protoco
 		}
 		if loginMethod == LoginMethodTLSCertificate {
 			if !user.User.IsLoginMethodAllowed(LoginMethodTLSCertificate, protocol, nil) {
-				return fmt.Errorf("certificate login method is not allowed for user %#v", user.User.Username)
+				return fmt.Errorf("certificate login method is not allowed for user %q", user.User.Username)
 			}
 			return nil
 		}
@@ -1143,7 +1143,7 @@ func CheckCompositeCredentials(username, password, ip, loginMethod, protocol str
 		return user, loginMethod, err
 	}
 	if loginMethod == LoginMethodTLSCertificate && !user.IsLoginMethodAllowed(LoginMethodTLSCertificate, protocol, nil) {
-		return user, loginMethod, fmt.Errorf("certificate login method is not allowed for user %#v", user.Username)
+		return user, loginMethod, fmt.Errorf("certificate login method is not allowed for user %q", user.Username)
 	}
 	if loginMethod == LoginMethodTLSCertificateAndPwd {
 		if plugin.Handler.HasAuthScope(plugin.AuthScopePassword) {
@@ -1577,7 +1577,7 @@ func DeleteShare(shareID string, executor, ipAddress, role string) error {
 // ShareExists returns the share with the given ID if it exists
 func ShareExists(shareID, username string) (Share, error) {
 	if shareID == "" {
-		return Share{}, util.NewRecordNotFoundError(fmt.Sprintf("Share %#v does not exist", shareID))
+		return Share{}, util.NewRecordNotFoundError(fmt.Sprintf("Share %q does not exist", shareID))
 	}
 	return provider.shareExists(shareID, username)
 }
@@ -1780,7 +1780,7 @@ func DeleteAPIKey(keyID string, executor, ipAddress, role string) error {
 // APIKeyExists returns the API key with the given ID if it exists
 func APIKeyExists(keyID string) (APIKey, error) {
 	if keyID == "" {
-		return APIKey{}, util.NewRecordNotFoundError(fmt.Sprintf("API key %#v does not exist", keyID))
+		return APIKey{}, util.NewRecordNotFoundError(fmt.Sprintf("API key %q does not exist", keyID))
 	}
 	return provider.apiKeyExists(keyID)
 }
@@ -2126,7 +2126,7 @@ func GetActiveTransfers(from time.Time) ([]ActiveTransfer, error) {
 func AddSharedSession(session Session) error {
 	err := provider.addSharedSession(session)
 	if err != nil {
-		providerLog(logger.LevelError, "unable to add shared session, key %#v, type: %v, err: %v",
+		providerLog(logger.LevelError, "unable to add shared session, key %q, type: %v, err: %v",
 			session.Key, session.Type, err)
 	}
 	return err
@@ -2136,7 +2136,7 @@ func AddSharedSession(session Session) error {
 func DeleteSharedSession(key string) error {
 	err := provider.deleteSharedSession(key)
 	if err != nil {
-		providerLog(logger.LevelError, "unable to add shared session, key %#v, err: %v", key, err)
+		providerLog(logger.LevelError, "unable to add shared session, key %q, err: %v", key, err)
 	}
 	return err
 }
@@ -2487,10 +2487,10 @@ func buildUserHomeDir(user *User) {
 
 func validateFolderQuotaLimits(folder vfs.VirtualFolder) error {
 	if folder.QuotaSize < -1 {
-		return util.NewValidationError(fmt.Sprintf("invalid quota_size: %v folder path %#v", folder.QuotaSize, folder.MappedPath))
+		return util.NewValidationError(fmt.Sprintf("invalid quota_size: %v folder path %q", folder.QuotaSize, folder.MappedPath))
 	}
 	if folder.QuotaFiles < -1 {
-		return util.NewValidationError(fmt.Sprintf("invalid quota_file: %v folder path %#v", folder.QuotaFiles, folder.MappedPath))
+		return util.NewValidationError(fmt.Sprintf("invalid quota_file: %v folder path %q", folder.QuotaFiles, folder.MappedPath))
 	}
 	if (folder.QuotaSize == -1 && folder.QuotaFiles != -1) || (folder.QuotaFiles == -1 && folder.QuotaSize != -1) {
 		return util.NewValidationError(fmt.Sprintf("virtual folder quota_size and quota_files must be both -1 or >= 0, quota_size: %v quota_files: %v",
@@ -2537,7 +2537,7 @@ func validateUserGroups(user *User) error {
 			hasPrimary = true
 		}
 		if groupNames[g.Name] {
-			return util.NewValidationError(fmt.Sprintf("the group %#v is duplicated", g.Name))
+			return util.NewValidationError(fmt.Sprintf("the group %q is duplicated", g.Name))
 		}
 		groupNames[g.Name] = true
 	}
@@ -2594,7 +2594,7 @@ func validateUserTOTPConfig(c *UserTOTPConfig, username string) error {
 		return util.NewValidationError("totp: config name is mandatory")
 	}
 	if !util.Contains(mfa.GetAvailableTOTPConfigNames(), c.ConfigName) {
-		return util.NewValidationError(fmt.Sprintf("totp: config name %#v not found", c.ConfigName))
+		return util.NewValidationError(fmt.Sprintf("totp: config name %q not found", c.ConfigName))
 	}
 	if c.Secret.IsEmpty() {
 		return util.NewValidationError("totp: secret is mandatory")
@@ -2610,7 +2610,7 @@ func validateUserTOTPConfig(c *UserTOTPConfig, username string) error {
 	}
 	for _, protocol := range c.Protocols {
 		if !util.Contains(MFAProtocols, protocol) {
-			return util.NewValidationError(fmt.Sprintf("totp: invalid protocol %#v", protocol))
+			return util.NewValidationError(fmt.Sprintf("totp: invalid protocol %q", protocol))
 		}
 	}
 	return nil
@@ -2636,14 +2636,14 @@ func validateUserPermissions(permsToCheck map[string][]string) (map[string][]str
 	permissions := make(map[string][]string)
 	for dir, perms := range permsToCheck {
 		if len(perms) == 0 && dir == "/" {
-			return permissions, util.NewValidationError(fmt.Sprintf("no permissions granted for the directory: %#v", dir))
+			return permissions, util.NewValidationError(fmt.Sprintf("no permissions granted for the directory: %q", dir))
 		}
 		if len(perms) > len(ValidPerms) {
 			return permissions, util.NewValidationError("invalid permissions")
 		}
 		for _, p := range perms {
 			if !util.Contains(ValidPerms, p) {
-				return permissions, util.NewValidationError(fmt.Sprintf("invalid permission: %#v", p))
+				return permissions, util.NewValidationError(fmt.Sprintf("invalid permission: %q", p))
 			}
 		}
 		cleanedDir := filepath.ToSlash(path.Clean(dir))
@@ -2651,10 +2651,10 @@ func validateUserPermissions(permsToCheck map[string][]string) (map[string][]str
 			cleanedDir = strings.TrimSuffix(cleanedDir, "/")
 		}
 		if !path.IsAbs(cleanedDir) {
-			return permissions, util.NewValidationError(fmt.Sprintf("cannot set permissions for non absolute path: %#v", dir))
+			return permissions, util.NewValidationError(fmt.Sprintf("cannot set permissions for non absolute path: %q", dir))
 		}
 		if dir != cleanedDir && cleanedDir == "/" {
-			return permissions, util.NewValidationError(fmt.Sprintf("cannot set permissions for invalid subdirectory: %#v is an alias for \"/\"", dir))
+			return permissions, util.NewValidationError(fmt.Sprintf("cannot set permissions for invalid subdirectory: %q is an alias for \"/\"", dir))
 		}
 		if util.Contains(perms, PermAny) {
 			permissions[cleanedDir] = []string{PermAny}
@@ -2710,16 +2710,16 @@ func validateFiltersPatternExtensions(baseFilters *sdk.BaseUserFilters) error {
 	for _, f := range baseFilters.FilePatterns {
 		cleanedPath := filepath.ToSlash(path.Clean(f.Path))
 		if !path.IsAbs(cleanedPath) {
-			return util.NewValidationError(fmt.Sprintf("invalid path %#v for file patterns filter", f.Path))
+			return util.NewValidationError(fmt.Sprintf("invalid path %q for file patterns filter", f.Path))
 		}
 		if util.Contains(filteredPaths, cleanedPath) {
-			return util.NewValidationError(fmt.Sprintf("duplicate file patterns filter for path %#v", f.Path))
+			return util.NewValidationError(fmt.Sprintf("duplicate file patterns filter for path %q", f.Path))
 		}
 		if len(f.AllowedPatterns) == 0 && len(f.DeniedPatterns) == 0 {
-			return util.NewValidationError(fmt.Sprintf("empty file patterns filter for path %#v", f.Path))
+			return util.NewValidationError(fmt.Sprintf("empty file patterns filter for path %q", f.Path))
 		}
 		if f.DenyPolicy < sdk.DenyPolicyDefault || f.DenyPolicy > sdk.DenyPolicyHide {
-			return util.NewValidationError(fmt.Sprintf("invalid deny policy %v for path %#v", f.DenyPolicy, f.Path))
+			return util.NewValidationError(fmt.Sprintf("invalid deny policy %v for path %q", f.DenyPolicy, f.Path))
 		}
 		f.Path = cleanedPath
 		allowed := make([]string, 0, len(f.AllowedPatterns))
@@ -2727,14 +2727,14 @@ func validateFiltersPatternExtensions(baseFilters *sdk.BaseUserFilters) error {
 		for _, pattern := range f.AllowedPatterns {
 			_, err := path.Match(pattern, "abc")
 			if err != nil {
-				return util.NewValidationError(fmt.Sprintf("invalid file pattern filter %#v", pattern))
+				return util.NewValidationError(fmt.Sprintf("invalid file pattern filter %q", pattern))
 			}
 			allowed = append(allowed, strings.ToLower(pattern))
 		}
 		for _, pattern := range f.DeniedPatterns {
 			_, err := path.Match(pattern, "abc")
 			if err != nil {
-				return util.NewValidationError(fmt.Sprintf("invalid file pattern filter %#v", pattern))
+				return util.NewValidationError(fmt.Sprintf("invalid file pattern filter %q", pattern))
 			}
 			denied = append(denied, strings.ToLower(pattern))
 		}
@@ -2767,14 +2767,14 @@ func validateIPFilters(filters *sdk.BaseUserFilters) error {
 	for _, IPMask := range filters.DeniedIP {
 		_, _, err := net.ParseCIDR(IPMask)
 		if err != nil {
-			return util.NewValidationError(fmt.Sprintf("could not parse denied IP/Mask %#v: %v", IPMask, err))
+			return util.NewValidationError(fmt.Sprintf("could not parse denied IP/Mask %q: %v", IPMask, err))
 		}
 	}
 	filters.AllowedIP = util.RemoveDuplicates(filters.AllowedIP, false)
 	for _, IPMask := range filters.AllowedIP {
 		_, _, err := net.ParseCIDR(IPMask)
 		if err != nil {
-			return util.NewValidationError(fmt.Sprintf("could not parse allowed IP/Mask %#v: %v", IPMask, err))
+			return util.NewValidationError(fmt.Sprintf("could not parse allowed IP/Mask %q: %v", IPMask, err))
 		}
 	}
 	return nil
@@ -2787,7 +2787,7 @@ func validateBandwidthLimit(bl sdk.BandwidthLimit) error {
 	for _, source := range bl.Sources {
 		_, _, err := net.ParseCIDR(source)
 		if err != nil {
-			return util.NewValidationError(fmt.Sprintf("could not parse bandwidth limit source %#v: %v", source, err))
+			return util.NewValidationError(fmt.Sprintf("could not parse bandwidth limit source %q: %v", source, err))
 		}
 	}
 	return nil
@@ -2817,7 +2817,7 @@ func validateTransferLimitsFilter(filters *sdk.BaseUserFilters) error {
 		for _, source := range limit.Sources {
 			_, _, err := net.ParseCIDR(source)
 			if err != nil {
-				return util.NewValidationError(fmt.Sprintf("could not parse data transfer limit source %#v: %v", source, err))
+				return util.NewValidationError(fmt.Sprintf("could not parse data transfer limit source %q: %v", source, err))
 			}
 		}
 		if limit.TotalDataTransfer > 0 {
@@ -2843,13 +2843,13 @@ func validateFilterProtocols(filters *sdk.BaseUserFilters) error {
 	}
 	for _, p := range filters.DeniedProtocols {
 		if !util.Contains(ValidProtocols, p) {
-			return util.NewValidationError(fmt.Sprintf("invalid denied protocol %#v", p))
+			return util.NewValidationError(fmt.Sprintf("invalid denied protocol %q", p))
 		}
 	}
 
 	for _, p := range filters.TwoFactorAuthProtocols {
 		if !util.Contains(MFAProtocols, p) {
-			return util.NewValidationError(fmt.Sprintf("invalid two factor protocol %#v", p))
+			return util.NewValidationError(fmt.Sprintf("invalid two factor protocol %q", p))
 		}
 	}
 	return nil
@@ -2871,7 +2871,7 @@ func validateBaseFilters(filters *sdk.BaseUserFilters) error {
 	}
 	for _, loginMethod := range filters.DeniedLoginMethods {
 		if !util.Contains(ValidLoginMethods, loginMethod) {
-			return util.NewValidationError(fmt.Sprintf("invalid login method: %#v", loginMethod))
+			return util.NewValidationError(fmt.Sprintf("invalid login method: %q", loginMethod))
 		}
 	}
 	if err := validateFilterProtocols(filters); err != nil {
@@ -2879,12 +2879,12 @@ func validateBaseFilters(filters *sdk.BaseUserFilters) error {
 	}
 	if filters.TLSUsername != "" {
 		if !util.Contains(validTLSUsernames, string(filters.TLSUsername)) {
-			return util.NewValidationError(fmt.Sprintf("invalid TLS username: %#v", filters.TLSUsername))
+			return util.NewValidationError(fmt.Sprintf("invalid TLS username: %q", filters.TLSUsername))
 		}
 	}
 	for _, opts := range filters.WebClient {
 		if !util.Contains(sdk.WebClientOptions, opts) {
-			return util.NewValidationError(fmt.Sprintf("invalid web client options %#v", opts))
+			return util.NewValidationError(fmt.Sprintf("invalid web client options %q", opts))
 		}
 	}
 	updateFiltersValues(filters)
@@ -2910,7 +2910,7 @@ func validateBaseParams(user *User) error {
 		return err
 	}
 	if user.Email != "" && !util.IsEmailValid(user.Email) {
-		return util.NewValidationError(fmt.Sprintf("email %#v is not valid", user.Email))
+		return util.NewValidationError(fmt.Sprintf("email %q is not valid", user.Email))
 	}
 	if config.NamingRules&1 == 0 && !usernameRegex.MatchString(user.Username) {
 		return util.NewValidationError(fmt.Sprintf("username %q is not valid, the following characters are allowed: a-zA-Z0-9-_.~",
@@ -2993,7 +2993,7 @@ func ValidateFolder(folder *vfs.BaseVirtualFolder) error {
 		folder.MappedPath != "" {
 		cleanedMPath := filepath.Clean(folder.MappedPath)
 		if !filepath.IsAbs(cleanedMPath) {
-			return util.NewValidationError(fmt.Sprintf("invalid folder mapped path %#v", folder.MappedPath))
+			return util.NewValidationError(fmt.Sprintf("invalid folder mapped path %q", folder.MappedPath))
 		}
 		folder.MappedPath = cleanedMPath
 	}
@@ -3122,7 +3122,7 @@ func checkUserAndTLSCertificate(user *User, protocol string, tlsCert *x509.Certi
 			if user.Username == tlsCert.Subject.CommonName {
 				return *user, nil
 			}
-			return *user, fmt.Errorf("CN %#v does not match username %#v", tlsCert.Subject.CommonName, user.Username)
+			return *user, fmt.Errorf("CN %q does not match username %q", tlsCert.Subject.CommonName, user.Username)
 		}
 		return *user, errors.New("TLS certificate is not valid")
 	default:
@@ -3156,7 +3156,7 @@ func checkUserAndPass(user *User, password, ip, protocol string) (User, error) {
 	if !user.Filters.Hooks.CheckPasswordDisabled {
 		hookResponse, err := executeCheckPasswordHook(user.Username, password, ip, protocol)
 		if err != nil {
-			providerLog(logger.LevelDebug, "error executing check password hook for user %#v, ip %v, protocol %v: %v",
+			providerLog(logger.LevelDebug, "error executing check password hook for user %q, ip %v, protocol %v: %v",
 				user.Username, ip, protocol, err)
 			return *user, errors.New("unable to check credentials")
 		}
@@ -3164,15 +3164,15 @@ func checkUserAndPass(user *User, password, ip, protocol string) (User, error) {
 		case -1:
 			// no hook configured
 		case 1:
-			providerLog(logger.LevelDebug, "password accepted by check password hook for user %#v, ip %v, protocol %v",
+			providerLog(logger.LevelDebug, "password accepted by check password hook for user %q, ip %v, protocol %v",
 				user.Username, ip, protocol)
 			return *user, nil
 		case 2:
-			providerLog(logger.LevelDebug, "partial success from check password hook for user %#v, ip %v, protocol %v",
+			providerLog(logger.LevelDebug, "partial success from check password hook for user %q, ip %v, protocol %v",
 				user.Username, ip, protocol)
 			password = hookResponse.ToVerify
 		default:
-			providerLog(logger.LevelDebug, "password rejected by check password hook for user %#v, ip %v, protocol %v, status: %v",
+			providerLog(logger.LevelDebug, "password rejected by check password hook for user %q, ip %v, protocol %v, status: %v",
 				user.Username, ip, protocol, hookResponse.Status)
 			return *user, ErrInvalidCredentials
 		}
@@ -3193,13 +3193,13 @@ func checkUserPasscode(user *User, password, protocol string) (string, error) {
 				// the TOTP passcode has six digits
 				pwdLen := len(password)
 				if pwdLen < 7 {
-					providerLog(logger.LevelDebug, "password len %v is too short to contain a passcode, user %#v, protocol %v",
+					providerLog(logger.LevelDebug, "password len %v is too short to contain a passcode, user %q, protocol %v",
 						pwdLen, user.Username, protocol)
 					return "", util.NewValidationError("password too short, cannot contain the passcode")
 				}
 				err := user.Filters.TOTPConfig.Secret.TryDecrypt()
 				if err != nil {
-					providerLog(logger.LevelError, "unable to decrypt TOTP secret for user %#v, protocol %v, err: %v",
+					providerLog(logger.LevelError, "unable to decrypt TOTP secret for user %q, protocol %v, err: %v",
 						user.Username, protocol, err)
 					return "", err
 				}
@@ -3208,7 +3208,7 @@ func checkUserPasscode(user *User, password, protocol string) (string, error) {
 				match, err := mfa.ValidateTOTPPasscode(user.Filters.TOTPConfig.ConfigName, passcode,
 					user.Filters.TOTPConfig.Secret.GetPayload())
 				if !match || err != nil {
-					providerLog(logger.LevelWarn, "invalid passcode for user %#v, protocol %v, err: %v",
+					providerLog(logger.LevelWarn, "invalid passcode for user %q, protocol %v, err: %v",
 						user.Username, protocol, err)
 					return "", util.NewValidationError("invalid passcode")
 				}
@@ -3384,7 +3384,7 @@ func doBuiltinKeyboardInteractiveAuth(user *User, client ssh.KeyboardInteractive
 	}
 	err = user.Filters.TOTPConfig.Secret.TryDecrypt()
 	if err != nil {
-		providerLog(logger.LevelError, "unable to decrypt TOTP secret for user %#v, protocol %v, err: %v",
+		providerLog(logger.LevelError, "unable to decrypt TOTP secret for user %q, protocol %v, err: %v",
 			user.Username, protocol, err)
 		return 0, err
 	}
@@ -3398,7 +3398,7 @@ func doBuiltinKeyboardInteractiveAuth(user *User, client ssh.KeyboardInteractive
 	match, err := mfa.ValidateTOTPPasscode(user.Filters.TOTPConfig.ConfigName, answers[0],
 		user.Filters.TOTPConfig.Secret.GetPayload())
 	if !match || err != nil {
-		providerLog(logger.LevelWarn, "invalid passcode for user %#v, protocol %v, err: %v",
+		providerLog(logger.LevelWarn, "invalid passcode for user %q, protocol %v, err: %v",
 			user.Username, protocol, err)
 		return 0, util.NewValidationError("invalid passcode")
 	}
@@ -3504,26 +3504,26 @@ func getKeyboardInteractiveAnswers(client ssh.KeyboardInteractiveChallenge, resp
 	if len(answers) == 1 && response.CheckPwd > 0 {
 		if response.CheckPwd == 2 {
 			if !user.Filters.TOTPConfig.Enabled || !util.Contains(user.Filters.TOTPConfig.Protocols, protocolSSH) {
-				providerLog(logger.LevelInfo, "keyboard interactive auth error: unable to check TOTP passcode, TOTP is not enabled for user %#v",
+				providerLog(logger.LevelInfo, "keyboard interactive auth error: unable to check TOTP passcode, TOTP is not enabled for user %q",
 					user.Username)
 				return answers, errors.New("TOTP not enabled for SSH protocol")
 			}
 			err := user.Filters.TOTPConfig.Secret.TryDecrypt()
 			if err != nil {
-				providerLog(logger.LevelError, "unable to decrypt TOTP secret for user %#v, protocol %v, err: %v",
+				providerLog(logger.LevelError, "unable to decrypt TOTP secret for user %q, protocol %v, err: %v",
 					user.Username, protocol, err)
 				return answers, fmt.Errorf("unable to decrypt TOTP secret: %w", err)
 			}
 			match, err := mfa.ValidateTOTPPasscode(user.Filters.TOTPConfig.ConfigName, answers[0],
 				user.Filters.TOTPConfig.Secret.GetPayload())
 			if !match || err != nil {
-				providerLog(logger.LevelInfo, "keyboard interactive auth error: unable to validate passcode for user %#v, match? %v, err: %v",
+				providerLog(logger.LevelInfo, "keyboard interactive auth error: unable to validate passcode for user %q, match? %v, err: %v",
 					user.Username, match, err)
 				return answers, errors.New("unable to validate TOTP passcode")
 			}
 		} else {
 			_, err = checkUserAndPass(user, answers[0], ip, protocol)
-			providerLog(logger.LevelInfo, "interactive auth hook requested password validation for user %#v, validation error: %v",
+			providerLog(logger.LevelInfo, "interactive auth hook requested password validation for user %q, validation error: %v",
 				user.Username, err)
 			if err != nil {
 				return answers, err
@@ -3563,9 +3563,9 @@ func executeKeyboardInteractiveProgram(user *User, authHook string, client ssh.K
 
 	cmd := exec.CommandContext(ctx, authHook, args...)
 	cmd.Env = append(env,
-		fmt.Sprintf("SFTPGO_AUTHD_USERNAME=%v", user.Username),
-		fmt.Sprintf("SFTPGO_AUTHD_IP=%v", ip),
-		fmt.Sprintf("SFTPGO_AUTHD_PASSWORD=%v", user.Password))
+		fmt.Sprintf("SFTPGO_AUTHD_USERNAME=%s", user.Username),
+		fmt.Sprintf("SFTPGO_AUTHD_IP=%s", ip),
+		fmt.Sprintf("SFTPGO_AUTHD_PASSWORD=%s", user.Password))
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return authResult, err
@@ -3609,7 +3609,7 @@ func executeKeyboardInteractiveProgram(user *User, authHook string, client ssh.K
 	go func() {
 		_, err := cmd.Process.Wait()
 		if err != nil {
-			providerLog(logger.LevelWarn, "error waiting for #%v process to exit: %v", authHook, err)
+			providerLog(logger.LevelWarn, "error waiting for %q process to exit: %v", authHook, err)
 		}
 	}()
 
@@ -3696,12 +3696,12 @@ func getPasswordHookResponse(username, password, ip, protocol string) ([]byte, e
 
 	cmd := exec.CommandContext(ctx, config.CheckPasswordHook, args...)
 	cmd.Env = append(env,
-		fmt.Sprintf("SFTPGO_AUTHD_USERNAME=%v", username),
-		fmt.Sprintf("SFTPGO_AUTHD_PASSWORD=%v", password),
-		fmt.Sprintf("SFTPGO_AUTHD_IP=%v", ip),
-		fmt.Sprintf("SFTPGO_AUTHD_PROTOCOL=%v", protocol),
+		fmt.Sprintf("SFTPGO_AUTHD_USERNAME=%s", username),
+		fmt.Sprintf("SFTPGO_AUTHD_PASSWORD=%s", password),
+		fmt.Sprintf("SFTPGO_AUTHD_IP=%s", ip),
+		fmt.Sprintf("SFTPGO_AUTHD_PROTOCOL=%s", protocol),
 	)
-	return cmd.Output()
+	return getCmdOutput(cmd, "check_password_hook")
 }
 
 func executeCheckPasswordHook(username, password, ip, protocol string) (checkPasswordResponse, error) {
@@ -3728,7 +3728,7 @@ func getPreLoginHookResponse(loginMethod, ip, protocol string, userAsJSON []byte
 		var result []byte
 		url, err := url.Parse(config.PreLoginHook)
 		if err != nil {
-			providerLog(logger.LevelError, "invalid url for pre-login hook %#v, error: %v", config.PreLoginHook, err)
+			providerLog(logger.LevelError, "invalid url for pre-login hook %q, error: %v", config.PreLoginHook, err)
 			return result, err
 		}
 		q := url.Query()
@@ -3757,12 +3757,12 @@ func getPreLoginHookResponse(loginMethod, ip, protocol string, userAsJSON []byte
 
 	cmd := exec.CommandContext(ctx, config.PreLoginHook, args...)
 	cmd.Env = append(env,
-		fmt.Sprintf("SFTPGO_LOGIND_USER=%v", string(userAsJSON)),
-		fmt.Sprintf("SFTPGO_LOGIND_METHOD=%v", loginMethod),
-		fmt.Sprintf("SFTPGO_LOGIND_IP=%v", ip),
-		fmt.Sprintf("SFTPGO_LOGIND_PROTOCOL=%v", protocol),
+		fmt.Sprintf("SFTPGO_LOGIND_USER=%s", string(userAsJSON)),
+		fmt.Sprintf("SFTPGO_LOGIND_METHOD=%s", loginMethod),
+		fmt.Sprintf("SFTPGO_LOGIND_IP=%s", ip),
+		fmt.Sprintf("SFTPGO_LOGIND_PROTOCOL=%s", protocol),
 	)
-	return cmd.Output()
+	return getCmdOutput(cmd, "pre_login_hook")
 }
 
 func executePreLoginHook(username, loginMethod, ip, protocol string, oidcTokenFields *map[string]any) (User, error) {
@@ -3776,15 +3776,15 @@ func executePreLoginHook(username, loginMethod, ip, protocol string, oidcTokenFi
 	startTime := time.Now()
 	out, err := getPreLoginHookResponse(loginMethod, ip, protocol, userAsJSON)
 	if err != nil {
-		return u, fmt.Errorf("pre-login hook error: %v, username %#v, ip %v, protocol %v elapsed %v",
+		return u, fmt.Errorf("pre-login hook error: %v, username %q, ip %v, protocol %v elapsed %v",
 			err, username, ip, protocol, time.Since(startTime))
 	}
-	providerLog(logger.LevelDebug, "pre-login hook completed, elapsed: %v", time.Since(startTime))
+	providerLog(logger.LevelDebug, "pre-login hook completed, elapsed: %s", time.Since(startTime))
 	if util.IsByteArrayEmpty(out) {
-		providerLog(logger.LevelDebug, "empty response from pre-login hook, no modification requested for user %#v id: %v",
+		providerLog(logger.LevelDebug, "empty response from pre-login hook, no modification requested for user %q id: %d",
 			username, u.ID)
 		if u.ID == 0 {
-			return u, util.NewRecordNotFoundError(fmt.Sprintf("username %#v does not exist", username))
+			return u, util.NewRecordNotFoundError(fmt.Sprintf("username %q does not exist", username))
 		}
 		return u, nil
 	}
@@ -3805,7 +3805,7 @@ func executePreLoginHook(username, loginMethod, ip, protocol string, oidcTokenFi
 	recoveryCodes := u.Filters.RecoveryCodes
 	err = json.Unmarshal(out, &u)
 	if err != nil {
-		return u, fmt.Errorf("invalid pre-login hook response %#v, error: %v", string(out), err)
+		return u, fmt.Errorf("invalid pre-login hook response %q, error: %v", string(out), err)
 	}
 	u.ID = userID
 	u.UsedQuotaSize = userUsedQuotaSize
@@ -3836,7 +3836,7 @@ func executePreLoginHook(username, loginMethod, ip, protocol string, oidcTokenFi
 	if err != nil {
 		return u, err
 	}
-	providerLog(logger.LevelDebug, "user %#v added/updated from pre-login hook response, id: %v", username, userID)
+	providerLog(logger.LevelDebug, "user %q added/updated from pre-login hook response, id: %d", username, userID)
 	if userID == 0 {
 		return provider.userExists(username, "")
 	}
@@ -3876,7 +3876,7 @@ func ExecutePostLoginHook(user *User, loginMethod, ip, protocol string, err erro
 			var url *url.URL
 			url, err := url.Parse(config.PostLoginHook)
 			if err != nil {
-				providerLog(logger.LevelDebug, "Invalid post-login hook %#v", config.PostLoginHook)
+				providerLog(logger.LevelDebug, "Invalid post-login hook %q", config.PostLoginHook)
 				return
 			}
 			q := url.Query()
@@ -3893,7 +3893,7 @@ func ExecutePostLoginHook(user *User, loginMethod, ip, protocol string, err erro
 				respCode = resp.StatusCode
 				resp.Body.Close()
 			}
-			providerLog(logger.LevelDebug, "post login hook executed for user %#v, ip %v, protocol %v, response code: %v, elapsed: %v err: %v",
+			providerLog(logger.LevelDebug, "post login hook executed for user %q, ip %v, protocol %v, response code: %v, elapsed: %v err: %v",
 				user.Username, ip, protocol, respCode, time.Since(startTime), err)
 			return
 		}
@@ -3903,14 +3903,14 @@ func ExecutePostLoginHook(user *User, loginMethod, ip, protocol string, err erro
 
 		cmd := exec.CommandContext(ctx, config.PostLoginHook, args...)
 		cmd.Env = append(env,
-			fmt.Sprintf("SFTPGO_LOGIND_USER=%v", string(userAsJSON)),
-			fmt.Sprintf("SFTPGO_LOGIND_IP=%v", ip),
-			fmt.Sprintf("SFTPGO_LOGIND_METHOD=%v", loginMethod),
-			fmt.Sprintf("SFTPGO_LOGIND_STATUS=%v", status),
-			fmt.Sprintf("SFTPGO_LOGIND_PROTOCOL=%v", protocol))
+			fmt.Sprintf("SFTPGO_LOGIND_USER=%s", string(userAsJSON)),
+			fmt.Sprintf("SFTPGO_LOGIND_IP=%s", ip),
+			fmt.Sprintf("SFTPGO_LOGIND_METHOD=%s", loginMethod),
+			fmt.Sprintf("SFTPGO_LOGIND_STATUS=%s", status),
+			fmt.Sprintf("SFTPGO_LOGIND_PROTOCOL=%s", protocol))
 		startTime := time.Now()
 		err = cmd.Run()
-		providerLog(logger.LevelDebug, "post login hook executed for user %#v, ip %v, protocol %v, elapsed %v err: %v",
+		providerLog(logger.LevelDebug, "post login hook executed for user %q, ip %v, protocol %v, elapsed %v err: %v",
 			user.Username, ip, protocol, time.Since(startTime), err)
 	}()
 }
@@ -3971,34 +3971,16 @@ func getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, 
 
 	cmd := exec.CommandContext(ctx, config.ExternalAuthHook, args...)
 	cmd.Env = append(env,
-		fmt.Sprintf("SFTPGO_AUTHD_USERNAME=%v", username),
-		fmt.Sprintf("SFTPGO_AUTHD_USER=%v", string(userAsJSON)),
-		fmt.Sprintf("SFTPGO_AUTHD_IP=%v", ip),
-		fmt.Sprintf("SFTPGO_AUTHD_PASSWORD=%v", password),
-		fmt.Sprintf("SFTPGO_AUTHD_PUBLIC_KEY=%v", pkey),
-		fmt.Sprintf("SFTPGO_AUTHD_PROTOCOL=%v", protocol),
-		fmt.Sprintf("SFTPGO_AUTHD_TLS_CERT=%v", strings.ReplaceAll(tlsCert, "\n", "\\n")),
+		fmt.Sprintf("SFTPGO_AUTHD_USERNAME=%s", username),
+		fmt.Sprintf("SFTPGO_AUTHD_USER=%s", string(userAsJSON)),
+		fmt.Sprintf("SFTPGO_AUTHD_IP=%s", ip),
+		fmt.Sprintf("SFTPGO_AUTHD_PASSWORD=%s", password),
+		fmt.Sprintf("SFTPGO_AUTHD_PUBLIC_KEY=%s", pkey),
+		fmt.Sprintf("SFTPGO_AUTHD_PROTOCOL=%s", protocol),
+		fmt.Sprintf("SFTPGO_AUTHD_TLS_CERT=%s", strings.ReplaceAll(tlsCert, "\n", "\\n")),
 		fmt.Sprintf("SFTPGO_AUTHD_KEYBOARD_INTERACTIVE=%v", keyboardInteractive))
 
-	var stdout bytes.Buffer
-	cmd.Stdout = &stdout
-
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return nil, err
-	}
-
-	err = cmd.Start()
-	if err != nil {
-		return nil, err
-	}
-
-	in := bufio.NewScanner(stderr)
-	for in.Scan() {
-		logger.Log(logger.LevelWarn, "external_auth_hook", "", "%s", in.Text())
-	}
-
-	return stdout.Bytes(), cmd.Wait()
+	return getCmdOutput(cmd, "external_auth_hook")
 }
 
 func updateUserFromExtAuthResponse(user *User, password, pkey string) {
@@ -4037,14 +4019,14 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 	startTime := time.Now()
 	out, err := getExternalAuthResponse(username, password, pkey, keyboardInteractive, ip, protocol, tlsCert, u)
 	if err != nil {
-		return user, fmt.Errorf("external auth error for user %#v: %v, elapsed: %v", username, err, time.Since(startTime))
+		return user, fmt.Errorf("external auth error for user %q, elapsed: %s: %w", username, time.Since(startTime), err)
 	}
-	providerLog(logger.LevelDebug, "external auth completed for user %#v, elapsed: %v", username, time.Since(startTime))
+	providerLog(logger.LevelDebug, "external auth completed for user %q, elapsed: %s", username, time.Since(startTime))
 	if util.IsByteArrayEmpty(out) {
-		providerLog(logger.LevelDebug, "empty response from external hook, no modification requested for user %#v id: %v",
+		providerLog(logger.LevelDebug, "empty response from external hook, no modification requested for user %q, id: %d",
 			username, u.ID)
 		if u.ID == 0 {
-			return u, util.NewRecordNotFoundError(fmt.Sprintf("username %#v does not exist", username))
+			return u, util.NewRecordNotFoundError(fmt.Sprintf("username %q does not exist", username))
 		}
 		return u, nil
 	}
@@ -4121,16 +4103,16 @@ func doPluginAuth(username, password string, pubKey []byte, ip, protocol string,
 
 	out, err := plugin.Handler.Authenticate(username, password, ip, protocol, pkey, tlsCert, authScope, userAsJSON)
 	if err != nil {
-		return user, fmt.Errorf("plugin auth error for user %#v: %v, elapsed: %v, auth scope: %v",
+		return user, fmt.Errorf("plugin auth error for user %q: %v, elapsed: %v, auth scope: %v",
 			username, err, time.Since(startTime), authScope)
 	}
-	providerLog(logger.LevelDebug, "plugin auth completed for user %#v, elapsed: %v,auth scope: %v",
+	providerLog(logger.LevelDebug, "plugin auth completed for user %q, elapsed: %v,auth scope: %v",
 		username, time.Since(startTime), authScope)
 	if util.IsByteArrayEmpty(out) {
-		providerLog(logger.LevelDebug, "empty response from plugin auth, no modification requested for user %#v id: %v",
+		providerLog(logger.LevelDebug, "empty response from plugin auth, no modification requested for user %q id: %v",
 			username, u.ID)
 		if u.ID == 0 {
-			return u, util.NewRecordNotFoundError(fmt.Sprintf("username %#v does not exist", username))
+			return u, util.NewRecordNotFoundError(fmt.Sprintf("username %q does not exist", username))
 		}
 		return u, nil
 	}
@@ -4226,6 +4208,30 @@ func checkReservedUsernames(username string) error {
 		return util.NewValidationError("this username is reserved")
 	}
 	return nil
+}
+
+func getCmdOutput(cmd *exec.Cmd, sender string) ([]byte, error) {
+	var stdout bytes.Buffer
+	cmd.Stdout = &stdout
+
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return nil, err
+	}
+
+	err = cmd.Start()
+	if err != nil {
+		return nil, err
+	}
+
+	scanner := bufio.NewScanner(stderr)
+	for scanner.Scan() {
+		if out := scanner.Text(); out != "" {
+			logger.Log(logger.LevelWarn, sender, "", out)
+		}
+	}
+	err = cmd.Wait()
+	return stdout.Bytes(), err
 }
 
 func providerLog(level logger.LogLevel, format string, v ...any) {
