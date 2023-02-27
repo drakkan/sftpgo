@@ -100,10 +100,10 @@ func createUserDir(w http.ResponseWriter, r *http.Request) {
 	connection.User.CheckFsRoot(connection.ID) //nolint:errcheck
 	err = connection.CreateDir(name, true)
 	if err != nil {
-		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to create directory %#v", name), getMappedStatusCode(err))
+		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to create directory %q", name), getMappedStatusCode(err))
 		return
 	}
-	sendAPIResponse(w, r, nil, fmt.Sprintf("Directory %#v created", name), http.StatusCreated)
+	sendAPIResponse(w, r, nil, fmt.Sprintf("Directory %q created", name), http.StatusCreated)
 }
 
 func deleteUserDir(w http.ResponseWriter, r *http.Request) {
@@ -192,7 +192,7 @@ func getUserFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if info.IsDir() {
-		sendAPIResponse(w, r, nil, fmt.Sprintf("Please set the path to a valid file, %#v is a directory", name), http.StatusBadRequest)
+		sendAPIResponse(w, r, nil, fmt.Sprintf("Please set the path to a valid file, %q is a directory", name), http.StatusBadRequest)
 		return
 	}
 
@@ -239,7 +239,7 @@ func setFileDirMetadata(w http.ResponseWriter, r *http.Request) {
 	}
 	err = connection.SetStat(name, &attrs)
 	if err != nil {
-		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to set metadata for path %#v", name), getMappedStatusCode(err))
+		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to set metadata for path %q", name), getMappedStatusCode(err))
 		return
 	}
 	sendAPIResponse(w, r, nil, "OK", http.StatusOK)
@@ -275,18 +275,18 @@ func doUploadFile(w http.ResponseWriter, r *http.Request, connection *Connection
 	connection.User.CheckFsRoot(connection.ID) //nolint:errcheck
 	writer, err := connection.getFileWriter(filePath)
 	if err != nil {
-		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to write file %#v", filePath), getMappedStatusCode(err))
+		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to write file %q", filePath), getMappedStatusCode(err))
 		return err
 	}
 	_, err = io.Copy(writer, r.Body)
 	if err != nil {
 		writer.Close() //nolint:errcheck
-		sendAPIResponse(w, r, err, fmt.Sprintf("Error saving file %#v", filePath), getMappedStatusCode(err))
+		sendAPIResponse(w, r, err, fmt.Sprintf("Error saving file %q", filePath), getMappedStatusCode(err))
 		return err
 	}
 	err = writer.Close()
 	if err != nil {
-		sendAPIResponse(w, r, err, fmt.Sprintf("Error closing file %#v", filePath), getMappedStatusCode(err))
+		sendAPIResponse(w, r, err, fmt.Sprintf("Error closing file %q", filePath), getMappedStatusCode(err))
 		return err
 	}
 	setModificationTimeFromHeader(r, connection, filePath)
@@ -348,7 +348,7 @@ func doUploadFiles(w http.ResponseWriter, r *http.Request, connection *Connectio
 	for _, f := range files {
 		file, err := f.Open()
 		if err != nil {
-			sendAPIResponse(w, r, err, fmt.Sprintf("Unable to read uploaded file %#v", f.Filename), getMappedStatusCode(err))
+			sendAPIResponse(w, r, err, fmt.Sprintf("Unable to read uploaded file %q", f.Filename), getMappedStatusCode(err))
 			return uploaded
 		}
 		defer file.Close()
@@ -356,18 +356,18 @@ func doUploadFiles(w http.ResponseWriter, r *http.Request, connection *Connectio
 		filePath := path.Join(parentDir, path.Base(util.CleanPath(f.Filename)))
 		writer, err := connection.getFileWriter(filePath)
 		if err != nil {
-			sendAPIResponse(w, r, err, fmt.Sprintf("Unable to write file %#v", f.Filename), getMappedStatusCode(err))
+			sendAPIResponse(w, r, err, fmt.Sprintf("Unable to write file %q", f.Filename), getMappedStatusCode(err))
 			return uploaded
 		}
 		_, err = io.Copy(writer, file)
 		if err != nil {
 			writer.Close() //nolint:errcheck
-			sendAPIResponse(w, r, err, fmt.Sprintf("Error saving file %#v", f.Filename), getMappedStatusCode(err))
+			sendAPIResponse(w, r, err, fmt.Sprintf("Error saving file %q", f.Filename), getMappedStatusCode(err))
 			return uploaded
 		}
 		err = writer.Close()
 		if err != nil {
-			sendAPIResponse(w, r, err, fmt.Sprintf("Error closing file %#v", f.Filename), getMappedStatusCode(err))
+			sendAPIResponse(w, r, err, fmt.Sprintf("Error closing file %q", f.Filename), getMappedStatusCode(err))
 			return uploaded
 		}
 		uploaded++
@@ -387,15 +387,15 @@ func deleteUserFile(w http.ResponseWriter, r *http.Request) {
 	name := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
 	fs, p, err := connection.GetFsAndResolvedPath(name)
 	if err != nil {
-		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to delete file %#v", name), getMappedStatusCode(err))
+		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to delete file %q", name), getMappedStatusCode(err))
 		return
 	}
 
 	var fi os.FileInfo
 	if fi, err = fs.Lstat(p); err != nil {
-		connection.Log(logger.LevelError, "failed to remove file %#v: stat error: %+v", p, err)
+		connection.Log(logger.LevelError, "failed to remove file %q: stat error: %+v", p, err)
 		err = connection.GetFsError(fs, err)
-		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to delete file %#v", name), getMappedStatusCode(err))
+		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to delete file %q", name), getMappedStatusCode(err))
 		return
 	}
 
@@ -409,7 +409,7 @@ func deleteUserFile(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to delete file %q", name), getMappedStatusCode(err))
 		return
 	}
-	sendAPIResponse(w, r, nil, fmt.Sprintf("File %#v deleted", name), http.StatusOK)
+	sendAPIResponse(w, r, nil, fmt.Sprintf("File %q deleted", name), http.StatusOK)
 }
 
 func getUserFilesAsZipStream(w http.ResponseWriter, r *http.Request) {
@@ -554,7 +554,7 @@ func setModificationTimeFromHeader(r *http.Request, c *Connection, filePath stri
 				Mtime: util.GetTimeFromMsecSinceEpoch(mTime),
 			}
 			err = c.SetStat(filePath, &attrs)
-			c.Log(logger.LevelDebug, "requested modification time %v for file %#v, error: %v",
+			c.Log(logger.LevelDebug, "requested modification time %v for file %q, error: %v",
 				attrs.Mtime, filePath, err)
 		} else {
 			c.Log(logger.LevelInfo, "invalid modification time header was ignored: %v", mTimeString)

@@ -392,6 +392,9 @@ func TestMappedStatusCode(t *testing.T) {
 	err = os.ErrClosed
 	code = getMappedStatusCode(err)
 	assert.Equal(t, http.StatusInternalServerError, code)
+	err = &http.MaxBytesError{}
+	code = getMappedStatusCode(err)
+	assert.Equal(t, http.StatusRequestEntityTooLarge, code)
 }
 
 func TestGCSWebInvalidFormFile(t *testing.T) {

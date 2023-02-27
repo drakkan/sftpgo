@@ -122,7 +122,11 @@ func getMappedStatusCode(err error) int {
 	case errors.Is(err, common.ErrOpUnsupported):
 		statusCode = http.StatusBadRequest
 	default:
-		statusCode = http.StatusInternalServerError
+		if _, ok := err.(*http.MaxBytesError); ok {
+			statusCode = http.StatusRequestEntityTooLarge
+		} else {
+			statusCode = http.StatusInternalServerError
+		}
 	}
 	return statusCode
 }
