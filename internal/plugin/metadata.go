@@ -52,7 +52,7 @@ func (p *metadataPlugin) cleanup() {
 
 func (p *metadataPlugin) initialize() error {
 	killProcess(p.config.Cmd)
-	logger.Debug(logSender, "", "create new metadata plugin %#v", p.config.Cmd)
+	logger.Debug(logSender, "", "create new metadata plugin %q", p.config.Cmd)
 	secureConfig, err := p.config.getSecureConfig()
 	if err != nil {
 		return err
@@ -77,12 +77,12 @@ func (p *metadataPlugin) initialize() error {
 	})
 	rpcClient, err := client.Client()
 	if err != nil {
-		logger.Debug(logSender, "", "unable to get rpc client for plugin %#v: %v", p.config.Cmd, err)
+		logger.Debug(logSender, "", "unable to get rpc client for plugin %q: %v", p.config.Cmd, err)
 		return err
 	}
 	raw, err := rpcClient.Dispense(metadata.PluginName)
 	if err != nil {
-		logger.Debug(logSender, "", "unable to get plugin %v from rpc client for command %#v: %v",
+		logger.Debug(logSender, "", "unable to get plugin %v from rpc client for command %q: %v",
 			metadata.PluginName, p.config.Cmd, err)
 		return err
 	}

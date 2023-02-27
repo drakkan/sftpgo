@@ -51,7 +51,7 @@ func (p *ipFilterPlugin) cleanup() {
 }
 
 func (p *ipFilterPlugin) initialize() error {
-	logger.Debug(logSender, "", "create new IP filter plugin %#v", p.config.Cmd)
+	logger.Debug(logSender, "", "create new IP filter plugin %q", p.config.Cmd)
 	killProcess(p.config.Cmd)
 	secureConfig, err := p.config.getSecureConfig()
 	if err != nil {
@@ -77,12 +77,12 @@ func (p *ipFilterPlugin) initialize() error {
 	})
 	rpcClient, err := client.Client()
 	if err != nil {
-		logger.Debug(logSender, "", "unable to get rpc client for plugin %#v: %v", p.config.Cmd, err)
+		logger.Debug(logSender, "", "unable to get rpc client for plugin %q: %v", p.config.Cmd, err)
 		return err
 	}
 	raw, err := rpcClient.Dispense(ipfilter.PluginName)
 	if err != nil {
-		logger.Debug(logSender, "", "unable to get plugin %v from rpc client for command %#v: %v",
+		logger.Debug(logSender, "", "unable to get plugin %v from rpc client for command %q: %v",
 			ipfilter.PluginName, p.config.Cmd, err)
 		return err
 	}

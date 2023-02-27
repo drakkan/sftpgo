@@ -272,7 +272,7 @@ func (t *BaseTransfer) Truncate(fsPath string, size int64) (int64, error) {
 				}
 				t.Unlock()
 			}
-			t.Connection.Log(logger.LevelDebug, "file %#v truncated to size %v max write size %v new initial size %v err: %v",
+			t.Connection.Log(logger.LevelDebug, "file %q truncated to size %v max write size %v new initial size %v err: %v",
 				fsPath, size, t.MaxWriteSize, t.InitialSize, err)
 			return initialSize, err
 		}
@@ -301,7 +301,7 @@ func (t *BaseTransfer) TransferError(err error) {
 		t.cancelFn()
 	}
 	elapsed := time.Since(t.start).Nanoseconds() / 1000000
-	t.Connection.Log(logger.LevelError, "Unexpected error for transfer, path: %#v, error: \"%v\" bytes sent: %v, "+
+	t.Connection.Log(logger.LevelError, "Unexpected error for transfer, path: %q, error: \"%v\" bytes sent: %v, "+
 		"bytes received: %v transfer running since %v ms", t.fsPath, t.ErrTransfer, t.BytesSent.Load(),
 		t.BytesReceived.Load(), elapsed)
 }
@@ -317,7 +317,7 @@ func (t *BaseTransfer) getUploadFileSize() (int64, int, error) {
 	if t.ErrTransfer != nil && vfs.IsCryptOsFs(t.Fs) {
 		errDelete := t.Fs.Remove(t.fsPath, false)
 		if errDelete != nil {
-			t.Connection.Log(logger.LevelWarn, "error removing partial crypto file %#v: %v", t.fsPath, errDelete)
+			t.Connection.Log(logger.LevelWarn, "error removing partial crypto file %q: %v", t.fsPath, errDelete)
 		} else {
 			fileSize = 0
 			deletedFiles = 1
@@ -337,7 +337,7 @@ func (t *BaseTransfer) checkUploadOutsideHomeDir(err error) int {
 		return 0
 	}
 	err = t.Fs.Remove(t.effectiveFsPath, false)
-	t.Connection.Log(logger.LevelWarn, "upload in temp path cannot be renamed, delete temporary file: %#v, deletion error: %v",
+	t.Connection.Log(logger.LevelWarn, "upload in temp path cannot be renamed, delete temporary file: %q, deletion error: %v",
 		t.effectiveFsPath, err)
 	// the file is outside the home dir so don't update the quota
 	t.BytesReceived.Store(0)
@@ -368,18 +368,18 @@ func (t *BaseTransfer) Close() error {
 			t.BytesReceived.Store(0)
 			t.MinWriteOffset = 0
 		}
-		t.Connection.Log(logger.LevelWarn, "upload denied due to space limit, delete temporary file: %#v, deletion error: %v",
+		t.Connection.Log(logger.LevelWarn, "upload denied due to space limit, delete temporary file: %q, deletion error: %v",
 			t.File.Name(), err)
 	} else if t.transferType == TransferUpload && t.effectiveFsPath != t.fsPath {
 		if t.ErrTransfer == nil || Config.UploadMode == UploadModeAtomicWithResume {
 			_, _, err = t.Fs.Rename(t.effectiveFsPath, t.fsPath)
-			t.Connection.Log(logger.LevelDebug, "atomic upload completed, rename: %#v -> %#v, error: %v",
+			t.Connection.Log(logger.LevelDebug, "atomic upload completed, rename: %q -> %q, error: %v",
 				t.effectiveFsPath, t.fsPath, err)
 			// the file must be removed if it is uploaded to a path outside the home dir and cannot be renamed
 			t.checkUploadOutsideHomeDir(err)
 		} else {
 			err = t.Fs.Remove(t.effectiveFsPath, false)
-			t.Connection.Log(logger.LevelWarn, "atomic upload completed with error: \"%v\", delete temporary file: %#v, deletion error: %v",
+			t.Connection.Log(logger.LevelWarn, "atomic upload completed with error: \"%v\", delete temporary file: %q, deletion error: %v",
 				t.ErrTransfer, t.effectiveFsPath, err)
 			if err == nil {
 				t.BytesReceived.Store(0)
@@ -415,7 +415,7 @@ func (t *BaseTransfer) Close() error {
 			t.Connection.ID, t.Connection.protocol, t.Connection.localAddr, t.Connection.remoteAddr, t.ftpMode)
 	}
 	if t.ErrTransfer != nil {
-		t.Connection.Log(logger.LevelError, "transfer error: %v, path: %#v", t.ErrTransfer, t.fsPath)
+		t.Connection.Log(logger.LevelError, "transfer error: %v, path: %q", t.ErrTransfer, t.fsPath)
 		if err == nil {
 			err = t.ErrTransfer
 		}
@@ -479,7 +479,7 @@ func (t *BaseTransfer) getUploadedFiles() int {
 func (t *BaseTransfer) updateTimes() {
 	if !t.aTime.IsZero() && !t.mTime.IsZero() {
 		err := t.Fs.Chtimes(t.fsPath, t.aTime, t.mTime, true)
-		t.Connection.Log(logger.LevelDebug, "set times for file %#v, atime: %v, mtime: %v, err: %v",
+		t.Connection.Log(logger.LevelDebug, "set times for file %q, atime: %v, mtime: %v, err: %v",
 			t.fsPath, t.aTime, t.mTime, err)
 	}
 }

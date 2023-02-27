@@ -129,7 +129,7 @@ func (c *Config) loadCACerts(configDir string) (*x509.CertPool, error) {
 
 	for _, ca := range c.CACertificates {
 		if !util.IsFileInputValid(ca) {
-			return nil, fmt.Errorf("unable to load invalid CA certificate: %#v", ca)
+			return nil, fmt.Errorf("unable to load invalid CA certificate: %q", ca)
 		}
 		if !filepath.IsAbs(ca) {
 			ca = filepath.Join(configDir, ca)
@@ -139,9 +139,9 @@ func (c *Config) loadCACerts(configDir string) (*x509.CertPool, error) {
 			return nil, fmt.Errorf("unable to load CA certificate: %v", err)
 		}
 		if rootCAs.AppendCertsFromPEM(certs) {
-			logger.Debug(logSender, "", "CA certificate %#v added to the trusted certificates", ca)
+			logger.Debug(logSender, "", "CA certificate %q added to the trusted certificates", ca)
 		} else {
-			return nil, fmt.Errorf("unable to add CA certificate %#v to the trusted cetificates", ca)
+			return nil, fmt.Errorf("unable to add CA certificate %q to the trusted cetificates", ca)
 		}
 	}
 	return rootCAs, nil
@@ -156,10 +156,10 @@ func (c *Config) loadCertificates(configDir string) error {
 		cert := keyPair.Cert
 		key := keyPair.Key
 		if !util.IsFileInputValid(cert) {
-			return fmt.Errorf("unable to load invalid certificate: %#v", cert)
+			return fmt.Errorf("unable to load invalid certificate: %q", cert)
 		}
 		if !util.IsFileInputValid(key) {
-			return fmt.Errorf("unable to load invalid key: %#v", key)
+			return fmt.Errorf("unable to load invalid key: %q", key)
 		}
 		if !filepath.IsAbs(cert) {
 			cert = filepath.Join(configDir, cert)
@@ -169,14 +169,14 @@ func (c *Config) loadCertificates(configDir string) error {
 		}
 		tlsCert, err := tls.LoadX509KeyPair(cert, key)
 		if err != nil {
-			return fmt.Errorf("unable to load key pair %#v, %#v: %v", cert, key, err)
+			return fmt.Errorf("unable to load key pair %q, %q: %v", cert, key, err)
 		}
 		x509Cert, err := x509.ParseCertificate(tlsCert.Certificate[0])
 		if err == nil {
 			logger.Debug(logSender, "", "adding leaf certificate for key pair %q, %q", cert, key)
 			tlsCert.Leaf = x509Cert
 		}
-		logger.Debug(logSender, "", "client certificate %#v and key %#v successfully loaded", cert, key)
+		logger.Debug(logSender, "", "client certificate %q and key %q successfully loaded", cert, key)
 		c.customTransport.TLSClientConfig.Certificates = append(c.customTransport.TLSClientConfig.Certificates, tlsCert)
 	}
 	return nil

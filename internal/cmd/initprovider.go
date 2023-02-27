@@ -76,7 +76,7 @@ Please take a look at the usage below to customize the options.`,
 			providerConf.Actions.Hook = ""
 			providerConf.Actions.ExecuteFor = nil
 			providerConf.Actions.ExecuteOn = nil
-			logger.InfoToConsole("Initializing provider: %#v config file: %#v", providerConf.Driver, viper.ConfigFileUsed())
+			logger.InfoToConsole("Initializing provider: %q config file: %q", providerConf.Driver, viper.ConfigFileUsed())
 			err = dataprovider.InitializeDatabase(providerConf, configDir)
 			if err == nil {
 				logger.InfoToConsole("Data provider successfully initialized/updated")

@@ -237,7 +237,7 @@ func (s *httpdServer) downloadBrowsableSharedFile(w http.ResponseWriter, r *http
 		return
 	}
 	if info.IsDir() {
-		sendAPIResponse(w, r, nil, fmt.Sprintf("Please set the path to a valid file, %#v is a directory", name),
+		sendAPIResponse(w, r, nil, fmt.Sprintf("Please set the path to a valid file, %q is a directory", name),
 			http.StatusBadRequest)
 		return
 	}
@@ -541,7 +541,7 @@ func getBrowsableSharedPath(share dataprovider.Share, r *http.Request) (string, 
 		return name, nil
 	}
 	if name != share.Paths[0] && !strings.HasPrefix(name, share.Paths[0]+"/") {
-		return "", util.NewValidationError(fmt.Sprintf("Invalid path %#v", r.URL.Query().Get("path")))
+		return "", util.NewValidationError(fmt.Sprintf("Invalid path %q", r.URL.Query().Get("path")))
 	}
 	return name, nil
 }

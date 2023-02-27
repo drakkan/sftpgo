@@ -264,7 +264,7 @@ func NewHTTPFs(connectionID, localTempDir, mountPath string, config HTTPFsConfig
 
 // Name returns the name for the Fs implementation
 func (fs *HTTPFs) Name() string {
-	return fmt.Sprintf("%v %#v", httpFsName, fs.config.Endpoint)
+	return fmt.Sprintf("%v %q", httpFsName, fs.config.Endpoint)
 }
 
 // ConnectionID returns the connection ID associated to this Fs implementation

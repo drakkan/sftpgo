@@ -86,7 +86,7 @@ func getIPFromID(r *http.Request) (string, error) {
 
 func validateIPAddress(ip string) error {
 	if net.ParseIP(ip) == nil {
-		return fmt.Errorf("ip address %#v is not valid", ip)
+		return fmt.Errorf("ip address %q is not valid", ip)
 	}
 	return nil
 }

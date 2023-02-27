@@ -75,7 +75,7 @@ func InitLogger(logFilePath string, logMaxSize int, logMaxBackups int, logMaxAge
 		if _, err := os.Stat(logDir); errors.Is(err, fs.ErrNotExist) {
 			err = os.MkdirAll(logDir, os.ModePerm)
 			if err != nil {
-				fmt.Printf("unable to create log dir %#v: %v", logDir, err)
+				fmt.Printf("unable to create log dir %q: %v", logDir, err)
 			}
 		}
 		rollingLogger = &lumberjack.Logger{

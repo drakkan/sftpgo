@@ -47,7 +47,7 @@ func FindSharedDataPath(name, searchDir string) string {
 			res := filepath.Join(basePath, name)
 			_, err := os.Stat(res)
 			if err == nil {
-				logger.Debug(logSender, "", "found share data path for name %#v: %#v", name, res)
+				logger.Debug(logSender, "", "found share data path for name %q: %q", name, res)
 				return res
 			}
 		}

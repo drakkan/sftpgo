@@ -147,7 +147,7 @@ Please take a look at the usage below to customize the serving parameters`,
 				_, err := common.NewCertManager(keyPairs, filepath.Clean(defaultConfigDir),
 					"FTP portable")
 				if err != nil {
-					fmt.Printf("Unable to load FTPS key pair, cert file %#v key file %#v error: %v\n",
+					fmt.Printf("Unable to load FTPS key pair, cert file %q key file %q error: %v\n",
 						portableFTPSCert, portableFTPSKey, err)
 					os.Exit(1)
 				}
@@ -163,7 +163,7 @@ Please take a look at the usage below to customize the serving parameters`,
 				_, err := common.NewCertManager(keyPairs, filepath.Clean(defaultConfigDir),
 					"WebDAV portable")
 				if err != nil {
-					fmt.Printf("Unable to load WebDAV key pair, cert file %#v key file %#v error: %v\n",
+					fmt.Printf("Unable to load WebDAV key pair, cert file %q key file %q error: %v\n",
 						portableWebDAVCert, portableWebDAVKey, err)
 					os.Exit(1)
 				}
@@ -480,7 +480,7 @@ func getFileContents(name string) (string, error) {
 		return "", err
 	}
 	if fi.Size() > 1048576 {
-		return "", fmt.Errorf("%#v is too big %v/1048576 bytes", name, fi.Size())
+		return "", fmt.Errorf("%q is too big %v/1048576 bytes", name, fi.Size())
 	}
 	contents, err := os.ReadFile(name)
 	if err != nil {

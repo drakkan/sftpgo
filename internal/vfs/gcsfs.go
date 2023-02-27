@@ -154,7 +154,7 @@ func (fs *GCSFs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, fu
 
 		n, err := io.Copy(w, objectReader)
 		w.CloseWithError(err) //nolint:errcheck
-		fsLog(fs, logger.LevelDebug, "download completed, path: %#v size: %v, err: %+v", name, n, err)
+		fsLog(fs, logger.LevelDebug, "download completed, path: %q size: %v, err: %+v", name, n, err)
 		metric.GCSTransferCompleted(n, 1, err)
 	}()
 	return nil, r, cancelFn, nil
@@ -215,7 +215,7 @@ func (fs *GCSFs) Create(name string, flag int) (File, *PipeWriter, func(), error
 		}
 		r.CloseWithError(err) //nolint:errcheck
 		p.Done(err)
-		fsLog(fs, logger.LevelDebug, "upload completed, path: %#v, acl: %#v, readed bytes: %v, err: %+v",
+		fsLog(fs, logger.LevelDebug, "upload completed, path: %q, acl: %q, readed bytes: %v, err: %+v",
 			name, fs.config.ACL, n, err)
 		metric.GCSTransferCompleted(n, 0, err)
 	}()
@@ -242,7 +242,7 @@ func (fs *GCSFs) Remove(name string, isDir bool) error {
 			return err
 		}
 		if hasContents {
-			return fmt.Errorf("cannot remove non empty directory: %#v", name)
+			return fmt.Errorf("cannot remove non empty directory: %q", name)
 		}
 		if !strings.HasSuffix(name, "/") {
 			name += "/"
@@ -268,7 +268,7 @@ func (fs *GCSFs) Remove(name string, isDir bool) error {
 	metric.GCSDeleteObjectCompleted(err)
 	if plugin.Handler.HasMetadater() && err == nil && !isDir {
 		if errMetadata := plugin.Handler.RemoveMetadata(fs.getStorageID(), ensureAbsPath(name)); errMetadata != nil {
-			fsLog(fs, logger.LevelWarn, "unable to remove metadata for path %#v: %+v", name, errMetadata)
+			fsLog(fs, logger.LevelWarn, "unable to remove metadata for path %q: %+v", name, errMetadata)
 		}
 	}
 	return err

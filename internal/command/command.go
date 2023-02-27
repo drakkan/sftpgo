@@ -96,23 +96,23 @@ func (c Config) Initialize() error {
 	}
 	for _, env := range c.Env {
 		if len(strings.SplitN(env, "=", 2)) != 2 {
-			return fmt.Errorf("invalid env var %#v", env)
+			return fmt.Errorf("invalid env var %q", env)
 		}
 	}
 	for idx, cmd := range c.Commands {
 		if cmd.Path == "" {
-			return fmt.Errorf("invalid path %#v", cmd.Path)
+			return fmt.Errorf("invalid path %q", cmd.Path)
 		}
 		if cmd.Timeout == 0 {
 			c.Commands[idx].Timeout = c.Timeout
 		} else {
 			if cmd.Timeout < minTimeout || cmd.Timeout > maxTimeout {
-				return fmt.Errorf("invalid timeout %v for command %#v", cmd.Timeout, cmd.Path)
+				return fmt.Errorf("invalid timeout %v for command %q", cmd.Timeout, cmd.Path)
 			}
 		}
 		for _, env := range cmd.Env {
 			if len(strings.SplitN(env, "=", 2)) != 2 {
-				return fmt.Errorf("invalid env var %#v for command %#v", env, cmd.Path)
+				return fmt.Errorf("invalid env var %q for command %q", env, cmd.Path)
 			}
 		}
 		// don't validate args, we allow to pass empty arguments

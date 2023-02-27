@@ -97,7 +97,7 @@ func (c *AdminTOTPConfig) validate(username string) error {
 		return util.NewValidationError("totp: config name is mandatory")
 	}
 	if !util.Contains(mfa.GetAvailableTOTPConfigNames(), c.ConfigName) {
-		return util.NewValidationError(fmt.Sprintf("totp: config name %#v not found", c.ConfigName))
+		return util.NewValidationError(fmt.Sprintf("totp: config name %q not found", c.ConfigName))
 	}
 	if c.Secret.IsEmpty() {
 		return util.NewValidationError("totp: secret is mandatory")
@@ -396,13 +396,13 @@ func (a *Admin) validate() error {
 		return err
 	}
 	if a.Email != "" && !util.IsEmailValid(a.Email) {
-		return util.NewValidationError(fmt.Sprintf("email %#v is not valid", a.Email))
+		return util.NewValidationError(fmt.Sprintf("email %q is not valid", a.Email))
 	}
 	a.Filters.AllowList = util.RemoveDuplicates(a.Filters.AllowList, false)
 	for _, IPMask := range a.Filters.AllowList {
 		_, _, err := net.ParseCIDR(IPMask)
 		if err != nil {
-			return util.NewValidationError(fmt.Sprintf("could not parse allow list entry %#v : %v", IPMask, err))
+			return util.NewValidationError(fmt.Sprintf("could not parse allow list entry %q : %v", IPMask, err))
 		}
 	}
 
@@ -462,7 +462,7 @@ func (a *Admin) CanLoginFromIP(ip string) bool {
 // CanLogin returns an error if the login is not allowed
 func (a *Admin) CanLogin(ip string) error {
 	if a.Status != 1 {
-		return fmt.Errorf("admin %#v is disabled", a.Username)
+		return fmt.Errorf("admin %q is disabled", a.Username)
 	}
 	if !a.CanLoginFromIP(ip) {
 		return fmt.Errorf("login from IP %v not allowed", ip)

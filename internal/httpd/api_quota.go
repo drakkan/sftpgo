@@ -215,7 +215,7 @@ func doStartUserQuotaScan(w http.ResponseWriter, r *http.Request, username strin
 		return
 	}
 	if !common.QuotaScans.AddUserQuotaScan(user.Username, user.Role) {
-		sendAPIResponse(w, r, nil, fmt.Sprintf("Another scan is already in progress for user %#v", username),
+		sendAPIResponse(w, r, nil, fmt.Sprintf("Another scan is already in progress for user %q", username),
 			http.StatusConflict)
 		return
 	}
@@ -234,7 +234,7 @@ func doStartFolderQuotaScan(w http.ResponseWriter, r *http.Request, name string)
 		return
 	}
 	if !common.QuotaScans.AddVFolderQuotaScan(folder.Name) {
-		sendAPIResponse(w, r, err, fmt.Sprintf("Another scan is already in progress for folder %#v", name),
+		sendAPIResponse(w, r, err, fmt.Sprintf("Another scan is already in progress for folder %q", name),
 			http.StatusConflict)
 		return
 	}
@@ -246,11 +246,11 @@ func doUserQuotaScan(user dataprovider.User) error {
 	defer common.QuotaScans.RemoveUserQuotaScan(user.Username)
 	numFiles, size, err := user.ScanQuota()
 	if err != nil {
-		logger.Warn(logSender, "", "error scanning user quota %#v: %v", user.Username, err)
+		logger.Warn(logSender, "", "error scanning user quota %q: %v", user.Username, err)
 		return err
 	}
 	err = dataprovider.UpdateUserQuota(&user, numFiles, size, true)
-	logger.Debug(logSender, "", "user quota scanned, user: %#v, error: %v", user.Username, err)
+	logger.Debug(logSender, "", "user quota scanned, user: %q, error: %v", user.Username, err)
 	return err
 }
 
@@ -262,11 +262,11 @@ func doFolderQuotaScan(folder vfs.BaseVirtualFolder) error {
 	}
 	numFiles, size, err := f.ScanQuota()
 	if err != nil {
-		logger.Warn(logSender, "", "error scanning folder %#v: %v", folder.Name, err)
+		logger.Warn(logSender, "", "error scanning folder %q: %v", folder.Name, err)
 		return err
 	}
 	err = dataprovider.UpdateVirtualFolderQuota(&folder, numFiles, size, true)
-	logger.Debug(logSender, "", "virtual folder %#v scanned, error: %v", folder.Name, err)
+	logger.Debug(logSender, "", "virtual folder %q scanned, error: %v", folder.Name, err)
 	return err
 }
 

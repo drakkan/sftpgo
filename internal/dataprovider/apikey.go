@@ -182,7 +182,7 @@ func (k *APIKey) validate() error {
 // Authenticate tries to authenticate the provided plain key
 func (k *APIKey) Authenticate(plainKey string) error {
 	if k.ExpiresAt > 0 && k.ExpiresAt < util.GetTimeAsMsSinceEpoch(time.Now()) {
-		return fmt.Errorf("API key %#v is expired, expiration timestamp: %v current timestamp: %v", k.KeyID,
+		return fmt.Errorf("API key %q is expired, expiration timestamp: %v current timestamp: %v", k.KeyID,
 			k.ExpiresAt, util.GetTimeAsMsSinceEpoch(time.Now()))
 	}
 	if strings.HasPrefix(k.Key, bcryptPwdPrefix) {

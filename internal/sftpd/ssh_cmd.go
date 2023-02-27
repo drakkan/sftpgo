@@ -117,7 +117,7 @@ func processSSHCommand(payload []byte, connection *Connection, enabledSSHCommand
 				return true
 			}
 		} else {
-			connection.Log(logger.LevelInfo, "ssh command not enabled/supported: %#v", name)
+			connection.Log(logger.LevelInfo, "ssh command not enabled/supported: %q", name)
 		}
 	}
 	err := connection.CloseFS()
@@ -128,7 +128,7 @@ func processSSHCommand(payload []byte, connection *Connection, enabledSSHCommand
 func (c *sshCommand) handle() (err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			logger.Error(logSender, "", "panic in handle ssh command: %#v stack trace: %v", r, string(debug.Stack()))
+			logger.Error(logSender, "", "panic in handle ssh command: %q stack trace: %v", r, string(debug.Stack()))
 			err = common.ErrGenericFailure
 		}
 	}()
@@ -227,7 +227,7 @@ func (c *sshCommand) handleHashCommands() error {
 	} else {
 		sshPath := c.getDestPath()
 		if ok, policy := c.connection.User.IsFileAllowed(sshPath); !ok {
-			c.connection.Log(logger.LevelInfo, "hash not allowed for file %#v", sshPath)
+			c.connection.Log(logger.LevelInfo, "hash not allowed for file %q", sshPath)
 			return c.sendErrorResponse(c.connection.GetErrorForDeniedFile(policy))
 		}
 		fs, fsPath, err := c.connection.GetFsAndResolvedPath(sshPath)
@@ -278,7 +278,7 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 	}
 
 	closeCmdOnError := func() {
-		c.connection.Log(logger.LevelDebug, "kill cmd: %#v and close ssh channel after read or write error",
+		c.connection.Log(logger.LevelDebug, "kill cmd: %q and close ssh channel after read or write error",
 			c.connection.command)
 		killerr := command.cmd.Process.Kill()
 		closerr := c.connection.channel.Close()
@@ -296,7 +296,7 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 		transfer := newTransfer(baseTransfer, nil, nil, nil)
 
 		w, e := transfer.copyFromReaderToWriter(stdin, c.connection.channel)
-		c.connection.Log(logger.LevelDebug, "command: %#v, copy from remote command to sdtin ended, written: %v, "+
+		c.connection.Log(logger.LevelDebug, "command: %q, copy from remote command to sdtin ended, written: %v, "+
 			"initial remaining quota: %v, err: %v", c.connection.command, w, remainingQuotaSize, e)
 		if e != nil {
 			once.Do(closeCmdOnError)
@@ -309,7 +309,7 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 		transfer := newTransfer(baseTransfer, nil, nil, nil)
 
 		w, e := transfer.copyFromReaderToWriter(c.connection.channel, stdout)
-		c.connection.Log(logger.LevelDebug, "command: %#v, copy from sdtout to remote command ended, written: %v err: %v",
+		c.connection.Log(logger.LevelDebug, "command: %q, copy from sdtout to remote command ended, written: %v err: %v",
 			c.connection.command, w, e)
 		if e != nil {
 			once.Do(closeCmdOnError)
@@ -323,7 +323,7 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 		transfer := newTransfer(baseTransfer, nil, nil, nil)
 
 		w, e := transfer.copyFromReaderToWriter(c.connection.channel.(ssh.Channel).Stderr(), stderr)
-		c.connection.Log(logger.LevelDebug, "command: %#v, copy from sdterr to remote command ended, written: %v err: %v",
+		c.connection.Log(logger.LevelDebug, "command: %q, copy from sdterr to remote command ended, written: %v err: %v",
 			c.connection.command, w, e)
 		// os.ErrClosed means that the command is finished so we don't need to do anything
 		if (e != nil && !errors.Is(e, os.ErrClosed)) || w > 0 {
@@ -339,7 +339,7 @@ func (c *sshCommand) executeSystemCommand(command systemCommand) error {
 	if errSize == nil {
 		c.updateQuota(sshDestPath, numFiles-initialFiles, dirSize-initialSize)
 	}
-	c.connection.Log(logger.LevelDebug, "command %#v finished for path %#v, initial files %v initial size %v "+
+	c.connection.Log(logger.LevelDebug, "command %q finished for path %q, initial files %v initial size %v "+
 		"current files %v current size %v size err: %v", c.connection.command, command.fsPath, initialFiles, initialSize,
 		numFiles, dirSize, errSize)
 	return c.connection.GetFsError(command.fs, err)
@@ -352,21 +352,21 @@ func (c *sshCommand) isSystemCommandAllowed() error {
 		return nil
 	}
 	if c.connection.User.HasVirtualFoldersInside(sshDestPath) {
-		c.connection.Log(logger.LevelDebug, "command %#v is not allowed, path %#v has virtual folders inside it, user %#v",
+		c.connection.Log(logger.LevelDebug, "command %q is not allowed, path %q has virtual folders inside it, user %q",
 			c.command, sshDestPath, c.connection.User.Username)
 		return errUnsupportedConfig
 	}
 	for _, f := range c.connection.User.Filters.FilePatterns {
 		if f.Path == sshDestPath {
 			c.connection.Log(logger.LevelDebug,
-				"command %#v is not allowed inside folders with file patterns filters %#v user %#v",
+				"command %q is not allowed inside folders with file patterns filters %q user %q",
 				c.command, sshDestPath, c.connection.User.Username)
 			return errUnsupportedConfig
 		}
 		if len(sshDestPath) > len(f.Path) {
 			if strings.HasPrefix(sshDestPath, f.Path+"/") || f.Path == "/" {
 				c.connection.Log(logger.LevelDebug,
-					"command %#v is not allowed it includes folders with file patterns filters %#v user %#v",
+					"command %q is not allowed it includes folders with file patterns filters %q user %q",
 					c.command, sshDestPath, c.connection.User.Username)
 				return errUnsupportedConfig
 			}
@@ -374,7 +374,7 @@ func (c *sshCommand) isSystemCommandAllowed() error {
 		if len(sshDestPath) < len(f.Path) {
 			if strings.HasPrefix(sshDestPath+"/", f.Path) || sshDestPath == "/" {
 				c.connection.Log(logger.LevelDebug,
-					"command %#v is not allowed inside folder with file patterns filters %#v user %#v",
+					"command %q is not allowed inside folder with file patterns filters %q user %q",
 					c.command, sshDestPath, c.connection.User.Username)
 				return errUnsupportedConfig
 			}
@@ -416,7 +416,7 @@ func (c *sshCommand) getSystemCommand() (systemCommand, error) {
 		}
 		if strings.HasSuffix(sshPath, "/") && !strings.HasSuffix(fsPath, string(os.PathSeparator)) {
 			fsPath += string(os.PathSeparator)
-			c.connection.Log(logger.LevelDebug, "path separator added to fsPath %#v", fsPath)
+			c.connection.Log(logger.LevelDebug, "path separator added to fsPath %q", fsPath)
 		}
 		args = args[:len(args)-1]
 		args = append(args, fsPath)
@@ -441,7 +441,7 @@ func (c *sshCommand) getSystemCommand() (systemCommand, error) {
 			}
 		}
 	}
-	c.connection.Log(logger.LevelDebug, "new system command %#v, with args: %+v fs path %#v quota check path %#v",
+	c.connection.Log(logger.LevelDebug, "new system command %q, with args: %+v fs path %q quota check path %q",
 		c.command, args, fsPath, quotaPath)
 	cmd := exec.Command(c.command, args...)
 	uid := c.connection.User.GetUID()
@@ -507,13 +507,13 @@ func (c *sshCommand) getSizeForPath(fs vfs.Fs, name string) (int, int64, error) 
 			if fs.IsNotExist(err) {
 				return 0, 0, nil
 			}
-			c.connection.Log(logger.LevelDebug, "unable to stat %#v error: %v", name, err)
+			c.connection.Log(logger.LevelDebug, "unable to stat %q error: %v", name, err)
 			return 0, 0, err
 		}
 		if fi.IsDir() {
 			files, size, err := fs.GetDirSize(name)
 			if err != nil {
-				c.connection.Log(logger.LevelDebug, "unable to get size for dir %#v error: %v", name, err)
+				c.connection.Log(logger.LevelDebug, "unable to get size for dir %q error: %v", name, err)
 			}
 			return files, size, err
 		} else if fi.Mode().IsRegular() {
@@ -600,7 +600,7 @@ func (c *sshCommand) computeHashForFile(fs vfs.Fs, hasher hash.Hash, path string
 func parseCommandPayload(command string) (string, []string, error) {
 	parts, err := shlex.Split(command)
 	if err == nil && len(parts) == 0 {
-		err = fmt.Errorf("invalid command: %#v", command)
+		err = fmt.Errorf("invalid command: %q", command)
 	}
 	if err != nil {
 		return "", []string{}, err

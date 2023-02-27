@@ -85,7 +85,7 @@ func checkSFTPGoUserAuth(w http.ResponseWriter, r *http.Request) {
 
 	sr, err := l.Search(searchRequest)
 	if err != nil {
-		logger.Warn(logSender, middleware.GetReqID(r.Context()), "error searching LDAP user %#v: %v", authReq.Username, err)
+		logger.Warn(logSender, middleware.GetReqID(r.Context()), "error searching LDAP user %q: %v", authReq.Username, err)
 		sendAPIResponse(w, r, err, "Error searching LDAP user", http.StatusInternalServerError)
 		return
 	}
@@ -99,7 +99,7 @@ func checkSFTPGoUserAuth(w http.ResponseWriter, r *http.Request) {
 	if len(authReq.PublicKey) > 0 {
 		userKey, _, _, _, err := ssh.ParseAuthorizedKey([]byte(authReq.PublicKey))
 		if err != nil {
-			logger.Warn(logSender, middleware.GetReqID(r.Context()), "invalid public key for user %#v: %v", authReq.Username, err)
+			logger.Warn(logSender, middleware.GetReqID(r.Context()), "invalid public key for user %q: %v", authReq.Username, err)
 			sendAPIResponse(w, r, err, "Invalid public key", http.StatusBadRequest)
 			return
 		}
@@ -116,7 +116,7 @@ func checkSFTPGoUserAuth(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if !authOk {
-			logger.Warn(logSender, middleware.GetReqID(r.Context()), "public key authentication failed for user: %#v", authReq.Username)
+			logger.Warn(logSender, middleware.GetReqID(r.Context()), "public key authentication failed for user: %q", authReq.Username)
 			sendAPIResponse(w, r, nil, "public key authentication failed", http.StatusForbidden)
 			return
 		}
@@ -125,7 +125,7 @@ func checkSFTPGoUserAuth(w http.ResponseWriter, r *http.Request) {
 		userdn := sr.Entries[0].DN
 		err = l.Bind(userdn, authReq.Password)
 		if err != nil {
-			logger.Warn(logSender, middleware.GetReqID(r.Context()), "password authentication failed for user: %#v", authReq.Username)
+			logger.Warn(logSender, middleware.GetReqID(r.Context()), "password authentication failed for user: %q", authReq.Username)
 			sendAPIResponse(w, r, nil, "password authentication failed", http.StatusForbidden)
 			return
 		}
@@ -133,7 +133,7 @@ func checkSFTPGoUserAuth(w http.ResponseWriter, r *http.Request) {
 
 	user, err := getSFTPGoUser(sr.Entries[0], authReq.Username)
 	if err != nil {
-		logger.Warn(logSender, middleware.GetReqID(r.Context()), "get user from LDAP entry failed for username %#v: %v",
+		logger.Warn(logSender, middleware.GetReqID(r.Context()), "get user from LDAP entry failed for username %q: %v",
 			authReq.Username, err)
 		sendAPIResponse(w, r, err, "mapping LDAP user failed", http.StatusInternalServerError)
 		return

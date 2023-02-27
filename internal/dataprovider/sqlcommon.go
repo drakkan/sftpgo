@@ -111,7 +111,7 @@ func sqlCommonAddShare(share *Share, dbHandle *sql.DB) error {
 
 	user, err := provider.userExists(share.Username, "")
 	if err != nil {
-		return util.NewGenericError(fmt.Sprintf("unable to validate user %#v", share.Username))
+		return util.NewGenericError(fmt.Sprintf("unable to validate user %q", share.Username))
 	}
 
 	paths, err := json.Marshal(share.Paths)
@@ -171,7 +171,7 @@ func sqlCommonUpdateShare(share *Share, dbHandle *sql.DB) error {
 
 	user, err := provider.userExists(share.Username, "")
 	if err != nil {
-		return util.NewGenericError(fmt.Sprintf("unable to validate user %#v", share.Username))
+		return util.NewGenericError(fmt.Sprintf("unable to validate user %q", share.Username))
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
@@ -415,7 +415,7 @@ func sqlCommonGetAdminByUsername(username string, dbHandle sqlQuerier) (Admin, e
 func sqlCommonValidateAdminAndPass(username, password, ip string, dbHandle *sql.DB) (Admin, error) {
 	admin, err := sqlCommonGetAdminByUsername(username, dbHandle)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error authenticating admin %#v: %v", username, err)
+		providerLog(logger.LevelWarn, "error authenticating admin %q: %v", username, err)
 		return admin, ErrInvalidCredentials
 	}
 	err = admin.checkUserAndPass(password, ip)
@@ -1148,7 +1148,7 @@ func sqlCommonGetUserByUsername(username, role string, dbHandle sqlQuerier) (Use
 func sqlCommonValidateUserAndPass(username, password, ip, protocol string, dbHandle *sql.DB) (User, error) {
 	user, err := sqlCommonGetUserByUsername(username, "", dbHandle)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)
+		providerLog(logger.LevelWarn, "error authenticating user %q: %v", username, err)
 		return user, err
 	}
 	return checkUserAndPass(&user, password, ip, protocol)
@@ -1161,7 +1161,7 @@ func sqlCommonValidateUserAndTLSCertificate(username, protocol string, tlsCert *
 	}
 	user, err := sqlCommonGetUserByUsername(username, "", dbHandle)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)
+		providerLog(logger.LevelWarn, "error authenticating user %q: %v", username, err)
 		return user, err
 	}
 	return checkUserAndTLSCertificate(&user, protocol, tlsCert)
@@ -1174,7 +1174,7 @@ func sqlCommonValidateUserAndPubKey(username string, pubKey []byte, isSSHCert bo
 	}
 	user, err := sqlCommonGetUserByUsername(username, "", dbHandle)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)
+		providerLog(logger.LevelWarn, "error authenticating user %q: %v", username, err)
 		return user, "", err
 	}
 	return checkUserAndPubKey(&user, pubKey, isSSHCert)
@@ -1828,7 +1828,7 @@ func sqlCommonIsDefenderHostBanned(ip string, dbHandle sqlQuerier) (DefenderEntr
 		if errors.Is(err, sql.ErrNoRows) {
 			return host, util.NewRecordNotFoundError("host not found")
 		}
-		providerLog(logger.LevelError, "unable to check ban status for host %#v: %v", ip, err)
+		providerLog(logger.LevelError, "unable to check ban status for host %q: %v", ip, err)
 		return host, err
 	}
 
@@ -1848,7 +1848,7 @@ func sqlCommonGetDefenderHostByIP(ip string, from int64, dbHandle sqlQuerier) (D
 		if errors.Is(err, sql.ErrNoRows) {
 			return host, util.NewRecordNotFoundError("host not found")
 		}
-		providerLog(logger.LevelError, "unable to get host for ip %#v: %v", ip, err)
+		providerLog(logger.LevelError, "unable to get host for ip %q: %v", ip, err)
 		return host, err
 	}
 	if banTime.Valid && banTime.Int64 > 0 {
@@ -1877,10 +1877,10 @@ func sqlCommonDefenderIncrementBanTime(ip string, minutesToAdd int, dbHandle *sq
 	q := getDefenderIncrementBanTimeQuery()
 	_, err := dbHandle.ExecContext(ctx, q, minutesToAdd*60000, ip)
 	if err == nil {
-		providerLog(logger.LevelDebug, "ban time updated for ip %#v, increment (minutes): %v",
+		providerLog(logger.LevelDebug, "ban time updated for ip %q, increment (minutes): %v",
 			ip, minutesToAdd)
 	} else {
-		providerLog(logger.LevelError, "error updating ban time for ip %#v: %v", ip, err)
+		providerLog(logger.LevelError, "error updating ban time for ip %q: %v", ip, err)
 	}
 	return err
 }
@@ -1892,9 +1892,9 @@ func sqlCommonSetDefenderBanTime(ip string, banTime int64, dbHandle *sql.DB) err
 	q := getDefenderSetBanTimeQuery()
 	_, err := dbHandle.ExecContext(ctx, q, banTime, ip)
 	if err == nil {
-		providerLog(logger.LevelDebug, "ip %#v banned until %v", ip, util.GetTimeFromMsecSinceEpoch(banTime))
+		providerLog(logger.LevelDebug, "ip %q banned until %v", ip, util.GetTimeFromMsecSinceEpoch(banTime))
 	} else {
-		providerLog(logger.LevelError, "error setting ban time for ip %#v: %v", ip, err)
+		providerLog(logger.LevelError, "error setting ban time for ip %q: %v", ip, err)
 	}
 	return err
 }
@@ -1906,7 +1906,7 @@ func sqlCommonDeleteDefenderHost(ip string, dbHandle sqlQuerier) error {
 	q := getDeleteDefenderHostQuery()
 	res, err := dbHandle.ExecContext(ctx, q, ip)
 	if err != nil {
-		providerLog(logger.LevelError, "unable to delete defender host %#v: %v", ip, err)
+		providerLog(logger.LevelError, "unable to delete defender host %q: %v", ip, err)
 		return err
 	}
 	return sqlCommonRequireRowAffected(res)
@@ -1935,7 +1935,7 @@ func sqlCommonAddDefenderHost(ctx context.Context, ip string, tx *sql.Tx) error 
 	q := getAddDefenderHostQuery()
 	_, err := tx.ExecContext(ctx, q, ip, util.GetTimeAsMsSinceEpoch(time.Now()))
 	if err != nil {
-		providerLog(logger.LevelError, "unable to add defender host %#v: %v", ip, err)
+		providerLog(logger.LevelError, "unable to add defender host %q: %v", ip, err)
 	}
 	return err
 }
@@ -1944,7 +1944,7 @@ func sqlCommonAddDefenderEvent(ctx context.Context, ip string, score int, tx *sq
 	q := getAddDefenderEventQuery()
 	_, err := tx.ExecContext(ctx, q, util.GetTimeAsMsSinceEpoch(time.Now()), score, ip)
 	if err != nil {
-		providerLog(logger.LevelError, "unable to add defender event for %#v: %v", ip, err)
+		providerLog(logger.LevelError, "unable to add defender event for %q: %v", ip, err)
 	}
 	return err
 }
@@ -2214,8 +2214,8 @@ func getUserFromDbRow(row sqlScanner) (User, error) {
 	perms := make(map[string][]string)
 	err = json.Unmarshal(permissions, &perms)
 	if err != nil {
-		providerLog(logger.LevelError, "unable to deserialize permissions for user %#v: %v", user.Username, err)
-		return user, fmt.Errorf("unable to deserialize permissions for user %#v: %v", user.Username, err)
+		providerLog(logger.LevelError, "unable to deserialize permissions for user %q: %v", user.Username, err)
+		return user, fmt.Errorf("unable to deserialize permissions for user %q: %v", user.Username, err)
 	}
 	user.Permissions = perms
 	// we can have a empty string or an invalid json in null string
@@ -2290,14 +2290,14 @@ func sqlCommonGetFolderByName(ctx context.Context, name string, dbHandle sqlQuer
 		return folder, err
 	}
 	if len(folders) != 1 {
-		return folder, fmt.Errorf("unable to associate users with folder %#v", name)
+		return folder, fmt.Errorf("unable to associate users with folder %q", name)
 	}
 	folders, err = getVirtualFoldersWithGroups([]vfs.BaseVirtualFolder{folders[0]}, dbHandle)
 	if err != nil {
 		return folder, err
 	}
 	if len(folders) != 1 {
-		return folder, fmt.Errorf("unable to associate groups with folder %#v", name)
+		return folder, fmt.Errorf("unable to associate groups with folder %q", name)
 	}
 	return folders[0], nil
 }
@@ -3107,7 +3107,7 @@ func sqlCommonUpdateFolderQuota(name string, filesAdd int, sizeAdd int64, reset 
 		providerLog(logger.LevelDebug, "quota updated for folder %q, files increment: %d size increment: %d is reset? %t",
 			name, filesAdd, sizeAdd, reset)
 	} else {
-		providerLog(logger.LevelWarn, "error updating quota for folder %#v: %v", name, err)
+		providerLog(logger.LevelWarn, "error updating quota for folder %q: %v", name, err)
 	}
 	return err
 }
@@ -3893,7 +3893,7 @@ func sqlCommonGetDatabaseVersion(dbHandle sqlQuerier, showInitWarn bool) (schema
 	q := getDatabaseVersionQuery()
 	stmt, err := dbHandle.PrepareContext(ctx, q)
 	if err != nil {
-		providerLog(logger.LevelError, "error preparing database query %#v: %v", q, err)
+		providerLog(logger.LevelError, "error preparing database query %q: %v", q, err)
 		if showInitWarn && strings.Contains(err.Error(), sqlTableSchemaVersion) {
 			logger.WarnToConsole("database query error, did you forgot to run the \"initprovider\" command?")
 		}

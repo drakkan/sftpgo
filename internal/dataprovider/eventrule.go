@@ -547,7 +547,7 @@ func (c *EventActionDataRetentionConfig) validate() error {
 			nothingToDo = false
 		}
 		if _, ok := folderPaths[f.Path]; ok {
-			return util.NewValidationError(fmt.Sprintf("duplicated folder path %#v", f.Path))
+			return util.NewValidationError(fmt.Sprintf("duplicated folder path %q", f.Path))
 		}
 		folderPaths[f.Path] = true
 	}

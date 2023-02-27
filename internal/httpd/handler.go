@@ -108,7 +108,7 @@ func (c *Connection) getFileReader(name string, offset int64, method string) (io
 	}
 
 	if ok, policy := c.User.IsFileAllowed(name); !ok {
-		c.Log(logger.LevelWarn, "reading file %#v is not allowed", name)
+		c.Log(logger.LevelWarn, "reading file %q is not allowed", name)
 		return nil, c.GetErrorForDeniedFile(policy)
 	}
 
@@ -119,14 +119,14 @@ func (c *Connection) getFileReader(name string, offset int64, method string) (io
 
 	if method != http.MethodHead {
 		if _, err := common.ExecutePreAction(c.BaseConnection, common.OperationPreDownload, p, name, 0, 0); err != nil {
-			c.Log(logger.LevelDebug, "download for file %#v denied by pre action: %v", name, err)
+			c.Log(logger.LevelDebug, "download for file %q denied by pre action: %v", name, err)
 			return nil, c.GetPermissionDeniedError()
 		}
 	}
 
 	file, r, cancelFn, err := fs.Open(p, offset)
 	if err != nil {
-		c.Log(logger.LevelError, "could not open file %#v for reading: %+v", p, err)
+		c.Log(logger.LevelError, "could not open file %q for reading: %+v", p, err)
 		return nil, c.GetFsError(fs, err)
 	}
 
@@ -139,7 +139,7 @@ func (c *Connection) getFileWriter(name string) (io.WriteCloser, error) {
 	c.UpdateLastActivity()
 
 	if ok, _ := c.User.IsFileAllowed(name); !ok {
-		c.Log(logger.LevelWarn, "writing file %#v is not allowed", name)
+		c.Log(logger.LevelWarn, "writing file %q is not allowed", name)
 		return nil, c.GetPermissionDeniedError()
 	}
 
@@ -161,13 +161,13 @@ func (c *Connection) getFileWriter(name string) (io.WriteCloser, error) {
 	}
 
 	if statErr != nil {
-		c.Log(logger.LevelError, "error performing file stat %#v: %+v", p, statErr)
+		c.Log(logger.LevelError, "error performing file stat %q: %+v", p, statErr)
 		return nil, c.GetFsError(fs, statErr)
 	}
 
 	// This happen if we upload a file that has the same name of an existing directory
 	if stat.IsDir() {
-		c.Log(logger.LevelError, "attempted to open a directory for writing to: %#v", p)
+		c.Log(logger.LevelError, "attempted to open a directory for writing to: %q", p)
 		return nil, c.GetOpUnsupportedError()
 	}
 
@@ -178,7 +178,7 @@ func (c *Connection) getFileWriter(name string) (io.WriteCloser, error) {
 	if common.Config.IsAtomicUploadEnabled() && fs.IsAtomicUploadSupported() {
 		_, _, err = fs.Rename(p, filePath)
 		if err != nil {
-			c.Log(logger.LevelError, "error renaming existing file for atomic upload, source: %#v, dest: %#v, err: %+v",
+			c.Log(logger.LevelError, "error renaming existing file for atomic upload, source: %q, dest: %q, err: %+v",
 				p, filePath, err)
 			return nil, c.GetFsError(fs, err)
 		}
@@ -195,7 +195,7 @@ func (c *Connection) handleUploadFile(fs vfs.Fs, resolvedPath, filePath, request
 	}
 	_, err := common.ExecutePreAction(c.BaseConnection, common.OperationPreUpload, resolvedPath, requestPath, fileSize, os.O_TRUNC)
 	if err != nil {
-		c.Log(logger.LevelDebug, "upload for file %#v denied by pre action: %v", requestPath, err)
+		c.Log(logger.LevelDebug, "upload for file %q denied by pre action: %v", requestPath, err)
 		return nil, c.GetPermissionDeniedError()
 	}
 
@@ -203,7 +203,7 @@ func (c *Connection) handleUploadFile(fs vfs.Fs, resolvedPath, filePath, request
 
 	file, w, cancelFn, err := fs.Create(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
 	if err != nil {
-		c.Log(logger.LevelError, "error opening existing file, source: %#v, err: %+v", filePath, err)
+		c.Log(logger.LevelError, "error opening existing file, source: %q, err: %+v", filePath, err)
 		return nil, c.GetFsError(fs, err)
 	}
 

@@ -216,7 +216,7 @@ func initializeSQLiteProvider(basePath string) error {
 	if config.ConnectionString == "" {
 		dbPath := config.Name
 		if !util.IsFileInputValid(dbPath) {
-			return fmt.Errorf("invalid database path: %#v", dbPath)
+			return fmt.Errorf("invalid database path: %q", dbPath)
 		}
 		if !filepath.IsAbs(dbPath) {
 			dbPath = filepath.Join(basePath, dbPath)

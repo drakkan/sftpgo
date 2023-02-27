@@ -156,7 +156,7 @@ func (p *MemoryProvider) validateUserAndTLSCert(username, protocol string, tlsCe
 	}
 	user, err := p.userExists(username, "")
 	if err != nil {
-		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)
+		providerLog(logger.LevelWarn, "error authenticating user %q: %v", username, err)
 		return user, err
 	}
 	return checkUserAndTLSCertificate(&user, protocol, tlsCert)
@@ -165,7 +165,7 @@ func (p *MemoryProvider) validateUserAndTLSCert(username, protocol string, tlsCe
 func (p *MemoryProvider) validateUserAndPass(username, password, ip, protocol string) (User, error) {
 	user, err := p.userExists(username, "")
 	if err != nil {
-		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)
+		providerLog(logger.LevelWarn, "error authenticating user %q: %v", username, err)
 		return user, err
 	}
 	return checkUserAndPass(&user, password, ip, protocol)
@@ -178,7 +178,7 @@ func (p *MemoryProvider) validateUserAndPubKey(username string, pubKey []byte, i
 	}
 	user, err := p.userExists(username, "")
 	if err != nil {
-		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)
+		providerLog(logger.LevelWarn, "error authenticating user %q: %v", username, err)
 		return user, "", err
 	}
 	return checkUserAndPubKey(&user, pubKey, isSSHCert)
@@ -187,7 +187,7 @@ func (p *MemoryProvider) validateUserAndPubKey(username string, pubKey []byte, i
 func (p *MemoryProvider) validateAdminAndPass(username, password, ip string) (Admin, error) {
 	admin, err := p.adminExists(username)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error authenticating admin %#v: %v", username, err)
+		providerLog(logger.LevelWarn, "error authenticating admin %q: %v", username, err)
 		return admin, ErrInvalidCredentials
 	}
 	err = admin.checkUserAndPass(password, ip)
@@ -262,7 +262,7 @@ func (p *MemoryProvider) updateTransferQuota(username string, uploadSize, downlo
 	}
 	user, err := p.userExistsInternal(username)
 	if err != nil {
-		providerLog(logger.LevelError, "unable to update transfer quota for user %#v error: %v", username, err)
+		providerLog(logger.LevelError, "unable to update transfer quota for user %q error: %v", username, err)
 		return err
 	}
 	if reset {
@@ -273,7 +273,7 @@ func (p *MemoryProvider) updateTransferQuota(username string, uploadSize, downlo
 		user.UsedDownloadDataTransfer += downloadSize
 	}
 	user.LastQuotaUpdate = util.GetTimeAsMsSinceEpoch(time.Now())
-	providerLog(logger.LevelDebug, "transfer quota updated for user %#v, ul increment: %v dl increment: %v is reset? %v",
+	providerLog(logger.LevelDebug, "transfer quota updated for user %q, ul increment: %v dl increment: %v is reset? %v",
 		username, uploadSize, downloadSize, reset)
 	p.dbHandle.users[user.Username] = user
 	return nil
@@ -287,7 +287,7 @@ func (p *MemoryProvider) updateQuota(username string, filesAdd int, sizeAdd int6
 	}
 	user, err := p.userExistsInternal(username)
 	if err != nil {
-		providerLog(logger.LevelError, "unable to update quota for user %#v error: %v", username, err)
+		providerLog(logger.LevelError, "unable to update quota for user %q error: %v", username, err)
 		return err
 	}
 	if reset {
@@ -298,7 +298,7 @@ func (p *MemoryProvider) updateQuota(username string, filesAdd int, sizeAdd int6
 		user.UsedQuotaFiles += filesAdd
 	}
 	user.LastQuotaUpdate = util.GetTimeAsMsSinceEpoch(time.Now())
-	providerLog(logger.LevelDebug, "quota updated for user %#v, files increment: %v size increment: %v is reset? %v",
+	providerLog(logger.LevelDebug, "quota updated for user %q, files increment: %v size increment: %v is reset? %v",
 		username, filesAdd, sizeAdd, reset)
 	p.dbHandle.users[user.Username] = user
 	return nil
@@ -312,7 +312,7 @@ func (p *MemoryProvider) getUsedQuota(username string) (int, int64, int64, int64
 	}
 	user, err := p.userExistsInternal(username)
 	if err != nil {
-		providerLog(logger.LevelError, "unable to get quota for user %#v error: %v", username, err)
+		providerLog(logger.LevelError, "unable to get quota for user %q error: %v", username, err)
 		return 0, 0, 0, 0, err
 	}
 	return user.UsedQuotaFiles, user.UsedQuotaSize, user.UsedUploadDataTransfer, user.UsedDownloadDataTransfer, err
@@ -700,7 +700,7 @@ func (p *MemoryProvider) addAdmin(admin *Admin) error {
 	}
 	_, err = p.adminExistsInternal(admin.Username)
 	if err == nil {
-		return fmt.Errorf("admin %#v already exists", admin.Username)
+		return fmt.Errorf("admin %q already exists", admin.Username)
 	}
 	admin.ID = p.getNextAdminID()
 	admin.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
@@ -811,7 +811,7 @@ func (p *MemoryProvider) adminExistsInternal(username string) (Admin, error) {
 	if val, ok := p.dbHandle.admins[username]; ok {
 		return val.getACopy(), nil
 	}
-	return Admin{}, util.NewRecordNotFoundError(fmt.Sprintf("admin %#v does not exist", username))
+	return Admin{}, util.NewRecordNotFoundError(fmt.Sprintf("admin %q does not exist", username))
 }
 
 func (p *MemoryProvider) dumpAdmins() ([]Admin, error) {
@@ -883,7 +883,7 @@ func (p *MemoryProvider) updateFolderQuota(name string, filesAdd int, sizeAdd in
 	}
 	folder, err := p.folderExistsInternal(name)
 	if err != nil {
-		providerLog(logger.LevelError, "unable to update quota for folder %#v error: %v", name, err)
+		providerLog(logger.LevelError, "unable to update quota for folder %q error: %v", name, err)
 		return err
 	}
 	if reset {
@@ -1005,7 +1005,7 @@ func (p *MemoryProvider) addGroup(group *Group) error {
 
 	_, err := p.groupExistsInternal(group.Name)
 	if err == nil {
-		return fmt.Errorf("group %#v already exists", group.Name)
+		return fmt.Errorf("group %q already exists", group.Name)
 	}
 	group.ID = p.getNextGroupID()
 	group.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
@@ -1056,7 +1056,7 @@ func (p *MemoryProvider) deleteGroup(group Group) error {
 		return err
 	}
 	if len(g.Users) > 0 {
-		return util.NewValidationError(fmt.Sprintf("the group %#v is referenced, it cannot be removed", group.Name))
+		return util.NewValidationError(fmt.Sprintf("the group %q is referenced, it cannot be removed", group.Name))
 	}
 	for _, oldFolder := range g.VirtualFolders {
 		p.removeRelationFromFolderMapping(oldFolder.Name, "", g.Name)
@@ -1099,7 +1099,7 @@ func (p *MemoryProvider) getUsedFolderQuota(name string) (int, int64, error) {
 	}
 	folder, err := p.folderExistsInternal(name)
 	if err != nil {
-		providerLog(logger.LevelError, "unable to get quota for folder %#v error: %v", name, err)
+		providerLog(logger.LevelError, "unable to get quota for folder %q error: %v", name, err)
 		return 0, 0, err
 	}
 	return folder.UsedQuotaFiles, folder.UsedQuotaSize, err
@@ -1419,7 +1419,7 @@ func (p *MemoryProvider) folderExistsInternal(name string) (vfs.BaseVirtualFolde
 	if val, ok := p.dbHandle.vfolders[name]; ok {
 		return val, nil
 	}
-	return vfs.BaseVirtualFolder{}, util.NewRecordNotFoundError(fmt.Sprintf("folder %#v does not exist", name))
+	return vfs.BaseVirtualFolder{}, util.NewRecordNotFoundError(fmt.Sprintf("folder %q does not exist", name))
 }
 
 func (p *MemoryProvider) getFolders(limit, offset int, order string, minimal bool) ([]vfs.BaseVirtualFolder, error) {
@@ -1494,7 +1494,7 @@ func (p *MemoryProvider) addFolder(folder *vfs.BaseVirtualFolder) error {
 
 	_, err = p.folderExistsInternal(folder.Name)
 	if err == nil {
-		return fmt.Errorf("folder %#v already exists", folder.Name)
+		return fmt.Errorf("folder %q already exists", folder.Name)
 	}
 	folder.ID = p.getNextFolderID()
 	folder.Users = nil
@@ -1598,7 +1598,7 @@ func (p *MemoryProvider) apiKeyExistsInternal(keyID string) (APIKey, error) {
 	if val, ok := p.dbHandle.apiKeys[keyID]; ok {
 		return val.getACopy(), nil
 	}
-	return APIKey{}, util.NewRecordNotFoundError(fmt.Sprintf("API key %#v does not exist", keyID))
+	return APIKey{}, util.NewRecordNotFoundError(fmt.Sprintf("API key %q does not exist", keyID))
 }
 
 func (p *MemoryProvider) apiKeyExists(keyID string) (APIKey, error) {
@@ -1624,16 +1624,16 @@ func (p *MemoryProvider) addAPIKey(apiKey *APIKey) error {
 
 	_, err = p.apiKeyExistsInternal(apiKey.KeyID)
 	if err == nil {
-		return fmt.Errorf("API key %#v already exists", apiKey.KeyID)
+		return fmt.Errorf("API key %q already exists", apiKey.KeyID)
 	}
 	if apiKey.User != "" {
 		if _, err := p.userExistsInternal(apiKey.User); err != nil {
-			return util.NewValidationError(fmt.Sprintf("related user %#v does not exists", apiKey.User))
+			return util.NewValidationError(fmt.Sprintf("related user %q does not exists", apiKey.User))
 		}
 	}
 	if apiKey.Admin != "" {
 		if _, err := p.adminExistsInternal(apiKey.Admin); err != nil {
-			return util.NewValidationError(fmt.Sprintf("related admin %#v does not exists", apiKey.User))
+			return util.NewValidationError(fmt.Sprintf("related admin %q does not exists", apiKey.User))
 		}
 	}
 	apiKey.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
@@ -1662,12 +1662,12 @@ func (p *MemoryProvider) updateAPIKey(apiKey *APIKey) error {
 	}
 	if apiKey.User != "" {
 		if _, err := p.userExistsInternal(apiKey.User); err != nil {
-			return util.NewValidationError(fmt.Sprintf("related user %#v does not exists", apiKey.User))
+			return util.NewValidationError(fmt.Sprintf("related user %q does not exists", apiKey.User))
 		}
 	}
 	if apiKey.Admin != "" {
 		if _, err := p.adminExistsInternal(apiKey.Admin); err != nil {
-			return util.NewValidationError(fmt.Sprintf("related admin %#v does not exists", apiKey.User))
+			return util.NewValidationError(fmt.Sprintf("related admin %q does not exists", apiKey.User))
 		}
 	}
 	apiKey.ID = k.ID
@@ -1818,11 +1818,11 @@ func (p *MemoryProvider) updateSharesOrdering() {
 func (p *MemoryProvider) shareExistsInternal(shareID, username string) (Share, error) {
 	if val, ok := p.dbHandle.shares[shareID]; ok {
 		if username != "" && val.Username != username {
-			return Share{}, util.NewRecordNotFoundError(fmt.Sprintf("Share %#v does not exist", shareID))
+			return Share{}, util.NewRecordNotFoundError(fmt.Sprintf("Share %q does not exist", shareID))
 		}
 		return val.getACopy(), nil
 	}
-	return Share{}, util.NewRecordNotFoundError(fmt.Sprintf("Share %#v does not exist", shareID))
+	return Share{}, util.NewRecordNotFoundError(fmt.Sprintf("Share %q does not exist", shareID))
 }
 
 func (p *MemoryProvider) shareExists(shareID, username string) (Share, error) {
@@ -1851,7 +1851,7 @@ func (p *MemoryProvider) addShare(share *Share) error {
 		return fmt.Errorf("share %q already exists", share.ShareID)
 	}
 	if _, err := p.userExistsInternal(share.Username); err != nil {
-		return util.NewValidationError(fmt.Sprintf("related user %#v does not exists", share.Username))
+		return util.NewValidationError(fmt.Sprintf("related user %q does not exists", share.Username))
 	}
 	if !share.IsRestore {
 		share.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
@@ -2962,7 +2962,7 @@ func (p *MemoryProvider) reloadConfig() error {
 		providerLog(logger.LevelDebug, "no dump configuration file defined")
 		return nil
 	}
-	providerLog(logger.LevelDebug, "loading dump from file: %#v", p.dbHandle.configFile)
+	providerLog(logger.LevelDebug, "loading dump from file: %q", p.dbHandle.configFile)
 	fi, err := os.Stat(p.dbHandle.configFile)
 	if err != nil {
 		providerLog(logger.LevelError, "error loading dump: %v", err)
@@ -3038,7 +3038,7 @@ func (p *MemoryProvider) restoreDump(dump *BackupData) error {
 		return err
 	}
 
-	providerLog(logger.LevelDebug, "config loaded from file: %#v", p.dbHandle.configFile)
+	providerLog(logger.LevelDebug, "config loaded from file: %q", p.dbHandle.configFile)
 	return nil
 }
 
@@ -3098,13 +3098,13 @@ func (p *MemoryProvider) restoreShares(dump *BackupData) error {
 			share.ID = s.ID
 			err = UpdateShare(&share, ActionExecutorSystem, "", "")
 			if err != nil {
-				providerLog(logger.LevelError, "error updating share %#v: %v", share.ShareID, err)
+				providerLog(logger.LevelError, "error updating share %q: %v", share.ShareID, err)
 				return err
 			}
 		} else {
 			err = AddShare(&share, ActionExecutorSystem, "", "")
 			if err != nil {
-				providerLog(logger.LevelError, "error adding share %#v: %v", share.ShareID, err)
+				providerLog(logger.LevelError, "error adding share %q: %v", share.ShareID, err)
 				return err
 			}
 		}
@@ -3123,13 +3123,13 @@ func (p *MemoryProvider) restoreAPIKeys(dump *BackupData) error {
 			apiKey.ID = k.ID
 			err = UpdateAPIKey(&apiKey, ActionExecutorSystem, "", "")
 			if err != nil {
-				providerLog(logger.LevelError, "error updating API key %#v: %v", apiKey.KeyID, err)
+				providerLog(logger.LevelError, "error updating API key %q: %v", apiKey.KeyID, err)
 				return err
 			}
 		} else {
 			err = AddAPIKey(&apiKey, ActionExecutorSystem, "", "")
 			if err != nil {
-				providerLog(logger.LevelError, "error adding API key %#v: %v", apiKey.KeyID, err)
+				providerLog(logger.LevelError, "error adding API key %q: %v", apiKey.KeyID, err)
 				return err
 			}
 		}
@@ -3146,13 +3146,13 @@ func (p *MemoryProvider) restoreAdmins(dump *BackupData) error {
 			admin.ID = a.ID
 			err = UpdateAdmin(&admin, ActionExecutorSystem, "", "")
 			if err != nil {
-				providerLog(logger.LevelError, "error updating admin %#v: %v", admin.Username, err)
+				providerLog(logger.LevelError, "error updating admin %q: %v", admin.Username, err)
 				return err
 			}
 		} else {
 			err = AddAdmin(&admin, ActionExecutorSystem, "", "")
 			if err != nil {
-				providerLog(logger.LevelError, "error adding admin %#v: %v", admin.Username, err)
+				providerLog(logger.LevelError, "error adding admin %q: %v", admin.Username, err)
 				return err
 			}
 		}
@@ -3222,14 +3222,14 @@ func (p *MemoryProvider) restoreGroups(dump *BackupData) error {
 			group.ID = g.ID
 			err = UpdateGroup(&group, g.Users, ActionExecutorSystem, "", "")
 			if err != nil {
-				providerLog(logger.LevelError, "error updating group %#v: %v", group.Name, err)
+				providerLog(logger.LevelError, "error updating group %q: %v", group.Name, err)
 				return err
 			}
 		} else {
 			group.Users = nil
 			err = AddGroup(&group, ActionExecutorSystem, "", "")
 			if err != nil {
-				providerLog(logger.LevelError, "error adding group %#v: %v", group.Name, err)
+				providerLog(logger.LevelError, "error adding group %q: %v", group.Name, err)
 				return err
 			}
 		}
@@ -3246,14 +3246,14 @@ func (p *MemoryProvider) restoreFolders(dump *BackupData) error {
 			folder.ID = f.ID
 			err = UpdateFolder(&folder, f.Users, f.Groups, ActionExecutorSystem, "", "")
 			if err != nil {
-				providerLog(logger.LevelError, "error updating folder %#v: %v", folder.Name, err)
+				providerLog(logger.LevelError, "error updating folder %q: %v", folder.Name, err)
 				return err
 			}
 		} else {
 			folder.Users = nil
 			err = AddFolder(&folder, ActionExecutorSystem, "", "")
 			if err != nil {
-				providerLog(logger.LevelError, "error adding folder %#v: %v", folder.Name, err)
+				providerLog(logger.LevelError, "error adding folder %q: %v", folder.Name, err)
 				return err
 			}
 		}
@@ -3270,13 +3270,13 @@ func (p *MemoryProvider) restoreUsers(dump *BackupData) error {
 			user.ID = u.ID
 			err = UpdateUser(&user, ActionExecutorSystem, "", "")
 			if err != nil {
-				providerLog(logger.LevelError, "error updating user %#v: %v", user.Username, err)
+				providerLog(logger.LevelError, "error updating user %q: %v", user.Username, err)
 				return err
 			}
 		} else {
 			err = AddUser(&user, ActionExecutorSystem, "", "")
 			if err != nil {
-				providerLog(logger.LevelError, "error adding user %#v: %v", user.Username, err)
+				providerLog(logger.LevelError, "error adding user %q: %v", user.Username, err)
 				return err
 			}
 		}

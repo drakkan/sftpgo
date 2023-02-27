@@ -554,7 +554,7 @@ func HTTPListenAndServe(srv *http.Server, address string, port int, isTLS bool, 
 
 	if filepath.IsAbs(address) && runtime.GOOS != osWindows {
 		if !IsFileInputValid(address) {
-			return fmt.Errorf("invalid socket address %#v", address)
+			return fmt.Errorf("invalid socket address %q", address)
 		}
 		err = createDirPathIfMissing(address, os.ModePerm)
 		if err != nil {

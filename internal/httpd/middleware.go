@@ -118,7 +118,7 @@ func (s *httpdServer) validateJWTPartialToken(w http.ResponseWriter, r *http.Req
 		return errInvalidToken
 	}
 	if !util.Contains(token.Audience(), audience) {
-		logger.Debug(logSender, "", "the token is not valid for audience %#v", audience)
+		logger.Debug(logSender, "", "the token is not valid for audience %q", audience)
 		notFoundFunc(w, r, nil)
 		return errInvalidToken
 	}
@@ -362,7 +362,7 @@ func checkAPIKeyAuth(tokenAuth *jwtauth.JWTAuth, scope dataprovider.APIKeyScope)
 			}
 			keyParams := strings.SplitN(apiKey, ".", 3)
 			if len(keyParams) < 2 {
-				logger.Debug(logSender, "", "invalid api key %#v", apiKey)
+				logger.Debug(logSender, "", "invalid api key %q", apiKey)
 				sendAPIResponse(w, r, errors.New("the provided api key is not valid"), "", http.StatusBadRequest)
 				return
 			}
@@ -375,12 +375,12 @@ func checkAPIKeyAuth(tokenAuth *jwtauth.JWTAuth, scope dataprovider.APIKeyScope)
 
 			k, err := dataprovider.APIKeyExists(keyID)
 			if err != nil {
-				logger.Debug(logSender, "invalid api key %#v: %v", apiKey, err)
+				logger.Debug(logSender, "invalid api key %q: %v", apiKey, err)
 				sendAPIResponse(w, r, errors.New("the provided api key is not valid"), "", http.StatusBadRequest)
 				return
 			}
 			if err := k.Authenticate(key); err != nil {
-				logger.Debug(logSender, "", "unable to authenticate api key %#v: %v", apiKey, err)
+				logger.Debug(logSender, "", "unable to authenticate api key %q: %v", apiKey, err)
 				sendAPIResponse(w, r, fmt.Errorf("the provided api key cannot be authenticated"), "", http.StatusUnauthorized)
 				return
 			}
@@ -389,7 +389,7 @@ func checkAPIKeyAuth(tokenAuth *jwtauth.JWTAuth, scope dataprovider.APIKeyScope)
 					apiUser = k.Admin
 				}
 				if err := authenticateAdminWithAPIKey(apiUser, keyID, tokenAuth, r); err != nil {
-					logger.Debug(logSender, "", "unable to authenticate admin %#v associated with api key %#v: %v",
+					logger.Debug(logSender, "", "unable to authenticate admin %q associated with api key %q: %v",
 						apiUser, apiKey, err)
 					sendAPIResponse(w, r, fmt.Errorf("the admin associated with the provided api key cannot be authenticated"),
 						"", http.StatusUnauthorized)
@@ -400,7 +400,7 @@ func checkAPIKeyAuth(tokenAuth *jwtauth.JWTAuth, scope dataprovider.APIKeyScope)
 					apiUser = k.User
 				}
 				if err := authenticateUserWithAPIKey(apiUser, keyID, tokenAuth, r); err != nil {
-					logger.Debug(logSender, "", "unable to authenticate user %#v associated with api key %#v: %v",
+					logger.Debug(logSender, "", "unable to authenticate user %q associated with api key %q: %v",
 						apiUser, apiKey, err)
 					code := http.StatusUnauthorized
 					if errors.Is(err, common.ErrInternalFailure) {
@@ -443,7 +443,7 @@ func authenticateAdminWithAPIKey(username, keyID string, tokenAuth *jwtauth.JWTA
 		return err
 	}
 	if !admin.Filters.AllowAPIKeyAuth {
-		return fmt.Errorf("API key authentication disabled for admin %#v", admin.Username)
+		return fmt.Errorf("API key authentication disabled for admin %q", admin.Username)
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := admin.CanLogin(ipAddr); err != nil {
@@ -485,7 +485,7 @@ func authenticateUserWithAPIKey(username, keyID string, tokenAuth *jwtauth.JWTAu
 		return err
 	}
 	if !user.Filters.AllowAPIKeyAuth {
-		err := fmt.Errorf("API key authentication disabled for user %#v", user.Username)
+		err := fmt.Errorf("API key authentication disabled for user %q", user.Username)
 		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, err)
 		return err
 	}

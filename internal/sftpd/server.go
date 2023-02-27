@@ -571,7 +571,7 @@ func (c *Configuration) configureKeyboardInteractiveAuth(serverConfig *ssh.Serve
 
 func canAcceptConnection(ip string) bool {
 	if common.IsBanned(ip, common.ProtocolSSH) {
-		logger.Log(logger.LevelDebug, common.ProtocolSSH, "", "connection refused, ip %#v is banned", ip)
+		logger.Log(logger.LevelDebug, common.ProtocolSSH, "", "connection refused, ip %q is banned", ip)
 		return false
 	}
 	if err := common.Connections.IsNewConnectionAllowed(ip, common.ProtocolSSH); err != nil {
@@ -592,7 +592,7 @@ func canAcceptConnection(ip string) bool {
 func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.ServerConfig) {
 	defer func() {
 		if r := recover(); r != nil {
-			logger.Error(logSender, "", "panic in AcceptInboundConnection: %#v stack trace: %v", r, string(debug.Stack()))
+			logger.Error(logSender, "", "panic in AcceptInboundConnection: %q stack trace: %v", r, string(debug.Stack()))
 		}
 	}()
 
@@ -710,7 +710,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 func (c *Configuration) handleSftpConnection(channel ssh.Channel, connection *Connection) {
 	defer func() {
 		if r := recover(); r != nil {
-			logger.Error(logSender, "", "panic in handleSftpConnection: %#v stack trace: %v", r, string(debug.Stack()))
+			logger.Error(logSender, "", "panic in handleSftpConnection: %q stack trace: %v", r, string(debug.Stack()))
 		}
 	}()
 	if err := common.Connections.Add(connection); err != nil {
@@ -784,37 +784,37 @@ func loginUser(user *dataprovider.User, loginMethod, publicKey string, conn ssh.
 		connectionID = hex.EncodeToString(conn.SessionID())
 	}
 	if !filepath.IsAbs(user.HomeDir) {
-		logger.Warn(logSender, connectionID, "user %#v has an invalid home dir: %#v. Home dir must be an absolute path, login not allowed",
+		logger.Warn(logSender, connectionID, "user %q has an invalid home dir: %q. Home dir must be an absolute path, login not allowed",
 			user.Username, user.HomeDir)
-		return nil, fmt.Errorf("cannot login user with invalid home dir: %#v", user.HomeDir)
+		return nil, fmt.Errorf("cannot login user with invalid home dir: %q", user.HomeDir)
 	}
 	if util.Contains(user.Filters.DeniedProtocols, common.ProtocolSSH) {
-		logger.Info(logSender, connectionID, "cannot login user %#v, protocol SSH is not allowed", user.Username)
-		return nil, fmt.Errorf("protocol SSH is not allowed for user %#v", user.Username)
+		logger.Info(logSender, connectionID, "cannot login user %q, protocol SSH is not allowed", user.Username)
+		return nil, fmt.Errorf("protocol SSH is not allowed for user %q", user.Username)
 	}
 	if user.MaxSessions > 0 {
 		activeSessions := common.Connections.GetActiveSessions(user.Username)
 		if activeSessions >= user.MaxSessions {
-			logger.Info(logSender, "", "authentication refused for user: %#v, too many open sessions: %v/%v", user.Username,
+			logger.Info(logSender, "", "authentication refused for user: %q, too many open sessions: %v/%v", user.Username,
 				activeSessions, user.MaxSessions)
 			return nil, fmt.Errorf("too many open sessions: %v", activeSessions)
 		}
 	}
 	if !user.IsLoginMethodAllowed(loginMethod, common.ProtocolSSH, conn.PartialSuccessMethods()) {
-		logger.Info(logSender, connectionID, "cannot login user %#v, login method %#v is not allowed",
+		logger.Info(logSender, connectionID, "cannot login user %q, login method %q is not allowed",
 			user.Username, loginMethod)
-		return nil, fmt.Errorf("login method %#v is not allowed for user %#v", loginMethod, user.Username)
+		return nil, fmt.Errorf("login method %q is not allowed for user %q", loginMethod, user.Username)
 	}
 	if user.MustSetSecondFactorForProtocol(common.ProtocolSSH) {
-		logger.Info(logSender, connectionID, "cannot login user %#v, second factor authentication is not set",
+		logger.Info(logSender, connectionID, "cannot login user %q, second factor authentication is not set",
 			user.Username)
-		return nil, fmt.Errorf("second factor authentication is not set for user %#v", user.Username)
+		return nil, fmt.Errorf("second factor authentication is not set for user %q", user.Username)
 	}
 	remoteAddr := conn.RemoteAddr().String()
 	if !user.IsLoginFromAddrAllowed(remoteAddr) {
-		logger.Info(logSender, connectionID, "cannot login user %#v, remote address is not allowed: %v",
+		logger.Info(logSender, connectionID, "cannot login user %q, remote address is not allowed: %v",
 			user.Username, remoteAddr)
-		return nil, fmt.Errorf("login for user %#v is not allowed from this address: %v", user.Username, remoteAddr)
+		return nil, fmt.Errorf("login for user %q is not allowed from this address: %v", user.Username, remoteAddr)
 	}
 
 	json, err := json.Marshal(user)
@@ -843,8 +843,8 @@ func (c *Configuration) checkSSHCommands() {
 		if util.Contains(supportedSSHCommands, command) {
 			sshCommands = append(sshCommands, command)
 		} else {
-			logger.Warn(logSender, "", "unsupported ssh command: %#v ignored", command)
-			logger.WarnToConsole("unsupported ssh command: %#v ignored", command)
+			logger.Warn(logSender, "", "unsupported ssh command: %q ignored", command)
+			logger.WarnToConsole("unsupported ssh command: %q ignored", command)
 		}
 	}
 	c.EnabledSSHCommands = sshCommands
@@ -860,7 +860,7 @@ func (c *Configuration) checkFolderPrefix() {
 	}
 	if c.FolderPrefix != "" {
 		c.EnabledSSHCommands = nil
-		logger.Debug(logSender, "", "folder prefix %#v configured, SSH commands are disabled", c.FolderPrefix)
+		logger.Debug(logSender, "", "folder prefix %q configured, SSH commands are disabled", c.FolderPrefix)
 	}
 }
 
@@ -870,8 +870,8 @@ func (c *Configuration) generateDefaultHostKeys(configDir string) error {
 	for _, k := range defaultHostKeys {
 		autoFile := filepath.Join(configDir, k)
 		if _, err = os.Stat(autoFile); errors.Is(err, fs.ErrNotExist) {
-			logger.Info(logSender, "", "No host keys configured and %#v does not exist; try to create a new host key", autoFile)
-			logger.InfoToConsole("No host keys configured and %#v does not exist; try to create a new host key", autoFile)
+			logger.Info(logSender, "", "No host keys configured and %q does not exist; try to create a new host key", autoFile)
+			logger.InfoToConsole("No host keys configured and %q does not exist; try to create a new host key", autoFile)
 			if k == defaultPrivateRSAKeyName {
 				err = util.GenerateRSAKeys(autoFile)
 			} else if k == defaultPrivateECDSAKeyName {
@@ -880,8 +880,8 @@ func (c *Configuration) generateDefaultHostKeys(configDir string) error {
 				err = util.GenerateEd25519Keys(autoFile)
 			}
 			if err != nil {
-				logger.Warn(logSender, "", "error creating host key %#v: %v", autoFile, err)
-				logger.WarnToConsole("error creating host key %#v: %v", autoFile, err)
+				logger.Warn(logSender, "", "error creating host key %q: %v", autoFile, err)
+				logger.WarnToConsole("error creating host key %q: %v", autoFile, err)
 				return err
 			}
 		}
@@ -899,35 +899,35 @@ func (c *Configuration) checkHostKeyAutoGeneration(configDir string) error {
 				keyName := filepath.Base(k)
 				switch keyName {
 				case defaultPrivateRSAKeyName:
-					logger.Info(logSender, "", "try to create non-existent host key %#v", k)
-					logger.InfoToConsole("try to create non-existent host key %#v", k)
+					logger.Info(logSender, "", "try to create non-existent host key %q", k)
+					logger.InfoToConsole("try to create non-existent host key %q", k)
 					err = util.GenerateRSAKeys(k)
 					if err != nil {
-						logger.Warn(logSender, "", "error creating host key %#v: %v", k, err)
-						logger.WarnToConsole("error creating host key %#v: %v", k, err)
+						logger.Warn(logSender, "", "error creating host key %q: %v", k, err)
+						logger.WarnToConsole("error creating host key %q: %v", k, err)
 						return err
 					}
 				case defaultPrivateECDSAKeyName:
-					logger.Info(logSender, "", "try to create non-existent host key %#v", k)
-					logger.InfoToConsole("try to create non-existent host key %#v", k)
+					logger.Info(logSender, "", "try to create non-existent host key %q", k)
+					logger.InfoToConsole("try to create non-existent host key %q", k)
 					err = util.GenerateECDSAKeys(k)
 					if err != nil {
-						logger.Warn(logSender, "", "error creating host key %#v: %v", k, err)
-						logger.WarnToConsole("error creating host key %#v: %v", k, err)
+						logger.Warn(logSender, "", "error creating host key %q: %v", k, err)
+						logger.WarnToConsole("error creating host key %q: %v", k, err)
 						return err
 					}
 				case defaultPrivateEd25519KeyName:
-					logger.Info(logSender, "", "try to create non-existent host key %#v", k)
-					logger.InfoToConsole("try to create non-existent host key %#v", k)
+					logger.Info(logSender, "", "try to create non-existent host key %q", k)
+					logger.InfoToConsole("try to create non-existent host key %q", k)
 					err = util.GenerateEd25519Keys(k)
 					if err != nil {
-						logger.Warn(logSender, "", "error creating host key %#v: %v", k, err)
-						logger.WarnToConsole("error creating host key %#v: %v", k, err)
+						logger.Warn(logSender, "", "error creating host key %q: %v", k, err)
+						logger.WarnToConsole("error creating host key %q: %v", k, err)
 						return err
 					}
 				default:
-					logger.Warn(logSender, "", "non-existent host key %#v will not be created", k)
-					logger.WarnToConsole("non-existent host key %#v will not be created", k)
+					logger.Warn(logSender, "", "non-existent host key %q will not be created", k)
+					logger.WarnToConsole("non-existent host key %q will not be created", k)
 				}
 			}
 		}
@@ -1036,8 +1036,8 @@ func (c *Configuration) loadHostCertificates(configDir string) ([]*ssh.Certifica
 	for _, certPath := range c.HostCertificates {
 		certPath = strings.TrimSpace(certPath)
 		if !util.IsFileInputValid(certPath) {
-			logger.Warn(logSender, "", "unable to load invalid host certificate %#v", certPath)
-			logger.WarnToConsole("unable to load invalid host certificate %#v", certPath)
+			logger.Warn(logSender, "", "unable to load invalid host certificate %q", certPath)
+			logger.WarnToConsole("unable to load invalid host certificate %q", certPath)
 			continue
 		}
 		if !filepath.IsAbs(certPath) {
@@ -1045,18 +1045,18 @@ func (c *Configuration) loadHostCertificates(configDir string) ([]*ssh.Certifica
 		}
 		certBytes, err := os.ReadFile(certPath)
 		if err != nil {
-			return certs, fmt.Errorf("unable to load host certificate %#v: %w", certPath, err)
+			return certs, fmt.Errorf("unable to load host certificate %q: %w", certPath, err)
 		}
 		parsed, _, _, _, err := ssh.ParseAuthorizedKey(certBytes)
 		if err != nil {
-			return nil, fmt.Errorf("unable to parse host certificate %#v: %w", certPath, err)
+			return nil, fmt.Errorf("unable to parse host certificate %q: %w", certPath, err)
 		}
 		cert, ok := parsed.(*ssh.Certificate)
 		if !ok {
-			return nil, fmt.Errorf("the file %#v is not an SSH certificate", certPath)
+			return nil, fmt.Errorf("the file %q is not an SSH certificate", certPath)
 		}
 		if cert.CertType != ssh.HostCert {
-			return nil, fmt.Errorf("the file %#v is not an host certificate", certPath)
+			return nil, fmt.Errorf("the file %q is not an host certificate", certPath)
 		}
 		certs = append(certs, cert)
 	}
@@ -1067,8 +1067,8 @@ func (c *Configuration) initializeCertChecker(configDir string) error {
 	for _, keyPath := range c.TrustedUserCAKeys {
 		keyPath = strings.TrimSpace(keyPath)
 		if !util.IsFileInputValid(keyPath) {
-			logger.Warn(logSender, "", "unable to load invalid trusted user CA key %#v", keyPath)
-			logger.WarnToConsole("unable to load invalid trusted user CA key %#v", keyPath)
+			logger.Warn(logSender, "", "unable to load invalid trusted user CA key %q", keyPath)
+			logger.WarnToConsole("unable to load invalid trusted user CA key %q", keyPath)
 			continue
 		}
 		if !filepath.IsAbs(keyPath) {
@@ -1076,14 +1076,14 @@ func (c *Configuration) initializeCertChecker(configDir string) error {
 		}
 		keyBytes, err := os.ReadFile(keyPath)
 		if err != nil {
-			logger.Warn(logSender, "", "error loading trusted user CA key %#v: %v", keyPath, err)
-			logger.WarnToConsole("error loading trusted user CA key %#v: %v", keyPath, err)
+			logger.Warn(logSender, "", "error loading trusted user CA key %q: %v", keyPath, err)
+			logger.WarnToConsole("error loading trusted user CA key %q: %v", keyPath, err)
 			return err
 		}
 		parsedKey, _, _, _, err := ssh.ParseAuthorizedKey(keyBytes)
 		if err != nil {
-			logger.Warn(logSender, "", "error parsing trusted user CA key %#v: %v", keyPath, err)
-			logger.WarnToConsole("error parsing trusted user CA key %#v: %v", keyPath, err)
+			logger.Warn(logSender, "", "error parsing trusted user CA key %q: %v", keyPath, err)
+			logger.WarnToConsole("error parsing trusted user CA key %q: %v", keyPath, err)
 			return err
 		}
 		c.parsedUserCAKeys = append(c.parsedUserCAKeys, parsedKey)
@@ -1103,7 +1103,7 @@ func (c *Configuration) initializeCertChecker(configDir string) error {
 	}
 	if c.RevokedUserCertsFile != "" {
 		if !util.IsFileInputValid(c.RevokedUserCertsFile) {
-			return fmt.Errorf("invalid revoked user certificate: %#v", c.RevokedUserCertsFile)
+			return fmt.Errorf("invalid revoked user certificate: %q", c.RevokedUserCertsFile)
 		}
 		if !filepath.IsAbs(c.RevokedUserCertsFile) {
 			c.RevokedUserCertsFile = filepath.Join(configDir, c.RevokedUserCertsFile)
@@ -1250,24 +1250,24 @@ func (r *revokedCertificates) load() error {
 	if r.filePath == "" {
 		return nil
 	}
-	logger.Debug(logSender, "", "loading revoked user certificate file %#v", r.filePath)
+	logger.Debug(logSender, "", "loading revoked user certificate file %q", r.filePath)
 	info, err := os.Stat(r.filePath)
 	if err != nil {
-		return fmt.Errorf("unable to load revoked user certificate file %#v: %w", r.filePath, err)
+		return fmt.Errorf("unable to load revoked user certificate file %q: %w", r.filePath, err)
 	}
 	maxSize := int64(1048576 * 5) // 5MB
 	if info.Size() > maxSize {
-		return fmt.Errorf("unable to load revoked user certificate file %#v size too big: %v/%v bytes",
+		return fmt.Errorf("unable to load revoked user certificate file %q size too big: %v/%v bytes",
 			r.filePath, info.Size(), maxSize)
 	}
 	content, err := os.ReadFile(r.filePath)
 	if err != nil {
-		return fmt.Errorf("unable to read revoked user certificate file %#v: %w", r.filePath, err)
+		return fmt.Errorf("unable to read revoked user certificate file %q: %w", r.filePath, err)
 	}
 	var certs []string
 	err = json.Unmarshal(content, &certs)
 	if err != nil {
-		return fmt.Errorf("unable to parse revoked user certificate file %#v: %w", r.filePath, err)
+		return fmt.Errorf("unable to parse revoked user certificate file %q: %w", r.filePath, err)
 	}
 
 	r.mu.Lock()
@@ -1277,7 +1277,7 @@ func (r *revokedCertificates) load() error {
 	for _, fp := range certs {
 		r.certs[fp] = true
 	}
-	logger.Debug(logSender, "", "revoked user certificate file %#v loaded, entries: %v", r.filePath, len(r.certs))
+	logger.Debug(logSender, "", "revoked user certificate file %q loaded, entries: %v", r.filePath, len(r.certs))
 	return nil
 }
 

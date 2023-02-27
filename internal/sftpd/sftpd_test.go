@@ -7293,7 +7293,7 @@ func TestHashedPasswords(t *testing.T) {
 		assert.Equal(t, pwd, user.Password)
 		user.Password = clearPwd
 		conn, client, err := getSftpClient(user, usePubKey)
-		if assert.NoError(t, err, "unable to login with password %#v", pwd) {
+		if assert.NoError(t, err, "unable to login with password %q", pwd) {
 			assert.NoError(t, checkBasicSFTP(client))
 			conn.Close()
 			client.Close()
@@ -7318,7 +7318,7 @@ func TestHashedPasswords(t *testing.T) {
 		// login should still work
 		user.Password = clearPwd
 		conn, client, err = getSftpClient(user, usePubKey)
-		if assert.NoError(t, err, "unable to login with password %#v", pwd) {
+		if assert.NoError(t, err, "unable to login with password %q", pwd) {
 			assert.NoError(t, checkBasicSFTP(client))
 			conn.Close()
 			client.Close()
@@ -11444,7 +11444,7 @@ func getHostKeysFingerprints(hostKeys []string) {
 	for _, k := range hostKeys {
 		fp, err := getHostKeyFingerprint(filepath.Join(configDir, k))
 		if err != nil {
-			logger.ErrorToConsole("unable to get fingerprint for host key %#v: %v", k, err)
+			logger.ErrorToConsole("unable to get fingerprint for host key %q: %v", k, err)
 			os.Exit(1)
 		}
 		hostKeyFPs = append(hostKeyFPs, fp)

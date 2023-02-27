@@ -66,7 +66,7 @@ func (c *TOTPConfig) validate() error {
 	case TOTPAlgoSHA512:
 		c.algo = otp.AlgorithmSHA512
 	default:
-		return fmt.Errorf("unsupported totp algo %#v", c.Algo)
+		return fmt.Errorf("unsupported totp algo %q", c.Algo)
 	}
 	return nil
 }

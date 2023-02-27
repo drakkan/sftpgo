@@ -358,7 +358,7 @@ func TestUserInvalidParams(t *testing.T) {
 
 	_, err = server.validateUser(u, req, dataprovider.LoginMethodPassword)
 	if assert.Error(t, err) {
-		assert.EqualError(t, err, fmt.Sprintf("cannot login user with invalid home dir: %#v", u.HomeDir))
+		assert.EqualError(t, err, fmt.Sprintf("cannot login user with invalid home dir: %q", u.HomeDir))
 	}
 
 	req.TLS = &tls.ConnectionState{}

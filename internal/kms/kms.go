@@ -120,7 +120,7 @@ func (c *Configuration) Initialize() error {
 		config.Secrets.URL = sdkkms.SchemeLocal + "://"
 	}
 	for k, v := range secretProviders {
-		logger.Info(logSender, "", "secret provider registered for scheme: %#v, encrypted status: %#v",
+		logger.Info(logSender, "", "secret provider registered for scheme: %q, encrypted status: %q",
 			k, v.encryptedStatus)
 	}
 	return nil
@@ -195,7 +195,7 @@ func (s *Secret) UnmarshalJSON(data []byte) error {
 			return nil
 		}
 	}
-	logger.Error(logSender, "", "no provider registered for status %#v", baseSecret.Status)
+	logger.Error(logSender, "", "no provider registered for status %q", baseSecret.Status)
 	return ErrInvalidSecret
 }
 

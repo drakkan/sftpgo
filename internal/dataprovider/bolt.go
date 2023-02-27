@@ -73,7 +73,7 @@ func initializeBoltProvider(basePath string) error {
 
 	dbPath := config.Name
 	if !util.IsFileInputValid(dbPath) {
-		return fmt.Errorf("invalid database path: %#v", dbPath)
+		return fmt.Errorf("invalid database path: %q", dbPath)
 	}
 	if !filepath.IsAbs(dbPath) {
 		dbPath = filepath.Join(basePath, dbPath)
@@ -113,7 +113,7 @@ func (p *BoltProvider) validateUserAndTLSCert(username, protocol string, tlsCert
 	}
 	user, err := p.userExists(username, "")
 	if err != nil {
-		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)
+		providerLog(logger.LevelWarn, "error authenticating user %q: %v", username, err)
 		return user, err
 	}
 	return checkUserAndTLSCertificate(&user, protocol, tlsCert)
@@ -122,7 +122,7 @@ func (p *BoltProvider) validateUserAndTLSCert(username, protocol string, tlsCert
 func (p *BoltProvider) validateUserAndPass(username, password, ip, protocol string) (User, error) {
 	user, err := p.userExists(username, "")
 	if err != nil {
-		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)
+		providerLog(logger.LevelWarn, "error authenticating user %q: %v", username, err)
 		return user, err
 	}
 	return checkUserAndPass(&user, password, ip, protocol)
@@ -131,7 +131,7 @@ func (p *BoltProvider) validateUserAndPass(username, password, ip, protocol stri
 func (p *BoltProvider) validateAdminAndPass(username, password, ip string) (Admin, error) {
 	admin, err := p.adminExists(username)
 	if err != nil {
-		providerLog(logger.LevelWarn, "error authenticating admin %#v: %v", username, err)
+		providerLog(logger.LevelWarn, "error authenticating admin %q: %v", username, err)
 		return admin, ErrInvalidCredentials
 	}
 	err = admin.checkUserAndPass(password, ip)
@@ -145,7 +145,7 @@ func (p *BoltProvider) validateUserAndPubKey(username string, pubKey []byte, isS
 	}
 	user, err := p.userExists(username, "")
 	if err != nil {
-		providerLog(logger.LevelWarn, "error authenticating user %#v: %v", username, err)
+		providerLog(logger.LevelWarn, "error authenticating user %q: %v", username, err)
 		return user, "", err
 	}
 	return checkUserAndPubKey(&user, pubKey, isSSHCert)
@@ -159,7 +159,7 @@ func (p *BoltProvider) updateAPIKeyLastUse(keyID string) error {
 		}
 		var u []byte
 		if u = bucket.Get([]byte(keyID)); u == nil {
-			return util.NewRecordNotFoundError(fmt.Sprintf("key %#v does not exist, unable to update last use", keyID))
+			return util.NewRecordNotFoundError(fmt.Sprintf("key %q does not exist, unable to update last use", keyID))
 		}
 		var apiKey APIKey
 		err = json.Unmarshal(u, &apiKey)
@@ -173,10 +173,10 @@ func (p *BoltProvider) updateAPIKeyLastUse(keyID string) error {
 		}
 		err = bucket.Put([]byte(keyID), buf)
 		if err != nil {
-			providerLog(logger.LevelWarn, "error updating last use for key %#v: %v", keyID, err)
+			providerLog(logger.LevelWarn, "error updating last use for key %q: %v", keyID, err)
 			return err
 		}
-		providerLog(logger.LevelDebug, "last use updated for key %#v", keyID)
+		providerLog(logger.LevelDebug, "last use updated for key %q", keyID)
 		return nil
 	})
 }
@@ -189,7 +189,7 @@ func (p *BoltProvider) setUpdatedAt(username string) {
 		}
 		var u []byte
 		if u = bucket.Get([]byte(username)); u == nil {
-			return util.NewRecordNotFoundError(fmt.Sprintf("username %#v does not exist, unable to update updated at", username))
+			return util.NewRecordNotFoundError(fmt.Sprintf("username %q does not exist, unable to update updated at", username))
 		}
 		var user User
 		err = json.Unmarshal(u, &user)
@@ -203,10 +203,10 @@ func (p *BoltProvider) setUpdatedAt(username string) {
 		}
 		err = bucket.Put([]byte(username), buf)
 		if err == nil {
-			providerLog(logger.LevelDebug, "updated at set for user %#v", username)
+			providerLog(logger.LevelDebug, "updated at set for user %q", username)
 			setLastUserUpdate()
 		} else {
-			providerLog(logger.LevelWarn, "error setting updated_at for user %#v: %v", username, err)
+			providerLog(logger.LevelWarn, "error setting updated_at for user %q: %v", username, err)
 		}
 		return err
 	})
@@ -220,7 +220,7 @@ func (p *BoltProvider) updateLastLogin(username string) error {
 		}
 		var u []byte
 		if u = bucket.Get([]byte(username)); u == nil {
-			return util.NewRecordNotFoundError(fmt.Sprintf("username %#v does not exist, unable to update last login", username))
+			return util.NewRecordNotFoundError(fmt.Sprintf("username %q does not exist, unable to update last login", username))
 		}
 		var user User
 		err = json.Unmarshal(u, &user)
@@ -234,9 +234,9 @@ func (p *BoltProvider) updateLastLogin(username string) error {
 		}
 		err = bucket.Put([]byte(username), buf)
 		if err != nil {
-			providerLog(logger.LevelWarn, "error updating last login for user %#v: %v", username, err)
+			providerLog(logger.LevelWarn, "error updating last login for user %q: %v", username, err)
 		} else {
-			providerLog(logger.LevelDebug, "last login updated for user %#v", username)
+			providerLog(logger.LevelDebug, "last login updated for user %q", username)
 		}
 		return err
 	})
@@ -250,7 +250,7 @@ func (p *BoltProvider) updateAdminLastLogin(username string) error {
 		}
 		var a []byte
 		if a = bucket.Get([]byte(username)); a == nil {
-			return util.NewRecordNotFoundError(fmt.Sprintf("admin %#v does not exist, unable to update last login", username))
+			return util.NewRecordNotFoundError(fmt.Sprintf("admin %q does not exist, unable to update last login", username))
 		}
 		var admin Admin
 		err = json.Unmarshal(a, &admin)
@@ -264,10 +264,10 @@ func (p *BoltProvider) updateAdminLastLogin(username string) error {
 		}
 		err = bucket.Put([]byte(username), buf)
 		if err == nil {
-			providerLog(logger.LevelDebug, "last login updated for admin %#v", username)
+			providerLog(logger.LevelDebug, "last login updated for admin %q", username)
 			return err
 		}
-		providerLog(logger.LevelWarn, "error updating last login for admin %#v: %v", username, err)
+		providerLog(logger.LevelWarn, "error updating last login for admin %q: %v", username, err)
 		return err
 	})
 }
@@ -280,7 +280,7 @@ func (p *BoltProvider) updateTransferQuota(username string, uploadSize, download
 		}
 		var u []byte
 		if u = bucket.Get([]byte(username)); u == nil {
-			return util.NewRecordNotFoundError(fmt.Sprintf("username %#v does not exist, unable to update transfer quota",
+			return util.NewRecordNotFoundError(fmt.Sprintf("username %q does not exist, unable to update transfer quota",
 				username))
 		}
 		var user User
@@ -301,7 +301,7 @@ func (p *BoltProvider) updateTransferQuota(username string, uploadSize, download
 			return err
 		}
 		err = bucket.Put([]byte(username), buf)
-		providerLog(logger.LevelDebug, "transfer quota updated for user %#v, ul increment: %v dl increment: %v is reset? %v",
+		providerLog(logger.LevelDebug, "transfer quota updated for user %q, ul increment: %v dl increment: %v is reset? %v",
 			username, uploadSize, downloadSize, reset)
 		return err
 	})
@@ -315,7 +315,7 @@ func (p *BoltProvider) updateQuota(username string, filesAdd int, sizeAdd int64,
 		}
 		var u []byte
 		if u = bucket.Get([]byte(username)); u == nil {
-			return util.NewRecordNotFoundError(fmt.Sprintf("username %#v does not exist, unable to update quota", username))
+			return util.NewRecordNotFoundError(fmt.Sprintf("username %q does not exist, unable to update quota", username))
 		}
 		var user User
 		err = json.Unmarshal(u, &user)
@@ -335,7 +335,7 @@ func (p *BoltProvider) updateQuota(username string, filesAdd int, sizeAdd int64,
 			return err
 		}
 		err = bucket.Put([]byte(username), buf)
-		providerLog(logger.LevelDebug, "quota updated for user %#v, files increment: %v size increment: %v is reset? %v",
+		providerLog(logger.LevelDebug, "quota updated for user %q, files increment: %v size increment: %v is reset? %v",
 			username, filesAdd, sizeAdd, reset)
 		return err
 	})
@@ -695,7 +695,7 @@ func (p *BoltProvider) updateUser(user *User) error {
 		}
 		var u []byte
 		if u = bucket.Get([]byte(user.Username)); u == nil {
-			return util.NewRecordNotFoundError(fmt.Sprintf("username %#v does not exist", user.Username))
+			return util.NewRecordNotFoundError(fmt.Sprintf("username %q does not exist", user.Username))
 		}
 		var oldUser User
 		err = json.Unmarshal(u, &oldUser)
@@ -789,7 +789,7 @@ func (p *BoltProvider) updateUserPassword(username, password string) error {
 		}
 		var u []byte
 		if u = bucket.Get([]byte(username)); u == nil {
-			return util.NewRecordNotFoundError(fmt.Sprintf("username %#v does not exist", username))
+			return util.NewRecordNotFoundError(fmt.Sprintf("username %q does not exist", username))
 		}
 		var user User
 		err = json.Unmarshal(u, &user)
@@ -1247,7 +1247,7 @@ func (p *BoltProvider) updateFolderQuota(name string, filesAdd int, sizeAdd int6
 		}
 		var f []byte
 		if f = bucket.Get([]byte(name)); f == nil {
-			return util.NewRecordNotFoundError(fmt.Sprintf("folder %#v does not exist, unable to update quota", name))
+			return util.NewRecordNotFoundError(fmt.Sprintf("folder %q does not exist, unable to update quota", name))
 		}
 		var folder vfs.BaseVirtualFolder
 		err = json.Unmarshal(f, &folder)
@@ -1273,7 +1273,7 @@ func (p *BoltProvider) updateFolderQuota(name string, filesAdd int, sizeAdd int6
 func (p *BoltProvider) getUsedFolderQuota(name string) (int, int64, error) {
 	folder, err := p.getFolderByName(name)
 	if err != nil {
-		providerLog(logger.LevelError, "unable to get quota for folder %#v error: %v", name, err)
+		providerLog(logger.LevelError, "unable to get quota for folder %q error: %v", name, err)
 		return 0, 0, err
 	}
 	return folder.UsedQuotaFiles, folder.UsedQuotaSize, err
@@ -1396,7 +1396,7 @@ func (p *BoltProvider) groupExists(name string) (Group, error) {
 		}
 		g := bucket.Get([]byte(name))
 		if g == nil {
-			return util.NewRecordNotFoundError(fmt.Sprintf("group %#v does not exist", name))
+			return util.NewRecordNotFoundError(fmt.Sprintf("group %q does not exist", name))
 		}
 		foldersBucket, err := p.getFoldersBucket(tx)
 		if err != nil {
@@ -1462,7 +1462,7 @@ func (p *BoltProvider) updateGroup(group *Group) error {
 		}
 		var g []byte
 		if g = bucket.Get([]byte(group.Name)); g == nil {
-			return util.NewRecordNotFoundError(fmt.Sprintf("group %#v does not exist", group.Name))
+			return util.NewRecordNotFoundError(fmt.Sprintf("group %q does not exist", group.Name))
 		}
 		var oldGroup Group
 		err = json.Unmarshal(g, &oldGroup)
@@ -1502,7 +1502,7 @@ func (p *BoltProvider) deleteGroup(group Group) error {
 		}
 		var g []byte
 		if g = bucket.Get([]byte(group.Name)); g == nil {
-			return util.NewRecordNotFoundError(fmt.Sprintf("group %#v does not exist", group.Name))
+			return util.NewRecordNotFoundError(fmt.Sprintf("group %q does not exist", group.Name))
 		}
 		var oldGroup Group
 		err = json.Unmarshal(g, &oldGroup)
@@ -1510,7 +1510,7 @@ func (p *BoltProvider) deleteGroup(group Group) error {
 			return err
 		}
 		if len(oldGroup.Users) > 0 {
-			return util.NewValidationError(fmt.Sprintf("the group %#v is referenced, it cannot be removed", oldGroup.Name))
+			return util.NewValidationError(fmt.Sprintf("the group %q is referenced, it cannot be removed", oldGroup.Name))
 		}
 		if len(oldGroup.VirtualFolders) > 0 {
 			foldersBucket, err := p.getFoldersBucket(tx)
@@ -1605,12 +1605,12 @@ func (p *BoltProvider) addAPIKey(apiKey *APIKey) error {
 		apiKey.LastUseAt = 0
 		if apiKey.User != "" {
 			if err := p.userExistsInternal(tx, apiKey.User); err != nil {
-				return util.NewValidationError(fmt.Sprintf("related user %#v does not exists", apiKey.User))
+				return util.NewValidationError(fmt.Sprintf("related user %q does not exists", apiKey.User))
 			}
 		}
 		if apiKey.Admin != "" {
 			if err := p.adminExistsInternal(tx, apiKey.Admin); err != nil {
-				return util.NewValidationError(fmt.Sprintf("related admin %#v does not exists", apiKey.User))
+				return util.NewValidationError(fmt.Sprintf("related admin %q does not exists", apiKey.User))
 			}
 		}
 		buf, err := json.Marshal(apiKey)
@@ -1650,12 +1650,12 @@ func (p *BoltProvider) updateAPIKey(apiKey *APIKey) error {
 		apiKey.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 		if apiKey.User != "" {
 			if err := p.userExistsInternal(tx, apiKey.User); err != nil {
-				return util.NewValidationError(fmt.Sprintf("related user %#v does not exists", apiKey.User))
+				return util.NewValidationError(fmt.Sprintf("related user %q does not exists", apiKey.User))
 			}
 		}
 		if apiKey.Admin != "" {
 			if err := p.adminExistsInternal(tx, apiKey.Admin); err != nil {
-				return util.NewValidationError(fmt.Sprintf("related admin %#v does not exists", apiKey.User))
+				return util.NewValidationError(fmt.Sprintf("related admin %q does not exists", apiKey.User))
 			}
 		}
 		buf, err := json.Marshal(apiKey)
@@ -1809,7 +1809,7 @@ func (p *BoltProvider) addShare(share *Share) error {
 			share.UpdatedAt = share.CreatedAt
 		}
 		if err := p.userExistsInternal(tx, share.Username); err != nil {
-			return util.NewValidationError(fmt.Sprintf("related user %#v does not exists", share.Username))
+			return util.NewValidationError(fmt.Sprintf("related user %q does not exists", share.Username))
 		}
 		buf, err := json.Marshal(share)
 		if err != nil {
@@ -1857,7 +1857,7 @@ func (p *BoltProvider) updateShare(share *Share) error {
 			share.UpdatedAt = share.CreatedAt
 		}
 		if err := p.userExistsInternal(tx, share.Username); err != nil {
-			return util.NewValidationError(fmt.Sprintf("related user %#v does not exists", share.Username))
+			return util.NewValidationError(fmt.Sprintf("related user %q does not exists", share.Username))
 		}
 		buf, err := json.Marshal(share)
 		if err != nil {
@@ -1978,7 +1978,7 @@ func (p *BoltProvider) updateShareLastUse(shareID string, numTokens int) error {
 		}
 		var u []byte
 		if u = bucket.Get([]byte(shareID)); u == nil {
-			return util.NewRecordNotFoundError(fmt.Sprintf("share %#v does not exist, unable to update last use", shareID))
+			return util.NewRecordNotFoundError(fmt.Sprintf("share %q does not exist, unable to update last use", shareID))
 		}
 		var share Share
 		err = json.Unmarshal(u, &share)
@@ -1993,10 +1993,10 @@ func (p *BoltProvider) updateShareLastUse(shareID string, numTokens int) error {
 		}
 		err = bucket.Put([]byte(shareID), buf)
 		if err != nil {
-			providerLog(logger.LevelWarn, "error updating last use for share %#v: %v", shareID, err)
+			providerLog(logger.LevelWarn, "error updating last use for share %q: %v", shareID, err)
 			return err
 		}
-		providerLog(logger.LevelDebug, "last use updated for share %#v", shareID)
+		providerLog(logger.LevelDebug, "last use updated for share %q", shareID)
 		return nil
 	})
 }
@@ -3020,7 +3020,7 @@ func (p *BoltProvider) setFirstDownloadTimestamp(username string) error {
 		}
 		var u []byte
 		if u = bucket.Get([]byte(username)); u == nil {
-			return util.NewRecordNotFoundError(fmt.Sprintf("username %#v does not exist, unable to set download timestamp",
+			return util.NewRecordNotFoundError(fmt.Sprintf("username %q does not exist, unable to set download timestamp",
 				username))
 		}
 		var user User
@@ -3049,7 +3049,7 @@ func (p *BoltProvider) setFirstUploadTimestamp(username string) error {
 		}
 		var u []byte
 		if u = bucket.Get([]byte(username)); u == nil {
-			return util.NewRecordNotFoundError(fmt.Sprintf("username %#v does not exist, unable to set upload timestamp",
+			return util.NewRecordNotFoundError(fmt.Sprintf("username %q does not exist, unable to set upload timestamp",
 				username))
 		}
 		var user User
@@ -3285,7 +3285,7 @@ func (p *BoltProvider) groupExistsInternal(name string, bucket *bolt.Bucket) (Gr
 	var group Group
 	g := bucket.Get([]byte(name))
 	if g == nil {
-		err := util.NewRecordNotFoundError(fmt.Sprintf("group %#v does not exist", name))
+		err := util.NewRecordNotFoundError(fmt.Sprintf("group %q does not exist", name))
 		return group, err
 	}
 	err := json.Unmarshal(g, &group)
@@ -3296,7 +3296,7 @@ func (p *BoltProvider) folderExistsInternal(name string, bucket *bolt.Bucket) (v
 	var folder vfs.BaseVirtualFolder
 	f := bucket.Get([]byte(name))
 	if f == nil {
-		err := util.NewRecordNotFoundError(fmt.Sprintf("folder %#v does not exist", name))
+		err := util.NewRecordNotFoundError(fmt.Sprintf("folder %q does not exist", name))
 		return folder, err
 	}
 	err := json.Unmarshal(f, &folder)
@@ -3782,7 +3782,7 @@ func (p *BoltProvider) userExistsInternal(tx *bolt.Tx, username string) error {
 	}
 	u := bucket.Get([]byte(username))
 	if u == nil {
-		return util.NewRecordNotFoundError(fmt.Sprintf("username %#v does not exist", username))
+		return util.NewRecordNotFoundError(fmt.Sprintf("username %q does not exist", username))
 	}
 	return nil
 }

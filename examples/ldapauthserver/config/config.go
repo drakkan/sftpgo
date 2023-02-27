@@ -153,6 +153,6 @@ func LoadConfig(configDir, configName string) error {
 		logger.WarnToConsole("error parsing configuration file: %v. Default configuration will be used.", err)
 		return err
 	}
-	logger.Debug(logSender, "", "config file used: '%#v', config loaded: %+v", viper.ConfigFileUsed(), getRedactedConf())
+	logger.Debug(logSender, "", "config file used: '%q', config loaded: %+v", viper.ConfigFileUsed(), getRedactedConf())
 	return err
 }

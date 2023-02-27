@@ -72,7 +72,7 @@ func startRetentionCheck(w http.ResponseWriter, r *http.Request) {
 	}
 	c := common.RetentionChecks.Add(check, &user)
 	if c == nil {
-		sendAPIResponse(w, r, err, fmt.Sprintf("Another check is already in progress for user %#v", username),
+		sendAPIResponse(w, r, err, fmt.Sprintf("Another check is already in progress for user %q", username),
 			http.StatusConflict)
 		return
 	}

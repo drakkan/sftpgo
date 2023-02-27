@@ -38,7 +38,7 @@ var (
 				fmt.Printf("Error querying service status: %v\r\n", err)
 				os.Exit(1)
 			} else {
-				fmt.Printf("Service status: %#v\r\n", status.String())
+				fmt.Printf("Service status: %q\r\n", status.String())
 			}
 		},
 	}

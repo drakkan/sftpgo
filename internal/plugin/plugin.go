@@ -233,10 +233,10 @@ func (m *Manager) validateConfigs() error {
 		switch config.Type {
 		case kmsplugin.PluginName:
 			if _, ok := kmsSchemes[config.KMSOptions.Scheme]; ok {
-				return fmt.Errorf("invalid KMS configuration, duplicated scheme %#v", config.KMSOptions.Scheme)
+				return fmt.Errorf("invalid KMS configuration, duplicated scheme %q", config.KMSOptions.Scheme)
 			}
 			if _, ok := kmsEncryptions[config.KMSOptions.EncryptedStatus]; ok {
-				return fmt.Errorf("invalid KMS configuration, duplicated encrypted status %#v", config.KMSOptions.EncryptedStatus)
+				return fmt.Errorf("invalid KMS configuration, duplicated encrypted status %q", config.KMSOptions.EncryptedStatus)
 			}
 			kmsSchemes[config.KMSOptions.Scheme] = true
 			kmsEncryptions[config.KMSOptions.EncryptedStatus] = true
@@ -397,7 +397,7 @@ func (m *Manager) IsIPBanned(ip, protocol string) bool {
 	m.ipFilterLock.RUnlock()
 
 	if plugin.exited() {
-		logger.Warn(logSender, "", "ip filter plugin is not active, cannot check ip %#v", ip)
+		logger.Warn(logSender, "", "ip filter plugin is not active, cannot check ip %q", ip)
 		return false
 	}
 
@@ -629,10 +629,10 @@ func (m *Manager) restartNotifierPlugin(config Config, idx int) {
 	if m.closed.Load() {
 		return
 	}
-	logger.Info(logSender, "", "try to restart crashed notifier plugin %#v, idx: %v", config.Cmd, idx)
+	logger.Info(logSender, "", "try to restart crashed notifier plugin %q, idx: %v", config.Cmd, idx)
 	plugin, err := newNotifierPlugin(config)
 	if err != nil {
-		logger.Error(logSender, "", "unable to restart notifier plugin %#v, err: %v", config.Cmd, err)
+		logger.Error(logSender, "", "unable to restart notifier plugin %q, err: %v", config.Cmd, err)
 		return
 	}
 
@@ -647,10 +647,10 @@ func (m *Manager) restartKMSPlugin(config Config, idx int) {
 	if m.closed.Load() {
 		return
 	}
-	logger.Info(logSender, "", "try to restart crashed kms plugin %#v, idx: %v", config.Cmd, idx)
+	logger.Info(logSender, "", "try to restart crashed kms plugin %q, idx: %v", config.Cmd, idx)
 	plugin, err := newKMSPlugin(config)
 	if err != nil {
-		logger.Error(logSender, "", "unable to restart kms plugin %#v, err: %v", config.Cmd, err)
+		logger.Error(logSender, "", "unable to restart kms plugin %q, err: %v", config.Cmd, err)
 		return
 	}
 
@@ -663,10 +663,10 @@ func (m *Manager) restartAuthPlugin(config Config, idx int) {
 	if m.closed.Load() {
 		return
 	}
-	logger.Info(logSender, "", "try to restart crashed auth plugin %#v, idx: %v", config.Cmd, idx)
+	logger.Info(logSender, "", "try to restart crashed auth plugin %q, idx: %v", config.Cmd, idx)
 	plugin, err := newAuthPlugin(config)
 	if err != nil {
-		logger.Error(logSender, "", "unable to restart auth plugin %#v, err: %v", config.Cmd, err)
+		logger.Error(logSender, "", "unable to restart auth plugin %q, err: %v", config.Cmd, err)
 		return
 	}
 
@@ -679,10 +679,10 @@ func (m *Manager) restartSearcherPlugin(config Config) {
 	if m.closed.Load() {
 		return
 	}
-	logger.Info(logSender, "", "try to restart crashed searcher plugin %#v", config.Cmd)
+	logger.Info(logSender, "", "try to restart crashed searcher plugin %q", config.Cmd)
 	plugin, err := newSearcherPlugin(config)
 	if err != nil {
-		logger.Error(logSender, "", "unable to restart searcher plugin %#v, err: %v", config.Cmd, err)
+		logger.Error(logSender, "", "unable to restart searcher plugin %q, err: %v", config.Cmd, err)
 		return
 	}
 
@@ -695,10 +695,10 @@ func (m *Manager) restartMetadaterPlugin(config Config) {
 	if m.closed.Load() {
 		return
 	}
-	logger.Info(logSender, "", "try to restart crashed metadater plugin %#v", config.Cmd)
+	logger.Info(logSender, "", "try to restart crashed metadater plugin %q", config.Cmd)
 	plugin, err := newMetadaterPlugin(config)
 	if err != nil {
-		logger.Error(logSender, "", "unable to restart metadater plugin %#v, err: %v", config.Cmd, err)
+		logger.Error(logSender, "", "unable to restart metadater plugin %q, err: %v", config.Cmd, err)
 		return
 	}
 
@@ -711,10 +711,10 @@ func (m *Manager) restartIPFilterPlugin(config Config) {
 	if m.closed.Load() {
 		return
 	}
-	logger.Info(logSender, "", "try to restart crashed IP filter plugin %#v", config.Cmd)
+	logger.Info(logSender, "", "try to restart crashed IP filter plugin %q", config.Cmd)
 	plugin, err := newIPFilterPlugin(config)
 	if err != nil {
-		logger.Error(logSender, "", "unable to restart IP filter plugin %#v, err: %v", config.Cmd, err)
+		logger.Error(logSender, "", "unable to restart IP filter plugin %q, err: %v", config.Cmd, err)
 		return
 	}
 

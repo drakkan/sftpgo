@@ -808,7 +808,7 @@ func (c *Conf) isWebClientEnabled() bool {
 
 func (c *Conf) checkRequiredDirs(staticFilesPath, templatesPath string) error {
 	if (c.isWebAdminEnabled() || c.isWebClientEnabled()) && (staticFilesPath == "" || templatesPath == "") {
-		return fmt.Errorf("required directory is invalid, static file path: %#v template path: %#v",
+		return fmt.Errorf("required directory is invalid, static file path: %q template path: %q",
 			staticFilesPath, templatesPath)
 	}
 	return nil

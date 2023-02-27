@@ -819,7 +819,7 @@ func addZipEntry(wr *zipWriterWrapper, conn *BaseConnection, entryPath, baseDir 
 	}
 	info, err := conn.DoStat(entryPath, 1, false)
 	if err != nil {
-		eventManagerLog(logger.LevelError, "unable to add zip entry %#v, stat error: %v", entryPath, err)
+		eventManagerLog(logger.LevelError, "unable to add zip entry %q, stat error: %v", entryPath, err)
 		return err
 	}
 	entryName, err := getZipEntryName(entryPath, baseDir)

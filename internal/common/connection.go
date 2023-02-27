@@ -362,7 +362,7 @@ func (c *BaseConnection) CreateDir(virtualPath string, checkFilePatterns bool) e
 	}
 	startTime := time.Now()
 	if err := fs.Mkdir(fsPath); err != nil {
-		c.Log(logger.LevelError, "error creating dir: %#v error: %+v", fsPath, err)
+		c.Log(logger.LevelError, "error creating dir: %q error: %+v", fsPath, err)
 		return c.GetFsError(fs, err)
 	}
 	vfs.SetPathPermissions(fs, fsPath, c.User.GetUID(), c.User.GetGID())
@@ -440,7 +440,7 @@ func (c *BaseConnection) IsRemoveDirAllowed(fs vfs.Fs, fsPath, virtualPath strin
 		return fmt.Errorf("removing virtual folders is not allowed: %w", c.GetPermissionDeniedError())
 	}
 	if c.User.HasVirtualFoldersInside(virtualPath) {
-		c.Log(logger.LevelWarn, "removing a directory with a virtual folder inside is not allowed: %#v", virtualPath)
+		c.Log(logger.LevelWarn, "removing a directory with a virtual folder inside is not allowed: %q", virtualPath)
 		return fmt.Errorf("cannot remove directory %q with virtual folders inside: %w", virtualPath, c.GetOpUnsupportedError())
 	}
 	if c.User.IsMappedPath(fsPath) {
@@ -484,7 +484,7 @@ func (c *BaseConnection) RemoveDir(virtualPath string) error {
 
 	startTime := time.Now()
 	if err := fs.Remove(fsPath, true); err != nil {
-		c.Log(logger.LevelError, "failed to remove directory %#v: %+v", fsPath, err)
+		c.Log(logger.LevelError, "failed to remove directory %q: %+v", fsPath, err)
 		return c.GetFsError(fs, err)
 	}
 	elapsed := time.Since(startTime).Nanoseconds() / 1000000
@@ -810,11 +810,11 @@ func (c *BaseConnection) CreateSymlink(virtualSourcePath, virtualTargetPath stri
 	}
 	ok, policy := c.User.IsFileAllowed(virtualSourcePath)
 	if !ok && policy == sdk.DenyPolicyHide {
-		c.Log(logger.LevelError, "symlink source path %#v is not allowed", virtualSourcePath)
+		c.Log(logger.LevelError, "symlink source path %q is not allowed", virtualSourcePath)
 		return c.GetNotExistError()
 	}
 	if ok, _ = c.User.IsFileAllowed(virtualTargetPath); !ok {
-		c.Log(logger.LevelError, "symlink target path %#v is not allowed", virtualTargetPath)
+		c.Log(logger.LevelError, "symlink target path %q is not allowed", virtualTargetPath)
 		return c.GetPermissionDeniedError()
 	}
 	if relativePath != "" {
@@ -913,7 +913,7 @@ func (c *BaseConnection) handleChmod(fs vfs.Fs, fsPath, pathForPerms string, att
 	}
 	startTime := time.Now()
 	if err := fs.Chmod(c.getRealFsPath(fsPath), attributes.Mode); err != nil {
-		c.Log(logger.LevelError, "failed to chmod path %#v, mode: %v, err: %+v", fsPath, attributes.Mode.String(), err)
+		c.Log(logger.LevelError, "failed to chmod path %q, mode: %v, err: %+v", fsPath, attributes.Mode.String(), err)
 		return c.GetFsError(fs, err)
 	}
 	elapsed := time.Since(startTime).Nanoseconds() / 1000000
@@ -931,7 +931,7 @@ func (c *BaseConnection) handleChown(fs vfs.Fs, fsPath, pathForPerms string, att
 	}
 	startTime := time.Now()
 	if err := fs.Chown(c.getRealFsPath(fsPath), attributes.UID, attributes.GID); err != nil {
-		c.Log(logger.LevelError, "failed to chown path %#v, uid: %v, gid: %v, err: %+v", fsPath, attributes.UID,
+		c.Log(logger.LevelError, "failed to chown path %q, uid: %v, gid: %v, err: %+v", fsPath, attributes.UID,
 			attributes.GID, err)
 		return c.GetFsError(fs, err)
 	}
@@ -955,7 +955,7 @@ func (c *BaseConnection) handleChtimes(fs vfs.Fs, fsPath, pathForPerms string, a
 		if errors.Is(err, vfs.ErrVfsUnsupported) && Config.SetstatMode == 2 {
 			return nil
 		}
-		c.Log(logger.LevelError, "failed to chtimes for path %#v, access time: %v, modification time: %v, err: %+v",
+		c.Log(logger.LevelError, "failed to chtimes for path %q, access time: %v, modification time: %v, err: %+v",
 			fsPath, attributes.Atime, attributes.Mtime, err)
 		return c.GetFsError(fs, err)
 	}
@@ -1002,7 +1002,7 @@ func (c *BaseConnection) SetStat(virtualPath string, attributes *StatAttributes)
 		}
 		startTime := time.Now()
 		if err = c.truncateFile(fs, fsPath, virtualPath, attributes.Size); err != nil {
-			c.Log(logger.LevelError, "failed to truncate path %#v, size: %v, err: %+v", fsPath, attributes.Size, err)
+			c.Log(logger.LevelError, "failed to truncate path %q, size: %v, err: %+v", fsPath, attributes.Size, err)
 			return c.GetFsError(fs, err)
 		}
 		elapsed := time.Since(startTime).Nanoseconds() / 1000000
@@ -1020,7 +1020,7 @@ func (c *BaseConnection) truncateFile(fs vfs.Fs, fsPath, virtualPath string, siz
 	var err error
 	initialSize, err = c.truncateOpenHandle(fsPath, size)
 	if err == errNoTransfer {
-		c.Log(logger.LevelDebug, "file path %#v not found in active transfers, execute trucate by path", fsPath)
+		c.Log(logger.LevelDebug, "file path %q not found in active transfers, execute trucate by path", fsPath)
 		var info os.FileInfo
 		info, err = fs.Stat(fsPath)
 		if err != nil {
@@ -1147,11 +1147,11 @@ func (c *BaseConnection) isRenamePermitted(fsSrc, fsDst vfs.Fs, fsSourcePath, fs
 		return false
 	}
 	if c.User.IsMappedPath(fsSourcePath) && vfs.IsLocalOrCryptoFs(fsSrc) {
-		c.Log(logger.LevelWarn, "renaming a directory mapped as virtual folder is not allowed: %#v", fsSourcePath)
+		c.Log(logger.LevelWarn, "renaming a directory mapped as virtual folder is not allowed: %q", fsSourcePath)
 		return false
 	}
 	if c.User.IsMappedPath(fsTargetPath) && vfs.IsLocalOrCryptoFs(fsDst) {
-		c.Log(logger.LevelWarn, "renaming to a directory mapped as virtual folder is not allowed: %#v", fsTargetPath)
+		c.Log(logger.LevelWarn, "renaming to a directory mapped as virtual folder is not allowed: %q", fsTargetPath)
 		return false
 	}
 	if virtualSourcePath == "/" || virtualTargetPath == "/" || fsSrc.GetRelativePath(fsSourcePath) == "/" {
@@ -1316,7 +1316,7 @@ func (c *BaseConnection) checkUserQuota() (dataprovider.TransferQuota, int, int6
 	}
 	usedFiles, usedSize, usedULSize, usedDLSize, err := dataprovider.GetUsedQuota(c.User.Username)
 	if err != nil {
-		c.Log(logger.LevelError, "error getting used quota for %#v: %v", c.User.Username, err)
+		c.Log(logger.LevelError, "error getting used quota for %q: %v", c.User.Username, err)
 		result.AllowedTotalSize = -1
 		return result, -1, -1
 	}
@@ -1376,7 +1376,7 @@ func (c *BaseConnection) HasSpace(checkFiles, getUsage bool, requestPath string)
 		}
 	}
 	if err != nil {
-		c.Log(logger.LevelError, "error getting used quota for %#v request path %#v: %v", c.User.Username, requestPath, err)
+		c.Log(logger.LevelError, "error getting used quota for %q request path %q: %v", c.User.Username, requestPath, err)
 		result.HasSpace = false
 		return result, transferQuota
 	}

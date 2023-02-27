@@ -161,7 +161,7 @@ func (s *Server) ClientConnected(cc ftpserver.ClientContext) (string, error) {
 	ipAddr := util.GetIPFromRemoteAddress(cc.RemoteAddr().String())
 	common.Connections.AddClientConnection(ipAddr)
 	if common.IsBanned(ipAddr, common.ProtocolFTP) {
-		logger.Log(logger.LevelDebug, common.ProtocolFTP, "", "connection refused, ip %#v is banned", ipAddr)
+		logger.Log(logger.LevelDebug, common.ProtocolFTP, "", "connection refused, ip %q is banned", ipAddr)
 		return "Access denied: banned client IP", common.ErrConnectionDenied
 	}
 	if err := common.Connections.IsNewConnectionAllowed(ipAddr, common.ProtocolFTP); err != nil {
@@ -216,7 +216,7 @@ func (s *Server) AuthUser(cc ftpserver.ClientContext, username, password string)
 		return nil, err
 	}
 	setStartDirectory(user.Filters.StartDirectory, cc)
-	connection.Log(logger.LevelInfo, "User %#v logged in with %#v from ip %#v", user.Username, loginMethod, ipAddr)
+	connection.Log(logger.LevelInfo, "User %q logged in with %q from ip %q", user.Username, loginMethod, ipAddr)
 	dataprovider.UpdateLastLogin(&user)
 	return connection, nil
 }
@@ -281,7 +281,7 @@ func (s *Server) VerifyConnection(cc ftpserver.ClientContext, user string, tlsCo
 						return nil, err
 					}
 					setStartDirectory(dbUser.Filters.StartDirectory, cc)
-					connection.Log(logger.LevelInfo, "User id: %d, logged in with FTP using a TLS certificate, username: %#v, home_dir: %#v remote addr: %#v",
+					connection.Log(logger.LevelInfo, "User id: %d, logged in with FTP using a TLS certificate, username: %q, home_dir: %q remote addr: %q",
 						dbUser.ID, dbUser.Username, dbUser.HomeDir, ipAddr)
 					dataprovider.UpdateLastLogin(&dbUser)
 					return connection, nil
@@ -305,7 +305,7 @@ func (s *Server) buildTLSConfig() {
 			CipherSuites:             s.binding.ciphers,
 			PreferServerCipherSuites: true,
 		}
-		logger.Debug(logSender, "", "configured TLS cipher suites for binding %#v: %v, certID: %v",
+		logger.Debug(logSender, "", "configured TLS cipher suites for binding %q: %v, certID: %v",
 			s.binding.GetAddress(), s.binding.ciphers, certID)
 		if s.binding.isMutualTLSEnabled() {
 			s.tlsConfig.ClientCAs = certMgr.GetRootCAs()
@@ -349,7 +349,7 @@ func (s *Server) verifyTLSConnection(state tls.ConnectionState) error {
 				caCrt = verifiedChain[len(verifiedChain)-1]
 			}
 			if certMgr.IsRevoked(clientCrt, caCrt) {
-				logger.Debug(logSender, "", "tls handshake error, client certificate %#v has beed revoked", clientCrtName)
+				logger.Debug(logSender, "", "tls handshake error, client certificate %q has beed revoked", clientCrtName)
 				return common.ErrCrtRevoked
 			}
 		}
@@ -361,37 +361,37 @@ func (s *Server) verifyTLSConnection(state tls.ConnectionState) error {
 func (s *Server) validateUser(user dataprovider.User, cc ftpserver.ClientContext, loginMethod string) (*Connection, error) {
 	connectionID := fmt.Sprintf("%v_%v_%v", common.ProtocolFTP, s.ID, cc.ID())
 	if !filepath.IsAbs(user.HomeDir) {
-		logger.Warn(logSender, connectionID, "user %#v has an invalid home dir: %#v. Home dir must be an absolute path, login not allowed",
+		logger.Warn(logSender, connectionID, "user %q has an invalid home dir: %q. Home dir must be an absolute path, login not allowed",
 			user.Username, user.HomeDir)
-		return nil, fmt.Errorf("cannot login user with invalid home dir: %#v", user.HomeDir)
+		return nil, fmt.Errorf("cannot login user with invalid home dir: %q", user.HomeDir)
 	}
 	if util.Contains(user.Filters.DeniedProtocols, common.ProtocolFTP) {
-		logger.Info(logSender, connectionID, "cannot login user %#v, protocol FTP is not allowed", user.Username)
-		return nil, fmt.Errorf("protocol FTP is not allowed for user %#v", user.Username)
+		logger.Info(logSender, connectionID, "cannot login user %q, protocol FTP is not allowed", user.Username)
+		return nil, fmt.Errorf("protocol FTP is not allowed for user %q", user.Username)
 	}
 	if !user.IsLoginMethodAllowed(loginMethod, common.ProtocolFTP, nil) {
-		logger.Info(logSender, connectionID, "cannot login user %#v, %v login method is not allowed",
+		logger.Info(logSender, connectionID, "cannot login user %q, %v login method is not allowed",
 			user.Username, loginMethod)
-		return nil, fmt.Errorf("login method %v is not allowed for user %#v", loginMethod, user.Username)
+		return nil, fmt.Errorf("login method %v is not allowed for user %q", loginMethod, user.Username)
 	}
 	if user.MustSetSecondFactorForProtocol(common.ProtocolFTP) {
-		logger.Info(logSender, connectionID, "cannot login user %#v, second factor authentication is not set",
+		logger.Info(logSender, connectionID, "cannot login user %q, second factor authentication is not set",
 			user.Username)
-		return nil, fmt.Errorf("second factor authentication is not set for user %#v", user.Username)
+		return nil, fmt.Errorf("second factor authentication is not set for user %q", user.Username)
 	}
 	if user.MaxSessions > 0 {
 		activeSessions := common.Connections.GetActiveSessions(user.Username)
 		if activeSessions >= user.MaxSessions {
-			logger.Info(logSender, connectionID, "authentication refused for user: %#v, too many open sessions: %v/%v",
+			logger.Info(logSender, connectionID, "authentication refused for user: %q, too many open sessions: %v/%v",
 				user.Username, activeSessions, user.MaxSessions)
 			return nil, fmt.Errorf("too many open sessions: %v", activeSessions)
 		}
 	}
 	remoteAddr := cc.RemoteAddr().String()
 	if !user.IsLoginFromAddrAllowed(remoteAddr) {
-		logger.Info(logSender, connectionID, "cannot login user %#v, remote address is not allowed: %v",
+		logger.Info(logSender, connectionID, "cannot login user %q, remote address is not allowed: %v",
 			user.Username, remoteAddr)
-		return nil, fmt.Errorf("login for user %#v is not allowed from this address: %v", user.Username, remoteAddr)
+		return nil, fmt.Errorf("login for user %q is not allowed from this address: %v", user.Username, remoteAddr)
 	}
 	err := user.CheckFsRoot(connectionID)
 	if err != nil {

@@ -266,7 +266,7 @@ func (s *Share) validate() error {
 	for _, IPMask := range s.AllowFrom {
 		_, _, err := net.ParseCIDR(IPMask)
 		if err != nil {
-			return util.NewValidationError(fmt.Sprintf("could not parse allow from entry %#v : %v", IPMask, err))
+			return util.NewValidationError(fmt.Sprintf("could not parse allow from entry %q : %v", IPMask, err))
 		}
 	}
 	return nil

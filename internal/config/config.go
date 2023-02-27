@@ -732,7 +732,7 @@ func LoadConfig(configDir, configFile string) error {
 	loadBindingsFromEnv()
 	loadWebDAVCacheMappingsFromEnv()
 	resetInvalidConfigs()
-	logger.Debug(logSender, "", "config file used: '%#v', config loaded: %+v", viper.ConfigFileUsed(), getRedactedGlobalConf())
+	logger.Debug(logSender, "", "config file used: '%q', config loaded: %+v", viper.ConfigFileUsed(), getRedactedGlobalConf())
 	return nil
 }
 
@@ -759,7 +759,7 @@ func resetInvalidConfigs() {
 		globalConf.HTTPDConfig.Setup.InstallationCodeHint = defaultInstallCodeHint
 	}
 	if globalConf.ProviderConf.UsersBaseDir != "" && !util.IsFileInputValid(globalConf.ProviderConf.UsersBaseDir) {
-		warn := fmt.Sprintf("invalid users base dir %#v will be ignored", globalConf.ProviderConf.UsersBaseDir)
+		warn := fmt.Sprintf("invalid users base dir %q will be ignored", globalConf.ProviderConf.UsersBaseDir)
 		globalConf.ProviderConf.UsersBaseDir = ""
 		logger.Warn(logSender, "", "Non-fatal configuration error: %v", warn)
 		logger.WarnToConsole("Non-fatal configuration error: %v", warn)
@@ -786,7 +786,7 @@ func resetInvalidConfigs() {
 	}
 	if globalConf.Common.DefenderConfig.Enabled && globalConf.Common.DefenderConfig.Driver == common.DefenderDriverProvider {
 		if !globalConf.ProviderConf.IsDefenderSupported() {
-			warn := fmt.Sprintf("provider based defender is not supported with data provider %#v, "+
+			warn := fmt.Sprintf("provider based defender is not supported with data provider %q, "+
 				"the memory defender implementation will be used. If you want to use the provider defender "+
 				"implementation please switch to a shared/distributed data provider",
 				globalConf.ProviderConf.Driver)

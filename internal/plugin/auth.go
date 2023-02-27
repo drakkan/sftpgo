@@ -107,9 +107,9 @@ func newAuthPlugin(config Config) (*authPlugin, error) {
 
 func (p *authPlugin) initialize() error {
 	killProcess(p.config.Cmd)
-	logger.Debug(logSender, "", "create new auth plugin %#v", p.config.Cmd)
+	logger.Debug(logSender, "", "create new auth plugin %q", p.config.Cmd)
 	if err := p.config.AuthOptions.validate(); err != nil {
-		return fmt.Errorf("invalid options for auth plugin %#v: %v", p.config.Cmd, err)
+		return fmt.Errorf("invalid options for auth plugin %q: %v", p.config.Cmd, err)
 	}
 
 	secureConfig, err := p.config.getSecureConfig()
@@ -136,12 +136,12 @@ func (p *authPlugin) initialize() error {
 	})
 	rpcClient, err := client.Client()
 	if err != nil {
-		logger.Debug(logSender, "", "unable to get rpc client for kms plugin %#v: %v", p.config.Cmd, err)
+		logger.Debug(logSender, "", "unable to get rpc client for kms plugin %q: %v", p.config.Cmd, err)
 		return err
 	}
 	raw, err := rpcClient.Dispense(auth.PluginName)
 	if err != nil {
-		logger.Debug(logSender, "", "unable to get plugin %v from rpc client for command %#v: %v",
+		logger.Debug(logSender, "", "unable to get plugin %v from rpc client for command %q: %v",
 			auth.PluginName, p.config.Cmd, err)
 		return err
 	}

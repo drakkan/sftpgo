@@ -68,9 +68,9 @@ func generateTOTPSecret(w http.ResponseWriter, r *http.Request) {
 	}
 	var accountName string
 	if claims.hasUserAudience() {
-		accountName = fmt.Sprintf("User %#v", claims.Username)
+		accountName = fmt.Sprintf("User %q", claims.Username)
 	} else {
-		accountName = fmt.Sprintf("Admin %#v", claims.Username)
+		accountName = fmt.Sprintf("Admin %q", claims.Username)
 	}
 
 	var req generateTOTPRequest
@@ -257,7 +257,7 @@ func saveUserTOTPConfig(username string, r *http.Request, recoveryCodes []datapr
 	}
 	for _, p := range user.Filters.TwoFactorAuthProtocols {
 		if !util.Contains(user.Filters.TOTPConfig.Protocols, p) {
-			return util.NewValidationError(fmt.Sprintf("totp: the following protocols are required: %#v",
+			return util.NewValidationError(fmt.Sprintf("totp: the following protocols are required: %q",
 				strings.Join(user.Filters.TwoFactorAuthProtocols, ", ")))
 		}
 	}

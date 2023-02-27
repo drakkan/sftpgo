@@ -200,7 +200,7 @@ func (t *baseTransferChecker) getOverquotaTransfers(usersToFetch map[string]bool
 			// file will be successful
 			usedDiskQuota += tr.CurrentULSize - tr.TruncatedSize
 		}
-		logger.Debug(logSender, "", "username %#v, folder %#v, concurrent transfers: %v, remaining disk quota (bytes): %v, disk quota used in ongoing transfers (bytes): %v",
+		logger.Debug(logSender, "", "username %q, folder %q, concurrent transfers: %v, remaining disk quota (bytes): %v, disk quota used in ongoing transfers (bytes): %v",
 			username, folderName, len(transfers), remaningDiskQuota, usedDiskQuota)
 		if usedDiskQuota > remaningDiskQuota {
 			for _, tr := range transfers {
@@ -221,7 +221,7 @@ func (t *baseTransferChecker) getOverquotaTransfers(usersToFetch map[string]bool
 			ulSize += tr.CurrentULSize
 			dlSize += tr.CurrentDLSize
 		}
-		logger.Debug(logSender, "", "username %#v, concurrent transfers: %v, quota (bytes) used in ongoing transfers, ul: %v, dl: %v",
+		logger.Debug(logSender, "", "username %q, concurrent transfers: %v, quota (bytes) used in ongoing transfers, ul: %v, dl: %v",
 			username, len(transfers), ulSize, dlSize)
 		for _, tr := range transfers {
 			if t.isDataTransferExceeded(usersMap[username], tr, ulSize, dlSize) {

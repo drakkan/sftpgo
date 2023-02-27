@@ -620,7 +620,7 @@ func (c *AzBlobFsConfig) validate() error {
 		return err
 	}
 	if !util.Contains(validAzAccessTier, c.AccessTier) {
-		return fmt.Errorf("invalid access tier %#v, valid values: \"''%v\"", c.AccessTier, strings.Join(validAzAccessTier, ", "))
+		return fmt.Errorf("invalid access tier %q, valid values: \"''%v\"", c.AccessTier, strings.Join(validAzAccessTier, ", "))
 	}
 	return nil
 }
@@ -890,19 +890,19 @@ func fsMetadataCheck(fs fsMetadataChecker, storageID, keyPrefix string) error {
 					continue
 				}
 			}
-			fsLog(fs, logger.LevelDebug, "check metadata for folder %#v", folder)
+			fsLog(fs, logger.LevelDebug, "check metadata for folder %q", folder)
 			metadataValues, err := plugin.Handler.GetModificationTimes(storageID, folder)
 			if err != nil {
-				fsLog(fs, logger.LevelError, "unable to get modification times for folder %#v: %v", folder, err)
+				fsLog(fs, logger.LevelError, "unable to get modification times for folder %q: %v", folder, err)
 				return err
 			}
 			if len(metadataValues) == 0 {
-				fsLog(fs, logger.LevelDebug, "no metadata for folder %#v", folder)
+				fsLog(fs, logger.LevelDebug, "no metadata for folder %q", folder)
 				continue
 			}
 			fileNames, err := fs.getFileNamesInPrefix(fsPrefix)
 			if err != nil {
-				fsLog(fs, logger.LevelError, "unable to get content for prefix %#v: %v", fsPrefix, err)
+				fsLog(fs, logger.LevelError, "unable to get content for prefix %q: %v", fsPrefix, err)
 				return err
 			}
 			// now check if we have metadata for a missing object

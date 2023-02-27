@@ -224,7 +224,7 @@ func (q *quotaUpdater) storeUsersQuota() {
 		if size != 0 || files != 0 {
 			err := provider.updateQuota(username, files, size, false)
 			if err != nil {
-				providerLog(logger.LevelWarn, "unable to update quota delayed for user %#v: %v", username, err)
+				providerLog(logger.LevelWarn, "unable to update quota delayed for user %q: %v", username, err)
 				continue
 			}
 			q.updateUserQuota(username, -files, -size)
@@ -238,7 +238,7 @@ func (q *quotaUpdater) storeFoldersQuota() {
 		if size != 0 || files != 0 {
 			err := provider.updateFolderQuota(name, files, size, false)
 			if err != nil {
-				providerLog(logger.LevelWarn, "unable to update quota delayed for folder %#v: %v", name, err)
+				providerLog(logger.LevelWarn, "unable to update quota delayed for folder %q: %v", name, err)
 				continue
 			}
 			q.updateFolderQuota(name, -files, -size)
@@ -252,7 +252,7 @@ func (q *quotaUpdater) storeUsersTransferQuota() {
 		if ulSize != 0 || dlSize != 0 {
 			err := provider.updateTransferQuota(username, ulSize, dlSize, false)
 			if err != nil {
-				providerLog(logger.LevelWarn, "unable to update transfer quota delayed for user %#v: %v", username, err)
+				providerLog(logger.LevelWarn, "unable to update transfer quota delayed for user %q: %v", username, err)
 				continue
 			}
 			q.updateUserTransferQuota(username, -ulSize, -dlSize)

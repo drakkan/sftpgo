@@ -56,7 +56,7 @@ func (c *Config) Initialize() error {
 		}
 		if _, ok := totp[totpConfig.Name]; ok {
 			totpConfigs = nil
-			return fmt.Errorf("totp: duplicate configuration name %#v", totpConfig.Name)
+			return fmt.Errorf("totp: duplicate configuration name %q", totpConfig.Name)
 		}
 		totp[totpConfig.Name] = true
 		totpConfigs = append(totpConfigs, &totpConfig)
@@ -89,7 +89,7 @@ func ValidateTOTPPasscode(configName, passcode, secret string) (bool, error) {
 		}
 	}
 
-	return false, fmt.Errorf("totp: no configuration %#v", configName)
+	return false, fmt.Errorf("totp: no configuration %q", configName)
 }
 
 // GenerateTOTPSecret generates a new TOTP secret and QR code for the given username
@@ -102,7 +102,7 @@ func GenerateTOTPSecret(configName, username string) (string, string, string, []
 		}
 	}
 
-	return "", "", "", nil, fmt.Errorf("totp: no configuration %#v", configName)
+	return "", "", "", nil, fmt.Errorf("totp: no configuration %q", configName)
 }
 
 // the ticker cannot be started/stopped from multiple goroutines

@@ -127,7 +127,7 @@ func (o *OIDC) getRedirectURL() string {
 		url = strings.TrimSuffix(o.RedirectBaseURL, "/")
 	}
 	url += webOIDCRedirectPath
-	logger.Debug(logSender, "", "oidc redirect URL: %#v", url)
+	logger.Debug(logSender, "", "oidc redirect URL: %q", url)
 	return url
 }
 
@@ -149,7 +149,7 @@ func (o *OIDC) initialize() error {
 
 	provider, err := oidc.NewProvider(ctx, o.ConfigURL)
 	if err != nil {
-		return fmt.Errorf("oidc: unable to initialize provider for URL %#v: %w", o.ConfigURL, err)
+		return fmt.Errorf("oidc: unable to initialize provider for URL %q: %w", o.ConfigURL, err)
 	}
 	claims := make(map[string]any)
 	// we cannot get an error here because the response body was already parsed as JSON
@@ -159,7 +159,7 @@ func (o *OIDC) initialize() error {
 	if ok {
 		if val, ok := endSessionEndPoint.(string); ok {
 			o.providerLogoutURL = val
-			logger.Debug(logSender, "", "oidc end session endpoint %#v", o.providerLogoutURL)
+			logger.Debug(logSender, "", "oidc end session endpoint %q", o.providerLogoutURL)
 		}
 	}
 	o.provider = provider
@@ -225,7 +225,7 @@ func (t *oidcToken) parseClaims(claims map[string]any, usernameField, roleField 
 
 	username, ok := claims[usernameField].(string)
 	if !ok || username == "" {
-		logger.Warn(logSender, "", "username field %#v not found, claims fields: %+v", usernameField, getClaimsFields())
+		logger.Warn(logSender, "", "username field %q not found, claims fields: %+v", usernameField, getClaimsFields())
 		return errors.New("no username field")
 	}
 	t.Username = username
@@ -242,10 +242,10 @@ func (t *oidcToken) parseClaims(claims map[string]any, usernameField, roleField 
 					customFields := make(map[string]any)
 					t.CustomFields = &customFields
 				}
-				logger.Debug(logSender, "", "custom field %#v found in token claims", field)
+				logger.Debug(logSender, "", "custom field %q found in token claims", field)
 				(*t.CustomFields)[field] = val
 			} else {
-				logger.Info(logSender, "", "custom field %#v not found in token claims", field)
+				logger.Info(logSender, "", "custom field %q not found in token claims", field)
 			}
 		}
 	}
@@ -316,7 +316,7 @@ func (t *oidcToken) isExpired() bool {
 
 func (t *oidcToken) refresh(config OAuth2Config, verifier OIDCTokenVerifier, r *http.Request) error {
 	if t.RefreshToken == "" {
-		logger.Debug(logSender, "", "refresh token not set, unable to refresh cookie %#v", t.Cookie)
+		logger.Debug(logSender, "", "refresh token not set, unable to refresh cookie %q", t.Cookie)
 		return errors.New("refresh token not set")
 	}
 	oauth2Token := oauth2.Token{
@@ -332,12 +332,12 @@ func (t *oidcToken) refresh(config OAuth2Config, verifier OIDCTokenVerifier, r *
 
 	newToken, err := config.TokenSource(ctx, &oauth2Token).Token()
 	if err != nil {
-		logger.Debug(logSender, "", "unable to refresh token for cookie %#v: %v", t.Cookie, err)
+		logger.Debug(logSender, "", "unable to refresh token for cookie %q: %v", t.Cookie, err)
 		return err
 	}
 	rawIDToken, ok := newToken.Extra("id_token").(string)
 	if !ok {
-		logger.Debug(logSender, "", "the refreshed token has no id token, cookie %#v", t.Cookie)
+		logger.Debug(logSender, "", "the refreshed token has no id token, cookie %q", t.Cookie)
 		return errors.New("the refreshed token has no id token")
 	}
 
@@ -352,17 +352,17 @@ func (t *oidcToken) refresh(config OAuth2Config, verifier OIDCTokenVerifier, r *
 	}
 	idToken, err := verifier.Verify(ctx, rawIDToken)
 	if err != nil {
-		logger.Debug(logSender, "", "unable to verify refreshed id token for cookie %#v: %v", t.Cookie, err)
+		logger.Debug(logSender, "", "unable to verify refreshed id token for cookie %q: %v", t.Cookie, err)
 		return err
 	}
 	if idToken.Nonce != t.Nonce {
-		logger.Debug(logSender, "", "unable to verify refreshed id token for cookie %#v: nonce mismatch", t.Cookie)
+		logger.Debug(logSender, "", "unable to verify refreshed id token for cookie %q: nonce mismatch", t.Cookie)
 		return errors.New("the refreshed token nonce mismatch")
 	}
 	claims := make(map[string]any)
 	err = idToken.Claims(&claims)
 	if err != nil {
-		logger.Debug(logSender, "", "unable to get refreshed id token claims for cookie %#v: %v", t.Cookie, err)
+		logger.Debug(logSender, "", "unable to get refreshed id token claims for cookie %q: %v", t.Cookie, err)
 		return err
 	}
 	sid, ok := claims["sid"].(string)
@@ -371,10 +371,10 @@ func (t *oidcToken) refresh(config OAuth2Config, verifier OIDCTokenVerifier, r *
 	}
 	err = t.refreshUser(r)
 	if err != nil {
-		logger.Debug(logSender, "", "unable to refresh user after token refresh for cookie %#v: %v", t.Cookie, err)
+		logger.Debug(logSender, "", "unable to refresh user after token refresh for cookie %q: %v", t.Cookie, err)
 		return err
 	}
-	logger.Debug(logSender, "", "oidc token refreshed for user %#v, cookie %#v", t.Username, t.Cookie)
+	logger.Debug(logSender, "", "oidc token refreshed for user %q, cookie %q", t.Username, t.Cookie)
 	oidcMgr.addToken(*t)
 
 	return nil
@@ -474,12 +474,12 @@ func (s *httpdServer) validateOIDCToken(w http.ResponseWriter, r *http.Request, 
 	}
 	token, err := oidcMgr.getToken(cookie.Value)
 	if err != nil {
-		logger.Debug(logSender, "", "error getting oidc token associated with cookie %#v: %v", cookie.Value, err)
+		logger.Debug(logSender, "", "error getting oidc token associated with cookie %q: %v", cookie.Value, err)
 		doRedirect()
 		return oidcToken{}, errInvalidToken
 	}
 	if token.isExpired() {
-		logger.Debug(logSender, "", "oidc token associated with cookie %#v is expired", token.Cookie)
+		logger.Debug(logSender, "", "oidc token associated with cookie %q is expired", token.Cookie)
 		if err = token.refresh(s.binding.OIDC.oauth2Config, s.binding.OIDC.verifier, r); err != nil {
 			setFlashMessage(w, r, "Your OpenID token is expired, please log-in again")
 			doRedirect()
@@ -490,7 +490,7 @@ func (s *httpdServer) validateOIDCToken(w http.ResponseWriter, r *http.Request, 
 	}
 	if isAdmin {
 		if !token.isAdmin() {
-			logger.Debug(logSender, "", "oidc token associated with cookie %#v is not valid for admin users", token.Cookie)
+			logger.Debug(logSender, "", "oidc token associated with cookie %q is not valid for admin users", token.Cookie)
 			setFlashMessage(w, r, "Your OpenID token is not valid for the SFTPGo Web Admin UI. Please logout from your OpenID server and log-in as an SFTPGo admin")
 			doRedirect()
 			return oidcToken{}, errInvalidToken
@@ -498,7 +498,7 @@ func (s *httpdServer) validateOIDCToken(w http.ResponseWriter, r *http.Request, 
 		return token, nil
 	}
 	if token.isAdmin() {
-		logger.Debug(logSender, "", "oidc token associated with cookie %#v is valid for admin users", token.Cookie)
+		logger.Debug(logSender, "", "oidc token associated with cookie %q is valid for admin users", token.Cookie)
 		setFlashMessage(w, r, "Your OpenID token is not valid for the SFTPGo Web Client UI. Please logout from your OpenID server and log-in as an SFTPGo user")
 		doRedirect()
 		return oidcToken{}, errInvalidToken
@@ -735,7 +735,7 @@ func (s *httpdServer) doOIDCFromLogout(idToken string) {
 	logoutURL.RawQuery = query.Encode()
 	resp, err := httpclient.RetryableGet(logoutURL.String())
 	if err != nil {
-		logger.Warn(logSender, "", "oidc: error calling logout URL %#v: %v", logoutURL.String(), err)
+		logger.Warn(logSender, "", "oidc: error calling logout URL %q: %v", logoutURL.String(), err)
 		return
 	}
 	defer resp.Body.Close()

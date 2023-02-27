@@ -186,14 +186,14 @@ func (u *User) checkDirWithParents(virtualDirPath, connectionID string) error {
 		}
 		fs, err := u.GetFilesystemForPath(vPath, connectionID)
 		if err != nil {
-			return fmt.Errorf("unable to get fs for path %#v: %w", vPath, err)
+			return fmt.Errorf("unable to get fs for path %q: %w", vPath, err)
 		}
 		if fs.HasVirtualFolders() {
 			continue
 		}
 		fsPath, err := fs.ResolvePath(vPath)
 		if err != nil {
-			return fmt.Errorf("unable to resolve path %#v: %w", vPath, err)
+			return fmt.Errorf("unable to resolve path %q: %w", vPath, err)
 		}
 		_, err = fs.Stat(fsPath)
 		if err == nil {
@@ -206,7 +206,7 @@ func (u *User) checkDirWithParents(virtualDirPath, connectionID string) error {
 			}
 			vfs.SetPathPermissions(fs, fsPath, u.GetUID(), u.GetGID())
 		} else {
-			return fmt.Errorf("unable to stat path %#v: %w", vPath, err)
+			return fmt.Errorf("unable to stat path %q: %w", vPath, err)
 		}
 	}
 
@@ -261,7 +261,7 @@ func (u *User) CheckFsRoot(connectionID string) error {
 	if u.Filters.StartDirectory != "" {
 		err = u.checkDirWithParents(u.Filters.StartDirectory, connectionID)
 		if err != nil {
-			logger.Warn(logSender, connectionID, "could not create start directory %#v, err: %v",
+			logger.Warn(logSender, connectionID, "could not create start directory %q, err: %v",
 				u.Filters.StartDirectory, err)
 		}
 	}
@@ -274,7 +274,7 @@ func (u *User) CheckFsRoot(connectionID string) error {
 		// now check intermediary folders
 		err = u.checkDirWithParents(path.Dir(v.VirtualPath), connectionID)
 		if err != nil {
-			logger.Warn(logSender, connectionID, "could not create intermediary dir to %#v, err: %v", v.VirtualPath, err)
+			logger.Warn(logSender, connectionID, "could not create intermediary dir to %q, err: %v", v.VirtualPath, err)
 		}
 	}
 	return nil
@@ -336,10 +336,10 @@ func (u *User) isFsEqual(other *User) bool {
 // CheckLoginConditions checks if the user is active and not expired
 func (u *User) CheckLoginConditions() error {
 	if u.Status < 1 {
-		return fmt.Errorf("user %#v is disabled", u.Username)
+		return fmt.Errorf("user %q is disabled", u.Username)
 	}
 	if u.ExpirationDate > 0 && u.ExpirationDate < util.GetTimeAsMsSinceEpoch(time.Now()) {
-		return fmt.Errorf("user %#v is expired, expiration timestamp: %v current timestamp: %v", u.Username,
+		return fmt.Errorf("user %q is expired, expiration timestamp: %v current timestamp: %v", u.Username,
 			u.ExpirationDate, util.GetTimeAsMsSinceEpoch(time.Now()))
 	}
 	return nil
@@ -1180,7 +1180,7 @@ func (u *User) GetBandwidthForIP(clientIP, connectionID string) (int64, int64) {
 					_, ipNet, err := net.ParseCIDR(source)
 					if err == nil {
 						if ipNet.Contains(ip) {
-							logger.Debug(logSender, connectionID, "override bandwidth limit for ip %#v, upload limit: %v KB/s, download limit: %v KB/s",
+							logger.Debug(logSender, connectionID, "override bandwidth limit for ip %q, upload limit: %v KB/s, download limit: %v KB/s",
 								clientIP, bwLimit.UploadBandwidth, bwLimit.DownloadBandwidth)
 							return bwLimit.UploadBandwidth, bwLimit.DownloadBandwidth
 						}
@@ -1203,7 +1203,7 @@ func (u *User) IsLoginFromAddrAllowed(remoteAddr string) bool {
 	remoteIP := net.ParseIP(util.GetIPFromRemoteAddress(remoteAddr))
 	// if remoteIP is invalid we allow login, this should never happen
 	if remoteIP == nil {
-		logger.Warn(logSender, "", "login allowed for invalid IP. remote address: %#v", remoteAddr)
+		logger.Warn(logSender, "", "login allowed for invalid IP. remote address: %q", remoteAddr)
 		return true
 	}
 	for _, IPMask := range u.Filters.AllowedIP {
@@ -1372,7 +1372,7 @@ func (u *User) GetPermissionsAsString() string {
 	result := ""
 	for dir, perms := range u.Permissions {
 		dirPerms := strings.Join(perms, ", ")
-		dp := fmt.Sprintf("%#v: %#v", dir, dirPerms)
+		dp := fmt.Sprintf("%q: %q", dir, dirPerms)
 		if dir == "/" {
 			if result != "" {
 				result = dp + ", " + result

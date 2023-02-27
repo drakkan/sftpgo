@@ -367,7 +367,7 @@ func (fs *SFTPFs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, f
 		n, err := io.Copy(w, f)
 		w.CloseWithError(err) //nolint:errcheck
 		f.Close()
-		fsLog(fs, logger.LevelDebug, "download completed, path: %#v size: %v, err: %v", name, n, err)
+		fsLog(fs, logger.LevelDebug, "download completed, path: %q size: %v, err: %v", name, n, err)
 	}()
 
 	return nil, r, nil, nil
@@ -419,7 +419,7 @@ func (fs *SFTPFs) Create(name string, flag int) (File, *PipeWriter, func(), erro
 		}
 		r.CloseWithError(err) //nolint:errcheck
 		p.Done(err)
-		fsLog(fs, logger.LevelDebug, "upload completed, path: %#v, readed bytes: %v, err: %v err truncate: %v",
+		fsLog(fs, logger.LevelDebug, "upload completed, path: %q, readed bytes: %v, err: %v err truncate: %v",
 			name, n, err, errTruncate)
 	}()
 
@@ -677,7 +677,7 @@ func (fs *SFTPFs) ResolvePath(virtualPath string) (string, error) {
 		validatedPath, err = fs.getRealPath(fsPath)
 		isNotExist := fs.IsNotExist(err)
 		if err != nil && !isNotExist {
-			fsLog(fs, logger.LevelError, "Invalid path resolution, original path %v resolved %#v err: %v",
+			fsLog(fs, logger.LevelError, "Invalid path resolution, original path %v resolved %q err: %v",
 				virtualPath, fsPath, err)
 			return "", err
 		} else if isNotExist {
@@ -690,13 +690,13 @@ func (fs *SFTPFs) ResolvePath(virtualPath string) (string, error) {
 				validatedPath, err = fs.getRealPath(validatedPath)
 			}
 			if err != nil {
-				fsLog(fs, logger.LevelError, "Invalid path resolution, dir %#v original path %#v resolved %#v err: %v",
+				fsLog(fs, logger.LevelError, "Invalid path resolution, dir %q original path %q resolved %q err: %v",
 					validatedPath, virtualPath, fsPath, err)
 				return "", err
 			}
 		}
 		if err := fs.isSubDir(validatedPath); err != nil {
-			fsLog(fs, logger.LevelError, "Invalid path resolution, dir %#v original path %#v resolved %#v err: %v",
+			fsLog(fs, logger.LevelError, "Invalid path resolution, dir %q original path %q resolved %q err: %v",
 				validatedPath, virtualPath, fsPath, err)
 			return "", err
 		}
@@ -762,11 +762,11 @@ func (fs *SFTPFs) isSubDir(name string) error {
 		return nil
 	}
 	if len(name) < len(fs.config.Prefix) {
-		err := fmt.Errorf("path %q is not inside: %#v", name, fs.config.Prefix)
+		err := fmt.Errorf("path %q is not inside: %q", name, fs.config.Prefix)
 		return &pathResolutionError{err: err.Error()}
 	}
 	if !strings.HasPrefix(name, fs.config.Prefix+"/") {
-		err := fmt.Errorf("path %q is not inside: %#v", name, fs.config.Prefix)
+		err := fmt.Errorf("path %q is not inside: %q", name, fs.config.Prefix)
 		return &pathResolutionError{err: err.Error()}
 	}
 	return nil

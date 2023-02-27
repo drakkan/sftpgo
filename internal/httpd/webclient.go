@@ -960,7 +960,7 @@ func (s *httpdServer) handleClientGetFiles(w http.ResponseWriter, r *http.Reques
 		info, err = connection.Stat(name, 0)
 	}
 	if err != nil {
-		s.renderFilesPage(w, r, path.Dir(name), fmt.Sprintf("unable to stat file %#v: %v", name, err),
+		s.renderFilesPage(w, r, path.Dir(name), fmt.Sprintf("unable to stat file %q: %v", name, err),
 			user, len(s.binding.WebClientIntegrations) > 0)
 		return
 	}
@@ -1014,17 +1014,17 @@ func (s *httpdServer) handleClientEditFile(w http.ResponseWriter, r *http.Reques
 	name := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
 	info, err := connection.Stat(name, 0)
 	if err != nil {
-		s.renderClientMessagePage(w, r, fmt.Sprintf("Unable to stat file %#v", name), "",
+		s.renderClientMessagePage(w, r, fmt.Sprintf("Unable to stat file %q", name), "",
 			getRespStatus(err), nil, "")
 		return
 	}
 	if info.IsDir() {
-		s.renderClientMessagePage(w, r, fmt.Sprintf("The path %#v does not point to a file", name), "",
+		s.renderClientMessagePage(w, r, fmt.Sprintf("The path %q does not point to a file", name), "",
 			http.StatusBadRequest, nil, "")
 		return
 	}
 	if info.Size() > httpdMaxEditFileSize {
-		s.renderClientMessagePage(w, r, fmt.Sprintf("The file size %v for %#v exceeds the maximum allowed size",
+		s.renderClientMessagePage(w, r, fmt.Sprintf("The file size %v for %q exceeds the maximum allowed size",
 			util.ByteCountIEC(info.Size()), name), "", http.StatusBadRequest, nil, "")
 		return
 	}
@@ -1032,7 +1032,7 @@ func (s *httpdServer) handleClientEditFile(w http.ResponseWriter, r *http.Reques
 	connection.User.CheckFsRoot(connection.ID) //nolint:errcheck
 	reader, err := connection.getFileReader(name, 0, r.Method)
 	if err != nil {
-		s.renderClientMessagePage(w, r, fmt.Sprintf("Unable to get a reader for the file %#v", name), "",
+		s.renderClientMessagePage(w, r, fmt.Sprintf("Unable to get a reader for the file %q", name), "",
 			getRespStatus(err), nil, "")
 		return
 	}
@@ -1041,7 +1041,7 @@ func (s *httpdServer) handleClientEditFile(w http.ResponseWriter, r *http.Reques
 	var b bytes.Buffer
 	_, err = io.Copy(&b, reader)
 	if err != nil {
-		s.renderClientMessagePage(w, r, fmt.Sprintf("Unable to read the file %#v", name), "", http.StatusInternalServerError,
+		s.renderClientMessagePage(w, r, fmt.Sprintf("Unable to read the file %q", name), "", http.StatusInternalServerError,
 			nil, "")
 		return
 	}

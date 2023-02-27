@@ -96,7 +96,7 @@ func (fs *CryptFs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, 
 		if isZeroDownload {
 			w.CloseWithError(err) //nolint:errcheck
 			f.Close()
-			fsLog(fs, logger.LevelDebug, "zero bytes download completed, path: %#v", name)
+			fsLog(fs, logger.LevelDebug, "zero bytes download completed, path: %q", name)
 			return
 		}
 		var n int64
@@ -143,7 +143,7 @@ func (fs *CryptFs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, 
 		}
 		w.CloseWithError(err) //nolint:errcheck
 		f.Close()
-		fsLog(fs, logger.LevelDebug, "download completed, path: %#v size: %v, err: %v", name, n, err)
+		fsLog(fs, logger.LevelDebug, "download completed, path: %q size: %v, err: %v", name, n, err)
 	}()
 
 	return nil, r, nil, nil
@@ -199,7 +199,7 @@ func (fs *CryptFs) Create(name string, flag int) (File, *PipeWriter, func(), err
 		}
 		r.CloseWithError(err) //nolint:errcheck
 		p.Done(err)
-		fsLog(fs, logger.LevelDebug, "upload completed, path: %#v, readed bytes: %v, err: %v", name, n, err)
+		fsLog(fs, logger.LevelDebug, "upload completed, path: %q, readed bytes: %v, err: %v", name, n, err)
 	}()
 
 	return nil, p, nil, nil

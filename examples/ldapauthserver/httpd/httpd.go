@@ -118,13 +118,13 @@ func loadCACerts(configDir string) error {
 		caPath := getConfigPath(ca, configDir)
 		certs, err := os.ReadFile(caPath)
 		if err != nil {
-			logger.Warn(logSender, "", "error loading ca cert %#v: %v", caPath, err)
+			logger.Warn(logSender, "", "error loading ca cert %q: %v", caPath, err)
 			return err
 		}
 		if !rootCAs.AppendCertsFromPEM(certs) {
-			logger.Warn(logSender, "", "unable to add ca cert %#v", caPath)
+			logger.Warn(logSender, "", "unable to add ca cert %q", caPath)
 		} else {
-			logger.Debug(logSender, "", "ca cert %#v added to the trusted certificates", caPath)
+			logger.Debug(logSender, "", "ca cert %q added to the trusted certificates", caPath)
 		}
 	}
 

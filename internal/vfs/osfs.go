@@ -325,7 +325,7 @@ func (fs *OsFs) ResolvePath(virtualPath string) (string, error) {
 		// path chain until we hit a directory that _does_ exist and can be validated.
 		_, err = fs.findFirstExistingDir(r)
 		if err != nil {
-			fsLog(fs, logger.LevelError, "error resolving non-existent path %#v", err)
+			fsLog(fs, logger.LevelError, "error resolving non-existent path %q", err)
 		}
 		return r, err
 	}

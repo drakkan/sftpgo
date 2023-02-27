@@ -169,12 +169,12 @@ func (f *webDavFile) checkFirstRead() error {
 		return f.Connection.GetReadQuotaExceededError()
 	}
 	if ok, policy := f.Connection.User.IsFileAllowed(f.GetVirtualPath()); !ok {
-		f.Connection.Log(logger.LevelWarn, "reading file %#v is not allowed", f.GetVirtualPath())
+		f.Connection.Log(logger.LevelWarn, "reading file %q is not allowed", f.GetVirtualPath())
 		return f.Connection.GetErrorForDeniedFile(policy)
 	}
 	_, err := common.ExecutePreAction(f.Connection, common.OperationPreDownload, f.GetFsPath(), f.GetVirtualPath(), 0, 0)
 	if err != nil {
-		f.Connection.Log(logger.LevelDebug, "download for file %#v denied by pre action: %v", f.GetVirtualPath(), err)
+		f.Connection.Log(logger.LevelDebug, "download for file %q denied by pre action: %v", f.GetVirtualPath(), err)
 		return f.Connection.GetPermissionDeniedError()
 	}
 	f.readTryed.Store(true)

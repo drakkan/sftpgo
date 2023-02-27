@@ -83,7 +83,7 @@ func (s *webDavServer) listenAndServe(compressor *middleware.Compressor) error {
 			CipherSuites:             util.GetTLSCiphersFromNames(s.binding.TLSCipherSuites),
 			PreferServerCipherSuites: true,
 		}
-		logger.Debug(logSender, "", "configured TLS cipher suites for binding %#v: %v, certID: %v",
+		logger.Debug(logSender, "", "configured TLS cipher suites for binding %q: %v, certID: %v",
 			s.binding.GetAddress(), httpServer.TLSConfig.CipherSuites, certID)
 		if s.binding.isMutualTLSEnabled() {
 			httpServer.TLSConfig.ClientCAs = certMgr.GetRootCAs()
@@ -123,7 +123,7 @@ func (s *webDavServer) verifyTLSConnection(state tls.ConnectionState) error {
 				caCrt = verifiedChain[len(verifiedChain)-1]
 			}
 			if certMgr.IsRevoked(clientCrt, caCrt) {
-				logger.Debug(logSender, "", "tls handshake error, client certificate %#v has been revoked", clientCrtName)
+				logger.Debug(logSender, "", "tls handshake error, client certificate %q has been revoked", clientCrtName)
 				return common.ErrCrtRevoked
 			}
 		}
@@ -155,7 +155,7 @@ func (s *webDavServer) checkRequestMethod(ctx context.Context, r *http.Request, 
 func (s *webDavServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		if r := recover(); r != nil {
-			logger.Error(logSender, "", "panic in ServeHTTP: %#v stack trace: %v", r, string(debug.Stack()))
+			logger.Error(logSender, "", "panic in ServeHTTP: %q stack trace: %v", r, string(debug.Stack()))
 			http.Error(w, common.ErrGenericFailure.Error(), http.StatusInternalServerError)
 		}
 	}()
@@ -325,23 +325,23 @@ func (s *webDavServer) validateUser(user *dataprovider.User, r *http.Request, lo
 	connectionID := fmt.Sprintf("%v_%v", common.ProtocolWebDAV, connID)
 
 	if !filepath.IsAbs(user.HomeDir) {
-		logger.Warn(logSender, connectionID, "user %#v has an invalid home dir: %#v. Home dir must be an absolute path, login not allowed",
+		logger.Warn(logSender, connectionID, "user %q has an invalid home dir: %q. Home dir must be an absolute path, login not allowed",
 			user.Username, user.HomeDir)
-		return connID, fmt.Errorf("cannot login user with invalid home dir: %#v", user.HomeDir)
+		return connID, fmt.Errorf("cannot login user with invalid home dir: %q", user.HomeDir)
 	}
 	if util.Contains(user.Filters.DeniedProtocols, common.ProtocolWebDAV) {
-		logger.Info(logSender, connectionID, "cannot login user %#v, protocol DAV is not allowed", user.Username)
-		return connID, fmt.Errorf("protocol DAV is not allowed for user %#v", user.Username)
+		logger.Info(logSender, connectionID, "cannot login user %q, protocol DAV is not allowed", user.Username)
+		return connID, fmt.Errorf("protocol DAV is not allowed for user %q", user.Username)
 	}
 	if !user.IsLoginMethodAllowed(loginMethod, common.ProtocolWebDAV, nil) {
-		logger.Info(logSender, connectionID, "cannot login user %#v, %v login method is not allowed",
+		logger.Info(logSender, connectionID, "cannot login user %q, %v login method is not allowed",
 			user.Username, loginMethod)
-		return connID, fmt.Errorf("login method %v is not allowed for user %#v", loginMethod, user.Username)
+		return connID, fmt.Errorf("login method %v is not allowed for user %q", loginMethod, user.Username)
 	}
 	if !user.IsLoginFromAddrAllowed(r.RemoteAddr) {
-		logger.Info(logSender, connectionID, "cannot login user %#v, remote address is not allowed: %v",
+		logger.Info(logSender, connectionID, "cannot login user %q, remote address is not allowed: %v",
 			user.Username, r.RemoteAddr)
-		return connID, fmt.Errorf("login for user %#v is not allowed from this address: %v", user.Username, r.RemoteAddr)
+		return connID, fmt.Errorf("login for user %q is not allowed from this address: %v", user.Username, r.RemoteAddr)
 	}
 	return connID, nil
 }

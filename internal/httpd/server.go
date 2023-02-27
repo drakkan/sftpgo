@@ -114,7 +114,7 @@ func (s *httpdServer) listenAndServe() error {
 			PreferServerCipherSuites: true,
 		}
 		httpServer.TLSConfig = config
-		logger.Debug(logSender, "", "configured TLS cipher suites for binding %#v: %v, certID: %v",
+		logger.Debug(logSender, "", "configured TLS cipher suites for binding %q: %v, certID: %v",
 			s.binding.GetAddress(), httpServer.TLSConfig.CipherSuites, certID)
 		if s.binding.ClientAuthType == 1 {
 			httpServer.TLSConfig.ClientCAs = certMgr.GetRootCAs()
@@ -144,7 +144,7 @@ func (s *httpdServer) verifyTLSConnection(state tls.ConnectionState) error {
 				caCrt = verifiedChain[len(verifiedChain)-1]
 			}
 			if certMgr.IsRevoked(clientCrt, caCrt) {
-				logger.Debug(logSender, "", "tls handshake error, client certificate %#v has been revoked", clientCrtName)
+				logger.Debug(logSender, "", "tls handshake error, client certificate %q has been revoked", clientCrtName)
 				return common.ErrCrtRevoked
 			}
 		}
@@ -352,7 +352,7 @@ func (s *httpdServer) handleWebClientTwoFactorRecoveryPost(w http.ResponseWriter
 			user.Filters.RecoveryCodes[idx].Used = true
 			err = dataprovider.UpdateUser(&user, dataprovider.ActionExecutorSelf, ipAddr, user.Role)
 			if err != nil {
-				logger.Warn(logSender, "", "unable to set the recovery code %#v as used: %v", recoveryCode, err)
+				logger.Warn(logSender, "", "unable to set the recovery code %q as used: %v", recoveryCode, err)
 				s.renderClientInternalServerErrorPage(w, r, errors.New("unable to set the recovery code as used"))
 				return
 			}
@@ -456,7 +456,7 @@ func (s *httpdServer) handleWebAdminTwoFactorRecoveryPost(w http.ResponseWriter,
 			admin.Filters.RecoveryCodes[idx].Used = true
 			err = dataprovider.UpdateAdmin(&admin, dataprovider.ActionExecutorSelf, ipAddr, admin.Role)
 			if err != nil {
-				logger.Warn(logSender, "", "unable to set the recovery code %#v as used: %v", recoveryCode, err)
+				logger.Warn(logSender, "", "unable to set the recovery code %q as used: %v", recoveryCode, err)
 				s.renderInternalServerErrorPage(w, r, errors.New("unable to set the recovery code as used"))
 				return
 			}
@@ -800,7 +800,7 @@ func (s *httpdServer) getUserToken(w http.ResponseWriter, r *http.Request) {
 	if user.Filters.TOTPConfig.Enabled && util.Contains(user.Filters.TOTPConfig.Protocols, common.ProtocolHTTP) {
 		passcode := r.Header.Get(otpHeaderCode)
 		if passcode == "" {
-			logger.Debug(logSender, "", "TOTP enabled for user %#v and not passcode provided, authentication refused", user.Username)
+			logger.Debug(logSender, "", "TOTP enabled for user %q and not passcode provided, authentication refused", user.Username)
 			w.Header().Set(common.HTTPAuthenticationHeader, basicRealm)
 			updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, dataprovider.ErrInvalidCredentials)
 			sendAPIResponse(w, r, dataprovider.ErrInvalidCredentials, http.StatusText(http.StatusUnauthorized),
@@ -816,7 +816,7 @@ func (s *httpdServer) getUserToken(w http.ResponseWriter, r *http.Request) {
 		match, err := mfa.ValidateTOTPPasscode(user.Filters.TOTPConfig.ConfigName, passcode,
 			user.Filters.TOTPConfig.Secret.GetPayload())
 		if !match || err != nil {
-			logger.Debug(logSender, "invalid passcode for user %#v, match? %v, err: %v", user.Username, match, err)
+			logger.Debug(logSender, "invalid passcode for user %q, match? %v, err: %v", user.Username, match, err)
 			w.Header().Set(common.HTTPAuthenticationHeader, basicRealm)
 			updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, dataprovider.ErrInvalidCredentials)
 			sendAPIResponse(w, r, dataprovider.ErrInvalidCredentials, http.StatusText(http.StatusUnauthorized),
@@ -878,7 +878,7 @@ func (s *httpdServer) getToken(w http.ResponseWriter, r *http.Request) {
 	if admin.Filters.TOTPConfig.Enabled {
 		passcode := r.Header.Get(otpHeaderCode)
 		if passcode == "" {
-			logger.Debug(logSender, "", "TOTP enabled for admin %#v and not passcode provided, authentication refused", admin.Username)
+			logger.Debug(logSender, "", "TOTP enabled for admin %q and not passcode provided, authentication refused", admin.Username)
 			w.Header().Set(common.HTTPAuthenticationHeader, basicRealm)
 			sendAPIResponse(w, r, dataprovider.ErrInvalidCredentials, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 			return
@@ -892,7 +892,7 @@ func (s *httpdServer) getToken(w http.ResponseWriter, r *http.Request) {
 		match, err := mfa.ValidateTOTPPasscode(admin.Filters.TOTPConfig.ConfigName, passcode,
 			admin.Filters.TOTPConfig.Secret.GetPayload())
 		if !match || err != nil {
-			logger.Debug(logSender, "invalid passcode for admin %#v, match? %v, err: %v", admin.Username, match, err)
+			logger.Debug(logSender, "invalid passcode for admin %q, match? %v, err: %v", admin.Username, match, err)
 			w.Header().Set(common.HTTPAuthenticationHeader, basicRealm)
 			sendAPIResponse(w, r, dataprovider.ErrInvalidCredentials, http.StatusText(http.StatusUnauthorized),
 				http.StatusUnauthorized)
@@ -971,22 +971,22 @@ func (s *httpdServer) refreshAdminToken(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 	if admin.Status != 1 {
-		logger.Debug(logSender, "", "admin %#v is disabled, unable to refresh cookie", admin.Username)
+		logger.Debug(logSender, "", "admin %q is disabled, unable to refresh cookie", admin.Username)
 		return
 	}
 	if admin.GetSignature() != tokenClaims.Signature {
-		logger.Debug(logSender, "", "signature mismatch for admin %#v, unable to refresh cookie", admin.Username)
+		logger.Debug(logSender, "", "signature mismatch for admin %q, unable to refresh cookie", admin.Username)
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if !admin.CanLoginFromIP(ipAddr) {
-		logger.Debug(logSender, "", "admin %#v cannot login from %v, unable to refresh cookie", admin.Username, r.RemoteAddr)
+		logger.Debug(logSender, "", "admin %q cannot login from %v, unable to refresh cookie", admin.Username, r.RemoteAddr)
 		return
 	}
 	tokenClaims.Permissions = admin.Permissions
 	tokenClaims.Role = admin.Role
 	tokenClaims.HideUserPageSections = admin.Filters.Preferences.HideUserPageSections
-	logger.Debug(logSender, "", "cookie refreshed for admin %#v", admin.Username)
+	logger.Debug(logSender, "", "cookie refreshed for admin %q", admin.Username)
 	tokenClaims.createAndSetCookie(w, r, s.tokenAuth, tokenAudienceWebAdmin, ipAddr) //nolint:errcheck
 }
 

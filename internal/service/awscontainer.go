@@ -74,7 +74,7 @@ func registerAWSContainer(disableAWSInstallationCode bool) error {
 	if err != nil {
 		return fmt.Errorf("unable to register API operation for AWSMarketplace Metering: %w", err)
 	}
-	logger.Debug(logSender, "", "API operation for AWSMarketplace Metering registered, token %#v",
+	logger.Debug(logSender, "", "API operation for AWSMarketplace Metering registered, token %q",
 		util.GetStringFromPointer(result.Signature))
 	return nil
 }
@@ -88,7 +88,7 @@ func getAWSConfig(ctx context.Context) (aws.Config, error) {
 		svc := imds.NewFromConfig(cfg)
 		region, err := svc.GetRegion(ctx, &imds.GetRegionInput{})
 		if err == nil {
-			logger.Debug(logSender, "", "AWS region from imds %#v", region.Region)
+			logger.Debug(logSender, "", "AWS region from imds %q", region.Region)
 			cfg.Region = region.Region
 		} else {
 			logger.Warn(logSender, "", "unable to get region from imds, continuing anyway, error: %v", err)
@@ -124,7 +124,7 @@ func setInstallationCode(cfg aws.Config) error {
 		if err != nil {
 			return fmt.Errorf("unable to update installation code: %w", err)
 		}
-		logger.Debug(logSender, "", "installation code updated, secret name %#v, arn %#v, version id %#v",
+		logger.Debug(logSender, "", "installation code updated, secret name %q, arn %q, version id %q",
 			util.GetStringFromPointer(result.Name), util.GetStringFromPointer(result.ARN),
 			util.GetStringFromPointer(result.VersionId))
 	} else {
@@ -138,7 +138,7 @@ func setInstallationCode(cfg aws.Config) error {
 		if err != nil {
 			return fmt.Errorf("unable to create installation code: %w", err)
 		}
-		logger.Debug(logSender, "", "installation code set, secret name %#v, arn %#v, version id %#v",
+		logger.Debug(logSender, "", "installation code set, secret name %q, arn %q, version id %q",
 			util.GetStringFromPointer(result.Name), util.GetStringFromPointer(result.ARN),
 			util.GetStringFromPointer(result.VersionId))
 	}

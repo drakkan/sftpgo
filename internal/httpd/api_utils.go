@@ -335,7 +335,7 @@ func renderCompressedFiles(w http.ResponseWriter, conn *Connection, baseDir stri
 func addZipEntry(wr *zip.Writer, conn *Connection, entryPath, baseDir string) error {
 	info, err := conn.Stat(entryPath, 1)
 	if err != nil {
-		conn.Log(logger.LevelDebug, "unable to add zip entry %#v, stat error: %v", entryPath, err)
+		conn.Log(logger.LevelDebug, "unable to add zip entry %q, stat error: %v", entryPath, err)
 		return err
 	}
 	entryName, err := getZipEntryName(entryPath, baseDir)
@@ -350,12 +350,12 @@ func addZipEntry(wr *zip.Writer, conn *Connection, entryPath, baseDir string) er
 			Modified: info.ModTime(),
 		})
 		if err != nil {
-			conn.Log(logger.LevelError, "unable to create zip entry %#v: %v", entryPath, err)
+			conn.Log(logger.LevelError, "unable to create zip entry %q: %v", entryPath, err)
 			return err
 		}
 		contents, err := conn.ReadDir(entryPath)
 		if err != nil {
-			conn.Log(logger.LevelDebug, "unable to add zip entry %#v, read dir error: %v", entryPath, err)
+			conn.Log(logger.LevelDebug, "unable to add zip entry %q, read dir error: %v", entryPath, err)
 			return err
 		}
 		for _, info := range contents {
@@ -368,12 +368,12 @@ func addZipEntry(wr *zip.Writer, conn *Connection, entryPath, baseDir string) er
 	}
 	if !info.Mode().IsRegular() {
 		// we only allow regular files
-		conn.Log(logger.LevelInfo, "skipping zip entry for non regular file %#v", entryPath)
+		conn.Log(logger.LevelInfo, "skipping zip entry for non regular file %q", entryPath)
 		return nil
 	}
 	reader, err := conn.getFileReader(entryPath, 0, http.MethodGet)
 	if err != nil {
-		conn.Log(logger.LevelDebug, "unable to add zip entry %#v, cannot open file: %v", entryPath, err)
+		conn.Log(logger.LevelDebug, "unable to add zip entry %q, cannot open file: %v", entryPath, err)
 		return err
 	}
 	defer reader.Close()
@@ -384,7 +384,7 @@ func addZipEntry(wr *zip.Writer, conn *Connection, entryPath, baseDir string) er
 		Modified: info.ModTime(),
 	})
 	if err != nil {
-		conn.Log(logger.LevelError, "unable to create zip entry %#v: %v", entryPath, err)
+		conn.Log(logger.LevelError, "unable to create zip entry %q: %v", entryPath, err)
 		return err
 	}
 	_, err = io.Copy(f, reader)
@@ -423,7 +423,7 @@ func downloadFile(w http.ResponseWriter, r *http.Request, connection *Connection
 	responseStatus := http.StatusOK
 	if strings.HasPrefix(rangeHeader, "bytes=") {
 		if strings.Contains(rangeHeader, ",") {
-			return http.StatusRequestedRangeNotSatisfiable, fmt.Errorf("unsupported range %#v", rangeHeader)
+			return http.StatusRequestedRangeNotSatisfiable, fmt.Errorf("unsupported range %q", rangeHeader)
 		}
 		offset, size, err = parseRangeRequest(rangeHeader[6:], size)
 		if err != nil {
@@ -433,7 +433,7 @@ func downloadFile(w http.ResponseWriter, r *http.Request, connection *Connection
 	}
 	reader, err := connection.getFileReader(name, offset, r.Method)
 	if err != nil {
-		return getMappedStatusCode(err), fmt.Errorf("unable to read file %#v: %v", name, err)
+		return getMappedStatusCode(err), fmt.Errorf("unable to read file %q: %v", name, err)
 	}
 	defer reader.Close()
 
@@ -451,7 +451,7 @@ func downloadFile(w http.ResponseWriter, r *http.Request, connection *Connection
 	w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
 	w.Header().Set("Content-Type", ctype)
 	if !inline {
-		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%#v", path.Base(name)))
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", path.Base(name)))
 	}
 	w.Header().Set("Accept-Ranges", "bytes")
 	w.WriteHeader(responseStatus)
@@ -566,7 +566,7 @@ func parseRangeRequest(bytesRange string, size int64) (int64, int64, error) {
 		}
 	}
 	if start == -1 && end == 0 {
-		return 0, 0, fmt.Errorf("unsupported range %#v", bytesRange)
+		return 0, 0, fmt.Errorf("unsupported range %q", bytesRange)
 	}
 
 	if end > 0 {
@@ -579,7 +579,7 @@ func parseRangeRequest(bytesRange string, size int64) (int64, int64, error) {
 			// we have something like 500-600
 			size = end - start + 1
 			if size < 0 {
-				return 0, 0, fmt.Errorf("unacceptable range %#v", bytesRange)
+				return 0, 0, fmt.Errorf("unacceptable range %q", bytesRange)
 			}
 		}
 		return start, size, nil
@@ -587,7 +587,7 @@ func parseRangeRequest(bytesRange string, size int64) (int64, int64, error) {
 	// we have something like 500-
 	size -= start
 	if size < 0 {
-		return 0, 0, fmt.Errorf("unacceptable range %#v", bytesRange)
+		return 0, 0, fmt.Errorf("unacceptable range %q", bytesRange)
 	}
 	return start, size, err
 }
@@ -615,24 +615,24 @@ func updateLoginMetrics(user *dataprovider.User, loginMethod, ip string, err err
 
 func checkHTTPClientUser(user *dataprovider.User, r *http.Request, connectionID string, checkSessions bool) error {
 	if util.Contains(user.Filters.DeniedProtocols, common.ProtocolHTTP) {
-		logger.Info(logSender, connectionID, "cannot login user %#v, protocol HTTP is not allowed", user.Username)
-		return fmt.Errorf("protocol HTTP is not allowed for user %#v", user.Username)
+		logger.Info(logSender, connectionID, "cannot login user %q, protocol HTTP is not allowed", user.Username)
+		return fmt.Errorf("protocol HTTP is not allowed for user %q", user.Username)
 	}
 	if !isLoggedInWithOIDC(r) && !user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, common.ProtocolHTTP, nil) {
-		logger.Info(logSender, connectionID, "cannot login user %#v, password login method is not allowed", user.Username)
-		return fmt.Errorf("login method password is not allowed for user %#v", user.Username)
+		logger.Info(logSender, connectionID, "cannot login user %q, password login method is not allowed", user.Username)
+		return fmt.Errorf("login method password is not allowed for user %q", user.Username)
 	}
 	if checkSessions && user.MaxSessions > 0 {
 		activeSessions := common.Connections.GetActiveSessions(user.Username)
 		if activeSessions >= user.MaxSessions {
-			logger.Info(logSender, connectionID, "authentication refused for user: %#v, too many open sessions: %v/%v", user.Username,
+			logger.Info(logSender, connectionID, "authentication refused for user: %q, too many open sessions: %v/%v", user.Username,
 				activeSessions, user.MaxSessions)
 			return fmt.Errorf("too many open sessions: %v", activeSessions)
 		}
 	}
 	if !user.IsLoginFromAddrAllowed(r.RemoteAddr) {
-		logger.Info(logSender, connectionID, "cannot login user %#v, remote address is not allowed: %v", user.Username, r.RemoteAddr)
-		return fmt.Errorf("login for user %#v is not allowed from this address: %v", user.Username, r.RemoteAddr)
+		logger.Info(logSender, connectionID, "cannot login user %q, remote address is not allowed: %v", user.Username, r.RemoteAddr)
+		return fmt.Errorf("login for user %q is not allowed from this address: %v", user.Username, r.RemoteAddr)
 	}
 	return nil
 }
@@ -649,11 +649,11 @@ func handleForgotPassword(r *http.Request, username string, isAdmin bool) error 
 	if isAdmin {
 		admin, err = dataprovider.AdminExists(username)
 		email = admin.Email
-		subject = fmt.Sprintf("Email Verification Code for admin %#v", username)
+		subject = fmt.Sprintf("Email Verification Code for admin %q", username)
 	} else {
 		user, err = dataprovider.GetUserWithGroupSettings(username, "")
 		email = user.Email
-		subject = fmt.Sprintf("Email Verification Code for user %#v", username)
+		subject = fmt.Sprintf("Email Verification Code for user %q", username)
 		if err == nil {
 			if !isUserAllowedToResetPassword(r, &user) {
 				return util.NewValidationError("you are not allowed to reset your password")
@@ -662,7 +662,7 @@ func handleForgotPassword(r *http.Request, username string, isAdmin bool) error 
 	}
 	if err != nil {
 		if errors.Is(err, util.ErrNotFound) {
-			logger.Debug(logSender, middleware.GetReqID(r.Context()), "username %#v does not exists, reset password request silently ignored, is admin? %v",
+			logger.Debug(logSender, middleware.GetReqID(r.Context()), "username %q does not exists, reset password request silently ignored, is admin? %v",
 				username, isAdmin)
 			return nil
 		}
@@ -685,7 +685,7 @@ func handleForgotPassword(r *http.Request, username string, isAdmin bool) error 
 			err, time.Since(startTime))
 		return util.NewGenericError(fmt.Sprintf("Unable to send confirmation code via email: %v", err))
 	}
-	logger.Debug(logSender, middleware.GetReqID(r.Context()), "reset code sent via email to %#v, email: %#v, is admin? %v, elapsed: %v",
+	logger.Debug(logSender, middleware.GetReqID(r.Context()), "reset code sent via email to %q, email: %q, is admin? %v, elapsed: %v",
 		username, email, isAdmin, time.Since(startTime))
 	return resetCodesMgr.Add(c)
 }

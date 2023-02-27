@@ -49,7 +49,7 @@ func startMetadataCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !common.ActiveMetadataChecks.Add(user.Username, user.Role) {
-		sendAPIResponse(w, r, err, fmt.Sprintf("Another check is already in progress for user %#v", user.Username),
+		sendAPIResponse(w, r, err, fmt.Sprintf("Another check is already in progress for user %q", user.Username),
 			http.StatusConflict)
 		return
 	}
@@ -63,9 +63,9 @@ func doMetadataCheck(user dataprovider.User) error {
 
 	err := user.CheckMetadataConsistency()
 	if err != nil {
-		logger.Warn(logSender, "", "error checking metadata for user %#v: %v", user.Username, err)
+		logger.Warn(logSender, "", "error checking metadata for user %q: %v", user.Username, err)
 		return err
 	}
-	logger.Debug(logSender, "", "metadata check completed for user: %#v", user.Username)
+	logger.Debug(logSender, "", "metadata check completed for user: %q", user.Username)
 	return nil
 }

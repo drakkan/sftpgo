@@ -92,7 +92,7 @@ func (s *Service) initLogger() {
 func (s *Service) Start(disableAWSInstallationCode bool) error {
 	s.initLogger()
 	logger.Info(logSender, "", "starting SFTPGo %v, config dir: %v, config file: %v, log max size: %v log max backups: %v "+
-		"log max age: %v log level: %v, log compress: %v, log utc time: %v, load data from: %#v, grace time: %d secs",
+		"log max age: %v log level: %v, log compress: %v, log utc time: %v, load data from: %q, grace time: %d secs",
 		version.GetAsString(), s.ConfigDir, s.ConfigFile, s.LogMaxSize, s.LogMaxBackups, s.LogMaxAge, s.LogLevel,
 		s.LogCompress, s.LogUTCTime, s.LoadDataFrom, graceTime)
 	// in portable mode we don't read configuration from file
@@ -307,7 +307,7 @@ func (s *Service) LoadInitialData() error {
 		return nil
 	}
 	if !filepath.IsAbs(s.LoadDataFrom) {
-		return fmt.Errorf("invalid input_file %#v, it must be an absolute path", s.LoadDataFrom)
+		return fmt.Errorf("invalid input_file %q, it must be an absolute path", s.LoadDataFrom)
 	}
 	if s.LoadDataMode < 0 || s.LoadDataMode > 1 {
 		return fmt.Errorf("invalid loaddata-mode %v", s.LoadDataMode)
@@ -317,7 +317,7 @@ func (s *Service) LoadInitialData() error {
 	}
 	info, err := os.Stat(s.LoadDataFrom)
 	if err != nil {
-		return fmt.Errorf("unable to stat file %#v: %w", s.LoadDataFrom, err)
+		return fmt.Errorf("unable to stat file %q: %w", s.LoadDataFrom, err)
 	}
 	if info.Size() > httpd.MaxRestoreSize {
 		return fmt.Errorf("unable to restore input file %q size too big: %d/%d bytes",
@@ -325,26 +325,26 @@ func (s *Service) LoadInitialData() error {
 	}
 	content, err := os.ReadFile(s.LoadDataFrom)
 	if err != nil {
-		return fmt.Errorf("unable to read input file %#v: %w", s.LoadDataFrom, err)
+		return fmt.Errorf("unable to read input file %q: %w", s.LoadDataFrom, err)
 	}
 	dump, err := dataprovider.ParseDumpData(content)
 	if err != nil {
-		return fmt.Errorf("unable to parse file to restore %#v: %w", s.LoadDataFrom, err)
+		return fmt.Errorf("unable to parse file to restore %q: %w", s.LoadDataFrom, err)
 	}
 	err = s.restoreDump(&dump)
 	if err != nil {
 		return err
 	}
-	logger.Info(logSender, "", "data loaded from file %#v mode: %v", s.LoadDataFrom, s.LoadDataMode)
-	logger.InfoToConsole("data loaded from file %#v mode: %v", s.LoadDataFrom, s.LoadDataMode)
+	logger.Info(logSender, "", "data loaded from file %q mode: %v", s.LoadDataFrom, s.LoadDataMode)
+	logger.InfoToConsole("data loaded from file %q mode: %v", s.LoadDataFrom, s.LoadDataMode)
 	if s.LoadDataClean {
 		err = os.Remove(s.LoadDataFrom)
 		if err == nil {
-			logger.Info(logSender, "", "file %#v deleted after successful load", s.LoadDataFrom)
-			logger.InfoToConsole("file %#v deleted after successful load", s.LoadDataFrom)
+			logger.Info(logSender, "", "file %q deleted after successful load", s.LoadDataFrom)
+			logger.InfoToConsole("file %q deleted after successful load", s.LoadDataFrom)
 		} else {
-			logger.Warn(logSender, "", "unable to delete file %#v after successful load: %v", s.LoadDataFrom, err)
-			logger.WarnToConsole("unable to delete file %#v after successful load: %v", s.LoadDataFrom, err)
+			logger.Warn(logSender, "", "unable to delete file %q after successful load: %v", s.LoadDataFrom, err)
+			logger.WarnToConsole("unable to delete file %q after successful load: %v", s.LoadDataFrom, err)
 		}
 	}
 	return nil

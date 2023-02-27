@@ -1362,21 +1362,21 @@ func getDataTransferLimitsFromPostFields(r *http.Request) ([]sdk.DataTransferLim
 				if ul != "" {
 					dataUL, err := strconv.ParseInt(ul, 10, 64)
 					if err != nil {
-						return result, fmt.Errorf("invalid upload_data_transfer_source%v %#v: %w", idx, ul, err)
+						return result, fmt.Errorf("invalid upload_data_transfer_source%v %q: %w", idx, ul, err)
 					}
 					dtLimit.UploadDataTransfer = dataUL
 				}
 				if dl != "" {
 					dataDL, err := strconv.ParseInt(dl, 10, 64)
 					if err != nil {
-						return result, fmt.Errorf("invalid download_data_transfer_source%v %#v: %w", idx, dl, err)
+						return result, fmt.Errorf("invalid download_data_transfer_source%v %q: %w", idx, dl, err)
 					}
 					dtLimit.DownloadDataTransfer = dataDL
 				}
 				if total != "" {
 					dataTotal, err := strconv.ParseInt(total, 10, 64)
 					if err != nil {
-						return result, fmt.Errorf("invalid total_data_transfer_source%v %#v: %w", idx, total, err)
+						return result, fmt.Errorf("invalid total_data_transfer_source%v %q: %w", idx, total, err)
 					}
 					dtLimit.TotalDataTransfer = dataTotal
 				}
@@ -1405,14 +1405,14 @@ func getBandwidthLimitsFromPostFields(r *http.Request) ([]sdk.BandwidthLimit, er
 				if ul != "" {
 					bandwidthUL, err := strconv.ParseInt(ul, 10, 64)
 					if err != nil {
-						return result, fmt.Errorf("invalid upload_bandwidth_source%v %#v: %w", idx, ul, err)
+						return result, fmt.Errorf("invalid upload_bandwidth_source%v %q: %w", idx, ul, err)
 					}
 					bwLimit.UploadBandwidth = bandwidthUL
 				}
 				if dl != "" {
 					bandwidthDL, err := strconv.ParseInt(dl, 10, 64)
 					if err != nil {
-						return result, fmt.Errorf("invalid download_bandwidth_source%v %#v: %w", idx, ul, err)
+						return result, fmt.Errorf("invalid download_bandwidth_source%v %q: %w", idx, ul, err)
 					}
 					bwLimit.DownloadBandwidth = bandwidthDL
 				}
@@ -3005,7 +3005,7 @@ func (s *httpdServer) handleWebTemplateFolderPost(w http.ResponseWriter, r *http
 	for _, tmpl := range foldersFields {
 		f := getFolderFromTemplate(templateFolder, tmpl)
 		if err := dataprovider.ValidateFolder(&f); err != nil {
-			s.renderMessagePage(w, r, "Folder validation error", fmt.Sprintf("Error validating folder %#v", f.Name),
+			s.renderMessagePage(w, r, "Folder validation error", fmt.Sprintf("Error validating folder %q", f.Name),
 				http.StatusBadRequest, err, "")
 			return
 		}
@@ -3095,7 +3095,7 @@ func (s *httpdServer) handleWebTemplateUserPost(w http.ResponseWriter, r *http.R
 	for _, tmpl := range userTmplFields {
 		u := getUserFromTemplate(templateUser, tmpl)
 		if err := dataprovider.ValidateUser(&u); err != nil {
-			s.renderMessagePage(w, r, "User validation error", fmt.Sprintf("Error validating user %#v", u.Username),
+			s.renderMessagePage(w, r, "User validation error", fmt.Sprintf("Error validating user %q", u.Username),
 				http.StatusBadRequest, err, "")
 			return
 		}

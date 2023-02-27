@@ -78,7 +78,7 @@ Command-line flags should be specified in the Subsystem declaration.
 			}
 			username := osUser.Username
 			homedir := osUser.HomeDir
-			logger.Info(logSender, connectionID, "starting SFTPGo %v as subsystem, user %#v home dir %#v config dir %#v base home dir %#v",
+			logger.Info(logSender, connectionID, "starting SFTPGo %v as subsystem, user %q home dir %q config dir %q base home dir %q",
 				version.Get(), username, homedir, configDir, baseHomeDir)
 			err = config.LoadConfig(configDir, configFile)
 			if err != nil {
@@ -144,7 +144,7 @@ Command-line flags should be specified in the Subsystem declaration.
 					user.HomeDir = filepath.Clean(homedir)
 					err = dataprovider.UpdateUser(&user, dataprovider.ActionExecutorSystem, "", "")
 					if err != nil {
-						logger.Error(logSender, connectionID, "unable to update user %#v: %v", username, err)
+						logger.Error(logSender, connectionID, "unable to update user %q: %v", username, err)
 						os.Exit(1)
 					}
 				}
@@ -155,19 +155,19 @@ Command-line flags should be specified in the Subsystem declaration.
 				} else {
 					user.HomeDir = filepath.Clean(homedir)
 				}
-				logger.Debug(logSender, connectionID, "home dir for new user %#v", user.HomeDir)
+				logger.Debug(logSender, connectionID, "home dir for new user %q", user.HomeDir)
 				user.Password = connectionID
 				user.Permissions = make(map[string][]string)
 				user.Permissions["/"] = []string{dataprovider.PermAny}
 				err = dataprovider.AddUser(&user, dataprovider.ActionExecutorSystem, "", "")
 				if err != nil {
-					logger.Error(logSender, connectionID, "unable to add user %#v: %v", username, err)
+					logger.Error(logSender, connectionID, "unable to add user %q: %v", username, err)
 					os.Exit(1)
 				}
 			}
 			err = user.LoadAndApplyGroupSettings()
 			if err != nil {
-				logger.Error(logSender, connectionID, "unable to apply group settings for user %#v: %v", username, err)
+				logger.Error(logSender, connectionID, "unable to apply group settings for user %q: %v", username, err)
 				os.Exit(1)
 			}
 			err = sftpd.ServeSubSystemConnection(&user, connectionID, os.Stdin, os.Stdout)

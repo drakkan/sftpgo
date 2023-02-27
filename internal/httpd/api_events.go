@@ -47,7 +47,7 @@ func getCommonSearchParamsFromRequest(r *http.Request) (eventsearcher.CommonSear
 	if _, ok := r.URL.Query()["order"]; ok {
 		order := r.URL.Query().Get("order")
 		if order != dataprovider.OrderASC && order != dataprovider.OrderDESC {
-			return c, util.NewValidationError(fmt.Sprintf("invalid order %#v", order))
+			return c, util.NewValidationError(fmt.Sprintf("invalid order %q", order))
 		}
 		if order == dataprovider.OrderASC {
 			c.Order = 1

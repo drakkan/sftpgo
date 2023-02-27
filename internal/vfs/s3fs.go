@@ -235,7 +235,7 @@ func (fs *S3Fs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, fun
 			Range:  streamRange,
 		})
 		w.CloseWithError(err) //nolint:errcheck
-		fsLog(fs, logger.LevelDebug, "download completed, path: %#v size: %v, err: %+v", name, n, err)
+		fsLog(fs, logger.LevelDebug, "download completed, path: %q size: %v, err: %+v", name, n, err)
 		metric.S3TransferCompleted(n, 1, err)
 	}()
 	return nil, r, cancelFn, nil
@@ -278,7 +278,7 @@ func (fs *S3Fs) Create(name string, flag int) (File, *PipeWriter, func(), error)
 		})
 		r.CloseWithError(err) //nolint:errcheck
 		p.Done(err)
-		fsLog(fs, logger.LevelDebug, "upload completed, path: %#v, acl: %#v, readed bytes: %v, err: %+v",
+		fsLog(fs, logger.LevelDebug, "upload completed, path: %q, acl: %q, readed bytes: %v, err: %+v",
 			name, fs.config.ACL, r.GetReadedBytes(), err)
 		metric.S3TransferCompleted(r.GetReadedBytes(), 0, err)
 	}()
@@ -305,7 +305,7 @@ func (fs *S3Fs) Remove(name string, isDir bool) error {
 			return err
 		}
 		if hasContents {
-			return fmt.Errorf("cannot remove non empty directory: %#v", name)
+			return fmt.Errorf("cannot remove non empty directory: %q", name)
 		}
 		if !strings.HasSuffix(name, "/") {
 			name += "/"
@@ -321,7 +321,7 @@ func (fs *S3Fs) Remove(name string, isDir bool) error {
 	metric.S3DeleteObjectCompleted(err)
 	if plugin.Handler.HasMetadater() && err == nil && !isDir {
 		if errMetadata := plugin.Handler.RemoveMetadata(fs.getStorageID(), ensureAbsPath(name)); errMetadata != nil {
-			fsLog(fs, logger.LevelWarn, "unable to remove metadata for path %#v: %+v", name, errMetadata)
+			fsLog(fs, logger.LevelWarn, "unable to remove metadata for path %q: %+v", name, errMetadata)
 		}
 	}
 	return err
@@ -533,7 +533,7 @@ func (fs *S3Fs) getFileNamesInPrefix(fsPrefix string) (map[string]bool, error) {
 		if err != nil {
 			metric.S3ListObjectsCompleted(err)
 			if err != nil {
-				fsLog(fs, logger.LevelError, "unable to get content for prefix %#v: %+v", prefix, err)
+				fsLog(fs, logger.LevelError, "unable to get content for prefix %q: %+v", prefix, err)
 				return nil, err
 			}
 			return fileNames, err

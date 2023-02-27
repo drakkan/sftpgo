@@ -636,7 +636,7 @@ func (c *Configuration) ExecuteStartupHook() error {
 		var url *url.URL
 		url, err := url.Parse(c.StartupHook)
 		if err != nil {
-			logger.Warn(logSender, "", "Invalid startup hook %#v: %v", c.StartupHook, err)
+			logger.Warn(logSender, "", "Invalid startup hook %q: %v", c.StartupHook, err)
 			return err
 		}
 		startTime := time.Now()
@@ -650,8 +650,8 @@ func (c *Configuration) ExecuteStartupHook() error {
 		return nil
 	}
 	if !filepath.IsAbs(c.StartupHook) {
-		err := fmt.Errorf("invalid startup hook %#v", c.StartupHook)
-		logger.Warn(logSender, "", "Invalid startup hook %#v", c.StartupHook)
+		err := fmt.Errorf("invalid startup hook %q", c.StartupHook)
+		logger.Warn(logSender, "", "Invalid startup hook %q", c.StartupHook)
 		return err
 	}
 	startTime := time.Now()
@@ -677,7 +677,7 @@ func (c *Configuration) executePostDisconnectHook(remoteAddr, protocol, username
 		var url *url.URL
 		url, err := url.Parse(c.PostDisconnectHook)
 		if err != nil {
-			logger.Warn(protocol, connID, "Invalid post disconnect hook %#v: %v", c.PostDisconnectHook, err)
+			logger.Warn(protocol, connID, "Invalid post disconnect hook %q: %v", c.PostDisconnectHook, err)
 			return
 		}
 		q := url.Query()
@@ -698,7 +698,7 @@ func (c *Configuration) executePostDisconnectHook(remoteAddr, protocol, username
 		return
 	}
 	if !filepath.IsAbs(c.PostDisconnectHook) {
-		logger.Debug(protocol, connID, "invalid post disconnect hook %#v", c.PostDisconnectHook)
+		logger.Debug(protocol, connID, "invalid post disconnect hook %q", c.PostDisconnectHook)
 		return
 	}
 	timeout, env, args := command.GetConfig(c.PostDisconnectHook, command.HookPostDisconnect)
@@ -735,7 +735,7 @@ func (c *Configuration) ExecutePostConnectHook(ipAddr, protocol string) error {
 		var url *url.URL
 		url, err := url.Parse(c.PostConnectHook)
 		if err != nil {
-			logger.Warn(protocol, "", "Login from ip %#v denied, invalid post connect hook %#v: %v",
+			logger.Warn(protocol, "", "Login from ip %q denied, invalid post connect hook %q: %v",
 				ipAddr, c.PostConnectHook, err)
 			return err
 		}
@@ -746,19 +746,19 @@ func (c *Configuration) ExecutePostConnectHook(ipAddr, protocol string) error {
 
 		resp, err := httpclient.RetryableGet(url.String())
 		if err != nil {
-			logger.Warn(protocol, "", "Login from ip %#v denied, error executing post connect hook: %v", ipAddr, err)
+			logger.Warn(protocol, "", "Login from ip %q denied, error executing post connect hook: %v", ipAddr, err)
 			return err
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
-			logger.Warn(protocol, "", "Login from ip %#v denied, post connect hook response code: %v", ipAddr, resp.StatusCode)
+			logger.Warn(protocol, "", "Login from ip %q denied, post connect hook response code: %v", ipAddr, resp.StatusCode)
 			return errUnexpectedHTTResponse
 		}
 		return nil
 	}
 	if !filepath.IsAbs(c.PostConnectHook) {
-		err := fmt.Errorf("invalid post connect hook %#v", c.PostConnectHook)
-		logger.Warn(protocol, "", "Login from ip %#v denied: %v", ipAddr, err)
+		err := fmt.Errorf("invalid post connect hook %q", c.PostConnectHook)
+		logger.Warn(protocol, "", "Login from ip %q denied: %v", ipAddr, err)
 		return err
 	}
 	timeout, env, args := command.GetConfig(c.PostConnectHook, command.HookPostConnect)
@@ -1034,7 +1034,7 @@ func (conns *ActiveConnections) checkIdles() {
 		if idleTime > Config.idleTimeoutAsDuration || (isUnauthenticatedFTPUser && idleTime > Config.idleLoginTimeout) {
 			defer func(conn ActiveConnection) {
 				err := conn.Disconnect()
-				logger.Debug(conn.GetProtocol(), conn.GetID(), "close idle connection, idle time: %v, username: %#v close err: %v",
+				logger.Debug(conn.GetProtocol(), conn.GetID(), "close idle connection, idle time: %v, username: %q close err: %v",
 					time.Since(conn.GetLastActivity()), conn.GetUsername(), err)
 			}(c)
 		}
@@ -1091,7 +1091,7 @@ func (conns *ActiveConnections) checkTransfers() {
 	for _, c := range conns.connections {
 		for _, overquotaTransfer := range overquotaTransfers {
 			if c.GetID() == overquotaTransfer.ConnID {
-				logger.Info(logSender, c.GetID(), "user %#v is overquota, try to close transfer id %v",
+				logger.Info(logSender, c.GetID(), "user %q is overquota, try to close transfer id %v",
 					c.GetUsername(), overquotaTransfer.TransferID)
 				var err error
 				if overquotaTransfer.TransferType == TransferDownload {
@@ -1234,7 +1234,7 @@ func (c *ConnectionStatus) GetConnectionDuration() string {
 func (c *ConnectionStatus) GetConnectionInfo() string {
 	var result strings.Builder
 
-	result.WriteString(fmt.Sprintf("%v. Client: %#v From: %#v", c.Protocol, c.ClientVersion, c.RemoteAddress))
+	result.WriteString(fmt.Sprintf("%v. Client: %q From: %q", c.Protocol, c.ClientVersion, c.RemoteAddress))
 
 	if c.Command == "" {
 		return result.String()
@@ -1242,9 +1242,9 @@ func (c *ConnectionStatus) GetConnectionInfo() string {
 
 	switch c.Protocol {
 	case ProtocolSSH, ProtocolFTP:
-		result.WriteString(fmt.Sprintf(". Command: %#v", c.Command))
+		result.WriteString(fmt.Sprintf(". Command: %q", c.Command))
 	case ProtocolWebDAV:
-		result.WriteString(fmt.Sprintf(". Method: %#v", c.Command))
+		result.WriteString(fmt.Sprintf(". Method: %q", c.Command))
 	}
 
 	return result.String()

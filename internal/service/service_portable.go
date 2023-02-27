@@ -117,7 +117,7 @@ func (s *Service) StartPortableMode(sftpdPort, ftpPort, webdavPort int, enabledS
 		return err
 	}
 
-	logger.InfoToConsole("Portable mode ready, user: %#v, password: %#v, public keys: %v, directory: %#v, "+
+	logger.InfoToConsole("Portable mode ready, user: %q, password: %q, public keys: %v, directory: %q, "+
 		"permissions: %+v, enabled ssh commands: %v file patterns filters: %+v %v", s.PortableUser.Username,
 		printablePassword, s.PortableUser.PublicKeys, s.getPortableDirToServe(), s.PortableUser.Permissions,
 		sftpdConf.EnabledSSHCommands, s.PortableUser.Filters.FilePatterns, s.getServiceOptionalInfoString())

@@ -128,12 +128,12 @@ func (c *Connection) Remove(name string) error {
 
 	var fi os.FileInfo
 	if fi, err = fs.Lstat(p); err != nil {
-		c.Log(logger.LevelError, "failed to remove file %#v: stat error: %+v", p, err)
+		c.Log(logger.LevelError, "failed to remove file %q: stat error: %+v", p, err)
 		return c.GetFsError(fs, err)
 	}
 
 	if fi.IsDir() && fi.Mode()&os.ModeSymlink == 0 {
-		c.Log(logger.LevelError, "cannot remove %#v is not a file/symlink", p)
+		c.Log(logger.LevelError, "cannot remove %q is not a file/symlink", p)
 		return c.GetGenericError(nil)
 	}
 	return c.RemoveFile(fs, p, name, fi)
@@ -338,18 +338,18 @@ func (c *Connection) downloadFile(fs vfs.Fs, fsPath, ftpPath string, offset int6
 	}
 
 	if ok, policy := c.User.IsFileAllowed(ftpPath); !ok {
-		c.Log(logger.LevelWarn, "reading file %#v is not allowed", ftpPath)
+		c.Log(logger.LevelWarn, "reading file %q is not allowed", ftpPath)
 		return nil, c.GetErrorForDeniedFile(policy)
 	}
 
 	if _, err := common.ExecutePreAction(c.BaseConnection, common.OperationPreDownload, fsPath, ftpPath, 0, 0); err != nil {
-		c.Log(logger.LevelDebug, "download for file %#v denied by pre action: %v", ftpPath, err)
+		c.Log(logger.LevelDebug, "download for file %q denied by pre action: %v", ftpPath, err)
 		return nil, c.GetPermissionDeniedError()
 	}
 
 	file, r, cancelFn, err := fs.Open(fsPath, offset)
 	if err != nil {
-		c.Log(logger.LevelError, "could not open file %#v for reading: %+v", fsPath, err)
+		c.Log(logger.LevelError, "could not open file %q for reading: %+v", fsPath, err)
 		return nil, c.GetFsError(fs, err)
 	}
 
@@ -363,7 +363,7 @@ func (c *Connection) downloadFile(fs vfs.Fs, fsPath, ftpPath string, offset int6
 
 func (c *Connection) uploadFile(fs vfs.Fs, fsPath, ftpPath string, flags int) (ftpserver.FileTransfer, error) {
 	if ok, _ := c.User.IsFileAllowed(ftpPath); !ok {
-		c.Log(logger.LevelWarn, "writing file %#v is not allowed", ftpPath)
+		c.Log(logger.LevelWarn, "writing file %q is not allowed", ftpPath)
 		return nil, ftpserver.ErrFileNameNotAllowed
 	}
 
@@ -381,13 +381,13 @@ func (c *Connection) uploadFile(fs vfs.Fs, fsPath, ftpPath string, flags int) (f
 	}
 
 	if statErr != nil {
-		c.Log(logger.LevelError, "error performing file stat %#v: %+v", fsPath, statErr)
+		c.Log(logger.LevelError, "error performing file stat %q: %+v", fsPath, statErr)
 		return nil, c.GetFsError(fs, statErr)
 	}
 
 	// This happen if we upload a file that has the same name of an existing directory
 	if stat.IsDir() {
-		c.Log(logger.LevelError, "attempted to open a directory for writing to: %#v", fsPath)
+		c.Log(logger.LevelError, "attempted to open a directory for writing to: %q", fsPath)
 		return nil, c.GetOpUnsupportedError()
 	}
 
@@ -405,12 +405,12 @@ func (c *Connection) handleFTPUploadToNewFile(fs vfs.Fs, flags int, resolvedPath
 		return nil, ftpserver.ErrStorageExceeded
 	}
 	if _, err := common.ExecutePreAction(c.BaseConnection, common.OperationPreUpload, resolvedPath, requestPath, 0, 0); err != nil {
-		c.Log(logger.LevelDebug, "upload for file %#v denied by pre action: %v", requestPath, err)
+		c.Log(logger.LevelDebug, "upload for file %q denied by pre action: %v", requestPath, err)
 		return nil, fmt.Errorf("%w, denied by pre-upload action", ftpserver.ErrFileNameNotAllowed)
 	}
 	file, w, cancelFn, err := fs.Create(filePath, flags)
 	if err != nil {
-		c.Log(logger.LevelError, "error creating file %#v, flags %v: %+v", resolvedPath, flags, err)
+		c.Log(logger.LevelError, "error creating file %q, flags %v: %+v", resolvedPath, flags, err)
 		return nil, c.GetFsError(fs, err)
 	}
 
@@ -450,14 +450,14 @@ func (c *Connection) handleFTPUploadToExistingFile(fs vfs.Fs, flags int, resolve
 		return nil, err
 	}
 	if _, err := common.ExecutePreAction(c.BaseConnection, common.OperationPreUpload, resolvedPath, requestPath, fileSize, flags); err != nil {
-		c.Log(logger.LevelDebug, "upload for file %#v denied by pre action: %v", requestPath, err)
+		c.Log(logger.LevelDebug, "upload for file %q denied by pre action: %v", requestPath, err)
 		return nil, fmt.Errorf("%w, denied by pre-upload action", ftpserver.ErrFileNameNotAllowed)
 	}
 
 	if common.Config.IsAtomicUploadEnabled() && fs.IsAtomicUploadSupported() {
 		_, _, err = fs.Rename(resolvedPath, filePath)
 		if err != nil {
-			c.Log(logger.LevelError, "error renaming existing file for atomic upload, source: %#v, dest: %#v, err: %+v",
+			c.Log(logger.LevelError, "error renaming existing file for atomic upload, source: %q, dest: %q, err: %+v",
 				resolvedPath, filePath, err)
 			return nil, c.GetFsError(fs, err)
 		}
@@ -465,14 +465,14 @@ func (c *Connection) handleFTPUploadToExistingFile(fs vfs.Fs, flags int, resolve
 
 	file, w, cancelFn, err := fs.Create(filePath, flags)
 	if err != nil {
-		c.Log(logger.LevelError, "error opening existing file, flags: %v, source: %#v, err: %+v", flags, filePath, err)
+		c.Log(logger.LevelError, "error opening existing file, flags: %v, source: %q, err: %+v", flags, filePath, err)
 		return nil, c.GetFsError(fs, err)
 	}
 
 	initialSize := int64(0)
 	truncatedSize := int64(0) // bytes truncated and not included in quota
 	if isResume {
-		c.Log(logger.LevelDebug, "resuming upload requested, file path: %#v initial size: %v", filePath, fileSize)
+		c.Log(logger.LevelDebug, "resuming upload requested, file path: %q initial size: %v", filePath, fileSize)
 		minWriteOffset = fileSize
 		initialSize = fileSize
 		if vfs.IsSFTPFs(fs) && fs.IsUploadResumeSupported() {

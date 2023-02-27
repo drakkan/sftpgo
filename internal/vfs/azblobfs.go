@@ -219,7 +219,7 @@ func (fs *AzureBlobFs) Open(name string, offset int64) (File, *pipeat.PipeReader
 		blockBlob := fs.containerClient.NewBlockBlobClient(name)
 		err := fs.handleMultipartDownload(ctx, blockBlob, offset, w)
 		w.CloseWithError(err) //nolint:errcheck
-		fsLog(fs, logger.LevelDebug, "download completed, path: %#v size: %v, err: %+v", name, w.GetWrittenBytes(), err)
+		fsLog(fs, logger.LevelDebug, "download completed, path: %q size: %v, err: %+v", name, w.GetWrittenBytes(), err)
 		metric.AZTransferCompleted(w.GetWrittenBytes(), 1, err)
 	}()
 
@@ -257,7 +257,7 @@ func (fs *AzureBlobFs) Create(name string, flag int) (File, *PipeWriter, func(),
 		err := fs.handleMultipartUpload(ctx, r, blockBlob, &headers, metadata)
 		r.CloseWithError(err) //nolint:errcheck
 		p.Done(err)
-		fsLog(fs, logger.LevelDebug, "upload completed, path: %#v, readed bytes: %v, err: %+v", name, r.GetReadedBytes(), err)
+		fsLog(fs, logger.LevelDebug, "upload completed, path: %q, readed bytes: %v, err: %+v", name, r.GetReadedBytes(), err)
 		metric.AZTransferCompleted(r.GetReadedBytes(), 0, err)
 	}()
 
@@ -284,7 +284,7 @@ func (fs *AzureBlobFs) Remove(name string, isDir bool) error {
 			return err
 		}
 		if hasContents {
-			return fmt.Errorf("cannot remove non empty directory: %#v", name)
+			return fmt.Errorf("cannot remove non empty directory: %q", name)
 		}
 	}
 
@@ -310,7 +310,7 @@ func (fs *AzureBlobFs) Remove(name string, isDir bool) error {
 	metric.AZDeleteObjectCompleted(err)
 	if plugin.Handler.HasMetadater() && err == nil && !isDir {
 		if errMetadata := plugin.Handler.RemoveMetadata(fs.getStorageID(), ensureAbsPath(name)); errMetadata != nil {
-			fsLog(fs, logger.LevelWarn, "unable to remove metadata for path %#v: %+v", name, errMetadata)
+			fsLog(fs, logger.LevelWarn, "unable to remove metadata for path %q: %+v", name, errMetadata)
 		}
 	}
 	return err

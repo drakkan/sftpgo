@@ -432,11 +432,11 @@ func GetStatus() ServiceStatus {
 func parsePassiveIP(passiveIP string) (string, error) {
 	ip := net.ParseIP(passiveIP)
 	if ip == nil {
-		return "", fmt.Errorf("the provided passive IP %#v is not valid", passiveIP)
+		return "", fmt.Errorf("the provided passive IP %q is not valid", passiveIP)
 	}
 	ip = ip.To4()
 	if ip == nil {
-		return "", fmt.Errorf("the provided passive IP %#v is not a valid IPv4 address", passiveIP)
+		return "", fmt.Errorf("the provided passive IP %q is not a valid IPv4 address", passiveIP)
 	}
 	return ip.String(), nil
 }
