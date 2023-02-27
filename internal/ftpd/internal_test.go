@@ -1127,3 +1127,15 @@ func TestConfigsFromProvider(t *testing.T) {
 	err = dataprovider.UpdateConfigs(nil, "", "", "")
 	assert.NoError(t, err)
 }
+
+func TestPassiveHost(t *testing.T) {
+	b := Binding{
+		PassiveHost: "invalid hostname",
+	}
+	_, err := b.getPassiveIP(nil)
+	assert.Error(t, err)
+	b.PassiveHost = "localhost"
+	ip, err := b.getPassiveIP(nil)
+	assert.NoError(t, err, ip)
+	assert.Equal(t, "127.0.0.1", ip)
+}

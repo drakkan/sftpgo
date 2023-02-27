@@ -75,6 +75,7 @@ var (
 		MinTLSVersion:              12,
 		ForcePassiveIP:             "",
 		PassiveIPOverrides:         nil,
+		PassiveHost:                "",
 		ClientAuthType:             0,
 		TLSCipherSuites:            nil,
 		PassiveConnectionsSecurity: 0,
@@ -1116,27 +1117,8 @@ func getDefaultFTPDBinding(idx int) ftpd.Binding {
 	return binding
 }
 
-func getFTPDBindingFromEnv(idx int) {
-	binding := getDefaultFTPDBinding(idx)
+func getFTPDBindingSecurityFromEnv(idx int, binding *ftpd.Binding) bool {
 	isSet := false
-
-	port, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__PORT", idx))
-	if ok {
-		binding.Port = int(port)
-		isSet = true
-	}
-
-	address, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__ADDRESS", idx))
-	if ok {
-		binding.Address = address
-		isSet = true
-	}
-
-	applyProxyConfig, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__APPLY_PROXY_CONFIG", idx))
-	if ok {
-		binding.ApplyProxyConfig = applyProxyConfig
-		isSet = true
-	}
 
 	certificateFile, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__CERTIFICATE_FILE", idx))
 	if ok {
@@ -1162,27 +1144,15 @@ func getFTPDBindingFromEnv(idx int) {
 		isSet = true
 	}
 
-	passiveIP, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__FORCE_PASSIVE_IP", idx))
+	tlsCiphers, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__TLS_CIPHER_SUITES", idx))
 	if ok {
-		binding.ForcePassiveIP = passiveIP
-		isSet = true
-	}
-
-	passiveIPOverrides := getFTPDPassiveIPOverridesFromEnv(idx)
-	if len(passiveIPOverrides) > 0 {
-		binding.PassiveIPOverrides = passiveIPOverrides
+		binding.TLSCipherSuites = tlsCiphers
 		isSet = true
 	}
 
 	clientAuthType, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__CLIENT_AUTH_TYPE", idx))
 	if ok {
 		binding.ClientAuthType = int(clientAuthType)
-		isSet = true
-	}
-
-	tlsCiphers, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__TLS_CIPHER_SUITES", idx))
-	if ok {
-		binding.TLSCipherSuites = tlsCiphers
 		isSet = true
 	}
 
@@ -1198,9 +1168,56 @@ func getFTPDBindingFromEnv(idx int) {
 		isSet = true
 	}
 
+	return isSet
+}
+
+func getFTPDBindingFromEnv(idx int) {
+	binding := getDefaultFTPDBinding(idx)
+	isSet := false
+
+	port, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__PORT", idx))
+	if ok {
+		binding.Port = int(port)
+		isSet = true
+	}
+
+	address, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__ADDRESS", idx))
+	if ok {
+		binding.Address = address
+		isSet = true
+	}
+
+	applyProxyConfig, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__APPLY_PROXY_CONFIG", idx))
+	if ok {
+		binding.ApplyProxyConfig = applyProxyConfig
+		isSet = true
+	}
+
+	passiveIP, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__FORCE_PASSIVE_IP", idx))
+	if ok {
+		binding.ForcePassiveIP = passiveIP
+		isSet = true
+	}
+
+	passiveIPOverrides := getFTPDPassiveIPOverridesFromEnv(idx)
+	if len(passiveIPOverrides) > 0 {
+		binding.PassiveIPOverrides = passiveIPOverrides
+		isSet = true
+	}
+
+	passiveHost, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__PASSIVE_HOST", idx))
+	if ok {
+		binding.PassiveHost = passiveHost
+		isSet = true
+	}
+
 	debug, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__DEBUG", idx))
 	if ok {
 		binding.Debug = debug
+		isSet = true
+	}
+
+	if getFTPDBindingSecurityFromEnv(idx, &binding) {
 		isSet = true
 	}
 

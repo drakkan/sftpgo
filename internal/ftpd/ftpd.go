@@ -16,12 +16,14 @@
 package ftpd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	ftpserver "github.com/fclairamb/ftpserverlib"
 
@@ -75,6 +77,10 @@ type Binding struct {
 	// PassiveIPOverrides allows to define different IP addresses for passive connections
 	// based on the client IP address
 	PassiveIPOverrides []PassiveIPOverride `json:"passive_ip_overrides" mapstructure:"passive_ip_overrides"`
+	// Hostname for passive connections. This hostname will be resolved each time a passive
+	// connection is requested and this can, depending on the DNS configuration, take a noticeable
+	// amount of time. Enable this setting only if you have a dynamic IP address
+	PassiveHost string `json:"passive_host" mapstructure:"passive_host"`
 	// Set to 1 to require client certificate authentication.
 	// Set to 2 to require a client certificate and verfify it if given. In this mode
 	// the client is allowed not to send a certificate.
@@ -168,11 +174,24 @@ func (b *Binding) checkPassiveIP() error {
 	return nil
 }
 
-func (b *Binding) getPassiveIP(cc ftpserver.ClientContext) string {
+func (b *Binding) getPassiveIP(cc ftpserver.ClientContext) (string, error) {
 	if b.ForcePassiveIP != "" {
-		return b.ForcePassiveIP
+		return b.ForcePassiveIP, nil
 	}
-	return strings.Split(cc.LocalAddr().String(), ":")[0]
+	if b.PassiveHost != "" {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		addrs, err := net.DefaultResolver.LookupIP(ctx, "ip4", b.PassiveHost)
+		if err != nil {
+			logger.Error(logSender, "", "unable to resolve hostname %q: %v", b.PassiveHost, err)
+			return "", fmt.Errorf("unable to resolve hostname %q: %w", b.PassiveHost, err)
+		}
+		if len(addrs) > 0 {
+			return addrs[0].String(), nil
+		}
+	}
+	return strings.Split(cc.LocalAddr().String(), ":")[0], nil
 }
 
 func (b *Binding) passiveIPResolver(cc ftpserver.ClientContext) (string, error) {
@@ -191,7 +210,7 @@ func (b *Binding) passiveIPResolver(cc ftpserver.ClientContext) (string, error) 
 			}
 		}
 	}
-	return b.getPassiveIP(cc), nil
+	return b.getPassiveIP(cc)
 }
 
 // HasProxy returns true if the proxy protocol is active for this binding

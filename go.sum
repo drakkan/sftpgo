@@ -853,8 +853,8 @@ github.com/drakkan/crypto v0.0.0-20230209112458-e15d12511558 h1:M4nv9gf47uCKouIe
 github.com/drakkan/crypto v0.0.0-20230209112458-e15d12511558/go.mod h1:20JIOkADKNe0e6yKflVpVinG/uP19j94rhQlU7Ea/hQ=
 github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9 h1:LPH1dEblAOO/LoG7yHPMtBLXhQmjaga91/DDjWk9jWA=
 github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9/go.mod h1:2lmrmq866uF2tnje75wQHzmPXhmSWUt7Gyx2vgK1RCU=
-github.com/drakkan/webdav v0.0.0-20230124152008-9aaec6ea77c9 h1:zHUGiI7ide7ZHNHnfa7n0a7dl2FCcgfgFeixctI7SX4=
-github.com/drakkan/webdav v0.0.0-20230124152008-9aaec6ea77c9/go.mod h1:8opebuqUyBXrvl7Vo/S1Zzl9U0G1X2Ceud440eVuhUE=
+github.com/drakkan/webdav v0.0.0-20230227175313-32996838bcd8 h1:tdkLkSKtYd3WSDsZXGJDKsakiNstLQJPN5HjnqCkf2c=
+github.com/drakkan/webdav v0.0.0-20230227175313-32996838bcd8/go.mod h1:zOVb1QDhwwqWn2L2qZ0U3swMSO4GTSNyIwXCGO/UGWE=
 github.com/dustin/go-humanize v0.0.0-20171111073723-bb3d318650d4/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=
 github.com/dustin/go-humanize v1.0.0/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=
 github.com/eapache/go-resiliency v1.1.0/go.mod h1:kFI+JgMyC7bLPUVY133qvEBtVayf5mFgVsvEsIPBvNs=

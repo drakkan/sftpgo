@@ -113,6 +113,7 @@
         "min_tls_version": 12,
         "force_passive_ip": "",
         "passive_ip_overrides": [],
+        "passive_host": "",
         "client_auth_type": 0,
         "tls_cipher_suites": [],
         "passive_connections_security": 0,
