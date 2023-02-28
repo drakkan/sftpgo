@@ -908,7 +908,7 @@ func TestOIDCToken(t *testing.T) {
 
 	err = token.getUser(req)
 	if assert.Error(t, err) {
-		assert.Contains(t, err.Error(), "access denied by post connect hook")
+		assert.Contains(t, err.Error(), "access denied")
 	}
 
 	common.Config.PostConnectHook = ""

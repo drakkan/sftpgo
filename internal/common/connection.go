@@ -1566,14 +1566,7 @@ func (c *BaseConnection) GetErrorForDeniedFile(policy int) error {
 
 // GetPermissionDeniedError returns an appropriate permission denied error for the connection protocol
 func (c *BaseConnection) GetPermissionDeniedError() error {
-	switch c.protocol {
-	case ProtocolSFTP:
-		return sftp.ErrSSHFxPermissionDenied
-	case ProtocolWebDAV, ProtocolFTP, ProtocolHTTP, ProtocolOIDC, ProtocolHTTPShare, ProtocolDataRetention:
-		return os.ErrPermission
-	default:
-		return ErrPermissionDenied
-	}
+	return getPermissionDeniedError(c.protocol)
 }
 
 // GetNotExistError returns an appropriate not exist error for the connection protocol
@@ -1721,6 +1714,17 @@ func (c *BaseConnection) GetFsAndResolvedPath(virtualPath string) (vfs.Fs, strin
 	}
 
 	return fs, fsPath, nil
+}
+
+func getPermissionDeniedError(protocol string) error {
+	switch protocol {
+	case ProtocolSFTP:
+		return sftp.ErrSSHFxPermissionDenied
+	case ProtocolWebDAV, ProtocolFTP, ProtocolHTTP, ProtocolOIDC, ProtocolHTTPShare, ProtocolDataRetention:
+		return os.ErrPermission
+	default:
+		return ErrPermissionDenied
+	}
 }
 
 func keepConnectionAlive(c *BaseConnection, done chan bool, interval time.Duration) {

@@ -737,7 +737,7 @@ func (c *Configuration) ExecutePostConnectHook(ipAddr, protocol string) error {
 		if err != nil {
 			logger.Warn(protocol, "", "Login from ip %q denied, invalid post connect hook %q: %v",
 				ipAddr, c.PostConnectHook, err)
-			return err
+			return getPermissionDeniedError(protocol)
 		}
 		q := url.Query()
 		q.Add("ip", ipAddr)
@@ -747,19 +747,19 @@ func (c *Configuration) ExecutePostConnectHook(ipAddr, protocol string) error {
 		resp, err := httpclient.RetryableGet(url.String())
 		if err != nil {
 			logger.Warn(protocol, "", "Login from ip %q denied, error executing post connect hook: %v", ipAddr, err)
-			return err
+			return getPermissionDeniedError(protocol)
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
 			logger.Warn(protocol, "", "Login from ip %q denied, post connect hook response code: %v", ipAddr, resp.StatusCode)
-			return errUnexpectedHTTResponse
+			return getPermissionDeniedError(protocol)
 		}
 		return nil
 	}
 	if !filepath.IsAbs(c.PostConnectHook) {
 		err := fmt.Errorf("invalid post connect hook %q", c.PostConnectHook)
 		logger.Warn(protocol, "", "Login from ip %q denied: %v", ipAddr, err)
-		return err
+		return getPermissionDeniedError(protocol)
 	}
 	timeout, env, args := command.GetConfig(c.PostConnectHook, command.HookPostConnect)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -772,8 +772,9 @@ func (c *Configuration) ExecutePostConnectHook(ipAddr, protocol string) error {
 	err := cmd.Run()
 	if err != nil {
 		logger.Warn(protocol, "", "Login from ip %q denied, connect hook error: %v", ipAddr, err)
+		return getPermissionDeniedError(protocol)
 	}
-	return err
+	return nil
 }
 
 // SSHConnection defines an ssh connection.

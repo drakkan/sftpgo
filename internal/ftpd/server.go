@@ -173,7 +173,7 @@ func (s *Server) ClientConnected(cc ftpserver.ClientContext) (string, error) {
 		return fmt.Sprintf("Access denied: %v", err.Error()), err
 	}
 	if err := common.Config.ExecutePostConnectHook(ipAddr, common.ProtocolFTP); err != nil {
-		return "Access denied by post connect hook", err
+		return "Access denied", err
 	}
 	connID := fmt.Sprintf("%v_%v", s.ID, cc.ID())
 	user := dataprovider.User{}

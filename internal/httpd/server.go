@@ -246,7 +246,7 @@ func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Re
 	}
 
 	if err := common.Config.ExecutePostConnectHook(ipAddr, protocol); err != nil {
-		s.renderClientLoginPage(w, fmt.Sprintf("access denied by post connect hook: %v", err), ipAddr)
+		s.renderClientLoginPage(w, fmt.Sprintf("access denied: %v", err), ipAddr)
 		return
 	}
 

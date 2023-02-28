@@ -406,7 +406,7 @@ func (c *Connection) handleFTPUploadToNewFile(fs vfs.Fs, flags int, resolvedPath
 	}
 	if _, err := common.ExecutePreAction(c.BaseConnection, common.OperationPreUpload, resolvedPath, requestPath, 0, 0); err != nil {
 		c.Log(logger.LevelDebug, "upload for file %q denied by pre action: %v", requestPath, err)
-		return nil, fmt.Errorf("%w, denied by pre-upload action", ftpserver.ErrFileNameNotAllowed)
+		return nil, ftpserver.ErrFileNameNotAllowed
 	}
 	file, w, cancelFn, err := fs.Create(filePath, flags)
 	if err != nil {
@@ -451,7 +451,7 @@ func (c *Connection) handleFTPUploadToExistingFile(fs vfs.Fs, flags int, resolve
 	}
 	if _, err := common.ExecutePreAction(c.BaseConnection, common.OperationPreUpload, resolvedPath, requestPath, fileSize, flags); err != nil {
 		c.Log(logger.LevelDebug, "upload for file %q denied by pre action: %v", requestPath, err)
-		return nil, fmt.Errorf("%w, denied by pre-upload action", ftpserver.ErrFileNameNotAllowed)
+		return nil, ftpserver.ErrFileNameNotAllowed
 	}
 
 	if common.Config.IsAtomicUploadEnabled() && fs.IsAtomicUploadSupported() {

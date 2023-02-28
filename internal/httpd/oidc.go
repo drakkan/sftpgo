@@ -431,7 +431,7 @@ func (t *oidcToken) getUser(r *http.Request) error {
 	}
 	if err := common.Config.ExecutePostConnectHook(ipAddr, common.ProtocolOIDC); err != nil {
 		updateLoginMetrics(&user, dataprovider.LoginMethodIDP, ipAddr, err)
-		return fmt.Errorf("access denied by post connect hook: %w", err)
+		return fmt.Errorf("access denied: %w", err)
 	}
 	if err := user.CheckLoginConditions(); err != nil {
 		updateLoginMetrics(&user, dataprovider.LoginMethodIDP, ipAddr, err)
