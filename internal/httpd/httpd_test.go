@@ -6285,7 +6285,7 @@ func TestNamingRules(t *testing.T) {
 		From:          "notification@example.com",
 		TemplatesPath: "templates",
 	}
-	err := smtpCfg.Initialize(configDir)
+	err := smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 	err = dataprovider.Close()
 	assert.NoError(t, err)
@@ -6514,7 +6514,7 @@ func TestNamingRules(t *testing.T) {
 	assert.NoError(t, err)
 
 	smtpCfg = smtp.Config{}
-	err = smtpCfg.Initialize(configDir)
+	err = smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 }
 
@@ -9108,7 +9108,7 @@ func TestSMTPConfig(t *testing.T) {
 		From:          "notification@example.com",
 		TemplatesPath: "templates",
 	}
-	err := smtpCfg.Initialize(configDir)
+	err := smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 
 	smtpTestURL := path.Join(webConfigsPath, "smtp", "test")
@@ -9175,7 +9175,7 @@ func TestSMTPConfig(t *testing.T) {
 	err = dataprovider.UpdateConfigs(nil, "", "", "")
 	assert.NoError(t, err)
 	smtpCfg = smtp.Config{}
-	err = smtpCfg.Initialize(configDir)
+	err = smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 }
 
@@ -12219,7 +12219,7 @@ func TestMaxSessions(t *testing.T) {
 		From:          "notification@example.com",
 		TemplatesPath: "templates",
 	}
-	err = smtpCfg.Initialize(configDir)
+	err = smtpCfg.Initialize(configDir, true)
 	assert.NoError(t, err)
 
 	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
@@ -12248,7 +12248,7 @@ func TestMaxSessions(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "Password reset successfully but unable to login")
 
 	smtpCfg = smtp.Config{}
-	err = smtpCfg.Initialize(configDir)
+	err = smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 
 	common.Connections.Remove(connection.GetID())
@@ -12517,7 +12517,7 @@ func TestSFTPLoopError(t *testing.T) {
 		From:          "notification@example.com",
 		TemplatesPath: "templates",
 	}
-	err = smtpCfg.Initialize(configDir)
+	err = smtpCfg.Initialize(configDir, true)
 	assert.NoError(t, err)
 
 	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
@@ -12546,7 +12546,7 @@ func TestSFTPLoopError(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "Password reset successfully but unable to login")
 
 	smtpCfg = smtp.Config{}
-	err = smtpCfg.Initialize(configDir)
+	err = smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 
 	_, err = httpdtest.RemoveUser(user1, http.StatusOK)
@@ -22850,7 +22850,7 @@ func TestAdminForgotPassword(t *testing.T) {
 		From:          "notification@example.com",
 		TemplatesPath: "templates",
 	}
-	err := smtpCfg.Initialize(configDir)
+	err := smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 
 	a := getTestAdmin()
@@ -22956,7 +22956,7 @@ func TestAdminForgotPassword(t *testing.T) {
 		From:          "notification@example.com",
 		TemplatesPath: "templates",
 	}
-	err = smtpCfg.Initialize(configDir)
+	err = smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 
 	form = make(url.Values)
@@ -22971,7 +22971,7 @@ func TestAdminForgotPassword(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "Unable to send confirmation code via email")
 
 	smtpCfg = smtp.Config{}
-	err = smtpCfg.Initialize(configDir)
+	err = smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 
 	form.Set("username", altAdminUsername)
@@ -23005,7 +23005,7 @@ func TestUserForgotPassword(t *testing.T) {
 		From:          "notification@example.com",
 		TemplatesPath: "templates",
 	}
-	err := smtpCfg.Initialize(configDir)
+	err := smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 
 	u := getTestUser()
@@ -23118,7 +23118,7 @@ func TestUserForgotPassword(t *testing.T) {
 	assert.GreaterOrEqual(t, len(lastResetCode), 20)
 
 	smtpCfg = smtp.Config{}
-	err = smtpCfg.Initialize(configDir)
+	err = smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 
 	req, err = http.NewRequest(http.MethodGet, webClientForgotPwdPath, nil)
@@ -23156,7 +23156,7 @@ func TestAPIForgotPassword(t *testing.T) {
 		From:          "notification@example.com",
 		TemplatesPath: "templates",
 	}
-	err := smtpCfg.Initialize(configDir)
+	err := smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 
 	a := getTestAdmin()
@@ -23301,7 +23301,7 @@ func TestAPIForgotPassword(t *testing.T) {
 	assert.GreaterOrEqual(t, len(lastResetCode), 20)
 
 	smtpCfg = smtp.Config{}
-	err = smtpCfg.Initialize(configDir)
+	err = smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 
 	// without an smtp configuration reset password is not available

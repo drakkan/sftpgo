@@ -148,7 +148,7 @@ func (s *Service) initializeServices(disableAWSInstallationCode bool) error {
 		return err
 	}
 	smtpConfig := config.GetSMTPConfig()
-	err = smtpConfig.Initialize(s.ConfigDir)
+	err = smtpConfig.Initialize(s.ConfigDir, s.PortableMode != 1)
 	if err != nil {
 		logger.Error(logSender, "", "unable to initialize SMTP configuration: %v", err)
 		logger.ErrorToConsole("unable to initialize SMTP configuration: %v", err)

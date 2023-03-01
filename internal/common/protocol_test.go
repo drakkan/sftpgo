@@ -3492,7 +3492,7 @@ func TestEventRule(t *testing.T) {
 		From:          "notification@example.com",
 		TemplatesPath: "templates",
 	}
-	err := smtpCfg.Initialize(configDir)
+	err := smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 
 	a1 := dataprovider.BaseEventAction{
@@ -3825,7 +3825,7 @@ func TestEventRule(t *testing.T) {
 	assert.NoError(t, err)
 
 	smtpCfg = smtp.Config{}
-	err = smtpCfg.Initialize(configDir)
+	err = smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 }
 
@@ -3839,7 +3839,7 @@ func TestEventRuleProviderEvents(t *testing.T) {
 		From:          "notification@example.com",
 		TemplatesPath: "templates",
 	}
-	err := smtpCfg.Initialize(configDir)
+	err := smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 
 	saveObjectScriptPath := filepath.Join(os.TempDir(), "provider.sh")
@@ -3982,7 +3982,7 @@ func TestEventRuleProviderEvents(t *testing.T) {
 	lastReceivedEmail.reset()
 	// generate an error for the failure action
 	smtpCfg = smtp.Config{}
-	err = smtpCfg.Initialize(configDir)
+	err = smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 	_, _, err = httpdtest.UpdateFolder(folder, http.StatusOK)
 	assert.NoError(t, err)
@@ -4608,7 +4608,7 @@ func TestEventFsActionsGroupFilters(t *testing.T) {
 		From:          "notification@example.com",
 		TemplatesPath: "templates",
 	}
-	err := smtpCfg.Initialize(configDir)
+	err := smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 
 	a1 := dataprovider.BaseEventAction{
@@ -4728,7 +4728,7 @@ func TestEventFsActionsGroupFilters(t *testing.T) {
 	assert.NoError(t, err)
 
 	smtpCfg = smtp.Config{}
-	err = smtpCfg.Initialize(configDir)
+	err = smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 }
 
@@ -4739,7 +4739,7 @@ func TestBackupAsAttachment(t *testing.T) {
 		From:          "notification@example.com",
 		TemplatesPath: "templates",
 	}
-	err := smtpCfg.Initialize(configDir)
+	err := smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 
 	a1 := dataprovider.BaseEventAction{
@@ -4812,7 +4812,7 @@ func TestBackupAsAttachment(t *testing.T) {
 	assert.NoError(t, err)
 
 	smtpCfg = smtp.Config{}
-	err = smtpCfg.Initialize(configDir)
+	err = smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 }
 
@@ -5057,7 +5057,7 @@ func TestEventActionCompressQuotaErrors(t *testing.T) {
 		From:          "notify@example.com",
 		TemplatesPath: "templates",
 	}
-	err := smtpCfg.Initialize(configDir)
+	err := smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 
 	testDir := "archiveDir"
@@ -5215,7 +5215,7 @@ func TestEventActionCompressQuotaErrors(t *testing.T) {
 	assert.NoError(t, err)
 
 	smtpCfg = smtp.Config{}
-	err = smtpCfg.Initialize(configDir)
+	err = smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 }
 
@@ -5463,7 +5463,7 @@ func TestEventActionEmailAttachments(t *testing.T) {
 		From:          "notify@example.com",
 		TemplatesPath: "templates",
 	}
-	err := smtpCfg.Initialize(configDir)
+	err := smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 
 	a1 := dataprovider.BaseEventAction{
@@ -5569,7 +5569,7 @@ func TestEventActionEmailAttachments(t *testing.T) {
 	assert.NoError(t, err)
 
 	smtpCfg = smtp.Config{}
-	err = smtpCfg.Initialize(configDir)
+	err = smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 }
 
@@ -5580,7 +5580,7 @@ func TestEventActionsRetentionReports(t *testing.T) {
 		From:          "notify@example.com",
 		TemplatesPath: "templates",
 	}
-	err := smtpCfg.Initialize(configDir)
+	err := smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 
 	testDir := "/d"
@@ -5817,7 +5817,7 @@ func TestEventActionsRetentionReports(t *testing.T) {
 	assert.NoError(t, err)
 
 	smtpCfg = smtp.Config{}
-	err = smtpCfg.Initialize(configDir)
+	err = smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 }
 
@@ -5828,7 +5828,7 @@ func TestEventRuleFirstUploadDownloadActions(t *testing.T) {
 		From:          "notify@example.com",
 		TemplatesPath: "templates",
 	}
-	err := smtpCfg.Initialize(configDir)
+	err := smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 	a1 := dataprovider.BaseEventAction{
 		Name: "action1",
@@ -5948,7 +5948,7 @@ func TestEventRuleFirstUploadDownloadActions(t *testing.T) {
 	assert.NoError(t, err)
 
 	smtpCfg = smtp.Config{}
-	err = smtpCfg.Initialize(configDir)
+	err = smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 }
 
@@ -5959,7 +5959,7 @@ func TestEventRuleRenameEvent(t *testing.T) {
 		From:          "notify@example.com",
 		TemplatesPath: "templates",
 	}
-	err := smtpCfg.Initialize(configDir)
+	err := smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 
 	a1 := dataprovider.BaseEventAction{
@@ -6029,7 +6029,7 @@ func TestEventRuleRenameEvent(t *testing.T) {
 	assert.NoError(t, err)
 
 	smtpCfg = smtp.Config{}
-	err = smtpCfg.Initialize(configDir)
+	err = smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 }
 
@@ -6040,7 +6040,7 @@ func TestEventRuleCertificate(t *testing.T) {
 		From:          "notify@example.com",
 		TemplatesPath: "templates",
 	}
-	err := smtpCfg.Initialize(configDir)
+	err := smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 	lastReceivedEmail.reset()
 
@@ -6156,7 +6156,7 @@ func TestEventRuleCertificate(t *testing.T) {
 	})
 
 	smtpCfg = smtp.Config{}
-	err = smtpCfg.Initialize(configDir)
+	err = smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 }
 
@@ -6177,7 +6177,7 @@ func TestEventRuleIPBlocked(t *testing.T) {
 		From:          "notification@example.com",
 		TemplatesPath: "templates",
 	}
-	err = smtpCfg.Initialize(configDir)
+	err = smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 
 	a1 := dataprovider.BaseEventAction{
@@ -6278,7 +6278,7 @@ func TestEventRuleIPBlocked(t *testing.T) {
 	assert.NoError(t, err)
 
 	smtpCfg = smtp.Config{}
-	err = smtpCfg.Initialize(configDir)
+	err = smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 
 	err = common.Initialize(oldConfig, 0)
@@ -6292,7 +6292,7 @@ func TestEventRulePasswordExpiration(t *testing.T) {
 		From:          "notification@example.com",
 		TemplatesPath: "templates",
 	}
-	err := smtpCfg.Initialize(configDir)
+	err := smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
@@ -6485,7 +6485,7 @@ func TestEventRulePasswordExpiration(t *testing.T) {
 	assert.NoError(t, err)
 
 	smtpCfg = smtp.Config{}
-	err = smtpCfg.Initialize(configDir)
+	err = smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 }
 
@@ -7080,7 +7080,7 @@ func TestSFTPLoopError(t *testing.T) {
 		From:          "notification@example.com",
 		TemplatesPath: "templates",
 	}
-	err := smtpCfg.Initialize(configDir)
+	err := smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 
 	user1 := getTestUser()
@@ -7210,7 +7210,7 @@ func TestSFTPLoopError(t *testing.T) {
 	assert.NoError(t, err)
 
 	smtpCfg = smtp.Config{}
-	err = smtpCfg.Initialize(configDir)
+	err = smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 }
 

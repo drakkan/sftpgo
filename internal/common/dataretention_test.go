@@ -87,7 +87,7 @@ func TestRetentionValidation(t *testing.T) {
 		From:          "notification@example.com",
 		TemplatesPath: "templates",
 	}
-	err = smtpCfg.Initialize(configDir)
+	err = smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 
 	err = check.Validate()
@@ -99,7 +99,7 @@ func TestRetentionValidation(t *testing.T) {
 	assert.NoError(t, err)
 
 	smtpCfg = smtp.Config{}
-	err = smtpCfg.Initialize(configDir)
+	err = smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 
 	check.Notifications = []RetentionCheckNotification{RetentionCheckNotificationHook}
@@ -120,7 +120,7 @@ func TestRetentionEmailNotifications(t *testing.T) {
 		From:          "notification@example.com",
 		TemplatesPath: "templates",
 	}
-	err := smtpCfg.Initialize(configDir)
+	err := smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 
 	user := dataprovider.User{
@@ -160,7 +160,7 @@ func TestRetentionEmailNotifications(t *testing.T) {
 	}
 
 	smtpCfg.Port = 2626
-	err = smtpCfg.Initialize(configDir)
+	err = smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 	err = check.sendEmailNotification(nil)
 	assert.Error(t, err)
@@ -175,7 +175,7 @@ func TestRetentionEmailNotifications(t *testing.T) {
 	}
 
 	smtpCfg = smtp.Config{}
-	err = smtpCfg.Initialize(configDir)
+	err = smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
 	err = check.sendEmailNotification(nil)
 	assert.Error(t, err)

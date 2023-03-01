@@ -50,7 +50,7 @@ If the SMTP configuration is correct you should receive this email.`,
 				os.Exit(1)
 			}
 			smtpConfig := config.GetSMTPConfig()
-			err = smtpConfig.Initialize(configDir)
+			err = smtpConfig.Initialize(configDir, false)
 			if err != nil {
 				logger.ErrorToConsole("unable to initialize SMTP configuration: %v", err)
 				os.Exit(1)

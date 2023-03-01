@@ -196,20 +196,7 @@ func (c *Config) isEqual(other *Config) bool {
 	return true
 }
 
-// Initialize initialized and validates the SMTP configuration
-func (c *Config) Initialize(configDir string) error {
-	if c.TemplatesPath == "" {
-		logger.Debug(logSender, "", "templates path empty, using default")
-		c.TemplatesPath = "templates"
-	}
-	templatesPath := util.FindSharedDataPath(c.TemplatesPath, configDir)
-	if templatesPath == "" {
-		return fmt.Errorf("smtp: invalid templates path %q", templatesPath)
-	}
-	loadTemplates(filepath.Join(templatesPath, templateEmailDir))
-	if c.Host == "" {
-		return loadConfigFromProvider()
-	}
+func (c *Config) validate() error {
 	if c.Port <= 0 || c.Port > 65535 {
 		return fmt.Errorf("smtp: invalid port %d", c.Port)
 	}
@@ -221,6 +208,42 @@ func (c *Config) Initialize(configDir string) error {
 	}
 	if c.From == "" && c.User == "" {
 		return fmt.Errorf(`smtp: from address and user cannot both be empty`)
+	}
+	return nil
+}
+
+func (c *Config) loadTemplates(configDir string) error {
+	if c.TemplatesPath == "" {
+		logger.Debug(logSender, "", "templates path empty, using default")
+		c.TemplatesPath = "templates"
+	}
+	templatesPath := util.FindSharedDataPath(c.TemplatesPath, configDir)
+	if templatesPath == "" {
+		return fmt.Errorf("smtp: invalid templates path %q", templatesPath)
+	}
+	loadTemplates(filepath.Join(templatesPath, templateEmailDir))
+	return nil
+}
+
+// Initialize initialized and validates the SMTP configuration
+func (c *Config) Initialize(configDir string, isService bool) error {
+	if !isService && c.Host == "" {
+		if err := loadConfigFromProvider(); err != nil {
+			return err
+		}
+		if !config.isEnabled() {
+			return nil
+		}
+		return c.loadTemplates(configDir)
+	}
+	if err := c.loadTemplates(configDir); err != nil {
+		return err
+	}
+	if c.Host == "" {
+		return loadConfigFromProvider()
+	}
+	if err := c.validate(); err != nil {
+		return err
 	}
 	initialConfig = c
 	config.Set(nil)
