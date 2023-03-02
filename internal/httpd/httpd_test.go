@@ -1217,6 +1217,7 @@ func TestGroupSettingsOverride(t *testing.T) {
 	}
 	group2.UserSettings.DownloadBandwidth = 128
 	group2.UserSettings.UploadBandwidth = 256
+	group2.UserSettings.Filters.PasswordStrength = 70
 	group2.UserSettings.Filters.WebClient = []string{sdk.WebClientInfoChangeDisabled, sdk.WebClientMFADisabled}
 	_, _, err = httpdtest.UpdateGroup(group2, http.StatusOK)
 	assert.NoError(t, err)
@@ -1226,6 +1227,7 @@ func TestGroupSettingsOverride(t *testing.T) {
 	assert.Equal(t, sdk.LocalFilesystemProvider, user.FsConfig.Provider)
 	assert.Equal(t, int64(0), user.DownloadBandwidth)
 	assert.Equal(t, int64(0), user.UploadBandwidth)
+	assert.Equal(t, 0, user.Filters.PasswordStrength)
 	assert.Equal(t, []string{dataprovider.PermAny}, user.GetPermissionsForPath("/"))
 	assert.Equal(t, []string{dataprovider.PermListItems}, user.GetPermissionsForPath("/"+defaultUsername))
 	assert.Len(t, user.Filters.WebClient, 2)
@@ -1249,6 +1251,7 @@ func TestGroupSettingsOverride(t *testing.T) {
 	group1.UserSettings.ExpiresIn = 15
 	group1.UserSettings.Filters.MaxUploadFileSize = 1024 * 1024
 	group1.UserSettings.Filters.StartDirectory = "/startdir/%username%"
+	group1.UserSettings.Filters.PasswordStrength = 70
 	group1.UserSettings.Filters.WebClient = []string{sdk.WebClientInfoChangeDisabled}
 	group1.UserSettings.Permissions = map[string][]string{
 		"/":               {dataprovider.PermListItems, dataprovider.PermUpload},
@@ -1268,6 +1271,7 @@ func TestGroupSettingsOverride(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, user.VirtualFolders, 3)
 	assert.Equal(t, user.CreatedAt+int64(group1.UserSettings.ExpiresIn)*86400000, user.ExpirationDate)
+	assert.Equal(t, group1.UserSettings.Filters.PasswordStrength, user.Filters.PasswordStrength)
 	assert.Equal(t, sdk.SFTPFilesystemProvider, user.FsConfig.Provider)
 	assert.Equal(t, altAdminUsername, user.FsConfig.SFTPConfig.Username)
 	assert.Equal(t, "/dirs/"+defaultUsername, user.FsConfig.SFTPConfig.Prefix)
@@ -2955,6 +2959,45 @@ func TestPermMFADisabled(t *testing.T) {
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
+func TestUpdateUserPassword(t *testing.T) {
+	g := getTestGroup()
+	g.UserSettings.Filters.PasswordStrength = 20
+	g.UserSettings.MaxSessions = 10
+	group, _, err := httpdtest.AddGroup(g, http.StatusCreated)
+	assert.NoError(t, err)
+	u := getTestUser()
+	u.Filters.RequirePasswordChange = true
+	u.Groups = []sdk.GroupMapping{
+		{
+			Name: group.Name,
+			Type: sdk.GroupTypePrimary,
+		},
+	}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	lastPwdChange := user.LastPasswordChange
+	time.Sleep(100 * time.Millisecond)
+	newPwd := "uaCooGh3pheiShooghah"
+	err = dataprovider.UpdateUserPassword(user.Username, newPwd, "", "", "")
+	assert.NoError(t, err)
+	_, err = dataprovider.CheckUserAndPass(user.Username, newPwd, "", common.ProtocolHTTP)
+	assert.NoError(t, err)
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.False(t, user.Filters.RequirePasswordChange)
+	assert.NotEqual(t, lastPwdChange, user.LastPasswordChange)
+	// check that we don't save group overrides
+	assert.Equal(t, 0, user.MaxSessions)
+	assert.Equal(t, 0, user.Filters.PasswordStrength)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveGroup(group, http.StatusOK)
 	assert.NoError(t, err)
 }
 
@@ -18887,6 +18930,16 @@ func TestWebUserAddMock(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Contains(t, rr.Body.String(), "invalid password expiration")
 	form.Set("password_expiration", "90")
+	// test invalid password strength
+	form.Set("password_strength", "a")
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "invalid password strength")
+	form.Set("password_strength", "60")
 	// test invalid tls username
 	form.Set("tls_username", "username")
 	b, contentType, _ = getMultipartFormData(form, "", "")
@@ -19036,6 +19089,7 @@ func TestWebUserAddMock(t *testing.T) {
 	assert.Equal(t, 0, newUser.Filters.FTPSecurity)
 	assert.Equal(t, 10, newUser.Filters.DefaultSharesExpiration)
 	assert.Equal(t, 90, newUser.Filters.PasswordExpiration)
+	assert.Equal(t, 60, newUser.Filters.PasswordStrength)
 	assert.Greater(t, newUser.LastPasswordChange, int64(0))
 	assert.True(t, newUser.Filters.RequirePasswordChange)
 	assert.True(t, util.Contains(newUser.PublicKeys, testPubKey))
@@ -19244,6 +19298,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	form.Set("max_upload_file_size", "100")
 	form.Set("default_shares_expiration", "30")
 	form.Set("password_expiration", "60")
+	form.Set("password_strength", "40")
 	form.Set("disconnect", "1")
 	form.Set("additional_info", user.AdditionalInfo)
 	form.Set("description", user.Description)
@@ -19324,6 +19379,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	assert.Equal(t, int64(0), updateUser.Filters.ExternalAuthCacheTime)
 	assert.Equal(t, 30, updateUser.Filters.DefaultSharesExpiration)
 	assert.Equal(t, 60, updateUser.Filters.PasswordExpiration)
+	assert.Equal(t, 40, updateUser.Filters.PasswordStrength)
 	assert.True(t, updateUser.Filters.RequirePasswordChange)
 	if val, ok := updateUser.Permissions["/otherdir"]; ok {
 		assert.True(t, util.Contains(val, dataprovider.PermListItems))
@@ -19437,6 +19493,7 @@ func TestUserTemplateWithFoldersMock(t *testing.T) {
 	form.Set("max_upload_file_size", "0")
 	form.Set("default_shares_expiration", "0")
 	form.Set("password_expiration", "0")
+	form.Set("password_strength", "0")
 	form.Set("ftp_security", "1")
 	form.Set("external_auth_cache_time", "0")
 	form.Set("description", "desc %username% %password%")
@@ -19542,6 +19599,7 @@ func TestUserSaveFromTemplateMock(t *testing.T) {
 	form.Set("max_upload_file_size", "0")
 	form.Set("default_shares_expiration", "0")
 	form.Set("password_expiration", "0")
+	form.Set("password_strength", "0")
 	form.Set("external_auth_cache_time", "0")
 	form.Add("tpl_username", user1)
 	form.Add("tpl_password", "password1")
@@ -19632,6 +19690,7 @@ func TestUserTemplateMock(t *testing.T) {
 	form.Set("max_upload_file_size", "0")
 	form.Set("default_shares_expiration", "0")
 	form.Set("password_expiration", "0")
+	form.Set("password_strength", "0")
 	form.Add("hooks", "external_auth_disabled")
 	form.Add("hooks", "check_password_disabled")
 	form.Set("disable_fs_checks", "checked")
@@ -19764,6 +19823,7 @@ func TestUserPlaceholders(t *testing.T) {
 	form.Set("max_upload_file_size", "0")
 	form.Set("default_shares_expiration", "0")
 	form.Set("password_expiration", "0")
+	form.Set("password_strength", "0")
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	req, _ := http.NewRequest(http.MethodPost, webUserPath, &b)
 	setJWTCookieForReq(req, token)
@@ -20109,6 +20169,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	form.Set("max_upload_file_size", "0")
 	form.Set("default_shares_expiration", "0")
 	form.Set("password_expiration", "0")
+	form.Set("password_strength", "0")
 	form.Set("ftp_security", "1")
 	form.Set("s3_force_path_style", "checked")
 	form.Set("description", user.Description)
@@ -20325,6 +20386,7 @@ func TestWebUserGCSMock(t *testing.T) {
 	form.Set("max_upload_file_size", "0")
 	form.Set("default_shares_expiration", "0")
 	form.Set("password_expiration", "0")
+	form.Set("password_strength", "0")
 	form.Set("ftp_security", "1")
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
@@ -20453,6 +20515,7 @@ func TestWebUserHTTPFsMock(t *testing.T) {
 	form.Set("max_upload_file_size", "0")
 	form.Set("default_shares_expiration", "0")
 	form.Set("password_expiration", "0")
+	form.Set("password_strength", "0")
 	form.Set("http_equality_check_mode", "true")
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
@@ -20579,6 +20642,7 @@ func TestWebUserAzureBlobMock(t *testing.T) {
 	form.Set("max_upload_file_size", "0")
 	form.Set("default_shares_expiration", "0")
 	form.Set("password_expiration", "0")
+	form.Set("password_strength", "0")
 	// test invalid az_upload_part_size
 	form.Set("az_upload_part_size", "a")
 	b, contentType, _ := getMultipartFormData(form, "", "")
@@ -20760,6 +20824,7 @@ func TestWebUserCryptMock(t *testing.T) {
 	form.Set("max_upload_file_size", "0")
 	form.Set("default_shares_expiration", "0")
 	form.Set("password_expiration", "0")
+	form.Set("password_strength", "0")
 	// passphrase cannot be empty
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
@@ -20869,6 +20934,7 @@ func TestWebUserSFTPFsMock(t *testing.T) {
 	form.Set("max_upload_file_size", "0")
 	form.Set("default_shares_expiration", "0")
 	form.Set("password_expiration", "0")
+	form.Set("password_strength", "0")
 	// empty sftpconfig
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	req, _ = http.NewRequest(http.MethodPost, path.Join(webUserPath, user.Username), &b)
@@ -20995,6 +21061,7 @@ func TestWebUserRole(t *testing.T) {
 	form.Set("max_upload_file_size", "0")
 	form.Set("default_shares_expiration", "10")
 	form.Set("password_expiration", "0")
+	form.Set("password_strength", "0")
 	b, contentType, _ := getMultipartFormData(form, "", "")
 	req, err := http.NewRequest(http.MethodPost, webUserPath, &b)
 	assert.NoError(t, err)
@@ -22153,6 +22220,7 @@ func TestAddWebGroup(t *testing.T) {
 	form.Set("max_upload_file_size", "0")
 	form.Set("default_shares_expiration", "0")
 	form.Set("password_expiration", "0")
+	form.Set("password_strength", "0")
 	b, contentType, err = getMultipartFormData(form, "", "")
 	assert.NoError(t, err)
 	req, err = http.NewRequest(http.MethodPost, webGroupPath, &b)
@@ -22587,6 +22655,7 @@ func TestUpdateWebGroupMock(t *testing.T) {
 	form.Set("default_shares_expiration", "0")
 	form.Set("expires_in", "0")
 	form.Set("password_expiration", "0")
+	form.Set("password_strength", "0")
 	form.Set("external_auth_cache_time", "0")
 	form.Set("fs_provider", strconv.FormatInt(int64(group.UserSettings.FsConfig.Provider), 10))
 	form.Set("sftp_endpoint", group.UserSettings.FsConfig.SFTPConfig.Endpoint)

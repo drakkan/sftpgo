@@ -2450,6 +2450,9 @@ func compareBaseUserFilters(expected sdk.BaseUserFilters, actual sdk.BaseUserFil
 	if expected.PasswordExpiration != actual.PasswordExpiration {
 		return errors.New("password_expiration mismatch")
 	}
+	if expected.PasswordStrength != actual.PasswordStrength {
+		return errors.New("password_strength mismatch")
+	}
 	return nil
 }
 

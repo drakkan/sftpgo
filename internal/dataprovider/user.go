@@ -1013,6 +1013,13 @@ func (u *User) isDirHidden(virtualPath string) bool {
 	return false
 }
 
+func (u *User) getMinPasswordEntropy() float64 {
+	if u.Filters.PasswordStrength > 0 {
+		return float64(u.Filters.PasswordStrength)
+	}
+	return config.PasswordValidation.Users.MinEntropy
+}
+
 // IsFileAllowed returns true if the specified file is allowed by the file restrictions filters.
 // The second parameter returned is the deny policy
 func (u *User) IsFileAllowed(virtualPath string) (bool, int) {
@@ -1748,7 +1755,7 @@ func (u *User) mergePrimaryGroupFilters(filters sdk.BaseUserFilters, replacer *s
 	if u.Filters.MaxUploadFileSize == 0 {
 		u.Filters.MaxUploadFileSize = filters.MaxUploadFileSize
 	}
-	if u.Filters.TLSUsername == "" || u.Filters.TLSUsername == sdk.TLSUsernameNone {
+	if !u.IsTLSUsernameVerificationEnabled() {
 		u.Filters.TLSUsername = filters.TLSUsername
 	}
 	if !u.Filters.Hooks.CheckPasswordDisabled {
@@ -1783,6 +1790,9 @@ func (u *User) mergePrimaryGroupFilters(filters sdk.BaseUserFilters, replacer *s
 	}
 	if u.Filters.PasswordExpiration == 0 {
 		u.Filters.PasswordExpiration = filters.PasswordExpiration
+	}
+	if u.Filters.PasswordStrength == 0 {
+		u.Filters.PasswordStrength = filters.PasswordStrength
 	}
 }
 

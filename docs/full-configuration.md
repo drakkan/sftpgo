@@ -277,7 +277,7 @@ The configuration file contains the following sections:
     - `admins`, struct. It defines the password validation rules for SFTPGo admins.
       - `min_entropy`, float. Defines the minimum password entropy. Take a looke [here](https://github.com/wagslane/go-password-validator#what-entropy-value-should-i-use) for more details. `0` means disabled, any password will be accepted. Default: `0`.
     - `users`, struct. It defines the password validation rules for SFTPGo protocol users.
-      - `min_entropy`, float. Default: `0`.
+      - `min_entropy`, float. This value is used as fallback if no more specific password strength is set at user/group level. Default: `0`.
   - `password_caching`, boolean. Verifying argon2id passwords has a high memory and computational cost, verifying bcrypt passwords has a high computational cost, by enabling, in memory, password caching you reduce these costs. Default: `true`
   - `update_mode`, integer. Defines how the database will be initialized/updated. 0 means automatically. 1 means manually using the initprovider sub-command.
   - `create_default_admin`, boolean. Before you can use SFTPGo you need to create an admin account. If you open the admin web UI, a setup screen will guide you in creating the first admin account. You can automatically create the first admin account by enabling this setting and setting the environment variables `SFTPGO_DEFAULT_ADMIN_USERNAME` and `SFTPGO_DEFAULT_ADMIN_PASSWORD`. You can also create the first admin by loading initial data. This setting has no effect if an admin account is already found within the data provider. Default `false`.

@@ -2039,7 +2039,16 @@ func UpdateUserPassword(username, plainPwd, executor, ipAddress, role string) er
 	if err != nil {
 		return err
 	}
-	user.Password = plainPwd
+	userCopy := user.getACopy()
+	if err := userCopy.LoadAndApplyGroupSettings(); err != nil {
+		return err
+	}
+	userCopy.Password = plainPwd
+	if err := createUserPasswordHash(&userCopy); err != nil {
+		return err
+	}
+	user.LastPasswordChange = userCopy.LastPasswordChange
+	user.Password = userCopy.Password
 	user.Filters.RequirePasswordChange = false
 	// the last password change is set when validating the user
 	if err := provider.updateUser(&user); err != nil {
@@ -2438,6 +2447,7 @@ func copyBaseUserFilters(in sdk.BaseUserFilters) sdk.BaseUserFilters {
 	filters.ExternalAuthCacheTime = in.ExternalAuthCacheTime
 	filters.DefaultSharesExpiration = in.DefaultSharesExpiration
 	filters.PasswordExpiration = in.PasswordExpiration
+	filters.PasswordStrength = in.PasswordStrength
 	filters.WebClient = make([]string, len(in.WebClient))
 	copy(filters.WebClient, in.WebClient)
 	filters.BandwidthLimits = make([]sdk.BandwidthLimit, 0, len(in.BandwidthLimits))
@@ -2963,8 +2973,8 @@ func hashPlainPassword(plainPwd string) (string, error) {
 
 func createUserPasswordHash(user *User) error {
 	if user.Password != "" && !user.IsPasswordHashed() {
-		if config.PasswordValidation.Users.MinEntropy > 0 {
-			if err := passwordvalidator.Validate(user.Password, config.PasswordValidation.Users.MinEntropy); err != nil {
+		if minEntropy := user.getMinPasswordEntropy(); minEntropy > 0 {
+			if err := passwordvalidator.Validate(user.Password, minEntropy); err != nil {
 				return util.NewValidationError(err.Error())
 			}
 		}

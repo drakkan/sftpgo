@@ -718,6 +718,17 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                             </div>
 
                             <div class="form-group row">
+                                <label for="idPasswordStrength" class="col-sm-2 col-form-label">Password strength</label>
+                                <div class="col-sm-10">
+                                    <input type="number" class="form-control" id="idPasswordStrength" name="password_strength"
+                                        value="{{.Group.UserSettings.Filters.PasswordStrength}}" min="0" max="100" aria-describedby="passwordStrengthHelpBlock">
+                                    <small id="passwordStrengthHelpBlock" class="form-text text-muted">
+                                        Values in the 50-70 range are suggested for common use cases. 0 means disabled, any password will be accepted. Applied when users change their password
+                                    </small>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
                                 <label for="idPasswordExpiration" class="col-sm-2 col-form-label">Password expiration</label>
                                 <div class="col-sm-10">
                                     <input type="number" class="form-control" id="idPasswordExpiration" name="password_expiration"

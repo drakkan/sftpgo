@@ -1542,6 +1542,10 @@ func getFiltersFromUserPostFields(r *http.Request) (sdk.BaseUserFilters, error) 
 	if err != nil {
 		return filters, fmt.Errorf("invalid password expiration: %w", err)
 	}
+	passwordStrength, err := strconv.ParseInt(r.Form.Get("password_strength"), 10, 64)
+	if err != nil {
+		return filters, fmt.Errorf("invalid password strength: %w", err)
+	}
 	if r.Form.Get("ftp_security") == "1" {
 		filters.FTPSecurity = 1
 	}
@@ -1557,6 +1561,7 @@ func getFiltersFromUserPostFields(r *http.Request) (sdk.BaseUserFilters, error) 
 	filters.WebClient = r.Form["web_client_options"]
 	filters.DefaultSharesExpiration = int(defaultSharesExpiration)
 	filters.PasswordExpiration = int(passwordExpiration)
+	filters.PasswordStrength = int(passwordStrength)
 	hooks := r.Form["hooks"]
 	if util.Contains(hooks, "external_auth_disabled") {
 		filters.Hooks.ExternalAuthDisabled = true
