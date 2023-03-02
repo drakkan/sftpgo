@@ -386,7 +386,7 @@ func Init() {
 			CARevocationLists:  nil,
 			SigningPassphrase:  "",
 			TokenValidation:    0,
-			MaxUploadFileSize:  1048576000,
+			MaxUploadFileSize:  0,
 			Cors: httpd.CorsConfig{
 				Enabled:              false,
 				AllowedOrigins:       []string{},
