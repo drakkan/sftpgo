@@ -1,3 +1,37 @@
+/*! © SpryMedia Ltd - datatables.net/license */
+
+(function( factory ){
+	if ( typeof define === 'function' && define.amd ) {
+		// AMD
+		define( ['datatables.net'], function ( $ ) {
+			return factory( $, window, document );
+		} );
+	}
+	else if ( typeof exports === 'object' ) {
+		// CommonJS
+		module.exports = function (root, $) {
+			if ( ! root ) {
+				// CommonJS environments without a window global must pass a
+				// root. This will give an error otherwise
+				root = window;
+			}
+
+			if ( ! $.fn.dataTable ) {
+				require('datatables.net')(root, $);
+			}
+
+			return factory( $, root, root.document );
+		};
+	}
+	else {
+		// Browser
+		factory( jQuery, window, document );
+	}
+}(function( $, window, document, undefined ) {
+'use strict';
+var DataTable = $.fn.dataTable;
+
+
 /**
  * This data rendering helper method can be useful for cases where you have
  * potentially large data strings to be shown in a column that is restricted by
@@ -33,7 +67,7 @@
  *    $('#example').DataTable( {
  *      columnDefs: [ {
  *        targets: 1,
- *        render: $.fn.dataTable.render.ellipsis( 17, true )
+ *        render: DataTable.render.ellipsis( 17, true )
  *      } ]
  *    } );
  *
@@ -42,54 +76,53 @@
  *    $('#example').DataTable( {
  *      columnDefs: [ {
  *        targets: 2,
- *        render: $.fn.dataTable.render.ellipsis( 10 )
+ *        render: DataTable.render.ellipsis( 10 )
  *      } ]
  *    } );
  */
-
-jQuery.fn.dataTable.render.ellipsis = function ( cutoff, wordbreak, escapeHtml ) {
-	var esc = function ( t ) {
-		return ('' + t)
-			.replace( /&/g, '&amp;' )
-			.replace( /</g, '&lt;' )
-			.replace( />/g, '&gt;' )
-			.replace( /"/g, '&quot;' );
-	};
-
-	return function ( d, type, row ) {
-		// Order, search and type get the original data
-		if ( type !== 'display' ) {
-			return d;
-		}
-
-		if ( typeof d !== 'number' && typeof d !== 'string' ) {
-			if ( escapeHtml ) {
-				return esc( d );
-			}
-			return d;
-		}
-
-		d = d.toString(); // cast numbers
-
-		if ( d.length <= cutoff ) {
-			if ( escapeHtml ) {
-				return esc( d );
-			}
-			return d;
-		}
-
-		var shortened = d.substr(0, cutoff-1);
-
-		// Find the last white space character in the string
-		if ( wordbreak ) {
-			shortened = shortened.replace(/\s([^\s]*)$/, '');
-		}
-
-		// Protect against uncontrolled HTML input
-		if ( escapeHtml ) {
-			shortened = esc( shortened );
-		}
-
-		return '<span class="ellipsis" title="'+esc(d)+'">'+shortened+'&#8230;</span>';
-	};
+DataTable.render.ellipsis = function (cutoff, wordbreak, escapeHtml) {
+    var esc = function (t) {
+        return ('' + t)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    };
+    return function (d, type, row) {
+        // Order, search and type get the original data
+        if (type !== 'display') {
+            return d;
+        }
+        if (typeof d !== 'number' && typeof d !== 'string') {
+            if (escapeHtml) {
+                return esc(d);
+            }
+            return d;
+        }
+        d = d.toString(); // cast numbers
+        if (d.length <= cutoff) {
+            if (escapeHtml) {
+                return esc(d);
+            }
+            return d;
+        }
+        var shortened = d.substr(0, cutoff - 1);
+        // Find the last white space character in the string
+        if (wordbreak) {
+            shortened = shortened.replace(/\s([^\s]*)$/, '');
+        }
+        // Protect against uncontrolled HTML input
+        if (escapeHtml) {
+            shortened = esc(shortened);
+        }
+        return ('<span class="ellipsis" title="' +
+            esc(d) +
+            '">' +
+            shortened +
+            '&#8230;</span>');
+    };
 };
+
+
+return DataTable;
+}));
