@@ -16937,13 +16937,22 @@ func TestWebAdminLoginMock(t *testing.T) {
 
 	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
 	assert.NoError(t, err)
-	// now try using wrong credentials
+	// now try using wrong password
 	form := getLoginForm(defaultTokenAuthUser, "wrong pwd", csrfToken)
 	req, _ = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
 	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "invalid credentials")
+	// wrong username
+	form = getLoginForm("wrong username", defaultTokenAuthPass, csrfToken)
+	req, _ = http.NewRequest(http.MethodPost, webLoginPath, bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "invalid credentials")
 	// try from an ip not allowed
 	a := getTestAdmin()
 	a.Username = altAdminUsername

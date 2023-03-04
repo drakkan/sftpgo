@@ -592,6 +592,16 @@ func parseRangeRequest(bytesRange string, size int64) (int64, int64, error) {
 	return start, size, err
 }
 
+func handleDefenderEventLoginFailed(ipAddr string, err error) error {
+	event := common.HostEventLoginFailed
+	if errors.Is(err, util.ErrNotFound) {
+		event = common.HostEventUserNotFound
+		err = dataprovider.ErrInvalidCredentials
+	}
+	common.AddDefenderEvent(ipAddr, common.ProtocolHTTP, event)
+	return err
+}
+
 func updateLoginMetrics(user *dataprovider.User, loginMethod, ip string, err error) {
 	metric.AddLoginAttempt(loginMethod)
 	var protocol string
@@ -603,11 +613,7 @@ func updateLoginMetrics(user *dataprovider.User, loginMethod, ip string, err err
 	}
 	if err != nil && err != common.ErrInternalFailure && err != common.ErrNoCredentials {
 		logger.ConnectionFailedLog(user.Username, ip, loginMethod, protocol, err.Error())
-		event := common.HostEventLoginFailed
-		if errors.Is(err, util.ErrNotFound) {
-			event = common.HostEventUserNotFound
-		}
-		common.AddDefenderEvent(ip, common.ProtocolHTTP, event)
+		err = handleDefenderEventLoginFailed(ip, err)
 	}
 	metric.AddLoginResult(loginMethod, err)
 	dataprovider.ExecutePostLoginHook(user, loginMethod, ip, protocol, err)
@@ -662,6 +668,7 @@ func handleForgotPassword(r *http.Request, username string, isAdmin bool) error 
 	}
 	if err != nil {
 		if errors.Is(err, util.ErrNotFound) {
+			handleDefenderEventLoginFailed(util.GetIPFromRemoteAddress(r.RemoteAddr), err) //nolint:errcheck
 			logger.Debug(logSender, middleware.GetReqID(r.Context()), "username %q does not exists, reset password request silently ignored, is admin? %v",
 				username, isAdmin)
 			return nil
@@ -703,8 +710,10 @@ func handleResetPassword(r *http.Request, code, newPassword string, isAdmin bool
 	if code == "" {
 		return &admin, &user, util.NewValidationError("please set a confirmation code")
 	}
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	resetCode, err := resetCodesMgr.Get(code)
 	if err != nil {
+		handleDefenderEventLoginFailed(ipAddr, dataprovider.ErrInvalidCredentials) //nolint:errcheck
 		return &admin, &user, util.NewValidationError("confirmation code not found")
 	}
 	if resetCode.IsAdmin != isAdmin {
@@ -716,7 +725,7 @@ func handleResetPassword(r *http.Request, code, newPassword string, isAdmin bool
 			return &admin, &user, util.NewValidationError("unable to associate the confirmation code with an existing admin")
 		}
 		admin.Password = newPassword
-		err = dataprovider.UpdateAdmin(&admin, dataprovider.ActionExecutorSelf, util.GetIPFromRemoteAddress(r.RemoteAddr), admin.Role)
+		err = dataprovider.UpdateAdmin(&admin, dataprovider.ActionExecutorSelf, ipAddr, admin.Role)
 		if err != nil {
 			return &admin, &user, util.NewGenericError(fmt.Sprintf("unable to set the new password: %v", err))
 		}

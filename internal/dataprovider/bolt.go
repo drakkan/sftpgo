@@ -132,7 +132,7 @@ func (p *BoltProvider) validateAdminAndPass(username, password, ip string) (Admi
 	admin, err := p.adminExists(username)
 	if err != nil {
 		providerLog(logger.LevelWarn, "error authenticating admin %q: %v", username, err)
-		return admin, ErrInvalidCredentials
+		return admin, err
 	}
 	err = admin.checkUserAndPass(password, ip)
 	return admin, err

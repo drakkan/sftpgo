@@ -471,6 +471,7 @@ func (s *httpdServer) checkPublicShare(w http.ResponseWriter, r *http.Request, v
 	if share.Password != "" {
 		if isWebClient {
 			if err := s.checkWebClientShareCredentials(w, r, &share); err != nil {
+				handleDefenderEventLoginFailed(ipAddr, err) //nolint:errcheck
 				return share, nil, dataprovider.ErrInvalidCredentials
 			}
 		} else {
@@ -482,6 +483,7 @@ func (s *httpdServer) checkPublicShare(w http.ResponseWriter, r *http.Request, v
 			}
 			match, err := share.CheckCredentials(password)
 			if !match || err != nil {
+				handleDefenderEventLoginFailed(ipAddr, dataprovider.ErrInvalidCredentials) //nolint:errcheck
 				w.Header().Set(common.HTTPAuthenticationHeader, basicRealm)
 				renderError(dataprovider.ErrInvalidCredentials, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 				return share, nil, dataprovider.ErrInvalidCredentials

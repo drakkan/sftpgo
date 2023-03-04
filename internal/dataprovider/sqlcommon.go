@@ -416,7 +416,7 @@ func sqlCommonValidateAdminAndPass(username, password, ip string, dbHandle *sql.
 	admin, err := sqlCommonGetAdminByUsername(username, dbHandle)
 	if err != nil {
 		providerLog(logger.LevelWarn, "error authenticating admin %q: %v", username, err)
-		return admin, ErrInvalidCredentials
+		return admin, err
 	}
 	err = admin.checkUserAndPass(password, ip)
 	return admin, err
