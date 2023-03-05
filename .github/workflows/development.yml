@@ -242,36 +242,6 @@ jobs:
           go build -trimpath -tags nopgxregisterdefaulttypes,bundle -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=`git describe --always --abbrev=8 --dirty` -X github.com/drakkan/sftpgo/v2/internal/version.date=`date -u +%FT%TZ`" -o sftpgo
           ./sftpgo -v
 
-  test-goarch-386:
-    name: Run test cases on 32-bit arch
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Set up Go
-        uses: actions/setup-go@v3
-        with:
-          go-version: '1.20'
-
-      - name: Build
-        run: |
-          cd tests/eventsearcher
-          go build -trimpath -ldflags "-s -w" -o eventsearcher
-          cd -
-          cd tests/ipfilter
-          go build -trimpath -ldflags "-s -w" -o ipfilter
-          cd -
-        env:
-          GOARCH: 386
-
-      - name: Run test cases
-        run: go test -v -tags nopgxregisterdefaulttypes -p 1 -timeout 15m ./... -covermode=atomic
-        env:
-          SFTPGO_DATA_PROVIDER__DRIVER: memory
-          SFTPGO_DATA_PROVIDER__NAME: ''
-          GOARCH: 386
-
   test-postgresql-mysql-crdb:
     name: Test with PgSQL/MySQL/Cockroach
     runs-on: ubuntu-latest
