@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -224,16 +225,20 @@ func (fs *S3Fs) Create(name string, flag int) (File, *PipeWriter, func(), error)
 	go func() {
 		defer cancelFn()
 		key := name
+		FSMetaTime := time.Now()
 		var contentType string
 		if flag == -1 {
 			contentType = dirMimeType
 		} else {
 			contentType = mime.TypeByExtension(path.Ext(name))
+			if fs.config.AppendSequence == `unix_ms` {
+				key = key + `.` + strconv.FormatInt(FSMetaTime.UnixMilli(), 10)
+			}
 		}
 		response, err := uploader.UploadWithContext(ctx, &s3manager.UploadInput{
 			Bucket:       aws.String(fs.config.Bucket),
 			Key:          aws.String(key),
-			Metadata:     fsmeta.NewS3Metadata(time.Now()),
+			Metadata:     fsmeta.NewS3Metadata(FSMetaTime),
 			Body:         r,
 			StorageClass: utils.NilIfEmpty(fs.config.StorageClass),
 			ContentType:  utils.NilIfEmpty(contentType),
@@ -259,7 +264,6 @@ func (fs *S3Fs) Create(name string, flag int) (File, *PipeWriter, func(), error)
 // multipart copy or wait for this pull request to be merged:
 //
 // https://github.com/aws/aws-sdk-go/pull/2653
-//
 func (fs *S3Fs) Rename(source, target string) error {
 	if source == target {
 		return nil

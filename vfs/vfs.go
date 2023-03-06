@@ -144,6 +144,8 @@ type S3FsConfig struct {
 	DownloadConcurrency int `json:"download_concurrency,omitempty"`
 	// DownloadPartMaxTime defines the maximum time allowed, in seconds, to download a single chunk.
 	DownloadPartMaxTime int `json:"download_part_max_time,omitempty"`
+	// AppendSequence defines the format of the sequence number to append to the file name
+	AppendSequence string `json:"append_sequence,omitempty"`
 }
 
 func (c *S3FsConfig) checkCredentials() error {
