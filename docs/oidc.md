@@ -33,7 +33,7 @@ The resulting JSON configuration for the `sftpgo-client` that you can obtain fro
 }
 ```
 
-Add the following configuration parameters to the SFTPGo configuration file (or use env vars to set them):
+Add the following configuration parameters to the SFTPGo configuration file.
 
 ```json
 ...
@@ -53,6 +53,17 @@ Add the following configuration parameters to the SFTPGo configuration file (or 
       "custom_fields": []
     }
 ...
+```
+
+Alternatively (recommended), you can use environment variables by creating the file `oidc.env` in the `env.d` directory with the following content.
+
+```shell
+SFTPGO_HTTPD__BINDINGS__0__OIDC__CLIENT_ID="sftpgo-client"
+SFTPGO_HTTPD__BINDINGS__0__OIDC__CLIENT_SECRET="jRsmE0SWnuZjP7djBqNq0mrf8QN77j2c"
+SFTPGO_HTTPD__BINDINGS__0__OIDC__CONFIG_URL="http://192.168.1.12:8086/auth/realms/sftpgo"
+SFTPGO_HTTPD__BINDINGS__0__OIDC__REDIRECT_BASE_URL="http://192.168.1.50:8080"
+SFTPGO_HTTPD__BINDINGS__0__OIDC__USERNAME_FIELD="preferred_username"
+SFTPGO_HTTPD__BINDINGS__0__OIDC__ROLE_FIELD="sftpgo_role"
 ```
 
 SFTPGo will automatically add the `/.well-known/openid-configuration` suffix to the provided `config_url` and uses [OpenID Connect Discovery specifications](https://openid.net/specs/openid-connect-discovery-1_0.html) to obtain information needed to interact with it, including its OAuth 2.0 endpoint locations.
@@ -130,6 +141,19 @@ then you can add it to the `custom_fields` in the SFTPGo configuration like this
       "custom_fields": ["sftpgo_home_dir"]
     }
 ...
+```
+
+Alternatively (recommended), you can use environment variables by creating the file `oidc.env` in the `env.d` directory with the following content.
+
+```shell
+SFTPGO_HTTPD__BINDINGS__0__OIDC__CLIENT_ID="sftpgo-client"
+SFTPGO_HTTPD__BINDINGS__0__OIDC__CLIENT_SECRET="jRsmE0SWnuZjP7djBqNq0mrf8QN77j2c"
+SFTPGO_HTTPD__BINDINGS__0__OIDC__CONFIG_URL="http://192.168.1.12:8086/auth/realms/sftpgo"
+SFTPGO_HTTPD__BINDINGS__0__OIDC__REDIRECT_BASE_URL="http://192.168.1.50:8080"
+SFTPGO_HTTPD__BINDINGS__0__OIDC__USERNAME_FIELD="preferred_username"
+SFTPGO_HTTPD__BINDINGS__0__OIDC__SCOPES="openid,profile,email,sftpgo"
+SFTPGO_HTTPD__BINDINGS__0__OIDC__ROLE_FIELD="sftpgo_role"
+SFTPGO_HTTPD__BINDINGS__0__OIDC__CUSTOM_FIELDS="sftpgo_home_dir"
 ```
 
 The pre-login hook will receive a JSON serialized user with the following field:
