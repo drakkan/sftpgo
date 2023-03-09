@@ -365,7 +365,6 @@ func (c *BaseConnection) CreateDir(virtualPath string, checkFilePatterns bool) e
 		c.Log(logger.LevelError, "error creating dir: %q error: %+v", fsPath, err)
 		return c.GetFsError(fs, err)
 	}
-	vfs.SetPathPermissions(fs, fsPath, c.User.GetUID(), c.User.GetGID())
 	elapsed := time.Since(startTime).Nanoseconds() / 1000000
 
 	logger.CommandLog(mkdirLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", -1,
@@ -764,7 +763,6 @@ func (c *BaseConnection) renameInternal(virtualSourcePath, virtualTargetPath str
 		c.Log(logger.LevelError, "failed to rename %q -> %q: %+v", fsSourcePath, fsTargetPath, err)
 		return c.GetFsError(fsSrc, err)
 	}
-	vfs.SetPathPermissions(fsDst, fsTargetPath, c.User.GetUID(), c.User.GetGID())
 	elapsed := time.Since(startTime).Nanoseconds() / 1000000
 	c.updateQuotaAfterRename(fsDst, virtualSourcePath, virtualTargetPath, fsTargetPath, initialSize, files, size) //nolint:errcheck
 	logger.CommandLog(renameLogSender, fsSourcePath, fsTargetPath, c.User.Username, "", c.ID, c.protocol, -1, -1,

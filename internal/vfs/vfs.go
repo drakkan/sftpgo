@@ -23,7 +23,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
@@ -810,22 +809,6 @@ func HasOpenRWSupport(fs Fs) bool {
 // IsLocalOrCryptoFs returns true if fs is local or local encrypted
 func IsLocalOrCryptoFs(fs Fs) bool {
 	return IsLocalOsFs(fs) || IsCryptOsFs(fs)
-}
-
-// SetPathPermissions calls fs.Chown.
-// It does nothing for local filesystem on windows
-func SetPathPermissions(fs Fs, path string, uid int, gid int) {
-	if uid == -1 && gid == -1 {
-		return
-	}
-	if IsLocalOsFs(fs) {
-		if runtime.GOOS == "windows" {
-			return
-		}
-	}
-	if err := fs.Chown(path, uid, gid); err != nil {
-		fsLog(fs, logger.LevelWarn, "error chowning path %v: %v", path, err)
-	}
 }
 
 func updateFileInfoModTime(storageID, objectPath string, info *FileInfo) (*FileInfo, error) {

@@ -23,7 +23,9 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/eikenb/pipeat"
@@ -55,15 +57,20 @@ type OsFs struct {
 	rootDir      string
 	// if not empty this fs is mouted as virtual folder in the specified path
 	mountPath string
+	// if nonzero, execute actions as the specified uid/gid
+	uid int
+	gid int
 }
 
 // NewOsFs returns an OsFs object that allows to interact with local Os filesystem
-func NewOsFs(connectionID, rootDir, mountPath string) Fs {
+func NewOsFs(connectionID, rootDir, mountPath string, uid, gid int) Fs {
 	return &OsFs{
 		name:         osFsName,
 		connectionID: connectionID,
 		rootDir:      rootDir,
 		mountPath:    getMountPath(mountPath),
+		uid:          uid,
+		gid:          gid,
 	}
 }
 
@@ -79,16 +86,25 @@ func (fs *OsFs) ConnectionID() string {
 
 // Stat returns a FileInfo describing the named file
 func (fs *OsFs) Stat(name string) (os.FileInfo, error) {
+	fs.setuid()
+	defer fs.unsetuid()
+
 	return os.Stat(name)
 }
 
 // Lstat returns a FileInfo describing the named file
 func (fs *OsFs) Lstat(name string) (os.FileInfo, error) {
+	fs.setuid()
+	defer fs.unsetuid()
+
 	return os.Lstat(name)
 }
 
 // Open opens the named file for reading
-func (*OsFs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, func(), error) {
+func (fs *OsFs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, func(), error) {
+	fs.setuid()
+	defer fs.unsetuid()
+
 	f, err := os.Open(name)
 	if err != nil {
 		return nil, nil, nil, err
@@ -104,7 +120,10 @@ func (*OsFs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, func()
 }
 
 // Create creates or opens the named file for writing
-func (*OsFs) Create(name string, flag int) (File, *PipeWriter, func(), error) {
+func (fs *OsFs) Create(name string, flag int) (File, *PipeWriter, func(), error) {
+	fs.setuid()
+	defer fs.unsetuid()
+
 	var err error
 	var f *os.File
 	if flag == 0 {
@@ -117,6 +136,9 @@ func (*OsFs) Create(name string, flag int) (File, *PipeWriter, func(), error) {
 
 // Rename renames (moves) source to target
 func (fs *OsFs) Rename(source, target string) (int, int64, error) {
+	fs.setuid()
+	defer fs.unsetuid()
+
 	if source == target {
 		return -1, -1, nil
 	}
@@ -140,23 +162,35 @@ func (fs *OsFs) Rename(source, target string) (int, int64, error) {
 }
 
 // Remove removes the named file or (empty) directory.
-func (*OsFs) Remove(name string, isDir bool) error {
+func (fs *OsFs) Remove(name string, isDir bool) error {
+	fs.setuid()
+	defer fs.unsetuid()
+
 	return os.Remove(name)
 }
 
 // Mkdir creates a new directory with the specified name and default permissions
-func (*OsFs) Mkdir(name string) error {
+func (fs *OsFs) Mkdir(name string) error {
+	fs.setuid()
+	defer fs.unsetuid()
+
 	return os.Mkdir(name, os.ModePerm)
 }
 
 // Symlink creates source as a symbolic link to target.
-func (*OsFs) Symlink(source, target string) error {
+func (fs *OsFs) Symlink(source, target string) error {
+	fs.setuid()
+	defer fs.unsetuid()
+
 	return os.Symlink(source, target)
 }
 
 // Readlink returns the destination of the named symbolic link
 // as absolute virtual path
 func (fs *OsFs) Readlink(name string) (string, error) {
+	fs.setuid()
+	defer fs.unsetuid()
+
 	// we don't have to follow multiple links:
 	// https://github.com/openssh/openssh-portable/blob/7bf2eb958fbb551e7d61e75c176bb3200383285d/sftp-server.c#L1329
 	resolved, err := os.Readlink(name)
@@ -171,28 +205,43 @@ func (fs *OsFs) Readlink(name string) (string, error) {
 }
 
 // Chown changes the numeric uid and gid of the named file.
-func (*OsFs) Chown(name string, uid int, gid int) error {
+func (fs *OsFs) Chown(name string, uid int, gid int) error {
+	fs.setuid()
+	defer fs.unsetuid()
+
 	return os.Chown(name, uid, gid)
 }
 
 // Chmod changes the mode of the named file to mode
-func (*OsFs) Chmod(name string, mode os.FileMode) error {
+func (fs *OsFs) Chmod(name string, mode os.FileMode) error {
+	fs.setuid()
+	defer fs.unsetuid()
+
 	return os.Chmod(name, mode)
 }
 
 // Chtimes changes the access and modification times of the named file
-func (*OsFs) Chtimes(name string, atime, mtime time.Time, isUploading bool) error {
+func (fs *OsFs) Chtimes(name string, atime, mtime time.Time, isUploading bool) error {
+	fs.setuid()
+	defer fs.unsetuid()
+
 	return os.Chtimes(name, atime, mtime)
 }
 
 // Truncate changes the size of the named file
-func (*OsFs) Truncate(name string, size int64) error {
+func (fs *OsFs) Truncate(name string, size int64) error {
+	fs.setuid()
+	defer fs.unsetuid()
+
 	return os.Truncate(name, size)
 }
 
 // ReadDir reads the directory named by dirname and returns
 // a list of directory entries.
-func (*OsFs) ReadDir(dirname string) ([]os.FileInfo, error) {
+func (fs *OsFs) ReadDir(dirname string) ([]os.FileInfo, error) {
+	fs.setuid()
+	defer fs.unsetuid()
+
 	f, err := os.Open(dirname)
 	if err != nil {
 		if isInvalidNameError(err) {
@@ -242,12 +291,13 @@ func (*OsFs) IsNotSupported(err error) bool {
 }
 
 // CheckRootPath creates the root directory if it does not exists
+// This operation happens as the sftpgo user (e.g. root), we don't call setuid
 func (fs *OsFs) CheckRootPath(username string, uid int, gid int) bool {
 	var err error
 	if _, err = fs.Stat(fs.rootDir); fs.IsNotExist(err) {
 		err = os.MkdirAll(fs.rootDir, os.ModePerm)
 		if err == nil {
-			SetPathPermissions(fs, fs.rootDir, uid, gid)
+			err = os.Chown(fs.rootDir, uid, gid)
 		} else {
 			fsLog(fs, logger.LevelError, "error creating root directory %q for user %q: %v", fs.rootDir, username, err)
 		}
@@ -295,7 +345,10 @@ func (fs *OsFs) GetRelativePath(name string) string {
 
 // Walk walks the file tree rooted at root, calling walkFn for each file or
 // directory in the tree, including root
-func (*OsFs) Walk(root string, walkFn filepath.WalkFunc) error {
+func (fs *OsFs) Walk(root string, walkFn filepath.WalkFunc) error {
+	fs.setuid()
+	defer fs.unsetuid()
+
 	return filepath.Walk(root, walkFn)
 }
 
@@ -306,6 +359,9 @@ func (*OsFs) Join(elem ...string) string {
 
 // ResolvePath returns the matching filesystem path for the specified sftp path
 func (fs *OsFs) ResolvePath(virtualPath string) (string, error) {
+	fs.setuid()
+	defer fs.unsetuid()
+
 	if !filepath.IsAbs(fs.rootDir) {
 		return "", fmt.Errorf("invalid root path %q", fs.rootDir)
 	}
@@ -340,6 +396,9 @@ func (fs *OsFs) ResolvePath(virtualPath string) (string, error) {
 
 // RealPath implements the FsRealPather interface
 func (fs *OsFs) RealPath(p string) (string, error) {
+	fs.setuid()
+	defer fs.unsetuid()
+
 	linksWalked := 0
 	for {
 		info, err := os.Lstat(p)
@@ -373,6 +432,9 @@ func (fs *OsFs) RealPath(p string) (string, error) {
 // GetDirSize returns the number of files and the size for a folder
 // including any subfolders
 func (fs *OsFs) GetDirSize(dirname string) (int, int64, error) {
+	fs.setuid()
+	defer fs.unsetuid()
+
 	numFiles := 0
 	size := int64(0)
 	isDir, err := isDirectory(fs, dirname)
@@ -484,6 +546,9 @@ func (fs *OsFs) isSubDir(sub string) error {
 
 // GetMimeType returns the content type
 func (fs *OsFs) GetMimeType(name string) (string, error) {
+	fs.setuid()
+	defer fs.unsetuid()
+
 	f, err := os.OpenFile(name, os.O_RDONLY, 0)
 	if err != nil {
 		return "", err
@@ -508,4 +573,56 @@ func (*OsFs) Close() error {
 // GetAvailableDiskSize returns the available size for the specified path
 func (*OsFs) GetAvailableDiskSize(dirName string) (*sftp.StatVFS, error) {
 	return getStatFS(dirName)
+}
+
+func (fs *OsFs) setuid() {
+	if runtime.GOOS == "windows" {
+		return
+	}
+
+	if fs.uid <= 0 && fs.gid <= 0 {
+		return
+	}
+
+	if syscall.Geteuid() > 0 {
+		return
+	}
+
+	runtime.LockOSThread()
+
+	if fs.gid != syscall.Getegid() && fs.gid > 0 {
+		if err := syscall.Setegid(fs.gid); err != nil {
+			fsLog(fs, logger.LevelError, "could not call setegid: %q", err)
+		}
+	}
+
+	if fs.uid != syscall.Geteuid() && fs.uid > 0 {
+		if err := syscall.Seteuid(fs.uid); err != nil {
+			fsLog(fs, logger.LevelError, "could not call seteuid: %q", err)
+		}
+	}
+}
+
+func (fs *OsFs) unsetuid() {
+	if runtime.GOOS == "windows" {
+		return
+	}
+
+	if fs.uid <= 0 && fs.gid <= 0 {
+		return
+	}
+
+	if syscall.Getuid() != syscall.Geteuid() && fs.uid > 0 {
+		if err := syscall.Seteuid(syscall.Getuid()); err != nil {
+			fsLog(fs, logger.LevelError, "could not call seteuid: %q", err)
+		}
+	}
+
+	if syscall.Getgid() != syscall.Getegid() && fs.gid > 0 {
+		if err := syscall.Setegid(syscall.Getgid()); err != nil {
+			fsLog(fs, logger.LevelError, "could not call setegid: %q", err)
+		}
+	}
+
+	runtime.UnlockOSThread()
 }

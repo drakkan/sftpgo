@@ -795,7 +795,6 @@ func getFileWriter(conn *BaseConnection, virtualPath string, expectedSize int64)
 	if err != nil {
 		return nil, numFiles, truncatedSize, nil, conn.GetFsError(fs, err)
 	}
-	vfs.SetPathPermissions(fs, fsPath, conn.User.GetUID(), conn.User.GetGID())
 
 	if isFileOverwrite {
 		if vfs.HasTruncateSupport(fs) || vfs.IsCryptOsFs(fs) {
@@ -1927,7 +1926,7 @@ func executeFoldersQuotaResetRuleAction(conditions dataprovider.ConditionOptions
 			BaseVirtualFolder: folder,
 			VirtualPath:       "/",
 		}
-		numFiles, size, err := f.ScanQuota()
+		numFiles, size, err := f.ScanQuota(0, 0)
 		QuotaScans.RemoveVFolderQuotaScan(folder.Name)
 		if err != nil {
 			eventManagerLog(logger.LevelError, "error scanning quota for folder %q: %v", folder.Name, err)
