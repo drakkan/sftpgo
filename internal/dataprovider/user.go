@@ -173,7 +173,7 @@ func (u *User) getRootFs(connectionID string) (fs vfs.Fs, err error) {
 	case sdk.HTTPFilesystemProvider:
 		return vfs.NewHTTPFs(connectionID, u.GetHomeDir(), "", u.FsConfig.HTTPConfig)
 	default:
-		return vfs.NewOsFs(connectionID, u.GetHomeDir(), ""), nil
+		return vfs.NewOsFs(connectionID, u.GetHomeDir(), "", u.UID, u.GID), nil
 	}
 }
 
@@ -204,7 +204,6 @@ func (u *User) checkDirWithParents(virtualDirPath, connectionID string) error {
 			if err != nil {
 				return err
 			}
-			vfs.SetPathPermissions(fs, fsPath, u.GetUID(), u.GetGID())
 		} else {
 			return fmt.Errorf("unable to stat path %q: %w", vPath, err)
 		}
@@ -218,7 +217,7 @@ func (u *User) checkLocalHomeDir(connectionID string) {
 	case sdk.LocalFilesystemProvider, sdk.CryptedFilesystemProvider:
 		return
 	default:
-		osFs := vfs.NewOsFs(connectionID, u.GetHomeDir(), "")
+		osFs := vfs.NewOsFs(connectionID, u.GetHomeDir(), "", u.UID, u.GID)
 		osFs.CheckRootPath(u.Username, u.GetUID(), u.GetGID())
 	}
 }
@@ -565,7 +564,7 @@ func (u *User) GetFilesystemForPath(virtualPath, connectionID string) (vfs.Fs, e
 				}
 				forbiddenSelfUsers = append(forbiddenSelfUsers, forbiddens...)
 			}
-			fs, err := folder.GetFilesystem(connectionID, forbiddenSelfUsers)
+			fs, err := folder.GetFilesystem(connectionID, u.UID, u.GID, forbiddenSelfUsers)
 			if err == nil {
 				u.fsCache[folder.VirtualPath] = fs
 			}
@@ -617,7 +616,7 @@ func (u *User) CheckMetadataConsistency() error {
 	}
 	for idx := range u.VirtualFolders {
 		v := &u.VirtualFolders[idx]
-		if err = v.CheckMetadataConsistency(); err != nil {
+		if err = v.CheckMetadataConsistency(u.UID, u.GID); err != nil {
 			return err
 		}
 	}
@@ -642,7 +641,7 @@ func (u *User) ScanQuota() (int, int64, error) {
 		if !v.IsIncludedInUserQuota() {
 			continue
 		}
-		num, s, err := v.ScanQuota()
+		num, s, err := v.ScanQuota(u.UID, u.GID)
 		if err != nil {
 			return numFiles, size, err
 		}

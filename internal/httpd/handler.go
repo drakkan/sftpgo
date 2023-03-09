@@ -229,8 +229,6 @@ func (c *Connection) handleUploadFile(fs vfs.Fs, resolvedPath, filePath, request
 		}
 	}
 
-	vfs.SetPathPermissions(fs, filePath, c.User.GetUID(), c.User.GetGID())
-
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, filePath, requestPath,
 		common.TransferUpload, 0, initialSize, maxWriteSize, truncatedSize, isNewFile, fs, transferQuota)
 	return newHTTPDFile(baseTransfer, w, nil), nil

@@ -86,7 +86,7 @@ func (fs *MockOsFs) Walk(root string, walkFn filepath.WalkFunc) error {
 
 func newMockOsFs(hasVirtualFolders bool, connectionID, rootDir, name string, err error) vfs.Fs {
 	return &MockOsFs{
-		Fs:                vfs.NewOsFs(connectionID, rootDir, ""),
+		Fs:                vfs.NewOsFs(connectionID, rootDir, "", 0, 0),
 		name:              name,
 		hasVirtualFolders: hasVirtualFolders,
 		err:               err,
@@ -114,7 +114,7 @@ func TestRemoveErrors(t *testing.T) {
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
-	fs := vfs.NewOsFs("", os.TempDir(), "")
+	fs := vfs.NewOsFs("", os.TempDir(), "", 0, 0)
 	conn := NewBaseConnection("", ProtocolFTP, "", "", user)
 	err := conn.IsRemoveDirAllowed(fs, mappedPath, "/virtualpath1")
 	if assert.Error(t, err) {
@@ -159,7 +159,7 @@ func TestSetStatMode(t *testing.T) {
 }
 
 func TestRecursiveRenameWalkError(t *testing.T) {
-	fs := vfs.NewOsFs("", filepath.Clean(os.TempDir()), "")
+	fs := vfs.NewOsFs("", filepath.Clean(os.TempDir()), "", 0, 0)
 	conn := NewBaseConnection("", ProtocolWebDAV, "", "", dataprovider.User{
 		BaseUser: sdk.BaseUser{
 			Permissions: map[string][]string{
@@ -193,7 +193,7 @@ func TestRecursiveRenameWalkError(t *testing.T) {
 }
 
 func TestCrossRenameFsErrors(t *testing.T) {
-	fs := vfs.NewOsFs("", os.TempDir(), "")
+	fs := vfs.NewOsFs("", os.TempDir(), "", 0, 0)
 	conn := NewBaseConnection("", ProtocolWebDAV, "", "", dataprovider.User{})
 	res := conn.hasSpaceForCrossRename(fs, vfs.QuotaCheckResult{}, 1, "missingsource")
 	assert.False(t, res)
@@ -224,7 +224,7 @@ func TestRenameVirtualFolders(t *testing.T) {
 		},
 		VirtualPath: vdir,
 	})
-	fs := vfs.NewOsFs("", os.TempDir(), "")
+	fs := vfs.NewOsFs("", os.TempDir(), "", 0, 0)
 	conn := NewBaseConnection("", ProtocolFTP, "", "", u)
 	res := conn.isRenamePermitted(fs, fs, "source", "target", vdir, "vdirtarget", nil)
 	assert.False(t, res)
@@ -376,7 +376,7 @@ func TestUpdateQuotaAfterRename(t *testing.T) {
 }
 
 func TestErrorsMapping(t *testing.T) {
-	fs := vfs.NewOsFs("", os.TempDir(), "")
+	fs := vfs.NewOsFs("", os.TempDir(), "", 0, 0)
 	conn := NewBaseConnection("", ProtocolSFTP, "", "", dataprovider.User{BaseUser: sdk.BaseUser{HomeDir: os.TempDir()}})
 	osErrorsProtocols := []string{ProtocolWebDAV, ProtocolFTP, ProtocolHTTP, ProtocolHTTPShare,
 		ProtocolDataRetention, ProtocolOIDC, protocolEventAction}

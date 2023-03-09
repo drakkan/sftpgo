@@ -413,8 +413,6 @@ func (c *Connection) handleSFTPUploadToNewFile(fs vfs.Fs, pflags sftp.FileOpenFl
 		return nil, c.GetFsError(fs, err)
 	}
 
-	vfs.SetPathPermissions(fs, filePath, c.User.GetUID(), c.User.GetGID())
-
 	// we can get an error only for resume
 	maxWriteSize, _ := c.GetMaxWriteSize(diskQuota, false, 0, fs.IsUploadResumeSupported())
 
@@ -496,8 +494,6 @@ func (c *Connection) handleSFTPUploadToExistingFile(fs vfs.Fs, pflags sftp.FileO
 			truncatedSize = fileSize
 		}
 	}
-
-	vfs.SetPathPermissions(fs, filePath, c.User.GetUID(), c.User.GetGID())
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, filePath, requestPath,
 		common.TransferUpload, minWriteOffset, initialSize, maxWriteSize, truncatedSize, false, fs, transferQuota)

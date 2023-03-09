@@ -260,7 +260,7 @@ func doFolderQuotaScan(folder vfs.BaseVirtualFolder) error {
 		BaseVirtualFolder: folder,
 		VirtualPath:       "/",
 	}
-	numFiles, size, err := f.ScanQuota()
+	numFiles, size, err := f.ScanQuota(0, 0)
 	if err != nil {
 		logger.Warn(logSender, "", "error scanning folder %q: %v", folder.Name, err)
 		return err

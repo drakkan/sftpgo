@@ -44,6 +44,7 @@ require (
 	github.com/mhale/smtpd v0.8.0
 	github.com/minio/sio v0.3.1
 	github.com/otiai10/copy v1.9.0
+	github.com/peterverraedt/useros v0.1.5
 	github.com/pires/go-proxyproto v0.6.2
 	github.com/pkg/sftp v1.13.6-0.20230213180117-971c283182b6
 	github.com/pquerna/otp v1.4.0
@@ -121,6 +122,7 @@ require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
+	github.com/joshlf/go-acl v0.0.0-20200411065538-eae00ae38531 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.4 // indirect
 	github.com/kr/fs v0.1.0 // indirect
 	github.com/lestrrat-go/blackmagic v1.0.1 // indirect

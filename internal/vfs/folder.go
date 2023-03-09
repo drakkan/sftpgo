@@ -192,7 +192,7 @@ type VirtualFolder struct {
 }
 
 // GetFilesystem returns the filesystem for this folder
-func (v *VirtualFolder) GetFilesystem(connectionID string, forbiddenSelfUsers []string) (Fs, error) {
+func (v *VirtualFolder) GetFilesystem(connectionID string, uid, gid int, forbiddenSelfUsers []string) (Fs, error) {
 	switch v.FsConfig.Provider {
 	case sdk.S3FilesystemProvider:
 		return NewS3Fs(connectionID, v.MappedPath, v.VirtualPath, v.FsConfig.S3Config)
@@ -207,14 +207,14 @@ func (v *VirtualFolder) GetFilesystem(connectionID string, forbiddenSelfUsers []
 	case sdk.HTTPFilesystemProvider:
 		return NewHTTPFs(connectionID, v.MappedPath, v.VirtualPath, v.FsConfig.HTTPConfig)
 	default:
-		return NewOsFs(connectionID, v.MappedPath, v.VirtualPath), nil
+		return NewOsFs(connectionID, v.MappedPath, v.VirtualPath, uid, gid), nil
 	}
 }
 
 // CheckMetadataConsistency checks the consistency between the metadata stored
 // in the configured metadata plugin and the filesystem
-func (v *VirtualFolder) CheckMetadataConsistency() error {
-	fs, err := v.GetFilesystem(xid.New().String(), nil)
+func (v *VirtualFolder) CheckMetadataConsistency(uid, gid int) error {
+	fs, err := v.GetFilesystem(xid.New().String(), uid, gid, nil)
 	if err != nil {
 		return err
 	}
@@ -224,11 +224,11 @@ func (v *VirtualFolder) CheckMetadataConsistency() error {
 }
 
 // ScanQuota scans the folder and returns the number of files and their size
-func (v *VirtualFolder) ScanQuota() (int, int64, error) {
+func (v *VirtualFolder) ScanQuota(uid, gid int) (int, int64, error) {
 	if v.hasPathPlaceholder() {
 		return 0, 0, errors.New("cannot scan quota: this folder has a path placeholder")
 	}
-	fs, err := v.GetFilesystem(xid.New().String(), nil)
+	fs, err := v.GetFilesystem(xid.New().String(), uid, gid, nil)
 	if err != nil {
 		return 0, 0, err
 	}

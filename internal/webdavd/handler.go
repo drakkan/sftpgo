@@ -221,8 +221,6 @@ func (c *Connection) handleUploadToNewFile(fs vfs.Fs, resolvedPath, filePath, re
 		return nil, c.GetFsError(fs, err)
 	}
 
-	vfs.SetPathPermissions(fs, filePath, c.User.GetUID(), c.User.GetGID())
-
 	// we can get an error only for resume
 	maxWriteSize, _ := c.GetMaxWriteSize(diskQuota, false, 0, fs.IsUploadResumeSupported())
 
@@ -283,8 +281,6 @@ func (c *Connection) handleUploadToExistingFile(fs vfs.Fs, resolvedPath, filePat
 		initialSize = fileSize
 		truncatedSize = fileSize
 	}
-
-	vfs.SetPathPermissions(fs, filePath, c.User.GetUID(), c.User.GetGID())
 
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, filePath, requestPath,
 		common.TransferUpload, 0, initialSize, maxWriteSize, truncatedSize, false, fs, transferQuota)
