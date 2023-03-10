@@ -23,9 +23,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"runtime"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/eikenb/pipeat"
@@ -573,56 +571,4 @@ func (*OsFs) Close() error {
 // GetAvailableDiskSize returns the available size for the specified path
 func (*OsFs) GetAvailableDiskSize(dirName string) (*sftp.StatVFS, error) {
 	return getStatFS(dirName)
-}
-
-func (fs *OsFs) setuid() {
-	if runtime.GOOS == "windows" {
-		return
-	}
-
-	if fs.uid <= 0 && fs.gid <= 0 {
-		return
-	}
-
-	if syscall.Geteuid() > 0 {
-		return
-	}
-
-	runtime.LockOSThread()
-
-	if fs.gid != syscall.Getegid() && fs.gid > 0 {
-		if err := syscall.Setegid(fs.gid); err != nil {
-			fsLog(fs, logger.LevelError, "could not call setegid: %q", err)
-		}
-	}
-
-	if fs.uid != syscall.Geteuid() && fs.uid > 0 {
-		if err := syscall.Seteuid(fs.uid); err != nil {
-			fsLog(fs, logger.LevelError, "could not call seteuid: %q", err)
-		}
-	}
-}
-
-func (fs *OsFs) unsetuid() {
-	if runtime.GOOS == "windows" {
-		return
-	}
-
-	if fs.uid <= 0 && fs.gid <= 0 {
-		return
-	}
-
-	if syscall.Getuid() != syscall.Geteuid() && fs.uid > 0 {
-		if err := syscall.Seteuid(syscall.Getuid()); err != nil {
-			fsLog(fs, logger.LevelError, "could not call seteuid: %q", err)
-		}
-	}
-
-	if syscall.Getgid() != syscall.Getegid() && fs.gid > 0 {
-		if err := syscall.Setegid(syscall.Getgid()); err != nil {
-			fsLog(fs, logger.LevelError, "could not call setegid: %q", err)
-		}
-	}
-
-	runtime.UnlockOSThread()
 }
