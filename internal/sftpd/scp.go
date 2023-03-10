@@ -29,7 +29,6 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
-	"github.com/drakkan/sftpgo/v2/internal/util"
 	"github.com/drakkan/sftpgo/v2/internal/vfs"
 )
 
@@ -58,10 +57,9 @@ func (c *scpCommand) handle() (err error) {
 	defer common.Connections.Remove(c.connection.GetID())
 
 	destPath := c.getDestPath()
-	commandType := c.getCommandType()
-	c.connection.Log(logger.LevelDebug, "handle scp command, args: %v user: %v command type: %v, dest path: %q",
-		c.args, c.connection.User.Username, commandType, destPath)
-	if commandType == "-t" {
+	c.connection.Log(logger.LevelDebug, "handle scp command, args: %v user: %s, dest path: %q",
+		c.args, c.connection.User.Username, destPath)
+	if c.hasFlag("t") {
 		// -t means "to", so upload
 		err = c.sendConfirmationMessage()
 		if err != nil {
@@ -71,7 +69,7 @@ func (c *scpCommand) handle() (err error) {
 		if err != nil {
 			return err
 		}
-	} else if commandType == "-f" {
+	} else if c.hasFlag("f") {
 		// -f means "from" so download
 		err = c.readConfirmationMessage()
 		if err != nil {
@@ -351,7 +349,7 @@ func (c *scpCommand) sendDownloadProtocolMessages(virtualDirPath string, stat os
 	var err error
 	if c.sendFileTime() {
 		modTime := stat.ModTime().UnixNano() / 1000000000
-		tCommand := fmt.Sprintf("T%v 0 %v 0\n", modTime, modTime)
+		tCommand := fmt.Sprintf("T%d 0 %d 0\n", modTime, modTime)
 		err = c.sendProtocolMessage(tCommand)
 		if err != nil {
 			return err
@@ -433,7 +431,7 @@ func (c *scpCommand) sendDownloadFileData(fs vfs.Fs, filePath string, stat os.Fi
 	var err error
 	if c.sendFileTime() {
 		modTime := stat.ModTime().UnixNano() / 1000000000
-		tCommand := fmt.Sprintf("T%v 0 %v 0\n", modTime, modTime)
+		tCommand := fmt.Sprintf("T%d 0 %d 0\n", modTime, modTime)
 		err = c.sendProtocolMessage(tCommand)
 		if err != nil {
 			return err
@@ -561,16 +559,22 @@ func (c *scpCommand) handleDownload(filePath string) error {
 	return err
 }
 
-func (c *scpCommand) getCommandType() string {
-	return c.args[len(c.args)-2]
-}
-
 func (c *scpCommand) sendFileTime() bool {
-	return util.Contains(c.args, "-p")
+	return c.hasFlag("p")
 }
 
 func (c *scpCommand) isRecursive() bool {
-	return util.Contains(c.args, "-r")
+	return c.hasFlag("r")
+}
+
+func (c *scpCommand) hasFlag(flag string) bool {
+	for idx := 0; idx < len(c.args)-1; idx++ {
+		arg := c.args[idx]
+		if !strings.HasPrefix(arg, "--") && strings.HasPrefix(arg, "-") && strings.Contains(arg, flag) {
+			return true
+		}
+	}
+	return false
 }
 
 // read the SCP confirmation message and the optional text message

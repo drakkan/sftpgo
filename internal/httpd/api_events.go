@@ -98,7 +98,7 @@ func getFsSearchParamsFromRequest(r *http.Request) (eventsearcher.FsEventSearch,
 	s.Protocols = getCommaSeparatedQueryParam(r, "protocols")
 	statuses := getCommaSeparatedQueryParam(r, "statuses")
 	for _, status := range statuses {
-		val, err := strconv.Atoi(status)
+		val, err := strconv.ParseInt(status, 10, 32)
 		if err != nil {
 			return s, util.NewValidationError(fmt.Sprintf("invalid status: %v", status))
 		}

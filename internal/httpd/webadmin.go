@@ -1534,15 +1534,15 @@ func getFiltersFromUserPostFields(r *http.Request) (sdk.BaseUserFilters, error) 
 	if err != nil {
 		return filters, fmt.Errorf("invalid max upload file size: %w", err)
 	}
-	defaultSharesExpiration, err := strconv.ParseInt(r.Form.Get("default_shares_expiration"), 10, 64)
+	defaultSharesExpiration, err := strconv.Atoi(r.Form.Get("default_shares_expiration"))
 	if err != nil {
 		return filters, fmt.Errorf("invalid default shares expiration: %w", err)
 	}
-	passwordExpiration, err := strconv.ParseInt(r.Form.Get("password_expiration"), 10, 64)
+	passwordExpiration, err := strconv.Atoi(r.Form.Get("password_expiration"))
 	if err != nil {
 		return filters, fmt.Errorf("invalid password expiration: %w", err)
 	}
-	passwordStrength, err := strconv.ParseInt(r.Form.Get("password_strength"), 10, 64)
+	passwordStrength, err := strconv.Atoi(r.Form.Get("password_strength"))
 	if err != nil {
 		return filters, fmt.Errorf("invalid password strength: %w", err)
 	}
@@ -1559,9 +1559,9 @@ func getFiltersFromUserPostFields(r *http.Request) (sdk.BaseUserFilters, error) 
 	filters.FilePatterns = getFilePatternsFromPostField(r)
 	filters.TLSUsername = sdk.TLSUsername(r.Form.Get("tls_username"))
 	filters.WebClient = r.Form["web_client_options"]
-	filters.DefaultSharesExpiration = int(defaultSharesExpiration)
-	filters.PasswordExpiration = int(passwordExpiration)
-	filters.PasswordStrength = int(passwordStrength)
+	filters.DefaultSharesExpiration = defaultSharesExpiration
+	filters.PasswordExpiration = passwordExpiration
+	filters.PasswordStrength = passwordStrength
 	hooks := r.Form["hooks"]
 	if util.Contains(hooks, "external_auth_disabled") {
 		filters.Hooks.ExternalAuthDisabled = true
@@ -1830,11 +1830,11 @@ func getAdminFromPostFields(r *http.Request) (dataprovider.Admin, error) {
 	admin.Filters.Preferences.HideUserPageSections = getAdminHiddenUserPageSections(r)
 	admin.Filters.Preferences.DefaultUsersExpiration = 0
 	if val := r.Form.Get("default_users_expiration"); val != "" {
-		defaultUsersExpiration, err := strconv.ParseInt(r.Form.Get("default_users_expiration"), 10, 64)
+		defaultUsersExpiration, err := strconv.Atoi(r.Form.Get("default_users_expiration"))
 		if err != nil {
 			return admin, fmt.Errorf("invalid default users expiration: %w", err)
 		}
-		admin.Filters.Preferences.DefaultUsersExpiration = int(defaultUsersExpiration)
+		admin.Filters.Preferences.DefaultUsersExpiration = defaultUsersExpiration
 	}
 	for k := range r.Form {
 		if strings.HasPrefix(k, "group") {
@@ -2130,7 +2130,7 @@ func getGroupFromPostFields(r *http.Request) (dataprovider.Group, error) {
 	if err != nil {
 		return group, err
 	}
-	expiresIn, err := strconv.ParseInt(r.Form.Get("expires_in"), 10, 64)
+	expiresIn, err := strconv.Atoi(r.Form.Get("expires_in"))
 	if err != nil {
 		return group, fmt.Errorf("invalid expires in: %w", err)
 	}
@@ -2159,7 +2159,7 @@ func getGroupFromPostFields(r *http.Request) (dataprovider.Group, error) {
 				UploadDataTransfer:   dataTransferUL,
 				DownloadDataTransfer: dataTransferDL,
 				TotalDataTransfer:    dataTransferTotal,
-				ExpiresIn:            int(expiresIn),
+				ExpiresIn:            expiresIn,
 				Filters:              filters,
 			},
 			FsConfig: fsConfig,

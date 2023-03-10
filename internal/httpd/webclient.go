@@ -1492,7 +1492,7 @@ func (s *httpdServer) handleClientShareLoginPost(w http.ResponseWriter, r *http.
 		s.renderShareLoginPage(w, r.RequestURI, common.ErrInternalFailure.Error(), ipAddr)
 		return
 	}
-	next := r.URL.Query().Get("next")
+	next := path.Clean(r.URL.Query().Get("next"))
 	if strings.HasPrefix(next, path.Join(webClientPubSharesPath, share.ShareID)) {
 		http.Redirect(w, r, next, http.StatusFound)
 	}
