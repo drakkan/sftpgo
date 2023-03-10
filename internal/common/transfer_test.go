@@ -35,7 +35,7 @@ func TestTransferUpdateQuota(t *testing.T) {
 	transfer := BaseTransfer{
 		Connection:   conn,
 		transferType: TransferUpload,
-		Fs:           vfs.NewOsFs("", os.TempDir(), ""),
+		Fs:           vfs.NewOsFs("", os.TempDir(), "", 0, 0),
 	}
 	transfer.BytesReceived.Store(123)
 	errFake := errors.New("fake error")
@@ -74,7 +74,7 @@ func TestTransferThrottling(t *testing.T) {
 			DownloadBandwidth: 40,
 		},
 	}
-	fs := vfs.NewOsFs("", os.TempDir(), "")
+	fs := vfs.NewOsFs("", os.TempDir(), "", 0, 0)
 	testFileSize := int64(131072)
 	wantedUploadElapsed := 1000 * (testFileSize / 1024) / u.UploadBandwidth
 	wantedDownloadElapsed := 1000 * (testFileSize / 1024) / u.DownloadBandwidth
@@ -106,7 +106,7 @@ func TestTransferThrottling(t *testing.T) {
 
 func TestRealPath(t *testing.T) {
 	testFile := filepath.Join(os.TempDir(), "afile.txt")
-	fs := vfs.NewOsFs("123", os.TempDir(), "")
+	fs := vfs.NewOsFs("123", os.TempDir(), "", 0, 0)
 	u := dataprovider.User{
 		BaseUser: sdk.BaseUser{
 			Username: "user",
@@ -140,7 +140,7 @@ func TestRealPath(t *testing.T) {
 
 func TestTruncate(t *testing.T) {
 	testFile := filepath.Join(os.TempDir(), "transfer_test_file")
-	fs := vfs.NewOsFs("123", os.TempDir(), "")
+	fs := vfs.NewOsFs("123", os.TempDir(), "", 0, 0)
 	u := dataprovider.User{
 		BaseUser: sdk.BaseUser{
 			Username: "user",
@@ -209,7 +209,7 @@ func TestTransferErrors(t *testing.T) {
 		isCancelled = true
 	}
 	testFile := filepath.Join(os.TempDir(), "transfer_test_file")
-	fs := vfs.NewOsFs("id", os.TempDir(), "")
+	fs := vfs.NewOsFs("id", os.TempDir(), "", 0, 0)
 	u := dataprovider.User{
 		BaseUser: sdk.BaseUser{
 			Username: "test",
@@ -316,7 +316,7 @@ func TestFTPMode(t *testing.T) {
 	transfer := BaseTransfer{
 		Connection:   conn,
 		transferType: TransferUpload,
-		Fs:           vfs.NewOsFs("", os.TempDir(), ""),
+		Fs:           vfs.NewOsFs("", os.TempDir(), "", 0, 0),
 	}
 	transfer.BytesReceived.Store(123)
 	assert.Empty(t, transfer.ftpMode)
@@ -394,7 +394,7 @@ func TestTransferQuota(t *testing.T) {
 
 	conn := NewBaseConnection("", ProtocolSFTP, "", "", user)
 	transfer := NewBaseTransfer(nil, conn, nil, "file.txt", "file.txt", "/transfer_test_file", TransferUpload,
-		0, 0, 0, 0, true, vfs.NewOsFs("", os.TempDir(), ""), dataprovider.TransferQuota{})
+		0, 0, 0, 0, true, vfs.NewOsFs("", os.TempDir(), "", 0, 0), dataprovider.TransferQuota{})
 	err := transfer.CheckRead()
 	assert.NoError(t, err)
 	err = transfer.CheckWrite()
@@ -448,7 +448,7 @@ func TestUploadOutsideHomeRenameError(t *testing.T) {
 	transfer := BaseTransfer{
 		Connection:   conn,
 		transferType: TransferUpload,
-		Fs:           vfs.NewOsFs("", filepath.Join(os.TempDir(), "home"), ""),
+		Fs:           vfs.NewOsFs("", filepath.Join(os.TempDir(), "home"), "", 0, 0),
 	}
 	transfer.BytesReceived.Store(123)
 
