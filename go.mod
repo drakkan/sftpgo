@@ -8,17 +8,17 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.0.0
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/alexedwards/argon2id v0.0.0-20230305115115-4b3c3280a736
-	github.com/aws/aws-sdk-go-v2 v1.17.5
-	github.com/aws/aws-sdk-go-v2/config v1.18.15
-	github.com/aws/aws-sdk-go-v2/credentials v1.13.15
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.23
-	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.55
-	github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.14.5
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.30.5
-	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.18.7
-	github.com/aws/aws-sdk-go-v2/service/sts v1.18.5
+	github.com/aws/aws-sdk-go-v2 v1.17.6
+	github.com/aws/aws-sdk-go-v2/config v1.18.16
+	github.com/aws/aws-sdk-go-v2/credentials v1.13.16
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.24
+	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.56
+	github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.14.6
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.30.6
+	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.19.0
+	github.com/aws/aws-sdk-go-v2/service/sts v1.18.6
 	github.com/bmatcuk/doublestar/v4 v4.6.0
-	github.com/cockroachdb/cockroach-go/v2 v2.3.0
+	github.com/cockroachdb/cockroach-go/v2 v2.3.2
 	github.com/coreos/go-oidc/v3 v3.5.0
 	github.com/drakkan/webdav v0.0.0-20230227175313-32996838bcd8
 	github.com/eikenb/pipeat v0.0.0-20210730190139-06b3e6902001
@@ -35,7 +35,7 @@ require (
 	github.com/hashicorp/go-hclog v1.4.0
 	github.com/hashicorp/go-plugin v1.4.9
 	github.com/hashicorp/go-retryablehttp v0.7.2
-	github.com/jackc/pgx/v5 v5.3.2-0.20230307230903-19039e6dd10a
+	github.com/jackc/pgx/v5 v5.3.2-0.20230311213408-9ae852eb583d
 	github.com/jlaffaye/ftp v0.0.0-20201112195030-9aae4d151126
 	github.com/klauspost/compress v1.16.0
 	github.com/lestrrat-go/jwx/v2 v2.0.8
@@ -85,16 +85,16 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.2.0 // indirect
 	github.com/ajg/form v1.5.1 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.4.10 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.29 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.23 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/ini v1.3.30 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/v4a v1.0.21 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.30 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.24 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/ini v1.3.31 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/v4a v1.0.22 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.9.11 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.1.24 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.23 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.13.23 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.12.4 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.14.4 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.1.25 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.24 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.13.24 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.12.5 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.14.5 // indirect
 	github.com/aws/smithy-go v1.13.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/boombuler/barcode v1.0.1 // indirect
@@ -104,7 +104,7 @@ require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.1.0 // indirect
-	github.com/fatih/color v1.14.1 // indirect
+	github.com/fatih/color v1.15.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/go-jose/go-jose/v3 v3.0.0 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
@@ -133,7 +133,7 @@ require (
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
-	github.com/miekg/dns v1.1.51 // indirect
+	github.com/miekg/dns v1.1.52 // indirect
 	github.com/minio/sha256-simd v1.0.0 // indirect
 	github.com/mitchellh/go-testing-interface v1.14.1 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect

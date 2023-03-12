@@ -55,13 +55,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
         {{end}}
         <div class="form-group row fsconfig fsconfig-s3fs">
             <label for="idS3Bucket" class="col-sm-2 col-form-label">Bucket</label>
-            <div class="col-sm-3">
+            <div class="col-sm-10">
                 <input type="text" class="form-control" id="idS3Bucket" name="s3_bucket" placeholder=""
-                    value="{{.S3Config.Bucket}}" maxlength="255">
+                    value="{{.S3Config.Bucket}}" maxlength="512">
             </div>
-            <div class="col-sm-2"></div>
+        </div>
+
+        <div class="form-group row fsconfig fsconfig-s3fs">
             <label for="idS3Region" class="col-sm-2 col-form-label">Region</label>
-            <div class="col-sm-3">
+            <div class="col-sm-10">
                 <input type="text" class="form-control" id="idS3Region" name="s3_region" placeholder=""
                     value="{{.S3Config.Region}}" maxlength="255">
             </div>
@@ -69,13 +71,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
         <div class="form-group row fsconfig fsconfig-s3fs">
             <label for="idS3AccessKey" class="col-sm-2 col-form-label">Access Key</label>
-            <div class="col-sm-3">
+            <div class="col-sm-10">
                 <input type="text" class="form-control" id="idS3AccessKey" name="s3_access_key" placeholder=""
-                    value="{{.S3Config.AccessKey}}" maxlength="255" spellcheck="false">
+                    value="{{.S3Config.AccessKey}}" maxlength="512" spellcheck="false">
             </div>
-            <div class="col-sm-2"></div>
+        </div>
+
+        <div class="form-group row fsconfig fsconfig-s3fs">
             <label for="idS3AccessSecret" class="col-sm-2 col-form-label">Access Secret</label>
-            <div class="col-sm-3">
+            <div class="col-sm-10">
                 <input type="password" class="form-control" id="idS3AccessSecret" name="s3_access_secret" placeholder="" autocomplete="new-password" spellcheck="false"
                     value="{{if .S3Config.AccessSecret.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.S3Config.AccessSecret.GetPayload}}{{end}}">
             </div>
@@ -271,16 +275,18 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
         <div class="form-group row fsconfig fsconfig-gcsfs">
             <label for="idGCSKeyPrefix" class="col-sm-2 col-form-label">Key Prefix</label>
-            <div class="col-sm-3">
+            <div class="col-sm-10">
                 <input type="text" class="form-control" id="idGCSKeyPrefix" name="gcs_key_prefix" placeholder=""
                     value="{{.GCSConfig.KeyPrefix}}" aria-describedby="GCSKeyPrefixHelpBlock">
                 <small id="GCSKeyPrefixHelpBlock" class="form-text text-muted">
                     Similar to a chroot for local filesystem. Cannot start with "/". Example: "somedir/subdir/".
                 </small>
             </div>
-            <div class="col-sm-2"></div>
+        </div>
+
+        <div class="form-group row fsconfig fsconfig-gcsfs">
             <label for="idGCSACL" class="col-sm-2 col-form-label">ACL</label>
-            <div class="col-sm-3">
+            <div class="col-sm-10">
                 <input type="text" class="form-control" id="idGCSACL" name="gcs_acl" placeholder=""
                     value="{{.GCSConfig.ACL}}" maxlength="255" aria-describedby="GCSACLHelpBlock">
                 <small id="GCSACLHelpBlock" class="form-text text-muted">
@@ -291,15 +297,17 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
         <div class="form-group row fsconfig fsconfig-azblobfs">
             <label for="idAzContainer" class="col-sm-2 col-form-label">Container</label>
-            <div class="col-sm-3">
+            <div class="col-sm-10">
                 <input type="text" class="form-control" id="idAzContainer" name="az_container" placeholder=""
-                    value="{{.AzBlobConfig.Container}}" maxlength="255">
+                    value="{{.AzBlobConfig.Container}}" maxlength="512">
             </div>
-            <div class="col-sm-2"></div>
+        </div>
+
+        <div class="form-group row fsconfig fsconfig-azblobfs">
             <label for="idAzAccountName" class="col-sm-2 col-form-label">Account Name</label>
-            <div class="col-sm-3">
+            <div class="col-sm-10">
                 <input type="text" class="form-control" id="idAzAccountName" name="az_account_name" placeholder=""
-                    spellcheck="false" value="{{.AzBlobConfig.AccountName}}" maxlength="255">
+                    spellcheck="false" value="{{.AzBlobConfig.AccountName}}" maxlength="512">
             </div>
         </div>
 
@@ -420,33 +428,26 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
         <div class="form-group row fsconfig fsconfig-sftpfs">
             <label for="idSFTPEndpoint" class="col-sm-2 col-form-label">Endpoint</label>
-            <div class="col-sm-3">
+            <div class="col-sm-10">
                 <input type="text" class="form-control" id="idSFTPEndpoint" name="sftp_endpoint" placeholder=""
                     value="{{.SFTPConfig.Endpoint}}" maxlength="255" aria-describedby="SFTPEndpointHelpBlock">
                 <small id="SFTPEndpointHelpBlock" class="form-text text-muted">
                     Endpoint as host:port, port is always required
                 </small>
             </div>
-            <div class="col-sm-2"></div>
-            <label for="idSFTPUploadBufferSize" class="col-sm-2 col-form-label">Buffer size (MB)</label>
-            <div class="col-sm-3">
-                <input type="number" class="form-control" id="idSFTPBufferSize" name="sftp_buffer_size" placeholder=""
-                    value="{{.SFTPConfig.BufferSize}}" min="0" max="16" aria-describedby="SFTPBufferHelpBlock">
-                <small id="SFTPBufferHelpBlock" class="form-text text-muted">
-                    A buffer size > 0 enables concurrent transfers
-                </small>
-            </div>
         </div>
 
         <div class="form-group row fsconfig fsconfig-sftpfs">
             <label for="idSFTPUsername" class="col-sm-2 col-form-label">Username</label>
-            <div class="col-sm-3">
+            <div class="col-sm-10">
                 <input type="text" class="form-control" id="idSFTPUsername" name="sftp_username" placeholder=""
-                    value="{{.SFTPConfig.Username}}" maxlength="255" spellcheck="false">
+                    value="{{.SFTPConfig.Username}}" maxlength="512" spellcheck="false">
             </div>
-            <div class="col-sm-2"></div>
+        </div>
+
+        <div class="form-group row fsconfig fsconfig-sftpfs">
             <label for="idSFTPPassword" class="col-sm-2 col-form-label">Password</label>
-            <div class="col-sm-3">
+            <div class="col-sm-10">
                 <input type="password" class="form-control" id="idSFTPPassword" name="sftp_password" placeholder="" autocomplete="new-password" spellcheck="false"
                     value="{{if .SFTPConfig.Password.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.SFTPConfig.Password.GetPayload}}{{end}}">
             </div>
@@ -473,6 +474,17 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
         </div>
 
         <div class="form-group row fsconfig fsconfig-sftpfs">
+            <label for="idSFTPPrefix" class="col-sm-2 col-form-label">Prefix</label>
+            <div class="col-sm-10">
+                <input type="text" class="form-control" id="idSFTPPrefix" name="sftp_prefix" placeholder=""
+                    value="{{.SFTPConfig.Prefix}}" aria-describedby="SFTPPrefixHelpBlock">
+                <small id="SFTPPrefixHelpBlock" class="form-text text-muted">
+                    Similar to a chroot for local filesystem. Example: "/somedir/subdir".
+                </small>
+            </div>
+        </div>
+
+        <div class="form-group row fsconfig fsconfig-sftpfs">
             <label for="idSFTPFingerprints" class="col-sm-2 col-form-label">Fingerprints</label>
             <div class="col-sm-10">
                 <textarea class="form-control" id="idSFTPFingerprints" name="sftp_fingerprints" rows="3"
@@ -484,12 +496,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
         </div>
 
         <div class="form-group row fsconfig fsconfig-sftpfs">
-            <label for="idSFTPPrefix" class="col-sm-2 col-form-label">Prefix</label>
+            <label for="idSFTPUploadBufferSize" class="col-sm-2 col-form-label">Buffer size (MB)</label>
             <div class="col-sm-10">
-                <input type="text" class="form-control" id="idSFTPPrefix" name="sftp_prefix" placeholder=""
-                    value="{{.SFTPConfig.Prefix}}" aria-describedby="SFTPPrefixHelpBlock">
-                <small id="SFTPPrefixHelpBlock" class="form-text text-muted">
-                    Similar to a chroot for local filesystem. Example: "/somedir/subdir".
+                <input type="number" class="form-control" id="idSFTPBufferSize" name="sftp_buffer_size" placeholder=""
+                    value="{{.SFTPConfig.BufferSize}}" min="0" max="16" aria-describedby="SFTPBufferHelpBlock">
+                <small id="SFTPBufferHelpBlock" class="form-text text-muted">
+                    A buffer size > 0 enables concurrent transfers
                 </small>
             </div>
         </div>
@@ -523,13 +535,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
         <div class="form-group row fsconfig fsconfig-httpfs">
             <label for="idHTTPUsername" class="col-sm-2 col-form-label">Username</label>
-            <div class="col-sm-3">
+            <div class="col-sm-10">
                 <input type="text" class="form-control" id="idHTTPUsername" name="http_username" placeholder="" spellcheck="false"
                     value="{{.HTTPConfig.Username}}" maxlength="255">
             </div>
-            <div class="col-sm-2"></div>
+        </div>
+
+        <div class="form-group row fsconfig fsconfig-httpfs">
             <label for="idHTTPPassword" class="col-sm-2 col-form-label">Password</label>
-            <div class="col-sm-3">
+            <div class="col-sm-10">
                 <input type="password" class="form-control" id="idHTTPPassword" name="http_password" autocomplete="new-password" placeholder="" spellcheck="false"
                     value="{{if .HTTPConfig.Password.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.HTTPConfig.Password.GetPayload}}{{end}}">
             </div>
