@@ -573,7 +573,7 @@ func (*SFTPFs) IsNotSupported(err error) bool {
 // CheckRootPath creates the specified local root directory if it does not exists
 func (fs *SFTPFs) CheckRootPath(username string, uid int, gid int) bool {
 	// local directory for temporary files in buffer mode
-	osFs := NewOsFs(fs.ConnectionID(), fs.localTempDir, "")
+	osFs := NewOsFs(fs.ConnectionID(), fs.localTempDir, "", uid, gid)
 	osFs.CheckRootPath(username, uid, gid)
 	if fs.config.Prefix == "/" {
 		return true

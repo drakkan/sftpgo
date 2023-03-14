@@ -12012,7 +12012,7 @@ func TestWebClientMaxConnections(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 
 	// now add a fake connection
-	fs := vfs.NewOsFs("id", os.TempDir(), "")
+	fs := vfs.NewOsFs("id", os.TempDir(), "", 0, 0)
 	connection := &httpd.Connection{
 		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolHTTP, "", "", user),
 	}
@@ -12203,7 +12203,7 @@ func TestMaxSessions(t *testing.T) {
 	apiToken, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
 	// now add a fake connection
-	fs := vfs.NewOsFs("id", os.TempDir(), "")
+	fs := vfs.NewOsFs("id", os.TempDir(), "", 0, 0)
 	connection := &httpd.Connection{
 		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolHTTP, "", "", user),
 	}
@@ -13312,7 +13312,7 @@ func TestShareMaxSessions(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	// add a fake connection
-	fs := vfs.NewOsFs("id", os.TempDir(), "")
+	fs := vfs.NewOsFs("id", os.TempDir(), "", 0, 0)
 	connection := &httpd.Connection{
 		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolHTTP, "", "", user),
 	}

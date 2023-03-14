@@ -274,8 +274,6 @@ func (c *scpCommand) handleUploadFile(fs vfs.Fs, resolvedPath, filePath string, 
 		}
 	}
 
-	vfs.SetPathPermissions(fs, filePath, c.connection.User.GetUID(), c.connection.User.GetGID())
-
 	baseTransfer := common.NewBaseTransfer(file, c.connection.BaseConnection, cancelFn, resolvedPath, filePath, requestPath,
 		common.TransferUpload, 0, initialSize, maxWriteSize, truncatedSize, isNewFile, fs, transferQuota)
 	t := newTransfer(baseTransfer, w, nil, nil)
@@ -693,7 +691,6 @@ func (c *scpCommand) createDir(fs vfs.Fs, dirPath string) error {
 		c.sendErrorMessage(fs, err)
 		return err
 	}
-	vfs.SetPathPermissions(fs, dirPath, c.connection.User.GetUID(), c.connection.User.GetGID())
 	return err
 }
 

@@ -28,6 +28,7 @@ import (
 
 	"github.com/eikenb/pipeat"
 	fscopy "github.com/otiai10/copy"
+	"github.com/peterverraedt/useros"
 	"github.com/pkg/sftp"
 	"github.com/rs/xid"
 
@@ -55,15 +56,18 @@ type OsFs struct {
 	rootDir      string
 	// if not empty this fs is mouted as virtual folder in the specified path
 	mountPath string
+	// useros wrapper for os operations
+	os useros.OS
 }
 
 // NewOsFs returns an OsFs object that allows to interact with local Os filesystem
-func NewOsFs(connectionID, rootDir, mountPath string) Fs {
+func NewOsFs(connectionID, rootDir, mountPath string, uid, gid int) Fs {
 	return &OsFs{
 		name:         osFsName,
 		connectionID: connectionID,
 		rootDir:      rootDir,
 		mountPath:    getMountPath(mountPath),
+		os:           osAsUser(uid, gid),
 	}
 }
 
@@ -79,17 +83,17 @@ func (fs *OsFs) ConnectionID() string {
 
 // Stat returns a FileInfo describing the named file
 func (fs *OsFs) Stat(name string) (os.FileInfo, error) {
-	return os.Stat(name)
+	return fs.os.Stat(name)
 }
 
 // Lstat returns a FileInfo describing the named file
 func (fs *OsFs) Lstat(name string) (os.FileInfo, error) {
-	return os.Lstat(name)
+	return fs.os.Lstat(name)
 }
 
 // Open opens the named file for reading
-func (*OsFs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, func(), error) {
-	f, err := os.Open(name)
+func (fs *OsFs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, func(), error) {
+	f, err := fs.os.Open(name)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -104,13 +108,13 @@ func (*OsFs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, func()
 }
 
 // Create creates or opens the named file for writing
-func (*OsFs) Create(name string, flag int) (File, *PipeWriter, func(), error) {
+func (fs *OsFs) Create(name string, flag int) (File, *PipeWriter, func(), error) {
 	var err error
-	var f *os.File
+	var f useros.File
 	if flag == 0 {
-		f, err = os.Create(name)
+		f, err = fs.os.Create(name)
 	} else {
-		f, err = os.OpenFile(name, flag, 0666)
+		f, err = fs.os.OpenFile(name, flag, 0666)
 	}
 	return f, nil, nil, err
 }
@@ -120,38 +124,55 @@ func (fs *OsFs) Rename(source, target string) (int, int64, error) {
 	if source == target {
 		return -1, -1, nil
 	}
-	err := os.Rename(source, target)
-	if err != nil && isCrossDeviceError(err) {
-		fsLog(fs, logger.LevelError, "cross device error detected while renaming %q -> %q. Trying a copy and remove, this could take a long time",
-			source, target)
-		err = fscopy.Copy(source, target, fscopy.Options{
-			OnSymlink: func(src string) fscopy.SymlinkAction {
-				return fscopy.Skip
-			},
-		})
-		if err != nil {
-			fsLog(fs, logger.LevelError, "cross device copy error: %v", err)
-			return -1, -1, err
-		}
-		err = os.RemoveAll(source)
+	err := fs.os.Rename(source, target)
+	if err == nil || !isCrossDeviceError(err) {
 		return -1, -1, err
 	}
+
+	fsLog(fs, logger.LevelError, "cross device error detected while renaming %q -> %q. Trying a copy and remove, this could take a long time",
+		source, target)
+
+	// First check whether we can copy
+	if err := fs.os.CurrentUser().CanWriteInode(target); err != nil {
+		return -1, -1, err
+	}
+
+	if err := fs.os.Walk(source, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		return fs.os.CurrentUser().CanReadObject(path)
+	}); err != nil {
+		return -1, -1, err
+	}
+
+	err = fscopy.Copy(source, target, fscopy.Options{
+		OnSymlink: func(src string) fscopy.SymlinkAction {
+			return fscopy.Skip
+		},
+	})
+	if err != nil {
+		fsLog(fs, logger.LevelError, "cross device copy error: %v", err)
+		return -1, -1, err
+	}
+	err = fs.os.RemoveAll(source)
 	return -1, -1, err
 }
 
 // Remove removes the named file or (empty) directory.
-func (*OsFs) Remove(name string, isDir bool) error {
-	return os.Remove(name)
+func (fs *OsFs) Remove(name string, isDir bool) error {
+	return fs.os.Remove(name)
 }
 
 // Mkdir creates a new directory with the specified name and default permissions
-func (*OsFs) Mkdir(name string) error {
-	return os.Mkdir(name, os.ModePerm)
+func (fs *OsFs) Mkdir(name string) error {
+	return fs.os.Mkdir(name, os.ModePerm)
 }
 
 // Symlink creates source as a symbolic link to target.
-func (*OsFs) Symlink(source, target string) error {
-	return os.Symlink(source, target)
+func (fs *OsFs) Symlink(source, target string) error {
+	return fs.os.Symlink(source, target)
 }
 
 // Readlink returns the destination of the named symbolic link
@@ -159,7 +180,7 @@ func (*OsFs) Symlink(source, target string) error {
 func (fs *OsFs) Readlink(name string) (string, error) {
 	// we don't have to follow multiple links:
 	// https://github.com/openssh/openssh-portable/blob/7bf2eb958fbb551e7d61e75c176bb3200383285d/sftp-server.c#L1329
-	resolved, err := os.Readlink(name)
+	resolved, err := fs.os.Readlink(name)
 	if err != nil {
 		return "", err
 	}
@@ -171,29 +192,29 @@ func (fs *OsFs) Readlink(name string) (string, error) {
 }
 
 // Chown changes the numeric uid and gid of the named file.
-func (*OsFs) Chown(name string, uid int, gid int) error {
-	return os.Chown(name, uid, gid)
+func (fs *OsFs) Chown(name string, uid int, gid int) error {
+	return fs.os.Chown(name, uid, gid)
 }
 
 // Chmod changes the mode of the named file to mode
-func (*OsFs) Chmod(name string, mode os.FileMode) error {
-	return os.Chmod(name, mode)
+func (fs *OsFs) Chmod(name string, mode os.FileMode) error {
+	return fs.os.Chmod(name, mode)
 }
 
 // Chtimes changes the access and modification times of the named file
-func (*OsFs) Chtimes(name string, atime, mtime time.Time, isUploading bool) error {
-	return os.Chtimes(name, atime, mtime)
+func (fs *OsFs) Chtimes(name string, atime, mtime time.Time, isUploading bool) error {
+	return fs.os.Chtimes(name, atime, mtime)
 }
 
 // Truncate changes the size of the named file
-func (*OsFs) Truncate(name string, size int64) error {
-	return os.Truncate(name, size)
+func (fs *OsFs) Truncate(name string, size int64) error {
+	return fs.os.Truncate(name, size)
 }
 
 // ReadDir reads the directory named by dirname and returns
 // a list of directory entries.
-func (*OsFs) ReadDir(dirname string) ([]os.FileInfo, error) {
-	f, err := os.Open(dirname)
+func (fs *OsFs) ReadDir(dirname string) ([]os.FileInfo, error) {
+	f, err := fs.os.Open(dirname)
 	if err != nil {
 		if isInvalidNameError(err) {
 			err = os.ErrNotExist
@@ -242,12 +263,13 @@ func (*OsFs) IsNotSupported(err error) bool {
 }
 
 // CheckRootPath creates the root directory if it does not exists
+// This operation happens as the sftpgo user (e.g. root), we don't call setuid
 func (fs *OsFs) CheckRootPath(username string, uid int, gid int) bool {
 	var err error
-	if _, err = fs.Stat(fs.rootDir); fs.IsNotExist(err) {
+	if _, err = os.Stat(fs.rootDir); os.IsNotExist(err) {
 		err = os.MkdirAll(fs.rootDir, os.ModePerm)
 		if err == nil {
-			SetPathPermissions(fs, fs.rootDir, uid, gid)
+			err = os.Chown(fs.rootDir, uid, gid)
 		} else {
 			fsLog(fs, logger.LevelError, "error creating root directory %q for user %q: %v", fs.rootDir, username, err)
 		}
@@ -295,8 +317,8 @@ func (fs *OsFs) GetRelativePath(name string) string {
 
 // Walk walks the file tree rooted at root, calling walkFn for each file or
 // directory in the tree, including root
-func (*OsFs) Walk(root string, walkFn filepath.WalkFunc) error {
-	return filepath.Walk(root, walkFn)
+func (fs *OsFs) Walk(root string, walkFn filepath.WalkFunc) error {
+	return fs.os.Walk(root, walkFn)
 }
 
 // Join joins any number of path elements into a single path
@@ -313,7 +335,8 @@ func (fs *OsFs) ResolvePath(virtualPath string) (string, error) {
 		virtualPath = strings.TrimPrefix(virtualPath, fs.mountPath)
 	}
 	r := filepath.Clean(filepath.Join(fs.rootDir, virtualPath))
-	p, err := filepath.EvalSymlinks(r)
+
+	p, err := fs.os.EvalSymlinks(r)
 	if isInvalidNameError(err) {
 		err = os.ErrNotExist
 	}
@@ -342,7 +365,7 @@ func (fs *OsFs) ResolvePath(virtualPath string) (string, error) {
 func (fs *OsFs) RealPath(p string) (string, error) {
 	linksWalked := 0
 	for {
-		info, err := os.Lstat(p)
+		info, err := fs.os.Lstat(p)
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
 				return fs.GetRelativePath(p), nil
@@ -352,7 +375,7 @@ func (fs *OsFs) RealPath(p string) (string, error) {
 		if info.Mode()&os.ModeSymlink == 0 {
 			return fs.GetRelativePath(p), nil
 		}
-		resolvedLink, err := os.Readlink(p)
+		resolvedLink, err := fs.os.Readlink(p)
 		if err != nil {
 			return "", err
 		}
@@ -377,7 +400,7 @@ func (fs *OsFs) GetDirSize(dirname string) (int, int64, error) {
 	size := int64(0)
 	isDir, err := isDirectory(fs, dirname)
 	if err == nil && isDir {
-		err = filepath.Walk(dirname, func(_ string, info os.FileInfo, err error) error {
+		err = fs.os.Walk(dirname, func(_ string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
 			}
@@ -403,7 +426,7 @@ func (fs *OsFs) findNonexistentDirs(filePath string) ([]string, error) {
 	results := []string{}
 	cleanPath := filepath.Clean(filePath)
 	parent := filepath.Dir(cleanPath)
-	_, err := os.Stat(parent)
+	_, err := fs.os.Stat(parent)
 
 	for fs.IsNotExist(err) {
 		results = append(results, parent)
@@ -411,12 +434,12 @@ func (fs *OsFs) findNonexistentDirs(filePath string) ([]string, error) {
 		if util.Contains(results, parent) {
 			break
 		}
-		_, err = os.Stat(parent)
+		_, err = fs.os.Stat(parent)
 	}
 	if err != nil {
 		return results, err
 	}
-	p, err := filepath.EvalSymlinks(parent)
+	p, err := fs.os.EvalSymlinks(parent)
 	if err != nil {
 		return results, err
 	}
@@ -440,11 +463,11 @@ func (fs *OsFs) findFirstExistingDir(path string) (string, error) {
 	} else {
 		parent = fs.rootDir
 	}
-	p, err := filepath.EvalSymlinks(parent)
+	p, err := fs.os.EvalSymlinks(parent)
 	if err != nil {
 		return "", err
 	}
-	fileInfo, err := os.Stat(p)
+	fileInfo, err := fs.os.Stat(p)
 	if err != nil {
 		return "", err
 	}
@@ -457,7 +480,7 @@ func (fs *OsFs) findFirstExistingDir(path string) (string, error) {
 
 func (fs *OsFs) isSubDir(sub string) error {
 	// fs.rootDir must exist and it is already a validated absolute path
-	parent, err := filepath.EvalSymlinks(fs.rootDir)
+	parent, err := fs.os.EvalSymlinks(fs.rootDir)
 	if err != nil {
 		fsLog(fs, logger.LevelError, "invalid root path %q: %v", fs.rootDir, err)
 		return err
@@ -484,7 +507,7 @@ func (fs *OsFs) isSubDir(sub string) error {
 
 // GetMimeType returns the content type
 func (fs *OsFs) GetMimeType(name string) (string, error) {
-	f, err := os.OpenFile(name, os.O_RDONLY, 0)
+	f, err := fs.os.OpenFile(name, os.O_RDONLY, 0)
 	if err != nil {
 		return "", err
 	}

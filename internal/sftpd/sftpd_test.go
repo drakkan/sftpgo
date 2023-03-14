@@ -8047,7 +8047,7 @@ func TestRootDirCommands(t *testing.T) {
 func TestRelativePaths(t *testing.T) {
 	user := getTestUser(true)
 	var path, rel string
-	filesystems := []vfs.Fs{vfs.NewOsFs("", user.GetHomeDir(), "")}
+	filesystems := []vfs.Fs{vfs.NewOsFs("", user.GetHomeDir(), "", 0, 0)}
 	keyPrefix := strings.TrimPrefix(user.GetHomeDir(), "/") + "/"
 	s3config := vfs.S3FsConfig{
 		BaseS3FsConfig: sdk.BaseS3FsConfig{
@@ -8112,7 +8112,7 @@ func TestResolvePaths(t *testing.T) {
 	user := getTestUser(true)
 	var path, resolved string
 	var err error
-	filesystems := []vfs.Fs{vfs.NewOsFs("", user.GetHomeDir(), "")}
+	filesystems := []vfs.Fs{vfs.NewOsFs("", user.GetHomeDir(), "", 0, 0)}
 	keyPrefix := strings.TrimPrefix(user.GetHomeDir(), "/") + "/"
 	s3config := vfs.S3FsConfig{
 		BaseS3FsConfig: sdk.BaseS3FsConfig{
@@ -8175,8 +8175,8 @@ func TestVirtualRelativePaths(t *testing.T) {
 	})
 	err := os.MkdirAll(mappedPath, os.ModePerm)
 	assert.NoError(t, err)
-	fsRoot := vfs.NewOsFs("", user.GetHomeDir(), "")
-	fsVdir := vfs.NewOsFs("", mappedPath, vdirPath)
+	fsRoot := vfs.NewOsFs("", user.GetHomeDir(), "", 0, 0)
+	fsVdir := vfs.NewOsFs("", mappedPath, vdirPath, 0, 0)
 	rel := fsVdir.GetRelativePath(mappedPath)
 	assert.Equal(t, vdirPath, rel)
 	rel = fsRoot.GetRelativePath(filepath.Join(mappedPath, ".."))

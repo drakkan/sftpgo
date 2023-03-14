@@ -830,7 +830,7 @@ func TestConnectionStatus(t *testing.T) {
 			Username: username,
 		},
 	}
-	fs := vfs.NewOsFs("", os.TempDir(), "")
+	fs := vfs.NewOsFs("", os.TempDir(), "", 0, 0)
 	c1 := NewBaseConnection("id1", ProtocolSFTP, "", "", user)
 	fakeConn1 := &fakeConnection{
 		BaseConnection: c1,
