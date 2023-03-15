@@ -104,7 +104,7 @@ If you report an invalid issue or ask for step-by-step support, your issue will 
 
 ## Platforms
 
-SFTPGo is developed and tested on Linux. After each commit, the code is automatically built and tested on Linux, macOS and Windows using [GitHub Actions](./.github/workflows/development.yml). The test cases are regularly manually executed and passed on FreeBSD. Other *BSD variants should work too.
+SFTPGo is developed and tested on Linux. After each commit, the code is automatically built and tested on Linux, macOS, Windows and FreeBSD. Other *BSD variants should work too.
 
 ## Requirements
 
