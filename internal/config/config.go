@@ -205,6 +205,7 @@ func Init() {
 			TempPath:              "",
 			ProxyProtocol:         0,
 			ProxyAllowed:          []string{},
+			ProxySkipped:          []string{},
 			PostConnectHook:       "",
 			PostDisconnectHook:    "",
 			DataRetentionHook:     "",
@@ -1960,6 +1961,7 @@ func setViperDefaults() {
 	viper.SetDefault("common.temp_path", globalConf.Common.TempPath)
 	viper.SetDefault("common.proxy_protocol", globalConf.Common.ProxyProtocol)
 	viper.SetDefault("common.proxy_allowed", globalConf.Common.ProxyAllowed)
+	viper.SetDefault("common.proxy_skipped", globalConf.Common.ProxySkipped)
 	viper.SetDefault("common.post_connect_hook", globalConf.Common.PostConnectHook)
 	viper.SetDefault("common.post_disconnect_hook", globalConf.Common.PostDisconnectHook)
 	viper.SetDefault("common.data_retention_hook", globalConf.Common.DataRetentionHook)

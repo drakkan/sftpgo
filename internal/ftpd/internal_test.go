@@ -505,13 +505,9 @@ func TestServerGetSettings(t *testing.T) {
 	assert.Equal(t, 11000, settings.PassiveTransferPortRange.End)
 
 	common.Config.ProxyProtocol = 1
-	common.Config.ProxyAllowed = []string{"invalid"}
-	assert.True(t, binding.HasProxy())
 	_, err = server.GetSettings()
 	assert.Error(t, err)
 	server.binding.Port = 8021
-	_, err = server.GetSettings()
-	assert.Error(t, err)
 
 	assert.Equal(t, "Plain and explicit", binding.GetTLSDescription())
 

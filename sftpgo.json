@@ -12,6 +12,7 @@
     "temp_path": "",
     "proxy_protocol": 0,
     "proxy_allowed": [],
+    "proxy_skipped": [],
     "startup_hook": "",
     "post_connect_hook": "",
     "post_disconnect_hook": "",

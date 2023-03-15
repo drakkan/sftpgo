@@ -403,10 +403,8 @@ func TestInitialization(t *testing.T) {
 		},
 	}
 	common.Config.ProxyProtocol = 1
-	common.Config.ProxyAllowed = []string{"1270.0.0.1"}
 	assert.True(t, sftpdConf.Bindings[0].HasProxy())
-	err = sftpdConf.Initialize(configDir)
-	assert.Error(t, err)
+	common.Config.ProxyProtocol = 0
 	sftpdConf.HostKeys = []string{"missing key"}
 	err = sftpdConf.Initialize(configDir)
 	assert.Error(t, err)

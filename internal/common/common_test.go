@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/alexedwards/argon2id"
+	"github.com/pires/go-proxyproto"
 	"github.com/sftpgo/sdk"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -213,6 +214,36 @@ func TestConnections(t *testing.T) {
 	assert.Len(t, Connections.connections, 0)
 	assert.Len(t, Connections.mapping, 0)
 	Connections.RUnlock()
+}
+
+func TestInitializationProxyErrors(t *testing.T) {
+	configCopy := Config
+
+	c := Configuration{
+		ProxyProtocol: 1,
+		ProxyAllowed:  []string{"1.1.1.1111"},
+	}
+	err := Initialize(c, 0)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "invalid proxy allowed")
+	}
+	c.ProxyAllowed = nil
+	c.ProxySkipped = []string{"invalid"}
+	err = Initialize(c, 0)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "invalid proxy skipped")
+	}
+	c.ProxyAllowed = []string{"1.1.1.1"}
+	c.ProxySkipped = []string{"2.2.2.2", "10.8.0.0/24"}
+	err = Initialize(c, 0)
+	assert.NoError(t, err)
+	assert.Len(t, Config.proxyAllowed, 1)
+	assert.Len(t, Config.proxySkipped, 2)
+
+	Config = configCopy
+	assert.Equal(t, 0, Config.ProxyProtocol)
+	assert.Len(t, Config.proxyAllowed, 0)
+	assert.Len(t, Config.proxySkipped, 0)
 }
 
 func TestInitializationClosedProvider(t *testing.T) {
@@ -955,6 +986,34 @@ func TestQuotaScansRole(t *testing.T) {
 	assert.Len(t, QuotaScans.GetUsersQuotaScans(""), 0)
 }
 
+func TestProxyPolicy(t *testing.T) {
+	addr := net.TCPAddr{}
+	p := getProxyPolicy(nil, nil, proxyproto.IGNORE)
+	policy, err := p(&addr)
+	assert.Error(t, err)
+	assert.Equal(t, proxyproto.REJECT, policy)
+	ip1 := net.ParseIP("10.8.1.1")
+	ip2 := net.ParseIP("10.8.1.2")
+	ip3 := net.ParseIP("10.8.1.3")
+	allowed, err := util.ParseAllowedIPAndRanges([]string{ip1.String()})
+	assert.NoError(t, err)
+	skipped, err := util.ParseAllowedIPAndRanges([]string{ip2.String(), ip3.String()})
+	assert.NoError(t, err)
+	p = getProxyPolicy(allowed, skipped, proxyproto.IGNORE)
+	policy, err = p(&net.TCPAddr{IP: ip1})
+	assert.NoError(t, err)
+	assert.Equal(t, proxyproto.USE, policy)
+	policy, err = p(&net.TCPAddr{IP: ip2})
+	assert.NoError(t, err)
+	assert.Equal(t, proxyproto.SKIP, policy)
+	policy, err = p(&net.TCPAddr{IP: ip3})
+	assert.NoError(t, err)
+	assert.Equal(t, proxyproto.SKIP, policy)
+	policy, err = p(&net.TCPAddr{IP: net.ParseIP("10.8.1.4")})
+	assert.NoError(t, err)
+	assert.Equal(t, proxyproto.IGNORE, policy)
+}
+
 func TestProxyProtocolVersion(t *testing.T) {
 	c := Configuration{
 		ProxyProtocol: 0,
@@ -966,21 +1025,12 @@ func TestProxyProtocolVersion(t *testing.T) {
 	c.ProxyProtocol = 1
 	proxyListener, err := c.GetProxyListener(nil)
 	assert.NoError(t, err)
-	assert.Nil(t, proxyListener.Policy)
+	assert.NotNil(t, proxyListener.Policy)
 
 	c.ProxyProtocol = 2
 	proxyListener, err = c.GetProxyListener(nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, proxyListener.Policy)
-
-	c.ProxyProtocol = 1
-	c.ProxyAllowed = []string{"invalid"}
-	_, err = c.GetProxyListener(nil)
-	assert.Error(t, err)
-
-	c.ProxyProtocol = 2
-	_, err = c.GetProxyListener(nil)
-	assert.Error(t, err)
 }
 
 func TestStartupHook(t *testing.T) {

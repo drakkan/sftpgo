@@ -9,10 +9,10 @@ require (
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
 	github.com/alexedwards/argon2id v0.0.0-20230305115115-4b3c3280a736
 	github.com/aws/aws-sdk-go-v2 v1.17.6
-	github.com/aws/aws-sdk-go-v2/config v1.18.16
-	github.com/aws/aws-sdk-go-v2/credentials v1.13.16
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.24
-	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.56
+	github.com/aws/aws-sdk-go-v2/config v1.18.17
+	github.com/aws/aws-sdk-go-v2/credentials v1.13.17
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.13.0
+	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.57
 	github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.14.6
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.30.6
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.19.0
@@ -33,18 +33,18 @@ require (
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/go-hclog v1.4.0
-	github.com/hashicorp/go-plugin v1.4.9
+	github.com/hashicorp/go-plugin v1.4.10-0.20230306173702-d78f3fc2891d
 	github.com/hashicorp/go-retryablehttp v0.7.2
 	github.com/jackc/pgx/v5 v5.3.2-0.20230311213408-9ae852eb583d
 	github.com/jlaffaye/ftp v0.0.0-20201112195030-9aae4d151126
-	github.com/klauspost/compress v1.16.0
+	github.com/klauspost/compress v1.16.3
 	github.com/lestrrat-go/jwx/v2 v2.0.8
 	github.com/lithammer/shortuuid/v3 v3.0.7
 	github.com/mattn/go-sqlite3 v1.14.16
 	github.com/mhale/smtpd v0.8.0
 	github.com/minio/sio v0.3.1
 	github.com/otiai10/copy v1.9.0
-	github.com/pires/go-proxyproto v0.6.2
+	github.com/pires/go-proxyproto v0.7.0
 	github.com/pkg/sftp v1.13.6-0.20230213180117-971c283182b6
 	github.com/pquerna/otp v1.4.0
 	github.com/prometheus/client_golang v1.14.0
@@ -108,12 +108,12 @@ require (
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/go-jose/go-jose/v3 v3.0.0 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
-	github.com/goccy/go-json v0.10.0 // indirect
+	github.com/goccy/go-json v0.10.1 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.2.3 // indirect
-	github.com/googleapis/gax-go/v2 v2.7.1 // indirect
+	github.com/googleapis/gax-go/v2 v2.8.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/hashicorp/yamux v0.1.1 // indirect
@@ -159,7 +159,7 @@ require (
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20230306155012-7f2fa6fef1f4 // indirect
 	google.golang.org/grpc v1.53.0 // indirect
-	google.golang.org/protobuf v1.29.0 // indirect
+	google.golang.org/protobuf v1.29.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

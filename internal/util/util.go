@@ -290,6 +290,24 @@ func GetIPFromRemoteAddress(remoteAddress string) string {
 	return remoteAddress
 }
 
+// GetIPFromNetAddr returns the IP from the network address
+func GetIPFromNetAddr(upstream net.Addr) (net.IP, error) {
+	if upstream == nil {
+		return nil, errors.New("invalid address")
+	}
+	upstreamString, _, err := net.SplitHostPort(upstream.String())
+	if err != nil {
+		return nil, err
+	}
+
+	upstreamIP := net.ParseIP(upstreamString)
+	if upstreamIP == nil {
+		return nil, fmt.Errorf("invalid IP address: %q", upstreamString)
+	}
+
+	return upstreamIP, nil
+}
+
 // NilIfEmpty returns nil if the input string is empty
 func NilIfEmpty(s string) *string {
 	if s == "" {

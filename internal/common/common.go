@@ -220,6 +220,9 @@ func Initialize(c Configuration, isShared int) error {
 		logger.Info(logSender, "", "allow list initialized")
 		Config.allowList = allowList
 	}
+	if err := c.initializeProxyProtocol(); err != nil {
+		return err
+	}
 	vfs.SetTempPath(c.TempPath)
 	dataprovider.SetTempPath(c.TempPath)
 	vfs.SetAllowSelfConnections(c.AllowSelfConnections)
@@ -533,6 +536,8 @@ type Configuration struct {
 	// If proxy protocol is set to 2 and we receive a proxy header from an IP that is not in the list then the
 	// connection will be rejected.
 	ProxyAllowed []string `json:"proxy_allowed" mapstructure:"proxy_allowed"`
+	// List of IP addresses and IP ranges for which not to read the proxy header
+	ProxySkipped []string `json:"proxy_skipped" mapstructure:"proxy_skipped"`
 	// Absolute path to an external program or an HTTP URL to invoke as soon as SFTPGo starts.
 	// If you define an HTTP URL it will be invoked using a `GET` request.
 	// Please note that SFTPGo services may not yet be available when this hook is run.
@@ -569,6 +574,8 @@ type Configuration struct {
 	defender              Defender
 	allowList             *dataprovider.IPList
 	rateLimitersList      *dataprovider.IPList
+	proxyAllowed          []func(net.IP) bool
+	proxySkipped          []func(net.IP) bool
 }
 
 // IsAtomicUploadEnabled returns true if atomic upload is enabled
@@ -576,33 +583,34 @@ func (c *Configuration) IsAtomicUploadEnabled() bool {
 	return c.UploadMode == UploadModeAtomic || c.UploadMode == UploadModeAtomicWithResume
 }
 
+func (c *Configuration) initializeProxyProtocol() error {
+	if c.ProxyProtocol > 0 {
+		allowed, err := util.ParseAllowedIPAndRanges(c.ProxyAllowed)
+		if err != nil {
+			return fmt.Errorf("invalid proxy allowed: %w", err)
+		}
+		skipped, err := util.ParseAllowedIPAndRanges(c.ProxySkipped)
+		if err != nil {
+			return fmt.Errorf("invalid proxy skipped: %w", err)
+		}
+		Config.proxyAllowed = allowed
+		Config.proxySkipped = skipped
+	}
+	return nil
+}
+
 // GetProxyListener returns a wrapper for the given listener that supports the
 // HAProxy Proxy Protocol
 func (c *Configuration) GetProxyListener(listener net.Listener) (*proxyproto.Listener, error) {
-	var err error
 	if c.ProxyProtocol > 0 {
-		var policyFunc func(upstream net.Addr) (proxyproto.Policy, error)
-		if c.ProxyProtocol == 1 && len(c.ProxyAllowed) > 0 {
-			policyFunc, err = proxyproto.LaxWhiteListPolicy(c.ProxyAllowed)
-			if err != nil {
-				return nil, err
-			}
+		defaultPolicy := proxyproto.REQUIRE
+		if c.ProxyProtocol == 1 {
+			defaultPolicy = proxyproto.IGNORE
 		}
-		if c.ProxyProtocol == 2 {
-			if len(c.ProxyAllowed) == 0 {
-				policyFunc = func(upstream net.Addr) (proxyproto.Policy, error) {
-					return proxyproto.REQUIRE, nil
-				}
-			} else {
-				policyFunc, err = proxyproto.StrictWhiteListPolicy(c.ProxyAllowed)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
+
 		return &proxyproto.Listener{
 			Listener:          listener,
-			Policy:            policyFunc,
+			Policy:            getProxyPolicy(c.proxyAllowed, c.proxySkipped, defaultPolicy),
 			ReadHeaderTimeout: 10 * time.Second,
 		}, nil
 	}
@@ -775,6 +783,30 @@ func (c *Configuration) ExecutePostConnectHook(ipAddr, protocol string) error {
 		return getPermissionDeniedError(protocol)
 	}
 	return nil
+}
+
+func getProxyPolicy(allowed, skipped []func(net.IP) bool, def proxyproto.Policy) proxyproto.PolicyFunc {
+	return func(upstream net.Addr) (proxyproto.Policy, error) {
+		upstreamIP, err := util.GetIPFromNetAddr(upstream)
+		if err != nil {
+			// something is wrong with the source IP, better reject the connection
+			return proxyproto.REJECT, err
+		}
+
+		for _, skippedFrom := range skipped {
+			if skippedFrom(upstreamIP) {
+				return proxyproto.SKIP, nil
+			}
+		}
+
+		for _, allowFrom := range allowed {
+			if allowFrom(upstreamIP) {
+				return proxyproto.USE, nil
+			}
+		}
+
+		return def, nil
+	}
 }
 
 // SSHConnection defines an ssh connection.
