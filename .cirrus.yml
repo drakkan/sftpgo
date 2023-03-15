@@ -9,6 +9,7 @@ freebsd_task:
   pkginstall_script:
     - pkg update -f
     - pkg install -y go
+    - pkg install -y git
 
   compile_script:
     - go build -trimpath -tags nopgxregisterdefaulttypes -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=`git describe --always --abbrev=8 --dirty` -X github.com/drakkan/sftpgo/v2/internal/version.date=`date -u +%FT%TZ`" -o sftpgo
