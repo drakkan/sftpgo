@@ -11,19 +11,20 @@ freebsd_task:
     - pkg install -y go
     - pkg install -y git
 
-  compile_script:
-    - go build -trimpath -tags nopgxregisterdefaulttypes -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=`git describe --always --abbrev=8 --dirty` -X github.com/drakkan/sftpgo/v2/internal/version.date=`date -u +%FT%TZ`" -o sftpgo
-    - cd tests/eventsearcher && go build -trimpath -ldflags "-s -w" -o eventsearcher && cd -
-    - cd tests/ipfilter && go build -trimpath -ldflags "-s -w" -o ipfilter && cd -
-
   setup_script:
     - pw groupadd sftpgo
     - pw useradd sftpgo -g sftpgo -w none -m
-    - cp -R . /home/sftpgo
-    - chown -R sftpgo:sftpgo /home/sftpgo
+    - mkdir /home/sftpgo/sftpgo
+    - cp -R . /home/sftpgo/sftpgo
+    - chown -R sftpgo:sftpgo /home/sftpgo/sftpgo
+
+  compile_script:
+    - su sftpgo -c 'cd ~/sftpgo && go build -trimpath -tags nopgxregisterdefaulttypes -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=`git describe --always --abbrev=8 --dirty` -X github.com/drakkan/sftpgo/v2/internal/version.date=`date -u +%FT%TZ`" -o sftpgo'
+    - su sftpgo -c 'cd ~/sftpgo/tests/eventsearcher && go build -trimpath -ldflags "-s -w" -o eventsearcher'
+    - su sftpgo -c 'cd ~/sftpgo/tests/ipfilter && go build -trimpath -ldflags "-s -w" -o ipfilter'
 
   check_script:
-    - su sftpgo -c 'cd ~ && ./sftpgo initprovider && ./sftpgo resetprovider --force'
+    - su sftpgo -c 'cd ~/sftpgo && ./sftpgo initprovider && ./sftpgo resetprovider --force'
 
   test_script:
-    - su sftpgo -c 'cd ~ && go test -v -tags nopgxregisterdefaulttypes -p 1 -timeout 20m ./... -coverprofile=coverage.txt -covermode=atomic'
+    - su sftpgo -c 'cd ~/sftpgo && go test -v -tags nopgxregisterdefaulttypes -p 1 -timeout 20m ./... -coverprofile=coverage.txt -covermode=atomic'
