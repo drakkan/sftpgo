@@ -183,7 +183,7 @@ func restoreBackup(content []byte, inputFile string, scanQuota, mode int, execut
 		return util.NewValidationError(fmt.Sprintf("unable to parse backup content: %v", err))
 	}
 
-	if err = RestoreConfigs(dump.Configs, inputFile, mode, executor, ipAddress, role); err != nil {
+	if err = RestoreConfigs(dump.Configs, mode, executor, ipAddress, role); err != nil {
 		return err
 	}
 
@@ -423,7 +423,7 @@ func RestoreAdmins(admins []dataprovider.Admin, inputFile string, mode int, exec
 }
 
 // RestoreConfigs restores the specified provider configs
-func RestoreConfigs(configs *dataprovider.Configs, inputFile string, mode int, executor, ipAddress,
+func RestoreConfigs(configs *dataprovider.Configs, mode int, executor, ipAddress,
 	executorRole string,
 ) error {
 	if configs == nil {

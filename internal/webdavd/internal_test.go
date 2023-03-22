@@ -303,7 +303,7 @@ func (fs *MockOsFs) IsAtomicUploadSupported() bool {
 }
 
 // Remove removes the named file or (empty) directory.
-func (fs *MockOsFs) Remove(name string, isDir bool) error {
+func (fs *MockOsFs) Remove(name string, _ bool) error {
 	if fs.err != nil {
 		return fs.err
 	}
@@ -317,7 +317,7 @@ func (fs *MockOsFs) Rename(source, target string) (int, int64, error) {
 }
 
 // GetMimeType returns the content type
-func (fs *MockOsFs) GetMimeType(name string) (string, error) {
+func (fs *MockOsFs) GetMimeType(_ string) (string, error) {
 	if fs.err != nil {
 		return "", fs.err
 	}

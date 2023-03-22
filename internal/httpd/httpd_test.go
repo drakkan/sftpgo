@@ -1973,6 +1973,58 @@ func TestOnDemandEventRules(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestIDPLoginEventRule(t *testing.T) {
+	ruleName := "test IDP login rule"
+	a := dataprovider.BaseEventAction{
+		Name: "a",
+		Type: dataprovider.ActionTypeIDPAccountCheck,
+		Options: dataprovider.BaseEventActionOptions{
+			IDPConfig: dataprovider.EventActionIDPAccountCheck{
+				Mode:          1,
+				TemplateUser:  `{"username": "user"}`,
+				TemplateAdmin: `{"username": "admin"}`,
+			},
+		},
+	}
+	action, resp, err := httpdtest.AddEventAction(a, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	r := dataprovider.EventRule{
+		Name:    ruleName,
+		Status:  1,
+		Trigger: dataprovider.EventTriggerIDPLogin,
+		Conditions: dataprovider.EventConditions{
+			IDPLoginEvent: 1,
+			Options: dataprovider.ConditionOptions{
+				Names: []dataprovider.ConditionPattern{
+					{
+						Pattern: "username",
+					},
+				},
+			},
+		},
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: a.Name,
+				},
+				Options: dataprovider.EventActionOptions{
+					ExecuteSync: true,
+				},
+			},
+		},
+	}
+	rule, _, err := httpdtest.AddEventRule(r, http.StatusCreated)
+	assert.NoError(t, err)
+	rule.Status = 0
+	_, _, err = httpdtest.UpdateEventRule(rule, http.StatusOK)
+	assert.NoError(t, err)
+
+	_, err = httpdtest.RemoveEventRule(rule, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action, http.StatusOK)
+	assert.NoError(t, err)
+}
+
 func TestEventActionValidation(t *testing.T) {
 	action := dataprovider.BaseEventAction{
 		Name: "",
@@ -2235,6 +2287,15 @@ func TestEventActionValidation(t *testing.T) {
 	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
 	assert.NoError(t, err)
 	assert.Contains(t, string(resp), "threshold must be greater than 0")
+	action.Type = dataprovider.ActionTypeIDPAccountCheck
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "at least a template must be set")
+	action.Options.IDPConfig.TemplateAdmin = "{}"
+	action.Options.IDPConfig.Mode = 100
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "invalid account check mode")
 }
 
 func TestEventRuleValidation(t *testing.T) {
@@ -2367,7 +2428,7 @@ func TestEventRuleValidation(t *testing.T) {
 	}
 	_, resp, err = httpdtest.AddEventRule(rule, http.StatusBadRequest)
 	assert.NoError(t, err)
-	assert.Contains(t, string(resp), "event pre-upload requires at least a sync action")
+	assert.Contains(t, string(resp), "requires at least a sync action")
 	rule.Actions = []dataprovider.EventAction{
 		{
 			BaseEventAction: dataprovider.BaseEventAction{
@@ -2431,6 +2492,11 @@ func TestEventRuleValidation(t *testing.T) {
 	}
 	_, resp, err = httpdtest.AddEventRule(rule, http.StatusInternalServerError)
 	assert.NoError(t, err, string(resp))
+	rule.Trigger = dataprovider.EventTriggerIDPLogin
+	rule.Conditions.IDPLoginEvent = 100
+	_, resp, err = httpdtest.AddEventRule(rule, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "invalid Identity Provider login event")
 }
 
 func TestUserTransferLimits(t *testing.T) {
@@ -21532,6 +21598,26 @@ func TestWebEventAction(t *testing.T) {
 	assert.Equal(t, 0, actionGet.Options.CmdConfig.Timeout)
 	assert.Len(t, actionGet.Options.CmdConfig.EnvVars, 0)
 
+	action.Type = dataprovider.ActionTypeIDPAccountCheck
+	form.Set("type", fmt.Sprintf("%d", action.Type))
+	form.Set("idp_mode", "1")
+	form.Set("idp_user", `{"username":"user"}`)
+	form.Set("idp_admin", `{"username":"admin"}`)
+	form.Set("pwd_expiration_threshold", strconv.Itoa(action.Options.PwdExpirationConfig.Threshold))
+	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminEventActionPath, action.Name),
+		bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+	actionGet, _, err = httpdtest.GetEventActionByName(action.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, action.Type, actionGet.Type)
+	assert.Equal(t, 1, actionGet.Options.IDPConfig.Mode)
+	assert.Contains(t, actionGet.Options.IDPConfig.TemplateUser, `"user"`)
+	assert.Contains(t, actionGet.Options.IDPConfig.TemplateAdmin, `"admin"`)
+
 	req, err = http.NewRequest(http.MethodDelete, path.Join(webAdminEventActionPath, action.Name), nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, apiToken)
@@ -21785,6 +21871,36 @@ func TestWebEventRule(t *testing.T) {
 		assert.Equal(t, rule.Actions[0].Name, ruleGet.Actions[0].Name)
 		assert.Equal(t, rule.Actions[0].Order, ruleGet.Actions[0].Order)
 	}
+	rule.Trigger = dataprovider.EventTriggerIDPLogin
+	form.Set("trigger", fmt.Sprintf("%d", rule.Trigger))
+	form.Set("idp_login_event", "1")
+	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminEventRulePath, rule.Name),
+		bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+	// check the rule
+	ruleGet, _, err = httpdtest.GetEventRuleByName(rule.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, rule.Trigger, ruleGet.Trigger)
+	assert.Equal(t, 1, ruleGet.Conditions.IDPLoginEvent)
+
+	form.Set("idp_login_event", "2")
+	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminEventRulePath, rule.Name),
+		bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+	// check the rule
+	ruleGet, _, err = httpdtest.GetEventRuleByName(rule.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, rule.Trigger, ruleGet.Trigger)
+	assert.Equal(t, 2, ruleGet.Conditions.IDPLoginEvent)
+
 	// update a missing rule
 	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminEventRulePath, rule.Name+"1"),
 		bytes.NewBuffer([]byte(form.Encode())))

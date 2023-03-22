@@ -36,7 +36,7 @@ type localSecret struct {
 }
 
 // NewLocalSecret returns a SecretProvider that use a locally provided symmetric key
-func NewLocalSecret(base BaseSecret, url, masterKey string) SecretProvider {
+func NewLocalSecret(base BaseSecret, _, masterKey string) SecretProvider {
 	return &localSecret{
 		BaseSecret: base,
 		masterKey:  masterKey,

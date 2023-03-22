@@ -431,7 +431,7 @@ func (p *MemoryProvider) updateUser(user *User) error {
 	return nil
 }
 
-func (p *MemoryProvider) deleteUser(user User, softDelete bool) error {
+func (p *MemoryProvider) deleteUser(user User, _ bool) error {
 	p.dbHandle.Lock()
 	defer p.dbHandle.Unlock()
 	if p.dbHandle.isClosed {
@@ -898,7 +898,7 @@ func (p *MemoryProvider) updateFolderQuota(name string, filesAdd int, sizeAdd in
 	return nil
 }
 
-func (p *MemoryProvider) getGroups(limit, offset int, order string, minimal bool) ([]Group, error) {
+func (p *MemoryProvider) getGroups(limit, offset int, order string, _ bool) ([]Group, error) {
 	p.dbHandle.Lock()
 	defer p.dbHandle.Unlock()
 	if p.dbHandle.isClosed {
@@ -1422,7 +1422,7 @@ func (p *MemoryProvider) folderExistsInternal(name string) (vfs.BaseVirtualFolde
 	return vfs.BaseVirtualFolder{}, util.NewRecordNotFoundError(fmt.Sprintf("folder %q does not exist", name))
 }
 
-func (p *MemoryProvider) getFolders(limit, offset int, order string, minimal bool) ([]vfs.BaseVirtualFolder, error) {
+func (p *MemoryProvider) getFolders(limit, offset int, order string, _ bool) ([]vfs.BaseVirtualFolder, error) {
 	folders := make([]vfs.BaseVirtualFolder, 0, limit)
 	var err error
 	p.dbHandle.Lock()
@@ -2006,75 +2006,75 @@ func (p *MemoryProvider) updateShareLastUse(shareID string, numTokens int) error
 	return nil
 }
 
-func (p *MemoryProvider) getDefenderHosts(from int64, limit int) ([]DefenderEntry, error) {
+func (p *MemoryProvider) getDefenderHosts(_ int64, _ int) ([]DefenderEntry, error) {
 	return nil, ErrNotImplemented
 }
 
-func (p *MemoryProvider) getDefenderHostByIP(ip string, from int64) (DefenderEntry, error) {
+func (p *MemoryProvider) getDefenderHostByIP(_ string, _ int64) (DefenderEntry, error) {
 	return DefenderEntry{}, ErrNotImplemented
 }
 
-func (p *MemoryProvider) isDefenderHostBanned(ip string) (DefenderEntry, error) {
+func (p *MemoryProvider) isDefenderHostBanned(_ string) (DefenderEntry, error) {
 	return DefenderEntry{}, ErrNotImplemented
 }
 
-func (p *MemoryProvider) updateDefenderBanTime(ip string, minutes int) error {
+func (p *MemoryProvider) updateDefenderBanTime(_ string, _ int) error {
 	return ErrNotImplemented
 }
 
-func (p *MemoryProvider) deleteDefenderHost(ip string) error {
+func (p *MemoryProvider) deleteDefenderHost(_ string) error {
 	return ErrNotImplemented
 }
 
-func (p *MemoryProvider) addDefenderEvent(ip string, score int) error {
+func (p *MemoryProvider) addDefenderEvent(_ string, _ int) error {
 	return ErrNotImplemented
 }
 
-func (p *MemoryProvider) setDefenderBanTime(ip string, banTime int64) error {
+func (p *MemoryProvider) setDefenderBanTime(_ string, _ int64) error {
 	return ErrNotImplemented
 }
 
-func (p *MemoryProvider) cleanupDefender(from int64) error {
+func (p *MemoryProvider) cleanupDefender(_ int64) error {
 	return ErrNotImplemented
 }
 
-func (p *MemoryProvider) addActiveTransfer(transfer ActiveTransfer) error {
+func (p *MemoryProvider) addActiveTransfer(_ ActiveTransfer) error {
 	return ErrNotImplemented
 }
 
-func (p *MemoryProvider) updateActiveTransferSizes(ulSize, dlSize, transferID int64, connectionID string) error {
+func (p *MemoryProvider) updateActiveTransferSizes(_, _, _ int64, _ string) error {
 	return ErrNotImplemented
 }
 
-func (p *MemoryProvider) removeActiveTransfer(transferID int64, connectionID string) error {
+func (p *MemoryProvider) removeActiveTransfer(_ int64, _ string) error {
 	return ErrNotImplemented
 }
 
-func (p *MemoryProvider) cleanupActiveTransfers(before time.Time) error {
+func (p *MemoryProvider) cleanupActiveTransfers(_ time.Time) error {
 	return ErrNotImplemented
 }
 
-func (p *MemoryProvider) getActiveTransfers(from time.Time) ([]ActiveTransfer, error) {
+func (p *MemoryProvider) getActiveTransfers(_ time.Time) ([]ActiveTransfer, error) {
 	return nil, ErrNotImplemented
 }
 
-func (p *MemoryProvider) addSharedSession(session Session) error {
+func (p *MemoryProvider) addSharedSession(_ Session) error {
 	return ErrNotImplemented
 }
 
-func (p *MemoryProvider) deleteSharedSession(key string) error {
+func (p *MemoryProvider) deleteSharedSession(_ string) error {
 	return ErrNotImplemented
 }
 
-func (p *MemoryProvider) getSharedSession(key string) (Session, error) {
+func (p *MemoryProvider) getSharedSession(_ string) (Session, error) {
 	return Session{}, ErrNotImplemented
 }
 
-func (p *MemoryProvider) cleanupSharedSessions(sessionType SessionType, before int64) error {
+func (p *MemoryProvider) cleanupSharedSessions(_ SessionType, _ int64) error {
 	return ErrNotImplemented
 }
 
-func (p *MemoryProvider) getEventActions(limit, offset int, order string, minimal bool) ([]BaseEventAction, error) {
+func (p *MemoryProvider) getEventActions(limit, offset int, order string, _ bool) ([]BaseEventAction, error) {
 	p.dbHandle.Lock()
 	defer p.dbHandle.Unlock()
 	if p.dbHandle.isClosed {
@@ -2395,7 +2395,7 @@ func (p *MemoryProvider) updateEventRule(rule *EventRule) error {
 	return nil
 }
 
-func (p *MemoryProvider) deleteEventRule(rule EventRule, softDelete bool) error {
+func (p *MemoryProvider) deleteEventRule(rule EventRule, _ bool) error {
 	p.dbHandle.Lock()
 	defer p.dbHandle.Unlock()
 	if p.dbHandle.isClosed {
@@ -2420,19 +2420,19 @@ func (p *MemoryProvider) deleteEventRule(rule EventRule, softDelete bool) error 
 	return nil
 }
 
-func (*MemoryProvider) getTaskByName(name string) (Task, error) {
+func (*MemoryProvider) getTaskByName(_ string) (Task, error) {
 	return Task{}, ErrNotImplemented
 }
 
-func (*MemoryProvider) addTask(name string) error {
+func (*MemoryProvider) addTask(_ string) error {
 	return ErrNotImplemented
 }
 
-func (*MemoryProvider) updateTask(name string, version int64) error {
+func (*MemoryProvider) updateTask(_ string, _ int64) error {
 	return ErrNotImplemented
 }
 
-func (*MemoryProvider) updateTaskTimestamp(name string) error {
+func (*MemoryProvider) updateTaskTimestamp(_ string) error {
 	return ErrNotImplemented
 }
 
@@ -2440,7 +2440,7 @@ func (*MemoryProvider) addNode() error {
 	return ErrNotImplemented
 }
 
-func (*MemoryProvider) getNodeByName(name string) (Node, error) {
+func (*MemoryProvider) getNodeByName(_ string) (Node, error) {
 	return Node{}, ErrNotImplemented
 }
 
@@ -2550,7 +2550,7 @@ func (p *MemoryProvider) deleteRole(role Role) error {
 	return nil
 }
 
-func (p *MemoryProvider) getRoles(limit int, offset int, order string, minimal bool) ([]Role, error) {
+func (p *MemoryProvider) getRoles(limit int, offset int, order string, _ bool) ([]Role, error) {
 	p.dbHandle.Lock()
 	defer p.dbHandle.Unlock()
 
@@ -2662,7 +2662,7 @@ func (p *MemoryProvider) updateIPListEntry(entry *IPListEntry) error {
 	return nil
 }
 
-func (p *MemoryProvider) deleteIPListEntry(entry IPListEntry, softDelete bool) error {
+func (p *MemoryProvider) deleteIPListEntry(entry IPListEntry, _ bool) error {
 	if err := entry.validate(); err != nil {
 		return err
 	}
@@ -2721,7 +2721,7 @@ func (p *MemoryProvider) getIPListEntries(listType IPListType, filter, from, ord
 	return entries, nil
 }
 
-func (p *MemoryProvider) getRecentlyUpdatedIPListEntries(after int64) ([]IPListEntry, error) {
+func (p *MemoryProvider) getRecentlyUpdatedIPListEntries(_ int64) ([]IPListEntry, error) {
 	return nil, ErrNotImplemented
 }
 
@@ -3293,7 +3293,7 @@ func (p *MemoryProvider) migrateDatabase() error {
 	return ErrNoInitRequired
 }
 
-func (p *MemoryProvider) revertDatabase(targetVersion int) error {
+func (p *MemoryProvider) revertDatabase(_ int) error {
 	return errors.New("memory provider does not store data, revert not possible")
 }
 

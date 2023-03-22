@@ -82,7 +82,7 @@ type webDavFileInfo struct {
 }
 
 // ContentType implements webdav.ContentTyper interface
-func (fi *webDavFileInfo) ContentType(ctx context.Context) (string, error) {
+func (fi *webDavFileInfo) ContentType(_ context.Context) (string, error) {
 	extension := path.Ext(fi.virtualPath)
 	if ctype, ok := customMimeTypeMapping[extension]; ok {
 		return ctype, nil
@@ -107,7 +107,7 @@ func (fi *webDavFileInfo) ContentType(ctx context.Context) (string, error) {
 }
 
 // Readdir reads directory entries from the handle
-func (f *webDavFile) Readdir(count int) ([]os.FileInfo, error) {
+func (f *webDavFile) Readdir(_ int) ([]os.FileInfo, error) {
 	if !f.Connection.User.HasPerm(dataprovider.PermListItems, f.GetVirtualPath()) {
 		return nil, f.Connection.GetPermissionDeniedError()
 	}

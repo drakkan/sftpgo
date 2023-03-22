@@ -385,7 +385,7 @@ func (fs *HTTPFs) Rename(source, target string) (int, int64, error) {
 }
 
 // Remove removes the named file or (empty) directory.
-func (fs *HTTPFs) Remove(name string, isDir bool) error {
+func (fs *HTTPFs) Remove(name string, _ bool) error {
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
 	defer cancelFn()
 
@@ -411,17 +411,17 @@ func (fs *HTTPFs) Mkdir(name string) error {
 }
 
 // Symlink creates source as a symbolic link to target.
-func (*HTTPFs) Symlink(source, target string) error {
+func (*HTTPFs) Symlink(_, _ string) error {
 	return ErrVfsUnsupported
 }
 
 // Readlink returns the destination of the named symbolic link
-func (*HTTPFs) Readlink(name string) (string, error) {
+func (*HTTPFs) Readlink(_ string) (string, error) {
 	return "", ErrVfsUnsupported
 }
 
 // Chown changes the numeric uid and gid of the named file.
-func (fs *HTTPFs) Chown(name string, uid int, gid int) error {
+func (fs *HTTPFs) Chown(_ string, _ int, _ int) error {
 	return ErrVfsUnsupported
 }
 
@@ -440,7 +440,7 @@ func (fs *HTTPFs) Chmod(name string, mode os.FileMode) error {
 }
 
 // Chtimes changes the access and modification times of the named file.
-func (fs *HTTPFs) Chtimes(name string, atime, mtime time.Time, isUploading bool) error {
+func (fs *HTTPFs) Chtimes(name string, atime, mtime time.Time, _ bool) error {
 	ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
 	defer cancelFn()
 
@@ -562,7 +562,7 @@ func (fs *HTTPFs) GetDirSize(dirname string) (int, int64, error) {
 }
 
 // GetAtomicUploadPath returns the path to use for an atomic upload.
-func (*HTTPFs) GetAtomicUploadPath(name string) string {
+func (*HTTPFs) GetAtomicUploadPath(_ string) string {
 	return ""
 }
 

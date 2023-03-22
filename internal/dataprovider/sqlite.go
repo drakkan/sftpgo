@@ -603,7 +603,7 @@ func (*SQLiteProvider) addNode() error {
 	return ErrNotImplemented
 }
 
-func (*SQLiteProvider) getNodeByName(name string) (Node, error) {
+func (*SQLiteProvider) getNodeByName(_ string) (Node, error) {
 	return Node{}, ErrNotImplemented
 }
 

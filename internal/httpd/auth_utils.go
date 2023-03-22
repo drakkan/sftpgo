@@ -298,6 +298,7 @@ func (c *jwtTokenClaims) removeCookie(w http.ResponseWriter, r *http.Request, co
 		Secure:   isTLS(r),
 		SameSite: http.SameSiteStrictMode,
 	})
+	w.Header().Add("Cache-Control", `no-cache="Set-Cookie"`)
 	invalidateToken(r)
 }
 

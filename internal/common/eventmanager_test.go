@@ -46,7 +46,7 @@ import (
 
 func TestEventRuleMatch(t *testing.T) {
 	role := "role1"
-	conditions := dataprovider.EventConditions{
+	conditions := &dataprovider.EventConditions{
 		ProviderEvents: []string{"add", "update"},
 		Options: dataprovider.ConditionOptions{
 			Names: []dataprovider.ConditionPattern{
@@ -62,40 +62,40 @@ func TestEventRuleMatch(t *testing.T) {
 			},
 		},
 	}
-	res := eventManager.checkProviderEventMatch(conditions, EventParams{
+	res := eventManager.checkProviderEventMatch(conditions, &EventParams{
 		Name:  "user1",
 		Role:  role,
 		Event: "add",
 	})
 	assert.False(t, res)
-	res = eventManager.checkProviderEventMatch(conditions, EventParams{
+	res = eventManager.checkProviderEventMatch(conditions, &EventParams{
 		Name:  "user2",
 		Role:  role,
 		Event: "update",
 	})
 	assert.True(t, res)
-	res = eventManager.checkProviderEventMatch(conditions, EventParams{
+	res = eventManager.checkProviderEventMatch(conditions, &EventParams{
 		Name:  "user2",
 		Role:  role,
 		Event: "delete",
 	})
 	assert.False(t, res)
 	conditions.Options.ProviderObjects = []string{"api_key"}
-	res = eventManager.checkProviderEventMatch(conditions, EventParams{
+	res = eventManager.checkProviderEventMatch(conditions, &EventParams{
 		Name:       "user2",
 		Event:      "update",
 		Role:       role,
 		ObjectType: "share",
 	})
 	assert.False(t, res)
-	res = eventManager.checkProviderEventMatch(conditions, EventParams{
+	res = eventManager.checkProviderEventMatch(conditions, &EventParams{
 		Name:       "user2",
 		Event:      "update",
 		Role:       role,
 		ObjectType: "api_key",
 	})
 	assert.True(t, res)
-	res = eventManager.checkProviderEventMatch(conditions, EventParams{
+	res = eventManager.checkProviderEventMatch(conditions, &EventParams{
 		Name:       "user2",
 		Event:      "update",
 		Role:       role + "1",
@@ -103,7 +103,7 @@ func TestEventRuleMatch(t *testing.T) {
 	})
 	assert.False(t, res)
 	// now test fs events
-	conditions = dataprovider.EventConditions{
+	conditions = &dataprovider.EventConditions{
 		FsEvents: []string{operationUpload, operationDownload},
 		Options: dataprovider.ConditionOptions{
 			Names: []dataprovider.ConditionPattern{
@@ -138,41 +138,41 @@ func TestEventRuleMatch(t *testing.T) {
 		ObjectName:  "path.txt",
 		FileSize:    20,
 	}
-	res = eventManager.checkFsEventMatch(conditions, params)
+	res = eventManager.checkFsEventMatch(conditions, &params)
 	assert.False(t, res)
 	params.Event = operationDownload
-	res = eventManager.checkFsEventMatch(conditions, params)
+	res = eventManager.checkFsEventMatch(conditions, &params)
 	assert.True(t, res)
 	params.Role = role
-	res = eventManager.checkFsEventMatch(conditions, params)
+	res = eventManager.checkFsEventMatch(conditions, &params)
 	assert.False(t, res)
 	params.Role = ""
 	params.Name = "name"
-	res = eventManager.checkFsEventMatch(conditions, params)
+	res = eventManager.checkFsEventMatch(conditions, &params)
 	assert.False(t, res)
 	params.Name = "user5"
-	res = eventManager.checkFsEventMatch(conditions, params)
+	res = eventManager.checkFsEventMatch(conditions, &params)
 	assert.True(t, res)
 	params.VirtualPath = "/sub/f.jpg"
 	params.ObjectName = path.Base(params.VirtualPath)
-	res = eventManager.checkFsEventMatch(conditions, params)
+	res = eventManager.checkFsEventMatch(conditions, &params)
 	assert.False(t, res)
 	params.VirtualPath = "/sub/f.txt"
 	params.ObjectName = path.Base(params.VirtualPath)
-	res = eventManager.checkFsEventMatch(conditions, params)
+	res = eventManager.checkFsEventMatch(conditions, &params)
 	assert.True(t, res)
 	params.Protocol = ProtocolHTTP
-	res = eventManager.checkFsEventMatch(conditions, params)
+	res = eventManager.checkFsEventMatch(conditions, &params)
 	assert.False(t, res)
 	params.Protocol = ProtocolSFTP
 	params.FileSize = 5
-	res = eventManager.checkFsEventMatch(conditions, params)
+	res = eventManager.checkFsEventMatch(conditions, &params)
 	assert.False(t, res)
 	params.FileSize = 50
-	res = eventManager.checkFsEventMatch(conditions, params)
+	res = eventManager.checkFsEventMatch(conditions, &params)
 	assert.False(t, res)
 	params.FileSize = 25
-	res = eventManager.checkFsEventMatch(conditions, params)
+	res = eventManager.checkFsEventMatch(conditions, &params)
 	assert.True(t, res)
 	// bad pattern
 	conditions.Options.Names = []dataprovider.ConditionPattern{
@@ -180,10 +180,10 @@ func TestEventRuleMatch(t *testing.T) {
 			Pattern: "[-]",
 		},
 	}
-	res = eventManager.checkFsEventMatch(conditions, params)
+	res = eventManager.checkFsEventMatch(conditions, &params)
 	assert.False(t, res)
 	// check fs events with group name filters
-	conditions = dataprovider.EventConditions{
+	conditions = &dataprovider.EventConditions{
 		FsEvents: []string{operationUpload, operationDownload},
 		Options: dataprovider.ConditionOptions{
 			GroupNames: []dataprovider.ConditionPattern{
@@ -200,7 +200,7 @@ func TestEventRuleMatch(t *testing.T) {
 		Name:  "user1",
 		Event: operationUpload,
 	}
-	res = eventManager.checkFsEventMatch(conditions, params)
+	res = eventManager.checkFsEventMatch(conditions, &params)
 	assert.False(t, res)
 	params.Groups = []sdk.GroupMapping{
 		{
@@ -212,7 +212,7 @@ func TestEventRuleMatch(t *testing.T) {
 			Type: sdk.GroupTypeSecondary,
 		},
 	}
-	res = eventManager.checkFsEventMatch(conditions, params)
+	res = eventManager.checkFsEventMatch(conditions, &params)
 	assert.False(t, res)
 	params.Groups = []sdk.GroupMapping{
 		{
@@ -224,7 +224,7 @@ func TestEventRuleMatch(t *testing.T) {
 			Type: sdk.GroupTypeSecondary,
 		},
 	}
-	res = eventManager.checkFsEventMatch(conditions, params)
+	res = eventManager.checkFsEventMatch(conditions, &params)
 	assert.True(t, res)
 	// check user conditions
 	user := dataprovider.User{}
@@ -267,6 +267,58 @@ func TestEventRuleMatch(t *testing.T) {
 				Pattern: role,
 			},
 		},
+	})
+	assert.False(t, res)
+	res = eventManager.checkIPDLoginEventMatch(&dataprovider.EventConditions{
+		IDPLoginEvent: 0,
+	}, &EventParams{
+		Event: IDPLoginAdmin,
+	})
+	assert.True(t, res)
+	res = eventManager.checkIPDLoginEventMatch(&dataprovider.EventConditions{
+		IDPLoginEvent: 2,
+	}, &EventParams{
+		Event: IDPLoginAdmin,
+	})
+	assert.True(t, res)
+	res = eventManager.checkIPDLoginEventMatch(&dataprovider.EventConditions{
+		IDPLoginEvent: 1,
+	}, &EventParams{
+		Event: IDPLoginAdmin,
+	})
+	assert.False(t, res)
+	res = eventManager.checkIPDLoginEventMatch(&dataprovider.EventConditions{
+		IDPLoginEvent: 1,
+	}, &EventParams{
+		Event: IDPLoginUser,
+	})
+	assert.True(t, res)
+	res = eventManager.checkIPDLoginEventMatch(&dataprovider.EventConditions{
+		IDPLoginEvent: 1,
+	}, &EventParams{
+		Name:  "user",
+		Event: IDPLoginUser,
+	})
+	assert.True(t, res)
+	res = eventManager.checkIPDLoginEventMatch(&dataprovider.EventConditions{
+		IDPLoginEvent: 1,
+		Options: dataprovider.ConditionOptions{
+			Names: []dataprovider.ConditionPattern{
+				{
+					Pattern: "abc",
+				},
+			},
+		},
+	}, &EventParams{
+		Name:  "user",
+		Event: IDPLoginUser,
+	})
+	assert.False(t, res)
+	res = eventManager.checkIPDLoginEventMatch(&dataprovider.EventConditions{
+		IDPLoginEvent: 2,
+	}, &EventParams{
+		Name:  "user",
+		Event: IDPLoginUser,
 	})
 	assert.False(t, res)
 }
@@ -453,6 +505,10 @@ func TestEventManagerErrors(t *testing.T) {
 	err = executePwdExpirationCheckRuleAction(dataprovider.EventActionPasswordExpiration{},
 		dataprovider.ConditionOptions{}, &EventParams{})
 	assert.Error(t, err)
+	_, err = executeAdminCheckAction(&dataprovider.EventActionIDPAccountCheck{}, &EventParams{})
+	assert.Error(t, err)
+	_, err = executeUserCheckAction(&dataprovider.EventActionIDPAccountCheck{}, &EventParams{})
+	assert.Error(t, err)
 
 	groupName := "agroup"
 	err = executeQuotaResetForUser(&dataprovider.User{
@@ -545,7 +601,7 @@ func TestEventManagerErrors(t *testing.T) {
 		}}, dataprovider.EventActionPasswordExpiration{})
 	assert.Error(t, err)
 
-	_, _, err = getHTTPRuleActionBody(dataprovider.EventActionHTTPConfig{
+	_, _, err = getHTTPRuleActionBody(&dataprovider.EventActionHTTPConfig{
 		Method: http.MethodPost,
 		Parts: []dataprovider.HTTPPart{
 			{
@@ -562,7 +618,7 @@ func TestEventManagerErrors(t *testing.T) {
 				Type: sdk.GroupTypePrimary,
 			},
 		},
-	}, &EventParams{})
+	}, &EventParams{}, false)
 	assert.Error(t, err)
 
 	dataRetentionAction := dataprovider.BaseEventAction{
@@ -1181,11 +1237,17 @@ func TestEventRuleActions(t *testing.T) {
 		assert.Contains(t, err.Error(), "no folder quota reset executed")
 	}
 
-	body, _, err := getHTTPRuleActionBody(dataprovider.EventActionHTTPConfig{
+	body, _, err := getHTTPRuleActionBody(&dataprovider.EventActionHTTPConfig{
 		Method: http.MethodPost,
-	}, nil, nil, dataprovider.User{}, &EventParams{})
+	}, nil, nil, dataprovider.User{}, &EventParams{}, true)
 	assert.NoError(t, err)
 	assert.Nil(t, body)
+	body, _, err = getHTTPRuleActionBody(&dataprovider.EventActionHTTPConfig{
+		Method: http.MethodPost,
+		Body:   "test body",
+	}, nil, nil, dataprovider.User{}, &EventParams{}, false)
+	assert.NoError(t, err)
+	assert.NotNil(t, body)
 
 	err = os.RemoveAll(folder1.MappedPath)
 	assert.NoError(t, err)
@@ -1193,6 +1255,99 @@ func TestEventRuleActions(t *testing.T) {
 	assert.NoError(t, err)
 	err = dataprovider.DeleteFolder(foldername2, "", "", "")
 	assert.NoError(t, err)
+}
+
+func TestIDPAccountCheckRule(t *testing.T) {
+	_, _, err := executeIDPAccountCheckRule(dataprovider.EventRule{}, EventParams{})
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "no action executed")
+	}
+	_, _, err = executeIDPAccountCheckRule(dataprovider.EventRule{
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: "n",
+					Type: dataprovider.ActionTypeIDPAccountCheck,
+				},
+			},
+		},
+	}, EventParams{Event: "invalid"})
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "unsupported IDP login event")
+	}
+	// invalid json
+	_, err = executeAdminCheckAction(&dataprovider.EventActionIDPAccountCheck{TemplateAdmin: "{"}, &EventParams{Name: "missing admin"})
+	assert.Error(t, err)
+	_, err = executeUserCheckAction(&dataprovider.EventActionIDPAccountCheck{TemplateUser: "["}, &EventParams{Name: "missing user"})
+	assert.Error(t, err)
+	_, err = executeUserCheckAction(&dataprovider.EventActionIDPAccountCheck{TemplateUser: "{}"}, &EventParams{Name: "invalid user template"})
+	assert.ErrorIs(t, err, util.ErrValidation)
+	username := "u"
+	c := &dataprovider.EventActionIDPAccountCheck{
+		Mode:         1,
+		TemplateUser: `{"username":"` + username + `","status":1,"home_dir":"` + util.JSONEscape(filepath.Join(os.TempDir())) + `","permissions":{"/":["*"]}}`,
+	}
+	params := &EventParams{
+		Name:  username,
+		Event: IDPLoginUser,
+	}
+	user, err := executeUserCheckAction(c, params)
+	assert.NoError(t, err)
+	assert.Equal(t, username, user.Username)
+	assert.Equal(t, 1, user.Status)
+	user.Status = 0
+	err = dataprovider.UpdateUser(user, "", "", "")
+	assert.NoError(t, err)
+	// the user is not changed
+	user, err = executeUserCheckAction(c, params)
+	assert.NoError(t, err)
+	assert.Equal(t, username, user.Username)
+	assert.Equal(t, 0, user.Status)
+	// change the mode, the user is now updated
+	c.Mode = 0
+	user, err = executeUserCheckAction(c, params)
+	assert.NoError(t, err)
+	assert.Equal(t, username, user.Username)
+	assert.Equal(t, 1, user.Status)
+
+	err = dataprovider.DeleteUser(username, "", "", "")
+	assert.NoError(t, err)
+	// check rule consistency
+	r := dataprovider.EventRule{
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Type: dataprovider.ActionTypeIDPAccountCheck,
+				},
+				Order: 1,
+			},
+		},
+	}
+	err = r.CheckActionsConsistency("")
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "IDP account check action is only supported for IDP login trigger")
+	}
+	r.Trigger = dataprovider.EventTriggerIDPLogin
+	err = r.CheckActionsConsistency("")
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "IDP account check must be a sync action")
+	}
+	r.Actions[0].Options.ExecuteSync = true
+	err = r.CheckActionsConsistency("")
+	assert.NoError(t, err)
+	r.Actions = append(r.Actions, dataprovider.EventAction{
+		BaseEventAction: dataprovider.BaseEventAction{
+			Type: dataprovider.ActionTypeCommand,
+		},
+		Options: dataprovider.EventActionOptions{
+			ExecuteSync: true,
+		},
+		Order: 2,
+	})
+	err = r.CheckActionsConsistency("")
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "IDP account check must be the only sync action")
+	}
 }
 
 func TestUserExpirationCheck(t *testing.T) {
@@ -1778,6 +1933,22 @@ func TestEventParamsCopy(t *testing.T) {
 	assert.Equal(t, "a_copy", paramsCopy.retentionChecks[0].ActionName)
 	assert.Equal(t, "p_copy", paramsCopy.retentionChecks[0].Results[0].Path)
 	assert.Equal(t, 2, paramsCopy.retentionChecks[0].Results[0].Retention)
+	assert.Nil(t, params.IDPCustomFields)
+	params.addIDPCustomFields(nil)
+	assert.Nil(t, params.IDPCustomFields)
+	params.IDPCustomFields = &map[string]string{
+		"field1": "val1",
+	}
+	paramsCopy = params.getACopy()
+	for k, v := range *paramsCopy.IDPCustomFields {
+		assert.Equal(t, "field1", k)
+		assert.Equal(t, "val1", v)
+	}
+	assert.Equal(t, params.IDPCustomFields, paramsCopy.IDPCustomFields)
+	paramsCopy.addIDPCustomFields(&map[string]any{
+		"field2": "val2",
+	})
+	assert.NotEqual(t, params.IDPCustomFields, paramsCopy.IDPCustomFields)
 }
 
 func TestEventParamsStatusFromError(t *testing.T) {
@@ -1810,14 +1981,14 @@ func TestWriteHTTPPartsError(t *testing.T) {
 		errTest: io.ErrShortWrite,
 	})
 
-	err := writeHTTPPart(m, dataprovider.HTTPPart{}, nil, nil, nil, &EventParams{})
+	err := writeHTTPPart(m, dataprovider.HTTPPart{}, nil, nil, nil, &EventParams{}, false)
 	assert.ErrorIs(t, err, io.ErrShortWrite)
 
 	body := "test body"
 	m = multipart.NewWriter(&testWriter{sentinel: body})
 	err = writeHTTPPart(m, dataprovider.HTTPPart{
 		Body: body,
-	}, nil, nil, nil, &EventParams{})
+	}, nil, nil, nil, &EventParams{}, false)
 	assert.ErrorIs(t, err, io.ErrUnexpectedEOF)
 }
 

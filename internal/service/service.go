@@ -351,7 +351,7 @@ func (s *Service) LoadInitialData() error {
 }
 
 func (s *Service) restoreDump(dump *dataprovider.BackupData) error {
-	err := httpd.RestoreConfigs(dump.Configs, s.LoadDataFrom, s.LoadDataMode, dataprovider.ActionExecutorSystem, "", "")
+	err := httpd.RestoreConfigs(dump.Configs, s.LoadDataMode, dataprovider.ActionExecutorSystem, "", "")
 	if err != nil {
 		return fmt.Errorf("unable to restore configs from file %q: %v", s.LoadDataFrom, err)
 	}

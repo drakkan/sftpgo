@@ -6033,6 +6033,286 @@ func TestEventRuleRenameEvent(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestEventRuleIDPLogin(t *testing.T) {
+	smtpCfg := smtp.Config{
+		Host:          "127.0.0.1",
+		Port:          2525,
+		From:          "notify@example.com",
+		TemplatesPath: "templates",
+	}
+	err := smtpCfg.Initialize(configDir, true)
+	require.NoError(t, err)
+	lastReceivedEmail.reset()
+
+	username := `test_"idp_"login`
+	custom1 := `cust"oa"1`
+	u := map[string]any{
+		"username": "{{Name}}",
+		"status":   1,
+		"home_dir": filepath.Join(os.TempDir(), "{{IDPFieldcustom1}}"),
+		"permissions": map[string][]string{
+			"/": {dataprovider.PermAny},
+		},
+	}
+	userTmpl, err := json.Marshal(u)
+	require.NoError(t, err)
+	a := map[string]any{
+		"username":    "{{Name}}",
+		"status":      1,
+		"permissions": []string{dataprovider.PermAdminAny},
+	}
+	adminTmpl, err := json.Marshal(a)
+	require.NoError(t, err)
+
+	a1 := dataprovider.BaseEventAction{
+		Name: "a1",
+		Type: dataprovider.ActionTypeIDPAccountCheck,
+		Options: dataprovider.BaseEventActionOptions{
+			IDPConfig: dataprovider.EventActionIDPAccountCheck{
+				Mode:          1, // create if not exists
+				TemplateUser:  string(userTmpl),
+				TemplateAdmin: string(adminTmpl),
+			},
+		},
+	}
+	action1, _, err := httpdtest.AddEventAction(a1, http.StatusCreated)
+	assert.NoError(t, err)
+	a2 := dataprovider.BaseEventAction{
+		Name: "a2",
+		Type: dataprovider.ActionTypeEmail,
+		Options: dataprovider.BaseEventActionOptions{
+			EmailConfig: dataprovider.EventActionEmailConfig{
+				Recipients: []string{"test@example.com"},
+				Subject:    `"{{Event}} {{StatusString}}"`,
+				Body:       "{{Name}} Custom field: {{IDPFieldcustom1}}",
+			},
+		},
+	}
+	action2, _, err := httpdtest.AddEventAction(a2, http.StatusCreated)
+	assert.NoError(t, err)
+	r1 := dataprovider.EventRule{
+		Name:    "test rule IDP login",
+		Status:  1,
+		Trigger: dataprovider.EventTriggerIDPLogin,
+		Conditions: dataprovider.EventConditions{
+			IDPLoginEvent: dataprovider.IDPLoginUser,
+		},
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action1.Name, // the rule is not sync and will be skipped
+				},
+				Order: 1,
+			},
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action2.Name,
+				},
+				Order: 2,
+			},
+		},
+	}
+	rule1, resp, err := httpdtest.AddEventRule(r1, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+
+	customFields := map[string]any{
+		"custom1": custom1,
+	}
+	user, admin, err := common.HandleIDPLoginEvent(common.EventParams{
+		Name:   username,
+		Event:  common.IDPLoginUser,
+		Status: 1,
+	}, &customFields)
+	assert.Nil(t, user)
+	assert.Nil(t, admin)
+	assert.NoError(t, err)
+
+	rule1.Actions[0].Options.ExecuteSync = true
+	rule1, resp, err = httpdtest.UpdateEventRule(rule1, http.StatusOK)
+	assert.NoError(t, err, string(resp))
+	user, admin, err = common.HandleIDPLoginEvent(common.EventParams{
+		Name:   username,
+		Event:  common.IDPLoginUser,
+		Status: 1,
+	}, &customFields)
+	if assert.NotNil(t, user) {
+		assert.Equal(t, filepath.Join(os.TempDir(), custom1), user.GetHomeDir())
+		_, err = httpdtest.RemoveUser(*user, http.StatusOK)
+		assert.NoError(t, err)
+	}
+	assert.Nil(t, admin)
+	assert.NoError(t, err)
+	assert.Eventually(t, func() bool {
+		return lastReceivedEmail.get().From != ""
+	}, 3000*time.Millisecond, 100*time.Millisecond)
+	email := lastReceivedEmail.get()
+	assert.Len(t, email.To, 1)
+	assert.True(t, util.Contains(email.To, "test@example.com"))
+	assert.Contains(t, email.Data, fmt.Sprintf(`Subject: "%s OK"`, common.IDPLoginUser))
+	assert.Contains(t, email.Data, username)
+	assert.Contains(t, email.Data, custom1)
+
+	user, admin, err = common.HandleIDPLoginEvent(common.EventParams{
+		Name:   username,
+		Event:  common.IDPLoginAdmin,
+		Status: 1,
+	}, &customFields)
+	assert.Nil(t, user)
+	assert.Nil(t, admin)
+	assert.NoError(t, err)
+
+	rule1.Conditions.IDPLoginEvent = dataprovider.IDPLoginAny
+	rule1.Actions = []dataprovider.EventAction{
+		{
+			BaseEventAction: dataprovider.BaseEventAction{
+				Name: action1.Name,
+			},
+			Options: dataprovider.EventActionOptions{
+				ExecuteSync: true,
+			},
+			Order: 1,
+		},
+	}
+	rule1, _, err = httpdtest.UpdateEventRule(rule1, http.StatusOK)
+	assert.NoError(t, err)
+
+	r2 := dataprovider.EventRule{
+		Name:    "test email on IDP login",
+		Status:  1,
+		Trigger: dataprovider.EventTriggerIDPLogin,
+		Conditions: dataprovider.EventConditions{
+			IDPLoginEvent: dataprovider.IDPLoginAdmin,
+		},
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action2.Name,
+				},
+				Order: 1,
+			},
+		},
+	}
+	rule2, resp, err := httpdtest.AddEventRule(r2, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+
+	lastReceivedEmail.reset()
+	user, admin, err = common.HandleIDPLoginEvent(common.EventParams{
+		Name:   username,
+		Event:  common.IDPLoginAdmin,
+		Status: 1,
+	}, &customFields)
+	assert.Nil(t, user)
+	if assert.NotNil(t, admin) {
+		assert.Equal(t, 1, admin.Status)
+	}
+	assert.NoError(t, err)
+	assert.Eventually(t, func() bool {
+		return lastReceivedEmail.get().From != ""
+	}, 3000*time.Millisecond, 100*time.Millisecond)
+	email = lastReceivedEmail.get()
+	assert.Len(t, email.To, 1)
+	assert.True(t, util.Contains(email.To, "test@example.com"))
+	assert.Contains(t, email.Data, fmt.Sprintf(`Subject: "%s OK"`, common.IDPLoginAdmin))
+	assert.Contains(t, email.Data, username)
+	assert.Contains(t, email.Data, custom1)
+	admin.Status = 0
+	_, _, err = httpdtest.UpdateAdmin(*admin, http.StatusOK)
+	assert.NoError(t, err)
+	user, admin, err = common.HandleIDPLoginEvent(common.EventParams{
+		Name:   username,
+		Event:  common.IDPLoginAdmin,
+		Status: 1,
+	}, &customFields)
+	assert.Nil(t, user)
+	if assert.NotNil(t, admin) {
+		assert.Equal(t, 0, admin.Status)
+	}
+	assert.NoError(t, err)
+	action1.Options.IDPConfig.Mode = 0
+	action1, _, err = httpdtest.UpdateEventAction(action1, http.StatusOK)
+	assert.NoError(t, err)
+	user, admin, err = common.HandleIDPLoginEvent(common.EventParams{
+		Name:   username,
+		Event:  common.IDPLoginAdmin,
+		Status: 1,
+	}, &customFields)
+	assert.Nil(t, user)
+	if assert.NotNil(t, admin) {
+		assert.Equal(t, 1, admin.Status)
+	}
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveAdmin(*admin, http.StatusOK)
+	assert.NoError(t, err)
+
+	r3 := dataprovider.EventRule{
+		Name:    "test rule2 IDP login",
+		Status:  1,
+		Trigger: dataprovider.EventTriggerIDPLogin,
+		Conditions: dataprovider.EventConditions{
+			IDPLoginEvent: dataprovider.IDPLoginAny,
+		},
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action1.Name,
+				},
+				Order: 1,
+				Options: dataprovider.EventActionOptions{
+					ExecuteSync: true,
+				},
+			},
+		},
+	}
+	rule3, resp, err := httpdtest.AddEventRule(r3, http.StatusCreated)
+	assert.NoError(t, err, string(resp))
+	user, admin, err = common.HandleIDPLoginEvent(common.EventParams{
+		Name:   username,
+		Event:  common.IDPLoginAdmin,
+		Status: 1,
+	}, &customFields)
+	assert.Nil(t, user)
+	assert.Nil(t, admin)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "more than one account check action rules matches")
+	}
+
+	_, err = httpdtest.RemoveEventRule(rule3, http.StatusOK)
+	assert.NoError(t, err)
+
+	action1.Options.IDPConfig.TemplateAdmin = `{}`
+	action1, _, err = httpdtest.UpdateEventAction(action1, http.StatusOK)
+	assert.NoError(t, err)
+	_, _, err = common.HandleIDPLoginEvent(common.EventParams{
+		Name:   username,
+		Event:  common.IDPLoginAdmin,
+		Status: 1,
+	}, &customFields)
+	assert.ErrorIs(t, err, util.ErrValidation)
+
+	_, err = httpdtest.RemoveEventRule(rule1, http.StatusOK)
+	assert.NoError(t, err)
+
+	user, admin, err = common.HandleIDPLoginEvent(common.EventParams{
+		Name:   username,
+		Event:  common.IDPLoginAdmin,
+		Status: 1,
+	}, &customFields)
+	assert.Nil(t, user)
+	assert.Nil(t, admin)
+	assert.NoError(t, err)
+
+	_, err = httpdtest.RemoveEventRule(rule2, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action2, http.StatusOK)
+	assert.NoError(t, err)
+
+	smtpCfg = smtp.Config{}
+	err = smtpCfg.Initialize(configDir, true)
+	require.NoError(t, err)
+}
+
 func TestEventRuleCertificate(t *testing.T) {
 	smtpCfg := smtp.Config{
 		Host:          "127.0.0.1",

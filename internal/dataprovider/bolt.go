@@ -729,7 +729,7 @@ func (p *BoltProvider) updateUser(user *User) error {
 	})
 }
 
-func (p *BoltProvider) deleteUser(user User, softDelete bool) error {
+func (p *BoltProvider) deleteUser(user User, _ bool) error {
 	return p.dbHandle.Update(func(tx *bolt.Tx) error {
 		bucket, err := p.getUsersBucket(tx)
 		if err != nil {
@@ -1031,7 +1031,7 @@ func (p *BoltProvider) dumpFolders() ([]vfs.BaseVirtualFolder, error) {
 	return folders, err
 }
 
-func (p *BoltProvider) getFolders(limit, offset int, order string, minimal bool) ([]vfs.BaseVirtualFolder, error) {
+func (p *BoltProvider) getFolders(limit, offset int, order string, _ bool) ([]vfs.BaseVirtualFolder, error) {
 	folders := make([]vfs.BaseVirtualFolder, 0, limit)
 	var err error
 	if limit <= 0 {
@@ -1279,7 +1279,7 @@ func (p *BoltProvider) getUsedFolderQuota(name string) (int, int64, error) {
 	return folder.UsedQuotaFiles, folder.UsedQuotaSize, err
 }
 
-func (p *BoltProvider) getGroups(limit, offset int, order string, minimal bool) ([]Group, error) {
+func (p *BoltProvider) getGroups(limit, offset int, order string, _ bool) ([]Group, error) {
 	groups := make([]Group, 0, limit)
 	var err error
 	if limit <= 0 {
@@ -2001,75 +2001,75 @@ func (p *BoltProvider) updateShareLastUse(shareID string, numTokens int) error {
 	})
 }
 
-func (p *BoltProvider) getDefenderHosts(from int64, limit int) ([]DefenderEntry, error) {
+func (p *BoltProvider) getDefenderHosts(_ int64, _ int) ([]DefenderEntry, error) {
 	return nil, ErrNotImplemented
 }
 
-func (p *BoltProvider) getDefenderHostByIP(ip string, from int64) (DefenderEntry, error) {
+func (p *BoltProvider) getDefenderHostByIP(_ string, _ int64) (DefenderEntry, error) {
 	return DefenderEntry{}, ErrNotImplemented
 }
 
-func (p *BoltProvider) isDefenderHostBanned(ip string) (DefenderEntry, error) {
+func (p *BoltProvider) isDefenderHostBanned(_ string) (DefenderEntry, error) {
 	return DefenderEntry{}, ErrNotImplemented
 }
 
-func (p *BoltProvider) updateDefenderBanTime(ip string, minutes int) error {
+func (p *BoltProvider) updateDefenderBanTime(_ string, _ int) error {
 	return ErrNotImplemented
 }
 
-func (p *BoltProvider) deleteDefenderHost(ip string) error {
+func (p *BoltProvider) deleteDefenderHost(_ string) error {
 	return ErrNotImplemented
 }
 
-func (p *BoltProvider) addDefenderEvent(ip string, score int) error {
+func (p *BoltProvider) addDefenderEvent(_ string, _ int) error {
 	return ErrNotImplemented
 }
 
-func (p *BoltProvider) setDefenderBanTime(ip string, banTime int64) error {
+func (p *BoltProvider) setDefenderBanTime(_ string, _ int64) error {
 	return ErrNotImplemented
 }
 
-func (p *BoltProvider) cleanupDefender(from int64) error {
+func (p *BoltProvider) cleanupDefender(_ int64) error {
 	return ErrNotImplemented
 }
 
-func (p *BoltProvider) addActiveTransfer(transfer ActiveTransfer) error {
+func (p *BoltProvider) addActiveTransfer(_ ActiveTransfer) error {
 	return ErrNotImplemented
 }
 
-func (p *BoltProvider) updateActiveTransferSizes(ulSize, dlSize, transferID int64, connectionID string) error {
+func (p *BoltProvider) updateActiveTransferSizes(_, _, _ int64, _ string) error {
 	return ErrNotImplemented
 }
 
-func (p *BoltProvider) removeActiveTransfer(transferID int64, connectionID string) error {
+func (p *BoltProvider) removeActiveTransfer(_ int64, _ string) error {
 	return ErrNotImplemented
 }
 
-func (p *BoltProvider) cleanupActiveTransfers(before time.Time) error {
+func (p *BoltProvider) cleanupActiveTransfers(_ time.Time) error {
 	return ErrNotImplemented
 }
 
-func (p *BoltProvider) getActiveTransfers(from time.Time) ([]ActiveTransfer, error) {
+func (p *BoltProvider) getActiveTransfers(_ time.Time) ([]ActiveTransfer, error) {
 	return nil, ErrNotImplemented
 }
 
-func (p *BoltProvider) addSharedSession(session Session) error {
+func (p *BoltProvider) addSharedSession(_ Session) error {
 	return ErrNotImplemented
 }
 
-func (p *BoltProvider) deleteSharedSession(key string) error {
+func (p *BoltProvider) deleteSharedSession(_ string) error {
 	return ErrNotImplemented
 }
 
-func (p *BoltProvider) getSharedSession(key string) (Session, error) {
+func (p *BoltProvider) getSharedSession(_ string) (Session, error) {
 	return Session{}, ErrNotImplemented
 }
 
-func (p *BoltProvider) cleanupSharedSessions(sessionType SessionType, before int64) error {
+func (p *BoltProvider) cleanupSharedSessions(_ SessionType, _ int64) error {
 	return ErrNotImplemented
 }
 
-func (p *BoltProvider) getEventActions(limit, offset int, order string, minimal bool) ([]BaseEventAction, error) {
+func (p *BoltProvider) getEventActions(limit, offset int, order string, _ bool) ([]BaseEventAction, error) {
 	if limit <= 0 {
 		return nil, nil
 	}
@@ -2508,7 +2508,7 @@ func (p *BoltProvider) updateEventRule(rule *EventRule) error {
 	})
 }
 
-func (p *BoltProvider) deleteEventRule(rule EventRule, softDelete bool) error {
+func (p *BoltProvider) deleteEventRule(rule EventRule, _ bool) error {
 	return p.dbHandle.Update(func(tx *bolt.Tx) error {
 		bucket, err := p.getRulesBucket(tx)
 		if err != nil {
@@ -2537,19 +2537,19 @@ func (p *BoltProvider) deleteEventRule(rule EventRule, softDelete bool) error {
 	})
 }
 
-func (*BoltProvider) getTaskByName(name string) (Task, error) {
+func (*BoltProvider) getTaskByName(_ string) (Task, error) {
 	return Task{}, ErrNotImplemented
 }
 
-func (*BoltProvider) addTask(name string) error {
+func (*BoltProvider) addTask(_ string) error {
 	return ErrNotImplemented
 }
 
-func (*BoltProvider) updateTask(name string, version int64) error {
+func (*BoltProvider) updateTask(_ string, _ int64) error {
 	return ErrNotImplemented
 }
 
-func (*BoltProvider) updateTaskTimestamp(name string) error {
+func (*BoltProvider) updateTaskTimestamp(_ string) error {
 	return ErrNotImplemented
 }
 
@@ -2557,7 +2557,7 @@ func (*BoltProvider) addNode() error {
 	return ErrNotImplemented
 }
 
-func (*BoltProvider) getNodeByName(name string) (Node, error) {
+func (*BoltProvider) getNodeByName(_ string) (Node, error) {
 	return Node{}, ErrNotImplemented
 }
 
@@ -2683,7 +2683,7 @@ func (p *BoltProvider) deleteRole(role Role) error {
 	})
 }
 
-func (p *BoltProvider) getRoles(limit int, offset int, order string, minimal bool) ([]Role, error) {
+func (p *BoltProvider) getRoles(limit int, offset int, order string, _ bool) ([]Role, error) {
 	roles := make([]Role, 0, limit)
 	if limit <= 0 {
 		return roles, nil
@@ -2827,7 +2827,7 @@ func (p *BoltProvider) updateIPListEntry(entry *IPListEntry) error {
 	})
 }
 
-func (p *BoltProvider) deleteIPListEntry(entry IPListEntry, softDelete bool) error {
+func (p *BoltProvider) deleteIPListEntry(entry IPListEntry, _ bool) error {
 	return p.dbHandle.Update(func(tx *bolt.Tx) error {
 		bucket, err := p.getIPListsBucket(tx)
 		if err != nil {
@@ -2888,7 +2888,7 @@ func (p *BoltProvider) getIPListEntries(listType IPListType, filter, from, order
 	return entries, err
 }
 
-func (p *BoltProvider) getRecentlyUpdatedIPListEntries(after int64) ([]IPListEntry, error) {
+func (p *BoltProvider) getRecentlyUpdatedIPListEntries(_ int64) ([]IPListEntry, error) {
 	return nil, ErrNotImplemented
 }
 

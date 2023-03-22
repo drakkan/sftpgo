@@ -38,7 +38,7 @@ func init() {
 	RegisterSecretProvider(sdkkms.SchemeBuiltin, sdkkms.SecretStatusAES256GCM, newBuiltinSecret)
 }
 
-func newBuiltinSecret(base BaseSecret, url, masterKey string) SecretProvider {
+func newBuiltinSecret(base BaseSecret, _, _ string) SecretProvider {
 	return &builtinSecret{
 		BaseSecret: base,
 	}

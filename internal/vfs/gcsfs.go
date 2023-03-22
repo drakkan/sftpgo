@@ -284,27 +284,27 @@ func (fs *GCSFs) Mkdir(name string) error {
 }
 
 // Symlink creates source as a symbolic link to target.
-func (*GCSFs) Symlink(source, target string) error {
+func (*GCSFs) Symlink(_, _ string) error {
 	return ErrVfsUnsupported
 }
 
 // Readlink returns the destination of the named symbolic link
-func (*GCSFs) Readlink(name string) (string, error) {
+func (*GCSFs) Readlink(_ string) (string, error) {
 	return "", ErrVfsUnsupported
 }
 
 // Chown changes the numeric uid and gid of the named file.
-func (*GCSFs) Chown(name string, uid int, gid int) error {
+func (*GCSFs) Chown(_ string, _ int, _ int) error {
 	return ErrVfsUnsupported
 }
 
 // Chmod changes the mode of the named file to mode.
-func (*GCSFs) Chmod(name string, mode os.FileMode) error {
+func (*GCSFs) Chmod(_ string, _ os.FileMode) error {
 	return ErrVfsUnsupported
 }
 
 // Chtimes changes the access and modification times of the named file.
-func (fs *GCSFs) Chtimes(name string, atime, mtime time.Time, isUploading bool) error {
+func (fs *GCSFs) Chtimes(name string, _, mtime time.Time, isUploading bool) error {
 	if !plugin.Handler.HasMetadater() {
 		return ErrVfsUnsupported
 	}
@@ -325,7 +325,7 @@ func (fs *GCSFs) Chtimes(name string, atime, mtime time.Time, isUploading bool) 
 // Truncate changes the size of the named file.
 // Truncate by path is not supported, while truncating an opened
 // file is handled inside base transfer
-func (*GCSFs) Truncate(name string, size int64) error {
+func (*GCSFs) Truncate(_ string, _ int64) error {
 	return ErrVfsUnsupported
 }
 
@@ -587,7 +587,7 @@ func (fs *GCSFs) GetDirSize(dirname string) (int, int64, error) {
 
 // GetAtomicUploadPath returns the path to use for an atomic upload.
 // GCS uploads are already atomic, we never call this method for GCS
-func (*GCSFs) GetAtomicUploadPath(name string) string {
+func (*GCSFs) GetAtomicUploadPath(_ string) string {
 	return ""
 }
 
@@ -688,7 +688,7 @@ func (fs *GCSFs) ResolvePath(virtualPath string) (string, error) {
 }
 
 // CopyFile implements the FsFileCopier interface
-func (fs *GCSFs) CopyFile(source, target string, srcSize int64) error {
+func (fs *GCSFs) CopyFile(source, target string, _ int64) error {
 	return fs.copyFileInternal(source, target)
 }
 
@@ -904,7 +904,7 @@ func (fs *GCSFs) Close() error {
 }
 
 // GetAvailableDiskSize returns the available size for the specified path
-func (*GCSFs) GetAvailableDiskSize(dirName string) (*sftp.StatVFS, error) {
+func (*GCSFs) GetAvailableDiskSize(_ string) (*sftp.StatVFS, error) {
 	return nil, ErrStorageSizeUnavailable
 }
 

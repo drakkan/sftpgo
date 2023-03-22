@@ -510,7 +510,7 @@ func (fs *SFTPFs) Chmod(name string, mode os.FileMode) error {
 }
 
 // Chtimes changes the access and modification times of the named file.
-func (fs *SFTPFs) Chtimes(name string, atime, mtime time.Time, isUploading bool) error {
+func (fs *SFTPFs) Chtimes(name string, atime, mtime time.Time, _ bool) error {
 	client, err := fs.conn.getClient()
 	if err != nil {
 		return err

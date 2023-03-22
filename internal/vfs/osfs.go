@@ -140,7 +140,7 @@ func (fs *OsFs) Rename(source, target string) (int, int64, error) {
 }
 
 // Remove removes the named file or (empty) directory.
-func (*OsFs) Remove(name string, isDir bool) error {
+func (*OsFs) Remove(name string, _ bool) error {
 	return os.Remove(name)
 }
 
@@ -181,7 +181,7 @@ func (*OsFs) Chmod(name string, mode os.FileMode) error {
 }
 
 // Chtimes changes the access and modification times of the named file
-func (*OsFs) Chtimes(name string, atime, mtime time.Time, isUploading bool) error {
+func (*OsFs) Chtimes(name string, atime, mtime time.Time, _ bool) error {
 	return os.Chtimes(name, atime, mtime)
 }
 

@@ -35,6 +35,7 @@ func setFlashMessage(w http.ResponseWriter, r *http.Request, value string) {
 		Secure:   isTLS(r),
 		SameSite: http.SameSiteLaxMode,
 	})
+	w.Header().Add("Cache-Control", `no-cache="Set-Cookie"`)
 }
 
 func getFlashMessage(w http.ResponseWriter, r *http.Request) string {

@@ -47,13 +47,14 @@ const (
 	ActionTypeMetadataCheck
 	ActionTypePasswordExpirationCheck
 	ActionTypeUserExpirationCheck
+	ActionTypeIDPAccountCheck
 )
 
 var (
 	supportedEventActions = []int{ActionTypeHTTP, ActionTypeCommand, ActionTypeEmail, ActionTypeFilesystem,
 		ActionTypeBackup, ActionTypeUserQuotaReset, ActionTypeFolderQuotaReset, ActionTypeTransferQuotaReset,
 		ActionTypeDataRetentionCheck, ActionTypeMetadataCheck, ActionTypePasswordExpirationCheck,
-		ActionTypeUserExpirationCheck}
+		ActionTypeUserExpirationCheck, ActionTypeIDPAccountCheck}
 )
 
 func isActionTypeValid(action int) bool {
@@ -84,6 +85,8 @@ func getActionTypeAsString(action int) string {
 		return "Password expiration check"
 	case ActionTypeUserExpirationCheck:
 		return "User expiration check"
+	case ActionTypeIDPAccountCheck:
+		return "Identity Provider account check"
 	default:
 		return "Command"
 	}
@@ -99,11 +102,12 @@ const (
 	EventTriggerIPBlocked
 	EventTriggerCertificate
 	EventTriggerOnDemand
+	EventTriggerIDPLogin
 )
 
 var (
 	supportedEventTriggers = []int{EventTriggerFsEvent, EventTriggerProviderEvent, EventTriggerSchedule,
-		EventTriggerIPBlocked, EventTriggerCertificate, EventTriggerOnDemand}
+		EventTriggerIPBlocked, EventTriggerCertificate, EventTriggerIDPLogin, EventTriggerOnDemand}
 )
 
 func isEventTriggerValid(trigger int) bool {
@@ -122,10 +126,23 @@ func getTriggerTypeAsString(trigger int) string {
 		return "Certificate renewal"
 	case EventTriggerOnDemand:
 		return "On demand"
+	case EventTriggerIDPLogin:
+		return "Identity Provider login"
 	default:
 		return "Schedule"
 	}
 }
+
+// Supported IDP login events
+const (
+	IDPLoginAny = iota
+	IDPLoginUser
+	IDPLoginAdmin
+)
+
+var (
+	supportedIDPLoginEvents = []int{IDPLoginAny, IDPLoginUser, IDPLoginAdmin}
+)
 
 // Supported filesystem actions
 const (
@@ -274,6 +291,16 @@ type EventActionHTTPConfig struct {
 	QueryParameters []KeyValue  `json:"query_parameters,omitempty"`
 	Body            string      `json:"body,omitempty"`
 	Parts           []HTTPPart  `json:"parts,omitempty"`
+}
+
+// HasJSONBody returns true if the content type header indicates a JSON body
+func (c *EventActionHTTPConfig) HasJSONBody() bool {
+	for _, h := range c.Headers {
+		if http.CanonicalHeaderKey(h.Key) == "Content-Type" {
+			return strings.Contains(strings.ToLower(h.Value), "application/json")
+		}
+	}
+	return false
 }
 
 func (c *EventActionHTTPConfig) isTimeoutNotValid() bool {
@@ -833,6 +860,24 @@ func (c *EventActionPasswordExpiration) validate() error {
 	return nil
 }
 
+// EventActionIDPAccountCheck defines the check to execute after a successful IDP login
+type EventActionIDPAccountCheck struct {
+	// 0 create/update, 1 create the account if it doesn't exist
+	Mode          int    `json:"mode,omitempty"`
+	TemplateUser  string `json:"template_user,omitempty"`
+	TemplateAdmin string `json:"template_admin,omitempty"`
+}
+
+func (c *EventActionIDPAccountCheck) validate() error {
+	if c.TemplateAdmin == "" && c.TemplateUser == "" {
+		return util.NewValidationError("at least a template must be set")
+	}
+	if c.Mode < 0 || c.Mode > 1 {
+		return util.NewValidationError(fmt.Sprintf("invalid account check mode: %d", c.Mode))
+	}
+	return nil
+}
+
 // BaseEventActionOptions defines the supported configuration options for a base event actions
 type BaseEventActionOptions struct {
 	HTTPConfig          EventActionHTTPConfig          `json:"http_config"`
@@ -841,6 +886,7 @@ type BaseEventActionOptions struct {
 	RetentionConfig     EventActionDataRetentionConfig `json:"retention_config"`
 	FsConfig            EventActionFilesystemConfig    `json:"fs_config"`
 	PwdExpirationConfig EventActionPasswordExpiration  `json:"pwd_expiration_config"`
+	IDPConfig           EventActionIDPAccountCheck     `json:"idp_config"`
 }
 
 func (o *BaseEventActionOptions) getACopy() BaseEventActionOptions {
@@ -901,6 +947,11 @@ func (o *BaseEventActionOptions) getACopy() BaseEventActionOptions {
 		PwdExpirationConfig: EventActionPasswordExpiration{
 			Threshold: o.PwdExpirationConfig.Threshold,
 		},
+		IDPConfig: EventActionIDPAccountCheck{
+			Mode:          o.IDPConfig.Mode,
+			TemplateUser:  o.IDPConfig.TemplateUser,
+			TemplateAdmin: o.IDPConfig.TemplateAdmin,
+		},
 		FsConfig: o.FsConfig.getACopy(),
 	}
 }
@@ -933,6 +984,7 @@ func (o *BaseEventActionOptions) validate(action int, name string) error {
 		o.RetentionConfig = EventActionDataRetentionConfig{}
 		o.FsConfig = EventActionFilesystemConfig{}
 		o.PwdExpirationConfig = EventActionPasswordExpiration{}
+		o.IDPConfig = EventActionIDPAccountCheck{}
 		return o.HTTPConfig.validate(name)
 	case ActionTypeCommand:
 		o.HTTPConfig = EventActionHTTPConfig{}
@@ -940,6 +992,7 @@ func (o *BaseEventActionOptions) validate(action int, name string) error {
 		o.RetentionConfig = EventActionDataRetentionConfig{}
 		o.FsConfig = EventActionFilesystemConfig{}
 		o.PwdExpirationConfig = EventActionPasswordExpiration{}
+		o.IDPConfig = EventActionIDPAccountCheck{}
 		return o.CmdConfig.validate()
 	case ActionTypeEmail:
 		o.HTTPConfig = EventActionHTTPConfig{}
@@ -947,6 +1000,7 @@ func (o *BaseEventActionOptions) validate(action int, name string) error {
 		o.RetentionConfig = EventActionDataRetentionConfig{}
 		o.FsConfig = EventActionFilesystemConfig{}
 		o.PwdExpirationConfig = EventActionPasswordExpiration{}
+		o.IDPConfig = EventActionIDPAccountCheck{}
 		return o.EmailConfig.validate()
 	case ActionTypeDataRetentionCheck:
 		o.HTTPConfig = EventActionHTTPConfig{}
@@ -954,6 +1008,7 @@ func (o *BaseEventActionOptions) validate(action int, name string) error {
 		o.EmailConfig = EventActionEmailConfig{}
 		o.FsConfig = EventActionFilesystemConfig{}
 		o.PwdExpirationConfig = EventActionPasswordExpiration{}
+		o.IDPConfig = EventActionIDPAccountCheck{}
 		return o.RetentionConfig.validate()
 	case ActionTypeFilesystem:
 		o.HTTPConfig = EventActionHTTPConfig{}
@@ -961,6 +1016,7 @@ func (o *BaseEventActionOptions) validate(action int, name string) error {
 		o.EmailConfig = EventActionEmailConfig{}
 		o.RetentionConfig = EventActionDataRetentionConfig{}
 		o.PwdExpirationConfig = EventActionPasswordExpiration{}
+		o.IDPConfig = EventActionIDPAccountCheck{}
 		return o.FsConfig.validate()
 	case ActionTypePasswordExpirationCheck:
 		o.HTTPConfig = EventActionHTTPConfig{}
@@ -968,7 +1024,16 @@ func (o *BaseEventActionOptions) validate(action int, name string) error {
 		o.EmailConfig = EventActionEmailConfig{}
 		o.RetentionConfig = EventActionDataRetentionConfig{}
 		o.FsConfig = EventActionFilesystemConfig{}
+		o.IDPConfig = EventActionIDPAccountCheck{}
 		return o.PwdExpirationConfig.validate()
+	case ActionTypeIDPAccountCheck:
+		o.HTTPConfig = EventActionHTTPConfig{}
+		o.CmdConfig = EventActionCommandConfig{}
+		o.EmailConfig = EventActionEmailConfig{}
+		o.RetentionConfig = EventActionDataRetentionConfig{}
+		o.FsConfig = EventActionFilesystemConfig{}
+		o.PwdExpirationConfig = EventActionPasswordExpiration{}
+		return o.IDPConfig.validate()
 	default:
 		o.HTTPConfig = EventActionHTTPConfig{}
 		o.CmdConfig = EventActionCommandConfig{}
@@ -976,6 +1041,7 @@ func (o *BaseEventActionOptions) validate(action int, name string) error {
 		o.RetentionConfig = EventActionDataRetentionConfig{}
 		o.FsConfig = EventActionFilesystemConfig{}
 		o.PwdExpirationConfig = EventActionPasswordExpiration{}
+		o.IDPConfig = EventActionIDPAccountCheck{}
 	}
 	return nil
 }
@@ -1086,12 +1152,14 @@ func (a *EventAction) validateAssociation(trigger int, fsEvents []string) error 
 		}
 	}
 	if a.Options.ExecuteSync {
-		if trigger != EventTriggerFsEvent {
-			return util.NewValidationError("sync execution is only supported for some filesystem events")
+		if trigger != EventTriggerFsEvent && trigger != EventTriggerIDPLogin {
+			return util.NewValidationError("sync execution is only supported for some filesystem events and Identity Provider logins")
 		}
-		for _, ev := range fsEvents {
-			if !util.Contains(allowedSyncFsEvents, ev) {
-				return util.NewValidationError("sync execution is only supported for upload and pre-* events")
+		if trigger == EventTriggerFsEvent {
+			for _, ev := range fsEvents {
+				if !util.Contains(allowedSyncFsEvents, ev) {
+					return util.NewValidationError("sync execution is only supported for upload and pre-* events")
+				}
 			}
 		}
 	}
@@ -1213,10 +1281,12 @@ func (s *Schedule) validate() error {
 // EventConditions defines the conditions for an event rule
 type EventConditions struct {
 	// Only one between FsEvents, ProviderEvents and Schedule is allowed
-	FsEvents       []string         `json:"fs_events,omitempty"`
-	ProviderEvents []string         `json:"provider_events,omitempty"`
-	Schedules      []Schedule       `json:"schedules,omitempty"`
-	Options        ConditionOptions `json:"options"`
+	FsEvents       []string   `json:"fs_events,omitempty"`
+	ProviderEvents []string   `json:"provider_events,omitempty"`
+	Schedules      []Schedule `json:"schedules,omitempty"`
+	// 0 any, 1 user, 2 admin
+	IDPLoginEvent int              `json:"idp_login_event,omitempty"`
+	Options       ConditionOptions `json:"options"`
 }
 
 func (c *EventConditions) getACopy() EventConditions {
@@ -1238,8 +1308,21 @@ func (c *EventConditions) getACopy() EventConditions {
 		FsEvents:       fsEvents,
 		ProviderEvents: providerEvents,
 		Schedules:      schedules,
+		IDPLoginEvent:  c.IDPLoginEvent,
 		Options:        c.Options.getACopy(),
 	}
+}
+
+func (c *EventConditions) validateSchedules() error {
+	if len(c.Schedules) == 0 {
+		return util.NewValidationError("at least one schedule is required")
+	}
+	for _, schedule := range c.Schedules {
+		if err := schedule.validate(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (c *EventConditions) validate(trigger int) error {
@@ -1248,6 +1331,7 @@ func (c *EventConditions) validate(trigger int) error {
 		c.ProviderEvents = nil
 		c.Schedules = nil
 		c.Options.ProviderObjects = nil
+		c.IDPLoginEvent = 0
 		if len(c.FsEvents) == 0 {
 			return util.NewValidationError("at least one filesystem event is required")
 		}
@@ -1264,6 +1348,7 @@ func (c *EventConditions) validate(trigger int) error {
 		c.Options.Protocols = nil
 		c.Options.MinFileSize = 0
 		c.Options.MaxFileSize = 0
+		c.IDPLoginEvent = 0
 		if len(c.ProviderEvents) == 0 {
 			return util.NewValidationError("at least one provider event is required")
 		}
@@ -1280,13 +1365,9 @@ func (c *EventConditions) validate(trigger int) error {
 		c.Options.MinFileSize = 0
 		c.Options.MaxFileSize = 0
 		c.Options.ProviderObjects = nil
-		if len(c.Schedules) == 0 {
-			return util.NewValidationError("at least one schedule is required")
-		}
-		for _, schedule := range c.Schedules {
-			if err := schedule.validate(); err != nil {
-				return err
-			}
+		c.IDPLoginEvent = 0
+		if err := c.validateSchedules(); err != nil {
+			return err
 		}
 	case EventTriggerIPBlocked, EventTriggerCertificate:
 		c.FsEvents = nil
@@ -1299,6 +1380,7 @@ func (c *EventConditions) validate(trigger int) error {
 		c.Options.MinFileSize = 0
 		c.Options.MaxFileSize = 0
 		c.Schedules = nil
+		c.IDPLoginEvent = 0
 	case EventTriggerOnDemand:
 		c.FsEvents = nil
 		c.ProviderEvents = nil
@@ -1308,7 +1390,21 @@ func (c *EventConditions) validate(trigger int) error {
 		c.Options.MaxFileSize = 0
 		c.Options.ProviderObjects = nil
 		c.Schedules = nil
+		c.IDPLoginEvent = 0
 		c.Options.ConcurrentExecution = false
+	case EventTriggerIDPLogin:
+		c.FsEvents = nil
+		c.ProviderEvents = nil
+		c.Options.GroupNames = nil
+		c.Options.RoleNames = nil
+		c.Options.FsPaths = nil
+		c.Options.Protocols = nil
+		c.Options.MinFileSize = 0
+		c.Options.MaxFileSize = 0
+		c.Schedules = nil
+		if !util.Contains(supportedIDPLoginEvents, c.IDPLoginEvent) {
+			return util.NewValidationError(fmt.Sprintf("invalid Identity Provider login event %d", c.IDPLoginEvent))
+		}
 	default:
 		c.FsEvents = nil
 		c.ProviderEvents = nil
@@ -1319,6 +1415,7 @@ func (c *EventConditions) validate(trigger int) error {
 		c.Options.MinFileSize = 0
 		c.Options.MaxFileSize = 0
 		c.Schedules = nil
+		c.IDPLoginEvent = 0
 	}
 
 	return c.Options.validate()
@@ -1453,7 +1550,7 @@ func (r *EventRule) validateMandatorySyncActions() error {
 	}
 	for _, ev := range r.Conditions.FsEvents {
 		if util.Contains(mandatorySyncFsEvents, ev) {
-			return util.NewValidationError(fmt.Sprintf("event %s requires at least a sync action", ev))
+			return util.NewValidationError(fmt.Sprintf("event %q requires at least a sync action", ev))
 		}
 	}
 	return nil
@@ -1508,6 +1605,39 @@ func (r *EventRule) hasUserAssociated(providerObjectType string) bool {
 	return false
 }
 
+func (r *EventRule) checkActions(providerObjectType string) error {
+	numSyncAction := 0
+	hasIDPAccountCheck := false
+	for _, action := range r.Actions {
+		if action.Options.ExecuteSync {
+			numSyncAction++
+		}
+		if action.Type == ActionTypeEmail && action.BaseEventAction.Options.EmailConfig.hasFilesAttachments() {
+			if !r.hasUserAssociated(providerObjectType) {
+				return errors.New("cannot send an email with attachments for a rule with no user associated")
+			}
+		}
+		if action.Type == ActionTypeHTTP && action.BaseEventAction.Options.HTTPConfig.HasMultipartFiles() {
+			if !r.hasUserAssociated(providerObjectType) {
+				return errors.New("cannot upload file/s for a rule with no user associated")
+			}
+		}
+		if action.Type == ActionTypeIDPAccountCheck {
+			if r.Trigger != EventTriggerIDPLogin {
+				return errors.New("IDP account check action is only supported for IDP login trigger")
+			}
+			if !action.Options.ExecuteSync {
+				return errors.New("IDP account check must be a sync action")
+			}
+			hasIDPAccountCheck = true
+		}
+	}
+	if hasIDPAccountCheck && numSyncAction != 1 {
+		return errors.New("IDP account check must be the only sync action")
+	}
+	return nil
+}
+
 // CheckActionsConsistency returns an error if the actions cannot be executed
 func (r *EventRule) CheckActionsConsistency(providerObjectType string) error {
 	switch r.Trigger {
@@ -1528,19 +1658,7 @@ func (r *EventRule) CheckActionsConsistency(providerObjectType string) error {
 			return err
 		}
 	}
-	for _, action := range r.Actions {
-		if action.Type == ActionTypeEmail && action.BaseEventAction.Options.EmailConfig.hasFilesAttachments() {
-			if !r.hasUserAssociated(providerObjectType) {
-				return errors.New("cannot send an email with attachments for a rule with no user associated")
-			}
-		}
-		if action.Type == ActionTypeHTTP && action.BaseEventAction.Options.HTTPConfig.HasMultipartFiles() {
-			if !r.hasUserAssociated(providerObjectType) {
-				return errors.New("cannot upload file/s for a rule with no user associated")
-			}
-		}
-	}
-	return nil
+	return r.checkActions(providerObjectType)
 }
 
 // PrepareForRendering prepares an EventRule for rendering.

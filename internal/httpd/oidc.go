@@ -410,47 +410,70 @@ func (t *oidcToken) refreshUser(r *http.Request) error {
 }
 
 func (t *oidcToken) getUser(r *http.Request) error {
+	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
+	params := common.EventParams{
+		Name:      t.Username,
+		IP:        ipAddr,
+		Protocol:  common.ProtocolOIDC,
+		Timestamp: time.Now().UnixNano(),
+		Status:    1,
+	}
 	if t.isAdmin() {
-		admin, err := dataprovider.AdminExists(t.Username)
+		params.Event = common.IDPLoginAdmin
+		_, admin, err := common.HandleIDPLoginEvent(params, t.CustomFields)
 		if err != nil {
 			return err
 		}
-		if err := admin.CanLogin(util.GetIPFromRemoteAddress(r.RemoteAddr)); err != nil {
+		if admin == nil {
+			a, err := dataprovider.AdminExists(t.Username)
+			if err != nil {
+				return err
+			}
+			admin = &a
+		}
+		if err := admin.CanLogin(ipAddr); err != nil {
 			return err
 		}
 		t.Permissions = admin.Permissions
 		t.TokenRole = admin.Role
 		t.HideUserPageSections = admin.Filters.Preferences.HideUserPageSections
-		dataprovider.UpdateAdminLastLogin(&admin)
+		dataprovider.UpdateAdminLastLogin(admin)
 		return nil
 	}
-	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
-	user, err := dataprovider.GetUserAfterIDPAuth(t.Username, ipAddr, common.ProtocolOIDC, t.CustomFields)
+	params.Event = common.IDPLoginUser
+	user, _, err := common.HandleIDPLoginEvent(params, t.CustomFields)
 	if err != nil {
 		return err
 	}
+	if user == nil {
+		u, err := dataprovider.GetUserAfterIDPAuth(t.Username, ipAddr, common.ProtocolOIDC, t.CustomFields)
+		if err != nil {
+			return err
+		}
+		user = &u
+	}
 	if err := common.Config.ExecutePostConnectHook(ipAddr, common.ProtocolOIDC); err != nil {
-		updateLoginMetrics(&user, dataprovider.LoginMethodIDP, ipAddr, err)
+		updateLoginMetrics(user, dataprovider.LoginMethodIDP, ipAddr, err)
 		return fmt.Errorf("access denied: %w", err)
 	}
 	if err := user.CheckLoginConditions(); err != nil {
-		updateLoginMetrics(&user, dataprovider.LoginMethodIDP, ipAddr, err)
+		updateLoginMetrics(user, dataprovider.LoginMethodIDP, ipAddr, err)
 		return err
 	}
-	connectionID := fmt.Sprintf("%v_%v", common.ProtocolOIDC, xid.New().String())
-	if err := checkHTTPClientUser(&user, r, connectionID, true); err != nil {
-		updateLoginMetrics(&user, dataprovider.LoginMethodIDP, ipAddr, err)
+	connectionID := fmt.Sprintf("%s_%s", common.ProtocolOIDC, xid.New().String())
+	if err := checkHTTPClientUser(user, r, connectionID, true); err != nil {
+		updateLoginMetrics(user, dataprovider.LoginMethodIDP, ipAddr, err)
 		return err
 	}
 	defer user.CloseFs() //nolint:errcheck
 	err = user.CheckFsRoot(connectionID)
 	if err != nil {
 		logger.Warn(logSender, connectionID, "unable to check fs root: %v", err)
-		updateLoginMetrics(&user, dataprovider.LoginMethodIDP, ipAddr, common.ErrInternalFailure)
+		updateLoginMetrics(user, dataprovider.LoginMethodIDP, ipAddr, common.ErrInternalFailure)
 		return err
 	}
-	updateLoginMetrics(&user, dataprovider.LoginMethodIDP, ipAddr, nil)
-	dataprovider.UpdateLastLogin(&user)
+	updateLoginMetrics(user, dataprovider.LoginMethodIDP, ipAddr, nil)
+	dataprovider.UpdateLastLogin(user)
 	t.Permissions = user.Filters.WebClient
 	t.TokenRole = user.Role
 	return nil

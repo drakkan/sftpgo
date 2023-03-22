@@ -66,15 +66,15 @@ type mockOAuth2Config struct {
 	err         error
 }
 
-func (c *mockOAuth2Config) AuthCodeURL(state string, opts ...oauth2.AuthCodeOption) string {
+func (c *mockOAuth2Config) AuthCodeURL(_ string, _ ...oauth2.AuthCodeOption) string {
 	return c.authCodeURL
 }
 
-func (c *mockOAuth2Config) Exchange(ctx context.Context, code string, opts ...oauth2.AuthCodeOption) (*oauth2.Token, error) {
+func (c *mockOAuth2Config) Exchange(_ context.Context, _ string, _ ...oauth2.AuthCodeOption) (*oauth2.Token, error) {
 	return c.token, c.err
 }
 
-func (c *mockOAuth2Config) TokenSource(ctx context.Context, t *oauth2.Token) oauth2.TokenSource {
+func (c *mockOAuth2Config) TokenSource(_ context.Context, _ *oauth2.Token) oauth2.TokenSource {
 	return c.tokenSource
 }
 
@@ -83,7 +83,7 @@ type mockOIDCVerifier struct {
 	err   error
 }
 
-func (v *mockOIDCVerifier) Verify(ctx context.Context, rawIDToken string) (*oidc.IDToken, error) {
+func (v *mockOIDCVerifier) Verify(_ context.Context, _ string) (*oidc.IDToken, error) {
 	return v.token, v.err
 }
 
@@ -1128,6 +1128,180 @@ func TestMemoryOIDCManager(t *testing.T) {
 	assert.NoError(t, err)
 	oidcMgr.removeToken(newToken.Cookie)
 	require.Len(t, oidcMgr.tokens, 0)
+}
+
+func TestOIDCEvMgrIntegration(t *testing.T) {
+	providerConf := dataprovider.GetProviderConfig()
+	err := dataprovider.Close()
+	assert.NoError(t, err)
+	newProviderConf := providerConf
+	newProviderConf.NamingRules = 5
+	err = dataprovider.Initialize(newProviderConf, configDir, true)
+	assert.NoError(t, err)
+	// add a special chars to check json replacer
+	username := `test_"oidc_eventmanager`
+	u := map[string]any{
+		"username": "{{Name}}",
+		"status":   1,
+		"home_dir": filepath.Join(os.TempDir(), "{{IDPFieldcustom1}}"),
+		"permissions": map[string][]string{
+			"/": {dataprovider.PermAny},
+		},
+	}
+	userTmpl, err := json.Marshal(u)
+	require.NoError(t, err)
+	a := map[string]any{
+		"username":    "{{Name}}",
+		"status":      1,
+		"permissions": []string{dataprovider.PermAdminAny},
+	}
+	adminTmpl, err := json.Marshal(a)
+	require.NoError(t, err)
+
+	action := &dataprovider.BaseEventAction{
+		Name: "a",
+		Type: dataprovider.ActionTypeIDPAccountCheck,
+		Options: dataprovider.BaseEventActionOptions{
+			IDPConfig: dataprovider.EventActionIDPAccountCheck{
+				Mode:          0,
+				TemplateUser:  string(userTmpl),
+				TemplateAdmin: string(adminTmpl),
+			},
+		},
+	}
+	err = dataprovider.AddEventAction(action, "", "", "")
+	assert.NoError(t, err)
+	rule := &dataprovider.EventRule{
+		Name:    "r",
+		Status:  1,
+		Trigger: dataprovider.EventTriggerIDPLogin,
+		Conditions: dataprovider.EventConditions{
+			IDPLoginEvent: 0,
+		},
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action.Name,
+				},
+				Options: dataprovider.EventActionOptions{
+					ExecuteSync: true,
+				},
+			},
+		},
+	}
+	err = dataprovider.AddEventRule(rule, "", "", "")
+	assert.NoError(t, err)
+
+	oidcMgr, ok := oidcMgr.(*memoryOIDCManager)
+	require.True(t, ok)
+	server := getTestOIDCServer()
+	server.binding.OIDC.ImplicitRoles = true
+	server.binding.OIDC.CustomFields = []string{"custom1", "custom2"}
+	err = server.binding.OIDC.initialize()
+	assert.NoError(t, err)
+	server.initializeRouter()
+	// login a user with OIDC
+	_, err = dataprovider.UserExists(username, "")
+	assert.ErrorIs(t, err, util.ErrNotFound)
+	authReq := newOIDCPendingAuth(tokenAudienceWebClient)
+	oidcMgr.addPendingAuth(authReq)
+	token := &oauth2.Token{
+		AccessToken: "1234",
+		Expiry:      time.Now().Add(5 * time.Minute),
+	}
+	token = token.WithExtra(map[string]any{
+		"id_token": "id_token_val",
+	})
+	server.binding.OIDC.oauth2Config = &mockOAuth2Config{
+		tokenSource: &mockTokenSource{},
+		authCodeURL: webOIDCRedirectPath,
+		token:       token,
+	}
+	idToken := &oidc.IDToken{
+		Nonce:  authReq.Nonce,
+		Expiry: time.Now().Add(5 * time.Minute),
+	}
+	setIDTokenClaims(idToken, []byte(`{"preferred_username":"`+util.JSONEscape(username)+`","custom1":"val1"}`))
+	server.binding.OIDC.verifier = &mockOIDCVerifier{
+		err:   nil,
+		token: idToken,
+	}
+	rr := httptest.NewRecorder()
+	r, err := http.NewRequest(http.MethodGet, webOIDCRedirectPath+"?state="+authReq.State, nil)
+	assert.NoError(t, err)
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, webClientFilesPath, rr.Header().Get("Location"))
+	user, err := dataprovider.UserExists(username, "")
+	assert.NoError(t, err)
+	assert.Equal(t, filepath.Join(os.TempDir(), "val1"), user.GetHomeDir())
+
+	err = dataprovider.DeleteUser(username, "", "", "")
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	// login an admin with OIDC
+	_, err = dataprovider.AdminExists(username)
+	assert.ErrorIs(t, err, util.ErrNotFound)
+	authReq = newOIDCPendingAuth(tokenAudienceWebAdmin)
+	oidcMgr.addPendingAuth(authReq)
+	idToken = &oidc.IDToken{
+		Nonce:  authReq.Nonce,
+		Expiry: time.Now().Add(5 * time.Minute),
+	}
+	setIDTokenClaims(idToken, []byte(`{"preferred_username":"`+util.JSONEscape(username)+`"}`))
+	server.binding.OIDC.verifier = &mockOIDCVerifier{
+		err:   nil,
+		token: idToken,
+	}
+	rr = httptest.NewRecorder()
+	r, err = http.NewRequest(http.MethodGet, webOIDCRedirectPath+"?state="+authReq.State, nil)
+	assert.NoError(t, err)
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, webUsersPath, rr.Header().Get("Location"))
+
+	_, err = dataprovider.AdminExists(username)
+	assert.NoError(t, err)
+	err = dataprovider.DeleteAdmin(username, "", "", "")
+	assert.NoError(t, err)
+	// set invalid templates and try again
+	action.Options.IDPConfig.TemplateUser = `{}`
+	action.Options.IDPConfig.TemplateAdmin = `{}`
+	err = dataprovider.UpdateEventAction(action, "", "", "")
+	assert.NoError(t, err)
+
+	for _, audience := range []string{tokenAudienceWebAdmin, tokenAudienceWebClient} {
+		authReq = newOIDCPendingAuth(audience)
+		oidcMgr.addPendingAuth(authReq)
+		idToken = &oidc.IDToken{
+			Nonce:  authReq.Nonce,
+			Expiry: time.Now().Add(5 * time.Minute),
+		}
+		setIDTokenClaims(idToken, []byte(`{"preferred_username":"`+util.JSONEscape(username)+`"}`))
+		server.binding.OIDC.verifier = &mockOIDCVerifier{
+			err:   nil,
+			token: idToken,
+		}
+		rr = httptest.NewRecorder()
+		r, err = http.NewRequest(http.MethodGet, webOIDCRedirectPath+"?state="+authReq.State, nil)
+		assert.NoError(t, err)
+		server.router.ServeHTTP(rr, r)
+		assert.Equal(t, http.StatusFound, rr.Code)
+	}
+	for k := range oidcMgr.tokens {
+		oidcMgr.removeToken(k)
+	}
+
+	err = dataprovider.DeleteEventRule(rule.Name, "", "", "")
+	assert.NoError(t, err)
+	err = dataprovider.DeleteEventAction(action.Name, "", "", "")
+	assert.NoError(t, err)
+
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
 }
 
 func TestOIDCPreLoginHook(t *testing.T) {

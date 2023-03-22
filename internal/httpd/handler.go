@@ -315,15 +315,15 @@ func (t *throttledReader) HasSizeLimit() bool {
 	return false
 }
 
-func (t *throttledReader) Truncate(fsPath string, size int64) (int64, error) {
+func (t *throttledReader) Truncate(_ string, _ int64) (int64, error) {
 	return 0, vfs.ErrVfsUnsupported
 }
 
-func (t *throttledReader) GetRealFsPath(fsPath string) string {
+func (t *throttledReader) GetRealFsPath(_ string) string {
 	return ""
 }
 
-func (t *throttledReader) SetTimes(fsPath string, atime time.Time, mtime time.Time) bool {
+func (t *throttledReader) SetTimes(_ string, _ time.Time, _ time.Time) bool {
 	return false
 }
 

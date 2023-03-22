@@ -2280,6 +2280,10 @@ func getEventActionOptionsFromPostFields(r *http.Request) (dataprovider.BaseEven
 	if r.Form.Get("cmd_arguments") != "" {
 		cmdArgs = getSliceFromDelimitedValues(r.Form.Get("cmd_arguments"), ",")
 	}
+	idpMode := 0
+	if r.Form.Get("idp_mode") == "1" {
+		idpMode = 1
+	}
 	options := dataprovider.BaseEventActionOptions{
 		HTTPConfig: dataprovider.EventActionHTTPConfig{
 			Endpoint:        r.Form.Get("http_endpoint"),
@@ -2323,6 +2327,11 @@ func getEventActionOptionsFromPostFields(r *http.Request) (dataprovider.BaseEven
 		PwdExpirationConfig: dataprovider.EventActionPasswordExpiration{
 			Threshold: pwdExpirationThreshold,
 		},
+		IDPConfig: dataprovider.EventActionIDPAccountCheck{
+			Mode:          idpMode,
+			TemplateUser:  strings.TrimSpace(r.Form.Get("idp_user")),
+			TemplateAdmin: strings.TrimSpace(r.Form.Get("idp_admin")),
+		},
 	}
 	return options, nil
 }
@@ -2347,6 +2356,17 @@ func getEventActionFromPostFields(r *http.Request) (dataprovider.BaseEventAction
 		Options:     options,
 	}
 	return action, nil
+}
+
+func getIDPLoginEventFromPostField(r *http.Request) int {
+	switch r.Form.Get("idp_login_event") {
+	case "1":
+		return 1
+	case "2":
+		return 2
+	default:
+		return 0
+	}
 }
 
 func getEventRuleConditionsFromPostFields(r *http.Request) (dataprovider.EventConditions, error) {
@@ -2424,6 +2444,7 @@ func getEventRuleConditionsFromPostFields(r *http.Request) (dataprovider.EventCo
 	conditions := dataprovider.EventConditions{
 		FsEvents:       r.Form["fs_events"],
 		ProviderEvents: r.Form["provider_events"],
+		IDPLoginEvent:  getIDPLoginEventFromPostField(r),
 		Schedules:      schedules,
 		Options: dataprovider.ConditionOptions{
 			Names:               names,

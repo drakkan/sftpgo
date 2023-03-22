@@ -282,11 +282,11 @@ func (cc mockFTPClientContext) Path() string {
 	return ""
 }
 
-func (cc mockFTPClientContext) SetPath(name string) {}
+func (cc mockFTPClientContext) SetPath(_ string) {}
 
-func (cc mockFTPClientContext) SetListPath(name string) {}
+func (cc mockFTPClientContext) SetListPath(_ string) {}
 
-func (cc mockFTPClientContext) SetDebug(debug bool) {}
+func (cc mockFTPClientContext) SetDebug(_ bool) {}
 
 func (cc mockFTPClientContext) Debug() bool {
 	return false
@@ -328,7 +328,7 @@ func (cc mockFTPClientContext) HasTLSForTransfers() bool {
 	return false
 }
 
-func (cc mockFTPClientContext) SetTLSRequirement(requirement ftpserver.TLSRequirement) error {
+func (cc mockFTPClientContext) SetTLSRequirement(_ ftpserver.TLSRequirement) error {
 	return nil
 }
 
@@ -380,7 +380,7 @@ func (fs MockOsFs) Lstat(name string) (os.FileInfo, error) {
 }
 
 // Remove removes the named file or (empty) directory.
-func (fs MockOsFs) Remove(name string, isDir bool) error {
+func (fs MockOsFs) Remove(name string, _ bool) error {
 	if fs.err != nil {
 		return fs.err
 	}

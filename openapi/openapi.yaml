@@ -4874,6 +4874,7 @@ components:
         - 10
         - 11
         - 12
+        - 13
       description: |
         Supported event action types:
           * `1` - HTTP
@@ -4888,6 +4889,7 @@ components:
           * `10` - Metadata check
           * `11` - Password expiration check
           * `12` - User expiration check
+          * `13` - Identity Provider account check
     FilesystemActionTypes:
       type: integer
       enum:
@@ -4910,6 +4912,7 @@ components:
         - 4
         - 5
         - 6
+        - 7
       description: |
         Supported event trigger types:
           * `1` - Filesystem event
@@ -4918,6 +4921,7 @@ components:
           * `4` - IP blocked
           * `5` - Certificate renewal
           * `6` - On demand, like schedule but executed on demand
+          * `7` - Identity provider login
     LoginMethods:
       type: string
       enum:
@@ -6870,6 +6874,24 @@ components:
         threshold:
           type: integer
           description: 'An email notification will be generated for users whose password expires in a number of days less than or equal to this threshold'
+    EventActionIDPAccountCheck:
+      type: object
+      properties:
+        mode:
+          type: integer
+          enum:
+            - 0
+            - 1
+          description: |
+            Account check mode:
+              * `0` Create or update the account
+              * `1` Create the account if it doesn't exist
+        template_user:
+          type: string
+          description: 'SFTPGo user template in JSON format'
+        template_admin:
+          type: string
+          description: 'SFTPGo admin template in JSON format'
     BaseEventActionOptions:
       type: object
       properties:
@@ -6885,6 +6907,8 @@ components:
           $ref: '#/components/schemas/EventActionFilesystemConfig'
         pwd_expiration_config:
           $ref: '#/components/schemas/EventActionPasswordExpiration'
+        idp_config:
+          $ref: '#/components/schemas/EventActionIDPAccountCheck'
     BaseEventAction:
       type: object
       properties:
@@ -7026,6 +7050,8 @@ components:
               - pre-upload
               - pre-download
               - pre-delete
+              - first-upload
+              - first-download
         provider_events:
           type: array
           items:
@@ -7038,6 +7064,17 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Schedule'
+        idp_login_event:
+          type: integer
+          enum:
+            - 0
+            - 1
+            - 2
+          description: |
+            IDP login events:
+              - `0` any login event
+              - `1` user login event
+              - `2` admin login event
         options:
           $ref: '#/components/schemas/ConditionOptions'
     BaseEventRule:

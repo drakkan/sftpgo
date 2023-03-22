@@ -1235,7 +1235,7 @@ func TestParseAllowedIPAndRanges(t *testing.T) {
 	assert.False(t, allow[1](net.ParseIP("172.16.1.1")))
 }
 
-func TestHideConfidentialData(t *testing.T) {
+func TestHideConfidentialData(_ *testing.T) {
 	for _, provider := range []sdk.FilesystemProvider{sdk.LocalFilesystemProvider,
 		sdk.CryptedFilesystemProvider, sdk.S3FilesystemProvider, sdk.GCSFilesystemProvider,
 		sdk.AzureBlobFilesystemProvider, sdk.SFTPFilesystemProvider,

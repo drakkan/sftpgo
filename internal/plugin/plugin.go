@@ -338,7 +338,7 @@ func (m *Manager) SetModificationTime(storageID, objectPath string, mTime int64)
 }
 
 // GetModificationTime returns the modification time for the specified path
-func (m *Manager) GetModificationTime(storageID, objectPath string, isDir bool) (int64, error) {
+func (m *Manager) GetModificationTime(storageID, objectPath string, _ bool) (int64, error) {
 	if !m.hasMetadater {
 		return 0, ErrNoMetadater
 	}

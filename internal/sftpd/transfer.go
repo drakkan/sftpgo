@@ -40,7 +40,7 @@ type failingReader struct {
 	errRead     error
 }
 
-func (r *failingReader) ReadAt(p []byte, off int64) (n int, err error) {
+func (r *failingReader) ReadAt(_ []byte, _ int64) (n int, err error) {
 	return 0, r.errRead
 }
 

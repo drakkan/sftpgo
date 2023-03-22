@@ -121,6 +121,7 @@ And the following is an example ID token which allows the SFTPGo user `user1` to
 ```
 
 SFTPGo users (not admins) can be created/updated after successful OpenID authentication by defining a [pre-login hook](./dynamic-user-mod.md).
+Users and admins can also be created/updated after successful OpenID authentication using the [EventManager](./eventmanager.md).
 You can use `scopes` configuration to request additional information (claims) about authenticated users (See your provider's own documentation for more information).
 By default the scopes `"openid", "profile", "email"` are retrieved.
 The `custom_fields` configuration parameter can be used to define claim field names to pass to the pre-login hook,
@@ -165,3 +166,5 @@ The pre-login hook will receive a JSON serialized user with the following field:
   },
 ...
 ```
+
+In EventManager actions you can use the placeholder `{{IDPFieldsftpgo_home_dir}}` for string-based custom fields.

@@ -3491,7 +3491,7 @@ func sqlCommonUpdateEventAction(action *BaseEventAction, dbHandle *sql.DB) error
 			return err
 		}
 		q = getUpdateRulesTimestampQuery()
-		_, err = tx.ExecContext(ctx, q, util.GetTimeAsMsSinceEpoch(time.Now()), action.ID)
+		_, err = tx.ExecContext(ctx, q, util.GetTimeAsMsSinceEpoch(time.Now()), action.Name)
 		return err
 	})
 }

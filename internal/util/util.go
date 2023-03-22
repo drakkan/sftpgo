@@ -24,6 +24,7 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -589,7 +590,7 @@ func HTTPListenAndServe(srv *http.Server, address string, port int, isTLS bool, 
 		return err
 	}
 
-	logger.Info(logSender, "", "server listener registered, address: %v TLS enabled: %v", listener.Addr().String(), isTLS)
+	logger.Info(logSender, "", "server listener registered, address: %s TLS enabled: %t", listener.Addr().String(), isTLS)
 
 	defer listener.Close()
 
@@ -833,4 +834,16 @@ func GetLastIPForPrefix(p netip.Prefix) netip.Addr {
 		return netip.AddrFrom16(a16).Unmap()
 	}
 	return netip.AddrFrom16(a16) // doesn't unmap
+}
+
+// JSONEscape returns the JSON escaped format for the input string
+func JSONEscape(val string) string {
+	if val == "" {
+		return val
+	}
+	b, err := json.Marshal(val)
+	if err != nil {
+		return ""
+	}
+	return string(b[1 : len(b)-1])
 }

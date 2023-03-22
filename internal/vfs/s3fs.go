@@ -337,27 +337,27 @@ func (fs *S3Fs) Mkdir(name string) error {
 }
 
 // Symlink creates source as a symbolic link to target.
-func (*S3Fs) Symlink(source, target string) error {
+func (*S3Fs) Symlink(_, _ string) error {
 	return ErrVfsUnsupported
 }
 
 // Readlink returns the destination of the named symbolic link
-func (*S3Fs) Readlink(name string) (string, error) {
+func (*S3Fs) Readlink(_ string) (string, error) {
 	return "", ErrVfsUnsupported
 }
 
 // Chown changes the numeric uid and gid of the named file.
-func (*S3Fs) Chown(name string, uid int, gid int) error {
+func (*S3Fs) Chown(_ string, _ int, _ int) error {
 	return ErrVfsUnsupported
 }
 
 // Chmod changes the mode of the named file to mode.
-func (*S3Fs) Chmod(name string, mode os.FileMode) error {
+func (*S3Fs) Chmod(_ string, _ os.FileMode) error {
 	return ErrVfsUnsupported
 }
 
 // Chtimes changes the access and modification times of the named file.
-func (fs *S3Fs) Chtimes(name string, atime, mtime time.Time, isUploading bool) error {
+func (fs *S3Fs) Chtimes(name string, _, mtime time.Time, isUploading bool) error {
 	if !plugin.Handler.HasMetadater() {
 		return ErrVfsUnsupported
 	}
@@ -377,7 +377,7 @@ func (fs *S3Fs) Chtimes(name string, atime, mtime time.Time, isUploading bool) e
 // Truncate changes the size of the named file.
 // Truncate by path is not supported, while truncating an opened
 // file is handled inside base transfer
-func (*S3Fs) Truncate(name string, size int64) error {
+func (*S3Fs) Truncate(_ string, _ int64) error {
 	return ErrVfsUnsupported
 }
 
@@ -595,7 +595,7 @@ func (fs *S3Fs) GetDirSize(dirname string) (int, int64, error) {
 
 // GetAtomicUploadPath returns the path to use for an atomic upload.
 // S3 uploads are already atomic, we never call this method for S3
-func (*S3Fs) GetAtomicUploadPath(name string) string {
+func (*S3Fs) GetAtomicUploadPath(_ string) string {
 	return ""
 }
 
@@ -1009,7 +1009,7 @@ func (*S3Fs) Close() error {
 }
 
 // GetAvailableDiskSize returns the available size for the specified path
-func (*S3Fs) GetAvailableDiskSize(dirName string) (*sftp.StatVFS, error) {
+func (*S3Fs) GetAvailableDiskSize(_ string) (*sftp.StatVFS, error) {
 	return nil, ErrStorageSizeUnavailable
 }
 

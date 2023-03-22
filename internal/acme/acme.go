@@ -287,10 +287,7 @@ func (c *Configuration) validateChallenges() error {
 	if err := c.HTTP01Challenge.validate(); err != nil {
 		return err
 	}
-	if err := c.TLSALPN01Challenge.validate(); err != nil {
-		return err
-	}
-	return nil
+	return c.TLSALPN01Challenge.validate()
 }
 
 func (c *Configuration) checkDomains() {

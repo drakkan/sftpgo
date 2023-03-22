@@ -83,7 +83,7 @@ func (c *MockChannel) CloseWrite() error {
 	return nil
 }
 
-func (c *MockChannel) SendRequest(name string, wantReply bool, payload []byte) (bool, error) {
+func (c *MockChannel) SendRequest(_ string, _ bool, _ []byte) (bool, error) {
 	return true, nil
 }
 
@@ -131,7 +131,7 @@ func (fs MockOsFs) Lstat(name string) (os.FileInfo, error) {
 }
 
 // Remove removes the named file or (empty) directory.
-func (fs MockOsFs) Remove(name string, isDir bool) error {
+func (fs MockOsFs) Remove(name string, _ bool) error {
 	if fs.err != nil {
 		return fs.err
 	}

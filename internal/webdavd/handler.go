@@ -85,7 +85,7 @@ func (c *Connection) GetCommand() string {
 }
 
 // Mkdir creates a directory using the connection filesystem
-func (c *Connection) Mkdir(ctx context.Context, name string, perm os.FileMode) error {
+func (c *Connection) Mkdir(_ context.Context, name string, _ os.FileMode) error {
 	c.UpdateLastActivity()
 
 	name = util.CleanPath(name)
@@ -93,7 +93,7 @@ func (c *Connection) Mkdir(ctx context.Context, name string, perm os.FileMode) e
 }
 
 // Rename renames a file or a directory
-func (c *Connection) Rename(ctx context.Context, oldName, newName string) error {
+func (c *Connection) Rename(_ context.Context, oldName, newName string) error {
 	c.UpdateLastActivity()
 
 	oldName = util.CleanPath(oldName)
@@ -116,7 +116,7 @@ func (c *Connection) Rename(ctx context.Context, oldName, newName string) error 
 
 // Stat returns a FileInfo describing the named file/directory, or an error,
 // if any happens
-func (c *Connection) Stat(ctx context.Context, name string) (os.FileInfo, error) {
+func (c *Connection) Stat(_ context.Context, name string) (os.FileInfo, error) {
 	c.UpdateLastActivity()
 
 	name = util.CleanPath(name)
@@ -133,7 +133,7 @@ func (c *Connection) Stat(ctx context.Context, name string) (os.FileInfo, error)
 
 // RemoveAll removes path and any children it contains.
 // If the path does not exist, RemoveAll returns nil (no error).
-func (c *Connection) RemoveAll(ctx context.Context, name string) error {
+func (c *Connection) RemoveAll(_ context.Context, name string) error {
 	c.UpdateLastActivity()
 
 	name = util.CleanPath(name)
@@ -142,7 +142,7 @@ func (c *Connection) RemoveAll(ctx context.Context, name string) error {
 
 // OpenFile opens the named file with specified flag.
 // This method is used for uploads and downloads but also for Stat and Readdir
-func (c *Connection) OpenFile(ctx context.Context, name string, flag int, perm os.FileMode) (webdav.File, error) {
+func (c *Connection) OpenFile(_ context.Context, name string, flag int, _ os.FileMode) (webdav.File, error) {
 	c.UpdateLastActivity()
 
 	name = util.CleanPath(name)

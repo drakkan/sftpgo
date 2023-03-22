@@ -15,6 +15,7 @@ The following actions are supported:
 - `Metadata check`. A metadata check requires a metadata plugin such as [this one](https://github.com/sftpgo/sftpgo-plugin-metadata) and removes the metadata associated to missing items (for example objects deleted outside SFTPGo). A metadata check does nothing is no metadata plugin is installed or external metadata are not supported for a filesystem.
 - `Password expiration check`. You can send an email notification to users whose password is about to expire.
 - `User expiration check`. You can receive notifications with expired users.
+- `Identity Provider account check`. You can create/update accounts for users/admins logging in using an Identity Provider.
 - `Filesystem`. For these actions, the required permissions are automatically granted. This is the same as executing the actions from an SFTP client and the same restrictions applies. Supported actions:
   - `Rename`. You can rename one or more files or directories.
   - `Delete`. You can delete one or more files and directories.
@@ -47,6 +48,7 @@ The following placeholders are supported:
 - `{{Timestamp}}`. Event timestamp as nanoseconds since epoch.
 - `{{ObjectData}}`. Provider object data serialized as JSON with sensitive fields removed.
 - `{{RetentionReports}}`. Data retention reports as zip compressed CSV files. Supported as email attachment, file path for multipart HTTP request and as single parameter for HTTP requests body. Data retention reports contain details on the number of files deleted and the total size deleted for each folder.
+- `{{IDPField<fieldname>}}`. Identity Provider custom fields containing a string.
 
 Event rules are based on the premise that an event occours. To each rule you can associate one or more actions.
 The following trigger events are supported:
@@ -57,6 +59,7 @@ The following trigger events are supported:
 - `IP Blocked`, this event can be generated if you enable the [defender](./defender.md).
 - `Certificate`, this event is generated when a certificate is renewed using the built-in ACME protocol. Both successful and failed renewals are notified.
 - `On demand`, this trigger is generated manually using the WebAdmin or the REST API.
+- `Identity Provider login`, this trigger is generated when a user/admin logs in using an external Identity Provider.
 
 You can further restrict a rule by specifying additional conditions that must be met before the rule’s actions are taken. For example you can react to uploads only if they are performed by a particular user or using a specified protocol.
 

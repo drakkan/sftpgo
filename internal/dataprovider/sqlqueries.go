@@ -1106,8 +1106,8 @@ func getClearRuleActionMappingQuery() string {
 }
 
 func getUpdateRulesTimestampQuery() string {
-	return fmt.Sprintf(`UPDATE %s SET updated_at=%s WHERE id IN (SELECT rule_id FROM %s WHERE action_id = %s)`,
-		sqlTableEventsRules, sqlPlaceholders[0], sqlTableRulesActionsMapping, sqlPlaceholders[1])
+	return fmt.Sprintf(`UPDATE %s SET updated_at=%s WHERE id IN (SELECT rule_id FROM %s WHERE action_id = (SELECT id from %s WHERE name = %s))`,
+		sqlTableEventsRules, sqlPlaceholders[0], sqlTableRulesActionsMapping, sqlTableEventsActions, sqlPlaceholders[1])
 }
 
 func getRelatedActionsForRulesQuery(rules []EventRule) string {

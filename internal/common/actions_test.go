@@ -321,7 +321,7 @@ type actionHandlerStub struct {
 	called bool
 }
 
-func (h *actionHandlerStub) Handle(event *notifier.FsEvent) (int, error) {
+func (h *actionHandlerStub) Handle(_ *notifier.FsEvent) (int, error) {
 	h.called = true
 
 	return 1, nil

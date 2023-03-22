@@ -90,29 +90,29 @@ func (c *Connection) GetCommand() string {
 }
 
 // Create is not implemented we use ClientDriverExtentionFileTransfer
-func (c *Connection) Create(name string) (afero.File, error) {
+func (c *Connection) Create(_ string) (afero.File, error) {
 	return nil, errNotImplemented
 }
 
 // Mkdir creates a directory using the connection filesystem
-func (c *Connection) Mkdir(name string, perm os.FileMode) error {
+func (c *Connection) Mkdir(name string, _ os.FileMode) error {
 	c.UpdateLastActivity()
 
 	return c.CreateDir(name, true)
 }
 
 // MkdirAll is not implemented, we don't need it
-func (c *Connection) MkdirAll(path string, perm os.FileMode) error {
+func (c *Connection) MkdirAll(_ string, _ os.FileMode) error {
 	return errNotImplemented
 }
 
 // Open is not implemented we use ClientDriverExtentionFileTransfer and ClientDriverExtensionFileList
-func (c *Connection) Open(name string) (afero.File, error) {
+func (c *Connection) Open(_ string) (afero.File, error) {
 	return nil, errNotImplemented
 }
 
 // OpenFile is not implemented we use ClientDriverExtentionFileTransfer
-func (c *Connection) OpenFile(name string, flag int, perm os.FileMode) (afero.File, error) {
+func (c *Connection) OpenFile(_ string, _ int, _ os.FileMode) (afero.File, error) {
 	return nil, errNotImplemented
 }
 
@@ -140,7 +140,7 @@ func (c *Connection) Remove(name string) error {
 }
 
 // RemoveAll is not implemented, we don't need it
-func (c *Connection) RemoveAll(path string) error {
+func (c *Connection) RemoveAll(_ string) error {
 	return errNotImplemented
 }
 
@@ -178,7 +178,7 @@ func (c *Connection) Name() string {
 }
 
 // Chown changes the uid and gid of the named file
-func (c *Connection) Chown(name string, uid, gid int) error {
+func (c *Connection) Chown(_ string, _, _ int) error {
 	c.UpdateLastActivity()
 
 	return common.ErrOpUnsupported
@@ -270,7 +270,7 @@ func (c *Connection) GetAvailableSpace(dirName string) (int64, error) {
 }
 
 // AllocateSpace implements ClientDriverExtensionAllocate interface
-func (c *Connection) AllocateSpace(size int) error {
+func (c *Connection) AllocateSpace(_ int) error {
 	c.UpdateLastActivity()
 	// we treat ALLO as NOOP see RFC 959
 	return nil

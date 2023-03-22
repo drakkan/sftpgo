@@ -81,11 +81,11 @@ func (l *HCLogAdapter) Named(name string) hclog.Logger {
 }
 
 // StandardLogger returns a value that conforms to the stdlib log.Logger interface
-func (l *HCLogAdapter) StandardLogger(opts *hclog.StandardLoggerOptions) *log.Logger {
+func (l *HCLogAdapter) StandardLogger(_ *hclog.StandardLoggerOptions) *log.Logger {
 	return log.New(&StdLoggerWrapper{Sender: l.Name()}, "", 0)
 }
 
 // StandardWriter returns a value that conforms to io.Writer, which can be passed into log.SetOutput()
-func (l *HCLogAdapter) StandardWriter(opts *hclog.StandardLoggerOptions) io.Writer {
+func (l *HCLogAdapter) StandardWriter(_ *hclog.StandardLoggerOptions) io.Writer {
 	return &StdLoggerWrapper{Sender: l.Name()}
 }

@@ -30,6 +30,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/util"
+	"github.com/drakkan/sftpgo/v2/internal/version"
 )
 
 const (
@@ -287,7 +288,9 @@ func (c *Config) getMailClientOptions() []mail.Option {
 
 func (c *Config) getSMTPClientAndMsg(to []string, subject, body string, contentType EmailContentType,
 	attachments ...*mail.File) (*mail.Client, *mail.Msg, error) {
+	version := version.Get()
 	msg := mail.NewMsg()
+	msg.SetUserAgent(fmt.Sprintf("SFTPGo-%s-%s", version.Version, version.CommitHash))
 
 	var from string
 	if c.From != "" {

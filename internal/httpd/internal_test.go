@@ -292,11 +292,11 @@ var (
 type failingWriter struct {
 }
 
-func (r *failingWriter) Write(p []byte) (n int, err error) {
+func (r *failingWriter) Write(_ []byte) (n int, err error) {
 	return 0, errors.New("write error")
 }
 
-func (r *failingWriter) WriteHeader(statusCode int) {}
+func (r *failingWriter) WriteHeader(_ int) {}
 
 func (r *failingWriter) Header() http.Header {
 	return make(http.Header)

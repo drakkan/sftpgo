@@ -326,27 +326,27 @@ func (fs *AzureBlobFs) Mkdir(name string) error {
 }
 
 // Symlink creates source as a symbolic link to target.
-func (*AzureBlobFs) Symlink(source, target string) error {
+func (*AzureBlobFs) Symlink(_, _ string) error {
 	return ErrVfsUnsupported
 }
 
 // Readlink returns the destination of the named symbolic link
-func (*AzureBlobFs) Readlink(name string) (string, error) {
+func (*AzureBlobFs) Readlink(_ string) (string, error) {
 	return "", ErrVfsUnsupported
 }
 
 // Chown changes the numeric uid and gid of the named file.
-func (*AzureBlobFs) Chown(name string, uid int, gid int) error {
+func (*AzureBlobFs) Chown(_ string, _ int, _ int) error {
 	return ErrVfsUnsupported
 }
 
 // Chmod changes the mode of the named file to mode.
-func (*AzureBlobFs) Chmod(name string, mode os.FileMode) error {
+func (*AzureBlobFs) Chmod(_ string, _ os.FileMode) error {
 	return ErrVfsUnsupported
 }
 
 // Chtimes changes the access and modification times of the named file.
-func (fs *AzureBlobFs) Chtimes(name string, atime, mtime time.Time, isUploading bool) error {
+func (fs *AzureBlobFs) Chtimes(name string, _, mtime time.Time, isUploading bool) error {
 	if !plugin.Handler.HasMetadater() {
 		return ErrVfsUnsupported
 	}
@@ -367,7 +367,7 @@ func (fs *AzureBlobFs) Chtimes(name string, atime, mtime time.Time, isUploading 
 // Truncate changes the size of the named file.
 // Truncate by path is not supported, while truncating an opened
 // file is handled inside base transfer
-func (*AzureBlobFs) Truncate(name string, size int64) error {
+func (*AzureBlobFs) Truncate(_ string, _ int64) error {
 	return ErrVfsUnsupported
 }
 
@@ -609,7 +609,7 @@ func (fs *AzureBlobFs) GetDirSize(dirname string) (int, int64, error) {
 
 // GetAtomicUploadPath returns the path to use for an atomic upload.
 // Azure Blob Storage uploads are already atomic, we never call this method
-func (*AzureBlobFs) GetAtomicUploadPath(name string) string {
+func (*AzureBlobFs) GetAtomicUploadPath(_ string) string {
 	return ""
 }
 
@@ -702,7 +702,7 @@ func (fs *AzureBlobFs) ResolvePath(virtualPath string) (string, error) {
 }
 
 // CopyFile implements the FsFileCopier interface
-func (fs *AzureBlobFs) CopyFile(source, target string, srcSize int64) error {
+func (fs *AzureBlobFs) CopyFile(source, target string, _ int64) error {
 	return fs.copyFileInternal(source, target)
 }
 
@@ -731,7 +731,7 @@ func (*AzureBlobFs) Close() error {
 }
 
 // GetAvailableDiskSize returns the available size for the specified path
-func (*AzureBlobFs) GetAvailableDiskSize(dirName string) (*sftp.StatVFS, error) {
+func (*AzureBlobFs) GetAvailableDiskSize(_ string) (*sftp.StatVFS, error) {
 	return nil, ErrStorageSizeUnavailable
 }
 

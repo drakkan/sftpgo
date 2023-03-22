@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/csv"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -56,6 +57,12 @@ const (
 	maxAttachmentsSize = int64(10 * 1024 * 1024)
 )
 
+// Supported IDP login events
+const (
+	IDPLoginUser  = "IDP login user"
+	IDPLoginAdmin = "IDP login admin"
+)
+
 var (
 	// eventManager handle the supported event rules actions
 	eventManager          eventRulesContainer
@@ -90,6 +97,11 @@ func HandleCertificateEvent(params EventParams) {
 	eventManager.handleCertificateEvent(params)
 }
 
+// HandleIDPLoginEvent executes actions defined for a successful login from an Identity Provider
+func HandleIDPLoginEvent(params EventParams, customFields *map[string]any) (*dataprovider.User, *dataprovider.Admin, error) {
+	return eventManager.handleIDPLoginEvent(params, customFields)
+}
+
 // eventRulesContainer stores event rules by trigger
 type eventRulesContainer struct {
 	sync.RWMutex
@@ -99,6 +111,7 @@ type eventRulesContainer struct {
 	Schedules         []dataprovider.EventRule
 	IPBlockedEvents   []dataprovider.EventRule
 	CertificateEvents []dataprovider.EventRule
+	IPDLoginEvents    []dataprovider.EventRule
 	schedulesMapping  map[string][]cron.EntryID
 	concurrencyGuard  chan struct{}
 }
@@ -168,6 +181,15 @@ func (r *eventRulesContainer) removeRuleInternal(name string) {
 			return
 		}
 	}
+	for idx := range r.IPDLoginEvents {
+		if r.IPDLoginEvents[idx].Name == name {
+			lastIdx := len(r.IPDLoginEvents) - 1
+			r.IPDLoginEvents[idx] = r.IPDLoginEvents[lastIdx]
+			r.IPDLoginEvents = r.IPDLoginEvents[:lastIdx]
+			eventManagerLog(logger.LevelDebug, "removed rule %q from IDP login events", name)
+			return
+		}
+	}
 	for idx := range r.Schedules {
 		if r.Schedules[idx].Name == name {
 			if schedules, ok := r.schedulesMapping[name]; ok {
@@ -213,6 +235,9 @@ func (r *eventRulesContainer) addUpdateRuleInternal(rule dataprovider.EventRule)
 	case dataprovider.EventTriggerCertificate:
 		r.CertificateEvents = append(r.CertificateEvents, rule)
 		eventManagerLog(logger.LevelDebug, "added rule %q to certificate events", rule.Name)
+	case dataprovider.EventTriggerIDPLogin:
+		r.IPDLoginEvents = append(r.IPDLoginEvents, rule)
+		eventManagerLog(logger.LevelDebug, "added rule %q to IDP login events", rule.Name)
 	case dataprovider.EventTriggerSchedule:
 		for _, schedule := range rule.Conditions.Schedules {
 			cronSpec := schedule.GetCronSpec()
@@ -253,13 +278,27 @@ func (r *eventRulesContainer) loadRules() {
 			r.addUpdateRuleInternal(rule)
 		}
 	}
-	eventManagerLog(logger.LevelDebug, "event rules updated, fs events: %d, provider events: %d, schedules: %d, ip blocked events: %d, certificate events: %d",
-		len(r.FsEvents), len(r.ProviderEvents), len(r.Schedules), len(r.IPBlockedEvents), len(r.CertificateEvents))
+	eventManagerLog(logger.LevelDebug, "event rules updated, fs events: %d, provider events: %d, schedules: %d, ip blocked events: %d, certificate events: %d, IDP login events: %d",
+		len(r.FsEvents), len(r.ProviderEvents), len(r.Schedules), len(r.IPBlockedEvents), len(r.CertificateEvents), len(r.IPDLoginEvents))
 
 	r.setLastLoadTime(modTime)
 }
 
-func (r *eventRulesContainer) checkProviderEventMatch(conditions dataprovider.EventConditions, params EventParams) bool {
+func (*eventRulesContainer) checkIPDLoginEventMatch(conditions *dataprovider.EventConditions, params *EventParams) bool {
+	switch conditions.IDPLoginEvent {
+	case dataprovider.IDPLoginUser:
+		if params.Event != IDPLoginUser {
+			return false
+		}
+	case dataprovider.IDPLoginAdmin:
+		if params.Event != IDPLoginAdmin {
+			return false
+		}
+	}
+	return checkEventConditionPatterns(params.Name, conditions.Options.Names)
+}
+
+func (*eventRulesContainer) checkProviderEventMatch(conditions *dataprovider.EventConditions, params *EventParams) bool {
 	if !util.Contains(conditions.ProviderEvents, params.Event) {
 		return false
 	}
@@ -275,7 +314,7 @@ func (r *eventRulesContainer) checkProviderEventMatch(conditions dataprovider.Ev
 	return true
 }
 
-func (r *eventRulesContainer) checkFsEventMatch(conditions dataprovider.EventConditions, params EventParams) bool {
+func (*eventRulesContainer) checkFsEventMatch(conditions *dataprovider.EventConditions, params *EventParams) bool {
 	if !util.Contains(conditions.FsEvents, params.Event) {
 		return false
 	}
@@ -327,7 +366,7 @@ func (r *eventRulesContainer) handleFsEvent(params EventParams) (bool, error) {
 
 	var rulesWithSyncActions, rulesAsync []dataprovider.EventRule
 	for _, rule := range r.FsEvents {
-		if r.checkFsEventMatch(rule.Conditions, params) {
+		if r.checkFsEventMatch(&rule.Conditions, &params) {
 			if err := rule.CheckActionsConsistency(""); err != nil {
 				eventManagerLog(logger.LevelWarn, "rule %q skipped: %v, event %q",
 					rule.Name, err, params.Event)
@@ -361,6 +400,59 @@ func (r *eventRulesContainer) handleFsEvent(params EventParams) (bool, error) {
 	return false, nil
 }
 
+func (r *eventRulesContainer) handleIDPLoginEvent(params EventParams, customFields *map[string]any) (*dataprovider.User,
+	*dataprovider.Admin, error,
+) {
+	r.RLock()
+
+	var rulesWithSyncActions, rulesAsync []dataprovider.EventRule
+	for _, rule := range r.IPDLoginEvents {
+		if r.checkIPDLoginEventMatch(&rule.Conditions, &params) {
+			if err := rule.CheckActionsConsistency(""); err != nil {
+				eventManagerLog(logger.LevelWarn, "rule %q skipped: %v, event %q",
+					rule.Name, err, params.Event)
+				continue
+			}
+			hasSyncActions := false
+			for _, action := range rule.Actions {
+				if action.Options.ExecuteSync {
+					hasSyncActions = true
+					break
+				}
+			}
+			if hasSyncActions {
+				rulesWithSyncActions = append(rulesWithSyncActions, rule)
+			} else {
+				rulesAsync = append(rulesAsync, rule)
+			}
+		}
+	}
+
+	r.RUnlock()
+
+	if len(rulesAsync) == 0 && len(rulesWithSyncActions) == 0 {
+		return nil, nil, nil
+	}
+
+	params.addIDPCustomFields(customFields)
+	if len(rulesWithSyncActions) > 1 {
+		var ruleNames []string
+		for _, r := range rulesWithSyncActions {
+			ruleNames = append(ruleNames, r.Name)
+		}
+		return nil, nil, fmt.Errorf("more than one account check action rules matches: %q", strings.Join(ruleNames, ","))
+	}
+
+	if len(rulesAsync) > 0 {
+		go executeAsyncRulesActions(rulesAsync, params)
+	}
+
+	if len(rulesWithSyncActions) > 0 {
+		return executeIDPAccountCheckRule(rulesWithSyncActions[0], params)
+	}
+	return nil, nil, nil
+}
+
 // username is populated for user objects
 func (r *eventRulesContainer) handleProviderEvent(params EventParams) {
 	r.RLock()
@@ -368,7 +460,7 @@ func (r *eventRulesContainer) handleProviderEvent(params EventParams) {
 
 	var rules []dataprovider.EventRule
 	for _, rule := range r.ProviderEvents {
-		if r.checkProviderEventMatch(rule.Conditions, params) {
+		if r.checkProviderEventMatch(&rule.Conditions, &params) {
 			if err := rule.CheckActionsConsistency(params.ObjectType); err == nil {
 				rules = append(rules, rule)
 			} else {
@@ -452,6 +544,7 @@ type EventParams struct {
 	IP                    string
 	Role                  string
 	Timestamp             int64
+	IDPCustomFields       *map[string]string
 	Object                plugin.Renderer
 	sender                string
 	updateStatusFromError bool
@@ -474,8 +567,30 @@ func (p *EventParams) getACopy() *EventParams {
 		retentionChecks = append(retentionChecks, executedCheck)
 	}
 	params.retentionChecks = retentionChecks
+	if p.IDPCustomFields != nil {
+		fields := make(map[string]string)
+		for k, v := range *p.IDPCustomFields {
+			fields[k] = v
+		}
+		params.IDPCustomFields = &fields
+	}
 
 	return &params
+}
+
+func (p *EventParams) addIDPCustomFields(customFields *map[string]any) {
+	if customFields == nil {
+		return
+	}
+
+	fields := make(map[string]string)
+	for k, v := range *customFields {
+		switch val := v.(type) {
+		case string:
+			fields[k] = val
+		}
+	}
+	p.IDPCustomFields = &fields
 }
 
 // AddError adds a new error to the event params and update the status if needed
@@ -622,34 +737,41 @@ func (p *EventParams) getRetentionReportsAsMailAttachment() (*mail.File, error) 
 	}, nil
 }
 
-func (p *EventParams) getStringReplacements(addObjectData bool) []string {
+func (*EventParams) getStringReplacement(val string, jsonEscaped bool) string {
+	if jsonEscaped {
+		return util.JSONEscape(val)
+	}
+	return val
+}
+
+func (p *EventParams) getStringReplacements(addObjectData, jsonEscaped bool) []string {
 	replacements := []string{
-		"{{Name}}", p.Name,
+		"{{Name}}", p.getStringReplacement(p.Name, jsonEscaped),
 		"{{Event}}", p.Event,
 		"{{Status}}", fmt.Sprintf("%d", p.Status),
-		"{{VirtualPath}}", p.VirtualPath,
-		"{{FsPath}}", p.FsPath,
-		"{{VirtualTargetPath}}", p.VirtualTargetPath,
-		"{{FsTargetPath}}", p.FsTargetPath,
-		"{{ObjectName}}", p.ObjectName,
+		"{{VirtualPath}}", p.getStringReplacement(p.VirtualPath, jsonEscaped),
+		"{{FsPath}}", p.getStringReplacement(p.FsPath, jsonEscaped),
+		"{{VirtualTargetPath}}", p.getStringReplacement(p.VirtualTargetPath, jsonEscaped),
+		"{{FsTargetPath}}", p.getStringReplacement(p.FsTargetPath, jsonEscaped),
+		"{{ObjectName}}", p.getStringReplacement(p.ObjectName, jsonEscaped),
 		"{{ObjectType}}", p.ObjectType,
 		"{{FileSize}}", fmt.Sprintf("%d", p.FileSize),
 		"{{Elapsed}}", fmt.Sprintf("%d", p.Elapsed),
 		"{{Protocol}}", p.Protocol,
 		"{{IP}}", p.IP,
-		"{{Role}}", p.Role,
+		"{{Role}}", p.getStringReplacement(p.Role, jsonEscaped),
 		"{{Timestamp}}", fmt.Sprintf("%d", p.Timestamp),
 		"{{StatusString}}", p.getStatusString(),
 	}
 	if p.VirtualPath != "" {
-		replacements = append(replacements, "{{VirtualDirPath}}", path.Dir(p.VirtualPath))
+		replacements = append(replacements, "{{VirtualDirPath}}", p.getStringReplacement(path.Dir(p.VirtualPath), jsonEscaped))
 	}
 	if p.VirtualTargetPath != "" {
-		replacements = append(replacements, "{{VirtualTargetDirPath}}", path.Dir(p.VirtualTargetPath))
-		replacements = append(replacements, "{{TargetName}}", path.Base(p.VirtualTargetPath))
+		replacements = append(replacements, "{{VirtualTargetDirPath}}", p.getStringReplacement(path.Dir(p.VirtualTargetPath), jsonEscaped))
+		replacements = append(replacements, "{{TargetName}}", p.getStringReplacement(path.Base(p.VirtualTargetPath), jsonEscaped))
 	}
 	if len(p.errors) > 0 {
-		replacements = append(replacements, "{{ErrorString}}", strings.Join(p.errors, ", "))
+		replacements = append(replacements, "{{ErrorString}}", p.getStringReplacement(strings.Join(p.errors, ", "), jsonEscaped))
 	} else {
 		replacements = append(replacements, "{{ErrorString}}", "")
 	}
@@ -658,6 +780,11 @@ func (p *EventParams) getStringReplacements(addObjectData bool) []string {
 		data, err := p.Object.RenderAsJSON(p.Event != operationDelete)
 		if err == nil {
 			replacements[len(replacements)-1] = string(data)
+		}
+	}
+	if p.IDPCustomFields != nil {
+		for k, v := range *p.IDPCustomFields {
+			replacements = append(replacements, fmt.Sprintf("{{IDPField%s}}", k), p.getStringReplacement(v, jsonEscaped))
 		}
 	}
 	return replacements
@@ -1060,7 +1187,7 @@ func getHTTPRuleActionEndpoint(c dataprovider.EventActionHTTPConfig, replacer *s
 }
 
 func writeHTTPPart(m *multipart.Writer, part dataprovider.HTTPPart, h textproto.MIMEHeader,
-	conn *BaseConnection, replacer *strings.Replacer, params *EventParams,
+	conn *BaseConnection, replacer *strings.Replacer, params *EventParams, addObjectData bool,
 ) error {
 	partWriter, err := m.CreatePart(h)
 	if err != nil {
@@ -1068,7 +1195,14 @@ func writeHTTPPart(m *multipart.Writer, part dataprovider.HTTPPart, h textproto.
 		return err
 	}
 	if part.Body != "" {
-		_, err = partWriter.Write([]byte(replaceWithReplacer(part.Body, replacer)))
+		cType := h.Get("Content-Type")
+		if strings.Contains(strings.ToLower(cType), "application/json") {
+			replacements := params.getStringReplacements(addObjectData, true)
+			jsonReplacer := strings.NewReplacer(replacements...)
+			_, err = partWriter.Write([]byte(replaceWithReplacer(part.Body, jsonReplacer)))
+		} else {
+			_, err = partWriter.Write([]byte(replaceWithReplacer(part.Body, replacer)))
+		}
 		if err != nil {
 			eventManagerLog(logger.LevelError, "unable to write part %q, err: %v", part.Name, err)
 			return err
@@ -1095,8 +1229,8 @@ func writeHTTPPart(m *multipart.Writer, part dataprovider.HTTPPart, h textproto.
 	return nil
 }
 
-func getHTTPRuleActionBody(c dataprovider.EventActionHTTPConfig, replacer *strings.Replacer,
-	cancel context.CancelFunc, user dataprovider.User, params *EventParams,
+func getHTTPRuleActionBody(c *dataprovider.EventActionHTTPConfig, replacer *strings.Replacer,
+	cancel context.CancelFunc, user dataprovider.User, params *EventParams, addObjectData bool,
 ) (io.ReadCloser, string, error) {
 	var body io.ReadCloser
 	if c.Method == http.MethodGet {
@@ -1109,6 +1243,11 @@ func getHTTPRuleActionBody(c dataprovider.EventActionHTTPConfig, replacer *strin
 				return body, "", err
 			}
 			return io.NopCloser(bytes.NewBuffer(data)), "", nil
+		}
+		if c.HasJSONBody() {
+			replacements := params.getStringReplacements(addObjectData, true)
+			jsonReplacer := strings.NewReplacer(replacements...)
+			return io.NopCloser(bytes.NewBufferString(replaceWithReplacer(c.Body, jsonReplacer))), "", nil
 		}
 		return io.NopCloser(bytes.NewBufferString(replaceWithReplacer(c.Body, replacer))), "", nil
 	}
@@ -1154,7 +1293,7 @@ func getHTTPRuleActionBody(c dataprovider.EventActionHTTPConfig, replacer *strin
 				for _, keyVal := range part.Headers {
 					h.Set(keyVal.Key, replaceWithReplacer(keyVal.Value, replacer))
 				}
-				if err := writeHTTPPart(m, part, h, conn, replacer, params); err != nil {
+				if err := writeHTTPPart(m, part, h, conn, replacer, params, addObjectData); err != nil {
 					cancel()
 					return
 				}
@@ -1176,7 +1315,7 @@ func executeHTTPRuleAction(c dataprovider.EventActionHTTPConfig, params *EventPa
 		addObjectData = c.HasObjectData()
 	}
 
-	replacements := params.getStringReplacements(addObjectData)
+	replacements := params.getStringReplacements(addObjectData, false)
 	replacer := strings.NewReplacer(replacements...)
 	endpoint, err := getHTTPRuleActionEndpoint(c, replacer)
 	if err != nil {
@@ -1193,7 +1332,7 @@ func executeHTTPRuleAction(c dataprovider.EventActionHTTPConfig, params *EventPa
 			return err
 		}
 	}
-	body, contentType, err := getHTTPRuleActionBody(c, replacer, cancel, user, params)
+	body, contentType, err := getHTTPRuleActionBody(&c, replacer, cancel, user, params, addObjectData)
 	if err != nil {
 		return err
 	}
@@ -1244,7 +1383,7 @@ func executeCommandRuleAction(c dataprovider.EventActionCommandConfig, params *E
 			}
 		}
 	}
-	replacements := params.getStringReplacements(addObjectData)
+	replacements := params.getStringReplacements(addObjectData, false)
 	replacer := strings.NewReplacer(replacements...)
 
 	args := make([]string, 0, len(c.Args))
@@ -1277,7 +1416,7 @@ func executeEmailRuleAction(c dataprovider.EventActionEmailConfig, params *Event
 			addObjectData = true
 		}
 	}
-	replacements := params.getStringReplacements(addObjectData)
+	replacements := params.getStringReplacements(addObjectData, false)
 	replacer := strings.NewReplacer(replacements...)
 	body := replaceWithReplacer(c.Body, replacer)
 	subject := replaceWithReplacer(c.Subject, replacer)
@@ -1825,7 +1964,7 @@ func executeFsRuleAction(c dataprovider.EventActionFilesystemConfig, conditions 
 	params *EventParams,
 ) error {
 	addObjectData := false
-	replacements := params.getStringReplacements(addObjectData)
+	replacements := params.getStringReplacements(addObjectData, false)
 	replacer := strings.NewReplacer(replacements...)
 	switch c.Type {
 	case dataprovider.FilesystemActionRename:
@@ -2207,6 +2346,71 @@ func executePwdExpirationCheckRuleAction(config dataprovider.EventActionPassword
 	return nil
 }
 
+func executeAdminCheckAction(c *dataprovider.EventActionIDPAccountCheck, params *EventParams) (*dataprovider.Admin, error) {
+	admin, err := dataprovider.AdminExists(params.Name)
+	exists := err == nil
+	if exists && c.Mode == 1 {
+		return &admin, nil
+	}
+	if err != nil && !errors.Is(err, util.ErrNotFound) {
+		return nil, err
+	}
+
+	replacements := params.getStringReplacements(false, true)
+	replacer := strings.NewReplacer(replacements...)
+	data := replaceWithReplacer(c.TemplateAdmin, replacer)
+
+	var newAdmin dataprovider.Admin
+	err = json.Unmarshal([]byte(data), &newAdmin)
+	if err != nil {
+		return nil, err
+	}
+	if newAdmin.Password == "" {
+		newAdmin.Password = util.GenerateUniqueID()
+	}
+	if exists {
+		eventManagerLog(logger.LevelDebug, "updating admin %q after IDP login", params.Name)
+		err = dataprovider.UpdateAdmin(&newAdmin, dataprovider.ActionExecutorSystem, "", "")
+	} else {
+		eventManagerLog(logger.LevelDebug, "creating admin %q after IDP login", params.Name)
+		err = dataprovider.AddAdmin(&newAdmin, dataprovider.ActionExecutorSystem, "", "")
+	}
+	return &newAdmin, err
+}
+
+func executeUserCheckAction(c *dataprovider.EventActionIDPAccountCheck, params *EventParams) (*dataprovider.User, error) {
+	user, err := dataprovider.UserExists(params.Name, "")
+	exists := err == nil
+	if exists && c.Mode == 1 {
+		err = user.LoadAndApplyGroupSettings()
+		return &user, err
+	}
+	if err != nil && !errors.Is(err, util.ErrNotFound) {
+		return nil, err
+	}
+	replacements := params.getStringReplacements(false, true)
+	replacer := strings.NewReplacer(replacements...)
+	data := replaceWithReplacer(c.TemplateUser, replacer)
+
+	var newUser dataprovider.User
+	err = json.Unmarshal([]byte(data), &newUser)
+	if err != nil {
+		return nil, err
+	}
+	if exists {
+		eventManagerLog(logger.LevelDebug, "updating user %q after IDP login", params.Name)
+		err = dataprovider.UpdateUser(&newUser, dataprovider.ActionExecutorSystem, "", "")
+	} else {
+		eventManagerLog(logger.LevelDebug, "creating user %q after IDP login", params.Name)
+		err = dataprovider.AddUser(&newUser, dataprovider.ActionExecutorSystem, "", "")
+	}
+	if err != nil {
+		return nil, err
+	}
+	u, err := dataprovider.GetUserWithGroupSettings(params.Name, "")
+	return &u, err
+}
+
 func executeRuleAction(action dataprovider.BaseEventAction, params *EventParams,
 	conditions dataprovider.ConditionOptions,
 ) error {
@@ -2250,6 +2454,43 @@ func executeRuleAction(action dataprovider.BaseEventAction, params *EventParams,
 	}
 	params.AddError(err)
 	return err
+}
+
+func executeIDPAccountCheckRule(rule dataprovider.EventRule, params EventParams) (*dataprovider.User,
+	*dataprovider.Admin, error,
+) {
+	for _, action := range rule.Actions {
+		if action.Type == dataprovider.ActionTypeIDPAccountCheck {
+			startTime := time.Now()
+			var user *dataprovider.User
+			var admin *dataprovider.Admin
+			var err error
+			var failedActions []string
+			paramsCopy := params.getACopy()
+
+			switch params.Event {
+			case IDPLoginAdmin:
+				admin, err = executeAdminCheckAction(&action.BaseEventAction.Options.IDPConfig, paramsCopy)
+			case IDPLoginUser:
+				user, err = executeUserCheckAction(&action.BaseEventAction.Options.IDPConfig, paramsCopy)
+			default:
+				err = fmt.Errorf("unsupported IDP login event: %q", params.Event)
+			}
+			if err != nil {
+				paramsCopy.AddError(fmt.Errorf("unable to handle %q: %w", params.Event, err))
+				eventManagerLog(logger.LevelError, "unable to handle IDP login event %q, err: %v", params.Event, err)
+				failedActions = append(failedActions, action.Name)
+			} else {
+				eventManagerLog(logger.LevelDebug, "executed action %q for rule %q, elapsed %s",
+					action.Name, rule.Name, time.Since(startTime))
+			}
+			// execute async actions if any, including failure actions
+			go executeRuleAsyncActions(rule, paramsCopy, failedActions)
+			return user, admin, err
+		}
+	}
+	eventManagerLog(logger.LevelError, "no action executed for IDP login event %q, event rule: %q", params.Event, rule.Name)
+	return nil, nil, errors.New("no action executed")
 }
 
 func executeSyncRulesActions(rules []dataprovider.EventRule, params EventParams) error {

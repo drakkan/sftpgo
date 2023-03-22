@@ -1596,6 +1596,9 @@ func checkEventAction(expected, actual dataprovider.BaseEventAction) error {
 	if expected.Options.PwdExpirationConfig.Threshold != actual.Options.PwdExpirationConfig.Threshold {
 		return errors.New("password expiration threshold mismatch")
 	}
+	if err := compareEventActionIDPConfigFields(expected.Options.IDPConfig, actual.Options.IDPConfig); err != nil {
+		return err
+	}
 	if err := compareEventActionCmdConfigFields(expected.Options.CmdConfig, actual.Options.CmdConfig); err != nil {
 		return err
 	}
@@ -1706,6 +1709,9 @@ func checkEventConditions(expected, actual dataprovider.EventConditions) error {
 	}
 	if err := checkEventConditionOptions(expected.Options, actual.Options); err != nil {
 		return err
+	}
+	if expected.IDPLoginEvent != actual.IDPLoginEvent {
+		return errors.New("IDP login event mismatch")
 	}
 
 	return checkEventSchedules(expected.Schedules, actual.Schedules)
@@ -2705,6 +2711,19 @@ func compareEventActionFsConfigFields(expected, actual dataprovider.EventActionF
 		}
 	}
 	return compareEventActionFsCompressFields(expected.Compress, actual.Compress)
+}
+
+func compareEventActionIDPConfigFields(expected, actual dataprovider.EventActionIDPAccountCheck) error {
+	if expected.Mode != actual.Mode {
+		return errors.New("mode mismatch")
+	}
+	if expected.TemplateAdmin != actual.TemplateAdmin {
+		return errors.New("admin template mismatch")
+	}
+	if expected.TemplateUser != actual.TemplateUser {
+		return errors.New("user template mismatch")
+	}
+	return nil
 }
 
 func compareEventActionCmdConfigFields(expected, actual dataprovider.EventActionCommandConfig) error {

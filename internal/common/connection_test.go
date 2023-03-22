@@ -63,7 +63,7 @@ func (fs *MockOsFs) IsUploadResumeSupported() bool {
 	return !fs.hasVirtualFolders
 }
 
-func (fs *MockOsFs) Chtimes(name string, atime, mtime time.Time, isUploading bool) error {
+func (fs *MockOsFs) Chtimes(_ string, _, _ time.Time, _ bool) error {
 	return vfs.ErrVfsUnsupported
 }
 
@@ -75,7 +75,7 @@ func (fs *MockOsFs) Lstat(name string) (os.FileInfo, error) {
 }
 
 // Walk returns a duplicate path for testing
-func (fs *MockOsFs) Walk(root string, walkFn filepath.WalkFunc) error {
+func (fs *MockOsFs) Walk(_ string, walkFn filepath.WalkFunc) error {
 	if fs.err == errWalkDir {
 		walkFn("fsdpath", vfs.NewFileInfo("dpath", true, 0, time.Now(), false), nil)        //nolint:errcheck
 		return walkFn("fsdpath", vfs.NewFileInfo("dpath", true, 0, time.Now(), false), nil) //nolint:errcheck

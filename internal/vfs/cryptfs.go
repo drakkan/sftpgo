@@ -206,7 +206,7 @@ func (fs *CryptFs) Create(name string, flag int) (File, *PipeWriter, func(), err
 }
 
 // Truncate changes the size of the named file
-func (*CryptFs) Truncate(name string, size int64) error {
+func (*CryptFs) Truncate(_ string, _ int64) error {
 	return ErrVfsUnsupported
 }
 
