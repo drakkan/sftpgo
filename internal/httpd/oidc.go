@@ -223,9 +223,14 @@ func (t *oidcToken) parseClaims(claims map[string]any, usernameField, roleField 
 		return keys
 	}
 
-	username, ok := claims[usernameField].(string)
+	var username string
+	val, ok := getOIDCFieldFromClaims(claims, usernameField)
+	if ok {
+		username, ok = val.(string)
+	}
 	if !ok || username == "" {
-		logger.Warn(logSender, "", "username field %q not found, claims fields: %+v", usernameField, getClaimsFields())
+		logger.Warn(logSender, "", "username field %q not found, empty or not a string, claims fields: %+v",
+			usernameField, getClaimsFields())
 		return errors.New("no username field")
 	}
 	t.Username = username
@@ -237,7 +242,7 @@ func (t *oidcToken) parseClaims(claims map[string]any, usernameField, roleField 
 	t.CustomFields = nil
 	if len(customFields) > 0 {
 		for _, field := range customFields {
-			if val, ok := claims[field]; ok {
+			if val, ok := getOIDCFieldFromClaims(claims, field); ok {
 				if t.CustomFields == nil {
 					customFields := make(map[string]any)
 					t.CustomFields = &customFields
@@ -257,36 +262,8 @@ func (t *oidcToken) parseClaims(claims map[string]any, usernameField, roleField 
 }
 
 func (t *oidcToken) getRoleFromField(claims map[string]any, roleField string) {
-	if roleField != "" {
-		role, ok := claims[roleField]
-		if ok {
-			t.Role = role
-			return
-		}
-		if !strings.Contains(roleField, ".") {
-			return
-		}
-
-		getStructValue := func(outer any, field string) (any, bool) {
-			switch val := outer.(type) {
-			case map[string]any:
-				res, ok := val[field]
-				return res, ok
-			}
-			return nil, false
-		}
-
-		for idx, field := range strings.Split(roleField, ".") {
-			if idx == 0 {
-				role, ok = getStructValue(claims, field)
-			} else {
-				role, ok = getStructValue(role, field)
-			}
-			if !ok {
-				return
-			}
-		}
-
+	role, ok := getOIDCFieldFromClaims(claims, roleField)
+	if ok {
 		t.Role = role
 	}
 }
@@ -719,6 +696,7 @@ func loginOIDCUser(w http.ResponseWriter, r *http.Request, token oidcToken) {
 	// we don't set a cookie expiration so we can refresh the token without setting a new cookie
 	// the cookie will be invalidated on browser close
 	http.SetCookie(w, &cookie)
+	w.Header().Add("Cache-Control", `no-cache="Set-Cookie"`)
 	if token.isAdmin() {
 		http.Redirect(w, r, webUsersPath, http.StatusFound)
 		return
@@ -792,4 +770,39 @@ func canSkipOIDCValidation(r *http.Request) bool {
 func isLoggedInWithOIDC(r *http.Request) bool {
 	_, ok := r.Context().Value(oidcTokenKey).(string)
 	return ok
+}
+
+func getOIDCFieldFromClaims(claims map[string]any, fieldName string) (any, bool) {
+	if fieldName == "" {
+		return nil, false
+	}
+	val, ok := claims[fieldName]
+	if ok {
+		return val, true
+	}
+	if !strings.Contains(fieldName, ".") {
+		return nil, false
+	}
+
+	getStructValue := func(outer any, field string) (any, bool) {
+		switch v := outer.(type) {
+		case map[string]any:
+			res, ok := v[field]
+			return res, ok
+		}
+		return nil, false
+	}
+
+	for idx, field := range strings.Split(fieldName, ".") {
+		if idx == 0 {
+			val, ok = getStructValue(claims, field)
+		} else {
+			val, ok = getStructValue(val, field)
+		}
+		if !ok {
+			return nil, false
+		}
+	}
+
+	return val, ok
 }

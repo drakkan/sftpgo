@@ -281,7 +281,7 @@ func TestOIDCLoginLogout(t *testing.T) {
 	assert.Equal(t, http.StatusFound, rr.Code)
 	assert.Equal(t, webClientLoginPath, rr.Header().Get("Location"))
 	require.Len(t, oidcMgr.pendingAuths, 0)
-	// invalid id token claims (no username)
+	// invalid id token claims: no username
 	authReq = newOIDCPendingAuth(tokenAudienceWebClient)
 	oidcMgr.addPendingAuth(authReq)
 	idToken := &oidc.IDToken{
@@ -289,6 +289,25 @@ func TestOIDCLoginLogout(t *testing.T) {
 		Expiry: time.Now().Add(5 * time.Minute),
 	}
 	setIDTokenClaims(idToken, []byte(`{"aud": "my_client_id"}`))
+	server.binding.OIDC.verifier = &mockOIDCVerifier{
+		err:   nil,
+		token: idToken,
+	}
+	rr = httptest.NewRecorder()
+	r, err = http.NewRequest(http.MethodGet, webOIDCRedirectPath+"?state="+authReq.State, nil)
+	assert.NoError(t, err)
+	server.router.ServeHTTP(rr, r)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, webClientLoginPath, rr.Header().Get("Location"))
+	require.Len(t, oidcMgr.pendingAuths, 0)
+	// invalid id token clamims: username not a string
+	authReq = newOIDCPendingAuth(tokenAudienceWebClient)
+	oidcMgr.addPendingAuth(authReq)
+	idToken = &oidc.IDToken{
+		Nonce:  authReq.Nonce,
+		Expiry: time.Now().Add(5 * time.Minute),
+	}
+	setIDTokenClaims(idToken, []byte(`{"aud": "my_client_id","preferred_username": 1}`))
 	server.binding.OIDC.verifier = &mockOIDCVerifier{
 		err:   nil,
 		token: idToken,
@@ -835,9 +854,14 @@ func TestOIDCToken(t *testing.T) {
 
 	token := oidcToken{
 		Username: admin.Username,
-		Role:     "admin",
 	}
+	// role not initialized, user with the specified username does not exist
 	req, err := http.NewRequest(http.MethodGet, webUsersPath, nil)
+	assert.NoError(t, err)
+	err = token.getUser(req)
+	assert.ErrorIs(t, err, util.ErrNotFound)
+	token.Role = "admin"
+	req, err = http.NewRequest(http.MethodGet, webUsersPath, nil)
 	assert.NoError(t, err)
 	err = token.getUser(req)
 	if assert.Error(t, err) {
@@ -1143,10 +1167,11 @@ func TestOIDCEvMgrIntegration(t *testing.T) {
 	u := map[string]any{
 		"username": "{{Name}}",
 		"status":   1,
-		"home_dir": filepath.Join(os.TempDir(), "{{IDPFieldcustom1}}"),
+		"home_dir": filepath.Join(os.TempDir(), "{{IDPFieldcustom1.sub}}"),
 		"permissions": map[string][]string{
 			"/": {dataprovider.PermAny},
 		},
+		"description": "{{IDPFieldcustom2}}",
 	}
 	userTmpl, err := json.Marshal(u)
 	require.NoError(t, err)
@@ -1196,7 +1221,7 @@ func TestOIDCEvMgrIntegration(t *testing.T) {
 	require.True(t, ok)
 	server := getTestOIDCServer()
 	server.binding.OIDC.ImplicitRoles = true
-	server.binding.OIDC.CustomFields = []string{"custom1", "custom2"}
+	server.binding.OIDC.CustomFields = []string{"custom1.sub", "custom2"}
 	err = server.binding.OIDC.initialize()
 	assert.NoError(t, err)
 	server.initializeRouter()
@@ -1221,7 +1246,7 @@ func TestOIDCEvMgrIntegration(t *testing.T) {
 		Nonce:  authReq.Nonce,
 		Expiry: time.Now().Add(5 * time.Minute),
 	}
-	setIDTokenClaims(idToken, []byte(`{"preferred_username":"`+util.JSONEscape(username)+`","custom1":"val1"}`))
+	setIDTokenClaims(idToken, []byte(`{"preferred_username":"`+util.JSONEscape(username)+`","custom1":{"sub":"val1"},"custom2":"desc"}`))
 	server.binding.OIDC.verifier = &mockOIDCVerifier{
 		err:   nil,
 		token: idToken,
@@ -1235,6 +1260,7 @@ func TestOIDCEvMgrIntegration(t *testing.T) {
 	user, err := dataprovider.UserExists(username, "")
 	assert.NoError(t, err)
 	assert.Equal(t, filepath.Join(os.TempDir(), "val1"), user.GetHomeDir())
+	assert.Equal(t, "desc", user.Description)
 
 	err = dataprovider.DeleteUser(username, "", "", "")
 	assert.NoError(t, err)
@@ -1473,13 +1499,15 @@ func TestParseAdminRole(t *testing.T) {
 	type test struct {
 		input string
 		want  bool
+		val   any
 	}
 
 	tests := []test{
+		{input: "", want: false},
 		{input: "sftpgo_role", want: false},
-		{input: "params.sftpgo_role", want: true},
-		{input: "params.subparams.sftpgo_role", want: true},
-		{input: "params.subparams.inner.sftpgo_role", want: true},
+		{input: "params.sftpgo_role", want: true, val: "admin"},
+		{input: "params.subparams.sftpgo_role", want: true, val: "admin"},
+		{input: "params.subparams.inner.sftpgo_role", want: true, val: []any{"user", "admin"}},
 		{input: "email", want: false},
 		{input: "missing", want: false},
 		{input: "params.email", want: false},
@@ -1492,6 +1520,9 @@ func TestParseAdminRole(t *testing.T) {
 		token := oidcToken{}
 		token.getRoleFromField(claims, tc.input)
 		assert.Equal(t, tc.want, token.isAdmin(), "%q should return %t", tc.input, tc.want)
+		if tc.want {
+			assert.Equal(t, tc.val, token.Role)
+		}
 	}
 }
 

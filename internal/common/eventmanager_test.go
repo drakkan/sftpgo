@@ -1945,9 +1945,7 @@ func TestEventParamsCopy(t *testing.T) {
 		assert.Equal(t, "val1", v)
 	}
 	assert.Equal(t, params.IDPCustomFields, paramsCopy.IDPCustomFields)
-	paramsCopy.addIDPCustomFields(&map[string]any{
-		"field2": "val2",
-	})
+	(*paramsCopy.IDPCustomFields)["field1"] = "val2"
 	assert.NotEqual(t, params.IDPCustomFields, paramsCopy.IDPCustomFields)
 }
 

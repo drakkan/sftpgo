@@ -610,7 +610,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 
 	sconn, chans, reqs, err := ssh.NewServerConn(conn, config)
 	if err != nil {
-		logger.Debug(logSender, "", "failed to accept an incoming connection: %v", err)
+		logger.Debug(logSender, "", "failed to accept an incoming connection from ip %q: %v", ipAddr, err)
 		checkAuthError(ipAddr, err)
 		return
 	}
@@ -629,7 +629,7 @@ func (c *Configuration) AcceptInboundConnection(conn net.Conn, config *ssh.Serve
 
 	defer user.CloseFs() //nolint:errcheck
 	if err = user.CheckFsRoot(connectionID); err != nil {
-		logger.Warn(logSender, connectionID, "unable to check fs root: %v", err)
+		logger.Warn(logSender, connectionID, "unable to check fs root for user %q: %v", user.Username, err)
 		return
 	}
 
