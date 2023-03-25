@@ -218,8 +218,6 @@ func init() {
 }
 
 func initializeMySQLProvider() error {
-	var err error
-
 	connString, err := getMySQLConnectionString(false)
 	if err != nil {
 		return err
@@ -229,23 +227,23 @@ func initializeMySQLProvider() error {
 		return err
 	}
 	dbHandle, err := sql.Open("mysql", connString)
-	if err == nil {
-		providerLog(logger.LevelDebug, "mysql database handle created, connection string: %q, pool size: %v",
-			redactedConnString, config.PoolSize)
-		dbHandle.SetMaxOpenConns(config.PoolSize)
-		if config.PoolSize > 0 {
-			dbHandle.SetMaxIdleConns(config.PoolSize)
-		} else {
-			dbHandle.SetMaxIdleConns(2)
-		}
-		dbHandle.SetConnMaxLifetime(240 * time.Second)
-		dbHandle.SetConnMaxIdleTime(120 * time.Second)
-		provider = &MySQLProvider{dbHandle: dbHandle}
-	} else {
+	if err != nil {
 		providerLog(logger.LevelError, "error creating mysql database handler, connection string: %q, error: %v",
 			redactedConnString, err)
+		return err
 	}
-	return err
+	providerLog(logger.LevelDebug, "mysql database handle created, connection string: %q, pool size: %v",
+		redactedConnString, config.PoolSize)
+	dbHandle.SetMaxOpenConns(config.PoolSize)
+	if config.PoolSize > 0 {
+		dbHandle.SetMaxIdleConns(config.PoolSize)
+	} else {
+		dbHandle.SetMaxIdleConns(2)
+	}
+	dbHandle.SetConnMaxLifetime(240 * time.Second)
+	dbHandle.SetConnMaxIdleTime(120 * time.Second)
+	provider = &MySQLProvider{dbHandle: dbHandle}
+	return nil
 }
 func getMySQLConnectionString(redactedPwd bool) (string, error) {
 	var connectionString string

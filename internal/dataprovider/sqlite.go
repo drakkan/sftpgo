@@ -210,7 +210,6 @@ func init() {
 }
 
 func initializeSQLiteProvider(basePath string) error {
-	var err error
 	var connectionString string
 
 	if config.ConnectionString == "" {
@@ -226,15 +225,15 @@ func initializeSQLiteProvider(basePath string) error {
 		connectionString = config.ConnectionString
 	}
 	dbHandle, err := sql.Open("sqlite3", connectionString)
-	if err == nil {
-		providerLog(logger.LevelDebug, "sqlite database handle created, connection string: %q", connectionString)
-		dbHandle.SetMaxOpenConns(1)
-		provider = &SQLiteProvider{dbHandle: dbHandle}
-	} else {
+	if err != nil {
 		providerLog(logger.LevelError, "error creating sqlite database handler, connection string: %q, error: %v",
 			connectionString, err)
+		return err
 	}
-	return err
+	providerLog(logger.LevelDebug, "sqlite database handle created, connection string: %q", connectionString)
+	dbHandle.SetMaxOpenConns(1)
+	provider = &SQLiteProvider{dbHandle: dbHandle}
+	return nil
 }
 
 func (p *SQLiteProvider) checkAvailability() error {

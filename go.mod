@@ -35,7 +35,7 @@ require (
 	github.com/hashicorp/go-hclog v1.5.0
 	github.com/hashicorp/go-plugin v1.4.10-0.20230306173702-d78f3fc2891d
 	github.com/hashicorp/go-retryablehttp v0.7.2
-	github.com/jackc/pgx/v5 v5.3.2-0.20230311213408-9ae852eb583d
+	github.com/jackc/pgx/v5 v5.3.2-0.20230324225134-e9d64ec29d90
 	github.com/jlaffaye/ftp v0.0.0-20201112195030-9aae4d151126
 	github.com/klauspost/compress v1.16.3
 	github.com/lestrrat-go/jwx/v2 v2.0.9
@@ -157,7 +157,7 @@ require (
 	golang.org/x/tools v0.7.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20230322174352-cde4c949918d // indirect
+	google.golang.org/genproto v0.0.0-20230323212658-478b75c54725 // indirect
 	google.golang.org/grpc v1.54.0 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
