@@ -14,6 +14,7 @@ The following build tags are available:
 - `noportable`, disable portable mode, default enabled
 - `nometrics`, disable Prometheus metrics, default enabled
 - `bundle`, embed static files and templates. Before building with this tag enabled you have to copy `openapi`, `static` and `templates` dirs to `internal/bundle` directory. Default disabled
+- `unixcrypt`, enable linking to `libcrypt`, default disabled, requires `CGO`
 
 If no build tag is specified the build will include the default features.
 

@@ -99,6 +99,7 @@ const (
 	md5cryptApr1PwdPrefix     = "$apr1$"
 	sha256cryptPwdPrefix      = "$5$"
 	sha512cryptPwdPrefix      = "$6$"
+	yescryptPwdPrefix         = "$y$"
 	md5LDAPPwdPrefix          = "{MD5}"
 	trackQuotaDisabledError   = "please enable track_quota in your configuration to use this method"
 	operationAdd              = "add"
@@ -165,10 +166,11 @@ var (
 	internalHashPwdPrefixes  = []string{argonPwdPrefix, bcryptPwdPrefix}
 	hashPwdPrefixes          = []string{argonPwdPrefix, bcryptPwdPrefix, pbkdf2SHA1Prefix, pbkdf2SHA256Prefix,
 		pbkdf2SHA512Prefix, pbkdf2SHA256B64SaltPrefix, md5cryptPwdPrefix, md5cryptApr1PwdPrefix, md5LDAPPwdPrefix,
-		sha256cryptPwdPrefix, sha512cryptPwdPrefix}
-	pbkdfPwdPrefixes             = []string{pbkdf2SHA1Prefix, pbkdf2SHA256Prefix, pbkdf2SHA512Prefix, pbkdf2SHA256B64SaltPrefix}
-	pbkdfPwdB64SaltPrefixes      = []string{pbkdf2SHA256B64SaltPrefix}
-	unixPwdPrefixes              = []string{md5cryptPwdPrefix, md5cryptApr1PwdPrefix, sha256cryptPwdPrefix, sha512cryptPwdPrefix}
+		sha256cryptPwdPrefix, sha512cryptPwdPrefix, yescryptPwdPrefix}
+	pbkdfPwdPrefixes        = []string{pbkdf2SHA1Prefix, pbkdf2SHA256Prefix, pbkdf2SHA512Prefix, pbkdf2SHA256B64SaltPrefix}
+	pbkdfPwdB64SaltPrefixes = []string{pbkdf2SHA256B64SaltPrefix}
+	unixPwdPrefixes         = []string{md5cryptPwdPrefix, md5cryptApr1PwdPrefix, sha256cryptPwdPrefix, sha512cryptPwdPrefix,
+		yescryptPwdPrefix}
 	sharedProviders              = []string{PGSQLDataProviderName, MySQLDataProviderName, CockroachDataProviderName}
 	logSender                    = "dataprovider"
 	sqlTableUsers                string
@@ -3081,13 +3083,13 @@ func isPasswordOK(user *User, password string) (bool, error) {
 			return match, err
 		}
 		updatePwd = config.PasswordHashing.Algo != HashingAlgoArgon2ID
-	} else if util.IsStringPrefixInSlice(user.Password, pbkdfPwdPrefixes) {
-		match, err = comparePbkdf2PasswordAndHash(password, user.Password)
+	} else if util.IsStringPrefixInSlice(user.Password, unixPwdPrefixes) {
+		match, err = compareUnixPasswordAndHash(user, password)
 		if err != nil {
 			return match, err
 		}
-	} else if util.IsStringPrefixInSlice(user.Password, unixPwdPrefixes) {
-		match, err = compareUnixPasswordAndHash(user, password)
+	} else if util.IsStringPrefixInSlice(user.Password, pbkdfPwdPrefixes) {
+		match, err = comparePbkdf2PasswordAndHash(password, user.Password)
 		if err != nil {
 			return match, err
 		}
@@ -3258,6 +3260,9 @@ func checkUserAndPubKey(user *User, pubKey []byte, isSSHCert bool) (User, string
 }
 
 func compareUnixPasswordAndHash(user *User, password string) (bool, error) {
+	if strings.HasPrefix(user.Password, yescryptPwdPrefix) {
+		return compareYescryptPassword(user.Password, password)
+	}
 	var crypter crypt.Crypter
 	if strings.HasPrefix(user.Password, sha512cryptPwdPrefix) {
 		crypter = sha512_crypt.New()

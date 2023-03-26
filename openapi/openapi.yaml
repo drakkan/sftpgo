@@ -7175,7 +7175,7 @@ components:
           type: array
           items:
             type: string
-          description: 'Features for the current build. Available features are `portable`, `bolt`, `mysql`, `sqlite`, `pgsql`, `s3`, `gcs`, `azblob`, `metrics`. If a feature is available it has a `+` prefix, otherwise a `-` prefix'
+          description: 'Features for the current build. Available features are `portable`, `bolt`, `mysql`, `sqlite`, `pgsql`, `s3`, `gcs`, `azblob`, `metrics`, `unixcrypt`. If a feature is available it has a `+` prefix, otherwise a `-` prefix'
     Token:
       type: object
       properties:

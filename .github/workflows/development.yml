@@ -236,7 +236,7 @@ jobs:
 
       - name: Build
         run: |
-          go build -trimpath -tags nopgxregisterdefaulttypes,nogcs,nos3,noportable,nobolt,nomysql,nopgsql,nosqlite,nometrics,noazblob -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/internal/version.commit=`git describe --always --abbrev=8 --dirty` -X github.com/drakkan/sftpgo/v2/internal/version.date=`date -u +%FT%TZ`" -o sftpgo
+          go build -trimpath -tags nopgxregisterdefaulttypes,nogcs,nos3,noportable,nobolt,nomysql,nopgsql,nosqlite,nometrics,noazblob,unixcrypt -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/internal/version.commit=`git describe --always --abbrev=8 --dirty` -X github.com/drakkan/sftpgo/v2/internal/version.date=`date -u +%FT%TZ`" -o sftpgo
           ./sftpgo -v
           cp -r openapi static templates internal/bundle/
           go build -trimpath -tags nopgxregisterdefaulttypes,bundle -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=`git describe --always --abbrev=8 --dirty` -X github.com/drakkan/sftpgo/v2/internal/version.date=`date -u +%FT%TZ`" -o sftpgo

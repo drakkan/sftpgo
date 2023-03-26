@@ -72,6 +72,9 @@ jobs:
           elif [[ $DOCKER_PKG == debian-plugins ]]; then
             VERSION="${VERSION}-plugins"
             VERSION_SLIM="${VERSION}-slim"
+            FEATURES="${FEATURES},unixcrypt"
+          elif [[ $DOCKER_PKG == debian ]]; then
+            FEATURES="${FEATURES},unixcrypt"
           fi
           DOCKER_IMAGES=("drakkan/sftpgo" "ghcr.io/drakkan/sftpgo")
           TAGS="${DOCKER_IMAGES[0]}:${VERSION}"
