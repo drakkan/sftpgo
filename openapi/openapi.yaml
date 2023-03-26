@@ -5326,7 +5326,7 @@ components:
         start_directory:
           type: string
           description: 'Specifies an alternate starting directory. If not set, the default is "/". This option is supported for SFTP/SCP, FTP and HTTP (WebClient/REST API) protocols. Relative paths will use this directory as base.'
-        2fa_protocols:
+        two_factor_protocols:
           type: array
           items:
             $ref: '#/components/schemas/MFAProtocols'

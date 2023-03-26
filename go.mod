@@ -53,7 +53,7 @@ require (
 	github.com/rs/cors v1.8.3
 	github.com/rs/xid v1.4.0
 	github.com/rs/zerolog v1.29.0
-	github.com/sftpgo/sdk v0.1.3-0.20230302063609-7677616c090b
+	github.com/sftpgo/sdk v0.1.3-0.20230326100554-938b4e4a68a7
 	github.com/shirou/gopsutil/v3 v3.23.2
 	github.com/spf13/afero v1.9.5
 	github.com/spf13/cobra v1.6.1
@@ -129,7 +129,7 @@ require (
 	github.com/lestrrat-go/httprc v1.0.4 // indirect
 	github.com/lestrrat-go/iter v1.0.2 // indirect
 	github.com/lestrrat-go/option v1.0.1 // indirect
-	github.com/lufia/plan9stats v0.0.0-20230110061619-bbe2e5e100de // indirect
+	github.com/lufia/plan9stats v0.0.0-20230326075908-cb1d2100619a // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.18 // indirect
