@@ -403,7 +403,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                     "data": "object_type",
                     "render": function (data, type, row) {
                         if (type === 'display') {
-                            let ellipsisFn = $.fn.dataTable.render.ellipsis(70, true);
+                            let ellipsisFn = $.fn.dataTable.render.ellipsis(70, true, true);
                             return ellipsisFn(`${data}: ${row["object_name"]}`,type);
                         }
                         return data;
@@ -411,7 +411,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                 },
                 {
                     "data": "username",
-                    "defaultContent": ""
+                    "defaultContent": "",
+                    "render": function (data, type, row) {
+                        if (type === 'display') {
+                            return escapeHTML(data);
+                        }
+                        return data;
+                    }
                 },
                 {
                     "data": "ip",
@@ -486,7 +492,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                     "data": "virtual_path",
                     "render": function (data, type, row) {
                         if (type === 'display') {
-                            let ellipsisFn = $.fn.dataTable.render.ellipsis(70, true);
+                            let ellipsisFn = $.fn.dataTable.render.ellipsis(70, true, true);
                             if (row["virtual_target_path"]){
                                 return ellipsisFn(`${data} => ${row["virtual_target_path"]}`,type);
                             }
@@ -497,7 +503,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                 },
                 {
                     "data": "username",
-                    "defaultContent": ""
+                    "defaultContent": "",
+                    "render": function (data, type, row) {
+                        if (type === 'display') {
+                            return escapeHTML(data);
+                        }
+                        return data;
+                    }
                 },
                 {
                     "data": "protocol",
