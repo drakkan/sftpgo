@@ -103,6 +103,7 @@ If you report an invalid issue or ask for step-by-step support, your issue will 
 - Configuration format is at your choice: JSON, TOML, YAML, HCL, envfile are supported.
 - Log files are accurate and they are saved in the easily parsable JSON format ([more information](./docs/logs.md)).
 - SFTPGo supports a [plugin system](./docs/plugins.md) and therefore can be extended using external plugins.
+- Infrastructure as Code (IaC) support using the [Terraform provider](https://registry.terraform.io/providers/drakkan/sftpgo/latest).
 
 ## Platforms
 
