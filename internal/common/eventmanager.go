@@ -1848,6 +1848,7 @@ func executeCompressFsActionForUser(c dataprovider.EventActionFsCompress, replac
 	}
 	conn := NewBaseConnection(connectionID, protocolEventAction, "", "", user)
 	name := util.CleanPath(replaceWithReplacer(c.Name, replacer))
+	conn.CheckParentDirs(path.Dir(name)) //nolint:errcheck
 	paths := make([]string, 0, len(c.Paths))
 	for idx := range c.Paths {
 		p := util.CleanPath(replaceWithReplacer(c.Paths[idx], replacer))

@@ -5429,22 +5429,6 @@ func TestEventActionCompressErrors(t *testing.T) {
 		err = f.Close()
 		assert.Error(t, err)
 	}
-	// try to write to a missing directory
-	action1.Options.FsConfig.Compress.Name = "/subdir/missing/path/file.zip"
-	_, _, err = httpdtest.UpdateEventAction(action1, http.StatusOK)
-	assert.NoError(t, err)
-	conn, client, err = getSftpClient(user)
-	if assert.NoError(t, err) {
-		defer conn.Close()
-		defer client.Close()
-
-		f, err := client.Create(testFileName)
-		assert.NoError(t, err)
-		_, err = f.Write(testFileContent)
-		assert.NoError(t, err)
-		err = f.Close()
-		assert.Error(t, err)
-	}
 
 	_, err = httpdtest.RemoveEventRule(rule1, http.StatusOK)
 	assert.NoError(t, err)
@@ -5473,7 +5457,7 @@ func TestEventActionEmailAttachments(t *testing.T) {
 			FsConfig: dataprovider.EventActionFilesystemConfig{
 				Type: dataprovider.FilesystemActionCompress,
 				Compress: dataprovider.EventActionFsCompress{
-					Name:  "/{{VirtualPath}}.zip",
+					Name:  "/archive/{{VirtualPath}}.zip",
 					Paths: []string{"/{{VirtualPath}}"},
 				},
 			},
@@ -5489,7 +5473,7 @@ func TestEventActionEmailAttachments(t *testing.T) {
 				Recipients:  []string{"test@example.com"},
 				Subject:     `"{{Event}}" from "{{Name}}"`,
 				Body:        "Fs path {{FsPath}}, size: {{FileSize}}, protocol: {{Protocol}}, IP: {{IP}}",
-				Attachments: []string{"/{{VirtualPath}}.zip"},
+				Attachments: []string{"/archive/{{VirtualPath}}.zip"},
 			},
 		},
 	}
