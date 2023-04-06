@@ -330,7 +330,7 @@ func (fs *HTTPFs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, f
 }
 
 // Create creates or opens the named file for writing
-func (fs *HTTPFs) Create(name string, flag int) (File, *PipeWriter, func(), error) {
+func (fs *HTTPFs) Create(name string, flag, checks int) (File, *PipeWriter, func(), error) {
 	r, w, err := pipeat.PipeInDir(fs.localTempDir)
 	if err != nil {
 		return nil, nil, nil, err
@@ -338,15 +338,11 @@ func (fs *HTTPFs) Create(name string, flag int) (File, *PipeWriter, func(), erro
 	p := NewPipeWriter(w)
 	ctx, cancelFn := context.WithCancel(context.Background())
 
-	var queryString string
-	if flag > 0 {
-		queryString = fmt.Sprintf("?flags=%d", flag)
-	}
-
 	go func() {
 		defer cancelFn()
 
 		contentType := mime.TypeByExtension(path.Ext(name))
+		queryString := fmt.Sprintf("?flags=%d&checks=%d", flag, checks)
 		resp, err := fs.sendHTTPRequest(ctx, http.MethodPost, "create", name, queryString, contentType,
 			&wrapReader{reader: r})
 		if err != nil {

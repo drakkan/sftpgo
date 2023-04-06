@@ -101,6 +101,13 @@ paths:
         schema:
           type: integer
           format: int32
+      - name: checks
+        in: query
+        description: 'If set to `1`, the parent directory must exist before creating the file'
+        required: false
+        schema:
+          type: integer
+          format: int32
     post:
       tags:
         - fs

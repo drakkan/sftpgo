@@ -3368,7 +3368,7 @@ paths:
       tags:
         - users
       summary: Update user
-      description: 'Updates an existing user and optionally disconnects it, if connected, to apply the new settings. Recovery codes and TOTP configuration cannot be set/updated using this API: each user must use the specific APIs'
+      description: 'Updates an existing user and optionally disconnects it, if connected, to apply the new settings. The current password will be preserved if the password field is omitted in the request body. Recovery codes and TOTP configuration cannot be set/updated using this API: each user must use the specific APIs'
       operationId: update_user
       parameters:
         - in: query
@@ -5682,13 +5682,16 @@ components:
         password:
           type: string
           format: password
-          description: password or public key/SSH user certificate are mandatory. If the password has no known hashing algo prefix it will be stored, by default, using bcrypt, argon2id is supported too. You can send a password hashed as bcrypt ($2a$ prefix), argon2id, pbkdf2 or unix crypt and it will be stored as is. For security reasons this field is omitted when you search/get users
+          description: If the password has no known hashing algo prefix it will be stored, by default, using bcrypt, argon2id is supported too. You can send a password hashed as bcrypt ($2a$ prefix), argon2id, pbkdf2 or unix crypt and it will be stored as is. For security reasons this field is omitted when you search/get users
         public_keys:
           type: array
           items:
             type: string
             example: ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEUWwDwEWhTbF0MqAsp/oXK1HR2cElhM8oo1uVmL3ZeDKDiTm4ljMr92wfTgIGDqIoxmVqgYIkAOAhuykAVWBzc= user@host
-          description: Public keys in OpenSSH format. A password or at least one public key/SSH user certificate are mandatory.
+          description: Public keys in OpenSSH format.
+        has_password:
+          type: boolean
+          description: Indicates whether the password is set
         home_dir:
           type: string
           description: path to the user home directory. The user cannot upload or download files outside this directory. SFTPGo tries to automatically create this folder if missing. Must be an absolute path

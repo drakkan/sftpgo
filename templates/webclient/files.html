@@ -159,7 +159,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                     </div>
                     <div class="form-group">
                         <label for="copy_new_name" class="col-form-label">Target</label>
-                        <input type="text" class="form-control" id="copy_new_name" required>
+                        <input type="text" class="form-control" id="copy_new_name" required aria-describedby="copyTargetDirHelpBlock">
+                        <small id="copyNewDirHelpBlock" class="form-text text-muted">
+                            If the target ends with "/", for example "adir/", it is treated as a directory and the source will be copied to the target. The target directory will be created if it doesn't exist
+                        </small>
                     </div>
                 </div>
                 <div class="modal-footer">

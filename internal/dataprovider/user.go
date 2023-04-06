@@ -1566,6 +1566,7 @@ func (u *User) CountUnusedRecoveryCodes() int {
 
 // SetEmptySecretsIfNil sets the secrets to empty if nil
 func (u *User) SetEmptySecretsIfNil() {
+	u.HasPassword = u.Password != ""
 	u.FsConfig.SetEmptySecretsIfNil()
 	for idx := range u.VirtualFolders {
 		vfolder := &u.VirtualFolders[idx]
@@ -1931,6 +1932,7 @@ func (u *User) getACopy() User {
 			Email:                    u.Email,
 			Password:                 u.Password,
 			PublicKeys:               pubKeys,
+			HasPassword:              u.HasPassword,
 			HomeDir:                  u.HomeDir,
 			UID:                      u.UID,
 			GID:                      u.GID,

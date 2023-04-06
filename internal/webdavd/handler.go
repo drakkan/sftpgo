@@ -215,7 +215,7 @@ func (c *Connection) handleUploadToNewFile(fs vfs.Fs, resolvedPath, filePath, re
 		c.Log(logger.LevelDebug, "upload for file %q denied by pre action: %v", requestPath, err)
 		return nil, c.GetPermissionDeniedError()
 	}
-	file, w, cancelFn, err := fs.Create(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
+	file, w, cancelFn, err := fs.Create(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, c.GetCreateChecks(requestPath, true))
 	if err != nil {
 		c.Log(logger.LevelError, "error creating file %q: %+v", resolvedPath, err)
 		return nil, c.GetFsError(fs, err)
@@ -262,7 +262,7 @@ func (c *Connection) handleUploadToExistingFile(fs vfs.Fs, resolvedPath, filePat
 		}
 	}
 
-	file, w, cancelFn, err := fs.Create(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
+	file, w, cancelFn, err := fs.Create(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, c.GetCreateChecks(requestPath, false))
 	if err != nil {
 		c.Log(logger.LevelError, "error creating file %q: %+v", resolvedPath, err)
 		return nil, c.GetFsError(fs, err)

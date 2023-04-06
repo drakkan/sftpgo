@@ -3019,6 +3019,7 @@ func ValidateFolder(folder *vfs.BaseVirtualFolder) error {
 // FIXME: this should be defined as User struct method
 func ValidateUser(user *User) error {
 	user.OIDCCustomFields = nil
+	user.HasPassword = false
 	user.SetEmptySecretsIfNil()
 	buildUserHomeDir(user)
 	if err := validateBaseParams(user); err != nil {

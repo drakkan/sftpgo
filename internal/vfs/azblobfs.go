@@ -227,7 +227,13 @@ func (fs *AzureBlobFs) Open(name string, offset int64) (File, *pipeat.PipeReader
 }
 
 // Create creates or opens the named file for writing
-func (fs *AzureBlobFs) Create(name string, flag int) (File, *PipeWriter, func(), error) {
+func (fs *AzureBlobFs) Create(name string, flag, checks int) (File, *PipeWriter, func(), error) {
+	if checks&CheckParentDir != 0 {
+		_, err := fs.Stat(path.Dir(name))
+		if err != nil {
+			return nil, nil, nil, err
+		}
+	}
 	r, w, err := pipeat.PipeInDir(fs.localTempDir)
 	if err != nil {
 		return nil, nil, nil, err
@@ -268,6 +274,10 @@ func (fs *AzureBlobFs) Create(name string, flag int) (File, *PipeWriter, func(),
 func (fs *AzureBlobFs) Rename(source, target string) (int, int64, error) {
 	if source == target {
 		return -1, -1, nil
+	}
+	_, err := fs.Stat(path.Dir(target))
+	if err != nil {
+		return -1, -1, err
 	}
 	fi, err := fs.Stat(source)
 	if err != nil {
@@ -880,7 +890,7 @@ func (fs *AzureBlobFs) renameInternal(source, target string, fi os.FileInfo) (in
 }
 
 func (fs *AzureBlobFs) mkdirInternal(name string) error {
-	_, w, _, err := fs.Create(name, -1)
+	_, w, _, err := fs.Create(name, -1, 0)
 	if err != nil {
 		return err
 	}

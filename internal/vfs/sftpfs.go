@@ -374,7 +374,7 @@ func (fs *SFTPFs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, f
 }
 
 // Create creates or opens the named file for writing
-func (fs *SFTPFs) Create(name string, flag int) (File, *PipeWriter, func(), error) {
+func (fs *SFTPFs) Create(name string, flag, _ int) (File, *PipeWriter, func(), error) {
 	client, err := fs.conn.getClient()
 	if err != nil {
 		return nil, nil, nil, err

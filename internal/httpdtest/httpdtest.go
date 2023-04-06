@@ -175,7 +175,7 @@ func AddUser(user dataprovider.User, expectedStatusCode int) (dataprovider.User,
 func UpdateUserWithJSON(user dataprovider.User, expectedStatusCode int, disconnect string, userAsJSON []byte) (dataprovider.User, []byte, error) {
 	var newUser dataprovider.User
 	var body []byte
-	url, err := addDisconnectQueryParam(buildURLRelativeToBase(userPath, url.PathEscape(user.Username)), disconnect)
+	url, err := addUpdateUserQueryParams(buildURLRelativeToBase(userPath, url.PathEscape(user.Username)), disconnect)
 	if err != nil {
 		return user, body, err
 	}
@@ -2900,13 +2900,13 @@ func addModeQueryParam(rawurl, mode string) (*url.URL, error) {
 	return url, err
 }
 
-func addDisconnectQueryParam(rawurl, disconnect string) (*url.URL, error) {
+func addUpdateUserQueryParams(rawurl, disconnect string) (*url.URL, error) {
 	url, err := url.Parse(rawurl)
 	if err != nil {
 		return nil, err
 	}
 	q := url.Query()
-	if len(disconnect) > 0 {
+	if disconnect != "" {
 		q.Add("disconnect", disconnect)
 	}
 	url.RawQuery = q.Encode()

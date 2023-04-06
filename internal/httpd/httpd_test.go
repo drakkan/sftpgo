@@ -613,6 +613,7 @@ func TestBasicUserHandling(t *testing.T) {
 	user, _, err = httpdtest.GetUserByUsername(defaultUsername, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Nil(t, user.OIDCCustomFields)
+	assert.True(t, user.HasPassword)
 
 	user.Email = "invalid@email"
 	_, body, err := httpdtest.UpdateUser(user, http.StatusBadRequest, "")
@@ -5578,6 +5579,7 @@ func TestUserHiddenFields(t *testing.T) {
 		user, _, err := httpdtest.GetUserByUsername(username, http.StatusOK)
 		assert.NoError(t, err)
 		assert.Empty(t, user.Password)
+		assert.True(t, user.HasPassword)
 	}
 	user1, _, err = httpdtest.GetUserByUsername(user1.Username, http.StatusOK)
 	assert.NoError(t, err)
@@ -5949,6 +5951,11 @@ func TestGetUsers(t *testing.T) {
 	users, _, err := httpdtest.GetUsers(0, 0, http.StatusOK)
 	assert.NoError(t, err)
 	assert.GreaterOrEqual(t, len(users), 2)
+	for _, user := range users {
+		if u.Username == user.Username {
+			assert.True(t, user.HasPassword)
+		}
+	}
 	users, _, err = httpdtest.GetUsers(1, 0, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(users))
@@ -6626,6 +6633,59 @@ func TestNamingRules(t *testing.T) {
 	smtpCfg = smtp.Config{}
 	err = smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
+}
+
+func TestUserPassword(t *testing.T) {
+	u := getTestUser()
+	u.Password = ""
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	assert.False(t, user.HasPassword)
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	assert.False(t, user.HasPassword)
+
+	user.Password = defaultPassword
+	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	assert.True(t, user.HasPassword)
+
+	token, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+
+	rawUser := map[string]any{
+		"username": user.Username,
+		"home_dir": filepath.Join(homeBasePath, defaultUsername),
+		"permissions": map[string][]string{
+			"/": {"*"},
+		},
+	}
+	userAsJSON, err := json.Marshal(rawUser)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPut, path.Join(userPath, user.Username), bytes.NewBuffer(userAsJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// the previous password must be preserved
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.True(t, user.HasPassword)
+	// update the user with an empty password field, the password will be unset
+	rawUser["password"] = ""
+	userAsJSON, err = json.Marshal(rawUser)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPut, path.Join(userPath, user.Username), bytes.NewBuffer(userAsJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.False(t, user.HasPassword)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
 }
 
 func TestSaveErrors(t *testing.T) {
