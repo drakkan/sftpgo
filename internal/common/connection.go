@@ -336,6 +336,17 @@ func (c *BaseConnection) CheckParentDirs(virtualPath string) error {
 	return nil
 }
 
+// GetCreateChecks returns the checks for creating new files
+func (c *BaseConnection) GetCreateChecks(virtualPath string, isNewFile bool) int {
+	if !isNewFile {
+		return 0
+	}
+	if !c.User.HasPerm(dataprovider.PermCreateDirs, path.Dir(virtualPath)) {
+		return vfs.CheckParentDir
+	}
+	return 0
+}
+
 // CreateDir creates a new directory at the specified fsPath
 func (c *BaseConnection) CreateDir(virtualPath string, checkFilePatterns bool) error {
 	if !c.User.HasPerm(dataprovider.PermCreateDirs, path.Dir(virtualPath)) {

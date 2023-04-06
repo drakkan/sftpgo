@@ -407,7 +407,7 @@ func (c *Connection) handleSFTPUploadToNewFile(fs vfs.Fs, pflags sftp.FileOpenFl
 	}
 
 	osFlags := getOSOpenFlags(pflags)
-	file, w, cancelFn, err := fs.Create(filePath, osFlags)
+	file, w, cancelFn, err := fs.Create(filePath, osFlags, c.GetCreateChecks(requestPath, true))
 	if err != nil {
 		c.Log(logger.LevelError, "error creating file %#vm os flags %v, pflags %+v: %+v", resolvedPath, osFlags, pflags, err)
 		return nil, c.GetFsError(fs, err)
@@ -463,7 +463,7 @@ func (c *Connection) handleSFTPUploadToExistingFile(fs vfs.Fs, pflags sftp.FileO
 		}
 	}
 
-	file, w, cancelFn, err := fs.Create(filePath, osFlags)
+	file, w, cancelFn, err := fs.Create(filePath, osFlags, c.GetCreateChecks(requestPath, false))
 	if err != nil {
 		c.Log(logger.LevelError, "error opening existing file, os flags %v, pflags: %+v, source: %#v, err: %+v",
 			osFlags, pflags, filePath, err)

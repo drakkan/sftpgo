@@ -408,7 +408,7 @@ func (c *Connection) handleFTPUploadToNewFile(fs vfs.Fs, flags int, resolvedPath
 		c.Log(logger.LevelDebug, "upload for file %#v denied by pre action: %v", requestPath, err)
 		return nil, fmt.Errorf("%w, denied by pre-upload action", ftpserver.ErrFileNameNotAllowed)
 	}
-	file, w, cancelFn, err := fs.Create(filePath, flags)
+	file, w, cancelFn, err := fs.Create(filePath, flags, c.GetCreateChecks(requestPath, true))
 	if err != nil {
 		c.Log(logger.LevelError, "error creating file %#v, flags %v: %+v", resolvedPath, flags, err)
 		return nil, c.GetFsError(fs, err)
@@ -463,7 +463,7 @@ func (c *Connection) handleFTPUploadToExistingFile(fs vfs.Fs, flags int, resolve
 		}
 	}
 
-	file, w, cancelFn, err := fs.Create(filePath, flags)
+	file, w, cancelFn, err := fs.Create(filePath, flags, c.GetCreateChecks(requestPath, false))
 	if err != nil {
 		c.Log(logger.LevelError, "error opening existing file, flags: %v, source: %#v, err: %+v", flags, filePath, err)
 		return nil, c.GetFsError(fs, err)

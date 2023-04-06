@@ -714,7 +714,7 @@ func getFileWriter(conn *BaseConnection, virtualPath string) (io.WriteCloser, in
 	if err != nil && !fs.IsNotExist(err) {
 		return nil, numFiles, truncatedSize, nil, conn.GetFsError(fs, err)
 	}
-	f, w, cancelFn, err := fs.Create(fsPath, 0)
+	f, w, cancelFn, err := fs.Create(fsPath, 0, conn.GetCreateChecks(virtualPath, numFiles == 1))
 	if err != nil {
 		return nil, numFiles, truncatedSize, nil, conn.GetFsError(fs, err)
 	}

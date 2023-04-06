@@ -45,6 +45,11 @@ const (
 	azBlobFsName = "AzureBlobFs"
 )
 
+// Additional checks for files
+const (
+	CheckParentDir = 1
+)
+
 var (
 	validAzAccessTier = []string{"", "Archive", "Hot", "Cool"}
 	// ErrStorageSizeUnavailable is returned if the storage backend does not support getting the size
@@ -83,7 +88,7 @@ type Fs interface {
 	Stat(name string) (os.FileInfo, error)
 	Lstat(name string) (os.FileInfo, error)
 	Open(name string, offset int64) (File, *pipeat.PipeReaderAt, func(), error)
-	Create(name string, flag int) (File, *PipeWriter, func(), error)
+	Create(name string, flag, checks int) (File, *PipeWriter, func(), error)
 	Rename(source, target string) error
 	Remove(name string, isDir bool) error
 	Mkdir(name string) error

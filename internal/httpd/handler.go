@@ -201,7 +201,7 @@ func (c *Connection) handleUploadFile(fs vfs.Fs, resolvedPath, filePath, request
 
 	maxWriteSize, _ := c.GetMaxWriteSize(diskQuota, false, fileSize, fs.IsUploadResumeSupported())
 
-	file, w, cancelFn, err := fs.Create(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
+	file, w, cancelFn, err := fs.Create(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, c.GetCreateChecks(requestPath, isNewFile))
 	if err != nil {
 		c.Log(logger.LevelError, "error opening existing file, source: %#v, err: %+v", filePath, err)
 		return nil, c.GetFsError(fs, err)
