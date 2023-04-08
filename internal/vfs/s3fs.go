@@ -781,6 +781,10 @@ func (fs *S3Fs) renameInternal(source, target string, fi os.FileInfo) (int, int6
 				targetEntry := fs.Join(target, info.Name())
 				files, size, err := fs.renameInternal(sourceEntry, targetEntry, info)
 				if err != nil {
+					if fs.IsNotExist(err) {
+						fsLog(fs, logger.LevelInfo, "skipping rename for %q: %v", sourceEntry, err)
+						continue
+					}
 					return numFiles, filesSize, err
 				}
 				numFiles += files

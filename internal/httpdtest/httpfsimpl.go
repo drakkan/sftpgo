@@ -52,12 +52,19 @@ const (
 	statvfsPath  = "/api/v1/statvfs"
 )
 
+// HTTPFsCallbacks defines additional callbacks to customize the HTTPfs responses
+type HTTPFsCallbacks struct {
+	Readdir func(string) []os.FileInfo
+}
+
 // StartTestHTTPFs starts a test HTTP service that implements httpfs
 // and listens on the specified port
-func StartTestHTTPFs(port int) error {
+func StartTestHTTPFs(port int, callbacks *HTTPFsCallbacks) error {
 	fs := httpFsImpl{
-		port: port,
+		port:      port,
+		callbacks: callbacks,
 	}
+
 	return fs.Run()
 }
 
@@ -75,6 +82,7 @@ type httpFsImpl struct {
 	basePath       string
 	port           int
 	unixSocketPath string
+	callbacks      *HTTPFsCallbacks
 }
 
 type apiResponse struct {
@@ -357,6 +365,11 @@ func (fs *httpFsImpl) readdir(w http.ResponseWriter, r *http.Request) {
 	result := make([]map[string]any, 0, len(list))
 	for _, fi := range list {
 		result = append(result, getStatFromInfo(fi))
+	}
+	if fs.callbacks != nil && fs.callbacks.Readdir != nil {
+		for _, fi := range fs.callbacks.Readdir(name) {
+			result = append(result, getStatFromInfo(fi))
+		}
 	}
 	render.JSON(w, r, result)
 }

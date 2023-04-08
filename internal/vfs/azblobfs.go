@@ -859,6 +859,10 @@ func (fs *AzureBlobFs) renameInternal(source, target string, fi os.FileInfo) (in
 				targetEntry := fs.Join(target, info.Name())
 				files, size, err := fs.renameInternal(sourceEntry, targetEntry, info)
 				if err != nil {
+					if fs.IsNotExist(err) {
+						fsLog(fs, logger.LevelInfo, "skipping rename for %q: %v", sourceEntry, err)
+						continue
+					}
 					return numFiles, filesSize, err
 				}
 				numFiles += files
@@ -882,11 +886,15 @@ func (fs *AzureBlobFs) renameInternal(source, target string, fi os.FileInfo) (in
 			}
 		}
 	}
-	err := fs.Remove(source, fi.IsDir())
-	if fs.IsNotExist(err) {
-		err = nil
-	}
+	err := fs.skipNotExistErr(fs.Remove(source, fi.IsDir()))
 	return numFiles, filesSize, err
+}
+
+func (fs *AzureBlobFs) skipNotExistErr(err error) error {
+	if fs.IsNotExist(err) {
+		return nil
+	}
+	return err
 }
 
 func (fs *AzureBlobFs) mkdirInternal(name string) error {

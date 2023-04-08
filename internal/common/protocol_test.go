@@ -67,17 +67,20 @@ import (
 )
 
 const (
-	httpAddr            = "127.0.0.1:9999"
-	httpProxyAddr       = "127.0.0.1:7777"
-	sftpServerAddr      = "127.0.0.1:4022"
-	smtpServerAddr      = "127.0.0.1:2525"
-	webDavServerPort    = 9191
-	defaultUsername     = "test_common_sftp"
-	defaultPassword     = "test_password"
-	defaultSFTPUsername = "test_common_sftpfs_user"
-	osWindows           = "windows"
-	testFileName        = "test_file_common_sftp.dat"
-	testDir             = "test_dir_common"
+	httpAddr              = "127.0.0.1:9999"
+	httpProxyAddr         = "127.0.0.1:7777"
+	sftpServerAddr        = "127.0.0.1:4022"
+	smtpServerAddr        = "127.0.0.1:2525"
+	webDavServerPort      = 9191
+	httpFsPort            = 34567
+	defaultUsername       = "test_common_sftp"
+	defaultPassword       = "test_password"
+	defaultSFTPUsername   = "test_common_sftpfs_user"
+	defaultHTTPFsUsername = "httpfs_ftp_user"
+	httpFsWellKnowDir     = "/wellknow"
+	osWindows             = "windows"
+	testFileName          = "test_file_common_sftp.dat"
+	testDir               = "test_dir_common"
 )
 
 var (
@@ -181,6 +184,7 @@ func TestMain(m *testing.M) {
 	waitTCPListening(sftpdConf.Bindings[0].GetAddress())
 	waitTCPListening(httpdConf.Bindings[0].GetAddress())
 	waitTCPListening(webDavConf.Bindings[0].GetAddress())
+	startHTTPFs()
 
 	go func() {
 		// start a test HTTP server to receive action notifications
@@ -8037,6 +8041,30 @@ func TestCrossFoldersCopy(t *testing.T) {
 	}
 }
 
+func TestHTTPFs(t *testing.T) {
+	u := getTestUserWithHTTPFs()
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	err = os.MkdirAll(user.GetHomeDir(), os.ModePerm)
+	assert.NoError(t, err)
+
+	conn := common.NewBaseConnection(xid.New().String(), common.ProtocolFTP, "", "", user)
+	err = conn.CreateDir(httpFsWellKnowDir, false)
+	assert.NoError(t, err)
+
+	err = os.WriteFile(filepath.Join(os.TempDir(), "httpfs", defaultHTTPFsUsername, httpFsWellKnowDir, "file.txt"), []byte("data"), 0666)
+	assert.NoError(t, err)
+
+	err = conn.Copy(httpFsWellKnowDir, httpFsWellKnowDir+"_copy")
+	assert.NoError(t, err)
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestProxyProtocol(t *testing.T) {
 	resp, err := httpclient.Get(fmt.Sprintf("http://%v", httpProxyAddr))
 	if assert.NoError(t, err) {
@@ -8210,6 +8238,18 @@ func getCryptFsUser() dataprovider.User {
 	return u
 }
 
+func getTestUserWithHTTPFs() dataprovider.User {
+	u := getTestUser()
+	u.FsConfig.Provider = sdk.HTTPFilesystemProvider
+	u.FsConfig.HTTPConfig = vfs.HTTPFsConfig{
+		BaseHTTPFsConfig: sdk.BaseHTTPFsConfig{
+			Endpoint: fmt.Sprintf("http://127.0.0.1:%d/api/v1", httpFsPort),
+			Username: defaultHTTPFsUsername,
+		},
+	}
+	return u
+}
+
 func writeSFTPFile(name string, size int64, client *sftp.Client) error {
 	err := writeSFTPFileNoCheck(name, size, client)
 	if err != nil {
@@ -8344,4 +8384,23 @@ func (e *receivedEmail) get() receivedEmail {
 		To:   e.To,
 		Data: e.Data,
 	}
+}
+
+func startHTTPFs() {
+	go func() {
+		readdirCallback := func(name string) []os.FileInfo {
+			if name == httpFsWellKnowDir {
+				return []os.FileInfo{vfs.NewFileInfo("ghost.txt", false, 0, time.Unix(0, 0), false)}
+			}
+			return nil
+		}
+		callbacks := &httpdtest.HTTPFsCallbacks{
+			Readdir: readdirCallback,
+		}
+		if err := httpdtest.StartTestHTTPFs(httpFsPort, callbacks); err != nil {
+			logger.ErrorToConsole("could not start HTTPfs test server: %v", err)
+			os.Exit(1)
+		}
+	}()
+	waitTCPListening(fmt.Sprintf(":%d", httpFsPort))
 }

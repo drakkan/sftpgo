@@ -816,21 +816,27 @@ func getCSVRetentionReport(results []folderRetentionCheckResult) ([]byte, error)
 func closeWriterAndUpdateQuota(w io.WriteCloser, conn *BaseConnection, virtualSourcePath, virtualTargetPath string,
 	numFiles int, truncatedSize int64, errTransfer error, operation string, startTime time.Time,
 ) error {
+	var fsDstPath string
+	var errDstFs error
 	errWrite := w.Close()
 	targetPath := virtualSourcePath
 	if virtualTargetPath != "" {
 		targetPath = virtualTargetPath
+		var fsDst vfs.Fs
+		fsDst, fsDstPath, errDstFs = conn.GetFsAndResolvedPath(virtualTargetPath)
+		if errTransfer != nil && errDstFs == nil {
+			// try to remove a partial file on error. If this fails, we can't do anything
+			errRemove := fsDst.Remove(fsDstPath, false)
+			conn.Log(logger.LevelDebug, "removing partial file %q after write error, result: %v", virtualTargetPath, errRemove)
+		}
 	}
 	info, err := conn.doStatInternal(targetPath, 0, false, false)
 	if err == nil {
 		updateUserQuotaAfterFileWrite(conn, targetPath, numFiles, info.Size()-truncatedSize)
-		var fsSrcPath, fsDstPath string
-		var errSrcFs, errDstFs error
+		var fsSrcPath string
+		var errSrcFs error
 		if virtualSourcePath != "" {
 			_, fsSrcPath, errSrcFs = conn.GetFsAndResolvedPath(virtualSourcePath)
-		}
-		if virtualTargetPath != "" {
-			_, fsDstPath, errDstFs = conn.GetFsAndResolvedPath(virtualTargetPath)
 		}
 		if errSrcFs == nil && errDstFs == nil {
 			elapsed := time.Since(startTime).Nanoseconds() / 1000000

@@ -650,6 +650,10 @@ func (c *BaseConnection) doRecursiveCopy(virtualSourcePath, virtualTargetPath st
 				return err
 			}
 			if err := c.doRecursiveCopy(sourcePath, targetPath, info, true); err != nil {
+				if c.IsNotExistError(err) {
+					c.Log(logger.LevelInfo, "skipping copy for source path %q: %v", sourcePath, err)
+					continue
+				}
 				return err
 			}
 		}

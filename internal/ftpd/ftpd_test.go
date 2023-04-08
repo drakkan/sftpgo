@@ -4011,7 +4011,7 @@ func generateTOTPPasscode(secret string, algo otp.Algorithm) (string, error) {
 
 func startHTTPFs() {
 	go func() {
-		if err := httpdtest.StartTestHTTPFs(httpFsPort); err != nil {
+		if err := httpdtest.StartTestHTTPFs(httpFsPort, nil); err != nil {
 			logger.ErrorToConsole("could not start HTTPfs test server: %v", err)
 			os.Exit(1)
 		}
