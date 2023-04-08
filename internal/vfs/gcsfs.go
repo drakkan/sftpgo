@@ -228,7 +228,7 @@ func (fs *GCSFs) Create(name string, flag, checks int) (File, *PipeWriter, func(
 // rename all the contents too and this could take long time: think
 // about directories with thousands of files, for each file we should
 // execute a CopyObject call.
-func (fs *GCSFs) Rename(source, target string) error {
+func (fs *GCSFs) Rename(source, target string) error { //nolint:gocyclo
 	if source == target {
 		return nil
 	}

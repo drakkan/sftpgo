@@ -115,6 +115,7 @@ func (t *transfer) ReadAt(p []byte, off int64) (n int, err error) {
 		if t.GetType() == common.TransferDownload {
 			t.TransferError(err)
 		}
+		err = t.ConvertError(err)
 		return
 	}
 	t.HandleThrottle()
@@ -139,6 +140,7 @@ func (t *transfer) WriteAt(p []byte, off int64) (n int, err error) {
 	}
 	if err != nil {
 		t.TransferError(err)
+		err = t.ConvertError(err)
 		return
 	}
 	t.HandleThrottle()

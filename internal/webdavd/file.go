@@ -142,7 +142,7 @@ func (f *webDavFile) Stat() (os.FileInfo, error) {
 	}
 	info, err := f.Fs.Stat(f.GetFsPath())
 	if err != nil {
-		return nil, err
+		return nil, f.Connection.GetFsError(f.Fs, err)
 	}
 	if vfs.IsCryptOsFs(f.Fs) {
 		info = f.Fs.(*vfs.CryptFs).ConvertFileInfo(info)
@@ -213,7 +213,7 @@ func (f *webDavFile) Read(p []byte) (n int, err error) {
 		f.startOffset = 0
 		f.Unlock()
 		if e != nil {
-			return 0, e
+			return 0, f.Connection.GetFsError(f.Fs, e)
 		}
 	}
 
@@ -224,6 +224,7 @@ func (f *webDavFile) Read(p []byte) (n int, err error) {
 	}
 	if err != nil && err != io.EOF {
 		f.TransferError(err)
+		err = f.ConvertError(err)
 		return
 	}
 	f.HandleThrottle()
@@ -246,6 +247,7 @@ func (f *webDavFile) Write(p []byte) (n int, err error) {
 	}
 	if err != nil {
 		f.TransferError(err)
+		err = f.ConvertError(err)
 		return
 	}
 	f.HandleThrottle()

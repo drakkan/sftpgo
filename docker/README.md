@@ -4,12 +4,12 @@ SFTPGo provides an official Docker image, it is available on both [Docker Hub](h
 
 ## Supported tags and respective Dockerfile links
 
-- [v2.4.4, v2.4, v2, latest](https://github.com/drakkan/sftpgo/blob/v2.4.4/Dockerfile)
-- [v2.4.4-plugins, v2.4-plugins, v2-plugins, plugins](https://github.com/drakkan/sftpgo/blob/v2.4.4/Dockerfile)
-- [v2.4.4-alpine, v2.4-alpine, v2-alpine, alpine](https://github.com/drakkan/sftpgo/blob/v2.4.4/Dockerfile.alpine)
-- [v2.4.4-slim, v2.4-slim, v2-slim, slim](https://github.com/drakkan/sftpgo/blob/v2.4.4/Dockerfile)
-- [v2.4.4-alpine-slim, v2.4-alpine-slim, v2-alpine-slim, alpine-slim](https://github.com/drakkan/sftpgo/blob/v2.4.4/Dockerfile.alpine)
-- [v2.4.4-distroless-slim, v2.4-distroless-slim, v2-distroless-slim, distroless-slim](https://github.com/drakkan/sftpgo/blob/v2.4.4/Dockerfile.distroless)
+- [v2.4.5, v2.4, v2, latest](https://github.com/drakkan/sftpgo/blob/v2.4.5/Dockerfile)
+- [v2.4.5-plugins, v2.4-plugins, v2-plugins, plugins](https://github.com/drakkan/sftpgo/blob/v2.4.5/Dockerfile)
+- [v2.4.5-alpine, v2.4-alpine, v2-alpine, alpine](https://github.com/drakkan/sftpgo/blob/v2.4.5/Dockerfile.alpine)
+- [v2.4.5-slim, v2.4-slim, v2-slim, slim](https://github.com/drakkan/sftpgo/blob/v2.4.5/Dockerfile)
+- [v2.4.5-alpine-slim, v2.4-alpine-slim, v2-alpine-slim, alpine-slim](https://github.com/drakkan/sftpgo/blob/v2.4.5/Dockerfile.alpine)
+- [v2.4.5-distroless-slim, v2.4-distroless-slim, v2-distroless-slim, distroless-slim](https://github.com/drakkan/sftpgo/blob/v2.4.5/Dockerfile.distroless)
 - [edge](../Dockerfile)
 - [edge-plugins](../Dockerfile)
 - [edge-alpine](../Dockerfile.alpine)

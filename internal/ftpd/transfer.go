@@ -67,6 +67,7 @@ func (t *transfer) Read(p []byte) (n int, err error) {
 	}
 	if err != nil && err != io.EOF {
 		t.TransferError(err)
+		err = t.ConvertError(err)
 		return
 	}
 	t.HandleThrottle()
@@ -85,6 +86,7 @@ func (t *transfer) Write(p []byte) (n int, err error) {
 	}
 	if err != nil {
 		t.TransferError(err)
+		err = t.ConvertError(err)
 		return
 	}
 	t.HandleThrottle()

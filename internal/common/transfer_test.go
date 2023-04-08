@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/sftp"
 	"github.com/sftpgo/sdk"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -225,6 +226,10 @@ func TestTransferErrors(t *testing.T) {
 	conn := NewBaseConnection("id", ProtocolSFTP, "", "", u)
 	transfer := NewBaseTransfer(file, conn, nil, testFile, testFile, "/transfer_test_file", TransferUpload,
 		0, 0, 0, 0, true, fs, dataprovider.TransferQuota{})
+	err = transfer.ConvertError(os.ErrNotExist)
+	assert.ErrorIs(t, err, sftp.ErrSSHFxNoSuchFile)
+	err = transfer.ConvertError(os.ErrPermission)
+	assert.ErrorIs(t, err, sftp.ErrSSHFxPermissionDenied)
 	assert.Nil(t, transfer.cancelFn)
 	assert.Equal(t, testFile, transfer.GetFsPath())
 	transfer.SetCancelFn(cancelFn)

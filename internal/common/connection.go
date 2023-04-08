@@ -1525,7 +1525,8 @@ func (c *BaseConnection) GetGenericError(err error) error {
 		return sftp.ErrSSHFxFailure
 	default:
 		if err == ErrPermissionDenied || err == ErrNotExist || err == ErrOpUnsupported ||
-			err == ErrQuotaExceeded || err == vfs.ErrStorageSizeUnavailable || err == ErrShuttingDown {
+			err == ErrQuotaExceeded || err == ErrReadQuotaExceeded || err == vfs.ErrStorageSizeUnavailable ||
+			err == ErrShuttingDown {
 			return err
 		}
 		c.Log(logger.LevelError, "generic error: %+v", err)
