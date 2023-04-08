@@ -67,6 +67,7 @@ func (f *httpdFile) Read(p []byte) (n int, err error) {
 	}
 	if err != nil && err != io.EOF {
 		f.TransferError(err)
+		err = f.ConvertError(err)
 		return
 	}
 	f.HandleThrottle()
@@ -91,6 +92,7 @@ func (f *httpdFile) Write(p []byte) (n int, err error) {
 	}
 	if err != nil {
 		f.TransferError(err)
+		err = f.ConvertError(err)
 		return
 	}
 	f.HandleThrottle()
