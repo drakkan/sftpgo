@@ -26,6 +26,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime/debug"
+	"strings"
 	"time"
 
 	"github.com/drakkan/webdav"
@@ -137,6 +138,9 @@ func (s *webDavServer) checkRequestMethod(ctx context.Context, r *http.Request, 
 	// see RFC4918, section 9.4
 	if r.Method == http.MethodGet || r.Method == http.MethodHead {
 		p := path.Clean(r.URL.Path)
+		if s.binding.Prefix != "" {
+			p = strings.TrimPrefix(p, s.binding.Prefix)
+		}
 		info, err := connection.Stat(ctx, p)
 		if err == nil && info.IsDir() {
 			if r.Method == http.MethodHead {

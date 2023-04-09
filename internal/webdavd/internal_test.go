@@ -34,6 +34,7 @@ import (
 	"github.com/eikenb/pipeat"
 	"github.com/sftpgo/sdk"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
@@ -634,6 +635,31 @@ func TestFileAccessErrors(t *testing.T) {
 			assert.Equal(t, http.StatusForbidden, pstat.Status)
 		}
 	}
+}
+
+func TestCheckRequestMethodWithPrefix(t *testing.T) {
+	user := dataprovider.User{
+		BaseUser: sdk.BaseUser{
+			HomeDir: filepath.Clean(os.TempDir()),
+			Permissions: map[string][]string{
+				"/": {dataprovider.PermAny},
+			},
+		},
+	}
+	fs := vfs.NewOsFs("connID", user.HomeDir, "")
+	connection := &Connection{
+		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolWebDAV, "", "", user),
+	}
+	server := webDavServer{
+		binding: Binding{
+			Prefix: "/dav",
+		},
+	}
+	req, err := http.NewRequest(http.MethodGet, "/../dav", nil)
+	require.NoError(t, err)
+	server.checkRequestMethod(context.Background(), req, connection)
+	require.Equal(t, "PROPFIND", req.Method)
+	require.Equal(t, "1", req.Header.Get("Depth"))
 }
 
 func TestContentType(t *testing.T) {
