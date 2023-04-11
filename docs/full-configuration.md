@@ -479,7 +479,7 @@ The configuration file contains the following sections:
 
 </details>
 
-A full example showing the default config (in JSON format) can be found [here](../sftpgo.json).
+A full example showing the default config (in JSON format) can be found [here](../sftpgo.json), and [here](sftpgo-config-comments.yaml) in YAML format (with comments).
 
 If you want to use a private host key that uses an algorithm/setting different from the auto generated RSA/ECDSA keys, or more than two private keys, you can generate your own keys and replace the empty `keys` array with something like this:
 
