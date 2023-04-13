@@ -1775,6 +1775,7 @@ func DeleteAPIKey(keyID string, executor, ipAddress, role string) error {
 	err = provider.deleteAPIKey(apiKey)
 	if err == nil {
 		executeAction(operationDelete, executor, ipAddress, actionObjectAPIKey, apiKey.KeyID, role, &apiKey)
+		cachedAPIKeys.Remove(keyID)
 	}
 	return err
 }
@@ -1984,6 +1985,7 @@ func DeleteAdmin(username, executor, ipAddress, role string) error {
 	err = provider.deleteAdmin(admin)
 	if err == nil {
 		executeAction(operationDelete, executor, ipAddress, actionObjectAdmin, admin.Username, role, &admin)
+		cachedAdminPasswords.Remove(username)
 	}
 	return err
 }
@@ -2057,7 +2059,6 @@ func UpdateUserPassword(username, plainPwd, executor, ipAddress, role string) er
 		return err
 	}
 	webDAVUsersCache.swap(&user)
-	cachedPasswords.Remove(username)
 	executeAction(operationUpdate, executor, ipAddress, actionObjectUser, username, role, &user)
 	return nil
 }
@@ -2070,7 +2071,6 @@ func UpdateUser(user *User, executor, ipAddress, role string) error {
 	err := provider.updateUser(user)
 	if err == nil {
 		webDAVUsersCache.swap(user)
-		cachedPasswords.Remove(user.Username)
 		executeAction(operationUpdate, executor, ipAddress, actionObjectUser, user.Username, role, user)
 	}
 	return err
@@ -2087,7 +2087,7 @@ func DeleteUser(username, executor, ipAddress, role string) error {
 	if err == nil {
 		RemoveCachedWebDAVUser(user.Username)
 		delayedQuotaUpdater.resetUserQuota(user.Username)
-		cachedPasswords.Remove(username)
+		cachedUserPasswords.Remove(username)
 		executeAction(operationDelete, executor, ipAddress, actionObjectUser, user.Username, role, &user)
 	}
 	return err
@@ -3062,7 +3062,7 @@ func ValidateUser(user *User) error {
 
 func isPasswordOK(user *User, password string) (bool, error) {
 	if config.PasswordCaching {
-		found, match := cachedPasswords.Check(user.Username, password)
+		found, match := cachedUserPasswords.Check(user.Username, password, user.Password)
 		if found {
 			return match, nil
 		}
@@ -3100,7 +3100,7 @@ func isPasswordOK(user *User, password string) (bool, error) {
 		match = fmt.Sprintf("%s%x", md5LDAPPwdPrefix, h.Sum(nil)) == user.Password
 	}
 	if err == nil && match {
-		cachedPasswords.Add(user.Username, password)
+		cachedUserPasswords.Add(user.Username, password, user.Password)
 		if updatePwd {
 			convertUserPassword(user.Username, password)
 		}
@@ -3806,7 +3806,6 @@ func executePreLoginHook(username, loginMethod, ip, protocol string, oidcTokenFi
 	}
 
 	userID := u.ID
-	userPwd := u.Password
 	userUsedQuotaSize := u.UsedQuotaSize
 	userUsedQuotaFiles := u.UsedQuotaFiles
 	userUsedDownloadTransfer := u.UsedDownloadDataTransfer
@@ -3844,9 +3843,6 @@ func executePreLoginHook(username, loginMethod, ip, protocol string, oidcTokenFi
 		err = provider.updateUser(&u)
 		if err == nil {
 			webDAVUsersCache.swap(&u)
-			if u.Password != userPwd {
-				cachedPasswords.Remove(username)
-			}
 		}
 	}
 	if err != nil {
@@ -4081,7 +4077,7 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 		err = provider.updateUser(&user)
 		if err == nil {
 			webDAVUsersCache.swap(&user)
-			cachedPasswords.Add(user.Username, password)
+			cachedUserPasswords.Add(user.Username, password, user.Password)
 		}
 		return user, err
 	}
@@ -4154,7 +4150,7 @@ func doPluginAuth(username, password string, pubKey []byte, ip, protocol string,
 		err = provider.updateUser(&user)
 		if err == nil {
 			webDAVUsersCache.swap(&user)
-			cachedPasswords.Add(user.Username, password)
+			cachedUserPasswords.Add(user.Username, password, user.Password)
 		}
 		return user, err
 	}

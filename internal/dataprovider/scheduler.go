@@ -100,6 +100,9 @@ func checkDataprovider() {
 func checkCacheUpdates() {
 	checkUserCache()
 	checkIPListEntryCache()
+	cachedUserPasswords.cleanup()
+	cachedAdminPasswords.cleanup()
+	cachedAPIKeys.cleanup()
 }
 
 func checkUserCache() {
@@ -124,11 +127,11 @@ func checkUserCache() {
 				go provider.deleteUser(user, false) //nolint:errcheck
 			}
 			webDAVUsersCache.remove(user.Username)
+			cachedUserPasswords.Remove(user.Username)
 			delayedQuotaUpdater.resetUserQuota(user.Username)
 		} else {
 			webDAVUsersCache.swap(&user)
 		}
-		cachedPasswords.Remove(user.Username)
 	}
 	lastUserCacheUpdate.Store(checkTime)
 	providerLog(logger.LevelDebug, "end user cache check, new update time %v", util.GetTimeFromMsecSinceEpoch(lastUserCacheUpdate.Load()))

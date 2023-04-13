@@ -1,6 +1,6 @@
 # Configuring SFTPGo
 
-<details><summary><font size=5> Command line option</font></summary>
+<details><summary><font size=5> Command line options</font></summary>
 
 The SFTPGo executable can be used this way:
 

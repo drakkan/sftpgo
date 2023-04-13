@@ -185,6 +185,15 @@ func (k *APIKey) Authenticate(plainKey string) error {
 		return fmt.Errorf("API key %q is expired, expiration timestamp: %v current timestamp: %v", k.KeyID,
 			k.ExpiresAt, util.GetTimeAsMsSinceEpoch(time.Now()))
 	}
+	if config.PasswordCaching {
+		found, match := cachedAPIKeys.Check(k.KeyID, plainKey, k.Key)
+		if found {
+			if !match {
+				return ErrInvalidCredentials
+			}
+			return nil
+		}
+	}
 	if strings.HasPrefix(k.Key, bcryptPwdPrefix) {
 		if err := bcrypt.CompareHashAndPassword([]byte(k.Key), []byte(plainKey)); err != nil {
 			return ErrInvalidCredentials
@@ -196,5 +205,6 @@ func (k *APIKey) Authenticate(plainKey string) error {
 		}
 	}
 
+	cachedAPIKeys.Add(k.KeyID, plainKey, k.Key)
 	return nil
 }

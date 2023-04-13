@@ -3428,14 +3428,16 @@ func TestDelayedQuotaUpdater(t *testing.T) {
 func TestPasswordCaching(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
-	found, match := dataprovider.CheckCachedPassword(user.Username, defaultPassword)
+	dbUser, err := dataprovider.UserExists(user.Username, "")
+	assert.NoError(t, err)
+	found, match := dataprovider.CheckCachedUserPassword(user.Username, defaultPassword, dbUser.Password)
 	assert.False(t, found)
 	assert.False(t, match)
 
 	user.Password = "wrong"
 	_, _, err = getSftpClient(user)
 	assert.Error(t, err)
-	found, match = dataprovider.CheckCachedPassword(user.Username, defaultPassword)
+	found, match = dataprovider.CheckCachedUserPassword(user.Username, defaultPassword, dbUser.Password)
 	assert.False(t, found)
 	assert.False(t, match)
 	user.Password = ""
@@ -3447,21 +3449,31 @@ func TestPasswordCaching(t *testing.T) {
 		err = checkBasicSFTP(client)
 		assert.NoError(t, err)
 	}
-	found, match = dataprovider.CheckCachedPassword(user.Username, defaultPassword)
+	found, match = dataprovider.CheckCachedUserPassword(user.Username, defaultPassword, dbUser.Password)
 	assert.True(t, found)
 	assert.True(t, match)
 
-	found, match = dataprovider.CheckCachedPassword(user.Username, defaultPassword+"_")
+	found, match = dataprovider.CheckCachedUserPassword(user.Username, defaultPassword+"_", dbUser.Password)
 	assert.True(t, found)
 	assert.False(t, match)
 
-	found, match = dataprovider.CheckCachedPassword(user.Username+"_", defaultPassword)
+	found, match = dataprovider.CheckCachedUserPassword(user.Username+"_", defaultPassword, dbUser.Password)
 	assert.False(t, found)
 	assert.False(t, match)
 
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
-	found, match = dataprovider.CheckCachedPassword(user.Username, defaultPassword)
+	// the password was not changed
+	found, match = dataprovider.CheckCachedUserPassword(user.Username, defaultPassword, dbUser.Password)
+	assert.True(t, found)
+	assert.True(t, match)
+	// the password hash will change
+	user.Password = defaultPassword
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	dbUser, err = dataprovider.UserExists(user.Username, "")
+	assert.NoError(t, err)
+	found, match = dataprovider.CheckCachedUserPassword(user.Username, defaultPassword, dbUser.Password)
 	assert.False(t, found)
 	assert.False(t, match)
 
@@ -3472,8 +3484,52 @@ func TestPasswordCaching(t *testing.T) {
 		err = checkBasicSFTP(client)
 		assert.NoError(t, err)
 	}
+	found, match = dataprovider.CheckCachedUserPassword(user.Username, defaultPassword, dbUser.Password)
+	assert.True(t, found)
+	assert.True(t, match)
+	//change password
+	newPassword := defaultPassword + "mod"
+	user.Password = newPassword
+	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
+	assert.NoError(t, err)
+	dbUser, err = dataprovider.UserExists(user.Username, "")
+	assert.NoError(t, err)
+	found, match = dataprovider.CheckCachedUserPassword(user.Username, newPassword, dbUser.Password)
+	assert.False(t, found)
+	assert.False(t, match)
 
-	found, match = dataprovider.CheckCachedPassword(user.Username, defaultPassword)
+	conn, client, err = getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		err = checkBasicSFTP(client)
+		assert.NoError(t, err)
+	}
+	found, match = dataprovider.CheckCachedUserPassword(user.Username, defaultPassword, dbUser.Password)
+	assert.True(t, found)
+	assert.False(t, match)
+	found, match = dataprovider.CheckCachedUserPassword(user.Username, newPassword, dbUser.Password)
+	assert.True(t, found)
+	assert.True(t, match)
+	// update the password
+	err = dataprovider.UpdateUserPassword(user.Username, defaultPassword, "", "", "")
+	assert.NoError(t, err)
+	dbUser, err = dataprovider.UserExists(user.Username, "")
+	assert.NoError(t, err)
+	// the stored hash does not match
+	found, match = dataprovider.CheckCachedUserPassword(user.Username, defaultPassword, dbUser.Password)
+	assert.False(t, found)
+	assert.False(t, match)
+
+	user.Password = defaultPassword
+	conn, client, err = getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		err = checkBasicSFTP(client)
+		assert.NoError(t, err)
+	}
+	found, match = dataprovider.CheckCachedUserPassword(user.Username, defaultPassword, dbUser.Password)
 	assert.True(t, found)
 	assert.True(t, match)
 
@@ -3481,7 +3537,7 @@ func TestPasswordCaching(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
-	found, match = dataprovider.CheckCachedPassword(user.Username, defaultPassword)
+	found, match = dataprovider.CheckCachedUserPassword(user.Username, defaultPassword, dbUser.Password)
 	assert.False(t, found)
 	assert.False(t, match)
 }

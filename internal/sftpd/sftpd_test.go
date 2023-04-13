@@ -3900,7 +3900,9 @@ func TestLoginExternalAuth(t *testing.T) {
 			assert.NoError(t, checkBasicSFTP(client))
 		}
 		if !usePubKey {
-			found, match := dataprovider.CheckCachedPassword(defaultUsername, defaultPassword)
+			dbUser, err := dataprovider.UserExists(defaultUsername, "")
+			assert.NoError(t, err)
+			found, match := dataprovider.CheckCachedUserPassword(defaultUsername, defaultPassword, dbUser.Password)
 			assert.True(t, found)
 			assert.True(t, match)
 		}

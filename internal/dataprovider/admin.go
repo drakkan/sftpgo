@@ -424,15 +424,28 @@ func (a *Admin) GetGroupsAsString() string {
 
 // CheckPassword verifies the admin password
 func (a *Admin) CheckPassword(password string) (bool, error) {
+	if config.PasswordCaching {
+		found, match := cachedAdminPasswords.Check(a.Username, password, a.Password)
+		if found {
+			if !match {
+				return false, ErrInvalidCredentials
+			}
+			return match, nil
+		}
+	}
 	if strings.HasPrefix(a.Password, bcryptPwdPrefix) {
 		if err := bcrypt.CompareHashAndPassword([]byte(a.Password), []byte(password)); err != nil {
 			return false, ErrInvalidCredentials
 		}
+		cachedAdminPasswords.Add(a.Username, password, a.Password)
 		return true, nil
 	}
 	match, err := argon2id.ComparePasswordAndHash(password, a.Password)
 	if !match || err != nil {
 		return false, ErrInvalidCredentials
+	}
+	if match && err == nil {
+		cachedAdminPasswords.Add(a.Username, password, a.Password)
 	}
 	return match, err
 }

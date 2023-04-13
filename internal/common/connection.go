@@ -587,7 +587,7 @@ func (c *BaseConnection) copyFile(virtualSourcePath, virtualTargetPath string, s
 	if ok, _ := c.User.IsFileAllowed(virtualTargetPath); !ok {
 		return fmt.Errorf("file %q is not allowed: %w", virtualTargetPath, c.GetPermissionDeniedError())
 	}
-	if c.isSameResource(virtualSourcePath, virtualSourcePath) {
+	if c.isSameResource(virtualSourcePath, virtualTargetPath) {
 		fs, fsTargetPath, err := c.GetFsAndResolvedPath(virtualTargetPath)
 		if err != nil {
 			return err
