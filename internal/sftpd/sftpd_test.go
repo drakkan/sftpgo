@@ -9549,10 +9549,19 @@ func TestGitIncludedVirtualFolders(t *testing.T) {
 
 	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 	assert.NoError(t, err)
-	assert.Greater(t, user.UsedQuotaFiles, 0)
-	if !assert.Greater(t, user.UsedQuotaSize, int64(0)) {
-		printLatestLogs(20)
+	if user.UsedQuotaFiles == 0 {
+		assert.Eventually(t, func() bool {
+			user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+			if err != nil {
+				return false
+			}
+			return user.QuotaFiles > 0
+		}, 1*time.Second, 100*time.Millisecond)
 	}
+	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Greater(t, user.UsedQuotaFiles, 0)
+	assert.Greater(t, user.UsedQuotaSize, int64(0))
 
 	folder, _, err := httpdtest.GetFolderByName(folderName, http.StatusOK)
 	assert.NoError(t, err)
