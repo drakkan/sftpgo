@@ -587,7 +587,7 @@ func (c *BaseConnection) copyFile(virtualSourcePath, virtualTargetPath string, s
 	if ok, _ := c.User.IsFileAllowed(virtualTargetPath); !ok {
 		return fmt.Errorf("file %q is not allowed: %w", virtualTargetPath, c.GetPermissionDeniedError())
 	}
-	if c.isSameResource(virtualSourcePath, virtualTargetPath) {
+	if c.IsSameResource(virtualSourcePath, virtualTargetPath) {
 		fs, fsTargetPath, err := c.GetFsAndResolvedPath(virtualTargetPath)
 		if err != nil {
 			return err
@@ -1156,7 +1156,7 @@ func (c *BaseConnection) checkFolderRename(fsSrc, fsDst vfs.Fs, fsSourcePath, fs
 func (c *BaseConnection) isRenamePermitted(fsSrc, fsDst vfs.Fs, fsSourcePath, fsTargetPath, virtualSourcePath,
 	virtualTargetPath string, fi os.FileInfo,
 ) bool {
-	if !c.isSameResource(virtualSourcePath, virtualTargetPath) {
+	if !c.IsSameResource(virtualSourcePath, virtualTargetPath) {
 		c.Log(logger.LevelInfo, "rename %#q->%q is not allowed: the paths must be on the same resource",
 			virtualSourcePath, virtualTargetPath)
 		return false
@@ -1407,7 +1407,8 @@ func (c *BaseConnection) HasSpace(checkFiles, getUsage bool, requestPath string)
 	return result, transferQuota
 }
 
-func (c *BaseConnection) isSameResource(virtualSourcePath, virtualTargetPath string) bool {
+// IsSameResource returns true if source and target paths are on the same resource
+func (c *BaseConnection) IsSameResource(virtualSourcePath, virtualTargetPath string) bool {
 	sourceFolder, errSrc := c.User.GetVirtualFolderForPath(virtualSourcePath)
 	dstFolder, errDst := c.User.GetVirtualFolderForPath(virtualTargetPath)
 	if errSrc != nil && errDst != nil {

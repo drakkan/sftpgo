@@ -3854,8 +3854,13 @@ func TestEventRule(t *testing.T) {
 
 		err = os.Remove(uploadLogFilePath)
 		assert.NoError(t, err)
+		lastReceivedEmail.reset()
+		assert.Eventually(t, func() bool {
+			return lastReceivedEmail.get().From != ""
+		}, 3000*time.Millisecond, 100*time.Millisecond)
 	}
 
+	lastReceivedEmail.reset()
 	_, err = httpdtest.RemoveEventRule(rule1, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveEventRule(rule2, http.StatusOK)

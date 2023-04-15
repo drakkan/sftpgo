@@ -134,11 +134,23 @@ func renameUserFsEntry(w http.ResponseWriter, r *http.Request) {
 
 	oldName := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
 	newName := connection.User.GetCleanedPath(r.URL.Query().Get("target"))
-	err = connection.Rename(oldName, newName)
-	if err != nil {
-		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to rename %q -> %q", oldName, newName),
-			getMappedStatusCode(err))
-		return
+	if !connection.IsSameResource(oldName, newName) {
+		if err := connection.Copy(oldName, newName); err != nil {
+			sendAPIResponse(w, r, err, fmt.Sprintf("Cannot perform copy step to rename %q -> %q", oldName, newName),
+				getMappedStatusCode(err))
+			return
+		}
+		if err := connection.RemoveAll(oldName); err != nil {
+			sendAPIResponse(w, r, err, fmt.Sprintf("Cannot perform remove step to rename %q -> %q", oldName, newName),
+				getMappedStatusCode(err))
+			return
+		}
+	} else {
+		if err := connection.Rename(oldName, newName); err != nil {
+			sendAPIResponse(w, r, err, fmt.Sprintf("Unable to rename %q -> %q", oldName, newName),
+				getMappedStatusCode(err))
+			return
+		}
 	}
 	sendAPIResponse(w, r, nil, fmt.Sprintf("%q renamed to %q", oldName, newName), http.StatusOK)
 }

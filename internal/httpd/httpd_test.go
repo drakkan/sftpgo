@@ -15235,6 +15235,73 @@ func TestWebGetFiles(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestRenameDifferentResource(t *testing.T) {
+	folderName := "foldercryptfs"
+	u := getTestUser()
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName,
+			MappedPath: filepath.Join(os.TempDir(), "folderName"),
+			FsConfig: vfs.Filesystem{
+				Provider: sdk.CryptedFilesystemProvider,
+				CryptConfig: vfs.CryptFsConfig{
+					Passphrase: kms.NewPlainSecret("super secret"),
+				},
+			},
+		},
+		VirtualPath: "/folderPath",
+	})
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	testFileName := "file.txt"
+
+	webAPIToken, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPost, userFileActionsPath+"/move?path="+testFileName+"&target="+url.QueryEscape(path.Join("/", "folderPath", testFileName)), nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+	assert.Contains(t, rr.Body.String(), "Cannot perform copy step")
+
+	err = os.WriteFile(filepath.Join(user.GetHomeDir(), testFileName), []byte("just a test"), os.ModePerm)
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodPost, userFileActionsPath+"/move?path="+testFileName+"&target="+url.QueryEscape(path.Join("/", "folderPath", testFileName)), nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	// recreate the file and remove the delete permission
+	err = os.WriteFile(filepath.Join(user.GetHomeDir(), testFileName), []byte("just another test"), os.ModePerm)
+	assert.NoError(t, err)
+
+	u.Permissions = map[string][]string{
+		"/": {dataprovider.PermUpload, dataprovider.PermListItems, dataprovider.PermCreateDirs,
+			dataprovider.PermDownload, dataprovider.PermOverwrite},
+	}
+	_, resp, err := httpdtest.UpdateUser(u, http.StatusOK, "")
+	assert.NoError(t, err, string(resp))
+	webAPIToken, err = getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userFileActionsPath+"/move?path="+testFileName+"&target="+url.QueryEscape(path.Join("/", "folderPath", testFileName)), nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	assert.Contains(t, rr.Body.String(), "Cannot perform remove step")
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName}, http.StatusOK)
+	assert.NoError(t, err)
+}
+
 func TestWebDirsAPI(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
