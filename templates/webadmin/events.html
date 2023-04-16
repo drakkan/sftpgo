@@ -414,6 +414,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                     "defaultContent": "",
                     "render": function (data, type, row) {
                         if (type === 'display') {
+                            if (!data){
+                                return "";
+                            }
                             return escapeHTML(data);
                         }
                         return data;
@@ -492,6 +495,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                     "data": "virtual_path",
                     "render": function (data, type, row) {
                         if (type === 'display') {
+                            if (!data){
+                                return "";
+                            }
                             let ellipsisFn = $.fn.dataTable.render.ellipsis(70, true, true);
                             if (row["virtual_target_path"]){
                                 return ellipsisFn(`${data} => ${row["virtual_target_path"]}`,type);
@@ -505,6 +511,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                     "data": "username",
                     "defaultContent": "",
                     "render": function (data, type, row) {
+                        if (!data){
+                            return "";
+                        }
                         if (type === 'display') {
                             return escapeHTML(data);
                         }

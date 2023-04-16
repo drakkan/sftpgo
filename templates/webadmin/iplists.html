@@ -455,6 +455,9 @@ $(document).ready(function () {
                 "data": "description",
                 "render": function (data, type, row) {
                     if (type === 'display') {
+                        if (!data){
+                            return "";
+                        }
                         let ellipsisFn = $.fn.dataTable.render.ellipsis(70, true, true);
                         return ellipsisFn(data,type);
                     }
