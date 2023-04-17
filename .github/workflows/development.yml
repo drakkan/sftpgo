@@ -15,7 +15,7 @@ jobs:
     strategy:
       matrix:
         go: [1.20.3]
-        os: [ubuntu-18.04, macos-10.15]
+        os: [ubuntu-20.04, macos-10.15]
         upload-coverage: [true]
 
     steps:
@@ -195,7 +195,7 @@ jobs:
 
   test-postgresql-mysql:
     name: Test with PostgreSQL/MySQL
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
 
     services:
       postgres:
@@ -261,7 +261,7 @@ jobs:
 
   golangci-lint:
     name: golangci-lint
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v3
       - name: Run golangci-lint
