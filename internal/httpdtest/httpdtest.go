@@ -1470,7 +1470,7 @@ func RemoveDefenderHostByIP(ip string, expectedStatusCode int) ([]byte, error) {
 
 // Dumpdata requests a backup to outputFile.
 // outputFile is relative to the configured backups_path
-func Dumpdata(outputFile, outputData, indent string, expectedStatusCode int) (map[string]any, []byte, error) {
+func Dumpdata(outputFile, outputData, indent string, expectedStatusCode int, scopes ...string) (map[string]any, []byte, error) {
 	var response map[string]any
 	var body []byte
 	url, err := url.Parse(buildURLRelativeToBase(dumpDataPath))
@@ -1486,6 +1486,9 @@ func Dumpdata(outputFile, outputData, indent string, expectedStatusCode int) (ma
 	}
 	if indent != "" {
 		q.Add("indent", indent)
+	}
+	if len(scopes) > 0 {
+		q.Add("scopes", strings.Join(scopes, ","))
 	}
 	url.RawQuery = q.Encode()
 	resp, err := sendHTTPRequest(http.MethodGet, url.String(), nil, "", getDefaultToken())

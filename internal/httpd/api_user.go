@@ -62,16 +62,18 @@ func getUserByUsername(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	username := getURLParam(r, "username")
-	renderUser(w, r, username, claims.Role, http.StatusOK)
+	renderUser(w, r, username, &claims, http.StatusOK)
 }
 
-func renderUser(w http.ResponseWriter, r *http.Request, username, role string, status int) {
-	user, err := dataprovider.UserExists(username, role)
+func renderUser(w http.ResponseWriter, r *http.Request, username string, claims *jwtTokenClaims, status int) {
+	user, err := dataprovider.UserExists(username, claims.Role)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	user.PrepareForRendering()
+	if hideConfidentialData(claims, r) {
+		user.PrepareForRendering()
+	}
 	if status != http.StatusOK {
 		ctx := context.WithValue(r.Context(), render.StatusCtxKey, status)
 		render.JSON(w, r.WithContext(ctx), user)
@@ -116,7 +118,7 @@ func addUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Add("Location", fmt.Sprintf("%s/%s", userPath, url.PathEscape(user.Username)))
-	renderUser(w, r, user.Username, claims.Role, http.StatusCreated)
+	renderUser(w, r, user.Username, &claims, http.StatusCreated)
 }
 
 func disableUser2FA(w http.ResponseWriter, r *http.Request) {

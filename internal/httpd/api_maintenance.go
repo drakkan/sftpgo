@@ -51,6 +51,7 @@ func validateBackupFile(outputFile string) (string, error) {
 func dumpData(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	var outputFile, outputData, indent string
+	var scopes []string
 	if _, ok := r.URL.Query()["output-file"]; ok {
 		outputFile = strings.TrimSpace(r.URL.Query().Get("output-file"))
 	}
@@ -59,6 +60,9 @@ func dumpData(w http.ResponseWriter, r *http.Request) {
 	}
 	if _, ok := r.URL.Query()["indent"]; ok {
 		indent = strings.TrimSpace(r.URL.Query().Get("indent"))
+	}
+	if _, ok := r.URL.Query()["scopes"]; ok {
+		scopes = getCommaSeparatedQueryParam(r, "scopes")
 	}
 
 	if outputData != "1" {
@@ -78,7 +82,7 @@ func dumpData(w http.ResponseWriter, r *http.Request) {
 		logger.Debug(logSender, "", "dumping data to: %q", outputFile)
 	}
 
-	backup, err := dataprovider.DumpData()
+	backup, err := dataprovider.DumpData(scopes)
 	if err != nil {
 		logger.Error(logSender, "", "dumping data error: %v, output file: %q", err, outputFile)
 		sendAPIResponse(w, r, err, "", getRespStatus(err))

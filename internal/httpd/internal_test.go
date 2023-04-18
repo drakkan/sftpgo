@@ -601,6 +601,11 @@ func TestInvalidToken(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "Invalid token claims")
 
 	rr = httptest.NewRecorder()
+	getFolderByName(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
 	deleteFolder(rr, req)
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), "Invalid token claims")
@@ -661,6 +666,11 @@ func TestInvalidToken(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "Invalid token claims")
 
 	rr = httptest.NewRecorder()
+	getGroupByName(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
 	deleteGroup(rr, req)
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), "Invalid token claims")
@@ -671,12 +681,22 @@ func TestInvalidToken(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "Invalid token claims")
 
 	rr = httptest.NewRecorder()
+	getEventActionByName(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
 	updateEventAction(rr, req)
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), "Invalid token claims")
 
 	rr = httptest.NewRecorder()
 	deleteEventAction(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	getEventRuleByName(rr, req)
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), "Invalid token claims")
 
@@ -1606,7 +1626,7 @@ func TestChangePwdValidationErrors(t *testing.T) {
 func TestRenderUnexistingFolder(t *testing.T) {
 	rr := httptest.NewRecorder()
 	req, _ := http.NewRequest(http.MethodPost, folderPath, nil)
-	renderFolder(rr, req, "path not mapped", http.StatusOK)
+	renderFolder(rr, req, "path not mapped", &jwtTokenClaims{}, http.StatusOK)
 	assert.Equal(t, http.StatusNotFound, rr.Code)
 }
 

@@ -38,7 +38,7 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.7.2
 	github.com/jackc/pgx/v5 v5.3.2-0.20230411230705-2cf1541bb90a
 	github.com/jlaffaye/ftp v0.0.0-20201112195030-9aae4d151126
-	github.com/klauspost/compress v1.16.4
+	github.com/klauspost/compress v1.16.5
 	github.com/lestrrat-go/jwx/v2 v2.0.9
 	github.com/lithammer/shortuuid/v3 v3.0.7
 	github.com/mattn/go-sqlite3 v1.14.16
@@ -99,7 +99,7 @@ require (
 	github.com/aws/smithy-go v1.13.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/boombuler/barcode v1.0.1 // indirect
-	github.com/cenkalti/backoff/v4 v4.2.0 // indirect
+	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect

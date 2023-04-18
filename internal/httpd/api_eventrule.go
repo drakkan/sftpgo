@@ -42,13 +42,15 @@ func getEventActions(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, actions)
 }
 
-func renderEventAction(w http.ResponseWriter, r *http.Request, name string, status int) {
+func renderEventAction(w http.ResponseWriter, r *http.Request, name string, claims *jwtTokenClaims, status int) {
 	action, err := dataprovider.EventActionExists(name)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	action.PrepareForRendering()
+	if hideConfidentialData(claims, r) {
+		action.PrepareForRendering()
+	}
 	if status != http.StatusOK {
 		ctx := context.WithValue(r.Context(), render.StatusCtxKey, status)
 		render.JSON(w, r.WithContext(ctx), action)
@@ -59,8 +61,13 @@ func renderEventAction(w http.ResponseWriter, r *http.Request, name string, stat
 
 func getEventActionByName(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+		return
+	}
 	name := getURLParam(r, "name")
-	renderEventAction(w, r, name, http.StatusOK)
+	renderEventAction(w, r, name, &claims, http.StatusOK)
 }
 
 func addEventAction(w http.ResponseWriter, r *http.Request) {
@@ -84,7 +91,7 @@ func addEventAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Add("Location", fmt.Sprintf("%s/%s", eventActionsPath, url.PathEscape(action.Name)))
-	renderEventAction(w, r, action.Name, http.StatusCreated)
+	renderEventAction(w, r, action.Name, &claims, http.StatusCreated)
 }
 
 func updateEventAction(w http.ResponseWriter, r *http.Request) {
@@ -158,13 +165,15 @@ func getEventRules(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, rules)
 }
 
-func renderEventRule(w http.ResponseWriter, r *http.Request, name string, status int) {
+func renderEventRule(w http.ResponseWriter, r *http.Request, name string, claims *jwtTokenClaims, status int) {
 	rule, err := dataprovider.EventRuleExists(name)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	rule.PrepareForRendering()
+	if hideConfidentialData(claims, r) {
+		rule.PrepareForRendering()
+	}
 	if status != http.StatusOK {
 		ctx := context.WithValue(r.Context(), render.StatusCtxKey, status)
 		render.JSON(w, r.WithContext(ctx), rule)
@@ -175,8 +184,13 @@ func renderEventRule(w http.ResponseWriter, r *http.Request, name string, status
 
 func getEventRuleByName(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+		return
+	}
 	name := getURLParam(r, "name")
-	renderEventRule(w, r, name, http.StatusOK)
+	renderEventRule(w, r, name, &claims, http.StatusOK)
 }
 
 func addEventRule(w http.ResponseWriter, r *http.Request) {
@@ -199,7 +213,7 @@ func addEventRule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Add("Location", fmt.Sprintf("%s/%s", eventRulesPath, url.PathEscape(rule.Name)))
-	renderEventRule(w, r, rule.Name, http.StatusCreated)
+	renderEventRule(w, r, rule.Name, &claims, http.StatusCreated)
 }
 
 func updateEventRule(w http.ResponseWriter, r *http.Request) {

@@ -130,6 +130,21 @@ const (
 	protocolHTTP   = "HTTP"
 )
 
+// Dump scopes
+const (
+	DumpScopeUsers   = "users"
+	DumpScopeFolders = "folders"
+	DumpScopeGroups  = "groups"
+	DumpScopeAdmins  = "admins"
+	DumpScopeAPIKeys = "api_keys"
+	DumpScopeShares  = "shares"
+	DumpScopeActions = "actions"
+	DumpScopeRules   = "rules"
+	DumpScopeRoles   = "roles"
+	DumpScopeIPLists = "ip_lists"
+	DumpScopeConfigs = "configs"
+)
+
 var (
 	// SupportedProviders defines the supported data providers
 	SupportedProviders = []string{SQLiteDataProviderName, PGSQLDataProviderName, MySQLDataProviderName,
@@ -541,7 +556,7 @@ func (c *Config) doBackup() (string, error) {
 		providerLog(logger.LevelError, "unable to create backup dir %q: %v", outputFile, err)
 		return outputFile, fmt.Errorf("unable to create backup dir: %w", err)
 	}
-	backup, err := DumpData()
+	backup, err := DumpData(nil)
 	if err != nil {
 		providerLog(logger.LevelError, "unable to execute backup: %v", err)
 		return outputFile, fmt.Errorf("unable to dump backup data: %w", err)
@@ -2289,76 +2304,168 @@ func GetFolders(limit, offset int, order string, minimal bool) ([]vfs.BaseVirtua
 	return provider.getFolders(limit, offset, order, minimal)
 }
 
-// DumpUsers returns all users, including confidential data
-func DumpUsers() ([]User, error) {
-	return provider.dumpUsers()
+func dumpUsers(data *BackupData, scopes []string) error {
+	if len(scopes) == 0 || util.Contains(scopes, DumpScopeUsers) {
+		users, err := provider.dumpUsers()
+		if err != nil {
+			return err
+		}
+		data.Users = users
+	}
+	return nil
 }
 
-// DumpFolders returns all folders, including confidential data
-func DumpFolders() ([]vfs.BaseVirtualFolder, error) {
-	return provider.dumpFolders()
+func dumpFolders(data *BackupData, scopes []string) error {
+	if len(scopes) == 0 || util.Contains(scopes, DumpScopeFolders) {
+		folders, err := provider.dumpFolders()
+		if err != nil {
+			return err
+		}
+		data.Folders = folders
+	}
+	return nil
 }
 
-// DumpData returns all users, groups, folders, admins, api keys, shares, actions, rules
-func DumpData() (BackupData, error) {
-	var data BackupData
-	groups, err := provider.dumpGroups()
-	if err != nil {
+func dumpGroups(data *BackupData, scopes []string) error {
+	if len(scopes) == 0 || util.Contains(scopes, DumpScopeGroups) {
+		groups, err := provider.dumpGroups()
+		if err != nil {
+			return err
+		}
+		data.Groups = groups
+	}
+	return nil
+}
+
+func dumpAdmins(data *BackupData, scopes []string) error {
+	if len(scopes) == 0 || util.Contains(scopes, DumpScopeAdmins) {
+		admins, err := provider.dumpAdmins()
+		if err != nil {
+			return err
+		}
+		data.Admins = admins
+	}
+	return nil
+}
+
+func dumpAPIKeys(data *BackupData, scopes []string) error {
+	if len(scopes) == 0 || util.Contains(scopes, DumpScopeAPIKeys) {
+		apiKeys, err := provider.dumpAPIKeys()
+		if err != nil {
+			return err
+		}
+		data.APIKeys = apiKeys
+	}
+	return nil
+}
+
+func dumpShares(data *BackupData, scopes []string) error {
+	if len(scopes) == 0 || util.Contains(scopes, DumpScopeShares) {
+		shares, err := provider.dumpShares()
+		if err != nil {
+			return err
+		}
+		data.Shares = shares
+	}
+	return nil
+}
+
+func dumpActions(data *BackupData, scopes []string) error {
+	if len(scopes) == 0 || util.Contains(scopes, DumpScopeActions) {
+		actions, err := provider.dumpEventActions()
+		if err != nil {
+			return err
+		}
+		data.EventActions = actions
+	}
+	return nil
+}
+
+func dumpRules(data *BackupData, scopes []string) error {
+	if len(scopes) == 0 || util.Contains(scopes, DumpScopeRules) {
+		rules, err := provider.dumpEventRules()
+		if err != nil {
+			return err
+		}
+		data.EventRules = rules
+	}
+	return nil
+}
+
+func dumpRoles(data *BackupData, scopes []string) error {
+	if len(scopes) == 0 || util.Contains(scopes, DumpScopeRoles) {
+		roles, err := provider.dumpRoles()
+		if err != nil {
+			return err
+		}
+		data.Roles = roles
+	}
+	return nil
+}
+
+func dumpIPLists(data *BackupData, scopes []string) error {
+	if len(scopes) == 0 || util.Contains(scopes, DumpScopeIPLists) {
+		ipLists, err := provider.dumpIPListEntries()
+		if err != nil {
+			return err
+		}
+		data.IPLists = ipLists
+	}
+	return nil
+}
+
+func dumpConfigs(data *BackupData, scopes []string) error {
+	if len(scopes) == 0 || util.Contains(scopes, DumpScopeConfigs) {
+		configs, err := provider.getConfigs()
+		if err != nil {
+			return err
+		}
+		data.Configs = &configs
+	}
+	return nil
+}
+
+// DumpData returns a dump containing the requested scopes.
+// Empty scopes means all
+func DumpData(scopes []string) (BackupData, error) {
+	data := BackupData{
+		Version: DumpVersion,
+	}
+	if err := dumpGroups(&data, scopes); err != nil {
 		return data, err
 	}
-	users, err := provider.dumpUsers()
-	if err != nil {
+	if err := dumpUsers(&data, scopes); err != nil {
 		return data, err
 	}
-	folders, err := provider.dumpFolders()
-	if err != nil {
+	if err := dumpFolders(&data, scopes); err != nil {
 		return data, err
 	}
-	admins, err := provider.dumpAdmins()
-	if err != nil {
+	if err := dumpAdmins(&data, scopes); err != nil {
 		return data, err
 	}
-	apiKeys, err := provider.dumpAPIKeys()
-	if err != nil {
+	if err := dumpAPIKeys(&data, scopes); err != nil {
 		return data, err
 	}
-	shares, err := provider.dumpShares()
-	if err != nil {
+	if err := dumpShares(&data, scopes); err != nil {
 		return data, err
 	}
-	actions, err := provider.dumpEventActions()
-	if err != nil {
+	if err := dumpActions(&data, scopes); err != nil {
 		return data, err
 	}
-	rules, err := provider.dumpEventRules()
-	if err != nil {
+	if err := dumpRules(&data, scopes); err != nil {
 		return data, err
 	}
-	roles, err := provider.dumpRoles()
-	if err != nil {
+	if err := dumpRoles(&data, scopes); err != nil {
 		return data, err
 	}
-	ipLists, err := provider.dumpIPListEntries()
-	if err != nil {
+	if err := dumpIPLists(&data, scopes); err != nil {
 		return data, err
 	}
-	configs, err := provider.getConfigs()
-	if err != nil {
+	if err := dumpConfigs(&data, scopes); err != nil {
 		return data, err
 	}
-	data.Users = users
-	data.Groups = groups
-	data.Folders = folders
-	data.Admins = admins
-	data.APIKeys = apiKeys
-	data.Shares = shares
-	data.EventActions = actions
-	data.EventRules = rules
-	data.Roles = roles
-	data.IPLists = ipLists
-	data.Configs = &configs
-	data.Version = DumpVersion
-	return data, err
+
+	return data, nil
 }
 
 // ParseDumpData tries to parse data as BackupData

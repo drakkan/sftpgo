@@ -62,7 +62,7 @@ func addFolder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Add("Location", fmt.Sprintf("%s/%s", folderPath, url.PathEscape(folder.Name)))
-	renderFolder(w, r, folder.Name, http.StatusCreated)
+	renderFolder(w, r, folder.Name, &claims, http.StatusCreated)
 }
 
 func updateFolder(w http.ResponseWriter, r *http.Request) {
@@ -103,13 +103,15 @@ func updateFolder(w http.ResponseWriter, r *http.Request) {
 	sendAPIResponse(w, r, nil, "Folder updated", http.StatusOK)
 }
 
-func renderFolder(w http.ResponseWriter, r *http.Request, name string, status int) {
+func renderFolder(w http.ResponseWriter, r *http.Request, name string, claims *jwtTokenClaims, status int) {
 	folder, err := dataprovider.GetFolderByName(name)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
 	}
-	folder.PrepareForRendering()
+	if hideConfidentialData(claims, r) {
+		folder.PrepareForRendering()
+	}
 	if status != http.StatusOK {
 		ctx := context.WithValue(r.Context(), render.StatusCtxKey, status)
 		render.JSON(w, r.WithContext(ctx), folder)
@@ -120,8 +122,13 @@ func renderFolder(w http.ResponseWriter, r *http.Request, name string, status in
 
 func getFolderByName(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+		return
+	}
 	name := getURLParam(r, "name")
-	renderFolder(w, r, name, http.StatusOK)
+	renderFolder(w, r, name, &claims, http.StatusOK)
 }
 
 func deleteFolder(w http.ResponseWriter, r *http.Request) {

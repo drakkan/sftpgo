@@ -631,12 +631,12 @@ func (p *EventParams) getStatusString() string {
 // getUsers returns users with group settings not applied
 func (p *EventParams) getUsers() ([]dataprovider.User, error) {
 	if p.sender == "" {
-		users, err := dataprovider.DumpUsers()
+		dump, err := dataprovider.DumpData([]string{dataprovider.DumpScopeUsers})
 		if err != nil {
 			eventManagerLog(logger.LevelError, "unable to get users: %+v", err)
-			return users, errors.New("unable to get users")
+			return nil, errors.New("unable to get users")
 		}
-		return users, nil
+		return dump.Users, nil
 	}
 	user, err := p.getUserFromSender()
 	if err != nil {
@@ -668,7 +668,8 @@ func (p *EventParams) getUserFromSender() (dataprovider.User, error) {
 
 func (p *EventParams) getFolders() ([]vfs.BaseVirtualFolder, error) {
 	if p.sender == "" {
-		return dataprovider.DumpFolders()
+		dump, err := dataprovider.DumpData([]string{dataprovider.DumpScopeFolders})
+		return dump.Folders, err
 	}
 	folder, err := dataprovider.GetFolderByName(p.sender)
 	if err != nil {

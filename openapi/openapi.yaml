@@ -1571,6 +1571,12 @@ paths:
       summary: Add folder
       operationId: add_folder
       description: Adds a new folder. A quota scan is required to update the used files/size
+      parameters:
+        - in: query
+          name: confidential_data
+          schema:
+            type: integer
+          description: 'If set to 1 confidential data will not be hidden. This means that the response will contain the key and additional data for secrets. If a master key is not set or an external KMS is used, the data returned are enough to get the secrets in cleartext. Ignored if the manage_system permission is not granted.'
       requestBody:
         required: true
         content:
@@ -1613,6 +1619,12 @@ paths:
       summary: Find folders by name
       description: Returns the folder with the given name if it exists.
       operationId: get_folder_by_name
+      parameters:
+        - in: query
+          name: confidential_data
+          schema:
+            type: integer
+          description: 'If set to 1 confidential data will not be hidden. This means that the response will contain the key and additional data for secrets. If a master key is not set or an external KMS is used, the data returned are enough to get the secrets in cleartext. Ignored if the manage_system permission is not granted.'
       responses:
         '200':
           description: successful operation
@@ -1751,6 +1763,12 @@ paths:
       summary: Add group
       operationId: add_group
       description: Adds a new group
+      parameters:
+        - in: query
+          name: confidential_data
+          schema:
+            type: integer
+          description: 'If set to 1 confidential data will not be hidden. This means that the response will contain the key and additional data for secrets. If a master key is not set or an external KMS is used, the data returned are enough to get the secrets in cleartext. Ignored if the manage_system permission is not granted.'
       requestBody:
         required: true
         content:
@@ -1793,6 +1811,12 @@ paths:
       summary: Find groups by name
       description: Returns the group with the given name if it exists.
       operationId: get_group_by_name
+      parameters:
+        - in: query
+          name: confidential_data
+          schema:
+            type: integer
+          description: 'If set to 1 confidential data will not be hidden. This means that the response will contain the key and additional data for secrets. If a master key is not set or an external KMS is used, the data returned are enough to get the secrets in cleartext. Ignored if the manage_system permission is not granted.'
       responses:
         '200':
           description: successful operation
@@ -2111,6 +2135,12 @@ paths:
       summary: Add event action
       operationId: add_event_action
       description: Adds a new event actions
+      parameters:
+        - in: query
+          name: confidential_data
+          schema:
+            type: integer
+          description: 'If set to 1 confidential data will not be hidden. This means that the response will contain the key and additional data for secrets. If a master key is not set or an external KMS is used, the data returned are enough to get the secrets in cleartext. Ignored if the manage_system permission is not granted.'
       requestBody:
         required: true
         content:
@@ -2153,6 +2183,12 @@ paths:
       summary: Find event actions by name
       description: Returns the event action with the given name if it exists.
       operationId: get_event_action_by_name
+      parameters:
+        - in: query
+          name: confidential_data
+          schema:
+            type: integer
+          description: 'If set to 1 confidential data will not be hidden. This means that the response will contain the key and additional data for secrets. If a master key is not set or an external KMS is used, the data returned are enough to get the secrets in cleartext. Ignored if the manage_system permission is not granted.'
       responses:
         '200':
           description: successful operation
@@ -2291,6 +2327,12 @@ paths:
       summary: Add event rule
       operationId: add_event_rule
       description: Adds a new event rule
+      parameters:
+        - in: query
+          name: confidential_data
+          schema:
+            type: integer
+          description: 'If set to 1 confidential data will not be hidden. This means that the response will contain the key and additional data for secrets. If a master key is not set or an external KMS is used, the data returned are enough to get the secrets in cleartext. Ignored if the manage_system permission is not granted.'
       requestBody:
         required: true
         content:
@@ -2333,6 +2375,12 @@ paths:
       summary: Find event rules by name
       description: Returns the event rule with the given name if it exists.
       operationId: get_event_rile_by_name
+      parameters:
+        - in: query
+          name: confidential_data
+          schema:
+            type: integer
+          description: 'If set to 1 confidential data will not be hidden. This means that the response will contain the key and additional data for secrets. If a master key is not set or an external KMS is used, the data returned are enough to get the secrets in cleartext. Ignored if the manage_system permission is not granted.'
       responses:
         '200':
           description: successful operation
@@ -3303,6 +3351,12 @@ paths:
       summary: Add user
       description: 'Adds a new user.Recovery codes and TOTP configuration cannot be set using this API: each user must use the specific APIs'
       operationId: add_user
+      parameters:
+        - in: query
+          name: confidential_data
+          schema:
+            type: integer
+          description: 'If set to 1 confidential data will not be hidden. This means that the response will contain the hash of the password and the key and additional data for secrets. If a master key is not set or an external KMS is used, the data returned are enough to get the secrets in cleartext. Ignored if the manage_system permission is not granted.'
       requestBody:
         required: true
         content:
@@ -3345,6 +3399,12 @@ paths:
       summary: Find users by username
       description: Returns the user with the given username if it exists. For security reasons the hashed password is omitted in the response
       operationId: get_user_by_username
+      parameters:
+        - in: query
+          name: confidential_data
+          schema:
+            type: integer
+          description: 'If set to 1 confidential data will not be hidden. This means that the response will contain the hash of the password and the key and additional data for secrets. If a master key is not set or an external KMS is used, the data returned are enough to get the secrets in cleartext. Ignored if the manage_system permission is not granted.'
       responses:
         '200':
           description: successful operation
@@ -3609,6 +3669,15 @@ paths:
             indent:
               * `0` no indentation. This is the default
               * `1` format the output JSON
+        - in: query
+          name: scopes
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/DumpDataScopes'
+          description: 'You can limit the dump contents to the specified scopes. Empty or missing means any supported scope. Scopes must be specified comma separated'
+          explode: false
+          required: false
       responses:
         '200':
           description: successful operation
@@ -5056,6 +5125,20 @@ components:
         - LDAPUser
         - OSUser
       description: This is an hint for authentication plugins. It is ignored when using SFTPGo internal authentication
+    DumpDataScopes:
+      type: string
+      enum:
+        - users
+        - folders
+        - groups
+        - admins
+        - api_keys
+        - shares
+        - actions
+        - rules
+        - roles
+        - ip_lists
+        - configs
     FsEventStatus:
       type: integer
       enum:
