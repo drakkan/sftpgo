@@ -79,7 +79,7 @@ jobs:
 
       - name: Cross build with xgo
         if: ${{ matrix.upload-coverage && startsWith(matrix.os, 'ubuntu-') }}
-        uses: crazy-max/ghaction-xgo@v1
+        uses: crazy-max/ghaction-xgo@v2
         with:
           go_version: 1.20.3
           dest: cross
