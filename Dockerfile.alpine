@@ -25,7 +25,7 @@ RUN set -xe && \
     export COMMIT_SHA=${COMMIT_SHA:-$(git describe --always --abbrev=8 --dirty)} && \
     go build $(if [ -n "${FEATURES}" ]; then echo "-tags ${FEATURES}"; fi) -trimpath -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=${COMMIT_SHA} -X github.com/drakkan/sftpgo/v2/internal/version.date=`date -u +%FT%TZ`" -v -o sftpgo
 
-RUN apk add --update --no-cache openssh-client-common
+RUN apk add --update --no-cache openssh-client-common libcap && setcap cap_net_bind_service=+ep /workspace/sftpgo
 
 FROM alpine:3.17
 

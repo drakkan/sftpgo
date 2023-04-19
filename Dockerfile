@@ -28,7 +28,7 @@ ARG DOWNLOAD_PLUGINS=false
 
 RUN if [ "${DOWNLOAD_PLUGINS}" = "true" ]; then apt-get update && apt-get install --no-install-recommends -y curl && ./docker/scripts/download-plugins.sh; fi
 
-RUN apt-get update && apt-get install --no-install-recommends -y openssh-server && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install --no-install-recommends -y openssh-server libcap2-bin && setcap cap_net_bind_service=+ep /workspace/sftpgo && rm -rf /var/lib/apt/lists/*
 
 FROM debian:bullseye-slim
 
