@@ -2144,14 +2144,14 @@ func TestHTTPEndpointWithPlaceholders(t *testing.T) {
 	name := "uname"
 	vPath := "/a dir/@ file.txt"
 	replacer := strings.NewReplacer("{{Name}}", name, "{{VirtualPath}}", vPath)
-	u, err := getHTTPRuleActionEndpoint(c, replacer)
+	u, err := getHTTPRuleActionEndpoint(&c, replacer)
 	assert.NoError(t, err)
 	expected := "http://127.0.0.1:8080/base/url/" + url.PathEscape(name) + "/" + url.PathEscape(vPath) +
 		"/upload?" + "p=" + url.QueryEscape(vPath) + "&u=" + url.QueryEscape(name)
 	assert.Equal(t, expected, u)
 
 	c.Endpoint = "http://127.0.0.1/upload"
-	u, err = getHTTPRuleActionEndpoint(c, replacer)
+	u, err = getHTTPRuleActionEndpoint(&c, replacer)
 	assert.NoError(t, err)
 	expected = c.Endpoint + "?p=" + url.QueryEscape(vPath) + "&u=" + url.QueryEscape(name)
 	assert.Equal(t, expected, u)

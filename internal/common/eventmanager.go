@@ -1164,7 +1164,7 @@ func checkEventGroupConditionPatters(groups []sdk.GroupMapping, patterns []datap
 	return false
 }
 
-func getHTTPRuleActionEndpoint(c dataprovider.EventActionHTTPConfig, replacer *strings.Replacer) (string, error) {
+func getHTTPRuleActionEndpoint(c *dataprovider.EventActionHTTPConfig, replacer *strings.Replacer) (string, error) {
 	u, err := url.Parse(c.Endpoint)
 	if err != nil {
 		return "", fmt.Errorf("invalid endpoint: %w", err)
@@ -1237,8 +1237,8 @@ func writeHTTPPart(m *multipart.Writer, part dataprovider.HTTPPart, h textproto.
 
 func getHTTPRuleActionBody(c *dataprovider.EventActionHTTPConfig, replacer *strings.Replacer,
 	cancel context.CancelFunc, user dataprovider.User, params *EventParams, addObjectData bool,
-) (io.ReadCloser, string, error) {
-	var body io.ReadCloser
+) (io.Reader, string, error) {
+	var body io.Reader
 	if c.Method == http.MethodGet {
 		return body, "", nil
 	}
@@ -1248,14 +1248,14 @@ func getHTTPRuleActionBody(c *dataprovider.EventActionHTTPConfig, replacer *stri
 			if err != nil {
 				return body, "", err
 			}
-			return io.NopCloser(bytes.NewBuffer(data)), "", nil
+			return bytes.NewBuffer(data), "", nil
 		}
 		if c.HasJSONBody() {
 			replacements := params.getStringReplacements(addObjectData, true)
 			jsonReplacer := strings.NewReplacer(replacements...)
-			return io.NopCloser(bytes.NewBufferString(replaceWithReplacer(c.Body, jsonReplacer))), "", nil
+			return bytes.NewBufferString(replaceWithReplacer(c.Body, jsonReplacer)), "", nil
 		}
-		return io.NopCloser(bytes.NewBufferString(replaceWithReplacer(c.Body, replacer))), "", nil
+		return bytes.NewBufferString(replaceWithReplacer(c.Body, replacer)), "", nil
 	}
 	if len(c.Parts) > 0 {
 		r, w := io.Pipe()
@@ -1312,6 +1312,20 @@ func getHTTPRuleActionBody(c *dataprovider.EventActionHTTPConfig, replacer *stri
 	return body, "", nil
 }
 
+func setHTTPReqHeaders(req *http.Request, c *dataprovider.EventActionHTTPConfig, replacer *strings.Replacer,
+	contentType string,
+) {
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+	if c.Username != "" || c.Password.GetPayload() != "" {
+		req.SetBasicAuth(replaceWithReplacer(c.Username, replacer), c.Password.GetPayload())
+	}
+	for _, keyVal := range c.Headers {
+		req.Header.Set(keyVal.Key, replaceWithReplacer(keyVal.Value, replacer))
+	}
+}
+
 func executeHTTPRuleAction(c dataprovider.EventActionHTTPConfig, params *EventParams) error {
 	if err := c.TryDecryptPassword(); err != nil {
 		return err
@@ -1323,7 +1337,7 @@ func executeHTTPRuleAction(c dataprovider.EventActionHTTPConfig, params *EventPa
 
 	replacements := params.getStringReplacements(addObjectData, false)
 	replacer := strings.NewReplacer(replacements...)
-	endpoint, err := getHTTPRuleActionEndpoint(c, replacer)
+	endpoint, err := getHTTPRuleActionEndpoint(&c, replacer)
 	if err != nil {
 		return err
 	}
@@ -1343,21 +1357,17 @@ func executeHTTPRuleAction(c dataprovider.EventActionHTTPConfig, params *EventPa
 		return err
 	}
 	if body != nil {
-		defer body.Close()
+		rc, ok := body.(io.ReadCloser)
+		if ok {
+			defer rc.Close()
+		}
 	}
 	req, err := http.NewRequestWithContext(ctx, c.Method, endpoint, body)
 	if err != nil {
 		return err
 	}
-	if contentType != "" {
-		req.Header.Set("Content-Type", contentType)
-	}
-	if c.Username != "" {
-		req.SetBasicAuth(replaceWithReplacer(c.Username, replacer), c.Password.GetPayload())
-	}
-	for _, keyVal := range c.Headers {
-		req.Header.Set(keyVal.Key, replaceWithReplacer(keyVal.Value, replacer))
-	}
+	setHTTPReqHeaders(req, &c, replacer, contentType)
+
 	client := c.GetHTTPClient()
 	defer client.CloseIdleConnections()
 
@@ -1373,6 +1383,9 @@ func executeHTTPRuleAction(c dataprovider.EventActionHTTPConfig, params *EventPa
 	eventManagerLog(logger.LevelDebug, "http notification sent, endpoint: %s, elapsed: %s, status code: %d",
 		endpoint, time.Since(startTime), resp.StatusCode)
 	if resp.StatusCode < http.StatusOK || resp.StatusCode > http.StatusNoContent {
+		if rb, err := io.ReadAll(io.LimitReader(resp.Body, 2048)); err == nil {
+			eventManagerLog(logger.LevelDebug, "error notification response from endpoint %q: %s", endpoint, string(rb))
+		}
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
