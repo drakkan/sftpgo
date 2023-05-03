@@ -28,6 +28,8 @@ If you just take and don't return anything back, the project will die in the lon
 
 More [info](https://github.com/drakkan/sftpgo/issues/452).
 
+You can also purchase support plans from the [SFTPGo website](https://sftpgo.com/#pricing).
+
 ### Thank you to our sponsors
 
 #### Platinum sponsors
@@ -68,7 +70,7 @@ If you report an invalid issue or ask for step-by-step support, your issue will 
 - Keyboard interactive authentication. You can easily setup a customizable multi-factor authentication.
 - Partial authentication. You can configure multi-step authentication requiring, for example, the user password after successful public key authentication.
 - Per-user authentication methods.
-- [Two-factor authentication](./docs/howto/two-factor-authentication.md) based on time-based one time passwords (RFC 6238) which works with Authy, Google Authenticator and other compatible apps.
+- [Two-factor authentication](./docs/howto/two-factor-authentication.md) based on time-based one time passwords (RFC 6238) which works with Authy, Google Authenticator, Microsoft Authenticator and other compatible apps.
 - Simplified user administrations using [groups](./docs/groups.md).
 - [Roles](./docs/roles.md) allow you to create limited administrators who can only create and manage users with their role.
 - Custom authentication via [external programs/HTTP API](./docs/external-auth.md).
