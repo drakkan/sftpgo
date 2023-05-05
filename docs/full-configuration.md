@@ -13,8 +13,10 @@ Available Commands:
   gen            A collection of useful generators
   help           Help about any command
   initprovider   Initialize and/or updates the configured data provider
+  ping           Issues an health check to SFTPGo
   portable       Serve a single directory/account
   resetprovider  Reset the configured provider, any data will be lost
+  resetpwd       Reset the password for the specified administrator
   revertprovider Revert the configured data provider to a previous version
   serve          Start the SFTPGo service
   smtptest       Test the SMTP configuration
@@ -24,7 +26,7 @@ Flags:
   -h, --help      help for sftpgo
   -v, --version
 
- Use "sftpgo [command] --help" for more information about a command
+Use "sftpgo [command] --help" for more information about a command.
 ```
 
 The `serve` command supports the following flags:
