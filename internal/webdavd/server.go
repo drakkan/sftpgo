@@ -301,7 +301,12 @@ func (s *webDavServer) authenticate(r *http.Request, ip string) (dataprovider.Us
 				return cachedUser.User, true, cachedUser.LockSystem, loginMethod, nil
 			}
 			updateLoginMetrics(&cachedUser.User, ip, loginMethod, dataprovider.ErrInvalidCredentials)
-			return user, false, nil, loginMethod, dataprovider.ErrInvalidCredentials
+
+			if cachedUser.User.HasExternalAuth() {
+				dataprovider.RemoveCachedWebDAVUser(username)
+			} else {
+				return user, false, nil, loginMethod, dataprovider.ErrInvalidCredentials
+			}
 		}
 	}
 	user, loginMethod, err = dataprovider.CheckCompositeCredentials(username, password, ip, loginMethod,
