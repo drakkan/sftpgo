@@ -159,8 +159,8 @@ var (
 		LoginMethodTLSCertificate, LoginMethodTLSCertificateAndPwd}
 	// SSHMultiStepsLoginMethods defines the supported Multi-Step Authentications
 	SSHMultiStepsLoginMethods = []string{SSHLoginMethodKeyAndPassword, SSHLoginMethodKeyAndKeyboardInt}
-	// ErrNoAuthTryed defines the error for connection closed before authentication
-	ErrNoAuthTryed = errors.New("no auth tryed")
+	// ErrNoAuthTried defines the error for connection closed before authentication
+	ErrNoAuthTried = errors.New("no auth tried")
 	// ErrNotImplemented defines the error for features not supported for a particular data provider
 	ErrNotImplemented = errors.New("feature not supported with the configured data provider")
 	// ValidProtocols defines all the valid protcols

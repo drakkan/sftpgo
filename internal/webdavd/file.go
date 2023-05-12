@@ -48,7 +48,7 @@ type webDavFile struct {
 	info        os.FileInfo
 	startOffset int64
 	isFinished  bool
-	readTryed   atomic.Bool
+	readTried   atomic.Bool
 }
 
 func newWebDavFile(baseTransfer *common.BaseTransfer, pipeWriter *vfs.PipeWriter, pipeReader *pipeat.PipeReaderAt) *webDavFile {
@@ -70,7 +70,7 @@ func newWebDavFile(baseTransfer *common.BaseTransfer, pipeWriter *vfs.PipeWriter
 		startOffset:  0,
 		info:         nil,
 	}
-	f.readTryed.Store(false)
+	f.readTried.Store(false)
 	return f
 }
 
@@ -177,7 +177,7 @@ func (f *webDavFile) checkFirstRead() error {
 		f.Connection.Log(logger.LevelDebug, "download for file %q denied by pre action: %v", f.GetVirtualPath(), err)
 		return f.Connection.GetPermissionDeniedError()
 	}
-	f.readTryed.Store(true)
+	f.readTried.Store(true)
 	return nil
 }
 
@@ -186,7 +186,7 @@ func (f *webDavFile) Read(p []byte) (n int, err error) {
 	if f.AbortTransfer.Load() {
 		return 0, errTransferAborted
 	}
-	if !f.readTryed.Load() {
+	if !f.readTried.Load() {
 		if err := f.checkFirstRead(); err != nil {
 			return 0, err
 		}
@@ -417,7 +417,7 @@ func (f *webDavFile) setFinished() error {
 
 func (f *webDavFile) isTransfer() bool {
 	if f.GetType() == common.TransferDownload {
-		return f.readTryed.Load()
+		return f.readTried.Load()
 	}
 	return true
 }

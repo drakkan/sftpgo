@@ -325,7 +325,7 @@ func (c *RetentionCheck) checkEmptyDirRemoval(folderPath string) {
 		files, err := c.conn.ListDir(folderPath)
 		if err == nil && len(files) == 0 {
 			err = c.conn.RemoveDir(folderPath)
-			c.conn.Log(logger.LevelDebug, "tryed to remove empty dir %q, error: %v", folderPath, err)
+			c.conn.Log(logger.LevelDebug, "tried to remove empty dir %q, error: %v", folderPath, err)
 		}
 	}
 }

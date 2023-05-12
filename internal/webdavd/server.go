@@ -33,11 +33,13 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/rs/cors"
 	"github.com/rs/xid"
+	"github.com/sftpgo/sdk/plugin/notifier"
 
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/metric"
+	"github.com/drakkan/sftpgo/v2/internal/plugin"
 	"github.com/drakkan/sftpgo/v2/internal/util"
 )
 
@@ -414,10 +416,13 @@ func updateLoginMetrics(user *dataprovider.User, ip, loginMethod string, err err
 	if err != nil && err != common.ErrInternalFailure && err != common.ErrNoCredentials {
 		logger.ConnectionFailedLog(user.Username, ip, loginMethod, common.ProtocolWebDAV, err.Error())
 		event := common.HostEventLoginFailed
+		logEv := notifier.LogEventTypeLoginFailed
 		if errors.Is(err, util.ErrNotFound) {
 			event = common.HostEventUserNotFound
+			logEv = notifier.LogEventTypeLoginNoUser
 		}
 		common.AddDefenderEvent(ip, common.ProtocolWebDAV, event)
+		plugin.Handler.NotifyLogEvent(logEv, common.ProtocolWebDAV, user.Username, ip, "", err)
 	}
 	metric.AddLoginResult(loginMethod, err)
 	dataprovider.ExecutePostLoginHook(user, loginMethod, ip, common.ProtocolWebDAV, err)

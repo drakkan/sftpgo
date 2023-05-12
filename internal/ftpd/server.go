@@ -25,11 +25,13 @@ import (
 	"sync"
 
 	ftpserver "github.com/fclairamb/ftpserverlib"
+	"github.com/sftpgo/sdk/plugin/notifier"
 
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/metric"
+	"github.com/drakkan/sftpgo/v2/internal/plugin"
 	"github.com/drakkan/sftpgo/v2/internal/util"
 	"github.com/drakkan/sftpgo/v2/internal/version"
 )
@@ -426,10 +428,13 @@ func updateLoginMetrics(user *dataprovider.User, ip, loginMethod string, err err
 		logger.ConnectionFailedLog(user.Username, ip, loginMethod,
 			common.ProtocolFTP, err.Error())
 		event := common.HostEventLoginFailed
+		logEv := notifier.LogEventTypeLoginFailed
 		if errors.Is(err, util.ErrNotFound) {
 			event = common.HostEventUserNotFound
+			logEv = notifier.LogEventTypeLoginNoUser
 		}
 		common.AddDefenderEvent(ip, common.ProtocolFTP, event)
+		plugin.Handler.NotifyLogEvent(logEv, common.ProtocolFTP, user.Username, ip, "", err)
 	}
 	metric.AddLoginResult(loginMethod, err)
 	dataprovider.ExecutePostLoginHook(user, loginMethod, ip, common.ProtocolFTP, err)

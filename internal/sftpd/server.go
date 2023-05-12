@@ -32,12 +32,14 @@ import (
 	"time"
 
 	"github.com/pkg/sftp"
+	"github.com/sftpgo/sdk/plugin/notifier"
 	"golang.org/x/crypto/ssh"
 
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/metric"
+	"github.com/drakkan/sftpgo/v2/internal/plugin"
 	"github.com/drakkan/sftpgo/v2/internal/util"
 	"github.com/drakkan/sftpgo/v2/internal/vfs"
 )
@@ -762,19 +764,27 @@ func checkAuthError(ip string, err error) {
 			if errors.As(err, &sftpAuthErr) {
 				if sftpAuthErr.getLoginMethod() == dataprovider.SSHLoginMethodPublicKey {
 					event := common.HostEventLoginFailed
+					logEv := notifier.LogEventTypeLoginFailed
 					if errors.Is(err, util.ErrNotFound) {
 						event = common.HostEventUserNotFound
+						logEv = notifier.LogEventTypeLoginNoUser
 					}
 					common.AddDefenderEvent(ip, common.ProtocolSSH, event)
+					plugin.Handler.NotifyLogEvent(logEv, common.ProtocolSSH, "", ip, "", err)
 					return
 				}
 			}
 		}
 	} else {
-		logger.ConnectionFailedLog("", ip, dataprovider.LoginMethodNoAuthTryed, common.ProtocolSSH, err.Error())
-		metric.AddNoAuthTryed()
+		logger.ConnectionFailedLog("", ip, dataprovider.LoginMethodNoAuthTried, common.ProtocolSSH, err.Error())
+		metric.AddNoAuthTried()
 		common.AddDefenderEvent(ip, common.ProtocolSSH, common.HostEventNoLoginTried)
-		dataprovider.ExecutePostLoginHook(&dataprovider.User{}, dataprovider.LoginMethodNoAuthTryed, ip, common.ProtocolSSH, err)
+		dataprovider.ExecutePostLoginHook(&dataprovider.User{}, dataprovider.LoginMethodNoAuthTried, ip, common.ProtocolSSH, err)
+		logEv := notifier.LogEventTypeNoLoginTried
+		if errors.Is(err, ssh.ErrNoCommonAlgo) {
+			logEv = notifier.LogEventTypeNotNegotiated
+		}
+		plugin.Handler.NotifyLogEvent(logEv, common.ProtocolSSH, "", ip, "", err)
 	}
 }
 
@@ -1230,10 +1240,13 @@ func updateLoginMetrics(user *dataprovider.User, ip, method string, err error) {
 			// record failed login key auth only once for session if the
 			// authentication fails in checkAuthError
 			event := common.HostEventLoginFailed
+			logEv := notifier.LogEventTypeLoginFailed
 			if errors.Is(err, util.ErrNotFound) {
 				event = common.HostEventUserNotFound
+				logEv = notifier.LogEventTypeLoginNoUser
 			}
 			common.AddDefenderEvent(ip, common.ProtocolSSH, event)
+			plugin.Handler.NotifyLogEvent(logEv, common.ProtocolSSH, user.Username, ip, "", err)
 		}
 	}
 	metric.AddLoginResult(method, err)

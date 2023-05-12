@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/sftpgo/sdk/plugin/eventsearcher"
+	"github.com/sftpgo/sdk/plugin/notifier"
 
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/plugin"
@@ -67,11 +68,10 @@ func getCommonSearchParamsFromRequest(r *http.Request) (eventsearcher.CommonSear
 		}
 		c.EndTimestamp = ts
 	}
-	c.Actions = getCommaSeparatedQueryParam(r, "actions")
 	c.Username = r.URL.Query().Get("username")
 	c.IP = r.URL.Query().Get("ip")
 	c.InstanceIDs = getCommaSeparatedQueryParam(r, "instance_ids")
-	c.ExcludeIDs = getCommaSeparatedQueryParam(r, "exclude_ids")
+	c.FromID = r.URL.Query().Get("from_id")
 
 	return c, nil
 }
@@ -92,6 +92,7 @@ func getFsSearchParamsFromRequest(r *http.Request) (eventsearcher.FsEventSearch,
 		}
 		s.FsProvider = val
 	}
+	s.Actions = getCommaSeparatedQueryParam(r, "actions")
 	s.SSHCmd = r.URL.Query().Get("ssh_cmd")
 	s.Bucket = r.URL.Query().Get("bucket")
 	s.Endpoint = r.URL.Query().Get("endpoint")
@@ -115,8 +116,28 @@ func getProviderSearchParamsFromRequest(r *http.Request) (eventsearcher.Provider
 	if err != nil {
 		return s, err
 	}
+	s.Actions = getCommaSeparatedQueryParam(r, "actions")
 	s.ObjectName = r.URL.Query().Get("object_name")
 	s.ObjectTypes = getCommaSeparatedQueryParam(r, "object_types")
+	return s, nil
+}
+
+func getLogSearchParamsFromRequest(r *http.Request) (eventsearcher.LogEventSearch, error) {
+	var err error
+	s := eventsearcher.LogEventSearch{}
+	s.CommonSearchParams, err = getCommonSearchParamsFromRequest(r)
+	if err != nil {
+		return s, err
+	}
+	s.Protocols = getCommaSeparatedQueryParam(r, "protocols")
+	events := getCommaSeparatedQueryParam(r, "events")
+	for _, ev := range events {
+		evType, err := strconv.ParseUint(ev, 10, 32)
+		if err == nil {
+			s.Events = append(s.Events, int32(evType))
+		}
+	}
+
 	return s, nil
 }
 
@@ -143,7 +164,7 @@ func searchFsEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, _, _, err := plugin.Handler.SearchFsEvents(&filters)
+	data, err := plugin.Handler.SearchFsEvents(&filters)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -178,7 +199,40 @@ func searchProviderEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, _, _, err := plugin.Handler.SearchProviderEvents(&filters)
+	data, err := plugin.Handler.SearchProviderEvents(&filters)
+	if err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Write(data) //nolint:errcheck
+}
+
+func searchLogEvents(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	claims, err := getTokenClaims(r)
+	if err != nil || claims.Username == "" {
+		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
+		return
+	}
+
+	var filters eventsearcher.LogEventSearch
+	if filters, err = getLogSearchParamsFromRequest(r); err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
+	}
+	filters.Role = getRoleFilterForEventSearch(r, claims.Role)
+
+	if getBoolQueryParam(r, "csv_export") {
+		filters.Limit = 100
+		if err := exportLogEvents(w, &filters); err != nil {
+			panic(http.ErrAbortHandler)
+		}
+		return
+	}
+
+	data, err := plugin.Handler.SearchLogEvents(&filters)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", getRespStatus(err))
 		return
@@ -202,7 +256,7 @@ func exportFsEvents(w http.ResponseWriter, filters *eventsearcher.FsEventSearch)
 	}
 	results := make([]fsEvent, 0, filters.Limit)
 	for {
-		data, _, _, err := plugin.Handler.SearchFsEvents(filters)
+		data, err := plugin.Handler.SearchFsEvents(filters)
 		if err != nil {
 			return err
 		}
@@ -218,7 +272,7 @@ func exportFsEvents(w http.ResponseWriter, filters *eventsearcher.FsEventSearch)
 			break
 		}
 		filters.StartTimestamp = results[len(results)-1].Timestamp
-		filters.ExcludeIDs = []string{results[len(results)-1].ID}
+		filters.FromID = results[len(results)-1].ID
 		results = nil
 	}
 	csvWriter.Flush()
@@ -239,7 +293,44 @@ func exportProviderEvents(w http.ResponseWriter, filters *eventsearcher.Provider
 	}
 	results := make([]providerEvent, 0, filters.Limit)
 	for {
-		data, _, _, err := plugin.Handler.SearchProviderEvents(filters)
+		data, err := plugin.Handler.SearchProviderEvents(filters)
+		if err != nil {
+			return err
+		}
+		if err := json.Unmarshal(data, &results); err != nil {
+			return err
+		}
+		for _, event := range results {
+			if err := csvWriter.Write(event.getCSVData()); err != nil {
+				return err
+			}
+		}
+		if len(results) < filters.Limit || len(results) == 0 {
+			break
+		}
+		filters.FromID = results[len(results)-1].ID
+		filters.StartTimestamp = results[len(results)-1].Timestamp
+		results = nil
+	}
+	csvWriter.Flush()
+	return csvWriter.Error()
+}
+
+func exportLogEvents(w http.ResponseWriter, filters *eventsearcher.LogEventSearch) error {
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=logs-%s.csv", time.Now().Format("2006-01-02T15-04-05")))
+	w.Header().Set("Content-Type", "text/csv")
+	w.Header().Set("Accept-Ranges", "none")
+	w.WriteHeader(http.StatusOK)
+
+	ev := logEvent{}
+	csvWriter := csv.NewWriter(w)
+	err := csvWriter.Write(ev.getCSVHeader())
+	if err != nil {
+		return err
+	}
+	results := make([]logEvent, 0, filters.Limit)
+	for {
+		data, err := plugin.Handler.SearchLogEvents(filters)
 		if err != nil {
 			return err
 		}
@@ -255,7 +346,7 @@ func exportProviderEvents(w http.ResponseWriter, filters *eventsearcher.Provider
 			break
 		}
 		filters.StartTimestamp = results[len(results)-1].Timestamp
-		filters.ExcludeIDs = []string{results[len(results)-1].ID}
+		filters.FromID = results[len(results)-1].ID
 		results = nil
 	}
 	csvWriter.Flush()
@@ -348,4 +439,40 @@ func (e *providerEvent) getCSVData() []string {
 	timestamp := time.Unix(0, e.Timestamp).UTC()
 	return []string{timestamp.Format(time.RFC3339Nano), e.Action, e.ObjectType, e.ObjectName,
 		e.Username, e.IP}
+}
+
+type logEvent struct {
+	ID        string `json:"id"`
+	Timestamp int64  `json:"timestamp"`
+	Event     int    `json:"event"`
+	Protocol  string `json:"protocol"`
+	Username  string `json:"username,omitempty"`
+	IP        string `json:"ip,omitempty"`
+	Message   string `json:"message,omitempty"`
+	Role      string `json:"role,omitempty"`
+}
+
+func (e *logEvent) getCSVHeader() []string {
+	return []string{"Time", "Event", "Protocol", "User", "IP", "Message"}
+}
+
+func (e *logEvent) getCSVData() []string {
+	timestamp := time.Unix(0, e.Timestamp).UTC()
+	return []string{timestamp.Format(time.RFC3339Nano), getLogEventString(notifier.LogEventType(e.Event)),
+		e.Protocol, e.Username, e.IP, e.Message}
+}
+
+func getLogEventString(event notifier.LogEventType) string {
+	switch event {
+	case notifier.LogEventTypeLoginFailed:
+		return "Login failed"
+	case notifier.LogEventTypeLoginNoUser:
+		return "Login with non-existent user"
+	case notifier.LogEventTypeNoLoginTried:
+		return "No login tried"
+	case notifier.LogEventTypeNotNegotiated:
+		return "Algorithm negotiation failed"
+	default:
+		return ""
+	}
 }

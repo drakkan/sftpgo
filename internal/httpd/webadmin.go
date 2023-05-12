@@ -388,6 +388,7 @@ type eventsPage struct {
 	basePage
 	FsEventsSearchURL       string
 	ProviderEventsSearchURL string
+	LogEventsSearchURL      string
 }
 
 type configsPage struct {
@@ -3944,6 +3945,7 @@ func (s *httpdServer) handleWebGetEvents(w http.ResponseWriter, r *http.Request)
 		basePage:                s.getBasePageData(pageEventsTitle, webEventsPath, r),
 		FsEventsSearchURL:       webEventsFsSearchPath,
 		ProviderEventsSearchURL: webEventsProviderSearchPath,
+		LogEventsSearchURL:      webEventsLogSearchPath,
 	}
 	renderAdminTemplate(w, templateEvents, data)
 }

@@ -76,7 +76,7 @@ const (
 
 // Available login methods
 const (
-	LoginMethodNoAuthTryed            = "no_auth_tryed"
+	LoginMethodNoAuthTried            = "no_auth_tried"
 	LoginMethodPassword               = "password"
 	SSHLoginMethodPassword            = "password-over-SSH"
 	SSHLoginMethodPublicKey           = "publickey"

@@ -44,6 +44,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                 <select class="form-control selectpicker" id="idEventType" name="events_type" onchange="onEventChanged(this.value)">
                     <option value="1" selected>Fs events</option>
                     <option value="2">Provider events</option>
+                    <option value="3">Other events</option>
                 </select>
             </div>
             <div class="form-group col-md-3">
@@ -59,7 +60,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
         </div>
         <div class="form-row">
             <div class="form-group col-md-4">
-                <select class="form-control selectpicker fs-events" id="idProtocols" name="protocols" title="Protocols" multiple>
+                <select class="form-control selectpicker fs-events" id="idStatuses" name="statuses" title="Statuses" multiple>
+                    <option value="1">OK</option>
+                    <option value="2">KO</option>
+                    <option value="3">Quota exceeded</option>
+                </select>
+            </div>
+            <div class="form-group col-md-4">
+                <select class="form-control selectpicker fs-events log-events" id="idProtocols" name="protocols" title="Protocols" multiple>
                     <option value="SFTP">SFTP</option>
                     <option value="SCP">SCP</option>
                     <option value="SSH">SSH</option>
@@ -70,13 +78,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                     <option value="HTTPShare">HTTPShare</option>
                     <option value="DataRetention">DataRetention</option>
                     <option value="EventAction">EventAction</option>
-                </select>
-            </div>
-            <div class="form-group col-md-4">
-                <select class="form-control selectpicker fs-events" id="idStatuses" name="statuses" title="Statuses" multiple>
-                    <option value="1">OK</option>
-                    <option value="2">KO</option>
-                    <option value="3">Quota exceeded</option>
                 </select>
             </div>
             <div class="form-group col-md-4">
@@ -129,6 +130,22 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
             </table>
         </div>
 
+        <div class="table-responsive log-events">
+            <table class="table table-hover nowrap" id="dataTableLog" width="100%" cellspacing="0">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Time</th>
+                        <th>Action</th>
+                        <th>User</th>
+                        <th>Proto</th>
+                        <th>IP</th>
+                        <th>Message</th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+
         <div id="paginationContainer" class="m-4 d-none">
             <nav aria-label="Pagination">
                 <ul class="pagination justify-content-end">
@@ -160,6 +177,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
     let dateFn = $.fn.dataTable.render.datetime();
     let isFsDataTableInitialized = false;
     let isProviderDataTableInitialized = false;
+    let isLogDataTableInitialized = false;
     const pageSize = 20;
     const paginationData = new Map();
 
@@ -278,12 +296,18 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                 return;
             }
             table = $('#dataTableFs').DataTable();
-        } else {
+        } else if (eventType == 2) {
             if (!isProviderDataTableInitialized){
                 initProviderDatatable();
                 return;
             }
             table = $('#dataTableProvider').DataTable();
+        } else {
+            if (!isLogDataTableInitialized){
+                initLogDatatable();
+                return;
+            }
+            table = $('#dataTableLog').DataTable();
         }
         table.clear().draw();
         table.ajax.url(getSearchURL(false)).load();
@@ -313,15 +337,28 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
             if (statuses.length > 0){
                 url+="&statuses="+encodeURIComponent(String(statuses));
             }
-        } else {
+        } else if (eventType == 2) {
             url = "{{.ProviderEventsSearchURL}}?omit_object_data=true&limit="+limit;
+        } else {
+            url = "{{.LogEventsSearchURL}}?limit="+limit;
+            let protocols = [];
+            $('#idProtocols').find('option:selected').each(function(){
+                protocols.push($(this).val());
+            });
+            if (protocols.length > 0){
+                url+="&protocols="+encodeURIComponent(String(protocols));
+            }
         }
         let actions = [];
         $('#idActions').find('option:selected').each(function(){
             actions.push($(this).val());
         });
         if (actions.length > 0){
-            url+="&actions="+encodeURIComponent(String(actions));
+            if (eventType == 3){
+                url+="&events="+encodeURIComponent(String(actions));
+            } else {
+                url+="&actions="+encodeURIComponent(String(actions));
+            }
         }
         let username = $('#idUsername').val();
         if (username){
@@ -332,32 +369,146 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
             url+="&ip="+encodeURIComponent(ip);
         }
         let drp = $('#dateTimeRange').data('daterangepicker');
-        let excludeIds = [];
+        let fromID = "";
         let start_ts;
         if (!csvExport && paginationData.get("prevClicked") && paginationData.has("lastId") && paginationData.has("lastTs")){
             order = "ASC";
             start_ts = paginationData.get("lastTs");
-            excludeIds.push(paginationData.get("lastId"));
+            fromID = paginationData.get("lastId");
         } else {
             start_ts = drp.startDate.valueOf()*1000000;
         }
         let end_ts;
         if (!csvExport && paginationData.get("nextClicked") && paginationData.has("firstId") && paginationData.has("firstTs")){
             end_ts = paginationData.get("firstTs");
-            excludeIds.push(paginationData.get("firstId"));
+            fromID = paginationData.get("firstId");
         } else {
             end_ts = drp.endDate.valueOf()*1000000;
         }
         url+="&start_timestamp="+encodeURIComponent(start_ts);
         url+="&end_timestamp="+encodeURIComponent(end_ts);
-        if (excludeIds.length > 0){
-            url+="&exclude_ids="+encodeURIComponent(String(excludeIds));
+        if (fromID){
+            url+="&from_id="+encodeURIComponent(fromID);
         }
         url+="&order="+order;
         if (csvExport){
             url+="&csv_export=true";
         }
         return url;
+    }
+
+    function initLogDatatable(){
+        $('#errorMsg').hide();
+        let tableLog = $('#dataTableLog').DataTable({
+            "ajax": {
+                "url": getSearchURL(false),
+                "dataSrc": handleResponseData,
+                "error": function ($xhr, textStatus, errorThrown) {
+                    $(".dataTables_processing").hide();
+                    let txt = "Failed to get log events";
+                    if ($xhr) {
+                        let json = $xhr.responseJSON;
+                        if (json) {
+                            if (json.message){
+                                txt += ": " + json.message;
+                            } else {
+                                txt += ": " + json.error;
+                            }
+                        }
+                    }
+                    $('#errorTxt').text(txt);
+                    $('#errorMsg').show();
+                }
+            },
+            "deferRender": true,
+            "processing": true,
+            "columns": [
+                { "data": "id" },
+                {
+                    "data": "timestamp",
+                    "render": function (data, type, row) {
+                        if (type === 'display') {
+                            return dateFn(data/1000000,type);
+                        }
+                        return data;
+                    }
+                },
+                {
+                    "data": "event",
+                    "render": function (data, type, row) {
+                        if (type === 'display') {
+                            switch (data){
+                                case 1:
+                                    return "Login failed";
+                                case 2:
+                                    return "Login with non-existent user";
+                                case 3:
+                                    return "No login tried";
+                                case 4:
+                                    return "Algorithm negotiation failed";
+                            }
+                        }
+                        return data;
+                    }
+                },
+                {
+                    "data": "username",
+                    "defaultContent": "",
+                    "render": function (data, type, row) {
+                        if (type === 'display') {
+                            if (!data){
+                                return "";
+                            }
+                            return escapeHTML(data);
+                        }
+                        return data;
+                    }
+                },
+                {
+                    "data": "protocol",
+                    "defaultContent": ""
+                },
+                {
+                    "data": "ip",
+                    "defaultContent": ""
+                },
+                {
+                    "data": "message",
+                    "defaultContent": "",
+                    "render": function (data, type, row) {
+                        if (type === 'display') {
+                            if (!data){
+                                return "";
+                            }
+                            return '<span style="white-space:normal">' + escapeHTML(data) + "</span>"
+                        }
+                        return data;
+                    }
+                }
+            ],
+            "buttons": [],
+            "lengthChange": false,
+            "columnDefs": [
+                {
+                    "targets": [0],
+                    "visible": false,
+                    "searchable": false
+                },
+            ],
+            "responsive": true,
+            "searching": false,
+            "paging": false,
+            "info": false,
+            "ordering": false,
+            "language": {
+                "loadingRecords": "",
+                "emptyTable": "No logs found"
+            }
+        });
+
+        new $.fn.dataTable.FixedHeader(tableLog);
+
+        isLogDataTableInitialized = true;
     }
 
     function initProviderDatatable(){
@@ -597,7 +748,27 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
         $('#idUsername').val("");
         $('#idIp').val("");
         $('.provider-events').hide();
+        $('.log-events').hide();
         $('.fs-events').show();
+        onSearchClicked();
+    }
+
+    function selectLogEvents(){
+        let idActions = $('#idActions');
+        idActions.selectpicker('deselectAll');
+        idActions.find('option').remove();
+        idActions.find('li').remove();
+        idActions.append($('<option>').val('1').text('Login failed'));
+        idActions.append($('<option>').val('2').text('Login with non-existent user'));
+        idActions.append($('<option>').val('3').text('No login tried'));
+        idActions.append($('<option>').val('4').text('Algorithm negotiation failed'));
+        idActions.selectpicker('refresh');
+
+        $('#idUsername').val("");
+        $('#idIp').val("");
+        $('.provider-events').hide();
+        $('.fs-events').hide();
+        $('.log-events').show();
         onSearchClicked();
     }
 
@@ -614,6 +785,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
         $('#idUsername').val("");
         $('#idIp').val("");
         $('.fs-events').hide();
+        $('.log-events').hide();
         $('.provider-events').show();
         onSearchClicked();
     }
@@ -625,6 +797,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                 break;
             case '2':
                 selectProviderEvents();
+                break;
+            case '3':
+                selectLogEvents();
                 break;
             default:
                 console.log(`unsupported event type: ${val}`);

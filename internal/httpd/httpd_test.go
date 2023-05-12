@@ -125,6 +125,7 @@ const (
 	metadataBasePath               = "/api/v2/metadata/users"
 	fsEventsPath                   = "/api/v2/events/fs"
 	providerEventsPath             = "/api/v2/events/provider"
+	logEventsPath                  = "/api/v2/events/logs"
 	sharesPath                     = "/api/v2/shares"
 	eventActionsPath               = "/api/v2/eventactions"
 	eventRulesPath                 = "/api/v2/eventrules"
@@ -9869,7 +9870,60 @@ func TestSearchEvents(t *testing.T) {
 	}
 	exportFunc()
 
+	req, err = http.NewRequest(http.MethodGet, logEventsPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	events = make([]map[string]any, 0)
+	err = json.Unmarshal(rr.Body.Bytes(), &events)
+	assert.NoError(t, err)
+	if assert.Len(t, events, 1) {
+		ev := events[0]
+		for _, field := range []string{"id", "timestamp", "event", "ip", "message", "role", "instance_id"} {
+			_, ok := ev[field]
+			assert.True(t, ok, field)
+		}
+	}
+	req, err = http.NewRequest(http.MethodGet, logEventsPath+"?events=a,1", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// CSV export
+	req, err = http.NewRequest(http.MethodGet, logEventsPath+"?csv_export=true", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Equal(t, "text/csv", rr.Header().Get("Content-Type"))
+	// the test eventsearcher plugin returns error if start_timestamp < 0
+	req, err = http.NewRequest(http.MethodGet, logEventsPath+"?start_timestamp=-1", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+	// CSV export with error
+	exportFunc = func() {
+		defer func() {
+			rcv := recover()
+			assert.Equal(t, http.ErrAbortHandler, rcv)
+		}()
+
+		req, err = http.NewRequest(http.MethodGet, logEventsPath+"?start_timestamp=-1&csv_export=true", nil)
+		assert.NoError(t, err)
+		setBearerForReq(req, token)
+		rr = executeRequest(req)
+	}
+	exportFunc()
+
 	req, err = http.NewRequest(http.MethodGet, providerEventsPath+"?limit=2000", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	req, err = http.NewRequest(http.MethodGet, logEventsPath+"?limit=2000", nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, token)
 	rr = executeRequest(req)

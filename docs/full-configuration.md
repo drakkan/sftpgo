@@ -467,6 +467,7 @@ The configuration file contains the following sections:
     - `fs_events`, list of strings. Defines the filesystem events that will be notified to this plugin.
     - `provider_events`, list of strings. Defines the provider events that will be notified to this plugin.
     - `provider_objects`, list if strings. Defines the provider objects that will be notified to this plugin.
+    - `log_events`, list of integers. Defines the log events that will be notified to this plugin. `1` means "Login failed", `2` means "Login with non-existent user", `3` means "No login tried", `4` means "Algorithm negotiation failed".
     - `retry_max_time`, integer. Defines the maximum number of seconds an event can be late. SFTPGo adds a timestamp to each event and add to an internal queue any events that a the plugin fails to handle (the plugin returns an error or it is not running). If a plugin fails to handle an event that is too late, based on this configuration, it will be discarded. SFTPGo will try to resend queued events every 30 seconds. 0 means no retry.
     - `retry_queue_max_size`, integer. Defines the maximum number of events that the internal queue can hold. Once the queue is full, the events that cannot be sent to the plugin will be discarded. 0 means no limit.
   - `kms_options`, struct. Defines the options for kms plugins.

@@ -49,11 +49,23 @@ type providerEvent struct {
 	InstanceID string `json:"instance_id,omitempty"`
 }
 
+type logEvent struct {
+	ID         string `json:"id" gorm:"primaryKey"`
+	Timestamp  int64  `json:"timestamp"`
+	Event      int    `json:"event"`
+	Protocol   string `json:"protocol,omitempty"`
+	Username   string `json:"username,omitempty"`
+	IP         string `json:"ip,omitempty"`
+	Message    string `json:"message,omitempty"`
+	Role       string `json:"role,omitempty"`
+	InstanceID string `json:"instance_id,omitempty"`
+}
+
 type Searcher struct{}
 
-func (s *Searcher) SearchFsEvents(filters *eventsearcher.FsEventSearch) ([]byte, []string, []string, error) {
+func (s *Searcher) SearchFsEvents(filters *eventsearcher.FsEventSearch) ([]byte, error) {
 	if filters.StartTimestamp < 0 {
-		return nil, nil, nil, errNotSupported
+		return nil, errNotSupported
 	}
 
 	results := []fsEvent{
@@ -84,15 +96,15 @@ func (s *Searcher) SearchFsEvents(filters *eventsearcher.FsEventSearch) ([]byte,
 
 	data, err := json.Marshal(results)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
-	return data, nil, nil, nil
+	return data, nil
 }
 
-func (s *Searcher) SearchProviderEvents(filters *eventsearcher.ProviderEventSearch) ([]byte, []string, []string, error) {
+func (s *Searcher) SearchProviderEvents(filters *eventsearcher.ProviderEventSearch) ([]byte, error) {
 	if filters.StartTimestamp < 0 {
-		return nil, nil, nil, errNotSupported
+		return nil, errNotSupported
 	}
 
 	var objectData []byte
@@ -117,10 +129,36 @@ func (s *Searcher) SearchProviderEvents(filters *eventsearcher.ProviderEventSear
 
 	data, err := json.Marshal(results)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
-	return data, nil, nil, nil
+	return data, nil
+}
+
+func (s *Searcher) SearchLogEvents(filters *eventsearcher.LogEventSearch) ([]byte, error) {
+	if filters.StartTimestamp < 0 {
+		return nil, errNotSupported
+	}
+
+	results := []logEvent{
+		{
+			ID:         "1",
+			Timestamp:  100,
+			Event:      1,
+			Protocol:   "SSH",
+			IP:         "127.0.1.1",
+			Message:    "Invalid credentials",
+			Role:       "role3",
+			InstanceID: "instance2",
+		},
+	}
+
+	data, err := json.Marshal(results)
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
 }
 
 func main() {
