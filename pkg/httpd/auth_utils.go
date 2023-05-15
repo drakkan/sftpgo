@@ -239,7 +239,7 @@ func (c *jwtTokenClaims) createToken(tokenAuth *jwtauth.JWTAuth, audience tokenA
 	claims[jwt.JwtIDKey] = xid.New().String()
 	claims[jwt.NotBeforeKey] = now.Add(-30 * time.Second)
 	claims[jwt.ExpirationKey] = now.Add(tokenDuration)
-	claims[jwt.AudienceKey] = []string{audience, ip}
+	claims[jwt.AudienceKey] = []string{audience, ip, tokenAudienceAPIUser}
 
 	return tokenAuth.Encode(claims)
 }
@@ -325,6 +325,7 @@ func isTokenInvalidated(r *http.Request) bool {
 	findTokenFns = append(findTokenFns, jwtauth.TokenFromHeader)
 	findTokenFns = append(findTokenFns, jwtauth.TokenFromCookie)
 	findTokenFns = append(findTokenFns, tokenFromContext)
+	findTokenFns = append(findTokenFns, jwtauth.TokenFromQuery)
 
 	isTokenFound := false
 	for _, fn := range findTokenFns {

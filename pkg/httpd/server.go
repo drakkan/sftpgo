@@ -1374,7 +1374,8 @@ func (s *httpdServer) initializeRouter() {
 
 		s.router.Group(func(router chi.Router) {
 			router.Use(checkAPIKeyAuth(s.tokenAuth, dataprovider.APIKeyScopeUser))
-			router.Use(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromHeader))
+			// Query is put before header due to only office server sending its token in the header
+			router.Use(jwtauth.Verify(s.tokenAuth, jwtauth.TokenFromQuery, jwtauth.TokenFromHeader))
 			router.Use(jwtAuthenticatorAPIUser)
 
 			router.With(forbidAPIKeyAuthentication).Get(userLogoutPath, s.logout)
@@ -1429,6 +1430,7 @@ func (s *httpdServer) initializeRouter() {
 				Post(userUploadFilePath, uploadUserFile)
 			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled)).
 				Patch(userFilesDirsMetadataPath, setFileDirMetadata)
+			router.With(s.checkSecondFactorRequirement).Post(onlyOfficeCallbackPath, onlyOfficeWriteCallback)
 		})
 
 		if s.renderOpenAPI {

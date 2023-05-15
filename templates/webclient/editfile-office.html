@@ -1,0 +1,17 @@
+<div id="office-editor"></div>
+
+<script type="text/javascript" src="{{.OnlyOfficeURL}}/web-apps/apps/api/documents/api.js"></script>
+<script type="text/javascript">
+    config = {
+        "document": {
+            "fileType": "{{.Ext}}",
+            "key": "{{.FileKey}}",
+            "title": "{{.FileName}}",
+            "url": "{{.BaseURL}}/api/v2/user/files?path={{.FilePath}}&jwt={{.Token}}"
+        },
+        "editorConfig": {
+            "callbackUrl": "{{.BaseURL}}/api/v2/user/onlyoffice?path={{.FilePath}}&jwt={{.Token}}"
+        }
+        };
+        var docEditor = new DocsAPI.DocEditor("office-editor", config);
+</script>

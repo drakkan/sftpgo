@@ -31,6 +31,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-chi/jwtauth/v5"
 	"github.com/go-chi/render"
 	"github.com/rs/xid"
 	"github.com/sftpgo/sdk"
@@ -74,6 +75,7 @@ const (
 	pageClientResetPwdTitle         = "SFTPGo WebClient - Reset password"
 	pageExtShareTitle               = "Shared files"
 	pageUploadToShareTitle          = "Upload to share"
+	templateClientEditOfficeFile    = "editfile-office.html"
 )
 
 // condResult is the result of an HTTP request precondition check.
@@ -505,6 +507,12 @@ func loadClientTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateClientDir, templateUploadToShare),
 	}
 
+	editFileOfficePath := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateCommonCSS),
+		filepath.Join(templatesPath, templateClientDir, templateClientBase),
+		filepath.Join(templatesPath, templateClientDir, templateClientEditOfficeFile),
+	}
+
 	filesTmpl := util.LoadTemplate(nil, filesPaths...)
 	profileTmpl := util.LoadTemplate(nil, profilePaths...)
 	changePwdTmpl := util.LoadTemplate(nil, changePwdPaths...)
@@ -522,6 +530,7 @@ func loadClientTemplates(templatesPath string) {
 	viewPDFTmpl := util.LoadTemplate(nil, viewPDFPaths...)
 	shareFilesTmpl := util.LoadTemplate(nil, shareFilesPath...)
 	shareUploadTmpl := util.LoadTemplate(nil, shareUploadPath...)
+	editFileOfficeTmpl := util.LoadTemplate(nil, editFileOfficePath...)
 
 	clientTemplates[templateClientFiles] = filesTmpl
 	clientTemplates[templateClientProfile] = profileTmpl
@@ -540,6 +549,7 @@ func loadClientTemplates(templatesPath string) {
 	clientTemplates[templateShareLogin] = shareLoginTmpl
 	clientTemplates[templateShareFiles] = shareFilesTmpl
 	clientTemplates[templateUploadToShare] = shareUploadTmpl
+	clientTemplates[templateClientEditOfficeFile] = editFileOfficeTmpl
 }
 
 func (s *httpdServer) getBaseClientPageData(title, currentURL string, r *http.Request) baseClientPage {
@@ -696,6 +706,31 @@ func (s *httpdServer) renderClientMFAPage(w http.ResponseWriter, r *http.Request
 }
 
 func (s *httpdServer) renderEditFilePage(w http.ResponseWriter, r *http.Request, fileName, fileData string, readOnly bool) {
+	if !readOnly && checkOnlyOfficeExt(fileName) {
+		connection, err := getUserConnection(w, r)
+		if err != nil {
+			s.renderInternalServerErrorPage(w, r, err)
+			return
+		}
+		name := connection.User.GetCleanedPath(fileName)
+		info, err := connection.Stat(name, 0)
+		if err != nil {
+			s.renderInternalServerErrorPage(w, r, err)
+			return
+		}
+		tokenString := jwtauth.TokenFromCookie(r)
+		data := editOnlyOfficeFilePage{
+			BaseURL:       getServerAddress(),
+			Ext:           path.Ext(path.Base(fileName))[1:],
+			FileName:      path.Base(fileName),
+			Token:         tokenString,
+			FilePath:      url.QueryEscape(fileName),
+			FileKey:       generateOnlyOfficeFileKey(fileName, info.ModTime()),
+			OnlyOfficeURL: getOnlyOfficeServerAddress(),
+		}
+		renderClientTemplate(w, templateClientEditOfficeFile, data)
+		return
+	}
 	data := editFilePage{
 		baseClientPage: s.getBaseClientPageData(pageClientEditFileTitle, webClientEditFilePath, r),
 		Path:           fileName,

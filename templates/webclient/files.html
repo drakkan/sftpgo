@@ -555,6 +555,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
     var spinnerDone = false;
     var player;
     var playerKeepAlive;
+    var onlyOfficeExt = [
+    "doc", "docx", "odt", "ppt", "pptx", "xls", "xlsx", "ods",
+    ]
 
     function shortenData(d, cutoff) {
         if ( typeof d !== 'string' ) {
@@ -680,6 +683,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
             default:
                 return "far fa-file";
         }
+    }
+
+    function checkOnlyOfficeExt(extension) {
+        for (i = 0; i < onlyOfficeExt.length; i++) {
+            if (extension == onlyOfficeExt[i]) {
+                return true
+            }
+        }
+        return false
     }
 
     function getNameFromMeta(meta) {
@@ -1286,7 +1298,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                             let filename = escapeHTML(row["name"]);
                             let extension = filename.slice((filename.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase();
                             if (data){
-                                if (extension == "csv" || extension == "bat" || CodeMirror.findModeByExtension(extension) != null){
+                                if (extension == "csv" || extension == "bat" || checkOnlyOfficeExt(extension) || CodeMirror.findModeByExtension(extension) != null){
                                     {{if .CanAddFiles}}
                                     return `<a href="${data}"><i class="fas fa-edit"></i></a>`;
                                     {{else}}
