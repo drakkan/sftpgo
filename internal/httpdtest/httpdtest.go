@@ -2129,6 +2129,12 @@ func compareFsConfig(expected *vfs.Filesystem, actual *vfs.Filesystem) error {
 	if expected.Provider != actual.Provider {
 		return errors.New("fs provider mismatch")
 	}
+	if expected.OSConfig.ReadBufferSize != actual.OSConfig.ReadBufferSize {
+		return fmt.Errorf("read buffer size mismatch")
+	}
+	if expected.OSConfig.WriteBufferSize != actual.OSConfig.WriteBufferSize {
+		return fmt.Errorf("write buffer size mismatch")
+	}
 	if err := compareS3Config(expected, actual); err != nil {
 		return err
 	}
@@ -2140,6 +2146,12 @@ func compareFsConfig(expected *vfs.Filesystem, actual *vfs.Filesystem) error {
 	}
 	if err := checkEncryptedSecret(expected.CryptConfig.Passphrase, actual.CryptConfig.Passphrase); err != nil {
 		return err
+	}
+	if expected.CryptConfig.ReadBufferSize != actual.CryptConfig.ReadBufferSize {
+		return fmt.Errorf("crypt read buffer size mismatch")
+	}
+	if expected.CryptConfig.WriteBufferSize != actual.CryptConfig.WriteBufferSize {
+		return fmt.Errorf("crypt write buffer size mismatch")
 	}
 	if err := compareSFTPFsConfig(expected, actual); err != nil {
 		return err

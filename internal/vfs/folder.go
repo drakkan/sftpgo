@@ -207,7 +207,7 @@ func (v *VirtualFolder) GetFilesystem(connectionID string, forbiddenSelfUsers []
 	case sdk.HTTPFilesystemProvider:
 		return NewHTTPFs(connectionID, v.MappedPath, v.VirtualPath, v.FsConfig.HTTPConfig)
 	default:
-		return NewOsFs(connectionID, v.MappedPath, v.VirtualPath), nil
+		return NewOsFs(connectionID, v.MappedPath, v.VirtualPath, &v.FsConfig.OSConfig), nil
 	}
 }
 

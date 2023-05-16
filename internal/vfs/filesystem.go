@@ -26,6 +26,7 @@ import (
 type Filesystem struct {
 	RedactedSecret string                 `json:"-"`
 	Provider       sdk.FilesystemProvider `json:"provider"`
+	OSConfig       sdk.OSFsConfig         `json:"osconfig,omitempty"`
 	S3Config       S3FsConfig             `json:"s3config,omitempty"`
 	GCSConfig      GCSFsConfig            `json:"gcsconfig,omitempty"`
 	AzBlobConfig   AzBlobFsConfig         `json:"azblobconfig,omitempty"`
@@ -169,6 +170,7 @@ func (f *Filesystem) Validate(additionalData string) error {
 		if err := f.S3Config.ValidateAndEncryptCredentials(additionalData); err != nil {
 			return err
 		}
+		f.OSConfig = sdk.OSFsConfig{}
 		f.GCSConfig = GCSFsConfig{}
 		f.AzBlobConfig = AzBlobFsConfig{}
 		f.CryptConfig = CryptFsConfig{}
@@ -179,6 +181,7 @@ func (f *Filesystem) Validate(additionalData string) error {
 		if err := f.GCSConfig.ValidateAndEncryptCredentials(additionalData); err != nil {
 			return err
 		}
+		f.OSConfig = sdk.OSFsConfig{}
 		f.S3Config = S3FsConfig{}
 		f.AzBlobConfig = AzBlobFsConfig{}
 		f.CryptConfig = CryptFsConfig{}
@@ -189,6 +192,7 @@ func (f *Filesystem) Validate(additionalData string) error {
 		if err := f.AzBlobConfig.ValidateAndEncryptCredentials(additionalData); err != nil {
 			return err
 		}
+		f.OSConfig = sdk.OSFsConfig{}
 		f.S3Config = S3FsConfig{}
 		f.GCSConfig = GCSFsConfig{}
 		f.CryptConfig = CryptFsConfig{}
@@ -199,16 +203,18 @@ func (f *Filesystem) Validate(additionalData string) error {
 		if err := f.CryptConfig.ValidateAndEncryptCredentials(additionalData); err != nil {
 			return err
 		}
+		f.OSConfig = sdk.OSFsConfig{}
 		f.S3Config = S3FsConfig{}
 		f.GCSConfig = GCSFsConfig{}
 		f.AzBlobConfig = AzBlobFsConfig{}
 		f.SFTPConfig = SFTPFsConfig{}
 		f.HTTPConfig = HTTPFsConfig{}
-		return nil
+		return validateOSFsConfig(&f.CryptConfig.OSFsConfig)
 	case sdk.SFTPFilesystemProvider:
 		if err := f.SFTPConfig.ValidateAndEncryptCredentials(additionalData); err != nil {
 			return err
 		}
+		f.OSConfig = sdk.OSFsConfig{}
 		f.S3Config = S3FsConfig{}
 		f.GCSConfig = GCSFsConfig{}
 		f.AzBlobConfig = AzBlobFsConfig{}
@@ -219,6 +225,7 @@ func (f *Filesystem) Validate(additionalData string) error {
 		if err := f.HTTPConfig.ValidateAndEncryptCredentials(additionalData); err != nil {
 			return err
 		}
+		f.OSConfig = sdk.OSFsConfig{}
 		f.S3Config = S3FsConfig{}
 		f.GCSConfig = GCSFsConfig{}
 		f.AzBlobConfig = AzBlobFsConfig{}
@@ -233,7 +240,7 @@ func (f *Filesystem) Validate(additionalData string) error {
 		f.CryptConfig = CryptFsConfig{}
 		f.SFTPConfig = SFTPFsConfig{}
 		f.HTTPConfig = HTTPFsConfig{}
-		return nil
+		return validateOSFsConfig(&f.OSConfig)
 	}
 }
 
@@ -293,6 +300,10 @@ func (f *Filesystem) GetACopy() Filesystem {
 	f.SetEmptySecretsIfNil()
 	fs := Filesystem{
 		Provider: f.Provider,
+		OSConfig: sdk.OSFsConfig{
+			ReadBufferSize:  f.OSConfig.ReadBufferSize,
+			WriteBufferSize: f.OSConfig.WriteBufferSize,
+		},
 		S3Config: S3FsConfig{
 			BaseS3FsConfig: sdk.BaseS3FsConfig{
 				Bucket:              f.S3Config.Bucket,
@@ -342,6 +353,10 @@ func (f *Filesystem) GetACopy() Filesystem {
 			SASURL:     f.AzBlobConfig.SASURL.Clone(),
 		},
 		CryptConfig: CryptFsConfig{
+			OSFsConfig: sdk.OSFsConfig{
+				ReadBufferSize:  f.CryptConfig.ReadBufferSize,
+				WriteBufferSize: f.CryptConfig.WriteBufferSize,
+			},
 			Passphrase: f.CryptConfig.Passphrase.Clone(),
 		},
 		SFTPConfig: SFTPFsConfig{

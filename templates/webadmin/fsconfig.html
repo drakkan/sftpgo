@@ -53,6 +53,25 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
             </div>
         </div>
         {{end}}
+        <div class="form-group row fsconfig fsconfig-osfs">
+            <label for="idOsReadBufferSize" class="col-sm-2 col-form-label">Read buffer (MB)</label>
+            <div class="col-sm-3">
+                <input type="number" class="form-control" id="idOsReadBufferSize" name="osfs_read_buffer_size" placeholder=""
+                    value="{{.OSConfig.ReadBufferSize}}" min="0" max="10" aria-describedby="OSReadBufferSizeHelpBlock">
+                <small id="OSReadBufferSizeHelpBlock" class="form-text text-muted">
+                    Buffer size for downloads. 0 means no buffer, that's fine in most use cases.
+                </small>
+            </div>
+            <div class="col-sm-2"></div>
+            <label for="idOsWriteBufferSize" class="col-sm-2 col-form-label">Write buffer (MB)</label>
+            <div class="col-sm-3">
+                <input type="number" class="form-control" id="idOsWriteBufferSize" name="osfs_write_buffer_size" placeholder=""
+                    value="{{.OSConfig.WriteBufferSize}}"  min="0" max="10" aria-describedby="OSWriteBufferSizeHelpBlock">
+                <small id="OSWriteBufferSizeHelpBlock" class="form-text text-muted">
+                    Buffer size for uploads. 0 means no buffer, that's fine in most use cases.
+                </small>
+            </div>
+        </div>
         <div class="form-group row fsconfig fsconfig-s3fs">
             <label for="idS3Bucket" class="col-sm-2 col-form-label">Bucket</label>
             <div class="col-sm-10">
@@ -422,6 +441,26 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                     value="{{if .CryptConfig.Passphrase.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.CryptConfig.Passphrase.GetPayload}}{{end}}">
                 <small id="CryptPassphraseHelpBlock" class="form-text text-muted">
                     Passphrase to derive the per-object encryption key
+                </small>
+            </div>
+        </div>
+
+        <div class="form-group row fsconfig fsconfig-cryptfs">
+            <label for="idCryptFsReadBufferSize" class="col-sm-2 col-form-label">Read buffer (MB)</label>
+            <div class="col-sm-3">
+                <input type="number" class="form-control" id="idCryptFsReadBufferSize" name="cryptfs_read_buffer_size" placeholder=""
+                    value="{{.CryptConfig.ReadBufferSize}}" min="0" max="10" aria-describedby="CryptFsReadBufferSizeHelpBlock">
+                <small id="CryptFsReadBufferSizeHelpBlock" class="form-text text-muted">
+                    Buffer size for downloads. 0 means no buffer, that's fine in most use cases.
+                </small>
+            </div>
+            <div class="col-sm-2"></div>
+            <label for="idCryptFsWriteBufferSize" class="col-sm-2 col-form-label">Write buffer (MB)</label>
+            <div class="col-sm-3">
+                <input type="number" class="form-control" id="idCryptFsWriteBufferSize" name="cryptfs_write_buffer_size" placeholder=""
+                    value="{{.CryptConfig.WriteBufferSize}}" min="0" max="10" aria-describedby="CryptFsWriteBufferSizeHelpBlock">
+                <small id="CryptFsWriteBufferSizeHelpBlock" class="form-text text-muted">
+                    Buffer size for uploads. 0 means no buffer, that's fine in most use cases.
                 </small>
             </div>
         </div>

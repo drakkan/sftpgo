@@ -198,8 +198,8 @@ func (t *BaseTransfer) SetTimes(fsPath string, atime time.Time, mtime time.Time)
 // If atomic uploads are enabled this differ from fsPath
 func (t *BaseTransfer) GetRealFsPath(fsPath string) string {
 	if fsPath == t.GetFsPath() {
-		if t.File != nil {
-			return t.File.Name()
+		if t.File != nil || vfs.IsLocalOsFs(t.Fs) {
+			return t.effectiveFsPath
 		}
 		return t.fsPath
 	}
@@ -289,9 +289,9 @@ func (t *BaseTransfer) Truncate(fsPath string, size int64) (int64, error) {
 			return initialSize, err
 		}
 		if size == 0 && t.BytesSent.Load() == 0 {
-			// for cloud providers the file is always truncated to zero, we don't support append/resume for uploads
-			// for buffered SFTP we can have buffered bytes so we returns an error
-			if !vfs.IsBufferedSFTPFs(t.Fs) {
+			// for cloud providers the file is always truncated to zero, we don't support append/resume for uploads.
+			// For buffered SFTP and local fs we can have buffered bytes so we returns an error
+			if !vfs.IsBufferedLocalOrSFTPFs(t.Fs) {
 				return 0, nil
 			}
 		}
@@ -373,16 +373,16 @@ func (t *BaseTransfer) Close() error {
 		dataprovider.UpdateUserTransferQuota(&t.Connection.User, t.BytesReceived.Load(), //nolint:errcheck
 			t.BytesSent.Load(), false)
 	}
-	if t.File != nil && t.Connection.IsQuotaExceededError(t.ErrTransfer) {
+	if (t.File != nil || vfs.IsLocalOsFs(t.Fs)) && t.Connection.IsQuotaExceededError(t.ErrTransfer) {
 		// if quota is exceeded we try to remove the partial file for uploads to local filesystem
-		err = t.Fs.Remove(t.File.Name(), false)
+		err = t.Fs.Remove(t.effectiveFsPath, false)
 		if err == nil {
 			t.BytesReceived.Store(0)
 			t.MinWriteOffset = 0
 		}
 		t.Connection.Log(logger.LevelWarn, "upload denied due to space limit, delete temporary file: %q, deletion error: %v",
-			t.File.Name(), err)
-	} else if t.transferType == TransferUpload && t.effectiveFsPath != t.fsPath {
+			t.effectiveFsPath, err)
+	} else if t.isAtomicUpload() {
 		if t.ErrTransfer == nil || Config.UploadMode == UploadModeAtomicWithResume {
 			_, _, err = t.Fs.Rename(t.effectiveFsPath, t.fsPath)
 			t.Connection.Log(logger.LevelDebug, "atomic upload completed, rename: %q -> %q, error: %v",
@@ -434,6 +434,10 @@ func (t *BaseTransfer) Close() error {
 	}
 	t.updateTransferTimestamps(uploadFileSize, elapsed)
 	return err
+}
+
+func (t *BaseTransfer) isAtomicUpload() bool {
+	return t.transferType == TransferUpload && t.effectiveFsPath != t.fsPath
 }
 
 func (t *BaseTransfer) updateTransferTimestamps(uploadFileSize, elapsed int64) {

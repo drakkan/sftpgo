@@ -282,7 +282,7 @@ func (f *webDavFile) updateTransferQuotaOnSeek() {
 }
 
 func (f *webDavFile) checkFile() error {
-	if f.File == nil && vfs.IsLocalOrUnbufferedSFTPFs(f.Fs) {
+	if f.File == nil && vfs.FsOpenReturnsFile(f.Fs) {
 		file, _, _, err := f.Fs.Open(f.GetFsPath(), 0)
 		if err != nil {
 			f.Connection.Log(logger.LevelWarn, "could not open file %q for seeking: %v",

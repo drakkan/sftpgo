@@ -5729,11 +5729,34 @@ components:
         use_emulator:
           type: boolean
       description: Azure Blob Storage configuration details
+    OSFsConfig:
+      type: object
+      properties:
+        read_buffer_size:
+          type: integer
+          minimum: 0
+          maximum: 10
+          description: 'The read buffer size, as MB, to use for downloads. 0 means no buffering, that's fine in most use cases.'
+        write_buffer_size:
+          type: integer
+          minimum: 0
+          maximum: 10
+          description: 'The write buffer size, as MB, to use for uploads. 0 means no buffering, that's fine in most use cases.'
     CryptFsConfig:
       type: object
       properties:
         passphrase:
           $ref: '#/components/schemas/Secret'
+        read_buffer_size:
+          type: integer
+          minimum: 0
+          maximum: 10
+          description: 'The read buffer size, as MB, to use for downloads. 0 means no buffering, that's fine in most use cases.'
+        write_buffer_size:
+          type: integer
+          minimum: 0
+          maximum: 10
+          description: 'The write buffer size, as MB, to use for uploads. 0 means no buffering, that's fine in most use cases.'
       description: Crypt filesystem configuration details
     SFTPFsConfig:
       type: object
@@ -5804,6 +5827,8 @@ components:
       properties:
         provider:
           $ref: '#/components/schemas/FsProviders'
+        osconfig:
+          $ref: '#/components/schemas/OSFsConfig'
         s3config:
           $ref: '#/components/schemas/S3Config'
         gcsconfig:

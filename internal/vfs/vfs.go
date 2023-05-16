@@ -632,6 +632,7 @@ func (c *AzBlobFsConfig) validate() error {
 
 // CryptFsConfig defines the configuration to store local files as encrypted
 type CryptFsConfig struct {
+	sdk.OSFsConfig
 	Passphrase *kms.Secret `json:"passphrase,omitempty"`
 }
 
@@ -757,21 +758,24 @@ func IsHTTPFs(fs Fs) bool {
 	return strings.HasPrefix(fs.Name(), httpFsName)
 }
 
-// IsBufferedSFTPFs returns true if this is a buffered SFTP filesystem
-func IsBufferedSFTPFs(fs Fs) bool {
+// IsBufferedLocalOrSFTPFs returns true if this is a buffered SFTP or local filesystem
+func IsBufferedLocalOrSFTPFs(fs Fs) bool {
+	if osFs, ok := fs.(*OsFs); ok {
+		return osFs.writeBufferSize > 0
+	}
 	if !IsSFTPFs(fs) {
 		return false
 	}
 	return !fs.IsUploadResumeSupported()
 }
 
-// IsLocalOrUnbufferedSFTPFs returns true if fs is local or SFTP with no buffer
-func IsLocalOrUnbufferedSFTPFs(fs Fs) bool {
-	if IsLocalOsFs(fs) {
-		return true
+// FsOpenReturnsFile returns true if fs.Open returns a *os.File handle
+func FsOpenReturnsFile(fs Fs) bool {
+	if osFs, ok := fs.(*OsFs); ok {
+		return osFs.readBufferSize == 0
 	}
-	if IsSFTPFs(fs) {
-		return fs.IsUploadResumeSupported()
+	if sftpFs, ok := fs.(*SFTPFs); ok {
+		return sftpFs.config.BufferSize == 0
 	}
 	return false
 }
@@ -927,6 +931,50 @@ func fsMetadataCheck(fs fsMetadataChecker, storageID, keyPrefix string) error {
 			return nil
 		}
 	}
+}
+
+func validateOSFsConfig(config *sdk.OSFsConfig) error {
+	if config.ReadBufferSize < 0 || config.ReadBufferSize > 10 {
+		return fmt.Errorf("invalid read buffer size must be between 0 and 10 MB")
+	}
+	if config.WriteBufferSize < 0 || config.WriteBufferSize > 10 {
+		return fmt.Errorf("invalid write buffer size must be between 0 and 10 MB")
+	}
+	return nil
+}
+
+func doCopy(dst io.Writer, src io.Reader, buf []byte) (written int64, err error) {
+	if buf == nil {
+		buf = make([]byte, 32768)
+	}
+	for {
+		nr, er := src.Read(buf)
+		if nr > 0 {
+			nw, ew := dst.Write(buf[0:nr])
+			if nw < 0 || nr < nw {
+				nw = 0
+				if ew == nil {
+					ew = errors.New("invalid write")
+				}
+			}
+			written += int64(nw)
+			if ew != nil {
+				err = ew
+				break
+			}
+			if nr != nw {
+				err = io.ErrShortWrite
+				break
+			}
+		}
+		if er != nil {
+			if er != io.EOF {
+				err = er
+			}
+			break
+		}
+	}
+	return written, err
 }
 
 func getMountPath(mountPath string) string {

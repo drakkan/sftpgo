@@ -398,7 +398,7 @@ func (fs MockOsFs) Rename(source, target string) (int, int64, error) {
 
 func newMockOsFs(err, statErr error, atomicUpload bool, connectionID, rootDir string) vfs.Fs {
 	return &MockOsFs{
-		Fs:                      vfs.NewOsFs(connectionID, rootDir, ""),
+		Fs:                      vfs.NewOsFs(connectionID, rootDir, "", nil),
 		err:                     err,
 		statErr:                 statErr,
 		isAtomicUploadSupported: atomicUpload,
@@ -719,7 +719,7 @@ func TestUploadFileStatError(t *testing.T) {
 	user.Permissions["/"] = []string{dataprovider.PermAny}
 	mockCC := mockFTPClientContext{}
 	connID := fmt.Sprintf("%v", mockCC.ID())
-	fs := vfs.NewOsFs(connID, user.HomeDir, "")
+	fs := vfs.NewOsFs(connID, user.HomeDir, "", nil)
 	connection := &Connection{
 		BaseConnection: common.NewBaseConnection(connID, common.ProtocolFTP, "", "", user),
 		clientContext:  mockCC,
@@ -809,7 +809,7 @@ func TestUploadOverwriteErrors(t *testing.T) {
 	_, err = connection.handleFTPUploadToExistingFile(fs, os.O_TRUNC, filepath.Join(os.TempDir(), "sub", "file"),
 		filepath.Join(os.TempDir(), "sub", "file1"), 0, "/sub/file1")
 	assert.Error(t, err)
-	fs = vfs.NewOsFs(connID, user.GetHomeDir(), "")
+	fs = vfs.NewOsFs(connID, user.GetHomeDir(), "", nil)
 	_, err = connection.handleFTPUploadToExistingFile(fs, 0, "missing1", "missing2", 0, "missing")
 	assert.Error(t, err)
 }

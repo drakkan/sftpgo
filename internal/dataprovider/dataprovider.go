@@ -2622,11 +2622,12 @@ func getVirtualFolderIfInvalid(folder *vfs.BaseVirtualFolder) *vfs.BaseVirtualFo
 	if err := ValidateFolder(folder); err == nil {
 		return folder
 	}
-	// we try to get the folder from the data provider if only the Name is populated
-	if folder.MappedPath != "" {
+	if folder.Name == "" {
 		return folder
 	}
-	if folder.Name == "" {
+	// we try to get the folder from the data provider if only the Name is populated
+	// so if MappedPath or Provider are set just return
+	if folder.MappedPath != "" {
 		return folder
 	}
 	if folder.FsConfig.Provider != sdk.LocalFilesystemProvider {

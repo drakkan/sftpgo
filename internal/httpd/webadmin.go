@@ -1747,10 +1747,25 @@ func getAzureConfig(r *http.Request) (vfs.AzBlobFsConfig, error) {
 	return config, nil
 }
 
+func getOsConfigFromPostFields(r *http.Request, readBufferField, writeBufferField string) sdk.OSFsConfig {
+	config := sdk.OSFsConfig{}
+	readBuffer, err := strconv.Atoi(r.Form.Get(readBufferField))
+	if err == nil {
+		config.ReadBufferSize = readBuffer
+	}
+	writeBuffer, err := strconv.Atoi(r.Form.Get(writeBufferField))
+	if err == nil {
+		config.WriteBufferSize = writeBuffer
+	}
+	return config
+}
+
 func getFsConfigFromPostFields(r *http.Request) (vfs.Filesystem, error) {
 	var fs vfs.Filesystem
 	fs.Provider = sdk.GetProviderByName(r.Form.Get("fs_provider"))
 	switch fs.Provider {
+	case sdk.LocalFilesystemProvider:
+		fs.OSConfig = getOsConfigFromPostFields(r, "osfs_read_buffer_size", "osfs_write_buffer_size")
 	case sdk.S3FilesystemProvider:
 		config, err := getS3Config(r)
 		if err != nil {
@@ -1771,6 +1786,7 @@ func getFsConfigFromPostFields(r *http.Request) (vfs.Filesystem, error) {
 		fs.GCSConfig = config
 	case sdk.CryptedFilesystemProvider:
 		fs.CryptConfig.Passphrase = getSecretFromFormField(r, "crypt_passphrase")
+		fs.CryptConfig.OSFsConfig = getOsConfigFromPostFields(r, "cryptfs_read_buffer_size", "cryptfs_write_buffer_size")
 	case sdk.SFTPFilesystemProvider:
 		config, err := getSFTPConfig(r)
 		if err != nil {

@@ -53,7 +53,7 @@ require (
 	github.com/rs/cors v1.9.0
 	github.com/rs/xid v1.5.0
 	github.com/rs/zerolog v1.29.1
-	github.com/sftpgo/sdk v0.1.4-0.20230512160325-38e59551f700
+	github.com/sftpgo/sdk v0.1.4-0.20230514135418-8b5d36c556e0
 	github.com/shirou/gopsutil/v3 v3.23.4
 	github.com/spf13/afero v1.9.5
 	github.com/spf13/cobra v1.7.0
@@ -148,7 +148,7 @@ require (
 	github.com/prometheus/procfs v0.9.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
-	github.com/spf13/cast v1.5.0 // indirect
+	github.com/spf13/cast v1.5.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/tklauser/go-sysconf v0.3.11 // indirect

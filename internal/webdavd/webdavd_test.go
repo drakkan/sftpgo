@@ -52,6 +52,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/kms"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/sftpd"
+	"github.com/drakkan/sftpgo/v2/internal/util"
 	"github.com/drakkan/sftpgo/v2/internal/vfs"
 	"github.com/drakkan/sftpgo/v2/internal/webdavd"
 )
@@ -718,6 +719,70 @@ func TestBasicHandlingCryptFs(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 },
 		1*time.Second, 100*time.Millisecond)
+}
+
+func TestBufferedUser(t *testing.T) {
+	u := getTestUser()
+	u.FsConfig.OSConfig = sdk.OSFsConfig{
+		WriteBufferSize: 2,
+		ReadBufferSize:  1,
+	}
+	vdirPath := "/crypted"
+	mappedPath := filepath.Join(os.TempDir(), util.GenerateUniqueID())
+	folderName := filepath.Base(mappedPath)
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName,
+			MappedPath: mappedPath,
+			FsConfig: vfs.Filesystem{
+				Provider: sdk.CryptedFilesystemProvider,
+				CryptConfig: vfs.CryptFsConfig{
+					OSFsConfig: sdk.OSFsConfig{
+						WriteBufferSize: 3,
+						ReadBufferSize:  2,
+					},
+					Passphrase: kms.NewPlainSecret(defaultPassword),
+				},
+			},
+		},
+		VirtualPath: vdirPath,
+		QuotaFiles:  -1,
+		QuotaSize:   -1,
+	})
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	client := getWebDavClient(user, false, nil)
+	assert.NoError(t, checkBasicFunc(client))
+
+	testFilePath := filepath.Join(homeBasePath, testFileName)
+	testFileSize := int64(65535)
+	err = createTestFile(testFilePath, testFileSize)
+	assert.NoError(t, err)
+	err = uploadFileWithRawClient(testFilePath, testFileName,
+		user.Username, defaultPassword, false, testFileSize, client)
+	assert.NoError(t, err)
+	err = uploadFileWithRawClient(testFilePath, path.Join(vdirPath, testFileName),
+		user.Username, defaultPassword, false, testFileSize, client)
+	assert.NoError(t, err)
+	localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
+	err = downloadFile(testFileName, localDownloadPath, testFileSize, client)
+	assert.NoError(t, err)
+	err = downloadFile(path.Join(vdirPath, testFileName), localDownloadPath, testFileSize, client)
+	assert.NoError(t, err)
+
+	err = os.Remove(testFilePath)
+	assert.NoError(t, err)
+	err = os.Remove(localDownloadPath)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName}, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath)
+	assert.NoError(t, err)
 }
 
 func TestLoginEmptyPassword(t *testing.T) {
@@ -1497,7 +1562,7 @@ func TestMaxConnections(t *testing.T) {
 	client := getWebDavClient(user, true, nil)
 	assert.NoError(t, checkBasicFunc(client))
 	// now add a fake connection
-	fs := vfs.NewOsFs("id", os.TempDir(), "")
+	fs := vfs.NewOsFs("id", os.TempDir(), "", nil)
 	connection := &webdavd.Connection{
 		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolWebDAV, "", "", user),
 	}
@@ -1576,7 +1641,7 @@ func TestMaxSessions(t *testing.T) {
 	client := getWebDavClient(user, false, nil)
 	assert.NoError(t, checkBasicFunc(client))
 	// now add a fake connection
-	fs := vfs.NewOsFs("id", os.TempDir(), "")
+	fs := vfs.NewOsFs("id", os.TempDir(), "", nil)
 	connection := &webdavd.Connection{
 		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolWebDAV, "", "", user),
 	}
