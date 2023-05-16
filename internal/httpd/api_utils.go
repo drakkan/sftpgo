@@ -752,6 +752,8 @@ func handleResetPassword(r *http.Request, code, newPassword string, isAdmin bool
 	if err == nil {
 		err = resetCodesMgr.Delete(code)
 	}
+	user.LastPasswordChange = util.GetTimeAsMsSinceEpoch(time.Now())
+	user.Filters.RequirePasswordChange = false
 	return &admin, &user, err
 }
 
