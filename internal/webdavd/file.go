@@ -443,7 +443,7 @@ func (f *webDavFile) Patch(patches []webdav.Proppatch) ([]webdav.Propstat, error
 		for _, p := range patch.Props {
 			if status == http.StatusForbidden && !hasError {
 				if !patch.Remove && util.Contains(lastModifiedProps, p.XMLName.Local) {
-					parsed, err := http.ParseTime(string(p.InnerXML))
+					parsed, err := parseTime(string(p.InnerXML))
 					if err != nil {
 						f.Connection.Log(logger.LevelWarn, "unsupported last modification time: %q, err: %v",
 							string(p.InnerXML), err)

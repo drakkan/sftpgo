@@ -1611,6 +1611,15 @@ func TestMisc(t *testing.T) {
 	certMgr = oldCertMgr
 }
 
+func TestParseTime(t *testing.T) {
+	res, err := parseTime("Sat, 4 Feb 2023 17:00:50 GMT")
+	require.NoError(t, err)
+	require.Equal(t, int64(1675530050), res.Unix())
+	res, err = parseTime("Wed, 04 Nov 2020 13:25:51 GMT")
+	require.NoError(t, err)
+	require.Equal(t, int64(1604496351), res.Unix())
+}
+
 func TestConfigsFromProvider(t *testing.T) {
 	configDir := "."
 	err := dataprovider.UpdateConfigs(nil, "", "", "")
