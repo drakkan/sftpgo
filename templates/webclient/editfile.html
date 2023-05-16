@@ -117,6 +117,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 <script src="{{.StaticURL}}/vendor/codemirror/addon/modes/go.js"></script>
 <script src="{{.StaticURL}}/vendor/codemirror/addon/modes/yaml.js"></script>
 <script src="{{.StaticURL}}/vendor/codemirror/addon/modes/markdown.js"></script>
+<script src="{{.StaticURL}}/vendor/codemirror/addon/modes/vlang.js"></script>
 <script src="{{.StaticURL}}/vendor/codemirror/meta.js"></script>
 <script src="{{.StaticURL}}/vendor/codemirror/addon/selection/active-line.js"></script>
 <script src="{{.StaticURL}}/vendor/codemirror/addon/dialog/dialog.js"></script>
@@ -138,9 +139,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
         });
         var filename = "{{.Path}}";
         var extension = filename.slice((filename.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase();
-        mode = CodeMirror.findModeByExtension(extension);
+        modeObj = CodeMirror.findModeByExtension(extension);
+        mode = modeObj.mode
+        if (extension == "v") {
+            mode = "vlang"
+        }
         if (mode != null) {
-            cm.setOption("mode", mode.mode);
+            cm.setOption("mode", mode);
         }
         cm.setValue("{{.Data}}");
         setInterval(keepAlive, 300000);
