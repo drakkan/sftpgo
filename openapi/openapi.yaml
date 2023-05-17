@@ -5736,12 +5736,12 @@ components:
           type: integer
           minimum: 0
           maximum: 10
-          description: 'The read buffer size, as MB, to use for downloads. 0 means no buffering, that's fine in most use cases.'
+          description: "The read buffer size, as MB, to use for downloads. 0 means no buffering, that's fine in most use cases."
         write_buffer_size:
           type: integer
           minimum: 0
           maximum: 10
-          description: 'The write buffer size, as MB, to use for uploads. 0 means no buffering, that's fine in most use cases.'
+          description: "The write buffer size, as MB, to use for uploads. 0 means no buffering, that's fine in most use cases."
     CryptFsConfig:
       type: object
       properties:
@@ -5751,12 +5751,12 @@ components:
           type: integer
           minimum: 0
           maximum: 10
-          description: 'The read buffer size, as MB, to use for downloads. 0 means no buffering, that's fine in most use cases.'
+          description: "The read buffer size, as MB, to use for downloads. 0 means no buffering, that's fine in most use cases."
         write_buffer_size:
           type: integer
           minimum: 0
           maximum: 10
-          description: 'The write buffer size, as MB, to use for uploads. 0 means no buffering, that's fine in most use cases.'
+          description: "The write buffer size, as MB, to use for uploads. 0 means no buffering, that's fine in most use cases."
       description: Crypt filesystem configuration details
     SFTPFsConfig:
       type: object
