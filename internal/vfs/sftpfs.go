@@ -404,7 +404,7 @@ func (fs *SFTPFs) Create(name string, flag, _ int) (File, *PipeWriter, func(), e
 		bw := bufio.NewWriterSize(f, int(fs.config.BufferSize)*1024*1024)
 		// we don't use io.Copy since bufio.Writer implements io.WriterTo and
 		// so it calls the sftp.File WriteTo method without buffering
-		n, err := fs.copy(bw, r)
+		n, err := doCopy(bw, r, nil)
 		errFlush := bw.Flush()
 		if err == nil && errFlush != nil {
 			err = errFlush
@@ -573,7 +573,7 @@ func (*SFTPFs) IsNotSupported(err error) bool {
 // CheckRootPath creates the specified local root directory if it does not exists
 func (fs *SFTPFs) CheckRootPath(username string, uid int, gid int) bool {
 	// local directory for temporary files in buffer mode
-	osFs := NewOsFs(fs.ConnectionID(), fs.localTempDir, "")
+	osFs := NewOsFs(fs.ConnectionID(), fs.localTempDir, "", nil)
 	osFs.CheckRootPath(username, uid, gid)
 	if fs.config.Prefix == "/" {
 		return true
@@ -839,38 +839,6 @@ func (fs *SFTPFs) GetAvailableDiskSize(dirName string) (*sftp.StatVFS, error) {
 func (fs *SFTPFs) Close() error {
 	fs.conn.RemoveSession(fs.connectionID)
 	return nil
-}
-
-func (fs *SFTPFs) copy(dst io.Writer, src io.Reader) (written int64, err error) {
-	buf := make([]byte, 32768)
-	for {
-		nr, er := src.Read(buf)
-		if nr > 0 {
-			nw, ew := dst.Write(buf[0:nr])
-			if nw < 0 || nr < nw {
-				nw = 0
-				if ew == nil {
-					ew = errors.New("invalid write")
-				}
-			}
-			written += int64(nw)
-			if ew != nil {
-				err = ew
-				break
-			}
-			if nr != nw {
-				err = io.ErrShortWrite
-				break
-			}
-		}
-		if er != nil {
-			if er != io.EOF {
-				err = er
-			}
-			break
-		}
-	}
-	return written, err
 }
 
 func (fs *SFTPFs) createConnection() error {

@@ -1322,6 +1322,8 @@ func (s *httpdServer) initializeRouter() {
 				Get(fsEventsPath, searchFsEvents)
 			router.With(s.checkPerm(dataprovider.PermAdminViewEvents), compressor.Handler).
 				Get(providerEventsPath, searchProviderEvents)
+			router.With(s.checkPerm(dataprovider.PermAdminViewEvents), compressor.Handler).
+				Get(logEventsPath, searchLogEvents)
 			router.With(forbidAPIKeyAuthentication, s.checkPerm(dataprovider.PermAdminManageAPIKeys)).
 				Get(apiKeysPath, getAPIKeys)
 			router.With(forbidAPIKeyAuthentication, s.checkPerm(dataprovider.PermAdminManageAPIKeys)).
@@ -1724,6 +1726,8 @@ func (s *httpdServer) setupWebAdminRoutes() {
 				Get(webEventsFsSearchPath, searchFsEvents)
 			router.With(s.checkPerm(dataprovider.PermAdminViewEvents), compressor.Handler, s.refreshCookie).
 				Get(webEventsProviderSearchPath, searchProviderEvents)
+			router.With(s.checkPerm(dataprovider.PermAdminViewEvents), compressor.Handler, s.refreshCookie).
+				Get(webEventsLogSearchPath, searchLogEvents)
 			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists)).Get(webIPListsPath, s.handleWebIPListsPage)
 			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists), compressor.Handler, s.refreshCookie).
 				Get(webIPListsPath+"/{type}", getIPListEntries)

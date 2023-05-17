@@ -1428,7 +1428,17 @@ func TestUploadResume(t *testing.T) {
 	u = getTestSFTPUser(usePubKey)
 	sftpUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
-	for _, user := range []dataprovider.User{localUser, sftpUser} {
+	u = getTestUser(usePubKey)
+	u.FsConfig.OSConfig = sdk.OSFsConfig{
+		WriteBufferSize: 1,
+		ReadBufferSize:  1,
+	}
+	u.Username += "_buffered"
+	u.HomeDir += "_with_buf"
+	bufferedUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	for _, user := range []dataprovider.User{localUser, sftpUser, bufferedUser} {
 		conn, client, err := getSftpClient(user, usePubKey)
 		if assert.NoError(t, err) {
 			defer conn.Close()
@@ -1475,7 +1485,11 @@ func TestUploadResume(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
 	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(bufferedUser, http.StatusOK)
+	assert.NoError(t, err)
 	err = os.RemoveAll(localUser.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.RemoveAll(bufferedUser.GetHomeDir())
 	assert.NoError(t, err)
 }
 
@@ -5570,6 +5584,129 @@ func TestNestedVirtualFolders(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestBufferedUser(t *testing.T) {
+	usePubKey := true
+	u := getTestUser(usePubKey)
+	u.QuotaFiles = 1000
+	u.FsConfig.OSConfig = sdk.OSFsConfig{
+		WriteBufferSize: 2,
+		ReadBufferSize:  1,
+	}
+	vdirPath := "/crypted"
+	mappedPath := filepath.Join(os.TempDir(), util.GenerateUniqueID())
+	folderName := filepath.Base(mappedPath)
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName,
+			MappedPath: mappedPath,
+			FsConfig: vfs.Filesystem{
+				Provider: sdk.CryptedFilesystemProvider,
+				CryptConfig: vfs.CryptFsConfig{
+					OSFsConfig: sdk.OSFsConfig{
+						WriteBufferSize: 3,
+						ReadBufferSize:  2,
+					},
+					Passphrase: kms.NewPlainSecret(defaultPassword),
+				},
+			},
+		},
+		VirtualPath: vdirPath,
+		QuotaFiles:  -1,
+		QuotaSize:   -1,
+	})
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	conn, client, err := getSftpClient(user, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		expectedQuotaSize := int64(0)
+		expectedQuotaFiles := 0
+		fileSize := int64(32768)
+		err = writeSFTPFile(testFileName, fileSize, client)
+		assert.NoError(t, err)
+		expectedQuotaSize += fileSize
+		expectedQuotaFiles++
+		err = writeSFTPFile(path.Join(vdirPath, testFileName), fileSize, client)
+		assert.NoError(t, err)
+		expectedQuotaSize += fileSize
+		expectedQuotaFiles++
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
+		assert.Greater(t, user.UsedQuotaSize, expectedQuotaSize)
+		localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
+		err = sftpDownloadFile(testFileName, localDownloadPath, fileSize, client)
+		assert.NoError(t, err)
+		err = sftpDownloadFile(path.Join(vdirPath, testFileName), localDownloadPath, fileSize, client)
+		assert.NoError(t, err)
+		err = os.Remove(localDownloadPath)
+		assert.NoError(t, err)
+		err = client.Remove(testFileName)
+		assert.NoError(t, err)
+		err = client.Remove(path.Join(vdirPath, testFileName))
+		assert.NoError(t, err)
+
+		data := []byte("test data")
+		f, err := client.OpenFile(testFileName, os.O_WRONLY|os.O_CREATE)
+		if assert.NoError(t, err) {
+			n, err := f.Write(data)
+			assert.NoError(t, err)
+			assert.Equal(t, len(data), n)
+			err = f.Truncate(2)
+			assert.NoError(t, err)
+			expectedQuotaSize := int64(2)
+			expectedQuotaFiles := 0
+			user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+			assert.NoError(t, err)
+			assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
+			assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
+			_, err = f.Seek(expectedQuotaSize, io.SeekStart)
+			assert.NoError(t, err)
+			n, err = f.Write(data)
+			assert.NoError(t, err)
+			assert.Equal(t, len(data), n)
+			err = f.Truncate(5)
+			assert.NoError(t, err)
+			expectedQuotaSize = int64(5)
+			user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+			assert.NoError(t, err)
+			assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
+			assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
+			_, err = f.Seek(expectedQuotaSize, io.SeekStart)
+			assert.NoError(t, err)
+			n, err = f.Write(data)
+			assert.NoError(t, err)
+			assert.Equal(t, len(data), n)
+			err = f.Close()
+			assert.NoError(t, err)
+			expectedQuotaSize = int64(5) + int64(len(data))
+			expectedQuotaFiles = 1
+			user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+			assert.NoError(t, err)
+			assert.Equal(t, expectedQuotaFiles, user.UsedQuotaFiles)
+			assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
+		}
+		// now truncate by path
+		err = client.Truncate(testFileName, 5)
+		assert.NoError(t, err)
+		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, user.UsedQuotaFiles)
+		assert.Equal(t, int64(5), user.UsedQuotaSize)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName}, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath)
+	assert.NoError(t, err)
+}
+
 func TestTruncateQuotaLimits(t *testing.T) {
 	usePubKey := true
 	u := getTestUser(usePubKey)
@@ -8047,7 +8184,7 @@ func TestRootDirCommands(t *testing.T) {
 func TestRelativePaths(t *testing.T) {
 	user := getTestUser(true)
 	var path, rel string
-	filesystems := []vfs.Fs{vfs.NewOsFs("", user.GetHomeDir(), "")}
+	filesystems := []vfs.Fs{vfs.NewOsFs("", user.GetHomeDir(), "", nil)}
 	keyPrefix := strings.TrimPrefix(user.GetHomeDir(), "/") + "/"
 	s3config := vfs.S3FsConfig{
 		BaseS3FsConfig: sdk.BaseS3FsConfig{
@@ -8112,7 +8249,7 @@ func TestResolvePaths(t *testing.T) {
 	user := getTestUser(true)
 	var path, resolved string
 	var err error
-	filesystems := []vfs.Fs{vfs.NewOsFs("", user.GetHomeDir(), "")}
+	filesystems := []vfs.Fs{vfs.NewOsFs("", user.GetHomeDir(), "", nil)}
 	keyPrefix := strings.TrimPrefix(user.GetHomeDir(), "/") + "/"
 	s3config := vfs.S3FsConfig{
 		BaseS3FsConfig: sdk.BaseS3FsConfig{
@@ -8175,8 +8312,8 @@ func TestVirtualRelativePaths(t *testing.T) {
 	})
 	err := os.MkdirAll(mappedPath, os.ModePerm)
 	assert.NoError(t, err)
-	fsRoot := vfs.NewOsFs("", user.GetHomeDir(), "")
-	fsVdir := vfs.NewOsFs("", mappedPath, vdirPath)
+	fsRoot := vfs.NewOsFs("", user.GetHomeDir(), "", nil)
+	fsVdir := vfs.NewOsFs("", mappedPath, vdirPath, nil)
 	rel := fsVdir.GetRelativePath(mappedPath)
 	assert.Equal(t, vdirPath, rel)
 	rel = fsRoot.GetRelativePath(filepath.Join(mappedPath, ".."))

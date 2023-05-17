@@ -4,12 +4,12 @@ SFTPGo provides an official Docker image, it is available on both [Docker Hub](h
 
 ## Supported tags and respective Dockerfile links
 
-- [v2.4.5, v2.4, v2, latest](https://github.com/drakkan/sftpgo/blob/v2.4.5/Dockerfile)
-- [v2.4.5-plugins, v2.4-plugins, v2-plugins, plugins](https://github.com/drakkan/sftpgo/blob/v2.4.5/Dockerfile)
-- [v2.4.5-alpine, v2.4-alpine, v2-alpine, alpine](https://github.com/drakkan/sftpgo/blob/v2.4.5/Dockerfile.alpine)
-- [v2.4.5-slim, v2.4-slim, v2-slim, slim](https://github.com/drakkan/sftpgo/blob/v2.4.5/Dockerfile)
-- [v2.4.5-alpine-slim, v2.4-alpine-slim, v2-alpine-slim, alpine-slim](https://github.com/drakkan/sftpgo/blob/v2.4.5/Dockerfile.alpine)
-- [v2.4.5-distroless-slim, v2.4-distroless-slim, v2-distroless-slim, distroless-slim](https://github.com/drakkan/sftpgo/blob/v2.4.5/Dockerfile.distroless)
+- [v2.5.0, v2.5, v2, latest](https://github.com/drakkan/sftpgo/blob/v2.5.0/Dockerfile)
+- [v2.5.0-plugins, v2.5-plugins, v2-plugins, plugins](https://github.com/drakkan/sftpgo/blob/v2.5.0/Dockerfile)
+- [v2.5.0-alpine, v2.5-alpine, v2-alpine, alpine](https://github.com/drakkan/sftpgo/blob/v2.5.0/Dockerfile.alpine)
+- [v2.5.0-slim, v2.5-slim, v2-slim, slim](https://github.com/drakkan/sftpgo/blob/v2.5.0/Dockerfile)
+- [v2.5.0-alpine-slim, v2.5-alpine-slim, v2-alpine-slim, alpine-slim](https://github.com/drakkan/sftpgo/blob/v2.5.0/Dockerfile.alpine)
+- [v2.5.0-distroless-slim, v2.5-distroless-slim, v2-distroless-slim, distroless-slim](https://github.com/drakkan/sftpgo/blob/v2.5.0/Dockerfile.distroless)
 - [edge](../Dockerfile)
 - [edge-plugins](../Dockerfile)
 - [edge-alpine](../Dockerfile.alpine)
@@ -225,9 +225,6 @@ These tags provide the standard image with the addition of all "official" plugin
 
 ## Helm Chart
 
-Some helm charts are available:
+An helm chart is [available](https://artifacthub.io/packages/helm/sagikazarmark/sftpgo). You can find the source code [here](https://github.com/sagikazarmark/helm-charts/tree/master/charts/sftpgo).
 
-- [sagikazarmark/sftpgo](https://artifacthub.io/packages/helm/sagikazarmark/sftpgo)
-- [truecharts/sftpgo](https://artifacthub.io/packages/helm/truecharts/sftpgo)
-
-These charts are not maintained by the SFTPGo project and any issues with the charts should be raised to the upstream repo.
+This chart is not maintained by the SFTPGo project and any issues with it should be raised to the upstream repo.

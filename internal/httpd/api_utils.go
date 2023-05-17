@@ -35,6 +35,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
 	"github.com/klauspost/compress/zip"
+	"github.com/sftpgo/sdk/plugin/notifier"
 
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
@@ -614,6 +615,11 @@ func updateLoginMetrics(user *dataprovider.User, loginMethod, ip string, err err
 	if err != nil && err != common.ErrInternalFailure && err != common.ErrNoCredentials {
 		logger.ConnectionFailedLog(user.Username, ip, loginMethod, protocol, err.Error())
 		err = handleDefenderEventLoginFailed(ip, err)
+		logEv := notifier.LogEventTypeLoginFailed
+		if errors.Is(err, util.ErrNotFound) {
+			logEv = notifier.LogEventTypeLoginNoUser
+		}
+		plugin.Handler.NotifyLogEvent(logEv, protocol, user.Username, ip, "", err)
 	}
 	metric.AddLoginResult(loginMethod, err)
 	dataprovider.ExecutePostLoginHook(user, loginMethod, ip, protocol, err)
@@ -746,6 +752,8 @@ func handleResetPassword(r *http.Request, code, newPassword string, isAdmin bool
 	if err == nil {
 		err = resetCodesMgr.Delete(code)
 	}
+	user.LastPasswordChange = util.GetTimeAsMsSinceEpoch(time.Now())
+	user.Filters.RequirePasswordChange = false
 	return &admin, &user, err
 }
 

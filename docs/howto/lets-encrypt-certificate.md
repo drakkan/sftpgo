@@ -117,6 +117,8 @@ When the certificate is renewed you should see SFTPGo logs like the following to
 
 ## Obtaining a certificate using the ACME protocol built into SFTPGo
 
+:warning: Starting from SFTPGo v2.5.0 you can request certificates from the Server Manager -> Configurations -> ACME section of the WebAdmin UI.
+
 You can open the SFTPGo configuration file, search for the `acme` section and change it as follow.
 
 ```json

@@ -125,6 +125,7 @@ const (
 	metadataBasePath               = "/api/v2/metadata/users"
 	fsEventsPath                   = "/api/v2/events/fs"
 	providerEventsPath             = "/api/v2/events/provider"
+	logEventsPath                  = "/api/v2/events/logs"
 	sharesPath                     = "/api/v2/shares"
 	eventActionsPath               = "/api/v2/eventactions"
 	eventRulesPath                 = "/api/v2/eventrules"
@@ -616,6 +617,10 @@ func TestBasicUserHandling(t *testing.T) {
 	assert.True(t, user.HasPassword)
 
 	user.Email = "invalid@email"
+	user.FsConfig.OSConfig = sdk.OSFsConfig{
+		ReadBufferSize:  1,
+		WriteBufferSize: 2,
+	}
 	_, body, err := httpdtest.UpdateUser(user, http.StatusBadRequest, "")
 	assert.NoError(t, err)
 	assert.Contains(t, string(body), "Validation error: email")
@@ -886,6 +891,12 @@ func TestGroupRelations(t *testing.T) {
 	_, _, err := httpdtest.AddFolder(vfs.BaseVirtualFolder{
 		Name:       folderName2,
 		MappedPath: mappedPath2,
+		FsConfig: vfs.Filesystem{
+			OSConfig: sdk.OSFsConfig{
+				ReadBufferSize:  3,
+				WriteBufferSize: 5,
+			},
+		},
 	}, http.StatusCreated)
 	assert.NoError(t, err)
 	g1 := getTestGroup()
@@ -1144,21 +1155,47 @@ func TestGroupSettingsOverride(t *testing.T) {
 	folderName1 := filepath.Base(mappedPath1)
 	mappedPath2 := filepath.Join(os.TempDir(), util.GenerateUniqueID())
 	folderName2 := filepath.Base(mappedPath2)
+	mappedPath3 := filepath.Join(os.TempDir(), util.GenerateUniqueID())
+	folderName3 := filepath.Base(mappedPath3)
 	g1 := getTestGroup()
 	g1.Name += "_1"
 	g1.VirtualFolders = append(g1.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
 			Name:       folderName1,
 			MappedPath: mappedPath1,
+			FsConfig: vfs.Filesystem{
+				OSConfig: sdk.OSFsConfig{
+					ReadBufferSize:  3,
+					WriteBufferSize: 5,
+				},
+			},
 		},
 		VirtualPath: "/vdir1",
 	})
+	g1.UserSettings.Permissions = map[string][]string{
+		"/dir1": {dataprovider.PermUpload},
+		"/dir2": {dataprovider.PermDownload, dataprovider.PermListItems},
+	}
+	g1.UserSettings.FsConfig.OSConfig = sdk.OSFsConfig{
+		ReadBufferSize:  6,
+		WriteBufferSize: 2,
+	}
 	g2 := getTestGroup()
 	g2.Name += "_2"
+	g2.UserSettings.Permissions = map[string][]string{
+		"/dir1": {dataprovider.PermAny},
+		"/dir3": {dataprovider.PermDownload, dataprovider.PermListItems, dataprovider.PermChtimes},
+	}
 	g2.VirtualFolders = append(g2.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
 			Name:       folderName1,
 			MappedPath: mappedPath1,
+			FsConfig: vfs.Filesystem{
+				OSConfig: sdk.OSFsConfig{
+					ReadBufferSize:  3,
+					WriteBufferSize: 5,
+				},
+			},
 		},
 		VirtualPath: "/vdir2",
 	})
@@ -1168,6 +1205,19 @@ func TestGroupSettingsOverride(t *testing.T) {
 			MappedPath: mappedPath2,
 		},
 		VirtualPath: "/vdir3",
+	})
+	g2.VirtualFolders = append(g2.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName3,
+			MappedPath: mappedPath3,
+			FsConfig: vfs.Filesystem{
+				OSConfig: sdk.OSFsConfig{
+					ReadBufferSize:  1,
+					WriteBufferSize: 2,
+				},
+			},
+		},
+		VirtualPath: "/vdir4",
 	})
 	group1, resp, err := httpdtest.AddGroup(g1, http.StatusCreated)
 	assert.NoError(t, err, string(resp))
@@ -1187,19 +1237,55 @@ func TestGroupSettingsOverride(t *testing.T) {
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	assert.Len(t, user.VirtualFolders, 0)
+	assert.Len(t, user.Permissions, 1)
 
 	user, err = dataprovider.CheckUserAndPass(defaultUsername, defaultPassword, "", common.ProtocolHTTP)
 	assert.NoError(t, err)
-	assert.Len(t, user.VirtualFolders, 3)
+
+	var folderNames []string
+	if assert.Len(t, user.VirtualFolders, 4) {
+		for _, f := range user.VirtualFolders {
+			if !util.Contains(folderNames, f.Name) {
+				folderNames = append(folderNames, f.Name)
+			}
+			switch f.Name {
+			case folderName1:
+				assert.Equal(t, mappedPath1, f.MappedPath)
+				assert.Equal(t, 3, f.BaseVirtualFolder.FsConfig.OSConfig.ReadBufferSize)
+				assert.Equal(t, 5, f.BaseVirtualFolder.FsConfig.OSConfig.WriteBufferSize)
+				assert.True(t, util.Contains([]string{"/vdir1", "/vdir2"}, f.VirtualPath))
+			case folderName2:
+				assert.Equal(t, mappedPath2, f.MappedPath)
+				assert.Equal(t, "/vdir3", f.VirtualPath)
+				assert.Equal(t, 0, f.BaseVirtualFolder.FsConfig.OSConfig.ReadBufferSize)
+				assert.Equal(t, 0, f.BaseVirtualFolder.FsConfig.OSConfig.WriteBufferSize)
+			case folderName3:
+				assert.Equal(t, mappedPath3, f.MappedPath)
+				assert.Equal(t, "/vdir4", f.VirtualPath)
+				assert.Equal(t, 1, f.BaseVirtualFolder.FsConfig.OSConfig.ReadBufferSize)
+				assert.Equal(t, 2, f.BaseVirtualFolder.FsConfig.OSConfig.WriteBufferSize)
+			}
+		}
+	}
+	assert.Len(t, folderNames, 3)
+	assert.Contains(t, folderNames, folderName1)
+	assert.Contains(t, folderNames, folderName2)
+	assert.Contains(t, folderNames, folderName3)
+	assert.Len(t, user.Permissions, 4)
+	assert.Equal(t, g1.UserSettings.Permissions["/dir1"], user.Permissions["/dir1"])
+	assert.Equal(t, g1.UserSettings.Permissions["/dir2"], user.Permissions["/dir2"])
+	assert.Equal(t, g2.UserSettings.Permissions["/dir3"], user.Permissions["/dir3"])
+	assert.Equal(t, g1.UserSettings.FsConfig.OSConfig.ReadBufferSize, user.FsConfig.OSConfig.ReadBufferSize)
+	assert.Equal(t, g1.UserSettings.FsConfig.OSConfig.WriteBufferSize, user.FsConfig.OSConfig.WriteBufferSize)
 
 	user, err = dataprovider.GetUserAfterIDPAuth(defaultUsername, "", common.ProtocolOIDC, nil)
 	assert.NoError(t, err)
-	assert.Len(t, user.VirtualFolders, 3)
+	assert.Len(t, user.VirtualFolders, 4)
 
 	user1, user2, err := dataprovider.GetUserVariants(defaultUsername, "")
 	assert.NoError(t, err)
 	assert.Len(t, user1.VirtualFolders, 0)
-	assert.Len(t, user2.VirtualFolders, 3)
+	assert.Len(t, user2.VirtualFolders, 4)
 	assert.Equal(t, int64(0), user1.ExpirationDate)
 	assert.Equal(t, int64(0), user2.ExpirationDate)
 
@@ -1225,7 +1311,7 @@ func TestGroupSettingsOverride(t *testing.T) {
 	assert.NoError(t, err)
 	user, err = dataprovider.CheckUserAndPass(defaultUsername, defaultPassword, "", common.ProtocolHTTP)
 	assert.NoError(t, err)
-	assert.Len(t, user.VirtualFolders, 3)
+	assert.Len(t, user.VirtualFolders, 4)
 	assert.Equal(t, sdk.LocalFilesystemProvider, user.FsConfig.Provider)
 	assert.Equal(t, int64(0), user.DownloadBandwidth)
 	assert.Equal(t, int64(0), user.UploadBandwidth)
@@ -1271,7 +1357,7 @@ func TestGroupSettingsOverride(t *testing.T) {
 	assert.NoError(t, err)
 	user, err = dataprovider.CheckUserAndPass(defaultUsername, defaultPassword, "", common.ProtocolHTTP)
 	assert.NoError(t, err)
-	assert.Len(t, user.VirtualFolders, 3)
+	assert.Len(t, user.VirtualFolders, 4)
 	assert.Equal(t, user.CreatedAt+int64(group1.UserSettings.ExpiresIn)*86400000, user.ExpirationDate)
 	assert.Equal(t, group1.UserSettings.Filters.PasswordStrength, user.Filters.PasswordStrength)
 	assert.Equal(t, sdk.SFTPFilesystemProvider, user.FsConfig.Provider)
@@ -1305,6 +1391,8 @@ func TestGroupSettingsOverride(t *testing.T) {
 	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName1}, http.StatusOK)
 	assert.NoError(t, err)
 	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName2}, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName3}, http.StatusOK)
 	assert.NoError(t, err)
 }
 
@@ -9869,7 +9957,60 @@ func TestSearchEvents(t *testing.T) {
 	}
 	exportFunc()
 
+	req, err = http.NewRequest(http.MethodGet, logEventsPath, nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	events = make([]map[string]any, 0)
+	err = json.Unmarshal(rr.Body.Bytes(), &events)
+	assert.NoError(t, err)
+	if assert.Len(t, events, 1) {
+		ev := events[0]
+		for _, field := range []string{"id", "timestamp", "event", "ip", "message", "role", "instance_id"} {
+			_, ok := ev[field]
+			assert.True(t, ok, field)
+		}
+	}
+	req, err = http.NewRequest(http.MethodGet, logEventsPath+"?events=a,1", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// CSV export
+	req, err = http.NewRequest(http.MethodGet, logEventsPath+"?csv_export=true", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Equal(t, "text/csv", rr.Header().Get("Content-Type"))
+	// the test eventsearcher plugin returns error if start_timestamp < 0
+	req, err = http.NewRequest(http.MethodGet, logEventsPath+"?start_timestamp=-1", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+	// CSV export with error
+	exportFunc = func() {
+		defer func() {
+			rcv := recover()
+			assert.Equal(t, http.ErrAbortHandler, rcv)
+		}()
+
+		req, err = http.NewRequest(http.MethodGet, logEventsPath+"?start_timestamp=-1&csv_export=true", nil)
+		assert.NoError(t, err)
+		setBearerForReq(req, token)
+		rr = executeRequest(req)
+	}
+	exportFunc()
+
 	req, err = http.NewRequest(http.MethodGet, providerEventsPath+"?limit=2000", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	req, err = http.NewRequest(http.MethodGet, logEventsPath+"?limit=2000", nil)
 	assert.NoError(t, err)
 	setBearerForReq(req, token)
 	rr = executeRequest(req)
@@ -12154,7 +12295,7 @@ func TestWebClientMaxConnections(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 
 	// now add a fake connection
-	fs := vfs.NewOsFs("id", os.TempDir(), "")
+	fs := vfs.NewOsFs("id", os.TempDir(), "", nil)
 	connection := &httpd.Connection{
 		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolHTTP, "", "", user),
 	}
@@ -12345,7 +12486,7 @@ func TestMaxSessions(t *testing.T) {
 	apiToken, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
 	// now add a fake connection
-	fs := vfs.NewOsFs("id", os.TempDir(), "")
+	fs := vfs.NewOsFs("id", os.TempDir(), "", nil)
 	connection := &httpd.Connection{
 		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolHTTP, "", "", user),
 	}
@@ -13454,7 +13595,7 @@ func TestShareMaxSessions(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	// add a fake connection
-	fs := vfs.NewOsFs("id", os.TempDir(), "")
+	fs := vfs.NewOsFs("id", os.TempDir(), "", nil)
 	connection := &httpd.Connection{
 		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolHTTP, "", "", user),
 	}
@@ -15831,6 +15972,105 @@ func TestWebFilesAPI(t *testing.T) {
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
+}
+
+func TestBufferedWebFilesAPI(t *testing.T) {
+	u := getTestUser()
+	u.FsConfig.OSConfig = sdk.OSFsConfig{
+		ReadBufferSize:  1,
+		WriteBufferSize: 1,
+	}
+	vdirPath := "/crypted"
+	mappedPath := filepath.Join(os.TempDir(), util.GenerateUniqueID())
+	folderName := filepath.Base(mappedPath)
+	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
+		BaseVirtualFolder: vfs.BaseVirtualFolder{
+			Name:       folderName,
+			MappedPath: mappedPath,
+			FsConfig: vfs.Filesystem{
+				Provider: sdk.CryptedFilesystemProvider,
+				CryptConfig: vfs.CryptFsConfig{
+					OSFsConfig: sdk.OSFsConfig{
+						WriteBufferSize: 3,
+						ReadBufferSize:  2,
+					},
+					Passphrase: kms.NewPlainSecret(defaultPassword),
+				},
+			},
+		},
+		VirtualPath: vdirPath,
+		QuotaFiles:  -1,
+		QuotaSize:   -1,
+	})
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	webAPIToken, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+
+	body := new(bytes.Buffer)
+	writer := multipart.NewWriter(body)
+	part1, err := writer.CreateFormFile("filenames", "file1.txt")
+	assert.NoError(t, err)
+	_, err = part1.Write([]byte("file1 content"))
+	assert.NoError(t, err)
+	err = writer.Close()
+	assert.NoError(t, err)
+	reader := bytes.NewReader(body.Bytes())
+
+	req, err := http.NewRequest(http.MethodPost, userFilesPath, reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	setBearerForReq(req, webAPIToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+
+	_, err = reader.Seek(0, io.SeekStart)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userFilesPath+"?path="+url.QueryEscape(vdirPath), reader)
+	assert.NoError(t, err)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+
+	req, err = http.NewRequest(http.MethodGet, userFilesPath+"?path=file1.txt", nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Equal(t, "file1 content", rr.Body.String())
+
+	req, err = http.NewRequest(http.MethodGet, userFilesPath+"?path="+url.QueryEscape(vdirPath+"/file1.txt"), nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Equal(t, "file1 content", rr.Body.String())
+
+	req, err = http.NewRequest(http.MethodGet, userFilesPath+"?path=file1.txt", nil)
+	assert.NoError(t, err)
+	req.Header.Set("Range", "bytes=2-")
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusPartialContent, rr)
+	assert.Equal(t, "le1 content", rr.Body.String())
+
+	req, err = http.NewRequest(http.MethodGet, userFilesPath+"?path="+url.QueryEscape(vdirPath+"/file1.txt"), nil)
+	assert.NoError(t, err)
+	req.Header.Set("Range", "bytes=3-6")
+	setBearerForReq(req, webAPIToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusPartialContent, rr)
+	assert.Equal(t, "e1 c", rr.Body.String())
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveFolder(vfs.BaseVirtualFolder{Name: folderName}, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(mappedPath)
+	assert.NoError(t, err)
 }
 
 func TestStartDirectory(t *testing.T) {
@@ -18955,6 +19195,8 @@ func TestWebUserAddMock(t *testing.T) {
 	form.Set("username", user.Username)
 	form.Set("email", user.Email)
 	form.Set("home_dir", user.HomeDir)
+	form.Set("osfs_read_buffer_size", "2")
+	form.Set("osfs_write_buffer_size", "3")
 	form.Set("password", user.Password)
 	form.Set("primary_group", group1.Name)
 	form.Set("secondary_groups", group2.Name)
@@ -19290,6 +19532,8 @@ func TestWebUserAddMock(t *testing.T) {
 	err = render.DecodeJSON(rr.Body, &newUser)
 	assert.NoError(t, err)
 	assert.Equal(t, user.UID, newUser.UID)
+	assert.Equal(t, 2, newUser.FsConfig.OSConfig.ReadBufferSize)
+	assert.Equal(t, 3, newUser.FsConfig.OSConfig.WriteBufferSize)
 	assert.Equal(t, user.UploadBandwidth, newUser.UploadBandwidth)
 	assert.Equal(t, user.DownloadBandwidth, newUser.DownloadBandwidth)
 	assert.Equal(t, user.UploadDataTransfer, newUser.UploadDataTransfer)
@@ -21034,6 +21278,8 @@ func TestWebUserCryptMock(t *testing.T) {
 	form.Set("denied_ip", "")
 	form.Set("fs_provider", "4")
 	form.Set("crypt_passphrase", "")
+	form.Set("cryptfs_read_buffer_size", "1")
+	form.Set("cryptfs_write_buffer_size", "2")
 	form.Set("pattern_path0", "/dir1")
 	form.Set("patterns0", "*.jpg,*.png")
 	form.Set("pattern_type0", "allowed")
@@ -21071,6 +21317,8 @@ func TestWebUserCryptMock(t *testing.T) {
 	assert.NotEmpty(t, updateUser.FsConfig.CryptConfig.Passphrase.GetPayload())
 	assert.Empty(t, updateUser.FsConfig.CryptConfig.Passphrase.GetKey())
 	assert.Empty(t, updateUser.FsConfig.CryptConfig.Passphrase.GetAdditionalData())
+	assert.Equal(t, 1, updateUser.FsConfig.CryptConfig.ReadBufferSize)
+	assert.Equal(t, 2, updateUser.FsConfig.CryptConfig.WriteBufferSize)
 	// now check that a redacted password is not saved
 	form.Set("crypt_passphrase", redactedSecret+" ")
 	b, contentType, _ = getMultipartFormData(form, "", "")
@@ -22583,6 +22831,8 @@ func TestAddWebFoldersMock(t *testing.T) {
 	form.Set("mapped_path", mappedPath)
 	form.Set("name", folderName)
 	form.Set("description", folderDesc)
+	form.Set("osfs_read_buffer_size", "3")
+	form.Set("osfs_write_buffer_size", "4")
 	b, contentType, err := getMultipartFormData(form, "", "")
 	assert.NoError(t, err)
 	req, err := http.NewRequest(http.MethodPost, webFolderPath, &b)
@@ -22636,6 +22886,8 @@ func TestAddWebFoldersMock(t *testing.T) {
 	assert.Equal(t, mappedPath, folder.MappedPath)
 	assert.Equal(t, folderName, folder.Name)
 	assert.Equal(t, folderDesc, folder.Description)
+	assert.Equal(t, 3, folder.FsConfig.OSConfig.ReadBufferSize)
+	assert.Equal(t, 4, folder.FsConfig.OSConfig.WriteBufferSize)
 	// cleanup
 	req, _ = http.NewRequest(http.MethodDelete, path.Join(folderPath, folderName), nil)
 	setBearerForReq(req, apiToken)

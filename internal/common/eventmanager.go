@@ -55,6 +55,7 @@ import (
 const (
 	ipBlockedEventName = "IP Blocked"
 	maxAttachmentsSize = int64(10 * 1024 * 1024)
+	objDataPlaceholder = "{{ObjectData}}"
 )
 
 // Supported IDP login events
@@ -776,11 +777,11 @@ func (p *EventParams) getStringReplacements(addObjectData, jsonEscaped bool) []s
 	} else {
 		replacements = append(replacements, "{{ErrorString}}", "")
 	}
-	replacements = append(replacements, "{{ObjectData}}", "")
+	replacements = append(replacements, objDataPlaceholder, "")
 	if addObjectData {
 		data, err := p.Object.RenderAsJSON(p.Event != operationDelete)
 		if err == nil {
-			replacements[len(replacements)-1] = string(data)
+			replacements[len(replacements)-1] = p.getStringReplacement(string(data), jsonEscaped)
 		}
 	}
 	if p.IDPCustomFields != nil {
@@ -1202,7 +1203,7 @@ func writeHTTPPart(m *multipart.Writer, part dataprovider.HTTPPart, h textproto.
 	}
 	if part.Body != "" {
 		cType := h.Get("Content-Type")
-		if strings.Contains(strings.ToLower(cType), "application/json") {
+		if part.Body != objDataPlaceholder && strings.Contains(strings.ToLower(cType), "application/json") {
 			replacements := params.getStringReplacements(addObjectData, true)
 			jsonReplacer := strings.NewReplacer(replacements...)
 			_, err = partWriter.Write([]byte(replaceWithReplacer(part.Body, jsonReplacer)))
@@ -1235,6 +1236,10 @@ func writeHTTPPart(m *multipart.Writer, part dataprovider.HTTPPart, h textproto.
 	return nil
 }
 
+func jsonEscapeRuleActionBody(c *dataprovider.EventActionHTTPConfig) bool {
+	return c.Body != objDataPlaceholder && c.HasJSONBody()
+}
+
 func getHTTPRuleActionBody(c *dataprovider.EventActionHTTPConfig, replacer *strings.Replacer,
 	cancel context.CancelFunc, user dataprovider.User, params *EventParams, addObjectData bool,
 ) (io.Reader, string, error) {
@@ -1250,7 +1255,7 @@ func getHTTPRuleActionBody(c *dataprovider.EventActionHTTPConfig, replacer *stri
 			}
 			return bytes.NewBuffer(data), "", nil
 		}
-		if c.HasJSONBody() {
+		if jsonEscapeRuleActionBody(c) {
 			replacements := params.getStringReplacements(addObjectData, true)
 			jsonReplacer := strings.NewReplacer(replacements...)
 			return bytes.NewBufferString(replaceWithReplacer(c.Body, jsonReplacer)), "", nil
@@ -1396,7 +1401,7 @@ func executeCommandRuleAction(c dataprovider.EventActionCommandConfig, params *E
 	addObjectData := false
 	if params.Object != nil {
 		for _, k := range c.EnvVars {
-			if strings.Contains(k.Value, "{{ObjectData}}") {
+			if strings.Contains(k.Value, objDataPlaceholder) {
 				addObjectData = true
 				break
 			}
@@ -1431,7 +1436,7 @@ func executeCommandRuleAction(c dataprovider.EventActionCommandConfig, params *E
 func executeEmailRuleAction(c dataprovider.EventActionEmailConfig, params *EventParams) error {
 	addObjectData := false
 	if params.Object != nil {
-		if strings.Contains(c.Body, "{{ObjectData}}") {
+		if strings.Contains(c.Body, objDataPlaceholder) {
 			addObjectData = true
 		}
 	}

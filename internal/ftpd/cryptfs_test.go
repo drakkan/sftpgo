@@ -136,6 +136,51 @@ func TestBasicFTPHandlingCryptFs(t *testing.T) {
 		50*time.Millisecond)
 }
 
+func TestBufferedCryptFs(t *testing.T) {
+	u := getTestUserWithCryptFs()
+	u.FsConfig.CryptConfig.OSFsConfig = sdk.OSFsConfig{
+		ReadBufferSize:  1,
+		WriteBufferSize: 1,
+	}
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	client, err := getFTPClient(user, true, nil)
+	if assert.NoError(t, err) {
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		testFileSize := int64(65535)
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+
+		err = checkBasicFTP(client)
+		assert.NoError(t, err)
+		err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
+		assert.NoError(t, err)
+		// overwrite an existing file
+		err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
+		assert.NoError(t, err)
+		localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
+		err = ftpDownloadFile(testFileName, localDownloadPath, testFileSize, client, 0)
+		assert.NoError(t, err)
+		info, err := os.Stat(localDownloadPath)
+		if assert.NoError(t, err) {
+			assert.Equal(t, testFileSize, info.Size())
+		}
+		err = os.Remove(testFilePath)
+		assert.NoError(t, err)
+		err = os.Remove(localDownloadPath)
+		assert.NoError(t, err)
+		err = client.Quit()
+		assert.NoError(t, err)
+	}
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	assert.Eventually(t, func() bool { return len(common.Connections.GetStats("")) == 0 }, 1*time.Second, 50*time.Millisecond)
+	assert.Eventually(t, func() bool { return common.Connections.GetClientConnections() == 0 }, 1000*time.Millisecond,
+		50*time.Millisecond)
+}
+
 func TestZeroBytesTransfersCryptFs(t *testing.T) {
 	u := getTestUserWithCryptFs()
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)

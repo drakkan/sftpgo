@@ -2083,7 +2083,16 @@ func TestResume(t *testing.T) {
 	assert.NoError(t, err)
 	sftpUser, _, err := httpdtest.AddUser(getTestSFTPUser(), http.StatusCreated)
 	assert.NoError(t, err)
-	for _, user := range []dataprovider.User{localUser, sftpUser} {
+	u = getTestUser()
+	u.FsConfig.OSConfig = sdk.OSFsConfig{
+		ReadBufferSize:  1,
+		WriteBufferSize: 1,
+	}
+	u.Username += "_buf"
+	u.HomeDir += "_buf"
+	bufferedUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+	for _, user := range []dataprovider.User{localUser, sftpUser, bufferedUser} {
 		client, err := getFTPClient(user, true, nil)
 		if assert.NoError(t, err) {
 			testFilePath := filepath.Join(homeBasePath, testFileName)
@@ -2165,6 +2174,10 @@ func TestResume(t *testing.T) {
 	_, err = httpdtest.RemoveUser(localUser, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(localUser.GetHomeDir())
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(bufferedUser, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(bufferedUser.GetHomeDir())
 	assert.NoError(t, err)
 }
 

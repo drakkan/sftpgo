@@ -13,8 +13,10 @@ Available Commands:
   gen            A collection of useful generators
   help           Help about any command
   initprovider   Initialize and/or updates the configured data provider
+  ping           Issues an health check to SFTPGo
   portable       Serve a single directory/account
   resetprovider  Reset the configured provider, any data will be lost
+  resetpwd       Reset the password for the specified administrator
   revertprovider Revert the configured data provider to a previous version
   serve          Start the SFTPGo service
   smtptest       Test the SMTP configuration
@@ -24,7 +26,7 @@ Flags:
   -h, --help      help for sftpgo
   -v, --version
 
- Use "sftpgo [command] --help" for more information about a command
+Use "sftpgo [command] --help" for more information about a command.
 ```
 
 The `serve` command supports the following flags:
@@ -113,7 +115,7 @@ The configuration file contains the following sections:
 - **"acme"**, Automatic Certificate Management Environment (ACME) protocol configuration. To obtain the certificates the first time you have to configure the ACME protocol and execute the `sftpgo acme run` command. The SFTPGo service will take care of the automatic renewal of certificates for the configured domains.
   - `domains`, list of domains for which to obtain certificates. If a single certificate is to be valid for multiple domains specify the names separated by commas or spaces, for example: `example.com,www.example.com` or `example.com www.example.com`. An empty list means that ACME protocol is disabled. Default: empty.
   - `email`, string. Email used for registration and recovery contact. Default: empty.
-  - `key_type`, string. Key type to use for private keys. Supported values: `2048` (RSA 2048), `4096` (RSA 4096), `8192` (RSA 8192), `P256` (EC 256), `P384` (EC 384). Default: `4096`
+  - `key_type`, string. Key type to use for private keys. Supported values: `2048` (RSA 2048), `3072` (RSA 3072), `4096` (RSA 4096), `8192` (RSA 8192), `P256` (EC 256), `P384` (EC 384). Default: `4096`
   - `certs_path`, string. Directory, absolute or relative to the configuration directory, to use for storing certificates and related data.
   - `ca_endpoint`, string. Default: `https://acme-v02.api.letsencrypt.org/directory`.
   - `renew_days`, integer. The number of days left on a certificate to renew it. Default: `30`.
@@ -465,6 +467,7 @@ The configuration file contains the following sections:
     - `fs_events`, list of strings. Defines the filesystem events that will be notified to this plugin.
     - `provider_events`, list of strings. Defines the provider events that will be notified to this plugin.
     - `provider_objects`, list if strings. Defines the provider objects that will be notified to this plugin.
+    - `log_events`, list of integers. Defines the log events that will be notified to this plugin. `1` means "Login failed", `2` means "Login with non-existent user", `3` means "No login tried", `4` means "Algorithm negotiation failed".
     - `retry_max_time`, integer. Defines the maximum number of seconds an event can be late. SFTPGo adds a timestamp to each event and add to an internal queue any events that a the plugin fails to handle (the plugin returns an error or it is not running). If a plugin fails to handle an event that is too late, based on this configuration, it will be discarded. SFTPGo will try to resend queued events every 30 seconds. 0 means no retry.
     - `retry_queue_max_size`, integer. Defines the maximum number of events that the internal queue can hold. Once the queue is full, the events that cannot be sent to the plugin will be discarded. 0 means no limit.
   - `kms_options`, struct. Defines the options for kms plugins.

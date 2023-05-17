@@ -2,7 +2,7 @@
 
 Using groups simplifies the administration of multiple accounts by letting you assign settings once to a group, instead of multiple times to each individual user.
 
-SFTPGo supports two types of groups:
+SFTPGo supports the following types of groups:
 
 - primary groups
 - secondary groups

@@ -964,6 +964,21 @@ func getNotifierPluginFromEnv(idx int, pluginConfig *plugin.Config) bool {
 		isSet = true
 	}
 
+	notifierLogEventsString, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__NOTIFIER_OPTIONS__LOG_EVENTS", idx))
+	if ok {
+		var notifierLogEvents []int
+		for _, e := range notifierLogEventsString {
+			ev, err := strconv.Atoi(e)
+			if err == nil {
+				notifierLogEvents = append(notifierLogEvents, ev)
+			}
+		}
+		if len(notifierLogEvents) > 0 {
+			pluginConfig.NotifierOptions.LogEvents = notifierLogEvents
+			isSet = true
+		}
+	}
+
 	notifierRetryMaxTime, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__NOTIFIER_OPTIONS__RETRY_MAX_TIME", idx), 0)
 	if ok {
 		pluginConfig.NotifierOptions.RetryMaxTime = int(notifierRetryMaxTime)

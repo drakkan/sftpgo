@@ -159,8 +159,8 @@ var (
 		LoginMethodTLSCertificate, LoginMethodTLSCertificateAndPwd}
 	// SSHMultiStepsLoginMethods defines the supported Multi-Step Authentications
 	SSHMultiStepsLoginMethods = []string{SSHLoginMethodKeyAndPassword, SSHLoginMethodKeyAndKeyboardInt}
-	// ErrNoAuthTryed defines the error for connection closed before authentication
-	ErrNoAuthTryed = errors.New("no auth tryed")
+	// ErrNoAuthTried defines the error for connection closed before authentication
+	ErrNoAuthTried = errors.New("no auth tried")
 	// ErrNotImplemented defines the error for features not supported for a particular data provider
 	ErrNotImplemented = errors.New("feature not supported with the configured data provider")
 	// ValidProtocols defines all the valid protcols
@@ -2622,11 +2622,12 @@ func getVirtualFolderIfInvalid(folder *vfs.BaseVirtualFolder) *vfs.BaseVirtualFo
 	if err := ValidateFolder(folder); err == nil {
 		return folder
 	}
-	// we try to get the folder from the data provider if only the Name is populated
-	if folder.MappedPath != "" {
+	if folder.Name == "" {
 		return folder
 	}
-	if folder.Name == "" {
+	// we try to get the folder from the data provider if only the Name is populated
+	// so if MappedPath or Provider are set just return
+	if folder.MappedPath != "" {
 		return folder
 	}
 	if folder.FsConfig.Provider != sdk.LocalFilesystemProvider {

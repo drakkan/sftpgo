@@ -91,6 +91,7 @@ const (
 	metadataChecksPath                    = "/api/v2/metadata/users/checks"
 	fsEventsPath                          = "/api/v2/events/fs"
 	providerEventsPath                    = "/api/v2/events/provider"
+	logEventsPath                         = "/api/v2/events/logs"
 	sharesPath                            = "/api/v2/shares"
 	eventActionsPath                      = "/api/v2/eventactions"
 	eventRulesPath                        = "/api/v2/eventrules"
@@ -148,6 +149,7 @@ const (
 	webEventsPathDefault                  = "/web/admin/events"
 	webEventsFsSearchPathDefault          = "/web/admin/events/fs"
 	webEventsProviderSearchPathDefault    = "/web/admin/events/provider"
+	webEventsLogSearchPathDefault         = "/web/admin/events/logs"
 	webConfigsPathDefault                 = "/web/admin/configs"
 	webClientLoginPathDefault             = "/web/client/login"
 	webClientOIDCLoginPathDefault         = "/web/client/oidclogin"
@@ -243,6 +245,7 @@ var (
 	webEventsPath                  string
 	webEventsFsSearchPath          string
 	webEventsProviderSearchPath    string
+	webEventsLogSearchPath         string
 	webConfigsPath                 string
 	webDefenderHostsPath           string
 	webClientLoginPath             string
@@ -1142,6 +1145,7 @@ func updateWebAdminURLs(baseURL string) {
 	webEventsPath = path.Join(baseURL, webEventsPathDefault)
 	webEventsFsSearchPath = path.Join(baseURL, webEventsFsSearchPathDefault)
 	webEventsProviderSearchPath = path.Join(baseURL, webEventsProviderSearchPathDefault)
+	webEventsLogSearchPath = path.Join(baseURL, webEventsLogSearchPathDefault)
 	webConfigsPath = path.Join(baseURL, webConfigsPathDefault)
 	webStaticFilesPath = path.Join(baseURL, webStaticFilesPathDefault)
 	webOpenAPIPath = path.Join(baseURL, webOpenAPIPathDefault)

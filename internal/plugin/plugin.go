@@ -291,15 +291,38 @@ func (m *Manager) NotifyProviderEvent(event *notifier.ProviderEvent, object Rend
 	}
 }
 
+// NotifyLogEvent sends the log event notifications using any defined notifier plugins
+func (m *Manager) NotifyLogEvent(event notifier.LogEventType, protocol, username, ip, role string, err error) {
+	if !m.hasNotifiers {
+		return
+	}
+	m.notifLock.RLock()
+	defer m.notifLock.RUnlock()
+
+	e := &notifier.LogEvent{
+		Timestamp: time.Now().UnixNano(),
+		Event:     event,
+		Protocol:  protocol,
+		Username:  username,
+		IP:        ip,
+		Message:   err.Error(),
+		Role:      role,
+	}
+
+	for _, n := range m.notifiers {
+		n.notifyLogEvent(e)
+	}
+}
+
 // HasSearcher returns true if an event searcher plugin is defined
 func (m *Manager) HasSearcher() bool {
 	return m.hasSearcher
 }
 
 // SearchFsEvents returns the filesystem events matching the specified filters
-func (m *Manager) SearchFsEvents(searchFilters *eventsearcher.FsEventSearch) ([]byte, []string, []string, error) {
+func (m *Manager) SearchFsEvents(searchFilters *eventsearcher.FsEventSearch) ([]byte, error) {
 	if !m.hasSearcher {
-		return nil, nil, nil, ErrNoSearcher
+		return nil, ErrNoSearcher
 	}
 	m.searcherLock.RLock()
 	plugin := m.searcher
@@ -309,15 +332,27 @@ func (m *Manager) SearchFsEvents(searchFilters *eventsearcher.FsEventSearch) ([]
 }
 
 // SearchProviderEvents returns the provider events matching the specified filters
-func (m *Manager) SearchProviderEvents(searchFilters *eventsearcher.ProviderEventSearch) ([]byte, []string, []string, error) {
+func (m *Manager) SearchProviderEvents(searchFilters *eventsearcher.ProviderEventSearch) ([]byte, error) {
 	if !m.hasSearcher {
-		return nil, nil, nil, ErrNoSearcher
+		return nil, ErrNoSearcher
 	}
 	m.searcherLock.RLock()
 	plugin := m.searcher
 	m.searcherLock.RUnlock()
 
 	return plugin.searchear.SearchProviderEvents(searchFilters)
+}
+
+// SearchLogEvents returns the log events matching the specified filters
+func (m *Manager) SearchLogEvents(searchFilters *eventsearcher.LogEventSearch) ([]byte, error) {
+	if !m.hasSearcher {
+		return nil, ErrNoSearcher
+	}
+	m.searcherLock.RLock()
+	plugin := m.searcher
+	m.searcherLock.RUnlock()
+
+	return plugin.searchear.SearchLogEvents(searchFilters)
 }
 
 // HasMetadater returns true if a metadata plugin is defined

@@ -708,7 +708,7 @@ func TestEventRuleActions(t *testing.T) {
 			HTTPConfig: dataprovider.EventActionHTTPConfig{
 				Endpoint:      "http://foo\x7f.com/", // invalid URL
 				SkipTLSVerify: true,
-				Body:          "{{ObjectData}}",
+				Body:          `"data": "{{ObjectData}}"`,
 				Method:        http.MethodPost,
 				QueryParameters: []dataprovider.KeyValue{
 					{

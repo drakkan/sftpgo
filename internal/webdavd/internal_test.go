@@ -327,7 +327,7 @@ func (fs *MockOsFs) GetMimeType(_ string) (string, error) {
 
 func newMockOsFs(atomicUpload bool, connectionID, rootDir string, reader *pipeat.PipeReaderAt, err error) vfs.Fs {
 	return &MockOsFs{
-		Fs:                      vfs.NewOsFs(connectionID, rootDir, ""),
+		Fs:                      vfs.NewOsFs(connectionID, rootDir, "", nil),
 		isAtomicUploadSupported: atomicUpload,
 		reader:                  reader,
 		err:                     err,
@@ -484,7 +484,7 @@ func TestResolvePathErrors(t *testing.T) {
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
-	fs := vfs.NewOsFs("connID", user.HomeDir, "")
+	fs := vfs.NewOsFs("connID", user.HomeDir, "", nil)
 	connection := &Connection{
 		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolWebDAV, "", "", user),
 	}
@@ -517,7 +517,7 @@ func TestResolvePathErrors(t *testing.T) {
 	if runtime.GOOS != "windows" {
 		user.HomeDir = filepath.Clean(os.TempDir())
 		connection.User = user
-		fs := vfs.NewOsFs("connID", connection.User.HomeDir, "")
+		fs := vfs.NewOsFs("connID", connection.User.HomeDir, "", nil)
 		subDir := "sub"
 		testTxtFile := "file.txt"
 		err = os.MkdirAll(filepath.Join(os.TempDir(), subDir, subDir), os.ModePerm)
@@ -555,7 +555,7 @@ func TestFileAccessErrors(t *testing.T) {
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
-	fs := vfs.NewOsFs("connID", user.HomeDir, "")
+	fs := vfs.NewOsFs("connID", user.HomeDir, "", nil)
 	connection := &Connection{
 		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolWebDAV, "", "", user),
 	}
@@ -648,7 +648,7 @@ func TestCheckRequestMethodWithPrefix(t *testing.T) {
 			},
 		},
 	}
-	fs := vfs.NewOsFs("connID", user.HomeDir, "")
+	fs := vfs.NewOsFs("connID", user.HomeDir, "", nil)
 	connection := &Connection{
 		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolWebDAV, "", "", user),
 	}
@@ -672,7 +672,7 @@ func TestContentType(t *testing.T) {
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
-	fs := vfs.NewOsFs("connID", user.HomeDir, "")
+	fs := vfs.NewOsFs("connID", user.HomeDir, "", nil)
 	connection := &Connection{
 		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolWebDAV, "", "", user),
 	}
@@ -699,7 +699,7 @@ func TestContentType(t *testing.T) {
 	baseTransfer = common.NewBaseTransfer(nil, connection.BaseConnection, nil, testFilePath, testFilePath, testFile+".unknown1",
 		common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{})
 	davFile = newWebDavFile(baseTransfer, nil, nil)
-	davFile.Fs = vfs.NewOsFs("id", user.HomeDir, "")
+	davFile.Fs = vfs.NewOsFs("id", user.HomeDir, "", nil)
 	fi, err = davFile.Stat()
 	if assert.NoError(t, err) {
 		ctype, err := fi.(*webDavFileInfo).ContentType(ctx)
@@ -712,7 +712,7 @@ func TestContentType(t *testing.T) {
 	baseTransfer = common.NewBaseTransfer(nil, connection.BaseConnection, nil, testFilePath, testFilePath, testFile,
 		common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{})
 	davFile = newWebDavFile(baseTransfer, nil, nil)
-	davFile.Fs = vfs.NewOsFs("id", user.HomeDir, "")
+	davFile.Fs = vfs.NewOsFs("id", user.HomeDir, "", nil)
 	fi, err = davFile.Stat()
 	if assert.NoError(t, err) {
 		ctype, err := fi.(*webDavFileInfo).ContentType(ctx)
@@ -727,7 +727,7 @@ func TestContentType(t *testing.T) {
 		baseTransfer = common.NewBaseTransfer(nil, connection.BaseConnection, nil, testFilePath, testFilePath, testFile+".custom",
 			common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{})
 		davFile = newWebDavFile(baseTransfer, nil, nil)
-		davFile.Fs = vfs.NewOsFs("id", user.HomeDir, "")
+		davFile.Fs = vfs.NewOsFs("id", user.HomeDir, "", nil)
 		fi, err = davFile.Stat()
 		if assert.NoError(t, err) {
 			ctype, err := fi.(*webDavFileInfo).ContentType(ctx)
@@ -781,7 +781,7 @@ func TestTransferReadWriteErrors(t *testing.T) {
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
-	fs := vfs.NewOsFs("connID", user.HomeDir, "")
+	fs := vfs.NewOsFs("connID", user.HomeDir, "", nil)
 	connection := &Connection{
 		BaseConnection: common.NewBaseConnection(fs.ConnectionID(), common.ProtocolWebDAV, "", "", user),
 	}
@@ -937,7 +937,7 @@ func TestTransferSeek(t *testing.T) {
 	assert.True(t, fs.IsNotExist(err))
 	davFile.Connection.RemoveTransfer(davFile.BaseTransfer)
 
-	fs = vfs.NewOsFs(fs.ConnectionID(), user.GetHomeDir(), "")
+	fs = vfs.NewOsFs(fs.ConnectionID(), user.GetHomeDir(), "", nil)
 	baseTransfer = common.NewBaseTransfer(nil, connection.BaseConnection, nil, testFilePath+"1", testFilePath+"1", testFile,
 		common.TransferDownload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{AllowedTotalSize: 100})
 	davFile = newWebDavFile(baseTransfer, nil, nil)
@@ -1609,6 +1609,15 @@ func TestMisc(t *testing.T) {
 	assert.Empty(t, val)
 
 	certMgr = oldCertMgr
+}
+
+func TestParseTime(t *testing.T) {
+	res, err := parseTime("Sat, 4 Feb 2023 17:00:50 GMT")
+	require.NoError(t, err)
+	require.Equal(t, int64(1675530050), res.Unix())
+	res, err = parseTime("Wed, 04 Nov 2020 13:25:51 GMT")
+	require.NoError(t, err)
+	require.Equal(t, int64(1604496351), res.Unix())
 }
 
 func TestConfigsFromProvider(t *testing.T) {

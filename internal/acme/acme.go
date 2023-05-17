@@ -68,6 +68,7 @@ var (
 		string(certcrypto.EC256),
 		string(certcrypto.EC384),
 		string(certcrypto.RSA2048),
+		string(certcrypto.RSA3072),
 		string(certcrypto.RSA4096),
 		string(certcrypto.RSA8192),
 	}

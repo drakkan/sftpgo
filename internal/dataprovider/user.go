@@ -76,7 +76,7 @@ const (
 
 // Available login methods
 const (
-	LoginMethodNoAuthTryed            = "no_auth_tryed"
+	LoginMethodNoAuthTried            = "no_auth_tried"
 	LoginMethodPassword               = "password"
 	SSHLoginMethodPassword            = "password-over-SSH"
 	SSHLoginMethodPublicKey           = "publickey"
@@ -173,7 +173,7 @@ func (u *User) getRootFs(connectionID string) (fs vfs.Fs, err error) {
 	case sdk.HTTPFilesystemProvider:
 		return vfs.NewHTTPFs(connectionID, u.GetHomeDir(), "", u.FsConfig.HTTPConfig)
 	default:
-		return vfs.NewOsFs(connectionID, u.GetHomeDir(), ""), nil
+		return vfs.NewOsFs(connectionID, u.GetHomeDir(), "", &u.FsConfig.OSConfig), nil
 	}
 }
 
@@ -218,7 +218,7 @@ func (u *User) checkLocalHomeDir(connectionID string) {
 	case sdk.LocalFilesystemProvider, sdk.CryptedFilesystemProvider:
 		return
 	default:
-		osFs := vfs.NewOsFs(connectionID, u.GetHomeDir(), "")
+		osFs := vfs.NewOsFs(connectionID, u.GetHomeDir(), "", nil)
 		osFs.CheckRootPath(u.Username, u.GetUID(), u.GetGID())
 	}
 }
@@ -1631,7 +1631,7 @@ func (u *User) applyGroupSettings(groupsMapping map[string]Group) {
 	for _, g := range u.Groups {
 		if g.Type == sdk.GroupTypePrimary {
 			if group, ok := groupsMapping[g.Name]; ok {
-				u.mergeWithPrimaryGroup(group, replacer)
+				u.mergeWithPrimaryGroup(&group, replacer)
 			} else {
 				providerLog(logger.LevelError, "mapping not found for user %s, group %s", u.Username, g.Name)
 			}
@@ -1641,7 +1641,7 @@ func (u *User) applyGroupSettings(groupsMapping map[string]Group) {
 	for _, g := range u.Groups {
 		if g.Type == sdk.GroupTypeSecondary {
 			if group, ok := groupsMapping[g.Name]; ok {
-				u.mergeAdditiveProperties(group, sdk.GroupTypeSecondary, replacer)
+				u.mergeAdditiveProperties(&group, sdk.GroupTypeSecondary, replacer)
 			} else {
 				providerLog(logger.LevelError, "mapping not found for user %s, group %s", u.Username, g.Name)
 			}
@@ -1674,17 +1674,19 @@ func (u *User) LoadAndApplyGroupSettings() error {
 	}
 	replacer := u.getGroupPlacehodersReplacer()
 	// make sure to always merge with the primary group first
-	for idx, g := range groups {
+	for idx := range groups {
+		g := groups[idx]
 		if g.Name == primaryGroupName {
-			u.mergeWithPrimaryGroup(g, replacer)
+			u.mergeWithPrimaryGroup(&g, replacer)
 			lastIdx := len(groups) - 1
 			groups[idx] = groups[lastIdx]
 			groups = groups[:lastIdx]
 			break
 		}
 	}
-	for _, g := range groups {
-		u.mergeAdditiveProperties(g, sdk.GroupTypeSecondary, replacer)
+	for idx := range groups {
+		g := groups[idx]
+		u.mergeAdditiveProperties(&g, sdk.GroupTypeSecondary, replacer)
 	}
 	u.removeDuplicatesAfterGroupMerge()
 	return nil
@@ -1718,12 +1720,31 @@ func (u *User) replaceFsConfigPlaceholders(fsConfig vfs.Filesystem, replacer *st
 	return fsConfig
 }
 
-func (u *User) mergeWithPrimaryGroup(group Group, replacer *strings.Replacer) {
+func (u *User) mergeCryptFsConfig(group *Group) {
+	if group.UserSettings.FsConfig.Provider == sdk.CryptedFilesystemProvider {
+		if u.FsConfig.CryptConfig.ReadBufferSize == 0 {
+			u.FsConfig.CryptConfig.ReadBufferSize = group.UserSettings.FsConfig.CryptConfig.ReadBufferSize
+		}
+		if u.FsConfig.CryptConfig.WriteBufferSize == 0 {
+			u.FsConfig.CryptConfig.WriteBufferSize = group.UserSettings.FsConfig.CryptConfig.WriteBufferSize
+		}
+	}
+}
+
+func (u *User) mergeWithPrimaryGroup(group *Group, replacer *strings.Replacer) {
 	if group.UserSettings.HomeDir != "" {
 		u.HomeDir = u.replacePlaceholder(group.UserSettings.HomeDir, replacer)
 	}
 	if group.UserSettings.FsConfig.Provider != 0 {
 		u.FsConfig = u.replaceFsConfigPlaceholders(group.UserSettings.FsConfig, replacer)
+		u.mergeCryptFsConfig(group)
+	} else {
+		if u.FsConfig.OSConfig.ReadBufferSize == 0 {
+			u.FsConfig.OSConfig.ReadBufferSize = group.UserSettings.FsConfig.OSConfig.ReadBufferSize
+		}
+		if u.FsConfig.OSConfig.WriteBufferSize == 0 {
+			u.FsConfig.OSConfig.WriteBufferSize = group.UserSettings.FsConfig.OSConfig.WriteBufferSize
+		}
 	}
 	if u.MaxSessions == 0 {
 		u.MaxSessions = group.UserSettings.MaxSessions
@@ -1748,11 +1769,11 @@ func (u *User) mergeWithPrimaryGroup(group Group, replacer *strings.Replacer) {
 	if u.ExpirationDate == 0 && group.UserSettings.ExpiresIn > 0 {
 		u.ExpirationDate = u.CreatedAt + int64(group.UserSettings.ExpiresIn)*86400000
 	}
-	u.mergePrimaryGroupFilters(group.UserSettings.Filters, replacer)
+	u.mergePrimaryGroupFilters(&group.UserSettings.Filters, replacer)
 	u.mergeAdditiveProperties(group, sdk.GroupTypePrimary, replacer)
 }
 
-func (u *User) mergePrimaryGroupFilters(filters sdk.BaseUserFilters, replacer *strings.Replacer) {
+func (u *User) mergePrimaryGroupFilters(filters *sdk.BaseUserFilters, replacer *strings.Replacer) {
 	if u.Filters.MaxUploadFileSize == 0 {
 		u.Filters.MaxUploadFileSize = filters.MaxUploadFileSize
 	}
@@ -1797,7 +1818,7 @@ func (u *User) mergePrimaryGroupFilters(filters sdk.BaseUserFilters, replacer *s
 	}
 }
 
-func (u *User) mergeAdditiveProperties(group Group, groupType int, replacer *strings.Replacer) {
+func (u *User) mergeAdditiveProperties(group *Group, groupType int, replacer *strings.Replacer) {
 	u.mergeVirtualFolders(group, groupType, replacer)
 	u.mergePermissions(group, groupType, replacer)
 	u.mergeFilePatterns(group, groupType, replacer)
@@ -1811,7 +1832,7 @@ func (u *User) mergeAdditiveProperties(group Group, groupType int, replacer *str
 	u.Filters.TwoFactorAuthProtocols = append(u.Filters.TwoFactorAuthProtocols, group.UserSettings.Filters.TwoFactorAuthProtocols...)
 }
 
-func (u *User) mergeVirtualFolders(group Group, groupType int, replacer *strings.Replacer) {
+func (u *User) mergeVirtualFolders(group *Group, groupType int, replacer *strings.Replacer) {
 	if len(group.VirtualFolders) > 0 {
 		folderPaths := make(map[string]bool)
 		for _, folder := range u.VirtualFolders {
@@ -1831,7 +1852,7 @@ func (u *User) mergeVirtualFolders(group Group, groupType int, replacer *strings
 	}
 }
 
-func (u *User) mergePermissions(group Group, groupType int, replacer *strings.Replacer) {
+func (u *User) mergePermissions(group *Group, groupType int, replacer *strings.Replacer) {
 	for k, v := range group.UserSettings.Permissions {
 		if k == "/" {
 			if groupType == sdk.GroupTypePrimary {
@@ -1847,7 +1868,7 @@ func (u *User) mergePermissions(group Group, groupType int, replacer *strings.Re
 	}
 }
 
-func (u *User) mergeFilePatterns(group Group, groupType int, replacer *strings.Replacer) {
+func (u *User) mergeFilePatterns(group *Group, groupType int, replacer *strings.Replacer) {
 	if len(group.UserSettings.Filters.FilePatterns) > 0 {
 		patternPaths := make(map[string]bool)
 		for _, pattern := range u.Filters.FilePatterns {

@@ -44,6 +44,7 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/rs/xid"
 	"github.com/sftpgo/sdk"
+	"github.com/sftpgo/sdk/plugin/notifier"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -782,6 +783,11 @@ func TestInvalidToken(t *testing.T) {
 
 	rr = httptest.NewRecorder()
 	searchProviderEvents(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+
+	rr = httptest.NewRecorder()
+	searchLogEvents(rr, req)
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), "Invalid token claims")
 
@@ -3222,6 +3228,14 @@ func TestHTTPSRedirect(t *testing.T) {
 
 	err = os.RemoveAll(acmeWebRoot)
 	assert.NoError(t, err)
+}
+
+func TestGetLogEventString(t *testing.T) {
+	assert.Equal(t, "Login failed", getLogEventString(notifier.LogEventTypeLoginFailed))
+	assert.Equal(t, "Login with non-existent user", getLogEventString(notifier.LogEventTypeLoginNoUser))
+	assert.Equal(t, "No login tried", getLogEventString(notifier.LogEventTypeNoLoginTried))
+	assert.Equal(t, "Algorithm negotiation failed", getLogEventString(notifier.LogEventTypeNotNegotiated))
+	assert.Empty(t, getLogEventString(0))
 }
 
 func isSharedProviderSupported() bool {

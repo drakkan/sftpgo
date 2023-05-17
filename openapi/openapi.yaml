@@ -29,7 +29,7 @@ info:
     SFTPGo supports groups to simplify the administration of multiple accounts by letting you assign settings once to a group, instead of multiple times to each individual user.
     The SFTPGo WebClient allows end users to change their credentials, browse and manage their files in the browser and setup two-factor authentication which works with Authy, Google Authenticator and other compatible apps.
     From the WebClient each authorized user can also create HTTP/S links to externally share files and folders securely, by setting limits to the number of downloads/uploads, protecting the share with a password, limiting access by source IP address, setting an automatic expiration date.
-  version: 2.4.5-dev
+  version: 2.5.0-dev
   contact:
     name: API support
     url: 'https://github.com/drakkan/sftpgo'
@@ -2594,13 +2594,10 @@ paths:
           explode: false
           required: false
         - in: query
-          name: exclude_ids
+          name: from_id
           schema:
-            type: array
-            items:
-              type: string
-          description: 'the event id must not be included among those specified. This is useful for cursor based pagination. Empty or missing means omit this filter. Values must be specified comma separated'
-          explode: false
+            type: string
+          description: 'the event id to start from. This is useful for cursor based pagination. Empty or missing means omit this filter.'
           required: false
         - in: query
           name: role
@@ -2728,13 +2725,10 @@ paths:
           explode: false
           required: false
         - in: query
-          name: exclude_ids
+          name: from_id
           schema:
-            type: array
-            items:
-              type: string
-          description: 'the event id must not be included among those specified. This is useful for cursor based pagination. Empty or missing means omit this filter. Values must be specified comma separated'
-          explode: false
+            type: string
+          description: 'the event id to start from. This is useful for cursor based pagination. Empty or missing means omit this filter.'
           required: false
         - in: query
           name: role
@@ -2784,6 +2778,131 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/ProviderEvent'
+            text/csv:
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        default:
+          $ref: '#/components/responses/DefaultResponse'
+  /events/log:
+    get:
+      tags:
+        - events
+      summary: Get log events
+      description: 'Returns an array with one or more log events applying the specified filters. This API is only available if you configure an "eventsearcher" plugin'
+      operationId: get_log_events
+      parameters:
+        - in: query
+          name: start_timestamp
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+            default: 0
+          required: false
+          description: 'the event timestamp, unix timestamp in nanoseconds, must be greater than or equal to the specified one. 0 or missing means omit this filter'
+        - in: query
+          name: end_timestamp
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+            default: 0
+          required: false
+          description: 'the event timestamp, unix timestamp in nanoseconds, must be less than or equal to the specified one. 0 or missing means omit this filter'
+        - in: query
+          name: events
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/LogEventType'
+          description: 'the log events must be included among those specified. Empty or missing means omit this filter. Events must be specified comma separated'
+          explode: false
+          required: false
+        - in: query
+          name: username
+          schema:
+            type: string
+          description: 'the event username must be the same as the one specified. Empty or missing means omit this filter'
+          required: false
+        - in: query
+          name: ip
+          schema:
+            type: string
+          description: 'the event IP must be the same as the one specified. Empty or missing means omit this filter'
+          required: false
+        - in: query
+          name: protocols
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/EventProtocols'
+          description: 'the event protocol must be included among those specified. Empty or missing means omit this filter. Values must be specified comma separated'
+          explode: false
+          required: false
+        - in: query
+          name: instance_ids
+          schema:
+            type: array
+            items:
+              type: string
+          description: 'the event instance id must be included among those specified. Empty or missing means omit this filter. Values must be specified comma separated'
+          explode: false
+          required: false
+        - in: query
+          name: from_id
+          schema:
+            type: string
+          description: 'the event id to start from. This is useful for cursor based pagination. Empty or missing means omit this filter.'
+          required: false
+        - in: query
+          name: role
+          schema:
+            type: string
+          description: 'User role. Empty or missing means omit this filter. Ignored if the admin has a role'
+          required: false
+        - in: query
+          name: csv_export
+          schema:
+            type: boolean
+            default: false
+          required: false
+          description: 'If enabled, events are exported as a CSV file'
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+          required: false
+          description: 'The maximum number of items to return. Max value is 1000, default is 100'
+        - in: query
+          name: order
+          required: false
+          description: Ordering events by timestamp. Default DESC
+          schema:
+            type: string
+            enum:
+              - ASC
+              - DESC
+            example: DESC
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json; charset=utf-8:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LogEvent'
             text/csv:
               schema:
                 type: string
@@ -5143,6 +5262,19 @@ components:
         - roles
         - ip_lists
         - configs
+    LogEventType:
+      type: integer
+      enum:
+        - 1
+        - 2
+        - 3
+        - 4
+      description: >
+        Event status:
+          * `1` - Login failed
+          * `2` - Login failed non-existent user
+          * `3` - No login tried
+          * `4` - Algorithm negotiation failed
     FsEventStatus:
       type: integer
       enum:
@@ -5597,11 +5729,34 @@ components:
         use_emulator:
           type: boolean
       description: Azure Blob Storage configuration details
+    OSFsConfig:
+      type: object
+      properties:
+        read_buffer_size:
+          type: integer
+          minimum: 0
+          maximum: 10
+          description: 'The read buffer size, as MB, to use for downloads. 0 means no buffering, that's fine in most use cases.'
+        write_buffer_size:
+          type: integer
+          minimum: 0
+          maximum: 10
+          description: 'The write buffer size, as MB, to use for uploads. 0 means no buffering, that's fine in most use cases.'
     CryptFsConfig:
       type: object
       properties:
         passphrase:
           $ref: '#/components/schemas/Secret'
+        read_buffer_size:
+          type: integer
+          minimum: 0
+          maximum: 10
+          description: 'The read buffer size, as MB, to use for downloads. 0 means no buffering, that's fine in most use cases.'
+        write_buffer_size:
+          type: integer
+          minimum: 0
+          maximum: 10
+          description: 'The write buffer size, as MB, to use for uploads. 0 means no buffering, that's fine in most use cases.'
       description: Crypt filesystem configuration details
     SFTPFsConfig:
       type: object
@@ -5672,6 +5827,8 @@ components:
       properties:
         provider:
           $ref: '#/components/schemas/FsProviders'
+        osconfig:
+          $ref: '#/components/schemas/OSFsConfig'
         s3config:
           $ref: '#/components/schemas/S3Config'
         gcsconfig:
@@ -6787,6 +6944,8 @@ components:
           type: string
         open_flags:
           type: string
+        role:
+          type: string
         instance_id:
           type: string
     ProviderEvent:
@@ -6812,6 +6971,31 @@ components:
           type: string
           format: byte
           description: 'base64 of the JSON serialized object with sensitive fields removed'
+        role:
+          type: string
+        instance_id:
+          type: string
+    LogEvent:
+      type: object
+      properties:
+        id:
+          type: string
+        timestamp:
+          type: integer
+          format: int64
+          description: 'unix timestamp in nanoseconds'
+        event:
+          $ref: '#/components/schemas/LogEventType'
+        protocol:
+          $ref: '#/components/schemas/EventProtocols'
+        username:
+          type: string
+        ip:
+          type: string
+        message:
+          type: string
+        role:
+          type: string
         instance_id:
           type: string
     KeyValue:

@@ -32,6 +32,7 @@ import (
 	"time"
 
 	"github.com/pires/go-proxyproto"
+	"github.com/sftpgo/sdk/plugin/notifier"
 
 	"github.com/drakkan/sftpgo/v2/internal/command"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
@@ -967,12 +968,14 @@ func (conns *ActiveConnections) Remove(connectionID string) {
 			conn.GetLocalAddress(), conn.GetRemoteAddress(), err, lastIdx)
 		if conn.GetProtocol() == ProtocolFTP && conn.GetUsername() == "" && !util.Contains(ftpLoginCommands, conn.GetCommand()) {
 			ip := util.GetIPFromRemoteAddress(conn.GetRemoteAddress())
-			logger.ConnectionFailedLog("", ip, dataprovider.LoginMethodNoAuthTryed, conn.GetProtocol(),
-				dataprovider.ErrNoAuthTryed.Error())
-			metric.AddNoAuthTryed()
+			logger.ConnectionFailedLog("", ip, dataprovider.LoginMethodNoAuthTried, ProtocolFTP,
+				dataprovider.ErrNoAuthTried.Error())
+			metric.AddNoAuthTried()
 			AddDefenderEvent(ip, ProtocolFTP, HostEventNoLoginTried)
-			dataprovider.ExecutePostLoginHook(&dataprovider.User{}, dataprovider.LoginMethodNoAuthTryed, ip,
-				conn.GetProtocol(), dataprovider.ErrNoAuthTryed)
+			dataprovider.ExecutePostLoginHook(&dataprovider.User{}, dataprovider.LoginMethodNoAuthTried, ip,
+				ProtocolFTP, dataprovider.ErrNoAuthTried)
+			plugin.Handler.NotifyLogEvent(notifier.LogEventTypeNoLoginTried, ProtocolFTP, "", ip, "",
+				dataprovider.ErrNoAuthTried)
 		}
 		Config.checkPostDisconnectHook(conn.GetRemoteAddress(), conn.GetProtocol(), conn.GetUsername(),
 			conn.GetID(), conn.GetConnectionTime())

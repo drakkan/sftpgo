@@ -18,8 +18,10 @@ package webdavd
 import (
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
 
@@ -43,6 +45,12 @@ const (
 var (
 	certMgr       *common.CertManager
 	serviceStatus ServiceStatus
+	timeFormats   = []string{
+		http.TimeFormat,
+		"Mon, _2 Jan 2006 15:04:05 GMT",
+		time.RFC850,
+		time.ANSIC,
+	}
 )
 
 // ServiceStatus defines the service status
@@ -351,4 +359,14 @@ func getConfigPath(name, configDir string) string {
 		return filepath.Join(configDir, name)
 	}
 	return name
+}
+
+func parseTime(text string) (t time.Time, err error) {
+	for _, layout := range timeFormats {
+		t, err = time.Parse(layout, text)
+		if err == nil {
+			return
+		}
+	}
+	return
 }

@@ -28,6 +28,8 @@
 
 [更多信息](https://github.com/drakkan/sftpgo/issues/452)。
 
+您还可以从 [SFTPGo 网站](https://sftpgo.com/#pricing) 购买支持计划。
+
 ### 感谢我们的赞助商
 
 #### 白金赞助商

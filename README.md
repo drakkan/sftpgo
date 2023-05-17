@@ -28,6 +28,8 @@ If you just take and don't return anything back, the project will die in the lon
 
 More [info](https://github.com/drakkan/sftpgo/issues/452).
 
+You can also purchase support plans from the [SFTPGo website](https://sftpgo.com/#pricing).
+
 ### Thank you to our sponsors
 
 #### Platinum sponsors
@@ -46,7 +48,7 @@ More [info](https://github.com/drakkan/sftpgo/issues/452).
 
 SFTPGo is an Open Source project and you can of course use it for free but please don't ask for free support as well.
 
-We will check the reported issues to see if you are experiencing a bug and if so we'll will fix it, but will only provide support to project [sponsors/donors](#sponsors).
+We will check the reported issues to see if you are experiencing a bug and if so, it may or may not be fixed, we only provide support to project [sponsors/donors](#sponsors).
 
 If you report an invalid issue or ask for step-by-step support, your issue will remain open with no answer or will be closed as invalid without further explanation. Thanks for understanding.
 
@@ -68,7 +70,7 @@ If you report an invalid issue or ask for step-by-step support, your issue will 
 - Keyboard interactive authentication. You can easily setup a customizable multi-factor authentication.
 - Partial authentication. You can configure multi-step authentication requiring, for example, the user password after successful public key authentication.
 - Per-user authentication methods.
-- [Two-factor authentication](./docs/howto/two-factor-authentication.md) based on time-based one time passwords (RFC 6238) which works with Authy, Google Authenticator and other compatible apps.
+- [Two-factor authentication](./docs/howto/two-factor-authentication.md) based on time-based one time passwords (RFC 6238) which works with Authy, Google Authenticator, Microsoft Authenticator and other compatible apps.
 - Simplified user administrations using [groups](./docs/groups.md).
 - [Roles](./docs/roles.md) allow you to create limited administrators who can only create and manage users with their role.
 - Custom authentication via [external programs/HTTP API](./docs/external-auth.md).
@@ -91,7 +93,7 @@ If you report an invalid issue or ask for step-by-step support, your issue will 
 - SCP and rsync are supported.
 - FTP/S is supported. You can configure the FTP service to require TLS for both control and data connections.
 - [WebDAV](./docs/webdav.md) is supported.
-- ACME protocol is supported. SFTPGo can obtain and automatically renew TLS certificates for HTTPS, WebDAV and FTPS from `Let's Encrypt` or other ACME compliant certificate authorities, using the the `HTTP-01` or `TLS-ALPN-01` [challenge types](https://letsencrypt.org/docs/challenge-types/).
+- ACME protocol is supported. SFTPGo can obtain and automatically renew TLS certificates for HTTPS, WebDAV and FTPS from `Let's Encrypt` or other ACME compliant certificate authorities, using the `HTTP-01` or `TLS-ALPN-01` [challenge types](https://letsencrypt.org/docs/challenge-types/).
 - Two-Way TLS authentication, aka TLS with client certificate authentication, is supported for REST API/Web Admin, FTPS and WebDAV over HTTPS.
 - Per-user protocols restrictions. You can configure the allowed protocols (SSH/HTTP/FTP/WebDAV) for each user.
 - [Prometheus metrics](./docs/metrics.md) are supported.

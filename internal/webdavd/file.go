@@ -48,7 +48,7 @@ type webDavFile struct {
 	info        os.FileInfo
 	startOffset int64
 	isFinished  bool
-	readTryed   atomic.Bool
+	readTried   atomic.Bool
 }
 
 func newWebDavFile(baseTransfer *common.BaseTransfer, pipeWriter *vfs.PipeWriter, pipeReader *pipeat.PipeReaderAt) *webDavFile {
@@ -70,7 +70,7 @@ func newWebDavFile(baseTransfer *common.BaseTransfer, pipeWriter *vfs.PipeWriter
 		startOffset:  0,
 		info:         nil,
 	}
-	f.readTryed.Store(false)
+	f.readTried.Store(false)
 	return f
 }
 
@@ -177,7 +177,7 @@ func (f *webDavFile) checkFirstRead() error {
 		f.Connection.Log(logger.LevelDebug, "download for file %q denied by pre action: %v", f.GetVirtualPath(), err)
 		return f.Connection.GetPermissionDeniedError()
 	}
-	f.readTryed.Store(true)
+	f.readTried.Store(true)
 	return nil
 }
 
@@ -186,7 +186,7 @@ func (f *webDavFile) Read(p []byte) (n int, err error) {
 	if f.AbortTransfer.Load() {
 		return 0, errTransferAborted
 	}
-	if !f.readTryed.Load() {
+	if !f.readTried.Load() {
 		if err := f.checkFirstRead(); err != nil {
 			return 0, err
 		}
@@ -282,7 +282,7 @@ func (f *webDavFile) updateTransferQuotaOnSeek() {
 }
 
 func (f *webDavFile) checkFile() error {
-	if f.File == nil && vfs.IsLocalOrUnbufferedSFTPFs(f.Fs) {
+	if f.File == nil && vfs.FsOpenReturnsFile(f.Fs) {
 		file, _, _, err := f.Fs.Open(f.GetFsPath(), 0)
 		if err != nil {
 			f.Connection.Log(logger.LevelWarn, "could not open file %q for seeking: %v",
@@ -417,7 +417,7 @@ func (f *webDavFile) setFinished() error {
 
 func (f *webDavFile) isTransfer() bool {
 	if f.GetType() == common.TransferDownload {
-		return f.readTryed.Load()
+		return f.readTried.Load()
 	}
 	return true
 }
@@ -443,7 +443,7 @@ func (f *webDavFile) Patch(patches []webdav.Proppatch) ([]webdav.Propstat, error
 		for _, p := range patch.Props {
 			if status == http.StatusForbidden && !hasError {
 				if !patch.Remove && util.Contains(lastModifiedProps, p.XMLName.Local) {
-					parsed, err := http.ParseTime(string(p.InnerXML))
+					parsed, err := parseTime(string(p.InnerXML))
 					if err != nil {
 						f.Connection.Log(logger.LevelWarn, "unsupported last modification time: %q, err: %v",
 							string(p.InnerXML), err)

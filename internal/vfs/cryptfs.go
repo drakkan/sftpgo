@@ -15,6 +15,7 @@
 package vfs
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
@@ -55,10 +56,12 @@ func NewCryptFs(connectionID, rootDir, mountPath string, config CryptFsConfig) (
 	}
 	fs := &CryptFs{
 		OsFs: &OsFs{
-			name:         cryptFsName,
-			connectionID: connectionID,
-			rootDir:      rootDir,
-			mountPath:    getMountPath(mountPath),
+			name:            cryptFsName,
+			connectionID:    connectionID,
+			rootDir:         rootDir,
+			mountPath:       getMountPath(mountPath),
+			readBufferSize:  config.OSFsConfig.ReadBufferSize * 1024 * 1024,
+			writeBufferSize: config.OSFsConfig.WriteBufferSize * 1024 * 1024,
 		},
 		masterKey: []byte(config.Passphrase.GetPayload()),
 	}
@@ -103,11 +106,11 @@ func (fs *CryptFs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, 
 		var err error
 
 		if offset == 0 {
-			n, err = sio.Decrypt(w, f, fs.getSIOConfig(key))
+			n, err = fs.decryptWrapper(w, f, fs.getSIOConfig(key))
 		} else {
 			var readerAt io.ReaderAt
 			var readed, written int
-			buf := make([]byte, 65536)
+			buf := make([]byte, 65568)
 			wrapper := &cryptedFileWrapper{
 				File: f,
 			}
@@ -150,14 +153,8 @@ func (fs *CryptFs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, 
 }
 
 // Create creates or opens the named file for writing
-func (fs *CryptFs) Create(name string, flag, _ int) (File, *PipeWriter, func(), error) {
-	var err error
-	var f *os.File
-	if flag == 0 {
-		f, err = os.Create(name)
-	} else {
-		f, err = os.OpenFile(name, flag, 0666)
-	}
+func (fs *CryptFs) Create(name string, _, _ int) (File, *PipeWriter, func(), error) {
+	f, err := os.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -192,7 +189,18 @@ func (fs *CryptFs) Create(name string, flag, _ int) (File, *PipeWriter, func(), 
 	p := NewPipeWriter(w)
 
 	go func() {
-		n, err := sio.Encrypt(f, r, fs.getSIOConfig(key))
+		var n int64
+		var err error
+		if fs.writeBufferSize <= 0 {
+			n, err = sio.Encrypt(f, r, fs.getSIOConfig(key))
+		} else {
+			bw := bufio.NewWriterSize(f, fs.writeBufferSize)
+			n, err = fs.encryptWrapper(bw, r, fs.getSIOConfig(key))
+			errFlush := bw.Flush()
+			if err == nil && errFlush != nil {
+				err = errFlush
+			}
+		}
 		errClose := f.Close()
 		if err == nil && errClose != nil {
 			err = errClose
@@ -309,6 +317,26 @@ func (fs *CryptFs) getFileAndEncryptionKey(name string) (*os.File, [32]byte, err
 		return nil, key, err
 	}
 	return f, key, err
+}
+
+func (*CryptFs) encryptWrapper(dst io.Writer, src io.Reader, config sio.Config) (int64, error) {
+	encReader, err := sio.EncryptReader(src, config)
+	if err != nil {
+		return 0, err
+	}
+	return doCopy(dst, encReader, make([]byte, 65568))
+}
+
+func (fs *CryptFs) decryptWrapper(dst io.Writer, src io.Reader, config sio.Config) (int64, error) {
+	if fs.readBufferSize <= 0 {
+		return sio.Decrypt(dst, src, config)
+	}
+	br := bufio.NewReaderSize(src, fs.readBufferSize)
+	decReader, err := sio.DecryptReader(br, config)
+	if err != nil {
+		return 0, err
+	}
+	return doCopy(dst, decReader, make([]byte, 65568))
 }
 
 func isZeroBytesDownload(f *os.File, offset int64) (bool, error) {
