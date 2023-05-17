@@ -7092,6 +7092,15 @@ components:
           type: string
         body:
           type: string
+        content_type:
+          type: integer
+          enum:
+            - 0
+            - 1
+          description: |
+            Content type:
+              * `0` text/plain
+              * `1` text/html
         attachments:
           type: array
           items:

@@ -6016,9 +6016,10 @@ func TestEventRuleRenameEvent(t *testing.T) {
 		Type: dataprovider.ActionTypeEmail,
 		Options: dataprovider.BaseEventActionOptions{
 			EmailConfig: dataprovider.EventActionEmailConfig{
-				Recipients: []string{"test@example.com"},
-				Subject:    `"{{Event}}" from "{{Name}}"`,
-				Body:       `Fs path {{FsPath}}, Target path "{{VirtualTargetDirPath}}/{{TargetName}}", size: {{FileSize}}`,
+				Recipients:  []string{"test@example.com"},
+				Subject:     `"{{Event}}" from "{{Name}}"`,
+				ContentType: 1,
+				Body:        `<p>Fs path {{FsPath}}, Target path "{{VirtualTargetDirPath}}/{{TargetName}}", size: {{FileSize}}</p>`,
 			},
 		},
 	}
@@ -6065,6 +6066,7 @@ func TestEventRuleRenameEvent(t *testing.T) {
 		assert.Len(t, email.To, 1)
 		assert.True(t, util.Contains(email.To, "test@example.com"))
 		assert.Contains(t, email.Data, fmt.Sprintf(`Subject: "rename" from "%s"`, user.Username))
+		assert.Contains(t, email.Data, "Content-Type: text/html")
 		assert.Contains(t, email.Data, fmt.Sprintf("Target path %q", path.Join("/subdir", testFileName)))
 	}
 
@@ -6378,9 +6380,10 @@ func TestEventRuleCertificate(t *testing.T) {
 		Type: dataprovider.ActionTypeEmail,
 		Options: dataprovider.BaseEventActionOptions{
 			EmailConfig: dataprovider.EventActionEmailConfig{
-				Recipients: []string{"test@example.com"},
-				Subject:    `"{{Event}} {{StatusString}}"`,
-				Body:       "Domain: {{Name}} Timestamp: {{Timestamp}} {{ErrorString}}",
+				Recipients:  []string{"test@example.com"},
+				Subject:     `"{{Event}} {{StatusString}}"`,
+				ContentType: 0,
+				Body:        "Domain: {{Name}} Timestamp: {{Timestamp}} {{ErrorString}}",
 			},
 		},
 	}
@@ -6446,6 +6449,7 @@ func TestEventRuleCertificate(t *testing.T) {
 	assert.Len(t, email.To, 1)
 	assert.True(t, util.Contains(email.To, "test@example.com"))
 	assert.Contains(t, email.Data, fmt.Sprintf(`Subject: "%s OK"`, renewalEvent))
+	assert.Contains(t, email.Data, "Content-Type: text/plain")
 	assert.Contains(t, email.Data, `Domain: example.com Timestamp`)
 
 	lastReceivedEmail.reset()

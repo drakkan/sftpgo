@@ -2301,6 +2301,10 @@ func getEventActionOptionsFromPostFields(r *http.Request) (dataprovider.BaseEven
 	if r.Form.Get("idp_mode") == "1" {
 		idpMode = 1
 	}
+	emailContentType := 0
+	if r.Form.Get("email_content_type") == "1" {
+		emailContentType = 1
+	}
 	options := dataprovider.BaseEventActionOptions{
 		HTTPConfig: dataprovider.EventActionHTTPConfig{
 			Endpoint:        r.Form.Get("http_endpoint"),
@@ -2323,6 +2327,7 @@ func getEventActionOptionsFromPostFields(r *http.Request) (dataprovider.BaseEven
 		EmailConfig: dataprovider.EventActionEmailConfig{
 			Recipients:  getSliceFromDelimitedValues(r.Form.Get("email_recipients"), ","),
 			Subject:     r.Form.Get("email_subject"),
+			ContentType: emailContentType,
 			Body:        r.Form.Get("email_body"),
 			Attachments: emailAttachments,
 		},

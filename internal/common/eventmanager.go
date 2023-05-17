@@ -1484,7 +1484,7 @@ func executeEmailRuleAction(c dataprovider.EventActionEmailConfig, params *Event
 		}
 		files = append(files, res...)
 	}
-	err := smtp.SendEmail(recipients, subject, body, smtp.EmailContentTypeTextPlain, files...)
+	err := smtp.SendEmail(recipients, subject, body, smtp.EmailContentType(c.ContentType), files...)
 	eventManagerLog(logger.LevelDebug, "executed email notification action, elapsed: %s, error: %v",
 		time.Since(startTime), err)
 	if err != nil {

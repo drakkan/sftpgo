@@ -1858,9 +1858,10 @@ func TestActionRuleRelations(t *testing.T) {
 		Type: dataprovider.ActionTypeEmail,
 		Options: dataprovider.BaseEventActionOptions{
 			EmailConfig: dataprovider.EventActionEmailConfig{
-				Recipients: []string{"test@example.net"},
-				Subject:    "test subject",
-				Body:       "test body",
+				Recipients:  []string{"test@example.net"},
+				ContentType: 1,
+				Subject:     "test subject",
+				Body:        "test body",
 			},
 		},
 	}
@@ -21820,12 +21821,14 @@ func TestWebEventAction(t *testing.T) {
 	action.Options.EmailConfig = dataprovider.EventActionEmailConfig{
 		Recipients:  []string{"address1@example.com", "address2@example.com"},
 		Subject:     "subject",
+		ContentType: 1,
 		Body:        "body",
 		Attachments: []string{"/file1.txt", "/file2.txt"},
 	}
 	form.Set("type", fmt.Sprintf("%d", action.Type))
 	form.Set("email_recipients", "address1@example.com,  address2@example.com")
 	form.Set("email_subject", action.Options.EmailConfig.Subject)
+	form.Set("email_content_type", fmt.Sprintf("%d", action.Options.EmailConfig.ContentType))
 	form.Set("email_body", action.Options.EmailConfig.Body)
 	form.Set("email_attachments", "file1.txt, file2.txt")
 	req, err = http.NewRequest(http.MethodPost, path.Join(webAdminEventActionPath, action.Name),
@@ -21841,6 +21844,7 @@ func TestWebEventAction(t *testing.T) {
 	assert.Equal(t, action.Type, actionGet.Type)
 	assert.Equal(t, action.Options.EmailConfig.Recipients, actionGet.Options.EmailConfig.Recipients)
 	assert.Equal(t, action.Options.EmailConfig.Subject, actionGet.Options.EmailConfig.Subject)
+	assert.Equal(t, action.Options.EmailConfig.ContentType, actionGet.Options.EmailConfig.ContentType)
 	assert.Equal(t, action.Options.EmailConfig.Body, actionGet.Options.EmailConfig.Body)
 	assert.Equal(t, action.Options.EmailConfig.Attachments, actionGet.Options.EmailConfig.Attachments)
 	assert.Equal(t, dataprovider.EventActionHTTPConfig{}, actionGet.Options.HTTPConfig)

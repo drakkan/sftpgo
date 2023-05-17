@@ -2662,6 +2662,9 @@ func compareEventActionEmailConfigFields(expected, actual dataprovider.EventActi
 	if expected.Subject != actual.Subject {
 		return errors.New("email subject mismatch")
 	}
+	if expected.ContentType != actual.ContentType {
+		return errors.New("email content type mismatch")
+	}
 	if expected.Body != actual.Body {
 		return errors.New("email body mismatch")
 	}

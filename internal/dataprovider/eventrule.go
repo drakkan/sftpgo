@@ -477,6 +477,7 @@ type EventActionEmailConfig struct {
 	Subject     string   `json:"subject,omitempty"`
 	Body        string   `json:"body,omitempty"`
 	Attachments []string `json:"attachments,omitempty"`
+	ContentType int      `json:"content_type,omitempty"`
 }
 
 // GetRecipientsAsString returns the list of recipients as comma separated string
@@ -513,6 +514,9 @@ func (c *EventActionEmailConfig) validate() error {
 	}
 	if c.Body == "" {
 		return util.NewValidationError("email body is required")
+	}
+	if c.ContentType < 0 || c.ContentType > 1 {
+		return util.NewValidationError("invalid email content type")
 	}
 	for idx, val := range c.Attachments {
 		val = strings.TrimSpace(val)
@@ -938,6 +942,7 @@ func (o *BaseEventActionOptions) getACopy() BaseEventActionOptions {
 		EmailConfig: EventActionEmailConfig{
 			Recipients:  emailRecipients,
 			Subject:     o.EmailConfig.Subject,
+			ContentType: o.EmailConfig.ContentType,
 			Body:        o.EmailConfig.Body,
 			Attachments: emailAttachments,
 		},
