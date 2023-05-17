@@ -163,10 +163,7 @@ func (o *OIDC) initialize() error {
 		}
 	}
 	o.provider = provider
-	o.verifier = provider.Verifier(&oidc.Config{
-		ClientID:                   o.ClientID,
-		InsecureSkipSignatureCheck: o.InsecureSkipSignatureCheck,
-	})
+	o.verifier = nil
 	o.oauth2Config = &oauth2.Config{
 		ClientID:     o.ClientID,
 		ClientSecret: o.ClientSecret,
@@ -176,6 +173,16 @@ func (o *OIDC) initialize() error {
 	}
 
 	return nil
+}
+
+func (o *OIDC) getVerifier(ctx context.Context) OIDCTokenVerifier {
+	if o.verifier != nil {
+		return o.verifier
+	}
+	return o.provider.VerifierContext(ctx, &oidc.Config{
+		ClientID:                   o.ClientID,
+		InsecureSkipSignatureCheck: o.InsecureSkipSignatureCheck,
+	})
 }
 
 type oidcPendingAuth struct {
@@ -291,7 +298,7 @@ func (t *oidcToken) isExpired() bool {
 	return t.ExpiresAt < util.GetTimeAsMsSinceEpoch(time.Now())
 }
 
-func (t *oidcToken) refresh(config OAuth2Config, verifier OIDCTokenVerifier, r *http.Request) error {
+func (t *oidcToken) refresh(ctx context.Context, config OAuth2Config, verifier OIDCTokenVerifier, r *http.Request) error {
 	if t.RefreshToken == "" {
 		logger.Debug(logSender, "", "refresh token not set, unable to refresh cookie %q", t.Cookie)
 		return errors.New("refresh token not set")
@@ -304,8 +311,6 @@ func (t *oidcToken) refresh(config OAuth2Config, verifier OIDCTokenVerifier, r *
 	if t.ExpiresAt > 0 {
 		oauth2Token.Expiry = util.GetTimeFromMsecSinceEpoch(t.ExpiresAt)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
 
 	newToken, err := config.TokenSource(ctx, &oauth2Token).Token()
 	if err != nil {
@@ -480,7 +485,10 @@ func (s *httpdServer) validateOIDCToken(w http.ResponseWriter, r *http.Request, 
 	}
 	if token.isExpired() {
 		logger.Debug(logSender, "", "oidc token associated with cookie %q is expired", token.Cookie)
-		if err = token.refresh(s.binding.OIDC.oauth2Config, s.binding.OIDC.verifier, r); err != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+
+		if err = token.refresh(ctx, s.binding.OIDC.oauth2Config, s.binding.OIDC.getVerifier(ctx), r); err != nil {
 			setFlashMessage(w, r, "Your OpenID token is expired, please log-in again")
 			doRedirect()
 			return oidcToken{}, errInvalidToken
@@ -606,7 +614,7 @@ func (s *httpdServer) handleOIDCRedirect(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	s.debugTokenClaims(nil, rawIDToken)
-	idToken, err := s.binding.OIDC.verifier.Verify(ctx, rawIDToken)
+	idToken, err := s.binding.OIDC.getVerifier(ctx).Verify(ctx, rawIDToken)
 	if err != nil {
 		logger.Debug(logSender, "", "failed to verify oidc token: %v", err)
 		setFlashMessage(w, r, "Failed to verify OpenID token")
