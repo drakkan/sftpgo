@@ -189,7 +189,7 @@ func getFsActionTypeAsString(value int) string {
 var (
 	// SupportedFsEvents defines the supported filesystem events
 	SupportedFsEvents = []string{"upload", "pre-upload", "first-upload", "download", "pre-download",
-		"first-download", "delete", "pre-delete", "rename", "mkdir", "rmdir", "copy", "ssh_cmd"}
+		"first-download", "delete", "pre-delete", "rename", "mkdir", "rmdir", "pre-lsdir", "copy", "ssh_cmd"}
 	// SupportedProviderEvents defines the supported provider events
 	SupportedProviderEvents = []string{operationAdd, operationUpdate, operationDelete}
 	// SupportedRuleConditionProtocols defines the supported protcols for rule conditions
@@ -200,8 +200,8 @@ var (
 		actionObjectAdmin, actionObjectAPIKey, actionObjectShare, actionObjectEventRule, actionObjectEventAction}
 	// SupportedHTTPActionMethods defines the supported methods for HTTP actions
 	SupportedHTTPActionMethods = []string{http.MethodPost, http.MethodGet, http.MethodPut}
-	allowedSyncFsEvents        = []string{"upload", "pre-upload", "pre-download", "pre-delete"}
-	mandatorySyncFsEvents      = []string{"pre-upload", "pre-download", "pre-delete"}
+	allowedSyncFsEvents        = []string{"upload", "pre-upload", "pre-download", "pre-delete", "pre-lsdir"}
+	mandatorySyncFsEvents      = []string{"pre-upload", "pre-download", "pre-delete", "pre-lsdir"}
 )
 
 // enum mappings

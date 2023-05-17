@@ -53,6 +53,7 @@ const (
 	renameLogSender        = "Rename"
 	rmdirLogSender         = "Rmdir"
 	mkdirLogSender         = "Mkdir"
+	lsdirLogSender         = "Lsdir"
 	symlinkLogSender       = "Symlink"
 	removeLogSender        = "Remove"
 	chownLogSender         = "Chown"
@@ -71,6 +72,7 @@ const (
 	// Pre-upload action name
 	OperationPreUpload = "pre-upload"
 	operationPreDelete = "pre-delete"
+	operationPreLsdir  = "pre-lsdir"
 	operationRename    = "rename"
 	operationMkdir     = "mkdir"
 	operationRmdir     = "rmdir"
