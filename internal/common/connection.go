@@ -301,15 +301,27 @@ func (c *BaseConnection) ListDir(virtualPath string) ([]os.FileInfo, error) {
 	if !c.User.HasPerm(dataprovider.PermListItems, virtualPath) {
 		return nil, c.GetPermissionDeniedError()
 	}
+	println("listing dir >>>>>>>>>>>>>>>>")
 	fs, fsPath, err := c.GetFsAndResolvedPath(virtualPath)
 	if err != nil {
 		return nil, err
 	}
+	_, err = ExecutePreAction(c, operationPreLsdir, fsPath, virtualPath, 0, 0)
+	if err != nil {
+		c.Log(logger.LevelDebug, "list for dir %q denied by pre action: %v", virtualPath, err)
+		return nil, c.GetPermissionDeniedError()
+	}
+	startTime := time.Now()
 	files, err := fs.ReadDir(fsPath)
 	if err != nil {
 		c.Log(logger.LevelDebug, "error listing directory: %+v", err)
 		return nil, c.GetFsError(fs, err)
 	}
+	elapsed := time.Since(startTime).Nanoseconds() / 1000000
+
+	logger.CommandLog(lsdirLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", -1,
+		c.localAddr, c.remoteAddr, elapsed)
+
 	return c.User.FilterListDir(files, virtualPath), nil
 }
 
@@ -410,6 +422,7 @@ func (c *BaseConnection) RemoveFile(fs vfs.Fs, fsPath, virtualPath string, info 
 		return c.GetPermissionDeniedError()
 	}
 	updateQuota := true
+	println("deleting file >>>>>>>>>>>>>>>>")
 	startTime := time.Now()
 	if err := fs.Remove(fsPath, false); err != nil {
 		if status > 0 && fs.IsNotExist(err) {
@@ -492,6 +505,7 @@ func (c *BaseConnection) RemoveDir(virtualPath string) error {
 		c.Log(logger.LevelError, "cannot remove %q is not a directory", fsPath)
 		return c.GetGenericError(nil)
 	}
+	println("deleting dir >>>>>>>>>>>>>>>>")
 
 	startTime := time.Now()
 	if err := fs.Remove(fsPath, true); err != nil {
