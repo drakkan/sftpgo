@@ -1103,38 +1103,47 @@ func CheckAdminAndPass(username, password, ip string) (Admin, error) {
 }
 
 // CheckCachedUserCredentials checks the credentials for a cached user
-func CheckCachedUserCredentials(user *CachedUser, password, loginMethod, protocol string, tlsCert *x509.Certificate) error {
+func CheckCachedUserCredentials(user *CachedUser, password, ip, loginMethod, protocol string, tlsCert *x509.Certificate) (*CachedUser, *User, error) {
+	if !user.User.skipExternalAuth() && isExternalAuthConfigured(loginMethod) {
+		u, _, err := CheckCompositeCredentials(user.User.Username, password, ip, loginMethod, protocol, tlsCert)
+		if err != nil {
+			return nil, nil, err
+		}
+		webDAVUsersCache.swap(&u, password)
+		cu, _ := webDAVUsersCache.get(u.Username)
+		return cu, &u, nil
+	}
 	if err := user.User.CheckLoginConditions(); err != nil {
-		return err
+		return user, nil, err
 	}
 	if loginMethod == LoginMethodPassword && user.User.Filters.IsAnonymous {
-		return nil
+		return user, nil, nil
 	}
 	if loginMethod != LoginMethodPassword {
 		_, err := checkUserAndTLSCertificate(&user.User, protocol, tlsCert)
 		if err != nil {
-			return err
+			return user, nil, err
 		}
 		if loginMethod == LoginMethodTLSCertificate {
 			if !user.User.IsLoginMethodAllowed(LoginMethodTLSCertificate, protocol, nil) {
-				return fmt.Errorf("certificate login method is not allowed for user %q", user.User.Username)
+				return user, nil, fmt.Errorf("certificate login method is not allowed for user %q", user.User.Username)
 			}
-			return nil
+			return user, nil, nil
 		}
 	}
 	if password == "" {
-		return ErrInvalidCredentials
+		return user, nil, ErrInvalidCredentials
 	}
 	if user.Password != "" {
 		if password == user.Password {
-			return nil
+			return user, nil, nil
 		}
 	} else {
 		if ok, _ := isPasswordOK(&user.User, password); ok {
-			return nil
+			return user, nil, nil
 		}
 	}
-	return ErrInvalidCredentials
+	return user, nil, ErrInvalidCredentials
 }
 
 // CheckCompositeCredentials checks multiple credentials.
@@ -1689,7 +1698,7 @@ func DeleteRole(name string, executor, ipAddress, executorRole string) error {
 			provider.setUpdatedAt(user)
 			u, err := provider.userExists(user, "")
 			if err == nil {
-				webDAVUsersCache.swap(&u)
+				webDAVUsersCache.swap(&u, "")
 				executeAction(operationUpdate, executor, ipAddress, actionObjectUser, u.Username, u.Role, &u)
 			}
 		}
@@ -1721,7 +1730,7 @@ func UpdateGroup(group *Group, users []string, executor, ipAddress, role string)
 			provider.setUpdatedAt(user)
 			u, err := provider.userExists(user, "")
 			if err == nil {
-				webDAVUsersCache.swap(&u)
+				webDAVUsersCache.swap(&u, "")
 			} else {
 				RemoveCachedWebDAVUser(user)
 			}
@@ -2073,7 +2082,7 @@ func UpdateUserPassword(username, plainPwd, executor, ipAddress, role string) er
 	if err := provider.updateUser(&user); err != nil {
 		return err
 	}
-	webDAVUsersCache.swap(&user)
+	webDAVUsersCache.swap(&user, plainPwd)
 	executeAction(operationUpdate, executor, ipAddress, actionObjectUser, username, role, &user)
 	return nil
 }
@@ -2085,7 +2094,7 @@ func UpdateUser(user *User, executor, ipAddress, role string) error {
 	}
 	err := provider.updateUser(user)
 	if err == nil {
-		webDAVUsersCache.swap(user)
+		webDAVUsersCache.swap(user, "")
 		executeAction(operationUpdate, executor, ipAddress, actionObjectUser, user.Username, role, user)
 	}
 	return err
@@ -2252,7 +2261,7 @@ func UpdateFolder(folder *vfs.BaseVirtualFolder, users []string, groups []string
 			provider.setUpdatedAt(user)
 			u, err := provider.userExists(user, "")
 			if err == nil {
-				webDAVUsersCache.swap(&u)
+				webDAVUsersCache.swap(&u, "")
 				executeAction(operationUpdate, executor, ipAddress, actionObjectUser, u.Username, u.Role, &u)
 			} else {
 				RemoveCachedWebDAVUser(user)
@@ -3950,7 +3959,7 @@ func executePreLoginHook(username, loginMethod, ip, protocol string, oidcTokenFi
 		u.Filters.RecoveryCodes = recoveryCodes
 		err = provider.updateUser(&u)
 		if err == nil {
-			webDAVUsersCache.swap(&u)
+			webDAVUsersCache.swap(&u, "")
 		}
 	}
 	if err != nil {
@@ -4123,11 +4132,7 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 		return user, err
 	}
 
-	if mergedUser.Filters.Hooks.ExternalAuthDisabled {
-		return u, nil
-	}
-
-	if mergedUser.isExternalAuthCached() {
+	if mergedUser.skipExternalAuth() {
 		return u, nil
 	}
 
@@ -4184,7 +4189,9 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 		user.Filters.RecoveryCodes = u.Filters.RecoveryCodes
 		err = provider.updateUser(&user)
 		if err == nil {
-			webDAVUsersCache.swap(&user)
+			if protocol != protocolWebDAV {
+				webDAVUsersCache.swap(&user, password)
+			}
 			cachedUserPasswords.Add(user.Username, password, user.Password)
 		}
 		return user, err
@@ -4206,11 +4213,7 @@ func doPluginAuth(username, password string, pubKey []byte, ip, protocol string,
 		return user, err
 	}
 
-	if mergedUser.Filters.Hooks.ExternalAuthDisabled {
-		return u, nil
-	}
-
-	if mergedUser.isExternalAuthCached() {
+	if mergedUser.skipExternalAuth() {
 		return u, nil
 	}
 
@@ -4257,7 +4260,9 @@ func doPluginAuth(username, password string, pubKey []byte, ip, protocol string,
 		user.Filters.RecoveryCodes = u.Filters.RecoveryCodes
 		err = provider.updateUser(&user)
 		if err == nil {
-			webDAVUsersCache.swap(&user)
+			if protocol != protocolWebDAV {
+				webDAVUsersCache.swap(&user, password)
+			}
 			cachedUserPasswords.Add(user.Username, password, user.Password)
 		}
 		return user, err
@@ -4311,6 +4316,33 @@ func isLastActivityRecent(lastActivity int64, minDelay time.Duration) bool {
 		return false
 	}
 	return diff < minDelay
+}
+
+func isExternalAuthConfigured(loginMethod string) bool {
+	if config.ExternalAuthHook != "" {
+		if config.ExternalAuthScope == 0 {
+			return true
+		}
+		switch loginMethod {
+		case LoginMethodPassword:
+			return config.ExternalAuthScope&1 != 0
+		case LoginMethodTLSCertificate:
+			return config.ExternalAuthScope&8 != 0
+		case LoginMethodTLSCertificateAndPwd:
+			return config.ExternalAuthScope&1 != 0 || config.ExternalAuthScope&8 != 0
+		}
+	}
+	switch loginMethod {
+	case LoginMethodPassword:
+		return plugin.Handler.HasAuthScope(plugin.AuthScopePassword)
+	case LoginMethodTLSCertificate:
+		return plugin.Handler.HasAuthScope(plugin.AuthScopeTLSCertificate)
+	case LoginMethodTLSCertificateAndPwd:
+		return plugin.Handler.HasAuthScope(plugin.AuthScopePassword) ||
+			plugin.Handler.HasAuthScope(plugin.AuthScopeTLSCertificate)
+	default:
+		return false
+	}
 }
 
 func getConfigPath(name, configDir string) string {

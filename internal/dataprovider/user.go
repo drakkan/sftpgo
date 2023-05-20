@@ -1039,14 +1039,16 @@ func (u *User) CanManageMFA() bool {
 	return len(mfa.GetAvailableTOTPConfigs()) > 0
 }
 
-func (u *User) isExternalAuthCached() bool {
+func (u *User) skipExternalAuth() bool {
+	if u.Filters.Hooks.ExternalAuthDisabled {
+		return true
+	}
 	if u.ID <= 0 {
 		return false
 	}
 	if u.Filters.ExternalAuthCacheTime <= 0 {
 		return false
 	}
-
 	return isLastActivityRecent(u.LastLogin, time.Duration(u.Filters.ExternalAuthCacheTime)*time.Second)
 }
 

@@ -85,6 +85,13 @@ type UsersCacheConfig struct {
 	MaxSize        int `json:"max_size" mapstructure:"max_size"`
 }
 
+func (c *UsersCacheConfig) getExpirationTime() time.Time {
+	if c.ExpirationTime > 0 {
+		return time.Now().Add(time.Duration(c.ExpirationTime) * time.Minute)
+	}
+	return time.Time{}
+}
+
 // MimeCacheConfig defines the cache configuration for mime types
 type MimeCacheConfig struct {
 	Enabled        bool                `json:"enabled" mapstructure:"enabled"`

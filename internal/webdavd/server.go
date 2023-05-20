@@ -299,8 +299,20 @@ func (s *webDavServer) authenticate(r *http.Request, ip string) (dataprovider.Us
 				tlsCert = nil
 				loginMethod = dataprovider.LoginMethodPassword
 			}
-			if err := dataprovider.CheckCachedUserCredentials(cachedUser, password, loginMethod, common.ProtocolWebDAV, tlsCert); err == nil {
-				return cachedUser.User, true, cachedUser.LockSystem, loginMethod, nil
+			cu, u, err := dataprovider.CheckCachedUserCredentials(cachedUser, password, ip, loginMethod, common.ProtocolWebDAV, tlsCert)
+			if err == nil {
+				if cu != nil {
+					return cu.User, true, cu.LockSystem, loginMethod, nil
+				}
+				lockSystem := webdav.NewMemLS()
+				cachedUser = &dataprovider.CachedUser{
+					User:       *u,
+					Password:   password,
+					LockSystem: lockSystem,
+					Expiration: s.config.Cache.Users.getExpirationTime(),
+				}
+				dataprovider.CacheWebDAVUser(cachedUser)
+				return cachedUser.User, false, cachedUser.LockSystem, loginMethod, nil
 			}
 			updateLoginMetrics(&cachedUser.User, ip, loginMethod, dataprovider.ErrInvalidCredentials)
 			return user, false, nil, loginMethod, dataprovider.ErrInvalidCredentials
@@ -318,9 +330,7 @@ func (s *webDavServer) authenticate(r *http.Request, ip string) (dataprovider.Us
 		User:       user,
 		Password:   password,
 		LockSystem: lockSystem,
-	}
-	if s.config.Cache.Users.ExpirationTime > 0 {
-		cachedUser.Expiration = time.Now().Add(time.Duration(s.config.Cache.Users.ExpirationTime) * time.Minute)
+		Expiration: s.config.Cache.Users.getExpirationTime(),
 	}
 	dataprovider.CacheWebDAVUser(cachedUser)
 	return user, false, lockSystem, loginMethod, nil

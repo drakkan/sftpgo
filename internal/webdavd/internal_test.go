@@ -1694,3 +1694,10 @@ func TestConfigsFromProvider(t *testing.T) {
 	err = dataprovider.UpdateConfigs(nil, "", "", "")
 	assert.NoError(t, err)
 }
+
+func TestGetCacheExpirationTime(t *testing.T) {
+	c := UsersCacheConfig{}
+	assert.True(t, c.getExpirationTime().IsZero())
+	c.ExpirationTime = 1
+	assert.False(t, c.getExpirationTime().IsZero())
+}

@@ -130,7 +130,7 @@ func checkUserCache() {
 			cachedUserPasswords.Remove(user.Username)
 			delayedQuotaUpdater.resetUserQuota(user.Username)
 		} else {
-			webDAVUsersCache.swap(&user)
+			webDAVUsersCache.swap(&user, "")
 		}
 	}
 	lastUserCacheUpdate.Store(checkTime)

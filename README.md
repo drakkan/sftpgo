@@ -72,7 +72,7 @@ If you report an invalid issue or ask for step-by-step support, your issue will 
 - Per-user authentication methods.
 - [Two-factor authentication](./docs/howto/two-factor-authentication.md) based on time-based one time passwords (RFC 6238) which works with Authy, Google Authenticator, Microsoft Authenticator and other compatible apps.
 - Simplified user administrations using [groups](./docs/groups.md).
-- [Roles](./docs/roles.md) allow you to create limited administrators who can only create and manage users with their role.
+- [Roles](./docs/roles.md) allow to create limited administrators who can only create and manage users with their role.
 - Custom authentication via [external programs/HTTP API](./docs/external-auth.md).
 - Web Client and Web Admin user interfaces support [OpenID Connect](https://openid.net/connect/) authentication and so they can be integrated with identity providers such as [Keycloak](https://www.keycloak.org/). You can find more details [here](./docs/oidc.md).
 - [Data At Rest Encryption](./docs/dare.md).

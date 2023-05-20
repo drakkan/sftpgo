@@ -1186,7 +1186,7 @@ func TestLoginExternalAuth(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
-	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u), os.ModePerm)
+	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u, ""), os.ModePerm)
 	assert.NoError(t, err)
 	providerConf.ExternalAuthHook = extAuthPath
 	providerConf.ExternalAuthScope = 0
@@ -1215,6 +1215,56 @@ func TestLoginExternalAuth(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestExternalAuthPasswordChange(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("this test is not available on Windows")
+	}
+	u := getTestUser()
+	err := dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf := config.GetProviderConf()
+	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u, defaultPassword), os.ModePerm)
+	assert.NoError(t, err)
+	providerConf.ExternalAuthHook = extAuthPath
+	providerConf.ExternalAuthScope = 0
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+	client := getWebDavClient(u, false, nil)
+	assert.NoError(t, checkBasicFunc(client))
+	u.Username = defaultUsername + "1"
+	client = getWebDavClient(u, false, nil)
+	assert.Error(t, checkBasicFunc(client))
+	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u, defaultPassword+"1"), os.ModePerm)
+	assert.NoError(t, err)
+	client = getWebDavClient(u, false, nil)
+	assert.Error(t, checkBasicFunc(client))
+	u.Password = defaultPassword + "1"
+	client = getWebDavClient(u, false, nil)
+	assert.NoError(t, checkBasicFunc(client))
+	user, _, err := httpdtest.GetUserByUsername(defaultUsername, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, defaultUsername, user.Username)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	user, _, err = httpdtest.GetUserByUsername(defaultUsername+"1", http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf = config.GetProviderConf()
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+	err = os.Remove(extAuthPath)
+	assert.NoError(t, err)
+}
+
 func TestExternalAuthReturningAnonymousUser(t *testing.T) {
 	if runtime.GOOS == osWindows {
 		t.Skip("this test is not available on Windows")
@@ -1228,7 +1278,7 @@ func TestExternalAuthReturningAnonymousUser(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
-	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u), os.ModePerm)
+	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u, ""), os.ModePerm)
 	assert.NoError(t, err)
 	providerConf.ExternalAuthHook = extAuthPath
 	providerConf.ExternalAuthScope = 0
@@ -1320,7 +1370,7 @@ func TestExternalAuthAnonymousGroupInheritance(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
-	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u), os.ModePerm)
+	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u, ""), os.ModePerm)
 	assert.NoError(t, err)
 	providerConf.ExternalAuthHook = extAuthPath
 	providerConf.ExternalAuthScope = 0
@@ -2880,7 +2930,7 @@ func TestExternatAuthWithClientCert(t *testing.T) {
 	err = config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	providerConf := config.GetProviderConf()
-	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u), os.ModePerm)
+	err = os.WriteFile(extAuthPath, getExtAuthScriptContent(u, ""), os.ModePerm)
 	assert.NoError(t, err)
 	providerConf.ExternalAuthHook = extAuthPath
 	providerConf.ExternalAuthScope = 0
@@ -3371,11 +3421,15 @@ func getEncryptedFileSize(size int64) (int64, error) {
 	return int64(encSize) + 33, err
 }
 
-func getExtAuthScriptContent(user dataprovider.User) []byte {
+func getExtAuthScriptContent(user dataprovider.User, password string) []byte {
 	extAuthContent := []byte("#!/bin/sh\n\n")
-	extAuthContent = append(extAuthContent, []byte(fmt.Sprintf("if test \"$SFTPGO_AUTHD_USERNAME\" = \"%v\"; then\n", user.Username))...)
+	if password != "" {
+		extAuthContent = append(extAuthContent, []byte(fmt.Sprintf("if test \"$SFTPGO_AUTHD_USERNAME\" = \"%s\" -a \"$SFTPGO_AUTHD_PASSWORD\" = \"%s\"; then\n", user.Username, password))...)
+	} else {
+		extAuthContent = append(extAuthContent, []byte(fmt.Sprintf("if test \"$SFTPGO_AUTHD_USERNAME\" = \"%s\"; then\n", user.Username))...)
+	}
 	u, _ := json.Marshal(user)
-	extAuthContent = append(extAuthContent, []byte(fmt.Sprintf("echo '%v'\n", string(u)))...)
+	extAuthContent = append(extAuthContent, []byte(fmt.Sprintf("echo '%s'\n", string(u)))...)
 	extAuthContent = append(extAuthContent, []byte("else\n")...)
 	extAuthContent = append(extAuthContent, []byte("echo '{\"username\":\"\"}'\n")...)
 	extAuthContent = append(extAuthContent, []byte("fi\n")...)

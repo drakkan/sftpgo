@@ -77,7 +77,7 @@ func (cache *usersCache) updateLastLogin(username string) {
 // swapWebDAVUser updates an existing cached user with the specified one
 // preserving the lock fs if possible
 // FIXME: this could be racy in rare cases
-func (cache *usersCache) swap(userRef *User) {
+func (cache *usersCache) swap(userRef *User, plainPassword string) {
 	user := userRef.getACopy()
 	err := user.LoadAndApplyGroupSettings()
 
@@ -85,18 +85,22 @@ func (cache *usersCache) swap(userRef *User) {
 	defer cache.Unlock()
 
 	if cachedUser, ok := cache.users[user.Username]; ok {
-		if cachedUser.User.Password != user.Password {
-			providerLog(logger.LevelDebug, "current password different from the cached one for user %q, removing from cache",
-				user.Username)
-			// the password changed, the cached user is no longer valid
-			delete(cache.users, user.Username)
-			return
-		}
 		if err != nil {
 			providerLog(logger.LevelDebug, "unable to load group settings, for user %q, removing from cache, err :%v",
 				user.Username, err)
 			delete(cache.users, user.Username)
 			return
+		}
+		if plainPassword != "" {
+			cachedUser.Password = plainPassword
+		} else {
+			if cachedUser.User.Password != user.Password {
+				providerLog(logger.LevelDebug, "current password different from the cached one for user %q, removing from cache",
+					user.Username)
+				// the password changed, the cached user is no longer valid
+				delete(cache.users, user.Username)
+				return
+			}
 		}
 		if cachedUser.User.isFsEqual(&user) {
 			// the updated user has the same fs as the cached one, we can preserve the lock filesystem
@@ -154,7 +158,10 @@ func (cache *usersCache) get(username string) (*CachedUser, bool) {
 	defer cache.RUnlock()
 
 	cachedUser, ok := cache.users[username]
-	return &cachedUser, ok
+	if !ok {
+		return nil, false
+	}
+	return &cachedUser, true
 }
 
 // CacheWebDAVUser add a user to the WebDAV cache
