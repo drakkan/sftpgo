@@ -36,7 +36,7 @@ require (
 	github.com/hashicorp/go-hclog v1.5.0
 	github.com/hashicorp/go-plugin v1.4.10-0.20230403150917-e889c1ba1044
 	github.com/hashicorp/go-retryablehttp v0.7.2
-	github.com/jackc/pgx/v5 v5.3.2-0.20230428020358-f59e8bf5551f
+	github.com/jackc/pgx/v5 v5.3.2-0.20230520130935-9de41fac7533
 	github.com/jlaffaye/ftp v0.0.0-20201112195030-9aae4d151126
 	github.com/klauspost/compress v1.16.5
 	github.com/lestrrat-go/jwx/v2 v2.0.9

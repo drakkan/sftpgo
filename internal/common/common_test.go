@@ -1012,6 +1012,19 @@ func TestProxyPolicy(t *testing.T) {
 	policy, err = p(&net.TCPAddr{IP: net.ParseIP("10.8.1.4")})
 	assert.NoError(t, err)
 	assert.Equal(t, proxyproto.IGNORE, policy)
+	p = getProxyPolicy(allowed, skipped, proxyproto.REQUIRE)
+	policy, err = p(&net.TCPAddr{IP: ip1})
+	assert.NoError(t, err)
+	assert.Equal(t, proxyproto.REQUIRE, policy)
+	policy, err = p(&net.TCPAddr{IP: ip2})
+	assert.NoError(t, err)
+	assert.Equal(t, proxyproto.SKIP, policy)
+	policy, err = p(&net.TCPAddr{IP: ip3})
+	assert.NoError(t, err)
+	assert.Equal(t, proxyproto.SKIP, policy)
+	policy, err = p(&net.TCPAddr{IP: net.ParseIP("10.8.1.5")})
+	assert.NoError(t, err)
+	assert.Equal(t, proxyproto.REQUIRE, policy)
 }
 
 func TestProxyProtocolVersion(t *testing.T) {

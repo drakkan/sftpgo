@@ -802,6 +802,9 @@ func getProxyPolicy(allowed, skipped []func(net.IP) bool, def proxyproto.Policy)
 
 		for _, allowFrom := range allowed {
 			if allowFrom(upstreamIP) {
+				if def == proxyproto.REQUIRE {
+					return proxyproto.REQUIRE, nil
+				}
 				return proxyproto.USE, nil
 			}
 		}
