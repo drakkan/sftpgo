@@ -1394,8 +1394,8 @@ github.com/jackc/pgx/v4 v4.0.0-20190421002000-1b8f0016e912/go.mod h1:no/Y67Jkk/9
 github.com/jackc/pgx/v4 v4.0.0-pre1.0.20190824185557-6972a5742186/go.mod h1:X+GQnOEnf1dqHGpw7JmHqHc1NxDoalibchSk9/RWuDc=
 github.com/jackc/pgx/v4 v4.12.1-0.20210724153913-640aa07df17c/go.mod h1:1QD0+tgSXP7iUjYm9C1NxKhny7lq6ee99u/z+IHFcgs=
 github.com/jackc/pgx/v4 v4.17.2/go.mod h1:lcxIZN44yMIrWI78a5CpucdD14hX0SBDbNRvjDBItsw=
-github.com/jackc/pgx/v5 v5.3.2-0.20230520130935-9de41fac7533 h1:xro2Upd4gLZnXU07yOPkL3AYEOt3gnXtU10LY+N2+nc=
-github.com/jackc/pgx/v5 v5.3.2-0.20230520130935-9de41fac7533/go.mod h1:sU+RaYl9qnhD3Ce+mwnFii6YEPx70mCYghBzKvqq4qo=
+github.com/jackc/pgx/v5 v5.3.2-0.20230520135323-70a200cff4d4 h1:ZNj2ThNr8qk34TWl+5uBDC01fa+bPynz2a8ju5nhvwU=
+github.com/jackc/pgx/v5 v5.3.2-0.20230520135323-70a200cff4d4/go.mod h1:sU+RaYl9qnhD3Ce+mwnFii6YEPx70mCYghBzKvqq4qo=
 github.com/jackc/puddle v0.0.0-20190413234325-e4ced69a3a2b/go.mod h1:m4B5Dj62Y0fbyuIc15OsIqK0+JU8nkqQjsgx7dvjSWk=
 github.com/jackc/puddle v0.0.0-20190608224051-11cab39313c9/go.mod h1:m4B5Dj62Y0fbyuIc15OsIqK0+JU8nkqQjsgx7dvjSWk=
 github.com/jackc/puddle v1.1.3/go.mod h1:m4B5Dj62Y0fbyuIc15OsIqK0+JU8nkqQjsgx7dvjSWk=
@@ -1842,8 +1842,8 @@ github.com/sean-/seed v0.0.0-20170313163322-e2103e2c3529/go.mod h1:DxrIzT+xaE7yg
 github.com/seccomp/libseccomp-golang v0.9.1/go.mod h1:GbW5+tmTXfcxTToHLXlScSlAvWlF4P2Ca7zGrPiEpWo=
 github.com/seccomp/libseccomp-golang v0.9.2-0.20210429002308-3879420cc921/go.mod h1:JA8cRccbGaA1s33RQf7Y1+q9gHmZX1yB/z9WDN1C6fg=
 github.com/secsy/goftp v0.0.0-20200609142545-aa2de14babf4 h1:PT+ElG/UUFMfqy5HrxJxNzj3QBOf7dZwupeVC+mG1Lo=
-github.com/sftpgo/sdk v0.1.4-0.20230514135418-8b5d36c556e0 h1:qUyCryFuF7zKUpNTLgn2KuQp/uYT3hKi4XU/ChJUmpo=
-github.com/sftpgo/sdk v0.1.4-0.20230514135418-8b5d36c556e0/go.mod h1:TjeoMWS0JEXt9RukJveTnaiHj4+MVLtUiDC+mY++Odk=
+github.com/sftpgo/sdk v0.1.4 h1:TyNzpG7o8PuOgAQ1AvpFNJ93quR/90r+9FYyElTKqfw=
+github.com/sftpgo/sdk v0.1.4/go.mod h1:TjeoMWS0JEXt9RukJveTnaiHj4+MVLtUiDC+mY++Odk=
 github.com/shirou/gopsutil/v3 v3.23.4 h1:hZwmDxZs7Ewt75DV81r4pFMqbq+di2cbt9FsQBqLD2o=
 github.com/shirou/gopsutil/v3 v3.23.4/go.mod h1:ZcGxyfzAMRevhUR2+cfhXDH6gQdFYE/t8j1nsU4mPI8=
 github.com/shoenig/go-m1cpu v0.1.5/go.mod h1:Wwvst4LR89UxjeFtLRMrpgRiyY4xPsejnVZym39dbAQ=
