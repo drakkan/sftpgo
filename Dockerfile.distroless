@@ -28,7 +28,7 @@ RUN sed -i 's|"users_base_dir": "",|"users_base_dir": "/srv/sftpgo/data",|' sftp
     sed -i 's|"backups"|"/srv/sftpgo/backups"|' sftpgo.json && \
     sed -i 's|"sqlite"|"bolt"|' sftpgo.json
 
-RUN apt-get update && apt-get install --no-install-recommends -y media-types openssh-server libcap2-bin && setcap cap_net_bind_service=+ep /workspace/sftpgo && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install --no-install-recommends -y media-types openssh-server && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir /etc/sftpgo /var/lib/sftpgo /srv/sftpgo
 
