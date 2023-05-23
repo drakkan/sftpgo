@@ -264,7 +264,11 @@ func initializePGSQLProvider() error {
 	dbHandle.SetConnMaxLifetime(240 * time.Second)
 	dbHandle.SetConnMaxIdleTime(120 * time.Second)
 	provider = &PGSQLProvider{dbHandle: dbHandle}
-	return nil
+
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+
+	return dbHandle.PingContext(ctx)
 }
 
 func getPGSQLHostsAndPorts(configHost string, configPort int) (string, string) {

@@ -90,12 +90,12 @@ func (s *WindowsService) handleExit(wasStopped chan bool) {
 	select {
 	case <-wasStopped:
 		// the service was stopped nothing to do
-		logger.Debug(logSender, "", "Windows Service was stopped")
+		logger.Info(logSender, "", "Windows Service was stopped")
 		return
 	default:
 		// the server failed while running, we must be sure to exit the process.
 		// The defined recovery action will be executed.
-		logger.Debug(logSender, "", "Service wait ended, error: %v", s.Service.Error)
+		logger.Info(logSender, "", "Service wait ended, error: %v", s.Service.Error)
 		if s.Service.Error == nil {
 			os.Exit(0)
 		} else {
@@ -104,18 +104,26 @@ func (s *WindowsService) handleExit(wasStopped chan bool) {
 	}
 }
 
-func (s *WindowsService) Execute(args []string, r <-chan svc.ChangeRequest, changes chan<- svc.Status) (ssec bool, errno uint32) {
-	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown | svc.AcceptParamChange | acceptRotateLog
+func (s *WindowsService) Execute(args []string, r <-chan svc.ChangeRequest, changes chan<- svc.Status) (bool, uint32) {
 	changes <- svc.Status{State: svc.StartPending}
-	if err := s.Service.Start(false); err != nil {
-		return true, 1
-	}
+
+	go func() {
+		if err := s.Service.Start(false); err != nil {
+			logger.Error(logSender, "", "Windows service failed to start, error: %v", err)
+			s.Service.Error = err
+			s.Service.Shutdown <- true
+			return
+		}
+		logger.Info(logSender, "", "Windows service started")
+		cmdsAccepted := svc.AcceptStop | svc.AcceptShutdown | svc.AcceptParamChange | acceptRotateLog
+		changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
+	}()
 
 	wasStopped := make(chan bool, 1)
 
 	go s.handleExit(wasStopped)
 
-	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
+	changes <- svc.Status{State: svc.Running, Accepts: svc.AcceptStop | svc.AcceptShutdown}
 loop:
 	for {
 		c := <-r
@@ -296,7 +304,7 @@ func (s *WindowsService) Install(args ...string) error {
 			Delay: 90 * time.Second,
 		},
 	}
-	err = service.SetRecoveryActions(recoveryActions, uint32(300))
+	err = service.SetRecoveryActions(recoveryActions, 300)
 	if err != nil {
 		service.Delete()
 		return fmt.Errorf("unable to set recovery actions: %v", err)

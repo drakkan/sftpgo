@@ -243,7 +243,11 @@ func initializeMySQLProvider() error {
 	dbHandle.SetConnMaxLifetime(240 * time.Second)
 	dbHandle.SetConnMaxIdleTime(120 * time.Second)
 	provider = &MySQLProvider{dbHandle: dbHandle}
-	return nil
+
+	ctx, cancel := context.WithTimeout(context.Background(), defaultSQLQueryTimeout)
+	defer cancel()
+
+	return dbHandle.PingContext(ctx)
 }
 func getMySQLConnectionString(redactedPwd bool) (string, error) {
 	var connectionString string
