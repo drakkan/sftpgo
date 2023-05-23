@@ -9,13 +9,11 @@ SFTPGo provides an official Docker image, it is available on both [Docker Hub](h
 - [v2.5.1-alpine, v2.5-alpine, v2-alpine, alpine](https://github.com/drakkan/sftpgo/blob/v2.5.1/Dockerfile.alpine)
 - [v2.5.1-slim, v2.5-slim, v2-slim, slim](https://github.com/drakkan/sftpgo/blob/v2.5.1/Dockerfile)
 - [v2.5.1-alpine-slim, v2.5-alpine-slim, v2-alpine-slim, alpine-slim](https://github.com/drakkan/sftpgo/blob/v2.5.1/Dockerfile.alpine)
-- [v2.5.1-distroless-slim, v2.5-distroless-slim, v2-distroless-slim, distroless-slim](https://github.com/drakkan/sftpgo/blob/v2.5.1/Dockerfile.distroless)
 - [edge](../Dockerfile)
 - [edge-plugins](../Dockerfile)
 - [edge-alpine](../Dockerfile.alpine)
 - [edge-slim](../Dockerfile)
 - [edge-alpine-slim](../Dockerfile.alpine)
-- [edge-distroless-slim](../Dockerfile.distroless)
 
 ## How to use the SFTPGo image
 
@@ -90,8 +88,6 @@ The logs are available through Docker's container log:
 ```shell
 docker logs some-sftpgo
 ```
-
-**Note:** [distroless](../Dockerfile.distroless) image contains only a statically linked sftpgo binary and its minimal runtime dependencies. Shell is not available on this image.
 
 ### Container graceful shutdown
 
@@ -190,11 +186,9 @@ RUN chown -R 1100:1100 /etc/sftpgo && chown 1100:1100 /var/lib/sftpgo /srv/sftpg
 USER 1100:1100
 ```
 
-**Note:** the above Dockerfile will not work if you use the [distroless](../Dockerfile.distroless) image as base since the `chown` command is not available there.
-
 ## Image Variants
 
-The `sftpgo` images comes in many flavors, each designed for a specific use case. The `edge`, `edge-slim`, `edge-alpine`, `edge-alpine-slim` and `edge-distroless-slim` tags are updated after each new commit.
+The `sftpgo` images comes in many flavors, each designed for a specific use case. The `edge`, `edge-slim`, `edge-alpine`, and `edge-alpine-slim` tags are updated after each new commit.
 
 ### `sftpgo:<version>`
 
@@ -205,15 +199,6 @@ This is the defacto image, it is based on [Debian](https://www.debian.org/), ava
 This image is based on the popular [Alpine Linux project](https://alpinelinux.org/), available in [the `alpine` official image](https://hub.docker.com/_/alpine). Alpine Linux is much smaller than most distribution base images (~5MB), and thus leads to much slimmer images in general.
 
 This variant is highly recommended when final image size being as small as possible is desired. The main caveat to note is that it does use [musl libc](https://musl.libc.org/) instead of [glibc and friends](https://www.etalabs.net/compare_libcs.html), so certain software might run into issues depending on the depth of their libc requirements. However, most software doesn't have an issue with this, so this variant is usually a very safe choice. See [this Hacker News comment thread](https://news.ycombinator.com/item?id=10782897) for more discussion of the issues that might arise and some pro/con comparisons of using Alpine-based images.
-
-### `sftpgo:<version>-distroless`
-
-This image is based on the popular [Distroless project](https://github.com/GoogleContainerTools/distroless). We use the latest Debian based distroless image as base.
-
-Distroless variant contains only a statically linked sftpgo binary and its minimal runtime dependencies and so it doesn't allow shell access (no shell is installed).
-SQLite support is disabled since it requires CGO and so a C runtime which is not installed.
-The default data provider is `bolt`, all the supported data providers except `sqlite` work.
-We only provide the slim variant and so the optional `git` dependency is not available.
 
 ### `sftpgo:<suite>-slim`
 
