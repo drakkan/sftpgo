@@ -5403,7 +5403,7 @@ components:
           type: array
           items:
             type: string
-          description: 'list of, case insensitive, allowed shell like patterns.'
+          description: 'list of, case insensitive, allowed shell like patterns. Allowed patterns are evaluated before the denied ones'
           example:
             - '*.jpg'
             - a*b?.png
@@ -5411,7 +5411,7 @@ components:
           type: array
           items:
             type: string
-          description: 'list of, case insensitive, denied shell like patterns. Denied patterns are evaluated before the allowed ones'
+          description: 'list of, case insensitive, denied shell like patterns'
           example:
             - '*.zip'
         deny_policy:
