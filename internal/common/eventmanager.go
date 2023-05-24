@@ -79,7 +79,7 @@ func init() {
 	}
 	dataprovider.SetEventRulesCallbacks(eventManager.loadRules, eventManager.RemoveRule,
 		func(operation, executor, ip, objectType, objectName, role string, object plugin.Renderer) {
-			eventManager.handleProviderEvent(EventParams{
+			p := EventParams{
 				Name:       executor,
 				ObjectName: objectName,
 				Event:      operation,
@@ -89,7 +89,13 @@ func init() {
 				Role:       role,
 				Timestamp:  time.Now().UnixNano(),
 				Object:     object,
-			})
+			}
+			if u, ok := object.(*dataprovider.User); ok {
+				p.Email = u.Email
+			} else if a, ok := object.(*dataprovider.Admin); ok {
+				p.Email = a.Email
+			}
+			eventManager.handleProviderEvent(p)
 		})
 }
 
@@ -544,6 +550,7 @@ type EventParams struct {
 	Protocol              string
 	IP                    string
 	Role                  string
+	Email                 string
 	Timestamp             int64
 	IDPCustomFields       *map[string]string
 	Object                plugin.Renderer
@@ -762,6 +769,7 @@ func (p *EventParams) getStringReplacements(addObjectData, jsonEscaped bool) []s
 		"{{Protocol}}", p.Protocol,
 		"{{IP}}", p.IP,
 		"{{Role}}", p.getStringReplacement(p.Role, jsonEscaped),
+		"{{Email}}", p.getStringReplacement(p.Email, jsonEscaped),
 		"{{Timestamp}}", fmt.Sprintf("%d", p.Timestamp),
 		"{{StatusString}}", p.getStatusString(),
 	}
@@ -1446,7 +1454,10 @@ func executeEmailRuleAction(c dataprovider.EventActionEmailConfig, params *Event
 	subject := replaceWithReplacer(c.Subject, replacer)
 	recipients := make([]string, 0, len(c.Recipients))
 	for _, recipient := range c.Recipients {
-		recipients = append(recipients, replaceWithReplacer(recipient, replacer))
+		rcpt := replaceWithReplacer(recipient, replacer)
+		if rcpt != "" {
+			recipients = append(recipients, rcpt)
+		}
 	}
 	startTime := time.Now()
 	var files []*mail.File

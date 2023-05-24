@@ -818,6 +818,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                     <span class="shortcut"><b>{{`{{Timestamp}}`}}</b></span> =>  Event timestamp as nanoseconds since epoch.
                 </p>
                 <p>
+                    <span class="shortcut"><b>{{`{{Email}}`}}</b></span> =>  For filesystem events, this is the email associated with the user performing the action. For the provider events, this is the email associated with the affected user or admin. Blank in all other cases.
+                </p>
+                <p>
                     <span class="shortcut"><b>{{`{{ObjectData}}`}}</b></span> => Provider object data serialized as JSON with sensitive fields removed.
                 </p>
                 <p>

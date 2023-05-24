@@ -112,6 +112,7 @@ func ExecutePreAction(conn *BaseConnection, operation, filePath, virtualPath str
 			IP:                event.IP,
 			Role:              event.Role,
 			Timestamp:         event.Timestamp,
+			Email:             conn.User.Email,
 			Object:            nil,
 		}
 		executedSync, err := eventManager.handleFsEvent(params)
@@ -157,6 +158,7 @@ func ExecuteActionNotification(conn *BaseConnection, operation, filePath, virtua
 			IP:                notification.IP,
 			Role:              notification.Role,
 			Timestamp:         notification.Timestamp,
+			Email:             conn.User.Email,
 			Object:            nil,
 		}
 		if err != nil {

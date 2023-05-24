@@ -46,6 +46,7 @@ The following placeholders are supported:
 - `{{IP}}`. Client IP address.
 - `{{Role}}`. User or admin role.
 - `{{Timestamp}}`. Event timestamp as nanoseconds since epoch.
+- `{{Email}}`. For filesystem events, this is the email associated with the user performing the action. For the provider events, this is the email associated with the affected user or admin. Blank in all other cases.
 - `{{ObjectData}}`. Provider object data serialized as JSON with sensitive fields removed.
 - `{{RetentionReports}}`. Data retention reports as zip compressed CSV files. Supported as email attachment, file path for multipart HTTP request and as single parameter for HTTP requests body. Data retention reports contain details on the number of files deleted and the total size deleted for each folder.
 - `{{IDPField<fieldname>}}`. Identity Provider custom fields containing a string.
