@@ -474,6 +474,7 @@ func (c EventActionCommandConfig) GetArgumentsAsString() string {
 // EventActionEmailConfig defines the configuration options for SMTP event actions
 type EventActionEmailConfig struct {
 	Recipients  []string `json:"recipients,omitempty"`
+	Bcc         []string `json:"bcc,omitempty"`
 	Subject     string   `json:"subject,omitempty"`
 	Body        string   `json:"body,omitempty"`
 	Attachments []string `json:"attachments,omitempty"`
@@ -483,6 +484,11 @@ type EventActionEmailConfig struct {
 // GetRecipientsAsString returns the list of recipients as comma separated string
 func (c EventActionEmailConfig) GetRecipientsAsString() string {
 	return strings.Join(c.Recipients, ",")
+}
+
+// GetBccAsString returns the list of bcc as comma separated string
+func (c EventActionEmailConfig) GetBccAsString() string {
+	return strings.Join(c.Bcc, ",")
 }
 
 // GetAttachmentsAsString returns the list of attachments as comma separated string
@@ -507,6 +513,12 @@ func (c *EventActionEmailConfig) validate() error {
 	for _, r := range c.Recipients {
 		if r == "" {
 			return util.NewValidationError("invalid email recipients")
+		}
+	}
+	c.Bcc = util.RemoveDuplicates(c.Bcc, false)
+	for _, r := range c.Bcc {
+		if r == "" {
+			return util.NewValidationError("invalid email bcc")
 		}
 	}
 	if c.Subject == "" {
@@ -897,6 +909,8 @@ func (o *BaseEventActionOptions) getACopy() BaseEventActionOptions {
 	o.SetEmptySecretsIfNil()
 	emailRecipients := make([]string, len(o.EmailConfig.Recipients))
 	copy(emailRecipients, o.EmailConfig.Recipients)
+	emailBcc := make([]string, len(o.EmailConfig.Bcc))
+	copy(emailBcc, o.EmailConfig.Bcc)
 	emailAttachments := make([]string, len(o.EmailConfig.Attachments))
 	copy(emailAttachments, o.EmailConfig.Attachments)
 	cmdArgs := make([]string, len(o.CmdConfig.Args))
@@ -941,6 +955,7 @@ func (o *BaseEventActionOptions) getACopy() BaseEventActionOptions {
 		},
 		EmailConfig: EventActionEmailConfig{
 			Recipients:  emailRecipients,
+			Bcc:         emailBcc,
 			Subject:     o.EmailConfig.Subject,
 			ContentType: o.EmailConfig.ContentType,
 			Body:        o.EmailConfig.Body,

@@ -48,7 +48,7 @@ func testSMTPConfig(w http.ResponseWriter, r *http.Request) {
 			req.Password = configs.SMTP.Password.GetPayload()
 		}
 	}
-	if err := req.SendEmail([]string{req.Recipient}, "SFTPGo - Testing Email Settings",
+	if err := req.SendEmail([]string{req.Recipient}, nil, "SFTPGo - Testing Email Settings",
 		"It appears your SFTPGo email is setup correctly!", smtp.EmailContentTypeTextPlain); err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusInternalServerError)
 		return

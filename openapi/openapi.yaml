@@ -7085,6 +7085,10 @@ components:
           type: array
           items:
             type: string
+        bcc:
+          type: array
+          items:
+            type: string
         subject:
           type: string
         body:

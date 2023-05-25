@@ -2659,6 +2659,14 @@ func compareEventActionEmailConfigFields(expected, actual dataprovider.EventActi
 			return errors.New("email recipients content mismatch")
 		}
 	}
+	if len(expected.Bcc) != len(actual.Bcc) {
+		return errors.New("email bcc mismatch")
+	}
+	for _, v := range expected.Bcc {
+		if !util.Contains(actual.Bcc, v) {
+			return errors.New("email bcc content mismatch")
+		}
+	}
 	if expected.Subject != actual.Subject {
 		return errors.New("email subject mismatch")
 	}

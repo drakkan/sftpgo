@@ -1708,6 +1708,7 @@ func TestBasicActionRulesHandling(t *testing.T) {
 	a.Options = dataprovider.BaseEventActionOptions{
 		EmailConfig: dataprovider.EventActionEmailConfig{
 			Recipients:  []string{"email@example.com"},
+			Bcc:         []string{"bcc@example.com"},
 			Subject:     "Event: {{Event}}",
 			Body:        "test mail body",
 			Attachments: []string{"/{{VirtualPath}}"},
@@ -2250,6 +2251,11 @@ func TestEventActionValidation(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Contains(t, string(resp), "invalid email recipients")
 	action.Options.EmailConfig.Recipients = []string{"a@a.com"}
+	action.Options.EmailConfig.Bcc = []string{""}
+	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "invalid email bcc")
+	action.Options.EmailConfig.Bcc = nil
 	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
 	assert.NoError(t, err)
 	assert.Contains(t, string(resp), "email subject is required")
@@ -21820,6 +21826,7 @@ func TestWebEventAction(t *testing.T) {
 	action.Type = dataprovider.ActionTypeEmail
 	action.Options.EmailConfig = dataprovider.EventActionEmailConfig{
 		Recipients:  []string{"address1@example.com", "address2@example.com"},
+		Bcc:         []string{"address3@example.com"},
 		Subject:     "subject",
 		ContentType: 1,
 		Body:        "body",
@@ -21827,6 +21834,7 @@ func TestWebEventAction(t *testing.T) {
 	}
 	form.Set("type", fmt.Sprintf("%d", action.Type))
 	form.Set("email_recipients", "address1@example.com,  address2@example.com")
+	form.Set("email_bcc", "address3@example.com")
 	form.Set("email_subject", action.Options.EmailConfig.Subject)
 	form.Set("email_content_type", fmt.Sprintf("%d", action.Options.EmailConfig.ContentType))
 	form.Set("email_body", action.Options.EmailConfig.Body)
@@ -21843,6 +21851,7 @@ func TestWebEventAction(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, action.Type, actionGet.Type)
 	assert.Equal(t, action.Options.EmailConfig.Recipients, actionGet.Options.EmailConfig.Recipients)
+	assert.Equal(t, action.Options.EmailConfig.Bcc, actionGet.Options.EmailConfig.Bcc)
 	assert.Equal(t, action.Options.EmailConfig.Subject, actionGet.Options.EmailConfig.Subject)
 	assert.Equal(t, action.Options.EmailConfig.ContentType, actionGet.Options.EmailConfig.ContentType)
 	assert.Equal(t, action.Options.EmailConfig.Body, actionGet.Options.EmailConfig.Body)

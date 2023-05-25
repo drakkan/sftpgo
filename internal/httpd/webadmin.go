@@ -2326,6 +2326,7 @@ func getEventActionOptionsFromPostFields(r *http.Request) (dataprovider.BaseEven
 		},
 		EmailConfig: dataprovider.EventActionEmailConfig{
 			Recipients:  getSliceFromDelimitedValues(r.Form.Get("email_recipients"), ","),
+			Bcc:         getSliceFromDelimitedValues(r.Form.Get("email_bcc"), ","),
 			Subject:     r.Form.Get("email_subject"),
 			ContentType: emailContentType,
 			Body:        r.Form.Get("email_body"),

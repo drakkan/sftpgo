@@ -1441,6 +1441,20 @@ func executeCommandRuleAction(c dataprovider.EventActionCommandConfig, params *E
 	return err
 }
 
+func getEmailAddressesWithReplacer(addrs []string, replacer *strings.Replacer) []string {
+	if len(addrs) == 0 {
+		return nil
+	}
+	recipients := make([]string, 0, len(addrs))
+	for _, recipient := range addrs {
+		rcpt := replaceWithReplacer(recipient, replacer)
+		if rcpt != "" {
+			recipients = append(recipients, rcpt)
+		}
+	}
+	return recipients
+}
+
 func executeEmailRuleAction(c dataprovider.EventActionEmailConfig, params *EventParams) error {
 	addObjectData := false
 	if params.Object != nil {
@@ -1452,13 +1466,8 @@ func executeEmailRuleAction(c dataprovider.EventActionEmailConfig, params *Event
 	replacer := strings.NewReplacer(replacements...)
 	body := replaceWithReplacer(c.Body, replacer)
 	subject := replaceWithReplacer(c.Subject, replacer)
-	recipients := make([]string, 0, len(c.Recipients))
-	for _, recipient := range c.Recipients {
-		rcpt := replaceWithReplacer(recipient, replacer)
-		if rcpt != "" {
-			recipients = append(recipients, rcpt)
-		}
-	}
+	recipients := getEmailAddressesWithReplacer(c.Recipients, replacer)
+	bcc := getEmailAddressesWithReplacer(c.Bcc, replacer)
 	startTime := time.Now()
 	var files []*mail.File
 	fileAttachments := make([]string, 0, len(c.Attachments))
@@ -1495,7 +1504,7 @@ func executeEmailRuleAction(c dataprovider.EventActionEmailConfig, params *Event
 		}
 		files = append(files, res...)
 	}
-	err := smtp.SendEmail(recipients, subject, body, smtp.EmailContentType(c.ContentType), files...)
+	err := smtp.SendEmail(recipients, bcc, subject, body, smtp.EmailContentType(c.ContentType), files...)
 	eventManagerLog(logger.LevelDebug, "executed email notification action, elapsed: %s, error: %v",
 		time.Since(startTime), err)
 	if err != nil {
@@ -2344,7 +2353,7 @@ func executePwdExpirationCheckForUser(user *dataprovider.User, config dataprovid
 	}
 	subject := "SFTPGo password expiration notification"
 	startTime := time.Now()
-	if err := smtp.SendEmail([]string{user.Email}, subject, body.String(), smtp.EmailContentTypeTextHTML); err != nil {
+	if err := smtp.SendEmail([]string{user.Email}, nil, subject, body.String(), smtp.EmailContentTypeTextHTML); err != nil {
 		eventManagerLog(logger.LevelError, "unable to notify password expiration for user %s: %v, elapsed: %s",
 			user.Username, err, time.Since(startTime))
 		return err

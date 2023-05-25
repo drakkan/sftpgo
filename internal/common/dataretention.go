@@ -389,7 +389,7 @@ func (c *RetentionCheck) sendEmailNotification(errCheck error) error {
 		subject = fmt.Sprintf("Retention check failed for user %q", c.conn.User.Username)
 	}
 	body := "Further details attached."
-	err = smtp.SendEmail([]string{c.Email}, subject, body, smtp.EmailContentTypeTextPlain, files...)
+	err = smtp.SendEmail([]string{c.Email}, nil, subject, body, smtp.EmailContentTypeTextPlain, files...)
 	if err != nil {
 		c.conn.Log(logger.LevelError, "unable to notify retention check result via email: %v, elapsed: %s", err,
 			time.Since(startTime))

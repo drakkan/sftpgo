@@ -3576,6 +3576,7 @@ func TestEventRule(t *testing.T) {
 		Options: dataprovider.BaseEventActionOptions{
 			EmailConfig: dataprovider.EventActionEmailConfig{
 				Recipients: []string{"test1@example.com", "test2@example.com"},
+				Bcc:        []string{"test3@example.com"},
 				Subject:    `New "{{Event}}" from "{{Name}}" status {{StatusString}}`,
 				Body:       "Fs path {{FsPath}}, size: {{FileSize}}, protocol: {{Protocol}}, IP: {{IP}} Data: {{ObjectData}} {{ErrorString}}",
 			},
@@ -3771,9 +3772,10 @@ func TestEventRule(t *testing.T) {
 			return lastReceivedEmail.get().From != ""
 		}, 3000*time.Millisecond, 100*time.Millisecond)
 		email := lastReceivedEmail.get()
-		assert.Len(t, email.To, 2)
+		assert.Len(t, email.To, 3)
 		assert.True(t, util.Contains(email.To, "test1@example.com"))
 		assert.True(t, util.Contains(email.To, "test2@example.com"))
+		assert.True(t, util.Contains(email.To, "test3@example.com"))
 		assert.Contains(t, email.Data, fmt.Sprintf(`Subject: New "upload" from "%s" status OK`, user.Username))
 		// test the failure action, we download a file that exceeds the transfer quota limit
 		err = writeSFTPFileNoCheck(path.Join("subdir1", testFileName), 1*1024*1024+65535, client)
@@ -3791,9 +3793,10 @@ func TestEventRule(t *testing.T) {
 			return lastReceivedEmail.get().From != ""
 		}, 3000*time.Millisecond, 100*time.Millisecond)
 		email = lastReceivedEmail.get()
-		assert.Len(t, email.To, 2)
+		assert.Len(t, email.To, 3)
 		assert.True(t, util.Contains(email.To, "test1@example.com"))
 		assert.True(t, util.Contains(email.To, "test2@example.com"))
+		assert.True(t, util.Contains(email.To, "test3@example.com"))
 		assert.Contains(t, email.Data, fmt.Sprintf(`Subject: New "download" from "%s" status KO`, user.Username))
 		assert.Contains(t, email.Data, `"download" failed`)
 		assert.Contains(t, email.Data, common.ErrReadQuotaExceeded.Error())
@@ -3827,9 +3830,10 @@ func TestEventRule(t *testing.T) {
 			return lastReceivedEmail.get().From != ""
 		}, 3000*time.Millisecond, 100*time.Millisecond)
 		email = lastReceivedEmail.get()
-		assert.Len(t, email.To, 2)
+		assert.Len(t, email.To, 3)
 		assert.True(t, util.Contains(email.To, "test1@example.com"))
 		assert.True(t, util.Contains(email.To, "test2@example.com"))
+		assert.True(t, util.Contains(email.To, "test3@example.com"))
 		assert.Contains(t, email.Data, fmt.Sprintf(`Subject: New "download" from "%s"`, user.Username))
 	}
 	// test upload action command with arguments
@@ -3869,9 +3873,10 @@ func TestEventRule(t *testing.T) {
 		return lastReceivedEmail.get().From != ""
 	}, 3000*time.Millisecond, 100*time.Millisecond)
 	email := lastReceivedEmail.get()
-	assert.Len(t, email.To, 2)
+	assert.Len(t, email.To, 3)
 	assert.True(t, util.Contains(email.To, "test1@example.com"))
 	assert.True(t, util.Contains(email.To, "test2@example.com"))
+	assert.True(t, util.Contains(email.To, "test3@example.com"))
 	assert.Contains(t, email.Data, `Subject: New "delete" from "admin"`)
 	_, err = httpdtest.RemoveEventRule(rule3, http.StatusOK)
 	assert.NoError(t, err)

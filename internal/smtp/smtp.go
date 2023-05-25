@@ -104,7 +104,7 @@ func (c *activeConfig) Set(cfg *dataprovider.SMTPConfigs) {
 	}
 }
 
-func (c *activeConfig) getSMTPClientAndMsg(to []string, subject, body string, contentType EmailContentType,
+func (c *activeConfig) getSMTPClientAndMsg(to, bcc []string, subject, body string, contentType EmailContentType,
 	attachments ...*mail.File,
 ) (*mail.Client, *mail.Msg, error) {
 	c.RLock()
@@ -114,11 +114,11 @@ func (c *activeConfig) getSMTPClientAndMsg(to []string, subject, body string, co
 		return nil, nil, errors.New("smtp: not configured")
 	}
 
-	return c.config.getSMTPClientAndMsg(to, subject, body, contentType, attachments...)
+	return c.config.getSMTPClientAndMsg(to, bcc, subject, body, contentType, attachments...)
 }
 
-func (c *activeConfig) sendEmail(to []string, subject, body string, contentType EmailContentType, attachments ...*mail.File) error {
-	client, msg, err := c.getSMTPClientAndMsg(to, subject, body, contentType, attachments...)
+func (c *activeConfig) sendEmail(to, bcc []string, subject, body string, contentType EmailContentType, attachments ...*mail.File) error {
+	client, msg, err := c.getSMTPClientAndMsg(to, bcc, subject, body, contentType, attachments...)
 	if err != nil {
 		return err
 	}
@@ -286,7 +286,7 @@ func (c *Config) getMailClientOptions() []mail.Option {
 	return options
 }
 
-func (c *Config) getSMTPClientAndMsg(to []string, subject, body string, contentType EmailContentType,
+func (c *Config) getSMTPClientAndMsg(to, bcc []string, subject, body string, contentType EmailContentType,
 	attachments ...*mail.File) (*mail.Client, *mail.Msg, error) {
 	version := version.Get()
 	msg := mail.NewMsg()
@@ -303,6 +303,11 @@ func (c *Config) getSMTPClientAndMsg(to []string, subject, body string, contentT
 	}
 	if err := msg.To(to...); err != nil {
 		return nil, nil, err
+	}
+	if len(bcc) > 0 {
+		if err := msg.Bcc(bcc...); err != nil {
+			return nil, nil, err
+		}
 	}
 	msg.Subject(subject)
 	msg.SetDate()
@@ -326,8 +331,8 @@ func (c *Config) getSMTPClientAndMsg(to []string, subject, body string, contentT
 }
 
 // SendEmail tries to send an email using the specified parameters
-func (c *Config) SendEmail(to []string, subject, body string, contentType EmailContentType, attachments ...*mail.File) error {
-	client, msg, err := c.getSMTPClientAndMsg(to, subject, body, contentType, attachments...)
+func (c *Config) SendEmail(to, bcc []string, subject, body string, contentType EmailContentType, attachments ...*mail.File) error {
+	client, msg, err := c.getSMTPClientAndMsg(to, bcc, subject, body, contentType, attachments...)
 	if err != nil {
 		return err
 	}
@@ -366,8 +371,8 @@ func RenderPasswordExpirationTemplate(buf *bytes.Buffer, data any) error {
 }
 
 // SendEmail tries to send an email using the specified parameters.
-func SendEmail(to []string, subject, body string, contentType EmailContentType, attachments ...*mail.File) error {
-	return config.sendEmail(to, subject, body, contentType, attachments...)
+func SendEmail(to, bcc []string, subject, body string, contentType EmailContentType, attachments ...*mail.File) error {
+	return config.sendEmail(to, bcc, subject, body, contentType, attachments...)
 }
 
 // ReloadProviderConf reloads the configuration from the provider
