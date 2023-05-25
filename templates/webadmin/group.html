@@ -684,7 +684,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                                 <label for="idTLSUsername" class="col-sm-2 col-form-label">TLS username</label>
                                 <div class="col-sm-10">
                                     <select class="form-control selectpicker" id="idTLSUsername" name="tls_username" aria-describedby="tlsUsernameHelpBlock">
-                                        <option value="None" {{if eq .Group.UserSettings.Filters.TLSUsername "None" }}selected{{end}}>None</option>
+                                        <option value="" {{if or (eq .Group.UserSettings.Filters.TLSUsername "None") (eq .Group.UserSettings.Filters.TLSUsername "") }}selected{{end}}>None</option>
                                         <option value="CommonName" {{if eq .Group.UserSettings.Filters.TLSUsername "CommonName" }}selected{{end}}>Common Name</option>
                                     </select>
                                     <small id="tlsUsernameHelpBlock" class="form-text text-muted">
