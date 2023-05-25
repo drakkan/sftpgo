@@ -15,6 +15,7 @@
 package config_test
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -101,9 +102,15 @@ func TestReadEnvFiles(t *testing.T) {
 	err := os.Mkdir(envd, os.ModePerm)
 	assert.NoError(t, err)
 
+	content := make([]byte, 1048576+1)
+	_, err = rand.Read(content)
+	assert.NoError(t, err)
+
 	err = os.WriteFile(filepath.Join(envd, "env1"), []byte("SFTPGO_SFTPD__MAX_AUTH_TRIES = 10"), 0666)
 	assert.NoError(t, err)
 	err = os.WriteFile(filepath.Join(envd, "env2"), []byte(`{"invalid env": "value"}`), 0666)
+	assert.NoError(t, err)
+	err = os.WriteFile(filepath.Join(envd, "env3"), content, 0666)
 	assert.NoError(t, err)
 
 	err = config.LoadConfig(configDir, "")

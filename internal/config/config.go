@@ -53,6 +53,7 @@ const (
 	configName = "sftpgo"
 	// ConfigEnvPrefix defines a prefix that environment variables will use
 	configEnvPrefix = "sftpgo"
+	envFileMaxSize  = 1048576
 )
 
 var (
@@ -654,6 +655,10 @@ func readEnvFiles(configDir string) {
 		info, err := entry.Info()
 		if err == nil && info.Mode().IsRegular() {
 			envFile := filepath.Join(envd, entry.Name())
+			if info.Size() > envFileMaxSize {
+				logger.Info(logSender, "", "env file %q too big: %s, skipping", entry.Name(), util.ByteCountIEC(info.Size()))
+				continue
+			}
 			err = gotenv.Load(envFile)
 			if err != nil {
 				logger.Error(logSender, "", "unable to load env vars from file %q, err: %v", envFile, err)
