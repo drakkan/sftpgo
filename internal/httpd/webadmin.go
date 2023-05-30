@@ -2635,6 +2635,10 @@ func getSMTPConfigsFromPostFields(r *http.Request) *dataprovider.SMTPConfigs {
 	if err != nil {
 		encryption = 0
 	}
+	debug := 0
+	if r.Form.Get("smtp_debug") != "" {
+		debug = 1
+	}
 	return &dataprovider.SMTPConfigs{
 		Host:       r.Form.Get("smtp_host"),
 		Port:       port,
@@ -2644,6 +2648,7 @@ func getSMTPConfigsFromPostFields(r *http.Request) *dataprovider.SMTPConfigs {
 		AuthType:   authType,
 		Encryption: encryption,
 		Domain:     r.Form.Get("smtp_domain"),
+		Debug:      debug,
 	}
 }
 

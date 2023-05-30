@@ -25,6 +25,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rs/xid"
 	"github.com/wneessen/go-mail"
 
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
@@ -83,6 +84,7 @@ func (c *activeConfig) Set(cfg *dataprovider.SMTPConfigs) {
 			AuthType:   cfg.AuthType,
 			Encryption: cfg.Encryption,
 			Domain:     cfg.Domain,
+			Debug:      cfg.Debug,
 		}
 	}
 
@@ -167,6 +169,8 @@ type Config struct {
 	// Path to the email templates. This can be an absolute path or a path relative to the config dir.
 	// Templates are searched within a subdirectory named "email" in the specified path
 	TemplatesPath string `json:"templates_path" mapstructure:"templates_path"`
+	// Set to 1 to enable debug logs
+	Debug int `json:"debug" mapstructure:"debug"`
 }
 
 func (c *Config) isEqual(other *Config) bool {
@@ -192,6 +196,9 @@ func (c *Config) isEqual(other *Config) bool {
 		return false
 	}
 	if c.Domain != other.Domain {
+		return false
+	}
+	if c.Debug != other.Debug {
 		return false
 	}
 	return true
@@ -282,6 +289,13 @@ func (c *Config) getMailClientOptions() []mail.Option {
 	}
 	if c.Domain != "" {
 		options = append(options, mail.WithHELO(c.Domain))
+	}
+	if c.Debug > 0 {
+		options = append(options,
+			mail.WithLogger(&logger.MailAdapter{
+				ConnectionID: xid.New().String(),
+			}),
+			mail.WithDebugLog())
 	}
 	return options
 }

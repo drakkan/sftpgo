@@ -152,6 +152,7 @@ type SMTPConfigs struct {
 	AuthType   int         `json:"auth_type,omitempty"`
 	Encryption int         `json:"encryption,omitempty"`
 	Domain     string      `json:"domain,omitempty"`
+	Debug      int         `json:"debug,omitempty"`
 }
 
 func (c *SMTPConfigs) isEmpty() bool {
@@ -215,6 +216,7 @@ func (c *SMTPConfigs) getACopy() *SMTPConfigs {
 		AuthType:   c.AuthType,
 		Encryption: c.Encryption,
 		Domain:     c.Domain,
+		Debug:      c.Debug,
 	}
 }
 

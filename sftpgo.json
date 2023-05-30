@@ -406,7 +406,8 @@
     "auth_type": 0,
     "encryption": 0,
     "domain": "",
-    "templates_path": "templates"
+    "templates_path": "templates",
+    "debug": 0
   },
   "plugins": []
 }

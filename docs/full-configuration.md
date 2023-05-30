@@ -457,6 +457,7 @@ The configuration file contains the following sections:
   - `encryption`, integer. 0 means no encryption, 1 means `TLS`, 2 means `STARTTLS`. Default: `0`.
   - `domain`, string. Domain to use for `HELO` command, if empty `localhost` will be used. Default: blank.
   - `templates_path`, string. Path to the email templates. This can be an absolute path or a path relative to the config dir. Templates are searched within a subdirectory named "email" in the specified path. You can customize the email templates by simply specifying an alternate path and putting your custom templates there.
+  - `debug`, integer. Set to `1` to enable SMTP debug. Default: `0`.
 
 </details>
 <details><summary><font size=4>Plugins</font></summary>
