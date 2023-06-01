@@ -1,10 +1,9 @@
 # POC (WIP)
 ## Instruction:
-- make sure to use `main_add_prelsdir_sync_fs_event` branch 
  
 - compile sftpgo
     ```bash
-    go build -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=`git describe --always --abbrev=8 --dirty` -X github.com/drakkan/sftpgo/v2/internal/version.date=`date -u +%FT%TZ`" -o sftpgo
+    go build -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/pkg/version.commit=`git describe --always --abbrev=8 --dirty` -X github.com/drakkan/sftpgo/v2/pkg/version.date=`date -u +%FT%TZ`" -o sftpgo
     ```
 
 - launch the sftpgo server, use envvars to create the admin user
