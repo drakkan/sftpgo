@@ -7416,7 +7416,8 @@ func TestHashedPasswords(t *testing.T) {
 	pwdMapping["$5$h4Aalt0fJdGX8sgv$Rd2ew0fvgzUN.DzAVlKa9QL4q/DZWo4SsKpB9.3AyZ/"] = plainPwd
 	pwdMapping["$apr1$OBWLeSme$WoJbB736e7kKxMBIAqilb1"] = plainPwd
 	pwdMapping["{MD5}5f4dcc3b5aa765d61d8327deb882cf99"] = plainPwd
-
+	pwdMapping["{SHA256}5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8"] = plainPwd
+	pwdMapping["{SHA512}b109f3bbbc244eb82441917ed06d618b9008dd09b3befd1b5e07394c706a8bb980b1d7785e5976ec049b46df5f1326af5a2ea6d103fd07c95385ffab0cacbc86"] = plainPwd
 	for pwd, clearPwd := range pwdMapping {
 		u := getTestUser(usePubKey)
 		u.Password = pwd

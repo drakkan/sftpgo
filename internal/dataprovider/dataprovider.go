@@ -100,7 +100,9 @@ const (
 	sha256cryptPwdPrefix      = "$5$"
 	sha512cryptPwdPrefix      = "$6$"
 	yescryptPwdPrefix         = "$y$"
-	md5LDAPPwdPrefix          = "{MD5}"
+	md5DigestPwdPrefix        = "{MD5}"
+	sha256DigestPwdPrefix     = "{SHA256}"
+	sha512DigestPwdPrefix     = "{SHA512}"
 	trackQuotaDisabledError   = "please enable track_quota in your configuration to use this method"
 	operationAdd              = "add"
 	operationUpdate           = "update"
@@ -180,12 +182,13 @@ var (
 	sqlPlaceholders          []string
 	internalHashPwdPrefixes  = []string{argonPwdPrefix, bcryptPwdPrefix}
 	hashPwdPrefixes          = []string{argonPwdPrefix, bcryptPwdPrefix, pbkdf2SHA1Prefix, pbkdf2SHA256Prefix,
-		pbkdf2SHA512Prefix, pbkdf2SHA256B64SaltPrefix, md5cryptPwdPrefix, md5cryptApr1PwdPrefix, md5LDAPPwdPrefix,
-		sha256cryptPwdPrefix, sha512cryptPwdPrefix, yescryptPwdPrefix}
+		pbkdf2SHA512Prefix, pbkdf2SHA256B64SaltPrefix, md5cryptPwdPrefix, md5cryptApr1PwdPrefix, md5DigestPwdPrefix,
+		sha256DigestPwdPrefix, sha512DigestPwdPrefix, sha256cryptPwdPrefix, sha512cryptPwdPrefix, yescryptPwdPrefix}
 	pbkdfPwdPrefixes        = []string{pbkdf2SHA1Prefix, pbkdf2SHA256Prefix, pbkdf2SHA512Prefix, pbkdf2SHA256B64SaltPrefix}
 	pbkdfPwdB64SaltPrefixes = []string{pbkdf2SHA256B64SaltPrefix}
 	unixPwdPrefixes         = []string{md5cryptPwdPrefix, md5cryptApr1PwdPrefix, sha256cryptPwdPrefix, sha512cryptPwdPrefix,
 		yescryptPwdPrefix}
+	digestPwdPrefixes            = []string{md5DigestPwdPrefix, sha256DigestPwdPrefix, sha512DigestPwdPrefix}
 	sharedProviders              = []string{PGSQLDataProviderName, MySQLDataProviderName, CockroachDataProviderName}
 	logSender                    = "dataprovider"
 	sqlTableUsers                string
@@ -3211,10 +3214,8 @@ func isPasswordOK(user *User, password string) (bool, error) {
 		if err != nil {
 			return match, err
 		}
-	} else if strings.HasPrefix(user.Password, md5LDAPPwdPrefix) {
-		h := md5.New()
-		h.Write([]byte(password))
-		match = fmt.Sprintf("%s%x", md5LDAPPwdPrefix, h.Sum(nil)) == user.Password
+	} else if util.IsStringPrefixInSlice(user.Password, digestPwdPrefixes) {
+		match = compareDigestPasswordAndHash(user, password)
 	}
 	if err == nil && match {
 		cachedUserPasswords.Add(user.Username, password, user.Password)
@@ -3375,6 +3376,25 @@ func checkUserAndPubKey(user *User, pubKey []byte, isSSHCert bool) (User, string
 		}
 	}
 	return *user, "", ErrInvalidCredentials
+}
+
+func compareDigestPasswordAndHash(user *User, password string) bool {
+	if strings.HasPrefix(user.Password, md5DigestPwdPrefix) {
+		h := md5.New()
+		h.Write([]byte(password))
+		return fmt.Sprintf("%s%x", md5DigestPwdPrefix, h.Sum(nil)) == user.Password
+	}
+	if strings.HasPrefix(user.Password, sha256DigestPwdPrefix) {
+		h := sha256.New()
+		h.Write([]byte(password))
+		return fmt.Sprintf("%s%x", sha256DigestPwdPrefix, h.Sum(nil)) == user.Password
+	}
+	if strings.HasPrefix(user.Password, sha512DigestPwdPrefix) {
+		h := sha512.New()
+		h.Write([]byte(password))
+		return fmt.Sprintf("%s%x", sha512DigestPwdPrefix, h.Sum(nil)) == user.Password
+	}
+	return false
 }
 
 func compareUnixPasswordAndHash(user *User, password string) (bool, error) {

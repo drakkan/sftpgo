@@ -585,7 +585,9 @@ Supported hash algorithms:
 - MD5 crypt APR1, prefix `$apr1$`
 - SHA256 crypt, prefix `$5$`
 - SHA512 crypt, prefix `$6$`
-- LDAP MD5, prefix `{MD5}`
+- MD5 digest, prefix `{MD5}`
+- SHA256 digest, prefix `{SHA256}`
+- SHA512 digest, prefix `{SHA512}`
 
 If you set a password with one of these prefixes it will not be hashed.
 When users log in, if their passwords are stored with anything other than the preferred algorithm, SFTPGo will automatically upgrade the algorithm to the preferred one.
