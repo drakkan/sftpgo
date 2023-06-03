@@ -884,7 +884,6 @@ func Initialize(cnf Config, basePath string, checkAdmins bool) error {
 		return fmt.Errorf("unable to get absolute backup path: %w", err)
 	}
 	config.BackupsPath = absoluteBackupPath
-	providerLog(logger.LevelDebug, "absolute backup path %q", config.BackupsPath)
 
 	if err := initializeHashingAlgo(&cnf); err != nil {
 		return err
@@ -907,6 +906,10 @@ func Initialize(cnf Config, basePath string, checkAdmins bool) error {
 		return err
 	}
 	delayedQuotaUpdater.start()
+	if currentNode != nil {
+		config.BackupsPath = filepath.Join(config.BackupsPath, currentNode.Name)
+	}
+	providerLog(logger.LevelDebug, "absolute backup path %q", config.BackupsPath)
 	return startScheduler()
 }
 
