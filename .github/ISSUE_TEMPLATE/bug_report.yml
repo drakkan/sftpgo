@@ -1,0 +1,106 @@
+name: Open Source Bug Report
+description: "Submit a report and help us improve SFTPGo"
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ### 👍 Thank you for contributing to our project!
+        Before asking for help please check the [support policy](https://github.com/drakkan/sftpgo#support-policy).
+        If you are a commercial user or a project sponsor please contact us using the dedicated [email address](mailto:support@sftpgo.com).
+  - type: checkboxes
+    id: before-posting
+    attributes:
+      label: "⚠️ This issue respects the following points: ⚠️"
+      description: All conditions are **required**.
+      options:
+        - label: This is a **bug**, not a question or a configuration issue.
+          required: true
+        - label: This issue is **not** already reported on Github _(I've searched it)_.
+          required: true
+  - type: textarea
+    id: bug-description
+    attributes:
+      label: Bug description
+      description: |
+        Provide a description of the bug you're experiencing.
+        Don't just expect someone will guess what your specific problem is and provide full details.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: |
+        Describe the steps to reproduce the bug.
+        The better your description is the fastest you'll get an _(accurate)_ answer.
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected behavior
+      description: Describe what you expected to happen instead.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: SFTPGo version
+    validations:
+      required: true
+  - type: input
+    id: data-provider
+    attributes:
+      label: Data provider
+    validations:
+      required: true
+  - type: dropdown
+    id: install-method
+    attributes:
+      label: Installation method
+      description: |
+        Select installation method you've used.
+        _Describe the method in the "Additional info" section if you chose "Other"._
+      options:
+        - "Community Docker image"
+        - "Community Deb package"
+        - "Community RPM package"
+        - "Other"
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Configuration
+      description: "Describe your customizations to the configuration: both config file changes and overrides via environment variables"
+      value: config
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: Please copy and paste any relevant log output. This will be automatically formatted into code, so no need for backticks.
+      render: shell
+  - type: dropdown
+    id: usecase
+    attributes:
+      label: What are you using SFTPGo for?
+      description: We'd like to understand your SFTPGo usecase more
+      multiple: true
+      options:
+        - "Private user, home usecase (home backup/VPS)"
+        - "Professional user, 1 person business"
+        - "Small business (3-person firm with file exchange?)"
+        - "Medium business"
+        - "Enterprise"
+  - type: textarea
+    id: additional-info
+    attributes:
+      label: Additional info
+      description: Any additional information related to the issue.

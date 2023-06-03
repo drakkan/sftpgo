@@ -1,0 +1,9 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Commercial Support
+    url: https://sftpgo.com/
+    about: >
+      If you need Professional support, so your reports are prioritized and resolved more quickly.
+  - name: GitHub Community Discussions
+    url: https://github.com/drakkan/sftpgo/discussions
+    about: Please ask and answer questions here.
