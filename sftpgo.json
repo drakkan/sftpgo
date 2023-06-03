@@ -407,7 +407,14 @@
     "encryption": 0,
     "domain": "",
     "templates_path": "templates",
-    "debug": 0
+    "debug": 0,
+    "oauth2": {
+      "provider": 0,
+      "tenant": "",
+      "client_id": "",
+      "client_secret": "",
+      "refresh_token": ""
+    }
   },
   "plugins": []
 }

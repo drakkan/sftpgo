@@ -107,6 +107,8 @@ const (
 	webAdminLoginPathDefault              = "/web/admin/login"
 	webAdminOIDCLoginPathDefault          = "/web/admin/oidclogin"
 	webOIDCRedirectPathDefault            = "/web/oidc/redirect"
+	webOAuth2RedirectPathDefault          = "/web/oauth2/redirect"
+	webOAuth2TokenPathDefault             = "/web/admin/oauth2/token"
 	webAdminTwoFactorPathDefault          = "/web/admin/twofactor"
 	webAdminTwoFactorRecoveryPathDefault  = "/web/admin/twofactor-recovery"
 	webLogoutPathDefault                  = "/web/admin/logout"
@@ -201,6 +203,8 @@ var (
 	webBaseAdminPath               string
 	webBaseClientPath              string
 	webOIDCRedirectPath            string
+	webOAuth2RedirectPath          string
+	webOAuth2TokenPath             string
 	webAdminSetupPath              string
 	webAdminOIDCLoginPath          string
 	webAdminLoginPath              string
@@ -919,6 +923,7 @@ func (c *Conf) Initialize(configDir string, isShared int) error {
 	configurationDir = configDir
 	resetCodesMgr = newResetCodeManager(isShared)
 	oidcMgr = newOIDCManager(isShared)
+	oauth2Mgr = newOAuth2Manager(isShared)
 	staticFilesPath := util.FindSharedDataPath(c.StaticFilesPath, configDir)
 	templatesPath := util.FindSharedDataPath(c.TemplatesPath, configDir)
 	openAPIPath := util.FindSharedDataPath(c.OpenAPIPath, configDir)
@@ -1100,6 +1105,8 @@ func updateWebAdminURLs(baseURL string) {
 	webBasePath = path.Join(baseURL, webBasePathDefault)
 	webBaseAdminPath = path.Join(baseURL, webBasePathAdminDefault)
 	webOIDCRedirectPath = path.Join(baseURL, webOIDCRedirectPathDefault)
+	webOAuth2RedirectPath = path.Join(baseURL, webOAuth2RedirectPathDefault)
+	webOAuth2TokenPath = path.Join(baseURL, webOAuth2TokenPathDefault)
 	webAdminSetupPath = path.Join(baseURL, webAdminSetupPathDefault)
 	webAdminLoginPath = path.Join(baseURL, webAdminLoginPathDefault)
 	webAdminOIDCLoginPath = path.Join(baseURL, webAdminOIDCLoginPathDefault)
@@ -1176,6 +1183,7 @@ func startCleanupTicker(duration time.Duration) {
 				resetCodesMgr.Cleanup()
 				if counter%2 == 0 {
 					oidcMgr.cleanup()
+					oauth2Mgr.cleanup()
 				}
 			}
 		}

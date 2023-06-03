@@ -171,6 +171,7 @@ const (
 	webAdminRolePath               = "/web/admin/role"
 	webEventsPath                  = "/web/admin/events"
 	webConfigsPath                 = "/web/admin/configs"
+	webOAuth2TokenPath             = "/web/admin/oauth2/token"
 	webBasePathClient              = "/web/client"
 	webClientLoginPath             = "/web/client/login"
 	webClientFilesPath             = "/web/client/files"
@@ -1431,6 +1432,37 @@ func TestConfigs(t *testing.T) {
 	}
 	err = dataprovider.UpdateConfigs(&configs, "", "", "")
 	assert.ErrorIs(t, err, util.ErrValidation)
+
+	configs = dataprovider.Configs{
+		SMTP: &dataprovider.SMTPConfigs{
+			Host:       "mail.example.com",
+			Port:       587,
+			User:       "test@example.com",
+			AuthType:   3,
+			Encryption: 2,
+			OAuth2: dataprovider.SMTPOAuth2{
+				Provider: 1,
+				Tenant:   "",
+				ClientID: "",
+			},
+		},
+	}
+	err = dataprovider.UpdateConfigs(&configs, "", "", "")
+	if assert.ErrorIs(t, err, util.ErrValidation) {
+		assert.Contains(t, err.Error(), "smtp oauth2: client id is required")
+	}
+	configs.SMTP.OAuth2 = dataprovider.SMTPOAuth2{
+		Provider:     1,
+		ClientID:     "client id",
+		ClientSecret: kms.NewPlainSecret("client secret"),
+		RefreshToken: kms.NewPlainSecret("refresh token"),
+	}
+	err = dataprovider.UpdateConfigs(&configs, "", "", "")
+	assert.NoError(t, err)
+	configs, err = dataprovider.GetConfigs()
+	assert.NoError(t, err)
+	assert.Equal(t, 3, configs.SMTP.AuthType)
+	assert.Equal(t, 1, configs.SMTP.OAuth2.Provider)
 
 	err = dataprovider.UpdateConfigs(nil, "", "", "")
 	assert.NoError(t, err)
@@ -9396,7 +9428,7 @@ func TestSMTPConfig(t *testing.T) {
 	tokenHeader := "X-CSRF-TOKEN"
 	webToken, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
 	assert.NoError(t, err)
-	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
+	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
 	assert.NoError(t, err)
 	req, err := http.NewRequest(http.MethodPost, smtpTestURL, bytes.NewBuffer([]byte("{")))
 	assert.NoError(t, err)
@@ -9453,11 +9485,66 @@ func TestSMTPConfig(t *testing.T) {
 	checkResponseCode(t, http.StatusInternalServerError, rr)
 	assert.Contains(t, rr.Body.String(), "server does not support SMTP AUTH")
 
+	testReq["password"] = ""
+	testReq["auth_type"] = 3
+	testReq["oauth2"] = smtp.OAuth2Config{
+		ClientSecret: redactedSecret,
+		RefreshToken: redactedSecret,
+	}
+	asJSON, err = json.Marshal(testReq)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, smtpTestURL, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set(tokenHeader, csrfToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "smtp oauth2: client id is required")
+
 	err = dataprovider.UpdateConfigs(nil, "", "", "")
 	assert.NoError(t, err)
 	smtpCfg = smtp.Config{}
 	err = smtpCfg.Initialize(configDir, true)
 	require.NoError(t, err)
+}
+
+func TestOAuth2TokenRequest(t *testing.T) {
+	tokenHeader := "X-CSRF-TOKEN"
+	webToken, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, webOAuth2TokenPath, bytes.NewBuffer([]byte("{")))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+
+	req.Header.Set(tokenHeader, csrfToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	testReq := make(map[string]any)
+	testReq["client_secret"] = redactedSecret
+	asJSON, err := json.Marshal(testReq)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, webOAuth2TokenPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set(tokenHeader, csrfToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "base redirect url is required")
+
+	testReq["base_redirect_url"] = "http://localhost:8081"
+	asJSON, err = json.Marshal(testReq)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, webOAuth2TokenPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set(tokenHeader, csrfToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
 }
 
 func TestMFAPermission(t *testing.T) {
@@ -12684,6 +12771,9 @@ func TestWebConfigsMock(t *testing.T) {
 	form.Set("smtp_port", "a") // converted to 587
 	form.Set("smtp_auth", "1")
 	form.Set("smtp_encryption", "2")
+	form.Set("smtp_debug", "checked")
+	form.Set("smtp_oauth2_provider", "1")
+	form.Set("smtp_oauth2_client_id", "123")
 	req, err = http.NewRequest(http.MethodPost, webConfigsPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, webToken)
@@ -12702,6 +12792,8 @@ func TestWebConfigsMock(t *testing.T) {
 	assert.Equal(t, 587, configs.SMTP.Port)
 	assert.Equal(t, "Example <info@example.net>", configs.SMTP.From)
 	assert.Equal(t, defaultUsername, configs.SMTP.User)
+	assert.Equal(t, 1, configs.SMTP.Debug)
+	assert.Equal(t, "", configs.SMTP.OAuth2.ClientID)
 	err = configs.SMTP.Password.Decrypt()
 	assert.NoError(t, err)
 	assert.Equal(t, defaultPassword, configs.SMTP.Password.GetPayload())
@@ -23969,6 +24061,17 @@ func TestProviderClosedMock(t *testing.T) {
 	setJWTCookieForReq(req, token)
 	req.Header.Set("X-CSRF-TOKEN", csrfToken)
 	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+
+	testReq["base_redirect_url"] = "http://localhost"
+	testReq["client_secret"] = redactedSecret
+	asJSON, err = json.Marshal(testReq)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, webOAuth2TokenPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, token)
+	req.Header.Set("X-CSRF-TOKEN", csrfToken)
+	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusInternalServerError, rr)
 
 	req, err = http.NewRequest(http.MethodGet, webConfigsPath, nil)

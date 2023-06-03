@@ -1573,6 +1573,7 @@ func (s *httpdServer) setupWebAdminRoutes() {
 		if s.binding.OIDC.hasRoles() && !s.binding.isWebAdminOIDCLoginDisabled() {
 			s.router.Get(webAdminOIDCLoginPath, s.handleWebAdminOIDCLogin)
 		}
+		s.router.Get(webOAuth2RedirectPath, s.handleOAuth2TokenRedirect)
 		s.router.Get(webAdminSetupPath, s.handleWebAdminSetupGet)
 		s.router.Post(webAdminSetupPath, s.handleWebAdminSetupPost)
 		if !s.binding.isWebAdminLoginFormDisabled() {
@@ -1745,6 +1746,8 @@ func (s *httpdServer) setupWebAdminRoutes() {
 			router.With(s.checkPerm(dataprovider.PermAdminManageSystem)).Post(webConfigsPath, s.handleWebConfigsPost)
 			router.With(s.checkPerm(dataprovider.PermAdminManageSystem), verifyCSRFHeader, s.refreshCookie).
 				Post(webConfigsPath+"/smtp/test", testSMTPConfig)
+			router.With(s.checkPerm(dataprovider.PermAdminManageSystem), verifyCSRFHeader, s.refreshCookie).
+				Post(webOAuth2TokenPath, handleSMTPOAuth2TokenRequestPost)
 		})
 	}
 }

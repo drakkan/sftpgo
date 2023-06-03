@@ -15,6 +15,7 @@
 package httpd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"html/template"
@@ -393,10 +394,12 @@ type eventsPage struct {
 
 type configsPage struct {
 	basePage
-	Configs        dataprovider.Configs
-	ConfigSection  int
-	RedactedSecret string
-	Error          string
+	Configs           dataprovider.Configs
+	ConfigSection     int
+	RedactedSecret    string
+	OAuth2TokenURL    string
+	OAuth2RedirectURL string
+	Error             string
 }
 
 type messagePage struct {
@@ -904,16 +907,20 @@ func (s *httpdServer) renderConfigsPage(w http.ResponseWriter, r *http.Request, 
 	configs.SetNilsToEmpty()
 	if configs.SMTP.Port == 0 {
 		configs.SMTP.Port = 587
+		configs.SMTP.AuthType = 1
+		configs.SMTP.Encryption = 2
 	}
 	if configs.ACME.HTTP01Challenge.Port == 0 {
 		configs.ACME.HTTP01Challenge.Port = 80
 	}
 	data := configsPage{
-		basePage:       s.getBasePageData(pageConfigsTitle, webConfigsPath, r),
-		Configs:        configs,
-		ConfigSection:  section,
-		RedactedSecret: redactedSecret,
-		Error:          error,
+		basePage:          s.getBasePageData(pageConfigsTitle, webConfigsPath, r),
+		Configs:           configs,
+		ConfigSection:     section,
+		RedactedSecret:    redactedSecret,
+		OAuth2TokenURL:    webOAuth2TokenPath,
+		OAuth2RedirectURL: webOAuth2RedirectPath,
+		Error:             error,
 	}
 
 	renderAdminTemplate(w, templateConfigs, data)
@@ -2639,6 +2646,10 @@ func getSMTPConfigsFromPostFields(r *http.Request) *dataprovider.SMTPConfigs {
 	if r.Form.Get("smtp_debug") != "" {
 		debug = 1
 	}
+	oauth2Provider := 0
+	if r.Form.Get("smtp_oauth2_provider") == "1" {
+		oauth2Provider = 1
+	}
 	return &dataprovider.SMTPConfigs{
 		Host:       r.Form.Get("smtp_host"),
 		Port:       port,
@@ -2649,6 +2660,13 @@ func getSMTPConfigsFromPostFields(r *http.Request) *dataprovider.SMTPConfigs {
 		Encryption: encryption,
 		Domain:     r.Form.Get("smtp_domain"),
 		Debug:      debug,
+		OAuth2: dataprovider.SMTPOAuth2{
+			Provider:     oauth2Provider,
+			Tenant:       strings.TrimSpace(r.Form.Get("smtp_oauth2_tenant")),
+			ClientID:     strings.TrimSpace(r.Form.Get("smtp_oauth2_client_id")),
+			ClientSecret: getSecretFromFormField(r, "smtp_oauth2_client_secret"),
+			RefreshToken: getSecretFromFormField(r, "smtp_oauth2_refresh_token"),
+		},
 	}
 }
 
@@ -4137,9 +4155,7 @@ func (s *httpdServer) handleWebConfigsPost(w http.ResponseWriter, r *http.Reques
 	case "smtp_submit":
 		configSection = 3
 		smtpConfigs := getSMTPConfigsFromPostFields(r)
-		if smtpConfigs.Password.IsNotPlainAndNotEmpty() {
-			smtpConfigs.Password = configs.SMTP.Password
-		}
+		updateSMTPSecrets(smtpConfigs, configs.SMTP)
 		configs.SMTP = smtpConfigs
 	default:
 		s.renderBadRequestPage(w, r, errors.New("unsupported form action"))
@@ -4152,13 +4168,64 @@ func (s *httpdServer) handleWebConfigsPost(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if configSection == 3 {
-		err := configs.SMTP.Password.TryDecrypt()
+		err := configs.SMTP.TryDecrypt()
 		if err == nil {
 			smtp.Activate(configs.SMTP)
 		} else {
-			logger.Error(logSender, "", "unable to decrypt SMTP password, cannot activate configuration")
+			logger.Error(logSender, "", "unable to decrypt SMTP configuration, cannot activate configuration: %v", err)
 		}
 	}
 	s.renderMessagePage(w, r, "Configurations updated", "", http.StatusOK, nil,
 		"Configurations has been successfully updated")
+}
+
+func (s *httpdServer) handleOAuth2TokenRedirect(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+
+	stateToken := r.URL.Query().Get("state")
+	errorTitle := "Unable to complete OAuth2 flow"
+	successTitle := "OAuth2 flow completed"
+
+	state, err := verifyOAuth2Token(stateToken, util.GetIPFromRemoteAddress(r.RemoteAddr))
+	if err != nil {
+		s.renderMessagePage(w, r, errorTitle, "Invalid auth request:", http.StatusBadRequest, err, "")
+		return
+	}
+
+	defer oauth2Mgr.removePendingAuth(state)
+
+	pendingAuth, err := oauth2Mgr.getPendingAuth(state)
+	if err != nil {
+		s.renderMessagePage(w, r, errorTitle, "Unable to validate auth request:", http.StatusInternalServerError, err, "")
+		return
+	}
+	oauth2Config := smtp.OAuth2Config{
+		Provider:     pendingAuth.Provider,
+		ClientID:     pendingAuth.ClientID,
+		ClientSecret: pendingAuth.ClientSecret.GetPayload(),
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	cfg := oauth2Config.GetOAuth2()
+	cfg.RedirectURL = pendingAuth.RedirectURL
+	token, err := cfg.Exchange(ctx, r.URL.Query().Get("code"))
+	if err != nil {
+		s.renderMessagePage(w, r, errorTitle, "Unable to get token:", http.StatusInternalServerError, err, "")
+		return
+	}
+	s.renderMessagePage(w, r, successTitle, "", http.StatusOK, nil,
+		fmt.Sprintf("Copy the following string, without the quotes, into your SMTP OAuth2 Token configuration: %q", token.RefreshToken))
+}
+
+func updateSMTPSecrets(newConfigs, currentConfigs *dataprovider.SMTPConfigs) {
+	if newConfigs.Password.IsNotPlainAndNotEmpty() {
+		newConfigs.Password = currentConfigs.Password
+	}
+	if newConfigs.OAuth2.ClientSecret.IsNotPlainAndNotEmpty() {
+		newConfigs.OAuth2.ClientSecret = currentConfigs.OAuth2.ClientSecret
+	}
+	if newConfigs.OAuth2.RefreshToken.IsNotPlainAndNotEmpty() {
+		newConfigs.OAuth2.RefreshToken = currentConfigs.OAuth2.RefreshToken
+	}
 }

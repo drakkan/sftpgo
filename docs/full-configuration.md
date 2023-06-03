@@ -453,11 +453,17 @@ The configuration file contains the following sections:
   - `from`, string. From address, for example `SFTPGo <sftpgo@example.com>`. Many SMTP servers reject emails without a `From` header so, if not set, SFTPGo will try to use the username as fallback, this may or may not be appropriate. Default: blank
   - `user`, string. SMTP username. Default: blank
   - `password`, string. SMTP password. Leaving both username and password empty the SMTP authentication will be disabled. Default: blank
-  - `auth_type`, integer. 0 means `Plain`, 1 means `Login`, 2 means `CRAM-MD5`. Default: `0`.
+  - `auth_type`, integer. 0 means `Plain`, 1 means `Login`, 2 means `CRAM-MD5`, 3 means `XOAUTH2`. Default: `0`.
   - `encryption`, integer. 0 means no encryption, 1 means `TLS`, 2 means `STARTTLS`. Default: `0`.
   - `domain`, string. Domain to use for `HELO` command, if empty `localhost` will be used. Default: blank.
   - `templates_path`, string. Path to the email templates. This can be an absolute path or a path relative to the config dir. Templates are searched within a subdirectory named "email" in the specified path. You can customize the email templates by simply specifying an alternate path and putting your custom templates there.
   - `debug`, integer. Set to `1` to enable SMTP debug. Default: `0`.
+  - `oauth2`, struct containing OAuth2 related configurations:
+    - `provider`, integer, 0 means `Google`, 1 means `Microsoft`. Default: `0`.
+    - `tenant`, string. Azure Active Directory tenant for the Microsoft provider. Typical values are `common`, `organizations`, `consumers` or tenant identifier. If empty `common` is used. Default: blank.
+    - `client_id`, string. Default: blank.
+    - `client_secret`, string. Default: blank.
+    - `refresh_token`, string. Default: blank.
 
 </details>
 <details><summary><font size=4>Plugins</font></summary>

@@ -27,6 +27,7 @@ const (
 	SessionTypeOIDCAuth SessionType = iota + 1
 	SessionTypeOIDCToken
 	SessionTypeResetCode
+	SessionTypeOAuth2Auth
 )
 
 // Session defines a shared session persisted in the data provider
@@ -41,7 +42,7 @@ func (s *Session) validate() error {
 	if s.Key == "" {
 		return errors.New("unable to save a session with an empty key")
 	}
-	if s.Type < SessionTypeOIDCAuth || s.Type > SessionTypeResetCode {
+	if s.Type < SessionTypeOIDCAuth || s.Type > SessionTypeOAuth2Auth {
 		return fmt.Errorf("invalid session type: %v", s.Type)
 	}
 	return nil

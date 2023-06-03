@@ -142,6 +142,70 @@ func (c *SFTPDConfigs) getACopy() *SFTPDConfigs {
 	}
 }
 
+func validateSMTPSecret(secret *kms.Secret, name string) error {
+	if secret.IsRedacted() {
+		return util.NewValidationError(fmt.Sprintf("cannot save a redacted smtp %s", name))
+	}
+	if secret.IsEncrypted() && !secret.IsValid() {
+		return util.NewValidationError(fmt.Sprintf("invalid encrypted smtp %s", name))
+	}
+	if !secret.IsEmpty() && !secret.IsValidInput() {
+		return util.NewValidationError(fmt.Sprintf("invalid smtp %s", name))
+	}
+	if secret.IsPlain() {
+		secret.SetAdditionalData("smtp")
+		if err := secret.Encrypt(); err != nil {
+			return util.NewValidationError(fmt.Sprintf("could not encrypt smtp %s: %v", name, err))
+		}
+	}
+	return nil
+}
+
+// SMTPOAuth2 defines the SMTP related OAuth2 configurations
+type SMTPOAuth2 struct {
+	Provider     int         `json:"provider,omitempty"`
+	Tenant       string      `json:"tenant,omitempty"`
+	ClientID     string      `json:"client_id,omitempty"`
+	ClientSecret *kms.Secret `json:"client_secret,omitempty"`
+	RefreshToken *kms.Secret `json:"refresh_token,omitempty"`
+}
+
+func (c *SMTPOAuth2) validate() error {
+	if c.Provider < 0 || c.Provider > 1 {
+		return util.NewValidationError("smtp oauth2: unsupported provider")
+	}
+	if c.ClientID == "" {
+		return util.NewValidationError("smtp oauth2: client id is required")
+	}
+	if c.ClientSecret == nil {
+		return util.NewValidationError("smtp oauth2: client secret is required")
+	}
+	if c.RefreshToken == nil {
+		return util.NewValidationError("smtp oauth2: refresh token is required")
+	}
+	if err := validateSMTPSecret(c.ClientSecret, "oauth2 client secret"); err != nil {
+		return err
+	}
+	return validateSMTPSecret(c.RefreshToken, "oauth2 refresh token")
+}
+
+func (c *SMTPOAuth2) getACopy() SMTPOAuth2 {
+	var clientSecret, refreshToken *kms.Secret
+	if c.ClientSecret != nil {
+		clientSecret = c.ClientSecret.Clone()
+	}
+	if c.RefreshToken != nil {
+		refreshToken = c.RefreshToken.Clone()
+	}
+	return SMTPOAuth2{
+		Provider:     c.Provider,
+		Tenant:       c.Tenant,
+		ClientID:     c.ClientID,
+		ClientSecret: clientSecret,
+		RefreshToken: refreshToken,
+	}
+}
+
 // SMTPConfigs defines configuration for SMTP
 type SMTPConfigs struct {
 	Host       string      `json:"host,omitempty"`
@@ -153,51 +217,62 @@ type SMTPConfigs struct {
 	Encryption int         `json:"encryption,omitempty"`
 	Domain     string      `json:"domain,omitempty"`
 	Debug      int         `json:"debug,omitempty"`
+	OAuth2     SMTPOAuth2  `json:"oauth2"`
 }
 
-func (c *SMTPConfigs) isEmpty() bool {
+// IsEmpty returns true if the configuration is empty
+func (c *SMTPConfigs) IsEmpty() bool {
 	return c.Host == ""
 }
 
-func (c *SMTPConfigs) validatePassword() error {
-	if c.Password != nil {
-		if c.Password.IsRedacted() {
-			return util.NewValidationError("cannot save a redacted smtp password")
-		}
-		if c.Password.IsEncrypted() && !c.Password.IsValid() {
-			return util.NewValidationError("invalid encrypted smtp password")
-		}
-		if !c.Password.IsEmpty() && !c.Password.IsValidInput() {
-			return util.NewValidationError("invalid smtp password")
-		}
-		if c.Password.IsPlain() {
-			c.Password.SetAdditionalData("smtp")
-			if err := c.Password.Encrypt(); err != nil {
-				return util.NewValidationError(fmt.Sprintf("could not encrypt smtp password: %v", err))
-			}
-		}
-	}
-	return nil
-}
-
 func (c *SMTPConfigs) validate() error {
-	if c.isEmpty() {
+	if c.IsEmpty() {
 		return nil
 	}
 	if c.Port <= 0 || c.Port > 65535 {
 		return util.NewValidationError(fmt.Sprintf("smtp: invalid port %d", c.Port))
 	}
-	if err := c.validatePassword(); err != nil {
-		return err
+	if c.Password != nil && c.AuthType != 3 {
+		if err := validateSMTPSecret(c.Password, "password"); err != nil {
+			return err
+		}
 	}
 	if c.User == "" && c.From == "" {
 		return util.NewValidationError("smtp: from address and user cannot both be empty")
 	}
-	if c.AuthType < 0 || c.AuthType > 2 {
+	if c.AuthType < 0 || c.AuthType > 3 {
 		return util.NewValidationError(fmt.Sprintf("smtp: invalid auth type %d", c.AuthType))
 	}
 	if c.Encryption < 0 || c.Encryption > 2 {
 		return util.NewValidationError(fmt.Sprintf("smtp: invalid encryption %d", c.Encryption))
+	}
+	if c.AuthType == 3 {
+		c.Password = kms.NewEmptySecret()
+		return c.OAuth2.validate()
+	}
+	c.OAuth2 = SMTPOAuth2{}
+	return nil
+}
+
+// TryDecrypt tries to decrypt the encrypted secrets
+func (c *SMTPConfigs) TryDecrypt() error {
+	if c.Password == nil {
+		c.Password = kms.NewEmptySecret()
+	}
+	if c.OAuth2.ClientSecret == nil {
+		c.OAuth2.ClientSecret = kms.NewEmptySecret()
+	}
+	if c.OAuth2.RefreshToken == nil {
+		c.OAuth2.RefreshToken = kms.NewEmptySecret()
+	}
+	if err := c.Password.TryDecrypt(); err != nil {
+		return fmt.Errorf("unable to decrypt smtp password: %w", err)
+	}
+	if err := c.OAuth2.ClientSecret.TryDecrypt(); err != nil {
+		return fmt.Errorf("unable to decrypt smtp oauth2 client secret: %w", err)
+	}
+	if err := c.OAuth2.RefreshToken.TryDecrypt(); err != nil {
+		return fmt.Errorf("unable to decrypt smtp oauth2 refresh token: %w", err)
 	}
 	return nil
 }
@@ -217,6 +292,7 @@ func (c *SMTPConfigs) getACopy() *SMTPConfigs {
 		Encryption: c.Encryption,
 		Domain:     c.Domain,
 		Debug:      c.Debug,
+		OAuth2:     c.OAuth2.getACopy(),
 	}
 }
 
@@ -315,16 +391,30 @@ func (c *Configs) PrepareForRendering() {
 	if c.SFTPD != nil && c.SFTPD.isEmpty() {
 		c.SFTPD = nil
 	}
-	if c.SMTP != nil && c.SMTP.isEmpty() {
+	if c.SMTP != nil && c.SMTP.IsEmpty() {
 		c.SMTP = nil
 	}
 	if c.ACME != nil && c.ACME.isEmpty() {
 		c.ACME = nil
 	}
-	if c.SMTP != nil && c.SMTP.Password != nil {
-		c.SMTP.Password.Hide()
-		if c.SMTP.Password.IsEmpty() {
-			c.SMTP.Password = nil
+	if c.SMTP != nil {
+		if c.SMTP.Password != nil {
+			c.SMTP.Password.Hide()
+			if c.SMTP.Password.IsEmpty() {
+				c.SMTP.Password = nil
+			}
+		}
+		if c.SMTP.OAuth2.ClientSecret != nil {
+			c.SMTP.OAuth2.ClientSecret.Hide()
+			if c.SMTP.OAuth2.ClientSecret.IsEmpty() {
+				c.SMTP.OAuth2.ClientSecret = nil
+			}
+		}
+		if c.SMTP.OAuth2.RefreshToken != nil {
+			c.SMTP.OAuth2.RefreshToken.Hide()
+			if c.SMTP.OAuth2.RefreshToken.IsEmpty() {
+				c.SMTP.OAuth2.RefreshToken = nil
+			}
 		}
 	}
 }
@@ -339,6 +429,12 @@ func (c *Configs) SetNilsToEmpty() {
 	}
 	if c.SMTP.Password == nil {
 		c.SMTP.Password = kms.NewEmptySecret()
+	}
+	if c.SMTP.OAuth2.ClientSecret == nil {
+		c.SMTP.OAuth2.ClientSecret = kms.NewEmptySecret()
+	}
+	if c.SMTP.OAuth2.RefreshToken == nil {
+		c.SMTP.OAuth2.RefreshToken = kms.NewEmptySecret()
 	}
 	if c.ACME == nil {
 		c.ACME = &ACMEConfigs{}

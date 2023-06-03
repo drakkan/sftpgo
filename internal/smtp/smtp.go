@@ -29,6 +29,7 @@ import (
 	"github.com/wneessen/go-mail"
 
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
+	"github.com/drakkan/sftpgo/v2/internal/kms"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/util"
 	"github.com/drakkan/sftpgo/v2/internal/version"
@@ -85,7 +86,15 @@ func (c *activeConfig) Set(cfg *dataprovider.SMTPConfigs) {
 			Encryption: cfg.Encryption,
 			Domain:     cfg.Domain,
 			Debug:      cfg.Debug,
+			OAuth2: OAuth2Config{
+				Provider:     cfg.OAuth2.Provider,
+				Tenant:       cfg.OAuth2.Tenant,
+				ClientID:     cfg.OAuth2.ClientID,
+				ClientSecret: cfg.OAuth2.ClientSecret.GetPayload(),
+				RefreshToken: cfg.OAuth2.RefreshToken.GetPayload(),
+			},
 		}
+		config.OAuth2.initialize()
 	}
 
 	c.Lock()
@@ -159,6 +168,7 @@ type Config struct {
 	// 0 Plain
 	// 1 Login
 	// 2 CRAM-MD5
+	// 3 OAuth2
 	AuthType int `json:"auth_type" mapstructure:"auth_type"`
 	// 0 no encryption
 	// 1 TLS
@@ -171,6 +181,8 @@ type Config struct {
 	TemplatesPath string `json:"templates_path" mapstructure:"templates_path"`
 	// Set to 1 to enable debug logs
 	Debug int `json:"debug" mapstructure:"debug"`
+	// OAuth2 related settings
+	OAuth2 OAuth2Config `json:"oauth2" mapstructure:"oauth2"`
 }
 
 func (c *Config) isEqual(other *Config) bool {
@@ -201,21 +213,24 @@ func (c *Config) isEqual(other *Config) bool {
 	if c.Debug != other.Debug {
 		return false
 	}
-	return true
+	return c.OAuth2.isEqual(&other.OAuth2)
 }
 
 func (c *Config) validate() error {
 	if c.Port <= 0 || c.Port > 65535 {
 		return fmt.Errorf("smtp: invalid port %d", c.Port)
 	}
-	if c.AuthType < 0 || c.AuthType > 2 {
+	if c.AuthType < 0 || c.AuthType > 3 {
 		return fmt.Errorf("smtp: invalid auth type %d", c.AuthType)
 	}
 	if c.Encryption < 0 || c.Encryption > 2 {
 		return fmt.Errorf("smtp: invalid encryption %d", c.Encryption)
 	}
 	if c.From == "" && c.User == "" {
-		return fmt.Errorf(`smtp: from address and user cannot both be empty`)
+		return errors.New(`smtp: from address and user cannot both be empty`)
+	}
+	if c.AuthType == 3 {
+		return c.OAuth2.Validate()
 	}
 	return nil
 }
@@ -283,6 +298,8 @@ func (c *Config) getMailClientOptions() []mail.Option {
 			options = append(options, mail.WithSMTPAuth(mail.SMTPAuthLogin))
 		case 2:
 			options = append(options, mail.WithSMTPAuth(mail.SMTPAuthCramMD5))
+		case 3:
+			options = append(options, mail.WithSMTPAuth(mail.SMTPAuthXOAUTH2))
 		default:
 			options = append(options, mail.WithSMTPAuth(mail.SMTPAuthPlain))
 		}
@@ -340,6 +357,13 @@ func (c *Config) getSMTPClientAndMsg(to, bcc []string, subject, body string, con
 	client, err := mail.NewClient(c.Host, c.getMailClientOptions()...)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to create mail client: %w", err)
+	}
+	if c.AuthType == 3 {
+		token, err := c.OAuth2.getAccessToken()
+		if err != nil {
+			return nil, nil, fmt.Errorf("unable to get oauth2 access token: %w", err)
+		}
+		client.SetPassword(token)
 	}
 	return client, msg, nil
 }
@@ -402,10 +426,29 @@ func loadConfigFromProvider() error {
 		return fmt.Errorf("smtp: unable to load config from provider: %w", err)
 	}
 	configs.SetNilsToEmpty()
-	if err := configs.SMTP.Password.TryDecrypt(); err != nil {
-		logger.Error(logSender, "", "unable to decrypt password: %v", err)
-		return fmt.Errorf("smtp: unable to decrypt password: %w", err)
+	if err := configs.SMTP.TryDecrypt(); err != nil {
+		logger.Error(logSender, "", "unable to decrypt smtp config: %v", err)
+		return fmt.Errorf("smtp: unable to decrypt smtp config: %w", err)
 	}
 	config.Set(configs.SMTP)
 	return nil
+}
+
+func updateRefreshToken(token string) {
+	configs, err := dataprovider.GetConfigs()
+	if err != nil {
+		logger.Error(logSender, "", "unable to load config from provider, updating refresh token not possible: %v", err)
+		return
+	}
+	configs.SetNilsToEmpty()
+	if configs.SMTP.IsEmpty() {
+		logger.Warn(logSender, "", "unable to update refresh token, smtp not configured in the data provider")
+		return
+	}
+	configs.SMTP.OAuth2.RefreshToken = kms.NewPlainSecret(token)
+	if err := dataprovider.UpdateConfigs(&configs, dataprovider.ActionExecutorSystem, "", ""); err != nil {
+		logger.Error(logSender, "", "unable to save new refresh token: %v", err)
+		return
+	}
+	logger.Info(logSender, "", "refresh token updated")
 }

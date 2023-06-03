@@ -44,6 +44,7 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/rs/xid"
 	"github.com/sftpgo/sdk"
+	sdkkms "github.com/sftpgo/sdk/kms"
 	"github.com/sftpgo/sdk/plugin/notifier"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -969,6 +970,132 @@ func TestRetentionInvalidTokenClaims(t *testing.T) {
 
 	err = dataprovider.DeleteUser(username, "", "", "")
 	assert.NoError(t, err)
+}
+
+func TestUpdateSMTPSecrets(t *testing.T) {
+	currentConfigs := &dataprovider.SMTPConfigs{
+		OAuth2: dataprovider.SMTPOAuth2{
+			ClientSecret: kms.NewPlainSecret("client secret"),
+			RefreshToken: kms.NewPlainSecret("refresh token"),
+		},
+	}
+	redactedClientSecret := kms.NewPlainSecret("secret")
+	redactedRefreshToken := kms.NewPlainSecret("token")
+	redactedClientSecret.SetStatus(sdkkms.SecretStatusRedacted)
+	redactedRefreshToken.SetStatus(sdkkms.SecretStatusRedacted)
+	newConfigs := &dataprovider.SMTPConfigs{
+		Password: kms.NewPlainSecret("pwd"),
+		OAuth2: dataprovider.SMTPOAuth2{
+			ClientSecret: redactedClientSecret,
+			RefreshToken: redactedRefreshToken,
+		},
+	}
+	updateSMTPSecrets(newConfigs, currentConfigs)
+	assert.Nil(t, currentConfigs.Password)
+	assert.NotNil(t, newConfigs.Password)
+	assert.Equal(t, currentConfigs.OAuth2.ClientSecret, newConfigs.OAuth2.ClientSecret)
+	assert.Equal(t, currentConfigs.OAuth2.RefreshToken, newConfigs.OAuth2.RefreshToken)
+
+	clientSecret := kms.NewPlainSecret("plain secret")
+	refreshToken := kms.NewPlainSecret("plain token")
+	newConfigs = &dataprovider.SMTPConfigs{
+		Password: kms.NewPlainSecret("pwd"),
+		OAuth2: dataprovider.SMTPOAuth2{
+			ClientSecret: clientSecret,
+			RefreshToken: refreshToken,
+		},
+	}
+	updateSMTPSecrets(newConfigs, currentConfigs)
+	assert.Equal(t, clientSecret, newConfigs.OAuth2.ClientSecret)
+	assert.Equal(t, refreshToken, newConfigs.OAuth2.RefreshToken)
+}
+
+func TestOAuth2Redirect(t *testing.T) {
+	server := httpdServer{}
+	server.initializeRouter()
+
+	rr := httptest.NewRecorder()
+	req, err := http.NewRequest(http.MethodGet, webOAuth2RedirectPath+"?state=invalid", nil)
+	assert.NoError(t, err)
+	server.handleOAuth2TokenRedirect(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "token is unauthorized")
+
+	ip := "127.1.1.4"
+	tokenString := createOAuth2Token(xid.New().String(), ip)
+	rr = httptest.NewRecorder()
+	req, err = http.NewRequest(http.MethodGet, webOAuth2RedirectPath+"?state="+tokenString, nil)
+	assert.NoError(t, err)
+	req.RemoteAddr = ip
+	server.handleOAuth2TokenRedirect(rr, req)
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
+	assert.Contains(t, rr.Body.String(), "no auth request found for the specified state")
+}
+
+func TestOAuth2Token(t *testing.T) {
+	// invalid token
+	_, err := verifyOAuth2Token("token", "")
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "unable to verify OAuth2 state")
+	}
+	// bad audience
+	claims := make(map[string]any)
+	now := time.Now().UTC()
+
+	claims[jwt.JwtIDKey] = xid.New().String()
+	claims[jwt.NotBeforeKey] = now.Add(-30 * time.Second)
+	claims[jwt.ExpirationKey] = now.Add(tokenDuration)
+	claims[jwt.AudienceKey] = []string{tokenAudienceAPI}
+
+	_, tokenString, err := csrfTokenAuth.Encode(claims)
+	assert.NoError(t, err)
+	_, err = verifyOAuth2Token(tokenString, "")
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "invalid OAuth2 state")
+	}
+	// bad IP
+	tokenString = createOAuth2Token("state", "127.1.1.1")
+	_, err = verifyOAuth2Token(tokenString, "127.1.1.2")
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "invalid OAuth2 state")
+	}
+	// ok
+	state := xid.New().String()
+	tokenString = createOAuth2Token(state, "127.1.1.3")
+	s, err := verifyOAuth2Token(tokenString, "127.1.1.3")
+	assert.NoError(t, err)
+	assert.Equal(t, state, s)
+	// no jti
+	claims = make(map[string]any)
+
+	claims[jwt.NotBeforeKey] = now.Add(-30 * time.Second)
+	claims[jwt.ExpirationKey] = now.Add(tokenDuration)
+	claims[jwt.AudienceKey] = []string{tokenAudienceOAuth2, "127.1.1.4"}
+	_, tokenString, err = csrfTokenAuth.Encode(claims)
+	assert.NoError(t, err)
+	_, err = verifyOAuth2Token(tokenString, "127.1.1.4")
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "invalid OAuth2 state")
+	}
+	// encode error
+	csrfTokenAuth = jwtauth.New("HT256", util.GenerateRandomBytes(32), nil)
+	tokenString = createOAuth2Token(xid.New().String(), "")
+	assert.Empty(t, tokenString)
+
+	server := httpdServer{}
+	server.initializeRouter()
+	rr := httptest.NewRecorder()
+	testReq := make(map[string]any)
+	testReq["base_redirect_url"] = "http://localhost:8082"
+	asJSON, err := json.Marshal(testReq)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, webOAuth2TokenPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	handleSMTPOAuth2TokenRequestPost(rr, req)
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
+	assert.Contains(t, rr.Body.String(), "unable to create state token")
+
+	csrfTokenAuth = jwtauth.New(jwa.HS256.String(), util.GenerateRandomBytes(32), nil)
 }
 
 func TestCSRFToken(t *testing.T) {

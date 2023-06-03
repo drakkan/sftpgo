@@ -239,10 +239,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                             <div class="form-group row">
                                 <label for="idSMTPAuth" class="col-sm-2 col-form-label">Auth</label>
                                 <div class="col-sm-3">
-                                    <select class="form-control selectpicker" id="idSMTPAuth" name="smtp_auth">
+                                    <select class="form-control selectpicker" id="idSMTPAuth" name="smtp_auth" onchange="onSMTPAuthChanged(this.value)">
                                         <option value="0" {{if eq .Configs.SMTP.AuthType 0}}selected{{end}}>Plain</option>
                                         <option value="1" {{if eq .Configs.SMTP.AuthType 1}}selected{{end}}>Login</option>
                                         <option value="2" {{if eq .Configs.SMTP.AuthType 2}}selected{{end}}>CRAM-MD5</option>
+                                        <option value="3" {{if eq .Configs.SMTP.AuthType 3}}selected{{end}}>OAuth2</option>
                                     </select>
                                 </div>
                                 <div class="col-sm-2"></div>
@@ -253,6 +254,59 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                                         <option value="1" {{if eq .Configs.SMTP.Encryption 1}}selected{{end}}>TLS</option>
                                         <option value="2" {{if eq .Configs.SMTP.Encryption 2}}selected{{end}}>STARTTLS</option>
                                     </select>
+                                </div>
+                            </div>
+
+                            <div class="form-group row smtp-oauth2">
+                                <label for="idSMTPOAuth2Provider" class="col-sm-2 col-form-label">OAuth2 provider</label>
+                                <div class="col-sm-10">
+                                    <select class="form-control selectpicker" id="idSMTPOAuth2Provider" name="smtp_oauth2_provider"
+                                        onchange="onSMTPOAuth2ProviderChanged(this.value)" aria-describedby="smtpOauth2ProviderHelpBlock">
+                                        <option value="0" {{if eq .Configs.SMTP.OAuth2.Provider 0}}selected{{end}}>Google</option>
+                                        <option value="1" {{if eq .Configs.SMTP.OAuth2.Provider 1}}selected{{end}}>Microsoft</option>
+                                    </select>
+                                    <small id="smtpOauth2ProviderHelpBlock" class="form-text text-muted">
+                                    </small>
+                                </div>
+                            </div>
+
+                            <div class="form-group row smtp-oauth2 smtp-oauth2-microsoft">
+                                <label for="idSMTPOauth2Tenant" class="col-sm-2 col-form-label">OAuth2 Tenant</label>
+                                <div class="col-sm-10">
+                                    <input type="text" class="form-control" id="idSMTPOauth2Tenant" name="smtp_oauth2_tenant" placeholder=""
+                                        value="{{.Configs.SMTP.OAuth2.Tenant}}" aria-describedby="smtpOauth2TenantHelpBlock">
+                                    <small id="smtpOauth2TenantHelpBlock" class="form-text text-muted">
+                                        Azure Active Directory tenant. Typical values are "common", "organizations", "consumers" or tenant identifier.
+                                    </small>
+                                </div>
+                            </div>
+
+                            <div class="form-group row smtp-oauth2">
+                                <label for="idSMTPOauth2ClientID" class="col-sm-2 col-form-label">OAuth2 Client ID</label>
+                                <div class="col-sm-10">
+                                    <input type="text" class="form-control" id="idSMTPOauth2ClientID" name="smtp_oauth2_client_id" placeholder=""
+                                        value="{{.Configs.SMTP.OAuth2.ClientID}}" spellcheck="false">
+                                </div>
+                            </div>
+
+                            <div class="form-group row smtp-oauth2">
+                                <label for="idSMTPOAuth2ClientSecret" class="col-sm-2 col-form-label">OAuth2 Client secret</label>
+                                <div class="col-sm-10">
+                                    <input type="password" class="form-control" id="idSMTPOAuth2ClientSecret" name="smtp_oauth2_client_secret" placeholder="" autocomplete="new-password" spellcheck="false"
+                                        value="{{if .Configs.SMTP.OAuth2.ClientSecret.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.Configs.SMTP.OAuth2.ClientSecret.GetPayload}}{{end}}">
+                                </div>
+                            </div>
+
+                            <div class="form-group row smtp-oauth2">
+                                <label for="idSMTPOAuth2RefreshToken" class="col-sm-2 col-form-label">OAuth2 Token</label>
+                                <div class="col-sm-10">
+                                    <div class="input-group">
+                                        <input type="password" class="form-control" id="idSMTPOAuth2RefreshToken" name="smtp_oauth2_refresh_token" placeholder="" autocomplete="new-password" spellcheck="false"
+                                            value="{{if .Configs.SMTP.OAuth2.RefreshToken.IsEncrypted}}{{.RedactedSecret}}{{else}}{{.Configs.SMTP.OAuth2.RefreshToken.GetPayload}}{{end}}">
+                                        <div class="input-group-append">
+                                            <button class="btn btn-secondary px-5" onclick="getRefreshToken(event);">Get</button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
@@ -341,6 +395,30 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="smtpOAuthFlowModal" tabindex="-1" role="dialog" aria-labelledby="smtpOAuthFlowModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="smtpOAuthFlowModal">
+                    OAuth2 flow
+                </h5>
+                <button class="close" type="button" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="oauth2SuccessMsg" class="card mb-4 border-left-success" style="display: none;">
+                    <div id="oauth2SuccessTxt" class="card-body">To start the OAuth2 flow and get a token follow this <a id="oauth2link" href="#" onclick="dismissOAuthModal();"  target="_blank">link</a>.</div>
+                </div>
+                <div id="oauth2ErrorMsg" class="card mb-4 border-left-warning" style="display: none;">
+                    <div id="oauth2ErrorTxt" class="card-body text-form-error"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {{end}}
 {{define "extra_js"}}
 <script src="{{.StaticURL}}/vendor/bootstrap-select/js/bootstrap-select.min.js"></script>
@@ -349,6 +427,72 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
     function showSpinner(){
         $('#spinnerModal').modal('show');
+    }
+
+    function dismissOAuthModal(){
+        setTimeout(function () {
+            $('#smtpOAuthFlowModal').modal('hide');
+        }, 2000);
+    }
+
+    function getCurrentURI(){
+        let port = window.location.port;
+        if (port){
+            return window.location.protocol+"//"+window.location.hostname+":"+port;
+        }
+        return window.location.protocol+"//"+window.location.hostname;
+    }
+
+    function getRefreshToken(event){
+        event.preventDefault();
+        $('#oauth2SuccessMsg').hide();
+        $('#oauth2ErrorMsg').hide();
+        showSpinner();
+
+        let data = {"base_redirect_url": getCurrentURI(), "provider": parseInt($('#idSMTPOAuth2Provider').val()),
+            "tenant": $('#idSMTPOauth2Tenant').val(), "client_id": $('#idSMTPOauth2ClientID').val(),
+            "client_secret": $('#idSMTPOAuth2ClientSecret').val()};
+
+        $.ajax({
+            url: "{{.OAuth2TokenURL}}",
+            type: 'POST',
+            headers: {'X-CSRF-TOKEN' : '{{.CSRFToken}}'},
+            data: JSON.stringify(data),
+            dataType: 'json',
+            contentType: 'application/json; charset=utf-8',
+            timeout: 15000,
+            success: function (result) {
+                $('#spinnerModal').modal('hide');
+                spinnerDone = true;
+                if (result && result.message){
+                    $('#oauth2link').attr("href", result.message);
+                    $('#oauth2SuccessMsg').show();
+                    $('#smtpOAuthFlowModal').modal('show');
+                } else {
+                    $('#oauth2ErrorTxt').text("Unable to get the URI to start OAuth2 flow");
+                    $('#oauth2ErrorMsg').show();
+                    $('#smtpOAuthFlowModal').modal('show');
+                }
+            },
+            error: function ($xhr, textStatus, errorThrown) {
+                $('#spinnerModal').modal('hide');
+                spinnerDone = true;
+                let txt = "Unable to get the URI to start OAuth2 flow";
+                if ($xhr) {
+                    let json = $xhr.responseJSON;
+                    if (json) {
+                        if (json.message){
+                            txt += ": " + json.message;
+                        } else {
+                            txt += ": " + json.error;
+                        }
+                    }
+                }
+                $('#oauth2ErrorTxt').text(txt);
+                $('#oauth2ErrorMsg').show();
+                $('#smtpOAuthFlowModal').modal('show');
+            }
+        });
     }
 
     function testSMTP(event){
@@ -368,11 +512,19 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
         $('#smtpErrorMsg').hide();
         showSpinner();
 
+        let data = {"host": $('#idSMTPHost').val(),"port": parseInt($('#idSMTPPort').val()),
+            "from": $('#idSMTPFrom').val(),"user": $('#idSMTPUsername').val(),"password": $('#idSMTPPassword').val(),
+            "auth_type": parseInt($('#idSMTPAuth').val()),"encryption": parseInt($('#idSMTPEncryption').val()),
+            "domain": $('#idSMTPDomain').val(),"debug": debug, "oauth2": {"provider": parseInt($('#idSMTPOAuth2Provider').val()),
+            "tenant": $('#idSMTPOauth2Tenant').val(), "client_id": $('#idSMTPOauth2ClientID').val(),
+            "client_secret": $('#idSMTPOAuth2ClientSecret').val(), "refresh_token": $('#idSMTPOAuth2RefreshToken').val()},
+            "recipient": recipient};
+
         $.ajax({
             url: "{{.ConfigsURL}}/smtp/test",
             type: 'POST',
             headers: {'X-CSRF-TOKEN' : '{{.CSRFToken}}'},
-            data: JSON.stringify({"host": $('#idSMTPHost').val(),"port": parseInt($('#idSMTPPort').val()),"from": $('#idSMTPFrom').val(),"user": $('#idSMTPUsername').val(),"password": $('#idSMTPPassword').val(),"auth_type": parseInt($('#idSMTPAuth').val()),"encryption": parseInt($('#idSMTPEncryption').val()), "domain": $('#idSMTPDomain').val(),"debug": debug, "recipient": recipient}),
+            data: JSON.stringify(data),
             dataType: 'json',
             contentType: 'application/json; charset=utf-8',
             timeout: 15000,
@@ -403,12 +555,32 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
         });
     }
 
+    function onSMTPAuthChanged(val){
+        if (val == '3'){
+            $('.smtp-oauth2').show();
+            onSMTPOAuth2ProviderChanged($('#idSMTPOAuth2Provider').val());
+            return;
+        }
+        $('.smtp-oauth2').hide();
+    }
+
+    function onSMTPOAuth2ProviderChanged(val){
+        if (val == '1'){
+            $('.smtp-oauth2-microsoft').show();
+            return;
+        }
+        $('.smtp-oauth2-microsoft').hide();
+    }
+
     $(document).ready(function () {
         $('#spinnerModal').on('shown.bs.modal', function () {
             if (spinnerDone){
                 $('#spinnerModal').modal('hide');
             }
         });
+        onSMTPAuthChanged('{{.Configs.SMTP.AuthType}}');
+        onSMTPOAuth2ProviderChanged('{{.Configs.SMTP.OAuth2.Provider}}');
+        $('#smtpOauth2ProviderHelpBlock').text('The URI to redirect to after user authentication is '+getCurrentURI()+'{{.OAuth2RedirectURL}}');
     });
 </script>
 {{end}}

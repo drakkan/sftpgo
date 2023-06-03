@@ -40,6 +40,7 @@ const (
 	tokenAudienceAPI              tokenAudience = "API"
 	tokenAudienceAPIUser          tokenAudience = "APIUser"
 	tokenAudienceCSRF             tokenAudience = "CSRF"
+	tokenAudienceOAuth2           tokenAudience = "OAuth2"
 )
 
 type tokenValidation = int
@@ -416,4 +417,48 @@ func verifyCSRFToken(tokenString, ip string) error {
 	}
 
 	return nil
+}
+
+func createOAuth2Token(state, ip string) string {
+	claims := make(map[string]any)
+	now := time.Now().UTC()
+
+	claims[jwt.JwtIDKey] = state
+	claims[jwt.NotBeforeKey] = now.Add(-30 * time.Second)
+	claims[jwt.ExpirationKey] = now.Add(3 * time.Minute)
+	claims[jwt.AudienceKey] = []string{tokenAudienceOAuth2, ip}
+
+	_, tokenString, err := csrfTokenAuth.Encode(claims)
+	if err != nil {
+		logger.Debug(logSender, "", "unable to create OAuth2 token: %v", err)
+		return ""
+	}
+	return tokenString
+}
+
+func verifyOAuth2Token(tokenString, ip string) (string, error) {
+	token, err := jwtauth.VerifyToken(csrfTokenAuth, tokenString)
+	if err != nil || token == nil {
+		logger.Debug(logSender, "", "error validating OAuth2 token %q: %v", tokenString, err)
+		return "", fmt.Errorf("unable to verify OAuth2 state: %v", err)
+	}
+
+	if !util.Contains(token.Audience(), tokenAudienceOAuth2) {
+		logger.Debug(logSender, "", "error validating OAuth2 token audience")
+		return "", errors.New("invalid OAuth2 state")
+	}
+
+	if tokenValidationMode != tokenValidationNoIPMatch {
+		if !util.Contains(token.Audience(), ip) {
+			logger.Debug(logSender, "", "error validating OAuth2 token IP audience")
+			return "", errors.New("invalid OAuth2 state")
+		}
+	}
+	if val, ok := token.Get(jwt.JwtIDKey); ok {
+		if state, ok := val.(string); ok {
+			return state, nil
+		}
+	}
+	logger.Debug(logSender, "", "jti not found in OAuth2 token")
+	return "", errors.New("invalid OAuth2 state")
 }
