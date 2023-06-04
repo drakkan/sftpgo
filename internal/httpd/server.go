@@ -194,8 +194,7 @@ func (s *httpdServer) handleWebClientLogout(w http.ResponseWriter, r *http.Reque
 
 func (s *httpdServer) handleWebClientChangePwdPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	err := r.ParseForm()
-	if err != nil {
+	if err := r.ParseForm(); err != nil {
 		s.renderClientChangePasswordPage(w, r, err.Error())
 		return
 	}
@@ -203,8 +202,8 @@ func (s *httpdServer) handleWebClientChangePwdPost(w http.ResponseWriter, r *htt
 		s.renderClientForbiddenPage(w, r, err.Error())
 		return
 	}
-	err = doChangeUserPassword(r, r.Form.Get("current_password"), r.Form.Get("new_password1"),
-		r.Form.Get("new_password2"))
+	err := doChangeUserPassword(r, strings.TrimSpace(r.Form.Get("current_password")),
+		strings.TrimSpace(r.Form.Get("new_password1")), strings.TrimSpace(r.Form.Get("new_password2")))
 	if err != nil {
 		s.renderClientChangePasswordPage(w, r, err.Error())
 		return
@@ -230,8 +229,8 @@ func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Re
 		return
 	}
 	protocol := common.ProtocolHTTP
-	username := r.Form.Get("username")
-	password := r.Form.Get("password")
+	username := strings.TrimSpace(r.Form.Get("username"))
+	password := strings.TrimSpace(r.Form.Get("password"))
 	if username == "" || password == "" {
 		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}},
 			dataprovider.LoginMethodPassword, ipAddr, common.ErrNoCredentials)
@@ -289,7 +288,8 @@ func (s *httpdServer) handleWebClientPasswordResetPost(w http.ResponseWriter, r 
 		s.renderClientForbiddenPage(w, r, err.Error())
 		return
 	}
-	_, user, err := handleResetPassword(r, r.Form.Get("code"), r.Form.Get("password"), false)
+	_, user, err := handleResetPassword(r, strings.TrimSpace(r.Form.Get("code")),
+		strings.TrimSpace(r.Form.Get("password")), false)
 	if err != nil {
 		s.renderClientResetPwdPage(w, err.Error(), ipAddr)
 		return
@@ -323,7 +323,7 @@ func (s *httpdServer) handleWebClientTwoFactorRecoveryPost(w http.ResponseWriter
 		return
 	}
 	username := claims.Username
-	recoveryCode := r.Form.Get("recovery_code")
+	recoveryCode := strings.TrimSpace(r.Form.Get("recovery_code"))
 	if username == "" || recoveryCode == "" {
 		s.renderClientTwoFactorRecoveryPage(w, "Invalid credentials", ipAddr)
 		return
@@ -384,7 +384,7 @@ func (s *httpdServer) handleWebClientTwoFactorPost(w http.ResponseWriter, r *htt
 		return
 	}
 	username := claims.Username
-	passcode := r.Form.Get("passcode")
+	passcode := strings.TrimSpace(r.Form.Get("passcode"))
 	if username == "" || passcode == "" {
 		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}},
 			dataprovider.LoginMethodPassword, ipAddr, common.ErrNoCredentials)
@@ -440,7 +440,7 @@ func (s *httpdServer) handleWebAdminTwoFactorRecoveryPost(w http.ResponseWriter,
 		return
 	}
 	username := claims.Username
-	recoveryCode := r.Form.Get("recovery_code")
+	recoveryCode := strings.TrimSpace(r.Form.Get("recovery_code"))
 	if username == "" || recoveryCode == "" {
 		s.renderTwoFactorRecoveryPage(w, "Invalid credentials", ipAddr)
 		return
@@ -499,7 +499,7 @@ func (s *httpdServer) handleWebAdminTwoFactorPost(w http.ResponseWriter, r *http
 		return
 	}
 	username := claims.Username
-	passcode := r.Form.Get("passcode")
+	passcode := strings.TrimSpace(r.Form.Get("passcode"))
 	if username == "" || passcode == "" {
 		s.renderTwoFactorPage(w, "Invalid credentials", ipAddr)
 		return
@@ -544,8 +544,8 @@ func (s *httpdServer) handleWebAdminLoginPost(w http.ResponseWriter, r *http.Req
 		s.renderAdminLoginPage(w, err.Error(), ipAddr)
 		return
 	}
-	username := r.Form.Get("username")
-	password := r.Form.Get("password")
+	username := strings.TrimSpace(r.Form.Get("username"))
+	password := strings.TrimSpace(r.Form.Get("password"))
 	if username == "" || password == "" {
 		s.renderAdminLoginPage(w, "Invalid credentials", ipAddr)
 		return
@@ -615,8 +615,8 @@ func (s *httpdServer) handleWebAdminChangePwdPost(w http.ResponseWriter, r *http
 		s.renderForbiddenPage(w, r, err.Error())
 		return
 	}
-	err = doChangeAdminPassword(r, r.Form.Get("current_password"), r.Form.Get("new_password1"),
-		r.Form.Get("new_password2"))
+	err = doChangeAdminPassword(r, strings.TrimSpace(r.Form.Get("current_password")),
+		strings.TrimSpace(r.Form.Get("new_password1")), strings.TrimSpace(r.Form.Get("new_password2")))
 	if err != nil {
 		s.renderChangePasswordPage(w, r, err.Error())
 		return
@@ -637,7 +637,8 @@ func (s *httpdServer) handleWebAdminPasswordResetPost(w http.ResponseWriter, r *
 		s.renderForbiddenPage(w, r, err.Error())
 		return
 	}
-	admin, _, err := handleResetPassword(r, r.Form.Get("code"), r.Form.Get("password"), true)
+	admin, _, err := handleResetPassword(r, strings.TrimSpace(r.Form.Get("code")),
+		strings.TrimSpace(r.Form.Get("password")), true)
 	if err != nil {
 		if e, ok := err.(*util.ValidationError); ok {
 			s.renderResetPwdPage(w, e.GetErrorString(), ipAddr)
@@ -666,10 +667,10 @@ func (s *httpdServer) handleWebAdminSetupPost(w http.ResponseWriter, r *http.Req
 		s.renderForbiddenPage(w, r, err.Error())
 		return
 	}
-	username := r.Form.Get("username")
-	password := r.Form.Get("password")
-	confirmPassword := r.Form.Get("confirm_password")
-	installCode := r.Form.Get("install_code")
+	username := strings.TrimSpace(r.Form.Get("username"))
+	password := strings.TrimSpace(r.Form.Get("password"))
+	confirmPassword := strings.TrimSpace(r.Form.Get("confirm_password"))
+	installCode := strings.TrimSpace(r.Form.Get("install_code"))
 	if installationCode != "" && installCode != resolveInstallationCode() {
 		s.renderAdminSetupPage(w, r, username, fmt.Sprintf("%v mismatch", installationCodeHint))
 		return

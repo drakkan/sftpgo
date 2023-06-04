@@ -1504,7 +1504,7 @@ func getFilePatternsFromPostField(r *http.Request) []sdk.PatternsFilter {
 func getGroupsFromUserPostFields(r *http.Request) []sdk.GroupMapping {
 	var groups []sdk.GroupMapping
 
-	primaryGroup := r.Form.Get("primary_group")
+	primaryGroup := strings.TrimSpace(r.Form.Get("primary_group"))
 	if primaryGroup != "" {
 		groups = append(groups, sdk.GroupMapping{
 			Name: primaryGroup,
@@ -1514,14 +1514,14 @@ func getGroupsFromUserPostFields(r *http.Request) []sdk.GroupMapping {
 	secondaryGroups := r.Form["secondary_groups"]
 	for _, name := range secondaryGroups {
 		groups = append(groups, sdk.GroupMapping{
-			Name: name,
+			Name: strings.TrimSpace(name),
 			Type: sdk.GroupTypeSecondary,
 		})
 	}
 	membershipGroups := r.Form["membership_groups"]
 	for _, name := range membershipGroups {
 		groups = append(groups, sdk.GroupMapping{
-			Name: name,
+			Name: strings.TrimSpace(name),
 			Type: sdk.GroupTypeMembership,
 		})
 	}
@@ -1565,7 +1565,7 @@ func getFiltersFromUserPostFields(r *http.Request) (sdk.BaseUserFilters, error) 
 	filters.DeniedProtocols = r.Form["denied_protocols"]
 	filters.TwoFactorAuthProtocols = r.Form["required_two_factor_protocols"]
 	filters.FilePatterns = getFilePatternsFromPostField(r)
-	filters.TLSUsername = sdk.TLSUsername(r.Form.Get("tls_username"))
+	filters.TLSUsername = sdk.TLSUsername(strings.TrimSpace(r.Form.Get("tls_username")))
 	filters.WebClient = r.Form["web_client_options"]
 	filters.DefaultSharesExpiration = defaultSharesExpiration
 	filters.PasswordExpiration = passwordExpiration
@@ -1583,7 +1583,7 @@ func getFiltersFromUserPostFields(r *http.Request) (sdk.BaseUserFilters, error) 
 	filters.IsAnonymous = r.Form.Get("is_anonymous") != ""
 	filters.DisableFsChecks = r.Form.Get("disable_fs_checks") != ""
 	filters.AllowAPIKeyAuth = r.Form.Get("allow_api_key_auth") != ""
-	filters.StartDirectory = r.Form.Get("start_directory")
+	filters.StartDirectory = strings.TrimSpace(r.Form.Get("start_directory"))
 	filters.MaxUploadFileSize = maxFileSize
 	filters.ExternalAuthCacheTime, err = strconv.ParseInt(r.Form.Get("external_auth_cache_time"), 10, 64)
 	if err != nil {
@@ -1614,7 +1614,7 @@ func getS3Config(r *http.Request) (vfs.S3FsConfig, error) {
 	config.Endpoint = strings.TrimSpace(r.Form.Get("s3_endpoint"))
 	config.StorageClass = strings.TrimSpace(r.Form.Get("s3_storage_class"))
 	config.ACL = strings.TrimSpace(r.Form.Get("s3_acl"))
-	config.KeyPrefix = r.Form.Get("s3_key_prefix")
+	config.KeyPrefix = strings.TrimSpace(r.Form.Get("s3_key_prefix"))
 	config.UploadPartSize, err = strconv.ParseInt(r.Form.Get("s3_upload_part_size"), 10, 64)
 	if err != nil {
 		return config, fmt.Errorf("invalid s3 upload part size: %w", err)
@@ -1650,7 +1650,7 @@ func getGCSConfig(r *http.Request) (vfs.GCSFsConfig, error) {
 	config.Bucket = strings.TrimSpace(r.Form.Get("gcs_bucket"))
 	config.StorageClass = strings.TrimSpace(r.Form.Get("gcs_storage_class"))
 	config.ACL = strings.TrimSpace(r.Form.Get("gcs_acl"))
-	config.KeyPrefix = r.Form.Get("gcs_key_prefix")
+	config.KeyPrefix = strings.TrimSpace(r.Form.Get("gcs_key_prefix"))
 	uploadPartSize, err := strconv.ParseInt(r.Form.Get("gcs_upload_part_size"), 10, 64)
 	if err == nil {
 		config.UploadPartSize = uploadPartSize
@@ -1689,13 +1689,13 @@ func getSFTPConfig(r *http.Request) (vfs.SFTPFsConfig, error) {
 	var err error
 	config := vfs.SFTPFsConfig{}
 	config.Endpoint = strings.TrimSpace(r.Form.Get("sftp_endpoint"))
-	config.Username = r.Form.Get("sftp_username")
+	config.Username = strings.TrimSpace(r.Form.Get("sftp_username"))
 	config.Password = getSecretFromFormField(r, "sftp_password")
 	config.PrivateKey = getSecretFromFormField(r, "sftp_private_key")
 	config.KeyPassphrase = getSecretFromFormField(r, "sftp_key_passphrase")
 	fingerprintsFormValue := r.Form.Get("sftp_fingerprints")
 	config.Fingerprints = getSliceFromDelimitedValues(fingerprintsFormValue, "\n")
-	config.Prefix = r.Form.Get("sftp_prefix")
+	config.Prefix = strings.TrimSpace(r.Form.Get("sftp_prefix"))
 	config.DisableCouncurrentReads = r.Form.Get("sftp_disable_concurrent_reads") != ""
 	config.BufferSize, err = strconv.ParseInt(r.Form.Get("sftp_buffer_size"), 10, 64)
 	if r.Form.Get("sftp_equality_check_mode") != "" {
@@ -1712,7 +1712,7 @@ func getSFTPConfig(r *http.Request) (vfs.SFTPFsConfig, error) {
 func getHTTPFsConfig(r *http.Request) vfs.HTTPFsConfig {
 	config := vfs.HTTPFsConfig{}
 	config.Endpoint = strings.TrimSpace(r.Form.Get("http_endpoint"))
-	config.Username = r.Form.Get("http_username")
+	config.Username = strings.TrimSpace(r.Form.Get("http_username"))
 	config.SkipTLSVerify = r.Form.Get("http_skip_tls_verify") != ""
 	config.Password = getSecretFromFormField(r, "http_password")
 	config.APIKey = getSecretFromFormField(r, "http_api_key")
@@ -1732,7 +1732,7 @@ func getAzureConfig(r *http.Request) (vfs.AzBlobFsConfig, error) {
 	config.AccountKey = getSecretFromFormField(r, "az_account_key")
 	config.SASURL = getSecretFromFormField(r, "az_sas_url")
 	config.Endpoint = strings.TrimSpace(r.Form.Get("az_endpoint"))
-	config.KeyPrefix = r.Form.Get("az_key_prefix")
+	config.KeyPrefix = strings.TrimSpace(r.Form.Get("az_key_prefix"))
 	config.AccessTier = strings.TrimSpace(r.Form.Get("az_access_tier"))
 	config.UseEmulator = r.Form.Get("az_use_emulator") != ""
 	config.UploadPartSize, err = strconv.ParseInt(r.Form.Get("az_upload_part_size"), 10, 64)
@@ -1841,12 +1841,12 @@ func getAdminFromPostFields(r *http.Request) (dataprovider.Admin, error) {
 	if err != nil {
 		return admin, fmt.Errorf("invalid status: %w", err)
 	}
-	admin.Username = r.Form.Get("username")
-	admin.Password = r.Form.Get("password")
+	admin.Username = strings.TrimSpace(r.Form.Get("username"))
+	admin.Password = strings.TrimSpace(r.Form.Get("password"))
 	admin.Permissions = r.Form["permissions"]
-	admin.Email = r.Form.Get("email")
+	admin.Email = strings.TrimSpace(r.Form.Get("email"))
 	admin.Status = status
-	admin.Role = r.Form.Get("role")
+	admin.Role = strings.TrimSpace(r.Form.Get("role"))
 	admin.Filters.AllowList = getSliceFromDelimitedValues(r.Form.Get("allowed_ip"), ",")
 	admin.Filters.AllowAPIKeyAuth = r.Form.Get("allow_api_key_auth") != ""
 	admin.AdditionalInfo = r.Form.Get("additional_info")
@@ -2093,11 +2093,11 @@ func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 	}
 	user = dataprovider.User{
 		BaseUser: sdk.BaseUser{
-			Username:             r.Form.Get("username"),
-			Email:                r.Form.Get("email"),
-			Password:             r.Form.Get("password"),
+			Username:             strings.TrimSpace(r.Form.Get("username")),
+			Email:                strings.TrimSpace(r.Form.Get("email")),
+			Password:             strings.TrimSpace(r.Form.Get("password")),
 			PublicKeys:           r.Form["public_keys"],
-			HomeDir:              r.Form.Get("home_dir"),
+			HomeDir:              strings.TrimSpace(r.Form.Get("home_dir")),
 			UID:                  uid,
 			GID:                  gid,
 			Permissions:          getUserPermissionsFromPostFields(r),
@@ -2113,7 +2113,7 @@ func getUserFromPostFields(r *http.Request) (dataprovider.User, error) {
 			ExpirationDate:       expirationDateMillis,
 			AdditionalInfo:       r.Form.Get("additional_info"),
 			Description:          r.Form.Get("description"),
-			Role:                 r.Form.Get("role"),
+			Role:                 strings.TrimSpace(r.Form.Get("role")),
 		},
 		Filters: dataprovider.UserFilters{
 			BaseUserFilters:       filters,
@@ -2168,12 +2168,12 @@ func getGroupFromPostFields(r *http.Request) (dataprovider.Group, error) {
 	}
 	group = dataprovider.Group{
 		BaseGroup: sdk.BaseGroup{
-			Name:        r.Form.Get("name"),
+			Name:        strings.TrimSpace(r.Form.Get("name")),
 			Description: r.Form.Get("description"),
 		},
 		UserSettings: dataprovider.GroupUserSettings{
 			BaseGroupUserSettings: sdk.BaseGroupUserSettings{
-				HomeDir:              r.Form.Get("home_dir"),
+				HomeDir:              strings.TrimSpace(r.Form.Get("home_dir")),
 				MaxSessions:          maxSessions,
 				QuotaSize:            quotaSize,
 				QuotaFiles:           quotaFiles,
@@ -2199,7 +2199,7 @@ func getKeyValsFromPostFields(r *http.Request, key, val string) []dataprovider.K
 		if strings.HasPrefix(k, key) {
 			formKey := r.Form.Get(k)
 			idx := strings.TrimPrefix(k, key)
-			formVal := r.Form.Get(fmt.Sprintf("%s%s", val, idx))
+			formVal := strings.TrimSpace(r.Form.Get(fmt.Sprintf("%s%s", val, idx)))
 			if formKey != "" && formVal != "" {
 				res = append(res, dataprovider.KeyValue{
 					Key:   formKey,
@@ -2215,7 +2215,7 @@ func getFoldersRetentionFromPostFields(r *http.Request) ([]dataprovider.FolderRe
 	var res []dataprovider.FolderRetention
 	for k := range r.Form {
 		if strings.HasPrefix(k, "folder_retention_path") {
-			folderPath := r.Form.Get(k)
+			folderPath := strings.TrimSpace(r.Form.Get(k))
 			if folderPath != "" {
 				idx := strings.TrimPrefix(k, "folder_retention_path")
 				retention, err := strconv.Atoi(r.Form.Get(fmt.Sprintf("folder_retention_val%s", idx)))
@@ -2239,14 +2239,14 @@ func getHTTPPartsFromPostFields(r *http.Request) []dataprovider.HTTPPart {
 	var result []dataprovider.HTTPPart
 	for k := range r.Form {
 		if strings.HasPrefix(k, "http_part_name") {
-			partName := r.Form.Get(k)
+			partName := strings.TrimSpace(r.Form.Get(k))
 			if partName != "" {
 				idx := strings.TrimPrefix(k, "http_part_name")
 				order, err := strconv.Atoi(idx)
 				if err != nil {
 					continue
 				}
-				filePath := r.Form.Get(fmt.Sprintf("http_part_file%s", idx))
+				filePath := strings.TrimSpace(r.Form.Get(fmt.Sprintf("http_part_file%s", idx)))
 				body := r.Form.Get(fmt.Sprintf("http_part_body%s", idx))
 				concatHeaders := getSliceFromDelimitedValues(r.Form.Get(fmt.Sprintf("http_part_headers%s", idx)), "\n")
 				var headers []dataprovider.KeyValue
@@ -2314,8 +2314,8 @@ func getEventActionOptionsFromPostFields(r *http.Request) (dataprovider.BaseEven
 	}
 	options := dataprovider.BaseEventActionOptions{
 		HTTPConfig: dataprovider.EventActionHTTPConfig{
-			Endpoint:        r.Form.Get("http_endpoint"),
-			Username:        r.Form.Get("http_username"),
+			Endpoint:        strings.TrimSpace(r.Form.Get("http_endpoint")),
+			Username:        strings.TrimSpace(r.Form.Get("http_username")),
 			Password:        getSecretFromFormField(r, "http_password"),
 			Headers:         getKeyValsFromPostFields(r, "http_header_key", "http_header_val"),
 			Timeout:         httpTimeout,
@@ -2326,7 +2326,7 @@ func getEventActionOptionsFromPostFields(r *http.Request) (dataprovider.BaseEven
 			Parts:           getHTTPPartsFromPostFields(r),
 		},
 		CmdConfig: dataprovider.EventActionCommandConfig{
-			Cmd:     r.Form.Get("cmd_path"),
+			Cmd:     strings.TrimSpace(r.Form.Get("cmd_path")),
 			Args:    cmdArgs,
 			Timeout: cmdTimeout,
 			EnvVars: getKeyValsFromPostFields(r, "cmd_env_key", "cmd_env_val"),
@@ -2350,7 +2350,7 @@ func getEventActionOptionsFromPostFields(r *http.Request) (dataprovider.BaseEven
 			Exist:   getSliceFromDelimitedValues(r.Form.Get("fs_exist_paths"), ","),
 			Copy:    getKeyValsFromPostFields(r, "fs_copy_source", "fs_copy_target"),
 			Compress: dataprovider.EventActionFsCompress{
-				Name:  r.Form.Get("fs_compress_name"),
+				Name:  strings.TrimSpace(r.Form.Get("fs_compress_name")),
 				Paths: getSliceFromDelimitedValues(r.Form.Get("fs_compress_paths"), ","),
 			},
 		},
@@ -2380,7 +2380,7 @@ func getEventActionFromPostFields(r *http.Request) (dataprovider.BaseEventAction
 		return dataprovider.BaseEventAction{}, err
 	}
 	action := dataprovider.BaseEventAction{
-		Name:        r.Form.Get("name"),
+		Name:        strings.TrimSpace(r.Form.Get("name")),
 		Description: r.Form.Get("description"),
 		Type:        actionType,
 		Options:     options,
@@ -2404,12 +2404,12 @@ func getEventRuleConditionsFromPostFields(r *http.Request) (dataprovider.EventCo
 	var names, groupNames, roleNames, fsPaths []dataprovider.ConditionPattern
 	for k := range r.Form {
 		if strings.HasPrefix(k, "schedule_hour") {
-			hour := r.Form.Get(k)
+			hour := strings.TrimSpace(r.Form.Get(k))
 			if hour != "" {
 				idx := strings.TrimPrefix(k, "schedule_hour")
-				dayOfWeek := r.Form.Get(fmt.Sprintf("schedule_day_of_week%s", idx))
-				dayOfMonth := r.Form.Get(fmt.Sprintf("schedule_day_of_month%s", idx))
-				month := r.Form.Get(fmt.Sprintf("schedule_month%s", idx))
+				dayOfWeek := strings.TrimSpace(r.Form.Get(fmt.Sprintf("schedule_day_of_week%s", idx)))
+				dayOfMonth := strings.TrimSpace(r.Form.Get(fmt.Sprintf("schedule_day_of_month%s", idx)))
+				month := strings.TrimSpace(r.Form.Get(fmt.Sprintf("schedule_month%s", idx)))
 				schedules = append(schedules, dataprovider.Schedule{
 					Hours:      hour,
 					DayOfWeek:  dayOfWeek,
@@ -2419,7 +2419,7 @@ func getEventRuleConditionsFromPostFields(r *http.Request) (dataprovider.EventCo
 			}
 		}
 		if strings.HasPrefix(k, "name_pattern") {
-			pattern := r.Form.Get(k)
+			pattern := strings.TrimSpace(r.Form.Get(k))
 			if pattern != "" {
 				idx := strings.TrimPrefix(k, "name_pattern")
 				patternType := r.Form.Get(fmt.Sprintf("type_name_pattern%s", idx))
@@ -2430,7 +2430,7 @@ func getEventRuleConditionsFromPostFields(r *http.Request) (dataprovider.EventCo
 			}
 		}
 		if strings.HasPrefix(k, "group_name_pattern") {
-			pattern := r.Form.Get(k)
+			pattern := strings.TrimSpace(r.Form.Get(k))
 			if pattern != "" {
 				idx := strings.TrimPrefix(k, "group_name_pattern")
 				patternType := r.Form.Get(fmt.Sprintf("type_group_name_pattern%s", idx))
@@ -2441,7 +2441,7 @@ func getEventRuleConditionsFromPostFields(r *http.Request) (dataprovider.EventCo
 			}
 		}
 		if strings.HasPrefix(k, "role_name_pattern") {
-			pattern := r.Form.Get(k)
+			pattern := strings.TrimSpace(r.Form.Get(k))
 			if pattern != "" {
 				idx := strings.TrimPrefix(k, "role_name_pattern")
 				patternType := r.Form.Get(fmt.Sprintf("type_role_name_pattern%s", idx))
@@ -2452,7 +2452,7 @@ func getEventRuleConditionsFromPostFields(r *http.Request) (dataprovider.EventCo
 			}
 		}
 		if strings.HasPrefix(k, "fs_path_pattern") {
-			pattern := r.Form.Get(k)
+			pattern := strings.TrimSpace(r.Form.Get(k))
 			if pattern != "" {
 				idx := strings.TrimPrefix(k, "fs_path_pattern")
 				patternType := r.Form.Get(fmt.Sprintf("type_fs_path_pattern%s", idx))
@@ -2495,7 +2495,7 @@ func getEventRuleActionsFromPostFields(r *http.Request) ([]dataprovider.EventAct
 	var actions []dataprovider.EventAction
 	for k := range r.Form {
 		if strings.HasPrefix(k, "action_name") {
-			name := r.Form.Get(k)
+			name := strings.TrimSpace(r.Form.Get(k))
 			if name != "" {
 				idx := strings.TrimPrefix(k, "action_name")
 				order, err := strconv.Atoi(r.Form.Get(fmt.Sprintf("action_order%s", idx)))
@@ -2542,7 +2542,7 @@ func getEventRuleFromPostFields(r *http.Request) (dataprovider.EventRule, error)
 		return dataprovider.EventRule{}, err
 	}
 	rule := dataprovider.EventRule{
-		Name:        r.Form.Get("name"),
+		Name:        strings.TrimSpace(r.Form.Get("name")),
 		Status:      status,
 		Description: r.Form.Get("description"),
 		Trigger:     trigger,
@@ -2559,7 +2559,7 @@ func getRoleFromPostFields(r *http.Request) (dataprovider.Role, error) {
 	}
 
 	return dataprovider.Role{
-		Name:        r.Form.Get("name"),
+		Name:        strings.TrimSpace(r.Form.Get("name")),
 		Description: r.Form.Get("description"),
 	}, nil
 }
@@ -2587,7 +2587,7 @@ func getIPListEntryFromPostFields(r *http.Request, listType dataprovider.IPListT
 	}
 
 	return dataprovider.IPListEntry{
-		IPOrNet:     r.Form.Get("ipornet"),
+		IPOrNet:     strings.TrimSpace(r.Form.Get("ipornet")),
 		Mode:        mode,
 		Protocols:   protocols,
 		Description: r.Form.Get("description"),
@@ -2651,14 +2651,14 @@ func getSMTPConfigsFromPostFields(r *http.Request) *dataprovider.SMTPConfigs {
 		oauth2Provider = 1
 	}
 	return &dataprovider.SMTPConfigs{
-		Host:       r.Form.Get("smtp_host"),
+		Host:       strings.TrimSpace(r.Form.Get("smtp_host")),
 		Port:       port,
-		From:       r.Form.Get("smtp_from"),
-		User:       r.Form.Get("smtp_username"),
+		From:       strings.TrimSpace(r.Form.Get("smtp_from")),
+		User:       strings.TrimSpace(r.Form.Get("smtp_username")),
 		Password:   getSecretFromFormField(r, "smtp_password"),
 		AuthType:   authType,
 		Encryption: encryption,
-		Domain:     r.Form.Get("smtp_domain"),
+		Domain:     strings.TrimSpace(r.Form.Get("smtp_domain")),
 		Debug:      debug,
 		OAuth2: dataprovider.SMTPOAuth2{
 			Provider:     oauth2Provider,
@@ -3385,8 +3385,8 @@ func (s *httpdServer) handleWebAddFolderPost(w http.ResponseWriter, r *http.Requ
 		s.renderForbiddenPage(w, r, err.Error())
 		return
 	}
-	folder.MappedPath = r.Form.Get("mapped_path")
-	folder.Name = r.Form.Get("name")
+	folder.MappedPath = strings.TrimSpace(r.Form.Get("mapped_path"))
+	folder.Name = strings.TrimSpace(r.Form.Get("name"))
 	folder.Description = r.Form.Get("description")
 	fsConfig, err := getFsConfigFromPostFields(r)
 	if err != nil {
@@ -3452,7 +3452,7 @@ func (s *httpdServer) handleWebUpdateFolderPost(w http.ResponseWriter, r *http.R
 		return
 	}
 	updatedFolder := vfs.BaseVirtualFolder{
-		MappedPath:  r.Form.Get("mapped_path"),
+		MappedPath:  strings.TrimSpace(r.Form.Get("mapped_path")),
 		Description: r.Form.Get("description"),
 	}
 	updatedFolder.ID = folder.ID
@@ -4214,8 +4214,16 @@ func (s *httpdServer) handleOAuth2TokenRedirect(w http.ResponseWriter, r *http.R
 		s.renderMessagePage(w, r, errorTitle, "Unable to get token:", http.StatusInternalServerError, err, "")
 		return
 	}
+	if token.RefreshToken == "" {
+		errTxt := "the OAuth2 provider returned an empty token. " +
+			"Some providers only return the token when the user first authorizes. " +
+			"If you have already registered SFTPGo with this user in the past, revoke access and try again. " +
+			"This way you will invalidate the previous token."
+		s.renderMessagePage(w, r, errorTitle, "Unable to get token:", http.StatusBadRequest, errors.New(errTxt), "")
+		return
+	}
 	s.renderMessagePage(w, r, successTitle, "", http.StatusOK, nil,
-		fmt.Sprintf("Copy the following string, without the quotes, into your SMTP OAuth2 Token configuration: %q", token.RefreshToken))
+		fmt.Sprintf("Copy the following string, without the quotes, into SMTP OAuth2 Token configuration field: %q", token.RefreshToken))
 }
 
 func updateSMTPSecrets(newConfigs, currentConfigs *dataprovider.SMTPConfigs) {

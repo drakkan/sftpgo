@@ -1265,7 +1265,7 @@ func (s *httpdServer) handleWebClientProfilePost(w http.ResponseWriter, r *http.
 		user.Filters.AllowAPIKeyAuth = r.Form.Get("allow_api_key_auth") != ""
 	}
 	if userMerged.CanChangeInfo() {
-		user.Email = r.Form.Get("email")
+		user.Email = strings.TrimSpace(r.Form.Get("email"))
 		user.Description = r.Form.Get("description")
 	}
 	err = dataprovider.UpdateUser(&user, dataprovider.ActionExecutorSelf, ipAddr, user.Role)
@@ -1297,10 +1297,15 @@ func getShareFromPostFields(r *http.Request) (*dataprovider.Share, error) {
 	if err := r.ParseForm(); err != nil {
 		return share, err
 	}
-	share.Name = r.Form.Get("name")
+	share.Name = strings.TrimSpace(r.Form.Get("name"))
 	share.Description = r.Form.Get("description")
-	share.Paths = r.Form["paths"]
-	share.Password = r.Form.Get("password")
+	for _, p := range r.Form["paths"] {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			share.Paths = append(share.Paths, p)
+		}
+	}
+	share.Password = strings.TrimSpace(r.Form.Get("password"))
 	share.AllowFrom = getSliceFromDelimitedValues(r.Form.Get("allowed_ip"), ",")
 	scope, err := strconv.Atoi(r.Form.Get("scope"))
 	if err != nil {
@@ -1313,8 +1318,8 @@ func getShareFromPostFields(r *http.Request) (*dataprovider.Share, error) {
 	}
 	share.MaxTokens = maxTokens
 	expirationDateMillis := int64(0)
-	expirationDateString := r.Form.Get("expiration_date")
-	if strings.TrimSpace(expirationDateString) != "" {
+	expirationDateString := strings.TrimSpace(r.Form.Get("expiration_date"))
+	if expirationDateString != "" {
 		expirationDate, err := time.Parse(webDateTimeFormat, expirationDateString)
 		if err != nil {
 			return share, err
@@ -1347,7 +1352,7 @@ func (s *httpdServer) handleWebClientForgotPwdPost(w http.ResponseWriter, r *htt
 		s.renderClientForbiddenPage(w, r, err.Error())
 		return
 	}
-	username := r.Form.Get("username")
+	username := strings.TrimSpace(r.Form.Get("username"))
 	err = handleForgotPassword(r, username, false)
 	if err != nil {
 		if e, ok := err.(*util.ValidationError); ok {
@@ -1479,7 +1484,7 @@ func (s *httpdServer) handleClientShareLoginPost(w http.ResponseWriter, r *http.
 		s.renderShareLoginPage(w, r.RequestURI, dataprovider.ErrInvalidCredentials.Error(), ipAddr)
 		return
 	}
-	match, err := share.CheckCredentials(r.Form.Get("share_password"))
+	match, err := share.CheckCredentials(strings.TrimSpace(r.Form.Get("share_password")))
 	if !match || err != nil {
 		s.renderShareLoginPage(w, r.RequestURI, dataprovider.ErrInvalidCredentials.Error(), ipAddr)
 		return
