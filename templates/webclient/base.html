@@ -258,6 +258,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
         function UnicodeDecodeB64(str) {
             return decodeURIComponent(atob(str));
         }
+
+        function fileSizeIEC(a,b,c,d,e){
+            return (b=Math,c=b.log,d=1024,e=c(a)/c(d)|0,a/b.pow(d,e)).toFixed(1)
+                +' '+(e?'KMGTPEZY'[--e]+'iB':'Bytes')
+        }
     </script>
 
     <!-- Page level plugins -->

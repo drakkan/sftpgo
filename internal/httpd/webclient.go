@@ -759,18 +759,18 @@ func (s *httpdServer) handleShareGetDirContents(w http.ResponseWriter, r *http.R
 		sendAPIResponse(w, r, err, "Unable to get directory contents", getMappedStatusCode(err))
 		return
 	}
-	results := make([]map[string]string, 0, len(contents))
+	results := make([]map[string]any, 0, len(contents))
 	for _, info := range contents {
 		if !info.Mode().IsDir() && !info.Mode().IsRegular() {
 			continue
 		}
-		res := make(map[string]string)
+		res := make(map[string]any)
 		if info.IsDir() {
 			res["type"] = "1"
 			res["size"] = ""
 		} else {
 			res["type"] = "2"
-			res["size"] = util.ByteCountIEC(info.Size())
+			res["size"] = info.Size()
 		}
 		res["meta"] = fmt.Sprintf("%v_%v", res["type"], info.Name())
 		res["name"] = info.Name()
@@ -882,9 +882,9 @@ func (s *httpdServer) handleClientGetDirContents(w http.ResponseWriter, r *http.
 		return
 	}
 
-	results := make([]map[string]string, 0, len(contents))
+	results := make([]map[string]any, 0, len(contents))
 	for _, info := range contents {
-		res := make(map[string]string)
+		res := make(map[string]any)
 		res["url"] = getFileObjectURL(name, info.Name(), webClientFilesPath)
 		if info.IsDir() {
 			res["type"] = "1"
@@ -894,9 +894,9 @@ func (s *httpdServer) handleClientGetDirContents(w http.ResponseWriter, r *http.
 			if info.Mode()&os.ModeSymlink != 0 {
 				res["size"] = ""
 			} else {
-				res["size"] = util.ByteCountIEC(info.Size())
+				res["size"] = info.Size()
 				if info.Size() < httpdMaxEditFileSize {
-					res["edit_url"] = strings.Replace(res["url"], webClientFilesPath, webClientEditFilePath, 1)
+					res["edit_url"] = strings.Replace(res["url"].(string), webClientFilesPath, webClientEditFilePath, 1)
 				}
 				if len(s.binding.WebClientIntegrations) > 0 {
 					extension := path.Ext(info.Name())

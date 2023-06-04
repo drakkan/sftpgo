@@ -15242,7 +15242,7 @@ func TestWebGetFiles(t *testing.T) {
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	var dirContents []map[string]string
+	var dirContents []map[string]any
 	err = json.Unmarshal(rr.Body.Bytes(), &dirContents)
 	assert.NoError(t, err)
 	assert.Len(t, dirContents, 1)
