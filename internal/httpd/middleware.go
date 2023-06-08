@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/go-chi/jwtauth/v5"
@@ -52,6 +53,9 @@ func validateJWTToken(w http.ResponseWriter, r *http.Request, audience tokenAudi
 		redirectPath = webAdminLoginPath
 	} else {
 		redirectPath = webClientLoginPath
+		if uri := r.RequestURI; strings.HasPrefix(uri, webClientFilesPath) {
+			redirectPath += "?next=" + url.QueryEscape(uri)
+		}
 	}
 
 	isAPIToken := (audience == tokenAudienceAPI || audience == tokenAudienceAPIUser)

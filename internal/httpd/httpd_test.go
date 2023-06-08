@@ -3196,6 +3196,62 @@ func TestUpdateUserPassword(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestLoginRedirectNext(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+
+	uri := webClientFilesPath + "?path=%2F"
+	req, err := http.NewRequest(http.MethodGet, uri, nil)
+	assert.NoError(t, err)
+	req.RequestURI = uri
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusFound, rr)
+	redirectURI := rr.Header().Get("Location")
+	assert.Equal(t, webClientLoginPath+"?next="+url.QueryEscape(uri), redirectURI)
+	// render the login page
+	req, err = http.NewRequest(http.MethodGet, redirectURI, nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), fmt.Sprintf("action=%q", redirectURI))
+	// now login the user and check the redirect
+	csrfToken, err := getCSRFTokenMock(webClientLoginPath, defaultRemoteAddr)
+	assert.NoError(t, err)
+	form := getLoginForm(defaultUsername, defaultPassword, csrfToken)
+	req, err = http.NewRequest(http.MethodPost, redirectURI, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	req.RequestURI = redirectURI
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusFound, rr)
+	assert.Equal(t, uri, rr.Header().Get("Location"))
+	// unsafe URI
+	unsafeURI := webClientLoginPath + "?next=" + url.QueryEscape("http://example.net")
+	req, err = http.NewRequest(http.MethodPost, unsafeURI, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	req.RequestURI = unsafeURI
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusFound, rr)
+	assert.Equal(t, webClientFilesPath, rr.Header().Get("Location"))
+	unsupportedURI := webClientLoginPath + "?next=" + url.QueryEscape(webClientProfilePath)
+	req, err = http.NewRequest(http.MethodPost, unsupportedURI, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	req.RequestURI = unsupportedURI
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusFound, rr)
+	assert.Equal(t, webClientFilesPath, rr.Header().Get("Location"))
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestMustChangePasswordRequirement(t *testing.T) {
 	u := getTestUser()
 	u.Filters.RequirePasswordChange = true
@@ -9927,6 +9983,93 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	setJWTCookieForReq(req, authenticatedCookie)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusInternalServerError, rr)
+}
+
+func TestWebUserTwoFactoryLoginRedirect(t *testing.T) {
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+	configName, _, secret, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
+	assert.NoError(t, err)
+
+	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+	userTOTPConfig := dataprovider.UserTOTPConfig{
+		Enabled:    true,
+		ConfigName: configName,
+		Secret:     kms.NewPlainSecret(secret),
+		Protocols:  []string{common.ProtocolHTTP},
+	}
+	asJSON, err := json.Marshal(userTOTPConfig)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, userTOTPSavePath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
+	assert.NoError(t, err)
+	form := getLoginForm(defaultUsername, defaultPassword, csrfToken)
+	uri := webClientFilesPath + "?path=%2F"
+	loginURI := webClientLoginPath + "?next=" + url.QueryEscape(uri)
+	expectedURI := webClientTwoFactorPath + "?next=" + url.QueryEscape(uri)
+	req, err = http.NewRequest(http.MethodPost, loginURI, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	req.RequestURI = loginURI
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, expectedURI, rr.Header().Get("Location"))
+	cookie, err := getCookieFromResponse(rr)
+	assert.NoError(t, err)
+	// test unsafe redirects
+	externalURI := webClientLoginPath + "?next=" + url.QueryEscape("https://example.com")
+	req, err = http.NewRequest(http.MethodPost, externalURI, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	req.RequestURI = externalURI
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, webClientTwoFactorPath, rr.Header().Get("Location"))
+	internalURI := webClientLoginPath + "?next=" + url.QueryEscape(webClientMFAPath)
+	req, err = http.NewRequest(http.MethodPost, internalURI, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	req.RequestURI = internalURI
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, webClientTwoFactorPath, rr.Header().Get("Location"))
+	// render two factor page
+	req, err = http.NewRequest(http.MethodGet, expectedURI, nil)
+	assert.NoError(t, err)
+	req.RequestURI = expectedURI
+	setJWTCookieForReq(req, cookie)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), fmt.Sprintf("action=%q", expectedURI))
+	// login with the passcode
+	passcode, err := generateTOTPPasscode(secret)
+	assert.NoError(t, err)
+	form = make(url.Values)
+	form.Set("passcode", passcode)
+	form.Set(csrfFormToken, csrfToken)
+	req, err = http.NewRequest(http.MethodPost, expectedURI, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, cookie)
+	req.RemoteAddr = defaultRemoteAddr
+	req.RequestURI = expectedURI
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	assert.Equal(t, http.StatusFound, rr.Code)
+	assert.Equal(t, uri, rr.Header().Get("Location"))
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
 }
 
 func TestSearchEvents(t *testing.T) {

@@ -402,7 +402,7 @@ func (s *httpdServer) renderClientForgotPwdPage(w http.ResponseWriter, error, ip
 	renderClientTemplate(w, templateForgotPassword, data)
 }
 
-func (s *httpdServer) renderClientResetPwdPage(w http.ResponseWriter, error, ip string) {
+func (s *httpdServer) renderClientResetPwdPage(w http.ResponseWriter, _ *http.Request, error, ip string) {
 	data := resetPwdPage{
 		CurrentURL: webClientResetPwdPath,
 		Error:      error,
@@ -467,7 +467,7 @@ func (s *httpdServer) renderClientNotFoundPage(w http.ResponseWriter, r *http.Re
 	s.renderClientMessagePage(w, r, page404Title, page404Body, http.StatusNotFound, err, "")
 }
 
-func (s *httpdServer) renderClientTwoFactorPage(w http.ResponseWriter, error, ip string) {
+func (s *httpdServer) renderClientTwoFactorPage(w http.ResponseWriter, r *http.Request, error, ip string) {
 	data := twoFactorPage{
 		CurrentURL:  webClientTwoFactorPath,
 		Version:     version.Get().Version,
@@ -477,10 +477,13 @@ func (s *httpdServer) renderClientTwoFactorPage(w http.ResponseWriter, error, ip
 		RecoveryURL: webClientTwoFactorRecoveryPath,
 		Branding:    s.binding.Branding.WebClient,
 	}
+	if next := r.URL.Query().Get("next"); strings.HasPrefix(next, webClientFilesPath) {
+		data.CurrentURL += "?next=" + url.QueryEscape(next)
+	}
 	renderClientTemplate(w, templateTwoFactor, data)
 }
 
-func (s *httpdServer) renderClientTwoFactorRecoveryPage(w http.ResponseWriter, error, ip string) {
+func (s *httpdServer) renderClientTwoFactorRecoveryPage(w http.ResponseWriter, _ *http.Request, error, ip string) {
 	data := twoFactorPage{
 		CurrentURL: webClientTwoFactorRecoveryPath,
 		Version:    version.Get().Version,
@@ -1284,12 +1287,12 @@ func (s *httpdServer) handleWebClientMFA(w http.ResponseWriter, r *http.Request)
 
 func (s *httpdServer) handleWebClientTwoFactor(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	s.renderClientTwoFactorPage(w, "", util.GetIPFromRemoteAddress(r.RemoteAddr))
+	s.renderClientTwoFactorPage(w, r, "", util.GetIPFromRemoteAddress(r.RemoteAddr))
 }
 
 func (s *httpdServer) handleWebClientTwoFactorRecovery(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	s.renderClientTwoFactorRecoveryPage(w, "", util.GetIPFromRemoteAddress(r.RemoteAddr))
+	s.renderClientTwoFactorRecoveryPage(w, r, "", util.GetIPFromRemoteAddress(r.RemoteAddr))
 }
 
 func getShareFromPostFields(r *http.Request) (*dataprovider.Share, error) {
@@ -1371,7 +1374,7 @@ func (s *httpdServer) handleWebClientPasswordReset(w http.ResponseWriter, r *htt
 		s.renderClientNotFoundPage(w, r, errors.New("this page does not exist"))
 		return
 	}
-	s.renderClientResetPwdPage(w, "", util.GetIPFromRemoteAddress(r.RemoteAddr))
+	s.renderClientResetPwdPage(w, r, "", util.GetIPFromRemoteAddress(r.RemoteAddr))
 }
 
 func (s *httpdServer) handleClientViewPDF(w http.ResponseWriter, r *http.Request) {
@@ -1500,6 +1503,7 @@ func (s *httpdServer) handleClientShareLoginPost(w http.ResponseWriter, r *http.
 	next := path.Clean(r.URL.Query().Get("next"))
 	if strings.HasPrefix(next, path.Join(webClientPubSharesPath, share.ShareID)) {
 		http.Redirect(w, r, next, http.StatusFound)
+		return
 	}
 	s.renderClientMessagePage(w, r, "Share Login OK", "Share login successful, you can now use your link",
 		http.StatusOK, nil, "")
