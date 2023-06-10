@@ -200,12 +200,13 @@ CREATE INDEX "{{prefix}}admins_role_id_idx" ON "{{admins}}" ("role_id");
 CREATE INDEX "{{prefix}}users_role_id_idx" ON "{{users}}" ("role_id");
 CREATE INDEX "{{prefix}}ip_lists_type_idx" ON "{{ip_lists}}" ("type");
 CREATE INDEX "{{prefix}}ip_lists_ipornet_idx" ON "{{ip_lists}}" ("ipornet");
-CREATE INDEX "{{prefix}}ip_lists_ipornet_like_idx" ON "{{ip_lists}}" ("ipornet" varchar_pattern_ops);
 CREATE INDEX "{{prefix}}ip_lists_updated_at_idx" ON "{{ip_lists}}" ("updated_at");
 CREATE INDEX "{{prefix}}ip_lists_deleted_at_idx" ON "{{ip_lists}}" ("deleted_at");
 CREATE INDEX "{{prefix}}ip_lists_first_last_idx" ON "{{ip_lists}}" ("first", "last");
 INSERT INTO {{schema_version}} (version) VALUES (28);
 `
+	// not supported in CockroachDB
+	ipListsLikeIndex = `CREATE INDEX "{{prefix}}ip_lists_ipornet_like_idx" ON "{{ip_lists}}" ("ipornet" varchar_pattern_ops);`
 )
 
 // PGSQLProvider defines the auth provider for PostgreSQL database
@@ -784,7 +785,12 @@ func (p *PGSQLProvider) initializeDatabase() error {
 	}
 	logger.InfoToConsole("creating initial database schema, version 28")
 	providerLog(logger.LevelInfo, "creating initial database schema, version 28")
-	initialSQL := sqlReplaceAll(pgsqlInitial)
+	var initialSQL string
+	if config.Driver == PGSQLDataProviderName {
+		initialSQL = sqlReplaceAll(pgsqlInitial + ipListsLikeIndex)
+	} else {
+		initialSQL = sqlReplaceAll(pgsqlInitial)
+	}
 
 	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{initialSQL}, 28, true)
 }
