@@ -786,10 +786,11 @@ func (p *PGSQLProvider) initializeDatabase() error {
 	logger.InfoToConsole("creating initial database schema, version 28")
 	providerLog(logger.LevelInfo, "creating initial database schema, version 28")
 	var initialSQL string
-	if config.Driver == PGSQLDataProviderName {
-		initialSQL = sqlReplaceAll(pgsqlInitial + ipListsLikeIndex)
-	} else {
+	if config.Driver == CockroachDataProviderName {
 		initialSQL = sqlReplaceAll(pgsqlInitial)
+		initialSQL = strings.ReplaceAll(initialSQL, "GENERATED ALWAYS AS IDENTITY", "DEFAULT unordered_unique_rowid()")
+	} else {
+		initialSQL = sqlReplaceAll(pgsqlInitial + ipListsLikeIndex)
 	}
 
 	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{initialSQL}, 28, true)
