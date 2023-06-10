@@ -24,7 +24,6 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"strings"
 	"time"
 
 	// we import go-sqlite3 here to be able to disable SQLite support using a build tag
@@ -61,29 +60,32 @@ DROP TABLE IF EXISTS "{{ip_lists}}";
 DROP TABLE IF EXISTS "{{configs}}";
 DROP TABLE IF EXISTS "{{schema_version}}";
 `
-	sqliteInitialSQL = `CREATE TABLE "{{schema_version}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "version" integer NOT NULL);
-CREATE TABLE "{{admins}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "username" varchar(255) NOT NULL UNIQUE,
+	sqliteInitialSQL = `CREATE TABLE "{{schema_version}}" ("id" integer NOT NULL PRIMARY KEY, "version" integer NOT NULL);
+CREATE TABLE "{{roles}}" ("id" integer NOT NULL PRIMARY KEY, "name" varchar(255) NOT NULL UNIQUE,
+"description" varchar(512) NULL, "created_at" bigint NOT NULL, "updated_at" bigint NOT NULL);
+CREATE TABLE "{{admins}}" ("id" integer NOT NULL PRIMARY KEY, "username" varchar(255) NOT NULL UNIQUE,
 "description" varchar(512) NULL, "password" varchar(255) NOT NULL, "email" varchar(255) NULL, "status" integer NOT NULL,
 "permissions" text NOT NULL, "filters" text NULL, "additional_info" text NULL, "last_login" bigint NOT NULL,
-"created_at" bigint NOT NULL, "updated_at" bigint NOT NULL);
-CREATE TABLE "{{active_transfers}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "connection_id" varchar(100) NOT NULL,
+"role_id" integer NULL REFERENCES "{{roles}}" ("id") ON DELETE NO ACTION, "created_at" bigint NOT NULL,
+"updated_at" bigint NOT NULL);
+CREATE TABLE "{{active_transfers}}" ("id" integer NOT NULL PRIMARY KEY, "connection_id" varchar(100) NOT NULL,
 "transfer_id" bigint NOT NULL, "transfer_type" integer NOT NULL, "username" varchar(255) NOT NULL,
 "folder_name" varchar(255) NULL, "ip" varchar(50) NOT NULL, "truncated_size" bigint NOT NULL,
 "current_ul_size" bigint NOT NULL, "current_dl_size" bigint NOT NULL, "created_at" bigint NOT NULL,
 "updated_at" bigint NOT NULL);
-CREATE TABLE "{{defender_hosts}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "ip" varchar(50) NOT NULL UNIQUE,
+CREATE TABLE "{{defender_hosts}}" ("id" integer NOT NULL PRIMARY KEY, "ip" varchar(50) NOT NULL UNIQUE,
 "ban_time" bigint NOT NULL, "updated_at" bigint NOT NULL);
-CREATE TABLE "{{defender_events}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "date_time" bigint NOT NULL,
+CREATE TABLE "{{defender_events}}" ("id" integer NOT NULL PRIMARY KEY, "date_time" bigint NOT NULL,
 "score" integer NOT NULL, "host_id" integer NOT NULL REFERENCES "{{defender_hosts}}" ("id") ON DELETE CASCADE
 DEFERRABLE INITIALLY DEFERRED);
-CREATE TABLE "{{folders}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "name" varchar(255) NOT NULL UNIQUE,
+CREATE TABLE "{{folders}}" ("id" integer NOT NULL PRIMARY KEY, "name" varchar(255) NOT NULL UNIQUE,
 "description" varchar(512) NULL, "path" text NULL, "used_quota_size" bigint NOT NULL, "used_quota_files" integer NOT NULL,
 "last_quota_update" bigint NOT NULL, "filesystem" text NULL);
-CREATE TABLE "{{groups}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "name" varchar(255) NOT NULL UNIQUE,
+CREATE TABLE "{{groups}}" ("id" integer NOT NULL PRIMARY KEY, "name" varchar(255) NOT NULL UNIQUE,
 "description" varchar(512) NULL, "created_at" bigint NOT NULL, "updated_at" bigint NOT NULL, "user_settings" text NULL);
 CREATE TABLE "{{shared_sessions}}" ("key" varchar(128) NOT NULL PRIMARY KEY, "data" text NOT NULL,
 "type" integer NOT NULL, "timestamp" bigint NOT NULL);
-CREATE TABLE "{{users}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "username" varchar(255) NOT NULL UNIQUE,
+CREATE TABLE "{{users}}" ("id" integer NOT NULL PRIMARY KEY, "username" varchar(255) NOT NULL UNIQUE,
 "status" integer NOT NULL, "expiration_date" bigint NOT NULL, "description" varchar(512) NULL, "password" text NULL,
 "public_keys" text NULL, "home_dir" text NOT NULL, "uid" bigint NOT NULL, "gid" bigint NOT NULL,
 "max_sessions" integer NOT NULL, "quota_size" bigint NOT NULL, "quota_files" integer NOT NULL, "permissions" text NOT NULL,
@@ -93,47 +95,54 @@ CREATE TABLE "{{users}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "user
 "updated_at" bigint NOT NULL, "email" varchar(255) NULL, "upload_data_transfer" integer NOT NULL,
 "download_data_transfer" integer NOT NULL, "total_data_transfer" integer NOT NULL, "used_upload_data_transfer" integer NOT NULL,
 "used_download_data_transfer" integer NOT NULL, "deleted_at" bigint NOT NULL, "first_download" bigint NOT NULL,
-"first_upload" bigint NOT NULL);
-CREATE TABLE "{{groups_folders_mapping}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+"first_upload" bigint NOT NULL, "last_password_change" bigint NOT NULL, "role_id" integer NULL REFERENCES "{{roles}}" ("id") ON DELETE SET NULL);
+CREATE TABLE "{{groups_folders_mapping}}" ("id" integer NOT NULL PRIMARY KEY,
 "folder_id" integer NOT NULL REFERENCES "{{folders}}" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
 "group_id" integer NOT NULL REFERENCES "{{groups}}" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
 "virtual_path" text NOT NULL, "quota_size" bigint NOT NULL, "quota_files" integer NOT NULL,
 CONSTRAINT "{{prefix}}unique_group_folder_mapping" UNIQUE ("group_id", "folder_id"));
-CREATE TABLE "{{users_groups_mapping}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+CREATE TABLE "{{users_groups_mapping}}" ("id" integer NOT NULL PRIMARY KEY,
 "user_id" integer NOT NULL REFERENCES "{{users}}" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
 "group_id" integer NOT NULL REFERENCES "{{groups}}" ("id") ON DELETE NO ACTION,
 "group_type" integer NOT NULL, CONSTRAINT "{{prefix}}unique_user_group_mapping" UNIQUE ("user_id", "group_id"));
-CREATE TABLE "{{users_folders_mapping}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+CREATE TABLE "{{users_folders_mapping}}" ("id" integer NOT NULL PRIMARY KEY,
 "user_id" integer NOT NULL REFERENCES "{{users}}" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
 "folder_id" integer NOT NULL REFERENCES "{{folders}}" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
 "virtual_path" text NOT NULL, "quota_size" bigint NOT NULL, "quota_files" integer NOT NULL,
 CONSTRAINT "{{prefix}}unique_user_folder_mapping" UNIQUE ("user_id", "folder_id"));
-CREATE TABLE "{{shares}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "share_id" varchar(60) NOT NULL UNIQUE,
+CREATE TABLE "{{shares}}" ("id" integer NOT NULL PRIMARY KEY, "share_id" varchar(60) NOT NULL UNIQUE,
 "name" varchar(255) NOT NULL, "description" varchar(512) NULL, "scope" integer NOT NULL, "paths" text NOT NULL,
 "created_at" bigint NOT NULL, "updated_at" bigint NOT NULL, "last_use_at" bigint NOT NULL, "expires_at" bigint NOT NULL,
 "password" text NULL, "max_tokens" integer NOT NULL, "used_tokens" integer NOT NULL, "allow_from" text NULL,
 "user_id" integer NOT NULL REFERENCES "{{users}}" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED);
-CREATE TABLE "{{api_keys}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "name" varchar(255) NOT NULL,
+CREATE TABLE "{{api_keys}}" ("id" integer NOT NULL PRIMARY KEY, "name" varchar(255) NOT NULL,
 "key_id" varchar(50) NOT NULL UNIQUE, "api_key" varchar(255) NOT NULL UNIQUE, "scope" integer NOT NULL,
 "created_at" bigint NOT NULL, "updated_at" bigint NOT NULL, "last_use_at" bigint NOT NULL, "expires_at" bigint NOT NULL,
 "description" text NULL, "admin_id" integer NULL REFERENCES "{{admins}}" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
 "user_id" integer NULL REFERENCES "{{users}}" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED);
-CREATE TABLE "{{events_rules}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
-"name" varchar(255) NOT NULL UNIQUE, "description" varchar(512) NULL, "created_at" bigint NOT NULL,
+CREATE TABLE "{{events_rules}}" ("id" integer NOT NULL PRIMARY KEY,
+"name" varchar(255) NOT NULL UNIQUE, "status" integer NOT NULL, "description" varchar(512) NULL, "created_at" bigint NOT NULL,
 "updated_at" bigint NOT NULL, "trigger" integer NOT NULL, "conditions" text NOT NULL, "deleted_at" bigint NOT NULL);
-CREATE TABLE "{{events_actions}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "name" varchar(255) NOT NULL UNIQUE,
+CREATE TABLE "{{events_actions}}" ("id" integer NOT NULL PRIMARY KEY, "name" varchar(255) NOT NULL UNIQUE,
 "description" varchar(512) NULL, "type" integer NOT NULL, "options" text NOT NULL);
-CREATE TABLE "{{rules_actions_mapping}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+CREATE TABLE "{{rules_actions_mapping}}" ("id" integer NOT NULL PRIMARY KEY,
 "rule_id" integer NOT NULL REFERENCES "{{events_rules}}" ("id")  ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
 "action_id" integer NOT NULL REFERENCES "{{events_actions}}" ("id")  ON DELETE NO ACTION DEFERRABLE INITIALLY DEFERRED,
 "order" integer NOT NULL, "options" text NOT NULL,
 CONSTRAINT "{{prefix}}unique_rule_action_mapping" UNIQUE ("rule_id", "action_id"));
-CREATE TABLE "{{tasks}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "name" varchar(255) NOT NULL UNIQUE,
+CREATE TABLE "{{tasks}}" ("id" integer NOT NULL PRIMARY KEY, "name" varchar(255) NOT NULL UNIQUE,
 "updated_at" bigint NOT NULL, "version" bigint NOT NULL);
-CREATE TABLE "{{admins_groups_mapping}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+CREATE TABLE "{{admins_groups_mapping}}" ("id" integer NOT NULL PRIMARY KEY,
 "admin_id" integer NOT NULL REFERENCES "{{admins}}" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
 "group_id" integer NOT NULL REFERENCES "{{groups}}" ("id") ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
 "options" text NOT NULL, CONSTRAINT "{{prefix}}unique_admin_group_mapping" UNIQUE ("admin_id", "group_id"));
+CREATE TABLE "{{ip_lists}}" ("id" integer NOT NULL PRIMARY KEY,
+"type" integer NOT NULL, "ipornet" varchar(50) NOT NULL, "mode" integer NOT NULL, "description" varchar(512) NULL,
+"first" BLOB NOT NULL, "last" BLOB NOT NULL, "ip_type" integer NOT NULL, "protocols" integer NOT NULL,
+"created_at" bigint NOT NULL, "updated_at" bigint NOT NULL, "deleted_at" bigint NOT NULL,
+CONSTRAINT "{{prefix}}unique_ipornet_type_mapping" UNIQUE ("type", "ipornet"));
+CREATE TABLE "{{configs}}" ("id" integer NOT NULL PRIMARY KEY, "configs" text NOT NULL);
+INSERT INTO {{configs}} (configs) VALUES ('{}');
 CREATE INDEX "{{prefix}}users_folders_mapping_folder_id_idx" ON "{{users_folders_mapping}}" ("folder_id");
 CREATE INDEX "{{prefix}}users_folders_mapping_user_id_idx" ON "{{users_folders_mapping}}" ("user_id");
 CREATE INDEX "{{prefix}}users_groups_mapping_group_id_idx" ON "{{users_groups_mapping}}" ("group_id");
@@ -162,42 +171,16 @@ CREATE INDEX "{{prefix}}rules_actions_mapping_action_id_idx" ON "{{rules_actions
 CREATE INDEX "{{prefix}}rules_actions_mapping_order_idx" ON "{{rules_actions_mapping}}" ("order");
 CREATE INDEX "{{prefix}}admins_groups_mapping_admin_id_idx" ON "{{admins_groups_mapping}}" ("admin_id");
 CREATE INDEX "{{prefix}}admins_groups_mapping_group_id_idx" ON "{{admins_groups_mapping}}" ("group_id");
-INSERT INTO {{schema_version}} (version) VALUES (23);
-`
-	sqliteV24SQL = `CREATE TABLE "{{roles}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "name" varchar(255) NOT NULL UNIQUE,
-"description" varchar(512) NULL, "created_at" bigint NOT NULL, "updated_at" bigint NOT NULL);
-ALTER TABLE "{{users}}" ADD COLUMN "role_id" integer NULL REFERENCES "{{roles}}" ("id") ON DELETE SET NULL;
-ALTER TABLE "{{admins}}" ADD COLUMN "role_id" integer NULL REFERENCES "{{roles}}" ("id") ON DELETE NO ACTION;
 CREATE INDEX "{{prefix}}users_role_id_idx" ON "{{users}}" ("role_id");
 CREATE INDEX "{{prefix}}admins_role_id_idx" ON "{{admins}}" ("role_id");
-`
-	sqliteV24DownSQL = `DROP INDEX "{{prefix}}users_role_id_idx";
-DROP INDEX "{{prefix}}admins_role_id_idx";
-ALTER TABLE "{{users}}" DROP COLUMN role_id;
-ALTER TABLE "{{admins}}" DROP COLUMN role_id;
-DROP TABLE "{{roles}}";
-`
-	sqliteV25SQL     = `ALTER TABLE "{{users}}" ADD COLUMN "last_password_change" bigint DEFAULT 0 NOT NULL;`
-	sqliteV25DownSQL = `ALTER TABLE "{{users}}" DROP COLUMN "last_password_change";`
-	sqliteV26SQL     = `ALTER TABLE "{{events_rules}}" ADD COLUMN "status" integer DEFAULT 1 NOT NULL;`
-	sqliteV26DownSQL = `ALTER TABLE "{{events_rules}}" DROP COLUMN "status";`
-	sqliteV27SQL     = `CREATE TABLE "{{ip_lists}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
-"type" integer NOT NULL, "ipornet" varchar(50) NOT NULL, "mode" integer NOT NULL, "description" varchar(512) NULL,
-"first" BLOB NOT NULL, "last" BLOB NOT NULL, "ip_type" integer NOT NULL, "protocols" integer NOT NULL,
-"created_at" bigint NOT NULL, "updated_at" bigint NOT NULL, "deleted_at" bigint NOT NULL,
-CONSTRAINT "{{prefix}}unique_ipornet_type_mapping" UNIQUE ("type", "ipornet"));
 CREATE INDEX "{{prefix}}ip_lists_type_idx" ON "{{ip_lists}}" ("type");
 CREATE INDEX "{{prefix}}ip_lists_ipornet_idx" ON "{{ip_lists}}" ("ipornet");
 CREATE INDEX "{{prefix}}ip_lists_ip_type_idx" ON "{{ip_lists}}" ("ip_type");
 CREATE INDEX "{{prefix}}ip_lists_ip_updated_at_idx" ON "{{ip_lists}}" ("updated_at");
 CREATE INDEX "{{prefix}}ip_lists_ip_deleted_at_idx" ON "{{ip_lists}}" ("deleted_at");
 CREATE INDEX "{{prefix}}ip_lists_first_last_idx" ON "{{ip_lists}}" ("first", "last");
+INSERT INTO {{schema_version}} (version) VALUES (28);
 `
-	sqliteV27DownSQL = `DROP TABLE "{{ip_lists}}";`
-	sqliteV28SQL     = `CREATE TABLE "{{configs}}" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "configs" text NOT NULL);
-INSERT INTO {{configs}} (configs) VALUES ('{}');
-`
-	sqliteV28DownSQL = `DROP TABLE "{{configs}}";`
 )
 
 // SQLiteProvider defines the auth provider for SQLite database
@@ -711,10 +694,10 @@ func (p *SQLiteProvider) initializeDatabase() error {
 	if errors.Is(err, sql.ErrNoRows) {
 		return errSchemaVersionEmpty
 	}
-	logger.InfoToConsole("creating initial database schema, version 23")
-	providerLog(logger.LevelInfo, "creating initial database schema, version 23")
+	logger.InfoToConsole("creating initial database schema, version 28")
+	providerLog(logger.LevelInfo, "creating initial database schema, version 28")
 	sql := sqlReplaceAll(sqliteInitialSQL)
-	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{sql}, 23, true)
+	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{sql}, 28, true)
 }
 
 func (p *SQLiteProvider) migrateDatabase() error { //nolint:dupl
@@ -727,21 +710,11 @@ func (p *SQLiteProvider) migrateDatabase() error { //nolint:dupl
 	case version == sqlDatabaseVersion:
 		providerLog(logger.LevelDebug, "sql database is up to date, current version: %d", version)
 		return ErrNoInitRequired
-	case version < 23:
+	case version < 28:
 		err = fmt.Errorf("database schema version %d is too old, please see the upgrading docs", version)
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
-	case version == 23:
-		return updateSQLiteDatabaseFromV23(p.dbHandle)
-	case version == 24:
-		return updateSQLiteDatabaseFromV24(p.dbHandle)
-	case version == 25:
-		return updateSQLiteDatabaseFromV25(p.dbHandle)
-	case version == 26:
-		return updateSQLiteDatabaseFromV26(p.dbHandle)
-	case version == 27:
-		return updateSQLiteDatabaseFromV27(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -764,16 +737,6 @@ func (p *SQLiteProvider) revertDatabase(targetVersion int) error {
 	}
 
 	switch dbVersion.Version {
-	case 24:
-		return downgradeSQLiteDatabaseFromV24(p.dbHandle)
-	case 25:
-		return downgradeSQLiteDatabaseFromV25(p.dbHandle)
-	case 26:
-		return downgradeSQLiteDatabaseFromV26(p.dbHandle)
-	case 27:
-		return downgradeSQLiteDatabaseFromV27(p.dbHandle)
-	case 28:
-		return downgradeSQLiteDatabaseFromV28(p.dbHandle)
 	default:
 		return fmt.Errorf("database schema version not handled: %d", dbVersion.Version)
 	}
@@ -782,147 +745,6 @@ func (p *SQLiteProvider) revertDatabase(targetVersion int) error {
 func (p *SQLiteProvider) resetDatabase() error {
 	sql := sqlReplaceAll(sqliteResetSQL)
 	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, []string{sql}, 0, false)
-}
-
-func updateSQLiteDatabaseFromV23(dbHandle *sql.DB) error {
-	if err := updateSQLiteDatabaseFrom23To24(dbHandle); err != nil {
-		return err
-	}
-	return updateSQLiteDatabaseFromV24(dbHandle)
-}
-
-func updateSQLiteDatabaseFromV24(dbHandle *sql.DB) error {
-	if err := updateSQLiteDatabaseFrom24To25(dbHandle); err != nil {
-		return err
-	}
-	return updateSQLiteDatabaseFromV25(dbHandle)
-}
-
-func updateSQLiteDatabaseFromV25(dbHandle *sql.DB) error {
-	if err := updateSQLiteDatabaseFrom25To26(dbHandle); err != nil {
-		return err
-	}
-	return updateSQLiteDatabaseFromV26(dbHandle)
-}
-
-func updateSQLiteDatabaseFromV26(dbHandle *sql.DB) error {
-	if err := updateSQLiteDatabaseFrom26To27(dbHandle); err != nil {
-		return err
-	}
-	return updateSQLiteDatabaseFromV27(dbHandle)
-}
-
-func updateSQLiteDatabaseFromV27(dbHandle *sql.DB) error {
-	return updateSQLiteDatabaseFrom27To28(dbHandle)
-}
-
-func downgradeSQLiteDatabaseFromV24(dbHandle *sql.DB) error {
-	return downgradeSQLiteDatabaseFrom24To23(dbHandle)
-}
-
-func downgradeSQLiteDatabaseFromV25(dbHandle *sql.DB) error {
-	if err := downgradeSQLiteDatabaseFrom25To24(dbHandle); err != nil {
-		return err
-	}
-	return downgradeSQLiteDatabaseFromV24(dbHandle)
-}
-
-func downgradeSQLiteDatabaseFromV26(dbHandle *sql.DB) error {
-	if err := downgradeSQLiteDatabaseFrom26To25(dbHandle); err != nil {
-		return err
-	}
-	return downgradeSQLiteDatabaseFromV25(dbHandle)
-}
-
-func downgradeSQLiteDatabaseFromV27(dbHandle *sql.DB) error {
-	if err := downgradeSQLiteDatabaseFrom27To26(dbHandle); err != nil {
-		return err
-	}
-	return downgradeSQLiteDatabaseFromV26(dbHandle)
-}
-
-func downgradeSQLiteDatabaseFromV28(dbHandle *sql.DB) error {
-	if err := downgradeSQLiteDatabaseFrom28To27(dbHandle); err != nil {
-		return err
-	}
-	return downgradeSQLiteDatabaseFromV27(dbHandle)
-}
-
-func updateSQLiteDatabaseFrom23To24(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database schema version: 23 -> 24")
-	providerLog(logger.LevelInfo, "updating database schema version: 23 -> 24")
-	sql := strings.ReplaceAll(sqliteV24SQL, "{{roles}}", sqlTableRoles)
-	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
-	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
-	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 24, true)
-}
-
-func updateSQLiteDatabaseFrom24To25(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database schema version: 24 -> 25")
-	providerLog(logger.LevelInfo, "updating database schema version: 24 -> 25")
-	sql := strings.ReplaceAll(sqliteV25SQL, "{{users}}", sqlTableUsers)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 25, true)
-}
-
-func updateSQLiteDatabaseFrom25To26(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database schema version: 25 -> 26")
-	providerLog(logger.LevelInfo, "updating database schema version: 25 -> 26")
-	sql := strings.ReplaceAll(sqliteV26SQL, "{{events_rules}}", sqlTableEventsRules)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 26, true)
-}
-
-func updateSQLiteDatabaseFrom26To27(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database schema version: 26 -> 27")
-	providerLog(logger.LevelInfo, "updating database schema version: 26 -> 27")
-	sql := strings.ReplaceAll(sqliteV27SQL, "{{ip_lists}}", sqlTableIPLists)
-	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 27, true)
-}
-
-func updateSQLiteDatabaseFrom27To28(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database schema version: 27 -> 28")
-	providerLog(logger.LevelInfo, "updating database schema version: 27 -> 28")
-	sql := strings.ReplaceAll(sqliteV28SQL, "{{configs}}", sqlTableConfigs)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 28, true)
-}
-
-func downgradeSQLiteDatabaseFrom24To23(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database schema version: 24 -> 23")
-	providerLog(logger.LevelInfo, "downgrading database schema version: 24 -> 23")
-	sql := strings.ReplaceAll(sqliteV24DownSQL, "{{roles}}", sqlTableRoles)
-	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
-	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
-	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 23, false)
-}
-
-func downgradeSQLiteDatabaseFrom25To24(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database schema version: 25 -> 24")
-	providerLog(logger.LevelInfo, "downgrading database schema version: 25 -> 24")
-	sql := strings.ReplaceAll(sqliteV25DownSQL, "{{users}}", sqlTableUsers)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 24, false)
-}
-
-func downgradeSQLiteDatabaseFrom26To25(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database schema version: 26 -> 25")
-	providerLog(logger.LevelInfo, "downgrading database schema version: 26 -> 25")
-	sql := strings.ReplaceAll(sqliteV26DownSQL, "{{events_rules}}", sqlTableEventsRules)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 25, false)
-}
-
-func downgradeSQLiteDatabaseFrom27To26(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database schema version: 27 -> 26")
-	providerLog(logger.LevelInfo, "downgrading database schema version: 27 -> 26")
-	sql := strings.ReplaceAll(sqliteV27DownSQL, "{{ip_lists}}", sqlTableIPLists)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 26, false)
-}
-
-func downgradeSQLiteDatabaseFrom28To27(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database schema version: 28 -> 27")
-	providerLog(logger.LevelInfo, "downgrading database schema version: 28 -> 27")
-	sql := strings.ReplaceAll(sqliteV28DownSQL, "{{configs}}", sqlTableConfigs)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, []string{sql}, 27, false)
 }
 
 /*func setPragmaFK(dbHandle *sql.DB, value string) error {

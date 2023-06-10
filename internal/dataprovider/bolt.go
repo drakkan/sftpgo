@@ -3091,46 +3091,11 @@ func (p *BoltProvider) migrateDatabase() error {
 	case version == boltDatabaseVersion:
 		providerLog(logger.LevelDebug, "bolt database is up to date, current version: %d", version)
 		return ErrNoInitRequired
-	case version < 23:
+	case version < 28:
 		err = fmt.Errorf("database schema version %d is too old, please see the upgrading docs", version)
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
-	case version == 23, version == 24, version == 25, version == 26, version == 27:
-		logger.InfoToConsole("updating database schema version: %d -> 28", version)
-		providerLog(logger.LevelInfo, "updating database schema version: %d -> 28", version)
-		err := p.dbHandle.Update(func(tx *bolt.Tx) error {
-			rules, err := p.dumpEventRules()
-			if err != nil {
-				return err
-			}
-			bucket, err := p.getRulesBucket(tx)
-			if err != nil {
-				return err
-			}
-			for idx := range rules {
-				rule := rules[idx]
-				if rule.Status == 1 {
-					continue
-				}
-				logger.InfoToConsole("setting status to active for rule %q", rule.Name)
-				providerLog(logger.LevelInfo, "setting status to 1 for rule %q", rule.Name)
-				rule.Status = 1
-				rule.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
-				buf, err := json.Marshal(rule)
-				if err != nil {
-					return err
-				}
-				if err := bucket.Put([]byte(rule.Name), buf); err != nil {
-					return err
-				}
-			}
-			return nil
-		})
-		if err != nil {
-			return err
-		}
-		return updateBoltDatabaseVersion(p.dbHandle, 28)
 	default:
 		if version > boltDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -3152,46 +3117,6 @@ func (p *BoltProvider) revertDatabase(targetVersion int) error { //nolint:gocycl
 		return errors.New("current version match target version, nothing to do")
 	}
 	switch dbVersion.Version {
-	case 24, 25, 26, 27, 28:
-		logger.InfoToConsole("downgrading database schema version: %d -> 23", dbVersion.Version)
-		providerLog(logger.LevelInfo, "downgrading database schema version: %d -> 23", dbVersion.Version)
-		err := p.dbHandle.Update(func(tx *bolt.Tx) error {
-			roles, err := p.dumpRoles()
-			if err != nil {
-				return err
-			}
-			adminsBucket, err := p.getAdminsBucket(tx)
-			if err != nil {
-				return err
-			}
-			usersBucket, err := p.getUsersBucket(tx)
-			if err != nil {
-				return err
-			}
-			for _, role := range roles {
-				for _, admin := range role.Admins {
-					if err := p.removeRoleFromAdmin(admin, role.Name, adminsBucket); err != nil {
-						return err
-					}
-				}
-				for _, user := range role.Users {
-					if err := p.removeRoleFromUser(user, role.Name, usersBucket); err != nil {
-						return err
-					}
-				}
-			}
-			for _, b := range [][]byte{rolesBucket, configsBucket} {
-				err = tx.DeleteBucket(b)
-				if err != nil && !errors.Is(err, bolt.ErrBucketNotFound) {
-					return err
-				}
-			}
-			return nil
-		})
-		if err != nil {
-			return err
-		}
-		return updateBoltDatabaseVersion(p.dbHandle, 23)
 	default:
 		return fmt.Errorf("database schema version not handled: %v", dbVersion.Version)
 	}
@@ -3336,29 +3261,6 @@ func (p *BoltProvider) removeRoleFromUser(username, role string, bucket *bolt.Bu
 		return bucket.Put([]byte(user.Username), buf)
 	}
 	providerLog(logger.LevelError, "user %q does not have the expected role %q, actual %q", username, role, user.Role)
-	return nil
-}
-
-func (p *BoltProvider) removeRoleFromAdmin(username, role string, bucket *bolt.Bucket) error {
-	a := bucket.Get([]byte(username))
-	if a == nil {
-		providerLog(logger.LevelWarn, "admin %q does not exist, cannot remove role %q", username, role)
-		return nil
-	}
-	var admin Admin
-	err := json.Unmarshal(a, &admin)
-	if err != nil {
-		return err
-	}
-	if admin.Role == role {
-		admin.Role = ""
-		buf, err := json.Marshal(admin)
-		if err != nil {
-			return err
-		}
-		return bucket.Put([]byte(admin.Username), buf)
-	}
-	providerLog(logger.LevelError, "admin %q does not have the expected role %q, actual %q", username, role, admin.Role)
 	return nil
 }
 
@@ -3950,7 +3852,7 @@ func getBoltDatabaseVersion(dbHandle *bolt.DB) (schemaVersion, error) {
 		v := bucket.Get(dbVersionKey)
 		if v == nil {
 			dbVersion = schemaVersion{
-				Version: 23,
+				Version: 28,
 			}
 			return nil
 		}
@@ -3959,7 +3861,7 @@ func getBoltDatabaseVersion(dbHandle *bolt.DB) (schemaVersion, error) {
 	return dbVersion, err
 }
 
-func updateBoltDatabaseVersion(dbHandle *bolt.DB, version int) error {
+/*func updateBoltDatabaseVersion(dbHandle *bolt.DB, version int) error {
 	err := dbHandle.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(dbVersionBucket)
 		if bucket == nil {
@@ -3975,4 +3877,4 @@ func updateBoltDatabaseVersion(dbHandle *bolt.DB, version int) error {
 		return bucket.Put(dbVersionKey, buf)
 	})
 	return err
-}
+}*/

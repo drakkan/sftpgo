@@ -65,7 +65,7 @@ const (
 		"CREATE TABLE `{{admins}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `username` varchar(255) NOT NULL UNIQUE, " +
 		"`description` varchar(512) NULL, `password` varchar(255) NOT NULL, `email` varchar(255) NULL, `status` integer NOT NULL, " +
 		"`permissions` longtext NOT NULL, `filters` longtext NULL, `additional_info` longtext NULL, `last_login` bigint NOT NULL, " +
-		"`created_at` bigint NOT NULL, `updated_at` bigint NOT NULL);" +
+		"`role_id` integer NULL, `created_at` bigint NOT NULL, `updated_at` bigint NOT NULL);" +
 		"CREATE TABLE `{{active_transfers}}` (`id` bigint AUTO_INCREMENT NOT NULL PRIMARY KEY, " +
 		"`connection_id` varchar(100) NOT NULL, `transfer_id` bigint NOT NULL, `transfer_type` integer NOT NULL, " +
 		"`username` varchar(255) NOT NULL, `folder_name` varchar(255) NULL, `ip` varchar(50) NOT NULL, " +
@@ -96,7 +96,7 @@ const (
 		"`upload_data_transfer` integer NOT NULL, `download_data_transfer` integer NOT NULL, " +
 		"`total_data_transfer` integer NOT NULL, `used_upload_data_transfer` integer NOT NULL, " +
 		"`used_download_data_transfer` integer NOT NULL, `deleted_at` bigint NOT NULL, `first_download` bigint NOT NULL, " +
-		"`first_upload` bigint NOT NULL);" +
+		"`first_upload` bigint NOT NULL, `last_password_change` bigint NOT NULL, `role_id` integer NULL);" +
 		"CREATE TABLE `{{groups_folders_mapping}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, " +
 		"`group_id` integer NOT NULL, `folder_id` integer NOT NULL, " +
 		"`virtual_path` longtext NOT NULL, `quota_size` bigint NOT NULL, `quota_files` integer NOT NULL);" +
@@ -134,7 +134,7 @@ const (
 		"ALTER TABLE `{{api_keys}}` ADD CONSTRAINT `{{prefix}}api_keys_admin_id_fk_admins_id` FOREIGN KEY (`admin_id`) REFERENCES `{{admins}}` (`id`) ON DELETE CASCADE;" +
 		"ALTER TABLE `{{api_keys}}` ADD CONSTRAINT `{{prefix}}api_keys_user_id_fk_users_id` FOREIGN KEY (`user_id`) REFERENCES `{{users}}` (`id`) ON DELETE CASCADE;" +
 		"CREATE TABLE `{{events_rules}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, " +
-		"`name` varchar(255) NOT NULL UNIQUE, `description` varchar(512) NULL, `created_at` bigint NOT NULL, " +
+		"`name` varchar(255) NOT NULL UNIQUE, `status` integer NOT NULL, `description` varchar(512) NULL, `created_at` bigint NOT NULL, " +
 		"`updated_at` bigint NOT NULL, `trigger` integer NOT NULL, `conditions` longtext NOT NULL, `deleted_at` bigint NOT NULL);" +
 		"CREATE TABLE `{{events_actions}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, " +
 		"`name` varchar(255) NOT NULL UNIQUE, `description` varchar(512) NULL, `type` integer NOT NULL, " +
@@ -159,6 +159,19 @@ const (
 		"CREATE TABLE `{{nodes}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, " +
 		"`name` varchar(255) NOT NULL UNIQUE, `data` longtext NOT NULL, `created_at` bigint NOT NULL, " +
 		"`updated_at` bigint NOT NULL);" +
+		"CREATE TABLE `{{roles}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `name` varchar(255) NOT NULL UNIQUE, " +
+		"`description` varchar(512) NULL, `created_at` bigint NOT NULL, `updated_at` bigint NOT NULL);" +
+		"ALTER TABLE `{{admins}}` ADD CONSTRAINT `{{prefix}}admins_role_id_fk_roles_id` FOREIGN KEY (`role_id`) " +
+		"REFERENCES `{{roles}}`(`id`) ON DELETE NO ACTION;" +
+		"ALTER TABLE `{{users}}` ADD CONSTRAINT `{{prefix}}users_role_id_fk_roles_id` FOREIGN KEY (`role_id`) " +
+		"REFERENCES `{{roles}}`(`id`) ON DELETE SET NULL;" +
+		"CREATE TABLE `{{ip_lists}}` (`id` bigint AUTO_INCREMENT NOT NULL PRIMARY KEY, `type` integer NOT NULL, " +
+		"`ipornet` varchar(50) NOT NULL, `mode` integer NOT NULL, `description` varchar(512) NULL, " +
+		"`first` VARBINARY(16) NOT NULL, `last` VARBINARY(16) NOT NULL, `ip_type` integer NOT NULL, `protocols` integer NOT NULL, " +
+		"`created_at` bigint NOT NULL, `updated_at` bigint NOT NULL, `deleted_at` bigint NOT NULL);" +
+		"ALTER TABLE `{{ip_lists}}` ADD CONSTRAINT `{{prefix}}unique_ipornet_type_mapping` UNIQUE (`type`, `ipornet`);" +
+		"CREATE TABLE `{{configs}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `configs` longtext NOT NULL);" +
+		"INSERT INTO {{configs}} (configs) VALUES ('{}');" +
 		"CREATE INDEX `{{prefix}}users_updated_at_idx` ON `{{users}}` (`updated_at`);" +
 		"CREATE INDEX `{{prefix}}users_deleted_at_idx` ON `{{users}}` (`deleted_at`);" +
 		"CREATE INDEX `{{prefix}}defender_hosts_updated_at_idx` ON `{{defender_hosts}}` (`updated_at`);" +
@@ -173,39 +186,13 @@ const (
 		"CREATE INDEX `{{prefix}}events_rules_deleted_at_idx` ON `{{events_rules}}` (`deleted_at`);" +
 		"CREATE INDEX `{{prefix}}events_rules_trigger_idx` ON `{{events_rules}}` (`trigger`);" +
 		"CREATE INDEX `{{prefix}}rules_actions_mapping_order_idx` ON `{{rules_actions_mapping}}` (`order`);" +
-		"INSERT INTO {{schema_version}} (version) VALUES (23);"
-	mysqlV24SQL = "CREATE TABLE `{{roles}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `name` varchar(255) NOT NULL UNIQUE, " +
-		"`description` varchar(512) NULL, `created_at` bigint NOT NULL, `updated_at` bigint NOT NULL);" +
-		"ALTER TABLE `{{admins}}` ADD COLUMN `role_id` integer NULL , " +
-		"ADD CONSTRAINT `{{prefix}}admins_role_id_fk_roles_id` FOREIGN KEY (`role_id`) REFERENCES `{{roles}}`(`id`) ON DELETE NO ACTION;" +
-		"ALTER TABLE `{{users}}` ADD COLUMN `role_id` integer NULL , " +
-		"ADD CONSTRAINT `{{prefix}}users_role_id_fk_roles_id` FOREIGN KEY (`role_id`) REFERENCES `{{roles}}`(`id`) ON DELETE SET NULL;"
-	mysqlV24DownSQL = "ALTER TABLE `{{users}}` DROP FOREIGN KEY `{{prefix}}users_role_id_fk_roles_id`;" +
-		"ALTER TABLE `{{admins}}` DROP FOREIGN KEY `{{prefix}}admins_role_id_fk_roles_id`;" +
-		"ALTER TABLE `{{users}}` DROP COLUMN `role_id`;" +
-		"ALTER TABLE `{{admins}}` DROP COLUMN `role_id`;" +
-		"DROP TABLE `{{roles}}` CASCADE;"
-	mysqlV25SQL = "ALTER TABLE `{{users}}` ADD COLUMN `last_password_change` bigint DEFAULT 0 NOT NULL; " +
-		"ALTER TABLE `{{users}}` ALTER COLUMN `last_password_change` DROP DEFAULT; "
-	mysqlV25DownSQL = "ALTER TABLE `{{users}}` DROP COLUMN `last_password_change`; "
-	mysqlV26SQL     = "ALTER TABLE `{{events_rules}}` ADD COLUMN `status` integer DEFAULT 1 NOT NULL; " +
-		"ALTER TABLE `{{events_rules}}` ALTER COLUMN `status` DROP DEFAULT; "
-	mysqlV26DownSQL = "ALTER TABLE `{{events_rules}}` DROP COLUMN `status`; "
-	mysqlV27SQL     = "CREATE TABLE `{{ip_lists}}` (`id` bigint AUTO_INCREMENT NOT NULL PRIMARY KEY, `type` integer NOT NULL, " +
-		"`ipornet` varchar(50) NOT NULL, `mode` integer NOT NULL, `description` varchar(512) NULL, " +
-		"`first` VARBINARY(16) NOT NULL, `last` VARBINARY(16) NOT NULL, `ip_type` integer NOT NULL, `protocols` integer NOT NULL, " +
-		"`created_at` bigint NOT NULL, `updated_at` bigint NOT NULL, `deleted_at` bigint NOT NULL);" +
-		"ALTER TABLE `{{ip_lists}}` ADD CONSTRAINT `{{prefix}}unique_ipornet_type_mapping` UNIQUE (`type`, `ipornet`);" +
 		"CREATE INDEX `{{prefix}}ip_lists_type_idx` ON `{{ip_lists}}` (`type`);" +
 		"CREATE INDEX `{{prefix}}ip_lists_ipornet_idx` ON `{{ip_lists}}` (`ipornet`);" +
 		"CREATE INDEX `{{prefix}}ip_lists_ip_type_idx` ON `{{ip_lists}}` (`ip_type`);" +
 		"CREATE INDEX `{{prefix}}ip_lists_updated_at_idx` ON `{{ip_lists}}` (`updated_at`);" +
 		"CREATE INDEX `{{prefix}}ip_lists_deleted_at_idx` ON `{{ip_lists}}` (`deleted_at`);" +
-		"CREATE INDEX `{{prefix}}ip_lists_first_last_idx` ON `{{ip_lists}}` (`first`, `last`);"
-	mysqlV27DownSQL = "DROP TABLE `{{ip_lists}}` CASCADE;"
-	mysqlV28SQL     = "CREATE TABLE `{{configs}}` (`id` integer AUTO_INCREMENT NOT NULL PRIMARY KEY, `configs` longtext NOT NULL);" +
-		"INSERT INTO {{configs}} (configs) VALUES ('{}');"
-	mysqlV28DownSQL = "DROP TABLE `{{configs}}` CASCADE;"
+		"CREATE INDEX `{{prefix}}ip_lists_first_last_idx` ON `{{ip_lists}}` (`first`, `last`);" +
+		"INSERT INTO {{schema_version}} (version) VALUES (28);"
 )
 
 // MySQLProvider defines the auth provider for MySQL/MariaDB database
@@ -784,14 +771,14 @@ func (p *MySQLProvider) initializeDatabase() error {
 	if errors.Is(err, sql.ErrNoRows) {
 		return errSchemaVersionEmpty
 	}
-	logger.InfoToConsole("creating initial database schema, version 23")
-	providerLog(logger.LevelInfo, "creating initial database schema, version 23")
+	logger.InfoToConsole("creating initial database schema, version 28")
+	providerLog(logger.LevelInfo, "creating initial database schema, version 28")
 	initialSQL := sqlReplaceAll(mysqlInitialSQL)
 
-	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, strings.Split(initialSQL, ";"), 23, true)
+	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, strings.Split(initialSQL, ";"), 28, true)
 }
 
-func (p *MySQLProvider) migrateDatabase() error { //nolint:dupl
+func (p *MySQLProvider) migrateDatabase() error {
 	dbVersion, err := sqlCommonGetDatabaseVersion(p.dbHandle, true)
 	if err != nil {
 		return err
@@ -801,21 +788,11 @@ func (p *MySQLProvider) migrateDatabase() error { //nolint:dupl
 	case version == sqlDatabaseVersion:
 		providerLog(logger.LevelDebug, "sql database is up to date, current version: %d", version)
 		return ErrNoInitRequired
-	case version < 23:
+	case version < 28:
 		err = fmt.Errorf("database schema version %d is too old, please see the upgrading docs", version)
 		providerLog(logger.LevelError, "%v", err)
 		logger.ErrorToConsole("%v", err)
 		return err
-	case version == 23:
-		return updateMySQLDatabaseFromV23(p.dbHandle)
-	case version == 24:
-		return updateMySQLDatabaseFromV24(p.dbHandle)
-	case version == 25:
-		return updateMySQLDatabaseFromV25(p.dbHandle)
-	case version == 26:
-		return updateMySQLDatabaseFromV26(p.dbHandle)
-	case version == 27:
-		return updateMySQLDatabaseFromV27(p.dbHandle)
 	default:
 		if version > sqlDatabaseVersion {
 			providerLog(logger.LevelError, "database schema version %d is newer than the supported one: %d", version,
@@ -838,16 +815,6 @@ func (p *MySQLProvider) revertDatabase(targetVersion int) error {
 	}
 
 	switch dbVersion.Version {
-	case 24:
-		return downgradeMySQLDatabaseFromV24(p.dbHandle)
-	case 25:
-		return downgradeMySQLDatabaseFromV25(p.dbHandle)
-	case 26:
-		return downgradeMySQLDatabaseFromV26(p.dbHandle)
-	case 27:
-		return downgradeMySQLDatabaseFromV27(p.dbHandle)
-	case 28:
-		return downgradeMySQLDatabaseFromV28(p.dbHandle)
 	default:
 		return fmt.Errorf("database schema version not handled: %d", dbVersion.Version)
 	}
@@ -856,145 +823,4 @@ func (p *MySQLProvider) revertDatabase(targetVersion int) error {
 func (p *MySQLProvider) resetDatabase() error {
 	sql := sqlReplaceAll(mysqlResetSQL)
 	return sqlCommonExecSQLAndUpdateDBVersion(p.dbHandle, strings.Split(sql, ";"), 0, false)
-}
-
-func updateMySQLDatabaseFromV23(dbHandle *sql.DB) error {
-	if err := updateMySQLDatabaseFrom23To24(dbHandle); err != nil {
-		return err
-	}
-	return updateMySQLDatabaseFromV24(dbHandle)
-}
-
-func updateMySQLDatabaseFromV24(dbHandle *sql.DB) error {
-	if err := updateMySQLDatabaseFrom24To25(dbHandle); err != nil {
-		return err
-	}
-	return updateMySQLDatabaseFromV25(dbHandle)
-}
-
-func updateMySQLDatabaseFromV25(dbHandle *sql.DB) error {
-	if err := updateMySQLDatabaseFrom25To26(dbHandle); err != nil {
-		return err
-	}
-	return updateMySQLDatabaseFromV26(dbHandle)
-}
-
-func updateMySQLDatabaseFromV26(dbHandle *sql.DB) error {
-	if err := updateMySQLDatabaseFrom26To27(dbHandle); err != nil {
-		return err
-	}
-	return updateMySQLDatabaseFromV27(dbHandle)
-}
-
-func updateMySQLDatabaseFromV27(dbHandle *sql.DB) error {
-	return updateMySQLDatabaseFrom27To28(dbHandle)
-}
-
-func downgradeMySQLDatabaseFromV24(dbHandle *sql.DB) error {
-	return downgradeMySQLDatabaseFrom24To23(dbHandle)
-}
-
-func downgradeMySQLDatabaseFromV25(dbHandle *sql.DB) error {
-	if err := downgradeMySQLDatabaseFrom25To24(dbHandle); err != nil {
-		return err
-	}
-	return downgradeMySQLDatabaseFromV24(dbHandle)
-}
-
-func downgradeMySQLDatabaseFromV26(dbHandle *sql.DB) error {
-	if err := downgradeMySQLDatabaseFrom26To25(dbHandle); err != nil {
-		return err
-	}
-	return downgradeMySQLDatabaseFromV25(dbHandle)
-}
-
-func downgradeMySQLDatabaseFromV27(dbHandle *sql.DB) error {
-	if err := downgradeMySQLDatabaseFrom27To26(dbHandle); err != nil {
-		return err
-	}
-	return downgradeMySQLDatabaseFromV26(dbHandle)
-}
-
-func downgradeMySQLDatabaseFromV28(dbHandle *sql.DB) error {
-	if err := downgradeMySQLDatabaseFrom28To27(dbHandle); err != nil {
-		return err
-	}
-	return downgradeMySQLDatabaseFromV27(dbHandle)
-}
-
-func updateMySQLDatabaseFrom23To24(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database schema version: 23 -> 24")
-	providerLog(logger.LevelInfo, "updating database schema version: 23 -> 24")
-	sql := strings.ReplaceAll(mysqlV24SQL, "{{roles}}", sqlTableRoles)
-	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
-	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
-	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 24, true)
-}
-
-func updateMySQLDatabaseFrom24To25(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database schema version: 24 -> 25")
-	providerLog(logger.LevelInfo, "updating database schema version: 24 -> 25")
-	sql := strings.ReplaceAll(mysqlV25SQL, "{{users}}", sqlTableUsers)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 25, true)
-}
-
-func updateMySQLDatabaseFrom25To26(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database schema version: 25 -> 26")
-	providerLog(logger.LevelInfo, "updating database schema version: 25 -> 26")
-	sql := strings.ReplaceAll(mysqlV26SQL, "{{events_rules}}", sqlTableEventsRules)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 26, true)
-}
-
-func updateMySQLDatabaseFrom26To27(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database schema version: 26 -> 27")
-	providerLog(logger.LevelInfo, "updating database schema version: 26 -> 27")
-	sql := strings.ReplaceAll(mysqlV27SQL, "{{ip_lists}}", sqlTableIPLists)
-	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 27, true)
-}
-
-func updateMySQLDatabaseFrom27To28(dbHandle *sql.DB) error {
-	logger.InfoToConsole("updating database schema version: 27 -> 28")
-	providerLog(logger.LevelInfo, "updating database schema version: 27 -> 28")
-	sql := strings.ReplaceAll(mysqlV28SQL, "{{configs}}", sqlTableConfigs)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 28, true)
-}
-
-func downgradeMySQLDatabaseFrom24To23(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database schema version: 24 -> 23")
-	providerLog(logger.LevelInfo, "downgrading database schema version: 24 -> 23")
-	sql := strings.ReplaceAll(mysqlV24DownSQL, "{{roles}}", sqlTableRoles)
-	sql = strings.ReplaceAll(sql, "{{admins}}", sqlTableAdmins)
-	sql = strings.ReplaceAll(sql, "{{users}}", sqlTableUsers)
-	sql = strings.ReplaceAll(sql, "{{prefix}}", config.SQLTablesPrefix)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 23, false)
-}
-
-func downgradeMySQLDatabaseFrom25To24(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database schema version: 25 -> 24")
-	providerLog(logger.LevelInfo, "downgrading database schema version: 25 -> 24")
-	sql := strings.ReplaceAll(mysqlV25DownSQL, "{{users}}", sqlTableUsers)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 24, false)
-}
-
-func downgradeMySQLDatabaseFrom26To25(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database schema version: 26 -> 25")
-	providerLog(logger.LevelInfo, "downgrading database schema version: 26 -> 25")
-	sql := strings.ReplaceAll(mysqlV26DownSQL, "{{events_rules}}", sqlTableEventsRules)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 25, false)
-}
-
-func downgradeMySQLDatabaseFrom27To26(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database schema version: 27 -> 26")
-	providerLog(logger.LevelInfo, "downgrading database schema version: 27 -> 26")
-	sql := strings.ReplaceAll(mysqlV27DownSQL, "{{ip_lists}}", sqlTableIPLists)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 26, false)
-}
-
-func downgradeMySQLDatabaseFrom28To27(dbHandle *sql.DB) error {
-	logger.InfoToConsole("downgrading database schema version: 28 -> 27")
-	providerLog(logger.LevelInfo, "downgrading database schema version: 28 -> 27")
-	sql := strings.ReplaceAll(mysqlV28DownSQL, "{{configs}}", sqlTableConfigs)
-	return sqlCommonExecSQLAndUpdateDBVersion(dbHandle, strings.Split(sql, ";"), 27, false)
 }
