@@ -1614,7 +1614,7 @@ func getS3Config(r *http.Request) (vfs.S3FsConfig, error) {
 	config.Endpoint = strings.TrimSpace(r.Form.Get("s3_endpoint"))
 	config.StorageClass = strings.TrimSpace(r.Form.Get("s3_storage_class"))
 	config.ACL = strings.TrimSpace(r.Form.Get("s3_acl"))
-	config.KeyPrefix = strings.TrimSpace(r.Form.Get("s3_key_prefix"))
+	config.KeyPrefix = strings.TrimSpace(strings.TrimPrefix(r.Form.Get("s3_key_prefix"), "/"))
 	config.UploadPartSize, err = strconv.ParseInt(r.Form.Get("s3_upload_part_size"), 10, 64)
 	if err != nil {
 		return config, fmt.Errorf("invalid s3 upload part size: %w", err)
@@ -1650,7 +1650,7 @@ func getGCSConfig(r *http.Request) (vfs.GCSFsConfig, error) {
 	config.Bucket = strings.TrimSpace(r.Form.Get("gcs_bucket"))
 	config.StorageClass = strings.TrimSpace(r.Form.Get("gcs_storage_class"))
 	config.ACL = strings.TrimSpace(r.Form.Get("gcs_acl"))
-	config.KeyPrefix = strings.TrimSpace(r.Form.Get("gcs_key_prefix"))
+	config.KeyPrefix = strings.TrimSpace(strings.TrimPrefix(r.Form.Get("gcs_key_prefix"), "/"))
 	uploadPartSize, err := strconv.ParseInt(r.Form.Get("gcs_upload_part_size"), 10, 64)
 	if err == nil {
 		config.UploadPartSize = uploadPartSize
@@ -1732,7 +1732,7 @@ func getAzureConfig(r *http.Request) (vfs.AzBlobFsConfig, error) {
 	config.AccountKey = getSecretFromFormField(r, "az_account_key")
 	config.SASURL = getSecretFromFormField(r, "az_sas_url")
 	config.Endpoint = strings.TrimSpace(r.Form.Get("az_endpoint"))
-	config.KeyPrefix = strings.TrimSpace(r.Form.Get("az_key_prefix"))
+	config.KeyPrefix = strings.TrimSpace(strings.TrimPrefix(r.Form.Get("az_key_prefix"), "/"))
 	config.AccessTier = strings.TrimSpace(r.Form.Get("az_access_tier"))
 	config.UseEmulator = r.Form.Get("az_use_emulator") != ""
 	config.UploadPartSize, err = strconv.ParseInt(r.Form.Get("az_upload_part_size"), 10, 64)
