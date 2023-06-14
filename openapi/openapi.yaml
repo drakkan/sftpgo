@@ -5420,7 +5420,7 @@ components:
             - 0
             - 1
           description: |
-            Deny policies
+            Policies for denied patterns
               * `0` - default policy. Denied files/directories matching the filters are visible in directory listing but cannot be uploaded/downloaded/overwritten/renamed
               * `1` - deny policy hide. This policy applies the same restrictions as the default one and denied files/directories matching the filters will also be hidden in directory listing. This mode may cause performance issues for large directories
     HooksFilter:
