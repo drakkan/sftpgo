@@ -34,6 +34,82 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 </style>
 {{end}}
 
+{{define "additionalnavitems"}}
+{{if .QuotaUsage.HasQuotaInfo}}
+<li class="nav-item dropdown no-arrow mx-1">
+    <a class="nav-link dropdown-toggle" href="#" id="quotaDropdown" role="button"
+        data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+        <span class="mr-2 d-none d-lg-inline text-gray-600 small">Quota</span>
+        {{if .QuotaUsage.IsQuotaLow}}
+        <i class="fas fa-exclamation-triangle fa-fw"></i>
+        {{else}}
+        <i class="fas fa-info fa-fw"></i>
+        {{end}}
+    </a>
+    <div class="dropdown-list dropdown-menu dropdown-menu-right shadow animated--grow-in"
+        ria-labelledby="alertsDropdown">
+        <h6 class="dropdown-header">
+            Quota usage
+        </h6>
+        {{ if .QuotaUsage.HasDiskQuota}}
+        <a class="dropdown-item d-flex align-items-center" href="#">
+            <div class="mr-3">
+                <div class="icon-circle  {{if .QuotaUsage.IsDiskQuotaLow}}bg-warning{{else}}bg-success{{end}}">
+                    <i class="fas fa-hdd text-white"></i>
+                </div>
+            </div>
+            <div>
+                <div class="small text-gray-500">Disk quota</div>
+                {{$size := .QuotaUsage.GetQuotaSize}}
+                {{$files := .QuotaUsage.GetQuotaFiles}}
+                {{if $size}}
+                {{$percentage := .QuotaUsage.GetQuotaSizePercentage}}
+                <span class="font-weight-bold {{if .QuotaUsage.IsQuotaSizeLow}}text-warning{{end}}">Size: {{$size}}{{if gt $percentage 0}} ({{$percentage}}%){{end}}</span>
+                {{if $files}}<br>{{end}}
+                {{end}}
+                {{if $files}}
+                {{$percentage := .QuotaUsage.GetQuotaFilesPercentage}}
+                <span class="font-weight-bold {{if .QuotaUsage.IsQuotaFilesLow}}text-warning{{end}}">Files: {{$files}}{{if gt $percentage 0}} ({{$percentage}}%){{end}}</span>
+                {{end}}
+            </div>
+        </a>
+        {{end}}
+        {{ if .QuotaUsage.HasTranferQuota}}
+        <a class="dropdown-item d-flex align-items-center" href="#">
+            <div class="mr-3">
+                <div class="icon-circle {{if .QuotaUsage.IsTransferQuotaLow}}bg-warning{{else}}bg-success{{end}}">
+                    <i class="fas fa-exchange-alt text-white"></i>
+                </div>
+            </div>
+            <div>
+                <div class="small text-gray-500">Transfer quota</div>
+                {{$total := .QuotaUsage.GetTotalTransferQuota}}
+                {{$upload := .QuotaUsage.GetUploadTransferQuota}}
+                {{$download := .QuotaUsage.GetDownloadTransferQuota}}
+                {{if $total}}
+                {{$percentage := .QuotaUsage.GetTotalTransferQuotaPercentage}}
+                <span class="font-weight-bold {{if .QuotaUsage.IsTotalTransferQuotaLow}}text-warning{{end}}">Total: {{$total}}{{if gt $percentage 0}} ({{$percentage}}%){{end}}</span>
+                {{if or $upload $download}}<br>{{end}}
+                {{end}}
+                {{if $download}}
+                {{$percentage := .QuotaUsage.GetDownloadTransferQuotaPercentage}}
+                <span class="font-weight-bold {{if .QuotaUsage.IsDownloadTransferQuotaLow}}text-warning{{end}}">Download: {{$download}}{{if gt $percentage 0}} ({{$percentage}}%){{end}}</span>
+                {{if $upload}}<br>{{end}}
+                {{end}}
+                {{if $upload}}
+                {{$percentage := .QuotaUsage.GetUploadTransferQuotaPercentage}}
+                <span class="font-weight-bold {{if .QuotaUsage.IsUploadTransferQuotaLow}}text-warning{{end}}">Upload: {{$upload}}{{if gt $percentage 0}} ({{$percentage}}%){{end}}</span>
+                {{end}}
+            </div>
+        </a>
+        {{end}}
+    </div>
+</li>
+
+<div class="topbar-divider d-none d-sm-block"></div>
+{{end}}
+{{end}}
+
 {{define "page_body"}}
 <div id="errorMsg" class="alert alert-warning alert-dismissible fade show" style="display: none;" role="alert">
     <span id="errorTxt"></span>

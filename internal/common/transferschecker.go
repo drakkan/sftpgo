@@ -61,7 +61,7 @@ type baseTransferChecker struct {
 func (t *baseTransferChecker) isDataTransferExceeded(user dataprovider.User, transfer dataprovider.ActiveTransfer, ulSize,
 	dlSize int64,
 ) bool {
-	ulQuota, dlQuota, totalQuota := user.GetDataTransferLimits(transfer.IP)
+	ulQuota, dlQuota, totalQuota := user.GetDataTransferLimits()
 	if totalQuota > 0 {
 		allowedSize := totalQuota - (user.UsedUploadDataTransfer + user.UsedDownloadDataTransfer)
 		if ulSize+dlSize > allowedSize {

@@ -1289,39 +1289,12 @@ func (u *User) HasQuotaRestrictions() bool {
 
 // HasTransferQuotaRestrictions returns true if there are any data transfer restrictions
 func (u *User) HasTransferQuotaRestrictions() bool {
-	if len(u.Filters.DataTransferLimits) > 0 {
-		return true
-	}
 	return u.UploadDataTransfer > 0 || u.TotalDataTransfer > 0 || u.DownloadDataTransfer > 0
 }
 
 // GetDataTransferLimits returns upload, download and total data transfer limits
-func (u *User) GetDataTransferLimits(clientIP string) (int64, int64, int64) {
+func (u *User) GetDataTransferLimits() (int64, int64, int64) {
 	var total, ul, dl int64
-	if len(u.Filters.DataTransferLimits) > 0 {
-		ip := net.ParseIP(clientIP)
-		if ip != nil {
-			for _, limit := range u.Filters.DataTransferLimits {
-				for _, source := range limit.Sources {
-					_, ipNet, err := net.ParseCIDR(source)
-					if err == nil {
-						if ipNet.Contains(ip) {
-							if limit.TotalDataTransfer > 0 {
-								total = limit.TotalDataTransfer * 1048576
-							}
-							if limit.DownloadDataTransfer > 0 {
-								dl = limit.DownloadDataTransfer * 1048576
-							}
-							if limit.UploadDataTransfer > 0 {
-								ul = limit.UploadDataTransfer * 1048576
-							}
-							return ul, dl, total
-						}
-					}
-				}
-			}
-		}
-	}
 	if u.TotalDataTransfer > 0 {
 		total = u.TotalDataTransfer * 1048576
 	}
@@ -1825,7 +1798,6 @@ func (u *User) mergeAdditiveProperties(group *Group, groupType int, replacer *st
 	u.mergePermissions(group, groupType, replacer)
 	u.mergeFilePatterns(group, groupType, replacer)
 	u.Filters.BandwidthLimits = append(u.Filters.BandwidthLimits, group.UserSettings.Filters.BandwidthLimits...)
-	u.Filters.DataTransferLimits = append(u.Filters.DataTransferLimits, group.UserSettings.Filters.DataTransferLimits...)
 	u.Filters.AllowedIP = append(u.Filters.AllowedIP, group.UserSettings.Filters.AllowedIP...)
 	u.Filters.DeniedIP = append(u.Filters.DeniedIP, group.UserSettings.Filters.DeniedIP...)
 	u.Filters.DeniedLoginMethods = append(u.Filters.DeniedLoginMethods, group.UserSettings.Filters.DeniedLoginMethods...)

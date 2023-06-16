@@ -332,40 +332,21 @@ func TestFTPMode(t *testing.T) {
 func TestTransferQuota(t *testing.T) {
 	user := dataprovider.User{
 		BaseUser: sdk.BaseUser{
-			TotalDataTransfer:    -1,
-			UploadDataTransfer:   -1,
-			DownloadDataTransfer: -1,
+			TotalDataTransfer:    3,
+			UploadDataTransfer:   2,
+			DownloadDataTransfer: 1,
 		},
 	}
-	user.Filters.DataTransferLimits = []sdk.DataTransferLimit{
-		{
-			Sources:              []string{"127.0.0.1/32", "192.168.1.0/24"},
-			TotalDataTransfer:    100,
-			UploadDataTransfer:   0,
-			DownloadDataTransfer: 0,
-		},
-		{
-			Sources:              []string{"172.16.0.0/24"},
-			TotalDataTransfer:    0,
-			UploadDataTransfer:   120,
-			DownloadDataTransfer: 150,
-		},
-	}
-	ul, dl, total := user.GetDataTransferLimits("127.0.1.1")
+	ul, dl, total := user.GetDataTransferLimits()
+	assert.Equal(t, int64(2*1048576), ul)
+	assert.Equal(t, int64(1*1048576), dl)
+	assert.Equal(t, int64(3*1048576), total)
+	user.TotalDataTransfer = -1
+	user.UploadDataTransfer = -1
+	user.DownloadDataTransfer = -1
+	ul, dl, total = user.GetDataTransferLimits()
 	assert.Equal(t, int64(0), ul)
 	assert.Equal(t, int64(0), dl)
-	assert.Equal(t, int64(0), total)
-	ul, dl, total = user.GetDataTransferLimits("127.0.0.1")
-	assert.Equal(t, int64(0), ul)
-	assert.Equal(t, int64(0), dl)
-	assert.Equal(t, int64(100*1048576), total)
-	ul, dl, total = user.GetDataTransferLimits("192.168.1.4")
-	assert.Equal(t, int64(0), ul)
-	assert.Equal(t, int64(0), dl)
-	assert.Equal(t, int64(100*1048576), total)
-	ul, dl, total = user.GetDataTransferLimits("172.16.0.2")
-	assert.Equal(t, int64(120*1048576), ul)
-	assert.Equal(t, int64(150*1048576), dl)
 	assert.Equal(t, int64(0), total)
 	transferQuota := dataprovider.TransferQuota{}
 	assert.True(t, transferQuota.HasDownloadSpace())

@@ -2585,18 +2585,6 @@ func copyBaseUserFilters(in sdk.BaseUserFilters) sdk.BaseUserFilters {
 		copy(bwLimit.Sources, limit.Sources)
 		filters.BandwidthLimits = append(filters.BandwidthLimits, bwLimit)
 	}
-	filters.DataTransferLimits = make([]sdk.DataTransferLimit, 0, len(in.DataTransferLimits))
-	for _, limit := range in.DataTransferLimits {
-		dtLimit := sdk.DataTransferLimit{
-			UploadDataTransfer:   limit.UploadDataTransfer,
-			DownloadDataTransfer: limit.DownloadDataTransfer,
-			TotalDataTransfer:    limit.TotalDataTransfer,
-			Sources:              make([]string, 0, len(limit.Sources)),
-		}
-		dtLimit.Sources = make([]string, len(limit.Sources))
-		copy(dtLimit.Sources, limit.Sources)
-		filters.DataTransferLimits = append(filters.DataTransferLimits, dtLimit)
-	}
 	return filters
 }
 
@@ -2943,26 +2931,6 @@ func validateBandwidthLimitsFilter(filters *sdk.BaseUserFilters) error {
 	return nil
 }
 
-func validateTransferLimitsFilter(filters *sdk.BaseUserFilters) error {
-	for idx, limit := range filters.DataTransferLimits {
-		filters.DataTransferLimits[idx].Sources = util.RemoveDuplicates(limit.Sources, false)
-		if len(limit.Sources) == 0 {
-			return util.NewValidationError("no data transfer limit source specified")
-		}
-		for _, source := range limit.Sources {
-			_, _, err := net.ParseCIDR(source)
-			if err != nil {
-				return util.NewValidationError(fmt.Sprintf("could not parse data transfer limit source %q: %v", source, err))
-			}
-		}
-		if limit.TotalDataTransfer > 0 {
-			filters.DataTransferLimits[idx].UploadDataTransfer = 0
-			filters.DataTransferLimits[idx].DownloadDataTransfer = 0
-		}
-	}
-	return nil
-}
-
 func updateFiltersValues(filters *sdk.BaseUserFilters) {
 	if filters.StartDirectory != "" {
 		filters.StartDirectory = util.CleanPath(filters.StartDirectory)
@@ -2996,9 +2964,6 @@ func validateBaseFilters(filters *sdk.BaseUserFilters) error {
 		return err
 	}
 	if err := validateBandwidthLimitsFilter(filters); err != nil {
-		return err
-	}
-	if err := validateTransferLimitsFilter(filters); err != nil {
 		return err
 	}
 	if len(filters.DeniedLoginMethods) >= len(ValidLoginMethods) {

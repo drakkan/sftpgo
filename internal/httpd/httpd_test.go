@@ -2627,103 +2627,6 @@ func TestEventRuleValidation(t *testing.T) {
 	assert.Contains(t, string(resp), "invalid Identity Provider login event")
 }
 
-func TestUserTransferLimits(t *testing.T) {
-	u := getTestUser()
-	u.TotalDataTransfer = 100
-	u.Filters.DataTransferLimits = []sdk.DataTransferLimit{
-		{
-			Sources: nil,
-		},
-	}
-	_, resp, err := httpdtest.AddUser(u, http.StatusBadRequest)
-	assert.NoError(t, err, string(resp))
-	assert.Contains(t, string(resp), "Validation error: no data transfer limit source specified")
-	u.Filters.DataTransferLimits = []sdk.DataTransferLimit{
-		{
-			Sources: []string{"a"},
-		},
-	}
-	_, resp, err = httpdtest.AddUser(u, http.StatusBadRequest)
-	assert.NoError(t, err, string(resp))
-	assert.Contains(t, string(resp), "Validation error: could not parse data transfer limit source")
-	u.Filters.DataTransferLimits = []sdk.DataTransferLimit{
-		{
-			Sources:              []string{"127.0.0.1/32"},
-			UploadDataTransfer:   120,
-			DownloadDataTransfer: 140,
-		},
-		{
-			Sources:           []string{"192.168.0.0/24", "192.168.1.0/24"},
-			TotalDataTransfer: 400,
-		},
-		{
-			Sources: []string{"10.0.0.0/8"},
-		},
-	}
-	user, resp, err := httpdtest.AddUser(u, http.StatusCreated)
-	assert.NoError(t, err, string(resp))
-	assert.Len(t, user.Filters.DataTransferLimits, 3)
-	assert.Equal(t, u.Filters.DataTransferLimits, user.Filters.DataTransferLimits)
-	up, down, total := user.GetDataTransferLimits("1.1.1.1")
-	assert.Equal(t, user.TotalDataTransfer*1024*1024, total)
-	assert.Equal(t, user.UploadDataTransfer*1024*1024, up)
-	assert.Equal(t, user.DownloadDataTransfer*1024*1024, down)
-	up, down, total = user.GetDataTransferLimits("127.0.0.1")
-	assert.Equal(t, user.Filters.DataTransferLimits[0].TotalDataTransfer*1024*1024, total)
-	assert.Equal(t, user.Filters.DataTransferLimits[0].UploadDataTransfer*1024*1024, up)
-	assert.Equal(t, user.Filters.DataTransferLimits[0].DownloadDataTransfer*1024*1024, down)
-	up, down, total = user.GetDataTransferLimits("192.168.1.6")
-	assert.Equal(t, user.Filters.DataTransferLimits[1].TotalDataTransfer*1024*1024, total)
-	assert.Equal(t, user.Filters.DataTransferLimits[1].UploadDataTransfer*1024*1024, up)
-	assert.Equal(t, user.Filters.DataTransferLimits[1].DownloadDataTransfer*1024*1024, down)
-	up, down, total = user.GetDataTransferLimits("10.1.2.3")
-	assert.Equal(t, user.Filters.DataTransferLimits[2].TotalDataTransfer*1024*1024, total)
-	assert.Equal(t, user.Filters.DataTransferLimits[2].UploadDataTransfer*1024*1024, up)
-	assert.Equal(t, user.Filters.DataTransferLimits[2].DownloadDataTransfer*1024*1024, down)
-
-	connID := xid.New().String()
-	localAddr := "::1"
-	conn := common.NewBaseConnection(connID, common.ProtocolHTTP, localAddr, "1.1.1.2", user)
-	transferQuota := conn.GetTransferQuota()
-	assert.Equal(t, user.TotalDataTransfer*1024*1024, transferQuota.AllowedTotalSize)
-	assert.Equal(t, user.UploadDataTransfer*1024*1024, transferQuota.AllowedULSize)
-	assert.Equal(t, user.DownloadDataTransfer*1024*1024, transferQuota.AllowedDLSize)
-
-	conn = common.NewBaseConnection(connID, common.ProtocolHTTP, localAddr, "127.0.0.1", user)
-	transferQuota = conn.GetTransferQuota()
-	assert.Equal(t, user.Filters.DataTransferLimits[0].TotalDataTransfer*1024*1024, transferQuota.AllowedTotalSize)
-	assert.Equal(t, user.Filters.DataTransferLimits[0].UploadDataTransfer*1024*1024, transferQuota.AllowedULSize)
-	assert.Equal(t, user.Filters.DataTransferLimits[0].DownloadDataTransfer*1024*1024, transferQuota.AllowedDLSize)
-
-	conn = common.NewBaseConnection(connID, common.ProtocolHTTP, localAddr, "192.168.1.5", user)
-	transferQuota = conn.GetTransferQuota()
-	assert.Equal(t, user.Filters.DataTransferLimits[1].TotalDataTransfer*1024*1024, transferQuota.AllowedTotalSize)
-	assert.Equal(t, user.Filters.DataTransferLimits[1].UploadDataTransfer*1024*1024, transferQuota.AllowedULSize)
-	assert.Equal(t, user.Filters.DataTransferLimits[1].DownloadDataTransfer*1024*1024, transferQuota.AllowedDLSize)
-
-	u.UsedDownloadDataTransfer = 10 * 1024 * 1024
-	u.UsedUploadDataTransfer = 5 * 1024 * 1024
-	_, err = httpdtest.UpdateTransferQuotaUsage(u, "", http.StatusOK)
-	assert.NoError(t, err)
-
-	conn = common.NewBaseConnection(connID, common.ProtocolHTTP, localAddr, "192.168.1.6", user)
-	transferQuota = conn.GetTransferQuota()
-	assert.Equal(t, (user.Filters.DataTransferLimits[1].TotalDataTransfer-15)*1024*1024, transferQuota.AllowedTotalSize)
-	assert.Equal(t, user.Filters.DataTransferLimits[1].UploadDataTransfer*1024*1024, transferQuota.AllowedULSize)
-	assert.Equal(t, user.Filters.DataTransferLimits[1].DownloadDataTransfer*1024*1024, transferQuota.AllowedDLSize)
-
-	conn = common.NewBaseConnection(connID, common.ProtocolHTTP, localAddr, "10.8.3.4", user)
-	transferQuota = conn.GetTransferQuota()
-	assert.Equal(t, int64(0), transferQuota.AllowedTotalSize)
-	assert.Equal(t, int64(0), transferQuota.AllowedULSize)
-	assert.Equal(t, int64(0), transferQuota.AllowedDLSize)
-
-	err = os.RemoveAll(user.GetHomeDir())
-	assert.NoError(t, err)
-	_, err = httpdtest.RemoveUser(user, http.StatusOK)
-	assert.NoError(t, err)
-}
-
 func TestUserBandwidthLimits(t *testing.T) {
 	u := getTestUser()
 	u.UploadBandwidth = 128
@@ -19686,49 +19589,6 @@ func TestWebUserAddMock(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "Validation error: could not parse bandwidth limit source")
 	form.Set("bandwidth_limit_sources1", "127.0.0.1/32")
 	form.Set("upload_bandwidth_source1", "-1")
-	form.Set("data_transfer_limit_sources0", "127.0.1.1")
-	b, contentType, _ = getMultipartFormData(form, "", "")
-	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
-	setJWTCookieForReq(req, webToken)
-	req.Header.Set("Content-Type", contentType)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusOK, rr)
-	assert.Contains(t, rr.Body.String(), "could not parse data transfer limit source")
-	form.Set("data_transfer_limit_sources0", "127.0.1.1/32")
-	form.Set("upload_data_transfer_source0", "a")
-	b, contentType, _ = getMultipartFormData(form, "", "")
-	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
-	setJWTCookieForReq(req, webToken)
-	req.Header.Set("Content-Type", contentType)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusOK, rr)
-	assert.Contains(t, rr.Body.String(), "invalid upload_data_transfer_source")
-	form.Set("upload_data_transfer_source0", "0")
-	form.Set("download_data_transfer_source0", "a")
-	b, contentType, _ = getMultipartFormData(form, "", "")
-	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
-	setJWTCookieForReq(req, webToken)
-	req.Header.Set("Content-Type", contentType)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusOK, rr)
-	assert.Contains(t, rr.Body.String(), "invalid download_data_transfer_source")
-	form.Set("download_data_transfer_source0", "0")
-	form.Set("total_data_transfer_source0", "a")
-	b, contentType, _ = getMultipartFormData(form, "", "")
-	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
-	setJWTCookieForReq(req, webToken)
-	req.Header.Set("Content-Type", contentType)
-	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusOK, rr)
-	assert.Contains(t, rr.Body.String(), "invalid total_data_transfer_source")
-	form.Set("total_data_transfer_source0", "0")
-	form.Set("data_transfer_limit_sources10", "192.168.5.0/24, 10.8.0.0/16")
-	form.Set("download_data_transfer_source10", "100")
-	form.Set("upload_data_transfer_source10", "120")
-	form.Set("data_transfer_limit_sources12", "192.168.3.0/24, 10.8.2.0/24,::1/64")
-	form.Set("download_data_transfer_source12", "100")
-	form.Set("upload_data_transfer_source12", "120")
-	form.Set("total_data_transfer_source12", "200")
 	// invalid external auth cache size
 	form.Set("external_auth_cache_time", "a")
 	b, contentType, _ = getMultipartFormData(form, "", "")
@@ -19847,30 +19707,6 @@ func TestWebUserAddMock(t *testing.T) {
 				assert.Equal(t, []string{"127.0.0.1/32"}, bwLimit.Sources)
 				assert.Equal(t, int64(0), bwLimit.UploadBandwidth)
 				assert.Equal(t, int64(1024), bwLimit.DownloadBandwidth)
-			}
-		}
-	}
-	if assert.Len(t, newUser.Filters.DataTransferLimits, 3) {
-		for _, dtLimit := range newUser.Filters.DataTransferLimits {
-			switch len(dtLimit.Sources) {
-			case 3:
-				assert.Equal(t, "192.168.3.0/24", dtLimit.Sources[0])
-				assert.Equal(t, "10.8.2.0/24", dtLimit.Sources[1])
-				assert.Equal(t, "::1/64", dtLimit.Sources[2])
-				assert.Equal(t, int64(0), dtLimit.UploadDataTransfer)
-				assert.Equal(t, int64(0), dtLimit.DownloadDataTransfer)
-				assert.Equal(t, int64(200), dtLimit.TotalDataTransfer)
-			case 2:
-				assert.Equal(t, "192.168.5.0/24", dtLimit.Sources[0])
-				assert.Equal(t, "10.8.0.0/16", dtLimit.Sources[1])
-				assert.Equal(t, int64(120), dtLimit.UploadDataTransfer)
-				assert.Equal(t, int64(100), dtLimit.DownloadDataTransfer)
-				assert.Equal(t, int64(0), dtLimit.TotalDataTransfer)
-			case 1:
-				assert.Equal(t, "127.0.1.1/32", dtLimit.Sources[0])
-				assert.Equal(t, int64(0), dtLimit.UploadDataTransfer)
-				assert.Equal(t, int64(0), dtLimit.DownloadDataTransfer)
-				assert.Equal(t, int64(0), dtLimit.TotalDataTransfer)
 			}
 		}
 	}

@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"os"
@@ -155,6 +156,7 @@ type filesPage struct {
 	Error           string
 	Paths           []dirMapping
 	HasIntegrations bool
+	QuotaUsage      *userQuotaUsage
 }
 
 type shareLoginPage struct {
@@ -227,6 +229,185 @@ type clientSharePage struct {
 	Share *dataprovider.Share
 	Error string
 	IsAdd bool
+}
+
+type userQuotaUsage struct {
+	QuotaSize                int64
+	QuotaFiles               int
+	UsedQuotaSize            int64
+	UsedQuotaFiles           int
+	UploadDataTransfer       int64
+	DownloadDataTransfer     int64
+	TotalDataTransfer        int64
+	UsedUploadDataTransfer   int64
+	UsedDownloadDataTransfer int64
+}
+
+func (u *userQuotaUsage) HasQuotaInfo() bool {
+	if dataprovider.GetQuotaTracking() == 0 {
+		return false
+	}
+	if u.HasDiskQuota() {
+		return true
+	}
+	return u.HasTranferQuota()
+}
+
+func (u *userQuotaUsage) HasDiskQuota() bool {
+	if u.QuotaSize > 0 || u.UsedQuotaSize > 0 {
+		return true
+	}
+	return u.QuotaFiles > 0 || u.UsedQuotaFiles > 0
+}
+
+func (u *userQuotaUsage) HasTranferQuota() bool {
+	if u.TotalDataTransfer > 0 || u.UploadDataTransfer > 0 || u.DownloadDataTransfer > 0 {
+		return true
+	}
+	return u.UsedDownloadDataTransfer > 0 || u.UsedUploadDataTransfer > 0
+}
+
+func (u *userQuotaUsage) GetQuotaSize() string {
+	if u.QuotaSize > 0 {
+		return fmt.Sprintf("%s/%s", util.ByteCountIEC(u.UsedQuotaSize), util.ByteCountIEC(u.QuotaSize))
+	}
+	if u.UsedQuotaSize > 0 {
+		return util.ByteCountIEC(u.UsedQuotaSize)
+	}
+	return ""
+}
+
+func (u *userQuotaUsage) GetQuotaFiles() string {
+	if u.QuotaFiles > 0 {
+		return fmt.Sprintf("%d/%d", u.UsedQuotaFiles, u.QuotaFiles)
+	}
+	if u.UsedQuotaFiles > 0 {
+		return strconv.FormatInt(int64(u.UsedQuotaFiles), 10)
+	}
+	return ""
+}
+
+func (u *userQuotaUsage) GetQuotaSizePercentage() int {
+	if u.QuotaSize > 0 {
+		return int(math.Round(100 * float64(u.UsedQuotaSize) / float64(u.QuotaSize)))
+	}
+	return 0
+}
+
+func (u *userQuotaUsage) GetQuotaFilesPercentage() int {
+	if u.QuotaFiles > 0 {
+		return int(math.Round(100 * float64(u.UsedQuotaFiles) / float64(u.QuotaFiles)))
+	}
+	return 0
+}
+
+func (u *userQuotaUsage) IsQuotaSizeLow() bool {
+	return u.GetQuotaSizePercentage() > 85
+}
+
+func (u *userQuotaUsage) IsQuotaFilesLow() bool {
+	return u.GetQuotaFilesPercentage() > 85
+}
+
+func (u *userQuotaUsage) IsDiskQuotaLow() bool {
+	return u.IsQuotaSizeLow() || u.IsQuotaFilesLow()
+}
+
+func (u *userQuotaUsage) GetTotalTransferQuota() string {
+	total := u.UsedUploadDataTransfer + u.UsedDownloadDataTransfer
+	if u.TotalDataTransfer > 0 {
+		return fmt.Sprintf("%s/%s", util.ByteCountIEC(total), util.ByteCountIEC(u.TotalDataTransfer*1048576))
+	}
+	if total > 0 {
+		return util.ByteCountIEC(total)
+	}
+	return ""
+}
+
+func (u *userQuotaUsage) GetUploadTransferQuota() string {
+	if u.UploadDataTransfer > 0 {
+		return fmt.Sprintf("%s/%s", util.ByteCountIEC(u.UsedUploadDataTransfer),
+			util.ByteCountIEC(u.UploadDataTransfer*1048576))
+	}
+	if u.UsedUploadDataTransfer > 0 {
+		return util.ByteCountIEC(u.UsedUploadDataTransfer)
+	}
+	return ""
+}
+
+func (u *userQuotaUsage) GetDownloadTransferQuota() string {
+	if u.DownloadDataTransfer > 0 {
+		return fmt.Sprintf("%s/%s", util.ByteCountIEC(u.UsedDownloadDataTransfer),
+			util.ByteCountIEC(u.DownloadDataTransfer*1048576))
+	}
+	if u.UsedDownloadDataTransfer > 0 {
+		return util.ByteCountIEC(u.UsedDownloadDataTransfer)
+	}
+	return ""
+}
+
+func (u *userQuotaUsage) GetTotalTransferQuotaPercentage() int {
+	if u.TotalDataTransfer > 0 {
+		return int(math.Round(100 * float64(u.UsedDownloadDataTransfer+u.UsedUploadDataTransfer) / float64(u.TotalDataTransfer*1048576)))
+	}
+	return 0
+}
+
+func (u *userQuotaUsage) GetUploadTransferQuotaPercentage() int {
+	if u.UploadDataTransfer > 0 {
+		return int(math.Round(100 * float64(u.UsedUploadDataTransfer) / float64(u.UploadDataTransfer*1048576)))
+	}
+	return 0
+}
+
+func (u *userQuotaUsage) GetDownloadTransferQuotaPercentage() int {
+	if u.DownloadDataTransfer > 0 {
+		return int(math.Round(100 * float64(u.UsedDownloadDataTransfer) / float64(u.DownloadDataTransfer*1048576)))
+	}
+	return 0
+}
+
+func (u *userQuotaUsage) IsTotalTransferQuotaLow() bool {
+	if u.TotalDataTransfer > 0 {
+		return u.GetTotalTransferQuotaPercentage() > 85
+	}
+	return false
+}
+
+func (u *userQuotaUsage) IsUploadTransferQuotaLow() bool {
+	if u.UploadDataTransfer > 0 {
+		return u.GetUploadTransferQuotaPercentage() > 85
+	}
+	return false
+}
+
+func (u *userQuotaUsage) IsDownloadTransferQuotaLow() bool {
+	if u.DownloadDataTransfer > 0 {
+		return u.GetDownloadTransferQuotaPercentage() > 85
+	}
+	return false
+}
+
+func (u *userQuotaUsage) IsTransferQuotaLow() bool {
+	return u.IsTotalTransferQuotaLow() || u.IsUploadTransferQuotaLow() || u.IsDownloadTransferQuotaLow()
+}
+
+func (u *userQuotaUsage) IsQuotaLow() bool {
+	return u.IsDiskQuotaLow() || u.IsTransferQuotaLow()
+}
+
+func newUserQuotaUsage(u *dataprovider.User) *userQuotaUsage {
+	return &userQuotaUsage{
+		QuotaSize:                u.QuotaSize,
+		QuotaFiles:               u.QuotaFiles,
+		UsedQuotaSize:            u.UsedQuotaSize,
+		UsedQuotaFiles:           u.UsedQuotaFiles,
+		TotalDataTransfer:        u.TotalDataTransfer,
+		UploadDataTransfer:       u.UploadDataTransfer,
+		DownloadDataTransfer:     u.DownloadDataTransfer,
+		UsedUploadDataTransfer:   u.UsedUploadDataTransfer,
+		UsedDownloadDataTransfer: u.UsedDownloadDataTransfer,
+	}
 }
 
 func getFileObjectURL(baseDir, name, baseWebPath string) string {
@@ -595,7 +776,7 @@ func (s *httpdServer) renderUploadToSharePage(w http.ResponseWriter, r *http.Req
 	renderClientTemplate(w, templateUploadToShare, data)
 }
 
-func (s *httpdServer) renderFilesPage(w http.ResponseWriter, r *http.Request, dirName, error string, user dataprovider.User,
+func (s *httpdServer) renderFilesPage(w http.ResponseWriter, r *http.Request, dirName, error string, user *dataprovider.User,
 	hasIntegrations bool,
 ) {
 	data := filesPage{
@@ -615,6 +796,7 @@ func (s *httpdServer) renderFilesPage(w http.ResponseWriter, r *http.Request, di
 		CanShare:        user.CanManageShares(),
 		HasIntegrations: hasIntegrations,
 		Paths:           getDirMapping(dirName, webClientFilesPath),
+		QuotaUsage:      newUserQuotaUsage(user),
 	}
 	renderClientTemplate(w, templateClientFiles, data)
 }
@@ -964,11 +1146,11 @@ func (s *httpdServer) handleClientGetFiles(w http.ResponseWriter, r *http.Reques
 	}
 	if err != nil {
 		s.renderFilesPage(w, r, path.Dir(name), fmt.Sprintf("unable to stat file %q: %v", name, err),
-			user, len(s.binding.WebClientIntegrations) > 0)
+			&user, len(s.binding.WebClientIntegrations) > 0)
 		return
 	}
 	if info.IsDir() {
-		s.renderFilesPage(w, r, name, "", user, len(s.binding.WebClientIntegrations) > 0)
+		s.renderFilesPage(w, r, name, "", &user, len(s.binding.WebClientIntegrations) > 0)
 		return
 	}
 	if status, err := downloadFile(w, r, connection, name, info, false, nil); err != nil && status != 0 {
@@ -977,7 +1159,7 @@ func (s *httpdServer) handleClientGetFiles(w http.ResponseWriter, r *http.Reques
 				s.renderClientMessagePage(w, r, http.StatusText(status), "", status, err, "")
 				return
 			}
-			s.renderFilesPage(w, r, path.Dir(name), err.Error(), user, len(s.binding.WebClientIntegrations) > 0)
+			s.renderFilesPage(w, r, path.Dir(name), err.Error(), &user, len(s.binding.WebClientIntegrations) > 0)
 		}
 	}
 }
