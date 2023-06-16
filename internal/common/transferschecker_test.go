@@ -622,17 +622,6 @@ func TestGetUsersForQuotaCheck(t *testing.T) {
 					QuotaSize:   100,
 				},
 			},
-			Filters: dataprovider.UserFilters{
-				BaseUserFilters: sdk.BaseUserFilters{
-					DataTransferLimits: []sdk.DataTransferLimit{
-						{
-							Sources:              []string{"172.16.0.0/16"},
-							UploadDataTransfer:   50,
-							DownloadDataTransfer: 80,
-						},
-					},
-				},
-			},
 		}
 		err = dataprovider.AddUser(&user, "", "", "")
 		assert.NoError(t, err)
@@ -660,13 +649,9 @@ func TestGetUsersForQuotaCheck(t *testing.T) {
 				assert.Len(t, user.VirtualFolders, 0, user.Username)
 			}
 		}
-		ul, dl, total := user.GetDataTransferLimits("127.1.1.1")
+		ul, dl, total := user.GetDataTransferLimits()
 		assert.Equal(t, int64(0), ul)
 		assert.Equal(t, int64(0), dl)
-		assert.Equal(t, int64(0), total)
-		ul, dl, total = user.GetDataTransferLimits("172.16.2.3")
-		assert.Equal(t, int64(50*1024*1024), ul)
-		assert.Equal(t, int64(80*1024*1024), dl)
 		assert.Equal(t, int64(0), total)
 	}
 

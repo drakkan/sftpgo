@@ -1353,50 +1353,6 @@ func getUserPermissionsFromPostFields(r *http.Request) map[string][]string {
 	return permissions
 }
 
-func getDataTransferLimitsFromPostFields(r *http.Request) ([]sdk.DataTransferLimit, error) {
-	var result []sdk.DataTransferLimit
-
-	for k := range r.Form {
-		if strings.HasPrefix(k, "data_transfer_limit_sources") {
-			sources := getSliceFromDelimitedValues(r.Form.Get(k), ",")
-			if len(sources) > 0 {
-				dtLimit := sdk.DataTransferLimit{
-					Sources: sources,
-				}
-				idx := strings.TrimPrefix(k, "data_transfer_limit_sources")
-				ul := r.Form.Get(fmt.Sprintf("upload_data_transfer_source%v", idx))
-				dl := r.Form.Get(fmt.Sprintf("download_data_transfer_source%v", idx))
-				total := r.Form.Get(fmt.Sprintf("total_data_transfer_source%v", idx))
-				if ul != "" {
-					dataUL, err := strconv.ParseInt(ul, 10, 64)
-					if err != nil {
-						return result, fmt.Errorf("invalid upload_data_transfer_source%v %q: %w", idx, ul, err)
-					}
-					dtLimit.UploadDataTransfer = dataUL
-				}
-				if dl != "" {
-					dataDL, err := strconv.ParseInt(dl, 10, 64)
-					if err != nil {
-						return result, fmt.Errorf("invalid download_data_transfer_source%v %q: %w", idx, dl, err)
-					}
-					dtLimit.DownloadDataTransfer = dataDL
-				}
-				if total != "" {
-					dataTotal, err := strconv.ParseInt(total, 10, 64)
-					if err != nil {
-						return result, fmt.Errorf("invalid total_data_transfer_source%v %q: %w", idx, total, err)
-					}
-					dtLimit.TotalDataTransfer = dataTotal
-				}
-
-				result = append(result, dtLimit)
-			}
-		}
-	}
-
-	return result, nil
-}
-
 func getBandwidthLimitsFromPostFields(r *http.Request) ([]sdk.BandwidthLimit, error) {
 	var result []sdk.BandwidthLimit
 
@@ -1534,10 +1490,6 @@ func getFiltersFromUserPostFields(r *http.Request) (sdk.BaseUserFilters, error) 
 	if err != nil {
 		return filters, err
 	}
-	dtLimits, err := getDataTransferLimitsFromPostFields(r)
-	if err != nil {
-		return filters, err
-	}
 	maxFileSize, err := util.ParseBytes(r.Form.Get("max_upload_file_size"))
 	if err != nil {
 		return filters, fmt.Errorf("invalid max upload file size: %w", err)
@@ -1558,7 +1510,6 @@ func getFiltersFromUserPostFields(r *http.Request) (sdk.BaseUserFilters, error) 
 		filters.FTPSecurity = 1
 	}
 	filters.BandwidthLimits = bwLimits
-	filters.DataTransferLimits = dtLimits
 	filters.AllowedIP = getSliceFromDelimitedValues(r.Form.Get("allowed_ip"), ",")
 	filters.DeniedIP = getSliceFromDelimitedValues(r.Form.Get("denied_ip"), ",")
 	filters.DeniedLoginMethods = r.Form["denied_login_methods"]

@@ -5455,23 +5455,6 @@ components:
           type: integer
           format: int32
           description: 'Maximum download bandwidth as KB/s, 0 means unlimited'
-    DataTransferLimit:
-      type: object
-      properties:
-        sources:
-          type: array
-          items:
-            type: string
-          description: 'Source networks in CIDR notation as defined in RFC 4632 and RFC 4291 for example `192.0.2.0/24` or `2001:db8::/32`. The limit applies if the defined networks contain the client IP'
-        upload_data_transfer:
-          type: integer
-          description: 'Maximum data transfer allowed for uploads as MB. 0 means no limit'
-        download_data_transfer:
-          type: integer
-          description: 'Maximum data transfer allowed for downloads as MB. 0 means no limit'
-        total_data_transfer:
-          type: integer
-          description: 'Maximum total data transfer as MB. 0 means unlimited. You can set a total data transfer instead of the individual values for uploads and downloads'
     BaseUserFilters:
       type: object
       properties:
@@ -5532,10 +5515,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/BandwidthLimit'
-        data_transfer_limits:
-          type: array
-          items:
-            $ref: '#/components/schemas/DataTransferLimit'
         external_auth_cache_time:
           type: integer
           description: 'Defines the cache time, in seconds, for users authenticated using an external auth hook. 0 means no cache'

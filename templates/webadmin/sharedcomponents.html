@@ -137,58 +137,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
         $(this).closest(".form_field_bwlimits_outer_row").remove();
     });
 
-    $("body").on("click", ".add_new_dtlimit_field_btn", function () {
-        let index = $(".form_field_dtlimits_outer").find(".form_field_dtlimits_outer_row").length;
-        while (document.getElementById("idDataTransferLimitSources"+index) != null){
-            index++;
-        }
-        $(".form_field_dtlimits_outer").append(`
-                <div class="row form_field_dtlimits_outer_row">
-                    <div class="form-group col-md-5">
-                        <textarea class="form-control" id="idDataTransferLimitSources${index}" name="data_transfer_limit_sources${index}" rows="4" placeholder=""
-                            aria-describedby="dtLimitSourcesHelpBlock${index}"></textarea>
-                        <small id="dtLimitSourcesHelpBlock${index}" class="form-text text-muted">
-                            Comma separated IP/Mask in CIDR format, example: "192.168.1.0/24,10.8.0.100/32"
-                        </small>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="form-group">
-                            <input type="number" class="form-control" id="idUploadTransferSource${index}" name="upload_data_transfer_source${index}"
-                                placeholder="" value="" min="0" aria-describedby="ulDtHelpBlock${index}">
-                            <small id="ulDtHelpBlock${index}" class="form-text text-muted">
-                                UL (MB). 0 means no limit
-                            </small>
-                        </div>
-                        <div class="form-group">
-                            <input type="number" class="form-control" id="idDownloadTransferSource${index}" name="download_data_transfer_source${index}"
-                                placeholder="" value="" min="0" aria-describedby="dlDtHelpBlock${index}">
-                            <small id="dlDtHelpBlock${index}" class="form-text text-muted">
-                                DL (MB). 0 means no limit
-                            </small>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="form-group">
-                            <input type="number" class="form-control" id="idTotalTransferSource${index}" name="total_data_transfer_source${index}"
-                                placeholder="" value="" min="0" aria-describedby="totalDtHelpBlock${index}">
-                            <small id="totalDtHelpBlock${index}" class="form-text text-muted">
-                                Total (MB). 0 means no limit
-                            </small>
-                        </div>
-                    </div>
-                    <div class="form-group col-md-1">
-                        <button class="btn btn-circle btn-danger remove_dtlimit_btn_frm_field">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                </div>
-            `);
-    });
-
-    $("body").on("click", ".remove_dtlimit_btn_frm_field", function () {
-        $(this).closest(".form_field_dtlimits_outer_row").remove();
-    });
-
     $("body").on("click", ".add_new_pattern_field_btn", function () {
         let index = $(".form_field_patterns_outer").find(".form_field_patterns_outer_row").length;
         while (document.getElementById("idPatternPath"+index) != null){

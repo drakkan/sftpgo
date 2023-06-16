@@ -1525,7 +1525,6 @@ func getUserForEventAction(user dataprovider.User) (dataprovider.User, error) {
 	user.Filters.DisableFsChecks = false
 	user.Filters.FilePatterns = nil
 	user.Filters.BandwidthLimits = nil
-	user.Filters.DataTransferLimits = nil
 	for k := range user.Permissions {
 		user.Permissions[k] = []string{dataprovider.PermAny}
 	}

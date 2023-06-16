@@ -1548,12 +1548,6 @@ func TestVirtualFoldersQuotaRenameOverwrite(t *testing.T) {
 func TestQuotaRenameOverwrite(t *testing.T) {
 	u := getTestUser()
 	u.QuotaFiles = 100
-	u.Filters.DataTransferLimits = []sdk.DataTransferLimit{
-		{
-			Sources:           []string{"10.8.0.0/8"},
-			TotalDataTransfer: 1,
-		},
-	}
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	conn, client, err := getSftpClient(user)

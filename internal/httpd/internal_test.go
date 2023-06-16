@@ -3365,6 +3365,92 @@ func TestGetLogEventString(t *testing.T) {
 	assert.Empty(t, getLogEventString(0))
 }
 
+func TestUserQuotaUsage(t *testing.T) {
+	usage := userQuotaUsage{
+		QuotaSize: 100,
+	}
+	require.True(t, usage.HasQuotaInfo())
+	require.NotEmpty(t, usage.GetQuotaSize())
+	providerConf := dataprovider.GetProviderConfig()
+	quotaTracking := dataprovider.GetQuotaTracking()
+	providerConf.TrackQuota = 0
+	err := dataprovider.Close()
+	assert.NoError(t, err)
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	assert.False(t, usage.HasQuotaInfo())
+	providerConf.TrackQuota = quotaTracking
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+	usage.QuotaSize = 0
+	assert.False(t, usage.HasQuotaInfo())
+	assert.Empty(t, usage.GetQuotaSize())
+	assert.Equal(t, 0, usage.GetQuotaSizePercentage())
+	assert.False(t, usage.IsQuotaSizeLow())
+	assert.False(t, usage.IsDiskQuotaLow())
+	assert.False(t, usage.IsQuotaLow())
+	usage.UsedQuotaSize = 9
+	assert.NotEmpty(t, usage.GetQuotaSize())
+	usage.QuotaSize = 10
+	assert.True(t, usage.IsQuotaSizeLow())
+	assert.True(t, usage.IsDiskQuotaLow())
+	assert.True(t, usage.IsQuotaLow())
+	usage.DownloadDataTransfer = 1
+	assert.True(t, usage.HasQuotaInfo())
+	assert.True(t, usage.HasTranferQuota())
+	assert.Empty(t, usage.GetQuotaFiles())
+	assert.Equal(t, 0, usage.GetQuotaFilesPercentage())
+	usage.QuotaFiles = 1
+	assert.NotEmpty(t, usage.GetQuotaFiles())
+	usage.QuotaFiles = 0
+	usage.UsedQuotaFiles = 9
+	assert.NotEmpty(t, usage.GetQuotaFiles())
+	usage.QuotaFiles = 10
+	usage.DownloadDataTransfer = 0
+	assert.True(t, usage.IsQuotaFilesLow())
+	assert.True(t, usage.IsDiskQuotaLow())
+	assert.False(t, usage.IsTotalTransferQuotaLow())
+	assert.False(t, usage.IsUploadTransferQuotaLow())
+	assert.False(t, usage.IsDownloadTransferQuotaLow())
+	assert.Equal(t, 0, usage.GetTotalTransferQuotaPercentage())
+	assert.Equal(t, 0, usage.GetUploadTransferQuotaPercentage())
+	assert.Equal(t, 0, usage.GetDownloadTransferQuotaPercentage())
+	assert.Empty(t, usage.GetTotalTransferQuota())
+	assert.Empty(t, usage.GetUploadTransferQuota())
+	assert.Empty(t, usage.GetDownloadTransferQuota())
+	usage.TotalDataTransfer = 3
+	usage.UsedUploadDataTransfer = 1 * 1048576
+	assert.NotEmpty(t, usage.GetTotalTransferQuota())
+	usage.TotalDataTransfer = 0
+	assert.NotEmpty(t, usage.GetTotalTransferQuota())
+	assert.NotEmpty(t, usage.GetUploadTransferQuota())
+	usage.UploadDataTransfer = 2
+	assert.NotEmpty(t, usage.GetUploadTransferQuota())
+	usage.UsedDownloadDataTransfer = 1 * 1048576
+	assert.NotEmpty(t, usage.GetDownloadTransferQuota())
+	usage.DownloadDataTransfer = 2
+	assert.NotEmpty(t, usage.GetDownloadTransferQuota())
+	assert.False(t, usage.IsTransferQuotaLow())
+	usage.UsedDownloadDataTransfer = 8 * 1048576
+	usage.TotalDataTransfer = 10
+	assert.True(t, usage.IsTotalTransferQuotaLow())
+	assert.True(t, usage.IsTransferQuotaLow())
+	usage.TotalDataTransfer = 0
+	usage.UploadDataTransfer = 0
+	usage.DownloadDataTransfer = 0
+	assert.False(t, usage.IsTransferQuotaLow())
+	usage.UploadDataTransfer = 10
+	usage.UsedUploadDataTransfer = 9 * 1048576
+	assert.True(t, usage.IsUploadTransferQuotaLow())
+	assert.True(t, usage.IsTransferQuotaLow())
+	usage.DownloadDataTransfer = 10
+	usage.UsedDownloadDataTransfer = 9 * 1048576
+	assert.True(t, usage.IsDownloadTransferQuotaLow())
+	assert.True(t, usage.IsTransferQuotaLow())
+}
+
 func isSharedProviderSupported() bool {
 	// SQLite shares the implementation with other SQL-based provider but it makes no sense
 	// to use it outside test cases

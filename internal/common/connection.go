@@ -1316,8 +1316,7 @@ func (c *BaseConnection) GetTransferQuota() dataprovider.TransferQuota {
 }
 
 func (c *BaseConnection) checkUserQuota() (dataprovider.TransferQuota, int, int64) {
-	clientIP := c.GetRemoteIP()
-	ul, dl, total := c.User.GetDataTransferLimits(clientIP)
+	ul, dl, total := c.User.GetDataTransferLimits()
 	result := dataprovider.TransferQuota{
 		ULSize:           ul,
 		DLSize:           dl,

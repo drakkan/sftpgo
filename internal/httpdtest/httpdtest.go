@@ -2487,9 +2487,6 @@ func compareUserFilters(expected sdk.BaseUserFilters, actual sdk.BaseUserFilters
 	if err := compareUserBandwidthLimitFilters(expected, actual); err != nil {
 		return err
 	}
-	if err := compareUserDataTransferLimitFilters(expected, actual); err != nil {
-		return err
-	}
 	return compareUserFilePatternsFilters(expected, actual)
 }
 
@@ -2503,30 +2500,6 @@ func checkFilterMatch(expected []string, actual []string) bool {
 		}
 	}
 	return true
-}
-
-func compareUserDataTransferLimitFilters(expected sdk.BaseUserFilters, actual sdk.BaseUserFilters) error {
-	if len(expected.DataTransferLimits) != len(actual.DataTransferLimits) {
-		return errors.New("data transfer limits filters mismatch")
-	}
-	for idx, l := range expected.DataTransferLimits {
-		if actual.DataTransferLimits[idx].UploadDataTransfer != l.UploadDataTransfer {
-			return errors.New("data transfer limit upload_data_transfer mismatch")
-		}
-		if actual.DataTransferLimits[idx].DownloadDataTransfer != l.DownloadDataTransfer {
-			return errors.New("data transfer limit download_data_transfer mismatch")
-		}
-		if actual.DataTransferLimits[idx].TotalDataTransfer != l.TotalDataTransfer {
-			return errors.New("data transfer limit total_data_transfer mismatch")
-		}
-		for _, source := range actual.DataTransferLimits[idx].Sources {
-			if !util.Contains(l.Sources, source) {
-				return errors.New("data transfer limit source mismatch")
-			}
-		}
-	}
-
-	return nil
 }
 
 func compareUserBandwidthLimitFilters(expected sdk.BaseUserFilters, actual sdk.BaseUserFilters) error {
