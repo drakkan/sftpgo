@@ -53,7 +53,7 @@ require (
 	github.com/rs/cors v1.9.0
 	github.com/rs/xid v1.5.0
 	github.com/rs/zerolog v1.29.1
-	github.com/sftpgo/sdk v0.1.5-0.20230616161947-bb4a056935b0
+	github.com/sftpgo/sdk v0.1.5
 	github.com/shirou/gopsutil/v3 v3.23.5
 	github.com/spf13/afero v1.9.5
 	github.com/spf13/cobra v1.7.0
@@ -114,7 +114,7 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/s2a-go v0.1.4 // indirect
-	github.com/googleapis/enterprise-certificate-proxy v0.2.4 // indirect
+	github.com/googleapis/enterprise-certificate-proxy v0.2.5 // indirect
 	github.com/googleapis/gax-go/v2 v2.11.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
