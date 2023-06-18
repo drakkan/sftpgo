@@ -32,7 +32,7 @@ jobs:
       - name: Build for Linux/macOS x86_64
         if: startsWith(matrix.os, 'windows-') != true
         run: |
-          go build -trimpath -tags nopgxregisterdefaulttypes -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=`git describe --always --abbrev=8 --dirty` -X github.com/drakkan/sftpgo/v2/internal/version.date=`date -u +%FT%TZ`" -o sftpgo
+          go build -trimpath -tags nopgxregisterdefaulttypes -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/pkg/version.commit=`git describe --always --abbrev=8 --dirty` -X github.com/drakkan/sftpgo/v2/pkg/version.date=`date -u +%FT%TZ`" -o sftpgo
           cd tests/eventsearcher
           go build -trimpath -ldflags "-s -w" -o eventsearcher
           cd -
@@ -44,7 +44,7 @@ jobs:
 
       - name: Build for macOS arm64
         if: startsWith(matrix.os, 'macos-') == true
-        run: CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 SDKROOT=$(xcrun --sdk macosx --show-sdk-path) go build -trimpath -tags nopgxregisterdefaulttypes -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=`git describe --always --abbrev=8 --dirty` -X github.com/drakkan/sftpgo/v2/internal/version.date=`date -u +%FT%TZ`" -o sftpgo_arm64
+        run: CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 SDKROOT=$(xcrun --sdk macosx --show-sdk-path) go build -trimpath -tags nopgxregisterdefaulttypes -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/pkg/version.commit=`git describe --always --abbrev=8 --dirty` -X github.com/drakkan/sftpgo/v2/pkg/version.date=`date -u +%FT%TZ`" -o sftpgo_arm64
 
       - name: Build for Windows
         if: startsWith(matrix.os, 'windows-')
@@ -57,7 +57,7 @@ jobs:
           $FILE_VERSION = $LATEST_TAG.substring(1)  + "." + $COMMITS_FROM_TAG
           go install github.com/tc-hib/go-winres@latest
           go-winres simply --arch amd64 --product-version $LATEST_TAG-dev-$GIT_COMMIT --file-version $FILE_VERSION --file-description "SFTPGo server" --product-name SFTPGo --copyright "AGPL-3.0" --original-filename sftpgo.exe --icon  .\windows-installer\icon.ico
-          go build -trimpath -tags nopgxregisterdefaulttypes -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=$GIT_COMMIT -X github.com/drakkan/sftpgo/v2/internal/version.date=$DATE_TIME" -o sftpgo.exe
+          go build -trimpath -tags nopgxregisterdefaulttypes -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/pkg/version.commit=$GIT_COMMIT -X github.com/drakkan/sftpgo/v2/pkg/version.date=$DATE_TIME" -o sftpgo.exe
           cd tests/eventsearcher
           go build -trimpath -ldflags "-s -w" -o eventsearcher.exe
           cd ../..
@@ -69,11 +69,11 @@ jobs:
           $Env:GOOS='windows'
           $Env:GOARCH='arm64'
           go-winres simply --arch arm64 --product-version $LATEST_TAG-dev-$GIT_COMMIT --file-version $FILE_VERSION --file-description "SFTPGo server" --product-name SFTPGo --copyright "AGPL-3.0" --original-filename sftpgo.exe --icon  .\windows-installer\icon.ico
-          go build -trimpath -tags nopgxregisterdefaulttypes,nosqlite -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=$GIT_COMMIT -X github.com/drakkan/sftpgo/v2/internal/version.date=$DATE_TIME" -o .\arm64\sftpgo.exe
+          go build -trimpath -tags nopgxregisterdefaulttypes,nosqlite -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/pkg/version.commit=$GIT_COMMIT -X github.com/drakkan/sftpgo/v2/pkg/version.date=$DATE_TIME" -o .\arm64\sftpgo.exe
           mkdir x86
           $Env:GOARCH='386'
           go-winres simply --arch 386 --product-version $LATEST_TAG-dev-$GIT_COMMIT --file-version $FILE_VERSION --file-description "SFTPGo server" --product-name SFTPGo --copyright "AGPL-3.0" --original-filename sftpgo.exe --icon  .\windows-installer\icon.ico
-          go build -trimpath -tags nopgxregisterdefaulttypes,nosqlite -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=$GIT_COMMIT -X github.com/drakkan/sftpgo/v2/internal/version.date=$DATE_TIME" -o .\x86\sftpgo.exe
+          go build -trimpath -tags nopgxregisterdefaulttypes,nosqlite -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/pkg/version.commit=$GIT_COMMIT -X github.com/drakkan/sftpgo/v2/pkg/version.date=$DATE_TIME" -o .\x86\sftpgo.exe
           Remove-Item Env:\CGO_ENABLED
           Remove-Item Env:\GOOS
           Remove-Item Env:\GOARCH
@@ -236,10 +236,10 @@ jobs:
 
       - name: Build
         run: |
-          go build -trimpath -tags nopgxregisterdefaulttypes,nogcs,nos3,noportable,nobolt,nomysql,nopgsql,nosqlite,nometrics,noazblob,unixcrypt -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/internal/version.commit=`git describe --always --abbrev=8 --dirty` -X github.com/drakkan/sftpgo/v2/internal/version.date=`date -u +%FT%TZ`" -o sftpgo
+          go build -trimpath -tags nopgxregisterdefaulttypes,nogcs,nos3,noportable,nobolt,nomysql,nopgsql,nosqlite,nometrics,noazblob,unixcrypt -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/pkg/internal/version.commit=`git describe --always --abbrev=8 --dirty` -X github.com/drakkan/sftpgo/v2/pkg/version.date=`date -u +%FT%TZ`" -o sftpgo
           ./sftpgo -v
           cp -r openapi static templates internal/bundle/
-          go build -trimpath -tags nopgxregisterdefaulttypes,bundle -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=`git describe --always --abbrev=8 --dirty` -X github.com/drakkan/sftpgo/v2/internal/version.date=`date -u +%FT%TZ`" -o sftpgo
+          go build -trimpath -tags nopgxregisterdefaulttypes,bundle -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/pkg/version.commit=`git describe --always --abbrev=8 --dirty` -X github.com/drakkan/sftpgo/v2/pkg/version.date=`date -u +%FT%TZ`" -o sftpgo
           ./sftpgo -v
 
   test-postgresql-mysql-crdb:
@@ -300,7 +300,7 @@ jobs:
 
       - name: Build
         run: |
-          go build -trimpath -tags nopgxregisterdefaulttypes -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=`git describe --always --abbrev=8 --dirty` -X github.com/drakkan/sftpgo/v2/internal/version.date=`date -u +%FT%TZ`" -o sftpgo
+          go build -trimpath -tags nopgxregisterdefaulttypes -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/pkg/version.commit=`git describe --always --abbrev=8 --dirty` -X github.com/drakkan/sftpgo/v2/pkg/version.date=`date -u +%FT%TZ`" -o sftpgo
           cd tests/eventsearcher
           go build -trimpath -ldflags "-s -w" -o eventsearcher
           cd -
@@ -419,7 +419,7 @@ jobs:
           echo 'export PATH=$PATH:/usr/local/go/bin' >> build.sh
           echo 'go version' >> build.sh
           echo 'cd /usr/local/src' >> build.sh
-          echo 'go build -buildvcs=false -trimpath -tags nopgxregisterdefaulttypes -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=${{ steps.get_commit.outputs.COMMIT }} -X github.com/drakkan/sftpgo/v2/internal/version.date=`date -u +%FT%TZ`" -o sftpgo' >> build.sh
+          echo 'go build -buildvcs=false -trimpath -tags nopgxregisterdefaulttypes -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/pkg/version.commit=${{ steps.get_commit.outputs.COMMIT }} -X github.com/drakkan/sftpgo/v2/pkg/version.date=`date -u +%FT%TZ`" -o sftpgo' >> build.sh
 
           chmod 755 build.sh
           docker run --rm --name ubuntu-build --mount type=bind,source=`pwd`,target=/usr/local/src ${{ matrix.distro }} /usr/local/src/build.sh
@@ -470,7 +470,7 @@ jobs:
             then
               export GOARM=7
             fi
-            go build -buildvcs=false -trimpath -tags nopgxregisterdefaulttypes -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=${{ steps.get_commit.outputs.COMMIT }} -X github.com/drakkan/sftpgo/v2/internal/version.date=`date -u +%FT%TZ`" -o sftpgo
+            go build -buildvcs=false -trimpath -tags nopgxregisterdefaulttypes -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/pkg/version.commit=${{ steps.get_commit.outputs.COMMIT }} -X github.com/drakkan/sftpgo/v2/pkg/version.date=`date -u +%FT%TZ`" -o sftpgo
             mkdir -p output/{init,bash_completion,zsh_completion}
             cp sftpgo.json output/
             cp -r templates output/

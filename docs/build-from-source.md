@@ -25,13 +25,13 @@ The compiler is a build time only dependency. It is not required at runtime.
 
 Version info, such as git commit and build date, can be embedded setting the following string variables at build time:
 
-- `github.com/drakkan/sftpgo/v2/internal/version.commit`
-- `github.com/drakkan/sftpgo/v2/internal/version.date`
+- `github.com/drakkan/sftpgo/v2/pkg/version.commit`
+- `github.com/drakkan/sftpgo/v2/pkg/version.date`
 
 For example, you can build using the following command:
 
 ```bash
-go build -tags nogcs,nos3,nosqlite -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=`git describe --always --abbrev=8 --dirty` -X github.com/drakkan/sftpgo/v2/internal/version.date=`date -u +%FT%TZ`" -o sftpgo
+go build -tags nogcs,nos3,nosqlite -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/pkg/version.commit=`git describe --always --abbrev=8 --dirty` -X github.com/drakkan/sftpgo/v2/pkg/version.date=`date -u +%FT%TZ`" -o sftpgo
 ```
 
 You should get a version that includes git commit, build date and available features like this one:

@@ -24,7 +24,7 @@ import (
 
 	"go.uber.org/automaxprocs/maxprocs"
 
-	"github.com/drakkan/sftpgo/v2/internal/cmd"
+	"github.com/drakkan/sftpgo/v2/pkg/cmd"
 )
 
 func main() {
