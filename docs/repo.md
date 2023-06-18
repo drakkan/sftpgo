@@ -8,6 +8,7 @@ Supported distributions:
 
 - Debian 10 "buster"
 - Debian 11 "bullseye"
+- Debian 12 "bookworm"
 
 Import the public key used by the package management system:
 
