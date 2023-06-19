@@ -1430,7 +1430,7 @@ func (s *httpdServer) initializeRouter() {
 				Post(userUploadFilePath, uploadUserFile)
 			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled)).
 				Patch(userFilesDirsMetadataPath, setFileDirMetadata)
-			router.With(s.checkSecondFactorRequirement).Post(onlyOfficeCallbackPath, onlyOfficeWriteCallback)
+			router.With(s.checkAuthRequirements).Post(onlyOfficeCallbackPath, onlyOfficeWriteCallback)
 		})
 
 		if s.renderOpenAPI {
