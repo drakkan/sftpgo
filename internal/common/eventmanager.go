@@ -1149,13 +1149,20 @@ func checkEventConditionPatterns(name string, patterns []dataprovider.ConditionP
 	if len(patterns) == 0 {
 		return true
 	}
+	matches := false
 	for _, p := range patterns {
-		if checkEventConditionPattern(p, name) {
-			return true
+		// assume, that multiple InverseMatches are set
+		if p.InverseMatch {
+			if checkEventConditionPattern(p, name) {
+				matches = true
+			} else {
+				return false
+			}
+		} else if checkEventConditionPattern(p, name) {
+			matches = true
 		}
 	}
-
-	return false
+	return matches
 }
 
 func checkEventGroupConditionPatters(groups []sdk.GroupMapping, patterns []dataprovider.ConditionPattern) bool {
