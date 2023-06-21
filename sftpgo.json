@@ -236,7 +236,7 @@
     },
     "password_caching": true,
     "update_mode": 0,
-    "create_default_admin": false,
+    "create_default_admin": true,
     "naming_rules": 5,
     "is_shared": 0,
     "node": {

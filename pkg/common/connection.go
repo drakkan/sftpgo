@@ -305,11 +305,22 @@ func (c *BaseConnection) ListDir(virtualPath string) ([]os.FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+	_, err = ExecutePreAction(c, operationPreLsdir, fsPath, virtualPath, 0, 0)
+	if err != nil {
+		c.Log(logger.LevelDebug, "list for dir %q denied by pre action: %v", virtualPath, err)
+		return nil, c.GetPermissionDeniedError()
+	}
+	startTime := time.Now()
 	files, err := fs.ReadDir(fsPath)
 	if err != nil {
 		c.Log(logger.LevelDebug, "error listing directory: %+v", err)
 		return nil, c.GetFsError(fs, err)
 	}
+	elapsed := time.Since(startTime).Nanoseconds() / 1000000
+
+	logger.CommandLog(lsdirLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", -1,
+		c.localAddr, c.remoteAddr, elapsed)
+
 	return c.User.FilterListDir(files, virtualPath), nil
 }
 
