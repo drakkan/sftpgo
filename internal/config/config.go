@@ -1961,6 +1961,11 @@ func getCommandConfigsFromEnv(idx int) {
 		cfg.Env = env
 	}
 
+	args, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_COMMAND__COMMANDS__%v__ARGS", idx))
+	if ok {
+		cfg.Args = args
+	}
+
 	if cfg.Path != "" {
 		if len(globalConf.CommandConfig.Commands) > idx {
 			globalConf.CommandConfig.Commands[idx] = cfg

@@ -924,13 +924,17 @@ func TestCommandsFromEnv(t *testing.T) {
 	os.Setenv("SFTPGO_COMMAND__COMMANDS__1__PATH", "cmd2")
 	os.Setenv("SFTPGO_COMMAND__COMMANDS__1__TIMEOUT", "20")
 	os.Setenv("SFTPGO_COMMAND__COMMANDS__1__ENV", "e=f")
+	os.Setenv("SFTPGO_COMMAND__COMMANDS__1__ARGS", "arg1, arg2")
 
 	t.Cleanup(func() {
 		os.Unsetenv("SFTPGO_COMMAND__TIMEOUT")
 		os.Unsetenv("SFTPGO_COMMAND__ENV")
 		os.Unsetenv("SFTPGO_COMMAND__COMMANDS__0__PATH")
 		os.Unsetenv("SFTPGO_COMMAND__COMMANDS__0__TIMEOUT")
-		os.Unsetenv("SFTPGO_COMMAND__COMMANDS__0__ENV")
+		os.Unsetenv("SFTPGO_COMMAND__COMMANDS__1__PATH")
+		os.Unsetenv("SFTPGO_COMMAND__COMMANDS__1__TIMEOUT")
+		os.Unsetenv("SFTPGO_COMMAND__COMMANDS__1__ENV")
+		os.Unsetenv("SFTPGO_COMMAND__COMMANDS__1__ARGS")
 	})
 
 	err = config.LoadConfig(configDir, confName)
@@ -945,6 +949,7 @@ func TestCommandsFromEnv(t *testing.T) {
 	require.Equal(t, "cmd2", commandConfig.Commands[1].Path)
 	require.Equal(t, 20, commandConfig.Commands[1].Timeout)
 	require.Equal(t, []string{"e=f"}, commandConfig.Commands[1].Env)
+	require.Equal(t, []string{"arg1", "arg2"}, commandConfig.Commands[1].Args)
 
 	err = os.Remove(configFilePath)
 	assert.NoError(t, err)
