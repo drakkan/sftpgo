@@ -22,7 +22,7 @@ I'd like to make SFTPGo into a sustainable long term project and would not like 
 If you use SFTPGo, it is in your best interest to ensure that the project you rely on stays healthy and well maintained.
 This can only happen with your donations and [sponsorships](https://github.com/sponsors/drakkan) :heart:
 
-You can also purchase support plans from the [SFTPGo website](https://sftpgo.com/#pricing).
+You can also purchase, using many payment methods, support plans from the [SFTPGo website](https://sftpgo.com/#pricing).
 
 With sponsorships/donations or support plans we establish a channel for reciprocal access, ensuring better outcomes for both you and the project.
 
