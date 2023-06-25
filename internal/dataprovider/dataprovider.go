@@ -3490,7 +3490,7 @@ func doBuiltinKeyboardInteractiveAuth(user *User, client ssh.KeyboardInteractive
 		return 0, err
 	}
 	if len(answers) != 1 {
-		return 0, fmt.Errorf("unexpected number of answers: %v", len(answers))
+		return 0, fmt.Errorf("unexpected number of answers: %d", len(answers))
 	}
 	err = user.LoadAndApplyGroupSettings()
 	if err != nil {
@@ -3500,16 +3500,20 @@ func doBuiltinKeyboardInteractiveAuth(user *User, client ssh.KeyboardInteractive
 	if err != nil {
 		return 0, err
 	}
+	return checkKeyboardInteractiveSecondFactor(user, client, protocol)
+}
+
+func checkKeyboardInteractiveSecondFactor(user *User, client ssh.KeyboardInteractiveChallenge, protocol string) (int, error) {
 	if !user.Filters.TOTPConfig.Enabled || !util.Contains(user.Filters.TOTPConfig.Protocols, protocolSSH) {
 		return 1, nil
 	}
-	err = user.Filters.TOTPConfig.Secret.TryDecrypt()
+	err := user.Filters.TOTPConfig.Secret.TryDecrypt()
 	if err != nil {
 		providerLog(logger.LevelError, "unable to decrypt TOTP secret for user %q, protocol %v, err: %v",
 			user.Username, protocol, err)
 		return 0, err
 	}
-	answers, err = client("", "", []string{"Authentication code: "}, []bool{false})
+	answers, err := client("", "", []string{"Authentication code: "}, []bool{false})
 	if err != nil {
 		return 0, err
 	}
@@ -3742,6 +3746,9 @@ func doKeyboardInteractiveAuth(user *User, authHook string, client ssh.KeyboardI
 	var err error
 	if plugin.Handler.HasAuthScope(plugin.AuthScopeKeyboardInteractive) {
 		authResult, err = executeKeyboardInteractivePlugin(user, client, ip, protocol)
+		if authResult == 1 && err == nil {
+			authResult, err = checkKeyboardInteractiveSecondFactor(user, client, protocol)
+		}
 	} else if authHook != "" {
 		if strings.HasPrefix(authHook, "http") {
 			authResult, err = executeKeyboardInteractiveHTTPHook(user, authHook, client, ip, protocol)
