@@ -67,6 +67,7 @@ If you report an invalid issue or ask for step-by-step support, your issue will 
 - Partial authentication. You can configure multi-step authentication requiring, for example, the user password after successful public key authentication.
 - Per-user authentication methods.
 - [Two-factor authentication](./docs/howto/two-factor-authentication.md) based on time-based one time passwords (RFC 6238) which works with Authy, Google Authenticator, Microsoft Authenticator and other compatible apps.
+- LDAP/Active Directory authentication using a [plugin](https://github.com/sftpgo/sftpgo-plugin-auth).
 - Simplified user administrations using [groups](./docs/groups.md).
 - [Roles](./docs/roles.md) allow to create limited administrators who can only create and manage users with their role.
 - Custom authentication via [external programs/HTTP API](./docs/external-auth.md).

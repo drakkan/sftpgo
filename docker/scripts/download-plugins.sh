@@ -17,7 +17,7 @@ esac
 
 echo "download plugins for arch ${SUFFIX}"
 
-for PLUGIN in geoipfilter kms pubsub eventstore eventsearch metadata
+for PLUGIN in geoipfilter kms pubsub eventstore eventsearch metadata auth
 do
     echo "download plugin from https://github.com/sftpgo/sftpgo-plugin-${PLUGIN}/releases/latest/download/sftpgo-plugin-${PLUGIN}-linux-${SUFFIX}"
     curl -L "https://github.com/sftpgo/sftpgo-plugin-${PLUGIN}/releases/latest/download/sftpgo-plugin-${PLUGIN}-linux-${SUFFIX}" --output "/usr/local/bin/sftpgo-plugin-${PLUGIN}"
