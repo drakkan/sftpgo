@@ -67,7 +67,7 @@ API keys are not allowed for the following REST APIs:
 - change password, public keys or second factor authentication for the associated user
 - update the impersonated admin
 
-Please keep in mind that using an API key not associated with any administrator it is still possible to create a new administrator, with full permissions, and then impersonate it: be careful if you share unassociated API keys with third parties and with the `manage adminis` permission granted, they will basically allow full access, the only restriction is that the impersonated admin cannot be modified.
+Please keep in mind that using an API key not associated with any administrator it is still possible to create a new administrator, with full permissions, and then impersonate it: be careful if you share unassociated API keys with third parties and with the `manage admins` permission granted, they will basically allow full access, the only restriction is that the impersonated admin cannot be modified.
 
 The data retention APIs allow you to define per-folder retention policies for each user. To clarify this concept let's show an example, a data retention check accepts a POST body like this one:
 
