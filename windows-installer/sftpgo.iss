@@ -99,3 +99,15 @@ Filename: "netsh"; Parameters: "advfirewall firewall delete rule name=""SFTPGo S
 
 [Messages]
 FinishedLabel=Setup has finished installing SFTPGo on your computer. SFTPGo should already be running as a Windows service, it uses TCP port 8080 for HTTP service and TCP port 2022 for SFTP service by default, make sure the configured ports are not used by other services or edit the configuration according to your needs.
+
+[Code]
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  Code: Integer;
+begin
+  if (FileExists(ExpandConstant('{app}\{#MyAppExeName}'))) then
+  begin
+    Exec(ExpandConstant('{app}\{#MyAppExeName}'), 'service stop', '', SW_HIDE, ewWaitUntilTerminated, Code);
+  end
+end;
