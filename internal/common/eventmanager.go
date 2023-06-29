@@ -1170,10 +1170,8 @@ func checkEventGroupConditionPatters(groups []sdk.GroupMapping, patterns []datap
 		return true
 	}
 	for _, group := range groups {
-		for _, p := range patterns {
-			if checkEventConditionPattern(p, group.Name) {
-				return true
-			}
+		if checkEventConditionPatterns(group.Name, patterns) {
+			return true
 		}
 	}
 
