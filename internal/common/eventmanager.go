@@ -1159,7 +1159,7 @@ func checkEventConditionPatterns(name string, patterns []dataprovider.ConditionP
 				return false
 			}
 		} else if checkEventConditionPattern(p, name) {
-			matches = true
+			return true
 		}
 	}
 	return matches
