@@ -1,6 +1,6 @@
 #!/bin/bash
 
-NFPM_VERSION=2.30.1
+NFPM_VERSION=2.31.0
 NFPM_ARCH=${NFPM_ARCH:-amd64}
 if [ -z ${SFTPGO_VERSION} ]
 then
