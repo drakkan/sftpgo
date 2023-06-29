@@ -331,7 +331,7 @@ func (*eventRulesContainer) checkFsEventMatch(conditions *dataprovider.EventCond
 	if !checkEventConditionPatterns(params.Role, conditions.Options.RoleNames) {
 		return false
 	}
-	if !checkEventGroupConditionPatters(params.Groups, conditions.Options.GroupNames) {
+	if !checkEventGroupConditionPatterns(params.Groups, conditions.Options.GroupNames) {
 		return false
 	}
 	if !checkEventConditionPatterns(params.VirtualPath, conditions.Options.FsPaths) {
@@ -1138,7 +1138,7 @@ func checkUserConditionOptions(user *dataprovider.User, conditions *dataprovider
 	if !checkEventConditionPatterns(user.Role, conditions.RoleNames) {
 		return false
 	}
-	if !checkEventGroupConditionPatters(user.Groups, conditions.GroupNames) {
+	if !checkEventGroupConditionPatterns(user.Groups, conditions.GroupNames) {
 		return false
 	}
 	return true
@@ -1165,7 +1165,7 @@ func checkEventConditionPatterns(name string, patterns []dataprovider.ConditionP
 	return matches
 }
 
-func checkEventGroupConditionPatters(groups []sdk.GroupMapping, patterns []dataprovider.ConditionPattern) bool {
+func checkEventGroupConditionPatterns(groups []sdk.GroupMapping, patterns []dataprovider.ConditionPattern) bool {
 	if len(patterns) == 0 {
 		return true
 	}
