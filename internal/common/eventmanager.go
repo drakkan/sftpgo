@@ -1169,13 +1169,24 @@ func checkEventGroupConditionPatterns(groups []sdk.GroupMapping, patterns []data
 	if len(patterns) == 0 {
 		return true
 	}
+	matches := false
 	for _, group := range groups {
-		if checkEventConditionPatterns(group.Name, patterns) {
-			return true
+		for _, p := range patterns {
+			// assume, that multiple InverseMatches are set
+			if p.InverseMatch {
+				if checkEventConditionPattern(p, group.Name) {
+					matches = true
+				} else {
+					return false
+				}
+			} else {
+				if checkEventConditionPattern(p, group.Name) {
+					return true
+				}
+			}
 		}
 	}
-
-	return false
+	return matches
 }
 
 func getHTTPRuleActionEndpoint(c *dataprovider.EventActionHTTPConfig, replacer *strings.Replacer) (string, error) {

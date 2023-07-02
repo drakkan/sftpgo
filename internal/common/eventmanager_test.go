@@ -406,6 +406,66 @@ func TestMultipleDoubleStarMatchingInverse(t *testing.T) {
 	assert.True(t, checkEventConditionPatterns("/mydir/sub/test.csv", patterns))
 }
 
+func TestGroupConditionPatterns(t *testing.T) {
+	group1 := "group1"
+	group2 := "group2"
+	patterns := []dataprovider.ConditionPattern{
+		{
+			Pattern: group1,
+		},
+		{
+			Pattern: group2,
+		},
+	}
+	inversePatterns := []dataprovider.ConditionPattern{
+		{
+			Pattern:      group1,
+			InverseMatch: true,
+		},
+		{
+			Pattern:      group2,
+			InverseMatch: true,
+		},
+	}
+	groups := []sdk.GroupMapping{
+		{
+			Name: "group3",
+			Type: sdk.GroupTypePrimary,
+		},
+	}
+	assert.False(t, checkEventGroupConditionPatterns(groups, patterns))
+	assert.True(t, checkEventGroupConditionPatterns(groups, inversePatterns))
+
+	groups = []sdk.GroupMapping{
+		{
+			Name: group1,
+			Type: sdk.GroupTypePrimary,
+		},
+		{
+			Name: "group4",
+			Type: sdk.GroupTypePrimary,
+		},
+	}
+	assert.True(t, checkEventGroupConditionPatterns(groups, patterns))
+	assert.False(t, checkEventGroupConditionPatterns(groups, inversePatterns))
+	groups = []sdk.GroupMapping{
+		{
+			Name: group1,
+			Type: sdk.GroupTypePrimary,
+		},
+	}
+	assert.True(t, checkEventGroupConditionPatterns(groups, patterns))
+	assert.False(t, checkEventGroupConditionPatterns(groups, inversePatterns))
+	groups = []sdk.GroupMapping{
+		{
+			Name: "group11",
+			Type: sdk.GroupTypePrimary,
+		},
+	}
+	assert.False(t, checkEventGroupConditionPatterns(groups, patterns))
+	assert.True(t, checkEventGroupConditionPatterns(groups, inversePatterns))
+}
+
 func TestEventManager(t *testing.T) {
 	startEventScheduler()
 	action := &dataprovider.BaseEventAction{

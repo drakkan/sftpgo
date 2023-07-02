@@ -27,7 +27,7 @@ require (
 	github.com/fclairamb/go-log v0.4.1
 	github.com/go-acme/lego/v4 v4.12.3
 	github.com/go-chi/chi/v5 v5.0.9-0.20230502103705-7f280968675b
-	github.com/go-chi/jwtauth/v5 v5.1.0
+	github.com/go-chi/jwtauth/v5 v5.1.1
 	github.com/go-chi/render v1.0.2
 	github.com/go-sql-driver/mysql v1.7.1
 	github.com/golang/mock v1.6.0
@@ -54,7 +54,7 @@ require (
 	github.com/rs/xid v1.5.0
 	github.com/rs/zerolog v1.29.1
 	github.com/sftpgo/sdk v0.1.5
-	github.com/shirou/gopsutil/v3 v3.23.5
+	github.com/shirou/gopsutil/v3 v3.23.6
 	github.com/spf13/afero v1.9.5
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.16.0
@@ -161,9 +161,9 @@ require (
 	golang.org/x/tools v0.10.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20230628200519-e449d1ea0e82 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20230628200519-e449d1ea0e82 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20230628200519-e449d1ea0e82 // indirect
+	google.golang.org/genproto v0.0.0-20230629202037-9506855d4529 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20230629202037-9506855d4529 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20230629202037-9506855d4529 // indirect
 	google.golang.org/grpc v1.56.1 // indirect
 	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
