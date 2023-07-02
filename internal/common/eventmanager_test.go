@@ -355,6 +355,55 @@ func TestDoubleStarMatching(t *testing.T) {
 	assert.False(t, res)
 	res = checkEventConditionPattern(c, "/mydir/sub/dir/a.txt")
 	assert.True(t, res)
+
+	c.InverseMatch = true
+	assert.True(t, checkEventConditionPattern(c, "/mydir"))
+	assert.True(t, checkEventConditionPattern(c, "/mydirname/f.txt"))
+	assert.True(t, checkEventConditionPattern(c, "/mydir/sub"))
+	assert.True(t, checkEventConditionPattern(c, "/mydir/sub/dir"))
+	assert.False(t, checkEventConditionPattern(c, "/mydir/sub/dir/a.txt"))
+}
+
+func TestMutlipleDoubleStarMatching(t *testing.T) {
+	patterns := []dataprovider.ConditionPattern{
+		{
+			Pattern:      "/**/*.txt",
+			InverseMatch: false,
+		},
+		{
+			Pattern:      "/**/*.tmp",
+			InverseMatch: false,
+		},
+	}
+	assert.False(t, checkEventConditionPatterns("/mydir", patterns))
+	assert.True(t, checkEventConditionPatterns("/mydir/test.tmp", patterns))
+	assert.True(t, checkEventConditionPatterns("/mydir/test.txt", patterns))
+	assert.False(t, checkEventConditionPatterns("/mydir/test.csv", patterns))
+	assert.False(t, checkEventConditionPatterns("/mydir/sub", patterns))
+	assert.True(t, checkEventConditionPatterns("/mydir/sub/test.tmp", patterns))
+	assert.True(t, checkEventConditionPatterns("/mydir/sub/test.txt", patterns))
+	assert.False(t, checkEventConditionPatterns("/mydir/sub/test.csv", patterns))
+}
+
+func TestMultipleDoubleStarMatchingInverse(t *testing.T) {
+	patterns := []dataprovider.ConditionPattern{
+		{
+			Pattern:      "/**/*.txt",
+			InverseMatch: true,
+		},
+		{
+			Pattern:      "/**/*.tmp",
+			InverseMatch: true,
+		},
+	}
+	assert.True(t, checkEventConditionPatterns("/mydir", patterns))
+	assert.False(t, checkEventConditionPatterns("/mydir/test.tmp", patterns))
+	assert.False(t, checkEventConditionPatterns("/mydir/test.txt", patterns))
+	assert.True(t, checkEventConditionPatterns("/mydir/test.csv", patterns))
+	assert.True(t, checkEventConditionPatterns("/mydir/sub", patterns))
+	assert.False(t, checkEventConditionPatterns("/mydir/sub/test.tmp", patterns))
+	assert.False(t, checkEventConditionPatterns("/mydir/sub/test.txt", patterns))
+	assert.True(t, checkEventConditionPatterns("/mydir/sub/test.csv", patterns))
 }
 
 func TestEventManager(t *testing.T) {
