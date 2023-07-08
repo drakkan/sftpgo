@@ -222,7 +222,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                                 </div>
                                 <div class="card-body">
                                     <h6 class="card-title mb-4">Comma separated denied or allowed files/directories, based on shell patterns.</h6>
-                                    <p class="card-text">Match is case insensitive, set you patterns as lowercase. Denied entries are visible in directory listing by default, you can hide them by setting the "Hidden" policy, but please be aware that this may cause performance issues for large directories</p>
+                                    <p class="card-text">Match is case insensitive, set you patterns as lowercase. Denied entries are visible in directory listing by default, you can hide them by setting the "Hidden" policy, but please be aware that this may cause performance issues for large directories. Setting a denied pattern as "*" and allowed pattern/s for the same directory you can create denied except rules, but note that if you allow a directory, everything in it will be allowed unless more specific patterns/permissions are defined.</p>
                                     <div class="form-group row">
                                         <div class="col-md-12 form_field_patterns_outer">
                                             {{range $idx, $pattern := .Group.UserSettings.Filters.GetFlatFilePatterns -}}
