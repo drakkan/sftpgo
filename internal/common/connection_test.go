@@ -28,6 +28,7 @@ import (
 	"github.com/rs/xid"
 	"github.com/sftpgo/sdk"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/kms"
@@ -647,7 +648,7 @@ func TestFsFileCopier(t *testing.T) {
 	assert.True(t, ok)
 }
 
-func TestFilterListDirs(t *testing.T) {
+func TestFilePatterns(t *testing.T) {
 	filters := dataprovider.UserFilters{
 		BaseUserFilters: sdk.BaseUserFilters{
 			FilePatterns: []sdk.PatternsFilter{
@@ -660,6 +661,16 @@ func TestFilterListDirs(t *testing.T) {
 					Path:            "/dir2",
 					DenyPolicy:      sdk.DenyPolicyHide,
 					AllowedPatterns: []string{"*.jpg"},
+				},
+				{
+					Path:           "/dir3",
+					DenyPolicy:     sdk.DenyPolicyDefault,
+					DeniedPatterns: []string{"*.jpg"},
+				},
+				{
+					Path:           "/dir4",
+					DenyPolicy:     sdk.DenyPolicyHide,
+					DeniedPatterns: []string{"*"},
 				},
 			},
 		},
@@ -693,12 +704,89 @@ func TestFilterListDirs(t *testing.T) {
 		vfs.NewFileInfo("file1.txt", false, 123, time.Now(), false),
 		vfs.NewFileInfo("file1.jpg", false, 123, time.Now(), false),
 	}
-
+	// dirContents are modified in place, we need to redefine them each time
 	filtered := user.FilterListDir(dirContents, "/dir1")
 	assert.Len(t, filtered, 5)
 
+	dirContents = []os.FileInfo{
+		vfs.NewFileInfo("file1.txt", false, 123, time.Now(), false),
+		vfs.NewFileInfo("file1.jpg", false, 123, time.Now(), false),
+	}
+	filtered = user.FilterListDir(dirContents, "/dir1/vdir1")
+	assert.Len(t, filtered, 2)
+
+	dirContents = []os.FileInfo{
+		vfs.NewFileInfo("file1.txt", false, 123, time.Now(), false),
+		vfs.NewFileInfo("file1.jpg", false, 123, time.Now(), false),
+	}
+	filtered = user.FilterListDir(dirContents, "/dir2/vdir2")
+	require.Len(t, filtered, 1)
+	assert.Equal(t, "file1.jpg", filtered[0].Name())
+
+	dirContents = []os.FileInfo{
+		vfs.NewFileInfo("file1.txt", false, 123, time.Now(), false),
+		vfs.NewFileInfo("file1.jpg", false, 123, time.Now(), false),
+	}
+	filtered = user.FilterListDir(dirContents, "/dir2/vdir2/sub")
+	require.Len(t, filtered, 1)
+	assert.Equal(t, "file1.jpg", filtered[0].Name())
+
+	res, _ := user.IsFileAllowed("/dir1/vdir1/file.txt")
+	assert.False(t, res)
+	res, _ = user.IsFileAllowed("/dir1/vdir1/sub/file.txt")
+	assert.False(t, res)
+	res, _ = user.IsFileAllowed("/dir1/vdir1/file.jpg")
+	assert.True(t, res)
+	res, _ = user.IsFileAllowed("/dir1/vdir1/sub/file.jpg")
+	assert.True(t, res)
+	res, _ = user.IsFileAllowed("/dir3/file.jpg")
+	assert.False(t, res)
+	res, _ = user.IsFileAllowed("/dir3/dir1/file.jpg")
+	assert.False(t, res)
+	res, _ = user.IsFileAllowed("/dir3/dir1/sub/file.jpg")
+	assert.False(t, res)
+	res, _ = user.IsFileAllowed("/dir4/file.jpg")
+	assert.False(t, res)
+	res, _ = user.IsFileAllowed("/dir4/dir1/sub/file.jpg")
+	assert.False(t, res)
+
+	dirContents = []os.FileInfo{
+		vfs.NewFileInfo("file1.txt", false, 123, time.Now(), false),
+		vfs.NewFileInfo("file1.jpg", false, 123, time.Now(), false),
+	}
+	filtered = user.FilterListDir(dirContents, "/dir4")
+	require.Len(t, filtered, 0)
+
+	dirContents = []os.FileInfo{
+		vfs.NewFileInfo("file1.txt", false, 123, time.Now(), false),
+		vfs.NewFileInfo("file1.jpg", false, 123, time.Now(), false),
+	}
+	filtered = user.FilterListDir(dirContents, "/dir4/vdir2/sub")
+	require.Len(t, filtered, 0)
+
+	dirContents = []os.FileInfo{
+		vfs.NewFileInfo("file1.txt", false, 123, time.Now(), false),
+		vfs.NewFileInfo("file1.jpg", false, 123, time.Now(), false),
+	}
+
 	filtered = user.FilterListDir(dirContents, "/dir2")
 	assert.Len(t, filtered, 2)
+
+	dirContents = []os.FileInfo{
+		vfs.NewFileInfo("file1.txt", false, 123, time.Now(), false),
+		vfs.NewFileInfo("file1.jpg", false, 123, time.Now(), false),
+	}
+
+	filtered = user.FilterListDir(dirContents, "/dir4")
+	assert.Len(t, filtered, 0)
+
+	dirContents = []os.FileInfo{
+		vfs.NewFileInfo("file1.txt", false, 123, time.Now(), false),
+		vfs.NewFileInfo("file1.jpg", false, 123, time.Now(), false),
+	}
+
+	filtered = user.FilterListDir(dirContents, "/dir4/sub")
+	assert.Len(t, filtered, 0)
 
 	dirContents = []os.FileInfo{
 		vfs.NewFileInfo("file1.txt", false, 123, time.Now(), false),
@@ -707,11 +795,6 @@ func TestFilterListDirs(t *testing.T) {
 
 	filtered = user.FilterListDir(dirContents, "/dir1")
 	assert.Len(t, filtered, 5)
-
-	dirContents = []os.FileInfo{
-		vfs.NewFileInfo("file1.txt", false, 123, time.Now(), false),
-		vfs.NewFileInfo("vdir3.jpg", false, 123, time.Now(), false),
-	}
 
 	filtered = user.FilterListDir(dirContents, "/dir2")
 	if assert.Len(t, filtered, 1) {
@@ -799,7 +882,155 @@ func TestFilterListDirs(t *testing.T) {
 	dirContents = append(dirContents, vfs.NewFileInfo("file.jpg", false, 123, time.Now(), false))
 
 	filtered = user.FilterListDir(dirContents, "/dir3")
-	if assert.Len(t, filtered, 1) {
-		assert.Equal(t, "ic35", filtered[0].Name())
+	require.Len(t, filtered, 1)
+	assert.Equal(t, "ic35", filtered[0].Name())
+
+	dirContents = []os.FileInfo{
+		vfs.NewFileInfo("file1.jpg", false, 123, time.Now(), false),
+		vfs.NewFileInfo("file1.txt", false, 123, time.Now(), false),
+		vfs.NewFileInfo("file2.txt", false, 123, time.Now(), false),
 	}
+	filtered = user.FilterListDir(dirContents, "/dir3/ic36")
+	require.Len(t, filtered, 0)
+
+	dirContents = []os.FileInfo{
+		vfs.NewFileInfo("file1.jpg", false, 123, time.Now(), false),
+		vfs.NewFileInfo("file1.txt", false, 123, time.Now(), false),
+		vfs.NewFileInfo("file2.txt", false, 123, time.Now(), false),
+	}
+	filtered = user.FilterListDir(dirContents, "/dir3/ic35")
+	require.Len(t, filtered, 3)
+
+	dirContents = []os.FileInfo{
+		vfs.NewFileInfo("file1.jpg", false, 123, time.Now(), false),
+		vfs.NewFileInfo("file1.txt", false, 123, time.Now(), false),
+		vfs.NewFileInfo("file2.txt", false, 123, time.Now(), false),
+	}
+	filtered = user.FilterListDir(dirContents, "/dir3/ic35/sub")
+	require.Len(t, filtered, 3)
+
+	res, _ = user.IsFileAllowed("/dir3/file.txt")
+	assert.False(t, res)
+	res, _ = user.IsFileAllowed("/dir3/ic35a")
+	assert.False(t, res)
+	res, policy := user.IsFileAllowed("/dir3/ic35a/file")
+	assert.False(t, res)
+	assert.Equal(t, sdk.DenyPolicyHide, policy)
+	res, _ = user.IsFileAllowed("/dir3/ic35")
+	assert.True(t, res)
+	res, _ = user.IsFileAllowed("/dir3/ic35/file.jpg")
+	assert.True(t, res)
+	res, _ = user.IsFileAllowed("/dir3/ic35/file.txt")
+	assert.True(t, res)
+	res, _ = user.IsFileAllowed("/dir3/ic35/sub/file.txt")
+	assert.True(t, res)
+
+	dirContents = []os.FileInfo{
+		vfs.NewFileInfo("file1.jpg", false, 123, time.Now(), false),
+		vfs.NewFileInfo("file1.txt", false, 123, time.Now(), false),
+		vfs.NewFileInfo("file2.txt", false, 123, time.Now(), false),
+	}
+	filtered = user.FilterListDir(dirContents, "/dir3/ic35/sub")
+	require.Len(t, filtered, 3)
+
+	user.Filters.FilePatterns = append(user.Filters.FilePatterns, sdk.PatternsFilter{
+		Path:            "/dir3/ic35/sub1",
+		AllowedPatterns: []string{"*.jpg"},
+		DenyPolicy:      sdk.DenyPolicyDefault,
+	})
+	user.Filters.FilePatterns = append(user.Filters.FilePatterns, sdk.PatternsFilter{
+		Path:           "/dir3/ic35/sub2",
+		DeniedPatterns: []string{"*.jpg"},
+		DenyPolicy:     sdk.DenyPolicyHide,
+	})
+
+	dirContents = []os.FileInfo{
+		vfs.NewFileInfo("file1.jpg", false, 123, time.Now(), false),
+		vfs.NewFileInfo("file1.txt", false, 123, time.Now(), false),
+		vfs.NewFileInfo("file2.txt", false, 123, time.Now(), false),
+	}
+	filtered = user.FilterListDir(dirContents, "/dir3/ic35/sub1")
+	require.Len(t, filtered, 3)
+
+	dirContents = []os.FileInfo{
+		vfs.NewFileInfo("file1.jpg", false, 123, time.Now(), false),
+		vfs.NewFileInfo("file1.txt", false, 123, time.Now(), false),
+		vfs.NewFileInfo("file2.txt", false, 123, time.Now(), false),
+	}
+	filtered = user.FilterListDir(dirContents, "/dir3/ic35/sub2")
+	require.Len(t, filtered, 2)
+
+	dirContents = []os.FileInfo{
+		vfs.NewFileInfo("file1.jpg", false, 123, time.Now(), false),
+		vfs.NewFileInfo("file1.txt", false, 123, time.Now(), false),
+		vfs.NewFileInfo("file2.txt", false, 123, time.Now(), false),
+	}
+	filtered = user.FilterListDir(dirContents, "/dir3/ic35/sub2/sub1")
+	require.Len(t, filtered, 2)
+
+	res, _ = user.IsFileAllowed("/dir3/ic35/file.jpg")
+	assert.True(t, res)
+	res, _ = user.IsFileAllowed("/dir3/ic35/file.txt")
+	assert.True(t, res)
+	res, _ = user.IsFileAllowed("/dir3/ic35/sub/dir/file.txt")
+	assert.True(t, res)
+	res, _ = user.IsFileAllowed("/dir3/ic35/sub/dir/file.jpg")
+	assert.True(t, res)
+
+	res, _ = user.IsFileAllowed("/dir3/ic35/sub1/file.jpg")
+	assert.True(t, res)
+	res, _ = user.IsFileAllowed("/dir3/ic35/sub1/file.txt")
+	assert.False(t, res)
+	res, _ = user.IsFileAllowed("/dir3/ic35/sub1/sub/file.jpg")
+	assert.True(t, res)
+	res, _ = user.IsFileAllowed("/dir3/ic35/sub1/sub2/file.txt")
+	assert.False(t, res)
+
+	res, _ = user.IsFileAllowed("/dir3/ic35/sub2/file.jpg")
+	assert.False(t, res)
+	res, _ = user.IsFileAllowed("/dir3/ic35/sub2/file.txt")
+	assert.True(t, res)
+	res, _ = user.IsFileAllowed("/dir3/ic35/sub2/sub/file.jpg")
+	assert.False(t, res)
+	res, _ = user.IsFileAllowed("/dir3/ic35/sub2/sub1/file.txt")
+	assert.True(t, res)
+
+	user.Filters.FilePatterns = append(user.Filters.FilePatterns, sdk.PatternsFilter{
+		Path:           "/dir3/ic35",
+		DeniedPatterns: []string{"*.txt"},
+		DenyPolicy:     sdk.DenyPolicyHide,
+	})
+	res, _ = user.IsFileAllowed("/dir3/ic35/file.jpg")
+	assert.True(t, res)
+	res, _ = user.IsFileAllowed("/dir3/ic35/file.txt")
+	assert.False(t, res)
+	res, _ = user.IsFileAllowed("/dir3/ic35/adir/sub/file.jpg")
+	assert.True(t, res)
+	res, _ = user.IsFileAllowed("/dir3/ic35/adir/file.txt")
+	assert.False(t, res)
+
+	res, _ = user.IsFileAllowed("/dir3/ic35/sub2/file.jpg")
+	assert.False(t, res)
+	res, _ = user.IsFileAllowed("/dir3/ic35/sub2/file.txt")
+	assert.True(t, res)
+	res, _ = user.IsFileAllowed("/dir3/ic35/sub2/sub/file.jpg")
+	assert.False(t, res)
+	res, _ = user.IsFileAllowed("/dir3/ic35/sub2/sub1/file.txt")
+	assert.True(t, res)
+
+	dirContents = []os.FileInfo{
+		vfs.NewFileInfo("file1.jpg", false, 123, time.Now(), false),
+		vfs.NewFileInfo("file1.txt", false, 123, time.Now(), false),
+		vfs.NewFileInfo("file2.txt", false, 123, time.Now(), false),
+	}
+	filtered = user.FilterListDir(dirContents, "/dir3/ic35")
+	require.Len(t, filtered, 1)
+
+	dirContents = []os.FileInfo{
+		vfs.NewFileInfo("file1.jpg", false, 123, time.Now(), false),
+		vfs.NewFileInfo("file1.txt", false, 123, time.Now(), false),
+		vfs.NewFileInfo("file2.txt", false, 123, time.Now(), false),
+	}
+	filtered = user.FilterListDir(dirContents, "/dir3/ic35/abc")
+	require.Len(t, filtered, 1)
 }
