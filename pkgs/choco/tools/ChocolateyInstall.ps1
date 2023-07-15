@@ -1,8 +1,8 @@
 ﻿$ErrorActionPreference  = 'Stop'
 $packageName    = 'sftpgo'
 $softwareName   = 'SFTPGo'
-$url            = 'https://github.com/drakkan/sftpgo/releases/download/v2.5.3/sftpgo_v2.5.3_windows_x86_64.exe'
-$checksum       = '4D41FC5267D3A25D879D7D99597AAD2E40D4121D19AA839C2AC67D391169A50F'
+$url            = 'https://github.com/drakkan/sftpgo/releases/download/v2.5.4/sftpgo_v2.5.4_windows_x86_64.exe'
+$checksum       = '38AA95A6B7E6044977CBDBDAB86DC9F91FCC40285D10C1E5D432BA78AF498017'
 $silentArgs     = '/VERYSILENT'
 $validExitCodes = @(0)
 
@@ -47,8 +47,8 @@ Write-Output ""
 Write-Output "General information (README) location:"
 Write-Output "`thttps://github.com/drakkan/sftpgo"
 Write-Output "Getting started guide location:"
-Write-Output "`thttps://github.com/drakkan/sftpgo/blob/v2.5.3/docs/howto/getting-started.md"
+Write-Output "`thttps://github.com/drakkan/sftpgo/blob/v2.5.4/docs/howto/getting-started.md"
 Write-Output "Detailed information (docs folder) location:"
-Write-Output "`thttps://github.com/drakkan/sftpgo/tree/v2.5.3/docs"
+Write-Output "`thttps://github.com/drakkan/sftpgo/tree/v2.5.4/docs"
 Write-Output ""
 Write-Output "---------------------------"

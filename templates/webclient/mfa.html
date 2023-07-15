@@ -192,7 +192,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
             headers: {'X-CSRF-TOKEN' : '{{.CSRFToken}}'},
             data: JSON.stringify({"config_name": $('#idConfig option:selected').val()}),
             dataType: 'json',
-            contentType: 'application/json; charset=utf-8',
+            contentType: 'application/json',
             timeout: 15000,
             success: function (result) {
                 $('.totpDisable').hide();
@@ -236,7 +236,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
             headers: {'X-CSRF-TOKEN' : '{{.CSRFToken}}'},
             data: JSON.stringify({"passcode": passcode, "config_name": $('#idConfig option:selected').val(), "secret": $('#idSecret').text()}),
             dataType: 'json',
-            contentType: 'application/json; charset=utf-8',
+            contentType: 'application/json',
             timeout: 15000,
             success: function (result) {
                 totpSave();
@@ -273,7 +273,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
             headers: {'X-CSRF-TOKEN' : '{{.CSRFToken}}'},
             data: JSON.stringify({"enabled": true, "config_name": $('#idConfig option:selected').val(), "protocols": protocolsArray, "secret": {"status": "Plain", "payload": $('#idSecret').text()}}),
             dataType: 'json',
-            contentType: 'application/json; charset=utf-8',
+            contentType: 'application/json',
             timeout: 15000,
             success: function (result) {
                 $('#successTOTPTxt').text("Configuration saved");
@@ -318,7 +318,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
             headers: {'X-CSRF-TOKEN' : '{{.CSRFToken}}'},
             data: JSON.stringify({"protocols": protocolsArray}),
             dataType: 'json',
-            contentType: 'application/json; charset=utf-8',
+            contentType: 'application/json',
             timeout: 15000,
             success: function (result) {
                 $('#successTOTPTxt').text("Protocols updated");
@@ -356,7 +356,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
             headers: {'X-CSRF-TOKEN' : '{{.CSRFToken}}'},
             data: JSON.stringify({"enabled": false}),
             dataType: 'json',
-            contentType: 'application/json; charset=utf-8',
+            contentType: 'application/json',
             timeout: 15000,
             success: function (result) {
                 location.reload();
@@ -429,7 +429,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
             type: 'POST',
             headers: {'X-CSRF-TOKEN' : '{{.CSRFToken}}'},
             dataType: 'json',
-            contentType: 'application/json; charset=utf-8',
+            contentType: 'application/json',
             timeout: 15000,
             success: function (result) {
                 $('.viewRecoveryCodes').hide();
