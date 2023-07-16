@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/alexedwards/argon2id"
+	passwordvalidator "github.com/wagslane/go-password-validator"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/drakkan/sftpgo/v2/internal/logger"
@@ -178,6 +179,15 @@ func (s *Share) HasRedactedPassword() bool {
 
 func (s *Share) hashPassword() error {
 	if s.Password != "" && !util.IsStringPrefixInSlice(s.Password, internalHashPwdPrefixes) {
+		user, err := UserExists(s.Username, "")
+		if err != nil {
+			return util.NewGenericError(fmt.Sprintf("unable to validate user: %v", err))
+		}
+		if minEntropy := user.getMinPasswordEntropy(); minEntropy > 0 {
+			if err := passwordvalidator.Validate(s.Password, minEntropy); err != nil {
+				return util.NewValidationError(err.Error())
+			}
+		}
 		if config.PasswordHashing.Algo == HashingAlgoBcrypt {
 			hashed, err := bcrypt.GenerateFromPassword([]byte(s.Password), config.PasswordHashing.BcryptOptions.Cost)
 			if err != nil {
