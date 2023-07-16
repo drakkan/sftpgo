@@ -14889,9 +14889,11 @@ func TestUserAPIShares(t *testing.T) {
 func TestUsersAPISharesNoPasswordDisabled(t *testing.T) {
 	u := getTestUser()
 	u.Filters.WebClient = []string{sdk.WebClientShareNoPasswordDisabled}
+	u.Filters.PasswordStrength = 70
+	u.Password = "ahpoo8baa6EeZieshies"
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
-	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, u.Password)
 	assert.NoError(t, err)
 
 	share := dataprovider.Share{
@@ -14909,6 +14911,15 @@ func TestUsersAPISharesNoPasswordDisabled(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "You are not authorized to share files/folders without a password")
 
 	share.Password = defaultPassword
+	asJSON, err = json.Marshal(share)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+
+	share.Password = "vi5eiJoovee5ya9yahpi"
 	asJSON, err = json.Marshal(share)
 	assert.NoError(t, err)
 	req, err = http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
