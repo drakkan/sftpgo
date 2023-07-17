@@ -116,7 +116,7 @@ The program must finish within 15 seconds.
 
 If the `hook` defines an HTTP URL then this URL will be invoked as HTTP POST. The action, username, ip, object_type and object_name and timestamp and role are added to the query string, for example `<hook>?action=update&username=admin&ip=127.0.0.1&object_type=user&object_name=user1&timestamp=1633860803249`, and the full object is sent serialized as JSON inside the POST body with sensitive fields removed. The role is added only if not empty.
 
-The HTTP hook will use the global configuration for HTTP clients and will respect the retry configurations.
+The HTTP hook will use the global configuration for HTTP clients and will respect the retry, TLS and headers configurations. See the HTTP Clients (`http`) section of the [config reference](./full-configuration.md).  
 
 The structure for SFTPGo objects can be found within the [OpenAPI schema](../openapi/openapi.yaml).
 
