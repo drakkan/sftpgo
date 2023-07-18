@@ -23,4 +23,4 @@ If the hook defines an HTTP URL then this URL will be invoked as HTTP GET with t
 - `username`, can be empty if the channel is closed before user authentication
 - `connection_duration`, connection duration in milliseconds
 
-The HTTP hook will use the global configuration for HTTP clients and will respect the retry configurations.
+The HTTP hook will use the global configuration for HTTP clients and will respect the retry, TLS and headers configurations. See the HTTP Clients (`http`) section of the [config reference](./full-configuration.md).

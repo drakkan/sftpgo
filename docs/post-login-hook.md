@@ -20,7 +20,7 @@ The request body will contain the user serialized as JSON.
 
 The structure for SFTPGo users can be found within the [OpenAPI schema](../openapi/openapi.yaml).
 
-The HTTP hook will use the global configuration for HTTP clients and will respect the retry configurations.
+The HTTP hook will use the global configuration for HTTP clients and will respect the retry, TLS and headers configurations. See the HTTP Clients (`http`) section of the [config reference](./full-configuration.md).
 
 The `post_login_scope` supports the following configuration values:
 

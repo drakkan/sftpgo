@@ -21,4 +21,4 @@ If the hook defines an HTTP URL then this URL will be invoked as HTTP GET with t
 
 The connection is accepted if the HTTP response code is `200` otherwise rejected.
 
-The HTTP hook will use the global configuration for HTTP clients and will respect the retry configurations.
+The HTTP hook will use the global configuration for HTTP clients and will respect the retry, TLS and headers configurations. See the HTTP Clients (`http`) section of the [config reference](./full-configuration.md).
