@@ -13,7 +13,7 @@ The program must finish within 20 seconds.
 
 If the hook defines an HTTP URL then this URL will be invoked as HTTP POST and the POST body contains the data retention check result JSON serialized.
 
-The HTTP hook will use the global configuration for HTTP clients and will respect the retry configurations.
+The HTTP hook will use the global configuration for HTTP clients and will respect the retry, TLS and headers configurations. See the HTTP Clients (`http`) section of the [config reference](./full-configuration.md).
 
 Here is the schema for the data retention check result:
 

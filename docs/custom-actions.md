@@ -77,7 +77,7 @@ If the `hook` defines an HTTP URL then this URL will be invoked as HTTP POST. Th
 - `role`, string. Included if the user who executed the action has a role
 - `timestamp`, int64. Event timestamp as nanoseconds since epoch
 
-The HTTP hook will use the global configuration for HTTP clients and will respect the retry configurations.
+The HTTP hook will use the global configuration for HTTP clients and will respect the retry, TLS and headers configurations. See the HTTP Clients (`http`) section of the [config reference](./full-configuration.md).
 
 The `pre-*` actions are always executed synchronously while the other ones are asynchronous. You can specify the actions to run synchronously via the `execute_sync` configuration key. Executing an action synchronously means that SFTPGo will not return a result code to the client (which is waiting for it) until your hook have completed its execution. If your hook takes a long time to complete this could cause a timeout on the client side, which wouldn't receive the server response in a timely manner and eventually drop the connection.
 If you add the `upload` action to the `execute_sync` configuration key, SFTPGo will try to delete the uploaded file and return an error to the client if the hook fails. A hook is considered failed if the external command completes with a non-zero exit status or the HTTP notification response code is other than `200` (or the HTTP endpoint cannot be reached or times out).
@@ -116,7 +116,7 @@ The program must finish within 15 seconds.
 
 If the `hook` defines an HTTP URL then this URL will be invoked as HTTP POST. The action, username, ip, object_type and object_name and timestamp and role are added to the query string, for example `<hook>?action=update&username=admin&ip=127.0.0.1&object_type=user&object_name=user1&timestamp=1633860803249`, and the full object is sent serialized as JSON inside the POST body with sensitive fields removed. The role is added only if not empty.
 
-The HTTP hook will use the global configuration for HTTP clients and will respect the retry configurations.
+The HTTP hook will use the global configuration for HTTP clients and will respect the retry, TLS and headers configurations. See the HTTP Clients (`http`) section of the [config reference](./full-configuration.md).  
 
 The structure for SFTPGo objects can be found within the [OpenAPI schema](../openapi/openapi.yaml).
 
