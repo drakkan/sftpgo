@@ -47,6 +47,7 @@ const (
 	PermAdminViewServerStatus = "view_status"
 	PermAdminManageAdmins     = "manage_admins"
 	PermAdminManageGroups     = "manage_groups"
+	PermAdminManageFolders    = "manage_folders"
 	PermAdminManageAPIKeys    = "manage_apikeys"
 	PermAdminQuotaScans       = "quota_scans"
 	PermAdminManageSystem     = "manage_system"
@@ -71,11 +72,11 @@ const (
 
 var (
 	validAdminPerms = []string{PermAdminAny, PermAdminAddUsers, PermAdminChangeUsers, PermAdminDeleteUsers,
-		PermAdminViewUsers, PermAdminManageGroups, PermAdminViewConnections, PermAdminCloseConnections,
-		PermAdminViewServerStatus, PermAdminManageAdmins, PermAdminManageRoles, PermAdminManageEventRules,
-		PermAdminManageAPIKeys, PermAdminQuotaScans, PermAdminManageSystem, PermAdminManageDefender,
-		PermAdminViewDefender, PermAdminManageIPLists, PermAdminRetentionChecks, PermAdminMetadataChecks,
-		PermAdminViewEvents}
+		PermAdminViewUsers, PermAdminManageFolders, PermAdminManageGroups, PermAdminViewConnections,
+		PermAdminCloseConnections, PermAdminViewServerStatus, PermAdminManageAdmins, PermAdminManageRoles,
+		PermAdminManageEventRules, PermAdminManageAPIKeys, PermAdminQuotaScans, PermAdminManageSystem,
+		PermAdminManageDefender, PermAdminViewDefender, PermAdminManageIPLists, PermAdminRetentionChecks,
+		PermAdminMetadataChecks, PermAdminViewEvents}
 	forbiddenPermsForRoleAdmins = []string{PermAdminAny, PermAdminManageAdmins, PermAdminManageSystem,
 		PermAdminManageEventRules, PermAdminManageIPLists, PermAdminManageRoles}
 )

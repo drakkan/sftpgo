@@ -751,20 +751,6 @@ func getDeleteFolderQuery() string {
 	return fmt.Sprintf(`DELETE FROM %s WHERE name = %s`, sqlTableFolders, sqlPlaceholders[0])
 }
 
-func getUpsertFolderQuery() string {
-	if config.Driver == MySQLDataProviderName {
-		return fmt.Sprintf("INSERT INTO %s (`path`,`used_quota_size`,`used_quota_files`,`last_quota_update`,`name`,"+
-			"`description`,`filesystem`) VALUES (%s,%s,%s,%s,%s,%s,%s) ON DUPLICATE KEY UPDATE "+
-			"`path`=VALUES(`path`),`description`=VALUES(`description`),`filesystem`=VALUES(`filesystem`)",
-			sqlTableFolders, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2], sqlPlaceholders[3], sqlPlaceholders[4],
-			sqlPlaceholders[5], sqlPlaceholders[6])
-	}
-	return fmt.Sprintf(`INSERT INTO %s (path,used_quota_size,used_quota_files,last_quota_update,name,description,filesystem)
-		VALUES (%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (name) DO UPDATE SET path = EXCLUDED.path,description=EXCLUDED.description,
-		filesystem=EXCLUDED.filesystem`, sqlTableFolders, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2],
-		sqlPlaceholders[3], sqlPlaceholders[4], sqlPlaceholders[5], sqlPlaceholders[6])
-}
-
 func getClearUserGroupMappingQuery() string {
 	return fmt.Sprintf(`DELETE FROM %s WHERE user_id = (SELECT id FROM %s WHERE username = %s)`, sqlTableUsersGroupsMapping,
 		sqlTableUsers, sqlPlaceholders[0])

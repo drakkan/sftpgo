@@ -1297,11 +1297,11 @@ func (s *httpdServer) initializeRouter() {
 			router.With(s.checkPerm(dataprovider.PermAdminChangeUsers)).Put(userPath+"/{username}", updateUser)
 			router.With(s.checkPerm(dataprovider.PermAdminDeleteUsers)).Delete(userPath+"/{username}", deleteUser)
 			router.With(s.checkPerm(dataprovider.PermAdminChangeUsers)).Put(userPath+"/{username}/2fa/disable", disableUser2FA)
-			router.With(s.checkPerm(dataprovider.PermAdminViewUsers)).Get(folderPath, getFolders)
-			router.With(s.checkPerm(dataprovider.PermAdminViewUsers)).Get(folderPath+"/{name}", getFolderByName)
-			router.With(s.checkPerm(dataprovider.PermAdminAddUsers)).Post(folderPath, addFolder)
-			router.With(s.checkPerm(dataprovider.PermAdminChangeUsers)).Put(folderPath+"/{name}", updateFolder)
-			router.With(s.checkPerm(dataprovider.PermAdminDeleteUsers)).Delete(folderPath+"/{name}", deleteFolder)
+			router.With(s.checkPerm(dataprovider.PermAdminManageFolders)).Get(folderPath, getFolders)
+			router.With(s.checkPerm(dataprovider.PermAdminManageFolders)).Get(folderPath+"/{name}", getFolderByName)
+			router.With(s.checkPerm(dataprovider.PermAdminManageFolders)).Post(folderPath, addFolder)
+			router.With(s.checkPerm(dataprovider.PermAdminManageFolders)).Put(folderPath+"/{name}", updateFolder)
+			router.With(s.checkPerm(dataprovider.PermAdminManageFolders)).Delete(folderPath+"/{name}", deleteFolder)
 			router.With(s.checkPerm(dataprovider.PermAdminManageGroups)).Get(groupPath, getGroups)
 			router.With(s.checkPerm(dataprovider.PermAdminManageGroups)).Get(groupPath+"/{name}", getGroupByName)
 			router.With(s.checkPerm(dataprovider.PermAdminManageGroups)).Post(groupPath, addGroup)
@@ -1652,11 +1652,11 @@ func (s *httpdServer) setupWebAdminRoutes() {
 				Delete(webGroupPath+"/{name}", deleteGroup)
 			router.With(s.checkPerm(dataprovider.PermAdminViewConnections), s.refreshCookie).
 				Get(webConnectionsPath, s.handleWebGetConnections)
-			router.With(s.checkPerm(dataprovider.PermAdminViewUsers), s.refreshCookie).
+			router.With(s.checkPerm(dataprovider.PermAdminManageFolders), s.refreshCookie).
 				Get(webFoldersPath, s.handleWebGetFolders)
-			router.With(s.checkPerm(dataprovider.PermAdminAddUsers), s.refreshCookie).
+			router.With(s.checkPerm(dataprovider.PermAdminManageFolders), s.refreshCookie).
 				Get(webFolderPath, s.handleWebAddFolderGet)
-			router.With(s.checkPerm(dataprovider.PermAdminAddUsers)).Post(webFolderPath, s.handleWebAddFolderPost)
+			router.With(s.checkPerm(dataprovider.PermAdminManageFolders)).Post(webFolderPath, s.handleWebAddFolderPost)
 			router.With(s.checkPerm(dataprovider.PermAdminViewServerStatus), s.refreshCookie).
 				Get(webStatusPath, s.handleWebGetStatus)
 			router.With(s.checkPerm(dataprovider.PermAdminManageAdmins), s.refreshCookie).
@@ -1672,11 +1672,11 @@ func (s *httpdServer) setupWebAdminRoutes() {
 				Delete(webAdminPath+"/{username}", deleteAdmin)
 			router.With(s.checkPerm(dataprovider.PermAdminCloseConnections), verifyCSRFHeader).
 				Delete(webConnectionsPath+"/{connectionID}", handleCloseConnection)
-			router.With(s.checkPerm(dataprovider.PermAdminChangeUsers), s.refreshCookie).
+			router.With(s.checkPerm(dataprovider.PermAdminManageFolders), s.refreshCookie).
 				Get(webFolderPath+"/{name}", s.handleWebUpdateFolderGet)
-			router.With(s.checkPerm(dataprovider.PermAdminChangeUsers)).Post(webFolderPath+"/{name}",
+			router.With(s.checkPerm(dataprovider.PermAdminManageFolders)).Post(webFolderPath+"/{name}",
 				s.handleWebUpdateFolderPost)
-			router.With(s.checkPerm(dataprovider.PermAdminDeleteUsers), verifyCSRFHeader).
+			router.With(s.checkPerm(dataprovider.PermAdminManageFolders), verifyCSRFHeader).
 				Delete(webFolderPath+"/{name}", deleteFolder)
 			router.With(s.checkPerm(dataprovider.PermAdminQuotaScans), verifyCSRFHeader).
 				Post(webScanVFolderPath+"/{name}", startFolderQuotaScan)

@@ -1074,10 +1074,15 @@ func TestBasicUsersCache(t *testing.T) {
 	_, ok = dataprovider.GetCachedWebDAVUser(username)
 	assert.True(t, ok)
 	folderName := "testFolder"
+	f := &vfs.BaseVirtualFolder{
+		Name:       folderName,
+		MappedPath: filepath.Join(os.TempDir(), "mapped"),
+	}
+	err = dataprovider.AddFolder(f, "", "", "")
+	assert.NoError(t, err)
 	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName,
-			MappedPath: filepath.Join(os.TempDir(), "mapped"),
+			Name: folderName,
 		},
 		VirtualPath: "/vdir",
 	})
@@ -1123,12 +1128,17 @@ func TestCachedUserWithFolders(t *testing.T) {
 	u.Permissions["/"] = []string{dataprovider.PermAny}
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName,
-			MappedPath: filepath.Join(os.TempDir(), folderName),
+			Name: folderName,
 		},
 		VirtualPath: "/vpath",
 	})
-	err := dataprovider.AddUser(&u, "", "", "")
+	f := &vfs.BaseVirtualFolder{
+		Name:       folderName,
+		MappedPath: filepath.Join(os.TempDir(), folderName),
+	}
+	err := dataprovider.AddFolder(f, "", "", "")
+	assert.NoError(t, err)
+	err = dataprovider.AddUser(&u, "", "", "")
 	assert.NoError(t, err)
 	user, err := dataprovider.UserExists(u.Username, "")
 	assert.NoError(t, err)

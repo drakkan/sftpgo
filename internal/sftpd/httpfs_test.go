@@ -194,19 +194,24 @@ func TestHTTPFsVirtualFolder(t *testing.T) {
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
 			Name: folderName,
-			FsConfig: vfs.Filesystem{
-				Provider: sdk.HTTPFilesystemProvider,
-				HTTPConfig: vfs.HTTPFsConfig{
-					BaseHTTPFsConfig: sdk.BaseHTTPFsConfig{
-						Endpoint:          fmt.Sprintf("http://127.0.0.1:%d/api/v1", httpFsPort),
-						Username:          defaultHTTPFsUsername,
-						EqualityCheckMode: 1,
-					},
-				},
-			},
 		},
 		VirtualPath: vdirPath,
 	})
+	f := vfs.BaseVirtualFolder{
+		Name: folderName,
+		FsConfig: vfs.Filesystem{
+			Provider: sdk.HTTPFilesystemProvider,
+			HTTPConfig: vfs.HTTPFsConfig{
+				BaseHTTPFsConfig: sdk.BaseHTTPFsConfig{
+					Endpoint:          fmt.Sprintf("http://127.0.0.1:%d/api/v1", httpFsPort),
+					Username:          defaultHTTPFsUsername,
+					EqualityCheckMode: 1,
+				},
+			},
+		},
+	}
+	_, _, err := httpdtest.AddFolder(f, http.StatusCreated)
+	assert.NoError(t, err)
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	conn, client, err := getSftpClient(user, usePubKey)

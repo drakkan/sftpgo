@@ -664,7 +664,7 @@ func (p *BoltProvider) addUser(user *User) error {
 			return err
 		}
 		for idx := range user.VirtualFolders {
-			err = p.addRelationToFolderMapping(&user.VirtualFolders[idx].BaseVirtualFolder, user, nil, foldersBucket)
+			err = p.addRelationToFolderMapping(user.VirtualFolders[idx].Name, user, nil, foldersBucket)
 			if err != nil {
 				return err
 			}
@@ -1434,7 +1434,7 @@ func (p *BoltProvider) addGroup(group *Group) error {
 		group.Users = nil
 		group.Admins = nil
 		for idx := range group.VirtualFolders {
-			err = p.addRelationToFolderMapping(&group.VirtualFolders[idx].BaseVirtualFolder, nil, group, foldersBucket)
+			err = p.addRelationToFolderMapping(group.VirtualFolders[idx].Name, nil, group, foldersBucket)
 			if err != nil {
 				return err
 			}
@@ -1476,7 +1476,7 @@ func (p *BoltProvider) updateGroup(group *Group) error {
 			}
 		}
 		for idx := range group.VirtualFolders {
-			err = p.addRelationToFolderMapping(&group.VirtualFolders[idx].BaseVirtualFolder, nil, group, foldersBucket)
+			err = p.addRelationToFolderMapping(group.VirtualFolders[idx].Name, nil, group, foldersBucket)
 			if err != nil {
 				return err
 			}
@@ -3427,7 +3427,7 @@ func (p *BoltProvider) removeRuleFromActionMapping(ruleName, actionName string, 
 func (p *BoltProvider) addUserToGroupMapping(username, groupname string, bucket *bolt.Bucket) error {
 	g := bucket.Get([]byte(groupname))
 	if g == nil {
-		return util.NewRecordNotFoundError(fmt.Sprintf("group %q does not exist", groupname))
+		return util.NewGenericError(fmt.Sprintf("group %q does not exist", groupname))
 	}
 	var group Group
 	err := json.Unmarshal(g, &group)
@@ -3539,43 +3539,33 @@ func (p *BoltProvider) removeGroupFromAdminMapping(groupName, adminName string, 
 	return bucket.Put([]byte(adminName), buf)
 }
 
-func (p *BoltProvider) addRelationToFolderMapping(baseFolder *vfs.BaseVirtualFolder, user *User, group *Group, bucket *bolt.Bucket) error {
-	f := bucket.Get([]byte(baseFolder.Name))
+func (p *BoltProvider) addRelationToFolderMapping(folderName string, user *User, group *Group, bucket *bolt.Bucket) error {
+	f := bucket.Get([]byte(folderName))
 	if f == nil {
-		// folder does not exists, try to create
-		baseFolder.LastQuotaUpdate = 0
-		baseFolder.UsedQuotaFiles = 0
-		baseFolder.UsedQuotaSize = 0
-		if user != nil {
-			baseFolder.Users = []string{user.Username}
-		}
-		if group != nil {
-			baseFolder.Groups = []string{group.Name}
-		}
-		return p.addFolderInternal(*baseFolder, bucket)
+		return util.NewGenericError(fmt.Sprintf("folder %q does not exist", folderName))
 	}
-	var oldFolder vfs.BaseVirtualFolder
-	err := json.Unmarshal(f, &oldFolder)
+	var folder vfs.BaseVirtualFolder
+	err := json.Unmarshal(f, &folder)
 	if err != nil {
 		return err
 	}
-	baseFolder.ID = oldFolder.ID
-	baseFolder.LastQuotaUpdate = oldFolder.LastQuotaUpdate
-	baseFolder.UsedQuotaFiles = oldFolder.UsedQuotaFiles
-	baseFolder.UsedQuotaSize = oldFolder.UsedQuotaSize
-	baseFolder.Users = oldFolder.Users
-	baseFolder.Groups = oldFolder.Groups
-	if user != nil && !util.Contains(baseFolder.Users, user.Username) {
-		baseFolder.Users = append(baseFolder.Users, user.Username)
+	updated := false
+	if user != nil && !util.Contains(folder.Users, user.Username) {
+		folder.Users = append(folder.Users, user.Username)
+		updated = true
 	}
-	if group != nil && !util.Contains(baseFolder.Groups, group.Name) {
-		baseFolder.Groups = append(baseFolder.Groups, group.Name)
+	if group != nil && !util.Contains(folder.Groups, group.Name) {
+		folder.Groups = append(folder.Groups, group.Name)
+		updated = true
 	}
-	buf, err := json.Marshal(baseFolder)
+	if !updated {
+		return nil
+	}
+	buf, err := json.Marshal(folder)
 	if err != nil {
 		return err
 	}
-	return bucket.Put([]byte(baseFolder.Name), buf)
+	return bucket.Put([]byte(folder.Name), buf)
 }
 
 func (p *BoltProvider) removeRelationFromFolderMapping(folder vfs.VirtualFolder, username, groupname string,
@@ -3651,7 +3641,7 @@ func (p *BoltProvider) updateUserRelations(tx *bolt.Tx, user *User, oldUser User
 		return err
 	}
 	for idx := range user.VirtualFolders {
-		err = p.addRelationToFolderMapping(&user.VirtualFolders[idx].BaseVirtualFolder, user, nil, foldersBucket)
+		err = p.addRelationToFolderMapping(user.VirtualFolders[idx].Name, user, nil, foldersBucket)
 		if err != nil {
 			return err
 		}

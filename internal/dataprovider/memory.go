@@ -319,8 +319,6 @@ func (p *MemoryProvider) getUsedQuota(username string) (int, int64, int64, int64
 }
 
 func (p *MemoryProvider) addUser(user *User) error {
-	// we can query virtual folder while validating a user
-	// so we have to check without holding the lock
 	err := ValidateUser(user)
 	if err != nil {
 		return err
@@ -361,16 +359,24 @@ func (p *MemoryProvider) addUser(user *User) error {
 		}
 		mappedGroups = append(mappedGroups, user.Groups[idx].Name)
 	}
-	user.VirtualFolders = p.joinUserVirtualFoldersFields(user)
+	var mappedFolders []string
+	for idx := range user.VirtualFolders {
+		if err = p.addUserToFolderMapping(user.Username, user.VirtualFolders[idx].Name); err != nil {
+			// try to remove folder mapping
+			for _, f := range mappedFolders {
+				p.removeRelationFromFolderMapping(f, user.Username, "")
+			}
+			return err
+		}
+		mappedFolders = append(mappedFolders, user.VirtualFolders[idx].Name)
+	}
 	p.dbHandle.users[user.Username] = user.getACopy()
 	p.dbHandle.usernames = append(p.dbHandle.usernames, user.Username)
 	sort.Strings(p.dbHandle.usernames)
 	return nil
 }
 
-func (p *MemoryProvider) updateUser(user *User) error {
-	// we can query virtual folder while validating a user
-	// so we have to check without holding the lock
+func (p *MemoryProvider) updateUser(user *User) error { //nolint:gocyclo
 	err := ValidateUser(user)
 	if err != nil {
 		return err
@@ -413,7 +419,18 @@ func (p *MemoryProvider) updateUser(user *User) error {
 	for _, oldFolder := range u.VirtualFolders {
 		p.removeRelationFromFolderMapping(oldFolder.Name, u.Username, "")
 	}
-	user.VirtualFolders = p.joinUserVirtualFoldersFields(user)
+	for idx := range user.VirtualFolders {
+		if err = p.addUserToFolderMapping(user.Username, user.VirtualFolders[idx].Name); err != nil {
+			// try to add old mapping
+			for _, f := range u.VirtualFolders {
+				if errRollback := p.addUserToFolderMapping(user.Username, f.Name); errRollback != nil {
+					providerLog(logger.LevelError, "unable to rollback old folder mapping %q for user %q, error: %v",
+						f.Name, user.Username, errRollback)
+				}
+			}
+			return err
+		}
+	}
 	user.LastQuotaUpdate = u.LastQuotaUpdate
 	user.UsedQuotaSize = u.UsedQuotaSize
 	user.UsedQuotaFiles = u.UsedQuotaFiles
@@ -1012,7 +1029,17 @@ func (p *MemoryProvider) addGroup(group *Group) error {
 	group.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 	group.Users = nil
 	group.Admins = nil
-	group.VirtualFolders = p.joinGroupVirtualFoldersFields(group)
+	var mappedFolders []string
+	for idx := range group.VirtualFolders {
+		if err = p.addGroupToFolderMapping(group.Name, group.VirtualFolders[idx].Name); err != nil {
+			// try to remove folder mapping
+			for _, f := range mappedFolders {
+				p.removeRelationFromFolderMapping(f, "", group.Name)
+			}
+			return err
+		}
+		mappedFolders = append(mappedFolders, group.VirtualFolders[idx].Name)
+	}
 	p.dbHandle.groups[group.Name] = group.getACopy()
 	p.dbHandle.groupnames = append(p.dbHandle.groupnames, group.Name)
 	sort.Strings(p.dbHandle.groupnames)
@@ -1035,7 +1062,18 @@ func (p *MemoryProvider) updateGroup(group *Group) error {
 	for _, oldFolder := range g.VirtualFolders {
 		p.removeRelationFromFolderMapping(oldFolder.Name, "", g.Name)
 	}
-	group.VirtualFolders = p.joinGroupVirtualFoldersFields(group)
+	for idx := range group.VirtualFolders {
+		if err = p.addGroupToFolderMapping(group.Name, group.VirtualFolders[idx].Name); err != nil {
+			// try to add old mapping
+			for _, f := range g.VirtualFolders {
+				if errRollback := p.addGroupToFolderMapping(group.Name, f.Name); errRollback != nil {
+					providerLog(logger.LevelError, "unable to rollback old folder mapping %q for group %q, error: %v",
+						f.Name, group.Name, errRollback)
+				}
+			}
+			return err
+		}
+	}
 	group.CreatedAt = g.CreatedAt
 	group.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 	group.ID = g.ID
@@ -1103,19 +1141,6 @@ func (p *MemoryProvider) getUsedFolderQuota(name string) (int, int64, error) {
 		return 0, 0, err
 	}
 	return folder.UsedQuotaFiles, folder.UsedQuotaSize, err
-}
-
-func (p *MemoryProvider) joinGroupVirtualFoldersFields(group *Group) []vfs.VirtualFolder {
-	var folders []vfs.VirtualFolder
-	for idx := range group.VirtualFolders {
-		folder := &group.VirtualFolders[idx]
-		f, err := p.addOrUpdateFolderInternal(&folder.BaseVirtualFolder, "", group.Name, 0, 0, 0)
-		if err == nil {
-			folder.BaseVirtualFolder = f
-			folders = append(folders, *folder)
-		}
-	}
-	return folders
 }
 
 func (p *MemoryProvider) addVirtualFoldersToGroup(group *Group) {
@@ -1317,17 +1342,28 @@ func (p *MemoryProvider) removeUserFromRole(username, role string) {
 	p.dbHandle.roles[role] = r
 }
 
-func (p *MemoryProvider) joinUserVirtualFoldersFields(user *User) []vfs.VirtualFolder {
-	var folders []vfs.VirtualFolder
-	for idx := range user.VirtualFolders {
-		folder := &user.VirtualFolders[idx]
-		f, err := p.addOrUpdateFolderInternal(&folder.BaseVirtualFolder, user.Username, "", 0, 0, 0)
-		if err == nil {
-			folder.BaseVirtualFolder = f
-			folders = append(folders, *folder)
-		}
+func (p *MemoryProvider) addUserToFolderMapping(username, foldername string) error {
+	f, err := p.folderExistsInternal(foldername)
+	if err != nil {
+		return util.NewGenericError(fmt.Sprintf("unable to get folder %q: %v", foldername, err))
 	}
-	return folders
+	if !util.Contains(f.Users, username) {
+		f.Users = append(f.Users, username)
+		p.dbHandle.vfolders[foldername] = f
+	}
+	return nil
+}
+
+func (p *MemoryProvider) addGroupToFolderMapping(name, foldername string) error {
+	f, err := p.folderExistsInternal(foldername)
+	if err != nil {
+		return util.NewGenericError(fmt.Sprintf("unable to get folder %q: %v", foldername, err))
+	}
+	if !util.Contains(f.Groups, name) {
+		f.Groups = append(f.Groups, name)
+		p.dbHandle.vfolders[foldername] = f
+	}
+	return nil
 }
 
 func (p *MemoryProvider) addVirtualFoldersToUser(user *User) {
@@ -1348,71 +1384,28 @@ func (p *MemoryProvider) addVirtualFoldersToUser(user *User) {
 
 func (p *MemoryProvider) removeRelationFromFolderMapping(folderName, username, groupname string) {
 	folder, err := p.folderExistsInternal(folderName)
-	if err == nil {
-		if username != "" {
-			var usernames []string
-			for _, user := range folder.Users {
-				if user != username {
-					usernames = append(usernames, user)
-				}
-			}
-			folder.Users = usernames
-		}
-		if groupname != "" {
-			var groups []string
-			for _, group := range folder.Groups {
-				if group != groupname {
-					groups = append(groups, group)
-				}
-			}
-			folder.Groups = groups
-		}
-		p.dbHandle.vfolders[folder.Name] = folder
+	if err != nil {
+		return
 	}
-}
-
-func (p *MemoryProvider) updateFoldersMappingInternal(folder vfs.BaseVirtualFolder) {
+	if username != "" {
+		var usernames []string
+		for _, user := range folder.Users {
+			if user != username {
+				usernames = append(usernames, user)
+			}
+		}
+		folder.Users = usernames
+	}
+	if groupname != "" {
+		var groups []string
+		for _, group := range folder.Groups {
+			if group != groupname {
+				groups = append(groups, group)
+			}
+		}
+		folder.Groups = groups
+	}
 	p.dbHandle.vfolders[folder.Name] = folder
-	if !util.Contains(p.dbHandle.vfoldersNames, folder.Name) {
-		p.dbHandle.vfoldersNames = append(p.dbHandle.vfoldersNames, folder.Name)
-		sort.Strings(p.dbHandle.vfoldersNames)
-	}
-}
-
-func (p *MemoryProvider) addOrUpdateFolderInternal(baseFolder *vfs.BaseVirtualFolder, username, groupname string,
-	usedQuotaSize int64, usedQuotaFiles int, lastQuotaUpdate int64,
-) (vfs.BaseVirtualFolder, error) {
-	folder, err := p.folderExistsInternal(baseFolder.Name)
-	if err == nil {
-		// exists
-		folder.MappedPath = baseFolder.MappedPath
-		folder.Description = baseFolder.Description
-		folder.FsConfig = baseFolder.FsConfig.GetACopy()
-		if username != "" && !util.Contains(folder.Users, username) {
-			folder.Users = append(folder.Users, username)
-		}
-		if groupname != "" && !util.Contains(folder.Groups, groupname) {
-			folder.Groups = append(folder.Groups, groupname)
-		}
-		p.updateFoldersMappingInternal(folder)
-		return folder, nil
-	}
-	if errors.Is(err, util.ErrNotFound) {
-		folder = baseFolder.GetACopy()
-		folder.ID = p.getNextFolderID()
-		folder.UsedQuotaSize = usedQuotaSize
-		folder.UsedQuotaFiles = usedQuotaFiles
-		folder.LastQuotaUpdate = lastQuotaUpdate
-		if username != "" {
-			folder.Users = []string{username}
-		}
-		if groupname != "" {
-			folder.Groups = []string{groupname}
-		}
-		p.updateFoldersMappingInternal(folder)
-		return folder, nil
-	}
-	return folder, err
 }
 
 func (p *MemoryProvider) folderExistsInternal(name string) (vfs.BaseVirtualFolder, error) {

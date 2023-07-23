@@ -2105,8 +2105,8 @@ func compareVirtualFolders(expected []vfs.VirtualFolder, actual []vfs.VirtualFol
 		found := false
 		for _, v1 := range expected {
 			if path.Clean(v.VirtualPath) == path.Clean(v1.VirtualPath) {
-				if err := checkFolder(&v1.BaseVirtualFolder, &v.BaseVirtualFolder); err != nil {
-					return err
+				if dataprovider.ConvertName(v1.Name) != v.Name {
+					return errors.New("virtual folder name mismatch")
 				}
 				if v.QuotaSize != v1.QuotaSize {
 					return errors.New("vfolder quota size mismatch")

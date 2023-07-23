@@ -2302,19 +2302,6 @@ func sqlCommonGetFolderByName(ctx context.Context, name string, dbHandle sqlQuer
 	return folders[0], nil
 }
 
-func sqlCommonAddOrUpdateFolder(ctx context.Context, baseFolder *vfs.BaseVirtualFolder, usedQuotaSize int64,
-	usedQuotaFiles int, lastQuotaUpdate int64, dbHandle sqlQuerier,
-) error {
-	fsConfig, err := json.Marshal(baseFolder.FsConfig)
-	if err != nil {
-		return err
-	}
-	q := getUpsertFolderQuery()
-	_, err = dbHandle.ExecContext(ctx, q, baseFolder.MappedPath, usedQuotaSize, usedQuotaFiles,
-		lastQuotaUpdate, baseFolder.Name, baseFolder.Description, fsConfig)
-	return err
-}
-
 func sqlCommonAddFolder(folder *vfs.BaseVirtualFolder, dbHandle sqlQuerier) error {
 	err := ValidateFolder(folder)
 	if err != nil {
@@ -2518,10 +2505,6 @@ func generateGroupVirtualFoldersMapping(ctx context.Context, group *Group, dbHan
 	}
 	for idx := range group.VirtualFolders {
 		vfolder := &group.VirtualFolders[idx]
-		err = sqlCommonAddOrUpdateFolder(ctx, &vfolder.BaseVirtualFolder, 0, 0, 0, dbHandle)
-		if err != nil {
-			return err
-		}
 		err = sqlCommonAddGroupFolderMapping(ctx, group, vfolder, dbHandle)
 		if err != nil {
 			return err
@@ -2537,10 +2520,6 @@ func generateUserVirtualFoldersMapping(ctx context.Context, user *User, dbHandle
 	}
 	for idx := range user.VirtualFolders {
 		vfolder := &user.VirtualFolders[idx]
-		err := sqlCommonAddOrUpdateFolder(ctx, &vfolder.BaseVirtualFolder, 0, 0, 0, dbHandle)
-		if err != nil {
-			return err
-		}
 		err = sqlCommonAddUserFolderMapping(ctx, user, vfolder, dbHandle)
 		if err != nil {
 			return err

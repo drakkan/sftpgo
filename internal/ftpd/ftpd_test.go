@@ -2684,16 +2684,21 @@ func TestUploadOverwriteVfolder(t *testing.T) {
 	vdir := "/vdir"
 	mappedPath := filepath.Join(os.TempDir(), "vdir")
 	folderName := filepath.Base(mappedPath)
+	f := vfs.BaseVirtualFolder{
+		Name:       folderName,
+		MappedPath: mappedPath,
+	}
+	_, _, err := httpdtest.AddFolder(f, http.StatusCreated)
+	assert.NoError(t, err)
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName,
-			MappedPath: mappedPath,
+			Name: folderName,
 		},
 		VirtualPath: vdir,
 		QuotaSize:   -1,
 		QuotaFiles:  -1,
 	})
-	err := os.MkdirAll(mappedPath, os.ModePerm)
+	err = os.MkdirAll(mappedPath, os.ModePerm)
 	assert.NoError(t, err)
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
@@ -2799,15 +2804,20 @@ func TestAllocateAvailable(t *testing.T) {
 	u := getTestUser()
 	mappedPath := filepath.Join(os.TempDir(), "vdir")
 	folderName := filepath.Base(mappedPath)
+	f := vfs.BaseVirtualFolder{
+		Name:       folderName,
+		MappedPath: mappedPath,
+	}
+	_, _, err := httpdtest.AddFolder(f, http.StatusCreated)
+	assert.NoError(t, err)
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName,
-			MappedPath: mappedPath,
+			Name: folderName,
 		},
 		VirtualPath: "/vdir",
 		QuotaSize:   110,
 	})
-	err := os.MkdirAll(mappedPath, os.ModePerm)
+	err = os.MkdirAll(mappedPath, os.ModePerm)
 	assert.NoError(t, err)
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
@@ -3654,13 +3664,6 @@ func TestNestedVirtualFolders(t *testing.T) {
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
 			Name: folderNameCrypt,
-			FsConfig: vfs.Filesystem{
-				Provider: sdk.CryptedFilesystemProvider,
-				CryptConfig: vfs.CryptFsConfig{
-					Passphrase: kms.NewPlainSecret(defaultPassword),
-				},
-			},
-			MappedPath: mappedPathCrypt,
 		},
 		VirtualPath: vdirCryptPath,
 	})
@@ -3669,8 +3672,7 @@ func TestNestedVirtualFolders(t *testing.T) {
 	vdirPath := "/vdir/local"
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName,
-			MappedPath: mappedPath,
+			Name: folderName,
 		},
 		VirtualPath: vdirPath,
 	})
@@ -3679,13 +3681,37 @@ func TestNestedVirtualFolders(t *testing.T) {
 	vdirNestedPath := "/vdir/crypt/nested"
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderNameNested,
-			MappedPath: mappedPathNested,
+			Name: folderNameNested,
 		},
 		VirtualPath: vdirNestedPath,
 		QuotaFiles:  -1,
 		QuotaSize:   -1,
 	})
+	f1 := vfs.BaseVirtualFolder{
+		Name: folderNameCrypt,
+		FsConfig: vfs.Filesystem{
+			Provider: sdk.CryptedFilesystemProvider,
+			CryptConfig: vfs.CryptFsConfig{
+				Passphrase: kms.NewPlainSecret(defaultPassword),
+			},
+		},
+		MappedPath: mappedPathCrypt,
+	}
+	_, _, err = httpdtest.AddFolder(f1, http.StatusCreated)
+	assert.NoError(t, err)
+	f2 := vfs.BaseVirtualFolder{
+		Name:       folderName,
+		MappedPath: mappedPath,
+	}
+	_, _, err = httpdtest.AddFolder(f2, http.StatusCreated)
+	assert.NoError(t, err)
+	f3 := vfs.BaseVirtualFolder{
+		Name:       folderNameNested,
+		MappedPath: mappedPathNested,
+	}
+	_, _, err = httpdtest.AddFolder(f3, http.StatusCreated)
+	assert.NoError(t, err)
+
 	sftpUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	client, err := getFTPClient(sftpUser, false, nil)

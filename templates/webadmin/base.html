@@ -83,7 +83,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
             </li>
             {{end}}
 
-            {{ if .LoggedAdmin.HasPermission "view_users"}}
+            {{ if .LoggedAdmin.HasPermission "manage_folders"}}
             <li class="nav-item {{if eq .CurrentURL .FoldersURL}}active{{end}}">
                 <a class="nav-link" href="{{.FoldersURL}}">
                     <i class="fas fa-folder"></i>

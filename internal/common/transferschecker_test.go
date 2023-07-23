@@ -48,6 +48,10 @@ func TestTransfersCheckerDiskQuota(t *testing.T) {
 			},
 		},
 	}
+	folder := vfs.BaseVirtualFolder{
+		Name:       folderName,
+		MappedPath: filepath.Join(os.TempDir(), folderName),
+	}
 	user := dataprovider.User{
 		BaseUser: sdk.BaseUser{
 			Username:  username,
@@ -62,8 +66,7 @@ func TestTransfersCheckerDiskQuota(t *testing.T) {
 		VirtualFolders: []vfs.VirtualFolder{
 			{
 				BaseVirtualFolder: vfs.BaseVirtualFolder{
-					Name:       folderName,
-					MappedPath: filepath.Join(os.TempDir(), folderName),
+					Name: folderName,
 				},
 				VirtualPath: vdirPath,
 				QuotaSize:   100,
@@ -79,6 +82,8 @@ func TestTransfersCheckerDiskQuota(t *testing.T) {
 	err := dataprovider.AddGroup(&group, "", "", "")
 	assert.NoError(t, err)
 	group, err = dataprovider.GroupExists(groupName)
+	assert.NoError(t, err)
+	err = dataprovider.AddFolder(&folder, "", "", "")
 	assert.NoError(t, err)
 	assert.Equal(t, int64(120), group.UserSettings.QuotaSize)
 	err = dataprovider.AddUser(&user, "", "", "")
@@ -601,6 +606,10 @@ func TestGetUsersForQuotaCheck(t *testing.T) {
 	assert.Len(t, users, 0)
 
 	for i := 0; i < 40; i++ {
+		folder := vfs.BaseVirtualFolder{
+			Name:       fmt.Sprintf("f%v", i),
+			MappedPath: filepath.Join(os.TempDir(), fmt.Sprintf("f%v", i)),
+		}
 		user := dataprovider.User{
 			BaseUser: sdk.BaseUser{
 				Username:  fmt.Sprintf("user%v", i),
@@ -615,14 +624,15 @@ func TestGetUsersForQuotaCheck(t *testing.T) {
 			VirtualFolders: []vfs.VirtualFolder{
 				{
 					BaseVirtualFolder: vfs.BaseVirtualFolder{
-						Name:       fmt.Sprintf("f%v", i),
-						MappedPath: filepath.Join(os.TempDir(), fmt.Sprintf("f%v", i)),
+						Name: folder.Name,
 					},
 					VirtualPath: "/vfolder",
 					QuotaSize:   100,
 				},
 			},
 		}
+		err = dataprovider.AddFolder(&folder, "", "", "")
+		assert.NoError(t, err)
 		err = dataprovider.AddUser(&user, "", "", "")
 		assert.NoError(t, err)
 		err = dataprovider.UpdateVirtualFolderQuota(&vfs.BaseVirtualFolder{Name: fmt.Sprintf("f%v", i)}, 1, 50, false)

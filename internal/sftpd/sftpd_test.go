@@ -3888,13 +3888,13 @@ func TestLoginExternalAuth(t *testing.T) {
 		u := getTestUser(usePubKey)
 		u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 			BaseVirtualFolder: vfs.BaseVirtualFolder{
-				Name:       folderName,
-				MappedPath: mappedPath,
+				Name: folderName,
 			},
 			VirtualPath: "/vpath",
 			QuotaFiles:  1 + authScope,
 			QuotaSize:   10 + int64(authScope),
 		})
+
 		err := dataprovider.Close()
 		assert.NoError(t, err)
 		err = config.LoadConfig(configDir, "")
@@ -3905,6 +3905,13 @@ func TestLoginExternalAuth(t *testing.T) {
 		providerConf.ExternalAuthHook = extAuthPath
 		providerConf.ExternalAuthScope = authScope
 		err = dataprovider.Initialize(providerConf, configDir, true)
+		assert.NoError(t, err)
+
+		f := vfs.BaseVirtualFolder{
+			Name:       folderName,
+			MappedPath: mappedPath,
+		}
+		_, _, err = httpdtest.AddFolder(f, http.StatusCreated)
 		assert.NoError(t, err)
 
 		conn, client, err := getSftpClient(u, usePubKey)
@@ -5013,8 +5020,7 @@ func TestVirtualFolders(t *testing.T) {
 	testDir1 := "/userDir1"
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName,
-			MappedPath: mappedPath,
+			Name: folderName,
 		},
 		VirtualPath: vdirPath,
 	})
@@ -5022,6 +5028,12 @@ func TestVirtualFolders(t *testing.T) {
 	u.Permissions[testDir1] = []string{dataprovider.PermCreateDirs, dataprovider.PermUpload, dataprovider.PermRename}
 	u.Permissions[path.Join(testDir1, "subdir")] = []string{dataprovider.PermRename}
 
+	f := vfs.BaseVirtualFolder{
+		Name:       folderName,
+		MappedPath: mappedPath,
+	}
+	_, _, err := httpdtest.AddFolder(f, http.StatusCreated)
+	assert.NoError(t, err)
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	conn, client, err := getSftpClient(user, usePubKey)
@@ -5121,8 +5133,7 @@ func TestVirtualFoldersQuotaLimit(t *testing.T) {
 	vdirPath2 := "/vdir2" //nolint:goconst
 	u1.VirtualFolders = append(u1.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName1,
-			MappedPath: mappedPath1,
+			Name: folderName1,
 		},
 		VirtualPath: vdirPath1,
 		QuotaFiles:  -1,
@@ -5130,8 +5141,7 @@ func TestVirtualFoldersQuotaLimit(t *testing.T) {
 	})
 	u1.VirtualFolders = append(u1.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName2,
-			MappedPath: mappedPath2,
+			Name: folderName2,
 		},
 		VirtualPath: vdirPath2,
 		QuotaFiles:  1,
@@ -5145,8 +5155,7 @@ func TestVirtualFoldersQuotaLimit(t *testing.T) {
 	u2.QuotaSize = testFileSize + 1
 	u2.VirtualFolders = append(u2.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName1,
-			MappedPath: mappedPath1,
+			Name: folderName1,
 		},
 		VirtualPath: vdirPath1,
 		QuotaFiles:  -1,
@@ -5154,8 +5163,7 @@ func TestVirtualFoldersQuotaLimit(t *testing.T) {
 	})
 	u2.VirtualFolders = append(u2.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName2,
-			MappedPath: mappedPath2,
+			Name: folderName2,
 		},
 		VirtualPath: vdirPath2,
 		QuotaFiles:  0,
@@ -5166,6 +5174,18 @@ func TestVirtualFoldersQuotaLimit(t *testing.T) {
 		err = os.MkdirAll(mappedPath1, os.ModePerm)
 		assert.NoError(t, err)
 		err = os.MkdirAll(mappedPath2, os.ModePerm)
+		assert.NoError(t, err)
+		f1 := vfs.BaseVirtualFolder{
+			Name:       folderName1,
+			MappedPath: mappedPath1,
+		}
+		_, _, err := httpdtest.AddFolder(f1, http.StatusCreated)
+		assert.NoError(t, err)
+		f2 := vfs.BaseVirtualFolder{
+			Name:       folderName2,
+			MappedPath: mappedPath2,
+		}
+		_, _, err = httpdtest.AddFolder(f2, http.StatusCreated)
 		assert.NoError(t, err)
 		user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 		assert.NoError(t, err)
@@ -5293,17 +5313,6 @@ func TestSFTPLoopVirtualFolders(t *testing.T) {
 	user1.VirtualFolders = append(user1.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
 			Name: sftpFloderName,
-			FsConfig: vfs.Filesystem{
-				Provider: sdk.SFTPFilesystemProvider,
-				SFTPConfig: vfs.SFTPFsConfig{
-					BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
-						Endpoint:          sftpServerAddr,
-						Username:          user2.Username,
-						EqualityCheckMode: 1,
-					},
-					Password: kms.NewPlainSecret(defaultPassword),
-				},
-			},
 		},
 		VirtualPath: "/vdir",
 	})
@@ -5324,6 +5333,22 @@ func TestSFTPLoopVirtualFolders(t *testing.T) {
 		},
 		Password: kms.NewPlainSecret(defaultPassword),
 	}
+	f := vfs.BaseVirtualFolder{
+		Name: sftpFloderName,
+		FsConfig: vfs.Filesystem{
+			Provider: sdk.SFTPFilesystemProvider,
+			SFTPConfig: vfs.SFTPFsConfig{
+				BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
+					Endpoint:          sftpServerAddr,
+					Username:          user2.Username,
+					EqualityCheckMode: 1,
+				},
+				Password: kms.NewPlainSecret(defaultPassword),
+			},
+		},
+	}
+	_, _, err := httpdtest.AddFolder(f, http.StatusCreated)
+	assert.NoError(t, err)
 
 	user1, resp, err := httpdtest.AddUser(user1, http.StatusCreated)
 	assert.NoError(t, err, string(resp))
@@ -5405,13 +5430,6 @@ func TestNestedVirtualFolders(t *testing.T) {
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
 			Name: folderNameCrypt,
-			FsConfig: vfs.Filesystem{
-				Provider: sdk.CryptedFilesystemProvider,
-				CryptConfig: vfs.CryptFsConfig{
-					Passphrase: kms.NewPlainSecret(defaultPassword),
-				},
-			},
-			MappedPath: mappedPathCrypt,
 		},
 		VirtualPath: vdirCryptPath,
 		QuotaFiles:  100,
@@ -5421,8 +5439,7 @@ func TestNestedVirtualFolders(t *testing.T) {
 	vdirPath := "/vdir/local"
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName,
-			MappedPath: mappedPath,
+			Name: folderName,
 		},
 		VirtualPath: vdirPath,
 		QuotaFiles:  -1,
@@ -5433,13 +5450,36 @@ func TestNestedVirtualFolders(t *testing.T) {
 	vdirNestedPath := "/vdir/crypt/nested"
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderNameNested,
-			MappedPath: mappedPathNested,
+			Name: folderNameNested,
 		},
 		VirtualPath: vdirNestedPath,
 		QuotaFiles:  -1,
 		QuotaSize:   -1,
 	})
+	f1 := vfs.BaseVirtualFolder{
+		Name: folderNameCrypt,
+		FsConfig: vfs.Filesystem{
+			Provider: sdk.CryptedFilesystemProvider,
+			CryptConfig: vfs.CryptFsConfig{
+				Passphrase: kms.NewPlainSecret(defaultPassword),
+			},
+		},
+		MappedPath: mappedPathCrypt,
+	}
+	_, _, err = httpdtest.AddFolder(f1, http.StatusCreated)
+	assert.NoError(t, err)
+	f2 := vfs.BaseVirtualFolder{
+		Name:       folderName,
+		MappedPath: mappedPath,
+	}
+	_, _, err = httpdtest.AddFolder(f2, http.StatusCreated)
+	assert.NoError(t, err)
+	f3 := vfs.BaseVirtualFolder{
+		Name:       folderNameNested,
+		MappedPath: mappedPathNested,
+	}
+	_, _, err = httpdtest.AddFolder(f3, http.StatusCreated)
+	assert.NoError(t, err)
 	user, resp, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err, string(resp))
 	conn, client, err := getSftpClient(user, usePubKey)
@@ -5597,23 +5637,28 @@ func TestBufferedUser(t *testing.T) {
 	folderName := filepath.Base(mappedPath)
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName,
-			MappedPath: mappedPath,
-			FsConfig: vfs.Filesystem{
-				Provider: sdk.CryptedFilesystemProvider,
-				CryptConfig: vfs.CryptFsConfig{
-					OSFsConfig: sdk.OSFsConfig{
-						WriteBufferSize: 3,
-						ReadBufferSize:  2,
-					},
-					Passphrase: kms.NewPlainSecret(defaultPassword),
-				},
-			},
+			Name: folderName,
 		},
 		VirtualPath: vdirPath,
 		QuotaFiles:  -1,
 		QuotaSize:   -1,
 	})
+	f := vfs.BaseVirtualFolder{
+		Name:       folderName,
+		MappedPath: mappedPath,
+		FsConfig: vfs.Filesystem{
+			Provider: sdk.CryptedFilesystemProvider,
+			CryptConfig: vfs.CryptFsConfig{
+				OSFsConfig: sdk.OSFsConfig{
+					WriteBufferSize: 3,
+					ReadBufferSize:  2,
+				},
+				Passphrase: kms.NewPlainSecret(defaultPassword),
+			},
+		},
+	}
+	_, _, err := httpdtest.AddFolder(f, http.StatusCreated)
+	assert.NoError(t, err)
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	conn, client, err := getSftpClient(user, usePubKey)
@@ -5718,12 +5763,17 @@ func TestTruncateQuotaLimits(t *testing.T) {
 	vdirPath := "/vmapped"
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName,
-			MappedPath: mappedPath,
+			Name: folderName,
 		},
 		VirtualPath: vdirPath,
 		QuotaFiles:  10,
 	})
+	f := vfs.BaseVirtualFolder{
+		Name:       folderName,
+		MappedPath: mappedPath,
+	}
+	_, _, err = httpdtest.AddFolder(f, http.StatusCreated)
+	assert.NoError(t, err)
 	localUser, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	u = getTestSFTPUser(usePubKey)
@@ -5932,8 +5982,7 @@ func TestVirtualFoldersQuotaRenameOverwrite(t *testing.T) {
 	vdirPath3 := "/vdir3"
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName1,
-			MappedPath: mappedPath1,
+			Name: folderName1,
 		},
 		VirtualPath: vdirPath1,
 		QuotaFiles:  2,
@@ -5941,8 +5990,7 @@ func TestVirtualFoldersQuotaRenameOverwrite(t *testing.T) {
 	})
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			MappedPath: mappedPath2,
-			Name:       folderName2,
+			Name: folderName2,
 		},
 		VirtualPath: vdirPath2,
 		QuotaFiles:  0,
@@ -5950,8 +5998,7 @@ func TestVirtualFoldersQuotaRenameOverwrite(t *testing.T) {
 	})
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName3,
-			MappedPath: mappedPath3,
+			Name: folderName3,
 		},
 		VirtualPath: vdirPath3,
 		QuotaFiles:  2,
@@ -5963,6 +6010,25 @@ func TestVirtualFoldersQuotaRenameOverwrite(t *testing.T) {
 	assert.NoError(t, err)
 	err = os.MkdirAll(mappedPath3, os.ModePerm)
 	assert.NoError(t, err)
+	f1 := vfs.BaseVirtualFolder{
+		Name:       folderName1,
+		MappedPath: mappedPath1,
+	}
+	_, _, err = httpdtest.AddFolder(f1, http.StatusCreated)
+	assert.NoError(t, err)
+	f2 := vfs.BaseVirtualFolder{
+		Name:       folderName2,
+		MappedPath: mappedPath2,
+	}
+	_, _, err = httpdtest.AddFolder(f2, http.StatusCreated)
+	assert.NoError(t, err)
+	f3 := vfs.BaseVirtualFolder{
+		Name:       folderName3,
+		MappedPath: mappedPath3,
+	}
+	_, _, err = httpdtest.AddFolder(f3, http.StatusCreated)
+	assert.NoError(t, err)
+
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	conn, client, err := getSftpClient(user, usePubKey)
@@ -6070,8 +6136,7 @@ func TestVirtualFoldersQuotaValues(t *testing.T) {
 	folderName2 := filepath.Base(mappedPath2)
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName1,
-			MappedPath: mappedPath1,
+			Name: folderName1,
 		},
 		VirtualPath: vdirPath1,
 		// quota is included in the user's one
@@ -6080,8 +6145,7 @@ func TestVirtualFoldersQuotaValues(t *testing.T) {
 	})
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName2,
-			MappedPath: mappedPath2,
+			Name: folderName2,
 		},
 		VirtualPath: vdirPath2,
 		// quota is unlimited and excluded from user's one
@@ -6091,6 +6155,18 @@ func TestVirtualFoldersQuotaValues(t *testing.T) {
 	err := os.MkdirAll(mappedPath1, os.ModePerm)
 	assert.NoError(t, err)
 	err = os.MkdirAll(mappedPath2, os.ModePerm)
+	assert.NoError(t, err)
+	f1 := vfs.BaseVirtualFolder{
+		Name:       folderName1,
+		MappedPath: mappedPath1,
+	}
+	_, _, err = httpdtest.AddFolder(f1, http.StatusCreated)
+	assert.NoError(t, err)
+	f2 := vfs.BaseVirtualFolder{
+		Name:       folderName2,
+		MappedPath: mappedPath2,
+	}
+	_, _, err = httpdtest.AddFolder(f2, http.StatusCreated)
 	assert.NoError(t, err)
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
@@ -6170,8 +6246,7 @@ func TestQuotaRenameInsideSameVirtualFolder(t *testing.T) {
 	folderName2 := filepath.Base(mappedPath2)
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName1,
-			MappedPath: mappedPath1,
+			Name: folderName1,
 		},
 		VirtualPath: vdirPath1,
 		// quota is included in the user's one
@@ -6180,15 +6255,26 @@ func TestQuotaRenameInsideSameVirtualFolder(t *testing.T) {
 	})
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName2,
-			MappedPath: mappedPath2,
+			Name: folderName2,
 		},
 		VirtualPath: vdirPath2,
 		// quota is unlimited and excluded from user's one
 		QuotaFiles: 0,
 		QuotaSize:  0,
 	})
-	err := os.MkdirAll(mappedPath1, os.ModePerm)
+	f1 := vfs.BaseVirtualFolder{
+		Name:       folderName1,
+		MappedPath: mappedPath1,
+	}
+	_, _, err := httpdtest.AddFolder(f1, http.StatusCreated)
+	assert.NoError(t, err)
+	f2 := vfs.BaseVirtualFolder{
+		Name:       folderName2,
+		MappedPath: mappedPath2,
+	}
+	_, _, err = httpdtest.AddFolder(f2, http.StatusCreated)
+	assert.NoError(t, err)
+	err = os.MkdirAll(mappedPath1, os.ModePerm)
 	assert.NoError(t, err)
 	err = os.MkdirAll(mappedPath2, os.ModePerm)
 	assert.NoError(t, err)
@@ -6365,8 +6451,7 @@ func TestQuotaRenameBetweenVirtualFolder(t *testing.T) {
 	vdirPath2 := "/vdir2"
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName1,
-			MappedPath: mappedPath1,
+			Name: folderName1,
 		},
 		VirtualPath: vdirPath1,
 		// quota is included in the user's one
@@ -6375,8 +6460,7 @@ func TestQuotaRenameBetweenVirtualFolder(t *testing.T) {
 	})
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName2,
-			MappedPath: mappedPath2,
+			Name: folderName2,
 		},
 		VirtualPath: vdirPath2,
 		// quota is unlimited and excluded from user's one
@@ -6386,6 +6470,18 @@ func TestQuotaRenameBetweenVirtualFolder(t *testing.T) {
 	err := os.MkdirAll(mappedPath1, os.ModePerm)
 	assert.NoError(t, err)
 	err = os.MkdirAll(mappedPath2, os.ModePerm)
+	assert.NoError(t, err)
+	f1 := vfs.BaseVirtualFolder{
+		Name:       folderName1,
+		MappedPath: mappedPath1,
+	}
+	_, _, err = httpdtest.AddFolder(f1, http.StatusCreated)
+	assert.NoError(t, err)
+	f2 := vfs.BaseVirtualFolder{
+		Name:       folderName2,
+		MappedPath: mappedPath2,
+	}
+	_, _, err = httpdtest.AddFolder(f2, http.StatusCreated)
 	assert.NoError(t, err)
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
@@ -6577,8 +6673,7 @@ func TestQuotaRenameFromVirtualFolder(t *testing.T) {
 	vdirPath2 := "/vdir2"
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName1,
-			MappedPath: mappedPath1,
+			Name: folderName1,
 		},
 		VirtualPath: vdirPath1,
 		// quota is included in the user's one
@@ -6587,8 +6682,7 @@ func TestQuotaRenameFromVirtualFolder(t *testing.T) {
 	})
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName2,
-			MappedPath: mappedPath2,
+			Name: folderName2,
 		},
 		VirtualPath: vdirPath2,
 		// quota is unlimited and excluded from user's one
@@ -6598,6 +6692,18 @@ func TestQuotaRenameFromVirtualFolder(t *testing.T) {
 	err := os.MkdirAll(mappedPath1, os.ModePerm)
 	assert.NoError(t, err)
 	err = os.MkdirAll(mappedPath2, os.ModePerm)
+	assert.NoError(t, err)
+	f1 := vfs.BaseVirtualFolder{
+		Name:       folderName1,
+		MappedPath: mappedPath1,
+	}
+	_, _, err = httpdtest.AddFolder(f1, http.StatusCreated)
+	assert.NoError(t, err)
+	f2 := vfs.BaseVirtualFolder{
+		Name:       folderName2,
+		MappedPath: mappedPath2,
+	}
+	_, _, err = httpdtest.AddFolder(f2, http.StatusCreated)
 	assert.NoError(t, err)
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
@@ -6792,8 +6898,7 @@ func TestQuotaRenameToVirtualFolder(t *testing.T) {
 	vdirPath2 := "/vdir2"
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName1,
-			MappedPath: mappedPath1,
+			Name: folderName1,
 		},
 		VirtualPath: vdirPath1,
 		// quota is included in the user's one
@@ -6802,8 +6907,7 @@ func TestQuotaRenameToVirtualFolder(t *testing.T) {
 	})
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName2,
-			MappedPath: mappedPath2,
+			Name: folderName2,
 		},
 		VirtualPath: vdirPath2,
 		// quota is unlimited and excluded from user's one
@@ -6813,6 +6917,18 @@ func TestQuotaRenameToVirtualFolder(t *testing.T) {
 	err := os.MkdirAll(mappedPath1, os.ModePerm)
 	assert.NoError(t, err)
 	err = os.MkdirAll(mappedPath2, os.ModePerm)
+	assert.NoError(t, err)
+	f1 := vfs.BaseVirtualFolder{
+		Name:       folderName1,
+		MappedPath: mappedPath1,
+	}
+	_, _, err = httpdtest.AddFolder(f1, http.StatusCreated)
+	assert.NoError(t, err)
+	f2 := vfs.BaseVirtualFolder{
+		Name:       folderName2,
+		MappedPath: mappedPath2,
+	}
+	_, _, err = httpdtest.AddFolder(f2, http.StatusCreated)
 	assert.NoError(t, err)
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
@@ -7019,8 +7135,7 @@ func TestVirtualFoldersLink(t *testing.T) {
 	vdirPath2 := "/vdir2"
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName1,
-			MappedPath: mappedPath1,
+			Name: folderName1,
 		},
 		VirtualPath: vdirPath1,
 		// quota is included in the user's one
@@ -7029,8 +7144,7 @@ func TestVirtualFoldersLink(t *testing.T) {
 	})
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName2,
-			MappedPath: mappedPath2,
+			Name: folderName2,
 		},
 		VirtualPath: vdirPath2,
 		// quota is unlimited and excluded from user's one
@@ -7040,6 +7154,18 @@ func TestVirtualFoldersLink(t *testing.T) {
 	err := os.MkdirAll(mappedPath1, os.ModePerm)
 	assert.NoError(t, err)
 	err = os.MkdirAll(mappedPath2, os.ModePerm)
+	assert.NoError(t, err)
+	f1 := vfs.BaseVirtualFolder{
+		Name:       folderName1,
+		MappedPath: mappedPath1,
+	}
+	_, _, err = httpdtest.AddFolder(f1, http.StatusCreated)
+	assert.NoError(t, err)
+	f2 := vfs.BaseVirtualFolder{
+		Name:       folderName2,
+		MappedPath: mappedPath2,
+	}
+	_, _, err = httpdtest.AddFolder(f2, http.StatusCreated)
 	assert.NoError(t, err)
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
@@ -7168,8 +7294,7 @@ func TestVFolderQuotaSize(t *testing.T) {
 	vdirPath2 := "/vpath2"
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName1,
-			MappedPath: mappedPath1,
+			Name: folderName1,
 		},
 		VirtualPath: vdirPath1,
 		// quota is included in the user's one
@@ -7178,8 +7303,7 @@ func TestVFolderQuotaSize(t *testing.T) {
 	})
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName2,
-			MappedPath: mappedPath2,
+			Name: folderName2,
 		},
 		VirtualPath: vdirPath2,
 		QuotaFiles:  1,
@@ -7192,6 +7316,19 @@ func TestVFolderQuotaSize(t *testing.T) {
 	testFilePath := filepath.Join(homeBasePath, testFileName)
 	err = createTestFile(testFilePath, testFileSize)
 	assert.NoError(t, err)
+	f1 := vfs.BaseVirtualFolder{
+		Name:       folderName1,
+		MappedPath: mappedPath1,
+	}
+	_, _, err = httpdtest.AddFolder(f1, http.StatusCreated)
+	assert.NoError(t, err)
+	f2 := vfs.BaseVirtualFolder{
+		Name:       folderName2,
+		MappedPath: mappedPath2,
+	}
+	_, _, err = httpdtest.AddFolder(f2, http.StatusCreated)
+	assert.NoError(t, err)
+
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	conn, client, err := getSftpClient(user, usePubKey)
@@ -8894,8 +9031,7 @@ func TestSSHCopy(t *testing.T) {
 	vdirPath2 := "/vdir2/subdir"
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName1,
-			MappedPath: mappedPath1,
+			Name: folderName1,
 		},
 		VirtualPath: vdirPath1,
 		QuotaFiles:  -1,
@@ -8903,8 +9039,7 @@ func TestSSHCopy(t *testing.T) {
 	})
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName2,
-			MappedPath: mappedPath2,
+			Name: folderName2,
 		},
 		VirtualPath: vdirPath2,
 		QuotaFiles:  100,
@@ -8919,6 +9054,18 @@ func TestSSHCopy(t *testing.T) {
 	err := os.MkdirAll(mappedPath1, os.ModePerm)
 	assert.NoError(t, err)
 	err = os.MkdirAll(mappedPath2, os.ModePerm)
+	assert.NoError(t, err)
+	f1 := vfs.BaseVirtualFolder{
+		Name:       folderName1,
+		MappedPath: mappedPath1,
+	}
+	_, _, err = httpdtest.AddFolder(f1, http.StatusCreated)
+	assert.NoError(t, err)
+	f2 := vfs.BaseVirtualFolder{
+		Name:       folderName2,
+		MappedPath: mappedPath2,
+	}
+	_, _, err = httpdtest.AddFolder(f2, http.StatusCreated)
 	assert.NoError(t, err)
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
@@ -9176,8 +9323,7 @@ func TestSSHCopyQuotaLimits(t *testing.T) {
 	vdirPath2 := "/vdir2"
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName1,
-			MappedPath: mappedPath1,
+			Name: folderName1,
 		},
 		VirtualPath: vdirPath1,
 		QuotaFiles:  -1,
@@ -9185,8 +9331,7 @@ func TestSSHCopyQuotaLimits(t *testing.T) {
 	})
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName2,
-			MappedPath: mappedPath2,
+			Name: folderName2,
 		},
 		VirtualPath: vdirPath2,
 		QuotaFiles:  3,
@@ -9201,6 +9346,18 @@ func TestSSHCopyQuotaLimits(t *testing.T) {
 	err := os.MkdirAll(mappedPath1, os.ModePerm)
 	assert.NoError(t, err)
 	err = os.MkdirAll(mappedPath2, os.ModePerm)
+	assert.NoError(t, err)
+	f1 := vfs.BaseVirtualFolder{
+		Name:       folderName1,
+		MappedPath: mappedPath1,
+	}
+	_, _, err = httpdtest.AddFolder(f1, http.StatusCreated)
+	assert.NoError(t, err)
+	f2 := vfs.BaseVirtualFolder{
+		Name:       folderName2,
+		MappedPath: mappedPath2,
+	}
+	_, _, err = httpdtest.AddFolder(f2, http.StatusCreated)
 	assert.NoError(t, err)
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
@@ -9345,8 +9502,7 @@ func TestSSHRemove(t *testing.T) {
 	vdirPath2 := "/vdir2/sub"
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName1,
-			MappedPath: mappedPath1,
+			Name: folderName1,
 		},
 		VirtualPath: vdirPath1,
 		QuotaFiles:  -1,
@@ -9354,14 +9510,25 @@ func TestSSHRemove(t *testing.T) {
 	})
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName2,
-			MappedPath: mappedPath2,
+			Name: folderName2,
 		},
 		VirtualPath: vdirPath2,
 		QuotaFiles:  100,
 		QuotaSize:   0,
 	})
-	err := os.MkdirAll(mappedPath1, os.ModePerm)
+	f1 := vfs.BaseVirtualFolder{
+		Name:       folderName1,
+		MappedPath: mappedPath1,
+	}
+	_, _, err := httpdtest.AddFolder(f1, http.StatusCreated)
+	assert.NoError(t, err)
+	f2 := vfs.BaseVirtualFolder{
+		Name:       folderName2,
+		MappedPath: mappedPath2,
+	}
+	_, _, err = httpdtest.AddFolder(f2, http.StatusCreated)
+	assert.NoError(t, err)
+	err = os.MkdirAll(mappedPath1, os.ModePerm)
 	assert.NoError(t, err)
 	err = os.MkdirAll(mappedPath2, os.ModePerm)
 	assert.NoError(t, err)
@@ -9485,8 +9652,7 @@ func TestSSHRemoveCryptFs(t *testing.T) {
 	vdirPath2 := "/vdir2/sub"
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName1,
-			MappedPath: mappedPath1,
+			Name: folderName1,
 		},
 		VirtualPath: vdirPath1,
 		QuotaFiles:  -1,
@@ -9494,19 +9660,31 @@ func TestSSHRemoveCryptFs(t *testing.T) {
 	})
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName2,
-			MappedPath: mappedPath2,
-			FsConfig: vfs.Filesystem{
-				Provider: sdk.CryptedFilesystemProvider,
-				CryptConfig: vfs.CryptFsConfig{
-					Passphrase: kms.NewPlainSecret(defaultPassword),
-				},
-			},
+			Name: folderName2,
 		},
 		VirtualPath: vdirPath2,
 		QuotaFiles:  100,
 		QuotaSize:   0,
 	})
+	f1 := vfs.BaseVirtualFolder{
+		Name:       folderName1,
+		MappedPath: mappedPath1,
+	}
+	_, _, err := httpdtest.AddFolder(f1, http.StatusCreated)
+	assert.NoError(t, err)
+	f2 := vfs.BaseVirtualFolder{
+		Name:       folderName2,
+		MappedPath: mappedPath2,
+		FsConfig: vfs.Filesystem{
+			Provider: sdk.CryptedFilesystemProvider,
+			CryptConfig: vfs.CryptFsConfig{
+				Passphrase: kms.NewPlainSecret(defaultPassword),
+			},
+		},
+	}
+	_, _, err = httpdtest.AddFolder(f2, http.StatusCreated)
+	assert.NoError(t, err)
+
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	conn, client, err := getSftpClient(user, usePubKey)
@@ -9658,13 +9836,18 @@ func TestGitIncludedVirtualFolders(t *testing.T) {
 	folderName := filepath.Base(mappedPath)
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName,
-			MappedPath: mappedPath,
+			Name: folderName,
 		},
 		VirtualPath: "/" + repoName,
 		QuotaFiles:  -1,
 		QuotaSize:   -1,
 	})
+	f := vfs.BaseVirtualFolder{
+		Name:       folderName,
+		MappedPath: mappedPath,
+	}
+	_, _, err := httpdtest.AddFolder(f, http.StatusCreated)
+	assert.NoError(t, err)
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 
@@ -9731,14 +9914,19 @@ func TestGitQuotaVirtualFolders(t *testing.T) {
 	folderName := filepath.Base(mappedPath)
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName,
-			MappedPath: mappedPath,
+			Name: folderName,
 		},
 		VirtualPath: "/" + repoName,
 		QuotaFiles:  0,
 		QuotaSize:   0,
 	})
-	err := os.MkdirAll(mappedPath, os.ModePerm)
+	f := vfs.BaseVirtualFolder{
+		Name:       folderName,
+		MappedPath: mappedPath,
+	}
+	_, _, err := httpdtest.AddFolder(f, http.StatusCreated)
+	assert.NoError(t, err)
+	err = os.MkdirAll(mappedPath, os.ModePerm)
 	assert.NoError(t, err)
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
@@ -10209,12 +10397,17 @@ func TestSCPVirtualFolders(t *testing.T) {
 	vdirPath := "/vdir"
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName,
-			MappedPath: mappedPath,
+			Name: folderName,
 		},
 		VirtualPath: vdirPath,
 	})
-	err := os.MkdirAll(mappedPath, os.ModePerm)
+	f := vfs.BaseVirtualFolder{
+		Name:       folderName,
+		MappedPath: mappedPath,
+	}
+	_, _, err := httpdtest.AddFolder(f, http.StatusCreated)
+	assert.NoError(t, err)
+	err = os.MkdirAll(mappedPath, os.ModePerm)
 	assert.NoError(t, err)
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
@@ -10266,16 +10459,6 @@ func TestSCPNestedFolders(t *testing.T) {
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
 			Name: folderNameSFTP,
-			FsConfig: vfs.Filesystem{
-				Provider: sdk.SFTPFilesystemProvider,
-				SFTPConfig: vfs.SFTPFsConfig{
-					BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
-						Endpoint: sftpServerAddr,
-						Username: baseUser.Username,
-					},
-					Password: kms.NewPlainSecret(defaultPassword),
-				},
-			},
 		},
 		VirtualPath: vdirSFTPPath,
 	})
@@ -10285,16 +10468,37 @@ func TestSCPNestedFolders(t *testing.T) {
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
 			Name: folderNameCrypt,
-			FsConfig: vfs.Filesystem{
-				Provider: sdk.CryptedFilesystemProvider,
-				CryptConfig: vfs.CryptFsConfig{
-					Passphrase: kms.NewPlainSecret(defaultPassword),
-				},
-			},
-			MappedPath: mappedPathCrypt,
 		},
 		VirtualPath: vdirCryptPath,
 	})
+
+	f1 := vfs.BaseVirtualFolder{
+		Name: folderNameSFTP,
+		FsConfig: vfs.Filesystem{
+			Provider: sdk.SFTPFilesystemProvider,
+			SFTPConfig: vfs.SFTPFsConfig{
+				BaseSFTPFsConfig: sdk.BaseSFTPFsConfig{
+					Endpoint: sftpServerAddr,
+					Username: baseUser.Username,
+				},
+				Password: kms.NewPlainSecret(defaultPassword),
+			},
+		},
+	}
+	_, _, err = httpdtest.AddFolder(f1, http.StatusCreated)
+	assert.NoError(t, err)
+	f2 := vfs.BaseVirtualFolder{
+		Name: folderNameCrypt,
+		FsConfig: vfs.Filesystem{
+			Provider: sdk.CryptedFilesystemProvider,
+			CryptConfig: vfs.CryptFsConfig{
+				Passphrase: kms.NewPlainSecret(defaultPassword),
+			},
+		},
+		MappedPath: mappedPathCrypt,
+	}
+	_, _, err = httpdtest.AddFolder(f2, http.StatusCreated)
+	assert.NoError(t, err)
 
 	user, resp, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err, string(resp))
@@ -10398,8 +10602,7 @@ func TestSCPVirtualFoldersQuota(t *testing.T) {
 	vdirPath2 := "/vdir2"
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName1,
-			MappedPath: mappedPath1,
+			Name: folderName1,
 		},
 		VirtualPath: vdirPath1,
 		QuotaFiles:  -1,
@@ -10407,14 +10610,25 @@ func TestSCPVirtualFoldersQuota(t *testing.T) {
 	})
 	u.VirtualFolders = append(u.VirtualFolders, vfs.VirtualFolder{
 		BaseVirtualFolder: vfs.BaseVirtualFolder{
-			Name:       folderName2,
-			MappedPath: mappedPath2,
+			Name: folderName2,
 		},
 		VirtualPath: vdirPath2,
 		QuotaFiles:  0,
 		QuotaSize:   0,
 	})
-	err := os.MkdirAll(mappedPath1, os.ModePerm)
+	f1 := vfs.BaseVirtualFolder{
+		Name:       folderName1,
+		MappedPath: mappedPath1,
+	}
+	_, _, err := httpdtest.AddFolder(f1, http.StatusCreated)
+	assert.NoError(t, err)
+	f2 := vfs.BaseVirtualFolder{
+		Name:       folderName2,
+		MappedPath: mappedPath2,
+	}
+	_, _, err = httpdtest.AddFolder(f2, http.StatusCreated)
+	assert.NoError(t, err)
+	err = os.MkdirAll(mappedPath1, os.ModePerm)
 	assert.NoError(t, err)
 	err = os.MkdirAll(mappedPath2, os.ModePerm)
 	assert.NoError(t, err)

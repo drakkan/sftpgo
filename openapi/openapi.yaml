@@ -29,7 +29,7 @@ info:
     SFTPGo supports groups to simplify the administration of multiple accounts by letting you assign settings once to a group, instead of multiple times to each individual user.
     The SFTPGo WebClient allows end users to change their credentials, browse and manage their files in the browser and setup two-factor authentication which works with Authy, Google Authenticator and other compatible apps.
     From the WebClient each authorized user can also create HTTP/S links to externally share files and folders securely, by setting limits to the number of downloads/uploads, protecting the share with a password, limiting access by source IP address, setting an automatic expiration date.
-  version: 2.5.4-dev
+  version: 2.5.99-dev
   contact:
     name: API support
     url: 'https://github.com/drakkan/sftpgo'
@@ -4993,6 +4993,7 @@ components:
         - close_conns
         - view_status
         - manage_admins
+        - manage_folders
         - manage_groups
         - manage_apikeys
         - quota_scans
@@ -5016,6 +5017,7 @@ components:
           * `close_conns` - close active connections is allowed
           * `view_status` - view the server status is allowed
           * `manage_admins` - manage other admins is allowed
+          * `manage_folders` - manage folders is allowed
           * `manage_groups` - manage groups is allowed
           * `manage_apikeys` - manage API keys is allowed
           * `quota_scans` - view and start quota scans is allowed
@@ -5919,7 +5921,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/VirtualFolder'
-          description: mapping between virtual SFTPGo paths and virtual folders. If one or more of the specified folders are not inside the dataprovider they will be automatically created. You have to create the folder on the filesystem yourself
+          description: mapping between virtual SFTPGo paths and virtual folders
         uid:
           type: integer
           format: int32

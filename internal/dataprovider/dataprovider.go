@@ -2621,27 +2621,6 @@ func validateFolderQuotaLimits(folder vfs.VirtualFolder) error {
 	return nil
 }
 
-func getVirtualFolderIfInvalid(folder *vfs.BaseVirtualFolder) *vfs.BaseVirtualFolder {
-	if err := ValidateFolder(folder); err == nil {
-		return folder
-	}
-	if folder.Name == "" {
-		return folder
-	}
-	// we try to get the folder from the data provider if only the Name is populated
-	// so if MappedPath or Provider are set just return
-	if folder.MappedPath != "" {
-		return folder
-	}
-	if folder.FsConfig.Provider != sdk.LocalFilesystemProvider {
-		return folder
-	}
-	if f, err := GetFolderByName(folder.Name); err == nil {
-		return &f
-	}
-	return folder
-}
-
 func validateUserGroups(user *User) error {
 	if len(user.Groups) == 0 {
 		return nil
@@ -2682,12 +2661,11 @@ func validateAssociatedVirtualFolders(vfolders []vfs.VirtualFolder) ([]vfs.Virtu
 		if err := validateFolderQuotaLimits(v); err != nil {
 			return nil, err
 		}
-		folder := getVirtualFolderIfInvalid(&v.BaseVirtualFolder)
-		if err := ValidateFolder(folder); err != nil {
-			return nil, err
+		if v.Name == "" {
+			return nil, util.NewValidationError("folder name is mandatory")
 		}
-		if folderNames[folder.Name] {
-			return nil, util.NewValidationError(fmt.Sprintf("the folder %q is duplicated", folder.Name))
+		if folderNames[v.Name] {
+			return nil, util.NewValidationError(fmt.Sprintf("the folder %q is duplicated", v.Name))
 		}
 		for _, vFolder := range virtualFolders {
 			if util.IsDirOverlapped(vFolder.VirtualPath, cleanedVPath, false, "/") {
@@ -2696,12 +2674,14 @@ func validateAssociatedVirtualFolders(vfolders []vfs.VirtualFolder) ([]vfs.Virtu
 			}
 		}
 		virtualFolders = append(virtualFolders, vfs.VirtualFolder{
-			BaseVirtualFolder: *folder,
-			VirtualPath:       cleanedVPath,
-			QuotaSize:         v.QuotaSize,
-			QuotaFiles:        v.QuotaFiles,
+			BaseVirtualFolder: vfs.BaseVirtualFolder{
+				Name: v.Name,
+			},
+			VirtualPath: cleanedVPath,
+			QuotaSize:   v.QuotaSize,
+			QuotaFiles:  v.QuotaFiles,
 		})
-		folderNames[folder.Name] = true
+		folderNames[v.Name] = true
 	}
 	return virtualFolders, nil
 }
