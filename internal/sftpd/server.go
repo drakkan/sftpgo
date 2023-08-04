@@ -468,6 +468,9 @@ func (c *Configuration) configureSecurityOptions(serverConfig *ssh.ServerConfig)
 		}
 		c.KexAlgorithms = util.RemoveDuplicates(c.KexAlgorithms, true)
 		for _, kex := range c.KexAlgorithms {
+			if kex == "diffie-hellman-group18-sha512" {
+				logger.Warn(logSender, "", "KEX %q is not supported and will be ignored", kex)
+			}
 			if !util.Contains(supportedKexAlgos, kex) {
 				return fmt.Errorf("unsupported key-exchange algorithm %q", kex)
 			}

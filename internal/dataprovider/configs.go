@@ -30,8 +30,7 @@ import (
 var (
 	supportedHostKeyAlgos = []string{ssh.KeyAlgoRSA, ssh.CertAlgoRSAv01}
 	supportedKexAlgos     = []string{
-		"diffie-hellman-group16-sha512", "diffie-hellman-group18-sha512",
-		"diffie-hellman-group14-sha1", "diffie-hellman-group1-sha1",
+		"diffie-hellman-group16-sha512", "diffie-hellman-group14-sha1", "diffie-hellman-group1-sha1",
 		"diffie-hellman-group-exchange-sha256", "diffie-hellman-group-exchange-sha1",
 	}
 	supportedCiphers = []string{
@@ -104,6 +103,9 @@ func (c *SFTPDConfigs) validate() error {
 		}
 	}
 	for _, algo := range c.KexAlgorithms {
+		if algo == "diffie-hellman-group18-sha512" {
+			continue
+		}
 		if !util.Contains(supportedKexAlgos, algo) {
 			return util.NewValidationError(fmt.Sprintf("unsupported KEX algorithm %q", algo))
 		}
