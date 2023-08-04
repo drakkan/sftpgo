@@ -393,7 +393,11 @@ func TestInitialization(t *testing.T) {
 	sftpdConf.KeyboardInteractiveHook = "invalid_file"
 	err = sftpdConf.Initialize(configDir)
 	assert.Error(t, err)
+	sftpdConf.KeyboardInteractiveAuthentication = true
 	sftpdConf.KeyboardInteractiveHook = filepath.Join(homeBasePath, "invalid_file")
+	err = sftpdConf.Initialize(configDir)
+	assert.Error(t, err)
+	sftpdConf.KeyboardInteractiveAuthentication = false
 	err = sftpdConf.Initialize(configDir)
 	assert.Error(t, err)
 	sftpdConf.Bindings = []sftpd.Binding{
