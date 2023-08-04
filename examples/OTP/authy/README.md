@@ -45,7 +45,7 @@ curl -i "https://api.authy.com/protected/json/verify/${TOKEN}/${AUTHY_ID}" \
 So inside your hook you need to check:
 
 - the HTTP response code for the verify request, it must be `200`
-- the JSON reponse body, it must contains the key `success` with the value `true` (as string)
+- the JSON response body, it must contains the key `success` with the value `true` (as string)
 
 If these conditions are met the token is valid and you allow the user to login.
 
