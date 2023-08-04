@@ -349,7 +349,7 @@ func (s *webDavServer) validateUser(user *dataprovider.User, r *http.Request, lo
 		logger.Info(logSender, connectionID, "cannot login user %q, protocol DAV is not allowed", user.Username)
 		return connID, fmt.Errorf("protocol DAV is not allowed for user %q", user.Username)
 	}
-	if !user.IsLoginMethodAllowed(loginMethod, common.ProtocolWebDAV, nil) {
+	if !user.IsLoginMethodAllowed(loginMethod, common.ProtocolWebDAV) {
 		logger.Info(logSender, connectionID, "cannot login user %q, %v login method is not allowed",
 			user.Username, loginMethod)
 		return connID, fmt.Errorf("login method %v is not allowed for user %q", loginMethod, user.Username)

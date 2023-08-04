@@ -1131,7 +1131,7 @@ func CheckCachedUserCredentials(user *CachedUser, password, ip, loginMethod, pro
 			return user, nil, err
 		}
 		if loginMethod == LoginMethodTLSCertificate {
-			if !user.User.IsLoginMethodAllowed(LoginMethodTLSCertificate, protocol, nil) {
+			if !user.User.IsLoginMethodAllowed(LoginMethodTLSCertificate, protocol) {
 				return user, nil, fmt.Errorf("certificate login method is not allowed for user %q", user.User.Username)
 			}
 			return user, nil, nil
@@ -1174,7 +1174,7 @@ func CheckCompositeCredentials(username, password, ip, loginMethod, protocol str
 	if err != nil {
 		return user, loginMethod, err
 	}
-	if loginMethod == LoginMethodTLSCertificate && !user.IsLoginMethodAllowed(LoginMethodTLSCertificate, protocol, nil) {
+	if loginMethod == LoginMethodTLSCertificate && !user.IsLoginMethodAllowed(LoginMethodTLSCertificate, protocol) {
 		return user, loginMethod, fmt.Errorf("certificate login method is not allowed for user %q", user.Username)
 	}
 	if loginMethod == LoginMethodTLSCertificateAndPwd {

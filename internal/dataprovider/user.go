@@ -894,16 +894,9 @@ func (u *User) HasNoQuotaRestrictions(checkFiles bool) bool {
 }
 
 // IsLoginMethodAllowed returns true if the specified login method is allowed
-func (u *User) IsLoginMethodAllowed(loginMethod, protocol string, partialSuccessMethods []string) bool {
+func (u *User) IsLoginMethodAllowed(loginMethod, protocol string) bool {
 	if len(u.Filters.DeniedLoginMethods) == 0 {
 		return true
-	}
-	if len(partialSuccessMethods) == 1 {
-		for _, method := range u.GetNextAuthMethods(partialSuccessMethods, true) {
-			if method == loginMethod {
-				return true
-			}
-		}
 	}
 	if util.Contains(u.Filters.DeniedLoginMethods, loginMethod) {
 		return false
@@ -916,18 +909,13 @@ func (u *User) IsLoginMethodAllowed(loginMethod, protocol string, partialSuccess
 	return true
 }
 
-// GetNextAuthMethods returns the list of authentications methods that
-// can continue for multi-step authentication
-func (u *User) GetNextAuthMethods(partialSuccessMethods []string, isPasswordAuthEnabled bool) []string {
+// GetNextAuthMethods returns the list of authentications methods that can
+// continue for multi-step authentication. We call this method after a
+// successful public key authentication.
+func (u *User) GetNextAuthMethods() []string {
 	var methods []string
-	if len(partialSuccessMethods) != 1 {
-		return methods
-	}
-	if partialSuccessMethods[0] != SSHLoginMethodPublicKey {
-		return methods
-	}
 	for _, method := range u.GetAllowedLoginMethods() {
-		if method == SSHLoginMethodKeyAndPassword && isPasswordAuthEnabled {
+		if method == SSHLoginMethodKeyAndPassword {
 			methods = append(methods, LoginMethodPassword)
 		}
 		if method == SSHLoginMethodKeyAndKeyboardInt {
@@ -942,10 +930,7 @@ func (u *User) GetNextAuthMethods(partialSuccessMethods []string, isPasswordAuth
 // We support publickey+password and publickey+keyboard-interactive, so
 // only publickey can returns partial success.
 // We can have partial success if only multi-step Auth methods are enabled
-func (u *User) IsPartialAuth(loginMethod string) bool {
-	if loginMethod != SSHLoginMethodPublicKey {
-		return false
-	}
+func (u *User) IsPartialAuth() bool {
 	for _, method := range u.GetAllowedLoginMethods() {
 		if method == LoginMethodTLSCertificate || method == LoginMethodTLSCertificateAndPwd ||
 			method == SSHLoginMethodPassword {

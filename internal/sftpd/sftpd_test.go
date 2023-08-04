@@ -55,6 +55,7 @@ import (
 	"github.com/sftpgo/sdk"
 	sdkkms "github.com/sftpgo/sdk/kms"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/ssh"
 
 	"github.com/drakkan/sftpgo/v2/internal/common"
@@ -276,13 +277,13 @@ func TestMain(m *testing.M) {
 	sftpdConf.TrustedUserCAKeys = append(sftpdConf.TrustedUserCAKeys, trustedCAUserKey)
 	sftpdConf.RevokedUserCertsFile = revokeUserCerts
 
-	go func() {
+	go func(cfg sftpd.Configuration) {
 		logger.Debug(logSender, "", "initializing SFTP server with config %+v", sftpdConf)
-		if err := sftpdConf.Initialize(configDir); err != nil {
+		if err := cfg.Initialize(configDir); err != nil {
 			logger.ErrorToConsole("could not start SFTP server: %v", err)
 			os.Exit(1)
 		}
-	}()
+	}(sftpdConf)
 
 	go func() {
 		if err := httpdConf.Initialize(configDir, 0); err != nil {
@@ -302,36 +303,35 @@ func TestMain(m *testing.M) {
 	}
 	sftpdConf.PasswordAuthentication = false
 	common.Config.ProxyProtocol = 1
-	go func() {
+	go func(cfg sftpd.Configuration) {
 		logger.Debug(logSender, "", "initializing SFTP server with config %+v and proxy protocol %v",
 			sftpdConf, common.Config.ProxyProtocol)
-		if err := sftpdConf.Initialize(configDir); err != nil {
+		if err := cfg.Initialize(configDir); err != nil {
 			logger.ErrorToConsole("could not start SFTP server with proxy protocol 1: %v", err)
 			os.Exit(1)
 		}
-	}()
+	}(sftpdConf)
 
 	waitTCPListening(sftpdConf.Bindings[0].GetAddress())
 
-	prefixedConf := sftpdConf
-	prefixedConf.Bindings = []sftpd.Binding{
+	sftpdConf.Bindings = []sftpd.Binding{
 		{
 			Port:             2226,
 			ApplyProxyConfig: false,
 		},
 	}
-	prefixedConf.PasswordAuthentication = true
-	prefixedConf.FolderPrefix = "/prefix/files"
-	go func() {
+	sftpdConf.PasswordAuthentication = true
+	sftpdConf.FolderPrefix = "/prefix/files"
+	go func(cfg sftpd.Configuration) {
 		logger.Debug(logSender, "", "initializing SFTP server with config %+v and proxy protocol %v",
-			prefixedConf, common.Config.ProxyProtocol)
-		if err := prefixedConf.Initialize(configDir); err != nil {
+			cfg, common.Config.ProxyProtocol)
+		if err := cfg.Initialize(configDir); err != nil {
 			logger.ErrorToConsole("could not start SFTP server with proxy protocol 2: %v", err)
 			os.Exit(1)
 		}
-	}()
+	}(sftpdConf)
 
-	waitTCPListening(prefixedConf.Bindings[0].GetAddress())
+	waitTCPListening(sftpdConf.Bindings[0].GetAddress())
 
 	sftpdConf.Bindings = []sftpd.Binding{
 		{
@@ -8596,27 +8596,25 @@ func TestUserPartialAuth(t *testing.T) {
 		dataprovider.SSHLoginMethodPublicKey,
 		dataprovider.SSHLoginMethodKeyboardInteractive,
 	}
-	assert.False(t, user.IsPartialAuth(dataprovider.LoginMethodPassword))
-	assert.False(t, user.IsPartialAuth(dataprovider.SSHLoginMethodKeyboardInteractive))
-	assert.True(t, user.IsPartialAuth(dataprovider.SSHLoginMethodPublicKey))
+	assert.True(t, user.IsPartialAuth())
 
 	user.Filters.DeniedLoginMethods = []string{
 		dataprovider.LoginMethodPassword,
 		dataprovider.SSHLoginMethodKeyboardInteractive,
 	}
-	assert.False(t, user.IsPartialAuth(dataprovider.SSHLoginMethodPublicKey))
+	assert.False(t, user.IsPartialAuth())
 
 	user.Filters.DeniedLoginMethods = []string{
 		dataprovider.LoginMethodPassword,
 		dataprovider.SSHLoginMethodPublicKey,
 	}
-	assert.False(t, user.IsPartialAuth(dataprovider.SSHLoginMethodPublicKey))
+	assert.False(t, user.IsPartialAuth())
 	user.Filters.DeniedLoginMethods = []string{
 		dataprovider.SSHLoginMethodPassword,
 		dataprovider.SSHLoginMethodPublicKey,
 		dataprovider.SSHLoginMethodKeyboardInteractive,
 	}
-	assert.True(t, user.IsPartialAuth(dataprovider.SSHLoginMethodPublicKey))
+	assert.True(t, user.IsPartialAuth())
 }
 
 func TestUserGetNextAuthMethods(t *testing.T) {
@@ -8626,28 +8624,10 @@ func TestUserGetNextAuthMethods(t *testing.T) {
 		dataprovider.SSHLoginMethodPublicKey,
 		dataprovider.SSHLoginMethodKeyboardInteractive,
 	}
-	methods := user.GetNextAuthMethods(nil, true)
-	assert.Equal(t, 0, len(methods))
-
-	methods = user.GetNextAuthMethods([]string{dataprovider.LoginMethodPassword}, true)
-	assert.Equal(t, 0, len(methods))
-
-	methods = user.GetNextAuthMethods([]string{dataprovider.SSHLoginMethodKeyboardInteractive}, true)
-	assert.Equal(t, 0, len(methods))
-
-	methods = user.GetNextAuthMethods([]string{
-		dataprovider.SSHLoginMethodPublicKey,
-		dataprovider.SSHLoginMethodKeyboardInteractive,
-	}, true)
-	assert.Equal(t, 0, len(methods))
-
-	methods = user.GetNextAuthMethods([]string{dataprovider.SSHLoginMethodPublicKey}, true)
-	assert.Equal(t, 2, len(methods))
-	assert.True(t, util.Contains(methods, dataprovider.LoginMethodPassword))
-	assert.True(t, util.Contains(methods, dataprovider.SSHLoginMethodKeyboardInteractive))
-	methods = user.GetNextAuthMethods([]string{dataprovider.SSHLoginMethodPublicKey}, false)
-	assert.Equal(t, 1, len(methods))
-	assert.True(t, util.Contains(methods, dataprovider.SSHLoginMethodKeyboardInteractive))
+	methods := user.GetNextAuthMethods()
+	require.Len(t, methods, 2)
+	assert.Equal(t, dataprovider.LoginMethodPassword, methods[0])
+	assert.Equal(t, dataprovider.SSHLoginMethodKeyboardInteractive, methods[1])
 
 	user.Filters.DeniedLoginMethods = []string{
 		dataprovider.LoginMethodPassword,
@@ -8655,9 +8635,9 @@ func TestUserGetNextAuthMethods(t *testing.T) {
 		dataprovider.SSHLoginMethodKeyboardInteractive,
 		dataprovider.SSHLoginMethodKeyAndKeyboardInt,
 	}
-	methods = user.GetNextAuthMethods([]string{dataprovider.SSHLoginMethodPublicKey}, true)
-	assert.Equal(t, 1, len(methods))
-	assert.True(t, util.Contains(methods, dataprovider.LoginMethodPassword))
+	methods = user.GetNextAuthMethods()
+	require.Len(t, methods, 1)
+	assert.Equal(t, dataprovider.LoginMethodPassword, methods[0])
 
 	user.Filters.DeniedLoginMethods = []string{
 		dataprovider.LoginMethodPassword,
@@ -8665,9 +8645,18 @@ func TestUserGetNextAuthMethods(t *testing.T) {
 		dataprovider.SSHLoginMethodKeyboardInteractive,
 		dataprovider.SSHLoginMethodKeyAndPassword,
 	}
-	methods = user.GetNextAuthMethods([]string{dataprovider.SSHLoginMethodPublicKey}, true)
-	assert.Equal(t, 1, len(methods))
-	assert.True(t, util.Contains(methods, dataprovider.SSHLoginMethodKeyboardInteractive))
+	methods = user.GetNextAuthMethods()
+	require.Len(t, methods, 1)
+	assert.Equal(t, dataprovider.SSHLoginMethodKeyboardInteractive, methods[0])
+
+	user.Filters.DeniedLoginMethods = []string{
+		dataprovider.LoginMethodPassword,
+		dataprovider.SSHLoginMethodPublicKey,
+		dataprovider.SSHLoginMethodKeyAndPassword,
+		dataprovider.SSHLoginMethodKeyAndKeyboardInt,
+	}
+	methods = user.GetNextAuthMethods()
+	require.Len(t, methods, 0)
 }
 
 func TestUserIsLoginMethodAllowed(t *testing.T) {
@@ -8677,31 +8666,25 @@ func TestUserIsLoginMethodAllowed(t *testing.T) {
 		dataprovider.SSHLoginMethodPublicKey,
 		dataprovider.SSHLoginMethodKeyboardInteractive,
 	}
-	assert.False(t, user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, common.ProtocolSSH, nil))
-	assert.False(t, user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, common.ProtocolFTP, nil))
-	assert.False(t, user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, common.ProtocolWebDAV, nil))
-	assert.False(t, user.IsLoginMethodAllowed(dataprovider.SSHLoginMethodPublicKey, common.ProtocolSSH, nil))
-	assert.False(t, user.IsLoginMethodAllowed(dataprovider.SSHLoginMethodKeyboardInteractive, common.ProtocolSSH, nil))
-	assert.True(t, user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, common.ProtocolSSH,
-		[]string{dataprovider.SSHLoginMethodPublicKey}))
-	assert.True(t, user.IsLoginMethodAllowed(dataprovider.SSHLoginMethodKeyboardInteractive, common.ProtocolSSH,
-		[]string{dataprovider.SSHLoginMethodPublicKey}))
-	assert.True(t, user.IsLoginMethodAllowed(dataprovider.SSHLoginMethodKeyAndPassword, common.ProtocolSSH,
-		[]string{dataprovider.SSHLoginMethodPublicKey}))
+	assert.False(t, user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, common.ProtocolSSH))
+	assert.False(t, user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, common.ProtocolFTP))
+	assert.False(t, user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, common.ProtocolWebDAV))
+	assert.False(t, user.IsLoginMethodAllowed(dataprovider.SSHLoginMethodPublicKey, common.ProtocolSSH))
+	assert.False(t, user.IsLoginMethodAllowed(dataprovider.SSHLoginMethodKeyboardInteractive, common.ProtocolSSH))
 
 	user.Filters.DeniedLoginMethods = []string{
 		dataprovider.SSHLoginMethodPublicKey,
 		dataprovider.SSHLoginMethodKeyboardInteractive,
 	}
-	assert.True(t, user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, common.ProtocolSSH, nil))
+	assert.True(t, user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, common.ProtocolSSH))
 
 	user.Filters.DeniedLoginMethods = []string{
 		dataprovider.SSHLoginMethodPassword,
 	}
-	assert.True(t, user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, common.ProtocolHTTP, nil))
-	assert.True(t, user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, common.ProtocolFTP, nil))
-	assert.True(t, user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, common.ProtocolWebDAV, nil))
-	assert.False(t, user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, common.ProtocolSSH, nil))
+	assert.True(t, user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, common.ProtocolHTTP))
+	assert.True(t, user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, common.ProtocolFTP))
+	assert.True(t, user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, common.ProtocolWebDAV))
+	assert.False(t, user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, common.ProtocolSSH))
 }
 
 func TestUserEmptySubDirPerms(t *testing.T) {

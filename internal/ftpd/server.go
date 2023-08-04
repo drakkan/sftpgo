@@ -274,7 +274,7 @@ func (s *Server) VerifyConnection(cc ftpserver.ClientContext, user string, tlsCo
 
 				s.setTLSConnVerified(cc.ID(), true)
 
-				if dbUser.IsLoginMethodAllowed(dataprovider.LoginMethodTLSCertificate, common.ProtocolFTP, nil) {
+				if dbUser.IsLoginMethodAllowed(dataprovider.LoginMethodTLSCertificate, common.ProtocolFTP) {
 					connection, err := s.validateUser(dbUser, cc, dataprovider.LoginMethodTLSCertificate)
 
 					defer updateLoginMetrics(&dbUser, ipAddr, dataprovider.LoginMethodTLSCertificate, err)
@@ -371,7 +371,7 @@ func (s *Server) validateUser(user dataprovider.User, cc ftpserver.ClientContext
 		logger.Info(logSender, connectionID, "cannot login user %q, protocol FTP is not allowed", user.Username)
 		return nil, fmt.Errorf("protocol FTP is not allowed for user %q", user.Username)
 	}
-	if !user.IsLoginMethodAllowed(loginMethod, common.ProtocolFTP, nil) {
+	if !user.IsLoginMethodAllowed(loginMethod, common.ProtocolFTP) {
 		logger.Info(logSender, connectionID, "cannot login user %q, %v login method is not allowed",
 			user.Username, loginMethod)
 		return nil, fmt.Errorf("login method %v is not allowed for user %q", loginMethod, user.Username)

@@ -630,7 +630,7 @@ func checkHTTPClientUser(user *dataprovider.User, r *http.Request, connectionID 
 		logger.Info(logSender, connectionID, "cannot login user %q, protocol HTTP is not allowed", user.Username)
 		return fmt.Errorf("protocol HTTP is not allowed for user %q", user.Username)
 	}
-	if !isLoggedInWithOIDC(r) && !user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, common.ProtocolHTTP, nil) {
+	if !isLoggedInWithOIDC(r) && !user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, common.ProtocolHTTP) {
 		logger.Info(logSender, connectionID, "cannot login user %q, password login method is not allowed", user.Username)
 		return fmt.Errorf("login method password is not allowed for user %q", user.Username)
 	}
@@ -764,7 +764,7 @@ func isUserAllowedToResetPassword(r *http.Request, user *dataprovider.User) bool
 	if util.Contains(user.Filters.DeniedProtocols, common.ProtocolHTTP) {
 		return false
 	}
-	if !user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, common.ProtocolHTTP, nil) {
+	if !user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, common.ProtocolHTTP) {
 		return false
 	}
 	if !user.IsLoginFromAddrAllowed(r.RemoteAddr) {
