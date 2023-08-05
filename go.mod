@@ -68,9 +68,9 @@ require (
 	go.etcd.io/bbolt v1.3.7
 	go.uber.org/automaxprocs v1.5.3
 	gocloud.dev v0.33.0
-	golang.org/x/crypto v0.11.0
-	golang.org/x/net v0.13.0
-	golang.org/x/oauth2 v0.10.0
+	golang.org/x/crypto v0.12.0
+	golang.org/x/net v0.14.0
+	golang.org/x/oauth2 v0.11.0
 	golang.org/x/sys v0.11.0
 	golang.org/x/term v0.11.0
 	golang.org/x/time v0.3.0
