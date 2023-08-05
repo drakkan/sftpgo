@@ -3414,6 +3414,10 @@ func getSSLMode() string {
 			return "verify-ca"
 		case 3:
 			return "verify-full"
+		case 4:
+			return "prefer"
+		case 5:
+			return "allow"
 		}
 	} else if config.Driver == MySQLDataProviderName {
 		if config.requireCustomTLSForMySQL() {
