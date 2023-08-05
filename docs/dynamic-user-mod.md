@@ -22,11 +22,13 @@ The request body will contain the user trying to login serialized as JSON. If no
 
 Actions defined for user's updates will not be executed in this case and an already logged in user with the same username will not be disconnected, you have to handle these things yourself.
 
-The JSON response can include only the fields to update instead of the full user. For example, if you want to disable the user, you can return a response like this:
+For very simple use cases, the JSON response can include only the fields to update instead of the full user. For example, if you want to disable the user, you can return a response like this:
 
 ```json
 {"status": 0}
 ```
+
+This will not work as expected for sub-struct and lists.
 
 Please note that if you want to create a new user, the pre-login hook response must include all the mandatory user fields.
 
