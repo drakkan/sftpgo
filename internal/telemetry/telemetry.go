@@ -126,11 +126,10 @@ func (c Conf) Initialize(configDir string) error {
 			return err
 		}
 		config := &tls.Config{
-			GetCertificate:           certMgr.GetCertificateFunc(common.DefaultTLSKeyPaidID),
-			MinVersion:               util.GetTLSVersion(c.MinTLSVersion),
-			NextProtos:               []string{"http/1.1", "h2"},
-			CipherSuites:             util.GetTLSCiphersFromNames(c.TLSCipherSuites),
-			PreferServerCipherSuites: true,
+			GetCertificate: certMgr.GetCertificateFunc(common.DefaultTLSKeyPaidID),
+			MinVersion:     util.GetTLSVersion(c.MinTLSVersion),
+			NextProtos:     []string{"http/1.1", "h2"},
+			CipherSuites:   util.GetTLSCiphersFromNames(c.TLSCipherSuites),
 		}
 		logger.Debug(logSender, "", "configured TLS cipher suites: %v", config.CipherSuites)
 		httpServer.TLSConfig = config

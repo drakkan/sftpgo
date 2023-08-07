@@ -302,10 +302,9 @@ func (s *Server) buildTLSConfig() {
 			certID = s.binding.GetAddress()
 		}
 		s.tlsConfig = &tls.Config{
-			GetCertificate:           certMgr.GetCertificateFunc(certID),
-			MinVersion:               util.GetTLSVersion(s.binding.MinTLSVersion),
-			CipherSuites:             s.binding.ciphers,
-			PreferServerCipherSuites: true,
+			GetCertificate: certMgr.GetCertificateFunc(certID),
+			MinVersion:     util.GetTLSVersion(s.binding.MinTLSVersion),
+			CipherSuites:   s.binding.ciphers,
 		}
 		logger.Debug(logSender, "", "configured TLS cipher suites for binding %q: %v, certID: %v",
 			s.binding.GetAddress(), s.binding.ciphers, certID)
