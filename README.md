@@ -38,7 +38,8 @@ With sponsorships/donations or support plans we establish a channel for reciproc
 
 #### Bronze sponsors
 
-[<img src="https://www.7digital.com/wp-content/themes/sevendigital/images/top_logo.png" alt="7digital logo">](https://www.7digital.com/)
+[<img src="./img/7digital.png" alt="7digital logo" width="178" height="56">](https://www.7digital.com/)
+[<img src="./img/vps2day.png" alt="VPS2day logo" width="234" height="56">](https://www.vps2day.com/)
 
 ## Support policy
 
