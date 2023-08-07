@@ -2570,6 +2570,7 @@ func copyBaseUserFilters(in sdk.BaseUserFilters) sdk.BaseUserFilters {
 	filters.AllowAPIKeyAuth = in.AllowAPIKeyAuth
 	filters.ExternalAuthCacheTime = in.ExternalAuthCacheTime
 	filters.DefaultSharesExpiration = in.DefaultSharesExpiration
+	filters.MaxSharesExpiration = in.MaxSharesExpiration
 	filters.PasswordExpiration = in.PasswordExpiration
 	filters.PasswordStrength = in.PasswordStrength
 	filters.WebClient = make([]string, len(in.WebClient))
@@ -2966,6 +2967,10 @@ func validateBaseFilters(filters *sdk.BaseUserFilters) error {
 		if !util.Contains(sdk.WebClientOptions, opts) {
 			return util.NewValidationError(fmt.Sprintf("invalid web client options %q", opts))
 		}
+	}
+	if filters.MaxSharesExpiration > 0 && filters.MaxSharesExpiration < filters.DefaultSharesExpiration {
+		return util.NewValidationError(fmt.Sprintf("default shares expiration: %d must be less than or equal to max shares expiration: %d",
+			filters.DefaultSharesExpiration, filters.MaxSharesExpiration))
 	}
 	updateFiltersValues(filters)
 

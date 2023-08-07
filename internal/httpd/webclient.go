@@ -1319,6 +1319,15 @@ func (s *httpdServer) handleClientAddSharePost(w http.ResponseWriter, r *http.Re
 			return
 		}
 	}
+	user, err := dataprovider.GetUserWithGroupSettings(claims.Username, "")
+	if err != nil {
+		s.renderAddUpdateSharePage(w, r, share, "Unable to retrieve your user", true)
+		return
+	}
+	if err := user.CheckMaxShareExpiration(util.GetTimeFromMsecSinceEpoch(share.ExpiresAt)); err != nil {
+		s.renderAddUpdateSharePage(w, r, share, err.Error(), true)
+		return
+	}
 	err = dataprovider.AddShare(share, claims.Username, ipAddr, claims.Role)
 	if err == nil {
 		http.Redirect(w, r, webClientSharesPath, http.StatusSeeOther)
@@ -1363,6 +1372,15 @@ func (s *httpdServer) handleClientUpdateSharePost(w http.ResponseWriter, r *http
 			s.renderClientForbiddenPage(w, r, "You are not authorized to share files/folders without a password")
 			return
 		}
+	}
+	user, err := dataprovider.GetUserWithGroupSettings(claims.Username, "")
+	if err != nil {
+		s.renderAddUpdateSharePage(w, r, updatedShare, "Unable to retrieve your user", false)
+		return
+	}
+	if err := user.CheckMaxShareExpiration(util.GetTimeFromMsecSinceEpoch(updatedShare.ExpiresAt)); err != nil {
+		s.renderAddUpdateSharePage(w, r, updatedShare, err.Error(), false)
+		return
 	}
 	err = dataprovider.UpdateShare(updatedShare, claims.Username, ipAddr, claims.Role)
 	if err == nil {

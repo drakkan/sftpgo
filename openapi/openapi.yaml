@@ -5540,6 +5540,9 @@ components:
         default_shares_expiration:
           type: integer
           description: 'Defines the default expiration for newly created shares as number of days. 0 means no expiration'
+        max_shares_expiration:
+          type: integer
+          description: 'Defines the maximum allowed expiration, as a number of days, when a user creates or updates a share. 0 means no expiration'
         password_expiration:
           type: integer
           description: 'The password expires after the defined number of days. 0 means no expiration'

@@ -13502,6 +13502,117 @@ func TestShareUsage(t *testing.T) {
 	executeRequest(req)
 }
 
+func TestShareMaxExpiration(t *testing.T) {
+	u := getTestUser()
+	u.Filters.MaxSharesExpiration = 5
+	u.Filters.DefaultSharesExpiration = 10
+	_, resp, err := httpdtest.AddUser(u, http.StatusBadRequest)
+	assert.NoError(t, err)
+	assert.Contains(t, string(resp), "must be less than or equal to max shares expiration")
+
+	u.Filters.DefaultSharesExpiration = 0
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+	webClientToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
+	assert.NoError(t, err)
+	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
+	assert.NoError(t, err)
+
+	s := dataprovider.Share{
+		Name:      "test share",
+		Scope:     dataprovider.ShareScopeRead,
+		Password:  defaultPassword,
+		Paths:     []string{"/"},
+		ExpiresAt: util.GetTimeAsMsSinceEpoch(time.Now().Add(24 * time.Hour * time.Duration(u.Filters.MaxSharesExpiration+2))),
+	}
+	asJSON, err := json.Marshal(s)
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "share must expire before")
+
+	req, err = http.NewRequest(http.MethodPut, path.Join(userSharesPath, "shareID"), bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+	// expiresAt is mandatory
+	s.ExpiresAt = 0
+	asJSON, err = json.Marshal(s)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "share must expire before")
+
+	s.ExpiresAt = util.GetTimeAsMsSinceEpoch(time.Now().Add(2 * time.Hour))
+	asJSON, err = json.Marshal(s)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPost, userSharesPath, bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusCreated, rr)
+	shareID := rr.Header().Get("X-Object-ID")
+	assert.NotEmpty(t, shareID)
+
+	s.ExpiresAt = util.GetTimeAsMsSinceEpoch(time.Now().Add(24 * time.Hour * time.Duration(u.Filters.MaxSharesExpiration+2)))
+	asJSON, err = json.Marshal(s)
+	assert.NoError(t, err)
+	req, err = http.NewRequest(http.MethodPut, path.Join(userSharesPath, shareID), bytes.NewBuffer(asJSON))
+	assert.NoError(t, err)
+	setBearerForReq(req, token)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "share must expire before")
+	form := make(url.Values)
+	form.Set("name", s.Name)
+	form.Set("scope", strconv.Itoa(int(s.Scope)))
+	form.Set("max_tokens", "0")
+	form.Set("paths", "/")
+	form.Set("expiration_date", time.Now().Add(24*time.Hour*time.Duration(u.Filters.MaxSharesExpiration+2)).Format("2006-01-02 15:04:05"))
+	form.Set(csrfFormToken, csrfToken)
+	req, err = http.NewRequest(http.MethodPost, webClientSharePath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webClientToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "share must expire before")
+
+	req, err = http.NewRequest(http.MethodPost, path.Join(webClientSharePath, shareID), bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webClientToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "share must expire before")
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodPost, webClientSharePath, bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webClientToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "Unable to retrieve your user")
+}
+
 func TestWebClientShareCredentials(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
@@ -19486,6 +19597,16 @@ func TestWebUserAddMock(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Contains(t, rr.Body.String(), "invalid default shares expiration")
 	form.Set("default_shares_expiration", "10")
+	// test invalid max shares expiration
+	form.Set("max_shares_expiration", "a")
+	b, contentType, _ = getMultipartFormData(form, "", "")
+	req, _ = http.NewRequest(http.MethodPost, webUserPath, &b)
+	setJWTCookieForReq(req, webToken)
+	req.Header.Set("Content-Type", contentType)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), "invalid max shares expiration")
+	form.Set("max_shares_expiration", "30")
 	// test invalid password expiration
 	form.Set("password_expiration", "a")
 	b, contentType, _ = getMultipartFormData(form, "", "")
@@ -19613,6 +19734,7 @@ func TestWebUserAddMock(t *testing.T) {
 	assert.Equal(t, "/start/dir", newUser.Filters.StartDirectory)
 	assert.Equal(t, 0, newUser.Filters.FTPSecurity)
 	assert.Equal(t, 10, newUser.Filters.DefaultSharesExpiration)
+	assert.Equal(t, 30, newUser.Filters.MaxSharesExpiration)
 	assert.Equal(t, 90, newUser.Filters.PasswordExpiration)
 	assert.Equal(t, 60, newUser.Filters.PasswordStrength)
 	assert.Greater(t, newUser.LastPasswordChange, int64(0))
@@ -19798,6 +19920,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	form.Set("denied_protocols", common.ProtocolFTP)
 	form.Set("max_upload_file_size", "100")
 	form.Set("default_shares_expiration", "30")
+	form.Set("max_shares_expiration", "60")
 	form.Set("password_expiration", "60")
 	form.Set("password_strength", "40")
 	form.Set("disconnect", "1")
@@ -19879,6 +20002,7 @@ func TestWebUserUpdateMock(t *testing.T) {
 	assert.Equal(t, int64(0), updateUser.UploadDataTransfer)
 	assert.Equal(t, int64(0), updateUser.Filters.ExternalAuthCacheTime)
 	assert.Equal(t, 30, updateUser.Filters.DefaultSharesExpiration)
+	assert.Equal(t, 60, updateUser.Filters.MaxSharesExpiration)
 	assert.Equal(t, 60, updateUser.Filters.PasswordExpiration)
 	assert.Equal(t, 40, updateUser.Filters.PasswordStrength)
 	assert.True(t, updateUser.Filters.RequirePasswordChange)
@@ -19993,6 +20117,7 @@ func TestUserTemplateWithFoldersMock(t *testing.T) {
 	form.Set("fs_provider", "0")
 	form.Set("max_upload_file_size", "0")
 	form.Set("default_shares_expiration", "0")
+	form.Set("max_shares_expiration", "0")
 	form.Set("password_expiration", "0")
 	form.Set("password_strength", "0")
 	form.Set("ftp_security", "1")
@@ -20089,6 +20214,7 @@ func TestUserSaveFromTemplateMock(t *testing.T) {
 	form.Set("fs_provider", "0")
 	form.Set("max_upload_file_size", "0")
 	form.Set("default_shares_expiration", "0")
+	form.Set("max_shares_expiration", "0")
 	form.Set("password_expiration", "0")
 	form.Set("password_strength", "0")
 	form.Set("external_auth_cache_time", "0")
@@ -20180,6 +20306,7 @@ func TestUserTemplateMock(t *testing.T) {
 	form.Set("denied_extensions", "/dir2::.zip")
 	form.Set("max_upload_file_size", "0")
 	form.Set("default_shares_expiration", "0")
+	form.Set("max_shares_expiration", "0")
 	form.Set("password_expiration", "0")
 	form.Set("password_strength", "0")
 	form.Add("hooks", "external_auth_disabled")
@@ -20313,6 +20440,7 @@ func TestUserPlaceholders(t *testing.T) {
 	form.Set("external_auth_cache_time", "0")
 	form.Set("max_upload_file_size", "0")
 	form.Set("default_shares_expiration", "0")
+	form.Set("max_shares_expiration", "0")
 	form.Set("password_expiration", "0")
 	form.Set("password_strength", "0")
 	b, contentType, _ := getMultipartFormData(form, "", "")
@@ -20659,6 +20787,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	form.Set("pattern_policy1", "1")
 	form.Set("max_upload_file_size", "0")
 	form.Set("default_shares_expiration", "0")
+	form.Set("max_shares_expiration", "0")
 	form.Set("password_expiration", "0")
 	form.Set("password_strength", "0")
 	form.Set("ftp_security", "1")
@@ -20876,6 +21005,7 @@ func TestWebUserGCSMock(t *testing.T) {
 	form.Set("pattern_type0", "allowed")
 	form.Set("max_upload_file_size", "0")
 	form.Set("default_shares_expiration", "0")
+	form.Set("max_shares_expiration", "0")
 	form.Set("password_expiration", "0")
 	form.Set("password_strength", "0")
 	form.Set("ftp_security", "1")
@@ -21005,6 +21135,7 @@ func TestWebUserHTTPFsMock(t *testing.T) {
 	form.Set("pattern_type1", "denied")
 	form.Set("max_upload_file_size", "0")
 	form.Set("default_shares_expiration", "0")
+	form.Set("max_shares_expiration", "0")
 	form.Set("password_expiration", "0")
 	form.Set("password_strength", "0")
 	form.Set("http_equality_check_mode", "true")
@@ -21132,6 +21263,7 @@ func TestWebUserAzureBlobMock(t *testing.T) {
 	form.Set("pattern_type1", "denied")
 	form.Set("max_upload_file_size", "0")
 	form.Set("default_shares_expiration", "0")
+	form.Set("max_shares_expiration", "0")
 	form.Set("password_expiration", "0")
 	form.Set("password_strength", "0")
 	// test invalid az_upload_part_size
@@ -21316,6 +21448,7 @@ func TestWebUserCryptMock(t *testing.T) {
 	form.Set("pattern_type1", "denied")
 	form.Set("max_upload_file_size", "0")
 	form.Set("default_shares_expiration", "0")
+	form.Set("max_shares_expiration", "0")
 	form.Set("password_expiration", "0")
 	form.Set("password_strength", "0")
 	// passphrase cannot be empty
@@ -21428,6 +21561,7 @@ func TestWebUserSFTPFsMock(t *testing.T) {
 	form.Set("pattern_type1", "denied")
 	form.Set("max_upload_file_size", "0")
 	form.Set("default_shares_expiration", "0")
+	form.Set("max_shares_expiration", "0")
 	form.Set("password_expiration", "0")
 	form.Set("password_strength", "0")
 	// empty sftpconfig
@@ -21555,6 +21689,7 @@ func TestWebUserRole(t *testing.T) {
 	form.Set("total_data_transfer", strconv.FormatInt(user.TotalDataTransfer, 10))
 	form.Set("max_upload_file_size", "0")
 	form.Set("default_shares_expiration", "10")
+	form.Set("max_shares_expiration", "0")
 	form.Set("password_expiration", "0")
 	form.Set("password_strength", "0")
 	b, contentType, _ := getMultipartFormData(form, "", "")
@@ -22770,6 +22905,7 @@ func TestAddWebGroup(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "invalid max upload file size")
 	form.Set("max_upload_file_size", "0")
 	form.Set("default_shares_expiration", "0")
+	form.Set("max_shares_expiration", "0")
 	form.Set("password_expiration", "0")
 	form.Set("password_strength", "0")
 	b, contentType, err = getMultipartFormData(form, "", "")
@@ -23208,6 +23344,7 @@ func TestUpdateWebGroupMock(t *testing.T) {
 	form.Set("total_data_transfer", "0")
 	form.Set("max_upload_file_size", "0")
 	form.Set("default_shares_expiration", "0")
+	form.Set("max_shares_expiration", "0")
 	form.Set("expires_in", "0")
 	form.Set("password_expiration", "0")
 	form.Set("password_strength", "0")

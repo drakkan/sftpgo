@@ -652,6 +652,17 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                             </div>
 
                             <div class="form-group row">
+                                <label for="idMaxSharesExpiration" class="col-sm-2 col-form-label">Max shares expiration</label>
+                                <div class="col-sm-10">
+                                    <input type="number" class="form-control" id="idMaxSharesExpiration" name="max_shares_expiration"
+                                        value="{{.Group.UserSettings.Filters.MaxSharesExpiration}}" min="0" aria-describedby="maxSharesExpirationHelpBlock">
+                                    <small id="maxSharesExpirationHelpBlock" class="form-text text-muted">
+                                        Maximum allowed expiration, as number of days, when a user creates or updates a share
+                                    </small>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
                                 <label for="idHooks" class="col-sm-2 col-form-label">Hooks</label>
                                 <div class="col-sm-10">
                                     <select class="form-control selectpicker" id="idHooks" name="hooks" multiple>

@@ -95,6 +95,10 @@ func addShare(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
+	if err := user.CheckMaxShareExpiration(util.GetTimeFromMsecSinceEpoch(share.ExpiresAt)); err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
+	}
 	share.ID = 0
 	share.ShareID = util.GenerateUniqueID()
 	share.LastUseAt = 0
@@ -126,6 +130,11 @@ func updateShare(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "Invalid token claims", http.StatusBadRequest)
 		return
 	}
+	user, err := dataprovider.GetUserWithGroupSettings(claims.Username, "")
+	if err != nil {
+		sendAPIResponse(w, r, err, "Unable to retrieve your user", getRespStatus(err))
+		return
+	}
 	shareID := getURLParam(r, "id")
 	share, err := dataprovider.ShareExists(shareID, claims.Username)
 	if err != nil {
@@ -151,6 +160,10 @@ func updateShare(w http.ResponseWriter, r *http.Request) {
 				http.StatusForbidden)
 			return
 		}
+	}
+	if err := user.CheckMaxShareExpiration(util.GetTimeFromMsecSinceEpoch(updatedShare.ExpiresAt)); err != nil {
+		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		return
 	}
 	err = dataprovider.UpdateShare(&updatedShare, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role)
 	if err != nil {

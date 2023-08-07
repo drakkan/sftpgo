@@ -1498,6 +1498,10 @@ func getFiltersFromUserPostFields(r *http.Request) (sdk.BaseUserFilters, error) 
 	if err != nil {
 		return filters, fmt.Errorf("invalid default shares expiration: %w", err)
 	}
+	maxSharesExpiration, err := strconv.Atoi(r.Form.Get("max_shares_expiration"))
+	if err != nil {
+		return filters, fmt.Errorf("invalid max shares expiration: %w", err)
+	}
 	passwordExpiration, err := strconv.Atoi(r.Form.Get("password_expiration"))
 	if err != nil {
 		return filters, fmt.Errorf("invalid password expiration: %w", err)
@@ -1519,6 +1523,7 @@ func getFiltersFromUserPostFields(r *http.Request) (sdk.BaseUserFilters, error) 
 	filters.TLSUsername = sdk.TLSUsername(strings.TrimSpace(r.Form.Get("tls_username")))
 	filters.WebClient = r.Form["web_client_options"]
 	filters.DefaultSharesExpiration = defaultSharesExpiration
+	filters.MaxSharesExpiration = maxSharesExpiration
 	filters.PasswordExpiration = passwordExpiration
 	filters.PasswordStrength = passwordStrength
 	hooks := r.Form["hooks"]

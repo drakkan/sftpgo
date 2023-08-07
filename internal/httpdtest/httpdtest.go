@@ -2431,7 +2431,7 @@ func compareUserFiltersEqualFields(expected sdk.BaseUserFilters, actual sdk.Base
 	return nil
 }
 
-func compareBaseUserFilters(expected sdk.BaseUserFilters, actual sdk.BaseUserFilters) error {
+func compareBaseUserFilters(expected sdk.BaseUserFilters, actual sdk.BaseUserFilters) error { //nolint:gocyclo
 	if len(expected.AllowedIP) != len(actual.AllowedIP) {
 		return errors.New("allowed IP mismatch")
 	}
@@ -2467,6 +2467,9 @@ func compareBaseUserFilters(expected sdk.BaseUserFilters, actual sdk.BaseUserFil
 	}
 	if expected.DefaultSharesExpiration != actual.DefaultSharesExpiration {
 		return errors.New("default_shares_expiration mismatch")
+	}
+	if expected.MaxSharesExpiration != actual.MaxSharesExpiration {
+		return errors.New("max_shares_expiration mismatch")
 	}
 	if expected.PasswordExpiration != actual.PasswordExpiration {
 		return errors.New("password_expiration mismatch")

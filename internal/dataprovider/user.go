@@ -359,6 +359,21 @@ func (u *User) hideConfidentialData() {
 	}
 }
 
+// CheckMaxShareExpiration returns an error if the share expiration exceed the
+// maximum allowed date.
+func (u *User) CheckMaxShareExpiration(expiresAt time.Time) error {
+	if u.Filters.MaxSharesExpiration == 0 {
+		return nil
+	}
+	maxAllowedExpiration := time.Now().Add(24 * time.Hour * time.Duration(u.Filters.MaxSharesExpiration+1))
+	maxAllowedExpiration = time.Date(maxAllowedExpiration.Year(), maxAllowedExpiration.Month(),
+		maxAllowedExpiration.Day(), 0, 0, 0, 0, maxAllowedExpiration.Location())
+	if util.GetTimeAsMsSinceEpoch(expiresAt) == 0 || expiresAt.After(maxAllowedExpiration) {
+		return util.NewValidationError(fmt.Sprintf("the share must expire before %s", maxAllowedExpiration.Format(time.DateOnly)))
+	}
+	return nil
+}
+
 // GetSubDirPermissions returns permissions for sub directories
 func (u *User) GetSubDirPermissions() []sdk.DirectoryPermissions {
 	var result []sdk.DirectoryPermissions
@@ -1738,7 +1753,7 @@ func (u *User) mergeWithPrimaryGroup(group *Group, replacer *strings.Replacer) {
 	u.mergeAdditiveProperties(group, sdk.GroupTypePrimary, replacer)
 }
 
-func (u *User) mergePrimaryGroupFilters(filters *sdk.BaseUserFilters, replacer *strings.Replacer) {
+func (u *User) mergePrimaryGroupFilters(filters *sdk.BaseUserFilters, replacer *strings.Replacer) { //nolint:gocyclo
 	if u.Filters.MaxUploadFileSize == 0 {
 		u.Filters.MaxUploadFileSize = filters.MaxUploadFileSize
 	}
@@ -1774,6 +1789,9 @@ func (u *User) mergePrimaryGroupFilters(filters *sdk.BaseUserFilters, replacer *
 	}
 	if u.Filters.DefaultSharesExpiration == 0 {
 		u.Filters.DefaultSharesExpiration = filters.DefaultSharesExpiration
+	}
+	if u.Filters.MaxSharesExpiration == 0 {
+		u.Filters.MaxSharesExpiration = filters.MaxSharesExpiration
 	}
 	if u.Filters.PasswordExpiration == 0 {
 		u.Filters.PasswordExpiration = filters.PasswordExpiration
