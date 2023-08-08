@@ -21,6 +21,7 @@
     "max_per_host_connections": 20,
     "allowlist_status": 0,
     "allow_self_connections": 0,
+    "umask": "",
     "defender": {
       "enabled": false,
       "driver": "memory",

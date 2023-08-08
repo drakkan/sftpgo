@@ -166,6 +166,7 @@ var (
 // Initialize sets the common configuration
 func Initialize(c Configuration, isShared int) error {
 	isShuttingDown.Store(false)
+	util.SetUmask(c.Umask)
 	Config = c
 	Config.Actions.ExecuteOn = util.RemoveDuplicates(Config.Actions.ExecuteOn, true)
 	Config.Actions.ExecuteSync = util.RemoveDuplicates(Config.Actions.ExecuteSync, true)
@@ -569,7 +570,9 @@ type Configuration struct {
 	// Defender configuration
 	DefenderConfig DefenderConfig `json:"defender" mapstructure:"defender"`
 	// Rate limiter configurations
-	RateLimitersConfig    []RateLimiterConfig `json:"rate_limiters" mapstructure:"rate_limiters"`
+	RateLimitersConfig []RateLimiterConfig `json:"rate_limiters" mapstructure:"rate_limiters"`
+	// Umask for new uploads. Leave blank to use the system default.
+	Umask                 string `json:"umask" mapstructure:"umask"`
 	idleTimeoutAsDuration time.Duration
 	idleLoginTimeout      time.Duration
 	defender              Defender
