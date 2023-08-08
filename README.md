@@ -6,8 +6,6 @@
 [![Docker Pulls](https://img.shields.io/docker/pulls/drakkan/sftpgo)](https://hub.docker.com/r/drakkan/sftpgo)
 [![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg)](https://github.com/avelino/awesome-go)
 
-[English](./README.md) | [简体中文](./README.zh_CN.md)
-
 Fully featured and highly configurable SFTP server with optional HTTP/S, FTP/S and WebDAV support.
 Several storage backends are supported: local filesystem, encrypted local filesystem, S3 (compatible) Object Storage, Google Cloud Storage, Azure Blob Storage, SFTP.
 
