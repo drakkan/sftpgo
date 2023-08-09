@@ -199,7 +199,7 @@ var (
 	SupporteRuleConditionProviderObjects = []string{actionObjectUser, actionObjectFolder, actionObjectGroup,
 		actionObjectAdmin, actionObjectAPIKey, actionObjectShare, actionObjectEventRule, actionObjectEventAction}
 	// SupportedHTTPActionMethods defines the supported methods for HTTP actions
-	SupportedHTTPActionMethods = []string{http.MethodPost, http.MethodGet, http.MethodPut}
+	SupportedHTTPActionMethods = []string{http.MethodPost, http.MethodGet, http.MethodPut, http.MethodDelete}
 	allowedSyncFsEvents        = []string{"upload", "pre-upload", "pre-download", "pre-delete"}
 	mandatorySyncFsEvents      = []string{"pre-upload", "pre-download", "pre-delete"}
 )
