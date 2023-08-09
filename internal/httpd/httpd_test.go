@@ -2209,7 +2209,7 @@ func TestEventActionValidation(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Contains(t, string(resp), "cannot save HTTP configuration with a redacted secret")
 	action.Options.HTTPConfig.Password = nil
-	action.Options.HTTPConfig.Method = http.MethodDelete
+	action.Options.HTTPConfig.Method = http.MethodTrace
 	_, resp, err = httpdtest.AddEventAction(action, http.StatusBadRequest)
 	assert.NoError(t, err)
 	assert.Contains(t, string(resp), "unsupported HTTP method")
