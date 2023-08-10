@@ -75,6 +75,9 @@ var (
 	portableWebDAVPort                 int
 	portableWebDAVCert                 string
 	portableWebDAVKey                  string
+	portableHTTPPort                   int
+	portableHTTPSCert                  string
+	portableHTTPSKey                   string
 	portableAzContainer                string
 	portableAzAccountName              string
 	portableAzAccountKey               string
@@ -152,7 +155,7 @@ Please take a look at the usage below to customize the serving parameters`,
 					os.Exit(1)
 				}
 			}
-			if portableWebDAVPort > 0 && portableWebDAVCert != "" && portableWebDAVKey != "" {
+			if portableWebDAVPort >= 0 && portableWebDAVCert != "" && portableWebDAVKey != "" {
 				keyPairs := []common.TLSKeyPair{
 					{
 						Cert: portableWebDAVCert,
@@ -165,6 +168,22 @@ Please take a look at the usage below to customize the serving parameters`,
 				if err != nil {
 					fmt.Printf("Unable to load WebDAV key pair, cert file %q key file %q error: %v\n",
 						portableWebDAVCert, portableWebDAVKey, err)
+					os.Exit(1)
+				}
+			}
+			if portableHTTPPort >= 0 && portableHTTPSCert != "" && portableHTTPSKey != "" {
+				keyPairs := []common.TLSKeyPair{
+					{
+						Cert: portableHTTPSCert,
+						Key:  portableHTTPSKey,
+						ID:   common.DefaultTLSKeyPaidID,
+					},
+				}
+				_, err := common.NewCertManager(keyPairs, filepath.Clean(defaultConfigDir),
+					"HTTP portable")
+				if err != nil {
+					fmt.Printf("Unable to load HTTPS key pair, cert file %q key file %q error: %v\n",
+						portableHTTPSCert, portableHTTPSKey, err)
 					os.Exit(1)
 				}
 			}
@@ -266,9 +285,9 @@ Please take a look at the usage below to customize the serving parameters`,
 					},
 				},
 			}
-			err := service.StartPortableMode(portableSFTPDPort, portableFTPDPort, portableWebDAVPort, portableSSHCommands,
-				portableFTPSCert, portableFTPSKey, portableWebDAVCert,
-				portableWebDAVKey)
+			err := service.StartPortableMode(portableSFTPDPort, portableFTPDPort, portableWebDAVPort, portableHTTPPort,
+				portableSSHCommands, portableFTPSCert, portableFTPSKey, portableWebDAVCert, portableWebDAVKey,
+				portableHTTPSCert, portableHTTPSKey)
 			if err == nil {
 				service.Wait()
 				if service.Error == nil {
@@ -295,6 +314,8 @@ path`)
 	portableCmd.Flags().IntVar(&portableFTPDPort, "ftpd-port", -1, `0 means a random unprivileged port,
 < 0 disabled`)
 	portableCmd.Flags().IntVar(&portableWebDAVPort, "webdav-port", -1, `0 means a random unprivileged port,
+< 0 disabled`)
+	portableCmd.Flags().IntVar(&portableHTTPPort, "httpd-port", -1, `0 means a random unprivileged port,
 < 0 disabled`)
 	portableCmd.Flags().StringSliceVarP(&portableSSHCommands, "ssh-commands", "c", sftpd.GetDefaultSSHCommands(),
 		`SSH commands to enable.
@@ -366,6 +387,10 @@ a JSON credentials file, 1 automatic
 	portableCmd.Flags().StringVar(&portableWebDAVCert, "webdav-cert", "", `Path to the certificate file for WebDAV
 over HTTPS`)
 	portableCmd.Flags().StringVar(&portableWebDAVKey, "webdav-key", "", `Path to the key file for WebDAV over
+HTTPS`)
+	portableCmd.Flags().StringVar(&portableHTTPSCert, "httpd-cert", "", `Path to the certificate file for WebClient
+over HTTPS`)
+	portableCmd.Flags().StringVar(&portableHTTPSKey, "httpd-key", "", `Path to the key file for WebClient over
 HTTPS`)
 	portableCmd.Flags().StringVar(&portableAzContainer, "az-container", "", "")
 	portableCmd.Flags().StringVar(&portableAzAccountName, "az-account-name", "", "")

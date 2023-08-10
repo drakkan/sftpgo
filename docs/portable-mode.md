@@ -75,6 +75,12 @@ Flags:
                                         interrupt signal.
 
   -h, --help                            help for portable
+      --httpd-cert string               Path to the certificate file for WebClient
+                                        over HTTPS
+      --httpd-key string                Path to the key file for WebClient over
+                                        HTTPS
+      --httpd-port int                  0 means a random unprivileged port,
+                                        < 0 disabled (default -1)
   -l, --log-file-path string            Leave empty to disable logging
       --log-level string                Set the log level.
                                         Supported values:

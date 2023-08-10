@@ -27,6 +27,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/config"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
 	"github.com/drakkan/sftpgo/v2/internal/ftpd"
+	"github.com/drakkan/sftpgo/v2/internal/httpd"
 	"github.com/drakkan/sftpgo/v2/internal/kms"
 	"github.com/drakkan/sftpgo/v2/internal/logger"
 	"github.com/drakkan/sftpgo/v2/internal/sftpd"
@@ -36,8 +37,8 @@ import (
 )
 
 // StartPortableMode starts the service in portable mode
-func (s *Service) StartPortableMode(sftpdPort, ftpPort, webdavPort int, enabledSSHCommands []string,
-	ftpsCert, ftpsKey, webDavCert, webDavKey string) error {
+func (s *Service) StartPortableMode(sftpdPort, ftpPort, webdavPort, httpPort int, enabledSSHCommands []string,
+	ftpsCert, ftpsKey, webDavCert, webDavKey, httpsCert, httpsKey string) error {
 	if s.PortableMode != 1 {
 		return fmt.Errorf("service is not configured for portable mode")
 	}
@@ -56,71 +57,50 @@ func (s *Service) StartPortableMode(sftpdPort, ftpPort, webdavPort int, enabledS
 	dataProviderConf.Name = ""
 	config.SetProviderConf(dataProviderConf)
 	httpdConf := config.GetHTTPDConfig()
-	httpdConf.Bindings = nil
+	for idx := range httpdConf.Bindings {
+		httpdConf.Bindings[idx].Port = 0
+	}
 	config.SetHTTPDConfig(httpdConf)
 	telemetryConf := config.GetTelemetryConfig()
 	telemetryConf.BindPort = 0
 	config.SetTelemetryConfig(telemetryConf)
-	sftpdConf := config.GetSFTPDConfig()
-	sftpdConf.MaxAuthTries = 12
-	sftpdConf.Bindings = []sftpd.Binding{
-		{
-			Port: sftpdPort,
-		},
-	}
+
 	if sftpdPort >= 0 {
-		if sftpdPort > 0 {
-			sftpdConf.Bindings[0].Port = sftpdPort
-		} else {
-			// dynamic ports starts from 49152
-			sftpdConf.Bindings[0].Port = 49152 + rand.Intn(15000)
-		}
-		if util.Contains(enabledSSHCommands, "*") {
-			sftpdConf.EnabledSSHCommands = sftpd.GetSupportedSSHCommands()
-		} else {
-			sftpdConf.EnabledSSHCommands = enabledSSHCommands
-		}
+		configurePortableSFTPService(sftpdPort, enabledSSHCommands)
 	}
-	config.SetSFTPDConfig(sftpdConf)
 
 	if ftpPort >= 0 {
-		ftpConf := config.GetFTPDConfig()
-		binding := ftpd.Binding{}
-		if ftpPort > 0 {
-			binding.Port = ftpPort
-		} else {
-			binding.Port = 49152 + rand.Intn(15000)
-		}
-		ftpConf.Bindings = []ftpd.Binding{binding}
-		ftpConf.Banner = fmt.Sprintf("SFTPGo portable %v ready", version.Get().Version)
-		ftpConf.CertificateFile = ftpsCert
-		ftpConf.CertificateKeyFile = ftpsKey
-		config.SetFTPDConfig(ftpConf)
+		configurePortableFTPService(ftpPort, ftpsCert, ftpsKey)
 	}
 
 	if webdavPort >= 0 {
-		webDavConf := config.GetWebDAVDConfig()
-		binding := webdavd.Binding{}
-		if webdavPort > 0 {
-			binding.Port = webdavPort
-		} else {
-			binding.Port = 49152 + rand.Intn(15000)
-		}
-		webDavConf.Bindings = []webdavd.Binding{binding}
-		webDavConf.CertificateFile = webDavCert
-		webDavConf.CertificateKeyFile = webDavKey
-		config.SetWebDAVDConfig(webDavConf)
+		configurePortableWebDAVService(webdavPort, webDavCert, webDavKey)
+	}
+
+	if httpPort >= 0 {
+		configurePortableHTTPService(httpPort, httpsCert, httpsKey)
 	}
 
 	err = s.Start(true)
 	if err != nil {
 		return err
 	}
+	if httpPort >= 0 {
+		admin := &dataprovider.Admin{
+			Username:    util.GenerateUniqueID(),
+			Password:    util.GenerateUniqueID(),
+			Status:      0,
+			Permissions: []string{dataprovider.PermAdminAny},
+		}
+		if err := dataprovider.AddAdmin(admin, dataprovider.ActionExecutorSystem, "", ""); err != nil {
+			return err
+		}
+	}
 
 	logger.InfoToConsole("Portable mode ready, user: %q, password: %q, public keys: %v, directory: %q, "+
-		"permissions: %+v, enabled ssh commands: %v file patterns filters: %+v %v", s.PortableUser.Username,
+		"permissions: %+v, file patterns filters: %+v %v", s.PortableUser.Username,
 		printablePassword, s.PortableUser.PublicKeys, s.getPortableDirToServe(), s.PortableUser.Permissions,
-		sftpdConf.EnabledSSHCommands, s.PortableUser.Filters.FilePatterns, s.getServiceOptionalInfoString())
+		s.PortableUser.Filters.FilePatterns, s.getServiceOptionalInfoString())
 	return nil
 }
 
@@ -137,7 +117,14 @@ func (s *Service) getServiceOptionalInfoString() string {
 		if config.GetWebDAVDConfig().CertificateFile != "" && config.GetWebDAVDConfig().CertificateKeyFile != "" {
 			scheme = "https"
 		}
-		info.WriteString(fmt.Sprintf("WebDAV URL: %v://<your IP>:%v/", scheme, config.GetWebDAVDConfig().Bindings[0].Port))
+		info.WriteString(fmt.Sprintf("WebDAV URL: %v://<your IP>:%v/ ", scheme, config.GetWebDAVDConfig().Bindings[0].Port))
+	}
+	if config.GetHTTPDConfig().Bindings[0].IsValid() {
+		scheme := "http"
+		if config.GetHTTPDConfig().CertificateFile != "" && config.GetHTTPDConfig().CertificateKeyFile != "" {
+			scheme = "https"
+		}
+		info.WriteString(fmt.Sprintf("WebClient URL: %v://<your IP>:%v/ ", scheme, config.GetHTTPDConfig().Bindings[0].Port))
 	}
 	return info.String()
 }
@@ -170,11 +157,15 @@ func (s *Service) configurePortableUser() string {
 	}
 	if len(s.PortableUser.PublicKeys) == 0 && s.PortableUser.Password == "" {
 		var b strings.Builder
-		for i := 0; i < 8; i++ {
+		for i := 0; i < 16; i++ {
 			b.WriteRune(chars[rand.Intn(len(chars))])
 		}
 		s.PortableUser.Password = b.String()
 		printablePassword = s.PortableUser.Password
+	}
+	s.PortableUser.Filters.WebClient = []string{sdk.WebClientSharesDisabled, sdk.WebClientInfoChangeDisabled,
+		sdk.WebClientPubKeyChangeDisabled, sdk.WebClientPasswordChangeDisabled, sdk.WebClientAPIKeyAuthChangeDisabled,
+		sdk.WebClientMFADisabled,
 	}
 	s.configurePortableSecrets()
 	return printablePassword
@@ -217,4 +208,77 @@ func getSecretFromString(payload string) *kms.Secret {
 		return kms.NewPlainSecret(payload)
 	}
 	return kms.NewEmptySecret()
+}
+
+func configurePortableSFTPService(port int, enabledSSHCommands []string) {
+	sftpdConf := config.GetSFTPDConfig()
+	if len(sftpdConf.Bindings) == 0 {
+		sftpdConf.Bindings = append(sftpdConf.Bindings, sftpd.Binding{})
+	}
+	if port > 0 {
+		sftpdConf.Bindings[0].Port = port
+	} else {
+		// dynamic ports starts from 49152
+		sftpdConf.Bindings[0].Port = 49152 + rand.Intn(15000)
+	}
+	if util.Contains(enabledSSHCommands, "*") {
+		sftpdConf.EnabledSSHCommands = sftpd.GetSupportedSSHCommands()
+	} else {
+		sftpdConf.EnabledSSHCommands = enabledSSHCommands
+	}
+	config.SetSFTPDConfig(sftpdConf)
+}
+
+func configurePortableFTPService(port int, cert, key string) {
+	ftpConf := config.GetFTPDConfig()
+	if len(ftpConf.Bindings) == 0 {
+		ftpConf.Bindings = append(ftpConf.Bindings, ftpd.Binding{})
+	}
+	if port > 0 {
+		ftpConf.Bindings[0].Port = port
+	} else {
+		ftpConf.Bindings[0].Port = 49152 + rand.Intn(15000)
+	}
+	if ftpConf.Banner == "" {
+		ftpConf.Banner = fmt.Sprintf("SFTPGo portable %v ready", version.Get().Version)
+	}
+	ftpConf.Bindings[0].CertificateFile = cert
+	ftpConf.Bindings[0].CertificateKeyFile = key
+	config.SetFTPDConfig(ftpConf)
+}
+
+func configurePortableWebDAVService(port int, cert, key string) {
+	webDavConf := config.GetWebDAVDConfig()
+	if len(webDavConf.Bindings) == 0 {
+		webDavConf.Bindings = append(webDavConf.Bindings, webdavd.Binding{})
+	}
+	if port > 0 {
+		webDavConf.Bindings[0].Port = port
+	} else {
+		webDavConf.Bindings[0].Port = 49152 + rand.Intn(15000)
+	}
+	webDavConf.Bindings[0].CertificateFile = cert
+	webDavConf.Bindings[0].CertificateKeyFile = key
+	webDavConf.Bindings[0].EnableHTTPS = true
+	config.SetWebDAVDConfig(webDavConf)
+}
+
+func configurePortableHTTPService(port int, cert, key string) {
+	httpdConf := config.GetHTTPDConfig()
+	if len(httpdConf.Bindings) == 0 {
+		httpdConf.Bindings = append(httpdConf.Bindings, httpd.Binding{})
+	}
+	if port > 0 {
+		httpdConf.Bindings[0].Port = port
+	} else {
+		httpdConf.Bindings[0].Port = 49152 + rand.Intn(15000)
+	}
+	httpdConf.Bindings[0].CertificateFile = cert
+	httpdConf.Bindings[0].CertificateKeyFile = key
+	httpdConf.Bindings[0].EnableHTTPS = true
+	httpdConf.Bindings[0].EnableWebAdmin = false
+	httpdConf.Bindings[0].EnableWebClient = true
+	httpdConf.Bindings[0].EnableRESTAPI = false
+	httpdConf.Bindings[0].RenderOpenAPI = false
+	config.SetHTTPDConfig(httpdConf)
 }

@@ -7031,6 +7031,7 @@ components:
             - GET
             - POST
             - PUT
+            - DELETE
         query_parameters:
           type: array
           items:
