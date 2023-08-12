@@ -129,17 +129,27 @@ func (fs *GCSFs) Lstat(name string) (os.FileInfo, error) {
 }
 
 // Open opens the named file for reading
-func (fs *GCSFs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, func(), error) {
+func (fs *GCSFs) Open(name string, offset int64) (File, *PipeReader, func(), error) {
 	r, w, err := pipeat.PipeInDir(fs.localTempDir)
 	if err != nil {
 		return nil, nil, nil, err
+	}
+	p := NewPipeReader(r)
+	if readMetadata > 0 {
+		attrs, err := fs.headObject(name)
+		if err != nil {
+			r.Close()
+			w.Close()
+			return nil, nil, nil, err
+		}
+		p.setMetadata(attrs.Metadata)
 	}
 	bkt := fs.svc.Bucket(fs.config.Bucket)
 	obj := bkt.Object(name)
 	ctx, cancelFn := context.WithCancel(context.Background())
 	objectReader, err := obj.NewRangeReader(ctx, offset, -1)
 	if err == nil && offset > 0 && objectReader.Attrs.ContentEncoding == "gzip" {
-		err = fmt.Errorf("range request is not possible for gzip content encoding, requested offset %v", offset)
+		err = fmt.Errorf("range request is not possible for gzip content encoding, requested offset %d", offset)
 		objectReader.Close()
 	}
 	if err != nil {
@@ -157,7 +167,7 @@ func (fs *GCSFs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, fu
 		fsLog(fs, logger.LevelDebug, "download completed, path: %q size: %v, err: %+v", name, n, err)
 		metric.GCSTransferCompleted(n, 1, err)
 	}()
-	return nil, r, cancelFn, nil
+	return nil, p, cancelFn, nil
 }
 
 // Create creates or opens the named file for writing

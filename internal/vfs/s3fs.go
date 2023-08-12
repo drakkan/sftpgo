@@ -197,11 +197,22 @@ func (fs *S3Fs) Lstat(name string) (os.FileInfo, error) {
 }
 
 // Open opens the named file for reading
-func (fs *S3Fs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, func(), error) {
+func (fs *S3Fs) Open(name string, offset int64) (File, *PipeReader, func(), error) {
 	r, w, err := pipeat.PipeInDir(fs.localTempDir)
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	p := NewPipeReader(r)
+	if readMetadata > 0 {
+		attrs, err := fs.headObject(name)
+		if err != nil {
+			r.Close()
+			w.Close()
+			return nil, nil, nil, err
+		}
+		p.setMetadata(attrs.Metadata)
+	}
+
 	ctx, cancelFn := context.WithCancel(context.Background())
 	downloader := manager.NewDownloader(fs.svc, func(d *manager.Downloader) {
 		d.Concurrency = fs.config.DownloadConcurrency
@@ -230,7 +241,7 @@ func (fs *S3Fs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, fun
 		fsLog(fs, logger.LevelDebug, "download completed, path: %q size: %v, err: %+v", name, n, err)
 		metric.S3TransferCompleted(n, 1, err)
 	}()
-	return nil, r, cancelFn, nil
+	return nil, p, cancelFn, nil
 }
 
 // Create creates or opens the named file for writing

@@ -92,7 +92,7 @@ func ExecutePreAction(conn *BaseConnection, operation, filePath, virtualPath str
 		return 0, nil
 	}
 	event = newActionNotification(&conn.User, operation, filePath, virtualPath, "", "", "",
-		conn.protocol, conn.GetRemoteIP(), conn.ID, fileSize, openFlags, conn.getNotificationStatus(nil), 0)
+		conn.protocol, conn.GetRemoteIP(), conn.ID, fileSize, openFlags, conn.getNotificationStatus(nil), 0, nil)
 	if hasNotifiersPlugin {
 		plugin.Handler.NotifyFsEvent(event)
 	}
@@ -128,7 +128,7 @@ func ExecutePreAction(conn *BaseConnection, operation, filePath, virtualPath str
 
 // ExecuteActionNotification executes the defined hook, if any, for the specified action
 func ExecuteActionNotification(conn *BaseConnection, operation, filePath, virtualPath, target, virtualTarget, sshCmd string,
-	fileSize int64, err error, elapsed int64,
+	fileSize int64, err error, elapsed int64, metadata map[string]string,
 ) error {
 	hasNotifiersPlugin := plugin.Handler.HasNotifiers()
 	hasHook := util.Contains(Config.Actions.ExecuteOn, operation)
@@ -137,7 +137,7 @@ func ExecuteActionNotification(conn *BaseConnection, operation, filePath, virtua
 		return nil
 	}
 	notification := newActionNotification(&conn.User, operation, filePath, virtualPath, target, virtualTarget, sshCmd,
-		conn.protocol, conn.GetRemoteIP(), conn.ID, fileSize, 0, conn.getNotificationStatus(err), elapsed)
+		conn.protocol, conn.GetRemoteIP(), conn.ID, fileSize, 0, conn.getNotificationStatus(err), elapsed, metadata)
 	if hasNotifiersPlugin {
 		plugin.Handler.NotifyFsEvent(notification)
 	}
@@ -160,6 +160,7 @@ func ExecuteActionNotification(conn *BaseConnection, operation, filePath, virtua
 			Timestamp:         notification.Timestamp,
 			Email:             conn.User.Email,
 			Object:            nil,
+			Metadata:          metadata,
 		}
 		if err != nil {
 			params.AddError(fmt.Errorf("%q failed: %w", params.Event, err))
@@ -194,6 +195,7 @@ func newActionNotification(
 	operation, filePath, virtualPath, target, virtualTarget, sshCmd, protocol, ip, sessionID string,
 	fileSize int64,
 	openFlags, status int, elapsed int64,
+	metadata map[string]string,
 ) *notifier.FsEvent {
 	var bucket, endpoint string
 
@@ -236,6 +238,7 @@ func newActionNotification(
 		Role:              user.Role,
 		Timestamp:         time.Now().UnixNano(),
 		Elapsed:           elapsed,
+		Metadata:          metadata,
 	}
 }
 
@@ -316,7 +319,7 @@ func (h *defaultActionHandler) handleCommand(event *notifier.FsEvent) error {
 }
 
 func notificationAsEnvVars(event *notifier.FsEvent) []string {
-	return []string{
+	result := []string{
 		fmt.Sprintf("SFTPGO_ACTION=%s", event.Action),
 		fmt.Sprintf("SFTPGO_ACTION_USERNAME=%s", event.Username),
 		fmt.Sprintf("SFTPGO_ACTION_PATH=%s", event.Path),
@@ -337,4 +340,11 @@ func notificationAsEnvVars(event *notifier.FsEvent) []string {
 		fmt.Sprintf("SFTPGO_ACTION_TIMESTAMP=%d", event.Timestamp),
 		fmt.Sprintf("SFTPGO_ACTION_ROLE=%s", event.Role),
 	}
+	if len(event.Metadata) > 0 {
+		data, err := json.Marshal(event.Metadata)
+		if err == nil {
+			result = append(result, fmt.Sprintf("SFTPGO_ACTION_METADATA=%s", string(data)))
+		}
+	}
+	return result
 }

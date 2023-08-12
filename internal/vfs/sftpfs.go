@@ -336,7 +336,7 @@ func (fs *SFTPFs) Lstat(name string) (os.FileInfo, error) {
 }
 
 // Open opens the named file for reading
-func (fs *SFTPFs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, func(), error) {
+func (fs *SFTPFs) Open(name string, offset int64) (File, *PipeReader, func(), error) {
 	client, err := fs.conn.getClient()
 	if err != nil {
 		return nil, nil, nil, err
@@ -360,6 +360,8 @@ func (fs *SFTPFs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, f
 		f.Close()
 		return nil, nil, nil, err
 	}
+	p := NewPipeReader(r)
+
 	go func() {
 		// if we enable buffering the client stalls
 		//br := bufio.NewReaderSize(f, int(fs.config.BufferSize)*1024*1024)
@@ -370,7 +372,7 @@ func (fs *SFTPFs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, f
 		fsLog(fs, logger.LevelDebug, "download completed, path: %q size: %v, err: %v", name, n, err)
 	}()
 
-	return nil, r, nil, nil
+	return nil, p, nil, nil
 }
 
 // Create creates or opens the named file for writing

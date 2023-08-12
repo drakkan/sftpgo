@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/eikenb/pipeat"
@@ -60,6 +61,7 @@ var (
 	sftpFingerprints     []string
 	allowSelfConnections int
 	renameMode           int
+	readMetadata         int
 )
 
 // SetAllowSelfConnections sets the desired behaviour for self connections
@@ -87,13 +89,18 @@ func SetRenameMode(val int) {
 	renameMode = val
 }
 
+// SetReadMetadataMode sets the read metadata mode
+func SetReadMetadataMode(val int) {
+	readMetadata = val
+}
+
 // Fs defines the interface for filesystem backends
 type Fs interface {
 	Name() string
 	ConnectionID() string
 	Stat(name string) (os.FileInfo, error)
 	Lstat(name string) (os.FileInfo, error)
-	Open(name string, offset int64) (File, *pipeat.PipeReaderAt, func(), error)
+	Open(name string, offset int64) (File, *PipeReader, func(), error)
 	Create(name string, flag, checks int) (File, *PipeWriter, func(), error)
 	Rename(source, target string) (int, int64, error)
 	Remove(name string, isDir bool) error
@@ -155,6 +162,11 @@ type File interface {
 	Stat() (os.FileInfo, error)
 	Name() string
 	Truncate(size int64) error
+}
+
+// Metadater defines an interface to implement to return metadata for a file
+type Metadater interface {
+	Metadata() map[string]string
 }
 
 // QuotaCheckResult defines the result for a quota check
@@ -687,23 +699,23 @@ func (c *CryptFsConfig) validate() error {
 
 // PipeWriter defines a wrapper for pipeat.PipeWriterAt.
 type PipeWriter struct {
-	writer *pipeat.PipeWriterAt
-	err    error
-	done   chan bool
+	*pipeat.PipeWriterAt
+	err  error
+	done chan bool
 }
 
 // NewPipeWriter initializes a new PipeWriter
 func NewPipeWriter(w *pipeat.PipeWriterAt) *PipeWriter {
 	return &PipeWriter{
-		writer: w,
-		err:    nil,
-		done:   make(chan bool),
+		PipeWriterAt: w,
+		err:          nil,
+		done:         make(chan bool),
 	}
 }
 
 // Close waits for the upload to end, closes the pipeat.PipeWriterAt and returns an error if any.
 func (p *PipeWriter) Close() error {
-	p.writer.Close() //nolint:errcheck // the returned error is always null
+	p.PipeWriterAt.Close() //nolint:errcheck // the returned error is always null
 	<-p.done
 	return p.err
 }
@@ -715,14 +727,58 @@ func (p *PipeWriter) Done(err error) {
 	p.done <- true
 }
 
-// WriteAt is a wrapper for pipeat WriteAt
-func (p *PipeWriter) WriteAt(data []byte, off int64) (int, error) {
-	return p.writer.WriteAt(data, off)
+// NewPipeReader initializes a new PipeReader
+func NewPipeReader(r *pipeat.PipeReaderAt) *PipeReader {
+	return &PipeReader{
+		PipeReaderAt: r,
+	}
 }
 
-// Write is a wrapper for pipeat Write
-func (p *PipeWriter) Write(data []byte) (int, error) {
-	return p.writer.Write(data)
+// PipeReader defines a wrapper for pipeat.PipeReaderAt.
+type PipeReader struct {
+	*pipeat.PipeReaderAt
+	mu       sync.RWMutex
+	metadata map[string]string
+}
+
+func (p *PipeReader) setMetadata(value map[string]string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	p.metadata = value
+}
+
+func (p *PipeReader) setMetadataFromPointerVal(value map[string]*string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if len(value) == 0 {
+		p.metadata = nil
+		return
+	}
+
+	p.metadata = map[string]string{}
+	for k, v := range value {
+		val := util.GetStringFromPointer(v)
+		if val != "" {
+			p.metadata[k] = val
+		}
+	}
+}
+
+// Metadata implements the Metadater interface
+func (p *PipeReader) Metadata() map[string]string {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	if len(p.metadata) == 0 {
+		return nil
+	}
+	result := make(map[string]string)
+	for k, v := range p.metadata {
+		result[k] = v
+	}
+	return result
 }
 
 func isEqualityCheckModeValid(mode int) bool {

@@ -51,6 +51,7 @@ If the `hook` defines a path to an external program, then this program can read 
 - `SFTPGO_ACTION_OPEN_FLAGS`, integer. File open flags, can be non-zero for `pre-upload` action. If `SFTPGO_ACTION_FILE_SIZE` is greater than zero and `SFTPGO_ACTION_OPEN_FLAGS&512 == 0` the target file will not be truncated
 - `SFTPGO_ACTION_ROLE`, string. Role of the user who executed the action
 - `SFTPGO_ACTION_TIMESTAMP`, int64. Event timestamp as nanoseconds since epoch
+- `SFTPGO_ACTION_METADATA`, string. Object metadata serialized as JSON. Omitted if there is no metadata
 
 Global environment variables are cleared, for security reasons, when the script is called. You can set additional environment variables in the "command" configuration section.
 The program must finish within 30 seconds.
@@ -76,6 +77,7 @@ If the `hook` defines an HTTP URL then this URL will be invoked as HTTP POST. Th
 - `open_flags`, integer. File open flags, can be non-zero for `pre-upload` action. If `file_size` is greater than zero and `file_size&512 == 0` the target file will not be truncated
 - `role`, string. Included if the user who executed the action has a role
 - `timestamp`, int64. Event timestamp as nanoseconds since epoch
+- `metadata`, struct. Object metadata. Both the keys and the values are string. Omitted if there is no metadata
 
 The HTTP hook will use the global configuration for HTTP clients and will respect the retry, TLS and headers configurations. See the HTTP Clients (`http`) section of the [config reference](./full-configuration.md).
 
@@ -116,7 +118,7 @@ The program must finish within 15 seconds.
 
 If the `hook` defines an HTTP URL then this URL will be invoked as HTTP POST. The action, username, ip, object_type and object_name and timestamp and role are added to the query string, for example `<hook>?action=update&username=admin&ip=127.0.0.1&object_type=user&object_name=user1&timestamp=1633860803249`, and the full object is sent serialized as JSON inside the POST body with sensitive fields removed. The role is added only if not empty.
 
-The HTTP hook will use the global configuration for HTTP clients and will respect the retry, TLS and headers configurations. See the HTTP Clients (`http`) section of the [config reference](./full-configuration.md).  
+The HTTP hook will use the global configuration for HTTP clients and will respect the retry, TLS and headers configurations. See the HTTP Clients (`http`) section of the [config reference](./full-configuration.md).
 
 The structure for SFTPGo objects can be found within the [OpenAPI schema](../openapi/openapi.yaml).
 

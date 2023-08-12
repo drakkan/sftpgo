@@ -22,6 +22,9 @@
     "allowlist_status": 0,
     "allow_self_connections": 0,
     "umask": "",
+    "metadata": {
+      "read": 0
+    },
     "defender": {
       "enabled": false,
       "driver": "memory",

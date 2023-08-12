@@ -17,8 +17,6 @@ package httpd
 import (
 	"io"
 
-	"github.com/eikenb/pipeat"
-
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/vfs"
 )
@@ -30,7 +28,7 @@ type httpdFile struct {
 	isFinished bool
 }
 
-func newHTTPDFile(baseTransfer *common.BaseTransfer, pipeWriter *vfs.PipeWriter, pipeReader *pipeat.PipeReaderAt) *httpdFile {
+func newHTTPDFile(baseTransfer *common.BaseTransfer, pipeWriter *vfs.PipeWriter, pipeReader *vfs.PipeReader) *httpdFile {
 	var writer io.WriteCloser
 	var reader io.ReadCloser
 	if baseTransfer.File != nil {
@@ -127,6 +125,9 @@ func (f *httpdFile) closeIO() error {
 		f.Unlock()
 	} else if f.reader != nil {
 		err = f.reader.Close()
+		if metadater, ok := f.reader.(vfs.Metadater); ok {
+			f.BaseTransfer.SetMetadata(metadater.Metadata())
+		}
 	}
 	return err
 }

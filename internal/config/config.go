@@ -229,6 +229,10 @@ func Init() {
 				EntriesHardLimit:   150,
 			},
 			RateLimitersConfig: []common.RateLimiterConfig{defaultRateLimiter},
+			Umask:              "",
+			Metadata: common.MetadataConfig{
+				Read: 0,
+			},
 		},
 		ACME: acme.Configuration{
 			Email:      "",
@@ -2006,6 +2010,8 @@ func setViperDefaults() {
 	viper.SetDefault("common.defender.observation_time", globalConf.Common.DefenderConfig.ObservationTime)
 	viper.SetDefault("common.defender.entries_soft_limit", globalConf.Common.DefenderConfig.EntriesSoftLimit)
 	viper.SetDefault("common.defender.entries_hard_limit", globalConf.Common.DefenderConfig.EntriesHardLimit)
+	viper.SetDefault("common.umask", globalConf.Common.Umask)
+	viper.SetDefault("common.metadata.read", globalConf.Common.Metadata.Read)
 	viper.SetDefault("acme.email", globalConf.ACME.Email)
 	viper.SetDefault("acme.key_type", globalConf.ACME.KeyType)
 	viper.SetDefault("acme.certs_path", globalConf.ACME.CertsPath)

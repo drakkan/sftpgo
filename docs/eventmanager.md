@@ -48,8 +48,11 @@ The following placeholders are supported:
 - `{{Timestamp}}`. Event timestamp as nanoseconds since epoch.
 - `{{Email}}`. For filesystem events, this is the email associated with the user performing the action. For the provider events, this is the email associated with the affected user or admin. Blank in all other cases.
 - `{{ObjectData}}`. Provider object data serialized as JSON with sensitive fields removed.
+- `{{ObjectDataString}}`. Provider object data as JSON escaped string with sensitive fields removed.
 - `{{RetentionReports}}`. Data retention reports as zip compressed CSV files. Supported as email attachment, file path for multipart HTTP request and as single parameter for HTTP requests body. Data retention reports contain details on the number of files deleted and the total size deleted for each folder.
 - `{{IDPField<fieldname>}}`. Identity Provider custom fields containing a string.
+- `{{Metadata}}`. Cloud storage metadata for the downloaded file serialized as JSON.
+- `{{MetadataString}}`. Cloud storage metadata for the downloaded file as JSON escaped string.
 
 Event rules are based on the premise that an event occours. To each rule you can associate one or more actions.
 The following trigger events are supported:

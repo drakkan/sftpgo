@@ -381,7 +381,7 @@ func (c *BaseConnection) CreateDir(virtualPath string, checkFilePatterns bool) e
 
 	logger.CommandLog(mkdirLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", -1,
 		c.localAddr, c.remoteAddr, elapsed)
-	ExecuteActionNotification(c, operationMkdir, fsPath, virtualPath, "", "", "", 0, nil, elapsed) //nolint:errcheck
+	ExecuteActionNotification(c, operationMkdir, fsPath, virtualPath, "", "", "", 0, nil, elapsed, nil) //nolint:errcheck
 	return nil
 }
 
@@ -436,7 +436,7 @@ func (c *BaseConnection) RemoveFile(fs vfs.Fs, fsPath, virtualPath string, info 
 			dataprovider.UpdateUserQuota(&c.User, -1, -size, false) //nolint:errcheck
 		}
 	}
-	ExecuteActionNotification(c, operationDelete, fsPath, virtualPath, "", "", "", size, nil, elapsed) //nolint:errcheck
+	ExecuteActionNotification(c, operationDelete, fsPath, virtualPath, "", "", "", size, nil, elapsed, nil) //nolint:errcheck
 	return nil
 }
 
@@ -502,7 +502,7 @@ func (c *BaseConnection) RemoveDir(virtualPath string) error {
 
 	logger.CommandLog(rmdirLogSender, fsPath, "", c.User.Username, "", c.ID, c.protocol, -1, -1, "", "", "", -1,
 		c.localAddr, c.remoteAddr, elapsed)
-	ExecuteActionNotification(c, operationRmdir, fsPath, virtualPath, "", "", "", 0, nil, elapsed) //nolint:errcheck
+	ExecuteActionNotification(c, operationRmdir, fsPath, virtualPath, "", "", "", 0, nil, elapsed, nil) //nolint:errcheck
 	return nil
 }
 
@@ -785,7 +785,7 @@ func (c *BaseConnection) renameInternal(virtualSourcePath, virtualTargetPath str
 	logger.CommandLog(renameLogSender, fsSourcePath, fsTargetPath, c.User.Username, "", c.ID, c.protocol, -1, -1,
 		"", "", "", -1, c.localAddr, c.remoteAddr, elapsed)
 	ExecuteActionNotification(c, operationRename, fsSourcePath, virtualSourcePath, fsTargetPath, //nolint:errcheck
-		virtualTargetPath, "", 0, nil, elapsed)
+		virtualTargetPath, "", 0, nil, elapsed, nil)
 
 	return nil
 }

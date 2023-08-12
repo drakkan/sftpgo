@@ -206,24 +206,25 @@ func (fs *AzureBlobFs) Lstat(name string) (os.FileInfo, error) {
 }
 
 // Open opens the named file for reading
-func (fs *AzureBlobFs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, func(), error) {
+func (fs *AzureBlobFs) Open(name string, offset int64) (File, *PipeReader, func(), error) {
 	r, w, err := pipeat.PipeInDir(fs.localTempDir)
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	p := NewPipeReader(r)
 	ctx, cancelFn := context.WithCancel(context.Background())
 
 	go func() {
 		defer cancelFn()
 
 		blockBlob := fs.containerClient.NewBlockBlobClient(name)
-		err := fs.handleMultipartDownload(ctx, blockBlob, offset, w)
+		err := fs.handleMultipartDownload(ctx, blockBlob, offset, w, p)
 		w.CloseWithError(err) //nolint:errcheck
 		fsLog(fs, logger.LevelDebug, "download completed, path: %q size: %v, err: %+v", name, w.GetWrittenBytes(), err)
 		metric.AZTransferCompleted(w.GetWrittenBytes(), 1, err)
 	}()
 
-	return nil, r, cancelFn, nil
+	return nil, p, cancelFn, nil
 }
 
 // Create creates or opens the named file for writing
@@ -960,12 +961,16 @@ func (fs *AzureBlobFs) downloadPart(ctx context.Context, blockBlob *blockblob.Cl
 }
 
 func (fs *AzureBlobFs) handleMultipartDownload(ctx context.Context, blockBlob *blockblob.Client,
-	offset int64, writer io.WriterAt,
+	offset int64, writer io.WriterAt, pipeReader *PipeReader,
 ) error {
 	props, err := blockBlob.GetProperties(ctx, &blob.GetPropertiesOptions{})
+	metric.AZHeadObjectCompleted(err)
 	if err != nil {
 		fsLog(fs, logger.LevelError, "unable to get blob properties, download aborted: %+v", err)
 		return err
+	}
+	if readMetadata > 0 {
+		pipeReader.setMetadataFromPointerVal(props.Metadata)
 	}
 	contentLength := util.GetIntFromPointer(props.ContentLength)
 	sizeToDownload := contentLength - offset

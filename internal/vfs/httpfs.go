@@ -297,11 +297,12 @@ func (fs *HTTPFs) Lstat(name string) (os.FileInfo, error) {
 }
 
 // Open opens the named file for reading
-func (fs *HTTPFs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, func(), error) {
+func (fs *HTTPFs) Open(name string, offset int64) (File, *PipeReader, func(), error) {
 	r, w, err := pipeat.PipeInDir(fs.localTempDir)
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	p := NewPipeReader(r)
 	ctx, cancelFn := context.WithCancel(context.Background())
 
 	var queryString string
@@ -326,7 +327,7 @@ func (fs *HTTPFs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, f
 		metric.HTTPFsTransferCompleted(n, 1, err)
 	}()
 
-	return nil, r, cancelFn, nil
+	return nil, p, cancelFn, nil
 }
 
 // Create creates or opens the named file for writing

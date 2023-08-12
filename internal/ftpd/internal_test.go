@@ -853,7 +853,7 @@ func TestTransferErrors(t *testing.T) {
 	assert.NoError(t, err)
 	baseTransfer = common.NewBaseTransfer(nil, connection.BaseConnection, nil, testfile, testfile, testfile,
 		common.TransferUpload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{})
-	tr = newTransfer(baseTransfer, nil, r, 10)
+	tr = newTransfer(baseTransfer, nil, vfs.NewPipeReader(r), 10)
 	pos, err := tr.Seek(10, 0)
 	assert.NoError(t, err)
 	assert.Equal(t, pos, tr.expectedOffset)

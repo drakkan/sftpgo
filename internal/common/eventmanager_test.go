@@ -817,7 +817,7 @@ func TestEventRuleActions(t *testing.T) {
 			HTTPConfig: dataprovider.EventActionHTTPConfig{
 				Endpoint:      "http://foo\x7f.com/", // invalid URL
 				SkipTLSVerify: true,
-				Body:          `"data": "{{ObjectData}}"`,
+				Body:          `"data": "{{ObjectDataString}}"`,
 				Method:        http.MethodPost,
 				QueryParameters: []dataprovider.KeyValue{
 					{
@@ -2264,4 +2264,19 @@ func TestHTTPEndpointWithPlaceholders(t *testing.T) {
 	assert.NoError(t, err)
 	expected = c.Endpoint + "?p=" + url.QueryEscape(vPath) + "&u=" + url.QueryEscape(name)
 	assert.Equal(t, expected, u)
+}
+
+func TestMetadataReplacement(t *testing.T) {
+	params := &EventParams{
+		Metadata: map[string]string{
+			"key": "value",
+		},
+	}
+	replacements := params.getStringReplacements(false, false)
+	replacer := strings.NewReplacer(replacements...)
+	reader, _, err := getHTTPRuleActionBody(&dataprovider.EventActionHTTPConfig{Body: "{{Metadata}} {{MetadataString}}"}, replacer, nil, dataprovider.User{}, params, false)
+	require.NoError(t, err)
+	data, err := io.ReadAll(reader)
+	require.NoError(t, err)
+	assert.Equal(t, `{"key":"value"} {\"key\":\"value\"}`, string(data))
 }

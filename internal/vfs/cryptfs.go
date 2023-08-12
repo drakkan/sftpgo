@@ -79,7 +79,7 @@ func (fs *CryptFs) Name() string {
 }
 
 // Open opens the named file for reading
-func (fs *CryptFs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, func(), error) {
+func (fs *CryptFs) Open(name string, offset int64) (File, *PipeReader, func(), error) {
 	f, key, err := fs.getFileAndEncryptionKey(name)
 	if err != nil {
 		return nil, nil, nil, err
@@ -94,6 +94,7 @@ func (fs *CryptFs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, 
 		f.Close()
 		return nil, nil, nil, err
 	}
+	p := NewPipeReader(r)
 
 	go func() {
 		if isZeroDownload {
@@ -149,7 +150,7 @@ func (fs *CryptFs) Open(name string, offset int64) (File, *pipeat.PipeReaderAt, 
 		fsLog(fs, logger.LevelDebug, "download completed, path: %q size: %v, err: %v", name, n, err)
 	}()
 
-	return nil, r, nil, nil
+	return nil, p, nil, nil
 }
 
 // Create creates or opens the named file for writing

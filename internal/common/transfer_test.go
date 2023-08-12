@@ -232,6 +232,7 @@ func TestTransferErrors(t *testing.T) {
 	assert.ErrorIs(t, err, sftp.ErrSSHFxPermissionDenied)
 	assert.Nil(t, transfer.cancelFn)
 	assert.Equal(t, testFile, transfer.GetFsPath())
+	transfer.SetMetadata(map[string]string{"key": "val"})
 	transfer.SetCancelFn(cancelFn)
 	errFake := errors.New("err fake")
 	transfer.BytesReceived.Store(9)

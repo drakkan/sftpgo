@@ -18,8 +18,6 @@ import (
 	"errors"
 	"io"
 
-	"github.com/eikenb/pipeat"
-
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/vfs"
 )
@@ -34,7 +32,7 @@ type transfer struct {
 	expectedOffset int64
 }
 
-func newTransfer(baseTransfer *common.BaseTransfer, pipeWriter *vfs.PipeWriter, pipeReader *pipeat.PipeReaderAt,
+func newTransfer(baseTransfer *common.BaseTransfer, pipeWriter *vfs.PipeWriter, pipeReader *vfs.PipeReader,
 	expectedOffset int64) *transfer {
 	var writer io.WriteCloser
 	var reader io.ReadCloser
@@ -137,6 +135,9 @@ func (t *transfer) closeIO() error {
 		t.Unlock()
 	} else if t.reader != nil {
 		err = t.reader.Close()
+		if metadater, ok := t.reader.(vfs.Metadater); ok {
+			t.BaseTransfer.SetMetadata(metadater.Metadata())
+		}
 	}
 	return err
 }

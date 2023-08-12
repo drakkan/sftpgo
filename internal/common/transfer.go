@@ -56,6 +56,7 @@ type BaseTransfer struct { //nolint:maligned
 	aTime           time.Time
 	mTime           time.Time
 	transferQuota   dataprovider.TransferQuota
+	metadata        map[string]string
 	sync.Mutex
 	errAbort    error
 	ErrTransfer error
@@ -204,6 +205,11 @@ func (t *BaseTransfer) GetRealFsPath(fsPath string) string {
 		return t.fsPath
 	}
 	return ""
+}
+
+// SetMetadata sets the metadata for the file
+func (t *BaseTransfer) SetMetadata(val map[string]string) {
+	t.metadata = val
 }
 
 // SetCancelFn sets the cancel function for the transfer
@@ -405,7 +411,7 @@ func (t *BaseTransfer) Close() error {
 		logger.TransferLog(downloadLogSender, t.fsPath, elapsed, t.BytesSent.Load(), t.Connection.User.Username,
 			t.Connection.ID, t.Connection.protocol, t.Connection.localAddr, t.Connection.remoteAddr, t.ftpMode)
 		ExecuteActionNotification(t.Connection, operationDownload, t.fsPath, t.requestPath, "", "", "", //nolint:errcheck
-			t.BytesSent.Load(), t.ErrTransfer, elapsed)
+			t.BytesSent.Load(), t.ErrTransfer, elapsed, t.metadata)
 	} else {
 		statSize, deletedFiles, errStat := t.getUploadFileSize()
 		if errStat == nil {
@@ -449,7 +455,7 @@ func (t *BaseTransfer) updateTransferTimestamps(uploadFileSize, elapsed int64) {
 			if err := dataprovider.UpdateUserTransferTimestamps(t.Connection.User.Username, true); err == nil {
 				t.Connection.uploadDone.Store(true)
 				ExecuteActionNotification(t.Connection, operationFirstUpload, t.fsPath, t.requestPath, "", //nolint:errcheck
-					"", "", uploadFileSize, t.ErrTransfer, elapsed)
+					"", "", uploadFileSize, t.ErrTransfer, elapsed, t.metadata)
 			}
 		}
 		return
@@ -458,14 +464,14 @@ func (t *BaseTransfer) updateTransferTimestamps(uploadFileSize, elapsed int64) {
 		if err := dataprovider.UpdateUserTransferTimestamps(t.Connection.User.Username, false); err == nil {
 			t.Connection.downloadDone.Store(true)
 			ExecuteActionNotification(t.Connection, operationFirstDownload, t.fsPath, t.requestPath, "", //nolint:errcheck
-				"", "", t.BytesSent.Load(), t.ErrTransfer, elapsed)
+				"", "", t.BytesSent.Load(), t.ErrTransfer, elapsed, t.metadata)
 		}
 	}
 }
 
 func (t *BaseTransfer) executeUploadHook(numFiles int, fileSize, elapsed int64) (int, int64) {
 	err := ExecuteActionNotification(t.Connection, operationUpload, t.fsPath, t.requestPath, "", "", "",
-		fileSize, t.ErrTransfer, elapsed)
+		fileSize, t.ErrTransfer, elapsed, t.metadata)
 	if err != nil {
 		if t.ErrTransfer == nil {
 			t.ErrTransfer = err

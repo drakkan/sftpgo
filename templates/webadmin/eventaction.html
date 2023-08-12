@@ -835,10 +835,19 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                     <span class="shortcut"><b>{{`{{ObjectData}}`}}</b></span> => Provider object data serialized as JSON with sensitive fields removed.
                 </p>
                 <p>
+                    <span class="shortcut"><b>{{`{{ObjectDataString}}`}}</b></span> => Provider object data as JSON escaped string with sensitive fields removed.
+                </p>
+                <p>
                     <span class="shortcut"><b>{{`{{RetentionReports}}`}}</b></span> => Data retention reports as zip compressed CSV files. Supported as email attachment, file path for multipart HTTP request and as single parameter for HTTP requests body.
                 </p>
                 <p>
                     <span class="shortcut"><b>{{`{{IDPField<fieldname>}}`}}</b></span> => Identity Provider custom fields containing a string.
+                </p>
+                <p>
+                    <span class="shortcut"><b>{{`{{Metadata}}`}}</b></span> => Cloud storage metadata for the downloaded file serialized as JSON.
+                </p>
+                <p>
+                    <span class="shortcut"><b>{{`{{MetadataString}}`}}</b></span> => Cloud storage metadata for the downloaded file as JSON escaped string.
                 </p>
             </div>
             <div class="modal-footer">

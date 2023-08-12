@@ -16,14 +16,14 @@ require (
 	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.77
 	github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.15.2
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.38.2
-	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.20.2
+	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.21.0
 	github.com/aws/aws-sdk-go-v2/service/sts v1.21.2
 	github.com/bmatcuk/doublestar/v4 v4.6.0
 	github.com/cockroachdb/cockroach-go/v2 v2.3.5
 	github.com/coreos/go-oidc/v3 v3.6.0
 	github.com/drakkan/webdav v0.0.0-20230227175313-32996838bcd8
 	github.com/eikenb/pipeat v0.0.0-20210730190139-06b3e6902001
-	github.com/fclairamb/ftpserverlib v0.21.1-0.20230719102702-76e3b6785cda
+	github.com/fclairamb/ftpserverlib v0.22.0
 	github.com/fclairamb/go-log v0.4.1
 	github.com/go-acme/lego/v4 v4.13.3
 	github.com/go-chi/chi/v5 v5.0.10
@@ -46,14 +46,14 @@ require (
 	github.com/minio/sio v0.3.1
 	github.com/otiai10/copy v1.12.0
 	github.com/pires/go-proxyproto v0.7.0
-	github.com/pkg/sftp v1.13.6-0.20230213180117-971c283182b6
+	github.com/pkg/sftp v1.13.6
 	github.com/pquerna/otp v1.4.0
 	github.com/prometheus/client_golang v1.16.0
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rs/cors v1.9.0
 	github.com/rs/xid v1.5.0
 	github.com/rs/zerolog v1.30.0
-	github.com/sftpgo/sdk v0.1.6-0.20230807170339-3178878ce745
+	github.com/sftpgo/sdk v0.1.6-0.20230812162553-b7d33eb36639
 	github.com/shirou/gopsutil/v3 v3.23.7
 	github.com/spf13/afero v1.9.5
 	github.com/spf13/cobra v1.7.0
@@ -113,7 +113,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
-	github.com/google/s2a-go v0.1.4 // indirect
+	github.com/google/s2a-go v0.1.5 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.2.5 // indirect
 	github.com/googleapis/gax-go/v2 v2.12.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect

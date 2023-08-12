@@ -229,6 +229,7 @@ func Initialize(c Configuration, isShared int) error {
 	dataprovider.SetTempPath(c.TempPath)
 	vfs.SetAllowSelfConnections(c.AllowSelfConnections)
 	vfs.SetRenameMode(c.RenameMode)
+	vfs.SetReadMetadataMode(c.Metadata.Read)
 	dataprovider.SetAllowSelfConnections(c.AllowSelfConnections)
 	transfersChecker = getTransfersChecker(isShared)
 	return nil
@@ -487,6 +488,13 @@ func (t *ConnectionTransfer) getConnectionTransferAsString() string {
 	return result
 }
 
+// MetadataConfig defines how to handle metadata for cloud storage backends
+type MetadataConfig struct {
+	// If not zero the metadata will be read before downloads and will be
+	// available in notifications
+	Read int `json:"read" mapstructure:"read"`
+}
+
 // Configuration defines configuration parameters common to all supported protocols
 type Configuration struct {
 	// Maximum idle timeout as minutes. If a client is idle for a time that exceeds this setting it will be disconnected.
@@ -572,7 +580,9 @@ type Configuration struct {
 	// Rate limiter configurations
 	RateLimitersConfig []RateLimiterConfig `json:"rate_limiters" mapstructure:"rate_limiters"`
 	// Umask for new uploads. Leave blank to use the system default.
-	Umask                 string `json:"umask" mapstructure:"umask"`
+	Umask string `json:"umask" mapstructure:"umask"`
+	// Metadata configuration
+	Metadata              MetadataConfig `json:"metadata" mapstructure:"metadata"`
 	idleTimeoutAsDuration time.Duration
 	idleLoginTimeout      time.Duration
 	defender              Defender

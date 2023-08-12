@@ -53,9 +53,10 @@ import (
 )
 
 const (
-	ipBlockedEventName = "IP Blocked"
-	maxAttachmentsSize = int64(10 * 1024 * 1024)
-	objDataPlaceholder = "{{ObjectData}}"
+	ipBlockedEventName       = "IP Blocked"
+	maxAttachmentsSize       = int64(10 * 1024 * 1024)
+	objDataPlaceholder       = "{{ObjectData}}"
+	objDataPlaceholderString = "{{ObjectDataString}}"
 )
 
 // Supported IDP login events
@@ -554,6 +555,7 @@ type EventParams struct {
 	Timestamp             int64
 	IDPCustomFields       *map[string]string
 	Object                plugin.Renderer
+	Metadata              map[string]string
 	sender                string
 	updateStatusFromError bool
 	errors                []string
@@ -587,7 +589,7 @@ func (p *EventParams) getACopy() *EventParams {
 }
 
 func (p *EventParams) addIDPCustomFields(customFields *map[string]any) {
-	if customFields == nil {
+	if customFields == nil || len(*customFields) == 0 {
 		return
 	}
 
@@ -785,16 +787,29 @@ func (p *EventParams) getStringReplacements(addObjectData, jsonEscaped bool) []s
 	} else {
 		replacements = append(replacements, "{{ErrorString}}", "")
 	}
-	replacements = append(replacements, objDataPlaceholder, "")
+	replacements = append(replacements, objDataPlaceholder, "{}")
+	replacements = append(replacements, objDataPlaceholderString, "")
 	if addObjectData {
 		data, err := p.Object.RenderAsJSON(p.Event != operationDelete)
 		if err == nil {
-			replacements[len(replacements)-1] = p.getStringReplacement(string(data), jsonEscaped)
+			dataString := string(data)
+			replacements[len(replacements)-3] = p.getStringReplacement(dataString, false)
+			replacements[len(replacements)-1] = p.getStringReplacement(dataString, true)
 		}
 	}
 	if p.IDPCustomFields != nil {
 		for k, v := range *p.IDPCustomFields {
 			replacements = append(replacements, fmt.Sprintf("{{IDPField%s}}", k), p.getStringReplacement(v, jsonEscaped))
+		}
+	}
+	replacements = append(replacements, "{{Metadata}}", "{}")
+	replacements = append(replacements, "{{MetadataString}}", "")
+	if len(p.Metadata) > 0 {
+		data, err := json.Marshal(p.Metadata)
+		if err == nil {
+			dataString := string(data)
+			replacements[len(replacements)-3] = p.getStringReplacement(dataString, false)
+			replacements[len(replacements)-1] = p.getStringReplacement(dataString, true)
 		}
 	}
 	return replacements
@@ -857,7 +872,7 @@ func closeWriterAndUpdateQuota(w io.WriteCloser, conn *BaseConnection, virtualSo
 				logger.CommandLog(copyLogSender, fsSrcPath, fsDstPath, conn.User.Username, "", conn.ID, conn.protocol, -1, -1,
 					"", "", "", info.Size(), conn.localAddr, conn.remoteAddr, elapsed)
 			}
-			ExecuteActionNotification(conn, operation, fsSrcPath, virtualSourcePath, fsDstPath, virtualTargetPath, "", info.Size(), errTransfer, elapsed) //nolint:errcheck
+			ExecuteActionNotification(conn, operation, fsSrcPath, virtualSourcePath, fsDstPath, virtualTargetPath, "", info.Size(), errTransfer, elapsed, nil) //nolint:errcheck
 		}
 	} else {
 		eventManagerLog(logger.LevelWarn, "unable to update quota after writing %q: %v", targetPath, err)
@@ -1227,7 +1242,7 @@ func writeHTTPPart(m *multipart.Writer, part dataprovider.HTTPPart, h textproto.
 	}
 	if part.Body != "" {
 		cType := h.Get("Content-Type")
-		if part.Body != objDataPlaceholder && strings.Contains(strings.ToLower(cType), "application/json") {
+		if strings.Contains(strings.ToLower(cType), "application/json") {
 			replacements := params.getStringReplacements(addObjectData, true)
 			jsonReplacer := strings.NewReplacer(replacements...)
 			_, err = partWriter.Write([]byte(replaceWithReplacer(part.Body, jsonReplacer)))
@@ -1260,10 +1275,6 @@ func writeHTTPPart(m *multipart.Writer, part dataprovider.HTTPPart, h textproto.
 	return nil
 }
 
-func jsonEscapeRuleActionBody(c *dataprovider.EventActionHTTPConfig) bool {
-	return c.Body != objDataPlaceholder && c.HasJSONBody()
-}
-
 func getHTTPRuleActionBody(c *dataprovider.EventActionHTTPConfig, replacer *strings.Replacer,
 	cancel context.CancelFunc, user dataprovider.User, params *EventParams, addObjectData bool,
 ) (io.Reader, string, error) {
@@ -1279,7 +1290,7 @@ func getHTTPRuleActionBody(c *dataprovider.EventActionHTTPConfig, replacer *stri
 			}
 			return bytes.NewBuffer(data), "", nil
 		}
-		if jsonEscapeRuleActionBody(c) {
+		if c.HasJSONBody() {
 			replacements := params.getStringReplacements(addObjectData, true)
 			jsonReplacer := strings.NewReplacer(replacements...)
 			return bytes.NewBufferString(replaceWithReplacer(c.Body, jsonReplacer)), "", nil
@@ -1425,7 +1436,7 @@ func executeCommandRuleAction(c dataprovider.EventActionCommandConfig, params *E
 	addObjectData := false
 	if params.Object != nil {
 		for _, k := range c.EnvVars {
-			if strings.Contains(k.Value, objDataPlaceholder) {
+			if strings.Contains(k.Value, objDataPlaceholder) || strings.Contains(k.Value, objDataPlaceholderString) {
 				addObjectData = true
 				break
 			}
@@ -1474,7 +1485,7 @@ func getEmailAddressesWithReplacer(addrs []string, replacer *strings.Replacer) [
 func executeEmailRuleAction(c dataprovider.EventActionEmailConfig, params *EventParams) error {
 	addObjectData := false
 	if params.Object != nil {
-		if strings.Contains(c.Body, objDataPlaceholder) {
+		if strings.Contains(c.Body, objDataPlaceholder) || strings.Contains(c.Body, objDataPlaceholderString) {
 			addObjectData = true
 		}
 	}

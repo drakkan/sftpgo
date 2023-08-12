@@ -233,7 +233,7 @@ func TestReadWriteErrors(t *testing.T) {
 	assert.NoError(t, err)
 	baseTransfer = common.NewBaseTransfer(nil, conn, nil, file.Name(), file.Name(), testfile, common.TransferDownload,
 		0, 0, 0, 0, false, fs, dataprovider.TransferQuota{})
-	transfer = newTransfer(baseTransfer, nil, r, nil)
+	transfer = newTransfer(baseTransfer, nil, vfs.NewPipeReader(r), nil)
 	err = transfer.Close()
 	assert.NoError(t, err)
 	_, err = transfer.ReadAt(buf, 0)
@@ -1807,7 +1807,7 @@ func TestTransferFailingReader(t *testing.T) {
 	baseTransfer := common.NewBaseTransfer(nil, connection.BaseConnection, nil, fsPath, fsPath, filepath.Base(fsPath),
 		common.TransferUpload, 0, 0, 0, 0, false, fs, dataprovider.TransferQuota{})
 	errRead := errors.New("read is not allowed")
-	tr := newTransfer(baseTransfer, nil, r, errRead)
+	tr := newTransfer(baseTransfer, nil, vfs.NewPipeReader(r), errRead)
 	_, err = tr.ReadAt(buf, 0)
 	assert.EqualError(t, err, errRead.Error())
 
