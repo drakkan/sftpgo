@@ -2056,6 +2056,10 @@ func TestEventParamsCopy(t *testing.T) {
 	assert.Equal(t, params.IDPCustomFields, paramsCopy.IDPCustomFields)
 	(*paramsCopy.IDPCustomFields)["field1"] = "val2"
 	assert.NotEqual(t, params.IDPCustomFields, paramsCopy.IDPCustomFields)
+	params.Metadata = map[string]string{"key": "value"}
+	paramsCopy = params.getACopy()
+	params.Metadata["key1"] = "value1"
+	require.Equal(t, map[string]string{"key": "value"}, paramsCopy.Metadata)
 }
 
 func TestEventParamsStatusFromError(t *testing.T) {
