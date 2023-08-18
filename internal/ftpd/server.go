@@ -22,7 +22,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"sync"
 
 	ftpserver "github.com/fclairamb/ftpserverlib"
 	"github.com/sftpgo/sdk/plugin/notifier"
@@ -38,26 +37,23 @@ import (
 
 // Server implements the ftpserverlib MainDriver interface
 type Server struct {
-	ID               int
-	config           *Configuration
-	initialMsg       string
-	statusBanner     string
-	binding          Binding
-	tlsConfig        *tls.Config
-	mu               sync.RWMutex
-	verifiedTLSConns map[uint32]bool
+	ID           int
+	config       *Configuration
+	initialMsg   string
+	statusBanner string
+	binding      Binding
+	tlsConfig    *tls.Config
 }
 
 // NewServer returns a new FTP server driver
 func NewServer(config *Configuration, configDir string, binding Binding, id int) *Server {
 	binding.setCiphers()
 	server := &Server{
-		config:           config,
-		initialMsg:       config.Banner,
-		statusBanner:     fmt.Sprintf("SFTPGo %v FTP Server", version.Get().Version),
-		binding:          binding,
-		ID:               id,
-		verifiedTLSConns: make(map[uint32]bool),
+		config:       config,
+		initialMsg:   config.Banner,
+		statusBanner: fmt.Sprintf("SFTPGo %v FTP Server", version.Get().Version),
+		binding:      binding,
+		ID:           id,
 	}
 	if config.BannerFile != "" {
 		bannerFilePath := config.BannerFile
@@ -74,27 +70,6 @@ func NewServer(config *Configuration, configDir string, binding Binding, id int)
 	}
 	server.buildTLSConfig()
 	return server
-}
-
-func (s *Server) isTLSConnVerified(id uint32) bool {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	return s.verifiedTLSConns[id]
-}
-
-func (s *Server) setTLSConnVerified(id uint32, value bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.verifiedTLSConns[id] = value
-}
-
-func (s *Server) cleanTLSConnVerification(id uint32) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	delete(s.verifiedTLSConns, id)
 }
 
 // GetSettings returns FTP server settings
@@ -190,7 +165,6 @@ func (s *Server) ClientConnected(cc ftpserver.ClientContext) (string, error) {
 
 // ClientDisconnected is called when the user disconnects, even if he never authenticated
 func (s *Server) ClientDisconnected(cc ftpserver.ClientContext) {
-	s.cleanTLSConnVerification(cc.ID())
 	connID := fmt.Sprintf("%v_%v_%v", common.ProtocolFTP, s.ID, cc.ID())
 	common.Connections.Remove(connID)
 	common.Connections.RemoveClientConnection(util.GetIPFromRemoteAddress(cc.RemoteAddr().String()))
@@ -199,7 +173,7 @@ func (s *Server) ClientDisconnected(cc ftpserver.ClientContext) {
 // AuthUser authenticates the user and selects an handling driver
 func (s *Server) AuthUser(cc ftpserver.ClientContext, username, password string) (ftpserver.ClientDriver, error) {
 	loginMethod := dataprovider.LoginMethodPassword
-	if s.isTLSConnVerified(cc.ID()) {
+	if verified, ok := cc.Extra().(bool); ok && verified {
 		loginMethod = dataprovider.LoginMethodTLSCertificateAndPwd
 	}
 	ipAddr := util.GetIPFromRemoteAddress(cc.RemoteAddr().String())
@@ -255,7 +229,7 @@ func (s *Server) VerifyConnection(cc ftpserver.ClientContext, user string, tlsCo
 	if !s.binding.isMutualTLSEnabled() {
 		return nil, nil
 	}
-	s.setTLSConnVerified(cc.ID(), false)
+	cc.SetExtra(false)
 	if tlsConn != nil {
 		state := tlsConn.ConnectionState()
 		if len(state.PeerCertificates) > 0 {
@@ -272,7 +246,7 @@ func (s *Server) VerifyConnection(cc ftpserver.ClientContext, user string, tlsCo
 					return nil, err
 				}
 
-				s.setTLSConnVerified(cc.ID(), true)
+				cc.SetExtra(true)
 
 				if dbUser.IsLoginMethodAllowed(dataprovider.LoginMethodTLSCertificate, common.ProtocolFTP) {
 					connection, err := s.validateUser(dbUser, cc, dataprovider.LoginMethodTLSCertificate)

@@ -276,27 +276,28 @@ type mockFTPClientContext struct {
 	lastDataChannel ftpserver.DataChannel
 	remoteIP        string
 	localIP         string
+	extra           any
 }
 
-func (cc mockFTPClientContext) Path() string {
+func (cc *mockFTPClientContext) Path() string {
 	return ""
 }
 
-func (cc mockFTPClientContext) SetPath(_ string) {}
+func (cc *mockFTPClientContext) SetPath(_ string) {}
 
-func (cc mockFTPClientContext) SetListPath(_ string) {}
+func (cc *mockFTPClientContext) SetListPath(_ string) {}
 
-func (cc mockFTPClientContext) SetDebug(_ bool) {}
+func (cc *mockFTPClientContext) SetDebug(_ bool) {}
 
-func (cc mockFTPClientContext) Debug() bool {
+func (cc *mockFTPClientContext) Debug() bool {
 	return false
 }
 
-func (cc mockFTPClientContext) ID() uint32 {
+func (cc *mockFTPClientContext) ID() uint32 {
 	return 1
 }
 
-func (cc mockFTPClientContext) RemoteAddr() net.Addr {
+func (cc *mockFTPClientContext) RemoteAddr() net.Addr {
 	ip := "127.0.0.1"
 	if cc.remoteIP != "" {
 		ip = cc.remoteIP
@@ -304,7 +305,7 @@ func (cc mockFTPClientContext) RemoteAddr() net.Addr {
 	return &net.IPAddr{IP: net.ParseIP(ip)}
 }
 
-func (cc mockFTPClientContext) LocalAddr() net.Addr {
+func (cc *mockFTPClientContext) LocalAddr() net.Addr {
 	ip := "127.0.0.1"
 	if cc.localIP != "" {
 		ip = cc.localIP
@@ -312,32 +313,40 @@ func (cc mockFTPClientContext) LocalAddr() net.Addr {
 	return &net.IPAddr{IP: net.ParseIP(ip)}
 }
 
-func (cc mockFTPClientContext) GetClientVersion() string {
+func (cc *mockFTPClientContext) GetClientVersion() string {
 	return "mock version"
 }
 
-func (cc mockFTPClientContext) Close() error {
+func (cc *mockFTPClientContext) Close() error {
 	return nil
 }
 
-func (cc mockFTPClientContext) HasTLSForControl() bool {
+func (cc *mockFTPClientContext) HasTLSForControl() bool {
 	return false
 }
 
-func (cc mockFTPClientContext) HasTLSForTransfers() bool {
+func (cc *mockFTPClientContext) HasTLSForTransfers() bool {
 	return false
 }
 
-func (cc mockFTPClientContext) SetTLSRequirement(_ ftpserver.TLSRequirement) error {
+func (cc *mockFTPClientContext) SetTLSRequirement(_ ftpserver.TLSRequirement) error {
 	return nil
 }
 
-func (cc mockFTPClientContext) GetLastCommand() string {
+func (cc *mockFTPClientContext) GetLastCommand() string {
 	return ""
 }
 
-func (cc mockFTPClientContext) GetLastDataChannel() ftpserver.DataChannel {
+func (cc *mockFTPClientContext) GetLastDataChannel() ftpserver.DataChannel {
 	return cc.lastDataChannel
+}
+
+func (cc *mockFTPClientContext) SetExtra(extra any) {
+	cc.extra = extra
+}
+
+func (cc *mockFTPClientContext) Extra() any {
+	return cc.extra
 }
 
 // MockOsFs mockable OsFs
@@ -566,7 +575,7 @@ func TestUserInvalidParams(t *testing.T) {
 		},
 	}
 	server := NewServer(c, configDir, binding, 3)
-	_, err := server.validateUser(u, mockFTPClientContext{}, dataprovider.LoginMethodPassword)
+	_, err := server.validateUser(u, &mockFTPClientContext{}, dataprovider.LoginMethodPassword)
 	assert.Error(t, err)
 
 	u.Username = "a"
@@ -588,10 +597,10 @@ func TestUserInvalidParams(t *testing.T) {
 		},
 		VirtualPath: vdirPath2,
 	})
-	_, err = server.validateUser(u, mockFTPClientContext{}, dataprovider.LoginMethodPassword)
+	_, err = server.validateUser(u, &mockFTPClientContext{}, dataprovider.LoginMethodPassword)
 	assert.Error(t, err)
 	u.VirtualFolders = nil
-	_, err = server.validateUser(u, mockFTPClientContext{}, dataprovider.LoginMethodPassword)
+	_, err = server.validateUser(u, &mockFTPClientContext{}, dataprovider.LoginMethodPassword)
 	assert.Error(t, err)
 }
 
@@ -600,16 +609,16 @@ func TestFTPMode(t *testing.T) {
 		BaseConnection: common.NewBaseConnection("", common.ProtocolFTP, "", "", dataprovider.User{}),
 	}
 	assert.Empty(t, connection.getFTPMode())
-	connection.clientContext = mockFTPClientContext{lastDataChannel: ftpserver.DataChannelActive}
+	connection.clientContext = &mockFTPClientContext{lastDataChannel: ftpserver.DataChannelActive}
 	assert.Equal(t, "active", connection.getFTPMode())
-	connection.clientContext = mockFTPClientContext{lastDataChannel: ftpserver.DataChannelPassive}
+	connection.clientContext = &mockFTPClientContext{lastDataChannel: ftpserver.DataChannelPassive}
 	assert.Equal(t, "passive", connection.getFTPMode())
-	connection.clientContext = mockFTPClientContext{lastDataChannel: 0}
+	connection.clientContext = &mockFTPClientContext{lastDataChannel: 0}
 	assert.Empty(t, connection.getFTPMode())
 }
 
 func TestClientVersion(t *testing.T) {
-	mockCC := mockFTPClientContext{}
+	mockCC := &mockFTPClientContext{}
 	connID := fmt.Sprintf("2_%v", mockCC.ID())
 	user := dataprovider.User{}
 	connection := &Connection{
@@ -627,7 +636,7 @@ func TestClientVersion(t *testing.T) {
 }
 
 func TestDriverMethodsNotImplemented(t *testing.T) {
-	mockCC := mockFTPClientContext{}
+	mockCC := &mockFTPClientContext{}
 	connID := fmt.Sprintf("2_%v", mockCC.ID())
 	user := dataprovider.User{}
 	connection := &Connection{
@@ -647,6 +656,20 @@ func TestDriverMethodsNotImplemented(t *testing.T) {
 	assert.Equal(t, connection.GetID(), connection.Name())
 }
 
+func TestExtraData(t *testing.T) {
+	mockCC := mockFTPClientContext{}
+	_, ok := mockCC.Extra().(bool)
+	require.False(t, ok)
+	mockCC.SetExtra(false)
+	val, ok := mockCC.Extra().(bool)
+	require.True(t, ok)
+	require.False(t, val)
+	mockCC.SetExtra(true)
+	val, ok = mockCC.Extra().(bool)
+	require.True(t, ok)
+	require.True(t, val)
+}
+
 func TestResolvePathErrors(t *testing.T) {
 	user := dataprovider.User{
 		BaseUser: sdk.BaseUser{
@@ -655,7 +678,7 @@ func TestResolvePathErrors(t *testing.T) {
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
-	mockCC := mockFTPClientContext{}
+	mockCC := &mockFTPClientContext{}
 	connID := fmt.Sprintf("%v", mockCC.ID())
 	connection := &Connection{
 		BaseConnection: common.NewBaseConnection(connID, common.ProtocolFTP, "", "", user),
@@ -717,7 +740,7 @@ func TestUploadFileStatError(t *testing.T) {
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
-	mockCC := mockFTPClientContext{}
+	mockCC := &mockFTPClientContext{}
 	connID := fmt.Sprintf("%v", mockCC.ID())
 	fs := vfs.NewOsFs(connID, user.HomeDir, "", nil)
 	connection := &Connection{
@@ -748,7 +771,7 @@ func TestAVBLErrors(t *testing.T) {
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
-	mockCC := mockFTPClientContext{}
+	mockCC := &mockFTPClientContext{}
 	connID := fmt.Sprintf("%v", mockCC.ID())
 	connection := &Connection{
 		BaseConnection: common.NewBaseConnection(connID, common.ProtocolFTP, "", "", user),
@@ -770,7 +793,7 @@ func TestUploadOverwriteErrors(t *testing.T) {
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
-	mockCC := mockFTPClientContext{}
+	mockCC := &mockFTPClientContext{}
 	connID := fmt.Sprintf("%v", mockCC.ID())
 	fs := newMockOsFs(nil, nil, false, connID, user.GetHomeDir())
 	connection := &Connection{
@@ -826,7 +849,7 @@ func TestTransferErrors(t *testing.T) {
 	}
 	user.Permissions = make(map[string][]string)
 	user.Permissions["/"] = []string{dataprovider.PermAny}
-	mockCC := mockFTPClientContext{}
+	mockCC := &mockFTPClientContext{}
 	connID := fmt.Sprintf("%v", mockCC.ID())
 	fs := newMockOsFs(nil, nil, false, connID, user.GetHomeDir())
 	connection := &Connection{
@@ -1015,7 +1038,7 @@ func TestPassiveIPResolver(t *testing.T) {
 	ip = net.ParseIP("192.168.0.2")
 	assert.False(t, b.PassiveIPOverrides[0].parsedNetworks[0](ip))
 
-	mockCC := mockFTPClientContext{
+	mockCC := &mockFTPClientContext{
 		remoteIP: "192.168.1.10",
 		localIP:  "192.168.1.3",
 	}
