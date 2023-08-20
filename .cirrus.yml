@@ -8,7 +8,7 @@ freebsd_task:
 
   pkginstall_script:
     - pkg update -f
-    - pkg install -y go
+    - pkg install -y go121
     - pkg install -y git
 
   setup_script:
