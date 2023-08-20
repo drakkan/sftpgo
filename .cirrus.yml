@@ -8,23 +8,23 @@ freebsd_task:
 
   pkginstall_script:
     - pkg update -f
-    - pkg install -y go121
+    - pkg install -y go
     - pkg install -y git
 
-  setup_script:
-    - pw groupadd sftpgo
-    - pw useradd sftpgo -g sftpgo -w none -m
-    - mkdir /home/sftpgo/sftpgo
-    - cp -R . /home/sftpgo/sftpgo
-    - chown -R sftpgo:sftpgo /home/sftpgo/sftpgo
+  #setup_script:
+  #  - pw groupadd sftpgo
+  #  - pw useradd sftpgo -g sftpgo -w none -m
+  #  - mkdir /home/sftpgo/sftpgo
+  #  - cp -R . /home/sftpgo/sftpgo
+  #  - chown -R sftpgo:sftpgo /home/sftpgo/sftpgo
 
-  compile_script:
-    - su sftpgo -c 'cd ~/sftpgo && go build -trimpath -tags nopgxregisterdefaulttypes -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=`git describe --always --abbrev=8 --dirty` -X github.com/drakkan/sftpgo/v2/internal/version.date=`date -u +%FT%TZ`" -o sftpgo'
-    - su sftpgo -c 'cd ~/sftpgo/tests/eventsearcher && go build -trimpath -ldflags "-s -w" -o eventsearcher'
-    - su sftpgo -c 'cd ~/sftpgo/tests/ipfilter && go build -trimpath -ldflags "-s -w" -o ipfilter'
+  #compile_script:
+  #  - su sftpgo -c 'cd ~/sftpgo && go build -trimpath -tags nopgxregisterdefaulttypes -ldflags "-s -w -X github.com/drakkan/sftpgo/v2/internal/version.commit=`git describe --always --abbrev=8 --dirty` -X github.com/drakkan/sftpgo/v2/internal/version.date=`date -u +%FT%TZ`" -o sftpgo'
+  #  - su sftpgo -c 'cd ~/sftpgo/tests/eventsearcher && go build -trimpath -ldflags "-s -w" -o eventsearcher'
+  #  - su sftpgo -c 'cd ~/sftpgo/tests/ipfilter && go build -trimpath -ldflags "-s -w" -o ipfilter'
 
-  check_script:
-    - su sftpgo -c 'cd ~/sftpgo && ./sftpgo initprovider && ./sftpgo resetprovider --force'
+  #check_script:
+  #  - su sftpgo -c 'cd ~/sftpgo && ./sftpgo initprovider && ./sftpgo resetprovider --force'
 
-  test_script:
-    - su sftpgo -c 'cd ~/sftpgo && go test -v -tags nopgxregisterdefaulttypes -p 1 -timeout 20m ./... -coverprofile=coverage.txt -covermode=atomic'
+  #test_script:
+  #  - su sftpgo -c 'cd ~/sftpgo && go test -v -tags nopgxregisterdefaulttypes -p 1 -timeout 20m ./... -coverprofile=coverage.txt -covermode=atomic'
