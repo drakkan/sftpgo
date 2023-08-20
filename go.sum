@@ -160,8 +160,8 @@ github.com/drakkan/crypto v0.0.0-20230804183749-f40d052136b8 h1:TUieQf6mz4xlWJav
 github.com/drakkan/crypto v0.0.0-20230804183749-f40d052136b8/go.mod h1:jjOR8ZXZPvxgpYUhVmAtGUCuD1OFc5Hq984QRL686so=
 github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9 h1:LPH1dEblAOO/LoG7yHPMtBLXhQmjaga91/DDjWk9jWA=
 github.com/drakkan/ftp v0.0.0-20201114075148-9b9adce499a9/go.mod h1:2lmrmq866uF2tnje75wQHzmPXhmSWUt7Gyx2vgK1RCU=
-github.com/drakkan/ftpserverlib v0.0.0-20230820134433-b2a9de7897b3 h1:z1XhTv2fAIkd0/T6NtYwW78iZWxwZclBPXcqiQnUELw=
-github.com/drakkan/ftpserverlib v0.0.0-20230820134433-b2a9de7897b3/go.mod h1:dI9/yw/KfJ0g4wmRK8ZukUfqakLr6ZTf9VDydKoLy90=
+github.com/drakkan/ftpserverlib v0.0.0-20230820193955-e7243edeb89b h1:sCtiYerLxfOQrSludkwGwwXLlSVHxpvfmyOxjCOf0ec=
+github.com/drakkan/ftpserverlib v0.0.0-20230820193955-e7243edeb89b/go.mod h1:dI9/yw/KfJ0g4wmRK8ZukUfqakLr6ZTf9VDydKoLy90=
 github.com/drakkan/webdav v0.0.0-20230227175313-32996838bcd8 h1:tdkLkSKtYd3WSDsZXGJDKsakiNstLQJPN5HjnqCkf2c=
 github.com/drakkan/webdav v0.0.0-20230227175313-32996838bcd8/go.mod h1:zOVb1QDhwwqWn2L2qZ0U3swMSO4GTSNyIwXCGO/UGWE=
 github.com/eikenb/pipeat v0.0.0-20210730190139-06b3e6902001 h1:/ZshrfQzayqRSBDodmp3rhNCHJCff+utvgBuWRbiqu4=
@@ -493,8 +493,8 @@ github.com/unrolled/secure v1.13.0 h1:sdr3Phw2+f8Px8HE5sd1EHdj1aV3yUwed/uZXChLFs
 github.com/unrolled/secure v1.13.0/go.mod h1:BmF5hyM6tXczk3MpQkFf1hpKSRqCyhqcbiQtiAF7+40=
 github.com/wagslane/go-password-validator v0.3.0 h1:vfxOPzGHkz5S146HDpavl0cw1DSVP061Ry2PX0/ON6I=
 github.com/wagslane/go-password-validator v0.3.0/go.mod h1:TI1XJ6T5fRdRnHqHt14pvy1tNVnrwe7m3/f1f2fDphQ=
-github.com/wneessen/go-mail v0.4.0 h1:Oo4HLIV8My7G9JuZkoOX6eipXQD+ACvIqURYeIzUc88=
-github.com/wneessen/go-mail v0.4.0/go.mod h1:zxOlafWCP/r6FEhAaRgH4IC1vg2YXxO0Nar9u0IScZ8=
+github.com/wneessen/go-mail v0.4.1-0.20230815095916-0189acf1e45f h1:IYzF42VUzA6es43UO0q8rdB1+d7fge5ALPOVKN192jA=
+github.com/wneessen/go-mail v0.4.1-0.20230815095916-0189acf1e45f/go.mod h1:zxOlafWCP/r6FEhAaRgH4IC1vg2YXxO0Nar9u0IScZ8=
 github.com/yl2chen/cidranger v1.0.3-0.20210928021809-d1cb2c52f37a h1:XfF01GyP+0eWCaVp0y6rNN+kFp7pt9Da4UUYrJ5XPWA=
 github.com/yl2chen/cidranger v1.0.3-0.20210928021809-d1cb2c52f37a/go.mod h1:aXb8yZQEWo1XHGMf1qQfnb83GR/EJ2EBlwtUgAaNBoE=
 github.com/yuin/goldmark v1.1.25/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
