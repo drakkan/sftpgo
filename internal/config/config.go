@@ -1163,6 +1163,12 @@ func getFTPDBindingSecurityFromEnv(idx int, binding *ftpd.Binding) bool {
 		isSet = true
 	}
 
+	tlsSessionReuse, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__TLS_SESSION_REUSE", idx), 0)
+	if ok {
+		binding.TLSSessionReuse = int(tlsSessionReuse)
+		isSet = true
+	}
+
 	tlsVer, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_FTPD__BINDINGS__%v__MIN_TLS_VERSION", idx), 0)
 	if ok {
 		binding.MinTLSVersion = int(tlsVer)

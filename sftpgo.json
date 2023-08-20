@@ -113,6 +113,7 @@
         "address": "",
         "apply_proxy_config": true,
         "tls_mode": 0,
+        "tls_session_reuse": 0,
         "certificate_file": "",
         "certificate_key_file": "",
         "min_tls_version": 12,

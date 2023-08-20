@@ -66,6 +66,8 @@ type Binding struct {
 	// Set to 1 to require TLS for both data and control connection.
 	// Set to 2 to enable implicit TLS
 	TLSMode int `json:"tls_mode" mapstructure:"tls_mode"`
+	// 0 disabled, 1 required
+	TLSSessionReuse int `json:"tls_session_reuse" mapstructure:"tls_session_reuse"`
 	// Certificate and matching private key for this specific binding, if empty the global
 	// ones will be used, if any
 	CertificateFile    string `json:"certificate_file" mapstructure:"certificate_file"`
@@ -131,6 +133,14 @@ func (b *Binding) GetAddress() string {
 // IsValid returns true if the binding port is > 0
 func (b *Binding) IsValid() bool {
 	return b.Port > 0
+}
+
+func (b *Binding) isTLSModeValid() bool {
+	return b.TLSMode >= 0 && b.TLSMode <= 2
+}
+
+func (b *Binding) isTLSSessionReuseValid() bool {
+	return b.TLSSessionReuse >= 0 && b.TLSSessionReuse <= 1
 }
 
 func (b *Binding) checkSecuritySettings() error {

@@ -58,14 +58,15 @@ import (
 )
 
 const (
-	logSender       = "ftpdTesting"
-	ftpServerAddr   = "127.0.0.1:2121"
-	sftpServerAddr  = "127.0.0.1:2122"
-	ftpSrvAddrTLS   = "127.0.0.1:2124" // ftp server with implicit tls
-	defaultUsername = "test_user_ftp"
-	defaultPassword = "test_password"
-	osWindows       = "windows"
-	ftpsCert        = `-----BEGIN CERTIFICATE-----
+	logSender               = "ftpdTesting"
+	ftpServerAddr           = "127.0.0.1:2121"
+	sftpServerAddr          = "127.0.0.1:2122"
+	ftpSrvAddrTLS           = "127.0.0.1:2124" // ftp server with implicit tls
+	ftpSrvAddrTLSResumption = "127.0.0.1:2126" // ftp server with implicit tls
+	defaultUsername         = "test_user_ftp"
+	defaultPassword         = "test_password"
+	osWindows               = "windows"
+	ftpsCert                = `-----BEGIN CERTIFICATE-----
 MIICHTCCAaKgAwIBAgIUHnqw7QnB1Bj9oUsNpdb+ZkFPOxMwCgYIKoZIzj0EAwIw
 RTELMAkGA1UEBhMCQVUxEzARBgNVBAgMClNvbWUtU3RhdGUxITAfBgNVBAoMGElu
 dGVybmV0IFdpZGdpdHMgUHR5IEx0ZDAeFw0yMDAyMDQwOTUzMDRaFw0zMDAyMDEw
@@ -263,7 +264,7 @@ var (
 	caCRLPath       string
 )
 
-func TestMain(m *testing.M) {
+func TestMain(m *testing.M) { //nolint:gocyclo
 	logFilePath = filepath.Join(configDir, "sftpgo_ftpd_test.log")
 	bannerFileName := "banner_file"
 	bannerFile := filepath.Join(configDir, bannerFileName)
@@ -271,6 +272,7 @@ func TestMain(m *testing.M) {
 	err := os.WriteFile(bannerFile, []byte("SFTPGo test ready\nsimple banner line\n"), os.ModePerm)
 	if err != nil {
 		logger.ErrorToConsole("error creating banner file: %v", err)
+		os.Exit(1)
 	}
 	// we run the test cases with UploadMode atomic and resume support. The non atomic code path
 	// simply does not execute some code so if it works in atomic mode will
@@ -431,6 +433,31 @@ func TestMain(m *testing.M) {
 	}()
 
 	waitTCPListening(ftpdConf.Bindings[0].GetAddress())
+
+	ftpdConf = config.GetFTPDConfig()
+	ftpdConf.Bindings = []ftpd.Binding{
+		{
+			Port:               2126,
+			CertificateFile:    certPath,
+			CertificateKeyFile: keyPath,
+			TLSMode:            1,
+			TLSSessionReuse:    1,
+			ClientAuthType:     2,
+		},
+	}
+	ftpdConf.CACertificates = []string{caCrtPath}
+	ftpdConf.CARevocationLists = []string{caCRLPath}
+
+	go func() {
+		logger.Debug(logSender, "", "initializing FTP server with config %+v", ftpdConf)
+		if err := ftpdConf.Initialize(configDir); err != nil {
+			logger.ErrorToConsole("could not start FTP server: %v", err)
+			os.Exit(1)
+		}
+	}()
+
+	waitTCPListening(ftpdConf.Bindings[0].GetAddress())
+
 	waitNoConnections()
 	startHTTPFs()
 
@@ -501,6 +528,16 @@ func TestInitializationFailure(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "the provided passive IP \"127001\" is not valid")
 	ftpdConf.Bindings[1].ForcePassiveIP = ""
+	ftpdConf.Bindings[1].TLSMode = 2
+	ftpdConf.Bindings[1].TLSSessionReuse = 1
+	err = ftpdConf.Initialize(configDir)
+	require.Error(t, err, "TLS session resumption should not be supported with implicit FTPS")
+	ftpdConf.Bindings[1].TLSMode = 0
+	ftpdConf.Bindings[1].TLSSessionReuse = 100
+	err = ftpdConf.Initialize(configDir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported TLS reuse mode")
+	ftpdConf.Bindings[1].TLSSessionReuse = 0
 	err = ftpdConf.Initialize(configDir)
 	require.Error(t, err)
 
@@ -3359,6 +3396,61 @@ func TestCombine(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestTLSSessionReuse(t *testing.T) {
+	u := getTestUser()
+	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
+	assert.NoError(t, err)
+
+	client, err := getFTPClientWithSessionReuse(user, nil)
+	if assert.NoError(t, err) {
+		err = checkBasicFTP(client)
+		assert.NoError(t, err)
+
+		testFilePath := filepath.Join(homeBasePath, testFileName)
+		testFileSize := int64(65535)
+		err = createTestFile(testFilePath, testFileSize)
+		assert.NoError(t, err)
+
+		err = ftpUploadFile(testFilePath, testFileName, testFileSize, client, 0)
+		assert.NoError(t, err)
+
+		localDownloadPath := filepath.Join(homeBasePath, testDLFileName)
+		err = ftpDownloadFile(testFileName, localDownloadPath, testFileSize, client, 0)
+		assert.NoError(t, err)
+
+		entries, err := client.List("/")
+		assert.NoError(t, err)
+		assert.Len(t, entries, 1)
+
+		err = client.Quit()
+		assert.NoError(t, err)
+		err = os.Remove(testFilePath)
+		assert.NoError(t, err)
+		err = os.Remove(localDownloadPath)
+		assert.NoError(t, err)
+	}
+
+	// this TLS config does not support session resumption
+	tlsConfig := &tls.Config{
+		ServerName:         "localhost",
+		InsecureSkipVerify: true, // use this for tests only
+		MinVersion:         tls.VersionTLS12,
+	}
+	client, err = getFTPClientWithSessionReuse(user, tlsConfig)
+	if assert.NoError(t, err) {
+		err = checkBasicFTP(client)
+		assert.Error(t, err)
+
+		err = client.Quit()
+		assert.NoError(t, err)
+	}
+
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+}
+
 func TestClientCertificateAuthRevokedCert(t *testing.T) {
 	u := getTestUser()
 	u.Username = tlsClient2Username
@@ -3369,11 +3461,12 @@ func TestClientCertificateAuthRevokedCert(t *testing.T) {
 		ServerName:         "localhost",
 		InsecureSkipVerify: true, // use this for tests only
 		MinVersion:         tls.VersionTLS12,
+		ClientSessionCache: tls.NewLRUClientSessionCache(0),
 	}
 	tlsCert, err := tls.X509KeyPair([]byte(client2Crt), []byte(client2Key))
 	assert.NoError(t, err)
 	tlsConfig.Certificates = append(tlsConfig.Certificates, tlsCert)
-	_, err = getFTPClient(user, true, tlsConfig)
+	_, err = getFTPClientWithSessionReuse(user, tlsConfig)
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "bad certificate")
 	}
@@ -3861,6 +3954,38 @@ func getFTPClientImplicitTLS(user dataprovider.User) (*ftp.ServerConn, error) {
 	pwd := defaultPassword
 	if user.Password != "" {
 		pwd = user.Password
+	}
+	err = client.Login(user.Username, pwd)
+	if err != nil {
+		return nil, err
+	}
+	return client, err
+}
+
+func getFTPClientWithSessionReuse(user dataprovider.User, tlsConfig *tls.Config, dialOptions ...ftp.DialOption,
+) (*ftp.ServerConn, error) {
+	ftpOptions := []ftp.DialOption{ftp.DialWithTimeout(5 * time.Second)}
+	ftpOptions = append(ftpOptions, dialOptions...)
+	if tlsConfig == nil {
+		tlsConfig = &tls.Config{
+			ServerName:         "localhost",
+			InsecureSkipVerify: true, // use this for tests only
+			MinVersion:         tls.VersionTLS12,
+			ClientSessionCache: tls.NewLRUClientSessionCache(0),
+		}
+	}
+	ftpOptions = append(ftpOptions, ftp.DialWithExplicitTLS(tlsConfig))
+	client, err := ftp.Dial(ftpSrvAddrTLSResumption, ftpOptions...)
+	if err != nil {
+		return nil, err
+	}
+	pwd := defaultPassword
+	if user.Password != "" {
+		if user.Password == emptyPwdPlaceholder {
+			pwd = ""
+		} else {
+			pwd = user.Password
+		}
 	}
 	err = client.Login(user.Username, pwd)
 	if err != nil {

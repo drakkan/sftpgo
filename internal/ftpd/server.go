@@ -104,11 +104,15 @@ func (s *Server) GetSettings() (*ftpserver.Settings, error) {
 		}
 	}
 
-	if s.binding.TLSMode < 0 || s.binding.TLSMode > 2 {
-		return nil, errors.New("unsupported TLS mode")
+	if !s.binding.isTLSModeValid() {
+		return nil, fmt.Errorf("unsupported TLS mode: %d", s.binding.TLSMode)
 	}
 
-	if s.binding.TLSMode > 0 && certMgr == nil {
+	if !s.binding.isTLSSessionReuseValid() {
+		return nil, fmt.Errorf("unsupported TLS reuse mode %d", s.binding.TLSSessionReuse)
+	}
+
+	if (s.binding.TLSMode > 0 || s.binding.TLSSessionReuse > 0) && certMgr == nil {
 		return nil, errors.New("to enable TLS you need to provide a certificate")
 	}
 
@@ -122,6 +126,7 @@ func (s *Server) GetSettings() (*ftpserver.Settings, error) {
 		ConnectionTimeout:        20,
 		Banner:                   s.statusBanner,
 		TLSRequired:              ftpserver.TLSRequirement(s.binding.TLSMode),
+		TLSSessionReuse:          ftpserver.TLSSessionReuse(s.binding.TLSSessionReuse),
 		DisableSite:              !s.config.EnableSite,
 		DisableActiveMode:        s.config.DisableActiveMode,
 		EnableHASH:               s.config.HASHSupport > 0,
@@ -284,7 +289,9 @@ func (s *Server) buildTLSConfig() {
 			s.binding.GetAddress(), s.binding.ciphers, certID)
 		if s.binding.isMutualTLSEnabled() {
 			s.tlsConfig.ClientCAs = certMgr.GetRootCAs()
-			s.tlsConfig.VerifyConnection = s.verifyTLSConnection
+			if s.binding.TLSSessionReuse != int(ftpserver.TLSSessionReuseRequired) {
+				s.tlsConfig.VerifyConnection = s.verifyTLSConnection
+			}
 			switch s.binding.ClientAuthType {
 			case 1:
 				s.tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
@@ -301,6 +308,14 @@ func (s *Server) GetTLSConfig() (*tls.Config, error) {
 		return s.tlsConfig, nil
 	}
 	return nil, errors.New("no TLS certificate configured")
+}
+
+// VerifyTLSConnectionState implements the MainDriverExtensionTLSConnectionStateVerifier extension
+func (s *Server) VerifyTLSConnectionState(_ ftpserver.ClientContext, cs tls.ConnectionState) error {
+	if !s.binding.isMutualTLSEnabled() {
+		return nil
+	}
+	return s.verifyTLSConnection(cs)
 }
 
 func (s *Server) verifyTLSConnection(state tls.ConnectionState) error {

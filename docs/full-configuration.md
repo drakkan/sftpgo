@@ -164,6 +164,7 @@ The configuration file contains the following sections:
     - `address`, string. Leave blank to listen on all available network interfaces. Default: "".
     - `apply_proxy_config`, boolean. If enabled the common proxy configuration, if any, will be applied. Please note that we expect the proxy header on control and data connections. Default `true`.
     - `tls_mode`, integer. 0 means accept both cleartext and encrypted sessions. 1 means TLS is required for both control and data connection. 2 means implicit TLS. Do not enable this blindly, please check that a proper TLS config is in place if you set `tls_mode` is different from 0.
+    - `tls_session_reuse`, integer. 0 means session reuse is not checked, clients may or may not resume TLS sessions. 1 means TLS session reuse is required for explicit FTPS. Not supported for implicit TLS. Default: `0`.
     - `certificate_file`, string. Binding specific TLS certificate. This can be an absolute path or a path relative to the config dir.
     - `certificate_key_file`, string. Binding specific private key matching the above certificate. This can be an absolute path or a path relative to the config dir. If not set the global ones will be used, if any.
     - `min_tls_version`, integer. Defines the minimum version of TLS to be enabled. `12` means TLS 1.2 (and therefore TLS 1.2 and TLS 1.3 will be enabled),`13` means TLS 1.3. Default: `12`.

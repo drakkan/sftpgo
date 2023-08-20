@@ -945,6 +945,11 @@ func TestVerifyTLSConnection(t *testing.T) {
 
 	err = server.verifyTLSConnection(state)
 	assert.Error(t, err) // no verified certification chain
+	err = server.VerifyTLSConnectionState(nil, state)
+	assert.NoError(t, err)
+	server.binding.ClientAuthType = 1
+	err = server.VerifyTLSConnectionState(nil, state)
+	assert.Error(t, err)
 
 	crt, err = tls.X509KeyPair([]byte(caCRT), []byte(caKey))
 	assert.NoError(t, err)
