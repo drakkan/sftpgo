@@ -448,7 +448,7 @@ func Init() {
 		},
 		SMTPConfig: smtp.Config{
 			Host:          "",
-			Port:          25,
+			Port:          587,
 			From:          "",
 			User:          "",
 			Password:      "",

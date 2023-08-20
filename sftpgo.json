@@ -404,7 +404,7 @@
   },
   "smtp": {
     "host": "",
-    "port": 25,
+    "port": 587,
     "from": "",
     "user": "",
     "password": "",
