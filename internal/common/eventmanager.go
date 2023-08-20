@@ -1302,7 +1302,8 @@ func getHTTPRuleActionBody(c *dataprovider.EventActionHTTPConfig, replacer *stri
 				} else {
 					h.Set("Content-Disposition",
 						fmt.Sprintf(`form-data; name="%s"; filename="%s"`,
-							multipartQuoteEscaper.Replace(part.Name), multipartQuoteEscaper.Replace(path.Base(part.Filepath))))
+							multipartQuoteEscaper.Replace(part.Name),
+							multipartQuoteEscaper.Replace((path.Base(replaceWithReplacer(part.Filepath, replacer))))))
 					contentType := mime.TypeByExtension(path.Ext(part.Filepath))
 					if contentType == "" {
 						contentType = "application/octet-stream"

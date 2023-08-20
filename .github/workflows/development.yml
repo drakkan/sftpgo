@@ -409,7 +409,7 @@ jobs:
           echo 'apt-get install -q -y curl gcc' >> build.sh
           if [ ${{ matrix.go }} == 'latest' ]
           then
-            echo 'GO_VERSION=$(curl -L https://go.dev/VERSION?m=text)' >> build.sh
+            echo 'GO_VERSION=$(curl -L https://go.dev/VERSION?m=text | head -n 1)' >> build.sh
           else
             echo 'GO_VERSION=${{ matrix.go }}' >> build.sh
           fi
@@ -452,7 +452,7 @@ jobs:
             apt-get install -q -y curl gcc
             if [ ${{ matrix.go }} == 'latest' ]
             then
-              GO_VERSION=$(curl -L https://go.dev/VERSION?m=text)
+              GO_VERSION=$(curl -L https://go.dev/VERSION?m=text | head -n 1)
             else
               GO_VERSION=${{ matrix.go }}
             fi
