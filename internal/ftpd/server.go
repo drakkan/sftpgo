@@ -280,6 +280,9 @@ func (s *Server) buildTLSConfig() {
 		if getConfigPath(s.binding.CertificateFile, "") != "" && getConfigPath(s.binding.CertificateKeyFile, "") != "" {
 			certID = s.binding.GetAddress()
 		}
+		if !certMgr.HasCertificate(certID) {
+			return
+		}
 		s.tlsConfig = &tls.Config{
 			GetCertificate: certMgr.GetCertificateFunc(certID),
 			MinVersion:     util.GetTLSVersion(s.binding.MinTLSVersion),

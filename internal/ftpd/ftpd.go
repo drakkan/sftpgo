@@ -240,7 +240,10 @@ func (b *Binding) GetTLSDescription() string {
 		return "Implicit"
 	}
 
-	return "Plain and explicit"
+	if certMgr.HasCertificate(common.DefaultTLSKeyPaidID) || certMgr.HasCertificate(b.GetAddress()) {
+		return "Plain and explicit"
+	}
+	return "Disabled"
 }
 
 // PortRange defines a port range

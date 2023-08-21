@@ -480,20 +480,37 @@ func TestInitialization(t *testing.T) {
 	err = ReloadCertificateMgr()
 	assert.NoError(t, err)
 
-	certMgr = oldMgr
-
 	binding = Binding{
 		Port:           2121,
 		ClientAuthType: 1,
 	}
+	assert.Equal(t, "Disabled", binding.GetTLSDescription())
+	certPath := filepath.Join(os.TempDir(), "test_ftpd.crt")
+	keyPath := filepath.Join(os.TempDir(), "test_ftpd.key")
+	binding.CertificateFile = certPath
+	binding.CertificateKeyFile = keyPath
+	keyPairs := []common.TLSKeyPair{
+		{
+			Cert: certPath,
+			Key:  keyPath,
+			ID:   binding.GetAddress(),
+		},
+	}
+	certMgr, err = common.NewCertManager(keyPairs, configDir, "")
+	require.NoError(t, err)
+
+	assert.Equal(t, "Plain and explicit", binding.GetTLSDescription())
 	server = NewServer(c, configDir, binding, 0)
 	cfg, err := server.GetTLSConfig()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, tls.RequireAndVerifyClientCert, cfg.ClientAuth)
+
+	certMgr = oldMgr
 }
 
 func TestServerGetSettings(t *testing.T) {
 	oldConfig := common.Config
+	oldMgr := certMgr
 
 	binding := Binding{
 		Port:             2121,
@@ -518,7 +535,9 @@ func TestServerGetSettings(t *testing.T) {
 	assert.Error(t, err)
 	server.binding.Port = 8021
 
-	assert.Equal(t, "Plain and explicit", binding.GetTLSDescription())
+	assert.Equal(t, "Disabled", binding.GetTLSDescription())
+	_, err = server.GetTLSConfig()
+	assert.Error(t, err) // TLS configured but cert manager has no certificate
 
 	binding.TLSMode = 1
 	assert.Equal(t, "Explicit required", binding.GetTLSDescription())
@@ -526,13 +545,22 @@ func TestServerGetSettings(t *testing.T) {
 	binding.TLSMode = 2
 	assert.Equal(t, "Implicit", binding.GetTLSDescription())
 
-	certPath := filepath.Join(os.TempDir(), "test.crt")
-	keyPath := filepath.Join(os.TempDir(), "test.key")
+	certPath := filepath.Join(os.TempDir(), "test_ftpd.crt")
+	keyPath := filepath.Join(os.TempDir(), "test_ftpd.key")
 	err = os.WriteFile(certPath, []byte(ftpsCert), os.ModePerm)
 	assert.NoError(t, err)
 	err = os.WriteFile(keyPath, []byte(ftpsKey), os.ModePerm)
 	assert.NoError(t, err)
 
+	keyPairs := []common.TLSKeyPair{
+		{
+			Cert: certPath,
+			Key:  keyPath,
+			ID:   common.DefaultTLSKeyPaidID,
+		},
+	}
+	certMgr, err = common.NewCertManager(keyPairs, configDir, "")
+	require.NoError(t, err)
 	common.Config.ProxyAllowed = nil
 	c.CertificateFile = certPath
 	c.CertificateKeyFile = keyPath
@@ -550,12 +578,8 @@ func TestServerGetSettings(t *testing.T) {
 	_, ok := listener.(*proxyproto.Listener)
 	assert.True(t, ok)
 
-	err = os.Remove(certPath)
-	assert.NoError(t, err)
-	err = os.Remove(keyPath)
-	assert.NoError(t, err)
-
 	common.Config = oldConfig
+	certMgr = oldMgr
 }
 
 func TestUserInvalidParams(t *testing.T) {

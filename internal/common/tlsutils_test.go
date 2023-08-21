@@ -325,6 +325,8 @@ func TestLoadCertificate(t *testing.T) {
 
 	certManager, err = NewCertManager(keyPairs, configDir, logSenderTest)
 	assert.NoError(t, err)
+	assert.True(t, certManager.HasCertificate(DefaultTLSKeyPaidID))
+	assert.False(t, certManager.HasCertificate("unknownID"))
 	certFunc := certManager.GetCertificateFunc(DefaultTLSKeyPaidID)
 	if assert.NotNil(t, certFunc) {
 		hello := &tls.ClientHelloInfo{
