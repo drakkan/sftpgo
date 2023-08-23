@@ -704,6 +704,10 @@ func getS3Config(r *http.Request) (vfs.S3FsConfig, error) {
 		return config, err
 	}
 	config.DownloadPartMaxTime, err = strconv.Atoi(r.Form.Get("s3_download_part_max_time"))
+	if err != nil {
+		return config, err
+	}
+	config.Timeout, err = strconv.Atoi(r.Form.Get("s3_timeout"))
 	return config, err
 }
 

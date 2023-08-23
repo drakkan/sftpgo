@@ -5171,6 +5171,7 @@ func TestUserTemplateMock(t *testing.T) {
 	form.Set("allowed_extensions", "/dir1::.jpg,.png")
 	form.Set("denied_extensions", "/dir2::.zip")
 	form.Set("max_upload_file_size", "0")
+	form.Set("s3_timeout", "0")
 	// test invalid s3_upload_part_size
 	form.Set("s3_upload_part_size", "a")
 	b, contentType, _ := getMultipartFormData(form, "", "")
@@ -5373,6 +5374,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	form.Set("max_upload_file_size", "0")
 	form.Set(`s3_upload_part_max_time`, strconv.Itoa(user.FsConfig.S3Config.UploadPartMaxTime))
 	form.Set(`s3_download_part_max_time`, strconv.Itoa(user.FsConfig.S3Config.DownloadPartMaxTime))
+	form.Set(`s3_timeout`, strconv.Itoa(user.FsConfig.S3Config.Timeout))
 	// test invalid s3_upload_part_size
 	form.Set("s3_upload_part_size", "a")
 	b, contentType, _ := getMultipartFormData(form, "", "")

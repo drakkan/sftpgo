@@ -462,13 +462,23 @@
 
             <div class="form-group row s3">
                 <label for="idS3AppendSequence" class="col-sm-2 col-form-label">Append Sequence</label>
-                <div class="col-sm-10">
+                <div class="col-sm-3">
                     <select class="form-control" id="idS3AppendSequence" name="s3_append_sequence">
                         <option value="" {{if eq .User.FsConfig.S3Config.AppendSequence "" }}selected{{end}}>None</option>
                         <option value="unix_ms" {{if eq .User.FsConfig.S3Config.AppendSequence "unix_ms" }}selected{{end}}>Unix Timestamp (Milliseconds)</option>
                     </select>
                     <small id="S3AppendSequenceHelpBlock" class="form-text text-muted">
                         Automatically append a sequence number to the file name. Example: file.txt to file.txt.1678136275463
+                    </small>
+                </div>
+                <div class="col-sm-2"></div>
+                <label for="idS3OperationsTimeout" class="col-sm-2 col-form-label">Operations Timeout (secs)</label>
+                <div class="col-sm-3">
+                    <input type="number" class="form-control" id="idS3OperationsTimeout" name="s3_timeout"
+                           placeholder="" value="{{.User.FsConfig.S3Config.Timeout}}" min="0" max="300"
+                           aria-describedby="S3OperationsTimeoutHelpBlock">
+                    <small id="S3OperationsTimeoutHelpBlock" class="form-text text-muted">
+                        Max time limit, in seconds, to perform non-transfer operations. Zero means default 30 seconds. Maximum 5 minutes.
                     </small>
                 </div>
             </div>

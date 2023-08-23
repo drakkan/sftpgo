@@ -146,6 +146,8 @@ type S3FsConfig struct {
 	DownloadPartMaxTime int `json:"download_part_max_time,omitempty"`
 	// AppendSequence defines the format of the sequence number to append to the file name
 	AppendSequence string `json:"append_sequence,omitempty"`
+	// Timeout override the default 30 second timeout for non-transfer operations
+	Timeout int `json:"timeout,omitempty"`
 }
 
 func (c *S3FsConfig) checkCredentials() error {
@@ -204,6 +206,9 @@ func (c *S3FsConfig) Validate() error {
 	}
 	if c.UploadConcurrency < 0 || c.UploadConcurrency > 64 {
 		return fmt.Errorf("invalid upload concurrency: %v", c.UploadConcurrency)
+	}
+	if c.Timeout < 0 || c.Timeout > 300 {
+		return fmt.Errorf("invalid operations timeout: %v", c.Timeout)
 	}
 	return nil
 }

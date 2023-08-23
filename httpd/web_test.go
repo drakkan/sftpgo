@@ -36,6 +36,7 @@ func TestGetS3Config(t *testing.T) {
 	r.Form.Set(`s3_download_part_size`, strconv.FormatInt(fs.DownloadPartSize, 10))
 	r.Form.Set(`s3_download_concurrency`, strconv.Itoa(fs.DownloadConcurrency))
 	r.Form.Set(`s3_download_part_max_time`, strconv.Itoa(fs.DownloadPartMaxTime))
+	r.Form.Set(`s3_timeout`, strconv.Itoa(fs.Timeout))
 
 	parsed, err := getS3Config(r)
 	assert.Nil(t, err)

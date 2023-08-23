@@ -100,6 +100,9 @@ func NewS3Fs(connectionID, localTempDir string, config S3FsConfig) (Fs, error) {
 	if fs.config.DownloadPartMaxTime <= 0 {
 		fs.config.DownloadPartMaxTime = 60
 	}
+	if fs.config.Timeout > 30 && fs.config.Timeout <= 300 {
+		fs.ctxTimeout = time.Second * time.Duration(fs.config.Timeout)
+	}
 
 	sessOpts := session.Options{
 		Config:            *awsConfig,
