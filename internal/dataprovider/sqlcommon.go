@@ -1386,7 +1386,7 @@ func sqlCommonUpdateUserPassword(username, password string, dbHandle *sql.DB) er
 	defer cancel()
 
 	q := getUpdateUserPasswordQuery()
-	res, err := dbHandle.ExecContext(ctx, q, password, username)
+	res, err := dbHandle.ExecContext(ctx, q, password, util.GetTimeAsMsSinceEpoch(time.Now()), username)
 	if err != nil {
 		return err
 	}

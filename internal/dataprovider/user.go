@@ -1178,7 +1178,7 @@ func (u *User) MustSetSecondFactorForProtocol(protocol string) bool {
 	return false
 }
 
-// GetSignature returns a signature for this admin.
+// GetSignature returns a signature for this user.
 // It will change after an update
 func (u *User) GetSignature() string {
 	return strconv.FormatInt(u.UpdatedAt, 10)

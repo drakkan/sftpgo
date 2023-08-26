@@ -4117,6 +4117,35 @@ func updateUserFromExtAuthResponse(user *User, password, pkey string) {
 	user.LastPasswordChange = 0
 }
 
+func checkPasswordAfterEmptyExtAuthResponse(user *User, plainPwd, protocol string) error {
+	if plainPwd == "" {
+		return nil
+	}
+	match, err := isPasswordOK(user, plainPwd)
+	if match && err == nil {
+		return nil
+	}
+
+	hashedPwd, err := hashPlainPassword(plainPwd)
+	if err != nil {
+		providerLog(logger.LevelError, "unable to hash password for user %q after empty external response: %v",
+			user.Username, err)
+		return err
+	}
+	err = provider.updateUserPassword(user.Username, hashedPwd)
+	if err != nil {
+		providerLog(logger.LevelError, "unable to update password for user %q after empty external response: %v",
+			user.Username, err)
+	}
+	user.Password = hashedPwd
+	cachedUserPasswords.Add(user.Username, plainPwd, user.Password)
+	if protocol != protocolWebDAV {
+		webDAVUsersCache.swap(user, plainPwd)
+	}
+	providerLog(logger.LevelDebug, "updated password for user %q after empty external auth response", user.Username)
+	return nil
+}
+
 func doExternalAuth(username, password string, pubKey []byte, keyboardInteractive, ip, protocol string,
 	tlsCert *x509.Certificate,
 ) (User, error) {
@@ -4148,7 +4177,8 @@ func doExternalAuth(username, password string, pubKey []byte, keyboardInteractiv
 		if u.ID == 0 {
 			return u, util.NewRecordNotFoundError(fmt.Sprintf("username %q does not exist", username))
 		}
-		return u, nil
+		err = checkPasswordAfterEmptyExtAuthResponse(&u, password, protocol)
+		return u, err
 	}
 	err = json.Unmarshal(out, &user)
 	if err != nil {
@@ -4221,18 +4251,19 @@ func doPluginAuth(username, password string, pubKey []byte, ip, protocol string,
 
 	out, err := plugin.Handler.Authenticate(username, password, ip, protocol, pkey, tlsCert, authScope, userAsJSON)
 	if err != nil {
-		return user, fmt.Errorf("plugin auth error for user %q: %v, elapsed: %v, auth scope: %v",
+		return user, fmt.Errorf("plugin auth error for user %q: %v, elapsed: %v, auth scope: %d",
 			username, err, time.Since(startTime), authScope)
 	}
-	providerLog(logger.LevelDebug, "plugin auth completed for user %q, elapsed: %v,auth scope: %v",
+	providerLog(logger.LevelDebug, "plugin auth completed for user %q, elapsed: %v, auth scope: %d",
 		username, time.Since(startTime), authScope)
 	if util.IsByteArrayEmpty(out) {
-		providerLog(logger.LevelDebug, "empty response from plugin auth, no modification requested for user %q id: %v",
-			username, u.ID)
+		providerLog(logger.LevelDebug, "empty response from plugin auth, no modification requested for user %q id: %d, auth scope: %d",
+			username, u.ID, authScope)
 		if u.ID == 0 {
 			return u, util.NewRecordNotFoundError(fmt.Sprintf("username %q does not exist", username))
 		}
-		return u, nil
+		err = checkPasswordAfterEmptyExtAuthResponse(&u, password, protocol)
+		return u, err
 	}
 	err = json.Unmarshal(out, &user)
 	if err != nil {

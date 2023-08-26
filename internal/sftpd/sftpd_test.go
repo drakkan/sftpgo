@@ -3786,6 +3786,17 @@ func TestExternalAuthEmptyResponse(t *testing.T) {
 	assert.Equal(t, 10, user.MaxSessions)
 	assert.Equal(t, 100, user.QuotaFiles)
 
+	// the auth script accepts any password and returns an empty response, the
+	// user password must be updated
+	u.Password = defaultUsername
+	conn, client, err = getSftpClient(u, usePubKey)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+		err = checkBasicSFTP(client)
+		assert.NoError(t, err)
+	}
+
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
 	err = os.RemoveAll(user.GetHomeDir())
@@ -11504,7 +11515,7 @@ func getExtAuthScriptContent(user dataprovider.User, nonJSONResponse, emptyRespo
 		return extAuthContent
 	}
 	extAuthContent = append(extAuthContent, []byte(fmt.Sprintf("if test \"$SFTPGO_AUTHD_USERNAME\" = \"%v\"; then\n", user.Username))...)
-	if len(username) > 0 {
+	if username != "" {
 		user.Username = username
 	}
 	u, _ := json.Marshal(user)

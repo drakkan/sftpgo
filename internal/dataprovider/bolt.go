@@ -797,6 +797,7 @@ func (p *BoltProvider) updateUserPassword(username, password string) error {
 			return err
 		}
 		user.Password = password
+		user.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 		buf, err := json.Marshal(user)
 		if err != nil {
 			return err

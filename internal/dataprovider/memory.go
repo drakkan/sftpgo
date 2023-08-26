@@ -472,6 +472,7 @@ func (p *MemoryProvider) updateUserPassword(username, password string) error {
 		return err
 	}
 	user.Password = password
+	user.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 	p.dbHandle.users[username] = user
 	return nil
 }
