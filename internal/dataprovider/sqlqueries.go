@@ -716,8 +716,8 @@ func getUpdateUserQuery(role string) string {
 }
 
 func getUpdateUserPasswordQuery() string {
-	return fmt.Sprintf(`UPDATE %s SET password=%s WHERE username = %s`,
-		sqlTableUsers, sqlPlaceholders[0], sqlPlaceholders[1])
+	return fmt.Sprintf(`UPDATE %s SET password=%s,updated_at=%s WHERE username = %s`,
+		sqlTableUsers, sqlPlaceholders[0], sqlPlaceholders[1], sqlPlaceholders[2])
 }
 
 func getDeleteUserQuery(softDelete bool) string {
