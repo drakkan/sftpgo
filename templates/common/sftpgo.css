@@ -45,10 +45,10 @@
         }
 
         .bg-login-image {
-            background-image: url('{{.StaticURL}}{{.Branding.LoginImagePath}}');
+            background: url('{{.StaticURL}}{{.Branding.LoginImagePath}}');
             background-size: contain;
             background-repeat: no-repeat;
-            padding: 1em;
+            background-position: center;
         }
 
         .row.login-image {
