@@ -15008,6 +15008,13 @@ func TestUserAPIKey(t *testing.T) {
 	apiKey, _, err = httpdtest.AddAPIKey(apiKey, http.StatusCreated)
 	assert.NoError(t, err)
 
+	adminAPIKey := dataprovider.APIKey{
+		Name:  "testadminkey",
+		Scope: dataprovider.APIKeyScopeAdmin,
+	}
+	adminAPIKey, _, err = httpdtest.AddAPIKey(adminAPIKey, http.StatusCreated)
+	assert.NoError(t, err)
+
 	body := new(bytes.Buffer)
 	writer := multipart.NewWriter(body)
 	part, err := writer.CreateFormFile("filenames", "filenametest")
@@ -15035,6 +15042,12 @@ func TestUserAPIKey(t *testing.T) {
 	err = json.Unmarshal(rr.Body.Bytes(), &dirEntries)
 	assert.NoError(t, err)
 	assert.Len(t, dirEntries, 1)
+
+	req, err = http.NewRequest(http.MethodGet, userDirsPath, nil)
+	assert.NoError(t, err)
+	setAPIKeyForReq(req, adminAPIKey.Key, user.Username)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
 
 	user.Status = 0
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
@@ -15111,6 +15124,9 @@ func TestUserAPIKey(t *testing.T) {
 	assert.NoError(t, err)
 
 	_, err = httpdtest.RemoveAPIKey(apiKeyNew, http.StatusOK)
+	assert.NoError(t, err)
+
+	_, err = httpdtest.RemoveAPIKey(adminAPIKey, http.StatusOK)
 	assert.NoError(t, err)
 }
 

@@ -384,6 +384,13 @@ func checkAPIKeyAuth(tokenAuth *jwtauth.JWTAuth, scope dataprovider.APIKeyScope)
 				sendAPIResponse(w, r, errors.New("the provided api key is not valid"), "", http.StatusBadRequest)
 				return
 			}
+			if k.Scope != scope {
+				handleDefenderEventLoginFailed(util.GetIPFromRemoteAddress(r.RemoteAddr), dataprovider.ErrInvalidCredentials) //nolint:errcheck
+				logger.Debug(logSender, "", "unable to authenticate api key %q: invalid scope: got %d, wnated: %d",
+					apiKey, k.Scope, scope)
+				sendAPIResponse(w, r, fmt.Errorf("the provided api key is invalid for this request"), "", http.StatusForbidden)
+				return
+			}
 			if err := k.Authenticate(key); err != nil {
 				handleDefenderEventLoginFailed(util.GetIPFromRemoteAddress(r.RemoteAddr), dataprovider.ErrInvalidCredentials) //nolint:errcheck
 				logger.Debug(logSender, "", "unable to authenticate api key %q: %v", apiKey, err)
