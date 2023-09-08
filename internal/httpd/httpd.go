@@ -1047,7 +1047,7 @@ func getServicesStatus() *ServicesStatus {
 	return status
 }
 
-func fileServer(r chi.Router, path string, root http.FileSystem) {
+func fileServer(r chi.Router, path string, root http.FileSystem, disableDirectoryIndex bool) {
 	if path != "/" && path[len(path)-1] != '/' {
 		r.Get(path, http.RedirectHandler(path+"/", http.StatusMovedPermanently).ServeHTTP)
 		path += "/"
@@ -1057,7 +1057,11 @@ func fileServer(r chi.Router, path string, root http.FileSystem) {
 	r.Get(path, func(w http.ResponseWriter, r *http.Request) {
 		rctx := chi.RouteContext(r.Context())
 		pathPrefix := strings.TrimSuffix(rctx.RoutePattern(), "/*")
-		fs := http.StripPrefix(pathPrefix, http.FileServer(root))
+		handler := http.FileServer(root)
+		if disableDirectoryIndex {
+			handler = neuter(handler)
+		}
+		fs := http.StripPrefix(pathPrefix, handler)
 		fs.ServeHTTP(w, r)
 	})
 }

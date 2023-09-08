@@ -23,6 +23,6 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func serveStaticDir(router chi.Router, path, fsDirPath string) {
-	fileServer(router, path, http.Dir(fsDirPath))
+func serveStaticDir(router chi.Router, path, fsDirPath string, disableDirectoryIndex bool) {
+	fileServer(router, path, http.Dir(fsDirPath), disableDirectoryIndex)
 }

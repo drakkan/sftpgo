@@ -1236,7 +1236,7 @@ func (s *httpdServer) initializeRouter() {
 
 	if hasHTTPSRedirect {
 		if p := acme.GetHTTP01WebRoot(); p != "" {
-			serveStaticDir(s.router, acmeChallengeURI, p)
+			serveStaticDir(s.router, acmeChallengeURI, p, true)
 		}
 	}
 
@@ -1433,7 +1433,7 @@ func (s *httpdServer) initializeRouter() {
 		if s.renderOpenAPI {
 			s.router.Group(func(router chi.Router) {
 				router.Use(compressor.Handler)
-				serveStaticDir(router, webOpenAPIPath, s.openAPIPath)
+				serveStaticDir(router, webOpenAPIPath, s.openAPIPath, false)
 			})
 		}
 	}
@@ -1441,7 +1441,7 @@ func (s *httpdServer) initializeRouter() {
 	if s.enableWebAdmin || s.enableWebClient {
 		s.router.Group(func(router chi.Router) {
 			router.Use(compressor.Handler)
-			serveStaticDir(router, webStaticFilesPath, s.staticFilesPath)
+			serveStaticDir(router, webStaticFilesPath, s.staticFilesPath, true)
 		})
 		if s.binding.OIDC.isEnabled() {
 			s.router.Get(webOIDCRedirectPath, s.handleOIDCRedirect)
