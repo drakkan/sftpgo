@@ -122,7 +122,7 @@ const (
 	pageForgotPwdTitle       = "SFTPGo Admin - Forgot password"
 	pageResetPwdTitle        = "SFTPGo Admin - Reset password"
 	pageSetupTitle           = "Create first admin user"
-	defaultQueryLimit        = 500
+	defaultQueryLimit        = 1000
 	inversePatternType       = "inverse"
 )
 

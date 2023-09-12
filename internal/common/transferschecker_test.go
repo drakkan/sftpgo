@@ -597,7 +597,7 @@ func TestDataTransferExceeded(t *testing.T) {
 
 func TestGetUsersForQuotaCheck(t *testing.T) {
 	usersToFetch := make(map[string]bool)
-	for i := 0; i < 50; i++ {
+	for i := 0; i < 70; i++ {
 		usersToFetch[fmt.Sprintf("user%v", i)] = i%2 == 0
 	}
 
@@ -605,7 +605,7 @@ func TestGetUsersForQuotaCheck(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, users, 0)
 
-	for i := 0; i < 40; i++ {
+	for i := 0; i < 60; i++ {
 		folder := vfs.BaseVirtualFolder{
 			Name:       fmt.Sprintf("f%v", i),
 			MappedPath: filepath.Join(os.TempDir(), fmt.Sprintf("f%v", i)),
@@ -641,7 +641,7 @@ func TestGetUsersForQuotaCheck(t *testing.T) {
 
 	users, err = dataprovider.GetUsersForQuotaCheck(usersToFetch)
 	assert.NoError(t, err)
-	assert.Len(t, users, 40)
+	assert.Len(t, users, 60)
 
 	for _, user := range users {
 		userIdxStr := strings.Replace(user.Username, "user", "", 1)
@@ -665,7 +665,7 @@ func TestGetUsersForQuotaCheck(t *testing.T) {
 		assert.Equal(t, int64(0), total)
 	}
 
-	for i := 0; i < 40; i++ {
+	for i := 0; i < 60; i++ {
 		err = dataprovider.DeleteUser(fmt.Sprintf("user%v", i), "", "", "")
 		assert.NoError(t, err)
 		err = dataprovider.DeleteFolder(fmt.Sprintf("f%v", i), "", "", "")
