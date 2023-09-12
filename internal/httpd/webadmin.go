@@ -122,7 +122,7 @@ const (
 	pageForgotPwdTitle       = "SFTPGo Admin - Forgot password"
 	pageResetPwdTitle        = "SFTPGo Admin - Reset password"
 	pageSetupTitle           = "Create first admin user"
-	defaultQueryLimit        = 500
+	defaultQueryLimit        = 1000
 	inversePatternType       = "inverse"
 )
 
@@ -4169,7 +4169,7 @@ func (s *httpdServer) handleOAuth2TokenRedirect(w http.ResponseWriter, r *http.R
 		errTxt := "the OAuth2 provider returned an empty token. " +
 			"Some providers only return the token when the user first authorizes. " +
 			"If you have already registered SFTPGo with this user in the past, revoke access and try again. " +
-			"This way you will invalidate the previous token."
+			"This way you will invalidate the previous token"
 		s.renderMessagePage(w, r, errorTitle, "Unable to get token:", http.StatusBadRequest, errors.New(errTxt), "")
 		return
 	}
