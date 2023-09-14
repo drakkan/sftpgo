@@ -38,7 +38,9 @@ sudo apt install sftpgo
 
 ## YUM repo
 
-The YUM repository supports generic Red Hat based distributions.
+The YUM repository can be used on generic Red Hat based distributions as well as on Suse/OpenSuse.
+
+### Red Hat based distributions
 
 Create the SFTPGo repository:
 
@@ -52,6 +54,35 @@ Reload the package database and install SFTPGo:
 ```shell
 sudo yum update
 sudo yum install sftpgo
+```
+
+Start the SFTPGo service and enable it to start at system boot:
+
+```shell
+sudo systemctl start sftpgo
+sudo systemctl enable sftpgo
+```
+
+### Suse/OpenSUSE
+
+Import the public key used by the package management system:
+
+```shell
+sudo rpm --import https://ftp.osuosl.org/pub/sftpgo/apt/gpg.key
+```
+
+Add the SFTPGo repository:
+
+```shell
+ARCH=`uname -m`
+sudo zypper addrepo "https://ftp.osuosl.org/pub/sftpgo/yum/${ARCH}" sftpgo
+```
+
+Reload the package database and install SFTPGo:
+
+```shell
+sudo zypper refresh
+sudo zypper install sftpgo
 ```
 
 Start the SFTPGo service and enable it to start at system boot:
