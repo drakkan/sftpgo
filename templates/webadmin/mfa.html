@@ -31,12 +31,17 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
         <div id="successTOTPMsg" class="card mb-4 border-left-success" style="display: none;">
             <div id="successTOTPTxt" class="card-body"></div>
         </div>
-        <div id="errorTOTPMsg" class="alert alert-warning alert-dismissible fade show" style="display: none;" role="alert">
+        <div id="errorTOTPMsg" class="alert alert-warning fade show" style="display: none;" role="alert">
             <span id="errorTOTPTxt"></span>
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+            <button type="button" class="close" aria-label="Close" onclick="dismissErrorTOTPMsg();">
               <span aria-hidden="true">&times;</span>
             </button>
         </div>
+        <script type="text/javascript">
+            function dismissErrorTOTPMsg(){
+                $('#errorTOTPMsg').hide();
+            }
+        </script>
         <div>
             <p>Status: {{if .TOTPConfig.Enabled }}"Enabled". Current configuration: "{{.TOTPConfig.ConfigName}}"{{else}}"Disabled"{{end}}</p>
         </div>
@@ -93,12 +98,17 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
         <div id="successRecCodesMsg" class="card mb-4 border-left-success" style="display: none;">
             <div id="successRecCodesTxt" class="card-body"></div>
         </div>
-        <div id="errorRecCodesMsg" class="alert alert-warning alert-dismissible fade show" style="display: none;" role="alert">
+        <div id="errorRecCodesMsg" class="alert alert-warning fade show" style="display: none;" role="alert">
             <span id="errorRecCodesTxt"></span>
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+            <button type="button" class="close" aria-label="Close" onclick="dismissErrorRecCodesMsg();">
               <span aria-hidden="true">&times;</span>
             </button>
         </div>
+        <script type="text/javascript">
+            function dismissErrorRecCodesMsg(){
+                $('#errorRecCodesMsg').hide();
+            }
+        </script>
         <div>
             <p>Recovery codes are a set of one time use codes that can be used in place of the TOTP to login to the web UI. You can use them if you lose access to your phone to login to your account and disable or regenerate TOTP configuration.</p>
             <p>To keep your account secure, don't share or distribute your recovery codes. We recommend saving them with a secure password manager.</p>
