@@ -56,7 +56,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 <div class="card shadow mb-4">
     <div class="card-header">
         <h6 class="d-flex justify-content-between align-items-center">
-            <span class="font-weight-bold text-primary">Edit file "{{.Path}}"</span>
+            <span class="font-weight-bold text-primary">{{- if .ReadOnly}}View{{- else}}Edit{{- end}} file "{{.Path}}"</span>
             <span class="btn-toolbar">
                 <a id="idBack" class="btn btn-secondary mx-1 my-1" href='{{.FilesURL}}?path={{.CurrentDir}}' role="button">Back</a>
                 {{if not .ReadOnly}}
