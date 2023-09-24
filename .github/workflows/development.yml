@@ -20,7 +20,7 @@ jobs:
             upload-coverage: false
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -227,7 +227,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Set up Go
         uses: actions/setup-go@v4
@@ -291,7 +291,7 @@ jobs:
           - 3308:3306
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Set up Go
         uses: actions/setup-go@v4
@@ -390,7 +390,7 @@ jobs:
             go: latest
             go-arch: arm7
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -518,7 +518,7 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: '1.21'
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
