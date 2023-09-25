@@ -115,11 +115,11 @@ func addConfigFlags(cmd *cobra.Command) {
 	viper.SetDefault(configDirKey, defaultConfigDir)
 	viper.BindEnv(configDirKey, "SFTPGO_CONFIG_DIR") //nolint:errcheck // err is not nil only if the key to bind is missing
 	cmd.Flags().StringVarP(&configDir, configDirFlag, "c", viper.GetString(configDirKey),
-		`Location for the config dir. This directory
+		`Location of the config dir. This directory
 is used as the base for files with a relative
-path, eg. the private keys for the SFTP
-server or the SQLite database if you use
-SQLite as data provider.
+path, e.g. the private keys for the SFTP
+server or the database file if you use a
+file-based data provider.
 The configuration file, if not explicitly set,
 is looked for in this dir. We support reading
 from JSON, TOML, YAML, HCL, envfile and Java

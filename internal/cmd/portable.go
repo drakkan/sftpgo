@@ -32,6 +32,7 @@ import (
 	"github.com/drakkan/sftpgo/v2/internal/kms"
 	"github.com/drakkan/sftpgo/v2/internal/service"
 	"github.com/drakkan/sftpgo/v2/internal/sftpd"
+	"github.com/drakkan/sftpgo/v2/internal/util"
 	"github.com/drakkan/sftpgo/v2/internal/version"
 	"github.com/drakkan/sftpgo/v2/internal/vfs"
 )
@@ -198,8 +199,8 @@ Please take a look at the usage below to customize the serving parameters`,
 			}
 			service.SetGraceTime(graceTime)
 			service := service.Service{
-				ConfigDir:     filepath.Clean(defaultConfigDir),
-				ConfigFile:    defaultConfigFile,
+				ConfigDir:     util.CleanDirInput(configDir),
+				ConfigFile:    configFile,
 				LogFilePath:   portableLogFile,
 				LogMaxSize:    defaultLogMaxSize,
 				LogMaxBackups: defaultLogMaxBackup,
@@ -317,7 +318,7 @@ path`)
 < 0 disabled`)
 	portableCmd.Flags().IntVar(&portableHTTPPort, "httpd-port", -1, `0 means a random unprivileged port,
 < 0 disabled`)
-	portableCmd.Flags().StringSliceVarP(&portableSSHCommands, "ssh-commands", "c", sftpd.GetDefaultSSHCommands(),
+	portableCmd.Flags().StringSliceVar(&portableSSHCommands, "ssh-commands", sftpd.GetDefaultSSHCommands(),
 		`SSH commands to enable.
 "*" means any supported SSH command
 including scp
@@ -441,6 +442,7 @@ to get completed before shutting down.
 A graceful shutdown is triggered by an
 interrupt signal.
 `)
+	addConfigFlags(portableCmd)
 	rootCmd.AddCommand(portableCmd)
 }
 

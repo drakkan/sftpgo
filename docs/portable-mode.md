@@ -39,6 +39,29 @@ Flags:
       --az-upload-part-size int         The buffer size for multipart uploads
                                         (MB) (default 5)
       --az-use-emulator
+  -c, --config-dir string               Location of the config dir. This directory
+                                        is used as the base for files with a relative
+                                        path, e.g. the private keys for the SFTP
+                                        server or the database file if you use a
+                                        file-based data provider.
+                                        The configuration file, if not explicitly set,
+                                        is looked for in this dir. We support reading
+                                        from JSON, TOML, YAML, HCL, envfile and Java
+                                        properties config files. The default config
+                                        file name is "sftpgo" and therefore
+                                        "sftpgo.json", "sftpgo.yaml" and so on are
+                                        searched.
+                                        This flag can be set using SFTPGO_CONFIG_DIR
+                                        env var too. (default ".")
+      --config-file string              Path to SFTPGo configuration file.
+                                        This flag explicitly defines the path, name
+                                        and extension of the config file. If must be
+                                        an absolute path or a path relative to the
+                                        configuration directory. The specified file
+                                        name must have a supported extension (JSON,
+                                        YAML, TOML, HCL or Java properties).
+                                        This flag can be set using SFTPGO_CONFIG_FILE
+                                        env var too.
       --crypto-passphrase string        Passphrase for encryption/decryption
       --denied-patterns stringArray     Denied file patterns case insensitive.
                                         The format is:
@@ -135,7 +158,7 @@ Flags:
       --sftp-username string            SFTP user for SFTP provider
   -s, --sftpd-port int                  0 means a random unprivileged port,
                                         < 0 disabled
-  -c, --ssh-commands strings            SSH commands to enable.
+      --ssh-commands strings            SSH commands to enable.
                                         "*" means any supported SSH command
                                         including scp
                                          (default [md5sum,sha1sum,sha256sum,cd,pwd,scp])
