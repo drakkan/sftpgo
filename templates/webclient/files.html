@@ -1258,7 +1258,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                             if (row["type"] == "1") {
                                 return `<i class="fas fa-folder"></i>&nbsp;<a class="${cssClass}" href="${row['url']}" title="${title}">${shortened}</a>`;
                             }
-                            if (row["size"] == "") {
+                            if (row["size"] === "") {
                                 return `<i class="fas fa-external-link-alt"></i>&nbsp;<a class="${cssClass}" href="${row['url']}" title="${title}">${shortened}</a>`;
                             }
                             let icon = getIconForFile(data);
@@ -1271,7 +1271,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                     "data": "size",
                     "render": function (data, type, row) {
                         if (type === 'display') {
-                            if (data){
+                            if (data || data === 0){
                                 return fileSizeIEC(data);
                             }
                             return "";

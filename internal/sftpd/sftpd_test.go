@@ -8397,6 +8397,35 @@ func TestWildcardPermissions(t *testing.T) {
 	assert.True(t, user.HasPerm(dataprovider.PermListItems, "/abc/a/a/a/b"))
 }
 
+func TestRootWildcardPerms(t *testing.T) {
+	user := getTestUser(true)
+	user.Permissions = make(map[string][]string)
+	user.Permissions["/"] = []string{dataprovider.PermListItems}
+	user.Permissions["/*"] = []string{dataprovider.PermDelete}
+	user.Permissions["/p/*"] = []string{dataprovider.PermDownload, dataprovider.PermUpload}
+	user.Permissions["/p/2"] = []string{dataprovider.PermCreateDirs}
+	user.Permissions["/pa"] = []string{dataprovider.PermChmod}
+	user.Permissions["/p/3/4"] = []string{dataprovider.PermChtimes}
+	assert.True(t, user.HasPerm(dataprovider.PermListItems, "/"))
+	assert.True(t, user.HasPerm(dataprovider.PermDelete, "/p1"))
+	assert.True(t, user.HasPerm(dataprovider.PermDelete, "/ppppp"))
+	assert.False(t, user.HasPerm(dataprovider.PermDelete, "/pa"))
+	assert.True(t, user.HasPerm(dataprovider.PermChmod, "/pa"))
+	assert.True(t, user.HasPerm(dataprovider.PermUpload, "/p/1"))
+	assert.True(t, user.HasPerm(dataprovider.PermUpload, "/p/p"))
+	assert.False(t, user.HasPerm(dataprovider.PermUpload, "/p/2"))
+	assert.True(t, user.HasPerm(dataprovider.PermCreateDirs, "/p/2"))
+	assert.True(t, user.HasPerm(dataprovider.PermCreateDirs, "/p/2/a"))
+	assert.True(t, user.HasPerm(dataprovider.PermDownload, "/p/3"))
+	assert.True(t, user.HasPerm(dataprovider.PermDownload, "/p/a/a/a"))
+	assert.False(t, user.HasPerm(dataprovider.PermDownload, "/p/3/4"))
+	assert.True(t, user.HasPerm(dataprovider.PermChtimes, "/p/3/4"))
+	assert.True(t, user.HasPerm(dataprovider.PermDelete, "/pb/a/a/a"))
+	assert.True(t, user.HasPerm(dataprovider.PermDelete, "/abc/a/a/a"))
+	assert.False(t, user.HasPerm(dataprovider.PermListItems, "/abc/a/a/a/b"))
+	assert.True(t, user.HasPerm(dataprovider.PermDelete, "/abc/a/a/a/b"))
+}
+
 func TestFilterFilePatterns(t *testing.T) {
 	user := getTestUser(true)
 	pattern := sdk.PatternsFilter{
