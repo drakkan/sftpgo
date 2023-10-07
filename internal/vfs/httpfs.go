@@ -44,7 +44,8 @@ import (
 
 const (
 	// httpFsName is the name for the HTTP Fs implementation
-	httpFsName = "httpfs"
+	httpFsName            = "httpfs"
+	maxHTTPFsResponseSize = 1048576
 )
 
 var (
@@ -283,8 +284,12 @@ func (fs *HTTPFs) Stat(name string) (os.FileInfo, error) {
 	}
 	defer resp.Body.Close()
 
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxHTTPFsResponseSize))
+	if err != nil {
+		return nil, err
+	}
 	var response statResponse
-	err = json.NewDecoder(resp.Body).Decode(&response)
+	err = json.Unmarshal(respBody, &response)
 	if err != nil {
 		return nil, err
 	}
@@ -479,8 +484,12 @@ func (fs *HTTPFs) ReadDir(dirname string) ([]os.FileInfo, error) {
 	}
 	defer resp.Body.Close()
 
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxHTTPFsResponseSize*10))
+	if err != nil {
+		return nil, err
+	}
 	var response []statResponse
-	err = json.NewDecoder(resp.Body).Decode(&response)
+	err = json.Unmarshal(respBody, &response)
 	if err != nil {
 		return nil, err
 	}
@@ -550,8 +559,13 @@ func (fs *HTTPFs) GetDirSize(dirname string) (int, int64, error) {
 	}
 	defer resp.Body.Close()
 
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxHTTPFsResponseSize))
+	if err != nil {
+		return 0, 0, err
+	}
+
 	var response dirSizeResponse
-	err = json.NewDecoder(resp.Body).Decode(&response)
+	err = json.Unmarshal(respBody, &response)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -621,8 +635,13 @@ func (fs *HTTPFs) GetMimeType(name string) (string, error) {
 	}
 	defer resp.Body.Close()
 
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxHTTPFsResponseSize))
+	if err != nil {
+		return "", err
+	}
+
 	var response mimeTypeResponse
-	err = json.NewDecoder(resp.Body).Decode(&response)
+	err = json.Unmarshal(respBody, &response)
 	if err != nil {
 		return "", err
 	}
@@ -646,8 +665,13 @@ func (fs *HTTPFs) GetAvailableDiskSize(dirName string) (*sftp.StatVFS, error) {
 	}
 	defer resp.Body.Close()
 
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxHTTPFsResponseSize))
+	if err != nil {
+		return nil, err
+	}
+
 	var response statVFSResponse
-	err = json.NewDecoder(resp.Body).Decode(&response)
+	err = json.Unmarshal(respBody, &response)
 	if err != nil {
 		return nil, err
 	}

@@ -232,9 +232,13 @@ func (n *Node) SendGetRequest(username, role, relativeURL string, responseHolder
 	if resp.StatusCode < http.StatusOK || resp.StatusCode > http.StatusNoContent {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
-	err = json.NewDecoder(resp.Body).Decode(responseHolder)
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 10485760))
 	if err != nil {
-		return fmt.Errorf("unable to decode response as json")
+		return fmt.Errorf("unable to read response body: %w", err)
+	}
+	err = json.Unmarshal(respBody, responseHolder)
+	if err != nil {
+		return errors.New("unable to decode response as json")
 	}
 	return nil
 }
