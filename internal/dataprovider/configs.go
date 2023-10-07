@@ -97,11 +97,18 @@ func (c *SFTPDConfigs) GetModuliAsString() string {
 }
 
 func (c *SFTPDConfigs) validate() error {
+	var hostKeyAlgos []string
 	for _, algo := range c.HostKeyAlgos {
+		if algo == ssh.CertAlgoRSAv01 {
+			continue
+		}
 		if !util.Contains(supportedHostKeyAlgos, algo) {
 			return util.NewValidationError(fmt.Sprintf("unsupported host key algorithm %q", algo))
 		}
+		hostKeyAlgos = append(hostKeyAlgos, algo)
 	}
+	c.HostKeyAlgos = hostKeyAlgos
+	var kexAlgos []string
 	for _, algo := range c.KexAlgorithms {
 		if algo == "diffie-hellman-group18-sha512" {
 			continue
@@ -109,7 +116,9 @@ func (c *SFTPDConfigs) validate() error {
 		if !util.Contains(supportedKexAlgos, algo) {
 			return util.NewValidationError(fmt.Sprintf("unsupported KEX algorithm %q", algo))
 		}
+		kexAlgos = append(kexAlgos, algo)
 	}
+	c.KexAlgorithms = kexAlgos
 	for _, cipher := range c.Ciphers {
 		if !util.Contains(supportedCiphers, cipher) {
 			return util.NewValidationError(fmt.Sprintf("unsupported cipher %q", cipher))
