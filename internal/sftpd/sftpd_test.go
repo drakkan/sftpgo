@@ -577,7 +577,7 @@ func TestBasicSFTPHandling(t *testing.T) {
 	assert.NotEmpty(t, sshCommands)
 	sshAuths := status.GetSupportedAuthsAsString()
 	assert.NotEmpty(t, sshAuths)
-	assert.NotEmpty(t, status.GetHostKeyAlgosAsString())
+	assert.NotEmpty(t, status.HostKeys[0].GetAlgosAsString())
 	assert.NotEmpty(t, status.GetMACsAsString())
 	assert.NotEmpty(t, status.GetKEXsAsString())
 	assert.NotEmpty(t, status.GetCiphersAsString())

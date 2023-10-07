@@ -6367,6 +6367,10 @@ components:
           type: string
         fingerprint:
           type: string
+        algorithms:
+          type: array
+          items:
+            type: string
     SSHBinding:
       type: object
       properties:
@@ -6501,10 +6505,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SSHAuthentications'
-        host_key_algos:
-          type: array
-          items:
-            type: string
         macs:
           type: array
           items:

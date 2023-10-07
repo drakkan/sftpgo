@@ -20,6 +20,8 @@ package sftpd
 import (
 	"strings"
 	"time"
+
+	"golang.org/x/crypto/ssh"
 )
 
 const (
@@ -34,6 +36,18 @@ var (
 	sshHashCommands    = []string{"md5sum", "sha1sum", "sha256sum", "sha384sum", "sha512sum"}
 	systemCommands     = []string{"git-receive-pack", "git-upload-pack", "git-upload-archive", "rsync"}
 	serviceStatus      ServiceStatus
+	certKeyAlgoNames   = map[string]string{
+		ssh.CertAlgoRSAv01:        ssh.KeyAlgoRSA,
+		ssh.CertAlgoRSASHA256v01:  ssh.KeyAlgoRSASHA256,
+		ssh.CertAlgoRSASHA512v01:  ssh.KeyAlgoRSASHA512,
+		ssh.CertAlgoDSAv01:        ssh.KeyAlgoDSA,
+		ssh.CertAlgoECDSA256v01:   ssh.KeyAlgoECDSA256,
+		ssh.CertAlgoECDSA384v01:   ssh.KeyAlgoECDSA384,
+		ssh.CertAlgoECDSA521v01:   ssh.KeyAlgoECDSA521,
+		ssh.CertAlgoSKECDSA256v01: ssh.KeyAlgoSKECDSA256,
+		ssh.CertAlgoED25519v01:    ssh.KeyAlgoED25519,
+		ssh.CertAlgoSKED25519v01:  ssh.KeyAlgoSKED25519,
+	}
 )
 
 type sshSubsystemExitStatus struct {
@@ -44,10 +58,21 @@ type sshSubsystemExecMsg struct {
 	Command string
 }
 
+type hostCertificate struct {
+	Certificate *ssh.Certificate
+	Path        string
+}
+
 // HostKey defines the details for a used host key
 type HostKey struct {
-	Path        string `json:"path"`
-	Fingerprint string `json:"fingerprint"`
+	Path        string   `json:"path"`
+	Fingerprint string   `json:"fingerprint"`
+	Algorithms  []string `json:"algorithms"`
+}
+
+// GetAlgosAsString returns the host key algorithms as comma separated string
+func (h *HostKey) GetAlgosAsString() string {
+	return strings.Join(h.Algorithms, ", ")
 }
 
 // ServiceStatus defines the service status
@@ -57,7 +82,6 @@ type ServiceStatus struct {
 	SSHCommands     []string  `json:"ssh_commands"`
 	HostKeys        []HostKey `json:"host_keys"`
 	Authentications []string  `json:"authentications"`
-	HostKeyAlgos    []string  `json:"host_key_algos"`
 	MACs            []string  `json:"macs"`
 	KexAlgorithms   []string  `json:"kex_algorithms"`
 	Ciphers         []string  `json:"ciphers"`
@@ -71,11 +95,6 @@ func (s *ServiceStatus) GetSSHCommandsAsString() string {
 // GetSupportedAuthsAsString returns the supported authentications as comma separated string
 func (s *ServiceStatus) GetSupportedAuthsAsString() string {
 	return strings.Join(s.Authentications, ", ")
-}
-
-// GetHostKeyAlgosAsString returns the enabled host keys algorithms as comma separated string
-func (s *ServiceStatus) GetHostKeyAlgosAsString() string {
-	return strings.Join(s.HostKeyAlgos, ", ")
 }
 
 // GetMACsAsString returns the enabled MAC algorithms as comma separated string

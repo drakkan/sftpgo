@@ -65,11 +65,8 @@ var (
 		ssh.KeyAlgoED25519,
 	}
 	preferredHostKeyAlgos = []string{
-		ssh.CertAlgoRSASHA512v01, ssh.CertAlgoRSASHA256v01,
-		ssh.CertAlgoECDSA256v01,
-		ssh.CertAlgoECDSA384v01, ssh.CertAlgoECDSA521v01, ssh.CertAlgoED25519v01,
+		ssh.KeyAlgoRSASHA256, ssh.KeyAlgoRSASHA512,
 		ssh.KeyAlgoECDSA256, ssh.KeyAlgoECDSA384, ssh.KeyAlgoECDSA521,
-		ssh.KeyAlgoRSASHA512, ssh.KeyAlgoRSASHA256,
 		ssh.KeyAlgoED25519,
 	}
 	supportedKexAlgos = []string{
@@ -355,20 +352,18 @@ func (c *Configuration) Initialize(configDir string) error {
 		return common.ErrNoBinding
 	}
 
-	if err := c.checkAndLoadHostKeys(configDir, serverConfig); err != nil {
-		serviceStatus.HostKeys = nil
-		return err
-	}
-
-	if err := c.initializeCertChecker(configDir); err != nil {
-		return err
-	}
-
 	c.loadModuli(configDir)
 
 	sftp.SetSFTPExtensions(sftpExtensions...) //nolint:errcheck // we configure valid SFTP Extensions so we cannot get an error
 
 	if err := c.configureSecurityOptions(serverConfig); err != nil {
+		return err
+	}
+	if err := c.checkAndLoadHostKeys(configDir, serverConfig); err != nil {
+		serviceStatus.HostKeys = nil
+		return err
+	}
+	if err := c.initializeCertChecker(configDir); err != nil {
 		return err
 	}
 	c.configureKeyboardInteractiveAuth(serverConfig)
@@ -457,8 +452,6 @@ func (c *Configuration) configureSecurityOptions(serverConfig *ssh.ServerConfig)
 			return fmt.Errorf("unsupported host key algorithm %q", hostKeyAlgo)
 		}
 	}
-	serverConfig.HostKeyAlgorithms = c.HostKeyAlgorithms
-	serviceStatus.HostKeyAlgos = c.HostKeyAlgorithms
 
 	if len(c.KexAlgorithms) > 0 {
 		hasDHGroupKEX := util.Contains(supportedKexAlgos, kexDHGroupExchangeSHA256)
@@ -974,6 +967,16 @@ func (c *Configuration) loadModuli(configDir string) {
 	}
 }
 
+func (c *Configuration) getHostKeyAlgorithms(keyFormat string) []string {
+	var algos []string
+	for _, algo := range algorithmsForKeyFormat(keyFormat) {
+		if util.Contains(c.HostKeyAlgorithms, algo) {
+			algos = append(algos, algo)
+		}
+	}
+	return algos
+}
+
 // If no host keys are defined we try to use or generate the default ones.
 func (c *Configuration) checkAndLoadHostKeys(configDir string, serverConfig *ssh.ServerConfig) error {
 	if err := c.checkHostKeyAutoGeneration(configDir); err != nil {
@@ -1008,19 +1011,37 @@ func (c *Configuration) checkAndLoadHostKeys(configDir string, serverConfig *ssh
 		k := HostKey{
 			Path:        hostKey,
 			Fingerprint: ssh.FingerprintSHA256(private.PublicKey()),
+			Algorithms:  c.getHostKeyAlgorithms(private.PublicKey().Type()),
+		}
+		mas, err := ssh.NewSignerWithAlgorithms(private.(ssh.AlgorithmSigner), k.Algorithms)
+		if err != nil {
+			return fmt.Errorf("could not create signer for key %q with algorithms %+v: %w", k.Path, k.Algorithms, err)
 		}
 		serviceStatus.HostKeys = append(serviceStatus.HostKeys, k)
-		logger.Info(logSender, "", "Host key %q loaded, type %q, fingerprint %q", hostKey,
-			private.PublicKey().Type(), k.Fingerprint)
+		logger.Info(logSender, "", "Host key %q loaded, type %q, fingerprint %q, algorithms %+v", hostKey,
+			private.PublicKey().Type(), k.Fingerprint, k.Algorithms)
 
 		// Add private key to the server configuration.
-		serverConfig.AddHostKey(private)
+		serverConfig.AddHostKey(mas)
 		for _, cert := range hostCertificates {
-			signer, err := ssh.NewCertSigner(cert, private)
+			signer, err := ssh.NewCertSigner(cert.Certificate, mas)
 			if err == nil {
+				var algos []string
+				for _, algo := range algorithmsForKeyFormat(signer.PublicKey().Type()) {
+					if underlyingAlgo, ok := certKeyAlgoNames[algo]; ok {
+						if util.Contains(mas.Algorithms(), underlyingAlgo) {
+							algos = append(algos, algo)
+						}
+					}
+				}
+				serviceStatus.HostKeys = append(serviceStatus.HostKeys, HostKey{
+					Path:        cert.Path,
+					Fingerprint: ssh.FingerprintSHA256(signer.PublicKey()),
+					Algorithms:  algos,
+				})
 				serverConfig.AddHostKey(signer)
-				logger.Info(logSender, "", "Host certificate loaded for host key %q, fingerprint %q",
-					hostKey, ssh.FingerprintSHA256(signer.PublicKey()))
+				logger.Info(logSender, "", "Host certificate loaded for host key %q, fingerprint %q, algorithms %+v",
+					hostKey, ssh.FingerprintSHA256(signer.PublicKey()), algos)
 			}
 		}
 	}
@@ -1033,8 +1054,8 @@ func (c *Configuration) checkAndLoadHostKeys(configDir string, serverConfig *ssh
 	return nil
 }
 
-func (c *Configuration) loadHostCertificates(configDir string) ([]*ssh.Certificate, error) {
-	var certs []*ssh.Certificate
+func (c *Configuration) loadHostCertificates(configDir string) ([]hostCertificate, error) {
+	var certs []hostCertificate
 	for _, certPath := range c.HostCertificates {
 		certPath = strings.TrimSpace(certPath)
 		if !util.IsFileInputValid(certPath) {
@@ -1060,7 +1081,10 @@ func (c *Configuration) loadHostCertificates(configDir string) ([]*ssh.Certifica
 		if cert.CertType != ssh.HostCert {
 			return nil, fmt.Errorf("the file %q is not an host certificate", certPath)
 		}
-		certs = append(certs, cert)
+		certs = append(certs, hostCertificate{
+			Path:        certPath,
+			Certificate: cert,
+		})
 	}
 	return certs, nil
 }
@@ -1311,4 +1335,15 @@ func (r *revokedCertificates) isRevoked(fp string) bool {
 // Reload reloads the list of revoked user certificates
 func Reload() error {
 	return revokedCertManager.load()
+}
+
+func algorithmsForKeyFormat(keyFormat string) []string {
+	switch keyFormat {
+	case ssh.KeyAlgoRSA:
+		return []string{ssh.KeyAlgoRSASHA256, ssh.KeyAlgoRSASHA512, ssh.KeyAlgoRSA}
+	case ssh.CertAlgoRSAv01:
+		return []string{ssh.CertAlgoRSASHA256v01, ssh.CertAlgoRSASHA512v01, ssh.CertAlgoRSAv01}
+	default:
+		return []string{keyFormat}
+	}
 }
