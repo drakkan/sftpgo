@@ -22881,6 +22881,12 @@ func TestNameParamSingleSlash(t *testing.T) {
 	groupGet, _, err := httpdtest.GetGroupByName(group.Name, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Equal(t, "/", groupGet.Name)
+	// check strip slash
+	req, err = http.NewRequest(http.MethodGet, webGroupsPath+"/", nil)
+	assert.NoError(t, err)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
 	// cleanup
 	req, err = http.NewRequest(http.MethodDelete, groupPath+"/"+url.PathEscape(group.Name), nil)
 	assert.NoError(t, err)
