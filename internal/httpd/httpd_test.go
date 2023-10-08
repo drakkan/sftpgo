@@ -13940,7 +13940,8 @@ func TestShareUploadSingle(t *testing.T) {
 	assert.NoError(t, err)
 	req.SetBasicAuth(defaultUsername, defaultPassword)
 	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusNotFound, rr)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "operation unsupported")
 
 	err = os.MkdirAll(filepath.Join(user.GetHomeDir(), "dir"), os.ModePerm)
 	assert.NoError(t, err)
@@ -13950,6 +13951,13 @@ func TestShareUploadSingle(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	assert.Contains(t, rr.Body.String(), "operation unsupported")
+
+	// only uploads to the share root dir are allowed
+	req, err = http.NewRequest(http.MethodPost, path.Join(sharesPath, objectID, "dir", "file.dat"), bytes.NewBuffer(content))
+	assert.NoError(t, err)
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
 
 	share, err = dataprovider.ShareExists(objectID, user.Username)
 	assert.NoError(t, err)
@@ -22821,6 +22829,72 @@ func TestWebRole(t *testing.T) {
 	checkResponseCode(t, http.StatusNotFound, rr)
 
 	_, err = httpdtest.RemoveRole(role, http.StatusOK)
+	assert.NoError(t, err)
+}
+
+func TestNameParamSingleSlash(t *testing.T) {
+	err := dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf := config.GetProviderConf()
+	providerConf.NamingRules = 5
+	err = dataprovider.Initialize(providerConf, configDir, true)
+	assert.NoError(t, err)
+
+	webToken, err := getJWTWebTokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	apiToken, err := getJWTAPITokenFromTestServer(defaultTokenAuthUser, defaultTokenAuthPass)
+	assert.NoError(t, err)
+	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
+	assert.NoError(t, err)
+	group := getTestGroup()
+	group.Name = "/"
+	form := make(url.Values)
+	form.Set("name", group.Name)
+	form.Set("description", group.Description)
+	form.Set("max_sessions", "0")
+	form.Set("quota_files", "0")
+	form.Set("quota_size", "0")
+	form.Set("upload_bandwidth", "0")
+	form.Set("download_bandwidth", "0")
+	form.Set("upload_data_transfer", "0")
+	form.Set("download_data_transfer", "0")
+	form.Set("total_data_transfer", "0")
+	form.Set("max_upload_file_size", "0")
+	form.Set("default_shares_expiration", "0")
+	form.Set("max_shares_expiration", "0")
+	form.Set("password_expiration", "0")
+	form.Set("password_strength", "0")
+	form.Set("expires_in", "0")
+	form.Set("external_auth_cache_time", "0")
+	form.Set(csrfFormToken, csrfToken)
+	b, contentType, err := getMultipartFormData(form, "", "")
+	assert.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, webGroupPath, &b)
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", contentType)
+	setJWTCookieForReq(req, webToken)
+	rr := executeRequest(req)
+	checkResponseCode(t, http.StatusSeeOther, rr)
+
+	groupGet, _, err := httpdtest.GetGroupByName(group.Name, http.StatusOK)
+	assert.NoError(t, err)
+	assert.Equal(t, "/", groupGet.Name)
+	// cleanup
+	req, err = http.NewRequest(http.MethodDelete, groupPath+"/"+url.PathEscape(group.Name), nil)
+	assert.NoError(t, err)
+	setBearerForReq(req, apiToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	err = dataprovider.Close()
+	assert.NoError(t, err)
+	err = config.LoadConfig(configDir, "")
+	assert.NoError(t, err)
+	providerConf = config.GetProviderConf()
+	providerConf.BackupsPath = backupsPath
+	err = dataprovider.Initialize(providerConf, configDir, true)
 	assert.NoError(t, err)
 }
 

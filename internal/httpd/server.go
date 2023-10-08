@@ -1164,7 +1164,9 @@ func (s *httpdServer) redirectToWebPath(w http.ResponseWriter, r *http.Request, 
 	}
 }
 
-func (s *httpdServer) isStaticFileURL(r *http.Request) bool {
+// The StripSlashes causes infinite redirects at the root path if used with http.FileServer.
+// We also don't strip paths with more than one trailing slash, see #1434
+func (s *httpdServer) mustStripSlash(r *http.Request) bool {
 	var urlPath string
 	rctx := chi.RouteContext(r.Context())
 	if rctx != nil && rctx.RoutePath != "" {
@@ -1172,7 +1174,8 @@ func (s *httpdServer) isStaticFileURL(r *http.Request) bool {
 	} else {
 		urlPath = r.URL.Path
 	}
-	return !strings.HasPrefix(urlPath, webOpenAPIPath) && !strings.HasPrefix(urlPath, webStaticFilesPath)
+	return !strings.HasSuffix(urlPath, "//") && !strings.HasPrefix(urlPath, webOpenAPIPath) &&
+		!strings.HasPrefix(urlPath, webStaticFilesPath) && !strings.HasPrefix(urlPath, acmeChallengeURI)
 }
 
 func (s *httpdServer) initializeRouter() {
@@ -1221,8 +1224,7 @@ func (s *httpdServer) initializeRouter() {
 		s.router.Use(c.Handler)
 	}
 	s.router.Use(middleware.GetHead)
-	// StripSlashes causes infinite redirects at the root path if used with http.FileServer
-	s.router.Use(middleware.Maybe(middleware.StripSlashes, s.isStaticFileURL))
+	s.router.Use(middleware.Maybe(middleware.StripSlashes, s.mustStripSlash))
 
 	s.router.NotFound(s.notFoundHandler)
 
