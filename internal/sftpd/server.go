@@ -1030,7 +1030,9 @@ func (c *Configuration) checkAndLoadHostKeys(configDir string, serverConfig *ssh
 		}
 		mas, err := ssh.NewSignerWithAlgorithms(private.(ssh.AlgorithmSigner), k.Algorithms)
 		if err != nil {
-			return fmt.Errorf("could not create signer for key %q with algorithms %+v: %w", k.Path, k.Algorithms, err)
+			logger.Warn(logSender, "", "could not create signer for key %q with algorithms %+v: %v", k.Path, k.Algorithms, err)
+			logger.WarnToConsole("could not create signer for key %q with algorithms %+v: %v", k.Path, k.Algorithms, err)
+			continue
 		}
 		serviceStatus.HostKeys = append(serviceStatus.HostKeys, k)
 		logger.Info(logSender, "", "Host key %q loaded, type %q, fingerprint %q, algorithms %+v", hostKey,
@@ -1059,6 +1061,9 @@ func (c *Configuration) checkAndLoadHostKeys(configDir string, serverConfig *ssh
 					hostKey, ssh.FingerprintSHA256(signer.PublicKey()), algos)
 			}
 		}
+	}
+	if len(serviceStatus.HostKeys) == 0 {
+		return errors.New("ssh: server has no host keys")
 	}
 	var fp []string
 	for idx := range serviceStatus.HostKeys {

@@ -1987,7 +1987,9 @@ func TestLoadHostKeys(t *testing.T) {
 	c.HostKeyAlgorithms = []string{ssh.KeyAlgoRSASHA256}
 	c.HostKeys = []string{ecdsaKeyName}
 	err = c.checkAndLoadHostKeys(configDir, serverConfig)
-	assert.Error(t, err)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "server has no host keys")
+	}
 	c.HostKeyAlgorithms = preferredHostKeyAlgos
 	err = c.checkAndLoadHostKeys(configDir, serverConfig)
 	assert.NoError(t, err)
