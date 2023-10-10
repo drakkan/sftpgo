@@ -993,7 +993,7 @@ func (c *Configuration) getHostKeyAlgorithms(keyFormat string) []string {
 }
 
 // If no host keys are defined we try to use or generate the default ones.
-func (c *Configuration) checkAndLoadHostKeys(configDir string, serverConfig *ssh.ServerConfig) error {
+func (c *Configuration) checkAndLoadHostKeys(configDir string, serverConfig *ssh.ServerConfig) error { //nolint:gocyclo
 	if err := c.checkHostKeyAutoGeneration(configDir); err != nil {
 		return err
 	}
