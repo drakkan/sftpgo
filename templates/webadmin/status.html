@@ -46,10 +46,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                     <br>
                     Fingerprint: "{{.Fingerprint}}"
                     <br>
+                    Algorithms: "{{.GetAlgosAsString}}"
+                    <br>
                     {{end}}
                     <br>
-                    Host Key algorithms: "{{.Status.SSH.GetHostKeyAlgosAsString}}"
-                    <br><br>
                     MAC algorithms: "{{.Status.SSH.GetMACsAsString}}"
                     <br><br>
                     KEX algorithms: "{{.Status.SSH.GetKEXsAsString}}"

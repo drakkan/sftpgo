@@ -1485,8 +1485,7 @@ func getShareFromPostFields(r *http.Request) (*dataprovider.Share, error) {
 	share.Name = strings.TrimSpace(r.Form.Get("name"))
 	share.Description = r.Form.Get("description")
 	for _, p := range r.Form["paths"] {
-		p = strings.TrimSpace(p)
-		if p != "" {
+		if strings.TrimSpace(p) != "" {
 			share.Paths = append(share.Paths, p)
 		}
 	}

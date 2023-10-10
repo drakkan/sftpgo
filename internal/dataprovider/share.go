@@ -208,8 +208,7 @@ func (s *Share) hashPassword() error {
 func (s *Share) validatePaths() error {
 	var paths []string
 	for _, p := range s.Paths {
-		p = strings.TrimSpace(p)
-		if p != "" {
+		if strings.TrimSpace(p) != "" {
 			paths = append(paths, p)
 		}
 	}

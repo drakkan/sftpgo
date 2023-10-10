@@ -28,10 +28,9 @@ import (
 
 // Supported values for host keys, KEXs, ciphers, MACs
 var (
-	supportedHostKeyAlgos = []string{ssh.KeyAlgoRSA, ssh.CertAlgoRSAv01}
+	supportedHostKeyAlgos = []string{ssh.KeyAlgoRSA}
 	supportedKexAlgos     = []string{
-		"diffie-hellman-group16-sha512", "diffie-hellman-group18-sha512",
-		"diffie-hellman-group14-sha1", "diffie-hellman-group1-sha1",
+		"diffie-hellman-group16-sha512", "diffie-hellman-group14-sha1", "diffie-hellman-group1-sha1",
 		"diffie-hellman-group-exchange-sha256", "diffie-hellman-group-exchange-sha1",
 	}
 	supportedCiphers = []string{
@@ -98,16 +97,28 @@ func (c *SFTPDConfigs) GetModuliAsString() string {
 }
 
 func (c *SFTPDConfigs) validate() error {
+	var hostKeyAlgos []string
 	for _, algo := range c.HostKeyAlgos {
+		if algo == ssh.CertAlgoRSAv01 {
+			continue
+		}
 		if !util.Contains(supportedHostKeyAlgos, algo) {
 			return util.NewValidationError(fmt.Sprintf("unsupported host key algorithm %q", algo))
 		}
+		hostKeyAlgos = append(hostKeyAlgos, algo)
 	}
+	c.HostKeyAlgos = hostKeyAlgos
+	var kexAlgos []string
 	for _, algo := range c.KexAlgorithms {
+		if algo == "diffie-hellman-group18-sha512" {
+			continue
+		}
 		if !util.Contains(supportedKexAlgos, algo) {
 			return util.NewValidationError(fmt.Sprintf("unsupported KEX algorithm %q", algo))
 		}
+		kexAlgos = append(kexAlgos, algo)
 	}
+	c.KexAlgorithms = kexAlgos
 	for _, cipher := range c.Ciphers {
 		if !util.Contains(supportedCiphers, cipher) {
 			return util.NewValidationError(fmt.Sprintf("unsupported cipher %q", cipher))
