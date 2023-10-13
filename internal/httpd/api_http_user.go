@@ -90,7 +90,7 @@ func createUserDir(w http.ResponseWriter, r *http.Request) {
 	}
 	defer common.Connections.Remove(connection.GetID())
 
-	name := connection.User.GetCleanedPath(r.URL.Query().Get("path"))
+	name := strings.TrimSpace(connection.User.GetCleanedPath(r.URL.Query().Get("path")))
 	if getBoolQueryParam(r, "mkdir_parents") {
 		if err = connection.CheckParentDirs(path.Dir(name)); err != nil {
 			sendAPIResponse(w, r, err, "Error checking parent directories", getMappedStatusCode(err))
