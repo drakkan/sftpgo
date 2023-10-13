@@ -2,7 +2,7 @@ FROM golang:1.21-alpine3.18 AS builder
 
 ENV GOFLAGS="-mod=readonly"
 
-RUN apk add --update --no-cache bash ca-certificates curl git gcc g++
+RUN apk -U upgrade --no-cache && apk add --update --no-cache bash ca-certificates curl git gcc g++
 
 RUN mkdir -p /workspace
 WORKDIR /workspace
@@ -32,7 +32,7 @@ FROM alpine:3.18
 # Set to "true" to install jq and the optional git and rsync dependencies
 ARG INSTALL_OPTIONAL_PACKAGES=false
 
-RUN apk add --update --no-cache ca-certificates tzdata mailcap
+RUN apk -U upgrade --no-cache && apk add --update --no-cache ca-certificates tzdata mailcap
 
 RUN if [ "${INSTALL_OPTIONAL_PACKAGES}" = "true" ]; then apk add --update --no-cache jq git rsync; fi
 
