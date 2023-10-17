@@ -445,7 +445,8 @@ func (c *Connection) handleSFTPUploadToExistingFile(fs vfs.Fs, pflags sftp.FileO
 	// For Cloud FS GetMaxWriteSize will return unsupported operation
 	maxWriteSize, err := c.GetMaxWriteSize(diskQuota, isResume, fileSize, fs.IsUploadResumeSupported())
 	if err != nil {
-		c.Log(logger.LevelDebug, "unable to get max write size: %v", err)
+		c.Log(logger.LevelDebug, "unable to get max write size for file %q is resume? %t: %v",
+			requestPath, isResume, err)
 		return nil, err
 	}
 

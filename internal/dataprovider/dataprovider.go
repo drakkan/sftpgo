@@ -977,10 +977,14 @@ func GetBackupsPath() string {
 }
 
 func initializeHashingAlgo(cnf *Config) error {
+	parallelism := cnf.PasswordHashing.Argon2Options.Parallelism
+	if parallelism == 0 {
+		parallelism = uint8(runtime.NumCPU())
+	}
 	argon2Params = &argon2id.Params{
 		Memory:      cnf.PasswordHashing.Argon2Options.Memory,
 		Iterations:  cnf.PasswordHashing.Argon2Options.Iterations,
-		Parallelism: cnf.PasswordHashing.Argon2Options.Parallelism,
+		Parallelism: parallelism,
 		SaltLength:  16,
 		KeyLength:   32,
 	}

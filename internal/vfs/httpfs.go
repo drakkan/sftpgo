@@ -190,11 +190,7 @@ type HTTPFs struct {
 // NewHTTPFs returns an HTTPFs object that allows to interact with SFTPGo HTTP filesystem backends
 func NewHTTPFs(connectionID, localTempDir, mountPath string, config HTTPFsConfig) (Fs, error) {
 	if localTempDir == "" {
-		if tempPath != "" {
-			localTempDir = tempPath
-		} else {
-			localTempDir = filepath.Clean(os.TempDir())
-		}
+		localTempDir = getLocalTempDir()
 	}
 	config.setEmptyCredentialsIfNil()
 	if !config.Password.IsEmpty() {

@@ -64,12 +64,6 @@ type OsFs struct {
 
 // NewOsFs returns an OsFs object that allows to interact with local Os filesystem
 func NewOsFs(connectionID, rootDir, mountPath string, config *sdk.OSFsConfig) Fs {
-	var tempDir string
-	if tempPath != "" {
-		tempDir = tempPath
-	} else {
-		tempDir = filepath.Clean(os.TempDir())
-	}
 	var readBufferSize, writeBufferSize int
 	if config != nil {
 		readBufferSize = config.ReadBufferSize * 1024 * 1024
@@ -80,7 +74,7 @@ func NewOsFs(connectionID, rootDir, mountPath string, config *sdk.OSFsConfig) Fs
 		connectionID:    connectionID,
 		rootDir:         rootDir,
 		mountPath:       getMountPath(mountPath),
-		localTempDir:    tempDir,
+		localTempDir:    getLocalTempDir(),
 		readBufferSize:  readBufferSize,
 		writeBufferSize: writeBufferSize,
 	}

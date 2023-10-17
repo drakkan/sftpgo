@@ -1040,6 +1040,13 @@ func getMountPath(mountPath string) string {
 	return mountPath
 }
 
+func getLocalTempDir() string {
+	if tempPath != "" {
+		return tempPath
+	}
+	return filepath.Clean(os.TempDir())
+}
+
 func fsLog(fs Fs, level logger.LogLevel, format string, v ...any) {
 	logger.Log(level, fs.Name(), fs.ConnectionID(), format, v...)
 }

@@ -268,11 +268,7 @@ type SFTPFs struct {
 // NewSFTPFs returns an SFTPFs object that allows to interact with an SFTP server
 func NewSFTPFs(connectionID, mountPath, localTempDir string, forbiddenSelfUsernames []string, config SFTPFsConfig) (Fs, error) {
 	if localTempDir == "" {
-		if tempPath != "" {
-			localTempDir = tempPath
-		} else {
-			localTempDir = filepath.Clean(os.TempDir())
-		}
+		localTempDir = getLocalTempDir()
 	}
 	if err := config.validate(); err != nil {
 		return nil, err
