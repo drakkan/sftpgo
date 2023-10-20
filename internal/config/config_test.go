@@ -65,7 +65,7 @@ func TestLoadConfigTest(t *testing.T) {
 	assert.NotEqual(t, sftpd.Configuration{}, config.GetSFTPDConfig())
 	assert.NotEqual(t, httpclient.Config{}, config.GetHTTPConfig())
 	assert.NotEqual(t, smtp.Config{}, config.GetSMTPConfig())
-	confName := tempConfigName + ".json"
+	confName := tempConfigName + ".json" //nolint:goconst
 	configFilePath := filepath.Join(configDir, confName)
 	err = config.LoadConfig(configDir, confName)
 	assert.NoError(t, err)

@@ -478,7 +478,7 @@ func (fs *httpFsImpl) configureRouter() {
 	fs.router = chi.NewRouter()
 	fs.router.Use(middleware.Recoverer)
 
-	fs.router.Get(statPath+"/{name}", fs.stat)
+	fs.router.Get(statPath+"/{name}", fs.stat) //nolint:goconst
 	fs.router.Get(openPath+"/{name}", fs.open)
 	fs.router.Post(createPath+"/{name}", fs.create)
 	fs.router.Patch(renamePath+"/{name}", fs.rename)

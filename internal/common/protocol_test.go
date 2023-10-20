@@ -293,7 +293,7 @@ func TestBaseConnection(t *testing.T) {
 		assert.NoError(t, err)
 		err = f.Close()
 		assert.NoError(t, err)
-		linkName := testFileName + ".link"
+		linkName := testFileName + ".link" //nolint:goconst
 		err = client.Rename(testFileName, testFileName)
 		if assert.Error(t, err) {
 			assert.Contains(t, err.Error(), "the rename source and target cannot be the same")
@@ -398,7 +398,7 @@ func TestRelativeSymlinks(t *testing.T) {
 		defer conn.Close()
 		defer client.Close()
 
-		linkName := testFileName + "_link"
+		linkName := testFileName + "_link" //nolint:goconst
 		err = client.Symlink("non-existent-file", linkName)
 		assert.NoError(t, err)
 		err = client.Remove(linkName)
@@ -1013,7 +1013,7 @@ func TestHiddenRoot(t *testing.T) {
 		assert.ErrorIs(t, err, os.ErrPermission)
 		err = writeSFTPFile("ftp123", 4096, client)
 		assert.ErrorIs(t, err, os.ErrPermission)
-		err = client.Rename(testFileName, testFileName+"_rename")
+		err = client.Rename(testFileName, testFileName+"_rename") //nolint:goconst
 		assert.ErrorIs(t, err, os.ErrPermission)
 		err = writeSFTPFile(path.Join("/ftp", testFileName), 4096, client)
 		assert.NoError(t, err)
@@ -1513,7 +1513,7 @@ func TestVirtualFoldersQuotaRenameOverwrite(t *testing.T) {
 		assert.NoError(t, err)
 		err = writeSFTPFile(path.Join(vdirPath3, testFileName+"1"), testFileSize, client)
 		assert.NoError(t, err)
-		err = client.Rename(testFileName, path.Join(vdirPath1, testFileName+".rename"))
+		err = client.Rename(testFileName, path.Join(vdirPath1, testFileName+".rename")) //nolint:goconst
 		assert.Error(t, err)
 		// we overwrite an existing file and we have unlimited size
 		err = client.Rename(testFileName, path.Join(vdirPath1, testFileName))
@@ -2708,7 +2708,7 @@ func TestVirtualFoldersLink(t *testing.T) {
 		assert.NoError(t, err)
 		err = client.Symlink(path.Join(vdirPath2, testFileName), path.Join(vdirPath2, testDir, testFileName+".link"))
 		assert.NoError(t, err)
-		err = client.Symlink(path.Join("/", testFileName), path.Join(vdirPath1, testFileName+".link1"))
+		err = client.Symlink(path.Join("/", testFileName), path.Join(vdirPath1, testFileName+".link1")) //nolint:goconst
 		if assert.Error(t, err) {
 			assert.Contains(t, err.Error(), "SSH_FX_OP_UNSUPPORTED")
 		}
@@ -4418,7 +4418,7 @@ func TestEventRuleFsActions(t *testing.T) {
 		assert.NoError(t, err)
 		_, err = client.Stat(path.Join("basedir", testFileName))
 		assert.Error(t, err)
-		info, err := client.Stat(testFileName + "_renamed")
+		info, err := client.Stat(testFileName + "_renamed") //nolint:goconst
 		if assert.NoError(t, err) {
 			assert.Equal(t, size, info.Size())
 		}
@@ -5189,7 +5189,7 @@ func TestEventActionCompress(t *testing.T) {
 			assert.NoError(t, err)
 			err = f.Close()
 			assert.NoError(t, err)
-			info, err := client.Stat(testFileName + ".zip")
+			info, err := client.Stat(testFileName + ".zip") //nolint:goconst
 			if assert.NoError(t, err) {
 				assert.Greater(t, info.Size(), int64(0))
 				// check quota

@@ -1244,7 +1244,7 @@ func (s *httpdServer) initializeRouter() {
 
 	if s.enableRESTAPI {
 		// share API available to external users
-		s.router.Get(sharesPath+"/{id}", s.downloadFromShare)
+		s.router.Get(sharesPath+"/{id}", s.downloadFromShare) //nolint:goconst
 		s.router.Post(sharesPath+"/{id}", s.uploadFilesToShare)
 		s.router.Post(sharesPath+"/{id}/{name}", s.uploadFileToShare)
 		s.router.With(compressor.Handler).Get(sharesPath+"/{id}/dirs", s.readBrowsableShareContents)
@@ -1294,12 +1294,12 @@ func (s *httpdServer) initializeRouter() {
 			router.With(s.checkPerm(dataprovider.PermAdminQuotaScans)).Post(quotasBasePath+"/folders/{name}/scan", startFolderQuotaScan)
 			router.With(s.checkPerm(dataprovider.PermAdminViewUsers)).Get(userPath, getUsers)
 			router.With(s.checkPerm(dataprovider.PermAdminAddUsers)).Post(userPath, addUser)
-			router.With(s.checkPerm(dataprovider.PermAdminViewUsers)).Get(userPath+"/{username}", getUserByUsername)
+			router.With(s.checkPerm(dataprovider.PermAdminViewUsers)).Get(userPath+"/{username}", getUserByUsername) //nolint:goconst
 			router.With(s.checkPerm(dataprovider.PermAdminChangeUsers)).Put(userPath+"/{username}", updateUser)
 			router.With(s.checkPerm(dataprovider.PermAdminDeleteUsers)).Delete(userPath+"/{username}", deleteUser)
 			router.With(s.checkPerm(dataprovider.PermAdminChangeUsers)).Put(userPath+"/{username}/2fa/disable", disableUser2FA)
 			router.With(s.checkPerm(dataprovider.PermAdminManageFolders)).Get(folderPath, getFolders)
-			router.With(s.checkPerm(dataprovider.PermAdminManageFolders)).Get(folderPath+"/{name}", getFolderByName)
+			router.With(s.checkPerm(dataprovider.PermAdminManageFolders)).Get(folderPath+"/{name}", getFolderByName) //nolint:goconst
 			router.With(s.checkPerm(dataprovider.PermAdminManageFolders)).Post(folderPath, addFolder)
 			router.With(s.checkPerm(dataprovider.PermAdminManageFolders)).Put(folderPath+"/{name}", updateFolder)
 			router.With(s.checkPerm(dataprovider.PermAdminManageFolders)).Delete(folderPath+"/{name}", deleteFolder)
@@ -1364,9 +1364,9 @@ func (s *httpdServer) initializeRouter() {
 			router.With(s.checkPerm(dataprovider.PermAdminManageRoles)).Get(rolesPath+"/{name}", getRoleByName)
 			router.With(s.checkPerm(dataprovider.PermAdminManageRoles)).Put(rolesPath+"/{name}", updateRole)
 			router.With(s.checkPerm(dataprovider.PermAdminManageRoles)).Delete(rolesPath+"/{name}", deleteRole)
-			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists), compressor.Handler).Get(ipListsPath+"/{type}", getIPListEntries)
+			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists), compressor.Handler).Get(ipListsPath+"/{type}", getIPListEntries) //nolint:goconst
 			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists)).Post(ipListsPath+"/{type}", addIPListEntry)
-			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists)).Get(ipListsPath+"/{type}/{ipornet}", getIPListEntry)
+			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists)).Get(ipListsPath+"/{type}/{ipornet}", getIPListEntry) //nolint:goconst
 			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists)).Put(ipListsPath+"/{type}/{ipornet}", updateIPListEntry)
 			router.With(s.checkPerm(dataprovider.PermAdminManageIPLists)).Delete(ipListsPath+"/{type}/{ipornet}", deleteIPListEntry)
 		})

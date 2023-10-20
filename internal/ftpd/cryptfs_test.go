@@ -281,11 +281,11 @@ func TestResumeCryptFs(t *testing.T) {
 		assert.Equal(t, initialHash, downloadHash)
 		err = os.Truncate(localDownloadPath, 32767)
 		assert.NoError(t, err)
-		err = ftpDownloadFile(testFileName, localDownloadPath+"_partial", testFileSize-32767, client, 32767)
+		err = ftpDownloadFile(testFileName, localDownloadPath+"_partial", testFileSize-32767, client, 32767) //nolint:goconst
 		assert.NoError(t, err)
 		file, err := os.OpenFile(localDownloadPath, os.O_APPEND|os.O_WRONLY, os.ModePerm)
 		assert.NoError(t, err)
-		file1, err := os.Open(localDownloadPath + "_partial")
+		file1, err := os.Open(localDownloadPath + "_partial") //nolint:goconst
 		assert.NoError(t, err)
 		_, err = io.Copy(file, file1)
 		assert.NoError(t, err)

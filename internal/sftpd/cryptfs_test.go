@@ -239,7 +239,7 @@ func TestQuotaFileReplaceCryptFs(t *testing.T) {
 		assert.Equal(t, expectedQuotaSize, user.UsedQuotaSize)
 		// now create a symlink, replace it with a file and check the quota
 		// replacing a symlink is like uploading a new file
-		err = client.Symlink(testFileName, testFileName+".link")
+		err = client.Symlink(testFileName, testFileName+".link") //nolint:goconst
 		assert.NoError(t, err)
 		user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 		assert.NoError(t, err)

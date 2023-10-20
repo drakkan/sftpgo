@@ -54,8 +54,9 @@ import (
 )
 
 const (
-	logSender = "util"
-	osWindows = "windows"
+	logSender    = "util"
+	osWindows    = "windows"
+	pubKeySuffix = ".pub"
 )
 
 var (
@@ -372,7 +373,7 @@ func GenerateRSAKeys(file string) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(file+".pub", ssh.MarshalAuthorizedKey(pub), 0600)
+	return os.WriteFile(file+pubKeySuffix, ssh.MarshalAuthorizedKey(pub), 0600)
 }
 
 // GenerateECDSAKeys generate ecdsa private and public keys and write the
@@ -410,7 +411,7 @@ func GenerateECDSAKeys(file string) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(file+".pub", ssh.MarshalAuthorizedKey(pub), 0600)
+	return os.WriteFile(file+pubKeySuffix, ssh.MarshalAuthorizedKey(pub), 0600)
 }
 
 // GenerateEd25519Keys generate ed25519 private and public keys and write the
@@ -442,7 +443,7 @@ func GenerateEd25519Keys(file string) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(file+".pub", ssh.MarshalAuthorizedKey(pub), 0600)
+	return os.WriteFile(file+pubKeySuffix, ssh.MarshalAuthorizedKey(pub), 0600)
 }
 
 // IsDirOverlapped returns true if dir1 and dir2 overlap

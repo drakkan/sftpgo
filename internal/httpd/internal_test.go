@@ -1024,7 +1024,7 @@ func TestOAuth2Redirect(t *testing.T) {
 	ip := "127.1.1.4"
 	tokenString := createOAuth2Token(xid.New().String(), ip)
 	rr = httptest.NewRecorder()
-	req, err = http.NewRequest(http.MethodGet, webOAuth2RedirectPath+"?state="+tokenString, nil)
+	req, err = http.NewRequest(http.MethodGet, webOAuth2RedirectPath+"?state="+tokenString, nil) //nolint:goconst
 	assert.NoError(t, err)
 	req.RemoteAddr = ip
 	server.handleOAuth2TokenRedirect(rr, req)
@@ -1173,7 +1173,7 @@ func TestCSRFToken(t *testing.T) {
 
 func TestCreateShareCookieError(t *testing.T) {
 	username := "share_user"
-	pwd := "pwd"
+	pwd := util.GenerateUniqueID()
 	user := &dataprovider.User{
 		BaseUser: sdk.BaseUser{
 			Username: username,
@@ -1239,7 +1239,7 @@ func TestCreateTokenError(t *testing.T) {
 	user := dataprovider.User{
 		BaseUser: sdk.BaseUser{
 			Username: "u",
-			Password: "pwd",
+			Password: util.GenerateUniqueID(),
 		},
 	}
 	req, _ = http.NewRequest(http.MethodGet, userTokenPath, nil)
@@ -1284,12 +1284,12 @@ func TestCreateTokenError(t *testing.T) {
 	_, err := getAdminFromPostFields(req)
 	assert.Error(t, err)
 
-	req, _ = http.NewRequest(http.MethodPost, webAdminEventActionPath+"?a=a%C3%AO%GG", nil)
+	req, _ = http.NewRequest(http.MethodPost, webAdminEventActionPath+"?a=a%C3%A2%GG", nil)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	_, err = getEventActionFromPostFields(req)
 	assert.Error(t, err)
 
-	req, _ = http.NewRequest(http.MethodPost, webAdminEventRulePath+"?a=a%C3%AO%GG", nil)
+	req, _ = http.NewRequest(http.MethodPost, webAdminEventRulePath+"?a=a%C3%A3%GG", nil)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	_, err = getEventRuleFromPostFields(req)
 	assert.Error(t, err)
