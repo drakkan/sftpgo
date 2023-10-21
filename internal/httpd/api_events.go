@@ -132,7 +132,7 @@ func getLogSearchParamsFromRequest(r *http.Request) (eventsearcher.LogEventSearc
 	s.Protocols = getCommaSeparatedQueryParam(r, "protocols")
 	events := getCommaSeparatedQueryParam(r, "events")
 	for _, ev := range events {
-		evType, err := strconv.ParseUint(ev, 10, 32)
+		evType, err := strconv.ParseInt(ev, 10, 32)
 		if err == nil {
 			s.Events = append(s.Events, int32(evType))
 		}
