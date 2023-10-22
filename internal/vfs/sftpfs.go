@@ -540,6 +540,12 @@ func (fs *SFTPFs) IsUploadResumeSupported() bool {
 	return fs.config.BufferSize == 0
 }
 
+// IsConditionalUploadResumeSupported returns if resuming uploads is supported
+// for the specified size
+func (fs *SFTPFs) IsConditionalUploadResumeSupported(_ int64) bool {
+	return fs.IsUploadResumeSupported()
+}
+
 // IsAtomicUploadSupported returns true if atomic upload is supported.
 func (fs *SFTPFs) IsAtomicUploadSupported() bool {
 	return fs.config.BufferSize == 0

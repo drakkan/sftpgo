@@ -264,6 +264,23 @@ func (fs *AzureBlobFs) Create(name string, flag, checks int) (File, *PipeWriter,
 		metric.AZTransferCompleted(r.GetReadedBytes(), 0, err)
 	}()
 
+	if checks&CheckResume != 0 {
+		readCh := make(chan error, 1)
+
+		go func() {
+			err = fs.downloadToWriter(name, p)
+			readCh <- err
+		}()
+
+		err = <-readCh
+		if err != nil {
+			cancelFn()
+			p.Close()
+			fsLog(fs, logger.LevelDebug, "download before resume failed, writer closed and read cancelled")
+			return nil, nil, nil, err
+		}
+	}
+
 	return nil, p, cancelFn, nil
 }
 
@@ -456,6 +473,12 @@ func (fs *AzureBlobFs) ReadDir(dirname string) ([]os.FileInfo, error) {
 // Resuming uploads is not supported on Azure Blob
 func (*AzureBlobFs) IsUploadResumeSupported() bool {
 	return false
+}
+
+// IsConditionalUploadResumeSupported returns if resuming uploads is supported
+// for the specified size
+func (*AzureBlobFs) IsConditionalUploadResumeSupported(size int64) bool {
+	return size <= resumeMaxSize
 }
 
 // IsAtomicUploadSupported returns true if atomic upload is supported.
@@ -965,7 +988,7 @@ func (fs *AzureBlobFs) handleMultipartDownload(ctx context.Context, blockBlob *b
 		fsLog(fs, logger.LevelError, "unable to get blob properties, download aborted: %+v", err)
 		return err
 	}
-	if readMetadata > 0 {
+	if readMetadata > 0 && pipeReader != nil {
 		pipeReader.setMetadataFromPointerVal(props.Metadata)
 	}
 	contentLength := util.GetIntFromPointer(props.ContentLength)
@@ -1170,6 +1193,19 @@ func (fs *AzureBlobFs) getCopyOptions() *blob.StartCopyFromURLOptions {
 		copyOptions.Tier = (*blob.AccessTier)(&fs.config.AccessTier)
 	}
 	return copyOptions
+}
+
+func (fs *AzureBlobFs) downloadToWriter(name string, w *PipeWriter) error {
+	fsLog(fs, logger.LevelDebug, "starting download before resuming upload, path %q", name)
+	ctx, cancelFn := context.WithTimeout(context.Background(), preResumeTimeout)
+	defer cancelFn()
+
+	blockBlob := fs.containerClient.NewBlockBlobClient(name)
+	err := fs.handleMultipartDownload(ctx, blockBlob, 0, w, nil)
+	fsLog(fs, logger.LevelDebug, "download before resuming upload completed, path %q size: %d, err: %+v",
+		name, w.GetWrittenBytes(), err)
+	metric.AZTransferCompleted(w.GetWrittenBytes(), 1, err)
+	return err
 }
 
 func (fs *AzureBlobFs) getStorageID() string {

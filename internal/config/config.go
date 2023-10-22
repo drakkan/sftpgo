@@ -203,6 +203,7 @@ func Init() {
 			},
 			SetstatMode:           0,
 			RenameMode:            0,
+			ResumeMaxSize:         0,
 			TempPath:              "",
 			ProxyProtocol:         0,
 			ProxyAllowed:          []string{},
@@ -1993,6 +1994,7 @@ func setViperDefaults() {
 	viper.SetDefault("common.actions.hook", globalConf.Common.Actions.Hook)
 	viper.SetDefault("common.setstat_mode", globalConf.Common.SetstatMode)
 	viper.SetDefault("common.rename_mode", globalConf.Common.RenameMode)
+	viper.SetDefault("common.resume_max_size", globalConf.Common.ResumeMaxSize)
 	viper.SetDefault("common.temp_path", globalConf.Common.TempPath)
 	viper.SetDefault("common.proxy_protocol", globalConf.Common.ProxyProtocol)
 	viper.SetDefault("common.proxy_allowed", globalConf.Common.ProxyAllowed)

@@ -407,7 +407,7 @@ func (c *Connection) handleSFTPUploadToNewFile(fs vfs.Fs, pflags sftp.FileOpenFl
 	}
 
 	osFlags := getOSOpenFlags(pflags)
-	file, w, cancelFn, err := fs.Create(filePath, osFlags, c.GetCreateChecks(requestPath, true))
+	file, w, cancelFn, err := fs.Create(filePath, osFlags, c.GetCreateChecks(requestPath, true, false))
 	if err != nil {
 		c.Log(logger.LevelError, "error creating file %q, os flags %d, pflags %+v: %+v", resolvedPath, osFlags, pflags, err)
 		return nil, c.GetFsError(fs, err)
@@ -443,7 +443,7 @@ func (c *Connection) handleSFTPUploadToExistingFile(fs vfs.Fs, pflags sftp.FileO
 	// if there is a size limit the remaining size cannot be 0 here, since quotaResult.HasSpace
 	// will return false in this case and we deny the upload before.
 	// For Cloud FS GetMaxWriteSize will return unsupported operation
-	maxWriteSize, err := c.GetMaxWriteSize(diskQuota, isResume, fileSize, fs.IsUploadResumeSupported())
+	maxWriteSize, err := c.GetMaxWriteSize(diskQuota, isResume, fileSize, vfs.IsUploadResumeSupported(fs, fileSize))
 	if err != nil {
 		c.Log(logger.LevelDebug, "unable to get max write size for file %q is resume? %t: %v",
 			requestPath, isResume, err)
@@ -464,7 +464,7 @@ func (c *Connection) handleSFTPUploadToExistingFile(fs vfs.Fs, pflags sftp.FileO
 		}
 	}
 
-	file, w, cancelFn, err := fs.Create(filePath, osFlags, c.GetCreateChecks(requestPath, false))
+	file, w, cancelFn, err := fs.Create(filePath, osFlags, c.GetCreateChecks(requestPath, false, isResume))
 	if err != nil {
 		c.Log(logger.LevelError, "error opening existing file, os flags %v, pflags: %+v, source: %q, err: %+v",
 			osFlags, pflags, filePath, err)
@@ -476,22 +476,15 @@ func (c *Connection) handleSFTPUploadToExistingFile(fs vfs.Fs, pflags sftp.FileO
 	if isResume {
 		c.Log(logger.LevelDebug, "resuming upload requested, file path %q initial size: %d, has append flag %t",
 			filePath, fileSize, pflags.Append)
-		// enforce min write offset only if the client passed the APPEND flag
-		if pflags.Append {
+		// enforce min write offset only if the client passed the APPEND flag or the filesystem
+		// supports emulated resume
+		if pflags.Append || !fs.IsUploadResumeSupported() {
 			minWriteOffset = fileSize
 		}
 		initialSize = fileSize
 	} else {
 		if isTruncate && vfs.HasTruncateSupport(fs) {
-			vfolder, err := c.User.GetVirtualFolderForPath(path.Dir(requestPath))
-			if err == nil {
-				dataprovider.UpdateVirtualFolderQuota(&vfolder.BaseVirtualFolder, 0, -fileSize, false) //nolint:errcheck
-				if vfolder.IsIncludedInUserQuota() {
-					dataprovider.UpdateUserQuota(&c.User, 0, -fileSize, false) //nolint:errcheck
-				}
-			} else {
-				dataprovider.UpdateUserQuota(&c.User, 0, -fileSize, false) //nolint:errcheck
-			}
+			c.updateQuotaAfterTruncate(requestPath, fileSize)
 		} else {
 			initialSize = fileSize
 			truncatedSize = fileSize
@@ -560,6 +553,18 @@ func (c *Connection) getStatVFSFromQuotaResult(fs vfs.Fs, name string, quotaResu
 		Favail:  ffree,
 		Namemax: 255,
 	}, nil
+}
+
+func (c *Connection) updateQuotaAfterTruncate(requestPath string, fileSize int64) {
+	vfolder, err := c.User.GetVirtualFolderForPath(path.Dir(requestPath))
+	if err == nil {
+		dataprovider.UpdateVirtualFolderQuota(&vfolder.BaseVirtualFolder, 0, -fileSize, false) //nolint:errcheck
+		if vfolder.IsIncludedInUserQuota() {
+			dataprovider.UpdateUserQuota(&c.User, 0, -fileSize, false) //nolint:errcheck
+		}
+	} else {
+		dataprovider.UpdateUserQuota(&c.User, 0, -fileSize, false) //nolint:errcheck
+	}
 }
 
 func getOSOpenFlags(requestFlags sftp.FileOpenFlags) (flags int) {

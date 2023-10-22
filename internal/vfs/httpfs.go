@@ -501,6 +501,12 @@ func (*HTTPFs) IsUploadResumeSupported() bool {
 	return false
 }
 
+// IsConditionalUploadResumeSupported returns if resuming uploads is supported
+// for the specified size
+func (*HTTPFs) IsConditionalUploadResumeSupported(_ int64) bool {
+	return false
+}
+
 // IsAtomicUploadSupported returns true if atomic upload is supported.
 func (*HTTPFs) IsAtomicUploadSupported() bool {
 	return false

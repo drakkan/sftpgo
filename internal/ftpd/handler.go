@@ -408,7 +408,7 @@ func (c *Connection) handleFTPUploadToNewFile(fs vfs.Fs, flags int, resolvedPath
 		c.Log(logger.LevelDebug, "upload for file %q denied by pre action: %v", requestPath, err)
 		return nil, ftpserver.ErrFileNameNotAllowed
 	}
-	file, w, cancelFn, err := fs.Create(filePath, flags, c.GetCreateChecks(requestPath, true))
+	file, w, cancelFn, err := fs.Create(filePath, flags, c.GetCreateChecks(requestPath, true, false))
 	if err != nil {
 		c.Log(logger.LevelError, "error creating file %q, flags %v: %+v", resolvedPath, flags, err)
 		return nil, c.GetFsError(fs, err)
@@ -444,7 +444,7 @@ func (c *Connection) handleFTPUploadToExistingFile(fs vfs.Fs, flags int, resolve
 	isResume := flags&os.O_TRUNC == 0
 	// if there is a size limit remaining size cannot be 0 here, since quotaResult.HasSpace
 	// will return false in this case and we deny the upload before
-	maxWriteSize, err := c.GetMaxWriteSize(diskQuota, isResume, fileSize, fs.IsUploadResumeSupported())
+	maxWriteSize, err := c.GetMaxWriteSize(diskQuota, isResume, fileSize, vfs.IsUploadResumeSupported(fs, fileSize))
 	if err != nil {
 		c.Log(logger.LevelDebug, "unable to get max write size: %v", err)
 		return nil, err
@@ -463,7 +463,7 @@ func (c *Connection) handleFTPUploadToExistingFile(fs vfs.Fs, flags int, resolve
 		}
 	}
 
-	file, w, cancelFn, err := fs.Create(filePath, flags, c.GetCreateChecks(requestPath, false))
+	file, w, cancelFn, err := fs.Create(filePath, flags, c.GetCreateChecks(requestPath, false, isResume))
 	if err != nil {
 		c.Log(logger.LevelError, "error opening existing file, flags: %v, source: %q, err: %+v", flags, filePath, err)
 		return nil, c.GetFsError(fs, err)

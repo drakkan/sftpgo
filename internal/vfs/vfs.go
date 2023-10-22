@@ -40,15 +40,17 @@ import (
 )
 
 const (
-	dirMimeType  = "inode/directory"
-	s3fsName     = "S3Fs"
-	gcsfsName    = "GCSFs"
-	azBlobFsName = "AzureBlobFs"
+	dirMimeType      = "inode/directory"
+	s3fsName         = "S3Fs"
+	gcsfsName        = "GCSFs"
+	azBlobFsName     = "AzureBlobFs"
+	preResumeTimeout = 90 * time.Second
 )
 
 // Additional checks for files
 const (
 	CheckParentDir = 1
+	CheckResume    = 2
 )
 
 var (
@@ -62,6 +64,7 @@ var (
 	allowSelfConnections int
 	renameMode           int
 	readMetadata         int
+	resumeMaxSize        int64
 )
 
 // SetAllowSelfConnections sets the desired behaviour for self connections
@@ -94,6 +97,12 @@ func SetReadMetadataMode(val int) {
 	readMetadata = val
 }
 
+// SetResumeMaxSize sets the max size allowed for resuming uploads for backends
+// with immutable objects
+func SetResumeMaxSize(val int64) {
+	resumeMaxSize = val
+}
+
 // Fs defines the interface for filesystem backends
 type Fs interface {
 	Name() string
@@ -113,6 +122,7 @@ type Fs interface {
 	ReadDir(dirname string) ([]os.FileInfo, error)
 	Readlink(name string) (string, error)
 	IsUploadResumeSupported() bool
+	IsConditionalUploadResumeSupported(size int64) bool
 	IsAtomicUploadSupported() bool
 	CheckRootPath(username string, uid int, gid int) bool
 	ResolvePath(virtualPath string) (string, error)
@@ -891,6 +901,14 @@ func SetPathPermissions(fs Fs, path string, uid int, gid int) {
 	if err := fs.Chown(path, uid, gid); err != nil {
 		fsLog(fs, logger.LevelWarn, "error chowning path %v: %v", path, err)
 	}
+}
+
+// IsUploadResumeSupported returns true if resuming uploads is supported
+func IsUploadResumeSupported(fs Fs, size int64) bool {
+	if fs.IsUploadResumeSupported() {
+		return true
+	}
+	return fs.IsConditionalUploadResumeSupported(size)
 }
 
 func updateFileInfoModTime(storageID, objectPath string, info *FileInfo) (*FileInfo, error) {

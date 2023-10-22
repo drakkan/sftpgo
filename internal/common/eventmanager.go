@@ -955,7 +955,7 @@ func getFileWriter(conn *BaseConnection, virtualPath string, expectedSize int64)
 	if err := checkWriterPermsAndQuota(conn, virtualPath, numFiles, expectedSize, truncatedSize); err != nil {
 		return nil, numFiles, truncatedSize, nil, err
 	}
-	f, w, cancelFn, err := fs.Create(fsPath, 0, conn.GetCreateChecks(virtualPath, numFiles == 1))
+	f, w, cancelFn, err := fs.Create(fsPath, 0, conn.GetCreateChecks(virtualPath, numFiles == 1, false))
 	if err != nil {
 		return nil, numFiles, truncatedSize, nil, conn.GetFsError(fs, err)
 	}

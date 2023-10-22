@@ -243,6 +243,12 @@ func (*CryptFs) IsUploadResumeSupported() bool {
 	return false
 }
 
+// IsConditionalUploadResumeSupported returns if resuming uploads is supported
+// for the specified size
+func (*CryptFs) IsConditionalUploadResumeSupported(_ int64) bool {
+	return false
+}
+
 // GetMimeType returns the content type
 func (fs *CryptFs) GetMimeType(name string) (string, error) {
 	f, key, err := fs.getFileAndEncryptionKey(name)

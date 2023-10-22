@@ -283,10 +283,28 @@ func (fs *S3Fs) Create(name string, flag, checks int) (File, *PipeWriter, func()
 		})
 		r.CloseWithError(err) //nolint:errcheck
 		p.Done(err)
-		fsLog(fs, logger.LevelDebug, "upload completed, path: %q, acl: %q, readed bytes: %v, err: %+v",
+		fsLog(fs, logger.LevelDebug, "upload completed, path: %q, acl: %q, readed bytes: %d, err: %+v",
 			name, fs.config.ACL, r.GetReadedBytes(), err)
 		metric.S3TransferCompleted(r.GetReadedBytes(), 0, err)
 	}()
+
+	if checks&CheckResume != 0 {
+		readCh := make(chan error, 1)
+
+		go func() {
+			err = fs.downloadToWriter(name, p)
+			readCh <- err
+		}()
+
+		err = <-readCh
+		if err != nil {
+			cancelFn()
+			p.Close()
+			fsLog(fs, logger.LevelDebug, "download before resume failed, writer closed and read cancelled")
+			return nil, nil, nil, err
+		}
+	}
+
 	return nil, p, cancelFn, nil
 }
 
@@ -458,6 +476,12 @@ func (fs *S3Fs) ReadDir(dirname string) ([]os.FileInfo, error) {
 // Resuming uploads is not supported on S3
 func (*S3Fs) IsUploadResumeSupported() bool {
 	return false
+}
+
+// IsConditionalUploadResumeSupported returns if resuming uploads is supported
+// for the specified size
+func (*S3Fs) IsConditionalUploadResumeSupported(size int64) bool {
+	return size <= resumeMaxSize
 }
 
 // IsAtomicUploadSupported returns true if atomic upload is supported.
@@ -1024,6 +1048,31 @@ func (*S3Fs) Close() error {
 // GetAvailableDiskSize returns the available size for the specified path
 func (*S3Fs) GetAvailableDiskSize(_ string) (*sftp.StatVFS, error) {
 	return nil, ErrStorageSizeUnavailable
+}
+
+func (fs *S3Fs) downloadToWriter(name string, w *PipeWriter) error {
+	fsLog(fs, logger.LevelDebug, "starting download before resuming upload, path %q", name)
+	ctx, cancelFn := context.WithTimeout(context.Background(), preResumeTimeout)
+	defer cancelFn()
+
+	downloader := manager.NewDownloader(fs.svc, func(d *manager.Downloader) {
+		d.Concurrency = fs.config.DownloadConcurrency
+		d.PartSize = fs.config.DownloadPartSize
+		if fs.config.DownloadPartMaxTime > 0 {
+			d.ClientOptions = append(d.ClientOptions, func(o *s3.Options) {
+				o.HTTPClient = getAWSHTTPClient(fs.config.DownloadPartMaxTime, 100*time.Millisecond)
+			})
+		}
+	})
+
+	n, err := downloader.Download(ctx, w, &s3.GetObjectInput{
+		Bucket: aws.String(fs.config.Bucket),
+		Key:    aws.String(name),
+	})
+	fsLog(fs, logger.LevelDebug, "download before resuming upload completed, path %q size: %d, err: %+v",
+		name, n, err)
+	metric.S3TransferCompleted(n, 1, err)
+	return err
 }
 
 func (fs *S3Fs) getStorageID() string {

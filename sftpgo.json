@@ -9,6 +9,7 @@
     },
     "setstat_mode": 0,
     "rename_mode": 0,
+    "resume_max_size": 0,
     "temp_path": "",
     "proxy_protocol": 0,
     "proxy_allowed": [],

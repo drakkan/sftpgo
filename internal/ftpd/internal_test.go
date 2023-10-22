@@ -367,6 +367,12 @@ func (MockOsFs) IsUploadResumeSupported() bool {
 	return false
 }
 
+// IsConditionalUploadResumeSupported returns if resuming uploads is supported
+// for the specified size
+func (MockOsFs) IsConditionalUploadResumeSupported(_ int64) bool {
+	return false
+}
+
 // IsAtomicUploadSupported returns true if atomic upload is supported
 func (fs MockOsFs) IsAtomicUploadSupported() bool {
 	return fs.isAtomicUploadSupported

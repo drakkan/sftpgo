@@ -279,6 +279,12 @@ func (*OsFs) IsUploadResumeSupported() bool {
 	return true
 }
 
+// IsConditionalUploadResumeSupported returns if resuming uploads is supported
+// for the specified size
+func (*OsFs) IsConditionalUploadResumeSupported(_ int64) bool {
+	return true
+}
+
 // IsAtomicUploadSupported returns true if atomic upload is supported
 func (*OsFs) IsAtomicUploadSupported() bool {
 	return true

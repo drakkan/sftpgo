@@ -230,6 +230,7 @@ func Initialize(c Configuration, isShared int) error {
 	vfs.SetAllowSelfConnections(c.AllowSelfConnections)
 	vfs.SetRenameMode(c.RenameMode)
 	vfs.SetReadMetadataMode(c.Metadata.Read)
+	vfs.SetResumeMaxSize(c.ResumeMaxSize)
 	dataprovider.SetAllowSelfConnections(c.AllowSelfConnections)
 	transfersChecker = getTransfersChecker(isShared)
 	return nil
@@ -523,6 +524,12 @@ type Configuration struct {
 	// renames for these providers, they may be slow, there is no atomic rename API like for local
 	// filesystem, so SFTPGo will recursively list the directory contents and do a rename for each entry
 	RenameMode int `json:"rename_mode" mapstructure:"rename_mode"`
+	// ResumeMaxSize defines the maximum size allowed, in bytes, to resume uploads on storage backends
+	// with immutable objects. By default, resuming uploads is not allowed for cloud storage providers
+	// (S3, GCS, Azure Blob) because SFTPGo must rewrite the entire file.
+	// Set to a value greater than 0 to allow resuming uploads of files smaller than or equal to the
+	// defined size.
+	ResumeMaxSize int64 `json:"resume_max_size" mapstructure:"resume_max_size"`
 	// TempPath defines the path for temporary files such as those used for atomic uploads or file pipes.
 	// If you set this option you must make sure that the defined path exists, is accessible for writing
 	// by the user running SFTPGo, and is on the same filesystem as the users home directories otherwise

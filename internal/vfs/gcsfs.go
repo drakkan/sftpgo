@@ -178,7 +178,6 @@ func (fs *GCSFs) Create(name string, flag, checks int) (File, *PipeWriter, func(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	p := NewPipeWriter(w)
 	bkt := fs.svc.Bucket(fs.config.Bucket)
 	obj := bkt.Object(name)
 	if flag == -1 {
@@ -193,6 +192,7 @@ func (fs *GCSFs) Create(name string, flag, checks int) (File, *PipeWriter, func(
 			fsLog(fs, logger.LevelWarn, "unable to set precondition for %q, stat err: %v", name, statErr)
 		}
 	}
+	p := NewPipeWriter(w)
 
 	ctx, cancelFn := context.WithCancel(context.Background())
 	objectWriter := obj.NewWriter(ctx)
@@ -208,15 +208,8 @@ func (fs *GCSFs) Create(name string, flag, checks int) (File, *PipeWriter, func(
 	} else {
 		contentType = mime.TypeByExtension(path.Ext(name))
 	}
-	if contentType != "" {
-		objectWriter.ObjectAttrs.ContentType = contentType
-	}
-	if fs.config.StorageClass != "" {
-		objectWriter.ObjectAttrs.StorageClass = fs.config.StorageClass
-	}
-	if fs.config.ACL != "" {
-		objectWriter.PredefinedACL = fs.config.ACL
-	}
+	fs.setWriterAttrs(objectWriter, contentType)
+
 	go func() {
 		defer cancelFn()
 
@@ -231,6 +224,24 @@ func (fs *GCSFs) Create(name string, flag, checks int) (File, *PipeWriter, func(
 			name, fs.config.ACL, n, err)
 		metric.GCSTransferCompleted(n, 0, err)
 	}()
+
+	if checks&CheckResume != 0 {
+		readCh := make(chan error, 1)
+
+		go func() {
+			err = fs.downloadToWriter(name, p)
+			readCh <- err
+		}()
+
+		err = <-readCh
+		if err != nil {
+			cancelFn()
+			p.Close()
+			fsLog(fs, logger.LevelDebug, "download before resume failed, writer closed and read cancelled")
+			return nil, nil, nil, err
+		}
+	}
+
 	return nil, p, cancelFn, nil
 }
 
@@ -427,6 +438,12 @@ func (fs *GCSFs) ReadDir(dirname string) ([]os.FileInfo, error) {
 // Resuming uploads is not supported on GCS
 func (*GCSFs) IsUploadResumeSupported() bool {
 	return false
+}
+
+// IsConditionalUploadResumeSupported returns if resuming uploads is supported
+// for the specified size
+func (*GCSFs) IsConditionalUploadResumeSupported(size int64) bool {
+	return size <= resumeMaxSize
 }
 
 // IsAtomicUploadSupported returns true if atomic upload is supported.
@@ -746,6 +763,37 @@ func (fs *GCSFs) getObjectStat(name string) (os.FileInfo, error) {
 		return nil, err
 	}
 	return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, attrs.Size, attrs.Updated, false))
+}
+
+func (fs *GCSFs) setWriterAttrs(objectWriter *storage.Writer, contentType string) {
+	if contentType != "" {
+		objectWriter.ObjectAttrs.ContentType = contentType
+	}
+	if fs.config.StorageClass != "" {
+		objectWriter.ObjectAttrs.StorageClass = fs.config.StorageClass
+	}
+	if fs.config.ACL != "" {
+		objectWriter.PredefinedACL = fs.config.ACL
+	}
+}
+
+func (fs *GCSFs) downloadToWriter(name string, w *PipeWriter) error {
+	fsLog(fs, logger.LevelDebug, "starting download before resuming upload, path %q", name)
+	ctx, cancelFn := context.WithTimeout(context.Background(), preResumeTimeout)
+	defer cancelFn()
+
+	bkt := fs.svc.Bucket(fs.config.Bucket)
+	obj := bkt.Object(name)
+	objectReader, err := obj.NewRangeReader(ctx, 0, -1)
+	if err != nil {
+		fsLog(fs, logger.LevelDebug, "unable to start download before resuming upload, path %q, err: %v", name, err)
+		return err
+	}
+	n, err := io.Copy(w, objectReader)
+	fsLog(fs, logger.LevelDebug, "download before resuming upload completed, path %q size: %d, err: %+v",
+		name, n, err)
+	metric.GCSTransferCompleted(n, 1, err)
+	return err
 }
 
 func (fs *GCSFs) copyFileInternal(source, target string) error {
