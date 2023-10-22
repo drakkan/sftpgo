@@ -110,7 +110,7 @@ type Fs interface {
 	Stat(name string) (os.FileInfo, error)
 	Lstat(name string) (os.FileInfo, error)
 	Open(name string, offset int64) (File, *PipeReader, func(), error)
-	Create(name string, flag, checks int) (File, *PipeWriter, func(), error)
+	Create(name string, flag, checks int) (File, PipeWriter, func(), error)
 	Rename(source, target string) (int, int64, error)
 	Remove(name string, isDir bool) error
 	Mkdir(name string) error
@@ -172,6 +172,15 @@ type File interface {
 	Stat() (os.FileInfo, error)
 	Name() string
 	Truncate(size int64) error
+}
+
+// PipeWriter defines an interface representing a SFTPGo pipe writer
+type PipeWriter interface {
+	io.Writer
+	io.WriterAt
+	io.Closer
+	Done(err error)
+	GetWrittenBytes() int64
 }
 
 // Metadater defines an interface to implement to return metadata for a file
@@ -707,16 +716,16 @@ func (c *CryptFsConfig) validate() error {
 	return nil
 }
 
-// PipeWriter defines a wrapper for pipeat.PipeWriterAt.
-type PipeWriter struct {
+// pipeWriter defines a wrapper for pipeat.PipeWriterAt.
+type pipeWriter struct {
 	*pipeat.PipeWriterAt
 	err  error
 	done chan bool
 }
 
 // NewPipeWriter initializes a new PipeWriter
-func NewPipeWriter(w *pipeat.PipeWriterAt) *PipeWriter {
-	return &PipeWriter{
+func NewPipeWriter(w *pipeat.PipeWriterAt) PipeWriter {
+	return &pipeWriter{
 		PipeWriterAt: w,
 		err:          nil,
 		done:         make(chan bool),
@@ -724,7 +733,7 @@ func NewPipeWriter(w *pipeat.PipeWriterAt) *PipeWriter {
 }
 
 // Close waits for the upload to end, closes the pipeat.PipeWriterAt and returns an error if any.
-func (p *PipeWriter) Close() error {
+func (p *pipeWriter) Close() error {
 	p.PipeWriterAt.Close() //nolint:errcheck // the returned error is always null
 	<-p.done
 	return p.err
@@ -732,7 +741,7 @@ func (p *PipeWriter) Close() error {
 
 // Done unlocks other goroutines waiting on Close().
 // It must be called when the upload ends
-func (p *PipeWriter) Done(err error) {
+func (p *pipeWriter) Done(err error) {
 	p.err = err
 	p.done <- true
 }

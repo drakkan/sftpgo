@@ -332,7 +332,7 @@ func (fs *HTTPFs) Open(name string, offset int64) (File, *PipeReader, func(), er
 }
 
 // Create creates or opens the named file for writing
-func (fs *HTTPFs) Create(name string, flag, checks int) (File, *PipeWriter, func(), error) {
+func (fs *HTTPFs) Create(name string, flag, checks int) (File, PipeWriter, func(), error) {
 	r, w, err := pipeat.PipeInDir(fs.localTempDir)
 	if err != nil {
 		return nil, nil, nil, err

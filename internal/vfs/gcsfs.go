@@ -167,7 +167,7 @@ func (fs *GCSFs) Open(name string, offset int64) (File, *PipeReader, func(), err
 }
 
 // Create creates or opens the named file for writing
-func (fs *GCSFs) Create(name string, flag, checks int) (File, *PipeWriter, func(), error) {
+func (fs *GCSFs) Create(name string, flag, checks int) (File, PipeWriter, func(), error) {
 	if checks&CheckParentDir != 0 {
 		_, err := fs.Stat(path.Dir(name))
 		if err != nil {
@@ -777,7 +777,7 @@ func (fs *GCSFs) setWriterAttrs(objectWriter *storage.Writer, contentType string
 	}
 }
 
-func (fs *GCSFs) downloadToWriter(name string, w *PipeWriter) error {
+func (fs *GCSFs) downloadToWriter(name string, w PipeWriter) error {
 	fsLog(fs, logger.LevelDebug, "starting download before resuming upload, path %q", name)
 	ctx, cancelFn := context.WithTimeout(context.Background(), preResumeTimeout)
 	defer cancelFn()

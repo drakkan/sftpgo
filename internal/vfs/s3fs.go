@@ -241,7 +241,7 @@ func (fs *S3Fs) Open(name string, offset int64) (File, *PipeReader, func(), erro
 }
 
 // Create creates or opens the named file for writing
-func (fs *S3Fs) Create(name string, flag, checks int) (File, *PipeWriter, func(), error) {
+func (fs *S3Fs) Create(name string, flag, checks int) (File, PipeWriter, func(), error) {
 	if checks&CheckParentDir != 0 {
 		_, err := fs.Stat(path.Dir(name))
 		if err != nil {
@@ -1050,7 +1050,7 @@ func (*S3Fs) GetAvailableDiskSize(_ string) (*sftp.StatVFS, error) {
 	return nil, ErrStorageSizeUnavailable
 }
 
-func (fs *S3Fs) downloadToWriter(name string, w *PipeWriter) error {
+func (fs *S3Fs) downloadToWriter(name string, w PipeWriter) error {
 	fsLog(fs, logger.LevelDebug, "starting download before resuming upload, path %q", name)
 	ctx, cancelFn := context.WithTimeout(context.Background(), preResumeTimeout)
 	defer cancelFn()

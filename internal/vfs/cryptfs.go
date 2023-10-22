@@ -154,7 +154,7 @@ func (fs *CryptFs) Open(name string, offset int64) (File, *PipeReader, func(), e
 }
 
 // Create creates or opens the named file for writing
-func (fs *CryptFs) Create(name string, _, _ int) (File, *PipeWriter, func(), error) {
+func (fs *CryptFs) Create(name string, _, _ int) (File, PipeWriter, func(), error) {
 	f, err := os.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
 		return nil, nil, nil, err

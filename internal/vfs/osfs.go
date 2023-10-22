@@ -134,7 +134,7 @@ func (fs *OsFs) Open(name string, offset int64) (File, *PipeReader, func(), erro
 }
 
 // Create creates or opens the named file for writing
-func (fs *OsFs) Create(name string, flag, _ int) (File, *PipeWriter, func(), error) {
+func (fs *OsFs) Create(name string, flag, _ int) (File, PipeWriter, func(), error) {
 	if !fs.useWriteBuffering(flag) {
 		var err error
 		var f *os.File

@@ -224,7 +224,7 @@ func (fs *AzureBlobFs) Open(name string, offset int64) (File, *PipeReader, func(
 }
 
 // Create creates or opens the named file for writing
-func (fs *AzureBlobFs) Create(name string, flag, checks int) (File, *PipeWriter, func(), error) {
+func (fs *AzureBlobFs) Create(name string, flag, checks int) (File, PipeWriter, func(), error) {
 	if checks&CheckParentDir != 0 {
 		_, err := fs.Stat(path.Dir(name))
 		if err != nil {
@@ -1195,7 +1195,7 @@ func (fs *AzureBlobFs) getCopyOptions() *blob.StartCopyFromURLOptions {
 	return copyOptions
 }
 
-func (fs *AzureBlobFs) downloadToWriter(name string, w *PipeWriter) error {
+func (fs *AzureBlobFs) downloadToWriter(name string, w PipeWriter) error {
 	fsLog(fs, logger.LevelDebug, "starting download before resuming upload, path %q", name)
 	ctx, cancelFn := context.WithTimeout(context.Background(), preResumeTimeout)
 	defer cancelFn()
