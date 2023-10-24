@@ -501,7 +501,7 @@ func (c *Connection) handleFTPUploadToExistingFile(fs vfs.Fs, flags int, resolve
 	baseTransfer := common.NewBaseTransfer(file, c.BaseConnection, cancelFn, resolvedPath, filePath, requestPath,
 		common.TransferUpload, minWriteOffset, initialSize, maxWriteSize, truncatedSize, false, fs, transferQuota)
 	baseTransfer.SetFtpMode(c.getFTPMode())
-	t := newTransfer(baseTransfer, w, nil, 0)
+	t := newTransfer(baseTransfer, w, nil, minWriteOffset)
 
 	return t, nil
 }

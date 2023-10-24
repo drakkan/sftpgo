@@ -237,7 +237,12 @@ func (fs *AzureBlobFs) Create(name string, flag, checks int) (File, PipeWriter, 
 	}
 	ctx, cancelFn := context.WithCancel(context.Background())
 
-	p := NewPipeWriter(w)
+	var p PipeWriter
+	if checks&CheckResume != 0 {
+		p = newPipeWriterAtOffset(w, 0)
+	} else {
+		p = NewPipeWriter(w)
+	}
 	headers := blob.HTTPHeaders{}
 	var contentType string
 	var metadata map[string]*string
@@ -268,7 +273,10 @@ func (fs *AzureBlobFs) Create(name string, flag, checks int) (File, PipeWriter, 
 		readCh := make(chan error, 1)
 
 		go func() {
-			err = fs.downloadToWriter(name, p)
+			n, err := fs.downloadToWriter(name, p)
+			pw := p.(*pipeWriterAtOffset)
+			pw.offset = 0
+			pw.writeOffset = n
 			readCh <- err
 		}()
 
@@ -1195,17 +1203,18 @@ func (fs *AzureBlobFs) getCopyOptions() *blob.StartCopyFromURLOptions {
 	return copyOptions
 }
 
-func (fs *AzureBlobFs) downloadToWriter(name string, w PipeWriter) error {
+func (fs *AzureBlobFs) downloadToWriter(name string, w PipeWriter) (int64, error) {
 	fsLog(fs, logger.LevelDebug, "starting download before resuming upload, path %q", name)
 	ctx, cancelFn := context.WithTimeout(context.Background(), preResumeTimeout)
 	defer cancelFn()
 
 	blockBlob := fs.containerClient.NewBlockBlobClient(name)
 	err := fs.handleMultipartDownload(ctx, blockBlob, 0, w, nil)
+	n := w.GetWrittenBytes()
 	fsLog(fs, logger.LevelDebug, "download before resuming upload completed, path %q size: %d, err: %+v",
-		name, w.GetWrittenBytes(), err)
-	metric.AZTransferCompleted(w.GetWrittenBytes(), 1, err)
-	return err
+		name, n, err)
+	metric.AZTransferCompleted(n, 1, err)
+	return n, err
 }
 
 func (fs *AzureBlobFs) getStorageID() string {

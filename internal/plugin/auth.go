@@ -136,7 +136,7 @@ func (p *authPlugin) initialize() error {
 	})
 	rpcClient, err := client.Client()
 	if err != nil {
-		logger.Debug(logSender, "", "unable to get rpc client for kms plugin %q: %v", p.config.Cmd, err)
+		logger.Debug(logSender, "", "unable to get rpc client for auth plugin %q: %v", p.config.Cmd, err)
 		return err
 	}
 	raw, err := rpcClient.Dispense(auth.PluginName)

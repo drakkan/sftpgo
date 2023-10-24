@@ -32,6 +32,7 @@ import (
 	"cloud.google.com/go/storage"
 	"github.com/eikenb/pipeat"
 	"github.com/pkg/sftp"
+	"github.com/rs/xid"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
@@ -178,12 +179,17 @@ func (fs *GCSFs) Create(name string, flag, checks int) (File, PipeWriter, func()
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	var partialFileName string
+	var attrs *storage.ObjectAttrs
+	var statErr error
+
 	bkt := fs.svc.Bucket(fs.config.Bucket)
 	obj := bkt.Object(name)
+
 	if flag == -1 {
 		obj = obj.If(storage.Conditions{DoesNotExist: true})
 	} else {
-		attrs, statErr := fs.headObject(name)
+		attrs, statErr = fs.headObject(name)
 		if statErr == nil {
 			obj = obj.If(storage.Conditions{GenerationMatch: attrs.Generation})
 		} else if fs.IsNotExist(statErr) {
@@ -192,10 +198,27 @@ func (fs *GCSFs) Create(name string, flag, checks int) (File, PipeWriter, func()
 			fsLog(fs, logger.LevelWarn, "unable to set precondition for %q, stat err: %v", name, statErr)
 		}
 	}
-	p := NewPipeWriter(w)
-
 	ctx, cancelFn := context.WithCancel(context.Background())
-	objectWriter := obj.NewWriter(ctx)
+
+	var p PipeWriter
+	var objectWriter *storage.Writer
+	if checks&CheckResume != 0 {
+		if statErr != nil {
+			cancelFn()
+			r.Close()
+			w.Close()
+			return nil, nil, nil, fmt.Errorf("unable to resume %q stat error: %w", name, statErr)
+		}
+		p = newPipeWriterAtOffset(w, attrs.Size)
+		partialFileName = fs.getTempObject(name)
+		partialObj := bkt.Object(partialFileName)
+		partialObj = partialObj.If(storage.Conditions{DoesNotExist: true})
+		objectWriter = partialObj.NewWriter(ctx)
+	} else {
+		p = NewPipeWriter(w)
+		objectWriter = obj.NewWriter(ctx)
+	}
+
 	if fs.config.UploadPartSize > 0 {
 		objectWriter.ChunkSize = int(fs.config.UploadPartSize) * 1024 * 1024
 	}
@@ -218,29 +241,17 @@ func (fs *GCSFs) Create(name string, flag, checks int) (File, PipeWriter, func()
 		if err == nil {
 			err = closeErr
 		}
+		if err == nil && partialFileName != "" {
+			partialObject := bkt.Object(partialFileName)
+			partialObject = partialObject.If(storage.Conditions{GenerationMatch: objectWriter.Attrs().Generation})
+			err = fs.composeObjects(ctx, obj, partialObject)
+		}
 		r.CloseWithError(err) //nolint:errcheck
 		p.Done(err)
 		fsLog(fs, logger.LevelDebug, "upload completed, path: %q, acl: %q, readed bytes: %v, err: %+v",
 			name, fs.config.ACL, n, err)
 		metric.GCSTransferCompleted(n, 0, err)
 	}()
-
-	if checks&CheckResume != 0 {
-		readCh := make(chan error, 1)
-
-		go func() {
-			err = fs.downloadToWriter(name, p)
-			readCh <- err
-		}()
-
-		err = <-readCh
-		if err != nil {
-			cancelFn()
-			p.Close()
-			fsLog(fs, logger.LevelDebug, "download before resume failed, writer closed and read cancelled")
-			return nil, nil, nil, err
-		}
-	}
 
 	return nil, p, cancelFn, nil
 }
@@ -290,6 +301,9 @@ func (fs *GCSFs) Remove(name string, isDir bool) error {
 	err := obj.Delete(ctx)
 	if isDir && fs.IsNotExist(err) {
 		// we can have directories without a trailing "/" (created using v2.1.0 and before)
+		ctx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
+		defer cancelFn()
+
 		err = fs.svc.Bucket(fs.config.Bucket).Object(strings.TrimSuffix(name, "/")).Delete(ctx)
 	}
 	metric.GCSDeleteObjectCompleted(err)
@@ -442,8 +456,8 @@ func (*GCSFs) IsUploadResumeSupported() bool {
 
 // IsConditionalUploadResumeSupported returns if resuming uploads is supported
 // for the specified size
-func (*GCSFs) IsConditionalUploadResumeSupported(size int64) bool {
-	return size <= resumeMaxSize
+func (*GCSFs) IsConditionalUploadResumeSupported(_ int64) bool {
+	return true
 }
 
 // IsAtomicUploadSupported returns true if atomic upload is supported.
@@ -777,22 +791,30 @@ func (fs *GCSFs) setWriterAttrs(objectWriter *storage.Writer, contentType string
 	}
 }
 
-func (fs *GCSFs) downloadToWriter(name string, w PipeWriter) error {
-	fsLog(fs, logger.LevelDebug, "starting download before resuming upload, path %q", name)
-	ctx, cancelFn := context.WithTimeout(context.Background(), preResumeTimeout)
+func (fs *GCSFs) composeObjects(ctx context.Context, dst, partialObject *storage.ObjectHandle) error {
+	fsLog(fs, logger.LevelDebug, "start object compose for partial file %q, destination %q",
+		partialObject.ObjectName(), dst.ObjectName())
+	composer := dst.ComposerFrom(dst, partialObject)
+	if fs.config.StorageClass != "" {
+		composer.StorageClass = fs.config.StorageClass
+	}
+	if fs.config.ACL != "" {
+		composer.PredefinedACL = fs.config.ACL
+	}
+	contentType := mime.TypeByExtension(path.Ext(dst.ObjectName()))
+	if contentType != "" {
+		composer.ContentType = contentType
+	}
+	_, err := composer.Run(ctx)
+	fsLog(fs, logger.LevelDebug, "object compose for %q finished, err: %v", dst.ObjectName(), err)
+
+	delCtx, cancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
 	defer cancelFn()
 
-	bkt := fs.svc.Bucket(fs.config.Bucket)
-	obj := bkt.Object(name)
-	objectReader, err := obj.NewRangeReader(ctx, 0, -1)
-	if err != nil {
-		fsLog(fs, logger.LevelDebug, "unable to start download before resuming upload, path %q, err: %v", name, err)
-		return err
-	}
-	n, err := io.Copy(w, objectReader)
-	fsLog(fs, logger.LevelDebug, "download before resuming upload completed, path %q size: %d, err: %+v",
-		name, n, err)
-	metric.GCSTransferCompleted(n, 1, err)
+	errDelete := partialObject.Delete(delCtx)
+	metric.GCSDeleteObjectCompleted(errDelete)
+	fsLog(fs, logger.LevelDebug, "deleted partial file %q after composing with %q, err: %v",
+		partialObject.ObjectName(), dst.ObjectName(), errDelete)
 	return err
 }
 
@@ -974,6 +996,12 @@ func (fs *GCSFs) Close() error {
 // GetAvailableDiskSize returns the available size for the specified path
 func (*GCSFs) GetAvailableDiskSize(_ string) (*sftp.StatVFS, error) {
 	return nil, ErrStorageSizeUnavailable
+}
+
+func (*GCSFs) getTempObject(name string) string {
+	dir := filepath.Dir(name)
+	guid := xid.New().String()
+	return filepath.Join(dir, ".sftpgo-partial."+guid+"."+filepath.Base(name))
 }
 
 func (fs *GCSFs) getStorageID() string {

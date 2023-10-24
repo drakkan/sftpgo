@@ -746,6 +746,37 @@ func (p *pipeWriter) Done(err error) {
 	p.done <- true
 }
 
+func newPipeWriterAtOffset(w *pipeat.PipeWriterAt, offset int64) PipeWriter {
+	return &pipeWriterAtOffset{
+		pipeWriter: &pipeWriter{
+			PipeWriterAt: w,
+			err:          nil,
+			done:         make(chan bool),
+		},
+		offset:      offset,
+		writeOffset: offset,
+	}
+}
+
+type pipeWriterAtOffset struct {
+	*pipeWriter
+	offset      int64
+	writeOffset int64
+}
+
+func (p *pipeWriterAtOffset) WriteAt(buf []byte, off int64) (int, error) {
+	if off < p.offset {
+		return 0, fmt.Errorf("invalid offset %d, minimum accepted %d", off, p.offset)
+	}
+	return p.pipeWriter.WriteAt(buf, off-p.offset)
+}
+
+func (p *pipeWriterAtOffset) Write(buf []byte) (int, error) {
+	n, err := p.WriteAt(buf, p.writeOffset)
+	p.writeOffset += int64(n)
+	return n, err
+}
+
 // NewPipeReader initializes a new PipeReader
 func NewPipeReader(r *pipeat.PipeReaderAt) *PipeReader {
 	return &PipeReader{

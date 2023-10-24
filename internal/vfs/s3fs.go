@@ -252,7 +252,12 @@ func (fs *S3Fs) Create(name string, flag, checks int) (File, PipeWriter, func(),
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	p := NewPipeWriter(w)
+	var p PipeWriter
+	if checks&CheckResume != 0 {
+		p = newPipeWriterAtOffset(w, 0)
+	} else {
+		p = NewPipeWriter(w)
+	}
 	ctx, cancelFn := context.WithCancel(context.Background())
 	uploader := manager.NewUploader(fs.svc, func(u *manager.Uploader) {
 		u.Concurrency = fs.config.UploadConcurrency
@@ -292,7 +297,10 @@ func (fs *S3Fs) Create(name string, flag, checks int) (File, PipeWriter, func(),
 		readCh := make(chan error, 1)
 
 		go func() {
-			err = fs.downloadToWriter(name, p)
+			n, err := fs.downloadToWriter(name, p)
+			pw := p.(*pipeWriterAtOffset)
+			pw.offset = 0
+			pw.writeOffset = n
 			readCh <- err
 		}()
 
@@ -1050,7 +1058,7 @@ func (*S3Fs) GetAvailableDiskSize(_ string) (*sftp.StatVFS, error) {
 	return nil, ErrStorageSizeUnavailable
 }
 
-func (fs *S3Fs) downloadToWriter(name string, w PipeWriter) error {
+func (fs *S3Fs) downloadToWriter(name string, w PipeWriter) (int64, error) {
 	fsLog(fs, logger.LevelDebug, "starting download before resuming upload, path %q", name)
 	ctx, cancelFn := context.WithTimeout(context.Background(), preResumeTimeout)
 	defer cancelFn()
@@ -1072,7 +1080,7 @@ func (fs *S3Fs) downloadToWriter(name string, w PipeWriter) error {
 	fsLog(fs, logger.LevelDebug, "download before resuming upload completed, path %q size: %d, err: %+v",
 		name, n, err)
 	metric.S3TransferCompleted(n, 1, err)
-	return err
+	return n, err
 }
 
 func (fs *S3Fs) getStorageID() string {

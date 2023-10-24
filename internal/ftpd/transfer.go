@@ -101,7 +101,7 @@ func (t *transfer) Seek(offset int64, whence int) (int64, error) {
 		}
 		return ret, err
 	}
-	if t.reader != nil && t.expectedOffset == offset && whence == io.SeekStart {
+	if (t.reader != nil || t.writer != nil) && t.expectedOffset == offset && whence == io.SeekStart {
 		return offset, nil
 	}
 	t.TransferError(errors.New("seek is unsupported for this transfer"))
