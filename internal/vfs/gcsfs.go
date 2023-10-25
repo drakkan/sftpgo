@@ -225,13 +225,7 @@ func (fs *GCSFs) Create(name string, flag, checks int) (File, PipeWriter, func()
 	if fs.config.UploadPartMaxTime > 0 {
 		objectWriter.ChunkRetryDeadline = time.Duration(fs.config.UploadPartMaxTime) * time.Second
 	}
-	var contentType string
-	if flag == -1 {
-		contentType = dirMimeType
-	} else {
-		contentType = mime.TypeByExtension(path.Ext(name))
-	}
-	fs.setWriterAttrs(objectWriter, contentType)
+	fs.setWriterAttrs(objectWriter, flag, name)
 
 	go func() {
 		defer cancelFn()
@@ -253,6 +247,9 @@ func (fs *GCSFs) Create(name string, flag, checks int) (File, PipeWriter, func()
 		metric.GCSTransferCompleted(n, 0, err)
 	}()
 
+	if uploadMode&8 != 0 {
+		return nil, p, nil, nil
+	}
 	return nil, p, cancelFn, nil
 }
 
@@ -779,7 +776,13 @@ func (fs *GCSFs) getObjectStat(name string) (os.FileInfo, error) {
 	return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, attrs.Size, attrs.Updated, false))
 }
 
-func (fs *GCSFs) setWriterAttrs(objectWriter *storage.Writer, contentType string) {
+func (fs *GCSFs) setWriterAttrs(objectWriter *storage.Writer, flag int, name string) {
+	var contentType string
+	if flag == -1 {
+		contentType = dirMimeType
+	} else {
+		contentType = mime.TypeByExtension(path.Ext(name))
+	}
 	if contentType != "" {
 		objectWriter.ObjectAttrs.ContentType = contentType
 	}

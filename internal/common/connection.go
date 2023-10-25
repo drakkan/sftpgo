@@ -1086,7 +1086,7 @@ func (c *BaseConnection) checkRecursiveRenameDirPermissions(fsSrc, fsDst vfs.Fs,
 		if err != nil {
 			return c.GetFsError(fsSrc, err)
 		}
-		if walkedPath != sourcePath && vfs.HasImplicitAtomicUploads(fsSrc) && Config.RenameMode == 0 {
+		if walkedPath != sourcePath && !vfs.IsRenameAtomic(fsSrc) && Config.RenameMode == 0 {
 			c.Log(logger.LevelInfo, "cannot rename non empty directory %q on this filesystem", virtualSourcePath)
 			return c.GetOpUnsupportedError()
 		}

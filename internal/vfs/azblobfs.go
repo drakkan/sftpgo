@@ -289,6 +289,9 @@ func (fs *AzureBlobFs) Create(name string, flag, checks int) (File, PipeWriter, 
 		}
 	}
 
+	if uploadMode&16 != 0 {
+		return nil, p, nil, nil
+	}
 	return nil, p, cancelFn, nil
 }
 

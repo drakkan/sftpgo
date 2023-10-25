@@ -188,28 +188,6 @@ func TestEnabledSSHCommands(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestInvalidUploadMode(t *testing.T) {
-	reset()
-
-	confName := tempConfigName + ".json"
-	configFilePath := filepath.Join(configDir, confName)
-	err := config.LoadConfig(configDir, "")
-	assert.NoError(t, err)
-	commonConf := config.GetCommonConfig()
-	commonConf.UploadMode = 10
-	c := make(map[string]common.Configuration)
-	c["common"] = commonConf
-	jsonConf, err := json.Marshal(c)
-	assert.NoError(t, err)
-	err = os.WriteFile(configFilePath, jsonConf, os.ModePerm)
-	assert.NoError(t, err)
-	err = config.LoadConfig(configDir, confName)
-	assert.NoError(t, err)
-	assert.Equal(t, 0, config.GetCommonConfig().UploadMode)
-	err = os.Remove(configFilePath)
-	assert.NoError(t, err)
-}
-
 func TestInvalidExternalAuthScope(t *testing.T) {
 	reset()
 

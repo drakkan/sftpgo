@@ -111,9 +111,12 @@ const (
 
 // Upload modes
 const (
-	UploadModeStandard = iota
-	UploadModeAtomic
-	UploadModeAtomicWithResume
+	UploadModeStandard              = 0
+	UploadModeAtomic                = 1
+	UploadModeAtomicWithResume      = 2
+	UploadModeS3StoreOnError        = 4
+	UploadModeGCSStoreOnError       = 8
+	UploadModeAzureBlobStoreOnError = 16
 )
 
 func init() {
@@ -231,6 +234,7 @@ func Initialize(c Configuration, isShared int) error {
 	vfs.SetRenameMode(c.RenameMode)
 	vfs.SetReadMetadataMode(c.Metadata.Read)
 	vfs.SetResumeMaxSize(c.ResumeMaxSize)
+	vfs.SetUploadMode(c.UploadMode)
 	dataprovider.SetAllowSelfConnections(c.AllowSelfConnections)
 	transfersChecker = getTransfersChecker(isShared)
 	return nil
@@ -510,6 +514,9 @@ type Configuration struct {
 	// 2 means atomic with resume support: as atomic but if there is an upload error the temporary
 	// file is renamed to the requested path and not deleted, this way a client can reconnect and resume
 	// the upload.
+	// 4 means files for S3 backend are stored even if a client-side upload error is detected.
+	// 8 means files for Google Cloud Storage backend are stored even if a client-side upload error is detected.
+	// 16 means files for Azure Blob backend are stored even if a client-side upload error is detected.
 	UploadMode int `json:"upload_mode" mapstructure:"upload_mode"`
 	// Actions to execute for SFTP file operations and SSH commands
 	Actions ProtocolActions `json:"actions" mapstructure:"actions"`
@@ -601,7 +608,7 @@ type Configuration struct {
 
 // IsAtomicUploadEnabled returns true if atomic upload is enabled
 func (c *Configuration) IsAtomicUploadEnabled() bool {
-	return c.UploadMode == UploadModeAtomic || c.UploadMode == UploadModeAtomicWithResume
+	return c.UploadMode&UploadModeAtomic != 0 || c.UploadMode&UploadModeAtomicWithResume != 0
 }
 
 func (c *Configuration) initializeProxyProtocol() error {

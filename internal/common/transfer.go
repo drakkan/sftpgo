@@ -389,7 +389,7 @@ func (t *BaseTransfer) Close() error {
 		t.Connection.Log(logger.LevelWarn, "upload denied due to space limit, delete temporary file: %q, deletion error: %v",
 			t.effectiveFsPath, err)
 	} else if t.isAtomicUpload() {
-		if t.ErrTransfer == nil || Config.UploadMode == UploadModeAtomicWithResume {
+		if t.ErrTransfer == nil || Config.UploadMode&UploadModeAtomicWithResume != 0 {
 			_, _, err = t.Fs.Rename(t.effectiveFsPath, t.fsPath)
 			t.Connection.Log(logger.LevelDebug, "atomic upload completed, rename: %q -> %q, error: %v",
 				t.effectiveFsPath, t.fsPath, err)

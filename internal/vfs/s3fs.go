@@ -313,6 +313,9 @@ func (fs *S3Fs) Create(name string, flag, checks int) (File, PipeWriter, func(),
 		}
 	}
 
+	if uploadMode&4 != 0 {
+		return nil, p, nil, nil
+	}
 	return nil, p, cancelFn, nil
 }
 

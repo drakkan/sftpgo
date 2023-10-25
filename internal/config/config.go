@@ -747,10 +747,6 @@ func LoadConfig(configDir, configFile string) error {
 	return nil
 }
 
-func isUploadModeValid() bool {
-	return globalConf.Common.UploadMode >= 0 && globalConf.Common.UploadMode <= 2
-}
-
 func isProxyProtocolValid() bool {
 	return globalConf.Common.ProxyProtocol >= 0 && globalConf.Common.ProxyProtocol <= 2
 }
@@ -772,13 +768,6 @@ func resetInvalidConfigs() {
 	if globalConf.ProviderConf.UsersBaseDir != "" && !util.IsFileInputValid(globalConf.ProviderConf.UsersBaseDir) {
 		warn := fmt.Sprintf("invalid users base dir %q will be ignored", globalConf.ProviderConf.UsersBaseDir)
 		globalConf.ProviderConf.UsersBaseDir = ""
-		logger.Warn(logSender, "", "Non-fatal configuration error: %v", warn)
-		logger.WarnToConsole("Non-fatal configuration error: %v", warn)
-	}
-	if !isUploadModeValid() {
-		warn := fmt.Sprintf("invalid upload_mode 0, 1 and 2 are supported, configured: %v reset upload_mode to 0",
-			globalConf.Common.UploadMode)
-		globalConf.Common.UploadMode = 0
 		logger.Warn(logSender, "", "Non-fatal configuration error: %v", warn)
 		logger.WarnToConsole("Non-fatal configuration error: %v", warn)
 	}

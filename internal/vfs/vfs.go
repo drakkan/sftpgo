@@ -65,6 +65,7 @@ var (
 	renameMode           int
 	readMetadata         int
 	resumeMaxSize        int64
+	uploadMode           int
 )
 
 // SetAllowSelfConnections sets the desired behaviour for self connections
@@ -101,6 +102,11 @@ func SetReadMetadataMode(val int) {
 // with immutable objects
 func SetResumeMaxSize(val int64) {
 	resumeMaxSize = val
+}
+
+// SetUploadMode sets the upload mode
+func SetUploadMode(val int) {
+	uploadMode = val
 }
 
 // Fs defines the interface for filesystem backends
@@ -896,16 +902,30 @@ func HasTruncateSupport(fs Fs) bool {
 	return IsLocalOsFs(fs) || IsSFTPFs(fs) || IsHTTPFs(fs)
 }
 
+// IsRenameAtomic returns true if renaming a directory is supposed to be atomic
+func IsRenameAtomic(fs Fs) bool {
+	if strings.HasPrefix(fs.Name(), s3fsName) {
+		return false
+	}
+	if strings.HasPrefix(fs.Name(), gcsfsName) {
+		return false
+	}
+	if strings.HasPrefix(fs.Name(), azBlobFsName) {
+		return false
+	}
+	return true
+}
+
 // HasImplicitAtomicUploads returns true if the fs don't persists partial files on error
 func HasImplicitAtomicUploads(fs Fs) bool {
 	if strings.HasPrefix(fs.Name(), s3fsName) {
-		return true
+		return uploadMode&4 == 0
 	}
 	if strings.HasPrefix(fs.Name(), gcsfsName) {
-		return true
+		return uploadMode&8 == 0
 	}
 	if strings.HasPrefix(fs.Name(), azBlobFsName) {
-		return true
+		return uploadMode&16 == 0
 	}
 	return false
 }
