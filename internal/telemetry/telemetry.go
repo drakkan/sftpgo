@@ -80,7 +80,7 @@ type Conf struct {
 	// Defines the minimum TLS version. 13 means TLS 1.3, default is TLS 1.2
 	MinTLSVersion int `json:"min_tls_version" mapstructure:"min_tls_version"`
 	// HTTP protocols to enable in preference order. Supported values: http/1.1, h2
-	Protocols []string `json:"protocols" mapstructure:"protocols"`
+	Protocols []string `json:"tls_protocols" mapstructure:"tls_protocols"`
 }
 
 // ShouldBind returns true if there service must be started

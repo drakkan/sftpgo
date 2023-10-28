@@ -505,7 +505,7 @@ type Binding struct {
 	// The order matters, the ciphers listed first will be the preferred ones.
 	TLSCipherSuites []string `json:"tls_cipher_suites" mapstructure:"tls_cipher_suites"`
 	// HTTP protocols in preference order. Supported values: http/1.1, h2
-	Protocols []string `json:"protocols" mapstructure:"protocols"`
+	Protocols []string `json:"tls_protocols" mapstructure:"tls_protocols"`
 	// List of IP addresses and IP ranges allowed to set client IP proxy headers and
 	// X-Forwarded-Proto header.
 	ProxyAllowed []string `json:"proxy_allowed" mapstructure:"proxy_allowed"`

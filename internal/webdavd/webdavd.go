@@ -134,7 +134,7 @@ type Binding struct {
 	// The order matters, the ciphers listed first will be the preferred ones.
 	TLSCipherSuites []string `json:"tls_cipher_suites" mapstructure:"tls_cipher_suites"`
 	// HTTP protocols to enable in preference order. Supported values: http/1.1, h2
-	Protocols []string `json:"protocols" mapstructure:"protocols"`
+	Protocols []string `json:"tls_protocols" mapstructure:"tls_protocols"`
 	// Prefix for WebDAV resources, if empty WebDAV resources will be available at the
 	// root ("/") URI. If defined it must be an absolute URI.
 	Prefix string `json:"prefix" mapstructure:"prefix"`

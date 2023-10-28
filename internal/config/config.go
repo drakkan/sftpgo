@@ -1297,7 +1297,7 @@ func getWebDAVBindingHTTPSConfigsFromEnv(idx int, binding *webdavd.Binding) bool
 		isSet = true
 	}
 
-	protocols, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%d__PROTOCOLS", idx))
+	protocols, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%d__TLS_PROTOCOLS", idx))
 	if ok {
 		binding.Protocols = protocols
 		isSet = true
@@ -1877,7 +1877,7 @@ func getHTTPDBindingFromEnv(idx int) { //nolint:gocyclo
 		isSet = true
 	}
 
-	protocols, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%d__PROTOCOLS", idx))
+	protocols, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%d__TLS_PROTOCOLS", idx))
 	if ok {
 		binding.Protocols = protocols
 		isSet = true
@@ -2180,7 +2180,7 @@ func setViperDefaults() {
 	viper.SetDefault("telemetry.certificate_key_file", globalConf.TelemetryConfig.CertificateKeyFile)
 	viper.SetDefault("telemetry.min_tls_version", globalConf.TelemetryConfig.MinTLSVersion)
 	viper.SetDefault("telemetry.tls_cipher_suites", globalConf.TelemetryConfig.TLSCipherSuites)
-	viper.SetDefault("telemetry.protocols", globalConf.TelemetryConfig.Protocols)
+	viper.SetDefault("telemetry.tls_protocols", globalConf.TelemetryConfig.Protocols)
 	viper.SetDefault("smtp.host", globalConf.SMTPConfig.Host)
 	viper.SetDefault("smtp.port", globalConf.SMTPConfig.Port)
 	viper.SetDefault("smtp.from", globalConf.SMTPConfig.From)

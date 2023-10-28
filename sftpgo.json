@@ -155,7 +155,7 @@
         "min_tls_version": 12,
         "client_auth_type": 0,
         "tls_cipher_suites": [],
-        "protocols": [],
+        "tls_protocols": [],
         "prefix": "",
         "proxy_allowed": [],
         "client_ip_proxy_header": "",
@@ -268,7 +268,7 @@
         "min_tls_version": 12,
         "client_auth_type": 0,
         "tls_cipher_suites": [],
-        "protocols": [],
+        "tls_protocols": [],
         "proxy_allowed": [],
         "client_ip_proxy_header": "",
         "client_ip_header_depth": 0,
@@ -373,7 +373,7 @@
     "certificate_key_file": "",
     "min_tls_version": 12,
     "tls_cipher_suites": [],
-    "protocols": []
+    "tls_protocols": []
   },
   "http": {
     "timeout": 20,
