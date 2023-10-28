@@ -1750,6 +1750,17 @@ func TestSQLPlaceholderLimits(t *testing.T) {
 	}
 }
 
+func TestALPNProtocols(t *testing.T) {
+	protocols := util.GetALPNProtocols(nil)
+	assert.Equal(t, []string{"http/1.1", "h2"}, protocols)
+	protocols = util.GetALPNProtocols([]string{"invalid1", "invalid2"})
+	assert.Equal(t, []string{"http/1.1", "h2"}, protocols)
+	protocols = util.GetALPNProtocols([]string{"invalid1", "h2", "invalid2"})
+	assert.Equal(t, []string{"h2"}, protocols)
+	protocols = util.GetALPNProtocols([]string{"h2", "http/1.1"})
+	assert.Equal(t, []string{"h2", "http/1.1"}, protocols)
+}
+
 func BenchmarkBcryptHashing(b *testing.B) {
 	bcryptPassword := "bcryptpassword"
 	for i := 0; i < b.N; i++ {
