@@ -128,11 +128,13 @@ type Binding struct {
 	// Note that TLS 1.3 ciphersuites are not configurable.
 	// The supported ciphersuites names are defined here:
 	//
-	// https://github.com/golang/go/blob/master/src/crypto/tls/cipher_suites.go#L52
+	// https://github.com/golang/go/blob/master/src/crypto/tls/cipher_suites.go#L53
 	//
 	// any invalid name will be silently ignored.
 	// The order matters, the ciphers listed first will be the preferred ones.
 	TLSCipherSuites []string `json:"tls_cipher_suites" mapstructure:"tls_cipher_suites"`
+	// HTTP protocols to enable in preference order. Supported values: http/1.1, h2
+	Protocols []string `json:"protocols" mapstructure:"protocols"`
 	// Prefix for WebDAV resources, if empty WebDAV resources will be available at the
 	// root ("/") URI. If defined it must be an absolute URI.
 	Prefix string `json:"prefix" mapstructure:"prefix"`

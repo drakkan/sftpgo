@@ -499,11 +499,13 @@ type Binding struct {
 	// Note that TLS 1.3 ciphersuites are not configurable.
 	// The supported ciphersuites names are defined here:
 	//
-	// https://github.com/golang/go/blob/master/src/crypto/tls/cipher_suites.go#L52
+	// https://github.com/golang/go/blob/master/src/crypto/tls/cipher_suites.go#L53
 	//
 	// any invalid name will be silently ignored.
 	// The order matters, the ciphers listed first will be the preferred ones.
 	TLSCipherSuites []string `json:"tls_cipher_suites" mapstructure:"tls_cipher_suites"`
+	// HTTP protocols in preference order. Supported values: http/1.1, h2
+	Protocols []string `json:"protocols" mapstructure:"protocols"`
 	// List of IP addresses and IP ranges allowed to set client IP proxy headers and
 	// X-Forwarded-Proto header.
 	ProxyAllowed []string `json:"proxy_allowed" mapstructure:"proxy_allowed"`

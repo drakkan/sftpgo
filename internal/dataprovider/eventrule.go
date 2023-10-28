@@ -425,7 +425,6 @@ func (c *EventActionHTTPConfig) GetHTTPClient() *http.Client {
 			transport.TLSClientConfig.InsecureSkipVerify = true
 		} else {
 			transport.TLSClientConfig = &tls.Config{
-				NextProtos:         []string{"http/1.1", "h2"},
 				InsecureSkipVerify: true,
 			}
 		}

@@ -110,7 +110,7 @@ func (s *httpdServer) listenAndServe() error {
 		config := &tls.Config{
 			GetCertificate: certMgr.GetCertificateFunc(certID),
 			MinVersion:     util.GetTLSVersion(s.binding.MinTLSVersion),
-			NextProtos:     []string{"http/1.1", "h2"},
+			NextProtos:     util.GetALPNProtocols(s.binding.Protocols),
 			CipherSuites:   util.GetTLSCiphersFromNames(s.binding.TLSCipherSuites),
 		}
 		httpServer.TLSConfig = config

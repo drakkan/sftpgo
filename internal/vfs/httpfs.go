@@ -745,7 +745,6 @@ func getErrorFromResponseCode(code int) error {
 
 func getInsecureTLSConfig() *tls.Config {
 	return &tls.Config{
-		NextProtos:         []string{"h2", "http/1.1"},
 		InsecureSkipVerify: true,
 	}
 }

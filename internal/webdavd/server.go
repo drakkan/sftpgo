@@ -82,7 +82,7 @@ func (s *webDavServer) listenAndServe(compressor *middleware.Compressor) error {
 		httpServer.TLSConfig = &tls.Config{
 			GetCertificate: certMgr.GetCertificateFunc(certID),
 			MinVersion:     util.GetTLSVersion(s.binding.MinTLSVersion),
-			NextProtos:     []string{"http/1.1", "h2"},
+			NextProtos:     util.GetALPNProtocols(s.binding.Protocols),
 			CipherSuites:   util.GetTLSCiphersFromNames(s.binding.TLSCipherSuites),
 		}
 		logger.Debug(logSender, "", "configured TLS cipher suites for binding %q: %v, certID: %v",

@@ -616,6 +616,23 @@ func GetTLSCiphersFromNames(cipherNames []string) []uint16 {
 	return ciphers
 }
 
+// GetALPNProtocols returns the ALPN protocols, any invalid protocol will be
+// silently ignored. If no protocol or no valid protocol is provided the default
+// is http/1.1, h2
+func GetALPNProtocols(protocols []string) []string {
+	var result []string
+	for _, p := range protocols {
+		switch p {
+		case "http/1.1", "h2":
+			result = append(result, p)
+		}
+	}
+	if len(result) == 0 {
+		return []string{"http/1.1", "h2"}
+	}
+	return result
+}
+
 // EncodeTLSCertToPem returns the specified certificate PEM encoded.
 // This can be verified using openssl x509 -in cert.crt  -text -noout
 func EncodeTLSCertToPem(tlsCert *x509.Certificate) (string, error) {

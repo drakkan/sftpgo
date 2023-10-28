@@ -92,6 +92,7 @@ var (
 		MinTLSVersion:        12,
 		ClientAuthType:       0,
 		TLSCipherSuites:      nil,
+		Protocols:            nil,
 		Prefix:               "",
 		ProxyAllowed:         nil,
 		ClientIPProxyHeader:  "",
@@ -111,6 +112,7 @@ var (
 		MinTLSVersion:         12,
 		ClientAuthType:        0,
 		TLSCipherSuites:       nil,
+		Protocols:             nil,
 		ProxyAllowed:          nil,
 		ClientIPProxyHeader:   "",
 		ClientIPHeaderDepth:   0,
@@ -446,6 +448,7 @@ func Init() {
 			CertificateKeyFile: "",
 			MinTLSVersion:      12,
 			TLSCipherSuites:    nil,
+			Protocols:          nil,
 		},
 		SMTPConfig: smtp.Config{
 			Host:          "",
@@ -1255,6 +1258,54 @@ func applyFTPDBindingFromEnv(idx int, isSet bool, binding ftpd.Binding) {
 	}
 }
 
+func getWebDAVBindingHTTPSConfigsFromEnv(idx int, binding *webdavd.Binding) bool {
+	isSet := false
+
+	enableHTTPS, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__ENABLE_HTTPS", idx))
+	if ok {
+		binding.EnableHTTPS = enableHTTPS
+		isSet = true
+	}
+
+	certificateFile, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__CERTIFICATE_FILE", idx))
+	if ok {
+		binding.CertificateFile = certificateFile
+		isSet = true
+	}
+
+	certificateKeyFile, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__CERTIFICATE_KEY_FILE", idx))
+	if ok {
+		binding.CertificateKeyFile = certificateKeyFile
+		isSet = true
+	}
+
+	tlsVer, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__MIN_TLS_VERSION", idx), 0)
+	if ok {
+		binding.MinTLSVersion = int(tlsVer)
+		isSet = true
+	}
+
+	clientAuthType, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__CLIENT_AUTH_TYPE", idx), 0)
+	if ok {
+		binding.ClientAuthType = int(clientAuthType)
+		isSet = true
+	}
+
+	tlsCiphers, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__TLS_CIPHER_SUITES", idx))
+	if ok {
+		binding.TLSCipherSuites = tlsCiphers
+		isSet = true
+	}
+
+	protocols, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%d__PROTOCOLS", idx))
+	if ok {
+		binding.Protocols = protocols
+		isSet = true
+	}
+
+	return isSet
+}
+
 func getWebDAVDBindingProxyConfigsFromEnv(idx int, binding *webdavd.Binding) bool {
 	isSet := false
 
@@ -1320,39 +1371,7 @@ func getWebDAVDBindingFromEnv(idx int) {
 		isSet = true
 	}
 
-	enableHTTPS, ok := lookupBoolFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__ENABLE_HTTPS", idx))
-	if ok {
-		binding.EnableHTTPS = enableHTTPS
-		isSet = true
-	}
-
-	certificateFile, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__CERTIFICATE_FILE", idx))
-	if ok {
-		binding.CertificateFile = certificateFile
-		isSet = true
-	}
-
-	certificateKeyFile, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__CERTIFICATE_KEY_FILE", idx))
-	if ok {
-		binding.CertificateKeyFile = certificateKeyFile
-		isSet = true
-	}
-
-	tlsVer, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__MIN_TLS_VERSION", idx), 0)
-	if ok {
-		binding.MinTLSVersion = int(tlsVer)
-		isSet = true
-	}
-
-	clientAuthType, ok := lookupIntFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__CLIENT_AUTH_TYPE", idx), 0)
-	if ok {
-		binding.ClientAuthType = int(clientAuthType)
-		isSet = true
-	}
-
-	tlsCiphers, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_WEBDAVD__BINDINGS__%v__TLS_CIPHER_SUITES", idx))
-	if ok {
-		binding.TLSCipherSuites = tlsCiphers
+	if getWebDAVBindingHTTPSConfigsFromEnv(idx, &binding) {
 		isSet = true
 	}
 
@@ -1858,6 +1877,12 @@ func getHTTPDBindingFromEnv(idx int) { //nolint:gocyclo
 		isSet = true
 	}
 
+	protocols, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%d__PROTOCOLS", idx))
+	if ok {
+		binding.Protocols = protocols
+		isSet = true
+	}
+
 	if getHTTPDBindingProxyConfigsFromEnv(idx, &binding) {
 		isSet = true
 	}
@@ -2155,6 +2180,7 @@ func setViperDefaults() {
 	viper.SetDefault("telemetry.certificate_key_file", globalConf.TelemetryConfig.CertificateKeyFile)
 	viper.SetDefault("telemetry.min_tls_version", globalConf.TelemetryConfig.MinTLSVersion)
 	viper.SetDefault("telemetry.tls_cipher_suites", globalConf.TelemetryConfig.TLSCipherSuites)
+	viper.SetDefault("telemetry.protocols", globalConf.TelemetryConfig.Protocols)
 	viper.SetDefault("smtp.host", globalConf.SMTPConfig.Host)
 	viper.SetDefault("smtp.port", globalConf.SMTPConfig.Port)
 	viper.SetDefault("smtp.from", globalConf.SMTPConfig.From)

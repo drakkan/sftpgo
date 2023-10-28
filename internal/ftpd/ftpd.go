@@ -94,7 +94,7 @@ type Binding struct {
 	// Note that TLS 1.3 ciphersuites are not configurable.
 	// The supported ciphersuites names are defined here:
 	//
-	// https://github.com/golang/go/blob/master/src/crypto/tls/cipher_suites.go#L52
+	// https://github.com/golang/go/blob/master/src/crypto/tls/cipher_suites.go#L53
 	//
 	// any invalid name will be silently ignored.
 	// The order matters, the ciphers listed first will be the preferred ones.
