@@ -344,6 +344,16 @@ func TestDoubleStarMatching(t *testing.T) {
 	res = checkEventConditionPattern(c, "/mydir/sub/dir/file.txt")
 	assert.True(t, res)
 
+	c.Pattern = "/**/*.filepart"
+	res = checkEventConditionPattern(c, "/file.filepart")
+	assert.True(t, res)
+	res = checkEventConditionPattern(c, "/mydir/sub/file.filepart")
+	assert.True(t, res)
+	res = checkEventConditionPattern(c, "/file.txt")
+	assert.False(t, res)
+	res = checkEventConditionPattern(c, "/mydir/file.txt")
+	assert.False(t, res)
+
 	c.Pattern = "/mydir/**/*.txt"
 	res = checkEventConditionPattern(c, "/mydir")
 	assert.False(t, res)

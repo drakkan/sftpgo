@@ -4483,6 +4483,147 @@ func TestEventRuleFsActions(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestUploadEventRule(t *testing.T) {
+	smtpCfg := smtp.Config{
+		Host:          "127.0.0.1",
+		Port:          2525,
+		From:          "notification@example.com",
+		TemplatesPath: "templates",
+	}
+	err := smtpCfg.Initialize(configDir, true)
+	require.NoError(t, err)
+
+	a1 := dataprovider.BaseEventAction{
+		Name: "action1",
+		Type: dataprovider.ActionTypeEmail,
+		Options: dataprovider.BaseEventActionOptions{
+			EmailConfig: dataprovider.EventActionEmailConfig{
+				Recipients: []string{"test1@example.com"},
+				Subject:    `New "{{Event}}" from "{{Name}}" status {{StatusString}}`,
+				Body:       "Fs path {{FsPath}}, size: {{FileSize}}, protocol: {{Protocol}}, IP: {{IP}} Data: {{ObjectData}} {{ErrorString}}",
+			},
+		},
+	}
+	action1, _, err := httpdtest.AddEventAction(a1, http.StatusCreated)
+	assert.NoError(t, err)
+
+	r1 := dataprovider.EventRule{
+		Name:    "test rule1",
+		Status:  1,
+		Trigger: dataprovider.EventTriggerFsEvent,
+		Conditions: dataprovider.EventConditions{
+			FsEvents: []string{"upload"},
+			Options: dataprovider.ConditionOptions{
+				FsPaths: []dataprovider.ConditionPattern{
+					{
+						Pattern:      "/**/*.filepart",
+						InverseMatch: true,
+					},
+				},
+			},
+		},
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action1.Name,
+				},
+				Order: 1,
+				Options: dataprovider.EventActionOptions{
+					ExecuteSync: true,
+				},
+			},
+		},
+	}
+	rule1, _, err := httpdtest.AddEventRule(r1, http.StatusCreated)
+	assert.NoError(t, err)
+
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+
+	conn, client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		lastReceivedEmail.reset()
+		err = writeSFTPFileNoCheck("/test.filepart", 32768, client)
+		assert.NoError(t, err)
+		email := lastReceivedEmail.get()
+		assert.Empty(t, email.From)
+
+		lastReceivedEmail.reset()
+		err = writeSFTPFileNoCheck(testFileName, 32768, client)
+		assert.NoError(t, err)
+		email = lastReceivedEmail.get()
+		assert.Len(t, email.To, 1)
+		assert.Contains(t, email.Data, `Subject: New "upload"`)
+	}
+
+	r2 := dataprovider.EventRule{
+		Name:    "test rule2",
+		Status:  1,
+		Trigger: dataprovider.EventTriggerFsEvent,
+		Conditions: dataprovider.EventConditions{
+			FsEvents: []string{"rename"},
+			Options: dataprovider.ConditionOptions{
+				FsPaths: []dataprovider.ConditionPattern{
+					{
+						Pattern: "/**/*.filepart",
+					},
+				},
+			},
+		},
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action1.Name,
+				},
+				Order: 1,
+			},
+		},
+	}
+	rule2, _, err := httpdtest.AddEventRule(r2, http.StatusCreated)
+	assert.NoError(t, err)
+
+	conn, client, err = getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		tempName := "file.filepart"
+		lastReceivedEmail.reset()
+		err = writeSFTPFileNoCheck(tempName, 32768, client)
+		assert.NoError(t, err)
+		email := lastReceivedEmail.get()
+		assert.Empty(t, email.From)
+
+		lastReceivedEmail.reset()
+		err = client.Rename(tempName, testFileName)
+		assert.NoError(t, err)
+		assert.Eventually(t, func() bool {
+			return lastReceivedEmail.get().From != ""
+		}, 3000*time.Millisecond, 100*time.Millisecond)
+		email = lastReceivedEmail.get()
+		assert.Len(t, email.To, 1)
+		assert.Contains(t, email.Data, `Subject: New "rename"`)
+	}
+
+	_, err = httpdtest.RemoveEventRule(rule1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventRule(rule2, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+
+	smtpCfg = smtp.Config{}
+	err = smtpCfg.Initialize(configDir, true)
+	require.NoError(t, err)
+}
+
 func TestEventRulePreDelete(t *testing.T) {
 	movePath := "recycle bin"
 	a1 := dataprovider.BaseEventAction{
