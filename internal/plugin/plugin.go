@@ -21,6 +21,10 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -81,6 +85,16 @@ type Config struct {
 	// rejected. The client will also refuse to connect to any server that isn't
 	// the original instance started by the client.
 	AutoMTLS bool `json:"auto_mtls" mapstructure:"auto_mtls"`
+	// EnvPrefix defines the prefix for env vars to pass from the SFTPGo process
+	// environment to the plugin. Set to "none" to not pass any environment
+	// variable, set to "*" to pass all environment variables. If empty, the
+	// prefix is returned as the plugin name in uppercase with "-" replaced with
+	// "_" and a trailing "_". For example if the plugin name is
+	// sftpgo-plugin-eventsearch the prefix will be SFTPGO_PLUGIN_EVENTSEARCH_
+	EnvPrefix string `json:"env_prefix" mapstructure:"env_prefix"`
+	// Additional environment variable names to pass from the SFTPGo process
+	// environment to the plugin.
+	EnvVars []string `json:"env_vars" mapstructure:"env_vars"`
 	// unique identifier for kms plugins
 	kmsID int
 }
@@ -97,6 +111,42 @@ func (c *Config) getSecureConfig() (*plugin.SecureConfig, error) {
 		}, nil
 	}
 	return nil, nil
+}
+
+func (c *Config) getEnvVarPrefix() string {
+	if c.EnvPrefix == "none" {
+		return ""
+	}
+	if c.EnvPrefix != "" {
+		return c.EnvPrefix
+	}
+
+	prefix := strings.ToUpper(filepath.Base(c.Cmd)) + "_"
+	return strings.ReplaceAll(prefix, "-", "_")
+}
+
+func (c *Config) getCommand() *exec.Cmd {
+	cmd := exec.Command(c.Cmd, c.Args...)
+	cmd.Env = []string{}
+
+	if envVarPrefix := c.getEnvVarPrefix(); envVarPrefix != "" {
+		if envVarPrefix == "*" {
+			logger.Debug(logSender, "", "sharing all the environment variables with plugin %q", c.Cmd)
+			cmd.Env = append(cmd.Env, os.Environ()...)
+			return cmd
+		}
+		logger.Debug(logSender, "", "adding env vars with prefix %q for plugin %q", envVarPrefix, c.Cmd)
+		for _, val := range os.Environ() {
+			if strings.HasPrefix(val, envVarPrefix) {
+				cmd.Env = append(cmd.Env, val)
+			}
+		}
+	}
+	logger.Debug(logSender, "", "additional env vars for plugin %q: %+v", c.Cmd, c.EnvVars)
+	for _, key := range c.EnvVars {
+		cmd.Env = append(cmd.Env, os.Getenv(key))
+	}
+	return cmd
 }
 
 func (c *Config) newKMSPluginSecretProvider(base kms.BaseSecret, url, masterKey string) kms.SecretProvider {

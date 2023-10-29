@@ -693,6 +693,9 @@ func TestPluginsFromEnv(t *testing.T) {
 	os.Setenv("SFTPGO_PLUGINS__0__KMS_OPTIONS__SCHEME", kms.SchemeAWS)
 	os.Setenv("SFTPGO_PLUGINS__0__KMS_OPTIONS__ENCRYPTED_STATUS", kms.SecretStatusAWS)
 	os.Setenv("SFTPGO_PLUGINS__0__AUTH_OPTIONS__SCOPE", "14")
+	os.Setenv("SFTPGO_PLUGINS__0__ENV_PREFIX", "prefix_")
+	os.Setenv("SFTPGO_PLUGINS__0__ENV_VARS", "a, b")
+
 	t.Cleanup(func() {
 		os.Unsetenv("SFTPGO_PLUGINS__0__TYPE")
 		os.Unsetenv("SFTPGO_PLUGINS__0__NOTIFIER_OPTIONS__FS_EVENTS")
@@ -708,6 +711,8 @@ func TestPluginsFromEnv(t *testing.T) {
 		os.Unsetenv("SFTPGO_PLUGINS__0__KMS_OPTIONS__SCHEME")
 		os.Unsetenv("SFTPGO_PLUGINS__0__KMS_OPTIONS__ENCRYPTED_STATUS")
 		os.Unsetenv("SFTPGO_PLUGINS__0__AUTH_OPTIONS__SCOPE")
+		os.Unsetenv("SFTPGO_PLUGINS__0__ENV_PREFIX")
+		os.Unsetenv("SFTPGO_PLUGINS__0__ENV_VARS")
 	})
 
 	err := config.LoadConfig(configDir, "")
@@ -739,6 +744,10 @@ func TestPluginsFromEnv(t *testing.T) {
 	require.Equal(t, kms.SchemeAWS, pluginConf.KMSOptions.Scheme)
 	require.Equal(t, kms.SecretStatusAWS, pluginConf.KMSOptions.EncryptedStatus)
 	require.Equal(t, 14, pluginConf.AuthOptions.Scope)
+	require.Equal(t, "prefix_", pluginConf.EnvPrefix)
+	require.Len(t, pluginConf.EnvVars, 2)
+	assert.Equal(t, "a", pluginConf.EnvVars[0])
+	assert.Equal(t, "b", pluginConf.EnvVars[1])
 
 	cfg := make(map[string]any)
 	cfg["plugins"] = pluginConf
@@ -754,6 +763,8 @@ func TestPluginsFromEnv(t *testing.T) {
 	os.Setenv("SFTPGO_PLUGINS__0__AUTO_MTLS", "0")
 	os.Setenv("SFTPGO_PLUGINS__0__KMS_OPTIONS__SCHEME", kms.SchemeVaultTransit)
 	os.Setenv("SFTPGO_PLUGINS__0__KMS_OPTIONS__ENCRYPTED_STATUS", kms.SecretStatusVaultTransit)
+	os.Setenv("SFTPGO_PLUGINS__0__ENV_PREFIX", "")
+	os.Setenv("SFTPGO_PLUGINS__0__ENV_VARS", "")
 	err = config.LoadConfig(configDir, confName)
 	assert.NoError(t, err)
 	pluginsConf = config.GetPluginsConfig()
@@ -778,6 +789,8 @@ func TestPluginsFromEnv(t *testing.T) {
 	require.Equal(t, kms.SchemeVaultTransit, pluginConf.KMSOptions.Scheme)
 	require.Equal(t, kms.SecretStatusVaultTransit, pluginConf.KMSOptions.EncryptedStatus)
 	require.Equal(t, 14, pluginConf.AuthOptions.Scope)
+	assert.Empty(t, pluginConf.EnvPrefix)
+	assert.Len(t, pluginConf.EnvVars, 0)
 
 	err = os.Remove(configFilePath)
 	assert.NoError(t, err)

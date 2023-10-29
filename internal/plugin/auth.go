@@ -17,7 +17,6 @@ package plugin
 import (
 	"errors"
 	"fmt"
-	"os/exec"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
@@ -119,7 +118,8 @@ func (p *authPlugin) initialize() error {
 	client := plugin.NewClient(&plugin.ClientConfig{
 		HandshakeConfig: auth.Handshake,
 		Plugins:         auth.PluginMap,
-		Cmd:             exec.Command(p.config.Cmd, p.config.Args...),
+		Cmd:             p.config.getCommand(),
+		SkipHostEnv:     true,
 		AllowedProtocols: []plugin.Protocol{
 			plugin.ProtocolGRPC,
 		},

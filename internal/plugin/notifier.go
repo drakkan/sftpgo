@@ -16,7 +16,6 @@ package plugin
 
 import (
 	"fmt"
-	"os/exec"
 	"sync"
 	"time"
 
@@ -168,7 +167,8 @@ func (p *notifierPlugin) initialize() error {
 	client := plugin.NewClient(&plugin.ClientConfig{
 		HandshakeConfig: notifier.Handshake,
 		Plugins:         notifier.PluginMap,
-		Cmd:             exec.Command(p.config.Cmd, p.config.Args...),
+		Cmd:             p.config.getCommand(),
+		SkipHostEnv:     true,
 		AllowedProtocols: []plugin.Protocol{
 			plugin.ProtocolGRPC,
 		},

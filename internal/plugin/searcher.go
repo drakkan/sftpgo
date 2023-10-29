@@ -16,7 +16,6 @@ package plugin
 
 import (
 	"fmt"
-	"os/exec"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
@@ -60,7 +59,8 @@ func (p *searcherPlugin) initialize() error {
 	client := plugin.NewClient(&plugin.ClientConfig{
 		HandshakeConfig: eventsearcher.Handshake,
 		Plugins:         eventsearcher.PluginMap,
-		Cmd:             exec.Command(p.config.Cmd, p.config.Args...),
+		Cmd:             p.config.getCommand(),
+		SkipHostEnv:     true,
 		AllowedProtocols: []plugin.Protocol{
 			plugin.ProtocolGRPC,
 		},

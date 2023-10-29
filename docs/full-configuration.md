@@ -477,7 +477,7 @@ The configuration file contains the following sections:
 <details><summary><font size=4>Plugins</font></summary>
 
 - **plugins**, list of external plugins. :warning: Please note that the plugin system is experimental, the configuration parameters and interfaces may change in a backward incompatible way in future. Each plugin is configured using a struct with the following fields:
-  - `type`, string. Defines the plugin type. Supported types: `notifier`, `kms`, `auth`, `metadata`.
+  - `type`, string. Defines the plugin type. Supported types: `notifier`, `kms`, `auth`, `metadata`, `eventsearcher`, `ipfilter`.
   - `notifier_options`, struct. Defines the options for notifier plugins.
     - `fs_events`, list of strings. Defines the filesystem events that will be notified to this plugin.
     - `provider_events`, list of strings. Defines the provider events that will be notified to this plugin.
@@ -494,6 +494,8 @@ The configuration file contains the following sections:
   - `args`, list of strings. Optional arguments to pass to the plugin executable.
   - `sha256sum`, string. SHA256 checksum for the plugin executable. If not empty it will be used to verify the integrity of the executable.
   - `auto_mtls`, boolean. If enabled the client and the server automatically negotiate mutual TLS for transport authentication. This ensures that only the original client will be allowed to connect to the server, and all other connections will be rejected. The client will also refuse to connect to any server that isn't the original instance started by the client.
+  - `env_prefix`, string. Defines the prefix for env vars to pass from the SFTPGo process environment to the plugin. Set to `none` to not pass any environment variable, set to `*` to pass all environment variables. If empty, the prefix is returned as the plugin name in uppercase with `-` replaced with `_` and a trailing `_`. For example if the plugin name is `sftpgo-plugin-eventsearch` the prefix will be `SFTPGO_PLUGIN_EVENTSEARCH_`
+  - `env_vars`, list of strings. Additional environment variable names to pass from the SFTPGo process environment to the plugin.
 
 </details>
 

@@ -1046,6 +1046,18 @@ func getPluginsFromEnv(idx int) {
 		isSet = true
 	}
 
+	envPrefix, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__ENV_PREFIX", idx))
+	if ok {
+		pluginConfig.EnvPrefix = envPrefix
+		isSet = true
+	}
+
+	envVars, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_PLUGINS__%v__ENV_VARS", idx))
+	if ok {
+		pluginConfig.EnvVars = envVars
+		isSet = true
+	}
+
 	if isSet {
 		if len(globalConf.PluginsConfig) > idx {
 			globalConf.PluginsConfig[idx] = pluginConfig

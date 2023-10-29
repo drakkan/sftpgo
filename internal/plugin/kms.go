@@ -16,7 +16,6 @@ package plugin
 
 import (
 	"fmt"
-	"os/exec"
 	"path/filepath"
 
 	"github.com/hashicorp/go-hclog"
@@ -81,7 +80,8 @@ func (p *kmsPlugin) initialize() error {
 	client := plugin.NewClient(&plugin.ClientConfig{
 		HandshakeConfig: kmsplugin.Handshake,
 		Plugins:         kmsplugin.PluginMap,
-		Cmd:             exec.Command(p.config.Cmd, p.config.Args...),
+		Cmd:             p.config.getCommand(),
+		SkipHostEnv:     true,
 		AllowedProtocols: []plugin.Protocol{
 			plugin.ProtocolGRPC,
 		},
