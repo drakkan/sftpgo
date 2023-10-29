@@ -407,7 +407,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                     <b>Environment variables</b>
                 </div>
                 <div class="card-body">
-                    <h6 class="card-title mb-4">Placeholders are supported in values.</h6>
+                    <h6 class="card-title mb-4">Placeholders are supported in values. Setting the value to "$" without quotes means retrieving the key from the environment.</h6>
                     <div class="form-group row">
                         <div class="col-md-12 form_field_cmd_env_outer">
                             {{range $idx, $val := .Action.Options.CmdConfig.EnvVars}}

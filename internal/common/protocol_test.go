@@ -4869,6 +4869,92 @@ func TestEventRulePreDownloadUpload(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestEventActionCommandEnvVars(t *testing.T) {
+	if runtime.GOOS == osWindows {
+		t.Skip("this test is not available on Windows")
+	}
+	envName := "MY_ENV"
+	uploadScriptPath := filepath.Join(os.TempDir(), "upload.sh")
+
+	err := os.WriteFile(uploadScriptPath, getUploadScriptEnvContent(envName), 0755)
+	assert.NoError(t, err)
+	a1 := dataprovider.BaseEventAction{
+		Name: "action1",
+		Type: dataprovider.ActionTypeCommand,
+		Options: dataprovider.BaseEventActionOptions{
+			CmdConfig: dataprovider.EventActionCommandConfig{
+				Cmd:     uploadScriptPath,
+				Timeout: 10,
+				EnvVars: []dataprovider.KeyValue{
+					{
+						Key:   envName,
+						Value: "$",
+					},
+				},
+			},
+		},
+	}
+	action1, _, err := httpdtest.AddEventAction(a1, http.StatusCreated)
+	assert.NoError(t, err)
+
+	r1 := dataprovider.EventRule{
+		Name:    "test rule1",
+		Status:  1,
+		Trigger: dataprovider.EventTriggerFsEvent,
+		Conditions: dataprovider.EventConditions{
+			FsEvents: []string{"upload"},
+		},
+		Actions: []dataprovider.EventAction{
+			{
+				BaseEventAction: dataprovider.BaseEventAction{
+					Name: action1.Name,
+				},
+				Order: 1,
+				Options: dataprovider.EventActionOptions{
+					ExecuteSync: true,
+				},
+			},
+		},
+	}
+	rule1, _, err := httpdtest.AddEventRule(r1, http.StatusCreated)
+	assert.NoError(t, err)
+
+	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
+	assert.NoError(t, err)
+
+	conn, client, err := getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		err = writeSFTPFileNoCheck(testFileName, 100, client)
+		assert.Error(t, err)
+	}
+
+	os.Setenv(envName, "1")
+	defer os.Unsetenv(envName)
+
+	conn, client, err = getSftpClient(user)
+	if assert.NoError(t, err) {
+		defer conn.Close()
+		defer client.Close()
+
+		err = writeSFTPFileNoCheck(testFileName, 100, client)
+		assert.NoError(t, err)
+	}
+
+	_, err = httpdtest.RemoveEventRule(rule1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveEventAction(action1, http.StatusOK)
+	assert.NoError(t, err)
+	_, err = httpdtest.RemoveUser(user, http.StatusOK)
+	assert.NoError(t, err)
+	err = os.RemoveAll(user.GetHomeDir())
+	assert.NoError(t, err)
+	err = os.Remove(uploadScriptPath)
+	assert.NoError(t, err)
+}
+
 func TestFsActionCopy(t *testing.T) {
 	a1 := dataprovider.BaseEventAction{
 		Name: "a1",
@@ -8826,6 +8912,17 @@ func writeSFTPFileNoCheck(name string, size int64, client *sftp.Client) error {
 		return err
 	}
 	return f.Close()
+}
+
+func getUploadScriptEnvContent(envVar string) []byte {
+	content := []byte("#!/bin/sh\n\n")
+	content = append(content, []byte(fmt.Sprintf("if [ -z \"$%s\" ]\n", envVar))...)
+	content = append(content, []byte("then\n")...)
+	content = append(content, []byte("    exit 1\n")...)
+	content = append(content, []byte("else\n")...)
+	content = append(content, []byte("    exit 0\n")...)
+	content = append(content, []byte("fi\n")...)
+	return content
 }
 
 func getUploadScriptContent(movedPath, logFilePath string, exitStatus int) []byte {

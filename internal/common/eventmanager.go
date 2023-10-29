@@ -1464,7 +1464,15 @@ func executeCommandRuleAction(c dataprovider.EventActionCommandConfig, params *E
 	cmd := exec.CommandContext(ctx, c.Cmd, args...)
 	cmd.Env = []string{}
 	for _, keyVal := range c.EnvVars {
-		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", keyVal.Key, replaceWithReplacer(keyVal.Value, replacer)))
+		if keyVal.Value == "$" {
+			val := os.Getenv(keyVal.Key)
+			if val == "" {
+				eventManagerLog(logger.LevelDebug, "empty value for environment variable %q", keyVal.Key)
+			}
+			cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", keyVal.Key, val))
+		} else {
+			cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", keyVal.Key, replaceWithReplacer(keyVal.Value, replacer)))
+		}
 	}
 
 	startTime := time.Now()
