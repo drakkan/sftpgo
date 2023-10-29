@@ -26,12 +26,17 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 {{end}}
 
 {{define "page_body"}}
-<div id="errorMsg" class="alert alert-warning alert-dismissible fade show" style="display: none;" role="alert">
+<div id="errorMsg" class="alert alert-warning fade show" style="display: none;" role="alert">
     <span id="errorTxt"></span>
-    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+    <button type="button" class="close" aria-label="Close" onclick="dismissErrorMsg();">
       <span aria-hidden="true">&times;</span>
     </button>
 </div>
+<script type="text/javascript">
+    function dismissErrorMsg(){
+        $('#errorMsg').hide();
+    }
+</script>
 <div class="card shadow mb-4">
     <div class="card-header py-3">
         <h6 class="m-0 font-weight-bold text-primary">View and manage event actions</h6>

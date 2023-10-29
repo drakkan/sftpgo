@@ -1231,7 +1231,7 @@ func (s *httpdServer) handleClientEditFile(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	s.renderEditFilePage(w, r, name, b.String(), util.Contains(user.Filters.WebClient, sdk.WebClientWriteDisabled))
+	s.renderEditFilePage(w, r, name, b.String(), !user.CanAddFilesFromWeb(path.Dir(name)))
 }
 
 func (s *httpdServer) handleClientAddShareGet(w http.ResponseWriter, r *http.Request) {
