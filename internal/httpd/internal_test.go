@@ -1991,11 +1991,36 @@ func TestJWTTokenCleanup(t *testing.T) {
 
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %v", token))
 
-	invalidatedJWTTokens.Store(token, time.Now().Add(-tokenDuration).UTC())
+	invalidatedJWTTokens.Add(token, time.Now().Add(-tokenDuration).UTC())
 	require.True(t, isTokenInvalidated(req))
 	startCleanupTicker(100 * time.Millisecond)
 	assert.Eventually(t, func() bool { return !isTokenInvalidated(req) }, 1*time.Second, 200*time.Millisecond)
 	stopCleanupTicker()
+}
+
+func TestDbTokenManager(t *testing.T) {
+	if !isSharedProviderSupported() {
+		t.Skip("this test it is not available with this provider")
+	}
+	mgr := newTokenManager(1)
+	dbTokenManager := mgr.(*dbTokenManager)
+	testToken := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOlsiV2ViQWRtaW4iLCI6OjEiXSwiZXhwIjoxNjk4NjYwMDM4LCJqdGkiOiJja3ZuazVrYjF1aHUzZXRmZmhyZyIsIm5iZiI6MTY5ODY1ODgwOCwicGVybWlzc2lvbnMiOlsiKiJdLCJzdWIiOiIxNjk3ODIwNDM3NTMyIiwidXNlcm5hbWUiOiJhZG1pbiJ9.LXuFFksvnSuzHqHat6r70yR0jEulNRju7m7SaWrOfy8; csrftoken=mP0C7DqjwpAXsptO2gGCaYBkYw3oNMWB"
+	key := dbTokenManager.getKey(testToken)
+	require.Len(t, key, 64)
+	dbTokenManager.Add(testToken, time.Now().Add(-tokenDuration).UTC())
+	isInvalidated := dbTokenManager.Get(testToken)
+	assert.True(t, isInvalidated)
+	dbTokenManager.Cleanup()
+	isInvalidated = dbTokenManager.Get(testToken)
+	assert.False(t, isInvalidated)
+	dbTokenManager.Add(testToken, time.Now().Add(tokenDuration).UTC())
+	isInvalidated = dbTokenManager.Get(testToken)
+	assert.True(t, isInvalidated)
+	dbTokenManager.Cleanup()
+	isInvalidated = dbTokenManager.Get(testToken)
+	assert.True(t, isInvalidated)
+	err := dataprovider.DeleteSharedSession(key)
+	assert.NoError(t, err)
 }
 
 func TestAllowedProxyUnixDomainSocket(t *testing.T) {

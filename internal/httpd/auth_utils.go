@@ -331,7 +331,7 @@ func isTokenInvalidated(r *http.Request) bool {
 		token := fn(r)
 		if token != "" {
 			isTokenFound = true
-			if _, ok := invalidatedJWTTokens.Load(token); ok {
+			if invalidatedJWTTokens.Get(token) {
 				return true
 			}
 		}
@@ -343,11 +343,11 @@ func isTokenInvalidated(r *http.Request) bool {
 func invalidateToken(r *http.Request) {
 	tokenString := jwtauth.TokenFromHeader(r)
 	if tokenString != "" {
-		invalidatedJWTTokens.Store(tokenString, time.Now().Add(tokenDuration).UTC())
+		invalidatedJWTTokens.Add(tokenString, time.Now().Add(tokenDuration).UTC())
 	}
 	tokenString = jwtauth.TokenFromCookie(r)
 	if tokenString != "" {
-		invalidatedJWTTokens.Store(tokenString, time.Now().Add(tokenDuration).UTC())
+		invalidatedJWTTokens.Add(tokenString, time.Now().Add(tokenDuration).UTC())
 	}
 }
 
