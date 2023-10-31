@@ -105,7 +105,6 @@ func (o *memoryOAuth2Manager) getPendingAuth(state string) (oauth2PendingAuth, e
 }
 
 func (o *memoryOAuth2Manager) cleanup() {
-	logger.Debug(logSender, "", "oauth2 manager cleanup")
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
@@ -165,6 +164,5 @@ func (o *dbOAuth2Manager) decodePendingAuthData(data any) (oauth2PendingAuth, er
 }
 
 func (o *dbOAuth2Manager) cleanup() {
-	logger.Debug(logSender, "", "oauth2 manager cleanup")
 	dataprovider.CleanupSharedSessions(dataprovider.SessionTypeOAuth2Auth, time.Now()) //nolint:errcheck
 }

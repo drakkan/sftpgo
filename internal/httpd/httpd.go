@@ -28,7 +28,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -196,7 +195,7 @@ var (
 	certMgr                        *common.CertManager
 	cleanupTicker                  *time.Ticker
 	cleanupDone                    chan bool
-	invalidatedJWTTokens           sync.Map
+	invalidatedJWTTokens           tokenManager
 	csrfTokenAuth                  *jwtauth.JWTAuth
 	webRootPath                    string
 	webBasePath                    string
@@ -921,6 +920,7 @@ func (c *Conf) Initialize(configDir string, isShared int) error {
 	}
 	logger.Info(logSender, "", "initializing HTTP server with config %+v", c.getRedacted())
 	configurationDir = configDir
+	invalidatedJWTTokens = newTokenManager(isShared)
 	resetCodesMgr = newResetCodeManager(isShared)
 	oidcMgr = newOIDCManager(isShared)
 	oauth2Mgr = newOAuth2Manager(isShared)
@@ -1183,7 +1183,7 @@ func startCleanupTicker(duration time.Duration) {
 				return
 			case <-cleanupTicker.C:
 				counter++
-				cleanupExpiredJWTTokens()
+				invalidatedJWTTokens.Cleanup()
 				resetCodesMgr.Cleanup()
 				if counter%2 == 0 {
 					oidcMgr.cleanup()
@@ -1200,16 +1200,6 @@ func stopCleanupTicker() {
 		cleanupDone <- true
 		cleanupTicker = nil
 	}
-}
-
-func cleanupExpiredJWTTokens() {
-	invalidatedJWTTokens.Range(func(key, value any) bool {
-		exp, ok := value.(time.Time)
-		if !ok || exp.Before(time.Now().UTC()) {
-			invalidatedJWTTokens.Delete(key)
-		}
-		return true
-	})
 }
 
 func getSigningKey(signingPassphrase string) []byte {

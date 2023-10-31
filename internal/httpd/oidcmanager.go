@@ -124,7 +124,6 @@ func (o *memoryOIDCManager) updateTokenUsage(token oidcToken) {
 }
 
 func (o *memoryOIDCManager) cleanup() {
-	logger.Debug(logSender, "", "oidc manager cleanup")
 	o.cleanupAuthRequests()
 	o.cleanupTokens()
 }
@@ -238,7 +237,6 @@ func (o *dbOIDCManager) decodeTokenData(data any) (oidcToken, error) {
 }
 
 func (o *dbOIDCManager) cleanup() {
-	logger.Debug(logSender, "", "oidc manager cleanup")
 	dataprovider.CleanupSharedSessions(dataprovider.SessionTypeOIDCAuth, time.Now())  //nolint:errcheck
 	dataprovider.CleanupSharedSessions(dataprovider.SessionTypeOIDCToken, time.Now()) //nolint:errcheck
 }
