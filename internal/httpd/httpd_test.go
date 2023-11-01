@@ -7941,7 +7941,7 @@ func TestLoaddata(t *testing.T) {
 	if runtime.GOOS != osWindows {
 		err = os.Chmod(backupFilePath, 0111)
 		assert.NoError(t, err)
-		_, _, err = httpdtest.Loaddata(backupFilePath, "1", "", http.StatusForbidden)
+		_, _, err = httpdtest.Loaddata(backupFilePath, "1", "", http.StatusBadRequest)
 		assert.NoError(t, err)
 		err = os.Chmod(backupFilePath, 0644)
 		assert.NoError(t, err)
