@@ -66,6 +66,13 @@ var (
 	// CertsBasePath defines base path for certificates obtained using the built-in ACME protocol.
 	// It is empty is ACME support is disabled
 	CertsBasePath string
+	// Defines the TLS ciphers used by default for TLS 1.0-1.2 if no preference is specified.
+	defaultTLSCiphers = []uint16{
+		tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256, tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+		tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384, tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+		tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256, tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
+		tls.TLS_RSA_WITH_AES_128_GCM_SHA256, tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
+	}
 )
 
 // IEC Sizes.
@@ -611,6 +618,11 @@ func GetTLSCiphersFromNames(cipherNames []string) []uint16 {
 				ciphers = append(ciphers, c.ID)
 			}
 		}
+	}
+
+	if len(ciphers) == 0 {
+		// return a secure default
+		return defaultTLSCiphers
 	}
 
 	return ciphers
