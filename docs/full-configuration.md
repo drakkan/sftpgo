@@ -284,7 +284,7 @@ The configuration file contains the following sections:
     - `algo`, string. Algorithm to use for hashing passwords. Available algorithms: `argon2id`, `bcrypt`. For bcrypt hashing we use the `$2a$` prefix. Default: `bcrypt`
   - `password_validation` struct. It defines the password validation rules for admins and protocol users.
     - `admins`, struct. It defines the password validation rules for SFTPGo admins.
-      - `min_entropy`, float. Defines the minimum password entropy. Take a looke [here](https://github.com/wagslane/go-password-validator#what-entropy-value-should-i-use) for more details. `0` means disabled, any password will be accepted. Default: `0`.
+      - `min_entropy`, float. Defines the minimum password entropy. Take a look [here](https://github.com/wagslane/go-password-validator#what-entropy-value-should-i-use) for more details. `0` means disabled, any password will be accepted. Default: `0`.
     - `users`, struct. It defines the password validation rules for SFTPGo protocol users.
       - `min_entropy`, float. This value is used as fallback if no more specific password strength is set at user/group level. Default: `0`.
   - `password_caching`, boolean. Verifying argon2id passwords has a high memory and computational cost, verifying bcrypt passwords has a high computational cost, by enabling, in memory, password caching you reduce these costs. Default: `true`
