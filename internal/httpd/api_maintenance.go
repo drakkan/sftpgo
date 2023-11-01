@@ -160,7 +160,7 @@ func loadData(w http.ResponseWriter, r *http.Request) {
 	}
 	fi, err := os.Stat(inputFile)
 	if err != nil {
-		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		sendAPIResponse(w, r, fmt.Errorf("invalid input_file %q", inputFile), "", http.StatusBadRequest)
 		return
 	}
 	if fi.Size() > MaxRestoreSize {
@@ -171,7 +171,7 @@ func loadData(w http.ResponseWriter, r *http.Request) {
 
 	content, err := os.ReadFile(inputFile)
 	if err != nil {
-		sendAPIResponse(w, r, err, "", getRespStatus(err))
+		sendAPIResponse(w, r, fmt.Errorf("invalid input_file %q", inputFile), "", http.StatusBadRequest)
 		return
 	}
 	if err := restoreBackup(content, inputFile, scanQuota, mode, claims.Username, util.GetIPFromRemoteAddress(r.RemoteAddr), claims.Role); err != nil {
@@ -184,7 +184,7 @@ func loadData(w http.ResponseWriter, r *http.Request) {
 func restoreBackup(content []byte, inputFile string, scanQuota, mode int, executor, ipAddress, role string) error {
 	dump, err := dataprovider.ParseDumpData(content)
 	if err != nil {
-		return util.NewValidationError(fmt.Sprintf("unable to parse backup content: %v", err))
+		return util.NewValidationError(fmt.Sprintf("invalid input_file %q", inputFile))
 	}
 
 	if err = RestoreConfigs(dump.Configs, mode, executor, ipAddress, role); err != nil {
