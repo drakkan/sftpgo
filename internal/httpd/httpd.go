@@ -1059,11 +1059,10 @@ func fileServer(r chi.Router, path string, root http.FileSystem, disableDirector
 	r.Get(path, func(w http.ResponseWriter, r *http.Request) {
 		rctx := chi.RouteContext(r.Context())
 		pathPrefix := strings.TrimSuffix(rctx.RoutePattern(), "/*")
-		handler := http.FileServer(root)
 		if disableDirectoryIndex {
-			handler = neuter(handler)
+			root = neuteredFileSystem{root}
 		}
-		fs := http.StripPrefix(pathPrefix, handler)
+		fs := http.StripPrefix(pathPrefix, http.FileServer(root))
 		fs.ServeHTTP(w, r)
 	})
 }
@@ -1222,4 +1221,31 @@ func resolveInstallationCode() string {
 		return fnInstallationCodeResolver(installationCode)
 	}
 	return installationCode
+}
+
+type neuteredFileSystem struct {
+	fs http.FileSystem
+}
+
+func (nfs neuteredFileSystem) Open(name string) (http.File, error) {
+	f, err := nfs.fs.Open(name)
+	if err != nil {
+		return nil, err
+	}
+
+	s, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+
+	if s.IsDir() {
+		index := path.Join(name, "index.html")
+		if _, err := nfs.fs.Open(index); err != nil {
+			defer f.Close()
+
+			return nil, err
+		}
+	}
+
+	return f, nil
 }

@@ -24426,7 +24426,7 @@ func TestStaticFilesMock(t *testing.T) {
 	req, err = http.NewRequest(http.MethodGet, location, nil)
 	assert.NoError(t, err)
 	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusForbidden, rr)
+	checkResponseCode(t, http.StatusNotFound, rr)
 
 	req, err = http.NewRequest(http.MethodGet, "/openapi", nil)
 	assert.NoError(t, err)
