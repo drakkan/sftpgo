@@ -1053,11 +1053,7 @@ func (s *httpdServer) handleShareViewPDF(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		return
 	}
-	name, err := getBrowsableSharedPath(share, r)
-	if err != nil {
-		s.renderClientMessagePage(w, r, "Invalid share path", "", getRespStatus(err), err, "")
-		return
-	}
+	name := util.CleanPath(r.URL.Query().Get("path"))
 	data := viewPDFPage{
 		Title: path.Base(name),
 		URL: fmt.Sprintf("%s?path=%s&_=%d", path.Join(webClientPubSharesPath, share.ShareID, "getpdf"),
