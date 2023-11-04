@@ -99,6 +99,8 @@ body:
         - "Small business (3-person firm with file exchange?)"
         - "Medium business"
         - "Enterprise"
+    validations:
+      required: true
   - type: textarea
     id: additional-info
     attributes:
