@@ -36,6 +36,7 @@ const (
 	templateForgotPassword    = "forgot-password.html"
 	templateResetPassword     = "reset-password.html"
 	templateCommonCSS         = "sftpgo.css"
+	templateCommonBase        = "base.html"
 )
 
 type loginPage struct {
@@ -67,6 +68,7 @@ type forgotPwdPage struct {
 	Error      string
 	CSRFToken  string
 	StaticURL  string
+	LoginURL   string
 	Title      string
 	Branding   UIBranding
 }
@@ -76,6 +78,7 @@ type resetPwdPage struct {
 	Error      string
 	CSRFToken  string
 	StaticURL  string
+	LoginURL   string
 	Title      string
 	Branding   UIBranding
 }

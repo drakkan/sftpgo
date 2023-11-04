@@ -1,230 +1,237 @@
 <!--
-Copyright (C) 2019-2023 Nicola Murino
+Copyright (C) 2023 Nicola Murino
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as published
-by the Free Software Foundation, version 3.
+This WebUI uses the KeenThemes Mega Bundle, a proprietary theme:
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU Affero General Public License for more details.
+https://keenthemes.com/products/templates-mega-bundle
 
-You should have received a copy of the GNU Affero General Public License
-along with this program. If not, see <https://www.gnu.org/licenses/>.
+KeenThemes HTML/CSS/JS components are allowed for use only within the
+SFTPGo product and restricted to be used in a resealable HTML template
+that can compete with KeenThemes products anyhow.
+
+This WebUI is allowed for use only within the SFTPGo product and
+therefore cannot be used in derivative works/products without an
+explicit grant from the SFTPGo Team (support@sftpgo.com).
 -->
 {{template "base" .}}
 
 {{define "title"}}{{.Title}}{{end}}
 
-{{define "extra_css"}}
-<link href="{{.StaticURL}}/vendor/tempusdominus/css/tempusdominus-bootstrap-4.min.css" rel="stylesheet">
-<link href="{{.StaticURL}}/vendor/bootstrap-select/css/bootstrap-select.min.css" rel="stylesheet">
-{{end}}
-
-{{define "page_body"}}
-<div class="card shadow mb-4">
-    <div class="card-header py-3">
-        <h6 class="m-0 font-weight-bold text-primary">{{if .IsAdd}}Add a new share{{else}}Edit share{{end}}</h6>
+{{- define "page_body"}}
+<div class="card shadow-sm">
+    <div class="card-header bg-light">
+        <h3 class="card-title text-primary">{{if .IsAdd}}Add a new share{{else}}Edit share{{end}}</h3>
     </div>
     <div class="card-body">
-        {{if .Error}}
-        <div class="alert alert-warning alert-dismissible fade show" role="alert">
-            {{.Error}}
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                <span aria-hidden="true">&times;</span>
-            </button>
-        </div>
-        {{end}}
+        {{- template "errmsg" .Error}}
         <form id="share_form" action="{{.CurrentURL}}" method="POST" autocomplete="off">
             <div class="form-group row">
-                <label for="idName" class="col-sm-2 col-form-label">Name</label>
-                <div class="col-sm-10">
-                    <input type="text" class="form-control" id="idName" name="name" placeholder=""
-                        value="{{.Share.Name}}" maxlength="255" autocomplete="nope" required {{if not .IsAdd}}readonly{{end}}>
+                <label class="col-md-3 col-form-label">Name</label>
+                <div class="col-md-9">
+                    <input type="text" class="form-control" placeholder="" name="name" value="{{.Share.Name}}"
+                        maxlength="255" autocomplete="nope" required {{if not .IsAdd}}readonly{{end}} />
                 </div>
             </div>
 
-            <div class="form-group row">
-                <label for="idScope" class="col-sm-2 col-form-label">Scope</label>
-                <div class="col-sm-10">
-                    <select class="form-control selectpicker" id="idScope" name="scope" aria-describedby="scopeHelpBlock">
+            <div class="form-group row mt-10">
+                <label class="col-md-3 col-form-label">Scope</label>
+                <div class="col-md-9">
+                    <select name="scope" class="form-select" data-control="select2" data-hide-search="true">
                         <option value="1" {{if eq .Share.Scope 1 }}selected{{end}}>Read</option>
                         <option value="2" {{if eq .Share.Scope 2 }}selected{{end}}>Write</option>
                         <option value="3" {{if eq .Share.Scope 3 }}selected{{end}}>Read/Write</option>
                     </select>
-                    <small id="scopeHelpBlock" class="form-text text-muted">
+                    <div class="form-text">
                         For scope "Write" and "Read&Write" you have to define one path and it must be a directory
-                    </small>
+                    </div>
                 </div>
             </div>
 
-            <div class="card bg-light mb-3">
-                <div class="card-header">
-                    Paths
+            <div class="card card-rounded mt-10">
+                <div class="card-header bg-light">
+                    <h3 class="card-title">Paths</h3>
                 </div>
                 <div class="card-body">
-                    <div class="form-group row">
-                        <div class="col-md-12 form_field_path_outer">
-                            {{range $idx, $val := .Share.Paths}}
-                            <div class="row form_field_path_outer_row">
-                                <div class="form-group col-md-11">
-                                    <input type="text" class="form-control" id="idPath{{$idx}}" name="paths"
-                                        placeholder="file or directory path, i.e. /dir or /dir/file.txt" value="{{$val}}" maxlength="255">
+                    <div id="paths">
+                        <div class="form-group">
+                            <div data-repeater-list="paths">
+                                {{- range $idx, $val := .Share.Paths}}
+                                <div data-repeater-item>
+                                    <div class="form-group row">
+                                        <div class="col-md-9">
+                                            <input type="text" class="form-control mt-3 mt-md-8"
+                                                placeholder="file or directory path, i.e. /dir or /dir/file.txt"
+                                                name="path" value="{{$val}}" />
+                                        </div>
+                                        <div class="col-md-3">
+                                            <a href="javascript:;" data-repeater-delete
+                                                class="btn btn-light-danger mt-3 mt-md-8">
+                                                <i class="ki-duotone ki-trash fs-5">
+                                                    <span class="path1"></span>
+                                                    <span class="path2"></span>
+                                                    <span class="path3"></span>
+                                                    <span class="path4"></span>
+                                                    <span class="path5"></span>
+                                                </i>
+                                                Delete
+                                            </a>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="form-group col-md-1">
-                                    <button class="btn btn-circle btn-danger remove_path_btn_frm_field">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
+                                {{- else}}
+                                <div data-repeater-item>
+                                    <div class="form-group row">
+                                        <div class="col-md-9">
+                                            <input type="text" class="form-control mt-3 mt-md-8"
+                                                placeholder="file or directory path, i.e. /dir or /dir/file.txt"
+                                                name="path" value="" />
+                                        </div>
+                                        <div class="col-md-3">
+                                            <a href="javascript:;" data-repeater-delete
+                                                class="btn btn-light-danger mt-3 mt-md-8">
+                                                <i class="ki-duotone ki-trash fs-5">
+                                                    <span class="path1"></span>
+                                                    <span class="path2"></span>
+                                                    <span class="path3"></span>
+                                                    <span class="path4"></span>
+                                                    <span class="path5"></span>
+                                                </i>
+                                                Delete
+                                            </a>
+                                        </div>
+                                    </div>
                                 </div>
+                                {{- end}}
                             </div>
-                            {{else}}
-                            <div class="row form_field_path_outer_row">
-                                <div class="form-group col-md-11">
-                                    <input type="text" class="form-control" id="idPath0" name="paths"
-                                        placeholder="file or directory path, i.e. /dir or /dir/file.txt" value="" maxlength="512">
-                                </div>
-                                <div class="form-group col-md-1">
-                                    <button class="btn btn-circle btn-danger remove_path_btn_frm_field">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            {{end}}
+                        </div>
+
+                        <div class="form-group mt-5">
+                            <a href="javascript:;" data-repeater-create class="btn btn-light-primary">
+                                <i class="ki-duotone ki-plus fs-3"></i>
+                                Add
+                            </a>
                         </div>
                     </div>
-
-                    <div class="row mx-1">
-                        <button type="button" class="btn btn-secondary add_new_path_field_btn">
-                            <i class="fas fa-plus"></i> Add a path
-                        </button>
-                    </div>
                 </div>
             </div>
 
-            <div class="form-group row">
-                <label for="idPassword" class="col-sm-2 col-form-label">Password</label>
-                <div class="col-sm-10">
-                    <input type="password" class="form-control" id="idPassword" name="password" autocomplete="new-password" placeholder="" spellcheck="false"
-                        value="{{.Share.Password}}" aria-describedby="passwordHelpBlock">
-                    <small id="passwordHelpBlock" class="form-text text-muted">
+            <div class="form-group row mt-10">
+                <label class="col-md-3 col-form-label">Password</label>
+                <div class="col-md-9">
+                    <input type="password" class="form-control" name="password" autocomplete="new-password"
+                        placeholder="" spellcheck="false" value="{{.Share.Password}}" />
+                    <div class="form-text">
                         If set the share will be password-protected
-                    </small>
-                </div>
-            </div>
-
-            <div class="form-group row">
-                <label for="idExpiration" class="col-sm-2 col-form-label">Expiration</label>
-                <div class="col-sm-10 input-group date" id="expirationDateTimePicker" data-target-input="nearest">
-                    <input type="text" class="form-control datetimepicker-input" id="idExpiration"
-                        data-target="#expirationDateTimePicker" placeholder="none">
-                    <div class="input-group-append" data-target="#expirationDateTimePicker" data-toggle="datetimepicker">
-                        <div class="input-group-text"><i class="fas fa-calendar"></i></div>
                     </div>
                 </div>
             </div>
 
-            <div class="form-group row">
-                <label for="idMaxTokens" class="col-sm-2 col-form-label">Max tokens</label>
-                <div class="col-sm-10">
-                    <input type="number" min="0" class="form-control" id="idMaxTokens" name="max_tokens" placeholder=""
-                        value="{{.Share.MaxTokens}}" aria-describedby="maxTokensHelpBlock">
-                    <small id="maxTokensHelpBlock" class="form-text text-muted">
+            <div class="form-group row mt-10">
+                <label class="col-md-3 col-form-label">Expiration</label>
+                <div class="col-md-9">
+                    <div class="input-group" data-td-target-input="nearest" data-td-target-toggle="nearest">
+                        <input id="id_expiration" type="text" class="form-control" data-td-target="#id_expiration" />
+                        <span class="input-group-text" data-td-target="#id_expiration" data-td-toggle="datetimepicker">
+                            <i class="ki-duotone ki-calendar fs-2">
+                                <span class="path1"></span>
+                                <span class="path2"></span>
+                            </i>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group row mt-10">
+                <label class="col-md-3 col-form-label">Max tokens</label>
+                <div class="col-md-9">
+                    <input type="number" min="0" class="form-control" name="max_tokens" value="{{.Share.MaxTokens}}" />
+                    <div class="form-text">
                         Maximum number of times this share can be accessed. 0 means no limit
-                    </small>
+                    </div>
                 </div>
             </div>
 
-            <div class="form-group row">
-                <label for="idAllowedIP" class="col-sm-2 col-form-label">Allowed IP/Mask</label>
-                <div class="col-sm-10">
-                    <textarea class="form-control" id="idAllowedIP" name="allowed_ip" rows="3" placeholder=""
-                        aria-describedby="allowedIPHelpBlock">{{.Share.GetAllowedFromAsString}}</textarea>
-                    <small id="allowedIPHelpBlock" class="form-text text-muted">
+            <div class="form-group row mt-10">
+                <label class="col-md-3 col-form-label">Allowed IP/Mask</label>
+                <div class="col-md-9">
+                    <textarea class="form-control" name="allowed_ip" rows="3"
+                        placeholder="">{{.Share.GetAllowedFromAsString}}</textarea>
+                    <div class="form-text">
                         Comma separated IP/Mask in CIDR format, for example "192.168.1.0/24,10.8.0.100/32"
-                    </small>
+                    </div>
                 </div>
             </div>
 
-            <div class="form-group row">
-                <label for="idDescription" class="col-sm-2 col-form-label">Description</label>
-                <div class="col-sm-10">
-                    <textarea class="form-control" id="idDescription" name="description" rows="3">{{.Share.Description}}</textarea>
+            <div class="form-group row mt-10">
+                <label class="col-md-3 col-form-label">Description</label>
+                <div class="col-md-9">
+                    <textarea class="form-control" name="description" rows="3"
+                        placeholder="">{{.Share.Description}}</textarea>
                 </div>
             </div>
 
-            <input type="hidden" name="expiration_date" id="hidden_start_datetime" value="">
-            <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
-            <button type="submit" class="btn btn-primary float-right mt-3 px-5">Submit</button>
+            <div class="d-flex justify-content-end mt-12">
+                <input type="hidden" name="expiration_date" id="hidden_start_datetime" value="">
+                <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
+                <button type="submit" id="form_submit" class="btn btn-primary px-10">
+                    <span class="indicator-label">
+                        Submit
+                    </span>
+                    <span class="indicator-progress">
+                        Please wait... <span class="spinner-border spinner-border-sm align-middle ms-2"></span>
+                    </span>
+                </button>
+            </div>
         </form>
     </div>
 </div>
-{{end}}
+{{- end}}
 
-{{define "extra_js"}}
-<script src="{{.StaticURL}}/vendor/moment/js/moment.min.js"></script>
-<script src="{{.StaticURL}}/vendor/tempusdominus/js/tempusdominus-bootstrap-4.min.js"></script>
-<script src="{{.StaticURL}}/vendor/bootstrap-select/js/bootstrap-select.min.js"></script>
+{{- define "extra_js"}}
+<script src="{{.StaticURL}}/assets/plugins/custom/formrepeater/formrepeater.bundle.js"></script>
 <script type="text/javascript">
-    $(document).ready(function () {
+    KTUtil.onDOMContentLoaded(function () {
+            $('#paths').repeater({
+                initEmpty: false,
 
-        $('#expirationDateTimePicker').datetimepicker({
-            format: 'YYYY-MM-DD HH:mm',
-            sideBySide: true,
-            minDate: moment(),
-            buttons: {
-                showClear: false,
-                showClose: true,
-                showToday: false
-            }
-        });
+                show: function () {
+                    $(this).slideDown();
+                },
 
-        {{ if gt .Share.ExpiresAt 0 }}
-        var input_dt = moment({{.Share.ExpiresAt }}).format('YYYY-MM-DD HH:mm');
-        $('#idExpiration').val(input_dt);
-        $('#expirationDateTimePicker').datetimepicker('viewDate', input_dt);
-        {{ end }}
+                hide: function (deleteElement) {
+                    $(this).slideUp(deleteElement);
+                }
+            });
 
-        $("#share_form").submit(function (event) {
-            var dt = $('#idExpiration').val();
-            if (dt) {
-                var d = $('#expirationDateTimePicker').datetimepicker('viewDate');
-                if (d) {
-                    var dateString = moment.utc(d).format('YYYY-MM-DD HH:mm:ss');
-                    $('#hidden_start_datetime').val(dateString);
+            const picker = new tempusDominus.TempusDominus(document.getElementById("id_expiration"), {
+                localization: {
+                    format: 'yyyy-MM-dd HH:mm'
+                }
+            });
+            //{{ if gt .Share.ExpiresAt 0 }}
+            let input_dt = moment('{{.Share.ExpiresAt }}','x').toDate();
+            picker.dates.setValue(tempusDominus.DateTime.convert(input_dt));
+            //{{ end }}
+
+            $("#share_form").submit(function (event) {
+                let dt = $('#id_expiration').val();
+                if (dt) {
+                    let d = picker.viewDate;
+                    if (d) {
+                        let dateString = moment.utc(d).format('YYYY-MM-DD HH:mm:ss');
+                        $('#hidden_start_datetime').val(dateString);
+                    } else {
+                        $('#hidden_start_datetime').val("");
+                    }
                 } else {
                     $('#hidden_start_datetime').val("");
                 }
-            } else {
-                $('#hidden_start_datetime').val("");
-            }
-            return true;
+                let submitButton = document.querySelector('#form_submit');
+                submitButton.setAttribute('data-kt-indicator', 'on');
+                submitButton.disabled = true;
+                return true;
+            });
         });
 
-        $("body").on("click", ".add_new_path_field_btn", function () {
-            let index = $(".form_field_path_outer").find(".form_field_path_outer_row").length;
-            while (document.getElementById("idPath"+index) != null){
-                index++;
-            }
-            $(".form_field_path_outer").append(`
-                    <div class="row form_field_path_outer_row">
-                        <div class="form-group col-md-11">
-                            <input type="text" class="form-control" id="idPath${index}" name="paths"
-                                        placeholder="file or directory path, i.e. /dir or /dir/file.txt" value="" maxlength="512">
-                        </div>
-                        <div class="form-group col-md-1">
-                            <button class="btn btn-circle btn-danger remove_path_btn_frm_field">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </div>
-                    </div>
-                `);
-        });
-
-        $("body").on("click", ".remove_path_btn_frm_field", function () {
-            $(this).closest(".form_field_path_outer_row").remove();
-        });
-
-    });
 </script>
-{{end}}
+{{- end}}

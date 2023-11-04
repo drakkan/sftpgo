@@ -1,209 +1,164 @@
 <!--
-Copyright (C) 2019-2023 Nicola Murino
+Copyright (C) 2023 Nicola Murino
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as published
-by the Free Software Foundation, version 3.
+This WebUI uses the KeenThemes Mega Bundle, a proprietary theme:
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU Affero General Public License for more details.
+https://keenthemes.com/products/templates-mega-bundle
 
-You should have received a copy of the GNU Affero General Public License
-along with this program. If not, see <https://www.gnu.org/licenses/>.
+KeenThemes HTML/CSS/JS components are allowed for use only within the
+SFTPGo product and restricted to be used in a resealable HTML template
+that can compete with KeenThemes products anyhow.
+
+This WebUI is allowed for use only within the SFTPGo product and
+therefore cannot be used in derivative works/products without an
+explicit grant from the SFTPGo Team (support@sftpgo.com).
 -->
 {{template "base" .}}
 
 {{define "title"}}{{.Title}}{{end}}
 
-{{define "extra_css"}}
-<link href="{{.StaticURL}}/vendor/codemirror/codemirror.css" rel="stylesheet">
-<link href="{{.StaticURL}}/vendor/codemirror/addon/dialog/dialog.css" rel="stylesheet">
-<link href="{{.StaticURL}}/vendor/codemirror/addon/search/matchesonscrollbar.css" rel="stylesheet">
+{{- define "extra_css"}}
 <style>
-    .CodeMirror {
-        border: 1px solid #eee;
-        height: 30em;
-        font-size: 13px;
-    }
     .shortcut {font-family: monospace; color: #666;}
-</style>
-{{end}}
-{{define "additionalnavitems"}}
-<li class="nav-item dropdown no-arrow mx-1">
-    <a class="nav-link dropdown-toggle" href="#" id="infoDropdown" role="button"
-        data-toggle="modal" data-target="#infoModal">
-        <i class="fas fa-info fa-fw"></i>
-    </a>
-</li>
-
-<div class="topbar-divider d-none d-sm-block"></div>
-{{end}}
-
-{{define "page_body"}}
-<div id="errorMsg" class="alert alert-warning fade show" style="display: none;" role="alert">
-    <span id="errorTxt"></span>
-    <button type="button" class="close" aria-label="Close" onclick="dismissErrorMsg();">
-      <span aria-hidden="true">&times;</span>
-    </button>
-</div>
-<script type="text/javascript">
-    function dismissErrorMsg(){
-        $('#errorMsg').hide();
+    .cm-editor {
+        height: 100%;
+        width: 100%;
     }
-</script>
-<div class="card shadow mb-4">
-    <div class="card-header">
-        <h6 class="d-flex justify-content-between align-items-center">
-            <span class="font-weight-bold text-primary">{{- if .ReadOnly}}View{{- else}}Edit{{- end}} file "{{.Path}}"</span>
-            <span class="btn-toolbar">
-                <a id="idBack" class="btn btn-secondary mx-1 my-1" href='{{.FilesURL}}?path={{.CurrentDir}}' role="button">Back</a>
-                {{if not .ReadOnly}}
-                <a id="idSave" class="btn btn-primary mx-1 my-1" href="#" onclick="saveFile()" role="button">Save</a>
-                {{end}}
-            </span>
-        </h6>
+
+</style>
+{{- end}}
+
+{{- define "additionalnavitems"}}
+<div class="d-flex align-items-center ms-2 ms-lg-3" id="kt_header_user_menu_toggle">
+    <div class="btn btn-icon btn-active-light-primary w-35px h-35px w-md-40px h-md-40px" data-bs-toggle="modal" data-bs-target="#info_modal">
+        <i class="ki-duotone ki-information-2 fs-2">
+            <i class="path1"></i>
+            <i class="path2"></i>
+            <i class="path3"></i>
+        </i>
     </div>
-    <div class="card-body">
-        <div class="col-sm-12">
-            <textarea id="editor" name="editor"></textarea>
+</div>
+{{- end}}
+
+{{- define "page_body"}}
+{{- template "errmsg" ""}}
+<div class="card shadow-sm">
+    <div class="card-header">
+        {{- if .ReadOnly}}
+        <h6 class="card-title">View file "{{.Path}}"</h6>
+        {{- else}}
+        <h6 class="card-title">Edit file "{{.Path}}"</h6>
+        {{- end}}
+        <div class="card-toolbar">
+            <a class="btn btn-light-primary px-10 me-5" href='{{.FilesURL}}?path={{.CurrentDir}}' role="button">Back</a>
+            {{- if not .ReadOnly}}
+            <a id="save_button" type="button" class="btn btn-primary px-10" href="#" role="button" onclick="saveFile();">
+                <span class="indicator-label">Save</span>
+			    <span class="indicator-progress">Please wait...
+					<span class="spinner-border spinner-border-sm align-middle ms-2"></span>
+				</span>
+            </a>
+            {{- end}}
         </div>
     </div>
+    <div class="card-body">
+        <div id="editor" class="col-sm-12 border border-light-primary"></div>
+    </div>
 </div>
-{{end}}
+{{- end}}
 
-{{define "dialog"}}
-<div class="modal fade" id="infoModal" tabindex="-1" role="dialog" aria-labelledby="infoModalLabel"
-    aria-hidden="true">
-    <div class="modal-dialog" role="document">
+{{- define "modals"}}
+<div class="modal fade" id="info_modal" tabindex="-1">
+    <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="infoModalLabel">
-                    Editor keybindings
-                </h5>
-                <button class="close" type="button" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
+                <h3 class="modal-title">Editor keybindings</h3>
+                <div class="btn btn-icon btn-sm btn-active-light-primary ms-2" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="ki-duotone ki-cross fs-1"><span class="path1"></span><span class="path2"></span></i>
+                </div>
             </div>
             <div class="modal-body">
                 <p>
-                    <span class="shortcut">Ctrl-F / Cmd-F</span> => Start searching
-                </p>
-                <p>
-                    <span class="shortcut">Ctrl-G / Cmd-G</span> => Find next
-                </p>
-                <p>
-                    <span class="shortcut">Shift-Ctrl-G / Shift-Cmd-G</span> => Find previous
-                </p>
-                <p>
-                    <span class="shortcut">Shift-Ctrl-F / Cmd-Option-F</span> => Replace
-                </p>
-                <p>
-                    <span class="shortcut">Shift-Ctrl-R / Shift-Cmd-Option-F</span> => Replace all
+                    <span class="shortcut">Ctrl-F / Cmd-F</span> => Open search panel
                 </p>
                 <p>
                     <span class="shortcut">Alt-G</span> => Jump to line
                 </p>
                 <p>
-                    <span class="shortcut">Alt-F</span> => Persistent search: enter to find next, Shift-Enter to find previous
+                    <span class="shortcut">Tab</span> => Indent more
+                </p>
+                <p>
+                    <span class="shortcut">Shift-Tab</span> => Indent less
                 </p>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-primary" type="button" data-dismiss="modal">OK</button>
+                <button class="btn btn-primary" type="button" data-bs-dismiss="modal">OK</button>
             </div>
         </div>
     </div>
 </div>
-{{end}}
+{{- end}}
 
-{{define "extra_js"}}
-<script src="{{.StaticURL}}/vendor/codemirror/codemirror.js"></script>
-<script src="{{.StaticURL}}/vendor/codemirror/meta.js"></script>
-<script src="{{.StaticURL}}/vendor/codemirror/addon/selection/active-line.js"></script>
-<script src="{{.StaticURL}}/vendor/codemirror/addon/dialog/dialog.js"></script>
-<script src="{{.StaticURL}}/vendor/codemirror/addon/search/searchcursor.js"></script>
-<script src="{{.StaticURL}}/vendor/codemirror/addon/search/search.js"></script>
-<script src="{{.StaticURL}}/vendor/codemirror/addon/scroll/annotatescrollbar.js"></script>
-<script src="{{.StaticURL}}/vendor/codemirror/addon/search/matchesonscrollbar.js"></script>
-<script src="{{.StaticURL}}/vendor/codemirror/addon/search/jump-to-line.js"></script>
+{{- define "extra_js"}}
+<script src="{{.StaticURL}}/vendor/codemirror/cm6.bundle.min.js"></script>
 <script type="text/javascript">
-    $(document).ready(function () {
-        var cm = CodeMirror.fromTextArea(document.getElementById("editor"), {
-            lineNumbers: true,
-            styleActiveLine: true,
-            extraKeys: {"Alt-F": "findPersistent"},
-            {{if .ReadOnly}}
-            readOnly: true,
-            {{end}}
-            autofocus: true
-        });
-        var filename = "{{.Path}}";
-        var extension = filename.slice((filename.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase();
-        mode = CodeMirror.findModeByExtension(extension);
-        if (mode != null) {
-            cm.setOption("mode", mode.mode);
-        }
-        cm.setValue("{{.Data}}");
-        setInterval(keepAlive, 300000);
-    });
+    var cmView;
 
     function keepAlive() {
-        $.ajax({
-            url: '{{.ProfileURL}}',
+        axios.get('{{.ProfileURL}}',{
             timeout: 15000
-        });
+       	}).catch(function (error){});
     }
 
-    {{if not .ReadOnly}}
+    //{{- if not .ReadOnly}}
     function saveFile() {
-        $('#idSave').addClass("disabled");
-        $('#errorMsg').hide();
+        $('#errorMsg').addClass("d-none");
+        let saveButton = document.querySelector('#save_button');
+	    saveButton.setAttribute('data-kt-indicator', 'on');
+		saveButton.disabled = true;
 
-        async function uploadFile() {
-            var errorMessage = "Error saving file";
-            let response;
-            try {
-                var uploadPath = '{{.FileURL}}?path='+encodeURIComponent('{{.CurrentDir}}/{{.Name}}');
-                var cm = document.querySelector('.CodeMirror').CodeMirror;
-                var blob = new Blob([cm.getValue()]);
-                response = await fetch(uploadPath, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRF-TOKEN': '{{.CSRFToken}}'
-                    },
-                    credentials: 'same-origin',
-                    redirect: 'error',
-                    body: blob
-                });
-                if (response.status == 201){
-                    window.location.href = '{{.FilesURL}}?path='+encodeURIComponent('{{.CurrentDir}}');
-                } else {
-                    let jsonResponse;
-                    try {
-                        jsonResponse = await response.json();
-                    } catch(e){
-                        throw Error(errorMessage);
-                    }
-                    if (jsonResponse.message) {
-                        errorMessage = jsonResponse.message;
-                    }
-                    if (jsonResponse.error) {
-                        errorMessage += ": " + jsonResponse.error;
-                    }
-                    throw Error(errorMessage);
+        let uploadPath = '{{.FileURL}}?path='+encodeURIComponent('{{.CurrentDir}}/{{.Name}}');
+        let blob = new Blob([cmView.state.doc.toString()]);
+
+        axios.post(uploadPath, blob, {
+            headers: {
+                'X-CSRF-TOKEN': '{{.CSRFToken}}'
+            },
+            timeout: 600000,
+            validateStatus: function (status) {
+                    return status == 201;
                 }
-            } catch (e){
-                throw Error(errorMessage+": " +e.message);
+        }).then(function (response) {
+            window.location.replace('{{.FilesURL}}?path='+encodeURIComponent('{{.CurrentDir}}'));
+        }).catch(function (error) {
+            saveButton.removeAttribute('data-kt-indicator');
+		    saveButton.disabled = false;
+            let errorMessage = "Error saving file";
+            if (error && error.response) {
+                if (error.response.data.message) {
+                    errorMessage = error.response.data.message;
+                }
+                if (error.response.data.error) {
+                    errorMessage += ": " + error.response.data.error;
+                }
             }
-        }
-
-        uploadFile().catch(function(error){
-            $('#idSave').removeClass("disabled");
-            $('#errorTxt').text(error.message);
-            $('#errorMsg').show();
+            $('#errorTxt').text(errorMessage);
+            $('#errorMsg').removeClass("d-none");
         });
     }
-    {{end}}
+    //{{- end}}
+
+    KTUtil.onDOMContentLoaded(function () {
+        let options = {
+            oneDark: KTThemeMode.getMode() == "dark"
+        };
+        //{{- if .ReadOnly}}
+        options.readOnly = true;
+        //{{- end}}
+        cmView = cm6.createEditorView(undefined, document.getElementById("editor"));
+        cmView.setState(cm6.createEditorState("{{.Data}}", options));
+
+        setInterval(keepAlive, 300000);
+    });
 </script>
-{{end}}
+{{- end}}

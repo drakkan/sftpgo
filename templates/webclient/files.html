@@ -1,686 +1,921 @@
 <!--
-Copyright (C) 2019-2023 Nicola Murino
+Copyright (C) 2023 Nicola Murino
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as published
-by the Free Software Foundation, version 3.
+This WebUI uses the KeenThemes Mega Bundle, a proprietary theme:
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU Affero General Public License for more details.
+https://keenthemes.com/products/templates-mega-bundle
 
-You should have received a copy of the GNU Affero General Public License
-along with this program. If not, see <https://www.gnu.org/licenses/>.
+KeenThemes HTML/CSS/JS components are allowed for use only within the
+SFTPGo product and restricted to be used in a resealable HTML template
+that can compete with KeenThemes products anyhow.
+
+This WebUI is allowed for use only within the SFTPGo product and
+therefore cannot be used in derivative works/products without an
+explicit grant from the SFTPGo Team (support@sftpgo.com).
 -->
 {{template "base" .}}
 
-{{define "title"}}{{.Title}}{{end}}
-
-{{define "extra_css"}}
-<link href="{{.StaticURL}}/vendor/datatables/dataTables.bootstrap4.min.css" rel="stylesheet">
-<link href="{{.StaticURL}}/vendor/datatables/buttons.bootstrap4.min.css" rel="stylesheet">
-<link href="{{.StaticURL}}/vendor/datatables/fixedHeader.bootstrap4.min.css" rel="stylesheet">
-<link href="{{.StaticURL}}/vendor/datatables/responsive.bootstrap4.min.css" rel="stylesheet">
-<link href="{{.StaticURL}}/vendor/datatables/dataTables.checkboxes.css" rel="stylesheet">
-<link href="{{.StaticURL}}/vendor/lightbox2/css/lightbox.min.css" rel="stylesheet">
-<link href="{{.StaticURL}}/vendor/video-js/video-js.min.css" rel="stylesheet" />
-<link href="{{.StaticURL}}/vendor/filepond/filepond.min.css" rel="stylesheet" />
-<style>
-    div.dataTables_wrapper span.selected-info,
-    div.dataTables_wrapper span.selected-item {
-        margin-left: 0.5em;
-    }
-</style>
-{{end}}
-
-{{define "additionalnavitems"}}
-{{if .QuotaUsage.HasQuotaInfo}}
-<li class="nav-item dropdown no-arrow mx-1">
-    <a class="nav-link dropdown-toggle" href="#" id="quotaDropdown" role="button"
-        data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-        <span class="mr-2 d-none d-lg-inline text-gray-600 small">Quota</span>
-        {{if .QuotaUsage.IsQuotaLow}}
-        <i class="fas fa-exclamation-triangle fa-fw"></i>
-        {{else}}
-        <i class="fas fa-info fa-fw"></i>
-        {{end}}
-    </a>
-    <div class="dropdown-list dropdown-menu dropdown-menu-right shadow animated--grow-in"
-        ria-labelledby="alertsDropdown">
-        <h6 class="dropdown-header">
-            Quota usage
-        </h6>
-        {{ if .QuotaUsage.HasDiskQuota}}
-        <a class="dropdown-item d-flex align-items-center" href="#">
-            <div class="mr-3">
-                <div class="icon-circle  {{if .QuotaUsage.IsDiskQuotaLow}}bg-warning{{else}}bg-success{{end}}">
-                    <i class="fas fa-hdd text-white"></i>
+{{- define "title"}}{{.Title}}{{- end}}
+{{- define "page_body"}}
+{{- template "errmsg" .Error}}
+<div class="card card-flush shadow-sm">
+    <div class="card-header pt-8">
+        <div class="card-title">
+            <div class="d-flex align-items-center position-relative my-1">
+                <i class="ki-duotone ki-magnifier fs-1 position-absolute ms-6">
+                    <span class="path1"></span>
+                    <span class="path2"></span>
+                </i>
+                <input type="text" data-kt-filemanager-table-filter="search" class="form-control form-control-solid w-250px ps-15" placeholder="Search Files & Folders" />
+            </div>
+        </div>
+        <div class="card-toolbar">
+            <div class="d-flex justify-content-end" data-kt-filemanager-table-toolbar="base">
+                {{- if .CanCreateDirs}}
+                <button type="button" class="btn btn-flex btn-light-primary me-3" onclick="showCreateNewFolder(0);">
+                    <i class="ki-duotone ki-add-folder fs-2">
+                        <span class="path1"></span>
+                        <span class="path2"></span>
+                    </i>
+                    New Folder
+                </button>
+                {{- end}}
+                {{- if .CanAddFiles}}
+                <button type="button" class="btn btn-flex btn-primary" data-bs-toggle="modal" data-bs-target="#modal_upload">
+                    <i class="ki-duotone ki-folder-up fs-2">
+                        <span class="path1"></span>
+                        <span class="path2"></span>
+                    </i>
+                    Upload Files
+                </button>
+                {{- end}}
+            </div>
+            <div class="d-flex justify-content-end align-items-center d-none" data-kt-filemanager-table-toolbar="selected">
+                <div class="fw-bold me-5">
+                    <span class="me-2" data-kt-filemanager-table-select="selected_count"></span>
                 </div>
-            </div>
-            <div>
-                <div class="small text-gray-500">Disk quota</div>
-                {{$size := .QuotaUsage.GetQuotaSize}}
-                {{$files := .QuotaUsage.GetQuotaFiles}}
-                {{if $size}}
-                {{$percentage := .QuotaUsage.GetQuotaSizePercentage}}
-                <span class="font-weight-bold {{if .QuotaUsage.IsQuotaSizeLow}}text-warning{{end}}">Size: {{$size}}{{if gt $percentage 0}} ({{$percentage}}%){{end}}</span>
-                {{if $files}}<br>{{end}}
-                {{end}}
-                {{if $files}}
-                {{$percentage := .QuotaUsage.GetQuotaFilesPercentage}}
-                <span class="font-weight-bold {{if .QuotaUsage.IsQuotaFilesLow}}text-warning{{end}}">Files: {{$files}}{{if gt $percentage 0}} ({{$percentage}}%){{end}}</span>
-                {{end}}
-            </div>
-        </a>
-        {{end}}
-        {{ if .QuotaUsage.HasTranferQuota}}
-        <a class="dropdown-item d-flex align-items-center" href="#">
-            <div class="mr-3">
-                <div class="icon-circle {{if .QuotaUsage.IsTransferQuotaLow}}bg-warning{{else}}bg-success{{end}}">
-                    <i class="fas fa-exchange-alt text-white"></i>
+                <div class="form-check form-switch form-check-custom form-check-solid me-5" data-kt-filemanager-table-select="select_all_pages_container">
+                    <input class="form-check-input" type="checkbox" id="id_select_all_pages" data-kt-filemanager-table-select="select_all_pages" />
+                    <label class="form-check-label fw-semibold text-gray-900" for="id_select_all_pages">
+                        Select across pages
+                    </label>
                 </div>
+                {{- if or .CanDownload .CanDelete}}
+                <div>
+                    <button type="button" class="btn btn-light-primary rotate" data-kt-menu-trigger="click" data-kt-menu-placement="bottom">
+                        Actions
+                        <i class="ki-duotone ki-down fs-3 rotate-180 ms-3 me-0"></i>
+                    </button>
+                    <div class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-800 menu-state-bg-light-primary fw-semibold w-auto min-w-200 mw-300px py-4" data-kt-menu="true">
+                        {{- if .CanDownload}}
+                        <div class="menu-item px-3">
+                            <a href="#" class="menu-link px-3 fs-6" data-kt-filemanager-table-select="download_selected">
+                                Download
+                            </a>
+                        </div>
+                        {{- end}}
+                        {{- if .CanDelete}}
+                        <div class="menu-item px-3">
+                            <a href="#" class="menu-link px-3 text-danger fs-6" data-kt-filemanager-table-select="delete_selected">
+                                Delete
+                            </a>
+                        </div>
+                        {{- end}}
+                    </div>
+                </div>
+                {{- end}}
             </div>
-            <div>
-                <div class="small text-gray-500">Transfer quota</div>
-                {{$total := .QuotaUsage.GetTotalTransferQuota}}
-                {{$upload := .QuotaUsage.GetUploadTransferQuota}}
-                {{$download := .QuotaUsage.GetDownloadTransferQuota}}
-                {{if $total}}
-                {{$percentage := .QuotaUsage.GetTotalTransferQuotaPercentage}}
-                <span class="font-weight-bold {{if .QuotaUsage.IsTotalTransferQuotaLow}}text-warning{{end}}">Total: {{$total}}{{if gt $percentage 0}} ({{$percentage}}%){{end}}</span>
-                {{if or $upload $download}}<br>{{end}}
-                {{end}}
-                {{if $download}}
-                {{$percentage := .QuotaUsage.GetDownloadTransferQuotaPercentage}}
-                <span class="font-weight-bold {{if .QuotaUsage.IsDownloadTransferQuotaLow}}text-warning{{end}}">Download: {{$download}}{{if gt $percentage 0}} ({{$percentage}}%){{end}}</span>
-                {{if $upload}}<br>{{end}}
-                {{end}}
-                {{if $upload}}
-                {{$percentage := .QuotaUsage.GetUploadTransferQuotaPercentage}}
-                <span class="font-weight-bold {{if .QuotaUsage.IsUploadTransferQuotaLow}}text-warning{{end}}">Upload: {{$upload}}{{if gt $percentage 0}} ({{$percentage}}%){{end}}</span>
-                {{end}}
-            </div>
-        </a>
-        {{end}}
-    </div>
-</li>
-
-<div class="topbar-divider d-none d-sm-block"></div>
-{{end}}
-{{end}}
-
-{{define "page_body"}}
-<div id="errorMsg" class="alert alert-warning alert-dismissible fade show" style="display: none;" role="alert">
-    <span id="errorTxt"></span>
-    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-      <span aria-hidden="true">&times;</span>
-    </button>
-</div>
-
-<div class="card shadow mb-4">
-    <div class="card-header py-3">
-        <h6 class="m-0 font-weight-bold"><a href="{{.FilesURL}}?path=%2F"><i class="fas fa-home"></i>&nbsp;Home</a>&nbsp;{{range .Paths}}{{if eq .Href ""}}/{{.DirName}}{{else}}<a href="{{.Href}}">/{{.DirName}}</a>{{end}}{{end}}</h6>
+        </div>
     </div>
     <div class="card-body">
-        {{if .Error}}
-        <div class="alert alert-warning alert-dismissible fade show" role="alert">
-            {{.Error}}
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                <span aria-hidden="true">&times;</span>
+        <div class="d-flex flex-stack">
+            <div class="badge badge-lg badge-light-primary">
+                <div class="d-flex align-items-center flex-wrap">
+                    <i class="ki-duotone ki-home fs-1 text-primary me-3"></i>
+                    <a href="{{.FilesURL}}?path=%2F">Home</a>
+                    {{- range .Paths}}
+                    <i class="ki-duotone ki-right fs-2x text-primary mx-1"></i>
+                    {{- if eq .Href ""}}
+                    <span>{{.DirName}}</span>
+                    {{- else}}
+                    <a href="{{.Href}}">{{.DirName}}</a>
+                    {{- end}}
+                    {{- end}}
+                </div>
+            </div>
+        </div>
+        <div id="file_manager_new_folder" class="d-flex align-items-center py-7 d-none">
+            <span>
+                <i class="ki-duotone ki-folder fs-2x text-primary me-4">
+                    <span class="path1"></span>
+                    <span class="path2"></span>
+                </i>
+            </span>
+            <input id="file_manager_new_folder_input" type="text" name="new_folder_name" placeholder="Enter the new folder name" class="form-control mw-250px me-3" />
+            <button class="btn btn-icon btn-light-primary me-3" id="file_manager_add_folder" onclick="createNewFolder();">
+                <span class="indicator-label">
+                    <i class="ki-duotone ki-check fs-1"></i>
+                </span>
+                <span class="indicator-progress">
+                    <span class="spinner-border spinner-border-sm align-middle"></span>
+                </span>
+            </button>
+            <button class="btn btn-icon btn-light-danger" id="file_manager_cancel_folder" onclick="hideCreateNewFolder(0);">
+                <i class="ki-duotone ki-cross fs-1">
+                    <span class="path1"></span>
+                    <span class="path2"></span>
+                </i>
             </button>
         </div>
-        {{end}}
-        <div id="tableContainer" class="table-responsive">
-            <table class="table table-hover nowrap" id="dataTable" width="100%" cellspacing="0">
-                <thead>
-                    <tr>
-                        <th></th>
-                        <th>Type</th>
-                        <th>Name</th>
-                        <th>Size</th>
-                        <th>Last modified</th>
-                        <th></th>
-                        <th></th>
-                    </tr>
-                </thead>
-            </table>
-        </div>
-    </div>
-</div>
-{{end}}
-
-{{define "dialog"}}
-<div class="modal fade" id="createDirModal" tabindex="-1" role="dialog" aria-labelledby="createDirModalLabel"
-    aria-hidden="true">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="createDirModalLabel">
-                    Create a new directory
-                </h5>
-                <button class="close" type="button" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <form id="create_dir_form" action="" method="POST">
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label for="directory_name" class="col-form-label">Name</label>
-                        <input type="text" class="form-control" id="directory_name" required>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-secondary" type="button" data-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Submit</button>
-                </div>
-            </form>
-        </div>
+        <table id="file_manager_list" class="table align-middle table-row-dashed fs-6 gy-5">
+            <thead>
+                <tr class="text-start text-muted fw-bold fs-6 gs-0">
+                    <th class="w-10px pe-2">
+                        <div class="form-check form-check-sm form-check-custom form-check-solid me-3">
+                            <input id="select_checkbox" class="form-check-input" type="checkbox"/>
+                        </div>
+                    </th>
+                    <th></th>
+                    <th class="min-w-250px">Name</th>
+					<th class="min-w-10px">Size</th>
+					<th class="min-w-125px">Last Modified</th>
+					<th class="w-125px"></th>
+                </tr>
+            </thead>
+            <tbody id="file_manager_list_body" class="text-gray-700 fw-semibold">
+            </tbody>
+        </table>
     </div>
 </div>
 
-<div class="modal fade" id="uploadFilesModal" tabindex="-1" role="dialog" aria-labelledby="uploadFilesModalLabel"
-    aria-hidden="true">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="uploadFilesModalLabel">
-                    Upload one or more files
-                </h5>
-                <button class="close" type="button" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <form id="upload_files_form" action="{{.FilesURL}}?path={{.CurrentDir}}" method="POST" enctype="multipart/form-data">
-                 <div class="modal-body">
-                    <div id="uploadErrorMsg" class="card mb-4 border-left-warning" style="display: none;">
-                        <div id="uploadErrorTxt" class="card-body text-form-error"></div>
-                    </div>
-                    <input type="file" id="files_name" name="filenames" required multiple>
-                </div>
-                <div class="modal-footer">
-                    <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
-                    <button class="btn btn-secondary" type="button" data-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Submit</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
+{{- end}}
 
-<div class="modal fade" id="copyModal" tabindex="-1" role="dialog" aria-labelledby="copyModalLabel"
-    aria-hidden="true">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="copyModalLabel">
-                    Copy the selected item
-                </h5>
-                <button class="close" type="button" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <form id="copy_form" action="" method="POST">
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label for="copy_old_name" class="col-form-label">Source</label>
-                        <input type="text" class="form-control" id="copy_old_name" readonly>
-                    </div>
-                    <div class="form-group">
-                        <label for="copy_new_dir" class="col-form-label">New base dir</label>
-                        <input type="text" class="form-control" id="copy_new_dir" required aria-describedby="copyNewDirHelpBlock">
-                        <small id="copyNewDirHelpBlock" class="form-text text-muted">
-                            Setting a directory other than the current one will copy the item there. This directory will be created if it doesn't exist
-                        </small>
-                    </div>
-                    <div class="form-group">
-                        <label for="copy_new_name" class="col-form-label">Target</label>
-                        <input type="text" class="form-control" id="copy_new_name" required aria-describedby="copyTargetDirHelpBlock">
-                        <small id="copyNewDirHelpBlock" class="form-text text-muted">
-                            If the target ends with "/", for example "adir/", it is treated as a directory and the source will be copied to the target. The target directory will be created if it doesn't exist
-                        </small>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-secondary" type="button" data-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Submit</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
+{{- define "extra_css"}}
+<link href="{{.StaticURL}}/assets/plugins/custom/datatables/datatables.bundle.css" rel="stylesheet" type="text/css"/>
+<link href="{{.StaticURL}}/vendor/glightbox/glightbox.min.css" rel="stylesheet" type="text/css"/>
+<link href="{{.StaticURL}}/vendor/video-js/video-js.min.css" rel="stylesheet" type="text/css"/>
+<style>
+    .gslide-description-bg {
+		background: var(--bs-app-bg-color) !important;
+        opacity: 0.9;
+	}
+</style>
+{{- end}}
 
-<div class="modal fade" id="renameModal" tabindex="-1" role="dialog" aria-labelledby="renameModalLabel"
-    aria-hidden="true">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="renameModalLabel">
-                    Rename the selected item
-                </h5>
-                <button class="close" type="button" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <form id="rename_form" action="" method="POST">
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label for="rename_old_name" class="col-form-label">Old name</label>
-                        <input type="text" class="form-control" id="rename_old_name" readonly>
-                    </div>
-                    <div class="form-group">
-                        <label for="rename_new_dir" class="col-form-label">New base dir</label>
-                        <input type="text" class="form-control" id="rename_new_dir" required aria-describedby="renameNewDirHelpBlock">
-                        <small id="renameNewDirHelpBlock" class="form-text text-muted">
-                            Setting a directory other than the current one will move the item there. This directory must exists
-                        </small>
-                    </div>
-                    <div class="form-group">
-                        <label for="rename_new_name" class="col-form-label">New name</label>
-                        <input type="text" class="form-control" id="rename_new_name" required>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-secondary" type="button" data-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Submit</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog" aria-labelledby="deleteModalLabel"
-    aria-hidden="true">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="deleteModalLabel">
-                    Confirmation required
-                </h5>
-                <button class="close" type="button" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <div class="modal-body">Do you want to delete the selected item/s?</div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" type="button" data-dismiss="modal">
-                    Cancel
-                </button>
-                <a class="btn btn-warning" href="#" onclick="deleteAction()">
-                    Delete
-                </a>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="videoModal" tabindex="-1" role="dialog" aria-labelledby="videoModalLabel"
-    aria-hidden="true">
-    <div class="modal-dialog modal-lg" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="videoModalLabel">
-                    <span id="video_title"></span>
-                </h5>
-                <button class="close" type="button" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <div class="modal-body">
-                <video id="video_player" class="video-js vjs-big-play-centered vjs-fluid">
-                    <p class="vjs-no-js">To view this video please enable JavaScript, and consider upgrading to a web browser that supports HTML5 video</p>
-                  </video>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="spinnerModal" tabindex="-1" role="dialog" data-keyboard="false" data-backdrop="static">
-    <div class="modal-dialog modal-dialog-centered justify-content-center" role="document">
-        <span style="color: #333333;" class="fa fa-spinner fa-spin fa-3x"></span>
-        <!-- <span id="uploadProgress" style="color: #3A3B3C;" class="mx-3"></span> -->
-    </div>
-</div>
-{{end}}
-
-{{define "extra_js"}}
-<script src="{{.StaticURL}}/vendor/datatables/jquery.dataTables.min.js"></script>
-<script src="{{.StaticURL}}/vendor/datatables/dataTables.bootstrap4.min.js"></script>
-<script src="{{.StaticURL}}/vendor/datatables/dataTables.buttons.min.js"></script>
-<script src="{{.StaticURL}}/vendor/datatables/buttons.bootstrap4.min.js"></script>
-<script src="{{.StaticURL}}/vendor/datatables/dataTables.fixedHeader.min.js"></script>
-<script src="{{.StaticURL}}/vendor/datatables/dataTables.responsive.min.js"></script>
-<script src="{{.StaticURL}}/vendor/datatables/responsive.bootstrap4.min.js"></script>
-<script src="{{.StaticURL}}/vendor/datatables/dataTables.checkboxes.min.js"></script>
-<script src="{{.StaticURL}}/vendor/lightbox2/js/lightbox.min.js"></script>
+{{- define "extra_js"}}
+<script src="{{.StaticURL}}/assets/plugins/custom/datatables/datatables.bundle.js"></script>
+<script src="{{.StaticURL}}/vendor/glightbox/glightbox.min.js"></script>
 <script src="{{.StaticURL}}/vendor/pdfobject/pdfobject.min.js"></script>
-<script src="{{.StaticURL}}/vendor/codemirror/codemirror.js"></script>
-<script src="{{.StaticURL}}/vendor/codemirror/meta.js"></script>
 <script src="{{.StaticURL}}/vendor/video-js/video.min.js"></script>
-<script src="{{.StaticURL}}/vendor/filepond/filepond.min.js"></script>
-{{if .HasIntegrations}}
+{{- if not .ShareUploadBaseURL}}
 <script type="text/javascript">
-    var childReference = null;
-    var checkerStarted = false;
-    const childProps = new Map();
-
-    function openExternalURL(url, fileLink, fileName){
-        $('#errorMsg').hide();
-        if (childReference == null || childReference.closed) {
-            childProps.set('link', fileLink);
-            childProps.set('url', url);
-            childProps.set('file_name', UnicodeDecodeB64(fileName));
-            childReference = window.open(url, '_blank');
-            if (!checkerStarted){
-                keepAlive();
-                setInterval(checkExternalWindow, 300000);
-                checkerStarted = true;
-            }
-        } else {
-            $('#errorTxt').text('An external window is already open, please close it before trying to open a new one');
-            $('#errorMsg').show();
-        }
-    }
-
-    function notifyBlobDownloadError(message) {
-        if (childReference == null || childReference.closed) {
-            console.log("external window null or closed, cannot notify download error");
-            return;
-        }
-
-        childReference.postMessage({
-            type: 'blobDownloadError',
-            message: message
-        }, childProps.get('url'));
-    }
-
-    function notifySave(status, message) {
-        if (childReference == null || childReference.closed) {
-            console.log("external window null or closed, cannot notify save");
-            return;
-        }
-
-        childReference.postMessage({
-            type: 'blobSaveResult',
-            status: status,
-            message: message
-        }, childProps.get('url'));
-    }
-
-    window.addEventListener('message', (event) => {
-        var url = childProps.get('url');
-        if (!url || !url.startsWith(event.origin)){
-            console.log("origin: "+event.origin+" does not match the expected one: "+url+" refusing message");
-            return;
-        }
-        if (childReference == null || childReference.closed) {
-            console.log("external window null or closed, refusing message");
-            return;
-        }
-        switch (event.data.type){
-            case 'ready':
-                // the child is ready send some details
-                childReference.postMessage({
-                    type: 'readyResponse',
-                    user: '{{.LoggedUser.Username}}',
-                    file_name: childProps.get('file_name')
-                }, childProps.get('url'));
-                break;
-            case 'sendBlob':
-                // we have to download the blob, this could require some time so
-                // we first send a blobDownloadStart message so the child can
-                // show a spinner or something similar
-                var errorMessage = "Error downloading file";
-                childReference.postMessage({
-                    type: 'blobDownloadStart'
-                }, childProps.get('url'));
-                // download the file and send it as blob to the child window
-                async function downloadFileAsBlob(){
-                    var errorMessage = "Error downloading file";
-                    let response;
-                    try {
-                        response = await fetch(childProps.get('link'),{
-                            headers: {
-                                'X-CSRF-TOKEN': '{{.CSRFToken}}'
-                            },
-                            credentials: 'same-origin',
-                            redirect: 'error'
-                        });
-                    } catch (e){
-                        throw Error(errorMessage+": " +e.message);
-                    }
-                    if (response.status == 200){
-                        let responseBlob;
-                        try {
-                            responseBlob = await response.blob();
-                        } catch (e){
-                            throw Error(errorMessage+" as blob: " +e.message);
-                        }
-                        let fileBlob = new File([responseBlob], childProps.get('file_name'), {type: responseBlob.type, lastModified: ""});
-                        childReference.postMessage({
-                            type: 'blob',
-                            file: fileBlob
-                        }, childProps.get('url'));
-                    } else {
-                        let jsonResponse;
-                        try {
-                            jsonResponse = await response.json();
-                        } catch(e){
-                            throw Error(errorMessage);
-                        }
-                        if (jsonResponse.message) {
-                            errorMessage = jsonResponse.message;
-                        }
-                        if (jsonResponse.error) {
-                            errorMessage += ": " + jsonResponse.error;
-                        }
-                        throw Error(errorMessage);
-                    }
-                }
-
-                $('#errorMsg').hide();
-                downloadFileAsBlob().catch(function(error){
-                    notifyBlobDownloadError(error.message);
-                        $('#errorTxt').text(error.message);
-                        $('#errorMsg').show();
-                });
-                break;
-            case 'saveBlob':
-                spinnerDone = false;
-                $('#spinnerModal').modal('show');
-
-                async function saveBlob() {
-                    var errorMessage = "Error saving external file";
-                    var uploadPath = '{{.FileURL}}?path={{.CurrentDir}}'+encodeURIComponent("/"+unescapeHTML(childProps.get('file_name')));
-                    let response;
-                    try {
-                        response = await fetch(uploadPath, {
-                            method: 'POST',
-                            headers: {
-                                'X-CSRF-TOKEN': '{{.CSRFToken}}'
-                            },
-                            credentials: 'same-origin',
-                            redirect: 'error',
-                            body: event.data.file
-                        });
-                    } catch (e){
-                        throw Error(errorMessage+": " +e.message);
-                    }
-                    if (response.status == 201){
-                        $('#spinnerModal').modal('hide');
-                        notifySave("OK", "");
-                        setTimeout(function () {
-                            location.reload();
-                        }, 2000);
-                    } else {
-                        let jsonResponse;
-                        try {
-                            jsonResponse = await response.json();
-                        } catch(e){
-                            throw Error(errorMessage);
-                        }
-                        if (jsonResponse.message) {
-                            errorMessage = jsonResponse.message;
-                        }
-                        if (jsonResponse.error) {
-                            errorMessage += ": " + jsonResponse.error;
-                        }
-                        throw Error(errorMessage);
-                    }
-                }
-
-                $('#errorMsg').hide();
-                saveBlob().catch(function(error){
-                    $('#spinnerModal').modal('hide');
-                    notifySave("KO", error.message);
-                    $('#errorTxt').text(error.message);
-                    $('#errorMsg').show();
-                });
-
-                break;
-            default:
-                console.log("Unsupported message: "+JSON.stringify(event.data));
-        }
-    });
-
-    function checkExternalWindow() {
-        if (childReference == null || childReference.closed) {
-            return;
-        }
-        keepAlive();
-    }
+    const supportedEditExtensions = ["csv", "bat", "dyalog", "apl", "asc", "pgp", "sig", "asn", "asn1", "b", "bf",
+            "c", "h", "ino", "cpp", "c++", "cc", "cxx", "hpp", "h++", "hh", "hxx", "cob", "cpy", "cbl", "cs", "clj",
+            "cljc", "cljx", "cljs", "gss", "cmake", "cmake.in", "coffee", "cl", "lisp", "el", "cyp", "cypher",
+            "pyx", "pxd", "pxi", "cr", "css", "cql", "d", "dart", "diff", "patch", "dtd", "dylan", "dyl", "intr",
+            "ecl", "edn", "e", "elm", "ejs", "erb", "erl", "sql", "factor", "forth", "fth", "4th", "f", "for", "f77",
+            "f90", "f95", "fsharp", "s", "go", "groovy", "gradle", "haml", "hs", "lhs", "hx", "hxml", "aspx",
+            "html", "htm", "handlebars", "hbs", "pro", "jade", "pug", "java", "jsp", "js", "json", "map", "jsonld",
+            "jsx", "j2", "jinja", "jinja2", "jl", "kt", "less", "ls", "lua", "markdown", "md", "mkd", "m", "nb", "wl",
+            "wls", "mo", "mps", "mbox", "nsh", "nsi", "nt", "nq", "m", "mm", "ml", "mli", "mll", "mly", "oz", "p",
+            "pas", "pl", "pm", "php", "php3", "php4", "php5", "php7", "phtml", "pig", "txt", "text", "conf", "def",
+            "list", "log", "pls", "ps1", "psd1", "psm1", "properties", "ini", "in", "proto", "BUILD", "bzl", "py",
+            "pyw", "pp", "q", "r", "rst", "spec", "rb", "rs", "sas", "sass", "scala", "scm", "ss", "scss", "sh",
+            "ksh", "bash", "siv", "sieve", "slim", "st", "tpl", "sml", "sig", "fun", "smackspec", "soy", "rq", "sparql",
+            "nut", "styl", "swift", "text", "ltx", "tex", "v", "sv", "svh", "tcl", "textile", "toml", "1", "2", "3", "4",
+            "5", "6", "7", "8", "9", "ttcn", "ttcn3", "ttcnpp", "cfg", "ttl", "ts", "tsx", "webidl", "vb", "vbs",
+            "vtl", "vhd", "vhdl", "vue", "xml", "xsl", "xsd", "svg", "xy", "xquery", "ys", "yaml", "yml", "z80",
+            "mscgen", "mscin", "msc", "xu", "msgenny", "wat", "wast"];
+    const supportedEditFilenames = ["readme", "dockerfile", "pkgbuild"]
 </script>
-{{end}}
+{{- end}}
 <script type="text/javascript">
-    var spinnerDone = false;
-    var player;
-    var playerKeepAlive;
-
-    function shortenData(d, cutoff) {
-        if ( typeof d !== 'string' ) {
-			return d;
-		}
-
-		if ( d.length <= cutoff ) {
-			return escapeHTML(d);
-		}
-
-        let shortened = d.substr(0, cutoff-1);
-        return escapeHTML(shortened)+'&#8230;';
+    function keepAlive() {
+        //{{- if not .ShareUploadBaseURL}}
+        axios.get('{{.ProfileURL}}',{
+            timeout: 15000
+       	}).catch(function (error){});
+        //{{- end}}
     }
 
-    function openVideoPlayer(name, url, videoType){
-        $("#video_title").text(UnicodeDecodeB64(name));
-        $('#videoModal').modal('show');
-        player.src({
-            type: videoType,
-            src: url
-        });
-        keepAlive();
-        playerKeepAlive = setInterval(keepAlive, 300000);
-    }
+    //{{- if not .ShareUploadBaseURL}}
+    var KTDatatablesFoldersExplorer = function () {
+        var dt;
+        var curDir;
 
-    function getIconForFile(filename) {
-        let extension = filename.slice((filename.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase();
-        switch (extension) {
-            case "doc":
-            case "docx":
-            case "odt":
-            case "wps":
-                return "far fa-file-word";
-            case "ppt":
-            case "pptx":
-                return "far fa-file-powerpoint";
-            case "xls":
-            case "xlsx":
-            case "ods":
-                return "far fa-file-excel";
-            case "pdf":
-                return "far fa-file-pdf";
-            case "webm":
-            case "mkv":
-            case "flv":
-            case "vob":
-            case "ogv":
-            case "ogg":
-            case "avi":
-            case "ts":
-            case "mov":
-            case "wmv":
-            case "asf":
-            case "mpeg":
-            case "mpv":
-            case "3gp":
-            case "mp4":
-                return "far fa-file-video";
-            case "jpeg":
-            case "jpg":
-            case "png":
-            case "gif":
-            case "webp":
-            case "tiff":
-            case "psd":
-            case "bmp":
-            case "svg":
-            case "jp2":
-                return "far fa-file-image";
-            case "go":
-            case "sh":
-            case "bat":
-            case "java":
-            case "php":
-            case "cs":
-            case "asp":
-            case "aspx":
-            case "css":
-            case "html":
-            case "xhtml":
-            case "htm":
-            case "js":
-            case "jsp":
-            case "py":
-            case "rb":
-            case "cgi":
-            case "c":
-            case "cpp":
-            case "h":
-            case "hpp":
-            case "kt":
-            case "ktm":
-            case "kts":
-            case "swift":
-            case "r":
-                return "far fa-file-code";
-            case "zip":
-            case "zipx":
-            case "7z":
-            case "rar":
-            case "tar":
-            case "gz":
-            case "bz2":
-            case "zstd":
-            case "zst":
-            case "sz":
-            case "lz":
-            case "lz4":
-            case "xz":
-            case "jar":
-                return "far fa-file-archive";
-            case "txt":
-            case "rtf":
-            case "json":
-            case "xml":
-            case "yaml":
-            case "toml":
-            case "log":
-            case "csv":
-            case "ini":
-            case "cfg":
-                return "far fa-file-alt";
-            default:
-                return "far fa-file";
+        var initDatatable = function (dirsURL) {
+            $('#errorModalMsg').addClass("d-none");
+            dt = $("#dirsbrowser_list").DataTable({
+                ajax: {
+                    url: dirsURL,
+                    dataSrc: "",
+                    error: function ($xhr, textStatus, errorThrown) {
+                        $(".dataTables_processing").hide();
+                        let txt = "Failed to get directory listing";
+                        if ($xhr) {
+                            let json = $xhr.responseJSON;
+                            if (json) {
+                                if (json.message) {
+                                    txt += ": " + json.message;
+                                } else {
+                                    txt += ": " + json.error;
+                                }
+                            }
+                        }
+                        $('#errorModalTxt').text(txt);
+                        $('#errorModalMsg').removeClass("d-none");
+                    }
+                },
+                deferRender: true,
+                processing: true,
+                stateSave: false,
+                columns: [
+                    {
+                        data: "meta"
+                    },
+                    {
+                        data: "name",
+                        render: function (data, type, row) {
+                            if (type === 'display') {
+                                data = escapeHTML(data);
+                                let dirPath = row['dir_path'];
+                                return `<div class="d-flex align-items-center">
+                                                <i class="ki-duotone ki-folder fs-1 text-primary me-4">
+                                                    <i class="path1"></i>
+                                                    <i class="path2"></i>
+                                                </i>
+                                                <a href="#" onclick="onDirBrowserClick('${dirPath}');" class="text-gray-700 text-hover-primary">${data}</a>
+                                            </div>`
+                            }
+                            return data;
+                        }
+                    }
+                ],
+                lengthChange: true,
+                columnDefs: [
+                    {
+                        targets: 0,
+                        visible: false,
+                        searchable: false
+                    },
+                    {
+                        targets: 1,
+                        visible: true,
+                        searchable: true
+                    }
+                ],
+                language: {
+                    loadingRecords: "",
+                    emptyTable: "No more subfolders in here"
+                },
+                order: [1, 'asc']
+            });
+
+            dt.on('draw', function () {
+                let navHTML = `<i class="ki-duotone ki-home fs-1 text-primary me-3"></i>
+                                <a href="#" onclick="onDirBrowserClick('%2F');">Home</a>`;
+                let p = "/";
+                if (curDir && curDir != "%2F") {
+                    p = decodeURIComponent(curDir.replace(/\+/g, '%20'));
+                    const dirPaths = p.split("/");
+                    let fullPath = "%2F";
+                    for (idx in dirPaths) {
+                        let dir = dirPaths[idx];
+                        if (dir) {
+                            if (fullPath.endsWith("%2F")){
+                                fullPath += encodeURIComponent(dir);
+                            } else {
+                                fullPath += encodeURIComponent("/" + dir);
+                            }
+                            dir = escapeHTML(dir);
+                            navHTML += `<i class="ki-duotone ki-right fs-2x text-primary mx-1"></i>
+                                <a href="#" onclick="onDirBrowserClick('${fullPath}');">${dir}</a>`;
+                        }
+                    }
+                }
+                document.getElementById("dirs_browser_nav").innerHTML = navHTML;
+                $('#move_copy_folder').val(p);
+            });
         }
-    }
+
+        var handleCreateNewFolder = function() {
+            $('#dirsbrowser_add_folder').click(function(){
+                let errDivEl = $('#errorModalMsg');
+                let errTxtEl = $('#errorModalTxt');
+                let dirName = replaceSlash($("#dirsbrowser_new_folder_input").val());
+                let submitButton  = document.querySelector('#dirsbrowser_add_folder');
+                let canceButton = document.querySelector('#dirsbrowser_cancel_folder');
+                errDivEl.addClass("d-none");
+                if (!dirName){
+                    errTxtEl.text("Folder name is required");
+                    errDivEl.removeClass("d-none");
+                    return;
+                }
+                let path = '{{.DirsURL}}?path='+ curDir + encodeURIComponent("/"+dirName);
+                submitButton.setAttribute('data-kt-indicator', 'on');
+		        submitButton.disabled = true;
+                canceButton.disabled = true;
+
+                axios.post(path, null, {
+                    timeout: 15000,
+                    headers: {
+                        'X-CSRF-TOKEN': '{{.CSRFToken}}'
+                    },
+                    validateStatus: function (status) {
+                        return status == 201;
+                    }
+                }).then(function (response) {
+                    dt.ajax.reload();
+                    errDivEl.addClass("d-none");
+                    submitButton.removeAttribute('data-kt-indicator');
+		            submitButton.disabled = false;
+                    canceButton.disabled = false;
+                    $('#dirsbrowser_new_folder').addClass("d-none");
+                }).catch(function (error) {
+                    let errorMessage = "Unable to create the new folder";
+                    if (error && error.response) {
+                        if (error.response.data.message) {
+                            errorMessage = error.response.data.message;
+                        }
+                        if (error.response.data.error) {
+                            errorMessage += ": " + error.response.data.error;
+                        }
+                    }
+                    errTxtEl.text(errorMessage);
+                    errDivEl.removeClass("d-none");
+                    submitButton.removeAttribute('data-kt-indicator');
+		            submitButton.disabled = false;
+                    canceButton.disabled = false;
+                });
+            });
+        }
+
+        return {
+            init: function (url, dirPath) {
+                curDir = dirPath;
+                if (dt) {
+                    dt.ajax.url(url).load();
+                    return;
+                }
+                initDatatable(url);
+                handleCreateNewFolder();
+            }
+        }
+    }();
+    //{{- end}}
+</script>
+
+<script type="text/javascript">
+    var KTDatatablesServerSide = function () {
+        // Shared variables
+        //var table;
+        var dt;
+        var lightbox;
+
+
+        // Private functions
+        var initDatatable = function () {
+            $('#errorMsg').addClass("d-none");
+            dt = $("#file_manager_list").DataTable({
+                ajax: {
+                    url: "{{.DirsURL}}?path={{.CurrentDir}}",
+                    dataSrc: "",
+                    error: function ($xhr, textStatus, errorThrown) {
+                        $(".dataTables_processing").hide();
+                        let txt = "Failed to get directory listing";
+                        if ($xhr) {
+                            let json = $xhr.responseJSON;
+                            if (json) {
+                                if (json.message){
+                                    txt += ": " + json.message;
+                                } else {
+                                    txt += ": " + json.error;
+                                }
+                            }
+                        }
+                        $('#errorTxt').text(txt);
+                        $('#errorMsg').removeClass("d-none");
+                    }
+                },
+                deferRender: true,
+                processing: true,
+                lengthMenu: [ 10, 25, 50, 100, 250, 500 ],
+                select: {
+                    style: 'multi',
+                    selector: 'td:first-child input[type="checkbox"]',
+                    className: 'row-selected'
+                },
+                stateSave: true,
+                stateDuration: 0,
+                stateSaveParams: function (settings, data) {
+                    data.sftpgo_dir = '{{.CurrentDir}}';
+                },
+                stateLoadParams: function (settings, data) {
+                    if (!data.sftpgo_dir || data.sftpgo_dir != '{{.CurrentDir}}'){
+                        data.start = 0;
+                        data.search.search = "";
+                    }
+                    if (data.search.search){
+                        const filterSearch = document.querySelector('[data-kt-filemanager-table-filter="search"]');
+                        filterSearch.value = data.search.search;
+                    }
+                },
+                columns: [
+                    {
+                        data: "meta",
+                        render: function (data, type) {
+                            if (type == 'display'){
+                                return `
+                                    <div class="form-check form-check-sm form-check-custom form-check-solid">
+                                        <input class="form-check-input" type="checkbox" />
+                                    </div>`;
+                            }
+                            return data;
+                        }
+                    },
+                    { data: "type" },
+                    {
+                        data: "name",
+                        render: function (data, type, row) {
+                            if (type === 'display') {
+                                data = escapeHTML(data);
+                                let icon_name = "ki-file";
+
+                                if (row["type"] == "1") {
+                                    icon_name = "ki-folder";
+                                } else if (row["size"] === "") {
+                                    icon_name = "ki-file-right"
+                                }
+
+                                return `<div class="d-flex align-items-center">
+                                            <i class="ki-duotone ${icon_name} fs-2x text-primary me-4">
+                                                <i class="path1"></i>
+                                                <i class="path2"></i>
+                                            </i>
+                                            <a href="${row['url']}" class="text-gray-800 text-hover-primary">${data}</a>
+                                        </div>`
+                            }
+                            return data;
+                        }
+                    },
+                    {
+                        data: "size",
+                        render: function (data, type) {
+                            if (type === 'display') {
+                                if (data || data === 0){
+                                    return fileSizeIEC(data);
+                                }
+                                return "";
+                            }
+                            return data;
+                        }
+                    },
+                    { data: "last_modified" },
+                    {
+                        data: "edit_url",
+                        className: 'text-end',
+                        render: function (data, type, row) {
+                            if (type === 'display') {
+                                let previewDiv = "";
+                                if (row["type"] == "2") {
+                                    let filename = escapeHTML(row["name"]);
+                                    let extension = filename.slice((filename.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase();
+                                    switch (extension) {
+                                        case "jpeg":
+                                        case "jpg":
+                                        case "png":
+                                        case "gif":
+                                        case "webp":
+                                        case "bmp":
+                                        case "svg":
+                                        case "ico":
+                                            let desc = escapeHTML(filename).replace(/"/g, '&quot;');
+                                            previewDiv = `<div class="ms-2" data-kt-filemanger-table="view_item">
+												    <a href="${row['url']}" data-gallery="gallery" data-glightbox="description: &lt;span class=&quot;fs-5 fw-bold&quot;&gt;${desc}&lt;/span&gt;" class="btn btn-sm btn-icon btn-light btn-active-light-primary glightbox">
+													    <i class="ki-duotone ki-eye fs-5 m-0">
+														    <span class="path1"></span>
+														    <span class="path2"></span>
+                                                            <span class="path3"></span>
+													    </i>
+												    </a>
+											    </div>`;
+                                            break;
+                                        case "mp4":
+                                        case "mov":
+                                        case "webm":
+                                        case "ogv":
+                                        case "ogg":
+                                        case "mp3":
+                                        case "wav":
+                                            let mediaType = 'video/mp4';
+                                            if (extension == 'webm'){
+                                                mediaType = 'video/webm';
+                                            } else if (extension == 'ogg' || extension == 'ogv') {
+                                                mediaType = 'video/ogg';
+                                            } else if (extension == 'mp3'){
+                                                mediaType = 'audio/mpeg';
+                                            } else if (extension == 'wav'){
+                                                mediaType = 'audio/wav';
+                                            }
+                                            let name = b64EncodeUnicode(row["name"]);
+                                            previewDiv = `<div class="ms-2" data-kt-filemanger-table="view_item">
+												    <a href="#" onclick="openVideoPlayer('${name}', '${row['url']}', '${mediaType}');" class="btn btn-sm btn-icon btn-light btn-active-light-primary">
+													    <i class="ki-duotone ki-eye fs-5 m-0">
+														    <span class="path1"></span>
+														    <span class="path2"></span>
+                                                            <span class="path3"></span>
+													    </i>
+												    </a>
+											    </div>`;
+                                            break;
+                                        case "pdf":
+                                            if (PDFObject.supportsPDFs){
+                                                let view_url = row['url'];
+                                                view_url = view_url.replace('{{.FilesURL}}','{{.ViewPDFURL}}');
+                                                previewDiv = `<div class="ms-2" data-kt-filemanger-table="view_item">
+												    <a href="${view_url}" target="_blank" class="btn btn-sm btn-icon btn-light btn-active-light-primary">
+													    <i class="ki-duotone ki-eye fs-5 m-0">
+														    <span class="path1"></span>
+														    <span class="path2"></span>
+                                                            <span class="path3"></span>
+													    </i>
+												    </a>
+											    </div>`;
+                                            }
+                                            break;
+                                        default:
+                                            //{{- if not .ShareUploadBaseURL}}
+                                            if (data && (supportedEditExtensions.includes(extension) || supportedEditFilenames.includes(filename.toLowerCase()))){
+                                                previewDiv = `<div class="ms-2" data-kt-filemanger-table="view_item">
+												    <a href="${data}" target="_blank" class="btn btn-sm btn-icon btn-light btn-active-light-primary">
+													    <i class="ki-duotone ki-eye fs-5 m-0">
+														    <span class="path1"></span>
+														    <span class="path2"></span>
+                                                            <span class="path3"></span>
+													    </i>
+												    </a>
+											    </div>`;
+                                            }
+                                            //{{- end}}
+                                    }
+                                }
+                                let meta = b64EncodeUnicode(row["meta"]);
+                                let more = `{{- if not .ShareUploadBaseURL}}
+                                            {{- if or .CanRename .CanAddFiles .CanShare .CanDelete }}
+                                            <div class="ms-2">
+												<button type="button" class="btn btn-sm btn-icon btn-light btn-active-light-primary" data-kt-menu-trigger="click" data-kt-menu-placement="bottom-end">
+													<i class="ki-duotone ki-dots-square fs-5 m-0">
+														<span class="path1"></span>
+														<span class="path2"></span>
+														<span class="path3"></span>
+														<span class="path4"></span>
+													</i>
+												</button>
+												<div class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-700 menu-state-bg-light-primary fw-semibold fs-7 w-150px py-4" data-kt-menu="true">
+													{{- if .CanRename}}
+                                                    <div class="menu-item px-3">
+														<a href="#" onclick="renameItem('${meta}');" class="menu-link px-3" data-kt-filemanager-table="rename">Rename</a>
+													</div>
+                                                    {{- end}}
+                                                    {{- if or .CanRename .CanAddFiles}}
+													<div class="menu-item px-3">
+														<a href="#" onclick="moveOrCopyItem('${meta}');" class="menu-link px-3" data-kt-filemanager-table-filter="move_or_copy">Move or copy</a>
+													</div>
+                                                    {{- end}}
+                                                    {{- if .CanShare}}
+                                                    <div class="menu-item px-3">
+														<a href="#" onclick="shareItem('${meta}');" class="menu-link px-3" data-kt-filemanager-table="share">Share</a>
+													</div>
+                                                    {{- end}}
+                                                    {{- if .CanDelete}}
+													<div class="menu-item px-3">
+														<a href="#" onclick="deleteItem('${meta}');" class="menu-link text-danger px-3" data-kt-filemanager-table-filter="delete">Delete</a>
+													</div>
+                                                    {{- end}}
+											    </div>
+										    </div>
+                                            {{- end}}
+                                            {{- end}}`;
+                                return `<div class="d-flex justify-content-end">
+											${previewDiv}
+											${more}
+                                        </div>
+                                `;
+                            }
+                            return "";
+                        }
+                    }
+                ],
+                lengthChange: true,
+                columnDefs: [
+                    {
+                        targets: 0,
+                        orderable: false,
+                        searchable: false,
+                    },
+                    {
+                        targets: 1,
+                        visible: false,
+                        searchable: false
+                    },
+                    {
+                        targets: 2,
+                        visible: true,
+                        searchable: true
+                    },
+                    {
+                        targets: [3,4],
+                        searchable: false
+                    },
+                    {
+                        targets: 5,
+                        orderable: false,
+                        searchable: false
+                    }
+                ],
+                language: {
+                    loadingRecords: "",
+                    emptyTable: "No files or folders"
+                },
+                orderFixed: [1, 'asc'],
+                order: [2, 'asc']
+            });
+
+            //table = dt.$;
+
+            dt.on('draw', function () {
+                lightbox.reload();
+                KTMenu.createInstances();
+
+                let targets = document.querySelectorAll('#file_manager_list_body tr');
+                if (targets) {
+                    KTUtil.each(targets, function (target) {
+                        if (!target){
+                            return;
+                        }
+                        let checkbox = target.querySelector('.form-check-input');
+                        if (!checkbox) {
+                            return;
+                        }
+                        if (target.classList.contains('row-selected')) {
+                            checkbox.checked = true;
+                        } else {
+                            checkbox.checked = false;
+                        }
+                    });
+                }
+                toggleToolbars();
+            });
+
+            dt.on('user-select', function(e, dt, type, cell, originalEvent){
+                let pageSelected = dt.rows({ selected: true, page: 'current' }).count();
+                let totalSelected = dt.rows({ selected: true, search: 'applied' }).count();
+                if (totalSelected > pageSelected){
+                    let currentIndexes = [];
+                    dt.rows({ page: 'current' }).every(function (rowIdx, tableLoop, rowLoop){
+                        currentIndexes.push(rowIdx);
+                    });
+
+                    dt.rows().deselect();
+                    currentIndexes.forEach((idx) => {
+                        dt.row(idx).select();
+                    });
+
+                    totalSelected = dt.rows({ selected: true, search: 'applied' }).count();
+                }
+                if ($(originalEvent.target).is(':checked')){
+                    pageSelected++;
+                    totalSelected++;
+                } else {
+                    pageSelected--;
+                    totalSelected--;
+                }
+
+                handleToogleToolbar(pageSelected, totalSelected);
+            });
+        }
+
+        function handleToogleToolbar(pageSelected, totalSelected) {
+            const toolbarBase = document.querySelector('[data-kt-filemanager-table-toolbar="base"]');
+            const toolbarSelected = document.querySelector('[data-kt-filemanager-table-toolbar="selected"]');
+            const selectedCount = document.querySelector('[data-kt-filemanager-table-select="selected_count"]');
+            const selectAllContainer = document.querySelector('[data-kt-filemanager-table-select="select_all_pages_container"]');
+            const selectAllCheck = document.querySelector('[data-kt-filemanager-table-select="select_all_pages"]');
+
+            if (pageSelected > 0) {
+                let pageTotal = dt.rows({ page: 'current' }).count();
+                if (pageSelected === pageTotal){
+                    selectAllContainer.classList.remove("d-none");
+                    $('#select_checkbox').prop("checked", true);
+                } else {
+                    $('#select_checkbox').prop("checked", false);
+                    selectAllCheck.checked = false;
+                    selectAllContainer.classList.add('d-none');
+                }
+                if (selectedCount){
+                    selectedCount.innerHTML = `${totalSelected} Selected`;
+                }
+                if (toolbarBase){
+                    toolbarBase.classList.add('d-none');
+                }
+                if (toolbarSelected){
+                    toolbarSelected.classList.remove('d-none');
+                }
+            } else {
+                $('#select_checkbox').prop("checked", false);
+                selectAllCheck.checked = false;
+                if (toolbarBase) {
+                    toolbarBase.classList.remove('d-none');
+                }
+                if (toolbarBase) {
+                    toolbarSelected.classList.add('d-none');
+                }
+            }
+        }
+
+        var initLightbox = function() {
+            lightbox = GLightbox({
+                    slideHTML: `<div class="gslide">
+                                    <div class="gslide-inner-content">
+                                        <div class="ginner-container">
+                                            <div class="gslide-media">
+                                            </div>
+                                            <div class="gslide-description gslide-description-bg">
+                                                <div class="gdesc-inner">
+                                                    <h4 class="gslide-title"></h4>
+                                                    <div class="gslide-desc"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>`,
+                    preload: false,
+                    closeOnOutsideClick: false
+                });
+        }
+
+        var handleSearchDatatable = function () {
+            const filterSearch = document.querySelector('[data-kt-filemanager-table-filter="search"]');
+            filterSearch.addEventListener('keyup', function (e) {
+                dt.rows().deselect();
+                dt.search(e.target.value, true, false).draw();
+            });
+        }
+
+        var initToggleToolbar = function () {
+            const selectAllCheck = document.querySelector('[data-kt-filemanager-table-select="select_all_pages"]');
+            if (selectAllCheck){
+                selectAllCheck.addEventListener('change', function(e){
+                    if (this.checked){
+                        dt.rows({ search: 'applied' }).select();
+                    } else {
+                        let selectedIndexes = [];
+                        dt.rows({ selected: true, page: 'current' }).every(function (rowIdx, tableLoop, rowLoop){
+                            selectedIndexes.push(rowIdx);
+                        });
+                        dt.rows().deselect();
+                        selectedIndexes.forEach((idx) => {
+                            dt.row(idx).select();
+                        });
+                    }
+                    toggleToolbars();
+                })
+            }
+            const downloadButton = document.querySelector('[data-kt-filemanager-table-select="download_selected"]');
+            if (downloadButton){
+                downloadButton.addEventListener('click', function(e){
+                    let filesArray = [];
+                    dt.rows({ selected: true, search: 'applied' }).every(function (rowIdx, tableLoop, rowLoop){
+                        let row = dt.row(rowIdx);
+                        filesArray.push(getNameFromMeta(row.data()['meta']));
+                    });
+                    let token = "{{.CSRFToken}}";
+                    let downloadURL = '{{.DownloadURL}}';
+                    let currentDir = '{{.CurrentDir}}';
+                    let ts = new Date().getTime().toString();
+                    let files = JSON.stringify(filesArray);
+                    $(`<form method="post" action="${downloadURL}?path=${currentDir}&_=${ts}" target="_blank">
+                        <input type="hidden" name="_form_token" value="${token}">
+                        <textarea name="files" hidden>${files}</textarea>
+                       </form>`).appendTo('body').submit().remove();
+                });
+            }
+
+            const deleteButton = document.querySelector('[data-kt-filemanager-table-select="delete_selected"]');
+            if (deleteButton) {
+                deleteButton.addEventListener('click', function(e){
+                    ModalAlert.fire({
+                        text: "Do you want to delete the selected item/s? This action is irreversible",
+                        icon: "warning",
+                        confirmButtonText: "Delete",
+                        cancelButtonText: 'Cancel',
+                        customClass: {
+                            confirmButton: "btn btn-danger",
+                            cancelButton: 'btn btn-secondary'
+                        }
+                    }).then((result) => {
+                        if (result.isConfirmed){
+                            let hasError = false;
+                            let deleted = 0;
+                            let index = 0;
+                            let errDivEl = $('#errorMsg');
+                            let errTxtEl = $('#errorTxt');
+                            errDivEl.addClass("d-none");
+                            let selectedRowsIdx = [];
+                            dt.rows({ selected: true, search: 'applied' }).every(function (rowIdx, tableLoop, rowLoop){
+                                selectedRowsIdx.push(rowIdx);
+                            });
+                            if (selectedRowsIdx.length == 0){
+                                return;
+                            }
+                            $('#loading_message').text("");
+                            KTApp.showPageLoading();
+
+                            function deleteSelected() {
+                                if (index >= selectedRowsIdx.length || hasError){
+                                    KTApp.hidePageLoading();
+                                    if (!hasError){
+                                        location.reload();
+                                    }
+                                    return;
+                                }
+                                let meta = dt.row(selectedRowsIdx[index]).data()['meta'];
+                                let attrs = getDeleteReqAttrs(meta);
+                                axios.delete(attrs.path,{
+                                    timeout: attrs.reqTimeout,
+                                    headers: {
+                                        'X-CSRF-TOKEN': '{{.CSRFToken}}'
+                                    },
+                                    validateStatus: function (status) {
+                                        return status == 200;
+                                    }
+                                }).then(function(response){
+                                    index++;
+                                    deleted++;
+                                    deleteSelected();
+                                }).catch(function(error){
+                                    index++;
+                                    hasError = true;
+                                    let errorMessage = "Unable to delete the selected item/s";
+                                    if (deleted > 0){
+                                        errorMessage = "Not all the selected items have been deleted, please reload the page";
+                                    }
+                                    if (error && error.response) {
+                                        if (error.response.data.message) {
+                                            errorMessage = error.response.data.message;
+                                        }
+                                        if (error.response.data.error) {
+                                            errorMessage += ": " + error.response.data.error;
+                                        }
+                                    }
+                                    errTxtEl.text(errorMessage);
+                                    errDivEl.removeClass("d-none");
+                                    deleteSelected();
+                                });
+                            }
+
+                            deleteSelected();
+                        }
+                    });
+                });
+            }
+
+            $('#select_checkbox').on("click", function(){
+                let targets = document.querySelectorAll('#file_manager_list_body .form-check-input');
+                if (!targets){
+                    return;
+                }
+                dt.rows().deselect();
+                let isChecked = $(this).is(':checked');
+                if (isChecked){
+                    dt.rows({page: 'current'}).select();
+                }
+                KTUtil.each(targets, function (target) {
+                    if (target){
+                        target.checked = isChecked;
+                    }
+                });
+                toggleToolbars();
+            });
+
+            toggleToolbars();
+        }
+
+        var toggleToolbars = function () {
+            let pageSelected = dt.rows({ selected: true, page: 'current' }).count();
+            let totalSelected = dt.rows({ selected: true , search: 'applied'}).count();
+            handleToogleToolbar(pageSelected, totalSelected);
+        }
+
+        return {
+            init: function () {
+                initLightbox();
+                initDatatable();
+                handleSearchDatatable();
+                initToggleToolbar();
+            }
+        }
+    }();
 
     function getNameFromMeta(meta) {
         return meta.split('_').slice(1).join('_');
@@ -690,751 +925,734 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
         return meta.split('_')[0];
     }
 
-    function deleteAction() {
-        let table = $('#dataTable').DataTable();
-        table.button('delete:name').enable(false);
+    //{{- if not .ShareUploadBaseURL}}
+    function onDirBrowserClick(dirPath) {
+        KTDatatablesFoldersExplorer.init('{{.DirsURL}}?dirtree=1&path='+dirPath, dirPath);
+    }
 
-        let selectedItems = table.column(0).checkboxes.selected()
+    function moveOrCopyItem(meta) {
+        $('#errorMsg').addClass("d-none");
+        let decodedMeta = UnicodeDecodeB64(meta);
+        $('#move_copy_source').val(meta);
+        $('#move_copy_name').val(getNameFromMeta(decodedMeta));
+        $('#modal_move_or_copy').modal('show');
+        KTDatatablesFoldersExplorer.init('{{.DirsURL}}?dirtree=1&path={{.CurrentDir}}', '{{.CurrentDir}}');
+    }
+
+    function doCopy() {
+        let meta = UnicodeDecodeB64($('#move_copy_source').val());
+        let targetName = $("#move_copy_name").val();
+        let targetDir = $("#move_copy_folder").val();
+        if (targetDir != "/") {
+            targetDir = targetDir.endsWith('/') ? targetDir.slice(0, -1) : targetDir;
+        }
+        if (targetDir.trim() == ""){
+            targetDir = "{{.CurrentDir}}";
+        } else {
+            targetDir = encodeURIComponent(targetDir);
+        }
+        let path = '{{.FileActionsURL}}/copy';
+        path+='?path={{.CurrentDir}}'+encodeURIComponent("/"+getNameFromMeta(meta))+'&target='+targetDir+encodeURIComponent("/"+targetName);
+
+        $('#loading_message').text("");
+        KTApp.showPageLoading();
+
+        axios.post(path, null, {
+            timeout: 180000,
+            headers: {
+                'X-CSRF-TOKEN': '{{.CSRFToken}}'
+            },
+            validateStatus: function (status) {
+                return status == 200;
+            }
+        }).then(function (response) {
+            location.reload();
+        }).catch(function (error) {
+            KTApp.hidePageLoading();
+            let errDivEl = $('#errorMsg');
+            let errTxtEl = $('#errorTxt');
+            let errorMessage = "Error copying item";
+            if (error && error.response) {
+                if (error.response.data.message) {
+                    errorMessage = error.response.data.message;
+                }
+                if (error.response.data.error) {
+                    errorMessage += ": " + error.response.data.error;
+                }
+            }
+            errTxtEl.text(errorMessage);
+            errDivEl.removeClass("d-none");
+        });
+    }
+
+    function doMove() {
+        let meta = UnicodeDecodeB64($('#move_copy_source').val());
+        let targetName = $("#move_copy_name").val();
+        let targetDir = $("#move_copy_folder").val();
+        if (targetDir != "/") {
+            targetDir = targetDir.endsWith('/') ? targetDir.slice(0, -1) : targetDir;
+        }
+        if (targetDir.trim() == ""){
+            targetDir = "{{.CurrentDir}}";
+        } else {
+            targetDir = encodeURIComponent(targetDir);
+        }
+        let path = '{{.FileActionsURL}}/move';
+        path+='?path={{.CurrentDir}}'+encodeURIComponent("/"+getNameFromMeta(meta))+'&target='+targetDir+encodeURIComponent("/"+targetName);
+
+        $('#loading_message').text("");
+        KTApp.showPageLoading();
+
+        axios.post(path, null, {
+            timeout: 180000,
+            headers: {
+                'X-CSRF-TOKEN': '{{.CSRFToken}}'
+            },
+            validateStatus: function (status) {
+                return status == 200;
+            }
+        }).then(function (response) {
+            location.reload();
+        }).catch(function (error) {
+            KTApp.hidePageLoading();
+            let errDivEl = $('#errorMsg');
+            let errTxtEl = $('#errorTxt');
+            let errorMessage = "Error copying item";
+            if (error && error.response) {
+                if (error.response.data.message) {
+                    errorMessage = error.response.data.message;
+                }
+                if (error.response.data.error) {
+                    errorMessage += ": " + error.response.data.error;
+                }
+            }
+            errTxtEl.text(errorMessage);
+            errDivEl.removeClass("d-none");
+        });
+    }
+
+    function getDeleteReqAttrs(meta) {
+        let path;
+        let reqTimeout = 15000;
+        let itemType = getTypeFromMeta(meta);
+        let itemName = getNameFromMeta(meta);
+        if (itemType == "1"){
+            path = '{{.DirsURL}}';
+            reqTimeout = 120000
+        } else {
+            path = '{{.FilesURL}}';
+        }
+        path+='?path={{.CurrentDir}}'+encodeURIComponent("/"+itemName);
+
+        return { path, reqTimeout}
+    }
+
+    function deleteItem(meta) {
+        let errDivEl = $('#errorMsg');
+        let errTxtEl = $('#errorTxt');
+        errDivEl.addClass("d-none");
+        meta = UnicodeDecodeB64(meta);
+        let itemName = getNameFromMeta(meta);
+
+        ModalAlert.fire({
+            text: `Do you want to delete "${itemName}"? This action is irreversible`,
+            icon: "warning",
+            confirmButtonText: "Delete",
+            cancelButtonText: 'Cancel',
+            customClass: {
+                confirmButton: "btn btn-danger",
+                cancelButton: 'btn btn-secondary'
+            }
+        }).then((result) => {
+            if (result.isConfirmed){
+                $('#loading_message').text("");
+                KTApp.showPageLoading();
+                let attrs = getDeleteReqAttrs(meta);
+
+                axios.delete(attrs.path, {
+                    timeout: attrs.reqTimeout,
+                    headers: {
+                        'X-CSRF-TOKEN': '{{.CSRFToken}}'
+                    },
+                    validateStatus: function (status) {
+                        return status == 200;
+                    }
+                }).then(function(response){
+                    location.reload();
+                }).catch(function(error){
+                    KTApp.hidePageLoading();
+                    let errorMessage = `Unable to delete "${itemName}"`;
+                    if (error && error.response) {
+                        if (error.response.data.message) {
+                            errorMessage = error.response.data.message;
+                        }
+                        if (error.response.data.error) {
+                            errorMessage += ": " + error.response.data.error;
+                        }
+                    }
+                    errTxtEl.text(errorMessage);
+                    errDivEl.removeClass("d-none");
+                });
+            }
+        });
+    }
+
+    function shareItem(meta) {
+        meta = UnicodeDecodeB64(meta);
+        let filesArray = [];
+        filesArray.push(getNameFromMeta(meta));
+        let files = encodeURIComponent(JSON.stringify(filesArray));
+        let shareURL = '{{.ShareURL}}';
+        let currentDir = '{{.CurrentDir}}';
+        let ts = new Date().getTime().toString();
+        window.open(`${shareURL}?path=${currentDir}&files=${files}&_=${ts}`,'_blank');
+    }
+
+    function renameItem(meta) {
+        $('#errorMsg').addClass("d-none");
+        let decodedMeta = UnicodeDecodeB64(meta);
+        let oldName = getNameFromMeta(decodedMeta);
+        $('#rename_old_name').val(meta);
+        $('#rename_new_name').val(oldName);
+        $('#rename_title').text(`Rename "${oldName}"`);
+        $('#modal_rename').modal('show');
+    }
+
+    function doRename() {
+        let decodedMeta = UnicodeDecodeB64($('#rename_old_name').val());
+        let oldName = getNameFromMeta(decodedMeta);
+        let newName = $('#rename_new_name').val();
+        let errDivEl = $('#errorMsg');
+        let errTxtEl = $('#errorTxt');
+        if (!newName){
+            errTxtEl.text("New name is required");
+            errDivEl.removeClass("d-none");
+            return;
+        }
+        if (newName == oldName){
+            errTxtEl.text("The new name must be different from the current name");
+            errDivEl.removeClass("d-none");
+            return;
+        }
+        let path = '{{.FileActionsURL}}/move';
+        path+='?path={{.CurrentDir}}'+encodeURIComponent("/"+oldName)+'&target={{.CurrentDir}}'+encodeURIComponent("/"+newName);
+        axios.post(path, null, {
+            timeout: 15000,
+            headers: {
+                'X-CSRF-TOKEN': '{{.CSRFToken}}'
+            },
+            validateStatus: function (status) {
+                return status == 200;
+            }
+        }).then(function (response) {
+            location.reload();
+        }).catch(function (error) {
+            let errorMessage = `Unable to rename "${oldName}"`;
+            if (error && error.response) {
+                if (error.response.data.message) {
+                    errorMessage = error.response.data.message;
+                }
+                if (error.response.data.error) {
+                    errorMessage += ": " + error.response.data.error;
+                }
+            }
+            errTxtEl.text(errorMessage);
+            errDivEl.removeClass("d-none");
+        });
+    }
+
+    function showCreateNewFolder(sender) {
+        if (sender == 0) {
+            $('#file_manager_new_folder').removeClass("d-none");
+            $('#errorMsg').addClass("d-none");
+            let el = $('#file_manager_new_folder_input');
+            el.val("");
+            el.focus();
+            return;
+        }
+        $('#dirsbrowser_new_folder').removeClass("d-none");
+        $('#errorModalMsg').addClass("d-none");
+        let el = $('#dirsbrowser_new_folder_input');
+        el.val("");
+        el.focus();
+    }
+
+    function hideCreateNewFolder(sender) {
+        if (sender == 0){
+            $('#file_manager_new_folder').addClass("d-none");
+        } else {
+            $('#dirsbrowser_new_folder').addClass("d-none");
+        }
+    }
+
+    function createNewFolder() {
+        let errDivEl = $('#errorMsg');
+        let errTxtEl = $('#errorTxt');
+        let dirName = replaceSlash($("#file_manager_new_folder_input").val());
+        let submitButton  = document.querySelector('#file_manager_add_folder');
+        let canceButton = document.querySelector('#file_manager_cancel_folder');
+        errDivEl.addClass("d-none");
+        if (!dirName){
+            errTxtEl.text("Folder name is required");
+            errDivEl.removeClass("d-none");
+            return;
+        }
+
+        let path = '{{.DirsURL}}?path={{.CurrentDir}}' + encodeURIComponent("/"+dirName);
+		submitButton.setAttribute('data-kt-indicator', 'on');
+		submitButton.disabled = true;
+        canceButton.disabled = true;
+
+        axios.post(path, null, {
+            timeout: 15000,
+            headers: {
+                'X-CSRF-TOKEN': '{{.CSRFToken}}'
+            },
+            validateStatus: function (status) {
+                return status == 201;
+            }
+            }).then(function (response) {
+                location.reload();
+            }).catch(function (error) {
+                let errorMessage = "Unable to create the new folder";
+                if (error && error.response) {
+                    if (error.response.data.message) {
+                        errorMessage = error.response.data.message;
+                    }
+                    if (error.response.data.error) {
+                        errorMessage += ": " + error.response.data.error;
+                    }
+                }
+                errTxtEl.text(errorMessage);
+                errDivEl.removeClass("d-none");
+                submitButton.removeAttribute('data-kt-indicator');
+		        submitButton.disabled = false;
+                canceButton.disabled = false;
+            });
+    }
+    //{{- end}}
+
+    var player;
+    var playerKeepAlive;
+
+    function uploadFiles(files) {
+        keepAlive();
+        let keepAliveTimer = setInterval(keepAlive, 300000);
+
         let has_errors = false;
         let index = 0;
         let success = 0;
-        spinnerDone = false;
+        $('#errorMsg').addClass("d-none");
+        $('#loading_message').text("");
+        KTApp.showPageLoading();
 
-        $('#deleteModal').modal('hide');
-        $('#spinnerModal').modal('show');
-        $('#errorMsg').hide();
-
-        function deleteItem() {
-            if (index >= selectedItems.length || has_errors){
-                $('#spinnerModal').modal('hide');
-                spinnerDone = true;
-                if (!has_errors){
+        function uploadFile() {
+            if (index >= files.length || has_errors) {
+                //console.log("upload done, index: "+index+" has errors: "+has_errors+" ok: "+success);
+                clearInterval(keepAliveTimer);
+                KTApp.hidePageLoading();
+                if (!has_errors) {
                     location.reload();
-                } else {
-                    table.button('delete:name').enable(true);
                 }
                 return;
             }
-            let selected = selectedItems[index];
-            let itemType = getTypeFromMeta(selected);
-            let itemName = getNameFromMeta(selected);
-            let path;
-            let reqTimeout = 15000;
-            if (itemType == "1"){
-                path = '{{.DirsURL}}';
-                reqTimeout = 120000
-            } else {
-                path = '{{.FilesURL}}';
-            }
-            path+='?path={{.CurrentDir}}'+encodeURIComponent("/"+itemName);
 
-            $.ajax({
-                url: path,
-                type: 'DELETE',
-                dataType: 'json',
-                headers: { 'X-CSRF-TOKEN': '{{.CSRFToken}}' },
-                timeout: reqTimeout,
-                success: function (result) {
-                    index++;
-                    success++;
-                    deleteItem();
+            let f = files[index];
+            let uploadPath;
+            //{{- if .ShareUploadBaseURL}}
+            uploadPath = '{{.ShareUploadBaseURL}}' + fixedEncodeURIComponent("/"+escapeHTML(f.name));
+            //{{- else}}
+            uploadPath = '{{.FileURL}}?path={{.CurrentDir}}' + encodeURIComponent("/" + f.name);
+            //{{- end}}
+            let lastModified;
+            try {
+                lastModified = f.lastModified;
+            } catch (e) {
+                console.log("unable to get last modified time from file: " + e.message);
+                lastModified = "";
+            }
+
+            let uploadTxt = f.name;
+            if (files.length > 1){
+                uploadTxt = `Upload ${index+1}/${files.length}: ${uploadTxt}`;
+            }
+
+            $('#loading_message').text(uploadTxt);
+
+            axios.post(uploadPath, f, {
+                headers: {
+                    'X-SFTPGO-MTIME': lastModified,
+                    'X-CSRF-TOKEN': '{{.CSRFToken}}'
                 },
-                error: function ($xhr, textStatus, errorThrown) {
-                    index++;
-                    has_errors = true;
-                    let txt = "Unable to delete the selected item/s";
-                    if (success > 0){
-                        txt = "Not all the selected items have been deleted, please reload the page";
+                onUploadProgress: function (progressEvent) {
+                    if (!progressEvent.total){
+                        return;
                     }
-                    if ($xhr) {
-                        let json = $xhr.responseJSON;
-                        if (json) {
-                            if (json.message) {
-                                txt = json.message;
-                            }
-                            if (json.error) {
-                                txt += ": " + json.error;
-                            }
-                        }
+                    const percentage = Math.round((100 * progressEvent.loaded) / progressEvent.total);
+                    if (percentage > 0 && percentage < 100){
+                        $('#loading_message').text(`${uploadTxt} ${percentage}%`);
                     }
-                    $('#errorTxt').text(txt);
-                    $('#errorMsg').show();
-                    deleteItem();
+                },
+                validateStatus: function (status) {
+                    return status == 201;
                 }
+            }).then(function (response) {
+                index++;
+                success++;
+                uploadFile();
+            }).catch(function (error) {
+                let errorMessage = "Error uploading files";
+                if (error && error.response) {
+                    if (error.response.data.message) {
+                        errorMessage = error.response.data.message;
+                    }
+                    if (error.response.data.error) {
+                        errorMessage += ": " + error.response.data.error;
+                    }
+                }
+                index++;
+                has_errors = true;
+                $('#errorTxt').text(errorMessage);
+                $('#errorMsg').removeClass("d-none");
+                uploadFile();
             });
         }
 
-        deleteItem();
+        uploadFile();
     }
 
-    function keepAlive() {
-        $.ajax({
-            url: '{{.ProfileURL}}',
-            timeout: 15000
+    function openVideoPlayer(name, url, videoType){
+        if (!player){
+            player = videojs('video_player', {
+                controls: true,
+                autoplay: false,
+                preload: 'auto'
+            });
+        }
+        $("#video_title").text(UnicodeDecodeB64(name));
+        $('#modal_video_player').modal('show');
+        player.src({
+            type: videoType,
+            src: url
         });
+        keepAlive();
+        playerKeepAlive = setInterval(keepAlive, 300000);
     }
 
-    const isDirectoryEntry = item => isEntry(item) && (getAsEntry(item) || {}).isDirectory;
-    const isEntry = item => 'webkitGetAsEntry' in item;
-    const getAsEntry = item => item.webkitGetAsEntry();
+    // On document ready
+    KTUtil.onDOMContentLoaded(function () {
+        KTDatatablesServerSide.init();
 
-    $(document).ready(function () {
-        player = videojs('video_player', {
-            controls: true,
-            autoplay: false,
-            preload: 'auto'
+        var dropzone =  new Dropzone("#upload_files", {
+            url: "{{.FilesURL}}?path={{.CurrentDir}}",
+            paramName: "filenames",
+            maxFiles: 250,
+            maxFilesize: null,
+            autoQueue: false,
+            addRemoveLinks: true,
+            autoProcessQueue: false,
+            filesizeBase: 1000,
+            init: function() {
+                var dropzone = this;
+                $("#upload_files_button").click(function(){
+                   uploadFiles(dropzone.getAcceptedFiles());
+                });
+            }
         });
-        $('#videoModal').on('hide.bs.modal', function () {
+
+        dropzone.on("addedfile", file => {
+            file.previewElement.querySelector(".dz-progress").style.display = 'none';
+        });
+
+        $('#modal_video_player').on('hide.bs.modal', function () {
             player.pause();
             player.reset();
-            if (playerKeepAlive != null){
+            if (playerKeepAlive != null) {
                 clearInterval(playerKeepAlive);
+                playerKeepAlive = null;
             }
         });
 
-        $('#spinnerModal').on('shown.bs.modal', function () {
-            if (spinnerDone){
-                $('#spinnerModal').modal('hide');
-            }
+        //{{- if not .ShareUploadBaseURL}}
+        $('#modal_rename').on('shown.bs.modal', function () {
+            let newNameEl = $('#rename_new_name');
+            newNameEl.focus();
+            newNameEl.select();
         });
-
-        {{if .CanAddFiles}}
-        FilePond.create(document.getElementById("files_name"),{
-            allowMultiple: true,
-            name: 'filenames',
-            maxFiles: 30,
-            credits: false,
-            required: true,
-            onwarning: function(error){
-                if (error.code == 0){
-                    $('#uploadErrorTxt').text('You can upload a maximum of 30 files');
-                    $('#uploadErrorMsg').show();
-                    setTimeout(function () {
-                        $('#uploadErrorMsg').hide();
-                        }, 10000);
-                }
-            },
-            beforeAddFile: (fileItem) => new Promise(resolve => {
-                let num = 0;
-                FilePond.find(document.getElementById("files_name")).getFiles().forEach(function(val){
-                    if (val.filename == fileItem.filename){
-                        num++;
-                    }
-                });
-                resolve(num == 1);
-            })
-        });
-
-        $('#tableContainer').on("dragover", function(ev){
-            ev.preventDefault();
-            $('#tableContainer').css('opacity','0.5');
-        });
-
-        $('#tableContainer').on("dragend dragleave", function(ev){
-            ev.preventDefault();
-            $('#tableContainer').css('opacity','1');
-        });
-
-        $('#tableContainer').on("drop", function(ev){
-            ev.preventDefault();
-            $('#tableContainer').css('opacity','1');
-            let filesDropped = false;
-
-            if (ev.originalEvent.dataTransfer.items) {
-                [...ev.originalEvent.dataTransfer.items].forEach((item, i) => {
-                    if (item.kind === 'file') {
-                        // if this is a directory just open the upload dialog
-                        if (!isDirectoryEntry(item)){
-                            FilePond.find(document.getElementById("files_name")).addFile(item.getAsFile());
-                        }
-                        filesDropped = true;
-                    }
-                });
-            } else {
-                [...ev.originalEvent.dataTransfer.files].forEach((file, i) => {
-                    FilePond.find(document.getElementById("files_name")).addFile(file);
-                    filesDropped = true;
-                });
-            }
-
-            if (filesDropped && !$('#uploadFilesModal').hasClass('show')){
-                $('#uploadFilesModal').modal('show');
-            }
-        });
-        {{end}}
-
-        $("#create_dir_form").submit(function (event) {
-            event.preventDefault();
-            $('#createDirModal').modal('hide');
-            $('#errorMsg').hide();
-            let dirName = replaceSlash($("#directory_name").val());
-            let path = '{{.DirsURL}}?path={{.CurrentDir}}' + encodeURIComponent("/"+dirName);
-            $.ajax({
-                url: path,
-                type: 'POST',
-                dataType: 'json',
-                headers: { 'X-CSRF-TOKEN': '{{.CSRFToken}}' },
-                timeout: 15000,
-                success: function (result) {
-                    location.reload();
-                },
-                error: function ($xhr, textStatus, errorThrown) {
-                    let txt = "Unable to create the requested directory";
-                    if ($xhr) {
-                        let json = $xhr.responseJSON;
-                        if (json) {
-                            if (json.message) {
-                                txt = json.message;
-                            }
-                            if (json.error) {
-                                txt += ": " + json.error;
-                            }
-                        }
-                    }
-                    $('#errorTxt').text(txt);
-                    $('#errorMsg').show();
-                }
-            });
-        });
-
-        $("#upload_files_form").submit(function (event){
-            event.preventDefault();
-            keepAlive();
-            var keepAliveTimer = setInterval(keepAlive, 300000);
-
-            var files = FilePond.find(document.getElementById("files_name")).getFiles();
-            var has_errors = false;
-            var index = 0;
-            var success = 0;
-            spinnerDone = false;
-
-            $('#uploadFilesModal').modal('hide');
-            $('#spinnerModal').modal('show');
-            $('#errorMsg').hide();
-
-            function uploadFile() {
-                if (index >= files.length || has_errors){
-                    //console.log("upload done, index: "+index+" has errors: "+has_errors+" ok: "+success);
-                    clearInterval(keepAliveTimer);
-                    $('#spinnerModal').modal('hide');
-                    spinnerDone = true;
-                    if (!has_errors){
-                        location.reload();
-                    }
-                    return;
-                }
-
-                async function saveFile() {
-                    //console.log("save file, index: "+index);
-                    let errorMessage = "Error uploading files";
-                    let response;
-                    try {
-                        let f = files[index].file;
-                        let uploadPath = '{{.FileURL}}?path={{.CurrentDir}}'+encodeURIComponent("/"+f.name);
-                        let lastModified;
-                        try {
-                            lastModified = f.lastModified;
-                        } catch (e) {
-                            console.log("unable to get last modified time from file: "+e.message);
-                            lastModified = "";
-                        }
-                        response = await fetch(uploadPath, {
-                            method: 'POST',
-                            headers: {
-                                'X-SFTPGO-MTIME': lastModified,
-                                'X-CSRF-TOKEN': '{{.CSRFToken}}'
-                            },
-                            credentials: 'same-origin',
-                            redirect: 'error',
-                            body: f
-                        });
-                    } catch (e){
-                        throw Error(errorMessage+": " +e.message);
-                    }
-                    if (response.status == 201){
-                        index++;
-                        success++;
-                        uploadFile();
-                    } else {
-                        let jsonResponse;
-                        try {
-                            jsonResponse = await response.json();
-                        } catch(e){
-                            throw Error(errorMessage);
-                        }
-                        if (jsonResponse.message) {
-                            errorMessage = jsonResponse.message;
-                        }
-                        if (jsonResponse.error) {
-                            errorMessage += ": " + jsonResponse.error;
-                        }
-                        throw Error(errorMessage);
-                    }
-                }
-
-                saveFile().catch(function(error){
-                    index++;
-                    has_errors = true;
-                    $('#errorTxt').text(error.message);
-                    $('#errorMsg').show();
-                    uploadFile();
-                });
-            }
-
-            uploadFile();
-        });
-
-        $("#rename_form").submit(function (event){
-            event.preventDefault();
-            let table = $('#dataTable').DataTable();
-            table.button('rename:name').enable(false);
-            let selected = table.column(0).checkboxes.selected()[0];
-            let itemName = getNameFromMeta(selected);
-            let targetName = replaceSlash($("#rename_new_name").val());
-            let targetDir = $("#rename_new_dir").val();
-            if (targetDir != "/") {
-                targetDir = targetDir.endsWith('/') ? targetDir.slice(0, -1) : targetDir;
-            }
-            if (targetDir.trim() == ""){
-                targetDir = "{{.CurrentDir}}";
-            } else {
-                targetDir = encodeURIComponent(targetDir);
-            }
-            let path = '{{.FileActionsURL}}/move';
-            path+='?path={{.CurrentDir}}'+encodeURIComponent("/"+itemName)+'&target='+targetDir+encodeURIComponent("/"+targetName);
-            $('#renameModal').modal('hide');
-            $('#errorMsg').hide();
-
-            $.ajax({
-                url: path,
-                type: 'POST',
-                dataType: 'json',
-                headers: { 'X-CSRF-TOKEN': '{{.CSRFToken}}' },
-                timeout: 15000,
-                success: function (result) {
-                    location.reload();
-                },
-                error: function ($xhr, textStatus, errorThrown) {
-                    let txt = "Error renaming item";
-                    if ($xhr) {
-                        let json = $xhr.responseJSON;
-                        if (json) {
-                            if (json.message) {
-                                txt = json.message;
-                            }
-                            if (json.error) {
-                                txt += ": " + json.error;
-                            }
-                        }
-                    }
-                    $('#errorTxt').text(txt);
-                    $('#errorMsg').show();
-                    let selectedItems = table.column(0).checkboxes.selected().length;
-                    table.button('rename:name').enable(selectedItems == 1);
-                }
-            });
-        });
-
-        $("#copy_form").submit(function (event){
-            event.preventDefault();
-            let table = $('#dataTable').DataTable();
-            table.button('copy:name').enable(false);
-            let selected = table.column(0).checkboxes.selected()[0];
-            let itemName = getNameFromMeta(selected);
-            let targetName = $("#copy_new_name").val();
-            let targetDir = $("#copy_new_dir").val();
-            if (targetDir != "/") {
-                targetDir = targetDir.endsWith('/') ? targetDir.slice(0, -1) : targetDir;
-            }
-            if (targetDir.trim() == ""){
-                targetDir = "{{.CurrentDir}}";
-            } else {
-                targetDir = encodeURIComponent(targetDir);
-            }
-            let path = '{{.FileActionsURL}}/copy';
-            path+='?path={{.CurrentDir}}'+encodeURIComponent("/"+itemName)+'&target='+targetDir+encodeURIComponent("/"+targetName);
-
-            spinnerDone = false;
-            $('#copyModal').modal('hide');
-            $('#spinnerModal').modal('show');
-            $('#errorMsg').hide();
-
-            $.ajax({
-                url: path,
-                type: 'POST',
-                dataType: 'json',
-                headers: { 'X-CSRF-TOKEN': '{{.CSRFToken}}' },
-                timeout: 120000,
-                success: function (result) {
-                    $('#spinnerModal').modal('hide');
-                    spinnerDone = true;
-                    location.reload();
-                },
-                error: function ($xhr, textStatus, errorThrown) {
-                    let txt = "Error copying item";
-                    if ($xhr) {
-                        let json = $xhr.responseJSON;
-                        if (json) {
-                            if (json.message) {
-                                txt = json.message;
-                            }
-                            if (json.error) {
-                                txt += ": " + json.error;
-                            }
-                        }
-                    }
-                    $('#errorTxt').text(txt);
-                    $('#errorMsg').show();
-                    $('#spinnerModal').modal('hide');
-                    spinnerDone = true;
-                    let selectedItems = table.column(0).checkboxes.selected().length;
-                    table.button('copy:name').enable(selectedItems == 1);
-                }
-            });
-        });
-
-        $.fn.dataTable.ext.buttons.refresh = {
-            text: '<i class="fas fa-sync-alt"></i>',
-            name: 'refresh',
-            titleAttr: "Refresh",
-            action: function (e, dt, node, config) {
-                location.reload();
-            }
-        };
-
-        $.fn.dataTable.ext.buttons.download = {
-            text: '<i class="fas fa-download"></i>',
-            name: 'download',
-            titleAttr: "Download Zip",
-            action: function (e, dt, node, config) {
-                let filesArray = [];
-                let selected = dt.column(0).checkboxes.selected();
-                for (i = 0; i < selected.length; i++) {
-                    filesArray.push(getNameFromMeta(selected[i]));
-                }
-                let files = encodeURIComponent(JSON.stringify(filesArray));
-                let downloadURL = '{{.DownloadURL}}';
-                let currentDir = '{{.CurrentDir}}';
-                let ts = new Date().getTime().toString();
-                window.open(`${downloadURL}?path=${currentDir}&files=${files}&_=${ts}`);
-            },
-            enabled: false
-        };
-
-        $.fn.dataTable.ext.buttons.addFiles = {
-            text: '<i class="fas fa-file-upload"></i>',
-            name: 'addFiles',
-            titleAttr: "Upload files",
-            action: function (e, dt, node, config) {
-                //FilePond.find(document.getElementById("files_name")).removeFiles();
-                $('#uploadFilesModal').modal('show');
-            },
-            enabled: true
-        };
-
-        $.fn.dataTable.ext.buttons.addDirectory = {
-            text: '<i class="fas fa-folder-plus"></i>',
-            name: 'addDirectory',
-            titleAttr: "Add directory",
-            action: function (e, dt, node, config) {
-                $("#directory_name").val("");
-                $('#createDirModal').modal('show');
-            },
-            enabled: true
-        };
-
-        $.fn.dataTable.ext.buttons.rename = {
-            text: '<i class="fas fa-pen"></i>',
-            name: 'rename',
-            titleAttr: "Rename",
-            action: function (e, dt, node, config) {
-                let selected = table.column(0).checkboxes.selected()[0];
-                let itemName = getNameFromMeta(selected);
-                $("#rename_old_name").val(itemName);
-                $("#rename_new_dir").val(decodeURIComponent("{{.CurrentDir}}".replace(/\+/g, '%20')));
-                $("#rename_new_name").val("");
-                $('#renameModal').modal('show');
-            },
-            enabled: false
-        };
-
-        $.fn.dataTable.ext.buttons.copy = {
-            text: '<i class="fas fa-copy"></i>',
-            name: 'copy',
-            titleAttr: "Copy",
-            action: function (e, dt, node, config) {
-                let selected = table.column(0).checkboxes.selected()[0];
-                let itemName = getNameFromMeta(selected);
-                $("#copy_old_name").val(itemName);
-                $("#copy_new_dir").val(decodeURIComponent("{{.CurrentDir}}".replace(/\+/g, '%20')));
-                $("#copy_new_name").val("");
-                $('#copyModal').modal('show');
-            },
-            enabled: false
-        };
-
-        $.fn.dataTable.ext.buttons.delete = {
-            text: '<i class="fas fa-trash"></i>',
-            name: 'delete',
-            titleAttr: "Delete",
-            action: function (e, dt, node, config) {
-                $('#deleteModal').modal('show');
-            },
-            enabled: false
-        };
-
-        $.fn.dataTable.ext.buttons.share = {
-            text: '<i class="fas fa-share-alt"></i>',
-            name: 'share',
-            titleAttr: "Share",
-            action: function (e, dt, node, config) {
-                let filesArray = [];
-                let selected = dt.column(0).checkboxes.selected();
-                for (i = 0; i < selected.length; i++) {
-                    filesArray.push(getNameFromMeta(selected[i]));
-                }
-                let files = encodeURIComponent(JSON.stringify(filesArray));
-                let shareURL = '{{.ShareURL}}';
-                let currentDir = '{{.CurrentDir}}';
-                let ts = new Date().getTime().toString();
-                window.open(`${shareURL}?path=${currentDir}&files=${files}&_=${ts}`,'_blank');
-            },
-            enabled: false
-        };
-
-        let table = $('#dataTable').DataTable({
-            "ajax": {
-                "url": "{{.DirsURL}}?path={{.CurrentDir}}",
-                "dataSrc": "",
-                "error": function ($xhr, textStatus, errorThrown) {
-                    $(".dataTables_processing").hide();
-                    let txt = "Failed to get directory listing";
-                    if ($xhr) {
-                        let json = $xhr.responseJSON;
-                        if (json) {
-                            if (json.message){
-                                txt += ": " + json.message;
-                            } else {
-                                txt += ": " + json.error;
-                            }
-                        }
-                    }
-                    $('#errorMsg').hide();
-                    $('#errorTxt').text(txt);
-                    $('#errorMsg').show();
-                }
-            },
-            "deferRender": true,
-            "processing": true,
-            "lengthMenu": [ 10, 25, 50, 100, 250, 500 ],
-            "stateSave": true,
-            "stateDuration": 0,
-            "stateSaveParams": function (settings, data) {
-                data.sftpgo_dir = '{{.CurrentDir}}';
-            },
-            "stateLoadParams": function (settings, data) {
-                if (!data.sftpgo_dir || data.sftpgo_dir != '{{.CurrentDir}}'){
-                    data.start = 0;
-                    data.search.search = "";
-                }
-                data.checkboxes = [];
-            },
-            "columns": [
-                { "data": "meta" },
-                { "data": "type" },
-                {
-                    "data": "name",
-                    "render": function (data, type, row) {
-                        if (type === 'display') {
-                            let title = "";
-                            let cssClass = "";
-                            let shortened = shortenData(data, 70);
-                            data = escapeHTML(data);
-                            if (shortened != data){
-                                title = data;
-                                cssClass = "ellipsis";
-                            }
-
-                            if (row["type"] == "1") {
-                                return `<i class="fas fa-folder"></i>&nbsp;<a class="${cssClass}" href="${row['url']}" title="${title}">${shortened}</a>`;
-                            }
-                            if (row["size"] === "") {
-                                return `<i class="fas fa-external-link-alt"></i>&nbsp;<a class="${cssClass}" href="${row['url']}" title="${title}">${shortened}</a>`;
-                            }
-                            let icon = getIconForFile(data);
-                            return `<i class="${icon}"></i>&nbsp;<a class="${cssClass}" href="${row['url']}" title="${title}">${shortened}</a>`;
-                        }
-                        return data;
-                    }
-                },
-                {
-                    "data": "size",
-                    "render": function (data, type, row) {
-                        if (type === 'display') {
-                            if (data || data === 0){
-                                return fileSizeIEC(data);
-                            }
-                            return "";
-                        }
-                        return data;
-                    }
-                },
-                { "data": "last_modified" },
-                { "data": "edit_url",
-                    "render": function (data, type, row) {
-                        if (type === 'display') {
-                            let filename = escapeHTML(row["name"]);
-                            let extension = filename.slice((filename.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase();
-                            if (data){
-                                if (extension == "csv" || extension == "bat" || CodeMirror.findModeByExtension(extension) != null){
-                                    {{if .CanAddFiles}}
-                                    return `<a href="${data}"><i class="fas fa-edit"></i></a>`;
-                                    {{else}}
-                                    return `<a href="${data}"><i class="fas fa-eye"></i></a>`;
-                                    {{end}}
-                                }
-                            }
-                            if (row["type"] == "2") {
-                                switch (extension) {
-                                    case "jpeg":
-                                    case "jpg":
-                                    case "png":
-                                    case "gif":
-                                    case "webp":
-                                    case "bmp":
-                                    case "svg":
-                                    case "ico":
-                                        let title = escapeHTMLForceSafe(row["name"])
-                                        return `<a href="${row['url']}" data-lightbox="image-gallery" data-title="${title}"><i class="fas fa-eye"></i></a>`;
-                                    case "mp4":
-                                    case "mov":
-                                        var name = b64EncodeUnicode(row["name"]);
-                                        return `<a href="#" onclick="openVideoPlayer('${name}', '${row['url']}', 'video/mp4');"><i class="fas fa-eye"></i></a>`;
-                                    case "webm":
-                                        var name = b64EncodeUnicode(row["name"]);
-                                        return `<a href="#" onclick="openVideoPlayer('${name}', '${row['url']}', 'video/webm');"><i class="fas fa-eye"></i></a>`;
-                                    case "ogv":
-                                    case "ogg":
-                                        var name = b64EncodeUnicode(row["name"]);
-                                        return `<a href="#" onclick="openVideoPlayer('${name}}', '${row['url']}', 'video/ogg');"><i class="fas fa-eye"></i></a>`;
-                                    case "pdf":
-                                        if (PDFObject.supportsPDFs){
-                                            let view_url = row['url'];
-                                            view_url = view_url.replace('{{.FilesURL}}','{{.ViewPDFURL}}');
-                                            return `<a href="${view_url}" target="_blank"><i class="fas fa-eye"></i></a>`;
-                                        }
-                                }
-                            }
-                        }
-                        return "";
-                    }
-                },
-                { "data": "ext_url",
-                    "render": function (data, type, row) {
-                        {{if .HasIntegrations}}
-                        if (type === 'display') {
-                            if (data){
-                                let name = b64EncodeUnicode(escapeHTML(row["name"]));
-                                return `<a href="#" onclick="openExternalURL('${data}', '${row["ext_link"]}', '${name}');"><i class="fas fa-external-link-alt"></i></a>`;
-                            }
-                        }
-                        {{end}}
-                        return "";
-                    }
-                }
-            ],
-            "buttons": [],
-            "lengthChange": true,
-            "columnDefs": [
-                {
-                    "targets": [0],
-                    "checkboxes": {
-                        "selectCallback": function (nodes, selected) {
-                            let selectedItems = table.column(0).checkboxes.selected().length;
-                            let selectedText = "";
-                            if (selectedItems == 1) {
-                                selectedText = "1 item selected";
-                            } else if (selectedItems > 1) {
-                                selectedText = `${selectedItems} items selected`;
-                            }
-                            {{if .CanDownload}}
-                            table.button('download:name').enable(selectedItems > 0);
-                            {{end}}
-                            {{if .CanRename}}
-                            table.button('rename:name').enable(selectedItems == 1);
-                            {{end}}
-                            {{if .CanAddFiles}}
-                            table.button('copy:name').enable(selectedItems == 1);
-                            {{end}}
-                            {{if .CanDelete}}
-                            table.button('delete:name').enable(selectedItems > 0);
-                            {{end}}
-                            {{if .CanShare}}
-                            table.button('share:name').enable(selectedItems > 0);
-                            {{end}}
-                            $('#dataTable_info').find('span').remove();
-                            $("#dataTable_info").append('<span class="selected-info"><span class="selected-item">' + selectedText + '</span></span>');
-                        }
-                    },
-                    "orderable": false,
-                    "searchable": false
-                },
-                {
-                    "targets": [1],
-                    "visible": false,
-                    "searchable": false
-                },
-                {
-                    "targets": [3, 4],
-                    "searchable": false
-                },
-                {
-                    "targets": [5, 6],
-                    "orderable": false,
-                    "searchable": false
-                }
-            ],
-            "scrollX": false,
-            "scrollY": false,
-            "responsive": true,
-            "language": {
-                "loadingRecords": "",
-                "emptyTable": "No files or folders"
-            },
-            "initComplete": function (settings, json) {
-                table.button().add(0, 'refresh');
-                //table.button().add(0, 'pageLength');
-                {{if .CanShare}}
-                table.button().add(0, 'share');
-                {{end}}
-                {{if .CanDownload}}
-                table.button().add(0, 'download');
-                {{end}}
-                {{if .CanDelete}}
-                table.button().add(0, 'delete');
-                {{end}}
-                {{if .CanAddFiles}}
-                table.button().add(0, 'copy');
-                {{end}}
-                {{if .CanRename}}
-                table.button().add(0, 'rename');
-                {{end}}
-                {{if .CanCreateDirs}}
-                table.button().add(0, 'addDirectory');
-                {{end}}
-                {{if .CanAddFiles}}
-                table.button().add(0, 'addFiles');
-                {{end}}
-                table.buttons().container().appendTo('.col-md-6:eq(0)', table.table().container());
-            },
-            "orderFixed": [1, 'asc'],
-            "order": [2, 'asc']
-        });
-
-        new $.fn.dataTable.FixedHeader(table);
-        $.fn.dataTable.ext.errMode = 'none';
-
+        //{{- end}}
     });
 </script>
+{{- end}}
 
-{{end}}
+{{- define "additionalnavitems"}}
+{{- if .QuotaUsage.HasQuotaInfo}}
+<div class="d-flex align-items-center ms-2 ms-lg-3">
+    <div class="btn btn-icon btn-active-light-primary position-relative w-35px h-35px w-md-40px h-md-40px" data-kt-menu-trigger="{default:'click', lg: 'hover'}" data-kt-menu-attach="parent" data-kt-menu-placement="bottom-end">
+        <i class="ki-duotone {{if .QuotaUsage.IsQuotaLow}}ki-information-5 text-warning{{else}}ki-information-2{{end}} fs-2">
+            <span class="path1"></span>
+            <span class="path2"></span>
+            <span class="path3"></span>
+        </i>
+    </div>
+    <div class="menu menu-sub menu-sub-dropdown menu-column w-350px" data-kt-menu="true">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><span class="text-gray-700 fw-semibold fs-6">Quota usage</span></h3>
+            </div>
+            <div class="card-body p-0">
+                {{- if .QuotaUsage.HasDiskQuota}}
+                {{- $size := .QuotaUsage.GetQuotaSize}}
+                {{- $files := .QuotaUsage.GetQuotaFiles}}
+                <div class="d-flex align-items-center bg-hover-lighten py-3 px-9">
+                    <div class="symbol symbol-40px symbol-circle me-5">
+                        <span class="symbol-label {{ if .QuotaUsage.IsDiskQuotaLow }}bg-light-warning{{end}}">
+                            <i class="ki-duotone ki-external-drive {{ if .QuotaUsage.IsDiskQuotaLow }}text-warning{{end}} fs-1">
+                                <span class="path1"></span>
+                                <span class="path2"></span>
+                                <span class="path3"></span>
+                                <span class="path4"></span>
+                                <span class="path5"></span>
+                            </i>
+                        </span>
+                    </div>
+                    <div class="mb-1 pe-3 flex-grow-1">
+                        <span class="fs-6 text-dark fw-semibold">Disk quota</span>
+                        {{- if $size}}
+                        {{- $percentage := .QuotaUsage.GetQuotaSizePercentage}}
+                        <div class="{{if .QuotaUsage.IsQuotaSizeLow}}text-warning{{else}}text-gray-700{{end}} fw-semibold fs-6">Size: {{$size}}{{if gt $percentage 0}} ({{$percentage}}%){{end}}</div>
+                        {{- end}}
+                        {{- if $files}}
+                        {{- $percentage := .QuotaUsage.GetQuotaFilesPercentage}}
+                        <div class="{{if .QuotaUsage.IsQuotaFilesLow}}text-warning{{else}}text-gray-700{{end}} fw-semibold fs-6">Files: {{$files}}{{if gt $percentage 0}} ({{$percentage}}%){{end}}</div>
+                        {{- end}}
+                    </div>
+                </div>
+                {{- end}}
+                {{- if .QuotaUsage.HasTranferQuota}}
+                {{- $total := .QuotaUsage.GetTotalTransferQuota}}
+                {{- $upload := .QuotaUsage.GetUploadTransferQuota}}
+                {{- $download := .QuotaUsage.GetDownloadTransferQuota}}
+                <div class="d-flex align-items-center bg-hover-lighten py-3 px-9">
+                    <div class="symbol symbol-40px symbol-circle me-5">
+                        <span class="symbol-label {{ if .QuotaUsage.IsTransferQuotaLow }}bg-light-warning{{end}}">
+                            <i class="ki-duotone ki-arrow-right-left {{ if .QuotaUsage.IsTransferQuotaLow }}text-warning{{end}} fs-1">
+                                <span class="path1"></span>
+                                <span class="path2"></span>
+                            </i>
+                        </span>
+                    </div>
+                    <div class="mb-1 pe-3 flex-grow-1">
+                        <span class="fs-6 text-dark fw-semibold">Transfer quota</span>
+                        {{- if $total}}
+                        {{$percentage := .QuotaUsage.GetTotalTransferQuotaPercentage}}
+                        <div class="{{if .QuotaUsage.IsTotalTransferQuotaLow}}text-warning{{else}}text-gray-700{{end}} fw-semibold fs-6">Total: {{$total}}{{if gt $percentage 0}} ({{$percentage}}%){{end}}</div>
+                        {{- end}}
+                        {{- if $download}}
+                        {{$percentage := .QuotaUsage.GetDownloadTransferQuotaPercentage}}
+                        <div class="{{if .QuotaUsage.IsDownloadTransferQuotaLow}}text-warning{{else}}text-gray-700{{end}} fw-semibold fs-6">Download: {{$download}}{{if gt $percentage 0}} ({{$percentage}}%){{end}}</div>
+                        {{- end}}
+                        {{- if $upload}}
+                        {{$percentage := .QuotaUsage.GetUploadTransferQuotaPercentage}}
+                        <div class="{{if .QuotaUsage.IsUploadTransferQuotaLow}}text-warning{{else}}text-gray-700{{end}} fw-semibold fs-6">Upload: {{$upload}}{{if gt $percentage 0}} ({{$percentage}}%){{end}}</div>
+                        {{- end}}
+                    </div>
+                </div>
+                {{- end}}
+            </div>
+        </div>
+    </div>
+</div>
+{{- end}}
+{{- end}}
+
+{{- define "modals"}}
+<div class="modal fade" tabindex="-1" id="modal_upload">
+    <div class="modal-dialog modal-dialog-centered mw-600px">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h3 class="modal-title">Upload files</h3>
+                <div class="btn btn-icon btn-sm btn-active-color-primary" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="ki-duotone ki-cross fs-1"><span class="path1"></span><span class="path2"></span></i>
+                </div>
+            </div>
+            <div class="modal-body">
+                <form id="upload_files_form" action="{{.FilesURL}}?path={{.CurrentDir}}" method="POST" enctype="multipart/form-data">
+                    <div class="fv-row">
+                        <div class="dropzone" id="upload_files">
+                            <div class="dz-message needsclick align-items-center">
+                                <i class="ki-duotone ki-file-up fs-3x text-primary"><span class="path1"></span><span class="path2"></span></i>
+                                <div class="ms-4">
+                                    <h3 class="fs-5 fw-bold text-gray-900 mb-1">Drop files here or click to upload.</h3>
+                                    <!-- <span class="fs-7 fw-semibold text-gray-400">Upload up to 30 files</span> -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-light me-5" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" id="upload_files_button" class="btn btn-primary" data-bs-dismiss="modal">Submit</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" tabindex="-1" id="modal_video_player" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title">
+                    <span id="video_title"></span>
+                </h5>
+                <div class="btn btn-icon btn-sm btn-active-color-primary" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="ki-duotone ki-cross fs-1"><span class="path1"></span><span class="path2"></span></i>
+                </div>
+            </div>
+
+            <div class="modal-body">
+                <video id="video_player" class="video-js vjs-big-play-centered vjs-fluid">
+                    <p class="vjs-no-js">To view this video please enable JavaScript, and consider upgrading to a web browser that supports HTML5 video</p>
+                </video>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{- if not .ShareUploadBaseURL}}
+<div class="modal fade" tabindex="-1" id="modal_rename">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title">
+                    <span id="rename_title"></span>
+                </h5>
+                <div class="btn btn-icon btn-sm btn-active-color-primary" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="ki-duotone ki-cross fs-1"><span class="path1"></span><span class="path2"></span></i>
+                </div>
+            </div>
+
+            <div class="modal-body">
+                <input id="rename_old_name" type="text" class="d-none"/>
+                <div class="mb-10">
+                    <label for="rename_new_name" class="form-label">New name</label>
+                    <input id="rename_new_name" type="text" class="form-control"/>
+                </div>
+            </div>
+
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-secondary me-5" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal" onclick="doRename();">Submit</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" tabindex="-1" id="modal_move_or_copy">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h3 class="modal-title">
+                    Choose target folder and name
+                </h3>
+                <div class="btn btn-icon btn-sm btn-active-color-primary" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="ki-duotone ki-cross fs-1"><span class="path1"></span><span class="path2"></span></i>
+                </div>
+            </div>
+
+            <div class="modal-body">
+                <div id="errorModalMsg" class="d-none alert alert-dismissible bg-light-warning d-flex align-items-center p-5 mb-10">
+                    <i class="ki-duotone ki-information-5 fs-3x text-warning me-5"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
+                    <div class="text-gray-700 fw-bold fs-5 d-flex flex-column pe-0 pe-sm-10">
+                        <span id="errorModalTxt"></span>
+                    </div>
+                    <button type="button" class="position-absolute position-sm-relative m-2 m-sm-0 top-0 end-0 btn btn-icon btn-sm btn-active-light-primary ms-sm-auto" onclick="dismissErrorModalMsg();">
+                        <i class="ki-duotone ki-cross fs-2x text-primary"><span class="path1"></span><span class="path2"></span></i>
+                    </button>
+                </div>
+                <script type="text/javascript">
+                    function dismissErrorModalMsg(){
+                        $('#errorModalMsg').addClass("d-none");
+                    }
+                </script>
+                <div class="row">
+                    <div class="col-md-9 align-items-center d-flex flex-stack">
+                        <div class="badge badge-lg badge-light-primary">
+                            <div id="dirs_browser_nav" class="d-flex align-items-center flex-wrap">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 align-items-center d-flex justify-content-end">
+                        <button type="button" class="btn btn-flex btn-primary" onclick="showCreateNewFolder(1);">
+                            <i class="ki-duotone ki-add-folder fs-2">
+                                <span class="path1"></span>
+                                <span class="path2"></span>
+                            </i>
+                            Add
+                        </button>
+                    </div>
+                </div>
+                <div id="dirsbrowser_new_folder" class="d-flex align-items-center py-7 d-none">
+                    <span>
+                        <i class="ki-duotone ki-folder fs-2x text-primary me-4">
+                            <span class="path1"></span>
+                            <span class="path2"></span>
+                        </i>
+                    </span>
+                    <input id="dirsbrowser_new_folder_input" type="text" name="new_folder_name" placeholder="Enter the new folder name" class="form-control mw-250px me-3" />
+                    <button class="btn btn-icon btn-light-primary me-3" id="dirsbrowser_add_folder">
+                        <span class="indicator-label">
+                            <i class="ki-duotone ki-check fs-1"></i>
+                        </span>
+                        <span class="indicator-progress">
+                            <span class="spinner-border spinner-border-sm align-middle"></span>
+                        </span>
+                    </button>
+                    <button class="btn btn-icon btn-light-danger" id="dirsbrowser_cancel_folder" onclick="hideCreateNewFolder(1);">
+                        <i class="ki-duotone ki-cross fs-1">
+                            <span class="path1"></span>
+                            <span class="path2"></span>
+                        </i>
+                    </button>
+                </div>
+
+                <table id="dirsbrowser_list" class="table align-middle table-row-dashed fs-6 gy-5">
+                    <thead>
+                        <tr class="text-start text-muted fw-bold fs-7 text-uppercase gs-0">
+                            <th></th>
+                            <th class="min-w-250px">Name</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dirsbrowser_list_body" class="text-gray-600 fw-semibold">
+                    </tbody>
+                </table>
+
+                <div class="form-floating d-none">
+                    <input type="text" class="form-control form-control-solid" id="move_copy_source"/>
+                    <label for="move_copy_source">Source name</label>
+                </div>
+
+                <div class="form-floating mb-5 mt-7">
+                    <input type="text" class="form-control form-control-solid" id="move_copy_folder"/>
+                    <label for="move_copy_folder">Target folder</label>
+                </div>
+
+                <div class="form-floating">
+                    <input type="text" class="form-control form-control-solid" id="move_copy_name"/>
+                    <label for="move_copy_name">Destination name</label>
+                </div>
+
+            </div>
+            <div class="modal-footer border-0">
+                {{- if .CanAddFiles }}
+                <button type="button" class="btn btn-light-primary me-5" data-bs-dismiss="modal" onclick="doCopy();">Copy</button>
+                {{- end}}
+                {{- if .CanRename }}
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal" onclick="doMove();">Move</button>
+                {{- end}}
+            </div>
+        </div>
+    </div>
+</div>
+{{- end}}
+{{- end}}

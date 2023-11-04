@@ -1,160 +1,170 @@
 <!--
-Copyright (C) 2019-2023 Nicola Murino
+Copyright (C) 2023 Nicola Murino
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as published
-by the Free Software Foundation, version 3.
+This WebUI uses the KeenThemes Mega Bundle, a proprietary theme:
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU Affero General Public License for more details.
+https://keenthemes.com/products/templates-mega-bundle
 
-You should have received a copy of the GNU Affero General Public License
-along with this program. If not, see <https://www.gnu.org/licenses/>.
+KeenThemes HTML/CSS/JS components are allowed for use only within the
+SFTPGo product and restricted to be used in a resealable HTML template
+that can compete with KeenThemes products anyhow.
+
+This WebUI is allowed for use only within the SFTPGo product and
+therefore cannot be used in derivative works/products without an
+explicit grant from the SFTPGo Team (support@sftpgo.com).
 -->
-{{template "base" .}}
+{{- template "base" .}}
 
-{{define "title"}}{{.Title}}{{end}}
+{{- define "title"}}{{.Title}}{{- end}}
 
-{{define "page_body"}}
-<div class="row justify-content-center">
-    <div class="col-xl-5 col-lg-6 col-md-8">
-        <div class="card shadow-lg my-5">
-            <div class="card-header py-3">
-                <h6 id="default_title" class="m-0 font-weight-bold text-primary">Upload one or more files to share "{{.Share.Name}}"</h6>
-                <h6 id="success_title" class="m-0 font-weight-bold text-primary" style="display: none;">Upload completed to share "{{.Share.Name}}"</h6>
-            </div>
-            <div class="card-body">
-                <div id="errorMsg" class="alert alert-warning alert-dismissible fade show" style="display: none;" role="alert">
-                    <span id="errorTxt"></span>
-                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                      <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-                <div id="successMsg" class="card mb-4 border-left-success" style="display: none;">
-                    <div id="successTxt" class="card-body">
-                        <p>File/s uploaded successfully</p>
-                        <p>If you want to upload other files click <a href="javascript:refreshPage();">here</a></p>
+{{- define "page_body"}}
+<div class="d-flex flex-center flex-column flex-column-fluid p-10 pb-lg-20">
+    <div class="mb-12">
+        <span>
+            <img alt="Logo" src="{{.StaticURL}}{{.Branding.LogoPath}}" class="h-80px" />
+        </span>
+        <span class="text-gray-800 fs-2 fw-semibold ps-5">
+		    {{.Branding.ShortName}}
+        </span>
+    </div>
+    <div class="card shadow-sm w-lg-600px">
+        <div class="card-header bg-light">
+            <h3 class="card-title text-primary">Upload one or more files to share "{{.Share.Name}}"</h3>
+        </div>
+        <div class="card-body">
+            {{- template "errmsg" ""}}
+            <form id="upload_files_form" action="{{.UploadBasePath}}" method="POST" enctype="multipart/form-data">
+                <div class="fv-row">
+                    <div class="dropzone" id="upload_files">
+                        <div class="dz-message needsclick align-items-center">
+                            <i class="ki-duotone ki-file-up fs-3x text-primary"><span class="path1"></span><span class="path2"></span></i>
+                            <div class="ms-4">
+                                <h3 class="fs-5 fw-bold text-gray-900 mb-1">Drop files here or click to upload.</h3>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <form id="upload_files_form" action="#" method="POST" enctype="multipart/form-data">
-                    <div class="modal-body">
-                        <input type="file" class="form-control-file" id="files_name" name="filenames" required multiple>
-                    </div>
-                    <button type="submit" class="btn btn-primary float-right mt-3 px-5">Submit</button>
-                </form>
-            </div>
+                <div class="d-flex justify-content-end mt-10">
+                    <button type="button" id="upload_files_button" class="btn btn-primary">Submit</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
-{{end}}
+{{- end}}
 
-{{define "dialog"}}
-<div class="modal fade" id="spinnerModal" tabindex="-1" role="dialog" data-keyboard="false" data-backdrop="static">
-    <div class="modal-dialog modal-dialog-centered justify-content-center" role="document">
-        <span style="color: #333333;" class="fa fa-spinner fa-spin fa-3x"></span>
-    </div>
-</div>
-{{end}}
-
-{{define "extra_js"}}
+{{- define "extra_js"}}
 <script type="text/javascript">
-    var spinnerDone = false;
 
-    function refreshPage() {
-        location.reload();
+    function uploadFiles(files) {
+        let has_errors = false;
+        let index = 0;
+        let success = 0;
+        $('#errorMsg').addClass("d-none");
+        $('#loading_message').text("");
+        KTApp.showPageLoading();
+
+        function uploadFile() {
+            if (index >= files.length || has_errors) {
+                KTApp.hidePageLoading();
+                if (!has_errors) {
+                    ModalAlert.fire({
+                        text: `File/s uploaded successfully`,
+                        icon: "success",
+                        confirmButtonText: "OK",
+                        customClass: {
+                            confirmButton: 'btn btn-primary'
+                        }
+                    }).then((result) => {
+                        if (result.isConfirmed){
+                            location.reload();
+                        }
+                    });
+                }
+                return;
+            }
+
+            let f = files[index];
+            let uploadPath = '{{.UploadBasePath}}/'+fixedEncodeURIComponent(escapeHTML(f.name));
+            let lastModified;
+            try {
+                lastModified = f.lastModified;
+            } catch (e) {
+                console.log("unable to get last modified time from file: " + e.message);
+                lastModified = "";
+            }
+
+            let uploadTxt = f.name;
+            if (files.length > 1){
+                uploadTxt = `Upload ${index+1}/${files.length}: ${uploadTxt}`;
+            }
+
+            $('#loading_message').text(uploadTxt);
+
+            axios.post(uploadPath, f, {
+                headers: {
+                    'X-SFTPGO-MTIME': lastModified,
+                    'X-CSRF-TOKEN': '{{.CSRFToken}}'
+                },
+                onUploadProgress: function (progressEvent) {
+                    if (!progressEvent.total){
+                        return;
+                    }
+                    const percentage = Math.round((100 * progressEvent.loaded) / progressEvent.total);
+                    if (percentage > 0 && percentage < 100){
+                        $('#loading_message').text(`${uploadTxt} ${percentage}%`);
+                    }
+                },
+                validateStatus: function (status) {
+                    return status == 201;
+                }
+            }).then(function (response) {
+                index++;
+                success++;
+                uploadFile();
+            }).catch(function (error) {
+                let errorMessage = "Error uploading files";
+                if (error && error.response) {
+                    if (error.response.data.message) {
+                        errorMessage = error.response.data.message;
+                    }
+                    if (error.response.data.error) {
+                        errorMessage += ": " + error.response.data.error;
+                    }
+                }
+                index++;
+                has_errors = true;
+                $('#errorTxt').text(errorMessage);
+                $('#errorMsg').removeClass("d-none");
+                uploadFile();
+            });
+        }
+
+        uploadFile();
     }
 
-    $(document).ready(function () {
-        $('#spinnerModal').on('shown.bs.modal', function () {
-            if (spinnerDone){
-                $('#spinnerModal').modal('hide');
-            }
-        });
-
-        $("#upload_files_form").submit(function (event){
-            event.preventDefault();
-            let files = $("#files_name")[0].files;
-            let has_errors = false;
-            let index = 0;
-            let success = 0;
-            spinnerDone = false;
-
-            $('#spinnerModal').modal('show');
-            $('#errorMsg').hide();
-
-            function uploadFile() {
-                if (index >= files.length || has_errors){
-                    $('#spinnerModal').modal('hide');
-                    spinnerDone = true;
-                    if (!has_errors){
-                        $('#errorMsg').hide();
-                        $('#upload_files_form').hide();
-                        $('#default_title').hide();
-                        $('#success_title').show();
-                        $('#successMsg').show();
-                    }
-                    return;
-                }
-
-                async function saveFile() {
-                    let errorMessage = "Error uploading files";
-                    let response;
-                    try {
-                        let f = files[index];
-                        let uploadPath = '{{.UploadBasePath}}/'+fixedEncodeURIComponent(escapeHTML(f.name));
-                        let lastModified;
-                        try {
-                            lastModified = f.lastModified;
-                        } catch (e) {
-                            console.log("unable to get last modified time from file: "+e.message);
-                            lastModified = "";
-                        }
-                        response = await fetch(uploadPath, {
-                            method: 'POST',
-                            headers: {
-                                'X-SFTPGO-MTIME': lastModified
-                            },
-                            credentials: 'same-origin',
-                            redirect: 'error',
-                            body: f
-                        });
-                    } catch (e){
-                        throw Error(errorMessage+": " +e.message);
-                    }
-                    if (response.status == 201){
-                        index++;
-                        success++;
-                        uploadFile();
-                    } else {
-                        let jsonResponse;
-                        try {
-                            jsonResponse = await response.json();
-                        } catch(e){
-                            throw Error(errorMessage);
-                        }
-                        if (jsonResponse.message) {
-                            errorMessage = jsonResponse.message;
-                        }
-                        if (jsonResponse.error) {
-                            errorMessage += ": " + jsonResponse.error;
-                        }
-                        throw Error(errorMessage);
-                    }
-                }
-
-                saveFile().catch(function(error){
-                    index++;
-                    has_errors = true;
-                    $('#errorTxt').text(error.message);
-                    $('#errorMsg').show();
-                    uploadFile();
+    KTUtil.onDOMContentLoaded(function () {
+        var dropzone =  new Dropzone("#upload_files", {
+            url: "{{.UploadBasePath}}",
+            paramName: "filenames",
+            maxFiles: 200,
+            maxFilesize: null,
+            autoQueue: false,
+            addRemoveLinks: true,
+            autoProcessQueue: false,
+            filesizeBase: 1000,
+            init: function() {
+                var dropzone = this;
+                $("#upload_files_button").click(function(){
+                   uploadFiles(dropzone.getAcceptedFiles());
                 });
             }
+        });
 
-            uploadFile();
+        dropzone.on("addedfile", file => {
+            file.previewElement.querySelector(".dz-progress").style.display = 'none';
         });
     });
+
 </script>
-{{end}}
+{{- end}}

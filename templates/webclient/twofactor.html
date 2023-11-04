@@ -1,49 +1,67 @@
 <!--
-Copyright (C) 2019-2023 Nicola Murino
+Copyright (C) 2023 Nicola Murino
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as published
-by the Free Software Foundation, version 3.
+This WebUI uses the KeenThemes Mega Bundle, a proprietary theme:
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU Affero General Public License for more details.
+https://keenthemes.com/products/templates-mega-bundle
 
-You should have received a copy of the GNU Affero General Public License
-along with this program. If not, see <https://www.gnu.org/licenses/>.
+KeenThemes HTML/CSS/JS components are allowed for use only within the
+SFTPGo product and restricted to be used in a resealable HTML template
+that can compete with KeenThemes products anyhow.
+
+This WebUI is allowed for use only within the SFTPGo product and
+therefore cannot be used in derivative works/products without an
+explicit grant from the SFTPGo Team (support@sftpgo.com).
 -->
-{{template "baselogin" .}}
+{{- template "baselogin" .}}
 
-{{define "title"}}Two-Factor authentication{{end}}
+{{- define "title"}}Two-Factor authentication{{- end}}
 
-{{define "content"}}
-                                    {{if .Error}}
-                                    <div class="alert alert-warning alert-dismissible fade show" role="alert">
-                                        {{.Error}}
-                                        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                                            <span aria-hidden="true">&times;</span>
-                                        </button>
-                                    </div>
-                                    {{end}}
-                                    <form id="login_form" action="{{.CurrentURL}}" method="POST" autocomplete="off"
-                                        class="user-custom">
-                                        <div class="form-group">
-                                            <input type="text" class="form-control form-control-user-custom"
-                                                id="inputPasscode" name="passcode" placeholder="Authentication code" spellcheck="false" required>
-                                        </div>
-                                        <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
-                                        <button type="submit" class="btn btn-primary btn-user-custom btn-block">
-                                            Verify
-                                        </button>
-                                    </form>
-                                    <hr>
-                                    <div>
-                                        <p>Open the two-factor authentication app on your device to view your authentication code and verify your identity.</p>
-                                    </div>
-                                    <hr>
-                                    <div>
-                                        <p><strong>Having problems?</strong></p>
-                                        <p><a href="{{.RecoveryURL}}">Enter a two-factor recovery code</a></p>
-                                    </div>
-{{end}}
+{{- define "content"}}
+<form class="form w-100" id="sign_in_form" action="{{.CurrentURL}}" method="POST">
+    <div class="container mb-10">
+        <div class="row align-items-center">
+            <div class="col-5 align-items-center">
+                <img alt="Logo" src="{{.StaticURL}}{{.Branding.LogoPath}}" class="h-80px h-md-90px h-lg-100px" />
+            </div>
+            <div class="col-7">
+                <h1 class="text-dark mb-3 ms-3">
+                    {{.Branding.ShortName}}
+                </h1>
+            </div>
+        </div>
+    </div>
+    {{template "errmsg" .Error}}
+    <div class="fv-row mb-10">
+        <input class="form-control form-control-lg form-control-solid" type="text" placeholder="Authentication code" name="passcode" spellcheck="false" required />
+    </div>
+    <div class="text-center">
+        <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
+        <button type="submit" id="sign_in_submit" class="btn btn-lg btn-primary w-100 mb-5">
+            <span class="indicator-label">Verify</span>
+            <span class="indicator-progress">Please wait...
+                <span class="spinner-border spinner-border-sm align-middle ms-2"></span>
+            </span>
+        </button>
+    </div>
+</form>
+
+<div class="notice d-flex bg-light-primary rounded border-primary border border-dashed p-6 mb-5">
+    <i class="ki-duotone ki-shield-tick fs-2tx text-primary me-4">
+        <span class="path1"></span>
+        <span class="path2"></span>
+    </i>
+    <div class="d-flex flex-stack flex-grow-1 flex-wrap flex-md-nowrap">
+        <div class="mb-3 mb-md-0 fw-semibold">
+            <div class="fs-6 text-gray-700">
+                Open the two-factor authentication app on your device to view your authentication code and verify your identity.
+            </div>
+            <div class="fs-6 text-gray-800 mt-5">
+                <p class="fw-bold">Having problems?</p>
+                <p><a href="{{.RecoveryURL}}">Enter a two-factor recovery code</a></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{- end}}

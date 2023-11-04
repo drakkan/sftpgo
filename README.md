@@ -361,8 +361,15 @@ SFTPGo makes use of the third party libraries listed inside [go.mod](./go.mod).
 
 We are very grateful to all the people who contributed with ideas and/or pull requests.
 
-Thank you [ysura](https://www.ysura.com/) for granting me stable access to a test AWS S3 account.
+Thank you [ysura](https://www.ysura.com/) for granting us stable access to a test AWS S3 account.
+
+Thank you to [KeenThemes](https://keenthemes.com/) for granting us a custom license to use their amazing [Mega Bundle](https://keenthemes.com/products/templates-mega-bundle) for SFTPGo UI.
 
 ## License
 
 GNU AGPL-3.0-only
+
+The [theme](https://keenthemes.com/products/templates-mega-bundle) used in WebClient UI is proprietary, this means:
+
+- KeenThemes HTML/CSS/JS components are allowed for use only within the SFTPGo product and restricted to be used in a resealable HTML template that can compete with KeenThemes products anyhow.
+- The SFTPGo WebClient UI (HTML, CSS and JS components) based on this theme is allowed for use only within the SFTPGo product and therefore cannot be used in derivative works/products without an explicit grant from the [SFTPGo Team](mailto:support@sftpgo.com).

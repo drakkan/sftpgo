@@ -291,8 +291,14 @@ func (s *httpdServer) handleWebClientPasswordResetPost(w http.ResponseWriter, r 
 		s.renderClientForbiddenPage(w, r, err.Error())
 		return
 	}
+	newPassword := strings.TrimSpace(r.Form.Get("password"))
+	confirmPassword := strings.TrimSpace(r.Form.Get("confirm_password"))
+	if newPassword != confirmPassword {
+		s.renderClientResetPwdPage(w, r, "The two password fields do not match", ipAddr)
+		return
+	}
 	_, user, err := handleResetPassword(r, strings.TrimSpace(r.Form.Get("code")),
-		strings.TrimSpace(r.Form.Get("password")), false)
+		newPassword, false)
 	if err != nil {
 		s.renderClientResetPwdPage(w, r, err.Error(), ipAddr)
 		return
@@ -1506,12 +1512,14 @@ func (s *httpdServer) setupWebClientRoutes() {
 		s.router.Get(webClientPubSharesPath+"/{id}/login", s.handleClientShareLoginGet)
 		s.router.Post(webClientPubSharesPath+"/{id}/login", s.handleClientShareLoginPost)
 		s.router.Get(webClientPubSharesPath+"/{id}", s.downloadFromShare)
-		s.router.Get(webClientPubSharesPath+"/{id}/partial", s.handleClientSharePartialDownload)
+		s.router.Post(webClientPubSharesPath+"/{id}/partial", s.handleClientSharePartialDownload)
 		s.router.Get(webClientPubSharesPath+"/{id}/browse", s.handleShareGetFiles)
 		s.router.Get(webClientPubSharesPath+"/{id}/upload", s.handleClientUploadToShare)
 		s.router.With(compressor.Handler).Get(webClientPubSharesPath+"/{id}/dirs", s.handleShareGetDirContents)
 		s.router.Post(webClientPubSharesPath+"/{id}", s.uploadFilesToShare)
 		s.router.Post(webClientPubSharesPath+"/{id}/{name}", s.uploadFileToShare)
+		s.router.Get(webClientPubSharesPath+"/{id}/viewpdf", s.handleShareViewPDF)
+		s.router.Get(webClientPubSharesPath+"/{id}/getpdf", s.handleShareGetPDF)
 
 		s.router.Group(func(router chi.Router) {
 			if s.binding.OIDC.isEnabled() {
@@ -1541,7 +1549,7 @@ func (s *httpdServer) setupWebClientRoutes() {
 			router.With(s.checkAuthRequirements, s.checkHTTPUserPerm(sdk.WebClientWriteDisabled), verifyCSRFHeader).
 				Post(webClientFileActionsPath+"/copy", copyUserFsEntry)
 			router.With(s.checkAuthRequirements, s.refreshCookie).
-				Get(webClientDownloadZipPath, s.handleWebClientDownloadZip)
+				Post(webClientDownloadZipPath, s.handleWebClientDownloadZip)
 			router.With(s.checkAuthRequirements, s.refreshCookie).Get(webClientProfilePath,
 				s.handleClientGetProfile)
 			router.With(s.checkAuthRequirements).Post(webClientProfilePath, s.handleWebClientProfilePost)
