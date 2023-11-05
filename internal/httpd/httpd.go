@@ -524,9 +524,6 @@ type Binding struct {
 	HideLoginURL int `json:"hide_login_url" mapstructure:"hide_login_url"`
 	// Enable the built-in OpenAPI renderer
 	RenderOpenAPI bool `json:"render_openapi" mapstructure:"render_openapi"`
-	// Enabling web client integrations you can render or modify the files with the specified
-	// extensions using an external tool.
-	WebClientIntegrations []WebClientIntegration `json:"web_client_integrations" mapstructure:"web_client_integrations"`
 	// Defining an OIDC configuration the web admin and web client UI will use OpenID to authenticate users.
 	OIDC OIDC `json:"oidc" mapstructure:"oidc"`
 	// Security defines security headers to add to HTTP responses and allows to restrict allowed hosts
@@ -534,16 +531,6 @@ type Binding struct {
 	// Branding defines customizations to suit your brand
 	Branding         Branding `json:"branding" mapstructure:"branding"`
 	allowHeadersFrom []func(net.IP) bool
-}
-
-func (b *Binding) checkWebClientIntegrations() {
-	var integrations []WebClientIntegration
-	for _, integration := range b.WebClientIntegrations {
-		if integration.URL != "" && len(integration.FileExtensions) > 0 {
-			integrations = append(integrations, integration)
-		}
-	}
-	b.WebClientIntegrations = integrations
 }
 
 func (b *Binding) checkBranding() {
@@ -973,7 +960,6 @@ func (c *Conf) Initialize(configDir string, isShared int) error {
 		if err := binding.parseAllowedProxy(); err != nil {
 			return err
 		}
-		binding.checkWebClientIntegrations()
 		binding.checkBranding()
 		binding.Security.updateProxyHeaders()
 

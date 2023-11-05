@@ -100,25 +100,24 @@ var (
 		DisableWWWAuthHeader: false,
 	}
 	defaultHTTPDBinding = httpd.Binding{
-		Address:               "",
-		Port:                  8080,
-		EnableWebAdmin:        true,
-		EnableWebClient:       true,
-		EnableRESTAPI:         true,
-		EnabledLoginMethods:   0,
-		EnableHTTPS:           false,
-		CertificateFile:       "",
-		CertificateKeyFile:    "",
-		MinTLSVersion:         12,
-		ClientAuthType:        0,
-		TLSCipherSuites:       nil,
-		Protocols:             nil,
-		ProxyAllowed:          nil,
-		ClientIPProxyHeader:   "",
-		ClientIPHeaderDepth:   0,
-		HideLoginURL:          0,
-		RenderOpenAPI:         true,
-		WebClientIntegrations: nil,
+		Address:             "",
+		Port:                8080,
+		EnableWebAdmin:      true,
+		EnableWebClient:     true,
+		EnableRESTAPI:       true,
+		EnabledLoginMethods: 0,
+		EnableHTTPS:         false,
+		CertificateFile:     "",
+		CertificateKeyFile:  "",
+		MinTLSVersion:       12,
+		ClientAuthType:      0,
+		TLSCipherSuites:     nil,
+		Protocols:           nil,
+		ProxyAllowed:        nil,
+		ClientIPProxyHeader: "",
+		ClientIPHeaderDepth: 0,
+		HideLoginURL:        0,
+		RenderOpenAPI:       true,
 		OIDC: httpd.OIDC{
 			ClientID:                   "",
 			ClientSecret:               "",
@@ -1707,44 +1706,6 @@ func getHTTPDBrandingFromEnv(idx int) (httpd.Branding, bool) {
 	return result, isSet
 }
 
-func getHTTPDWebClientIntegrationsFromEnv(idx int) []httpd.WebClientIntegration {
-	var integrations []httpd.WebClientIntegration
-	if len(globalConf.HTTPDConfig.Bindings) > idx {
-		integrations = globalConf.HTTPDConfig.Bindings[idx].WebClientIntegrations
-	}
-
-	for subIdx := 0; subIdx < 10; subIdx++ {
-		var integration httpd.WebClientIntegration
-		var replace bool
-		if len(globalConf.HTTPDConfig.Bindings) > idx &&
-			len(globalConf.HTTPDConfig.Bindings[idx].WebClientIntegrations) > subIdx {
-			integration = integrations[subIdx]
-			replace = true
-		}
-
-		url, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__WEB_CLIENT_INTEGRATIONS__%v__URL", idx, subIdx))
-		if ok {
-			integration.URL = url
-		}
-
-		extensions, ok := lookupStringListFromEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__WEB_CLIENT_INTEGRATIONS__%v__FILE_EXTENSIONS",
-			idx, subIdx))
-		if ok {
-			integration.FileExtensions = extensions
-		}
-
-		if integration.URL != "" && len(integration.FileExtensions) > 0 {
-			if replace {
-				integrations[subIdx] = integration
-			} else {
-				integrations = append(integrations, integration)
-			}
-		}
-	}
-
-	return integrations
-}
-
 func getDefaultHTTPBinding(idx int) httpd.Binding {
 	binding := defaultHTTPDBinding
 	if len(globalConf.HTTPDConfig.Bindings) > idx {
@@ -1755,12 +1716,6 @@ func getDefaultHTTPBinding(idx int) httpd.Binding {
 
 func getHTTPDNestedObjectsFromEnv(idx int, binding *httpd.Binding) bool {
 	isSet := false
-
-	webClientIntegrations := getHTTPDWebClientIntegrationsFromEnv(idx)
-	if len(webClientIntegrations) > 0 {
-		binding.WebClientIntegrations = webClientIntegrations
-		isSet = true
-	}
 
 	oidc, ok := getHTTPDOIDCFromEnv(idx)
 	if ok {

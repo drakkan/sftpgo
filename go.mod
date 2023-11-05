@@ -56,7 +56,7 @@ require (
 	github.com/sftpgo/sdk v0.1.6-0.20231011150824-e8d35102c725
 	github.com/shirou/gopsutil/v3 v3.23.10
 	github.com/spf13/afero v1.10.0
-	github.com/spf13/cobra v1.7.0
+	github.com/spf13/cobra v1.8.0
 	github.com/spf13/viper v1.17.0
 	github.com/stretchr/testify v1.8.4
 	github.com/studio-b12/gowebdav v0.9.0

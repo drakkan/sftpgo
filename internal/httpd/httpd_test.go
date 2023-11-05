@@ -313,8 +313,6 @@ func TestMain(m *testing.M) {
 	os.Setenv("SFTPGO_DATA_PROVIDER__NAMING_RULES", "0")
 	os.Setenv("SFTPGO_DEFAULT_ADMIN_USERNAME", "admin")
 	os.Setenv("SFTPGO_DEFAULT_ADMIN_PASSWORD", "password")
-	os.Setenv("SFTPGO_HTTPD__BINDINGS__0__WEB_CLIENT_INTEGRATIONS__0__URL", "http://127.0.0.1/test.html")
-	os.Setenv("SFTPGO_HTTPD__BINDINGS__0__WEB_CLIENT_INTEGRATIONS__0__FILE_EXTENSIONS", ".pdf,.txt")
 	os.Setenv("SFTPGO_HTTPD__MAX_UPLOAD_FILE_SIZE", "1048576000")
 	err := config.LoadConfig(configDir, "")
 	if err != nil {

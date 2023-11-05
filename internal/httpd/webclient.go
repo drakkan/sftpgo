@@ -157,7 +157,6 @@ type filesPage struct {
 	ShareUploadBaseURL string
 	Error              string
 	Paths              []dirMapping
-	HasIntegrations    bool
 	QuotaUsage         *userQuotaUsage
 }
 
@@ -763,7 +762,6 @@ func (s *httpdServer) renderSharedFilesPage(w http.ResponseWriter, r *http.Reque
 		CanDelete:          false,
 		CanDownload:        share.Scope != dataprovider.ShareScopeWrite,
 		CanShare:           false,
-		HasIntegrations:    false,
 		Paths:              getDirMapping(dirName, currentURL),
 		QuotaUsage:         newUserQuotaUsage(&dataprovider.User{}),
 	}
@@ -780,9 +778,7 @@ func (s *httpdServer) renderUploadToSharePage(w http.ResponseWriter, r *http.Req
 	renderClientTemplate(w, templateUploadToShare, data)
 }
 
-func (s *httpdServer) renderFilesPage(w http.ResponseWriter, r *http.Request, dirName, error string, user *dataprovider.User,
-	hasIntegrations bool,
-) {
+func (s *httpdServer) renderFilesPage(w http.ResponseWriter, r *http.Request, dirName, error string, user *dataprovider.User) {
 	data := filesPage{
 		baseClientPage:     s.getBaseClientPageData(pageClientFilesTitle, webClientFilesPath, r),
 		Error:              error,
@@ -799,7 +795,6 @@ func (s *httpdServer) renderFilesPage(w http.ResponseWriter, r *http.Request, di
 		CanDownload:        user.HasPerm(dataprovider.PermDownload, dirName),
 		CanShare:           user.CanManageShares(),
 		ShareUploadBaseURL: "",
-		HasIntegrations:    hasIntegrations,
 		Paths:              getDirMapping(dirName, webClientFilesPath),
 		QuotaUsage:         newUserQuotaUsage(user),
 	}
@@ -1167,17 +1162,6 @@ func (s *httpdServer) handleClientGetDirContents(w http.ResponseWriter, r *http.
 				if info.Size() < httpdMaxEditFileSize {
 					res["edit_url"] = strings.Replace(res["url"].(string), webClientFilesPath, webClientEditFilePath, 1)
 				}
-				if len(s.binding.WebClientIntegrations) > 0 {
-					extension := path.Ext(info.Name())
-					for idx := range s.binding.WebClientIntegrations {
-						if util.Contains(s.binding.WebClientIntegrations[idx].FileExtensions, extension) {
-							res["ext_url"] = s.binding.WebClientIntegrations[idx].URL
-							res["ext_link"] = fmt.Sprintf("%v?path=%v&_=%v", webClientFilePath,
-								url.QueryEscape(path.Join(name, info.Name())), time.Now().UTC().Unix())
-							break
-						}
-					}
-				}
 			}
 		}
 		res["meta"] = fmt.Sprintf("%v_%v", res["type"], info.Name())
@@ -1229,12 +1213,11 @@ func (s *httpdServer) handleClientGetFiles(w http.ResponseWriter, r *http.Reques
 		info, err = connection.Stat(name, 0)
 	}
 	if err != nil {
-		s.renderFilesPage(w, r, path.Dir(name), fmt.Sprintf("unable to stat file %q: %v", name, err),
-			&user, len(s.binding.WebClientIntegrations) > 0)
+		s.renderFilesPage(w, r, path.Dir(name), fmt.Sprintf("unable to stat file %q: %v", name, err), &user)
 		return
 	}
 	if info.IsDir() {
-		s.renderFilesPage(w, r, name, "", &user, len(s.binding.WebClientIntegrations) > 0)
+		s.renderFilesPage(w, r, name, "", &user)
 		return
 	}
 	if status, err := downloadFile(w, r, connection, name, info, false, nil); err != nil && status != 0 {
@@ -1243,7 +1226,7 @@ func (s *httpdServer) handleClientGetFiles(w http.ResponseWriter, r *http.Reques
 				s.renderClientMessagePage(w, r, http.StatusText(status), "", status, err, "")
 				return
 			}
-			s.renderFilesPage(w, r, path.Dir(name), err.Error(), &user, len(s.binding.WebClientIntegrations) > 0)
+			s.renderFilesPage(w, r, path.Dir(name), err.Error(), &user)
 		}
 	}
 }
