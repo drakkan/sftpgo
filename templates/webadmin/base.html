@@ -35,7 +35,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
     <link href="{{.StaticURL}}/vendor/fontawesome-free/css/regular.min.css" rel="stylesheet" type="text/css">
 
     <!-- Custom styles for this template-->
-    <link href="{{.StaticURL}}{{.Branding.DefaultCSS}}" rel="stylesheet">
+    {{- range .Branding.DefaultCSS}}
+    <link href="{{$.StaticURL}}{{.}}" rel="stylesheet" type="text/css">
+    {{- end}}
     <style>
         {{template "commoncss" .}}
     </style>

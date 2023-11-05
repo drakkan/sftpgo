@@ -357,7 +357,7 @@ The configuration file contains the following sections:
       - `login_image_path`, string. Path to a custom image to show on the login screen relative to `static_files_path`. The preferred image size is 900x900 pixel
       - `disclaimer_name`, string. Name for your optional disclaimer
       - `disclaimer_path`, string. Path to the HTML page with the disclaimer relative to `static_files_path`
-      - `default_css`, string. Optional path to a custom CSS file, relative to `static_files_path`, which replaces the SB Admin2 default CSS
+      - `default_css`, list of strings. Optional path to custom CSS files, relative to `static_files_path`, which replaces the default CSS
       - `extra_css`, list of strings. Defines the paths, relative to `static_files_path`, to additional CSS files
   - `templates_path`, string. Path to the HTML web templates. This can be an absolute path or a path relative to the config dir
   - `static_files_path`, string. Path to the static files for the web interface. This can be an absolute path or a path relative to the config dir. If both `templates_path` and `static_files_path` are empty the built-in web interface will be disabled

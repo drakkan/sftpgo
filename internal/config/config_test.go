@@ -1417,7 +1417,7 @@ func TestHTTPDBindingsFromEnv(t *testing.T) {
 	require.Equal(t, "login_image.png", bindings[2].Branding.WebAdmin.LoginImagePath)
 	require.Equal(t, "disclaimer", bindings[2].Branding.WebClient.DisclaimerName)
 	require.Equal(t, "disclaimer.html", bindings[2].Branding.WebAdmin.DisclaimerPath)
-	require.Equal(t, "default.css", bindings[2].Branding.WebClient.DefaultCSS)
+	require.Equal(t, []string{"default.css"}, bindings[2].Branding.WebClient.DefaultCSS)
 	require.Len(t, bindings[2].Branding.WebClient.ExtraCSS, 2)
 	require.Equal(t, "1.css", bindings[2].Branding.WebClient.ExtraCSS[0])
 	require.Equal(t, "2.css", bindings[2].Branding.WebClient.ExtraCSS[1])

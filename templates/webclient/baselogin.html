@@ -23,8 +23,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<link rel="shortcut icon" href="{{.StaticURL}}{{.Branding.FaviconPath}}" />
 		{{- template "fonts" .StaticURL }}
-		<link href="{{.StaticURL}}/assets/plugins/global/plugins.bundle.css" rel="stylesheet" type="text/css" />
-		<link href="{{.StaticURL}}/assets/css/style.bundle.css" rel="stylesheet" type="text/css" />
+		{{- range .Branding.DefaultCSS}}
+    	<link href="{{$.StaticURL}}{{.}}" rel="stylesheet" type="text/css">
+    	{{- end}}
 		{{- template "globalstyle" }}
         {{- range .Branding.ExtraCSS}}
     	<link href="{{$.StaticURL}}{{.}}" rel="stylesheet" type="text/css">

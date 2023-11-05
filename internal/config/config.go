@@ -1667,7 +1667,7 @@ func getHTTPDUIBrandingFromEnv(prefix string, branding httpd.UIBranding) (httpd.
 		isSet = true
 	}
 
-	defaultCSSPath, ok := os.LookupEnv(fmt.Sprintf("%s__DEFAULT_CSS", prefix))
+	defaultCSSPath, ok := lookupStringListFromEnv(fmt.Sprintf("%s__DEFAULT_CSS", prefix))
 	if ok {
 		branding.DefaultCSS = defaultCSSPath
 		isSet = true

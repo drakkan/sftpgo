@@ -405,15 +405,14 @@ type UIBranding struct {
 	DisclaimerName string `json:"disclaimer_name" mapstructure:"disclaimer_name"`
 	// Path to the HTML page for your disclaimer relative to "static_files_path".
 	DisclaimerPath string `json:"disclaimer_path" mapstructure:"disclaimer_path"`
-	// Path to a custom CSS file, relative to "static_files_path", which replaces
-	// the SB Admin2 default CSS. This is useful, for example, if you rebuild
-	// SB Admin2 CSS to use custom colors
-	DefaultCSS string `json:"default_css" mapstructure:"default_css"`
+	// Path to custom CSS files, relative to "static_files_path", which replaces
+	// the default CSS files
+	DefaultCSS []string `json:"default_css" mapstructure:"default_css"`
 	// Additional CSS file paths, relative to "static_files_path", to include
 	ExtraCSS []string `json:"extra_css" mapstructure:"extra_css"`
 }
 
-func (b *UIBranding) check() {
+func (b *UIBranding) check(isWebClient bool) {
 	if b.LogoPath != "" {
 		b.LogoPath = util.CleanPath(b.LogoPath)
 	} else {
@@ -432,10 +431,19 @@ func (b *UIBranding) check() {
 	if b.DisclaimerPath != "" {
 		b.DisclaimerPath = util.CleanPath(b.DisclaimerPath)
 	}
-	if b.DefaultCSS != "" {
-		b.DefaultCSS = util.CleanPath(b.DefaultCSS)
+	if len(b.DefaultCSS) > 0 {
+		for idx := range b.DefaultCSS {
+			b.DefaultCSS[idx] = util.CleanPath(b.DefaultCSS[idx])
+		}
 	} else {
-		b.DefaultCSS = "/css/sb-admin-2.min.css"
+		if isWebClient {
+			b.DefaultCSS = []string{
+				"/assets/plugins/global/plugins.bundle.css",
+				"/assets/css/style.bundle.css",
+			}
+		} else {
+			b.DefaultCSS = []string{"/css/sb-admin-2.min.css"}
+		}
 	}
 	for idx := range b.ExtraCSS {
 		b.ExtraCSS[idx] = util.CleanPath(b.ExtraCSS[idx])
@@ -534,8 +542,8 @@ type Binding struct {
 }
 
 func (b *Binding) checkBranding() {
-	b.Branding.WebAdmin.check()
-	b.Branding.WebClient.check()
+	b.Branding.WebAdmin.check(false)
+	b.Branding.WebClient.check(true)
 	if b.Branding.WebAdmin.Name == "" {
 		b.Branding.WebAdmin.Name = "SFTPGo WebAdmin"
 	}

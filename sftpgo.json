@@ -317,7 +317,7 @@
             "login_image_path": "",
             "disclaimer_name": "",
             "disclaimer_path": "",
-            "default_css": "",
+            "default_css": [],
             "extra_css": []
           },
           "web_client": {
@@ -328,7 +328,7 @@
             "login_image_path": "",
             "disclaimer_name": "",
             "disclaimer_path": "",
-            "default_css": "",
+            "default_css": [],
             "extra_css": []
           }
         }
