@@ -262,8 +262,10 @@ func (c *S3FsConfig) isEqual(other S3FsConfig) bool {
 	if !c.areMultipartFieldsEqual(other) {
 		return false
 	}
-
 	if c.ForcePathStyle != other.ForcePathStyle {
+		return false
+	}
+	if c.SkipTLSVerify != other.SkipTLSVerify {
 		return false
 	}
 	return c.isSecretEqual(other)

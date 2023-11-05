@@ -1588,6 +1588,7 @@ func getS3Config(r *http.Request) (vfs.S3FsConfig, error) {
 		return config, fmt.Errorf("invalid s3 download concurrency: %w", err)
 	}
 	config.ForcePathStyle = r.Form.Get("s3_force_path_style") != ""
+	config.SkipTLSVerify = r.Form.Get("s3_skip_tls_verify") != ""
 	config.DownloadPartMaxTime, err = strconv.Atoi(r.Form.Get("s3_download_part_max_time"))
 	if err != nil {
 		return config, fmt.Errorf("invalid s3 download part max time: %w", err)

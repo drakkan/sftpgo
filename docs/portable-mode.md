@@ -130,6 +130,13 @@ Flags:
                                         prefix and its contents
       --s3-region string
       --s3-role-arn string
+      --s3-skip-tls-verify              If enabled the S3 client accepts any TLS
+                                        certificate presented by the server and
+                                        any host name in that certificate.
+                                        In this mode, TLS is susceptible to
+                                        man-in-the-middle attacks.
+                                        This should be used only for testing.
+
       --s3-storage-class string
       --s3-upload-concurrency int       How many parts are uploaded in
                                         parallel (default 2)

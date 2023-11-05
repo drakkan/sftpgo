@@ -19,6 +19,7 @@ package vfs
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"mime"
@@ -97,7 +98,9 @@ func NewS3Fs(connectionID, localTempDir, mountPath string, s3Config S3FsConfig) 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	awsConfig, err := config.LoadDefaultConfig(ctx, config.WithHTTPClient(getAWSHTTPClient(0, 30*time.Second)))
+	awsConfig, err := config.LoadDefaultConfig(ctx, config.WithHTTPClient(
+		getAWSHTTPClient(0, 30*time.Second, fs.config.SkipTLSVerify)),
+	)
 	if err != nil {
 		return fs, fmt.Errorf("unable to get AWS config: %w", err)
 	}
@@ -215,7 +218,8 @@ func (fs *S3Fs) Open(name string, offset int64) (File, *PipeReader, func(), erro
 		d.PartSize = fs.config.DownloadPartSize
 		if offset == 0 && fs.config.DownloadPartMaxTime > 0 {
 			d.ClientOptions = append(d.ClientOptions, func(o *s3.Options) {
-				o.HTTPClient = getAWSHTTPClient(fs.config.DownloadPartMaxTime, 100*time.Millisecond)
+				o.HTTPClient = getAWSHTTPClient(fs.config.DownloadPartMaxTime, 100*time.Millisecond,
+					fs.config.SkipTLSVerify)
 			})
 		}
 	})
@@ -264,7 +268,8 @@ func (fs *S3Fs) Create(name string, flag, checks int) (File, PipeWriter, func(),
 		u.PartSize = fs.config.UploadPartSize
 		if fs.config.UploadPartMaxTime > 0 {
 			u.ClientOptions = append(u.ClientOptions, func(o *s3.Options) {
-				o.HTTPClient = getAWSHTTPClient(fs.config.UploadPartMaxTime, 100*time.Millisecond)
+				o.HTTPClient = getAWSHTTPClient(fs.config.UploadPartMaxTime, 100*time.Millisecond,
+					fs.config.SkipTLSVerify)
 			})
 		}
 	})
@@ -1071,7 +1076,8 @@ func (fs *S3Fs) downloadToWriter(name string, w PipeWriter) (int64, error) {
 		d.PartSize = fs.config.DownloadPartSize
 		if fs.config.DownloadPartMaxTime > 0 {
 			d.ClientOptions = append(d.ClientOptions, func(o *s3.Options) {
-				o.HTTPClient = getAWSHTTPClient(fs.config.DownloadPartMaxTime, 100*time.Millisecond)
+				o.HTTPClient = getAWSHTTPClient(fs.config.DownloadPartMaxTime, 100*time.Millisecond,
+					fs.config.SkipTLSVerify)
 			})
 		}
 	})
@@ -1096,7 +1102,7 @@ func (fs *S3Fs) getStorageID() string {
 	return fmt.Sprintf("s3://%v", fs.config.Bucket)
 }
 
-func getAWSHTTPClient(timeout int, idleConnectionTimeout time.Duration) *awshttp.BuildableClient {
+func getAWSHTTPClient(timeout int, idleConnectionTimeout time.Duration, skipTLSVerify bool) *awshttp.BuildableClient {
 	c := awshttp.NewBuildableClient().
 		WithDialerOptions(func(d *net.Dialer) {
 			d.Timeout = 8 * time.Second
@@ -1105,6 +1111,16 @@ func getAWSHTTPClient(timeout int, idleConnectionTimeout time.Duration) *awshttp
 			tr.IdleConnTimeout = idleConnectionTimeout
 			tr.WriteBufferSize = s3TransferBufferSize
 			tr.ReadBufferSize = s3TransferBufferSize
+			if skipTLSVerify {
+				if tr.TLSClientConfig != nil {
+					tr.TLSClientConfig.InsecureSkipVerify = skipTLSVerify
+				} else {
+					tr.TLSClientConfig = &tls.Config{
+						MinVersion:         awshttp.DefaultHTTPTransportTLSMinVersion,
+						InsecureSkipVerify: skipTLSVerify,
+					}
+				}
+			}
 		})
 	if timeout > 0 {
 		c = c.WithTimeout(time.Duration(timeout) * time.Second)

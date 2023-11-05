@@ -2199,6 +2199,9 @@ func compareS3Config(expected *vfs.Filesystem, actual *vfs.Filesystem) error { /
 	if expected.S3Config.ForcePathStyle != actual.S3Config.ForcePathStyle {
 		return errors.New("fs S3 force path style mismatch")
 	}
+	if expected.S3Config.SkipTLSVerify != actual.S3Config.SkipTLSVerify {
+		return errors.New("fs S3 skip TLS verify mismatch")
+	}
 	if expected.S3Config.DownloadPartMaxTime != actual.S3Config.DownloadPartMaxTime {
 		return errors.New("fs S3 download part max time mismatch")
 	}

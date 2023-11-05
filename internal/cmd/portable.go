@@ -65,6 +65,7 @@ var (
 	portableS3ULPartSize               int
 	portableS3ULConcurrency            int
 	portableS3ForcePathStyle           bool
+	portableS3SkipTLSVerify            bool
 	portableGCSBucket                  string
 	portableGCSCredentialsFile         string
 	portableGCSAutoCredentials         int
@@ -240,6 +241,7 @@ Please take a look at the usage below to customize the serving parameters`,
 								UploadPartSize:    int64(portableS3ULPartSize),
 								UploadConcurrency: portableS3ULConcurrency,
 								ForcePathStyle:    portableS3ForcePathStyle,
+								SkipTLSVerify:     portableS3SkipTLSVerify,
 							},
 							AccessSecret: kms.NewPlainSecret(portableS3AccessSecret),
 						},
@@ -373,6 +375,13 @@ prefix and its contents`)
 	portableCmd.Flags().IntVar(&portableS3ULConcurrency, "s3-upload-concurrency", 2, `How many parts are uploaded in
 parallel`)
 	portableCmd.Flags().BoolVar(&portableS3ForcePathStyle, "s3-force-path-style", false, `Force path style bucket URL`)
+	portableCmd.Flags().BoolVar(&portableS3SkipTLSVerify, "s3-skip-tls-verify", false, `If enabled the S3 client accepts any TLS
+certificate presented by the server and
+any host name in that certificate.
+In this mode, TLS is susceptible to
+man-in-the-middle attacks.
+This should be used only for testing.
+`)
 	portableCmd.Flags().StringVar(&portableGCSBucket, "gcs-bucket", "", "")
 	portableCmd.Flags().StringVar(&portableGCSStorageClass, "gcs-storage-class", "", "")
 	portableCmd.Flags().StringVar(&portableGCSKeyPrefix, "gcs-key-prefix", "", `Allows to restrict access to the

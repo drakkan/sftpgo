@@ -321,6 +321,7 @@ func (f *Filesystem) GetACopy() Filesystem {
 				DownloadPartMaxTime: f.S3Config.DownloadPartMaxTime,
 				UploadPartMaxTime:   f.S3Config.UploadPartMaxTime,
 				ForcePathStyle:      f.S3Config.ForcePathStyle,
+				SkipTLSVerify:       f.S3Config.SkipTLSVerify,
 			},
 			AccessSecret: f.S3Config.AccessSecret.Clone(),
 		},

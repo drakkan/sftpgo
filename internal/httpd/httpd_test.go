@@ -5215,6 +5215,7 @@ func TestUserS3Config(t *testing.T) {
 	user.FsConfig.S3Config.DownloadPartMaxTime = 60
 	user.FsConfig.S3Config.UploadPartMaxTime = 40
 	user.FsConfig.S3Config.ForcePathStyle = true
+	user.FsConfig.S3Config.SkipTLSVerify = true
 	user.FsConfig.S3Config.DownloadPartSize = 6
 	folderName := "vfolderName"
 	user.VirtualFolders = append(user.VirtualFolders, vfs.VirtualFolder{
@@ -5243,6 +5244,7 @@ func TestUserS3Config(t *testing.T) {
 	assert.Empty(t, user.FsConfig.S3Config.AccessSecret.GetKey())
 	assert.Equal(t, 60, user.FsConfig.S3Config.DownloadPartMaxTime)
 	assert.Equal(t, 40, user.FsConfig.S3Config.UploadPartMaxTime)
+	assert.True(t, user.FsConfig.S3Config.SkipTLSVerify)
 	if assert.Len(t, user.VirtualFolders, 1) {
 		folder := user.VirtualFolders[0]
 		assert.Equal(t, sdkkms.SecretStatusSecretBox, folder.FsConfig.CryptConfig.Passphrase.GetStatus())
@@ -20957,6 +20959,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	user.FsConfig.S3Config.DownloadPartSize = 6
 	user.FsConfig.S3Config.DownloadConcurrency = 3
 	user.FsConfig.S3Config.ForcePathStyle = true
+	user.FsConfig.S3Config.SkipTLSVerify = true
 	user.FsConfig.S3Config.ACL = "public-read"
 	user.Description = "s3 tèst user"
 	form := make(url.Values)
@@ -21005,6 +21008,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	form.Set("password_strength", "0")
 	form.Set("ftp_security", "1")
 	form.Set("s3_force_path_style", "checked")
+	form.Set("s3_skip_tls_verify", "checked")
 	form.Set("description", user.Description)
 	form.Add("hooks", "pre_login_disabled")
 	form.Add("allow_api_key_auth", "1")
@@ -21093,6 +21097,7 @@ func TestWebUserS3Mock(t *testing.T) {
 	assert.Equal(t, updateUser.FsConfig.S3Config.DownloadConcurrency, user.FsConfig.S3Config.DownloadConcurrency)
 	assert.Equal(t, lastPwdChange, updateUser.LastPasswordChange)
 	assert.True(t, updateUser.FsConfig.S3Config.ForcePathStyle)
+	assert.True(t, updateUser.FsConfig.S3Config.SkipTLSVerify)
 	if assert.Equal(t, 2, len(updateUser.Filters.FilePatterns)) {
 		for _, filter := range updateUser.Filters.FilePatterns {
 			switch filter.Path {
@@ -23538,6 +23543,7 @@ func TestS3WebFolderMock(t *testing.T) {
 	assert.Equal(t, S3DownloadConcurrency, folder.FsConfig.S3Config.DownloadConcurrency)
 	assert.Equal(t, int64(S3DownloadPartSize), folder.FsConfig.S3Config.DownloadPartSize)
 	assert.False(t, folder.FsConfig.S3Config.ForcePathStyle)
+	assert.False(t, folder.FsConfig.S3Config.SkipTLSVerify)
 	// update
 	S3UploadConcurrency = 10
 	form.Set("s3_upload_concurrency", "b")

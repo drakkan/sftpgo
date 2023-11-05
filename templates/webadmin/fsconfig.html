@@ -232,6 +232,17 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
             </div>
         </div>
 
+        <div class="form-group fsconfig fsconfig-s3fs">
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="idS3SkipTLSVerify" name="s3_skip_tls_verify"
+                    {{if .S3Config.SkipTLSVerify}}checked{{end}}>
+                <label for="idS3SkipTLSVerify" class="form-check-label" aria-describedby="S3SkipTLSVerifyHelpBlock">Skip TLS verify</label>
+                <small id="S3SkipTLSVerifyHelpBlock" class="form-text text-muted">
+                    In this mode, TLS is susceptible to man-in-the-middle attacks. This should be used only for testing
+                </small>
+            </div>
+        </div>
+
         <div class="form-group row fsconfig fsconfig-gcsfs">
             <label for="idGCSBucket" class="col-sm-2 col-form-label">Bucket</label>
             <div class="col-sm-10">
