@@ -135,9 +135,19 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 									</div>
 									<div class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-title-gray-700 menu-icon-gray-500 menu-active-bg menu-state-color fw-semibold py-4 w-250px" data-kt-menu="true">
 										<div class="menu-item px-3 my-0">
-											<div class="menu-content d-flex align-items-center px-3 py-2">
-                                                <span class="text-gray-700">User: {{.LoggedUser.Username}}</span>
-											</div>
+                                            <div class="menu-content d-flex align-items-center px-3 py-2">
+                                                <div class="me-5">
+                                                    <i class="ki-duotone ki-user fs-2">
+                                                        <i class="path1"></i>
+                                                        <i class="path2"></i>
+                                                    </i>
+                                                </div>
+                                                <div class="d-flex flex-column">
+                                                    <div class="fw-bold d-flex align-items-center fs-5">
+                                                        <span class="w-175px wrap-word">{{.LoggedUser.Username}}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
 										</div>
 										<div class="separator my-2"></div>
                                         <div class="menu-item px-3 my-0">
