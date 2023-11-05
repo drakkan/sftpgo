@@ -13590,7 +13590,7 @@ func TestShareMaxExpiration(t *testing.T) {
 	form.Set("name", s.Name)
 	form.Set("scope", strconv.Itoa(int(s.Scope)))
 	form.Set("max_tokens", "0")
-	form.Set("paths", "/")
+	form.Set("paths[0][path]", "/")
 	form.Set("expiration_date", time.Now().Add(24*time.Hour*time.Duration(u.Filters.MaxSharesExpiration+2)).Format("2006-01-02 15:04:05"))
 	form.Set(csrfFormToken, csrfToken)
 	req, err = http.NewRequest(http.MethodPost, webClientSharePath, bytes.NewBuffer([]byte(form.Encode())))
@@ -13810,6 +13810,12 @@ func TestShareMaxSessions(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "too many open sessions")
 
 	req, err = http.NewRequest(http.MethodGet, webClientPubSharesPath+"/"+objectID+"/dirs", nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusTooManyRequests, rr)
+	assert.Contains(t, rr.Body.String(), "too many open sessions")
+
+	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, objectID, "getpdf?path=file.pdf"), nil)
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusTooManyRequests, rr)
@@ -14051,6 +14057,15 @@ func TestShareReadWrite(t *testing.T) {
 	contentDisposition = rr.Header().Get("Content-Disposition")
 	assert.NotEmpty(t, contentDisposition)
 	assert.Equal(t, "application/zip", rr.Header().Get("Content-Type"))
+	// parse form error
+	req, err = http.NewRequest(http.MethodPost, path.Join(webClientPubSharesPath, objectID, "partial?path=p%C3%AO%GK"),
+		bytes.NewBuffer([]byte(form.Encode())))
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.SetBasicAuth(defaultUsername, defaultPassword)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
 	// invalid files list
 	form.Set("files", fmt.Sprintf(`[%s]`, testFileName))
 	req, err = http.NewRequest(http.MethodPost, path.Join(webClientPubSharesPath, objectID, "partial"),
@@ -14435,6 +14450,65 @@ func TestBrowseShares(t *testing.T) {
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	assert.Contains(t, rr.Body.String(), "non regular files are not supported for shares")
 
+	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, objectID, "getpdf?path="+testFileName), nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "does not look like a PDF")
+
+	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, objectID, "getpdf?path=missing"), nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "Unable to get file")
+
+	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, objectID, "getpdf?path=%2F"), nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "is not a file")
+
+	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, objectID, "getpdf?path=%2F.."), nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "Invalid share path")
+
+	fakePDF := []byte(`%PDF-1.6`)
+	for i := 0; i < 128; i++ {
+		fakePDF = append(fakePDF, []byte(fmt.Sprintf("%d", i))...)
+	}
+	pdfPath := filepath.Join(user.GetHomeDir(), shareDir, "test.pdf")
+	pdfLinkPath := filepath.Join(user.GetHomeDir(), shareDir, "link.pdf")
+	err = os.WriteFile(pdfPath, fakePDF, 0666)
+	assert.NoError(t, err)
+	err = os.Symlink(pdfPath, pdfLinkPath)
+	assert.NoError(t, err)
+
+	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, objectID, "viewpdf?path=test.pdf"), nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, objectID, "getpdf?path=test.pdf"), nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+
+	s, err := dataprovider.ShareExists(objectID, defaultUsername)
+	assert.NoError(t, err)
+	usedTokens := s.UsedTokens
+	assert.Greater(t, usedTokens, 0)
+
+	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, objectID, "getpdf?path=link.pdf"), nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// downloading a symlink will fail, usage should not change
+	s, err = dataprovider.ShareExists(objectID, defaultUsername)
+	assert.NoError(t, err)
+	assert.Equal(t, usedTokens, s.UsedTokens)
+
 	// share a symlink
 	share = dataprovider.Share{
 		Name:      "test share browse",
@@ -14470,6 +14544,12 @@ func TestBrowseShares(t *testing.T) {
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), "Unable to validate share")
+
+	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, objectID, "getpdf?path="+testFileName), nil)
+	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
 	assert.Contains(t, rr.Body.String(), "Unable to validate share")
@@ -14520,6 +14600,16 @@ func TestBrowseShares(t *testing.T) {
 	assert.NoError(t, err)
 	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, objectID, "viewpdf?path=p"), nil)
+	assert.NoError(t, err)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
+
+	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, objectID, "getpdf?path=p"), nil)
+	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
 	// share a missing base path
@@ -15413,6 +15503,15 @@ func TestWebGetFiles(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, dirContents, 1)
 
+	req, _ = http.NewRequest(http.MethodGet, webClientDirsPath+"?dirtree=1&path="+testDir, nil)
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	dirContents = make([]map[string]any, 0)
+	err = json.Unmarshal(rr.Body.Bytes(), &dirContents)
+	assert.NoError(t, err)
+	assert.Len(t, dirContents, 0)
+
 	req, _ = http.NewRequest(http.MethodGet, userDirsPath+"?path="+testDir, nil)
 	setBearerForReq(req, webAPIToken)
 	rr = executeRequest(req)
@@ -15425,7 +15524,6 @@ func TestWebGetFiles(t *testing.T) {
 	csrfToken, err := getCSRFToken(httpBaseURL + webLoginPath)
 	assert.NoError(t, err)
 	form := make(url.Values)
-	form.Set(csrfFormToken, csrfToken)
 	form.Set("files", fmt.Sprintf(`["%s","%s","%s"]`, testFileName, testDir, testFileName+extensions[2]))
 	req, _ = http.NewRequest(http.MethodPost, webClientDownloadZipPath+"?path="+url.QueryEscape("/"),
 		bytes.NewBuffer([]byte(form.Encode())))
@@ -15433,7 +15531,24 @@ func TestWebGetFiles(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusForbidden, rr)
+	// add csrf token
+	form.Set(csrfFormToken, csrfToken)
+	req, _ = http.NewRequest(http.MethodPost, webClientDownloadZipPath+"?path="+url.QueryEscape("/"),
+		bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
+	// parse form error
+	req, _ = http.NewRequest(http.MethodPost, webClientDownloadZipPath+"?path=p%C3%AO%GK",
+		bytes.NewBuffer([]byte(form.Encode())))
+	req.RemoteAddr = defaultRemoteAddr
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
 
 	filesList := []string{testFileName, testDir, testFileName + extensions[2]}
 	asJSON, err := json.Marshal(filesList)
@@ -17820,7 +17935,7 @@ func TestWebUserShare(t *testing.T) {
 	form := make(url.Values)
 	form.Set("name", share.Name)
 	form.Set("scope", strconv.Itoa(int(share.Scope)))
-	form.Set("paths", "/")
+	form.Set("paths[0][path]", "/")
 	form.Set("max_tokens", strconv.Itoa(share.MaxTokens))
 	form.Set("allowed_ip", strings.Join(share.AllowFrom, ","))
 	form.Set("description", share.Description)
@@ -18056,7 +18171,7 @@ func TestWebUserShareNoPasswordDisabled(t *testing.T) {
 	form := make(url.Values)
 	form.Set("name", share.Name)
 	form.Set("scope", strconv.Itoa(int(share.Scope)))
-	form.Set("paths", "/")
+	form.Set("paths[0][path]", "/")
 	form.Set("max_tokens", "0")
 	form.Set(csrfFormToken, csrfToken)
 	req, err := http.NewRequest(http.MethodPost, webClientSharePath, bytes.NewBuffer([]byte(form.Encode())))
@@ -18131,8 +18246,8 @@ func TestWebUserProfile(t *testing.T) {
 	form.Set("allow_api_key_auth", "1")
 	form.Set("email", email)
 	form.Set("description", description)
-	form.Set("public_keys", testPubKey)
-	form.Add("public_keys", testPubKey1)
+	form.Set("public_keys[0][public_key]", testPubKey)
+	form.Set("public_keys[1][public_key]", testPubKey1)
 	// no csrf token
 	req, err := http.NewRequest(http.MethodPost, webClientProfilePath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
@@ -18170,7 +18285,7 @@ func TestWebUserProfile(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), "Validation error: email")
 	// invalid public key
 	form.Set("email", email)
-	form.Set("public_keys", "invalid")
+	form.Set("public_keys[0][public_key]", "invalid")
 	req, _ = http.NewRequest(http.MethodPost, webClientProfilePath, bytes.NewBuffer([]byte(form.Encode())))
 	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -18179,7 +18294,8 @@ func TestWebUserProfile(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Contains(t, rr.Body.String(), "Validation error: could not parse key")
 	// now remove permissions
-	form.Set("public_keys", testPubKey)
+	form.Set("public_keys[0][public_key]", testPubKey)
+	form.Del("public_keys[1][public_key]")
 	user.Filters.WebClient = []string{sdk.WebClientAPIKeyAuthChangeDisabled}
 	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
@@ -18207,8 +18323,8 @@ func TestWebUserProfile(t *testing.T) {
 	assert.NoError(t, err)
 	token, err = getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
-	form.Set("public_keys", testPubKey)
-	form.Add("public_keys", testPubKey1)
+	form.Set("public_keys[0][public_key]", testPubKey)
+	form.Set("public_keys[1][public_key]", testPubKey1)
 	req, _ = http.NewRequest(http.MethodPost, webClientProfilePath, bytes.NewBuffer([]byte(form.Encode())))
 	req.RemoteAddr = defaultRemoteAddr
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")

@@ -93,3 +93,7 @@ func getSliceFromDelimitedValues(values, delimiter string) []string {
 	}
 	return result
 }
+
+func hasPrefixAndSuffix(key, prefix, suffix string) bool {
+	return strings.HasPrefix(key, prefix) && strings.HasSuffix(key, suffix)
+}

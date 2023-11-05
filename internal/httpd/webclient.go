@@ -1087,7 +1087,7 @@ func (s *httpdServer) handleShareGetPDF(w http.ResponseWriter, r *http.Request) 
 	}
 	defer common.Connections.Remove(connection.GetID())
 
-	info, err := connection.Stat(name, 0)
+	info, err := connection.Stat(name, 1)
 	if err != nil {
 		s.renderClientMessagePage(w, r, "Unable to get file", "", getRespStatus(err), err, "")
 		return
@@ -1547,7 +1547,7 @@ func (s *httpdServer) handleWebClientProfilePost(w http.ResponseWriter, r *http.
 	}
 	if userMerged.CanManagePublicKeys() {
 		for k := range r.Form {
-			if strings.HasPrefix(k, "public_keys[") {
+			if hasPrefixAndSuffix(k, "public_keys[", "][public_key]") {
 				r.Form.Add("public_keys", r.Form.Get(k))
 			}
 		}
@@ -1590,7 +1590,7 @@ func getShareFromPostFields(r *http.Request) (*dataprovider.Share, error) {
 		return share, err
 	}
 	for k := range r.Form {
-		if strings.HasPrefix(k, "paths[") {
+		if hasPrefixAndSuffix(k, "paths[", "][path]") {
 			r.Form.Add("paths", r.Form.Get(k))
 		}
 	}
