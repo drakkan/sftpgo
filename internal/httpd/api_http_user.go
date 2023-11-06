@@ -147,7 +147,7 @@ func renameUserFsEntry(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		if err := connection.Rename(oldName, newName); err != nil {
-			sendAPIResponse(w, r, err, fmt.Sprintf("Unable to rename %q -> %q", oldName, newName),
+			sendAPIResponse(w, r, err, fmt.Sprintf("Unable to rename %q => %q", oldName, newName),
 				getMappedStatusCode(err))
 			return
 		}
@@ -178,7 +178,7 @@ func copyUserFsEntry(w http.ResponseWriter, r *http.Request) {
 	}
 	err = connection.Copy(source, target)
 	if err != nil {
-		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to copy %q -> %q", source, target),
+		sendAPIResponse(w, r, err, fmt.Sprintf("Unable to copy %q => %q", source, target),
 			getMappedStatusCode(err))
 		return
 	}

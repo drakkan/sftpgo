@@ -74,12 +74,21 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                             </a>
                         </div>
                         {{- end}}
+                        {{- if not .ShareUploadBaseURL}}
+                        {{- if or .CanRename .CanAddFiles}}
+						<div class="menu-item px-3">
+                            <a href="#" class="menu-link px-3 fs-6" data-kt-filemanager-table-select="move_or_copy_selected">
+                                Move or copy
+                            </a>
+                        </div>
+                        {{- end}}
                         {{- if .CanShare}}
                         <div class="menu-item px-3">
                             <a href="#" class="menu-link px-3 fs-6" data-kt-filemanager-table-select="share_selected">
                                 Share
                             </a>
                         </div>
+                        {{- end}}
                         {{- end}}
                         {{- if .CanDelete}}
                         <div class="menu-item px-3">
@@ -311,7 +320,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 let errTxtEl = $('#errorModalTxt');
                 let dirName = replaceSlash($("#dirsbrowser_new_folder_input").val());
                 let submitButton  = document.querySelector('#dirsbrowser_add_folder');
-                let canceButton = document.querySelector('#dirsbrowser_cancel_folder');
+                let cancelButton = document.querySelector('#dirsbrowser_cancel_folder');
                 errDivEl.addClass("d-none");
                 if (!dirName){
                     errTxtEl.text("Folder name is required");
@@ -321,7 +330,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 let path = '{{.DirsURL}}?path='+ curDir + encodeURIComponent("/"+dirName);
                 submitButton.setAttribute('data-kt-indicator', 'on');
 		        submitButton.disabled = true;
-                canceButton.disabled = true;
+                cancelButton.disabled = true;
 
                 axios.post(path, null, {
                     timeout: 15000,
@@ -336,7 +345,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     errDivEl.addClass("d-none");
                     submitButton.removeAttribute('data-kt-indicator');
 		            submitButton.disabled = false;
-                    canceButton.disabled = false;
+                    cancelButton.disabled = false;
                     $('#dirsbrowser_new_folder').addClass("d-none");
                 }).catch(function (error) {
                     let errorMessage = "Unable to create the new folder";
@@ -352,7 +361,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     errDivEl.removeClass("d-none");
                     submitButton.removeAttribute('data-kt-indicator');
 		            submitButton.disabled = false;
-                    canceButton.disabled = false;
+                    cancelButton.disabled = false;
                 });
             });
         }
@@ -808,6 +817,17 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 });
             }
 
+            const moveOrCopyButton = document.querySelector('[data-kt-filemanager-table-select="move_or_copy_selected"]');
+            if (moveOrCopyButton){
+                moveOrCopyButton.addEventListener('click', function(e){
+                    $('#errorMsg').addClass("d-none");
+                    $('#move_copy_name_container').addClass("d-none");
+                    $('#move_copy_source').val("");
+                    $('#modal_move_or_copy').modal('show');
+                    KTDatatablesFoldersExplorer.init('{{.DirsURL}}?dirtree=1&path={{.CurrentDir}}', '{{.CurrentDir}}');
+                });
+            }
+
             const shareButton = document.querySelector('[data-kt-filemanager-table-select="share_selected"]');
             if (shareButton){
                 shareButton.addEventListener('click', function(e){
@@ -851,11 +871,14 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                             if (selectedRowsIdx.length == 0){
                                 return;
                             }
+                            keepAlive();
+                            let keepAliveTimer = setInterval(keepAlive, 300000);
                             $('#loading_message').text("");
                             KTApp.showPageLoading();
 
                             function deleteSelected() {
                                 if (index >= selectedRowsIdx.length || hasError){
+                                    clearInterval(keepAliveTimer);
                                     KTApp.hidePageLoading();
                                     if (!hasError){
                                         location.reload();
@@ -864,6 +887,12 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                 }
                                 let meta = dt.row(selectedRowsIdx[index]).data()['meta'];
                                 let attrs = getDeleteReqAttrs(meta);
+                                let deleteTxt = "";
+                                if (selectedRowsIdx.length > 1){
+                                    let name = getNameFromMeta(meta);
+                                    deleteTxt = `Delete ${index+1}/${selectedRowsIdx.length}: ${name}`;
+                                }
+                                $('#loading_message').text(deleteTxt);
                                 axios.delete(attrs.path,{
                                     timeout: attrs.reqTimeout,
                                     headers: {
@@ -956,15 +985,15 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     function moveOrCopyItem(meta) {
         $('#errorMsg').addClass("d-none");
         let decodedMeta = UnicodeDecodeB64(meta);
+        $('#move_copy_name_container').removeClass("d-none");
         $('#move_copy_source').val(meta);
         $('#move_copy_name').val(getNameFromMeta(decodedMeta));
         $('#modal_move_or_copy').modal('show');
         KTDatatablesFoldersExplorer.init('{{.DirsURL}}?dirtree=1&path={{.CurrentDir}}', '{{.CurrentDir}}');
     }
 
-    function doCopy() {
-        let meta = UnicodeDecodeB64($('#move_copy_source').val());
-        let targetName = $("#move_copy_name").val();
+    function getMoveOtCopyItems() {
+        let items = [];
         let targetDir = $("#move_copy_folder").val();
         if (targetDir != "/") {
             targetDir = targetDir.endsWith('/') ? targetDir.slice(0, -1) : targetDir;
@@ -974,84 +1003,184 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         } else {
             targetDir = encodeURIComponent(targetDir);
         }
-        let path = '{{.FileActionsURL}}/copy';
-        path+='?path={{.CurrentDir}}'+encodeURIComponent("/"+getNameFromMeta(meta))+'&target='+targetDir+encodeURIComponent("/"+targetName);
+
+        if ($('#move_copy_name_container').hasClass("d-none")){
+            let dt = $('#file_manager_list').DataTable();
+            dt.rows({ selected: true, search: 'applied' }).every(function (rowIdx, tableLoop, rowLoop){
+                let row = dt.row(rowIdx);
+                let sourceName = getNameFromMeta(row.data()['meta']);
+                items.push({
+                    targetDir: targetDir,
+                    sourceName: sourceName,
+                    targetName: sourceName
+                });
+            });
+        } else {
+            let meta = UnicodeDecodeB64($('#move_copy_source').val());
+            let sourceName = getNameFromMeta(meta);
+            items.push({
+                targetDir: targetDir,
+                sourceName: sourceName,
+                targetName: $("#move_copy_name").val()
+            });
+        }
+        return items;
+    }
+
+    function doCopy() {
+        let items = getMoveOtCopyItems();
+        if (items.length == 0){
+            return;
+        }
+        keepAlive();
+        let keepAliveTimer = setInterval(keepAlive, 300000);
+        let hasError = false;
+        let index = 0;
+        let errDivEl = $('#errorMsg');
+        let errTxtEl = $('#errorTxt');
+        errDivEl.addClass("d-none");
 
         $('#loading_message').text("");
         KTApp.showPageLoading();
 
-        axios.post(path, null, {
-            timeout: 180000,
-            headers: {
-                'X-CSRF-TOKEN': '{{.CSRFToken}}'
-            },
-            validateStatus: function (status) {
-                return status == 200;
-            }
-        }).then(function (response) {
-            location.reload();
-        }).catch(function (error) {
-            KTApp.hidePageLoading();
-            let errDivEl = $('#errorMsg');
-            let errTxtEl = $('#errorTxt');
-            let errorMessage = "Error copying item";
-            if (error && error.response) {
-                if (error.response.data.message) {
-                    errorMessage = error.response.data.message;
+        function copyItem() {
+            if (index >= items.length || hasError){
+                clearInterval(keepAliveTimer);
+                KTApp.hidePageLoading();
+                if (!hasError){
+                    location.reload();
                 }
-                if (error.response.data.error) {
-                    errorMessage += ": " + error.response.data.error;
-                }
+                return;
             }
-            errTxtEl.text(errorMessage);
-            errDivEl.removeClass("d-none");
-        });
+            let item = items[index];
+            let sourcePath = decodeURIComponent('{{.CurrentDir}}');
+            if (!sourcePath.endsWith('/')){
+                sourcePath+="/";
+            }
+            sourcePath+=item.sourceName;
+
+            let targetPath = decodeURIComponent(item.targetDir);
+            if (!targetPath.endsWith('/')){
+                targetPath+="/";
+            }
+            targetPath+=item.targetName;
+
+            if (items.length > 1){
+                let msgTxt = `${sourcePath} => ${targetPath}`;
+                msgTxt = `Copy ${index+1}/${items.length}: ${msgTxt}`;
+                $('#loading_message').text(msgTxt);
+            }
+            let path = '{{.FileActionsURL}}/copy';
+            path+='?path={{.CurrentDir}}'+encodeURIComponent("/"+item.sourceName)+'&target='+item.targetDir+encodeURIComponent("/"+item.targetName);
+
+            axios.post(path, null, {
+                timeout: 180000,
+                headers: {
+                    'X-CSRF-TOKEN': '{{.CSRFToken}}'
+                },
+                validateStatus: function (status) {
+                    return status == 200;
+                }
+            }).then(function (response) {
+                index++;
+                copyItem();
+            }).catch(function (error) {
+                index++;
+                hasError = true;
+                let errorMessage = "Error copying item";
+                if (error && error.response) {
+                    if (error.response.data.message) {
+                        errorMessage = error.response.data.message;
+                    }
+                    if (error.response.data.error) {
+                        errorMessage += ": " + error.response.data.error;
+                    }
+                }
+                errTxtEl.text(errorMessage);
+                errDivEl.removeClass("d-none");
+                copyItem();
+            });
+        }
+
+        copyItem();
     }
 
     function doMove() {
-        let meta = UnicodeDecodeB64($('#move_copy_source').val());
-        let targetName = $("#move_copy_name").val();
-        let targetDir = $("#move_copy_folder").val();
-        if (targetDir != "/") {
-            targetDir = targetDir.endsWith('/') ? targetDir.slice(0, -1) : targetDir;
+        let items = getMoveOtCopyItems();
+        if (items.length == 0){
+            return;
         }
-        if (targetDir.trim() == ""){
-            targetDir = "{{.CurrentDir}}";
-        } else {
-            targetDir = encodeURIComponent(targetDir);
-        }
-        let path = '{{.FileActionsURL}}/move';
-        path+='?path={{.CurrentDir}}'+encodeURIComponent("/"+getNameFromMeta(meta))+'&target='+targetDir+encodeURIComponent("/"+targetName);
+        keepAlive();
+        let keepAliveTimer = setInterval(keepAlive, 300000);
+        let hasError = false;
+        let index = 0;
+        let errDivEl = $('#errorMsg');
+        let errTxtEl = $('#errorTxt');
+        errDivEl.addClass("d-none");
 
         $('#loading_message').text("");
         KTApp.showPageLoading();
 
-        axios.post(path, null, {
-            timeout: 180000,
-            headers: {
-                'X-CSRF-TOKEN': '{{.CSRFToken}}'
-            },
-            validateStatus: function (status) {
-                return status == 200;
-            }
-        }).then(function (response) {
-            location.reload();
-        }).catch(function (error) {
-            KTApp.hidePageLoading();
-            let errDivEl = $('#errorMsg');
-            let errTxtEl = $('#errorTxt');
-            let errorMessage = "Error copying item";
-            if (error && error.response) {
-                if (error.response.data.message) {
-                    errorMessage = error.response.data.message;
+        function moveItem() {
+            if (index >= items.length || hasError){
+                clearInterval(keepAliveTimer);
+                KTApp.hidePageLoading();
+                if (!hasError){
+                    location.reload();
                 }
-                if (error.response.data.error) {
-                    errorMessage += ": " + error.response.data.error;
-                }
+                return;
             }
-            errTxtEl.text(errorMessage);
-            errDivEl.removeClass("d-none");
-        });
+            let item = items[index];
+            let sourcePath = decodeURIComponent('{{.CurrentDir}}');
+            if (!sourcePath.endsWith('/')){
+                sourcePath+="/";
+            }
+            sourcePath+=item.sourceName;
+
+            let targetPath = decodeURIComponent(item.targetDir);
+            if (!targetPath.endsWith('/')){
+                targetPath+="/";
+            }
+            targetPath+=item.targetName;
+
+            if (items.length > 1){
+                let msgTxt = `${sourcePath} => ${targetPath}`;
+                msgTxt = `Move ${index+1}/${items.length}: ${msgTxt}`;
+                $('#loading_message').text(msgTxt);
+            }
+            let path = '{{.FileActionsURL}}/move';
+            path+='?path={{.CurrentDir}}'+encodeURIComponent("/"+item.sourceName)+'&target='+item.targetDir+encodeURIComponent("/"+item.targetName);
+
+            axios.post(path, null, {
+                timeout: 180000,
+                headers: {
+                    'X-CSRF-TOKEN': '{{.CSRFToken}}'
+                },
+                validateStatus: function (status) {
+                    return status == 200;
+                }
+            }).then(function (response) {
+                index++;
+                moveItem();
+            }).catch(function (error) {
+                index++;
+                hasError = true;
+                let errorMessage = "Error moving item";
+                if (error && error.response) {
+                    if (error.response.data.message) {
+                        errorMessage = error.response.data.message;
+                    }
+                    if (error.response.data.error) {
+                        errorMessage += ": " + error.response.data.error;
+                    }
+                }
+                errTxtEl.text(errorMessage);
+                errDivEl.removeClass("d-none");
+                moveItem();
+            });
+        }
+
+        moveItem();
     }
 
     function getDeleteReqAttrs(meta) {
@@ -1213,7 +1342,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         let errTxtEl = $('#errorTxt');
         let dirName = replaceSlash($("#file_manager_new_folder_input").val());
         let submitButton  = document.querySelector('#file_manager_add_folder');
-        let canceButton = document.querySelector('#file_manager_cancel_folder');
+        let cancelButton = document.querySelector('#file_manager_cancel_folder');
         errDivEl.addClass("d-none");
         if (!dirName){
             errTxtEl.text("Folder name is required");
@@ -1224,7 +1353,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         let path = '{{.DirsURL}}?path={{.CurrentDir}}' + encodeURIComponent("/"+dirName);
 		submitButton.setAttribute('data-kt-indicator', 'on');
 		submitButton.disabled = true;
-        canceButton.disabled = true;
+        cancelButton.disabled = true;
 
         axios.post(path, null, {
             timeout: 15000,
@@ -1250,7 +1379,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 errDivEl.removeClass("d-none");
                 submitButton.removeAttribute('data-kt-indicator');
 		        submitButton.disabled = false;
-                canceButton.disabled = false;
+                cancelButton.disabled = false;
             });
     }
     //{{- end}}
@@ -1576,7 +1705,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         <div class="modal-content">
             <div class="modal-header border-0">
                 <h3 class="modal-title">
-                    Choose target folder and name
+                    Choose target folder
                 </h3>
                 <div class="btn btn-icon btn-sm btn-active-color-primary" data-bs-dismiss="modal" aria-label="Close">
                     <i class="ki-duotone ki-cross fs-1"><span class="path1"></span><span class="path2"></span></i>
@@ -1660,7 +1789,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     <label for="move_copy_folder">Target folder</label>
                 </div>
 
-                <div class="form-floating">
+                <div class="form-floating" id="move_copy_name_container">
                     <input type="text" class="form-control form-control-solid" id="move_copy_name"/>
                     <label for="move_copy_name">Destination name</label>
                 </div>

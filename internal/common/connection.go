@@ -1133,22 +1133,24 @@ func (c *BaseConnection) checkFolderRename(fsSrc, fsDst vfs.Fs, fsSourcePath, fs
 	if util.IsDirOverlapped(virtualSourcePath, virtualTargetPath, true, "/") {
 		c.Log(logger.LevelDebug, "renaming the folder %q->%q is not supported: nested folders",
 			virtualSourcePath, virtualTargetPath)
-		return c.GetOpUnsupportedError()
+		return fmt.Errorf("nested rename %q => %q is not supported: %w",
+			virtualSourcePath, virtualTargetPath, c.GetOpUnsupportedError())
 	}
 	if util.IsDirOverlapped(fsSourcePath, fsTargetPath, true, c.User.FsConfig.GetPathSeparator()) {
 		c.Log(logger.LevelDebug, "renaming the folder %q->%q is not supported: nested fs folders",
 			fsSourcePath, fsTargetPath)
-		return c.GetOpUnsupportedError()
+		return fmt.Errorf("nested fs rename %q => %q is not supported: %w",
+			fsSourcePath, fsTargetPath, c.GetOpUnsupportedError())
 	}
 	if c.User.HasVirtualFoldersInside(virtualSourcePath) {
 		c.Log(logger.LevelDebug, "renaming the folder %q is not supported: it has virtual folders inside it",
 			virtualSourcePath)
-		return c.GetOpUnsupportedError()
+		return fmt.Errorf("folder %q has virtual folders inside it: %w", virtualSourcePath, c.GetOpUnsupportedError())
 	}
 	if c.User.HasVirtualFoldersInside(virtualTargetPath) {
 		c.Log(logger.LevelDebug, "renaming the folder %q is not supported, the target %q has virtual folders inside it",
 			virtualSourcePath, virtualTargetPath)
-		return c.GetOpUnsupportedError()
+		return fmt.Errorf("folder %q has virtual folders inside it: %w", virtualTargetPath, c.GetOpUnsupportedError())
 	}
 	if err := c.checkRecursiveRenameDirPermissions(fsSrc, fsDst, fsSourcePath, fsTargetPath,
 		virtualSourcePath, virtualTargetPath, fi); err != nil {
