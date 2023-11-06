@@ -74,6 +74,13 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                             </a>
                         </div>
                         {{- end}}
+                        {{- if .CanShare}}
+                        <div class="menu-item px-3">
+                            <a href="#" class="menu-link px-3 fs-6" data-kt-filemanager-table-select="share_selected">
+                                Share
+                            </a>
+                        </div>
+                        {{- end}}
                         {{- if .CanDelete}}
                         <div class="menu-item px-3">
                             <a href="#" class="menu-link px-3 text-danger fs-6" data-kt-filemanager-table-select="delete_selected">
@@ -798,6 +805,22 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         <input type="hidden" name="_form_token" value="${token}">
                         <textarea name="files" hidden>${files}</textarea>
                        </form>`).appendTo('body').submit().remove();
+                });
+            }
+
+            const shareButton = document.querySelector('[data-kt-filemanager-table-select="share_selected"]');
+            if (shareButton){
+                shareButton.addEventListener('click', function(e){
+                    let filesArray = [];
+                    dt.rows({ selected: true, search: 'applied' }).every(function (rowIdx, tableLoop, rowLoop){
+                        let row = dt.row(rowIdx);
+                        filesArray.push(getNameFromMeta(row.data()['meta']));
+                    });
+                    let files = encodeURIComponent(JSON.stringify(filesArray));
+                    let shareURL = '{{.ShareURL}}';
+                    let currentDir = '{{.CurrentDir}}';
+                    let ts = new Date().getTime().toString();
+                    window.open(`${shareURL}?path=${currentDir}&files=${files}&_=${ts}`,'_blank');
                 });
             }
 
