@@ -165,6 +165,7 @@ const (
 	webClientDirsPathDefault              = "/web/client/dirs"
 	webClientDownloadZipPathDefault       = "/web/client/downloadzip"
 	webClientProfilePathDefault           = "/web/client/profile"
+	webClientPingPathDefault              = "/web/client/ping"
 	webClientMFAPathDefault               = "/web/client/mfa"
 	webClientTOTPGeneratePathDefault      = "/web/client/totp/generate"
 	webClientTOTPValidatePathDefault      = "/web/client/totp/validate"
@@ -264,6 +265,7 @@ var (
 	webClientDirsPath              string
 	webClientDownloadZipPath       string
 	webClientProfilePath           string
+	webClientPingPath              string
 	webChangeClientPwdPath         string
 	webClientMFAPath               string
 	webClientTOTPGeneratePath      string
@@ -1083,6 +1085,7 @@ func updateWebClientURLs(baseURL string) {
 	webClientDirsPath = path.Join(baseURL, webClientDirsPathDefault)
 	webClientDownloadZipPath = path.Join(baseURL, webClientDownloadZipPathDefault)
 	webClientProfilePath = path.Join(baseURL, webClientProfilePathDefault)
+	webClientPingPath = path.Join(baseURL, webClientPingPathDefault)
 	webChangeClientPwdPath = path.Join(baseURL, webChangeClientPwdPathDefault)
 	webClientLogoutPath = path.Join(baseURL, webClientLogoutPathDefault)
 	webClientMFAPath = path.Join(baseURL, webClientMFAPathDefault)

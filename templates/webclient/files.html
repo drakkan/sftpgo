@@ -208,8 +208,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 <script type="text/javascript">
     function keepAlive() {
         //{{- if not .ShareUploadBaseURL}}
-        axios.get('{{.ProfileURL}}',{
-            timeout: 15000
+        axios.get('{{.PingURL}}',{
+            timeout: 15000,
+            responseType: 'text'
        	}).catch(function (error){});
         //{{- end}}
     }

@@ -1550,6 +1550,7 @@ func (s *httpdServer) setupWebClientRoutes() {
 				Post(webClientFileActionsPath+"/copy", copyUserFsEntry)
 			router.With(s.checkAuthRequirements, s.refreshCookie).
 				Post(webClientDownloadZipPath, s.handleWebClientDownloadZip)
+			router.With(s.checkAuthRequirements, s.refreshCookie).Get(webClientPingPath, s.handleClientPing)
 			router.With(s.checkAuthRequirements, s.refreshCookie).Get(webClientProfilePath,
 				s.handleClientGetProfile)
 			router.With(s.checkAuthRequirements).Post(webClientProfilePath, s.handleWebClientProfilePost)

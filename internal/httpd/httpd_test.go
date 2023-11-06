@@ -180,6 +180,7 @@ const (
 	webClientDownloadZipPath       = "/web/client/downloadzip"
 	webChangeClientPwdPath         = "/web/client/changepwd"
 	webClientProfilePath           = "/web/client/profile"
+	webClientPingPath              = "/web/client/ping"
 	webClientTwoFactorPath         = "/web/client/twofactor"
 	webClientTwoFactorRecoveryPath = "/web/client/twofactor-recovery"
 	webClientLogoutPath            = "/web/client/logout"
@@ -12247,8 +12248,19 @@ func TestWebClientLoginMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusFound, rr)
 	assert.Equal(t, webClientLoginPath, rr.Header().Get("Location"))
+	req, _ = http.NewRequest(http.MethodGet, webClientPingPath, nil)
+	req.RemoteAddr = defaultRemoteAddr
+	setBearerForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusFound, rr)
+	assert.Equal(t, webClientLoginPath, rr.Header().Get("Location"))
 	// now try to render client pages
 	req, _ = http.NewRequest(http.MethodGet, webClientProfilePath, nil)
+	req.RemoteAddr = defaultRemoteAddr
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	req, _ = http.NewRequest(http.MethodGet, webClientPingPath, nil)
 	req.RemoteAddr = defaultRemoteAddr
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
@@ -12269,7 +12281,12 @@ func TestWebClientLoginMock(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusFound, rr)
 	assert.Equal(t, webClientLoginPath, rr.Header().Get("Location"))
-
+	req, _ = http.NewRequest(http.MethodGet, webClientPingPath, nil)
+	req.RemoteAddr = defaultRemoteAddr
+	setJWTCookieForReq(req, webToken)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusFound, rr)
+	assert.Equal(t, webClientLoginPath, rr.Header().Get("Location"))
 	// get a new token and use it after removing the user
 	webToken, err = getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)

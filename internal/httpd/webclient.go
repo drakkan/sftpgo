@@ -102,6 +102,7 @@ type baseClientPage struct {
 	SharesURL    string
 	ShareURL     string
 	ProfileURL   string
+	PingURL      string
 	ChangePwdURL string
 	StaticURL    string
 	LogoutURL    string
@@ -540,6 +541,7 @@ func (s *httpdServer) getBaseClientPageData(title, currentURL string, r *http.Re
 		SharesURL:    webClientSharesPath,
 		ShareURL:     webClientSharePath,
 		ProfileURL:   webClientProfilePath,
+		PingURL:      webClientPingPath,
 		ChangePwdURL: webChangeClientPwdPath,
 		StaticURL:    webStaticFilesPath,
 		LogoutURL:    webClientLogoutPath,
@@ -1791,4 +1793,9 @@ func (s *httpdServer) handleClientShareLoginPost(w http.ResponseWriter, r *http.
 	}
 	s.renderClientMessagePage(w, r, "Share Login OK", "Share login successful, you can now use your link",
 		http.StatusOK, nil, "")
+}
+
+func (s *httpdServer) handleClientPing(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	render.PlainText(w, r, "PONG")
 }
