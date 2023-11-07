@@ -366,11 +366,11 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 recList.empty();
                 $.each(response.data, function(key, item) {
                     itemCode = escapeHTML(item.code);
-                    let style = "";
+                    let txtStyleClass = "";
                     if (item.used) {
-                        style = `style="text-decoration: line-through;"`;
+                        txtStyleClass = "line-through";
                     }
-                    recList.append(`<li class="d-flex align-items-center py-2 fw-semibold fs-5 text-gray-800" ${style}><span class="bullet bullet-dot me-5"></span>${itemCode}</li>`);
+                    recList.append(`<li class="d-flex align-items-center py-2 fw-semibold fs-5 text-gray-800 ${txtStyleClass}"><span class="bullet bullet-dot me-5"></span>${itemCode}</li>`);
                 });
                 recCodesModal.show();
             }).catch(function (error){
