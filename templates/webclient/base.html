@@ -310,29 +310,33 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     }
                 }
 
+                var cancelFn = function() {
+                    resolvePromise(false);
+                    modal.hide();
+                }
+
+                var okFn = function() {
+                    resolvePromise(true);
+                    modal.hide();
+                }
+
+                var hideFn = function() {
+                    resolvePromise(false);
+                }
+
                 return {
                     fire: function (params) {
-                        if (!modal){
-                            modal = new bootstrap.Modal('#modal_alert');
-
-                            modal._element.addEventListener('hide.bs.modal',function() {
-                                resolvePromise(false);
-                            });
-
-                            $('#modal_alert_cancel').on("click", function(){
-                                resolvePromise(false);
-                                modal.hide();
-                            });
-
-                            $('#modal_alert_ok').on("click", function(){
-                                resolvePromise(true);
-                                modal.hide();
-                            });
-                        }
-
+                        modal = new bootstrap.Modal('#modal_alert');
+                        let modalEl = $('#modal_alert');
                         let okBtn = $("#modal_alert_ok");
                         let cancelBtn = $("#modal_alert_cancel");
 
+                        modalEl.off('hide.bs.modal');
+                        modalEl.on('hide.bs.modal', hideFn);
+                        cancelBtn.off("click");
+                        okBtn.off("click");
+                        cancelBtn.on("click", cancelFn);
+                        okBtn.on("click", okFn);
                         okBtn.removeClass();
                         okBtn.addClass(params.customClass.confirmButton);
                         okBtn.addClass("m-2");
