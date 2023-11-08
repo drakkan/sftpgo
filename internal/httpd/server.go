@@ -1046,7 +1046,7 @@ func (s *httpdServer) updateContextFromCookie(r *http.Request) *http.Request {
 	return r
 }
 
-func (s *httpdServer) checkConnection(next http.Handler) http.Handler {
+func (s *httpdServer) parseHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 		var ip net.IP
@@ -1078,6 +1078,13 @@ func (s *httpdServer) checkConnection(next http.Handler) http.Handler {
 			}
 		}
 
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (s *httpdServer) checkConnection(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 		common.Connections.AddClientConnection(ipAddr)
 		defer common.Connections.RemoveClientConnection(ipAddr)
 
@@ -1087,7 +1094,7 @@ func (s *httpdServer) checkConnection(next http.Handler) http.Handler {
 			return
 		}
 		if common.IsBanned(ipAddr, common.ProtocolHTTP) {
-			s.sendForbiddenResponse(w, r, "your IP address is banned")
+			s.sendForbiddenResponse(w, r, "your IP address is blocked")
 			return
 		}
 		if delay, err := common.LimitRate(common.ProtocolHTTP, ipAddr); err != nil {
@@ -1185,9 +1192,10 @@ func (s *httpdServer) initializeRouter() {
 	s.router = chi.NewRouter()
 
 	s.router.Use(middleware.RequestID)
-	s.router.Use(s.checkConnection)
+	s.router.Use(s.parseHeaders)
 	s.router.Use(logger.NewStructuredLogger(logger.GetLogger()))
 	s.router.Use(middleware.Recoverer)
+	s.router.Use(s.checkConnection)
 	if s.binding.Security.Enabled {
 		secureMiddleware := secure.New(secure.Options{
 			AllowedHosts:            s.binding.Security.AllowedHosts,
