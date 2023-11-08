@@ -12488,7 +12488,7 @@ func TestDefender(t *testing.T) {
 	req.RemoteAddr = remoteAddr
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
-	assert.Contains(t, rr.Body.String(), "your IP address is banned")
+	assert.Contains(t, rr.Body.String(), "your IP address is blocked")
 
 	req, _ = http.NewRequest(http.MethodGet, webUsersPath, nil)
 	req.RequestURI = webUsersPath
@@ -12496,7 +12496,7 @@ func TestDefender(t *testing.T) {
 	req.RemoteAddr = remoteAddr
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
-	assert.Contains(t, rr.Body.String(), "your IP address is banned")
+	assert.Contains(t, rr.Body.String(), "your IP address is blocked")
 
 	req, _ = http.NewRequest(http.MethodGet, webClientFilesPath, nil)
 	req.Header.Set("X-Real-IP", "127.0.0.1:2345")
@@ -12504,7 +12504,7 @@ func TestDefender(t *testing.T) {
 	req.RemoteAddr = remoteAddr
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
-	assert.Contains(t, rr.Body.String(), "your IP address is banned")
+	assert.Contains(t, rr.Body.String(), "your IP address is blocked")
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
