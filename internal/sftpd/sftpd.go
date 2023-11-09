@@ -77,14 +77,15 @@ func (h *HostKey) GetAlgosAsString() string {
 
 // ServiceStatus defines the service status
 type ServiceStatus struct {
-	IsActive        bool      `json:"is_active"`
-	Bindings        []Binding `json:"bindings"`
-	SSHCommands     []string  `json:"ssh_commands"`
-	HostKeys        []HostKey `json:"host_keys"`
-	Authentications []string  `json:"authentications"`
-	MACs            []string  `json:"macs"`
-	KexAlgorithms   []string  `json:"kex_algorithms"`
-	Ciphers         []string  `json:"ciphers"`
+	IsActive            bool      `json:"is_active"`
+	Bindings            []Binding `json:"bindings"`
+	SSHCommands         []string  `json:"ssh_commands"`
+	HostKeys            []HostKey `json:"host_keys"`
+	Authentications     []string  `json:"authentications"`
+	MACs                []string  `json:"macs"`
+	KexAlgorithms       []string  `json:"kex_algorithms"`
+	Ciphers             []string  `json:"ciphers"`
+	PublicKeyAlgorithms []string  `json:"public_key_algorithms"`
 }
 
 // GetSSHCommandsAsString returns enabled SSH commands as comma separated string
@@ -110,6 +111,12 @@ func (s *ServiceStatus) GetKEXsAsString() string {
 // GetCiphersAsString returns the enabled ciphers as comma separated string
 func (s *ServiceStatus) GetCiphersAsString() string {
 	return strings.Join(s.Ciphers, ", ")
+}
+
+// GetPublicKeysAlgosAsString returns enabled public key authentication
+// algorithms as comma separated string
+func (s *ServiceStatus) GetPublicKeysAlgosAsString() string {
+	return strings.Join(s.PublicKeyAlgorithms, ", ")
 }
 
 // GetStatus returns the server status

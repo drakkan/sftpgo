@@ -69,6 +69,19 @@ var (
 		ssh.KeyAlgoECDSA256, ssh.KeyAlgoECDSA384, ssh.KeyAlgoECDSA521,
 		ssh.KeyAlgoED25519,
 	}
+	supportedPublicKeyAlgos = []string{
+		ssh.KeyAlgoED25519,
+		ssh.KeyAlgoSKED25519, ssh.KeyAlgoSKECDSA256,
+		ssh.KeyAlgoECDSA256, ssh.KeyAlgoECDSA384, ssh.KeyAlgoECDSA521,
+		ssh.KeyAlgoRSASHA256, ssh.KeyAlgoRSASHA512, ssh.KeyAlgoRSA,
+		ssh.KeyAlgoDSA,
+	}
+	preferredPublicKeyAlgos = []string{
+		ssh.KeyAlgoED25519,
+		ssh.KeyAlgoSKED25519, ssh.KeyAlgoSKECDSA256,
+		ssh.KeyAlgoECDSA256, ssh.KeyAlgoECDSA384, ssh.KeyAlgoECDSA521,
+		ssh.KeyAlgoRSASHA256, ssh.KeyAlgoRSASHA512,
+	}
 	supportedKexAlgos = []string{
 		"curve25519-sha256", "curve25519-sha256@libssh.org",
 		"ecdh-sha2-nistp256", "ecdh-sha2-nistp384", "ecdh-sha2-nistp521",
@@ -171,6 +184,8 @@ type Configuration struct {
 	// MACs Specifies the available MAC (message authentication code) algorithms
 	// in preference order
 	MACs []string `json:"macs" mapstructure:"macs"`
+	// PublicKeyAlgorithms lists the supported public key algorithms for client authentication.
+	PublicKeyAlgorithms []string `json:"public_key_algorithms" mapstructure:"public_key_algorithms"`
 	// TrustedUserCAKeys specifies a list of public keys paths of certificate authorities
 	// that are trusted to sign user certificates for authentication.
 	// The paths can be absolute or relative to the configuration directory
@@ -318,6 +333,12 @@ func (c *Configuration) loadFromProvider() error {
 		}
 		c.HostKeyAlgorithms = append(c.HostKeyAlgorithms, configs.SFTPD.HostKeyAlgos...)
 	}
+	if len(configs.SFTPD.PublicKeyAlgos) > 0 {
+		if len(c.PublicKeyAlgorithms) == 0 {
+			c.PublicKeyAlgorithms = preferredPublicKeyAlgos
+		}
+		c.PublicKeyAlgorithms = append(c.PublicKeyAlgorithms, configs.SFTPD.PublicKeyAlgos...)
+	}
 	c.Moduli = append(c.Moduli, configs.SFTPD.Moduli...)
 	if len(configs.SFTPD.KexAlgorithms) > 0 {
 		if len(c.KexAlgorithms) == 0 {
@@ -441,7 +462,7 @@ func (c *Configuration) serve(listener net.Listener, serverConfig *ssh.ServerCon
 	}
 }
 
-func (c *Configuration) configureSecurityOptions(serverConfig *ssh.ServerConfig) error {
+func (c *Configuration) configureKeyAlgos(serverConfig *ssh.ServerConfig) error {
 	if len(c.HostKeyAlgorithms) == 0 {
 		c.HostKeyAlgorithms = preferredHostKeyAlgos
 	} else {
@@ -451,6 +472,27 @@ func (c *Configuration) configureSecurityOptions(serverConfig *ssh.ServerConfig)
 		if !util.Contains(supportedHostKeyAlgos, hostKeyAlgo) {
 			return fmt.Errorf("unsupported host key algorithm %q", hostKeyAlgo)
 		}
+	}
+
+	if len(c.PublicKeyAlgorithms) > 0 {
+		c.PublicKeyAlgorithms = util.RemoveDuplicates(c.PublicKeyAlgorithms, true)
+		for _, algo := range c.PublicKeyAlgorithms {
+			if !util.Contains(supportedPublicKeyAlgos, algo) {
+				return fmt.Errorf("unsupported public key authentication algorithm %q", algo)
+			}
+		}
+	} else {
+		c.PublicKeyAlgorithms = preferredPublicKeyAlgos
+	}
+	serverConfig.PublicKeyAuthAlgorithms = c.PublicKeyAlgorithms
+	serviceStatus.PublicKeyAlgorithms = c.PublicKeyAlgorithms
+
+	return nil
+}
+
+func (c *Configuration) configureSecurityOptions(serverConfig *ssh.ServerConfig) error {
+	if err := c.configureKeyAlgos(serverConfig); err != nil {
+		return err
 	}
 
 	if len(c.KexAlgorithms) > 0 {
@@ -468,11 +510,12 @@ func (c *Configuration) configureSecurityOptions(serverConfig *ssh.ServerConfig)
 				return fmt.Errorf("unsupported key-exchange algorithm %q", kex)
 			}
 		}
-		serverConfig.KeyExchanges = c.KexAlgorithms
-		serviceStatus.KexAlgorithms = c.KexAlgorithms
 	} else {
-		serviceStatus.KexAlgorithms = preferredKexAlgos
+		c.KexAlgorithms = preferredKexAlgos
 	}
+	serverConfig.KeyExchanges = c.KexAlgorithms
+	serviceStatus.KexAlgorithms = c.KexAlgorithms
+
 	if len(c.Ciphers) > 0 {
 		c.Ciphers = util.RemoveDuplicates(c.Ciphers, true)
 		for _, cipher := range c.Ciphers {
@@ -480,11 +523,12 @@ func (c *Configuration) configureSecurityOptions(serverConfig *ssh.ServerConfig)
 				return fmt.Errorf("unsupported cipher %q", cipher)
 			}
 		}
-		serverConfig.Ciphers = c.Ciphers
-		serviceStatus.Ciphers = c.Ciphers
 	} else {
-		serviceStatus.Ciphers = preferredCiphers
+		c.Ciphers = preferredCiphers
 	}
+	serverConfig.Ciphers = c.Ciphers
+	serviceStatus.Ciphers = c.Ciphers
+
 	if len(c.MACs) > 0 {
 		c.MACs = util.RemoveDuplicates(c.MACs, true)
 		for _, mac := range c.MACs {
@@ -492,11 +536,12 @@ func (c *Configuration) configureSecurityOptions(serverConfig *ssh.ServerConfig)
 				return fmt.Errorf("unsupported MAC algorithm %q", mac)
 			}
 		}
-		serverConfig.MACs = c.MACs
-		serviceStatus.MACs = c.MACs
 	} else {
-		serviceStatus.MACs = preferredMACs
+		c.MACs = preferredMACs
 	}
+	serverConfig.MACs = c.MACs
+	serviceStatus.MACs = c.MACs
+
 	return nil
 }
 

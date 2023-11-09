@@ -91,6 +91,7 @@
     "kex_algorithms": [],
     "ciphers": [],
     "macs": [],
+    "public_key_algorithms": [],
     "trusted_user_ca_keys": [],
     "revoked_user_certs_file": "",
     "login_banner_file": "",

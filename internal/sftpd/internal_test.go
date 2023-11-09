@@ -1879,13 +1879,15 @@ func TestConfigsFromProvider(t *testing.T) {
 	assert.Len(t, c.KexAlgorithms, 0)
 	assert.Len(t, c.Ciphers, 0)
 	assert.Len(t, c.MACs, 0)
+	assert.Len(t, c.PublicKeyAlgorithms, 0)
 	configs := dataprovider.Configs{
 		SFTPD: &dataprovider.SFTPDConfigs{
-			HostKeyAlgos:  []string{ssh.KeyAlgoRSA},
-			Moduli:        []string{"/etc/ssh/moduli"},
-			KexAlgorithms: []string{kexDHGroupExchangeSHA256},
-			Ciphers:       []string{"aes128-cbc", "aes192-cbc", "aes256-cbc"},
-			MACs:          []string{"hmac-sha2-512-etm@openssh.com"},
+			HostKeyAlgos:   []string{ssh.KeyAlgoRSA},
+			Moduli:         []string{"/etc/ssh/moduli"},
+			KexAlgorithms:  []string{kexDHGroupExchangeSHA256},
+			Ciphers:        []string{"aes128-cbc", "aes192-cbc", "aes256-cbc"},
+			MACs:           []string{"hmac-sha2-512-etm@openssh.com"},
+			PublicKeyAlgos: []string{ssh.KeyAlgoDSA},
 		},
 	}
 	err = dataprovider.UpdateConfigs(&configs, "", "", "")
@@ -1896,11 +1898,13 @@ func TestConfigsFromProvider(t *testing.T) {
 	expectedKEXs := append(preferredKexAlgos, configs.SFTPD.KexAlgorithms...)
 	expectedCiphers := append(preferredCiphers, configs.SFTPD.Ciphers...)
 	expectedMACs := append(preferredMACs, configs.SFTPD.MACs...)
+	expectedPublicKeyAlgos := append(preferredPublicKeyAlgos, configs.SFTPD.PublicKeyAlgos...)
 	assert.Equal(t, expectedHostKeyAlgos, c.HostKeyAlgorithms)
 	assert.Equal(t, expectedKEXs, c.KexAlgorithms)
 	assert.Equal(t, expectedCiphers, c.Ciphers)
 	assert.Equal(t, expectedMACs, c.MACs)
 	assert.Equal(t, configs.SFTPD.Moduli, c.Moduli)
+	assert.Equal(t, expectedPublicKeyAlgos, c.PublicKeyAlgorithms)
 
 	err = dataprovider.UpdateConfigs(nil, "", "", "")
 	assert.NoError(t, err)

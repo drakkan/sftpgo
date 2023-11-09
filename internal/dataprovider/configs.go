@@ -28,8 +28,9 @@ import (
 
 // Supported values for host keys, KEXs, ciphers, MACs
 var (
-	supportedHostKeyAlgos = []string{ssh.KeyAlgoRSA}
-	supportedKexAlgos     = []string{
+	supportedHostKeyAlgos   = []string{ssh.KeyAlgoRSA}
+	supportedPublicKeyAlgos = []string{ssh.KeyAlgoRSA, ssh.KeyAlgoDSA}
+	supportedKexAlgos       = []string{
 		"diffie-hellman-group16-sha512", "diffie-hellman-group14-sha1", "diffie-hellman-group1-sha1",
 		"diffie-hellman-group-exchange-sha256", "diffie-hellman-group-exchange-sha1",
 	}
@@ -45,15 +46,19 @@ var (
 
 // SFTPDConfigs defines configurations for SFTPD
 type SFTPDConfigs struct {
-	HostKeyAlgos  []string `json:"host_key_algos,omitempty"`
-	Moduli        []string `json:"moduli,omitempty"`
-	KexAlgorithms []string `json:"kex_algorithms,omitempty"`
-	Ciphers       []string `json:"ciphers,omitempty"`
-	MACs          []string `json:"macs,omitempty"`
+	HostKeyAlgos   []string `json:"host_key_algos,omitempty"`
+	PublicKeyAlgos []string `json:"public_key_algos,omitempty"`
+	Moduli         []string `json:"moduli,omitempty"`
+	KexAlgorithms  []string `json:"kex_algorithms,omitempty"`
+	Ciphers        []string `json:"ciphers,omitempty"`
+	MACs           []string `json:"macs,omitempty"`
 }
 
 func (c *SFTPDConfigs) isEmpty() bool {
 	if len(c.HostKeyAlgos) > 0 {
+		return false
+	}
+	if len(c.PublicKeyAlgos) > 0 {
 		return false
 	}
 	if len(c.Moduli) > 0 {
@@ -74,6 +79,11 @@ func (c *SFTPDConfigs) isEmpty() bool {
 // GetSupportedHostKeyAlgos returns the supported legacy host key algos
 func (*SFTPDConfigs) GetSupportedHostKeyAlgos() []string {
 	return supportedHostKeyAlgos
+}
+
+// GetSupportedPublicKeyAlgos returns the supported legacy public key algos
+func (*SFTPDConfigs) GetSupportedPublicKeyAlgos() []string {
+	return supportedPublicKeyAlgos
 }
 
 // GetSupportedKEXAlgos returns the supported KEX algos
@@ -129,12 +139,19 @@ func (c *SFTPDConfigs) validate() error {
 			return util.NewValidationError(fmt.Sprintf("unsupported MAC algorithm %q", mac))
 		}
 	}
+	for _, algo := range c.PublicKeyAlgos {
+		if !util.Contains(supportedPublicKeyAlgos, algo) {
+			return util.NewValidationError(fmt.Sprintf("unsupported public key algorithm %q", algo))
+		}
+	}
 	return nil
 }
 
 func (c *SFTPDConfigs) getACopy() *SFTPDConfigs {
 	hostKeys := make([]string, len(c.HostKeyAlgos))
 	copy(hostKeys, c.HostKeyAlgos)
+	publicKeys := make([]string, len(c.PublicKeyAlgos))
+	copy(publicKeys, c.PublicKeyAlgos)
 	moduli := make([]string, len(c.Moduli))
 	copy(moduli, c.Moduli)
 	kexs := make([]string, len(c.KexAlgorithms))
@@ -145,11 +162,12 @@ func (c *SFTPDConfigs) getACopy() *SFTPDConfigs {
 	copy(macs, c.MACs)
 
 	return &SFTPDConfigs{
-		HostKeyAlgos:  hostKeys,
-		Moduli:        moduli,
-		KexAlgorithms: kexs,
-		Ciphers:       ciphers,
-		MACs:          macs,
+		HostKeyAlgos:   hostKeys,
+		PublicKeyAlgos: publicKeys,
+		Moduli:         moduli,
+		KexAlgorithms:  kexs,
+		Ciphers:        ciphers,
+		MACs:           macs,
 	}
 }
 

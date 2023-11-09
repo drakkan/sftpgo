@@ -66,6 +66,17 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                             </div>
 
                             <div class="form-group row">
+                                <label for="idPubKeyAlgos" class="col-sm-2 col-form-label">Public Key Algos</label>
+                                <div class="col-sm-10">
+                                    <select class="form-control selectpicker" id="idPubKeyAlgos" name="sftp_pub_key_algos" multiple>
+                                        {{range $val := .Configs.SFTPD.GetSupportedPublicKeyAlgos}}
+                                        <option value="{{$val}}" {{range $algo :=$.Configs.SFTPD.PublicKeyAlgos }}{{if eq $algo $val}}selected{{end}}{{end}}>{{$val}}</option>
+                                        {{end}}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
                                 <label for="idModuli" class="col-sm-2 col-form-label">Moduli</label>
                                 <div class="col-sm-10">
                                     <textarea class="form-control" id="idModuli" name="sftp_moduli" rows="2" placeholder=""

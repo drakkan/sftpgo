@@ -2553,11 +2553,12 @@ func getIPListEntryFromPostFields(r *http.Request, listType dataprovider.IPListT
 
 func getSFTPConfigsFromPostFields(r *http.Request) *dataprovider.SFTPDConfigs {
 	return &dataprovider.SFTPDConfigs{
-		HostKeyAlgos:  r.Form["sftp_host_key_algos"],
-		Moduli:        getSliceFromDelimitedValues(r.Form.Get("sftp_moduli"), ","),
-		KexAlgorithms: r.Form["sftp_kex_algos"],
-		Ciphers:       r.Form["sftp_ciphers"],
-		MACs:          r.Form["sftp_macs"],
+		HostKeyAlgos:   r.Form["sftp_host_key_algos"],
+		PublicKeyAlgos: r.Form["sftp_pub_key_algos"],
+		Moduli:         getSliceFromDelimitedValues(r.Form.Get("sftp_moduli"), ","),
+		KexAlgorithms:  r.Form["sftp_kex_algos"],
+		Ciphers:        r.Form["sftp_ciphers"],
+		MACs:           r.Form["sftp_macs"],
 	}
 }
 

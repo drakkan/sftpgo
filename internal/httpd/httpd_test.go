@@ -7823,7 +7823,8 @@ func TestLoaddata(t *testing.T) {
 	}
 	configs := dataprovider.Configs{
 		SFTPD: &dataprovider.SFTPDConfigs{
-			HostKeyAlgos: []string{ssh.KeyAlgoRSA, ssh.CertAlgoRSAv01},
+			HostKeyAlgos:   []string{ssh.KeyAlgoRSA, ssh.CertAlgoRSAv01},
+			PublicKeyAlgos: []string{ssh.KeyAlgoDSA},
 		},
 		SMTP: &dataprovider.SMTPConfigs{
 			Host: "mail.example.com",
@@ -7890,6 +7891,7 @@ func TestLoaddata(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, configs.SMTP, configsGet.SMTP)
 	assert.Equal(t, []string{ssh.KeyAlgoRSA}, configsGet.SFTPD.HostKeyAlgos)
+	assert.Equal(t, []string{ssh.KeyAlgoDSA}, configsGet.SFTPD.PublicKeyAlgos)
 	assert.Len(t, configsGet.SFTPD.Moduli, 0)
 	assert.Len(t, configsGet.SFTPD.KexAlgorithms, 0)
 	assert.Len(t, configsGet.SFTPD.Ciphers, 0)
@@ -12722,6 +12724,7 @@ func TestWebConfigsMock(t *testing.T) {
 	// save SFTP configs
 	form.Set("sftp_host_key_algos", ssh.KeyAlgoRSA)
 	form.Add("sftp_host_key_algos", ssh.CertAlgoDSAv01)
+	form.Set("sftp_pub_key_algos", ssh.KeyAlgoDSA)
 	form.Set("sftp_moduli", "path 1 , path 2")
 	form.Set("form_action", "sftp_submit")
 	req, err = http.NewRequest(http.MethodPost, webConfigsPath, bytes.NewBuffer([]byte(form.Encode())))
@@ -12733,6 +12736,7 @@ func TestWebConfigsMock(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), ssh.CertAlgoDSAv01) // invalid algo
 	form.Set("sftp_host_key_algos", ssh.KeyAlgoRSA)
 	form.Add("sftp_host_key_algos", ssh.CertAlgoRSAv01)
+	form.Set("sftp_pub_key_algos", ssh.KeyAlgoDSA)
 	form.Set("sftp_kex_algos", "diffie-hellman-group18-sha512")
 	form.Add("sftp_kex_algos", "diffie-hellman-group16-sha512")
 	req, err = http.NewRequest(http.MethodPost, webConfigsPath, bytes.NewBuffer([]byte(form.Encode())))
@@ -12747,6 +12751,8 @@ func TestWebConfigsMock(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, configs.SFTPD.HostKeyAlgos, 1)
 	assert.Contains(t, configs.SFTPD.HostKeyAlgos, ssh.KeyAlgoRSA)
+	assert.Len(t, configs.SFTPD.PublicKeyAlgos, 1)
+	assert.Contains(t, configs.SFTPD.PublicKeyAlgos, ssh.KeyAlgoDSA)
 	assert.Len(t, configs.SFTPD.Moduli, 2)
 	assert.Contains(t, configs.SFTPD.Moduli, "path 1")
 	assert.Contains(t, configs.SFTPD.Moduli, "path 2")
@@ -12795,6 +12801,8 @@ func TestWebConfigsMock(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, configs.SFTPD.HostKeyAlgos, 1)
 	assert.Contains(t, configs.SFTPD.HostKeyAlgos, ssh.KeyAlgoRSA)
+	assert.Len(t, configs.SFTPD.PublicKeyAlgos, 1)
+	assert.Contains(t, configs.SFTPD.PublicKeyAlgos, ssh.KeyAlgoDSA)
 	assert.Len(t, configs.SFTPD.Moduli, 2)
 	assert.Equal(t, "mail.example.net", configs.SMTP.Host)
 	assert.Equal(t, 587, configs.SMTP.Port)
@@ -12865,6 +12873,8 @@ func TestWebConfigsMock(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, configs.SFTPD.HostKeyAlgos, 1)
 	assert.Contains(t, configs.SFTPD.HostKeyAlgos, ssh.KeyAlgoRSA)
+	assert.Len(t, configs.SFTPD.PublicKeyAlgos, 1)
+	assert.Contains(t, configs.SFTPD.PublicKeyAlgos, ssh.KeyAlgoDSA)
 	assert.Len(t, configs.SFTPD.Moduli, 2)
 	assert.Equal(t, 80, configs.ACME.HTTP01Challenge.Port)
 	assert.Equal(t, 7, configs.ACME.Protocols)
@@ -12896,6 +12906,7 @@ func TestWebConfigsMock(t *testing.T) {
 	configs, err = dataprovider.GetConfigs()
 	assert.NoError(t, err)
 	assert.Len(t, configs.SFTPD.HostKeyAlgos, 1)
+	assert.Len(t, configs.SFTPD.PublicKeyAlgos, 1)
 	assert.Equal(t, 402, configs.ACME.HTTP01Challenge.Port)
 	assert.Equal(t, 1, configs.ACME.Protocols)
 	assert.Equal(t, domain, configs.ACME.Domain)

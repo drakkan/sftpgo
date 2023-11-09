@@ -438,6 +438,12 @@ func TestInitialization(t *testing.T) {
 		assert.Contains(t, err.Error(), "unsupported key-exchange algorithm")
 	}
 	sftpdConf.KexAlgorithms = nil
+	sftpdConf.PublicKeyAlgorithms = []string{"not a pub key algo"}
+	err = sftpdConf.Initialize(configDir)
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "unsupported public key authentication algorithm")
+	}
+	sftpdConf.PublicKeyAlgorithms = nil
 	sftpdConf.HostKeyAlgorithms = []string{"not a host key algo"}
 	err = sftpdConf.Initialize(configDir)
 	if assert.Error(t, err) {
@@ -581,6 +587,7 @@ func TestBasicSFTPHandling(t *testing.T) {
 	assert.NotEmpty(t, status.GetMACsAsString())
 	assert.NotEmpty(t, status.GetKEXsAsString())
 	assert.NotEmpty(t, status.GetCiphersAsString())
+	assert.NotEmpty(t, status.GetPublicKeysAlgosAsString())
 }
 
 func TestBasicSFTPFsHandling(t *testing.T) {

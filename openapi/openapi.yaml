@@ -6505,6 +6505,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SSHAuthentications'
+        public_key_algorithms:
+          type: array
+          items:
+            type: string
         macs:
           type: array
           items:

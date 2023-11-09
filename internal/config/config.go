@@ -263,6 +263,7 @@ func Init() {
 			KexAlgorithms:                     []string{},
 			Ciphers:                           []string{},
 			MACs:                              []string{},
+			PublicKeyAlgorithms:               []string{},
 			TrustedUserCAKeys:                 []string{},
 			RevokedUserCertsFile:              "",
 			LoginBannerFile:                   "",
@@ -2020,6 +2021,7 @@ func setViperDefaults() {
 	viper.SetDefault("sftpd.kex_algorithms", globalConf.SFTPD.KexAlgorithms)
 	viper.SetDefault("sftpd.ciphers", globalConf.SFTPD.Ciphers)
 	viper.SetDefault("sftpd.macs", globalConf.SFTPD.MACs)
+	viper.SetDefault("sftpd.public_key_algorithms", globalConf.SFTPD.PublicKeyAlgorithms)
 	viper.SetDefault("sftpd.trusted_user_ca_keys", globalConf.SFTPD.TrustedUserCAKeys)
 	viper.SetDefault("sftpd.revoked_user_certs_file", globalConf.SFTPD.RevokedUserCertsFile)
 	viper.SetDefault("sftpd.login_banner_file", globalConf.SFTPD.LoginBannerFile)
