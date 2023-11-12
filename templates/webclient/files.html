@@ -1569,7 +1569,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         </span>
                     </div>
                     <div class="mb-1 pe-3 flex-grow-1">
-                        <span class="fs-6 text-dark fw-semibold">Disk quota</span>
+                        <span class="fs-6 text-gray-900 fw-semibold">Disk quota</span>
                         {{- if $size}}
                         {{- $percentage := .QuotaUsage.GetQuotaSizePercentage}}
                         <div class="{{if .QuotaUsage.IsQuotaSizeLow}}text-warning{{else}}text-gray-700{{end}} fw-semibold fs-6">Size: {{$size}}{{if gt $percentage 0}} ({{$percentage}}%){{end}}</div>
@@ -1595,7 +1595,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         </span>
                     </div>
                     <div class="mb-1 pe-3 flex-grow-1">
-                        <span class="fs-6 text-dark fw-semibold">Transfer quota</span>
+                        <span class="fs-6 text-gray-900 fw-semibold">Transfer quota</span>
                         {{- if $total}}
                         {{$percentage := .QuotaUsage.GetTotalTransferQuotaPercentage}}
                         <div class="{{if .QuotaUsage.IsTotalTransferQuotaLow}}text-warning{{else}}text-gray-700{{end}} fw-semibold fs-6">Total: {{$total}}{{if gt $percentage 0}} ({{$percentage}}%){{end}}</div>
