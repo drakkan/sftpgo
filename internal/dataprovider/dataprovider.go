@@ -355,8 +355,10 @@ type Config struct {
 	Port int `json:"port" mapstructure:"port"`
 	// Database username
 	Username string `json:"username" mapstructure:"username"`
+	UsernameFile string `json:"username_file" mapstructure:"username_file"`
 	// Database password
 	Password string `json:"password" mapstructure:"password"`
+	PasswordFile string `json:"password_file" mapstructure:"password_file"`
 	// Used for drivers mysql and postgresql.
 	// 0 disable SSL/TLS connections.
 	// 1 require ssl.
@@ -874,6 +876,22 @@ func Initialize(cnf Config, basePath string, checkAdmins bool) error {
 	checkSharedMode()
 	config.Actions.ExecuteOn = util.RemoveDuplicates(config.Actions.ExecuteOn, true)
 	config.Actions.ExecuteFor = util.RemoveDuplicates(config.Actions.ExecuteFor, true)
+
+	if config.Username == "" && config.UsernameFile != "" {
+		user, err := os.ReadFile(config.UsernameFile)
+		if err != nil {
+			return err
+		}
+		config.Username = string(user)
+	}
+
+	if config.Password == "" && config.PasswordFile != "" {
+		password, err := os.ReadFile(config.PasswordFile)
+		if err != nil {
+			return err
+		}
+		config.Password = string(password)
+	}
 
 	cnf.BackupsPath = getConfigPath(cnf.BackupsPath, basePath)
 	if cnf.BackupsPath == "" {
