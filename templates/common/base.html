@@ -23,18 +23,13 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     <div class="text-gray-800 fw-bold fs-5 d-flex flex-column pe-0 pe-sm-10">
 		<span id="errorTxt">{{.}}</span>
 	</div>
-    <button type="button" class="position-absolute position-sm-relative m-2 m-sm-0 top-0 end-0 btn btn-icon btn-sm btn-active-light-primary ms-sm-auto" onclick="dismissErrorMsg();">
+    <button id="id_dismiss_error_msg" type="button" class="position-absolute position-sm-relative m-2 m-sm-0 top-0 end-0 btn btn-icon btn-sm btn-active-light-primary ms-sm-auto">
         <i class="ki-duotone ki-cross fs-2x text-primary">
             <span class="path1"></span>
             <span class="path2"></span>
         </i>
     </button>
 </div>
-<script type="text/javascript">
-    function dismissErrorMsg(){
-        $('#errorMsg').addClass("d-none");
-    }
-</script>
 {{- end}}
 
 {{- define "theme-setup"}}
@@ -125,6 +120,23 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         return (b=Math,c=b.log,d=1024,e=c(a)/c(d)|0,a/b.pow(d,e)).toFixed(1)
             +' '+(e?'KMGTPEZY'[--e]+'iB':'Bytes')
     }
+
+    KTUtil.onDOMContentLoaded(function () {
+        var dismissErrorBtn = $('#id_dismiss_error_msg');
+        if (dismissErrorBtn){
+            dismissErrorBtn.on("click", function(){
+                $('#errorMsg').addClass("d-none");
+            });
+        }
+
+        var logoutBtn = $('#id_logout_link');
+        if (logoutBtn){
+            logoutBtn.on("click", function(){
+                doLogout();
+            });
+        }
+
+	});
 </script>
 {{- end}}
 

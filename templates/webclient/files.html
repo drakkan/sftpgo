@@ -32,7 +32,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         <div class="card-toolbar">
             <div class="d-flex justify-content-end" data-kt-filemanager-table-toolbar="base">
                 {{- if .CanCreateDirs}}
-                <button type="button" class="btn btn-flex btn-light-primary me-3" onclick="showCreateNewFolder(0);">
+                <button id="id_create_dir_button" type="button" class="btn btn-flex btn-light-primary me-3">
                     <i class="ki-duotone ki-add-folder fs-2">
                         <span class="path1"></span>
                         <span class="path2"></span>
@@ -128,7 +128,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </i>
             </span>
             <input id="file_manager_new_folder_input" type="text" name="new_folder_name" placeholder="Enter the new folder name" class="form-control mw-250px me-3" />
-            <button class="btn btn-icon btn-light-primary me-3" id="file_manager_add_folder" onclick="createNewFolder();">
+            <button class="btn btn-icon btn-light-primary me-3" id="file_manager_add_folder">
                 <span class="indicator-label">
                     <i class="ki-duotone ki-check fs-1"></i>
                 </span>
@@ -136,7 +136,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     <span class="spinner-border spinner-border-sm align-middle"></span>
                 </span>
             </button>
-            <button class="btn btn-icon btn-light-danger" id="file_manager_cancel_folder" onclick="hideCreateNewFolder(0);">
+            <button class="btn btn-icon btn-light-danger" id="file_manager_cancel_folder">
                 <i class="ki-duotone ki-cross fs-1">
                     <span class="path1"></span>
                     <span class="path2"></span>
@@ -1533,6 +1533,71 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             newNameEl.select();
         });
         //{{- end}}
+
+        // onclick handlers
+        var createDirBtn = $('#id_create_dir_button');
+        if (createDirBtn){
+            createDirBtn.on("click", function (){
+                showCreateNewFolder(0);
+            });
+        }
+
+        var dirBrowserCreateDir = $('#id_dir_browser_create_dir');
+        if (dirBrowserCreateDir){
+            dirBrowserCreateDir.on("click", function(){
+                showCreateNewFolder(1);
+            });
+        }
+
+        var fileManagerAddFolder = $('#file_manager_add_folder');
+        if (fileManagerAddFolder){
+            fileManagerAddFolder.on("click", function() {
+                createNewFolder();
+            });
+        }
+
+        var fileManagerCancelCreateFolder = $('#file_manager_cancel_folder');
+        if (fileManagerCancelCreateFolder){
+            fileManagerCancelCreateFolder.on("click", function(){
+                hideCreateNewFolder(0);
+            })
+        }
+
+        var dirBrowserCancelCreateFolder = $('#dirsbrowser_cancel_folder');
+        if (dirBrowserCancelCreateFolder){
+            dirBrowserCancelCreateFolder.on("click", function(){
+                hideCreateNewFolder(1);
+            });
+        }
+
+        var doRenameBtn = $('#id_do_rename_button');
+        if (doRenameBtn){
+            doRenameBtn.on("click", function() {
+                doRename();
+            });
+        }
+
+        var doCopyBtn = $('#id_copy_button');
+        if (doCopyBtn){
+            doCopyBtn.on("click", function(){
+                doCopy();
+            });
+        }
+
+        var doMoveBtn = $('#id_move_button');
+        if (doMoveBtn){
+            doMoveBtn.on("click", function(){
+                doMove();
+            });
+        }
+
+        var dismissErrorModalBtn = $('#id_dismiss_error_modal_msg');
+        if (dismissErrorModalBtn){
+            dismissErrorModalBtn.on("click",function(){
+                $('#errorModalMsg').addClass("d-none");
+            });
+        }
+
     });
 </script>
 {{- end}}
@@ -1636,7 +1701,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                 <i class="ki-duotone ki-file-up fs-3x text-primary"><span class="path1"></span><span class="path2"></span></i>
                                 <div class="ms-4">
                                     <h3 class="fs-5 fw-bold text-gray-900 mb-1">Drop files here or click to upload.</h3>
-                                    <!-- <span class="fs-7 fw-semibold text-gray-400">Upload up to 30 files</span> -->
+                                    <!-- <span class="fs-7 fw-semibold text-gray-500">Upload up to 30 files</span> -->
                                 </div>
                             </div>
                         </div>
@@ -1695,7 +1760,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
             <div class="modal-footer border-0">
                 <button type="button" class="btn btn-secondary me-5" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" data-bs-dismiss="modal" onclick="doRename();">Submit</button>
+                <button id="id_do_rename_button" type="button" class="btn btn-primary" data-bs-dismiss="modal">Submit</button>
             </div>
         </div>
     </div>
@@ -1719,15 +1784,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     <div class="text-gray-700 fw-bold fs-5 d-flex flex-column pe-0 pe-sm-10">
                         <span id="errorModalTxt"></span>
                     </div>
-                    <button type="button" class="position-absolute position-sm-relative m-2 m-sm-0 top-0 end-0 btn btn-icon btn-sm btn-active-light-primary ms-sm-auto" onclick="dismissErrorModalMsg();">
+                    <button id="id_dismiss_error_modal_msg" type="button" class="position-absolute position-sm-relative m-2 m-sm-0 top-0 end-0 btn btn-icon btn-sm btn-active-light-primary ms-sm-auto">
                         <i class="ki-duotone ki-cross fs-2x text-primary"><span class="path1"></span><span class="path2"></span></i>
                     </button>
                 </div>
-                <script type="text/javascript">
-                    function dismissErrorModalMsg(){
-                        $('#errorModalMsg').addClass("d-none");
-                    }
-                </script>
                 <div class="row">
                     <div class="col-md-9 align-items-center d-flex flex-stack">
                         <div class="badge badge-lg badge-light-primary">
@@ -1736,7 +1796,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         </div>
                     </div>
                     <div class="col-md-3 align-items-center d-flex justify-content-end">
-                        <button type="button" class="btn btn-flex btn-primary" onclick="showCreateNewFolder(1);">
+                        <button id="id_dir_browser_create_dir" type="button" class="btn btn-flex btn-primary">
                             <i class="ki-duotone ki-add-folder fs-2">
                                 <span class="path1"></span>
                                 <span class="path2"></span>
@@ -1761,7 +1821,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                             <span class="spinner-border spinner-border-sm align-middle"></span>
                         </span>
                     </button>
-                    <button class="btn btn-icon btn-light-danger" id="dirsbrowser_cancel_folder" onclick="hideCreateNewFolder(1);">
+                    <button class="btn btn-icon btn-light-danger" id="dirsbrowser_cancel_folder">
                         <i class="ki-duotone ki-cross fs-1">
                             <span class="path1"></span>
                             <span class="path2"></span>
@@ -1798,10 +1858,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
             <div class="modal-footer border-0">
                 {{- if .CanAddFiles }}
-                <button type="button" class="btn btn-light-primary me-5" data-bs-dismiss="modal" onclick="doCopy();">Copy</button>
+                <button id="id_copy_button" type="button" class="btn btn-light-primary me-5" data-bs-dismiss="modal">Copy</button>
                 {{- end}}
                 {{- if .CanRename }}
-                <button type="button" class="btn btn-primary" data-bs-dismiss="modal" onclick="doMove();">Move</button>
+                <button id="id_move_button" type="button" class="btn btn-primary" data-bs-dismiss="modal">Move</button>
                 {{- end}}
             </div>
         </div>
