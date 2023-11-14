@@ -52,7 +52,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         <div class="card-toolbar">
             <a class="btn btn-light-primary px-10 me-5" href='{{.FilesURL}}?path={{.CurrentDir}}' role="button">Back</a>
             {{- if not .ReadOnly}}
-            <a id="save_button" type="button" class="btn btn-primary px-10" href="#" role="button" onclick="saveFile();">
+            <a id="save_button" type="button" class="btn btn-primary px-10" href="#" role="button">
                 <span class="indicator-label">Save</span>
 			    <span class="indicator-progress">Please wait...
 					<span class="spinner-border spinner-border-sm align-middle ms-2"></span>
@@ -158,6 +158,13 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         //{{- end}}
         cmView = cm6.createEditorView(undefined, document.getElementById("editor"));
         cmView.setState(cm6.createEditorState("{{.Data}}", options));
+
+        var saveBtn = $('#save_button');
+        if (saveBtn){
+            saveBtn.on("click", function(){
+                saveFile();
+            });
+        }
 
         setInterval(keepAlive, 300000);
     });
