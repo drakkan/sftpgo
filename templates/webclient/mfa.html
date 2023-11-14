@@ -43,7 +43,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     </div>
                 </div>
                 {{- if .TOTPConfig.Enabled}}
-                <button type="button" id="disable_btn" class="btn btn-danger ms-4 px-6 align-self-center text-nowrap" onclick="disableConfig();">
+                <button type="button" id="disable_btn" class="btn btn-danger ms-4 px-6 align-self-center text-nowrap">
                     <span class="indicator-label">
                         Disable
                     </span>
@@ -86,7 +86,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
         <div class="d-flex justify-content-end mt-15">
             {{- if .TOTPConfig.Enabled }}
-            <button type="button" id="generate_secret_btn" onclick="generateSecret();" class="btn btn-light-primary px-10 me-10 d-none">
+            <button type="button" id="generate_secret_btn" class="btn btn-light-primary px-10 me-10 d-none">
                 <span class="indicator-label">
                     Generate new secret
                 </span>
@@ -95,7 +95,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </span>
             </button>
             {{- end}}
-            <button type="button" id="save_btn" onclick="saveConfig();" class="btn btn-primary px-10 d-none">
+            <button type="button" id="save_btn" class="btn btn-primary px-10 d-none">
                 <span id="save_label" class="indicator-label"></span>
                 <span class="indicator-progress">
                     Please wait... <span class="spinner-border spinner-border-sm align-middle ms-2"></span>
@@ -123,8 +123,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 <p>If you generate new recovery codes, you automatically invalidate old ones.</p>
             </div>
             <div class="d-flex justify-content-center mt-10">
-                <button type="button" id="generate_recovery_code_btn" onclick="generateRecoveryCodes();"
-                    class="btn btn-primary px-10 me-10">
+                <button type="button" id="generate_recovery_code_btn" class="btn btn-primary px-10 me-10">
                     <span class="indicator-label">
                         Generate
                     </span>
@@ -132,7 +131,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         Please wait... <span class="spinner-border spinner-border-sm align-middle ms-2"></span>
                     </span>
                 </button>
-                <button type="button" id="view_recovery_code_btn" onclick="viewRecoveryCodes();" class="btn btn-primary px-10">
+                <button type="button" id="view_recovery_code_btn" class="btn btn-primary px-10">
                     <span id="save_label" class="indicator-label">View</span>
                     <span class="indicator-progress">
                         Please wait... <span class="spinner-border spinner-border-sm align-middle ms-2"></span>
@@ -241,15 +240,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     <div class="text-gray-700 fw-bold fs-5 d-flex flex-column pe-0 pe-sm-10">
                         <span id="errorModalTxt"></span>
                     </div>
-                    <button type="button" class="position-absolute position-sm-relative m-2 m-sm-0 top-0 end-0 btn btn-icon btn-sm btn-active-light-primary ms-sm-auto" onclick="dismissErrorModalMsg();">
+                    <button id="id_dismiss_error_modal_msg" type="button" class="position-absolute position-sm-relative m-2 m-sm-0 top-0 end-0 btn btn-icon btn-sm btn-active-light-primary ms-sm-auto">
                         <i class="ki-duotone ki-cross fs-2x text-primary"><span class="path1"></span><span class="path2"></span></i>
                     </button>
                 </div>
-                <script type="text/javascript">
-                    function dismissErrorModalMsg(){
-                        $('#errorModalMsg').addClass("d-none");
-                    }
-                </script>
 
                 <div class="fv-row">
                     <input type="text" id="id_passcode" name="passcode" class="form-control form-control-lg form-control-solid" placeholder="Enter authentication code" spellcheck="false" />
@@ -257,7 +251,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary ms-6" id="passcode_btn" onclick="validatePasscode();">
+                <button type="button" class="btn btn-primary ms-6" id="passcode_btn">
                     <span class="indicator-label">
                         Submit
                     </span>
@@ -641,6 +635,56 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
     KTUtil.onDOMContentLoaded(function () {
         onConfigChanged();
+
+        var dismissErrorModalBtn = $('#id_dismiss_error_modal_msg');
+        if (dismissErrorModalBtn){
+            dismissErrorModalBtn.on("click",function(){
+                $('#errorModalMsg').addClass("d-none");
+            });
+        }
+
+        var disableBtn = $('#disable_btn');
+        if (disableBtn){
+            disableBtn.on("click", function(){
+                disableConfig();
+            });
+        }
+
+        var generateSecretBtn = $('#generate_secret_btn');
+        if (generateSecretBtn){
+            generateSecretBtn.on("click", function(){
+                generateSecret();
+            });
+        }
+
+        var saveBtn = $('#save_btn');
+        if (saveBtn){
+            saveBtn.on("click", function(){
+                saveConfig();
+            });
+        }
+
+        var generateRecoveryCodeBtn = $('#generate_recovery_code_btn');
+        if (generateRecoveryCodeBtn){
+            generateRecoveryCodeBtn.on("click", function(){
+                generateRecoveryCodes();
+            });
+        }
+
+        var viewRecoveryCodesBtn = $('#view_recovery_code_btn');
+        if (viewRecoveryCodesBtn){
+            viewRecoveryCodesBtn.on("click", function(){
+                viewRecoveryCodes();
+            });
+        }
+
+        var passcodeBtn = $('#passcode_btn');
+        if (passcodeBtn){
+            passcodeBtn.on("click", function() {
+                validatePasscode();
+            });
+        }
+
     });
 
 </script>
