@@ -106,7 +106,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
 {{define "extra_js"}}
 <script src="{{.StaticURL}}/assets/plugins/custom/datatables/datatables.bundle.js"></script>
-<script type="text/javascript">
+<script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
 
     function deleteAction(shareID) {
         let errDivEl = $('#errorMsg');

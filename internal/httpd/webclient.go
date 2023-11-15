@@ -34,6 +34,7 @@ import (
 	"github.com/go-chi/render"
 	"github.com/rs/xid"
 	"github.com/sftpgo/sdk"
+	"github.com/unrolled/secure"
 
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
@@ -115,6 +116,7 @@ type baseClientPage struct {
 	ProfileTitle string
 	Version      string
 	CSRFToken    string
+	CSPNonce     string
 	LoggedUser   *dataprovider.User
 	Branding     UIBranding
 }
@@ -128,6 +130,7 @@ type viewPDFPage struct {
 	Title     string
 	URL       string
 	StaticURL string
+	CSPNonce  string
 	Branding  UIBranding
 }
 
@@ -553,6 +556,7 @@ func (s *httpdServer) getBaseClientPageData(title, currentURL string, r *http.Re
 		ProfileTitle: pageClientProfileTitle,
 		Version:      fmt.Sprintf("%v-%v", v.Version, v.CommitHash),
 		CSRFToken:    csrfToken,
+		CSPNonce:     secure.CSPNonce(r.Context()),
 		LoggedUser:   getUserFromToken(r),
 		Branding:     s.binding.Branding.WebClient,
 	}
@@ -562,11 +566,12 @@ func (s *httpdServer) getBaseClientPageData(title, currentURL string, r *http.Re
 	return data
 }
 
-func (s *httpdServer) renderClientForgotPwdPage(w http.ResponseWriter, error, ip string) {
+func (s *httpdServer) renderClientForgotPwdPage(w http.ResponseWriter, r *http.Request, error, ip string) {
 	data := forgotPwdPage{
 		CurrentURL: webClientForgotPwdPath,
 		Error:      error,
 		CSRFToken:  createCSRFToken(ip),
+		CSPNonce:   secure.CSPNonce(r.Context()),
 		StaticURL:  webStaticFilesPath,
 		LoginURL:   webClientLoginPath,
 		Title:      pageClientForgotPwdTitle,
@@ -575,11 +580,12 @@ func (s *httpdServer) renderClientForgotPwdPage(w http.ResponseWriter, error, ip
 	renderClientTemplate(w, templateForgotPassword, data)
 }
 
-func (s *httpdServer) renderClientResetPwdPage(w http.ResponseWriter, _ *http.Request, error, ip string) {
+func (s *httpdServer) renderClientResetPwdPage(w http.ResponseWriter, r *http.Request, error, ip string) {
 	data := resetPwdPage{
 		CurrentURL: webClientResetPwdPath,
 		Error:      error,
 		CSRFToken:  createCSRFToken(ip),
+		CSPNonce:   secure.CSPNonce(r.Context()),
 		StaticURL:  webStaticFilesPath,
 		LoginURL:   webClientLoginPath,
 		Title:      pageClientResetPwdTitle,
@@ -647,6 +653,7 @@ func (s *httpdServer) renderClientTwoFactorPage(w http.ResponseWriter, r *http.R
 		Version:     version.Get().Version,
 		Error:       error,
 		CSRFToken:   createCSRFToken(ip),
+		CSPNonce:    secure.CSPNonce(r.Context()),
 		StaticURL:   webStaticFilesPath,
 		RecoveryURL: webClientTwoFactorRecoveryPath,
 		Branding:    s.binding.Branding.WebClient,
@@ -657,12 +664,13 @@ func (s *httpdServer) renderClientTwoFactorPage(w http.ResponseWriter, r *http.R
 	renderClientTemplate(w, templateTwoFactor, data)
 }
 
-func (s *httpdServer) renderClientTwoFactorRecoveryPage(w http.ResponseWriter, _ *http.Request, error, ip string) {
+func (s *httpdServer) renderClientTwoFactorRecoveryPage(w http.ResponseWriter, r *http.Request, error, ip string) {
 	data := twoFactorPage{
 		CurrentURL: webClientTwoFactorRecoveryPath,
 		Version:    version.Get().Version,
 		Error:      error,
 		CSRFToken:  createCSRFToken(ip),
+		CSPNonce:   secure.CSPNonce(r.Context()),
 		StaticURL:  webStaticFilesPath,
 		Branding:   s.binding.Branding.WebClient,
 	}
@@ -1056,6 +1064,7 @@ func (s *httpdServer) handleShareViewPDF(w http.ResponseWriter, r *http.Request)
 		URL: fmt.Sprintf("%s?path=%s&_=%d", path.Join(webClientPubSharesPath, share.ShareID, "getpdf"),
 			url.QueryEscape(name), time.Now().UTC().Unix()),
 		StaticURL: webStaticFilesPath,
+		CSPNonce:  secure.CSPNonce(r.Context()),
 		Branding:  s.binding.Branding.WebClient,
 	}
 	renderClientTemplate(w, templateClientViewPDF, data)
@@ -1618,7 +1627,7 @@ func (s *httpdServer) handleWebClientForgotPwd(w http.ResponseWriter, r *http.Re
 		s.renderClientNotFoundPage(w, r, errors.New("this page does not exist"))
 		return
 	}
-	s.renderClientForgotPwdPage(w, "", util.GetIPFromRemoteAddress(r.RemoteAddr))
+	s.renderClientForgotPwdPage(w, r, "", util.GetIPFromRemoteAddress(r.RemoteAddr))
 }
 
 func (s *httpdServer) handleWebClientForgotPwdPost(w http.ResponseWriter, r *http.Request) {
@@ -1627,7 +1636,7 @@ func (s *httpdServer) handleWebClientForgotPwdPost(w http.ResponseWriter, r *htt
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	err := r.ParseForm()
 	if err != nil {
-		s.renderClientForgotPwdPage(w, err.Error(), ipAddr)
+		s.renderClientForgotPwdPage(w, r, err.Error(), ipAddr)
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
@@ -1638,10 +1647,10 @@ func (s *httpdServer) handleWebClientForgotPwdPost(w http.ResponseWriter, r *htt
 	err = handleForgotPassword(r, username, false)
 	if err != nil {
 		if e, ok := err.(*util.ValidationError); ok {
-			s.renderClientForgotPwdPage(w, e.GetErrorString(), ipAddr)
+			s.renderClientForgotPwdPage(w, r, e.GetErrorString(), ipAddr)
 			return
 		}
-		s.renderClientForgotPwdPage(w, err.Error(), ipAddr)
+		s.renderClientForgotPwdPage(w, r, err.Error(), ipAddr)
 		return
 	}
 	http.Redirect(w, r, webClientResetPwdPath, http.StatusFound)
@@ -1668,6 +1677,7 @@ func (s *httpdServer) handleClientViewPDF(w http.ResponseWriter, r *http.Request
 		Title:     path.Base(name),
 		URL:       fmt.Sprintf("%s?path=%s&_=%d", webClientGetPDFPath, url.QueryEscape(name), time.Now().UTC().Unix()),
 		StaticURL: webStaticFilesPath,
+		CSPNonce:  secure.CSPNonce(r.Context()),
 		Branding:  s.binding.Branding.WebClient,
 	}
 	renderClientTemplate(w, templateClientViewPDF, data)

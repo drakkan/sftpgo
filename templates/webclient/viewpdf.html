@@ -27,7 +27,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
 <body>
     <script src="{{.StaticURL}}/vendor/pdfobject/pdfobject.min.js"></script>
-    <script type="text/javascript">
+    <script type="text/javascript" {{- if .CSPNonce}} nonce="{{.}}"{{- end}}>
         PDFObject.embed("{{.URL}}", document.body);
     </script>
 </body>

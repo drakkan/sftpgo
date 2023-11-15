@@ -60,7 +60,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         <div class="form-group row mt-10">
             <label class="col-md-3 col-form-label">Configuration</label>
             <div class="col-md-9">
-                <select id="id_config" name="config_name" onchange="onConfigChanged();" class="form-select" data-control="select2" data-hide-search="true">
+                <select id="id_config" name="config_name" class="form-select" data-control="select2" data-hide-search="true">
                     <option value="">None</option>
                     {{range .TOTPConfigs}}
                     <option value="{{.}}" {{if eq . $.TOTPConfig.ConfigName}}selected{{end}}>{{.}}</option>
@@ -266,7 +266,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 {{- end}}
 
 {{- define "extra_js"}}
-<script type="text/javascript">
+<script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
      const qrModal = new bootstrap.Modal('#qrcode_modal');
      const recCodesModal = new bootstrap.Modal('#recovery_codes_modal');
 
@@ -682,6 +682,13 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         if (passcodeBtn){
             passcodeBtn.on("click", function() {
                 validatePasscode();
+            });
+        }
+
+        var configSelect = $('#id_config');
+        if (configSelect){
+            configSelect.on("change", function(){
+                onConfigChanged();
             });
         }
 

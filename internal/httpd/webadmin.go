@@ -32,6 +32,7 @@ import (
 	"github.com/go-chi/render"
 	"github.com/sftpgo/sdk"
 	sdkkms "github.com/sftpgo/sdk/kms"
+	"github.com/unrolled/secure"
 
 	"github.com/drakkan/sftpgo/v2/internal/acme"
 	"github.com/drakkan/sftpgo/v2/internal/common"
@@ -180,6 +181,7 @@ type basePage struct {
 	ConfigsTitle        string
 	Version             string
 	CSRFToken           string
+	CSPNonce            string
 	IsEventManagerPage  bool
 	IsIPManagerPage     bool
 	IsServerManagerPage bool
@@ -751,6 +753,7 @@ func (s *httpdServer) getBasePageData(title, currentURL string, r *http.Request)
 		HasSearcher:         plugin.Handler.HasSearcher(),
 		HasExternalLogin:    isLoggedInWithOIDC(r),
 		CSRFToken:           csrfToken,
+		CSPNonce:            secure.CSPNonce(r.Context()),
 		Branding:            s.binding.Branding.WebAdmin,
 	}
 }
@@ -797,11 +800,12 @@ func (s *httpdServer) renderNotFoundPage(w http.ResponseWriter, r *http.Request,
 	s.renderMessagePage(w, r, page404Title, page404Body, http.StatusNotFound, err, "")
 }
 
-func (s *httpdServer) renderForgotPwdPage(w http.ResponseWriter, error, ip string) {
+func (s *httpdServer) renderForgotPwdPage(w http.ResponseWriter, r *http.Request, error, ip string) {
 	data := forgotPwdPage{
 		CurrentURL: webAdminForgotPwdPath,
 		Error:      error,
 		CSRFToken:  createCSRFToken(ip),
+		CSPNonce:   secure.CSPNonce(r.Context()),
 		StaticURL:  webStaticFilesPath,
 		Title:      pageForgotPwdTitle,
 		Branding:   s.binding.Branding.WebAdmin,
@@ -809,11 +813,12 @@ func (s *httpdServer) renderForgotPwdPage(w http.ResponseWriter, error, ip strin
 	renderAdminTemplate(w, templateForgotPassword, data)
 }
 
-func (s *httpdServer) renderResetPwdPage(w http.ResponseWriter, error, ip string) {
+func (s *httpdServer) renderResetPwdPage(w http.ResponseWriter, r *http.Request, error, ip string) {
 	data := resetPwdPage{
 		CurrentURL: webAdminResetPwdPath,
 		Error:      error,
 		CSRFToken:  createCSRFToken(ip),
+		CSPNonce:   secure.CSPNonce(r.Context()),
 		StaticURL:  webStaticFilesPath,
 		Title:      pageResetPwdTitle,
 		Branding:   s.binding.Branding.WebAdmin,
@@ -821,12 +826,13 @@ func (s *httpdServer) renderResetPwdPage(w http.ResponseWriter, error, ip string
 	renderAdminTemplate(w, templateResetPassword, data)
 }
 
-func (s *httpdServer) renderTwoFactorPage(w http.ResponseWriter, error, ip string) {
+func (s *httpdServer) renderTwoFactorPage(w http.ResponseWriter, r *http.Request, error, ip string) {
 	data := twoFactorPage{
 		CurrentURL:  webAdminTwoFactorPath,
 		Version:     version.Get().Version,
 		Error:       error,
 		CSRFToken:   createCSRFToken(ip),
+		CSPNonce:    secure.CSPNonce(r.Context()),
 		StaticURL:   webStaticFilesPath,
 		RecoveryURL: webAdminTwoFactorRecoveryPath,
 		Branding:    s.binding.Branding.WebAdmin,
@@ -834,12 +840,13 @@ func (s *httpdServer) renderTwoFactorPage(w http.ResponseWriter, error, ip strin
 	renderAdminTemplate(w, templateTwoFactor, data)
 }
 
-func (s *httpdServer) renderTwoFactorRecoveryPage(w http.ResponseWriter, error, ip string) {
+func (s *httpdServer) renderTwoFactorRecoveryPage(w http.ResponseWriter, r *http.Request, error, ip string) {
 	data := twoFactorPage{
 		CurrentURL: webAdminTwoFactorRecoveryPath,
 		Version:    version.Get().Version,
 		Error:      error,
 		CSRFToken:  createCSRFToken(ip),
+		CSPNonce:   secure.CSPNonce(r.Context()),
 		StaticURL:  webStaticFilesPath,
 		Branding:   s.binding.Branding.WebAdmin,
 	}
@@ -2634,7 +2641,7 @@ func (s *httpdServer) handleWebAdminForgotPwd(w http.ResponseWriter, r *http.Req
 		s.renderNotFoundPage(w, r, errors.New("this page does not exist"))
 		return
 	}
-	s.renderForgotPwdPage(w, "", util.GetIPFromRemoteAddress(r.RemoteAddr))
+	s.renderForgotPwdPage(w, r, "", util.GetIPFromRemoteAddress(r.RemoteAddr))
 }
 
 func (s *httpdServer) handleWebAdminForgotPwdPost(w http.ResponseWriter, r *http.Request) {
@@ -2643,7 +2650,7 @@ func (s *httpdServer) handleWebAdminForgotPwdPost(w http.ResponseWriter, r *http
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	err := r.ParseForm()
 	if err != nil {
-		s.renderForgotPwdPage(w, err.Error(), ipAddr)
+		s.renderForgotPwdPage(w, r, err.Error(), ipAddr)
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
@@ -2653,10 +2660,10 @@ func (s *httpdServer) handleWebAdminForgotPwdPost(w http.ResponseWriter, r *http
 	err = handleForgotPassword(r, r.Form.Get("username"), true)
 	if err != nil {
 		if e, ok := err.(*util.ValidationError); ok {
-			s.renderForgotPwdPage(w, e.GetErrorString(), ipAddr)
+			s.renderForgotPwdPage(w, r, e.GetErrorString(), ipAddr)
 			return
 		}
-		s.renderForgotPwdPage(w, err.Error(), ipAddr)
+		s.renderForgotPwdPage(w, r, err.Error(), ipAddr)
 		return
 	}
 	http.Redirect(w, r, webAdminResetPwdPath, http.StatusFound)
@@ -2668,17 +2675,17 @@ func (s *httpdServer) handleWebAdminPasswordReset(w http.ResponseWriter, r *http
 		s.renderNotFoundPage(w, r, errors.New("this page does not exist"))
 		return
 	}
-	s.renderResetPwdPage(w, "", util.GetIPFromRemoteAddress(r.RemoteAddr))
+	s.renderResetPwdPage(w, r, "", util.GetIPFromRemoteAddress(r.RemoteAddr))
 }
 
 func (s *httpdServer) handleWebAdminTwoFactor(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	s.renderTwoFactorPage(w, "", util.GetIPFromRemoteAddress(r.RemoteAddr))
+	s.renderTwoFactorPage(w, r, "", util.GetIPFromRemoteAddress(r.RemoteAddr))
 }
 
 func (s *httpdServer) handleWebAdminTwoFactorRecovery(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	s.renderTwoFactorRecoveryPage(w, "", util.GetIPFromRemoteAddress(r.RemoteAddr))
+	s.renderTwoFactorRecoveryPage(w, r, "", util.GetIPFromRemoteAddress(r.RemoteAddr))
 }
 
 func (s *httpdServer) handleWebAdminMFA(w http.ResponseWriter, r *http.Request) {

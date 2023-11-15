@@ -22,20 +22,20 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 		<meta name="description" content="" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<link rel="shortcut icon" href="{{.StaticURL}}{{.Branding.FaviconPath}}" />
-		{{- template "fonts" .StaticURL }}
+		{{- template "fonts" . }}
         {{- range .Branding.DefaultCSS}}
     	<link href="{{$.StaticURL}}{{.}}" rel="stylesheet" type="text/css">
     	{{- end}}
-		{{- template "globalstyle" }}
+		{{- template "globalstyle" .CSPNonce }}
 		{{- block "extra_css" .}}{{- end}}
     	{{- range .Branding.ExtraCSS}}
     	<link href="{{$.StaticURL}}{{.}}" rel="stylesheet" type="text/css">
     	{{- end}}
-        {{- template "commonjs" }}
+        {{- template "commonjs" .CSPNonce }}
 	</head>
 
     <body data-kt-app-header-fixed="true" data-kt-app-header-fixed-mobile="true" data-kt-app-toolbar-enabled="true" data-kt-app-sidebar-enabled="true" data-kt-app-sidebar-fixed="true" data-kt-app-sidebar-push-header="true" data-kt-app-sidebar-push-toolbar="true" data-kt-app-sidebar-push-footer="true"  class="app-default">
-        {{- template "theme-setup"}}
+        {{- template "theme-setup" .CSPNonce }}
         <div class="d-flex flex-column flex-root app-root" id="kt_app_root">
             <div class="app-page  flex-column flex-column-fluid " id="kt_app_page">
                 {{- if .LoggedUser.Username}}
@@ -294,8 +294,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         {{- block "modals" .}}{{- end}}
 		<script src="{{.StaticURL}}/assets/plugins/global/plugins.bundle.js"></script>
 		<script src="{{.StaticURL}}/assets/js/scripts.bundle.js"></script>
-		{{- template "basejs" }}
-        <script type="text/javascript">
+		{{- template "basejs" .CSPNonce }}
+        <script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
             var ModalAlert = function () {
                 var modal;
                 var promiseResolve;

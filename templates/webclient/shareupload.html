@@ -54,7 +54,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 {{- end}}
 
 {{- define "extra_js"}}
-<script type="text/javascript">
+<script type="text/javascript" {{- if .CSPNonce}} nonce="{{.}}"{{- end}}>
 
     function uploadFiles(files) {
         let has_errors = false;

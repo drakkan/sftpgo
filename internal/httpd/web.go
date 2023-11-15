@@ -44,6 +44,7 @@ type loginPage struct {
 	Version        string
 	Error          string
 	CSRFToken      string
+	CSPNonce       string
 	StaticURL      string
 	AltLoginURL    string
 	AltLoginName   string
@@ -58,6 +59,7 @@ type twoFactorPage struct {
 	Version     string
 	Error       string
 	CSRFToken   string
+	CSPNonce    string
 	StaticURL   string
 	RecoveryURL string
 	Branding    UIBranding
@@ -67,6 +69,7 @@ type forgotPwdPage struct {
 	CurrentURL string
 	Error      string
 	CSRFToken  string
+	CSPNonce   string
 	StaticURL  string
 	LoginURL   string
 	Title      string
@@ -77,6 +80,7 @@ type resetPwdPage struct {
 	CurrentURL string
 	Error      string
 	CSRFToken  string
+	CSPNonce   string
 	StaticURL  string
 	LoginURL   string
 	Title      string

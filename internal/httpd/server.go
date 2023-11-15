@@ -166,6 +166,7 @@ func (s *httpdServer) renderClientLoginPage(w http.ResponseWriter, r *http.Reque
 		Version:      version.Get().Version,
 		Error:        error,
 		CSRFToken:    createCSRFToken(ip),
+		CSPNonce:     secure.CSPNonce(r.Context()),
 		StaticURL:    webStaticFilesPath,
 		Branding:     s.binding.Branding.WebClient,
 		FormDisabled: s.binding.isWebClientLoginFormDisabled(),
@@ -445,17 +446,17 @@ func (s *httpdServer) handleWebAdminTwoFactorRecoveryPost(w http.ResponseWriter,
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := r.ParseForm(); err != nil {
-		s.renderTwoFactorRecoveryPage(w, err.Error(), ipAddr)
+		s.renderTwoFactorRecoveryPage(w, r, err.Error(), ipAddr)
 		return
 	}
 	username := claims.Username
 	recoveryCode := strings.TrimSpace(r.Form.Get("recovery_code"))
 	if username == "" || recoveryCode == "" {
-		s.renderTwoFactorRecoveryPage(w, "Invalid credentials", ipAddr)
+		s.renderTwoFactorRecoveryPage(w, r, "Invalid credentials", ipAddr)
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
-		s.renderTwoFactorRecoveryPage(w, err.Error(), ipAddr)
+		s.renderTwoFactorRecoveryPage(w, r, err.Error(), ipAddr)
 		return
 	}
 	admin, err := dataprovider.AdminExists(username)
@@ -463,11 +464,11 @@ func (s *httpdServer) handleWebAdminTwoFactorRecoveryPost(w http.ResponseWriter,
 		if errors.Is(err, util.ErrNotFound) {
 			handleDefenderEventLoginFailed(ipAddr, err) //nolint:errcheck
 		}
-		s.renderTwoFactorRecoveryPage(w, "Invalid credentials", ipAddr)
+		s.renderTwoFactorRecoveryPage(w, r, "Invalid credentials", ipAddr)
 		return
 	}
 	if !admin.Filters.TOTPConfig.Enabled {
-		s.renderTwoFactorRecoveryPage(w, "Two factory authentication is not enabled", ipAddr)
+		s.renderTwoFactorRecoveryPage(w, r, "Two factory authentication is not enabled", ipAddr)
 		return
 	}
 	for idx, code := range admin.Filters.RecoveryCodes {
@@ -477,7 +478,7 @@ func (s *httpdServer) handleWebAdminTwoFactorRecoveryPost(w http.ResponseWriter,
 		}
 		if code.Secret.GetPayload() == recoveryCode {
 			if code.Used {
-				s.renderTwoFactorRecoveryPage(w, "This recovery code was already used", ipAddr)
+				s.renderTwoFactorRecoveryPage(w, r, "This recovery code was already used", ipAddr)
 				return
 			}
 			admin.Filters.RecoveryCodes[idx].Used = true
@@ -492,7 +493,7 @@ func (s *httpdServer) handleWebAdminTwoFactorRecoveryPost(w http.ResponseWriter,
 		}
 	}
 	handleDefenderEventLoginFailed(ipAddr, dataprovider.ErrInvalidCredentials) //nolint:errcheck
-	s.renderTwoFactorRecoveryPage(w, "Invalid recovery code", ipAddr)
+	s.renderTwoFactorRecoveryPage(w, r, "Invalid recovery code", ipAddr)
 }
 
 func (s *httpdServer) handleWebAdminTwoFactorPost(w http.ResponseWriter, r *http.Request) {
@@ -504,18 +505,18 @@ func (s *httpdServer) handleWebAdminTwoFactorPost(w http.ResponseWriter, r *http
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := r.ParseForm(); err != nil {
-		s.renderTwoFactorPage(w, err.Error(), ipAddr)
+		s.renderTwoFactorPage(w, r, err.Error(), ipAddr)
 		return
 	}
 	username := claims.Username
 	passcode := strings.TrimSpace(r.Form.Get("passcode"))
 	if username == "" || passcode == "" {
-		s.renderTwoFactorPage(w, "Invalid credentials", ipAddr)
+		s.renderTwoFactorPage(w, r, "Invalid credentials", ipAddr)
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
 		err = handleDefenderEventLoginFailed(ipAddr, err)
-		s.renderTwoFactorPage(w, err.Error(), ipAddr)
+		s.renderTwoFactorPage(w, r, err.Error(), ipAddr)
 		return
 	}
 	admin, err := dataprovider.AdminExists(username)
@@ -523,11 +524,11 @@ func (s *httpdServer) handleWebAdminTwoFactorPost(w http.ResponseWriter, r *http
 		if errors.Is(err, util.ErrNotFound) {
 			handleDefenderEventLoginFailed(ipAddr, err) //nolint:errcheck
 		}
-		s.renderTwoFactorPage(w, "Invalid credentials", ipAddr)
+		s.renderTwoFactorPage(w, r, "Invalid credentials", ipAddr)
 		return
 	}
 	if !admin.Filters.TOTPConfig.Enabled {
-		s.renderTwoFactorPage(w, "Two factory authentication is not enabled", ipAddr)
+		s.renderTwoFactorPage(w, r, "Two factory authentication is not enabled", ipAddr)
 		return
 	}
 	err = admin.Filters.TOTPConfig.Secret.Decrypt()
@@ -539,7 +540,7 @@ func (s *httpdServer) handleWebAdminTwoFactorPost(w http.ResponseWriter, r *http
 		admin.Filters.TOTPConfig.Secret.GetPayload())
 	if !match || err != nil {
 		handleDefenderEventLoginFailed(ipAddr, dataprovider.ErrInvalidCredentials) //nolint:errcheck
-		s.renderTwoFactorPage(w, "Invalid authentication code", ipAddr)
+		s.renderTwoFactorPage(w, r, "Invalid authentication code", ipAddr)
 		return
 	}
 	s.loginAdmin(w, r, &admin, true, s.renderTwoFactorPage, ipAddr)
@@ -550,34 +551,35 @@ func (s *httpdServer) handleWebAdminLoginPost(w http.ResponseWriter, r *http.Req
 
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := r.ParseForm(); err != nil {
-		s.renderAdminLoginPage(w, err.Error(), ipAddr)
+		s.renderAdminLoginPage(w, r, err.Error(), ipAddr)
 		return
 	}
 	username := strings.TrimSpace(r.Form.Get("username"))
 	password := strings.TrimSpace(r.Form.Get("password"))
 	if username == "" || password == "" {
-		s.renderAdminLoginPage(w, "Invalid credentials", ipAddr)
+		s.renderAdminLoginPage(w, r, "Invalid credentials", ipAddr)
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
-		s.renderAdminLoginPage(w, err.Error(), ipAddr)
+		s.renderAdminLoginPage(w, r, err.Error(), ipAddr)
 		return
 	}
 	admin, err := dataprovider.CheckAdminAndPass(username, password, ipAddr)
 	if err != nil {
 		err = handleDefenderEventLoginFailed(ipAddr, err)
-		s.renderAdminLoginPage(w, err.Error(), ipAddr)
+		s.renderAdminLoginPage(w, r, err.Error(), ipAddr)
 		return
 	}
 	s.loginAdmin(w, r, &admin, false, s.renderAdminLoginPage, ipAddr)
 }
 
-func (s *httpdServer) renderAdminLoginPage(w http.ResponseWriter, error, ip string) {
+func (s *httpdServer) renderAdminLoginPage(w http.ResponseWriter, r *http.Request, error, ip string) {
 	data := loginPage{
 		CurrentURL:   webAdminLoginPath,
 		Version:      version.Get().Version,
 		Error:        error,
 		CSRFToken:    createCSRFToken(ip),
+		CSPNonce:     secure.CSPNonce(r.Context()),
 		StaticURL:    webStaticFilesPath,
 		Branding:     s.binding.Branding.WebAdmin,
 		FormDisabled: s.binding.isWebAdminLoginFormDisabled(),
@@ -601,7 +603,7 @@ func (s *httpdServer) handleWebAdminLogin(w http.ResponseWriter, r *http.Request
 		http.Redirect(w, r, webAdminSetupPath, http.StatusFound)
 		return
 	}
-	s.renderAdminLoginPage(w, getFlashMessage(w, r), util.GetIPFromRemoteAddress(r.RemoteAddr))
+	s.renderAdminLoginPage(w, r, getFlashMessage(w, r), util.GetIPFromRemoteAddress(r.RemoteAddr))
 }
 
 func (s *httpdServer) handleWebAdminLogout(w http.ResponseWriter, r *http.Request) {
@@ -639,7 +641,7 @@ func (s *httpdServer) handleWebAdminPasswordResetPost(w http.ResponseWriter, r *
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	err := r.ParseForm()
 	if err != nil {
-		s.renderResetPwdPage(w, err.Error(), ipAddr)
+		s.renderResetPwdPage(w, r, err.Error(), ipAddr)
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
@@ -650,10 +652,10 @@ func (s *httpdServer) handleWebAdminPasswordResetPost(w http.ResponseWriter, r *
 		strings.TrimSpace(r.Form.Get("password")), true)
 	if err != nil {
 		if e, ok := err.(*util.ValidationError); ok {
-			s.renderResetPwdPage(w, e.GetErrorString(), ipAddr)
+			s.renderResetPwdPage(w, r, e.GetErrorString(), ipAddr)
 			return
 		}
-		s.renderResetPwdPage(w, err.Error(), ipAddr)
+		s.renderResetPwdPage(w, r, err.Error(), ipAddr)
 		return
 	}
 
@@ -759,7 +761,7 @@ func (s *httpdServer) loginUser(
 
 func (s *httpdServer) loginAdmin(
 	w http.ResponseWriter, r *http.Request, admin *dataprovider.Admin,
-	isSecondFactorAuth bool, errorFunc func(w http.ResponseWriter, error, ip string),
+	isSecondFactorAuth bool, errorFunc func(w http.ResponseWriter, r *http.Request, error, ip string),
 	ipAddr string,
 ) {
 	c := jwtTokenClaims{
@@ -782,7 +784,7 @@ func (s *httpdServer) loginAdmin(
 			s.renderAdminSetupPage(w, r, admin.Username, err.Error())
 			return
 		}
-		errorFunc(w, err.Error(), ipAddr)
+		errorFunc(w, r, err.Error(), ipAddr)
 		return
 	}
 	if isSecondFactorAuth {

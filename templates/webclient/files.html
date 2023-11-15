@@ -170,7 +170,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 <link href="{{.StaticURL}}/assets/plugins/custom/datatables/datatables.bundle.css" rel="stylesheet" type="text/css"/>
 <link href="{{.StaticURL}}/vendor/glightbox/glightbox.min.css" rel="stylesheet" type="text/css"/>
 <link href="{{.StaticURL}}/vendor/video-js/video-js.min.css" rel="stylesheet" type="text/css"/>
-<style>
+<style {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
     .gslide-description-bg {
 		background: var(--bs-app-bg-color) !important;
         opacity: 0.9;
@@ -184,7 +184,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 <script src="{{.StaticURL}}/vendor/pdfobject/pdfobject.min.js"></script>
 <script src="{{.StaticURL}}/vendor/video-js/video.min.js"></script>
 {{- if not .ShareUploadBaseURL}}
-<script type="text/javascript">
+<script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
     const supportedEditExtensions = ["csv", "bat", "dyalog", "apl", "asc", "pgp", "sig", "asn", "asn1", "b", "bf",
             "c", "h", "ino", "cpp", "c++", "cc", "cxx", "hpp", "h++", "hh", "hxx", "cob", "cpy", "cbl", "cs", "clj",
             "cljc", "cljx", "cljs", "gss", "cmake", "cmake.in", "coffee", "cl", "lisp", "el", "cyp", "cypher",
@@ -205,7 +205,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     const supportedEditFilenames = ["readme", "dockerfile", "pkgbuild"]
 </script>
 {{- end}}
-<script type="text/javascript">
+<script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
     function keepAlive() {
         //{{- if not .ShareUploadBaseURL}}
         axios.get('{{.PingURL}}',{
@@ -382,7 +382,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     //{{- end}}
 </script>
 
-<script type="text/javascript">
+<script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
     var KTDatatablesServerSide = function () {
         // Shared variables
         //var table;
