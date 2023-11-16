@@ -139,20 +139,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 {{- define "extra_js"}}
 {{- if .LoggedUser.CanManagePublicKeys}}
 <script src="{{.StaticURL}}/assets/plugins/custom/formrepeater/formrepeater.bundle.js"></script>
-<script type="text/javascript" {{- if .CSPNonce}} nonce="{{.}}"{{- end}}>
+<script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
     KTUtil.onDOMContentLoaded(function () {
-        $('#public_keys').repeater({
-            initEmpty: false,
-
-            show: function () {
-                $(this).slideDown();
-            },
-
-            hide: function (deleteElement) {
-                $(this).slideUp(deleteElement);
-            }
-        });
-
+        initRepeater('#public_keys');
+        initRepeaterItems();
 
         $("#page_form").submit(function (event) {
             let submitButton = document.querySelector('#form_submit');

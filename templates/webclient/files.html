@@ -183,8 +183,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 <script src="{{.StaticURL}}/vendor/glightbox/glightbox.min.js"></script>
 <script src="{{.StaticURL}}/vendor/pdfobject/pdfobject.min.js"></script>
 <script src="{{.StaticURL}}/vendor/video-js/video.min.js"></script>
-{{- if not .ShareUploadBaseURL}}
 <script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
+    //{{- if not .ShareUploadBaseURL}}
     const supportedEditExtensions = ["csv", "bat", "dyalog", "apl", "asc", "pgp", "sig", "asn", "asn1", "b", "bf",
             "c", "h", "ino", "cpp", "c++", "cc", "cxx", "hpp", "h++", "hh", "hxx", "cob", "cpy", "cbl", "cs", "clj",
             "cljc", "cljx", "cljs", "gss", "cmake", "cmake.in", "coffee", "cl", "lisp", "el", "cyp", "cypher",
@@ -203,9 +203,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             "vtl", "vhd", "vhdl", "vue", "xml", "xsl", "xsd", "svg", "xy", "xquery", "ys", "yaml", "yml", "z80",
             "mscgen", "mscin", "msc", "xu", "msgenny", "wat", "wast"];
     const supportedEditFilenames = ["readme", "dockerfile", "pkgbuild"]
-</script>
-{{- end}}
-<script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
+    //{{- end}}
     function keepAlive() {
         //{{- if not .ShareUploadBaseURL}}
         axios.get('{{.PingURL}}',{
@@ -255,13 +253,12 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         render: function (data, type, row) {
                             if (type === 'display') {
                                 data = escapeHTML(data);
-                                let dirPath = row['dir_path'];
                                 return `<div class="d-flex align-items-center">
                                                 <i class="ki-duotone ki-folder fs-1 text-primary me-4">
                                                     <i class="path1"></i>
                                                     <i class="path2"></i>
                                                 </i>
-                                                <a href="#" onclick="onDirBrowserClick('${dirPath}');" class="text-gray-700 text-hover-primary">${data}</a>
+                                                <a href="#" class="text-gray-700 text-hover-primary" data-dirbrowser-table-row="open">${data}</a>
                                             </div>`
                             }
                             return data;
@@ -289,8 +286,22 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             });
 
             dt.on('draw', function () {
-                let navHTML = `<i class="ki-duotone ki-home fs-1 text-primary me-3"></i>
-                                <a href="#" onclick="onDirBrowserClick('%2F');">Home</a>`;
+                let dirBrowserNav = document.getElementById("dirs_browser_nav");
+                while (dirBrowserNav.firstChild) {
+                    dirBrowserNav.removeChild(dirBrowserNav.firstChild);
+                }
+                let mainNavIcon = document.createElement("i");
+                mainNavIcon.classList.add("ki-duotone", "ki-home", "fs-1", "text-primary", "me-3");
+                let mainNavLink = document.createElement("a");
+                mainNavLink.textContent = "Home";
+                mainNavLink.href = "#";
+                mainNavLink.addEventListener("click", function(e){
+                    e.preventDefault();
+                    onDirBrowserClick("%2F");
+                });
+                dirBrowserNav.appendChild(mainNavIcon);
+                dirBrowserNav.appendChild(mainNavLink);
+
                 let p = "/";
                 if (curDir && curDir != "%2F") {
                     p = decodeURIComponent(curDir.replace(/\+/g, '%20'));
@@ -305,13 +316,24 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                 fullPath += encodeURIComponent("/" + dir);
                             }
                             dir = escapeHTML(dir);
-                            navHTML += `<i class="ki-duotone ki-right fs-2x text-primary mx-1"></i>
-                                <a href="#" onclick="onDirBrowserClick('${fullPath}');">${dir}</a>`;
+                            let navIcon = document.createElement("i");
+                            navIcon.classList.add("ki-duotone", "ki-right", "fs-2x", "text-primary", "mx-1");
+                            let navLink = document.createElement("a");
+                            navLink.textContent = dir;
+                            navLink.href = "#";
+                            let pathCopy = fullPath
+                            navLink.addEventListener("click", function(e){
+                                e.preventDefault();
+                                onDirBrowserClick(pathCopy);
+                            });
+                            dirBrowserNav.appendChild(navIcon);
+                            dirBrowserNav.appendChild(navLink);
                         }
                     }
                 }
-                document.getElementById("dirs_browser_nav").innerHTML = navHTML;
+
                 $('#move_copy_folder').val(p);
+                handleRowActions();
             });
         }
 
@@ -363,6 +385,18 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     submitButton.removeAttribute('data-kt-indicator');
 		            submitButton.disabled = false;
                     cancelButton.disabled = false;
+                });
+            });
+        }
+
+        function handleRowActions(){
+            const openLinks = document.querySelectorAll('[data-dirbrowser-table-row="open"]');
+
+            openLinks.forEach(d => {
+                d.addEventListener("click", function(e){
+                    e.preventDefault();
+                    const parent = e.target.closest('tr');
+                    onDirBrowserClick(dt.row(parent).data()['dir_path']);
                 });
             });
         }
@@ -524,19 +558,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                         case "ogg":
                                         case "mp3":
                                         case "wav":
-                                            let mediaType = 'video/mp4';
-                                            if (extension == 'webm'){
-                                                mediaType = 'video/webm';
-                                            } else if (extension == 'ogg' || extension == 'ogv') {
-                                                mediaType = 'video/ogg';
-                                            } else if (extension == 'mp3'){
-                                                mediaType = 'audio/mpeg';
-                                            } else if (extension == 'wav'){
-                                                mediaType = 'audio/wav';
-                                            }
-                                            let name = b64EncodeUnicode(row["name"]);
                                             previewDiv = `<div class="ms-2" data-kt-filemanger-table="view_item">
-												    <a href="#" onclick="openVideoPlayer('${name}', '${row['url']}', '${mediaType}');" class="btn btn-sm btn-icon btn-light btn-active-light-primary">
+												    <a href="#" class="btn btn-sm btn-icon btn-light btn-active-light-primary" data-kt-filemanager-table-action="view_media">
 													    <i class="ki-duotone ki-eye fs-5 m-0">
 														    <span class="path1"></span>
 														    <span class="path2"></span>
@@ -576,7 +599,6 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                             //{{- end}}
                                     }
                                 }
-                                let meta = b64EncodeUnicode(row["meta"]);
                                 let more = `{{- if not .ShareUploadBaseURL}}
                                             {{- if or .CanRename .CanAddFiles .CanShare .CanDelete }}
                                             <div class="ms-2">
@@ -591,22 +613,22 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 												<div class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-700 menu-state-bg-light-primary fw-semibold fs-7 w-150px py-4" data-kt-menu="true">
 													{{- if .CanRename}}
                                                     <div class="menu-item px-3">
-														<a href="#" onclick="renameItem('${meta}');" class="menu-link px-3" data-kt-filemanager-table="rename">Rename</a>
+														<a href="#" class="menu-link px-3" data-kt-filemanager-table-action="rename">Rename</a>
 													</div>
                                                     {{- end}}
                                                     {{- if or .CanRename .CanAddFiles}}
 													<div class="menu-item px-3">
-														<a href="#" onclick="moveOrCopyItem('${meta}');" class="menu-link px-3" data-kt-filemanager-table-filter="move_or_copy">Move or copy</a>
+														<a href="#" class="menu-link px-3" data-kt-filemanager-table-action="move_or_copy">Move or copy</a>
 													</div>
                                                     {{- end}}
                                                     {{- if .CanShare}}
                                                     <div class="menu-item px-3">
-														<a href="#" onclick="shareItem('${meta}');" class="menu-link px-3" data-kt-filemanager-table="share">Share</a>
+														<a href="#" class="menu-link px-3" data-kt-filemanager-table-action="share">Share</a>
 													</div>
                                                     {{- end}}
                                                     {{- if .CanDelete}}
 													<div class="menu-item px-3">
-														<a href="#" onclick="deleteItem('${meta}');" class="menu-link text-danger px-3" data-kt-filemanager-table-filter="delete">Delete</a>
+														<a href="#" class="menu-link text-danger px-3" data-kt-filemanager-table-action="delete">Delete</a>
 													</div>
                                                     {{- end}}
 											    </div>
@@ -682,6 +704,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     });
                 }
                 toggleToolbars();
+                handleRowActions();
             });
 
             dt.on('user-select', function(e, dt, type, cell, originalEvent){
@@ -748,6 +771,59 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     toolbarSelected.classList.add('d-none');
                 }
             }
+        }
+
+        function handleRowActions() {
+            const renameButtons = document.querySelectorAll('[data-kt-filemanager-table-action="rename"]');
+
+            renameButtons.forEach(d => {
+                d.addEventListener("click", function(e){
+                    e.preventDefault();
+                    const parent = e.target.closest('tr');
+                    renameItem(dt.row(parent).data()["meta"]);
+                });
+            });
+
+            const moveCopyButtons = document.querySelectorAll('[data-kt-filemanager-table-action="move_or_copy"]');
+
+            moveCopyButtons.forEach(d => {
+                d.addEventListener("click", function(e){
+                    e.preventDefault();
+                    const parent = e.target.closest('tr');
+                    moveOrCopyItem(dt.row(parent).data()["meta"]);
+                });
+            });
+
+            const shareButtons = document.querySelectorAll('[data-kt-filemanager-table-action="share"]');
+
+            shareButtons.forEach(d => {
+                d.addEventListener("click", function(e){
+                    e.preventDefault();
+                    const parent = e.target.closest('tr');
+                    shareItem(dt.row(parent).data()["meta"]);
+                });
+            });
+
+            const deleteButtons = document.querySelectorAll('[data-kt-filemanager-table-action="delete"]');
+
+            deleteButtons.forEach(d => {
+                d.addEventListener("click", function(e){
+                    e.preventDefault();
+                    const parent = e.target.closest('tr');
+                    deleteItem(dt.row(parent).data()["meta"]);
+                });
+            });
+
+            const viewMediaLinks = document.querySelectorAll('[data-kt-filemanager-table-action="view_media"]');
+
+            viewMediaLinks.forEach(d => {
+                d.addEventListener("click", function(e){
+                    e.preventDefault();
+                    const parent = e.target.closest('tr');
+                    let rowData = dt.row(parent).data();
+                    openVideoPlayer(rowData["name"], rowData["url"]);
+                });
+            });
         }
 
         var initLightbox = function() {
@@ -985,10 +1061,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
     function moveOrCopyItem(meta) {
         $('#errorMsg').addClass("d-none");
-        let decodedMeta = UnicodeDecodeB64(meta);
         $('#move_copy_name_container').removeClass("d-none");
         $('#move_copy_source').val(meta);
-        $('#move_copy_name').val(getNameFromMeta(decodedMeta));
+        $('#move_copy_name').val(getNameFromMeta(meta));
         $('#modal_move_or_copy').modal('show');
         KTDatatablesFoldersExplorer.init('{{.DirsURL}}?dirtree=1&path={{.CurrentDir}}', '{{.CurrentDir}}');
     }
@@ -1017,7 +1092,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 });
             });
         } else {
-            let meta = UnicodeDecodeB64($('#move_copy_source').val());
+            let meta = $('#move_copy_source').val();
             let sourceName = getNameFromMeta(meta);
             items.push({
                 targetDir: targetDir,
@@ -1204,7 +1279,6 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         let errDivEl = $('#errorMsg');
         let errTxtEl = $('#errorTxt');
         errDivEl.addClass("d-none");
-        meta = UnicodeDecodeB64(meta);
         let itemName = getNameFromMeta(meta);
 
         ModalAlert.fire({
@@ -1251,7 +1325,6 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     }
 
     function shareItem(meta) {
-        meta = UnicodeDecodeB64(meta);
         let filesArray = [];
         filesArray.push(getNameFromMeta(meta));
         let files = encodeURIComponent(JSON.stringify(filesArray));
@@ -1263,8 +1336,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
     function renameItem(meta) {
         $('#errorMsg').addClass("d-none");
-        let decodedMeta = UnicodeDecodeB64(meta);
-        let oldName = getNameFromMeta(decodedMeta);
+        let oldName = getNameFromMeta(meta);
         $('#rename_old_name').val(meta);
         $('#rename_new_name').val(oldName);
         $('#rename_title').text(`Rename "${oldName}"`);
@@ -1272,8 +1344,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     }
 
     function doRename() {
-        let decodedMeta = UnicodeDecodeB64($('#rename_old_name').val());
-        let oldName = getNameFromMeta(decodedMeta);
+        let meta = $('#rename_old_name').val();
+        let oldName = getNameFromMeta(meta);
         let newName = $('#rename_new_name').val();
         let errDivEl = $('#errorMsg');
         let errTxtEl = $('#errorTxt');
@@ -1474,7 +1546,19 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         uploadFile();
     }
 
-    function openVideoPlayer(name, url, videoType){
+    function openVideoPlayer(name, url){
+        let extension = name.slice((name.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase();
+        let videoType = 'video/mp4';
+        if (extension == 'webm') {
+            videoType = 'video/webm';
+        } else if (extension == 'ogg' || extension == 'ogv') {
+            videoType = 'video/ogg';
+        } else if (extension == 'mp3') {
+            videoType = 'audio/mpeg';
+        } else if (extension == 'wav') {
+            videoType = 'audio/wav';
+        }
+
         if (!player){
             player = videojs('video_player', {
                 controls: true,
@@ -1482,7 +1566,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 preload: 'auto'
             });
         }
-        $("#video_title").text(UnicodeDecodeB64(name));
+        $("#video_title").text(name);
         $('#modal_video_player').modal('show');
         player.src({
             type: videoType,

@@ -9,15 +9,15 @@ require (
 	github.com/GehirnInc/crypt v0.0.0-20230320061759-8cc1b52080c5
 	github.com/alexedwards/argon2id v1.0.0
 	github.com/amoghe/go-crypt v0.0.0-20220222110647-20eada5f5964
-	github.com/aws/aws-sdk-go-v2 v1.22.2
-	github.com/aws/aws-sdk-go-v2/config v1.23.0
-	github.com/aws/aws-sdk-go-v2/credentials v1.15.2
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.14.3
-	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.13.5
-	github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.18.1
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.42.1
-	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.23.1
-	github.com/aws/aws-sdk-go-v2/service/sts v1.25.1
+	github.com/aws/aws-sdk-go-v2 v1.23.0
+	github.com/aws/aws-sdk-go-v2/config v1.25.1
+	github.com/aws/aws-sdk-go-v2/credentials v1.16.1
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.14.4
+	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.13.8
+	github.com/aws/aws-sdk-go-v2/service/marketplacemetering v1.18.2
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.42.2
+	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.23.2
+	github.com/aws/aws-sdk-go-v2/service/sts v1.25.2
 	github.com/bmatcuk/doublestar/v4 v4.6.1
 	github.com/cockroachdb/cockroach-go/v2 v2.3.5
 	github.com/coreos/go-oidc/v3 v3.7.0
@@ -38,7 +38,7 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.7.5
 	github.com/jackc/pgx/v5 v5.5.0
 	github.com/jlaffaye/ftp v0.0.0-20201112195030-9aae4d151126
-	github.com/klauspost/compress v1.17.2
+	github.com/klauspost/compress v1.17.3
 	github.com/lestrrat-go/jwx/v2 v2.0.16
 	github.com/lithammer/shortuuid/v3 v3.0.7
 	github.com/mattn/go-sqlite3 v1.14.18
@@ -85,18 +85,18 @@ require (
 	cloud.google.com/go/iam v1.1.5 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.5.0 // indirect
 	github.com/ajg/form v1.5.1 // indirect
-	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.5.0 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.2.2 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.5.2 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/ini v1.6.0 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/v4a v1.2.2 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.10.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.2.2 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.10.2 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.16.2 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.17.1 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.19.1 // indirect
-	github.com/aws/smithy-go v1.16.0 // indirect
+	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.5.1 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.2.3 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.5.3 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/ini v1.7.0 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/v4a v1.2.3 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.10.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.2.3 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.10.3 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.16.3 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.17.2 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.19.2 // indirect
+	github.com/aws/smithy-go v1.17.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/boombuler/barcode v1.0.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
@@ -134,7 +134,7 @@ require (
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/matttproud/golang_protobuf_extensions/v2 v2.0.0 // indirect
-	github.com/miekg/dns v1.1.56 // indirect
+	github.com/miekg/dns v1.1.57 // indirect
 	github.com/mitchellh/go-testing-interface v1.14.1 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/oklog/run v1.1.0 // indirect

@@ -169,6 +169,7 @@ type shareLoginPage struct {
 	Version    string
 	Error      string
 	CSRFToken  string
+	CSPNonce   string
 	StaticURL  string
 	Branding   UIBranding
 }
@@ -594,12 +595,13 @@ func (s *httpdServer) renderClientResetPwdPage(w http.ResponseWriter, r *http.Re
 	renderClientTemplate(w, templateResetPassword, data)
 }
 
-func (s *httpdServer) renderShareLoginPage(w http.ResponseWriter, currentURL, error, ip string) {
+func (s *httpdServer) renderShareLoginPage(w http.ResponseWriter, r *http.Request, error, ip string) {
 	data := shareLoginPage{
-		CurrentURL: currentURL,
+		CurrentURL: r.RequestURI,
 		Version:    version.Get().Version,
 		Error:      error,
 		CSRFToken:  createCSRFToken(ip),
+		CSPNonce:   secure.CSPNonce(r.Context()),
 		StaticURL:  webStaticFilesPath,
 		Branding:   s.binding.Branding.WebClient,
 	}
@@ -1763,29 +1765,29 @@ func (s *httpdServer) ensurePDF(w http.ResponseWriter, r *http.Request, name str
 
 func (s *httpdServer) handleClientShareLoginGet(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
-	s.renderShareLoginPage(w, r.RequestURI, "", util.GetIPFromRemoteAddress(r.RemoteAddr))
+	s.renderShareLoginPage(w, r, "", util.GetIPFromRemoteAddress(r.RemoteAddr))
 }
 
 func (s *httpdServer) handleClientShareLoginPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := r.ParseForm(); err != nil {
-		s.renderShareLoginPage(w, r.RequestURI, err.Error(), ipAddr)
+		s.renderShareLoginPage(w, r, err.Error(), ipAddr)
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
-		s.renderShareLoginPage(w, r.RequestURI, err.Error(), ipAddr)
+		s.renderShareLoginPage(w, r, err.Error(), ipAddr)
 		return
 	}
 	shareID := getURLParam(r, "id")
 	share, err := dataprovider.ShareExists(shareID, "")
 	if err != nil {
-		s.renderShareLoginPage(w, r.RequestURI, dataprovider.ErrInvalidCredentials.Error(), ipAddr)
+		s.renderShareLoginPage(w, r, dataprovider.ErrInvalidCredentials.Error(), ipAddr)
 		return
 	}
 	match, err := share.CheckCredentials(strings.TrimSpace(r.Form.Get("share_password")))
 	if !match || err != nil {
-		s.renderShareLoginPage(w, r.RequestURI, dataprovider.ErrInvalidCredentials.Error(), ipAddr)
+		s.renderShareLoginPage(w, r, dataprovider.ErrInvalidCredentials.Error(), ipAddr)
 		return
 	}
 	c := jwtTokenClaims{
@@ -1793,7 +1795,7 @@ func (s *httpdServer) handleClientShareLoginPost(w http.ResponseWriter, r *http.
 	}
 	err = c.createAndSetCookie(w, r, s.tokenAuth, tokenAudienceWebShare, ipAddr)
 	if err != nil {
-		s.renderShareLoginPage(w, r.RequestURI, common.ErrInternalFailure.Error(), ipAddr)
+		s.renderShareLoginPage(w, r, common.ErrInternalFailure.Error(), ipAddr)
 		return
 	}
 	next := path.Clean(r.URL.Query().Get("next"))

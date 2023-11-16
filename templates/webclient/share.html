@@ -191,17 +191,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 <script src="{{.StaticURL}}/assets/plugins/custom/formrepeater/formrepeater.bundle.js"></script>
 <script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
     KTUtil.onDOMContentLoaded(function () {
-            $('#paths').repeater({
-                initEmpty: false,
-
-                show: function () {
-                    $(this).slideDown();
-                },
-
-                hide: function (deleteElement) {
-                    $(this).slideUp(deleteElement);
-                }
-            });
+            initRepeater('#paths');
+            initRepeaterItems();
 
             const picker = new tempusDominus.TempusDominus(document.getElementById("id_expiration"), {
                 localization: {
@@ -209,7 +200,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 }
             });
             //{{ if gt .Share.ExpiresAt 0 }}
-            let input_dt = moment('{{.Share.ExpiresAt }}','x').toDate();
+            let input_dt = moment('{{.Share.ExpiresAt }}', 'x').toDate();
             picker.dates.setValue(tempusDominus.DateTime.convert(input_dt));
             //{{ end }}
 
@@ -232,6 +223,5 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 return true;
             });
         });
-
 </script>
 {{- end}}

@@ -123,6 +123,40 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             +' '+(e?'KMGTPEZY'[--e]+'iB':'Bytes')
     }
 
+    function initRepeaterItems() {
+        let repeaterDeleteButtons = document.querySelectorAll('[data-repeater-delete]');
+        let repeaterCreateButtons = document.querySelectorAll('[data-repeater-create]');
+
+        repeaterDeleteButtons.forEach(d => {
+            d.addEventListener("click", function(e){
+                e.preventDefault();
+            });
+        });
+
+        repeaterCreateButtons.forEach(d => {
+            d.addEventListener("click", function(e){
+                e.preventDefault();
+            });
+        });
+    }
+
+    function initRepeater(selector) {
+        $(selector).repeater({
+            initEmpty: false,
+
+            show: function () {
+                $(this).slideDown();
+                $(this).find('[data-repeater-delete]').on("click", function(e){
+                    e.preventDefault();
+                });
+            },
+
+            hide: function (deleteElement) {
+                $(this).slideUp(deleteElement);
+            }
+        });
+    }
+
     KTUtil.onDOMContentLoaded(function () {
         var dismissErrorBtn = $('#id_dismiss_error_msg');
         if (dismissErrorBtn){
