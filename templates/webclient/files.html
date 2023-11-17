@@ -169,7 +169,6 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 {{- define "extra_css"}}
 <link href="{{.StaticURL}}/assets/plugins/custom/datatables/datatables.bundle.css" rel="stylesheet" type="text/css"/>
 <link href="{{.StaticURL}}/vendor/glightbox/glightbox.min.css" rel="stylesheet" type="text/css"/>
-<link href="{{.StaticURL}}/vendor/video-js/video-js.min.css" rel="stylesheet" type="text/css"/>
 <style {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
     .gslide-description-bg {
 		background: var(--bs-app-bg-color) !important;
@@ -182,7 +181,6 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 <script src="{{.StaticURL}}/assets/plugins/custom/datatables/datatables.bundle.js"></script>
 <script src="{{.StaticURL}}/vendor/glightbox/glightbox.min.js"></script>
 <script src="{{.StaticURL}}/vendor/pdfobject/pdfobject.min.js"></script>
-<script src="{{.StaticURL}}/vendor/video-js/video.min.js"></script>
 <script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
     //{{- if not .ShareUploadBaseURL}}
     const supportedEditExtensions = ["csv", "bat", "dyalog", "apl", "asc", "pgp", "sig", "asn", "asn1", "b", "bf",
@@ -821,7 +819,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     e.preventDefault();
                     const parent = e.target.closest('tr');
                     let rowData = dt.row(parent).data();
-                    openVideoPlayer(rowData["name"], rowData["url"]);
+                    openMediaPlayer(rowData["name"], rowData["url"]);
                 });
             });
         }
@@ -1457,7 +1455,6 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     }
     //{{- end}}
 
-    var player;
     var playerKeepAlive;
 
     function uploadFiles(files) {
@@ -1546,32 +1543,11 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         uploadFile();
     }
 
-    function openVideoPlayer(name, url){
-        let extension = name.slice((name.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase();
-        let videoType = 'video/mp4';
-        if (extension == 'webm') {
-            videoType = 'video/webm';
-        } else if (extension == 'ogg' || extension == 'ogv') {
-            videoType = 'video/ogg';
-        } else if (extension == 'mp3') {
-            videoType = 'audio/mpeg';
-        } else if (extension == 'wav') {
-            videoType = 'audio/wav';
-        }
-
-        if (!player){
-            player = videojs('video_player', {
-                controls: true,
-                autoplay: false,
-                preload: 'auto'
-            });
-        }
+    function openMediaPlayer(name, url){
         $("#video_title").text(name);
+        $("#video_player").attr("src", url);
+        $("#video_player").get(0).load();
         $('#modal_video_player').modal('show');
-        player.src({
-            type: videoType,
-            src: url
-        });
         keepAlive();
         playerKeepAlive = setInterval(keepAlive, 300000);
     }
@@ -1602,8 +1578,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         });
 
         $('#modal_video_player').on('hide.bs.modal', function () {
-            player.pause();
-            player.reset();
+            $("#video_player").get(0).pause();
             if (playerKeepAlive != null) {
                 clearInterval(playerKeepAlive);
                 playerKeepAlive = null;
@@ -1813,8 +1788,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
 
             <div class="modal-body">
-                <video id="video_player" class="video-js vjs-big-play-centered vjs-fluid">
-                    <p class="vjs-no-js">To view this video please enable JavaScript, and consider upgrading to a web browser that supports HTML5 video</p>
+                <video id="video_player" width="100%" height="auto" controls preload="metadata">
+                    Your browser does not support HTML5 video.
                 </video>
             </div>
         </div>

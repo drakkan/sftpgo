@@ -18,7 +18,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 {{define "title"}}{{.Title}}{{end}}
 
 {{- define "extra_css"}}
-<style>
+<style {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
     .shortcut {font-family: monospace; color: #666;}
     .cm-editor {
         height: 100%;

@@ -56,12 +56,6 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
 {{- define "commonjs"}}
 <script type="text/javascript" {{- if .}} nonce="{{.}}"{{- end}}>
-    if (window.top != window.self) {
-        window.top.location.replace(window.self.location.href);
-    }
-    //{{- if .}}
-    window.VIDEOJS_NO_DYNAMIC_STYLE = true
-    //{{- end }}
     window.addEventListener("pageshow", function (event) {
         if (event.persisted) {
 			let loadings = document.querySelectorAll('[data-kt-indicator=on]');
