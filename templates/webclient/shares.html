@@ -171,10 +171,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 $('#expiredShare').hide();
                 $('#writeShare').hide();
                 $('#readShare').show();
-                $('#readLink').attr("href", shareURL);
-                $('#readLink').attr("title", shareURL);
-                $('#readUncompressedLink').attr("href", shareURL + "?compress=false");
-                $('#readUncompressedLink').attr("title", shareURL + "?compress=false");
+                $('#readLink').attr("href", shareURL + "/download");
+                $('#readLink').attr("title", shareURL + "/download");
+                $('#readUncompressedLink').attr("href", shareURL + "/download?compress=false");
+                $('#readUncompressedLink').attr("title", shareURL + "/download?compress=false");
                 $('#readBrowseLink').attr("href", shareURL + "/browse");
                 $('#readBrowseLink').attr("title", shareURL + "/browse");
             } else {

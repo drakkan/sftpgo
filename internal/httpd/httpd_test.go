@@ -13745,6 +13745,20 @@ func TestWebClientShareCredentials(t *testing.T) {
 	setJWTCookieForReq(req, cookie)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
+	// get the download page
+	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, shareReadID, "download?a=b"), nil)
+	assert.NoError(t, err)
+	req.RequestURI = uri
+	setJWTCookieForReq(req, cookie)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	// get the download page for a missing share
+	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, "invalidshareid", "download"), nil)
+	assert.NoError(t, err)
+	req.RequestURI = uri
+	setJWTCookieForReq(req, cookie)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusNotFound, rr)
 	// the same cookie will not work for the other share
 	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, shareWriteID, "browse"), nil)
 	assert.NoError(t, err)

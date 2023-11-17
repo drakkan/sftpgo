@@ -63,6 +63,7 @@ const (
 	templateClientShares            = "shares.html"
 	templateClientViewPDF           = "viewpdf.html"
 	templateShareLogin              = "sharelogin.html"
+	templateShareDownload           = "sharedownload.html"
 	templateUploadToShare           = "shareupload.html"
 	pageClientFilesTitle            = "Files"
 	pageClientSharesTitle           = "Shares"
@@ -74,6 +75,7 @@ const (
 	pageClientResetPwdTitle         = "SFTPGo WebClient - Reset password"
 	pageExtShareTitle               = "Shared files"
 	pageUploadToShareTitle          = "Upload to share"
+	pageDownloadFromShareTitle      = "Download shared file"
 )
 
 // condResult is the result of an HTTP request precondition check.
@@ -172,6 +174,11 @@ type shareLoginPage struct {
 	CSPNonce   string
 	StaticURL  string
 	Branding   UIBranding
+}
+
+type shareDownloadPage struct {
+	baseClientPage
+	DownloadLink string
 }
 
 type shareUploadPage struct {
@@ -495,6 +502,11 @@ func loadClientTemplates(templatesPath string) {
 		filepath.Join(templatesPath, templateClientDir, templateClientBase),
 		filepath.Join(templatesPath, templateClientDir, templateUploadToShare),
 	}
+	shareDownloadPath := []string{
+		filepath.Join(templatesPath, templateCommonDir, templateCommonBase),
+		filepath.Join(templatesPath, templateClientDir, templateClientBase),
+		filepath.Join(templatesPath, templateClientDir, templateShareDownload),
+	}
 
 	filesTmpl := util.LoadTemplate(nil, filesPaths...)
 	profileTmpl := util.LoadTemplate(nil, profilePaths...)
@@ -512,6 +524,7 @@ func loadClientTemplates(templatesPath string) {
 	resetPwdTmpl := util.LoadTemplate(nil, resetPwdPaths...)
 	viewPDFTmpl := util.LoadTemplate(nil, viewPDFPaths...)
 	shareUploadTmpl := util.LoadTemplate(nil, shareUploadPath...)
+	shareDownloadTmpl := util.LoadTemplate(nil, shareDownloadPath...)
 
 	clientTemplates[templateClientFiles] = filesTmpl
 	clientTemplates[templateClientProfile] = profileTmpl
@@ -529,6 +542,7 @@ func loadClientTemplates(templatesPath string) {
 	clientTemplates[templateClientViewPDF] = viewPDFTmpl
 	clientTemplates[templateShareLogin] = shareLoginTmpl
 	clientTemplates[templateUploadToShare] = shareUploadTmpl
+	clientTemplates[templateShareDownload] = shareDownloadTmpl
 }
 
 func (s *httpdServer) getBaseClientPageData(title, currentURL string, r *http.Request) baseClientPage {
@@ -778,6 +792,14 @@ func (s *httpdServer) renderSharedFilesPage(w http.ResponseWriter, r *http.Reque
 		QuotaUsage:         newUserQuotaUsage(&dataprovider.User{}),
 	}
 	renderClientTemplate(w, templateClientFiles, data)
+}
+
+func (s *httpdServer) renderShareDownloadPage(w http.ResponseWriter, r *http.Request, downloadLink string) {
+	data := shareDownloadPage{
+		baseClientPage: s.getBaseClientPageData(pageDownloadFromShareTitle, "", r),
+		DownloadLink:   downloadLink,
+	}
+	renderClientTemplate(w, templateShareDownload, data)
 }
 
 func (s *httpdServer) renderUploadToSharePage(w http.ResponseWriter, r *http.Request, share dataprovider.Share) {
@@ -1799,15 +1821,53 @@ func (s *httpdServer) handleClientShareLoginPost(w http.ResponseWriter, r *http.
 		return
 	}
 	next := path.Clean(r.URL.Query().Get("next"))
-	if strings.HasPrefix(next, path.Join(webClientPubSharesPath, share.ShareID)) {
-		http.Redirect(w, r, next, http.StatusFound)
+	baseShareURL := path.Join(webClientPubSharesPath, share.ShareID)
+	isRedirect, redirectTo := checkShareRedirectURL(next, baseShareURL)
+	if isRedirect {
+		http.Redirect(w, r, redirectTo, http.StatusFound)
 		return
 	}
 	s.renderClientMessagePage(w, r, "Share Login OK", "Share login successful, you can now use your link",
 		http.StatusOK, nil, "")
 }
 
+func (s *httpdServer) handleClientSharedFile(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	validScopes := []dataprovider.ShareScope{dataprovider.ShareScopeRead}
+	share, _, err := s.checkPublicShare(w, r, validScopes)
+	if err != nil {
+		return
+	}
+	query := ""
+	if r.URL.RawQuery != "" {
+		query = "?" + r.URL.RawQuery
+	}
+	s.renderShareDownloadPage(w, r, path.Join(webClientPubSharesPath, share.ShareID)+query)
+}
+
 func (s *httpdServer) handleClientPing(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	render.PlainText(w, r, "PONG")
+}
+
+func checkShareRedirectURL(next, base string) (bool, string) {
+	if !strings.HasPrefix(next, base) {
+		return false, ""
+	}
+	if next == base {
+		return true, path.Join(next, "download")
+	}
+	baseURL, err := url.Parse(base)
+	if err != nil {
+		return false, ""
+	}
+	nextURL, err := url.Parse(next)
+	if err != nil {
+		return false, ""
+	}
+	if nextURL.Path == baseURL.Path {
+		redirectURL := nextURL.JoinPath("download")
+		return true, redirectURL.String()
+	}
+	return true, next
 }

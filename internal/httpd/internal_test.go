@@ -3476,6 +3476,41 @@ func TestUserQuotaUsage(t *testing.T) {
 	assert.True(t, usage.IsTransferQuotaLow())
 }
 
+func TestShareRedirectURL(t *testing.T) {
+	shareID := util.GenerateUniqueID()
+	base := path.Join(webClientPubSharesPath, shareID)
+	next := path.Join(webClientPubSharesPath, shareID, "browse")
+	ok, res := checkShareRedirectURL(next, base)
+	assert.True(t, ok)
+	assert.Equal(t, next, res)
+	next = path.Join(webClientPubSharesPath, shareID, "browse") + "?a=b"
+	ok, res = checkShareRedirectURL(next, base)
+	assert.True(t, ok)
+	assert.Equal(t, next, res)
+	next = path.Join(webClientPubSharesPath, shareID)
+	ok, res = checkShareRedirectURL(next, base)
+	assert.True(t, ok)
+	assert.Equal(t, path.Join(base, "download"), res)
+	next = path.Join(webClientEditFilePath, shareID)
+	ok, res = checkShareRedirectURL(next, base)
+	assert.False(t, ok)
+	assert.Empty(t, res)
+	next = path.Join(webClientPubSharesPath, shareID) + "?compress=false&a=b"
+	ok, res = checkShareRedirectURL(next, base)
+	assert.True(t, ok)
+	assert.Equal(t, path.Join(base, "download?compress=false&a=b"), res)
+	next = path.Join(webClientPubSharesPath, shareID) + "?compress=true&b=c"
+	ok, res = checkShareRedirectURL(next, base)
+	assert.True(t, ok)
+	assert.Equal(t, path.Join(base, "download?compress=true&b=c"), res)
+	ok, res = checkShareRedirectURL("http://foo\x7f.com/ab", "http://foo\x7f.com/")
+	assert.False(t, ok)
+	assert.Empty(t, res)
+	ok, res = checkShareRedirectURL("http://foo.com/?foo\nbar", "http://foo.com")
+	assert.False(t, ok)
+	assert.Empty(t, res)
+}
+
 func isSharedProviderSupported() bool {
 	// SQLite shares the implementation with other SQL-based provider but it makes no sense
 	// to use it outside test cases
