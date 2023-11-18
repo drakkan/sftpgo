@@ -3742,18 +3742,25 @@ func executeKeyboardInteractiveProgram(user *User, authHook string, client ssh.K
 }
 
 func doKeyboardInteractiveAuth(user *User, authHook string, client ssh.KeyboardInteractiveChallenge, ip, protocol string) (User, error) {
+	if err := user.LoadAndApplyGroupSettings(); err != nil {
+		return *user, err
+	}
 	var authResult int
 	var err error
-	if plugin.Handler.HasAuthScope(plugin.AuthScopeKeyboardInteractive) {
-		authResult, err = executeKeyboardInteractivePlugin(user, client, ip, protocol)
-		if authResult == 1 && err == nil {
-			authResult, err = checkKeyboardInteractiveSecondFactor(user, client, protocol)
-		}
-	} else if authHook != "" {
-		if strings.HasPrefix(authHook, "http") {
-			authResult, err = executeKeyboardInteractiveHTTPHook(user, authHook, client, ip, protocol)
+	if !user.Filters.Hooks.ExternalAuthDisabled {
+		if plugin.Handler.HasAuthScope(plugin.AuthScopeKeyboardInteractive) {
+			authResult, err = executeKeyboardInteractivePlugin(user, client, ip, protocol)
+			if authResult == 1 && err == nil {
+				authResult, err = checkKeyboardInteractiveSecondFactor(user, client, protocol)
+			}
+		} else if authHook != "" {
+			if strings.HasPrefix(authHook, "http") {
+				authResult, err = executeKeyboardInteractiveHTTPHook(user, authHook, client, ip, protocol)
+			} else {
+				authResult, err = executeKeyboardInteractiveProgram(user, authHook, client, ip, protocol)
+			}
 		} else {
-			authResult, err = executeKeyboardInteractiveProgram(user, authHook, client, ip, protocol)
+			authResult, err = doBuiltinKeyboardInteractiveAuth(user, client, ip, protocol)
 		}
 	} else {
 		authResult, err = doBuiltinKeyboardInteractiveAuth(user, client, ip, protocol)
@@ -3763,10 +3770,6 @@ func doKeyboardInteractiveAuth(user *User, authHook string, client ssh.KeyboardI
 	}
 	if authResult != 1 {
 		return *user, fmt.Errorf("keyboard interactive auth failed, result: %v", authResult)
-	}
-	err = user.LoadAndApplyGroupSettings()
-	if err != nil {
-		return *user, err
 	}
 	err = user.CheckLoginConditions()
 	if err != nil {
