@@ -1064,13 +1064,13 @@ func TestMultiFactorAuth(t *testing.T) {
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 
-	configName, _, secret, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
+	configName, key, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
 	assert.NoError(t, err)
 	user.Password = defaultPassword
 	user.Filters.TOTPConfig = dataprovider.UserTOTPConfig{
 		Enabled:    true,
 		ConfigName: configName,
-		Secret:     kms.NewPlainSecret(secret),
+		Secret:     kms.NewPlainSecret(key.Secret()),
 		Protocols:  []string{common.ProtocolFTP},
 	}
 	err = dataprovider.UpdateUser(&user, "", "", "")
@@ -1081,7 +1081,7 @@ func TestMultiFactorAuth(t *testing.T) {
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), dataprovider.ErrInvalidCredentials.Error())
 	}
-	passcode, err := generateTOTPPasscode(secret, otp.AlgorithmSHA1)
+	passcode, err := generateTOTPPasscode(key.Secret(), otp.AlgorithmSHA1)
 	assert.NoError(t, err)
 	user.Password = defaultPassword + passcode
 	client, err := getFTPClient(user, true, nil)
@@ -1138,18 +1138,18 @@ func TestSecondFactorRequirement(t *testing.T) {
 		assert.Contains(t, err.Error(), "second factor authentication is not set")
 	}
 
-	configName, _, secret, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
+	configName, key, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
 	assert.NoError(t, err)
 	user.Password = defaultPassword
 	user.Filters.TOTPConfig = dataprovider.UserTOTPConfig{
 		Enabled:    true,
 		ConfigName: configName,
-		Secret:     kms.NewPlainSecret(secret),
+		Secret:     kms.NewPlainSecret(key.Secret()),
 		Protocols:  []string{common.ProtocolFTP},
 	}
 	err = dataprovider.UpdateUser(&user, "", "", "")
 	assert.NoError(t, err)
-	passcode, err := generateTOTPPasscode(secret, otp.AlgorithmSHA1)
+	passcode, err := generateTOTPPasscode(key.Secret(), otp.AlgorithmSHA1)
 	assert.NoError(t, err)
 	user.Password = defaultPassword + passcode
 	client, err := getFTPClient(user, true, nil)

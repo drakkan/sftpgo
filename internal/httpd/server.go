@@ -1571,6 +1571,8 @@ func (s *httpdServer) setupWebClientRoutes() {
 				Post(webChangeClientPwdPath, s.handleWebClientChangePwdPost)
 			router.With(s.checkHTTPUserPerm(sdk.WebClientMFADisabled), s.refreshCookie).
 				Get(webClientMFAPath, s.handleWebClientMFA)
+			router.With(s.checkHTTPUserPerm(sdk.WebClientMFADisabled), s.refreshCookie).
+				Get(webClientMFAPath+"/qrcode", getQRCode)
 			router.With(s.checkHTTPUserPerm(sdk.WebClientMFADisabled), verifyCSRFHeader).
 				Post(webClientTOTPGeneratePath, generateTOTPSecret)
 			router.With(s.checkHTTPUserPerm(sdk.WebClientMFADisabled), verifyCSRFHeader).
@@ -1644,6 +1646,7 @@ func (s *httpdServer) setupWebAdminRoutes() {
 			router.With(s.requireBuiltinLogin).Post(webChangeAdminPwdPath, s.handleWebAdminChangePwdPost)
 
 			router.With(s.refreshCookie, s.requireBuiltinLogin).Get(webAdminMFAPath, s.handleWebAdminMFA)
+			router.With(s.refreshCookie, s.requireBuiltinLogin).Get(webAdminMFAPath+"/qrcode", getQRCode)
 			router.With(verifyCSRFHeader, s.requireBuiltinLogin).Post(webAdminTOTPGeneratePath, generateTOTPSecret)
 			router.With(verifyCSRFHeader, s.requireBuiltinLogin).Post(webAdminTOTPValidatePath, validateTOTPPasscode)
 			router.With(verifyCSRFHeader, s.requireBuiltinLogin).Post(webAdminTOTPSavePath, saveTOTPConfig)

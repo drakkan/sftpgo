@@ -116,9 +116,6 @@ type Binding struct {
 
 func (b *Binding) setCiphers() {
 	b.ciphers = util.GetTLSCiphersFromNames(b.TLSCipherSuites)
-	if len(b.ciphers) == 0 {
-		b.ciphers = nil
-	}
 }
 
 func (b *Binding) isMutualTLSEnabled() bool {

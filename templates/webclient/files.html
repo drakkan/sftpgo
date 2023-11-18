@@ -285,9 +285,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
             dt.on('draw', function () {
                 let dirBrowserNav = document.getElementById("dirs_browser_nav");
-                while (dirBrowserNav.firstChild) {
-                    dirBrowserNav.removeChild(dirBrowserNav.firstChild);
-                }
+                clearChilds(dirBrowserNav);
                 let mainNavIcon = document.createElement("i");
                 mainNavIcon.classList.add("ki-duotone", "ki-home", "fs-1", "text-primary", "me-3");
                 let mainNavLink = document.createElement("a");

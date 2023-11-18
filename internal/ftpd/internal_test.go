@@ -1016,7 +1016,7 @@ func TestCiphers(t *testing.T) {
 		TLSCipherSuites: []string{},
 	}
 	b.setCiphers()
-	require.Nil(t, b.ciphers)
+	require.Equal(t, util.GetTLSCiphersFromNames(nil), b.ciphers)
 	b.TLSCipherSuites = []string{"TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384"}
 	b.setCiphers()
 	require.Len(t, b.ciphers, 2)

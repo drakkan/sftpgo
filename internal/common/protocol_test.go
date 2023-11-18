@@ -7767,18 +7767,18 @@ func TestBuiltinKeyboardInteractiveAuthentication(t *testing.T) {
 		assert.NoError(t, err)
 	}
 	// add multi-factor authentication
-	configName, _, secret, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
+	configName, key, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
 	assert.NoError(t, err)
 	user.Password = defaultPassword
 	user.Filters.TOTPConfig = dataprovider.UserTOTPConfig{
 		Enabled:    true,
 		ConfigName: configName,
-		Secret:     kms.NewPlainSecret(secret),
+		Secret:     kms.NewPlainSecret(key.Secret()),
 		Protocols:  []string{common.ProtocolSSH},
 	}
 	err = dataprovider.UpdateUser(&user, "", "", "")
 	assert.NoError(t, err)
-	passcode, err := generateTOTPPasscode(secret, otp.AlgorithmSHA1)
+	passcode, err := generateTOTPPasscode(key.Secret(), otp.AlgorithmSHA1)
 	assert.NoError(t, err)
 	passwordAsked := false
 	passcodeAsked := false

@@ -151,6 +151,12 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         });
     }
 
+    function clearChilds(el) {
+        while (el.firstChild) {
+            el.removeChild(el.firstChild);
+        }
+    }
+
     KTUtil.onDOMContentLoaded(function () {
         var dismissErrorBtn = $('#id_dismiss_error_msg');
         if (dismissErrorBtn){

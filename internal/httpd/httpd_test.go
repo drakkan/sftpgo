@@ -3016,14 +3016,14 @@ func TestPermMFADisabled(t *testing.T) {
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 
-	configName, _, secret, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
+	configName, key, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
 	assert.NoError(t, err)
 	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
 	userTOTPConfig := dataprovider.UserTOTPConfig{
 		Enabled:    true,
 		ConfigName: configName,
-		Secret:     kms.NewPlainSecret(secret),
+		Secret:     kms.NewPlainSecret(key.Secret()),
 		Protocols:  []string{common.ProtocolSSH},
 	}
 	asJSON, err := json.Marshal(userTOTPConfig)
@@ -3309,12 +3309,12 @@ func TestTwoFactorRequirements(t *testing.T) {
 	checkResponseCode(t, http.StatusForbidden, rr)
 	assert.Contains(t, rr.Body.String(), "Two-factor authentication requirements not met, please configure two-factor authentication for the following protocols")
 
-	configName, _, secret, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
+	configName, key, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
 	assert.NoError(t, err)
 	userTOTPConfig := dataprovider.UserTOTPConfig{
 		Enabled:    true,
 		ConfigName: configName,
-		Secret:     kms.NewPlainSecret(secret),
+		Secret:     kms.NewPlainSecret(key.Secret()),
 		Protocols:  []string{common.ProtocolHTTP},
 	}
 	asJSON, err := json.Marshal(userTOTPConfig)
@@ -3335,7 +3335,7 @@ func TestTwoFactorRequirements(t *testing.T) {
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
 	// now get new tokens and check that the two factor requirements are now met
-	passcode, err := generateTOTPPasscode(secret)
+	passcode, err := generateTOTPPasscode(key.Secret())
 	assert.NoError(t, err)
 	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("%v%v", httpBaseURL, userTokenPath), nil)
 	assert.NoError(t, err)
@@ -3371,14 +3371,14 @@ func TestLoginUserAPITOTP(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
 
-	configName, _, secret, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
+	configName, key, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
 	assert.NoError(t, err)
 	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
 	userTOTPConfig := dataprovider.UserTOTPConfig{
 		Enabled:    true,
 		ConfigName: configName,
-		Secret:     kms.NewPlainSecret(secret),
+		Secret:     kms.NewPlainSecret(key.Secret()),
 		Protocols:  []string{common.ProtocolHTTP},
 	}
 	asJSON, err := json.Marshal(userTOTPConfig)
@@ -3431,7 +3431,7 @@ func TestLoginUserAPITOTP(t *testing.T) {
 	err = resp.Body.Close()
 	assert.NoError(t, err)
 
-	passcode, err := generateTOTPPasscode(secret)
+	passcode, err := generateTOTPPasscode(key.Secret())
 	assert.NoError(t, err)
 	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("%v%v", httpBaseURL, userTokenPath), nil)
 	assert.NoError(t, err)
@@ -3471,14 +3471,14 @@ func TestLoginAdminAPITOTP(t *testing.T) {
 	admin, _, err := httpdtest.AddAdmin(admin, http.StatusCreated)
 	assert.NoError(t, err)
 
-	configName, _, secret, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], admin.Username)
+	configName, key, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], admin.Username)
 	assert.NoError(t, err)
 	altToken, err := getJWTAPITokenFromTestServer(altAdminUsername, altAdminPassword)
 	assert.NoError(t, err)
 	adminTOTPConfig := dataprovider.AdminTOTPConfig{
 		Enabled:    true,
 		ConfigName: configName,
-		Secret:     kms.NewPlainSecret(secret),
+		Secret:     kms.NewPlainSecret(key.Secret()),
 	}
 	asJSON, err := json.Marshal(adminTOTPConfig)
 	assert.NoError(t, err)
@@ -3512,7 +3512,7 @@ func TestLoginAdminAPITOTP(t *testing.T) {
 	err = resp.Body.Close()
 	assert.NoError(t, err)
 
-	passcode, err := generateTOTPPasscode(secret)
+	passcode, err := generateTOTPPasscode(key.Secret())
 	assert.NoError(t, err)
 	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("%v%v", httpBaseURL, tokenPath), nil)
 	assert.NoError(t, err)
@@ -6266,12 +6266,12 @@ func TestAdminGenerateRecoveryCodesSaveError(t *testing.T) {
 	a.Username = "adMiN@example.com "
 	admin, _, err := httpdtest.AddAdmin(a, http.StatusCreated)
 	assert.NoError(t, err)
-	configName, _, secret, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], admin.Username)
+	configName, key, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], admin.Username)
 	assert.NoError(t, err)
 	admin.Filters.TOTPConfig = dataprovider.AdminTOTPConfig{
 		Enabled:    true,
 		ConfigName: configName,
-		Secret:     kms.NewPlainSecret(secret),
+		Secret:     kms.NewPlainSecret(key.Secret()),
 	}
 	admin.Password = defaultTokenAuthPass
 	err = dataprovider.UpdateAdmin(&admin, "", "", "")
@@ -6280,7 +6280,7 @@ func TestAdminGenerateRecoveryCodesSaveError(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, admin.Filters.TOTPConfig.Enabled)
 
-	passcode, err := generateTOTPPasscode(secret)
+	passcode, err := generateTOTPPasscode(key.Secret())
 	assert.NoError(t, err)
 	adminAPIToken, err := getJWTAPITokenFromTestServerWithPasscode(a.Username, defaultTokenAuthPass, passcode)
 	assert.NoError(t, err)
@@ -6332,12 +6332,12 @@ func TestNamingRules(t *testing.T) {
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	assert.Equal(t, "user@user.me", user.Username)
-	configName, _, secret, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
+	configName, key, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
 	assert.NoError(t, err)
 	user.Filters.TOTPConfig = dataprovider.UserTOTPConfig{
 		Enabled:    true,
 		ConfigName: configName,
-		Secret:     kms.NewPlainSecret(secret),
+		Secret:     kms.NewPlainSecret(key.Secret()),
 		Protocols:  []string{common.ProtocolSSH},
 	}
 	user.Password = u.Password
@@ -6626,13 +6626,13 @@ func TestSaveErrors(t *testing.T) {
 	assert.NoError(t, err)
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
-	configName, _, secret, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
+	configName, key, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
 	assert.NoError(t, err)
 	user.Password = u.Password
 	user.Filters.TOTPConfig = dataprovider.UserTOTPConfig{
 		Enabled:    true,
 		ConfigName: configName,
-		Secret:     kms.NewPlainSecret(secret),
+		Secret:     kms.NewPlainSecret(key.Secret()),
 		Protocols:  []string{common.ProtocolSSH, common.ProtocolHTTP},
 	}
 	user.Filters.RecoveryCodes = recoveryCodes
@@ -6654,7 +6654,7 @@ func TestSaveErrors(t *testing.T) {
 	admin.Filters.TOTPConfig = dataprovider.AdminTOTPConfig{
 		Enabled:    true,
 		ConfigName: configName,
-		Secret:     kms.NewPlainSecret(secret),
+		Secret:     kms.NewPlainSecret(key.Secret()),
 	}
 	admin.Filters.RecoveryCodes = recoveryCodes
 	err = dataprovider.UpdateAdmin(&admin, "", "", "")
@@ -8764,14 +8764,14 @@ func TestAdminTwoFactorLogin(t *testing.T) {
 	admin, _, err := httpdtest.AddAdmin(admin, http.StatusCreated)
 	assert.NoError(t, err)
 	// enable two factor authentication
-	configName, _, secret, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], admin.Username)
+	configName, key, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], admin.Username)
 	assert.NoError(t, err)
 	altToken, err := getJWTAPITokenFromTestServer(altAdminUsername, altAdminPassword)
 	assert.NoError(t, err)
 	adminTOTPConfig := dataprovider.AdminTOTPConfig{
 		Enabled:    true,
 		ConfigName: configName,
-		Secret:     kms.NewPlainSecret(secret),
+		Secret:     kms.NewPlainSecret(key.Secret()),
 	}
 	asJSON, err := json.Marshal(adminTOTPConfig)
 	assert.NoError(t, err)
@@ -8876,7 +8876,7 @@ func TestAdminTwoFactorLogin(t *testing.T) {
 	checkResponseCode(t, http.StatusFound, rr)
 	assert.Equal(t, webClientLoginPath, rr.Header().Get("Location"))
 
-	passcode, err := generateTOTPPasscode(secret)
+	passcode, err := generateTOTPPasscode(key.Secret())
 	assert.NoError(t, err)
 	form = make(url.Values)
 	form.Set("passcode", passcode)
@@ -9481,7 +9481,7 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	user, _, err := httpdtest.AddUser(u, http.StatusCreated)
 	assert.NoError(t, err)
 	// enable two factor authentication
-	configName, _, secret, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
+	configName, key, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
 	assert.NoError(t, err)
 	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
@@ -9493,7 +9493,7 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	userTOTPConfig := dataprovider.UserTOTPConfig{
 		Enabled:    true,
 		ConfigName: configName,
-		Secret:     kms.NewPlainSecret(secret),
+		Secret:     kms.NewPlainSecret(key.Secret()),
 		Protocols:  []string{common.ProtocolHTTP},
 	}
 	asJSON, err := json.Marshal(userTOTPConfig)
@@ -9593,7 +9593,7 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	checkResponseCode(t, http.StatusFound, rr)
 	assert.Equal(t, webLoginPath, rr.Header().Get("Location"))
 
-	passcode, err := generateTOTPPasscode(secret)
+	passcode, err := generateTOTPPasscode(key.Secret())
 	assert.NoError(t, err)
 	form = make(url.Values)
 	form.Set("passcode", passcode)
@@ -9698,7 +9698,21 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	setJWTCookieForReq(req, authenticatedCookie)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-
+	// get MFA qrcode
+	req, err = http.NewRequest(http.MethodGet, path.Join(webClientMFAPath, "qrcode?url="+url.QueryEscape(key.URL())), nil)
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	setJWTCookieForReq(req, authenticatedCookie)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Equal(t, "image/png", rr.Header().Get("Content-Type"))
+	// invalid MFA url
+	req, err = http.NewRequest(http.MethodGet, path.Join(webClientMFAPath, "qrcode?url="+url.QueryEscape("http://foo\x7f.eu")), nil)
+	assert.NoError(t, err)
+	req.RemoteAddr = defaultRemoteAddr
+	setJWTCookieForReq(req, authenticatedCookie)
+	rr = executeRequest(req)
+	checkResponseCode(t, http.StatusInternalServerError, rr)
 	// check that the recovery code was marked as used
 	req, err = http.NewRequest(http.MethodGet, user2FARecoveryCodesPath, nil)
 	assert.NoError(t, err)
@@ -9827,7 +9841,7 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 func TestWebUserTwoFactoryLoginRedirect(t *testing.T) {
 	user, _, err := httpdtest.AddUser(getTestUser(), http.StatusCreated)
 	assert.NoError(t, err)
-	configName, _, secret, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
+	configName, key, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
 	assert.NoError(t, err)
 
 	token, err := getJWTAPIUserTokenFromTestServer(defaultUsername, defaultPassword)
@@ -9835,7 +9849,7 @@ func TestWebUserTwoFactoryLoginRedirect(t *testing.T) {
 	userTOTPConfig := dataprovider.UserTOTPConfig{
 		Enabled:    true,
 		ConfigName: configName,
-		Secret:     kms.NewPlainSecret(secret),
+		Secret:     kms.NewPlainSecret(key.Secret()),
 		Protocols:  []string{common.ProtocolHTTP},
 	}
 	asJSON, err := json.Marshal(userTOTPConfig)
@@ -9890,7 +9904,7 @@ func TestWebUserTwoFactoryLoginRedirect(t *testing.T) {
 	checkResponseCode(t, http.StatusOK, rr)
 	assert.Contains(t, rr.Body.String(), fmt.Sprintf("action=%q", expectedURI))
 	// login with the passcode
-	passcode, err := generateTOTPPasscode(secret)
+	passcode, err := generateTOTPPasscode(key.Secret())
 	assert.NoError(t, err)
 	form = make(url.Values)
 	form.Set("passcode", passcode)
@@ -15432,7 +15446,7 @@ func TestWebEditFile(t *testing.T) {
 	testFile1 := "testfile1.txt"
 	testFile2 := "testfile2"
 	file1Size := int64(65536)
-	file2Size := int64(1048576 * 2)
+	file2Size := int64(1048576 * 5)
 	err = createTestFile(filepath.Join(user.GetHomeDir(), testFile1), file1Size)
 	assert.NoError(t, err)
 	err = createTestFile(filepath.Join(user.GetHomeDir(), testFile2), file2Size)
@@ -19110,14 +19124,14 @@ func TestWebAdminBasicMock(t *testing.T) {
 	checkResponseCode(t, http.StatusSeeOther, rr)
 
 	// add TOTP config
-	configName, _, secret, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], altAdminUsername)
+	configName, key, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], altAdminUsername)
 	assert.NoError(t, err)
 	altToken, err := getJWTWebTokenFromTestServer(altAdminUsername, altAdminPassword)
 	assert.NoError(t, err)
 	adminTOTPConfig := dataprovider.AdminTOTPConfig{
 		Enabled:    true,
 		ConfigName: configName,
-		Secret:     kms.NewPlainSecret(secret),
+		Secret:     kms.NewPlainSecret(key.Secret()),
 	}
 	asJSON, err := json.Marshal(adminTOTPConfig)
 	assert.NoError(t, err)
@@ -20093,14 +20107,14 @@ func TestWebUserUpdateMock(t *testing.T) {
 	lastPwdChange := user.LastPasswordChange
 	assert.Greater(t, lastPwdChange, int64(0))
 	// add TOTP config
-	configName, _, secret, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
+	configName, key, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
 	assert.NoError(t, err)
 	userToken, err := getJWTWebClientTokenFromTestServer(defaultUsername, defaultPassword)
 	assert.NoError(t, err)
 	userTOTPConfig := dataprovider.UserTOTPConfig{
 		Enabled:    true,
 		ConfigName: configName,
-		Secret:     kms.NewPlainSecret(secret),
+		Secret:     kms.NewPlainSecret(key.Secret()),
 		Protocols:  []string{common.ProtocolSSH, common.ProtocolFTP},
 	}
 	asJSON, err := json.Marshal(userTOTPConfig)

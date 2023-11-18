@@ -90,7 +90,7 @@ func (c *TOTPConfig) validatePasscode(passcode, secret string) (bool, error) {
 }
 
 // generate generates a new TOTP secret and QR code for the given username
-func (c *TOTPConfig) generate(username string, qrCodeWidth, qrCodeHeight int) (string, string, []byte, error) {
+func (c *TOTPConfig) generate(username string, qrCodeWidth, qrCodeHeight int) (*otp.Key, []byte, error) {
 	key, err := totp.Generate(totp.GenerateOpts{
 		Issuer:      c.Issuer,
 		AccountName: username,
@@ -98,15 +98,15 @@ func (c *TOTPConfig) generate(username string, qrCodeWidth, qrCodeHeight int) (s
 		Algorithm:   c.algo,
 	})
 	if err != nil {
-		return "", "", nil, err
+		return nil, nil, err
 	}
 	var buf bytes.Buffer
 	img, err := key.Image(qrCodeWidth, qrCodeHeight)
 	if err != nil {
-		return "", "", nil, err
+		return nil, nil, err
 	}
 	err = png.Encode(&buf, img)
-	return key.Issuer(), key.Secret(), buf.Bytes(), err
+	return key, buf.Bytes(), err
 }
 
 func cleanupUsedPasscodes() {

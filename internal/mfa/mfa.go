@@ -16,8 +16,12 @@
 package mfa
 
 import (
+	"bytes"
 	"fmt"
+	"image/png"
 	"time"
+
+	"github.com/pquerna/otp"
 )
 
 var (
@@ -94,15 +98,30 @@ func ValidateTOTPPasscode(configName, passcode, secret string) (bool, error) {
 
 // GenerateTOTPSecret generates a new TOTP secret and QR code for the given username
 // using the configuration with configName
-func GenerateTOTPSecret(configName, username string) (string, string, string, []byte, error) {
+func GenerateTOTPSecret(configName, username string) (string, *otp.Key, []byte, error) {
 	for _, config := range totpConfigs {
 		if config.Name == configName {
-			issuer, secret, qrCode, err := config.generate(username, 200, 200)
-			return configName, issuer, secret, qrCode, err
+			key, qrCode, err := config.generate(username, 200, 200)
+			return configName, key, qrCode, err
 		}
 	}
 
-	return "", "", "", nil, fmt.Errorf("totp: no configuration %q", configName)
+	return "", nil, nil, fmt.Errorf("totp: no configuration %q", configName)
+}
+
+// GenerateQRCodeFromURL generates a QR code from a TOTP URL
+func GenerateQRCodeFromURL(url string, width, height int) ([]byte, error) {
+	key, err := otp.NewKeyFromURL(url)
+	if err != nil {
+		return nil, err
+	}
+	var buf bytes.Buffer
+	img, err := key.Image(width, height)
+	if err != nil {
+		return nil, err
+	}
+	err = png.Encode(&buf, img)
+	return buf.Bytes(), err
 }
 
 // the ticker cannot be started/stopped from multiple goroutines

@@ -15,9 +15,12 @@
 package httpd
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/go-chi/render"
@@ -40,6 +43,7 @@ type generateTOTPResponse struct {
 	ConfigName string `json:"config_name"`
 	Issuer     string `json:"issuer"`
 	Secret     string `json:"secret"`
+	URL        string `json:"url"`
 	QRCode     []byte `json:"qr_code"`
 }
 
@@ -79,17 +83,31 @@ func generateTOTPSecret(w http.ResponseWriter, r *http.Request) {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
-	configName, issuer, secret, qrCode, err := mfa.GenerateTOTPSecret(req.ConfigName, accountName)
+	configName, key, qrCode, err := mfa.GenerateTOTPSecret(req.ConfigName, accountName)
 	if err != nil {
 		sendAPIResponse(w, r, err, "", http.StatusBadRequest)
 		return
 	}
 	render.JSON(w, r, generateTOTPResponse{
 		ConfigName: configName,
-		Issuer:     issuer,
-		Secret:     secret,
+		Issuer:     key.Issuer(),
+		Secret:     key.Secret(),
+		URL:        key.URL(),
 		QRCode:     qrCode,
 	})
+}
+
+func getQRCode(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
+	img, err := mfa.GenerateQRCodeFromURL(r.URL.Query().Get("url"), 400, 400)
+	if err != nil {
+		sendAPIResponse(w, r, nil, "unable to generate qr code", http.StatusInternalServerError)
+		return
+	}
+	imgSize := int64(len(img))
+	w.Header().Set("Content-Length", strconv.FormatInt(imgSize, 10))
+	w.Header().Set("Content-Type", "image/png")
+	io.CopyN(w, bytes.NewBuffer(img), imgSize) //nolint:errcheck
 }
 
 func saveTOTPConfig(w http.ResponseWriter, r *http.Request) {

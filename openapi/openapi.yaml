@@ -635,6 +635,8 @@ paths:
                     type: string
                   secret:
                     type: string
+                  url:
+                    type: string
                   qr_code:
                     type: string
                     format: byte

@@ -217,8 +217,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 <div class="text-gray-700 fw-semibold fs-6 mb-10">
                     Use your preferred Authenticator App (e.g. Microsoft Authenticator, Google Authenticator, Authy, 1Password etc. ) to scan the QR code. It will generate an authentication code for you to enter below.
                 </div>
-                <div class="pt-5 text-center">
-                    <img id="id_qr_code" src="data:image/gif;base64, R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="QR code" class="mw-150px"/>
+                <div id="id_qr_code_container" class="pt-5 text-center">
                 </div>
                 <div class="notice d-flex bg-light-warning rounded border-warning border border-dashed my-10 p-6">
                     <i class="ki-duotone ki-information fs-2tx text-warning me-4">
@@ -520,9 +519,15 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     return;
                 }
                 $('#id_secret').text(response.data.secret);
-                $('#id_qr_code').attr('src', 'data:image/png;base64, '+ response.data.qr_code);
                 $('#errorModalMsg').addClass("d-none");
                 $('#id_passcode').val("");
+                let qrCodeContainer = document.getElementById("id_qr_code_container");
+                clearChilds(qrCodeContainer);
+                let qrCodeImg = document.createElement("img");
+                qrCodeImg.classList.add("mw-150px");
+                qrCodeImg.src = "{{.MFAURL}}/qrcode?url="+encodeURIComponent(response.data.url);
+                qrCodeImg.alt = "QR code";
+                qrCodeContainer.appendChild(qrCodeImg);
                 qrModal.show();
             }).catch(function (error){
                 el.removeAttribute('data-kt-indicator');

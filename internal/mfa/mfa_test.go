@@ -21,6 +21,7 @@ import (
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMFAConfig(t *testing.T) {
@@ -76,36 +77,54 @@ func TestMFAConfig(t *testing.T) {
 		assert.Equal(t, configName3, status.TOTPConfigs[2].Name)
 	}
 	// now generate some secrets and validate some passcodes
-	_, _, _, _, err = GenerateTOTPSecret("", "") //nolint:dogsled
+	_, _, _, err = GenerateTOTPSecret("", "") //nolint:dogsled
 	assert.Error(t, err)
 	match, err := ValidateTOTPPasscode("", "", "")
 	assert.Error(t, err)
 	assert.False(t, match)
-	cfgName, _, secret, _, err := GenerateTOTPSecret(configName1, "user1")
+	cfgName, key, _, err := GenerateTOTPSecret(configName1, "user1")
 	assert.NoError(t, err)
-	assert.NotEmpty(t, secret)
+	assert.NotEmpty(t, key.Secret())
 	assert.Equal(t, configName1, cfgName)
-	passcode, err := generatePasscode(secret, otp.AlgorithmSHA1)
+	passcode, err := generatePasscode(key.Secret(), otp.AlgorithmSHA1)
 	assert.NoError(t, err)
-	match, err = ValidateTOTPPasscode(configName1, passcode, secret)
+	match, err = ValidateTOTPPasscode(configName1, passcode, key.Secret())
 	assert.NoError(t, err)
 	assert.True(t, match)
-	match, err = ValidateTOTPPasscode(configName1, passcode, secret)
+	match, err = ValidateTOTPPasscode(configName1, passcode, key.Secret())
 	assert.ErrorIs(t, err, errPasscodeUsed)
 	assert.False(t, match)
 
-	passcode, err = generatePasscode(secret, otp.AlgorithmSHA256)
+	passcode, err = generatePasscode(key.Secret(), otp.AlgorithmSHA256)
 	assert.NoError(t, err)
 	// config1 uses sha1 algo
-	match, err = ValidateTOTPPasscode(configName1, passcode, secret)
+	match, err = ValidateTOTPPasscode(configName1, passcode, key.Secret())
 	assert.NoError(t, err)
 	assert.False(t, match)
 	// config3 use the expected algo
-	match, err = ValidateTOTPPasscode(configName3, passcode, secret)
+	match, err = ValidateTOTPPasscode(configName3, passcode, key.Secret())
 	assert.NoError(t, err)
 	assert.True(t, match)
 
 	stopCleanupTicker()
+}
+
+func TestGenerateQRCodeFromURL(t *testing.T) {
+	_, err := GenerateQRCodeFromURL("http://foo\x7f.cloud", 200, 200)
+	assert.Error(t, err)
+	config := TOTPConfig{
+		Name:   "config name",
+		Issuer: "SFTPGo",
+		Algo:   TOTPAlgoSHA256,
+	}
+	key, qrCode, err := config.generate("a", 150, 150)
+	require.NoError(t, err)
+
+	qrCode1, err := GenerateQRCodeFromURL(key.URL(), 150, 150)
+	require.NoError(t, err)
+	assert.Equal(t, qrCode, qrCode1)
+	_, err = GenerateQRCodeFromURL(key.URL(), 10, 10)
+	assert.Error(t, err)
 }
 
 func TestCleanupPasscodes(t *testing.T) {
@@ -125,11 +144,11 @@ func TestTOTPGenerateErrors(t *testing.T) {
 		algo:   otp.AlgorithmSHA1,
 	}
 	// issuer cannot be empty
-	_, _, _, err := config.generate("username", 200, 200) //nolint:dogsled
+	_, _, err := config.generate("username", 200, 200) //nolint:dogsled
 	assert.Error(t, err)
 	config.Issuer = "issuer"
 	// we cannot encode an image smaller than 45x45
-	_, _, _, err = config.generate("username", 30, 30) //nolint:dogsled
+	_, _, err = config.generate("username", 30, 30) //nolint:dogsled
 	assert.Error(t, err)
 }
 
