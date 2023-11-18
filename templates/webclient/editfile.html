@@ -156,8 +156,11 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         //{{- if .ReadOnly}}
         options.readOnly = true;
         //{{- end}}
-        cmView = cm6.createEditorView(undefined, document.getElementById("editor"));
-        cmView.setState(cm6.createEditorState("{{.Data}}", options));
+        //{{- if .CSPNonce}}
+        options.cspNonce = "{{.CSPNonce}}";
+        //{{- end}}
+        let editorState = cm6.createEditorState("{{.Data}}", options);
+        cmView = cm6.createEditorView(editorState, document.getElementById("editor"));
 
         var saveBtn = $('#save_button');
         if (saveBtn){
