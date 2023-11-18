@@ -150,8 +150,11 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     //{{- end}}
 
     KTUtil.onDOMContentLoaded(function () {
+        let filename = "{{.Name}}";
+        let extension = filename.slice((filename.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase();
         let options = {
-            oneDark: KTThemeMode.getMode() == "dark"
+            oneDark: KTThemeMode.getMode() == "dark",
+            fileExt: extension
         };
         //{{- if .ReadOnly}}
         options.readOnly = true;
