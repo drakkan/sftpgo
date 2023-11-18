@@ -156,11 +156,11 @@ func (fs *S3Fs) Stat(name string) (os.FileInfo, error) {
 		// Some S3 providers (like SeaweedFS) remove the trailing '/' from object keys.
 		// So we check some common content types to detect if this is a "directory".
 		isDir := util.Contains(s3DirMimeTypes, util.GetStringFromPointer(obj.ContentType))
-		if obj.ContentLength == 0 && !isDir {
+		if util.GetIntFromPointer(obj.ContentLength) == 0 && !isDir {
 			_, err = fs.headObject(name + "/")
 			isDir = err == nil
 		}
-		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, isDir, obj.ContentLength,
+		return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, isDir, util.GetIntFromPointer(obj.ContentLength),
 			util.GetTimeFromPointer(obj.LastModified), false))
 	}
 	if !fs.IsNotExist(err) {
@@ -186,7 +186,7 @@ func (fs *S3Fs) getStatForDir(name string) (os.FileInfo, error) {
 	if err != nil {
 		return result, err
 	}
-	return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, obj.ContentLength,
+	return updateFileInfoModTime(fs.getStorageID(), name, NewFileInfo(name, true, util.GetIntFromPointer(obj.ContentLength),
 		util.GetTimeFromPointer(obj.LastModified), false))
 }
 
@@ -466,6 +466,7 @@ func (fs *S3Fs) ReadDir(dirname string) ([]os.FileInfo, error) {
 		}
 		for _, fileObject := range page.Contents {
 			objectModTime := util.GetTimeFromPointer(fileObject.LastModified)
+			objectSize := util.GetIntFromPointer(fileObject.Size)
 			name, isDir := fs.resolve(fileObject.Key, prefix)
 			if name == "" || name == "/" {
 				continue
@@ -479,7 +480,8 @@ func (fs *S3Fs) ReadDir(dirname string) ([]os.FileInfo, error) {
 			if t, ok := modTimes[name]; ok {
 				objectModTime = util.GetTimeFromMsecSinceEpoch(t)
 			}
-			result = append(result, NewFileInfo(name, (isDir && fileObject.Size == 0), fileObject.Size,
+
+			result = append(result, NewFileInfo(name, (isDir && objectSize == 0), objectSize,
 				objectModTime, false))
 		}
 	}
@@ -627,11 +629,12 @@ func (fs *S3Fs) GetDirSize(dirname string) (int, int64, error) {
 		}
 		for _, fileObject := range page.Contents {
 			isDir := strings.HasSuffix(util.GetStringFromPointer(fileObject.Key), "/")
-			if isDir && fileObject.Size == 0 {
+			objectSize := util.GetIntFromPointer(fileObject.Size)
+			if isDir && objectSize == 0 {
 				continue
 			}
 			numFiles++
-			size += fileObject.Size
+			size += objectSize
 			if numFiles%1000 == 0 {
 				fsLog(fs, logger.LevelDebug, "dirname %q scan in progress, files: %d, size: %d", dirname, numFiles, size)
 			}
@@ -696,7 +699,8 @@ func (fs *S3Fs) Walk(root string, walkFn filepath.WalkFunc) error {
 				continue
 			}
 			err := walkFn(util.GetStringFromPointer(fileObject.Key),
-				NewFileInfo(name, isDir, fileObject.Size, util.GetTimeFromPointer(fileObject.LastModified), false), nil)
+				NewFileInfo(name, isDir, util.GetIntFromPointer(fileObject.Size), util.GetTimeFromPointer(fileObject.LastModified),
+					false), nil)
 			if err != nil {
 				return err
 			}
@@ -865,10 +869,11 @@ func (fs *S3Fs) mkdirInternal(name string) error {
 
 func (fs *S3Fs) hasContents(name string) (bool, error) {
 	prefix := fs.getPrefix(name)
+	maxKeys := int32(2)
 	paginator := s3.NewListObjectsV2Paginator(fs.svc, &s3.ListObjectsV2Input{
 		Bucket:  aws.String(fs.config.Bucket),
 		Prefix:  aws.String(prefix),
-		MaxKeys: 2,
+		MaxKeys: &maxKeys,
 	})
 
 	if paginator.HasMorePages() {
@@ -962,7 +967,7 @@ func (fs *S3Fs) doMultipartCopy(source, target, contentType string, fileSize int
 				Bucket:          aws.String(fs.config.Bucket),
 				CopySource:      aws.String(source),
 				Key:             aws.String(target),
-				PartNumber:      partNum,
+				PartNumber:      &partNum,
 				UploadId:        aws.String(uploadID),
 				CopySourceRange: aws.String(fmt.Sprintf("bytes=%d-%d", partStart, partEnd-1)),
 			})
@@ -991,7 +996,7 @@ func (fs *S3Fs) doMultipartCopy(source, target, contentType string, fileSize int
 			partMutex.Lock()
 			completedParts = append(completedParts, types.CompletedPart{
 				ETag:       partResp.CopyPartResult.ETag,
-				PartNumber: partNum,
+				PartNumber: &partNum,
 			})
 			partMutex.Unlock()
 		}(partNumber, start, end)
@@ -1004,7 +1009,14 @@ func (fs *S3Fs) doMultipartCopy(source, target, contentType string, fileSize int
 		return copyError
 	}
 	sort.Slice(completedParts, func(i, j int) bool {
-		return completedParts[i].PartNumber < completedParts[j].PartNumber
+		getPartNumber := func(number *int32) int32 {
+			if number == nil {
+				return 0
+			}
+			return *number
+		}
+
+		return getPartNumber(completedParts[i].PartNumber) < getPartNumber(completedParts[j].PartNumber)
 	})
 
 	completeCtx, completeCancelFn := context.WithDeadline(context.Background(), time.Now().Add(fs.ctxTimeout))
