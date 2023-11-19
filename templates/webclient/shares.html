@@ -267,7 +267,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     $('#loader').addClass("d-none");
                     $('#card_content').removeClass("d-none");
                     let api = $.fn.dataTable.Api(settings);
-                    api.columns.adjust().draw();
+                    api.columns.adjust().draw("page");
                     KTMenu.createInstances();
                     handleRowActions();
                 }
