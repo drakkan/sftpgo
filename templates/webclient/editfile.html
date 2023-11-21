@@ -100,7 +100,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 {{- end}}
 
 {{- define "extra_js"}}
-<script src="{{.StaticURL}}/vendor/codemirror/cm6.bundle.min.js"></script>
+<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/codemirror/cm6.bundle.min.js"></script>
 <script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
     var cmView;
 

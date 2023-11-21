@@ -138,7 +138,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
 {{- define "extra_js"}}
 {{- if .LoggedUser.CanManagePublicKeys}}
-<script src="{{.StaticURL}}/assets/plugins/custom/formrepeater/formrepeater.bundle.js"></script>
+<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/plugins/custom/formrepeater/formrepeater.bundle.js"></script>
 <script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
     KTUtil.onDOMContentLoaded(function () {
         initRepeater('#public_keys');

@@ -178,9 +178,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 {{- end}}
 
 {{- define "extra_js"}}
-<script src="{{.StaticURL}}/assets/plugins/custom/datatables/datatables.bundle.js"></script>
-<script src="{{.StaticURL}}/vendor/glightbox/glightbox.min.js"></script>
-<script src="{{.StaticURL}}/vendor/pdfobject/pdfobject.min.js"></script>
+<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/plugins/custom/datatables/datatables.bundle.js"></script>
+<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/glightbox/glightbox.min.js"></script>
+<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/pdfobject/pdfobject.min.js"></script>
 <script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
     //{{- if not .ShareUploadBaseURL}}
     const supportedEditExtensions = ["csv", "bat", "dyalog", "apl", "asc", "pgp", "sig", "asn", "asn1", "b", "bf",

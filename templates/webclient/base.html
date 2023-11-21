@@ -292,8 +292,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         </div>
 
         {{- block "modals" .}}{{- end}}
-		<script src="{{.StaticURL}}/assets/plugins/global/plugins.bundle.js"></script>
-		<script src="{{.StaticURL}}/assets/js/scripts.bundle.js"></script>
+		<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/plugins/global/plugins.bundle.js"></script>
+		<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/js/scripts.bundle.js"></script>
 		{{- template "basejs" .CSPNonce }}
         <script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
             var ModalAlert = function () {
