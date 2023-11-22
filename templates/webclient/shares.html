@@ -126,7 +126,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             if (result.isConfirmed){
                 $('#loading_message').text("");
                 KTApp.showPageLoading();
-                let path = '{{.ShareURL}}' + "/" + fixedEncodeURIComponent(shareID);
+                let path = '{{.ShareURL}}' + "/" + encodeURIComponent(shareID);
 
                 axios.delete(path, {
                     timeout: 15000,
@@ -157,7 +157,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     }
 
     function editAction(shareID) {
-        window.location.replace('{{.ShareURL}}' + "/" + fixedEncodeURIComponent(shareID));
+        window.location.replace('{{.ShareURL}}' + "/" + encodeURIComponent(shareID));
     }
 
     function showShareLink(shareID, shareScope, isExpired) {
@@ -166,7 +166,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             $('#writeShare').hide();
             $('#readShare').hide();
         } else {
-            let shareURL = '{{.BasePublicSharesURL}}' + "/" + fixedEncodeURIComponent(shareID);
+            let shareURL = '{{.BasePublicSharesURL}}' + "/" + encodeURIComponent(shareID);
             if (shareScope == 'Read') {
                 $('#expiredShare').hide();
                 $('#writeShare').hide();

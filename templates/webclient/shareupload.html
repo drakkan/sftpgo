@@ -85,7 +85,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             }
 
             let f = files[index];
-            let uploadPath = '{{.UploadBasePath}}/'+fixedEncodeURIComponent(escapeHTML(f.name));
+            let uploadPath = '{{.UploadBasePath}}/'+encodeURIComponent(f.name);
             let lastModified;
             try {
                 lastModified = f.lastModified;

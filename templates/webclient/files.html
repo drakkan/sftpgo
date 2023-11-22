@@ -337,12 +337,17 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             $('#dirsbrowser_add_folder').click(function(){
                 let errDivEl = $('#errorModalMsg');
                 let errTxtEl = $('#errorModalTxt');
-                let dirName = replaceSlash($("#dirsbrowser_new_folder_input").val());
+                let dirName = $("#dirsbrowser_new_folder_input").val();
                 let submitButton  = document.querySelector('#dirsbrowser_add_folder');
                 let cancelButton = document.querySelector('#dirsbrowser_cancel_folder');
                 errDivEl.addClass("d-none");
                 if (!dirName){
                     errTxtEl.text("Folder name is required");
+                    errDivEl.removeClass("d-none");
+                    return;
+                }
+                if (dirName.includes("/")){
+                    errTxtEl.text('"/" is not allowed in file or directory names');
                     errDivEl.removeClass("d-none");
                     return;
                 }
@@ -1064,7 +1069,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         KTDatatablesFoldersExplorer.init('{{.DirsURL}}?dirtree=1&path={{.CurrentDir}}', '{{.CurrentDir}}');
     }
 
-    function getMoveOtCopyItems() {
+    function getMoveOrCopyItems() {
         let items = [];
         let targetDir = $("#move_copy_folder").val();
         if (targetDir != "/") {
@@ -1099,18 +1104,32 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         return items;
     }
 
+    function checkMoveCopyItems(items) {
+        let hasSlash = items.some(item => item.targetName.includes("/"));
+        if (hasSlash){
+            return [];
+        }
+        return items;
+    }
+
     function doCopy() {
-        let items = getMoveOtCopyItems();
+        let items = getMoveOrCopyItems();
         if (items.length == 0){
+            return;
+        }
+        let errDivEl = $('#errorMsg');
+        let errTxtEl = $('#errorTxt');
+        errDivEl.addClass("d-none");
+        items = checkMoveCopyItems(items)
+        if (items.length == 0){
+            errTxtEl.text('"/" is not allowed in file or directory names');
+            errDivEl.removeClass("d-none");
             return;
         }
         keepAlive();
         let keepAliveTimer = setInterval(keepAlive, 300000);
         let hasError = false;
         let index = 0;
-        let errDivEl = $('#errorMsg');
-        let errTxtEl = $('#errorTxt');
-        errDivEl.addClass("d-none");
 
         $('#loading_message').text("");
         KTApp.showPageLoading();
@@ -1178,17 +1197,23 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     }
 
     function doMove() {
-        let items = getMoveOtCopyItems();
+        let items = getMoveOrCopyItems();
         if (items.length == 0){
+            return;
+        }
+        let errDivEl = $('#errorMsg');
+        let errTxtEl = $('#errorTxt');
+        errDivEl.addClass("d-none");
+        items = checkMoveCopyItems(items)
+        if (items.length == 0){
+            errTxtEl.text('"/" is not allowed in file or directory names');
+            errDivEl.removeClass("d-none");
             return;
         }
         keepAlive();
         let keepAliveTimer = setInterval(keepAlive, 300000);
         let hasError = false;
         let index = 0;
-        let errDivEl = $('#errorMsg');
-        let errTxtEl = $('#errorTxt');
-        errDivEl.addClass("d-none");
 
         $('#loading_message').text("");
         KTApp.showPageLoading();
@@ -1355,6 +1380,11 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             errDivEl.removeClass("d-none");
             return;
         }
+        if (newName.includes("/")){
+            errTxtEl.text('"/" is not allowed in file or directory names');
+            errDivEl.removeClass("d-none");
+            return;
+        }
         let path = '{{.FileActionsURL}}/move';
         path+='?path={{.CurrentDir}}'+encodeURIComponent("/"+oldName)+'&target={{.CurrentDir}}'+encodeURIComponent("/"+newName);
         axios.post(path, null, {
@@ -1409,12 +1439,17 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     function createNewFolder() {
         let errDivEl = $('#errorMsg');
         let errTxtEl = $('#errorTxt');
-        let dirName = replaceSlash($("#file_manager_new_folder_input").val());
+        let dirName = $("#file_manager_new_folder_input").val();
         let submitButton  = document.querySelector('#file_manager_add_folder');
         let cancelButton = document.querySelector('#file_manager_cancel_folder');
         errDivEl.addClass("d-none");
         if (!dirName){
             errTxtEl.text("Folder name is required");
+            errDivEl.removeClass("d-none");
+            return;
+        }
+        if (dirName.includes("/")){
+            errTxtEl.text('"/" is not allowed in file or directory names');
             errDivEl.removeClass("d-none");
             return;
         }
@@ -1480,7 +1515,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             let f = files[index];
             let uploadPath;
             //{{- if .ShareUploadBaseURL}}
-            uploadPath = '{{.ShareUploadBaseURL}}' + fixedEncodeURIComponent("/"+escapeHTML(f.name));
+            uploadPath = '{{.ShareUploadBaseURL}}' + encodeURIComponent("/" + f.name);
             //{{- else}}
             uploadPath = '{{.FileURL}}?path={{.CurrentDir}}' + encodeURIComponent("/" + f.name);
             //{{- end}}

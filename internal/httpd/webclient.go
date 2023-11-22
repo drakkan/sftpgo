@@ -771,15 +771,17 @@ func (s *httpdServer) renderSharedFilesPage(w http.ResponseWriter, r *http.Reque
 	currentURL := path.Join(webClientPubSharesPath, share.ShareID, "browse")
 	baseData := s.getBaseClientPageData(pageExtShareTitle, currentURL, r)
 	baseData.FilesURL = currentURL
+	baseSharePath := path.Join(webClientPubSharesPath, share.ShareID)
 
 	data := filesPage{
-		baseClientPage:     baseData,
-		Error:              error,
-		CurrentDir:         url.QueryEscape(dirName),
-		DownloadURL:        path.Join(webClientPubSharesPath, share.ShareID, "partial"),
-		ShareUploadBaseURL: path.Join(webClientPubSharesPath, share.ShareID, url.PathEscape(dirName)),
-		ViewPDFURL:         path.Join(webClientPubSharesPath, share.ShareID, "viewpdf"),
-		DirsURL:            path.Join(webClientPubSharesPath, share.ShareID, "dirs"),
+		baseClientPage: baseData,
+		Error:          error,
+		CurrentDir:     url.QueryEscape(dirName),
+		DownloadURL:    path.Join(baseSharePath, "partial"),
+		// dirName must be escaped because the router expects the full path as single argument
+		ShareUploadBaseURL: path.Join(baseSharePath, url.PathEscape(dirName)),
+		ViewPDFURL:         path.Join(baseSharePath, "viewpdf"),
+		DirsURL:            path.Join(baseSharePath, "dirs"),
 		FileURL:            "",
 		FileActionsURL:     "",
 		CanAddFiles:        share.Scope == dataprovider.ShareScopeReadWrite,
