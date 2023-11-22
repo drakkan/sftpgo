@@ -1353,6 +1353,8 @@ func (s *httpdServer) handleClientAddShareGet(w http.ResponseWriter, r *http.Req
 	share := &dataprovider.Share{Scope: dataprovider.ShareScopeRead}
 	if user.Filters.DefaultSharesExpiration > 0 {
 		share.ExpiresAt = util.GetTimeAsMsSinceEpoch(time.Now().Add(24 * time.Hour * time.Duration(user.Filters.DefaultSharesExpiration)))
+	} else {
+		share.ExpiresAt = util.GetTimeAsMsSinceEpoch(time.Now().Add(24 * time.Hour * 7))
 	}
 	dirName := "/"
 	if _, ok := r.URL.Query()["path"]; ok {

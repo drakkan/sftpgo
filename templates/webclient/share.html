@@ -128,16 +128,14 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
             <div class="form-group row mt-10">
                 <label class="col-md-3 col-form-label">Expiration</label>
-                <div class="col-md-9">
-                    <div class="input-group" data-td-target-input="nearest" data-td-target-toggle="nearest">
-                        <input id="id_expiration" type="text" class="form-control" data-td-target="#id_expiration" />
-                        <span class="input-group-text" data-td-target="#id_expiration" data-td-toggle="datetimepicker">
-                            <i class="ki-duotone ki-calendar fs-2">
-                                <span class="path1"></span>
-                                <span class="path2"></span>
-                            </i>
-                        </span>
-                    </div>
+                <div class="col-md-9 d-flex">
+                    <input id="id_expiration" class="form-control" placeholder="Pick an expiration date" />
+                    <button class="btn btn-icon btn-light-danger ms-2 d-none" id="id_expiration_clear">
+                        <i class="ki-duotone ki-cross fs-1">
+                            <span class="path1"></span>
+                            <span class="path2"></span>
+                        </i>
+                    </button>
                 </div>
             </div>
 
@@ -194,28 +192,39 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             initRepeater('#paths');
             initRepeaterItems();
 
-            const picker = new tempusDominus.TempusDominus(document.getElementById("id_expiration"), {
-                localization: {
-                    format: 'yyyy-MM-dd HH:mm'
+            const picker = $('#id_expiration').flatpickr({
+                enableTime: false,
+                time_24hr: true,
+                dateFormat: "Y-m-d",
+                defaultHour: 23,
+                defaultMinute: 59,
+                onChange: function(selectedDates, dateStr, instance) {
+                    if (selectedDates.length > 0){
+                        $('#id_expiration_clear').removeClass("d-none");
+                    } else {
+                        $('#id_expiration_clear').addClass("d-none");
+                    }
                 }
             });
             //{{ if gt .Share.ExpiresAt 0 }}
-            let input_dt = moment('{{.Share.ExpiresAt }}', 'x').toDate();
-            picker.dates.setValue(tempusDominus.DateTime.convert(input_dt));
+            let input_dt = moment('{{.Share.ExpiresAt }}', 'x').format('YYYY-MM-DD');
+            picker.setDate(input_dt, true);
             //{{ end }}
 
+            $('#id_expiration_clear').on("click", function(e){
+                e.preventDefault();
+                picker.clear();
+            });
+
             $("#share_form").submit(function (event) {
-                let dt = $('#id_expiration').val();
-                if (dt) {
-                    let d = picker.viewDate;
+                $('#hidden_start_datetime').val("");
+                let dt = picker.selectedDates;
+                if (dt.length > 0) {
+                    let d = dt[0];
                     if (d) {
                         let dateString = moment.utc(d).format('YYYY-MM-DD HH:mm:ss');
                         $('#hidden_start_datetime').val(dateString);
-                    } else {
-                        $('#hidden_start_datetime').val("");
                     }
-                } else {
-                    $('#hidden_start_datetime').val("");
                 }
                 let submitButton = document.querySelector('#form_submit');
                 submitButton.setAttribute('data-kt-indicator', 'on');
