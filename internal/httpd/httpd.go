@@ -760,7 +760,8 @@ type Conf struct {
 	// SigningPassphrase defines the passphrase to use to derive the signing key for JWT and CSRF tokens.
 	// If empty a random signing key will be generated each time SFTPGo starts. If you set a
 	// signing passphrase you should consider rotating it periodically for added security
-	SigningPassphrase string `json:"signing_passphrase" mapstructure:"signing_passphrase"`
+	SigningPassphrase     string `json:"signing_passphrase" mapstructure:"signing_passphrase"`
+	SigningPassphraseFile string `json:"signing_passphrase_file" mapstructure:"signing_passphrase_file"`
 	// TokenValidation allows to define how to validate JWT tokens, cookies and CSRF tokens.
 	// By default all the available security checks are enabled. Set to 1 to disable the requirement
 	// that a token must be used by the same IP for which it was issued.
@@ -912,6 +913,21 @@ func (c *Conf) loadFromProvider() error {
 	return nil
 }
 
+func (c *Conf) loadTemplates(templatesPath string) {
+	if c.isWebAdminEnabled() {
+		updateWebAdminURLs(c.WebRoot)
+		loadAdminTemplates(templatesPath)
+	} else {
+		logger.Info(logSender, "", "built-in web admin interface disabled")
+	}
+	if c.isWebClientEnabled() {
+		updateWebClientURLs(c.WebRoot)
+		loadClientTemplates(templatesPath)
+	} else {
+		logger.Info(logSender, "", "built-in web client interface disabled")
+	}
+}
+
 // Initialize configures and starts the HTTP server
 func (c *Conf) Initialize(configDir string, isShared int) error {
 	if err := c.loadFromProvider(); err != nil {
@@ -929,18 +945,7 @@ func (c *Conf) Initialize(configDir string, isShared int) error {
 	if err := c.checkRequiredDirs(staticFilesPath, templatesPath); err != nil {
 		return err
 	}
-	if c.isWebAdminEnabled() {
-		updateWebAdminURLs(c.WebRoot)
-		loadAdminTemplates(templatesPath)
-	} else {
-		logger.Info(logSender, "", "built-in web admin interface disabled")
-	}
-	if c.isWebClientEnabled() {
-		updateWebClientURLs(c.WebRoot)
-		loadClientTemplates(templatesPath)
-	} else {
-		logger.Info(logSender, "", "built-in web client interface disabled")
-	}
+	c.loadTemplates(templatesPath)
 	keyPairs := c.getKeyPairs(configDir)
 	if len(keyPairs) > 0 {
 		mgr, err := common.NewCertManager(keyPairs, configDir, logSender)
@@ -956,6 +961,14 @@ func (c *Conf) Initialize(configDir string, isShared int) error {
 			return err
 		}
 		certMgr = mgr
+	}
+
+	if c.SigningPassphraseFile != "" {
+		passphrase, err := util.ReadConfigFromFile(c.SigningPassphraseFile, configDir)
+		if err != nil {
+			return err
+		}
+		c.SigningPassphrase = passphrase
 	}
 
 	csrfTokenAuth = jwtauth.New(jwa.HS256.String(), getSigningKey(c.SigningPassphrase), nil)

@@ -354,10 +354,10 @@ type Config struct {
 	// Database port
 	Port int `json:"port" mapstructure:"port"`
 	// Database username
-	Username string `json:"username" mapstructure:"username"`
+	Username     string `json:"username" mapstructure:"username"`
 	UsernameFile string `json:"username_file" mapstructure:"username_file"`
 	// Database password
-	Password string `json:"password" mapstructure:"password"`
+	Password     string `json:"password" mapstructure:"password"`
 	PasswordFile string `json:"password_file" mapstructure:"password_file"`
 	// Used for drivers mysql and postgresql.
 	// 0 disable SSL/TLS connections.
@@ -877,20 +877,20 @@ func Initialize(cnf Config, basePath string, checkAdmins bool) error {
 	config.Actions.ExecuteOn = util.RemoveDuplicates(config.Actions.ExecuteOn, true)
 	config.Actions.ExecuteFor = util.RemoveDuplicates(config.Actions.ExecuteFor, true)
 
-	if config.Username == "" && config.UsernameFile != "" {
-		user, err := os.ReadFile(config.UsernameFile)
+	if config.UsernameFile != "" {
+		user, err := util.ReadConfigFromFile(config.UsernameFile, basePath)
 		if err != nil {
 			return err
 		}
-		config.Username = string(user)
+		config.Username = user
 	}
 
-	if config.Password == "" && config.PasswordFile != "" {
-		password, err := os.ReadFile(config.PasswordFile)
+	if config.PasswordFile != "" {
+		password, err := util.ReadConfigFromFile(config.PasswordFile, basePath)
 		if err != nil {
 			return err
 		}
-		config.Password = string(password)
+		config.Password = password
 	}
 
 	cnf.BackupsPath = getConfigPath(cnf.BackupsPath, basePath)

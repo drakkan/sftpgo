@@ -198,7 +198,9 @@
     "host": "",
     "port": 0,
     "username": "",
+    "username_file": "",
     "password": "",
+    "password_file": "",
     "sslmode": 0,
     "disable_sni": false,
     "target_session_attrs": "",
@@ -278,6 +280,7 @@
         "oidc": {
           "client_id": "",
           "client_secret": "",
+          "client_secret_file": "",
           "config_url": "",
           "redirect_base_url": "",
           "scopes": [
@@ -344,6 +347,7 @@
     "ca_certificates": [],
     "ca_revocation_lists": [],
     "signing_passphrase": "",
+    "signing_passphrase_file": "",
     "token_validation": 0,
     "max_upload_file_size": 0,
     "cors": {

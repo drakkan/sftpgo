@@ -19,6 +19,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -101,9 +102,10 @@ func TestOIDCInitialization(t *testing.T) {
 	config := OIDC{}
 	err := config.initialize()
 	assert.NoError(t, err)
+	secret := "jRsmE0SWnuZjP7djBqNq0mrf8QN77j2c"
 	config = OIDC{
 		ClientID:        "sftpgo-client",
-		ClientSecret:    "jRsmE0SWnuZjP7djBqNq0mrf8QN77j2c",
+		ClientSecret:    util.GenerateUniqueID(),
 		ConfigURL:       fmt.Sprintf("http://%v/", oidcMockAddr),
 		RedirectBaseURL: "http://127.0.0.1:8081/",
 		UsernameField:   "preferred_username",
@@ -114,10 +116,19 @@ func TestOIDCInitialization(t *testing.T) {
 		assert.Contains(t, err.Error(), "oidc: required scope \"openid\" is not set")
 	}
 	config.Scopes = []string{oidc.ScopeOpenID}
+	config.ClientSecretFile = "missing file"
+	err = config.initialize()
+	assert.ErrorIs(t, err, fs.ErrNotExist)
+	secretFile := filepath.Join(os.TempDir(), util.GenerateUniqueID())
+	defer os.Remove(secretFile)
+	err = os.WriteFile(secretFile, []byte(secret), 0600)
+	assert.NoError(t, err)
+	config.ClientSecretFile = secretFile
 	err = config.initialize()
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "oidc: unable to initialize provider")
 	}
+	assert.Equal(t, secret, config.ClientSecret)
 	config.ConfigURL = fmt.Sprintf("http://%v/auth/realms/sftpgo", oidcMockAddr)
 	err = config.initialize()
 	assert.NoError(t, err)

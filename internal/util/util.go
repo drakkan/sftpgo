@@ -876,3 +876,24 @@ func JSONEscape(val string) string {
 	}
 	return string(b[1 : len(b)-1])
 }
+
+// ReadConfigFromFile reads a configuration parameter from the specified file
+func ReadConfigFromFile(name, configDir string) (string, error) {
+	if !IsFileInputValid(name) {
+		return "", fmt.Errorf("invalid file input: %q", name)
+	}
+	if configDir == "" {
+		if !filepath.IsAbs(name) {
+			return "", fmt.Errorf("%q must be an absolute file path", name)
+		}
+	} else {
+		if name != "" && !filepath.IsAbs(name) {
+			name = filepath.Join(configDir, name)
+		}
+	}
+	val, err := os.ReadFile(name)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(val)), nil
+}

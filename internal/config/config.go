@@ -121,6 +121,7 @@ var (
 		OIDC: httpd.OIDC{
 			ClientID:                   "",
 			ClientSecret:               "",
+			ClientSecretFile:           "",
 			ConfigURL:                  "",
 			RedirectBaseURL:            "",
 			UsernameField:              "",
@@ -386,18 +387,19 @@ func Init() {
 			BackupsPath: "backups",
 		},
 		HTTPDConfig: httpd.Conf{
-			Bindings:           []httpd.Binding{defaultHTTPDBinding},
-			TemplatesPath:      "templates",
-			StaticFilesPath:    "static",
-			OpenAPIPath:        "openapi",
-			WebRoot:            "",
-			CertificateFile:    "",
-			CertificateKeyFile: "",
-			CACertificates:     nil,
-			CARevocationLists:  nil,
-			SigningPassphrase:  "",
-			TokenValidation:    0,
-			MaxUploadFileSize:  0,
+			Bindings:              []httpd.Binding{defaultHTTPDBinding},
+			TemplatesPath:         "templates",
+			StaticFilesPath:       "static",
+			OpenAPIPath:           "openapi",
+			WebRoot:               "",
+			CertificateFile:       "",
+			CertificateKeyFile:    "",
+			CACertificates:        nil,
+			CARevocationLists:     nil,
+			SigningPassphrase:     "",
+			SigningPassphraseFile: "",
+			TokenValidation:       0,
+			MaxUploadFileSize:     0,
 			Cors: httpd.CorsConfig{
 				Enabled:              false,
 				AllowedOrigins:       []string{},
@@ -1568,6 +1570,12 @@ func getHTTPDOIDCFromEnv(idx int) (httpd.OIDC, bool) {
 		isSet = true
 	}
 
+	clientSecretFile, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__OIDC__CLIENT_SECRET_FILE", idx))
+	if ok {
+		result.ClientSecretFile = clientSecretFile
+		isSet = true
+	}
+
 	configURL, ok := os.LookupEnv(fmt.Sprintf("SFTPGO_HTTPD__BINDINGS__%v__OIDC__CONFIG_URL", idx))
 	if ok {
 		result.ConfigURL = configURL
@@ -2119,6 +2127,7 @@ func setViperDefaults() {
 	viper.SetDefault("httpd.ca_certificates", globalConf.HTTPDConfig.CACertificates)
 	viper.SetDefault("httpd.ca_revocation_lists", globalConf.HTTPDConfig.CARevocationLists)
 	viper.SetDefault("httpd.signing_passphrase", globalConf.HTTPDConfig.SigningPassphrase)
+	viper.SetDefault("httpd.signing_passphrase_file", globalConf.HTTPDConfig.SigningPassphraseFile)
 	viper.SetDefault("httpd.token_validation", globalConf.HTTPDConfig.TokenValidation)
 	viper.SetDefault("httpd.max_upload_file_size", globalConf.HTTPDConfig.MaxUploadFileSize)
 	viper.SetDefault("httpd.cors.enabled", globalConf.HTTPDConfig.Cors.Enabled)

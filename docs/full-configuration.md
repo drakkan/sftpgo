@@ -247,7 +247,9 @@ The configuration file contains the following sections:
   - `host`, string. Database host. For `postgresql` and `cockroachdb` drivers you can specify multiple hosts separated by commas. Leave empty for drivers `sqlite`, `bolt` and `memory`
   - `port`, integer. Database port. Leave empty for drivers `sqlite`, `bolt` and `memory`
   - `username`, string. Database user. Leave empty for drivers `sqlite`, `bolt` and `memory`
+  - `username_file`, string. Defines the path to a file containing the database user. This can be an absolute path or a path relative to the config dir. If not empty it takes precedence over `username`. Default: blank.
   - `password`, string. Database password. Leave empty for drivers `sqlite`, `bolt` and `memory`
+  - `password_file`, string. Defines the path to a file containing the database password. This can be an absolute path or a path relative to the config dir. If not empty it takes precedence over `password`. Default: blank.
   - `sslmode`, integer. Used for drivers `mysql` and `postgresql`. 0 disable TLS connections, 1 require TLS, 2 set TLS mode to `verify-ca` for driver `postgresql` and `skip-verify` for driver `mysql`, 3 set TLS mode to `verify-full` for driver `postgresql` and `preferred` for driver `mysql`, 4 set the TLS mode to `prefer` for driver `postgresql`, 5 set the TLS mode to `allow` for driver `postgresql`
   - `root_cert`, string. Path to the root certificate authority used to verify that the server certificate was signed by a trusted CA
   - `disable_sni`, boolean. Allows to opt out Server Name Indication (SNI) for TLS connections. Default: `false`
@@ -326,6 +328,7 @@ The configuration file contains the following sections:
       - `config_url`, string. Identifier for the service. If defined, SFTPGo will add `/.well-known/openid-configuration` to this url and attempt to retrieve the provider configuration on startup. SFTPGo will refuse to start if it fails to connect to the specified URL. Default: blank.
       - `client_id`, string. Defines the application's ID. Default: blank.
       - `client_secret`, string. Defines the application's secret. Default: blank.
+      - `client_secret_file`, string. Defines the path to a file containing the application secret. This can be an absolute path or a path relative to the config dir. If not empty, it takes precedence over `client_secret`. Default: blank.
       - `redirect_base_url`, string. Defines the base URL to redirect to after OpenID authentication. The suffix `/web/oidc/redirect` will be added to this base URL, adding also the `web_root` if configured. Default: blank.
       - `username_field`, string. Defines the ID token claims field to map to the SFTPGo username. Default: blank.
       - `scopes`, list of strings. Request the OAuth provider to provide the scope information from an authenticated users. The `openid` scope is mandatory. Default: `"openid", "profile", "email"`.
@@ -369,6 +372,7 @@ The configuration file contains the following sections:
   - `ca_certificates`, list of strings. Set of root certificate authorities to be used to verify client certificates.
   - `ca_revocation_lists`, list of strings. Set a revocation lists, one for each root CA, to be used to check if a client certificate has been revoked. The revocation lists can be reloaded on demand sending a `SIGHUP` signal on Unix based systems and a `paramchange` request to the running service on Windows.
   - `signing_passphrase`, string. Passphrase to use to derive the signing key for JWT and CSRF tokens. If empty a random signing key will be generated each time SFTPGo starts. If you set a signing passphrase you should consider rotating it periodically for added security.
+  - `signing_passphrase_file`, string. Defines the path to a file containing the signing passphrase. This can be an absolute path or a path relative to the config dir. If not empty, it takes precedence over `signing_passphrase`. Default: blank.
   - `token_validation`, integer. Define how to validate JWT tokens, cookies and CSRF tokens. By default all the available security checks are enabled. Set to 1 to disable the requirement that a token must be used by the same IP for which it was issued. Default: `0`.
   - `max_upload_file_size`, integer. Defines the maximum request body size, in bytes, for Web Client/API HTTP upload requests. `0` means no limit. Default: `0`.
   - `cors` struct containing CORS configuration. SFTPGo uses [Go CORS handler](https://github.com/rs/cors), please refer to upstream documentation for fields meaning and their default values.
@@ -438,8 +442,8 @@ The configuration file contains the following sections:
 - **kms**, configuration for the Key Management Service, more details can be found [here](./kms.md)
   - `secrets`
     - `url`, string. Defines the URI to the KMS service. Default: blank.
-    - `master_key`, string. Defines the master encryption key as string. If not empty, it takes precedence over `master_key_path`. Default: blank.
-    - `master_key_path`, string. Defines the absolute path to a file containing the master encryption key. Default: blank.
+    - `master_key`, string. Defines the master encryption key as string. Default: blank.
+    - `master_key_path`, string. Defines the absolute path to a file containing the master encryption key. If not empty, it takes precedence over `master_key`. Default: blank.
 
 </details>
 <details><summary><font size=4>MFA</font></summary>

@@ -18,13 +18,13 @@ package kms
 import (
 	"encoding/json"
 	"errors"
-	"os"
 	"strings"
 	"sync"
 
 	sdkkms "github.com/sftpgo/sdk/kms"
 
 	"github.com/drakkan/sftpgo/v2/internal/logger"
+	"github.com/drakkan/sftpgo/v2/internal/util"
 )
 
 // SecretProvider defines the interface for a KMS secrets provider
@@ -105,15 +105,14 @@ func NewPlainSecret(payload string) *Secret {
 
 // Initialize configures the KMS support
 func (c *Configuration) Initialize() error {
-	if c.Secrets.MasterKeyString != "" {
-		c.Secrets.masterKey = c.Secrets.MasterKeyString
-	}
-	if c.Secrets.masterKey == "" && c.Secrets.MasterKeyPath != "" {
-		mKey, err := os.ReadFile(c.Secrets.MasterKeyPath)
+	if c.Secrets.MasterKeyPath != "" {
+		mKey, err := util.ReadConfigFromFile(c.Secrets.MasterKeyPath, "")
 		if err != nil {
 			return err
 		}
-		c.Secrets.masterKey = strings.TrimSpace(string(mKey))
+		c.Secrets.masterKey = mKey
+	} else if c.Secrets.MasterKeyString != "" {
+		c.Secrets.masterKey = c.Secrets.MasterKeyString
 	}
 	config = *c
 	if config.Secrets.URL == "" {

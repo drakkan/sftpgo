@@ -64,7 +64,8 @@ type OIDC struct {
 	// ClientID is the application's ID
 	ClientID string `json:"client_id" mapstructure:"client_id"`
 	// ClientSecret is the application's secret
-	ClientSecret string `json:"client_secret" mapstructure:"client_secret"`
+	ClientSecret     string `json:"client_secret" mapstructure:"client_secret"`
+	ClientSecretFile string `json:"client_secret_file" mapstructure:"client_secret_file"`
 	// ConfigURL is the identifier for the service.
 	// SFTPGo will try to retrieve the provider configuration on startup and then
 	// will refuse to start if it fails to connect to the specified URL
@@ -143,6 +144,13 @@ func (o *OIDC) initialize() error {
 	}
 	if !util.Contains(o.Scopes, oidc.ScopeOpenID) {
 		return fmt.Errorf("oidc: required scope %q is not set", oidc.ScopeOpenID)
+	}
+	if o.ClientSecretFile != "" {
+		secret, err := util.ReadConfigFromFile(o.ClientSecretFile, configurationDir)
+		if err != nil {
+			return err
+		}
+		o.ClientSecret = secret
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()

@@ -474,7 +474,15 @@ func TestInitialization(t *testing.T) {
 	err := config.LoadConfig(configDir, "")
 	assert.NoError(t, err)
 	invalidFile := "invalid file"
+	passphraseFile := filepath.Join(os.TempDir(), util.GenerateUniqueID())
+	err = os.WriteFile(passphraseFile, []byte("my secret"), 0600)
+	assert.NoError(t, err)
+	defer os.Remove(passphraseFile)
 	httpdConf := config.GetHTTPDConfig()
+	httpdConf.SigningPassphraseFile = invalidFile
+	err = httpdConf.Initialize(configDir, isShared)
+	assert.ErrorIs(t, err, fs.ErrNotExist)
+	httpdConf.SigningPassphraseFile = passphraseFile
 	defaultTemplatesPath := httpdConf.TemplatesPath
 	defaultStaticPath := httpdConf.StaticFilesPath
 	httpdConf.CertificateFile = invalidFile
@@ -506,11 +514,13 @@ func TestInitialization(t *testing.T) {
 	err = httpdConf.Initialize(configDir, isShared)
 	assert.Error(t, err)
 	httpdConf.CARevocationLists = nil
+	httpdConf.SigningPassphraseFile = passphraseFile
 	httpdConf.Bindings[0].ProxyAllowed = []string{"invalid ip/network"}
 	err = httpdConf.Initialize(configDir, isShared)
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "is not a valid IP range")
 	}
+	assert.Equal(t, "my secret", httpdConf.SigningPassphrase)
 	httpdConf.Bindings[0].ProxyAllowed = nil
 	httpdConf.Bindings[0].EnableWebAdmin = false
 	httpdConf.Bindings[0].EnableWebClient = false
