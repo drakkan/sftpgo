@@ -71,8 +71,8 @@ const (
 	pageClientChangePwdTitle        = "Change password"
 	pageClient2FATitle              = "Two-factor auth"
 	pageClientEditFileTitle         = "Edit file"
-	pageClientForgotPwdTitle        = "SFTPGo WebClient - Forgot password"
-	pageClientResetPwdTitle         = "SFTPGo WebClient - Reset password"
+	pageClientForgotPwdTitle        = "Forgot password"
+	pageClientResetPwdTitle         = "Reset password"
 	pageExtShareTitle               = "Shared files"
 	pageUploadToShareTitle          = "Upload to share"
 	pageDownloadFromShareTitle      = "Download shared file"
@@ -665,6 +665,7 @@ func (s *httpdServer) renderClientNotFoundPage(w http.ResponseWriter, r *http.Re
 
 func (s *httpdServer) renderClientTwoFactorPage(w http.ResponseWriter, r *http.Request, error, ip string) {
 	data := twoFactorPage{
+		Title:       pageTwoFactorTitle,
 		CurrentURL:  webClientTwoFactorPath,
 		Version:     version.Get().Version,
 		Error:       error,
@@ -682,6 +683,7 @@ func (s *httpdServer) renderClientTwoFactorPage(w http.ResponseWriter, r *http.R
 
 func (s *httpdServer) renderClientTwoFactorRecoveryPage(w http.ResponseWriter, r *http.Request, error, ip string) {
 	data := twoFactorPage{
+		Title:      pageTwoFactorRecoveryTitle,
 		CurrentURL: webClientTwoFactorRecoveryPath,
 		Version:    version.Get().Version,
 		Error:      error,

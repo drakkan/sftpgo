@@ -120,8 +120,8 @@ const (
 	pageIPListsTitle         = "IP Lists"
 	pageEventsTitle          = "Logs"
 	pageConfigsTitle         = "Configurations"
-	pageForgotPwdTitle       = "SFTPGo Admin - Forgot password"
-	pageResetPwdTitle        = "SFTPGo Admin - Reset password"
+	pageForgotPwdTitle       = "Forgot password"
+	pageResetPwdTitle        = "Reset password"
 	pageSetupTitle           = "Create first admin user"
 	defaultQueryLimit        = 1000
 	inversePatternType       = "inverse"
@@ -828,6 +828,7 @@ func (s *httpdServer) renderResetPwdPage(w http.ResponseWriter, r *http.Request,
 
 func (s *httpdServer) renderTwoFactorPage(w http.ResponseWriter, r *http.Request, error, ip string) {
 	data := twoFactorPage{
+		Title:       pageTwoFactorTitle,
 		CurrentURL:  webAdminTwoFactorPath,
 		Version:     version.Get().Version,
 		Error:       error,
@@ -842,6 +843,7 @@ func (s *httpdServer) renderTwoFactorPage(w http.ResponseWriter, r *http.Request
 
 func (s *httpdServer) renderTwoFactorRecoveryPage(w http.ResponseWriter, r *http.Request, error, ip string) {
 	data := twoFactorPage{
+		Title:      pageTwoFactorRecoveryTitle,
 		CurrentURL: webAdminTwoFactorRecoveryPath,
 		Version:    version.Get().Version,
 		Error:      error,

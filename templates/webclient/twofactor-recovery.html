@@ -15,7 +15,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 -->
 {{- template "baselogin" .}}
 
-{{- define "title"}}Two-Factor recovery{{- end}}
+{{- define "title"}}{{.Title}}{{- end}}
 
 {{- define "content"}}
 <form class="form w-100" id="sign_in_form" action="{{.CurrentURL}}" method="POST">
