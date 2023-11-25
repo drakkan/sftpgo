@@ -34,7 +34,6 @@ import (
 	"github.com/go-chi/render"
 	"github.com/rs/xid"
 	"github.com/sftpgo/sdk"
-	"github.com/unrolled/secure"
 
 	"github.com/drakkan/sftpgo/v2/internal/common"
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
@@ -99,6 +98,7 @@ func isZeroTime(t time.Time) bool {
 }
 
 type baseClientPage struct {
+	commonBasePage
 	Title        string
 	CurrentURL   string
 	FilesURL     string
@@ -107,7 +107,6 @@ type baseClientPage struct {
 	ProfileURL   string
 	PingURL      string
 	ChangePwdURL string
-	StaticURL    string
 	LogoutURL    string
 	LoginURL     string
 	EditURL      string
@@ -118,7 +117,6 @@ type baseClientPage struct {
 	ProfileTitle string
 	Version      string
 	CSRFToken    string
-	CSPNonce     string
 	LoggedUser   *dataprovider.User
 	Branding     UIBranding
 }
@@ -129,11 +127,10 @@ type dirMapping struct {
 }
 
 type viewPDFPage struct {
-	Title     string
-	URL       string
-	StaticURL string
-	CSPNonce  string
-	Branding  UIBranding
+	commonBasePage
+	Title    string
+	URL      string
+	Branding UIBranding
 }
 
 type editFilePage struct {
@@ -167,12 +164,11 @@ type filesPage struct {
 }
 
 type shareLoginPage struct {
+	commonBasePage
 	CurrentURL string
 	Version    string
 	Error      string
 	CSRFToken  string
-	CSPNonce   string
-	StaticURL  string
 	Branding   UIBranding
 }
 
@@ -553,27 +549,26 @@ func (s *httpdServer) getBaseClientPageData(title, currentURL string, r *http.Re
 	v := version.Get()
 
 	data := baseClientPage{
-		Title:        title,
-		CurrentURL:   currentURL,
-		FilesURL:     webClientFilesPath,
-		SharesURL:    webClientSharesPath,
-		ShareURL:     webClientSharePath,
-		ProfileURL:   webClientProfilePath,
-		PingURL:      webClientPingPath,
-		ChangePwdURL: webChangeClientPwdPath,
-		StaticURL:    webStaticFilesPath,
-		LogoutURL:    webClientLogoutPath,
-		EditURL:      webClientEditFilePath,
-		MFAURL:       webClientMFAPath,
-		MFATitle:     pageClient2FATitle,
-		FilesTitle:   pageClientFilesTitle,
-		SharesTitle:  pageClientSharesTitle,
-		ProfileTitle: pageClientProfileTitle,
-		Version:      fmt.Sprintf("%v-%v", v.Version, v.CommitHash),
-		CSRFToken:    csrfToken,
-		CSPNonce:     secure.CSPNonce(r.Context()),
-		LoggedUser:   getUserFromToken(r),
-		Branding:     s.binding.Branding.WebClient,
+		commonBasePage: getCommonBasePage(r),
+		Title:          title,
+		CurrentURL:     currentURL,
+		FilesURL:       webClientFilesPath,
+		SharesURL:      webClientSharesPath,
+		ShareURL:       webClientSharePath,
+		ProfileURL:     webClientProfilePath,
+		PingURL:        webClientPingPath,
+		ChangePwdURL:   webChangeClientPwdPath,
+		LogoutURL:      webClientLogoutPath,
+		EditURL:        webClientEditFilePath,
+		MFAURL:         webClientMFAPath,
+		MFATitle:       pageClient2FATitle,
+		FilesTitle:     pageClientFilesTitle,
+		SharesTitle:    pageClientSharesTitle,
+		ProfileTitle:   pageClientProfileTitle,
+		Version:        fmt.Sprintf("%v-%v", v.Version, v.CommitHash),
+		CSRFToken:      csrfToken,
+		LoggedUser:     getUserFromToken(r),
+		Branding:       s.binding.Branding.WebClient,
 	}
 	if !strings.HasPrefix(r.RequestURI, webClientPubSharesPath) {
 		data.LoginURL = webClientLoginPath
@@ -583,41 +578,38 @@ func (s *httpdServer) getBaseClientPageData(title, currentURL string, r *http.Re
 
 func (s *httpdServer) renderClientForgotPwdPage(w http.ResponseWriter, r *http.Request, error, ip string) {
 	data := forgotPwdPage{
-		CurrentURL: webClientForgotPwdPath,
-		Error:      error,
-		CSRFToken:  createCSRFToken(ip),
-		CSPNonce:   secure.CSPNonce(r.Context()),
-		StaticURL:  webStaticFilesPath,
-		LoginURL:   webClientLoginPath,
-		Title:      pageClientForgotPwdTitle,
-		Branding:   s.binding.Branding.WebClient,
+		commonBasePage: getCommonBasePage(r),
+		CurrentURL:     webClientForgotPwdPath,
+		Error:          error,
+		CSRFToken:      createCSRFToken(ip),
+		LoginURL:       webClientLoginPath,
+		Title:          pageClientForgotPwdTitle,
+		Branding:       s.binding.Branding.WebClient,
 	}
 	renderClientTemplate(w, templateForgotPassword, data)
 }
 
 func (s *httpdServer) renderClientResetPwdPage(w http.ResponseWriter, r *http.Request, error, ip string) {
 	data := resetPwdPage{
-		CurrentURL: webClientResetPwdPath,
-		Error:      error,
-		CSRFToken:  createCSRFToken(ip),
-		CSPNonce:   secure.CSPNonce(r.Context()),
-		StaticURL:  webStaticFilesPath,
-		LoginURL:   webClientLoginPath,
-		Title:      pageClientResetPwdTitle,
-		Branding:   s.binding.Branding.WebClient,
+		commonBasePage: getCommonBasePage(r),
+		CurrentURL:     webClientResetPwdPath,
+		Error:          error,
+		CSRFToken:      createCSRFToken(ip),
+		LoginURL:       webClientLoginPath,
+		Title:          pageClientResetPwdTitle,
+		Branding:       s.binding.Branding.WebClient,
 	}
 	renderClientTemplate(w, templateResetPassword, data)
 }
 
 func (s *httpdServer) renderShareLoginPage(w http.ResponseWriter, r *http.Request, error, ip string) {
 	data := shareLoginPage{
-		CurrentURL: r.RequestURI,
-		Version:    version.Get().Version,
-		Error:      error,
-		CSRFToken:  createCSRFToken(ip),
-		CSPNonce:   secure.CSPNonce(r.Context()),
-		StaticURL:  webStaticFilesPath,
-		Branding:   s.binding.Branding.WebClient,
+		commonBasePage: getCommonBasePage(r),
+		CurrentURL:     r.RequestURI,
+		Version:        version.Get().Version,
+		Error:          error,
+		CSRFToken:      createCSRFToken(ip),
+		Branding:       s.binding.Branding.WebClient,
 	}
 	renderClientTemplate(w, templateShareLogin, data)
 }
@@ -665,15 +657,14 @@ func (s *httpdServer) renderClientNotFoundPage(w http.ResponseWriter, r *http.Re
 
 func (s *httpdServer) renderClientTwoFactorPage(w http.ResponseWriter, r *http.Request, error, ip string) {
 	data := twoFactorPage{
-		Title:       pageTwoFactorTitle,
-		CurrentURL:  webClientTwoFactorPath,
-		Version:     version.Get().Version,
-		Error:       error,
-		CSRFToken:   createCSRFToken(ip),
-		CSPNonce:    secure.CSPNonce(r.Context()),
-		StaticURL:   webStaticFilesPath,
-		RecoveryURL: webClientTwoFactorRecoveryPath,
-		Branding:    s.binding.Branding.WebClient,
+		commonBasePage: getCommonBasePage(r),
+		Title:          pageTwoFactorTitle,
+		CurrentURL:     webClientTwoFactorPath,
+		Version:        version.Get().Version,
+		Error:          error,
+		CSRFToken:      createCSRFToken(ip),
+		RecoveryURL:    webClientTwoFactorRecoveryPath,
+		Branding:       s.binding.Branding.WebClient,
 	}
 	if next := r.URL.Query().Get("next"); strings.HasPrefix(next, webClientFilesPath) {
 		data.CurrentURL += "?next=" + url.QueryEscape(next)
@@ -683,14 +674,13 @@ func (s *httpdServer) renderClientTwoFactorPage(w http.ResponseWriter, r *http.R
 
 func (s *httpdServer) renderClientTwoFactorRecoveryPage(w http.ResponseWriter, r *http.Request, error, ip string) {
 	data := twoFactorPage{
-		Title:      pageTwoFactorRecoveryTitle,
-		CurrentURL: webClientTwoFactorRecoveryPath,
-		Version:    version.Get().Version,
-		Error:      error,
-		CSRFToken:  createCSRFToken(ip),
-		CSPNonce:   secure.CSPNonce(r.Context()),
-		StaticURL:  webStaticFilesPath,
-		Branding:   s.binding.Branding.WebClient,
+		commonBasePage: getCommonBasePage(r),
+		Title:          pageTwoFactorRecoveryTitle,
+		CurrentURL:     webClientTwoFactorRecoveryPath,
+		Version:        version.Get().Version,
+		Error:          error,
+		CSRFToken:      createCSRFToken(ip),
+		Branding:       s.binding.Branding.WebClient,
 	}
 	renderClientTemplate(w, templateTwoFactorRecovery, data)
 }
@@ -1088,12 +1078,11 @@ func (s *httpdServer) handleShareViewPDF(w http.ResponseWriter, r *http.Request)
 	}
 	name := util.CleanPath(r.URL.Query().Get("path"))
 	data := viewPDFPage{
-		Title: path.Base(name),
+		commonBasePage: getCommonBasePage(r),
+		Title:          path.Base(name),
 		URL: fmt.Sprintf("%s?path=%s&_=%d", path.Join(webClientPubSharesPath, share.ShareID, "getpdf"),
 			url.QueryEscape(name), time.Now().UTC().Unix()),
-		StaticURL: webStaticFilesPath,
-		CSPNonce:  secure.CSPNonce(r.Context()),
-		Branding:  s.binding.Branding.WebClient,
+		Branding: s.binding.Branding.WebClient,
 	}
 	renderClientTemplate(w, templateClientViewPDF, data)
 }
@@ -1704,11 +1693,10 @@ func (s *httpdServer) handleClientViewPDF(w http.ResponseWriter, r *http.Request
 	}
 	name = util.CleanPath(name)
 	data := viewPDFPage{
-		Title:     path.Base(name),
-		URL:       fmt.Sprintf("%s?path=%s&_=%d", webClientGetPDFPath, url.QueryEscape(name), time.Now().UTC().Unix()),
-		StaticURL: webStaticFilesPath,
-		CSPNonce:  secure.CSPNonce(r.Context()),
-		Branding:  s.binding.Branding.WebClient,
+		commonBasePage: getCommonBasePage(r),
+		Title:          path.Base(name),
+		URL:            fmt.Sprintf("%s?path=%s&_=%d", webClientGetPDFPath, url.QueryEscape(name), time.Now().UTC().Unix()),
+		Branding:       s.binding.Branding.WebClient,
 	}
 	renderClientTemplate(w, templateClientViewPDF, data)
 }

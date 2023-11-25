@@ -32,7 +32,6 @@ import (
 	"github.com/go-chi/render"
 	"github.com/sftpgo/sdk"
 	sdkkms "github.com/sftpgo/sdk/kms"
-	"github.com/unrolled/secure"
 
 	"github.com/drakkan/sftpgo/v2/internal/acme"
 	"github.com/drakkan/sftpgo/v2/internal/common"
@@ -132,6 +131,7 @@ var (
 )
 
 type basePage struct {
+	commonBasePage
 	Title               string
 	CurrentURL          string
 	UsersURL            string
@@ -164,7 +164,6 @@ type basePage struct {
 	FolderQuotaScanURL  string
 	StatusURL           string
 	MaintenanceURL      string
-	StaticURL           string
 	UsersTitle          string
 	AdminsTitle         string
 	ConnectionsTitle    string
@@ -181,7 +180,6 @@ type basePage struct {
 	ConfigsTitle        string
 	Version             string
 	CSRFToken           string
-	CSPNonce            string
 	IsEventManagerPage  bool
 	IsIPManagerPage     bool
 	IsServerManagerPage bool
@@ -697,6 +695,7 @@ func (s *httpdServer) getBasePageData(title, currentURL string, r *http.Request)
 		csrfToken = createCSRFToken(util.GetIPFromRemoteAddress(r.RemoteAddr))
 	}
 	return basePage{
+		commonBasePage:      getCommonBasePage(r),
 		Title:               title,
 		CurrentURL:          currentURL,
 		UsersURL:            webUsersPath,
@@ -729,7 +728,6 @@ func (s *httpdServer) getBasePageData(title, currentURL string, r *http.Request)
 		StatusURL:           webStatusPath,
 		FolderQuotaScanURL:  webScanVFolderPath,
 		MaintenanceURL:      webMaintenancePath,
-		StaticURL:           webStaticFilesPath,
 		UsersTitle:          pageUsersTitle,
 		AdminsTitle:         pageAdminsTitle,
 		ConnectionsTitle:    pageConnectionsTitle,
@@ -753,7 +751,6 @@ func (s *httpdServer) getBasePageData(title, currentURL string, r *http.Request)
 		HasSearcher:         plugin.Handler.HasSearcher(),
 		HasExternalLogin:    isLoggedInWithOIDC(r),
 		CSRFToken:           csrfToken,
-		CSPNonce:            secure.CSPNonce(r.Context()),
 		Branding:            s.binding.Branding.WebAdmin,
 	}
 }
@@ -802,55 +799,51 @@ func (s *httpdServer) renderNotFoundPage(w http.ResponseWriter, r *http.Request,
 
 func (s *httpdServer) renderForgotPwdPage(w http.ResponseWriter, r *http.Request, error, ip string) {
 	data := forgotPwdPage{
-		CurrentURL: webAdminForgotPwdPath,
-		Error:      error,
-		CSRFToken:  createCSRFToken(ip),
-		CSPNonce:   secure.CSPNonce(r.Context()),
-		StaticURL:  webStaticFilesPath,
-		Title:      pageForgotPwdTitle,
-		Branding:   s.binding.Branding.WebAdmin,
+		commonBasePage: getCommonBasePage(r),
+		CurrentURL:     webAdminForgotPwdPath,
+		Error:          error,
+		CSRFToken:      createCSRFToken(ip),
+		Title:          pageForgotPwdTitle,
+		Branding:       s.binding.Branding.WebAdmin,
 	}
 	renderAdminTemplate(w, templateForgotPassword, data)
 }
 
 func (s *httpdServer) renderResetPwdPage(w http.ResponseWriter, r *http.Request, error, ip string) {
 	data := resetPwdPage{
-		CurrentURL: webAdminResetPwdPath,
-		Error:      error,
-		CSRFToken:  createCSRFToken(ip),
-		CSPNonce:   secure.CSPNonce(r.Context()),
-		StaticURL:  webStaticFilesPath,
-		Title:      pageResetPwdTitle,
-		Branding:   s.binding.Branding.WebAdmin,
+		commonBasePage: getCommonBasePage(r),
+		CurrentURL:     webAdminResetPwdPath,
+		Error:          error,
+		CSRFToken:      createCSRFToken(ip),
+		Title:          pageResetPwdTitle,
+		Branding:       s.binding.Branding.WebAdmin,
 	}
 	renderAdminTemplate(w, templateResetPassword, data)
 }
 
 func (s *httpdServer) renderTwoFactorPage(w http.ResponseWriter, r *http.Request, error, ip string) {
 	data := twoFactorPage{
-		Title:       pageTwoFactorTitle,
-		CurrentURL:  webAdminTwoFactorPath,
-		Version:     version.Get().Version,
-		Error:       error,
-		CSRFToken:   createCSRFToken(ip),
-		CSPNonce:    secure.CSPNonce(r.Context()),
-		StaticURL:   webStaticFilesPath,
-		RecoveryURL: webAdminTwoFactorRecoveryPath,
-		Branding:    s.binding.Branding.WebAdmin,
+		commonBasePage: getCommonBasePage(r),
+		Title:          pageTwoFactorTitle,
+		CurrentURL:     webAdminTwoFactorPath,
+		Version:        version.Get().Version,
+		Error:          error,
+		CSRFToken:      createCSRFToken(ip),
+		RecoveryURL:    webAdminTwoFactorRecoveryPath,
+		Branding:       s.binding.Branding.WebAdmin,
 	}
 	renderAdminTemplate(w, templateTwoFactor, data)
 }
 
 func (s *httpdServer) renderTwoFactorRecoveryPage(w http.ResponseWriter, r *http.Request, error, ip string) {
 	data := twoFactorPage{
-		Title:      pageTwoFactorRecoveryTitle,
-		CurrentURL: webAdminTwoFactorRecoveryPath,
-		Version:    version.Get().Version,
-		Error:      error,
-		CSRFToken:  createCSRFToken(ip),
-		CSPNonce:   secure.CSPNonce(r.Context()),
-		StaticURL:  webStaticFilesPath,
-		Branding:   s.binding.Branding.WebAdmin,
+		commonBasePage: getCommonBasePage(r),
+		Title:          pageTwoFactorRecoveryTitle,
+		CurrentURL:     webAdminTwoFactorRecoveryPath,
+		Version:        version.Get().Version,
+		Error:          error,
+		CSRFToken:      createCSRFToken(ip),
+		Branding:       s.binding.Branding.WebAdmin,
 	}
 	renderAdminTemplate(w, templateTwoFactorRecovery, data)
 }

@@ -162,14 +162,13 @@ func (s *httpdServer) refreshCookie(next http.Handler) http.Handler {
 
 func (s *httpdServer) renderClientLoginPage(w http.ResponseWriter, r *http.Request, error, ip string) {
 	data := loginPage{
-		CurrentURL:   webClientLoginPath,
-		Version:      version.Get().Version,
-		Error:        error,
-		CSRFToken:    createCSRFToken(ip),
-		CSPNonce:     secure.CSPNonce(r.Context()),
-		StaticURL:    webStaticFilesPath,
-		Branding:     s.binding.Branding.WebClient,
-		FormDisabled: s.binding.isWebClientLoginFormDisabled(),
+		commonBasePage: getCommonBasePage(r),
+		CurrentURL:     webClientLoginPath,
+		Version:        version.Get().Version,
+		Error:          error,
+		CSRFToken:      createCSRFToken(ip),
+		Branding:       s.binding.Branding.WebClient,
+		FormDisabled:   s.binding.isWebClientLoginFormDisabled(),
 	}
 	if next := r.URL.Query().Get("next"); strings.HasPrefix(next, webClientFilesPath) {
 		data.CurrentURL += "?next=" + url.QueryEscape(next)
@@ -575,14 +574,13 @@ func (s *httpdServer) handleWebAdminLoginPost(w http.ResponseWriter, r *http.Req
 
 func (s *httpdServer) renderAdminLoginPage(w http.ResponseWriter, r *http.Request, error, ip string) {
 	data := loginPage{
-		CurrentURL:   webAdminLoginPath,
-		Version:      version.Get().Version,
-		Error:        error,
-		CSRFToken:    createCSRFToken(ip),
-		CSPNonce:     secure.CSPNonce(r.Context()),
-		StaticURL:    webStaticFilesPath,
-		Branding:     s.binding.Branding.WebAdmin,
-		FormDisabled: s.binding.isWebAdminLoginFormDisabled(),
+		commonBasePage: getCommonBasePage(r),
+		CurrentURL:     webAdminLoginPath,
+		Version:        version.Get().Version,
+		Error:          error,
+		CSRFToken:      createCSRFToken(ip),
+		Branding:       s.binding.Branding.WebAdmin,
+		FormDisabled:   s.binding.isWebAdminLoginFormDisabled(),
 	}
 	if s.binding.showClientLoginURL() {
 		data.AltLoginURL = webClientLoginPath

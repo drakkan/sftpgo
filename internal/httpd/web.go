@@ -15,7 +15,10 @@
 package httpd
 
 import (
+	"net/http"
 	"strings"
+
+	"github.com/unrolled/secure"
 )
 
 const (
@@ -41,13 +44,17 @@ const (
 	templateCommonBase         = "base.html"
 )
 
+type commonBasePage struct {
+	CSPNonce  string
+	StaticURL string
+}
+
 type loginPage struct {
+	commonBasePage
 	CurrentURL     string
 	Version        string
 	Error          string
 	CSRFToken      string
-	CSPNonce       string
-	StaticURL      string
 	AltLoginURL    string
 	AltLoginName   string
 	ForgotPwdURL   string
@@ -57,34 +64,31 @@ type loginPage struct {
 }
 
 type twoFactorPage struct {
+	commonBasePage
 	CurrentURL  string
 	Version     string
 	Error       string
 	CSRFToken   string
-	CSPNonce    string
-	StaticURL   string
 	RecoveryURL string
 	Title       string
 	Branding    UIBranding
 }
 
 type forgotPwdPage struct {
+	commonBasePage
 	CurrentURL string
 	Error      string
 	CSRFToken  string
-	CSPNonce   string
-	StaticURL  string
 	LoginURL   string
 	Title      string
 	Branding   UIBranding
 }
 
 type resetPwdPage struct {
+	commonBasePage
 	CurrentURL string
 	Error      string
 	CSRFToken  string
-	CSPNonce   string
-	StaticURL  string
 	LoginURL   string
 	Title      string
 	Branding   UIBranding
@@ -103,4 +107,11 @@ func getSliceFromDelimitedValues(values, delimiter string) []string {
 
 func hasPrefixAndSuffix(key, prefix, suffix string) bool {
 	return strings.HasPrefix(key, prefix) && strings.HasSuffix(key, suffix)
+}
+
+func getCommonBasePage(r *http.Request) commonBasePage {
+	return commonBasePage{
+		CSPNonce:  secure.CSPNonce(r.Context()),
+		StaticURL: webStaticFilesPath,
+	}
 }
