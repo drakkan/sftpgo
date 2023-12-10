@@ -734,9 +734,9 @@ func LoadConfig(configDir, configFile string) error {
 		if errors.As(err, &viper.ConfigFileNotFoundError{}) {
 			logger.Debug(logSender, "", "no configuration file found")
 		} else {
-			// should we return the error and not start here?
 			logger.Warn(logSender, "", "error loading configuration file: %v", err)
 			logger.WarnToConsole("error loading configuration file: %v", err)
+			return err
 		}
 	}
 	checkOverrideDefaultSettings()
