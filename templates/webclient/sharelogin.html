@@ -15,8 +15,6 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 -->
 {{- template "baselogin" .}}
 
-{{- define "title"}}Share login{{- end}}
-
 {{- define "content"}}
 <form class="form w-100" id="sign_in_form" action="{{.CurrentURL}}" method="POST">
     <div class="container mb-10">
@@ -33,13 +31,14 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     </div>
     {{template "errmsg" .Error}}
     <div class="fv-row mb-10">
-        <input class="form-control form-control-lg form-control-solid" type="password" name="share_password" placeholder="Password" spellcheck="false" required />
+        <input data-i18n="[placeholder]login.password" class="form-control form-control-lg form-control-solid" type="password" name="share_password" placeholder="Password" spellcheck="false" required />
     </div>
     <div class="text-center">
         <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
         <button type="submit" id="sign_in_submit" class="btn btn-lg btn-primary w-100 mb-5">
-            <span class="indicator-label">Sign in</span>
-            <span class="indicator-progress">Please wait...
+            <span data-i18n="login.signin" class="indicator-label">Sign in</span>
+            <span data-i18n="general.wait" class="indicator-progress">
+                Please wait...
                 <span class="spinner-border spinner-border-sm align-middle ms-2"></span>
             </span>
         </button>

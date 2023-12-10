@@ -628,23 +628,32 @@ func updateLoginMetrics(user *dataprovider.User, loginMethod, ip string, err err
 func checkHTTPClientUser(user *dataprovider.User, r *http.Request, connectionID string, checkSessions bool) error {
 	if util.Contains(user.Filters.DeniedProtocols, common.ProtocolHTTP) {
 		logger.Info(logSender, connectionID, "cannot login user %q, protocol HTTP is not allowed", user.Username)
-		return fmt.Errorf("protocol HTTP is not allowed for user %q", user.Username)
+		return util.NewI18nError(
+			fmt.Errorf("protocol HTTP is not allowed for user %q", user.Username),
+			util.I18nErrorProtocolForbidden,
+		)
 	}
 	if !isLoggedInWithOIDC(r) && !user.IsLoginMethodAllowed(dataprovider.LoginMethodPassword, common.ProtocolHTTP) {
 		logger.Info(logSender, connectionID, "cannot login user %q, password login method is not allowed", user.Username)
-		return fmt.Errorf("login method password is not allowed for user %q", user.Username)
+		return util.NewI18nError(
+			fmt.Errorf("login method password is not allowed for user %q", user.Username),
+			util.I18nErrorPwdLoginForbidden,
+		)
 	}
 	if checkSessions && user.MaxSessions > 0 {
 		activeSessions := common.Connections.GetActiveSessions(user.Username)
 		if activeSessions >= user.MaxSessions {
 			logger.Info(logSender, connectionID, "authentication refused for user: %q, too many open sessions: %v/%v", user.Username,
 				activeSessions, user.MaxSessions)
-			return fmt.Errorf("too many open sessions: %v", activeSessions)
+			return util.NewI18nError(fmt.Errorf("too many open sessions: %v", activeSessions), util.I18nError429Message)
 		}
 	}
 	if !user.IsLoginFromAddrAllowed(r.RemoteAddr) {
 		logger.Info(logSender, connectionID, "cannot login user %q, remote address is not allowed: %v", user.Username, r.RemoteAddr)
-		return fmt.Errorf("login for user %q is not allowed from this address: %v", user.Username, r.RemoteAddr)
+		return util.NewI18nError(
+			fmt.Errorf("login for user %q is not allowed from this address: %v", user.Username, r.RemoteAddr),
+			util.I18nErrorIPForbidden,
+		)
 	}
 	return nil
 }
@@ -656,7 +665,7 @@ func handleForgotPassword(r *http.Request, username string, isAdmin bool) error 
 	var user dataprovider.User
 
 	if username == "" {
-		return util.NewValidationError("username is mandatory")
+		return util.NewI18nError(util.NewValidationError("username is mandatory"), util.I18nErrorUsernameRequired)
 	}
 	if isAdmin {
 		admin, err = dataprovider.AdminExists(username)
@@ -668,7 +677,10 @@ func handleForgotPassword(r *http.Request, username string, isAdmin bool) error 
 		subject = fmt.Sprintf("Email Verification Code for user %q", username)
 		if err == nil {
 			if !isUserAllowedToResetPassword(r, &user) {
-				return util.NewValidationError("you are not allowed to reset your password")
+				return util.NewI18nError(
+					util.NewValidationError("you are not allowed to reset your password"),
+					util.I18nErrorPwdResetForbidded,
+				)
 			}
 		}
 	}
@@ -679,10 +691,13 @@ func handleForgotPassword(r *http.Request, username string, isAdmin bool) error 
 				username, isAdmin)
 			return nil
 		}
-		return util.NewGenericError("Error retrieving your account, please try again later")
+		return util.NewI18nError(util.NewGenericError("Error retrieving your account, please try again later"), util.I18nErrorGetUser)
 	}
 	if email == "" {
-		return util.NewValidationError("Your account does not have an email address, it is not possible to reset your password by sending an email verification code")
+		return util.NewI18nError(
+			util.NewValidationError("Your account does not have an email address, it is not possible to reset your password by sending an email verification code"),
+			util.I18nErrorPwdResetNoEmail,
+		)
 	}
 	c := newResetCode(username, isAdmin)
 	body := new(bytes.Buffer)
@@ -696,7 +711,10 @@ func handleForgotPassword(r *http.Request, username string, isAdmin bool) error 
 	if err := smtp.SendEmail([]string{email}, nil, subject, body.String(), smtp.EmailContentTypeTextHTML); err != nil {
 		logger.Warn(logSender, middleware.GetReqID(r.Context()), "unable to send password reset code via email: %v, elapsed: %v",
 			err, time.Since(startTime))
-		return util.NewGenericError(fmt.Sprintf("Unable to send confirmation code via email: %v", err))
+		return util.NewI18nError(
+			util.NewGenericError(fmt.Sprintf("Error sending confirmation code via email: %v", err)),
+			util.I18nErrorPwdResetSendEmail,
+		)
 	}
 	logger.Debug(logSender, middleware.GetReqID(r.Context()), "reset code sent via email to %q, email: %q, is admin? %v, elapsed: %v",
 		username, email, isAdmin, time.Since(startTime))
@@ -744,7 +762,10 @@ func handleResetPassword(r *http.Request, code, newPassword string, isAdmin bool
 	}
 	if err == nil {
 		if !isUserAllowedToResetPassword(r, &user) {
-			return &admin, &user, util.NewValidationError("you are not allowed to reset your password")
+			return &admin, &user, util.NewI18nError(
+				util.NewValidationError("you are not allowed to reset your password"),
+				util.I18nErrorPwdResetForbidded,
+			)
 		}
 	}
 	err = dataprovider.UpdateUserPassword(user.Username, newPassword, dataprovider.ActionExecutorSelf,

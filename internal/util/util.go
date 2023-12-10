@@ -343,7 +343,7 @@ func GetIntFromPointer(val *int64) int64 {
 // GetTimeFromPointer returns the time value or now
 func GetTimeFromPointer(val *time.Time) time.Time {
 	if val == nil {
-		return time.Now()
+		return time.Unix(0, 0)
 	}
 	return *val
 }

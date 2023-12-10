@@ -17,7 +17,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 <!DOCTYPE html>
 <html lang="en">
     <head>
-		<title>{{.Branding.Name}} - {{template "title" .}}</title>
+		<title></title>
 		<meta charset="utf-8" />
 		<meta name="description" content="" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -36,7 +36,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
     <body data-kt-app-header-fixed="true" data-kt-app-header-fixed-mobile="true" data-kt-app-toolbar-enabled="true" data-kt-app-sidebar-enabled="true" data-kt-app-sidebar-fixed="true" data-kt-app-sidebar-push-header="true" data-kt-app-sidebar-push-toolbar="true" data-kt-app-sidebar-push-footer="true"  class="app-default">
         {{- template "theme-setup" .CSPNonce }}
-        <div class="d-flex flex-column flex-root app-root" id="kt_app_root">
+        <div id="app_loader" class="align-items-center text-center my-10">
+            <span class="spinner-border w-15px h-15px text-muted align-middle me-2"></span>
+        </div>
+        <div class="d-flex flex-column flex-root app-root d-none" id="app_root">
             <div class="app-page  flex-column flex-column-fluid " id="kt_app_page">
                 {{- if .LoggedUser.Username}}
                 <div id="kt_app_header" class="app-header" data-kt-sticky="true" data-kt-sticky-activate="{default: true, lg: true}" data-kt-sticky-name="app-header-minimize" data-kt-sticky-offset="{default: '200px', lg: '300px'}" data-kt-sticky-animation="false">
@@ -96,7 +99,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 														<span class="path10"></span>
 													</i>
 												</span>
-												<span class="menu-title">Light</span>
+												<span data-i18n="theme.light" class="menu-title">Light</span>
 											</a>
 										</div>
 										<div class="menu-item px-3 my-0">
@@ -107,7 +110,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 														<span class="path2"></span>
 													</i>
 												</span>
-												<span class="menu-title">Dark</span>
+												<span data-i18n="theme.dark" class="menu-title">Dark</span>
 											</a>
 										</div>
 										<div class="menu-item px-3 my-0">
@@ -120,7 +123,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 														<span class="path4"></span>
 													</i>
 												</span>
-												<span class="menu-title">System</span>
+												<span data-i18n="theme.system" class="menu-title">System</span>
 											</a>
 										</div>
 									</div>
@@ -143,7 +146,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                                     </i>
                                                 </div>
                                                 <div class="d-flex flex-column">
-                                                    <div class="fw-bold d-flex align-items-center fs-5">
+                                                    <div class="fw-semibold d-flex align-items-center fs-5">
                                                         <span class="w-175px wrap-word">{{.LoggedUser.Username}}</span>
                                                     </div>
                                                 </div>
@@ -152,19 +155,19 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 										<div class="separator my-2"></div>
                                         <div class="menu-item px-3 my-0">
 											<a href="{{.ProfileURL}}" class="menu-link px-3 py-2">
-                                                <span class="menu-title">Profile</span>
+                                                <span data-i18n="title.profile" class="menu-title">Profile</span>
                                             </a>
 										</div>
                                         {{- if .LoggedUser.CanChangePassword}}
 										<div class="menu-item px-3 my-0">
 											<a href="{{.ChangePwdURL}}" class="menu-link px-3 py-2">
-                                                <span class="menu-title">Change password</span>
+                                                <span data-i18n="title.change_password" class="menu-title">Change password</span>
                                             </a>
 										</div>
                                         {{- end}}
                                         <div class="menu-item px-3 my-0">
 											<a id="id_logout_link" href="#" class="menu-link px-3 py-2">
-                                                <span class="menu-title">Sign out</span>
+                                                <span data-i18n="login.signout" class="menu-title">Sign out</span>
                                             </a>
 										</div>
 									</div>
@@ -201,7 +204,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                                     <span class="path2"></span>
                                                 </i>
                                             </span>
-                                            <span class="menu-title">{{.FilesTitle}}</span>
+                                            <span data-i18n="title.files" class="menu-title">Files</span>
                                         </a>
                                     </div>
                                     {{- if .LoggedUser.CanManageShares}}
@@ -217,7 +220,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                                     <span class="path6"></span>
                                                 </i>
                                             </span>
-                                            <span class="menu-title">{{.SharesTitle}}</span>
+                                            <span data-i18n="title.shares" class="menu-title">Shares</span>
                                         </a>
                                     </div>
                                     {{- end}}
@@ -230,7 +233,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                                     <span class="path2"></span>
                                                 </i>
                                             </span>
-                                            <span class="menu-title">{{.MFATitle}}</span>
+                                            <span data-i18n="title.two_factor_auth_short" class="menu-title">2FA</span>
                                         </a>
                                     </div>
                                     {{- end}}
@@ -294,7 +297,13 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         {{- block "modals" .}}{{- end}}
 		<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/plugins/global/plugins.bundle.js"></script>
 		<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/js/scripts.bundle.js"></script>
-		{{- template "basejs" .CSPNonce }}
+        <script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/i18next/i18next.js"></script>
+		<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/i18next/jquery-i18next.js"></script>
+		<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/i18next/i18nextBrowserLanguageDetector.js"></script>
+		<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/i18next/i18nextChainedBackend.js"></script>
+        <script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/i18next/i18nextLocalStorageBackend.js"></script>
+        <script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/i18next/i18nextHttpBackend.js"></script>
+		{{- template "basejs" . }}
         <script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
             var ModalAlert = function () {
                 var modal;
@@ -387,10 +396,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
             function doLogout() {
                 ModalAlert.fire({
-                    text: `Are you sure you want to sign out?`,
+                    text: $.t("general.confirm_logout"),
                     icon: "question",
-                    confirmButtonText: "Sign out",
-                    cancelButtonText: 'Cancel',
+                    confirmButtonText: $.t("login.signout"),
+                    cancelButtonText: $.t("general.cancel"),
                     customClass: {
                         confirmButton: "btn btn-primary",
                         cancelButton: 'btn btn-secondary'

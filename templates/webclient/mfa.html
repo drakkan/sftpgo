@@ -15,12 +15,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 -->
 {{template "base" .}}
 
-{{define "title"}}{{.Title}}{{end}}
-
 {{- define "page_body"}}
 <div class="card shadow-sm">
     <div class="card-header bg-light">
-        <h3 class="card-title text-primary">Two-factor authentication using Authenticator apps</h3>
+        <h3 data-i18n="2fa.title" class="card-title text-primary">Two-factor authentication using Authenticator apps</h3>
     </div>
     <div class="card-body">
         <div class="notice d-flex bg-light-primary rounded border-primary border border-dashed p-6 mb-5">
@@ -32,23 +30,26 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 <div class="mb-3 mb-md-0 fw-semibold">
                     <h4 class="text-gray-900 fw-bold">
                         {{- if .TOTPConfig.Enabled}}
-                        Two-factor authentication is enabled {{- if gt (len .TOTPConfigs) 1 }}. Configuration: "{{$.TOTPConfig.ConfigName}}" {{- end}}
+                        <span data-i18n="2fa.msg_enabled">Two-factor authentication is enabled</span> {{- if gt (len .TOTPConfigs) 1 }} ({{$.TOTPConfig.ConfigName}}) {{- end}}
                         {{- else}}
-                        Secure Your Account
+                        <span data-i18n="2fa.msg_disabled">Secure Your Account</span>
                         {{- end}}
                     </h4>
                     <div class="fs-6 text-gray-800 pe-7">
-                        Two-factor authentication adds an extra layer of security to your account. To log in you'll need
-                        to provide an additional authentication code.
+                        <span data-i18n="2fa.msg_info">
+                            Two-factor authentication adds an extra layer of security to your account. To log in you'll need
+                            to provide an additional authentication code.
+                        </span>
                     </div>
                 </div>
                 {{- if .TOTPConfig.Enabled}}
                 <button type="button" id="disable_btn" class="btn btn-danger ms-4 px-6 align-self-center text-nowrap">
-                    <span class="indicator-label">
+                    <span data-i18n="general.disable" class="indicator-label">
                         Disable
                     </span>
-                    <span class="indicator-progress">
-                        Please wait... <span class="spinner-border spinner-border-sm align-middle ms-2"></span>
+                    <span data-i18n="general.wait" class="indicator-progress">
+                        Please wait...
+                        <span class="spinner-border spinner-border-sm align-middle ms-2"></span>
                     </span>
                 </button>
                 {{- end}}
@@ -58,10 +59,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         {{- template "errmsg" ""}}
 
         <div class="form-group row mt-10">
-            <label class="col-md-3 col-form-label">Configuration</label>
+            <label data-i18n="general.configuration" class="col-md-3 col-form-label">Configuration</label>
             <div class="col-md-9">
-                <select id="id_config" name="config_name" class="form-select" data-control="select2" data-hide-search="true">
-                    <option value="">None</option>
+                <select id="id_config" name="config_name" class="form-select" data-control="i18n-select2" data-hide-search="true">
+                    <option data-i18n="general.none" value="">None</option>
                     {{range .TOTPConfigs}}
                     <option value="{{.}}" {{if eq . $.TOTPConfig.ConfigName}}selected{{end}}>{{.}}</option>
                     {{end}}
@@ -70,11 +71,11 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         </div>
 
         <div class="form-group row mt-10">
-            <label class="col-md-3 col-form-label required">
+            <label data-i18n="2fa.require_for" class="col-md-3 col-form-label required">
                 Require 2FA for
             </label>
             <div class="col-md-9">
-                <select id="id_protocols" name="multi_factor_protocols" class="form-select" data-control="select2" data-hide-search="true" data-close-on-select="false" multiple="multiple">
+                <select id="id_protocols" name="multi_factor_protocols" class="form-select" data-control="i18n-select2" data-hide-search="true" data-close-on-select="false" multiple="multiple">
                     <option></option>
                     {{range $protocol := .Protocols}}
                     <option value="{{$protocol}}" {{range $p :=$.TOTPConfig.Protocols }}{{if eq $p $protocol}}selected{{end}}{{end}}>{{$protocol}}
@@ -87,18 +88,20 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         <div class="d-flex justify-content-end mt-15">
             {{- if .TOTPConfig.Enabled }}
             <button type="button" id="generate_secret_btn" class="btn btn-light-primary px-10 me-10 d-none">
-                <span class="indicator-label">
+                <span data-i18n="2fa.generate" class="indicator-label">
                     Generate new secret
                 </span>
-                <span class="indicator-progress">
-                    Please wait... <span class="spinner-border spinner-border-sm align-middle ms-2"></span>
+                <span data-i18n="general.wait" class="indicator-progress">
+                    Please wait...
+                    <span class="spinner-border spinner-border-sm align-middle ms-2"></span>
                 </span>
             </button>
             {{- end}}
             <button type="button" id="save_btn" class="btn btn-primary px-10 d-none">
                 <span id="save_label" class="indicator-label"></span>
-                <span class="indicator-progress">
-                    Please wait... <span class="spinner-border spinner-border-sm align-middle ms-2"></span>
+                <span data-i18n="general.wait" class="indicator-progress">
+                    Please wait...
+                    <span class="spinner-border spinner-border-sm align-middle ms-2"></span>
                 </span>
             </button>
         </div>
@@ -114,27 +117,29 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     </i>
     <div class="d-flex flex-stack flex-grow-1 flex-wrap flex-md-nowrap">
         <div class="mb-3 mb-md-0 fw-semibold">
-            <h4 class="text-gray-900 fw-bold">
+            <h4 data-i18n="2fa.recovery_codes" class="text-gray-900 fw-bold">
                 Recovery codes
             </h4>
             <div class="fs-6 text-gray-800">
-                <p>Recovery codes are a set of one time use codes that can be used in place of the authentication code to login to the web UI. You can use them if you lose access to your phone to login to your account and disable or regenerate two-factor configuration.</p>
-                <p>To keep your account secure, don't share or distribute your recovery codes. We recommend saving them with a secure password manager.</p>
-                <p>If you generate new recovery codes, you automatically invalidate old ones.</p>
+                <p data-i18n="2fa.recovery_codes_msg1">Recovery codes are a set of one time use codes that can be used in place of the authentication code to login to the web UI. You can use them if you lose access to your phone to login to your account and disable or regenerate two-factor configuration.</p>
+                <p data-i18n="2fa.recovery_codes_msg2">To keep your account secure, don't share or distribute your recovery codes. We recommend saving them with a secure password manager.</p>
+                <p data-i18n="2fa.recovery_codes_msg3">If you generate new recovery codes, you automatically invalidate old ones.</p>
             </div>
             <div class="d-flex justify-content-center mt-10">
                 <button type="button" id="generate_recovery_code_btn" class="btn btn-primary px-10 me-10">
-                    <span class="indicator-label">
+                    <span data-i18n="general.generate" class="indicator-label">
                         Generate
                     </span>
-                    <span class="indicator-progress">
-                        Please wait... <span class="spinner-border spinner-border-sm align-middle ms-2"></span>
+                    <span data-i18n="general.wait" class="indicator-progress">
+                        Please wait...
+                        <span class="spinner-border spinner-border-sm align-middle ms-2"></span>
                     </span>
                 </button>
                 <button type="button" id="view_recovery_code_btn" class="btn btn-primary px-10">
-                    <span id="save_label" class="indicator-label">View</span>
-                    <span class="indicator-progress">
-                        Please wait... <span class="spinner-border spinner-border-sm align-middle ms-2"></span>
+                    <span data-i18n="general.view" id="save_label" class="indicator-label">View</span>
+                    <span data-i18n="general.wait" class="indicator-progress">
+                        Please wait...
+                        <span class="spinner-border spinner-border-sm align-middle ms-2"></span>
                     </span>
                 </button>
             </div>
@@ -162,17 +167,16 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         <div class="modal-content">
             <div class="modal-header">
                 <h3 id="idRecoveryCodesTitle" class="modal-title"></h3>
-                <div class="btn btn-icon btn-sm btn-active-color-primary ms-2" data-bs-dismiss="modal" aria-label="Close">
+                <div data-i18n="[aria-label]general.close" class="btn btn-icon btn-sm btn-active-color-primary ms-2" data-bs-dismiss="modal" aria-label="Close">
                     <i class="ki-duotone ki-cross fs-1"><span class="path1"></span><span class="path2"></span></i>
                 </div>
             </div>
             <div class="modal-body">
                 <div id="idRecoveryCodesList" class="d-flex flex-column">
-
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-primary" type="button" data-bs-dismiss="modal">OK</button>
+                <button data-i18n="general.ok" class="btn btn-primary" type="button" data-bs-dismiss="modal">OK</button>
             </div>
         </div>
     </div>
@@ -182,23 +186,22 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 class="modal-title">Learn about two-factor authentication</h3>
-                <div class="btn btn-icon btn-sm btn-active-color-primary ms-2" data-bs-dismiss="modal" aria-label="Close">
+                <h3 data-i18n="2fa.info_title" class="modal-title">Learn about two-factor authentication</h3>
+                <div data-i18n="[aria-label]general.close" class="btn btn-icon btn-sm btn-active-color-primary ms-2" data-bs-dismiss="modal" aria-label="Close">
                     <i class="ki-duotone ki-cross fs-1"><span class="path1"></span><span class="path2"></span></i>
                 </div>
             </div>
             <div class="modal-body fw-semibold fs-6">
-                <p>SSH protocol (SFTP/SCP/SSH commands) will ask for the passcode if the client uses keyboard interactive
-                    authentication.</p>
-                <p>HTTP protocol means Web UI and REST APIs. Web UI will ask for the passcode using a specific page. For REST API
+                <p data-i18n="2fa.info1">SSH protocol (SFTP/SCP/SSH commands) will ask for the passcode if the client uses keyboard interactive authentication.</p>
+                <p data-i18n="2fa.info2">HTTP protocol means Web UI and REST APIs. Web UI will ask for the passcode using a specific page. For REST API
                     you have to add the passcode using an HTTP header.</p>
-                <p>FTP has no standard way to support two factor authentication, if you enable the FTP support, you have to add the
+                <p data-i18n="2fa.info3">FTP has no standard way to support two factor authentication, if you enable the FTP support, you have to add the
                     TOTP passcode after the password. For example if your password is "password" and your one time passcode is
                     "123456" you have to use "password123456" as password.</p>
-                <p>WebDAV is not supported since each single request must be authenticated and a passcode cannot be reused.</p>
+                <p data-i18n="2fa.info4">WebDAV is not supported since each single request must be authenticated and a passcode cannot be reused.</p>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-primary" type="button" data-bs-dismiss="modal">OK</button>
+                <button data-i18n="general.ok" class="btn btn-primary" type="button" data-bs-dismiss="modal">OK</button>
             </div>
         </div>
     </div>
@@ -208,14 +211,16 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 class="modal-title">Set up two-factor authentication</h3>
-                <div class="btn btn-icon btn-sm btn-active-color-primary ms-2" data-bs-dismiss="modal" aria-label="Close">
+                <h3 data-i18n="2fa.setup_title" class="modal-title">Set up two-factor authentication</h3>
+                <div data-i18n="[aria-label]general.close" class="btn btn-icon btn-sm btn-active-color-primary ms-2" data-bs-dismiss="modal" aria-label="Close">
                     <i class="ki-duotone ki-cross fs-1"><span class="path1"></span><span class="path2"></span></i>
                 </div>
             </div>
             <div class="modal-body scroll-y pt-10 pb-15 px-lg-17">
                 <div class="text-gray-700 fw-semibold fs-6 mb-10">
-                    Use your preferred Authenticator App (e.g. Microsoft Authenticator, Google Authenticator, Authy, 1Password etc. ) to scan the QR code. It will generate an authentication code for you to enter below.
+                    <span data-i18n="2fa.setup_msg">
+                        Use your preferred Authenticator App (e.g. Microsoft Authenticator, Google Authenticator, Authy, 1Password etc. ) to scan the QR code. It will generate an authentication code for you to enter below.
+                    </span>
                 </div>
                 <div id="id_qr_code_container" class="pt-5 text-center">
                 </div>
@@ -227,15 +232,16 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     </i>
                     <div class="d-flex flex-stack flex-grow-1">
                         <div class="fw-semibold">
-                            <div class="fs-6 text-gray-800">If you have trouble using the QR code, select manual entry on your app, and enter the code:
+                            <div class="fs-6 text-gray-800">
+                                <span data-i18n="2fa.setup_help">If you have trouble using the QR code, select manual entry on your app, and enter the code:</span>
                                 <span id="id_secret" class="fw-bold text-gray-900 pt-2"></span>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div id="errorModalMsg" class="d-none alert alert-dismissible bg-light-warning d-flex align-items-center p-5 mb-10">
-                    <i class="ki-duotone ki-information-5 fs-3x text-warning me-5"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
+                <div id="errorModalMsg" class="d-none rounded border-warning border border-dashed bg-light-warning d-flex align-items-center p-5 mb-10">
+                    <i class="ki-duotone ki-information fs-3x text-warning me-5"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
                     <div class="text-gray-700 fw-bold fs-5 d-flex flex-column pe-0 pe-sm-10">
                         <span id="errorModalTxt"></span>
                     </div>
@@ -245,17 +251,18 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </div>
 
                 <div class="fv-row">
-                    <input type="text" id="id_passcode" name="passcode" class="form-control form-control-lg form-control-solid" placeholder="Enter authentication code" spellcheck="false" />
+                    <input data-i18n="[placeholder]login.auth_code" type="text" id="id_passcode" name="passcode" class="form-control form-control-lg form-control-solid" placeholder="Enter authentication code" spellcheck="false" />
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button data-i18n="general.cancel" type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary ms-6" id="passcode_btn">
-                    <span class="indicator-label">
+                    <span data-i18n="general.submit" class="indicator-label">
                         Submit
                     </span>
-                    <span class="indicator-progress">
-                        Please wait... <span class="spinner-border spinner-border-sm align-middle ms-2"></span>
+                    <span data-i18n="general.wait" class="indicator-progress">
+                        Please wait...
+                        <span class="spinner-border spinner-border-sm align-middle ms-2"></span>
                     </span>
                 </button>
             </div>
@@ -277,15 +284,15 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         } else {
             //{{- if .TOTPConfig.Enabled }}
             if (selectedConfig == "{{.TOTPConfig.ConfigName}}"){
-                $('#save_label').text("Save");
+                $('#save_label').text($.t('general.submit'));
             } else {
-                $('#save_label').text("Enable");
+                $('#save_label').text($.t('general.enable'));
             }
             $('#save_btn').removeClass("d-none");
             $('#generate_secret_btn').removeClass("d-none");
             //{{- else}}
             $('#save_btn').removeClass("d-none");
-            $('#save_label').text("Enable");
+            $('#save_label').text($.t('general.enable'));
             $('#generate_secret_btn').addClass("d-none");
             //{{- end}}
         }
@@ -307,7 +314,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
        	    }).then(function (response){
                 el.removeAttribute('data-kt-indicator');
                 el.disabled = false;
-                $('#idRecoveryCodesTitle').text("New recovery codes");
+                $('#idRecoveryCodesTitle').text($.t('2fa.new_recovery_codes'));
                 let recList = $('#idRecoveryCodesList');
                 recList.empty();
                 $.each(response.data, function(key, item) {
@@ -318,19 +325,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             }).catch(function (error){
                 el.removeAttribute('data-kt-indicator');
                 el.disabled = false;
-                let errorMessage = "Failed to generate new recovery codes";
-                if (error && error.response) {
-                    if (error.response.data.message) {
-                        errorMessage = error.response.data.message;
-                    }
-                    if (error.response.data.error) {
-                        errorMessage += ": " + error.response.data.error;
-                    }
-                }
                 ModalAlert.fire({
-                    text: errorMessage,
+                    text: $.t('2fa.recovery_codes_gen_err'),
                     icon: "warning",
-                    confirmButtonText: "OK",
+                    confirmButtonText: $.t('general.ok'),
                     customClass: {
                         confirmButton: "btn btn-danger"
                     }
@@ -354,7 +352,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
        	    }).then(function (response){
                 el.removeAttribute('data-kt-indicator');
                 el.disabled = false;
-                $('#idRecoveryCodesTitle').text("Recovery codes");
+                $('#idRecoveryCodesTitle').text($.t('2fa.recovery_codes'));
                 let recList = $('#idRecoveryCodesList');
                 recList.empty();
                 $.each(response.data, function(key, item) {
@@ -369,19 +367,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             }).catch(function (error){
                 el.removeAttribute('data-kt-indicator');
                 el.disabled = false;
-                let errorMessage = "Failed to get your recovery codes";
-                if (error && error.response) {
-                    if (error.response.data.message) {
-                        errorMessage = error.response.data.message;
-                    }
-                    if (error.response.data.error) {
-                        errorMessage += ": " + error.response.data.error;
-                    }
-                }
                 ModalAlert.fire({
-                    text: errorMessage,
+                    text: $.t('2fa.recovery_codes_get_err'),
                     icon: "warning",
-                    confirmButtonText: "OK",
+                    confirmButtonText: $.t('general.ok'),
                     customClass: {
                         confirmButton: "btn btn-danger"
                     }
@@ -391,10 +380,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
     function disableConfig() {
         ModalAlert.fire({
-            text: `Do you want to disable two-factor authentication?`,
+            text: $.t('2fa.disable_question'),
             icon: "warning",
-            confirmButtonText: "Confirm",
-            cancelButtonText: 'Cancel',
+            confirmButtonText: $.t('general.confirm'),
+            cancelButtonText: $.t('general.cancel'),
             customClass: {
                 confirmButton: "btn btn-danger",
                 cancelButton: 'btn btn-secondary'
@@ -410,12 +399,12 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         el = document.querySelector('#passcode_btn');
         let errDivEl = $('#errorModalMsg');
         let errTxtEl = $('#errorModalTxt');
-        let errorMessage = "Failed to validate the provided authentication code";
+        let errorMessage = '2fa.auth_code_invalid';
         let passcode = $('#id_passcode').val();
 
         errDivEl.addClass("d-none");
         if (passcode == "") {
-            errTxtEl.text("The authentication code is required");
+            setI18NData(errTxtEl, '2fa.auth_code_required');
             errDivEl.removeClass("d-none");
             return;
         }
@@ -438,7 +427,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 el.removeAttribute('data-kt-indicator');
                 el.disabled = false;
                 if (!response.data.message) {
-                    errTxtEl.text(errorMessage);
+                    setI18NData(errTxtEl, errorMessage);
                     errDivEl.removeClass("d-none");
                     return;
                 }
@@ -447,25 +436,17 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             }).catch(function (error){
                 el.removeAttribute('data-kt-indicator');
                 el.disabled = false;
-                if (error && error.response) {
-                    if (error.response.data.message) {
-                        errorMessage = error.response.data.message;
-                    }
-                    if (error.response.data.error) {
-                        errorMessage += ": " + error.response.data.error;
-                    }
-                }
-                errTxtEl.text(errorMessage);
+                setI18NData(errTxtEl, errorMessage);
                 errDivEl.removeClass("d-none");
             });
     }
 
     function confirmGenerateSecret() {
         ModalAlert.fire({
-            text: `Do you want to generate a new secret and invalidate the previous one? Any registered Authenticator App will stop working`,
+            text: $.t('2fa.generate_question'),
             icon: "warning",
-            confirmButtonText: "Confirm",
-            cancelButtonText: 'Cancel',
+            confirmButtonText: $.t('general.confirm'),
+            cancelButtonText: $.t('general.cancel'),
             customClass: {
                 confirmButton: "btn btn-danger",
                 cancelButton: 'btn btn-secondary'
@@ -488,12 +469,12 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         let errDivEl = $('#errorMsg');
         let errTxtEl = $('#errorTxt');
         if ($('#id_protocols').find('option:selected').length == 0){
-            errTxtEl.text("Please select at least a protocol");
+            setI18NData(errTxtEl, '2fa.no_protocol');
             errDivEl.removeClass("d-none");
             return;
         }
 
-        let errorMessage = "Failed to generate authentication secret";
+        let errorMessage =  '2fa.auth_secret_gen_err';
 
         $('#id_secret').text("");
         errDivEl.addClass("d-none");
@@ -514,7 +495,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 el.removeAttribute('data-kt-indicator');
                 el.disabled = false;
                 if (!response.data.secret) {
-                    errTxtEl.text(errorMessage);
+                    setI18NData(errTxtEl, errorMessage);
                     errDivEl.removeClass("d-none");
                     return;
                 }
@@ -526,21 +507,13 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 let qrCodeImg = document.createElement("img");
                 qrCodeImg.classList.add("mw-150px");
                 qrCodeImg.src = "{{.MFAURL}}/qrcode?url="+encodeURIComponent(response.data.url);
-                qrCodeImg.alt = "QR code";
+                qrCodeImg.alt = $.t('general.qr_code');
                 qrCodeContainer.appendChild(qrCodeImg);
                 qrModal.show();
             }).catch(function (error){
                 el.removeAttribute('data-kt-indicator');
                 el.disabled = false;
-                if (error && error.response) {
-                    if (error.response.data.message) {
-                        errorMessage = error.response.data.message;
-                    }
-                    if (error.response.data.error) {
-                        errorMessage += ": " + error.response.data.error;
-                    }
-                }
-                errTxtEl.text(errorMessage);
+                setI18NData(errTxtEl, errorMessage);
                 errDivEl.removeClass("d-none");
             });
     }
@@ -554,13 +527,13 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         }
         let errDivEl = $('#errorMsg');
         let errTxtEl = $('#errorTxt');
-        let errorMessage = "Failed to save configuration";
+        let errorMessage = '2fa.save_err';
         let protocolsArray = [];
         $('#id_protocols').find('option:selected').each(function(){
             protocolsArray.push($(this).val());
         });
         if (protocolsArray.length == 0){
-            errTxtEl.text("Please select at least a protocol");
+            setI18NData(errTxtEl, '2fa.no_protocol');
             errDivEl.removeClass("d-none");
             return;
         }
@@ -595,14 +568,14 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 el.removeAttribute('data-kt-indicator');
                 el.disabled = false;
                 if (!response.data.message) {
-                    errTxtEl.text(errorMessage);
+                    setI18NData(errTxtEl, errorMessage);
                     errDivEl.removeClass("d-none");
                     return;
                 }
                 ModalAlert.fire({
-                    text: `Configuration saved`,
+                    text: $.t('general.config_saved'),
                     icon: "success",
-                    confirmButtonText: "OK",
+                    confirmButtonText: $.t('general.ok'),
                     customClass: {
                         confirmButton: 'btn btn-primary'
                     }
@@ -615,14 +588,13 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 el.removeAttribute('data-kt-indicator');
                 el.disabled = false;
                 if (error && error.response) {
-                    if (error.response.data.message) {
-                        errorMessage = error.response.data.message;
-                    }
-                    if (error.response.data.error) {
-                        errorMessage += ": " + error.response.data.error;
+                    switch (error.response.status) {
+                        case 400:
+                            errorMessage = "2fa.save_err_proto";
+                            break;
                     }
                 }
-                errTxtEl.text(errorMessage);
+                setI18NData(errTxtEl, errorMessage);
                 errDivEl.removeClass("d-none");
             });
 
@@ -638,7 +610,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         generateSecret(saveBtn, selectedConfig);
     }
 
-    KTUtil.onDOMContentLoaded(function () {
+    $(document).on("i18nshow", function(){
         onConfigChanged();
 
         var dismissErrorModalBtn = $('#id_dismiss_error_modal_msg');

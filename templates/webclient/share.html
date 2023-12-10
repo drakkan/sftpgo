@@ -15,18 +15,16 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 -->
 {{template "base" .}}
 
-{{define "title"}}{{.Title}}{{end}}
-
 {{- define "page_body"}}
 <div class="card shadow-sm">
     <div class="card-header bg-light">
-        <h3 class="card-title text-primary">{{if .IsAdd}}Add a new share{{else}}Edit share{{end}}</h3>
+        <h3 {{if .IsAdd}}data-i18n="title.add_share"{{else}}data-i18n="title.update_share"{{end}} class="card-title text-primary"></h3>
     </div>
     <div class="card-body">
         {{- template "errmsg" .Error}}
         <form id="share_form" action="{{.CurrentURL}}" method="POST" autocomplete="off">
             <div class="form-group row">
-                <label class="col-md-3 col-form-label">Name</label>
+                <label data-i18n="general.name" class="col-md-3 col-form-label">Name</label>
                 <div class="col-md-9">
                     <input type="text" class="form-control" placeholder="" name="name" value="{{.Share.Name}}"
                         maxlength="255" autocomplete="nope" required {{if not .IsAdd}}readonly{{end}} />
@@ -34,22 +32,22 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
 
             <div class="form-group row mt-10">
-                <label class="col-md-3 col-form-label">Scope</label>
+                <label data-i18n="share.scope" class="col-md-3 col-form-label">Scope</label>
                 <div class="col-md-9">
-                    <select name="scope" class="form-select" data-control="select2" data-hide-search="true">
-                        <option value="1" {{if eq .Share.Scope 1 }}selected{{end}}>Read</option>
-                        <option value="2" {{if eq .Share.Scope 2 }}selected{{end}}>Write</option>
-                        <option value="3" {{if eq .Share.Scope 3 }}selected{{end}}>Read/Write</option>
+                    <select name="scope" class="form-select" data-control="i18n-select2" data-hide-search="true">
+                        <option data-i18n="share.scope_read" value="1" {{if eq .Share.Scope 1 }}selected{{end}}>Read</option>
+                        <option data-i18n="share.scope_write" value="2" {{if eq .Share.Scope 2 }}selected{{end}}>Write</option>
+                        <option data-i18n="share.scope_read_write" value="3" {{if eq .Share.Scope 3 }}selected{{end}}>Read/Write</option>
                     </select>
-                    <div class="form-text">
-                        For scope "Write" and "Read&Write" you have to define one path and it must be a directory
+                    <div data-i18n="share.scope_help" class="form-text">
+                        For scope "Write" and "Read/Write" you have to define one path and it must be a directory
                     </div>
                 </div>
             </div>
 
             <div class="card card-rounded mt-10">
                 <div class="card-header bg-light">
-                    <h3 class="card-title">Paths</h3>
+                    <h3 data-i18n="share.paths" class="card-title">Paths</h3>
                 </div>
                 <div class="card-body">
                     <div id="paths">
@@ -59,12 +57,11 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                 <div data-repeater-item>
                                     <div class="form-group row">
                                         <div class="col-md-9">
-                                            <input type="text" class="form-control mt-3 mt-md-8"
-                                                placeholder="file or directory path, i.e. /dir or /dir/file.txt"
+                                            <input data-i18n="[placeholder]share.path_help" type="text" class="form-control mt-3 mt-md-8"
                                                 name="path" value="{{$val}}" />
                                         </div>
                                         <div class="col-md-3">
-                                            <a href="#" data-repeater-delete
+                                            <a data-i18n="general.delete" href="#" data-repeater-delete
                                                 class="btn btn-light-danger mt-3 mt-md-8">
                                                 <i class="ki-duotone ki-trash fs-5">
                                                     <span class="path1"></span>
@@ -82,12 +79,11 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                 <div data-repeater-item>
                                     <div class="form-group row">
                                         <div class="col-md-9">
-                                            <input type="text" class="form-control mt-3 mt-md-8"
-                                                placeholder="file or directory path, i.e. /dir or /dir/file.txt"
+                                            <input data-i18n="[placeholder]share.path_help" type="text" class="form-control mt-3 mt-md-8"
                                                 name="path" value="" />
                                         </div>
                                         <div class="col-md-3">
-                                            <a href="#" data-repeater-delete
+                                            <a data-i18n="general.delete" href="#" data-repeater-delete
                                                 class="btn btn-light-danger mt-3 mt-md-8">
                                                 <i class="ki-duotone ki-trash fs-5">
                                                     <span class="path1"></span>
@@ -106,7 +102,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         </div>
 
                         <div class="form-group mt-5">
-                            <a href="#" data-repeater-create class="btn btn-light-primary">
+                            <a data-i18n="general.add" href="#" data-repeater-create class="btn btn-light-primary">
                                 <i class="ki-duotone ki-plus fs-3"></i>
                                 Add
                             </a>
@@ -116,20 +112,20 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
 
             <div class="form-group row mt-10">
-                <label class="col-md-3 col-form-label">Password</label>
+                <label data-i18n="login.password" class="col-md-3 col-form-label">Password</label>
                 <div class="col-md-9">
                     <input type="password" class="form-control" name="password" autocomplete="new-password"
                         placeholder="" spellcheck="false" value="{{.Share.Password}}" />
-                    <div class="form-text">
+                    <div data-i18n="share.password_help" class="form-text">
                         If set the share will be password-protected
                     </div>
                 </div>
             </div>
 
             <div class="form-group row mt-10">
-                <label class="col-md-3 col-form-label">Expiration</label>
+                <label data-i18n="share.expiration" class="col-md-3 col-form-label">Expiration</label>
                 <div class="col-md-9 d-flex">
-                    <input id="id_expiration" class="form-control" placeholder="Pick an expiration date" />
+                    <input data-i18n="[placeholder]share.expiration_help" id="id_expiration" class="form-control" placeholder="Pick an expiration date" />
                     <button class="btn btn-icon btn-light-danger ms-2 d-none" id="id_expiration_clear">
                         <i class="ki-duotone ki-cross fs-1">
                             <span class="path1"></span>
@@ -140,28 +136,28 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
 
             <div class="form-group row mt-10">
-                <label class="col-md-3 col-form-label">Max tokens</label>
+                <label data-i18n="share.max_tokens" class="col-md-3 col-form-label">Max tokens</label>
                 <div class="col-md-9">
                     <input type="number" min="0" class="form-control" name="max_tokens" value="{{.Share.MaxTokens}}" />
-                    <div class="form-text">
+                    <div data-i18n="share.max_tokens_help" class="form-text">
                         Maximum number of times this share can be accessed. 0 means no limit
                     </div>
                 </div>
             </div>
 
             <div class="form-group row mt-10">
-                <label class="col-md-3 col-form-label">Allowed IP/Mask</label>
+                <label data-i18n="general.allowed_ip_mask" class="col-md-3 col-form-label">Allowed IP/Mask</label>
                 <div class="col-md-9">
                     <textarea class="form-control" name="allowed_ip" rows="3"
                         placeholder="">{{.Share.GetAllowedFromAsString}}</textarea>
-                    <div class="form-text">
+                    <div data-i18n="general.allowed_ip_mask_help" class="form-text">
                         Comma separated IP/Mask in CIDR format, for example "192.168.1.0/24,10.8.0.100/32"
                     </div>
                 </div>
             </div>
 
             <div class="form-group row mt-10">
-                <label class="col-md-3 col-form-label">Description</label>
+                <label data-i18n="general.description" class="col-md-3 col-form-label">Description</label>
                 <div class="col-md-9">
                     <textarea class="form-control" name="description" rows="3"
                         placeholder="">{{.Share.Description}}</textarea>
@@ -172,11 +168,12 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 <input type="hidden" name="expiration_date" id="hidden_start_datetime" value="">
                 <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
                 <button type="submit" id="form_submit" class="btn btn-primary px-10">
-                    <span class="indicator-label">
+                    <span data-i18n="general.submit" class="indicator-label">
                         Submit
                     </span>
-                    <span class="indicator-progress">
-                        Please wait... <span class="spinner-border spinner-border-sm align-middle ms-2"></span>
+                    <span data-i18n="general.wait" class="indicator-progress">
+                        Please wait...
+                        <span class="spinner-border spinner-border-sm align-middle ms-2"></span>
                     </span>
                 </button>
             </div>
@@ -188,14 +185,21 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 {{- define "extra_js"}}
 <script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/plugins/custom/formrepeater/formrepeater.bundle.js"></script>
 <script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
-    KTUtil.onDOMContentLoaded(function () {
+    $(document).on("i18nshow", function(){
             initRepeater('#paths');
             initRepeaterItems();
 
             const picker = $('#id_expiration').flatpickr({
                 enableTime: false,
                 time_24hr: true,
-                dateFormat: "Y-m-d",
+                formatDate: (date, format, locale) => {
+                    return $.t('general.datetime', {
+                                val: new Date(date),
+                                formatParams: {
+                                    val: { year: 'numeric', month: 'numeric', day: 'numeric' },
+                                }
+                            });
+                },
                 defaultHour: 23,
                 defaultMinute: 59,
                 onChange: function(selectedDates, dateStr, instance) {

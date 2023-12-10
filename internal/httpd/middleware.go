@@ -204,7 +204,7 @@ func (s *httpdServer) checkHTTPUserPerm(perm string) func(next http.Handler) htt
 			// for web client perms are negated and not granted
 			if tokenClaims.hasPerm(perm) {
 				if isWebRequest(r) {
-					s.renderClientForbiddenPage(w, r, "You don't have permission for this action")
+					s.renderClientForbiddenPage(w, r, errors.New("you don't have permission for this action"))
 				} else {
 					sendAPIResponse(w, r, nil, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 				}
@@ -231,17 +231,24 @@ func (s *httpdServer) checkAuthRequirements(next http.Handler) http.Handler {
 		tokenClaims := jwtTokenClaims{}
 		tokenClaims.Decode(claims)
 		if tokenClaims.MustSetTwoFactorAuth || tokenClaims.MustChangePassword {
-			var message string
+			var err error
 			if tokenClaims.MustSetTwoFactorAuth {
-				message = fmt.Sprintf("Two-factor authentication requirements not met, please configure two-factor authentication for the following protocols: %v",
-					strings.Join(tokenClaims.RequiredTwoFactorProtocols, ", "))
+				err = util.NewI18nError(
+					util.NewGenericError(
+						fmt.Sprintf("Two-factor authentication requirements not met, please configure two-factor authentication for the following protocols: %v",
+							strings.Join(tokenClaims.RequiredTwoFactorProtocols, ", "))),
+					util.I18nError2FARequired,
+				)
 			} else {
-				message = "Password change required. Please set a new password to continue to use your account"
+				err = util.NewI18nError(
+					util.NewGenericError("Password change required. Please set a new password to continue to use your account"),
+					util.I18nErrorChangePwdRequired,
+				)
 			}
 			if isWebRequest(r) {
-				s.renderClientForbiddenPage(w, r, message)
+				s.renderClientForbiddenPage(w, r, err)
 			} else {
-				sendAPIResponse(w, r, nil, message, http.StatusForbidden)
+				sendAPIResponse(w, r, err, "", http.StatusForbidden)
 			}
 			return
 		}
@@ -254,7 +261,10 @@ func (s *httpdServer) requireBuiltinLogin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if isLoggedInWithOIDC(r) {
 			if isWebClientRequest(r) {
-				s.renderClientForbiddenPage(w, r, "This feature is not available if you are logged in with OpenID")
+				s.renderClientForbiddenPage(w, r, util.NewI18nError(
+					util.NewGenericError("This feature is not available if you are logged in with OpenID"),
+					util.I18nErrorNoOIDCFeature,
+				))
 			} else {
 				s.renderForbiddenPage(w, r, "This feature is not available if you are logged in with OpenID")
 			}

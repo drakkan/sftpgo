@@ -1722,7 +1722,7 @@ func (c *BaseConnection) GetFsAndResolvedPath(virtualPath string) (vfs.Fs, strin
 		if c.protocol == ProtocolWebDAV && strings.Contains(err.Error(), vfs.ErrSFTPLoop.Error()) {
 			// if there is an SFTP loop we return a permission error, for WebDAV, so the problematic folder
 			// will not be listed
-			return nil, "", c.GetPermissionDeniedError()
+			return nil, "", util.NewI18nError(c.GetPermissionDeniedError(), util.I18nError403Message)
 		}
 		return nil, "", c.GetGenericError(err)
 	}

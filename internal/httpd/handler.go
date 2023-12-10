@@ -100,16 +100,16 @@ func (c *Connection) getFileReader(name string, offset int64, method string) (io
 	transferQuota := c.GetTransferQuota()
 	if !transferQuota.HasDownloadSpace() {
 		c.Log(logger.LevelInfo, "denying file read due to quota limits")
-		return nil, c.GetReadQuotaExceededError()
+		return nil, util.NewI18nError(c.GetReadQuotaExceededError(), util.I18nErrorQuotaRead)
 	}
 
 	if !c.User.HasPerm(dataprovider.PermDownload, path.Dir(name)) {
-		return nil, c.GetPermissionDeniedError()
+		return nil, util.NewI18nError(c.GetPermissionDeniedError(), util.I18nError403Message)
 	}
 
 	if ok, policy := c.User.IsFileAllowed(name); !ok {
 		c.Log(logger.LevelWarn, "reading file %q is not allowed", name)
-		return nil, c.GetErrorForDeniedFile(policy)
+		return nil, util.NewI18nError(c.GetErrorForDeniedFile(policy), util.I18nError403Message)
 	}
 
 	fs, p, err := c.GetFsAndResolvedPath(name)
@@ -120,7 +120,7 @@ func (c *Connection) getFileReader(name string, offset int64, method string) (io
 	if method != http.MethodHead {
 		if _, err := common.ExecutePreAction(c.BaseConnection, common.OperationPreDownload, p, name, 0, 0); err != nil {
 			c.Log(logger.LevelDebug, "download for file %q denied by pre action: %v", name, err)
-			return nil, c.GetPermissionDeniedError()
+			return nil, util.NewI18nError(c.GetPermissionDeniedError(), util.I18nError403Message)
 		}
 	}
 

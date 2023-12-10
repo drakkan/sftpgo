@@ -15,8 +15,6 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 -->
 {{template "base" .}}
 
-{{define "title"}}{{.Title}}{{end}}
-
 {{- define "extra_css"}}
 <style {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
     .shortcut {font-family: monospace; color: #666;}
@@ -44,17 +42,14 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 {{- template "errmsg" ""}}
 <div class="card shadow-sm">
     <div class="card-header">
-        {{- if .ReadOnly}}
-        <h6 class="card-title">View file "{{.Path}}"</h6>
-        {{- else}}
-        <h6 class="card-title">Edit file "{{.Path}}"</h6>
-        {{- end}}
+        <h6 id="card_title" class="card-title"></h6>
         <div class="card-toolbar">
-            <a class="btn btn-light-primary px-10 me-5" href='{{.FilesURL}}?path={{.CurrentDir}}' role="button">Back</a>
+            <a data-i18n="general.back" class="btn btn-light-primary px-10 me-5" href='{{.FilesURL}}?path={{.CurrentDir}}' role="button">Back</a>
             {{- if not .ReadOnly}}
             <a id="save_button" type="button" class="btn btn-primary px-10" href="#" role="button">
-                <span class="indicator-label">Save</span>
-			    <span class="indicator-progress">Please wait...
+                <span data-i18n="general.submit" class="indicator-label">Save</span>
+			    <span data-i18n="general.wait" class="indicator-progress">
+                    Please wait...
 					<span class="spinner-border spinner-border-sm align-middle ms-2"></span>
 				</span>
             </a>
@@ -72,27 +67,27 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 class="modal-title">Editor keybindings</h3>
-                <div class="btn btn-icon btn-sm btn-active-light-primary ms-2" data-bs-dismiss="modal" aria-label="Close">
+                <h3 data-i18n="editor.keybinding" class="modal-title">Editor keybindings</h3>
+                <div data-i18n="[aria-label]general.close" class="btn btn-icon btn-sm btn-active-light-primary ms-2" data-bs-dismiss="modal" aria-label="Close">
                     <i class="ki-duotone ki-cross fs-1"><span class="path1"></span><span class="path2"></span></i>
                 </div>
             </div>
             <div class="modal-body">
                 <p>
-                    <span class="shortcut">Ctrl-F / Cmd-F</span> => Open search panel
+                    <span class="shortcut">Ctrl-F / Cmd-F</span> => <span data-i18n="editor.search" class="fw-semibold">Open search panel</span>
                 </p>
                 <p>
-                    <span class="shortcut">Alt-G</span> => Jump to line
+                    <span class="shortcut">Alt-G</span> => <span data-i18n="editor.goto" class="fw-semibold">Jump to line</span>
                 </p>
                 <p>
-                    <span class="shortcut">Tab</span> => Indent more
+                    <span class="shortcut">Tab</span> => <span data-i18n="editor.indent_more" class="fw-semibold">Indent more</span>
                 </p>
                 <p>
-                    <span class="shortcut">Shift-Tab</span> => Indent less
+                    <span class="shortcut">Shift-Tab</span> => <span data-i18n="editor.indent_less" class="fw-semibold">Indent less</span>
                 </p>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-primary" type="button" data-bs-dismiss="modal">OK</button>
+                <button data-i18n="general.ok" class="btn btn-primary" type="button" data-bs-dismiss="modal">OK</button>
             </div>
         </div>
     </div>
@@ -134,22 +129,36 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         }).catch(function (error) {
             saveButton.removeAttribute('data-kt-indicator');
 		    saveButton.disabled = false;
-            let errorMessage = "Error saving file";
+
+            let errorMessage = "";
             if (error && error.response) {
-                if (error.response.data.message) {
-                    errorMessage = error.response.data.message;
-                }
-                if (error.response.data.error) {
-                    errorMessage += ": " + error.response.data.error;
+                switch (error.response.status) {
+                    case 403:
+                        errorMessage = "fs.save.err403";
+                        break;
+                    case 429:
+                        errorMessage = "fs.save.err429";
+                        break;
                 }
             }
-            $('#errorTxt').text(errorMessage);
+            if (!errorMessage){
+                errorMessage = "fs.save.err_generic";
+            }
+            setI18NData($('#errorTxt'), errorMessage);
             $('#errorMsg').removeClass("d-none");
         });
     }
     //{{- end}}
 
-    KTUtil.onDOMContentLoaded(function () {
+    $(document).on("i18nload", function(){
+        //{{- if .ReadOnly}}
+        $('#card_title').text($.t('fs.view_file', { path: '{{.Path}}'}));
+        //{{- else}}
+        $('#card_title').text($.t('fs.edit_file', { path: '{{.Path}}'}));
+        //{{- end}}
+    });
+
+    $(document).on("i18nshow", function(){
         let filename = "{{.Name}}";
         let extension = filename.slice((filename.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase();
         let options = {

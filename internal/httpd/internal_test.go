@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -1215,7 +1216,7 @@ func TestCreateShareCookieError(t *testing.T) {
 	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
 	server.handleClientShareLoginPost(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
-	assert.Contains(t, rr.Body.String(), common.ErrInternalFailure.Error())
+	assert.Contains(t, rr.Body.String(), util.I18nError500Message)
 
 	err = dataprovider.DeleteUser(username, "", "", "")
 	assert.NoError(t, err)
@@ -1316,7 +1317,7 @@ func TestCreateTokenError(t *testing.T) {
 	rr = httptest.NewRecorder()
 	server.handleWebClientChangePwdPost(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
-	assert.Contains(t, rr.Body.String(), "invalid URL escape")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidForm)
 
 	req, _ = http.NewRequest(http.MethodPost, webClientProfilePath+"?a=a%C3%AO%GB", bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -1349,14 +1350,14 @@ func TestCreateTokenError(t *testing.T) {
 	rr = httptest.NewRecorder()
 	server.handleWebClientTwoFactorPost(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
-	assert.Contains(t, rr.Body.String(), "invalid URL escape")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidForm)
 
 	req, _ = http.NewRequest(http.MethodPost, webClientTwoFactorRecoveryPath+"?a=a%C3%AO%GD", bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = httptest.NewRecorder()
 	server.handleWebClientTwoFactorRecoveryPost(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
-	assert.Contains(t, rr.Body.String(), "invalid URL escape")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidForm)
 
 	req, _ = http.NewRequest(http.MethodPost, webAdminForgotPwdPath+"?a=a%C3%A1%GD", bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -1370,7 +1371,7 @@ func TestCreateTokenError(t *testing.T) {
 	rr = httptest.NewRecorder()
 	server.handleWebClientForgotPwdPost(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
-	assert.Contains(t, rr.Body.String(), "invalid URL escape")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidForm)
 
 	req, _ = http.NewRequest(http.MethodPost, webAdminResetPwdPath+"?a=a%C3%AO%JD", bytes.NewBuffer([]byte(form.Encode())))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -1391,7 +1392,7 @@ func TestCreateTokenError(t *testing.T) {
 	rr = httptest.NewRecorder()
 	server.handleWebClientPasswordResetPost(rr, req)
 	assert.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
-	assert.Contains(t, rr.Body.String(), "invalid URL escape")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidForm)
 
 	req, _ = http.NewRequest(http.MethodPost, webChangeClientPwdPath+"?a=a%K3%AO%GA", bytes.NewBuffer([]byte(form.Encode())))
 	_, err = getShareFromPostFields(req)
@@ -2552,7 +2553,7 @@ func TestChangeUserPwd(t *testing.T) {
 	}
 	err = doChangeUserPassword(req, "a", "b", "b")
 	if assert.Error(t, err) {
-		assert.Contains(t, err.Error(), "invalid token claims")
+		assert.Contains(t, err.Error(), errInvalidTokenClaims.Error())
 	}
 }
 
@@ -2579,70 +2580,70 @@ func TestWebUserInvalidClaims(t *testing.T) {
 	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", token["access_token"]))
 	server.handleClientGetFiles(rr, req)
 	assert.Equal(t, http.StatusForbidden, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
 
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest(http.MethodGet, webClientDirsPath, nil)
 	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", token["access_token"]))
 	server.handleClientGetDirContents(rr, req)
 	assert.Equal(t, http.StatusForbidden, rr.Code)
-	assert.Contains(t, rr.Body.String(), "invalid token claims")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorDirList403)
 
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest(http.MethodGet, webClientDownloadZipPath, nil)
 	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", token["access_token"]))
 	server.handleWebClientDownloadZip(rr, req)
 	assert.Equal(t, http.StatusForbidden, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
 
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest(http.MethodGet, webClientEditFilePath, nil)
 	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", token["access_token"]))
 	server.handleClientEditFile(rr, req)
 	assert.Equal(t, http.StatusForbidden, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
 
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest(http.MethodGet, webClientSharePath, nil)
 	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", token["access_token"]))
 	server.handleClientAddShareGet(rr, req)
 	assert.Equal(t, http.StatusForbidden, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
 
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest(http.MethodGet, webClientSharePath, nil)
 	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", token["access_token"]))
 	server.handleClientUpdateShareGet(rr, req)
 	assert.Equal(t, http.StatusForbidden, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
 
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest(http.MethodPost, webClientSharePath, nil)
 	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", token["access_token"]))
 	server.handleClientAddSharePost(rr, req)
 	assert.Equal(t, http.StatusForbidden, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
 
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest(http.MethodPost, webClientSharePath+"/id", nil)
 	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", token["access_token"]))
 	server.handleClientUpdateSharePost(rr, req)
 	assert.Equal(t, http.StatusForbidden, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
 
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest(http.MethodGet, webClientSharesPath, nil)
 	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", token["access_token"]))
 	server.handleClientGetShares(rr, req)
 	assert.Equal(t, http.StatusForbidden, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
 
 	rr = httptest.NewRecorder()
 	req, _ = http.NewRequest(http.MethodGet, webClientViewPDFPath, nil)
 	req.Header.Set("Cookie", fmt.Sprintf("jwt=%v", token["access_token"]))
 	server.handleClientGetPDF(rr, req)
 	assert.Equal(t, http.StatusForbidden, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Invalid token claims")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidToken)
 }
 
 func TestInvalidClaims(t *testing.T) {
@@ -3509,6 +3510,34 @@ func TestShareRedirectURL(t *testing.T) {
 	ok, res = checkShareRedirectURL("http://foo.com/?foo\nbar", "http://foo.com")
 	assert.False(t, ok)
 	assert.Empty(t, res)
+}
+
+func TestI18NMessages(t *testing.T) {
+	msg := i18nListDirMsg(http.StatusForbidden)
+	require.Equal(t, util.I18nErrorDirList403, msg)
+	msg = i18nListDirMsg(http.StatusInternalServerError)
+	require.Equal(t, util.I18nErrorDirListGeneric, msg)
+	msg = i18nFsMsg(http.StatusForbidden)
+	require.Equal(t, util.I18nError403Message, msg)
+	msg = i18nFsMsg(http.StatusInternalServerError)
+	require.Equal(t, util.I18nErrorFsGeneric, msg)
+}
+
+func TestI18NErrors(t *testing.T) {
+	err := util.NewValidationError("error text")
+	errI18n := util.NewI18nError(err, util.I18nError500Message)
+	assert.ErrorIs(t, errI18n, util.ErrValidation)
+	assert.Equal(t, err.Error(), errI18n.Error())
+	assert.Equal(t, util.I18nError500Message, getI18NErrorString(errI18n, ""))
+	err2 := util.NewI18nError(fs.ErrNotExist, util.I18nError500Message)
+	assert.ErrorIs(t, err2, &util.I18nError{})
+	assert.ErrorIs(t, err2, fs.ErrNotExist)
+	assert.NotErrorIs(t, err2, fs.ErrExist)
+	assert.Equal(t, util.I18nError403Message, getI18NErrorString(fs.ErrClosed, util.I18nError403Message))
+	errorString := getI18NErrorString(nil, util.I18nError500Message)
+	assert.Equal(t, util.I18nError500Message, errorString)
+	errI18nWrap := util.NewI18nError(errI18n, util.I18nError404Message)
+	assert.Equal(t, util.I18nError500Message, errI18nWrap.I18nMessage)
 }
 
 func isSharedProviderSupported() bool {

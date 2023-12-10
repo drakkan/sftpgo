@@ -3209,7 +3209,7 @@ func TestMustChangePasswordRequirement(t *testing.T) {
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
-	assert.Contains(t, rr.Body.String(), "Password change required. Please set a new password to continue to use your account")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorChangePwdRequired)
 	// change pwd
 	pwd := make(map[string]string)
 	pwd["current_password"] = defaultPassword
@@ -3317,7 +3317,7 @@ func TestTwoFactorRequirements(t *testing.T) {
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
-	assert.Contains(t, rr.Body.String(), "Two-factor authentication requirements not met, please configure two-factor authentication for the following protocols")
+	assert.Contains(t, rr.Body.String(), util.I18nError2FARequired)
 
 	configName, key, _, err := mfa.GenerateTOTPSecret(mfa.GetAvailableTOTPConfigNames()[0], user.Username)
 	assert.NoError(t, err)
@@ -6425,7 +6425,7 @@ func TestNamingRules(t *testing.T) {
 	setJWTCookieForReq(req, token)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Contains(t, rr.Body.String(), "the following characters are allowed")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidUser)
 	// test user reset password. Setting the new password will fail because the username is not valid
 	form = make(url.Values)
 	form.Set("username", user.Username)
@@ -6449,7 +6449,7 @@ func TestNamingRules(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "the following characters are allowed")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidUser)
 
 	adminAPIToken, err = getJWTAPITokenFromTestServer(admin.Username, defaultTokenAuthPass)
 	assert.NoError(t, err)
@@ -6743,7 +6743,7 @@ func TestSaveErrors(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)
-	assert.Contains(t, rr.Body.String(), "unable to set the recovery code as used")
+	assert.Contains(t, rr.Body.String(), util.I18nError500Message)
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -6886,7 +6886,7 @@ func TestProviderErrors(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Error retrieving your account, please try again later")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorGetUser)
 
 	req, err = http.NewRequest(http.MethodGet, webClientSharesPath, nil)
 	assert.NoError(t, err)
@@ -9615,7 +9615,7 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "unable to verify form token")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCSRF)
 
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("passcode", "invalid_user_passcode")
@@ -9626,7 +9626,7 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Invalid authentication code")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCredentials)
 
 	form.Set("passcode", "")
 	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorPath, bytes.NewBuffer([]byte(form.Encode())))
@@ -9636,7 +9636,7 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Invalid credentials")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCredentials)
 
 	form.Set("passcode", passcode)
 	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorPath, bytes.NewBuffer([]byte(form.Encode())))
@@ -9677,7 +9677,7 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "unable to verify form token")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCSRF)
 
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("recovery_code", "")
@@ -9688,7 +9688,7 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Invalid credentials")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCredentials)
 
 	form.Set("recovery_code", recoveryCode)
 	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
@@ -9764,7 +9764,7 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "This recovery code was already used")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCredentials)
 
 	form.Set("recovery_code", "invalid_user_recovery_code")
 	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorRecoveryPath, bytes.NewBuffer([]byte(form.Encode())))
@@ -9774,7 +9774,7 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Invalid recovery code")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCredentials)
 
 	form = getLoginForm(defaultUsername, defaultPassword, csrfToken)
 	req, err = http.NewRequest(http.MethodPost, webClientLoginPath, bytes.NewBuffer([]byte(form.Encode())))
@@ -9815,7 +9815,7 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Two factory authentication is not enabled")
+	assert.Contains(t, rr.Body.String(), util.I18n2FADisabled)
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -9829,7 +9829,7 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Invalid credentials")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCredentials)
 
 	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
@@ -9838,7 +9838,7 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Invalid credentials")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCredentials)
 
 	req, err = http.NewRequest(http.MethodGet, webClientMFAPath, nil)
 	assert.NoError(t, err)
@@ -10880,7 +10880,7 @@ func TestPermGroupOverride(t *testing.T) {
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
-	assert.Contains(t, rr.Body.String(), "Two-factor authentication requirements not met, please configure two-factor authentication for the following protocols")
+	assert.Contains(t, rr.Body.String(), util.I18nError2FARequired)
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -12333,14 +12333,14 @@ func TestWebClientLoginMock(t *testing.T) {
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
-	assert.Contains(t, rr.Body.String(), "Unable to retrieve your user")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorGetUser)
 
 	req, _ = http.NewRequest(http.MethodGet, webClientDirsPath, nil)
 	req.RemoteAddr = defaultRemoteAddr
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
-	assert.Contains(t, rr.Body.String(), "Unable to retrieve your user")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorDirListUser)
 
 	form := make(url.Values)
 	form.Set("files", `[]`)
@@ -12351,7 +12351,7 @@ func TestWebClientLoginMock(t *testing.T) {
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
-	assert.Contains(t, rr.Body.String(), "Unable to retrieve your user")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorGetUser)
 
 	req, _ = http.NewRequest(http.MethodGet, userDirsPath, nil)
 	setBearerForReq(req, apiUserToken)
@@ -12389,7 +12389,7 @@ func TestWebClientLoginErrorsMock(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr := executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Invalid credentials")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCredentials)
 
 	form = getLoginForm(defaultUsername, defaultPassword, "")
 	req, _ = http.NewRequest(http.MethodPost, webClientLoginPath, bytes.NewBuffer([]byte(form.Encode())))
@@ -12397,7 +12397,7 @@ func TestWebClientLoginErrorsMock(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "unable to verify form token")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCSRF)
 }
 
 func TestWebClientMaxConnections(t *testing.T) {
@@ -12514,7 +12514,7 @@ func TestDefender(t *testing.T) {
 	req.RemoteAddr = remoteAddr
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
-	assert.Contains(t, rr.Body.String(), "your IP address is blocked")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorIPForbidden)
 
 	req, _ = http.NewRequest(http.MethodGet, webUsersPath, nil)
 	req.RequestURI = webUsersPath
@@ -12636,35 +12636,35 @@ func TestMaxSessions(t *testing.T) {
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusTooManyRequests, rr)
-	assert.Contains(t, rr.Body.String(), "too many open sessions")
+	assert.Contains(t, rr.Body.String(), util.I18nError429Message)
 
 	req, err = http.NewRequest(http.MethodGet, webClientDirsPath, nil)
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusTooManyRequests, rr)
-	assert.Contains(t, rr.Body.String(), "too many open sessions")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorDirList429)
 
 	req, err = http.NewRequest(http.MethodGet, webClientFilesPath+"?path=p", nil)
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusTooManyRequests, rr)
-	assert.Contains(t, rr.Body.String(), "too many open sessions")
+	assert.Contains(t, rr.Body.String(), util.I18nError429Message)
 
 	req, err = http.NewRequest(http.MethodGet, webClientEditFilePath+"?path=file", nil) //nolint:goconst
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusTooManyRequests, rr)
-	assert.Contains(t, rr.Body.String(), "too many open sessions")
+	assert.Contains(t, rr.Body.String(), util.I18nError429Message)
 
 	req, err = http.NewRequest(http.MethodGet, webClientGetPDFPath+"?path=file", nil)
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusTooManyRequests, rr)
-	assert.Contains(t, rr.Body.String(), "too many open sessions")
+	assert.Contains(t, rr.Body.String(), util.I18nError429Message)
 
 	// test reset password
 	smtpCfg := smtp.Config{
@@ -12698,7 +12698,7 @@ func TestMaxSessions(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Password reset successfully but unable to login")
+	assert.Contains(t, rr.Body.String(), util.I18nError429Message)
 
 	smtpCfg = smtp.Config{}
 	err = smtpCfg.Initialize(configDir, true)
@@ -13012,7 +13012,7 @@ func TestSFTPLoopError(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Password reset successfully but unable to login")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorLoginAfterReset)
 
 	smtpCfg = smtp.Config{}
 	err = smtpCfg.Initialize(configDir, true)
@@ -13090,7 +13090,7 @@ func TestWebClientChangePwd(t *testing.T) {
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
-	assert.Contains(t, rr.Body.String(), "unable to verify form token")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCSRF)
 
 	form.Set(csrfFormToken, csrfToken)
 	req, _ = http.NewRequest(http.MethodPost, webChangeClientPwdPath, bytes.NewBuffer([]byte(form.Encode())))
@@ -13099,7 +13099,7 @@ func TestWebClientChangePwd(t *testing.T) {
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Contains(t, rr.Body.String(), "the new password must be different from the current one")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorChangePwdNoDifferent)
 
 	form.Set("current_password", defaultPassword+"2")
 	form.Set("new_password1", defaultPassword+"1")
@@ -13110,7 +13110,7 @@ func TestWebClientChangePwd(t *testing.T) {
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Contains(t, rr.Body.String(), "current password does not match")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorChangePwdCurrentNoMatch)
 
 	form.Set("current_password", defaultPassword)
 	form.Set("new_password1", defaultPassword+"1")
@@ -13203,7 +13203,7 @@ func TestPreDownloadHook(t *testing.T) {
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Contains(t, rr.Body.String(), "permission denied")
+	assert.Contains(t, rr.Body.String(), util.I18nError403Message)
 
 	req, err = http.NewRequest(http.MethodGet, userFilesPath+"?path="+testFileName, nil)
 	assert.NoError(t, err)
@@ -13387,7 +13387,7 @@ func TestShareUsage(t *testing.T) {
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
-	assert.Contains(t, rr.Body.String(), "Invalid share scope")
+	assert.Contains(t, rr.Body.String(), "invalid share scope")
 
 	share.MaxTokens = 3
 	share.Scope = dataprovider.ShareScopeWrite
@@ -13652,7 +13652,7 @@ func TestShareMaxExpiration(t *testing.T) {
 	setJWTCookieForReq(req, webClientToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Contains(t, rr.Body.String(), "share must expire before")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorShareExpirationOutOfRange)
 
 	req, err = http.NewRequest(http.MethodPost, path.Join(webClientSharePath, shareID), bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)
@@ -13661,7 +13661,7 @@ func TestShareMaxExpiration(t *testing.T) {
 	setJWTCookieForReq(req, webClientToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Contains(t, rr.Body.String(), "share must expire before")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorShareExpirationOutOfRange)
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -13675,7 +13675,7 @@ func TestShareMaxExpiration(t *testing.T) {
 	setJWTCookieForReq(req, webClientToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Contains(t, rr.Body.String(), "Unable to retrieve your user")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorGetUser)
 }
 
 func TestWebClientShareCredentials(t *testing.T) {
@@ -13748,7 +13748,7 @@ func TestWebClientShareCredentials(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Contains(t, rr.Body.String(), "unable to verify form token")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCSRF)
 	// set the CSRF token
 	csrfToken, err := getCSRFToken(httpBaseURL + webClientLoginPath)
 	assert.NoError(t, err)
@@ -13759,7 +13759,7 @@ func TestWebClientShareCredentials(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Contains(t, rr.Body.String(), "Share login successful")
+	assert.Contains(t, rr.Body.String(), util.I18nShareLoginOK)
 	cookie := rr.Header().Get("Set-Cookie")
 	cookie = strings.TrimPrefix(cookie, "jwt=")
 	assert.NotEmpty(t, cookie)
@@ -13806,7 +13806,7 @@ func TestWebClientShareCredentials(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Contains(t, rr.Body.String(), dataprovider.ErrInvalidCredentials.Error())
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCredentials)
 	// login with the next param set
 	form.Set("share_password", defaultPassword)
 	nextURI := path.Join(webClientPubSharesPath, shareReadID, "browse")
@@ -13826,7 +13826,7 @@ func TestWebClientShareCredentials(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Contains(t, rr.Body.String(), dataprovider.ErrInvalidCredentials.Error())
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCredentials)
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -13885,13 +13885,13 @@ func TestShareMaxSessions(t *testing.T) {
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusTooManyRequests, rr)
-	assert.Contains(t, rr.Body.String(), "too many open sessions")
+	assert.Contains(t, rr.Body.String(), util.I18nError429Message)
 
 	req, err = http.NewRequest(http.MethodGet, webClientPubSharesPath+"/"+objectID+"/browse", nil)
 	assert.NoError(t, err)
 	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusTooManyRequests, rr)
-	assert.Contains(t, rr.Body.String(), "too many open sessions")
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), util.I18nError429Message)
 
 	req, err = http.NewRequest(http.MethodGet, sharesPath+"/"+objectID+"/files?path=afile", nil)
 	assert.NoError(t, err)
@@ -13906,7 +13906,7 @@ func TestShareMaxSessions(t *testing.T) {
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusTooManyRequests, rr)
-	assert.Contains(t, rr.Body.String(), "too many open sessions")
+	assert.Contains(t, rr.Body.String(), util.I18nError429Message)
 
 	req, err = http.NewRequest(http.MethodGet, sharesPath+"/"+objectID, nil)
 	assert.NoError(t, err)
@@ -14131,7 +14131,7 @@ func TestShareReadWrite(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.SetBasicAuth(defaultUsername, defaultPassword)
 	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusInternalServerError, rr)
+	checkResponseCode(t, http.StatusBadRequest, rr)
 	// invalid files list
 	form.Set("files", fmt.Sprintf(`[%s]`, testFileName))
 	req, err = http.NewRequest(http.MethodPost, path.Join(webClientPubSharesPath, objectID, "partial"),
@@ -14141,8 +14141,8 @@ func TestShareReadWrite(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.SetBasicAuth(defaultUsername, defaultPassword)
 	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusInternalServerError, rr)
-	assert.Contains(t, rr.Body.String(), "Unable to get files list")
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), util.I18nError400Message)
 	// missing directory
 	req, err = http.NewRequest(http.MethodPost, path.Join(webClientPubSharesPath, objectID, "partial?path=missing"),
 		bytes.NewBuffer([]byte(form.Encode())))
@@ -14151,8 +14151,8 @@ func TestShareReadWrite(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.SetBasicAuth(defaultUsername, defaultPassword)
 	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusInternalServerError, rr)
-	assert.Contains(t, rr.Body.String(), "Unable to get files list")
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), util.I18nError400Message)
 
 	req, err = http.NewRequest(http.MethodPost, path.Join(sharesPath, objectID)+"/"+url.PathEscape("../"+testFileName),
 		bytes.NewBuffer(content))
@@ -14390,7 +14390,7 @@ func TestBrowseShares(t *testing.T) {
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
-	assert.Contains(t, rr.Body.String(), "Invalid share scope")
+	assert.Contains(t, rr.Body.String(), "invalid share scope")
 
 	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, objectID, "browse?path=%2F"), nil)
 	assert.NoError(t, err)
@@ -14434,7 +14434,7 @@ func TestBrowseShares(t *testing.T) {
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
-	assert.Contains(t, rr.Body.String(), "Invalid share path")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorPathInvalid)
 
 	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, objectID, "dirs?path=%2F.."), nil)
 	assert.NoError(t, err)
@@ -14467,7 +14467,7 @@ func TestBrowseShares(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
-	assert.Contains(t, rr.Body.String(), "Invalid share path")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorPathInvalid)
 
 	req, err = http.NewRequest(http.MethodGet, path.Join(sharesPath, objectID, "files?path="+testFileName), nil) //nolint:goconst
 	assert.NoError(t, err)
@@ -14487,7 +14487,7 @@ func TestBrowseShares(t *testing.T) {
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Contains(t, rr.Body.String(), "file does not exist")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorFsGeneric)
 
 	req, err = http.NewRequest(http.MethodGet, path.Join(sharesPath, objectID, "files?path=missing"), nil)
 	assert.NoError(t, err)
@@ -14508,7 +14508,7 @@ func TestBrowseShares(t *testing.T) {
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Contains(t, rr.Body.String(), "non regular files are not supported for shares")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorFsGeneric)
 
 	req, err = http.NewRequest(http.MethodGet, path.Join(sharesPath, objectID, "files?path="+testFileNameLink), nil)
 	assert.NoError(t, err)
@@ -14520,25 +14520,25 @@ func TestBrowseShares(t *testing.T) {
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
-	assert.Contains(t, rr.Body.String(), "does not look like a PDF")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorPDFMessage)
 
 	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, objectID, "getpdf?path=missing"), nil)
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
-	assert.Contains(t, rr.Body.String(), "Unable to get file")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorFsGeneric)
 
 	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, objectID, "getpdf?path=%2F"), nil)
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
-	assert.Contains(t, rr.Body.String(), "is not a file")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorPDFMessage)
 
 	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, objectID, "getpdf?path=%2F.."), nil)
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
-	assert.Contains(t, rr.Body.String(), "Invalid share path")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorPathInvalid)
 
 	fakePDF := []byte(`%PDF-1.6`)
 	for i := 0; i < 128; i++ {
@@ -14612,13 +14612,13 @@ func TestBrowseShares(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
-	assert.Contains(t, rr.Body.String(), "Unable to validate share")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorShareBrowseNoDir)
 
 	req, err = http.NewRequest(http.MethodGet, path.Join(webClientPubSharesPath, objectID, "getpdf?path="+testFileName), nil)
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
-	assert.Contains(t, rr.Body.String(), "Unable to validate share")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorShareBrowseNoDir)
 
 	req, err = http.NewRequest(http.MethodGet, path.Join(sharesPath, objectID, "files?path="+testFileName), nil)
 	assert.NoError(t, err)
@@ -14635,7 +14635,7 @@ func TestBrowseShares(t *testing.T) {
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
-	assert.Contains(t, rr.Body.String(), "the shared object is not a directory and so it is not browsable")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorShareBrowseNoDir)
 
 	// now test a missing shareID
 	objectID = "123456"
@@ -14720,7 +14720,7 @@ func TestBrowseShares(t *testing.T) {
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
-	assert.Contains(t, rr.Body.String(), "a share with multiple paths is not browsable")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorShareBrowsePaths)
 	// share the root path
 	share = dataprovider.Share{
 		Name:      "test share root",
@@ -15366,14 +15366,14 @@ func TestWebClientViewPDF(t *testing.T) {
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
-	assert.Contains(t, rr.Body.String(), "Unable to get file")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorFsGeneric)
 
 	req, err = http.NewRequest(http.MethodGet, webClientGetPDFPath+"?path=%2F", nil)
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
-	assert.Contains(t, rr.Body.String(), "Invalid file")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorPDFMessage)
 
 	err = os.WriteFile(filepath.Join(user.GetHomeDir(), "test.pdf"), []byte("some text data"), 0666)
 	assert.NoError(t, err)
@@ -15382,8 +15382,8 @@ func TestWebClientViewPDF(t *testing.T) {
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusBadRequest, rr)
-	assert.Contains(t, rr.Body.String(), "Invalid PDF file")
+	checkResponseCode(t, http.StatusInternalServerError, rr)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorPDFMessage)
 
 	err = createTestFile(filepath.Join(user.GetHomeDir(), "test.pdf"), 1024)
 	assert.NoError(t, err)
@@ -15393,7 +15393,7 @@ func TestWebClientViewPDF(t *testing.T) {
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
-	assert.Contains(t, rr.Body.String(), "does not look like a PDF")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorPDFMessage)
 
 	fakePDF := []byte(`%PDF-1.6`)
 	for i := 0; i < 128; i++ {
@@ -15421,7 +15421,7 @@ func TestWebClientViewPDF(t *testing.T) {
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
-	assert.Contains(t, rr.Body.String(), "Unable to get a reader for the file")
+	assert.Contains(t, rr.Body.String(), util.I18nError403Message)
 
 	user.Filters.FilePatterns = []sdk.PatternsFilter{
 		{
@@ -15476,21 +15476,21 @@ func TestWebEditFile(t *testing.T) {
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
-	assert.Contains(t, rr.Body.String(), "exceeds the maximum allowed size")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorEditSize)
 
 	req, err = http.NewRequest(http.MethodGet, webClientEditFilePath+"?path=missing", nil)
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
-	assert.Contains(t, rr.Body.String(), "Unable to stat file")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorFsGeneric)
 
 	req, err = http.NewRequest(http.MethodGet, webClientEditFilePath+"?path=%2F", nil)
 	assert.NoError(t, err)
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
-	assert.Contains(t, rr.Body.String(), "does not point to a file")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorEditDir)
 
 	user.Filters.DeniedProtocols = []string{common.ProtocolHTTP}
 	_, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
@@ -15517,7 +15517,7 @@ func TestWebEditFile(t *testing.T) {
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
-	assert.Contains(t, rr.Body.String(), "Unable to get a reader")
+	assert.Contains(t, rr.Body.String(), util.I18nError403Message)
 
 	_, err = httpdtest.RemoveUser(user, http.StatusOK)
 	assert.NoError(t, err)
@@ -15614,7 +15614,7 @@ func TestWebGetFiles(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusInternalServerError, rr)
+	checkResponseCode(t, http.StatusBadRequest, rr)
 
 	filesList := []string{testFileName, testDir, testFileName + extensions[2]}
 	asJSON, err := json.Marshal(filesList)
@@ -15650,8 +15650,8 @@ func TestWebGetFiles(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusInternalServerError, rr)
-	assert.Contains(t, rr.Body.String(), "Unable to get files list")
+	checkResponseCode(t, http.StatusBadRequest, rr)
+	assert.Contains(t, rr.Body.String(), util.I18nError400Message)
 
 	req, _ = http.NewRequest(http.MethodGet, webClientDirsPath+"?path=/", nil) //nolint:goconst
 	setJWTCookieForReq(req, webToken)
@@ -15675,7 +15675,7 @@ func TestWebGetFiles(t *testing.T) {
 	setJWTCookieForReq(req, webToken)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusNotFound, rr)
-	assert.Contains(t, rr.Body.String(), "Unable to get directory contents")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorDirListGeneric)
 
 	req, _ = http.NewRequest(http.MethodGet, userDirsPath+"?path=missing", nil)
 	setBearerForReq(req, webAPIToken)
@@ -16797,7 +16797,7 @@ func TestWebFilesTransferQuotaLimits(t *testing.T) {
 	assert.NoError(t, err)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
-	assert.Contains(t, rr.Body.String(), "Denying share read due to quota limits")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorQuotaRead)
 
 	share2 := dataprovider.Share{
 		Name:  "share2",
@@ -17489,28 +17489,29 @@ func TestGetFilesSFTPBackend(t *testing.T) {
 		rr = executeRequest(req)
 		checkResponseCode(t, http.StatusOK, rr)
 
+		htmlErrFrag := `div id="errorMsg" class="rounded border-warning border border-dashed bg-light-warning`
 		req, _ = http.NewRequest(http.MethodGet, webClientFilesPath+"?path="+path.Join(testDir, "missing"), nil)
 		setJWTCookieForReq(req, webToken)
 		rr = executeRequest(req)
 		checkResponseCode(t, http.StatusOK, rr)
-		assert.Contains(t, rr.Body.String(), `div id="errorMsg" class="alert alert-dismissible bg-light-warning`)
+		assert.Contains(t, rr.Body.String(), htmlErrFrag)
 		req, _ = http.NewRequest(http.MethodGet, webClientFilesPath+"?path=adir/sub", nil)
 		setJWTCookieForReq(req, webToken)
 		rr = executeRequest(req)
 		checkResponseCode(t, http.StatusOK, rr)
-		assert.Contains(t, rr.Body.String(), `div id="errorMsg" class="alert alert-dismissible bg-light-warning`)
+		assert.Contains(t, rr.Body.String(), htmlErrFrag)
 
 		req, _ = http.NewRequest(http.MethodGet, webClientFilesPath+"?path=adir1/afile", nil)
 		setJWTCookieForReq(req, webToken)
 		rr = executeRequest(req)
 		checkResponseCode(t, http.StatusOK, rr)
-		assert.Contains(t, rr.Body.String(), `div id="errorMsg" class="alert alert-dismissible bg-light-warning`)
+		assert.Contains(t, rr.Body.String(), htmlErrFrag)
 
 		req, _ = http.NewRequest(http.MethodGet, webClientFilesPath+"?path=adir2/afile.txt", nil)
 		setJWTCookieForReq(req, webToken)
 		rr = executeRequest(req)
 		checkResponseCode(t, http.StatusOK, rr)
-		assert.Contains(t, rr.Body.String(), `div id="errorMsg" class="alert alert-dismissible bg-light-warning`)
+		assert.Contains(t, rr.Body.String(), htmlErrFrag)
 
 		req, _ = http.NewRequest(http.MethodGet, webClientFilesPath+"?path="+testFileName, nil)
 		setJWTCookieForReq(req, webToken)
@@ -17573,7 +17574,7 @@ func TestClientUserClose(t *testing.T) {
 		setJWTCookieForReq(req, webToken)
 		rr := executeRequest(req)
 		checkResponseCode(t, http.StatusInternalServerError, rr)
-		assert.Contains(t, rr.Body.String(), "Unable to read the file")
+		assert.Contains(t, rr.Body.String(), util.I18nError500Message)
 	}()
 	wg.Add(1)
 	go func() {
@@ -18015,7 +18016,7 @@ func TestWebUserShare(t *testing.T) {
 	setJWTCookieForReq(req, token)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Contains(t, rr.Body.String(), "cannot parse")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorShareExpiration)
 	form.Set("expiration_date", util.GetTimeFromMsecSinceEpoch(share.ExpiresAt).UTC().Format("2006-01-02 15:04:05"))
 	form.Set("scope", "")
 	// invalid scope
@@ -18026,7 +18027,7 @@ func TestWebUserShare(t *testing.T) {
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Contains(t, rr.Body.String(), "invalid syntax")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorShareScope)
 	form.Set("scope", strconv.Itoa(int(share.Scope)))
 	// invalid max tokens
 	form.Set("max_tokens", "t")
@@ -18037,7 +18038,7 @@ func TestWebUserShare(t *testing.T) {
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Contains(t, rr.Body.String(), "invalid syntax")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorShareMaxTokens)
 	form.Set("max_tokens", strconv.Itoa(share.MaxTokens))
 	// no csrf token
 	req, err = http.NewRequest(http.MethodPost, webClientSharePath, bytes.NewBuffer([]byte(form.Encode())))
@@ -18047,7 +18048,7 @@ func TestWebUserShare(t *testing.T) {
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
-	assert.Contains(t, rr.Body.String(), "unable to verify form token")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCSRF)
 
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("scope", "100")
@@ -18058,7 +18059,7 @@ func TestWebUserShare(t *testing.T) {
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Contains(t, rr.Body.String(), "Validation error: invalid scope")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorShareScope)
 
 	form.Set("scope", strconv.Itoa(int(share.Scope)))
 	req, err = http.NewRequest(http.MethodPost, webClientSharePath, bytes.NewBuffer([]byte(form.Encode())))
@@ -18106,7 +18107,7 @@ func TestWebUserShare(t *testing.T) {
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Contains(t, rr.Body.String(), "cannot parse")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorShareExpiration)
 
 	form.Set("expiration_date", "")
 	form.Set(csrfFormToken, "")
@@ -18117,7 +18118,7 @@ func TestWebUserShare(t *testing.T) {
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
-	assert.Contains(t, rr.Body.String(), "unable to verify form token")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCSRF)
 
 	form.Set(csrfFormToken, csrfToken)
 	form.Set("allowed_ip", "1.1.1")
@@ -18128,7 +18129,7 @@ func TestWebUserShare(t *testing.T) {
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Contains(t, rr.Body.String(), "Validation error: could not parse allow from entry")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidIPMask)
 
 	form.Set("allowed_ip", "")
 	req, err = http.NewRequest(http.MethodPost, webClientSharePath+"/"+share.ShareID, bytes.NewBuffer([]byte(form.Encode())))
@@ -18170,7 +18171,7 @@ func TestWebUserShare(t *testing.T) {
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusBadRequest, rr)
-	assert.Contains(t, rr.Body.String(), "Invalid share list")
+	assert.Contains(t, rr.Body.String(), util.I18nError400Message)
 
 	req, err = http.NewRequest(http.MethodGet, webClientSharePath+"?path=%2F&files=%5B\"adir\"%5D", nil)
 	assert.NoError(t, err)
@@ -18246,8 +18247,8 @@ func TestWebUserShareNoPasswordDisabled(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr := executeRequest(req)
-	checkResponseCode(t, http.StatusForbidden, rr)
-	assert.Contains(t, rr.Body.String(), "You are not authorized to share files/folders without a password")
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorShareNoPwd)
 
 	form.Set("password", defaultPassword)
 	req, err = http.NewRequest(http.MethodPost, webClientSharePath, bytes.NewBuffer([]byte(form.Encode())))
@@ -18287,8 +18288,8 @@ func TestWebUserShareNoPasswordDisabled(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
-	checkResponseCode(t, http.StatusForbidden, rr)
-	assert.Contains(t, rr.Body.String(), "You are not authorized to share files/folders without a password")
+	checkResponseCode(t, http.StatusOK, rr)
+	assert.Contains(t, rr.Body.String(), util.I18nErrorShareNoPwd)
 
 	err = os.RemoveAll(user.GetHomeDir())
 	assert.NoError(t, err)
@@ -18322,7 +18323,7 @@ func TestWebUserProfile(t *testing.T) {
 	setJWTCookieForReq(req, token)
 	rr := executeRequest(req)
 	checkResponseCode(t, http.StatusForbidden, rr)
-	assert.Contains(t, rr.Body.String(), "unable to verify form token")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidCSRF)
 
 	form.Set(csrfFormToken, csrfToken)
 	req, _ = http.NewRequest(http.MethodPost, webClientProfilePath, bytes.NewBuffer([]byte(form.Encode())))
@@ -18331,7 +18332,7 @@ func TestWebUserProfile(t *testing.T) {
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Contains(t, rr.Body.String(), "Your profile has been successfully updated")
+	assert.Contains(t, rr.Body.String(), util.I18nProfileUpdated)
 
 	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 	assert.NoError(t, err)
@@ -18348,7 +18349,7 @@ func TestWebUserProfile(t *testing.T) {
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Contains(t, rr.Body.String(), "Validation error: email")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorInvalidEmail)
 	// invalid public key
 	form.Set("email", email)
 	form.Set("public_keys[0][public_key]", "invalid")
@@ -18358,7 +18359,7 @@ func TestWebUserProfile(t *testing.T) {
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Contains(t, rr.Body.String(), "Validation error: could not parse key")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorPubKeyInvalid)
 	// now remove permissions
 	form.Set("public_keys[0][public_key]", testPubKey)
 	form.Del("public_keys[1][public_key]")
@@ -18376,7 +18377,7 @@ func TestWebUserProfile(t *testing.T) {
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Contains(t, rr.Body.String(), "Your profile has been successfully updated")
+	assert.Contains(t, rr.Body.String(), util.I18nProfileUpdated)
 	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 	assert.NoError(t, err)
 	assert.True(t, user.Filters.AllowAPIKeyAuth)
@@ -18397,7 +18398,7 @@ func TestWebUserProfile(t *testing.T) {
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Contains(t, rr.Body.String(), "Your profile has been successfully updated")
+	assert.Contains(t, rr.Body.String(), util.I18nProfileUpdated)
 	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 	assert.NoError(t, err)
 	assert.True(t, user.Filters.AllowAPIKeyAuth)
@@ -18418,7 +18419,7 @@ func TestWebUserProfile(t *testing.T) {
 	setJWTCookieForReq(req, token)
 	rr = executeRequest(req)
 	checkResponseCode(t, http.StatusOK, rr)
-	assert.Contains(t, rr.Body.String(), "Your profile has been successfully updated")
+	assert.Contains(t, rr.Body.String(), util.I18nProfileUpdated)
 	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 	assert.NoError(t, err)
 	assert.True(t, user.Filters.AllowAPIKeyAuth)
@@ -24086,7 +24087,7 @@ func TestAdminForgotPassword(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Unable to send confirmation code via email")
+	assert.Contains(t, rr.Body.String(), "Error sending confirmation code via email")
 
 	smtpCfg = smtp.Config{}
 	err = smtpCfg.Initialize(configDir, true)
@@ -24166,7 +24167,7 @@ func TestUserForgotPassword(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "username is mandatory")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorUsernameRequired)
 	// user cannot reset the password
 	form.Set("username", user.Username)
 	req, err = http.NewRequest(http.MethodPost, webClientForgotPwdPath, bytes.NewBuffer([]byte(form.Encode())))
@@ -24175,7 +24176,7 @@ func TestUserForgotPassword(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "you are not allowed to reset your password")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorPwdResetForbidded)
 	user.Filters.WebClient = []string{sdk.WebClientAPIKeyAuthChangeDisabled}
 	user, _, err = httpdtest.UpdateUser(user, http.StatusOK, "")
 	assert.NoError(t, err)
@@ -24206,7 +24207,7 @@ func TestUserForgotPassword(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "please set a password")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorChangePwdGeneric)
 	// passwords mismatch
 	form.Set("password", altAdminPassword)
 	req, err = http.NewRequest(http.MethodPost, webClientResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
@@ -24215,7 +24216,7 @@ func TestUserForgotPassword(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "The two password fields do not match")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorChangePwdNoMatch)
 	// no code
 	form.Set("confirm_password", altAdminPassword)
 	req, err = http.NewRequest(http.MethodPost, webClientResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
@@ -24224,7 +24225,7 @@ func TestUserForgotPassword(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "please set a confirmation code")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorChangePwdGeneric)
 	// ok
 	form.Set("code", lastResetCode)
 	req, err = http.NewRequest(http.MethodPost, webClientResetPwdPath, bytes.NewBuffer([]byte(form.Encode())))
@@ -24276,7 +24277,7 @@ func TestUserForgotPassword(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Unable to associate the confirmation code with an existing user")
+	assert.Contains(t, rr.Body.String(), util.I18nErrorChangePwdGeneric)
 }
 
 func TestAPIForgotPassword(t *testing.T) {

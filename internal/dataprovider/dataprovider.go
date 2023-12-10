@@ -2632,14 +2632,23 @@ func buildUserHomeDir(user *User) {
 
 func validateFolderQuotaLimits(folder vfs.VirtualFolder) error {
 	if folder.QuotaSize < -1 {
-		return util.NewValidationError(fmt.Sprintf("invalid quota_size: %v folder path %q", folder.QuotaSize, folder.MappedPath))
+		return util.NewI18nError(
+			util.NewValidationError(fmt.Sprintf("invalid quota_size: %v folder path %q", folder.QuotaSize, folder.MappedPath)),
+			util.I18nErrorFolderQuotaSizeInvalid,
+		)
 	}
 	if folder.QuotaFiles < -1 {
-		return util.NewValidationError(fmt.Sprintf("invalid quota_file: %v folder path %q", folder.QuotaFiles, folder.MappedPath))
+		return util.NewI18nError(
+			util.NewValidationError(fmt.Sprintf("invalid quota_file: %v folder path %q", folder.QuotaFiles, folder.MappedPath)),
+			util.I18nErrorFolderQuotaFileInvalid,
+		)
 	}
 	if (folder.QuotaSize == -1 && folder.QuotaFiles != -1) || (folder.QuotaFiles == -1 && folder.QuotaSize != -1) {
-		return util.NewValidationError(fmt.Sprintf("virtual folder quota_size and quota_files must be both -1 or >= 0, quota_size: %v quota_files: %v",
-			folder.QuotaFiles, folder.QuotaSize))
+		return util.NewI18nError(
+			util.NewValidationError(fmt.Sprintf("virtual folder quota_size and quota_files must be both -1 or >= 0, quota_size: %v quota_files: %v",
+				folder.QuotaFiles, folder.QuotaSize)),
+			util.I18nErrorFolderQuotaInvalid,
+		)
 	}
 	return nil
 }
@@ -2657,12 +2666,18 @@ func validateUserGroups(user *User) error {
 		}
 		if g.Type == sdk.GroupTypePrimary {
 			if hasPrimary {
-				return util.NewValidationError("only one primary group is allowed")
+				return util.NewI18nError(
+					util.NewValidationError("only one primary group is allowed"),
+					util.I18nErrorPrimaryGroup,
+				)
 			}
 			hasPrimary = true
 		}
 		if groupNames[g.Name] {
-			return util.NewValidationError(fmt.Sprintf("the group %q is duplicated", g.Name))
+			return util.NewI18nError(
+				util.NewValidationError(fmt.Sprintf("the group %q is duplicated", g.Name)),
+				util.I18nErrorDuplicateGroup,
+			)
 		}
 		groupNames[g.Name] = true
 	}
@@ -2678,22 +2693,31 @@ func validateAssociatedVirtualFolders(vfolders []vfs.VirtualFolder) ([]vfs.Virtu
 
 	for _, v := range vfolders {
 		if v.VirtualPath == "" {
-			return nil, util.NewValidationError("mount/virtual path is mandatory")
+			return nil, util.NewI18nError(
+				util.NewValidationError("mount/virtual path is mandatory"),
+				util.I18nErrorFolderMountPathRequired,
+			)
 		}
 		cleanedVPath := util.CleanPath(v.VirtualPath)
 		if err := validateFolderQuotaLimits(v); err != nil {
 			return nil, err
 		}
 		if v.Name == "" {
-			return nil, util.NewValidationError("folder name is mandatory")
+			return nil, util.NewI18nError(util.NewValidationError("folder name is mandatory"), util.I18nErrorFolderNameRequired)
 		}
 		if folderNames[v.Name] {
-			return nil, util.NewValidationError(fmt.Sprintf("the folder %q is duplicated", v.Name))
+			return nil, util.NewI18nError(
+				util.NewValidationError(fmt.Sprintf("the folder %q is duplicated", v.Name)),
+				util.I18nErrorDuplicatedFolders,
+			)
 		}
 		for _, vFolder := range virtualFolders {
 			if util.IsDirOverlapped(vFolder.VirtualPath, cleanedVPath, false, "/") {
-				return nil, util.NewValidationError(fmt.Sprintf("invalid virtual folder %q, it overlaps with virtual folder %q",
-					v.VirtualPath, vFolder.VirtualPath))
+				return nil, util.NewI18nError(
+					util.NewValidationError(fmt.Sprintf("invalid virtual folder %q, it overlaps with virtual folder %q",
+						v.VirtualPath, vFolder.VirtualPath)),
+					util.I18nErrorOverlappedFolders,
+				)
 			}
 		}
 		virtualFolders = append(virtualFolders, vfs.VirtualFolder{
@@ -2794,14 +2818,14 @@ func validateUserPermissions(permsToCheck map[string][]string) (map[string][]str
 
 func validatePermissions(user *User) error {
 	if len(user.Permissions) == 0 {
-		return util.NewValidationError("please grant some permissions to this user")
+		return util.NewI18nError(util.NewValidationError("please grant some permissions to this user"), util.I18nErrorNoPermission)
 	}
 	if _, ok := user.Permissions["/"]; !ok {
-		return util.NewValidationError("permissions for the root dir \"/\" must be set")
+		return util.NewI18nError(util.NewValidationError("permissions for the root dir \"/\" must be set"), util.I18nErrorNoRootPermission)
 	}
 	permissions, err := validateUserPermissions(user.Permissions)
 	if err != nil {
-		return err
+		return util.NewI18nError(err, util.I18nErrorGenericPermission)
 	}
 	user.Permissions = permissions
 	return nil
@@ -2836,10 +2860,16 @@ func validateFiltersPatternExtensions(baseFilters *sdk.BaseUserFilters) error {
 	for _, f := range baseFilters.FilePatterns {
 		cleanedPath := filepath.ToSlash(path.Clean(f.Path))
 		if !path.IsAbs(cleanedPath) {
-			return util.NewValidationError(fmt.Sprintf("invalid path %q for file patterns filter", f.Path))
+			return util.NewI18nError(
+				util.NewValidationError(fmt.Sprintf("invalid path %q for file patterns filter", f.Path)),
+				util.I18nErrorFilePatternPathInvalid,
+			)
 		}
 		if util.Contains(filteredPaths, cleanedPath) {
-			return util.NewValidationError(fmt.Sprintf("duplicate file patterns filter for path %q", f.Path))
+			return util.NewI18nError(
+				util.NewValidationError(fmt.Sprintf("duplicate file patterns filter for path %q", f.Path)),
+				util.I18nErrorFilePatternDuplicated,
+			)
 		}
 		if len(f.AllowedPatterns) == 0 && len(f.DeniedPatterns) == 0 {
 			return util.NewValidationError(fmt.Sprintf("empty file patterns filter for path %q", f.Path))
@@ -2853,14 +2883,20 @@ func validateFiltersPatternExtensions(baseFilters *sdk.BaseUserFilters) error {
 		for _, pattern := range f.AllowedPatterns {
 			_, err := path.Match(pattern, "abc")
 			if err != nil {
-				return util.NewValidationError(fmt.Sprintf("invalid file pattern filter %q", pattern))
+				return util.NewI18nError(
+					util.NewValidationError(fmt.Sprintf("invalid file pattern filter %q", pattern)),
+					util.I18nErrorFilePatternInvalid,
+				)
 			}
 			allowed = append(allowed, strings.ToLower(pattern))
 		}
 		for _, pattern := range f.DeniedPatterns {
 			_, err := path.Match(pattern, "abc")
 			if err != nil {
-				return util.NewValidationError(fmt.Sprintf("invalid file pattern filter %q", pattern))
+				return util.NewI18nError(
+					util.NewValidationError(fmt.Sprintf("invalid file pattern filter %q", pattern)),
+					util.I18nErrorFilePatternInvalid,
+				)
 			}
 			denied = append(denied, strings.ToLower(pattern))
 		}
@@ -2964,10 +3000,10 @@ func validateFilterProtocols(filters *sdk.BaseUserFilters) error {
 func validateBaseFilters(filters *sdk.BaseUserFilters) error {
 	checkEmptyFiltersStruct(filters)
 	if err := validateIPFilters(filters); err != nil {
-		return err
+		return util.NewI18nError(err, util.I18nErrorIPFiltersInvalid)
 	}
 	if err := validateBandwidthLimitsFilter(filters); err != nil {
-		return err
+		return util.NewI18nError(err, util.I18nErrorSourceBWLimitInvalid)
 	}
 	if len(filters.DeniedLoginMethods) >= len(ValidLoginMethods) {
 		return util.NewValidationError("invalid denied_login_methods")
@@ -2991,8 +3027,11 @@ func validateBaseFilters(filters *sdk.BaseUserFilters) error {
 		}
 	}
 	if filters.MaxSharesExpiration > 0 && filters.MaxSharesExpiration < filters.DefaultSharesExpiration {
-		return util.NewValidationError(fmt.Sprintf("default shares expiration: %d must be less than or equal to max shares expiration: %d",
-			filters.DefaultSharesExpiration, filters.MaxSharesExpiration))
+		return util.NewI18nError(
+			util.NewValidationError(fmt.Sprintf("default shares expiration: %d must be less than or equal to max shares expiration: %d",
+				filters.DefaultSharesExpiration, filters.MaxSharesExpiration)),
+			util.I18nErrorShareExpirationInvalid,
+		)
 	}
 	updateFiltersValues(filters)
 
@@ -3001,40 +3040,54 @@ func validateBaseFilters(filters *sdk.BaseUserFilters) error {
 
 func validateCombinedUserFilters(user *User) error {
 	if user.Filters.TOTPConfig.Enabled && util.Contains(user.Filters.WebClient, sdk.WebClientMFADisabled) {
-		return util.NewValidationError("two-factor authentication cannot be disabled for a user with an active configuration")
+		return util.NewI18nError(
+			util.NewValidationError("two-factor authentication cannot be disabled for a user with an active configuration"),
+			util.I18nErrorDisableActive2FA,
+		)
 	}
 	if user.Filters.RequirePasswordChange && util.Contains(user.Filters.WebClient, sdk.WebClientPasswordChangeDisabled) {
-		return util.NewValidationError("you cannot require password change and at the same time disallow it")
+		return util.NewI18nError(
+			util.NewValidationError("you cannot require password change and at the same time disallow it"),
+			util.I18nErrorPwdChangeConflict,
+		)
 	}
 	return nil
 }
 
 func validateBaseParams(user *User) error {
 	if user.Username == "" {
-		return util.NewValidationError("username is mandatory")
+		return util.NewI18nError(util.NewValidationError("username is mandatory"), util.I18nErrorUsernameRequired)
 	}
 	if err := checkReservedUsernames(user.Username); err != nil {
-		return err
+		return util.NewI18nError(err, util.I18nErrorReservedUsername)
 	}
 	if user.Email != "" && !util.IsEmailValid(user.Email) {
-		return util.NewValidationError(fmt.Sprintf("email %q is not valid", user.Email))
+		return util.NewI18nError(
+			util.NewValidationError(fmt.Sprintf("email %q is not valid", user.Email)),
+			util.I18nErrorInvalidEmail,
+		)
 	}
 	if config.NamingRules&1 == 0 && !usernameRegex.MatchString(user.Username) {
-		return util.NewValidationError(fmt.Sprintf("username %q is not valid, the following characters are allowed: a-zA-Z0-9-_.~",
-			user.Username))
+		return util.NewI18nError(
+			util.NewValidationError(fmt.Sprintf("username %q is not valid, the following characters are allowed: a-zA-Z0-9-_.~", user.Username)),
+			util.I18nErrorInvalidUser,
+		)
 	}
 	if user.hasRedactedSecret() {
 		return util.NewValidationError("cannot save a user with a redacted secret")
 	}
 	if user.HomeDir == "" {
-		return util.NewValidationError("home_dir is mandatory")
+		return util.NewI18nError(util.NewValidationError("home_dir is mandatory"), util.I18nErrorHomeRequired)
 	}
 	// we can have users with no passwords and public keys, they can authenticate via SSH user certs or OIDC
 	/*if user.Password == "" && len(user.PublicKeys) == 0 {
 		return util.NewValidationError("please set a password or at least a public_key")
 	}*/
 	if !filepath.IsAbs(user.HomeDir) {
-		return util.NewValidationError(fmt.Sprintf("home_dir must be an absolute path, actual value: %v", user.HomeDir))
+		return util.NewI18nError(
+			util.NewValidationError(fmt.Sprintf("home_dir must be an absolute path, actual value: %v", user.HomeDir)),
+			util.I18nErrorHomeInvalid,
+		)
 	}
 	if user.DownloadBandwidth < 0 {
 		user.DownloadBandwidth = 0
@@ -3050,7 +3103,11 @@ func validateBaseParams(user *User) error {
 	if user.Filters.IsAnonymous {
 		user.setAnonymousSettings()
 	}
-	return user.FsConfig.Validate(user.GetEncryptionAdditionalData())
+	err := user.FsConfig.Validate(user.GetEncryptionAdditionalData())
+	if err != nil {
+		return util.NewI18nError(err, util.I18nErrorFsValidation)
+	}
+	return nil
 }
 
 func hashPlainPassword(plainPwd string) (string, error) {
@@ -3072,7 +3129,7 @@ func createUserPasswordHash(user *User) error {
 	if user.Password != "" && !user.IsPasswordHashed() {
 		if minEntropy := user.getMinPasswordEntropy(); minEntropy > 0 {
 			if err := passwordvalidator.Validate(user.Password, minEntropy); err != nil {
-				return util.NewValidationError(err.Error())
+				return util.NewI18nError(util.NewValidationError(err.Error()), util.I18nErrorPasswordComplexity)
 			}
 		}
 		hashedPwd, err := hashPlainPassword(user.Password)
@@ -3127,10 +3184,10 @@ func ValidateUser(user *User) error {
 		return err
 	}
 	if err := validateUserTOTPConfig(&user.Filters.TOTPConfig, user.Username); err != nil {
-		return err
+		return util.NewI18nError(err, util.I18nError2FAInvalid)
 	}
 	if err := validateUserRecoveryCodes(user); err != nil {
-		return err
+		return util.NewI18nError(err, util.I18nErrorRecoveryCodesInvalid)
 	}
 	vfolders, err := validateAssociatedVirtualFolders(user.VirtualFolders)
 	if err != nil {
@@ -3144,7 +3201,7 @@ func ValidateUser(user *User) error {
 		return err
 	}
 	if err := validatePublicKeys(user); err != nil {
-		return err
+		return util.NewI18nError(err, util.I18nErrorPubKeyInvalid)
 	}
 	if err := validateBaseFilters(&user.Filters.BaseUserFilters); err != nil {
 		return err

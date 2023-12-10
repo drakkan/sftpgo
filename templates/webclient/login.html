@@ -15,8 +15,6 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 -->
 {{- template "baselogin" .}}
 
-{{- define "title"}}Login{{- end}}
-
 {{- define "content"}}
 						<form class="form w-100" id="sign_in_form" action="{{.CurrentURL}}" method="POST">
 							<div class="container mb-10">
@@ -34,13 +32,13 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 							{{template "errmsg" .Error}}
 							{{- if not .FormDisabled}}
 							<div class="fv-row mb-10">
-								<input class="form-control form-control-lg form-control-solid" type="text" name="username" placeholder="Username" spellcheck="false" required />
+								<input data-i18n="[placeholder]login.username" class="form-control form-control-lg form-control-solid" type="text" name="username" placeholder="Username" spellcheck="false" required />
 							</div>
 							<div class="fv-row mb-10">
-								<input class="form-control form-control-lg form-control-solid" type="password" name="password" placeholder="Password" autocomplete="current-password" spellcheck="false" required />
+								<input data-i18n="[placeholder]login.password" class="form-control form-control-lg form-control-solid" type="password" name="password" placeholder="Password" autocomplete="current-password" spellcheck="false" required />
 								<div class="d-flex justify-content-end mt-2">
 									{{- if .ForgotPwdURL}}
-									<a href="{{.ForgotPwdURL}}" class="link-primary fs-6 fw-bold">Forgot Password ?</a>
+									<a data-i18n="login.forgot_password" href="{{.ForgotPwdURL}}" class="link-primary fs-6 fw-bold">Forgot Password ?</a>
 									{{- end}}
 								</div>
 							</div>
@@ -49,18 +47,19 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 								{{- if not .FormDisabled}}
 								<input type="hidden" name="_form_token" value="{{.CSRFToken}}">
 								<button type="submit" id="sign_in_submit" class="btn btn-lg btn-primary w-100 mb-5">
-									<span class="indicator-label">Sign in</span>
-									<span class="indicator-progress">Please wait...
+									<span data-i18n="login.signin" class="indicator-label">Sign in</span>
+									<span data-i18n="general.wait" class="indicator-progress">
+										Please wait...
 										<span class="spinner-border spinner-border-sm align-middle ms-2"></span>
 									</span>
 								</button>
 								{{- end}}
 								{{- if .OpenIDLoginURL}}
 								{{- if not .FormDisabled}}
-								<div class="text-center text-muted text-uppercase fw-bold mb-5">or</div>
+								<div data-i18n="general.or" class="text-center text-muted text-uppercase fw-bold mb-5">or</div>
 								{{- end}}
 								<a href="{{.OpenIDLoginURL}}" class="btn btn-flex flex-center btn-light btn-lg w-100 mb-5">
-								<img alt="Logo" src="{{.StaticURL}}/img/openid-logo.png" class="h-20px me-3" />Sign in with OpenID</a>
+								<img data-i18n="login.signin_openid" alt="Logo" src="{{.StaticURL}}/img/openid-logo.png" class="h-20px me-3" />Sign in with OpenID</a>
 								{{- end}}
 							</div>
 						</form>

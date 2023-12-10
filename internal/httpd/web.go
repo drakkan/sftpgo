@@ -15,10 +15,15 @@
 package httpd
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/unrolled/secure"
+
+	"github.com/drakkan/sftpgo/v2/internal/util"
+	"github.com/drakkan/sftpgo/v2/internal/version"
 )
 
 const (
@@ -44,21 +49,26 @@ const (
 	templateCommonBase         = "base.html"
 )
 
+var (
+	errInvalidTokenClaims = errors.New("invalid token claims")
+)
+
 type commonBasePage struct {
 	CSPNonce  string
 	StaticURL string
+	Version   string
 }
 
 type loginPage struct {
 	commonBasePage
 	CurrentURL     string
-	Version        string
 	Error          string
 	CSRFToken      string
 	AltLoginURL    string
 	AltLoginName   string
 	ForgotPwdURL   string
 	OpenIDLoginURL string
+	Title          string
 	Branding       UIBranding
 	FormDisabled   bool
 }
@@ -66,7 +76,6 @@ type loginPage struct {
 type twoFactorPage struct {
 	commonBasePage
 	CurrentURL  string
-	Version     string
 	Error       string
 	CSRFToken   string
 	RecoveryURL string
@@ -110,8 +119,32 @@ func hasPrefixAndSuffix(key, prefix, suffix string) bool {
 }
 
 func getCommonBasePage(r *http.Request) commonBasePage {
+	v := version.Get()
 	return commonBasePage{
 		CSPNonce:  secure.CSPNonce(r.Context()),
 		StaticURL: webStaticFilesPath,
+		Version:   fmt.Sprintf("v%v-%v", v.Version, v.CommitHash),
 	}
+}
+
+func i18nListDirMsg(status int) string {
+	if status == http.StatusForbidden {
+		return util.I18nErrorDirList403
+	}
+	return util.I18nErrorDirListGeneric
+}
+
+func i18nFsMsg(status int) string {
+	if status == http.StatusForbidden {
+		return util.I18nError403Message
+	}
+	return util.I18nErrorFsGeneric
+}
+
+func getI18NErrorString(err error, fallback string) string {
+	var errI18n *util.I18nError
+	if errors.As(err, &errI18n) {
+		return errI18n.I18nMessage
+	}
+	return fallback
 }

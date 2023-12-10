@@ -455,7 +455,7 @@ func (s *httpdServer) checkPublicShare(w http.ResponseWriter, r *http.Request, v
 	isWebClient := isWebClientRequest(r)
 	renderError := func(err error, message string, statusCode int) {
 		if isWebClient {
-			s.renderClientMessagePage(w, r, "Unable to access the share", message, statusCode, err, "")
+			s.renderClientMessagePage(w, r, util.I18nShareAccessErrorTitle, statusCode, err, message)
 		} else {
 			sendAPIResponse(w, r, err, message, statusCode)
 		}
@@ -466,14 +466,15 @@ func (s *httpdServer) checkPublicShare(w http.ResponseWriter, r *http.Request, v
 	if err != nil {
 		statusCode := getRespStatus(err)
 		if statusCode == http.StatusNotFound {
-			err = errors.New("share does not exist")
+			err = util.NewI18nError(errors.New("share does not exist"), util.I18nError404Message)
 		}
 		renderError(err, "", statusCode)
 		return share, nil, err
 	}
 	if !util.Contains(validScopes, share.Scope) {
-		renderError(nil, "Invalid share scope", http.StatusForbidden)
-		return share, nil, errors.New("invalid share scope")
+		err := errors.New("invalid share scope")
+		renderError(util.NewI18nError(err, util.I18nErrorShareScope), "", http.StatusForbidden)
+		return share, nil, err
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	ok, err := share.IsUsable(ipAddr)
@@ -524,20 +525,29 @@ func getUserForShare(share dataprovider.Share) (dataprovider.User, error) {
 		return user, err
 	}
 	if !user.CanManageShares() {
-		return user, util.NewRecordNotFoundError("this share does not exist")
+		return user, util.NewI18nError(util.NewRecordNotFoundError("this share does not exist"), util.I18nError404Message)
 	}
 	if share.Password == "" && util.Contains(user.Filters.WebClient, sdk.WebClientShareNoPasswordDisabled) {
-		return user, fmt.Errorf("sharing without a password was disabled: %w", os.ErrPermission)
+		return user, util.NewI18nError(
+			fmt.Errorf("sharing without a password was disabled: %w", os.ErrPermission),
+			util.I18nError403Message,
+		)
 	}
 	if user.MustSetSecondFactorForProtocol(common.ProtocolHTTP) {
-		return user, util.NewMethodDisabledError("two-factor authentication requirements not met")
+		return user, util.NewI18nError(
+			util.NewMethodDisabledError("two-factor authentication requirements not met"),
+			util.I18nError403Message,
+		)
 	}
 	return user, nil
 }
 
 func validateBrowsableShare(share dataprovider.Share, connection *Connection) error {
 	if len(share.Paths) != 1 {
-		return util.NewValidationError("a share with multiple paths is not browsable")
+		return util.NewI18nError(
+			util.NewValidationError("a share with multiple paths is not browsable"),
+			util.I18nErrorShareBrowsePaths,
+		)
 	}
 	basePath := share.Paths[0]
 	info, err := connection.Stat(basePath, 0)
@@ -545,7 +555,10 @@ func validateBrowsableShare(share dataprovider.Share, connection *Connection) er
 		return fmt.Errorf("unable to check the share directory: %w", err)
 	}
 	if !info.IsDir() {
-		return util.NewValidationError("the shared object is not a directory and so it is not browsable")
+		return util.NewI18nError(
+			util.NewValidationError("the shared object is not a directory and so it is not browsable"),
+			util.I18nErrorShareBrowseNoDir,
+		)
 	}
 	return nil
 }
@@ -556,7 +569,10 @@ func getBrowsableSharedPath(share dataprovider.Share, r *http.Request) (string, 
 		return name, nil
 	}
 	if name != share.Paths[0] && !strings.HasPrefix(name, share.Paths[0]+"/") {
-		return "", util.NewValidationError(fmt.Sprintf("Invalid path %q", r.URL.Query().Get("path")))
+		return "", util.NewI18nError(
+			util.NewValidationError(fmt.Sprintf("Invalid path %q", r.URL.Query().Get("path"))),
+			util.I18nErrorPathInvalid,
+		)
 	}
 	return name, nil
 }

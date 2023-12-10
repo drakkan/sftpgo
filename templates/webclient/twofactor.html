@@ -15,8 +15,6 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 -->
 {{- template "baselogin" .}}
 
-{{- define "title"}}{{.Title}}{{- end}}
-
 {{- define "content"}}
 <form class="form w-100" id="sign_in_form" action="{{.CurrentURL}}" method="POST">
     <div class="container mb-10">
@@ -33,13 +31,14 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     </div>
     {{template "errmsg" .Error}}
     <div class="fv-row mb-10">
-        <input class="form-control form-control-lg form-control-solid" type="text" placeholder="Authentication code" name="passcode" spellcheck="false" required />
+        <input data-i18n="[placeholder]login.auth_code" class="form-control form-control-lg form-control-solid" type="text" placeholder="Authentication code" name="passcode" spellcheck="false" required />
     </div>
     <div class="text-center">
         <input type="hidden" name="_form_token" value="{{.CSRFToken}}">
         <button type="submit" id="sign_in_submit" class="btn btn-lg btn-primary w-100 mb-5">
-            <span class="indicator-label">Verify</span>
-            <span class="indicator-progress">Please wait...
+            <span data-i18n="general.verify" class="indicator-label">Verify</span>
+            <span data-i18n="general.wait" class="indicator-progress">
+                Please wait...
                 <span class="spinner-border spinner-border-sm align-middle ms-2"></span>
             </span>
         </button>
@@ -54,11 +53,13 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     <div class="d-flex flex-stack flex-grow-1 flex-wrap flex-md-nowrap">
         <div class="mb-3 mb-md-0 fw-semibold">
             <div class="fs-6 text-gray-700">
-                Open the two-factor authentication app on your device to view your authentication code and verify your identity.
+                <span data-i18n="login.two_factor_help">
+                    Open the two-factor authentication app on your device to view your authentication code and verify your identity.
+                </span>
             </div>
             <div class="fs-6 text-gray-800 mt-5">
-                <p class="fw-bold">Having problems?</p>
-                <p><a href="{{.RecoveryURL}}">Enter a two-factor recovery code</a></p>
+                <p data-i18n="general.problems" class="fw-bold">Having problems?</p>
+                <p><a data-i18n="login.two_factor_msg" href="{{.RecoveryURL}}">Enter a two-factor recovery code</a></p>
             </div>
         </div>
     </div>

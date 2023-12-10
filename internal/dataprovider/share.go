@@ -76,50 +76,12 @@ type Share struct {
 	IsRestore bool `json:"-"`
 }
 
-// GetScopeAsString returns the share's scope as string.
-// Used in web pages
-func (s *Share) GetScopeAsString() string {
-	switch s.Scope {
-	case ShareScopeWrite:
-		return "Write"
-	case ShareScopeReadWrite:
-		return "Read/Write"
-	default:
-		return "Read"
-	}
-}
-
 // IsExpired returns true if the share is expired
 func (s *Share) IsExpired() bool {
 	if s.ExpiresAt > 0 {
 		return s.ExpiresAt < util.GetTimeAsMsSinceEpoch(time.Now())
 	}
 	return false
-}
-
-// GetInfoString returns share's info as string.
-func (s *Share) GetInfoString() string {
-	var result strings.Builder
-	if s.ExpiresAt > 0 {
-		t := util.GetTimeFromMsecSinceEpoch(s.ExpiresAt)
-		result.WriteString(fmt.Sprintf("Expiration: %v. ", t.Format("2006-01-02 15:04"))) // YYYY-MM-DD HH:MM
-	}
-	if s.LastUseAt > 0 {
-		t := util.GetTimeFromMsecSinceEpoch(s.LastUseAt)
-		result.WriteString(fmt.Sprintf("Last use: %v. ", t.Format("2006-01-02 15:04")))
-	}
-	if s.MaxTokens > 0 {
-		result.WriteString(fmt.Sprintf("Usage: %v/%v. ", s.UsedTokens, s.MaxTokens))
-	} else {
-		result.WriteString(fmt.Sprintf("Used tokens: %v. ", s.UsedTokens))
-	}
-	if len(s.AllowFrom) > 0 {
-		result.WriteString(fmt.Sprintf("Allowed IP/Mask: %v. ", len(s.AllowFrom)))
-	}
-	if s.Password != "" {
-		result.WriteString("Password protected.")
-	}
-	return result.String()
 }
 
 // GetAllowedFromAsString returns the allowed IP as comma separated string
@@ -185,7 +147,7 @@ func (s *Share) hashPassword() error {
 		}
 		if minEntropy := user.getMinPasswordEntropy(); minEntropy > 0 {
 			if err := passwordvalidator.Validate(s.Password, minEntropy); err != nil {
-				return util.NewValidationError(err.Error())
+				return util.NewI18nError(util.NewValidationError(err.Error()), util.I18nErrorPasswordComplexity)
 			}
 		}
 		if config.PasswordHashing.Algo == HashingAlgoBcrypt {
@@ -214,14 +176,14 @@ func (s *Share) validatePaths() error {
 	}
 	s.Paths = paths
 	if len(s.Paths) == 0 {
-		return util.NewValidationError("at least a shared path is required")
+		return util.NewI18nError(util.NewValidationError("at least a shared path is required"), util.I18nErrorSharePathRequired)
 	}
 	for idx := range s.Paths {
 		s.Paths[idx] = util.CleanPath(s.Paths[idx])
 	}
 	s.Paths = util.RemoveDuplicates(s.Paths, false)
 	if s.Scope >= ShareScopeWrite && len(s.Paths) != 1 {
-		return util.NewValidationError("the write share scope requires exactly one path")
+		return util.NewI18nError(util.NewValidationError("the write share scope requires exactly one path"), util.I18nErrorShareWriteScope)
 	}
 	// check nested paths
 	if len(s.Paths) > 1 {
@@ -230,8 +192,8 @@ func (s *Share) validatePaths() error {
 				if idx == innerIdx {
 					continue
 				}
-				if util.IsDirOverlapped(s.Paths[idx], s.Paths[innerIdx], true, "/") {
-					return util.NewGenericError("shared paths cannot be nested")
+				if s.Paths[idx] == "/" || s.Paths[innerIdx] == "/" || util.IsDirOverlapped(s.Paths[idx], s.Paths[innerIdx], true, "/") {
+					return util.NewI18nError(util.NewGenericError("shared paths cannot be nested"), util.I18nErrorShareNestedPaths)
 				}
 			}
 		}
@@ -244,26 +206,26 @@ func (s *Share) validate() error {
 		return util.NewValidationError("share_id is mandatory")
 	}
 	if s.Name == "" {
-		return util.NewValidationError("name is mandatory")
+		return util.NewI18nError(util.NewValidationError("name is mandatory"), util.I18nErrorNameRequired)
 	}
 	if s.Scope < ShareScopeRead || s.Scope > ShareScopeReadWrite {
-		return util.NewValidationError(fmt.Sprintf("invalid scope: %v", s.Scope))
+		return util.NewI18nError(util.NewValidationError(fmt.Sprintf("invalid scope: %v", s.Scope)), util.I18nErrorShareScope)
 	}
 	if err := s.validatePaths(); err != nil {
 		return err
 	}
 	if s.ExpiresAt > 0 {
 		if !s.IsRestore && s.ExpiresAt < util.GetTimeAsMsSinceEpoch(time.Now()) {
-			return util.NewValidationError("expiration must be in the future")
+			return util.NewI18nError(util.NewValidationError("expiration must be in the future"), util.I18nErrorShareExpirationPast)
 		}
 	} else {
 		s.ExpiresAt = 0
 	}
 	if s.MaxTokens < 0 {
-		return util.NewValidationError("invalid max tokens")
+		return util.NewI18nError(util.NewValidationError("invalid max tokens"), util.I18nErrorShareMaxTokens)
 	}
 	if s.Username == "" {
-		return util.NewValidationError("username is mandatory")
+		return util.NewI18nError(util.NewValidationError("username is mandatory"), util.I18nErrorUsernameRequired)
 	}
 	if s.HasRedactedPassword() {
 		return util.NewValidationError("cannot save a share with a redacted password")
@@ -275,7 +237,10 @@ func (s *Share) validate() error {
 	for _, IPMask := range s.AllowFrom {
 		_, _, err := net.ParseCIDR(IPMask)
 		if err != nil {
-			return util.NewValidationError(fmt.Sprintf("could not parse allow from entry %q : %v", IPMask, err))
+			return util.NewI18nError(
+				util.NewValidationError(fmt.Sprintf("could not parse allow from entry %q : %v", IPMask, err)),
+				util.I18nErrorInvalidIPMask,
+			)
 		}
 	}
 	return nil
@@ -313,11 +278,11 @@ func (s *Share) GetRelativePath(name string) string {
 // IsUsable checks if the share is usable from the specified IP
 func (s *Share) IsUsable(ip string) (bool, error) {
 	if s.MaxTokens > 0 && s.UsedTokens >= s.MaxTokens {
-		return false, util.NewRecordNotFoundError("max share usage exceeded")
+		return false, util.NewI18nError(util.NewRecordNotFoundError("max share usage exceeded"), util.I18nErrorShareUsage)
 	}
 	if s.ExpiresAt > 0 {
 		if s.ExpiresAt < util.GetTimeAsMsSinceEpoch(time.Now()) {
-			return false, util.NewRecordNotFoundError("share expired")
+			return false, util.NewI18nError(util.NewRecordNotFoundError("share expired"), util.I18nErrorShareExpired)
 		}
 	}
 	if len(s.AllowFrom) == 0 {
@@ -325,7 +290,7 @@ func (s *Share) IsUsable(ip string) (bool, error) {
 	}
 	parsedIP := net.ParseIP(ip)
 	if parsedIP == nil {
-		return false, ErrLoginNotAllowedFromIP
+		return false, util.NewI18nError(ErrLoginNotAllowedFromIP, util.I18nErrorLoginFromIPDenied)
 	}
 	for _, ipMask := range s.AllowFrom {
 		_, network, err := net.ParseCIDR(ipMask)
@@ -336,5 +301,5 @@ func (s *Share) IsUsable(ip string) (bool, error) {
 			return true, nil
 		}
 	}
-	return false, ErrLoginNotAllowedFromIP
+	return false, util.NewI18nError(ErrLoginNotAllowedFromIP, util.I18nErrorLoginFromIPDenied)
 }

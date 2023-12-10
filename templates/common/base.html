@@ -14,14 +14,14 @@ therefore cannot be used in derivative works/products without an
 explicit grant from the SFTPGo Team (support@sftpgo.com).
 -->
 {{- define "errmsg"}}
-<div id="errorMsg" class="{{if not . }}d-none {{end}}alert alert-dismissible bg-light-warning d-flex align-items-center p-5 mb-10">
-    <i class="ki-duotone ki-information-5 fs-3x text-warning me-5">
+<div id="errorMsg" class="{{if not . }}d-none {{end}}rounded border-warning border border-dashed bg-light-warning d-flex align-items-center p-5 mb-10">
+    <i class="ki-duotone ki-information fs-3x text-warning me-5">
         <span class="path1"></span>
         <span class="path2"></span>
         <span class="path3"></span>
     </i>
     <div class="text-gray-800 fw-bold fs-5 d-flex flex-column pe-0 pe-sm-10">
-		<span id="errorTxt">{{.}}</span>
+		<span data-i18n="{{.}}" id="errorTxt"></span>
 	</div>
     <button id="id_dismiss_error_msg" type="button" class="position-absolute position-sm-relative m-2 m-sm-0 top-0 end-0 btn btn-icon btn-sm btn-active-light-primary ms-sm-auto">
         <i class="ki-duotone ki-cross fs-2x text-primary">
@@ -71,7 +71,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 {{- end}}
 
 {{- define "basejs"}}
-<script type="text/javascript" {{- if .}} nonce="{{.}}"{{- end}}>
+<script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
     // https://developer.mozilla.org/en-US/docs/Web/API/Document/createTextNode
     function escapeHTML(str) {
         var div = document.createElement('div');
@@ -106,6 +106,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             initEmpty: false,
 
             show: function () {
+                $(this).localize();
                 $(this).slideDown();
                 $(this).find('[data-repeater-delete]').on("click", function(e){
                     e.preventDefault();
@@ -124,6 +125,88 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         }
     }
 
+    const renderI18n = () => {
+        $('body').localize();
+        let select2elements = [].slice.call(document.querySelectorAll('[data-control="i18n-select2"]'));
+        select2elements.map(function (element){
+            if (element.getAttribute("data-kt-initialized") === "1") {
+                return;
+            }
+            let options = {
+                dir: document.body.getAttribute('direction'),
+                language: {
+                    noResults: function () {
+                        return $.t('select2.no_results');
+                    },
+                    searching: function () {
+                        return $.t('select2.searching');
+                    },
+                    removeAllItems: function () {
+                        return $.t('select2.removeall');
+                    },
+                    removeItem: function () {
+                        return $.t('select2.remove');
+                    },
+                    search: function() {
+                        return $.t('general.search');
+                    }
+                }
+            };
+
+            if (element.getAttribute('data-hide-search') == 'true') {
+                options.minimumResultsForSearch = Infinity;
+            }
+
+            $(element).select2(options);
+            element.setAttribute("data-kt-initialized", "1");
+        });
+    }
+
+    function initLocalizer() {
+        i18next
+            .use(i18nextChainedBackend)
+            .use(i18nextBrowserLanguageDetector)
+            .init({
+                debug: false,
+                fallbackLng: 'en',
+                load: 'languageOnly',
+                backend: {
+                    backends: [
+                        i18nextLocalStorageBackend,
+                        i18nextHttpBackend
+                    ],
+                    backendOptions: [{
+                        expirationTime: 7 * 24 * 60 * 60 * 1000, // 7 days
+                        defaultVersion: '{{.Version}}'
+                    }, {
+                        loadPath: '{{.StaticURL}}/locales/{{"{{lng}}"}}/{{"{{ns}}"}}.json'
+                    }
+                    ]
+                }
+            }, (err, t) => {
+                if (err) {
+                    console.error(err);
+                } else {
+                    jqueryI18next.init(i18next, $, { useOptionsAttr: true });
+                    renderI18n();
+                    $('title').text('{{.Branding.Name}} - '+$.t('{{.Title}}'));
+                    $.event.trigger({
+                        type: "i18nload"
+                    });
+                }
+                $('#app_loader').addClass("d-none");
+                $('#app_root').removeClass("d-none");
+                $.event.trigger({
+                    type: "i18nshow"
+                });
+            });
+    }
+
+    function setI18NData(el, value) {
+        el.attr("data-i18n", value);
+        el.localize();
+    }
+
     KTUtil.onDOMContentLoaded(function () {
         var dismissErrorBtn = $('#id_dismiss_error_msg');
         if (dismissErrorBtn){
@@ -139,6 +222,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             });
         }
 
+        initLocalizer();
 	});
 </script>
 {{- end}}

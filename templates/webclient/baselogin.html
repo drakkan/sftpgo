@@ -17,7 +17,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 <!DOCTYPE html>
 <html lang="en">
     <head>
-		<title>{{.Branding.Name}} - {{template "title" .}}</title>
+		<title></title>
 		<meta charset="utf-8" />
 		<meta name="description" content="" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -35,7 +35,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
     <body class="app-blank">
         {{- template "theme-setup" .CSPNonce}}
-        <div class="d-flex flex-column flex-root">
+		<div id="app_loader" class="align-items-center text-center my-10">
+            <span class="spinner-border w-15px h-15px text-muted align-middle me-2"></span>
+        </div>
+        <div class="d-flex flex-column flex-root d-none" id="app_root">
 			<div class="d-flex flex-column flex-column-fluid bgi-position-y-bottom position-x-center bgi-no-repeat bgi-size-contain bgi-attachment-fixed">
 				<div class="d-flex flex-center flex-column flex-column-fluid p-10 pb-lg-20">
 					<div class="w-lg-500px w-md-450px w-sm-400px bg-body rounded shadow-sm p-10 p-lg-15 mx-auto">
@@ -46,7 +49,13 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 		</div>
 		<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/plugins/global/plugins.bundle.js"></script>
 		<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/js/scripts.bundle.js"></script>
-		{{- template "basejs" .CSPNonce }}
+		<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/i18next/i18next.js"></script>
+		<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/i18next/jquery-i18next.js"></script>
+		<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/i18next/i18nextBrowserLanguageDetector.js"></script>
+		<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/i18next/i18nextChainedBackend.js"></script>
+        <script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/i18next/i18nextLocalStorageBackend.js"></script>
+		<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/vendor/i18next/i18nextHttpBackend.js"></script>
+		{{- template "basejs" . }}
 		<script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
 			KTUtil.onDOMContentLoaded(function () {
 				$('#sign_in_form').submit(function (event) {

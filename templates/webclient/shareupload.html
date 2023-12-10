@@ -15,8 +15,6 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 -->
 {{- template "base" .}}
 
-{{- define "title"}}{{.Title}}{{- end}}
-
 {{- define "page_body"}}
 <div class="d-flex flex-center flex-column flex-column-fluid p-10 pb-lg-20">
     <div class="mb-12">
@@ -29,7 +27,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     </div>
     <div class="card shadow-sm w-lg-600px">
         <div class="card-header bg-light">
-            <h3 class="card-title text-primary">Upload one or more files to share "{{.Share.Name}}"</h3>
+            <h3 data-i18n="title.upload_to_share" class="card-title text-primary">Upload one or more files to share</h3>
         </div>
         <div class="card-body">
             {{- template "errmsg" ""}}
@@ -39,13 +37,13 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         <div class="dz-message needsclick align-items-center">
                             <i class="ki-duotone ki-file-up fs-3x text-primary"><span class="path1"></span><span class="path2"></span></i>
                             <div class="ms-4">
-                                <h3 class="fs-5 fw-bold text-gray-900 mb-1">Drop files here or click to upload.</h3>
+                                <h3 data-i18n="fs.upload.message" class="fs-5 fw-bold text-gray-900 mb-1">Drop files here or click to upload.</h3>
                             </div>
                         </div>
                     </div>
                 </div>
                 <div class="d-flex justify-content-end mt-10">
-                    <button type="button" id="upload_files_button" class="btn btn-primary">Submit</button>
+                    <button data-i18n="general.submit" type="button" id="upload_files_button" class="btn btn-primary">Submit</button>
                 </div>
             </form>
         </div>
@@ -69,9 +67,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 KTApp.hidePageLoading();
                 if (!has_errors) {
                     ModalAlert.fire({
-                        text: `File/s uploaded successfully`,
+                        text: $.t('fs.upload.success'),
                         icon: "success",
-                        confirmButtonText: "OK",
+                        confirmButtonText: $.t('general.ok'),
                         customClass: {
                             confirmButton: 'btn btn-primary'
                         }
@@ -90,13 +88,17 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             try {
                 lastModified = f.lastModified;
             } catch (e) {
-                console.log("unable to get last modified time from file: " + e.message);
+                console.error("unable to get last modified time from file: " + e.message);
                 lastModified = "";
             }
 
             let uploadTxt = f.name;
             if (files.length > 1){
-                uploadTxt = `Upload ${index+1}/${files.length}: ${uploadTxt}`;
+                uploadTxt = $.t('fs.uploading', {
+                    idx: index + 1,
+                    total: files.length,
+                    name: uploadTxt
+                });
             }
 
             $('#loading_message').text(uploadTxt);
@@ -123,18 +125,23 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 success++;
                 uploadFile();
             }).catch(function (error) {
-                let errorMessage = "Error uploading files";
+                let errorMessage;
                 if (error && error.response) {
-                    if (error.response.data.message) {
-                        errorMessage = error.response.data.message;
+                    switch (error.response.status) {
+                        case 403:
+                            errorMessage = "fs.upload.err_403";
+                            break;
+                        case 429:
+                            errorMessage = "fs.upload.err_429";
+                            break;
                     }
-                    if (error.response.data.error) {
-                        errorMessage += ": " + error.response.data.error;
-                    }
+                }
+                if (!errorMessage){
+                    errorMessage = "fs.upload.err_generic";
                 }
                 index++;
                 has_errors = true;
-                $('#errorTxt').text(errorMessage);
+                setI18NData($('#errorTxt'), errorMessage);
                 $('#errorMsg').removeClass("d-none");
                 uploadFile();
             });

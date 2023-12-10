@@ -163,8 +163,8 @@ func (s *httpdServer) refreshCookie(next http.Handler) http.Handler {
 func (s *httpdServer) renderClientLoginPage(w http.ResponseWriter, r *http.Request, error, ip string) {
 	data := loginPage{
 		commonBasePage: getCommonBasePage(r),
+		Title:          util.I18nLoginTitle,
 		CurrentURL:     webClientLoginPath,
-		Version:        version.Get().Version,
 		Error:          error,
 		CSRFToken:      createCSRFToken(ip),
 		Branding:       s.binding.Branding.WebClient,
@@ -198,17 +198,17 @@ func (s *httpdServer) handleWebClientLogout(w http.ResponseWriter, r *http.Reque
 func (s *httpdServer) handleWebClientChangePwdPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	if err := r.ParseForm(); err != nil {
-		s.renderClientChangePasswordPage(w, r, err.Error())
+		s.renderClientChangePasswordPage(w, r, util.I18nErrorInvalidForm)
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), util.GetIPFromRemoteAddress(r.RemoteAddr)); err != nil {
-		s.renderClientForbiddenPage(w, r, err.Error())
+		s.renderClientForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
 	err := doChangeUserPassword(r, strings.TrimSpace(r.Form.Get("current_password")),
 		strings.TrimSpace(r.Form.Get("new_password1")), strings.TrimSpace(r.Form.Get("new_password2")))
 	if err != nil {
-		s.renderClientChangePasswordPage(w, r, err.Error())
+		s.renderClientChangePasswordPage(w, r, getI18NErrorString(err, util.I18nErrorChangePwdGeneric))
 		return
 	}
 	s.handleWebClientLogout(w, r)
@@ -228,7 +228,7 @@ func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Re
 
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := r.ParseForm(); err != nil {
-		s.renderClientLoginPage(w, r, err.Error(), ipAddr)
+		s.renderClientLoginPage(w, r, util.I18nErrorInvalidForm, ipAddr)
 		return
 	}
 	protocol := common.ProtocolHTTP
@@ -237,33 +237,33 @@ func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Re
 	if username == "" || password == "" {
 		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}},
 			dataprovider.LoginMethodPassword, ipAddr, common.ErrNoCredentials)
-		s.renderClientLoginPage(w, r, "Invalid credentials", ipAddr)
+		s.renderClientLoginPage(w, r, util.I18nErrorInvalidCredentials, ipAddr)
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
 		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}},
 			dataprovider.LoginMethodPassword, ipAddr, err)
-		s.renderClientLoginPage(w, r, err.Error(), ipAddr)
+		s.renderClientLoginPage(w, r, util.I18nErrorInvalidCSRF, ipAddr)
 		return
 	}
 
 	if err := common.Config.ExecutePostConnectHook(ipAddr, protocol); err != nil {
 		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}},
 			dataprovider.LoginMethodPassword, ipAddr, err)
-		s.renderClientLoginPage(w, r, fmt.Sprintf("access denied: %v", err), ipAddr)
+		s.renderClientLoginPage(w, r, util.I18nError403Message, ipAddr)
 		return
 	}
 
 	user, err := dataprovider.CheckUserAndPass(username, password, ipAddr, protocol)
 	if err != nil {
 		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, err)
-		s.renderClientLoginPage(w, r, dataprovider.ErrInvalidCredentials.Error(), ipAddr)
+		s.renderClientLoginPage(w, r, util.I18nErrorInvalidCredentials, ipAddr)
 		return
 	}
 	connectionID := fmt.Sprintf("%v_%v", protocol, xid.New().String())
 	if err := checkHTTPClientUser(&user, r, connectionID, true); err != nil {
 		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, err)
-		s.renderClientLoginPage(w, r, err.Error(), ipAddr)
+		s.renderClientLoginPage(w, r, getI18NErrorString(err, util.I18nError403Message), ipAddr)
 		return
 	}
 
@@ -272,7 +272,7 @@ func (s *httpdServer) handleWebClientLoginPost(w http.ResponseWriter, r *http.Re
 	if err != nil {
 		logger.Warn(logSender, connectionID, "unable to check fs root: %v", err)
 		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, common.ErrInternalFailure)
-		s.renderClientLoginPage(w, r, err.Error(), ipAddr)
+		s.renderClientLoginPage(w, r, getI18NErrorString(err, util.I18nErrorFsGeneric), ipAddr)
 		return
 	}
 	s.loginUser(w, r, &user, connectionID, ipAddr, false, s.renderClientLoginPage)
@@ -284,28 +284,28 @@ func (s *httpdServer) handleWebClientPasswordResetPost(w http.ResponseWriter, r 
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	err := r.ParseForm()
 	if err != nil {
-		s.renderClientResetPwdPage(w, r, err.Error(), ipAddr)
+		s.renderClientResetPwdPage(w, r, util.I18nErrorInvalidForm, ipAddr)
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
-		s.renderClientForbiddenPage(w, r, err.Error())
+		s.renderClientForbiddenPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF))
 		return
 	}
 	newPassword := strings.TrimSpace(r.Form.Get("password"))
 	confirmPassword := strings.TrimSpace(r.Form.Get("confirm_password"))
 	if newPassword != confirmPassword {
-		s.renderClientResetPwdPage(w, r, "The two password fields do not match", ipAddr)
+		s.renderClientResetPwdPage(w, r, util.I18nErrorChangePwdNoMatch, ipAddr)
 		return
 	}
 	_, user, err := handleResetPassword(r, strings.TrimSpace(r.Form.Get("code")),
 		newPassword, false)
 	if err != nil {
-		s.renderClientResetPwdPage(w, r, err.Error(), ipAddr)
+		s.renderClientResetPwdPage(w, r, getI18NErrorString(err, util.I18nErrorChangePwdGeneric), ipAddr)
 		return
 	}
 	connectionID := fmt.Sprintf("%v_%v", getProtocolFromRequest(r), xid.New().String())
 	if err := checkHTTPClientUser(user, r, connectionID, true); err != nil {
-		s.renderClientResetPwdPage(w, r, fmt.Sprintf("Password reset successfully but unable to login: %v", err.Error()), ipAddr)
+		s.renderClientResetPwdPage(w, r, getI18NErrorString(err, util.I18nErrorDirList403), ipAddr)
 		return
 	}
 
@@ -313,7 +313,7 @@ func (s *httpdServer) handleWebClientPasswordResetPost(w http.ResponseWriter, r 
 	err = user.CheckFsRoot(connectionID)
 	if err != nil {
 		logger.Warn(logSender, connectionID, "unable to check fs root: %v", err)
-		s.renderClientResetPwdPage(w, r, fmt.Sprintf("Password reset successfully but unable to login: %s", err.Error()), ipAddr)
+		s.renderClientResetPwdPage(w, r, util.I18nErrorLoginAfterReset, ipAddr)
 		return
 	}
 	s.loginUser(w, r, user, connectionID, ipAddr, false, s.renderClientResetPwdPage)
@@ -328,17 +328,17 @@ func (s *httpdServer) handleWebClientTwoFactorRecoveryPost(w http.ResponseWriter
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := r.ParseForm(); err != nil {
-		s.renderClientTwoFactorRecoveryPage(w, r, err.Error(), ipAddr)
+		s.renderClientTwoFactorRecoveryPage(w, r, util.I18nErrorInvalidForm, ipAddr)
 		return
 	}
 	username := claims.Username
 	recoveryCode := strings.TrimSpace(r.Form.Get("recovery_code"))
 	if username == "" || recoveryCode == "" {
-		s.renderClientTwoFactorRecoveryPage(w, r, "Invalid credentials", ipAddr)
+		s.renderClientTwoFactorRecoveryPage(w, r, util.I18nErrorInvalidCredentials, ipAddr)
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
-		s.renderClientTwoFactorRecoveryPage(w, r, err.Error(), ipAddr)
+		s.renderClientTwoFactorRecoveryPage(w, r, util.I18nErrorInvalidCSRF, ipAddr)
 		return
 	}
 	user, userMerged, err := dataprovider.GetUserVariants(username, "")
@@ -346,7 +346,7 @@ func (s *httpdServer) handleWebClientTwoFactorRecoveryPost(w http.ResponseWriter
 		if errors.Is(err, util.ErrNotFound) {
 			handleDefenderEventLoginFailed(ipAddr, err) //nolint:errcheck
 		}
-		s.renderClientTwoFactorRecoveryPage(w, r, "Invalid credentials", ipAddr)
+		s.renderClientTwoFactorRecoveryPage(w, r, util.I18nErrorInvalidCredentials, ipAddr)
 		return
 	}
 	if !userMerged.Filters.TOTPConfig.Enabled || !util.Contains(userMerged.Filters.TOTPConfig.Protocols, common.ProtocolHTTP) {
@@ -360,7 +360,7 @@ func (s *httpdServer) handleWebClientTwoFactorRecoveryPost(w http.ResponseWriter
 		}
 		if code.Secret.GetPayload() == recoveryCode {
 			if code.Used {
-				s.renderClientTwoFactorRecoveryPage(w, r, "This recovery code was already used", ipAddr)
+				s.renderClientTwoFactorRecoveryPage(w, r, util.I18nErrorInvalidCredentials, ipAddr)
 				return
 			}
 			user.Filters.RecoveryCodes[idx].Used = true
@@ -377,7 +377,7 @@ func (s *httpdServer) handleWebClientTwoFactorRecoveryPost(w http.ResponseWriter
 		}
 	}
 	handleDefenderEventLoginFailed(ipAddr, dataprovider.ErrInvalidCredentials) //nolint:errcheck
-	s.renderClientTwoFactorRecoveryPage(w, r, "Invalid recovery code", ipAddr)
+	s.renderClientTwoFactorRecoveryPage(w, r, util.I18nErrorInvalidCredentials, ipAddr)
 }
 
 func (s *httpdServer) handleWebClientTwoFactorPost(w http.ResponseWriter, r *http.Request) {
@@ -389,7 +389,7 @@ func (s *httpdServer) handleWebClientTwoFactorPost(w http.ResponseWriter, r *htt
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := r.ParseForm(); err != nil {
-		s.renderClientTwoFactorPage(w, r, err.Error(), ipAddr)
+		s.renderClientTwoFactorPage(w, r, util.I18nErrorInvalidForm, ipAddr)
 		return
 	}
 	username := claims.Username
@@ -397,25 +397,25 @@ func (s *httpdServer) handleWebClientTwoFactorPost(w http.ResponseWriter, r *htt
 	if username == "" || passcode == "" {
 		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}},
 			dataprovider.LoginMethodPassword, ipAddr, common.ErrNoCredentials)
-		s.renderClientTwoFactorPage(w, r, "Invalid credentials", ipAddr)
+		s.renderClientTwoFactorPage(w, r, util.I18nErrorInvalidCredentials, ipAddr)
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
 		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}},
 			dataprovider.LoginMethodPassword, ipAddr, err)
-		s.renderClientTwoFactorPage(w, r, err.Error(), ipAddr)
+		s.renderClientTwoFactorPage(w, r, util.I18nErrorInvalidCSRF, ipAddr)
 		return
 	}
 	user, err := dataprovider.GetUserWithGroupSettings(username, "")
 	if err != nil {
 		updateLoginMetrics(&dataprovider.User{BaseUser: sdk.BaseUser{Username: username}},
 			dataprovider.LoginMethodPassword, ipAddr, err)
-		s.renderClientTwoFactorPage(w, r, "Invalid credentials", ipAddr)
+		s.renderClientTwoFactorPage(w, r, util.I18nErrorInvalidCredentials, ipAddr)
 		return
 	}
 	if !user.Filters.TOTPConfig.Enabled || !util.Contains(user.Filters.TOTPConfig.Protocols, common.ProtocolHTTP) {
 		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, common.ErrInternalFailure)
-		s.renderClientTwoFactorPage(w, r, "Two factory authentication is not enabled", ipAddr)
+		s.renderClientTwoFactorPage(w, r, util.I18n2FADisabled, ipAddr)
 		return
 	}
 	err = user.Filters.TOTPConfig.Secret.Decrypt()
@@ -428,7 +428,7 @@ func (s *httpdServer) handleWebClientTwoFactorPost(w http.ResponseWriter, r *htt
 		user.Filters.TOTPConfig.Secret.GetPayload())
 	if !match || err != nil {
 		updateLoginMetrics(&user, dataprovider.LoginMethodPassword, ipAddr, dataprovider.ErrInvalidCredentials)
-		s.renderClientTwoFactorPage(w, r, "Invalid authentication code", ipAddr)
+		s.renderClientTwoFactorPage(w, r, util.I18nErrorInvalidCredentials, ipAddr)
 		return
 	}
 	connectionID := fmt.Sprintf("%s_%s", getProtocolFromRequest(r), xid.New().String())
@@ -575,8 +575,8 @@ func (s *httpdServer) handleWebAdminLoginPost(w http.ResponseWriter, r *http.Req
 func (s *httpdServer) renderAdminLoginPage(w http.ResponseWriter, r *http.Request, error, ip string) {
 	data := loginPage{
 		commonBasePage: getCommonBasePage(r),
+		Title:          util.I18nLoginTitle,
 		CurrentURL:     webAdminLoginPath,
-		Version:        version.Get().Version,
 		Error:          error,
 		CSRFToken:      createCSRFToken(ip),
 		Branding:       s.binding.Branding.WebAdmin,
@@ -734,7 +734,7 @@ func (s *httpdServer) loginUser(
 	if err != nil {
 		logger.Warn(logSender, connectionID, "unable to set user login cookie %v", err)
 		updateLoginMetrics(user, dataprovider.LoginMethodPassword, ipAddr, common.ErrInternalFailure)
-		errorFunc(w, r, err.Error(), ipAddr)
+		errorFunc(w, r, util.I18nError500Message, ipAddr)
 		return
 	}
 	if isSecondFactorAuth {
@@ -1095,11 +1095,14 @@ func (s *httpdServer) checkConnection(next http.Handler) http.Handler {
 
 		if err := common.Connections.IsNewConnectionAllowed(ipAddr, common.ProtocolHTTP); err != nil {
 			logger.Log(logger.LevelDebug, common.ProtocolHTTP, "", "connection not allowed from ip %q: %v", ipAddr, err)
-			s.sendForbiddenResponse(w, r, err.Error())
+			s.sendForbiddenResponse(w, r, util.NewI18nError(err, util.I18nErrorConnectionForbidden))
 			return
 		}
 		if common.IsBanned(ipAddr, common.ProtocolHTTP) {
-			s.sendForbiddenResponse(w, r, "your IP address is blocked")
+			s.sendForbiddenResponse(w, r, util.NewI18nError(
+				util.NewGenericError("your IP address is blocked"),
+				util.I18nErrorIPForbidden),
+			)
 			return
 		}
 		if delay, err := common.LimitRate(common.ProtocolHTTP, ipAddr); err != nil {
@@ -1118,8 +1121,8 @@ func (s *httpdServer) sendTooManyRequestResponse(w http.ResponseWriter, r *http.
 	if (s.enableWebAdmin || s.enableWebClient) && isWebRequest(r) {
 		r = s.updateContextFromCookie(r)
 		if s.enableWebClient && (isWebClientRequest(r) || !s.enableWebAdmin) {
-			s.renderClientMessagePage(w, r, http.StatusText(http.StatusTooManyRequests), "Rate limit exceeded",
-				http.StatusTooManyRequests, err, "")
+			s.renderClientMessagePage(w, r, util.I18nError429Title, http.StatusTooManyRequests,
+				util.NewI18nError(errors.New(http.StatusText(http.StatusTooManyRequests)), util.I18nError429Message), "")
 			return
 		}
 		s.renderMessagePage(w, r, http.StatusText(http.StatusTooManyRequests), "Rate limit exceeded", http.StatusTooManyRequests,
@@ -1129,17 +1132,17 @@ func (s *httpdServer) sendTooManyRequestResponse(w http.ResponseWriter, r *http.
 	sendAPIResponse(w, r, err, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
 }
 
-func (s *httpdServer) sendForbiddenResponse(w http.ResponseWriter, r *http.Request, message string) {
+func (s *httpdServer) sendForbiddenResponse(w http.ResponseWriter, r *http.Request, err error) {
 	if (s.enableWebAdmin || s.enableWebClient) && isWebRequest(r) {
 		r = s.updateContextFromCookie(r)
 		if s.enableWebClient && (isWebClientRequest(r) || !s.enableWebAdmin) {
-			s.renderClientForbiddenPage(w, r, message)
+			s.renderClientForbiddenPage(w, r, err)
 			return
 		}
-		s.renderForbiddenPage(w, r, message)
+		s.renderForbiddenPage(w, r, err.Error())
 		return
 	}
-	sendAPIResponse(w, r, errors.New(message), message, http.StatusForbidden)
+	sendAPIResponse(w, r, err, "", http.StatusForbidden)
 }
 
 func (s *httpdServer) badHostHandler(w http.ResponseWriter, r *http.Request) {
@@ -1150,7 +1153,10 @@ func (s *httpdServer) badHostHandler(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
-	s.sendForbiddenResponse(w, r, fmt.Sprintf("The host %q is not allowed", host))
+	s.sendForbiddenResponse(w, r, util.NewI18nError(
+		util.NewGenericError(fmt.Sprintf("The host %q is not allowed", host)),
+		util.I18nErrorConnectionForbidden,
+	))
 }
 
 func (s *httpdServer) notFoundHandler(w http.ResponseWriter, r *http.Request) {

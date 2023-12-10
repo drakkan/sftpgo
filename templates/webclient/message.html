@@ -15,7 +15,6 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 -->
 {{template "base" .}}
 
-{{- define "title"}}{{.Title}}{{- end}}
 {{- define "page_body"}}
 <div class="d-flex flex-center flex-column flex-column-fluid p-10 pb-lg-20">
     {{- if not .LoggedUser.Username}}
@@ -41,7 +40,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     {{- end}}
     <div class="card shadow-sm w-lg-600px">
         <div class="card-header bg-light">
-            <h3 class="card-title text-primary">{{.Title}}</h3>
+            <h3 data-i18n="{{.Title}}" class="card-title text-primary"></h3>
         </div>
         <div class="card-body">
         {{- if .Error}}
@@ -54,7 +53,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 <div class="d-flex flex-stack flex-grow-1 ">
                     <div class=" fw-semibold">
                         <div class="fs-5 text-gray-800">
-                            {{.Error}}
+                            <span data-i18n="{{.Error}}"></span>
                         </div>
                     </div>
                 </div>
@@ -70,7 +69,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 <div class="d-flex flex-stack flex-grow-1 ">
                     <div class=" fw-semibold">
                         <div class="fs-5 text-gray-800">
-                            {{.Success}}
+                            <span data-i18n="{{.Success}}"></span>
                         </div>
                     </div>
                 </div>

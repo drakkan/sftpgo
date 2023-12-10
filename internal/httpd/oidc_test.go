@@ -148,7 +148,7 @@ func TestOIDCLoginLogout(t *testing.T) {
 	assert.NoError(t, err)
 	server.router.ServeHTTP(rr, r)
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Authentication state did not match")
+	assert.Contains(t, rr.Body.String(), util.I18nInvalidAuth)
 
 	expiredAuthReq := oidcPendingAuth{
 		State:    xid.New().String(),
@@ -162,7 +162,7 @@ func TestOIDCLoginLogout(t *testing.T) {
 	assert.NoError(t, err)
 	server.router.ServeHTTP(rr, r)
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Authentication state did not match")
+	assert.Contains(t, rr.Body.String(), util.I18nInvalidAuth)
 	oidcMgr.removePendingAuth(expiredAuthReq.State)
 
 	server.binding.OIDC.oauth2Config = &mockOAuth2Config{

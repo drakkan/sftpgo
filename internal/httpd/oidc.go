@@ -587,8 +587,8 @@ func (s *httpdServer) handleOIDCRedirect(w http.ResponseWriter, r *http.Request)
 	authReq, err := oidcMgr.getPendingAuth(state)
 	if err != nil {
 		logger.Debug(logSender, "", "oidc authentication state did not match")
-		s.renderClientMessagePage(w, r, "Invalid authentication request", "Authentication state did not match",
-			http.StatusBadRequest, nil, "")
+		s.renderClientMessagePage(w, r, util.I18nInvalidAuthReqTitle, http.StatusBadRequest,
+			util.NewI18nError(err, util.I18nInvalidAuth), "")
 		return
 	}
 	oidcMgr.removePendingAuth(state)
