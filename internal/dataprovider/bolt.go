@@ -397,6 +397,9 @@ func (p *BoltProvider) addAdmin(admin *Admin) error {
 		admin.LastLogin = 0
 		admin.CreatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 		admin.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
+		sort.Slice(admin.Groups, func(i, j int) bool {
+			return admin.Groups[i].Name < admin.Groups[j].Name
+		})
 		for idx := range admin.Groups {
 			err = p.addAdminToGroupMapping(admin.Username, admin.Groups[idx].Name, groupBucket)
 			if err != nil {
@@ -455,6 +458,9 @@ func (p *BoltProvider) updateAdmin(admin *Admin) error {
 		if err = p.addAdminToRole(admin.Username, admin.Role, rolesBucket); err != nil {
 			return err
 		}
+		sort.Slice(admin.Groups, func(i, j int) bool {
+			return admin.Groups[i].Name < admin.Groups[j].Name
+		})
 		for idx := range admin.Groups {
 			err = p.addAdminToGroupMapping(admin.Username, admin.Groups[idx].Name, groupBucket)
 			if err != nil {
@@ -663,12 +669,18 @@ func (p *BoltProvider) addUser(user *User) error {
 		if err := p.addUserToRole(user.Username, user.Role, rolesBucket); err != nil {
 			return err
 		}
+		sort.Slice(user.VirtualFolders, func(i, j int) bool {
+			return user.VirtualFolders[i].Name < user.VirtualFolders[j].Name
+		})
 		for idx := range user.VirtualFolders {
 			err = p.addRelationToFolderMapping(user.VirtualFolders[idx].Name, user, nil, foldersBucket)
 			if err != nil {
 				return err
 			}
 		}
+		sort.Slice(user.Groups, func(i, j int) bool {
+			return user.Groups[i].Name < user.Groups[j].Name
+		})
 		for idx := range user.Groups {
 			err = p.addUserToGroupMapping(user.Username, user.Groups[idx].Name, groupBucket)
 			if err != nil {
@@ -1434,6 +1446,9 @@ func (p *BoltProvider) addGroup(group *Group) error {
 		group.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 		group.Users = nil
 		group.Admins = nil
+		sort.Slice(group.VirtualFolders, func(i, j int) bool {
+			return group.VirtualFolders[i].Name < group.VirtualFolders[j].Name
+		})
 		for idx := range group.VirtualFolders {
 			err = p.addRelationToFolderMapping(group.VirtualFolders[idx].Name, nil, group, foldersBucket)
 			if err != nil {
@@ -1476,6 +1491,9 @@ func (p *BoltProvider) updateGroup(group *Group) error {
 				return err
 			}
 		}
+		sort.Slice(group.VirtualFolders, func(i, j int) bool {
+			return group.VirtualFolders[i].Name < group.VirtualFolders[j].Name
+		})
 		for idx := range group.VirtualFolders {
 			err = p.addRelationToFolderMapping(group.VirtualFolders[idx].Name, nil, group, foldersBucket)
 			if err != nil {
@@ -3641,12 +3659,18 @@ func (p *BoltProvider) updateUserRelations(tx *bolt.Tx, user *User, oldUser User
 	if err = p.removeUserFromRole(oldUser.Username, oldUser.Role, rolesBucket); err != nil {
 		return err
 	}
+	sort.Slice(user.VirtualFolders, func(i, j int) bool {
+		return user.VirtualFolders[i].Name < user.VirtualFolders[j].Name
+	})
 	for idx := range user.VirtualFolders {
 		err = p.addRelationToFolderMapping(user.VirtualFolders[idx].Name, user, nil, foldersBucket)
 		if err != nil {
 			return err
 		}
 	}
+	sort.Slice(user.Groups, func(i, j int) bool {
+		return user.Groups[i].Name < user.Groups[j].Name
+	})
 	for idx := range user.Groups {
 		err = p.addUserToGroupMapping(user.Username, user.Groups[idx].Name, groupsBucket)
 		if err != nil {

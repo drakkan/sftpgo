@@ -348,6 +348,9 @@ func (p *MemoryProvider) addUser(user *User) error {
 	if err := p.addUserToRole(user.Username, user.Role); err != nil {
 		return err
 	}
+	sort.Slice(user.Groups, func(i, j int) bool {
+		return user.Groups[i].Name < user.Groups[j].Name
+	})
 	var mappedGroups []string
 	for idx := range user.Groups {
 		if err = p.addUserToGroupMapping(user.Username, user.Groups[idx].Name); err != nil {
@@ -359,6 +362,9 @@ func (p *MemoryProvider) addUser(user *User) error {
 		}
 		mappedGroups = append(mappedGroups, user.Groups[idx].Name)
 	}
+	sort.Slice(user.VirtualFolders, func(i, j int) bool {
+		return user.VirtualFolders[i].Name < user.VirtualFolders[j].Name
+	})
 	var mappedFolders []string
 	for idx := range user.VirtualFolders {
 		if err = p.addUserToFolderMapping(user.Username, user.VirtualFolders[idx].Name); err != nil {
@@ -404,6 +410,9 @@ func (p *MemoryProvider) updateUser(user *User) error { //nolint:gocyclo
 	for idx := range u.Groups {
 		p.removeUserFromGroupMapping(u.Username, u.Groups[idx].Name)
 	}
+	sort.Slice(user.Groups, func(i, j int) bool {
+		return user.Groups[i].Name < user.Groups[j].Name
+	})
 	for idx := range user.Groups {
 		if err = p.addUserToGroupMapping(user.Username, user.Groups[idx].Name); err != nil {
 			// try to add old mapping
@@ -419,6 +428,9 @@ func (p *MemoryProvider) updateUser(user *User) error { //nolint:gocyclo
 	for _, oldFolder := range u.VirtualFolders {
 		p.removeRelationFromFolderMapping(oldFolder.Name, u.Username, "")
 	}
+	sort.Slice(user.VirtualFolders, func(i, j int) bool {
+		return user.VirtualFolders[i].Name < user.VirtualFolders[j].Name
+	})
 	for idx := range user.VirtualFolders {
 		if err = p.addUserToFolderMapping(user.Username, user.VirtualFolders[idx].Name); err != nil {
 			// try to add old mapping
@@ -728,6 +740,9 @@ func (p *MemoryProvider) addAdmin(admin *Admin) error {
 		return err
 	}
 	var mappedAdmins []string
+	sort.Slice(admin.Groups, func(i, j int) bool {
+		return admin.Groups[i].Name < admin.Groups[j].Name
+	})
 	for idx := range admin.Groups {
 		if err = p.addAdminToGroupMapping(admin.Username, admin.Groups[idx].Name); err != nil {
 			// try to remove group mapping
@@ -770,6 +785,9 @@ func (p *MemoryProvider) updateAdmin(admin *Admin) error {
 	for idx := range a.Groups {
 		p.removeAdminFromGroupMapping(a.Username, a.Groups[idx].Name)
 	}
+	sort.Slice(admin.Groups, func(i, j int) bool {
+		return admin.Groups[i].Name < admin.Groups[j].Name
+	})
 	for idx := range admin.Groups {
 		if err = p.addAdminToGroupMapping(admin.Username, admin.Groups[idx].Name); err != nil {
 			// try to add old mapping
@@ -1030,6 +1048,9 @@ func (p *MemoryProvider) addGroup(group *Group) error {
 	group.UpdatedAt = util.GetTimeAsMsSinceEpoch(time.Now())
 	group.Users = nil
 	group.Admins = nil
+	sort.Slice(group.VirtualFolders, func(i, j int) bool {
+		return group.VirtualFolders[i].Name < group.VirtualFolders[j].Name
+	})
 	var mappedFolders []string
 	for idx := range group.VirtualFolders {
 		if err = p.addGroupToFolderMapping(group.Name, group.VirtualFolders[idx].Name); err != nil {
@@ -1063,6 +1084,9 @@ func (p *MemoryProvider) updateGroup(group *Group) error {
 	for _, oldFolder := range g.VirtualFolders {
 		p.removeRelationFromFolderMapping(oldFolder.Name, "", g.Name)
 	}
+	sort.Slice(group.VirtualFolders, func(i, j int) bool {
+		return group.VirtualFolders[i].Name < group.VirtualFolders[j].Name
+	})
 	for idx := range group.VirtualFolders {
 		if err = p.addGroupToFolderMapping(group.Name, group.VirtualFolders[idx].Name); err != nil {
 			// try to add old mapping

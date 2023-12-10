@@ -554,7 +554,7 @@ func getRelatedUsersForAPIKeysQuery(apiKeys []APIKey) string {
 	} else {
 		sb.WriteString("(0)")
 	}
-	return fmt.Sprintf(`SELECT id,username FROM %s WHERE id IN %s`, sqlTableUsers, sb.String())
+	return fmt.Sprintf(`SELECT id,username FROM %s WHERE id IN %s ORDER BY username`, sqlTableUsers, sb.String())
 }
 
 func getRelatedAdminsForAPIKeysQuery(apiKeys []APIKey) string {
@@ -575,7 +575,7 @@ func getRelatedAdminsForAPIKeysQuery(apiKeys []APIKey) string {
 	} else {
 		sb.WriteString("(0)")
 	}
-	return fmt.Sprintf(`SELECT id,username FROM %s WHERE id IN %s`, sqlTableAdmins, sb.String())
+	return fmt.Sprintf(`SELECT id,username FROM %s WHERE id IN %s ORDER BY username`, sqlTableAdmins, sb.String())
 }
 
 func getUserByUsernameQuery(role string) string {
@@ -838,7 +838,7 @@ func getRelatedGroupsForUsersQuery(users []User) string {
 		sb.WriteString(")")
 	}
 	return fmt.Sprintf(`SELECT g.name,ug.group_type,ug.user_id FROM %s g INNER JOIN %s ug ON g.id = ug.group_id WHERE
-		ug.user_id IN %s ORDER BY ug.user_id`, getSQLQuotedName(sqlTableGroups), sqlTableUsersGroupsMapping, sb.String())
+		ug.user_id IN %s ORDER BY g.name`, getSQLQuotedName(sqlTableGroups), sqlTableUsersGroupsMapping, sb.String())
 }
 
 func getRelatedGroupsForAdminsQuery(admins []Admin) string {
@@ -855,7 +855,7 @@ func getRelatedGroupsForAdminsQuery(admins []Admin) string {
 		sb.WriteString(")")
 	}
 	return fmt.Sprintf(`SELECT g.name,ag.options,ag.admin_id FROM %s g INNER JOIN %s ag ON g.id = ag.group_id WHERE
-		ag.admin_id IN %s ORDER BY ag.admin_id`, getSQLQuotedName(sqlTableGroups), sqlTableAdminsGroupsMapping, sb.String())
+		ag.admin_id IN %s ORDER BY g.name`, getSQLQuotedName(sqlTableGroups), sqlTableAdminsGroupsMapping, sb.String())
 }
 
 func getRelatedFoldersForUsersQuery(users []User) string {
@@ -873,7 +873,7 @@ func getRelatedFoldersForUsersQuery(users []User) string {
 	}
 	return fmt.Sprintf(`SELECT f.id,f.name,f.path,f.used_quota_size,f.used_quota_files,f.last_quota_update,fm.virtual_path,
 		fm.quota_size,fm.quota_files,fm.user_id,f.filesystem,f.description FROM %s f INNER JOIN %s fm ON f.id = fm.folder_id WHERE
-		fm.user_id IN %s ORDER BY fm.user_id`, sqlTableFolders, sqlTableUsersFoldersMapping, sb.String())
+		fm.user_id IN %s ORDER BY f.name`, sqlTableFolders, sqlTableUsersFoldersMapping, sb.String())
 }
 
 func getRelatedUsersForFoldersQuery(folders []vfs.BaseVirtualFolder) string {
@@ -890,7 +890,7 @@ func getRelatedUsersForFoldersQuery(folders []vfs.BaseVirtualFolder) string {
 		sb.WriteString(")")
 	}
 	return fmt.Sprintf(`SELECT fm.folder_id,u.username FROM %s fm INNER JOIN %s u ON fm.user_id = u.id
-		WHERE fm.folder_id IN %s ORDER BY fm.folder_id`, sqlTableUsersFoldersMapping, sqlTableUsers, sb.String())
+		WHERE fm.folder_id IN %s ORDER BY u.username`, sqlTableUsersFoldersMapping, sqlTableUsers, sb.String())
 }
 
 func getRelatedGroupsForFoldersQuery(folders []vfs.BaseVirtualFolder) string {
@@ -907,7 +907,7 @@ func getRelatedGroupsForFoldersQuery(folders []vfs.BaseVirtualFolder) string {
 		sb.WriteString(")")
 	}
 	return fmt.Sprintf(`SELECT fm.folder_id,g.name FROM %s fm INNER JOIN %s g ON fm.group_id = g.id
-		WHERE fm.folder_id IN %s ORDER BY fm.folder_id`, sqlTableGroupsFoldersMapping, getSQLQuotedName(sqlTableGroups),
+		WHERE fm.folder_id IN %s ORDER BY g.name`, sqlTableGroupsFoldersMapping, getSQLQuotedName(sqlTableGroups),
 		sb.String())
 }
 
@@ -925,7 +925,7 @@ func getRelatedUsersForGroupsQuery(groups []Group) string {
 		sb.WriteString(")")
 	}
 	return fmt.Sprintf(`SELECT um.group_id,u.username FROM %s um INNER JOIN %s u ON um.user_id = u.id
-		WHERE um.group_id IN %s ORDER BY um.group_id`, sqlTableUsersGroupsMapping, sqlTableUsers, sb.String())
+		WHERE um.group_id IN %s ORDER BY u.username`, sqlTableUsersGroupsMapping, sqlTableUsers, sb.String())
 }
 
 func getRelatedAdminsForGroupsQuery(groups []Group) string {
@@ -942,7 +942,7 @@ func getRelatedAdminsForGroupsQuery(groups []Group) string {
 		sb.WriteString(")")
 	}
 	return fmt.Sprintf(`SELECT am.group_id,a.username FROM %s am INNER JOIN %s a ON am.admin_id = a.id
-		WHERE am.group_id IN %s ORDER BY am.group_id`, sqlTableAdminsGroupsMapping, sqlTableAdmins, sb.String())
+		WHERE am.group_id IN %s ORDER BY a.username`, sqlTableAdminsGroupsMapping, sqlTableAdmins, sb.String())
 }
 
 func getRelatedFoldersForGroupsQuery(groups []Group) string {
@@ -960,7 +960,7 @@ func getRelatedFoldersForGroupsQuery(groups []Group) string {
 	}
 	return fmt.Sprintf(`SELECT f.id,f.name,f.path,f.used_quota_size,f.used_quota_files,f.last_quota_update,fm.virtual_path,
 		fm.quota_size,fm.quota_files,fm.group_id,f.filesystem,f.description FROM %s f INNER JOIN %s fm ON f.id = fm.folder_id WHERE
-		fm.group_id IN %s ORDER BY fm.group_id`, sqlTableFolders, sqlTableGroupsFoldersMapping, sb.String())
+		fm.group_id IN %s ORDER BY f.name`, sqlTableFolders, sqlTableGroupsFoldersMapping, sb.String())
 }
 
 func getActiveTransfersQuery() string {
