@@ -2652,7 +2652,8 @@ func (s *httpdServer) handleWebAdminForgotPwdPost(w http.ResponseWriter, r *http
 	}
 	err = handleForgotPassword(r, r.Form.Get("username"), true)
 	if err != nil {
-		if e, ok := err.(*util.ValidationError); ok {
+		var e *util.ValidationError
+		if errors.As(err, &e) {
 			s.renderForgotPwdPage(w, r, e.GetErrorString(), ipAddr)
 			return
 		}

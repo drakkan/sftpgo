@@ -237,7 +237,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                 let info = "";
                                 if (row[5] > 0){
                                     info+= $.t('share.expiration_date', {
-                                        val: new Date(parseInt(row[5], 10)),
+                                        val: parseInt(row[5], 10),
                                         formatParams: {
                                             val: { year: 'numeric', month: 'numeric', day: 'numeric' },
                                         }
@@ -245,7 +245,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                                 }
                                 if (row[6] > 0){
                                     info+= $.t('share.last_use', {
-                                        val: new Date(parseInt(row[6], 10)),
+                                        val: parseInt(row[6], 10),
                                         formatParams: {
                                             val: { year: 'numeric', month: 'numeric', day: 'numeric' },
                                         }

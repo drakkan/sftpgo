@@ -16,18 +16,47 @@ package httpd
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"net/http"
 	"time"
+
+	"github.com/drakkan/sftpgo/v2/internal/util"
 )
 
 const (
 	flashCookieName = "message"
 )
 
-func setFlashMessage(w http.ResponseWriter, r *http.Request, value string) {
+func newFlashMessage(errorStrig, i18nMessage string) flashMessage {
+	return flashMessage{
+		ErrorString: errorStrig,
+		I18nMessage: i18nMessage,
+	}
+}
+
+type flashMessage struct {
+	ErrorString string `json:"error"`
+	I18nMessage string `json:"message"`
+}
+
+func (m *flashMessage) getI18nError() *util.I18nError {
+	if m.ErrorString == "" && m.I18nMessage == "" {
+		return nil
+	}
+	return util.NewI18nError(
+		util.NewGenericError(m.ErrorString),
+		m.I18nMessage,
+	)
+}
+
+func setFlashMessage(w http.ResponseWriter, r *http.Request, message flashMessage) {
+	value, err := json.Marshal(message)
+	if err != nil {
+		return
+	}
 	http.SetCookie(w, &http.Cookie{
 		Name:     flashCookieName,
-		Value:    base64.URLEncoding.EncodeToString([]byte(value)),
+		Value:    base64.URLEncoding.EncodeToString(value),
 		Path:     "/",
 		Expires:  time.Now().Add(60 * time.Second),
 		MaxAge:   60,
@@ -38,10 +67,11 @@ func setFlashMessage(w http.ResponseWriter, r *http.Request, value string) {
 	w.Header().Add("Cache-Control", `no-cache="Set-Cookie"`)
 }
 
-func getFlashMessage(w http.ResponseWriter, r *http.Request) string {
+func getFlashMessage(w http.ResponseWriter, r *http.Request) flashMessage {
+	var msg flashMessage
 	cookie, err := r.Cookie(flashCookieName)
 	if err != nil {
-		return ""
+		return msg
 	}
 	http.SetCookie(w, &http.Cookie{
 		Name:     flashCookieName,
@@ -53,9 +83,13 @@ func getFlashMessage(w http.ResponseWriter, r *http.Request) string {
 		Secure:   isTLS(r),
 		SameSite: http.SameSiteLaxMode,
 	})
-	message, err := base64.URLEncoding.DecodeString(cookie.Value)
+	value, err := base64.URLEncoding.DecodeString(cookie.Value)
 	if err != nil {
-		return ""
+		return msg
 	}
-	return string(message)
+	err = json.Unmarshal(value, &msg)
+	if err != nil {
+		return flashMessage{}
+	}
+	return msg
 }

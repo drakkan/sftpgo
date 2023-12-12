@@ -273,8 +273,12 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
 {{- define "extra_js"}}
 <script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
-     const qrModal = new bootstrap.Modal('#qrcode_modal');
-     const recCodesModal = new bootstrap.Modal('#recovery_codes_modal');
+    const qrModal = new bootstrap.Modal('#qrcode_modal');
+    const recCodesModal = new bootstrap.Modal('#recovery_codes_modal');
+    const requiredProtocols = [];
+    {{- range .RequiredProtocols}}
+    requiredProtocols.push('{{.}}');
+    {{- end}}
 
     function onConfigChanged() {
         let selectedConfig = $('#id_config option:selected').val();
@@ -537,6 +541,13 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             errDivEl.removeClass("d-none");
             return;
         }
+        for (let i = 0; i < requiredProtocols.length > 0; i++){
+            if (!protocolsArray.includes(requiredProtocols[i])){
+                setI18NData(errTxtEl, '2fa.required_protocols', {val: requiredProtocols.join(', ')});
+                errDivEl.removeClass("d-none");
+                return;
+            }
+        }
         let postData = {
             protocols: protocolsArray
         }
@@ -587,13 +598,6 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             }).catch(function (error) {
                 el.removeAttribute('data-kt-indicator');
                 el.disabled = false;
-                if (error && error.response) {
-                    switch (error.response.status) {
-                        case 400:
-                            errorMessage = "2fa.save_err_proto";
-                            break;
-                    }
-                }
                 setI18NData(errTxtEl, errorMessage);
                 errDivEl.removeClass("d-none");
             });

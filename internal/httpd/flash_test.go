@@ -30,10 +30,10 @@ func TestFlashMessages(t *testing.T) {
 	req, err := http.NewRequest(http.MethodGet, "/url", nil)
 	require.NoError(t, err)
 	message := "test message"
-	setFlashMessage(rr, req, message)
+	setFlashMessage(rr, req, flashMessage{ErrorString: message})
 	req.Header.Set("Cookie", fmt.Sprintf("%v=%v", flashCookieName, base64.URLEncoding.EncodeToString([]byte(message))))
 	msg := getFlashMessage(rr, req)
-	assert.Equal(t, message, msg)
+	assert.Equal(t, message, msg.ErrorString)
 	req.Header.Set("Cookie", fmt.Sprintf("%v=%v", flashCookieName, "a"))
 	msg = getFlashMessage(rr, req)
 	assert.Empty(t, msg)

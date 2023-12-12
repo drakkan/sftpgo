@@ -15,6 +15,7 @@
 package util
 
 import (
+	"encoding/json"
 	"errors"
 )
 
@@ -40,6 +41,7 @@ const (
 	I18nInvalidAuthReqTitle            = "title.invalid_auth_request"
 	I18nError403Title                  = "title.error403"
 	I18nError400Title                  = "title.error400"
+	I18nError404Title                  = "title.error404"
 	I18nError416Title                  = "title.error416"
 	I18nError429Title                  = "title.error429"
 	I18nError500Title                  = "title.error500"
@@ -136,29 +138,58 @@ const (
 	I18nProfileUpdated                 = "general.profile_updated"
 	I18nShareLoginOK                   = "general.share_ok"
 	I18n2FADisabled                    = "2fa.disabled"
+	I18nOIDCTokenExpired               = "oidc.token_expired"
+	I18nOIDCTokenInvalidAdmin          = "oidc.token_invalid_webadmin"
+	I18nOIDCTokenInvalidUser           = "oidc.token_invalid_webclient"
+	I18nOIDCErrTokenExchange           = "oidc.token_exchange_err"
+	I18nOIDCTokenInvalid               = "oidc.token_invalid"
+	I18nOIDCTokenInvalidRoleAdmin      = "oidc.role_admin_err"
+	I18nOIDCTokenInvalidRoleUser       = "oidc.role_user_err"
+	I18nOIDCErrGetUser                 = "oidc.get_user_err"
 )
 
 // NewI18nError returns a I18nError wrappring the provided error
-func NewI18nError(err error, message string) *I18nError {
+func NewI18nError(err error, message string, options ...I18nErrorOption) *I18nError {
 	var errI18n *I18nError
 	if errors.As(err, &errI18n) {
 		return errI18n
 	}
-	return &I18nError{
-		err:         err,
-		I18nMessage: message,
+	errI18n = &I18nError{
+		err:     err,
+		Message: message,
+		args:    nil,
+	}
+	for _, opt := range options {
+		opt(errI18n)
+	}
+	return errI18n
+}
+
+// I18nErrorOption defines a functional option type that allows to configure the I18nError.
+type I18nErrorOption func(*I18nError)
+
+// I18nErrorArgs is a functional option to set I18nError arguments.
+func I18nErrorArgs(args map[string]any) I18nErrorOption {
+	return func(e *I18nError) {
+		e.args = args
 	}
 }
 
 // I18nError is an error wrapper that add a message to use for localization.
 type I18nError struct {
-	err         error
-	I18nMessage string
+	err     error
+	Message string
+	args    map[string]any
 }
 
 // Error returns the wrapped error string.
 func (e *I18nError) Error() string {
 	return e.err.Error()
+}
+
+// Unwrap returns the underlying error
+func (e *I18nError) Unwrap() error {
+	return e.err
 }
 
 // Is reports if target matches
@@ -168,4 +199,20 @@ func (e *I18nError) Is(target error) bool {
 	}
 	_, ok := target.(*I18nError)
 	return ok
+}
+
+// HasArgs returns true if the error has i18n args.
+func (e *I18nError) HasArgs() bool {
+	return len(e.args) > 0
+}
+
+// Args returns the provided args in JSON format
+func (e *I18nError) Args() string {
+	if len(e.args) > 0 {
+		data, err := json.Marshal(e.args)
+		if err == nil {
+			return string(data)
+		}
+	}
+	return "{}"
 }

@@ -144,7 +144,7 @@ func i18nFsMsg(status int) string {
 func getI18NErrorString(err error, fallback string) string {
 	var errI18n *util.I18nError
 	if errors.As(err, &errI18n) {
-		return errI18n.I18nMessage
+		return errI18n.Message
 	}
 	return fallback
 }

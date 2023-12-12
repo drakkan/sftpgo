@@ -19,10 +19,11 @@
       "download_shared_file": "Download shared file",
       "share_access_error": "Unable to access the share",
       "invalid_auth_request": "Invalid authentication request",
-      "error429": "Too Many Requests",
-      "error403": "Forbidden",
       "error400": "Bad Request",
+      "error403": "Forbidden",
+      "error404": "Not Found",
       "error416": "Requested Range Not Satisfiable",
+      "error429": "Too Many Requests",
       "error500": "Internal Server Error",
       "errorPDF": "Unable to show PDF file",
       "error_editor": "Cannot open file editor"
@@ -52,7 +53,7 @@
       "reset_pwd_err_generic": "Unexpected error while resetting password",
       "reset_ok_login_error": "The password reset completed successfully but an unexpected error occurred while signing in",
       "ip_not_allowed": "Login is not allowed from this IP address",
-      "two_factor_required": "Two-factor authentication is required, set it up"
+      "two_factor_required": "Set up two-factor authentication, it is required for the following protocols: {{val}}"
    },
    "theme": {
       "light": "Light",
@@ -281,9 +282,9 @@
       "auth_code_invalid": "Failed to validate the provided authentication code",
       "auth_secret_gen_err": "Failed to generate authentication secret",
       "save_err": "Failed to save configuration",
-      "save_err_proto": "$t(2fa.save_err). Make sure the protocols enabled comply with company policy",
       "auth_code_required": "The authentication code is required",
-      "no_protocol": "Please select at least a protocol"
+      "no_protocol": "Please select at least a protocol",
+      "required_protocols": "The following protocols are required: {{val}}"
    },
    "share": {
       "scope": "Scope",
@@ -309,7 +310,7 @@
       "max_tokens_invalid": "Invalid max tokens",
       "expiration_invalid": "Invalid expiration",
       "err_no_password": "You are not allowed to share files/folders without password",
-      "expiration_out_of_range": "Set an expiration date and ensure it complies with company policy, e.g. is not too far in the future",
+      "expiration_out_of_range": "Set an expiration date and make sure it is less than or equal to {{- val, datetime}}",
       "generic": "Unexpected error saving share",
       "path_required": "At least a path is required",
       "path_write_scope": "The write scope requires exactly one path",
@@ -366,5 +367,15 @@
       "file_pattern_invalid": "Invalid file name pattern filters",
       "disable_active_2fa": "Two-factor authentication cannot be disabled for a user with an active configuration",
       "pwd_change_conflict": "It is not possible to request a password change and at the same time prevent the password from being changed"
+   },
+   "oidc": {
+      "token_expired": "Your OpenID token has expired, please log in again",
+      "token_invalid_webadmin": "Your OpenID token is not valid for the WebAdmin UI. Log out of your OpenID server and log in to WebAdmin",
+      "token_invalid_webclient": "Your OpenID token is not valid for the WebClient UI. Log out of your OpenID server and log in to the WebClient",
+      "token_exchange_err": "Failed to exchange OpenID token",
+      "token_invalid": "Invalid OpenID token",
+      "role_admin_err": "Incorrect OpenID role, logged in user is not an administrator",
+      "role_user_err": "Incorrect OpenID role, logged in user is an administrator",
+      "get_user_err": "Failed to get user associated with OpenID token"
    }
 }

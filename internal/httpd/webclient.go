@@ -141,7 +141,7 @@ type filesPage struct {
 	CanDownload        bool
 	CanShare           bool
 	ShareUploadBaseURL string
-	Error              string
+	Error              *util.I18nError
 	Paths              []dirMapping
 	QuotaUsage         *userQuotaUsage
 }
@@ -149,7 +149,7 @@ type filesPage struct {
 type shareLoginPage struct {
 	commonBasePage
 	CurrentURL string
-	Error      string
+	Error      *util.I18nError
 	CSRFToken  string
 	Title      string
 	Branding   UIBranding
@@ -168,7 +168,7 @@ type shareUploadPage struct {
 
 type clientMessagePage struct {
 	baseClientPage
-	Error   string
+	Error   *util.I18nError
 	Success string
 }
 
@@ -179,23 +179,24 @@ type clientProfilePage struct {
 	AllowAPIKeyAuth bool
 	Email           string
 	Description     string
-	Error           string
+	Error           *util.I18nError
 }
 
 type changeClientPasswordPage struct {
 	baseClientPage
-	Error string
+	Error *util.I18nError
 }
 
 type clientMFAPage struct {
 	baseClientPage
-	TOTPConfigs     []string
-	TOTPConfig      dataprovider.UserTOTPConfig
-	GenerateTOTPURL string
-	ValidateTOTPURL string
-	SaveTOTPURL     string
-	RecCodesURL     string
-	Protocols       []string
+	TOTPConfigs       []string
+	TOTPConfig        dataprovider.UserTOTPConfig
+	GenerateTOTPURL   string
+	ValidateTOTPURL   string
+	SaveTOTPURL       string
+	RecCodesURL       string
+	Protocols         []string
+	RequiredProtocols []string
 }
 
 type clientSharesPage struct {
@@ -207,8 +208,53 @@ type clientSharesPage struct {
 type clientSharePage struct {
 	baseClientPage
 	Share *dataprovider.Share
-	Error string
+	Error *util.I18nError
 	IsAdd bool
+}
+
+// TODO: merge with loginPage once the WebAdmin supports localization
+type clientLoginPage struct {
+	commonBasePage
+	CurrentURL     string
+	Error          *util.I18nError
+	CSRFToken      string
+	AltLoginURL    string
+	AltLoginName   string
+	ForgotPwdURL   string
+	OpenIDLoginURL string
+	Title          string
+	Branding       UIBranding
+	FormDisabled   bool
+}
+
+type clientResetPwdPage struct {
+	commonBasePage
+	CurrentURL string
+	Error      *util.I18nError
+	CSRFToken  string
+	LoginURL   string
+	Title      string
+	Branding   UIBranding
+}
+
+type clientTwoFactorPage struct {
+	commonBasePage
+	CurrentURL  string
+	Error       *util.I18nError
+	CSRFToken   string
+	RecoveryURL string
+	Title       string
+	Branding    UIBranding
+}
+
+type clientForgotPwdPage struct {
+	commonBasePage
+	CurrentURL string
+	Error      *util.I18nError
+	CSRFToken  string
+	LoginURL   string
+	Title      string
+	Branding   UIBranding
 }
 
 type userQuotaUsage struct {
@@ -553,11 +599,11 @@ func (s *httpdServer) getBaseClientPageData(title, currentURL string, r *http.Re
 	return data
 }
 
-func (s *httpdServer) renderClientForgotPwdPage(w http.ResponseWriter, r *http.Request, error, ip string) {
-	data := forgotPwdPage{
+func (s *httpdServer) renderClientForgotPwdPage(w http.ResponseWriter, r *http.Request, err *util.I18nError, ip string) {
+	data := clientForgotPwdPage{
 		commonBasePage: getCommonBasePage(r),
 		CurrentURL:     webClientForgotPwdPath,
-		Error:          error,
+		Error:          err,
 		CSRFToken:      createCSRFToken(ip),
 		LoginURL:       webClientLoginPath,
 		Title:          util.I18nForgotPwdTitle,
@@ -566,11 +612,11 @@ func (s *httpdServer) renderClientForgotPwdPage(w http.ResponseWriter, r *http.R
 	renderClientTemplate(w, templateForgotPassword, data)
 }
 
-func (s *httpdServer) renderClientResetPwdPage(w http.ResponseWriter, r *http.Request, error, ip string) {
-	data := resetPwdPage{
+func (s *httpdServer) renderClientResetPwdPage(w http.ResponseWriter, r *http.Request, err *util.I18nError, ip string) {
+	data := clientResetPwdPage{
 		commonBasePage: getCommonBasePage(r),
 		CurrentURL:     webClientResetPwdPath,
-		Error:          error,
+		Error:          err,
 		CSRFToken:      createCSRFToken(ip),
 		LoginURL:       webClientLoginPath,
 		Title:          util.I18nResetPwdTitle,
@@ -579,12 +625,12 @@ func (s *httpdServer) renderClientResetPwdPage(w http.ResponseWriter, r *http.Re
 	renderClientTemplate(w, templateResetPassword, data)
 }
 
-func (s *httpdServer) renderShareLoginPage(w http.ResponseWriter, r *http.Request, error, ip string) {
+func (s *httpdServer) renderShareLoginPage(w http.ResponseWriter, r *http.Request, err *util.I18nError, ip string) {
 	data := shareLoginPage{
 		commonBasePage: getCommonBasePage(r),
 		Title:          util.I18nShareLoginTitle,
 		CurrentURL:     r.RequestURI,
-		Error:          error,
+		Error:          err,
 		CSRFToken:      createCSRFToken(ip),
 		Branding:       s.binding.Branding.WebClient,
 	}
@@ -599,13 +645,13 @@ func renderClientTemplate(w http.ResponseWriter, tmplName string, data any) {
 }
 
 func (s *httpdServer) renderClientMessagePage(w http.ResponseWriter, r *http.Request, title string, statusCode int, err error, message string) {
-	var errString string
+	var i18nErr *util.I18nError
 	if err != nil {
-		errString = getI18NErrorString(err, util.I18nError500Message)
+		i18nErr = util.NewI18nError(err, util.I18nError500Message)
 	}
 	data := clientMessagePage{
 		baseClientPage: s.getBaseClientPageData(title, "", r),
-		Error:          errString,
+		Error:          i18nErr,
 		Success:        message,
 	}
 	w.WriteHeader(statusCode)
@@ -628,16 +674,16 @@ func (s *httpdServer) renderClientForbiddenPage(w http.ResponseWriter, r *http.R
 }
 
 func (s *httpdServer) renderClientNotFoundPage(w http.ResponseWriter, r *http.Request, err error) {
-	s.renderClientMessagePage(w, r, util.I18nError400Title, http.StatusNotFound,
-		util.NewI18nError(err, util.I18nError400Message), "")
+	s.renderClientMessagePage(w, r, util.I18nError404Title, http.StatusNotFound,
+		util.NewI18nError(err, util.I18nError404Message), "")
 }
 
-func (s *httpdServer) renderClientTwoFactorPage(w http.ResponseWriter, r *http.Request, errorString, ip string) {
-	data := twoFactorPage{
+func (s *httpdServer) renderClientTwoFactorPage(w http.ResponseWriter, r *http.Request, err *util.I18nError, ip string) {
+	data := clientTwoFactorPage{
 		commonBasePage: getCommonBasePage(r),
 		Title:          pageTwoFactorTitle,
 		CurrentURL:     webClientTwoFactorPath,
-		Error:          errorString,
+		Error:          err,
 		CSRFToken:      createCSRFToken(ip),
 		RecoveryURL:    webClientTwoFactorRecoveryPath,
 		Branding:       s.binding.Branding.WebClient,
@@ -648,12 +694,12 @@ func (s *httpdServer) renderClientTwoFactorPage(w http.ResponseWriter, r *http.R
 	renderClientTemplate(w, templateClientTwoFactor, data)
 }
 
-func (s *httpdServer) renderClientTwoFactorRecoveryPage(w http.ResponseWriter, r *http.Request, errorString, ip string) {
-	data := twoFactorPage{
+func (s *httpdServer) renderClientTwoFactorRecoveryPage(w http.ResponseWriter, r *http.Request, err *util.I18nError, ip string) {
+	data := clientTwoFactorPage{
 		commonBasePage: getCommonBasePage(r),
 		Title:          pageTwoFactorRecoveryTitle,
 		CurrentURL:     webClientTwoFactorRecoveryPath,
-		Error:          errorString,
+		Error:          err,
 		CSRFToken:      createCSRFToken(ip),
 		Branding:       s.binding.Branding.WebClient,
 	}
@@ -676,6 +722,7 @@ func (s *httpdServer) renderClientMFAPage(w http.ResponseWriter, r *http.Request
 		return
 	}
 	data.TOTPConfig = user.Filters.TOTPConfig
+	data.RequiredProtocols = user.Filters.TwoFactorAuthProtocols
 	renderClientTemplate(w, templateClientMFA, data)
 }
 
@@ -698,7 +745,7 @@ func (s *httpdServer) renderEditFilePage(w http.ResponseWriter, r *http.Request,
 }
 
 func (s *httpdServer) renderAddUpdateSharePage(w http.ResponseWriter, r *http.Request, share *dataprovider.Share,
-	errorString string, isAdd bool) {
+	err *util.I18nError, isAdd bool) {
 	currentURL := webClientSharePath
 	title := util.I18nShareAddTitle
 	if !isAdd {
@@ -708,7 +755,7 @@ func (s *httpdServer) renderAddUpdateSharePage(w http.ResponseWriter, r *http.Re
 	data := clientSharePage{
 		baseClientPage: s.getBaseClientPageData(title, currentURL, r),
 		Share:          share,
-		Error:          errorString,
+		Error:          err,
 		IsAdd:          isAdd,
 	}
 
@@ -736,8 +783,8 @@ func getDirMapping(dirName, baseWebPath string) []dirMapping {
 	return paths
 }
 
-func (s *httpdServer) renderSharedFilesPage(w http.ResponseWriter, r *http.Request, dirName, error string,
-	share dataprovider.Share,
+func (s *httpdServer) renderSharedFilesPage(w http.ResponseWriter, r *http.Request, dirName string,
+	err *util.I18nError, share dataprovider.Share,
 ) {
 	currentURL := path.Join(webClientPubSharesPath, share.ShareID, "browse")
 	baseData := s.getBaseClientPageData(util.I18nSharedFilesTitle, currentURL, r)
@@ -746,7 +793,7 @@ func (s *httpdServer) renderSharedFilesPage(w http.ResponseWriter, r *http.Reque
 
 	data := filesPage{
 		baseClientPage: baseData,
-		Error:          error,
+		Error:          err,
 		CurrentDir:     url.QueryEscape(dirName),
 		DownloadURL:    path.Join(baseSharePath, "partial"),
 		// dirName must be escaped because the router expects the full path as single argument
@@ -785,10 +832,11 @@ func (s *httpdServer) renderUploadToSharePage(w http.ResponseWriter, r *http.Req
 	renderClientTemplate(w, templateUploadToShare, data)
 }
 
-func (s *httpdServer) renderFilesPage(w http.ResponseWriter, r *http.Request, dirName, error string, user *dataprovider.User) {
+func (s *httpdServer) renderFilesPage(w http.ResponseWriter, r *http.Request, dirName string,
+	err *util.I18nError, user *dataprovider.User) {
 	data := filesPage{
 		baseClientPage:     s.getBaseClientPageData(util.I18nFilesTitle, webClientFilesPath, r),
-		Error:              error,
+		Error:              err,
 		CurrentDir:         url.QueryEscape(dirName),
 		DownloadURL:        webClientDownloadZipPath,
 		ViewPDFURL:         webClientViewPDFPath,
@@ -808,14 +856,14 @@ func (s *httpdServer) renderFilesPage(w http.ResponseWriter, r *http.Request, di
 	renderClientTemplate(w, templateClientFiles, data)
 }
 
-func (s *httpdServer) renderClientProfilePage(w http.ResponseWriter, r *http.Request, error string) {
+func (s *httpdServer) renderClientProfilePage(w http.ResponseWriter, r *http.Request, err *util.I18nError) {
 	data := clientProfilePage{
 		baseClientPage: s.getBaseClientPageData(util.I18nProfileTitle, webClientProfilePath, r),
-		Error:          error,
+		Error:          err,
 	}
-	user, userMerged, err := dataprovider.GetUserVariants(data.LoggedUser.Username, "")
-	if err != nil {
-		s.renderClientInternalServerErrorPage(w, r, err)
+	user, userMerged, errUser := dataprovider.GetUserVariants(data.LoggedUser.Username, "")
+	if errUser != nil {
+		s.renderClientInternalServerErrorPage(w, r, errUser)
 		return
 	}
 	data.PublicKeys = user.PublicKeys
@@ -826,10 +874,10 @@ func (s *httpdServer) renderClientProfilePage(w http.ResponseWriter, r *http.Req
 	renderClientTemplate(w, templateClientProfile, data)
 }
 
-func (s *httpdServer) renderClientChangePasswordPage(w http.ResponseWriter, r *http.Request, error string) {
+func (s *httpdServer) renderClientChangePasswordPage(w http.ResponseWriter, r *http.Request, err *util.I18nError) {
 	data := changeClientPasswordPage{
 		baseClientPage: s.getBaseClientPageData(util.I18nChangePwdTitle, webChangeClientPwdPath, r),
-		Error:          error,
+		Error:          err,
 	}
 
 	renderClientTemplate(w, templateClientChangePwd, data)
@@ -1023,7 +1071,8 @@ func (s *httpdServer) handleShareGetFiles(w http.ResponseWriter, r *http.Request
 	}
 
 	if err = common.Connections.Add(connection); err != nil {
-		s.renderSharedFilesPage(w, r, path.Dir(share.GetRelativePath(name)), util.I18nError429Message, share)
+		s.renderSharedFilesPage(w, r, path.Dir(share.GetRelativePath(name)),
+			util.NewI18nError(err, util.I18nError429Message), share)
 		return
 	}
 	defer common.Connections.Remove(connection.GetID())
@@ -1035,18 +1084,20 @@ func (s *httpdServer) handleShareGetFiles(w http.ResponseWriter, r *http.Request
 		info, err = connection.Stat(name, 1)
 	}
 	if err != nil {
-		s.renderSharedFilesPage(w, r, path.Dir(share.GetRelativePath(name)), i18nFsMsg(getRespStatus(err)), share)
+		s.renderSharedFilesPage(w, r, path.Dir(share.GetRelativePath(name)),
+			util.NewI18nError(err, i18nFsMsg(getRespStatus(err))), share)
 		return
 	}
 	if info.IsDir() {
-		s.renderSharedFilesPage(w, r, share.GetRelativePath(name), "", share)
+		s.renderSharedFilesPage(w, r, share.GetRelativePath(name), nil, share)
 		return
 	}
 	dataprovider.UpdateShareLastUse(&share, 1) //nolint:errcheck
 	if status, err := downloadFile(w, r, connection, name, info, false, &share); err != nil {
 		dataprovider.UpdateShareLastUse(&share, -1) //nolint:errcheck
 		if status > 0 {
-			s.renderSharedFilesPage(w, r, path.Dir(share.GetRelativePath(name)), i18nFsMsg(getRespStatus(err)), share)
+			s.renderSharedFilesPage(w, r, path.Dir(share.GetRelativePath(name)),
+				util.NewI18nError(err, i18nFsMsg(getRespStatus(err))), share)
 		}
 	}
 }
@@ -1228,11 +1279,11 @@ func (s *httpdServer) handleClientGetFiles(w http.ResponseWriter, r *http.Reques
 		info, err = connection.Stat(name, 0)
 	}
 	if err != nil {
-		s.renderFilesPage(w, r, path.Dir(name), i18nFsMsg(getRespStatus(err)), &user)
+		s.renderFilesPage(w, r, path.Dir(name), util.NewI18nError(err, i18nFsMsg(getRespStatus(err))), &user)
 		return
 	}
 	if info.IsDir() {
-		s.renderFilesPage(w, r, name, "", &user)
+		s.renderFilesPage(w, r, name, nil, &user)
 		return
 	}
 	if status, err := downloadFile(w, r, connection, name, info, false, nil); err != nil && status != 0 {
@@ -1242,7 +1293,7 @@ func (s *httpdServer) handleClientGetFiles(w http.ResponseWriter, r *http.Reques
 					util.NewI18nError(err, util.I18nError416Message), "")
 				return
 			}
-			s.renderFilesPage(w, r, path.Dir(name), i18nFsMsg(status), &user)
+			s.renderFilesPage(w, r, path.Dir(name), util.NewI18nError(err, i18nFsMsg(status)), &user)
 		}
 	}
 }
@@ -1365,7 +1416,7 @@ func (s *httpdServer) handleClientAddShareGet(w http.ResponseWriter, r *http.Req
 		}
 	}
 
-	s.renderAddUpdateSharePage(w, r, share, "", true)
+	s.renderAddUpdateSharePage(w, r, share, nil, true)
 }
 
 func (s *httpdServer) handleClientUpdateShareGet(w http.ResponseWriter, r *http.Request) {
@@ -1379,7 +1430,7 @@ func (s *httpdServer) handleClientUpdateShareGet(w http.ResponseWriter, r *http.
 	share, err := dataprovider.ShareExists(shareID, claims.Username)
 	if err == nil {
 		share.HideConfidentialData()
-		s.renderAddUpdateSharePage(w, r, &share, "", false)
+		s.renderAddUpdateSharePage(w, r, &share, nil, false)
 	} else if errors.Is(err, util.ErrNotFound) {
 		s.renderClientNotFoundPage(w, r, err)
 	} else {
@@ -1396,7 +1447,7 @@ func (s *httpdServer) handleClientAddSharePost(w http.ResponseWriter, r *http.Re
 	}
 	share, err := getShareFromPostFields(r)
 	if err != nil {
-		s.renderAddUpdateSharePage(w, r, share, getI18NErrorString(err, util.I18nError500Message), true)
+		s.renderAddUpdateSharePage(w, r, share, util.NewI18nError(err, util.I18nError500Message), true)
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
@@ -1410,24 +1461,39 @@ func (s *httpdServer) handleClientAddSharePost(w http.ResponseWriter, r *http.Re
 	share.Username = claims.Username
 	if share.Password == "" {
 		if util.Contains(claims.Permissions, sdk.WebClientShareNoPasswordDisabled) {
-			s.renderAddUpdateSharePage(w, r, share, util.I18nErrorShareNoPwd, true)
+			s.renderAddUpdateSharePage(w, r, share,
+				util.NewI18nError(util.NewValidationError("You are not allowed to share files/folders without password"), util.I18nErrorShareNoPwd),
+				true)
 			return
 		}
 	}
 	user, err := dataprovider.GetUserWithGroupSettings(claims.Username, "")
 	if err != nil {
-		s.renderAddUpdateSharePage(w, r, share, util.I18nErrorGetUser, true)
+		s.renderAddUpdateSharePage(w, r, share, util.NewI18nError(err, util.I18nErrorGetUser), true)
 		return
 	}
 	if err := user.CheckMaxShareExpiration(util.GetTimeFromMsecSinceEpoch(share.ExpiresAt)); err != nil {
-		s.renderAddUpdateSharePage(w, r, share, util.I18nErrorShareExpirationOutOfRange, true)
+		s.renderAddUpdateSharePage(w, r, share, util.NewI18nError(
+			err,
+			util.I18nErrorShareExpirationOutOfRange,
+			util.I18nErrorArgs(
+				map[string]any{
+					"val": time.Now().Add(24 * time.Hour * time.Duration(user.Filters.MaxSharesExpiration+1)).UnixMilli(),
+					"formatParams": map[string]string{
+						"year":  "numeric",
+						"month": "numeric",
+						"day":   "numeric",
+					},
+				},
+			),
+		), true)
 		return
 	}
 	err = dataprovider.AddShare(share, claims.Username, ipAddr, claims.Role)
 	if err == nil {
 		http.Redirect(w, r, webClientSharesPath, http.StatusSeeOther)
 	} else {
-		s.renderAddUpdateSharePage(w, r, share, getI18NErrorString(err, util.I18nErrorShareGeneric), true)
+		s.renderAddUpdateSharePage(w, r, share, util.NewI18nError(err, util.I18nErrorShareGeneric), true)
 	}
 }
 
@@ -1449,7 +1515,7 @@ func (s *httpdServer) handleClientUpdateSharePost(w http.ResponseWriter, r *http
 	}
 	updatedShare, err := getShareFromPostFields(r)
 	if err != nil {
-		s.renderAddUpdateSharePage(w, r, updatedShare, getI18NErrorString(err, util.I18nError500Message), false)
+		s.renderAddUpdateSharePage(w, r, updatedShare, util.NewI18nError(err, util.I18nError500Message), false)
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
@@ -1464,24 +1530,39 @@ func (s *httpdServer) handleClientUpdateSharePost(w http.ResponseWriter, r *http
 	}
 	if updatedShare.Password == "" {
 		if util.Contains(claims.Permissions, sdk.WebClientShareNoPasswordDisabled) {
-			s.renderAddUpdateSharePage(w, r, updatedShare, util.I18nErrorShareNoPwd, false)
+			s.renderAddUpdateSharePage(w, r, updatedShare,
+				util.NewI18nError(util.NewValidationError("You are not allowed to share files/folders without password"), util.I18nErrorShareNoPwd),
+				false)
 			return
 		}
 	}
 	user, err := dataprovider.GetUserWithGroupSettings(claims.Username, "")
 	if err != nil {
-		s.renderAddUpdateSharePage(w, r, updatedShare, util.I18nErrorGetUser, false)
+		s.renderAddUpdateSharePage(w, r, updatedShare, util.NewI18nError(err, util.I18nErrorGetUser), false)
 		return
 	}
 	if err := user.CheckMaxShareExpiration(util.GetTimeFromMsecSinceEpoch(updatedShare.ExpiresAt)); err != nil {
-		s.renderAddUpdateSharePage(w, r, updatedShare, util.I18nErrorShareExpirationOutOfRange, false)
+		s.renderAddUpdateSharePage(w, r, updatedShare, util.NewI18nError(
+			err,
+			util.I18nErrorShareExpirationOutOfRange,
+			util.I18nErrorArgs(
+				map[string]any{
+					"val": time.Now().Add(24 * time.Hour * time.Duration(user.Filters.MaxSharesExpiration+1)).UnixMilli(),
+					"formatParams": map[string]string{
+						"year":  "numeric",
+						"month": "numeric",
+						"day":   "numeric",
+					},
+				},
+			),
+		), false)
 		return
 	}
 	err = dataprovider.UpdateShare(updatedShare, claims.Username, ipAddr, claims.Role)
 	if err == nil {
 		http.Redirect(w, r, webClientSharesPath, http.StatusSeeOther)
 	} else {
-		s.renderAddUpdateSharePage(w, r, updatedShare, getI18NErrorString(err, util.I18nErrorShareGeneric), false)
+		s.renderAddUpdateSharePage(w, r, updatedShare, util.NewI18nError(err, util.I18nErrorShareGeneric), false)
 	}
 }
 
@@ -1522,19 +1603,19 @@ func (s *httpdServer) handleClientGetShares(w http.ResponseWriter, r *http.Reque
 
 func (s *httpdServer) handleClientGetProfile(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	s.renderClientProfilePage(w, r, "")
+	s.renderClientProfilePage(w, r, nil)
 }
 
 func (s *httpdServer) handleWebClientChangePwd(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	s.renderClientChangePasswordPage(w, r, "")
+	s.renderClientChangePasswordPage(w, r, nil)
 }
 
 func (s *httpdServer) handleWebClientProfilePost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
 	err := r.ParseForm()
 	if err != nil {
-		s.renderClientProfilePage(w, r, util.I18nErrorInvalidForm)
+		s.renderClientProfilePage(w, r, util.NewI18nError(err, util.I18nErrorInvalidForm))
 		return
 	}
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
@@ -1549,7 +1630,7 @@ func (s *httpdServer) handleWebClientProfilePost(w http.ResponseWriter, r *http.
 	}
 	user, userMerged, err := dataprovider.GetUserVariants(claims.Username, "")
 	if err != nil {
-		s.renderClientProfilePage(w, r, util.I18nErrorGetUser)
+		s.renderClientProfilePage(w, r, util.NewI18nError(err, util.I18nErrorGetUser))
 		return
 	}
 	if !userMerged.CanManagePublicKeys() && !userMerged.CanChangeAPIKeyAuth() && !userMerged.CanChangeInfo() {
@@ -1576,7 +1657,7 @@ func (s *httpdServer) handleWebClientProfilePost(w http.ResponseWriter, r *http.
 	}
 	err = dataprovider.UpdateUser(&user, dataprovider.ActionExecutorSelf, ipAddr, user.Role)
 	if err != nil {
-		s.renderClientProfilePage(w, r, getI18NErrorString(err, util.I18nError500Message))
+		s.renderClientProfilePage(w, r, util.NewI18nError(err, util.I18nError500Message))
 		return
 	}
 	s.renderClientMessagePage(w, r, util.I18nProfileTitle, http.StatusOK, nil, util.I18nProfileUpdated)
@@ -1589,12 +1670,12 @@ func (s *httpdServer) handleWebClientMFA(w http.ResponseWriter, r *http.Request)
 
 func (s *httpdServer) handleWebClientTwoFactor(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	s.renderClientTwoFactorPage(w, r, "", util.GetIPFromRemoteAddress(r.RemoteAddr))
+	s.renderClientTwoFactorPage(w, r, nil, util.GetIPFromRemoteAddress(r.RemoteAddr))
 }
 
 func (s *httpdServer) handleWebClientTwoFactorRecovery(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestSize)
-	s.renderClientTwoFactorRecoveryPage(w, r, "", util.GetIPFromRemoteAddress(r.RemoteAddr))
+	s.renderClientTwoFactorRecoveryPage(w, r, nil, util.GetIPFromRemoteAddress(r.RemoteAddr))
 }
 
 func getShareFromPostFields(r *http.Request) (*dataprovider.Share, error) {
@@ -1646,7 +1727,7 @@ func (s *httpdServer) handleWebClientForgotPwd(w http.ResponseWriter, r *http.Re
 		s.renderClientNotFoundPage(w, r, errors.New("this page does not exist"))
 		return
 	}
-	s.renderClientForgotPwdPage(w, r, "", util.GetIPFromRemoteAddress(r.RemoteAddr))
+	s.renderClientForgotPwdPage(w, r, nil, util.GetIPFromRemoteAddress(r.RemoteAddr))
 }
 
 func (s *httpdServer) handleWebClientForgotPwdPost(w http.ResponseWriter, r *http.Request) {
@@ -1655,7 +1736,7 @@ func (s *httpdServer) handleWebClientForgotPwdPost(w http.ResponseWriter, r *htt
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	err := r.ParseForm()
 	if err != nil {
-		s.renderClientForgotPwdPage(w, r, util.I18nErrorInvalidForm, ipAddr)
+		s.renderClientForgotPwdPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidForm), ipAddr)
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
@@ -1665,7 +1746,7 @@ func (s *httpdServer) handleWebClientForgotPwdPost(w http.ResponseWriter, r *htt
 	username := strings.TrimSpace(r.Form.Get("username"))
 	err = handleForgotPassword(r, username, false)
 	if err != nil {
-		s.renderClientForgotPwdPage(w, r, getI18NErrorString(err, util.I18nErrorPwdResetGeneric), ipAddr)
+		s.renderClientForgotPwdPage(w, r, util.NewI18nError(err, util.I18nErrorPwdResetGeneric), ipAddr)
 		return
 	}
 	http.Redirect(w, r, webClientResetPwdPath, http.StatusFound)
@@ -1677,7 +1758,7 @@ func (s *httpdServer) handleWebClientPasswordReset(w http.ResponseWriter, r *htt
 		s.renderClientNotFoundPage(w, r, errors.New("this page does not exist"))
 		return
 	}
-	s.renderClientResetPwdPage(w, r, "", util.GetIPFromRemoteAddress(r.RemoteAddr))
+	s.renderClientResetPwdPage(w, r, nil, util.GetIPFromRemoteAddress(r.RemoteAddr))
 }
 
 func (s *httpdServer) handleClientViewPDF(w http.ResponseWriter, r *http.Request) {
@@ -1780,29 +1861,30 @@ func (s *httpdServer) ensurePDF(w http.ResponseWriter, r *http.Request, name str
 
 func (s *httpdServer) handleClientShareLoginGet(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
-	s.renderShareLoginPage(w, r, "", util.GetIPFromRemoteAddress(r.RemoteAddr))
+	s.renderShareLoginPage(w, r, nil, util.GetIPFromRemoteAddress(r.RemoteAddr))
 }
 
 func (s *httpdServer) handleClientShareLoginPost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBodySize)
 	ipAddr := util.GetIPFromRemoteAddress(r.RemoteAddr)
 	if err := r.ParseForm(); err != nil {
-		s.renderShareLoginPage(w, r, util.I18nErrorInvalidForm, ipAddr)
+		s.renderShareLoginPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidForm), ipAddr)
 		return
 	}
 	if err := verifyCSRFToken(r.Form.Get(csrfFormToken), ipAddr); err != nil {
-		s.renderShareLoginPage(w, r, util.I18nErrorInvalidCSRF, ipAddr)
+		s.renderShareLoginPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCSRF), ipAddr)
 		return
 	}
 	shareID := getURLParam(r, "id")
 	share, err := dataprovider.ShareExists(shareID, "")
 	if err != nil {
-		s.renderShareLoginPage(w, r, util.I18nErrorInvalidCredentials, ipAddr)
+		s.renderShareLoginPage(w, r, util.NewI18nError(err, util.I18nErrorInvalidCredentials), ipAddr)
 		return
 	}
 	match, err := share.CheckCredentials(strings.TrimSpace(r.Form.Get("share_password")))
 	if !match || err != nil {
-		s.renderShareLoginPage(w, r, util.I18nErrorInvalidCredentials, ipAddr)
+		s.renderShareLoginPage(w, r, util.NewI18nError(dataprovider.ErrInvalidCredentials, util.I18nErrorInvalidCredentials),
+			ipAddr)
 		return
 	}
 	c := jwtTokenClaims{
@@ -1810,7 +1892,7 @@ func (s *httpdServer) handleClientShareLoginPost(w http.ResponseWriter, r *http.
 	}
 	err = c.createAndSetCookie(w, r, s.tokenAuth, tokenAudienceWebShare, ipAddr)
 	if err != nil {
-		s.renderShareLoginPage(w, r, util.I18nError500Message, ipAddr)
+		s.renderShareLoginPage(w, r, util.NewI18nError(err, util.I18nError500Message), ipAddr)
 		return
 	}
 	next := path.Clean(r.URL.Query().Get("next"))

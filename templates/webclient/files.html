@@ -1409,8 +1409,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     if (!errorMessage){
                         errorMessage = "fs.delete.err_generic";
                     }
-                    errTxtEl.removeAttr("data-i18n")
-                    errTxtEl.text($.t(errorMessage, {name: itemName}));
+                    setI18NData(errTxtEl, errorMessage, {name: itemName});
                     errDivEl.removeClass("d-none");
                 });
             }
@@ -1484,8 +1483,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             if (!errorMessage){
                 errorMessage = "fs.rename.err_generic";
             }
-            errTxtEl.removeAttr("data-i18n")
-            errTxtEl.text($.t(errorMessage, {name: oldName}));
+            setI18NData(errTxtEl, errorMessage, {name: oldName});
             errDivEl.removeClass("d-none");
         });
     }

@@ -151,11 +151,11 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     //{{- end}}
 
     $(document).on("i18nload", function(){
+        let message = 'fs.edit_file';
         //{{- if .ReadOnly}}
-        $('#card_title').text($.t('fs.view_file', { path: '{{.Path}}'}));
-        //{{- else}}
-        $('#card_title').text($.t('fs.edit_file', { path: '{{.Path}}'}));
+        message = 'fs.view_file';
         //{{- end}}
+        setI18NData($('#card_title'), message, { path: '{{.Path}}'});
     });
 
     $(document).on("i18nshow", function(){

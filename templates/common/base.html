@@ -21,7 +21,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         <span class="path3"></span>
     </i>
     <div class="text-gray-800 fw-bold fs-5 d-flex flex-column pe-0 pe-sm-10">
-		<span data-i18n="{{.}}" id="errorTxt"></span>
+		<span {{if .}}data-i18n="{{.Message}}" {{if .HasArgs}}data-i18n-options="{{.Args}}"{{end}}{{end}} id="errorTxt"></span>
 	</div>
     <button id="id_dismiss_error_msg" type="button" class="position-absolute position-sm-relative m-2 m-sm-0 top-0 end-0 btn btn-icon btn-sm btn-active-light-primary ms-sm-auto">
         <i class="ki-duotone ki-cross fs-2x text-primary">
@@ -202,9 +202,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             });
     }
 
-    function setI18NData(el, value) {
+    function setI18NData(el, value, options) {
+        el.removeAttr("data-i18n-options");
         el.attr("data-i18n", value);
-        el.localize();
+        el.localize(options);
     }
 
     KTUtil.onDOMContentLoaded(function () {

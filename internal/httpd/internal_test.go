@@ -3529,6 +3529,12 @@ func TestI18NErrors(t *testing.T) {
 	assert.ErrorIs(t, errI18n, util.ErrValidation)
 	assert.Equal(t, err.Error(), errI18n.Error())
 	assert.Equal(t, util.I18nError500Message, getI18NErrorString(errI18n, ""))
+	assert.Equal(t, util.I18nError500Message, errI18n.Message)
+	assert.Equal(t, "{}", errI18n.Args())
+	var e1 *util.ValidationError
+	assert.ErrorAs(t, errI18n, &e1)
+	var e2 *util.I18nError
+	assert.ErrorAs(t, errI18n, &e2)
 	err2 := util.NewI18nError(fs.ErrNotExist, util.I18nError500Message)
 	assert.ErrorIs(t, err2, &util.I18nError{})
 	assert.ErrorIs(t, err2, fs.ErrNotExist)
@@ -3537,7 +3543,10 @@ func TestI18NErrors(t *testing.T) {
 	errorString := getI18NErrorString(nil, util.I18nError500Message)
 	assert.Equal(t, util.I18nError500Message, errorString)
 	errI18nWrap := util.NewI18nError(errI18n, util.I18nError404Message)
-	assert.Equal(t, util.I18nError500Message, errI18nWrap.I18nMessage)
+	assert.Equal(t, util.I18nError500Message, errI18nWrap.Message)
+	errI18n = util.NewI18nError(err, util.I18nError500Message, util.I18nErrorArgs(map[string]any{"a": "b"}))
+	assert.Equal(t, util.I18nError500Message, errI18n.Message)
+	assert.Equal(t, `{"a":"b"}`, errI18n.Args())
 }
 
 func isSharedProviderSupported() bool {

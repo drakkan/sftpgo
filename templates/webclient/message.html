@@ -53,7 +53,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 <div class="d-flex flex-stack flex-grow-1 ">
                     <div class=" fw-semibold">
                         <div class="fs-5 text-gray-800">
-                            <span data-i18n="{{.Error}}"></span>
+                            <span data-i18n="{{.Error.Message}}" {{if .Error.HasArgs}}data-i18n-options="{{.Error.Args}}"{{end}}></span>
                         </div>
                     </div>
                 </div>

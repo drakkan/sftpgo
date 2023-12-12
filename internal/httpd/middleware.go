@@ -233,11 +233,15 @@ func (s *httpdServer) checkAuthRequirements(next http.Handler) http.Handler {
 		if tokenClaims.MustSetTwoFactorAuth || tokenClaims.MustChangePassword {
 			var err error
 			if tokenClaims.MustSetTwoFactorAuth {
+				protocols := strings.Join(tokenClaims.RequiredTwoFactorProtocols, ", ")
 				err = util.NewI18nError(
 					util.NewGenericError(
 						fmt.Sprintf("Two-factor authentication requirements not met, please configure two-factor authentication for the following protocols: %v",
-							strings.Join(tokenClaims.RequiredTwoFactorProtocols, ", "))),
+							protocols)),
 					util.I18nError2FARequired,
+					util.I18nErrorArgs(map[string]any{
+						"val": protocols,
+					}),
 				)
 			} else {
 				err = util.NewI18nError(
