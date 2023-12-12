@@ -299,6 +299,8 @@ func NewCertManager(keyPairs []TLSKeyPair, configDir, logSender string) (*CertMa
 	}
 	randSecs := rand.Intn(59)
 	manager.monitor()
-	_, err = eventScheduler.AddFunc(fmt.Sprintf("@every 8h0m%ds", randSecs), manager.monitor)
+	if eventScheduler != nil {
+		_, err = eventScheduler.AddFunc(fmt.Sprintf("@every 8h0m%ds", randSecs), manager.monitor)
+	}
 	return manager, err
 }
