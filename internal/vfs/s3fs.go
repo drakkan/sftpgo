@@ -699,8 +699,8 @@ func (fs *S3Fs) Walk(root string, walkFn filepath.WalkFunc) error {
 				continue
 			}
 			err := walkFn(util.GetStringFromPointer(fileObject.Key),
-				NewFileInfo(name, isDir, util.GetIntFromPointer(fileObject.Size), util.GetTimeFromPointer(fileObject.LastModified),
-					false), nil)
+				NewFileInfo(name, isDir, util.GetIntFromPointer(fileObject.Size),
+					util.GetTimeFromPointer(fileObject.LastModified), false), nil)
 			if err != nil {
 				return err
 			}
