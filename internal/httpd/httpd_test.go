@@ -9806,7 +9806,7 @@ func TestWebUserTwoFactorLogin(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr = executeRequest(req)
 	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Two factory authentication is not enabled")
+	assert.Contains(t, rr.Body.String(), util.I18n2FADisabled)
 
 	req, err = http.NewRequest(http.MethodPost, webClientTwoFactorPath, bytes.NewBuffer([]byte(form.Encode())))
 	assert.NoError(t, err)

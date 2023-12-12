@@ -59,7 +59,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 								<div data-i18n="general.or" class="text-center text-muted text-uppercase fw-bold mb-5">or</div>
 								{{- end}}
 								<a href="{{.OpenIDLoginURL}}" class="btn btn-flex flex-center btn-light btn-lg w-100 mb-5">
-								<img data-i18n="login.signin_openid" alt="Logo" src="{{.StaticURL}}/img/openid-logo.png" class="h-20px me-3" />Sign in with OpenID</a>
+									<img alt="Logo" src="{{.StaticURL}}/img/openid-logo.png" class="h-20px me-3" />
+									<span data-i18n="login.signin_openid">Sign in with OpenID</span>
+								</a>
 								{{- end}}
 							</div>
 						</form>
