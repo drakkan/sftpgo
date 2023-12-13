@@ -28,6 +28,7 @@ With sponsorships/donations or support plans we establish a channel for reciproc
 #### Platinum sponsors
 
 [<img src="./img/Aledade_logo.png" alt="Aledade logo" width="202" height="70">](https://www.aledade.com/)
+[<img src="./img/jumptrading.png" alt="Jump Trading logo" width="362" height="63">](https://www.jumptrading.com/)
 
 #### Silver sponsors
 
