@@ -125,6 +125,11 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         }
     }
 
+    const lngs = {
+        en: { nativeName: 'English' },
+        it: { nativeName: 'Italiano' }
+    };
+
     const renderI18n = () => {
         $('body').localize();
         let select2elements = [].slice.call(document.querySelectorAll('[data-control="i18n-select2"]'));
@@ -188,6 +193,24 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     console.error(err);
                 } else {
                     jqueryI18next.init(i18next, $, { useOptionsAttr: true });
+
+                    var languageSwitcher = $('#languageSwitcher');
+                    if (languageSwitcher){
+                        Object.keys(lngs).map((lng) => {
+                            const opt = new Option(lngs[lng].nativeName, lng);
+                            if (lng === i18next.resolvedLanguage) {
+                                opt.setAttribute("selected", "selected");
+                            }
+                            languageSwitcher.append(opt);
+                        });
+                        languageSwitcher.on('change', function(){
+                            const chosenLng = $(this).find("option:selected").attr('value');
+                            i18next.changeLanguage(chosenLng, () => {
+                                renderI18n();
+                            });
+                        });
+                    }
+
                     renderI18n();
                     $('title').text('{{.Branding.Name}} - '+$.t('{{.Title}}'));
                     $.event.trigger({

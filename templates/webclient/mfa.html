@@ -59,7 +59,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         {{- template "errmsg" ""}}
 
         <div class="form-group row mt-10">
-            <label data-i18n="general.configuration" class="col-md-3 col-form-label">Configuration</label>
+            <label for="id_config" data-i18n="general.configuration" class="col-md-3 col-form-label">Configuration</label>
             <div class="col-md-9">
                 <select id="id_config" name="config_name" class="form-select" data-control="i18n-select2" data-hide-search="true">
                     <option data-i18n="general.none" value="">None</option>
@@ -71,7 +71,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         </div>
 
         <div class="form-group row mt-10">
-            <label data-i18n="2fa.require_for" class="col-md-3 col-form-label required">
+            <label for="id_protocols" data-i18n="2fa.require_for" class="col-md-3 col-form-label required">
                 Require 2FA for
             </label>
             <div class="col-md-9">

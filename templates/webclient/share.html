@@ -24,17 +24,17 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         {{- template "errmsg" .Error}}
         <form id="share_form" action="{{.CurrentURL}}" method="POST" autocomplete="off">
             <div class="form-group row">
-                <label data-i18n="general.name" class="col-md-3 col-form-label">Name</label>
+                <label for="name" data-i18n="general.name" class="col-md-3 col-form-label">Name</label>
                 <div class="col-md-9">
-                    <input type="text" class="form-control" placeholder="" name="name" value="{{.Share.Name}}"
+                    <input id="name" type="text" class="form-control" placeholder="" name="name" value="{{.Share.Name}}"
                         maxlength="255" autocomplete="nope" required {{if not .IsAdd}}readonly{{end}} />
                 </div>
             </div>
 
             <div class="form-group row mt-10">
-                <label data-i18n="share.scope" class="col-md-3 col-form-label">Scope</label>
+                <label for="scope" data-i18n="share.scope" class="col-md-3 col-form-label">Scope</label>
                 <div class="col-md-9">
-                    <select name="scope" class="form-select" data-control="i18n-select2" data-hide-search="true">
+                    <select id="scope" name="scope" class="form-select" data-control="i18n-select2" data-hide-search="true">
                         <option data-i18n="share.scope_read" value="1" {{if eq .Share.Scope 1 }}selected{{end}}>Read</option>
                         <option data-i18n="share.scope_write" value="2" {{if eq .Share.Scope 2 }}selected{{end}}>Write</option>
                         <option data-i18n="share.scope_read_write" value="3" {{if eq .Share.Scope 3 }}selected{{end}}>Read/Write</option>
@@ -112,9 +112,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
 
             <div class="form-group row mt-10">
-                <label data-i18n="login.password" class="col-md-3 col-form-label">Password</label>
+                <label for="password" data-i18n="login.password" class="col-md-3 col-form-label">Password</label>
                 <div class="col-md-9">
-                    <input type="password" class="form-control" name="password" autocomplete="new-password"
+                    <input id="password" type="password" class="form-control" name="password" autocomplete="new-password"
                         placeholder="" spellcheck="false" value="{{.Share.Password}}" />
                     <div data-i18n="share.password_help" class="form-text">
                         If set the share will be password-protected
@@ -123,7 +123,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
 
             <div class="form-group row mt-10">
-                <label data-i18n="share.expiration" class="col-md-3 col-form-label">Expiration</label>
+                <label for="id_expiration" data-i18n="share.expiration" class="col-md-3 col-form-label">Expiration</label>
                 <div class="col-md-9 d-flex">
                     <input data-i18n="[placeholder]share.expiration_help" id="id_expiration" class="form-control" placeholder="Pick an expiration date" />
                     <button class="btn btn-icon btn-light-danger ms-2 d-none" id="id_expiration_clear">
@@ -136,9 +136,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
 
             <div class="form-group row mt-10">
-                <label data-i18n="share.max_tokens" class="col-md-3 col-form-label">Max tokens</label>
+                <label for="max_tokens" data-i18n="share.max_tokens" class="col-md-3 col-form-label">Max tokens</label>
                 <div class="col-md-9">
-                    <input type="number" min="0" class="form-control" name="max_tokens" value="{{.Share.MaxTokens}}" />
+                    <input id="max_tokens" type="number" min="0" class="form-control" name="max_tokens" value="{{.Share.MaxTokens}}" />
                     <div data-i18n="share.max_tokens_help" class="form-text">
                         Maximum number of times this share can be accessed. 0 means no limit
                     </div>
@@ -146,9 +146,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
 
             <div class="form-group row mt-10">
-                <label data-i18n="general.allowed_ip_mask" class="col-md-3 col-form-label">Allowed IP/Mask</label>
+                <label for="allowed_ip" data-i18n="general.allowed_ip_mask" class="col-md-3 col-form-label">Allowed IP/Mask</label>
                 <div class="col-md-9">
-                    <textarea class="form-control" name="allowed_ip" rows="3"
+                    <textarea id="allowed_ip" class="form-control" name="allowed_ip" rows="3"
                         placeholder="">{{.Share.GetAllowedFromAsString}}</textarea>
                     <div data-i18n="general.allowed_ip_mask_help" class="form-text">
                         Comma separated IP/Mask in CIDR format, for example "192.168.1.0/24,10.8.0.100/32"
@@ -157,9 +157,9 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
 
             <div class="form-group row mt-10">
-                <label data-i18n="general.description" class="col-md-3 col-form-label">Description</label>
+                <label for="description" data-i18n="general.description" class="col-md-3 col-form-label">Description</label>
                 <div class="col-md-9">
-                    <textarea class="form-control" name="description" rows="3"
+                    <textarea id="description" class="form-control" name="description" rows="3"
                         placeholder="">{{.Share.Description}}</textarea>
                 </div>
             </div>
@@ -184,6 +184,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
 {{- define "extra_js"}}
 <script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/plugins/custom/formrepeater/formrepeater.bundle.js"></script>
+<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/plugins/custom/flatpickr/l10n/it.js"></script>
 <script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
     $(document).on("i18nshow", function(){
             initRepeater('#paths');
@@ -202,6 +203,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 },
                 defaultHour: 23,
                 defaultMinute: 59,
+                locale: i18next.language,
                 onChange: function(selectedDates, dateStr, instance) {
                     if (selectedDates.length > 0){
                         $('#id_expiration_clear').removeClass("d-none");
