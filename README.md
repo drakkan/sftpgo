@@ -28,6 +28,7 @@ With sponsorships/donations or support plans we establish a channel for reciproc
 #### Platinum sponsors
 
 [<img src="./img/Aledade_logo.png" alt="Aledade logo" width="202" height="70">](https://www.aledade.com/)
+</br></br>
 [<img src="./img/jumptrading.png" alt="Jump Trading logo" width="362" height="63">](https://www.jumptrading.com/)
 
 #### Silver sponsors
@@ -37,6 +38,7 @@ With sponsorships/donations or support plans we establish a channel for reciproc
 #### Bronze sponsors
 
 [<img src="./img/7digital.png" alt="7digital logo" width="178" height="56">](https://www.7digital.com/)
+</br></br>
 [<img src="./img/vps2day.png" alt="VPS2day logo" width="234" height="56">](https://www.vps2day.com/)
 
 ## Support policy
