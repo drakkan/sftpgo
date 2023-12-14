@@ -47,6 +47,8 @@ const (
 	defaultPrivateECDSAKeyName   = "id_ecdsa"
 	defaultPrivateEd25519KeyName = "id_ed25519"
 	sourceAddressCriticalOption  = "source-address"
+	kexDHGroupExchangeSHA1       = "diffie-hellman-group-exchange-sha1"
+	kexDHGroupExchangeSHA256     = "diffie-hellman-group-exchange-sha256"
 )
 
 var (
@@ -61,11 +63,8 @@ var (
 		ssh.KeyAlgoED25519,
 	}
 	preferredHostKeyAlgos = []string{
-		ssh.CertAlgoRSASHA512v01, ssh.CertAlgoRSASHA256v01,
-		ssh.CertAlgoECDSA256v01,
-		ssh.CertAlgoECDSA384v01, ssh.CertAlgoECDSA521v01, ssh.CertAlgoED25519v01,
+		ssh.KeyAlgoRSASHA256, ssh.KeyAlgoRSASHA512,
 		ssh.KeyAlgoECDSA256, ssh.KeyAlgoECDSA384, ssh.KeyAlgoECDSA521,
-		ssh.KeyAlgoRSASHA512, ssh.KeyAlgoRSASHA256,
 		ssh.KeyAlgoED25519,
 	}
 	supportedKexAlgos = []string{
@@ -75,6 +74,11 @@ var (
 		"diffie-hellman-group18-sha512", "diffie-hellman-group14-sha1",
 		"diffie-hellman-group1-sha1",
 	}
+	preferredKexAlgos = []string{
+		"curve25519-sha256", "curve25519-sha256@libssh.org",
+		"ecdh-sha2-nistp256", "ecdh-sha2-nistp384", "ecdh-sha2-nistp521",
+		"diffie-hellman-group14-sha256",
+	}
 	supportedCiphers = []string{
 		"aes128-gcm@openssh.com", "aes256-gcm@openssh.com",
 		"chacha20-poly1305@openssh.com",
@@ -83,10 +87,18 @@ var (
 		"3des-cbc",
 		"arcfour", "arcfour128", "arcfour256",
 	}
+	preferredCiphers = []string{
+		"aes128-gcm@openssh.com", "aes256-gcm@openssh.com",
+		"chacha20-poly1305@openssh.com",
+		"aes128-ctr", "aes192-ctr", "aes256-ctr",
+	}
 	supportedMACs = []string{
 		"hmac-sha2-256-etm@openssh.com", "hmac-sha2-256",
 		"hmac-sha2-512-etm@openssh.com", "hmac-sha2-512",
 		"hmac-sha1", "hmac-sha1-96",
+	}
+	preferredMACs = []string{
+		"hmac-sha2-256-etm@openssh.com", "hmac-sha2-256",
 	}
 
 	revokedCertManager = revokedCertificates{
@@ -315,15 +327,6 @@ func (c *Configuration) Initialize(configDir string) error {
 		return common.ErrNoBinding
 	}
 
-	if err := c.checkAndLoadHostKeys(configDir, serverConfig); err != nil {
-		serviceStatus.HostKeys = nil
-		return err
-	}
-
-	if err := c.initializeCertChecker(configDir); err != nil {
-		return err
-	}
-
 	if err := c.loadModuli(configDir); err != nil {
 		return err
 	}
@@ -331,6 +334,14 @@ func (c *Configuration) Initialize(configDir string) error {
 	sftp.SetSFTPExtensions(sftpExtensions...) //nolint:errcheck // we configure valid SFTP Extensions so we cannot get an error
 
 	if err := c.configureSecurityOptions(serverConfig); err != nil {
+		return err
+	}
+	if err := c.checkAndLoadHostKeys(configDir, serverConfig); err != nil {
+		serviceStatus.HostKeys = nil
+		return err
+	}
+
+	if err := c.initializeCertChecker(configDir); err != nil {
 		return err
 	}
 	c.configureKeyboardInteractiveAuth(serverConfig)
@@ -419,35 +430,43 @@ func (c *Configuration) configureSecurityOptions(serverConfig *ssh.ServerConfig)
 			return fmt.Errorf("unsupported host key algorithm %#v", hostKeyAlgo)
 		}
 	}
-	serverConfig.HostKeyAlgorithms = c.HostKeyAlgorithms
 
-	if len(c.KexAlgorithms) > 0 {
+	if len(c.KexAlgorithms) == 0 {
+		c.KexAlgorithms = preferredKexAlgos
+	} else {
 		c.KexAlgorithms = util.RemoveDuplicates(c.KexAlgorithms, true)
-		for _, kex := range c.KexAlgorithms {
-			if !util.Contains(supportedKexAlgos, kex) {
-				return fmt.Errorf("unsupported key-exchange algorithm %#v", kex)
-			}
-		}
-		serverConfig.KeyExchanges = c.KexAlgorithms
 	}
-	if len(c.Ciphers) > 0 {
+	for _, kex := range c.KexAlgorithms {
+		if !util.Contains(supportedKexAlgos, kex) {
+			return fmt.Errorf("unsupported key-exchange algorithm %q", kex)
+		}
+	}
+	serverConfig.KeyExchanges = c.KexAlgorithms
+
+	if len(c.Ciphers) == 0 {
+		c.Ciphers = preferredCiphers
+	} else {
 		c.Ciphers = util.RemoveDuplicates(c.Ciphers, true)
-		for _, cipher := range c.Ciphers {
-			if !util.Contains(supportedCiphers, cipher) {
-				return fmt.Errorf("unsupported cipher %#v", cipher)
-			}
-		}
-		serverConfig.Ciphers = c.Ciphers
 	}
-	if len(c.MACs) > 0 {
+	for _, cipher := range c.Ciphers {
+		if !util.Contains(supportedCiphers, cipher) {
+			return fmt.Errorf("unsupported cipher %#v", cipher)
+		}
+	}
+	serverConfig.Ciphers = c.Ciphers
+
+	if len(c.MACs) == 0 {
+		c.MACs = preferredMACs
+	} else {
 		c.MACs = util.RemoveDuplicates(c.MACs, true)
-		for _, mac := range c.MACs {
-			if !util.Contains(supportedMACs, mac) {
-				return fmt.Errorf("unsupported MAC algorithm %#v", mac)
-			}
-		}
-		serverConfig.MACs = c.MACs
 	}
+	for _, mac := range c.MACs {
+		if !util.Contains(supportedMACs, mac) {
+			return fmt.Errorf("unsupported MAC algorithm %#v", mac)
+		}
+	}
+	serverConfig.MACs = c.MACs
+
 	return nil
 }
 
@@ -876,8 +895,9 @@ func (c *Configuration) checkHostKeyAutoGeneration(configDir string) error {
 }
 
 func (c *Configuration) loadModuli(configDir string) error {
-	supportedKexAlgos = util.Remove(supportedKexAlgos, "diffie-hellman-group-exchange-sha1")
-	supportedKexAlgos = util.Remove(supportedKexAlgos, "diffie-hellman-group-exchange-sha256")
+	supportedKexAlgos = util.Remove(supportedKexAlgos, kexDHGroupExchangeSHA1)
+	supportedKexAlgos = util.Remove(supportedKexAlgos, kexDHGroupExchangeSHA256)
+	preferredKexAlgos = util.Remove(preferredKexAlgos, kexDHGroupExchangeSHA256)
 	for _, m := range c.Moduli {
 		m = strings.TrimSpace(m)
 		if !util.IsFileInputValid(m) {
@@ -892,10 +912,27 @@ func (c *Configuration) loadModuli(configDir string) error {
 		if err := ssh.ParseModuli(m); err != nil {
 			return err
 		}
-		supportedKexAlgos = append(supportedKexAlgos, "diffie-hellman-group-exchange-sha1",
-			"diffie-hellman-group-exchange-sha256")
+		if !util.Contains(supportedKexAlgos, kexDHGroupExchangeSHA1) {
+			supportedKexAlgos = append(supportedKexAlgos, kexDHGroupExchangeSHA1)
+		}
+		if !util.Contains(supportedKexAlgos, kexDHGroupExchangeSHA256) {
+			supportedKexAlgos = append(supportedKexAlgos, kexDHGroupExchangeSHA256)
+		}
+		if !util.Contains(preferredKexAlgos, kexDHGroupExchangeSHA256) {
+			preferredKexAlgos = append(preferredKexAlgos, kexDHGroupExchangeSHA256)
+		}
 	}
 	return nil
+}
+
+func (c *Configuration) getHostKeyAlgorithms(keyFormat string) []string {
+	var algos []string
+	for _, algo := range algorithmsForKeyFormat(keyFormat) {
+		if util.Contains(c.HostKeyAlgorithms, algo) {
+			algos = append(algos, algo)
+		}
+	}
+	return algos
 }
 
 // If no host keys are defined we try to use or generate the default ones.
@@ -932,21 +969,44 @@ func (c *Configuration) checkAndLoadHostKeys(configDir string, serverConfig *ssh
 		k := HostKey{
 			Path:        hostKey,
 			Fingerprint: ssh.FingerprintSHA256(private.PublicKey()),
+			Algorithms:  c.getHostKeyAlgorithms(private.PublicKey().Type()),
+		}
+		mas, err := ssh.NewSignerWithAlgorithms(private.(ssh.AlgorithmSigner), k.Algorithms)
+		if err != nil {
+			logger.Warn(logSender, "", "could not create signer for key %q with algorithms %+v: %v", k.Path, k.Algorithms, err)
+			logger.WarnToConsole("could not create signer for key %q with algorithms %+v: %v", k.Path, k.Algorithms, err)
+			continue
 		}
 		serviceStatus.HostKeys = append(serviceStatus.HostKeys, k)
-		logger.Info(logSender, "", "Host key %#v loaded, type %#v, fingerprint %#v", hostKey,
-			private.PublicKey().Type(), k.Fingerprint)
+		logger.Info(logSender, "", "Host key %q loaded, type %q, fingerprint %q, algorithms %+v", hostKey,
+			private.PublicKey().Type(), k.Fingerprint, k.Algorithms)
 
 		// Add private key to the server configuration.
-		serverConfig.AddHostKey(private)
+		serverConfig.AddHostKey(mas)
 		for _, cert := range hostCertificates {
-			signer, err := ssh.NewCertSigner(cert, private)
+			signer, err := ssh.NewCertSigner(cert.Certificate, mas)
 			if err == nil {
+				var algos []string
+				for _, algo := range algorithmsForKeyFormat(signer.PublicKey().Type()) {
+					if underlyingAlgo, ok := certKeyAlgoNames[algo]; ok {
+						if util.Contains(mas.Algorithms(), underlyingAlgo) {
+							algos = append(algos, algo)
+						}
+					}
+				}
+				serviceStatus.HostKeys = append(serviceStatus.HostKeys, HostKey{
+					Path:        cert.Path,
+					Fingerprint: ssh.FingerprintSHA256(signer.PublicKey()),
+					Algorithms:  algos,
+				})
 				serverConfig.AddHostKey(signer)
-				logger.Info(logSender, "", "Host certificate loaded for host key %#v, fingerprint %#v",
-					hostKey, ssh.FingerprintSHA256(signer.PublicKey()))
+				logger.Info(logSender, "", "Host certificate loaded for host key %q, fingerprint %q, algorithms %+v",
+					hostKey, ssh.FingerprintSHA256(signer.PublicKey()), algos)
 			}
 		}
+	}
+	if len(serviceStatus.HostKeys) == 0 {
+		return errors.New("ssh: server has no host keys")
 	}
 	var fp []string
 	for idx := range serviceStatus.HostKeys {
@@ -957,8 +1017,8 @@ func (c *Configuration) checkAndLoadHostKeys(configDir string, serverConfig *ssh
 	return nil
 }
 
-func (c *Configuration) loadHostCertificates(configDir string) ([]*ssh.Certificate, error) {
-	var certs []*ssh.Certificate
+func (c *Configuration) loadHostCertificates(configDir string) ([]hostCertificate, error) {
+	var certs []hostCertificate
 	for _, certPath := range c.HostCertificates {
 		certPath = strings.TrimSpace(certPath)
 		if !util.IsFileInputValid(certPath) {
@@ -984,7 +1044,10 @@ func (c *Configuration) loadHostCertificates(configDir string) ([]*ssh.Certifica
 		if cert.CertType != ssh.HostCert {
 			return nil, fmt.Errorf("the file %#v is not an host certificate", certPath)
 		}
-		certs = append(certs, cert)
+		certs = append(certs, hostCertificate{
+			Path:        certPath,
+			Certificate: cert,
+		})
 	}
 	return certs, nil
 }
@@ -1217,4 +1280,15 @@ func (r *revokedCertificates) isRevoked(fp string) bool {
 // Reload reloads the list of revoked user certificates
 func Reload() error {
 	return revokedCertManager.load()
+}
+
+func algorithmsForKeyFormat(keyFormat string) []string {
+	switch keyFormat {
+	case ssh.KeyAlgoRSA:
+		return []string{ssh.KeyAlgoRSASHA256, ssh.KeyAlgoRSASHA512, ssh.KeyAlgoRSA}
+	case ssh.CertAlgoRSAv01:
+		return []string{ssh.CertAlgoRSASHA256v01, ssh.CertAlgoRSASHA512v01, ssh.CertAlgoRSAv01}
+	default:
+		return []string{keyFormat}
+	}
 }

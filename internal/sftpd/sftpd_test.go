@@ -429,11 +429,13 @@ func TestInitialization(t *testing.T) {
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "unsupported MAC algorithm")
 	}
+	sftpdConf.MACs = nil
 	sftpdConf.KexAlgorithms = []string{"not a KEX"}
 	err = sftpdConf.Initialize(configDir)
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "unsupported key-exchange algorithm")
 	}
+	sftpdConf.KexAlgorithms = nil
 	sftpdConf.HostKeyAlgorithms = []string{"not a host key algo"}
 	err = sftpdConf.Initialize(configDir)
 	if assert.Error(t, err) {
@@ -562,6 +564,7 @@ func TestBasicSFTPHandling(t *testing.T) {
 	assert.NotEmpty(t, sshCommands)
 	sshAuths := status.GetSupportedAuthsAsString()
 	assert.NotEmpty(t, sshAuths)
+	assert.NotEmpty(t, status.HostKeys[0].GetAlgosAsString())
 }
 
 func TestBasicSFTPFsHandling(t *testing.T) {

@@ -1975,6 +1975,13 @@ func TestLoadHostKeys(t *testing.T) {
 	c.HostKeys = []string{nonDefaultKeyName, rsaKeyName, ecdsaKeyName, ed25519KeyName}
 	err = c.checkAndLoadHostKeys(configDir, serverConfig)
 	assert.Error(t, err)
+	c.HostKeyAlgorithms = []string{ssh.KeyAlgoRSASHA256}
+	c.HostKeys = []string{ecdsaKeyName}
+	err = c.checkAndLoadHostKeys(configDir, serverConfig)
+	assert.Error(t, err)
+	c.HostKeyAlgorithms = preferredHostKeyAlgos
+	err = c.checkAndLoadHostKeys(configDir, serverConfig)
+	assert.NoError(t, err)
 	assert.FileExists(t, rsaKeyName)
 	assert.FileExists(t, ecdsaKeyName)
 	assert.FileExists(t, ed25519KeyName)

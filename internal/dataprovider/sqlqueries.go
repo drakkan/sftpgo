@@ -219,7 +219,7 @@ func getUsersInGroupsQuery(numArgs int) string {
 	} else {
 		sb.WriteString("('')")
 	}
-	return fmt.Sprintf(`SELECT username FROM %s WHERE id IN (SELECT user_id from %s WHERE group_id IN (SELECT id FROM %s WHERE name IN (%s)))`,
+	return fmt.Sprintf(`SELECT username FROM %s WHERE id IN (SELECT user_id from %s WHERE group_id IN (SELECT id FROM %s WHERE name IN %s))`,
 		sqlTableUsers, sqlTableUsersGroupsMapping, getSQLQuotedName(sqlTableGroups), sb.String())
 }
 

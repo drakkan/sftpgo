@@ -11,11 +11,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        go: [1.19]
+        go: ['1.20']
         os: [ubuntu-latest, macos-latest]
         upload-coverage: [true]
         include:
-          - go: 1.19
+          - go: '1.20'
             os: windows-latest
             upload-coverage: false
 
@@ -232,7 +232,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
-          go-version: 1.19
+          go-version: '1.20'
 
       - name: Build
         run: |
@@ -252,7 +252,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
-          go-version: 1.19
+          go-version: '1.20'
 
       - name: Build
         run: |
@@ -326,7 +326,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
-          go-version: 1.19
+          go-version: '1.20'
 
       - name: Build
         run: |
@@ -438,7 +438,7 @@ jobs:
           echo 'apt-get install -q -y curl gcc' >> build.sh
           if [ ${{ matrix.go }} == 'latest' ]
           then
-            echo 'GO_VERSION=$(curl -L https://go.dev/VERSION?m=text)' >> build.sh
+            echo 'GO_VERSION=$(curl -L https://go.dev/VERSION?m=text | head -n 1)' >> build.sh
           else
             echo 'GO_VERSION=${{ matrix.go }}' >> build.sh
           fi
@@ -481,7 +481,7 @@ jobs:
             apt-get install -q -y curl gcc
             if [ ${{ matrix.go }} == 'latest' ]
             then
-              GO_VERSION=$(curl -L https://go.dev/VERSION?m=text)
+              GO_VERSION=$(curl -L https://go.dev/VERSION?m=text | head -n 1)
             else
               GO_VERSION=${{ matrix.go }}
             fi
@@ -546,7 +546,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
-          go-version: 1.19
+          go-version: '1.19'
       - uses: actions/checkout@v3
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v3

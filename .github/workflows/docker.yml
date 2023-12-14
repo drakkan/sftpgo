@@ -5,7 +5,7 @@ on:
   #  - cron: '0 4 * * *' # everyday at 4:00 AM UTC
   push:
     branches:
-      - 2.4.x
+      - main
     tags:
       - v*
   pull_request:

@@ -1784,6 +1784,9 @@ func (u *User) mergeVirtualFolders(group Group, groupType int, replacer *strings
 }
 
 func (u *User) mergePermissions(group Group, groupType int, replacer *strings.Replacer) {
+	if u.Permissions == nil {
+		u.Permissions = make(map[string][]string)
+	}
 	for k, v := range group.UserSettings.Permissions {
 		if k == "/" {
 			if groupType == sdk.GroupTypePrimary {
