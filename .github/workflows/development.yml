@@ -298,7 +298,7 @@ jobs:
           MYSQL_USER: sftpgo
           MYSQL_PASSWORD: sftpgo
         options: >-
-          --health-cmd "mysqladmin status -h 127.0.0.1 -P 3306 -u root -p$MYSQL_ROOT_PASSWORD"
+          --health-cmd "mariadb-admin status -h 127.0.0.1 -P 3306 -u root -p$MYSQL_ROOT_PASSWORD"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 6
