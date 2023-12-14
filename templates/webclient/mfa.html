@@ -56,8 +56,6 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
 
-        {{- template "errmsg" ""}}
-
         <div class="form-group row mt-10">
             <label for="id_config" data-i18n="general.configuration" class="col-md-3 col-form-label">Configuration</label>
             <div class="col-md-9">
@@ -470,18 +468,13 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             return;
         }
 
-        let errDivEl = $('#errorMsg');
-        let errTxtEl = $('#errorTxt');
         if ($('#id_protocols').find('option:selected').length == 0){
-            setI18NData(errTxtEl, '2fa.no_protocol');
-            errDivEl.removeClass("d-none");
+            showToast('2fa.no_protocol');
             return;
         }
 
         let errorMessage =  '2fa.auth_secret_gen_err';
-
         $('#id_secret').text("");
-        errDivEl.addClass("d-none");
         el.setAttribute('data-kt-indicator', 'on');
 		el.disabled = true;
 
@@ -499,8 +492,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 el.removeAttribute('data-kt-indicator');
                 el.disabled = false;
                 if (!response.data.secret) {
-                    setI18NData(errTxtEl, errorMessage);
-                    errDivEl.removeClass("d-none");
+                    showToast(errorMessage);
                     return;
                 }
                 $('#id_secret').text(response.data.secret);
@@ -517,8 +509,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             }).catch(function (error){
                 el.removeAttribute('data-kt-indicator');
                 el.disabled = false;
-                setI18NData(errTxtEl, errorMessage);
-                errDivEl.removeClass("d-none");
+                showToast(errorMessage);
             });
     }
 
@@ -529,22 +520,18 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         if (!configName) {
             configName = $('#id_config option:selected').val();
         }
-        let errDivEl = $('#errorMsg');
-        let errTxtEl = $('#errorTxt');
         let errorMessage = '2fa.save_err';
         let protocolsArray = [];
         $('#id_protocols').find('option:selected').each(function(){
             protocolsArray.push($(this).val());
         });
         if (protocolsArray.length == 0){
-            setI18NData(errTxtEl, '2fa.no_protocol');
-            errDivEl.removeClass("d-none");
+            showToast('2fa.no_protocol');
             return;
         }
         for (let i = 0; i < requiredProtocols.length > 0; i++){
             if (!protocolsArray.includes(requiredProtocols[i])){
-                setI18NData(errTxtEl, '2fa.required_protocols', {val: requiredProtocols.join(', ')});
-                errDivEl.removeClass("d-none");
+                showToast('2fa.required_protocols', {val: requiredProtocols.join(', ')});
                 return;
             }
         }
@@ -563,7 +550,6 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         } else {
             postData.enabled = true;
         }
-        errDivEl.addClass("d-none");
         el.setAttribute('data-kt-indicator', 'on');
 		el.disabled = true;
 
@@ -579,8 +565,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 el.removeAttribute('data-kt-indicator');
                 el.disabled = false;
                 if (!response.data.message) {
-                    setI18NData(errTxtEl, errorMessage);
-                    errDivEl.removeClass("d-none");
+                    showToast(errorMessage);
                     return;
                 }
                 ModalAlert.fire({
@@ -598,8 +583,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             }).catch(function (error) {
                 el.removeAttribute('data-kt-indicator');
                 el.disabled = false;
-                setI18NData(errTxtEl, errorMessage);
-                errDivEl.removeClass("d-none");
+                showToast(errorMessage);
             });
 
     }

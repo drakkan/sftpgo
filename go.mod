@@ -3,7 +3,7 @@ module github.com/drakkan/sftpgo/v2
 go 1.21
 
 require (
-	cloud.google.com/go/storage v1.35.1
+	cloud.google.com/go/storage v1.36.0
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.9.1
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.2.0
 	github.com/GehirnInc/crypt v0.0.0-20230320061759-8cc1b52080c5

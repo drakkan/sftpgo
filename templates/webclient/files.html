@@ -31,21 +31,21 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         <div class="card-toolbar">
             <div class="d-flex justify-content-end" data-kt-filemanager-table-toolbar="base">
                 {{- if .CanCreateDirs}}
-                <button id="id_create_dir_button" data-i18n="fs.new_folder" type="button" class="btn btn-flex btn-light-primary me-3">
+                <button id="id_create_dir_button" type="button" class="btn btn-flex btn-light-primary me-3">
                     <i class="ki-duotone ki-add-folder fs-2">
                         <span class="path1"></span>
                         <span class="path2"></span>
                     </i>
-                    New Folder
+                    <span data-i18n="fs.new_folder">New Folder</span>
                 </button>
                 {{- end}}
                 {{- if .CanAddFiles}}
-                <button type="button" data-i18n="fs.upload.text" class="btn btn-flex btn-primary" data-bs-toggle="modal" data-bs-target="#modal_upload">
+                <button type="button" class="btn btn-flex btn-primary" data-bs-toggle="modal" data-bs-target="#modal_upload">
                     <i class="ki-duotone ki-folder-up fs-2">
                         <span class="path1"></span>
                         <span class="path2"></span>
                     </i>
-                    Upload Files
+                    <span data-i18n="fs.upload.text">Upload Files</span>
                 </button>
                 {{- end}}
             </div>
@@ -61,8 +61,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </div>
                 {{- if or .CanDownload .CanDelete}}
                 <div>
-                    <button data-i18n="fs.actions" type="button" class="btn btn-light-primary rotate" data-kt-menu-trigger="click" data-kt-menu-placement="bottom">
-                        Actions
+                    <button type="button" class="btn btn-light-primary rotate" data-kt-menu-trigger="click" data-kt-menu-placement="bottom">
+                        <span data-i18n="fs.actions">Actions</span>
                         <i class="ki-duotone ki-down fs-3 rotate-180 ms-3 me-0"></i>
                     </button>
                     <div class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-800 menu-state-bg-light-primary fw-semibold w-auto min-w-200 mw-300px py-4" data-kt-menu="true">
@@ -1163,17 +1163,14 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     }
 
     function doCopy() {
+        $('#errorMsg').addClass("d-none");
         let items = getMoveOrCopyItems();
         if (items.length == 0){
             return;
         }
-        let errDivEl = $('#errorMsg');
-        let errTxtEl = $('#errorTxt');
-        errDivEl.addClass("d-none");
         items = checkMoveCopyItems(items)
         if (items.length == 0){
-            setI18NData(errTxtEl, "fs.invalid_name");
-            errDivEl.removeClass("d-none");
+            showToast("fs.invalid_name");
             return;
         }
         keepAlive();
@@ -1245,8 +1242,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 if (!errorMessage){
                     errorMessage = "fs.copy.err_generic";
                 }
-                setI18NData(errTxtEl, errorMessage);
-                errDivEl.removeClass("d-none");
+                showToast(errorMessage);
                 copyItem();
             });
         }
@@ -1255,17 +1251,14 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     }
 
     function doMove() {
+        $('#errorMsg').addClass("d-none");
         let items = getMoveOrCopyItems();
         if (items.length == 0){
             return;
         }
-        let errDivEl = $('#errorMsg');
-        let errTxtEl = $('#errorTxt');
-        errDivEl.addClass("d-none");
         items = checkMoveCopyItems(items)
         if (items.length == 0){
-            setI18NData(errTxtEl, "fs.invalid_name");
-            errDivEl.removeClass("d-none");
+            showToast("fs.invalid_name");
             return;
         }
         keepAlive();
@@ -1337,8 +1330,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 if (!errorMessage){
                     errorMessage = "fs.move.err_generic";
                 }
-                setI18NData(errTxtEl, errorMessage);
-                errDivEl.removeClass("d-none");
+                showToast(errorMessage);
                 moveItem();
             });
         }
@@ -1363,9 +1355,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     }
 
     function deleteItem(meta) {
-        let errDivEl = $('#errorMsg');
-        let errTxtEl = $('#errorTxt');
-        errDivEl.addClass("d-none");
+        $('#errorMsg').addClass("d-none");
         let itemName = getNameFromMeta(meta);
 
         ModalAlert.fire({
@@ -1409,8 +1399,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     if (!errorMessage){
                         errorMessage = "fs.delete.err_generic";
                     }
-                    setI18NData(errTxtEl, errorMessage, {name: itemName});
-                    errDivEl.removeClass("d-none");
+                    showToast(errorMessage, {name: itemName});
                 });
             }
         });
@@ -1439,21 +1428,16 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         let meta = $('#rename_old_name').val();
         let oldName = getNameFromMeta(meta);
         let newName = $('#rename_new_name').val();
-        let errDivEl = $('#errorMsg');
-        let errTxtEl = $('#errorTxt');
         if (!newName){
-            setI18NData(errTxtEl, "general.name_required");
-            errDivEl.removeClass("d-none");
+            showToast("general.name_required");
             return;
         }
         if (newName == oldName){
-            setI18NData(errTxtEl, "general.name_different");
-            errDivEl.removeClass("d-none");
+            showToast("general.name_different");
             return;
         }
         if (newName.includes("/")){
-            setI18NData(errTxtEl, "fs.invalid_name");
-            errDivEl.removeClass("d-none");
+            showToast("fs.invalid_name");
             return;
         }
         let path = '{{.FileActionsURL}}/move';
@@ -1483,8 +1467,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             if (!errorMessage){
                 errorMessage = "fs.rename.err_generic";
             }
-            setI18NData(errTxtEl, errorMessage, {name: oldName});
-            errDivEl.removeClass("d-none");
+            showToast(errorMessage, {name: oldName});
         });
     }
 
@@ -2052,10 +2035,14 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
             <div class="modal-footer border-0">
                 {{- if .CanAddFiles }}
-                <button data-i18n="fs.copy.msg" id="id_copy_button" type="button" class="btn btn-light-primary me-5" data-bs-dismiss="modal">Copy</button>
+                <button id="id_copy_button" type="button" class="btn btn-light-primary me-5" data-bs-dismiss="modal">
+                    <span data-i18n="fs.copy.msg">Copy</span>
+                </button>
                 {{- end}}
                 {{- if .CanRename }}
-                <button data-i18n="fs.move.msg" id="id_move_button" type="button" class="btn btn-primary" data-bs-dismiss="modal">Move</button>
+                <button id="id_move_button" type="button" class="btn btn-primary" data-bs-dismiss="modal">
+                    <span data-i18n="fs.move.msg">Move</span>
+                </button>
                 {{- end}}
             </div>
         </div>

@@ -27,7 +27,6 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         <h3 data-i18n="share.view_manage" class="card-title text-primary">View and manage shares</h3>
     </div>
     <div id="card_body" class="card-body">
-        {{- template "errmsg" ""}}
         <div id="loader" class="align-items-center text-center my-10">
             <span class="spinner-border w-15px h-15px text-muted align-middle me-2"></span>
             <span data-i18n="general.loading" class="text-gray-600">Loading...</span>
@@ -107,10 +106,6 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 <script type="text/javascript" {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}}>
 
     function deleteAction(shareID) {
-        let errDivEl = $('#errorMsg');
-        let errTxtEl = $('#errorTxt');
-        errDivEl.addClass("d-none");
-
         ModalAlert.fire({
             text: $.t('general.delete_confirm_generic'),
             icon: "warning",
@@ -152,8 +147,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     if (!errorMessage){
                         errorMessage = "general.delete_error_generic";
                     }
-                    setI18NData(errTxtEl, errorMessage);
-                    errDivEl.removeClass("d-none");
+                    showToast(errorMessage);
                 });
             }
         });

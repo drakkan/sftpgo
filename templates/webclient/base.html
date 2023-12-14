@@ -294,6 +294,25 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             </div>
         </div>
 
+        <div class="toast-container position-fixed top-0 end-0 p-3">
+            <div id="toast_container" class="toast" role="alert" aria-live="assertive" aria-atomic="true" data-bs-autohide="false">
+                <div class="toast-body border-0 d-flex align-items-center">
+                    <i class="ki-duotone ki-information fs-3x text-warning me-5">
+                        <span class="path1"></span>
+                        <span class="path2"></span>
+                        <span class="path3"></span>
+                    </i>
+                    <span id="toast_msg" class="fs-5 fw-semibold text-gray-800 me-auto"></span>
+                    <button data-i18n="[aria-label]general.close" type="button" class="btn btn-icon btn-sm btn-close position-absolute position-sm-relative m-2 m-sm-0 top-0 end-0 ms-sm-auto" data-bs-dismiss="toast" aria-label="Close">
+                        <i class="ki-duotone ki-cross fs-2x text-primary">
+                            <span class="path1"></span>
+                            <span class="path2"></span>
+                        </i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
         {{- block "modals" .}}{{- end}}
 		<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/plugins/global/plugins.bundle.js"></script>
 		<script {{- if .CSPNonce}} nonce="{{.CSPNonce}}"{{- end}} src="{{.StaticURL}}/assets/js/scripts.bundle.js"></script>
@@ -393,6 +412,11 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 }
             }();
 
+            function showToast(msg, options) {
+                const toast = bootstrap.Toast.getOrCreateInstance(document.getElementById('toast_container'));
+                setI18NData($('#toast_msg'), msg, options)
+                toast.show();
+            }
 
             function doLogout() {
                 ModalAlert.fire({
