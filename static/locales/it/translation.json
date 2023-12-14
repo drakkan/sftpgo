@@ -30,8 +30,8 @@
     },
     "login": {
         "username": "Nome utente",
-        "your_username": "Il tuo nome utente",
         "password": "Password",
+        "your_username": "Il tuo nome utente",
         "forgot_password": "Password dimenticata?",
         "forgot_password_msg": "Inserisci il nome utente del tuo account qui sotto, riceverai un codice di reimpostazione della password via e-mail.",
         "send_reset_code": "Invia codice di ripristino",
@@ -353,7 +353,7 @@
         "err_permissions_generic": "Permessi non validi: assicurati di utilizzare percorsi assoluti validi",
         "2fa_invalid": "Configurazione non valida per l'autenticazione a due fattori",
         "recovery_codes_invalid": "Codici di ripristino non validi",
-        "folde_path_required": "Il percorso di montaggio delle cartelle virtuali è obbligatorio",
+        "folder_path_required": "Il percorso di montaggio delle cartelle virtuali è obbligatorio",
         "folder_duplicated": "Rilevate cartelle virtuali duplicate",
         "folder_overlapped": "Rilevate cartelle virtuali sovrapposte",
         "folder_quota_size_invalid": "La quota come dimensione delle cartelle virtuali deve essere maggiore o uguale a -1",
