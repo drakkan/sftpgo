@@ -36,6 +36,7 @@ The following placeholders are supported:
 - `{{FsPath}}`. Full filesystem path, for example `/user/homedir/adir/afile.txt` or `C:/data/user/homedir/adir/afile.txt` on Windows.
 - `{{ObjectName}}`. File/directory name, for example `afile.txt` or provider object name.
 - `{{ObjectType}}`. Object type for provider events: `user`, `group`, `admin`, etc.
+- `{{Ext}}`. File extension, for example `.txt` if the filename is `afile.txt`.
 - `{{VirtualTargetPath}}`. Virtual target path for renames.
 - `{{VirtualTargetDirPath}}`. Parent directory for VirtualTargetPath.
 - `{{TargetName}}`. Target object name for renames.
@@ -53,6 +54,7 @@ The following placeholders are supported:
 - `{{IDPField<fieldname>}}`. Identity Provider custom fields containing a string.
 - `{{Metadata}}`. Cloud storage metadata for the downloaded file serialized as JSON.
 - `{{MetadataString}}`. Cloud storage metadata for the downloaded file as JSON escaped string.
+- `{{UID}}`. Unique ID.
 
 Event rules are based on the premise that an event occours. To each rule you can associate one or more actions.
 The following trigger events are supported:

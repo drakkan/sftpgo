@@ -398,6 +398,7 @@ func (r *eventRulesContainer) handleFsEvent(params EventParams) (bool, error) {
 	r.RUnlock()
 
 	params.sender = params.Name
+	params.addUID()
 	if len(rulesAsync) > 0 {
 		go executeAsyncRulesActions(rulesAsync, params)
 	}
@@ -451,6 +452,7 @@ func (r *eventRulesContainer) handleIDPLoginEvent(params EventParams, customFiel
 		return nil, nil, fmt.Errorf("more than one account check action rules matches: %q", strings.Join(ruleNames, ","))
 	}
 
+	params.addUID()
 	if len(rulesAsync) > 0 {
 		go executeAsyncRulesActions(rulesAsync, params)
 	}
@@ -545,6 +547,7 @@ type EventParams struct {
 	VirtualTargetPath     string
 	FsTargetPath          string
 	ObjectName            string
+	Extension             string
 	ObjectType            string
 	FileSize              int64
 	Elapsed               int64
@@ -553,6 +556,7 @@ type EventParams struct {
 	Role                  string
 	Email                 string
 	Timestamp             int64
+	UID                   string
 	IDPCustomFields       *map[string]string
 	Object                plugin.Renderer
 	Metadata              map[string]string
@@ -619,6 +623,12 @@ func (p *EventParams) AddError(err error) {
 		p.Status = 2
 	}
 	p.errors = append(p.errors, err.Error())
+}
+
+func (p *EventParams) addUID() {
+	if p.UID == "" {
+		p.UID = util.GenerateUniqueID()
+	}
 }
 
 func (p *EventParams) setBackupParams(backupPath string) {
@@ -781,6 +791,8 @@ func (p *EventParams) getStringReplacements(addObjectData, jsonEscaped bool) []s
 		"{{Email}}", p.getStringReplacement(p.Email, jsonEscaped),
 		"{{Timestamp}}", fmt.Sprintf("%d", p.Timestamp),
 		"{{StatusString}}", p.getStatusString(),
+		"{{UID}}", p.getStringReplacement(p.UID, jsonEscaped),
+		"{{Ext}}", p.getStringReplacement(p.Extension, jsonEscaped),
 	}
 	if p.VirtualPath != "" {
 		replacements = append(replacements, "{{VirtualDirPath}}", p.getStringReplacement(path.Dir(p.VirtualPath), jsonEscaped))
@@ -2615,6 +2627,7 @@ func executeAsyncRulesActions(rules []dataprovider.EventRule, params EventParams
 	eventManager.addAsyncTask()
 	defer eventManager.removeAsyncTask()
 
+	params.addUID()
 	for _, rule := range rules {
 		executeRuleAsyncActions(rule, params.getACopy(), nil)
 	}

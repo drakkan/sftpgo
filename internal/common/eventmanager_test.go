@@ -2004,6 +2004,7 @@ func TestEventParamsCopy(t *testing.T) {
 	params := EventParams{
 		Name:            "name",
 		Event:           "event",
+		Extension:       "ext",
 		Status:          1,
 		errors:          []string{"error1"},
 		retentionChecks: []executedRetentionCheck{},
