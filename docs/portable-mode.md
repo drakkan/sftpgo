@@ -181,3 +181,6 @@ Flags:
       --webdav-port int                 0 means a random unprivileged port,
                                         < 0 disabled (default -1)
 ```
+
+In portable mode you can apply further customizations using a configuration file/environment variables as for the service mode.
+SFTP, FTP, HTTP and WebDAV settings configured using the CLI flags are applied to the first binding, any additional bindings will not be affected.
