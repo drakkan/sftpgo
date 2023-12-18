@@ -4,11 +4,11 @@ SFTPGo provides an official Docker image, it is available on both [Docker Hub](h
 
 ## Supported tags and respective Dockerfile links
 
-- [v2.5.5, v2.5, v2, latest](https://github.com/drakkan/sftpgo/blob/v2.5.5/Dockerfile)
-- [v2.5.5-plugins, v2.5-plugins, v2-plugins, plugins](https://github.com/drakkan/sftpgo/blob/v2.5.5/Dockerfile)
-- [v2.5.5-alpine, v2.5-alpine, v2-alpine, alpine](https://github.com/drakkan/sftpgo/blob/v2.5.5/Dockerfile.alpine)
-- [v2.5.5-slim, v2.5-slim, v2-slim, slim](https://github.com/drakkan/sftpgo/blob/v2.5.5/Dockerfile)
-- [v2.5.5-alpine-slim, v2.5-alpine-slim, v2-alpine-slim, alpine-slim](https://github.com/drakkan/sftpgo/blob/v2.5.5/Dockerfile.alpine)
+- [v2.5.6, v2.5, v2, latest](https://github.com/drakkan/sftpgo/blob/v2.5.6/Dockerfile)
+- [v2.5.6-plugins, v2.5-plugins, v2-plugins, plugins](https://github.com/drakkan/sftpgo/blob/v2.5.6/Dockerfile)
+- [v2.5.6-alpine, v2.5-alpine, v2-alpine, alpine](https://github.com/drakkan/sftpgo/blob/v2.5.6/Dockerfile.alpine)
+- [v2.5.6-slim, v2.5-slim, v2-slim, slim](https://github.com/drakkan/sftpgo/blob/v2.5.6/Dockerfile)
+- [v2.5.6-alpine-slim, v2.5-alpine-slim, v2-alpine-slim, alpine-slim](https://github.com/drakkan/sftpgo/blob/v2.5.6/Dockerfile.alpine)
 - [edge](../Dockerfile)
 - [edge-plugins](../Dockerfile)
 - [edge-alpine](../Dockerfile.alpine)

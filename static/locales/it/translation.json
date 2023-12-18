@@ -119,7 +119,7 @@
         "description": "Descrizione",
         "email": "Email",
         "api_key_auth": "Autenticazione mediante chiave API",
-        "api_key_auth_help": "Permette di imperosare te stesso, nelle API REST, mediante una chiave API",
+        "api_key_auth_help": "Permetti di impersonarti nelle API REST utilizzando una chiave API",
         "pub_keys": "Chiavi pubbliche",
         "pub_key_placeholder": "Incolla qui la tua chiave pubblica",
         "verify": "Verifica",
