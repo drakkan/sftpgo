@@ -10378,7 +10378,7 @@ func TestSCPTransferQuotaLimits(t *testing.T) {
 	user, _, err = httpdtest.GetUserByUsername(user.Username, http.StatusOK)
 	assert.NoError(t, err)
 	assert.Greater(t, user.UsedDownloadDataTransfer, int64(1024*1024))
-	if !assert.Greater(t, user.UsedUploadDataTransfer, int64(1024*1024)) {
+	if !assert.Greater(t, user.UsedUploadDataTransfer, int64(1024*1024), user.UsedDownloadDataTransfer) {
 		printLatestLogs(30)
 	}
 

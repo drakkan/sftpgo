@@ -192,15 +192,15 @@ func (c *scpCommand) getUploadFileData(sizeToRead int64, transfer *transfer) err
 		for {
 			n, err := c.connection.channel.Read(buf)
 			if err != nil {
-				c.sendErrorMessage(transfer.Fs, err)
 				transfer.TransferError(err)
 				transfer.Close()
+				c.sendErrorMessage(transfer.Fs, err)
 				return err
 			}
 			_, err = transfer.WriteAt(buf[:n], sizeToRead-remaining)
 			if err != nil {
-				c.sendErrorMessage(transfer.Fs, err)
 				transfer.Close()
+				c.sendErrorMessage(transfer.Fs, err)
 				return err
 			}
 			remaining -= int64(n)
