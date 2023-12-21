@@ -103,6 +103,7 @@ The configuration file contains the following sections:
     - `observation_time`, integer. Defines the time window, in minutes, for tracking client errors. A host is banned if it has exceeded the defined threshold during the last observation time minutes. Default: `30`.
     - `entries_soft_limit`, integer. Ignored for `provider` driver. Default: `100`.
     - `entries_hard_limit`, integer. The number of banned IPs and host scores kept in memory will vary between the soft and hard limit for `memory` driver. If you use the `provider` driver, this setting will limit the number of entries to return when you ask for the entire host list from the defender. Default: `150`.
+    - `log_events`, boolean. Set to true if defender events and banned IPs should be logged. Default: `false`.
   - `rate_limiters`, list of structs containing the rate limiters configuration. Take a look [here](./rate-limiting.md) for more details. Each struct has the following fields:
     - `average`, integer. Average defines the maximum rate allowed. 0 means disabled. Default: 0
     - `period`, integer. Period defines the period as milliseconds. The rate is actually defined by dividing average by period Default: 1000 (1 second).

@@ -19,17 +19,18 @@ import (
 	"time"
 
 	"github.com/drakkan/sftpgo/v2/internal/dataprovider"
+	"github.com/drakkan/sftpgo/v2/internal/logger"
 )
 
 // HostEvent is the enumerable for the supported host events
-type HostEvent int
+type HostEvent string
 
 // Supported host events
 const (
-	HostEventLoginFailed HostEvent = iota
-	HostEventUserNotFound
-	HostEventNoLoginTried
-	HostEventLimitExceeded
+	HostEventLoginFailed   HostEvent = "LoginFailed"
+	HostEventUserNotFound            = "UserNotFound"
+	HostEventNoLoginTried            = "NoLoginTried"
+	HostEventLimitExceeded           = "LimitExceeded"
 )
 
 // Supported defender drivers
@@ -89,6 +90,8 @@ type DefenderConfig struct {
 	// to return when you request for the entire host list from the defender
 	EntriesSoftLimit int `json:"entries_soft_limit" mapstructure:"entries_soft_limit"`
 	EntriesHardLimit int `json:"entries_hard_limit" mapstructure:"entries_hard_limit"`
+	// LogEvents controls if Defender events should be logged
+	LogEvents bool `json:"log_events" mapstructure:"log_events"`
 }
 
 type baseDefender struct {
@@ -130,6 +133,42 @@ func (d *baseDefender) getScore(event HostEvent) int {
 		score = d.config.ScoreNoAuth
 	}
 	return score
+}
+
+func (d *baseDefender) logEvent(ip, protocol string, event HostEvent, totalScore int) {
+	if !d.config.LogEvents {
+		return
+	}
+
+	// ignore events which do not change the host score
+	eventScore := d.getScore(event)
+	if eventScore == 0 {
+		return
+	}
+
+	logger.GetLogger().Info().
+		Timestamp().
+		Str("sender", "defender").
+		Str("client_ip", ip).
+		Str("protocol", protocol).
+		Str("event", string(event)).
+		Int("increase_score_by", eventScore).
+		Int("score", totalScore).
+		Send()
+}
+
+func (d *baseDefender) logBan(ip, protocol string) {
+	if !d.config.LogEvents {
+		return
+	}
+
+	logger.GetLogger().Info().
+		Timestamp().
+		Str("sender", "defender").
+		Str("client_ip", ip).
+		Str("protocol", protocol).
+		Str("event", "banned").
+		Send()
 }
 
 type hostEvent struct {
