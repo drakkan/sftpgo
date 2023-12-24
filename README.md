@@ -34,6 +34,8 @@ With sponsorships/donations or support plans we establish a channel for reciproc
 #### Silver sponsors
 
 [<img src="./img/Dendi_logo.png" alt="Dendi logo" width="212" height="66">](https://dendisoftware.com/)
+</br></br>
+[<img src="./img/IDCS.png" alt="IDCS logo" width="212" height="51">](https://idcs.ip-paris.fr/)
 
 #### Bronze sponsors
 
