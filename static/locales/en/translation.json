@@ -78,7 +78,6 @@
         "invalid_token": "Invalid permissions",
         "confirm_logout": "Are you sure you want to sign out?",
         "wait": "Please wait...",
-        "or": "or",
         "ok": "OK",
         "none": "None",
         "cancel": "No, back",
@@ -224,6 +223,7 @@
             "text": "Upload Files",
             "success": "Files uploaded successfully",
             "message": "Drop files here or click to upload.",
+            "message_empty": "This directory is empty. $t(fs.upload.message)",
             "err_generic": "Error uploading files",
             "err_403": "$t(fs.upload.err_generic). $t(fs.err_403)",
             "err_429": "$t(fs.upload.err_generic). $t(fs.err_429)"
@@ -287,7 +287,7 @@
         "save_err": "Failed to save configuration",
         "auth_code_required": "The authentication code is required",
         "no_protocol": "Please select at least a protocol",
-        "required_protocols": "The security policy configured for your account requires two-factor authentication for the following protocols: {{val}}",
+        "required_protocols": "Unable to disable two-factor authentication. The security policy configured for your account requires two-factor authentication for the following protocols: {{val}}",
         "recovery_codes_generate": "Generate new recovery codes",
         "recovery_codes_view": "View recovery codes"
     },

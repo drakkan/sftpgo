@@ -70,10 +70,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 								</button>
 								{{- end}}
 								{{- if .OpenIDLoginURL}}
-								{{- if not .FormDisabled}}
-								<div data-i18n="general.or" class="text-center text-muted text-uppercase fw-bold mb-5">or</div>
-								{{- end}}
-								<a href="{{.OpenIDLoginURL}}" class="btn btn-flex btn-outline flex-center btn-active-color-primary bg-state-light btn-lg w-100 mb-5">
+								<a href="{{.OpenIDLoginURL}}" class="btn btn-flex btn-outline flex-center {{if .FormDisabled}}btn-primary{{else}}btn-active-color-primary bg-state-light{{end}} btn-lg w-100 my-5">
 									<img alt="Logo" src="{{.StaticURL}}/img/openid-logo.png" class="h-20px me-3" />
 									<span data-i18n="login.signin_openid">Sign in with OpenID</span>
 								</a>

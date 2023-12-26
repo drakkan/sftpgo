@@ -78,7 +78,6 @@
         "invalid_token": "Permessi non validi",
         "confirm_logout": "Sei sicuro di volerti disconnettere?",
         "wait": "Attendere prego...",
-        "or": "o",
         "ok": "OK",
         "none": "Nessuna",
         "cancel": "No, indietro",
@@ -224,6 +223,7 @@
             "text": "Carica file",
             "success": "File caricati correttamente",
             "message": "Rilascia i file qui o fai clic per caricarli.",
+            "message_empty": "Questa cartella è vuota. $t(fs.upload.message)",
             "err_generic": "Errore caricamento file",
             "err_403": "$t(fs.upload.err_generic). $t(fs.err_403)",
             "err_429": "$t(fs.upload.err_generic). $t(fs.err_429)"
@@ -287,7 +287,7 @@
         "save_err": "Impossibile salvare la configurazione",
         "auth_code_required": "Il codice di autenticazione è obbligatorio",
         "no_protocol": "Seleziona almeno un protocollo",
-        "required_protocols": "La politica di sicurezza configurata per il tuo account richiede l'autenticazione a due fattori per i seguenti protocolli: {{val}}",
+        "required_protocols": "Impossibile disabilitare l'autenticazione a due fattori. La politica di sicurezza configurata per il tuo account richiede l'autenticazione a due fattori per i seguenti protocolli: {{val}}",
         "recovery_codes_generate": "Genera nuovi codici di ripristino",
         "recovery_codes_view": "Visualizza codici di ripristino"
     },

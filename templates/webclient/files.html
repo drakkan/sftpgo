@@ -145,24 +145,47 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         <div class="new_folder_divider py-2 d-none">
             <hr>
         </div>
-        <table id="file_manager_list" class="table align-middle table-row-dashed fs-6 gy-5">
-            <thead>
-                <tr class="text-start text-muted fw-bold fs-6 gs-0 text-gray-500">
-                    <th class="w-10px pe-2">
-                        <div class="form-check form-check-sm form-check-custom form-check-solid me-3">
-                            <input id="select_checkbox" class="form-check-input" type="checkbox"/>
+        <div id="upload_files_empty_container" class="d-none mt-10">
+            <form id="upload_files_empty_form" action="{{.FilesURL}}?path={{.CurrentDir}}" method="POST" enctype="multipart/form-data">
+                <div class="fv-row">
+                    <div class="dropzone" id="upload_files_empty">
+                        <div class="dz-message needsclick align-items-center">
+                            <i class="ki-duotone ki-file-up fs-3x text-primary">
+                                <span class="path1"></span>
+                                <span class="path2"></span>
+                            </i>
+                            <div class="ms-4">
+                                <h3 data-i18n="fs.upload.message_empty" class="fs-5 fw-bold text-gray-900 mb-1"></h3>
+                                <!-- <span class="fs-7 fw-semibold text-gray-500">Upload up to 30 files</span> -->
+                            </div>
                         </div>
-                    </th>
-                    <th></th>
-                    <th data-i18n="general.name" class="min-w-250px">Name</th>
-					<th data-i18n="general.size" class="min-w-10px">Size</th>
-					<th data-i18n="general.last_modified" class="min-w-125px">Last Modified</th>
-					<th class="w-125px"></th>
-                </tr>
-            </thead>
-            <tbody id="file_manager_list_body" class="text-gray-700 fw-semibold">
-            </tbody>
-        </table>
+                    </div>
+                </div>
+            </form>
+            <div class="d-flex justify-content-end mt-5">
+                <button data-i18n="general.submit" type="button" id="upload_files_empty_button" class="btn btn-primary">Submit</button>
+            </div>
+        </div>
+        <div id="file_manager_list_container">
+            <table id="file_manager_list" class="table align-middle table-row-dashed fs-6 gy-5">
+                <thead>
+                    <tr class="text-start text-muted fw-bold fs-6 gs-0 text-gray-500">
+                        <th class="w-10px pe-2">
+                            <div class="form-check form-check-sm form-check-custom form-check-solid me-3">
+                                <input id="select_checkbox" class="form-check-input" type="checkbox" />
+                            </div>
+                        </th>
+                        <th></th>
+                        <th data-i18n="general.name" class="min-w-250px">Name</th>
+                        <th data-i18n="general.size" class="min-w-10px">Size</th>
+                        <th data-i18n="general.last_modified" class="min-w-125px">Last Modified</th>
+                        <th class="w-125px"></th>
+                    </tr>
+                </thead>
+                <tbody id="file_manager_list_body" class="text-gray-700 fw-semibold">
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
@@ -720,6 +743,15 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             //table = dt.$;
 
             dt.on('draw', function () {
+                //{{- if .CanAddFiles}}
+                if (dt.rows().count() === 0) {
+                    $('#file_manager_list_container').addClass("d-none");
+                    $('#upload_files_empty_container').removeClass("d-none");
+                    return;
+                }
+                $('#upload_files_empty_container').addClass("d-none");
+                $('#file_manager_list_container').removeClass("d-none");
+                //{{- end}}
                 lightbox.reload();
                 KTMenu.createInstances();
 
@@ -1687,6 +1719,27 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         });
 
         dropzone.on("addedfile", file => {
+            file.previewElement.querySelector(".dz-progress").style.display = 'none';
+        });
+
+        var dropzoneEmpty =  new Dropzone("#upload_files_empty", {
+            url: "{{.FilesURL}}?path={{.CurrentDir}}",
+            paramName: "filenames",
+            maxFiles: 250,
+            maxFilesize: null,
+            autoQueue: false,
+            addRemoveLinks: true,
+            autoProcessQueue: false,
+            filesizeBase: 1000,
+            init: function() {
+                var dropzoneEmpty = this;
+                $("#upload_files_empty_button").click(function(){
+                   uploadFiles(dropzoneEmpty.getAcceptedFiles());
+                });
+            }
+        });
+
+        dropzoneEmpty.on("addedfile", file => {
             file.previewElement.querySelector(".dz-progress").style.display = 'none';
         });
 
