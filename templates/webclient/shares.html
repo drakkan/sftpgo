@@ -462,8 +462,12 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         clipboard.on('success', function (e) {
             e.trigger.querySelectorAll('span').forEach(spanEl => {
                 if (spanEl.getAttribute('data-i18n')){
+                    e.trigger.classList.remove("btn-light-primary");
+                    e.trigger.classList.add("btn-success");
                     setI18NData($(spanEl),"general.copied");
                     setTimeout(function(){
+                        e.trigger.classList.remove("btn-success");
+                        e.trigger.classList.add("btn-light-primary");
                         setI18NData($(spanEl),"general.copy_link");
                     }, 3000)
                 }
