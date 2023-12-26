@@ -15,7 +15,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 -->
 {{- define "errmsg"}}
 <div id="errorMsg" class="{{if not . }}d-none {{end}}rounded border-warning border border-dashed bg-light-warning d-flex align-items-center p-5 mb-10">
-    <i class="ki-duotone ki-information fs-3x text-warning me-5">
+    <i class="ki-duotone ki-information-5 fs-3x text-warning me-5">
         <span class="path1"></span>
         <span class="path2"></span>
         <span class="path3"></span>
@@ -24,10 +24,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 		<span {{if .}}data-i18n="{{.Message}}" {{if .HasArgs}}data-i18n-options="{{.Args}}"{{end}}{{end}} id="errorTxt"></span>
 	</div>
     <button id="id_dismiss_error_msg" type="button" class="position-absolute position-sm-relative m-2 m-sm-0 top-0 end-0 btn btn-icon btn-sm btn-active-light-primary ms-sm-auto">
-        <i class="ki-duotone ki-cross fs-2x text-primary">
-            <span class="path1"></span>
-            <span class="path2"></span>
-        </i>
+        <i class="ki-solid ki-cross fs-2x text-gray-700"></i>
     </button>
 </div>
 {{- end}}
@@ -231,6 +228,33 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         el.localize(options);
     }
 
+    function handlePasswordInputVisibility(el) {
+		let pwdVisibility = el.querySelector('[data-password-control="visibility"]');
+		let passwordInput = el.querySelector('[data-password-control="input"]');
+		pwdVisibility.addEventListener('click', function(){
+			let visibleIcon = this.querySelector(':scope > i:not(.d-none)');
+            let hiddenIcon = this.querySelector(':scope > i.d-none');
+            visibleIcon.classList.add('d-none');
+            hiddenIcon.classList.remove('d-none');
+            if (passwordInput){
+				if (passwordInput.getAttribute('type').toLowerCase() === 'password' ) {
+            		passwordInput.setAttribute('type', 'text');
+        		} else {
+            		passwordInput.setAttribute('type', 'password');
+        		}
+				passwordInput.focus();
+			}
+		});
+	}
+
+    function getCurrentURI(){
+        let port = window.location.port;
+        if (port){
+            return window.location.protocol+"//"+window.location.hostname+":"+port;
+        }
+        return window.location.protocol+"//"+window.location.hostname;
+    }
+
     KTUtil.onDOMContentLoaded(function () {
         var dismissErrorBtn = $('#id_dismiss_error_msg');
         if (dismissErrorBtn){
@@ -245,6 +269,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 doLogout();
             });
         }
+
+        document.querySelectorAll('[data-password-control="container"]').forEach(el => {
+			handlePasswordInputVisibility(el);
+		});
 
         initLocalizer();
 	});
@@ -267,6 +295,18 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
     .line-through {
         text-decoration: line-through;
+    }
+
+    .section-title {
+        color: var(--bs-text-gray-800);
+        font-weight: 600 !important;
+        font-size: 1.45rem !important;
+    }
+
+    .section-title-inner {
+        color: var(--bs-text-gray-800);
+        font-weight: 600 !important;
+        font-size: 1.3rem !important;
     }
 </style>
 {{- end}}

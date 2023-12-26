@@ -18,7 +18,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 {{- define "page_body"}}
 <div class="card shadow-sm">
     <div class="card-header bg-light">
-        <h3 data-i18n="general.my_profile" class="card-title text-primary">My profile</h3>
+        <h3 data-i18n="general.my_profile" class="card-title section-title">My profile</h3>
     </div>
     <div class="card-body">
         {{- template "errmsg" .Error}}
@@ -54,7 +54,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             {{- if .LoggedUser.CanManagePublicKeys}}
             <div class="card card-rounded mt-10">
                 <div class="card-header bg-light">
-                    <h3 data-i18n="general.pub_keys" class="card-title">Public keys</h3>
+                    <h3 data-i18n="general.pub_keys" class="card-title section-title-inner">Public keys</h3>
                 </div>
                 <div class="card-body">
                     <div id="public_keys">

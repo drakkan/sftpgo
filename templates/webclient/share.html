@@ -18,7 +18,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 {{- define "page_body"}}
 <div class="card shadow-sm">
     <div class="card-header bg-light">
-        <h3 {{if .IsAdd}}data-i18n="title.add_share"{{else}}data-i18n="title.update_share"{{end}} class="card-title text-primary"></h3>
+        <h3 {{if .IsAdd}}data-i18n="title.add_share"{{else}}data-i18n="title.update_share"{{end}} class="card-title section-title"></h3>
     </div>
     <div class="card-body">
         {{- template "errmsg" .Error}}
@@ -47,7 +47,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
             <div class="card card-rounded mt-10">
                 <div class="card-header bg-light">
-                    <h3 data-i18n="share.paths" class="card-title">Paths</h3>
+                    <h3 data-i18n="share.paths" class="card-title section-title-inner">Paths</h3>
                 </div>
                 <div class="card-body">
                     <div id="paths">
@@ -127,10 +127,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 <div class="col-md-9 d-flex">
                     <input data-i18n="[placeholder]share.expiration_help" id="id_expiration" class="form-control" placeholder="Pick an expiration date" />
                     <button class="btn btn-icon btn-light-danger ms-2 d-none" id="id_expiration_clear">
-                        <i class="ki-duotone ki-cross fs-1">
-                            <span class="path1"></span>
-                            <span class="path2"></span>
-                        </i>
+                        <i class="ki-solid ki-cross fs-1"></i>
                     </button>
                 </div>
             </div>
@@ -203,7 +200,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 },
                 defaultHour: 23,
                 defaultMinute: 59,
-                locale: i18next.language,
+                locale: i18next.resolvedLanguage,
                 onChange: function(selectedDates, dateStr, instance) {
                     if (selectedDates.length > 0){
                         $('#id_expiration_clear').removeClass("d-none");

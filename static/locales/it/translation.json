@@ -53,7 +53,8 @@
         "reset_pwd_err_generic": "Errore imprevisto durante la reimpostazione della password",
         "reset_ok_login_error": "La reimpostazione della password è stata completata correttamente ma si è verificato un errore imprevisto durante l'accesso",
         "ip_not_allowed": "L'accesso non è consentito da questo indirizzo IP",
-        "two_factor_required": "Configura l'autenticazione a due fattori, è obbligatoria per i seguenti protocolli: {{val}}"
+        "two_factor_required": "Configura l'autenticazione a due fattori, è obbligatoria per i seguenti protocolli: {{val}}",
+        "link": "Vai a {{link}}"
     },
     "theme": {
         "light": "Chiaro",
@@ -72,7 +73,7 @@
         "error_edit_dir": "Impossibile modificare una cartella",
         "error_edit_size": "La dimensione del file supera la dimensione massima consentita",
         "invalid_form": "Modulo non valido",
-        "invalid_credentials": "Credenziali non valide",
+        "invalid_credentials": "Credenziali non valide, riprovare",
         "invalid_csrf": "Il token del modulo non è valido",
         "invalid_token": "Permessi non validi",
         "confirm_logout": "Sei sicuro di volerti disconnettere?",
@@ -80,7 +81,7 @@
         "or": "o",
         "ok": "OK",
         "none": "Nessuna",
-        "cancel": "Annulla",
+        "cancel": "No, indietro",
         "submit": "Salva",
         "back": "Indietro",
         "add": "Aggiungi",
@@ -91,9 +92,10 @@
         "configuration": "Configurazione",
         "config_saved": "Configurazione salvata",
         "rename": "Rinomina",
-        "confirm": "Conferma",
+        "confirm": "Si, procedi",
         "edit": "Modifica",
         "delete": "Elimina",
+        "delete_confirm_btn": "Si, elimina",
         "delete_confirm": "Vuoi eliminare \"{{- name}}\"? Questa azione è irreversibile",
         "delete_confirm_generic": "Vuoi eliminare l'elemento selezionato? Questa azione è irreversibile",
         "delete_multi_confirm": "Vuoi eliminare gli elementi selezionati? Questa azione è irreversibile",
@@ -124,8 +126,6 @@
         "pub_key_placeholder": "Incolla qui la tua chiave pubblica",
         "verify": "Verifica",
         "problems": "Hai problemi?",
-        "generate": "Genera",
-        "view": "Visualizza",
         "allowed_ip_mask": "IP/Reti permesse",
         "allowed_ip_mask_help": "IP/reti separate da virgola in formato CIDR, ad esempio \"192.168.1.0/24,10.8.0.100/32\"",
         "allowed_ip_mask_invalid": "IP/reti permesse non valide",
@@ -144,7 +144,9 @@
         "err_quota_read": "Lettura negata a causa del limite di quota",
         "profile_updated": "Il tuo profilo è stato aggiornato con successo",
         "share_ok": "Accesso alla condivisione riuscito, ora puoi utilizzare il tuo collegamento",
-        "qr_code": "Codice QR"
+        "qr_code": "Codice QR",
+        "copy_link": "Copia collegamento",
+        "copied": "Copiato"
     },
     "fs": {
         "view_file": "Visualizza file \"{{- path}}\"",
@@ -212,6 +214,7 @@
             "err_429": "$t(fs.move.err_generic). $t(fs.err_429)"
         },
         "rename": {
+            "title": "Rinomina \"{{- name}}\"",
             "new_name": "Nuovo nome",
             "err_generic": "Impossibile rinominare \"{{- name}}\"",
             "err_403": "$t(fs.rename.err_generic): $t(fs.err_403)",
@@ -260,7 +263,7 @@
         "msg_disabled": "Metti il tuo account in sicurezza",
         "msg_info": "L'autenticazione a due fattori aggiunge un ulteriore livello di sicurezza al tuo account. Per accedere dovrai fornire un ulteriore codice di autenticazione.",
         "require_for": "Richiedi 2FA per",
-        "generate": "Genera nuovo segreto",
+        "generate": "Genera una nuova chiave segreta",
         "recovery_codes": "Codici di ripristino",
         "new_recovery_codes": "Nuovi codici di ripristino",
         "recovery_codes_msg1": "I codici di ripristino sono un insieme di codici monouso che possono essere utilizzati al posto del codice di autenticazione per accedere all'interfaccia utente Web. Puoi utilizzarli se perdi l'accesso al tuo telefono per accedere al tuo account e disabilitare o rigenerare la configurazione dell'autenticazione a due fattori.",
@@ -275,7 +278,7 @@
         "setup_msg": "Utilizza la tua app di autenticazione preferita (ad esempio Microsoft Authenticator, Google Authenticator, Authy, 1Password ecc.) per scansionare il codice QR. Verrà generato un codice di autenticazione da inserire di seguito.",
         "setup_help": "Se hai problemi con l'utilizzo del codice QR, seleziona l'inserimento manuale sulla tua app e inserisci il codice:",
         "disable_question": "Vuoi disattivare l'autenticazione a due fattori?",
-        "generate_question": "Vuoi generare un nuovo segreto e invalidare quello precedente? Qualsiasi app di autenticazione registrata smetterà di funzionare",
+        "generate_question": "Vuoi generare un nuova chiave segreta e invalidare quella precedente? Qualsiasi app di autenticazione registrata smetterà di funzionare",
         "disabled": "L'autenticazione a due fattori è disabilitata",
         "recovery_codes_gen_err": "Impossibile generare nuovi codici di ripristino",
         "recovery_codes_get_err": "Impossibile ottenere i codici di ripristino",
@@ -284,7 +287,9 @@
         "save_err": "Impossibile salvare la configurazione",
         "auth_code_required": "Il codice di autenticazione è obbligatorio",
         "no_protocol": "Seleziona almeno un protocollo",
-        "required_protocols": "I seguenti protocolli sono obbligatori: {{val}}"
+        "required_protocols": "La politica di sicurezza configurata per il tuo account richiede l'autenticazione a due fattori per i seguenti protocolli: {{val}}",
+        "recovery_codes_generate": "Genera nuovi codici di ripristino",
+        "recovery_codes_view": "Visualizza codici di ripristino"
     },
     "share": {
         "scope": "Ambito",
@@ -319,7 +324,17 @@
         "usage_exceed": "Utilizzo massimo della condivisione superato",
         "expired": "La condivisione è scaduta",
         "browsable_multiple_paths": "Una condivisione con più percorsi non è navigabile",
-        "browsable_non_dir": "La condivisione non è una directory quindi non è navigabile"
+        "browsable_non_dir": "La condivisione non è una directory quindi non è navigabile",
+        "go": "Vai alla condivisione",
+        "access_links_title": "Accesso alla condivisione",
+        "link_single_title": "File zip singolo",
+        "link_single_desc": "È possibile scaricare il contenuto condiviso come un singolo file zip",
+        "link_dir_title": "Directory singola",
+        "link_dir_desc": "Se la condivisione è costituita da un'unica directory, è possibile navigarla e scaricare file",
+        "link_uncompressed_title": "File non compresso",
+        "link_uncompressed_desc": "Se la condivisione è costituita da un unico file è possibile scaricarlo anche non compresso",
+        "upload_desc": "È possibile caricare uno o più file nella directory condivisa",
+        "expired_desc": "Questa condivisione non è più accessibile perché è scaduta"
     },
     "select2": {
         "no_results": "Nessun risultato trovato",

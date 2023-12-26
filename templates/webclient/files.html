@@ -49,7 +49,25 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </button>
                 {{- end}}
             </div>
-            <div class="d-flex justify-content-end align-items-center d-none" data-kt-filemanager-table-toolbar="selected">
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="d-flex flex-stack">
+            <div class="badge badge-lg badge-light-primary" data-kt-filemanager-table-nav-bar="base">
+                <div class="d-flex align-items-center flex-wrap">
+                    <i class="ki-duotone ki-home fs-1 text-primary me-3"></i>
+                    <a data-i18n="fs.home" href="{{.FilesURL}}?path=%2F">Home</a>
+                    {{- range .Paths}}
+                    <i class="ki-duotone ki-right fs-2x text-primary mx-1"></i>
+                    {{- if eq .Href ""}}
+                    <span>{{.DirName}}</span>
+                    {{- else}}
+                    <a href="{{.Href}}">{{.DirName}}</a>
+                    {{- end}}
+                    {{- end}}
+                </div>
+            </div>
+            <div class="d-flex align-items-center d-none" data-kt-filemanager-table-toolbar="selected">
                 <div class="fw-bold me-5">
                     <span class="me-2" data-kt-filemanager-table-select="selected_count"></span>
                 </div>
@@ -101,25 +119,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 {{- end}}
             </div>
         </div>
-    </div>
-    <div class="card-body">
-        <div class="d-flex flex-stack">
-            <div class="badge badge-lg badge-light-primary">
-                <div class="d-flex align-items-center flex-wrap">
-                    <i class="ki-duotone ki-home fs-1 text-primary me-3"></i>
-                    <a data-i18n="fs.home" href="{{.FilesURL}}?path=%2F">Home</a>
-                    {{- range .Paths}}
-                    <i class="ki-duotone ki-right fs-2x text-primary mx-1"></i>
-                    {{- if eq .Href ""}}
-                    <span>{{.DirName}}</span>
-                    {{- else}}
-                    <a href="{{.Href}}">{{.DirName}}</a>
-                    {{- end}}
-                    {{- end}}
-                </div>
-            </div>
+        <div class="new_folder_divider py-2 d-none">
+            <hr>
         </div>
-        <div id="file_manager_new_folder" class="d-flex align-items-center py-7 d-none">
+        <div id="file_manager_new_folder" class="d-flex align-items-center d-none">
             <span>
                 <i class="ki-duotone ki-folder fs-2x text-primary me-4">
                     <span class="path1"></span>
@@ -136,15 +139,15 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 </span>
             </button>
             <button class="btn btn-icon btn-light-danger" id="file_manager_cancel_folder">
-                <i class="ki-duotone ki-cross fs-1">
-                    <span class="path1"></span>
-                    <span class="path2"></span>
-                </i>
+                <i class="ki-solid ki-cross fs-1"></i>
             </button>
+        </div>
+        <div class="new_folder_divider py-2 d-none">
+            <hr>
         </div>
         <table id="file_manager_list" class="table align-middle table-row-dashed fs-6 gy-5">
             <thead>
-                <tr class="text-start text-muted fw-bold fs-6 gs-0">
+                <tr class="text-start text-muted fw-bold fs-6 gs-0 text-gray-500">
                     <th class="w-10px pe-2">
                         <div class="form-check form-check-sm form-check-custom form-check-solid me-3">
                             <input id="select_checkbox" class="form-check-input" type="checkbox"/>
@@ -375,6 +378,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     submitButton.removeAttribute('data-kt-indicator');
 		            submitButton.disabled = false;
                     cancelButton.disabled = false;
+                    $('.dir_browser_folder_divider').addClass("d-none");
                     $('#dirsbrowser_new_folder').addClass("d-none");
                 }).catch(function (error) {
                     let errorMessage = "";
@@ -770,7 +774,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         }
 
         function handleToogleToolbar(pageSelected, totalSelected) {
-            const toolbarBase = document.querySelector('[data-kt-filemanager-table-toolbar="base"]');
+            const navBar = document.querySelector('[data-kt-filemanager-table-nav-bar="base"]');
             const toolbarSelected = document.querySelector('[data-kt-filemanager-table-toolbar="selected"]');
             const selectedCount = document.querySelector('[data-kt-filemanager-table-select="selected_count"]');
             const selectAllContainer = document.querySelector('[data-kt-filemanager-table-select="select_all_pages_container"]');
@@ -789,8 +793,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 if (selectedCount){
                     selectedCount.innerHTML =  $.t('general.selected_items', { count: totalSelected});
                 }
-                if (toolbarBase){
-                    toolbarBase.classList.add('d-none');
+                if (navBar){
+                    navBar.classList.add('d-none');
                 }
                 if (toolbarSelected){
                     toolbarSelected.classList.remove('d-none');
@@ -798,10 +802,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             } else {
                 $('#select_checkbox').prop("checked", false);
                 selectAllCheck.checked = false;
-                if (toolbarBase) {
-                    toolbarBase.classList.remove('d-none');
+                if (navBar) {
+                    navBar.classList.remove('d-none');
                 }
-                if (toolbarBase) {
+                if (toolbarSelected) {
                     toolbarSelected.classList.add('d-none');
                 }
             }
@@ -961,7 +965,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                     ModalAlert.fire({
                         text: $.t('general.delete_multi_confirm'),
                         icon: "warning",
-                        confirmButtonText: $.t('general.delete'),
+                        confirmButtonText: $.t('general.delete_confirm_btn'),
                         cancelButtonText: $.t('general.cancel'),
                         customClass: {
                             confirmButton: "btn btn-danger",
@@ -1361,7 +1365,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         ModalAlert.fire({
             text: $.t('general.delete_confirm', {name: itemName}),
             icon: "warning",
-            confirmButtonText: $.t('general.delete'),
+            confirmButtonText: $.t('general.delete_confirm_btn'),
             cancelButtonText: $.t('general.cancel'),
             customClass: {
                 confirmButton: "btn btn-danger",
@@ -1420,7 +1424,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         let oldName = getNameFromMeta(meta);
         $('#rename_old_name').val(meta);
         $('#rename_new_name').val(oldName);
-        $('#rename_title').text(`Rename "${oldName}"`);
+        $('#rename_title').text($.t('fs.rename.title', { name: oldName}));
         $('#modal_rename').modal('show');
     }
 
@@ -1473,6 +1477,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
     function showCreateNewFolder(sender) {
         if (sender == 0) {
+            $('.new_folder_divider').removeClass("d-none");
             $('#file_manager_new_folder').removeClass("d-none");
             $('#errorMsg').addClass("d-none");
             let el = $('#file_manager_new_folder_input');
@@ -1480,6 +1485,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
             el.focus();
             return;
         }
+        $('.dir_browser_folder_divider').removeClass("d-none");
         $('#dirsbrowser_new_folder').removeClass("d-none");
         $('#errorModalMsg').addClass("d-none");
         let el = $('#dirsbrowser_new_folder_input');
@@ -1489,8 +1495,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
     function hideCreateNewFolder(sender) {
         if (sender == 0){
+            $('.new_folder_divider').addClass("d-none");
             $('#file_manager_new_folder').addClass("d-none");
         } else {
+            $('.dir_browser_folder_divider').addClass("d-none");
             $('#dirsbrowser_new_folder').addClass("d-none");
         }
     }
@@ -1808,7 +1816,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         {{- if $files}}
                         {{- $percentage := .QuotaUsage.GetQuotaFilesPercentage}}
                         <div class="{{if .QuotaUsage.IsQuotaFilesLow}}text-warning{{else}}text-gray-700{{end}} fw-semibold fs-6">
-                            <span {{if gt $percentage 0}}data-i18n="fs.quota_usage.files_percentage" data-i18n-options='{ "val": "{{$files}}", "percentage": {{$percentage}} }'{{else}}data-i18n="fs.quota_usage.files" data-i18n-options='{ "val": "{{$files}}" }'{{end}}></span>
+                            <span {{if gt $percentage 0}}data-i18n="fs.quota_usage.files_percentage" data-i18n-options='{ "val": "{{$files}}", "percentage": {{$percentage}} }'{{else}}data-i18n="fs.quota_usage.files" data-i18n-options='{ "num": "{{$files}}" }'{{end}}></span>
                         </div>
                         {{- end}}
                     </div>
@@ -1866,8 +1874,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         <div class="modal-content">
             <div class="modal-header border-0">
                 <h3 data-i18n="fs.upload.text" class="modal-title">Upload files</h3>
-                <div data-i18n="[aria-label]general.close" class="btn btn-icon btn-sm btn-active-color-primary" data-bs-dismiss="modal" aria-label="Close">
-                    <i class="ki-duotone ki-cross fs-1"><span class="path1"></span><span class="path2"></span></i>
+                <div data-i18n="[aria-label]general.close" class="btn btn-icon btn-sm btn-active-light-primary" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="ki-solid ki-cross fs-2x text-gray-700"></i>
                 </div>
             </div>
             <div class="modal-body">
@@ -1900,8 +1908,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 <h5 class="modal-title">
                     <span id="video_title"></span>
                 </h5>
-                <div data-i18n="[aria-label]general.close" class="btn btn-icon btn-sm btn-active-color-primary" data-bs-dismiss="modal" aria-label="Close">
-                    <i class="ki-duotone ki-cross fs-1"><span class="path1"></span><span class="path2"></span></i>
+                <div data-i18n="[aria-label]general.close" class="btn btn-icon btn-sm btn-active-light-primary" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="ki-solid ki-cross fs-2x text-gray-700"></i>
                 </div>
             </div>
 
@@ -1922,8 +1930,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 <h5 class="modal-title">
                     <span id="rename_title"></span>
                 </h5>
-                <div data-i18n="[aria-label]general.close" class="btn btn-icon btn-sm btn-active-color-primary" data-bs-dismiss="modal" aria-label="Close">
-                    <i class="ki-duotone ki-cross fs-1"><span class="path1"></span><span class="path2"></span></i>
+                <div data-i18n="[aria-label]general.close" class="btn btn-icon btn-sm btn-active-light-primary" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="ki-solid ki-cross fs-2x text-gray-700"></i>
                 </div>
             </div>
 
@@ -1937,7 +1945,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
             <div class="modal-footer border-0">
                 <button data-i18n="general.cancel" type="button" class="btn btn-secondary me-5" data-bs-dismiss="modal">Cancel</button>
-                <button data-i18n="general.submit" id="id_do_rename_button" type="button" class="btn btn-primary" data-bs-dismiss="modal">Submit</button>
+                <button data-i18n="general.confirm" id="id_do_rename_button" type="button" class="btn btn-primary" data-bs-dismiss="modal">Submit</button>
             </div>
         </div>
     </div>
@@ -1950,19 +1958,19 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 <h3 data-i18n="general.choose_target_folder" class="modal-title">
                     Choose target folder
                 </h3>
-                <div data-i18n="[aria-label]general.close" class="btn btn-icon btn-sm btn-active-color-primary" data-bs-dismiss="modal" aria-label="Close">
-                    <i class="ki-duotone ki-cross fs-1"><span class="path1"></span><span class="path2"></span></i>
+                <div data-i18n="[aria-label]general.close" class="btn btn-icon btn-sm btn-active-light-primary" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="ki-solid ki-cross fs-2x text-gray-700"></i>
                 </div>
             </div>
 
             <div class="modal-body">
                 <div id="errorModalMsg" class="d-none rounded border-warning border border-dashed bg-light-warning d-flex align-items-center p-5 mb-10">
-                    <i class="ki-duotone ki-information fs-3x text-warning me-5"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
+                    <i class="ki-duotone ki-information-5 fs-3x text-warning me-5"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
                     <div class="text-gray-700 fw-bold fs-5 d-flex flex-column pe-0 pe-sm-10">
                         <span id="errorModalTxt"></span>
                     </div>
                     <button id="id_dismiss_error_modal_msg" type="button" class="position-absolute position-sm-relative m-2 m-sm-0 top-0 end-0 btn btn-icon btn-sm btn-active-light-primary ms-sm-auto">
-                        <i class="ki-duotone ki-cross fs-2x text-primary"><span class="path1"></span><span class="path2"></span></i>
+                        <i class="ki-solid ki-cross fs-2x text-gray-700"></i>
                     </button>
                 </div>
                 <div class="row">
@@ -1982,7 +1990,10 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         </button>
                     </div>
                 </div>
-                <div id="dirsbrowser_new_folder" class="d-flex align-items-center py-7 d-none">
+                <div class="dir_browser_folder_divider py-2 d-none">
+                    <hr>
+                </div>
+                <div id="dirsbrowser_new_folder" class="d-flex align-items-center d-none">
                     <span>
                         <i class="ki-duotone ki-folder fs-2x text-primary me-4">
                             <span class="path1"></span>
@@ -1999,13 +2010,12 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         </span>
                     </button>
                     <button class="btn btn-icon btn-light-danger" id="dirsbrowser_cancel_folder">
-                        <i class="ki-duotone ki-cross fs-1">
-                            <span class="path1"></span>
-                            <span class="path2"></span>
-                        </i>
+                        <i class="ki-solid ki-cross fs-1"></i>
                     </button>
                 </div>
-
+                <div class="dir_browser_folder_divider py-2 d-none">
+                    <hr>
+                </div>
                 <table id="dirsbrowser_list" class="table align-middle table-row-dashed fs-6 gy-5">
                     <thead>
                         <tr class="text-start text-muted fw-bold fs-7 text-uppercase gs-0">

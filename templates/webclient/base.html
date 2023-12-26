@@ -297,17 +297,14 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         <div class="toast-container position-fixed top-0 end-0 p-3">
             <div id="toast_container" class="toast" role="alert" aria-live="assertive" aria-atomic="true" data-bs-autohide="false">
                 <div class="toast-body border-0 d-flex align-items-center">
-                    <i class="ki-duotone ki-information fs-3x text-warning me-5">
+                    <i class="ki-duotone ki-information-5 fs-3x text-warning me-5">
                         <span class="path1"></span>
                         <span class="path2"></span>
                         <span class="path3"></span>
                     </i>
                     <span id="toast_msg" class="fs-5 fw-semibold text-gray-800 me-auto"></span>
-                    <button data-i18n="[aria-label]general.close" type="button" class="btn btn-icon btn-sm btn-close position-absolute position-sm-relative m-2 m-sm-0 top-0 end-0 ms-sm-auto" data-bs-dismiss="toast" aria-label="Close">
-                        <i class="ki-duotone ki-cross fs-2x text-primary">
-                            <span class="path1"></span>
-                            <span class="path2"></span>
-                        </i>
+                    <button data-i18n="[aria-label]general.close" type="button" class="btn btn-icon btn-sm btn-active-light-primary position-absolute position-sm-relative m-2 m-sm-0 top-0 end-0 ms-sm-auto" data-bs-dismiss="toast" aria-label="Close">
+                        <i class="ki-solid ki-cross fs-2x text-gray-700"></i>
                     </button>
                 </div>
             </div>
@@ -382,17 +379,16 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
                         switch (params.icon){
                             case "warning":
-                                $("#modal_alert_icon").html(`<i class="ki-duotone ki-information fs-5x text-danger">
+                                $("#modal_alert_icon").html(`<i class="ki-duotone ki-information-5 fs-5x text-danger">
                                                                 <span class="path1"></span>
                                                                 <span class="path2"></span>
                                                                 <span class="path3"></span>
                                                             </i>`);
                                 break;
                             case "success":
-                                $("#modal_alert_icon").html(`<i class="ki-duotone ki-information-2 fs-5x text-success">
+                                $("#modal_alert_icon").html(`<i class="ki-duotone ki-check-square fs-5x text-success">
                                                                 <span class="path1"></span>
                                                                 <span class="path2"></span>
-                                                                <span class="path3"></span>
                                                             </i>`);
                                 break;
                             default:

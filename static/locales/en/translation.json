@@ -53,7 +53,8 @@
         "reset_pwd_err_generic": "Unexpected error while resetting password",
         "reset_ok_login_error": "The password reset completed successfully but an unexpected error occurred while signing in",
         "ip_not_allowed": "Login is not allowed from this IP address",
-        "two_factor_required": "Set up two-factor authentication, it is required for the following protocols: {{val}}"
+        "two_factor_required": "Set up two-factor authentication, it is required for the following protocols: {{val}}",
+        "link": "Go to {{link}}"
     },
     "theme": {
         "light": "Light",
@@ -72,7 +73,7 @@
         "error_edit_dir": "Cannot edit a directory",
         "error_edit_size": "The file size exceeds the maximum allowed size",
         "invalid_form": "Invalid form",
-        "invalid_credentials": "Invalid credentials",
+        "invalid_credentials": "Invalid credentials, please retry",
         "invalid_csrf": "The form token is not valid",
         "invalid_token": "Invalid permissions",
         "confirm_logout": "Are you sure you want to sign out?",
@@ -80,7 +81,7 @@
         "or": "or",
         "ok": "OK",
         "none": "None",
-        "cancel": "Cancel",
+        "cancel": "No, back",
         "submit": "Save",
         "back": "Back",
         "add": "Add",
@@ -91,9 +92,10 @@
         "configuration": "Configuration",
         "config_saved": "Configuration saved",
         "rename": "Rename",
-        "confirm": "Confirm",
+        "confirm": "Yes, proceed",
         "edit": "Edit",
         "delete": "Delete",
+        "delete_confirm_btn": "Yes, delete",
         "delete_confirm": "Do you want to delete \"{{- name}}\"? This action is irreversible",
         "delete_confirm_generic": "Do you want to delete the selected item? This action is irreversible",
         "delete_multi_confirm": "Do you want to delete the selected items? This action is irreversible",
@@ -124,8 +126,6 @@
         "pub_key_placeholder": "Paste your public key here",
         "verify": "Verify",
         "problems": "Having problems?",
-        "generate": "Generate",
-        "view": "View",
         "allowed_ip_mask": "Allowed IP/Mask",
         "allowed_ip_mask_help": "Comma separated IP/Mask in CIDR format, for example \"192.168.1.0/24,10.8.0.100/32\"",
         "allowed_ip_mask_invalid": "Invalid allowed IP/Mask",
@@ -144,7 +144,9 @@
         "err_quota_read": "Read denied due to quota limit",
         "profile_updated": "Your profile has been successfully updated",
         "share_ok": "Share access successful, you can now use your link",
-        "qr_code": "QR Code"
+        "qr_code": "QR Code",
+        "copy_link": "Copy link",
+        "copied": "Copied"
     },
     "fs": {
         "view_file": "View file \"{{- path}}\"",
@@ -212,6 +214,7 @@
             "err_429": "$t(fs.move.err_generic). $t(fs.err_429)"
         },
         "rename": {
+            "title": "Rename \"{{- name}}\"",
             "new_name": "New name",
             "err_generic": "Unable to rename \"{{- name}}\"",
             "err_403": "$t(fs.rename.err_generic). $t(fs.err_403)",
@@ -260,7 +263,7 @@
         "msg_disabled": "Secure Your Account",
         "msg_info": "Two-factor authentication adds an extra layer of security to your account. To log in you'll need to provide an additional authentication code.",
         "require_for": "Require 2FA for",
-        "generate": "Generate new secret",
+        "generate": "Generate new secret key",
         "recovery_codes": "Recovery codes",
         "new_recovery_codes": "New recovery codes",
         "recovery_codes_msg1": "Recovery codes are a set of one time use codes that can be used in place of the authentication code to login to the web UI. You can use them if you lose access to your phone to login to your account and disable or regenerate two-factor auth configuration.",
@@ -275,7 +278,7 @@
         "setup_msg": "Use your preferred Authenticator App (e.g. Microsoft Authenticator, Google Authenticator, Authy, 1Password etc. ) to scan the QR code. It will generate an authentication code for you to enter below.",
         "setup_help": "If you have trouble using the QR code, select manual entry on your app, and enter the code:",
         "disable_question": "Do you want to disable two-factor authentication?",
-        "generate_question": "Do you want to generate a new secret and invalidate the previous one? Any registered Authenticator App will stop working",
+        "generate_question": "Do you want to generate a new secret key and invalidate the previous one? Any registered Authenticator App will stop working",
         "disabled": "Two-factor authentication is disabled",
         "recovery_codes_gen_err": "Failed to generate new recovery codes",
         "recovery_codes_get_err": "Unable to obtain recovery codes",
@@ -284,7 +287,9 @@
         "save_err": "Failed to save configuration",
         "auth_code_required": "The authentication code is required",
         "no_protocol": "Please select at least a protocol",
-        "required_protocols": "The following protocols are required: {{val}}"
+        "required_protocols": "The security policy configured for your account requires two-factor authentication for the following protocols: {{val}}",
+        "recovery_codes_generate": "Generate new recovery codes",
+        "recovery_codes_view": "View recovery codes"
     },
     "share": {
         "scope": "Scope",
@@ -319,7 +324,17 @@
         "usage_exceed": "Maximum sharing usage exceeded",
         "expired": "Sharing has expired",
         "browsable_multiple_paths": "A share with multiple paths is not browsable",
-        "browsable_non_dir": "The share is not a directory so it is not browsable"
+        "browsable_non_dir": "The share is not a directory so it is not browsable",
+        "go": "Go to share",
+        "access_links_title": "Share access links",
+        "link_single_title": "Single zip file",
+        "link_single_desc": "You can download the shared content as a single zip file",
+        "link_dir_title": "Single directory",
+        "link_dir_desc": "If the share consists of a single directory, you can browse and download files",
+        "link_uncompressed_title": "Uncompressed file",
+        "link_uncompressed_desc": "If the share consists of a single file, it can also be downloaded uncompressed",
+        "upload_desc": "You can upload one or more files to the shared directory",
+        "expired_desc": "This share is no longer accessible because it has expired"
     },
     "select2": {
         "no_results": "No results found",

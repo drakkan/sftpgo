@@ -24,7 +24,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
 <div class="card shadow-sm">
     <div class="card-header bg-light">
-        <h3 data-i18n="share.view_manage" class="card-title text-primary">View and manage shares</h3>
+        <h3 data-i18n="share.view_manage" class="card-title section-title">View and manage shares</h3>
     </div>
     <div id="card_body" class="card-body">
         <div id="loader" class="align-items-center text-center my-10">
@@ -39,7 +39,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                         <span class="path2"></span>
                     </i>
                     <input name="search" data-i18n="[placeholder]general.search" type="text" data-share-table-filter="search"
-                        class="form-control rounded-1 w-200px ps-15" placeholder="Search" />
+                        class="form-control rounded-1 w-250px ps-15 me-5" placeholder="Search" />
                 </div>
 
                 <div class="d-flex justify-content-end" data-share-table-toolbar="base">
@@ -71,30 +71,94 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header border-0">
-                <h3 class="modal-title">
+                <h3 data-i18n="share.access_links_title" class="modal-title">
                     Share access links
                 </h3>
-                <div data-i18n="[aria-label]general.close" class="btn btn-icon btn-sm btn-active-color-primary" data-bs-dismiss="modal" aria-label="Close">
-                    <i class="ki-duotone ki-cross fs-1"><span class="path1"></span><span class="path2"></span></i>
+                <div data-i18n="[aria-label]general.close" class="btn btn-icon btn-sm btn-active-light-primary" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="ki-solid ki-cross fs-2x text-gray-700"></i>
                 </div>
             </div>
             <div class="modal-body fs-5">
                 <div id="readShare">
-                    <p>You can download the shared contents, as single zip file, using this <a id="readLink" href="#" target="_blank">link</a>.</p>
-                    <p>If the share consists of a single directory you can browse and download files using this <a id="readBrowseLink" href="#" target="_blank">page</a>.</p>
-                    <p>If the share consists of a single file you can download it uncompressed using this <a id="readUncompressedLink" href="#" target="_blank">link</a>.</p>
+                    <div class="mb-5">
+                        <h4 data-i18n="share.link_single_title">Single zip file</h4>
+                        <p data-i18n="share.link_single_desc">You can download shared content as a single zip file</p>
+                        <div class="d-flex">
+                            <button id="readLinkCopy" type="button" class="btn btn-flex btn-light-primary btn-clipboard-copy me-3">
+                                <i class="ki-duotone ki-fasten fs-2">
+                                    <span class="path1"></span>
+                                    <span class="path2"></span>
+                                </i>
+                                <span data-i18n="general.copy_link">Copy link</span>
+                            </button>
+                            <a id="readLink" href="#" target="_blank" type="button" class="btn btn-flex btn-primary">
+                                <i class="ki-duotone ki-folder-down fs-2">
+                                    <span class="path1"></span>
+                                    <span class="path2"></span>
+                                </i>
+                                <span data-i18n="fs.download">Download</span>
+                            </a>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="mb-5">
+                        <h4 data-i18n="share.link_dir_title">Single directory</h4>
+                        <p data-i18n="share.link_dir_desc">If the share consists of a single directory you can browse and download files</p>
+                        <button id="readBrowseLinkCopy" data-clipboard-target="#readBrowseLink" type="button" class="btn btn-flex btn-light-primary btn-clipboard-copy me-3">
+                            <i class="ki-duotone ki-fasten fs-2">
+                                <span class="path1"></span>
+                                <span class="path2"></span>
+                            </i>
+                            <span data-i18n="general.copy_link">Copy link</span>
+                        </button>
+                        <a id="readBrowseLink" href="#" target="_blank" type="button" class="btn btn-flex btn-primary">
+                            <i class="ki-duotone ki-arrow-up-right fs-2">
+                                <span class="path1"></span>
+                                <span class="path2"></span>
+                            </i>
+                            <span data-i18n="share.go">Go to share</span>
+                        </a>
+                    </div>
+                    <hr>
+                    <div>
+                        <h4 data-i18n="share.link_uncompressed_title">Uncompressed file</h4>
+                        <p data-i18n="share.link_uncompressed_desc">If the share consists of a single file you can download it uncompressed</p>
+                        <button id="readUncompressedLinkCopy"  data-clipboard-target="#readUncompressedLink" type="button" class="btn btn-flex btn-light-primary btn-clipboard-copy me-3">
+                            <i class="ki-duotone ki-fasten fs-2">
+                                <span class="path1"></span>
+                                <span class="path2"></span>
+                            </i>
+                            <span data-i18n="general.copy_link">Copy link</span>
+                        </button>
+                        <a id="readUncompressedLink" href="#" target="_blank" type="button" class="btn btn-flex btn-primary">
+                            <i class="ki-duotone ki-folder-down fs-2">
+                                <span class="path1"></span>
+                                <span class="path2"></span>
+                            </i>
+                            <span data-i18n="fs.download">Download</span>
+                        </a>
+                    </div>
                 </div>
                 <div id="writeShare">
-                    <p>You can upload one or more files to the shared directory using this <a id="writePageLink" href="#" target="_blank">page</a></p>
+                    <p data-i18n="share.upload_desc">You can upload one or more files to the shared directory</p>
+                    <button id="writePageLinkCopy"  data-clipboard-target="#writePageLink" type="button" class="btn btn-flex btn-light-primary btn-clipboard-copy me-3">
+                        <i class="ki-duotone ki-fasten fs-2">
+                            <span class="path1"></span>
+                            <span class="path2"></span>
+                        </i>
+                        <span data-i18n="general.copy_link">Copy link</span>
+                    </button>
+                    <a id="writePageLink" href="#" target="_blank" type="button" class="btn btn-flex btn-primary">
+                        <i class="ki-duotone ki-folder-up fs-2">
+                            <span class="path1"></span>
+                            <span class="path2"></span>
+                        </i>
+                        <span data-i18n="fs.upload.text">Upload</span>
+                    </a>
                 </div>
-                <div id="expiredShare">
+                <div data-i18n="share.expired_desc" id="expiredShare">
                     This share is no longer accessible because it has expired
                 </div>
-            </div>
-            <div class="modal-footer border-0">
-                <button class="btn btn-primary" type="button" data-bs-dismiss="modal">
-                    OK
-                </button>
             </div>
         </div>
     </div>
@@ -109,7 +173,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         ModalAlert.fire({
             text: $.t('general.delete_confirm_generic'),
             icon: "warning",
-            confirmButtonText: $.t('general.delete'),
+            confirmButtonText: $.t('general.delete_confirm_btn'),
             cancelButtonText: $.t('general.cancel'),
             customClass: {
                 confirmButton: "btn btn-danger",
@@ -170,16 +234,20 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
                 $('#readShare').show();
                 $('#readLink').attr("href", shareURL + "/download");
                 $('#readLink').attr("title", shareURL + "/download");
+                $('#readLinkCopy').attr("data-clipboard-text",getCurrentURI()+shareURL + "/download");
                 $('#readUncompressedLink').attr("href", shareURL + "/download?compress=false");
                 $('#readUncompressedLink').attr("title", shareURL + "/download?compress=false");
+                $('#readUncompressedLinkCopy').attr("data-clipboard-text",getCurrentURI()+shareURL + "/download?compress=false");
                 $('#readBrowseLink').attr("href", shareURL + "/browse");
                 $('#readBrowseLink').attr("title", shareURL + "/browse");
+                $('#readBrowseLinkCopy').attr("data-clipboard-text",getCurrentURI()+shareURL + "/browse");
             } else {
                 $('#expiredShare').hide();
                 $('#writeShare').show();
                 $('#readShare').hide();
                 $('#writePageLink').attr("href", shareURL + "/upload");
                 $('#writePageLink').attr("title", shareURL + "/upload");
+                $('#writePageLinkCopy').attr("data-clipboard-text",getCurrentURI()+shareURL + "/upload");
             }
         }
         $('#link_modal').modal('show');
@@ -386,6 +454,23 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 
     $(document).on("i18nshow", function(){
         sharesDatatable.init();
+
+        var clipboard = new ClipboardJS('.btn-clipboard-copy',{
+            container: document.getElementById('link_modal')
+        });
+
+        clipboard.on('success', function (e) {
+            e.trigger.querySelectorAll('span').forEach(spanEl => {
+                if (spanEl.getAttribute('data-i18n')){
+                    setI18NData($(spanEl),"general.copied");
+                    setTimeout(function(){
+                        setI18NData($(spanEl),"general.copy_link");
+                    }, 3000)
+                }
+            });
+            e.clearSelection();
+        });
+
     });
 </script>
 {{end}}

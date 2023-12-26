@@ -42,7 +42,7 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
 {{- template "errmsg" ""}}
 <div class="card shadow-sm">
     <div class="card-header">
-        <h6 id="card_title" class="card-title"></h6>
+        <h6 id="card_title" class="card-title section-title"></h6>
         <div class="card-toolbar">
             <a data-i18n="general.back" class="btn btn-light-primary px-10 me-5" href='{{.FilesURL}}?path={{.CurrentDir}}' role="button">Back</a>
             {{- if not .ReadOnly}}
@@ -68,8 +68,8 @@ explicit grant from the SFTPGo Team (support@sftpgo.com).
         <div class="modal-content">
             <div class="modal-header">
                 <h3 data-i18n="editor.keybinding" class="modal-title">Editor keybindings</h3>
-                <div data-i18n="[aria-label]general.close" class="btn btn-icon btn-sm btn-active-light-primary ms-2" data-bs-dismiss="modal" aria-label="Close">
-                    <i class="ki-duotone ki-cross fs-1"><span class="path1"></span><span class="path2"></span></i>
+                <div data-i18n="[aria-label]general.close" class="btn btn-icon btn-sm btn-active-light-primary" data-bs-dismiss="modal" aria-label="Close">
+                    <i class="ki-solid ki-cross fs-2x text-gray-700"></i>
                 </div>
             </div>
             <div class="modal-body">
